@@ -59,7 +59,6 @@ jobs:
     name: Build Erlang/OTP (64-bit)
     runs-on: ubuntu-latest
     outputs:
-        BASE_BUILD: ${{ steps.base-build.outputs.BASE_BUILD }}
         changes: ${{ steps.changes.outputs.changes }}
         c-code-changes: ${{ steps.c-code-changes.outputs.changes }}
         all: ${{ steps.apps.outputs.all }}
@@ -102,14 +101,14 @@ jobs:
         with:
           filters: .github/scripts/c-code-path-filters.yaml
       - name: Cache pre-built src
-        uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57 # ratchet:actions/cache@v4.2.0
+        uses: actions/cache@d4323d4df104b026a6aa633fdb11d772146be0bf # ratchet:actions/cache@v4.2.2
         with:
             path: otp_src.tar.gz
             key: prebuilt-src-${{ github.ref_name }}-${{ github.sha }}
             restore-keys: |
                 prebuilt-src-${{ github.base_ref }}-${{ github.event.pull_request.base.sha }}
       - name: Cache pre-built binaries
-        uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57 # ratchet:actions/cache@v4.2.0
+        uses: actions/cache@d4323d4df104b026a6aa633fdb11d772146be0bf # ratchet:actions/cache@v4.2.2
         with:
             path: otp_cache.tar.gz
             key: prebuilt-cache-64-bit-${{ github.ref_name }}-${{ github.sha }}
@@ -118,7 +117,7 @@ jobs:
       - name: Create initial pre-release tar
         run: .github/scripts/init-pre-release.sh otp_archive.tar.gz otp_src.tar.gz
       - name: Upload source tar archive
-        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # ratchet:actions/upload-artifact@v4.6.0
+        uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # ratchet:actions/upload-artifact@v4.6.1
         with:
           name: otp_git_archive
           path: otp_archive.tar.gz
@@ -162,7 +161,7 @@ jobs:
               "`pwd`/.github/otp.tar.gz" \
               "`pwd`/otp_archive.tar.gz"
       - name: Upload restored cache
-        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # ratchet:actions/upload-artifact@v4.6.0
+        uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # ratchet:actions/upload-artifact@v4.6.1
         if: runner.debug == 1
         with:
           name: restored-cache
@@ -189,7 +188,7 @@ jobs:
             bash -c 'set -x; C_APPS=$(ls -d ./lib/*/c_src); find Makefile ./make ./erts ./bin/`erts/autoconf/config.guess` ./lib/erl_interface ./lib/jinterface ${C_APPS} `echo "${C_APPS}" | sed -e 's:c_src$:priv:'` -type f -newer README.md \! -name "*.beam" \! -path "*/doc/*" | xargs tar --transform "s:^./:otp/:" -uvf /github/otp_cache.tar'
           gzip otp_cache.tar
       - name: Upload pre-built tar archives
-        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # ratchet:actions/upload-artifact@v4.6.0
+        uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # ratchet:actions/upload-artifact@v4.6.1
         with:
           name: otp_prebuilt
           path: |
@@ -208,13 +207,13 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # ratchet:actions/checkout@v4.2.2
 
       - name: Download source archive
-        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # ratchet:actions/download-artifact@v4.1.8
+        uses: actions/download-artifact@cc203385981b70ca67e1cc392babf9cc229d5806 # ratchet:actions/download-artifact@v4.1.9
         with:
           name: otp_prebuilt
 
       - name: Cache wxWidgets
         id: wxwidgets-cache
-        uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57 # ratchet:actions/cache@v4.2.0
+        uses: actions/cache@d4323d4df104b026a6aa633fdb11d772146be0bf # ratchet:actions/cache@v4.2.2
         with:
           path: wxWidgets
           key: wxWidgets-${{ env.WXWIDGETS_VERSION }}-${{ runner.os }}-${{ hashFiles('.github/scripts/build-macos-wxwidgets.sh') }}-${{ env.MACOS_VERSION }}
@@ -240,7 +239,7 @@ jobs:
           ./bin/erl -noshell -eval '{wx_ref,_,_,_} = wx:new(), io:format("wx ok~n"), halt().'
 
       - name: Upload tarball
-        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # ratchet:actions/upload-artifact@v4.6.0
+        uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # ratchet:actions/upload-artifact@v4.6.1
         with:
           name: otp_prebuilt_macos_x86-64
           path: otp/otp_macos_*_x86-64.tar.gz
@@ -255,7 +254,7 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # ratchet:actions/checkout@v4.2.2
       - name: Download source archive
-        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # ratchet:actions/download-artifact@v4.1.8
+        uses: actions/download-artifact@cc203385981b70ca67e1cc392babf9cc229d5806 # ratchet:actions/download-artifact@v4.1.9
         with:
           name: otp_prebuilt
 
@@ -274,7 +273,7 @@ jobs:
           xcodebuild -create-xcframework -output ./liberlang.xcframework -library liberlang.a
 
       - name: Upload framework
-        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # ratchet:actions/upload-artifact@v4.6.0
+        uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # ratchet:actions/upload-artifact@v4.6.1
         with:
           name: ios_framework_${{ env.TARGET_ARCH }}
           path: otp/liberlang.xcframework
@@ -290,7 +289,7 @@ jobs:
     needs: pack
     if: needs.pack.outputs.c-code-changes
     steps:
-      - uses: Vampire/setup-wsl@5ff2c045a05fd477a71b5419d50c5a228a52468e # ratchet:Vampire/setup-wsl@v4.1.0
+      - uses: Vampire/setup-wsl@f40fb59d850112c9a292b0218bca8271305b9127 # ratchet:Vampire/setup-wsl@v5.0.0
         with:
           distribution: Ubuntu-18.04
 
@@ -304,7 +303,7 @@ jobs:
           IF EXIST "c:\\Program Files\\OpenSSL-Win64" (move "c:\\Program Files\\OpenSSL-Win64" "c:\\OpenSSL-Win64") ELSE (move "c:\\Program Files\\OpenSSL" "c:\\OpenSSL-Win64")
 
       - name: Cache wxWidgets
-        uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57 # ratchet:actions/cache@v4.2.0
+        uses: actions/cache@d4323d4df104b026a6aa633fdb11d772146be0bf # ratchet:actions/cache@v4.2.2
         with:
           path: wxWidgets
           key: wxWidgets-${{ env.WXWIDGETS_VERSION }}-${{ runner.os }}
@@ -346,7 +345,7 @@ jobs:
           nmake TARGET_CPU=amd64 BUILD=release SHARED=0 DIR_SUFFIX_CPU= -f makefile.vc
 
       - name: Download source archive
-        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # ratchet:actions/download-artifact@v4.1.8
+        uses: actions/download-artifact@cc203385981b70ca67e1cc392babf9cc229d5806 # ratchet:actions/download-artifact@v4.1.9
         with:
           name: otp_prebuilt
 
@@ -374,7 +373,7 @@ jobs:
           ./otp_build installer_win32
 
       - name: Upload installer
-        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # ratchet:actions/upload-artifact@v4.6.0
+        uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # ratchet:actions/upload-artifact@v4.6.1
         with:
           name: otp_win32_installer
           path: otp/release/win32/otp*.exe
@@ -385,6 +384,11 @@ jobs:
     needs: pack
     if: needs.pack.outputs.c-code-changes
 
+    strategy:
+      matrix:
+        flavor: [jit, emu]
+      fail-fast: false
+
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # ratchet:actions/checkout@v4.2.2
       - uses: ./.github/actions/build-base-image
@@ -392,20 +396,40 @@ jobs:
             BASE_BRANCH: ${{ env.BASE_BRANCH }}
       - name: Build Erlang/OTP flavors and types
         run: |
-            TYPES="opt debug lcnt"
-            FLAVORS="emu jit"
+            TYPES="opt debug lcnt asan gcov valgrind"
+            FLAVORS="${{ matrix.flavor }}"
             for TYPE in ${TYPES}; do
               for FLAVOR in ${FLAVORS}; do
                 echo "::group::{TYPE=$TYPE FLAVOR=$FLAVOR}"
-                docker run otp "make TYPE=$TYPE FLAVOR=$FLAVOR"
+                docker run otp \
+                  "if [ ${TYPE} = \"valgrind\" ]; then sudo apt-get install -y valgrind bc; fi && \
+                   make TYPE=$TYPE FLAVOR=$FLAVOR && \
+                   cerl -$TYPE -emu_flavor $FLAVOR -noshell -s init stop"
                 echo "::endgroup::"
               done
             done
       - name: Build Erlang/OTP JIT Win32 ABI
+        if: ${{ matrix.flavor == 'jit' }}
         run: >
             docker run otp './configure CFLAGS="$CFLAGS -DERTS_JIT_ABI_WIN32=1" &&
                  make && make TYPE=debug &&
                  cerl -noshell -s init stop && cerl -debug -noshell -s init stop'
+
+      - name: Build Erlang/OTP with LTTNG
+        if: ${{ matrix.flavor == 'jit' }}
+        run: >
+            docker run otp 'sudo apt-get install -y lttng-tools &&
+                 ./configure --enable-dynamic-trace=lttng &&
+                 make && make TYPE=debug &&
+                 cerl -noshell -s init stop && cerl -debug -noshell -s init stop'
+
+      - name: Start Erlang with various start options
+        if: ${{ matrix.flavor == 'jit' }}
+        run: |
+            OPTIONS=("+JPperf true" "+JMsingle true" "+JDdump true")
+            for OPTION in "${OPTIONS[@]}"; do
+                docker run otp "erl ${OPTION} -noshell -s init stop"
+            done
 
   build:
     name: Build Erlang/OTP
@@ -424,6 +448,36 @@ jobs:
         with:
             BASE_BRANCH: ${{ env.BASE_BRANCH }}
             TYPE: ${{ matrix.type }}
+
+  freebsd:
+    name: Build Erlang/OTP (FreeBSD)
+    runs-on: ubuntu-latest
+    needs: pack
+    if: needs.pack.outputs.c-code-changes
+    steps:
+      - name: Download source archive
+        uses: actions/download-artifact@cc203385981b70ca67e1cc392babf9cc229d5806 # ratchet:actions/download-artifact@v4.1.9
+        with:
+          name: otp_prebuilt
+      - name: Build on FreeBSD
+        uses: vmactions/freebsd-vm@848dac7e118679d08e2c2f9d42cd96608d834323 # ratchet:vmactions/freebsd-vm@v1
+        with:
+            usesh: true
+            copyback: false
+            prepare: |
+              pkg update
+              pkg upgrade
+              pkg install -y bash gmake gtar autoconf ncurses pkgconf
+
+            run: |
+                tar -xzf ./otp_src.tar.gz
+                cd otp
+                export ERL_TOP=`pwd`
+                export MAKEFLAGS=-j$(($(nproc) + 2))
+                export ERLC_USE_SERVER=true
+                export ERTS_SKIP_DEPEND=true
+                ./configure
+                gmake
 
   documentation:
     name: Build and check documentation
@@ -461,12 +515,12 @@ jobs:
             rm -rf man
             tar czf ../otp_doc_html.tar.gz *
       - name: Upload html documentation archive
-        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # ratchet:actions/upload-artifact@v4.6.0
+        uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # ratchet:actions/upload-artifact@v4.6.1
         with:
           name: otp_doc_html
           path: otp_doc_html.tar.gz
       - name: Upload man documentation archive
-        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # ratchet:actions/upload-artifact@v4.6.0
+        uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # ratchet:actions/upload-artifact@v4.6.1
         with:
           name: otp_doc_man
           path: otp_doc_man.tar.gz
@@ -494,6 +548,8 @@ jobs:
         ## Run dialyzer
       - name: Run dialyzer
         run: docker run -v $PWD/:/github otp '/github/scripts/run-dialyzer'
+      - name: Check OSSF compiler flags
+        uses: ./.github/actions/ossf-compiler-flags-scanner
 
   test:
     name: Test Erlang/OTP
@@ -527,7 +583,7 @@ jobs:
           ## Remove systemd-coredump
           ! sudo apt remove systemd-coredump
           ## Removing systemd-coredump, caused apport to be installed instead, so we disable it
-          sudo service apport stop
+          ! sudo service apport stop
           sudo sysctl -w dev.tty.legacy_tiocsti=1
           sudo bash -c "echo 'core.%p' > /proc/sys/kernel/core_pattern"
           docker run --ulimit core=-1 --ulimit nofile=5000:5000 --pids-limit 1024 \
@@ -548,7 +604,7 @@ jobs:
           sudo bash -c "chown -R `whoami` make_test_dir && chmod -R +r make_test_dir"
           tar czf ${{ matrix.type }}_test_results.tar.gz make_test_dir
       - name: Upload test results
-        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # ratchet:actions/upload-artifact@v4.6.0
+        uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # ratchet:actions/upload-artifact@v4.6.1
         if: ${{ !cancelled() }}
         with:
           name: ${{ matrix.type }}_test_results
@@ -565,7 +621,7 @@ jobs:
         with:
             BASE_BRANCH: ${{ env.BASE_BRANCH }}
       - name: Download test results
-        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # ratchet:actions/download-artifact@v4.1.8
+        uses: actions/download-artifact@cc203385981b70ca67e1cc392babf9cc229d5806 # ratchet:actions/download-artifact@v4.1.9
       - name: Merge test results
         run: |
           shopt -s nullglob
@@ -577,6 +633,11 @@ jobs:
             "ct_run -refresh_logs /buildroot/otp/erts/make_test_dir"
       - name: Run system tests
         run: |
+          ## Remove systemd-coredump
+          ! sudo apt remove systemd-coredump
+          ## Removing systemd-coredump, caused apport to be installed instead, so we disable it
+          ! sudo service apport stop
+          sudo bash -c "echo 'core.%p' > /proc/sys/kernel/core_pattern"
           docker run --ulimit core=-1 --ulimit nofile=5000:5000 --pids-limit 512 \
             -e CTRUN_TIMEOUT=90 -e SPEC_POSTFIX=gh \
             -e EXTRA_ARGS="-ct_hooks cth_surefire [{path,\"/buildroot/otp/erts/make_test_dir/system_junit.xml\"}]" \
@@ -595,14 +656,14 @@ jobs:
               -e 's:\(file="erts/\)make_test_dir/[^/]*:\1test:g' \
               make_test_dir/*_junit.xml
       - name: Upload test results
-        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # ratchet:actions/upload-artifact@v4.6.0
+        uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # ratchet:actions/upload-artifact@v4.6.1
         if: ${{ !cancelled() }}
         with:
           name: test_results
           path: test_results.tar.gz
       - name: Upload Test Results
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # ratchet:actions/upload-artifact@v4.6.0
+        uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # ratchet:actions/upload-artifact@v4.6.1
         with:
           name: Unit Test Results
           path: |
@@ -622,10 +683,16 @@ jobs:
   sbom:
     name: Create SBOM
     runs-on: ubuntu-latest
-    if: |
-        startsWith(github.ref, 'refs/tags/OTP-') || github.event_name == 'schedule' ||
-          (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'full-build-and-check'))
+    env:
+        ORT_VERSION: 52.1.0
+        SCAN_RESULT_CACHE_PATH: .ort/scan-result.json
+
     steps:
+
+      - uses: erlef/setup-beam@5304e04ea2b355f03681464e683d92e3b2f18451 # ratchet:erlef/setup-beam@v1
+        with:
+            otp-version: "27"
+
       - name: Use HTTPS instead of SSH for Git cloning
         run: git config --global url.https://github.com/.insteadOf ssh://git@github.com/
       - name: Checkout project
@@ -635,42 +702,118 @@ jobs:
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # ratchet:actions/checkout@v4
         with:
           repository: oss-review-toolkit/ort-config
-          ref: "main"
+          ref: "d2978deb230beae095bb6cfec074b94f1a74fd34"
           path: ".ort-config"
 
       - name: Setup ORT Config
         id: setup-ort-config
         run: |
-            mkdir -p "/$HOME/.ort/"
+            mkdir -p "$HOME/.ort/"
 
             # Move Fetched Default Config into Place
-            mv .ort-config "/$HOME/.ort/config"
+            mv .ort-config "$HOME/.ort/config"
 
             # Append Global ORT Config
             cat .ort/config/config.yml >> "$HOME/.ort/config/config.yml"
 
-      - name: Run OSS Review Toolkit
-        id: ort
-        # TODO: Use released version once the following issue has been released:
-        # * https://github.com/oss-review-toolkit/ort-ci-github-action/issues/37
-        # * https://github.com/oss-review-toolkit/ort-ci-github-action/pull/41
-        # * https://github.com/oss-review-toolkit/ort-ci-github-action/pull/43
-        uses: maennchen/ort-ci-github-action@37e64506008cb4418bf2b03eba951f26254dde0f # ratchet:maennchen/ort-ci-github-action@action-output
+      - name: Run OSS Review Toolkit (analyzer)
+        uses: oss-review-toolkit/ort-ci-github-action@1805edcf1f4f55f35ae6e4d2d9795ccfb29b6021 # ratchet:oss-review-toolkit/ort-ci-github-action@v1.1.0
         with:
-            image: ghcr.io/oss-review-toolkit/ort-minimal:sha-b71d16f
+            image: ghcr.io/oss-review-toolkit/ort-minimal:${{ env.ORT_VERSION }}
             run: >
               labels,
               cache-dependencies,
-              cache-scan-results,
-              analyzer,
-              scanner,
-              advisor,
-              reporter,
-              'upload-results',
-              'upload-scan-result'
-            fail-on: ${{ github.ref_type == 'tag' && '' || 'violations,issues' }}
+              analyzer
+            sw-version: ${{ env.OTP_SBOM_VERSION }}
+
+      - name: Link results
+        run: ln -s analyzer-result.json $HOME/.ort/ort-results/current-result.json
+
+      - name: Restore ORT Scanner cache
+        uses: actions/cache/restore@d4323d4df104b026a6aa633fdb11d772146be0bf # ratchet:actions/cache/restore@v4
+        id: ort-cache
+        with:
+          path: ${{ env.SCAN_RESULT_CACHE_PATH }}
+          key: ort-scan-result-${{ env.ORT_VERSION }}-${{ github.ref_name }}-${{ github.sha }}
+          restore-keys: |
+                ort-scan-result-${{ env.ORT_VERSION }}-${{ github.ref_name }}-
+                ort-scan-result-${{ env.ORT_VERSION }}-${{ github.base_ref }}-${{ github.event.pull_request.base.sha }}
+                ort-scan-result-${{ env.ORT_VERSION }}-${{ github.base_ref }}-
+
+      - name: Restore from cache
+        if: hashFiles(env.SCAN_RESULT_CACHE_PATH) != ''
+        run: |
+            SCANCODE_VERSION=$(docker run --entrypoint="" ghcr.io/oss-review-toolkit/ort-minimal:${{ env.ORT_VERSION }} bash -c "scancode --version" | grep "ScanCode version" | awk '{print $3}')
+            pip install scancode-toolkit==${SCANCODE_VERSION}
+            scancode-reindex-licenses --additional-directory scripts/licensedetection/
+            ./scripts/scan-code.escript --scan-result-cache ${{ env.SCAN_RESULT_CACHE_PATH }} \
+               --analyzer-result $HOME/.ort/ort-results/analyzer-result.json --file-or-dir . \
+               --scan-result $HOME/.ort/ort-results/scan-result.json
+            diff $HOME/.ort/ort-results/scan-result.json $HOME/.ort/ort-results/scan-result.json.old || true
+
+      - name: Run OSS Review Toolkit (scanner)
+        if: hashFiles(env.SCAN_RESULT_CACHE_PATH) == ''
+        uses: oss-review-toolkit/ort-ci-github-action@1805edcf1f4f55f35ae6e4d2d9795ccfb29b6021 # ratchet:oss-review-toolkit/ort-ci-github-action@v1.1.0
+        with:
+            image: ghcr.io/oss-review-toolkit/ort-minimal:${{ env.ORT_VERSION }}
+            run: >
+              scanner
+            sw-version: ${{ env.OTP_SBOM_VERSION }}
+
+      - name: Upload scan results
+        uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # ratchet:actions/upload-artifact@v4.6.1
+        with:
+          name: ort-scan-results
+          path: |
+            /home/runner/.ort/ort-results/analyzer-result.json
+            /home/runner/.ort/ort-results/scan-result.json*
+            ${{ env.SCAN_RESULT_CACHE_PATH }}
+
+      - name: Copy to cache and link results
+        run: |
+          cp $HOME/.ort/ort-results/scan-result.json ${{ env.SCAN_RESULT_CACHE_PATH }}
+          ln -f -s scan-result.json $HOME/.ort/ort-results/current-result.json
+
+      - name: Run OSS Review Toolkit (reporter)
+        uses: oss-review-toolkit/ort-ci-github-action@1805edcf1f4f55f35ae6e4d2d9795ccfb29b6021 # ratchet:oss-review-toolkit/ort-ci-github-action@v1.1.0
+        with:
+            image: ghcr.io/oss-review-toolkit/ort-minimal:${{ env.ORT_VERSION }}
+            run: >
+              reporter
             report-formats: "SpdxDocument"
             ort-cli-report-args: '-O SpdxDocument=outputFileFormats=JSON'
+            sw-version: ${{ env.OTP_SBOM_VERSION }}
+
+      - name: Save ORT Scanner cache
+        uses: actions/cache/save@d4323d4df104b026a6aa633fdb11d772146be0bf # ratchet:actions/cache/save@v4
+        if: steps.ort-cache.outputs.cache-hit != 'true'
+        with:
+            path: ${{ env.SCAN_RESULT_CACHE_PATH }}
+            key: ${{ steps.ort-cache.outputs.cache-primary-key }}
+
+      - name: Process SBOM
+        run: .github/scripts/otp-compliance.es sbom otp-info --sbom-file $HOME/.ort/ort-results/bom.spdx.json --input-file $HOME/.ort/ort-results/scan-result.json
+
+      - name: Run OSS Review Toolkit reporter
+        uses: oss-review-toolkit/ort-ci-github-action@1805edcf1f4f55f35ae6e4d2d9795ccfb29b6021 # ratchet:oss-review-toolkit/ort-ci-github-action@v1.1.0
+        with:
+            image: ghcr.io/oss-review-toolkit/ort-minimal:${{ env.ORT_VERSION }}
+            run: >
+              'upload-results',
+              'upload-scan-result'
+            sw-version: ${{ env.OTP_SBOM_VERSION }}
+
+      - name: Link results
+        run: ln -s scan-result.json $HOME/.ort/ort-results/current-result.json
+
+      - name: Run OSS Review Toolkit (evaluator)
+        uses: oss-review-toolkit/ort-ci-github-action@1805edcf1f4f55f35ae6e4d2d9795ccfb29b6021 # ratchet:oss-review-toolkit/ort-ci-github-action@v1.1.0
+        with:
+            image: ghcr.io/oss-review-toolkit/ort-minimal:${{ env.ORT_VERSION }}
+            run: >
+              advisor,
+              evaluator
+            fail-on: ${{ github.ref_type == 'tag' && '' || '' }} # 'violations,issues' }}
             sw-version: ${{ env.OTP_SBOM_VERSION }}
 
   ## If this is an "OTP-*" tag that has been pushed we do some release work
@@ -702,22 +845,18 @@ jobs:
 
       ## Publish the pre-built archive and docs
       - name: Download source archive
-        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # ratchet:actions/download-artifact@v4.1.8
+        uses: actions/download-artifact@cc203385981b70ca67e1cc392babf9cc229d5806 # ratchet:actions/download-artifact@v4.1.9
         with:
           name: otp_prebuilt
       - name: Download html docs
-        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # ratchet:actions/download-artifact@v4.1.8
+        uses: actions/download-artifact@cc203385981b70ca67e1cc392babf9cc229d5806 # ratchet:actions/download-artifact@v4.1.9
         with:
           name: otp_doc_html
       - name: Download man docs
-        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # ratchet:actions/download-artifact@v4.1.8
+        uses: actions/download-artifact@cc203385981b70ca67e1cc392babf9cc229d5806 # ratchet:actions/download-artifact@v4.1.9
         with:
           name: otp_doc_man
     
-      - uses: erlef/setup-beam@5304e04ea2b355f03681464e683d92e3b2f18451 # ratchet:erlef/setup-beam@v1
-        with:
-          otp-version: "27"
-
       ## We add the correct version name into the file names
       ## and create the hash files for all assets
       - name: Create pre-build and doc archives
@@ -733,19 +872,14 @@ jobs:
           sha256sum $FILES > SHA256.txt
     
       - name: Download SBoM
-        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # ratchet:actions/download-artifact@v4.1.8
+        uses: actions/download-artifact@cc203385981b70ca67e1cc392babf9cc229d5806 # ratchet:actions/download-artifact@v4.1.9
         with:
             name: ort-results-otp-${{ env.OTP_SBOM_VERSION }}
 
       - name: Download ORT Scan Results
-        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # ratchet:actions/download-artifact@v4.1.8
+        uses: actions/download-artifact@cc203385981b70ca67e1cc392babf9cc229d5806 # ratchet:actions/download-artifact@v4.1.9
         with:
             name: ort-results-otp-${{ env.OTP_SBOM_VERSION }}-scan-result.json.zip
-
-      - name: Process SBOM
-        run: |
-            ls *.json
-            .github/scripts/otp-compliance.es sbom otp-info --sbom-file bom.spdx.json --input-file scan-result.json
 
       - name: Attest Distribution Assets with SBoM
         id: attest-sbom
@@ -770,7 +904,7 @@ jobs:
         env:
           ATTESTATION: "${{ steps.attest-sbom.outputs.bundle-path }}"
       - name: "Assemble Distribution Attestations"
-        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # ratchet:actions/upload-artifact@v4
+        uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # ratchet:actions/upload-artifact@v4
         with:
 
           name: "Attestations"
@@ -799,7 +933,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Upload
-        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # ratchet:actions/upload-artifact@v4.6.0
+        uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # ratchet:actions/upload-artifact@v4.6.1
         with:
           name: Event File
           path: ${{ github.event_path }}

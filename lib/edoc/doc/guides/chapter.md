@@ -58,7 +58,7 @@ documentation for other tools like `m:shell_docs`.
 ## Introduction
 
 EDoc lets you write the documentation of an Erlang program as comments in the
-source code itself, using _tags_ on the form "`@Name ...`". A source file does
+source code itself, using _tags_ of the form "`@Name ...`". A source file does
 not have to contain tags for EDoc to generate its documentation, but without
 tags the result will only contain the basic available information that can be
 extracted from the module.

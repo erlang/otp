@@ -21,8 +21,8 @@ static ASMJIT_FORCE_INLINE RATiedReg* RALocal_findTiedRegByWorkId(RATiedReg* tie
   return nullptr;
 }
 
-// RALocalAllocator - Init & Reset
-// ===============================
+// RALocalAllocator - Initialization & Reset
+// =========================================
 
 Error RALocalAllocator::init() noexcept {
   PhysToWorkMap* physToWorkMap;
@@ -136,9 +136,6 @@ Error RALocalAllocator::switchToAssignment(PhysToWorkMap* dstPhysToWorkMap, cons
   dst.initLayout(_pass->_physRegCount, _pass->workRegs());
   dst.initMaps(dstPhysToWorkMap, _tmpWorkToPhysMap);
   dst.assignWorkIdsFromPhysIds();
-
-  if (tryMode)
-    return kErrorOk;
 
   for (RegGroup group : RegGroupVirtValues{}) {
     // STEP 1
@@ -597,10 +594,14 @@ Error RALocalAllocator::allocInst(InstNode* node) noexcept {
             if (rmSize <= workReg->virtReg()->virtSize()) {
               Operand& op = node->operands()[opIndex];
               op = _pass->workRegAsMem(workReg);
-              op.as<BaseMem>().setSize(rmSize);
+
+              // NOTE: We cannot use `x86::Mem::setSize()` from here, so let's manipulate the signature directly.
+              op._signature.setSize(rmSize);
+
               tiedReg->_useRewriteMask = 0;
 
               tiedReg->markUseDone();
+              raInst->addFlags(RATiedFlags::kInst_RegToMemPatched);
               usePending--;
 
               rmAllocated = true;
@@ -687,7 +688,7 @@ Error RALocalAllocator::allocInst(InstNode* node) noexcept {
     // ------
     //
     // ALLOCATE / SHUFFLE all registers that we marked as `willUse` and weren't allocated yet. This is a bit
-    // complicated as the allocation is iterative. In some cases we have to wait before allocating a particual
+    // complicated as the allocation is iterative. In some cases we have to wait before allocating a particular
     // physical register as it's still occupied by some other one, which we need to move before we can use it.
     // In this case we skip it and allocate another some other instead (making it free for another iteration).
     //
@@ -836,7 +837,7 @@ Error RALocalAllocator::allocInst(InstNode* node) noexcept {
     // STEP 9
     // ------
     //
-    // Vector registers can be cloberred partially by invoke - find if that's the case and clobber when necessary.
+    // Vector registers can be clobbered partially by invoke - find if that's the case and clobber when necessary.
 
     if (node->isInvoke() && group == RegGroup::kVec) {
       const InvokeNode* invokeNode = node->as<InvokeNode>();

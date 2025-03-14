@@ -2919,27 +2919,6 @@ decode_extensions(<<?UINT16(?SIGNATURE_ALGORITHMS_EXT), ?UINT16(Len),
                       Acc#{signature_algs =>
                                #signature_algorithms{
                                   signature_scheme_list = SignSchemes}});
-
-decode_extensions(<<?UINT16(?SIGNATURE_ALGORITHMS_EXT), ?UINT16(Len),
-		       ExtData:Len/binary, Rest/binary>>, ?TLS_1_3=Version, MessageType, Acc) ->
-    SignSchemeListLen = Len - 2,
-    <<?UINT16(SignSchemeListLen), SignSchemeList/binary>> = ExtData,
-    %% Ignore unknown signature algorithms
-    Fun = fun(Elem) ->
-                  case ssl_cipher:signature_scheme(Elem) of
-                      unassigned ->
-                          false;
-                      Value ->
-                          {true, Value}
-                  end
-          end,
-    SignSchemes= lists:filtermap(Fun, [SignScheme ||
-                                          <<?UINT16(SignScheme)>> <= SignSchemeList]),
-    decode_extensions(Rest, Version, MessageType,
-                      Acc#{signature_algs =>
-                               #signature_algorithms{
-                                  signature_scheme_list = SignSchemes}});
-
 decode_extensions(<<?UINT16(?SIGNATURE_ALGORITHMS_CERT_EXT), ?UINT16(Len),
 		       ExtData:Len/binary, Rest/binary>>, Version, MessageType, Acc) ->
     SignSchemeListLen = Len - 2,

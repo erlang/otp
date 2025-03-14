@@ -21,30 +21,40 @@ limitations under the License.
 
 This document describes the changes made to the SSL application.
 
-## SSL 11.3
+## SSL 11.2.9
 
-### Improvements and New Features
+### Fixed Bugs and Malfunctions
 
-- Refactoring, minor optimizations and improved log printouts.
+- The function for selecting the best server  certificate and key pair has been enhanced when several options are available to ensure that the fallback will not always be chosen.
 
-  Own Id: OTP-19367 Aux Id: [PR-9019]
+  Own Id: OTP-19423 Aux Id: [PR-9185]
 
-- `supervisor:which_child/2` is now used to make start-up code for TLS-connections simpler and more straight forward, and to increase stability and maintainability of the ssl application.
+- Avoided duplicating a few algorithms in default values caused by an interoperability workaround not needed in this case.
 
-  Own Id: OTP-19406 Aux Id: [PR-9231]
+  Own Id: OTP-19428 Aux Id: [PR-9288]
 
-- The data handling for tls-v1.3 has been optimized.
+- Fixed two alert bugs, which could result in a crash instead of an alert.
 
-  Own Id: OTP-19430 Aux Id: [PR-9305]
+  Own Id: OTP-19433 Aux Id: [PR-9308]
 
-- Added experimental socket support.
+[PR-9185]: https://github.com/erlang/otp/pull/9185
+[PR-9288]: https://github.com/erlang/otp/pull/9288
+[PR-9308]: https://github.com/erlang/otp/pull/9308
 
-  Own Id: OTP-19463 Aux Id: [PR-9398]
+## SSL 11.2.8
 
-[PR-9019]: https://github.com/erlang/otp/pull/9019
-[PR-9231]: https://github.com/erlang/otp/pull/9231
-[PR-9305]: https://github.com/erlang/otp/pull/9305
-[PR-9398]: https://github.com/erlang/otp/pull/9398
+### Fixed Bugs and Malfunctions
+
+- Setting protocol version to a lower value then supported by default in server API function called after ssl:listen/2 could result in wrong default values being used and connections failing with insufficient security.
+
+  Own Id: OTP-19457 Aux Id: [PR-9418]
+
+- Improve error handling of server name indication fun. This implies that if the `sni_fun` returns `undefined` we will attempt connection with original option values, if it returns `unrecognized` we end the connection with UNRECOGNIZED_NAME alert and if provided options fail option verification we will end the connection with a HANDSHAKE_FAILURE and an error log.
+
+  Own Id: OTP-19467 Aux Id: [PR-9387], ERIERL-1189
+
+[PR-9418]: https://github.com/erlang/otp/pull/9418
+[PR-9387]: https://github.com/erlang/otp/pull/9387
 
 ## SSL 11.2.7
 

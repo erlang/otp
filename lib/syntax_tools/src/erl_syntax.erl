@@ -2512,7 +2512,7 @@ is_list_skeleton(Node) ->
 -doc """
 Returns `true` if `Node` represents a proper list, and `false` otherwise.
 
-A proper list is a list skeleton either on the form "`[]`" or "`[E1,
+A proper list is a list skeleton either of the form "`[]`" or "`[E1,
 ..., En]`", or "`[... | Tail]`" where recursively `Tail` also
 represents a proper list.
 
@@ -3476,7 +3476,7 @@ module_qualifier_body(Node) ->
 
 
 %% Don't use the name 'function' for this record, to avoid confusion with
-%% the tuples on the form {function,Name,Arity} used by erl_parse.
+%% the tuples of the form {function,Name,Arity} used by erl_parse.
 %%
 %% (There's no real point in precomputing and storing the arity,
 %% and passing it as a constructor argument makes it possible to

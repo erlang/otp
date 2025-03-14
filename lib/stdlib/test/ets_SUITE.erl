@@ -99,7 +99,7 @@
 	 exit_many_large_table_owner/1,
 	 exit_many_tables_owner/1,
 	 exit_many_many_tables_owner/1]).
--export([write_concurrency/1, heir/1, give_away/1, setopts/1]).
+-export([write_concurrency/1, heir/1, heir_2/1, give_away/1, setopts/1]).
 -export([bad_table/1, types/1]).
 -export([otp_9932/1]).
 -export([otp_9423/1]).
@@ -178,7 +178,7 @@ all() ->
      smp_ordered_iteration,
      smp_select_delete, otp_8166, exit_large_table_owner,
      exit_many_large_table_owner, exit_many_tables_owner,
-     exit_many_many_tables_owner, write_concurrency, heir,
+     exit_many_many_tables_owner, write_concurrency, heir, heir_2,
      give_away, setopts, bad_table, types,
      otp_10182,
      otp_9932,
@@ -1113,17 +1113,18 @@ delete_all_objects_trap(Opts, Mode) ->
                 io:format("Wait for ets:delete_all_objects/1 to yield...\n", []),
                 Tester ! {ready, self()},
                 repeat_while(
-                  fun() ->
+                  fun(N) ->
                           case receive_any() of
                               {trace, Tester, out, {ets,internal_delete_all,2}} ->
-                                  false;
+                                  %% Wait for second reschedule as on DEBUG we get a forced trap
+                                  {N =:= 2, N+1};
                               "delete_all_objects done" ->
                                   ct:fail("No trap detected");
                               _M ->
                                   %%io:format("Ignored msg: ~p\n", [_M]),
-                                  true
+                                  {true, N}
                           end
-                  end),
+                  end, 1),
                 case Mode of
                     unfix ->
                         io:format("Unfix table and then exit...\n",[]),
@@ -3537,6 +3538,38 @@ heir_1(HeirData,Mode,Opts) ->
     Founder ! {go, Heir},
     {'DOWN', Mref, process, Heir, normal} = receive_any().
 
+
+%% Test the heir option without gift data
+heir_2(Config) when is_list(Config) ->
+    repeat_for_opts(fun heir_2_do/1).
+
+
+heir_2_do(Opts) ->
+    Parent = self(),
+
+    FounderFn = fun() ->
+		    Tab = ets:new(foo, [private, {heir, Parent} | Opts]),
+		    true = ets:insert(Tab, {key, 1}),
+		    get_tab = receive_any(),
+		    Parent ! {tab, Tab},
+		    die_please = receive_any(),
+		    ok
+		end,
+
+    {Founder, FounderRef} = my_spawn_monitor(FounderFn),
+
+    Founder ! get_tab,
+    {tab, Tab} = receive_any(),
+    {'EXIT', {badarg, _}} = (catch ets:lookup(Tab, key)),
+
+    Founder ! die_please,
+    {'DOWN', FounderRef, process, Founder, normal} = receive_any(),
+    [{key, 1}] = ets:lookup(Tab, key),
+
+    true = ets:delete(Tab),
+    ok.
+
+
 %% Test ets:give_way/3.
 give_away(Config) when is_list(Config) ->
     repeat_for_opts(fun give_away_do/1).
@@ -3627,17 +3660,18 @@ setopts_do(Opts) ->
     T = ets_new(foo,[named_table, private | Opts]),
     none = ets:info(T,heir),
     Heir = my_spawn_link(fun()->heir_heir(Self) end),
-    ets:setopts(T,{heir,Heir,"Data"}),
+    ets:setopts(T,{heir,Heir}),
     Heir = ets:info(T,heir),
-    ets:setopts(T,{heir,self(),"Data"}),
+    ets:setopts(T,{heir,self()}),
     Self = ets:info(T,heir),
     ets:setopts(T,[{heir,Heir,"Data"}]),
     Heir = ets:info(T,heir),
+    ets:setopts(T,[{heir,self(),"Data"}]),
+    Self = ets:info(T,heir),
     ets:setopts(T,[{heir,none}]),
     none = ets:info(T,heir),
 
     {'EXIT',{badarg,_}} = (catch ets:setopts(T,[{heir,self(),"Data"},false])),
-    {'EXIT',{badarg,_}} = (catch ets:setopts(T,{heir,self()})),
     {'EXIT',{badarg,_}} = (catch ets:setopts(T,{heir,false})),
     {'EXIT',{badarg,_}} = (catch ets:setopts(T,heir)),
     {'EXIT',{badarg,_}} = (catch ets:setopts(T,{heir,false,"Data"})),

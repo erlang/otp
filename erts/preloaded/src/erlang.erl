@@ -442,7 +442,7 @@ A list of binaries. This datatype is useful to use together with
 -export([get_module_info/1, group_leader/0]).
 -export([group_leader/2]).
 -export([halt/0, halt/1, halt/2,
-	 has_prepared_code_on_load/1, hibernate/3]).
+	 has_prepared_code_on_load/1, hibernate/0, hibernate/3]).
 -export([insert_element/3]).
 -export([integer_to_binary/1, integer_to_list/1]).
 -export([iolist_size/1, iolist_to_binary/1, iolist_to_iovec/1]).
@@ -3371,6 +3371,24 @@ halt(_, _) ->
 has_prepared_code_on_load(_PreparedCode) ->
     erlang:nif_error(undefined).
 
+%% hibernate/0
+-doc """
+Puts the calling process into a wait state where its memory allocation has been
+reduced as much as possible. This is useful if the process does not expect to
+receive any messages soon.
+
+The process is awakened when a message is sent to it, and control resumes
+normally to the caller. Unlike `erlang:hibernate/3`, it does not discard the
+call stack.
+""".
+-doc #{ since => <<"OTP @OTP-19503@">> }.
+-doc #{ category => processes }.
+-spec hibernate() -> ok.
+hibernate() ->
+    %% This function is a fallback used on apply/3; the loader turns this
+    %% remote call of ourselves into a special instruction.
+    erlang:hibernate().
+
 %% hibernate/3
 -doc """
 Puts the calling process into a wait state where its memory allocation has been
@@ -5365,7 +5383,7 @@ processes() ->
 Returns a processes iterator that can be used in
 [`processes_next/1`](`processes_next/1`).
 """.
--doc #{ category => processes, since => <<"OTP 28.0">> }.
+-doc #{ category => processes, since => <<"OTP @OTP-19369@">> }.
 -spec processes_iterator() -> processes_iter_ref().
 processes_iterator() ->
     {0, []}.
@@ -5402,7 +5420,7 @@ ok
 > `processes_next/1` returns `none` is guaranteed to be part of the result
 > returned from one of the calls to `processes_next/1`.
 """.
--doc #{ category => processes, since => <<"OTP 28.0">> }.
+-doc #{ category => processes, since => <<"OTP @OTP-19369@">> }.
 -spec processes_next(Iter) -> {Pid, NewIter} | 'none' when
       Iter :: processes_iter_ref(),
       NewIter :: processes_iter_ref(),
@@ -6014,7 +6032,10 @@ start_timer(_Time, _Dest, _Msg, _Options) ->
 -doc """
 Increases the suspend count on the process identified by `Suspendee` and puts it
 in the suspended state if it is not already in that state. A suspended process
-is not scheduled for execution until the process has been resumed.
+is not scheduled for execution until the process has been resumed. If the
+suspended process currently is waiting in a `receive ... after` expression, the
+timer for the timeout will, as of OTP 28.0, also be suspended until the process
+is resumed.
 
 A process can be suspended by multiple processes and can be suspended multiple
 times by a single process. A suspended process does not leave the suspended
@@ -7974,10 +7995,10 @@ Reference Manual_.
 
 Valid `InfoTuple`s with corresponding `Item`s:
 
-- **`{async_dist, Enabled}`{: #process_info_async_dist }** - Since: OTP 25.3
+- **`{async_dist, Enabled}`{: #process_info_async_dist }** - Current value of the
+  [`async_dist`](#process_flag_async_dist) process flag.
 
-  Current value of the [`async_dist`](#process_flag_async_dist)
-  process flag.
+  Since: OTP 25.3
 
 - **`{backtrace, Bin}`** - Binary `Bin` contains the same information as the
   output from `erlang:process_display(Pid, backtrace)`. Use
@@ -8101,6 +8122,8 @@ Valid `InfoTuple`s with corresponding `Item`s:
   that spawned current process. When the process does not have a parent
   `undefined` is returned. Only the initial process (`init`) on a node lacks a
   parent, though.
+
+  Since: OTP 25.0
 
 - **`{priority, Level}`** - `Level` is the current priority level for the
   process. For more information on priorities, see
@@ -10456,11 +10479,12 @@ Options:
   information, see the documentation of
   [`process_flag(message_queue_data, MQD)`](#process_flag_message_queue_data).
 
-- **`{async_dist, Enabled}`{: #spawn_opt_async_dist }** - Since: OTP 25.3
+- **`{async_dist, Enabled}`{: #spawn_opt_async_dist }** - Sets the
+  [`async_dist`](#process_flag_async_dist) process flag of the spawned process.
+  This option will override the default value set by the command line argument
+  [`+pad <boolean>`](erl_cmd.md#%2Bpad).
 
-  Set the [`async_dist`](#process_flag_async_dist) process flag of the
-  spawned process. This option will override the default value set by the
-  command line argument [`+pad <boolean>`](erl_cmd.md#%2Bpad).
+  Since: OTP 25.3
 """.
 -doc #{ category => processes }.
 -spec spawn_opt(Module, Function, Args, Options) ->
@@ -10734,7 +10758,7 @@ Asynchronously send a spawn request. Returns a request identifier `ReqId`.
 
 If the spawn operation succeeds, a new process is created on the node identified
 by `Node`. When a spawn operation succeeds, the caller will by default be sent a
-message on the form `{ReplyTag, ReqId, ok, Pid}` where `Pid` is the process
+message of the form `{ReplyTag, ReqId, ok, Pid}` where `Pid` is the process
 identifier of the newly created process. Such a message is referred to as a
 _success message_ below in the text. `ReplyTag` is by default the atom
 `spawn_reply` unless modified by the `{reply_tag, ReplyTag}` option. The new
@@ -11936,7 +11960,7 @@ equals `DHandle` used when setting this option. When the `get_size` option is:
 - **`true`** - and there are distribution data available, a call to
   `erlang:dist_ctrl_get_data(DHandle)` will return `Data` to pass over the
   channel as well as the `Size` of `Data` in bytes. This is returned as a tuple
-  on the form `{Size, Data}`.
+  of the form `{Size, Data}`.
 
 All options are set to default when a channel is closed.
 

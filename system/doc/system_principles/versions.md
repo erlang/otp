@@ -172,7 +172,7 @@ ancestor. When branching multiple times from the same base version,
 can be compared as described in the previous paragraph.
 
 An example of branched versions: The version `6.0.2.1` is a branched version
-from the base version `6.0.2`. Versions on the form `6.0.2.<X>` can be compared
+from the base version `6.0.2`. Versions of the form `6.0.2.<X>` can be compared
 with normal versions smaller than or equal to `6.0.2`, and other versions on the
 form `6.0.2.<X>`. The version `6.0.2.1` will include all changes in `6.0.2`.
 However, `6.0.3` will most likely _not_ include all changes in `6.0.2.1` (note

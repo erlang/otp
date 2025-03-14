@@ -84,6 +84,17 @@ struct EmitterExplicitT {
 
   //! \endcond
 
+
+  //! \name Native Registers
+  //! \{
+
+  //! Returns either 32-bit or 64-bit GP register of the given `id` depending on the emitter's architecture.
+  inline Gp gpz(uint32_t id) const noexcept { return Gp(_emitter()->_gpSignature, id); }
+  //! Clones the given `reg` to either 32-bit or 64-bit GP register depending on the emitter's architecture.
+  inline Gp gpz(const Gp& reg) const noexcept { return Gp(_emitter()->_gpSignature, reg.id()); }
+
+  //! \}
+
   //! \name General Purpose Instructions
   //! \{
 

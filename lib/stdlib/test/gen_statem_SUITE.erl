@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2016-2024. All Rights Reserved.
+%% Copyright Ericsson AB 2016-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1589,7 +1589,7 @@ hibernate(Config) ->
     {ok,Pid0} =
 	gen_statem:start_link(
 	  ?MODULE, start_arg(Config, hiber_now), []),
-    wait_erlang_hibernate(Pid0, WaitHibernate),
+    wait_for_hibernated(Pid0, WaitHibernate),
     stop_it(Pid0),
     receive
 	{'EXIT',Pid0,normal} -> ok
@@ -1602,38 +1602,38 @@ hibernate(Config) ->
     true = ({current_function,{erlang,hibernate,3}} =/=
 		erlang:process_info(Pid,current_function)),
     hibernating = gen_statem:call(Pid, hibernate_sync),
-    wait_erlang_hibernate(Pid, WaitHibernate),
+    wait_for_hibernated(Pid, WaitHibernate),
     good_morning = gen_statem:call(Pid, wakeup_sync),
-    is_not_in_erlang_hibernate(Pid, WaitHibernate),
+    is_not_hibernated(Pid, WaitHibernate),
     hibernating = gen_statem:call(Pid, hibernate_sync),
-    wait_erlang_hibernate(Pid, WaitHibernate),
+    wait_for_hibernated(Pid, WaitHibernate),
     please_just_five_more = gen_statem:call(Pid, snooze_sync),
-    wait_erlang_hibernate(Pid, WaitHibernate),
+    wait_for_hibernated(Pid, WaitHibernate),
     good_morning = gen_statem:call(Pid, wakeup_sync),
-    is_not_in_erlang_hibernate(Pid, WaitHibernate),
+    is_not_hibernated(Pid, WaitHibernate),
     ok = gen_statem:cast(Pid, hibernate_async),
-    wait_erlang_hibernate(Pid, WaitHibernate),
+    wait_for_hibernated(Pid, WaitHibernate),
     ok = gen_statem:cast(Pid, wakeup_async),
-    is_not_in_erlang_hibernate(Pid, WaitHibernate),
+    is_not_hibernated(Pid, WaitHibernate),
     ok = gen_statem:cast(Pid, hibernate_async),
-    wait_erlang_hibernate(Pid, WaitHibernate),
+    wait_for_hibernated(Pid, WaitHibernate),
     ok = gen_statem:cast(Pid, snooze_async),
-    wait_erlang_hibernate(Pid, WaitHibernate),
+    wait_for_hibernated(Pid, WaitHibernate),
     ok = gen_statem:cast(Pid, wakeup_async),
-    is_not_in_erlang_hibernate(Pid, WaitHibernate),
+    is_not_hibernated(Pid, WaitHibernate),
 
     Pid ! {hibernate_later, WaitHibernate div 2},
     true =
 	({current_function,{erlang,hibernate,3}} =/=
 	     erlang:process_info(Pid, current_function)),
-    wait_erlang_hibernate(Pid, WaitHibernate),
+    wait_for_hibernated(Pid, WaitHibernate),
 
     'alive!' = gen_statem:call(Pid, 'alive?'),
     true =
 	({current_function,{erlang,hibernate,3}} =/=
 	     erlang:process_info(Pid, current_function)),
     Pid ! hibernate_now,
-    wait_erlang_hibernate(Pid, WaitHibernate),
+    wait_for_hibernated(Pid, WaitHibernate),
 
     'alive!' = gen_statem:call(Pid, 'alive?'),
     true =
@@ -1641,37 +1641,37 @@ hibernate(Config) ->
 	     erlang:process_info(Pid, current_function)),
 
     hibernating = gen_statem:call(Pid, hibernate_sync),
-    wait_erlang_hibernate(Pid, WaitHibernate),
+    wait_for_hibernated(Pid, WaitHibernate),
     good_morning = gen_statem:call(Pid, wakeup_sync),
-    is_not_in_erlang_hibernate(Pid, WaitHibernate),
+    is_not_hibernated(Pid, WaitHibernate),
     hibernating = gen_statem:call(Pid, hibernate_sync),
-    wait_erlang_hibernate(Pid, WaitHibernate),
+    wait_for_hibernated(Pid, WaitHibernate),
     please_just_five_more = gen_statem:call(Pid, snooze_sync),
-    wait_erlang_hibernate(Pid, WaitHibernate),
+    wait_for_hibernated(Pid, WaitHibernate),
     good_morning = gen_statem:call(Pid, wakeup_sync),
-    is_not_in_erlang_hibernate(Pid, WaitHibernate),
+    is_not_hibernated(Pid, WaitHibernate),
     ok = gen_statem:cast(Pid, hibernate_async),
-    wait_erlang_hibernate(Pid, WaitHibernate),
+    wait_for_hibernated(Pid, WaitHibernate),
     ok  = gen_statem:cast(Pid, wakeup_async),
-    is_not_in_erlang_hibernate(Pid, WaitHibernate),
+    is_not_hibernated(Pid, WaitHibernate),
     ok = gen_statem:cast(Pid, hibernate_async),
-    wait_erlang_hibernate(Pid, WaitHibernate),
+    wait_for_hibernated(Pid, WaitHibernate),
     ok = gen_statem:cast(Pid, snooze_async),
-    wait_erlang_hibernate(Pid, WaitHibernate),
+    wait_for_hibernated(Pid, WaitHibernate),
     ok = gen_statem:cast(Pid, wakeup_async),
-    is_not_in_erlang_hibernate(Pid, WaitHibernate),
+    is_not_hibernated(Pid, WaitHibernate),
 
     hibernating = gen_statem:call(Pid, hibernate_sync),
-    wait_erlang_hibernate(Pid, WaitHibernate),
+    wait_for_hibernated(Pid, WaitHibernate),
     sys:suspend(Pid),
-    wait_erlang_hibernate(Pid, WaitHibernate),
+    wait_for_hibernated(Pid, {erlang,hibernate,3}, WaitHibernate),
     sys:resume(Pid),
-    wait_erlang_hibernate(Pid, WaitHibernate),
+    wait_for_hibernated(Pid, WaitHibernate),
     receive after WaitHibernate -> ok end,
-    wait_erlang_hibernate(Pid, WaitHibernate),
+    wait_for_hibernated(Pid, WaitHibernate),
 
     good_morning  = gen_statem:call(Pid, wakeup_sync),
-    is_not_in_erlang_hibernate(Pid, WaitHibernate),
+    is_not_hibernated(Pid, WaitHibernate),
     stop_it(Pid),
     process_flag(trap_exit, OldFl),
     receive
@@ -1692,9 +1692,9 @@ auto_hibernate(Config) ->
             ?MODULE, start_arg(Config, []),
           [{hibernate_after, HibernateAfterTimeout}]),
     %% After init test
-    is_not_in_erlang_hibernate(Pid, 2 * HibernateAfterTimeout),
+    is_not_hibernated(Pid, 2 * HibernateAfterTimeout),
     timer:sleep(HibernateAfterTimeout),
-    wait_erlang_hibernate(Pid, 2 * HibernateAfterTimeout),
+    wait_for_hibernated(Pid, 2 * HibernateAfterTimeout),
     %% After info test
     Pid ! {hping, self()},
     receive
@@ -1703,9 +1703,9 @@ auto_hibernate(Config) ->
     after WaitTime ->
         ct:fail(info)
     end,
-    is_not_in_erlang_hibernate(Pid, 2 * HibernateAfterTimeout),
+    is_not_hibernated(Pid, 2 * HibernateAfterTimeout),
     timer:sleep(HibernateAfterTimeout),
-    wait_erlang_hibernate(Pid, 2 * HibernateAfterTimeout),
+    wait_for_hibernated(Pid, 2 * HibernateAfterTimeout),
     %% After cast test
     ok = gen_statem:cast(Pid, {hping, self()}),
     receive
@@ -1714,44 +1714,44 @@ auto_hibernate(Config) ->
     after WaitTime ->
         ct:fail(cast)
     end,
-    is_not_in_erlang_hibernate(Pid, 2 * HibernateAfterTimeout),
+    is_not_hibernated(Pid, 2 * HibernateAfterTimeout),
     timer:sleep(HibernateAfterTimeout),
-    wait_erlang_hibernate(Pid, 2 * HibernateAfterTimeout),
+    wait_for_hibernated(Pid, 2 * HibernateAfterTimeout),
     %% After call test
     hpong = gen_statem:call(Pid, hping),
-    is_not_in_erlang_hibernate(Pid, 2 * HibernateAfterTimeout),
+    is_not_hibernated(Pid, 2 * HibernateAfterTimeout),
     timer:sleep(HibernateAfterTimeout),
-    wait_erlang_hibernate(Pid, 2 * HibernateAfterTimeout),
+    wait_for_hibernated(Pid, 2 * HibernateAfterTimeout),
     %% Timer test 1
     TimerTimeout1 = HibernateAfterTimeout div 2,
     ok = gen_statem:call(Pid, {start_htimer, self(), TimerTimeout1}),
-    is_not_in_erlang_hibernate(Pid, 2 * HibernateAfterTimeout),
+    is_not_hibernated(Pid, 2 * HibernateAfterTimeout),
     timer:sleep(TimerTimeout1),
-    is_not_in_erlang_hibernate(Pid, 2 * HibernateAfterTimeout),
+    is_not_hibernated(Pid, 2 * HibernateAfterTimeout),
     receive
         {Pid, htimer_timeout} ->
             ok
     after WaitTime ->
         ct:fail(timer1)
     end,
-    is_not_in_erlang_hibernate(Pid, 2 * HibernateAfterTimeout),
+    is_not_hibernated(Pid, 2 * HibernateAfterTimeout),
     timer:sleep(HibernateAfterTimeout),
-    wait_erlang_hibernate(Pid, 2 * HibernateAfterTimeout),
+    wait_for_hibernated(Pid, 2 * HibernateAfterTimeout),
     %% Timer test 2
     TimerTimeout2 = HibernateAfterTimeout * 2,
     ok = gen_statem:call(Pid, {start_htimer, self(), TimerTimeout2}),
-    is_not_in_erlang_hibernate(Pid, 2 * HibernateAfterTimeout),
+    is_not_hibernated(Pid, 2 * HibernateAfterTimeout),
     timer:sleep(HibernateAfterTimeout),
-    wait_erlang_hibernate(Pid, 2 * HibernateAfterTimeout),
+    wait_for_hibernated(Pid, 2 * HibernateAfterTimeout),
     receive
         {Pid, htimer_timeout} ->
             ok
     after TimerTimeout2 ->
         ct:fail(timer2)
     end,
-    is_not_in_erlang_hibernate(Pid, 2 * HibernateAfterTimeout),
+    is_not_hibernated(Pid, 2 * HibernateAfterTimeout),
     timer:sleep(HibernateAfterTimeout),
-    wait_erlang_hibernate(Pid, 2 * HibernateAfterTimeout),
+    wait_for_hibernated(Pid, 2 * HibernateAfterTimeout),
     stop_it(Pid),
     process_flag(trap_exit, OldFl),
     receive
@@ -1762,37 +1762,48 @@ auto_hibernate(Config) ->
     ok = verify_empty_msgq().
 
 
-wait_erlang_hibernate(Pid, Time) ->
-    receive after 1 -> ok end,
-    wait_erlang_hibernate_1(Pid, Time, Time div 100).
+wait_for_hibernated(Pid, Time) ->
+    wait_for_hibernated(Pid, {gen_statem,loop_hibernate,3}, Time).
 
-wait_erlang_hibernate_1(Pid, Time, _T) when Time =< 0 ->
-    ct:log("~p\n", [erlang:process_info(Pid, current_function)]),
-    ct:fail(should_be_in_erlang_hibernate_3);
-wait_erlang_hibernate_1(Pid, Time, T) ->
-    {current_function,MFA} = erlang:process_info(Pid, current_function),
-    case MFA of
-	{erlang,hibernate,3} ->
-	    ok;
-	_ ->
-	    receive after T -> ok end,
-	    wait_erlang_hibernate_1(Pid, Time - T, T)
+wait_for_hibernated(Pid, MFA, Time) ->
+    receive after 1 -> ok end,
+    wait_for_hibernated(Pid, MFA, Time, Time div 100).
+
+wait_for_hibernated(Pid, MFA, Time, T) ->
+    case erlang:process_info(Pid, current_function) of
+        {current_function, MFA} ->
+            ok;
+        {current_function, WrongMFA} ->
+            if
+                Time =< 0 ->
+                    ct:log("Wrong current_function: ~p\n", [WrongMFA]),
+                    ct:fail(not_in_expected_current_function);
+                true ->
+                    receive after T -> ok end,
+                    wait_for_hibernated(Pid, MFA, Time - T, T)
+            end
     end.
 
-is_not_in_erlang_hibernate(Pid, Time) ->
-    receive after 1 -> ok end,
-    is_not_in_erlang_hibernate_1(Pid, Time, Time div 100).
+is_not_hibernated(Pid, Time) ->
+    is_not_hibernated(Pid, {gen_statem,loop_hibernate,3}, Time).
 
-is_not_in_erlang_hibernate_1(_Pid, Time, _T) when Time =< 0 ->
-    ct:fail(should_not_be_in_erlang_hibernate_3);
-is_not_in_erlang_hibernate_1(Pid, Time, T) ->
-    {current_function,MFA} = erlang:process_info(Pid, current_function),
-    case MFA of
- 	{erlang,hibernate,3} ->
-	    receive after T -> ok end,
-	    is_not_in_erlang_hibernate_1(Pid, Time - T, T);
- 	_ ->
- 	    ok
+is_not_hibernated(Pid, MFA, Time) ->
+    receive after 1 -> ok end,
+    is_not_hibernated(Pid, MFA, Time, Time div 100).
+
+is_not_hibernated(Pid, MFA, Time, T) ->
+    case erlang:process_info(Pid, current_function) of
+        {current_function, MFA} ->
+            if
+                Time =< 0 ->
+                    ct:log("Wrong current_function: ~p\n", [MFA]),
+                    ct:fail(still_in_unxpected_current_function);
+                true ->
+                    receive after T -> ok end,
+                    is_not_hibernated(Pid, MFA, Time - T, T)
+            end;
+        {current_function, _} ->
+            ok
     end.
 
 

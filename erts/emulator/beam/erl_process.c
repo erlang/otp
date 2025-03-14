@@ -446,6 +446,8 @@ Eterm erts_system_profile;
 struct erts_system_profile_flags_t erts_system_profile_flags;
 int erts_system_profile_ts_type = ERTS_TRACE_FLG_NOW_TIMESTAMP;
 
+erts_atomic_t erts_sched_local_random_nosched_state;
+
 #if ERTS_MAX_PROCESSES > 0x7fffffff
 #error "Need to store process_count in another type"
 #endif
@@ -6339,7 +6341,8 @@ erts_init_scheduling(int no_schedulers, int no_schedulers_online, int no_poll_th
     erts_atomic32_init_relb(&erts_halt_progress, -1);
     erts_halt_code = INT_MIN;
 
-
+    erts_atomic_init_nob(&erts_sched_local_random_nosched_state,
+                         (erts_aint_t)&erts_sched_local_random_nosched_state >> 3);
 }
 
 ErtsRunQueue *
@@ -6428,12 +6431,12 @@ check_dirty_enqueue_in_prio_queue(Process *c_p,
 	return ERTS_ENQUEUE_NORMAL_QUEUE;
     }
 
-    if (actual & (ERTS_PSFLG_DIRTY_ACTIVE_SYS
-		  | ERTS_PSFLG_DIRTY_CPU_PROC)) {
+    if ((*newp) & (ERTS_PSFLG_DIRTY_ACTIVE_SYS
+                   | ERTS_PSFLG_DIRTY_CPU_PROC)) {
 	queue = ERTS_ENQUEUE_DIRTY_CPU_QUEUE;
     }
     else {
-	ASSERT(actual & ERTS_PSFLG_DIRTY_IO_PROC);
+	ASSERT((*newp) & ERTS_PSFLG_DIRTY_IO_PROC);
 	queue = ERTS_ENQUEUE_DIRTY_IO_QUEUE;
     }
 
@@ -6621,7 +6624,7 @@ static ERTS_INLINE int
 schedule_out_process(ErtsRunQueue *c_rq, erts_aint32_t *statep, Process *p,
 		     Process *proxy, int is_normal_sched)
 {
-    erts_aint32_t a, e, n, enq_prio = -1, running_flgs;
+    erts_aint32_t a, e, n, enq_prio = -1, set_psflags = 0, unset_psflags = 0;
     int enqueue; /* < 0 -> use proxy */
     ErtsRunQueue* runq;
 
@@ -6631,28 +6634,46 @@ schedule_out_process(ErtsRunQueue *c_rq, erts_aint32_t *statep, Process *p,
            || (BeamIsOpCode(*(const BeamInstr*)p->i, op_call_nif_WWW)
                || BeamIsOpCode(*(const BeamInstr*)p->i, op_call_bif_W)));
 
-    /* Clear activ-sys if needed... */
-    while (1) {
-        n = e = a;
-        if (a & ERTS_PSFLG_ACTIVE_SYS) {
-            if (a & (ERTS_PSFLG_SIG_Q
-                     | ERTS_PSFLG_NMSG_SIG_IN_Q
-                     | ERTS_PSFLG_SYS_TASKS))
-                break;
-            /* Clear active-sys */
-            n &= ~ERTS_PSFLG_ACTIVE_SYS;
-        }
-        a = erts_atomic32_cmpxchg_nob(&p->state, n, e);
-        if (a == e) {
-            a = n;
-            break;
-        }
+    if (!!(a & (ERTS_PSFLG_SIG_Q
+                | ERTS_PSFLG_NMSG_SIG_IN_Q
+                | ERTS_PSFLG_SYS_TASKS))
+        & !(a & (ERTS_PSFLG_ACTIVE_SYS
+                 | ERTS_PSFLG_FREE))) {
+        /*
+         * ERTS_PSFLG_ACTIVE_SYS should be set if any of ERTS_PSFLG_SIG_Q,
+         * ERTS_PSFLG_NMSG_SIG_IN_Q, or ERTS_PSFLG_SYS_TASKS are set and
+         * ERTS_PSFLG_FREE is not set. When a process is being scheduled out
+         * this might however not be the case if current process:
+         * - is being receive traced, and
+         * - has called erts_proc_sig_fetch() which have brought in a message
+         *   into the middle queue where no non-message signals exist (due to
+         *   being receive traced), and
+         * - is waiting in a 'receive' expression without clauses matching on
+         *   messages (timed wait), or is just not entering 'receive'
+         *   expressions for a very long time.
+         * ERTS_PSFLG_SIG_Q will in this case be set, but not
+         * ERTS_PSFLG_ACTIVE_SYS, so we need to set ERTS_PSFLG_ACTIVE_SYS.
+         * Otherwise, the message will not be receive traced until another
+         * non-message signal arrives, or the process time out and enter a
+         * 'receive' expression matching on messages.
+         *
+         * If ERTS_PSFLG_NMSG_SIG_IN_Q and/or ERTS_PSFLG_SYS_TASKS have been
+         * set, it has been done by another thread that later will set
+         * ERTS_PSFLG_ACTIVE_SYS and wake us up, so we do not necessarily need
+         * to set ERTS_PSFLG_ACTIVE_SYS if only ERTS_PSFLG_NMSG_SIG_IN_Q and/or
+         * ERTS_PSFLG_SYS_TASKS are set, but it is good to do in order to
+         * schedule the process at once instead of waiting for the wakeup.
+         */
+        set_psflags |= ERTS_PSFLG_ACTIVE_SYS;
     }
 
-    if (!is_normal_sched)
-	running_flgs = ERTS_PSFLG_DIRTY_RUNNING|ERTS_PSFLG_DIRTY_RUNNING_SYS;
+    if (!is_normal_sched) {
+        unset_psflags |= (ERTS_PSFLG_DIRTY_RUNNING
+                          | ERTS_PSFLG_DIRTY_RUNNING_SYS);
+    }
     else {
-	running_flgs = ERTS_PSFLG_RUNNING|ERTS_PSFLG_RUNNING_SYS;
+        unset_psflags |= (ERTS_PSFLG_RUNNING
+                          | ERTS_PSFLG_RUNNING_SYS);
         if ((a & ERTS_PSFLG_DIRTY_ACTIVE_SYS)
             && (p->flags & (F_DELAY_GC|F_DISABLE_GC))) {
             /*
@@ -6668,16 +6689,12 @@ schedule_out_process(ErtsRunQueue *c_rq, erts_aint32_t *statep, Process *p,
                                  | F_DIRTY_CLA
                                  | F_DIRTY_GC_HIBERNATE)));
 
-            a = erts_atomic32_read_band_nob(&p->state,
-                                            ~ERTS_PSFLG_DIRTY_ACTIVE_SYS);
-            a &= ~ERTS_PSFLG_DIRTY_ACTIVE_SYS;
+            unset_psflags |= ERTS_PSFLG_DIRTY_ACTIVE_SYS;
         }
     }
 
     while (1) {
 	n = e = a;
-
-	ASSERT(a & running_flgs);
 
 	enqueue = ERTS_ENQUEUE_NOT;
 
@@ -6686,8 +6703,23 @@ schedule_out_process(ErtsRunQueue *c_rq, erts_aint32_t *statep, Process *p,
                || ((a & (ERTS_PSFLG_ACTIVE|ERTS_PSFLG_SUSPENDED))
                    == ERTS_PSFLG_ACTIVE));
 
-	n &= ~running_flgs;
-	if (a & (ERTS_PSFLG_ACTIVE_SYS
+        if ((a & (ERTS_PSFLG_ACTIVE_SYS
+                  | ERTS_PSFLG_SIG_Q
+                  | ERTS_PSFLG_NMSG_SIG_IN_Q
+                  | ERTS_PSFLG_SYS_TASKS))
+            == ERTS_PSFLG_ACTIVE_SYS) {
+            /*
+             * ERTS_PSFLG_ACTIVE_SYS should be set if any of ERTS_PSFLG_SIG_Q,
+             * ERTS_PSFLG_NMSG_SIG_IN_Q, or ERTS_PSFLG_SYS_TASKS are set. This
+             * is the only place where we clear ERTS_PSFLG_ACTIVE_SYS.
+             */
+            n &= ~ERTS_PSFLG_ACTIVE_SYS;
+        }
+
+        n |= set_psflags;
+        n &= ~unset_psflags;
+
+	if (n & (ERTS_PSFLG_ACTIVE_SYS
                  | ERTS_PSFLG_DIRTY_ACTIVE_SYS
                  | ERTS_PSFLG_ACTIVE)) {
 	    enqueue = check_enqueue_in_prio_queue(p, &enq_prio, &n, a);
@@ -6708,8 +6740,8 @@ schedule_out_process(ErtsRunQueue *c_rq, erts_aint32_t *statep, Process *p,
 	    /* Status lock prevents out of order "runnable proc" trace msgs */
 	    ERTS_LC_ASSERT(ERTS_PROC_LOCK_STATUS & erts_proc_lc_my_proc_locks(p));
 
-	    if (!(a & (ERTS_PSFLG_ACTIVE_SYS|ERTS_PSFLG_DIRTY_ACTIVE_SYS))
-		&& (!(a & ERTS_PSFLG_ACTIVE) || (a & ERTS_PSFLG_SUSPENDED))) {
+	    if (!(n & (ERTS_PSFLG_ACTIVE_SYS|ERTS_PSFLG_DIRTY_ACTIVE_SYS))
+		&& (!(n & ERTS_PSFLG_ACTIVE) || (n & ERTS_PSFLG_SUSPENDED))) {
 		/* Process inactive */
 		profile_runnable_proc(p, am_inactive);
 	    }
@@ -8978,6 +9010,13 @@ erts_internal_suspend_process_2(BIF_ALIST_2)
 
         mstate = erts_atomic_inc_read_relb(&msp->state);
         ASSERT(suspend || (mstate & ERTS_MSUSPEND_STATE_COUNTER_MASK) > 1);
+
+        if ((mstate & ERTS_MSUSPEND_STATE_COUNTER_MASK) == ERTS_AINT_T_MAX) {
+            ASSERT(!suspend);
+            erts_atomic_dec_nob(&msp->state);
+            BIF_RET(am_system_limit);
+        }
+
         sync = !async & !suspend & !(mstate & ERTS_MSUSPEND_STATE_FLG_ACTIVE);
         suspend = !!suspend; /* ensure 0|1 */
         res = am_true;
@@ -9033,6 +9072,7 @@ erts_internal_suspend_process_2(BIF_ALIST_2)
         else {
             send_sig = !suspend_process(BIF_P, rp);
             if (!send_sig) {
+                erts_pause_proc_timer(rp);
                 erts_monitor_list_insert(&ERTS_P_LT_MONITORS(rp), &mdp->u.target);
                 erts_atomic_read_bor_relb(&msp->state,
                                           ERTS_MSUSPEND_STATE_FLG_ACTIVE);
@@ -9510,9 +9550,6 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
     erts_aint32_t state = 0; /* Suppress warning... */
     int is_normal_sched;
     ErtsSchedType sched_type;
-#ifdef DEBUG
-    int aborted_execution = 0;
-#endif
 
     ERTS_MSACC_DECLARE_CACHE();
 
@@ -9670,11 +9707,7 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
             ERTS_MSACC_SET_STATE_CACHED(ERTS_MSACC_STATE_OTHER);
 
             if (state & ERTS_PSFLG_FREE) {
-                if (!is_normal_sched) {
-                    ASSERT((p->flags & F_DELAYED_DEL_PROC)
-                           || aborted_execution);
-                }
-                else {
+                if (is_normal_sched) {
                     ASSERT(esdp->free_process == p);
                     esdp->free_process = NULL;
                 }
@@ -9698,10 +9731,6 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
  check_activities_to_run: {
 	ErtsMigrationPaths *mps;
 	ErtsMigrationPath *mp;
-
-#ifdef DEBUG
-        aborted_execution = 0;
-#endif
 
 	if (is_normal_sched) {
 
@@ -10140,9 +10169,6 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
 		erts_proc_unlock(p, ERTS_PROC_LOCK_STATUS);
                 if (ERTS_IS_P_TRACED(p))
                     trace_schedule_in(p, state);
-#ifdef DEBUG
-                aborted_execution = !0;
-#endif
 		goto sched_out_proc;
 	    }
             break;
@@ -11182,7 +11208,7 @@ dispatch_system_task(Process *c_p, erts_aint_t fail_state,
     ERTS_BIF_PREP_RET(ret, am_ok);
 
     /*
-     * Send message on the form: {Requester, Target, Operation}
+     * Send message of the form: {Requester, Target, Operation}
      */
 
     ASSERT(is_immed(st->requester));

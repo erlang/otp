@@ -150,6 +150,9 @@ reset_stats() ->
 Reset all counters for the given UDP handle.
 """.
 
+-spec reset_stats(SH) -> megaco:void() when
+      SH :: send_handle().
+
 reset_stats(SH) when is_record(SH, send_handle) ->
     megaco_stats:reset_stats(megaco_udp_stats, SH).
 

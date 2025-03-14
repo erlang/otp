@@ -120,16 +120,16 @@ i_yield() {
 
 i_hibernate() {
     HEAVY_SWAPOUT;
-    if (erts_hibernate(c_p, reg)) {
-        FCALLS = c_p->fcalls;
-        c_p->flags &= ~F_HIBERNATE_SCHED;
-        goto do_schedule;
-    } else {
-        HEAVY_SWAPIN;
-        I = handle_error(c_p, I, reg, &BIF_TRAP_EXPORT(BIF_hibernate_3)->info.mfa);
-        goto post_error_handling;
-    }
-    //| -no_next
+
+    erts_hibernate(c_p, reg, 0);
+
+    c_p->flags &= ~F_HIBERNATE_SCHED;
+    c_p->arg_reg[0] = am_ok;
+    c_p->arity = 1;
+
+    $SET_CP_I_ABS($NEXT_INSTRUCTION);
+    c_p->current = NULL;
+    goto do_schedule;
 }
 
 // This is optimised as an instruction because

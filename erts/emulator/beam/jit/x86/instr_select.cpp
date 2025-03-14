@@ -266,7 +266,7 @@ bool BeamModuleAssembler::emit_optimized_two_way_select(bool destructive,
     uint64_t y = value2.as<ArgImmed>().get();
     uint64_t combined = x | y;
     uint64_t diff = x ^ y;
-    ArgVal val(ArgVal::Immediate, combined);
+    ArgVal val(ArgVal::Type::Immediate, combined);
 
     if ((diff & (diff - 1)) != 0)
         return false;

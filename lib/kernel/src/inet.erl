@@ -237,9 +237,6 @@ Function `parse_address/1` can be useful:
 - `exfull` - Message tables full
 - `nxdomain` - Hostname or domain name cannot be found
 """.
--moduledoc(#{titles =>
-                 [{type,<<"Exported data types">>},
-                  {type,<<"Internal data types">>}]}).
 
 -include("inet.hrl").
 -include("inet_int.hrl").
@@ -355,34 +352,34 @@ Add the following directive to the module:
 -include_lib("kernel/include/inet.hrl").
 ```
 """.
--doc(#{title => <<"Exported data types">>}).
+-doc(#{group => <<"Exported data types">>}).
 -type hostent() :: #hostent{}.
 
--doc(#{title => <<"Exported data types">>}).
+-doc(#{group => <<"Exported data types">>}).
 -type hostname() :: atom() | string().
 
--doc(#{title => <<"Exported data types">>}).
+-doc(#{group => <<"Exported data types">>}).
 -type ip4_address() :: {0..255,0..255,0..255,0..255}.
 
--doc(#{title => <<"Exported data types">>}).
+-doc(#{group => <<"Exported data types">>}).
 -type ip6_address() :: {0..65535,0..65535,0..65535,0..65535,
 			0..65535,0..65535,0..65535,0..65535}.
 
--doc(#{title => <<"Exported data types">>}).
+-doc(#{group => <<"Exported data types">>}).
 -type ip_address() :: ip4_address() | ip6_address().
 
--doc(#{title => <<"Exported data types">>}).
+-doc(#{group => <<"Exported data types">>}).
 -type port_number() :: 0..65535.
 
 -doc """
 A general network address.
 
-A general network address format on the form `{Family, Destination}`
+A general network address format of the form `{Family, Destination}`
 where `Family` is an atom such as `local` and the format of `Destination`
 depends on `Family`.  `Destination` is a complete address (for example
 an IP address with port number).
 """.
--doc(#{title => <<"Exported data types">>}).
+-doc(#{group => <<"Exported data types">>}).
 -type family_address() :: inet_address() | inet6_address() | local_address().
 
 -doc """
@@ -392,7 +389,7 @@ A network address for the `inet` family (`AF_INET`, IPv4)
 > This address format is currently experimental and for completeness
 > to make all address families have a `{Family, Destination}` representation.
 """.
--doc(#{title => <<"Internal data types">>}).
+-doc(#{group => <<"Internal data types">>}).
 -type inet_address() ::
         {'inet', {ip4_address() | 'any' | 'loopback', port_number()}}.
 
@@ -403,7 +400,7 @@ A network address for the `inet6` family (`AF_INET6`, IPv6)
 > This address format is currently experimental and for completeness
 > to make all address families have a `{Family, Destination}` representation.
 """.
--doc(#{title => <<"Internal data types">>}).
+-doc(#{group => <<"Internal data types">>}).
 -type inet6_address() ::
         {'inet6', {ip6_address() | 'any' | 'loopback', port_number()}}.
 
@@ -427,7 +424,7 @@ on your system, normally `unix` in manual section 7.
 In most API functions where you can use this address family
 the port number must be `0`.
 """.
--doc(#{title => <<"Exported data types">>}).
+-doc(#{group => <<"Exported data types">>}).
 -type local_address() :: {'local', File :: binary() | string()}.
 
 -doc """
@@ -440,7 +437,7 @@ if the other side has no socket address. The `undefined`
 family can only occur in the unlikely event of an address family
 that the VM doesn't recognize.
 """.
--doc(#{title => <<"Exported data types">>}).
+-doc(#{group => <<"Exported data types">>}).
 -type returned_non_ip_address() ::
 	{'local', binary()} |
 	{'unspec', <<>>} |
@@ -453,7 +450,7 @@ An atom that is named from the POSIX error codes used in Unix,
 and in the runtime libraries of most C compilers.
 See section [POSIX Error Codes](#posix-error-codes).
 """.
--doc(#{title => <<"Exported data types">>}).
+-doc(#{group => <<"Exported data types">>}).
 -type posix() ::
         'eaddrinuse' | 'eaddrnotavail' | 'eafnosupport' | 'ealready' |
         'econnaborted' | 'econnrefused' | 'econnreset' |
@@ -477,7 +474,7 @@ A socket recognized by this module and its siblings.
 
 See `t:gen_tcp:socket/0` and `t:gen_udp:socket/0`.
 """.
--doc(#{title => <<"Exported data types">>}).
+-doc(#{group => <<"Exported data types">>}).
 -type socket() :: port() | module_socket().
 
 -doc """
@@ -490,19 +487,19 @@ the `m:socket` module and its NIF implementation.
 
 This is a _temporary_ option that will be ignored in a future release.
 """.
--doc(#{title => <<"Exported data types">>}).
+-doc(#{group => <<"Exported data types">>}).
 -type inet_backend() :: {'inet_backend', 'inet' | 'socket'}.
 
--doc(#{title => <<"Exported data types">>}).
+-doc(#{group => <<"Exported data types">>}).
 -type socket_setopt() ::
         gen_sctp:option() | gen_tcp:option() | gen_udp:option().
 
--doc(#{title => <<"Exported data types">>}).
+-doc(#{group => <<"Exported data types">>}).
 -type socket_optval() ::
         gen_sctp:option_value() | gen_tcp:option() | gen_udp:option() |
         gen_tcp:pktoptions_value().
 
--doc(#{title => <<"Exported data types">>}).
+-doc(#{group => <<"Exported data types">>}).
 -type socket_getopt() ::
         gen_sctp:option_name() | gen_tcp:option_name() | gen_udp:option_name().
 
@@ -575,7 +572,7 @@ by the Solaris API function `getaddrinfo()`.
 > `Netmask` and `Broadaddr` values may be calculated, just as some `Flags`
 > values.
 """.
--doc(#{title => <<"Internal data types">>}).
+-doc(#{group => <<"Internal data types">>}).
 -type getifaddrs_ifopts() ::
         [Ifopt :: {flags, Flags :: [up | broadcast | loopback |
                                     pointtopoint | running | multicast]} |
@@ -585,19 +582,19 @@ by the Solaris API function `getaddrinfo()`.
                   {dstaddr, Dstaddr :: ip_address()} |
                   {hwaddr, Hwaddr :: [byte()]}].
 
--doc(#{title => <<"Exported data types">>}).
+-doc(#{group => <<"Exported data types">>}).
 -type address_family() :: 'inet' | 'inet6' | 'local'.
 
--doc(#{title => <<"Exported data types">>}).
+-doc(#{group => <<"Exported data types">>}).
 -type socket_protocol() :: 'tcp' | 'udp' | 'sctp'.
 
 -type socket_type() :: 'stream' | 'dgram' | 'seqpacket'.
 
--doc(#{title => <<"Exported data types">>}).
+-doc(#{group => <<"Exported data types">>}).
 -type socket_address() ::
 	ip_address() | 'any' | 'loopback' | local_address().
 
--doc(#{title => <<"Exported data types">>}).
+-doc(#{group => <<"Exported data types">>}).
 -type stat_option() ::
 	'recv_cnt' | 'recv_max' | 'recv_avg' | 'recv_oct' | 'recv_dvi' |
 	'send_cnt' | 'send_max' | 'send_avg' | 'send_oct' | 'send_pend'.
@@ -616,7 +613,7 @@ The value(s) correspond to the currently active socket
 or for a single send operation the option(s) to override
 the currently active socket option(s).
 """.
--doc(#{title => <<"Exported data types">>}).
+-doc(#{group => <<"Exported data types">>}).
 -type ancillary_data() ::
         [ {'tos', byte()} | {'tclass', byte()} | {'ttl', byte()} ].
 

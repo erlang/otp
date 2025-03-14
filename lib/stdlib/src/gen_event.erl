@@ -940,7 +940,7 @@ or returns an unexpected value `Term`, this function returns
 `{error, {'EXIT', Reason}}` or `{error, Term}`, respectively.
 
 When this call fails it [exits](`erlang:exit/1`) the calling process.
-The exit term is on the form `{Reason, Location}` where
+The exit term is of the form `{Reason, Location}` where
 `Location = {gen_event, call, ArgList}`. See `gen_server:call/3`
 that has a description of relevant values for the `Reason`
 in the exit term.

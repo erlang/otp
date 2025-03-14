@@ -657,7 +657,7 @@ value are listed.
   be deprecated.
 
 - **`warn_deprecated_catch`** - Enables warnings for use of old style catch
-  expressions on the form `catch Expr` instead of the modern `try ... catch
+  expressions of the form `catch Expr` instead of the modern `try ... catch
   ... end`. You may enable this compiler option on the project level and
   add `-compile(nowarn_deprecated_catch).` to individual files which still
   contain old catches in order to prevent new uses from getting added.
@@ -1947,6 +1947,8 @@ do_parse_module(DefEncoding, #compile{ifile=File,options=Opts,dir=Dir}=St) ->
 -define(META_USED_FEATURES, enabled_features).
 -define(META_CHUNK_NAME, <<"Meta">>).
 
+metadata_add_features([], St) ->
+    St;
 metadata_add_features(Ftrs, #compile{options = CompOpts,
                                      extra_chunks = Extra} = St) ->
     MetaData =

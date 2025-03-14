@@ -440,7 +440,7 @@ void BeamGlobalAssembler::emit_unary_minus_guard_shared() {
 void BeamModuleAssembler::emit_i_unary_minus(const ArgSource &Src,
                                              const ArgLabel &Fail,
                                              const ArgRegister &Dst) {
-    ArgVal zero = ArgVal(ArgVal::Immediate, make_small(0));
+    ArgVal zero = ArgVal(ArgVal::Type::Immediate, make_small(0));
     bool small_result = is_diff_small_if_args_are_small(zero, Src);
 
     if (always_small(Src) && small_result) {
@@ -1088,7 +1088,7 @@ void BeamModuleAssembler::emit_i_mul_add(const ArgLabel &Fail,
         }
     }
 
-    if (always_small(Src1) && Src2.isSmall() && always_small(Src4) &&
+    if (always_small(Src1) && always_small(Src2) && always_small(Src4) &&
         is_product_small && is_sum_small) {
         comment("multiplication and addition without overflow check");
         if (Src2.isSmall()) {

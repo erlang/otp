@@ -248,7 +248,7 @@ make_markdown(Top, Type, OutFile, InfoText0) ->
         end,
 
     InfoTextMap = maps:from_list(make_markdown_info(InfoText0, AttrTag)),
-    Collected = make_markdown_collect(Depr, RelKey, InfoTextMap, []),
+    CollectedMFAs = make_markdown_collect(Depr, RelKey, InfoTextMap, []),
 
     case Type of
         "removed" ->
@@ -266,12 +266,13 @@ make_markdown(Top, Type, OutFile, InfoText0) ->
                           false ->
                               ok
                       end
-              end, Collected);
+              end, CollectedMFAs);
         _ ->
             ok
     end,
-
-    All = make_markdown_gen(lists:reverse(Collected), Type, OutDir),
+    TemplCollected = collect_template_rels(OutDir, Type),
+    MergedCollected = merge_collected(TemplCollected, CollectedMFAs),
+    All = make_markdown_gen(lists:reverse(MergedCollected), Type, OutDir),
     ok = file:write_file(OutFile, All).
 
 make_markdown_info([{Tag,M,F,A,Text} | Attributes], Tag) ->
@@ -308,17 +309,21 @@ make_markdown_gen(Collected, Type, Dir) ->
 make_gen_list([{Rel,MFAs}|T], Type, Dir) ->
     RelStr = lists:concat(["OTP ",Rel]),
     Head = ["## ",RelStr,"\n\n"],
-    SubTitle = case Type of
-                   "deprecations" ->
-                       ["Functions Deprecated in ",RelStr];
-                   "scheduled_for_removal" ->
-                       ["Functions Scheduled for Removal in ",RelStr];
-                   "removed" ->
-                       ["Functions Removed in ",RelStr]
-               end,
-    SubHead = ["### ",SubTitle,"\n\n"],
     [string:trim([Head, get_template(Dir, Type, Rel)]), "\n\n",
-     string:trim([SubHead, make_gen_mfas(MFAs)]), "\n\n" |
+     [if MFAs == [] ->
+              [];
+         true ->
+              SubTitle = case Type of
+                             "deprecations" ->
+                                 ["Functions Deprecated in ",RelStr];
+                             "scheduled_for_removal" ->
+                                 ["Functions Scheduled for Removal in ",RelStr];
+                             "removed" ->
+                                 ["Functions Removed in ",RelStr]
+                         end,
+              SubHead = ["### ",SubTitle,"\n\n"],
+              [string:trim([SubHead, make_gen_mfas(MFAs)]), "\n\n"]
+      end] |
      make_gen_list(T, Type, Dir)];
 make_gen_list([], _, _) ->
     [].
@@ -338,6 +343,39 @@ get_template(Dir, Prefix, Key) ->
         {error,enoent} ->
             []
     end.
+
+collect_template_rels(Dir, Prefix) ->
+    FileNamePrefix = Prefix++"_",
+    {ok, FileNames} = file:list_dir(Dir),
+    TemplRels = lists:foldl(fun (FileName, Acc) ->
+                                    try
+                                        Suffix = string:prefix(FileName,
+                                                               FileNamePrefix),
+                                        [RelStr, "md"] = string:split(Suffix,
+                                                                      "."),
+                                        Rel = list_to_integer(RelStr),
+                                        [{Rel, []}|Acc]
+                                    catch
+                                        _ : _ ->
+                                            Acc
+                                    end
+                            end,
+                            [],
+                            FileNames),
+    lists:keysort(1, TemplRels).
+
+merge_collected([{Rel, []} | WithoutMFAs], [{Rel, _} = Use | WithMFAs]) ->
+    [Use | merge_collected(WithoutMFAs, WithMFAs)];
+merge_collected([{RelA, []} = Use | WithoutMFAs],
+                [{RelB, _} | _] = WithMFAs) when RelA < RelB ->
+    [Use | merge_collected(WithoutMFAs, WithMFAs)];
+merge_collected([{_RelA, []} | _] = WithoutMFAs,
+                [{_RelB, _} = Use | WithMFAs]) ->
+    [Use | merge_collected(WithoutMFAs, WithMFAs)];
+merge_collected([], WithMFAs) ->
+    WithMFAs;
+merge_collected(WithoutMFAs, []) ->
+    WithoutMFAs.
 
 %%%
 %%% Cross-checks deprecations against DEPRECATIONS file.

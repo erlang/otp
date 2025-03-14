@@ -541,7 +541,8 @@ invalid_byte(Bin, Skip) ->
     error({invalid_byte, Byte}, none, error_info(Skip)).
 
 error_info(Skip) ->
-    [{error_info, #{cause => #{position => Skip}}}].
+    [{error_info, #{cause => #{position => Skip},
+                    module => erl_stdlib_errors}}].
 
 %%
 %% Format implementation

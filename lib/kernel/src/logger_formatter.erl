@@ -36,8 +36,7 @@ information.
 `m:calendar`, `m:error_logger`, `m:io`, `m:io_lib`, `m:logger`, `m:maps`,
 [`sasl(6)`](`e:sasl:sasl_app.md`), `m:unicode`
 """.
--moduledoc(#{since => "OTP 21.0",
-             titles => [{callback,<<"Formatter Callback Functions">>}]}).
+-moduledoc(#{since => "OTP 21.0"}).
 
 -export([format/2]).
 -export([check_config/1]).
@@ -122,7 +121,7 @@ following keys can be set as configuration parameters:
   An empty string is interpreted as local time. The values `"Z"`, `"z"` or `0`
   are interpreted as Universal Coordinated Time (UTC).
 
-  Strings, other than `"Z"`, `"z"`, or `""`, must be on the form `±[hh]:[mm]`,
+  Strings, other than `"Z"`, `"z"`, or `""`, must be of the form `±[hh]:[mm]`,
   for example `"-02:00"` or `"+00:00"`.
 
   Integers must be in microseconds, meaning that the offset `7200000000` is
@@ -251,7 +250,7 @@ The following Logger API functions can trigger this callback:
 See `m:logger_formatter` for an example implementation. `m:logger_formatter` is
 the default formatter used by Logger.
 """.
--doc(#{title => <<"Formatter Callback Functions">>,since => <<"OTP 21.0">>}).
+-doc(#{group => <<"Formatter Callback Functions">>,since => <<"OTP 21.0">>}).
 -callback check_config(FConfig) -> ok | {error, Reason} when
       FConfig :: logger:formatter_config(),
       Reason :: term().
@@ -264,7 +263,7 @@ to the console or a file using [`io:put_chars/1,2`](`io:put_chars/1`).
 See `m:logger_formatter` for an example implementation. `m:logger_formatter` is
 the default formatter used by Logger.
 """.
--doc(#{title => <<"Formatter Callback Functions">>,since => <<"OTP 21.0">>}).
+-doc(#{group => <<"Formatter Callback Functions">>,since => <<"OTP 21.0">>}).
 -callback format(LogEvent, FConfig) -> FormattedLogEntry when
       LogEvent :: logger:log_event(),
       FConfig :: logger:formatter_config(),

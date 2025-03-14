@@ -103,8 +103,7 @@ AC_PROG_CPP
 AC_PROG_EGREP
 dnl AC_PROG_LIBTOOL
 AC_PROG_RANLIB
-AC_CHECK_PROGS(LD, ld.sh)
-AC_CHECK_TOOL(LD, ld, '$(CC)')
+LM_PROG_LD
 AC_SUBST(LD)
 
 ERL_DED_FLAT_BUNDLE=true
@@ -331,14 +330,13 @@ WFLAGS="$WERRORFLAGS $DED_WERRORFLAGS $DED_WARN_FLAGS"
 AS_IF([test "x$GCC" = xyes],
       [WFLAGS="$WFLAGS -Wmissing-declarations -Wnested-externs -Winline"])
 
+ERL_OSSF_FLAGS
 
 # Use -fno-common for gcc, that is link error if multiple definitions of
 # global variables are encountered. This is ISO C compliant.
 # Until version 10, gcc has had -fcommon as default, which allows and merges
 # such dubious duplicates.
 LM_TRY_ENABLE_CFLAG([-fno-common], [CFLAGS])
-# No strict aliasing until we determined it is safe...
-LM_TRY_ENABLE_CFLAG([-fno-strict-aliasing], [CFLAGS])
 
 ERL_POP_WERROR
 

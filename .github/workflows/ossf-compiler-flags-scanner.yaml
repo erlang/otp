@@ -45,39 +45,10 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # ratchet:actions/checkout@v4.2.2
       - name: Create initial pre-release tar
         run: .github/scripts/init-pre-release.sh otp_src.tar.gz
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # ratchet:actions/checkout@v4.2.2
-        with:
-            repository: ossf/wg-best-practices-os-developers
-            sparse-checkout: docs/Compiler-Hardening-Guides/compiler-options-scraper
-            path: ossf
-    
-      - name: Setup compiler options scraper
-        run: |
-          pip3 install -r ossf/docs/Compiler-Hardening-Guides/compiler-options-scraper/requirements.txt
-          python3 ossf/docs/Compiler-Hardening-Guides/compiler-options-scraper/main.py
-          cat compiler-options.json
-
       - uses: ./.github/actions/build-base-image
         with:
           BASE_BRANCH: master
-          BUILD_IMAGE: true
-      
-      - name: Run compiler flag comparison
-        run: |
-          docker run -v `pwd`/.github/scripts:/github --entrypoint "" otp \
-            bash -c "/github/ossf-sarif-generator.es '$(cat compiler-options.json)'" > results.sarif
 
-      - name: "Upload artifact"
-        if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.4.3 ratchet:actions/upload-artifact@v4
+      - uses: ./.github/actions/ossf-compiler-flags-scanner
         with:
-            name: SARIF file
-            path: results.sarif
-
-      # Upload the results to GitHub's code scanning dashboard.
-      - name: "Upload to code-scanning"
-        if: ${{ !cancelled() }}
-        uses: github/codeql-action/upload-sarif@dd746615b3b9d728a6a37ca2045b68ca76d4841a # ratchet:github/codeql-action/upload-sarif@v3
-        with:
-            sarif_file: results.sarif
-          
+            upload: true

@@ -102,8 +102,8 @@ To speed up review, make sure that you have read [Contributing to Erlang/OTP](${
 See the [TESTING](${repoURL}/blob/master/HOWTO/TESTING.md) and [DEVELOPMENT](${repoURL}/blob/master/HOWTO/DEVELOPMENT.md) HowTo guides for details about how to run test locally.
 
 ## Artifacts
-* ` + (ct_logs ? `[Complete CT logs](https://erlang.github.io/prs/${pr_number}/ct_logs/index.html) ([Download Logs](${nightlyURL(ct_logs)}))` : "No CT logs found") + `
-* ` + (html_docs ? `[HTML Documentation](https://erlang.github.io/prs/${pr_number}/doc/index.html) ([Download HTML Docs](${nightlyURL(html_docs)}))` : "No HTML docs found") + `
+* ` + (ct_logs ? `[Complete CT logs](https://erlang.org/github-pr/${pr_number}/ct_logs/index.html) ([Download Logs](${nightlyURL(ct_logs)}))` : "No CT logs found") + `
+* ` + (html_docs ? `[HTML Documentation](https://erlang.org/github-pr/${pr_number}/doc/index.html) ([Download HTML Docs](${nightlyURL(html_docs)}))` : "No HTML docs found") + `
 * ` + (win_exe ? `[Windows Installer](${nightlyURL(win_exe)})` : "No Windows Installer found") + `
 
 // Erlang/OTP Github Action Bot

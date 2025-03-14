@@ -4920,6 +4920,7 @@ try_enable_fips_mode(Config) ->
     FIPSConfig = [{fips, true} | Config],
     case crypto:info_fips() of
         enabled ->
+            check_fips_provider(),
             FIPSConfig;
         not_enabled ->
             %% Erlang/crypto configured with --enable-fips
@@ -4927,6 +4928,7 @@ try_enable_fips_mode(Config) ->
 		true ->
                     %% and also the cryptolib is fips enabled
 		    enabled = crypto:info_fips(),
+                    check_fips_provider(),
 		    FIPSConfig;
 		false ->
                     try
@@ -4946,6 +4948,23 @@ try_enable_fips_mode(Config) ->
         not_supported ->
             {skip, "FIPS mode not supported"}
     end.
+
+check_fips_provider() ->
+    case have_provider_support() of
+        true ->
+            case crypto:info() of
+                #{fips_provider_available := true,
+                  fips_provider_buildinfo := BI} when is_list(BI) ->
+                    ok
+            end;
+        false ->
+            ok
+    end.
+
+have_provider_support() ->
+    [{_, PackedVsn, _}] = crypto:info_lib(),
+    MajorVsn = (PackedVsn bsr 28),
+    MajorVsn >= 3.
 
 pbkdf2_hmac() ->
   [{doc, "Test the pbkdf2_hmac function"}].

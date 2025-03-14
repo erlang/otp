@@ -99,7 +99,9 @@ The following apply:
 	 iso_week_number/0,
 	 iso_week_number/1,
 	 last_day_of_the_month/2,
-	 local_time/0, 
+	 local_time/0,
+         local_time_to_system_time/1,
+         local_time_to_system_time/2,
 	 local_time_to_universal_time/1, 
 	 local_time_to_universal_time/2, 
 	 local_time_to_universal_time_dst/1, 
@@ -118,6 +120,8 @@ The following apply:
 	 time_to_seconds/1,
 	 universal_time/0,
 	 universal_time_to_local_time/1,
+         universal_time_to_system_time/1,
+         universal_time_to_system_time/2,
 	 valid_date/1,
 	 valid_date/3]).
 
@@ -395,6 +399,31 @@ last_day_of_the_month1(_, M) when is_integer(M), M > 0, M < 13 ->
 local_time() ->
     erlang:localtime().
 
+-doc(#{equiv => local_time_to_system_time(LocalTime, [])}).
+-doc(#{since => <<"OTP @OTP-19505@">>}).
+-spec local_time_to_system_time(datetime1970()) -> pos_integer().
+local_time_to_system_time(LocalTime) ->
+    local_time_to_system_time(LocalTime, []).
+
+-doc(#{since => <<"OTP @OTP-19505@">>}).
+-doc """
+Converts local time into system time.
+Error will occur if the local time is non existing or ambiguous due to DST,
+see [`calendar:local_time_to_universal_time_dst/1`](`local_time_to_universal_time_dst/1`).
+""".
+-spec local_time_to_system_time(datetime1970(), Options) -> pos_integer() when
+      Options :: [Option],
+      Option :: {unit, erlang:time_unit()}.
+local_time_to_system_time(LocalTime, Options) ->
+    case local_time_to_universal_time_dst(LocalTime) of
+        [UniversalTime] ->
+            universal_time_to_system_time(UniversalTime, Options);
+        [] ->
+            error({non_existing_local_time, LocalTime});
+        [_, _] ->
+            error({ambiguous_local_time, LocalTime})
+    end.
+        
 
 %% local_time_to_universal_time(DateTime)
 %%
@@ -798,7 +827,23 @@ operating system. Returns local time if universal time is unavailable.
 -spec universal_time() -> datetime().
 universal_time() ->
     erlang:universaltime().
- 
+
+-doc(#{equiv => universal_time_to_system_time(LocalTime, [])}).
+-doc(#{since => <<"OTP @OTP-19505@">>}).
+-spec universal_time_to_system_time(datetime()) -> integer().
+universal_time_to_system_time(UniversalTime) ->
+    universal_time_to_system_time(UniversalTime, []).
+
+-doc(#{since => <<"OTP @OTP-19505@">>}).
+-doc "Converts universal time into system time.".
+-spec universal_time_to_system_time(datetime(), Options) -> integer() when
+      Options :: [Option],
+      Option :: {unit, erlang:time_unit()}.
+universal_time_to_system_time(DateTime, Options) ->
+    Unit = proplists:get_value(unit, Options, second),
+    Factor = factor(Unit),
+    Time = datetime_to_system_time(DateTime),
+    Time * Factor.
 
 %% universal_time_to_local_time(DateTime)
 %%

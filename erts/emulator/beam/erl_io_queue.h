@@ -93,13 +93,13 @@ typedef struct erts_io_queue {
 
 void erts_ioq_init(ErtsIOQueue *q, ErtsAlcType_t alct, int driver);
 void erts_ioq_clear(ErtsIOQueue *q);
-Uint erts_ioq_size(ErtsIOQueue *q);
+Uint erts_ioq_size(const ErtsIOQueue *q);
 int erts_ioq_enqv(ErtsIOQueue *q, ErtsIOVec *vec, Uint skip);
 int erts_ioq_pushqv(ErtsIOQueue *q, ErtsIOVec *vec, Uint skip);
 int erts_ioq_deq(ErtsIOQueue *q, Uint Uint);
-Uint erts_ioq_peekqv(ErtsIOQueue *q, ErtsIOVec *ev);
-SysIOVec *erts_ioq_peekq(ErtsIOQueue *q, int *vlenp);
-Uint erts_ioq_sizeq(ErtsIOQueue *q);
+Uint erts_ioq_peekqv(const ErtsIOQueue *q, ErtsIOVec *ev);
+SysIOVec *erts_ioq_peekq(const ErtsIOQueue *q, int *vlenp);
+Uint erts_ioq_sizeq(const ErtsIOQueue *q);
 
 int erts_ioq_iolist_vec_len(Eterm obj, int* vsize, Uint* csize,
                             Uint* pvsize, Uint* pcsize,

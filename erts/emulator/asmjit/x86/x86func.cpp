@@ -14,7 +14,7 @@ ASMJIT_BEGIN_SUB_NAMESPACE(x86)
 
 namespace FuncInternal {
 
-static inline bool shouldThreatAsCDeclIn64BitMode(CallConvId ccId) noexcept {
+static inline bool shouldTreatAsCDeclIn64BitMode(CallConvId ccId) noexcept {
   return ccId == CallConvId::kCDecl ||
          ccId == CallConvId::kStdCall ||
          ccId == CallConvId::kThisCall ||
@@ -143,7 +143,7 @@ ASMJIT_FAVOR_SIZE Error initCallConv(CallConv& cc, CallConvId ccId, const Enviro
 
     // Preprocess the calling convention into a common id as many conventions are normally ignored even by C/C++
     // compilers and treated as `__cdecl`.
-    if (shouldThreatAsCDeclIn64BitMode(ccId))
+    if (shouldTreatAsCDeclIn64BitMode(ccId))
       ccId = winABI ? CallConvId::kX64Windows : CallConvId::kX64SystemV;
 
     switch (ccId) {
@@ -327,7 +327,8 @@ ASMJIT_FAVOR_SIZE Error initFuncDetail(FuncDetail& func, const FuncSignature& si
   }
 
   switch (cc.strategy()) {
-    case CallConvStrategy::kDefault: {
+    case CallConvStrategy::kDefault:
+    default: {
       uint32_t gpzPos = 0;
       uint32_t vecPos = 0;
 

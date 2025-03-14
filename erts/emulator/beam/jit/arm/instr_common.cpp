@@ -182,7 +182,7 @@ void BeamModuleAssembler::emit_validate(const ArgWord &Arity) {
     emit_enter_runtime_frame();
 
     for (unsigned i = 0; i < Arity.get(); i++) {
-        mov_arg(ARG1, ArgVal(ArgVal::XReg, i));
+        mov_arg(ARG1, ArgVal(ArgVal::Type::XReg, i));
 
         emit_enter_runtime();
         runtime_call<void (*)(Eterm), beam_jit_validate_term>();
@@ -726,7 +726,7 @@ void BeamModuleAssembler::emit_put_list_deallocate(const ArgSource &Hd,
     a64::Gp hd_reg, tl_reg;
     auto dst = init_destination(Dst, TMP3);
 
-    ASSERT(dealloc <= 1023);
+    ASSERT(dealloc < MAX_REG * sizeof(Eterm));
 
     if (Hd.isYRegister() && !Tl.isYRegister() && dealloc > 0) {
         auto hd_index = Hd.as<ArgYRegister>().get();

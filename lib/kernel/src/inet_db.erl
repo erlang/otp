@@ -761,7 +761,7 @@ resolve_cnames(Domain, Type, LookupFun, LcDomain, Aliases, LcAliases) ->
                             %% Repeat with the (more) canonical domain name
                             resolve_cnames(
                               CName, Type, LookupFun, LcCname,
-                              [Domain | Aliases], [LcDomain, LcAliases])
+                              [Domain | Aliases], [LcDomain | LcAliases])
                     end;
                 [_ | _] = _CNames ->
                     ?dbg("resolve_cnames duplicate cnames=~p~n", [_CNames]),

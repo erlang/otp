@@ -1148,14 +1148,7 @@ core_roundtrip(Config) ->
     TestBeams = get_unique_beam_files(),
 
     Test = fun(F) -> do_core_roundtrip(F, Outdir) end,
-    case erlang:system_info(wordsize) of
-        4 ->
-            %% This test case is very memory intensive. Only
-            %% use a single process.
-            test_lib:p_run(Test, TestBeams, 1);
-        8 ->
-            test_lib:p_run(Test, TestBeams)
-    end.
+    test_lib:p_run(Test, TestBeams).
 
 do_core_roundtrip(Beam, Outdir) ->
     try

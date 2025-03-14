@@ -4071,10 +4071,16 @@ lc_quals(Qs, Vt0, St0) ->
     {Vt,Uvt,St} = lc_quals(Qs, Vt0, [], St0#lint{recdef_top = false}),
     {Vt,Uvt,St#lint{recdef_top = OldRecDef}}.
 
-lc_quals([{zip,_Anno,Gens} | Qs], Vt0, Uvt0, St0) ->
-    St1 = are_all_generators(Gens,St0),
-    {Vt,Uvt,St} = handle_generators(Gens,Vt0,Uvt0,St1),
-    lc_quals(Qs, Vt, Uvt, St);
+lc_quals([{zip,_Anno,Gens0} | Qs], Vt0, Uvt0, St0) ->
+    {Gens1, St1} = filter_generators(Gens0, [], St0),
+    {Vt,Uvt,St2} = case Gens1 of
+        [] ->
+            %% No valid generators.
+            {Vt0, Uvt0, St1};
+        _ ->
+            handle_generators(Gens1, Vt0, Uvt0, St1)
+        end,
+    lc_quals(Qs, Vt, Uvt, St2);
 lc_quals([{generate,_Anno,P,E} | Qs], Vt0, Uvt0, St0) ->
     {Vt,Uvt,St} = handle_generator(P,E,Vt0,Uvt0,St0),
     lc_quals(Qs, Vt, Uvt, St);
@@ -4111,16 +4117,24 @@ is_guard_test2_info(#lint{records=RDs,locals=Locals,imports=Imports}) ->
 		     is_imported_function(Imports, FA)
 	 end}.
 
-are_all_generators([{generate,_,_,_}|Qs],St) -> are_all_generators(Qs,St);
-are_all_generators([{generate_strict,_,_,_}|Qs],St) -> are_all_generators(Qs,St);
-are_all_generators([{b_generate,_,_,_}|Qs],St) -> are_all_generators(Qs,St);
-are_all_generators([{b_generate_strict,_,_,_}|Qs],St) -> are_all_generators(Qs,St);
-are_all_generators([{m_generate,_,_,_}|Qs],St) -> are_all_generators(Qs,St);
-are_all_generators([{m_generate_strict,_,_,_}|Qs],St) -> are_all_generators(Qs,St);
-are_all_generators([Q|_Qs],St) ->
-    Anno1 = element(2,Q),
-    add_error(Anno1, illegal_zip_generator, St);
-are_all_generators([],St) -> St.
+filter_generators([{generate,_,_,_}=Q|Qs], Acc, St) ->
+    filter_generators(Qs, [Q|Acc], St);
+filter_generators([{generate_strict,_,_,_}=Q|Qs], Acc, St) ->
+    filter_generators(Qs, [Q|Acc], St);
+filter_generators([{b_generate,_,_,_}=Q|Qs], Acc, St) ->
+    filter_generators(Qs, [Q|Acc], St);
+filter_generators([{b_generate_strict,_,_,_}=Q|Qs], Acc, St) ->
+    filter_generators(Qs, [Q|Acc], St);
+filter_generators([{m_generate,_,_,_}=Q|Qs], Acc, St) ->
+    filter_generators(Qs, [Q|Acc], St);
+filter_generators([{m_generate_strict,_,_,_}=Q|Qs], Acc, St) ->
+    filter_generators(Qs, [Q|Acc], St);
+filter_generators([Q|Qs], Acc, St0) ->
+    Anno1 = element(2, Q),
+    St1 = add_error(Anno1, illegal_zip_generator, St0),
+    filter_generators(Qs, Acc, St1);
+filter_generators([], Acc, St) ->
+    {reverse(Acc), St}.
 
 handle_generators(Gens,Vt,Uvt,St0) ->
     Ps = [P || {_,_,P,_} <- Gens],

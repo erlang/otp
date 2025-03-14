@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2012-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2012-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,8 +19,7 @@
 %%
 -module(asn1rtt_real_common).
 
--export([encode_real/1,decode_real/1,
-	 ber_encode_real/1]).
+-export([encode_real/1,decode_real/1]).
 
 %%============================================================================
 %%
@@ -30,14 +29,14 @@
 %% encode real value
 %%============================================================================
 
-ber_encode_real(0) ->
-    {[],0};
-ber_encode_real('PLUS-INFINITY') ->
-    {[64],1};
-ber_encode_real('MINUS-INFINITY') ->
-    {[65],1};
-ber_encode_real(Val) when is_tuple(Val); is_list(Val) ->
-    encode_real(Val).
+encode_real(0) ->
+    <<>>;
+encode_real('PLUS-INFINITY') ->
+    <<2#0100_0000>>;
+encode_real('MINUS-INFINITY') ->
+    <<2#0100_0001>>;
+encode_real(Val) when is_tuple(Val); is_list(Val) ->
+    encode_real([], Val).
 
 %%%%%%%%%%%%%%
 %% only base 2 encoding!
@@ -72,9 +71,6 @@ ber_encode_real(Val) when is_tuple(Val); is_list(Val) ->
 %% In DER and base 2 encoding the mantissa is encoded as value 0 or
 %% bit shifted until it is an odd number. Thus, do this for BER as
 %% well.
-
-encode_real(Real) ->
-    encode_real([], Real).
 
 encode_real(_C, {Mantissa, Base, Exponent}) when Base =:= 2 ->
 %%    io:format("Mantissa: ~w Base: ~w, Exp: ~w~n",[Man, Base, Exp]),
@@ -214,14 +210,16 @@ decode_real(Buffer) ->
     {RealVal,<<>>,Sz} = decode_real2(Buffer, [], Sz, 0),
     RealVal.
 
-decode_real2(Buffer, _C, 0, _RemBytes) ->
-    {0,Buffer};
+decode_real2(<<>>, _C, 0, _RemBytes) ->
+    {0,<<>>,0};
 decode_real2(Buffer0, _C, Len, RemBytes1) ->
     <<First, Buffer2/binary>> = Buffer0,
     if
-	First =:= 2#01000000 -> {'PLUS-INFINITY', Buffer2};
-	First =:= 2#01000001 -> {'MINUS-INFINITY', Buffer2};
-	First =:= 1 orelse First =:= 2 orelse First =:= 3 ->
+	First =:= 2#01000000 ->
+            {'PLUS-INFINITY', Buffer2, 1};
+	First =:= 2#01000001 ->
+            {'MINUS-INFINITY', Buffer2, 1};
+        First =:= 1; First =:= 2; First =:= 3 ->
 	    %% character string encoding of base 10
 	    {NRx,Rest} = split_binary(Buffer2,Len-1),
 	    {binary_to_list(NRx),Rest,Len};

@@ -213,7 +213,7 @@ The following functions are mandatory:
   may not be the process registered as `net_kernel`) and is in this document
   identified as `Kernel`. When a connection has been accepted by the acceptor
   process, it needs to inform `Kernel` about the accepted connection. This is
-  done by passing a message on the form:
+  done by passing a message of the form:
 
   ```erlang
   Kernel ! {accept, AcceptorPid, DistController, Family, Proto}

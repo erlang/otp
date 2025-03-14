@@ -60,7 +60,6 @@ convention, add `.zip` to the filename.
   archive, the whole archive must be recreated.
 """.
 -define(ERL_TAR_COMPATIBILITY, ~"erl_tar compatibility functions").
--moduledoc(#{ titles => [{function, ?ERL_TAR_COMPATIBILITY}]}).
 
 -compile(nowarn_deprecated_catch).
 
@@ -395,7 +394,7 @@ Options:
       Archive :: file:name() | binary(),
       Options :: [Option],
       Option  :: {file_list, FileList} | cooked
-               | keep_old_files | verbose | memory |
+               | keep_old_files | verbose | memory | skip_directories |
                  {file_filter, FileFilter} | {cwd, CWD} |
                  {extra, extra()},
       FileList :: [file:name()],
@@ -703,7 +702,7 @@ One option is available:
       RetValue :: {ok, CommentAndFiles} | {error, Reason :: term()},
       CommentAndFiles :: [zip_comment() | zip_file()],
       Options :: [Option],
-      Option :: cooked | {extra, extra()}).
+      Option :: cooked | skip_directories | {extra, extra()}).
 
 list_dir(F, Options) ->
     case ?CATCH(do_list_dir(F, Options)) of
@@ -1083,7 +1082,7 @@ get_list_dir_options(F, Options) ->
     get_list_dir_opt(Options, Opts).
 
 %% aliases for erl_tar compatibility
--doc #{ title => ?ERL_TAR_COMPATIBILITY }.
+-doc(#{group => ?ERL_TAR_COMPATIBILITY }).
 -doc #{ equiv => list_dir(Archive, []) }.
 -spec(table(Archive) -> RetValue when
       Archive :: file:name() | binary(),
@@ -1092,7 +1091,7 @@ get_list_dir_options(F, Options) ->
 
 table(F) -> list_dir(F).
 
--doc #{ title => ?ERL_TAR_COMPATIBILITY }.
+-doc(#{group => ?ERL_TAR_COMPATIBILITY }).
 -doc #{ equiv => list_dir(Archive, Options) }.
 -spec(table(Archive, Options) -> RetValue when
       Archive :: file:name() | binary(),
@@ -1104,7 +1103,7 @@ table(F) -> list_dir(F).
 
 table(F, O) -> list_dir(F, O).
 
--doc #{ title => ?ERL_TAR_COMPATIBILITY }.
+-doc(#{group => ?ERL_TAR_COMPATIBILITY }).
 -doc(#{ equiv => zip(Name, FileList)} ).
 -spec(create(Name, FileList) -> RetValue when
       Name     :: file:name(),
@@ -1117,7 +1116,7 @@ table(F, O) -> list_dir(F, O).
 
 create(F, Fs) -> zip(F, Fs).
 
--doc #{ title => ?ERL_TAR_COMPATIBILITY }.
+-doc(#{group => ?ERL_TAR_COMPATIBILITY }).
 -doc(#{ equiv => zip(Name, FileList, Options) }).
 -spec(create(Name, FileList, Options) -> RetValue when
       Name     :: file:name(),
@@ -1131,7 +1130,7 @@ create(F, Fs) -> zip(F, Fs).
                 | {error, Reason :: term()}).
 create(F, Fs, O) -> zip(F, Fs, O).
 
--doc #{ title => ?ERL_TAR_COMPATIBILITY }.
+-doc(#{group => ?ERL_TAR_COMPATIBILITY }).
 -doc(#{ equiv => unzip(Archive)} ).
 -spec(extract(Archive) -> RetValue when
       Archive :: file:name() | binary(),
@@ -1144,7 +1143,7 @@ create(F, Fs, O) -> zip(F, Fs, O).
 
 extract(F) -> unzip(F).
 
--doc #{ title => ?ERL_TAR_COMPATIBILITY }.
+-doc(#{group => ?ERL_TAR_COMPATIBILITY }).
 -doc(#{ equiv => unzip(Archive, Options) }).
 -spec(extract(Archive, Options) -> RetValue when
       Archive :: file:name() | binary(),

@@ -19,35 +19,20 @@ limitations under the License.
 -->
 # Common Test Release Notes
 
-## Common_Test 1.28
+## Common_Test 1.27.7
 
 ### Fixed Bugs and Malfunctions
 
-- Replaced calls to deprecated `crypto:start()` with `application:start(crypto)`.
+- Reduced the memory usage when testcases prints a lot to the log.
 
-  Own Id: OTP-19485 Aux Id: [PR-8592]
+  Own Id: OTP-19489 Aux Id: [PR-9424]
 
-[PR-8592]: https://github.com/erlang/otp/pull/8592
+- Fixed the built-in hook `cth_surefire` to not crash when a group within a skipped group is skipped.
 
-### Improvements and New Features
+  Own Id: OTP-19491 Aux Id: [PR-9419]
 
-- The overage reports in HTML can be rendered in dark mode if requested by the user's browser.
-
-  Own Id: OTP-19159 Aux Id: [PR-7830]
-
-- The `abort_if_missing_suites` option now defaults to `true`. If you prefer the old behavior, set `abort_if_missing_suites` to `false` in your test runs.
-
-  *** POTENTIAL INCOMPATIBILITY ***
-
-  Own Id: OTP-19355 Aux Id: [PR-9045]
-
-- Added support for compiling Erlang/OTP for Windows on ARM64.
-
-  Own Id: OTP-19480 Aux Id: [PR-8734]
-
-[PR-7830]: https://github.com/erlang/otp/pull/7830
-[PR-9045]: https://github.com/erlang/otp/pull/9045
-[PR-8734]: https://github.com/erlang/otp/pull/8734
+[PR-9424]: https://github.com/erlang/otp/pull/9424
+[PR-9419]: https://github.com/erlang/otp/pull/9419
 
 ## Common_Test 1.27.6
 
@@ -330,6 +315,14 @@ limitations under the License.
   `dbg:stop/0`
 
   Own Id: OTP-18478 Aux Id: GH-6903
+
+## Common_Test 1.24.0.6
+
+### Fixed Bugs and Malfunctions
+
+* Common test will now not crash when running tests with OTP-26 and earlier, while having previous test results from OTP-27.
+
+  Own Id: OTP-19385 Aux Id: ERIERL-1166, PR-9155, PR-9156
 
 ## Common_Test 1.24.0.5
 

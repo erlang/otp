@@ -21,17 +21,19 @@
 -moduledoc """
 Library for handling binary data.
 
-This module contains functions for manipulating byte-oriented binaries. Although
-the majority of functions could be provided using bit-syntax, the functions in
-this library are highly optimized and are expected to either execute faster or
-consume less memory, or both, than a counterpart written in pure Erlang.
+This module provides functions for manipulating byte-oriented
+binaries. While most of these functions could be implemented using the
+bit syntax, the functions in this module are highly optimized and are
+expected to either execute faster or consume less memory, or both,
+compared to equivalent implementations written in pure Erlang.
 
-The module is provided according to Erlang Enhancement Proposal (EEP) 31.
+The module is provided according to [EEP 31: Binary manipulation and
+searching module](https://www.erlang.org/eeps/eep-0031).
 
 > #### Note {: .info }
 >
-> The library handles byte-oriented data. For bitstrings that are not binaries
-> (does not contain whole octets of bits) a `badarg` exception is thrown from
+> This module handles byte-oriented data. For bitstrings that are not binaries
+> (does not contain whole octets of bits) a `badarg` exception is raised from
 > any of the functions in this module.
 """.
 -moduledoc(#{since => "OTP R14B"}).
@@ -54,11 +56,12 @@ non-precompiled search patterns.
 A representation of a part (or range) in a binary. `Start` is a zero-based
 offset into a `t:binary/0` and `Length` is the length of that part.
 
-As input to functions in this module, a reverse part specification is allowed, constructed
-with a negative `Length`, so that the part of the binary begins at `Start` \+
-`Length` and is -`Length` long. This is useful for referencing the last `N`
-bytes of a binary as `{size(Binary), -N}`. The functions in this module always
-return `t:part/0`s with positive `Length`.
+As input to functions in this module, a reverse part specification is
+allowed, constructed with a negative `Length`, so that the part of the
+binary begins at `Start` \+ `Length` and is -`Length` long. This is
+useful for referencing the last `N` bytes of a binary as
+`{size(Binary), -N}`. The functions in this module always return
+`t:part/0`s with positive `Length`.
 """.
 -type part() :: {Start :: non_neg_integer(), Length :: integer()}.
 -export_type([part/0]).
@@ -84,6 +87,19 @@ integer.
 
 If `Pos` >= [`byte_size(Subject)`](`byte_size/1`), a `badarg` exception
 is raised.
+
+## Examples
+
+```erlang
+1> binary:at(<<5,19,72,33>>, 0).
+5
+2> binary:at(<<5,19,72,33>>, 1).
+19
+3> binary:at(<<5,19,72,33>>, 4).
+** exception error: bad argument
+     in function  binary:at/2
+        called as binary:at(<<5,19,72,33>>,4)
+```
 """.
 -doc(#{since => <<"OTP R14B">>}).
 -spec at(Subject, Pos) -> byte() when
@@ -94,14 +110,14 @@ at(_, _) ->
     erlang:nif_error(undef).
 
 -doc """
-Converts `Subject` to a list of `t:byte/0`s, each representing the value of one byte.
+Converts `Subject` to a list of [`byte()`](`t:byte/0`)s, each
+representing the value of one byte.
 
-_Example:_
+## Examples
 
 ```erlang
-> binary:bin_to_list(<<"erlang">>).
-"erlang"
-%% or [101,114,108,97,110,103] in list notation.
+1> binary:bin_to_list(<<"erlang",0>>).
+[101,114,108,97,110,103,0]
 ```
 
 """.
@@ -134,21 +150,26 @@ bin_to_list(Subject, BadPosLen) ->
     badarg_with_info([Subject, BadPosLen]).
 
 -doc """
-Converts `Subject` to a list of `t:byte/0`s, each representing the value of one
-byte. `PosLen` or alternatively `Pos` and `Len` denote which part of the
-`Subject` binary to convert. By default, the entire `Subject` binary is
-converted.
+Converts part of `Subject` to a list of `t:byte/0`s, each representing
+the value of one byte.
 
-_Example:_
+`Pos` and `Len` denote which part of the `Subject` binary to convert.
+
+## Examples
 
 ```erlang
-> binary:bin_to_list(<<"erlang">>, {1,3}).
+1> binary:bin_to_list(<<"erlang">>, 1, 3).
 "rla"
 %% or [114,108,97] in list notation.
+2> binary:bin_to_list(<<"erlang">>, 5, 3).
+** exception error: bad argument
+     in function  binary:bin_to_list/3
+        called as binary:bin_to_list(<<"erlang">>,5,3)
+        *** argument 3: out of range
 ```
 
-If `PosLen` or alternatively `Pos` and `Len` in any way reference outside the
-binary, a `badarg` exception is raised.
+If `Pos` and `Len` reference outside the binary in any way, a `badarg`
+exception is raised.
 """.
 -doc(#{since => <<"OTP R14B">>}).
 -spec bin_to_list(Subject, Pos, Len) -> [byte()] when
@@ -197,11 +218,19 @@ specified as `Pattern`, this means either `<<"functional">>` or
 binary is specified, the set has only one element. The order of alternatives in
 a pattern is not significant.
 
-The list of binaries used for search alternatives must be flat, proper and
+The list of binaries used for search alternatives must be flat, proper, and
 non-empty.
 
 If `Pattern` is not a binary or a flat proper non-empty list of binaries with
-length > 0, a `badarg` exception is raised.
+length greater than 0, a `badarg` exception is raised.
+
+## Examples
+
+```erlang
+1> Pat = binary:compile_pattern(~"rain").
+2> binary:match(~"the rain in spain", Pat).
+{4,4}
+```
 """.
 -doc(#{since => <<"OTP R14B">>}).
 -spec compile_pattern(Pattern) -> cp() when
@@ -211,7 +240,36 @@ length > 0, a `badarg` exception is raised.
 compile_pattern(_) ->
     erlang:nif_error(undef).
 
--doc(#{equiv => copy(Subject, 1)}).
+-doc """
+Creates a copy of `Subject`.
+
+Using `copy/1` on a binary that references a larger binary can
+potentially free up the larger binary for garbage collection.
+
+> #### Note {: .info }
+>
+> Deliberately copying a single binary to avoid referencing a larger
+> binary does not necessarily free up the larger binary for garbage
+> collection. Instead, it can lead to the creation of significantly
+> more binary data than needed. In general, sharing binary data is
+> beneficial.
+>
+> Only in special cases — when small parts reference large binaries and the large
+> binaries are no longer used in any process — can deliberate copying be
+> beneficial.
+
+## Examples
+
+```erlang
+1> HugeBinary = <<0:100_000/unit:8>>.
+2> byte_size(HugeBinary).
+100000
+3> Part = binary:part(HugeBinary, 0, 5).
+<<0,0,0,0,0>>
+4> Copy = binary:copy(Part).
+<<0,0,0,0,0>>
+```
+""".
 -doc(#{since => <<"OTP R14B">>}).
 -spec copy(Subject) -> binary() when
       Subject :: binary().
@@ -222,18 +280,14 @@ copy(_) ->
 -doc """
 Creates a binary with the content of `Subject` duplicated `N` times.
 
-This function always creates a new binary, even if `N = 1`. By using `copy/1` on
-a binary referencing a larger binary, one can free up the larger binary for
-garbage collection.
+This function always creates a new binary, even when `N` is `1`.
 
-> #### Note {: .info }
->
-> By deliberately copying a single binary to avoid referencing a larger binary,
-> one can, instead of freeing up the larger binary for later garbage collection,
-> create much more binary data than needed. Sharing binary data is usually good.
-> Only in special cases, when small parts reference large binaries and the large
-> binaries are no longer used in any process, deliberate copying can be a good
-> idea.
+## Examples
+
+```erlang
+1> binary:copy(~"-", 10).
+<<"----------">>
+```
 """.
 -doc(#{since => <<"OTP R14B">>}).
 -spec copy(Subject, N) -> binary() when
@@ -256,14 +310,18 @@ decode_unsigned(_) ->
 Converts the binary digit representation, in big endian or little endian, of a
 positive integer in `Subject` to an Erlang `t:integer/0`.
 
-_Example:_
+## Examples
 
 ```erlang
-> binary:decode_unsigned(<<169,138,199>>).
+1> binary:decode_unsigned(<<7>>).
+7
+2> binary:decode_unsigned(<<1,0>>).
+256
+3> binary:decode_unsigned(<<169,138,199>>).
 11111111
-> binary:decode_unsigned(<<169,138,199>>, big).
+4> binary:decode_unsigned(<<169,138,199>>, big).
 11111111
-> binary:decode_unsigned(<<169,138,199>>, little).
+5> binary:decode_unsigned(<<169,138,199>>, little).
 13077161
 ```
 """.
@@ -285,17 +343,26 @@ encode_unsigned(_) ->
     erlang:nif_error(undef).
 
 -doc """
-Converts a positive integer to the smallest possible representation in a binary
-digit representation, either big endian or little endian.
+Converts a non-negative integer into the smallest possible unsigned binary
+representation, using either big-endian or little-endian format.
 
-_Example:_
+If `Unsigned` is not a non-negative integer, a `badarg` exception is
+raised.
+
+## Examples
 
 ```erlang
-> binary:encode_unsigned(11111111).
+1> binary:encode_unsigned(0, big).
+<<0>>
+2> binary:encode_unsigned(255, big).
+<<255>>
+3> binary:encode_unsigned(256, big).
+<<1,0>>
+4> binary:encode_unsigned(256, little).
+<<0,1>>
+5> binary:encode_unsigned(11111111, big).
 <<169,138,199>>
-> binary:encode_unsigned(11111111, big).
-<<169,138,199>>
-> binary:encode_unsigned(11111111, little).
+6> binary:encode_unsigned(11111111, little).
 <<199,138,169>>
 ```
 """.
@@ -308,8 +375,21 @@ encode_unsigned(_, _) ->
     erlang:nif_error(undef).
 
 -doc """
-Returns the first byte of binary `Subject` as an integer. If the size of
-`Subject` is zero, a `badarg` exception is raised.
+Returns the first byte of binary `Subject` as an integer.
+
+If the size of `Subject` is zero, a `badarg` exception is raised.
+
+## Examples
+
+```erlang
+1> binary:first(<<42,99,100>>).
+42
+2> binary:first(<<>>).
+** exception error: bad argument
+     in function  binary:first/1
+        called as binary:first(<<>>)
+        *** argument 1: a zero-sized binary is not allowed
+```
 """.
 -doc(#{since => <<"OTP R14B">>}).
 -spec first(Subject) -> byte() when
@@ -319,8 +399,21 @@ first(_) ->
     erlang:nif_error(undef).
 
 -doc """
-Returns the last byte of binary `Subject` as an integer. If the size of
-`Subject` is zero, a `badarg` exception is raised.
+Returns the last byte of binary `Subject` as an integer.
+
+If the size of `Subject` is zero, a `badarg` exception is raised.
+
+## Examples
+
+```erlang
+1> binary:last(<<42,99,100>>).
+100
+2> binary:last(<<>>).
+** exception error: bad argument
+     in function  binary:last/1
+        called as binary:last(<<>>)
+        *** argument 1: a zero-sized binary is not allowed
+```
 """.
 -doc(#{since => <<"OTP R14B">>}).
 -spec last(Subject) -> byte() when
@@ -329,7 +422,11 @@ Returns the last byte of binary `Subject` as an integer. If the size of
 last(_) ->
     erlang:nif_error(undef).
 
--doc "Works exactly as `erlang:list_to_binary/1`, added for completeness.".
+-doc """
+Works exactly as `erlang:list_to_binary/1`.
+
+This function is provided for completeness.
+""".
 -doc(#{since => <<"OTP R14B">>}).
 -spec list_to_bin(ByteList) -> binary() when
       ByteList :: iolist().
@@ -341,17 +438,17 @@ list_to_bin(_) ->
 Returns the length of the longest common prefix of the binaries in list
 `Binaries`.
 
-_Example:_
+If `Binaries` is not a flat non-empty list of binaries, a `badarg`
+exception is raised.
+
+## Examples
 
 ```erlang
-> binary:longest_common_prefix([<<"erlang">>, <<"ergonomy">>]).
+1> binary:longest_common_prefix([<<"erlang">>, <<"ergonomy">>]).
 2
-> binary:longest_common_prefix([<<"erlang">>, <<"perl">>]).
+2> binary:longest_common_prefix([<<"erlang">>, <<"perl">>]).
 0
 ```
-
-If `Binaries` is not a flat non-empty list of binaries, a `badarg` exception is
-raised.
 """.
 -doc(#{since => <<"OTP R14B">>}).
 -spec longest_common_prefix(Binaries) -> non_neg_integer() when
@@ -364,17 +461,17 @@ longest_common_prefix(_) ->
 Returns the length of the longest common suffix of the binaries in list
 `Binaries`.
 
-_Example:_
+If `Binaries` is not a flat non-empty list of binaries, a `badarg`
+exception is raised.
+
+## Examples
 
 ```erlang
-> binary:longest_common_suffix([<<"erlang">>, <<"fang">>]).
+1> binary:longest_common_suffix([<<"erlang">>, <<"fang">>]).
 3
-> binary:longest_common_suffix([<<"erlang">>, <<"perl">>]).
+2> binary:longest_common_suffix([<<"erlang">>, <<"perl">>]).
 0
 ```
-
-If `Binaries` is not a flat non-empty list of binaries, a `badarg` exception is
-raised.
 """.
 -doc(#{since => <<"OTP R14B">>}).
 -spec longest_common_suffix(Binaries) -> non_neg_integer() when
@@ -401,10 +498,24 @@ position and length.
 The function returns `{Pos, Length}` for the binary in `Pattern`, starting at
 the lowest position in `Subject`.
 
-_Example:_
+Summary of the options:
+
+- **\{scope, \{Start, Length\}\}** - Only the specified part is searched. Return
+  values still have offsets from the beginning of `Subject`. A negative `Length`
+  is allowed as described in [Types](`m:binary#types`).
+
+If none of the strings in `Pattern` is found, the atom `nomatch` is returned.
+
+For a description of `Pattern`, see `compile_pattern/1`.
+
+If `{scope, {Start,Length}}` is specified in the options such that `Start` >
+size of `Subject`, `Start` \+ `Length` < 0 or `Start` \+ `Length` > size of
+`Subject`, a `badarg` exception is raised.
+
+## Examples
 
 ```erlang
-> binary:match(<<"abcde">>, [<<"bcde">>, <<"cd">>],[]).
+1> binary:match(<<"abcde">>, [<<"bcde">>, <<"cd">>], []).
 {1,4}
 ```
 
@@ -412,19 +523,10 @@ Even though `<<"cd">>` ends before `<<"bcde">>`, `<<"bcde">>` begins first and
 is therefore the first match. If two overlapping matches begin at the same
 position, the longest is returned.
 
-Summary of the options:
-
-- **\{scope, \{Start, Length\}\}** - Only the specified part is searched. Return
-  values still have offsets from the beginning of `Subject`. A negative `Length`
-  is allowed as described in section Data Types in this manual.
-
-If none of the strings in `Pattern` is found, the atom `nomatch` is returned.
-
-For a description of `Pattern`, see function `compile_pattern/1`.
-
-If `{scope, {Start,Length}}` is specified in the options such that `Start` >
-size of `Subject`, `Start` \+ `Length` < 0 or `Start` \+ `Length` > size of
-`Subject`, a `badarg` exception is raised.
+```erlang
+1> binary:match(~"the rain in spain", ~"ain", []).
+{5,3}
+```
 """.
 -doc(#{since => <<"OTP R14B">>}).
 -spec match(Subject, Pattern, Options) -> Found | nomatch when
@@ -457,16 +559,17 @@ The first and longest match is preferred to a shorter, which is illustrated by
 the following example:
 
 ```erlang
-> binary:matches(<<"abcde">>,
-                  [<<"bcde">>,<<"bc">>,<<"de">>],[]).
+1> binary:matches(<<"abcde">>,
+                  [<<"bcde">>,<<"bc">>,<<"de">>],
+                  []).
 [{1,4}]
 ```
 
 The result shows that <<"bcde">> is selected instead of the shorter match
-<<"bc">> (which would have given raise to one more match, <<"de">>). This
-corresponds to the behavior of POSIX regular expressions (and programs like
-awk), but is not consistent with alternative matches in `re` (and Perl), where
-instead lexical ordering in the search pattern selects which string matches.
+<<"bc">> (which would have resulted in one more match, <<"de">>). This
+corresponds to the behavior of POSIX regular expressions (and programs such as
+`awk`), but is not consistent with alternative matches in `m:re` (and Perl), where
+lexical ordering in the search pattern determines which string matches.
 
 If none of the strings in a pattern is found, an empty list is returned.
 
@@ -476,6 +579,13 @@ available options, see `match/3`.
 If `{scope, {Start,Length}}` is specified in the options such that `Start` >
 size of `Subject`, `Start + Length` < 0 or `Start + Length` is > size of
 `Subject`, a `badarg` exception is raised.
+
+## Examples
+
+```erlang
+1> binary:matches(~"the rain in spain", ~"ai", []).
+[{5,2},{14,2}]
+```
 """.
 -doc(#{since => <<"OTP R14B">>}).
 -spec matches(Subject, Pattern, Options) -> Found when
@@ -501,13 +611,7 @@ part(_, _) ->
 -doc """
 Extracts the part of binary `Subject` described by `PosLen`.
 
-A negative length can be used to extract bytes at the end of a binary:
-
-```erlang
-> Bin = <<1,2,3,4,5,6,7,8,9,10>>.
-> binary:part(Bin, {byte_size(Bin), -5}).
-<<6,7,8,9,10>>
-```
+A negative length can be used to extract bytes at the end of a binary.
 
 > #### Note {: .info }
 >
@@ -515,8 +619,18 @@ A negative length can be used to extract bytes at the end of a binary:
 > names [`binary_part/2`](`binary_part/2`) and
 > [`binary_part/3`](`binary_part/3`). Those BIFs are allowed in guard tests.
 
-If `PosLen` in any way references outside the binary, a `badarg` exception is
-raised.
+If `Pos` and `Len` in any way references outside the binary, a
+`badarg` exception is raised.
+
+## Examples
+
+```erlang
+1> Bin = <<1,2,3,4,5,6,7,8,9,10>>.
+2> binary:part(Bin, 1, 3).
+<<2,3,4>>
+3> binary:part(Bin, byte_size(Bin), -5).
+<<6,7,8,9,10>>
+```
 """.
 -doc(#{since => <<"OTP R14B">>}).
 -spec part(Subject, Pos, Len) -> binary() when
@@ -530,64 +644,61 @@ part(_, _, _) ->
 -doc """
 Get the size of the underlying binary referenced by `Binary`.
 
-If a binary references a larger binary (often described as being a subbinary),
-it can be useful to get the size of the referenced binary. This function can be
-used in a program to trigger the use of `copy/1`. By copying
-a binary, one can dereference the original, possibly large, binary that a
-smaller binary is a reference to.
-
-_Example:_
-
-```erlang
-store(Binary, GBSet) ->
-  NewBin =
-      case binary:referenced_byte_size(Binary) of
-          Large when Large > 2 * byte_size(Binary) ->
-             binary:copy(Binary);
-          _ ->
-             Binary
-      end,
-  gb_sets:insert(NewBin,GBSet).
-```
-
-In this example, we chose to copy the binary content before inserting it in
-[`gb_sets:set()`](`t:gb_sets:set/0`) if it references a binary more than twice
-the data size we want to keep. Of course, different rules apply when copying to
-different programs.
-
-Binary sharing occurs whenever binaries are taken apart. This is the fundamental
-reason why binaries are fast, decomposition can always be done with O(1)
-complexity. In rare circumstances this data sharing is however undesirable, why
-this function together with [`copy/1`](`copy/1`) can be useful when optimizing
-for memory use.
-
-Example of binary sharing:
-
-```erlang
-> A = binary:copy(<<1>>, 1000).
-<<1,1,1,1,1,_/binary>>
-> byte_size(A).
-1000
-> binary:referenced_byte_size(A).
-1000
-> <<B:10/binary, C/binary>> = A.
-_
-> {byte_size(B), binary:referenced_byte_size(B)}.
-{10,10}
-> {byte_size(C), binary:referenced_byte_size(C)}.
-{990,1000}
-```
-
-In the above example, the small binary `B` was copied while the larger binary
-`C` references binary `A`.
+If a binary references a larger binary (often called a subbinary), it
+can be useful to determine the size of the referenced binary. This
+function can be used to decide when to trigger `copy/1`. Copying a
+binary can help eliminate the reference to the original, potentially
+large, binary that the smaller binary depends on.
 
 > #### Note {: .info }
 >
-> Binary data is shared among processes. If another process still references the
-> larger binary, copying the part this process uses only consumes more memory
-> and does not free up the larger binary for garbage collection. Use this kind
-> of intrusive functions with extreme care and only if a real problem is
-> detected.
+> Binary data is shared among processes. If another process still
+> references the larger binary, copying only the part used by this
+> process will consume more memory without freeing the larger binary for
+> garbage collection. Use these intrusive functions with extreme care,
+> and only when a real problem has been identified.
+
+## Examples
+
+```erlang
+store(Binary, GBSet) ->
+    NewBin =
+        case binary:referenced_byte_size(Binary) of
+            Large when Large > 2 * byte_size(Binary) ->
+                binary:copy(Binary);
+            _ ->
+                Binary
+        end,
+    gb_sets:insert(NewBin, GBSet).
+```
+
+In this example, we choose to copy the binary content before inserting
+it into [`gb_sets:set()`](`t:gb_sets:set/0`) if it references a binary
+more than twice the size of the data we want to retain. Naturally,
+different rules apply when copying in different applications.
+
+Binary sharing occurs whenever binaries are taken apart. This is the
+fundamental reason why binaries are efficient; decomposition always
+has *O(1)* complexity. However, in rare circumstances this data
+sharing is undesirable. In such situations, this function, along with
+[`copy/1`](`copy/1`) can be useful for optimizing memory usage.
+
+```erlang
+1> A = binary:copy(<<1>>, 1000).
+<<1,1,1,1,1,_/binary>>
+2> byte_size(A).
+1000
+3> binary:referenced_byte_size(A).
+1000
+4> <<B:10/binary, C/binary>> = A.
+5> {byte_size(B), binary:referenced_byte_size(B)}.
+{10,10}
+6> {byte_size(C), binary:referenced_byte_size(C)}.
+{990,1000}
+```
+
+In the above example, the small binary `B` was copied, while the larger binary
+`C` still references binary `A`.
 """.
 -doc(#{since => <<"OTP R14B">>}).
 -spec referenced_byte_size(Binary) -> non_neg_integer() when
@@ -615,24 +726,15 @@ If option `global` is not specified, only the first occurrence of `Pattern` in
 
 The parts of `Pattern` found in `Subject` are not included in the result.
 
-_Example:_
-
-```erlang
-> binary:split(<<1,255,4,0,0,0,2,3>>, [<<0,0,0>>,<<2>>],[]).
-[<<1,255,4>>, <<2,3>>]
-> binary:split(<<0,1,0,0,4,255,255,9>>, [<<0,0>>, <<255,255>>],[global]).
-[<<0,1>>,<<4>>,<<9>>]
-```
-
 Summary of options:
 
-- **\{scope, part()\}** - Works as in `match/3` and `matches/3`. Notice that
-  this only defines the scope of the search for matching strings, it does not
+- **\{scope, part()\}** - Works as in `match/3` and `matches/3`. Note that
+  this only defines the scope of the search for matching strings; it does not
   cut the binary before splitting. The bytes before and after the scope are kept
   in the result. See the example below.
 
 - **trim** - Removes trailing empty parts of the result (as does `trim` in
-  `re:split/3`.
+  `re:split/3`).
 
 - **trim_all** - Removes all empty parts of the result.
 
@@ -644,9 +746,9 @@ Example of the difference between a scope and taking the binary apart before
 splitting:
 
 ```erlang
-> binary:split(<<"banana">>, [<<"a">>],[{scope,{2,3}}]).
+1> binary:split(<<"banana">>, [<<"a">>], [{scope,{2,3}}]).
 [<<"ban">>,<<"na">>]
-> binary:split(binary:part(<<"banana">>,{2,3}), [<<"a">>],[]).
+2> binary:split(binary:part(<<"banana">>,{2,3}), [<<"a">>], []).
 [<<"n">>,<<"n">>]
 ```
 
@@ -656,6 +758,19 @@ This means that the data in `Subject` is not copied to new binaries, and that
 longer referenced.
 
 For a description of `Pattern`, see `compile_pattern/1`.
+
+## Examples
+
+```erlang
+1> binary:split(~"the quick brown fox", ~" ", []).
+[<<"the">>,<<"quick brown fox">>]
+2> binary:split(~"the quick brown fox", ~" ", [global]).
+[<<"the">>,<<"quick">>,<<"brown">>,<<"fox">>]
+3> binary:split(<<1,255,4,0,0,0,2,3>>, [<<0,0,0>>,<<2>>], []).
+[<<1,255,4>>, <<2,3>>]
+4> binary:split(<<0,1,0,0,4,255,255,9>>, [<<0,0>>, <<255,255>>], [global]).
+[<<0,1>>,<<4>>,<<9>>]
+```
 """.
 -doc(#{since => <<"OTP R14B">>}).
 -spec split(Subject, Pattern, Options) -> Parts when
@@ -684,58 +799,59 @@ split(_, _, _) ->
       Replacement :: binary() | fun((binary()) -> binary()),
       Result :: binary().
 
-replace(H,N,R) ->
+replace(H, N, R) ->
     try
-        replace(H,N,R,[])
+        replace(H, N, R, [])
     catch
         error:Reason ->
             error_with_info(Reason, [H,N,R])
     end.
 
 -doc """
-Constructs a new binary by replacing the parts in `Subject` matching `Pattern`
-with `Replacement` if given as a literal `t:binary/0` or with the result of
-applying `Replacement` to a matching subpart if given as a `fun`.
+Constructs a new binary by replacing the parts in `Subject` matching
+`Pattern` with `Replacement` if given as a literal
+`t:binary/0` or with the result of applying
+`Replacement` to a matching subpart if given as a `fun`.
 
 If `Replacement` is given as a `t:binary/0` and the matching subpart of
-`Subject` giving raise to the replacement is to be inserted in the result,
+`Subject` giving rise to the replacement is to be inserted in the result,
 option `{insert_replaced, InsPos}` inserts the matching part into `Replacement`
 at the specified position (or positions) before inserting `Replacement` into
 `Subject`. If `Replacement` is given as a `fun` instead, this option is ignored.
 
-If any position specified in `InsPos` > size of the replacement binary, a
-`badarg` exception is raised.
+If any position specified in `InsPos` is greater than the size of the
+replacement binary, a `badarg` exception is raised.
 
 Options `global` and `{scope, part()}` work as for `split/3`. The return type is
-always a `t:binary/0`.
+always `t:binary/0`.
 
 For a description of `Pattern`, see `compile_pattern/1`.
 
-_Examples:_
+## Examples
 
 ```erlang
-> binary:replace(<<"abcde">>, [<<"b">>, <<"d">>], <<"X">>, []).
+1> binary:replace(<<"abcde">>, [<<"b">>, <<"d">>], <<"X">>, []).
 <<"aXcde">>
 
-> binary:replace(<<"abcde">>, [<<"b">>, <<"d">>], <<"X">>, [global]).
+2> binary:replace(<<"abcde">>, [<<"b">>, <<"d">>], <<"X">>, [global]).
 <<"aXcXe">>
 
-> binary:replace(<<"abcde">>, <<"b">>, <<"[]">>, [{insert_replaced, 1}]).
+3> binary:replace(<<"abcde">>, <<"b">>, <<"[]">>, [{insert_replaced, 1}]).
 <<"a[b]cde">>
 
-> binary:replace(<<"abcde">>, [<<"b">>, <<"d">>], <<"[]">>, [global, {insert_replaced, 1}]).
+4> binary:replace(<<"abcde">>, [<<"b">>, <<"d">>], <<"[]">>, [global,{insert_replaced,1}]).
 <<"a[b]c[d]e">>
 
-> binary:replace(<<"abcde">>, [<<"b">>, <<"d">>], <<"[]">>, [global, {insert_replaced, [1, 1]}]).
+5> binary:replace(<<"abcde">>, [<<"b">>, <<"d">>], <<"[]">>, [global,{insert_replaced,[1,1]}]).
 <<"a[bb]c[dd]e">>
 
-> binary:replace(<<"abcde">>, [<<"b">>, <<"d">>], <<"[-]">>, [global, {insert_replaced, [1, 2]}]).
+6> binary:replace(<<"abcde">>, [<<"b">>, <<"d">>], <<"[-]">>, [global,{insert_replaced,[1,2]}]).
 <<"a[b-b]c[d-d]e">>
 
-> binary:replace(<<"abcde">>, [<<"b">>, <<"d">>], fun(M) -> <<$[, M/binary, $]>> end, []).
+7> binary:replace(<<"abcde">>, [<<"b">>, <<"d">>], fun(M) -> <<$[, M/binary, $]>> end, []).
 <<"a[b]cde">>
 
-> binary:replace(<<"abcde">>, [<<"b">>, <<"d">>], fun(M) -> <<$[, M/binary, $]>> end, [global]).
+8> binary:replace(<<"abcde">>, [<<"b">>, <<"d">>], fun(M) -> <<$[, M/binary, $]>> end, [global]).
 <<"a[b]c[d]e">>
 ```
 """.
@@ -753,7 +869,8 @@ _Examples:_
 
 replace(Subject,Pattern,Replacement,Options) ->
     try
-	true = is_binary(Replacement) orelse is_function(Replacement, 1), % Make badarg instead of function clause
+        %% Make badarg instead of function_clause.
+	true = is_binary(Replacement) orelse is_function(Replacement, 1),
 	{Part,Global,Insert} = get_opts_replace(Options,{no,false,[]}),
 	Moptlist = case Part of
 		       no ->
@@ -782,7 +899,7 @@ replace(Subject,Pattern,Replacement,Options) ->
 			   Splits = splitat(Replacement,0,lists:sort(Li)),
 			   fun(M) -> lists:join(M, Splits) end
 		   end,
-	erlang:iolist_to_binary(do_replace(Subject,MList,ReplList,0))
+	iolist_to_binary(do_replace(Subject, MList, ReplList, 0))
    catch
        throw:badopt ->
            badarg_with_cause([Subject,Pattern,Replacement,Options], badopt);
@@ -792,27 +909,28 @@ replace(Subject,Pattern,Replacement,Options) ->
 
 
 do_replace(H,[],_,N) ->
-    [binary:part(H,{N,byte_size(H)-N})];
-do_replace(H,[{A,B}|T],Replacement,N) ->
-    [binary:part(H,{N,A-N}), Replacement(binary:part(H, {A, B})) | do_replace(H,T,Replacement,A+B)].
+    [binary:part(H, {N,byte_size(H)-N})];
+do_replace(H,[{A,B}|T], Replacement, N) ->
+    [binary:part(H, {N,A-N}), Replacement(binary:part(H, {A, B})) |
+     do_replace(H,T,Replacement,A+B)].
 
 splitat(H,N,[]) ->
-    [binary:part(H,{N,byte_size(H)-N})];
+    [binary:part(H, {N,byte_size(H)-N})];
 splitat(H,N,[I|T]) ->
-    [binary:part(H,{N,I-N})|splitat(H,I,T)].
+    [binary:part(H, {N,I-N})|splitat(H, I, T)].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Simple helper functions
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-get_opts_replace([],{Part,Global,Insert}) ->
+get_opts_replace([], {Part,Global,Insert}) ->
     {Part,Global,Insert};
-get_opts_replace([{scope,{A,B}} | T],{_Part,Global,Insert}) ->
-    get_opts_replace(T,{{A,B},Global,Insert});
-get_opts_replace([global | T],{Part,_Global,Insert}) ->
-    get_opts_replace(T,{Part,true,Insert});
-get_opts_replace([{insert_replaced,N} | T],{Part,Global,_Insert}) ->
-    get_opts_replace(T,{Part,Global,N});
+get_opts_replace([{scope,{A,B}} | T], {_Part,Global,Insert}) ->
+    get_opts_replace(T, {{A,B}, Global, Insert});
+get_opts_replace([global | T], {Part,_Global,Insert}) ->
+    get_opts_replace(T, {Part,true,Insert});
+get_opts_replace([{insert_replaced,N} | T], {Part,Global,_Insert}) ->
+    get_opts_replace(T, {Part,Global,N});
 get_opts_replace(_,_) ->
     throw(badopt).
 
@@ -831,22 +949,18 @@ encode_hex(Bin) ->
     error_with_info(badarg, [Bin]).
 
 -doc """
-Encodes a binary into a hex encoded binary using the specified case for the
+Encodes a binary into a hex-encoded binary using the specified case for the
 hexadecimal digits "a" to "f".
 
-The default case is `uppercase`.
-
-_Example:_
+## Examples
 
 ```erlang
-> binary:encode_hex(<<"f">>).
-<<"66">>
-> binary:encode_hex(<<"/">>).
+1> binary:encode_hex(<<"foo">>, uppercase).
+<<"666F6F">>
+2> binary:encode_hex(<<"/">>, uppercase).
 <<"2F">>
-> binary:encode_hex(<<"/">>, lowercase).
+3> binary:encode_hex(<<"/">>, lowercase).
 <<"2f">>
-> binary:encode_hex(<<"/">>, uppercase).
-<<"2F">>
 ```
 """.
 -doc(#{since => <<"OTP 26.0">>}).
@@ -874,52 +988,92 @@ encode_hex2(<<>>, _Offset, Acc) ->
     Acc.
 
 hex(X, Offset) ->
-    element(
-      X + Offset, {
-                   %% Used for Uppercase
-                   16#3030, 16#3031, 16#3032, 16#3033, 16#3034, 16#3035, 16#3036, 16#3037, 16#3038, 16#3039, 16#3041, 16#3042, 16#3043, 16#3044, 16#3045, 16#3046,
-                   16#3130, 16#3131, 16#3132, 16#3133, 16#3134, 16#3135, 16#3136, 16#3137, 16#3138, 16#3139, 16#3141, 16#3142, 16#3143, 16#3144, 16#3145, 16#3146,
-                   16#3230, 16#3231, 16#3232, 16#3233, 16#3234, 16#3235, 16#3236, 16#3237, 16#3238, 16#3239, 16#3241, 16#3242, 16#3243, 16#3244, 16#3245, 16#3246,
-                   16#3330, 16#3331, 16#3332, 16#3333, 16#3334, 16#3335, 16#3336, 16#3337, 16#3338, 16#3339, 16#3341, 16#3342, 16#3343, 16#3344, 16#3345, 16#3346,
-                   16#3430, 16#3431, 16#3432, 16#3433, 16#3434, 16#3435, 16#3436, 16#3437, 16#3438, 16#3439, 16#3441, 16#3442, 16#3443, 16#3444, 16#3445, 16#3446,
-                   16#3530, 16#3531, 16#3532, 16#3533, 16#3534, 16#3535, 16#3536, 16#3537, 16#3538, 16#3539, 16#3541, 16#3542, 16#3543, 16#3544, 16#3545, 16#3546,
-                   16#3630, 16#3631, 16#3632, 16#3633, 16#3634, 16#3635, 16#3636, 16#3637, 16#3638, 16#3639, 16#3641, 16#3642, 16#3643, 16#3644, 16#3645, 16#3646,
-                   16#3730, 16#3731, 16#3732, 16#3733, 16#3734, 16#3735, 16#3736, 16#3737, 16#3738, 16#3739, 16#3741, 16#3742, 16#3743, 16#3744, 16#3745, 16#3746,
-                   16#3830, 16#3831, 16#3832, 16#3833, 16#3834, 16#3835, 16#3836, 16#3837, 16#3838, 16#3839, 16#3841, 16#3842, 16#3843, 16#3844, 16#3845, 16#3846,
-                   16#3930, 16#3931, 16#3932, 16#3933, 16#3934, 16#3935, 16#3936, 16#3937, 16#3938, 16#3939, 16#3941, 16#3942, 16#3943, 16#3944, 16#3945, 16#3946,
-                   16#4130, 16#4131, 16#4132, 16#4133, 16#4134, 16#4135, 16#4136, 16#4137, 16#4138, 16#4139, 16#4141, 16#4142, 16#4143, 16#4144, 16#4145, 16#4146,
-                   16#4230, 16#4231, 16#4232, 16#4233, 16#4234, 16#4235, 16#4236, 16#4237, 16#4238, 16#4239, 16#4241, 16#4242, 16#4243, 16#4244, 16#4245, 16#4246,
-                   16#4330, 16#4331, 16#4332, 16#4333, 16#4334, 16#4335, 16#4336, 16#4337, 16#4338, 16#4339, 16#4341, 16#4342, 16#4343, 16#4344, 16#4345, 16#4346,
-                   16#4430, 16#4431, 16#4432, 16#4433, 16#4434, 16#4435, 16#4436, 16#4437, 16#4438, 16#4439, 16#4441, 16#4442, 16#4443, 16#4444, 16#4445, 16#4446,
-                   16#4530, 16#4531, 16#4532, 16#4533, 16#4534, 16#4535, 16#4536, 16#4537, 16#4538, 16#4539, 16#4541, 16#4542, 16#4543, 16#4544, 16#4545, 16#4546,
-                   16#4630, 16#4631, 16#4632, 16#4633, 16#4634, 16#4635, 16#4636, 16#4637, 16#4638, 16#4639, 16#4641, 16#4642, 16#4643, 16#4644, 16#4645, 16#4646,
-                   %% Used for Lowercase 
-                   16#3030, 16#3031, 16#3032, 16#3033, 16#3034, 16#3035, 16#3036, 16#3037, 16#3038, 16#3039, 16#3061, 16#3062, 16#3063, 16#3064, 16#3065, 16#3066,
-                   16#3130, 16#3131, 16#3132, 16#3133, 16#3134, 16#3135, 16#3136, 16#3137, 16#3138, 16#3139, 16#3161, 16#3162, 16#3163, 16#3164, 16#3165, 16#3166,
-                   16#3230, 16#3231, 16#3232, 16#3233, 16#3234, 16#3235, 16#3236, 16#3237, 16#3238, 16#3239, 16#3261, 16#3262, 16#3263, 16#3264, 16#3265, 16#3266,
-                   16#3330, 16#3331, 16#3332, 16#3333, 16#3334, 16#3335, 16#3336, 16#3337, 16#3338, 16#3339, 16#3361, 16#3362, 16#3363, 16#3364, 16#3365, 16#3366,
-                   16#3430, 16#3431, 16#3432, 16#3433, 16#3434, 16#3435, 16#3436, 16#3437, 16#3438, 16#3439, 16#3461, 16#3462, 16#3463, 16#3464, 16#3465, 16#3466,
-                   16#3530, 16#3531, 16#3532, 16#3533, 16#3534, 16#3535, 16#3536, 16#3537, 16#3538, 16#3539, 16#3561, 16#3562, 16#3563, 16#3564, 16#3565, 16#3566,
-                   16#3630, 16#3631, 16#3632, 16#3633, 16#3634, 16#3635, 16#3636, 16#3637, 16#3638, 16#3639, 16#3661, 16#3662, 16#3663, 16#3664, 16#3665, 16#3666,
-                   16#3730, 16#3731, 16#3732, 16#3733, 16#3734, 16#3735, 16#3736, 16#3737, 16#3738, 16#3739, 16#3761, 16#3762, 16#3763, 16#3764, 16#3765, 16#3766,
-                   16#3830, 16#3831, 16#3832, 16#3833, 16#3834, 16#3835, 16#3836, 16#3837, 16#3838, 16#3839, 16#3861, 16#3862, 16#3863, 16#3864, 16#3865, 16#3866,
-                   16#3930, 16#3931, 16#3932, 16#3933, 16#3934, 16#3935, 16#3936, 16#3937, 16#3938, 16#3939, 16#3961, 16#3962, 16#3963, 16#3964, 16#3965, 16#3966,
-                   16#6130, 16#6131, 16#6132, 16#6133, 16#6134, 16#6135, 16#6136, 16#6137, 16#6138, 16#6139, 16#6161, 16#6162, 16#6163, 16#6164, 16#6165, 16#6166,
-                   16#6230, 16#6231, 16#6232, 16#6233, 16#6234, 16#6235, 16#6236, 16#6237, 16#6238, 16#6239, 16#6261, 16#6262, 16#6263, 16#6264, 16#6265, 16#6266,
-                   16#6330, 16#6331, 16#6332, 16#6333, 16#6334, 16#6335, 16#6336, 16#6337, 16#6338, 16#6339, 16#6361, 16#6362, 16#6363, 16#6364, 16#6365, 16#6366,
-                   16#6430, 16#6431, 16#6432, 16#6433, 16#6434, 16#6435, 16#6436, 16#6437, 16#6438, 16#6439, 16#6461, 16#6462, 16#6463, 16#6464, 16#6465, 16#6466,
-                   16#6530, 16#6531, 16#6532, 16#6533, 16#6534, 16#6535, 16#6536, 16#6537, 16#6538, 16#6539, 16#6561, 16#6562, 16#6563, 16#6564, 16#6565, 16#6566,
-                   16#6630, 16#6631, 16#6632, 16#6633, 16#6634, 16#6635, 16#6636, 16#6637, 16#6638, 16#6639, 16#6661, 16#6662, 16#6663, 16#6664, 16#6665, 16#6666}).
+    element(X + Offset,
+            {
+             %% Used for Uppercase
+             16#3030, 16#3031, 16#3032, 16#3033, 16#3034, 16#3035, 16#3036, 16#3037,
+             16#3038, 16#3039, 16#3041, 16#3042, 16#3043, 16#3044, 16#3045, 16#3046,
+             16#3130, 16#3131, 16#3132, 16#3133, 16#3134, 16#3135, 16#3136, 16#3137,
+             16#3138, 16#3139, 16#3141, 16#3142, 16#3143, 16#3144, 16#3145, 16#3146,
+             16#3230, 16#3231, 16#3232, 16#3233, 16#3234, 16#3235, 16#3236, 16#3237,
+             16#3238, 16#3239, 16#3241, 16#3242, 16#3243, 16#3244, 16#3245, 16#3246,
+             16#3330, 16#3331, 16#3332, 16#3333, 16#3334, 16#3335, 16#3336, 16#3337,
+             16#3338, 16#3339, 16#3341, 16#3342, 16#3343, 16#3344, 16#3345, 16#3346,
+             16#3430, 16#3431, 16#3432, 16#3433, 16#3434, 16#3435, 16#3436, 16#3437,
+             16#3438, 16#3439, 16#3441, 16#3442, 16#3443, 16#3444, 16#3445, 16#3446,
+             16#3530, 16#3531, 16#3532, 16#3533, 16#3534, 16#3535, 16#3536, 16#3537,
+             16#3538, 16#3539, 16#3541, 16#3542, 16#3543, 16#3544, 16#3545, 16#3546,
+             16#3630, 16#3631, 16#3632, 16#3633, 16#3634, 16#3635, 16#3636, 16#3637,
+             16#3638, 16#3639, 16#3641, 16#3642, 16#3643, 16#3644, 16#3645, 16#3646,
+             16#3730, 16#3731, 16#3732, 16#3733, 16#3734, 16#3735, 16#3736, 16#3737,
+             16#3738, 16#3739, 16#3741, 16#3742, 16#3743, 16#3744, 16#3745, 16#3746,
+             16#3830, 16#3831, 16#3832, 16#3833, 16#3834, 16#3835, 16#3836, 16#3837,
+             16#3838, 16#3839, 16#3841, 16#3842, 16#3843, 16#3844, 16#3845, 16#3846,
+             16#3930, 16#3931, 16#3932, 16#3933, 16#3934, 16#3935, 16#3936, 16#3937,
+             16#3938, 16#3939, 16#3941, 16#3942, 16#3943, 16#3944, 16#3945, 16#3946,
+             16#4130, 16#4131, 16#4132, 16#4133, 16#4134, 16#4135, 16#4136, 16#4137,
+             16#4138, 16#4139, 16#4141, 16#4142, 16#4143, 16#4144, 16#4145, 16#4146,
+             16#4230, 16#4231, 16#4232, 16#4233, 16#4234, 16#4235, 16#4236, 16#4237,
+             16#4238, 16#4239, 16#4241, 16#4242, 16#4243, 16#4244, 16#4245, 16#4246,
+             16#4330, 16#4331, 16#4332, 16#4333, 16#4334, 16#4335, 16#4336, 16#4337,
+             16#4338, 16#4339, 16#4341, 16#4342, 16#4343, 16#4344, 16#4345, 16#4346,
+             16#4430, 16#4431, 16#4432, 16#4433, 16#4434, 16#4435, 16#4436, 16#4437,
+             16#4438, 16#4439, 16#4441, 16#4442, 16#4443, 16#4444, 16#4445, 16#4446,
+             16#4530, 16#4531, 16#4532, 16#4533, 16#4534, 16#4535, 16#4536, 16#4537,
+             16#4538, 16#4539, 16#4541, 16#4542, 16#4543, 16#4544, 16#4545, 16#4546,
+             16#4630, 16#4631, 16#4632, 16#4633, 16#4634, 16#4635, 16#4636, 16#4637,
+             16#4638, 16#4639, 16#4641, 16#4642, 16#4643, 16#4644, 16#4645, 16#4646,
+             %% Used for Lowercase
+             16#3030, 16#3031, 16#3032, 16#3033, 16#3034, 16#3035, 16#3036, 16#3037,
+             16#3038, 16#3039, 16#3061, 16#3062, 16#3063, 16#3064, 16#3065, 16#3066,
+             16#3130, 16#3131, 16#3132, 16#3133, 16#3134, 16#3135, 16#3136, 16#3137,
+             16#3138, 16#3139, 16#3161, 16#3162, 16#3163, 16#3164, 16#3165, 16#3166,
+             16#3230, 16#3231, 16#3232, 16#3233, 16#3234, 16#3235, 16#3236, 16#3237,
+             16#3238, 16#3239, 16#3261, 16#3262, 16#3263, 16#3264, 16#3265, 16#3266,
+             16#3330, 16#3331, 16#3332, 16#3333, 16#3334, 16#3335, 16#3336, 16#3337,
+             16#3338, 16#3339, 16#3361, 16#3362, 16#3363, 16#3364, 16#3365, 16#3366,
+             16#3430, 16#3431, 16#3432, 16#3433, 16#3434, 16#3435, 16#3436, 16#3437,
+             16#3438, 16#3439, 16#3461, 16#3462, 16#3463, 16#3464, 16#3465, 16#3466,
+             16#3530, 16#3531, 16#3532, 16#3533, 16#3534, 16#3535, 16#3536, 16#3537,
+             16#3538, 16#3539, 16#3561, 16#3562, 16#3563, 16#3564, 16#3565, 16#3566,
+             16#3630, 16#3631, 16#3632, 16#3633, 16#3634, 16#3635, 16#3636, 16#3637,
+             16#3638, 16#3639, 16#3661, 16#3662, 16#3663, 16#3664, 16#3665, 16#3666,
+             16#3730, 16#3731, 16#3732, 16#3733, 16#3734, 16#3735, 16#3736, 16#3737,
+             16#3738, 16#3739, 16#3761, 16#3762, 16#3763, 16#3764, 16#3765, 16#3766,
+             16#3830, 16#3831, 16#3832, 16#3833, 16#3834, 16#3835, 16#3836, 16#3837,
+             16#3838, 16#3839, 16#3861, 16#3862, 16#3863, 16#3864, 16#3865, 16#3866,
+             16#3930, 16#3931, 16#3932, 16#3933, 16#3934, 16#3935, 16#3936, 16#3937,
+             16#3938, 16#3939, 16#3961, 16#3962, 16#3963, 16#3964, 16#3965, 16#3966,
+             16#6130, 16#6131, 16#6132, 16#6133, 16#6134, 16#6135, 16#6136, 16#6137,
+             16#6138, 16#6139, 16#6161, 16#6162, 16#6163, 16#6164, 16#6165, 16#6166,
+             16#6230, 16#6231, 16#6232, 16#6233, 16#6234, 16#6235, 16#6236, 16#6237,
+             16#6238, 16#6239, 16#6261, 16#6262, 16#6263, 16#6264, 16#6265, 16#6266,
+             16#6330, 16#6331, 16#6332, 16#6333, 16#6334, 16#6335, 16#6336, 16#6337,
+             16#6338, 16#6339, 16#6361, 16#6362, 16#6363, 16#6364, 16#6365, 16#6366,
+             16#6430, 16#6431, 16#6432, 16#6433, 16#6434, 16#6435, 16#6436, 16#6437,
+             16#6438, 16#6439, 16#6461, 16#6462, 16#6463, 16#6464, 16#6465, 16#6466,
+             16#6530, 16#6531, 16#6532, 16#6533, 16#6534, 16#6535, 16#6536, 16#6537,
+             16#6538, 16#6539, 16#6561, 16#6562, 16#6563, 16#6564, 16#6565, 16#6566,
+             16#6630, 16#6631, 16#6632, 16#6633, 16#6634, 16#6635, 16#6636, 16#6637,
+             16#6638, 16#6639, 16#6661, 16#6662, 16#6663, 16#6664, 16#6665, 16#6666}).
 
 -compile({inline, [unhex/1]}).
 -doc """
-Decodes a hex encoded binary into a binary.
+Decodes a hex-encoded binary into a binary.
 
-_Example_
+An exception is raised if the size of the binary is not evenly divisble by two,
+or if the binary contains any characters that do not represent hex digits.
+
+## Examples
 
 ```erlang
-> binary:decode_hex(<<"66">>).
-<<"f">>
+1> binary:decode_hex(<<"666f6f">>).
+<<"foo">>
+2> binary:decode_hex(<<"A">>).
+** exception error: bad argument
+     in function  binary:decode_hex/1
+        called as binary:decode_hex(<<"A">>)
+        *** argument 1: must contain an even number of bytes
 ```
 """.
 -doc(#{since => <<"OTP 24.0">>}).
@@ -964,10 +1118,10 @@ Joins a list of binaries together by a specified `Separator`.
 
 Equivalent to `iolist_to_binary(lists:join(Separator, Binaries))`, but faster.
 
-_Example:_
+## Examples
 
 ```erlang
-> binary:join([<<"a">>, <<"b">>, <<"c">>], <<", ">>).
+1> binary:join([<<"a">>, <<"b">>, <<"c">>], <<", ">>).
 <<"a, b, c">>
 ```
 """.

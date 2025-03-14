@@ -5383,6 +5383,18 @@ handle_process_info(Process *c_p, ErtsSigRecvTracing *tracing,
 }
 
 static void
+activate_suspend_monitor(Process *c_p, ErtsMonitorSuspend *msp)
+{
+    erts_aint_t mstate;
+
+    erts_pause_proc_timer(c_p);
+    mstate = erts_atomic_read_bor_acqb(&msp->state,
+                                       ERTS_MSUSPEND_STATE_FLG_ACTIVE);
+    ASSERT(!(mstate & ERTS_MSUSPEND_STATE_FLG_ACTIVE)); (void) mstate;
+    erts_suspend(c_p, ERTS_PROC_LOCK_MAIN, NULL);
+}
+
+static void
 handle_suspend(Process *c_p, ErtsMonitor *mon, int *yieldp)
 {
     erts_aint32_t state = erts_atomic32_read_nob(&c_p->state);
@@ -5390,14 +5402,8 @@ handle_suspend(Process *c_p, ErtsMonitor *mon, int *yieldp)
     ASSERT(ERTS_ML_GET_TYPE(mon) == ERTS_MON_TYPE_SUSPEND);
 
     if (!(state & ERTS_PSFLG_DIRTY_RUNNING)) {
-        ErtsMonitorSuspend *msp;
-        erts_aint_t mstate;
-
-        msp = (ErtsMonitorSuspend *) erts_monitor_to_data(mon);
-        mstate = erts_atomic_read_bor_acqb(&msp->state,
-                                           ERTS_MSUSPEND_STATE_FLG_ACTIVE);
-        ASSERT(!(mstate & ERTS_MSUSPEND_STATE_FLG_ACTIVE)); (void) mstate;
-        erts_suspend(c_p, ERTS_PROC_LOCK_MAIN, NULL);
+        ErtsMonitorSuspend *msp = (ErtsMonitorSuspend *) erts_monitor_to_data(mon);
+        activate_suspend_monitor(c_p, msp);
         *yieldp = !0;
     }
     else {
@@ -5603,12 +5609,7 @@ erts_proc_sig_handle_pending_suspend(Process *c_p)
         msp->next = NULL;
         if (!(state & ERTS_PSFLG_EXITING)
             && erts_monitor_is_in_table(&msp->md.u.target)) {
-            erts_aint_t mstate;
-
-            mstate = erts_atomic_read_bor_acqb(&msp->state,
-                                               ERTS_MSUSPEND_STATE_FLG_ACTIVE);
-            ASSERT(!(mstate & ERTS_MSUSPEND_STATE_FLG_ACTIVE)); (void) mstate;
-            erts_suspend(c_p, ERTS_PROC_LOCK_MAIN, NULL);
+            activate_suspend_monitor(c_p, msp);
         }
 
         erts_monitor_release(&msp->md.u.target);
@@ -6070,7 +6071,9 @@ handle_altact_msg(Process *c_p, ErtsSigRecvTracing *tracing,
 
     case ERTS_SIG_Q_TYPE_DIST:
     {
-        ERTS_UNDEF(ErtsMessage *mp, NULL); /* shut up faulty warning... */
+        ErtsMessage *mp;
+        ERTS_UNDEF(mp, NULL);
+
         /*
          * Convert to external message...
          *
@@ -6535,6 +6538,7 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
                                 &msp->state, ~ERTS_MSUSPEND_STATE_FLG_ACTIVE);
                             if (mstate & ERTS_MSUSPEND_STATE_FLG_ACTIVE) {
                                 erts_resume(c_p, ERTS_PROC_LOCK_MAIN);
+                                erts_resume_paused_proc_timer(c_p);
                             }
                             break;
                         }

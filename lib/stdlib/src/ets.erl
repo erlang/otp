@@ -496,7 +496,7 @@ table, `undefined` is returned. If `Table` is not of the correct type, a
                  | {protection, table_access()}
                  | {size, non_neg_integer()}
                  | {type, table_type()}
-		 | {write_concurrency, boolean()}
+		 | {write_concurrency, boolean() | auto}
 		 | {read_concurrency, boolean()}.
 
 info(_) ->
@@ -1019,10 +1019,15 @@ same as specifying
 
   [](){: #heir }
 
-- **`{heir,Pid,HeirData} | {heir,none}`** - Set a process as heir. The heir
-  inherits the table if the owner terminates. Message
-  `{'ETS-TRANSFER',tid(),FromPid,HeirData}` is sent to the heir when that
-  occurs. The heir must be a local process. Default heir is `none`, which
+- **`{heir,Pid,HeirData}  | {heir,Pid} | {heir,none}`** - Set a process as heir.
+  The heir inherits the table if the owner terminates. If `HeirData` is given, a
+  message `{'ETS-TRANSFER',tid(),FromPid,HeirData}` is sent to the heir when
+  that occurs. If `{heir,Pid}` is given, no `'ETS-TRANSFER'` message is
+  sent. The user must then make sure the heir gets notified some other way
+  (through a link or monitor for example) to avoid the table being left unnoticed
+  by its new owner.
+
+  The heir must be a local process. Default heir is `none`, which
   destroys the table when the owner terminates.
 
   [](){: #new_2_write_concurrency }
@@ -1132,7 +1137,8 @@ same as specifying
       Name :: atom(),
       Options :: [Option],
       Option :: Type | Access | named_table | {keypos,Pos}
-              | {heir, Pid :: pid(), HeirData} | {heir, none} | Tweaks,
+              | {heir, Pid} | {heir, Pid, HeirData} | {heir, none}
+              | Tweaks,
       Type :: table_type(),
       Access :: table_access(),
       WriteConcurrencyAlternative :: boolean() | auto,
@@ -1141,6 +1147,7 @@ same as specifying
               | {decentralized_counters, boolean()}
               | compressed,
       Pos :: pos_integer(),
+      Pid :: pid(),
       HeirData :: term().
 
 new(_, _) ->
@@ -1319,38 +1326,38 @@ or using the special match variables `'$_'` (the whole matching object) and
 `'$$'` (all match variables in a list), so that the following
 [`match/2`](`match/2`) expression:
 
-```text
+```erlang
 ets:match(Table,{'$1','$2','$3'})
 ```
 
 is exactly equivalent to:
 
-```text
+```erlang
 ets:select(Table,[{{'$1','$2','$3'},[],['$$']}])
 ```
 
 And that the following [`match_object/2`](`match_object/2`) call:
 
-```text
+```erlang
 ets:match_object(Table,{'$1','$2','$1'})
 ```
 
 is exactly equivalent to
 
-```text
+```erlang
 ets:select(Table,[{{'$1','$2','$1'},[],['$_']}])
 ```
 
 Composite terms can be constructed in the `Result` part either by simply writing
 a list, so that the following code:
 
-```text
+```erlang
 ets:select(Table,[{{'$1','$2','$3'},[],['$$']}])
 ```
 
 gives the same output as:
 
-```text
+```erlang
 ets:select(Table,[{{'$1','$2','$3'},[],[['$1','$2','$3']]}])
 ```
 
@@ -1361,7 +1368,7 @@ mistaken for a `Guard`).
 
 Therefore the following call:
 
-```text
+```erlang
 ets:select(Table,[{{'$1','$2','$1'},[],['$_']}])
 ```
 
@@ -1386,13 +1393,13 @@ The `Guard` section can also contain logic and arithmetic operations, which are
 written with the same syntax as the guard tests (prefix notation), so that the
 following guard test written in Erlang:
 
-```text
+```erlang
 is_integer(X), is_integer(Y), X + Y < 4711
 ```
 
 is expressed as follows (`X` replaced with `'$1'` and `Y` with `'$2'`):
 
-```text
+```erlang
 [{is_integer, '$1'}, {is_integer, '$2'}, {'<', {'+', '$1', '$2'}, 4711}]
 ```
 
@@ -1629,7 +1636,8 @@ created is [`heir`](`m:ets#heir`). The calling process must be the table owner.
 -spec setopts(Table, Opts) -> true when
       Table :: table(),
       Opts :: Opt | [Opt],
-      Opt :: {heir, pid(), HeirData} | {heir,none},
+      Opt :: {heir, Pid} | {heir, Pid, HeirData} | {heir,none},
+      Pid :: pid(),
       HeirData :: term().
 
 setopts(_, _) ->
@@ -1796,7 +1804,7 @@ The function fails with reason `badarg` in the following situations:
 - The element to update is also the key.
 """.
 -doc(#{since => <<"OTP 27.0">>}).
--spec update_element(Table, Key, ElementSpec, Default) -> true when
+-spec update_element(Table, Key, ElementSpec, Default) -> boolean() when
       Table :: table(),
       Key :: term(),
       ElementSpec :: {Pos, Value} | [{Pos, Value}],

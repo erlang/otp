@@ -321,7 +321,7 @@ typedef struct db_table_common {
     Uint32 type;              /* table type, *read only* after creation */
     Eterm owner;              /* Pid of the creator */
     Eterm heir;               /* Pid of the heir */
-    UWord heir_data;          /* To send in ETS-TRANSFER (is_immed or (DbTerm*) */
+    Eterm heir_data;          /* To send in ETS-TRANSFER (immed, boxed(DbTerm*) or THE_NON_VALUE */
     Uint64 heir_started_interval;  /* To further identify the heir */
     Eterm the_name;           /* an atom */
     Binary *btid;             /* table magic ref, read only after creation */

@@ -345,6 +345,10 @@ static ASMJIT_FORCE_INLINE uint32_t x86AltOpcodeOf(const InstDB::InstInfo* info)
   return InstDB::_altOpcodeTable[info->_altOpcodeIndex];
 }
 
+static ASMJIT_FORCE_INLINE bool x86IsMmxOrXmm(const Reg& reg) noexcept {
+  return reg.type() == RegType::kX86_Mm || reg.type() == RegType::kX86_Xmm;
+}
+
 // x86::Assembler - X86BufferWriter
 // ================================
 
@@ -2572,37 +2576,41 @@ CaseFpuArith_Mem:
 
     case InstDB::kEncodingExtMovd:
 CaseExtMovd:
-      opReg = o0.id();
-      opcode.add66hIf(Reg::isXmm(o0));
+      if (x86IsMmxOrXmm(o0.as<Reg>())) {
+        opReg = o0.id();
+        opcode.add66hIf(Reg::isXmm(o0));
 
-      // MM/XMM <- Gp
-      if (isign3 == ENC_OPS2(Reg, Reg) && Reg::isGp(o1)) {
-        rbReg = o1.id();
-        goto EmitX86R;
-      }
+        // MM/XMM <- Gp
+        if (isign3 == ENC_OPS2(Reg, Reg) && Reg::isGp(o1)) {
+          rbReg = o1.id();
+          goto EmitX86R;
+        }
 
-      // MM/XMM <- Mem
-      if (isign3 == ENC_OPS2(Reg, Mem)) {
-        rmRel = &o1;
-        goto EmitX86M;
+        // MM/XMM <- Mem
+        if (isign3 == ENC_OPS2(Reg, Mem)) {
+          rmRel = &o1;
+          goto EmitX86M;
+        }
       }
 
       // The following instructions use the secondary opcode.
-      opcode &= Opcode::kW;
-      opcode |= x86AltOpcodeOf(instInfo);
-      opReg = o1.id();
-      opcode.add66hIf(Reg::isXmm(o1));
+      if (x86IsMmxOrXmm(o1.as<Reg>())) {
+        opcode &= Opcode::kW;
+        opcode |= x86AltOpcodeOf(instInfo);
+        opReg = o1.id();
+        opcode.add66hIf(Reg::isXmm(o1));
 
-      // GP <- MM/XMM
-      if (isign3 == ENC_OPS2(Reg, Reg) && Reg::isGp(o0)) {
-        rbReg = o0.id();
-        goto EmitX86R;
-      }
+        // GP <- MM/XMM
+        if (isign3 == ENC_OPS2(Reg, Reg) && Reg::isGp(o0)) {
+          rbReg = o0.id();
+          goto EmitX86R;
+        }
 
-      // Mem <- MM/XMM
-      if (isign3 == ENC_OPS2(Mem, Reg)) {
-        rmRel = &o0;
-        goto EmitX86M;
+        // Mem <- MM/XMM
+        if (isign3 == ENC_OPS2(Mem, Reg)) {
+          rmRel = &o0;
+          goto EmitX86M;
+        }
       }
       break;
 

@@ -49,7 +49,7 @@
 
 -module(gen_tcp_misc_SUITE).
 
--include_lib("common_test/include/ct.hrl").
+-include_lib("stdlib/include/assert.hrl").
 -include("kernel_test_lib.hrl").
 
 -export([
@@ -108,7 +108,8 @@
 	 otp_18357/1,
          otp_18883/1,
 	 otp_18707/1,
-         send_block_unblock/1
+         send_block_unblock/1,
+         prim_inet_recv_marker/1
 	]).
 
 %% Internal exports.
@@ -205,7 +206,7 @@ inet_backend_default_cases() ->
     all_std_cases().
 
 inet_backend_inet_cases() ->
-    all_std_cases().
+    [prim_inet_recv_marker] ++ all_std_cases().
 
 inet_backend_socket_cases() ->
     all_std_cases().
@@ -8963,8 +8964,8 @@ sm_await_down(Pid, Mon, ExpRes) ->
 	    ok;
 	{'DOWN', Mon, process, Pid, UnexpRes} ->
 	    ?P("received unexpected process down message from ~p: "
-	       "~n   ~p, Expected:"
-               "~n   ~p", [Pid, UnexpRes, ExpRes]),
+	       "~n   ~p"
+	       "~n   Expected: ~p", [Pid, UnexpRes, ExpRes]),
 	    ct:fail({unexpected_down, UnexpRes, ExpRes})
     end.
 
@@ -9629,6 +9630,24 @@ do_otp_18707(_Config) ->
     ?P("done"),
     ok.
 
+%% Disassemble prim_inet.beam and make that sure each function has
+%% the correct number of recv markers.
+prim_inet_recv_marker(_Config) ->
+    [PrimInet | _] = filelib:wildcard(
+        filename:join([code:lib_dir(erts),"**","prim_inet.beam"])),
+
+    {beam_file, prim_inet, _Exports, _Vsn, _Attr, Functions} =
+        beam_disasm:file(PrimInet),
+    RecvMarkerCnt =
+        [{Name,Arity,length([C || {recv_marker_use,_} = C <- Code])}
+            || {function, Name, Arity, _, Code} <- Functions],
+    RecvMarkers =
+        [{Name, Arity} || {Name,Arity,Cnt} <- RecvMarkerCnt, Cnt =/= 0],
+
+    ?assert(lists:member({send,4}, RecvMarkers)),
+    ?assert(lists:member({do_sendto,4}, RecvMarkers)),
+
+    ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 

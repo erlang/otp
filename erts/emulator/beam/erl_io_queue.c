@@ -97,13 +97,13 @@ static ErtsIOQBinary *alloc_binary(Uint size, char *source, void **iov_base, int
     }
 }
 
-Uint erts_ioq_size(ErtsIOQueue *q)
+Uint erts_ioq_size(const ErtsIOQueue *q)
 {
     return q->size;
 }
 
 /* expand queue to hold n elements in tail or head */
-static int expandq(ErtsIOQueue* q, int n, int tail)
+static int expandq(ErtsIOQueue *q, int n, int tail)
 /* tail: 0 if make room in head, make room in tail otherwise */
 {
     int h_sz;  /* room before header */
@@ -376,8 +376,7 @@ int erts_ioq_deq(ErtsIOQueue *q, Uint size)
     return 0;
 }
 
-
-Uint erts_ioq_peekqv(ErtsIOQueue *q, ErtsIOVec *ev) {
+Uint erts_ioq_peekqv(const ErtsIOQueue *q, ErtsIOVec *ev) {
     ASSERT(ev);
 
     if (! q) {
@@ -396,7 +395,7 @@ Uint erts_ioq_peekqv(ErtsIOQueue *q, ErtsIOVec *ev) {
     }
 }
 
-SysIOVec* erts_ioq_peekq(ErtsIOQueue *q, int* vlenp)  /* length of io-vector */
+SysIOVec* erts_ioq_peekq(const ErtsIOQueue *q, int* vlenp) /* length of io-vector */
 {
 
     if (q == NULL) {

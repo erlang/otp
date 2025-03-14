@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1997-2024. All Rights Reserved.
+ * Copyright Ericsson AB 1997-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -2666,6 +2666,10 @@ __decl_noreturn void __noreturn erts_exit_epilogue(int flush)
     int n = erts_exit_code;
 
     sys_tty_reset(n);
+
+#ifdef ERTS_GCOV
+    flush = !0; /* otherwise we get no results... */
+#endif
 
     if (n == ERTS_INTR_EXIT)
 	(void) (flush ? exit(0) : _exit(0));

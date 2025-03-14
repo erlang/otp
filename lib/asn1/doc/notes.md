@@ -25,13 +25,12 @@ This document describes the changes made to the asn1 application.
 
 ### Fixed Bugs and Malfunctions
 
-- The `undec_rest` option would be ignored in generated functions for exclusive decode. The option is now respected, meaning that the return value from such functions are now three-tuples instead of a two-tuples.
+- Multiple bugs in decoding of the `REAL` type has been eliminated. Also, the documentation for `REAL` has been updated to mention the special values `0`, `PLUS-INFINITY`, and `MINUS-INFINITY`.
 
-  *** POTENTIAL INCOMPATIBILITY ***
+  Own Id: OTP-19504 Aux Id: [GH-9096], [PR-9469]
 
-  Own Id: OTP-19290 Aux Id: [PR-8798]
-
-[PR-8798]: https://github.com/erlang/otp/pull/8798
+[GH-9096]: https://github.com/erlang/otp/issues/9096
+[PR-9469]: https://github.com/erlang/otp/pull/9469
 
 ## Asn1 5.3.1
 

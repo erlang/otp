@@ -787,7 +787,7 @@ table_lookup(Table, Key) ->
 %%% table_lookup_batch(Tables, Class, Cond) -> KeyList
 %%%
 %%% Extract the keys from a table or a table group.
-%%% If a condition is supplied, it is on the form {Mod, Fun, ExtraArgs}
+%%% If a condition is supplied, it is of the form {Mod, Fun, ExtraArgs}
 %%% and returns {true,Key} or false when called using
 %%% apply(Mod, Fun, [Instance|ExtraArgs]).
 %%% Instance is, for historic reasons, {{Class, Key}, Value} when the function

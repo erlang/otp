@@ -705,7 +705,7 @@ behavior of earlier flags.
   scheduling latency for individual file descriptor input events.
 
 - **`+JPcover true|false|function|function_counters|line|line_counters`{:
-  #+JPcover }** - Since: OTP 27.0
+  #+JPcover }**
 
   Enables or disables support for coverage when running with the JIT. Defaults
   to false.
@@ -742,6 +742,8 @@ behavior of earlier flags.
 
   - **`false`** - Disables coverage.
 
+  Since: OTP 27.0
+
 - **`+JPperf true|false|dump|map|fp|no_fp`{: #+JPperf }** - Enables or disables
   support for the `perf` profiler when running with the JIT on Linux. Defaults
   to false.
@@ -768,14 +770,16 @@ behavior of earlier flags.
   [perf support](BeamAsm.md#linux-perf-support) section in the BeamAsm internal
   documentation.
 
-- **`+JMsingle true|false`{: #+JMsingle }** - Since: OTP-26.0
+- **`+JMsingle true|false`{: #+JMsingle }** - Enables or disables the use of
+  single-mapped RWX memory for JIT code.
 
-  Enables or disables the use of single-mapped RWX memory for JIT code. The
-  default is to map JIT:ed machine code into two regions sharing the same
+  The default is to map JIT:ed machine code into two regions sharing the same
   physical pages, where one region is executable but not writable, and the other
   writable but not executable. As some tools, such as QEMU user mode emulation,
   cannot deal with the dual mapping, this flags allows it to be disabled. This
   flag is automatically enabled by the [`+JPperf`](#%2BJPperf) flag.
+
+  Since: OTP 26.0
 
 - **`+L`** - Prevents loading information about source filenames and line
   numbers. This saves some memory, but exceptions do not contain information
@@ -784,15 +788,16 @@ behavior of earlier flags.
 - **`+MFlag Value`{: #erts_alloc }** - Memory allocator-specific flags. For more
   information, see [`erts_alloc(3)`](erts_alloc.md).
 
-- **`+pad true|false`{: #+pad }** - Since: OTP 25.3
+- **`+pad true|false`{: #+pad }** - The boolean value used with the `+pad`
+  parameter determines the default value of the [`async_dist`](`m:erlang#process_flag_async_dist`) process flag of newly spawned processes.
 
-  The boolean value used with the `+pad` parameter determines the default value
-  of the [`async_dist`](`m:erlang#process_flag_async_dist`) process flag of
-  newly spawned processes. By default, if no `+pad` command line option is
+  By default, if no `+pad` command line option is
   passed, the `async_dist` flag will be set to `false`.
 
   The value used in runtime can be inspected by calling
   [`erlang:system_info(async_dist)`](`m:erlang#system_info_async_dist`).
+
+  Since: OTP 25.3
 
 - **[](){: #%2Bpc } `+pc Range`{: #printable_character_range }** -
   Sets the range of characters that the system considers printable in heuristic

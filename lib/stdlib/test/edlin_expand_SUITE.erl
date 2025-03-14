@@ -85,16 +85,17 @@ normal(Config) when is_list(Config) ->
     {yes,"test:",[]} = do_expand("expand_"),
     {no, [], []} = do_expand("expandXX_"),
     {no,[],[#{
-               title:="functions",
+               title:="Functions",
                elems:=[{"a_fun_name",[{ending,"("}]},
                         {"a_less_fun_name",_},
                         {"b_comes_after_a",_},
                         {"expand0arity_entirely",_},
                         {"module_info",_}]
               }]} = do_expand("expand_test:"),
-    {yes,[],[#{title:="functions",
+    {yes,[],[#{title:="Functions",
                       elems:=[{"a_fun_name",_},{"a_less_fun_name",_}]}]} = do_expand("expand_test:a_"),
     {yes,"arity_entirely()",[]} = do_expand("expand_test:expand0"),
+    {no, [], [#{title:="Functions"}, #{title:="Obsolete API functions"}]} = do_expand("string:"),
     ok.
 
 to_atom(Str) ->
@@ -448,8 +449,11 @@ get_coverage(Config) ->
     do_expand("M#"),
     do_expand("#non_existant_record"),
     do_expand("#a_record{ non_existand_field"),
-    
-    
+    do_expand("case("),
+    do_expand("catch("),
+    do_expand("case ("),
+    do_expand("catch ("),
+
     %% match_arguments coverage
     do_expand("complete_function_parameter:integer_parameter_function(atom,"), %% match_argument -> false
     do_expand("complete_function_parameter:a_zero_arity_fun()"), %% match_argument, parameters empty
@@ -524,7 +528,7 @@ get_coverage(Config) ->
     lists:flatten(edlin_expand:format_matches(M10, 20)),
     %% Test that we are not filtering duplicates bit with different case or different string lengths
     {yes,"e", M11} = do_expand("complete_function_parameter:cas"),
-    "\e[;1;4mfunctions\e[0m\ncaseSensitiveFunction(        casesensitivefunction(        \ncaseSensitiveFunctionName(\n" = do_format(M11),
+    "\e[;1;4mFunctions\e[0m\ncaseSensitiveFunction(        casesensitivefunction(        \ncaseSensitiveFunctionName(\n" = do_format(M11),
     ok.
 
 %% Normal module name, some function names using quoted atoms.
@@ -534,7 +538,7 @@ quoted_fun(Config) when is_list(Config) ->
     %% should be no colon after test this time
     {yes, "test", [#{title:="modules", elems:=[{"expand_test",[{ending, ":"}]},{"expand_test1",_}]}]} = do_expand("expand_"),
     {no, [], []} = do_expand("expandXX_"),
-    {no,[],[#{title:="functions",
+    {no,[],[#{title:="Functions",
                      elems:=[{"'#weird-fun-name'",_},
                             {"'Quoted_fun_name'",_},
                             {"'Quoted_fun_too'",_},
@@ -567,7 +571,7 @@ quoted_module(Config) when is_list(Config) ->
                             {"a_less_fun_name",_},
                             {"b_comes_after_a",_},
                             {"module_info",_}]}]} = do_expand("'ExpandTestCaps':"),
-    {yes,[],[#{title:="functions", elems:=[{"a_fun_name",_},
+    {yes,[],[#{title:="Functions", elems:=[{"a_fun_name",_},
                                                 {"a_less_fun_name",_}]}]} = do_expand("'ExpandTestCaps':a_"),
     ok.
 

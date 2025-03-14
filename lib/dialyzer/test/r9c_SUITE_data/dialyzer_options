@@ -1,2 +1,2 @@
-{dialyzer_options, [{indent_opt, false}, {defines, [{vsn, 42}]}, {warnings, [no_unknown]}]}.
+{dialyzer_options, [{indent_opt, false}, {defines, [{vsn, 42}]}, {warnings, [no_unknown, opaque_union]}]}.
 {time_limit, 20}.

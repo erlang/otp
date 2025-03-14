@@ -107,7 +107,7 @@ encode_opts(_, _) ->
 -doc(#{since => <<"OTP 21.2">>}).
 -spec put(Ref, Ix, Value) -> ok when
       Ref  :: atomics_ref(),
-      Ix :: integer(),
+      Ix :: pos_integer(),
       Value :: integer().
 put(_Ref, _Ix, _Value) ->
     erlang:nif_error(undef).
@@ -116,7 +116,7 @@ put(_Ref, _Ix, _Value) ->
 -doc(#{since => <<"OTP 21.2">>}).
 -spec get(Ref, Ix) -> integer() when
       Ref  :: atomics_ref(),
-      Ix :: integer().
+      Ix :: pos_integer().
 get(_Ref, _Ix) ->
     erlang:nif_error(undef).
 
@@ -124,7 +124,7 @@ get(_Ref, _Ix) ->
 -doc(#{since => <<"OTP 21.2">>}).
 -spec add(Ref, Ix, Incr) -> ok when
       Ref  :: atomics_ref(),
-      Ix :: integer(),
+      Ix :: pos_integer(),
       Incr :: integer().
 add(_Ref, _Ix, _Incr) ->
     erlang:nif_error(undef).
@@ -133,7 +133,7 @@ add(_Ref, _Ix, _Incr) ->
 -doc(#{since => <<"OTP 21.2">>}).
 -spec add_get(Ref, Ix, Incr) -> integer() when
       Ref  :: atomics_ref(),
-      Ix :: integer(),
+      Ix :: pos_integer(),
       Incr :: integer().
 add_get(_Ref, _Ix, _Incr) ->
     erlang:nif_error(undef).
@@ -142,7 +142,7 @@ add_get(_Ref, _Ix, _Incr) ->
 -doc(#{since => <<"OTP 21.2">>}).
 -spec sub(Ref, Ix, Decr) -> ok when
       Ref  :: atomics_ref(),
-      Ix :: integer(),
+      Ix :: pos_integer(),
       Decr :: integer().
 sub(Ref, Ix, Decr) ->
     try
@@ -156,7 +156,7 @@ sub(Ref, Ix, Decr) ->
 -doc(#{since => <<"OTP 21.2">>}).
 -spec sub_get(Ref, Ix, Decr) -> integer() when
       Ref  :: atomics_ref(),
-      Ix :: integer(),
+      Ix :: pos_integer(),
       Decr :: integer().
 sub_get(Ref, Ix, Decr) ->
     try
@@ -172,7 +172,7 @@ Atomically replace the value of the atomic with `Desired` and return the previou
 -doc(#{since => <<"OTP 21.2">>}).
 -spec exchange(Ref, Ix, Desired) -> integer() when
       Ref  :: atomics_ref(),
-      Ix :: integer(),
+      Ix :: pos_integer(),
       Desired :: integer().
 exchange(_Ref, _Ix, _Desired) ->
     erlang:nif_error(undef).
@@ -187,7 +187,7 @@ not equal to `Expected`.
 -doc(#{since => <<"OTP 21.2">>}).
 -spec compare_exchange(Ref, Ix, Expected, Desired) -> ok | integer() when
       Ref  :: atomics_ref(),
-      Ix :: integer(),
+      Ix :: pos_integer(),
       Expected :: integer(),
       Desired :: integer().
 compare_exchange(_Ref, _Ix, _Expected, _Desired) ->

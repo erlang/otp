@@ -639,7 +639,11 @@ signature_scheme(?ECDSA_SHA1) -> ecdsa_sha1;
 signature_scheme(SignAlgo) when is_integer(SignAlgo) ->
     <<?BYTE(Hash),?BYTE(Sign)>> = <<?UINT16(SignAlgo)>>,
     try
-        {ssl_cipher:hash_algorithm(Hash), ssl_cipher:sign_algorithm(Sign)}
+        case {hash_algorithm(Hash), sign_algorithm(Sign)} of
+            {unassigned, _} -> unassigned;
+            {_, unassigned} -> unassigned;
+            Scheme -> Scheme
+        end
     catch
         _:_ ->
             unassigned

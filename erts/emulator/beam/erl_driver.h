@@ -503,7 +503,7 @@ EXTERN int null_func(void);
 
 /* ErlDrvTerm is the type to use for casts when building 
  * terms that should be sent to connected process,
- * for instance a tuple on the form {tcp, Port, [Tag|Binary]}
+ * for instance a tuple of the form {tcp, Port, [Tag|Binary]}
  *
  * ErlDrvTerm spec[] = {
  *    ERL_DRV_ATOM, driver_mk_atom("tcp"),

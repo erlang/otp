@@ -393,8 +393,8 @@ is_type(Type, Cs, String) ->
     catch
         _:_ ->
             %% Types not possible to deduce with erl_parse
-            % If string contains variables, erl_parse:parse_term will fail, but we
-            % consider them valid sooo.. lets replace them with the atom var
+            %% If string contains variables, erl_parse:parse_term will fail, but we
+            %% consider them valid sooo.. lets replace them with the atom var
             B = [(fun({var, Anno, _}) -> {atom, Anno, var}; (Token) -> Token end)(X) || X <- A],
             try
                 {ok, Term2} = erl_parse:parse_term(B),
@@ -730,29 +730,33 @@ expand_filepath(PathPrefix, Word) ->
     end.
 
 shell(Fun) ->
-    {ok, [{atom, _, Fun1}], _} = erl_scan:string(Fun),
-    case shell:local_func(Fun1) of
+    case shell:local_func(Fun) of
         true -> "shell";
         false -> "user_defined"
     end.
 
 -doc false.
+shell_default_or_bif(Fun) when is_atom(Fun) ->
+    case lists:member(Fun, [E || {E,_} <- get_exports(shell_default)]) of
+        true -> "shell_default";
+        false -> bif(Fun)
+    end;
 shell_default_or_bif(Fun) ->
     case erl_scan:string(Fun) of
-        {ok, [{var, _, _}], _} -> [];
-        {ok, [{atom, _, Fun1}], _} ->
-            case lists:member(Fun1, [E || {E,_}<-get_exports(shell_default)]) of
-                true -> "shell_default";
-                _ -> bif(Fun)
-            end
+        {ok, [{atom, _, Fun1}], _} -> shell_default_or_bif(Fun1);
+        _ -> []
     end.
 
 -doc false.
-bif(Fun) ->
-    {ok, [{atom, _, Fun1}], _} = erl_scan:string(Fun),
-    case lists:member(Fun1, [E || {E,A}<-get_exports(erlang), erl_internal:bif(E,A)]) of
+bif(Fun) when is_atom(Fun) ->
+    case lists:member(Fun, [E || {E,_} <- get_exports(erlang)]) of
         true -> "erlang";
-        _ -> shell(Fun)
+        false -> shell(Fun)
+    end;
+bif(Fun) ->
+    case erl_scan:string(Fun) of
+        {ok, [{atom, _, Fun1}], _} -> bif(Fun1);
+        _ -> []
     end.
 
 expand_string(Bef0) ->
@@ -941,48 +945,54 @@ get_exports(Mod) ->
                     []
             end
     end.
-
-expand_function_name(ModStr, FuncPrefix, CompleteChar, FT) ->
+pp(String) when is_binary(String) ->
+    binary_to_list(string:titlecase(string:trim(String)));
+pp(String) when is_list(String) ->
+    string:titlecase(string:trim(String)).
+expand_name(ModStr, Type, Prefix, CompleteChar, FT) ->
     case to_atom(ModStr) of
         {ok, Mod} ->
-            Extra = case Mod of
-                        shell_default -> [{Name, Arity}||{{function, {_, Name, Arity}}, _} <- FT];
-                        _ -> []
-                    end,
-            Exports = get_exports(Mod) ++ Extra,
-            {Res, Expansion, Matches}=Result = match(FuncPrefix, Exports, CompleteChar),
-            case Matches of
-                [] -> Result;
-                _ -> {Res, Expansion, [#{title=>"functions", elems=>Matches, options=>[highlight_all]}]}
-            end;
-        error ->
-            {no, [], []}
-    end.
-
-get_module_types(Mod) ->
-    case code:get_doc(Mod, #{sources => [debug_info]}) of
-        {ok, #docs_v1{ docs = Docs } } ->
-            [{T, A} || {{type, T, A},_Anno,_Sig,_Doc,_Meta} <- Docs];
-        _ -> {no, [], []}
-    end.
-
-expand_type_name(ModStr, TypePrefix, CompleteChar) ->
-    case to_atom(ModStr) of
-        {ok, Mod} ->
-            case get_module_types(Mod) of
-                {no, [], []} ->
-                    {no, [], []};
-                Types ->
-                    {Res, Expansion, Matches}=Result = match(TypePrefix, Types, CompleteChar),
+            case Mod =:= shell_default of
+                true -> ShellDefaultStr = pp("shell defined "++atom_to_list(Type)++"s"),
+                        Groups = #{ShellDefaultStr=>[{Name, Arity}||{{Type1, {_, Name, Arity}}, _} <- FT, Type1 =:= Type]};
+                false ->
+                    TypeStr = pp(atom_to_list(Type)++"s"),
+                    case code:get_doc(Mod) of
+                        {ok, #docs_v1{ docs = Docs } } ->
+                            case Type of
+                                function ->
+                                    Exports = get_exports(Mod),
+                                    Grouped = [{pp(G),{Name,Arity}} || {{Type1,Name,Arity},_,_,_,#{group := G}}<-Docs, Type1 =:= Type, lists:member({Name,Arity},Exports)],
+                                    Ungrouped = [{TypeStr,{Name,Arity}} || {{Type1,Name,Arity},_,_,_,MD}<-Docs, Type1 =:= Type, maps:is_key(group, MD) =:= false, lists:member({Name,Arity},Exports)];
+                                type ->
+                                    Grouped = [{pp(G),{Name,Arity}} || {{Type1,Name,Arity},_,_,_,#{exported := true, group := G}}<-Docs, Type1 =:= Type],
+                                    Ungrouped = [{TypeStr,{Name,Arity}} || {{Type1,Name,Arity},_,_,_,#{exported := true}=MD}<-Docs, Type1 =:= Type, maps:is_key(group, MD) =:= false]
+                            end,
+                            Groups = maps:groups_from_list(fun (T)->element(1,T) end,
+                                                        fun(T)->element(2,T) end,
+                                                        Grouped ++ Ungrouped);
+                        _ when Type =:= function ->
+                            Groups = #{TypeStr => get_exports(Mod)};
+                        _ -> %% No docs?
+                            Groups = #{}
+                    end
+            end,
+            fold_results(
+                [begin
+                    {Res, Expansion, Matches}=Result = match(Prefix, maps:get(Title, Groups), CompleteChar),
                     case Matches of
                         [] -> Result;
-                        _ -> {Res, Expansion, [#{title=>"types", elems=>Matches, options=>[highlight_all]}]}
+                        _ ->
+                            {Res, Expansion, [#{title=>Title, elems=>Matches, options=>[highlight_all]}]}
                     end
-            end;
+                end || Title <- maps:keys(Groups)]);
         error ->
             {no, [], []}
     end.
-
+expand_function_name(ModStr, FuncPrefix, CompleteChar, FT) ->
+    expand_name(ModStr, function, FuncPrefix, CompleteChar, FT).
+expand_type_name(ModStr, TypePrefix, CompleteChar) ->
+    expand_name(ModStr, type, TypePrefix, CompleteChar, []).
 to_atom(Str) ->
     case erl_scan:string(Str) of
         {ok, [{atom,_,A}], _} ->

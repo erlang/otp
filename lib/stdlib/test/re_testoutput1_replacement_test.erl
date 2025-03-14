@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2024. All Rights Reserved.
+%% Copyright Ericsson AB 2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -83,6 +83,13 @@ run() ->
     run58(),
     run59(),
     run60(),
+    run61(),
+    run62(),
+    run63(),
+    run64(),
+    run65(),
+    run66(),
+    run67(),
     ok.
 run0() ->
     <<"SSxHvfHfMHTdP">> = iolist_to_binary(re:replace("the quick brown fox","the quick brown fox","SSx\\1HvfHfMHTdP",[])),
@@ -13630,11 +13637,11 @@ no",".*\\.gif","ncD",[dotall,global])),
     <<"qgBuDWyC
 no">> = iolist_to_binary(re:replace("borfle
 bib.gif
-no",".*\\.gif","qgBuDW\\1yC",[multiline,dotall])),
+no",".*\\.gif","qgBuDW\\1yC",[dotall,multiline])),
     <<"qgBuDWyC
 no">> = iolist_to_binary(re:replace("borfle
 bib.gif
-no",".*\\.gif","qgBuDW\\1yC",[multiline,dotall,global])),
+no",".*\\.gif","qgBuDW\\1yC",[dotall,multiline,global])),
     <<"borfle
 bib.gif
 XnoY">> = iolist_to_binary(re:replace("borfle
@@ -13669,7 +13676,7 @@ nodborfle
 bib.gif
 nolEUAnHX">> = iolist_to_binary(re:replace("borfle
 bib.gif
-no",".*$","d&\\1&d\\1\\1&lE\\1UAnHX",[multiline,dotall])),
+no",".*$","d&\\1&d\\1\\1&lE\\1UAnHX",[dotall,multiline])),
     <<"dborfle
 bib.gif
 noborfle
@@ -13678,7 +13685,7 @@ nodborfle
 bib.gif
 nolEUAnHXddlEUAnHX">> = iolist_to_binary(re:replace("borfle
 bib.gif
-no",".*$","d&\\1&d\\1\\1&lE\\1UAnHX",[multiline,dotall,global])),
+no",".*$","d&\\1&d\\1\\1&lE\\1UAnHX",[dotall,multiline,global])),
     <<"borfle
 bib.gif
 vUTXiRnodPC">> = iolist_to_binary(re:replace("borfle
@@ -13713,12 +13720,12 @@ no",".*$","HHotxYr&MmBIIeE",[dotall,global])),
 bib.gif
 noomApQsBev">> = iolist_to_binary(re:replace("borfle
 bib.gif
-no",".*$","qDOV&omApQ\\1sBev",[multiline,dotall])),
+no",".*$","qDOV&omApQ\\1sBev",[dotall,multiline])),
     <<"qDOVborfle
 bib.gif
 noomApQsBevqDOVomApQsBev">> = iolist_to_binary(re:replace("borfle
 bib.gif
-no",".*$","qDOV&omApQ\\1sBev",[multiline,dotall,global])),
+no",".*$","qDOV&omApQ\\1sBev",[dotall,multiline,global])),
     ok.
 run9() ->
     <<"abcde
@@ -13765,18 +13772,18 @@ Bar">> = iolist_to_binary(re:replace("abcde
 Bar","(.*X|^B)","AUFFK&dgWBBmewQfx&",[dotall,global])),
     <<"MHrweJqRiSNabcde
 1234XvMXyz">> = iolist_to_binary(re:replace("abcde
-1234Xyz","(.*X|^B)","MHrweJqRiSN&vMX",[multiline,dotall])),
+1234Xyz","(.*X|^B)","MHrweJqRiSN&vMX",[dotall,multiline])),
     <<"MHrweJqRiSNabcde
 1234XvMXyz">> = iolist_to_binary(re:replace("abcde
-1234Xyz","(.*X|^B)","MHrweJqRiSN&vMX",[multiline,dotall,global])),
-    <<"dykBXarFoo">> = iolist_to_binary(re:replace("BarFoo","(.*X|^B)","dyk\\1X",[multiline,dotall])),
-    <<"dykBXarFoo">> = iolist_to_binary(re:replace("BarFoo","(.*X|^B)","dyk\\1X",[multiline,dotall,global])),
+1234Xyz","(.*X|^B)","MHrweJqRiSN&vMX",[dotall,multiline,global])),
+    <<"dykBXarFoo">> = iolist_to_binary(re:replace("BarFoo","(.*X|^B)","dyk\\1X",[dotall,multiline])),
+    <<"dykBXarFoo">> = iolist_to_binary(re:replace("BarFoo","(.*X|^B)","dyk\\1X",[dotall,multiline,global])),
     <<"abcde
 BBrksdKohPar">> = iolist_to_binary(re:replace("abcde
-Bar","(.*X|^B)","&&rksdKohP",[multiline,dotall])),
+Bar","(.*X|^B)","&&rksdKohP",[dotall,multiline])),
     <<"abcde
 BBrksdKohPar">> = iolist_to_binary(re:replace("abcde
-Bar","(.*X|^B)","&&rksdKohP",[multiline,dotall,global])),
+Bar","(.*X|^B)","&&rksdKohP",[dotall,multiline,global])),
     <<"kRwyz">> = iolist_to_binary(re:replace("abcde
 1234Xyz","(?s)(.*X|^B)","kRw",[])),
     <<"kRwyz">> = iolist_to_binary(re:replace("abcde
@@ -13879,1908 +13886,1882 @@ run10() ->
     <<"the QtqBOx brown fox">> = iolist_to_binary(re:replace("the \"quick\" brown fox","\"([^\\\\\"]+|\\\\.)*\"","QtqBOx",[global])),
     <<"tXNokRjRKvX\"the \\\"quick\\\" brown fox\"I brown fox\"the \\\"quick\\\" brown fox\"WSIA">> = iolist_to_binary(re:replace("\"the \\\"quick\\\" brown fox\"","\"([^\\\\\"]+|\\\\.)*\"","tXNokRjRKvX&I\\1&WSIA",[])),
     <<"tXNokRjRKvX\"the \\\"quick\\\" brown fox\"I brown fox\"the \\\"quick\\\" brown fox\"WSIA">> = iolist_to_binary(re:replace("\"the \\\"quick\\\" brown fox\"","\"([^\\\\\"]+|\\\\.)*\"","tXNokRjRKvX&I\\1&WSIA",[global])),
-    <<"eopBsGmBuabc">> = iolist_to_binary(re:replace("abc","","eopBsGmB&u\\1",[])),
-    <<"eopBsGmBuaeopBsGmBubeopBsGmBuceopBsGmBu">> = iolist_to_binary(re:replace("abc","","eopBsGmB&u\\1",[global])),
-    <<"QVBStnKyKwiFacbrwKKKt">> = iolist_to_binary(re:replace("acb","a[^a]b","QVBStnKyKwiF&rwKK\\1Kt",[])),
-    <<"QVBStnKyKwiFacbrwKKKt">> = iolist_to_binary(re:replace("acb","a[^a]b","QVBStnKyKwiF&rwKK\\1Kt",[global])),
-    <<"a
-bfFGmLJOyxg">> = iolist_to_binary(re:replace("a
-b","a[^a]b","&fFGmLJOy\\1xg",[])),
-    <<"a
-bfFGmLJOyxg">> = iolist_to_binary(re:replace("a
-b","a[^a]b","&fFGmLJOy\\1xg",[global])),
-    <<"vvdSSUIVj">> = iolist_to_binary(re:replace("acb","a.b","vvd\\1SSUIVj\\1",[])),
-    <<"vvdSSUIVj">> = iolist_to_binary(re:replace("acb","a.b","vvd\\1SSUIVj\\1",[global])),
+    <<"eopBsGmBuabc">> = iolist_to_binary(re:replace("abc",".*?","eopBsGmB&u\\1",[])),
+    <<"eopBsGmBueopBsGmBaueopBsGmBueopBsGmBbueopBsGmBueopBsGmBcueopBsGmBu">> = iolist_to_binary(re:replace("abc",".*?","eopBsGmB&u\\1",[global])),
+    <<"XGKIdSoshwbLyuUEabc">> = iolist_to_binary(re:replace("abc","\\b","XG&KIdSoshwbLyuU&E",[])),
+    <<"XGKIdSoshwbLyuUEabcXGKIdSoshwbLyuUE">> = iolist_to_binary(re:replace("abc","\\b","XG&KIdSoshwbLyuU&E",[global])),
+    <<"QVBStnKyKwiFrwKKKtabc">> = iolist_to_binary(re:replace("abc","\\b","QVBStnKyKwiF&rwKK\\1Kt",[])),
+    <<"QVBStnKyKwiFrwKKKtabcQVBStnKyKwiFrwKKKt">> = iolist_to_binary(re:replace("abc","\\b","QVBStnKyKwiF&rwKK\\1Kt",[global])),
+    <<"fFGmLJOyxgabc">> = iolist_to_binary(re:replace("abc","","&fFGmLJOy\\1xg",[])),
+    <<"fFGmLJOyxgafFGmLJOyxgbfFGmLJOyxgcfFGmLJOyxg">> = iolist_to_binary(re:replace("abc","","&fFGmLJOy\\1xg",[global])),
+    <<"cU">> = iolist_to_binary(re:replace("acb","a[^a]b","\\1cU",[])),
+    <<"cU">> = iolist_to_binary(re:replace("acb","a[^a]b","\\1cU",[global])),
+    <<"Xa
+bgESUEcd">> = iolist_to_binary(re:replace("a
+b","a[^a]b","\\1X&gESUEcd",[])),
+    <<"Xa
+bgESUEcd">> = iolist_to_binary(re:replace("a
+b","a[^a]b","\\1X&gESUEcd",[global])),
+    <<"XMY">> = iolist_to_binary(re:replace("acb","a.b","XMY",[])),
+    <<"XMY">> = iolist_to_binary(re:replace("acb","a.b","XMY",[global])),
     <<"a
 b">> = iolist_to_binary(re:replace("a
-b","a.b","\\1cU",[])),
+b","a.b","tGJ&&",[])),
     <<"a
 b">> = iolist_to_binary(re:replace("a
-b","a.b","\\1cU",[global])),
-    <<"XacbgESUEcd">> = iolist_to_binary(re:replace("acb","a[^a]b","\\1X&gESUEcd",[dotall])),
-    <<"XacbgESUEcd">> = iolist_to_binary(re:replace("acb","a[^a]b","\\1X&gESUEcd",[dotall,global])),
-    <<"XMY">> = iolist_to_binary(re:replace("a
-b","a[^a]b","XMY",[dotall])),
-    <<"XMY">> = iolist_to_binary(re:replace("a
-b","a[^a]b","XMY",[dotall,global])),
-    <<"tGJacbacb">> = iolist_to_binary(re:replace("acb","a.b","tGJ&&",[dotall])),
-    <<"tGJacbacb">> = iolist_to_binary(re:replace("acb","a.b","tGJ&&",[dotall,global])),
-    <<"duQQOa
-bssHG">> = iolist_to_binary(re:replace("a
-b","a.b","\\1duQQO&ss\\1HG",[dotall])),
-    <<"duQQOa
-bssHG">> = iolist_to_binary(re:replace("a
-b","a.b","\\1duQQO&ss\\1HG",[dotall,global])),
-    <<"acmBfj">> = iolist_to_binary(re:replace("bac","^(b+?|a){1,2}?c","\\1cmBfj",[])),
-    <<"acmBfj">> = iolist_to_binary(re:replace("bac","^(b+?|a){1,2}?c","\\1cmBfj",[global])),
-    <<"tQbbacktkvaVkDbbacK">> = iolist_to_binary(re:replace("bbac","^(b+?|a){1,2}?c","tQ&ktkv\\1VkD&K",[])),
-    <<"tQbbacktkvaVkDbbacK">> = iolist_to_binary(re:replace("bbac","^(b+?|a){1,2}?c","tQ&ktkv\\1VkD&K",[global])),
-    <<"chbbbacaBsFRl">> = iolist_to_binary(re:replace("bbbac","^(b+?|a){1,2}?c","ch&\\1BsFRl",[])),
-    <<"chbbbacaBsFRl">> = iolist_to_binary(re:replace("bbbac","^(b+?|a){1,2}?c","ch&\\1BsFRl",[global])),
-    <<"US">> = iolist_to_binary(re:replace("bbbbac","^(b+?|a){1,2}?c","US",[])),
-    <<"US">> = iolist_to_binary(re:replace("bbbbac","^(b+?|a){1,2}?c","US",[global])),
-    <<"QUVwfLaFRTxkapVJd">> = iolist_to_binary(re:replace("bbbbbac","^(b+?|a){1,2}?c","QUVwfL\\1FRTxk\\1pVJd",[])),
-    <<"QUVwfLaFRTxkapVJd">> = iolist_to_binary(re:replace("bbbbbac","^(b+?|a){1,2}?c","QUVwfL\\1FRTxk\\1pVJd",[global])),
-    <<"xNami">> = iolist_to_binary(re:replace("bac","^(b+|a){1,2}?c","xN\\1mi",[])),
-    <<"xNami">> = iolist_to_binary(re:replace("bac","^(b+|a){1,2}?c","xN\\1mi",[global])),
-    <<"bbacCbbacubbactbbacXbbacnbbacET">> = iolist_to_binary(re:replace("bbac","^(b+|a){1,2}?c","&C&u&t&X&n&ET",[])),
-    <<"bbacCbbacubbactbbacXbbacnbbacET">> = iolist_to_binary(re:replace("bbac","^(b+|a){1,2}?c","&C&u&t&X&n&ET",[global])),
-    <<"B">> = iolist_to_binary(re:replace("bbbac","^(b+|a){1,2}?c","B",[])),
-    <<"B">> = iolist_to_binary(re:replace("bbbac","^(b+|a){1,2}?c","B",[global])),
-    <<"XFykuakPaulQTqER">> = iolist_to_binary(re:replace("bbbbac","^(b+|a){1,2}?c","XFyku\\1kP\\1ulQTqER",[])),
-    <<"XFykuakPaulQTqER">> = iolist_to_binary(re:replace("bbbbac","^(b+|a){1,2}?c","XFyku\\1kP\\1ulQTqER",[global])),
-    <<"ubbbbbacsAbbbbbacibbbbbacObkaQXXqLaPgbbbbbac">> = iolist_to_binary(re:replace("bbbbbac","^(b+|a){1,2}?c","u&sA&i&Obk\\1QXXqL\\1Pg&",[])),
-    <<"ubbbbbacsAbbbbbacibbbbbacObkaQXXqLaPgbbbbbac">> = iolist_to_binary(re:replace("bbbbbac","^(b+|a){1,2}?c","u&sA&i&Obk\\1QXXqL\\1Pg&",[global])),
-    <<"aJMhXxxExhBlXkR">> = iolist_to_binary(re:replace("ax","(?!\\A)x","JMhX&xE&hBl\\1Xk\\1R",[multiline])),
-    <<"aJMhXxxExhBlXkR">> = iolist_to_binary(re:replace("ax","(?!\\A)x","JMhX&xE&hBl\\1Xk\\1R",[multiline,global])),
+b","a.b","tGJ&&",[global])),
+    <<"duQQOacbssHG">> = iolist_to_binary(re:replace("acb","a[^a]b","\\1duQQO&ss\\1HG",[dotall])),
+    <<"duQQOacbssHG">> = iolist_to_binary(re:replace("acb","a[^a]b","\\1duQQO&ss\\1HG",[dotall,global])),
+    <<"cmBfj">> = iolist_to_binary(re:replace("a
+b","a[^a]b","\\1cmBfj",[dotall])),
+    <<"cmBfj">> = iolist_to_binary(re:replace("a
+b","a[^a]b","\\1cmBfj",[dotall,global])),
+    <<"tQacbktkvVkDacbK">> = iolist_to_binary(re:replace("acb","a.b","tQ&ktkv\\1VkD&K",[dotall])),
+    <<"tQacbktkvVkDacbK">> = iolist_to_binary(re:replace("acb","a.b","tQ&ktkv\\1VkD&K",[dotall,global])),
+    <<"cha
+bBsFRl">> = iolist_to_binary(re:replace("a
+b","a.b","ch&\\1BsFRl",[dotall])),
+    <<"cha
+bBsFRl">> = iolist_to_binary(re:replace("a
+b","a.b","ch&\\1BsFRl",[dotall,global])),
+    <<"US">> = iolist_to_binary(re:replace("bac","^(b+?|a){1,2}?c","US",[])),
+    <<"US">> = iolist_to_binary(re:replace("bac","^(b+?|a){1,2}?c","US",[global])),
+    <<"QUVwfLaFRTxkapVJd">> = iolist_to_binary(re:replace("bbac","^(b+?|a){1,2}?c","QUVwfL\\1FRTxk\\1pVJd",[])),
+    <<"QUVwfLaFRTxkapVJd">> = iolist_to_binary(re:replace("bbac","^(b+?|a){1,2}?c","QUVwfL\\1FRTxk\\1pVJd",[global])),
+    <<"xNami">> = iolist_to_binary(re:replace("bbbac","^(b+?|a){1,2}?c","xN\\1mi",[])),
+    <<"xNami">> = iolist_to_binary(re:replace("bbbac","^(b+?|a){1,2}?c","xN\\1mi",[global])),
+    <<"bbbbacCbbbbacubbbbactbbbbacXbbbbacnbbbbacET">> = iolist_to_binary(re:replace("bbbbac","^(b+?|a){1,2}?c","&C&u&t&X&n&ET",[])),
+    <<"bbbbacCbbbbacubbbbactbbbbacXbbbbacnbbbbacET">> = iolist_to_binary(re:replace("bbbbac","^(b+?|a){1,2}?c","&C&u&t&X&n&ET",[global])),
+    <<"B">> = iolist_to_binary(re:replace("bbbbbac","^(b+?|a){1,2}?c","B",[])),
+    <<"B">> = iolist_to_binary(re:replace("bbbbbac","^(b+?|a){1,2}?c","B",[global])),
+    <<"XFykuakPaulQTqER">> = iolist_to_binary(re:replace("bac","^(b+|a){1,2}?c","XFyku\\1kP\\1ulQTqER",[])),
+    <<"XFykuakPaulQTqER">> = iolist_to_binary(re:replace("bac","^(b+|a){1,2}?c","XFyku\\1kP\\1ulQTqER",[global])),
+    <<"ubbacsAbbacibbacObkaQXXqLaPgbbac">> = iolist_to_binary(re:replace("bbac","^(b+|a){1,2}?c","u&sA&i&Obk\\1QXXqL\\1Pg&",[])),
+    <<"ubbacsAbbacibbacObkaQXXqLaPgbbac">> = iolist_to_binary(re:replace("bbac","^(b+|a){1,2}?c","u&sA&i&Obk\\1QXXqL\\1Pg&",[global])),
+    <<"JMhXbbbacxEbbbachBlaXkaR">> = iolist_to_binary(re:replace("bbbac","^(b+|a){1,2}?c","JMhX&xE&hBl\\1Xk\\1R",[])),
+    <<"JMhXbbbacxEbbbachBlaXkaR">> = iolist_to_binary(re:replace("bbbac","^(b+|a){1,2}?c","JMhX&xE&hBl\\1Xk\\1R",[global])),
+    <<"riUNlLbbbbacf">> = iolist_to_binary(re:replace("bbbbac","^(b+|a){1,2}?c","riUNlL&f",[])),
+    <<"riUNlLbbbbacf">> = iolist_to_binary(re:replace("bbbbac","^(b+|a){1,2}?c","riUNlL&f",[global])),
+    <<"GuWxO">> = iolist_to_binary(re:replace("bbbbbac","^(b+|a){1,2}?c","GuWxO",[])),
+    <<"GuWxO">> = iolist_to_binary(re:replace("bbbbbac","^(b+|a){1,2}?c","GuWxO",[global])),
+    <<"aPMnxxPMt">> = iolist_to_binary(re:replace("ax","(?!\\A)x","PMn&&PMt",[multiline])),
+    <<"aPMnxxPMt">> = iolist_to_binary(re:replace("ax","(?!\\A)x","PMn&&PMt",[multiline,global])),
     <<"a
-riUNlLxf">> = iolist_to_binary(re:replace("a
-x","(?!\\A)x","riUNlL&f",[multiline])),
+rxywwx">> = iolist_to_binary(re:replace("a
+x","(?!\\A)x","rx\\1\\1yww&",[multiline])),
     <<"a
-riUNlLxf">> = iolist_to_binary(re:replace("a
-x","(?!\\A)x","riUNlL&f",[multiline,global])),
+rxywwx">> = iolist_to_binary(re:replace("a
+x","(?!\\A)x","rx\\1\\1yww&",[multiline,global])),
     <<"x
 b">> = iolist_to_binary(re:replace("x
-b","(?!\\A)x","GuWxO",[multiline])),
+b","(?!\\A)x","fEMAOjEdetPXR&cBSck",[multiline])),
     <<"x
 b">> = iolist_to_binary(re:replace("x
-b","(?!\\A)x","GuWxO",[multiline,global])),
-    <<"PMnCDCDPMt">> = iolist_to_binary(re:replace("CD","(A|B)*?CD","PMn&&PMt",[])),
-    <<"PMnCDCDPMt">> = iolist_to_binary(re:replace("CD","(A|B)*?CD","PMn&&PMt",[global])),
-    <<"rxywwCD">> = iolist_to_binary(re:replace("CD","(A|B)*CD","rx\\1\\1yww&",[])),
-    <<"rxywwCD">> = iolist_to_binary(re:replace("CD","(A|B)*CD","rx\\1\\1yww&",[global])),
-    <<"fEMAOjEdetPXRABABcBSckAB">> = iolist_to_binary(re:replace("ABABAB","(AB)*?\\1","fEMAOjEdetPXR&cBSck",[])),
-    <<"fEMAOjEdetPXRABABcBSckAB">> = iolist_to_binary(re:replace("ABABAB","(AB)*?\\1","fEMAOjEdetPXR&cBSck",[global])),
-    <<"ABFdiFlvyqFlWABRsa">> = iolist_to_binary(re:replace("ABABAB","(AB)*\\1","\\1FdiFlvyqFlW\\1Rsa",[])),
-    <<"ABFdiFlvyqFlWABRsa">> = iolist_to_binary(re:replace("ABABAB","(AB)*\\1","\\1FdiFlvyqFlW\\1Rsa",[global])),
-    <<"n">> = iolist_to_binary(re:replace("foo","(?<!bar)foo","n",[])),
-    <<"n">> = iolist_to_binary(re:replace("foo","(?<!bar)foo","n",[global])),
-    <<"catxbTBQedCtvvdd">> = iolist_to_binary(re:replace("catfood","(?<!bar)foo","xbTBQe\\1dCtvvd",[])),
-    <<"catxbTBQedCtvvdd">> = iolist_to_binary(re:replace("catfood","(?<!bar)foo","xbTBQe\\1dCtvvd",[global])),
-    <<"arsfoofoofooKyttle">> = iolist_to_binary(re:replace("arfootle","(?<!bar)foo","s&&&Kyt",[])),
-    <<"arsfoofoofooKyttle">> = iolist_to_binary(re:replace("arfootle","(?<!bar)foo","s&&&Kyt",[global])),
-    <<"rBrfoovYCesh">> = iolist_to_binary(re:replace("rfoosh","(?<!bar)foo","Br&vYCe",[])),
-    <<"rBrfoovYCesh">> = iolist_to_binary(re:replace("rfoosh","(?<!bar)foo","Br&vYCe",[global])),
-    <<"barfoo">> = iolist_to_binary(re:replace("barfoo","(?<!bar)foo","g&PQFusOgmXayn\\1mL&S",[])),
-    <<"barfoo">> = iolist_to_binary(re:replace("barfoo","(?<!bar)foo","g&PQFusOgmXayn\\1mL&S",[global])),
-    <<"towbarfoo">> = iolist_to_binary(re:replace("towbarfoo","(?<!bar)foo","yVEV",[])),
-    <<"towbarfoo">> = iolist_to_binary(re:replace("towbarfoo","(?<!bar)foo","yVEV",[global])),
-    <<"Pcatfood">> = iolist_to_binary(re:replace("catfood","\\w{3}(?<!bar)foo","\\1P&",[])),
-    <<"Pcatfood">> = iolist_to_binary(re:replace("catfood","\\w{3}(?<!bar)foo","\\1P&",[global])),
-    <<"foo">> = iolist_to_binary(re:replace("foo","\\w{3}(?<!bar)foo","q",[])),
-    <<"foo">> = iolist_to_binary(re:replace("foo","\\w{3}(?<!bar)foo","q",[global])),
-    <<"barfoo">> = iolist_to_binary(re:replace("barfoo","\\w{3}(?<!bar)foo","&PNmWin\\1XCGPwUmQi",[])),
-    <<"barfoo">> = iolist_to_binary(re:replace("barfoo","\\w{3}(?<!bar)foo","&PNmWin\\1XCGPwUmQi",[global])),
-    <<"towbarfoo">> = iolist_to_binary(re:replace("towbarfoo","\\w{3}(?<!bar)foo","&",[])),
-    <<"towbarfoo">> = iolist_to_binary(re:replace("towbarfoo","\\w{3}(?<!bar)foo","&",[global])),
+b","(?!\\A)x","fEMAOjEdetPXR&cBSck",[multiline,global])),
+    <<"FdiFlvyqFlWRsa">> = iolist_to_binary(re:replace("CD","(A|B)*?CD","\\1FdiFlvyqFlW\\1Rsa",[])),
+    <<"FdiFlvyqFlWRsa">> = iolist_to_binary(re:replace("CD","(A|B)*?CD","\\1FdiFlvyqFlW\\1Rsa",[global])),
+    <<"n">> = iolist_to_binary(re:replace("CD","(A|B)*CD","n",[])),
+    <<"n">> = iolist_to_binary(re:replace("CD","(A|B)*CD","n",[global])),
+    <<"xbTBQeABdCtvvdAB">> = iolist_to_binary(re:replace("ABABAB","(AB)*?\\1","xbTBQe\\1dCtvvd",[])),
+    <<"xbTBQeABdCtvvdAB">> = iolist_to_binary(re:replace("ABABAB","(AB)*?\\1","xbTBQe\\1dCtvvd",[global])),
     ok.
 run11() ->
-    <<"fooafookbarSbVX">> = iolist_to_binary(re:replace("fooabar","(?<=(foo)a)bar","\\1k&SbVX",[])),
-    <<"fooafookbarSbVX">> = iolist_to_binary(re:replace("fooabar","(?<=(foo)a)bar","\\1k&SbVX",[global])),
-    <<"bar">> = iolist_to_binary(re:replace("bar","(?<=(foo)a)bar","BL\\1jHdC&pT",[])),
-    <<"bar">> = iolist_to_binary(re:replace("bar","(?<=(foo)a)bar","BL\\1jHdC&pT",[global])),
-    <<"foobbar">> = iolist_to_binary(re:replace("foobbar","(?<=(foo)a)bar","AO&rL\\1a&uLgKct",[])),
-    <<"foobbar">> = iolist_to_binary(re:replace("foobbar","(?<=(foo)a)bar","AO&rL\\1a&uLgKct",[global])),
-    <<"IhhXe">> = iolist_to_binary(re:replace("abc","\\Aabc\\z","IhhXe\\1",[multiline])),
-    <<"IhhXe">> = iolist_to_binary(re:replace("abc","\\Aabc\\z","IhhXe\\1",[multiline,global])),
-    <<"NfmmMjGabcabcShiabcabcqAf">> = iolist_to_binary(re:replace("abc","\\Aabc\\z","NfmmMj\\1G&&Sh\\1i&&qA\\1f",[multiline])),
-    <<"NfmmMjGabcabcShiabcabcqAf">> = iolist_to_binary(re:replace("abc","\\Aabc\\z","NfmmMj\\1G&&Sh\\1i&&qA\\1f",[multiline,global])),
+    <<"sABABABABABABABABABKyt">> = iolist_to_binary(re:replace("ABABAB","(AB)*\\1","s&&&Kyt",[])),
+    <<"sABABABABABABABABABKyt">> = iolist_to_binary(re:replace("ABABAB","(AB)*\\1","s&&&Kyt",[global])),
+    <<"BrfoovYCe">> = iolist_to_binary(re:replace("foo","(?<!bar)foo","Br&vYCe",[])),
+    <<"BrfoovYCe">> = iolist_to_binary(re:replace("foo","(?<!bar)foo","Br&vYCe",[global])),
+    <<"catgfooPQFusOgmXaynmLfooSd">> = iolist_to_binary(re:replace("catfood","(?<!bar)foo","g&PQFusOgmXayn\\1mL&S",[])),
+    <<"catgfooPQFusOgmXaynmLfooSd">> = iolist_to_binary(re:replace("catfood","(?<!bar)foo","g&PQFusOgmXayn\\1mL&S",[global])),
+    <<"aryVEVtle">> = iolist_to_binary(re:replace("arfootle","(?<!bar)foo","yVEV",[])),
+    <<"aryVEVtle">> = iolist_to_binary(re:replace("arfootle","(?<!bar)foo","yVEV",[global])),
+    <<"rPfoosh">> = iolist_to_binary(re:replace("rfoosh","(?<!bar)foo","\\1P&",[])),
+    <<"rPfoosh">> = iolist_to_binary(re:replace("rfoosh","(?<!bar)foo","\\1P&",[global])),
+    <<"barfoo">> = iolist_to_binary(re:replace("barfoo","(?<!bar)foo","q",[])),
+    <<"barfoo">> = iolist_to_binary(re:replace("barfoo","(?<!bar)foo","q",[global])),
+    <<"towbarfoo">> = iolist_to_binary(re:replace("towbarfoo","(?<!bar)foo","&PNmWin\\1XCGPwUmQi",[])),
+    <<"towbarfoo">> = iolist_to_binary(re:replace("towbarfoo","(?<!bar)foo","&PNmWin\\1XCGPwUmQi",[global])),
+    <<"catfood">> = iolist_to_binary(re:replace("catfood","\\w{3}(?<!bar)foo","&",[])),
+    <<"catfood">> = iolist_to_binary(re:replace("catfood","\\w{3}(?<!bar)foo","&",[global])),
+    <<"foo">> = iolist_to_binary(re:replace("foo","\\w{3}(?<!bar)foo","\\1k&SbVX",[])),
+    <<"foo">> = iolist_to_binary(re:replace("foo","\\w{3}(?<!bar)foo","\\1k&SbVX",[global])),
+    <<"barfoo">> = iolist_to_binary(re:replace("barfoo","\\w{3}(?<!bar)foo","BL\\1jHdC&pT",[])),
+    <<"barfoo">> = iolist_to_binary(re:replace("barfoo","\\w{3}(?<!bar)foo","BL\\1jHdC&pT",[global])),
+    <<"towbarfoo">> = iolist_to_binary(re:replace("towbarfoo","\\w{3}(?<!bar)foo","AO&rL\\1a&uLgKct",[])),
+    <<"towbarfoo">> = iolist_to_binary(re:replace("towbarfoo","\\w{3}(?<!bar)foo","AO&rL\\1a&uLgKct",[global])),
+    <<"fooaIhhXefoo">> = iolist_to_binary(re:replace("fooabar","(?<=(foo)a)bar","IhhXe\\1",[])),
+    <<"fooaIhhXefoo">> = iolist_to_binary(re:replace("fooabar","(?<=(foo)a)bar","IhhXe\\1",[global])),
+    <<"bar">> = iolist_to_binary(re:replace("bar","(?<=(foo)a)bar","NfmmMj\\1G&&Sh\\1i&&qA\\1f",[])),
+    <<"bar">> = iolist_to_binary(re:replace("bar","(?<=(foo)a)bar","NfmmMj\\1G&&Sh\\1i&&qA\\1f",[global])),
+    <<"foobbar">> = iolist_to_binary(re:replace("foobbar","(?<=(foo)a)bar","fDWQoN&&DK\\1X\\1QE&hqEG",[])),
+    <<"foobbar">> = iolist_to_binary(re:replace("foobbar","(?<=(foo)a)bar","fDWQoN&&DK\\1X\\1QE&hqEG",[global])),
+    <<"sSxs">> = iolist_to_binary(re:replace("abc","\\Aabc\\z","sSxs",[multiline])),
+    <<"sSxs">> = iolist_to_binary(re:replace("abc","\\Aabc\\z","sSxs",[multiline,global])),
+    <<"svIYJDEofMMvabcDCeabc">> = iolist_to_binary(re:replace("abc","\\Aabc\\z","svIYJDEofMMv&DC\\1e&\\1",[multiline])),
+    <<"svIYJDEofMMvabcDCeabc">> = iolist_to_binary(re:replace("abc","\\Aabc\\z","svIYJDEofMMv&DC\\1e&\\1",[multiline,global])),
     <<"qqq
 abc">> = iolist_to_binary(re:replace("qqq
-abc","\\Aabc\\z","fDWQoN&&DK\\1X\\1QE&hqEG",[multiline])),
+abc","\\Aabc\\z","APkjMTOkxTRvMqa&jpx",[multiline])),
     <<"qqq
 abc">> = iolist_to_binary(re:replace("qqq
-abc","\\Aabc\\z","fDWQoN&&DK\\1X\\1QE&hqEG",[multiline,global])),
+abc","\\Aabc\\z","APkjMTOkxTRvMqa&jpx",[multiline,global])),
     <<"abc
 zzz">> = iolist_to_binary(re:replace("abc
-zzz","\\Aabc\\z","sSxs",[multiline])),
+zzz","\\Aabc\\z","gLg\\1DTusNbxpA\\1aVx",[multiline])),
     <<"abc
 zzz">> = iolist_to_binary(re:replace("abc
-zzz","\\Aabc\\z","sSxs",[multiline,global])),
+zzz","\\Aabc\\z","gLg\\1DTusNbxpA\\1aVx",[multiline,global])),
     <<"qqq
 abc
 zzz">> = iolist_to_binary(re:replace("qqq
 abc
-zzz","\\Aabc\\z","svIYJDEofMMv&DC\\1e&\\1",[multiline])),
+zzz","\\Aabc\\z","jvV\\1I&LsY",[multiline])),
     <<"qqq
 abc
 zzz">> = iolist_to_binary(re:replace("qqq
 abc
-zzz","\\Aabc\\z","svIYJDEofMMv&DC\\1e&\\1",[multiline,global])),
-    <<"1jvV.23I.230003938LsY">> = iolist_to_binary(re:replace("1.230003938","(?>(\\.\\d\\d[1-9]?))\\d+","jvV\\1I&LsY",[])),
-    <<"1jvV.23I.230003938LsY">> = iolist_to_binary(re:replace("1.230003938","(?>(\\.\\d\\d[1-9]?))\\d+","jvV\\1I&LsY",[global])),
-    <<"1TlT.875ebymLLEyQ.875">> = iolist_to_binary(re:replace("1.875000282","(?>(\\.\\d\\d[1-9]?))\\d+","TlT\\1ebymLLEyQ\\1",[])),
-    <<"1TlT.875ebymLLEyQ.875">> = iolist_to_binary(re:replace("1.875000282","(?>(\\.\\d\\d[1-9]?))\\d+","TlT\\1ebymLLEyQ\\1",[global])),
-    <<"1.235">> = iolist_to_binary(re:replace("1.235","(?>(\\.\\d\\d[1-9]?))\\d+","jrpMnKp\\1&LavAr&vf\\1o",[])),
-    <<"1.235">> = iolist_to_binary(re:replace("1.235","(?>(\\.\\d\\d[1-9]?))\\d+","jrpMnKp\\1&LavAr&vf\\1o",[global])),
-    <<"MBpartyknow is the time for all good men to come to the aid of the partynow is the time for all good men to come to the aid of the partyiuXpartypartypartyDJKoRl">> = iolist_to_binary(re:replace("now is the time for all good men to come to the aid of the party","^((?>\\w+)|(?>\\s+))*$","MB\\1k&&iuX\\1\\1\\1DJKoRl",[])),
-    <<"MBpartyknow is the time for all good men to come to the aid of the partynow is the time for all good men to come to the aid of the partyiuXpartypartypartyDJKoRl">> = iolist_to_binary(re:replace("now is the time for all good men to come to the aid of the party","^((?>\\w+)|(?>\\s+))*$","MB\\1k&&iuX\\1\\1\\1DJKoRl",[global])),
-    <<"this is not a line with only words and spaces!">> = iolist_to_binary(re:replace("this is not a line with only words and spaces!","^((?>\\w+)|(?>\\s+))*$","rPUccT\\1v&yM",[])),
-    <<"this is not a line with only words and spaces!">> = iolist_to_binary(re:replace("this is not a line with only words and spaces!","^((?>\\w+)|(?>\\s+))*$","rPUccT\\1v&yM",[global])),
-    <<"y12345bPF12345HwvSYT">> = iolist_to_binary(re:replace("12345a","(\\d+)(\\w)","y\\1bPF\\1HwvSYT",[])),
-    <<"y12345bPF12345HwvSYT">> = iolist_to_binary(re:replace("12345a","(\\d+)(\\w)","y\\1bPF\\1HwvSYT",[global])),
-    <<"cM+">> = iolist_to_binary(re:replace("12345+","(\\d+)(\\w)","cM",[])),
-    <<"cM+">> = iolist_to_binary(re:replace("12345+","(\\d+)(\\w)","cM",[global])),
-    <<"YwekY12345N12345acbCoStuYolo">> = iolist_to_binary(re:replace("12345a","((?>\\d+))(\\w)","YwekY\\1N&cbCoStuYolo",[])),
-    <<"YwekY12345N12345acbCoStuYolo">> = iolist_to_binary(re:replace("12345a","((?>\\d+))(\\w)","YwekY\\1N&cbCoStuYolo",[global])),
-    <<"12345+">> = iolist_to_binary(re:replace("12345+","((?>\\d+))(\\w)","Sf",[])),
-    <<"12345+">> = iolist_to_binary(re:replace("12345+","((?>\\d+))(\\w)","Sf",[global])),
-    <<"aaabuuLJdE">> = iolist_to_binary(re:replace("aaab","(?>a+)b","&uu\\1L\\1JdE",[])),
-    <<"aaabuuLJdE">> = iolist_to_binary(re:replace("aaab","(?>a+)b","&uu\\1L\\1JdE",[global])),
-    <<"vveCaaabqaaab">> = iolist_to_binary(re:replace("aaab","((?>a+)b)","vveC\\1q\\1",[])),
-    <<"vveCaaabqaaab">> = iolist_to_binary(re:replace("aaab","((?>a+)b)","vveC\\1q\\1",[global])),
-    <<"AIykFFUtx">> = iolist_to_binary(re:replace("aaab","(?>(a+))b","AIykFFUtx",[])),
-    <<"AIykFFUtx">> = iolist_to_binary(re:replace("aaab","(?>(a+))b","AIykFFUtx",[global])),
-    <<"aaatmbbbkwwObbbccc">> = iolist_to_binary(re:replace("aaabbbccc","(?>b)+","tm&k\\1wwO\\1&",[])),
-    <<"aaatmbbbkwwObbbccc">> = iolist_to_binary(re:replace("aaabbbccc","(?>b)+","tm&k\\1wwO\\1&",[global])),
-    <<"sIaaabbbbcCmqcRbaaabbbbcEopSkFrcccd">> = iolist_to_binary(re:replace("aaabbbbccccd","(?>a+|b+|c+)*c","sI&\\1CmqcRb&EopSkFr",[])),
-    <<"sIaaabbbbcCmqcRbaaabbbbcEopSkFrsIcCmqcRbcEopSkFrsIcCmqcRbcEopSkFrsIcCmqcRbcEopSkFrd">> = iolist_to_binary(re:replace("aaabbbbccccd","(?>a+|b+|c+)*c","sI&\\1CmqcRb&EopSkFr",[global])),
-    <<"((cDRlERYdxxLVljabc(ade)ufh()()xx">> = iolist_to_binary(re:replace("((abc(ade)ufh()()x","((?>[^()]+)|\\([^()]*\\))+","cDRlERYdx\\1LVlj&\\1",[])),
-    <<"((cDRlERYdxxLVljabc(ade)ufh()()xx">> = iolist_to_binary(re:replace("((abc(ade)ufh()()x","((?>[^()]+)|\\([^()]*\\))+","cDRlERYdx\\1LVlj&\\1",[global])),
-    <<"oabcjREj">> = iolist_to_binary(re:replace("(abc)","\\(((?>[^()]+)|\\([^()]+\\))+\\)","o\\1jREj",[])),
-    <<"oabcjREj">> = iolist_to_binary(re:replace("(abc)","\\(((?>[^()]+)|\\([^()]+\\))+\\)","o\\1jREj",[global])),
-    <<"(abc(def)xyz)xyzel">> = iolist_to_binary(re:replace("(abc(def)xyz)","\\(((?>[^()]+)|\\([^()]+\\))+\\)","&\\1el",[])),
-    <<"(abc(def)xyz)xyzel">> = iolist_to_binary(re:replace("(abc(def)xyz)","\\(((?>[^()]+)|\\([^()]+\\))+\\)","&\\1el",[global])),
-    <<"((()aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa">> = iolist_to_binary(re:replace("((()aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","\\(((?>[^()]+)|\\([^()]+\\))+\\)","lb&x&V",[])),
-    <<"((()aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa">> = iolist_to_binary(re:replace("((()aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","\\(((?>[^()]+)|\\([^()]+\\))+\\)","lb&x&V",[global])),
-    <<"XpabAyWDhuR">> = iolist_to_binary(re:replace("ab","a(?-i)b","Xp&Ay\\1WDhuR",[caseless])),
-    <<"XpabAyWDhuR">> = iolist_to_binary(re:replace("ab","a(?-i)b","Xp&Ay\\1WDhuR",[caseless,global])),
-    <<"u">> = iolist_to_binary(re:replace("Ab","a(?-i)b","u",[caseless])),
-    <<"u">> = iolist_to_binary(re:replace("Ab","a(?-i)b","u",[caseless,global])),
-    <<"aB">> = iolist_to_binary(re:replace("aB","a(?-i)b","xmIA&a\\1HwppQ&cs\\1vp",[caseless])),
-    <<"aB">> = iolist_to_binary(re:replace("aB","a(?-i)b","xmIA&a\\1HwppQ&cs\\1vp",[caseless,global])),
-    <<"AB">> = iolist_to_binary(re:replace("AB","a(?-i)b","&Dh&L",[caseless])),
-    <<"AB">> = iolist_to_binary(re:replace("AB","a(?-i)b","&Dh&L",[caseless,global])),
-    <<"TPua bca bcd ewb">> = iolist_to_binary(re:replace("a bcd e","(a (?x)b c)d e","TPu\\1&wb",[])),
-    <<"TPua bca bcd ewb">> = iolist_to_binary(re:replace("a bcd e","(a (?x)b c)d e","TPu\\1&wb",[global])),
-    <<"a b cd e">> = iolist_to_binary(re:replace("a b cd e","(a (?x)b c)d e","OJhKNSyPeRoI&Wnp",[])),
-    <<"a b cd e">> = iolist_to_binary(re:replace("a b cd e","(a (?x)b c)d e","OJhKNSyPeRoI&Wnp",[global])),
-    <<"abcd e">> = iolist_to_binary(re:replace("abcd e","(a (?x)b c)d e","K",[])),
-    <<"abcd e">> = iolist_to_binary(re:replace("abcd e","(a (?x)b c)d e","K",[global])),
-    <<"a bcde">> = iolist_to_binary(re:replace("a bcde","(a (?x)b c)d e","E\\1\\1toPe\\1lGQK",[])),
-    <<"a bcde">> = iolist_to_binary(re:replace("a bcde","(a (?x)b c)d e","E\\1\\1toPe\\1lGQK",[global])),
-    <<"Kia bcde faBhPa bcde flDx">> = iolist_to_binary(re:replace("a bcde f","(a b(?x)c d (?-x)e f)","Ki&aBhP&lDx",[])),
-    <<"Kia bcde faBhPa bcde flDx">> = iolist_to_binary(re:replace("a bcde f","(a b(?x)c d (?-x)e f)","Ki&aBhP&lDx",[global])),
-    <<"abcdef">> = iolist_to_binary(re:replace("abcdef","(a b(?x)c d (?-x)e f)","iQiLCUpSr",[])),
-    <<"abcdef">> = iolist_to_binary(re:replace("abcdef","(a b(?x)c d (?-x)e f)","iQiLCUpSr",[global])),
-    <<"HrabcPimCU">> = iolist_to_binary(re:replace("abc","(a(?i)b)c","Hr&PimCU",[])),
-    <<"HrabcPimCU">> = iolist_to_binary(re:replace("abc","(a(?i)b)c","Hr&PimCU",[global])),
-    <<"DCaBcKnrfLxyCvnaBc">> = iolist_to_binary(re:replace("aBc","(a(?i)b)c","DC&KnrfLxyCvn&",[])),
-    <<"DCaBcKnrfLxyCvnaBc">> = iolist_to_binary(re:replace("aBc","(a(?i)b)c","DC&KnrfLxyCvn&",[global])),
-    <<"abC">> = iolist_to_binary(re:replace("abC","(a(?i)b)c","\\1L\\1\\1&iARUDvV",[])),
-    <<"abC">> = iolist_to_binary(re:replace("abC","(a(?i)b)c","\\1L\\1\\1&iARUDvV",[global])),
-    <<"aBC">> = iolist_to_binary(re:replace("aBC","(a(?i)b)c","&\\1Mgf\\1",[])),
-    <<"aBC">> = iolist_to_binary(re:replace("aBC","(a(?i)b)c","&\\1Mgf\\1",[global])),
-    <<"Abc">> = iolist_to_binary(re:replace("Abc","(a(?i)b)c","&jO\\1aGGc",[])),
-    <<"Abc">> = iolist_to_binary(re:replace("Abc","(a(?i)b)c","&jO\\1aGGc",[global])),
-    <<"ABc">> = iolist_to_binary(re:replace("ABc","(a(?i)b)c","&",[])),
-    <<"ABc">> = iolist_to_binary(re:replace("ABc","(a(?i)b)c","&",[global])),
-    <<"ABC">> = iolist_to_binary(re:replace("ABC","(a(?i)b)c","tBTI",[])),
-    <<"ABC">> = iolist_to_binary(re:replace("ABC","(a(?i)b)c","tBTI",[global])),
-    <<"AbC">> = iolist_to_binary(re:replace("AbC","(a(?i)b)c","h&qu&\\1&mjP&i&qU",[])),
-    <<"AbC">> = iolist_to_binary(re:replace("AbC","(a(?i)b)c","h&qu&\\1&mjP&i&qU",[global])),
-    <<"mYIhaIbabcacAjQLa">> = iolist_to_binary(re:replace("abc","a(?i:b)c","mYIhaIb&acAjQLa",[])),
-    <<"mYIhaIbabcacAjQLa">> = iolist_to_binary(re:replace("abc","a(?i:b)c","mYIhaIb&acAjQLa",[global])),
-    <<"VGaBciplC">> = iolist_to_binary(re:replace("aBc","a(?i:b)c","VG&iplC",[])),
-    <<"VGaBciplC">> = iolist_to_binary(re:replace("aBc","a(?i:b)c","VG&iplC",[global])),
-    <<"ABC">> = iolist_to_binary(re:replace("ABC","a(?i:b)c","al",[])),
-    <<"ABC">> = iolist_to_binary(re:replace("ABC","a(?i:b)c","al",[global])),
-    <<"abC">> = iolist_to_binary(re:replace("abC","a(?i:b)c","SDV\\1",[])),
-    <<"abC">> = iolist_to_binary(re:replace("abC","a(?i:b)c","SDV\\1",[global])),
-    <<"aBC">> = iolist_to_binary(re:replace("aBC","a(?i:b)c","C&p&eF\\1QF&mi\\1&",[])),
-    <<"aBC">> = iolist_to_binary(re:replace("aBC","a(?i:b)c","C&p&eF\\1QF&mi\\1&",[global])),
-    <<"LsCaBcvaBcNOdFhYFVvFQ">> = iolist_to_binary(re:replace("aBc","a(?i:b)*c","LsC&v&NOdFhYFVvFQ",[])),
-    <<"LsCaBcvaBcNOdFhYFVvFQ">> = iolist_to_binary(re:replace("aBc","a(?i:b)*c","LsC&v&NOdFhYFVvFQ",[global])),
-    <<"BymiaBBcOuWN">> = iolist_to_binary(re:replace("aBBc","a(?i:b)*c","Bymi&OuWN",[])),
-    <<"BymiaBBcOuWN">> = iolist_to_binary(re:replace("aBBc","a(?i:b)*c","Bymi&OuWN",[global])),
-    <<"aBC">> = iolist_to_binary(re:replace("aBC","a(?i:b)*c","Cy",[])),
-    <<"aBC">> = iolist_to_binary(re:replace("aBC","a(?i:b)*c","Cy",[global])),
-    <<"aBBC">> = iolist_to_binary(re:replace("aBBC","a(?i:b)*c","qyBKu\\1v",[])),
-    <<"aBBC">> = iolist_to_binary(re:replace("aBBC","a(?i:b)*c","qyBKu\\1v",[global])),
+zzz","\\Aabc\\z","jvV\\1I&LsY",[multiline,global])),
+    <<"1MB.23k.230003938.230003938iuX.23.23.23DJKoRl">> = iolist_to_binary(re:replace("1.230003938","(?>(\\.\\d\\d[1-9]?))\\d+","MB\\1k&&iuX\\1\\1\\1DJKoRl",[])),
+    <<"1MB.23k.230003938.230003938iuX.23.23.23DJKoRl">> = iolist_to_binary(re:replace("1.230003938","(?>(\\.\\d\\d[1-9]?))\\d+","MB\\1k&&iuX\\1\\1\\1DJKoRl",[global])),
+    <<"1rPUccT.875v.875000282yM">> = iolist_to_binary(re:replace("1.875000282","(?>(\\.\\d\\d[1-9]?))\\d+","rPUccT\\1v&yM",[])),
+    <<"1rPUccT.875v.875000282yM">> = iolist_to_binary(re:replace("1.875000282","(?>(\\.\\d\\d[1-9]?))\\d+","rPUccT\\1v&yM",[global])),
+    <<"1.235">> = iolist_to_binary(re:replace("1.235","(?>(\\.\\d\\d[1-9]?))\\d+","y\\1bPF\\1HwvSYT",[])),
+    <<"1.235">> = iolist_to_binary(re:replace("1.235","(?>(\\.\\d\\d[1-9]?))\\d+","y\\1bPF\\1HwvSYT",[global])),
+    <<"cM">> = iolist_to_binary(re:replace("now is the time for all good men to come to the aid of the party","^((?>\\w+)|(?>\\s+))*$","cM",[])),
+    <<"cM">> = iolist_to_binary(re:replace("now is the time for all good men to come to the aid of the party","^((?>\\w+)|(?>\\s+))*$","cM",[global])),
+    <<"this is not a line with only words and spaces!">> = iolist_to_binary(re:replace("this is not a line with only words and spaces!","^((?>\\w+)|(?>\\s+))*$","YwekY\\1N&cbCoStuYolo",[])),
+    <<"this is not a line with only words and spaces!">> = iolist_to_binary(re:replace("this is not a line with only words and spaces!","^((?>\\w+)|(?>\\s+))*$","YwekY\\1N&cbCoStuYolo",[global])),
+    <<"Sf">> = iolist_to_binary(re:replace("12345a","(\\d+)(\\w)","Sf",[])),
+    <<"Sf">> = iolist_to_binary(re:replace("12345a","(\\d+)(\\w)","Sf",[global])),
+    <<"12345uu1234L1234JdE+">> = iolist_to_binary(re:replace("12345+","(\\d+)(\\w)","&uu\\1L\\1JdE",[])),
+    <<"12345uu1234L1234JdE+">> = iolist_to_binary(re:replace("12345+","(\\d+)(\\w)","&uu\\1L\\1JdE",[global])),
+    <<"vveC12345q12345">> = iolist_to_binary(re:replace("12345a","((?>\\d+))(\\w)","vveC\\1q\\1",[])),
+    <<"vveC12345q12345">> = iolist_to_binary(re:replace("12345a","((?>\\d+))(\\w)","vveC\\1q\\1",[global])),
+    <<"12345+">> = iolist_to_binary(re:replace("12345+","((?>\\d+))(\\w)","AIykFFUtx",[])),
+    <<"12345+">> = iolist_to_binary(re:replace("12345+","((?>\\d+))(\\w)","AIykFFUtx",[global])),
+    <<"tmaaabkwwOaaab">> = iolist_to_binary(re:replace("aaab","(?>a+)b","tm&k\\1wwO\\1&",[])),
+    <<"tmaaabkwwOaaab">> = iolist_to_binary(re:replace("aaab","(?>a+)b","tm&k\\1wwO\\1&",[global])),
+    <<"sIaaabaaabCmqcRbaaabEopSkFr">> = iolist_to_binary(re:replace("aaab","((?>a+)b)","sI&\\1CmqcRb&EopSkFr",[])),
+    <<"sIaaabaaabCmqcRbaaabEopSkFr">> = iolist_to_binary(re:replace("aaab","((?>a+)b)","sI&\\1CmqcRb&EopSkFr",[global])),
+    <<"cDRlERYdxaaaLVljaaabaaa">> = iolist_to_binary(re:replace("aaab","(?>(a+))b","cDRlERYdx\\1LVlj&\\1",[])),
+    <<"cDRlERYdxaaaLVljaaabaaa">> = iolist_to_binary(re:replace("aaab","(?>(a+))b","cDRlERYdx\\1LVlj&\\1",[global])),
+    <<"aaaojREjccc">> = iolist_to_binary(re:replace("aaabbbccc","(?>b)+","o\\1jREj",[])),
+    <<"aaaojREjccc">> = iolist_to_binary(re:replace("aaabbbccc","(?>b)+","o\\1jREj",[global])),
+    <<"aaabbbbcelcccd">> = iolist_to_binary(re:replace("aaabbbbccccd","(?>a+|b+|c+)*c","&\\1el",[])),
+    <<"aaabbbbcelcelcelceld">> = iolist_to_binary(re:replace("aaabbbbccccd","(?>a+|b+|c+)*c","&\\1el",[global])),
+    <<"((lbabc(ade)ufh()()xxabc(ade)ufh()()xV">> = iolist_to_binary(re:replace("((abc(ade)ufh()()x","((?>[^()]+)|\\([^()]*\\))+","lb&x&V",[])),
+    <<"((lbabc(ade)ufh()()xxabc(ade)ufh()()xV">> = iolist_to_binary(re:replace("((abc(ade)ufh()()x","((?>[^()]+)|\\([^()]*\\))+","lb&x&V",[global])),
+    <<"Xp(abc)AyabcWDhuR">> = iolist_to_binary(re:replace("(abc)","\\(((?>[^()]+)|\\([^()]+\\))+\\)","Xp&Ay\\1WDhuR",[])),
+    <<"Xp(abc)AyabcWDhuR">> = iolist_to_binary(re:replace("(abc)","\\(((?>[^()]+)|\\([^()]+\\))+\\)","Xp&Ay\\1WDhuR",[global])),
+    <<"u">> = iolist_to_binary(re:replace("(abc(def)xyz)","\\(((?>[^()]+)|\\([^()]+\\))+\\)","u",[])),
+    <<"u">> = iolist_to_binary(re:replace("(abc(def)xyz)","\\(((?>[^()]+)|\\([^()]+\\))+\\)","u",[global])),
+    <<"((()aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa">> = iolist_to_binary(re:replace("((()aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","\\(((?>[^()]+)|\\([^()]+\\))+\\)","xmIA&a\\1HwppQ&cs\\1vp",[])),
+    <<"((()aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa">> = iolist_to_binary(re:replace("((()aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","\\(((?>[^()]+)|\\([^()]+\\))+\\)","xmIA&a\\1HwppQ&cs\\1vp",[global])),
+    <<"abDhabL">> = iolist_to_binary(re:replace("ab","a(?-i)b","&Dh&L",[caseless])),
+    <<"abDhabL">> = iolist_to_binary(re:replace("ab","a(?-i)b","&Dh&L",[caseless,global])),
+    <<"TPuAbwb">> = iolist_to_binary(re:replace("Ab","a(?-i)b","TPu\\1&wb",[caseless])),
+    <<"TPuAbwb">> = iolist_to_binary(re:replace("Ab","a(?-i)b","TPu\\1&wb",[caseless,global])),
+    <<"aB">> = iolist_to_binary(re:replace("aB","a(?-i)b","OJhKNSyPeRoI&Wnp",[caseless])),
+    <<"aB">> = iolist_to_binary(re:replace("aB","a(?-i)b","OJhKNSyPeRoI&Wnp",[caseless,global])),
+    <<"AB">> = iolist_to_binary(re:replace("AB","a(?-i)b","K",[caseless])),
+    <<"AB">> = iolist_to_binary(re:replace("AB","a(?-i)b","K",[caseless,global])),
+    <<"Ea bca bctoPea bclGQK">> = iolist_to_binary(re:replace("a bcd e","(a (?x)b c)d e","E\\1\\1toPe\\1lGQK",[])),
+    <<"Ea bca bctoPea bclGQK">> = iolist_to_binary(re:replace("a bcd e","(a (?x)b c)d e","E\\1\\1toPe\\1lGQK",[global])),
+    <<"a b cd e">> = iolist_to_binary(re:replace("a b cd e","(a (?x)b c)d e","Ki&aBhP&lDx",[])),
+    <<"a b cd e">> = iolist_to_binary(re:replace("a b cd e","(a (?x)b c)d e","Ki&aBhP&lDx",[global])),
+    <<"abcd e">> = iolist_to_binary(re:replace("abcd e","(a (?x)b c)d e","iQiLCUpSr",[])),
+    <<"abcd e">> = iolist_to_binary(re:replace("abcd e","(a (?x)b c)d e","iQiLCUpSr",[global])),
+    <<"a bcde">> = iolist_to_binary(re:replace("a bcde","(a (?x)b c)d e","Hr&PimCU",[])),
+    <<"a bcde">> = iolist_to_binary(re:replace("a bcde","(a (?x)b c)d e","Hr&PimCU",[global])),
+    <<"DCa bcde fKnrfLxyCvna bcde f">> = iolist_to_binary(re:replace("a bcde f","(a b(?x)c d (?-x)e f)","DC&KnrfLxyCvn&",[])),
+    <<"DCa bcde fKnrfLxyCvna bcde f">> = iolist_to_binary(re:replace("a bcde f","(a b(?x)c d (?-x)e f)","DC&KnrfLxyCvn&",[global])),
+    <<"abcdef">> = iolist_to_binary(re:replace("abcdef","(a b(?x)c d (?-x)e f)","\\1L\\1\\1&iARUDvV",[])),
+    <<"abcdef">> = iolist_to_binary(re:replace("abcdef","(a b(?x)c d (?-x)e f)","\\1L\\1\\1&iARUDvV",[global])),
     ok.
 run12() ->
-    <<"cVsDabcdW">> = iolist_to_binary(re:replace("abcd","a(?=b(?i)c)\\w\\wd","\\1cVsD&W",[])),
-    <<"cVsDabcdW">> = iolist_to_binary(re:replace("abcd","a(?=b(?i)c)\\w\\wd","\\1cVsD&W",[global])),
-    <<"wabCdojyKixPq">> = iolist_to_binary(re:replace("abCd","a(?=b(?i)c)\\w\\wd","w&ojyKixPq",[])),
-    <<"wabCdojyKixPq">> = iolist_to_binary(re:replace("abCd","a(?=b(?i)c)\\w\\wd","w&ojyKixPq",[global])),
-    <<"aBCd">> = iolist_to_binary(re:replace("aBCd","a(?=b(?i)c)\\w\\wd","\\1DX\\1Pqr\\1\\1DQ",[])),
-    <<"aBCd">> = iolist_to_binary(re:replace("aBCd","a(?=b(?i)c)\\w\\wd","\\1DX\\1Pqr\\1\\1DQ",[global])),
-    <<"abcD">> = iolist_to_binary(re:replace("abcD","a(?=b(?i)c)\\w\\wd","x&dFsqqlLfIA",[])),
-    <<"abcD">> = iolist_to_binary(re:replace("abcD","a(?=b(?i)c)\\w\\wd","x&dFsqqlLfIA",[global])),
-    <<"Pmore than millionjObNmClO">> = iolist_to_binary(re:replace("more than million","(?s-i:more.*than).*million","P&jObNmClO",[caseless])),
-    <<"Pmore than millionjObNmClO">> = iolist_to_binary(re:replace("more than million","(?s-i:more.*than).*million","P&jObNmClO",[caseless,global])),
-    <<"xmore than MILLIONpLkf">> = iolist_to_binary(re:replace("more than MILLION","(?s-i:more.*than).*million","x&pLkf",[caseless])),
-    <<"xmore than MILLIONpLkf">> = iolist_to_binary(re:replace("more than MILLION","(?s-i:more.*than).*million","x&pLkf",[caseless,global])),
-    <<"FEmore 
- than MillioncWUmore 
- than Millionpddmore 
- than Millionmore 
- than MillionALbNurmn">> = iolist_to_binary(re:replace("more 
- than Million","(?s-i:more.*than).*million","FE&cWU&pdd&&ALbNurmn",[caseless])),
-    <<"FEmore 
- than MillioncWUmore 
- than Millionpddmore 
- than Millionmore 
- than MillionALbNurmn">> = iolist_to_binary(re:replace("more 
- than Million","(?s-i:more.*than).*million","FE&cWU&pdd&&ALbNurmn",[caseless,global])),
-    <<"MORE THAN MILLION">> = iolist_to_binary(re:replace("MORE THAN MILLION","(?s-i:more.*than).*million","\\1GXcllkWrI&\\1BG",[caseless])),
-    <<"MORE THAN MILLION">> = iolist_to_binary(re:replace("MORE THAN MILLION","(?s-i:more.*than).*million","\\1GXcllkWrI&\\1BG",[caseless,global])),
+    <<"abcabMgfab">> = iolist_to_binary(re:replace("abc","(a(?i)b)c","&\\1Mgf\\1",[])),
+    <<"abcabMgfab">> = iolist_to_binary(re:replace("abc","(a(?i)b)c","&\\1Mgf\\1",[global])),
+    <<"aBcjOaBaGGc">> = iolist_to_binary(re:replace("aBc","(a(?i)b)c","&jO\\1aGGc",[])),
+    <<"aBcjOaBaGGc">> = iolist_to_binary(re:replace("aBc","(a(?i)b)c","&jO\\1aGGc",[global])),
+    <<"abC">> = iolist_to_binary(re:replace("abC","(a(?i)b)c","&",[])),
+    <<"abC">> = iolist_to_binary(re:replace("abC","(a(?i)b)c","&",[global])),
+    <<"aBC">> = iolist_to_binary(re:replace("aBC","(a(?i)b)c","tBTI",[])),
+    <<"aBC">> = iolist_to_binary(re:replace("aBC","(a(?i)b)c","tBTI",[global])),
+    <<"Abc">> = iolist_to_binary(re:replace("Abc","(a(?i)b)c","h&qu&\\1&mjP&i&qU",[])),
+    <<"Abc">> = iolist_to_binary(re:replace("Abc","(a(?i)b)c","h&qu&\\1&mjP&i&qU",[global])),
+    <<"ABc">> = iolist_to_binary(re:replace("ABc","(a(?i)b)c","mYIhaIb&acAjQLa",[])),
+    <<"ABc">> = iolist_to_binary(re:replace("ABc","(a(?i)b)c","mYIhaIb&acAjQLa",[global])),
+    <<"ABC">> = iolist_to_binary(re:replace("ABC","(a(?i)b)c","VG&iplC",[])),
+    <<"ABC">> = iolist_to_binary(re:replace("ABC","(a(?i)b)c","VG&iplC",[global])),
+    <<"AbC">> = iolist_to_binary(re:replace("AbC","(a(?i)b)c","al",[])),
+    <<"AbC">> = iolist_to_binary(re:replace("AbC","(a(?i)b)c","al",[global])),
+    <<"SDV">> = iolist_to_binary(re:replace("abc","a(?i:b)c","SDV\\1",[])),
+    <<"SDV">> = iolist_to_binary(re:replace("abc","a(?i:b)c","SDV\\1",[global])),
+    <<"CaBcpaBceFQFaBcmiaBc">> = iolist_to_binary(re:replace("aBc","a(?i:b)c","C&p&eF\\1QF&mi\\1&",[])),
+    <<"CaBcpaBceFQFaBcmiaBc">> = iolist_to_binary(re:replace("aBc","a(?i:b)c","C&p&eF\\1QF&mi\\1&",[global])),
+    <<"ABC">> = iolist_to_binary(re:replace("ABC","a(?i:b)c","LsC&v&NOdFhYFVvFQ",[])),
+    <<"ABC">> = iolist_to_binary(re:replace("ABC","a(?i:b)c","LsC&v&NOdFhYFVvFQ",[global])),
+    <<"abC">> = iolist_to_binary(re:replace("abC","a(?i:b)c","Bymi&OuWN",[])),
+    <<"abC">> = iolist_to_binary(re:replace("abC","a(?i:b)c","Bymi&OuWN",[global])),
+    <<"aBC">> = iolist_to_binary(re:replace("aBC","a(?i:b)c","Cy",[])),
+    <<"aBC">> = iolist_to_binary(re:replace("aBC","a(?i:b)c","Cy",[global])),
+    <<"qyBKuv">> = iolist_to_binary(re:replace("aBc","a(?i:b)*c","qyBKu\\1v",[])),
+    <<"qyBKuv">> = iolist_to_binary(re:replace("aBc","a(?i:b)*c","qyBKu\\1v",[global])),
+    <<"cVsDaBBcW">> = iolist_to_binary(re:replace("aBBc","a(?i:b)*c","\\1cVsD&W",[])),
+    <<"cVsDaBBcW">> = iolist_to_binary(re:replace("aBBc","a(?i:b)*c","\\1cVsD&W",[global])),
+    <<"aBC">> = iolist_to_binary(re:replace("aBC","a(?i:b)*c","w&ojyKixPq",[])),
+    <<"aBC">> = iolist_to_binary(re:replace("aBC","a(?i:b)*c","w&ojyKixPq",[global])),
+    <<"aBBC">> = iolist_to_binary(re:replace("aBBC","a(?i:b)*c","\\1DX\\1Pqr\\1\\1DQ",[])),
+    <<"aBBC">> = iolist_to_binary(re:replace("aBBC","a(?i:b)*c","\\1DX\\1Pqr\\1\\1DQ",[global])),
+    <<"xabcddFsqqlLfIA">> = iolist_to_binary(re:replace("abcd","a(?=b(?i)c)\\w\\wd","x&dFsqqlLfIA",[])),
+    <<"xabcddFsqqlLfIA">> = iolist_to_binary(re:replace("abcd","a(?=b(?i)c)\\w\\wd","x&dFsqqlLfIA",[global])),
+    <<"PabCdjObNmClO">> = iolist_to_binary(re:replace("abCd","a(?=b(?i)c)\\w\\wd","P&jObNmClO",[])),
+    <<"PabCdjObNmClO">> = iolist_to_binary(re:replace("abCd","a(?=b(?i)c)\\w\\wd","P&jObNmClO",[global])),
+    <<"aBCd">> = iolist_to_binary(re:replace("aBCd","a(?=b(?i)c)\\w\\wd","x&pLkf",[])),
+    <<"aBCd">> = iolist_to_binary(re:replace("aBCd","a(?=b(?i)c)\\w\\wd","x&pLkf",[global])),
+    <<"abcD">> = iolist_to_binary(re:replace("abcD","a(?=b(?i)c)\\w\\wd","FE&cWU&pdd&&ALbNurmn",[])),
+    <<"abcD">> = iolist_to_binary(re:replace("abcD","a(?=b(?i)c)\\w\\wd","FE&cWU&pdd&&ALbNurmn",[global])),
+    <<"GXcllkWrImore than millionBG">> = iolist_to_binary(re:replace("more than million","(?s-i:more.*than).*million","\\1GXcllkWrI&\\1BG",[caseless])),
+    <<"GXcllkWrImore than millionBG">> = iolist_to_binary(re:replace("more than million","(?s-i:more.*than).*million","\\1GXcllkWrI&\\1BG",[caseless,global])),
+    <<"bmMeaNSmore than MILLIONVvJW">> = iolist_to_binary(re:replace("more than MILLION","(?s-i:more.*than).*million","bmMeaNS&VvJW",[caseless])),
+    <<"bmMeaNSmore than MILLIONVvJW">> = iolist_to_binary(re:replace("more than MILLION","(?s-i:more.*than).*million","bmMeaNS&VvJW",[caseless,global])),
+    <<"Fmore 
+ than MillionNvmore 
+ than MillionGWYRb">> = iolist_to_binary(re:replace("more 
+ than Million","(?s-i:more.*than).*million","F\\1&Nv&\\1G\\1WYRb",[caseless])),
+    <<"Fmore 
+ than MillionNvmore 
+ than MillionGWYRb">> = iolist_to_binary(re:replace("more 
+ than Million","(?s-i:more.*than).*million","F\\1&Nv&\\1G\\1WYRb",[caseless,global])),
+    <<"MORE THAN MILLION">> = iolist_to_binary(re:replace("MORE THAN MILLION","(?s-i:more.*than).*million","WG&ks\\1Sqpu\\1bXCRDoMob",[caseless])),
+    <<"MORE THAN MILLION">> = iolist_to_binary(re:replace("MORE THAN MILLION","(?s-i:more.*than).*million","WG&ks\\1Sqpu\\1bXCRDoMob",[caseless,global])),
     <<"more 
  than 
  million">> = iolist_to_binary(re:replace("more 
  than 
- million","(?s-i:more.*than).*million","bmMeaNS&VvJW",[caseless])),
+ million","(?s-i:more.*than).*million","\\1y\\1",[caseless])),
     <<"more 
  than 
  million">> = iolist_to_binary(re:replace("more 
  than 
- million","(?s-i:more.*than).*million","bmMeaNS&VvJW",[caseless,global])),
-    <<"Fmore than millionNvmore than millionGWYRb">> = iolist_to_binary(re:replace("more than million","(?:(?s-i)more.*than).*million","F\\1&Nv&\\1G\\1WYRb",[caseless])),
-    <<"Fmore than millionNvmore than millionGWYRb">> = iolist_to_binary(re:replace("more than million","(?:(?s-i)more.*than).*million","F\\1&Nv&\\1G\\1WYRb",[caseless,global])),
-    <<"WGmore than MILLIONksSqpubXCRDoMob">> = iolist_to_binary(re:replace("more than MILLION","(?:(?s-i)more.*than).*million","WG&ks\\1Sqpu\\1bXCRDoMob",[caseless])),
-    <<"WGmore than MILLIONksSqpubXCRDoMob">> = iolist_to_binary(re:replace("more than MILLION","(?:(?s-i)more.*than).*million","WG&ks\\1Sqpu\\1bXCRDoMob",[caseless,global])),
-    <<"y">> = iolist_to_binary(re:replace("more 
- than Million","(?:(?s-i)more.*than).*million","\\1y\\1",[caseless])),
-    <<"y">> = iolist_to_binary(re:replace("more 
- than Million","(?:(?s-i)more.*than).*million","\\1y\\1",[caseless,global])),
-    <<"MORE THAN MILLION">> = iolist_to_binary(re:replace("MORE THAN MILLION","(?:(?s-i)more.*than).*million","&jqGxgx\\1VA&SKEd\\1",[caseless])),
-    <<"MORE THAN MILLION">> = iolist_to_binary(re:replace("MORE THAN MILLION","(?:(?s-i)more.*than).*million","&jqGxgx\\1VA&SKEd\\1",[caseless,global])),
+ million","(?s-i:more.*than).*million","\\1y\\1",[caseless,global])),
+    <<"more than millionjqGxgxVAmore than millionSKEd">> = iolist_to_binary(re:replace("more than million","(?:(?s-i)more.*than).*million","&jqGxgx\\1VA&SKEd\\1",[caseless])),
+    <<"more than millionjqGxgxVAmore than millionSKEd">> = iolist_to_binary(re:replace("more than million","(?:(?s-i)more.*than).*million","&jqGxgx\\1VA&SKEd\\1",[caseless,global])),
+    <<"nCemore than MILLIONpljEu">> = iolist_to_binary(re:replace("more than MILLION","(?:(?s-i)more.*than).*million","nCe&pljE\\1u",[caseless])),
+    <<"nCemore than MILLIONpljEu">> = iolist_to_binary(re:replace("more than MILLION","(?:(?s-i)more.*than).*million","nCe&pljE\\1u",[caseless,global])),
+    <<"ehaicAQxGvl">> = iolist_to_binary(re:replace("more 
+ than Million","(?:(?s-i)more.*than).*million","\\1ehaicAQxGvl",[caseless])),
+    <<"ehaicAQxGvl">> = iolist_to_binary(re:replace("more 
+ than Million","(?:(?s-i)more.*than).*million","\\1ehaicAQxGvl",[caseless,global])),
+    <<"MORE THAN MILLION">> = iolist_to_binary(re:replace("MORE THAN MILLION","(?:(?s-i)more.*than).*million","gg&tWB\\1n&PcV\\1BlWkC",[caseless])),
+    <<"MORE THAN MILLION">> = iolist_to_binary(re:replace("MORE THAN MILLION","(?:(?s-i)more.*than).*million","gg&tWB\\1n&PcV\\1BlWkC",[caseless,global])),
     <<"more 
  than 
  million">> = iolist_to_binary(re:replace("more 
  than 
- million","(?:(?s-i)more.*than).*million","nCe&pljE\\1u",[caseless])),
+ million","(?:(?s-i)more.*than).*million","b&\\1Rc\\1&S",[caseless])),
     <<"more 
  than 
  million">> = iolist_to_binary(re:replace("more 
  than 
- million","(?:(?s-i)more.*than).*million","nCe&pljE\\1u",[caseless,global])),
-    <<"ehaicAQxGvl">> = iolist_to_binary(re:replace("abc","(?>a(?i)b+)+c","\\1ehaicAQxGvl",[])),
-    <<"ehaicAQxGvl">> = iolist_to_binary(re:replace("abc","(?>a(?i)b+)+c","\\1ehaicAQxGvl",[global])),
-    <<"ggaBbctWBnaBbcPcVBlWkC">> = iolist_to_binary(re:replace("aBbc","(?>a(?i)b+)+c","gg&tWB\\1n&PcV\\1BlWkC",[])),
-    <<"ggaBbctWBnaBbcPcVBlWkC">> = iolist_to_binary(re:replace("aBbc","(?>a(?i)b+)+c","gg&tWB\\1n&PcV\\1BlWkC",[global])),
-    <<"baBBcRcaBBcS">> = iolist_to_binary(re:replace("aBBc","(?>a(?i)b+)+c","b&\\1Rc\\1&S",[])),
-    <<"baBBcRcaBBcS">> = iolist_to_binary(re:replace("aBBc","(?>a(?i)b+)+c","b&\\1Rc\\1&S",[global])),
-    <<"Abc">> = iolist_to_binary(re:replace("Abc","(?>a(?i)b+)+c","lrN&M\\1rFghJV&",[])),
-    <<"Abc">> = iolist_to_binary(re:replace("Abc","(?>a(?i)b+)+c","lrN&M\\1rFghJV&",[global])),
-    <<"abAb">> = iolist_to_binary(re:replace("abAb","(?>a(?i)b+)+c","\\1yb\\1j&li",[])),
-    <<"abAb">> = iolist_to_binary(re:replace("abAb","(?>a(?i)b+)+c","\\1yb\\1j&li",[global])),
-    <<"abbC">> = iolist_to_binary(re:replace("abbC","(?>a(?i)b+)+c","qdtT&xXSc",[])),
-    <<"abbC">> = iolist_to_binary(re:replace("abbC","(?>a(?i)b+)+c","qdtT&xXSc",[global])),
-    <<"abca">> = iolist_to_binary(re:replace("abc","(?=a(?i)b)\\w\\wc","&a",[])),
-    <<"abca">> = iolist_to_binary(re:replace("abc","(?=a(?i)b)\\w\\wc","&a",[global])),
-    <<"aBcaQirMaBcTRaBce">> = iolist_to_binary(re:replace("aBc","(?=a(?i)b)\\w\\wc","&aQi\\1rM&TR&\\1e",[])),
-    <<"aBcaQirMaBcTRaBce">> = iolist_to_binary(re:replace("aBc","(?=a(?i)b)\\w\\wc","&aQi\\1rM&TR&\\1e",[global])),
-    <<"Ab">> = iolist_to_binary(re:replace("Ab","(?=a(?i)b)\\w\\wc","K\\1NDG",[])),
-    <<"Ab">> = iolist_to_binary(re:replace("Ab","(?=a(?i)b)\\w\\wc","K\\1NDG",[global])),
-    <<"abC">> = iolist_to_binary(re:replace("abC","(?=a(?i)b)\\w\\wc","Agd&\\1yU",[])),
-    <<"abC">> = iolist_to_binary(re:replace("abC","(?=a(?i)b)\\w\\wc","Agd&\\1yU",[global])),
-    <<"aBC">> = iolist_to_binary(re:replace("aBC","(?=a(?i)b)\\w\\wc","KNLv\\1j&KK&",[])),
-    <<"aBC">> = iolist_to_binary(re:replace("aBC","(?=a(?i)b)\\w\\wc","KNLv\\1j&KK&",[global])),
-    <<"abGnM">> = iolist_to_binary(re:replace("abxxc","(?<=a(?i)b)(\\w\\w)c","GnM",[])),
-    <<"abGnM">> = iolist_to_binary(re:replace("abxxc","(?<=a(?i)b)(\\w\\w)c","GnM",[global])),
-    <<"aBxxcRBxxcmXVc">> = iolist_to_binary(re:replace("aBxxc","(?<=a(?i)b)(\\w\\w)c","&RB&mXVc",[])),
-    <<"aBxxcRBxxcmXVc">> = iolist_to_binary(re:replace("aBxxc","(?<=a(?i)b)(\\w\\w)c","&RB&mXVc",[global])),
-    <<"Abxxc">> = iolist_to_binary(re:replace("Abxxc","(?<=a(?i)b)(\\w\\w)c","jWUnJUS",[])),
-    <<"Abxxc">> = iolist_to_binary(re:replace("Abxxc","(?<=a(?i)b)(\\w\\w)c","jWUnJUS",[global])),
-    <<"ABxxc">> = iolist_to_binary(re:replace("ABxxc","(?<=a(?i)b)(\\w\\w)c","PgBuM",[])),
-    <<"ABxxc">> = iolist_to_binary(re:replace("ABxxc","(?<=a(?i)b)(\\w\\w)c","PgBuM",[global])),
-    <<"abxxC">> = iolist_to_binary(re:replace("abxxC","(?<=a(?i)b)(\\w\\w)c","&rKCsmwsrXilq",[])),
-    <<"abxxC">> = iolist_to_binary(re:replace("abxxC","(?<=a(?i)b)(\\w\\w)c","&rKCsmwsrXilq",[global])),
-    <<"aaTaAaAWgmx">> = iolist_to_binary(re:replace("aA","(?:(a)|b)(?(1)A|B)","\\1aT&&Wgmx",[])),
-    <<"aaTaAaAWgmx">> = iolist_to_binary(re:replace("aA","(?:(a)|b)(?(1)A|B)","\\1aT&&Wgmx",[global])),
-    <<"ljtkcC">> = iolist_to_binary(re:replace("bB","(?:(a)|b)(?(1)A|B)","ljtkcC",[])),
-    <<"ljtkcC">> = iolist_to_binary(re:replace("bB","(?:(a)|b)(?(1)A|B)","ljtkcC",[global])),
-    <<"aB">> = iolist_to_binary(re:replace("aB","(?:(a)|b)(?(1)A|B)","&&\\1Tmj\\1aBVw&Su\\1nww\\1",[])),
-    <<"aB">> = iolist_to_binary(re:replace("aB","(?:(a)|b)(?(1)A|B)","&&\\1Tmj\\1aBVw&Su\\1nww\\1",[global])),
-    <<"bA">> = iolist_to_binary(re:replace("bA","(?:(a)|b)(?(1)A|B)","ogel\\1leKhJPBR\\1&B\\1pB",[])),
-    <<"bA">> = iolist_to_binary(re:replace("bA","(?:(a)|b)(?(1)A|B)","ogel\\1leKhJPBR\\1&B\\1pB",[global])),
-    <<"DfKaaxraasMvaaaa">> = iolist_to_binary(re:replace("aa","^(a)?(?(1)a|b)+$","DfK&xr&sMv&&",[])),
-    <<"DfKaaxraasMvaaaa">> = iolist_to_binary(re:replace("aa","^(a)?(?(1)a|b)+$","DfK&xr&sMv&&",[global])),
-    <<"bDDDKoimlSswYrmbw">> = iolist_to_binary(re:replace("b","^(a)?(?(1)a|b)+$","&DDDKoimlSswYrm&w",[])),
-    <<"bDDDKoimlSswYrmbw">> = iolist_to_binary(re:replace("b","^(a)?(?(1)a|b)+$","&DDDKoimlSswYrm&w",[global])),
-    <<"iBocbbbbNxWYjxympSmB">> = iolist_to_binary(re:replace("bb","^(a)?(?(1)a|b)+$","iBoc&&NxWYj\\1xympSmB",[])),
-    <<"iBocbbbbNxWYjxympSmB">> = iolist_to_binary(re:replace("bb","^(a)?(?(1)a|b)+$","iBoc&&NxWYj\\1xympSmB",[global])),
-    <<"ab">> = iolist_to_binary(re:replace("ab","^(a)?(?(1)a|b)+$","u&dq&",[])),
-    <<"ab">> = iolist_to_binary(re:replace("ab","^(a)?(?(1)a|b)+$","u&dq&",[global])),
-    <<"lCkPabc:qRySQabc:YHrF">> = iolist_to_binary(re:replace("abc:","^(?(?=abc)\\w{3}:|\\d\\d)","lCk\\1P&qRySQ\\1&YHrF",[])),
-    <<"lCkPabc:qRySQabc:YHrF">> = iolist_to_binary(re:replace("abc:","^(?(?=abc)\\w{3}:|\\d\\d)","lCk\\1P&qRySQ\\1&YHrF",[global])),
-    <<"QkbJD12bLtir12fa">> = iolist_to_binary(re:replace("12","^(?(?=abc)\\w{3}:|\\d\\d)","QkbJD&bLtir&fa",[])),
-    <<"QkbJD12bLtir12fa">> = iolist_to_binary(re:replace("12","^(?(?=abc)\\w{3}:|\\d\\d)","QkbJD&bLtir&fa",[global])),
-    <<"12JDGniTa3">> = iolist_to_binary(re:replace("123","^(?(?=abc)\\w{3}:|\\d\\d)","&J\\1DGniTa",[])),
-    <<"12JDGniTa3">> = iolist_to_binary(re:replace("123","^(?(?=abc)\\w{3}:|\\d\\d)","&J\\1DGniTa",[global])),
-    <<"xyz">> = iolist_to_binary(re:replace("xyz","^(?(?=abc)\\w{3}:|\\d\\d)","\\1bfWxNNO\\1\\1uiB",[])),
-    <<"xyz">> = iolist_to_binary(re:replace("xyz","^(?(?=abc)\\w{3}:|\\d\\d)","\\1bfWxNNO\\1\\1uiB",[global])),
-    <<"inSfgh">> = iolist_to_binary(re:replace("abc:","^(?(?!abc)\\d\\d|\\w{3}:)$","inSf\\1\\1gh",[])),
-    <<"inSfgh">> = iolist_to_binary(re:replace("abc:","^(?(?!abc)\\d\\d|\\w{3}:)$","inSf\\1\\1gh",[global])),
-    <<"12JtcOTqU">> = iolist_to_binary(re:replace("12","^(?(?!abc)\\d\\d|\\w{3}:)$","&JtcOT\\1qU",[])),
-    <<"12JtcOTqU">> = iolist_to_binary(re:replace("12","^(?(?!abc)\\d\\d|\\w{3}:)$","&JtcOT\\1qU",[global])),
-    <<"123">> = iolist_to_binary(re:replace("123","^(?(?!abc)\\d\\d|\\w{3}:)$","fEQ",[])),
-    <<"123">> = iolist_to_binary(re:replace("123","^(?(?!abc)\\d\\d|\\w{3}:)$","fEQ",[global])),
-    <<"xyz">> = iolist_to_binary(re:replace("xyz","^(?(?!abc)\\d\\d|\\w{3}:)$","ilQoSPAJ",[])),
-    <<"xyz">> = iolist_to_binary(re:replace("xyz","^(?(?!abc)\\d\\d|\\w{3}:)$","ilQoSPAJ",[global])),
-    <<"foosOIiDwUMulbarNN">> = iolist_to_binary(re:replace("foobar","(?(?<=foo)bar|cat)","sOIiDw\\1U\\1Mul&\\1NN\\1",[])),
-    <<"foosOIiDwUMulbarNN">> = iolist_to_binary(re:replace("foobar","(?(?<=foo)bar|cat)","sOIiDw\\1U\\1Mul&\\1NN\\1",[global])),
-    <<"catOncatobtglyVw">> = iolist_to_binary(re:replace("cat","(?(?<=foo)bar|cat)","&On&obtglyVw",[])),
-    <<"catOncatobtglyVw">> = iolist_to_binary(re:replace("cat","(?(?<=foo)bar|cat)","&On&obtglyVw",[global])),
-    <<"fRSlcatv">> = iolist_to_binary(re:replace("fcat","(?(?<=foo)bar|cat)","R\\1S\\1l&v",[])),
-    <<"fRSlcatv">> = iolist_to_binary(re:replace("fcat","(?(?<=foo)bar|cat)","R\\1S\\1l&v",[global])),
-    <<"foeDVNDb">> = iolist_to_binary(re:replace("focat","(?(?<=foo)bar|cat)","eDVNDb",[])),
-    <<"foeDVNDb">> = iolist_to_binary(re:replace("focat","(?(?<=foo)bar|cat)","eDVNDb",[global])),
-    <<"foocat">> = iolist_to_binary(re:replace("foocat","(?(?<=foo)bar|cat)","p\\1",[])),
-    <<"foocat">> = iolist_to_binary(re:replace("foocat","(?(?<=foo)bar|cat)","p\\1",[global])),
-    <<"fooShDPcSaaEbar">> = iolist_to_binary(re:replace("foobar","(?(?<!foo)cat|bar)","\\1ShDPcSaaE&",[])),
-    <<"fooShDPcSaaEbar">> = iolist_to_binary(re:replace("foobar","(?(?<!foo)cat|bar)","\\1ShDPcSaaE&",[global])),
-    <<"kgxcatRsUCY">> = iolist_to_binary(re:replace("cat","(?(?<!foo)cat|bar)","kgx\\1&RsUCY",[])),
-    <<"kgxcatRsUCY">> = iolist_to_binary(re:replace("cat","(?(?<!foo)cat|bar)","kgx\\1&RsUCY",[global])),
-    <<"fOwWeWH">> = iolist_to_binary(re:replace("fcat","(?(?<!foo)cat|bar)","\\1OwWeWH",[])),
-    <<"fOwWeWH">> = iolist_to_binary(re:replace("fcat","(?(?<!foo)cat|bar)","\\1OwWeWH",[global])),
-    <<"foRKNdIe">> = iolist_to_binary(re:replace("focat","(?(?<!foo)cat|bar)","RKNdIe",[])),
-    <<"foRKNdIe">> = iolist_to_binary(re:replace("focat","(?(?<!foo)cat|bar)","RKNdIe",[global])),
-    <<"foocat">> = iolist_to_binary(re:replace("foocat","(?(?<!foo)cat|bar)","&dYBP",[])),
-    <<"foocat">> = iolist_to_binary(re:replace("foocat","(?(?<!foo)cat|bar)","&dYBP",[global])),
-    <<"cGurgcYoWHqabcdqXicAl">> = iolist_to_binary(re:replace("abcd","( \\( )? [^()]+ (?(1) \\) |) ","cGurgcY\\1oWHq&qXicAl",[extended])),
-    <<"cGurgcYoWHqabcdqXicAl">> = iolist_to_binary(re:replace("abcd","( \\( )? [^()]+ (?(1) \\) |) ","cGurgcY\\1oWHq&qXicAl",[extended,global])),
-    <<"hXTky(abcd)El(abcd)GX(kFf">> = iolist_to_binary(re:replace("(abcd)","( \\( )? [^()]+ (?(1) \\) |) ","hXTky&El&GX\\1kFf",[extended])),
-    <<"hXTky(abcd)El(abcd)GX(kFf">> = iolist_to_binary(re:replace("(abcd)","( \\( )? [^()]+ (?(1) \\) |) ","hXTky&El&GX\\1kFf",[extended,global])),
-    <<"hdx(abcd) fox">> = iolist_to_binary(re:replace("the quick (abcd) fox","( \\( )? [^()]+ (?(1) \\) |) ","hd\\1x",[extended])),
-    <<"hdxhd(xhdx">> = iolist_to_binary(re:replace("the quick (abcd) fox","( \\( )? [^()]+ (?(1) \\) |) ","hd\\1x",[extended,global])),
-    <<"(">> = iolist_to_binary(re:replace("(abcd","( \\( )? [^()]+ (?(1) \\) |) ","\\1",[extended])),
-    <<"(">> = iolist_to_binary(re:replace("(abcd","( \\( )? [^()]+ (?(1) \\) |) ","\\1",[extended,global])),
-    <<"aGjfXar">> = iolist_to_binary(re:replace("abcd","( \\( )? [^()]+ (?(1) \\) ) ","aGjfXar",[extended])),
-    <<"aGjfXar">> = iolist_to_binary(re:replace("abcd","( \\( )? [^()]+ (?(1) \\) ) ","aGjfXar",[extended,global])),
-    <<"DmEP(AVjI(abcd)r">> = iolist_to_binary(re:replace("(abcd)","( \\( )? [^()]+ (?(1) \\) ) ","DmEP\\1AVjI&r",[extended])),
-    <<"DmEP(AVjI(abcd)r">> = iolist_to_binary(re:replace("(abcd)","( \\( )? [^()]+ (?(1) \\) ) ","DmEP\\1AVjI&r",[extended,global])),
-    <<"Tthe quick tTxSOuYhbPTthe quick FKp(abcd) fox">> = iolist_to_binary(re:replace("the quick (abcd) fox","( \\( )? [^()]+ (?(1) \\) ) ","T&tTxS\\1O\\1uYhbPT&\\1FKp",[extended])),
-    <<"Tthe quick tTxSOuYhbPTthe quick FKpT(abcd)tTxS(O(uYhbPT(abcd)(FKpT foxtTxSOuYhbPT foxFKp">> = iolist_to_binary(re:replace("the quick (abcd) fox","( \\( )? [^()]+ (?(1) \\) ) ","T&tTxS\\1O\\1uYhbPT&\\1FKp",[extended,global])),
-    <<"(LhIrrFgkHmabcdfdoY">> = iolist_to_binary(re:replace("(abcd","( \\( )? [^()]+ (?(1) \\) ) ","LhIrrFgkHm&fd\\1oY",[extended])),
-    <<"(LhIrrFgkHmabcdfdoY">> = iolist_to_binary(re:replace("(abcd","( \\( )? [^()]+ (?(1) \\) ) ","LhIrrFgkHm&fd\\1oY",[extended,global])),
-    <<"Im11cADc12pHh">> = iolist_to_binary(re:replace("12","^(?(2)a|(1)(2))+$","Im\\1\\1cADc&pHh",[])),
-    <<"Im11cADc12pHh">> = iolist_to_binary(re:replace("12","^(?(2)a|(1)(2))+$","Im\\1\\1cADc&pHh",[global])),
-    <<"tKEd12a1">> = iolist_to_binary(re:replace("12a","^(?(2)a|(1)(2))+$","tKEd&\\1",[])),
-    <<"tKEd12a1">> = iolist_to_binary(re:replace("12a","^(?(2)a|(1)(2))+$","tKEd&\\1",[global])),
-    <<"m1nyi12aaEwbrLGfNM">> = iolist_to_binary(re:replace("12aa","^(?(2)a|(1)(2))+$","m\\1nyi&EwbrLGfNM",[])),
-    <<"m1nyi12aaEwbrLGfNM">> = iolist_to_binary(re:replace("12aa","^(?(2)a|(1)(2))+$","m\\1nyi&EwbrLGfNM",[global])),
-    <<"1234">> = iolist_to_binary(re:replace("1234","^(?(2)a|(1)(2))+$","Iqlk&bhmeIrGmiGmVd",[])),
-    <<"1234">> = iolist_to_binary(re:replace("1234","^(?(2)a|(1)(2))+$","Iqlk&bhmeIrGmiGmVd",[global])),
-    <<"CIsFJQblahgcRrp">> = iolist_to_binary(re:replace("blah blah","((?i)blah)\\s+\\1","CIsFJQ\\1gcRrp",[])),
-    <<"CIsFJQblahgcRrp">> = iolist_to_binary(re:replace("blah blah","((?i)blah)\\s+\\1","CIsFJQ\\1gcRrp",[global])),
-    <<"lmHuBLAHBLAHCBLAHBBLAHfyc">> = iolist_to_binary(re:replace("BLAH BLAH","((?i)blah)\\s+\\1","lmHu\\1\\1C\\1B\\1fyc",[])),
-    <<"lmHuBLAHBLAHCBLAHBBLAHfyc">> = iolist_to_binary(re:replace("BLAH BLAH","((?i)blah)\\s+\\1","lmHu\\1\\1C\\1B\\1fyc",[global])),
-    <<"GQrbsavAq">> = iolist_to_binary(re:replace("Blah Blah","((?i)blah)\\s+\\1","GQrbsavAq",[])),
-    <<"GQrbsavAq">> = iolist_to_binary(re:replace("Blah Blah","((?i)blah)\\s+\\1","GQrbsavAq",[global])),
-    <<"blaHTXUblaH blaHlHlMOAblaH blaHblaH blaHblaHEBblaH blaHEF">> = iolist_to_binary(re:replace("blaH blaH","((?i)blah)\\s+\\1","\\1TXU&lHlMOA&&\\1EB&EF",[])),
-    <<"blaHTXUblaH blaHlHlMOAblaH blaHblaH blaHblaHEBblaH blaHEF">> = iolist_to_binary(re:replace("blaH blaH","((?i)blah)\\s+\\1","\\1TXU&lHlMOA&&\\1EB&EF",[global])),
-    <<"blah BLAH">> = iolist_to_binary(re:replace("blah BLAH","((?i)blah)\\s+\\1","id\\1&iAQbk",[])),
-    <<"blah BLAH">> = iolist_to_binary(re:replace("blah BLAH","((?i)blah)\\s+\\1","id\\1&iAQbk",[global])),
-    <<"Blah blah">> = iolist_to_binary(re:replace("Blah blah","((?i)blah)\\s+\\1","ymJEo\\1JHMVX&pfeH",[])),
-    <<"Blah blah">> = iolist_to_binary(re:replace("Blah blah","((?i)blah)\\s+\\1","ymJEo\\1JHMVX&pfeH",[global])),
-    <<"blaH blah">> = iolist_to_binary(re:replace("blaH blah","((?i)blah)\\s+\\1","vPR\\1TpFC\\1FV",[])),
-    <<"blaH blah">> = iolist_to_binary(re:replace("blaH blah","((?i)blah)\\s+\\1","vPR\\1TpFC\\1FV",[global])),
-    <<"blah blah">> = iolist_to_binary(re:replace("blah blah","((?i)blah)\\s+(?i:\\1)","&",[])),
-    <<"blah blah">> = iolist_to_binary(re:replace("blah blah","((?i)blah)\\s+(?i:\\1)","&",[global])),
-    <<"BLAH BLAHBLAHVTAYjnmBLAH BLAHanO">> = iolist_to_binary(re:replace("BLAH BLAH","((?i)blah)\\s+(?i:\\1)","&\\1VTAYjnm&anO",[])),
-    <<"BLAH BLAHBLAHVTAYjnmBLAH BLAHanO">> = iolist_to_binary(re:replace("BLAH BLAH","((?i)blah)\\s+(?i:\\1)","&\\1VTAYjnm&anO",[global])),
-    <<"wBlah BlahNsBlah BlahU">> = iolist_to_binary(re:replace("Blah Blah","((?i)blah)\\s+(?i:\\1)","w&Ns&U",[])),
-    <<"wBlah BlahNsBlah BlahU">> = iolist_to_binary(re:replace("Blah Blah","((?i)blah)\\s+(?i:\\1)","w&Ns&U",[global])),
-    <<"JblaHblaHblaH blaHblaH">> = iolist_to_binary(re:replace("blaH blaH","((?i)blah)\\s+(?i:\\1)","J\\1\\1&\\1",[])),
-    <<"JblaHblaHblaH blaHblaH">> = iolist_to_binary(re:replace("blaH blaH","((?i)blah)\\s+(?i:\\1)","J\\1\\1&\\1",[global])),
-    <<"kmHqhblahVblah BLAHxPLoblah BLAHdblahkDblah BLAHcblah">> = iolist_to_binary(re:replace("blah BLAH","((?i)blah)\\s+(?i:\\1)","kmHqh\\1V&xPLo&d\\1kD&c\\1",[])),
-    <<"kmHqhblahVblah BLAHxPLoblah BLAHdblahkDblah BLAHcblah">> = iolist_to_binary(re:replace("blah BLAH","((?i)blah)\\s+(?i:\\1)","kmHqh\\1V&xPLo&d\\1kD&c\\1",[global])),
-    <<"JeuSTa">> = iolist_to_binary(re:replace("Blah blah","((?i)blah)\\s+(?i:\\1)","JeuSTa",[])),
-    <<"JeuSTa">> = iolist_to_binary(re:replace("Blah blah","((?i)blah)\\s+(?i:\\1)","JeuSTa",[global])),
-    <<"rGvPufMblaH blahS">> = iolist_to_binary(re:replace("blaH blah","((?i)blah)\\s+(?i:\\1)","rGvPufM&S",[])),
-    <<"rGvPufMblaH blahS">> = iolist_to_binary(re:replace("blaH blah","((?i)blah)\\s+(?i:\\1)","rGvPufM&S",[global])),
-    <<"TblahblahUmmu">> = iolist_to_binary(re:replace("blah ABLAH","((?i)blah)\\s+(?m)A(?i:\\1)","T\\1\\1Ummu",[])),
-    <<"TblahblahUmmu">> = iolist_to_binary(re:replace("blah ABLAH","((?i)blah)\\s+(?m)A(?i:\\1)","T\\1\\1Ummu",[global])),
-    <<"blah aBLAH">> = iolist_to_binary(re:replace("blah aBLAH","((?i)blah)\\s+(?m)A(?i:\\1)","IRrlhH\\1TBy\\1hR&SlYv",[])),
-    <<"blah aBLAH">> = iolist_to_binary(re:replace("blah aBLAH","((?i)blah)\\s+(?m)A(?i:\\1)","IRrlhH\\1TBy\\1hR&SlYv",[global])),
-    <<"aWaQjaDduHuWkQDeaf">> = iolist_to_binary(re:replace("a","(?>a*)*","&W&QjaDduHuWkQDe&f",[])),
-    <<"aWaQjaDduHuWkQDeafWQjaDduHuWkQDef">> = iolist_to_binary(re:replace("a","(?>a*)*","&W&QjaDduHuWkQDe&f",[global])),
-    <<"nPOwaaHbn">> = iolist_to_binary(re:replace("aa","(?>a*)*","nPOw&Hbn",[])),
-    <<"nPOwaaHbnnPOwHbn">> = iolist_to_binary(re:replace("aa","(?>a*)*","nPOw&Hbn",[global])),
-    <<"lUDErmsSNiolx">> = iolist_to_binary(re:replace("aaaa","(?>a*)*","lUDErmsSNiolx",[])),
-    <<"lUDErmsSNiolxlUDErmsSNiolx">> = iolist_to_binary(re:replace("aaaa","(?>a*)*","lUDErmsSNiolx",[global])),
-    <<"nnmRyETDugSpewabclo">> = iolist_to_binary(re:replace("abc","(abc|)+","\\1nnmRyE\\1TDu\\1gSpew&lo",[])),
-    <<"nnmRyETDugSpewabclonnmRyETDugSpewlo">> = iolist_to_binary(re:replace("abc","(abc|)+","\\1nnmRyE\\1TDu\\1gSpew&lo",[global])),
-    <<"yodYxabcabcCeJlaBW">> = iolist_to_binary(re:replace("abcabc","(abc|)+","\\1yod\\1Yx&CeJlaBW",[])),
-    <<"yodYxabcabcCeJlaBWyodYxCeJlaBW">> = iolist_to_binary(re:replace("abcabc","(abc|)+","\\1yod\\1Yx&CeJlaBW",[global])),
-    <<"abcabcabcSAguoo">> = iolist_to_binary(re:replace("abcabcabc","(abc|)+","&SAguoo",[])),
-    <<"abcabcabcSAguooSAguoo">> = iolist_to_binary(re:replace("abcabcabc","(abc|)+","&SAguoo",[global])),
-    <<"gKxyz">> = iolist_to_binary(re:replace("xyz","(abc|)+","gK&",[])),
-    <<"gKxgKygKzgK">> = iolist_to_binary(re:replace("xyz","(abc|)+","gK&",[global])),
+ million","(?:(?s-i)more.*than).*million","b&\\1Rc\\1&S",[caseless,global])),
+    <<"lrNabcMrFghJVabc">> = iolist_to_binary(re:replace("abc","(?>a(?i)b+)+c","lrN&M\\1rFghJV&",[])),
+    <<"lrNabcMrFghJVabc">> = iolist_to_binary(re:replace("abc","(?>a(?i)b+)+c","lrN&M\\1rFghJV&",[global])),
+    <<"ybjaBbcli">> = iolist_to_binary(re:replace("aBbc","(?>a(?i)b+)+c","\\1yb\\1j&li",[])),
+    <<"ybjaBbcli">> = iolist_to_binary(re:replace("aBbc","(?>a(?i)b+)+c","\\1yb\\1j&li",[global])),
+    <<"qdtTaBBcxXSc">> = iolist_to_binary(re:replace("aBBc","(?>a(?i)b+)+c","qdtT&xXSc",[])),
+    <<"qdtTaBBcxXSc">> = iolist_to_binary(re:replace("aBBc","(?>a(?i)b+)+c","qdtT&xXSc",[global])),
+    <<"Abc">> = iolist_to_binary(re:replace("Abc","(?>a(?i)b+)+c","&a",[])),
+    <<"Abc">> = iolist_to_binary(re:replace("Abc","(?>a(?i)b+)+c","&a",[global])),
+    <<"abAb">> = iolist_to_binary(re:replace("abAb","(?>a(?i)b+)+c","&aQi\\1rM&TR&\\1e",[])),
+    <<"abAb">> = iolist_to_binary(re:replace("abAb","(?>a(?i)b+)+c","&aQi\\1rM&TR&\\1e",[global])),
+    <<"abbC">> = iolist_to_binary(re:replace("abbC","(?>a(?i)b+)+c","K\\1NDG",[])),
+    <<"abbC">> = iolist_to_binary(re:replace("abbC","(?>a(?i)b+)+c","K\\1NDG",[global])),
+    <<"AgdabcyU">> = iolist_to_binary(re:replace("abc","(?=a(?i)b)\\w\\wc","Agd&\\1yU",[])),
+    <<"AgdabcyU">> = iolist_to_binary(re:replace("abc","(?=a(?i)b)\\w\\wc","Agd&\\1yU",[global])),
+    <<"KNLvjaBcKKaBc">> = iolist_to_binary(re:replace("aBc","(?=a(?i)b)\\w\\wc","KNLv\\1j&KK&",[])),
+    <<"KNLvjaBcKKaBc">> = iolist_to_binary(re:replace("aBc","(?=a(?i)b)\\w\\wc","KNLv\\1j&KK&",[global])),
+    <<"Ab">> = iolist_to_binary(re:replace("Ab","(?=a(?i)b)\\w\\wc","GnM",[])),
+    <<"Ab">> = iolist_to_binary(re:replace("Ab","(?=a(?i)b)\\w\\wc","GnM",[global])),
+    <<"abC">> = iolist_to_binary(re:replace("abC","(?=a(?i)b)\\w\\wc","&RB&mXVc",[])),
+    <<"abC">> = iolist_to_binary(re:replace("abC","(?=a(?i)b)\\w\\wc","&RB&mXVc",[global])),
+    <<"aBC">> = iolist_to_binary(re:replace("aBC","(?=a(?i)b)\\w\\wc","jWUnJUS",[])),
+    <<"aBC">> = iolist_to_binary(re:replace("aBC","(?=a(?i)b)\\w\\wc","jWUnJUS",[global])),
+    <<"abPgBuM">> = iolist_to_binary(re:replace("abxxc","(?<=a(?i)b)(\\w\\w)c","PgBuM",[])),
+    <<"abPgBuM">> = iolist_to_binary(re:replace("abxxc","(?<=a(?i)b)(\\w\\w)c","PgBuM",[global])),
+    <<"aBxxcrKCsmwsrXilq">> = iolist_to_binary(re:replace("aBxxc","(?<=a(?i)b)(\\w\\w)c","&rKCsmwsrXilq",[])),
+    <<"aBxxcrKCsmwsrXilq">> = iolist_to_binary(re:replace("aBxxc","(?<=a(?i)b)(\\w\\w)c","&rKCsmwsrXilq",[global])),
+    <<"Abxxc">> = iolist_to_binary(re:replace("Abxxc","(?<=a(?i)b)(\\w\\w)c","\\1aT&&Wgmx",[])),
+    <<"Abxxc">> = iolist_to_binary(re:replace("Abxxc","(?<=a(?i)b)(\\w\\w)c","\\1aT&&Wgmx",[global])),
+    <<"ABxxc">> = iolist_to_binary(re:replace("ABxxc","(?<=a(?i)b)(\\w\\w)c","ljtkcC",[])),
+    <<"ABxxc">> = iolist_to_binary(re:replace("ABxxc","(?<=a(?i)b)(\\w\\w)c","ljtkcC",[global])),
+    <<"abxxC">> = iolist_to_binary(re:replace("abxxC","(?<=a(?i)b)(\\w\\w)c","&&\\1Tmj\\1aBVw&Su\\1nww\\1",[])),
+    <<"abxxC">> = iolist_to_binary(re:replace("abxxC","(?<=a(?i)b)(\\w\\w)c","&&\\1Tmj\\1aBVw&Su\\1nww\\1",[global])),
+    <<"ogelaleKhJPBRaaABapB">> = iolist_to_binary(re:replace("aA","(?:(a)|b)(?(1)A|B)","ogel\\1leKhJPBR\\1&B\\1pB",[])),
+    <<"ogelaleKhJPBRaaABapB">> = iolist_to_binary(re:replace("aA","(?:(a)|b)(?(1)A|B)","ogel\\1leKhJPBR\\1&B\\1pB",[global])),
+    <<"DfKbBxrbBsMvbBbB">> = iolist_to_binary(re:replace("bB","(?:(a)|b)(?(1)A|B)","DfK&xr&sMv&&",[])),
+    <<"DfKbBxrbBsMvbBbB">> = iolist_to_binary(re:replace("bB","(?:(a)|b)(?(1)A|B)","DfK&xr&sMv&&",[global])),
+    <<"aB">> = iolist_to_binary(re:replace("aB","(?:(a)|b)(?(1)A|B)","&DDDKoimlSswYrm&w",[])),
+    <<"aB">> = iolist_to_binary(re:replace("aB","(?:(a)|b)(?(1)A|B)","&DDDKoimlSswYrm&w",[global])),
+    <<"bA">> = iolist_to_binary(re:replace("bA","(?:(a)|b)(?(1)A|B)","iBoc&&NxWYj\\1xympSmB",[])),
+    <<"bA">> = iolist_to_binary(re:replace("bA","(?:(a)|b)(?(1)A|B)","iBoc&&NxWYj\\1xympSmB",[global])),
+    <<"uaadqaa">> = iolist_to_binary(re:replace("aa","^(a)?(?(1)a|b)+$","u&dq&",[])),
+    <<"uaadqaa">> = iolist_to_binary(re:replace("aa","^(a)?(?(1)a|b)+$","u&dq&",[global])),
+    <<"lCkPbqRySQbYHrF">> = iolist_to_binary(re:replace("b","^(a)?(?(1)a|b)+$","lCk\\1P&qRySQ\\1&YHrF",[])),
+    <<"lCkPbqRySQbYHrF">> = iolist_to_binary(re:replace("b","^(a)?(?(1)a|b)+$","lCk\\1P&qRySQ\\1&YHrF",[global])),
+    <<"QkbJDbbbLtirbbfa">> = iolist_to_binary(re:replace("bb","^(a)?(?(1)a|b)+$","QkbJD&bLtir&fa",[])),
+    <<"QkbJDbbbLtirbbfa">> = iolist_to_binary(re:replace("bb","^(a)?(?(1)a|b)+$","QkbJD&bLtir&fa",[global])),
+    <<"ab">> = iolist_to_binary(re:replace("ab","^(a)?(?(1)a|b)+$","&J\\1DGniTa",[])),
+    <<"ab">> = iolist_to_binary(re:replace("ab","^(a)?(?(1)a|b)+$","&J\\1DGniTa",[global])),
+    <<"bfWxNNOuiB">> = iolist_to_binary(re:replace("abc:","^(?(?=abc)\\w{3}:|\\d\\d)","\\1bfWxNNO\\1\\1uiB",[])),
+    <<"bfWxNNOuiB">> = iolist_to_binary(re:replace("abc:","^(?(?=abc)\\w{3}:|\\d\\d)","\\1bfWxNNO\\1\\1uiB",[global])),
+    <<"inSfgh">> = iolist_to_binary(re:replace("12","^(?(?=abc)\\w{3}:|\\d\\d)","inSf\\1\\1gh",[])),
+    <<"inSfgh">> = iolist_to_binary(re:replace("12","^(?(?=abc)\\w{3}:|\\d\\d)","inSf\\1\\1gh",[global])),
+    <<"12JtcOTqU3">> = iolist_to_binary(re:replace("123","^(?(?=abc)\\w{3}:|\\d\\d)","&JtcOT\\1qU",[])),
+    <<"12JtcOTqU3">> = iolist_to_binary(re:replace("123","^(?(?=abc)\\w{3}:|\\d\\d)","&JtcOT\\1qU",[global])),
+    <<"xyz">> = iolist_to_binary(re:replace("xyz","^(?(?=abc)\\w{3}:|\\d\\d)","fEQ",[])),
+    <<"xyz">> = iolist_to_binary(re:replace("xyz","^(?(?=abc)\\w{3}:|\\d\\d)","fEQ",[global])),
+    <<"ilQoSPAJ">> = iolist_to_binary(re:replace("abc:","^(?(?!abc)\\d\\d|\\w{3}:)$","ilQoSPAJ",[])),
+    <<"ilQoSPAJ">> = iolist_to_binary(re:replace("abc:","^(?(?!abc)\\d\\d|\\w{3}:)$","ilQoSPAJ",[global])),
+    <<"sOIiDwUMul12NN">> = iolist_to_binary(re:replace("12","^(?(?!abc)\\d\\d|\\w{3}:)$","sOIiDw\\1U\\1Mul&\\1NN\\1",[])),
+    <<"sOIiDwUMul12NN">> = iolist_to_binary(re:replace("12","^(?(?!abc)\\d\\d|\\w{3}:)$","sOIiDw\\1U\\1Mul&\\1NN\\1",[global])),
+    <<"123">> = iolist_to_binary(re:replace("123","^(?(?!abc)\\d\\d|\\w{3}:)$","&On&obtglyVw",[])),
+    <<"123">> = iolist_to_binary(re:replace("123","^(?(?!abc)\\d\\d|\\w{3}:)$","&On&obtglyVw",[global])),
+    <<"xyz">> = iolist_to_binary(re:replace("xyz","^(?(?!abc)\\d\\d|\\w{3}:)$","R\\1S\\1l&v",[])),
+    <<"xyz">> = iolist_to_binary(re:replace("xyz","^(?(?!abc)\\d\\d|\\w{3}:)$","R\\1S\\1l&v",[global])),
+    <<"fooeDVNDb">> = iolist_to_binary(re:replace("foobar","(?(?<=foo)bar|cat)","eDVNDb",[])),
+    <<"fooeDVNDb">> = iolist_to_binary(re:replace("foobar","(?(?<=foo)bar|cat)","eDVNDb",[global])),
+    <<"p">> = iolist_to_binary(re:replace("cat","(?(?<=foo)bar|cat)","p\\1",[])),
+    <<"p">> = iolist_to_binary(re:replace("cat","(?(?<=foo)bar|cat)","p\\1",[global])),
+    <<"fShDPcSaaEcat">> = iolist_to_binary(re:replace("fcat","(?(?<=foo)bar|cat)","\\1ShDPcSaaE&",[])),
+    <<"fShDPcSaaEcat">> = iolist_to_binary(re:replace("fcat","(?(?<=foo)bar|cat)","\\1ShDPcSaaE&",[global])),
+    <<"fokgxcatRsUCY">> = iolist_to_binary(re:replace("focat","(?(?<=foo)bar|cat)","kgx\\1&RsUCY",[])),
+    <<"fokgxcatRsUCY">> = iolist_to_binary(re:replace("focat","(?(?<=foo)bar|cat)","kgx\\1&RsUCY",[global])),
+    <<"foocat">> = iolist_to_binary(re:replace("foocat","(?(?<=foo)bar|cat)","\\1OwWeWH",[])),
+    <<"foocat">> = iolist_to_binary(re:replace("foocat","(?(?<=foo)bar|cat)","\\1OwWeWH",[global])),
+    <<"fooRKNdIe">> = iolist_to_binary(re:replace("foobar","(?(?<!foo)cat|bar)","RKNdIe",[])),
+    <<"fooRKNdIe">> = iolist_to_binary(re:replace("foobar","(?(?<!foo)cat|bar)","RKNdIe",[global])),
+    <<"catdYBP">> = iolist_to_binary(re:replace("cat","(?(?<!foo)cat|bar)","&dYBP",[])),
+    <<"catdYBP">> = iolist_to_binary(re:replace("cat","(?(?<!foo)cat|bar)","&dYBP",[global])),
+    <<"fcGurgcYoWHqcatqXicAl">> = iolist_to_binary(re:replace("fcat","(?(?<!foo)cat|bar)","cGurgcY\\1oWHq&qXicAl",[])),
+    <<"fcGurgcYoWHqcatqXicAl">> = iolist_to_binary(re:replace("fcat","(?(?<!foo)cat|bar)","cGurgcY\\1oWHq&qXicAl",[global])),
+    <<"fohXTkycatElcatGXkFf">> = iolist_to_binary(re:replace("focat","(?(?<!foo)cat|bar)","hXTky&El&GX\\1kFf",[])),
+    <<"fohXTkycatElcatGXkFf">> = iolist_to_binary(re:replace("focat","(?(?<!foo)cat|bar)","hXTky&El&GX\\1kFf",[global])),
+    <<"foocat">> = iolist_to_binary(re:replace("foocat","(?(?<!foo)cat|bar)","hd\\1x",[])),
+    <<"foocat">> = iolist_to_binary(re:replace("foocat","(?(?<!foo)cat|bar)","hd\\1x",[global])),
+    <<"">> = iolist_to_binary(re:replace("abcd","( \\( )? [^()]+ (?(1) \\) |) ","\\1",[extended])),
+    <<"">> = iolist_to_binary(re:replace("abcd","( \\( )? [^()]+ (?(1) \\) |) ","\\1",[extended,global])),
+    <<"aGjfXar">> = iolist_to_binary(re:replace("(abcd)","( \\( )? [^()]+ (?(1) \\) |) ","aGjfXar",[extended])),
+    <<"aGjfXar">> = iolist_to_binary(re:replace("(abcd)","( \\( )? [^()]+ (?(1) \\) |) ","aGjfXar",[extended,global])),
+    <<"DmEPAVjIthe quick r(abcd) fox">> = iolist_to_binary(re:replace("the quick (abcd) fox","( \\( )? [^()]+ (?(1) \\) |) ","DmEP\\1AVjI&r",[extended])),
+    <<"DmEPAVjIthe quick rDmEP(AVjI(abcd)rDmEPAVjI foxr">> = iolist_to_binary(re:replace("the quick (abcd) fox","( \\( )? [^()]+ (?(1) \\) |) ","DmEP\\1AVjI&r",[extended,global])),
+    <<"(TabcdtTxSOuYhbPTabcdFKp">> = iolist_to_binary(re:replace("(abcd","( \\( )? [^()]+ (?(1) \\) |) ","T&tTxS\\1O\\1uYhbPT&\\1FKp",[extended])),
+    <<"(TabcdtTxSOuYhbPTabcdFKp">> = iolist_to_binary(re:replace("(abcd","( \\( )? [^()]+ (?(1) \\) |) ","T&tTxS\\1O\\1uYhbPT&\\1FKp",[extended,global])),
+    <<"LhIrrFgkHmabcdfdoY">> = iolist_to_binary(re:replace("abcd","( \\( )? [^()]+ (?(1) \\) ) ","LhIrrFgkHm&fd\\1oY",[extended])),
+    <<"LhIrrFgkHmabcdfdoY">> = iolist_to_binary(re:replace("abcd","( \\( )? [^()]+ (?(1) \\) ) ","LhIrrFgkHm&fd\\1oY",[extended,global])),
+    <<"Im((cADc(abcd)pHh">> = iolist_to_binary(re:replace("(abcd)","( \\( )? [^()]+ (?(1) \\) ) ","Im\\1\\1cADc&pHh",[extended])),
+    <<"Im((cADc(abcd)pHh">> = iolist_to_binary(re:replace("(abcd)","( \\( )? [^()]+ (?(1) \\) ) ","Im\\1\\1cADc&pHh",[extended,global])),
+    <<"tKEdthe quick (abcd) fox">> = iolist_to_binary(re:replace("the quick (abcd) fox","( \\( )? [^()]+ (?(1) \\) ) ","tKEd&\\1",[extended])),
+    <<"tKEdthe quick tKEd(abcd)(tKEd fox">> = iolist_to_binary(re:replace("the quick (abcd) fox","( \\( )? [^()]+ (?(1) \\) ) ","tKEd&\\1",[extended,global])),
+    <<"(mnyiabcdEwbrLGfNM">> = iolist_to_binary(re:replace("(abcd","( \\( )? [^()]+ (?(1) \\) ) ","m\\1nyi&EwbrLGfNM",[extended])),
+    <<"(mnyiabcdEwbrLGfNM">> = iolist_to_binary(re:replace("(abcd","( \\( )? [^()]+ (?(1) \\) ) ","m\\1nyi&EwbrLGfNM",[extended,global])),
+    <<"Iqlk12bhmeIrGmiGmVd">> = iolist_to_binary(re:replace("12","^(?(2)a|(1)(2))+$","Iqlk&bhmeIrGmiGmVd",[])),
+    <<"Iqlk12bhmeIrGmiGmVd">> = iolist_to_binary(re:replace("12","^(?(2)a|(1)(2))+$","Iqlk&bhmeIrGmiGmVd",[global])),
+    <<"CIsFJQ1gcRrp">> = iolist_to_binary(re:replace("12a","^(?(2)a|(1)(2))+$","CIsFJQ\\1gcRrp",[])),
+    <<"CIsFJQ1gcRrp">> = iolist_to_binary(re:replace("12a","^(?(2)a|(1)(2))+$","CIsFJQ\\1gcRrp",[global])),
+    <<"lmHu11C1B1fyc">> = iolist_to_binary(re:replace("12aa","^(?(2)a|(1)(2))+$","lmHu\\1\\1C\\1B\\1fyc",[])),
+    <<"lmHu11C1B1fyc">> = iolist_to_binary(re:replace("12aa","^(?(2)a|(1)(2))+$","lmHu\\1\\1C\\1B\\1fyc",[global])),
+    <<"1234">> = iolist_to_binary(re:replace("1234","^(?(2)a|(1)(2))+$","GQrbsavAq",[])),
+    <<"1234">> = iolist_to_binary(re:replace("1234","^(?(2)a|(1)(2))+$","GQrbsavAq",[global])),
+    <<"blahTXUblah blahlHlMOAblah blahblah blahblahEBblah blahEF">> = iolist_to_binary(re:replace("blah blah","((?i)blah)\\s+\\1","\\1TXU&lHlMOA&&\\1EB&EF",[])),
+    <<"blahTXUblah blahlHlMOAblah blahblah blahblahEBblah blahEF">> = iolist_to_binary(re:replace("blah blah","((?i)blah)\\s+\\1","\\1TXU&lHlMOA&&\\1EB&EF",[global])),
+    <<"idBLAHBLAH BLAHiAQbk">> = iolist_to_binary(re:replace("BLAH BLAH","((?i)blah)\\s+\\1","id\\1&iAQbk",[])),
+    <<"idBLAHBLAH BLAHiAQbk">> = iolist_to_binary(re:replace("BLAH BLAH","((?i)blah)\\s+\\1","id\\1&iAQbk",[global])),
+    <<"ymJEoBlahJHMVXBlah BlahpfeH">> = iolist_to_binary(re:replace("Blah Blah","((?i)blah)\\s+\\1","ymJEo\\1JHMVX&pfeH",[])),
+    <<"ymJEoBlahJHMVXBlah BlahpfeH">> = iolist_to_binary(re:replace("Blah Blah","((?i)blah)\\s+\\1","ymJEo\\1JHMVX&pfeH",[global])),
+    <<"vPRblaHTpFCblaHFV">> = iolist_to_binary(re:replace("blaH blaH","((?i)blah)\\s+\\1","vPR\\1TpFC\\1FV",[])),
+    <<"vPRblaHTpFCblaHFV">> = iolist_to_binary(re:replace("blaH blaH","((?i)blah)\\s+\\1","vPR\\1TpFC\\1FV",[global])),
+    <<"blah BLAH">> = iolist_to_binary(re:replace("blah BLAH","((?i)blah)\\s+\\1","&",[])),
+    <<"blah BLAH">> = iolist_to_binary(re:replace("blah BLAH","((?i)blah)\\s+\\1","&",[global])),
+    <<"Blah blah">> = iolist_to_binary(re:replace("Blah blah","((?i)blah)\\s+\\1","&\\1VTAYjnm&anO",[])),
+    <<"Blah blah">> = iolist_to_binary(re:replace("Blah blah","((?i)blah)\\s+\\1","&\\1VTAYjnm&anO",[global])),
+    <<"blaH blah">> = iolist_to_binary(re:replace("blaH blah","((?i)blah)\\s+\\1","w&Ns&U",[])),
+    <<"blaH blah">> = iolist_to_binary(re:replace("blaH blah","((?i)blah)\\s+\\1","w&Ns&U",[global])),
+    <<"Jblahblahblah blahblah">> = iolist_to_binary(re:replace("blah blah","((?i)blah)\\s+(?i:\\1)","J\\1\\1&\\1",[])),
+    <<"Jblahblahblah blahblah">> = iolist_to_binary(re:replace("blah blah","((?i)blah)\\s+(?i:\\1)","J\\1\\1&\\1",[global])),
+    <<"kmHqhBLAHVBLAH BLAHxPLoBLAH BLAHdBLAHkDBLAH BLAHcBLAH">> = iolist_to_binary(re:replace("BLAH BLAH","((?i)blah)\\s+(?i:\\1)","kmHqh\\1V&xPLo&d\\1kD&c\\1",[])),
+    <<"kmHqhBLAHVBLAH BLAHxPLoBLAH BLAHdBLAHkDBLAH BLAHcBLAH">> = iolist_to_binary(re:replace("BLAH BLAH","((?i)blah)\\s+(?i:\\1)","kmHqh\\1V&xPLo&d\\1kD&c\\1",[global])),
+    <<"JeuSTa">> = iolist_to_binary(re:replace("Blah Blah","((?i)blah)\\s+(?i:\\1)","JeuSTa",[])),
+    <<"JeuSTa">> = iolist_to_binary(re:replace("Blah Blah","((?i)blah)\\s+(?i:\\1)","JeuSTa",[global])),
+    <<"rGvPufMblaH blaHS">> = iolist_to_binary(re:replace("blaH blaH","((?i)blah)\\s+(?i:\\1)","rGvPufM&S",[])),
+    <<"rGvPufMblaH blaHS">> = iolist_to_binary(re:replace("blaH blaH","((?i)blah)\\s+(?i:\\1)","rGvPufM&S",[global])),
+    <<"TblahblahUmmu">> = iolist_to_binary(re:replace("blah BLAH","((?i)blah)\\s+(?i:\\1)","T\\1\\1Ummu",[])),
+    <<"TblahblahUmmu">> = iolist_to_binary(re:replace("blah BLAH","((?i)blah)\\s+(?i:\\1)","T\\1\\1Ummu",[global])),
+    <<"IRrlhHBlahTByBlahhRBlah blahSlYv">> = iolist_to_binary(re:replace("Blah blah","((?i)blah)\\s+(?i:\\1)","IRrlhH\\1TBy\\1hR&SlYv",[])),
+    <<"IRrlhHBlahTByBlahhRBlah blahSlYv">> = iolist_to_binary(re:replace("Blah blah","((?i)blah)\\s+(?i:\\1)","IRrlhH\\1TBy\\1hR&SlYv",[global])),
+    <<"blaH blahWblaH blahQjaDduHuWkQDeblaH blahf">> = iolist_to_binary(re:replace("blaH blah","((?i)blah)\\s+(?i:\\1)","&W&QjaDduHuWkQDe&f",[])),
+    <<"blaH blahWblaH blahQjaDduHuWkQDeblaH blahf">> = iolist_to_binary(re:replace("blaH blah","((?i)blah)\\s+(?i:\\1)","&W&QjaDduHuWkQDe&f",[global])),
     ok.
 run13() ->
-    <<"VqTSha">> = iolist_to_binary(re:replace("a","([a]*)*","VqTSha",[])),
-    <<"VqTShaVqTSha">> = iolist_to_binary(re:replace("a","([a]*)*","VqTSha",[global])),
-    <<"umIMCIfaaaaaIcUxswrPAle">> = iolist_to_binary(re:replace("aaaaa","([a]*)*","umIMCIf&IcUxswr\\1PAle",[])),
-    <<"umIMCIfaaaaaIcUxswrPAleumIMCIfIcUxswrPAle">> = iolist_to_binary(re:replace("aaaaa","([a]*)*","umIMCIf&IcUxswr\\1PAle",[global])),
-    <<"IrRiaaaxxN">> = iolist_to_binary(re:replace("a","([ab]*)*","IrRia&&\\1\\1xxN",[])),
-    <<"IrRiaaaxxNIrRiaxxN">> = iolist_to_binary(re:replace("a","([ab]*)*","IrRia&&\\1\\1xxN",[global])),
-    <<"BhNg">> = iolist_to_binary(re:replace("b","([ab]*)*","B\\1hNg",[])),
-    <<"BhNgBhNg">> = iolist_to_binary(re:replace("b","([ab]*)*","B\\1hNg",[global])),
-    <<"ksleilabababnabababgabababckag">> = iolist_to_binary(re:replace("ababab","([ab]*)*","ksleil\\1&n&\\1g&ckag",[])),
-    <<"ksleilabababnabababgabababckagksleilngckag">> = iolist_to_binary(re:replace("ababab","([ab]*)*","ksleil\\1&n&\\1g&ckag",[global])),
-    <<"HOFVAgJOKaaaabcde">> = iolist_to_binary(re:replace("aaaabcde","([ab]*)*","HOFVAgJOK&",[])),
-    <<"HOFVAgJOKaaaabHOFVAgJOKcHOFVAgJOKdHOFVAgJOKeHOFVAgJOK">> = iolist_to_binary(re:replace("aaaabcde","([ab]*)*","HOFVAgJOK&",[global])),
-    <<"AqQnVO">> = iolist_to_binary(re:replace("bbbb","([ab]*)*","AqQnVO",[])),
-    <<"AqQnVOAqQnVO">> = iolist_to_binary(re:replace("bbbb","([ab]*)*","AqQnVO",[global])),
-    <<"vnKNXwprpJxY">> = iolist_to_binary(re:replace("b","([^a]*)*","vnKNXwp\\1rp\\1JxY",[])),
-    <<"vnKNXwprpJxYvnKNXwprpJxY">> = iolist_to_binary(re:replace("b","([^a]*)*","vnKNXwp\\1rp\\1JxY",[global])),
-    <<"bbbbbbbblbbbbCMbjHlAnNY">> = iolist_to_binary(re:replace("bbbb","([^a]*)*","&&l&\\1CMbjHlAnNY",[])),
-    <<"bbbbbbbblbbbbCMbjHlAnNYlCMbjHlAnNY">> = iolist_to_binary(re:replace("bbbb","([^a]*)*","&&l&\\1CMbjHlAnNY",[global])),
-    <<"CrbBlrjAUcQReBRNaaa">> = iolist_to_binary(re:replace("aaa","([^a]*)*","CrbBlrjAUcQReBRN",[])),
-    <<"CrbBlrjAUcQReBRNaCrbBlrjAUcQReBRNaCrbBlrjAUcQReBRNaCrbBlrjAUcQReBRN">> = iolist_to_binary(re:replace("aaa","([^a]*)*","CrbBlrjAUcQReBRN",[global])),
-    <<"FTHvDKUVGccccJcccca">> = iolist_to_binary(re:replace("cccc","([^ab]*)*","FT\\1HvDKUVG&J\\1&\\1a",[])),
-    <<"FTHvDKUVGccccJccccaFTHvDKUVGJa">> = iolist_to_binary(re:replace("cccc","([^ab]*)*","FT\\1HvDKUVG&J\\1&\\1a",[global])),
-    <<"qHEPBQLSxabab">> = iolist_to_binary(re:replace("abab","([^ab]*)*","qHE\\1PBQLSx",[])),
-    <<"qHEPBQLSxaqHEPBQLSxbqHEPBQLSxaqHEPBQLSxbqHEPBQLSx">> = iolist_to_binary(re:replace("abab","([^ab]*)*","qHE\\1PBQLSx",[global])),
-    <<"ceuREbnlQIAtjva">> = iolist_to_binary(re:replace("a","([a]*?)*","ceuREb\\1nlQIA\\1tjv",[])),
-    <<"ceuREbnlQIAtjvceuREbnlQIAtjvceuREbnlQIAtjv">> = iolist_to_binary(re:replace("a","([a]*?)*","ceuREb\\1nlQIA\\1tjv",[global])),
-    <<"xadyaaaa">> = iolist_to_binary(re:replace("aaaa","([a]*?)*","\\1xa&d\\1\\1\\1&y",[])),
-    <<"xadyxaadayxadyxaadayxadyxaadayxadyxaadayxady">> = iolist_to_binary(re:replace("aaaa","([a]*?)*","\\1xa&d\\1\\1\\1&y",[global])),
-    <<"ulvseXcnAHfTuxa">> = iolist_to_binary(re:replace("a","([ab]*?)*","\\1ulvseXc\\1nAHf\\1Tux",[])),
-    <<"ulvseXcnAHfTuxulvseXcnAHfTuxulvseXcnAHfTux">> = iolist_to_binary(re:replace("a","([ab]*?)*","\\1ulvseXc\\1nAHf\\1Tux",[global])),
-    <<"JfEqTKkUYCsYRBab">> = iolist_to_binary(re:replace("b","([ab]*?)*","J&fEqTKkUYCsYR\\1Ba",[])),
-    <<"JfEqTKkUYCsYRBaJbfEqTKkUYCsYRBaJfEqTKkUYCsYRBa">> = iolist_to_binary(re:replace("b","([ab]*?)*","J&fEqTKkUYCsYR\\1Ba",[global])),
-    <<"ucDKTCpyhMJmdGabab">> = iolist_to_binary(re:replace("abab","([ab]*?)*","&ucD&KTCpy&hM\\1JmdG\\1",[])),
-    <<"ucDKTCpyhMJmdGaucDaKTCpyahMJmdGucDKTCpyhMJmdGbucDbKTCpybhMJmdGucDKTCpyhMJmdGaucDaKTCpyahMJmdGucDKTCpyhMJmdGbucDbKTCpybhMJmdGucDKTCpyhMJmdG">> = iolist_to_binary(re:replace("abab","([ab]*?)*","&ucD&KTCpy&hM\\1JmdG\\1",[global])),
-    <<"unfMosGsMoIIOOgTbaba">> = iolist_to_binary(re:replace("baba","([ab]*?)*","un&fMos&GsMoI\\1IOOgT\\1",[])),
-    <<"unfMosGsMoIIOOgTunbfMosbGsMoIIOOgTunfMosGsMoIIOOgTunafMosaGsMoIIOOgTunfMosGsMoIIOOgTunbfMosbGsMoIIOOgTunfMosGsMoIIOOgTunafMosaGsMoIIOOgTunfMosGsMoIIOOgT">> = iolist_to_binary(re:replace("baba","([ab]*?)*","un&fMos&GsMoI\\1IOOgT\\1",[global])),
-    <<"TXb">> = iolist_to_binary(re:replace("b","([^a]*?)*","\\1TX&",[])),
-    <<"TXTXbTX">> = iolist_to_binary(re:replace("b","([^a]*?)*","\\1TX&",[global])),
-    <<"xDMyvobHjfHHqLbbbb">> = iolist_to_binary(re:replace("bbbb","([^a]*?)*","&x&DMy&vobHjfH&HqL",[])),
-    <<"xDMyvobHjfHHqLbxbDMybvobHjfHbHqLxDMyvobHjfHHqLbxbDMybvobHjfHbHqLxDMyvobHjfHHqLbxbDMybvobHjfHbHqLxDMyvobHjfHHqLbxbDMybvobHjfHbHqLxDMyvobHjfHHqL">> = iolist_to_binary(re:replace("bbbb","([^a]*?)*","&x&DMy&vobHjfH&HqL",[global])),
-    <<"KIuDxHaaa">> = iolist_to_binary(re:replace("aaa","([^a]*?)*","\\1&\\1KI&&uDxH",[])),
-    <<"KIuDxHaKIuDxHaKIuDxHaKIuDxH">> = iolist_to_binary(re:replace("aaa","([^a]*?)*","\\1&\\1KI&&uDxH",[global])),
-    <<"DIwUfDc">> = iolist_to_binary(re:replace("c","([^ab]*?)*","DIwU\\1fD",[])),
-    <<"DIwUfDDIwUfDDIwUfD">> = iolist_to_binary(re:replace("c","([^ab]*?)*","DIwU\\1fD",[global])),
-    <<"mlYAcccc">> = iolist_to_binary(re:replace("cccc","([^ab]*?)*","&&m&lYA",[])),
-    <<"mlYAccmclYAmlYAccmclYAmlYAccmclYAmlYAccmclYAmlYA">> = iolist_to_binary(re:replace("cccc","([^ab]*?)*","&&m&lYA",[global])),
-    <<"hCcQaEejLMkpMbOoWbaba">> = iolist_to_binary(re:replace("baba","([^ab]*?)*","hC\\1c\\1QaE\\1ejLMkpMbOoW",[])),
-    <<"hCcQaEejLMkpMbOoWbhCcQaEejLMkpMbOoWahCcQaEejLMkpMbOoWbhCcQaEejLMkpMbOoWahCcQaEejLMkpMbOoW">> = iolist_to_binary(re:replace("baba","([^ab]*?)*","hC\\1c\\1QaE\\1ejLMkpMbOoW",[global])),
-    <<"hUaDhqAQkrYaH">> = iolist_to_binary(re:replace("a","(?>a*)*","hU\\1&DhqAQkrYaH",[])),
-    <<"hUaDhqAQkrYaHhUDhqAQkrYaH">> = iolist_to_binary(re:replace("a","(?>a*)*","hU\\1&DhqAQkrYaH",[global])),
-    <<"rBTLaaaYbcde">> = iolist_to_binary(re:replace("aaabcde","(?>a*)*","rBTL&Y",[])),
-    <<"rBTLaaaYrBTLYbrBTLYcrBTLYdrBTLYerBTLY">> = iolist_to_binary(re:replace("aaabcde","(?>a*)*","rBTL&Y",[global])),
-    <<"SmyMhdAN">> = iolist_to_binary(re:replace("aaaaa","((?>a*))*","S\\1myMhdAN",[])),
-    <<"SmyMhdANSmyMhdAN">> = iolist_to_binary(re:replace("aaaaa","((?>a*))*","S\\1myMhdAN",[global])),
-    <<"VCDSmcyPWaadgbbaa">> = iolist_to_binary(re:replace("aabbaa","((?>a*))*","VCDSmcyPW\\1&dg",[])),
-    <<"VCDSmcyPWaadgVCDSmcyPWdgbVCDSmcyPWdgbVCDSmcyPWaadgVCDSmcyPWdg">> = iolist_to_binary(re:replace("aabbaa","((?>a*))*","VCDSmcyPW\\1&dg",[global])),
-    <<"Baaaaa">> = iolist_to_binary(re:replace("aaaaa","((?>a*?))*","\\1B&",[])),
-    <<"BaBaBaBaBaB">> = iolist_to_binary(re:replace("aaaaa","((?>a*?))*","\\1B&",[global])),
-    <<"RIUeeXdQaaabbaa">> = iolist_to_binary(re:replace("aabbaa","((?>a*?))*","\\1R&\\1IUeeXdQa&",[])),
-    <<"RIUeeXdQaaRIUeeXdQaaRIUeeXdQabRIUeeXdQabRIUeeXdQaaRIUeeXdQaaRIUeeXdQa">> = iolist_to_binary(re:replace("aabbaa","((?>a*?))*","\\1R&\\1IUeeXdQa&",[global])),
-    <<"QA12-sep-98">> = iolist_to_binary(re:replace("12-sep-98","(?(?=[^a-z]+[a-z])  \\d{2}-[a-z]{3}-\\d{2}  |  \\d{2}-\\d{2}-\\d{2} ) ","QA\\1&",[extended])),
-    <<"QA12-sep-98">> = iolist_to_binary(re:replace("12-sep-98","(?(?=[^a-z]+[a-z])  \\d{2}-[a-z]{3}-\\d{2}  |  \\d{2}-\\d{2}-\\d{2} ) ","QA\\1&",[extended,global])),
-    <<"DxMd12-09-98H">> = iolist_to_binary(re:replace("12-09-98","(?(?=[^a-z]+[a-z])  \\d{2}-[a-z]{3}-\\d{2}  |  \\d{2}-\\d{2}-\\d{2} ) ","DxMd&H",[extended])),
-    <<"DxMd12-09-98H">> = iolist_to_binary(re:replace("12-09-98","(?(?=[^a-z]+[a-z])  \\d{2}-[a-z]{3}-\\d{2}  |  \\d{2}-\\d{2}-\\d{2} ) ","DxMd&H",[extended,global])),
-    <<"sep-12-98">> = iolist_to_binary(re:replace("sep-12-98","(?(?=[^a-z]+[a-z])  \\d{2}-[a-z]{3}-\\d{2}  |  \\d{2}-\\d{2}-\\d{2} ) ","GBQiDroa&F\\1",[extended])),
-    <<"sep-12-98">> = iolist_to_binary(re:replace("sep-12-98","(?(?=[^a-z]+[a-z])  \\d{2}-[a-z]{3}-\\d{2}  |  \\d{2}-\\d{2}-\\d{2} ) ","GBQiDroa&F\\1",[extended,global])),
-    <<"foodbarfoovQhyA">> = iolist_to_binary(re:replace("foobarfoo","(?<=(foo))bar\\1","d&vQhyA",[])),
-    <<"foodbarfoovQhyA">> = iolist_to_binary(re:replace("foobarfoo","(?<=(foo))bar\\1","d&vQhyA",[global])),
-    <<"foohtKBtling">> = iolist_to_binary(re:replace("foobarfootling","(?<=(foo))bar\\1","htKB",[])),
-    <<"foohtKBtling">> = iolist_to_binary(re:replace("foobarfootling","(?<=(foo))bar\\1","htKB",[global])),
-    <<"foobar">> = iolist_to_binary(re:replace("foobar","(?<=(foo))bar\\1","vR&jLCa\\1y\\1cD",[])),
-    <<"foobar">> = iolist_to_binary(re:replace("foobar","(?<=(foo))bar\\1","vR&jLCa\\1y\\1cD",[global])),
-    <<"barfoo">> = iolist_to_binary(re:replace("barfoo","(?<=(foo))bar\\1","lG",[])),
-    <<"barfoo">> = iolist_to_binary(re:replace("barfoo","(?<=(foo))bar\\1","lG",[global])),
-    <<"cbsaturday">> = iolist_to_binary(re:replace("saturday","(?i:saturday|sunday)","cb&\\1",[])),
-    <<"cbsaturday">> = iolist_to_binary(re:replace("saturday","(?i:saturday|sunday)","cb&\\1",[global])),
-    <<"QBObvsfLS">> = iolist_to_binary(re:replace("sunday","(?i:saturday|sunday)","QBObvsfLS",[])),
-    <<"QBObvsfLS">> = iolist_to_binary(re:replace("sunday","(?i:saturday|sunday)","QBObvsfLS",[global])),
-    <<"muFQTESaturdayESaturdayPEBB">> = iolist_to_binary(re:replace("Saturday","(?i:saturday|sunday)","mu\\1FQ\\1TE&E&P\\1EBB\\1",[])),
-    <<"muFQTESaturdayESaturdayPEBB">> = iolist_to_binary(re:replace("Saturday","(?i:saturday|sunday)","mu\\1FQ\\1TE&E&P\\1EBB\\1",[global])),
-    <<"drqTUpJSundayvsuSunday">> = iolist_to_binary(re:replace("Sunday","(?i:saturday|sunday)","drqTU\\1pJ\\1&vsu&",[])),
-    <<"drqTUpJSundayvsuSunday">> = iolist_to_binary(re:replace("Sunday","(?i:saturday|sunday)","drqTU\\1pJ\\1&vsu&",[global])),
-    <<"wSATURDAYtSQSATURDAY">> = iolist_to_binary(re:replace("SATURDAY","(?i:saturday|sunday)","w&t\\1S\\1Q&",[])),
-    <<"wSATURDAYtSQSATURDAY">> = iolist_to_binary(re:replace("SATURDAY","(?i:saturday|sunday)","w&t\\1S\\1Q&",[global])),
-    <<"BUmgeWbSPrmQuh">> = iolist_to_binary(re:replace("SUNDAY","(?i:saturday|sunday)","BU\\1mgeWbSPrmQu\\1h",[])),
-    <<"BUmgeWbSPrmQuh">> = iolist_to_binary(re:replace("SUNDAY","(?i:saturday|sunday)","BU\\1mgeWbSPrmQu\\1h",[global])),
-    <<"AhiD">> = iolist_to_binary(re:replace("SunDay","(?i:saturday|sunday)","Ahi\\1D",[])),
-    <<"AhiD">> = iolist_to_binary(re:replace("SunDay","(?i:saturday|sunday)","Ahi\\1D",[global])),
-    <<"xJwrB">> = iolist_to_binary(re:replace("abcx","(a(?i)bc|BB)x","xJwrB",[])),
-    <<"xJwrB">> = iolist_to_binary(re:replace("abcx","(a(?i)bc|BB)x","xJwrB",[global])),
-    <<"WqYokXSFmo">> = iolist_to_binary(re:replace("aBCx","(a(?i)bc|BB)x","WqYokXSFmo",[])),
-    <<"WqYokXSFmo">> = iolist_to_binary(re:replace("aBCx","(a(?i)bc|BB)x","WqYokXSFmo",[global])),
-    <<"ViVjAQCNIlGCBbbRWbbKs">> = iolist_to_binary(re:replace("bbx","(a(?i)bc|BB)x","ViVjAQCNIlGCB\\1RW\\1Ks",[])),
-    <<"ViVjAQCNIlGCBbbRWbbKs">> = iolist_to_binary(re:replace("bbx","(a(?i)bc|BB)x","ViVjAQCNIlGCB\\1RW\\1Ks",[global])),
-    <<"cBBxBByBBx">> = iolist_to_binary(re:replace("BBx","(a(?i)bc|BB)x","c&\\1y&",[])),
-    <<"cBBxBByBBx">> = iolist_to_binary(re:replace("BBx","(a(?i)bc|BB)x","c&\\1y&",[global])),
-    <<"abcX">> = iolist_to_binary(re:replace("abcX","(a(?i)bc|BB)x","U",[])),
-    <<"abcX">> = iolist_to_binary(re:replace("abcX","(a(?i)bc|BB)x","U",[global])),
-    <<"aBCX">> = iolist_to_binary(re:replace("aBCX","(a(?i)bc|BB)x","\\1qT\\1bjyP\\1\\1Ki\\1iMujiN",[])),
-    <<"aBCX">> = iolist_to_binary(re:replace("aBCX","(a(?i)bc|BB)x","\\1qT\\1bjyP\\1\\1Ki\\1iMujiN",[global])),
-    <<"bbX">> = iolist_to_binary(re:replace("bbX","(a(?i)bc|BB)x","PLae\\1JqVIra&oco",[])),
-    <<"bbX">> = iolist_to_binary(re:replace("bbX","(a(?i)bc|BB)x","PLae\\1JqVIra&oco",[global])),
-    <<"BBX">> = iolist_to_binary(re:replace("BBX","(a(?i)bc|BB)x","GsAhcAq&HmjdSm\\1K&t",[])),
-    <<"BBX">> = iolist_to_binary(re:replace("BBX","(a(?i)bc|BB)x","GsAhcAq&HmjdSm\\1K&t",[global])),
-    <<"jMnYwcUacqacDac">> = iolist_to_binary(re:replace("ac","^([ab](?i)[cd]|[ef])","jMnYwcU\\1q\\1D\\1",[])),
-    <<"jMnYwcUacqacDac">> = iolist_to_binary(re:replace("ac","^([ab](?i)[cd]|[ef])","jMnYwcU\\1q\\1D\\1",[global])),
-    <<"BaCaCaCfcBaCIWxCjSaCliri">> = iolist_to_binary(re:replace("aC","^([ab](?i)[cd]|[ef])","B&\\1\\1fcB\\1IWxCjS&liri",[])),
-    <<"BaCaCaCfcBaCIWxCjSaCliri">> = iolist_to_binary(re:replace("aC","^([ab](?i)[cd]|[ef])","B&\\1\\1fcB\\1IWxCjS&liri",[global])),
-    <<"wNbDvbDem">> = iolist_to_binary(re:replace("bD","^([ab](?i)[cd]|[ef])","wN&v\\1em",[])),
-    <<"wNbDvbDem">> = iolist_to_binary(re:replace("bD","^([ab](?i)[cd]|[ef])","wN&v\\1em",[global])),
-    <<"oXlephant">> = iolist_to_binary(re:replace("elephant","^([ab](?i)[cd]|[ef])","oX",[])),
-    <<"oXlephant">> = iolist_to_binary(re:replace("elephant","^([ab](?i)[cd]|[ef])","oX",[global])),
-    <<"EjEqBEBjEiurope">> = iolist_to_binary(re:replace("Europe","^([ab](?i)[cd]|[ef])","Ej\\1qB&Bj\\1i",[])),
-    <<"EjEqBEBjEiurope">> = iolist_to_binary(re:replace("Europe","^([ab](?i)[cd]|[ef])","Ej\\1qB&Bj\\1i",[global])),
-    <<"frog">> = iolist_to_binary(re:replace("frog","^([ab](?i)[cd]|[ef])","\\1",[])),
-    <<"frog">> = iolist_to_binary(re:replace("frog","^([ab](?i)[cd]|[ef])","\\1",[global])),
-    <<"rarance">> = iolist_to_binary(re:replace("France","^([ab](?i)[cd]|[ef])","ra",[])),
-    <<"rarance">> = iolist_to_binary(re:replace("France","^([ab](?i)[cd]|[ef])","ra",[global])),
-    <<"Africa">> = iolist_to_binary(re:replace("Africa","^([ab](?i)[cd]|[ef])","EHLgXekX",[])),
-    <<"Africa">> = iolist_to_binary(re:replace("Africa","^([ab](?i)[cd]|[ef])","EHLgXekX",[global])),
-    <<"rababKababrcuwyQBhDabRgB">> = iolist_to_binary(re:replace("ab","^(ab|a(?i)[b-c](?m-i)d|x(?i)y|z)","r&&K&\\1rcuwyQBhD\\1RgB",[])),
-    <<"rababKababrcuwyQBhDabRgB">> = iolist_to_binary(re:replace("ab","^(ab|a(?i)[b-c](?m-i)d|x(?i)y|z)","r&&K&\\1rcuwyQBhD\\1RgB",[global])),
-    <<"DMaBdbraBdBdk">> = iolist_to_binary(re:replace("aBd","^(ab|a(?i)[b-c](?m-i)d|x(?i)y|z)","DM\\1br\\1Bdk",[])),
-    <<"DMaBdbraBdBdk">> = iolist_to_binary(re:replace("aBd","^(ab|a(?i)[b-c](?m-i)d|x(?i)y|z)","DM\\1br\\1Bdk",[global])),
-    <<"XeCprJuxyqUwxyAfxyxy">> = iolist_to_binary(re:replace("xy","^(ab|a(?i)[b-c](?m-i)d|x(?i)y|z)","XeCprJu&qUw\\1Af&&",[])),
-    <<"XeCprJuxyqUwxyAfxyxy">> = iolist_to_binary(re:replace("xy","^(ab|a(?i)[b-c](?m-i)d|x(?i)y|z)","XeCprJu&qUw\\1Af&&",[global])),
-    <<"rxYjcw">> = iolist_to_binary(re:replace("xY","^(ab|a(?i)[b-c](?m-i)d|x(?i)y|z)","r\\1jcw",[])),
-    <<"rxYjcw">> = iolist_to_binary(re:replace("xY","^(ab|a(?i)[b-c](?m-i)d|x(?i)y|z)","r\\1jcw",[global])),
-    <<"zusowFJzEGzMYMebra">> = iolist_to_binary(re:replace("zebra","^(ab|a(?i)[b-c](?m-i)d|x(?i)y|z)","\\1usowFJ\\1EG\\1MYM",[])),
-    <<"zusowFJzEGzMYMebra">> = iolist_to_binary(re:replace("zebra","^(ab|a(?i)[b-c](?m-i)d|x(?i)y|z)","\\1usowFJ\\1EG\\1MYM",[global])),
-    <<"AZFZtlJambesi">> = iolist_to_binary(re:replace("Zambesi","^(ab|a(?i)[b-c](?m-i)d|x(?i)y|z)","A&F&tlJ",[])),
-    <<"AZFZtlJambesi">> = iolist_to_binary(re:replace("Zambesi","^(ab|a(?i)[b-c](?m-i)d|x(?i)y|z)","A&F&tlJ",[global])),
-    <<"aCD">> = iolist_to_binary(re:replace("aCD","^(ab|a(?i)[b-c](?m-i)d|x(?i)y|z)","iX",[])),
-    <<"aCD">> = iolist_to_binary(re:replace("aCD","^(ab|a(?i)[b-c](?m-i)d|x(?i)y|z)","iX",[global])),
-    <<"XY">> = iolist_to_binary(re:replace("XY","^(ab|a(?i)[b-c](?m-i)d|x(?i)y|z)","j&&J\\1&I",[])),
-    <<"XY">> = iolist_to_binary(re:replace("XY","^(ab|a(?i)[b-c](?m-i)d|x(?i)y|z)","j&&J\\1&I",[global])),
-    <<"foo
-kjlukbPhbarsuCghlveb">> = iolist_to_binary(re:replace("foo
-bar","(?<=foo\\n)^bar","kj\\1lukbPh&su\\1Cghlveb",[multiline])),
-    <<"foo
-kjlukbPhbarsuCghlveb">> = iolist_to_binary(re:replace("foo
-bar","(?<=foo\\n)^bar","kj\\1lukbPh&su\\1Cghlveb",[multiline,global])),
-    <<"bar">> = iolist_to_binary(re:replace("bar","(?<=foo\\n)^bar","uXqdQvfv&\\1tC\\1ipRP",[multiline])),
-    <<"bar">> = iolist_to_binary(re:replace("bar","(?<=foo\\n)^bar","uXqdQvfv&\\1tC\\1ipRP",[multiline,global])),
-    <<"baz
-bar">> = iolist_to_binary(re:replace("baz
-bar","(?<=foo\\n)^bar","poYUMCLsWcR\\1fr\\1X\\1",[multiline])),
-    <<"baz
-bar">> = iolist_to_binary(re:replace("baz
-bar","(?<=foo\\n)^bar","poYUMCLsWcR\\1fr\\1X\\1",[multiline,global])),
-    <<"barEbazihCGRgMPqq">> = iolist_to_binary(re:replace("barbaz","(?<=(?<!foo)bar)baz","E&ihCGRgMPqq\\1",[])),
-    <<"barEbazihCGRgMPqq">> = iolist_to_binary(re:replace("barbaz","(?<=(?<!foo)bar)baz","E&ihCGRgMPqq\\1",[global])),
-    <<"barbarQRobazSSbazbaz">> = iolist_to_binary(re:replace("barbarbaz","(?<=(?<!foo)bar)baz","QRo&SS&&",[])),
-    <<"barbarQRobazSSbazbaz">> = iolist_to_binary(re:replace("barbarbaz","(?<=(?<!foo)bar)baz","QRo&SS&&",[global])),
-    <<"koobarDk">> = iolist_to_binary(re:replace("koobarbaz","(?<=(?<!foo)bar)baz","D\\1k\\1",[])),
-    <<"koobarDk">> = iolist_to_binary(re:replace("koobarbaz","(?<=(?<!foo)bar)baz","D\\1k\\1",[global])),
-    <<"baz">> = iolist_to_binary(re:replace("baz","(?<=(?<!foo)bar)baz","soL&R\\1GSAmJChxOln",[])),
-    <<"baz">> = iolist_to_binary(re:replace("baz","(?<=(?<!foo)bar)baz","soL&R\\1GSAmJChxOln",[global])),
-    <<"foobarbaz">> = iolist_to_binary(re:replace("foobarbaz","(?<=(?<!foo)bar)baz","y&e",[])),
-    <<"foobarbaz">> = iolist_to_binary(re:replace("foobarbaz","(?<=(?<!foo)bar)baz","y&e",[global])),
-    <<"kaaaaaanSruMXTFCEa">> = iolist_to_binary(re:replace("aaaaa","^(a\\1?){4}$","k\\1&nSruMXTFCE\\1",[])),
-    <<"kaaaaaanSruMXTFCEa">> = iolist_to_binary(re:replace("aaaaa","^(a\\1?){4}$","k\\1&nSruMXTFCE\\1",[global])),
-    <<"ayaanviaaaaaaacaaaaaaaYCXYPUdaaaaaaaHi">> = iolist_to_binary(re:replace("aaaaaaa","^(a\\1?){4}$","\\1y\\1\\1nvi&c&YCXYPUd&Hi",[])),
-    <<"ayaanviaaaaaaacaaaaaaaYCXYPUdaaaaaaaHi">> = iolist_to_binary(re:replace("aaaaaaa","^(a\\1?){4}$","\\1y\\1\\1nvi&c&YCXYPUd&Hi",[global])),
-    <<"GOpaaaaaaaaaabyaaaauUbSQjaaaaaaaaaaV">> = iolist_to_binary(re:replace("aaaaaaaaaa","^(a\\1?){4}$","GOp&by\\1uUbSQj&V",[])),
-    <<"GOpaaaaaaaaaabyaaaauUbSQjaaaaaaaaaaV">> = iolist_to_binary(re:replace("aaaaaaaaaa","^(a\\1?){4}$","GOp&by\\1uUbSQj&V",[global])),
-    <<"a">> = iolist_to_binary(re:replace("a","^(a\\1?){4}$","U",[])),
-    <<"a">> = iolist_to_binary(re:replace("a","^(a\\1?){4}$","U",[global])),
-    <<"aa">> = iolist_to_binary(re:replace("aa","^(a\\1?){4}$","NglUgPv\\1IB&\\1XMXPO",[])),
-    <<"aa">> = iolist_to_binary(re:replace("aa","^(a\\1?){4}$","NglUgPv\\1IB&\\1XMXPO",[global])),
-    <<"aaa">> = iolist_to_binary(re:replace("aaa","^(a\\1?){4}$","&tLnp",[])),
-    <<"aaa">> = iolist_to_binary(re:replace("aaa","^(a\\1?){4}$","&tLnp",[global])),
-    <<"aaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaa","^(a\\1?){4}$","vF",[])),
-    <<"aaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaa","^(a\\1?){4}$","vF",[global])),
-    <<"aaaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaaa","^(a\\1?){4}$","j\\1xp&mKu\\1HHgUS&IE&",[])),
-    <<"aaaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaaa","^(a\\1?){4}$","j\\1xp&mKu\\1HHgUS&IE&",[global])),
-    <<"aaaaaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaaaaa","^(a\\1?){4}$","yi\\1IibTMat&Rkn",[])),
-    <<"aaaaaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaaaaa","^(a\\1?){4}$","yi\\1IibTMat&Rkn",[global])),
-    <<"aaaaaaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaaaaaa","^(a\\1?){4}$","ruXsFS&L&b\\1adX",[])),
-    <<"aaaaaaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaaaaaa","^(a\\1?){4}$","ruXsFS&L&b\\1adX",[global])),
-    <<"aaaaaaaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaaaaaaa","^(a\\1?){4}$","kCb",[])),
-    <<"aaaaaaaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaaaaaaa","^(a\\1?){4}$","kCb",[global])),
-    <<"aaaaaaaaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaaaaaaaa","^(a\\1?){4}$","ufsBIAN\\1",[])),
-    <<"aaaaaaaaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaaaaaaaa","^(a\\1?){4}$","ufsBIAN\\1",[global])),
-    <<"aaaaaaaaaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaaaaaaaaa","^(a\\1?){4}$","V\\1\\1ECNL\\1Xf",[])),
-    <<"aaaaaaaaaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaaaaaaaaa","^(a\\1?){4}$","V\\1\\1ECNL\\1Xf",[global])),
-    <<"aaaaaaaaaaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaaaaaaaaaa","^(a\\1?){4}$","PBNukCrgiybP",[])),
-    <<"aaaaaaaaaaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaaaaaaaaaa","^(a\\1?){4}$","PBNukCrgiybP",[global])),
+    <<"nPOwblah ABLAHHbn">> = iolist_to_binary(re:replace("blah ABLAH","((?i)blah)\\s+(?m)A(?i:\\1)","nPOw&Hbn",[])),
+    <<"nPOwblah ABLAHHbn">> = iolist_to_binary(re:replace("blah ABLAH","((?i)blah)\\s+(?m)A(?i:\\1)","nPOw&Hbn",[global])),
+    <<"blah aBLAH">> = iolist_to_binary(re:replace("blah aBLAH","((?i)blah)\\s+(?m)A(?i:\\1)","lUDErmsSNiolx",[])),
+    <<"blah aBLAH">> = iolist_to_binary(re:replace("blah aBLAH","((?i)blah)\\s+(?m)A(?i:\\1)","lUDErmsSNiolx",[global])),
+    <<"nnmRyETDugSpewalo">> = iolist_to_binary(re:replace("a","(?>a*)*","\\1nnmRyE\\1TDu\\1gSpew&lo",[])),
+    <<"nnmRyETDugSpewalonnmRyETDugSpewlo">> = iolist_to_binary(re:replace("a","(?>a*)*","\\1nnmRyE\\1TDu\\1gSpew&lo",[global])),
+    <<"yodYxaaCeJlaBW">> = iolist_to_binary(re:replace("aa","(?>a*)*","\\1yod\\1Yx&CeJlaBW",[])),
+    <<"yodYxaaCeJlaBWyodYxCeJlaBW">> = iolist_to_binary(re:replace("aa","(?>a*)*","\\1yod\\1Yx&CeJlaBW",[global])),
+    <<"aaaaSAguoo">> = iolist_to_binary(re:replace("aaaa","(?>a*)*","&SAguoo",[])),
+    <<"aaaaSAguooSAguoo">> = iolist_to_binary(re:replace("aaaa","(?>a*)*","&SAguoo",[global])),
+    <<"gKabc">> = iolist_to_binary(re:replace("abc","(abc|)+","gK&",[])),
+    <<"gKabcgK">> = iolist_to_binary(re:replace("abc","(abc|)+","gK&",[global])),
+    <<"VqTSha">> = iolist_to_binary(re:replace("abcabc","(abc|)+","VqTSha",[])),
+    <<"VqTShaVqTSha">> = iolist_to_binary(re:replace("abcabc","(abc|)+","VqTSha",[global])),
+    <<"umIMCIfabcabcabcIcUxswrPAle">> = iolist_to_binary(re:replace("abcabcabc","(abc|)+","umIMCIf&IcUxswr\\1PAle",[])),
+    <<"umIMCIfabcabcabcIcUxswrPAleumIMCIfIcUxswrPAle">> = iolist_to_binary(re:replace("abcabcabc","(abc|)+","umIMCIf&IcUxswr\\1PAle",[global])),
+    <<"IrRiaxxNxyz">> = iolist_to_binary(re:replace("xyz","(abc|)+","IrRia&&\\1\\1xxN",[])),
+    <<"IrRiaxxNxIrRiaxxNyIrRiaxxNzIrRiaxxN">> = iolist_to_binary(re:replace("xyz","(abc|)+","IrRia&&\\1\\1xxN",[global])),
+    <<"BhNg">> = iolist_to_binary(re:replace("a","([a]*)*","B\\1hNg",[])),
+    <<"BhNgBhNg">> = iolist_to_binary(re:replace("a","([a]*)*","B\\1hNg",[global])),
+    <<"ksleilaaaaanaaaaagaaaaackag">> = iolist_to_binary(re:replace("aaaaa","([a]*)*","ksleil\\1&n&\\1g&ckag",[])),
+    <<"ksleilaaaaanaaaaagaaaaackagksleilngckag">> = iolist_to_binary(re:replace("aaaaa","([a]*)*","ksleil\\1&n&\\1g&ckag",[global])),
+    <<"HOFVAgJOKa">> = iolist_to_binary(re:replace("a","([ab]*)*","HOFVAgJOK&",[])),
+    <<"HOFVAgJOKaHOFVAgJOK">> = iolist_to_binary(re:replace("a","([ab]*)*","HOFVAgJOK&",[global])),
+    <<"AqQnVO">> = iolist_to_binary(re:replace("b","([ab]*)*","AqQnVO",[])),
+    <<"AqQnVOAqQnVO">> = iolist_to_binary(re:replace("b","([ab]*)*","AqQnVO",[global])),
+    <<"vnKNXwprpJxY">> = iolist_to_binary(re:replace("ababab","([ab]*)*","vnKNXwp\\1rp\\1JxY",[])),
+    <<"vnKNXwprpJxYvnKNXwprpJxY">> = iolist_to_binary(re:replace("ababab","([ab]*)*","vnKNXwp\\1rp\\1JxY",[global])),
+    <<"aaaabaaaablaaaabCMbjHlAnNYcde">> = iolist_to_binary(re:replace("aaaabcde","([ab]*)*","&&l&\\1CMbjHlAnNY",[])),
+    <<"aaaabaaaablaaaabCMbjHlAnNYlCMbjHlAnNYclCMbjHlAnNYdlCMbjHlAnNYelCMbjHlAnNY">> = iolist_to_binary(re:replace("aaaabcde","([ab]*)*","&&l&\\1CMbjHlAnNY",[global])),
+    <<"CrbBlrjAUcQReBRN">> = iolist_to_binary(re:replace("bbbb","([ab]*)*","CrbBlrjAUcQReBRN",[])),
+    <<"CrbBlrjAUcQReBRNCrbBlrjAUcQReBRN">> = iolist_to_binary(re:replace("bbbb","([ab]*)*","CrbBlrjAUcQReBRN",[global])),
+    <<"FTHvDKUVGbJba">> = iolist_to_binary(re:replace("b","([^a]*)*","FT\\1HvDKUVG&J\\1&\\1a",[])),
+    <<"FTHvDKUVGbJbaFTHvDKUVGJa">> = iolist_to_binary(re:replace("b","([^a]*)*","FT\\1HvDKUVG&J\\1&\\1a",[global])),
+    <<"qHEPBQLSx">> = iolist_to_binary(re:replace("bbbb","([^a]*)*","qHE\\1PBQLSx",[])),
+    <<"qHEPBQLSxqHEPBQLSx">> = iolist_to_binary(re:replace("bbbb","([^a]*)*","qHE\\1PBQLSx",[global])),
+    <<"ceuREbnlQIAtjvaaa">> = iolist_to_binary(re:replace("aaa","([^a]*)*","ceuREb\\1nlQIA\\1tjv",[])),
+    <<"ceuREbnlQIAtjvaceuREbnlQIAtjvaceuREbnlQIAtjvaceuREbnlQIAtjv">> = iolist_to_binary(re:replace("aaa","([^a]*)*","ceuREb\\1nlQIA\\1tjv",[global])),
+    <<"xaccccdccccy">> = iolist_to_binary(re:replace("cccc","([^ab]*)*","\\1xa&d\\1\\1\\1&y",[])),
+    <<"xaccccdccccyxady">> = iolist_to_binary(re:replace("cccc","([^ab]*)*","\\1xa&d\\1\\1\\1&y",[global])),
+    <<"ulvseXcnAHfTuxabab">> = iolist_to_binary(re:replace("abab","([^ab]*)*","\\1ulvseXc\\1nAHf\\1Tux",[])),
+    <<"ulvseXcnAHfTuxaulvseXcnAHfTuxbulvseXcnAHfTuxaulvseXcnAHfTuxbulvseXcnAHfTux">> = iolist_to_binary(re:replace("abab","([^ab]*)*","\\1ulvseXc\\1nAHf\\1Tux",[global])),
+    <<"JfEqTKkUYCsYRBaa">> = iolist_to_binary(re:replace("a","([a]*?)*","J&fEqTKkUYCsYR\\1Ba",[])),
+    <<"JfEqTKkUYCsYRBaJafEqTKkUYCsYRBaJfEqTKkUYCsYRBa">> = iolist_to_binary(re:replace("a","([a]*?)*","J&fEqTKkUYCsYR\\1Ba",[global])),
+    <<"ucDKTCpyhMJmdGaaaa">> = iolist_to_binary(re:replace("aaaa","([a]*?)*","&ucD&KTCpy&hM\\1JmdG\\1",[])),
+    <<"ucDKTCpyhMJmdGaucDaKTCpyahMJmdGucDKTCpyhMJmdGaucDaKTCpyahMJmdGucDKTCpyhMJmdGaucDaKTCpyahMJmdGucDKTCpyhMJmdGaucDaKTCpyahMJmdGucDKTCpyhMJmdG">> = iolist_to_binary(re:replace("aaaa","([a]*?)*","&ucD&KTCpy&hM\\1JmdG\\1",[global])),
+    <<"unfMosGsMoIIOOgTa">> = iolist_to_binary(re:replace("a","([ab]*?)*","un&fMos&GsMoI\\1IOOgT\\1",[])),
+    <<"unfMosGsMoIIOOgTunafMosaGsMoIIOOgTunfMosGsMoIIOOgT">> = iolist_to_binary(re:replace("a","([ab]*?)*","un&fMos&GsMoI\\1IOOgT\\1",[global])),
+    <<"TXb">> = iolist_to_binary(re:replace("b","([ab]*?)*","\\1TX&",[])),
+    <<"TXTXbTX">> = iolist_to_binary(re:replace("b","([ab]*?)*","\\1TX&",[global])),
+    <<"xDMyvobHjfHHqLabab">> = iolist_to_binary(re:replace("abab","([ab]*?)*","&x&DMy&vobHjfH&HqL",[])),
+    <<"xDMyvobHjfHHqLaxaDMyavobHjfHaHqLxDMyvobHjfHHqLbxbDMybvobHjfHbHqLxDMyvobHjfHHqLaxaDMyavobHjfHaHqLxDMyvobHjfHHqLbxbDMybvobHjfHbHqLxDMyvobHjfHHqL">> = iolist_to_binary(re:replace("abab","([ab]*?)*","&x&DMy&vobHjfH&HqL",[global])),
+    <<"KIuDxHbaba">> = iolist_to_binary(re:replace("baba","([ab]*?)*","\\1&\\1KI&&uDxH",[])),
+    <<"KIuDxHbKIbbuDxHKIuDxHaKIaauDxHKIuDxHbKIbbuDxHKIuDxHaKIaauDxHKIuDxH">> = iolist_to_binary(re:replace("baba","([ab]*?)*","\\1&\\1KI&&uDxH",[global])),
+    <<"DIwUfDb">> = iolist_to_binary(re:replace("b","([^a]*?)*","DIwU\\1fD",[])),
+    <<"DIwUfDDIwUfDDIwUfD">> = iolist_to_binary(re:replace("b","([^a]*?)*","DIwU\\1fD",[global])),
+    <<"mlYAbbbb">> = iolist_to_binary(re:replace("bbbb","([^a]*?)*","&&m&lYA",[])),
+    <<"mlYAbbmblYAmlYAbbmblYAmlYAbbmblYAmlYAbbmblYAmlYA">> = iolist_to_binary(re:replace("bbbb","([^a]*?)*","&&m&lYA",[global])),
+    <<"hCcQaEejLMkpMbOoWaaa">> = iolist_to_binary(re:replace("aaa","([^a]*?)*","hC\\1c\\1QaE\\1ejLMkpMbOoW",[])),
+    <<"hCcQaEejLMkpMbOoWahCcQaEejLMkpMbOoWahCcQaEejLMkpMbOoWahCcQaEejLMkpMbOoW">> = iolist_to_binary(re:replace("aaa","([^a]*?)*","hC\\1c\\1QaE\\1ejLMkpMbOoW",[global])),
+    <<"hUDhqAQkrYaHc">> = iolist_to_binary(re:replace("c","([^ab]*?)*","hU\\1&DhqAQkrYaH",[])),
+    <<"hUDhqAQkrYaHhUcDhqAQkrYaHhUDhqAQkrYaH">> = iolist_to_binary(re:replace("c","([^ab]*?)*","hU\\1&DhqAQkrYaH",[global])),
+    <<"rBTLYcccc">> = iolist_to_binary(re:replace("cccc","([^ab]*?)*","rBTL&Y",[])),
+    <<"rBTLYrBTLcYrBTLYrBTLcYrBTLYrBTLcYrBTLYrBTLcYrBTLY">> = iolist_to_binary(re:replace("cccc","([^ab]*?)*","rBTL&Y",[global])),
+    <<"SmyMhdANbaba">> = iolist_to_binary(re:replace("baba","([^ab]*?)*","S\\1myMhdAN",[])),
+    <<"SmyMhdANbSmyMhdANaSmyMhdANbSmyMhdANaSmyMhdAN">> = iolist_to_binary(re:replace("baba","([^ab]*?)*","S\\1myMhdAN",[global])),
+    <<"VCDSmcyPWadg">> = iolist_to_binary(re:replace("a","(?>a*)*","VCDSmcyPW\\1&dg",[])),
+    <<"VCDSmcyPWadgVCDSmcyPWdg">> = iolist_to_binary(re:replace("a","(?>a*)*","VCDSmcyPW\\1&dg",[global])),
+    <<"Baaabcde">> = iolist_to_binary(re:replace("aaabcde","(?>a*)*","\\1B&",[])),
+    <<"BaaaBbBcBdBeB">> = iolist_to_binary(re:replace("aaabcde","(?>a*)*","\\1B&",[global])),
+    <<"RaaaaaIUeeXdQaaaaaa">> = iolist_to_binary(re:replace("aaaaa","((?>a*))*","\\1R&\\1IUeeXdQa&",[])),
+    <<"RaaaaaIUeeXdQaaaaaaRIUeeXdQa">> = iolist_to_binary(re:replace("aaaaa","((?>a*))*","\\1R&\\1IUeeXdQa&",[global])),
+    <<"QAaabbaa">> = iolist_to_binary(re:replace("aabbaa","((?>a*))*","QA\\1&",[])),
+    <<"QAaaQAbQAbQAaaQA">> = iolist_to_binary(re:replace("aabbaa","((?>a*))*","QA\\1&",[global])),
+    <<"DxMdHaaaaa">> = iolist_to_binary(re:replace("aaaaa","((?>a*?))*","DxMd&H",[])),
+    <<"DxMdHaDxMdHaDxMdHaDxMdHaDxMdHaDxMdH">> = iolist_to_binary(re:replace("aaaaa","((?>a*?))*","DxMd&H",[global])),
+    <<"GBQiDroaFaabbaa">> = iolist_to_binary(re:replace("aabbaa","((?>a*?))*","GBQiDroa&F\\1",[])),
+    <<"GBQiDroaFaGBQiDroaFaGBQiDroaFbGBQiDroaFbGBQiDroaFaGBQiDroaFaGBQiDroaF">> = iolist_to_binary(re:replace("aabbaa","((?>a*?))*","GBQiDroa&F\\1",[global])),
+    <<"d12-sep-98vQhyA">> = iolist_to_binary(re:replace("12-sep-98","(?(?=[^a-z]+[a-z])  \\d{2}-[a-z]{3}-\\d{2}  |  \\d{2}-\\d{2}-\\d{2} ) ","d&vQhyA",[extended])),
+    <<"d12-sep-98vQhyA">> = iolist_to_binary(re:replace("12-sep-98","(?(?=[^a-z]+[a-z])  \\d{2}-[a-z]{3}-\\d{2}  |  \\d{2}-\\d{2}-\\d{2} ) ","d&vQhyA",[extended,global])),
+    <<"htKB">> = iolist_to_binary(re:replace("12-09-98","(?(?=[^a-z]+[a-z])  \\d{2}-[a-z]{3}-\\d{2}  |  \\d{2}-\\d{2}-\\d{2} ) ","htKB",[extended])),
+    <<"htKB">> = iolist_to_binary(re:replace("12-09-98","(?(?=[^a-z]+[a-z])  \\d{2}-[a-z]{3}-\\d{2}  |  \\d{2}-\\d{2}-\\d{2} ) ","htKB",[extended,global])),
+    <<"sep-12-98">> = iolist_to_binary(re:replace("sep-12-98","(?(?=[^a-z]+[a-z])  \\d{2}-[a-z]{3}-\\d{2}  |  \\d{2}-\\d{2}-\\d{2} ) ","vR&jLCa\\1y\\1cD",[extended])),
+    <<"sep-12-98">> = iolist_to_binary(re:replace("sep-12-98","(?(?=[^a-z]+[a-z])  \\d{2}-[a-z]{3}-\\d{2}  |  \\d{2}-\\d{2}-\\d{2} ) ","vR&jLCa\\1y\\1cD",[extended,global])),
+    <<"foolG">> = iolist_to_binary(re:replace("foobarfoo","(?<=(foo))bar\\1","lG",[])),
+    <<"foolG">> = iolist_to_binary(re:replace("foobarfoo","(?<=(foo))bar\\1","lG",[global])),
+    <<"foocbbarfoofootling">> = iolist_to_binary(re:replace("foobarfootling","(?<=(foo))bar\\1","cb&\\1",[])),
+    <<"foocbbarfoofootling">> = iolist_to_binary(re:replace("foobarfootling","(?<=(foo))bar\\1","cb&\\1",[global])),
+    <<"foobar">> = iolist_to_binary(re:replace("foobar","(?<=(foo))bar\\1","QBObvsfLS",[])),
+    <<"foobar">> = iolist_to_binary(re:replace("foobar","(?<=(foo))bar\\1","QBObvsfLS",[global])),
+    <<"barfoo">> = iolist_to_binary(re:replace("barfoo","(?<=(foo))bar\\1","mu\\1FQ\\1TE&E&P\\1EBB\\1",[])),
+    <<"barfoo">> = iolist_to_binary(re:replace("barfoo","(?<=(foo))bar\\1","mu\\1FQ\\1TE&E&P\\1EBB\\1",[global])),
+    <<"drqTUpJsaturdayvsusaturday">> = iolist_to_binary(re:replace("saturday","(?i:saturday|sunday)","drqTU\\1pJ\\1&vsu&",[])),
+    <<"drqTUpJsaturdayvsusaturday">> = iolist_to_binary(re:replace("saturday","(?i:saturday|sunday)","drqTU\\1pJ\\1&vsu&",[global])),
+    <<"wsundaytSQsunday">> = iolist_to_binary(re:replace("sunday","(?i:saturday|sunday)","w&t\\1S\\1Q&",[])),
+    <<"wsundaytSQsunday">> = iolist_to_binary(re:replace("sunday","(?i:saturday|sunday)","w&t\\1S\\1Q&",[global])),
+    <<"BUmgeWbSPrmQuh">> = iolist_to_binary(re:replace("Saturday","(?i:saturday|sunday)","BU\\1mgeWbSPrmQu\\1h",[])),
+    <<"BUmgeWbSPrmQuh">> = iolist_to_binary(re:replace("Saturday","(?i:saturday|sunday)","BU\\1mgeWbSPrmQu\\1h",[global])),
+    <<"AhiD">> = iolist_to_binary(re:replace("Sunday","(?i:saturday|sunday)","Ahi\\1D",[])),
+    <<"AhiD">> = iolist_to_binary(re:replace("Sunday","(?i:saturday|sunday)","Ahi\\1D",[global])),
+    <<"xJwrB">> = iolist_to_binary(re:replace("SATURDAY","(?i:saturday|sunday)","xJwrB",[])),
+    <<"xJwrB">> = iolist_to_binary(re:replace("SATURDAY","(?i:saturday|sunday)","xJwrB",[global])),
+    <<"WqYokXSFmo">> = iolist_to_binary(re:replace("SUNDAY","(?i:saturday|sunday)","WqYokXSFmo",[])),
+    <<"WqYokXSFmo">> = iolist_to_binary(re:replace("SUNDAY","(?i:saturday|sunday)","WqYokXSFmo",[global])),
+    <<"ViVjAQCNIlGCBRWKs">> = iolist_to_binary(re:replace("SunDay","(?i:saturday|sunday)","ViVjAQCNIlGCB\\1RW\\1Ks",[])),
+    <<"ViVjAQCNIlGCBRWKs">> = iolist_to_binary(re:replace("SunDay","(?i:saturday|sunday)","ViVjAQCNIlGCB\\1RW\\1Ks",[global])),
+    <<"cabcxabcyabcx">> = iolist_to_binary(re:replace("abcx","(a(?i)bc|BB)x","c&\\1y&",[])),
+    <<"cabcxabcyabcx">> = iolist_to_binary(re:replace("abcx","(a(?i)bc|BB)x","c&\\1y&",[global])),
+    <<"U">> = iolist_to_binary(re:replace("aBCx","(a(?i)bc|BB)x","U",[])),
+    <<"U">> = iolist_to_binary(re:replace("aBCx","(a(?i)bc|BB)x","U",[global])),
+    <<"bbqTbbbjyPbbbbKibbiMujiN">> = iolist_to_binary(re:replace("bbx","(a(?i)bc|BB)x","\\1qT\\1bjyP\\1\\1Ki\\1iMujiN",[])),
+    <<"bbqTbbbjyPbbbbKibbiMujiN">> = iolist_to_binary(re:replace("bbx","(a(?i)bc|BB)x","\\1qT\\1bjyP\\1\\1Ki\\1iMujiN",[global])),
+    <<"PLaeBBJqVIraBBxoco">> = iolist_to_binary(re:replace("BBx","(a(?i)bc|BB)x","PLae\\1JqVIra&oco",[])),
+    <<"PLaeBBJqVIraBBxoco">> = iolist_to_binary(re:replace("BBx","(a(?i)bc|BB)x","PLae\\1JqVIra&oco",[global])),
+    <<"abcX">> = iolist_to_binary(re:replace("abcX","(a(?i)bc|BB)x","GsAhcAq&HmjdSm\\1K&t",[])),
+    <<"abcX">> = iolist_to_binary(re:replace("abcX","(a(?i)bc|BB)x","GsAhcAq&HmjdSm\\1K&t",[global])),
+    <<"aBCX">> = iolist_to_binary(re:replace("aBCX","(a(?i)bc|BB)x","jMnYwcU\\1q\\1D\\1",[])),
+    <<"aBCX">> = iolist_to_binary(re:replace("aBCX","(a(?i)bc|BB)x","jMnYwcU\\1q\\1D\\1",[global])),
+    <<"bbX">> = iolist_to_binary(re:replace("bbX","(a(?i)bc|BB)x","B&\\1\\1fcB\\1IWxCjS&liri",[])),
+    <<"bbX">> = iolist_to_binary(re:replace("bbX","(a(?i)bc|BB)x","B&\\1\\1fcB\\1IWxCjS&liri",[global])),
+    <<"BBX">> = iolist_to_binary(re:replace("BBX","(a(?i)bc|BB)x","wN&v\\1em",[])),
+    <<"BBX">> = iolist_to_binary(re:replace("BBX","(a(?i)bc|BB)x","wN&v\\1em",[global])),
+    <<"oX">> = iolist_to_binary(re:replace("ac","^([ab](?i)[cd]|[ef])","oX",[])),
+    <<"oX">> = iolist_to_binary(re:replace("ac","^([ab](?i)[cd]|[ef])","oX",[global])),
+    <<"EjaCqBaCBjaCi">> = iolist_to_binary(re:replace("aC","^([ab](?i)[cd]|[ef])","Ej\\1qB&Bj\\1i",[])),
+    <<"EjaCqBaCBjaCi">> = iolist_to_binary(re:replace("aC","^([ab](?i)[cd]|[ef])","Ej\\1qB&Bj\\1i",[global])),
+    <<"bD">> = iolist_to_binary(re:replace("bD","^([ab](?i)[cd]|[ef])","\\1",[])),
+    <<"bD">> = iolist_to_binary(re:replace("bD","^([ab](?i)[cd]|[ef])","\\1",[global])),
+    <<"ralephant">> = iolist_to_binary(re:replace("elephant","^([ab](?i)[cd]|[ef])","ra",[])),
+    <<"ralephant">> = iolist_to_binary(re:replace("elephant","^([ab](?i)[cd]|[ef])","ra",[global])),
+    <<"EHLgXekXurope">> = iolist_to_binary(re:replace("Europe","^([ab](?i)[cd]|[ef])","EHLgXekX",[])),
+    <<"EHLgXekXurope">> = iolist_to_binary(re:replace("Europe","^([ab](?i)[cd]|[ef])","EHLgXekX",[global])),
+    <<"rffKffrcuwyQBhDfRgBrog">> = iolist_to_binary(re:replace("frog","^([ab](?i)[cd]|[ef])","r&&K&\\1rcuwyQBhD\\1RgB",[])),
+    <<"rffKffrcuwyQBhDfRgBrog">> = iolist_to_binary(re:replace("frog","^([ab](?i)[cd]|[ef])","r&&K&\\1rcuwyQBhD\\1RgB",[global])),
+    <<"DMFbrFBdkrance">> = iolist_to_binary(re:replace("France","^([ab](?i)[cd]|[ef])","DM\\1br\\1Bdk",[])),
+    <<"DMFbrFBdkrance">> = iolist_to_binary(re:replace("France","^([ab](?i)[cd]|[ef])","DM\\1br\\1Bdk",[global])),
+    <<"Africa">> = iolist_to_binary(re:replace("Africa","^([ab](?i)[cd]|[ef])","XeCprJu&qUw\\1Af&&",[])),
+    <<"Africa">> = iolist_to_binary(re:replace("Africa","^([ab](?i)[cd]|[ef])","XeCprJu&qUw\\1Af&&",[global])),
+    <<"rabjcw">> = iolist_to_binary(re:replace("ab","^(ab|a(?i)[b-c](?m-i)d|x(?i)y|z)","r\\1jcw",[])),
+    <<"rabjcw">> = iolist_to_binary(re:replace("ab","^(ab|a(?i)[b-c](?m-i)d|x(?i)y|z)","r\\1jcw",[global])),
+    <<"aBdusowFJaBdEGaBdMYM">> = iolist_to_binary(re:replace("aBd","^(ab|a(?i)[b-c](?m-i)d|x(?i)y|z)","\\1usowFJ\\1EG\\1MYM",[])),
+    <<"aBdusowFJaBdEGaBdMYM">> = iolist_to_binary(re:replace("aBd","^(ab|a(?i)[b-c](?m-i)d|x(?i)y|z)","\\1usowFJ\\1EG\\1MYM",[global])),
+    <<"AxyFxytlJ">> = iolist_to_binary(re:replace("xy","^(ab|a(?i)[b-c](?m-i)d|x(?i)y|z)","A&F&tlJ",[])),
+    <<"AxyFxytlJ">> = iolist_to_binary(re:replace("xy","^(ab|a(?i)[b-c](?m-i)d|x(?i)y|z)","A&F&tlJ",[global])),
+    <<"iX">> = iolist_to_binary(re:replace("xY","^(ab|a(?i)[b-c](?m-i)d|x(?i)y|z)","iX",[])),
+    <<"iX">> = iolist_to_binary(re:replace("xY","^(ab|a(?i)[b-c](?m-i)d|x(?i)y|z)","iX",[global])),
+    <<"jzzJzzIebra">> = iolist_to_binary(re:replace("zebra","^(ab|a(?i)[b-c](?m-i)d|x(?i)y|z)","j&&J\\1&I",[])),
+    <<"jzzJzzIebra">> = iolist_to_binary(re:replace("zebra","^(ab|a(?i)[b-c](?m-i)d|x(?i)y|z)","j&&J\\1&I",[global])),
+    <<"kjZlukbPhZsuZCghlvebambesi">> = iolist_to_binary(re:replace("Zambesi","^(ab|a(?i)[b-c](?m-i)d|x(?i)y|z)","kj\\1lukbPh&su\\1Cghlveb",[])),
+    <<"kjZlukbPhZsuZCghlvebambesi">> = iolist_to_binary(re:replace("Zambesi","^(ab|a(?i)[b-c](?m-i)d|x(?i)y|z)","kj\\1lukbPh&su\\1Cghlveb",[global])),
+    <<"aCD">> = iolist_to_binary(re:replace("aCD","^(ab|a(?i)[b-c](?m-i)d|x(?i)y|z)","uXqdQvfv&\\1tC\\1ipRP",[])),
+    <<"aCD">> = iolist_to_binary(re:replace("aCD","^(ab|a(?i)[b-c](?m-i)d|x(?i)y|z)","uXqdQvfv&\\1tC\\1ipRP",[global])),
+    <<"XY">> = iolist_to_binary(re:replace("XY","^(ab|a(?i)[b-c](?m-i)d|x(?i)y|z)","poYUMCLsWcR\\1fr\\1X\\1",[])),
+    <<"XY">> = iolist_to_binary(re:replace("XY","^(ab|a(?i)[b-c](?m-i)d|x(?i)y|z)","poYUMCLsWcR\\1fr\\1X\\1",[global])),
     ok.
 run14() ->
-    <<"eFGTeaqaaaahFWnaaaa">> = iolist_to_binary(re:replace("aaaa","^(a\\1?)(a\\1?)(a\\2?)(a\\3?)$","eFGTe\\1q&hFWn&",[])),
-    <<"eFGTeaqaaaahFWnaaaa">> = iolist_to_binary(re:replace("aaaa","^(a\\1?)(a\\1?)(a\\2?)(a\\3?)$","eFGTe\\1q&hFWn&",[global])),
-    <<"GQ">> = iolist_to_binary(re:replace("aaaaa","^(a\\1?)(a\\1?)(a\\2?)(a\\3?)$","GQ",[])),
-    <<"GQ">> = iolist_to_binary(re:replace("aaaaa","^(a\\1?)(a\\1?)(a\\2?)(a\\3?)$","GQ",[global])),
-    <<"taaaaaa">> = iolist_to_binary(re:replace("aaaaaa","^(a\\1?)(a\\1?)(a\\2?)(a\\3?)$","t&",[])),
-    <<"taaaaaa">> = iolist_to_binary(re:replace("aaaaaa","^(a\\1?)(a\\1?)(a\\2?)(a\\3?)$","t&",[global])),
-    <<"PaHcMWBmFjXXO">> = iolist_to_binary(re:replace("aaaaaaa","^(a\\1?)(a\\1?)(a\\2?)(a\\3?)$","PaHcMWBmFjXXO",[])),
-    <<"PaHcMWBmFjXXO">> = iolist_to_binary(re:replace("aaaaaaa","^(a\\1?)(a\\1?)(a\\2?)(a\\3?)$","PaHcMWBmFjXXO",[global])),
-    <<"Rau">> = iolist_to_binary(re:replace("aaaaaaaaaa","^(a\\1?)(a\\1?)(a\\2?)(a\\3?)$","R\\1u",[])),
-    <<"Rau">> = iolist_to_binary(re:replace("aaaaaaaaaa","^(a\\1?)(a\\1?)(a\\2?)(a\\3?)$","R\\1u",[global])),
-    <<"a">> = iolist_to_binary(re:replace("a","^(a\\1?)(a\\1?)(a\\2?)(a\\3?)$","geop\\1&",[])),
-    <<"a">> = iolist_to_binary(re:replace("a","^(a\\1?)(a\\1?)(a\\2?)(a\\3?)$","geop\\1&",[global])),
-    <<"aa">> = iolist_to_binary(re:replace("aa","^(a\\1?)(a\\1?)(a\\2?)(a\\3?)$","JTHjDKqA",[])),
-    <<"aa">> = iolist_to_binary(re:replace("aa","^(a\\1?)(a\\1?)(a\\2?)(a\\3?)$","JTHjDKqA",[global])),
-    <<"aaa">> = iolist_to_binary(re:replace("aaa","^(a\\1?)(a\\1?)(a\\2?)(a\\3?)$","&GvS\\1&\\1tBh\\1\\1",[])),
-    <<"aaa">> = iolist_to_binary(re:replace("aaa","^(a\\1?)(a\\1?)(a\\2?)(a\\3?)$","&GvS\\1&\\1tBh\\1\\1",[global])),
-    <<"aaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaa","^(a\\1?)(a\\1?)(a\\2?)(a\\3?)$","iCveQd\\1W&",[])),
-    <<"aaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaa","^(a\\1?)(a\\1?)(a\\2?)(a\\3?)$","iCveQd\\1W&",[global])),
-    <<"aaaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaaa","^(a\\1?)(a\\1?)(a\\2?)(a\\3?)$","thGaLpke&&mlDI",[])),
-    <<"aaaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaaa","^(a\\1?)(a\\1?)(a\\2?)(a\\3?)$","thGaLpke&&mlDI",[global])),
-    <<"aaaaaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaaaaa","^(a\\1?)(a\\1?)(a\\2?)(a\\3?)$","eIP\\1xN",[])),
-    <<"aaaaaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaaaaa","^(a\\1?)(a\\1?)(a\\2?)(a\\3?)$","eIP\\1xN",[global])),
-    <<"aaaaaaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaaaaaa","^(a\\1?)(a\\1?)(a\\2?)(a\\3?)$","KKqbLs",[])),
-    <<"aaaaaaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaaaaaa","^(a\\1?)(a\\1?)(a\\2?)(a\\3?)$","KKqbLs",[global])),
-    <<"aaaaaaaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaaaaaaa","^(a\\1?)(a\\1?)(a\\2?)(a\\3?)$","&jYN&OlnrIjJAVLKO",[])),
-    <<"aaaaaaaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaaaaaaa","^(a\\1?)(a\\1?)(a\\2?)(a\\3?)$","&jYN&OlnrIjJAVLKO",[global])),
-    <<"aaaaaaaaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaaaaaaaa","^(a\\1?)(a\\1?)(a\\2?)(a\\3?)$","PYINshqOHf&&awstrl\\1&",[])),
-    <<"aaaaaaaaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaaaaaaaa","^(a\\1?)(a\\1?)(a\\2?)(a\\3?)$","PYINshqOHf&&awstrl\\1&",[global])),
-    <<"aaaaaaaaaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaaaaaaaaa","^(a\\1?)(a\\1?)(a\\2?)(a\\3?)$","HqueiI",[])),
-    <<"aaaaaaaaaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaaaaaaaaa","^(a\\1?)(a\\1?)(a\\2?)(a\\3?)$","HqueiI",[global])),
-    <<"aaaaaaaaaaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaaaaaaaaaa","^(a\\1?)(a\\1?)(a\\2?)(a\\3?)$","MRJcrKPN\\1hmh",[])),
-    <<"aaaaaaaaaaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaaaaaaaaaa","^(a\\1?)(a\\1?)(a\\2?)(a\\3?)$","MRJcrKPN\\1hmh",[global])),
-    <<"">> = iolist_to_binary(re:replace("abc","abc","\\1",[])),
-    <<"">> = iolist_to_binary(re:replace("abc","abc","\\1",[global])),
-    <<"xKVSabclXpy">> = iolist_to_binary(re:replace("xabcy","abc","KVS&lXp",[])),
-    <<"xKVSabclXpy">> = iolist_to_binary(re:replace("xabcy","abc","KVS&lXp",[global])),
-    <<"abgrKSEVpabc">> = iolist_to_binary(re:replace("ababc","abc","grKSEVp&",[])),
-    <<"abgrKSEVpabc">> = iolist_to_binary(re:replace("ababc","abc","grKSEVp&",[global])),
-    <<"xbc">> = iolist_to_binary(re:replace("xbc","abc","d\\1q\\1qQpRmEN&KbSKW&x",[])),
-    <<"xbc">> = iolist_to_binary(re:replace("xbc","abc","d\\1q\\1qQpRmEN&KbSKW&x",[global])),
-    <<"axc">> = iolist_to_binary(re:replace("axc","abc","WCdJ&ih",[])),
-    <<"axc">> = iolist_to_binary(re:replace("axc","abc","WCdJ&ih",[global])),
-    <<"abx">> = iolist_to_binary(re:replace("abx","abc","Yj\\1UDq&fbyqfUOv",[])),
-    <<"abx">> = iolist_to_binary(re:replace("abx","abc","Yj\\1UDq&fbyqfUOv",[global])),
-    <<"DuaOoTKn">> = iolist_to_binary(re:replace("abc","ab*c","DuaOoTKn\\1",[])),
-    <<"DuaOoTKn">> = iolist_to_binary(re:replace("abc","ab*c","DuaOoTKn\\1",[global])),
-    <<"lUAkQQE">> = iolist_to_binary(re:replace("abc","ab*bc","lUAkQQE",[])),
-    <<"lUAkQQE">> = iolist_to_binary(re:replace("abc","ab*bc","lUAkQQE",[global])),
-    <<"e">> = iolist_to_binary(re:replace("abbc","ab*bc","e",[])),
-    <<"e">> = iolist_to_binary(re:replace("abbc","ab*bc","e",[global])),
-    <<"LOeabbbbcRabbbbcxkWabbbbcFSngiabbbbcdabbbbcDm">> = iolist_to_binary(re:replace("abbbbc","ab*bc","LOe&R&xkW&FSngi&d&Dm",[])),
-    <<"LOeabbbbcRabbbbcxkWabbbbcFSngiabbbbcdabbbbcDm">> = iolist_to_binary(re:replace("abbbbc","ab*bc","LOe&R&xkW&FSngi&d&Dm",[global])),
-    <<"IFSvaLmRAwsbbbbc">> = iolist_to_binary(re:replace("abbbbc",".{1}","IFSvaLmRAws",[])),
-    <<"IFSvaLmRAwsIFSvaLmRAwsIFSvaLmRAwsIFSvaLmRAwsIFSvaLmRAwsIFSvaLmRAws">> = iolist_to_binary(re:replace("abbbbc",".{1}","IFSvaLmRAws",[global])),
-    <<"DQUrabbbabbbUYwApYRiYSqabbbbc">> = iolist_to_binary(re:replace("abbbbc",".{3,4}","DQUr\\1&&\\1UYwApYRiYSq&",[])),
-    <<"DQUrabbbabbbUYwApYRiYSqabbbbc">> = iolist_to_binary(re:replace("abbbbc",".{3,4}","DQUr\\1&&\\1UYwApYRiYSq&",[global])),
-    <<"pfGYlabbbbcdNpJmOaQHl">> = iolist_to_binary(re:replace("abbbbc","ab{0,}bc","pfGYl&dNpJm\\1OaQHl",[])),
-    <<"pfGYlabbbbcdNpJmOaQHl">> = iolist_to_binary(re:replace("abbbbc","ab{0,}bc","pfGYl&dNpJm\\1OaQHl",[global])),
-    <<"IHNVcUg">> = iolist_to_binary(re:replace("abbc","ab+bc","\\1IHNVcUg",[])),
-    <<"IHNVcUg">> = iolist_to_binary(re:replace("abbc","ab+bc","\\1IHNVcUg",[global])),
-    <<"abc">> = iolist_to_binary(re:replace("abc","ab+bc","N",[])),
-    <<"abc">> = iolist_to_binary(re:replace("abc","ab+bc","N",[global])),
-    <<"abq">> = iolist_to_binary(re:replace("abq","ab+bc","dxkm&dmRGQJb",[])),
-    <<"abq">> = iolist_to_binary(re:replace("abq","ab+bc","dxkm&dmRGQJb",[global])),
-    <<"urCYmabbbbcYvabbbbcF">> = iolist_to_binary(re:replace("abbbbc","ab+bc","urCY\\1m&Yv&F",[])),
-    <<"urCYmabbbbcYvabbbbcF">> = iolist_to_binary(re:replace("abbbbc","ab+bc","urCY\\1m&Yv&F",[global])),
-    <<"W">> = iolist_to_binary(re:replace("abbbbc","ab{1,}bc","W\\1",[])),
-    <<"W">> = iolist_to_binary(re:replace("abbbbc","ab{1,}bc","W\\1",[global])),
-    <<"LocabbbbcFabbbbcvgabbbbc">> = iolist_to_binary(re:replace("abbbbc","ab{1,3}bc","Loc&F&vg&",[])),
-    <<"LocabbbbcFabbbbcvgabbbbc">> = iolist_to_binary(re:replace("abbbbc","ab{1,3}bc","Loc&F&vg&",[global])),
-    <<"tWIlHMJfBx">> = iolist_to_binary(re:replace("abbbbc","ab{3,4}bc","tWIlHMJ\\1\\1fBx\\1",[])),
-    <<"tWIlHMJfBx">> = iolist_to_binary(re:replace("abbbbc","ab{3,4}bc","tWIlHMJ\\1\\1fBx\\1",[global])),
-    <<"abq">> = iolist_to_binary(re:replace("abq","ab{4,5}bc","Io\\1ytBG&",[])),
-    <<"abq">> = iolist_to_binary(re:replace("abq","ab{4,5}bc","Io\\1ytBG&",[global])),
-    <<"abbbbc">> = iolist_to_binary(re:replace("abbbbc","ab{4,5}bc","EPDyK",[])),
-    <<"abbbbc">> = iolist_to_binary(re:replace("abbbbc","ab{4,5}bc","EPDyK",[global])),
-    <<"ovFfXEabbcxcDncD">> = iolist_to_binary(re:replace("abbc","ab?bc","ovFfXE\\1&x\\1cDncD",[])),
-    <<"ovFfXEabbcxcDncD">> = iolist_to_binary(re:replace("abbc","ab?bc","ovFfXE\\1&x\\1cDncD",[global])),
-    <<"DJadEBdkEMaabcRtCWFGE">> = iolist_to_binary(re:replace("abc","ab?bc","DJadEBdkEMa&RtCWFGE",[])),
-    <<"DJadEBdkEMaabcRtCWFGE">> = iolist_to_binary(re:replace("abc","ab?bc","DJadEBdkEMa&RtCWFGE",[global])),
-    <<"Tdgo">> = iolist_to_binary(re:replace("abc","ab{0,1}bc","T\\1dgo",[])),
-    <<"Tdgo">> = iolist_to_binary(re:replace("abc","ab{0,1}bc","T\\1dgo",[global])),
-    <<"abcabcrvd">> = iolist_to_binary(re:replace("abc","ab?c","&&rvd",[])),
-    <<"abcabcrvd">> = iolist_to_binary(re:replace("abc","ab?c","&&rvd",[global])),
-    <<"JEKgTqabcgvK">> = iolist_to_binary(re:replace("abc","ab{0,1}c","JEKgT\\1q&gvK",[])),
-    <<"JEKgTqabcgvK">> = iolist_to_binary(re:replace("abc","ab{0,1}c","JEKgT\\1q&gvK",[global])),
-    <<"UPWVy">> = iolist_to_binary(re:replace("abc","^abc$","UP\\1WVy",[])),
-    <<"UPWVy">> = iolist_to_binary(re:replace("abc","^abc$","UP\\1WVy",[global])),
-    <<"abbbbc">> = iolist_to_binary(re:replace("abbbbc","^abc$","\\1AbO&omfYRdL\\1Au&DFG\\1",[])),
-    <<"abbbbc">> = iolist_to_binary(re:replace("abbbbc","^abc$","\\1AbO&omfYRdL\\1Au&DFG\\1",[global])),
-    <<"abcc">> = iolist_to_binary(re:replace("abcc","^abc$","v\\1pmFxwVLtNDmRV",[])),
-    <<"abcc">> = iolist_to_binary(re:replace("abcc","^abc$","v\\1pmFxwVLtNDmRV",[global])),
+    <<"foo
+EbarihCGRgMPqq">> = iolist_to_binary(re:replace("foo
+bar","(?<=foo\\n)^bar","E&ihCGRgMPqq\\1",[multiline])),
+    <<"foo
+EbarihCGRgMPqq">> = iolist_to_binary(re:replace("foo
+bar","(?<=foo\\n)^bar","E&ihCGRgMPqq\\1",[multiline,global])),
+    <<"bar">> = iolist_to_binary(re:replace("bar","(?<=foo\\n)^bar","QRo&SS&&",[multiline])),
+    <<"bar">> = iolist_to_binary(re:replace("bar","(?<=foo\\n)^bar","QRo&SS&&",[multiline,global])),
+    <<"baz
+bar">> = iolist_to_binary(re:replace("baz
+bar","(?<=foo\\n)^bar","D\\1k\\1",[multiline])),
+    <<"baz
+bar">> = iolist_to_binary(re:replace("baz
+bar","(?<=foo\\n)^bar","D\\1k\\1",[multiline,global])),
+    <<"barsoLbazRGSAmJChxOln">> = iolist_to_binary(re:replace("barbaz","(?<=(?<!foo)bar)baz","soL&R\\1GSAmJChxOln",[])),
+    <<"barsoLbazRGSAmJChxOln">> = iolist_to_binary(re:replace("barbaz","(?<=(?<!foo)bar)baz","soL&R\\1GSAmJChxOln",[global])),
+    <<"barbarybaze">> = iolist_to_binary(re:replace("barbarbaz","(?<=(?<!foo)bar)baz","y&e",[])),
+    <<"barbarybaze">> = iolist_to_binary(re:replace("barbarbaz","(?<=(?<!foo)bar)baz","y&e",[global])),
+    <<"koobarkbaznSruMXTFCE">> = iolist_to_binary(re:replace("koobarbaz","(?<=(?<!foo)bar)baz","k\\1&nSruMXTFCE\\1",[])),
+    <<"koobarkbaznSruMXTFCE">> = iolist_to_binary(re:replace("koobarbaz","(?<=(?<!foo)bar)baz","k\\1&nSruMXTFCE\\1",[global])),
+    <<"baz">> = iolist_to_binary(re:replace("baz","(?<=(?<!foo)bar)baz","\\1y\\1\\1nvi&c&YCXYPUd&Hi",[])),
+    <<"baz">> = iolist_to_binary(re:replace("baz","(?<=(?<!foo)bar)baz","\\1y\\1\\1nvi&c&YCXYPUd&Hi",[global])),
+    <<"foobarbaz">> = iolist_to_binary(re:replace("foobarbaz","(?<=(?<!foo)bar)baz","GOp&by\\1uUbSQj&V",[])),
+    <<"foobarbaz">> = iolist_to_binary(re:replace("foobarbaz","(?<=(?<!foo)bar)baz","GOp&by\\1uUbSQj&V",[global])),
+    <<"U">> = iolist_to_binary(re:replace("aaaaa","^(a\\1?){4}$","U",[])),
+    <<"U">> = iolist_to_binary(re:replace("aaaaa","^(a\\1?){4}$","U",[global])),
+    <<"NglUgPvaIBaaaaaaaaXMXPO">> = iolist_to_binary(re:replace("aaaaaaa","^(a\\1?){4}$","NglUgPv\\1IB&\\1XMXPO",[])),
+    <<"NglUgPvaIBaaaaaaaaXMXPO">> = iolist_to_binary(re:replace("aaaaaaa","^(a\\1?){4}$","NglUgPv\\1IB&\\1XMXPO",[global])),
+    <<"aaaaaaaaaatLnp">> = iolist_to_binary(re:replace("aaaaaaaaaa","^(a\\1?){4}$","&tLnp",[])),
+    <<"aaaaaaaaaatLnp">> = iolist_to_binary(re:replace("aaaaaaaaaa","^(a\\1?){4}$","&tLnp",[global])),
+    <<"a">> = iolist_to_binary(re:replace("a","^(a\\1?){4}$","vF",[])),
+    <<"a">> = iolist_to_binary(re:replace("a","^(a\\1?){4}$","vF",[global])),
+    <<"aa">> = iolist_to_binary(re:replace("aa","^(a\\1?){4}$","j\\1xp&mKu\\1HHgUS&IE&",[])),
+    <<"aa">> = iolist_to_binary(re:replace("aa","^(a\\1?){4}$","j\\1xp&mKu\\1HHgUS&IE&",[global])),
+    <<"aaa">> = iolist_to_binary(re:replace("aaa","^(a\\1?){4}$","yi\\1IibTMat&Rkn",[])),
+    <<"aaa">> = iolist_to_binary(re:replace("aaa","^(a\\1?){4}$","yi\\1IibTMat&Rkn",[global])),
+    <<"aaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaa","^(a\\1?){4}$","ruXsFS&L&b\\1adX",[])),
+    <<"aaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaa","^(a\\1?){4}$","ruXsFS&L&b\\1adX",[global])),
+    <<"aaaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaaa","^(a\\1?){4}$","kCb",[])),
+    <<"aaaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaaa","^(a\\1?){4}$","kCb",[global])),
+    <<"aaaaaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaaaaa","^(a\\1?){4}$","ufsBIAN\\1",[])),
+    <<"aaaaaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaaaaa","^(a\\1?){4}$","ufsBIAN\\1",[global])),
+    <<"aaaaaaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaaaaaa","^(a\\1?){4}$","V\\1\\1ECNL\\1Xf",[])),
+    <<"aaaaaaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaaaaaa","^(a\\1?){4}$","V\\1\\1ECNL\\1Xf",[global])),
+    <<"aaaaaaaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaaaaaaa","^(a\\1?){4}$","PBNukCrgiybP",[])),
+    <<"aaaaaaaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaaaaaaa","^(a\\1?){4}$","PBNukCrgiybP",[global])),
+    <<"aaaaaaaaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaaaaaaaa","^(a\\1?){4}$","eFGTe\\1q&hFWn&",[])),
+    <<"aaaaaaaaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaaaaaaaa","^(a\\1?){4}$","eFGTe\\1q&hFWn&",[global])),
+    <<"aaaaaaaaaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaaaaaaaaa","^(a\\1?){4}$","GQ",[])),
+    <<"aaaaaaaaaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaaaaaaaaa","^(a\\1?){4}$","GQ",[global])),
+    <<"aaaaaaaaaaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaaaaaaaaaa","^(a\\1?){4}$","t&",[])),
+    <<"aaaaaaaaaaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaaaaaaaaaa","^(a\\1?){4}$","t&",[global])),
+    <<"PaHcMWBmFjXXO">> = iolist_to_binary(re:replace("aaaa","^(a\\1?)(a\\1?)(a\\2?)(a\\3?)$","PaHcMWBmFjXXO",[])),
+    <<"PaHcMWBmFjXXO">> = iolist_to_binary(re:replace("aaaa","^(a\\1?)(a\\1?)(a\\2?)(a\\3?)$","PaHcMWBmFjXXO",[global])),
+    <<"Rau">> = iolist_to_binary(re:replace("aaaaa","^(a\\1?)(a\\1?)(a\\2?)(a\\3?)$","R\\1u",[])),
+    <<"Rau">> = iolist_to_binary(re:replace("aaaaa","^(a\\1?)(a\\1?)(a\\2?)(a\\3?)$","R\\1u",[global])),
+    <<"geopaaaaaaa">> = iolist_to_binary(re:replace("aaaaaa","^(a\\1?)(a\\1?)(a\\2?)(a\\3?)$","geop\\1&",[])),
+    <<"geopaaaaaaa">> = iolist_to_binary(re:replace("aaaaaa","^(a\\1?)(a\\1?)(a\\2?)(a\\3?)$","geop\\1&",[global])),
+    <<"JTHjDKqA">> = iolist_to_binary(re:replace("aaaaaaa","^(a\\1?)(a\\1?)(a\\2?)(a\\3?)$","JTHjDKqA",[])),
+    <<"JTHjDKqA">> = iolist_to_binary(re:replace("aaaaaaa","^(a\\1?)(a\\1?)(a\\2?)(a\\3?)$","JTHjDKqA",[global])),
+    <<"aaaaaaaaaaGvSaaaaaaaaaaaatBhaa">> = iolist_to_binary(re:replace("aaaaaaaaaa","^(a\\1?)(a\\1?)(a\\2?)(a\\3?)$","&GvS\\1&\\1tBh\\1\\1",[])),
+    <<"aaaaaaaaaaGvSaaaaaaaaaaaatBhaa">> = iolist_to_binary(re:replace("aaaaaaaaaa","^(a\\1?)(a\\1?)(a\\2?)(a\\3?)$","&GvS\\1&\\1tBh\\1\\1",[global])),
+    <<"a">> = iolist_to_binary(re:replace("a","^(a\\1?)(a\\1?)(a\\2?)(a\\3?)$","iCveQd\\1W&",[])),
+    <<"a">> = iolist_to_binary(re:replace("a","^(a\\1?)(a\\1?)(a\\2?)(a\\3?)$","iCveQd\\1W&",[global])),
+    <<"aa">> = iolist_to_binary(re:replace("aa","^(a\\1?)(a\\1?)(a\\2?)(a\\3?)$","thGaLpke&&mlDI",[])),
+    <<"aa">> = iolist_to_binary(re:replace("aa","^(a\\1?)(a\\1?)(a\\2?)(a\\3?)$","thGaLpke&&mlDI",[global])),
+    <<"aaa">> = iolist_to_binary(re:replace("aaa","^(a\\1?)(a\\1?)(a\\2?)(a\\3?)$","eIP\\1xN",[])),
+    <<"aaa">> = iolist_to_binary(re:replace("aaa","^(a\\1?)(a\\1?)(a\\2?)(a\\3?)$","eIP\\1xN",[global])),
+    <<"aaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaa","^(a\\1?)(a\\1?)(a\\2?)(a\\3?)$","KKqbLs",[])),
+    <<"aaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaa","^(a\\1?)(a\\1?)(a\\2?)(a\\3?)$","KKqbLs",[global])),
+    <<"aaaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaaa","^(a\\1?)(a\\1?)(a\\2?)(a\\3?)$","&jYN&OlnrIjJAVLKO",[])),
+    <<"aaaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaaa","^(a\\1?)(a\\1?)(a\\2?)(a\\3?)$","&jYN&OlnrIjJAVLKO",[global])),
+    <<"aaaaaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaaaaa","^(a\\1?)(a\\1?)(a\\2?)(a\\3?)$","PYINshqOHf&&awstrl\\1&",[])),
+    <<"aaaaaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaaaaa","^(a\\1?)(a\\1?)(a\\2?)(a\\3?)$","PYINshqOHf&&awstrl\\1&",[global])),
+    <<"aaaaaaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaaaaaa","^(a\\1?)(a\\1?)(a\\2?)(a\\3?)$","HqueiI",[])),
+    <<"aaaaaaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaaaaaa","^(a\\1?)(a\\1?)(a\\2?)(a\\3?)$","HqueiI",[global])),
+    <<"aaaaaaaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaaaaaaa","^(a\\1?)(a\\1?)(a\\2?)(a\\3?)$","MRJcrKPN\\1hmh",[])),
+    <<"aaaaaaaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaaaaaaa","^(a\\1?)(a\\1?)(a\\2?)(a\\3?)$","MRJcrKPN\\1hmh",[global])),
+    <<"aaaaaaaaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaaaaaaaa","^(a\\1?)(a\\1?)(a\\2?)(a\\3?)$","\\1",[])),
+    <<"aaaaaaaaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaaaaaaaa","^(a\\1?)(a\\1?)(a\\2?)(a\\3?)$","\\1",[global])),
+    <<"aaaaaaaaaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaaaaaaaaa","^(a\\1?)(a\\1?)(a\\2?)(a\\3?)$","KVS&lXp",[])),
+    <<"aaaaaaaaaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaaaaaaaaa","^(a\\1?)(a\\1?)(a\\2?)(a\\3?)$","KVS&lXp",[global])),
+    <<"aaaaaaaaaaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaaaaaaaaaa","^(a\\1?)(a\\1?)(a\\2?)(a\\3?)$","grKSEVp&",[])),
+    <<"aaaaaaaaaaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaaaaaaaaaa","^(a\\1?)(a\\1?)(a\\2?)(a\\3?)$","grKSEVp&",[global])),
+    <<"dqqQpRmENabcKbSKWabcx">> = iolist_to_binary(re:replace("abc","abc","d\\1q\\1qQpRmEN&KbSKW&x",[])),
+    <<"dqqQpRmENabcKbSKWabcx">> = iolist_to_binary(re:replace("abc","abc","d\\1q\\1qQpRmEN&KbSKW&x",[global])),
+    <<"xWCdJabcihy">> = iolist_to_binary(re:replace("xabcy","abc","WCdJ&ih",[])),
+    <<"xWCdJabcihy">> = iolist_to_binary(re:replace("xabcy","abc","WCdJ&ih",[global])),
+    <<"abYjUDqabcfbyqfUOv">> = iolist_to_binary(re:replace("ababc","abc","Yj\\1UDq&fbyqfUOv",[])),
+    <<"abYjUDqabcfbyqfUOv">> = iolist_to_binary(re:replace("ababc","abc","Yj\\1UDq&fbyqfUOv",[global])),
+    <<"xbc">> = iolist_to_binary(re:replace("xbc","abc","DuaOoTKn\\1",[])),
+    <<"xbc">> = iolist_to_binary(re:replace("xbc","abc","DuaOoTKn\\1",[global])),
+    <<"axc">> = iolist_to_binary(re:replace("axc","abc","lUAkQQE",[])),
+    <<"axc">> = iolist_to_binary(re:replace("axc","abc","lUAkQQE",[global])),
+    <<"abx">> = iolist_to_binary(re:replace("abx","abc","e",[])),
+    <<"abx">> = iolist_to_binary(re:replace("abx","abc","e",[global])),
+    <<"LOeabcRabcxkWabcFSngiabcdabcDm">> = iolist_to_binary(re:replace("abc","ab*c","LOe&R&xkW&FSngi&d&Dm",[])),
+    <<"LOeabcRabcxkWabcFSngiabcdabcDm">> = iolist_to_binary(re:replace("abc","ab*c","LOe&R&xkW&FSngi&d&Dm",[global])),
+    <<"IFSvaLmRAws">> = iolist_to_binary(re:replace("abc","ab*bc","IFSvaLmRAws",[])),
+    <<"IFSvaLmRAws">> = iolist_to_binary(re:replace("abc","ab*bc","IFSvaLmRAws",[global])),
+    <<"DQUrabbcabbcUYwApYRiYSqabbc">> = iolist_to_binary(re:replace("abbc","ab*bc","DQUr\\1&&\\1UYwApYRiYSq&",[])),
+    <<"DQUrabbcabbcUYwApYRiYSqabbc">> = iolist_to_binary(re:replace("abbc","ab*bc","DQUr\\1&&\\1UYwApYRiYSq&",[global])),
+    <<"pfGYlabbbbcdNpJmOaQHl">> = iolist_to_binary(re:replace("abbbbc","ab*bc","pfGYl&dNpJm\\1OaQHl",[])),
+    <<"pfGYlabbbbcdNpJmOaQHl">> = iolist_to_binary(re:replace("abbbbc","ab*bc","pfGYl&dNpJm\\1OaQHl",[global])),
+    <<"IHNVcUgbbbbc">> = iolist_to_binary(re:replace("abbbbc",".{1}","\\1IHNVcUg",[])),
+    <<"IHNVcUgIHNVcUgIHNVcUgIHNVcUgIHNVcUgIHNVcUg">> = iolist_to_binary(re:replace("abbbbc",".{1}","\\1IHNVcUg",[global])),
+    <<"Nbc">> = iolist_to_binary(re:replace("abbbbc",".{3,4}","N",[])),
+    <<"Nbc">> = iolist_to_binary(re:replace("abbbbc",".{3,4}","N",[global])),
+    <<"dxkmabbbbcdmRGQJb">> = iolist_to_binary(re:replace("abbbbc","ab{0,}bc","dxkm&dmRGQJb",[])),
+    <<"dxkmabbbbcdmRGQJb">> = iolist_to_binary(re:replace("abbbbc","ab{0,}bc","dxkm&dmRGQJb",[global])),
+    <<"urCYmabbcYvabbcF">> = iolist_to_binary(re:replace("abbc","ab+bc","urCY\\1m&Yv&F",[])),
+    <<"urCYmabbcYvabbcF">> = iolist_to_binary(re:replace("abbc","ab+bc","urCY\\1m&Yv&F",[global])),
+    <<"abc">> = iolist_to_binary(re:replace("abc","ab+bc","W\\1",[])),
+    <<"abc">> = iolist_to_binary(re:replace("abc","ab+bc","W\\1",[global])),
+    <<"abq">> = iolist_to_binary(re:replace("abq","ab+bc","Loc&F&vg&",[])),
+    <<"abq">> = iolist_to_binary(re:replace("abq","ab+bc","Loc&F&vg&",[global])),
+    <<"tWIlHMJfBx">> = iolist_to_binary(re:replace("abbbbc","ab+bc","tWIlHMJ\\1\\1fBx\\1",[])),
+    <<"tWIlHMJfBx">> = iolist_to_binary(re:replace("abbbbc","ab+bc","tWIlHMJ\\1\\1fBx\\1",[global])),
+    <<"IoytBGabbbbc">> = iolist_to_binary(re:replace("abbbbc","ab{1,}bc","Io\\1ytBG&",[])),
+    <<"IoytBGabbbbc">> = iolist_to_binary(re:replace("abbbbc","ab{1,}bc","Io\\1ytBG&",[global])),
+    <<"EPDyK">> = iolist_to_binary(re:replace("abbbbc","ab{1,3}bc","EPDyK",[])),
+    <<"EPDyK">> = iolist_to_binary(re:replace("abbbbc","ab{1,3}bc","EPDyK",[global])),
+    <<"ovFfXEabbbbcxcDncD">> = iolist_to_binary(re:replace("abbbbc","ab{3,4}bc","ovFfXE\\1&x\\1cDncD",[])),
+    <<"ovFfXEabbbbcxcDncD">> = iolist_to_binary(re:replace("abbbbc","ab{3,4}bc","ovFfXE\\1&x\\1cDncD",[global])),
+    <<"abq">> = iolist_to_binary(re:replace("abq","ab{4,5}bc","DJadEBdkEMa&RtCWFGE",[])),
+    <<"abq">> = iolist_to_binary(re:replace("abq","ab{4,5}bc","DJadEBdkEMa&RtCWFGE",[global])),
+    <<"abbbbc">> = iolist_to_binary(re:replace("abbbbc","ab{4,5}bc","T\\1dgo",[])),
+    <<"abbbbc">> = iolist_to_binary(re:replace("abbbbc","ab{4,5}bc","T\\1dgo",[global])),
+    <<"abbcabbcrvd">> = iolist_to_binary(re:replace("abbc","ab?bc","&&rvd",[])),
+    <<"abbcabbcrvd">> = iolist_to_binary(re:replace("abbc","ab?bc","&&rvd",[global])),
+    <<"JEKgTqabcgvK">> = iolist_to_binary(re:replace("abc","ab?bc","JEKgT\\1q&gvK",[])),
+    <<"JEKgTqabcgvK">> = iolist_to_binary(re:replace("abc","ab?bc","JEKgT\\1q&gvK",[global])),
+    <<"UPWVy">> = iolist_to_binary(re:replace("abc","ab{0,1}bc","UP\\1WVy",[])),
+    <<"UPWVy">> = iolist_to_binary(re:replace("abc","ab{0,1}bc","UP\\1WVy",[global])),
     ok.
 run15() ->
-    <<"yVlokOKtokQabcKSabcc">> = iolist_to_binary(re:replace("abcc","^abc","yVlokOK\\1\\1tok\\1\\1Q&KS&",[])),
-    <<"yVlokOKtokQabcKSabcc">> = iolist_to_binary(re:replace("abcc","^abc","yVlokOK\\1\\1tok\\1\\1Q&KS&",[global])),
-    <<"aeabcMcDykUabc">> = iolist_to_binary(re:replace("aabc","abc$","e\\1&McDykU\\1&",[])),
-    <<"aeabcMcDykUabc">> = iolist_to_binary(re:replace("aabc","abc$","e\\1&McDykU\\1&",[global])),
-    <<"aabcd">> = iolist_to_binary(re:replace("aabcd","abc$","QEARo&c",[])),
-    <<"aabcd">> = iolist_to_binary(re:replace("aabcd","abc$","QEARo&c",[global])),
-    <<"KFGQOVabc">> = iolist_to_binary(re:replace("abc","^","KFG&QO\\1V",[])),
-    <<"KFGQOVabc">> = iolist_to_binary(re:replace("abc","^","KFG&QO\\1V",[global])),
-    <<"abcbhTlpTdfe">> = iolist_to_binary(re:replace("abc","$","bhTlp\\1Tdfe\\1",[])),
-    <<"abcbhTlpTdfe">> = iolist_to_binary(re:replace("abc","$","bhTlp\\1Tdfe\\1",[global])),
-    <<"PJllegKeFhjiLabc">> = iolist_to_binary(re:replace("abc","a.c","PJllegKeFh\\1j\\1iL&",[])),
-    <<"PJllegKeFhjiLabc">> = iolist_to_binary(re:replace("abc","a.c","PJllegKeFh\\1j\\1iL&",[global])),
-    <<"gUuqhRhIO">> = iolist_to_binary(re:replace("axc","a.c","\\1g\\1U\\1\\1uqhRh\\1IO",[])),
-    <<"gUuqhRhIO">> = iolist_to_binary(re:replace("axc","a.c","\\1g\\1U\\1\\1uqhRh\\1IO",[global])),
-    <<"QVEsbJSBcadjBEjT">> = iolist_to_binary(re:replace("axyzc","a.*c","QVEsbJSBcadjB\\1EjT\\1",[])),
-    <<"QVEsbJSBcadjBEjT">> = iolist_to_binary(re:replace("axyzc","a.*c","QVEsbJSBcadjB\\1EjT\\1",[global])),
-    <<"abdjWabdDjOsitnxUkGd">> = iolist_to_binary(re:replace("abd","a[bc]d","&j\\1W&DjOsitnxUkGd",[])),
-    <<"abdjWabdDjOsitnxUkGd">> = iolist_to_binary(re:replace("abd","a[bc]d","&j\\1W&DjOsitnxUkGd",[global])),
-    <<"axyzd">> = iolist_to_binary(re:replace("axyzd","a[bc]d","&mpYotei",[])),
-    <<"axyzd">> = iolist_to_binary(re:replace("axyzd","a[bc]d","&mpYotei",[global])),
-    <<"abc">> = iolist_to_binary(re:replace("abc","a[bc]d","xwN",[])),
-    <<"abc">> = iolist_to_binary(re:replace("abc","a[bc]d","xwN",[global])),
-    <<"MHqWbacetnace">> = iolist_to_binary(re:replace("ace","a[b-d]e","MHqWb\\1&\\1\\1tn&",[])),
-    <<"MHqWbacetnace">> = iolist_to_binary(re:replace("ace","a[b-d]e","MHqWb\\1&\\1\\1tn&",[global])),
-    <<"aDgNMNfEyu">> = iolist_to_binary(re:replace("aac","a[b-d]","DgNM\\1NfEyu",[])),
-    <<"aDgNMNfEyu">> = iolist_to_binary(re:replace("aac","a[b-d]","DgNM\\1NfEyu",[global])),
-    <<"dJbsa-PvrBmxnM">> = iolist_to_binary(re:replace("a-","a[-b]","dJbs&PvrBmxnM",[])),
-    <<"dJbsa-PvrBmxnM">> = iolist_to_binary(re:replace("a-","a[-b]","dJbs&PvrBmxnM",[global])),
-    <<"WdMja-nqA">> = iolist_to_binary(re:replace("a-","a[b-]","WdMj&nqA\\1",[])),
-    <<"WdMja-nqA">> = iolist_to_binary(re:replace("a-","a[b-]","WdMj&nqA\\1",[global])),
-    <<"KBa]DAfa]MDQfqvJdYVQ">> = iolist_to_binary(re:replace("a]","a]","KB&DA\\1f&M\\1DQfqvJdYVQ",[])),
-    <<"KBa]DAfa]MDQfqvJdYVQ">> = iolist_to_binary(re:replace("a]","a]","KB&DA\\1f&M\\1DQfqvJdYVQ",[global])),
-    <<"fKNQlDdcmBPa]bCUa]b">> = iolist_to_binary(re:replace("a]b","a[]]b","fKN\\1\\1QlDdcmBP&C\\1U&\\1",[])),
-    <<"fKNQlDdcmBPa]bCUa]b">> = iolist_to_binary(re:replace("a]b","a[]]b","fKN\\1\\1QlDdcmBP&C\\1U&\\1",[global])),
-    <<"aNaedpfmffrWLfaeddaedm">> = iolist_to_binary(re:replace("aed","a[^bc]d","aN&pf\\1\\1\\1mf\\1frWLf&d&m",[])),
-    <<"aNaedpfmffrWLfaeddaedm">> = iolist_to_binary(re:replace("aed","a[^bc]d","aN&pf\\1\\1\\1mf\\1frWLf&d&m",[global])),
-    <<"abd">> = iolist_to_binary(re:replace("abd","a[^bc]d","NQ&IvkhD&RYe\\1\\1\\1",[])),
-    <<"abd">> = iolist_to_binary(re:replace("abd","a[^bc]d","NQ&IvkhD&RYe\\1\\1\\1",[global])),
-    <<"abd">> = iolist_to_binary(re:replace("abd","a[^bc]d","RV\\1lCqK\\1k",[])),
-    <<"abd">> = iolist_to_binary(re:replace("abd","a[^bc]d","RV\\1lCqK\\1k",[global])),
-    <<"WXSaOsXBjgadcx">> = iolist_to_binary(re:replace("adc","a[^-b]c","W\\1X\\1S\\1aOsXBj\\1g&x",[])),
-    <<"WXSaOsXBjgadcx">> = iolist_to_binary(re:replace("adc","a[^-b]c","W\\1X\\1S\\1aOsXBj\\1g&x",[global])),
-    <<"LogM">> = iolist_to_binary(re:replace("adc","a[^]b]c","Lo\\1gM",[])),
-    <<"LogM">> = iolist_to_binary(re:replace("adc","a[^]b]c","Lo\\1gM",[global])),
-    <<"bAkcTa-camca-cx">> = iolist_to_binary(re:replace("a-c","a[^]b]c","bAk\\1cT&amc&x",[])),
-    <<"bAkcTa-camca-cx">> = iolist_to_binary(re:replace("a-c","a[^]b]c","bAk\\1cT&amc&x",[global])),
-    <<"a]c">> = iolist_to_binary(re:replace("a]c","a[^]b]c","WJe&",[])),
-    <<"a]c">> = iolist_to_binary(re:replace("a]c","a[^]b]c","WJe&",[global])),
-    <<"HPaOIKerWiY-">> = iolist_to_binary(re:replace("a-","\\ba\\b","HP&OIKerWi\\1Y",[])),
-    <<"HPaOIKerWiY-">> = iolist_to_binary(re:replace("a-","\\ba\\b","HP&OIKerWi\\1Y",[global])),
-    <<"-OgUOq">> = iolist_to_binary(re:replace("-a","\\ba\\b","\\1OgUOq",[])),
-    <<"-OgUOq">> = iolist_to_binary(re:replace("-a","\\ba\\b","\\1OgUOq",[global])),
-    <<"-UKulakpav-">> = iolist_to_binary(re:replace("-a-","\\ba\\b","UKul&kp&v",[])),
-    <<"-UKulakpav-">> = iolist_to_binary(re:replace("-a-","\\ba\\b","UKul&kp&v",[global])),
-    <<"xy">> = iolist_to_binary(re:replace("xy","\\by\\b","uKOqa\\1ex&p\\1sJydJM\\1hE",[])),
-    <<"xy">> = iolist_to_binary(re:replace("xy","\\by\\b","uKOqa\\1ex&p\\1sJydJM\\1hE",[global])),
-    <<"yz">> = iolist_to_binary(re:replace("yz","\\by\\b","rRN\\1",[])),
-    <<"yz">> = iolist_to_binary(re:replace("yz","\\by\\b","rRN\\1",[global])),
-    <<"xyz">> = iolist_to_binary(re:replace("xyz","\\by\\b","oJ",[])),
-    <<"xyz">> = iolist_to_binary(re:replace("xyz","\\by\\b","oJ",[global])),
-    <<"a-">> = iolist_to_binary(re:replace("a-","\\Ba\\B","&R",[])),
-    <<"a-">> = iolist_to_binary(re:replace("a-","\\Ba\\B","&R",[global])),
-    <<"-a">> = iolist_to_binary(re:replace("-a","\\Ba\\B","T&",[])),
-    <<"-a">> = iolist_to_binary(re:replace("-a","\\Ba\\B","T&",[global])),
-    <<"-a-">> = iolist_to_binary(re:replace("-a-","\\Ba\\B","whvhAvFn",[])),
-    <<"-a-">> = iolist_to_binary(re:replace("-a-","\\Ba\\B","whvhAvFn",[global])),
+    <<"AbOabcomfYRdLAuabcDFG">> = iolist_to_binary(re:replace("abc","ab?c","\\1AbO&omfYRdL\\1Au&DFG\\1",[])),
+    <<"AbOabcomfYRdLAuabcDFG">> = iolist_to_binary(re:replace("abc","ab?c","\\1AbO&omfYRdL\\1Au&DFG\\1",[global])),
+    <<"vpmFxwVLtNDmRV">> = iolist_to_binary(re:replace("abc","ab{0,1}c","v\\1pmFxwVLtNDmRV",[])),
+    <<"vpmFxwVLtNDmRV">> = iolist_to_binary(re:replace("abc","ab{0,1}c","v\\1pmFxwVLtNDmRV",[global])),
+    <<"yVlokOKtokQabcKSabc">> = iolist_to_binary(re:replace("abc","^abc$","yVlokOK\\1\\1tok\\1\\1Q&KS&",[])),
+    <<"yVlokOKtokQabcKSabc">> = iolist_to_binary(re:replace("abc","^abc$","yVlokOK\\1\\1tok\\1\\1Q&KS&",[global])),
+    <<"abbbbc">> = iolist_to_binary(re:replace("abbbbc","^abc$","e\\1&McDykU\\1&",[])),
+    <<"abbbbc">> = iolist_to_binary(re:replace("abbbbc","^abc$","e\\1&McDykU\\1&",[global])),
+    <<"abcc">> = iolist_to_binary(re:replace("abcc","^abc$","QEARo&c",[])),
+    <<"abcc">> = iolist_to_binary(re:replace("abcc","^abc$","QEARo&c",[global])),
+    <<"KFGabcQOVc">> = iolist_to_binary(re:replace("abcc","^abc","KFG&QO\\1V",[])),
+    <<"KFGabcQOVc">> = iolist_to_binary(re:replace("abcc","^abc","KFG&QO\\1V",[global])),
+    <<"abhTlpTdfe">> = iolist_to_binary(re:replace("aabc","abc$","bhTlp\\1Tdfe\\1",[])),
+    <<"abhTlpTdfe">> = iolist_to_binary(re:replace("aabc","abc$","bhTlp\\1Tdfe\\1",[global])),
+    <<"aabcd">> = iolist_to_binary(re:replace("aabcd","abc$","PJllegKeFh\\1j\\1iL&",[])),
+    <<"aabcd">> = iolist_to_binary(re:replace("aabcd","abc$","PJllegKeFh\\1j\\1iL&",[global])),
+    <<"gUuqhRhIOabc">> = iolist_to_binary(re:replace("abc","^","\\1g\\1U\\1\\1uqhRh\\1IO",[])),
+    <<"gUuqhRhIOabc">> = iolist_to_binary(re:replace("abc","^","\\1g\\1U\\1\\1uqhRh\\1IO",[global])),
+    <<"abcQVEsbJSBcadjBEjT">> = iolist_to_binary(re:replace("abc","$","QVEsbJSBcadjB\\1EjT\\1",[])),
+    <<"abcQVEsbJSBcadjBEjT">> = iolist_to_binary(re:replace("abc","$","QVEsbJSBcadjB\\1EjT\\1",[global])),
+    <<"abcjWabcDjOsitnxUkGd">> = iolist_to_binary(re:replace("abc","a.c","&j\\1W&DjOsitnxUkGd",[])),
+    <<"abcjWabcDjOsitnxUkGd">> = iolist_to_binary(re:replace("abc","a.c","&j\\1W&DjOsitnxUkGd",[global])),
+    <<"axcmpYotei">> = iolist_to_binary(re:replace("axc","a.c","&mpYotei",[])),
+    <<"axcmpYotei">> = iolist_to_binary(re:replace("axc","a.c","&mpYotei",[global])),
+    <<"xwN">> = iolist_to_binary(re:replace("axyzc","a.*c","xwN",[])),
+    <<"xwN">> = iolist_to_binary(re:replace("axyzc","a.*c","xwN",[global])),
+    <<"MHqWbabdtnabd">> = iolist_to_binary(re:replace("abd","a[bc]d","MHqWb\\1&\\1\\1tn&",[])),
+    <<"MHqWbabdtnabd">> = iolist_to_binary(re:replace("abd","a[bc]d","MHqWb\\1&\\1\\1tn&",[global])),
+    <<"axyzd">> = iolist_to_binary(re:replace("axyzd","a[bc]d","DgNM\\1NfEyu",[])),
+    <<"axyzd">> = iolist_to_binary(re:replace("axyzd","a[bc]d","DgNM\\1NfEyu",[global])),
+    <<"abc">> = iolist_to_binary(re:replace("abc","a[bc]d","dJbs&PvrBmxnM",[])),
+    <<"abc">> = iolist_to_binary(re:replace("abc","a[bc]d","dJbs&PvrBmxnM",[global])),
+    <<"WdMjacenqA">> = iolist_to_binary(re:replace("ace","a[b-d]e","WdMj&nqA\\1",[])),
+    <<"WdMjacenqA">> = iolist_to_binary(re:replace("ace","a[b-d]e","WdMj&nqA\\1",[global])),
+    <<"aKBacDAfacMDQfqvJdYVQ">> = iolist_to_binary(re:replace("aac","a[b-d]","KB&DA\\1f&M\\1DQfqvJdYVQ",[])),
+    <<"aKBacDAfacMDQfqvJdYVQ">> = iolist_to_binary(re:replace("aac","a[b-d]","KB&DA\\1f&M\\1DQfqvJdYVQ",[global])),
+    <<"fKNQlDdcmBPa-CUa-">> = iolist_to_binary(re:replace("a-","a[-b]","fKN\\1\\1QlDdcmBP&C\\1U&\\1",[])),
+    <<"fKNQlDdcmBPa-CUa-">> = iolist_to_binary(re:replace("a-","a[-b]","fKN\\1\\1QlDdcmBP&C\\1U&\\1",[global])),
+    <<"aNa-pfmffrWLfa-da-m">> = iolist_to_binary(re:replace("a-","a[b-]","aN&pf\\1\\1\\1mf\\1frWLf&d&m",[])),
+    <<"aNa-pfmffrWLfa-da-m">> = iolist_to_binary(re:replace("a-","a[b-]","aN&pf\\1\\1\\1mf\\1frWLf&d&m",[global])),
+    <<"NQa]IvkhDa]RYe">> = iolist_to_binary(re:replace("a]","a]","NQ&IvkhD&RYe\\1\\1\\1",[])),
+    <<"NQa]IvkhDa]RYe">> = iolist_to_binary(re:replace("a]","a]","NQ&IvkhD&RYe\\1\\1\\1",[global])),
+    <<"RVlCqKk">> = iolist_to_binary(re:replace("a]b","a[]]b","RV\\1lCqK\\1k",[])),
+    <<"RVlCqKk">> = iolist_to_binary(re:replace("a]b","a[]]b","RV\\1lCqK\\1k",[global])),
+    <<"WXSaOsXBjgaedx">> = iolist_to_binary(re:replace("aed","a[^bc]d","W\\1X\\1S\\1aOsXBj\\1g&x",[])),
+    <<"WXSaOsXBjgaedx">> = iolist_to_binary(re:replace("aed","a[^bc]d","W\\1X\\1S\\1aOsXBj\\1g&x",[global])),
+    <<"abd">> = iolist_to_binary(re:replace("abd","a[^bc]d","Lo\\1gM",[])),
+    <<"abd">> = iolist_to_binary(re:replace("abd","a[^bc]d","Lo\\1gM",[global])),
+    <<"abd">> = iolist_to_binary(re:replace("abd","a[^bc]d","bAk\\1cT&amc&x",[])),
+    <<"abd">> = iolist_to_binary(re:replace("abd","a[^bc]d","bAk\\1cT&amc&x",[global])),
+    <<"WJeadc">> = iolist_to_binary(re:replace("adc","a[^-b]c","WJe&",[])),
+    <<"WJeadc">> = iolist_to_binary(re:replace("adc","a[^-b]c","WJe&",[global])),
+    <<"HPadcOIKerWiY">> = iolist_to_binary(re:replace("adc","a[^]b]c","HP&OIKerWi\\1Y",[])),
+    <<"HPadcOIKerWiY">> = iolist_to_binary(re:replace("adc","a[^]b]c","HP&OIKerWi\\1Y",[global])),
+    <<"OgUOq">> = iolist_to_binary(re:replace("a-c","a[^]b]c","\\1OgUOq",[])),
+    <<"OgUOq">> = iolist_to_binary(re:replace("a-c","a[^]b]c","\\1OgUOq",[global])),
+    <<"a]c">> = iolist_to_binary(re:replace("a]c","a[^]b]c","UKul&kp&v",[])),
+    <<"a]c">> = iolist_to_binary(re:replace("a]c","a[^]b]c","UKul&kp&v",[global])),
     ok.
 run16() ->
-    <<"xNbyvemA">> = iolist_to_binary(re:replace("xy","\\By\\b","Nb&vemA",[])),
-    <<"xNbyvemA">> = iolist_to_binary(re:replace("xy","\\By\\b","Nb&vemA",[global])),
-    <<"sGdPdEQYOz">> = iolist_to_binary(re:replace("yz","\\by\\B","s\\1GdP\\1\\1dEQ\\1YO",[])),
-    <<"sGdPdEQYOz">> = iolist_to_binary(re:replace("yz","\\by\\B","s\\1GdP\\1\\1dEQ\\1YO",[global])),
-    <<"xoFBOVObz">> = iolist_to_binary(re:replace("xyz","\\By\\B","oFBOVOb",[])),
-    <<"xoFBOVObz">> = iolist_to_binary(re:replace("xyz","\\By\\B","oFBOVOb",[global])),
-    <<"taotHFLuTEAHCbR">> = iolist_to_binary(re:replace("a","\\w","t&\\1otHFLuTEAHCbR",[])),
-    <<"taotHFLuTEAHCbR">> = iolist_to_binary(re:replace("a","\\w","t&\\1otHFLuTEAHCbR",[global])),
-    <<"B-J">> = iolist_to_binary(re:replace("-","\\W","B&\\1J",[])),
-    <<"B-J">> = iolist_to_binary(re:replace("-","\\W","B&\\1J",[global])),
-    <<"a">> = iolist_to_binary(re:replace("a","\\W","v&v\\1M&nOy",[])),
-    <<"a">> = iolist_to_binary(re:replace("a","\\W","v&v\\1M&nOy",[global])),
-    <<"HSa bge">> = iolist_to_binary(re:replace("a b","a\\sb","HS&ge",[])),
-    <<"HSa bge">> = iolist_to_binary(re:replace("a b","a\\sb","HS&ge",[global])),
-    <<"KmuWa-bkIQYq">> = iolist_to_binary(re:replace("a-b","a\\Sb","KmuW&kIQYq",[])),
-    <<"KmuWa-bkIQYq">> = iolist_to_binary(re:replace("a-b","a\\Sb","KmuW&kIQYq",[global])),
-    <<"a b">> = iolist_to_binary(re:replace("a b","a\\Sb","qww\\1&EncmL\\1JNGO&O",[])),
-    <<"a b">> = iolist_to_binary(re:replace("a b","a\\Sb","qww\\1&EncmL\\1JNGO&O",[global])),
-    <<"uVBupM1DBwfMmnlf1">> = iolist_to_binary(re:replace("1","\\d","uVBup\\1M&D\\1\\1BwfMmnlf&",[])),
-    <<"uVBupM1DBwfMmnlf1">> = iolist_to_binary(re:replace("1","\\d","uVBup\\1M&D\\1\\1BwfMmnlf&",[global])),
-    <<"cOIQhxWWsF-nEAw">> = iolist_to_binary(re:replace("-","\\D","\\1cOIQhxWWs\\1F\\1&nEAw",[])),
-    <<"cOIQhxWWsF-nEAw">> = iolist_to_binary(re:replace("-","\\D","\\1cOIQhxWWs\\1F\\1&nEAw",[global])),
-    <<"1">> = iolist_to_binary(re:replace("1","\\D","h",[])),
-    <<"1">> = iolist_to_binary(re:replace("1","\\D","h",[global])),
-    <<"rWaXF">> = iolist_to_binary(re:replace("a","[\\w]","rW\\1&XF",[])),
-    <<"rWaXF">> = iolist_to_binary(re:replace("a","[\\w]","rW\\1&XF",[global])),
-    <<"wlBBH-G">> = iolist_to_binary(re:replace("-","[\\W]","wlBBH&G",[])),
-    <<"wlBBH-G">> = iolist_to_binary(re:replace("-","[\\W]","wlBBH&G",[global])),
-    <<"a">> = iolist_to_binary(re:replace("a","[\\W]","v\\1\\1yCoOg&",[])),
-    <<"a">> = iolist_to_binary(re:replace("a","[\\W]","v\\1\\1yCoOg&",[global])),
-    <<"sEBLg">> = iolist_to_binary(re:replace("a b","a[\\s]b","sEBLg",[])),
-    <<"sEBLg">> = iolist_to_binary(re:replace("a b","a[\\s]b","sEBLg",[global])),
-    <<"CxGBTma-bFa-baoxSvna-bIJa-bx">> = iolist_to_binary(re:replace("a-b","a[\\S]b","CxGBTm&F&aoxSvn&IJ&x",[])),
-    <<"CxGBTma-bFa-baoxSvna-bIJa-bx">> = iolist_to_binary(re:replace("a-b","a[\\S]b","CxGBTm&F&aoxSvn&IJ&x",[global])),
-    <<"a b">> = iolist_to_binary(re:replace("a b","a[\\S]b","tca\\1Q",[])),
-    <<"a b">> = iolist_to_binary(re:replace("a b","a[\\S]b","tca\\1Q",[global])),
-    <<"tSnco1">> = iolist_to_binary(re:replace("1","[\\d]","tSnco&",[])),
-    <<"tSnco1">> = iolist_to_binary(re:replace("1","[\\d]","tSnco&",[global])),
-    <<"dfo">> = iolist_to_binary(re:replace("-","[\\D]","dfo",[])),
-    <<"dfo">> = iolist_to_binary(re:replace("-","[\\D]","dfo",[global])),
-    <<"1">> = iolist_to_binary(re:replace("1","[\\D]","U",[])),
-    <<"1">> = iolist_to_binary(re:replace("1","[\\D]","U",[global])),
-    <<"NRWmeVkGqvPc">> = iolist_to_binary(re:replace("abc","ab|cd","NRWmeVkGqv\\1P",[])),
-    <<"NRWmeVkGqvPc">> = iolist_to_binary(re:replace("abc","ab|cd","NRWmeVkGqv\\1P",[global])),
-    <<"pcRabtawJMdMabKPNcd">> = iolist_to_binary(re:replace("abcd","ab|cd","pcR&ta\\1wJMdM&KPN",[])),
-    <<"pcRabtawJMdMabKPNpcRcdtawJMdMcdKPN">> = iolist_to_binary(re:replace("abcd","ab|cd","pcR&ta\\1wJMdM&KPN",[global])),
-    <<"djByCJtDSoefTHKBAMefy">> = iolist_to_binary(re:replace("def","()ef","jByCJtDS\\1o&THKBAM&y",[])),
-    <<"djByCJtDSoefTHKBAMefy">> = iolist_to_binary(re:replace("def","()ef","jByCJtDS\\1o&THKBAM&y",[global])),
-    <<"qsaEcHRVFjLsoOa(bfk">> = iolist_to_binary(re:replace("a(b","a\\(b","qsa\\1EcHRVFjLsoO&fk",[])),
-    <<"qsaEcHRVFjLsoOa(bfk">> = iolist_to_binary(re:replace("a(b","a\\(b","qsa\\1EcHRVFjLsoO&fk",[global])),
-    <<"rVqQArLvUabrlnI">> = iolist_to_binary(re:replace("ab","a\\(*b","r\\1\\1VqQArLvU&r\\1lnI",[])),
-    <<"rVqQArLvUabrlnI">> = iolist_to_binary(re:replace("ab","a\\(*b","r\\1\\1VqQArLvU&r\\1lnI",[global])),
-    <<"gh">> = iolist_to_binary(re:replace("a((b","a\\(*b","gh",[])),
-    <<"gh">> = iolist_to_binary(re:replace("a((b","a\\(*b","gh",[global])),
+    <<"uKOqaexapsJydJMhE-">> = iolist_to_binary(re:replace("a-","\\ba\\b","uKOqa\\1ex&p\\1sJydJM\\1hE",[])),
+    <<"uKOqaexapsJydJMhE-">> = iolist_to_binary(re:replace("a-","\\ba\\b","uKOqa\\1ex&p\\1sJydJM\\1hE",[global])),
+    <<"-rRN">> = iolist_to_binary(re:replace("-a","\\ba\\b","rRN\\1",[])),
+    <<"-rRN">> = iolist_to_binary(re:replace("-a","\\ba\\b","rRN\\1",[global])),
+    <<"-oJ-">> = iolist_to_binary(re:replace("-a-","\\ba\\b","oJ",[])),
+    <<"-oJ-">> = iolist_to_binary(re:replace("-a-","\\ba\\b","oJ",[global])),
+    <<"xy">> = iolist_to_binary(re:replace("xy","\\by\\b","&R",[])),
+    <<"xy">> = iolist_to_binary(re:replace("xy","\\by\\b","&R",[global])),
+    <<"yz">> = iolist_to_binary(re:replace("yz","\\by\\b","T&",[])),
+    <<"yz">> = iolist_to_binary(re:replace("yz","\\by\\b","T&",[global])),
+    <<"xyz">> = iolist_to_binary(re:replace("xyz","\\by\\b","whvhAvFn",[])),
+    <<"xyz">> = iolist_to_binary(re:replace("xyz","\\by\\b","whvhAvFn",[global])),
+    <<"a-">> = iolist_to_binary(re:replace("a-","\\Ba\\B","Nb&vemA",[])),
+    <<"a-">> = iolist_to_binary(re:replace("a-","\\Ba\\B","Nb&vemA",[global])),
+    <<"-a">> = iolist_to_binary(re:replace("-a","\\Ba\\B","s\\1GdP\\1\\1dEQ\\1YO",[])),
+    <<"-a">> = iolist_to_binary(re:replace("-a","\\Ba\\B","s\\1GdP\\1\\1dEQ\\1YO",[global])),
+    <<"-a-">> = iolist_to_binary(re:replace("-a-","\\Ba\\B","oFBOVOb",[])),
+    <<"-a-">> = iolist_to_binary(re:replace("-a-","\\Ba\\B","oFBOVOb",[global])),
+    <<"xtyotHFLuTEAHCbR">> = iolist_to_binary(re:replace("xy","\\By\\b","t&\\1otHFLuTEAHCbR",[])),
+    <<"xtyotHFLuTEAHCbR">> = iolist_to_binary(re:replace("xy","\\By\\b","t&\\1otHFLuTEAHCbR",[global])),
+    <<"ByJz">> = iolist_to_binary(re:replace("yz","\\by\\B","B&\\1J",[])),
+    <<"ByJz">> = iolist_to_binary(re:replace("yz","\\by\\B","B&\\1J",[global])),
+    <<"xvyvMynOyz">> = iolist_to_binary(re:replace("xyz","\\By\\B","v&v\\1M&nOy",[])),
+    <<"xvyvMynOyz">> = iolist_to_binary(re:replace("xyz","\\By\\B","v&v\\1M&nOy",[global])),
+    <<"HSage">> = iolist_to_binary(re:replace("a","\\w","HS&ge",[])),
+    <<"HSage">> = iolist_to_binary(re:replace("a","\\w","HS&ge",[global])),
+    <<"KmuW-kIQYq">> = iolist_to_binary(re:replace("-","\\W","KmuW&kIQYq",[])),
+    <<"KmuW-kIQYq">> = iolist_to_binary(re:replace("-","\\W","KmuW&kIQYq",[global])),
+    <<"a">> = iolist_to_binary(re:replace("a","\\W","qww\\1&EncmL\\1JNGO&O",[])),
+    <<"a">> = iolist_to_binary(re:replace("a","\\W","qww\\1&EncmL\\1JNGO&O",[global])),
+    <<"uVBupMa bDBwfMmnlfa b">> = iolist_to_binary(re:replace("a b","a\\sb","uVBup\\1M&D\\1\\1BwfMmnlf&",[])),
+    <<"uVBupMa bDBwfMmnlfa b">> = iolist_to_binary(re:replace("a b","a\\sb","uVBup\\1M&D\\1\\1BwfMmnlf&",[global])),
+    <<"cOIQhxWWsFa-bnEAw">> = iolist_to_binary(re:replace("a-b","a\\Sb","\\1cOIQhxWWs\\1F\\1&nEAw",[])),
+    <<"cOIQhxWWsFa-bnEAw">> = iolist_to_binary(re:replace("a-b","a\\Sb","\\1cOIQhxWWs\\1F\\1&nEAw",[global])),
+    <<"a b">> = iolist_to_binary(re:replace("a b","a\\Sb","h",[])),
+    <<"a b">> = iolist_to_binary(re:replace("a b","a\\Sb","h",[global])),
+    <<"rW1XF">> = iolist_to_binary(re:replace("1","\\d","rW\\1&XF",[])),
+    <<"rW1XF">> = iolist_to_binary(re:replace("1","\\d","rW\\1&XF",[global])),
+    <<"wlBBH-G">> = iolist_to_binary(re:replace("-","\\D","wlBBH&G",[])),
+    <<"wlBBH-G">> = iolist_to_binary(re:replace("-","\\D","wlBBH&G",[global])),
+    <<"1">> = iolist_to_binary(re:replace("1","\\D","v\\1\\1yCoOg&",[])),
+    <<"1">> = iolist_to_binary(re:replace("1","\\D","v\\1\\1yCoOg&",[global])),
+    <<"sEBLg">> = iolist_to_binary(re:replace("a","[\\w]","sEBLg",[])),
+    <<"sEBLg">> = iolist_to_binary(re:replace("a","[\\w]","sEBLg",[global])),
+    <<"CxGBTm-F-aoxSvn-IJ-x">> = iolist_to_binary(re:replace("-","[\\W]","CxGBTm&F&aoxSvn&IJ&x",[])),
+    <<"CxGBTm-F-aoxSvn-IJ-x">> = iolist_to_binary(re:replace("-","[\\W]","CxGBTm&F&aoxSvn&IJ&x",[global])),
+    <<"a">> = iolist_to_binary(re:replace("a","[\\W]","tca\\1Q",[])),
+    <<"a">> = iolist_to_binary(re:replace("a","[\\W]","tca\\1Q",[global])),
+    <<"tSncoa b">> = iolist_to_binary(re:replace("a b","a[\\s]b","tSnco&",[])),
+    <<"tSncoa b">> = iolist_to_binary(re:replace("a b","a[\\s]b","tSnco&",[global])),
+    <<"dfo">> = iolist_to_binary(re:replace("a-b","a[\\S]b","dfo",[])),
+    <<"dfo">> = iolist_to_binary(re:replace("a-b","a[\\S]b","dfo",[global])),
+    <<"a b">> = iolist_to_binary(re:replace("a b","a[\\S]b","U",[])),
+    <<"a b">> = iolist_to_binary(re:replace("a b","a[\\S]b","U",[global])),
+    <<"NRWmeVkGqvP">> = iolist_to_binary(re:replace("1","[\\d]","NRWmeVkGqv\\1P",[])),
+    <<"NRWmeVkGqvP">> = iolist_to_binary(re:replace("1","[\\d]","NRWmeVkGqv\\1P",[global])),
+    <<"pcR-tawJMdM-KPN">> = iolist_to_binary(re:replace("-","[\\D]","pcR&ta\\1wJMdM&KPN",[])),
+    <<"pcR-tawJMdM-KPN">> = iolist_to_binary(re:replace("-","[\\D]","pcR&ta\\1wJMdM&KPN",[global])),
+    <<"1">> = iolist_to_binary(re:replace("1","[\\D]","jByCJtDS\\1o&THKBAM&y",[])),
+    <<"1">> = iolist_to_binary(re:replace("1","[\\D]","jByCJtDS\\1o&THKBAM&y",[global])),
+    <<"qsaEcHRVFjLsoOabfkc">> = iolist_to_binary(re:replace("abc","ab|cd","qsa\\1EcHRVFjLsoO&fk",[])),
+    <<"qsaEcHRVFjLsoOabfkc">> = iolist_to_binary(re:replace("abc","ab|cd","qsa\\1EcHRVFjLsoO&fk",[global])),
+    <<"rVqQArLvUabrlnIcd">> = iolist_to_binary(re:replace("abcd","ab|cd","r\\1\\1VqQArLvU&r\\1lnI",[])),
+    <<"rVqQArLvUabrlnIrVqQArLvUcdrlnI">> = iolist_to_binary(re:replace("abcd","ab|cd","r\\1\\1VqQArLvU&r\\1lnI",[global])),
+    <<"dgh">> = iolist_to_binary(re:replace("def","()ef","gh",[])),
+    <<"dgh">> = iolist_to_binary(re:replace("def","()ef","gh",[global])),
     ok.
 run17() ->
-    <<"vdKYQDIVnwa\\ba\\bQWKBgh">> = iolist_to_binary(re:replace("a\\b","a\\\\b","vdKYQDIVnw&&QWKBgh",[])),
-    <<"vdKYQDIVnwa\\ba\\bQWKBgh">> = iolist_to_binary(re:replace("a\\b","a\\\\b","vdKYQDIVnw&&QWKBgh",[global])),
-    <<"FjVsAaaBbc">> = iolist_to_binary(re:replace("abc","((a))","FjVsA\\1&B",[])),
-    <<"FjVsAaaBbc">> = iolist_to_binary(re:replace("abc","((a))","FjVsA\\1&B",[global])),
-    <<"HgWqxfrraqYwT">> = iolist_to_binary(re:replace("abc","(a)b(c)","HgWqxfrr\\1qYwT",[])),
-    <<"HgWqxfrraqYwT">> = iolist_to_binary(re:replace("abc","(a)b(c)","HgWqxfrr\\1qYwT",[global])),
-    <<"aabbyjWsTDYmUlc">> = iolist_to_binary(re:replace("aabbabc","a+b+c","yjWsT\\1DYmUlc",[])),
-    <<"aabbyjWsTDYmUlc">> = iolist_to_binary(re:replace("aabbabc","a+b+c","yjWsT\\1DYmUlc",[global])),
-    <<"aabbxfcMrdAu">> = iolist_to_binary(re:replace("aabbabc","a{1,}b{1,}c","xfcMrdAu",[])),
-    <<"aabbxfcMrdAu">> = iolist_to_binary(re:replace("aabbabc","a{1,}b{1,}c","xfcMrdAu",[global])),
-    <<"BliCabcLQrUrabc">> = iolist_to_binary(re:replace("abcabc","a.+?c","\\1BliC&LQrU\\1r",[])),
-    <<"BliCabcLQrUrBliCabcLQrUr">> = iolist_to_binary(re:replace("abcabc","a.+?c","\\1BliC&LQrU\\1r",[global])),
-    <<"TeTeDbXabablbw">> = iolist_to_binary(re:replace("ab","(a+|b)*","TeTeD\\1X&&l\\1w",[])),
-    <<"TeTeDbXabablbwTeTeDXlw">> = iolist_to_binary(re:replace("ab","(a+|b)*","TeTeD\\1X&&l\\1w",[global])),
-    <<"HV">> = iolist_to_binary(re:replace("ab","(a+|b){0,}","HV",[])),
-    <<"HVHV">> = iolist_to_binary(re:replace("ab","(a+|b){0,}","HV",[global])),
-    <<"GmbabwlpUabOy">> = iolist_to_binary(re:replace("ab","(a+|b)+","Gm\\1&wlpU&Oy",[])),
-    <<"GmbabwlpUabOy">> = iolist_to_binary(re:replace("ab","(a+|b)+","Gm\\1&wlpU&Oy",[global])),
-    <<"snNvqcfbmxQbDRPIP">> = iolist_to_binary(re:replace("ab","(a+|b){1,}","snNvqcf\\1mxQ\\1DRPIP",[])),
-    <<"snNvqcfbmxQbDRPIP">> = iolist_to_binary(re:replace("ab","(a+|b){1,}","snNvqcf\\1mxQ\\1DRPIP",[global])),
-    <<"aRtbPoOkgRgQnokJdPb">> = iolist_to_binary(re:replace("ab","(a+|b)?","\\1RtbPoOkgRgQnokJdP",[])),
-    <<"aRtbPoOkgRgQnokJdPbRtbPoOkgRgQnokJdPRtbPoOkgRgQnokJdP">> = iolist_to_binary(re:replace("ab","(a+|b)?","\\1RtbPoOkgRgQnokJdP",[global])),
-    <<"aagBhaIaKaeSvanYhNTcb">> = iolist_to_binary(re:replace("ab","(a+|b){0,1}","&\\1gBh&I&K&eSv\\1nYhNTc",[])),
-    <<"aagBhaIaKaeSvanYhNTcbbgBhbIbKbeSvbnYhNTcgBhIKeSvnYhNTc">> = iolist_to_binary(re:replace("ab","(a+|b){0,1}","&\\1gBh&I&K&eSv\\1nYhNTc",[global])),
-    <<"O">> = iolist_to_binary(re:replace("cde","[^ab]*","\\1O",[])),
-    <<"OO">> = iolist_to_binary(re:replace("cde","[^ab]*","\\1O",[global])),
-    <<"b">> = iolist_to_binary(re:replace("b","abc","\\1&&",[])),
-    <<"b">> = iolist_to_binary(re:replace("b","abc","\\1&&",[global])),
-    <<"gbGDhPlvFnq">> = iolist_to_binary(re:replace("","a*","gbGDh\\1\\1\\1PlvFnq",[])),
-    <<"gbGDhPlvFnq">> = iolist_to_binary(re:replace("","a*","gbGDh\\1\\1\\1PlvFnq",[global])),
-    <<"occcnIbiYVyabbbcd">> = iolist_to_binary(re:replace("abbbcd","([abc])*d","o\\1\\1\\1nIbiYVy&",[])),
-    <<"occcnIbiYVyabbbcd">> = iolist_to_binary(re:replace("abbbcd","([abc])*d","o\\1\\1\\1nIbiYVy&",[global])),
-    <<"KaIGHABBJDNX">> = iolist_to_binary(re:replace("abcd","([abc])*bcd","K\\1IGHABBJDNX",[])),
-    <<"KaIGHABBJDNX">> = iolist_to_binary(re:replace("abcd","([abc])*bcd","K\\1IGHABBJDNX",[global])),
-    <<"ewvNlo">> = iolist_to_binary(re:replace("e","a|b|c|d|e","\\1&\\1wvNlo",[])),
-    <<"ewvNlo">> = iolist_to_binary(re:replace("e","a|b|c|d|e","\\1&\\1wvNlo",[global])),
-    <<"MMsqXpeLe">> = iolist_to_binary(re:replace("ef","(a|b|c|d|e)f","MMsqXp\\1L\\1",[])),
-    <<"MMsqXpeLe">> = iolist_to_binary(re:replace("ef","(a|b|c|d|e)f","MMsqXp\\1L\\1",[global])),
-    <<"abcdefgcblGbrYsIosd">> = iolist_to_binary(re:replace("abcdefg","abcd*efg","&\\1\\1cblGbrY\\1\\1sIosd",[])),
-    <<"abcdefgcblGbrYsIosd">> = iolist_to_binary(re:replace("abcdefg","abcd*efg","&\\1\\1cblGbrY\\1\\1sIosd",[global])),
+    <<"vdKYQDIVnwa(ba(bQWKBgh">> = iolist_to_binary(re:replace("a(b","a\\(b","vdKYQDIVnw&&QWKBgh",[])),
+    <<"vdKYQDIVnwa(ba(bQWKBgh">> = iolist_to_binary(re:replace("a(b","a\\(b","vdKYQDIVnw&&QWKBgh",[global])),
+    <<"FjVsAabB">> = iolist_to_binary(re:replace("ab","a\\(*b","FjVsA\\1&B",[])),
+    <<"FjVsAabB">> = iolist_to_binary(re:replace("ab","a\\(*b","FjVsA\\1&B",[global])),
+    <<"HgWqxfrrqYwT">> = iolist_to_binary(re:replace("a((b","a\\(*b","HgWqxfrr\\1qYwT",[])),
+    <<"HgWqxfrrqYwT">> = iolist_to_binary(re:replace("a((b","a\\(*b","HgWqxfrr\\1qYwT",[global])),
+    <<"yjWsTDYmUlc">> = iolist_to_binary(re:replace("a\\b","a\\\\b","yjWsT\\1DYmUlc",[])),
+    <<"yjWsTDYmUlc">> = iolist_to_binary(re:replace("a\\b","a\\\\b","yjWsT\\1DYmUlc",[global])),
+    <<"xfcMrdAubc">> = iolist_to_binary(re:replace("abc","((a))","xfcMrdAu",[])),
+    <<"xfcMrdAubc">> = iolist_to_binary(re:replace("abc","((a))","xfcMrdAu",[global])),
+    <<"aBliCabcLQrUar">> = iolist_to_binary(re:replace("abc","(a)b(c)","\\1BliC&LQrU\\1r",[])),
+    <<"aBliCabcLQrUar">> = iolist_to_binary(re:replace("abc","(a)b(c)","\\1BliC&LQrU\\1r",[global])),
+    <<"aabbTeTeDXabcabclw">> = iolist_to_binary(re:replace("aabbabc","a+b+c","TeTeD\\1X&&l\\1w",[])),
+    <<"aabbTeTeDXabcabclw">> = iolist_to_binary(re:replace("aabbabc","a+b+c","TeTeD\\1X&&l\\1w",[global])),
+    <<"aabbHV">> = iolist_to_binary(re:replace("aabbabc","a{1,}b{1,}c","HV",[])),
+    <<"aabbHV">> = iolist_to_binary(re:replace("aabbabc","a{1,}b{1,}c","HV",[global])),
+    <<"GmabcwlpUabcOyabc">> = iolist_to_binary(re:replace("abcabc","a.+?c","Gm\\1&wlpU&Oy",[])),
+    <<"GmabcwlpUabcOyGmabcwlpUabcOy">> = iolist_to_binary(re:replace("abcabc","a.+?c","Gm\\1&wlpU&Oy",[global])),
+    <<"snNvqcfbmxQbDRPIP">> = iolist_to_binary(re:replace("ab","(a+|b)*","snNvqcf\\1mxQ\\1DRPIP",[])),
+    <<"snNvqcfbmxQbDRPIPsnNvqcfmxQDRPIP">> = iolist_to_binary(re:replace("ab","(a+|b)*","snNvqcf\\1mxQ\\1DRPIP",[global])),
+    <<"bRtbPoOkgRgQnokJdP">> = iolist_to_binary(re:replace("ab","(a+|b){0,}","\\1RtbPoOkgRgQnokJdP",[])),
+    <<"bRtbPoOkgRgQnokJdPRtbPoOkgRgQnokJdP">> = iolist_to_binary(re:replace("ab","(a+|b){0,}","\\1RtbPoOkgRgQnokJdP",[global])),
+    <<"abbgBhabIabKabeSvbnYhNTc">> = iolist_to_binary(re:replace("ab","(a+|b)+","&\\1gBh&I&K&eSv\\1nYhNTc",[])),
+    <<"abbgBhabIabKabeSvbnYhNTc">> = iolist_to_binary(re:replace("ab","(a+|b)+","&\\1gBh&I&K&eSv\\1nYhNTc",[global])),
+    <<"bO">> = iolist_to_binary(re:replace("ab","(a+|b){1,}","\\1O",[])),
+    <<"bO">> = iolist_to_binary(re:replace("ab","(a+|b){1,}","\\1O",[global])),
+    <<"aaab">> = iolist_to_binary(re:replace("ab","(a+|b)?","\\1&&",[])),
+    <<"aaabbb">> = iolist_to_binary(re:replace("ab","(a+|b)?","\\1&&",[global])),
+    <<"gbGDhaaaPlvFnqb">> = iolist_to_binary(re:replace("ab","(a+|b){0,1}","gbGDh\\1\\1\\1PlvFnq",[])),
+    <<"gbGDhaaaPlvFnqgbGDhbbbPlvFnqgbGDhPlvFnq">> = iolist_to_binary(re:replace("ab","(a+|b){0,1}","gbGDh\\1\\1\\1PlvFnq",[global])),
+    <<"onIbiYVycde">> = iolist_to_binary(re:replace("cde","[^ab]*","o\\1\\1\\1nIbiYVy&",[])),
+    <<"onIbiYVycdeonIbiYVy">> = iolist_to_binary(re:replace("cde","[^ab]*","o\\1\\1\\1nIbiYVy&",[global])),
+    <<"b">> = iolist_to_binary(re:replace("b","abc","K\\1IGHABBJDNX",[])),
+    <<"b">> = iolist_to_binary(re:replace("b","abc","K\\1IGHABBJDNX",[global])),
+    <<"wvNlo">> = iolist_to_binary(re:replace("","a*","\\1&\\1wvNlo",[])),
+    <<"wvNlo">> = iolist_to_binary(re:replace("","a*","\\1&\\1wvNlo",[global])),
+    <<"MMsqXpcLc">> = iolist_to_binary(re:replace("abbbcd","([abc])*d","MMsqXp\\1L\\1",[])),
+    <<"MMsqXpcLc">> = iolist_to_binary(re:replace("abbbcd","([abc])*d","MMsqXp\\1L\\1",[global])),
+    <<"abcdaacblGbrYaasIosd">> = iolist_to_binary(re:replace("abcd","([abc])*bcd","&\\1\\1cblGbrY\\1\\1sIosd",[])),
+    <<"abcdaacblGbrYaasIosd">> = iolist_to_binary(re:replace("abcd","([abc])*bcd","&\\1\\1cblGbrY\\1\\1sIosd",[global])),
     ok.
 run18() ->
-    <<"xWyIfdabAyabbbz">> = iolist_to_binary(re:replace("xabyabbbz","ab*","WyI\\1\\1fd&A\\1",[])),
-    <<"xWyIfdabAyWyIfdabbbAz">> = iolist_to_binary(re:replace("xabyabbbz","ab*","WyI\\1\\1fd&A\\1",[global])),
-    <<"xhJaKOGfPanTbAyabbbz">> = iolist_to_binary(re:replace("xayabbbz","ab*","hJ&KOGfP&nTbA",[])),
-    <<"xhJaKOGfPanTbAyhJabbbKOGfPabbbnTbAz">> = iolist_to_binary(re:replace("xayabbbz","ab*","hJ&KOGfP&nTbA",[global])),
-    <<"abcdkBcdeaJcdpLD">> = iolist_to_binary(re:replace("abcde","(ab|cd)e","\\1kB&aJ\\1pLD",[])),
-    <<"abcdkBcdeaJcdpLD">> = iolist_to_binary(re:replace("abcde","(ab|cd)e","\\1kB&aJ\\1pLD",[global])),
-    <<"aadYLlnNBfn">> = iolist_to_binary(re:replace("hij","[abhgefdc]ij","a\\1adYLlnNBfn",[])),
-    <<"aadYLlnNBfn">> = iolist_to_binary(re:replace("hij","[abhgefdc]ij","a\\1adYLlnNBfn",[global])),
-    <<"abcdhefMn">> = iolist_to_binary(re:replace("abcdef","(abc|)ef","h&Mn",[])),
-    <<"abcdhefMn">> = iolist_to_binary(re:replace("abcdef","(abc|)ef","h&Mn",[global])),
-    <<"aFbcdbbcd">> = iolist_to_binary(re:replace("abcd","(a|b)c*d","F&\\1&",[])),
-    <<"aFbcdbbcd">> = iolist_to_binary(re:replace("abcd","(a|b)c*d","F&\\1&",[global])),
-    <<"igabcahVNoqXYakTDTBaqO">> = iolist_to_binary(re:replace("abc","(ab|ab*)bc","ig&\\1hVNoqXY\\1kTDTB\\1qO",[])),
-    <<"igabcahVNoqXYakTDTBaqO">> = iolist_to_binary(re:replace("abc","(ab|ab*)bc","ig&\\1hVNoqXY\\1kTDTB\\1qO",[global])),
-    <<"jRabcmEbcTlkygabcdSabc">> = iolist_to_binary(re:replace("abc","a([bc]*)c*","jR&mE\\1Tlkyg&dS&",[])),
-    <<"jRabcmEbcTlkygabcdSabc">> = iolist_to_binary(re:replace("abc","a([bc]*)c*","jR&mE\\1Tlkyg&dS&",[global])),
-    <<"TecabcdgBdhbcx">> = iolist_to_binary(re:replace("abcd","a([bc]*)(c*d)","Tec&gBdh\\1x",[])),
-    <<"TecabcdgBdhbcx">> = iolist_to_binary(re:replace("abcd","a([bc]*)(c*d)","Tec&gBdh\\1x",[global])),
-    <<"MMXYabcdyRoehQihVabcdbbctxa">> = iolist_to_binary(re:replace("abcd","a([bc]+)(c*d)","MMXY&yRoehQihV&b\\1txa",[])),
-    <<"MMXYabcdyRoehQihVabcdbbctxa">> = iolist_to_binary(re:replace("abcd","a([bc]+)(c*d)","MMXY&yRoehQihV&b\\1txa",[global])),
-    <<"abcd">> = iolist_to_binary(re:replace("abcd","a([bc]*)(c+d)","&",[])),
-    <<"abcd">> = iolist_to_binary(re:replace("abcd","a([bc]*)(c+d)","&",[global])),
-    <<"SnhXnadcdcdekmBaVtSJUu">> = iolist_to_binary(re:replace("adcdcde","a[bcd]*dcdcde","SnhXn&km\\1BaVtSJUu",[])),
-    <<"SnhXnadcdcdekmBaVtSJUu">> = iolist_to_binary(re:replace("adcdcde","a[bcd]*dcdcde","SnhXn&km\\1BaVtSJUu",[global])),
-    <<"abcde">> = iolist_to_binary(re:replace("abcde","a[bcd]+dcdcde","FToR",[])),
-    <<"abcde">> = iolist_to_binary(re:replace("abcde","a[bcd]+dcdcde","FToR",[global])),
-    <<"adcdcde">> = iolist_to_binary(re:replace("adcdcde","a[bcd]+dcdcde","\\1",[])),
-    <<"adcdcde">> = iolist_to_binary(re:replace("adcdcde","a[bcd]+dcdcde","\\1",[global])),
-    <<"abcJababJvjL">> = iolist_to_binary(re:replace("abc","(ab|a)b*c","&J\\1\\1JvjL",[])),
-    <<"abcJababJvjL">> = iolist_to_binary(re:replace("abc","(ab|a)b*c","&J\\1\\1JvjL",[global])),
-    <<"tsy">> = iolist_to_binary(re:replace("abcd","((a)(b)c)(d)","tsy",[])),
-    <<"tsy">> = iolist_to_binary(re:replace("abcd","((a)(b)c)(d)","tsy",[global])),
-    <<"r">> = iolist_to_binary(re:replace("alpha","[a-zA-Z_][a-zA-Z0-9_]*","r",[])),
-    <<"r">> = iolist_to_binary(re:replace("alpha","[a-zA-Z_][a-zA-Z0-9_]*","r",[global])),
-    <<"abhCvWJbhhPkp">> = iolist_to_binary(re:replace("abh","^a(bc+|b[eh])g|.h$","&CvW\\1J&hP\\1kp",[])),
-    <<"abhCvWJbhhPkp">> = iolist_to_binary(re:replace("abh","^a(bc+|b[eh])g|.h$","&CvW\\1J&hP\\1kp",[global])),
-    <<"xONy">> = iolist_to_binary(re:replace("effgz","(bc+d$|ef*g.|h?i(j|k))","xONy",[])),
-    <<"xONy">> = iolist_to_binary(re:replace("effgz","(bc+d$|ef*g.|h?i(j|k))","xONy",[global])),
-    <<"OijRYgOFWijijb">> = iolist_to_binary(re:replace("ij","(bc+d$|ef*g.|h?i(j|k))","O&RYgOFW&\\1b",[])),
-    <<"OijRYgOFWijijb">> = iolist_to_binary(re:replace("ij","(bc+d$|ef*g.|h?i(j|k))","O&RYgOFW&\\1b",[global])),
-    <<"reffgzwEEGjeffgzPueffgzE">> = iolist_to_binary(re:replace("reffgz","(bc+d$|ef*g.|h?i(j|k))","\\1wEEGj\\1Pu\\1E",[])),
-    <<"reffgzwEEGjeffgzPueffgzE">> = iolist_to_binary(re:replace("reffgz","(bc+d$|ef*g.|h?i(j|k))","\\1wEEGj\\1Pu\\1E",[global])),
-    <<"effg">> = iolist_to_binary(re:replace("effg","(bc+d$|ef*g.|h?i(j|k))","Hn&&rHTQ",[])),
-    <<"effg">> = iolist_to_binary(re:replace("effg","(bc+d$|ef*g.|h?i(j|k))","Hn&&rHTQ",[global])),
-    <<"bcdd">> = iolist_to_binary(re:replace("bcdd","(bc+d$|ef*g.|h?i(j|k))","xTpXk&",[])),
-    <<"bcdd">> = iolist_to_binary(re:replace("bcdd","(bc+d$|ef*g.|h?i(j|k))","xTpXk&",[global])),
-    <<"xLoahcakaehh">> = iolist_to_binary(re:replace("a","((((((((((a))))))))))","xLo&hc&k\\1ehh",[])),
-    <<"xLoahcakaehh">> = iolist_to_binary(re:replace("a","((((((((((a))))))))))","xLo&hc&k\\1ehh",[global])),
-    <<"Tkaj">> = iolist_to_binary(re:replace("aa","((((((((((a))))))))))\\10","Tkaj",[])),
-    <<"Tkaj">> = iolist_to_binary(re:replace("aa","((((((((((a))))))))))\\10","Tkaj",[global])),
+    <<"WyIfdeA">> = iolist_to_binary(re:replace("e","a|b|c|d|e","WyI\\1\\1fd&A\\1",[])),
+    <<"WyIfdeA">> = iolist_to_binary(re:replace("e","a|b|c|d|e","WyI\\1\\1fd&A\\1",[global])),
+    <<"hJefKOGfPefnTbA">> = iolist_to_binary(re:replace("ef","(a|b|c|d|e)f","hJ&KOGfP&nTbA",[])),
+    <<"hJefKOGfPefnTbA">> = iolist_to_binary(re:replace("ef","(a|b|c|d|e)f","hJ&KOGfP&nTbA",[global])),
+    <<"kBabcdefgaJpLD">> = iolist_to_binary(re:replace("abcdefg","abcd*efg","\\1kB&aJ\\1pLD",[])),
+    <<"kBabcdefgaJpLD">> = iolist_to_binary(re:replace("abcdefg","abcd*efg","\\1kB&aJ\\1pLD",[global])),
+    <<"xaadYLlnNBfnyabbbz">> = iolist_to_binary(re:replace("xabyabbbz","ab*","a\\1adYLlnNBfn",[])),
+    <<"xaadYLlnNBfnyaadYLlnNBfnz">> = iolist_to_binary(re:replace("xabyabbbz","ab*","a\\1adYLlnNBfn",[global])),
+    <<"xhaMnyabbbz">> = iolist_to_binary(re:replace("xayabbbz","ab*","h&Mn",[])),
+    <<"xhaMnyhabbbMnz">> = iolist_to_binary(re:replace("xayabbbz","ab*","h&Mn",[global])),
+    <<"abFcdecdcde">> = iolist_to_binary(re:replace("abcde","(ab|cd)e","F&\\1&",[])),
+    <<"abFcdecdcde">> = iolist_to_binary(re:replace("abcde","(ab|cd)e","F&\\1&",[global])),
+    <<"ighijhVNoqXYkTDTBqO">> = iolist_to_binary(re:replace("hij","[abhgefdc]ij","ig&\\1hVNoqXY\\1kTDTB\\1qO",[])),
+    <<"ighijhVNoqXYkTDTBqO">> = iolist_to_binary(re:replace("hij","[abhgefdc]ij","ig&\\1hVNoqXY\\1kTDTB\\1qO",[global])),
+    <<"abcdjRefmETlkygefdSef">> = iolist_to_binary(re:replace("abcdef","(abc|)ef","jR&mE\\1Tlkyg&dS&",[])),
+    <<"abcdjRefmETlkygefdSef">> = iolist_to_binary(re:replace("abcdef","(abc|)ef","jR&mE\\1Tlkyg&dS&",[global])),
+    <<"aTecbcdgBdhbx">> = iolist_to_binary(re:replace("abcd","(a|b)c*d","Tec&gBdh\\1x",[])),
+    <<"aTecbcdgBdhbx">> = iolist_to_binary(re:replace("abcd","(a|b)c*d","Tec&gBdh\\1x",[global])),
+    <<"MMXYabcyRoehQihVabcbatxa">> = iolist_to_binary(re:replace("abc","(ab|ab*)bc","MMXY&yRoehQihV&b\\1txa",[])),
+    <<"MMXYabcyRoehQihVabcbatxa">> = iolist_to_binary(re:replace("abc","(ab|ab*)bc","MMXY&yRoehQihV&b\\1txa",[global])),
+    <<"abc">> = iolist_to_binary(re:replace("abc","a([bc]*)c*","&",[])),
+    <<"abc">> = iolist_to_binary(re:replace("abc","a([bc]*)c*","&",[global])),
+    <<"SnhXnabcdkmbcBaVtSJUu">> = iolist_to_binary(re:replace("abcd","a([bc]*)(c*d)","SnhXn&km\\1BaVtSJUu",[])),
+    <<"SnhXnabcdkmbcBaVtSJUu">> = iolist_to_binary(re:replace("abcd","a([bc]*)(c*d)","SnhXn&km\\1BaVtSJUu",[global])),
+    <<"FToR">> = iolist_to_binary(re:replace("abcd","a([bc]+)(c*d)","FToR",[])),
+    <<"FToR">> = iolist_to_binary(re:replace("abcd","a([bc]+)(c*d)","FToR",[global])),
+    <<"b">> = iolist_to_binary(re:replace("abcd","a([bc]*)(c+d)","\\1",[])),
+    <<"b">> = iolist_to_binary(re:replace("abcd","a([bc]*)(c+d)","\\1",[global])),
+    <<"adcdcdeJJvjL">> = iolist_to_binary(re:replace("adcdcde","a[bcd]*dcdcde","&J\\1\\1JvjL",[])),
+    <<"adcdcdeJJvjL">> = iolist_to_binary(re:replace("adcdcde","a[bcd]*dcdcde","&J\\1\\1JvjL",[global])),
+    <<"abcde">> = iolist_to_binary(re:replace("abcde","a[bcd]+dcdcde","tsy",[])),
+    <<"abcde">> = iolist_to_binary(re:replace("abcde","a[bcd]+dcdcde","tsy",[global])),
+    <<"adcdcde">> = iolist_to_binary(re:replace("adcdcde","a[bcd]+dcdcde","r",[])),
+    <<"adcdcde">> = iolist_to_binary(re:replace("adcdcde","a[bcd]+dcdcde","r",[global])),
+    <<"abcCvWabJabchPabkp">> = iolist_to_binary(re:replace("abc","(ab|a)b*c","&CvW\\1J&hP\\1kp",[])),
+    <<"abcCvWabJabchPabkp">> = iolist_to_binary(re:replace("abc","(ab|a)b*c","&CvW\\1J&hP\\1kp",[global])),
+    <<"xONy">> = iolist_to_binary(re:replace("abcd","((a)(b)c)(d)","xONy",[])),
+    <<"xONy">> = iolist_to_binary(re:replace("abcd","((a)(b)c)(d)","xONy",[global])),
+    <<"OalphaRYgOFWalphab">> = iolist_to_binary(re:replace("alpha","[a-zA-Z_][a-zA-Z0-9_]*","O&RYgOFW&\\1b",[])),
+    <<"OalphaRYgOFWalphab">> = iolist_to_binary(re:replace("alpha","[a-zA-Z_][a-zA-Z0-9_]*","O&RYgOFW&\\1b",[global])),
+    <<"awEEGjPuE">> = iolist_to_binary(re:replace("abh","^a(bc+|b[eh])g|.h$","\\1wEEGj\\1Pu\\1E",[])),
+    <<"awEEGjPuE">> = iolist_to_binary(re:replace("abh","^a(bc+|b[eh])g|.h$","\\1wEEGj\\1Pu\\1E",[global])),
     ok.
 run19() ->
-    <<"aKJCYEg">> = iolist_to_binary(re:replace("a","(((((((((a)))))))))","\\1KJCYEg",[])),
-    <<"aKJCYEg">> = iolist_to_binary(re:replace("a","(((((((((a)))))))))","\\1KJCYEg",[global])),
-    <<"aa">> = iolist_to_binary(re:replace("aa","multiple words of text","X&O\\1SpFbFf&",[])),
-    <<"aa">> = iolist_to_binary(re:replace("aa","multiple words of text","X&O\\1SpFbFf&",[global])),
-    <<"uh-uh">> = iolist_to_binary(re:replace("uh-uh","multiple words of text","FM&ELDoDirqkHb",[])),
-    <<"uh-uh">> = iolist_to_binary(re:replace("uh-uh","multiple words of text","FM&ELDoDirqkHb",[global])),
-    <<"nVWfSGeKlL, yeah">> = iolist_to_binary(re:replace("multiple words, yeah","multiple words","n\\1VWfSGe\\1KlL",[])),
-    <<"nVWfSGeKlL, yeah">> = iolist_to_binary(re:replace("multiple words, yeah","multiple words","n\\1VWfSGe\\1KlL",[global])),
-    <<"abjmWDabcdenababmXabcdemJMlabX">> = iolist_to_binary(re:replace("abcde","(.*)c(.*)","\\1jmWD&n\\1\\1mX&mJMl\\1X",[])),
-    <<"abjmWDabcdenababmXabcdemJMlabX">> = iolist_to_binary(re:replace("abcde","(.*)c(.*)","\\1jmWD&n\\1\\1mX&mJMl\\1X",[global])),
-    <<"a(a, b)W(a, b)Kf(a, b)adU(a, b)T">> = iolist_to_binary(re:replace("(a, b)","\\((.*), (.*)\\)","\\1&W&Kf&\\1dU&T",[])),
-    <<"a(a, b)W(a, b)Kf(a, b)adU(a, b)T">> = iolist_to_binary(re:replace("(a, b)","\\((.*), (.*)\\)","\\1&W&Kf&\\1dU&T",[global])),
-    <<"lynEabcdPJeWGV">> = iolist_to_binary(re:replace("abcd","abcd","l\\1yn\\1E&P\\1JeWGV",[])),
-    <<"lynEabcdPJeWGV">> = iolist_to_binary(re:replace("abcd","abcd","l\\1yn\\1E&P\\1JeWGV",[global])),
-    <<"oOAIabcdabcdabcdio">> = iolist_to_binary(re:replace("abcd","a(bc)d","oOAI&&&io",[])),
-    <<"oOAIabcdabcdabcdio">> = iolist_to_binary(re:replace("abcd","a(bc)d","oOAI&&&io",[global])),
-    <<"eKDbRMig">> = iolist_to_binary(re:replace("ac","a[-]?c","\\1eKDb\\1R\\1Mig",[])),
-    <<"eKDbRMig">> = iolist_to_binary(re:replace("ac","a[-]?c","\\1eKDb\\1R\\1Mig",[global])),
-    <<"abcabcabc">> = iolist_to_binary(re:replace("abcabc","(abc)\\1","&\\1",[])),
-    <<"abcabcabc">> = iolist_to_binary(re:replace("abcabc","(abc)\\1","&\\1",[global])),
-    <<"lLsEYiU">> = iolist_to_binary(re:replace("abcabc","([a-c]*)\\1","lLsEYiU",[])),
-    <<"lLsEYiUlLsEYiU">> = iolist_to_binary(re:replace("abcabc","([a-c]*)\\1","lLsEYiU",[global])),
-    <<"KaQaSjraaaeaVaTQy">> = iolist_to_binary(re:replace("a","(a)|\\1","K\\1Q\\1Sjr&\\1&e&V\\1TQy",[])),
-    <<"KaQaSjraaaeaVaTQy">> = iolist_to_binary(re:replace("a","(a)|\\1","K\\1Q\\1Sjr&\\1&e&V\\1TQy",[global])),
-    <<"OaCb">> = iolist_to_binary(re:replace("ab","(a)|\\1","O&C",[])),
-    <<"OaCb">> = iolist_to_binary(re:replace("ab","(a)|\\1","O&C",[global])),
-    <<"x">> = iolist_to_binary(re:replace("x","(a)|\\1","iqc",[])),
-    <<"x">> = iolist_to_binary(re:replace("x","(a)|\\1","iqc",[global])),
-    <<"epUFDnxBdDXmIWbbFbbbcbc">> = iolist_to_binary(re:replace("ababbbcbc","(([a-c])b*?\\2)*","epUFDnxBdDXmIW\\1F\\1",[])),
-    <<"epUFDnxBdDXmIWbbFbbepUFDnxBdDXmIWFbepUFDnxBdDXmIWcbcFcbcepUFDnxBdDXmIWF">> = iolist_to_binary(re:replace("ababbbcbc","(([a-c])b*?\\2)*","epUFDnxBdDXmIW\\1F\\1",[global])),
-    <<"WhqcbcERQJGEPXkYababbbcbcqW">> = iolist_to_binary(re:replace("ababbbcbc","(([a-c])b*?\\2){3}","Whq\\1ERQJGEPXkY&qW",[])),
-    <<"WhqcbcERQJGEPXkYababbbcbcqW">> = iolist_to_binary(re:replace("ababbbcbc","(([a-c])b*?\\2){3}","Whq\\1ERQJGEPXkY&qW",[global])),
-    <<"aaaxabaxbaaxbbaxabbaxbbaxLmSkjuaNwdbbaxKcbbax">> = iolist_to_binary(re:replace("aaaxabaxbaaxbbax","((\\3|b)\\2(a)x)+","\\1a&\\1LmSkjuaNwd\\1Kc\\1",[])),
-    <<"aaaxabaxbaaxbbaxabbaxbbaxLmSkjuaNwdbbaxKcbbax">> = iolist_to_binary(re:replace("aaaxabaxbaaxbbax","((\\3|b)\\2(a)x)+","\\1a&\\1LmSkjuaNwd\\1Kc\\1",[global])),
-    <<"bbaababbabaaaaabpbbaSbbaaaabbaEqqmibba">> = iolist_to_binary(re:replace("bbaababbabaaaaabbaaaabba","((\\3|b)\\2(a)){2,}","bp\\1S&Eqqmi\\1",[])),
-    <<"bbaababbabaaaaabpbbaSbbaaaabbaEqqmibba">> = iolist_to_binary(re:replace("bbaababbabaaaaabbaaaabba","((\\3|b)\\2(a)){2,}","bp\\1S&Eqqmi\\1",[global])),
-    <<"ClxABC">> = iolist_to_binary(re:replace("ABC","abc","Clx&",[caseless])),
-    <<"ClxABC">> = iolist_to_binary(re:replace("ABC","abc","Clx&",[caseless,global])),
-    <<"XSlhQaJwtnpwY">> = iolist_to_binary(re:replace("XABCY","abc","Sl\\1h\\1Q\\1aJwtnpw",[caseless])),
-    <<"XSlhQaJwtnpwY">> = iolist_to_binary(re:replace("XABCY","abc","Sl\\1h\\1Q\\1aJwtnpw",[caseless,global])),
-    <<"ABeiP">> = iolist_to_binary(re:replace("ABABC","abc","eiP",[caseless])),
-    <<"ABeiP">> = iolist_to_binary(re:replace("ABABC","abc","eiP",[caseless,global])),
-    <<"aaxabxbaxbbx">> = iolist_to_binary(re:replace("aaxabxbaxbbx","abc","g\\1Qnq\\1jC&jh\\1wFsOwY\\1",[caseless])),
-    <<"aaxabxbaxbbx">> = iolist_to_binary(re:replace("aaxabxbaxbbx","abc","g\\1Qnq\\1jC&jh\\1wFsOwY\\1",[caseless,global])),
-    <<"XBC">> = iolist_to_binary(re:replace("XBC","abc","CjHXsgNepVYlWp",[caseless])),
-    <<"XBC">> = iolist_to_binary(re:replace("XBC","abc","CjHXsgNepVYlWp",[caseless,global])),
-    <<"AXC">> = iolist_to_binary(re:replace("AXC","abc","HE\\1T&",[caseless])),
-    <<"AXC">> = iolist_to_binary(re:replace("AXC","abc","HE\\1T&",[caseless,global])),
-    <<"ABX">> = iolist_to_binary(re:replace("ABX","abc","od&ujLupqR",[caseless])),
-    <<"ABX">> = iolist_to_binary(re:replace("ABX","abc","od&ujLupqR",[caseless,global])),
-    <<"R">> = iolist_to_binary(re:replace("ABC","ab*c","R",[caseless])),
-    <<"R">> = iolist_to_binary(re:replace("ABC","ab*c","R",[caseless,global])),
-    <<"FvyvrxXtABCs">> = iolist_to_binary(re:replace("ABC","ab*bc","Fvyvrx\\1Xt&s",[caseless])),
-    <<"FvyvrxXtABCs">> = iolist_to_binary(re:replace("ABC","ab*bc","Fvyvrx\\1Xt&s",[caseless,global])),
-    <<"PjwNaABBCXbegIABBCF">> = iolist_to_binary(re:replace("ABBC","ab*bc","Pj\\1wNa&XbegI&F",[caseless])),
-    <<"PjwNaABBCXbegIABBCF">> = iolist_to_binary(re:replace("ABBC","ab*bc","Pj\\1wNa&XbegI&F",[caseless,global])),
-    <<"ABvCABBBBCABBBBCLJOpNeVHh">> = iolist_to_binary(re:replace("ABBBBC","ab*?bc","ABvC&&LJOpNeVH\\1h",[caseless])),
-    <<"ABvCABBBBCABBBBCLJOpNeVHh">> = iolist_to_binary(re:replace("ABBBBC","ab*?bc","ABvC&&LJOpNeVH\\1h",[caseless,global])),
+    <<"HneffgzeffgzrHTQ">> = iolist_to_binary(re:replace("effgz","(bc+d$|ef*g.|h?i(j|k))","Hn&&rHTQ",[])),
+    <<"HneffgzeffgzrHTQ">> = iolist_to_binary(re:replace("effgz","(bc+d$|ef*g.|h?i(j|k))","Hn&&rHTQ",[global])),
+    <<"xTpXkij">> = iolist_to_binary(re:replace("ij","(bc+d$|ef*g.|h?i(j|k))","xTpXk&",[])),
+    <<"xTpXkij">> = iolist_to_binary(re:replace("ij","(bc+d$|ef*g.|h?i(j|k))","xTpXk&",[global])),
+    <<"rxLoeffgzhceffgzkeffgzehh">> = iolist_to_binary(re:replace("reffgz","(bc+d$|ef*g.|h?i(j|k))","xLo&hc&k\\1ehh",[])),
+    <<"rxLoeffgzhceffgzkeffgzehh">> = iolist_to_binary(re:replace("reffgz","(bc+d$|ef*g.|h?i(j|k))","xLo&hc&k\\1ehh",[global])),
+    <<"effg">> = iolist_to_binary(re:replace("effg","(bc+d$|ef*g.|h?i(j|k))","Tkaj",[])),
+    <<"effg">> = iolist_to_binary(re:replace("effg","(bc+d$|ef*g.|h?i(j|k))","Tkaj",[global])),
+    <<"bcdd">> = iolist_to_binary(re:replace("bcdd","(bc+d$|ef*g.|h?i(j|k))","\\1KJCYEg",[])),
+    <<"bcdd">> = iolist_to_binary(re:replace("bcdd","(bc+d$|ef*g.|h?i(j|k))","\\1KJCYEg",[global])),
+    <<"XaOaSpFbFfa">> = iolist_to_binary(re:replace("a","((((((((((a))))))))))","X&O\\1SpFbFf&",[])),
+    <<"XaOaSpFbFfa">> = iolist_to_binary(re:replace("a","((((((((((a))))))))))","X&O\\1SpFbFf&",[global])),
+    <<"FMaaELDoDirqkHb">> = iolist_to_binary(re:replace("aa","((((((((((a))))))))))\\10","FM&ELDoDirqkHb",[])),
+    <<"FMaaELDoDirqkHb">> = iolist_to_binary(re:replace("aa","((((((((((a))))))))))\\10","FM&ELDoDirqkHb",[global])),
+    <<"naVWfSGeaKlL">> = iolist_to_binary(re:replace("a","(((((((((a)))))))))","n\\1VWfSGe\\1KlL",[])),
+    <<"naVWfSGeaKlL">> = iolist_to_binary(re:replace("a","(((((((((a)))))))))","n\\1VWfSGe\\1KlL",[global])),
+    <<"aa">> = iolist_to_binary(re:replace("aa","multiple words of text","\\1jmWD&n\\1\\1mX&mJMl\\1X",[])),
+    <<"aa">> = iolist_to_binary(re:replace("aa","multiple words of text","\\1jmWD&n\\1\\1mX&mJMl\\1X",[global])),
+    <<"uh-uh">> = iolist_to_binary(re:replace("uh-uh","multiple words of text","\\1&W&Kf&\\1dU&T",[])),
+    <<"uh-uh">> = iolist_to_binary(re:replace("uh-uh","multiple words of text","\\1&W&Kf&\\1dU&T",[global])),
+    <<"lynEmultiple wordsPJeWGV, yeah">> = iolist_to_binary(re:replace("multiple words, yeah","multiple words","l\\1yn\\1E&P\\1JeWGV",[])),
+    <<"lynEmultiple wordsPJeWGV, yeah">> = iolist_to_binary(re:replace("multiple words, yeah","multiple words","l\\1yn\\1E&P\\1JeWGV",[global])),
+    <<"oOAIabcdeabcdeabcdeio">> = iolist_to_binary(re:replace("abcde","(.*)c(.*)","oOAI&&&io",[])),
+    <<"oOAIabcdeabcdeabcdeio">> = iolist_to_binary(re:replace("abcde","(.*)c(.*)","oOAI&&&io",[global])),
+    <<"aeKDbaRaMig">> = iolist_to_binary(re:replace("(a, b)","\\((.*), (.*)\\)","\\1eKDb\\1R\\1Mig",[])),
+    <<"aeKDbaRaMig">> = iolist_to_binary(re:replace("(a, b)","\\((.*), (.*)\\)","\\1eKDb\\1R\\1Mig",[global])),
+    <<"abcd">> = iolist_to_binary(re:replace("abcd","abcd","&\\1",[])),
+    <<"abcd">> = iolist_to_binary(re:replace("abcd","abcd","&\\1",[global])),
+    <<"lLsEYiU">> = iolist_to_binary(re:replace("abcd","a(bc)d","lLsEYiU",[])),
+    <<"lLsEYiU">> = iolist_to_binary(re:replace("abcd","a(bc)d","lLsEYiU",[global])),
+    <<"KQSjracaceacVTQy">> = iolist_to_binary(re:replace("ac","a[-]?c","K\\1Q\\1Sjr&\\1&e&V\\1TQy",[])),
+    <<"KQSjracaceacVTQy">> = iolist_to_binary(re:replace("ac","a[-]?c","K\\1Q\\1Sjr&\\1&e&V\\1TQy",[global])),
+    <<"OabcabcC">> = iolist_to_binary(re:replace("abcabc","(abc)\\1","O&C",[])),
+    <<"OabcabcC">> = iolist_to_binary(re:replace("abcabc","(abc)\\1","O&C",[global])),
+    <<"iqc">> = iolist_to_binary(re:replace("abcabc","([a-c]*)\\1","iqc",[])),
+    <<"iqciqc">> = iolist_to_binary(re:replace("abcabc","([a-c]*)\\1","iqc",[global])),
+    <<"epUFDnxBdDXmIWaFa">> = iolist_to_binary(re:replace("a","(a)|\\1","epUFDnxBdDXmIW\\1F\\1",[])),
+    <<"epUFDnxBdDXmIWaFa">> = iolist_to_binary(re:replace("a","(a)|\\1","epUFDnxBdDXmIW\\1F\\1",[global])),
+    <<"WhqaERQJGEPXkYaqWb">> = iolist_to_binary(re:replace("ab","(a)|\\1","Whq\\1ERQJGEPXkY&qW",[])),
+    <<"WhqaERQJGEPXkYaqWb">> = iolist_to_binary(re:replace("ab","(a)|\\1","Whq\\1ERQJGEPXkY&qW",[global])),
+    <<"x">> = iolist_to_binary(re:replace("x","(a)|\\1","\\1a&\\1LmSkjuaNwd\\1Kc\\1",[])),
+    <<"x">> = iolist_to_binary(re:replace("x","(a)|\\1","\\1a&\\1LmSkjuaNwd\\1Kc\\1",[global])),
+    <<"bpbbSababbEqqmibbbcbc">> = iolist_to_binary(re:replace("ababbbcbc","(([a-c])b*?\\2)*","bp\\1S&Eqqmi\\1",[])),
+    <<"bpbbSababbEqqmibbbpSEqqmibbpcbcScbcEqqmicbcbpSEqqmi">> = iolist_to_binary(re:replace("ababbbcbc","(([a-c])b*?\\2)*","bp\\1S&Eqqmi\\1",[global])),
+    <<"Clxababbbcbc">> = iolist_to_binary(re:replace("ababbbcbc","(([a-c])b*?\\2){3}","Clx&",[])),
+    <<"Clxababbbcbc">> = iolist_to_binary(re:replace("ababbbcbc","(([a-c])b*?\\2){3}","Clx&",[global])),
+    <<"aaaxabaxbaaxSlbbaxhbbaxQbbaxaJwtnpw">> = iolist_to_binary(re:replace("aaaxabaxbaaxbbax","((\\3|b)\\2(a)x)+","Sl\\1h\\1Q\\1aJwtnpw",[])),
+    <<"aaaxabaxbaaxSlbbaxhbbaxQbbaxaJwtnpw">> = iolist_to_binary(re:replace("aaaxabaxbaaxbbax","((\\3|b)\\2(a)x)+","Sl\\1h\\1Q\\1aJwtnpw",[global])),
+    <<"bbaababbabaaaaaeiP">> = iolist_to_binary(re:replace("bbaababbabaaaaabbaaaabba","((\\3|b)\\2(a)){2,}","eiP",[])),
+    <<"bbaababbabaaaaaeiP">> = iolist_to_binary(re:replace("bbaababbabaaaaabbaaaabba","((\\3|b)\\2(a)){2,}","eiP",[global])),
+    <<"gQnqjCABCjhwFsOwY">> = iolist_to_binary(re:replace("ABC","abc","g\\1Qnq\\1jC&jh\\1wFsOwY\\1",[caseless])),
+    <<"gQnqjCABCjhwFsOwY">> = iolist_to_binary(re:replace("ABC","abc","g\\1Qnq\\1jC&jh\\1wFsOwY\\1",[caseless,global])),
+    <<"XCjHXsgNepVYlWpY">> = iolist_to_binary(re:replace("XABCY","abc","CjHXsgNepVYlWp",[caseless])),
+    <<"XCjHXsgNepVYlWpY">> = iolist_to_binary(re:replace("XABCY","abc","CjHXsgNepVYlWp",[caseless,global])),
+    <<"ABHETABC">> = iolist_to_binary(re:replace("ABABC","abc","HE\\1T&",[caseless])),
+    <<"ABHETABC">> = iolist_to_binary(re:replace("ABABC","abc","HE\\1T&",[caseless,global])),
+    <<"aaxabxbaxbbx">> = iolist_to_binary(re:replace("aaxabxbaxbbx","abc","od&ujLupqR",[caseless])),
+    <<"aaxabxbaxbbx">> = iolist_to_binary(re:replace("aaxabxbaxbbx","abc","od&ujLupqR",[caseless,global])),
+    <<"XBC">> = iolist_to_binary(re:replace("XBC","abc","R",[caseless])),
+    <<"XBC">> = iolist_to_binary(re:replace("XBC","abc","R",[caseless,global])),
+    <<"AXC">> = iolist_to_binary(re:replace("AXC","abc","Fvyvrx\\1Xt&s",[caseless])),
+    <<"AXC">> = iolist_to_binary(re:replace("AXC","abc","Fvyvrx\\1Xt&s",[caseless,global])),
+    <<"ABX">> = iolist_to_binary(re:replace("ABX","abc","Pj\\1wNa&XbegI&F",[caseless])),
+    <<"ABX">> = iolist_to_binary(re:replace("ABX","abc","Pj\\1wNa&XbegI&F",[caseless,global])),
     ok.
 run20() ->
-    <<"JEFEIGABBBBCABBBBCABBBBCYBydFwJM">> = iolist_to_binary(re:replace("ABBBBC","ab{0,}?bc","JEFEIG&&&Y\\1BydFwJM",[caseless])),
-    <<"JEFEIGABBBBCABBBBCABBBBCYBydFwJM">> = iolist_to_binary(re:replace("ABBBBC","ab{0,}?bc","JEFEIG&&&Y\\1BydFwJM",[caseless,global])),
-    <<"UEUMgABBCABBClGDFuMsIl">> = iolist_to_binary(re:replace("ABBC","ab+?bc","UEUMg&&lGDFu\\1MsIl",[caseless])),
-    <<"UEUMgABBCABBClGDFuMsIl">> = iolist_to_binary(re:replace("ABBC","ab+?bc","UEUMg&&lGDFu\\1MsIl",[caseless,global])),
-    <<"ABC">> = iolist_to_binary(re:replace("ABC","ab+bc","LAYr",[caseless])),
-    <<"ABC">> = iolist_to_binary(re:replace("ABC","ab+bc","LAYr",[caseless,global])),
-    <<"ABQ">> = iolist_to_binary(re:replace("ABQ","ab+bc","EoY\\1P",[caseless])),
-    <<"ABQ">> = iolist_to_binary(re:replace("ABQ","ab+bc","EoY\\1P",[caseless,global])),
-    <<"qYbmPPABBBBC">> = iolist_to_binary(re:replace("ABBBBC","ab+bc","qYbmPP&",[caseless])),
-    <<"qYbmPPABBBBC">> = iolist_to_binary(re:replace("ABBBBC","ab+bc","qYbmPP&",[caseless,global])),
-    <<"CSFfkHmrCTJ">> = iolist_to_binary(re:replace("ABBBBC","ab{1,}?bc","\\1C\\1SFfkHmrCTJ",[caseless])),
-    <<"CSFfkHmrCTJ">> = iolist_to_binary(re:replace("ABBBBC","ab{1,}?bc","\\1C\\1SFfkHmrCTJ",[caseless,global])),
-    <<"JABBBBCJABBBBC">> = iolist_to_binary(re:replace("ABBBBC","ab{1,3}?bc","J&\\1J&",[caseless])),
-    <<"JABBBBCJABBBBC">> = iolist_to_binary(re:replace("ABBBBC","ab{1,3}?bc","J&\\1J&",[caseless,global])),
-    <<"QABBBBCHAQKABBBBCt">> = iolist_to_binary(re:replace("ABBBBC","ab{3,4}?bc","Q&HAQK&t",[caseless])),
-    <<"QABBBBCHAQKABBBBCt">> = iolist_to_binary(re:replace("ABBBBC","ab{3,4}?bc","Q&HAQK&t",[caseless,global])),
-    <<"ABQ">> = iolist_to_binary(re:replace("ABQ","ab{4,5}?bc","\\1WbKKCNjyC",[caseless])),
-    <<"ABQ">> = iolist_to_binary(re:replace("ABQ","ab{4,5}?bc","\\1WbKKCNjyC",[caseless,global])),
-    <<"ABBBBC">> = iolist_to_binary(re:replace("ABBBBC","ab{4,5}?bc","THHUY&igdJt\\1N&",[caseless])),
-    <<"ABBBBC">> = iolist_to_binary(re:replace("ABBBBC","ab{4,5}?bc","THHUY&igdJt\\1N&",[caseless,global])),
-    <<"JdNlABBCBpgoAJobghPXXK">> = iolist_to_binary(re:replace("ABBC","ab??bc","JdNl&BpgoAJobghPXXK",[caseless])),
-    <<"JdNlABBCBpgoAJobghPXXK">> = iolist_to_binary(re:replace("ABBC","ab??bc","JdNl&BpgoAJobghPXXK",[caseless,global])),
-    <<"kABCABC">> = iolist_to_binary(re:replace("ABC","ab??bc","k&&\\1",[caseless])),
-    <<"kABCABC">> = iolist_to_binary(re:replace("ABC","ab??bc","k&&\\1",[caseless,global])),
-    <<"hXKn">> = iolist_to_binary(re:replace("ABC","ab{0,1}?bc","hXKn",[caseless])),
-    <<"hXKn">> = iolist_to_binary(re:replace("ABC","ab{0,1}?bc","hXKn",[caseless,global])),
-    <<"MpABCJQ">> = iolist_to_binary(re:replace("ABC","ab??c","\\1Mp&JQ",[caseless])),
-    <<"MpABCJQ">> = iolist_to_binary(re:replace("ABC","ab??c","\\1Mp&JQ",[caseless,global])),
-    <<"BqnABCgwNu">> = iolist_to_binary(re:replace("ABC","ab{0,1}?c","Bqn\\1&gw\\1Nu",[caseless])),
-    <<"BqnABCgwNu">> = iolist_to_binary(re:replace("ABC","ab{0,1}?c","Bqn\\1&gw\\1Nu",[caseless,global])),
-    <<"BbDABCv">> = iolist_to_binary(re:replace("ABC","^abc$","\\1BbD&v",[caseless])),
-    <<"BbDABCv">> = iolist_to_binary(re:replace("ABC","^abc$","\\1BbD&v",[caseless,global])),
-    <<"ABBBBC">> = iolist_to_binary(re:replace("ABBBBC","^abc$","wsTKas&SjtLxJf\\1\\1hMC",[caseless])),
-    <<"ABBBBC">> = iolist_to_binary(re:replace("ABBBBC","^abc$","wsTKas&SjtLxJf\\1\\1hMC",[caseless,global])),
-    <<"ABCC">> = iolist_to_binary(re:replace("ABCC","^abc$","NeK&\\1F",[caseless])),
-    <<"ABCC">> = iolist_to_binary(re:replace("ABCC","^abc$","NeK&\\1F",[caseless,global])),
-    <<"hLeXkpLIvABCWC">> = iolist_to_binary(re:replace("ABCC","^abc","hLeXkpLIv&W",[caseless])),
-    <<"hLeXkpLIvABCWC">> = iolist_to_binary(re:replace("ABCC","^abc","hLeXkpLIv&W",[caseless,global])),
-    <<"AABCABC">> = iolist_to_binary(re:replace("AABC","abc$","&&\\1",[caseless])),
-    <<"AABCABC">> = iolist_to_binary(re:replace("AABC","abc$","&&\\1",[caseless,global])),
-    <<"aELhPesLAnpxtxBABC">> = iolist_to_binary(re:replace("ABC","^","aELhPe\\1sLAnpxtxB",[caseless])),
-    <<"aELhPesLAnpxtxBABC">> = iolist_to_binary(re:replace("ABC","^","aELhPe\\1sLAnpxtxB",[caseless,global])),
-    <<"ABCSKH">> = iolist_to_binary(re:replace("ABC","$","SKH",[caseless])),
-    <<"ABCSKH">> = iolist_to_binary(re:replace("ABC","$","SKH",[caseless,global])),
+    <<"ABvCABCABCLJOpNeVHh">> = iolist_to_binary(re:replace("ABC","ab*c","ABvC&&LJOpNeVH\\1h",[caseless])),
+    <<"ABvCABCABCLJOpNeVHh">> = iolist_to_binary(re:replace("ABC","ab*c","ABvC&&LJOpNeVH\\1h",[caseless,global])),
+    <<"JEFEIGABCABCABCYBydFwJM">> = iolist_to_binary(re:replace("ABC","ab*bc","JEFEIG&&&Y\\1BydFwJM",[caseless])),
+    <<"JEFEIGABCABCABCYBydFwJM">> = iolist_to_binary(re:replace("ABC","ab*bc","JEFEIG&&&Y\\1BydFwJM",[caseless,global])),
+    <<"UEUMgABBCABBClGDFuMsIl">> = iolist_to_binary(re:replace("ABBC","ab*bc","UEUMg&&lGDFu\\1MsIl",[caseless])),
+    <<"UEUMgABBCABBClGDFuMsIl">> = iolist_to_binary(re:replace("ABBC","ab*bc","UEUMg&&lGDFu\\1MsIl",[caseless,global])),
+    <<"LAYr">> = iolist_to_binary(re:replace("ABBBBC","ab*?bc","LAYr",[caseless])),
+    <<"LAYr">> = iolist_to_binary(re:replace("ABBBBC","ab*?bc","LAYr",[caseless,global])),
+    <<"EoYP">> = iolist_to_binary(re:replace("ABBBBC","ab{0,}?bc","EoY\\1P",[caseless])),
+    <<"EoYP">> = iolist_to_binary(re:replace("ABBBBC","ab{0,}?bc","EoY\\1P",[caseless,global])),
+    <<"qYbmPPABBC">> = iolist_to_binary(re:replace("ABBC","ab+?bc","qYbmPP&",[caseless])),
+    <<"qYbmPPABBC">> = iolist_to_binary(re:replace("ABBC","ab+?bc","qYbmPP&",[caseless,global])),
+    <<"ABC">> = iolist_to_binary(re:replace("ABC","ab+bc","\\1C\\1SFfkHmrCTJ",[caseless])),
+    <<"ABC">> = iolist_to_binary(re:replace("ABC","ab+bc","\\1C\\1SFfkHmrCTJ",[caseless,global])),
+    <<"ABQ">> = iolist_to_binary(re:replace("ABQ","ab+bc","J&\\1J&",[caseless])),
+    <<"ABQ">> = iolist_to_binary(re:replace("ABQ","ab+bc","J&\\1J&",[caseless,global])),
+    <<"QABBBBCHAQKABBBBCt">> = iolist_to_binary(re:replace("ABBBBC","ab+bc","Q&HAQK&t",[caseless])),
+    <<"QABBBBCHAQKABBBBCt">> = iolist_to_binary(re:replace("ABBBBC","ab+bc","Q&HAQK&t",[caseless,global])),
+    <<"WbKKCNjyC">> = iolist_to_binary(re:replace("ABBBBC","ab{1,}?bc","\\1WbKKCNjyC",[caseless])),
+    <<"WbKKCNjyC">> = iolist_to_binary(re:replace("ABBBBC","ab{1,}?bc","\\1WbKKCNjyC",[caseless,global])),
+    <<"THHUYABBBBCigdJtNABBBBC">> = iolist_to_binary(re:replace("ABBBBC","ab{1,3}?bc","THHUY&igdJt\\1N&",[caseless])),
+    <<"THHUYABBBBCigdJtNABBBBC">> = iolist_to_binary(re:replace("ABBBBC","ab{1,3}?bc","THHUY&igdJt\\1N&",[caseless,global])),
+    <<"JdNlABBBBCBpgoAJobghPXXK">> = iolist_to_binary(re:replace("ABBBBC","ab{3,4}?bc","JdNl&BpgoAJobghPXXK",[caseless])),
+    <<"JdNlABBBBCBpgoAJobghPXXK">> = iolist_to_binary(re:replace("ABBBBC","ab{3,4}?bc","JdNl&BpgoAJobghPXXK",[caseless,global])),
+    <<"ABQ">> = iolist_to_binary(re:replace("ABQ","ab{4,5}?bc","k&&\\1",[caseless])),
+    <<"ABQ">> = iolist_to_binary(re:replace("ABQ","ab{4,5}?bc","k&&\\1",[caseless,global])),
+    <<"ABBBBC">> = iolist_to_binary(re:replace("ABBBBC","ab{4,5}?bc","hXKn",[caseless])),
+    <<"ABBBBC">> = iolist_to_binary(re:replace("ABBBBC","ab{4,5}?bc","hXKn",[caseless,global])),
+    <<"MpABBCJQ">> = iolist_to_binary(re:replace("ABBC","ab??bc","\\1Mp&JQ",[caseless])),
+    <<"MpABBCJQ">> = iolist_to_binary(re:replace("ABBC","ab??bc","\\1Mp&JQ",[caseless,global])),
+    <<"BqnABCgwNu">> = iolist_to_binary(re:replace("ABC","ab??bc","Bqn\\1&gw\\1Nu",[caseless])),
+    <<"BqnABCgwNu">> = iolist_to_binary(re:replace("ABC","ab??bc","Bqn\\1&gw\\1Nu",[caseless,global])),
+    <<"BbDABCv">> = iolist_to_binary(re:replace("ABC","ab{0,1}?bc","\\1BbD&v",[caseless])),
+    <<"BbDABCv">> = iolist_to_binary(re:replace("ABC","ab{0,1}?bc","\\1BbD&v",[caseless,global])),
+    <<"wsTKasABCSjtLxJfhMC">> = iolist_to_binary(re:replace("ABC","ab??c","wsTKas&SjtLxJf\\1\\1hMC",[caseless])),
+    <<"wsTKasABCSjtLxJfhMC">> = iolist_to_binary(re:replace("ABC","ab??c","wsTKas&SjtLxJf\\1\\1hMC",[caseless,global])),
+    <<"NeKABCF">> = iolist_to_binary(re:replace("ABC","ab{0,1}?c","NeK&\\1F",[caseless])),
+    <<"NeKABCF">> = iolist_to_binary(re:replace("ABC","ab{0,1}?c","NeK&\\1F",[caseless,global])),
+    <<"hLeXkpLIvABCW">> = iolist_to_binary(re:replace("ABC","^abc$","hLeXkpLIv&W",[caseless])),
+    <<"hLeXkpLIvABCW">> = iolist_to_binary(re:replace("ABC","^abc$","hLeXkpLIv&W",[caseless,global])),
+    <<"ABBBBC">> = iolist_to_binary(re:replace("ABBBBC","^abc$","&&\\1",[caseless])),
+    <<"ABBBBC">> = iolist_to_binary(re:replace("ABBBBC","^abc$","&&\\1",[caseless,global])),
+    <<"ABCC">> = iolist_to_binary(re:replace("ABCC","^abc$","aELhPe\\1sLAnpxtxB",[caseless])),
+    <<"ABCC">> = iolist_to_binary(re:replace("ABCC","^abc$","aELhPe\\1sLAnpxtxB",[caseless,global])),
+    <<"SKHC">> = iolist_to_binary(re:replace("ABCC","^abc","SKH",[caseless])),
+    <<"SKHC">> = iolist_to_binary(re:replace("ABCC","^abc","SKH",[caseless,global])),
     ok.
 run21() ->
-    <<"IB">> = iolist_to_binary(re:replace("ABC","a.c","IB",[caseless])),
-    <<"IB">> = iolist_to_binary(re:replace("ABC","a.c","IB",[caseless,global])),
-    <<"COboVXMd">> = iolist_to_binary(re:replace("AXC","a.c","COboVXMd",[caseless])),
-    <<"COboVXMd">> = iolist_to_binary(re:replace("AXC","a.c","COboVXMd",[caseless,global])),
-    <<"ydGtl">> = iolist_to_binary(re:replace("AXYZC","a.*?c","\\1ydGtl",[caseless])),
-    <<"ydGtl">> = iolist_to_binary(re:replace("AXYZC","a.*?c","\\1ydGtl",[caseless,global])),
-    <<"AABCwxvweaXGdlD">> = iolist_to_binary(re:replace("AABC","a.*c","&wx\\1vweaX\\1GdlD",[caseless])),
-    <<"AABCwxvweaXGdlD">> = iolist_to_binary(re:replace("AABC","a.*c","&wx\\1vweaX\\1GdlD",[caseless,global])),
-    <<"AXYZD">> = iolist_to_binary(re:replace("AXYZD","a.*c","V&Yu",[caseless])),
-    <<"AXYZD">> = iolist_to_binary(re:replace("AXYZD","a.*c","V&Yu",[caseless,global])),
-    <<"ABDuQiJpvCwJtLUQABDnABDe">> = iolist_to_binary(re:replace("ABD","a[bc]d","&uQiJpvCwJtLUQ&n&e",[caseless])),
-    <<"ABDuQiJpvCwJtLUQABDnABDe">> = iolist_to_binary(re:replace("ABD","a[bc]d","&uQiJpvCwJtLUQ&n&e",[caseless,global])),
-    <<"JnTOLWXACEmWACEF">> = iolist_to_binary(re:replace("ACE","a[b-d]e","JnTOLWX\\1&mW&F\\1",[caseless])),
-    <<"JnTOLWXACEmWACEF">> = iolist_to_binary(re:replace("ACE","a[b-d]e","JnTOLWX\\1&mW&F\\1",[caseless,global])),
-    <<"ABC">> = iolist_to_binary(re:replace("ABC","a[b-d]e","y&h\\1&u",[caseless])),
-    <<"ABC">> = iolist_to_binary(re:replace("ABC","a[b-d]e","y&h\\1&u",[caseless,global])),
-    <<"ABD">> = iolist_to_binary(re:replace("ABD","a[b-d]e","d&\\1",[caseless])),
-    <<"ABD">> = iolist_to_binary(re:replace("ABD","a[b-d]e","d&\\1",[caseless,global])),
-    <<"AsfBOnWLWdrl">> = iolist_to_binary(re:replace("AAC","a[b-d]","sfBOnWLWdrl",[caseless])),
-    <<"AsfBOnWLWdrl">> = iolist_to_binary(re:replace("AAC","a[b-d]","sfBOnWLWdrl",[caseless,global])),
-    <<"kQ">> = iolist_to_binary(re:replace("A-","a[-b]","kQ",[caseless])),
-    <<"kQ">> = iolist_to_binary(re:replace("A-","a[-b]","kQ",[caseless,global])),
-    <<"A-jYfA-iIQh">> = iolist_to_binary(re:replace("A-","a[b-]","&jYf&iIQh\\1",[caseless])),
-    <<"A-jYfA-iIQh">> = iolist_to_binary(re:replace("A-","a[b-]","&jYf&iIQh\\1",[caseless,global])),
-    <<"yA]EA]so">> = iolist_to_binary(re:replace("A]","a]","y&E&so",[caseless])),
-    <<"yA]EA]so">> = iolist_to_binary(re:replace("A]","a]","y&E&so",[caseless,global])),
-    <<"A]BA]BmuiN">> = iolist_to_binary(re:replace("A]B","a[]]b","\\1&&\\1muiN",[caseless])),
-    <<"A]BA]BmuiN">> = iolist_to_binary(re:replace("A]B","a[]]b","\\1&&\\1muiN",[caseless,global])),
-    <<"UAED">> = iolist_to_binary(re:replace("AED","a[^bc]d","U&",[caseless])),
-    <<"UAED">> = iolist_to_binary(re:replace("AED","a[^bc]d","U&",[caseless,global])),
-    <<"yohceADCHvADCkiADCxgGAPsc">> = iolist_to_binary(re:replace("ADC","a[^-b]c","yohce&Hv&ki&xgGAPsc",[caseless])),
-    <<"yohceADCHvADCkiADCxgGAPsc">> = iolist_to_binary(re:replace("ADC","a[^-b]c","yohce&Hv&ki&xgGAPsc",[caseless,global])),
-    <<"ABD">> = iolist_to_binary(re:replace("ABD","a[^-b]c","t&&q",[caseless])),
-    <<"ABD">> = iolist_to_binary(re:replace("ABD","a[^-b]c","t&&q",[caseless,global])),
-    <<"A-C">> = iolist_to_binary(re:replace("A-C","a[^-b]c","w\\1SEi\\1&VKdBOyB\\1w",[caseless])),
-    <<"A-C">> = iolist_to_binary(re:replace("A-C","a[^-b]c","w\\1SEi\\1&VKdBOyB\\1w",[caseless,global])),
-    <<"nIADCH">> = iolist_to_binary(re:replace("ADC","a[^]b]c","nI&H",[caseless])),
-    <<"nIADCH">> = iolist_to_binary(re:replace("ADC","a[^]b]c","nI&H",[caseless,global])),
-    <<"kxKDSoWC">> = iolist_to_binary(re:replace("ABC","ab|cd","kxKDSoW",[caseless])),
-    <<"kxKDSoWC">> = iolist_to_binary(re:replace("ABC","ab|cd","kxKDSoW",[caseless,global])),
-    <<"dCD">> = iolist_to_binary(re:replace("ABCD","ab|cd","d",[caseless])),
-    <<"dd">> = iolist_to_binary(re:replace("ABCD","ab|cd","d",[caseless,global])),
-    <<"DIQboAe">> = iolist_to_binary(re:replace("DEF","()ef","IQboAe",[caseless])),
-    <<"DIQboAe">> = iolist_to_binary(re:replace("DEF","()ef","IQboAe",[caseless,global])),
-    <<"A]C">> = iolist_to_binary(re:replace("A]C","$b","Ii&smqXytI\\1w\\1",[caseless])),
-    <<"A]C">> = iolist_to_binary(re:replace("A]C","$b","Ii&smqXytI\\1w\\1",[caseless,global])),
-    <<"B">> = iolist_to_binary(re:replace("B","$b","fX&EijX",[caseless])),
-    <<"B">> = iolist_to_binary(re:replace("B","$b","fX&EijX",[caseless,global])),
-    <<"uA(BWnxKsFEaL">> = iolist_to_binary(re:replace("A(B","a\\(b","u&WnxKsF\\1EaL\\1",[caseless])),
-    <<"uA(BWnxKsFEaL">> = iolist_to_binary(re:replace("A(B","a\\(b","u&WnxKsF\\1EaL\\1",[caseless,global])),
-    <<"VOoAB">> = iolist_to_binary(re:replace("AB","a\\(*b","VOo&",[caseless])),
-    <<"VOoAB">> = iolist_to_binary(re:replace("AB","a\\(*b","VOo&",[caseless,global])),
-    <<"A((BA((BGGkJA((BA((BA((BqWNn">> = iolist_to_binary(re:replace("A((B","a\\(*b","&&GG\\1k\\1J&&&qWNn",[caseless])),
-    <<"A((BA((BGGkJA((BA((BA((BqWNn">> = iolist_to_binary(re:replace("A((B","a\\(*b","&&GG\\1k\\1J&&&qWNn",[caseless,global])),
-    <<"QOREoyFBbWu">> = iolist_to_binary(re:replace("A\\b","a\\\\b","QOREo\\1y\\1FBbWu",[caseless])),
-    <<"QOREoyFBbWu">> = iolist_to_binary(re:replace("A\\b","a\\\\b","QOREo\\1y\\1FBbWu",[caseless,global])),
-    <<"Pcnta\\BnSAvUGvRwiwct">> = iolist_to_binary(re:replace("a\\B","a\\\\b","\\1Pcn\\1t&nSAvUGvRwiwct",[caseless])),
-    <<"Pcnta\\BnSAvUGvRwiwct">> = iolist_to_binary(re:replace("a\\B","a\\\\b","\\1Pcn\\1t&nSAvUGvRwiwct",[caseless,global])),
-    <<"WOHAUuhFQnufAuBC">> = iolist_to_binary(re:replace("ABC","((a))","WOH\\1UuhFQnuf&u",[caseless])),
-    <<"WOHAUuhFQnufAuBC">> = iolist_to_binary(re:replace("ABC","((a))","WOH\\1UuhFQnuf&u",[caseless,global])),
+    <<"AIB">> = iolist_to_binary(re:replace("AABC","abc$","IB",[caseless])),
+    <<"AIB">> = iolist_to_binary(re:replace("AABC","abc$","IB",[caseless,global])),
+    <<"COboVXMdABC">> = iolist_to_binary(re:replace("ABC","^","COboVXMd",[caseless])),
+    <<"COboVXMdABC">> = iolist_to_binary(re:replace("ABC","^","COboVXMd",[caseless,global])),
+    <<"ABCydGtl">> = iolist_to_binary(re:replace("ABC","$","\\1ydGtl",[caseless])),
+    <<"ABCydGtl">> = iolist_to_binary(re:replace("ABC","$","\\1ydGtl",[caseless,global])),
+    <<"ABCwxvweaXGdlD">> = iolist_to_binary(re:replace("ABC","a.c","&wx\\1vweaX\\1GdlD",[caseless])),
+    <<"ABCwxvweaXGdlD">> = iolist_to_binary(re:replace("ABC","a.c","&wx\\1vweaX\\1GdlD",[caseless,global])),
+    <<"VAXCYu">> = iolist_to_binary(re:replace("AXC","a.c","V&Yu",[caseless])),
+    <<"VAXCYu">> = iolist_to_binary(re:replace("AXC","a.c","V&Yu",[caseless,global])),
+    <<"AXYZCuQiJpvCwJtLUQAXYZCnAXYZCe">> = iolist_to_binary(re:replace("AXYZC","a.*?c","&uQiJpvCwJtLUQ&n&e",[caseless])),
+    <<"AXYZCuQiJpvCwJtLUQAXYZCnAXYZCe">> = iolist_to_binary(re:replace("AXYZC","a.*?c","&uQiJpvCwJtLUQ&n&e",[caseless,global])),
+    <<"JnTOLWXAABCmWAABCF">> = iolist_to_binary(re:replace("AABC","a.*c","JnTOLWX\\1&mW&F\\1",[caseless])),
+    <<"JnTOLWXAABCmWAABCF">> = iolist_to_binary(re:replace("AABC","a.*c","JnTOLWX\\1&mW&F\\1",[caseless,global])),
+    <<"AXYZD">> = iolist_to_binary(re:replace("AXYZD","a.*c","y&h\\1&u",[caseless])),
+    <<"AXYZD">> = iolist_to_binary(re:replace("AXYZD","a.*c","y&h\\1&u",[caseless,global])),
+    <<"dABD">> = iolist_to_binary(re:replace("ABD","a[bc]d","d&\\1",[caseless])),
+    <<"dABD">> = iolist_to_binary(re:replace("ABD","a[bc]d","d&\\1",[caseless,global])),
+    <<"sfBOnWLWdrl">> = iolist_to_binary(re:replace("ACE","a[b-d]e","sfBOnWLWdrl",[caseless])),
+    <<"sfBOnWLWdrl">> = iolist_to_binary(re:replace("ACE","a[b-d]e","sfBOnWLWdrl",[caseless,global])),
+    <<"ABC">> = iolist_to_binary(re:replace("ABC","a[b-d]e","kQ",[caseless])),
+    <<"ABC">> = iolist_to_binary(re:replace("ABC","a[b-d]e","kQ",[caseless,global])),
+    <<"ABD">> = iolist_to_binary(re:replace("ABD","a[b-d]e","&jYf&iIQh\\1",[caseless])),
+    <<"ABD">> = iolist_to_binary(re:replace("ABD","a[b-d]e","&jYf&iIQh\\1",[caseless,global])),
+    <<"AyACEACso">> = iolist_to_binary(re:replace("AAC","a[b-d]","y&E&so",[caseless])),
+    <<"AyACEACso">> = iolist_to_binary(re:replace("AAC","a[b-d]","y&E&so",[caseless,global])),
+    <<"A-A-muiN">> = iolist_to_binary(re:replace("A-","a[-b]","\\1&&\\1muiN",[caseless])),
+    <<"A-A-muiN">> = iolist_to_binary(re:replace("A-","a[-b]","\\1&&\\1muiN",[caseless,global])),
+    <<"UA-">> = iolist_to_binary(re:replace("A-","a[b-]","U&",[caseless])),
+    <<"UA-">> = iolist_to_binary(re:replace("A-","a[b-]","U&",[caseless,global])),
+    <<"yohceA]HvA]kiA]xgGAPsc">> = iolist_to_binary(re:replace("A]","a]","yohce&Hv&ki&xgGAPsc",[caseless])),
+    <<"yohceA]HvA]kiA]xgGAPsc">> = iolist_to_binary(re:replace("A]","a]","yohce&Hv&ki&xgGAPsc",[caseless,global])),
+    <<"tA]BA]Bq">> = iolist_to_binary(re:replace("A]B","a[]]b","t&&q",[caseless])),
+    <<"tA]BA]Bq">> = iolist_to_binary(re:replace("A]B","a[]]b","t&&q",[caseless,global])),
+    <<"wSEiAEDVKdBOyBw">> = iolist_to_binary(re:replace("AED","a[^bc]d","w\\1SEi\\1&VKdBOyB\\1w",[caseless])),
+    <<"wSEiAEDVKdBOyBw">> = iolist_to_binary(re:replace("AED","a[^bc]d","w\\1SEi\\1&VKdBOyB\\1w",[caseless,global])),
+    <<"nIADCH">> = iolist_to_binary(re:replace("ADC","a[^-b]c","nI&H",[caseless])),
+    <<"nIADCH">> = iolist_to_binary(re:replace("ADC","a[^-b]c","nI&H",[caseless,global])),
+    <<"ABD">> = iolist_to_binary(re:replace("ABD","a[^-b]c","kxKDSoW",[caseless])),
+    <<"ABD">> = iolist_to_binary(re:replace("ABD","a[^-b]c","kxKDSoW",[caseless,global])),
+    <<"A-C">> = iolist_to_binary(re:replace("A-C","a[^-b]c","d",[caseless])),
+    <<"A-C">> = iolist_to_binary(re:replace("A-C","a[^-b]c","d",[caseless,global])),
+    <<"IQboAe">> = iolist_to_binary(re:replace("ADC","a[^]b]c","IQboAe",[caseless])),
+    <<"IQboAe">> = iolist_to_binary(re:replace("ADC","a[^]b]c","IQboAe",[caseless,global])),
+    <<"IiABsmqXytIwC">> = iolist_to_binary(re:replace("ABC","ab|cd","Ii&smqXytI\\1w\\1",[caseless])),
+    <<"IiABsmqXytIwC">> = iolist_to_binary(re:replace("ABC","ab|cd","Ii&smqXytI\\1w\\1",[caseless,global])),
+    <<"fXABEijXCD">> = iolist_to_binary(re:replace("ABCD","ab|cd","fX&EijX",[caseless])),
+    <<"fXABEijXfXCDEijX">> = iolist_to_binary(re:replace("ABCD","ab|cd","fX&EijX",[caseless,global])),
+    <<"DuEFWnxKsFEaL">> = iolist_to_binary(re:replace("DEF","()ef","u&WnxKsF\\1EaL\\1",[caseless])),
+    <<"DuEFWnxKsFEaL">> = iolist_to_binary(re:replace("DEF","()ef","u&WnxKsF\\1EaL\\1",[caseless,global])),
+    <<"A]C">> = iolist_to_binary(re:replace("A]C","$b","VOo&",[caseless])),
+    <<"A]C">> = iolist_to_binary(re:replace("A]C","$b","VOo&",[caseless,global])),
+    <<"B">> = iolist_to_binary(re:replace("B","$b","&&GG\\1k\\1J&&&qWNn",[caseless])),
+    <<"B">> = iolist_to_binary(re:replace("B","$b","&&GG\\1k\\1J&&&qWNn",[caseless,global])),
+    <<"QOREoyFBbWu">> = iolist_to_binary(re:replace("A(B","a\\(b","QOREo\\1y\\1FBbWu",[caseless])),
+    <<"QOREoyFBbWu">> = iolist_to_binary(re:replace("A(B","a\\(b","QOREo\\1y\\1FBbWu",[caseless,global])),
     ok.
 run22() ->
-    <<"ABCyglGX">> = iolist_to_binary(re:replace("ABC","(a)b(c)","&yglGX",[caseless])),
-    <<"ABCyglGX">> = iolist_to_binary(re:replace("ABC","(a)b(c)","&yglGX",[caseless,global])),
-    <<"AABBxHBNGABCKPNeTiyABCABCANU">> = iolist_to_binary(re:replace("AABBABC","a+b+c","\\1xHBNG&KPNeTiy&&ANU",[caseless])),
-    <<"AABBxHBNGABCKPNeTiyABCABCANU">> = iolist_to_binary(re:replace("AABBABC","a+b+c","\\1xHBNG&KPNeTiy&&ANU",[caseless,global])),
-    <<"AABBdLaJCwC">> = iolist_to_binary(re:replace("AABBABC","a{1,}b{1,}c","dLaJCwC",[caseless])),
-    <<"AABBdLaJCwC">> = iolist_to_binary(re:replace("AABBABC","a{1,}b{1,}c","dLaJCwC",[caseless,global])),
-    <<"wRDLkvABCABC">> = iolist_to_binary(re:replace("ABCABC","a.+?c","wRDLkv\\1&",[caseless])),
-    <<"wRDLkvABCwRDLkvABC">> = iolist_to_binary(re:replace("ABCABC","a.+?c","wRDLkv\\1&",[caseless,global])),
-    <<"yABCsFWABCWNGfXdgihkoABCABC">> = iolist_to_binary(re:replace("ABCABC","a.*?c","y&sFW&WNGfXd\\1gihko&",[caseless])),
-    <<"yABCsFWABCWNGfXdgihkoABCyABCsFWABCWNGfXdgihkoABC">> = iolist_to_binary(re:replace("ABCABC","a.*?c","y&sFW&WNGfXd\\1gihko&",[caseless,global])),
-    <<"PTJaABCDABC">> = iolist_to_binary(re:replace("ABCABC","a.{0,5}?c","PT\\1Ja&D",[caseless])),
-    <<"PTJaABCDPTJaABCD">> = iolist_to_binary(re:replace("ABCABC","a.{0,5}?c","PT\\1Ja&D",[caseless,global])),
-    <<"ABDGOD">> = iolist_to_binary(re:replace("AB","(a+|b)*","&DGOD",[caseless])),
-    <<"ABDGODDGOD">> = iolist_to_binary(re:replace("AB","(a+|b)*","&DGOD",[caseless,global])),
-    <<"KIBqEIlJvBcnqMABpJCB">> = iolist_to_binary(re:replace("AB","(a+|b){0,}","KI\\1qEIlJv\\1cnqM&pJC\\1",[caseless])),
-    <<"KIBqEIlJvBcnqMABpJCBKIqEIlJvcnqMpJC">> = iolist_to_binary(re:replace("AB","(a+|b){0,}","KI\\1qEIlJv\\1cnqM&pJC\\1",[caseless,global])),
-    <<"gSDxABBtYNus">> = iolist_to_binary(re:replace("AB","(a+|b)+","gSDx&BtYNus",[caseless])),
-    <<"gSDxABBtYNus">> = iolist_to_binary(re:replace("AB","(a+|b)+","gSDx&BtYNus",[caseless,global])),
-    <<"ABh">> = iolist_to_binary(re:replace("AB","(a+|b){1,}","&h",[caseless])),
-    <<"ABh">> = iolist_to_binary(re:replace("AB","(a+|b){1,}","&h",[caseless,global])),
-    <<"yktAWAB">> = iolist_to_binary(re:replace("AB","(a+|b)?","ykt&W&",[caseless])),
-    <<"yktAWAyktBWByktW">> = iolist_to_binary(re:replace("AB","(a+|b)?","ykt&W&",[caseless,global])),
-    <<"AaB">> = iolist_to_binary(re:replace("AB","(a+|b){0,1}","&a",[caseless])),
-    <<"AaBaa">> = iolist_to_binary(re:replace("AB","(a+|b){0,1}","&a",[caseless,global])),
-    <<"WbIHLJAB">> = iolist_to_binary(re:replace("AB","(a+|b){0,1}?","&WbIHLJ",[caseless])),
-    <<"WbIHLJAWbIHLJWbIHLJBWbIHLJWbIHLJ">> = iolist_to_binary(re:replace("AB","(a+|b){0,1}?","&WbIHLJ",[caseless,global])),
-    <<"CDEktRCDE">> = iolist_to_binary(re:replace("CDE","[^ab]*","&kt\\1\\1R&",[caseless])),
-    <<"CDEktRCDEktR">> = iolist_to_binary(re:replace("CDE","[^ab]*","&kt\\1\\1R&",[caseless,global])),
-    <<"ux">> = iolist_to_binary(re:replace("ABBBCD","([abc])*d","ux",[caseless])),
-    <<"ux">> = iolist_to_binary(re:replace("ABBBCD","([abc])*d","ux",[caseless,global])),
-    <<"qKHABCDdv">> = iolist_to_binary(re:replace("ABCD","([abc])*bcd","qKH&dv",[caseless])),
-    <<"qKHABCDdv">> = iolist_to_binary(re:replace("ABCD","([abc])*bcd","qKH&dv",[caseless,global])),
-    <<"DUTia">> = iolist_to_binary(re:replace("E","a|b|c|d|e","DUTia",[caseless])),
-    <<"DUTia">> = iolist_to_binary(re:replace("E","a|b|c|d|e","DUTia",[caseless,global])),
-    <<"ydMawOaiEUEFEuVTct">> = iolist_to_binary(re:replace("EF","(a|b|c|d|e)f","ydMawOai\\1U&\\1uVTct",[caseless])),
-    <<"ydMawOaiEUEFEuVTct">> = iolist_to_binary(re:replace("EF","(a|b|c|d|e)f","ydMawOai\\1U&\\1uVTct",[caseless,global])),
-    <<"scABCDEFGMyXpsUtrgSD">> = iolist_to_binary(re:replace("ABCDEFG","abcd*efg","sc&MyXpsUtrgSD",[caseless])),
-    <<"scABCDEFGMyXpsUtrgSD">> = iolist_to_binary(re:replace("ABCDEFG","abcd*efg","sc&MyXpsUtrgSD",[caseless,global])),
-    <<"XtkABUYABBBZ">> = iolist_to_binary(re:replace("XABYABBBZ","ab*","tk&U\\1",[caseless])),
-    <<"XtkABUYtkABBBUZ">> = iolist_to_binary(re:replace("XABYABBBZ","ab*","tk&U\\1",[caseless,global])),
-    <<"XdETFopYABBBZ">> = iolist_to_binary(re:replace("XAYABBBZ","ab*","dE\\1TFop\\1",[caseless])),
-    <<"XdETFopYdETFopZ">> = iolist_to_binary(re:replace("XAYABBBZ","ab*","dE\\1TFop\\1",[caseless,global])),
+    <<"PcntABnSAvUGvRwiwct">> = iolist_to_binary(re:replace("AB","a\\(*b","\\1Pcn\\1t&nSAvUGvRwiwct",[caseless])),
+    <<"PcntABnSAvUGvRwiwct">> = iolist_to_binary(re:replace("AB","a\\(*b","\\1Pcn\\1t&nSAvUGvRwiwct",[caseless,global])),
+    <<"WOHUuhFQnufA((Bu">> = iolist_to_binary(re:replace("A((B","a\\(*b","WOH\\1UuhFQnuf&u",[caseless])),
+    <<"WOHUuhFQnufA((Bu">> = iolist_to_binary(re:replace("A((B","a\\(*b","WOH\\1UuhFQnuf&u",[caseless,global])),
+    <<"A\\byglGX">> = iolist_to_binary(re:replace("A\\b","a\\\\b","&yglGX",[caseless])),
+    <<"A\\byglGX">> = iolist_to_binary(re:replace("A\\b","a\\\\b","&yglGX",[caseless,global])),
+    <<"xHBNGa\\BKPNeTiya\\Ba\\BANU">> = iolist_to_binary(re:replace("a\\B","a\\\\b","\\1xHBNG&KPNeTiy&&ANU",[caseless])),
+    <<"xHBNGa\\BKPNeTiya\\Ba\\BANU">> = iolist_to_binary(re:replace("a\\B","a\\\\b","\\1xHBNG&KPNeTiy&&ANU",[caseless,global])),
+    <<"dLaJCwCBC">> = iolist_to_binary(re:replace("ABC","((a))","dLaJCwC",[caseless])),
+    <<"dLaJCwCBC">> = iolist_to_binary(re:replace("ABC","((a))","dLaJCwC",[caseless,global])),
+    <<"wRDLkvAABC">> = iolist_to_binary(re:replace("ABC","(a)b(c)","wRDLkv\\1&",[caseless])),
+    <<"wRDLkvAABC">> = iolist_to_binary(re:replace("ABC","(a)b(c)","wRDLkv\\1&",[caseless,global])),
+    <<"AABByABCsFWABCWNGfXdgihkoABC">> = iolist_to_binary(re:replace("AABBABC","a+b+c","y&sFW&WNGfXd\\1gihko&",[caseless])),
+    <<"AABByABCsFWABCWNGfXdgihkoABC">> = iolist_to_binary(re:replace("AABBABC","a+b+c","y&sFW&WNGfXd\\1gihko&",[caseless,global])),
+    <<"AABBPTJaABCD">> = iolist_to_binary(re:replace("AABBABC","a{1,}b{1,}c","PT\\1Ja&D",[caseless])),
+    <<"AABBPTJaABCD">> = iolist_to_binary(re:replace("AABBABC","a{1,}b{1,}c","PT\\1Ja&D",[caseless,global])),
+    <<"ABCDGODABC">> = iolist_to_binary(re:replace("ABCABC","a.+?c","&DGOD",[caseless])),
+    <<"ABCDGODABCDGOD">> = iolist_to_binary(re:replace("ABCABC","a.+?c","&DGOD",[caseless,global])),
+    <<"KIqEIlJvcnqMABCpJCABC">> = iolist_to_binary(re:replace("ABCABC","a.*?c","KI\\1qEIlJv\\1cnqM&pJC\\1",[caseless])),
+    <<"KIqEIlJvcnqMABCpJCKIqEIlJvcnqMABCpJC">> = iolist_to_binary(re:replace("ABCABC","a.*?c","KI\\1qEIlJv\\1cnqM&pJC\\1",[caseless,global])),
+    <<"gSDxABCBtYNusABC">> = iolist_to_binary(re:replace("ABCABC","a.{0,5}?c","gSDx&BtYNus",[caseless])),
+    <<"gSDxABCBtYNusgSDxABCBtYNus">> = iolist_to_binary(re:replace("ABCABC","a.{0,5}?c","gSDx&BtYNus",[caseless,global])),
+    <<"ABh">> = iolist_to_binary(re:replace("AB","(a+|b)*","&h",[caseless])),
+    <<"ABhh">> = iolist_to_binary(re:replace("AB","(a+|b)*","&h",[caseless,global])),
+    <<"yktABWAB">> = iolist_to_binary(re:replace("AB","(a+|b){0,}","ykt&W&",[caseless])),
+    <<"yktABWAByktW">> = iolist_to_binary(re:replace("AB","(a+|b){0,}","ykt&W&",[caseless,global])),
+    <<"ABa">> = iolist_to_binary(re:replace("AB","(a+|b)+","&a",[caseless])),
+    <<"ABa">> = iolist_to_binary(re:replace("AB","(a+|b)+","&a",[caseless,global])),
+    <<"ABWbIHLJ">> = iolist_to_binary(re:replace("AB","(a+|b){1,}","&WbIHLJ",[caseless])),
+    <<"ABWbIHLJ">> = iolist_to_binary(re:replace("AB","(a+|b){1,}","&WbIHLJ",[caseless,global])),
+    <<"AktAARAB">> = iolist_to_binary(re:replace("AB","(a+|b)?","&kt\\1\\1R&",[caseless])),
+    <<"AktAARABktBBRBktR">> = iolist_to_binary(re:replace("AB","(a+|b)?","&kt\\1\\1R&",[caseless,global])),
+    <<"uxB">> = iolist_to_binary(re:replace("AB","(a+|b){0,1}","ux",[caseless])),
+    <<"uxuxux">> = iolist_to_binary(re:replace("AB","(a+|b){0,1}","ux",[caseless,global])),
+    <<"qKHdvAB">> = iolist_to_binary(re:replace("AB","(a+|b){0,1}?","qKH&dv",[caseless])),
+    <<"qKHdvqKHAdvqKHdvqKHBdvqKHdv">> = iolist_to_binary(re:replace("AB","(a+|b){0,1}?","qKH&dv",[caseless,global])),
+    <<"DUTia">> = iolist_to_binary(re:replace("CDE","[^ab]*","DUTia",[caseless])),
+    <<"DUTiaDUTia">> = iolist_to_binary(re:replace("CDE","[^ab]*","DUTia",[caseless,global])),
+    <<"ydMawOaiCUABBBCDCuVTct">> = iolist_to_binary(re:replace("ABBBCD","([abc])*d","ydMawOai\\1U&\\1uVTct",[caseless])),
+    <<"ydMawOaiCUABBBCDCuVTct">> = iolist_to_binary(re:replace("ABBBCD","([abc])*d","ydMawOai\\1U&\\1uVTct",[caseless,global])),
+    <<"scABCDMyXpsUtrgSD">> = iolist_to_binary(re:replace("ABCD","([abc])*bcd","sc&MyXpsUtrgSD",[caseless])),
+    <<"scABCDMyXpsUtrgSD">> = iolist_to_binary(re:replace("ABCD","([abc])*bcd","sc&MyXpsUtrgSD",[caseless,global])),
+    <<"tkEU">> = iolist_to_binary(re:replace("E","a|b|c|d|e","tk&U\\1",[caseless])),
+    <<"tkEU">> = iolist_to_binary(re:replace("E","a|b|c|d|e","tk&U\\1",[caseless,global])),
     ok.
 run23() ->
-    <<"ABCDEwTiaRcRV">> = iolist_to_binary(re:replace("ABCDE","(ab|cd)e","&wTiaRcRV",[caseless])),
-    <<"ABCDEwTiaRcRV">> = iolist_to_binary(re:replace("ABCDE","(ab|cd)e","&wTiaRcRV",[caseless,global])),
-    <<"DOQHIJITtHIJ">> = iolist_to_binary(re:replace("HIJ","[abhgefdc]ij","\\1DO\\1Q&ITt&",[caseless])),
-    <<"DOQHIJITtHIJ">> = iolist_to_binary(re:replace("HIJ","[abhgefdc]ij","\\1DO\\1Q&ITt&",[caseless,global])),
-    <<"ABCDE">> = iolist_to_binary(re:replace("ABCDE","^(ab|cd)e","SQSxbQRhSUBA",[caseless])),
-    <<"ABCDE">> = iolist_to_binary(re:replace("ABCDE","^(ab|cd)e","SQSxbQRhSUBA",[caseless,global])),
-    <<"ABCDKDx">> = iolist_to_binary(re:replace("ABCDEF","(abc|)ef","KDx",[caseless])),
-    <<"ABCDKDx">> = iolist_to_binary(re:replace("ABCDEF","(abc|)ef","KDx",[caseless,global])),
-    <<"ABCDVFjoRUBjDtvnALeSGQ">> = iolist_to_binary(re:replace("ABCD","(a|b)c*d","&VFjoRU\\1jDtvnALeSGQ",[caseless])),
-    <<"ABCDVFjoRUBjDtvnALeSGQ">> = iolist_to_binary(re:replace("ABCD","(a|b)c*d","&VFjoRU\\1jDtvnALeSGQ",[caseless,global])),
-    <<"ABCWvfQRkKAyAUA">> = iolist_to_binary(re:replace("ABC","(ab|ab*)bc","&WvfQRkK\\1y\\1UA",[caseless])),
-    <<"ABCWvfQRkKAyAUA">> = iolist_to_binary(re:replace("ABC","(ab|ab*)bc","&WvfQRkK\\1y\\1UA",[caseless,global])),
-    <<"jiaeNJBCKxBCe">> = iolist_to_binary(re:replace("ABC","a([bc]*)c*","jiaeNJ\\1Kx\\1e",[caseless])),
-    <<"jiaeNJBCKxBCe">> = iolist_to_binary(re:replace("ABC","a([bc]*)c*","jiaeNJ\\1Kx\\1e",[caseless,global])),
-    <<"EVnwucABCD">> = iolist_to_binary(re:replace("ABCD","a([bc]*)(c*d)","EVnwuc&",[caseless])),
-    <<"EVnwucABCD">> = iolist_to_binary(re:replace("ABCD","a([bc]*)(c*d)","EVnwuc&",[caseless,global])),
-    <<"aKTBCABCDLK">> = iolist_to_binary(re:replace("ABCD","a([bc]+)(c*d)","aKT\\1&LK",[caseless])),
-    <<"aKTBCABCDLK">> = iolist_to_binary(re:replace("ABCD","a([bc]+)(c*d)","aKT\\1&LK",[caseless,global])),
-    <<"RgGBBwcmABCDTgNL">> = iolist_to_binary(re:replace("ABCD","a([bc]*)(c+d)","RgGB\\1wcm&TgNL",[caseless])),
-    <<"RgGBBwcmABCDTgNL">> = iolist_to_binary(re:replace("ABCD","a([bc]*)(c+d)","RgGB\\1wcm&TgNL",[caseless,global])),
-    <<"TADCDCDEwgADCDCDEFOxEylU">> = iolist_to_binary(re:replace("ADCDCDE","a[bcd]*dcdcde","T&wg&F\\1OxEylU",[caseless])),
-    <<"TADCDCDEwgADCDCDEFOxEylU">> = iolist_to_binary(re:replace("ADCDCDE","a[bcd]*dcdcde","T&wg&F\\1OxEylU",[caseless,global])),
-    <<"ABABCABCLnABC">> = iolist_to_binary(re:replace("ABC","(ab|a)b*c","\\1&&Ln&",[caseless])),
-    <<"ABABCABCLnABC">> = iolist_to_binary(re:replace("ABC","(ab|a)b*c","\\1&&Ln&",[caseless,global])),
-    <<"sABClxWABCNnoiUABCABCDJABCABCDrABCD">> = iolist_to_binary(re:replace("ABCD","((a)(b)c)(d)","s\\1lxW\\1NnoiU\\1&J\\1&r&",[caseless])),
-    <<"sABClxWABCNnoiUABCABCDJABCABCDrABCD">> = iolist_to_binary(re:replace("ABCD","((a)(b)c)(d)","s\\1lxW\\1NnoiU\\1&J\\1&r&",[caseless,global])),
-    <<"vVEiRHOJegALPHAjCJbVaYo">> = iolist_to_binary(re:replace("ALPHA","[a-zA-Z_][a-zA-Z0-9_]*","vVEiRHOJeg&j\\1CJbVaYo",[caseless])),
-    <<"vVEiRHOJegALPHAjCJbVaYo">> = iolist_to_binary(re:replace("ALPHA","[a-zA-Z_][a-zA-Z0-9_]*","vVEiRHOJeg&j\\1CJbVaYo",[caseless,global])),
-    <<"AGtppsRPRDSBHMkBHkQ">> = iolist_to_binary(re:replace("ABH","^a(bc+|b[eh])g|.h$","G\\1tppsRP\\1RDSBHMk&kQ",[caseless])),
-    <<"AGtppsRPRDSBHMkBHkQ">> = iolist_to_binary(re:replace("ABH","^a(bc+|b[eh])g|.h$","G\\1tppsRP\\1RDSBHMk&kQ",[caseless,global])),
-    <<"EFFGZlNPEFFGZDSOUbWFhRtX">> = iolist_to_binary(re:replace("EFFGZ","(bc+d$|ef*g.|h?i(j|k))","\\1lNP\\1DSOUbWFhRtX",[caseless])),
-    <<"EFFGZlNPEFFGZDSOUbWFhRtX">> = iolist_to_binary(re:replace("EFFGZ","(bc+d$|ef*g.|h?i(j|k))","\\1lNP\\1DSOUbWFhRtX",[caseless,global])),
-    <<"bIIJKUIJIJIJjUqIJ">> = iolist_to_binary(re:replace("IJ","(bc+d$|ef*g.|h?i(j|k))","bI\\1KU\\1&&jUq\\1",[caseless])),
-    <<"bIIJKUIJIJIJjUqIJ">> = iolist_to_binary(re:replace("IJ","(bc+d$|ef*g.|h?i(j|k))","bI\\1KU\\1&&jUq\\1",[caseless,global])),
-    <<"RvBREFFGZf">> = iolist_to_binary(re:replace("REFFGZ","(bc+d$|ef*g.|h?i(j|k))","vBR&f",[caseless])),
-    <<"RvBREFFGZf">> = iolist_to_binary(re:replace("REFFGZ","(bc+d$|ef*g.|h?i(j|k))","vBR&f",[caseless,global])),
-    <<"ADCDCDE">> = iolist_to_binary(re:replace("ADCDCDE","(bc+d$|ef*g.|h?i(j|k))","\\1\\1sSfPHTpUXDPv",[caseless])),
-    <<"ADCDCDE">> = iolist_to_binary(re:replace("ADCDCDE","(bc+d$|ef*g.|h?i(j|k))","\\1\\1sSfPHTpUXDPv",[caseless,global])),
-    <<"EFFG">> = iolist_to_binary(re:replace("EFFG","(bc+d$|ef*g.|h?i(j|k))","sr\\1tWRpRn",[caseless])),
-    <<"EFFG">> = iolist_to_binary(re:replace("EFFG","(bc+d$|ef*g.|h?i(j|k))","sr\\1tWRpRn",[caseless,global])),
-    <<"BCDD">> = iolist_to_binary(re:replace("BCDD","(bc+d$|ef*g.|h?i(j|k))","pLuYEC&",[caseless])),
-    <<"BCDD">> = iolist_to_binary(re:replace("BCDD","(bc+d$|ef*g.|h?i(j|k))","pLuYEC&",[caseless,global])),
-    <<"GAAxBDcAnAOAAuAXAAAA">> = iolist_to_binary(re:replace("A","((((((((((a))))))))))","G&&xBDc\\1n&O\\1\\1uAX\\1\\1\\1\\1",[caseless])),
-    <<"GAAxBDcAnAOAAuAXAAAA">> = iolist_to_binary(re:replace("A","((((((((((a))))))))))","G&&xBDc\\1n&O\\1\\1uAX\\1\\1\\1\\1",[caseless,global])),
-    <<"JiuiBBGK">> = iolist_to_binary(re:replace("AA","((((((((((a))))))))))\\10","JiuiBBGK",[caseless])),
-    <<"JiuiBBGK">> = iolist_to_binary(re:replace("AA","((((((((((a))))))))))\\10","JiuiBBGK",[caseless,global])),
-    <<"QIAAHNIAh">> = iolist_to_binary(re:replace("A","(((((((((a)))))))))","QI\\1&HNI\\1h",[caseless])),
-    <<"QIAAHNIAh">> = iolist_to_binary(re:replace("A","(((((((((a)))))))))","QI\\1&HNI\\1h",[caseless,global])),
+    <<"dEETFopE">> = iolist_to_binary(re:replace("EF","(a|b|c|d|e)f","dE\\1TFop\\1",[caseless])),
+    <<"dEETFopE">> = iolist_to_binary(re:replace("EF","(a|b|c|d|e)f","dE\\1TFop\\1",[caseless,global])),
+    <<"ABCDEFGwTiaRcRV">> = iolist_to_binary(re:replace("ABCDEFG","abcd*efg","&wTiaRcRV",[caseless])),
+    <<"ABCDEFGwTiaRcRV">> = iolist_to_binary(re:replace("ABCDEFG","abcd*efg","&wTiaRcRV",[caseless,global])),
+    <<"XDOQABITtABYABBBZ">> = iolist_to_binary(re:replace("XABYABBBZ","ab*","\\1DO\\1Q&ITt&",[caseless])),
+    <<"XDOQABITtABYDOQABBBITtABBBZ">> = iolist_to_binary(re:replace("XABYABBBZ","ab*","\\1DO\\1Q&ITt&",[caseless,global])),
+    <<"XSQSxbQRhSUBAYABBBZ">> = iolist_to_binary(re:replace("XAYABBBZ","ab*","SQSxbQRhSUBA",[caseless])),
+    <<"XSQSxbQRhSUBAYSQSxbQRhSUBAZ">> = iolist_to_binary(re:replace("XAYABBBZ","ab*","SQSxbQRhSUBA",[caseless,global])),
+    <<"ABKDx">> = iolist_to_binary(re:replace("ABCDE","(ab|cd)e","KDx",[caseless])),
+    <<"ABKDx">> = iolist_to_binary(re:replace("ABCDE","(ab|cd)e","KDx",[caseless,global])),
+    <<"HIJVFjoRUjDtvnALeSGQ">> = iolist_to_binary(re:replace("HIJ","[abhgefdc]ij","&VFjoRU\\1jDtvnALeSGQ",[caseless])),
+    <<"HIJVFjoRUjDtvnALeSGQ">> = iolist_to_binary(re:replace("HIJ","[abhgefdc]ij","&VFjoRU\\1jDtvnALeSGQ",[caseless,global])),
+    <<"ABCDE">> = iolist_to_binary(re:replace("ABCDE","^(ab|cd)e","&WvfQRkK\\1y\\1UA",[caseless])),
+    <<"ABCDE">> = iolist_to_binary(re:replace("ABCDE","^(ab|cd)e","&WvfQRkK\\1y\\1UA",[caseless,global])),
+    <<"ABCDjiaeNJKxe">> = iolist_to_binary(re:replace("ABCDEF","(abc|)ef","jiaeNJ\\1Kx\\1e",[caseless])),
+    <<"ABCDjiaeNJKxe">> = iolist_to_binary(re:replace("ABCDEF","(abc|)ef","jiaeNJ\\1Kx\\1e",[caseless,global])),
+    <<"AEVnwucBCD">> = iolist_to_binary(re:replace("ABCD","(a|b)c*d","EVnwuc&",[caseless])),
+    <<"AEVnwucBCD">> = iolist_to_binary(re:replace("ABCD","(a|b)c*d","EVnwuc&",[caseless,global])),
+    <<"aKTAABCLK">> = iolist_to_binary(re:replace("ABC","(ab|ab*)bc","aKT\\1&LK",[caseless])),
+    <<"aKTAABCLK">> = iolist_to_binary(re:replace("ABC","(ab|ab*)bc","aKT\\1&LK",[caseless,global])),
+    <<"RgGBBCwcmABCTgNL">> = iolist_to_binary(re:replace("ABC","a([bc]*)c*","RgGB\\1wcm&TgNL",[caseless])),
+    <<"RgGBBCwcmABCTgNL">> = iolist_to_binary(re:replace("ABC","a([bc]*)c*","RgGB\\1wcm&TgNL",[caseless,global])),
+    <<"TABCDwgABCDFBCOxEylU">> = iolist_to_binary(re:replace("ABCD","a([bc]*)(c*d)","T&wg&F\\1OxEylU",[caseless])),
+    <<"TABCDwgABCDFBCOxEylU">> = iolist_to_binary(re:replace("ABCD","a([bc]*)(c*d)","T&wg&F\\1OxEylU",[caseless,global])),
+    <<"BCABCDABCDLnABCD">> = iolist_to_binary(re:replace("ABCD","a([bc]+)(c*d)","\\1&&Ln&",[caseless])),
+    <<"BCABCDABCDLnABCD">> = iolist_to_binary(re:replace("ABCD","a([bc]+)(c*d)","\\1&&Ln&",[caseless,global])),
+    <<"sBlxWBNnoiUBABCDJBABCDrABCD">> = iolist_to_binary(re:replace("ABCD","a([bc]*)(c+d)","s\\1lxW\\1NnoiU\\1&J\\1&r&",[caseless])),
+    <<"sBlxWBNnoiUBABCDJBABCDrABCD">> = iolist_to_binary(re:replace("ABCD","a([bc]*)(c+d)","s\\1lxW\\1NnoiU\\1&J\\1&r&",[caseless,global])),
+    <<"vVEiRHOJegADCDCDEjCJbVaYo">> = iolist_to_binary(re:replace("ADCDCDE","a[bcd]*dcdcde","vVEiRHOJeg&j\\1CJbVaYo",[caseless])),
+    <<"vVEiRHOJegADCDCDEjCJbVaYo">> = iolist_to_binary(re:replace("ADCDCDE","a[bcd]*dcdcde","vVEiRHOJeg&j\\1CJbVaYo",[caseless,global])),
+    <<"GABtppsRPABRDSBHMkABCkQ">> = iolist_to_binary(re:replace("ABC","(ab|a)b*c","G\\1tppsRP\\1RDSBHMk&kQ",[caseless])),
+    <<"GABtppsRPABRDSBHMkABCkQ">> = iolist_to_binary(re:replace("ABC","(ab|a)b*c","G\\1tppsRP\\1RDSBHMk&kQ",[caseless,global])),
+    <<"ABClNPABCDSOUbWFhRtX">> = iolist_to_binary(re:replace("ABCD","((a)(b)c)(d)","\\1lNP\\1DSOUbWFhRtX",[caseless])),
+    <<"ABClNPABCDSOUbWFhRtX">> = iolist_to_binary(re:replace("ABCD","((a)(b)c)(d)","\\1lNP\\1DSOUbWFhRtX",[caseless,global])),
+    <<"bIKUALPHAALPHAjUq">> = iolist_to_binary(re:replace("ALPHA","[a-zA-Z_][a-zA-Z0-9_]*","bI\\1KU\\1&&jUq\\1",[caseless])),
+    <<"bIKUALPHAALPHAjUq">> = iolist_to_binary(re:replace("ALPHA","[a-zA-Z_][a-zA-Z0-9_]*","bI\\1KU\\1&&jUq\\1",[caseless,global])),
+    <<"AvBRBHf">> = iolist_to_binary(re:replace("ABH","^a(bc+|b[eh])g|.h$","vBR&f",[caseless])),
+    <<"AvBRBHf">> = iolist_to_binary(re:replace("ABH","^a(bc+|b[eh])g|.h$","vBR&f",[caseless,global])),
+    <<"EFFGZEFFGZsSfPHTpUXDPv">> = iolist_to_binary(re:replace("EFFGZ","(bc+d$|ef*g.|h?i(j|k))","\\1\\1sSfPHTpUXDPv",[caseless])),
+    <<"EFFGZEFFGZsSfPHTpUXDPv">> = iolist_to_binary(re:replace("EFFGZ","(bc+d$|ef*g.|h?i(j|k))","\\1\\1sSfPHTpUXDPv",[caseless,global])),
+    <<"srIJtWRpRn">> = iolist_to_binary(re:replace("IJ","(bc+d$|ef*g.|h?i(j|k))","sr\\1tWRpRn",[caseless])),
+    <<"srIJtWRpRn">> = iolist_to_binary(re:replace("IJ","(bc+d$|ef*g.|h?i(j|k))","sr\\1tWRpRn",[caseless,global])),
+    <<"RpLuYECEFFGZ">> = iolist_to_binary(re:replace("REFFGZ","(bc+d$|ef*g.|h?i(j|k))","pLuYEC&",[caseless])),
+    <<"RpLuYECEFFGZ">> = iolist_to_binary(re:replace("REFFGZ","(bc+d$|ef*g.|h?i(j|k))","pLuYEC&",[caseless,global])),
+    <<"ADCDCDE">> = iolist_to_binary(re:replace("ADCDCDE","(bc+d$|ef*g.|h?i(j|k))","G&&xBDc\\1n&O\\1\\1uAX\\1\\1\\1\\1",[caseless])),
+    <<"ADCDCDE">> = iolist_to_binary(re:replace("ADCDCDE","(bc+d$|ef*g.|h?i(j|k))","G&&xBDc\\1n&O\\1\\1uAX\\1\\1\\1\\1",[caseless,global])),
+    <<"EFFG">> = iolist_to_binary(re:replace("EFFG","(bc+d$|ef*g.|h?i(j|k))","JiuiBBGK",[caseless])),
+    <<"EFFG">> = iolist_to_binary(re:replace("EFFG","(bc+d$|ef*g.|h?i(j|k))","JiuiBBGK",[caseless,global])),
+    <<"BCDD">> = iolist_to_binary(re:replace("BCDD","(bc+d$|ef*g.|h?i(j|k))","QI\\1&HNI\\1h",[caseless])),
+    <<"BCDD">> = iolist_to_binary(re:replace("BCDD","(bc+d$|ef*g.|h?i(j|k))","QI\\1&HNI\\1h",[caseless,global])),
     ok.
 run24() ->
-    <<"Ny">> = iolist_to_binary(re:replace("A","(?:(?:(?:(?:(?:(?:(?:(?:(?:(a))))))))))","Ny",[caseless])),
-    <<"Ny">> = iolist_to_binary(re:replace("A","(?:(?:(?:(?:(?:(?:(?:(?:(?:(a))))))))))","Ny",[caseless,global])),
-    <<"hYR">> = iolist_to_binary(re:replace("C","(?:(?:(?:(?:(?:(?:(?:(?:(?:(a|b|c))))))))))","hYR",[caseless])),
-    <<"hYR">> = iolist_to_binary(re:replace("C","(?:(?:(?:(?:(?:(?:(?:(?:(?:(a|b|c))))))))))","hYR",[caseless,global])),
-    <<"AA">> = iolist_to_binary(re:replace("AA","multiple words of text","L\\1&UlMoC\\1Aoluf",[caseless])),
-    <<"AA">> = iolist_to_binary(re:replace("AA","multiple words of text","L\\1&UlMoC\\1Aoluf",[caseless,global])),
-    <<"UH-UH">> = iolist_to_binary(re:replace("UH-UH","multiple words of text","b&qrDkwiki\\1",[caseless])),
-    <<"UH-UH">> = iolist_to_binary(re:replace("UH-UH","multiple words of text","b&qrDkwiki\\1",[caseless,global])),
-    <<"VrVOACMULTIPLE WORDSHnOs, YEAH">> = iolist_to_binary(re:replace("MULTIPLE WORDS, YEAH","multiple words","VrVOAC&HnO\\1s\\1",[caseless])),
-    <<"VrVOACMULTIPLE WORDSHnOs, YEAH">> = iolist_to_binary(re:replace("MULTIPLE WORDS, YEAH","multiple words","VrVOAC&HnO\\1s\\1",[caseless,global])),
-    <<"KBrNXAjqQYABCDERvj">> = iolist_to_binary(re:replace("ABCDE","(.*)c(.*)","KBrNXAjqQY&Rvj",[caseless])),
-    <<"KBrNXAjqQYABCDERvj">> = iolist_to_binary(re:replace("ABCDE","(.*)c(.*)","KBrNXAjqQY&Rvj",[caseless,global])),
-    <<"o">> = iolist_to_binary(re:replace("(A, B)","\\((.*), (.*)\\)","o",[caseless])),
-    <<"o">> = iolist_to_binary(re:replace("(A, B)","\\((.*), (.*)\\)","o",[caseless,global])),
-    <<"mXgwSISPpB">> = iolist_to_binary(re:replace("ABCD","abcd","mXgw\\1S\\1ISPpB",[caseless])),
-    <<"mXgwSISPpB">> = iolist_to_binary(re:replace("ABCD","abcd","mXgw\\1S\\1ISPpB",[caseless,global])),
-    <<"uJpSxOBN">> = iolist_to_binary(re:replace("ABCD","a(bc)d","uJpSxOBN",[caseless])),
-    <<"uJpSxOBN">> = iolist_to_binary(re:replace("ABCD","a(bc)d","uJpSxOBN",[caseless,global])),
-    <<"aDDOV">> = iolist_to_binary(re:replace("AC","a[-]?c","aDD\\1OV",[caseless])),
-    <<"aDDOV">> = iolist_to_binary(re:replace("AC","a[-]?c","aDD\\1OV",[caseless,global])),
-    <<"sSDdKNABCSAhXJRABCXwp">> = iolist_to_binary(re:replace("ABCABC","(abc)\\1","sSDdKN\\1SAhXJR\\1Xwp",[caseless])),
-    <<"sSDdKNABCSAhXJRABCXwp">> = iolist_to_binary(re:replace("ABCABC","(abc)\\1","sSDdKN\\1SAhXJR\\1Xwp",[caseless,global])),
-    <<"HHwQpABCABCUNd">> = iolist_to_binary(re:replace("ABCABC","([a-c]*)\\1","HHwQp\\1\\1UNd",[caseless])),
-    <<"HHwQpABCABCUNdHHwQpUNd">> = iolist_to_binary(re:replace("ABCABC","([a-c]*)\\1","HHwQp\\1\\1UNd",[caseless,global])),
-    <<"abkvDX">> = iolist_to_binary(re:replace("abad","a(?!b).","kv\\1DX",[])),
-    <<"abkvDX">> = iolist_to_binary(re:replace("abad","a(?!b).","kv\\1DX",[global])),
-    <<"abodmopDrikjpbadadV">> = iolist_to_binary(re:replace("abad","a(?=d).","odmop\\1Drikjpb\\1&&V",[])),
-    <<"abodmopDrikjpbadadV">> = iolist_to_binary(re:replace("abad","a(?=d).","odmop\\1Drikjpb\\1&&V",[global])),
-    <<"abJBuUN">> = iolist_to_binary(re:replace("abad","a(?=c|d).","JBuU\\1N",[])),
-    <<"abJBuUN">> = iolist_to_binary(re:replace("abad","a(?=c|d).","JBuU\\1N",[global])),
-    <<"GeTeeVpRCp">> = iolist_to_binary(re:replace("ace","a(?:b|c|d)(.)","G\\1T\\1\\1VpRCp",[])),
-    <<"GeTeeVpRCp">> = iolist_to_binary(re:replace("ace","a(?:b|c|d)(.)","G\\1T\\1\\1VpRCp",[global])),
-    <<"aqNacefRFeIAeWeace">> = iolist_to_binary(re:replace("ace","a(?:b|c|d)*(.)","aqN&fRF\\1IA\\1We&",[])),
-    <<"aqNacefRFeIAeWeace">> = iolist_to_binary(re:replace("ace","a(?:b|c|d)*(.)","aqN&fRF\\1IA\\1We&",[global])),
-    <<"oTedfhkqWsMVtaceL">> = iolist_to_binary(re:replace("ace","a(?:b|c|d)+?(.)","oT\\1dfhkqWsMVt&L",[])),
-    <<"oTedfhkqWsMVtaceL">> = iolist_to_binary(re:replace("ace","a(?:b|c|d)+?(.)","oT\\1dfhkqWsMVt&L",[global])),
-    <<"DqacdfacdxNUnXDDAUbcdbe">> = iolist_to_binary(re:replace("acdbcdbe","a(?:b|c|d)+?(.)","Dq&f&xNUnXDDAU",[])),
-    <<"DqacdfacdxNUnXDDAUbcdbe">> = iolist_to_binary(re:replace("acdbcdbe","a(?:b|c|d)+?(.)","Dq&f&xNUnXDDAU",[global])),
-    <<"qtqCYek">> = iolist_to_binary(re:replace("acdbcdbe","a(?:b|c|d)+(.)","qtqCY\\1k",[])),
-    <<"qtqCYek">> = iolist_to_binary(re:replace("acdbcdbe","a(?:b|c|d)+(.)","qtqCY\\1k",[global])),
-    <<"JuBrHsMekXgTKSLacdbcdbe">> = iolist_to_binary(re:replace("acdbcdbe","a(?:b|c|d){2}(.)","JuBrHsMekXgTKSL&",[])),
-    <<"JuBrHsMekXgTKSLacdbcdbe">> = iolist_to_binary(re:replace("acdbcdbe","a(?:b|c|d){2}(.)","JuBrHsMekXgTKSL&",[global])),
+    <<"Ny">> = iolist_to_binary(re:replace("A","((((((((((a))))))))))","Ny",[caseless])),
+    <<"Ny">> = iolist_to_binary(re:replace("A","((((((((((a))))))))))","Ny",[caseless,global])),
+    <<"hYR">> = iolist_to_binary(re:replace("AA","((((((((((a))))))))))\\10","hYR",[caseless])),
+    <<"hYR">> = iolist_to_binary(re:replace("AA","((((((((((a))))))))))\\10","hYR",[caseless,global])),
+    <<"LAAUlMoCAAoluf">> = iolist_to_binary(re:replace("A","(((((((((a)))))))))","L\\1&UlMoC\\1Aoluf",[caseless])),
+    <<"LAAUlMoCAAoluf">> = iolist_to_binary(re:replace("A","(((((((((a)))))))))","L\\1&UlMoC\\1Aoluf",[caseless,global])),
+    <<"bAqrDkwikiA">> = iolist_to_binary(re:replace("A","(?:(?:(?:(?:(?:(?:(?:(?:(?:(a))))))))))","b&qrDkwiki\\1",[caseless])),
+    <<"bAqrDkwikiA">> = iolist_to_binary(re:replace("A","(?:(?:(?:(?:(?:(?:(?:(?:(?:(a))))))))))","b&qrDkwiki\\1",[caseless,global])),
+    <<"VrVOACCHnOCsC">> = iolist_to_binary(re:replace("C","(?:(?:(?:(?:(?:(?:(?:(?:(?:(a|b|c))))))))))","VrVOAC&HnO\\1s\\1",[caseless])),
+    <<"VrVOACCHnOCsC">> = iolist_to_binary(re:replace("C","(?:(?:(?:(?:(?:(?:(?:(?:(?:(a|b|c))))))))))","VrVOAC&HnO\\1s\\1",[caseless,global])),
+    <<"AA">> = iolist_to_binary(re:replace("AA","multiple words of text","KBrNXAjqQY&Rvj",[caseless])),
+    <<"AA">> = iolist_to_binary(re:replace("AA","multiple words of text","KBrNXAjqQY&Rvj",[caseless,global])),
+    <<"UH-UH">> = iolist_to_binary(re:replace("UH-UH","multiple words of text","o",[caseless])),
+    <<"UH-UH">> = iolist_to_binary(re:replace("UH-UH","multiple words of text","o",[caseless,global])),
+    <<"mXgwSISPpB, YEAH">> = iolist_to_binary(re:replace("MULTIPLE WORDS, YEAH","multiple words","mXgw\\1S\\1ISPpB",[caseless])),
+    <<"mXgwSISPpB, YEAH">> = iolist_to_binary(re:replace("MULTIPLE WORDS, YEAH","multiple words","mXgw\\1S\\1ISPpB",[caseless,global])),
+    <<"uJpSxOBN">> = iolist_to_binary(re:replace("ABCDE","(.*)c(.*)","uJpSxOBN",[caseless])),
+    <<"uJpSxOBN">> = iolist_to_binary(re:replace("ABCDE","(.*)c(.*)","uJpSxOBN",[caseless,global])),
+    <<"aDDAOV">> = iolist_to_binary(re:replace("(A, B)","\\((.*), (.*)\\)","aDD\\1OV",[caseless])),
+    <<"aDDAOV">> = iolist_to_binary(re:replace("(A, B)","\\((.*), (.*)\\)","aDD\\1OV",[caseless,global])),
+    <<"sSDdKNSAhXJRXwp">> = iolist_to_binary(re:replace("ABCD","abcd","sSDdKN\\1SAhXJR\\1Xwp",[caseless])),
+    <<"sSDdKNSAhXJRXwp">> = iolist_to_binary(re:replace("ABCD","abcd","sSDdKN\\1SAhXJR\\1Xwp",[caseless,global])),
+    <<"HHwQpBCBCUNd">> = iolist_to_binary(re:replace("ABCD","a(bc)d","HHwQp\\1\\1UNd",[caseless])),
+    <<"HHwQpBCBCUNd">> = iolist_to_binary(re:replace("ABCD","a(bc)d","HHwQp\\1\\1UNd",[caseless,global])),
+    <<"kvDX">> = iolist_to_binary(re:replace("AC","a[-]?c","kv\\1DX",[caseless])),
+    <<"kvDX">> = iolist_to_binary(re:replace("AC","a[-]?c","kv\\1DX",[caseless,global])),
+    <<"odmopABCDrikjpbABCABCABCABCABCV">> = iolist_to_binary(re:replace("ABCABC","(abc)\\1","odmop\\1Drikjpb\\1&&V",[caseless])),
+    <<"odmopABCDrikjpbABCABCABCABCABCV">> = iolist_to_binary(re:replace("ABCABC","(abc)\\1","odmop\\1Drikjpb\\1&&V",[caseless,global])),
+    <<"JBuUABCN">> = iolist_to_binary(re:replace("ABCABC","([a-c]*)\\1","JBuU\\1N",[caseless])),
+    <<"JBuUABCNJBuUN">> = iolist_to_binary(re:replace("ABCABC","([a-c]*)\\1","JBuU\\1N",[caseless,global])),
+    <<"abGTVpRCp">> = iolist_to_binary(re:replace("abad","a(?!b).","G\\1T\\1\\1VpRCp",[])),
+    <<"abGTVpRCp">> = iolist_to_binary(re:replace("abad","a(?!b).","G\\1T\\1\\1VpRCp",[global])),
+    <<"abaqNadfRFIAWead">> = iolist_to_binary(re:replace("abad","a(?=d).","aqN&fRF\\1IA\\1We&",[])),
+    <<"abaqNadfRFIAWead">> = iolist_to_binary(re:replace("abad","a(?=d).","aqN&fRF\\1IA\\1We&",[global])),
+    <<"aboTdfhkqWsMVtadL">> = iolist_to_binary(re:replace("abad","a(?=c|d).","oT\\1dfhkqWsMVt&L",[])),
+    <<"aboTdfhkqWsMVtadL">> = iolist_to_binary(re:replace("abad","a(?=c|d).","oT\\1dfhkqWsMVt&L",[global])),
+    <<"DqacefacexNUnXDDAU">> = iolist_to_binary(re:replace("ace","a(?:b|c|d)(.)","Dq&f&xNUnXDDAU",[])),
+    <<"DqacefacexNUnXDDAU">> = iolist_to_binary(re:replace("ace","a(?:b|c|d)(.)","Dq&f&xNUnXDDAU",[global])),
+    <<"qtqCYek">> = iolist_to_binary(re:replace("ace","a(?:b|c|d)*(.)","qtqCY\\1k",[])),
+    <<"qtqCYek">> = iolist_to_binary(re:replace("ace","a(?:b|c|d)*(.)","qtqCY\\1k",[global])),
     ok.
 run25() ->
-    <<"bDaQVacdbcdbKxbbbHbacdbcdbtbhXTme">> = iolist_to_binary(re:replace("acdbcdbe","a(?:b|c|d){4,5}(.)","\\1DaQV&Kxb\\1\\1H\\1&t\\1hXTm",[])),
-    <<"bDaQVacdbcdbKxbbbHbacdbcdbtbhXTme">> = iolist_to_binary(re:replace("acdbcdbe","a(?:b|c|d){4,5}(.)","\\1DaQV&Kxb\\1\\1H\\1&t\\1hXTm",[global])),
-    <<"mbe">> = iolist_to_binary(re:replace("acdbcdbe","a(?:b|c|d){4,5}?(.)","m",[])),
-    <<"mbe">> = iolist_to_binary(re:replace("acdbcdbe","a(?:b|c|d){4,5}?(.)","m",[global])),
-    <<"jeacdbcdbekGadYacdbcdbeFefTMe">> = iolist_to_binary(re:replace("acdbcdbe","a(?:b|c|d){6,7}(.)","j\\1&kGadY&F\\1fTM\\1",[])),
-    <<"jeacdbcdbekGadYacdbcdbeFefTMe">> = iolist_to_binary(re:replace("acdbcdbe","a(?:b|c|d){6,7}(.)","j\\1&kGadY&F\\1fTM\\1",[global])),
-    <<"WEPrQacdbcdberDacdbcdbeusuieDeVY">> = iolist_to_binary(re:replace("acdbcdbe","a(?:b|c|d){6,7}?(.)","WEPrQ&rD&usui\\1D\\1VY",[])),
-    <<"WEPrQacdbcdberDacdbcdbeusuieDeVY">> = iolist_to_binary(re:replace("acdbcdbe","a(?:b|c|d){6,7}?(.)","WEPrQ&rD&usui\\1D\\1VY",[global])),
-    <<"acdbcdbewQe">> = iolist_to_binary(re:replace("acdbcdbe","a(?:b|c|d){5,6}(.)","&wQ\\1",[])),
-    <<"acdbcdbewQe">> = iolist_to_binary(re:replace("acdbcdbe","a(?:b|c|d){5,6}(.)","&wQ\\1",[global])),
-    <<"SLsbe">> = iolist_to_binary(re:replace("acdbcdbe","a(?:b|c|d){5,6}?(.)","SLs\\1",[])),
-    <<"SLsbe">> = iolist_to_binary(re:replace("acdbcdbe","a(?:b|c|d){5,6}?(.)","SLs\\1",[global])),
-    <<"CReacdbcdbeKacdbcdbeQICTecCoH">> = iolist_to_binary(re:replace("acdbcdbe","a(?:b|c|d){5,7}(.)","CRe&K&QICT\\1cCoH",[])),
-    <<"CReacdbcdbeKacdbcdbeQICTecCoH">> = iolist_to_binary(re:replace("acdbcdbe","a(?:b|c|d){5,7}(.)","CRe&K&QICT\\1cCoH",[global])),
-    <<"hsybSbFJkfGRGe">> = iolist_to_binary(re:replace("acdbcdbe","a(?:b|c|d){5,7}?(.)","hsy\\1S\\1FJkfGRG",[])),
-    <<"hsybSbFJkfGRGe">> = iolist_to_binary(re:replace("acdbcdbe","a(?:b|c|d){5,7}?(.)","hsy\\1S\\1FJkfGRG",[global])),
-    <<"cOu">> = iolist_to_binary(re:replace("ace","a(?:b|(c|e){1,2}?|d)+?(.)","\\1Ou",[])),
-    <<"cOu">> = iolist_to_binary(re:replace("ace","a(?:b|(c|e){1,2}?|d)+?(.)","\\1Ou",[global])),
-    <<"WCvfBkLAB">> = iolist_to_binary(re:replace("AB","^(.+)?B","WCvfBkL&",[])),
-    <<"WCvfBkLAB">> = iolist_to_binary(re:replace("AB","^(.+)?B","WCvfBkL&",[global])),
-    <<".NBWgjx.FGd..w">> = iolist_to_binary(re:replace(".","^([^a-z])|(\\^)$","\\1NBWgjx&FGd\\1&w",[])),
-    <<".NBWgjx.FGd..w">> = iolist_to_binary(re:replace(".","^([^a-z])|(\\^)$","\\1NBWgjx&FGd\\1&w",[global])),
-    <<"<&xOUT">> = iolist_to_binary(re:replace("<&OUT","^[<>]&","&x\\1",[])),
-    <<"<&xOUT">> = iolist_to_binary(re:replace("<&OUT","^[<>]&","&x\\1",[global])),
-    <<"huMWbaaaasRaEC">> = iolist_to_binary(re:replace("aaaaaaaaaa","^(a\\1?){4}$","huMWb\\1sRaEC",[])),
-    <<"huMWbaaaasRaEC">> = iolist_to_binary(re:replace("aaaaaaaaaa","^(a\\1?){4}$","huMWb\\1sRaEC",[global])),
-    <<"AB">> = iolist_to_binary(re:replace("AB","^(a\\1?){4}$","iex&&NCH&vuWaLb",[])),
-    <<"AB">> = iolist_to_binary(re:replace("AB","^(a\\1?){4}$","iex&&NCH&vuWaLb",[global])),
-    <<"aaaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaaa","^(a\\1?){4}$","yJihtas&O&R&I",[])),
-    <<"aaaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaaa","^(a\\1?){4}$","yJihtas&O&R&I",[global])),
-    <<"aaaaaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaaaaa","^(a\\1?){4}$","I\\1Hjk",[])),
-    <<"aaaaaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaaaaa","^(a\\1?){4}$","I\\1Hjk",[global])),
-    <<"EaaaamaaaavFGoBaaaaaaaaaaaaaaBPRaaaaFOhi">> = iolist_to_binary(re:replace("aaaaaaaaaa","^(a(?(1)\\1)){4}$","E\\1m\\1vFGoB\\1&BPR\\1FOhi",[])),
-    <<"EaaaamaaaavFGoBaaaaaaaaaaaaaaBPRaaaaFOhi">> = iolist_to_binary(re:replace("aaaaaaaaaa","^(a(?(1)\\1)){4}$","E\\1m\\1vFGoB\\1&BPR\\1FOhi",[global])),
-    <<"aaaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaaa","^(a(?(1)\\1)){4}$","NnSvRd&pb",[])),
-    <<"aaaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaaa","^(a(?(1)\\1)){4}$","NnSvRd&pb",[global])),
-    <<"aaaaaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaaaaa","^(a(?(1)\\1)){4}$","uBuYm&cqWpqxe",[])),
-    <<"aaaaaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaaaaa","^(a(?(1)\\1)){4}$","uBuYm&cqWpqxe",[global])),
-    <<"aEOTS">> = iolist_to_binary(re:replace("ab","(?<=a)b","E\\1OTS\\1\\1",[])),
-    <<"aEOTS">> = iolist_to_binary(re:replace("ab","(?<=a)b","E\\1OTS\\1\\1",[global])),
-    <<"cb">> = iolist_to_binary(re:replace("cb","(?<=a)b","McBMqqECo\\1AWh\\1",[])),
-    <<"cb">> = iolist_to_binary(re:replace("cb","(?<=a)b","McBMqqECo\\1AWh\\1",[global])),
-    <<"b">> = iolist_to_binary(re:replace("b","(?<=a)b","qj&\\1Vgmcpc\\1jpNX",[])),
-    <<"b">> = iolist_to_binary(re:replace("b","(?<=a)b","qj&\\1Vgmcpc\\1jpNX",[global])),
-    <<"abybdyvLRsRMbihr">> = iolist_to_binary(re:replace("ab","(?<!c)b","&y&dy\\1vLRsRM&ihr",[])),
-    <<"abybdyvLRsRMbihr">> = iolist_to_binary(re:replace("ab","(?<!c)b","&y&dy\\1vLRsRM&ihr",[global])),
-    <<"fgcwoIpb">> = iolist_to_binary(re:replace("b","(?<!c)b","fgcwoIp&",[])),
-    <<"fgcwoIpb">> = iolist_to_binary(re:replace("b","(?<!c)b","fgcwoIp&",[global])),
-    <<"WoWCFrcHpLbpDF">> = iolist_to_binary(re:replace("b","(?<!c)b","WoW\\1CFrcHpL&p\\1DF",[])),
-    <<"WoWCFrcHpLbpDF">> = iolist_to_binary(re:replace("b","(?<!c)b","WoW\\1CFrcHpL&p\\1DF",[global])),
-    <<"dHtGrvxuNababjVILFaba">> = iolist_to_binary(re:replace("aba","(?:..)*a","\\1dHtGrvxuN&bjVI\\1LF&",[])),
-    <<"dHtGrvxuNababjVILFaba">> = iolist_to_binary(re:replace("aba","(?:..)*a","\\1dHtGrvxuN&bjVI\\1LF&",[global])),
-    <<"FMCYajfPDpaePPmkBaNKba">> = iolist_to_binary(re:replace("aba","(?:..)*?a","FMCY&jfPDp&ePPmkBaNK",[])),
-    <<"FMCYajfPDpaePPmkBaNKbFMCYajfPDpaePPmkBaNK">> = iolist_to_binary(re:replace("aba","(?:..)*?a","FMCY&jfPDp&ePPmkBaNK",[global])),
-    <<"yKc">> = iolist_to_binary(re:replace("abc","^(?:b|a(?=(.)))*\\1","yK",[])),
-    <<"yKc">> = iolist_to_binary(re:replace("abc","^(?:b|a(?=(.)))*\\1","yK",[global])),
-    <<"yBxxcabc">> = iolist_to_binary(re:replace("abc","^(){3,5}","y\\1Bxx\\1c",[])),
-    <<"yBxxcabc">> = iolist_to_binary(re:replace("abc","^(){3,5}","y\\1Bxx\\1c",[global])),
+    <<"JuBrHsMekXgTKSLace">> = iolist_to_binary(re:replace("ace","a(?:b|c|d)+?(.)","JuBrHsMekXgTKSL&",[])),
+    <<"JuBrHsMekXgTKSLace">> = iolist_to_binary(re:replace("ace","a(?:b|c|d)+?(.)","JuBrHsMekXgTKSL&",[global])),
+    <<"dDaQVacdKxbddHdacdtdhXTmbcdbe">> = iolist_to_binary(re:replace("acdbcdbe","a(?:b|c|d)+?(.)","\\1DaQV&Kxb\\1\\1H\\1&t\\1hXTm",[])),
+    <<"dDaQVacdKxbddHdacdtdhXTmbcdbe">> = iolist_to_binary(re:replace("acdbcdbe","a(?:b|c|d)+?(.)","\\1DaQV&Kxb\\1\\1H\\1&t\\1hXTm",[global])),
+    <<"m">> = iolist_to_binary(re:replace("acdbcdbe","a(?:b|c|d)+(.)","m",[])),
+    <<"m">> = iolist_to_binary(re:replace("acdbcdbe","a(?:b|c|d)+(.)","m",[global])),
+    <<"jbacdbkGadYacdbFbfTMbcdbe">> = iolist_to_binary(re:replace("acdbcdbe","a(?:b|c|d){2}(.)","j\\1&kGadY&F\\1fTM\\1",[])),
+    <<"jbacdbkGadYacdbFbfTMbcdbe">> = iolist_to_binary(re:replace("acdbcdbe","a(?:b|c|d){2}(.)","j\\1&kGadY&F\\1fTM\\1",[global])),
+    <<"WEPrQacdbcdbrDacdbcdbusuibDbVYe">> = iolist_to_binary(re:replace("acdbcdbe","a(?:b|c|d){4,5}(.)","WEPrQ&rD&usui\\1D\\1VY",[])),
+    <<"WEPrQacdbcdbrDacdbcdbusuibDbVYe">> = iolist_to_binary(re:replace("acdbcdbe","a(?:b|c|d){4,5}(.)","WEPrQ&rD&usui\\1D\\1VY",[global])),
+    <<"acdbcdwQdbe">> = iolist_to_binary(re:replace("acdbcdbe","a(?:b|c|d){4,5}?(.)","&wQ\\1",[])),
+    <<"acdbcdwQdbe">> = iolist_to_binary(re:replace("acdbcdbe","a(?:b|c|d){4,5}?(.)","&wQ\\1",[global])),
+    <<"SLse">> = iolist_to_binary(re:replace("acdbcdbe","a(?:b|c|d){6,7}(.)","SLs\\1",[])),
+    <<"SLse">> = iolist_to_binary(re:replace("acdbcdbe","a(?:b|c|d){6,7}(.)","SLs\\1",[global])),
+    <<"CReacdbcdbeKacdbcdbeQICTecCoH">> = iolist_to_binary(re:replace("acdbcdbe","a(?:b|c|d){6,7}?(.)","CRe&K&QICT\\1cCoH",[])),
+    <<"CReacdbcdbeKacdbcdbeQICTecCoH">> = iolist_to_binary(re:replace("acdbcdbe","a(?:b|c|d){6,7}?(.)","CRe&K&QICT\\1cCoH",[global])),
+    <<"hsyeSeFJkfGRG">> = iolist_to_binary(re:replace("acdbcdbe","a(?:b|c|d){5,6}(.)","hsy\\1S\\1FJkfGRG",[])),
+    <<"hsyeSeFJkfGRG">> = iolist_to_binary(re:replace("acdbcdbe","a(?:b|c|d){5,6}(.)","hsy\\1S\\1FJkfGRG",[global])),
+    <<"bOue">> = iolist_to_binary(re:replace("acdbcdbe","a(?:b|c|d){5,6}?(.)","\\1Ou",[])),
+    <<"bOue">> = iolist_to_binary(re:replace("acdbcdbe","a(?:b|c|d){5,6}?(.)","\\1Ou",[global])),
+    <<"WCvfBkLacdbcdbe">> = iolist_to_binary(re:replace("acdbcdbe","a(?:b|c|d){5,7}(.)","WCvfBkL&",[])),
+    <<"WCvfBkLacdbcdbe">> = iolist_to_binary(re:replace("acdbcdbe","a(?:b|c|d){5,7}(.)","WCvfBkL&",[global])),
+    <<"bNBWgjxacdbcdbFGdbacdbcdbwe">> = iolist_to_binary(re:replace("acdbcdbe","a(?:b|c|d){5,7}?(.)","\\1NBWgjx&FGd\\1&w",[])),
+    <<"bNBWgjxacdbcdbFGdbacdbcdbwe">> = iolist_to_binary(re:replace("acdbcdbe","a(?:b|c|d){5,7}?(.)","\\1NBWgjx&FGd\\1&w",[global])),
+    <<"acexc">> = iolist_to_binary(re:replace("ace","a(?:b|(c|e){1,2}?|d)+?(.)","&x\\1",[])),
+    <<"acexc">> = iolist_to_binary(re:replace("ace","a(?:b|(c|e){1,2}?|d)+?(.)","&x\\1",[global])),
+    <<"huMWbAsRaEC">> = iolist_to_binary(re:replace("AB","^(.+)?B","huMWb\\1sRaEC",[])),
+    <<"huMWbAsRaEC">> = iolist_to_binary(re:replace("AB","^(.+)?B","huMWb\\1sRaEC",[global])),
+    <<"iex..NCH.vuWaLb">> = iolist_to_binary(re:replace(".","^([^a-z])|(\\^)$","iex&&NCH&vuWaLb",[])),
+    <<"iex..NCH.vuWaLb">> = iolist_to_binary(re:replace(".","^([^a-z])|(\\^)$","iex&&NCH&vuWaLb",[global])),
+    <<"yJihtas<&O<&R<&IOUT">> = iolist_to_binary(re:replace("<&OUT","^[<>]&","yJihtas&O&R&I",[])),
+    <<"yJihtas<&O<&R<&IOUT">> = iolist_to_binary(re:replace("<&OUT","^[<>]&","yJihtas&O&R&I",[global])),
+    <<"IaaaaHjk">> = iolist_to_binary(re:replace("aaaaaaaaaa","^(a\\1?){4}$","I\\1Hjk",[])),
+    <<"IaaaaHjk">> = iolist_to_binary(re:replace("aaaaaaaaaa","^(a\\1?){4}$","I\\1Hjk",[global])),
+    <<"AB">> = iolist_to_binary(re:replace("AB","^(a\\1?){4}$","E\\1m\\1vFGoB\\1&BPR\\1FOhi",[])),
+    <<"AB">> = iolist_to_binary(re:replace("AB","^(a\\1?){4}$","E\\1m\\1vFGoB\\1&BPR\\1FOhi",[global])),
+    <<"aaaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaaa","^(a\\1?){4}$","NnSvRd&pb",[])),
+    <<"aaaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaaa","^(a\\1?){4}$","NnSvRd&pb",[global])),
+    <<"aaaaaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaaaaa","^(a\\1?){4}$","uBuYm&cqWpqxe",[])),
+    <<"aaaaaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaaaaa","^(a\\1?){4}$","uBuYm&cqWpqxe",[global])),
+    <<"EaaaaOTSaaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaaaa","^(a(?(1)\\1)){4}$","E\\1OTS\\1\\1",[])),
+    <<"EaaaaOTSaaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaaaa","^(a(?(1)\\1)){4}$","E\\1OTS\\1\\1",[global])),
+    <<"aaaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaaa","^(a(?(1)\\1)){4}$","McBMqqECo\\1AWh\\1",[])),
+    <<"aaaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaaa","^(a(?(1)\\1)){4}$","McBMqqECo\\1AWh\\1",[global])),
+    <<"aaaaaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaaaaa","^(a(?(1)\\1)){4}$","qj&\\1Vgmcpc\\1jpNX",[])),
+    <<"aaaaaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaaaaa","^(a(?(1)\\1)){4}$","qj&\\1Vgmcpc\\1jpNX",[global])),
+    <<"abybdyvLRsRMbihr">> = iolist_to_binary(re:replace("ab","(?<=a)b","&y&dy\\1vLRsRM&ihr",[])),
+    <<"abybdyvLRsRMbihr">> = iolist_to_binary(re:replace("ab","(?<=a)b","&y&dy\\1vLRsRM&ihr",[global])),
+    <<"cb">> = iolist_to_binary(re:replace("cb","(?<=a)b","fgcwoIp&",[])),
+    <<"cb">> = iolist_to_binary(re:replace("cb","(?<=a)b","fgcwoIp&",[global])),
+    <<"b">> = iolist_to_binary(re:replace("b","(?<=a)b","WoW\\1CFrcHpL&p\\1DF",[])),
+    <<"b">> = iolist_to_binary(re:replace("b","(?<=a)b","WoW\\1CFrcHpL&p\\1DF",[global])),
+    <<"adHtGrvxuNbbjVILFb">> = iolist_to_binary(re:replace("ab","(?<!c)b","\\1dHtGrvxuN&bjVI\\1LF&",[])),
+    <<"adHtGrvxuNbbjVILFb">> = iolist_to_binary(re:replace("ab","(?<!c)b","\\1dHtGrvxuN&bjVI\\1LF&",[global])),
+    <<"FMCYbjfPDpbePPmkBaNK">> = iolist_to_binary(re:replace("b","(?<!c)b","FMCY&jfPDp&ePPmkBaNK",[])),
+    <<"FMCYbjfPDpbePPmkBaNK">> = iolist_to_binary(re:replace("b","(?<!c)b","FMCY&jfPDp&ePPmkBaNK",[global])),
+    <<"yK">> = iolist_to_binary(re:replace("b","(?<!c)b","yK",[])),
+    <<"yK">> = iolist_to_binary(re:replace("b","(?<!c)b","yK",[global])),
+    <<"yBxxc">> = iolist_to_binary(re:replace("aba","(?:..)*a","y\\1Bxx\\1c",[])),
+    <<"yBxxc">> = iolist_to_binary(re:replace("aba","(?:..)*a","y\\1Bxx\\1c",[global])),
     ok.
 run26() ->
-    <<"aaxea">> = iolist_to_binary(re:replace("aax","^(a+)*ax","&e\\1",[])),
-    <<"aaxea">> = iolist_to_binary(re:replace("aax","^(a+)*ax","&e\\1",[global])),
-    <<"waIDivFpmRD">> = iolist_to_binary(re:replace("aax","^((a|b)+)*ax","w\\1IDivFpmRD",[])),
-    <<"waIDivFpmRD">> = iolist_to_binary(re:replace("aax","^((a|b)+)*ax","w\\1IDivFpmRD",[global])),
-    <<"mjJOdaaxVwUnuEHfFUblaaxE">> = iolist_to_binary(re:replace("aax","^((a|bc)+)*ax","mjJOd&VwUnuEHfFUbl&E",[])),
-    <<"mjJOdaaxVwUnuEHfFUblaaxE">> = iolist_to_binary(re:replace("aax","^((a|bc)+)*ax","mjJOd&VwUnuEHfFUbl&E",[global])),
-    <<"caqlXiaaCabtGMyJr">> = iolist_to_binary(re:replace("cab","(a|x)*ab","aqlXia\\1aC\\1&tGMyJr",[])),
-    <<"caqlXiaaCabtGMyJr">> = iolist_to_binary(re:replace("cab","(a|x)*ab","aqlXia\\1aC\\1&tGMyJr",[global])),
-    <<"cQsHTFT">> = iolist_to_binary(re:replace("cab","(a)*ab","Q\\1sHTFT",[])),
-    <<"cQsHTFT">> = iolist_to_binary(re:replace("cab","(a)*ab","Q\\1sHTFT",[global])),
-    <<"UdwHeAkxpFabTJI">> = iolist_to_binary(re:replace("ab","(?:(?i)a)b","\\1UdwHeAk\\1xpF&\\1T\\1JI",[])),
-    <<"UdwHeAkxpFabTJI">> = iolist_to_binary(re:replace("ab","(?:(?i)a)b","\\1UdwHeAk\\1xpF&\\1T\\1JI",[global])),
-    <<"paaupnNUOaYjabaXab">> = iolist_to_binary(re:replace("ab","((?i)a)b","pa\\1upnNUO\\1Yj&\\1X&",[])),
-    <<"paaupnNUOaYjabaXab">> = iolist_to_binary(re:replace("ab","((?i)a)b","pa\\1upnNUO\\1Yj&\\1X&",[global])),
-    <<"uDtryghFVAbxfAbI">> = iolist_to_binary(re:replace("Ab","(?:(?i)a)b","uD\\1trygh\\1FV&xf&I",[])),
-    <<"uDtryghFVAbxfAbI">> = iolist_to_binary(re:replace("Ab","(?:(?i)a)b","uD\\1trygh\\1FV&xf&I",[global])),
-    <<"AbyTFrAbAOfkVpLjJ">> = iolist_to_binary(re:replace("Ab","((?i)a)b","&yTFr&\\1OfkVpLjJ",[])),
-    <<"AbyTFrAbAOfkVpLjJ">> = iolist_to_binary(re:replace("Ab","((?i)a)b","&yTFr&\\1OfkVpLjJ",[global])),
-    <<"cb">> = iolist_to_binary(re:replace("cb","(?:(?i)a)b","D\\1MfU\\1&",[])),
-    <<"cb">> = iolist_to_binary(re:replace("cb","(?:(?i)a)b","D\\1MfU\\1&",[global])),
-    <<"aB">> = iolist_to_binary(re:replace("aB","(?:(?i)a)b","jLBDB&V&CLPU\\1eB&E",[])),
-    <<"aB">> = iolist_to_binary(re:replace("aB","(?:(?i)a)b","jLBDB&V&CLPU\\1eB&E",[global])),
-    <<"vXw">> = iolist_to_binary(re:replace("ab","(?i:a)b","vXw",[])),
-    <<"vXw">> = iolist_to_binary(re:replace("ab","(?i:a)b","vXw",[global])),
-    <<"DE">> = iolist_to_binary(re:replace("ab","((?i:a))b","DE",[])),
-    <<"DE">> = iolist_to_binary(re:replace("ab","((?i:a))b","DE",[global])),
-    <<"oIRAAbAboXH">> = iolist_to_binary(re:replace("Ab","(?i:a)b","oIRA&&oXH",[])),
-    <<"oIRAAbAboXH">> = iolist_to_binary(re:replace("Ab","(?i:a)b","oIRA&&oXH",[global])),
-    <<"AbAbJUwgUCSBcHYmFvAbOQ">> = iolist_to_binary(re:replace("Ab","((?i:a))b","&&JUwgUCSBcHYmFv&OQ",[])),
-    <<"AbAbJUwgUCSBcHYmFvAbOQ">> = iolist_to_binary(re:replace("Ab","((?i:a))b","&&JUwgUCSBcHYmFv&OQ",[global])),
-    <<"aB">> = iolist_to_binary(re:replace("aB","(?i:a)b","\\1&yu&\\1ps&A",[])),
-    <<"aB">> = iolist_to_binary(re:replace("aB","(?i:a)b","\\1&yu&\\1ps&A",[global])),
-    <<"aB">> = iolist_to_binary(re:replace("aB","(?i:a)b","TgOJWMyTNuK&rOFr\\1n",[])),
-    <<"aB">> = iolist_to_binary(re:replace("aB","(?i:a)b","TgOJWMyTNuK&rOFr\\1n",[global])),
-    <<"DxabYabEhabISWH">> = iolist_to_binary(re:replace("ab","(?:(?-i)a)b","Dx\\1&Y&E\\1h\\1&ISWH",[caseless])),
-    <<"DxabYabEhabISWH">> = iolist_to_binary(re:replace("ab","(?:(?-i)a)b","Dx\\1&Y&E\\1h\\1&ISWH",[caseless,global])),
-    <<"Qw">> = iolist_to_binary(re:replace("ab","((?-i)a)b","Qw",[caseless])),
-    <<"Qw">> = iolist_to_binary(re:replace("ab","((?-i)a)b","Qw",[caseless,global])),
-    <<"O">> = iolist_to_binary(re:replace("aB","(?:(?-i)a)b","O",[caseless])),
-    <<"O">> = iolist_to_binary(re:replace("aB","(?:(?-i)a)b","O",[caseless,global])),
+    <<"aeba">> = iolist_to_binary(re:replace("aba","(?:..)*?a","&e\\1",[])),
+    <<"aebae">> = iolist_to_binary(re:replace("aba","(?:..)*?a","&e\\1",[global])),
+    <<"wbIDivFpmRDc">> = iolist_to_binary(re:replace("abc","^(?:b|a(?=(.)))*\\1","w\\1IDivFpmRD",[])),
+    <<"wbIDivFpmRDc">> = iolist_to_binary(re:replace("abc","^(?:b|a(?=(.)))*\\1","w\\1IDivFpmRD",[global])),
+    <<"mjJOdVwUnuEHfFUblEabc">> = iolist_to_binary(re:replace("abc","^(){3,5}","mjJOd&VwUnuEHfFUbl&E",[])),
+    <<"mjJOdVwUnuEHfFUblEabc">> = iolist_to_binary(re:replace("abc","^(){3,5}","mjJOd&VwUnuEHfFUbl&E",[global])),
+    <<"aqlXiaaaCaaaxtGMyJr">> = iolist_to_binary(re:replace("aax","^(a+)*ax","aqlXia\\1aC\\1&tGMyJr",[])),
+    <<"aqlXiaaaCaaaxtGMyJr">> = iolist_to_binary(re:replace("aax","^(a+)*ax","aqlXia\\1aC\\1&tGMyJr",[global])),
+    <<"QasHTFT">> = iolist_to_binary(re:replace("aax","^((a|b)+)*ax","Q\\1sHTFT",[])),
+    <<"QasHTFT">> = iolist_to_binary(re:replace("aax","^((a|b)+)*ax","Q\\1sHTFT",[global])),
+    <<"aUdwHeAkaxpFaaxaTaJI">> = iolist_to_binary(re:replace("aax","^((a|bc)+)*ax","\\1UdwHeAk\\1xpF&\\1T\\1JI",[])),
+    <<"aUdwHeAkaxpFaaxaTaJI">> = iolist_to_binary(re:replace("aax","^((a|bc)+)*ax","\\1UdwHeAk\\1xpF&\\1T\\1JI",[global])),
+    <<"cpaupnNUOYjabXab">> = iolist_to_binary(re:replace("cab","(a|x)*ab","pa\\1upnNUO\\1Yj&\\1X&",[])),
+    <<"cpaupnNUOYjabXab">> = iolist_to_binary(re:replace("cab","(a|x)*ab","pa\\1upnNUO\\1Yj&\\1X&",[global])),
+    <<"cuDtryghFVabxfabI">> = iolist_to_binary(re:replace("cab","(a)*ab","uD\\1trygh\\1FV&xf&I",[])),
+    <<"cuDtryghFVabxfabI">> = iolist_to_binary(re:replace("cab","(a)*ab","uD\\1trygh\\1FV&xf&I",[global])),
+    <<"abyTFrabOfkVpLjJ">> = iolist_to_binary(re:replace("ab","(?:(?i)a)b","&yTFr&\\1OfkVpLjJ",[])),
+    <<"abyTFrabOfkVpLjJ">> = iolist_to_binary(re:replace("ab","(?:(?i)a)b","&yTFr&\\1OfkVpLjJ",[global])),
+    <<"DaMfUaab">> = iolist_to_binary(re:replace("ab","((?i)a)b","D\\1MfU\\1&",[])),
+    <<"DaMfUaab">> = iolist_to_binary(re:replace("ab","((?i)a)b","D\\1MfU\\1&",[global])),
+    <<"jLBDBAbVAbCLPUeBAbE">> = iolist_to_binary(re:replace("Ab","(?:(?i)a)b","jLBDB&V&CLPU\\1eB&E",[])),
+    <<"jLBDBAbVAbCLPUeBAbE">> = iolist_to_binary(re:replace("Ab","(?:(?i)a)b","jLBDB&V&CLPU\\1eB&E",[global])),
+    <<"vXw">> = iolist_to_binary(re:replace("Ab","((?i)a)b","vXw",[])),
+    <<"vXw">> = iolist_to_binary(re:replace("Ab","((?i)a)b","vXw",[global])),
+    <<"cb">> = iolist_to_binary(re:replace("cb","(?:(?i)a)b","DE",[])),
+    <<"cb">> = iolist_to_binary(re:replace("cb","(?:(?i)a)b","DE",[global])),
+    <<"aB">> = iolist_to_binary(re:replace("aB","(?:(?i)a)b","oIRA&&oXH",[])),
+    <<"aB">> = iolist_to_binary(re:replace("aB","(?:(?i)a)b","oIRA&&oXH",[global])),
+    <<"ababJUwgUCSBcHYmFvabOQ">> = iolist_to_binary(re:replace("ab","(?i:a)b","&&JUwgUCSBcHYmFv&OQ",[])),
+    <<"ababJUwgUCSBcHYmFvabOQ">> = iolist_to_binary(re:replace("ab","(?i:a)b","&&JUwgUCSBcHYmFv&OQ",[global])),
+    <<"aabyuabapsabA">> = iolist_to_binary(re:replace("ab","((?i:a))b","\\1&yu&\\1ps&A",[])),
+    <<"aabyuabapsabA">> = iolist_to_binary(re:replace("ab","((?i:a))b","\\1&yu&\\1ps&A",[global])),
+    <<"TgOJWMyTNuKAbrOFrn">> = iolist_to_binary(re:replace("Ab","(?i:a)b","TgOJWMyTNuK&rOFr\\1n",[])),
+    <<"TgOJWMyTNuKAbrOFrn">> = iolist_to_binary(re:replace("Ab","(?i:a)b","TgOJWMyTNuK&rOFr\\1n",[global])),
+    <<"DxAAbYAbEAhAAbISWH">> = iolist_to_binary(re:replace("Ab","((?i:a))b","Dx\\1&Y&E\\1h\\1&ISWH",[])),
+    <<"DxAAbYAbEAhAAbISWH">> = iolist_to_binary(re:replace("Ab","((?i:a))b","Dx\\1&Y&E\\1h\\1&ISWH",[global])),
+    <<"aB">> = iolist_to_binary(re:replace("aB","(?i:a)b","Qw",[])),
+    <<"aB">> = iolist_to_binary(re:replace("aB","(?i:a)b","Qw",[global])),
+    <<"aB">> = iolist_to_binary(re:replace("aB","(?i:a)b","O",[])),
+    <<"aB">> = iolist_to_binary(re:replace("aB","(?i:a)b","O",[global])),
     ok.
 run27() ->
-    <<"vaBwErLBaaBFLQaOAoaBJPx">> = iolist_to_binary(re:replace("aB","((?-i)a)b","v&wErLB\\1&FLQaOAo&JPx",[caseless])),
-    <<"vaBwErLBaaBFLQaOAoaBJPx">> = iolist_to_binary(re:replace("aB","((?-i)a)b","v&wErLB\\1&FLQaOAo&JPx",[caseless,global])),
-    <<"lphGtTIqlw">> = iolist_to_binary(re:replace("aB","(?:(?-i)a)b","lph\\1GtTIqlw",[caseless])),
-    <<"lphGtTIqlw">> = iolist_to_binary(re:replace("aB","(?:(?-i)a)b","lph\\1GtTIqlw",[caseless,global])),
-    <<"Ab">> = iolist_to_binary(re:replace("Ab","(?:(?-i)a)b","Ubn",[caseless])),
-    <<"Ab">> = iolist_to_binary(re:replace("Ab","(?:(?-i)a)b","Ubn",[caseless,global])),
-    <<"AB">> = iolist_to_binary(re:replace("AB","(?:(?-i)a)b","&DcgWCx",[caseless])),
-    <<"AB">> = iolist_to_binary(re:replace("AB","(?:(?-i)a)b","&DcgWCx",[caseless,global])),
-    <<"H">> = iolist_to_binary(re:replace("ab","(?-i:a)b","H",[caseless])),
-    <<"H">> = iolist_to_binary(re:replace("ab","(?-i:a)b","H",[caseless,global])),
-    <<"NmNp">> = iolist_to_binary(re:replace("ab","((?-i:a))b","NmNp",[caseless])),
-    <<"NmNp">> = iolist_to_binary(re:replace("ab","((?-i:a))b","NmNp",[caseless,global])),
-    <<"aBaBSTBJNuWaBfUX">> = iolist_to_binary(re:replace("aB","(?-i:a)b","&&STBJNu\\1W\\1&fUX",[caseless])),
-    <<"aBaBSTBJNuWaBfUX">> = iolist_to_binary(re:replace("aB","(?-i:a)b","&&STBJNu\\1W\\1&fUX",[caseless,global])),
-    <<"otma">> = iolist_to_binary(re:replace("aB","((?-i:a))b","otm\\1",[caseless])),
-    <<"otma">> = iolist_to_binary(re:replace("aB","((?-i:a))b","otm\\1",[caseless,global])),
-    <<"AB">> = iolist_to_binary(re:replace("AB","(?-i:a)b","\\1wnR\\1Bt\\1Wp",[caseless])),
-    <<"AB">> = iolist_to_binary(re:replace("AB","(?-i:a)b","\\1wnR\\1Bt\\1Wp",[caseless,global])),
-    <<"Ab">> = iolist_to_binary(re:replace("Ab","(?-i:a)b","\\1\\1\\1cfCNQPaST\\1n",[caseless])),
-    <<"Ab">> = iolist_to_binary(re:replace("Ab","(?-i:a)b","\\1\\1\\1cfCNQPaST\\1n",[caseless,global])),
-    <<"KqbIu">> = iolist_to_binary(re:replace("aB","(?-i:a)b","KqbIu\\1",[caseless])),
-    <<"KqbIu">> = iolist_to_binary(re:replace("aB","(?-i:a)b","KqbIu\\1",[caseless,global])),
-    <<"mSBBDWnWtWlJVLdWWaaBa">> = iolist_to_binary(re:replace("aB","((?-i:a))b","mSBBDWnWtWlJVLdWW\\1&\\1",[caseless])),
-    <<"mSBBDWnWtWlJVLdWWaaBa">> = iolist_to_binary(re:replace("aB","((?-i:a))b","mSBBDWnWtWlJVLdWW\\1&\\1",[caseless,global])),
+    <<"vabwErLBabFLQaOAoabJPx">> = iolist_to_binary(re:replace("ab","(?:(?-i)a)b","v&wErLB\\1&FLQaOAo&JPx",[caseless])),
+    <<"vabwErLBabFLQaOAoabJPx">> = iolist_to_binary(re:replace("ab","(?:(?-i)a)b","v&wErLB\\1&FLQaOAo&JPx",[caseless,global])),
+    <<"lphaGtTIqlw">> = iolist_to_binary(re:replace("ab","((?-i)a)b","lph\\1GtTIqlw",[caseless])),
+    <<"lphaGtTIqlw">> = iolist_to_binary(re:replace("ab","((?-i)a)b","lph\\1GtTIqlw",[caseless,global])),
+    <<"Ubn">> = iolist_to_binary(re:replace("aB","(?:(?-i)a)b","Ubn",[caseless])),
+    <<"Ubn">> = iolist_to_binary(re:replace("aB","(?:(?-i)a)b","Ubn",[caseless,global])),
+    <<"aBDcgWCx">> = iolist_to_binary(re:replace("aB","((?-i)a)b","&DcgWCx",[caseless])),
+    <<"aBDcgWCx">> = iolist_to_binary(re:replace("aB","((?-i)a)b","&DcgWCx",[caseless,global])),
+    <<"H">> = iolist_to_binary(re:replace("aB","(?:(?-i)a)b","H",[caseless])),
+    <<"H">> = iolist_to_binary(re:replace("aB","(?:(?-i)a)b","H",[caseless,global])),
+    <<"Ab">> = iolist_to_binary(re:replace("Ab","(?:(?-i)a)b","NmNp",[caseless])),
+    <<"Ab">> = iolist_to_binary(re:replace("Ab","(?:(?-i)a)b","NmNp",[caseless,global])),
+    <<"AB">> = iolist_to_binary(re:replace("AB","(?:(?-i)a)b","&&STBJNu\\1W\\1&fUX",[caseless])),
+    <<"AB">> = iolist_to_binary(re:replace("AB","(?:(?-i)a)b","&&STBJNu\\1W\\1&fUX",[caseless,global])),
+    <<"otm">> = iolist_to_binary(re:replace("ab","(?-i:a)b","otm\\1",[caseless])),
+    <<"otm">> = iolist_to_binary(re:replace("ab","(?-i:a)b","otm\\1",[caseless,global])),
+    <<"awnRaBtaWp">> = iolist_to_binary(re:replace("ab","((?-i:a))b","\\1wnR\\1Bt\\1Wp",[caseless])),
+    <<"awnRaBtaWp">> = iolist_to_binary(re:replace("ab","((?-i:a))b","\\1wnR\\1Bt\\1Wp",[caseless,global])),
+    <<"cfCNQPaSTn">> = iolist_to_binary(re:replace("aB","(?-i:a)b","\\1\\1\\1cfCNQPaST\\1n",[caseless])),
+    <<"cfCNQPaSTn">> = iolist_to_binary(re:replace("aB","(?-i:a)b","\\1\\1\\1cfCNQPaST\\1n",[caseless,global])),
+    <<"KqbIua">> = iolist_to_binary(re:replace("aB","((?-i:a))b","KqbIu\\1",[caseless])),
+    <<"KqbIua">> = iolist_to_binary(re:replace("aB","((?-i:a))b","KqbIu\\1",[caseless,global])),
+    <<"AB">> = iolist_to_binary(re:replace("AB","(?-i:a)b","mSBBDWnWtWlJVLdWW\\1&\\1",[caseless])),
+    <<"AB">> = iolist_to_binary(re:replace("AB","(?-i:a)b","mSBBDWnWtWlJVLdWW\\1&\\1",[caseless,global])),
     <<"Ab">> = iolist_to_binary(re:replace("Ab","(?-i:a)b","gIkgDq\\1EBa\\1PTmS&",[caseless])),
     <<"Ab">> = iolist_to_binary(re:replace("Ab","(?-i:a)b","gIkgDq\\1EBa\\1PTmS&",[caseless,global])),
-    <<"AB">> = iolist_to_binary(re:replace("AB","(?-i:a)b","Sg&&rIwBxW&MAd",[caseless])),
-    <<"AB">> = iolist_to_binary(re:replace("AB","(?-i:a)b","Sg&&rIwBxW&MAd",[caseless,global])),
-    <<"AB">> = iolist_to_binary(re:replace("AB","((?-i:a.))b","\\1\\1IkVJFLsC\\1&qbiO",[caseless])),
-    <<"AB">> = iolist_to_binary(re:replace("AB","((?-i:a.))b","\\1\\1IkVJFLsC\\1&qbiO",[caseless,global])),
+    <<"SgaBaBrIwBxWaBMAd">> = iolist_to_binary(re:replace("aB","(?-i:a)b","Sg&&rIwBxW&MAd",[caseless])),
+    <<"SgaBaBrIwBxWaBMAd">> = iolist_to_binary(re:replace("aB","(?-i:a)b","Sg&&rIwBxW&MAd",[caseless,global])),
+    <<"aaIkVJFLsCaaBqbiO">> = iolist_to_binary(re:replace("aB","((?-i:a))b","\\1\\1IkVJFLsC\\1&qbiO",[caseless])),
+    <<"aaIkVJFLsCaaBqbiO">> = iolist_to_binary(re:replace("aB","((?-i:a))b","\\1\\1IkVJFLsC\\1&qbiO",[caseless,global])),
+    <<"Ab">> = iolist_to_binary(re:replace("Ab","(?-i:a)b","&r",[caseless])),
+    <<"Ab">> = iolist_to_binary(re:replace("Ab","(?-i:a)b","&r",[caseless,global])),
+    <<"AB">> = iolist_to_binary(re:replace("AB","(?-i:a)b","m&J\\1\\1Fh",[caseless])),
+    <<"AB">> = iolist_to_binary(re:replace("AB","(?-i:a)b","m&J\\1\\1Fh",[caseless,global])),
+    <<"AB">> = iolist_to_binary(re:replace("AB","((?-i:a.))b","ys\\1\\1Vqai\\1qx\\1HWEb",[caseless])),
+    <<"AB">> = iolist_to_binary(re:replace("AB","((?-i:a.))b","ys\\1\\1Vqai\\1qx\\1HWEb",[caseless,global])),
     <<"a
 B">> = iolist_to_binary(re:replace("a
-B","((?-i:a.))b","&r",[caseless])),
+B","((?-i:a.))b","\\1eIyFD\\1",[caseless])),
     <<"a
 B">> = iolist_to_binary(re:replace("a
-B","((?-i:a.))b","&r",[caseless,global])),
-    <<"ma
-BJa
-a
-Fh">> = iolist_to_binary(re:replace("a
-B","((?s-i:a.))b","m&J\\1\\1Fh",[caseless])),
-    <<"ma
-BJa
-a
-Fh">> = iolist_to_binary(re:replace("a
-B","((?s-i:a.))b","m&J\\1\\1Fh",[caseless,global])),
-    <<"ysVqaiqxHWEb">> = iolist_to_binary(re:replace("cabbbb","(?:c|d)(?:)(?:a(?:)(?:b)(?:b(?:))(?:b(?:)(?:b)))","ys\\1\\1Vqai\\1qx\\1HWEb",[])),
-    <<"ysVqaiqxHWEb">> = iolist_to_binary(re:replace("cabbbb","(?:c|d)(?:)(?:a(?:)(?:b)(?:b(?:))(?:b(?:)(?:b)))","ys\\1\\1Vqai\\1qx\\1HWEb",[global])),
-    <<"eIyFD">> = iolist_to_binary(re:replace("caaaaaaaabbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","(?:c|d)(?:)(?:aaaaaaaa(?:)(?:bbbbbbbb)(?:bbbbbbbb(?:))(?:bbbbbbbb(?:)(?:bbbbbbbb)))","\\1eIyFD\\1",[])),
-    <<"eIyFD">> = iolist_to_binary(re:replace("caaaaaaaabbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","(?:c|d)(?:)(?:aaaaaaaa(?:)(?:bbbbbbbb)(?:bbbbbbbb(?:))(?:bbbbbbbb(?:)(?:bbbbbbbb)))","\\1eIyFD\\1",[global])),
-    <<"UUAb4abAb4abGPwAb4abAHE">> = iolist_to_binary(re:replace("Ab4ab","(ab)\\d\\1","UU&&GPw&AHE",[caseless])),
-    <<"UUAb4abAb4abGPwAb4abAHE">> = iolist_to_binary(re:replace("Ab4ab","(ab)\\d\\1","UU&&GPw&AHE",[caseless,global])),
-    <<"SKAyypUXUEabIHTdcqvab4Abr">> = iolist_to_binary(re:replace("ab4Ab","(ab)\\d\\1","SKAyypUXUE\\1IHTdcqv&r",[caseless])),
-    <<"SKAyypUXUEabIHTdcqvab4Abr">> = iolist_to_binary(re:replace("ab4Ab","(ab)\\d\\1","SKAyypUXUE\\1IHTdcqv&r",[caseless,global])),
-    <<"qfoobar1234bazkKlufoobar1234bazPPfoobar1234bazf">> = iolist_to_binary(re:replace("foobar1234baz","foo\\w*\\d{4}baz","q&kKlu&PP&f",[])),
-    <<"qfoobar1234bazkKlufoobar1234bazPPfoobar1234bazf">> = iolist_to_binary(re:replace("foobar1234baz","foo\\w*\\d{4}baz","q&kKlu&PP&f",[global])),
-    <<"x~~Wnm">> = iolist_to_binary(re:replace("x~~","x(~~)*(?:(?:F)?)?","&Wnm",[])),
-    <<"x~~Wnm">> = iolist_to_binary(re:replace("x~~","x(~~)*(?:(?:F)?)?","&Wnm",[global])),
-    <<"paPAAKruyaaacWwd">> = iolist_to_binary(re:replace("aaac","^a(?#xxx){3}c","paPAAKruy&Wwd",[])),
-    <<"paPAAKruyaaacWwd">> = iolist_to_binary(re:replace("aaac","^a(?#xxx){3}c","paPAAKruy&Wwd",[global])),
+B","((?-i:a.))b","\\1eIyFD\\1",[caseless,global])),
+    <<"UUa
+Ba
+BGPwa
+BAHE">> = iolist_to_binary(re:replace("a
+B","((?s-i:a.))b","UU&&GPw&AHE",[caseless])),
+    <<"UUa
+Ba
+BGPwa
+BAHE">> = iolist_to_binary(re:replace("a
+B","((?s-i:a.))b","UU&&GPw&AHE",[caseless,global])),
+    <<"SKAyypUXUEIHTdcqvcabbbbr">> = iolist_to_binary(re:replace("cabbbb","(?:c|d)(?:)(?:a(?:)(?:b)(?:b(?:))(?:b(?:)(?:b)))","SKAyypUXUE\\1IHTdcqv&r",[])),
+    <<"SKAyypUXUEIHTdcqvcabbbbr">> = iolist_to_binary(re:replace("cabbbb","(?:c|d)(?:)(?:a(?:)(?:b)(?:b(?:))(?:b(?:)(?:b)))","SKAyypUXUE\\1IHTdcqv&r",[global])),
+    <<"qcaaaaaaaabbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbkKlucaaaaaaaabbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbPPcaaaaaaaabbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbf">> = iolist_to_binary(re:replace("caaaaaaaabbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","(?:c|d)(?:)(?:aaaaaaaa(?:)(?:bbbbbbbb)(?:bbbbbbbb(?:))(?:bbbbbbbb(?:)(?:bbbbbbbb)))","q&kKlu&PP&f",[])),
+    <<"qcaaaaaaaabbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbkKlucaaaaaaaabbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbPPcaaaaaaaabbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbf">> = iolist_to_binary(re:replace("caaaaaaaabbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","(?:c|d)(?:)(?:aaaaaaaa(?:)(?:bbbbbbbb)(?:bbbbbbbb(?:))(?:bbbbbbbb(?:)(?:bbbbbbbb)))","q&kKlu&PP&f",[global])),
+    <<"Ab4abWnm">> = iolist_to_binary(re:replace("Ab4ab","(ab)\\d\\1","&Wnm",[caseless])),
+    <<"Ab4abWnm">> = iolist_to_binary(re:replace("Ab4ab","(ab)\\d\\1","&Wnm",[caseless,global])),
+    <<"paPAAKruyab4AbWwd">> = iolist_to_binary(re:replace("ab4Ab","(ab)\\d\\1","paPAAKruy&Wwd",[caseless])),
+    <<"paPAAKruyab4AbWwd">> = iolist_to_binary(re:replace("ab4Ab","(ab)\\d\\1","paPAAKruy&Wwd",[caseless,global])),
     ok.
 run28() ->
-    <<"ImJu">> = iolist_to_binary(re:replace("aaac","^a (?#xxx) (?#yyy) {3}c","I\\1m\\1Ju",[extended])),
-    <<"ImJu">> = iolist_to_binary(re:replace("aaac","^a (?#xxx) (?#yyy) {3}c","I\\1m\\1Ju",[extended,global])),
+    <<"ImJu">> = iolist_to_binary(re:replace("foobar1234baz","foo\\w*\\d{4}baz","I\\1m\\1Ju",[])),
+    <<"ImJu">> = iolist_to_binary(re:replace("foobar1234baz","foo\\w*\\d{4}baz","I\\1m\\1Ju",[global])),
+    <<"k~~dsET~~ioU~~cshOFDldx">> = iolist_to_binary(re:replace("x~~","x(~~)*(?:(?:F)?)?","k\\1dsET\\1ioU\\1cshOFDldx",[])),
+    <<"k~~dsET~~ioU~~cshOFDldx">> = iolist_to_binary(re:replace("x~~","x(~~)*(?:(?:F)?)?","k\\1dsET\\1ioU\\1cshOFDldx",[global])),
+    <<"uv">> = iolist_to_binary(re:replace("aaac","^a(?#xxx){3}c","uv\\1",[])),
+    <<"uv">> = iolist_to_binary(re:replace("aaac","^a(?#xxx){3}c","uv\\1",[global])),
+    <<"l">> = iolist_to_binary(re:replace("aaac","^a (?#xxx) (?#yyy) {3}c","l",[extended])),
+    <<"l">> = iolist_to_binary(re:replace("aaac","^a (?#xxx) (?#yyy) {3}c","l",[extended,global])),
     <<"B
 B">> = iolist_to_binary(re:replace("B
-B","(?<![cd])b","k\\1dsET\\1ioU\\1cshOFDldx",[])),
+B","(?<![cd])b","vyfP\\1yX\\1onrR&f\\1\\1J&",[])),
     <<"B
 B">> = iolist_to_binary(re:replace("B
-B","(?<![cd])b","k\\1dsET\\1ioU\\1cshOFDldx",[global])),
-    <<"dbcb">> = iolist_to_binary(re:replace("dbcb","(?<![cd])b","uv\\1",[])),
-    <<"dbcb">> = iolist_to_binary(re:replace("dbcb","(?<![cd])b","uv\\1",[global])),
-    <<"dblacb">> = iolist_to_binary(re:replace("dbaacb","(?<![cd])[ab]","l",[])),
-    <<"dbllcb">> = iolist_to_binary(re:replace("dbaacb","(?<![cd])[ab]","l",[global])),
-    <<"dbvyfPyXonrRafJaacb">> = iolist_to_binary(re:replace("dbaacb","(?<!(c|d))[ab]","vyfP\\1yX\\1onrR&f\\1\\1J&",[])),
-    <<"dbvyfPyXonrRafJavyfPyXonrRafJacb">> = iolist_to_binary(re:replace("dbaacb","(?<!(c|d))[ab]","vyfP\\1yX\\1onrR&f\\1\\1J&",[global])),
-    <<"cdaccgEbRxnGkbbmK">> = iolist_to_binary(re:replace("cdaccb","(?<!cd)[ab]","gE&RxnGk&&\\1\\1mK",[])),
-    <<"cdaccgEbRxnGkbbmK">> = iolist_to_binary(re:replace("cdaccb","(?<!cd)[ab]","gE&RxnGk&&\\1\\1mK",[global])),
-    <<"xJwDKvLJC">> = iolist_to_binary(re:replace("","^(?:a?b?)*$","xJw&DKvLJC",[])),
-    <<"xJwDKvLJC">> = iolist_to_binary(re:replace("","^(?:a?b?)*$","xJw&DKvLJC",[global])),
-    <<"gm">> = iolist_to_binary(re:replace("a","^(?:a?b?)*$","gm",[])),
-    <<"gm">> = iolist_to_binary(re:replace("a","^(?:a?b?)*$","gm",[global])),
-    <<"RrLabababUVLUehw">> = iolist_to_binary(re:replace("ab","^(?:a?b?)*$","RrL\\1&&&UVLUehw",[])),
-    <<"RrLabababUVLUehw">> = iolist_to_binary(re:replace("ab","^(?:a?b?)*$","RrL\\1&&&UVLUehw",[global])),
-    <<"giaaaOaaaaaaqXGgxFhaaadprog">> = iolist_to_binary(re:replace("aaa","^(?:a?b?)*$","gi&O&&qXGgxFh&dprog",[])),
-    <<"giaaaOaaaaaaqXGgxFhaaadprog">> = iolist_to_binary(re:replace("aaa","^(?:a?b?)*$","gi&O&&qXGgxFh&dprog",[global])),
-    <<"dbcb">> = iolist_to_binary(re:replace("dbcb","^(?:a?b?)*$","q&Rt\\1XCOk&dCHWAxqm&",[])),
-    <<"dbcb">> = iolist_to_binary(re:replace("dbcb","^(?:a?b?)*$","q&Rt\\1XCOk&dCHWAxqm&",[global])),
-    <<"a--">> = iolist_to_binary(re:replace("a--","^(?:a?b?)*$","e&y",[])),
-    <<"a--">> = iolist_to_binary(re:replace("a--","^(?:a?b?)*$","e&y",[global])),
-    <<"aa--">> = iolist_to_binary(re:replace("aa--","^(?:a?b?)*$","Mu&NYopF&e\\1u",[])),
-    <<"aa--">> = iolist_to_binary(re:replace("aa--","^(?:a?b?)*$","Mu&NYopF&e\\1u",[global])),
-    <<"PgdiGyTFyntpga
-
+B","(?<![cd])b","vyfP\\1yX\\1onrR&f\\1\\1J&",[global])),
+    <<"dbcb">> = iolist_to_binary(re:replace("dbcb","(?<![cd])b","gE&RxnGk&&\\1\\1mK",[])),
+    <<"dbcb">> = iolist_to_binary(re:replace("dbcb","(?<![cd])b","gE&RxnGk&&\\1\\1mK",[global])),
+    <<"dbxJwaDKvLJCacb">> = iolist_to_binary(re:replace("dbaacb","(?<![cd])[ab]","xJw&DKvLJC",[])),
+    <<"dbxJwaDKvLJCxJwaDKvLJCcb">> = iolist_to_binary(re:replace("dbaacb","(?<![cd])[ab]","xJw&DKvLJC",[global])),
+    <<"dbgmacb">> = iolist_to_binary(re:replace("dbaacb","(?<!(c|d))[ab]","gm",[])),
+    <<"dbgmgmcb">> = iolist_to_binary(re:replace("dbaacb","(?<!(c|d))[ab]","gm",[global])),
+    <<"cdaccRrLbbbUVLUehw">> = iolist_to_binary(re:replace("cdaccb","(?<!cd)[ab]","RrL\\1&&&UVLUehw",[])),
+    <<"cdaccRrLbbbUVLUehw">> = iolist_to_binary(re:replace("cdaccb","(?<!cd)[ab]","RrL\\1&&&UVLUehw",[global])),
+    <<"giOqXGgxFhdprog">> = iolist_to_binary(re:replace("","^(?:a?b?)*$","gi&O&&qXGgxFh&dprog",[])),
+    <<"giOqXGgxFhdprog">> = iolist_to_binary(re:replace("","^(?:a?b?)*$","gi&O&&qXGgxFh&dprog",[global])),
+    <<"qaRtXCOkadCHWAxqma">> = iolist_to_binary(re:replace("a","^(?:a?b?)*$","q&Rt\\1XCOk&dCHWAxqm&",[])),
+    <<"qaRtXCOkadCHWAxqma">> = iolist_to_binary(re:replace("a","^(?:a?b?)*$","q&Rt\\1XCOk&dCHWAxqm&",[global])),
+    <<"eaby">> = iolist_to_binary(re:replace("ab","^(?:a?b?)*$","e&y",[])),
+    <<"eaby">> = iolist_to_binary(re:replace("ab","^(?:a?b?)*$","e&y",[global])),
+    <<"MuaaaNYopFaaaeu">> = iolist_to_binary(re:replace("aaa","^(?:a?b?)*$","Mu&NYopF&e\\1u",[])),
+    <<"MuaaaNYopFaaaeu">> = iolist_to_binary(re:replace("aaa","^(?:a?b?)*$","Mu&NYopF&e\\1u",[global])),
+    <<"dbcb">> = iolist_to_binary(re:replace("dbcb","^(?:a?b?)*$","PgdiGyTFyntpg\\1",[])),
+    <<"dbcb">> = iolist_to_binary(re:replace("dbcb","^(?:a?b?)*$","PgdiGyTFyntpg\\1",[global])),
+    <<"a--">> = iolist_to_binary(re:replace("a--","^(?:a?b?)*$","h",[])),
+    <<"a--">> = iolist_to_binary(re:replace("a--","^(?:a?b?)*$","h",[global])),
+    <<"aa--">> = iolist_to_binary(re:replace("aa--","^(?:a?b?)*$","\\1UwxbpwNvAsyQI",[])),
+    <<"aa--">> = iolist_to_binary(re:replace("aa--","^(?:a?b?)*$","\\1UwxbpwNvAsyQI",[global])),
+    <<"M
 c">> = iolist_to_binary(re:replace("a
 b
-c","((?s)^a(.))((?m)^b$)","PgdiGyTFyntpg\\1",[])),
-    <<"PgdiGyTFyntpga
-
+c","((?s)^a(.))((?m)^b$)","M",[])),
+    <<"M
 c">> = iolist_to_binary(re:replace("a
 b
-c","((?s)^a(.))((?m)^b$)","PgdiGyTFyntpg\\1",[global])),
+c","((?s)^a(.))((?m)^b$)","M",[global])),
     <<"a
-h
+hbt
 c">> = iolist_to_binary(re:replace("a
 b
-c","((?m)^b$)","h",[])),
+c","((?m)^b$)","h&t",[])),
     <<"a
-h
+hbt
 c">> = iolist_to_binary(re:replace("a
 b
-c","((?m)^b$)","h",[global])),
+c","((?m)^b$)","h&t",[global])),
     <<"a
-UwxbpwNvAsyQI">> = iolist_to_binary(re:replace("a
-b","(?m)^b","\\1UwxbpwNvAsyQI",[])),
+vMPmblHguqIoSmcuudI">> = iolist_to_binary(re:replace("a
+b","(?m)^b","vMPm\\1&lHguqIoSmcuudI",[])),
     <<"a
-UwxbpwNvAsyQI">> = iolist_to_binary(re:replace("a
-b","(?m)^b","\\1UwxbpwNvAsyQI",[global])),
+vMPmblHguqIoSmcuudI">> = iolist_to_binary(re:replace("a
+b","(?m)^b","vMPm\\1&lHguqIoSmcuudI",[global])),
     <<"a
-M">> = iolist_to_binary(re:replace("a
-b","(?m)^(b)","M",[])),
+RhLw">> = iolist_to_binary(re:replace("a
+b","(?m)^(b)","RhLw",[])),
     <<"a
-M">> = iolist_to_binary(re:replace("a
-b","(?m)^(b)","M",[global])),
+RhLw">> = iolist_to_binary(re:replace("a
+b","(?m)^(b)","RhLw",[global])),
     <<"a
-hbt">> = iolist_to_binary(re:replace("a
-b","((?m)^b)","h&t",[])),
+bJqvlebbbobmbFUTm">> = iolist_to_binary(re:replace("a
+b","((?m)^b)","&Jqvle\\1&&o&m&FUTm",[])),
     <<"a
-hbt">> = iolist_to_binary(re:replace("a
-b","((?m)^b)","h&t",[global])),
-    <<"avMPmb
-blHguqIoSmcuudI">> = iolist_to_binary(re:replace("a
-b","\\n((?m)^b)","vMPm\\1&lHguqIoSmcuudI",[])),
-    <<"avMPmb
-blHguqIoSmcuudI">> = iolist_to_binary(re:replace("a
-b","\\n((?m)^b)","vMPm\\1&lHguqIoSmcuudI",[global])),
+bJqvlebbbobmbFUTm">> = iolist_to_binary(re:replace("a
+b","((?m)^b)","&Jqvle\\1&&o&m&FUTm",[global])),
+    <<"aac">> = iolist_to_binary(re:replace("a
+b","\\n((?m)^b)","ac",[])),
+    <<"aac">> = iolist_to_binary(re:replace("a
+b","\\n((?m)^b)","ac",[global])),
     <<"a
-bRhLw">> = iolist_to_binary(re:replace("a
+bO">> = iolist_to_binary(re:replace("a
 b
-c","((?s).)c(?!.)","RhLw",[])),
+c","((?s).)c(?!.)","O",[])),
     <<"a
-bRhLw">> = iolist_to_binary(re:replace("a
+bO">> = iolist_to_binary(re:replace("a
 b
-c","((?s).)c(?!.)","RhLw",[global])),
+c","((?s).)c(?!.)","O",[global])),
     <<"a
+bscml">> = iolist_to_binary(re:replace("a
 b
-cJqvle
-
-c
-co
-cm
-cFUTm">> = iolist_to_binary(re:replace("a
-b
-c","((?s).)c(?!.)","&Jqvle\\1&&o&m&FUTm",[])),
+c","((?s).)c(?!.)","scml",[])),
     <<"a
+bscml">> = iolist_to_binary(re:replace("a
 b
-cJqvle
-
-c
-co
-cm
-cFUTm">> = iolist_to_binary(re:replace("a
-b
-c","((?s).)c(?!.)","&Jqvle\\1&&o&m&FUTm",[global])),
+c","((?s).)c(?!.)","scml",[global])),
     <<"a
-ac">> = iolist_to_binary(re:replace("a
+lPmBb
+jogUPNEb
+">> = iolist_to_binary(re:replace("a
 b
-c","((?s)b.)c(?!.)","ac",[])),
+c","((?s)b.)c(?!.)","lPmB\\1jogUPNE\\1",[])),
     <<"a
-ac">> = iolist_to_binary(re:replace("a
+lPmBb
+jogUPNEb
+">> = iolist_to_binary(re:replace("a
 b
-c","((?s)b.)c(?!.)","ac",[global])),
+c","((?s)b.)c(?!.)","lPmB\\1jogUPNE\\1",[global])),
     <<"a
-O">> = iolist_to_binary(re:replace("a
+lytYeb
+cWb
+cb
+cFmb
+cccWb
+V">> = iolist_to_binary(re:replace("a
 b
-c","((?s)b.)c(?!.)","O",[])),
+c","((?s)b.)c(?!.)","lytYe&W&&Fm&ccW\\1V",[])),
     <<"a
-O">> = iolist_to_binary(re:replace("a
+lytYeb
+cWb
+cb
+cFmb
+cccWb
+V">> = iolist_to_binary(re:replace("a
 b
-c","((?s)b.)c(?!.)","O",[global])),
-    <<"a
-b
-c">> = iolist_to_binary(re:replace("a
-b
-c","()^b","scml",[])),
+c","((?s)b.)c(?!.)","lytYe&W&&Fm&ccW\\1V",[global])),
     <<"a
 b
 c">> = iolist_to_binary(re:replace("a
 b
-c","()^b","scml",[global])),
+c","()^b","\\1\\1q",[])),
     <<"a
 b
 c">> = iolist_to_binary(re:replace("a
 b
-c","()^b","lPmB\\1jogUPNE\\1",[])),
+c","()^b","\\1\\1q",[global])),
     <<"a
 b
 c">> = iolist_to_binary(re:replace("a
 b
-c","()^b","lPmB\\1jogUPNE\\1",[global])),
+c","()^b","x\\1Pv\\1wqaXlIBys\\1BNnQs",[])),
     <<"a
-lytYebWbbFmbccWbV
+b
 c">> = iolist_to_binary(re:replace("a
 b
-c","((?m)^b)","lytYe&W&&Fm&ccW\\1V",[])),
-    <<"a
-lytYebWbbFmbccWbV
-c">> = iolist_to_binary(re:replace("a
-b
-c","((?m)^b)","lytYe&W&&Fm&ccW\\1V",[global])),
-    <<"a">> = iolist_to_binary(re:replace("a","(x)?(?(1)a|b)","\\1\\1q",[])),
-    <<"a">> = iolist_to_binary(re:replace("a","(x)?(?(1)a|b)","\\1\\1q",[global])),
-    <<"a">> = iolist_to_binary(re:replace("a","(x)?(?(1)a|b)","x\\1Pv\\1wqaXlIBys\\1BNnQs",[])),
-    <<"a">> = iolist_to_binary(re:replace("a","(x)?(?(1)a|b)","x\\1Pv\\1wqaXlIBys\\1BNnQs",[global])),
-    <<"vJraXpcvqi">> = iolist_to_binary(re:replace("a","(x)?(?(1)b|a)","vJr\\1&Xpcvqi",[])),
-    <<"vJraXpcvqi">> = iolist_to_binary(re:replace("a","(x)?(?(1)b|a)","vJr\\1&Xpcvqi",[global])),
+c","()^b","x\\1Pv\\1wqaXlIBys\\1BNnQs",[global])),
     ok.
 run29() ->
-    <<"haKhhw">> = iolist_to_binary(re:replace("a","()?(?(1)b|a)","h&Khhw",[])),
-    <<"haKhhw">> = iolist_to_binary(re:replace("a","()?(?(1)b|a)","h&Khhw",[global])),
-    <<"rfOTksYhKEDaaKoWu">> = iolist_to_binary(re:replace("a","()?(?(1)a|b)","rfOT\\1ksYhKED&&K\\1oWu",[])),
-    <<"rfOTksYhKEDaaKoWu">> = iolist_to_binary(re:replace("a","()?(?(1)a|b)","rfOT\\1ksYhKED&&K\\1oWu",[global])),
-    <<"(MGbpmv">> = iolist_to_binary(re:replace("(blah)","^(\\()?blah(?(1)(\\)))$","\\1MGbpmv",[])),
-    <<"(MGbpmv">> = iolist_to_binary(re:replace("(blah)","^(\\()?blah(?(1)(\\)))$","\\1MGbpmv",[global])),
-    <<"udAFEstNiUeKkd">> = iolist_to_binary(re:replace("blah","^(\\()?blah(?(1)(\\)))$","udAFEstNiUeKkd",[])),
-    <<"udAFEstNiUeKkd">> = iolist_to_binary(re:replace("blah","^(\\()?blah(?(1)(\\)))$","udAFEstNiUeKkd",[global])),
-    <<"a">> = iolist_to_binary(re:replace("a","^(\\()?blah(?(1)(\\)))$","&vD&&GllMCdwv",[])),
-    <<"a">> = iolist_to_binary(re:replace("a","^(\\()?blah(?(1)(\\)))$","&vD&&GllMCdwv",[global])),
-    <<"blah)">> = iolist_to_binary(re:replace("blah)","^(\\()?blah(?(1)(\\)))$","S\\1&b\\1",[])),
-    <<"blah)">> = iolist_to_binary(re:replace("blah)","^(\\()?blah(?(1)(\\)))$","S\\1&b\\1",[global])),
-    <<"(blah">> = iolist_to_binary(re:replace("(blah","^(\\()?blah(?(1)(\\)))$","COkG&q&pR&wm\\1",[])),
-    <<"(blah">> = iolist_to_binary(re:replace("(blah","^(\\()?blah(?(1)(\\)))$","COkG&q&pR&wm\\1",[global])),
-    <<"(blah)(YUF">> = iolist_to_binary(re:replace("(blah)","^(\\(+)?blah(?(1)(\\)))$","&\\1YUF",[])),
-    <<"(blah)(YUF">> = iolist_to_binary(re:replace("(blah)","^(\\(+)?blah(?(1)(\\)))$","&\\1YUF",[global])),
-    <<"keblahn">> = iolist_to_binary(re:replace("blah","^(\\(+)?blah(?(1)(\\)))$","\\1ke&n",[])),
-    <<"keblahn">> = iolist_to_binary(re:replace("blah","^(\\(+)?blah(?(1)(\\)))$","\\1ke&n",[global])),
-    <<"blah)">> = iolist_to_binary(re:replace("blah)","^(\\(+)?blah(?(1)(\\)))$","Tp",[])),
-    <<"blah)">> = iolist_to_binary(re:replace("blah)","^(\\(+)?blah(?(1)(\\)))$","Tp",[global])),
-    <<"(blah">> = iolist_to_binary(re:replace("(blah","^(\\(+)?blah(?(1)(\\)))$","cWR\\1",[])),
-    <<"(blah">> = iolist_to_binary(re:replace("(blah","^(\\(+)?blah(?(1)(\\)))$","cWR\\1",[global])),
-    <<"Ig">> = iolist_to_binary(re:replace("a","(?(?!a)b|a)","I\\1g",[])),
-    <<"Ig">> = iolist_to_binary(re:replace("a","(?(?!a)b|a)","I\\1g",[global])),
-    <<"a">> = iolist_to_binary(re:replace("a","(?(?=a)b|a)","&\\1e",[])),
-    <<"a">> = iolist_to_binary(re:replace("a","(?(?=a)b|a)","&\\1e",[global])),
-    <<"a">> = iolist_to_binary(re:replace("a","(?(?=a)b|a)","YHPf",[])),
-    <<"a">> = iolist_to_binary(re:replace("a","(?(?=a)b|a)","YHPf",[global])),
-    <<"qDYnUXHWSlxXQRHVxU">> = iolist_to_binary(re:replace("a","(?(?=a)a|b)","qDYnUXHWSlxXQRHVxU\\1",[])),
-    <<"qDYnUXHWSlxXQRHVxU">> = iolist_to_binary(re:replace("a","(?(?=a)a|b)","qDYnUXHWSlxXQRHVxU\\1",[global])),
-    <<"apMu">> = iolist_to_binary(re:replace("aaab","(?=(a+?))(\\1ab)","pMu",[])),
-    <<"apMu">> = iolist_to_binary(re:replace("aaab","(?=(a+?))(\\1ab)","pMu",[global])),
-    <<"ntLDenfone:">> = iolist_to_binary(re:replace("one:","(\\w+:)+","ntLDenf\\1",[])),
-    <<"ntLDenfone:">> = iolist_to_binary(re:replace("one:","(\\w+:)+","ntLDenf\\1",[global])),
-    <<"aka">> = iolist_to_binary(re:replace("a","$(?<=^(a))","k\\1",[])),
-    <<"aka">> = iolist_to_binary(re:replace("a","$(?<=^(a))","k\\1",[global])),
+    <<"a
+vJrbbXpcvqi
+c">> = iolist_to_binary(re:replace("a
+b
+c","((?m)^b)","vJr\\1&Xpcvqi",[])),
+    <<"a
+vJrbbXpcvqi
+c">> = iolist_to_binary(re:replace("a
+b
+c","((?m)^b)","vJr\\1&Xpcvqi",[global])),
+    <<"a">> = iolist_to_binary(re:replace("a","(x)?(?(1)a|b)","h&Khhw",[])),
+    <<"a">> = iolist_to_binary(re:replace("a","(x)?(?(1)a|b)","h&Khhw",[global])),
+    <<"a">> = iolist_to_binary(re:replace("a","(x)?(?(1)a|b)","rfOT\\1ksYhKED&&K\\1oWu",[])),
+    <<"a">> = iolist_to_binary(re:replace("a","(x)?(?(1)a|b)","rfOT\\1ksYhKED&&K\\1oWu",[global])),
+    <<"MGbpmv">> = iolist_to_binary(re:replace("a","(x)?(?(1)b|a)","\\1MGbpmv",[])),
+    <<"MGbpmv">> = iolist_to_binary(re:replace("a","(x)?(?(1)b|a)","\\1MGbpmv",[global])),
+    <<"udAFEstNiUeKkd">> = iolist_to_binary(re:replace("a","()?(?(1)b|a)","udAFEstNiUeKkd",[])),
+    <<"udAFEstNiUeKkd">> = iolist_to_binary(re:replace("a","()?(?(1)b|a)","udAFEstNiUeKkd",[global])),
+    <<"avDaaGllMCdwv">> = iolist_to_binary(re:replace("a","()?(?(1)a|b)","&vD&&GllMCdwv",[])),
+    <<"avDaaGllMCdwv">> = iolist_to_binary(re:replace("a","()?(?(1)a|b)","&vD&&GllMCdwv",[global])),
+    <<"S((blah)b(">> = iolist_to_binary(re:replace("(blah)","^(\\()?blah(?(1)(\\)))$","S\\1&b\\1",[])),
+    <<"S((blah)b(">> = iolist_to_binary(re:replace("(blah)","^(\\()?blah(?(1)(\\)))$","S\\1&b\\1",[global])),
+    <<"COkGblahqblahpRblahwm">> = iolist_to_binary(re:replace("blah","^(\\()?blah(?(1)(\\)))$","COkG&q&pR&wm\\1",[])),
+    <<"COkGblahqblahpRblahwm">> = iolist_to_binary(re:replace("blah","^(\\()?blah(?(1)(\\)))$","COkG&q&pR&wm\\1",[global])),
+    <<"a">> = iolist_to_binary(re:replace("a","^(\\()?blah(?(1)(\\)))$","&\\1YUF",[])),
+    <<"a">> = iolist_to_binary(re:replace("a","^(\\()?blah(?(1)(\\)))$","&\\1YUF",[global])),
+    <<"blah)">> = iolist_to_binary(re:replace("blah)","^(\\()?blah(?(1)(\\)))$","\\1ke&n",[])),
+    <<"blah)">> = iolist_to_binary(re:replace("blah)","^(\\()?blah(?(1)(\\)))$","\\1ke&n",[global])),
+    <<"(blah">> = iolist_to_binary(re:replace("(blah","^(\\()?blah(?(1)(\\)))$","Tp",[])),
+    <<"(blah">> = iolist_to_binary(re:replace("(blah","^(\\()?blah(?(1)(\\)))$","Tp",[global])),
+    <<"cWR(">> = iolist_to_binary(re:replace("(blah)","^(\\(+)?blah(?(1)(\\)))$","cWR\\1",[])),
+    <<"cWR(">> = iolist_to_binary(re:replace("(blah)","^(\\(+)?blah(?(1)(\\)))$","cWR\\1",[global])),
+    <<"Ig">> = iolist_to_binary(re:replace("blah","^(\\(+)?blah(?(1)(\\)))$","I\\1g",[])),
+    <<"Ig">> = iolist_to_binary(re:replace("blah","^(\\(+)?blah(?(1)(\\)))$","I\\1g",[global])),
+    <<"blah)">> = iolist_to_binary(re:replace("blah)","^(\\(+)?blah(?(1)(\\)))$","&\\1e",[])),
+    <<"blah)">> = iolist_to_binary(re:replace("blah)","^(\\(+)?blah(?(1)(\\)))$","&\\1e",[global])),
+    <<"(blah">> = iolist_to_binary(re:replace("(blah","^(\\(+)?blah(?(1)(\\)))$","YHPf",[])),
+    <<"(blah">> = iolist_to_binary(re:replace("(blah","^(\\(+)?blah(?(1)(\\)))$","YHPf",[global])),
+    <<"qDYnUXHWSlxXQRHVxU">> = iolist_to_binary(re:replace("a","(?(?!a)b|a)","qDYnUXHWSlxXQRHVxU\\1",[])),
+    <<"qDYnUXHWSlxXQRHVxU">> = iolist_to_binary(re:replace("a","(?(?!a)b|a)","qDYnUXHWSlxXQRHVxU\\1",[global])),
+    <<"a">> = iolist_to_binary(re:replace("a","(?(?=a)b|a)","pMu",[])),
+    <<"a">> = iolist_to_binary(re:replace("a","(?(?=a)b|a)","pMu",[global])),
+    <<"a">> = iolist_to_binary(re:replace("a","(?(?=a)b|a)","ntLDenf\\1",[])),
+    <<"a">> = iolist_to_binary(re:replace("a","(?(?=a)b|a)","ntLDenf\\1",[global])),
+    <<"k">> = iolist_to_binary(re:replace("a","(?(?=a)a|b)","k\\1",[])),
+    <<"k">> = iolist_to_binary(re:replace("a","(?(?=a)a|b)","k\\1",[global])),
     <<"adDECvKaabaaabKa">> = iolist_to_binary(re:replace("aaab","(?=(a+?))(\\1ab)","dDECvK&\\1&K\\1",[])),
     <<"adDECvKaabaaabKa">> = iolist_to_binary(re:replace("aaab","(?=(a+?))(\\1ab)","dDECvK&\\1&K\\1",[global])),
-    <<"aaab">> = iolist_to_binary(re:replace("aaab","^(?=(a+?))\\1ab","\\1VkX&ROnLhn",[])),
-    <<"aaab">> = iolist_to_binary(re:replace("aaab","^(?=(a+?))\\1ab","\\1VkX&ROnLhn",[global])),
-    <<"aaab">> = iolist_to_binary(re:replace("aaab","^(?=(a+?))\\1ab","s&fIigwcU\\1fcAt\\1Ad\\1d",[])),
-    <<"aaab">> = iolist_to_binary(re:replace("aaab","^(?=(a+?))\\1ab","s&fIigwcU\\1fcAt\\1Ad\\1d",[global])),
-    <<"wkVJSCabcdbeusn">> = iolist_to_binary(re:replace("abcd","([\\w:]+::)?(\\w+)$","w\\1kVJSC&beus\\1\\1n",[])),
-    <<"wkVJSCabcdbeusn">> = iolist_to_binary(re:replace("abcd","([\\w:]+::)?(\\w+)$","w\\1kVJSC&beus\\1\\1n",[global])),
-    <<"fIEmgxyxy:z:::XgAmoxnNTxy:z:::abcdb">> = iolist_to_binary(re:replace("xy:z:::abcd","([\\w:]+::)?(\\w+)$","fIEmgxy\\1XgAmoxnNT&b",[])),
-    <<"fIEmgxyxy:z:::XgAmoxnNTxy:z:::abcdb">> = iolist_to_binary(re:replace("xy:z:::abcd","([\\w:]+::)?(\\w+)$","fIEmgxy\\1XgAmoxnNT&b",[global])),
-    <<"YSwweMKEtREGmRxcEpd">> = iolist_to_binary(re:replace("aexycd","^[^bcd]*(c+)","YSwweMKEtREGmRx\\1Ep",[])),
-    <<"YSwweMKEtREGmRxcEpd">> = iolist_to_binary(re:replace("aexycd","^[^bcd]*(c+)","YSwweMKEtREGmRx\\1Ep",[global])),
-    <<"cJMWvNaabHEaabaagTLgLgw">> = iolist_to_binary(re:replace("caab","(a*)b+","JMWvN&HE&\\1gTLgLgw",[])),
-    <<"cJMWvNaabHEaabaagTLgLgw">> = iolist_to_binary(re:replace("caab","(a*)b+","JMWvN&HE&\\1gTLgLgw",[global])),
-    <<"LoaDSHAAabcdcNcg">> = iolist_to_binary(re:replace("abcd","([\\w:]+::)?(\\w+)$","LoaDSHAA&c\\1Ncg",[])),
-    <<"LoaDSHAAabcdcNcg">> = iolist_to_binary(re:replace("abcd","([\\w:]+::)?(\\w+)$","LoaDSHAA&c\\1Ncg",[global])),
-    <<"AWnYrnkPxy:z:::abcd">> = iolist_to_binary(re:replace("xy:z:::abcd","([\\w:]+::)?(\\w+)$","AWnYrnkP&",[])),
-    <<"AWnYrnkPxy:z:::abcd">> = iolist_to_binary(re:replace("xy:z:::abcd","([\\w:]+::)?(\\w+)$","AWnYrnkP&",[global])),
-    <<"abcd:">> = iolist_to_binary(re:replace("abcd:","([\\w:]+::)?(\\w+)$","i&YPJxCXsht",[])),
-    <<"abcd:">> = iolist_to_binary(re:replace("abcd:","([\\w:]+::)?(\\w+)$","i&YPJxCXsht",[global])),
-    <<"abcd:">> = iolist_to_binary(re:replace("abcd:","([\\w:]+::)?(\\w+)$","OdSmgEn&bU&x&&ji\\1D",[])),
-    <<"abcd:">> = iolist_to_binary(re:replace("abcd:","([\\w:]+::)?(\\w+)$","OdSmgEn&bU&x&&ji\\1D",[global])),
-    <<"ITOSQRaexycJRMPdod">> = iolist_to_binary(re:replace("aexycd","^[^bcd]*(c+)","ITOSQR&JRMPdo",[])),
-    <<"ITOSQRaexycJRMPdod">> = iolist_to_binary(re:replace("aexycd","^[^bcd]*(c+)","ITOSQR&JRMPdo",[global])),
+    <<"one:VkXone:ROnLhn">> = iolist_to_binary(re:replace("one:","(\\w+:)+","\\1VkX&ROnLhn",[])),
+    <<"one:VkXone:ROnLhn">> = iolist_to_binary(re:replace("one:","(\\w+:)+","\\1VkX&ROnLhn",[global])),
+    <<"asfIigwcUafcAtaAdad">> = iolist_to_binary(re:replace("a","$(?<=^(a))","s&fIigwcU\\1fcAt\\1Ad\\1d",[])),
+    <<"asfIigwcUafcAtaAdad">> = iolist_to_binary(re:replace("a","$(?<=^(a))","s&fIigwcU\\1fcAt\\1Ad\\1d",[global])),
+    <<"awakVJSCaabbeusaan">> = iolist_to_binary(re:replace("aaab","(?=(a+?))(\\1ab)","w\\1kVJSC&beus\\1\\1n",[])),
+    <<"awakVJSCaabbeusaan">> = iolist_to_binary(re:replace("aaab","(?=(a+?))(\\1ab)","w\\1kVJSC&beus\\1\\1n",[global])),
+    <<"aaab">> = iolist_to_binary(re:replace("aaab","^(?=(a+?))\\1ab","fIEmgxy\\1XgAmoxnNT&b",[])),
+    <<"aaab">> = iolist_to_binary(re:replace("aaab","^(?=(a+?))\\1ab","fIEmgxy\\1XgAmoxnNT&b",[global])),
+    <<"aaab">> = iolist_to_binary(re:replace("aaab","^(?=(a+?))\\1ab","YSwweMKEtREGmRx\\1Ep",[])),
+    <<"aaab">> = iolist_to_binary(re:replace("aaab","^(?=(a+?))\\1ab","YSwweMKEtREGmRx\\1Ep",[global])),
+    <<"JMWvNabcdHEabcdgTLgLgw">> = iolist_to_binary(re:replace("abcd","([\\w:]+::)?(\\w+)$","JMWvN&HE&\\1gTLgLgw",[])),
+    <<"JMWvNabcdHEabcdgTLgLgw">> = iolist_to_binary(re:replace("abcd","([\\w:]+::)?(\\w+)$","JMWvN&HE&\\1gTLgLgw",[global])),
+    <<"LoaDSHAAxy:z:::abcdcxy:z:::Ncg">> = iolist_to_binary(re:replace("xy:z:::abcd","([\\w:]+::)?(\\w+)$","LoaDSHAA&c\\1Ncg",[])),
+    <<"LoaDSHAAxy:z:::abcdcxy:z:::Ncg">> = iolist_to_binary(re:replace("xy:z:::abcd","([\\w:]+::)?(\\w+)$","LoaDSHAA&c\\1Ncg",[global])),
+    <<"AWnYrnkPaexycd">> = iolist_to_binary(re:replace("aexycd","^[^bcd]*(c+)","AWnYrnkP&",[])),
+    <<"AWnYrnkPaexycd">> = iolist_to_binary(re:replace("aexycd","^[^bcd]*(c+)","AWnYrnkP&",[global])),
     ok.
 run30() ->
-    <<"VyaaabaaabecaaabTLeQ">> = iolist_to_binary(re:replace("aaab","(?>a+)b","Vy&&ec&TLeQ",[])),
-    <<"VyaaabaaabecaaabTLeQ">> = iolist_to_binary(re:replace("aaab","(?>a+)b","Vy&&ec&TLeQ",[global])),
-    <<"aPCmRtstvtrOjnb]:">> = iolist_to_binary(re:replace("a:[b]:","([[:]+)","PCmRtstvtrOjn",[])),
-    <<"aPCmRtstvtrOjnb]PCmRtstvtrOjn">> = iolist_to_binary(re:replace("a:[b]:","([[:]+)","PCmRtstvtrOjn",[global])),
-    <<"aSa=[b]=">> = iolist_to_binary(re:replace("a=[b]=","([[=]+)","Sa\\1",[])),
-    <<"aSa=[b]Sa=">> = iolist_to_binary(re:replace("a=[b]=","([[=]+)","Sa\\1",[global])),
-    <<"a.[p.[YGkIxvjAQ.[XrH.[.[Db].">> = iolist_to_binary(re:replace("a.[b].","([[.]+)","\\1p&YGkIxvjAQ&XrH\\1\\1D",[])),
-    <<"a.[p.[YGkIxvjAQ.[XrH.[.[Db].p.YGkIxvjAQ.XrH..D">> = iolist_to_binary(re:replace("a.[b].","([[.]+)","\\1p&YGkIxvjAQ&XrH\\1\\1D",[global])),
-    <<"ggQ">> = iolist_to_binary(re:replace("aaab","((?>a+)b)","ggQ",[])),
-    <<"ggQ">> = iolist_to_binary(re:replace("aaab","((?>a+)b)","ggQ",[global])),
-    <<"hdkaaadxeeaaaQGHCDfdU">> = iolist_to_binary(re:replace("aaab","(?>(a+))b","hdk\\1dxee\\1QGHCDfdU",[])),
-    <<"hdkaaadxeeaaaQGHCDfdU">> = iolist_to_binary(re:replace("aaab","(?>(a+))b","hdk\\1dxee\\1QGHCDfdU",[global])),
-    <<"((fnjTxfWdxoabc(ade)ufh()()x">> = iolist_to_binary(re:replace("((abc(ade)ufh()()x","((?>[^()]+)|\\([^()]*\\))+","fnjT\\1fWd\\1o&",[])),
-    <<"((fnjTxfWdxoabc(ade)ufh()()x">> = iolist_to_binary(re:replace("((abc(ade)ufh()()x","((?>[^()]+)|\\([^()]*\\))+","fnjT\\1fWd\\1o&",[global])),
-    <<"aaab">> = iolist_to_binary(re:replace("aaab","a\\Z","Gq\\1EOfPIdb",[])),
-    <<"aaab">> = iolist_to_binary(re:replace("aaab","a\\Z","Gq\\1EOfPIdb",[global])),
+    <<"ciaabYPJxCXsht">> = iolist_to_binary(re:replace("caab","(a*)b+","i&YPJxCXsht",[])),
+    <<"ciaabYPJxCXsht">> = iolist_to_binary(re:replace("caab","(a*)b+","i&YPJxCXsht",[global])),
+    <<"OdSmgEnabcdbUabcdxabcdabcdjiD">> = iolist_to_binary(re:replace("abcd","([\\w:]+::)?(\\w+)$","OdSmgEn&bU&x&&ji\\1D",[])),
+    <<"OdSmgEnabcdbUabcdxabcdabcdjiD">> = iolist_to_binary(re:replace("abcd","([\\w:]+::)?(\\w+)$","OdSmgEn&bU&x&&ji\\1D",[global])),
+    <<"ITOSQRxy:z:::abcdJRMPdo">> = iolist_to_binary(re:replace("xy:z:::abcd","([\\w:]+::)?(\\w+)$","ITOSQR&JRMPdo",[])),
+    <<"ITOSQRxy:z:::abcdJRMPdo">> = iolist_to_binary(re:replace("xy:z:::abcd","([\\w:]+::)?(\\w+)$","ITOSQR&JRMPdo",[global])),
+    <<"abcd:">> = iolist_to_binary(re:replace("abcd:","([\\w:]+::)?(\\w+)$","Vy&&ec&TLeQ",[])),
+    <<"abcd:">> = iolist_to_binary(re:replace("abcd:","([\\w:]+::)?(\\w+)$","Vy&&ec&TLeQ",[global])),
+    <<"abcd:">> = iolist_to_binary(re:replace("abcd:","([\\w:]+::)?(\\w+)$","PCmRtstvtrOjn",[])),
+    <<"abcd:">> = iolist_to_binary(re:replace("abcd:","([\\w:]+::)?(\\w+)$","PCmRtstvtrOjn",[global])),
+    <<"Sacd">> = iolist_to_binary(re:replace("aexycd","^[^bcd]*(c+)","Sa\\1",[])),
+    <<"Sacd">> = iolist_to_binary(re:replace("aexycd","^[^bcd]*(c+)","Sa\\1",[global])),
+    <<"paaabYGkIxvjAQaaabXrHD">> = iolist_to_binary(re:replace("aaab","(?>a+)b","\\1p&YGkIxvjAQ&XrH\\1\\1D",[])),
+    <<"paaabYGkIxvjAQaaabXrHD">> = iolist_to_binary(re:replace("aaab","(?>a+)b","\\1p&YGkIxvjAQ&XrH\\1\\1D",[global])),
+    <<"aggQb]:">> = iolist_to_binary(re:replace("a:[b]:","([[:]+)","ggQ",[])),
+    <<"aggQb]ggQ">> = iolist_to_binary(re:replace("a:[b]:","([[:]+)","ggQ",[global])),
+    <<"ahdk=[dxee=[QGHCDfdUb]=">> = iolist_to_binary(re:replace("a=[b]=","([[=]+)","hdk\\1dxee\\1QGHCDfdU",[])),
+    <<"ahdk=[dxee=[QGHCDfdUb]hdk=dxee=QGHCDfdU">> = iolist_to_binary(re:replace("a=[b]=","([[=]+)","hdk\\1dxee\\1QGHCDfdU",[global])),
+    <<"afnjT.[fWd.[o.[b].">> = iolist_to_binary(re:replace("a.[b].","([[.]+)","fnjT\\1fWd\\1o&",[])),
+    <<"afnjT.[fWd.[o.[b]fnjT.fWd.o.">> = iolist_to_binary(re:replace("a.[b].","([[.]+)","fnjT\\1fWd\\1o&",[global])),
+    <<"GqaaabEOfPIdb">> = iolist_to_binary(re:replace("aaab","((?>a+)b)","Gq\\1EOfPIdb",[])),
+    <<"GqaaabEOfPIdb">> = iolist_to_binary(re:replace("aaab","((?>a+)b)","Gq\\1EOfPIdb",[global])),
+    <<"Qaaab">> = iolist_to_binary(re:replace("aaab","(?>(a+))b","Q&",[])),
+    <<"Qaaab">> = iolist_to_binary(re:replace("aaab","(?>(a+))b","Q&",[global])),
+    <<"((gEnx">> = iolist_to_binary(re:replace("((abc(ade)ufh()()x","((?>[^()]+)|\\([^()]*\\))+","gEn\\1",[])),
+    <<"((gEnx">> = iolist_to_binary(re:replace("((abc(ade)ufh()()x","((?>[^()]+)|\\([^()]*\\))+","gEn\\1",[global])),
+    <<"aaab">> = iolist_to_binary(re:replace("aaab","a\\Z","P\\1ls&muNytHsf",[])),
+    <<"aaab">> = iolist_to_binary(re:replace("aaab","a\\Z","P\\1ls&muNytHsf",[global])),
     <<"a
 b">> = iolist_to_binary(re:replace("a
-b","a\\Z","Q&",[])),
+b","a\\Z","SJgPid&",[])),
     <<"a
 b">> = iolist_to_binary(re:replace("a
-b","a\\Z","Q&",[global])),
+b","a\\Z","SJgPid&",[global])),
     <<"a
-gEn">> = iolist_to_binary(re:replace("a
-b","b\\Z","gEn\\1",[])),
+NJFRwbpl">> = iolist_to_binary(re:replace("a
+b","b\\Z","NJFRw&pl",[])),
     <<"a
-gEn">> = iolist_to_binary(re:replace("a
-b","b\\Z","gEn\\1",[global])),
+NJFRwbpl">> = iolist_to_binary(re:replace("a
+b","b\\Z","NJFRw&pl",[global])),
     <<"a
-PlsbmuNytHsf">> = iolist_to_binary(re:replace("a
-b","b\\Z","P\\1ls&muNytHsf",[])),
+bE">> = iolist_to_binary(re:replace("a
+b","b\\Z","&E",[])),
     <<"a
-PlsbmuNytHsf">> = iolist_to_binary(re:replace("a
-b","b\\Z","P\\1ls&muNytHsf",[global])),
+bE">> = iolist_to_binary(re:replace("a
+b","b\\Z","&E",[global])),
     <<"a
-SJgPidb">> = iolist_to_binary(re:replace("a
-b","b\\z","SJgPid&",[])),
+owcnsqyFebEQb">> = iolist_to_binary(re:replace("a
+b","b\\z","owcnsqyFe&EQ&",[])),
     <<"a
-SJgPidb">> = iolist_to_binary(re:replace("a
-b","b\\z","SJgPid&",[global])),
-    <<"NJFRwapl">> = iolist_to_binary(re:replace("a","^(?>(?(1)\\.|())[^\\W_](?>[a-z0-9-]*[^\\W_])?)+$","NJFRw&pl",[])),
-    <<"NJFRwapl">> = iolist_to_binary(re:replace("a","^(?>(?(1)\\.|())[^\\W_](?>[a-z0-9-]*[^\\W_])?)+$","NJFRw&pl",[global])),
-    <<"abcE">> = iolist_to_binary(re:replace("abc","^(?>(?(1)\\.|())[^\\W_](?>[a-z0-9-]*[^\\W_])?)+$","&E",[])),
-    <<"abcE">> = iolist_to_binary(re:replace("abc","^(?>(?(1)\\.|())[^\\W_](?>[a-z0-9-]*[^\\W_])?)+$","&E",[global])),
-    <<"owcnsqyFea-bEQa-b">> = iolist_to_binary(re:replace("a-b","^(?>(?(1)\\.|())[^\\W_](?>[a-z0-9-]*[^\\W_])?)+$","owcnsqyFe&EQ&",[])),
-    <<"owcnsqyFea-bEQa-b">> = iolist_to_binary(re:replace("a-b","^(?>(?(1)\\.|())[^\\W_](?>[a-z0-9-]*[^\\W_])?)+$","owcnsqyFe&EQ&",[global])),
-    <<"ruK0-90-90-9jGN0-9oQda0-9O">> = iolist_to_binary(re:replace("0-9","^(?>(?(1)\\.|())[^\\W_](?>[a-z0-9-]*[^\\W_])?)+$","ruK&&&jGN&oQda&O",[])),
-    <<"ruK0-90-90-9jGN0-9oQda0-9O">> = iolist_to_binary(re:replace("0-9","^(?>(?(1)\\.|())[^\\W_](?>[a-z0-9-]*[^\\W_])?)+$","ruK&&&jGN&oQda&O",[global])),
-    <<"Na.bWHMsODna.bQCvNsa.b">> = iolist_to_binary(re:replace("a.b","^(?>(?(1)\\.|())[^\\W_](?>[a-z0-9-]*[^\\W_])?)+$","N&WHM\\1sODn&QCvN\\1s&",[])),
-    <<"Na.bWHMsODna.bQCvNsa.b">> = iolist_to_binary(re:replace("a.b","^(?>(?(1)\\.|())[^\\W_](?>[a-z0-9-]*[^\\W_])?)+$","N&WHM\\1sODn&QCvN\\1s&",[global])),
-    <<"sgQuaFh">> = iolist_to_binary(re:replace("5.6.7","^(?>(?(1)\\.|())[^\\W_](?>[a-z0-9-]*[^\\W_])?)+$","s\\1gQuaF\\1h",[])),
-    <<"sgQuaFh">> = iolist_to_binary(re:replace("5.6.7","^(?>(?(1)\\.|())[^\\W_](?>[a-z0-9-]*[^\\W_])?)+$","s\\1gQuaF\\1h",[global])),
-    <<"lmSQthe.quick.brown.foxaXJqwxUYswqthe.quick.brown.fox">> = iolist_to_binary(re:replace("the.quick.brown.fox","^(?>(?(1)\\.|())[^\\W_](?>[a-z0-9-]*[^\\W_])?)+$","l\\1mSQ&aXJqwxUYswq&",[])),
-    <<"lmSQthe.quick.brown.foxaXJqwxUYswqthe.quick.brown.fox">> = iolist_to_binary(re:replace("the.quick.brown.fox","^(?>(?(1)\\.|())[^\\W_](?>[a-z0-9-]*[^\\W_])?)+$","l\\1mSQ&aXJqwxUYswq&",[global])),
-    <<"dSPa100.b200.300ccRcbUkgXmcHGW">> = iolist_to_binary(re:replace("a100.b200.300c","^(?>(?(1)\\.|())[^\\W_](?>[a-z0-9-]*[^\\W_])?)+$","dSP&\\1cRcbUkgXmcHGW\\1",[])),
-    <<"dSPa100.b200.300ccRcbUkgXmcHGW">> = iolist_to_binary(re:replace("a100.b200.300c","^(?>(?(1)\\.|())[^\\W_](?>[a-z0-9-]*[^\\W_])?)+$","dSP&\\1cRcbUkgXmcHGW\\1",[global])),
-    <<"IRqW">> = iolist_to_binary(re:replace("12-ab.1245","^(?>(?(1)\\.|())[^\\W_](?>[a-z0-9-]*[^\\W_])?)+$","IRqW",[])),
-    <<"IRqW">> = iolist_to_binary(re:replace("12-ab.1245","^(?>(?(1)\\.|())[^\\W_](?>[a-z0-9-]*[^\\W_])?)+$","IRqW",[global])),
-    <<"">> = iolist_to_binary(re:replace("","^(?>(?(1)\\.|())[^\\W_](?>[a-z0-9-]*[^\\W_])?)+$","y\\1kWXv\\1th&UfKUlbLTp",[])),
-    <<"">> = iolist_to_binary(re:replace("","^(?>(?(1)\\.|())[^\\W_](?>[a-z0-9-]*[^\\W_])?)+$","y\\1kWXv\\1th&UfKUlbLTp",[global])),
-    <<".a">> = iolist_to_binary(re:replace(".a","^(?>(?(1)\\.|())[^\\W_](?>[a-z0-9-]*[^\\W_])?)+$","pelUw",[])),
-    <<".a">> = iolist_to_binary(re:replace(".a","^(?>(?(1)\\.|())[^\\W_](?>[a-z0-9-]*[^\\W_])?)+$","pelUw",[global])),
-    <<"-a">> = iolist_to_binary(re:replace("-a","^(?>(?(1)\\.|())[^\\W_](?>[a-z0-9-]*[^\\W_])?)+$","cfhcWSNABY\\1NMLh",[])),
-    <<"-a">> = iolist_to_binary(re:replace("-a","^(?>(?(1)\\.|())[^\\W_](?>[a-z0-9-]*[^\\W_])?)+$","cfhcWSNABY\\1NMLh",[global])),
-    <<"a-">> = iolist_to_binary(re:replace("a-","^(?>(?(1)\\.|())[^\\W_](?>[a-z0-9-]*[^\\W_])?)+$","\\1tf\\1q",[])),
-    <<"a-">> = iolist_to_binary(re:replace("a-","^(?>(?(1)\\.|())[^\\W_](?>[a-z0-9-]*[^\\W_])?)+$","\\1tf\\1q",[global])),
-    <<"a.">> = iolist_to_binary(re:replace("a.","^(?>(?(1)\\.|())[^\\W_](?>[a-z0-9-]*[^\\W_])?)+$","&OEf",[])),
-    <<"a.">> = iolist_to_binary(re:replace("a.","^(?>(?(1)\\.|())[^\\W_](?>[a-z0-9-]*[^\\W_])?)+$","&OEf",[global])),
-    <<"a_b">> = iolist_to_binary(re:replace("a_b","^(?>(?(1)\\.|())[^\\W_](?>[a-z0-9-]*[^\\W_])?)+$","Vmfyu",[])),
-    <<"a_b">> = iolist_to_binary(re:replace("a_b","^(?>(?(1)\\.|())[^\\W_](?>[a-z0-9-]*[^\\W_])?)+$","Vmfyu",[global])),
-    <<"a.-">> = iolist_to_binary(re:replace("a.-","^(?>(?(1)\\.|())[^\\W_](?>[a-z0-9-]*[^\\W_])?)+$","FI\\1\\1MUVjTE",[])),
-    <<"a.-">> = iolist_to_binary(re:replace("a.-","^(?>(?(1)\\.|())[^\\W_](?>[a-z0-9-]*[^\\W_])?)+$","FI\\1\\1MUVjTE",[global])),
-    <<"a..">> = iolist_to_binary(re:replace("a..","^(?>(?(1)\\.|())[^\\W_](?>[a-z0-9-]*[^\\W_])?)+$","eicDcY&oLhM&&KRq",[])),
-    <<"a..">> = iolist_to_binary(re:replace("a..","^(?>(?(1)\\.|())[^\\W_](?>[a-z0-9-]*[^\\W_])?)+$","eicDcY&oLhM&&KRq",[global])),
-    <<"ab..bc">> = iolist_to_binary(re:replace("ab..bc","^(?>(?(1)\\.|())[^\\W_](?>[a-z0-9-]*[^\\W_])?)+$","&qs&r",[])),
-    <<"ab..bc">> = iolist_to_binary(re:replace("ab..bc","^(?>(?(1)\\.|())[^\\W_](?>[a-z0-9-]*[^\\W_])?)+$","&qs&r",[global])),
-    <<"the.quick.brown.fox-">> = iolist_to_binary(re:replace("the.quick.brown.fox-","^(?>(?(1)\\.|())[^\\W_](?>[a-z0-9-]*[^\\W_])?)+$","\\1\\1OSJ&",[])),
-    <<"the.quick.brown.fox-">> = iolist_to_binary(re:replace("the.quick.brown.fox-","^(?>(?(1)\\.|())[^\\W_](?>[a-z0-9-]*[^\\W_])?)+$","\\1\\1OSJ&",[global])),
-    <<"the.quick.brown.fox.">> = iolist_to_binary(re:replace("the.quick.brown.fox.","^(?>(?(1)\\.|())[^\\W_](?>[a-z0-9-]*[^\\W_])?)+$","HYIA&\\1Rh&&&GQ",[])),
-    <<"the.quick.brown.fox.">> = iolist_to_binary(re:replace("the.quick.brown.fox.","^(?>(?(1)\\.|())[^\\W_](?>[a-z0-9-]*[^\\W_])?)+$","HYIA&\\1Rh&&&GQ",[global])),
-    <<"the.quick.brown.fox_">> = iolist_to_binary(re:replace("the.quick.brown.fox_","^(?>(?(1)\\.|())[^\\W_](?>[a-z0-9-]*[^\\W_])?)+$","\\1&BcQ&wOm&&",[])),
-    <<"the.quick.brown.fox_">> = iolist_to_binary(re:replace("the.quick.brown.fox_","^(?>(?(1)\\.|())[^\\W_](?>[a-z0-9-]*[^\\W_])?)+$","\\1&BcQ&wOm&&",[global])),
-    <<"the.quick.brown.fox+">> = iolist_to_binary(re:replace("the.quick.brown.fox+","^(?>(?(1)\\.|())[^\\W_](?>[a-z0-9-]*[^\\W_])?)+$","x&N",[])),
-    <<"the.quick.brown.fox+">> = iolist_to_binary(re:replace("the.quick.brown.fox+","^(?>(?(1)\\.|())[^\\W_](?>[a-z0-9-]*[^\\W_])?)+$","x&N",[global])),
-    <<"abcdWxPOAabcd">> = iolist_to_binary(re:replace("alphabetabcd","(?>.*)(?<=(abcd|wxyz))","\\1WxPOA\\1",[])),
-    <<"abcdWxPOAabcdabcdWxPOAabcd">> = iolist_to_binary(re:replace("alphabetabcd","(?>.*)(?<=(abcd|wxyz))","\\1WxPOA\\1",[global])),
-    <<"DJwxyzLeA">> = iolist_to_binary(re:replace("endingwxyz","(?>.*)(?<=(abcd|wxyz))","DJ\\1LeA",[])),
-    <<"DJwxyzLeADJwxyzLeA">> = iolist_to_binary(re:replace("endingwxyz","(?>.*)(?<=(abcd|wxyz))","DJ\\1LeA",[global])),
-    <<"a rather long string that doesn't end with one of them">> = iolist_to_binary(re:replace("a rather long string that doesn't end with one of them","(?>.*)(?<=(abcd|wxyz))","qinMo",[])),
-    <<"a rather long string that doesn't end with one of them">> = iolist_to_binary(re:replace("a rather long string that doesn't end with one of them","(?>.*)(?<=(abcd|wxyz))","qinMo",[global])),
-    <<"word cat dog elephant mussel cow horse canary baboon snake shark otherwordXdword cat dog elephant mussel cow horse canary baboon snake shark otherwordaKTrIIqhpiWP">> = iolist_to_binary(re:replace("word cat dog elephant mussel cow horse canary baboon snake shark otherword","word (?>(?:(?!otherword)[a-zA-Z0-9]+ ){0,30})otherword","&\\1Xd&aKTrIIqhpiWP",[])),
-    <<"word cat dog elephant mussel cow horse canary baboon snake shark otherwordXdword cat dog elephant mussel cow horse canary baboon snake shark otherwordaKTrIIqhpiWP">> = iolist_to_binary(re:replace("word cat dog elephant mussel cow horse canary baboon snake shark otherword","word (?>(?:(?!otherword)[a-zA-Z0-9]+ ){0,30})otherword","&\\1Xd&aKTrIIqhpiWP",[global])),
-    <<"word cat dog elephant mussel cow horse canary baboon snake shark">> = iolist_to_binary(re:replace("word cat dog elephant mussel cow horse canary baboon snake shark","word (?>(?:(?!otherword)[a-zA-Z0-9]+ ){0,30})otherword","Ciaei&bFyjW",[])),
-    <<"word cat dog elephant mussel cow horse canary baboon snake shark">> = iolist_to_binary(re:replace("word cat dog elephant mussel cow horse canary baboon snake shark","word (?>(?:(?!otherword)[a-zA-Z0-9]+ ){0,30})otherword","Ciaei&bFyjW",[global])),
-    <<"word cat dog elephant mussel cow horse canary baboon snake shark the quick brown fox and the lazy dog and several other words getting close to thirty by now I hope">> = iolist_to_binary(re:replace("word cat dog elephant mussel cow horse canary baboon snake shark the quick brown fox and the lazy dog and several other words getting close to thirty by now I hope","word (?>[a-zA-Z0-9]+ ){0,30}otherword","\\1&Ch&IWXxoeCE",[])),
-    <<"word cat dog elephant mussel cow horse canary baboon snake shark the quick brown fox and the lazy dog and several other words getting close to thirty by now I hope">> = iolist_to_binary(re:replace("word cat dog elephant mussel cow horse canary baboon snake shark the quick brown fox and the lazy dog and several other words getting close to thirty by now I hope","word (?>[a-zA-Z0-9]+ ){0,30}otherword","\\1&Ch&IWXxoeCE",[global])),
-    <<"999foofoot">> = iolist_to_binary(re:replace("999foo","(?<=\\d{3}(?!999))foo","&&t",[])),
-    <<"999foofoot">> = iolist_to_binary(re:replace("999foo","(?<=\\d{3}(?!999))foo","&&t",[global])),
-    <<"123999Pfoow">> = iolist_to_binary(re:replace("123999foo","(?<=\\d{3}(?!999))foo","P&w",[])),
-    <<"123999Pfoow">> = iolist_to_binary(re:replace("123999foo","(?<=\\d{3}(?!999))foo","P&w",[global])),
-    <<"123abcfoo">> = iolist_to_binary(re:replace("123abcfoo","(?<=\\d{3}(?!999))foo","&jEcxWNe",[])),
-    <<"123abcfoo">> = iolist_to_binary(re:replace("123abcfoo","(?<=\\d{3}(?!999))foo","&jEcxWNe",[global])),
-    <<"999fooQByhvIPMdVCvMAk">> = iolist_to_binary(re:replace("999foo","(?<=(?!...999)\\d{3})foo","&QByhvIPMdVCvMAk",[])),
-    <<"999fooQByhvIPMdVCvMAk">> = iolist_to_binary(re:replace("999foo","(?<=(?!...999)\\d{3})foo","&QByhvIPMdVCvMAk",[global])),
-    <<"123999LKyhXCAKOfoofKpfoo">> = iolist_to_binary(re:replace("123999foo","(?<=(?!...999)\\d{3})foo","LKyhXCAKO&fKp&",[])),
-    <<"123999LKyhXCAKOfoofKpfoo">> = iolist_to_binary(re:replace("123999foo","(?<=(?!...999)\\d{3})foo","LKyhXCAKO&fKp&",[global])),
-    <<"123abcfoo">> = iolist_to_binary(re:replace("123abcfoo","(?<=(?!...999)\\d{3})foo","PktYBS",[])),
-    <<"123abcfoo">> = iolist_to_binary(re:replace("123abcfoo","(?<=(?!...999)\\d{3})foo","PktYBS",[global])),
-    <<"123abcfooLfoofooAB">> = iolist_to_binary(re:replace("123abcfoo","(?<=\\d{3}(?!999)...)foo","&L&&AB",[])),
-    <<"123abcfooLfoofooAB">> = iolist_to_binary(re:replace("123abcfoo","(?<=\\d{3}(?!999)...)foo","&L&&AB",[global])),
-    <<"123456fooNExLuXAoRv">> = iolist_to_binary(re:replace("123456foo","(?<=\\d{3}(?!999)...)foo","&NExLuXAoRv",[])),
-    <<"123456fooNExLuXAoRv">> = iolist_to_binary(re:replace("123456foo","(?<=\\d{3}(?!999)...)foo","&NExLuXAoRv",[global])),
-    <<"123999foo">> = iolist_to_binary(re:replace("123999foo","(?<=\\d{3}(?!999)...)foo","TNhbF",[])),
-    <<"123999foo">> = iolist_to_binary(re:replace("123999foo","(?<=\\d{3}(?!999)...)foo","TNhbF",[global])),
+owcnsqyFebEQb">> = iolist_to_binary(re:replace("a
+b","b\\z","owcnsqyFe&EQ&",[global])),
+    <<"ruKaaajGNaoQdaaO">> = iolist_to_binary(re:replace("a","^(?>(?(1)\\.|())[^\\W_](?>[a-z0-9-]*[^\\W_])?)+$","ruK&&&jGN&oQda&O",[])),
+    <<"ruKaaajGNaoQdaaO">> = iolist_to_binary(re:replace("a","^(?>(?(1)\\.|())[^\\W_](?>[a-z0-9-]*[^\\W_])?)+$","ruK&&&jGN&oQda&O",[global])),
+    <<"NabcWHMsODnabcQCvNsabc">> = iolist_to_binary(re:replace("abc","^(?>(?(1)\\.|())[^\\W_](?>[a-z0-9-]*[^\\W_])?)+$","N&WHM\\1sODn&QCvN\\1s&",[])),
+    <<"NabcWHMsODnabcQCvNsabc">> = iolist_to_binary(re:replace("abc","^(?>(?(1)\\.|())[^\\W_](?>[a-z0-9-]*[^\\W_])?)+$","N&WHM\\1sODn&QCvN\\1s&",[global])),
+    <<"sgQuaFh">> = iolist_to_binary(re:replace("a-b","^(?>(?(1)\\.|())[^\\W_](?>[a-z0-9-]*[^\\W_])?)+$","s\\1gQuaF\\1h",[])),
+    <<"sgQuaFh">> = iolist_to_binary(re:replace("a-b","^(?>(?(1)\\.|())[^\\W_](?>[a-z0-9-]*[^\\W_])?)+$","s\\1gQuaF\\1h",[global])),
+    <<"lmSQ0-9aXJqwxUYswq0-9">> = iolist_to_binary(re:replace("0-9","^(?>(?(1)\\.|())[^\\W_](?>[a-z0-9-]*[^\\W_])?)+$","l\\1mSQ&aXJqwxUYswq&",[])),
+    <<"lmSQ0-9aXJqwxUYswq0-9">> = iolist_to_binary(re:replace("0-9","^(?>(?(1)\\.|())[^\\W_](?>[a-z0-9-]*[^\\W_])?)+$","l\\1mSQ&aXJqwxUYswq&",[global])),
+    <<"dSPa.bcRcbUkgXmcHGW">> = iolist_to_binary(re:replace("a.b","^(?>(?(1)\\.|())[^\\W_](?>[a-z0-9-]*[^\\W_])?)+$","dSP&\\1cRcbUkgXmcHGW\\1",[])),
+    <<"dSPa.bcRcbUkgXmcHGW">> = iolist_to_binary(re:replace("a.b","^(?>(?(1)\\.|())[^\\W_](?>[a-z0-9-]*[^\\W_])?)+$","dSP&\\1cRcbUkgXmcHGW\\1",[global])),
+    <<"IRqW">> = iolist_to_binary(re:replace("5.6.7","^(?>(?(1)\\.|())[^\\W_](?>[a-z0-9-]*[^\\W_])?)+$","IRqW",[])),
+    <<"IRqW">> = iolist_to_binary(re:replace("5.6.7","^(?>(?(1)\\.|())[^\\W_](?>[a-z0-9-]*[^\\W_])?)+$","IRqW",[global])),
+    <<"ykWXvththe.quick.brown.foxUfKUlbLTp">> = iolist_to_binary(re:replace("the.quick.brown.fox","^(?>(?(1)\\.|())[^\\W_](?>[a-z0-9-]*[^\\W_])?)+$","y\\1kWXv\\1th&UfKUlbLTp",[])),
+    <<"ykWXvththe.quick.brown.foxUfKUlbLTp">> = iolist_to_binary(re:replace("the.quick.brown.fox","^(?>(?(1)\\.|())[^\\W_](?>[a-z0-9-]*[^\\W_])?)+$","y\\1kWXv\\1th&UfKUlbLTp",[global])),
+    <<"pelUw">> = iolist_to_binary(re:replace("a100.b200.300c","^(?>(?(1)\\.|())[^\\W_](?>[a-z0-9-]*[^\\W_])?)+$","pelUw",[])),
+    <<"pelUw">> = iolist_to_binary(re:replace("a100.b200.300c","^(?>(?(1)\\.|())[^\\W_](?>[a-z0-9-]*[^\\W_])?)+$","pelUw",[global])),
+    <<"cfhcWSNABYNMLh">> = iolist_to_binary(re:replace("12-ab.1245","^(?>(?(1)\\.|())[^\\W_](?>[a-z0-9-]*[^\\W_])?)+$","cfhcWSNABY\\1NMLh",[])),
+    <<"cfhcWSNABYNMLh">> = iolist_to_binary(re:replace("12-ab.1245","^(?>(?(1)\\.|())[^\\W_](?>[a-z0-9-]*[^\\W_])?)+$","cfhcWSNABY\\1NMLh",[global])),
+    <<"">> = iolist_to_binary(re:replace("","^(?>(?(1)\\.|())[^\\W_](?>[a-z0-9-]*[^\\W_])?)+$","\\1tf\\1q",[])),
+    <<"">> = iolist_to_binary(re:replace("","^(?>(?(1)\\.|())[^\\W_](?>[a-z0-9-]*[^\\W_])?)+$","\\1tf\\1q",[global])),
+    <<".a">> = iolist_to_binary(re:replace(".a","^(?>(?(1)\\.|())[^\\W_](?>[a-z0-9-]*[^\\W_])?)+$","&OEf",[])),
+    <<".a">> = iolist_to_binary(re:replace(".a","^(?>(?(1)\\.|())[^\\W_](?>[a-z0-9-]*[^\\W_])?)+$","&OEf",[global])),
+    <<"-a">> = iolist_to_binary(re:replace("-a","^(?>(?(1)\\.|())[^\\W_](?>[a-z0-9-]*[^\\W_])?)+$","Vmfyu",[])),
+    <<"-a">> = iolist_to_binary(re:replace("-a","^(?>(?(1)\\.|())[^\\W_](?>[a-z0-9-]*[^\\W_])?)+$","Vmfyu",[global])),
+    <<"a-">> = iolist_to_binary(re:replace("a-","^(?>(?(1)\\.|())[^\\W_](?>[a-z0-9-]*[^\\W_])?)+$","FI\\1\\1MUVjTE",[])),
+    <<"a-">> = iolist_to_binary(re:replace("a-","^(?>(?(1)\\.|())[^\\W_](?>[a-z0-9-]*[^\\W_])?)+$","FI\\1\\1MUVjTE",[global])),
+    <<"a.">> = iolist_to_binary(re:replace("a.","^(?>(?(1)\\.|())[^\\W_](?>[a-z0-9-]*[^\\W_])?)+$","eicDcY&oLhM&&KRq",[])),
+    <<"a.">> = iolist_to_binary(re:replace("a.","^(?>(?(1)\\.|())[^\\W_](?>[a-z0-9-]*[^\\W_])?)+$","eicDcY&oLhM&&KRq",[global])),
+    <<"a_b">> = iolist_to_binary(re:replace("a_b","^(?>(?(1)\\.|())[^\\W_](?>[a-z0-9-]*[^\\W_])?)+$","&qs&r",[])),
+    <<"a_b">> = iolist_to_binary(re:replace("a_b","^(?>(?(1)\\.|())[^\\W_](?>[a-z0-9-]*[^\\W_])?)+$","&qs&r",[global])),
+    <<"a.-">> = iolist_to_binary(re:replace("a.-","^(?>(?(1)\\.|())[^\\W_](?>[a-z0-9-]*[^\\W_])?)+$","\\1\\1OSJ&",[])),
+    <<"a.-">> = iolist_to_binary(re:replace("a.-","^(?>(?(1)\\.|())[^\\W_](?>[a-z0-9-]*[^\\W_])?)+$","\\1\\1OSJ&",[global])),
+    <<"a..">> = iolist_to_binary(re:replace("a..","^(?>(?(1)\\.|())[^\\W_](?>[a-z0-9-]*[^\\W_])?)+$","HYIA&\\1Rh&&&GQ",[])),
+    <<"a..">> = iolist_to_binary(re:replace("a..","^(?>(?(1)\\.|())[^\\W_](?>[a-z0-9-]*[^\\W_])?)+$","HYIA&\\1Rh&&&GQ",[global])),
+    <<"ab..bc">> = iolist_to_binary(re:replace("ab..bc","^(?>(?(1)\\.|())[^\\W_](?>[a-z0-9-]*[^\\W_])?)+$","\\1&BcQ&wOm&&",[])),
+    <<"ab..bc">> = iolist_to_binary(re:replace("ab..bc","^(?>(?(1)\\.|())[^\\W_](?>[a-z0-9-]*[^\\W_])?)+$","\\1&BcQ&wOm&&",[global])),
+    <<"the.quick.brown.fox-">> = iolist_to_binary(re:replace("the.quick.brown.fox-","^(?>(?(1)\\.|())[^\\W_](?>[a-z0-9-]*[^\\W_])?)+$","x&N",[])),
+    <<"the.quick.brown.fox-">> = iolist_to_binary(re:replace("the.quick.brown.fox-","^(?>(?(1)\\.|())[^\\W_](?>[a-z0-9-]*[^\\W_])?)+$","x&N",[global])),
+    <<"the.quick.brown.fox.">> = iolist_to_binary(re:replace("the.quick.brown.fox.","^(?>(?(1)\\.|())[^\\W_](?>[a-z0-9-]*[^\\W_])?)+$","\\1WxPOA\\1",[])),
+    <<"the.quick.brown.fox.">> = iolist_to_binary(re:replace("the.quick.brown.fox.","^(?>(?(1)\\.|())[^\\W_](?>[a-z0-9-]*[^\\W_])?)+$","\\1WxPOA\\1",[global])),
+    <<"the.quick.brown.fox_">> = iolist_to_binary(re:replace("the.quick.brown.fox_","^(?>(?(1)\\.|())[^\\W_](?>[a-z0-9-]*[^\\W_])?)+$","DJ\\1LeA",[])),
+    <<"the.quick.brown.fox_">> = iolist_to_binary(re:replace("the.quick.brown.fox_","^(?>(?(1)\\.|())[^\\W_](?>[a-z0-9-]*[^\\W_])?)+$","DJ\\1LeA",[global])),
+    <<"the.quick.brown.fox+">> = iolist_to_binary(re:replace("the.quick.brown.fox+","^(?>(?(1)\\.|())[^\\W_](?>[a-z0-9-]*[^\\W_])?)+$","qinMo",[])),
+    <<"the.quick.brown.fox+">> = iolist_to_binary(re:replace("the.quick.brown.fox+","^(?>(?(1)\\.|())[^\\W_](?>[a-z0-9-]*[^\\W_])?)+$","qinMo",[global])),
+    <<"alphabetabcdabcdXdalphabetabcdaKTrIIqhpiWP">> = iolist_to_binary(re:replace("alphabetabcd","(?>.*)(?<=(abcd|wxyz))","&\\1Xd&aKTrIIqhpiWP",[])),
+    <<"alphabetabcdabcdXdalphabetabcdaKTrIIqhpiWPabcdXdaKTrIIqhpiWP">> = iolist_to_binary(re:replace("alphabetabcd","(?>.*)(?<=(abcd|wxyz))","&\\1Xd&aKTrIIqhpiWP",[global])),
+    <<"CiaeiendingwxyzbFyjW">> = iolist_to_binary(re:replace("endingwxyz","(?>.*)(?<=(abcd|wxyz))","Ciaei&bFyjW",[])),
+    <<"CiaeiendingwxyzbFyjWCiaeibFyjW">> = iolist_to_binary(re:replace("endingwxyz","(?>.*)(?<=(abcd|wxyz))","Ciaei&bFyjW",[global])),
+    <<"a rather long string that doesn't end with one of them">> = iolist_to_binary(re:replace("a rather long string that doesn't end with one of them","(?>.*)(?<=(abcd|wxyz))","\\1&Ch&IWXxoeCE",[])),
+    <<"a rather long string that doesn't end with one of them">> = iolist_to_binary(re:replace("a rather long string that doesn't end with one of them","(?>.*)(?<=(abcd|wxyz))","\\1&Ch&IWXxoeCE",[global])),
+    <<"word cat dog elephant mussel cow horse canary baboon snake shark otherwordword cat dog elephant mussel cow horse canary baboon snake shark otherwordt">> = iolist_to_binary(re:replace("word cat dog elephant mussel cow horse canary baboon snake shark otherword","word (?>(?:(?!otherword)[a-zA-Z0-9]+ ){0,30})otherword","&&t",[])),
+    <<"word cat dog elephant mussel cow horse canary baboon snake shark otherwordword cat dog elephant mussel cow horse canary baboon snake shark otherwordt">> = iolist_to_binary(re:replace("word cat dog elephant mussel cow horse canary baboon snake shark otherword","word (?>(?:(?!otherword)[a-zA-Z0-9]+ ){0,30})otherword","&&t",[global])),
+    <<"word cat dog elephant mussel cow horse canary baboon snake shark">> = iolist_to_binary(re:replace("word cat dog elephant mussel cow horse canary baboon snake shark","word (?>(?:(?!otherword)[a-zA-Z0-9]+ ){0,30})otherword","P&w",[])),
+    <<"word cat dog elephant mussel cow horse canary baboon snake shark">> = iolist_to_binary(re:replace("word cat dog elephant mussel cow horse canary baboon snake shark","word (?>(?:(?!otherword)[a-zA-Z0-9]+ ){0,30})otherword","P&w",[global])),
+    <<"word cat dog elephant mussel cow horse canary baboon snake shark the quick brown fox and the lazy dog and several other words getting close to thirty by now I hope">> = iolist_to_binary(re:replace("word cat dog elephant mussel cow horse canary baboon snake shark the quick brown fox and the lazy dog and several other words getting close to thirty by now I hope","word (?>[a-zA-Z0-9]+ ){0,30}otherword","&jEcxWNe",[])),
+    <<"word cat dog elephant mussel cow horse canary baboon snake shark the quick brown fox and the lazy dog and several other words getting close to thirty by now I hope">> = iolist_to_binary(re:replace("word cat dog elephant mussel cow horse canary baboon snake shark the quick brown fox and the lazy dog and several other words getting close to thirty by now I hope","word (?>[a-zA-Z0-9]+ ){0,30}otherword","&jEcxWNe",[global])),
     ok.
 run31() ->
-    <<"123abcNcfooGIjjbuiMOSVl">> = iolist_to_binary(re:replace("123abcfoo","(?<=\\d{3}...)(?<!999)foo","Nc\\1&GIjjbuiMOSVl",[])),
-    <<"123abcNcfooGIjjbuiMOSVl">> = iolist_to_binary(re:replace("123abcfoo","(?<=\\d{3}...)(?<!999)foo","Nc\\1&GIjjbuiMOSVl",[global])),
-    <<"123456OO">> = iolist_to_binary(re:replace("123456foo","(?<=\\d{3}...)(?<!999)foo","OO",[])),
-    <<"123456OO">> = iolist_to_binary(re:replace("123456foo","(?<=\\d{3}...)(?<!999)foo","OO",[global])),
-    <<"123999foo">> = iolist_to_binary(re:replace("123999foo","(?<=\\d{3}...)(?<!999)foo","OVOqSRYFwv",[])),
-    <<"123999foo">> = iolist_to_binary(re:replace("123999foo","(?<=\\d{3}...)(?<!999)foo","OVOqSRYFwv",[global])),
-    <<"fIHcA<a href=abcd<a href=abcdsdSLy xyz">> = iolist_to_binary(re:replace("<a href=abcd xyz","<a[\\s]+href[\\s]*=[\\s]*          # find <a href=
+    <<"999fooQByhvIPMdVCvMAk">> = iolist_to_binary(re:replace("999foo","(?<=\\d{3}(?!999))foo","&QByhvIPMdVCvMAk",[])),
+    <<"999fooQByhvIPMdVCvMAk">> = iolist_to_binary(re:replace("999foo","(?<=\\d{3}(?!999))foo","&QByhvIPMdVCvMAk",[global])),
+    <<"123999LKyhXCAKOfoofKpfoo">> = iolist_to_binary(re:replace("123999foo","(?<=\\d{3}(?!999))foo","LKyhXCAKO&fKp&",[])),
+    <<"123999LKyhXCAKOfoofKpfoo">> = iolist_to_binary(re:replace("123999foo","(?<=\\d{3}(?!999))foo","LKyhXCAKO&fKp&",[global])),
+    <<"123abcfoo">> = iolist_to_binary(re:replace("123abcfoo","(?<=\\d{3}(?!999))foo","PktYBS",[])),
+    <<"123abcfoo">> = iolist_to_binary(re:replace("123abcfoo","(?<=\\d{3}(?!999))foo","PktYBS",[global])),
+    <<"999fooLfoofooAB">> = iolist_to_binary(re:replace("999foo","(?<=(?!...999)\\d{3})foo","&L&&AB",[])),
+    <<"999fooLfoofooAB">> = iolist_to_binary(re:replace("999foo","(?<=(?!...999)\\d{3})foo","&L&&AB",[global])),
+    <<"123999fooNExLuXAoRv">> = iolist_to_binary(re:replace("123999foo","(?<=(?!...999)\\d{3})foo","&NExLuXAoRv",[])),
+    <<"123999fooNExLuXAoRv">> = iolist_to_binary(re:replace("123999foo","(?<=(?!...999)\\d{3})foo","&NExLuXAoRv",[global])),
+    <<"123abcfoo">> = iolist_to_binary(re:replace("123abcfoo","(?<=(?!...999)\\d{3})foo","TNhbF",[])),
+    <<"123abcfoo">> = iolist_to_binary(re:replace("123abcfoo","(?<=(?!...999)\\d{3})foo","TNhbF",[global])),
+    <<"123abcNcfooGIjjbuiMOSVl">> = iolist_to_binary(re:replace("123abcfoo","(?<=\\d{3}(?!999)...)foo","Nc\\1&GIjjbuiMOSVl",[])),
+    <<"123abcNcfooGIjjbuiMOSVl">> = iolist_to_binary(re:replace("123abcfoo","(?<=\\d{3}(?!999)...)foo","Nc\\1&GIjjbuiMOSVl",[global])),
+    <<"123456OO">> = iolist_to_binary(re:replace("123456foo","(?<=\\d{3}(?!999)...)foo","OO",[])),
+    <<"123456OO">> = iolist_to_binary(re:replace("123456foo","(?<=\\d{3}(?!999)...)foo","OO",[global])),
+    <<"123999foo">> = iolist_to_binary(re:replace("123999foo","(?<=\\d{3}(?!999)...)foo","OVOqSRYFwv",[])),
+    <<"123999foo">> = iolist_to_binary(re:replace("123999foo","(?<=\\d{3}(?!999)...)foo","OVOqSRYFwv",[global])),
+    <<"123abcfIHcAfoofoosdSLy">> = iolist_to_binary(re:replace("123abcfoo","(?<=\\d{3}...)(?<!999)foo","fIH\\1c\\1A\\1&&sdSLy",[])),
+    <<"123abcfIHcAfoofoosdSLy">> = iolist_to_binary(re:replace("123abcfoo","(?<=\\d{3}...)(?<!999)foo","fIH\\1c\\1A\\1&&sdSLy",[global])),
+    <<"123456ncyI">> = iolist_to_binary(re:replace("123456foo","(?<=\\d{3}...)(?<!999)foo","ncyI",[])),
+    <<"123456ncyI">> = iolist_to_binary(re:replace("123456foo","(?<=\\d{3}...)(?<!999)foo","ncyI",[global])),
+    <<"123999foo">> = iolist_to_binary(re:replace("123999foo","(?<=\\d{3}...)(?<!999)foo","suOoPj&\\1M",[])),
+    <<"123999foo">> = iolist_to_binary(re:replace("123999foo","(?<=\\d{3}...)(?<!999)foo","suOoPj&\\1M",[global])),
+    <<"<a href=abcdriAFA<a href=abcd<a href=abcdvRIl xyz">> = iolist_to_binary(re:replace("<a href=abcd xyz","<a[\\s]+href[\\s]*=[\\s]*          # find <a href=
  ([\\\"\\'])?                       # find single or double quote
  (?(1) (.*?)\\1 | ([^\\s]+))       # if quote found, match up to next matching
-                                 # quote, otherwise match up to next space","fIH\\1c\\1A\\1&&sdSLy",[caseless,dotall,extended])),
-    <<"fIHcA<a href=abcd<a href=abcdsdSLy xyz">> = iolist_to_binary(re:replace("<a href=abcd xyz","<a[\\s]+href[\\s]*=[\\s]*          # find <a href=
+                                 # quote, otherwise match up to next space","&riAFA&&vR\\1Il",[extended,dotall,caseless])),
+    <<"<a href=abcdriAFA<a href=abcd<a href=abcdvRIl xyz">> = iolist_to_binary(re:replace("<a href=abcd xyz","<a[\\s]+href[\\s]*=[\\s]*          # find <a href=
  ([\\\"\\'])?                       # find single or double quote
  (?(1) (.*?)\\1 | ([^\\s]+))       # if quote found, match up to next matching
-                                 # quote, otherwise match up to next space","fIH\\1c\\1A\\1&&sdSLy",[caseless,dotall,extended,global])),
-    <<"ncyI cats">> = iolist_to_binary(re:replace("<a href=\"abcd xyz pqr\" cats","<a[\\s]+href[\\s]*=[\\s]*          # find <a href=
+                                 # quote, otherwise match up to next space","&riAFA&&vR\\1Il",[extended,dotall,caseless,global])),
+    <<"oBIIx<a href=\"abcd xyz pqr\"HJ<a href=\"abcd xyz pqr\"H\"rNT cats">> = iolist_to_binary(re:replace("<a href=\"abcd xyz pqr\" cats","<a[\\s]+href[\\s]*=[\\s]*          # find <a href=
  ([\\\"\\'])?                       # find single or double quote
  (?(1) (.*?)\\1 | ([^\\s]+))       # if quote found, match up to next matching
-                                 # quote, otherwise match up to next space","ncyI",[caseless,dotall,extended])),
-    <<"ncyI cats">> = iolist_to_binary(re:replace("<a href=\"abcd xyz pqr\" cats","<a[\\s]+href[\\s]*=[\\s]*          # find <a href=
+                                 # quote, otherwise match up to next space","oBIIx&HJ&H\\1rNT",[extended,dotall,caseless])),
+    <<"oBIIx<a href=\"abcd xyz pqr\"HJ<a href=\"abcd xyz pqr\"H\"rNT cats">> = iolist_to_binary(re:replace("<a href=\"abcd xyz pqr\" cats","<a[\\s]+href[\\s]*=[\\s]*          # find <a href=
  ([\\\"\\'])?                       # find single or double quote
  (?(1) (.*?)\\1 | ([^\\s]+))       # if quote found, match up to next matching
-                                 # quote, otherwise match up to next space","ncyI",[caseless,dotall,extended,global])),
-    <<"suOoPj<a href='abcd xyz pqr''M cats">> = iolist_to_binary(re:replace("<a href='abcd xyz pqr' cats","<a[\\s]+href[\\s]*=[\\s]*          # find <a href=
+                                 # quote, otherwise match up to next space","oBIIx&HJ&H\\1rNT",[extended,dotall,caseless,global])),
+    <<"wWbIuHcu cats">> = iolist_to_binary(re:replace("<a href='abcd xyz pqr' cats","<a[\\s]+href[\\s]*=[\\s]*          # find <a href=
  ([\\\"\\'])?                       # find single or double quote
  (?(1) (.*?)\\1 | ([^\\s]+))       # if quote found, match up to next matching
-                                 # quote, otherwise match up to next space","suOoPj&\\1M",[caseless,dotall,extended])),
-    <<"suOoPj<a href='abcd xyz pqr''M cats">> = iolist_to_binary(re:replace("<a href='abcd xyz pqr' cats","<a[\\s]+href[\\s]*=[\\s]*          # find <a href=
+                                 # quote, otherwise match up to next space","wWbIuHcu",[extended,dotall,caseless])),
+    <<"wWbIuHcu cats">> = iolist_to_binary(re:replace("<a href='abcd xyz pqr' cats","<a[\\s]+href[\\s]*=[\\s]*          # find <a href=
  ([\\\"\\'])?                       # find single or double quote
  (?(1) (.*?)\\1 | ([^\\s]+))       # if quote found, match up to next matching
-                                 # quote, otherwise match up to next space","suOoPj&\\1M",[caseless,dotall,extended,global])),
-    <<"<a href=abcdriAFA<a href=abcd<a href=abcdvRIl xyz">> = iolist_to_binary(re:replace("<a href=abcd xyz","<a\\s+href\\s*=\\s*                # find <a href=
+                                 # quote, otherwise match up to next space","wWbIuHcu",[extended,dotall,caseless,global])),
+    <<"<a href=abcdN<a href=abcd<a href=abcd<a href=abcd xyz">> = iolist_to_binary(re:replace("<a href=abcd xyz","<a\\s+href\\s*=\\s*                # find <a href=
  ([\"'])?                         # find single or double quote
  (?(1) (.*?)\\1 | (\\S+))          # if quote found, match up to next matching
-                                 # quote, otherwise match up to next space","&riAFA&&vR\\1Il",[caseless,dotall,extended])),
-    <<"<a href=abcdriAFA<a href=abcd<a href=abcdvRIl xyz">> = iolist_to_binary(re:replace("<a href=abcd xyz","<a\\s+href\\s*=\\s*                # find <a href=
+                                 # quote, otherwise match up to next space","&N&&&",[extended,dotall,caseless])),
+    <<"<a href=abcdN<a href=abcd<a href=abcd<a href=abcd xyz">> = iolist_to_binary(re:replace("<a href=abcd xyz","<a\\s+href\\s*=\\s*                # find <a href=
  ([\"'])?                         # find single or double quote
  (?(1) (.*?)\\1 | (\\S+))          # if quote found, match up to next matching
-                                 # quote, otherwise match up to next space","&riAFA&&vR\\1Il",[caseless,dotall,extended,global])),
-    <<"oBIIx<a href=\"abcd xyz pqr\"HJ<a href=\"abcd xyz pqr\"H\"rNT cats">> = iolist_to_binary(re:replace("<a href=\"abcd xyz pqr\" cats","<a\\s+href\\s*=\\s*                # find <a href=
+                                 # quote, otherwise match up to next space","&N&&&",[extended,dotall,caseless,global])),
+    <<"d\"m cats">> = iolist_to_binary(re:replace("<a href=\"abcd xyz pqr\" cats","<a\\s+href\\s*=\\s*                # find <a href=
  ([\"'])?                         # find single or double quote
  (?(1) (.*?)\\1 | (\\S+))          # if quote found, match up to next matching
-                                 # quote, otherwise match up to next space","oBIIx&HJ&H\\1rNT",[caseless,dotall,extended])),
-    <<"oBIIx<a href=\"abcd xyz pqr\"HJ<a href=\"abcd xyz pqr\"H\"rNT cats">> = iolist_to_binary(re:replace("<a href=\"abcd xyz pqr\" cats","<a\\s+href\\s*=\\s*                # find <a href=
+                                 # quote, otherwise match up to next space","d\\1m",[extended,dotall,caseless])),
+    <<"d\"m cats">> = iolist_to_binary(re:replace("<a href=\"abcd xyz pqr\" cats","<a\\s+href\\s*=\\s*                # find <a href=
  ([\"'])?                         # find single or double quote
  (?(1) (.*?)\\1 | (\\S+))          # if quote found, match up to next matching
-                                 # quote, otherwise match up to next space","oBIIx&HJ&H\\1rNT",[caseless,dotall,extended,global])),
-    <<"wWbIuHcu cats">> = iolist_to_binary(re:replace("<a href       =       'abcd xyz pqr' cats","<a\\s+href\\s*=\\s*                # find <a href=
+                                 # quote, otherwise match up to next space","d\\1m",[extended,dotall,caseless,global])),
+    <<"Yw cats">> = iolist_to_binary(re:replace("<a href       =       'abcd xyz pqr' cats","<a\\s+href\\s*=\\s*                # find <a href=
  ([\"'])?                         # find single or double quote
  (?(1) (.*?)\\1 | (\\S+))          # if quote found, match up to next matching
-                                 # quote, otherwise match up to next space","wWbIuHcu",[caseless,dotall,extended])),
-    <<"wWbIuHcu cats">> = iolist_to_binary(re:replace("<a href       =       'abcd xyz pqr' cats","<a\\s+href\\s*=\\s*                # find <a href=
+                                 # quote, otherwise match up to next space","Yw",[extended,dotall,caseless])),
+    <<"Yw cats">> = iolist_to_binary(re:replace("<a href       =       'abcd xyz pqr' cats","<a\\s+href\\s*=\\s*                # find <a href=
  ([\"'])?                         # find single or double quote
  (?(1) (.*?)\\1 | (\\S+))          # if quote found, match up to next matching
-                                 # quote, otherwise match up to next space","wWbIuHcu",[caseless,dotall,extended,global])),
-    <<"<a href=abcdN<a href=abcd<a href=abcd<a href=abcd xyz">> = iolist_to_binary(re:replace("<a href=abcd xyz","<a\\s+href(?>\\s*)=(?>\\s*)        # find <a href=
+                                 # quote, otherwise match up to next space","Yw",[extended,dotall,caseless,global])),
+    <<"mwetmXo xyz">> = iolist_to_binary(re:replace("<a href=abcd xyz","<a\\s+href(?>\\s*)=(?>\\s*)        # find <a href=
  ([\"'])?                         # find single or double quote
  (?(1) (.*?)\\1 | (\\S+))          # if quote found, match up to next matching
-                                 # quote, otherwise match up to next space","&N&&&",[caseless,dotall,extended])),
-    <<"<a href=abcdN<a href=abcd<a href=abcd<a href=abcd xyz">> = iolist_to_binary(re:replace("<a href=abcd xyz","<a\\s+href(?>\\s*)=(?>\\s*)        # find <a href=
+                                 # quote, otherwise match up to next space","mwet\\1mXo",[extended,dotall,caseless])),
+    <<"mwetmXo xyz">> = iolist_to_binary(re:replace("<a href=abcd xyz","<a\\s+href(?>\\s*)=(?>\\s*)        # find <a href=
  ([\"'])?                         # find single or double quote
  (?(1) (.*?)\\1 | (\\S+))          # if quote found, match up to next matching
-                                 # quote, otherwise match up to next space","&N&&&",[caseless,dotall,extended,global])),
-    <<"d\"m cats">> = iolist_to_binary(re:replace("<a href=\"abcd xyz pqr\" cats","<a\\s+href(?>\\s*)=(?>\\s*)        # find <a href=
+                                 # quote, otherwise match up to next space","mwet\\1mXo",[extended,dotall,caseless,global])),
+    <<"\"g\"Y\"DwEIxdcAT\"\"jdie cats">> = iolist_to_binary(re:replace("<a href=\"abcd xyz pqr\" cats","<a\\s+href(?>\\s*)=(?>\\s*)        # find <a href=
  ([\"'])?                         # find single or double quote
  (?(1) (.*?)\\1 | (\\S+))          # if quote found, match up to next matching
-                                 # quote, otherwise match up to next space","d\\1m",[caseless,dotall,extended])),
-    <<"d\"m cats">> = iolist_to_binary(re:replace("<a href=\"abcd xyz pqr\" cats","<a\\s+href(?>\\s*)=(?>\\s*)        # find <a href=
+                                 # quote, otherwise match up to next space","\\1g\\1Y\\1DwEIxdcAT\\1\\1jdie",[extended,dotall,caseless])),
+    <<"\"g\"Y\"DwEIxdcAT\"\"jdie cats">> = iolist_to_binary(re:replace("<a href=\"abcd xyz pqr\" cats","<a\\s+href(?>\\s*)=(?>\\s*)        # find <a href=
  ([\"'])?                         # find single or double quote
  (?(1) (.*?)\\1 | (\\S+))          # if quote found, match up to next matching
-                                 # quote, otherwise match up to next space","d\\1m",[caseless,dotall,extended,global])),
-    <<"Yw cats">> = iolist_to_binary(re:replace("<a href       =       'abcd xyz pqr' cats","<a\\s+href(?>\\s*)=(?>\\s*)        # find <a href=
+                                 # quote, otherwise match up to next space","\\1g\\1Y\\1DwEIxdcAT\\1\\1jdie",[extended,dotall,caseless,global])),
+    <<"oOs cats">> = iolist_to_binary(re:replace("<a href       =       'abcd xyz pqr' cats","<a\\s+href(?>\\s*)=(?>\\s*)        # find <a href=
  ([\"'])?                         # find single or double quote
  (?(1) (.*?)\\1 | (\\S+))          # if quote found, match up to next matching
-                                 # quote, otherwise match up to next space","Yw",[caseless,dotall,extended])),
-    <<"Yw cats">> = iolist_to_binary(re:replace("<a href       =       'abcd xyz pqr' cats","<a\\s+href(?>\\s*)=(?>\\s*)        # find <a href=
+                                 # quote, otherwise match up to next space","oOs",[extended,dotall,caseless])),
+    <<"oOs cats">> = iolist_to_binary(re:replace("<a href       =       'abcd xyz pqr' cats","<a\\s+href(?>\\s*)=(?>\\s*)        # find <a href=
  ([\"'])?                         # find single or double quote
  (?(1) (.*?)\\1 | (\\S+))          # if quote found, match up to next matching
-                                 # quote, otherwise match up to next space","Yw",[caseless,dotall,extended,global])),
-    <<"mwetAmXoBCDEFG">> = iolist_to_binary(re:replace("ZABCDEFG","(Z()|A)*","mwet\\1mXo",[])),
-    <<"mwetAmXomwetmXoBmwetmXoCmwetmXoDmwetmXoEmwetmXoFmwetmXoGmwetmXo">> = iolist_to_binary(re:replace("ZABCDEFG","(Z()|A)*","mwet\\1mXo",[global])),
-    <<"AgAYADwEIxdcATAAjdieBCDEFG">> = iolist_to_binary(re:replace("ZABCDEFG","(Z(())|A)*","\\1g\\1Y\\1DwEIxdcAT\\1\\1jdie",[])),
-    <<"AgAYADwEIxdcATAAjdiegYDwEIxdcATjdieBgYDwEIxdcATjdieCgYDwEIxdcATjdieDgYDwEIxdcATjdieEgYDwEIxdcATjdieFgYDwEIxdcATjdieGgYDwEIxdcATjdie">> = iolist_to_binary(re:replace("ZABCDEFG","(Z(())|A)*","\\1g\\1Y\\1DwEIxdcAT\\1\\1jdie",[global])),
-    <<"oOsBCDEFG">> = iolist_to_binary(re:replace("ZABCDEFG","((?>Z)+|A)*","oOs",[])),
-    <<"oOsoOsBoOsCoOsDoOsEoOsFoOsGoOs">> = iolist_to_binary(re:replace("ZABCDEFG","((?>Z)+|A)*","oOs",[global])),
-    <<"XhEdssqxiHJbBKZABCDEFG">> = iolist_to_binary(re:replace("ZABCDEFG","((?>)+|A)*","Xh&Ed\\1\\1ssq\\1xiHJ\\1bB\\1K",[])),
-    <<"XhEdssqxiHJbBKZXhEdssqxiHJbBKXhAEdssqxiHJbBKXhEdssqxiHJbBKBXhEdssqxiHJbBKCXhEdssqxiHJbBKDXhEdssqxiHJbBKEXhEdssqxiHJbBKFXhEdssqxiHJbBKGXhEdssqxiHJbBK">> = iolist_to_binary(re:replace("ZABCDEFG","((?>)+|A)*","Xh&Ed\\1\\1ssq\\1xiHJ\\1bB\\1K",[global])),
-    <<"XkxsSHRksqVJfbbab">> = iolist_to_binary(re:replace("abbab","a*","XkxsSHRk\\1sqVJf",[])),
-    <<"XkxsSHRksqVJfXkxsSHRksqVJfbXkxsSHRksqVJfbXkxsSHRksqVJfXkxsSHRksqVJfbXkxsSHRksqVJf">> = iolist_to_binary(re:replace("abbab","a*","XkxsSHRk\\1sqVJf",[global])),
-    <<">TOrWu 	
-oDtjqjUj<">> = iolist_to_binary(re:replace("> 	
-<","[[:space:]]+","TOrWu\\1&o\\1D\\1tjqjUj\\1\\1\\1",[])),
-    <<">TOrWu 	
-oDtjqjUj<">> = iolist_to_binary(re:replace("> 	
-<","[[:space:]]+","TOrWu\\1&o\\1D\\1tjqjUj\\1\\1\\1",[global])),
-    <<">itod
-<">> = iolist_to_binary(re:replace("> 	
-<","[[:blank:]]+","itod",[])),
-    <<">itod
-<">> = iolist_to_binary(re:replace("> 	
-<","[[:blank:]]+","itod",[global])),
-    <<">Wj 	
-MNVesk 	
-F 	
-MkNj<">> = iolist_to_binary(re:replace("> 	
-<","[\\s]+","Wj&MNVesk&F&MkNj",[])),
-    <<">Wj 	
-MNVesk 	
-F 	
-MkNj<">> = iolist_to_binary(re:replace("> 	
-<","[\\s]+","Wj&MNVesk&F&MkNj",[global])),
+                                 # quote, otherwise match up to next space","oOs",[extended,dotall,caseless,global])),
+    <<"XhZAEdAAssqAxiHJAbBAKBCDEFG">> = iolist_to_binary(re:replace("ZABCDEFG","(Z()|A)*","Xh&Ed\\1\\1ssq\\1xiHJ\\1bB\\1K",[])),
+    <<"XhZAEdAAssqAxiHJAbBAKXhEdssqxiHJbBKBXhEdssqxiHJbBKCXhEdssqxiHJbBKDXhEdssqxiHJbBKEXhEdssqxiHJbBKFXhEdssqxiHJbBKGXhEdssqxiHJbBK">> = iolist_to_binary(re:replace("ZABCDEFG","(Z()|A)*","Xh&Ed\\1\\1ssq\\1xiHJ\\1bB\\1K",[global])),
+    <<"XkxsSHRkAsqVJfBCDEFG">> = iolist_to_binary(re:replace("ZABCDEFG","(Z(())|A)*","XkxsSHRk\\1sqVJf",[])),
+    <<"XkxsSHRkAsqVJfXkxsSHRksqVJfBXkxsSHRksqVJfCXkxsSHRksqVJfDXkxsSHRksqVJfEXkxsSHRksqVJfFXkxsSHRksqVJfGXkxsSHRksqVJf">> = iolist_to_binary(re:replace("ZABCDEFG","(Z(())|A)*","XkxsSHRk\\1sqVJf",[global])),
+    <<"TOrWuAZAoADAtjqjUjAAABCDEFG">> = iolist_to_binary(re:replace("ZABCDEFG","((?>Z)+|A)*","TOrWu\\1&o\\1D\\1tjqjUj\\1\\1\\1",[])),
+    <<"TOrWuAZAoADAtjqjUjAAATOrWuoDtjqjUjBTOrWuoDtjqjUjCTOrWuoDtjqjUjDTOrWuoDtjqjUjETOrWuoDtjqjUjFTOrWuoDtjqjUjGTOrWuoDtjqjUj">> = iolist_to_binary(re:replace("ZABCDEFG","((?>Z)+|A)*","TOrWu\\1&o\\1D\\1tjqjUj\\1\\1\\1",[global])),
+    <<"itodZABCDEFG">> = iolist_to_binary(re:replace("ZABCDEFG","((?>)+|A)*","itod",[])),
+    <<"itodZitoditoditodBitodCitodDitodEitodFitodGitod">> = iolist_to_binary(re:replace("ZABCDEFG","((?>)+|A)*","itod",[global])),
+    <<"WjaMNVeskaFaMkNjbbab">> = iolist_to_binary(re:replace("abbab","a*","Wj&MNVesk&F&MkNj",[])),
+    <<"WjaMNVeskaFaMkNjWjMNVeskFMkNjbWjMNVeskFMkNjbWjaMNVeskaFaMkNjWjMNVeskFMkNjbWjMNVeskFMkNj">> = iolist_to_binary(re:replace("abbab","a*","Wj&MNVesk&F&MkNj",[global])),
     <<">K<">> = iolist_to_binary(re:replace("> 	
-<","\\s+","K\\1",[])),
+<","[[:space:]]+","K\\1",[])),
     <<">K<">> = iolist_to_binary(re:replace("> 	
-<","\\s+","K\\1",[global])),
-    <<"KabmpSqMJmrScTHEH">> = iolist_to_binary(re:replace("ab","ab","K&mpSqMJmrScTHEH\\1",[extended])),
-    <<"KabmpSqMJmrScTHEH">> = iolist_to_binary(re:replace("ab","ab","K&mpSqMJmrScTHEH\\1",[extended,global])),
+<","[[:space:]]+","K\\1",[global])),
+    <<">K 	mpSqMJmrScTHEH
+<">> = iolist_to_binary(re:replace("> 	
+<","[[:blank:]]+","K&mpSqMJmrScTHEH\\1",[])),
+    <<">K 	mpSqMJmrScTHEH
+<">> = iolist_to_binary(re:replace("> 	
+<","[[:blank:]]+","K&mpSqMJmrScTHEH\\1",[global])),
+    <<">jONwRrcyS 	
+bFO<">> = iolist_to_binary(re:replace("> 	
+<","[\\s]+","jONwRrcyS&bFO",[])),
+    <<">jONwRrcyS 	
+bFO<">> = iolist_to_binary(re:replace("> 	
+<","[\\s]+","jONwRrcyS&bFO",[global])),
+    <<">DIfuf 	
+vF 	
+o 	
+yYq<">> = iolist_to_binary(re:replace("> 	
+<","\\s+","DIfuf&vF\\1&o&yYq",[])),
+    <<">DIfuf 	
+vF 	
+o 	
+yYq<">> = iolist_to_binary(re:replace("> 	
+<","\\s+","DIfuf&vF\\1&o&yYq",[global])),
+    <<"ntgcmKqp">> = iolist_to_binary(re:replace("ab","ab","\\1\\1ntgcmKqp",[extended])),
+    <<"ntgcmKqp">> = iolist_to_binary(re:replace("ab","ab","\\1\\1ntgcmKqp",[extended,global])),
     <<"a
-jONwRrcySxbFOb">> = iolist_to_binary(re:replace("a
-xb","(?!\\A)x","jONwRrcyS&bFO",[multiline])),
+jIb">> = iolist_to_binary(re:replace("a
+xb","(?!\\A)x","jI",[multiline])),
     <<"a
-jONwRrcySxbFOb">> = iolist_to_binary(re:replace("a
-xb","(?!\\A)x","jONwRrcyS&bFO",[multiline,global])),
+jIb">> = iolist_to_binary(re:replace("a
+xb","(?!\\A)x","jI",[multiline,global])),
     <<"a
 xb">> = iolist_to_binary(re:replace("a
-xb","(?!^)x","DIfuf&vF\\1&o&yYq",[multiline])),
+xb","(?!^)x","bVgmsFMa",[multiline])),
     <<"a
 xb">> = iolist_to_binary(re:replace("a
-xb","(?!^)x","DIfuf&vF\\1&o&yYq",[multiline,global])),
-    <<"ntgcmKqp">> = iolist_to_binary(re:replace("abcabcabc","abc\\Qabc\\Eabc","\\1\\1ntgcmKqp",[])),
-    <<"ntgcmKqp">> = iolist_to_binary(re:replace("abcabcabc","abc\\Qabc\\Eabc","\\1\\1ntgcmKqp",[global])),
-    <<"jI">> = iolist_to_binary(re:replace("abc(*+|abc","abc\\Q(*+|\\Eabc","jI",[])),
-    <<"jI">> = iolist_to_binary(re:replace("abc(*+|abc","abc\\Q(*+|\\Eabc","jI",[global])),
-    <<"bVgmsFMa">> = iolist_to_binary(re:replace("abc abcabc","   abc\\Q abc\\Eabc","bVgmsFMa",[extended])),
-    <<"bVgmsFMa">> = iolist_to_binary(re:replace("abc abcabc","   abc\\Q abc\\Eabc","bVgmsFMa",[extended,global])),
-    <<"abcabcabc">> = iolist_to_binary(re:replace("abcabcabc","   abc\\Q abc\\Eabc","cEcAl\\1eb\\1&OI&\\1mOu",[extended])),
-    <<"abcabcabc">> = iolist_to_binary(re:replace("abcabcabc","   abc\\Q abc\\Eabc","cEcAl\\1eb\\1&OI&\\1mOu",[extended,global])),
-    <<"h">> = iolist_to_binary(re:replace("abc#not comment
-    literal","abc#comment
-    \\Q#not comment
-    literal\\E","h\\1",[extended])),
-    <<"h">> = iolist_to_binary(re:replace("abc#not comment
-    literal","abc#comment
-    \\Q#not comment
-    literal\\E","h\\1",[extended,global])),
+xb","(?!^)x","bVgmsFMa",[multiline,global])),
+    <<"cEcAlebabcabcabcOIabcabcabcmOu">> = iolist_to_binary(re:replace("abcabcabc","abc\\Qabc\\Eabc","cEcAl\\1eb\\1&OI&\\1mOu",[])),
+    <<"cEcAlebabcabcabcOIabcabcabcmOu">> = iolist_to_binary(re:replace("abcabcabc","abc\\Qabc\\Eabc","cEcAl\\1eb\\1&OI&\\1mOu",[global])),
     ok.
 run32() ->
-    <<"ip">> = iolist_to_binary(re:replace("abc#not comment
-    literal","abc#comment
-    \\Q#not comment
-    literal","ip",[extended])),
-    <<"ip">> = iolist_to_binary(re:replace("abc#not comment
-    literal","abc#comment
-    \\Q#not comment
-    literal","ip",[extended,global])),
-    <<"pL">> = iolist_to_binary(re:replace("abc#not comment
-    literal","abc#comment
-    \\Q#not comment
-    literal\\E #more comment
-    ","\\1pL",[extended])),
-    <<"pL">> = iolist_to_binary(re:replace("abc#not comment
-    literal","abc#comment
-    \\Q#not comment
-    literal\\E #more comment
-    ","\\1pL",[extended,global])),
+    <<"h">> = iolist_to_binary(re:replace("abc(*+|abc","abc\\Q(*+|\\Eabc","h\\1",[])),
+    <<"h">> = iolist_to_binary(re:replace("abc(*+|abc","abc\\Q(*+|\\Eabc","h\\1",[global])),
+    <<"ip">> = iolist_to_binary(re:replace("abc abcabc","   abc\\Q abc\\Eabc","ip",[extended])),
+    <<"ip">> = iolist_to_binary(re:replace("abc abcabc","   abc\\Q abc\\Eabc","ip",[extended,global])),
+    <<"abcabcabc">> = iolist_to_binary(re:replace("abcabcabc","   abc\\Q abc\\Eabc","\\1pL",[extended])),
+    <<"abcabcabc">> = iolist_to_binary(re:replace("abcabcabc","   abc\\Q abc\\Eabc","\\1pL",[extended,global])),
     <<"qLabc#not comment
     literalOvIXGabc#not comment
     literalabc#not comment
@@ -15788,7 +15769,7 @@ run32() ->
     literalxo">> = iolist_to_binary(re:replace("abc#not comment
     literal","abc#comment
     \\Q#not comment
-    literal\\E #more comment","qL&OvIX\\1G&&rRe&x\\1o\\1",[extended])),
+    literal\\E","qL&OvIX\\1G&&rRe&x\\1o\\1",[extended])),
     <<"qLabc#not comment
     literalOvIXGabc#not comment
     literalabc#not comment
@@ -15796,56 +15777,92 @@ run32() ->
     literalxo">> = iolist_to_binary(re:replace("abc#not comment
     literal","abc#comment
     \\Q#not comment
-    literal\\E #more comment","qL&OvIX\\1G&&rRe&x\\1o\\1",[extended,global])),
-    <<"RsYIqopkaabc\\$xyzwdwdgKabc\\$xyzT">> = iolist_to_binary(re:replace("abc\\$xyz","\\Qabc\\$xyz\\E","RsYIqopka&\\1wdwdgK&T",[])),
-    <<"RsYIqopkaabc\\$xyzwdwdgKabc\\$xyzT">> = iolist_to_binary(re:replace("abc\\$xyz","\\Qabc\\$xyz\\E","RsYIqopka&\\1wdwdgK&T",[global])),
-    <<"lLfabc$xyzabc$xyzYHTqsmO">> = iolist_to_binary(re:replace("abc$xyz","\\Qabc\\E\\$\\Qxyz\\E","lLf&&YHTqsmO",[])),
-    <<"lLfabc$xyzabc$xyzYHTqsmO">> = iolist_to_binary(re:replace("abc$xyz","\\Qabc\\E\\$\\Qxyz\\E","lLf&&YHTqsmO",[global])),
-    <<"JCuXbQvabcXV">> = iolist_to_binary(re:replace("abc","\\Gabc","JCuXbQv&XV",[])),
-    <<"JCuXbQvabcXV">> = iolist_to_binary(re:replace("abc","\\Gabc","JCuXbQv&XV",[global])),
-    <<"xyzabc">> = iolist_to_binary(re:replace("xyzabc","\\Gabc","n\\1jl\\1tTu",[])),
-    <<"xyzabc">> = iolist_to_binary(re:replace("xyzabc","\\Gabc","n\\1jl\\1tTu",[global])),
-    <<"oRHrhfYgmYEabc2xyzabc3">> = iolist_to_binary(re:replace("abc1abc2xyzabc3","\\Gabc.","oRHrhfYgmYE",[])),
-    <<"oRHrhfYgmYEoRHrhfYgmYExyzabc3">> = iolist_to_binary(re:replace("abc1abc2xyzabc3","\\Gabc.","oRHrhfYgmYE",[global])),
-    <<"Cabc2xyzabc3">> = iolist_to_binary(re:replace("abc1abc2xyzabc3","abc.","C",[])),
-    <<"CCxyzC">> = iolist_to_binary(re:replace("abc1abc2xyzabc3","abc.","C",[global])),
-    <<"XMbmyjKDJYY">> = iolist_to_binary(re:replace("XabcdY","a(?x: b c )d","MbmyjKDJY",[])),
-    <<"XMbmyjKDJYY">> = iolist_to_binary(re:replace("XabcdY","a(?x: b c )d","MbmyjKDJY",[global])),
-    <<"Xa b c d Y">> = iolist_to_binary(re:replace("Xa b c d Y","a(?x: b c )d","K\\1RB&YDPT&Ietf\\1Kafk",[])),
-    <<"Xa b c d Y">> = iolist_to_binary(re:replace("Xa b c d Y","a(?x: b c )d","K\\1RB&YDPT&Ietf\\1Kafk",[global])),
-    <<"XFAeMLQgRgVVabchabcdY">> = iolist_to_binary(re:replace("XabcY","((?x)x y z | a b c)","FAeMLQgRgVV\\1h\\1d",[])),
-    <<"XFAeMLQgRgVVabchabcdY">> = iolist_to_binary(re:replace("XabcY","((?x)x y z | a b c)","FAeMLQgRgVV\\1h\\1d",[global])),
-    <<"AVB">> = iolist_to_binary(re:replace("AxyzB","((?x)x y z | a b c)","V",[])),
-    <<"AVB">> = iolist_to_binary(re:replace("AxyzB","((?x)x y z | a b c)","V",[global])),
-    <<"XvOEiltgjcY">> = iolist_to_binary(re:replace("XabCY","(?i)AB(?-i)C","vOEiltgjc",[])),
-    <<"XvOEiltgjcY">> = iolist_to_binary(re:replace("XabCY","(?i)AB(?-i)C","vOEiltgjc",[global])),
-    <<"XabcY">> = iolist_to_binary(re:replace("XabcY","(?i)AB(?-i)C","hCMP",[])),
-    <<"XabcY">> = iolist_to_binary(re:replace("XabcY","(?i)AB(?-i)C","hCMP",[global])),
-    <<"WVjqJoaFabCEabCihXyabCIK">> = iolist_to_binary(re:replace("abCE","((?i)AB(?-i)C|D)E","WVjqJoaF&\\1ihXy\\1IK",[])),
-    <<"WVjqJoaFabCEabCihXyabCIK">> = iolist_to_binary(re:replace("abCE","((?i)AB(?-i)C|D)E","WVjqJoaF&\\1ihXy\\1IK",[global])),
-    <<"hEDuHDEDDEI">> = iolist_to_binary(re:replace("DE","((?i)AB(?-i)C|D)E","hE\\1uH&\\1&I",[])),
-    <<"hEDuHDEDDEI">> = iolist_to_binary(re:replace("DE","((?i)AB(?-i)C|D)E","hE\\1uH&\\1&I",[global])),
-    <<"abcE">> = iolist_to_binary(re:replace("abcE","((?i)AB(?-i)C|D)E","PyNYkfx&aFAYi\\1k",[])),
-    <<"abcE">> = iolist_to_binary(re:replace("abcE","((?i)AB(?-i)C|D)E","PyNYkfx&aFAYi\\1k",[global])),
-    <<"abCe">> = iolist_to_binary(re:replace("abCe","((?i)AB(?-i)C|D)E","l&&G",[])),
-    <<"abCe">> = iolist_to_binary(re:replace("abCe","((?i)AB(?-i)C|D)E","l&&G",[global])),
-    <<"dE">> = iolist_to_binary(re:replace("dE","((?i)AB(?-i)C|D)E","eS\\1dn",[])),
-    <<"dE">> = iolist_to_binary(re:replace("dE","((?i)AB(?-i)C|D)E","eS\\1dn",[global])),
-    <<"De">> = iolist_to_binary(re:replace("De","((?i)AB(?-i)C|D)E","MhsbM&x\\1ydTksl",[])),
-    <<"De">> = iolist_to_binary(re:replace("De","((?i)AB(?-i)C|D)E","MhsbM&x\\1ydTksl",[global])),
-    <<"abcsrennTKabcqOykabc123abcLVOv">> = iolist_to_binary(re:replace("abc123abc","(.*)\\d+\\1","\\1srennTK\\1qOyk&LVOv",[])),
-    <<"abcsrennTKabcqOykabc123abcLVOv">> = iolist_to_binary(re:replace("abc123abc","(.*)\\d+\\1","\\1srennTK\\1qOyk&LVOv",[global])),
-    <<"aJJVTKIstbchgwfb">> = iolist_to_binary(re:replace("abc123bc","(.*)\\d+\\1","JJVTKIst\\1hgwfb",[])),
-    <<"aJJVTKIstbchgwfb">> = iolist_to_binary(re:replace("abc123bc","(.*)\\d+\\1","JJVTKIst\\1hgwfb",[global])),
-    <<"CyLabc123abcaabc123abcaFabc123abcUQLabc123abcYD">> = iolist_to_binary(re:replace("abc123abc","(.*)\\d+\\1","CyL&a&aF&UQL&YD",[dotall])),
-    <<"CyLabc123abcaabc123abcaFabc123abcUQLabc123abcYD">> = iolist_to_binary(re:replace("abc123abc","(.*)\\d+\\1","CyL&a&aF&UQL&YD",[dotall,global])),
-    <<"amWmXxiABWTMobc123bcbcbHXbc123bcm">> = iolist_to_binary(re:replace("abc123bc","(.*)\\d+\\1","mWmXxiABWTMo&\\1bHX&m",[dotall])),
-    <<"amWmXxiABWTMobc123bcbcbHXbc123bcm">> = iolist_to_binary(re:replace("abc123bc","(.*)\\d+\\1","mWmXxiABWTMo&\\1bHX&m",[dotall,global])),
-    <<"KxfwWNxNBabc123abcuWywN">> = iolist_to_binary(re:replace("abc123abc","((.*))\\d+\\1","KxfwWNxNB&uWywN",[])),
-    <<"KxfwWNxNBabc123abcuWywN">> = iolist_to_binary(re:replace("abc123abc","((.*))\\d+\\1","KxfwWNxNB&uWywN",[global])),
-    <<"aFBbc123bcEbQh">> = iolist_to_binary(re:replace("abc123bc","((.*))\\d+\\1","FB&EbQh",[])),
-    <<"aFBbc123bcEbQh">> = iolist_to_binary(re:replace("abc123bc","((.*))\\d+\\1","FB&EbQh",[global])),
-    <<"GeHOW">> = iolist_to_binary(re:replace("a123::a123","^(?!:)                       # colon disallowed at start
+    literal\\E","qL&OvIX\\1G&&rRe&x\\1o\\1",[extended,global])),
+    <<"RsYIqopkaabc#not comment
+    literalwdwdgKabc#not comment
+    literalT">> = iolist_to_binary(re:replace("abc#not comment
+    literal","abc#comment
+    \\Q#not comment
+    literal","RsYIqopka&\\1wdwdgK&T",[extended])),
+    <<"RsYIqopkaabc#not comment
+    literalwdwdgKabc#not comment
+    literalT">> = iolist_to_binary(re:replace("abc#not comment
+    literal","abc#comment
+    \\Q#not comment
+    literal","RsYIqopka&\\1wdwdgK&T",[extended,global])),
+    <<"lLfabc#not comment
+    literalabc#not comment
+    literalYHTqsmO">> = iolist_to_binary(re:replace("abc#not comment
+    literal","abc#comment
+    \\Q#not comment
+    literal\\E #more comment
+    ","lLf&&YHTqsmO",[extended])),
+    <<"lLfabc#not comment
+    literalabc#not comment
+    literalYHTqsmO">> = iolist_to_binary(re:replace("abc#not comment
+    literal","abc#comment
+    \\Q#not comment
+    literal\\E #more comment
+    ","lLf&&YHTqsmO",[extended,global])),
+    <<"JCuXbQvabc#not comment
+    literalXV">> = iolist_to_binary(re:replace("abc#not comment
+    literal","abc#comment
+    \\Q#not comment
+    literal\\E #more comment","JCuXbQv&XV",[extended])),
+    <<"JCuXbQvabc#not comment
+    literalXV">> = iolist_to_binary(re:replace("abc#not comment
+    literal","abc#comment
+    \\Q#not comment
+    literal\\E #more comment","JCuXbQv&XV",[extended,global])),
+    <<"njltTu">> = iolist_to_binary(re:replace("abc\\$xyz","\\Qabc\\$xyz\\E","n\\1jl\\1tTu",[])),
+    <<"njltTu">> = iolist_to_binary(re:replace("abc\\$xyz","\\Qabc\\$xyz\\E","n\\1jl\\1tTu",[global])),
+    <<"oRHrhfYgmYE">> = iolist_to_binary(re:replace("abc$xyz","\\Qabc\\E\\$\\Qxyz\\E","oRHrhfYgmYE",[])),
+    <<"oRHrhfYgmYE">> = iolist_to_binary(re:replace("abc$xyz","\\Qabc\\E\\$\\Qxyz\\E","oRHrhfYgmYE",[global])),
+    <<"C">> = iolist_to_binary(re:replace("abc","\\Gabc","C",[])),
+    <<"C">> = iolist_to_binary(re:replace("abc","\\Gabc","C",[global])),
+    <<"xyzabc">> = iolist_to_binary(re:replace("xyzabc","\\Gabc","MbmyjKDJY",[])),
+    <<"xyzabc">> = iolist_to_binary(re:replace("xyzabc","\\Gabc","MbmyjKDJY",[global])),
+    <<"KRBabc1YDPTabc1IetfKafkabc2xyzabc3">> = iolist_to_binary(re:replace("abc1abc2xyzabc3","\\Gabc.","K\\1RB&YDPT&Ietf\\1Kafk",[])),
+    <<"KRBabc1YDPTabc1IetfKafkKRBabc2YDPTabc2IetfKafkxyzabc3">> = iolist_to_binary(re:replace("abc1abc2xyzabc3","\\Gabc.","K\\1RB&YDPT&Ietf\\1Kafk",[global])),
+    <<"FAeMLQgRgVVhdabc2xyzabc3">> = iolist_to_binary(re:replace("abc1abc2xyzabc3","abc.","FAeMLQgRgVV\\1h\\1d",[])),
+    <<"FAeMLQgRgVVhdFAeMLQgRgVVhdxyzFAeMLQgRgVVhd">> = iolist_to_binary(re:replace("abc1abc2xyzabc3","abc.","FAeMLQgRgVV\\1h\\1d",[global])),
+    <<"XVY">> = iolist_to_binary(re:replace("XabcdY","a(?x: b c )d","V",[])),
+    <<"XVY">> = iolist_to_binary(re:replace("XabcdY","a(?x: b c )d","V",[global])),
+    <<"Xa b c d Y">> = iolist_to_binary(re:replace("Xa b c d Y","a(?x: b c )d","vOEiltgjc",[])),
+    <<"Xa b c d Y">> = iolist_to_binary(re:replace("Xa b c d Y","a(?x: b c )d","vOEiltgjc",[global])),
+    <<"XhCMPY">> = iolist_to_binary(re:replace("XabcY","((?x)x y z | a b c)","hCMP",[])),
+    <<"XhCMPY">> = iolist_to_binary(re:replace("XabcY","((?x)x y z | a b c)","hCMP",[global])),
+    <<"AWVjqJoaFxyzxyzihXyxyzIKB">> = iolist_to_binary(re:replace("AxyzB","((?x)x y z | a b c)","WVjqJoaF&\\1ihXy\\1IK",[])),
+    <<"AWVjqJoaFxyzxyzihXyxyzIKB">> = iolist_to_binary(re:replace("AxyzB","((?x)x y z | a b c)","WVjqJoaF&\\1ihXy\\1IK",[global])),
+    <<"XhEuHabCabCIY">> = iolist_to_binary(re:replace("XabCY","(?i)AB(?-i)C","hE\\1uH&\\1&I",[])),
+    <<"XhEuHabCabCIY">> = iolist_to_binary(re:replace("XabCY","(?i)AB(?-i)C","hE\\1uH&\\1&I",[global])),
+    <<"XabcY">> = iolist_to_binary(re:replace("XabcY","(?i)AB(?-i)C","PyNYkfx&aFAYi\\1k",[])),
+    <<"XabcY">> = iolist_to_binary(re:replace("XabcY","(?i)AB(?-i)C","PyNYkfx&aFAYi\\1k",[global])),
+    <<"labCEabCEG">> = iolist_to_binary(re:replace("abCE","((?i)AB(?-i)C|D)E","l&&G",[])),
+    <<"labCEabCEG">> = iolist_to_binary(re:replace("abCE","((?i)AB(?-i)C|D)E","l&&G",[global])),
+    <<"eSDdn">> = iolist_to_binary(re:replace("DE","((?i)AB(?-i)C|D)E","eS\\1dn",[])),
+    <<"eSDdn">> = iolist_to_binary(re:replace("DE","((?i)AB(?-i)C|D)E","eS\\1dn",[global])),
+    <<"abcE">> = iolist_to_binary(re:replace("abcE","((?i)AB(?-i)C|D)E","MhsbM&x\\1ydTksl",[])),
+    <<"abcE">> = iolist_to_binary(re:replace("abcE","((?i)AB(?-i)C|D)E","MhsbM&x\\1ydTksl",[global])),
+    <<"abCe">> = iolist_to_binary(re:replace("abCe","((?i)AB(?-i)C|D)E","\\1srennTK\\1qOyk&LVOv",[])),
+    <<"abCe">> = iolist_to_binary(re:replace("abCe","((?i)AB(?-i)C|D)E","\\1srennTK\\1qOyk&LVOv",[global])),
+    <<"dE">> = iolist_to_binary(re:replace("dE","((?i)AB(?-i)C|D)E","JJVTKIst\\1hgwfb",[])),
+    <<"dE">> = iolist_to_binary(re:replace("dE","((?i)AB(?-i)C|D)E","JJVTKIst\\1hgwfb",[global])),
+    <<"De">> = iolist_to_binary(re:replace("De","((?i)AB(?-i)C|D)E","CyL&a&aF&UQL&YD",[])),
+    <<"De">> = iolist_to_binary(re:replace("De","((?i)AB(?-i)C|D)E","CyL&a&aF&UQL&YD",[global])),
+    <<"mWmXxiABWTMoabc123abcabcbHXabc123abcm">> = iolist_to_binary(re:replace("abc123abc","(.*)\\d+\\1","mWmXxiABWTMo&\\1bHX&m",[])),
+    <<"mWmXxiABWTMoabc123abcabcbHXabc123abcm">> = iolist_to_binary(re:replace("abc123abc","(.*)\\d+\\1","mWmXxiABWTMo&\\1bHX&m",[global])),
+    <<"aKxfwWNxNBbc123bcuWywN">> = iolist_to_binary(re:replace("abc123bc","(.*)\\d+\\1","KxfwWNxNB&uWywN",[])),
+    <<"aKxfwWNxNBbc123bcuWywN">> = iolist_to_binary(re:replace("abc123bc","(.*)\\d+\\1","KxfwWNxNB&uWywN",[global])),
+    <<"FBabc123abcEbQh">> = iolist_to_binary(re:replace("abc123abc","(.*)\\d+\\1","FB&EbQh",[dotall])),
+    <<"FBabc123abcEbQh">> = iolist_to_binary(re:replace("abc123abc","(.*)\\d+\\1","FB&EbQh",[dotall,global])),
+    <<"aGeHOW">> = iolist_to_binary(re:replace("abc123bc","(.*)\\d+\\1","GeHOW",[dotall])),
+    <<"aGeHOW">> = iolist_to_binary(re:replace("abc123bc","(.*)\\d+\\1","GeHOW",[dotall,global])),
+    <<"tabc123abcabcabcwNwJdabc123abcumtrabc123abcabcPabc123abcv">> = iolist_to_binary(re:replace("abc123abc","((.*))\\d+\\1","t&\\1\\1wNwJd&umtr&\\1P&v",[])),
+    <<"tabc123abcabcabcwNwJdabc123abcumtrabc123abcabcPabc123abcv">> = iolist_to_binary(re:replace("abc123abc","((.*))\\d+\\1","t&\\1\\1wNwJd&umtr&\\1P&v",[global])),
+    <<"axLBhfbc123bch">> = iolist_to_binary(re:replace("abc123bc","((.*))\\d+\\1","xLBhf&h",[])),
+    <<"axLBhfbc123bch">> = iolist_to_binary(re:replace("abc123bc","((.*))\\d+\\1","xLBhf&h",[global])),
+    <<"a123::a123eNra123::a123">> = iolist_to_binary(re:replace("a123::a123","^(?!:)                       # colon disallowed at start
   (?:                         # start of item
     (?: [0-9a-f]{1,4} |       # 1-4 hex digits or
     (?(1)0 | () ) )           # if null previously matched, fail; else null
@@ -15853,8 +15870,8 @@ run32() ->
   ){1,7}                      # end item; 1-7 of them required               
   [0-9a-f]{1,4} $             # final hex number at end of string
   (?(1)|.)                    # check that there was an empty component
-  ","GeHOW",[caseless,extended])),
-    <<"GeHOW">> = iolist_to_binary(re:replace("a123::a123","^(?!:)                       # colon disallowed at start
+  ","&eN\\1\\1r&",[extended,caseless])),
+    <<"a123::a123eNra123::a123">> = iolist_to_binary(re:replace("a123::a123","^(?!:)                       # colon disallowed at start
   (?:                         # start of item
     (?: [0-9a-f]{1,4} |       # 1-4 hex digits or
     (?(1)0 | () ) )           # if null previously matched, fail; else null
@@ -15862,8 +15879,8 @@ run32() ->
   ){1,7}                      # end item; 1-7 of them required               
   [0-9a-f]{1,4} $             # final hex number at end of string
   (?(1)|.)                    # check that there was an empty component
-  ","GeHOW",[caseless,extended,global])),
-    <<"ta123:b342::abcdwNwJda123:b342::abcdumtra123:b342::abcdPa123:b342::abcdv">> = iolist_to_binary(re:replace("a123:b342::abcd","^(?!:)                       # colon disallowed at start
+  ","&eN\\1\\1r&",[extended,caseless,global])),
+    <<"xDgxGuTySBL">> = iolist_to_binary(re:replace("a123:b342::abcd","^(?!:)                       # colon disallowed at start
   (?:                         # start of item
     (?: [0-9a-f]{1,4} |       # 1-4 hex digits or
     (?(1)0 | () ) )           # if null previously matched, fail; else null
@@ -15871,8 +15888,8 @@ run32() ->
   ){1,7}                      # end item; 1-7 of them required               
   [0-9a-f]{1,4} $             # final hex number at end of string
   (?(1)|.)                    # check that there was an empty component
-  ","t&\\1\\1wNwJd&umtr&\\1P&v",[caseless,extended])),
-    <<"ta123:b342::abcdwNwJda123:b342::abcdumtra123:b342::abcdPa123:b342::abcdv">> = iolist_to_binary(re:replace("a123:b342::abcd","^(?!:)                       # colon disallowed at start
+  ","xDgxGuTySB\\1L",[extended,caseless])),
+    <<"xDgxGuTySBL">> = iolist_to_binary(re:replace("a123:b342::abcd","^(?!:)                       # colon disallowed at start
   (?:                         # start of item
     (?: [0-9a-f]{1,4} |       # 1-4 hex digits or
     (?(1)0 | () ) )           # if null previously matched, fail; else null
@@ -15880,8 +15897,8 @@ run32() ->
   ){1,7}                      # end item; 1-7 of them required               
   [0-9a-f]{1,4} $             # final hex number at end of string
   (?(1)|.)                    # check that there was an empty component
-  ","t&\\1\\1wNwJd&umtr&\\1P&v",[caseless,extended,global])),
-    <<"xLBhfa123:b342::324e:abcdh">> = iolist_to_binary(re:replace("a123:b342::324e:abcd","^(?!:)                       # colon disallowed at start
+  ","xDgxGuTySB\\1L",[extended,caseless,global])),
+    <<"S">> = iolist_to_binary(re:replace("a123:b342::324e:abcd","^(?!:)                       # colon disallowed at start
   (?:                         # start of item
     (?: [0-9a-f]{1,4} |       # 1-4 hex digits or
     (?(1)0 | () ) )           # if null previously matched, fail; else null
@@ -15889,8 +15906,8 @@ run32() ->
   ){1,7}                      # end item; 1-7 of them required               
   [0-9a-f]{1,4} $             # final hex number at end of string
   (?(1)|.)                    # check that there was an empty component
-  ","xLBhf&h",[caseless,extended])),
-    <<"xLBhfa123:b342::324e:abcdh">> = iolist_to_binary(re:replace("a123:b342::324e:abcd","^(?!:)                       # colon disallowed at start
+  ","S",[extended,caseless])),
+    <<"S">> = iolist_to_binary(re:replace("a123:b342::324e:abcd","^(?!:)                       # colon disallowed at start
   (?:                         # start of item
     (?: [0-9a-f]{1,4} |       # 1-4 hex digits or
     (?(1)0 | () ) )           # if null previously matched, fail; else null
@@ -15898,8 +15915,8 @@ run32() ->
   ){1,7}                      # end item; 1-7 of them required               
   [0-9a-f]{1,4} $             # final hex number at end of string
   (?(1)|.)                    # check that there was an empty component
-  ","xLBhf&h",[caseless,extended,global])),
-    <<"a123:ddde:b342::324e:abcdeNra123:ddde:b342::324e:abcd">> = iolist_to_binary(re:replace("a123:ddde:b342::324e:abcd","^(?!:)                       # colon disallowed at start
+  ","S",[extended,caseless,global])),
+    <<"oa123:ddde:b342::324e:abcdQPdA">> = iolist_to_binary(re:replace("a123:ddde:b342::324e:abcd","^(?!:)                       # colon disallowed at start
   (?:                         # start of item
     (?: [0-9a-f]{1,4} |       # 1-4 hex digits or
     (?(1)0 | () ) )           # if null previously matched, fail; else null
@@ -15907,8 +15924,8 @@ run32() ->
   ){1,7}                      # end item; 1-7 of them required               
   [0-9a-f]{1,4} $             # final hex number at end of string
   (?(1)|.)                    # check that there was an empty component
-  ","&eN\\1\\1r&",[caseless,extended])),
-    <<"a123:ddde:b342::324e:abcdeNra123:ddde:b342::324e:abcd">> = iolist_to_binary(re:replace("a123:ddde:b342::324e:abcd","^(?!:)                       # colon disallowed at start
+  ","o&QPdA\\1",[extended,caseless])),
+    <<"oa123:ddde:b342::324e:abcdQPdA">> = iolist_to_binary(re:replace("a123:ddde:b342::324e:abcd","^(?!:)                       # colon disallowed at start
   (?:                         # start of item
     (?: [0-9a-f]{1,4} |       # 1-4 hex digits or
     (?(1)0 | () ) )           # if null previously matched, fail; else null
@@ -15916,8 +15933,8 @@ run32() ->
   ){1,7}                      # end item; 1-7 of them required               
   [0-9a-f]{1,4} $             # final hex number at end of string
   (?(1)|.)                    # check that there was an empty component
-  ","&eN\\1\\1r&",[caseless,extended,global])),
-    <<"xDgxGuTySBL">> = iolist_to_binary(re:replace("a123:ddde:b342::324e:dcba:abcd","^(?!:)                       # colon disallowed at start
+  ","o&QPdA\\1",[extended,caseless,global])),
+    <<"xDxHH">> = iolist_to_binary(re:replace("a123:ddde:b342::324e:dcba:abcd","^(?!:)                       # colon disallowed at start
   (?:                         # start of item
     (?: [0-9a-f]{1,4} |       # 1-4 hex digits or
     (?(1)0 | () ) )           # if null previously matched, fail; else null
@@ -15925,8 +15942,8 @@ run32() ->
   ){1,7}                      # end item; 1-7 of them required               
   [0-9a-f]{1,4} $             # final hex number at end of string
   (?(1)|.)                    # check that there was an empty component
-  ","xDgxGuTySB\\1L",[caseless,extended])),
-    <<"xDgxGuTySBL">> = iolist_to_binary(re:replace("a123:ddde:b342::324e:dcba:abcd","^(?!:)                       # colon disallowed at start
+  ","xDxHH",[extended,caseless])),
+    <<"xDxHH">> = iolist_to_binary(re:replace("a123:ddde:b342::324e:dcba:abcd","^(?!:)                       # colon disallowed at start
   (?:                         # start of item
     (?: [0-9a-f]{1,4} |       # 1-4 hex digits or
     (?(1)0 | () ) )           # if null previously matched, fail; else null
@@ -15934,8 +15951,8 @@ run32() ->
   ){1,7}                      # end item; 1-7 of them required               
   [0-9a-f]{1,4} $             # final hex number at end of string
   (?(1)|.)                    # check that there was an empty component
-  ","xDgxGuTySB\\1L",[caseless,extended,global])),
-    <<"S">> = iolist_to_binary(re:replace("a123:ddde:9999:b342::324e:dcba:abcd","^(?!:)                       # colon disallowed at start
+  ","xDxHH",[extended,caseless,global])),
+    <<"iEooNa123:ddde:9999:b342::324e:dcba:abcdWrIla123:ddde:9999:b342::324e:dcba:abcdnlqjBa123:ddde:9999:b342::324e:dcba:abcdb">> = iolist_to_binary(re:replace("a123:ddde:9999:b342::324e:dcba:abcd","^(?!:)                       # colon disallowed at start
   (?:                         # start of item
     (?: [0-9a-f]{1,4} |       # 1-4 hex digits or
     (?(1)0 | () ) )           # if null previously matched, fail; else null
@@ -15943,8 +15960,8 @@ run32() ->
   ){1,7}                      # end item; 1-7 of them required               
   [0-9a-f]{1,4} $             # final hex number at end of string
   (?(1)|.)                    # check that there was an empty component
-  ","S",[caseless,extended])),
-    <<"S">> = iolist_to_binary(re:replace("a123:ddde:9999:b342::324e:dcba:abcd","^(?!:)                       # colon disallowed at start
+  ","iEooN&WrIl&nlqjB&\\1b",[extended,caseless])),
+    <<"iEooNa123:ddde:9999:b342::324e:dcba:abcdWrIla123:ddde:9999:b342::324e:dcba:abcdnlqjBa123:ddde:9999:b342::324e:dcba:abcdb">> = iolist_to_binary(re:replace("a123:ddde:9999:b342::324e:dcba:abcd","^(?!:)                       # colon disallowed at start
   (?:                         # start of item
     (?: [0-9a-f]{1,4} |       # 1-4 hex digits or
     (?(1)0 | () ) )           # if null previously matched, fail; else null
@@ -15952,7 +15969,7 @@ run32() ->
   ){1,7}                      # end item; 1-7 of them required               
   [0-9a-f]{1,4} $             # final hex number at end of string
   (?(1)|.)                    # check that there was an empty component
-  ","S",[caseless,extended,global])),
+  ","iEooN&WrIl&nlqjB&\\1b",[extended,caseless,global])),
     <<"1:2:3:4:5:6:7:8">> = iolist_to_binary(re:replace("1:2:3:4:5:6:7:8","^(?!:)                       # colon disallowed at start
   (?:                         # start of item
     (?: [0-9a-f]{1,4} |       # 1-4 hex digits or
@@ -15961,7 +15978,7 @@ run32() ->
   ){1,7}                      # end item; 1-7 of them required               
   [0-9a-f]{1,4} $             # final hex number at end of string
   (?(1)|.)                    # check that there was an empty component
-  ","o&QPdA\\1",[caseless,extended])),
+  ","dph",[extended,caseless])),
     <<"1:2:3:4:5:6:7:8">> = iolist_to_binary(re:replace("1:2:3:4:5:6:7:8","^(?!:)                       # colon disallowed at start
   (?:                         # start of item
     (?: [0-9a-f]{1,4} |       # 1-4 hex digits or
@@ -15970,7 +15987,7 @@ run32() ->
   ){1,7}                      # end item; 1-7 of them required               
   [0-9a-f]{1,4} $             # final hex number at end of string
   (?(1)|.)                    # check that there was an empty component
-  ","o&QPdA\\1",[caseless,extended,global])),
+  ","dph",[extended,caseless,global])),
     <<"a123:bce:ddde:9999:b342::324e:dcba:abcd">> = iolist_to_binary(re:replace("a123:bce:ddde:9999:b342::324e:dcba:abcd","^(?!:)                       # colon disallowed at start
   (?:                         # start of item
     (?: [0-9a-f]{1,4} |       # 1-4 hex digits or
@@ -15979,7 +15996,7 @@ run32() ->
   ){1,7}                      # end item; 1-7 of them required               
   [0-9a-f]{1,4} $             # final hex number at end of string
   (?(1)|.)                    # check that there was an empty component
-  ","xDxHH",[caseless,extended])),
+  ","&C&iHua",[extended,caseless])),
     <<"a123:bce:ddde:9999:b342::324e:dcba:abcd">> = iolist_to_binary(re:replace("a123:bce:ddde:9999:b342::324e:dcba:abcd","^(?!:)                       # colon disallowed at start
   (?:                         # start of item
     (?: [0-9a-f]{1,4} |       # 1-4 hex digits or
@@ -15988,7 +16005,7 @@ run32() ->
   ){1,7}                      # end item; 1-7 of them required               
   [0-9a-f]{1,4} $             # final hex number at end of string
   (?(1)|.)                    # check that there was an empty component
-  ","xDxHH",[caseless,extended,global])),
+  ","&C&iHua",[extended,caseless,global])),
     <<"a123::9999:b342::324e:dcba:abcd">> = iolist_to_binary(re:replace("a123::9999:b342::324e:dcba:abcd","^(?!:)                       # colon disallowed at start
   (?:                         # start of item
     (?: [0-9a-f]{1,4} |       # 1-4 hex digits or
@@ -15997,7 +16014,7 @@ run32() ->
   ){1,7}                      # end item; 1-7 of them required               
   [0-9a-f]{1,4} $             # final hex number at end of string
   (?(1)|.)                    # check that there was an empty component
-  ","iEooN&WrIl&nlqjB&\\1b",[caseless,extended])),
+  ","UkKlO\\1LQggow&lFkU",[extended,caseless])),
     <<"a123::9999:b342::324e:dcba:abcd">> = iolist_to_binary(re:replace("a123::9999:b342::324e:dcba:abcd","^(?!:)                       # colon disallowed at start
   (?:                         # start of item
     (?: [0-9a-f]{1,4} |       # 1-4 hex digits or
@@ -16006,7 +16023,7 @@ run32() ->
   ){1,7}                      # end item; 1-7 of them required               
   [0-9a-f]{1,4} $             # final hex number at end of string
   (?(1)|.)                    # check that there was an empty component
-  ","iEooN&WrIl&nlqjB&\\1b",[caseless,extended,global])),
+  ","UkKlO\\1LQggow&lFkU",[extended,caseless,global])),
     <<"abcde:2:3:4:5:6:7:8">> = iolist_to_binary(re:replace("abcde:2:3:4:5:6:7:8","^(?!:)                       # colon disallowed at start
   (?:                         # start of item
     (?: [0-9a-f]{1,4} |       # 1-4 hex digits or
@@ -16015,7 +16032,7 @@ run32() ->
   ){1,7}                      # end item; 1-7 of them required               
   [0-9a-f]{1,4} $             # final hex number at end of string
   (?(1)|.)                    # check that there was an empty component
-  ","dph",[caseless,extended])),
+  ","qVEB\\1Buo",[extended,caseless])),
     <<"abcde:2:3:4:5:6:7:8">> = iolist_to_binary(re:replace("abcde:2:3:4:5:6:7:8","^(?!:)                       # colon disallowed at start
   (?:                         # start of item
     (?: [0-9a-f]{1,4} |       # 1-4 hex digits or
@@ -16024,7 +16041,7 @@ run32() ->
   ){1,7}                      # end item; 1-7 of them required               
   [0-9a-f]{1,4} $             # final hex number at end of string
   (?(1)|.)                    # check that there was an empty component
-  ","dph",[caseless,extended,global])),
+  ","qVEB\\1Buo",[extended,caseless,global])),
     <<"::1">> = iolist_to_binary(re:replace("::1","^(?!:)                       # colon disallowed at start
   (?:                         # start of item
     (?: [0-9a-f]{1,4} |       # 1-4 hex digits or
@@ -16033,7 +16050,7 @@ run32() ->
   ){1,7}                      # end item; 1-7 of them required               
   [0-9a-f]{1,4} $             # final hex number at end of string
   (?(1)|.)                    # check that there was an empty component
-  ","&C&iHua",[caseless,extended])),
+  ","&PINm\\1tQW&u",[extended,caseless])),
     <<"::1">> = iolist_to_binary(re:replace("::1","^(?!:)                       # colon disallowed at start
   (?:                         # start of item
     (?: [0-9a-f]{1,4} |       # 1-4 hex digits or
@@ -16042,7 +16059,7 @@ run32() ->
   ){1,7}                      # end item; 1-7 of them required               
   [0-9a-f]{1,4} $             # final hex number at end of string
   (?(1)|.)                    # check that there was an empty component
-  ","&C&iHua",[caseless,extended,global])),
+  ","&PINm\\1tQW&u",[extended,caseless,global])),
     <<"abcd:fee0:123::">> = iolist_to_binary(re:replace("abcd:fee0:123::","^(?!:)                       # colon disallowed at start
   (?:                         # start of item
     (?: [0-9a-f]{1,4} |       # 1-4 hex digits or
@@ -16051,7 +16068,7 @@ run32() ->
   ){1,7}                      # end item; 1-7 of them required               
   [0-9a-f]{1,4} $             # final hex number at end of string
   (?(1)|.)                    # check that there was an empty component
-  ","UkKlO\\1LQggow&lFkU",[caseless,extended])),
+  ","JN\\1nXQWo\\1gpGr",[extended,caseless])),
     <<"abcd:fee0:123::">> = iolist_to_binary(re:replace("abcd:fee0:123::","^(?!:)                       # colon disallowed at start
   (?:                         # start of item
     (?: [0-9a-f]{1,4} |       # 1-4 hex digits or
@@ -16060,7 +16077,7 @@ run32() ->
   ){1,7}                      # end item; 1-7 of them required               
   [0-9a-f]{1,4} $             # final hex number at end of string
   (?(1)|.)                    # check that there was an empty component
-  ","UkKlO\\1LQggow&lFkU",[caseless,extended,global])),
+  ","JN\\1nXQWo\\1gpGr",[extended,caseless,global])),
     <<":1">> = iolist_to_binary(re:replace(":1","^(?!:)                       # colon disallowed at start
   (?:                         # start of item
     (?: [0-9a-f]{1,4} |       # 1-4 hex digits or
@@ -16069,7 +16086,7 @@ run32() ->
   ){1,7}                      # end item; 1-7 of them required               
   [0-9a-f]{1,4} $             # final hex number at end of string
   (?(1)|.)                    # check that there was an empty component
-  ","qVEB\\1Buo",[caseless,extended])),
+  ","gLxFuiCCrajP\\1sTmT",[extended,caseless])),
     <<":1">> = iolist_to_binary(re:replace(":1","^(?!:)                       # colon disallowed at start
   (?:                         # start of item
     (?: [0-9a-f]{1,4} |       # 1-4 hex digits or
@@ -16078,7 +16095,7 @@ run32() ->
   ){1,7}                      # end item; 1-7 of them required               
   [0-9a-f]{1,4} $             # final hex number at end of string
   (?(1)|.)                    # check that there was an empty component
-  ","qVEB\\1Buo",[caseless,extended,global])),
+  ","gLxFuiCCrajP\\1sTmT",[extended,caseless,global])),
     <<"1:">> = iolist_to_binary(re:replace("1:","^(?!:)                       # colon disallowed at start
   (?:                         # start of item
     (?: [0-9a-f]{1,4} |       # 1-4 hex digits or
@@ -16087,7 +16104,7 @@ run32() ->
   ){1,7}                      # end item; 1-7 of them required               
   [0-9a-f]{1,4} $             # final hex number at end of string
   (?(1)|.)                    # check that there was an empty component
-  ","&PINm\\1tQW&u",[caseless,extended])),
+  ","iyqE",[extended,caseless])),
     <<"1:">> = iolist_to_binary(re:replace("1:","^(?!:)                       # colon disallowed at start
   (?:                         # start of item
     (?: [0-9a-f]{1,4} |       # 1-4 hex digits or
@@ -16096,2582 +16113,2836 @@ run32() ->
   ){1,7}                      # end item; 1-7 of them required               
   [0-9a-f]{1,4} $             # final hex number at end of string
   (?(1)|.)                    # check that there was an empty component
-  ","&PINm\\1tQW&u",[caseless,extended,global])),
-    <<"JNnXQWogpGr">> = iolist_to_binary(re:replace("z","[z\\Qa-d]\\E]","JN\\1nXQWo\\1gpGr",[])),
-    <<"JNnXQWogpGr">> = iolist_to_binary(re:replace("z","[z\\Qa-d]\\E]","JN\\1nXQWo\\1gpGr",[global])),
-    <<"gLxFuiCCrajPsTmT">> = iolist_to_binary(re:replace("a","[z\\Qa-d]\\E]","gLxFuiCCrajP\\1sTmT",[])),
-    <<"gLxFuiCCrajPsTmT">> = iolist_to_binary(re:replace("a","[z\\Qa-d]\\E]","gLxFuiCCrajP\\1sTmT",[global])),
-    <<"iyqE">> = iolist_to_binary(re:replace("-","[z\\Qa-d]\\E]","iyqE",[])),
-    <<"iyqE">> = iolist_to_binary(re:replace("-","[z\\Qa-d]\\E]","iyqE",[global])),
-    <<"fGWRddyWukeN">> = iolist_to_binary(re:replace("d","[z\\Qa-d]\\E]","\\1\\1fGWR\\1&\\1&yWukeN",[])),
-    <<"fGWRddyWukeN">> = iolist_to_binary(re:replace("d","[z\\Qa-d]\\E]","\\1\\1fGWR\\1&\\1&yWukeN",[global])),
-    <<"radhO]oMmkTy]vp">> = iolist_to_binary(re:replace("]","[z\\Qa-d]\\E]","radhO&oMmkTy&vp",[])),
-    <<"radhO]oMmkTy]vp">> = iolist_to_binary(re:replace("]","[z\\Qa-d]\\E]","radhO&oMmkTy&vp",[global])),
-    <<"b">> = iolist_to_binary(re:replace("b","[z\\Qa-d]\\E]","i&r&X",[])),
-    <<"b">> = iolist_to_binary(re:replace("b","[z\\Qa-d]\\E]","i&r&X",[global])),
-    <<"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","(a+)*b","uv&&&cGDFD",[])),
-    <<"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","(a+)*b","uv&&&cGDFD",[global])),
+  ","iyqE",[extended,caseless,global])),
+    <<"fGWRzzyWukeN">> = iolist_to_binary(re:replace("z","[z\\Qa-d]\\E]","\\1\\1fGWR\\1&\\1&yWukeN",[])),
+    <<"fGWRzzyWukeN">> = iolist_to_binary(re:replace("z","[z\\Qa-d]\\E]","\\1\\1fGWR\\1&\\1&yWukeN",[global])),
+    <<"radhOaoMmkTyavp">> = iolist_to_binary(re:replace("a","[z\\Qa-d]\\E]","radhO&oMmkTy&vp",[])),
+    <<"radhOaoMmkTyavp">> = iolist_to_binary(re:replace("a","[z\\Qa-d]\\E]","radhO&oMmkTy&vp",[global])),
+    <<"i-r-X">> = iolist_to_binary(re:replace("-","[z\\Qa-d]\\E]","i&r&X",[])),
+    <<"i-r-X">> = iolist_to_binary(re:replace("-","[z\\Qa-d]\\E]","i&r&X",[global])),
+    <<"uvdddcGDFD">> = iolist_to_binary(re:replace("d","[z\\Qa-d]\\E]","uv&&&cGDFD",[])),
+    <<"uvdddcGDFD">> = iolist_to_binary(re:replace("d","[z\\Qa-d]\\E]","uv&&&cGDFD",[global])),
+    <<"]wlwIRsq]ll]An]Br]">> = iolist_to_binary(re:replace("]","[z\\Qa-d]\\E]","&wlwIRsq&ll\\1&An&B\\1r&",[])),
+    <<"]wlwIRsq]ll]An]Br]">> = iolist_to_binary(re:replace("]","[z\\Qa-d]\\E]","&wlwIRsq&ll\\1&An&B\\1r&",[global])),
+    <<"b">> = iolist_to_binary(re:replace("b","[z\\Qa-d]\\E]","HQDGKPOboFhEDT&FLu&D",[])),
+    <<"b">> = iolist_to_binary(re:replace("b","[z\\Qa-d]\\E]","HQDGKPOboFhEDT&FLu&D",[global])),
     ok.
 run33() ->
-    <<"XAZtDLKpXBqBWXNbjBU">> = iolist_to_binary(re:replace("XAZXB","(?<=Z)X.","t\\1DLK\\1p&\\1qB\\1WXNbjBU",[])),
-    <<"XAZtDLKpXBqBWXNbjBU">> = iolist_to_binary(re:replace("XAZXB","(?<=Z)X.","t\\1DLK\\1p&\\1qB\\1WXNbjBU",[global])),
-    <<"hJUkab cd defgQmMMdaab cd defgmm">> = iolist_to_binary(re:replace("ab cd defg","ab cd (?x) de fg","hJUk&Qm\\1MMda&mm",[])),
-    <<"hJUkab cd defgQmMMdaab cd defgmm">> = iolist_to_binary(re:replace("ab cd defg","ab cd (?x) de fg","hJUk&Qm\\1MMda&mm",[global])),
-    <<"d">> = iolist_to_binary(re:replace("ab cddefg","ab cd(?x) de fg","d",[])),
-    <<"d">> = iolist_to_binary(re:replace("ab cddefg","ab cd(?x) de fg","d",[global])),
-    <<"abcddefg">> = iolist_to_binary(re:replace("abcddefg","ab cd(?x) de fg","u",[])),
-    <<"abcddefg">> = iolist_to_binary(re:replace("abcddefg","ab cd(?x) de fg","u",[global])),
-    <<"foopBX">> = iolist_to_binary(re:replace("foobarX","(?<![^f]oo)(bar)","pB",[])),
-    <<"foopBX">> = iolist_to_binary(re:replace("foobarX","(?<![^f]oo)(bar)","pB",[global])),
-    <<"boobarX">> = iolist_to_binary(re:replace("boobarX","(?<![^f]oo)(bar)","&Ie",[])),
-    <<"boobarX">> = iolist_to_binary(re:replace("boobarX","(?<![^f]oo)(bar)","&Ie",[global])),
-    <<"offsq">> = iolist_to_binary(re:replace("offX","(?<![^f])X","sq\\1",[])),
-    <<"offsq">> = iolist_to_binary(re:replace("offX","(?<![^f])X","sq\\1",[global])),
-    <<"onyX">> = iolist_to_binary(re:replace("onyX","(?<![^f])X","ov",[])),
-    <<"onyX">> = iolist_to_binary(re:replace("onyX","(?<![^f])X","ov",[global])),
-    <<"onyuMvMIoSdSSJ">> = iolist_to_binary(re:replace("onyX","(?<=[^f])X","uMvMIoSdSSJ",[])),
-    <<"onyuMvMIoSdSSJ">> = iolist_to_binary(re:replace("onyX","(?<=[^f])X","uMvMIoSdSSJ",[global])),
-    <<"offX">> = iolist_to_binary(re:replace("offX","(?<=[^f])X","CWpw",[])),
-    <<"offX">> = iolist_to_binary(re:replace("offX","(?<=[^f])X","CWpw",[global])),
-    <<"VJfDMGQCssqa
+    <<"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","(a+)*b","dWU\\1&MLWjnDLY\\1\\1M",[])),
+    <<"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","(a+)*b","dWU\\1&MLWjnDLY\\1\\1M",[global])),
+    <<"XAZu">> = iolist_to_binary(re:replace("XAZXB","(?<=Z)X.","u",[])),
+    <<"XAZu">> = iolist_to_binary(re:replace("XAZXB","(?<=Z)X.","u",[global])),
+    <<"pB">> = iolist_to_binary(re:replace("ab cd defg","ab cd (?x) de fg","pB",[])),
+    <<"pB">> = iolist_to_binary(re:replace("ab cd defg","ab cd (?x) de fg","pB",[global])),
+    <<"ab cddefgIe">> = iolist_to_binary(re:replace("ab cddefg","ab cd(?x) de fg","&Ie",[])),
+    <<"ab cddefgIe">> = iolist_to_binary(re:replace("ab cddefg","ab cd(?x) de fg","&Ie",[global])),
+    <<"abcddefg">> = iolist_to_binary(re:replace("abcddefg","ab cd(?x) de fg","sq\\1",[])),
+    <<"abcddefg">> = iolist_to_binary(re:replace("abcddefg","ab cd(?x) de fg","sq\\1",[global])),
+    <<"fooovX">> = iolist_to_binary(re:replace("foobarX","(?<![^f]oo)(bar)","ov",[])),
+    <<"fooovX">> = iolist_to_binary(re:replace("foobarX","(?<![^f]oo)(bar)","ov",[global])),
+    <<"boobarX">> = iolist_to_binary(re:replace("boobarX","(?<![^f]oo)(bar)","uMvMIoSdSSJ",[])),
+    <<"boobarX">> = iolist_to_binary(re:replace("boobarX","(?<![^f]oo)(bar)","uMvMIoSdSSJ",[global])),
+    <<"offCWpw">> = iolist_to_binary(re:replace("offX","(?<![^f])X","CWpw",[])),
+    <<"offCWpw">> = iolist_to_binary(re:replace("offX","(?<![^f])X","CWpw",[global])),
+    <<"onyX">> = iolist_to_binary(re:replace("onyX","(?<![^f])X","VJ&fD&MGQC&ssq",[])),
+    <<"onyX">> = iolist_to_binary(re:replace("onyX","(?<![^f])X","VJ&fD&MGQC&ssq",[global])),
+    <<"onyLNqSXm">> = iolist_to_binary(re:replace("onyX","(?<=[^f])X","LNqS&m",[])),
+    <<"onyLNqSXm">> = iolist_to_binary(re:replace("onyX","(?<=[^f])X","LNqS&m",[global])),
+    <<"offX">> = iolist_to_binary(re:replace("offX","(?<=[^f])X","OkYauyNGxeWuW\\1\\1&MWr",[])),
+    <<"offX">> = iolist_to_binary(re:replace("offX","(?<=[^f])X","OkYauyNGxeWuW\\1\\1&MWr",[global])),
+    <<"scDknMa
 b
 c">> = iolist_to_binary(re:replace("a
 b
-c","^","VJ&fD&MGQC&ssq",[multiline])),
-    <<"VJfDMGQCssqa
-VJfDMGQCssqb
-VJfDMGQCssqc">> = iolist_to_binary(re:replace("a
+c","^","scDk\\1nM",[multiline])),
+    <<"scDknMa
+scDknMb
+scDknMc">> = iolist_to_binary(re:replace("a
 b
-c","^","VJ&fD&MGQC&ssq",[multiline,global])),
-    <<"LNqSm">> = iolist_to_binary(re:replace("","^","LNqS&m",[multiline])),
-    <<"LNqSm">> = iolist_to_binary(re:replace("","^","LNqS&m",[multiline,global])),
+c","^","scDk\\1nM",[multiline,global])),
+    <<"YcA">> = iolist_to_binary(re:replace("","^","\\1YcA",[multiline])),
+    <<"YcA">> = iolist_to_binary(re:replace("","^","\\1YcA",[multiline,global])),
     <<"A
 C
-OkYauyNGxeWuWMWrC">> = iolist_to_binary(re:replace("A
+xNpUFFvOIjC">> = iolist_to_binary(re:replace("A
 C
-C","(?<=C\\n)^","OkYauyNGxeWuW\\1\\1&MWr",[multiline])),
+C","(?<=C\\n)^","xN&pU\\1FFvOIj",[multiline])),
     <<"A
 C
-OkYauyNGxeWuWMWrC">> = iolist_to_binary(re:replace("A
+xNpUFFvOIjC">> = iolist_to_binary(re:replace("A
 C
-C","(?<=C\\n)^","OkYauyNGxeWuW\\1\\1&MWr",[multiline,global])),
-    <<"scDkXnM">> = iolist_to_binary(re:replace("bXaX","(?:(?(1)a|b)(X))+","scDk\\1nM",[])),
-    <<"scDkXnM">> = iolist_to_binary(re:replace("bXaX","(?:(?(1)a|b)(X))+","scDk\\1nM",[global])),
-    <<"YYcA">> = iolist_to_binary(re:replace("bXXaYYaY","(?:(?(1)\\1a|b)(X|Y))+","\\1YcA",[])),
-    <<"YYcA">> = iolist_to_binary(re:replace("bXXaYYaY","(?:(?(1)\\1a|b)(X|Y))+","\\1YcA",[global])),
-    <<"xNbXpUXFFvOIjYaXXaX">> = iolist_to_binary(re:replace("bXYaXXaX","(?:(?(1)\\1a|b)(X|Y))+","xN&pU\\1FFvOIj",[])),
-    <<"xNbXpUXFFvOIjYaXXaX">> = iolist_to_binary(re:replace("bXYaXXaX","(?:(?(1)\\1a|b)(X|Y))+","xN&pU\\1FFvOIj",[global])),
-    <<"XubXPbWvbXWbXbXlBtsbXXaYYaY">> = iolist_to_binary(re:replace("bXXaYYaY","()()()()()()()()()(?:(?(10)\\10a|b)(X|Y))+","Xu&PbWv&W&&lBts&",[])),
-    <<"XubXPbWvbXWbXbXlBtsbXXaYYaY">> = iolist_to_binary(re:replace("bXXaYYaY","()()()()()()()()()(?:(?(10)\\10a|b)(X|Y))+","Xu&PbWv&W&&lBts&",[global])),
-    <<"fyCFuvHUpuIwItIx">> = iolist_to_binary(re:replace("abc]","[[,abc,]+]","\\1fyCFuvHU\\1\\1puIwItIx\\1",[])),
-    <<"fyCFuvHUpuIwItIx">> = iolist_to_binary(re:replace("abc]","[[,abc,]+]","\\1fyCFuvHU\\1\\1puIwItIx\\1",[global])),
-    <<"AyRa,b]EPvK">> = iolist_to_binary(re:replace("a,b]","[[,abc,]+]","AyR&EPvK",[])),
-    <<"AyRa,b]EPvK">> = iolist_to_binary(re:replace("a,b]","[[,abc,]+]","AyR&EPvK",[global])),
-    <<"SbDcblGvpFYoX[a,b,c]J[a,b,c]Gu">> = iolist_to_binary(re:replace("[a,b,c]","[[,abc,]+]","SbDcblGvpFYoX&J&Gu",[])),
-    <<"SbDcblGvpFYoX[a,b,c]J[a,b,c]Gu">> = iolist_to_binary(re:replace("[a,b,c]","[[,abc,]+]","SbDcblGvpFYoX&J&Gu",[global])),
-    <<"A mB">> = iolist_to_binary(re:replace("A B","(?-x: )","&m",[extended])),
-    <<"A mB">> = iolist_to_binary(re:replace("A B","(?-x: )","&m",[extended,global])),
-    <<"AkB">> = iolist_to_binary(re:replace("A # B","(?x)(?-x: \\s*#\\s*)","k\\1",[])),
-    <<"AkB">> = iolist_to_binary(re:replace("A # B","(?x)(?-x: \\s*#\\s*)","k\\1",[global])),
-    <<"#">> = iolist_to_binary(re:replace("#","(?x)(?-x: \\s*#\\s*)","BufqWrp\\1\\1UijV",[])),
-    <<"#">> = iolist_to_binary(re:replace("#","(?x)(?-x: \\s*#\\s*)","BufqWrp\\1\\1UijV",[global])),
-    <<"A s#s B">> = iolist_to_binary(re:replace("A s#s B","(?x)(?-x: \\s*#\\s*)","pIOc\\1eAW\\1",[])),
-    <<"A s#s B">> = iolist_to_binary(re:replace("A s#s B","(?x)(?-x: \\s*#\\s*)","pIOc\\1eAW\\1",[global])),
-    <<"Ap">> = iolist_to_binary(re:replace("A #include","(?x-is)(?:(?-ixs) \\s*#\\s*) include","p",[])),
-    <<"Ap">> = iolist_to_binary(re:replace("A #include","(?x-is)(?:(?-ixs) \\s*#\\s*) include","p",[global])),
-    <<"A#include">> = iolist_to_binary(re:replace("A#include","(?x-is)(?:(?-ixs) \\s*#\\s*) include","y&&&AOp\\1",[])),
-    <<"A#include">> = iolist_to_binary(re:replace("A#include","(?x-is)(?:(?-ixs) \\s*#\\s*) include","y&&&AOp\\1",[global])),
-    <<"A #Include">> = iolist_to_binary(re:replace("A #Include","(?x-is)(?:(?-ixs) \\s*#\\s*) include","\\1VJMcD\\1vw&NweMFm",[])),
-    <<"A #Include">> = iolist_to_binary(re:replace("A #Include","(?x-is)(?:(?-ixs) \\s*#\\s*) include","\\1VJMcD\\1vw&NweMFm",[global])),
-    <<"nmpAKxmhPVHDE">> = iolist_to_binary(re:replace("aaabbbb","a*b*\\w","nmpAKxmhP\\1VH\\1DE\\1",[])),
-    <<"nmpAKxmhPVHDE">> = iolist_to_binary(re:replace("aaabbbb","a*b*\\w","nmpAKxmhP\\1VH\\1DE\\1",[global])),
-    <<"sVrnWeaaaaaBWqoEe">> = iolist_to_binary(re:replace("aaaa","a*b*\\w","sVrnWea&BWqoE\\1e\\1",[])),
-    <<"sVrnWeaaaaaBWqoEe">> = iolist_to_binary(re:replace("aaaa","a*b*\\w","sVrnWea&BWqoE\\1e\\1",[global])),
-    <<"yKlwaKvFuDaYa">> = iolist_to_binary(re:replace("a","a*b*\\w","yKlwaKvFuDaY&",[])),
-    <<"yKlwaKvFuDaYa">> = iolist_to_binary(re:replace("a","a*b*\\w","yKlwaKvFuDaY&",[global])),
-    <<"aaaabbxlobb">> = iolist_to_binary(re:replace("aaabbbb","a*b?\\w","a&xlo",[])),
-    <<"aaaabbxloabbxlo">> = iolist_to_binary(re:replace("aaabbbb","a*b?\\w","a&xlo",[global])),
-    <<"HAfUFNxI">> = iolist_to_binary(re:replace("aaaa","a*b?\\w","HA\\1fUFNxI",[])),
-    <<"HAfUFNxI">> = iolist_to_binary(re:replace("aaaa","a*b?\\w","HA\\1fUFNxI",[global])),
-    <<"UTGiYaXaqADaSaxgaG">> = iolist_to_binary(re:replace("a","a*b?\\w","UTGiY&\\1X&qAD\\1&S&xgaG",[])),
-    <<"UTGiYaXaqADaSaxgaG">> = iolist_to_binary(re:replace("a","a*b?\\w","UTGiY&\\1X&qAD\\1&S&xgaG",[global])),
-    <<"TjOYiTQLgjuOn">> = iolist_to_binary(re:replace("aaabbbb","a*b{0,4}\\w","Tj\\1OYiTQLgjuOn",[])),
-    <<"TjOYiTQLgjuOn">> = iolist_to_binary(re:replace("aaabbbb","a*b{0,4}\\w","Tj\\1OYiTQLgjuOn",[global])),
-    <<"aaaaYaaaahI">> = iolist_to_binary(re:replace("aaaa","a*b{0,4}\\w","&Y&hI",[])),
-    <<"aaaaYaaaahI">> = iolist_to_binary(re:replace("aaaa","a*b{0,4}\\w","&Y&hI",[global])),
-    <<"JdMoadBqra">> = iolist_to_binary(re:replace("a","a*b{0,4}\\w","JdMo\\1&dBqr&\\1",[])),
-    <<"JdMoadBqra">> = iolist_to_binary(re:replace("a","a*b{0,4}\\w","JdMo\\1&dBqr&\\1",[global])),
-    <<"RyaTFQFN">> = iolist_to_binary(re:replace("aaabbbb","a*b{0,}\\w","R\\1yaTFQFN",[])),
-    <<"RyaTFQFN">> = iolist_to_binary(re:replace("aaabbbb","a*b{0,}\\w","R\\1yaTFQFN",[global])),
-    <<"w">> = iolist_to_binary(re:replace("aaaa","a*b{0,}\\w","w",[])),
-    <<"w">> = iolist_to_binary(re:replace("aaaa","a*b{0,}\\w","w",[global])),
-    <<"TAs">> = iolist_to_binary(re:replace("a","a*b{0,}\\w","TAs",[])),
-    <<"TAs">> = iolist_to_binary(re:replace("a","a*b{0,}\\w","TAs",[global])),
-    <<"gObuYjf0aY0a">> = iolist_to_binary(re:replace("0a","a*\\d*\\w","gObuYj\\1f\\1&Y\\1&\\1",[])),
-    <<"gObuYjf0aY0a">> = iolist_to_binary(re:replace("0a","a*\\d*\\w","gObuYj\\1f\\1&Y\\1&\\1",[global])),
-    <<"WqUamivVmXaLd">> = iolist_to_binary(re:replace("a","a*\\d*\\w","W\\1qUamiv\\1V\\1mX&Ld",[])),
-    <<"WqUamivVmXaLd">> = iolist_to_binary(re:replace("a","a*\\d*\\w","W\\1qUamiv\\1V\\1mX&Ld",[global])),
+C","(?<=C\\n)^","xN&pU\\1FFvOIj",[multiline,global])),
+    <<"XubXaXPbWvbXaXWbXaXbXaXlBtsbXaX">> = iolist_to_binary(re:replace("bXaX","(?:(?(1)a|b)(X))+","Xu&PbWv&W&&lBts&",[])),
+    <<"XubXaXPbWvbXaXWbXaXbXaXlBtsbXaX">> = iolist_to_binary(re:replace("bXaX","(?:(?(1)a|b)(X))+","Xu&PbWv&W&&lBts&",[global])),
+    <<"YfyCFuvHUYYpuIwItIxY">> = iolist_to_binary(re:replace("bXXaYYaY","(?:(?(1)\\1a|b)(X|Y))+","\\1fyCFuvHU\\1\\1puIwItIx\\1",[])),
+    <<"YfyCFuvHUYYpuIwItIxY">> = iolist_to_binary(re:replace("bXXaYYaY","(?:(?(1)\\1a|b)(X|Y))+","\\1fyCFuvHU\\1\\1puIwItIx\\1",[global])),
+    <<"AyRbXEPvKYaXXaX">> = iolist_to_binary(re:replace("bXYaXXaX","(?:(?(1)\\1a|b)(X|Y))+","AyR&EPvK",[])),
+    <<"AyRbXEPvKYaXXaX">> = iolist_to_binary(re:replace("bXYaXXaX","(?:(?(1)\\1a|b)(X|Y))+","AyR&EPvK",[global])),
+    <<"SbDcblGvpFYoXbXJbXGuXaYYaY">> = iolist_to_binary(re:replace("bXXaYYaY","()()()()()()()()()(?:(?(10)\\10a|b)(X|Y))+","SbDcblGvpFYoX&J&Gu",[])),
+    <<"SbDcblGvpFYoXbXJbXGuXaYYaY">> = iolist_to_binary(re:replace("bXXaYYaY","()()()()()()()()()(?:(?(10)\\10a|b)(X|Y))+","SbDcblGvpFYoX&J&Gu",[global])),
+    <<"abc]m">> = iolist_to_binary(re:replace("abc]","[[,abc,]+]","&m",[])),
+    <<"abc]m">> = iolist_to_binary(re:replace("abc]","[[,abc,]+]","&m",[global])),
+    <<"k">> = iolist_to_binary(re:replace("a,b]","[[,abc,]+]","k\\1",[])),
+    <<"k">> = iolist_to_binary(re:replace("a,b]","[[,abc,]+]","k\\1",[global])),
+    <<"BufqWrpUijV">> = iolist_to_binary(re:replace("[a,b,c]","[[,abc,]+]","BufqWrp\\1\\1UijV",[])),
+    <<"BufqWrpUijV">> = iolist_to_binary(re:replace("[a,b,c]","[[,abc,]+]","BufqWrp\\1\\1UijV",[global])),
+    <<"ApIOceAWB">> = iolist_to_binary(re:replace("A B","(?-x: )","pIOc\\1eAW\\1",[extended])),
+    <<"ApIOceAWB">> = iolist_to_binary(re:replace("A B","(?-x: )","pIOc\\1eAW\\1",[extended,global])),
+    <<"ApB">> = iolist_to_binary(re:replace("A # B","(?x)(?-x: \\s*#\\s*)","p",[])),
+    <<"ApB">> = iolist_to_binary(re:replace("A # B","(?x)(?-x: \\s*#\\s*)","p",[global])),
+    <<"#">> = iolist_to_binary(re:replace("#","(?x)(?-x: \\s*#\\s*)","y&&&AOp\\1",[])),
+    <<"#">> = iolist_to_binary(re:replace("#","(?x)(?-x: \\s*#\\s*)","y&&&AOp\\1",[global])),
+    <<"A s#s B">> = iolist_to_binary(re:replace("A s#s B","(?x)(?-x: \\s*#\\s*)","\\1VJMcD\\1vw&NweMFm",[])),
+    <<"A s#s B">> = iolist_to_binary(re:replace("A s#s B","(?x)(?-x: \\s*#\\s*)","\\1VJMcD\\1vw&NweMFm",[global])),
+    <<"AnmpAKxmhPVHDE">> = iolist_to_binary(re:replace("A #include","(?x-is)(?:(?-ixs) \\s*#\\s*) include","nmpAKxmhP\\1VH\\1DE\\1",[])),
+    <<"AnmpAKxmhPVHDE">> = iolist_to_binary(re:replace("A #include","(?x-is)(?:(?-ixs) \\s*#\\s*) include","nmpAKxmhP\\1VH\\1DE\\1",[global])),
+    <<"A#include">> = iolist_to_binary(re:replace("A#include","(?x-is)(?:(?-ixs) \\s*#\\s*) include","sVrnWea&BWqoE\\1e\\1",[])),
+    <<"A#include">> = iolist_to_binary(re:replace("A#include","(?x-is)(?:(?-ixs) \\s*#\\s*) include","sVrnWea&BWqoE\\1e\\1",[global])),
+    <<"A #Include">> = iolist_to_binary(re:replace("A #Include","(?x-is)(?:(?-ixs) \\s*#\\s*) include","yKlwaKvFuDaY&",[])),
+    <<"A #Include">> = iolist_to_binary(re:replace("A #Include","(?x-is)(?:(?-ixs) \\s*#\\s*) include","yKlwaKvFuDaY&",[global])),
+    <<"aaaabbbbxlo">> = iolist_to_binary(re:replace("aaabbbb","a*b*\\w","a&xlo",[])),
+    <<"aaaabbbbxlo">> = iolist_to_binary(re:replace("aaabbbb","a*b*\\w","a&xlo",[global])),
+    <<"HAfUFNxI">> = iolist_to_binary(re:replace("aaaa","a*b*\\w","HA\\1fUFNxI",[])),
+    <<"HAfUFNxI">> = iolist_to_binary(re:replace("aaaa","a*b*\\w","HA\\1fUFNxI",[global])),
+    <<"UTGiYaXaqADaSaxgaG">> = iolist_to_binary(re:replace("a","a*b*\\w","UTGiY&\\1X&qAD\\1&S&xgaG",[])),
+    <<"UTGiYaXaqADaSaxgaG">> = iolist_to_binary(re:replace("a","a*b*\\w","UTGiY&\\1X&qAD\\1&S&xgaG",[global])),
+    <<"TjOYiTQLgjuOnbb">> = iolist_to_binary(re:replace("aaabbbb","a*b?\\w","Tj\\1OYiTQLgjuOn",[])),
+    <<"TjOYiTQLgjuOnTjOYiTQLgjuOn">> = iolist_to_binary(re:replace("aaabbbb","a*b?\\w","Tj\\1OYiTQLgjuOn",[global])),
+    <<"aaaaYaaaahI">> = iolist_to_binary(re:replace("aaaa","a*b?\\w","&Y&hI",[])),
+    <<"aaaaYaaaahI">> = iolist_to_binary(re:replace("aaaa","a*b?\\w","&Y&hI",[global])),
+    <<"JdMoadBqra">> = iolist_to_binary(re:replace("a","a*b?\\w","JdMo\\1&dBqr&\\1",[])),
+    <<"JdMoadBqra">> = iolist_to_binary(re:replace("a","a*b?\\w","JdMo\\1&dBqr&\\1",[global])),
     ok.
 run34() ->
-    <<"IaanabsHvXRBC">> = iolist_to_binary(re:replace("a","a*b *\\w","I&&n\\1&bsHvXRBC",[extended])),
-    <<"IaanabsHvXRBC">> = iolist_to_binary(re:replace("a","a*b *\\w","I&&n\\1&bsHvXRBC",[extended,global])),
-    <<"X">> = iolist_to_binary(re:replace("a","a*b#comment
-  *\\w","X",[extended])),
-    <<"X">> = iolist_to_binary(re:replace("a","a*b#comment
-  *\\w","X",[extended,global])),
-    <<"xqAeaLWQJTxG">> = iolist_to_binary(re:replace("a","a* b *\\w","xqA\\1e&\\1LW\\1\\1QJT\\1\\1xG",[extended])),
-    <<"xqAeaLWQJTxG">> = iolist_to_binary(re:replace("a","a* b *\\w","xqA\\1e&\\1LW\\1\\1QJT\\1\\1xG",[extended,global])),
-    <<"Pabc=xyz\\oXTDiScdQabc=xyz\\E
+    <<"RyaTFQFN">> = iolist_to_binary(re:replace("aaabbbb","a*b{0,4}\\w","R\\1yaTFQFN",[])),
+    <<"RyaTFQFN">> = iolist_to_binary(re:replace("aaabbbb","a*b{0,4}\\w","R\\1yaTFQFN",[global])),
+    <<"w">> = iolist_to_binary(re:replace("aaaa","a*b{0,4}\\w","w",[])),
+    <<"w">> = iolist_to_binary(re:replace("aaaa","a*b{0,4}\\w","w",[global])),
+    <<"TAs">> = iolist_to_binary(re:replace("a","a*b{0,4}\\w","TAs",[])),
+    <<"TAs">> = iolist_to_binary(re:replace("a","a*b{0,4}\\w","TAs",[global])),
+    <<"gObuYjfaaabbbbYaaabbbb">> = iolist_to_binary(re:replace("aaabbbb","a*b{0,}\\w","gObuYj\\1f\\1&Y\\1&\\1",[])),
+    <<"gObuYjfaaabbbbYaaabbbb">> = iolist_to_binary(re:replace("aaabbbb","a*b{0,}\\w","gObuYj\\1f\\1&Y\\1&\\1",[global])),
+    <<"WqUamivVmXaaaaLd">> = iolist_to_binary(re:replace("aaaa","a*b{0,}\\w","W\\1qUamiv\\1V\\1mX&Ld",[])),
+    <<"WqUamivVmXaaaaLd">> = iolist_to_binary(re:replace("aaaa","a*b{0,}\\w","W\\1qUamiv\\1V\\1mX&Ld",[global])),
+    <<"IaanabsHvXRBC">> = iolist_to_binary(re:replace("a","a*b{0,}\\w","I&&n\\1&bsHvXRBC",[])),
+    <<"IaanabsHvXRBC">> = iolist_to_binary(re:replace("a","a*b{0,}\\w","I&&n\\1&bsHvXRBC",[global])),
+    <<"X">> = iolist_to_binary(re:replace("0a","a*\\d*\\w","X",[])),
+    <<"X">> = iolist_to_binary(re:replace("0a","a*\\d*\\w","X",[global])),
+    <<"xqAeaLWQJTxG">> = iolist_to_binary(re:replace("a","a*\\d*\\w","xqA\\1e&\\1LW\\1\\1QJT\\1\\1xG",[])),
+    <<"xqAeaLWQJTxG">> = iolist_to_binary(re:replace("a","a*\\d*\\w","xqA\\1e&\\1LW\\1\\1QJT\\1\\1xG",[global])),
+    <<"PaoXTDiScdQaE">> = iolist_to_binary(re:replace("a","a*b *\\w","P&\\1o\\1XTDiScdQ&E",[extended])),
+    <<"PaoXTDiScdQaE">> = iolist_to_binary(re:replace("a","a*b *\\w","P&\\1o\\1XTDiScdQ&E",[extended,global])),
+    <<"ltaOkVmTnmteMMY">> = iolist_to_binary(re:replace("a","a*b#comment
+  *\\w","lt&OkVmTnmte\\1MMY",[extended])),
+    <<"ltaOkVmTnmteMMY">> = iolist_to_binary(re:replace("a","a*b#comment
+  *\\w","lt&OkVmTnmte\\1MMY",[extended,global])),
+    <<"hdDdHBCKXpUraMooaaW">> = iolist_to_binary(re:replace("a","a* b *\\w","hdDdHBCKXpUraMoo&\\1&W",[extended])),
+    <<"hdDdHBCKXpUraMooaaW">> = iolist_to_binary(re:replace("a","a* b *\\w","hdDdHBCKXpUraMoo&\\1&W",[extended,global])),
+    <<"Wabc=xyz\\CE
 pqr">> = iolist_to_binary(re:replace("abc=xyz\\
-pqr","^\\w+=.*(\\\\\\n.*)*","P&\\1o\\1XTDiScdQ&E",[])),
-    <<"Pabc=xyz\\oXTDiScdQabc=xyz\\E
+pqr","^\\w+=.*(\\\\\\n.*)*","W&CE",[])),
+    <<"Wabc=xyz\\CE
 pqr">> = iolist_to_binary(re:replace("abc=xyz\\
-pqr","^\\w+=.*(\\\\\\n.*)*","P&\\1o\\1XTDiScdQ&E",[global])),
-    <<"ltabcd:OkVmTnmteabcdMMY">> = iolist_to_binary(re:replace("abcd:","(?=(\\w+))\\1:","lt&OkVmTnmte\\1MMY",[])),
-    <<"ltabcd:OkVmTnmteabcdMMY">> = iolist_to_binary(re:replace("abcd:","(?=(\\w+))\\1:","lt&OkVmTnmte\\1MMY",[global])),
-    <<"hdDdHBCKXpUraMooabcd:abcdabcd:W">> = iolist_to_binary(re:replace("abcd:","^(?=(\\w+))\\1:","hdDdHBCKXpUraMoo&\\1&W",[])),
-    <<"hdDdHBCKXpUraMooabcd:abcdabcd:W">> = iolist_to_binary(re:replace("abcd:","^(?=(\\w+))\\1:","hdDdHBCKXpUraMoo&\\1&W",[global])),
-    <<"WabcCE">> = iolist_to_binary(re:replace("abc","^\\Eabc","W&CE",[])),
-    <<"WabcCE">> = iolist_to_binary(re:replace("abc","^\\Eabc","W&CE",[global])),
-    <<"HSaxAXhjahoJanfg">> = iolist_to_binary(re:replace("a","^[\\Eabc]","HS&xAXhj\\1&h\\1oJanfg",[])),
-    <<"HSaxAXhjahoJanfg">> = iolist_to_binary(re:replace("a","^[\\Eabc]","HS&xAXhj\\1&h\\1oJanfg",[global])),
-    <<"E">> = iolist_to_binary(re:replace("E","^[\\Eabc]","gn\\1f&K\\1g",[])),
-    <<"E">> = iolist_to_binary(re:replace("E","^[\\Eabc]","gn\\1f&K\\1g",[global])),
-    <<"dIgTpbIbHEixby">> = iolist_to_binary(re:replace("b","^[a-\\Ec]","dI\\1gTpbI&HEix&y",[])),
-    <<"dIgTpbIbHEixby">> = iolist_to_binary(re:replace("b","^[a-\\Ec]","dI\\1gTpbI&HEix&y",[global])),
-    <<"-">> = iolist_to_binary(re:replace("-","^[a-\\Ec]","&xKoXTWDN\\1\\1P\\1",[])),
-    <<"-">> = iolist_to_binary(re:replace("-","^[a-\\Ec]","&xKoXTWDN\\1\\1P\\1",[global])),
-    <<"E">> = iolist_to_binary(re:replace("E","^[a-\\Ec]","\\1",[])),
-    <<"E">> = iolist_to_binary(re:replace("E","^[a-\\Ec]","\\1",[global])),
-    <<"AULOvSbqcIObKbWMIp">> = iolist_to_binary(re:replace("b","^[a\\E\\E-\\Ec]","AULOvS&q\\1cI\\1O&K&WMIp",[])),
-    <<"AULOvSbqcIObKbWMIp">> = iolist_to_binary(re:replace("b","^[a\\E\\E-\\Ec]","AULOvS&q\\1cI\\1O&K&WMIp",[global])),
-    <<"-">> = iolist_to_binary(re:replace("-","^[a\\E\\E-\\Ec]","tkaYMfUUp&HTyQAreKh",[])),
-    <<"-">> = iolist_to_binary(re:replace("-","^[a\\E\\E-\\Ec]","tkaYMfUUp&HTyQAreKh",[global])),
-    <<"E">> = iolist_to_binary(re:replace("E","^[a\\E\\E-\\Ec]","EH\\1GtlKGy\\1EA\\1\\1hAK",[])),
-    <<"E">> = iolist_to_binary(re:replace("E","^[a\\E\\E-\\Ec]","EH\\1GtlKGy\\1EA\\1\\1hAK",[global])),
-    <<"GwfYObW">> = iolist_to_binary(re:replace("b","^[\\E\\Qa\\E-\\Qz\\E]+","GwfY\\1O&W",[])),
-    <<"GwfYObW">> = iolist_to_binary(re:replace("b","^[\\E\\Qa\\E-\\Qz\\E]+","GwfY\\1O&W",[global])),
-    <<"-">> = iolist_to_binary(re:replace("-","^[\\E\\Qa\\E-\\Qz\\E]+","mItu\\1oJX&CQC&UvIK",[])),
-    <<"-">> = iolist_to_binary(re:replace("-","^[\\E\\Qa\\E-\\Qz\\E]+","mItu\\1oJX&CQC&UvIK",[global])),
-    <<"IaLyKsEnQnMtfj">> = iolist_to_binary(re:replace("a","^[a\\Q]bc\\E]","IaLyKsEnQnMtfj\\1",[])),
-    <<"IaLyKsEnQnMtfj">> = iolist_to_binary(re:replace("a","^[a\\Q]bc\\E]","IaLyKsEnQnMtfj\\1",[global])),
-    <<"eslVs">> = iolist_to_binary(re:replace("]","^[a\\Q]bc\\E]","eslV\\1s",[])),
-    <<"eslVs">> = iolist_to_binary(re:replace("]","^[a\\Q]bc\\E]","eslV\\1s",[global])),
-    <<"MKcmAwNCnGcLYc">> = iolist_to_binary(re:replace("c","^[a\\Q]bc\\E]","M\\1K&mAwNCnG&LY\\1&",[])),
-    <<"MKcmAwNCnGcLYc">> = iolist_to_binary(re:replace("c","^[a\\Q]bc\\E]","M\\1K&mAwNCnG&LY\\1&",[global])),
-    <<"YxEpUt">> = iolist_to_binary(re:replace("a","^[a-\\Q\\E]","YxEpUt",[])),
-    <<"YxEpUt">> = iolist_to_binary(re:replace("a","^[a-\\Q\\E]","YxEpUt",[global])),
-    <<"nocMyHoQWrYuE">> = iolist_to_binary(re:replace("-","^[a-\\Q\\E]","nocMyHoQ\\1WrY\\1uE",[])),
-    <<"nocMyHoQWrYuE">> = iolist_to_binary(re:replace("-","^[a-\\Q\\E]","nocMyHoQ\\1WrY\\1uE",[global])),
-    <<"WYbAyvR">> = iolist_to_binary(re:replace("aaaa","^(a()*)*","WYbAyvR",[])),
-    <<"WYbAyvR">> = iolist_to_binary(re:replace("aaaa","^(a()*)*","WYbAyvR",[global])),
-    <<"hnvNIpoJVjsUM">> = iolist_to_binary(re:replace("aaaa","^(?:a(?:(?:))*)*","hnvNIpoJVjsU\\1M",[])),
-    <<"hnvNIpoJVjsUM">> = iolist_to_binary(re:replace("aaaa","^(?:a(?:(?:))*)*","hnvNIpoJVjsU\\1M",[global])),
-    <<"hxMJiijTWX">> = iolist_to_binary(re:replace("aaaa","^(a()+)+","hxMJiijTWX",[])),
-    <<"hxMJiijTWX">> = iolist_to_binary(re:replace("aaaa","^(a()+)+","hxMJiijTWX",[global])),
-    <<"YbRuX">> = iolist_to_binary(re:replace("aaaa","^(?:a(?:(?:))+)+","YbRuX",[])),
-    <<"YbRuX">> = iolist_to_binary(re:replace("aaaa","^(?:a(?:(?:))+)+","YbRuX",[global])),
-    <<"SxvuExaabbDjaaSlaY">> = iolist_to_binary(re:replace("abbD","(a){0,3}(?(1)b|(c|))*D","SxvuEx\\1&j\\1\\1Sl\\1Y",[])),
-    <<"SxvuExaabbDjaaSlaY">> = iolist_to_binary(re:replace("abbD","(a){0,3}(?(1)b|(c|))*D","SxvuEx\\1&j\\1\\1Sl\\1Y",[global])),
-    <<"f">> = iolist_to_binary(re:replace("ccccD","(a){0,3}(?(1)b|(c|))*D","f",[])),
-    <<"f">> = iolist_to_binary(re:replace("ccccD","(a){0,3}(?(1)b|(c|))*D","f",[global])),
-    <<"ITsyBDAaf">> = iolist_to_binary(re:replace("D","(a){0,3}(?(1)b|(c|))*D","ITsyB&\\1Aaf",[])),
-    <<"ITsyBDAaf">> = iolist_to_binary(re:replace("D","(a){0,3}(?(1)b|(c|))*D","ITsyB&\\1Aaf",[global])),
-    <<"VwsTKcuXijrhaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa4tk">> = iolist_to_binary(re:replace("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa4","(a|)*\\d","VwsTK\\1cu\\1Xijrh&tk",[])),
-    <<"VwsTKcuXijrhaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa4tk">> = iolist_to_binary(re:replace("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa4","(a|)*\\d","VwsTK\\1cu\\1Xijrh&tk",[global])),
-    <<"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","(a|)*\\d","nnlUg&\\1naspQDy",[])),
-    <<"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","(a|)*\\d","nnlUg&\\1naspQDy",[global])),
-    <<"Dgaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa4dwIGWfGUaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa4G">> = iolist_to_binary(re:replace("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa4","(?>a|)*\\d","Dg&\\1dwIGW\\1fGU&G",[])),
-    <<"Dgaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa4dwIGWfGUaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa4G">> = iolist_to_binary(re:replace("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa4","(?>a|)*\\d","Dg&\\1dwIGW\\1fGU&G",[global])),
-    <<"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","(?>a|)*\\d","pRExPwXG\\1OMYxM&DJu",[])),
-    <<"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","(?>a|)*\\d","pRExPwXG\\1OMYxM&DJu",[global])),
+pqr","^\\w+=.*(\\\\\\n.*)*","W&CE",[global])),
+    <<"HSabcd:xAXhjabcdabcd:habcdoJanfg">> = iolist_to_binary(re:replace("abcd:","(?=(\\w+))\\1:","HS&xAXhj\\1&h\\1oJanfg",[])),
+    <<"HSabcd:xAXhjabcdabcd:habcdoJanfg">> = iolist_to_binary(re:replace("abcd:","(?=(\\w+))\\1:","HS&xAXhj\\1&h\\1oJanfg",[global])),
+    <<"gnabcdfabcd:Kabcdg">> = iolist_to_binary(re:replace("abcd:","^(?=(\\w+))\\1:","gn\\1f&K\\1g",[])),
+    <<"gnabcdfabcd:Kabcdg">> = iolist_to_binary(re:replace("abcd:","^(?=(\\w+))\\1:","gn\\1f&K\\1g",[global])),
+    <<"dIgTpbIabcHEixabcy">> = iolist_to_binary(re:replace("abc","^\\Eabc","dI\\1gTpbI&HEix&y",[])),
+    <<"dIgTpbIabcHEixabcy">> = iolist_to_binary(re:replace("abc","^\\Eabc","dI\\1gTpbI&HEix&y",[global])),
+    <<"axKoXTWDNP">> = iolist_to_binary(re:replace("a","^[\\Eabc]","&xKoXTWDN\\1\\1P\\1",[])),
+    <<"axKoXTWDNP">> = iolist_to_binary(re:replace("a","^[\\Eabc]","&xKoXTWDN\\1\\1P\\1",[global])),
+    <<"E">> = iolist_to_binary(re:replace("E","^[\\Eabc]","\\1",[])),
+    <<"E">> = iolist_to_binary(re:replace("E","^[\\Eabc]","\\1",[global])),
+    <<"AULOvSbqcIObKbWMIp">> = iolist_to_binary(re:replace("b","^[a-\\Ec]","AULOvS&q\\1cI\\1O&K&WMIp",[])),
+    <<"AULOvSbqcIObKbWMIp">> = iolist_to_binary(re:replace("b","^[a-\\Ec]","AULOvS&q\\1cI\\1O&K&WMIp",[global])),
+    <<"-">> = iolist_to_binary(re:replace("-","^[a-\\Ec]","tkaYMfUUp&HTyQAreKh",[])),
+    <<"-">> = iolist_to_binary(re:replace("-","^[a-\\Ec]","tkaYMfUUp&HTyQAreKh",[global])),
+    <<"E">> = iolist_to_binary(re:replace("E","^[a-\\Ec]","EH\\1GtlKGy\\1EA\\1\\1hAK",[])),
+    <<"E">> = iolist_to_binary(re:replace("E","^[a-\\Ec]","EH\\1GtlKGy\\1EA\\1\\1hAK",[global])),
+    <<"GwfYObW">> = iolist_to_binary(re:replace("b","^[a\\E\\E-\\Ec]","GwfY\\1O&W",[])),
+    <<"GwfYObW">> = iolist_to_binary(re:replace("b","^[a\\E\\E-\\Ec]","GwfY\\1O&W",[global])),
+    <<"-">> = iolist_to_binary(re:replace("-","^[a\\E\\E-\\Ec]","mItu\\1oJX&CQC&UvIK",[])),
+    <<"-">> = iolist_to_binary(re:replace("-","^[a\\E\\E-\\Ec]","mItu\\1oJX&CQC&UvIK",[global])),
+    <<"E">> = iolist_to_binary(re:replace("E","^[a\\E\\E-\\Ec]","IaLyKsEnQnMtfj\\1",[])),
+    <<"E">> = iolist_to_binary(re:replace("E","^[a\\E\\E-\\Ec]","IaLyKsEnQnMtfj\\1",[global])),
+    <<"eslVs">> = iolist_to_binary(re:replace("b","^[\\E\\Qa\\E-\\Qz\\E]+","eslV\\1s",[])),
+    <<"eslVs">> = iolist_to_binary(re:replace("b","^[\\E\\Qa\\E-\\Qz\\E]+","eslV\\1s",[global])),
+    <<"-">> = iolist_to_binary(re:replace("-","^[\\E\\Qa\\E-\\Qz\\E]+","M\\1K&mAwNCnG&LY\\1&",[])),
+    <<"-">> = iolist_to_binary(re:replace("-","^[\\E\\Qa\\E-\\Qz\\E]+","M\\1K&mAwNCnG&LY\\1&",[global])),
+    <<"YxEpUt">> = iolist_to_binary(re:replace("a","^[a\\Q]bc\\E]","YxEpUt",[])),
+    <<"YxEpUt">> = iolist_to_binary(re:replace("a","^[a\\Q]bc\\E]","YxEpUt",[global])),
+    <<"nocMyHoQWrYuE">> = iolist_to_binary(re:replace("]","^[a\\Q]bc\\E]","nocMyHoQ\\1WrY\\1uE",[])),
+    <<"nocMyHoQWrYuE">> = iolist_to_binary(re:replace("]","^[a\\Q]bc\\E]","nocMyHoQ\\1WrY\\1uE",[global])),
+    <<"WYbAyvR">> = iolist_to_binary(re:replace("c","^[a\\Q]bc\\E]","WYbAyvR",[])),
+    <<"WYbAyvR">> = iolist_to_binary(re:replace("c","^[a\\Q]bc\\E]","WYbAyvR",[global])),
+    <<"hnvNIpoJVjsUM">> = iolist_to_binary(re:replace("a","^[a-\\Q\\E]","hnvNIpoJVjsU\\1M",[])),
+    <<"hnvNIpoJVjsUM">> = iolist_to_binary(re:replace("a","^[a-\\Q\\E]","hnvNIpoJVjsU\\1M",[global])),
+    <<"hxMJiijTWX">> = iolist_to_binary(re:replace("-","^[a-\\Q\\E]","hxMJiijTWX",[])),
+    <<"hxMJiijTWX">> = iolist_to_binary(re:replace("-","^[a-\\Q\\E]","hxMJiijTWX",[global])),
+    <<"YbRuX">> = iolist_to_binary(re:replace("aaaa","^(a()*)*","YbRuX",[])),
+    <<"YbRuX">> = iolist_to_binary(re:replace("aaaa","^(a()*)*","YbRuX",[global])),
+    <<"SxvuExaaaajSlY">> = iolist_to_binary(re:replace("aaaa","^(?:a(?:(?:))*)*","SxvuEx\\1&j\\1\\1Sl\\1Y",[])),
+    <<"SxvuExaaaajSlY">> = iolist_to_binary(re:replace("aaaa","^(?:a(?:(?:))*)*","SxvuEx\\1&j\\1\\1Sl\\1Y",[global])),
+    <<"f">> = iolist_to_binary(re:replace("aaaa","^(a()+)+","f",[])),
+    <<"f">> = iolist_to_binary(re:replace("aaaa","^(a()+)+","f",[global])),
+    <<"ITsyBaaaaAaf">> = iolist_to_binary(re:replace("aaaa","^(?:a(?:(?:))+)+","ITsyB&\\1Aaf",[])),
+    <<"ITsyBaaaaAaf">> = iolist_to_binary(re:replace("aaaa","^(?:a(?:(?:))+)+","ITsyB&\\1Aaf",[global])),
     ok.
 run35() ->
-    <<"onWSaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa4OuXOYURE">> = iolist_to_binary(re:replace("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa4","(?:a|)*\\d","onWS&OuXOY\\1URE",[])),
-    <<"onWSaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa4OuXOYURE">> = iolist_to_binary(re:replace("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa4","(?:a|)*\\d","onWS&OuXOY\\1URE",[global])),
-    <<"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","(?:a|)*\\d","D\\1",[])),
-    <<"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","(?:a|)*\\d","D\\1",[global])),
-    <<"abcCUqX">> = iolist_to_binary(re:replace("abc","\\Z","CU&qX&&",[])),
-    <<"abcCUqX">> = iolist_to_binary(re:replace("abc","\\Z","CU&qX&&",[global])),
-    <<"AWEksHnb">> = iolist_to_binary(re:replace("abc","^(?s)(?>.*)(?<!\\n)","AWEksHnb",[])),
-    <<"AWEksHnb">> = iolist_to_binary(re:replace("abc","^(?s)(?>.*)(?<!\\n)","AWEksHnb",[global])),
-    <<"pDdWJa">> = iolist_to_binary(re:replace("abc","^(?s)(?>.*)(?<!\\n)","pDdW\\1Ja",[])),
-    <<"pDdWJa">> = iolist_to_binary(re:replace("abc","^(?s)(?>.*)(?<!\\n)","pDdW\\1Ja",[global])),
-    <<"sXGuXgMabc">> = iolist_to_binary(re:replace("abc","^(?![^\\n]*\\n\\z)","sX\\1GuXg\\1M",[])),
-    <<"sXGuXgMabc">> = iolist_to_binary(re:replace("abc","^(?![^\\n]*\\n\\z)","sX\\1GuXg\\1M",[global])),
-    <<"XerOabc">> = iolist_to_binary(re:replace("abc","^(?![^\\n]*\\n\\z)","XerO",[])),
-    <<"XerOabc">> = iolist_to_binary(re:replace("abc","^(?![^\\n]*\\n\\z)","XerO",[global])),
-    <<"abccoypUmVFTuQ">> = iolist_to_binary(re:replace("abc","\\z(?<!\\n)","c&oypUmVFTuQ\\1",[])),
-    <<"abccoypUmVFTuQ">> = iolist_to_binary(re:replace("abc","\\z(?<!\\n)","c&oypUmVFTuQ\\1",[global])),
-    <<"abclfUtOXi">> = iolist_to_binary(re:replace("abc","\\z(?<!\\n)","lfUtOX&i",[])),
-    <<"abclfUtOXi">> = iolist_to_binary(re:replace("abc","\\z(?<!\\n)","lfUtOX&i",[global])),
-    <<"dabcdSWUEwlwabcdEK">> = iolist_to_binary(re:replace("abcd","(.*(.)?)*","d&SWUEw\\1lw&EK",[])),
-    <<"dabcdSWUEwlwabcdEKdSWUEwlwEK">> = iolist_to_binary(re:replace("abcd","(.*(.)?)*","d&SWUEw\\1lw&EK",[global])),
-    <<"Snabcd">> = iolist_to_binary(re:replace("abcd","( (A | (?(1)0|) )*   )","Sn\\1",[extended])),
-    <<"SnaSnbSncSndSn">> = iolist_to_binary(re:replace("abcd","( (A | (?(1)0|) )*   )","Sn\\1",[extended,global])),
-    <<"pfLJabcd">> = iolist_to_binary(re:replace("abcd","( ( (?(1)0|) )*   )","&pfLJ",[extended])),
-    <<"pfLJapfLJbpfLJcpfLJdpfLJ">> = iolist_to_binary(re:replace("abcd","( ( (?(1)0|) )*   )","&pfLJ",[extended,global])),
-    <<"TgSSaabcd">> = iolist_to_binary(re:replace("abcd","(  (?(1)0|)*   )","TgSSa",[extended])),
-    <<"TgSSaaTgSSabTgSSacTgSSadTgSSa">> = iolist_to_binary(re:replace("abcd","(  (?(1)0|)*   )","TgSSa",[extended,global])),
-    <<"Qa]krolcqqNP">> = iolist_to_binary(re:replace("a]","[[:abcd:xyz]]","Q&krolcqqNP",[])),
-    <<"Qa]krolcqqNP">> = iolist_to_binary(re:replace("a]","[[:abcd:xyz]]","Q&krolcqqNP",[global])),
-    <<"VIJWRSk">> = iolist_to_binary(re:replace(":]","[[:abcd:xyz]]","VIJWR\\1Sk",[])),
-    <<"VIJWRSk">> = iolist_to_binary(re:replace(":]","[[:abcd:xyz]]","VIJWR\\1Sk",[global])),
-    <<"agWuF">> = iolist_to_binary(re:replace("a","[abc[:x\\]pqr]","\\1&gWuF",[])),
-    <<"agWuF">> = iolist_to_binary(re:replace("a","[abc[:x\\]pqr]","\\1&gWuF",[global])),
-    <<"H[ltPpiho">> = iolist_to_binary(re:replace("[","[abc[:x\\]pqr]","H&ltPpih\\1o",[])),
-    <<"H[ltPpiho">> = iolist_to_binary(re:replace("[","[abc[:x\\]pqr]","H&ltPpih\\1o",[global])),
-    <<"EJTgr:MRkhYV">> = iolist_to_binary(re:replace(":","[abc[:x\\]pqr]","EJ\\1Tgr&MRk\\1h\\1YV",[])),
-    <<"EJTgr:MRkhYV">> = iolist_to_binary(re:replace(":","[abc[:x\\]pqr]","EJ\\1Tgr&MRk\\1h\\1YV",[global])),
-    <<"AJGCQ]uuuLVT">> = iolist_to_binary(re:replace("]","[abc[:x\\]pqr]","AJGCQ&uuuLVT",[])),
-    <<"AJGCQ]uuuLVT">> = iolist_to_binary(re:replace("]","[abc[:x\\]pqr]","AJGCQ&uuuLVT",[global])),
-    <<"ncMPhkKYpume">> = iolist_to_binary(re:replace("p","[abc[:x\\]pqr]","ncMPhkKY&ume",[])),
-    <<"ncMPhkKYpume">> = iolist_to_binary(re:replace("p","[abc[:x\\]pqr]","ncMPhkKY&ume",[global])),
-    <<"fooabcfoo">> = iolist_to_binary(re:replace("fooabcfoo",".*[op][xyz]","Ko&h",[])),
-    <<"fooabcfoo">> = iolist_to_binary(re:replace("fooabcfoo",".*[op][xyz]","Ko&h",[global])),
-    <<"eqaOjvQcmadc">> = iolist_to_binary(re:replace("adc","(?(?=.*b)b|^)","\\1eqaO\\1jvQc\\1m",[])),
-    <<"eqaOjvQcmadc">> = iolist_to_binary(re:replace("adc","(?(?=.*b)b|^)","\\1eqaO\\1jvQc\\1m",[global])),
-    <<"aReUYpTHfhCxdlxiqc">> = iolist_to_binary(re:replace("abc","(?(?=.*b)b|^)","Re\\1UYpTHfhCxdlxiq",[])),
-    <<"aReUYpTHfhCxdlxiqc">> = iolist_to_binary(re:replace("abc","(?(?=.*b)b|^)","Re\\1UYpTHfhCxdlxiq",[global])),
-    <<"wwadc">> = iolist_to_binary(re:replace("adc","(?(?=^.*b)b|^)","ww",[])),
-    <<"wwadc">> = iolist_to_binary(re:replace("adc","(?(?=^.*b)b|^)","ww",[global])),
-    <<"abc">> = iolist_to_binary(re:replace("abc","(?(?=^.*b)b|^)","yvT\\1Hkc\\1&&",[])),
-    <<"abc">> = iolist_to_binary(re:replace("abc","(?(?=^.*b)b|^)","yvT\\1Hkc\\1&&",[global])),
-    <<"yatIrmpadc">> = iolist_to_binary(re:replace("adc","(?(?=.*b)b|^)*","yatIrmp",[])),
-    <<"yatIrmpayatIrmpdyatIrmpcyatIrmp">> = iolist_to_binary(re:replace("adc","(?(?=.*b)b|^)*","yatIrmp",[global])),
-    <<"QnIaJrpSWvhckCEabc">> = iolist_to_binary(re:replace("abc","(?(?=.*b)b|^)*","QnIaJrp\\1SWvhckCE",[])),
-    <<"QnIaJrpSWvhckCEaQnIaJrpSWvhckCEQnIaJrpSWvhckCEcQnIaJrpSWvhckCE">> = iolist_to_binary(re:replace("abc","(?(?=.*b)b|^)*","QnIaJrp\\1SWvhckCE",[global])),
-    <<"racpypxWadc">> = iolist_to_binary(re:replace("adc","(?(?=.*b)b|^)+","racp\\1ypxW",[])),
-    <<"racpypxWadc">> = iolist_to_binary(re:replace("adc","(?(?=.*b)b|^)+","racp\\1ypxW",[global])),
-    <<"aHMcbbbbSLctfbFhIYCc">> = iolist_to_binary(re:replace("abc","(?(?=.*b)b|^)+","HMc&&&&SLctf&FhIYC",[])),
-    <<"aHMcbbbbSLctfbFhIYCc">> = iolist_to_binary(re:replace("abc","(?(?=.*b)b|^)+","HMc&&&&SLctf&FhIYC",[global])),
-    <<"atDCqbc">> = iolist_to_binary(re:replace("abc","(?(?=b).*b|^d)","t\\1DCq&",[])),
-    <<"atDCqbc">> = iolist_to_binary(re:replace("abc","(?(?=b).*b|^d)","t\\1DCq&",[global])),
-    <<"hMEc">> = iolist_to_binary(re:replace("abc","(?(?=.*b).*b|^d)","hME",[])),
-    <<"hMEc">> = iolist_to_binary(re:replace("abc","(?(?=.*b).*b|^d)","hME",[global])),
-    <<"UyaUe%ab%PfYQtNU">> = iolist_to_binary(re:replace("%ab%","^%((?(?=[a])[^%])|b)*%$","UyaU\\1e&PfYQtNU",[])),
-    <<"UyaUe%ab%PfYQtNU">> = iolist_to_binary(re:replace("%ab%","^%((?(?=[a])[^%])|b)*%$","UyaU\\1e&PfYQtNU",[global])),
-    <<"XcaCEMX">> = iolist_to_binary(re:replace("XabX","(?i)a(?-i)b|c","caCEM",[])),
-    <<"XcaCEMX">> = iolist_to_binary(re:replace("XabX","(?i)a(?-i)b|c","caCEM",[global])),
-    <<"XfSpVHIAbjX">> = iolist_to_binary(re:replace("XAbX","(?i)a(?-i)b|c","fSpVHI&j",[])),
-    <<"XfSpVHIAbjX">> = iolist_to_binary(re:replace("XAbX","(?i)a(?-i)b|c","fSpVHI&j",[global])),
-    <<"CeLqPtC">> = iolist_to_binary(re:replace("CcC","(?i)a(?-i)b|c","eLqPt",[])),
-    <<"CeLqPtC">> = iolist_to_binary(re:replace("CcC","(?i)a(?-i)b|c","eLqPt",[global])),
-    <<"XABX">> = iolist_to_binary(re:replace("XABX","(?i)a(?-i)b|c","&ORV",[])),
-    <<"XABX">> = iolist_to_binary(re:replace("XABX","(?i)a(?-i)b|c","&ORV",[global])),
+    <<"VwsTKacuaXijrhabbDtk">> = iolist_to_binary(re:replace("abbD","(a){0,3}(?(1)b|(c|))*D","VwsTK\\1cu\\1Xijrh&tk",[])),
+    <<"VwsTKacuaXijrhabbDtk">> = iolist_to_binary(re:replace("abbD","(a){0,3}(?(1)b|(c|))*D","VwsTK\\1cu\\1Xijrh&tk",[global])),
+    <<"nnlUgccccDnaspQDy">> = iolist_to_binary(re:replace("ccccD","(a){0,3}(?(1)b|(c|))*D","nnlUg&\\1naspQDy",[])),
+    <<"nnlUgccccDnaspQDy">> = iolist_to_binary(re:replace("ccccD","(a){0,3}(?(1)b|(c|))*D","nnlUg&\\1naspQDy",[global])),
+    <<"DgDdwIGWfGUDG">> = iolist_to_binary(re:replace("D","(a){0,3}(?(1)b|(c|))*D","Dg&\\1dwIGW\\1fGU&G",[])),
+    <<"DgDdwIGWfGUDG">> = iolist_to_binary(re:replace("D","(a){0,3}(?(1)b|(c|))*D","Dg&\\1dwIGW\\1fGU&G",[global])),
+    <<"pRExPwXGOMYxMaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa4DJu">> = iolist_to_binary(re:replace("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa4","(a|)*\\d","pRExPwXG\\1OMYxM&DJu",[])),
+    <<"pRExPwXGOMYxMaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa4DJu">> = iolist_to_binary(re:replace("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa4","(a|)*\\d","pRExPwXG\\1OMYxM&DJu",[global])),
+    <<"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","(a|)*\\d","onWS&OuXOY\\1URE",[])),
+    <<"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","(a|)*\\d","onWS&OuXOY\\1URE",[global])),
+    <<"D">> = iolist_to_binary(re:replace("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa4","(?>a|)*\\d","D\\1",[])),
+    <<"D">> = iolist_to_binary(re:replace("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa4","(?>a|)*\\d","D\\1",[global])),
+    <<"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","(?>a|)*\\d","CU&qX&&",[])),
+    <<"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","(?>a|)*\\d","CU&qX&&",[global])),
+    <<"AWEksHnb">> = iolist_to_binary(re:replace("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa4","(?:a|)*\\d","AWEksHnb",[])),
+    <<"AWEksHnb">> = iolist_to_binary(re:replace("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa4","(?:a|)*\\d","AWEksHnb",[global])),
+    <<"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","(?:a|)*\\d","pDdW\\1Ja",[])),
+    <<"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","(?:a|)*\\d","pDdW\\1Ja",[global])),
+    <<"abcsXGuXgM">> = iolist_to_binary(re:replace("abc","\\Z","sX\\1GuXg\\1M",[])),
+    <<"abcsXGuXgM">> = iolist_to_binary(re:replace("abc","\\Z","sX\\1GuXg\\1M",[global])),
+    <<"XerO">> = iolist_to_binary(re:replace("abc","^(?s)(?>.*)(?<!\\n)","XerO",[])),
+    <<"XerO">> = iolist_to_binary(re:replace("abc","^(?s)(?>.*)(?<!\\n)","XerO",[global])),
+    <<"cabcoypUmVFTuQ">> = iolist_to_binary(re:replace("abc","^(?s)(?>.*)(?<!\\n)","c&oypUmVFTuQ\\1",[])),
+    <<"cabcoypUmVFTuQ">> = iolist_to_binary(re:replace("abc","^(?s)(?>.*)(?<!\\n)","c&oypUmVFTuQ\\1",[global])),
+    <<"lfUtOXiabc">> = iolist_to_binary(re:replace("abc","^(?![^\\n]*\\n\\z)","lfUtOX&i",[])),
+    <<"lfUtOXiabc">> = iolist_to_binary(re:replace("abc","^(?![^\\n]*\\n\\z)","lfUtOX&i",[global])),
+    <<"dSWUEwlwEKabc">> = iolist_to_binary(re:replace("abc","^(?![^\\n]*\\n\\z)","d&SWUEw\\1lw&EK",[])),
+    <<"dSWUEwlwEKabc">> = iolist_to_binary(re:replace("abc","^(?![^\\n]*\\n\\z)","d&SWUEw\\1lw&EK",[global])),
+    <<"abcSn">> = iolist_to_binary(re:replace("abc","\\z(?<!\\n)","Sn\\1",[])),
+    <<"abcSn">> = iolist_to_binary(re:replace("abc","\\z(?<!\\n)","Sn\\1",[global])),
+    <<"abcpfLJ">> = iolist_to_binary(re:replace("abc","\\z(?<!\\n)","&pfLJ",[])),
+    <<"abcpfLJ">> = iolist_to_binary(re:replace("abc","\\z(?<!\\n)","&pfLJ",[global])),
+    <<"TgSSa">> = iolist_to_binary(re:replace("abcd","(.*(.)?)*","TgSSa",[])),
+    <<"TgSSaTgSSa">> = iolist_to_binary(re:replace("abcd","(.*(.)?)*","TgSSa",[global])),
+    <<"QkrolcqqNPabcd">> = iolist_to_binary(re:replace("abcd","( (A | (?(1)0|) )*   )","Q&krolcqqNP",[extended])),
+    <<"QkrolcqqNPaQkrolcqqNPbQkrolcqqNPcQkrolcqqNPdQkrolcqqNP">> = iolist_to_binary(re:replace("abcd","( (A | (?(1)0|) )*   )","Q&krolcqqNP",[extended,global])),
+    <<"VIJWRSkabcd">> = iolist_to_binary(re:replace("abcd","( ( (?(1)0|) )*   )","VIJWR\\1Sk",[extended])),
+    <<"VIJWRSkaVIJWRSkbVIJWRSkcVIJWRSkdVIJWRSk">> = iolist_to_binary(re:replace("abcd","( ( (?(1)0|) )*   )","VIJWR\\1Sk",[extended,global])),
+    <<"gWuFabcd">> = iolist_to_binary(re:replace("abcd","(  (?(1)0|)*   )","\\1&gWuF",[extended])),
+    <<"gWuFagWuFbgWuFcgWuFdgWuF">> = iolist_to_binary(re:replace("abcd","(  (?(1)0|)*   )","\\1&gWuF",[extended,global])),
+    <<"Ha]ltPpiho">> = iolist_to_binary(re:replace("a]","[[:abcd:xyz]]","H&ltPpih\\1o",[])),
+    <<"Ha]ltPpiho">> = iolist_to_binary(re:replace("a]","[[:abcd:xyz]]","H&ltPpih\\1o",[global])),
+    <<"EJTgr:]MRkhYV">> = iolist_to_binary(re:replace(":]","[[:abcd:xyz]]","EJ\\1Tgr&MRk\\1h\\1YV",[])),
+    <<"EJTgr:]MRkhYV">> = iolist_to_binary(re:replace(":]","[[:abcd:xyz]]","EJ\\1Tgr&MRk\\1h\\1YV",[global])),
+    <<"AJGCQauuuLVT">> = iolist_to_binary(re:replace("a","[abc[:x\\]pqr]","AJGCQ&uuuLVT",[])),
+    <<"AJGCQauuuLVT">> = iolist_to_binary(re:replace("a","[abc[:x\\]pqr]","AJGCQ&uuuLVT",[global])),
+    <<"ncMPhkKY[ume">> = iolist_to_binary(re:replace("[","[abc[:x\\]pqr]","ncMPhkKY&ume",[])),
+    <<"ncMPhkKY[ume">> = iolist_to_binary(re:replace("[","[abc[:x\\]pqr]","ncMPhkKY&ume",[global])),
+    <<"Ko:h">> = iolist_to_binary(re:replace(":","[abc[:x\\]pqr]","Ko&h",[])),
+    <<"Ko:h">> = iolist_to_binary(re:replace(":","[abc[:x\\]pqr]","Ko&h",[global])),
+    <<"eqaOjvQcm">> = iolist_to_binary(re:replace("]","[abc[:x\\]pqr]","\\1eqaO\\1jvQc\\1m",[])),
+    <<"eqaOjvQcm">> = iolist_to_binary(re:replace("]","[abc[:x\\]pqr]","\\1eqaO\\1jvQc\\1m",[global])),
+    <<"ReUYpTHfhCxdlxiq">> = iolist_to_binary(re:replace("p","[abc[:x\\]pqr]","Re\\1UYpTHfhCxdlxiq",[])),
+    <<"ReUYpTHfhCxdlxiq">> = iolist_to_binary(re:replace("p","[abc[:x\\]pqr]","Re\\1UYpTHfhCxdlxiq",[global])),
+    <<"fooabcfoo">> = iolist_to_binary(re:replace("fooabcfoo",".*[op][xyz]","ww",[])),
+    <<"fooabcfoo">> = iolist_to_binary(re:replace("fooabcfoo",".*[op][xyz]","ww",[global])),
+    <<"yvTHkcadc">> = iolist_to_binary(re:replace("adc","(?(?=.*b)b|^)","yvT\\1Hkc\\1&&",[])),
+    <<"yvTHkcadc">> = iolist_to_binary(re:replace("adc","(?(?=.*b)b|^)","yvT\\1Hkc\\1&&",[global])),
+    <<"ayatIrmpc">> = iolist_to_binary(re:replace("abc","(?(?=.*b)b|^)","yatIrmp",[])),
+    <<"ayatIrmpc">> = iolist_to_binary(re:replace("abc","(?(?=.*b)b|^)","yatIrmp",[global])),
+    <<"QnIaJrpSWvhckCEadc">> = iolist_to_binary(re:replace("adc","(?(?=^.*b)b|^)","QnIaJrp\\1SWvhckCE",[])),
+    <<"QnIaJrpSWvhckCEadc">> = iolist_to_binary(re:replace("adc","(?(?=^.*b)b|^)","QnIaJrp\\1SWvhckCE",[global])),
+    <<"abc">> = iolist_to_binary(re:replace("abc","(?(?=^.*b)b|^)","racp\\1ypxW",[])),
+    <<"abc">> = iolist_to_binary(re:replace("abc","(?(?=^.*b)b|^)","racp\\1ypxW",[global])),
+    <<"HMcSLctfFhIYCadc">> = iolist_to_binary(re:replace("adc","(?(?=.*b)b|^)*","HMc&&&&SLctf&FhIYC",[])),
+    <<"HMcSLctfFhIYCaHMcSLctfFhIYCdHMcSLctfFhIYCcHMcSLctfFhIYC">> = iolist_to_binary(re:replace("adc","(?(?=.*b)b|^)*","HMc&&&&SLctf&FhIYC",[global])),
+    <<"tDCqabc">> = iolist_to_binary(re:replace("abc","(?(?=.*b)b|^)*","t\\1DCq&",[])),
+    <<"tDCqatDCqbtDCqctDCq">> = iolist_to_binary(re:replace("abc","(?(?=.*b)b|^)*","t\\1DCq&",[global])),
+    <<"hMEadc">> = iolist_to_binary(re:replace("adc","(?(?=.*b)b|^)+","hME",[])),
+    <<"hMEadc">> = iolist_to_binary(re:replace("adc","(?(?=.*b)b|^)+","hME",[global])),
+    <<"aUyaUebPfYQtNUc">> = iolist_to_binary(re:replace("abc","(?(?=.*b)b|^)+","UyaU\\1e&PfYQtNU",[])),
+    <<"aUyaUebPfYQtNUc">> = iolist_to_binary(re:replace("abc","(?(?=.*b)b|^)+","UyaU\\1e&PfYQtNU",[global])),
+    <<"acaCEMc">> = iolist_to_binary(re:replace("abc","(?(?=b).*b|^d)","caCEM",[])),
+    <<"acaCEMc">> = iolist_to_binary(re:replace("abc","(?(?=b).*b|^d)","caCEM",[global])),
     ok.
 run36() ->
-    <<"gIWbF
-NFWj">> = iolist_to_binary(re:replace("
-","[\\x00-\\xff\\s]+","gIWbF&NFWj",[])),
-    <<"gIWbF
-NFWj">> = iolist_to_binary(re:replace("
-","[\\x00-\\xff\\s]+","gIWbF&NFWj",[global])),
-    <<"abc">> = iolist_to_binary(re:replace("abc","(abc)\\1","l\\1Ac",[caseless])),
-    <<"abc">> = iolist_to_binary(re:replace("abc","(abc)\\1","l\\1Ac",[caseless,global])),
-    <<"abc">> = iolist_to_binary(re:replace("abc","(abc)\\1","wMK\\1N\\1IKKxMErnc",[])),
-    <<"abc">> = iolist_to_binary(re:replace("abc","(abc)\\1","wMK\\1N\\1IKKxMErnc",[global])),
-    <<"OB12NftFV12abc">> = iolist_to_binary(re:replace("12abc","[^a]*","OB&NftFV&\\1",[caseless])),
-    <<"OB12NftFV12OBNftFVaOBbcNftFVbcOBNftFV">> = iolist_to_binary(re:replace("12abc","[^a]*","OB&NftFV&\\1",[caseless,global])),
-    <<"12LxBb12EuHPuBdqnUABC">> = iolist_to_binary(re:replace("12ABC","[^a]*","&LxBb&\\1EuHPuB\\1\\1dqn\\1U",[caseless])),
-    <<"12LxBb12EuHPuBdqnULxBbEuHPuBdqnUABCLxBbBCEuHPuBdqnULxBbEuHPuBdqnU">> = iolist_to_binary(re:replace("12ABC","[^a]*","&LxBb&\\1EuHPuB\\1\\1dqn\\1U",[caseless,global])),
-    <<"KCmHSdOabc">> = iolist_to_binary(re:replace("12abc","[^a]*+","KCm\\1\\1\\1H\\1Sd\\1O",[caseless])),
-    <<"KCmHSdOKCmHSdOaKCmHSdOKCmHSdO">> = iolist_to_binary(re:replace("12abc","[^a]*+","KCm\\1\\1\\1H\\1Sd\\1O",[caseless,global])),
-    <<"hnRxfhjlJxAABC">> = iolist_to_binary(re:replace("12ABC","[^a]*+","hnRxfhjlJxA",[caseless])),
-    <<"hnRxfhjlJxAhnRxfhjlJxAAhnRxfhjlJxAhnRxfhjlJxA">> = iolist_to_binary(re:replace("12ABC","[^a]*+","hnRxfhjlJxA",[caseless,global])),
-    <<"12abc">> = iolist_to_binary(re:replace("12abc","[^a]*?X","Md",[caseless])),
-    <<"12abc">> = iolist_to_binary(re:replace("12abc","[^a]*?X","Md",[caseless,global])),
-    <<"12ABC">> = iolist_to_binary(re:replace("12ABC","[^a]*?X","TYyXigPSfkp&vsJ\\1B",[caseless])),
-    <<"12ABC">> = iolist_to_binary(re:replace("12ABC","[^a]*?X","TYyXigPSfkp&vsJ\\1B",[caseless,global])),
-    <<"12abc">> = iolist_to_binary(re:replace("12abc","[^a]+?X","wM",[caseless])),
-    <<"12abc">> = iolist_to_binary(re:replace("12abc","[^a]+?X","wM",[caseless,global])),
-    <<"12ABC">> = iolist_to_binary(re:replace("12ABC","[^a]+?X","bb&Kg\\1EEX",[caseless])),
-    <<"12ABC">> = iolist_to_binary(re:replace("12ABC","[^a]+?X","bb&Kg\\1EEX",[caseless,global])),
-    <<"12adNotFSCaAXXLDIXTbcX">> = iolist_to_binary(re:replace("12aXbcX","[^a]?X","dNo\\1t\\1FSCa\\1A&XLDI&T",[caseless])),
-    <<"12adNotFSCaAXXLDIXTbdNotFSCaAcXXLDIcXT">> = iolist_to_binary(re:replace("12aXbcX","[^a]?X","dNo\\1t\\1FSCa\\1A&XLDI&T",[caseless,global])),
-    <<"12ALpUXBCX">> = iolist_to_binary(re:replace("12AXBCX","[^a]?X","\\1LpU&",[caseless])),
-    <<"12ALpUXBLpUCX">> = iolist_to_binary(re:replace("12AXBCX","[^a]?X","\\1LpU&",[caseless,global])),
-    <<"BcMqaXCXsBwaD">> = iolist_to_binary(re:replace("BCX","[^a]?X","cMq\\1\\1aX&sBw\\1aD",[caseless])),
-    <<"BcMqaXCXsBwaD">> = iolist_to_binary(re:replace("BCX","[^a]?X","cMq\\1\\1aX&sBw\\1aD",[caseless,global])),
-    <<"12aXkXDGHXFpdvXlyHXbcX">> = iolist_to_binary(re:replace("12aXbcX","[^a]??X","&k&DGHXFpdvXlyH&",[caseless])),
-    <<"12aXkXDGHXFpdvXlyHXbcXkcXDGHXFpdvXlyHcX">> = iolist_to_binary(re:replace("12aXbcX","[^a]??X","&k&DGHXFpdvXlyH&",[caseless,global])),
-    <<"12AYudMQIhVhnAHEwYsBCX">> = iolist_to_binary(re:replace("12AXBCX","[^a]??X","YudMQIhVhnA\\1HE\\1wYs",[caseless])),
-    <<"12AYudMQIhVhnAHEwYsBYudMQIhVhnAHEwYs">> = iolist_to_binary(re:replace("12AXBCX","[^a]??X","YudMQIhVhnA\\1HE\\1wYs",[caseless,global])),
-    <<"BITGPfi">> = iolist_to_binary(re:replace("BCX","[^a]??X","ITGPfi",[caseless])),
-    <<"BITGPfi">> = iolist_to_binary(re:replace("BCX","[^a]??X","ITGPfi",[caseless,global])),
-    <<"12aXbLnPbdQcX">> = iolist_to_binary(re:replace("12aXbcX","[^a]?+X","\\1L\\1nP\\1\\1bdQ&",[caseless])),
-    <<"12aXbLnPbdQcX">> = iolist_to_binary(re:replace("12aXbcX","[^a]?+X","\\1L\\1nP\\1\\1bdQ&",[caseless,global])),
-    <<"12AXBiDECXbvLKwXgDAsFKBjx">> = iolist_to_binary(re:replace("12AXBCX","[^a]?+X","iDE&bvLKwXgDAsFK\\1Bjx",[caseless])),
-    <<"12AXBiDECXbvLKwXgDAsFKBjx">> = iolist_to_binary(re:replace("12AXBCX","[^a]?+X","iDE&bvLKwXgDAsFK\\1Bjx",[caseless,global])),
-    <<"BHniCX">> = iolist_to_binary(re:replace("BCX","[^a]?+X","Hni&",[caseless])),
-    <<"BHniCX">> = iolist_to_binary(re:replace("BCX","[^a]?+X","Hni&",[caseless,global])),
-    <<"aAqgef">> = iolist_to_binary(re:replace("abcdef","[^a]{2,3}","Aqg",[caseless])),
-    <<"aAqgAqg">> = iolist_to_binary(re:replace("abcdef","[^a]{2,3}","Aqg",[caseless,global])),
-    <<"ABCDpBCDBCDEdRIBCDwCXkBCDjvFPnEF">> = iolist_to_binary(re:replace("ABCDEF","[^a]{2,3}","&p&&\\1EdRI&wCXk&jvFPn",[caseless])),
-    <<"ABCDpBCDBCDEdRIBCDwCXkBCDjvFPnEFpEFEFEdRIEFwCXkEFjvFPn">> = iolist_to_binary(re:replace("ABCDEF","[^a]{2,3}","&p&&\\1EdRI&wCXk&jvFPn",[caseless,global])),
-    <<"auUfObcYbcbckFbcyXDhdgEUdef">> = iolist_to_binary(re:replace("abcdef","[^a]{2,3}?","uUfO&Y&&kF&yXDhdgEU",[caseless])),
-    <<"auUfObcYbcbckFbcyXDhdgEUuUfOdeYdedekFdeyXDhdgEUf">> = iolist_to_binary(re:replace("abcdef","[^a]{2,3}?","uUfO&Y&&kF&yXDhdgEU",[caseless,global])),
-    <<"ALJxBCSrSQBCLLVBCcDEF">> = iolist_to_binary(re:replace("ABCDEF","[^a]{2,3}?","L\\1Jx&SrSQ&LLV&c",[caseless])),
-    <<"ALJxBCSrSQBCLLVBCcLJxDESrSQDELLVDEcF">> = iolist_to_binary(re:replace("ABCDEF","[^a]{2,3}?","L\\1Jx&SrSQ&LLV&c",[caseless,global])),
-    <<"ahjBvDrJpGbcdbcdef">> = iolist_to_binary(re:replace("abcdef","[^a]{2,3}+","hjBv\\1DrJpG&&",[caseless])),
-    <<"ahjBvDrJpGbcdbcdhjBvDrJpGefef">> = iolist_to_binary(re:replace("abcdef","[^a]{2,3}+","hjBv\\1DrJpG&&",[caseless,global])),
-    <<"AMHFuJMpPfEF">> = iolist_to_binary(re:replace("ABCDEF","[^a]{2,3}+","MHFuJ\\1MpPf",[caseless])),
-    <<"AMHFuJMpPfMHFuJMpPf">> = iolist_to_binary(re:replace("ABCDEF","[^a]{2,3}+","MHFuJ\\1MpPf",[caseless,global])),
-    <<"ZMUUBZcvVsiXTO">> = iolist_to_binary(re:replace("Z","((a|)+)+Z","\\1&MUUB\\1&cvVsiXTO",[])),
-    <<"ZMUUBZcvVsiXTO">> = iolist_to_binary(re:replace("Z","((a|)+)+Z","\\1&MUUB\\1&cvVsiXTO",[global])),
-    <<"ACPKQHic">> = iolist_to_binary(re:replace("ac","(a)b|(a)c","ACPKQHic",[])),
-    <<"ACPKQHic">> = iolist_to_binary(re:replace("ac","(a)b|(a)c","ACPKQHic",[global])),
-    <<"egYBIaciLq">> = iolist_to_binary(re:replace("ac","(?>(a))b|(a)c","\\1\\1e\\1gYBI&iLq",[])),
-    <<"egYBIaciLq">> = iolist_to_binary(re:replace("ac","(?>(a))b|(a)c","\\1\\1e\\1gYBI&iLq",[global])),
-    <<"AbfsJWLacptMOXYup">> = iolist_to_binary(re:replace("ac","(?=(a))ab|(a)c","AbfsJWL\\1&ptMOXYup",[])),
-    <<"AbfsJWLacptMOXYup">> = iolist_to_binary(re:replace("ac","(?=(a))ab|(a)c","AbfsJWL\\1&ptMOXYup",[global])),
-    <<"GICvXacn">> = iolist_to_binary(re:replace("ac","((?>(a))b|(a)c)","GICvX&n",[])),
-    <<"GICvXacn">> = iolist_to_binary(re:replace("ac","((?>(a))b|(a)c)","GICvX&n",[global])),
-    <<"BJkac">> = iolist_to_binary(re:replace("ac","((?>(a))b|(a)c)++","BJk\\1",[])),
-    <<"BJkac">> = iolist_to_binary(re:replace("ac","((?>(a))b|(a)c)++","BJk\\1",[global])),
-    <<"macBadWyqAUwNacacC">> = iolist_to_binary(re:replace("ac","(?:(?>(a))b|(a)c)++","m\\1&BadWyqAUwN&&C",[])),
-    <<"macBadWyqAUwNacacC">> = iolist_to_binary(re:replace("ac","(?:(?>(a))b|(a)c)++","m\\1&BadWyqAUwN&&C",[global])),
+    <<"fSpVHIabjc">> = iolist_to_binary(re:replace("abc","(?(?=.*b).*b|^d)","fSpVHI&j",[])),
+    <<"fSpVHIabjc">> = iolist_to_binary(re:replace("abc","(?(?=.*b).*b|^d)","fSpVHI&j",[global])),
+    <<"eLqPt">> = iolist_to_binary(re:replace("%ab%","^%((?(?=[a])[^%])|b)*%$","eLqPt",[])),
+    <<"eLqPt">> = iolist_to_binary(re:replace("%ab%","^%((?(?=[a])[^%])|b)*%$","eLqPt",[global])),
+    <<"XabORVX">> = iolist_to_binary(re:replace("XabX","(?i)a(?-i)b|c","&ORV",[])),
+    <<"XabORVX">> = iolist_to_binary(re:replace("XabX","(?i)a(?-i)b|c","&ORV",[global])),
+    <<"XgIWbFAbNFWjX">> = iolist_to_binary(re:replace("XAbX","(?i)a(?-i)b|c","gIWbF&NFWj",[])),
+    <<"XgIWbFAbNFWjX">> = iolist_to_binary(re:replace("XAbX","(?i)a(?-i)b|c","gIWbF&NFWj",[global])),
+    <<"ClAcC">> = iolist_to_binary(re:replace("CcC","(?i)a(?-i)b|c","l\\1Ac",[])),
+    <<"ClAcC">> = iolist_to_binary(re:replace("CcC","(?i)a(?-i)b|c","l\\1Ac",[global])),
+    <<"XABX">> = iolist_to_binary(re:replace("XABX","(?i)a(?-i)b|c","wMK\\1N\\1IKKxMErnc",[])),
+    <<"XABX">> = iolist_to_binary(re:replace("XABX","(?i)a(?-i)b|c","wMK\\1N\\1IKKxMErnc",[global])),
+    <<"OB
+NftFV
+">> = iolist_to_binary(re:replace("
+","[\\x00-\\xff\\s]+","OB&NftFV&\\1",[])),
+    <<"OB
+NftFV
+">> = iolist_to_binary(re:replace("
+","[\\x00-\\xff\\s]+","OB&NftFV&\\1",[global])),
+    <<"abc">> = iolist_to_binary(re:replace("abc","(abc)\\1","&LxBb&\\1EuHPuB\\1\\1dqn\\1U",[caseless])),
+    <<"abc">> = iolist_to_binary(re:replace("abc","(abc)\\1","&LxBb&\\1EuHPuB\\1\\1dqn\\1U",[caseless,global])),
+    <<"abc">> = iolist_to_binary(re:replace("abc","(abc)\\1","KCm\\1\\1\\1H\\1Sd\\1O",[])),
+    <<"abc">> = iolist_to_binary(re:replace("abc","(abc)\\1","KCm\\1\\1\\1H\\1Sd\\1O",[global])),
+    <<"hnRxfhjlJxAabc">> = iolist_to_binary(re:replace("12abc","[^a]*","hnRxfhjlJxA",[caseless])),
+    <<"hnRxfhjlJxAhnRxfhjlJxAahnRxfhjlJxAhnRxfhjlJxA">> = iolist_to_binary(re:replace("12abc","[^a]*","hnRxfhjlJxA",[caseless,global])),
+    <<"MdABC">> = iolist_to_binary(re:replace("12ABC","[^a]*","Md",[caseless])),
+    <<"MdMdAMdMd">> = iolist_to_binary(re:replace("12ABC","[^a]*","Md",[caseless,global])),
+    <<"TYyXigPSfkp12vsJBabc">> = iolist_to_binary(re:replace("12abc","[^a]*+","TYyXigPSfkp&vsJ\\1B",[caseless])),
+    <<"TYyXigPSfkp12vsJBTYyXigPSfkpvsJBaTYyXigPSfkpbcvsJBTYyXigPSfkpvsJB">> = iolist_to_binary(re:replace("12abc","[^a]*+","TYyXigPSfkp&vsJ\\1B",[caseless,global])),
+    <<"wMABC">> = iolist_to_binary(re:replace("12ABC","[^a]*+","wM",[caseless])),
+    <<"wMwMAwMwM">> = iolist_to_binary(re:replace("12ABC","[^a]*+","wM",[caseless,global])),
+    <<"12abc">> = iolist_to_binary(re:replace("12abc","[^a]*?X","bb&Kg\\1EEX",[caseless])),
+    <<"12abc">> = iolist_to_binary(re:replace("12abc","[^a]*?X","bb&Kg\\1EEX",[caseless,global])),
+    <<"12ABC">> = iolist_to_binary(re:replace("12ABC","[^a]*?X","dNo\\1t\\1FSCa\\1A&XLDI&T",[caseless])),
+    <<"12ABC">> = iolist_to_binary(re:replace("12ABC","[^a]*?X","dNo\\1t\\1FSCa\\1A&XLDI&T",[caseless,global])),
+    <<"12abc">> = iolist_to_binary(re:replace("12abc","[^a]+?X","\\1LpU&",[caseless])),
+    <<"12abc">> = iolist_to_binary(re:replace("12abc","[^a]+?X","\\1LpU&",[caseless,global])),
+    <<"12ABC">> = iolist_to_binary(re:replace("12ABC","[^a]+?X","cMq\\1\\1aX&sBw\\1aD",[caseless])),
+    <<"12ABC">> = iolist_to_binary(re:replace("12ABC","[^a]+?X","cMq\\1\\1aX&sBw\\1aD",[caseless,global])),
+    <<"12aXkXDGHXFpdvXlyHXbcX">> = iolist_to_binary(re:replace("12aXbcX","[^a]?X","&k&DGHXFpdvXlyH&",[caseless])),
+    <<"12aXkXDGHXFpdvXlyHXbcXkcXDGHXFpdvXlyHcX">> = iolist_to_binary(re:replace("12aXbcX","[^a]?X","&k&DGHXFpdvXlyH&",[caseless,global])),
+    <<"12AYudMQIhVhnAHEwYsBCX">> = iolist_to_binary(re:replace("12AXBCX","[^a]?X","YudMQIhVhnA\\1HE\\1wYs",[caseless])),
+    <<"12AYudMQIhVhnAHEwYsBYudMQIhVhnAHEwYs">> = iolist_to_binary(re:replace("12AXBCX","[^a]?X","YudMQIhVhnA\\1HE\\1wYs",[caseless,global])),
+    <<"BITGPfi">> = iolist_to_binary(re:replace("BCX","[^a]?X","ITGPfi",[caseless])),
+    <<"BITGPfi">> = iolist_to_binary(re:replace("BCX","[^a]?X","ITGPfi",[caseless,global])),
+    <<"12aLnPbdQXbcX">> = iolist_to_binary(re:replace("12aXbcX","[^a]??X","\\1L\\1nP\\1\\1bdQ&",[caseless])),
+    <<"12aLnPbdQXbLnPbdQcX">> = iolist_to_binary(re:replace("12aXbcX","[^a]??X","\\1L\\1nP\\1\\1bdQ&",[caseless,global])),
+    <<"12AiDEXbvLKwXgDAsFKBjxBCX">> = iolist_to_binary(re:replace("12AXBCX","[^a]??X","iDE&bvLKwXgDAsFK\\1Bjx",[caseless])),
+    <<"12AiDEXbvLKwXgDAsFKBjxBiDECXbvLKwXgDAsFKBjx">> = iolist_to_binary(re:replace("12AXBCX","[^a]??X","iDE&bvLKwXgDAsFK\\1Bjx",[caseless,global])),
+    <<"BHniCX">> = iolist_to_binary(re:replace("BCX","[^a]??X","Hni&",[caseless])),
+    <<"BHniCX">> = iolist_to_binary(re:replace("BCX","[^a]??X","Hni&",[caseless,global])),
+    <<"12aXbAqg">> = iolist_to_binary(re:replace("12aXbcX","[^a]?+X","Aqg",[caseless])),
+    <<"12aXbAqg">> = iolist_to_binary(re:replace("12aXbcX","[^a]?+X","Aqg",[caseless,global])),
+    <<"12AXBCXpCXCXEdRICXwCXkCXjvFPn">> = iolist_to_binary(re:replace("12AXBCX","[^a]?+X","&p&&\\1EdRI&wCXk&jvFPn",[caseless])),
+    <<"12AXBCXpCXCXEdRICXwCXkCXjvFPn">> = iolist_to_binary(re:replace("12AXBCX","[^a]?+X","&p&&\\1EdRI&wCXk&jvFPn",[caseless,global])),
+    <<"BuUfOCXYCXCXkFCXyXDhdgEU">> = iolist_to_binary(re:replace("BCX","[^a]?+X","uUfO&Y&&kF&yXDhdgEU",[caseless])),
+    <<"BuUfOCXYCXCXkFCXyXDhdgEU">> = iolist_to_binary(re:replace("BCX","[^a]?+X","uUfO&Y&&kF&yXDhdgEU",[caseless,global])),
+    <<"aLJxbcdSrSQbcdLLVbcdcef">> = iolist_to_binary(re:replace("abcdef","[^a]{2,3}","L\\1Jx&SrSQ&LLV&c",[caseless])),
+    <<"aLJxbcdSrSQbcdLLVbcdcLJxefSrSQefLLVefc">> = iolist_to_binary(re:replace("abcdef","[^a]{2,3}","L\\1Jx&SrSQ&LLV&c",[caseless,global])),
+    <<"AhjBvDrJpGBCDBCDEF">> = iolist_to_binary(re:replace("ABCDEF","[^a]{2,3}","hjBv\\1DrJpG&&",[caseless])),
+    <<"AhjBvDrJpGBCDBCDhjBvDrJpGEFEF">> = iolist_to_binary(re:replace("ABCDEF","[^a]{2,3}","hjBv\\1DrJpG&&",[caseless,global])),
+    <<"aMHFuJMpPfdef">> = iolist_to_binary(re:replace("abcdef","[^a]{2,3}?","MHFuJ\\1MpPf",[caseless])),
+    <<"aMHFuJMpPfMHFuJMpPff">> = iolist_to_binary(re:replace("abcdef","[^a]{2,3}?","MHFuJ\\1MpPf",[caseless,global])),
+    <<"ABCMUUBBCcvVsiXTODEF">> = iolist_to_binary(re:replace("ABCDEF","[^a]{2,3}?","\\1&MUUB\\1&cvVsiXTO",[caseless])),
+    <<"ABCMUUBBCcvVsiXTODEMUUBDEcvVsiXTOF">> = iolist_to_binary(re:replace("ABCDEF","[^a]{2,3}?","\\1&MUUB\\1&cvVsiXTO",[caseless,global])),
+    <<"aACPKQHicef">> = iolist_to_binary(re:replace("abcdef","[^a]{2,3}+","ACPKQHic",[caseless])),
+    <<"aACPKQHicACPKQHic">> = iolist_to_binary(re:replace("abcdef","[^a]{2,3}+","ACPKQHic",[caseless,global])),
+    <<"AegYBIBCDiLqEF">> = iolist_to_binary(re:replace("ABCDEF","[^a]{2,3}+","\\1\\1e\\1gYBI&iLq",[caseless])),
+    <<"AegYBIBCDiLqegYBIEFiLq">> = iolist_to_binary(re:replace("ABCDEF","[^a]{2,3}+","\\1\\1e\\1gYBI&iLq",[caseless,global])),
+    <<"AbfsJWLZptMOXYup">> = iolist_to_binary(re:replace("Z","((a|)+)+Z","AbfsJWL\\1&ptMOXYup",[])),
+    <<"AbfsJWLZptMOXYup">> = iolist_to_binary(re:replace("Z","((a|)+)+Z","AbfsJWL\\1&ptMOXYup",[global])),
+    <<"GICvXacn">> = iolist_to_binary(re:replace("ac","(a)b|(a)c","GICvX&n",[])),
+    <<"GICvXacn">> = iolist_to_binary(re:replace("ac","(a)b|(a)c","GICvX&n",[global])),
+    <<"BJk">> = iolist_to_binary(re:replace("ac","(?>(a))b|(a)c","BJk\\1",[])),
+    <<"BJk">> = iolist_to_binary(re:replace("ac","(?>(a))b|(a)c","BJk\\1",[global])),
+    <<"macBadWyqAUwNacacC">> = iolist_to_binary(re:replace("ac","(?=(a))ab|(a)c","m\\1&BadWyqAUwN&&C",[])),
+    <<"macBadWyqAUwNacacC">> = iolist_to_binary(re:replace("ac","(?=(a))ab|(a)c","m\\1&BadWyqAUwN&&C",[global])),
     ok.
 run37() ->
-    <<"Ywruhyac">> = iolist_to_binary(re:replace("ac","(?=(?>(a))b|(a)c)(..)","Ywr\\1uh\\1y&",[])),
-    <<"Ywruhyac">> = iolist_to_binary(re:replace("ac","(?=(?>(a))b|(a)c)(..)","Ywr\\1uh\\1y&",[global])),
-    <<"FWoMpwmacacAacpnsNM">> = iolist_to_binary(re:replace("ac","(?>(?>(a))b|(a)c)","FW\\1oMpwm&&A&pnsNM",[])),
-    <<"FWoMpwmacacAacpnsNM">> = iolist_to_binary(re:replace("ac","(?>(?>(a))b|(a)c)","FW\\1oMpwm&&A&pnsNM",[global])),
-    <<"j">> = iolist_to_binary(re:replace("aaaabaaabaabab","((?>(a+)b)+(aabab))","j",[])),
-    <<"j">> = iolist_to_binary(re:replace("aaaabaaabaabab","((?>(a+)b)+(aabab))","j",[global])),
-    <<"aabc">> = iolist_to_binary(re:replace("aabc","(?>a+|ab)+?c","ChAMNBQIJQHq",[])),
-    <<"aabc">> = iolist_to_binary(re:replace("aabc","(?>a+|ab)+?c","ChAMNBQIJQHq",[global])),
-    <<"aabc">> = iolist_to_binary(re:replace("aabc","(?>a+|ab)+c","Q&KpQ",[])),
-    <<"aabc">> = iolist_to_binary(re:replace("aabc","(?>a+|ab)+c","Q&KpQ",[global])),
-    <<"iDjaabcXpqUmXasnjCaabc">> = iolist_to_binary(re:replace("aabc","(?:a+|ab)+c","\\1i\\1Dj&XpqUmXasnj\\1C\\1&",[])),
-    <<"iDjaabcXpqUmXasnjCaabc">> = iolist_to_binary(re:replace("aabc","(?:a+|ab)+c","\\1i\\1Dj&XpqUmXasnj\\1C\\1&",[global])),
-    <<"iajoBuaebM">> = iolist_to_binary(re:replace("a","(?(?=(a))a)","i\\1joBu\\1ebM",[])),
-    <<"iajoBuaebMijoBuebM">> = iolist_to_binary(re:replace("a","(?(?=(a))a)","i\\1joBu\\1ebM",[global])),
-    <<"pJKablaabaNSiseJOytL">> = iolist_to_binary(re:replace("ab","(?(?=(a))a)(b)","pJK&la&\\1NSiseJOytL",[])),
-    <<"pJKablaabaNSiseJOytL">> = iolist_to_binary(re:replace("ab","(?(?=(a))a)(b)","pJK&la&\\1NSiseJOytL",[global])),
-    <<"aaaabc">> = iolist_to_binary(re:replace("aaaabc","^(?:a|ab)++c","ohvL",[])),
-    <<"aaaabc">> = iolist_to_binary(re:replace("aaaabc","^(?:a|ab)++c","ohvL",[global])),
-    <<"aaaabc">> = iolist_to_binary(re:replace("aaaabc","^(?>a|ab)++c","HJiF&Chbj",[])),
-    <<"aaaabc">> = iolist_to_binary(re:replace("aaaabc","^(?>a|ab)++c","HJiF&Chbj",[global])),
-    <<"xaaaabcrWcHPaaaabcKQaaaabc">> = iolist_to_binary(re:replace("aaaabc","^(?:a|ab)+c","\\1x&rWcH\\1P&KQ&",[])),
-    <<"xaaaabcrWcHPaaaabcKQaaaabc">> = iolist_to_binary(re:replace("aaaabc","^(?:a|ab)+c","\\1x&rWcH\\1P&KQ&",[global])),
-    <<"yTwKPUxyzNhlmWO">> = iolist_to_binary(re:replace("xyz","(?=abc){0}xyz","yTwKPU\\1&NhlmWO",[])),
-    <<"yTwKPUxyzNhlmWO">> = iolist_to_binary(re:replace("xyz","(?=abc){0}xyz","yTwKPU\\1&NhlmWO",[global])),
-    <<"xyz">> = iolist_to_binary(re:replace("xyz","(?=abc){1}xyz","psI",[])),
-    <<"xyz">> = iolist_to_binary(re:replace("xyz","(?=abc){1}xyz","psI",[global])),
-    <<"OacFXagb">> = iolist_to_binary(re:replace("ab","(?=(a))?.","O&cFX\\1g",[])),
-    <<"OacFXagObcFXg">> = iolist_to_binary(re:replace("ab","(?=(a))?.","O&cFX\\1g",[global])),
-    <<"aobc">> = iolist_to_binary(re:replace("bc","(?=(a))?.","\\1ao&",[])),
-    <<"aobaoc">> = iolist_to_binary(re:replace("bc","(?=(a))?.","\\1ao&",[global])),
-    <<"ibb">> = iolist_to_binary(re:replace("ab","(?=(a))??.","ib",[])),
-    <<"ibib">> = iolist_to_binary(re:replace("ab","(?=(a))??.","ib",[global])),
-    <<"wYYUWrmoc">> = iolist_to_binary(re:replace("bc","(?=(a))??.","wYYUWrmo",[])),
-    <<"wYYUWrmowYYUWrmo">> = iolist_to_binary(re:replace("bc","(?=(a))??.","wYYUWrmo",[global])),
-    <<"oabdCXrabdjJvHyaNHQ">> = iolist_to_binary(re:replace("abd","^(?=(?1))?[az]([abc])d","o&CXr&jJvHyaNHQ",[])),
-    <<"oabdCXrabdjJvHyaNHQ">> = iolist_to_binary(re:replace("abd","^(?=(?1))?[az]([abc])d","o&CXr&jJvHyaNHQ",[global])),
-    <<"ouJoxx">> = iolist_to_binary(re:replace("zcdxx","^(?=(?1))?[az]([abc])d","ouJo",[])),
-    <<"ouJoxx">> = iolist_to_binary(re:replace("zcdxx","^(?=(?1))?[az]([abc])d","ouJo",[global])),
-    <<"OcHOINyYSaaaaapUbBfxaaaaaGM">> = iolist_to_binary(re:replace("aaaaa","^(?!a){0}\\w+","OcHO\\1INyYS&pUbBfx&GM",[])),
-    <<"OcHOINyYSaaaaapUbBfxaaaaaGM">> = iolist_to_binary(re:replace("aaaaa","^(?!a){0}\\w+","OcHO\\1INyYS&pUbBfx&GM",[global])),
-    <<"abcBYe">> = iolist_to_binary(re:replace("abcxyz","(?<=(abc))?xyz","BYe",[])),
-    <<"abcBYe">> = iolist_to_binary(re:replace("abcxyz","(?<=(abc))?xyz","BYe",[global])),
-    <<"pqrxyzrBCAA">> = iolist_to_binary(re:replace("pqrxyz","(?<=(abc))?xyz","&rB\\1CAA",[])),
-    <<"pqrxyzrBCAA">> = iolist_to_binary(re:replace("pqrxyz","(?<=(abc))?xyz","&rB\\1CAA",[global])),
-    <<"aggg<<<aaa>>>LpvMhr">> = iolist_to_binary(re:replace("ggg<<<aaa>>>","^[\\g<a>]+","a&LpvMhr",[])),
-    <<"aggg<<<aaa>>>LpvMhr">> = iolist_to_binary(re:replace("ggg<<<aaa>>>","^[\\g<a>]+","a&LpvMhr",[global])),
-    <<"\\ga">> = iolist_to_binary(re:replace("\\ga","^[\\g<a>]+","dS",[])),
-    <<"\\ga">> = iolist_to_binary(re:replace("\\ga","^[\\g<a>]+","dS",[global])),
-    <<"cCflygggagagaxyz">> = iolist_to_binary(re:replace("gggagagaxyz","^[\\ga]+","cCfly&",[])),
-    <<"cCflygggagagaxyz">> = iolist_to_binary(re:replace("gggagagaxyz","^[\\ga]+","cCfly&",[global])),
+    <<"Ywracuhacyac">> = iolist_to_binary(re:replace("ac","((?>(a))b|(a)c)","Ywr\\1uh\\1y&",[])),
+    <<"Ywracuhacyac">> = iolist_to_binary(re:replace("ac","((?>(a))b|(a)c)","Ywr\\1uh\\1y&",[global])),
+    <<"FWacoMpwmacacAacpnsNM">> = iolist_to_binary(re:replace("ac","((?>(a))b|(a)c)++","FW\\1oMpwm&&A&pnsNM",[])),
+    <<"FWacoMpwmacacAacpnsNM">> = iolist_to_binary(re:replace("ac","((?>(a))b|(a)c)++","FW\\1oMpwm&&A&pnsNM",[global])),
+    <<"j">> = iolist_to_binary(re:replace("ac","(?:(?>(a))b|(a)c)++","j",[])),
+    <<"j">> = iolist_to_binary(re:replace("ac","(?:(?>(a))b|(a)c)++","j",[global])),
+    <<"ChAMNBQIJQHq">> = iolist_to_binary(re:replace("ac","(?=(?>(a))b|(a)c)(..)","ChAMNBQIJQHq",[])),
+    <<"ChAMNBQIJQHq">> = iolist_to_binary(re:replace("ac","(?=(?>(a))b|(a)c)(..)","ChAMNBQIJQHq",[global])),
+    <<"QacKpQ">> = iolist_to_binary(re:replace("ac","(?>(?>(a))b|(a)c)","Q&KpQ",[])),
+    <<"QacKpQ">> = iolist_to_binary(re:replace("ac","(?>(?>(a))b|(a)c)","Q&KpQ",[global])),
+    <<"=bibDjba=XpqUmXasnjbCbba=">> = iolist_to_binary(re:replace("=ba=","(?:(?>([ab])))+a=","\\1i\\1Dj&XpqUmXasnj\\1C\\1&",[])),
+    <<"=bibDjba=XpqUmXasnjbCbba=">> = iolist_to_binary(re:replace("=ba=","(?:(?>([ab])))+a=","\\1i\\1Dj&XpqUmXasnj\\1C\\1&",[global])),
+    <<"=ibjoBubebM">> = iolist_to_binary(re:replace("=ba=","(?>([ab]))+a=","i\\1joBu\\1ebM",[])),
+    <<"=ibjoBubebM">> = iolist_to_binary(re:replace("=ba=","(?>([ab]))+a=","i\\1joBu\\1ebM",[global])),
+    <<"pJKaaaabaaabaabablaaaaabaaabaababaaaabaaabaababNSiseJOytL">> = iolist_to_binary(re:replace("aaaabaaabaabab","((?>(a+)b)+(aabab))","pJK&la&\\1NSiseJOytL",[])),
+    <<"pJKaaaabaaabaabablaaaaabaaabaababaaaabaaabaababNSiseJOytL">> = iolist_to_binary(re:replace("aaaabaaabaabab","((?>(a+)b)+(aabab))","pJK&la&\\1NSiseJOytL",[global])),
+    <<"aabc">> = iolist_to_binary(re:replace("aabc","(?>a+|ab)+?c","ohvL",[])),
+    <<"aabc">> = iolist_to_binary(re:replace("aabc","(?>a+|ab)+?c","ohvL",[global])),
+    <<"aabc">> = iolist_to_binary(re:replace("aabc","(?>a+|ab)+c","HJiF&Chbj",[])),
+    <<"aabc">> = iolist_to_binary(re:replace("aabc","(?>a+|ab)+c","HJiF&Chbj",[global])),
+    <<"xaabcrWcHPaabcKQaabc">> = iolist_to_binary(re:replace("aabc","(?:a+|ab)+c","\\1x&rWcH\\1P&KQ&",[])),
+    <<"xaabcrWcHPaabcKQaabc">> = iolist_to_binary(re:replace("aabc","(?:a+|ab)+c","\\1x&rWcH\\1P&KQ&",[global])),
+    <<"yTwKPUaaNhlmWO">> = iolist_to_binary(re:replace("a","(?(?=(a))a)","yTwKPU\\1&NhlmWO",[])),
+    <<"yTwKPUaaNhlmWOyTwKPUNhlmWO">> = iolist_to_binary(re:replace("a","(?(?=(a))a)","yTwKPU\\1&NhlmWO",[global])),
+    <<"psI">> = iolist_to_binary(re:replace("ab","(?(?=(a))a)(b)","psI",[])),
+    <<"psI">> = iolist_to_binary(re:replace("ab","(?(?=(a))a)(b)","psI",[global])),
+    <<"aaaabc">> = iolist_to_binary(re:replace("aaaabc","^(?:a|ab)++c","O&cFX\\1g",[])),
+    <<"aaaabc">> = iolist_to_binary(re:replace("aaaabc","^(?:a|ab)++c","O&cFX\\1g",[global])),
+    <<"aaaabc">> = iolist_to_binary(re:replace("aaaabc","^(?>a|ab)++c","\\1ao&",[])),
+    <<"aaaabc">> = iolist_to_binary(re:replace("aaaabc","^(?>a|ab)++c","\\1ao&",[global])),
+    <<"ib">> = iolist_to_binary(re:replace("aaaabc","^(?:a|ab)+c","ib",[])),
+    <<"ib">> = iolist_to_binary(re:replace("aaaabc","^(?:a|ab)+c","ib",[global])),
+    <<"wYYUWrmoabcabc">> = iolist_to_binary(re:replace("abcabcabc","(?=abc){3}abc","wYYUWrmo",[])),
+    <<"wYYUWrmowYYUWrmowYYUWrmo">> = iolist_to_binary(re:replace("abcabcabc","(?=abc){3}abc","wYYUWrmo",[global])),
+    <<"xyz">> = iolist_to_binary(re:replace("xyz","(?=abc){3}abc","o&CXr&jJvHyaNHQ",[])),
+    <<"xyz">> = iolist_to_binary(re:replace("xyz","(?=abc){3}abc","o&CXr&jJvHyaNHQ",[global])),
+    <<"ouJoabcabc">> = iolist_to_binary(re:replace("abcabcabc","(?=abc)+abc","ouJo",[])),
+    <<"ouJoouJoouJo">> = iolist_to_binary(re:replace("abcabcabc","(?=abc)+abc","ouJo",[global])),
+    <<"xyz">> = iolist_to_binary(re:replace("xyz","(?=abc)+abc","OcHO\\1INyYS&pUbBfx&GM",[])),
+    <<"xyz">> = iolist_to_binary(re:replace("xyz","(?=abc)+abc","OcHO\\1INyYS&pUbBfx&GM",[global])),
+    <<"BYeabcabc">> = iolist_to_binary(re:replace("abcabcabc","(?=abc)++abc","BYe",[])),
+    <<"BYeBYeBYe">> = iolist_to_binary(re:replace("abcabcabc","(?=abc)++abc","BYe",[global])),
+    <<"xyz">> = iolist_to_binary(re:replace("xyz","(?=abc)++abc","&rB\\1CAA",[])),
+    <<"xyz">> = iolist_to_binary(re:replace("xyz","(?=abc)++abc","&rB\\1CAA",[global])),
+    <<"axyzLpvMhr">> = iolist_to_binary(re:replace("xyz","(?=abc){0}xyz","a&LpvMhr",[])),
+    <<"axyzLpvMhr">> = iolist_to_binary(re:replace("xyz","(?=abc){0}xyz","a&LpvMhr",[global])),
     ok.
 run38() ->
-    <<"Qaaaa444:::LBDXaZ">> = iolist_to_binary(re:replace("aaaa444:::Z","^[:a[:digit:]]+","Q&\\1LBD\\1X\\1a",[])),
-    <<"Qaaaa444:::LBDXaZ">> = iolist_to_binary(re:replace("aaaa444:::Z","^[:a[:digit:]]+","Q&\\1LBD\\1X\\1a",[global])),
-    <<"nTeSdyaaaa444:::bbbHldppaaaa444:::bbbDxZ">> = iolist_to_binary(re:replace("aaaa444:::bbbZ","^[:a[:digit:]:b]+","nTeSdy&Hldpp&Dx",[])),
-    <<"nTeSdyaaaa444:::bbbHldppaaaa444:::bbbDxZ">> = iolist_to_binary(re:replace("aaaa444:::bbbZ","^[:a[:digit:]:b]+","nTeSdy&Hldpp&Dx",[global])),
-    <<"pG:xxx::xxx:awKG">> = iolist_to_binary(re:replace(":xxx:","[:a]xxx[b:]","pG\\1\\1\\1&&awKG",[])),
-    <<"pG:xxx::xxx:awKG">> = iolist_to_binary(re:replace(":xxx:","[:a]xxx[b:]","pG\\1\\1\\1&&awKG",[global])),
-    <<"xaaMMJMXbGqwwAbEnLc">> = iolist_to_binary(re:replace("xaabc","(?<=a{2})b","MMJMX&GqwwA&EnL",[caseless])),
-    <<"xaaMMJMXbGqwwAbEnLc">> = iolist_to_binary(re:replace("xaabc","(?<=a{2})b","MMJMX&GqwwA&EnL",[caseless,global])),
-    <<"xabc">> = iolist_to_binary(re:replace("xabc","(?<=a{2})b","qrVVk&wTosM",[caseless])),
-    <<"xabc">> = iolist_to_binary(re:replace("xabc","(?<=a{2})b","qrVVk&wTosM",[caseless,global])),
-    <<"xayYbPPCodRbKVMc">> = iolist_to_binary(re:replace("xabc","(?<!a{2})b","yY&\\1PP\\1CodR&K\\1VM",[caseless])),
-    <<"xayYbPPCodRbKVMc">> = iolist_to_binary(re:replace("xabc","(?<!a{2})b","yY&\\1PP\\1CodR&K\\1VM",[caseless,global])),
-    <<"xaabc">> = iolist_to_binary(re:replace("xaabc","(?<!a{2})b","LwcvndSdaPKHex",[caseless])),
-    <<"xaabc">> = iolist_to_binary(re:replace("xaabc","(?<!a{2})b","LwcvndSdaPKHex",[caseless,global])),
-    <<"xa RfGpcjkWGiWxPCIAx">> = iolist_to_binary(re:replace("xa c","(?<=a\\h)c","R\\1fGp&\\1jkWGiWxPCIAx",[])),
-    <<"xa RfGpcjkWGiWxPCIAx">> = iolist_to_binary(re:replace("xa c","(?<=a\\h)c","R\\1fGp&\\1jkWGiWxPCIAx",[global])),
-    <<"axxFBOvYuiruXBbaagc">> = iolist_to_binary(re:replace("axxbc","(?<=[^a]{2})b","FBOvYuir\\1uXB&aag",[])),
-    <<"axxFBOvYuiruXBbaagc">> = iolist_to_binary(re:replace("axxbc","(?<=[^a]{2})b","FBOvYuir\\1uXB&aag",[global])),
-    <<"aAAkrObnobAqWbLbkpysYc">> = iolist_to_binary(re:replace("aAAbc","(?<=[^a]{2})b","krO&no&\\1Aq\\1W&L&kpysY",[])),
-    <<"aAAkrObnobAqWbLbkpysYc">> = iolist_to_binary(re:replace("aAAbc","(?<=[^a]{2})b","krO&no&\\1Aq\\1W&L&kpysY",[global])),
-    <<"xaabc">> = iolist_to_binary(re:replace("xaabc","(?<=[^a]{2})b","Dk\\1vAQ&J\\1w",[])),
-    <<"xaabc">> = iolist_to_binary(re:replace("xaabc","(?<=[^a]{2})b","Dk\\1vAQ&J\\1w",[global])),
-    <<"axxpeonyvOkMFYpbpc">> = iolist_to_binary(re:replace("axxbc","(?<=[^a]{2})b","peo\\1n\\1yvOkMFY\\1\\1p&p",[caseless])),
-    <<"axxpeonyvOkMFYpbpc">> = iolist_to_binary(re:replace("axxbc","(?<=[^a]{2})b","peo\\1n\\1yvOkMFY\\1\\1p&p",[caseless,global])),
-    <<"aAAbc">> = iolist_to_binary(re:replace("aAAbc","(?<=[^a]{2})b","qiY&iLNeXJ",[caseless])),
-    <<"aAAbc">> = iolist_to_binary(re:replace("aAAbc","(?<=[^a]{2})b","qiY&iLNeXJ",[caseless,global])),
-    <<"xaabc">> = iolist_to_binary(re:replace("xaabc","(?<=[^a]{2})b","O\\1E\\1yvbw\\1G&eF",[caseless])),
-    <<"xaabc">> = iolist_to_binary(re:replace("xaabc","(?<=[^a]{2})b","O\\1E\\1yvbw\\1G&eF",[caseless,global])),
-    <<"abdLaiU">> = iolist_to_binary(re:replace("abc","(?<=a\\H)c","dLaiU",[])),
-    <<"abdLaiU">> = iolist_to_binary(re:replace("abc","(?<=a\\H)c","dLaiU",[global])),
-    <<"abwLFUSYFgcaIHgcV">> = iolist_to_binary(re:replace("abc","(?<=a\\V)c","wLFUSYFg&aIH\\1g&V",[])),
-    <<"abwLFUSYFgcaIHgcV">> = iolist_to_binary(re:replace("abc","(?<=a\\V)c","wLFUSYFg&aIH\\1g&V",[global])),
+    <<"xyz">> = iolist_to_binary(re:replace("xyz","(?=abc){1}xyz","dS",[])),
+    <<"xyz">> = iolist_to_binary(re:replace("xyz","(?=abc){1}xyz","dS",[global])),
+    <<"cCflyab">> = iolist_to_binary(re:replace("ab","(?=(a))?.","cCfly&",[])),
+    <<"cCflyacCflyb">> = iolist_to_binary(re:replace("ab","(?=(a))?.","cCfly&",[global])),
+    <<"QbLBDXac">> = iolist_to_binary(re:replace("bc","(?=(a))?.","Q&\\1LBD\\1X\\1a",[])),
+    <<"QbLBDXaQcLBDXa">> = iolist_to_binary(re:replace("bc","(?=(a))?.","Q&\\1LBD\\1X\\1a",[global])),
+    <<"nTeSdyaHldppaDxb">> = iolist_to_binary(re:replace("ab","(?=(a))??.","nTeSdy&Hldpp&Dx",[])),
+    <<"nTeSdyaHldppaDxnTeSdybHldppbDx">> = iolist_to_binary(re:replace("ab","(?=(a))??.","nTeSdy&Hldpp&Dx",[global])),
+    <<"pGbbawKGc">> = iolist_to_binary(re:replace("bc","(?=(a))??.","pG\\1\\1\\1&&awKG",[])),
+    <<"pGbbawKGpGccawKG">> = iolist_to_binary(re:replace("bc","(?=(a))??.","pG\\1\\1\\1&&awKG",[global])),
+    <<"MMJMXabdGqwwAabdEnL">> = iolist_to_binary(re:replace("abd","^(?=(?1))?[az]([abc])d","MMJMX&GqwwA&EnL",[])),
+    <<"MMJMXabdGqwwAabdEnL">> = iolist_to_binary(re:replace("abd","^(?=(?1))?[az]([abc])d","MMJMX&GqwwA&EnL",[global])),
+    <<"qrVVkzcdwTosMxx">> = iolist_to_binary(re:replace("zcdxx","^(?=(?1))?[az]([abc])d","qrVVk&wTosM",[])),
+    <<"qrVVkzcdwTosMxx">> = iolist_to_binary(re:replace("zcdxx","^(?=(?1))?[az]([abc])d","qrVVk&wTosM",[global])),
+    <<"yYaaaaaPPCodRaaaaaKVM">> = iolist_to_binary(re:replace("aaaaa","^(?!a){0}\\w+","yY&\\1PP\\1CodR&K\\1VM",[])),
+    <<"yYaaaaaPPCodRaaaaaKVM">> = iolist_to_binary(re:replace("aaaaa","^(?!a){0}\\w+","yY&\\1PP\\1CodR&K\\1VM",[global])),
+    <<"abcLwcvndSdaPKHex">> = iolist_to_binary(re:replace("abcxyz","(?<=(abc))?xyz","LwcvndSdaPKHex",[])),
+    <<"abcLwcvndSdaPKHex">> = iolist_to_binary(re:replace("abcxyz","(?<=(abc))?xyz","LwcvndSdaPKHex",[global])),
+    <<"pqrRfGpxyzjkWGiWxPCIAx">> = iolist_to_binary(re:replace("pqrxyz","(?<=(abc))?xyz","R\\1fGp&\\1jkWGiWxPCIAx",[])),
+    <<"pqrRfGpxyzjkWGiWxPCIAx">> = iolist_to_binary(re:replace("pqrxyz","(?<=(abc))?xyz","R\\1fGp&\\1jkWGiWxPCIAx",[global])),
+    <<"FBOvYuiruXBggg<<<aaa>>>aag">> = iolist_to_binary(re:replace("ggg<<<aaa>>>","^[\\g<a>]+","FBOvYuir\\1uXB&aag",[])),
+    <<"FBOvYuiruXBggg<<<aaa>>>aag">> = iolist_to_binary(re:replace("ggg<<<aaa>>>","^[\\g<a>]+","FBOvYuir\\1uXB&aag",[global])),
+    <<"\\ga">> = iolist_to_binary(re:replace("\\ga","^[\\g<a>]+","krO&no&\\1Aq\\1W&L&kpysY",[])),
+    <<"\\ga">> = iolist_to_binary(re:replace("\\ga","^[\\g<a>]+","krO&no&\\1Aq\\1W&L&kpysY",[global])),
+    <<"DkvAQgggagagaJwxyz">> = iolist_to_binary(re:replace("gggagagaxyz","^[\\ga]+","Dk\\1vAQ&J\\1w",[])),
+    <<"DkvAQgggagagaJwxyz">> = iolist_to_binary(re:replace("gggagagaxyz","^[\\ga]+","Dk\\1vAQ&J\\1w",[global])),
+    <<"peonyvOkMFYpaaaa444:::pZ">> = iolist_to_binary(re:replace("aaaa444:::Z","^[:a[:digit:]]+","peo\\1n\\1yvOkMFY\\1\\1p&p",[])),
+    <<"peonyvOkMFYpaaaa444:::pZ">> = iolist_to_binary(re:replace("aaaa444:::Z","^[:a[:digit:]]+","peo\\1n\\1yvOkMFY\\1\\1p&p",[global])),
+    <<"qiYaaaa444:::bbbiLNeXJZ">> = iolist_to_binary(re:replace("aaaa444:::bbbZ","^[:a[:digit:]:b]+","qiY&iLNeXJ",[])),
+    <<"qiYaaaa444:::bbbiLNeXJZ">> = iolist_to_binary(re:replace("aaaa444:::bbbZ","^[:a[:digit:]:b]+","qiY&iLNeXJ",[global])),
+    <<"OEyvbwG:xxx:eF">> = iolist_to_binary(re:replace(":xxx:","[:a]xxx[b:]","O\\1E\\1yvbw\\1G&eF",[])),
+    <<"OEyvbwG:xxx:eF">> = iolist_to_binary(re:replace(":xxx:","[:a]xxx[b:]","O\\1E\\1yvbw\\1G&eF",[global])),
+    <<"xaadLaiUc">> = iolist_to_binary(re:replace("xaabc","(?<=a{2})b","dLaiU",[caseless])),
+    <<"xaadLaiUc">> = iolist_to_binary(re:replace("xaabc","(?<=a{2})b","dLaiU",[caseless,global])),
+    <<"xabc">> = iolist_to_binary(re:replace("xabc","(?<=a{2})b","wLFUSYFg&aIH\\1g&V",[caseless])),
+    <<"xabc">> = iolist_to_binary(re:replace("xabc","(?<=a{2})b","wLFUSYFg&aIH\\1g&V",[caseless,global])),
+    <<"xagiXrPJTSnMXCc">> = iolist_to_binary(re:replace("xabc","(?<!a{2})b","giXrPJTSn\\1MX\\1C",[caseless])),
+    <<"xagiXrPJTSnMXCc">> = iolist_to_binary(re:replace("xabc","(?<!a{2})b","giXrPJTSn\\1MX\\1C",[caseless,global])),
+    <<"xaabc">> = iolist_to_binary(re:replace("xaabc","(?<!a{2})b","vQ&R&",[caseless])),
+    <<"xaabc">> = iolist_to_binary(re:replace("xaabc","(?<!a{2})b","vQ&R&",[caseless,global])),
+    <<"xa wNBCTckcvkfjS">> = iolist_to_binary(re:replace("xa c","(?<=a\\h)c","wNB\\1C\\1T&k&vkfjS",[])),
+    <<"xa wNBCTckcvkfjS">> = iolist_to_binary(re:replace("xa c","(?<=a\\h)c","wNB\\1C\\1T&k&vkfjS",[global])),
+    <<"axxakxViHFbSgDPdbc">> = iolist_to_binary(re:replace("axxbc","(?<=[^a]{2})b","akxV\\1iHF&SgDPd&",[])),
+    <<"axxakxViHFbSgDPdbc">> = iolist_to_binary(re:replace("axxbc","(?<=[^a]{2})b","akxV\\1iHF&SgDPd&",[global])),
+    <<"aAAQtJGc">> = iolist_to_binary(re:replace("aAAbc","(?<=[^a]{2})b","QtJG\\1",[])),
+    <<"aAAQtJGc">> = iolist_to_binary(re:replace("aAAbc","(?<=[^a]{2})b","QtJG\\1",[global])),
+    <<"xaabc">> = iolist_to_binary(re:replace("xaabc","(?<=[^a]{2})b","thC&Kt&X",[])),
+    <<"xaabc">> = iolist_to_binary(re:replace("xaabc","(?<=[^a]{2})b","thC&Kt&X",[global])),
+    <<"axxOWpbwPvbbDXmmrc">> = iolist_to_binary(re:replace("axxbc","(?<=[^a]{2})b","OWpbwPv&&DXmmr",[caseless])),
+    <<"axxOWpbwPvbbDXmmrc">> = iolist_to_binary(re:replace("axxbc","(?<=[^a]{2})b","OWpbwPv&&DXmmr",[caseless,global])),
+    <<"aAAbc">> = iolist_to_binary(re:replace("aAAbc","(?<=[^a]{2})b","vR\\1\\1\\1f&&tS&JWPTPl",[caseless])),
+    <<"aAAbc">> = iolist_to_binary(re:replace("aAAbc","(?<=[^a]{2})b","vR\\1\\1\\1f&&tS&JWPTPl",[caseless,global])),
+    <<"xaabc">> = iolist_to_binary(re:replace("xaabc","(?<=[^a]{2})b","j\\1Ex&Dgrsjrf\\1GMEA\\1j",[caseless])),
+    <<"xaabc">> = iolist_to_binary(re:replace("xaabc","(?<=[^a]{2})b","j\\1Ex&Dgrsjrf\\1GMEA\\1j",[caseless,global])),
+    <<"abBvVcAqf">> = iolist_to_binary(re:replace("abc","(?<=a\\H)c","BvV&Aqf",[])),
+    <<"abBvVcAqf">> = iolist_to_binary(re:replace("abc","(?<=a\\H)c","BvV&Aqf",[global])),
+    <<"abhQsGE">> = iolist_to_binary(re:replace("abc","(?<=a\\V)c","hQsG\\1E",[])),
+    <<"abhQsGE">> = iolist_to_binary(re:replace("abc","(?<=a\\V)c","hQsG\\1E",[global])),
     <<"a
-giXrPJTSnMXC">> = iolist_to_binary(re:replace("a
-c","(?<=a\\v)c","giXrPJTSn\\1MX\\1C",[])),
+WAu">> = iolist_to_binary(re:replace("a
+c","(?<=a\\v)c","W\\1Au",[])),
     <<"a
-giXrPJTSnMXC">> = iolist_to_binary(re:replace("a
-c","(?<=a\\v)c","giXrPJTSn\\1MX\\1C",[global])),
-    <<"XvQcccddYRcccddYX">> = iolist_to_binary(re:replace("XcccddYX","(?(?=c)c|d)++Y","vQ&R&",[])),
-    <<"XvQcccddYRcccddYX">> = iolist_to_binary(re:replace("XcccddYX","(?(?=c)c|d)++Y","vQ&R&",[global])),
-    <<"XwNBCTcccddYkcccddYvkfjSX">> = iolist_to_binary(re:replace("XcccddYX","(?(?=c)c|d)*+Y","wNB\\1C\\1T&k&vkfjS",[])),
-    <<"XwNBCTcccddYkcccddYvkfjSX">> = iolist_to_binary(re:replace("XcccddYX","(?(?=c)c|d)*+Y","wNB\\1C\\1T&k&vkfjS",[global])),
-    <<"akxVaaaiHFaaaaaaaSgDPdaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaa","^(a{2,3}){2,}+a","akxV\\1iHF&SgDPd&",[])),
-    <<"akxVaaaiHFaaaaaaaSgDPdaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaa","^(a{2,3}){2,}+a","akxV\\1iHF&SgDPd&",[global])),
-    <<"aaaaaa">> = iolist_to_binary(re:replace("aaaaaa","^(a{2,3}){2,}+a","QtJG\\1",[])),
-    <<"aaaaaa">> = iolist_to_binary(re:replace("aaaaaa","^(a{2,3}){2,}+a","QtJG\\1",[global])),
-    <<"aaaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaaa","^(a{2,3}){2,}+a","thC&Kt&X",[])),
-    <<"aaaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaaa","^(a{2,3}){2,}+a","thC&Kt&X",[global])),
-    <<"aaaaaa">> = iolist_to_binary(re:replace("aaaaaa","^(a{2,3})++a","OWpbwPv&&DXmmr",[])),
-    <<"aaaaaa">> = iolist_to_binary(re:replace("aaaaaa","^(a{2,3})++a","OWpbwPv&&DXmmr",[global])),
-    <<"aaaaaa">> = iolist_to_binary(re:replace("aaaaaa","^(a{2,3})*+a","vR\\1\\1\\1f&&tS&JWPTPl",[])),
-    <<"aaaaaa">> = iolist_to_binary(re:replace("aaaaaa","^(a{2,3})*+a","vR\\1\\1\\1f&&tS&JWPTPl",[global])),
-    <<"X X">> = iolist_to_binary(re:replace("X X","\\H\\h\\V\\v","j\\1Ex&Dgrsjrf\\1GMEA\\1j",[])),
-    <<"X X">> = iolist_to_binary(re:replace("X X","\\H\\h\\V\\v","j\\1Ex&Dgrsjrf\\1GMEA\\1j",[global])),
-    <<"BvVX	XAqf">> = iolist_to_binary(re:replace("X	X","\\H\\h\\V\\v","BvV&Aqf",[])),
-    <<"BvVX	XAqf">> = iolist_to_binary(re:replace("X	X","\\H\\h\\V\\v","BvV&Aqf",[global])),
-    <<"  X">> = iolist_to_binary(re:replace("  X","\\H\\h\\V\\v","hQsG\\1E",[])),
-    <<"  X">> = iolist_to_binary(re:replace("  X","\\H\\h\\V\\v","hQsG\\1E",[global])),
-    <<"WAu">> = iolist_to_binary(re:replace("	  X
-","\\H*\\h+\\V?\\v{3,4}","W\\1Au",[])),
-    <<"WAu">> = iolist_to_binary(re:replace("	  X
-","\\H*\\h+\\V?\\v{3,4}","W\\1Au",[global])),
-    <<"KdrNqNfS	  
-	  
-qidyBChn">> = iolist_to_binary(re:replace("	  
-","\\H*\\h+\\V?\\v{3,4}","KdrNqNfS\\1&&qidyBChn",[])),
-    <<"KdrNqNfS	  
-	  
-qidyBChn">> = iolist_to_binary(re:replace("	  
-","\\H*\\h+\\V?\\v{3,4}","KdrNqNfS\\1&&qidyBChn",[global])),
-    <<"FWM">> = iolist_to_binary(re:replace("	  
-","\\H*\\h+\\V?\\v{3,4}","FW\\1M",[])),
-    <<"FWM">> = iolist_to_binary(re:replace("	  
-","\\H*\\h+\\V?\\v{3,4}","FW\\1M",[global])),
-    <<"	  
-">> = iolist_to_binary(re:replace("	  
-","\\H*\\h+\\V?\\v{3,4}","FxjIeXxjL&",[])),
-    <<"	  
-">> = iolist_to_binary(re:replace("	  
-","\\H*\\h+\\V?\\v{3,4}","FxjIeXxjL&",[global])),
-    <<"XY  AGIABCDoABCDowvvABCDEwE">> = iolist_to_binary(re:replace("XY  ABCDE","\\H{3,4}","\\1AGI&o&owvv&Ew",[])),
-    <<"XY  AGIABCDoABCDowvvABCDEwE">> = iolist_to_binary(re:replace("XY  ABCDE","\\H{3,4}","\\1AGI&o&owvv&Ew",[global])),
-    <<"XY  IQPQRnBRrncew ST">> = iolist_to_binary(re:replace("XY  PQR ST","\\H{3,4}","IQ\\1&nBRrn\\1cew",[])),
-    <<"XY  IQPQRnBRrncew ST">> = iolist_to_binary(re:replace("XY  PQR ST","\\H{3,4}","IQ\\1&nBRrn\\1cew",[global])),
-    <<"XY  ALB    PllBQRS">> = iolist_to_binary(re:replace("XY  AB    PQRS",".\\h{3,4}.","L&ll\\1B",[])),
-    <<"XY  ALB    PllBQRS">> = iolist_to_binary(re:replace("XY  AB    PQRS",".\\h{3,4}.","L&ll\\1B",[global])),
+WAu">> = iolist_to_binary(re:replace("a
+c","(?<=a\\v)c","W\\1Au",[global])),
+    <<"XKdrNqNfScccddYcccddYqidyBChnX">> = iolist_to_binary(re:replace("XcccddYX","(?(?=c)c|d)++Y","KdrNqNfS\\1&&qidyBChn",[])),
+    <<"XKdrNqNfScccddYcccddYqidyBChnX">> = iolist_to_binary(re:replace("XcccddYX","(?(?=c)c|d)++Y","KdrNqNfS\\1&&qidyBChn",[global])),
     ok.
 run39() ->
-    <<">WKySlnCXNNNYZolaD">> = iolist_to_binary(re:replace(">XNNNYZ","\\h*X\\h?\\H+Y\\H?Z","WKySlnC&olaD",[])),
-    <<">WKySlnCXNNNYZolaD">> = iolist_to_binary(re:replace(">XNNNYZ","\\h*X\\h?\\H+Y\\H?Z","WKySlnC&olaD",[global])),
-    <<">TkcVE  X NYQZADlLsXYvoD">> = iolist_to_binary(re:replace(">  X NYQZ","\\h*X\\h?\\H+Y\\H?Z","TkcVE&ADlL\\1sXYvoD",[])),
-    <<">TkcVE  X NYQZADlLsXYvoD">> = iolist_to_binary(re:replace(">  X NYQZ","\\h*X\\h?\\H+Y\\H?Z","TkcVE&ADlL\\1sXYvoD",[global])),
-    <<">XYZ">> = iolist_to_binary(re:replace(">XYZ","\\h*X\\h?\\H+Y\\H?Z","dW",[])),
-    <<">XYZ">> = iolist_to_binary(re:replace(">XYZ","\\h*X\\h?\\H+Y\\H?Z","dW",[global])),
-    <<">  X NY Z">> = iolist_to_binary(re:replace(">  X NY Z","\\h*X\\h?\\H+Y\\H?Z","BtvqF&CdIAJlTXyQ",[])),
-    <<">  X NY Z">> = iolist_to_binary(re:replace(">  X NY Z","\\h*X\\h?\\H+Y\\H?Z","BtvqF&CdIAJlTXyQ",[global])),
-    <<">eAmFIitYytvsqF">> = iolist_to_binary(re:replace(">XY
+    <<"XFWMX">> = iolist_to_binary(re:replace("XcccddYX","(?(?=c)c|d)*+Y","FW\\1M",[])),
+    <<"XFWMX">> = iolist_to_binary(re:replace("XcccddYX","(?(?=c)c|d)*+Y","FW\\1M",[global])),
+    <<"FxjIeXxjLaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaa","^(a{2,3}){2,}+a","FxjIeXxjL&",[])),
+    <<"FxjIeXxjLaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaa","^(a{2,3}){2,}+a","FxjIeXxjL&",[global])),
+    <<"aaaaaa">> = iolist_to_binary(re:replace("aaaaaa","^(a{2,3}){2,}+a","\\1AGI&o&owvv&Ew",[])),
+    <<"aaaaaa">> = iolist_to_binary(re:replace("aaaaaa","^(a{2,3}){2,}+a","\\1AGI&o&owvv&Ew",[global])),
+    <<"aaaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaaa","^(a{2,3}){2,}+a","IQ\\1&nBRrn\\1cew",[])),
+    <<"aaaaaaaaa">> = iolist_to_binary(re:replace("aaaaaaaaa","^(a{2,3}){2,}+a","IQ\\1&nBRrn\\1cew",[global])),
+    <<"aaaaaa">> = iolist_to_binary(re:replace("aaaaaa","^(a{2,3})++a","L&ll\\1B",[])),
+    <<"aaaaaa">> = iolist_to_binary(re:replace("aaaaaa","^(a{2,3})++a","L&ll\\1B",[global])),
+    <<"aaaaaa">> = iolist_to_binary(re:replace("aaaaaa","^(a{2,3})*+a","WKySlnC&olaD",[])),
+    <<"aaaaaa">> = iolist_to_binary(re:replace("aaaaaa","^(a{2,3})*+a","WKySlnC&olaD",[global])),
+    <<"X X">> = iolist_to_binary(re:replace("X X","\\H\\h\\V\\v","TkcVE&ADlL\\1sXYvoD",[])),
+    <<"X X">> = iolist_to_binary(re:replace("X X","\\H\\h\\V\\v","TkcVE&ADlL\\1sXYvoD",[global])),
+    <<"dW">> = iolist_to_binary(re:replace("X	X","\\H\\h\\V\\v","dW",[])),
+    <<"dW">> = iolist_to_binary(re:replace("X	X","\\H\\h\\V\\v","dW",[global])),
+    <<"  X">> = iolist_to_binary(re:replace("  X","\\H\\h\\V\\v","BtvqF&CdIAJlTXyQ",[])),
+    <<"  X">> = iolist_to_binary(re:replace("  X","\\H\\h\\V\\v","BtvqF&CdIAJlTXyQ",[global])),
+    <<"eAmFIitYytvsqF">> = iolist_to_binary(re:replace("	  X
+","\\H*\\h+\\V?\\v{3,4}","eAmFIi\\1tYytvsq\\1F",[])),
+    <<"eAmFIitYytvsqF">> = iolist_to_binary(re:replace("	  X
+","\\H*\\h+\\V?\\v{3,4}","eAmFIi\\1tYytvsq\\1F",[global])),
+    <<"oA	  
+muF	  
+KG">> = iolist_to_binary(re:replace("	  
+","\\H*\\h+\\V?\\v{3,4}","oA&muF&KG\\1",[])),
+    <<"oA	  
+muF	  
+KG">> = iolist_to_binary(re:replace("	  
+","\\H*\\h+\\V?\\v{3,4}","oA&muF&KG\\1",[global])),
+    <<"idYPfGETo">> = iolist_to_binary(re:replace("	  
+","\\H*\\h+\\V?\\v{3,4}","\\1\\1\\1idYPfGETo",[])),
+    <<"idYPfGETo">> = iolist_to_binary(re:replace("	  
+","\\H*\\h+\\V?\\v{3,4}","\\1\\1\\1idYPfGETo",[global])),
+    <<"	  
+">> = iolist_to_binary(re:replace("	  
+","\\H*\\h+\\V?\\v{3,4}","bNQDHCQ&&LqxKPLt",[])),
+    <<"	  
+">> = iolist_to_binary(re:replace("	  
+","\\H*\\h+\\V?\\v{3,4}","bNQDHCQ&&LqxKPLt",[global])),
+    <<"XY  kPHqOwBhoABCDWcAxPfqsE">> = iolist_to_binary(re:replace("XY  ABCDE","\\H{3,4}","k\\1PHqOwBho&WcAxP\\1fqs",[])),
+    <<"XY  kPHqOwBhoABCDWcAxPfqsE">> = iolist_to_binary(re:replace("XY  ABCDE","\\H{3,4}","k\\1PHqOwBho&WcAxP\\1fqs",[global])),
+    <<"XY  puhITHFGmjJlsK ST">> = iolist_to_binary(re:replace("XY  PQR ST","\\H{3,4}","puhITHF\\1GmjJlsK",[])),
+    <<"XY  puhITHFGmjJlsK ST">> = iolist_to_binary(re:replace("XY  PQR ST","\\H{3,4}","puhITHF\\1GmjJlsK",[global])),
+    <<"XY  AUHaB    PnNcmQRS">> = iolist_to_binary(re:replace("XY  AB    PQRS",".\\h{3,4}.","\\1UHa&nN\\1cm",[])),
+    <<"XY  AUHaB    PnNcmQRS">> = iolist_to_binary(re:replace("XY  AB    PQRS",".\\h{3,4}.","\\1UHa&nN\\1cm",[global])),
+    <<">XNNNYZ">> = iolist_to_binary(re:replace(">XNNNYZ","\\h*X\\h?\\H+Y\\H?Z","&",[])),
+    <<">XNNNYZ">> = iolist_to_binary(re:replace(">XNNNYZ","\\h*X\\h?\\H+Y\\H?Z","&",[global])),
+    <<">MuyADtGr">> = iolist_to_binary(re:replace(">  X NYQZ","\\h*X\\h?\\H+Y\\H?Z","\\1Mu\\1yADtGr",[])),
+    <<">MuyADtGr">> = iolist_to_binary(re:replace(">  X NYQZ","\\h*X\\h?\\H+Y\\H?Z","\\1Mu\\1yADtGr",[global])),
+    <<">XYZ">> = iolist_to_binary(re:replace(">XYZ","\\h*X\\h?\\H+Y\\H?Z","xE&\\1\\1\\1oKH",[])),
+    <<">XYZ">> = iolist_to_binary(re:replace(">XYZ","\\h*X\\h?\\H+Y\\H?Z","xE&\\1\\1\\1oKH",[global])),
+    <<">  X NY Z">> = iolist_to_binary(re:replace(">  X NY Z","\\h*X\\h?\\H+Y\\H?Z","Y&&L\\1gEkUW&",[])),
+    <<">  X NY Z">> = iolist_to_binary(re:replace(">  X NY Z","\\h*X\\h?\\H+Y\\H?Z","Y&&L\\1gEkUW&",[global])),
+    <<">WPlOXY
 Z
-ANN","\\v*X\\v?Y\\v+Z\\V*\\x0a\\V+\\x0b\\V{2,3}\\x0c","eAmFIi\\1tYytvsq\\1F",[])),
-    <<">eAmFIitYytvsqF">> = iolist_to_binary(re:replace(">XY
+ANNXY
 Z
-ANN","\\v*X\\v?Y\\v+Z\\V*\\x0a\\V+\\x0b\\V{2,3}\\x0c","eAmFIi\\1tYytvsq\\1F",[global])),
-    <<">oA
+ANNXQQJOCXY
+Z
+ANNSLuXY
+Z
+ANNI">> = iolist_to_binary(re:replace(">XY
+Z
+ANN","\\v*X\\v?Y\\v+Z\\V*\\x0a\\V+\\x0b\\V{2,3}\\x0c","WPlO&&XQQJOC&\\1SLu&I\\1",[])),
+    <<">WPlOXY
+Z
+ANNXY
+Z
+ANNXQQJOCXY
+Z
+ANNSLuXY
+Z
+ANNI">> = iolist_to_binary(re:replace(">XY
+Z
+ANN","\\v*X\\v?Y\\v+Z\\V*\\x0a\\V+\\x0b\\V{2,3}\\x0c","WPlO&&XQQJOC&\\1SLu&I\\1",[global])),
+    <<">
 X
 Y
 ZZZ
-AAANNNmuF
+AAANNN
 X
 Y
 ZZZ
-AAANNNKG">> = iolist_to_binary(re:replace(">
+AAANNN">> = iolist_to_binary(re:replace(">
 X
 Y
 ZZZ
-AAANNN","\\v*X\\v?Y\\v+Z\\V*\\x0a\\V+\\x0b\\V{2,3}\\x0c","oA&muF&KG\\1",[])),
-    <<">oA
+AAANNN","\\v*X\\v?Y\\v+Z\\V*\\x0a\\V+\\x0b\\V{2,3}\\x0c","&&",[])),
+    <<">
 X
 Y
 ZZZ
-AAANNNmuF
+AAANNN
 X
 Y
 ZZZ
-AAANNNKG">> = iolist_to_binary(re:replace(">
+AAANNN">> = iolist_to_binary(re:replace(">
 X
 Y
 ZZZ
-AAANNN","\\v*X\\v?Y\\v+Z\\V*\\x0a\\V+\\x0b\\V{2,3}\\x0c","oA&muF&KG\\1",[global])),
-    <<"foofoofoofooidYPfGETo">> = iolist_to_binary(re:replace("foobar","(foo)\\Kbar","\\1\\1\\1idYPfGETo",[])),
-    <<"foofoofoofooidYPfGETo">> = iolist_to_binary(re:replace("foobar","(foo)\\Kbar","\\1\\1\\1idYPfGETo",[global])),
-    <<"foobNQDHCQbarbarLqxKPLt">> = iolist_to_binary(re:replace("foobar","(foo)(\\Kbar|baz)","bNQDHCQ&&LqxKPLt",[])),
-    <<"foobNQDHCQbarbarLqxKPLt">> = iolist_to_binary(re:replace("foobar","(foo)(\\Kbar|baz)","bNQDHCQ&&LqxKPLt",[global])),
-    <<"kfooPHqOwBhofoobazWcAxPfoofqs">> = iolist_to_binary(re:replace("foobaz","(foo)(\\Kbar|baz)","k\\1PHqOwBho&WcAxP\\1fqs",[])),
-    <<"kfooPHqOwBhofoobazWcAxPfoofqs">> = iolist_to_binary(re:replace("foobaz","(foo)(\\Kbar|baz)","k\\1PHqOwBho&WcAxP\\1fqs",[global])),
-    <<"foopuhITHFfoobarGmjJlsK">> = iolist_to_binary(re:replace("foobarbaz","(foo\\Kbar)baz","puhITHF\\1GmjJlsK",[])),
-    <<"foopuhITHFfoobarGmjJlsK">> = iolist_to_binary(re:replace("foobarbaz","(foo\\Kbar)baz","puhITHF\\1GmjJlsK",[global])),
-    <<"abUHaababababbbabZnNabcmXXXX">> = iolist_to_binary(re:replace("ababababbbabZXXXX","^(a(b))\\1\\g1\\g{1}\\g-1\\g{-1}\\g{-2}Z","\\1UHa&nN\\1cm",[])),
-    <<"abUHaababababbbabZnNabcmXXXX">> = iolist_to_binary(re:replace("ababababbbabZXXXX","^(a(b))\\1\\g1\\g{1}\\g-1\\g{-1}\\g{-2}Z","\\1UHa&nN\\1cm",[global])),
-    <<"tom-tom">> = iolist_to_binary(re:replace("tom-tom","(?<A>tom|bon)-\\g{A}","&",[])),
-    <<"tom-tom">> = iolist_to_binary(re:replace("tom-tom","(?<A>tom|bon)-\\g{A}","&",[global])),
-    <<"bonMubonyADtGr">> = iolist_to_binary(re:replace("bon-bon","(?<A>tom|bon)-\\g{A}","\\1Mu\\1yADtGr",[])),
-    <<"bonMubonyADtGr">> = iolist_to_binary(re:replace("bon-bon","(?<A>tom|bon)-\\g{A}","\\1Mu\\1yADtGr",[global])),
-    <<"bacxxx">> = iolist_to_binary(re:replace("bacxxx","(^(a|b\\g{-1}))","xE&\\1\\1\\1oKH",[])),
-    <<"bacxxx">> = iolist_to_binary(re:replace("bacxxx","(^(a|b\\g{-1}))","xE&\\1\\1\\1oKH",[global])),
-    <<"YabcabcabcabcLabcgEkUWabcabc">> = iolist_to_binary(re:replace("abcabc","(?|(abc)|(xyz))\\1","Y&&L\\1gEkUW&",[])),
-    <<"YabcabcabcabcLabcgEkUWabcabc">> = iolist_to_binary(re:replace("abcabc","(?|(abc)|(xyz))\\1","Y&&L\\1gEkUW&",[global])),
-    <<"WPlOxyzxyzxyzxyzXQQJOCxyzxyzxyzSLuxyzxyzIxyz">> = iolist_to_binary(re:replace("xyzxyz","(?|(abc)|(xyz))\\1","WPlO&&XQQJOC&\\1SLu&I\\1",[])),
-    <<"WPlOxyzxyzxyzxyzXQQJOCxyzxyzxyzSLuxyzxyzIxyz">> = iolist_to_binary(re:replace("xyzxyz","(?|(abc)|(xyz))\\1","WPlO&&XQQJOC&\\1SLu&I\\1",[global])),
-    <<"abcxyz">> = iolist_to_binary(re:replace("abcxyz","(?|(abc)|(xyz))\\1","&&",[])),
-    <<"abcxyz">> = iolist_to_binary(re:replace("abcxyz","(?|(abc)|(xyz))\\1","&&",[global])),
-    <<"xyzabc">> = iolist_to_binary(re:replace("xyzabc","(?|(abc)|(xyz))\\1","Gaq&oXBMVBE&tSYRHR",[])),
-    <<"xyzabc">> = iolist_to_binary(re:replace("xyzabc","(?|(abc)|(xyz))\\1","Gaq&oXBMVBE&tSYRHR",[global])),
-    <<"Djtabcabc">> = iolist_to_binary(re:replace("abcabc","(?|(abc)|(xyz))(?1)","Djt&",[])),
-    <<"Djtabcabc">> = iolist_to_binary(re:replace("abcabc","(?|(abc)|(xyz))(?1)","Djt&",[global])),
-    <<"GvvcQxyzxyzxyzabclBxPYfkxyzabc">> = iolist_to_binary(re:replace("xyzabc","(?|(abc)|(xyz))(?1)","GvvcQ\\1\\1&lBxPYfk&",[])),
-    <<"GvvcQxyzxyzxyzabclBxPYfkxyzabc">> = iolist_to_binary(re:replace("xyzabc","(?|(abc)|(xyz))(?1)","GvvcQ\\1\\1&lBxPYfk&",[global])),
-    <<"xyzxyz">> = iolist_to_binary(re:replace("xyzxyz","(?|(abc)|(xyz))(?1)","\\1CrHVKxYs",[])),
-    <<"xyzxyz">> = iolist_to_binary(re:replace("xyzxyz","(?|(abc)|(xyz))(?1)","\\1CrHVKxYs",[global])),
-    <<"tQATKgVWXYabcdYcvM">> = iolist_to_binary(re:replace("XYabcdY","^X(?5)(a)(?|(b)|(q))(c)(d)(Y)","tQATKgVW&cvM",[])),
-    <<"tQATKgVWXYabcdYcvM">> = iolist_to_binary(re:replace("XYabcdY","^X(?5)(a)(?|(b)|(q))(c)(d)(Y)","tQATKgVW&cvM",[global])),
-    <<"XYabcdYmnoJCDXYabcdYrVXYabcdYiH">> = iolist_to_binary(re:replace("XYabcdY","^X(?7)(a)(?|(b|(r)(s))|(q))(c)(d)(Y)","&mnoJCD&rV&iH",[])),
-    <<"XYabcdYmnoJCDXYabcdYrVXYabcdYiH">> = iolist_to_binary(re:replace("XYabcdY","^X(?7)(a)(?|(b|(r)(s))|(q))(c)(d)(Y)","&mnoJCD&rV&iH",[global])),
-    <<"syXYabcdYBDYtaeaMaPanXYabcdYXYabcdYC">> = iolist_to_binary(re:replace("XYabcdY","^X(?7)(a)(?|(b|(?|(r)|(t))(s))|(q))(c)(d)(Y)","sy&BDYt\\1eaM\\1P\\1n&&C",[])),
-    <<"syXYabcdYBDYtaeaMaPanXYabcdYXYabcdYC">> = iolist_to_binary(re:replace("XYabcdY","^X(?7)(a)(?|(b|(?|(r)|(t))(s))|(q))(c)(d)(Y)","sy&BDYt\\1eaM\\1P\\1n&&C",[global])),
-    <<"Ka:aaufAhHxbaRa:aaEGpjWaxyz">> = iolist_to_binary(re:replace("a:aaxyz","(?'abc'\\w+):\\k<abc>{2}","K&ufAhHxb\\1R&EGpjW\\1",[])),
-    <<"Ka:aaufAhHxbaRa:aaEGpjWaxyz">> = iolist_to_binary(re:replace("a:aaxyz","(?'abc'\\w+):\\k<abc>{2}","K&ufAhHxb\\1R&EGpjW\\1",[global])),
-    <<"ab:ababsOgbTHab:ababCab:ababuonxyz">> = iolist_to_binary(re:replace("ab:ababxyz","(?'abc'\\w+):\\k<abc>{2}","&sOgbTH&C&uon",[])),
-    <<"ab:ababsOgbTHab:ababCab:ababuonxyz">> = iolist_to_binary(re:replace("ab:ababxyz","(?'abc'\\w+):\\k<abc>{2}","&sOgbTH&C&uon",[global])),
-    <<"a:axyz">> = iolist_to_binary(re:replace("a:axyz","(?'abc'\\w+):\\k<abc>{2}","Jn\\1eo&&BX\\1\\1",[])),
-    <<"a:axyz">> = iolist_to_binary(re:replace("a:axyz","(?'abc'\\w+):\\k<abc>{2}","Jn\\1eo&&BX\\1\\1",[global])),
-    <<"ab:abxyz">> = iolist_to_binary(re:replace("ab:abxyz","(?'abc'\\w+):\\k<abc>{2}","MGXaAc",[])),
-    <<"ab:abxyz">> = iolist_to_binary(re:replace("ab:abxyz","(?'abc'\\w+):\\k<abc>{2}","MGXaAc",[global])),
-    <<"QLdwahNFOxyz">> = iolist_to_binary(re:replace("a:aaxyz","(?'abc'\\w+):\\g{abc}{2}","QLdw\\1hNFO",[])),
-    <<"QLdwahNFOxyz">> = iolist_to_binary(re:replace("a:aaxyz","(?'abc'\\w+):\\g{abc}{2}","QLdw\\1hNFO",[global])),
-    <<"mrAsBveab:ababUabkabsEab:ababxyz">> = iolist_to_binary(re:replace("ab:ababxyz","(?'abc'\\w+):\\g{abc}{2}","mrAsBve&U\\1k\\1sE&",[])),
-    <<"mrAsBveab:ababUabkabsEab:ababxyz">> = iolist_to_binary(re:replace("ab:ababxyz","(?'abc'\\w+):\\g{abc}{2}","mrAsBve&U\\1k\\1sE&",[global])),
-    <<"a:axyz">> = iolist_to_binary(re:replace("a:axyz","(?'abc'\\w+):\\g{abc}{2}","iI\\1oucpHiJtV",[])),
-    <<"a:axyz">> = iolist_to_binary(re:replace("a:axyz","(?'abc'\\w+):\\g{abc}{2}","iI\\1oucpHiJtV",[global])),
-    <<"ab:abxyz">> = iolist_to_binary(re:replace("ab:abxyz","(?'abc'\\w+):\\g{abc}{2}","fRWj\\1&Pe\\1\\1tBdVW\\1qy",[])),
-    <<"ab:abxyz">> = iolist_to_binary(re:replace("ab:abxyz","(?'abc'\\w+):\\g{abc}{2}","fRWj\\1&Pe\\1\\1tBdVW\\1qy",[global])),
-    <<"thjvygKapabdpYsauBr">> = iolist_to_binary(re:replace("abd","^(?<ab>a)? (?(<ab>)b|c) (?('ab')d|e)","thjvygK\\1p&pYs\\1uBr",[extended])),
-    <<"thjvygKapabdpYsauBr">> = iolist_to_binary(re:replace("abd","^(?<ab>a)? (?(<ab>)b|c) (?('ab')d|e)","thjvygK\\1p&pYs\\1uBr",[extended,global])),
-    <<"tbFvqIQgRTAxEph">> = iolist_to_binary(re:replace("ce","^(?<ab>a)? (?(<ab>)b|c) (?('ab')d|e)","tbFvq\\1IQg\\1RTAxEph",[extended])),
-    <<"tbFvqIQgRTAxEph">> = iolist_to_binary(re:replace("ce","^(?<ab>a)? (?(<ab>)b|c) (?('ab')d|e)","tbFvq\\1IQg\\1RTAxEph",[extended,global])),
-    <<"VaXTpQNaXaXZS">> = iolist_to_binary(re:replace("aXaXZ","^(a.)\\g-1Z","V\\1TpQN&S",[])),
-    <<"VaXTpQNaXaXZS">> = iolist_to_binary(re:replace("aXaXZ","^(a.)\\g-1Z","V\\1TpQN&S",[global])),
-    <<"wlsBaXO">> = iolist_to_binary(re:replace("aXaXZ","^(a.)\\g{-1}Z","wlsB\\1O",[])),
-    <<"wlsBaXO">> = iolist_to_binary(re:replace("aXaXZ","^(a.)\\g{-1}Z","wlsB\\1O",[global])),
-    <<"YoqtePMHamKUoabcd">> = iolist_to_binary(re:replace("abcd","^(?(DEFINE) (?<A> a) (?<B> b) )  (?&A) (?&B) ","Yo\\1qtePMHamKUo&",[extended])),
-    <<"YoqtePMHamKUoabcd">> = iolist_to_binary(re:replace("abcd","^(?(DEFINE) (?<A> a) (?<B> b) )  (?&A) (?&B) ","Yo\\1qtePMHamKUo&",[extended,global])),
-    <<"aabceaabcaabcXaabcvW">> = iolist_to_binary(re:replace("aabc","(?<all>(?:(?:a(?&all))|(b))(c?))","\\1e&&X&vW",[])),
-    <<"aabceaabcaabcXaabcvW">> = iolist_to_binary(re:replace("aabc","(?<all>(?:(?:a(?&all))|(b))(c?))","\\1e&&X&vW",[global])),
+AAANNN","\\v*X\\v?Y\\v+Z\\V*\\x0a\\V+\\x0b\\V{2,3}\\x0c","&&",[global])),
+    <<"fooGaqbaroXBMVBEbartSYRHR">> = iolist_to_binary(re:replace("foobar","(foo)\\Kbar","Gaq&oXBMVBE&tSYRHR",[])),
+    <<"fooGaqbaroXBMVBEbartSYRHR">> = iolist_to_binary(re:replace("foobar","(foo)\\Kbar","Gaq&oXBMVBE&tSYRHR",[global])),
+    <<"fooDjtbar">> = iolist_to_binary(re:replace("foobar","(foo)(\\Kbar|baz)","Djt&",[])),
+    <<"fooDjtbar">> = iolist_to_binary(re:replace("foobar","(foo)(\\Kbar|baz)","Djt&",[global])),
+    <<"GvvcQfoofoofoobazlBxPYfkfoobaz">> = iolist_to_binary(re:replace("foobaz","(foo)(\\Kbar|baz)","GvvcQ\\1\\1&lBxPYfk&",[])),
+    <<"GvvcQfoofoofoobazlBxPYfkfoobaz">> = iolist_to_binary(re:replace("foobaz","(foo)(\\Kbar|baz)","GvvcQ\\1\\1&lBxPYfk&",[global])),
+    <<"foofoobarCrHVKxYs">> = iolist_to_binary(re:replace("foobarbaz","(foo\\Kbar)baz","\\1CrHVKxYs",[])),
+    <<"foofoobarCrHVKxYs">> = iolist_to_binary(re:replace("foobarbaz","(foo\\Kbar)baz","\\1CrHVKxYs",[global])),
+    <<"XabctQATKgVWcvMdefghi">> = iolist_to_binary(re:replace("Xabcdefghi","abc\\K|def\\K","tQATKgVW&cvM",[])),
+    <<"XabctQATKgVWcvMdeftQATKgVWcvMghi">> = iolist_to_binary(re:replace("Xabcdefghi","abc\\K|def\\K","tQATKgVW&cvM",[global])),
+    <<"XabcmnoJCDcrVciHdefghi">> = iolist_to_binary(re:replace("Xabcdefghi","ab\\Kc|de\\Kf","&mnoJCD&rV&iH",[])),
+    <<"XabcmnoJCDcrVciHdefmnoJCDfrVfiHghi">> = iolist_to_binary(re:replace("Xabcdefghi","ab\\Kc|de\\Kf","&mnoJCD&rV&iH",[global])),
+    <<"ABsyBDYteaMPnCCDECBA">> = iolist_to_binary(re:replace("ABCDECBA","(?=C)","sy&BDYt\\1eaM\\1P\\1n&&C",[])),
+    <<"ABsyBDYteaMPnCCDEsyBDYteaMPnCCBA">> = iolist_to_binary(re:replace("ABCDECBA","(?=C)","sy&BDYt\\1eaM\\1P\\1n&&C",[global])),
+    <<"abcKufAhHxbREGpjWdef">> = iolist_to_binary(re:replace("abcdef","^abc\\K","K&ufAhHxb\\1R&EGpjW\\1",[])),
+    <<"abcKufAhHxbREGpjWdef">> = iolist_to_binary(re:replace("abcdef","^abc\\K","K&ufAhHxb\\1R&EGpjW\\1",[global])),
+    <<"defabcxyz">> = iolist_to_binary(re:replace("defabcxyz","^abc\\K","&sOgbTH&C&uon",[])),
+    <<"defabcxyz">> = iolist_to_binary(re:replace("defabcxyz","^abc\\K","&sOgbTH&C&uon",[global])),
+    <<"JnabeoababababbbabZababababbbabZBXababXXXX">> = iolist_to_binary(re:replace("ababababbbabZXXXX","^(a(b))\\1\\g1\\g{1}\\g-1\\g{-1}\\g{-2}Z","Jn\\1eo&&BX\\1\\1",[])),
+    <<"JnabeoababababbbabZababababbbabZBXababXXXX">> = iolist_to_binary(re:replace("ababababbbabZXXXX","^(a(b))\\1\\g1\\g{1}\\g-1\\g{-1}\\g{-2}Z","Jn\\1eo&&BX\\1\\1",[global])),
+    <<"MGXaAc">> = iolist_to_binary(re:replace("tom-tom","(?<A>tom|bon)-\\g{A}","MGXaAc",[])),
+    <<"MGXaAc">> = iolist_to_binary(re:replace("tom-tom","(?<A>tom|bon)-\\g{A}","MGXaAc",[global])),
+    <<"QLdwbonhNFO">> = iolist_to_binary(re:replace("bon-bon","(?<A>tom|bon)-\\g{A}","QLdw\\1hNFO",[])),
+    <<"QLdwbonhNFO">> = iolist_to_binary(re:replace("bon-bon","(?<A>tom|bon)-\\g{A}","QLdw\\1hNFO",[global])),
+    <<"bacxxx">> = iolist_to_binary(re:replace("bacxxx","(^(a|b\\g{-1}))","mrAsBve&U\\1k\\1sE&",[])),
+    <<"bacxxx">> = iolist_to_binary(re:replace("bacxxx","(^(a|b\\g{-1}))","mrAsBve&U\\1k\\1sE&",[global])),
     ok.
 run40() ->
-    <<"bKrRGsoSckoSG">> = iolist_to_binary(re:replace("abc","(a(b)|(c))(?1)","bKrRGsoSckoSG",[])),
-    <<"bKrRGsoSckoSG">> = iolist_to_binary(re:replace("abc","(a(b)|(c))(?1)","bKrRGsoSckoSG",[global])),
-    <<"cxc">> = iolist_to_binary(re:replace("cab","(a(b)|(c))(?1)","\\1xc",[])),
-    <<"cxc">> = iolist_to_binary(re:replace("cab","(a(b)|(c))(?1)","\\1xc",[global])),
-    <<"DiabccgFR">> = iolist_to_binary(re:replace("abc","(?1)(a(b)|(c))","Di&\\1gFR",[])),
-    <<"DiabccgFR">> = iolist_to_binary(re:replace("abc","(?1)(a(b)|(c))","Di&\\1gFR",[global])),
-    <<"abxScabEabSTgXbabkTtoC">> = iolist_to_binary(re:replace("cab","(?1)(a(b)|(c))","\\1xS&E\\1STgXb\\1kTtoC",[])),
-    <<"abxScabEabSTgXbabkTtoC">> = iolist_to_binary(re:replace("cab","(?1)(a(b)|(c))","\\1xS&E\\1STgXb\\1kTtoC",[global])),
-    <<"NFFmetcalfe 33AMmetcalfe 33kpmetcalfemD">> = iolist_to_binary(re:replace("metcalfe 33","(?<NAME>(?&NAME_PAT))\\s+(?<ADDR>(?&ADDRESS_PAT))
+    <<"iIabcoucpHiJtV">> = iolist_to_binary(re:replace("abcabc","(?|(abc)|(xyz))\\1","iI\\1oucpHiJtV",[])),
+    <<"iIabcoucpHiJtV">> = iolist_to_binary(re:replace("abcabc","(?|(abc)|(xyz))\\1","iI\\1oucpHiJtV",[global])),
+    <<"fRWjxyzxyzxyzPexyzxyztBdVWxyzqy">> = iolist_to_binary(re:replace("xyzxyz","(?|(abc)|(xyz))\\1","fRWj\\1&Pe\\1\\1tBdVW\\1qy",[])),
+    <<"fRWjxyzxyzxyzPexyzxyztBdVWxyzqy">> = iolist_to_binary(re:replace("xyzxyz","(?|(abc)|(xyz))\\1","fRWj\\1&Pe\\1\\1tBdVW\\1qy",[global])),
+    <<"abcxyz">> = iolist_to_binary(re:replace("abcxyz","(?|(abc)|(xyz))\\1","thjvygK\\1p&pYs\\1uBr",[])),
+    <<"abcxyz">> = iolist_to_binary(re:replace("abcxyz","(?|(abc)|(xyz))\\1","thjvygK\\1p&pYs\\1uBr",[global])),
+    <<"xyzabc">> = iolist_to_binary(re:replace("xyzabc","(?|(abc)|(xyz))\\1","tbFvq\\1IQg\\1RTAxEph",[])),
+    <<"xyzabc">> = iolist_to_binary(re:replace("xyzabc","(?|(abc)|(xyz))\\1","tbFvq\\1IQg\\1RTAxEph",[global])),
+    <<"VabcTpQNabcabcS">> = iolist_to_binary(re:replace("abcabc","(?|(abc)|(xyz))(?1)","V\\1TpQN&S",[])),
+    <<"VabcTpQNabcabcS">> = iolist_to_binary(re:replace("abcabc","(?|(abc)|(xyz))(?1)","V\\1TpQN&S",[global])),
+    <<"wlsBxyzO">> = iolist_to_binary(re:replace("xyzabc","(?|(abc)|(xyz))(?1)","wlsB\\1O",[])),
+    <<"wlsBxyzO">> = iolist_to_binary(re:replace("xyzabc","(?|(abc)|(xyz))(?1)","wlsB\\1O",[global])),
+    <<"xyzxyz">> = iolist_to_binary(re:replace("xyzxyz","(?|(abc)|(xyz))(?1)","Yo\\1qtePMHamKUo&",[])),
+    <<"xyzxyz">> = iolist_to_binary(re:replace("xyzxyz","(?|(abc)|(xyz))(?1)","Yo\\1qtePMHamKUo&",[global])),
+    <<"aeXYabcdYXYabcdYXXYabcdYvW">> = iolist_to_binary(re:replace("XYabcdY","^X(?5)(a)(?|(b)|(q))(c)(d)(Y)","\\1e&&X&vW",[])),
+    <<"aeXYabcdYXYabcdYXXYabcdYvW">> = iolist_to_binary(re:replace("XYabcdY","^X(?5)(a)(?|(b)|(q))(c)(d)(Y)","\\1e&&X&vW",[global])),
+    <<"bKrRGsoSckoSG">> = iolist_to_binary(re:replace("XYabcdY","^X(?7)(a)(?|(b|(r)(s))|(q))(c)(d)(Y)","bKrRGsoSckoSG",[])),
+    <<"bKrRGsoSckoSG">> = iolist_to_binary(re:replace("XYabcdY","^X(?7)(a)(?|(b|(r)(s))|(q))(c)(d)(Y)","bKrRGsoSckoSG",[global])),
+    <<"axc">> = iolist_to_binary(re:replace("XYabcdY","^X(?7)(a)(?|(b|(?|(r)|(t))(s))|(q))(c)(d)(Y)","\\1xc",[])),
+    <<"axc">> = iolist_to_binary(re:replace("XYabcdY","^X(?7)(a)(?|(b|(?|(r)|(t))(s))|(q))(c)(d)(Y)","\\1xc",[global])),
+    <<"Dia:aaagFRxyz">> = iolist_to_binary(re:replace("a:aaxyz","(?'abc'\\w+):\\k<abc>{2}","Di&\\1gFR",[])),
+    <<"Dia:aaagFRxyz">> = iolist_to_binary(re:replace("a:aaxyz","(?'abc'\\w+):\\k<abc>{2}","Di&\\1gFR",[global])),
+    <<"abxSab:ababEabSTgXbabkTtoCxyz">> = iolist_to_binary(re:replace("ab:ababxyz","(?'abc'\\w+):\\k<abc>{2}","\\1xS&E\\1STgXb\\1kTtoC",[])),
+    <<"abxSab:ababEabSTgXbabkTtoCxyz">> = iolist_to_binary(re:replace("ab:ababxyz","(?'abc'\\w+):\\k<abc>{2}","\\1xS&E\\1STgXb\\1kTtoC",[global])),
+    <<"a:axyz">> = iolist_to_binary(re:replace("a:axyz","(?'abc'\\w+):\\k<abc>{2}","NFF&AM&kp\\1mD",[])),
+    <<"a:axyz">> = iolist_to_binary(re:replace("a:axyz","(?'abc'\\w+):\\k<abc>{2}","NFF&AM&kp\\1mD",[global])),
+    <<"ab:abxyz">> = iolist_to_binary(re:replace("ab:abxyz","(?'abc'\\w+):\\k<abc>{2}","\\1KC&DnJouY",[])),
+    <<"ab:abxyz">> = iolist_to_binary(re:replace("ab:abxyz","(?'abc'\\w+):\\k<abc>{2}","\\1KC&DnJouY",[global])),
+    <<"ItNlxyz">> = iolist_to_binary(re:replace("a:aaxyz","(?'abc'\\w+):\\g{abc}{2}","ItNl",[])),
+    <<"ItNlxyz">> = iolist_to_binary(re:replace("a:aaxyz","(?'abc'\\w+):\\g{abc}{2}","ItNl",[global])),
+    <<"SpCeqDxyz">> = iolist_to_binary(re:replace("ab:ababxyz","(?'abc'\\w+):\\g{abc}{2}","SpCeqD",[])),
+    <<"SpCeqDxyz">> = iolist_to_binary(re:replace("ab:ababxyz","(?'abc'\\w+):\\g{abc}{2}","SpCeqD",[global])),
+    <<"a:axyz">> = iolist_to_binary(re:replace("a:axyz","(?'abc'\\w+):\\g{abc}{2}","Vwu\\1eYyN\\1Fc",[])),
+    <<"a:axyz">> = iolist_to_binary(re:replace("a:axyz","(?'abc'\\w+):\\g{abc}{2}","Vwu\\1eYyN\\1Fc",[global])),
+    <<"ab:abxyz">> = iolist_to_binary(re:replace("ab:abxyz","(?'abc'\\w+):\\g{abc}{2}","Kjg&A&JXahP\\1yE",[])),
+    <<"ab:abxyz">> = iolist_to_binary(re:replace("ab:abxyz","(?'abc'\\w+):\\g{abc}{2}","Kjg&A&JXahP\\1yE",[global])),
+    <<"ngvFLRPw">> = iolist_to_binary(re:replace("abd","^(?<ab>a)? (?(<ab>)b|c) (?('ab')d|e)","ngvFLRPw",[extended])),
+    <<"ngvFLRPw">> = iolist_to_binary(re:replace("abd","^(?<ab>a)? (?(<ab>)b|c) (?('ab')d|e)","ngvFLRPw",[extended,global])),
+    <<"DnucmfFKuYp">> = iolist_to_binary(re:replace("ce","^(?<ab>a)? (?(<ab>)b|c) (?('ab')d|e)","Dn\\1ucm\\1\\1fFKuYp",[extended])),
+    <<"DnucmfFKuYp">> = iolist_to_binary(re:replace("ce","^(?<ab>a)? (?(<ab>)b|c) (?('ab')d|e)","Dn\\1ucm\\1\\1fFKuYp",[extended,global])),
+    <<"aXaXZY">> = iolist_to_binary(re:replace("aXaXZ","^(a.)\\g-1Z","&Y",[])),
+    <<"aXaXZY">> = iolist_to_binary(re:replace("aXaXZ","^(a.)\\g-1Z","&Y",[global])),
+    <<"xaXaXZnCBUCkGaXaXZPAtaXML">> = iolist_to_binary(re:replace("aXaXZ","^(a.)\\g{-1}Z","x&nCBUCkG&PAt\\1ML",[])),
+    <<"xaXaXZnCBUCkGaXaXZPAtaXML">> = iolist_to_binary(re:replace("aXaXZ","^(a.)\\g{-1}Z","x&nCBUCkG&PAt\\1ML",[global])),
+    <<"iicd">> = iolist_to_binary(re:replace("abcd","^(?(DEFINE) (?<A> a) (?<B> b) )  (?&A) (?&B) ","ii",[extended])),
+    <<"iicd">> = iolist_to_binary(re:replace("abcd","^(?(DEFINE) (?<A> a) (?<B> b) )  (?&A) (?&B) ","ii",[extended,global])),
+    <<"VaabcGxIwMeaq">> = iolist_to_binary(re:replace("aabc","(?<all>(?:(?:a(?&all))|(b))(c?))","V&GxIwMeaq",[])),
+    <<"VaabcGxIwMeaq">> = iolist_to_binary(re:replace("aabc","(?<all>(?:(?:a(?&all))|(b))(c?))","V&GxIwMeaq",[global])),
+    <<"AaabcpTXabcPHaekH">> = iolist_to_binary(re:replace("abc","(a(b)|(c))(?1)","Aa&pTX&PHaekH",[])),
+    <<"AaabcpTXabcPHaekH">> = iolist_to_binary(re:replace("abc","(a(b)|(c))(?1)","Aa&pTX&PHaekH",[global])),
+    <<"cabvmPNciE">> = iolist_to_binary(re:replace("cab","(a(b)|(c))(?1)","&vmPNciE",[])),
+    <<"cabvmPNciE">> = iolist_to_binary(re:replace("cab","(a(b)|(c))(?1)","&vmPNciE",[global])),
+    <<"oabcpabcqOcGfIeV">> = iolist_to_binary(re:replace("abc","(?1)(a(b)|(c))","o&p&qO\\1GfIeV",[])),
+    <<"oabcpabcqOcGfIeV">> = iolist_to_binary(re:replace("abc","(?1)(a(b)|(c))","o&p&qO\\1GfIeV",[global])),
+    <<"LTrSmxIPabOKMqwVAA">> = iolist_to_binary(re:replace("cab","(?1)(a(b)|(c))","LTrSmxIP\\1OKMqwVAA",[])),
+    <<"LTrSmxIPabOKMqwVAA">> = iolist_to_binary(re:replace("cab","(?1)(a(b)|(c))","LTrSmxIP\\1OKMqwVAA",[global])),
+    <<"aKjmetcalfewmetcalfewmYmetcalfeIpmetcalfeW">> = iolist_to_binary(re:replace("metcalfe 33","(?<NAME>(?&NAME_PAT))\\s+(?<ADDR>(?&ADDRESS_PAT))
   (?(DEFINE)
   (?<NAME_PAT>[a-z]+)
   (?<ADDRESS_PAT>\\d+)
-  )","NFF&AM&kp\\1mD",[extended])),
-    <<"NFFmetcalfe 33AMmetcalfe 33kpmetcalfemD">> = iolist_to_binary(re:replace("metcalfe 33","(?<NAME>(?&NAME_PAT))\\s+(?<ADDR>(?&ADDRESS_PAT))
+  )","aKj\\1w\\1wmY\\1Ip\\1W",[extended])),
+    <<"aKjmetcalfewmetcalfewmYmetcalfeIpmetcalfeW">> = iolist_to_binary(re:replace("metcalfe 33","(?<NAME>(?&NAME_PAT))\\s+(?<ADDR>(?&ADDRESS_PAT))
   (?(DEFINE)
   (?<NAME_PAT>[a-z]+)
   (?<ADDRESS_PAT>\\d+)
-  )","NFF&AM&kp\\1mD",[extended,global])),
-    <<"KC1.2.3.4DnJouY">> = iolist_to_binary(re:replace("1.2.3.4","(?(DEFINE)(?<byte>2[0-4]\\d|25[0-5]|1\\d\\d|[1-9]?\\d))\\b(?&byte)(\\.(?&byte)){3}","\\1KC&DnJouY",[])),
-    <<"KC1.2.3.4DnJouY">> = iolist_to_binary(re:replace("1.2.3.4","(?(DEFINE)(?<byte>2[0-4]\\d|25[0-5]|1\\d\\d|[1-9]?\\d))\\b(?&byte)(\\.(?&byte)){3}","\\1KC&DnJouY",[global])),
-    <<"ItNl">> = iolist_to_binary(re:replace("131.111.10.206","(?(DEFINE)(?<byte>2[0-4]\\d|25[0-5]|1\\d\\d|[1-9]?\\d))\\b(?&byte)(\\.(?&byte)){3}","ItNl",[])),
-    <<"ItNl">> = iolist_to_binary(re:replace("131.111.10.206","(?(DEFINE)(?<byte>2[0-4]\\d|25[0-5]|1\\d\\d|[1-9]?\\d))\\b(?&byte)(\\.(?&byte)){3}","ItNl",[global])),
-    <<"SpCeqD">> = iolist_to_binary(re:replace("10.0.0.0","(?(DEFINE)(?<byte>2[0-4]\\d|25[0-5]|1\\d\\d|[1-9]?\\d))\\b(?&byte)(\\.(?&byte)){3}","SpCeqD",[])),
-    <<"SpCeqD">> = iolist_to_binary(re:replace("10.0.0.0","(?(DEFINE)(?<byte>2[0-4]\\d|25[0-5]|1\\d\\d|[1-9]?\\d))\\b(?&byte)(\\.(?&byte)){3}","SpCeqD",[global])),
-    <<"10.6">> = iolist_to_binary(re:replace("10.6","(?(DEFINE)(?<byte>2[0-4]\\d|25[0-5]|1\\d\\d|[1-9]?\\d))\\b(?&byte)(\\.(?&byte)){3}","Vwu\\1eYyN\\1Fc",[])),
-    <<"10.6">> = iolist_to_binary(re:replace("10.6","(?(DEFINE)(?<byte>2[0-4]\\d|25[0-5]|1\\d\\d|[1-9]?\\d))\\b(?&byte)(\\.(?&byte)){3}","Vwu\\1eYyN\\1Fc",[global])),
-    <<"455.3.4.5">> = iolist_to_binary(re:replace("455.3.4.5","(?(DEFINE)(?<byte>2[0-4]\\d|25[0-5]|1\\d\\d|[1-9]?\\d))\\b(?&byte)(\\.(?&byte)){3}","Kjg&A&JXahP\\1yE",[])),
-    <<"455.3.4.5">> = iolist_to_binary(re:replace("455.3.4.5","(?(DEFINE)(?<byte>2[0-4]\\d|25[0-5]|1\\d\\d|[1-9]?\\d))\\b(?&byte)(\\.(?&byte)){3}","Kjg&A&JXahP\\1yE",[global])),
-    <<"ngvFLRPw">> = iolist_to_binary(re:replace("1.2.3.4","\\b(?&byte)(\\.(?&byte)){3}(?(DEFINE)(?<byte>2[0-4]\\d|25[0-5]|1\\d\\d|[1-9]?\\d))","ngvFLRPw",[])),
-    <<"ngvFLRPw">> = iolist_to_binary(re:replace("1.2.3.4","\\b(?&byte)(\\.(?&byte)){3}(?(DEFINE)(?<byte>2[0-4]\\d|25[0-5]|1\\d\\d|[1-9]?\\d))","ngvFLRPw",[global])),
-    <<"Dn.206ucm.206.206fFKuYp">> = iolist_to_binary(re:replace("131.111.10.206","\\b(?&byte)(\\.(?&byte)){3}(?(DEFINE)(?<byte>2[0-4]\\d|25[0-5]|1\\d\\d|[1-9]?\\d))","Dn\\1ucm\\1\\1fFKuYp",[])),
-    <<"Dn.206ucm.206.206fFKuYp">> = iolist_to_binary(re:replace("131.111.10.206","\\b(?&byte)(\\.(?&byte)){3}(?(DEFINE)(?<byte>2[0-4]\\d|25[0-5]|1\\d\\d|[1-9]?\\d))","Dn\\1ucm\\1\\1fFKuYp",[global])),
-    <<"10.0.0.0Y">> = iolist_to_binary(re:replace("10.0.0.0","\\b(?&byte)(\\.(?&byte)){3}(?(DEFINE)(?<byte>2[0-4]\\d|25[0-5]|1\\d\\d|[1-9]?\\d))","&Y",[])),
-    <<"10.0.0.0Y">> = iolist_to_binary(re:replace("10.0.0.0","\\b(?&byte)(\\.(?&byte)){3}(?(DEFINE)(?<byte>2[0-4]\\d|25[0-5]|1\\d\\d|[1-9]?\\d))","&Y",[global])),
-    <<"10.6">> = iolist_to_binary(re:replace("10.6","\\b(?&byte)(\\.(?&byte)){3}(?(DEFINE)(?<byte>2[0-4]\\d|25[0-5]|1\\d\\d|[1-9]?\\d))","x&nCBUCkG&PAt\\1ML",[])),
-    <<"10.6">> = iolist_to_binary(re:replace("10.6","\\b(?&byte)(\\.(?&byte)){3}(?(DEFINE)(?<byte>2[0-4]\\d|25[0-5]|1\\d\\d|[1-9]?\\d))","x&nCBUCkG&PAt\\1ML",[global])),
-    <<"455.3.4.5">> = iolist_to_binary(re:replace("455.3.4.5","\\b(?&byte)(\\.(?&byte)){3}(?(DEFINE)(?<byte>2[0-4]\\d|25[0-5]|1\\d\\d|[1-9]?\\d))","ii",[])),
-    <<"455.3.4.5">> = iolist_to_binary(re:replace("455.3.4.5","\\b(?&byte)(\\.(?&byte)){3}(?(DEFINE)(?<byte>2[0-4]\\d|25[0-5]|1\\d\\d|[1-9]?\\d))","ii",[global])),
-    <<"Vnow is the time for all good men to come to the aid of the partyGxIwMeaq">> = iolist_to_binary(re:replace("now is the time for all good men to come to the aid of the party","^(\\w++|\\s++)*$","V&GxIwMeaq",[])),
-    <<"Vnow is the time for all good men to come to the aid of the partyGxIwMeaq">> = iolist_to_binary(re:replace("now is the time for all good men to come to the aid of the party","^(\\w++|\\s++)*$","V&GxIwMeaq",[global])),
-    <<"this is not a line with only words and spaces!">> = iolist_to_binary(re:replace("this is not a line with only words and spaces!","^(\\w++|\\s++)*$","Aa&pTX&PHaekH",[])),
-    <<"this is not a line with only words and spaces!">> = iolist_to_binary(re:replace("this is not a line with only words and spaces!","^(\\w++|\\s++)*$","Aa&pTX&PHaekH",[global])),
-    <<"12345avmPNciE">> = iolist_to_binary(re:replace("12345a","(\\d++)(\\w)","&vmPNciE",[])),
-    <<"12345avmPNciE">> = iolist_to_binary(re:replace("12345a","(\\d++)(\\w)","&vmPNciE",[global])),
-    <<"12345+">> = iolist_to_binary(re:replace("12345+","(\\d++)(\\w)","o&p&qO\\1GfIeV",[])),
-    <<"12345+">> = iolist_to_binary(re:replace("12345+","(\\d++)(\\w)","o&p&qO\\1GfIeV",[global])),
-    <<"LTrSmxIPOKMqwVAA">> = iolist_to_binary(re:replace("aaab","a++b","LTrSmxIP\\1OKMqwVAA",[])),
-    <<"LTrSmxIPOKMqwVAA">> = iolist_to_binary(re:replace("aaab","a++b","LTrSmxIP\\1OKMqwVAA",[global])),
-    <<"aKjaaabwaaabwmYaaabIpaaabW">> = iolist_to_binary(re:replace("aaab","(a++b)","aKj\\1w\\1wmY\\1Ip\\1W",[])),
-    <<"aKjaaabwaaabwmYaaabIpaaabW">> = iolist_to_binary(re:replace("aaab","(a++b)","aKj\\1w\\1wmY\\1Ip\\1W",[global])),
-    <<"l">> = iolist_to_binary(re:replace("aaab","(a++)b","l",[])),
-    <<"l">> = iolist_to_binary(re:replace("aaab","(a++)b","l",[global])),
-    <<"((bQabc(ade)ufh()()xmbxIabc(ade)ufh()()x">> = iolist_to_binary(re:replace("((abc(ade)ufh()()x","([^()]++|\\([^()]*\\))+","bQ&mb\\1I&",[])),
-    <<"((bQabc(ade)ufh()()xmbxIabc(ade)ufh()()x">> = iolist_to_binary(re:replace("((abc(ade)ufh()()x","([^()]++|\\([^()]*\\))+","bQ&mb\\1I&",[global])),
-    <<"(abc)qof(abc)K(abc)">> = iolist_to_binary(re:replace("(abc)","\\(([^()]++|\\([^()]+\\))+\\)","&qof&K&",[])),
-    <<"(abc)qof(abc)K(abc)">> = iolist_to_binary(re:replace("(abc)","\\(([^()]++|\\([^()]+\\))+\\)","&qof&K&",[global])),
-    <<"LbxyzOi(abc(def)xyz)xyzxyz(abc(def)xyz)FEAxyzLmxyzT(abc(def)xyz)t">> = iolist_to_binary(re:replace("(abc(def)xyz)","\\(([^()]++|\\([^()]+\\))+\\)","Lb\\1Oi&\\1\\1&FEA\\1Lm\\1T&t",[])),
-    <<"LbxyzOi(abc(def)xyz)xyzxyz(abc(def)xyz)FEAxyzLmxyzT(abc(def)xyz)t">> = iolist_to_binary(re:replace("(abc(def)xyz)","\\(([^()]++|\\([^()]+\\))+\\)","Lb\\1Oi&\\1\\1&FEA\\1Lm\\1T&t",[global])),
-    <<"((()aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa">> = iolist_to_binary(re:replace("((()aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","\\(([^()]++|\\([^()]+\\))+\\)","PtF&e\\1KFwR&E",[])),
-    <<"((()aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa">> = iolist_to_binary(re:replace("((()aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","\\(([^()]++|\\([^()]+\\))+\\)","PtF&e\\1KFwR&E",[global])),
-    <<"NabcVuwqcDabccPXOabcqgabcY">> = iolist_to_binary(re:replace("abc","^([^()]|\\((?1)*\\))*$","N&Vuwq\\1D&\\1PXO&qg&Y",[])),
-    <<"NabcVuwqcDabccPXOabcqgabcY">> = iolist_to_binary(re:replace("abc","^([^()]|\\((?1)*\\))*$","N&Vuwq\\1D&\\1PXO&qg&Y",[global])),
-    <<"gfw">> = iolist_to_binary(re:replace("a(b)c","^([^()]|\\((?1)*\\))*$","gfw",[])),
-    <<"gfw">> = iolist_to_binary(re:replace("a(b)c","^([^()]|\\((?1)*\\))*$","gfw",[global])),
-    <<"m">> = iolist_to_binary(re:replace("a(b(c))d","^([^()]|\\((?1)*\\))*$","m",[])),
-    <<"m">> = iolist_to_binary(re:replace("a(b(c))d","^([^()]|\\((?1)*\\))*$","m",[global])),
-    <<"a(b(c)d">> = iolist_to_binary(re:replace("a(b(c)d","^([^()]|\\((?1)*\\))*$","pr\\1hSV&a\\1Tq\\1uk\\1lGQn",[])),
-    <<"a(b(c)d">> = iolist_to_binary(re:replace("a(b(c)d","^([^()]|\\((?1)*\\))*$","pr\\1hSV&a\\1Tq\\1uk\\1lGQn",[global])),
-    <<"PLu3jRBxH>abc>123<xyz<j">> = iolist_to_binary(re:replace(">abc>123<xyz<","^>abc>([^()]|\\((?1)*\\))*<xyz<$","PLu\\1jRBxH&j",[])),
-    <<"PLu3jRBxH>abc>123<xyz<j">> = iolist_to_binary(re:replace(">abc>123<xyz<","^>abc>([^()]|\\((?1)*\\))*<xyz<$","PLu\\1jRBxH&j",[global])),
-    <<"3RonyFdbw>abc>1(2)3<xyz<3UT">> = iolist_to_binary(re:replace(">abc>1(2)3<xyz<","^>abc>([^()]|\\((?1)*\\))*<xyz<$","\\1RonyFdbw&\\1UT",[])),
-    <<"3RonyFdbw>abc>1(2)3<xyz<3UT">> = iolist_to_binary(re:replace(">abc>1(2)3<xyz<","^>abc>([^()]|\\((?1)*\\))*<xyz<$","\\1RonyFdbw&\\1UT",[global])),
-    <<"L(1(2)3)tmF(1(2)3)eEu>abc>(1(2)3)<xyz<>abc>(1(2)3)<xyz<hDoqNG">> = iolist_to_binary(re:replace(">abc>(1(2)3)<xyz<","^>abc>([^()]|\\((?1)*\\))*<xyz<$","L\\1tmF\\1eEu&&hDoqNG",[])),
-    <<"L(1(2)3)tmF(1(2)3)eEu>abc>(1(2)3)<xyz<>abc>(1(2)3)<xyz<hDoqNG">> = iolist_to_binary(re:replace(">abc>(1(2)3)<xyz<","^>abc>([^()]|\\((?1)*\\))*<xyz<$","L\\1tmF\\1eEu&&hDoqNG",[global])),
-    <<"ks1221">> = iolist_to_binary(re:replace("1221","^(?:((.)(?1)\\2|)|((.)(?3)\\4|.))$","ks\\1",[caseless])),
-    <<"ks1221">> = iolist_to_binary(re:replace("1221","^(?:((.)(?1)\\2|)|((.)(?3)\\4|.))$","ks\\1",[caseless,global])),
-    <<"DNi">> = iolist_to_binary(re:replace("Satanoscillatemymetallicsonatas","^(?:((.)(?1)\\2|)|((.)(?3)\\4|.))$","DNi",[caseless])),
-    <<"DNi">> = iolist_to_binary(re:replace("Satanoscillatemymetallicsonatas","^(?:((.)(?1)\\2|)|((.)(?3)\\4|.))$","DNi",[caseless,global])),
-    <<"UoqHQfFfbONSGdk">> = iolist_to_binary(re:replace("AmanaplanacanalPanama","^(?:((.)(?1)\\2|)|((.)(?3)\\4|.))$","\\1UoqHQfFf\\1bONSGd\\1k",[caseless])),
-    <<"UoqHQfFfbONSGdk">> = iolist_to_binary(re:replace("AmanaplanacanalPanama","^(?:((.)(?1)\\2|)|((.)(?3)\\4|.))$","\\1UoqHQfFf\\1bONSGd\\1k",[caseless,global])),
-    <<"eMWvAblewasIereIsawElbaQMxjJLAblewasIereIsawElbav">> = iolist_to_binary(re:replace("AblewasIereIsawElba","^(?:((.)(?1)\\2|)|((.)(?3)\\4|.))$","eMWv&QMxjJL&v",[caseless])),
-    <<"eMWvAblewasIereIsawElbaQMxjJLAblewasIereIsawElbav">> = iolist_to_binary(re:replace("AblewasIereIsawElba","^(?:((.)(?1)\\2|)|((.)(?3)\\4|.))$","eMWv&QMxjJL&v",[caseless,global])),
-    <<"Thequickbrownfox">> = iolist_to_binary(re:replace("Thequickbrownfox","^(?:((.)(?1)\\2|)|((.)(?3)\\4|.))$","sD\\1tJKX&bI\\1V\\1QesK",[caseless])),
-    <<"Thequickbrownfox">> = iolist_to_binary(re:replace("Thequickbrownfox","^(?:((.)(?1)\\2|)|((.)(?3)\\4|.))$","sD\\1tJKX&bI\\1V\\1QesK",[caseless,global])),
-    <<"phuiWK">> = iolist_to_binary(re:replace("12","^(\\d+|\\((?1)([+*-])(?1)\\)|-(?1))$","phuiWK",[])),
-    <<"phuiWK">> = iolist_to_binary(re:replace("12","^(\\d+|\\((?1)([+*-])(?1)\\)|-(?1))$","phuiWK",[global])),
-    <<"e(((2+2)*-3)-7)Epa(((2+2)*-3)-7)KAPD(((2+2)*-3)-7)(((2+2)*-3)-7)M(((2+2)*-3)-7)">> = iolist_to_binary(re:replace("(((2+2)*-3)-7)","^(\\d+|\\((?1)([+*-])(?1)\\)|-(?1))$","e&Epa\\1KAPD\\1&M&",[])),
-    <<"e(((2+2)*-3)-7)Epa(((2+2)*-3)-7)KAPD(((2+2)*-3)-7)(((2+2)*-3)-7)M(((2+2)*-3)-7)">> = iolist_to_binary(re:replace("(((2+2)*-3)-7)","^(\\d+|\\((?1)([+*-])(?1)\\)|-(?1))$","e&Epa\\1KAPD\\1&M&",[global])),
-    <<"VKX-12wWoyOhQtK-12tm-12">> = iolist_to_binary(re:replace("-12","^(\\d+|\\((?1)([+*-])(?1)\\)|-(?1))$","VKX\\1wWoyOhQtK\\1tm\\1",[])),
-    <<"VKX-12wWoyOhQtK-12tm-12">> = iolist_to_binary(re:replace("-12","^(\\d+|\\((?1)([+*-])(?1)\\)|-(?1))$","VKX\\1wWoyOhQtK\\1tm\\1",[global])),
-    <<"((2+2)*-3)-7)">> = iolist_to_binary(re:replace("((2+2)*-3)-7)","^(\\d+|\\((?1)([+*-])(?1)\\)|-(?1))$","tPRweiQ",[])),
-    <<"((2+2)*-3)-7)">> = iolist_to_binary(re:replace("((2+2)*-3)-7)","^(\\d+|\\((?1)([+*-])(?1)\\)|-(?1))$","tPRweiQ",[global])),
-    <<"n">> = iolist_to_binary(re:replace("xyz","^(x(y|(?1){2})z)","n",[])),
-    <<"n">> = iolist_to_binary(re:replace("xyz","^(x(y|(?1){2})z)","n",[global])),
-    <<"bI">> = iolist_to_binary(re:replace("xxyzxyzz","^(x(y|(?1){2})z)","bI",[])),
-    <<"bI">> = iolist_to_binary(re:replace("xxyzxyzz","^(x(y|(?1){2})z)","bI",[global])),
-    <<"xxyzz">> = iolist_to_binary(re:replace("xxyzz","^(x(y|(?1){2})z)","G&D\\1e",[])),
-    <<"xxyzz">> = iolist_to_binary(re:replace("xxyzz","^(x(y|(?1){2})z)","G&D\\1e",[global])),
-    <<"xxyzxyzxyzz">> = iolist_to_binary(re:replace("xxyzxyzxyzz","^(x(y|(?1){2})z)","OV",[])),
-    <<"xxyzxyzxyzz">> = iolist_to_binary(re:replace("xxyzxyzxyzz","^(x(y|(?1){2})z)","OV",[global])),
-    <<"Xhjf<>K<>ReHa<>NM<>Sf">> = iolist_to_binary(re:replace("<>","((< (?: (?(R) \\d++  | [^<>]*+) | (?2)) * >))","Xhjf\\1K&ReHa&NM\\1Sf",[extended])),
-    <<"Xhjf<>K<>ReHa<>NM<>Sf">> = iolist_to_binary(re:replace("<>","((< (?: (?(R) \\d++  | [^<>]*+) | (?2)) * >))","Xhjf\\1K&ReHa&NM\\1Sf",[extended,global])),
-    <<"SbOGt<abcd>K">> = iolist_to_binary(re:replace("<abcd>","((< (?: (?(R) \\d++  | [^<>]*+) | (?2)) * >))","SbOGt&K",[extended])),
-    <<"SbOGt<abcd>K">> = iolist_to_binary(re:replace("<abcd>","((< (?: (?(R) \\d++  | [^<>]*+) | (?2)) * >))","SbOGt&K",[extended,global])),
-    <<"<abc <123> hij>x<abc <123> hij>Jrtco">> = iolist_to_binary(re:replace("<abc <123> hij>","((< (?: (?(R) \\d++  | [^<>]*+) | (?2)) * >))","\\1x\\1Jrtco",[extended])),
-    <<"<abc <123> hij>x<abc <123> hij>Jrtco">> = iolist_to_binary(re:replace("<abc <123> hij>","((< (?: (?(R) \\d++  | [^<>]*+) | (?2)) * >))","\\1x\\1Jrtco",[extended,global])),
-    <<"<abc Y<def><def>Fq<def><def>Lb<def><def>T<def><def><def><def><def>T hij>">> = iolist_to_binary(re:replace("<abc <def> hij>","((< (?: (?(R) \\d++  | [^<>]*+) | (?2)) * >))","Y\\1\\1Fq&&Lb&&T&\\1&\\1\\1T",[extended])),
-    <<"<abc Y<def><def>Fq<def><def>Lb<def><def>T<def><def><def><def><def>T hij>">> = iolist_to_binary(re:replace("<abc <def> hij>","((< (?: (?(R) \\d++  | [^<>]*+) | (?2)) * >))","Y\\1\\1Fq&&Lb&&T&\\1&\\1\\1T",[extended,global])),
-    <<"ucWrNuavax">> = iolist_to_binary(re:replace("<abc<>def>","((< (?: (?(R) \\d++  | [^<>]*+) | (?2)) * >))","ucWrNuavax",[extended])),
-    <<"ucWrNuavax">> = iolist_to_binary(re:replace("<abc<>def>","((< (?: (?(R) \\d++  | [^<>]*+) | (?2)) * >))","ucWrNuavax",[extended,global])),
-    <<"<abci<>cf<>CEE<><>itOwcw<>BF">> = iolist_to_binary(re:replace("<abc<>","((< (?: (?(R) \\d++  | [^<>]*+) | (?2)) * >))","i\\1cf\\1CEE&\\1itOwcw&BF",[extended])),
-    <<"<abci<>cf<>CEE<><>itOwcw<>BF">> = iolist_to_binary(re:replace("<abc<>","((< (?: (?(R) \\d++  | [^<>]*+) | (?2)) * >))","i\\1cf\\1CEE&\\1itOwcw&BF",[extended,global])),
-    <<"<abc">> = iolist_to_binary(re:replace("<abc","((< (?: (?(R) \\d++  | [^<>]*+) | (?2)) * >))","Wv\\1hbrstiFWO",[extended])),
-    <<"<abc">> = iolist_to_binary(re:replace("<abc","((< (?: (?(R) \\d++  | [^<>]*+) | (?2)) * >))","Wv\\1hbrstiFWO",[extended,global])),
-    <<"aaaaaa">> = iolist_to_binary(re:replace("aaaaaa","^a+(*FAIL)","UhNS&\\1\\1",[])),
-    <<"aaaaaa">> = iolist_to_binary(re:replace("aaaaaa","^a+(*FAIL)","UhNS&\\1\\1",[global])),
-    <<"aaabccc">> = iolist_to_binary(re:replace("aaabccc","a+b?c+(*FAIL)","\\1FEgUNUkGWxyqops&\\1",[])),
-    <<"aaabccc">> = iolist_to_binary(re:replace("aaabccc","a+b?c+(*FAIL)","\\1FEgUNUkGWxyqops&\\1",[global])),
+  )","aKj\\1w\\1wmY\\1Ip\\1W",[extended,global])),
+    <<"l">> = iolist_to_binary(re:replace("1.2.3.4","(?(DEFINE)(?<byte>2[0-4]\\d|25[0-5]|1\\d\\d|[1-9]?\\d))\\b(?&byte)(\\.(?&byte)){3}","l",[])),
+    <<"l">> = iolist_to_binary(re:replace("1.2.3.4","(?(DEFINE)(?<byte>2[0-4]\\d|25[0-5]|1\\d\\d|[1-9]?\\d))\\b(?&byte)(\\.(?&byte)){3}","l",[global])),
+    <<"bQ131.111.10.206mbI131.111.10.206">> = iolist_to_binary(re:replace("131.111.10.206","(?(DEFINE)(?<byte>2[0-4]\\d|25[0-5]|1\\d\\d|[1-9]?\\d))\\b(?&byte)(\\.(?&byte)){3}","bQ&mb\\1I&",[])),
+    <<"bQ131.111.10.206mbI131.111.10.206">> = iolist_to_binary(re:replace("131.111.10.206","(?(DEFINE)(?<byte>2[0-4]\\d|25[0-5]|1\\d\\d|[1-9]?\\d))\\b(?&byte)(\\.(?&byte)){3}","bQ&mb\\1I&",[global])),
+    <<"10.0.0.0qof10.0.0.0K10.0.0.0">> = iolist_to_binary(re:replace("10.0.0.0","(?(DEFINE)(?<byte>2[0-4]\\d|25[0-5]|1\\d\\d|[1-9]?\\d))\\b(?&byte)(\\.(?&byte)){3}","&qof&K&",[])),
+    <<"10.0.0.0qof10.0.0.0K10.0.0.0">> = iolist_to_binary(re:replace("10.0.0.0","(?(DEFINE)(?<byte>2[0-4]\\d|25[0-5]|1\\d\\d|[1-9]?\\d))\\b(?&byte)(\\.(?&byte)){3}","&qof&K&",[global])),
+    <<"10.6">> = iolist_to_binary(re:replace("10.6","(?(DEFINE)(?<byte>2[0-4]\\d|25[0-5]|1\\d\\d|[1-9]?\\d))\\b(?&byte)(\\.(?&byte)){3}","Lb\\1Oi&\\1\\1&FEA\\1Lm\\1T&t",[])),
+    <<"10.6">> = iolist_to_binary(re:replace("10.6","(?(DEFINE)(?<byte>2[0-4]\\d|25[0-5]|1\\d\\d|[1-9]?\\d))\\b(?&byte)(\\.(?&byte)){3}","Lb\\1Oi&\\1\\1&FEA\\1Lm\\1T&t",[global])),
+    <<"455.3.4.5">> = iolist_to_binary(re:replace("455.3.4.5","(?(DEFINE)(?<byte>2[0-4]\\d|25[0-5]|1\\d\\d|[1-9]?\\d))\\b(?&byte)(\\.(?&byte)){3}","PtF&e\\1KFwR&E",[])),
+    <<"455.3.4.5">> = iolist_to_binary(re:replace("455.3.4.5","(?(DEFINE)(?<byte>2[0-4]\\d|25[0-5]|1\\d\\d|[1-9]?\\d))\\b(?&byte)(\\.(?&byte)){3}","PtF&e\\1KFwR&E",[global])),
+    <<"N1.2.3.4Vuwq.4D1.2.3.4.4PXO1.2.3.4qg1.2.3.4Y">> = iolist_to_binary(re:replace("1.2.3.4","\\b(?&byte)(\\.(?&byte)){3}(?(DEFINE)(?<byte>2[0-4]\\d|25[0-5]|1\\d\\d|[1-9]?\\d))","N&Vuwq\\1D&\\1PXO&qg&Y",[])),
+    <<"N1.2.3.4Vuwq.4D1.2.3.4.4PXO1.2.3.4qg1.2.3.4Y">> = iolist_to_binary(re:replace("1.2.3.4","\\b(?&byte)(\\.(?&byte)){3}(?(DEFINE)(?<byte>2[0-4]\\d|25[0-5]|1\\d\\d|[1-9]?\\d))","N&Vuwq\\1D&\\1PXO&qg&Y",[global])),
+    <<"gfw">> = iolist_to_binary(re:replace("131.111.10.206","\\b(?&byte)(\\.(?&byte)){3}(?(DEFINE)(?<byte>2[0-4]\\d|25[0-5]|1\\d\\d|[1-9]?\\d))","gfw",[])),
+    <<"gfw">> = iolist_to_binary(re:replace("131.111.10.206","\\b(?&byte)(\\.(?&byte)){3}(?(DEFINE)(?<byte>2[0-4]\\d|25[0-5]|1\\d\\d|[1-9]?\\d))","gfw",[global])),
+    <<"m">> = iolist_to_binary(re:replace("10.0.0.0","\\b(?&byte)(\\.(?&byte)){3}(?(DEFINE)(?<byte>2[0-4]\\d|25[0-5]|1\\d\\d|[1-9]?\\d))","m",[])),
+    <<"m">> = iolist_to_binary(re:replace("10.0.0.0","\\b(?&byte)(\\.(?&byte)){3}(?(DEFINE)(?<byte>2[0-4]\\d|25[0-5]|1\\d\\d|[1-9]?\\d))","m",[global])),
+    <<"10.6">> = iolist_to_binary(re:replace("10.6","\\b(?&byte)(\\.(?&byte)){3}(?(DEFINE)(?<byte>2[0-4]\\d|25[0-5]|1\\d\\d|[1-9]?\\d))","pr\\1hSV&a\\1Tq\\1uk\\1lGQn",[])),
+    <<"10.6">> = iolist_to_binary(re:replace("10.6","\\b(?&byte)(\\.(?&byte)){3}(?(DEFINE)(?<byte>2[0-4]\\d|25[0-5]|1\\d\\d|[1-9]?\\d))","pr\\1hSV&a\\1Tq\\1uk\\1lGQn",[global])),
+    <<"455.3.4.5">> = iolist_to_binary(re:replace("455.3.4.5","\\b(?&byte)(\\.(?&byte)){3}(?(DEFINE)(?<byte>2[0-4]\\d|25[0-5]|1\\d\\d|[1-9]?\\d))","PLu\\1jRBxH&j",[])),
+    <<"455.3.4.5">> = iolist_to_binary(re:replace("455.3.4.5","\\b(?&byte)(\\.(?&byte)){3}(?(DEFINE)(?<byte>2[0-4]\\d|25[0-5]|1\\d\\d|[1-9]?\\d))","PLu\\1jRBxH&j",[global])),
+    <<"partyRonyFdbwnow is the time for all good men to come to the aid of the partypartyUT">> = iolist_to_binary(re:replace("now is the time for all good men to come to the aid of the party","^(\\w++|\\s++)*$","\\1RonyFdbw&\\1UT",[])),
+    <<"partyRonyFdbwnow is the time for all good men to come to the aid of the partypartyUT">> = iolist_to_binary(re:replace("now is the time for all good men to come to the aid of the party","^(\\w++|\\s++)*$","\\1RonyFdbw&\\1UT",[global])),
+    <<"this is not a line with only words and spaces!">> = iolist_to_binary(re:replace("this is not a line with only words and spaces!","^(\\w++|\\s++)*$","L\\1tmF\\1eEu&&hDoqNG",[])),
+    <<"this is not a line with only words and spaces!">> = iolist_to_binary(re:replace("this is not a line with only words and spaces!","^(\\w++|\\s++)*$","L\\1tmF\\1eEu&&hDoqNG",[global])),
+    <<"ks12345">> = iolist_to_binary(re:replace("12345a","(\\d++)(\\w)","ks\\1",[])),
+    <<"ks12345">> = iolist_to_binary(re:replace("12345a","(\\d++)(\\w)","ks\\1",[global])),
+    <<"12345+">> = iolist_to_binary(re:replace("12345+","(\\d++)(\\w)","DNi",[])),
+    <<"12345+">> = iolist_to_binary(re:replace("12345+","(\\d++)(\\w)","DNi",[global])),
+    <<"UoqHQfFfbONSGdk">> = iolist_to_binary(re:replace("aaab","a++b","\\1UoqHQfFf\\1bONSGd\\1k",[])),
+    <<"UoqHQfFfbONSGdk">> = iolist_to_binary(re:replace("aaab","a++b","\\1UoqHQfFf\\1bONSGd\\1k",[global])),
     ok.
 run41() ->
-    <<"aaabccc">> = iolist_to_binary(re:replace("aaabccc","a+b?(*PRUNE)c+(*FAIL)","O\\1",[])),
-    <<"aaabccc">> = iolist_to_binary(re:replace("aaabccc","a+b?(*PRUNE)c+(*FAIL)","O\\1",[global])),
-    <<"aaabccc">> = iolist_to_binary(re:replace("aaabccc","a+b?(*COMMIT)c+(*FAIL)","xSV&oQWsKe&MpG&Q",[])),
-    <<"aaabccc">> = iolist_to_binary(re:replace("aaabccc","a+b?(*COMMIT)c+(*FAIL)","xSV&oQWsKe&MpG&Q",[global])),
-    <<"aaabcccaaabccc">> = iolist_to_binary(re:replace("aaabcccaaabccc","a+b?(*SKIP)c+(*FAIL)","hA&qy\\1nO",[])),
-    <<"aaabcccaaabccc">> = iolist_to_binary(re:replace("aaabcccaaabccc","a+b?(*SKIP)c+(*FAIL)","hA&qy\\1nO",[global])),
-    <<"bboJlolQwgwa">> = iolist_to_binary(re:replace("aaaxxxxxx","^(?:aaa(*THEN)\\w{6}|bbb(*THEN)\\w{5}|ccc(*THEN)\\w{4}|\\w{3})","bbo\\1JlolQ\\1\\1wgwa",[])),
-    <<"bboJlolQwgwa">> = iolist_to_binary(re:replace("aaaxxxxxx","^(?:aaa(*THEN)\\w{6}|bbb(*THEN)\\w{5}|ccc(*THEN)\\w{4}|\\w{3})","bbo\\1JlolQ\\1\\1wgwa",[global])),
-    <<"SrDgaaa++++++">> = iolist_to_binary(re:replace("aaa++++++","^(?:aaa(*THEN)\\w{6}|bbb(*THEN)\\w{5}|ccc(*THEN)\\w{4}|\\w{3})","SrDg&",[])),
-    <<"SrDgaaa++++++">> = iolist_to_binary(re:replace("aaa++++++","^(?:aaa(*THEN)\\w{6}|bbb(*THEN)\\w{5}|ccc(*THEN)\\w{4}|\\w{3})","SrDg&",[global])),
-    <<"abbbxxxxxiFPR">> = iolist_to_binary(re:replace("bbbxxxxx","^(?:aaa(*THEN)\\w{6}|bbb(*THEN)\\w{5}|ccc(*THEN)\\w{4}|\\w{3})","\\1a&iFPR\\1",[])),
-    <<"abbbxxxxxiFPR">> = iolist_to_binary(re:replace("bbbxxxxx","^(?:aaa(*THEN)\\w{6}|bbb(*THEN)\\w{5}|ccc(*THEN)\\w{4}|\\w{3})","\\1a&iFPR\\1",[global])),
-    <<"ubbbQWHjmFmJgqpv+++++">> = iolist_to_binary(re:replace("bbb+++++","^(?:aaa(*THEN)\\w{6}|bbb(*THEN)\\w{5}|ccc(*THEN)\\w{4}|\\w{3})","u&QWHjmFmJgq\\1pv",[])),
-    <<"ubbbQWHjmFmJgqpv+++++">> = iolist_to_binary(re:replace("bbb+++++","^(?:aaa(*THEN)\\w{6}|bbb(*THEN)\\w{5}|ccc(*THEN)\\w{4}|\\w{3})","u&QWHjmFmJgq\\1pv",[global])),
-    <<"tgtbuAeydNDbQksB">> = iolist_to_binary(re:replace("cccxxxx","^(?:aaa(*THEN)\\w{6}|bbb(*THEN)\\w{5}|ccc(*THEN)\\w{4}|\\w{3})","tg\\1tbuAe\\1ydNDbQksB\\1",[])),
-    <<"tgtbuAeydNDbQksB">> = iolist_to_binary(re:replace("cccxxxx","^(?:aaa(*THEN)\\w{6}|bbb(*THEN)\\w{5}|ccc(*THEN)\\w{4}|\\w{3})","tg\\1tbuAe\\1ydNDbQksB\\1",[global])),
-    <<"geoFaKtBOld++++">> = iolist_to_binary(re:replace("ccc++++","^(?:aaa(*THEN)\\w{6}|bbb(*THEN)\\w{5}|ccc(*THEN)\\w{4}|\\w{3})","geoFa\\1K\\1\\1tBOld",[])),
-    <<"geoFaKtBOld++++">> = iolist_to_binary(re:replace("ccc++++","^(?:aaa(*THEN)\\w{6}|bbb(*THEN)\\w{5}|ccc(*THEN)\\w{4}|\\w{3})","geoFa\\1K\\1\\1tBOld",[global])),
-    <<"dddFIQJiJKddddd">> = iolist_to_binary(re:replace("dddddddd","^(?:aaa(*THEN)\\w{6}|bbb(*THEN)\\w{5}|ccc(*THEN)\\w{4}|\\w{3})","&F\\1IQJiJK",[])),
-    <<"dddFIQJiJKddddd">> = iolist_to_binary(re:replace("dddddddd","^(?:aaa(*THEN)\\w{6}|bbb(*THEN)\\w{5}|ccc(*THEN)\\w{4}|\\w{3})","&F\\1IQJiJK",[global])),
-    <<"WWYQaaaxxxxxxCfoaaaxxxxxxaaaxxxxxx">> = iolist_to_binary(re:replace("aaaxxxxxx","^(aaa(*THEN)\\w{6}|bbb(*THEN)\\w{5}|ccc(*THEN)\\w{4}|\\w{3})","WWYQ&Cfo&\\1",[])),
-    <<"WWYQaaaxxxxxxCfoaaaxxxxxxaaaxxxxxx">> = iolist_to_binary(re:replace("aaaxxxxxx","^(aaa(*THEN)\\w{6}|bbb(*THEN)\\w{5}|ccc(*THEN)\\w{4}|\\w{3})","WWYQ&Cfo&\\1",[global])),
-    <<"qaaaDnjOTLaaaaaaOgaaatwATf++++++">> = iolist_to_binary(re:replace("aaa++++++","^(aaa(*THEN)\\w{6}|bbb(*THEN)\\w{5}|ccc(*THEN)\\w{4}|\\w{3})","q\\1DnjOTL\\1&Og\\1twATf",[])),
-    <<"qaaaDnjOTLaaaaaaOgaaatwATf++++++">> = iolist_to_binary(re:replace("aaa++++++","^(aaa(*THEN)\\w{6}|bbb(*THEN)\\w{5}|ccc(*THEN)\\w{4}|\\w{3})","q\\1DnjOTL\\1&Og\\1twATf",[global])),
-    <<"bbbxxxxxbbbxxxxx">> = iolist_to_binary(re:replace("bbbxxxxx","^(aaa(*THEN)\\w{6}|bbb(*THEN)\\w{5}|ccc(*THEN)\\w{4}|\\w{3})","&\\1",[])),
-    <<"bbbxxxxxbbbxxxxx">> = iolist_to_binary(re:replace("bbbxxxxx","^(aaa(*THEN)\\w{6}|bbb(*THEN)\\w{5}|ccc(*THEN)\\w{4}|\\w{3})","&\\1",[global])),
-    <<"bbbmcQybbbbbbbbblXKI+++++">> = iolist_to_binary(re:replace("bbb+++++","^(aaa(*THEN)\\w{6}|bbb(*THEN)\\w{5}|ccc(*THEN)\\w{4}|\\w{3})","\\1mcQy\\1\\1\\1lXKI",[])),
-    <<"bbbmcQybbbbbbbbblXKI+++++">> = iolist_to_binary(re:replace("bbb+++++","^(aaa(*THEN)\\w{6}|bbb(*THEN)\\w{5}|ccc(*THEN)\\w{4}|\\w{3})","\\1mcQy\\1\\1\\1lXKI",[global])),
-    <<"yLoVOOvXcccxxxxMsmpqoJcccxxxxL">> = iolist_to_binary(re:replace("cccxxxx","^(aaa(*THEN)\\w{6}|bbb(*THEN)\\w{5}|ccc(*THEN)\\w{4}|\\w{3})","yLoVOOvX&MsmpqoJ\\1L",[])),
-    <<"yLoVOOvXcccxxxxMsmpqoJcccxxxxL">> = iolist_to_binary(re:replace("cccxxxx","^(aaa(*THEN)\\w{6}|bbb(*THEN)\\w{5}|ccc(*THEN)\\w{4}|\\w{3})","yLoVOOvX&MsmpqoJ\\1L",[global])),
-    <<"ccccccX++++">> = iolist_to_binary(re:replace("ccc++++","^(aaa(*THEN)\\w{6}|bbb(*THEN)\\w{5}|ccc(*THEN)\\w{4}|\\w{3})","\\1\\1X",[])),
-    <<"ccccccX++++">> = iolist_to_binary(re:replace("ccc++++","^(aaa(*THEN)\\w{6}|bbb(*THEN)\\w{5}|ccc(*THEN)\\w{4}|\\w{3})","\\1\\1X",[global])),
-    <<"UdddxAdddPsdeOWUaeddddddYnaddddd">> = iolist_to_binary(re:replace("dddddddd","^(aaa(*THEN)\\w{6}|bbb(*THEN)\\w{5}|ccc(*THEN)\\w{4}|\\w{3})","U&xA\\1PsdeOWUae&&Yna",[])),
-    <<"UdddxAdddPsdeOWUaeddddddYnaddddd">> = iolist_to_binary(re:replace("dddddddd","^(aaa(*THEN)\\w{6}|bbb(*THEN)\\w{5}|ccc(*THEN)\\w{4}|\\w{3})","U&xA\\1PsdeOWUae&&Yna",[global])),
-    <<"aaabccc">> = iolist_to_binary(re:replace("aaabccc","a+b?(*THEN)c+(*FAIL)","QIBuirGXrn",[])),
-    <<"aaabccc">> = iolist_to_binary(re:replace("aaabccc","a+b?(*THEN)c+(*FAIL)","QIBuirGXrn",[global])),
-    <<"ABwABDHBgVdwqBlABi">> = iolist_to_binary(re:replace("AB","(A (A|B(*ACCEPT)|C) D)(E)","\\1w&DHBgVdwqBl&i",[extended])),
-    <<"ABwABDHBgVdwqBlABi">> = iolist_to_binary(re:replace("AB","(A (A|B(*ACCEPT)|C) D)(E)","\\1w&DHBgVdwqBl&i",[extended,global])),
-    <<"bMxABcDhNdGOtJIJBuCaABX">> = iolist_to_binary(re:replace("ABX","(A (A|B(*ACCEPT)|C) D)(E)","bMx\\1cDhNdGOtJIJBuCa&",[extended])),
-    <<"bMxABcDhNdGOtJIJBuCaABX">> = iolist_to_binary(re:replace("ABX","(A (A|B(*ACCEPT)|C) D)(E)","bMx\\1cDhNdGOtJIJBuCa&",[extended,global])),
-    <<"nnHoUAADEAADCMWtr">> = iolist_to_binary(re:replace("AADE","(A (A|B(*ACCEPT)|C) D)(E)","nnHoU&\\1CMWtr",[extended])),
-    <<"nnHoUAADEAADCMWtr">> = iolist_to_binary(re:replace("AADE","(A (A|B(*ACCEPT)|C) D)(E)","nnHoU&\\1CMWtr",[extended,global])),
-    <<"PXACDACDRohlV">> = iolist_to_binary(re:replace("ACDE","(A (A|B(*ACCEPT)|C) D)(E)","PX\\1\\1RohlV",[extended])),
-    <<"PXACDACDRohlV">> = iolist_to_binary(re:replace("ACDE","(A (A|B(*ACCEPT)|C) D)(E)","PX\\1\\1RohlV",[extended,global])),
-    <<"AD">> = iolist_to_binary(re:replace("AD","(A (A|B(*ACCEPT)|C) D)(E)","&&qn",[extended])),
-    <<"AD">> = iolist_to_binary(re:replace("AD","(A (A|B(*ACCEPT)|C) D)(E)","&&qn",[extended,global])),
-    <<"rFmutN1221bLVE1221r1221Id">> = iolist_to_binary(re:replace("1221","^\\W*+(?:((.)\\W*+(?1)\\W*+\\2|)|((.)\\W*+(?3)\\W*+\\4|\\W*+.\\W*+))\\W*+$","rFmutN\\1bLVE\\1r&Id",[caseless])),
-    <<"rFmutN1221bLVE1221r1221Id">> = iolist_to_binary(re:replace("1221","^\\W*+(?:((.)\\W*+(?1)\\W*+\\2|)|((.)\\W*+(?3)\\W*+\\4|\\W*+.\\W*+))\\W*+$","rFmutN\\1bLVE\\1r&Id",[caseless,global])),
-    <<"uGFSatan, oscillate my metallic sonatas!mOYW">> = iolist_to_binary(re:replace("Satan, oscillate my metallic sonatas!","^\\W*+(?:((.)\\W*+(?1)\\W*+\\2|)|((.)\\W*+(?3)\\W*+\\4|\\W*+.\\W*+))\\W*+$","uGF&mOYW",[caseless])),
-    <<"uGFSatan, oscillate my metallic sonatas!mOYW">> = iolist_to_binary(re:replace("Satan, oscillate my metallic sonatas!","^\\W*+(?:((.)\\W*+(?1)\\W*+\\2|)|((.)\\W*+(?3)\\W*+\\4|\\W*+.\\W*+))\\W*+$","uGF&mOYW",[caseless,global])),
-    <<"LwwyNOhXnA man, a plan, a canal: Panama!P">> = iolist_to_binary(re:replace("A man, a plan, a canal: Panama!","^\\W*+(?:((.)\\W*+(?1)\\W*+\\2|)|((.)\\W*+(?3)\\W*+\\4|\\W*+.\\W*+))\\W*+$","L\\1wwyNOhXn&P",[caseless])),
-    <<"LwwyNOhXnA man, a plan, a canal: Panama!P">> = iolist_to_binary(re:replace("A man, a plan, a canal: Panama!","^\\W*+(?:((.)\\W*+(?1)\\W*+\\2|)|((.)\\W*+(?3)\\W*+\\4|\\W*+.\\W*+))\\W*+$","L\\1wwyNOhXn&P",[caseless,global])),
-    <<"asLUhduQyB">> = iolist_to_binary(re:replace("Able was I ere I saw Elba.","^\\W*+(?:((.)\\W*+(?1)\\W*+\\2|)|((.)\\W*+(?3)\\W*+\\4|\\W*+.\\W*+))\\W*+$","asLUhdu\\1Q\\1yB",[caseless])),
-    <<"asLUhduQyB">> = iolist_to_binary(re:replace("Able was I ere I saw Elba.","^\\W*+(?:((.)\\W*+(?1)\\W*+\\2|)|((.)\\W*+(?3)\\W*+\\4|\\W*+.\\W*+))\\W*+$","asLUhdu\\1Q\\1yB",[caseless,global])),
-    <<"The quick brown fox">> = iolist_to_binary(re:replace("The quick brown fox","^\\W*+(?:((.)\\W*+(?1)\\W*+\\2|)|((.)\\W*+(?3)\\W*+\\4|\\W*+.\\W*+))\\W*+$","fiC\\1&h&\\1TxFpRPHS",[caseless])),
-    <<"The quick brown fox">> = iolist_to_binary(re:replace("The quick brown fox","^\\W*+(?:((.)\\W*+(?1)\\W*+\\2|)|((.)\\W*+(?3)\\W*+\\4|\\W*+.\\W*+))\\W*+$","fiC\\1&h&\\1TxFpRPHS",[caseless,global])),
-    <<"aRMNILOaxXakxRwpa">> = iolist_to_binary(re:replace("a","^((.)(?1)\\2|.)$","\\1RMNILO&xX\\1kxRwp\\1",[])),
-    <<"aRMNILOaxXakxRwpa">> = iolist_to_binary(re:replace("a","^((.)(?1)\\2|.)$","\\1RMNILO&xX\\1kxRwp\\1",[global])),
-    <<"vAGipJabaW">> = iolist_to_binary(re:replace("aba","^((.)(?1)\\2|.)$","vAGipJ&W",[])),
-    <<"vAGipJabaW">> = iolist_to_binary(re:replace("aba","^((.)(?1)\\2|.)$","vAGipJ&W",[global])),
-    <<"eaabaaknraabaahbVaabaaOaabaaaabaaUlbPhaabaa">> = iolist_to_binary(re:replace("aabaa","^((.)(?1)\\2|.)$","e&knr\\1hbV\\1O\\1\\1UlbPh&",[])),
-    <<"eaabaaknraabaahbVaabaaOaabaaaabaaUlbPhaabaa">> = iolist_to_binary(re:replace("aabaa","^((.)(?1)\\2|.)$","e&knr\\1hbV\\1O\\1\\1UlbPh&",[global])),
-    <<"oYabcdcba">> = iolist_to_binary(re:replace("abcdcba","^((.)(?1)\\2|.)$","oY\\1",[])),
-    <<"oYabcdcba">> = iolist_to_binary(re:replace("abcdcba","^((.)(?1)\\2|.)$","oY\\1",[global])),
-    <<"nMN">> = iolist_to_binary(re:replace("pqaabaaqp","^((.)(?1)\\2|.)$","nMN",[])),
-    <<"nMN">> = iolist_to_binary(re:replace("pqaabaaqp","^((.)(?1)\\2|.)$","nMN",[global])),
-    <<"ablewasiereisawelbauhYablewasiereisawelbaqCJYVNVkjablewasiereisawelbaTafan">> = iolist_to_binary(re:replace("ablewasiereisawelba","^((.)(?1)\\2|.)$","&uhY\\1qCJYVNVkj\\1Tafan",[])),
-    <<"ablewasiereisawelbauhYablewasiereisawelbaqCJYVNVkjablewasiereisawelbaTafan">> = iolist_to_binary(re:replace("ablewasiereisawelba","^((.)(?1)\\2|.)$","&uhY\\1qCJYVNVkj\\1Tafan",[global])),
-    <<"rhubarb">> = iolist_to_binary(re:replace("rhubarb","^((.)(?1)\\2|.)$","WLa\\1",[])),
-    <<"rhubarb">> = iolist_to_binary(re:replace("rhubarb","^((.)(?1)\\2|.)$","WLa\\1",[global])),
-    <<"the quick brown fox">> = iolist_to_binary(re:replace("the quick brown fox","^((.)(?1)\\2|.)$","kAbCkN\\1XOTPWkPh",[])),
-    <<"the quick brown fox">> = iolist_to_binary(re:replace("the quick brown fox","^((.)(?1)\\2|.)$","kAbCkN\\1XOTPWkPh",[global])),
-    <<"baLHRWavSiGapKPez">> = iolist_to_binary(re:replace("baz","(a)(?<=b(?1))","&LHRW\\1vSiG&pKPe",[])),
-    <<"baLHRWavSiGapKPez">> = iolist_to_binary(re:replace("baz","(a)(?<=b(?1))","&LHRW\\1vSiG&pKPe",[global])),
-    <<"caz">> = iolist_to_binary(re:replace("caz","(a)(?<=b(?1))","FPw&\\1SGgbdRnHYs&\\1G\\1",[])),
-    <<"caz">> = iolist_to_binary(re:replace("caz","(a)(?<=b(?1))","FPw&\\1SGgbdRnHYs&\\1G\\1",[global])),
-    <<"zbaaz">> = iolist_to_binary(re:replace("zbaaz","(?<=b(?1))(a)","\\1",[])),
-    <<"zbaaz">> = iolist_to_binary(re:replace("zbaaz","(?<=b(?1))(a)","\\1",[global])),
-    <<"aaa">> = iolist_to_binary(re:replace("aaa","(?<=b(?1))(a)","rw\\1r\\1XcjPY",[])),
-    <<"aaa">> = iolist_to_binary(re:replace("aaa","(?<=b(?1))(a)","rw\\1r\\1XcjPY",[global])),
-    <<"baEbhbaaz">> = iolist_to_binary(re:replace("baz","(?<X>a)(?<=b(?&X))","&Ebhb\\1&",[])),
-    <<"baEbhbaaz">> = iolist_to_binary(re:replace("baz","(?<X>a)(?<=b(?&X))","&Ebhb\\1&",[global])),
-    <<"vUGseV">> = iolist_to_binary(re:replace("abcabc","^(?|(abc)|(def))\\1","vUGseV",[])),
-    <<"vUGseV">> = iolist_to_binary(re:replace("abcabc","^(?|(abc)|(def))\\1","vUGseV",[global])),
-    <<"pdefdefIMIKmldefdefOdefdefE">> = iolist_to_binary(re:replace("defdef","^(?|(abc)|(def))\\1","p\\1\\1IMIKml&O&E",[])),
-    <<"pdefdefIMIKmldefdefOdefdefE">> = iolist_to_binary(re:replace("defdef","^(?|(abc)|(def))\\1","p\\1\\1IMIKml&O&E",[global])),
-    <<"abcdef">> = iolist_to_binary(re:replace("abcdef","^(?|(abc)|(def))\\1","x\\1",[])),
-    <<"abcdef">> = iolist_to_binary(re:replace("abcdef","^(?|(abc)|(def))\\1","x\\1",[global])),
-    <<"defabc">> = iolist_to_binary(re:replace("defabc","^(?|(abc)|(def))\\1","Y\\1KYtfghC",[])),
-    <<"defabc">> = iolist_to_binary(re:replace("defabc","^(?|(abc)|(def))\\1","Y\\1KYtfghC",[global])),
-    <<"CjJxtxeRkNqWb">> = iolist_to_binary(re:replace("abcabc","^(?|(abc)|(def))(?1)","CjJxtxeRkNqWb",[])),
-    <<"CjJxtxeRkNqWb">> = iolist_to_binary(re:replace("abcabc","^(?|(abc)|(def))(?1)","CjJxtxeRkNqWb",[global])),
-    <<"defTdefabcIdefdefUFIhNdefabcdefa">> = iolist_to_binary(re:replace("defabc","^(?|(abc)|(def))(?1)","\\1T&I\\1\\1UFIhN&\\1a",[])),
-    <<"defTdefabcIdefdefUFIhNdefabcdefa">> = iolist_to_binary(re:replace("defabc","^(?|(abc)|(def))(?1)","\\1T&I\\1\\1UFIhN&\\1a",[global])),
-    <<"defdef">> = iolist_to_binary(re:replace("defdef","^(?|(abc)|(def))(?1)","Tt&N",[])),
-    <<"defdef">> = iolist_to_binary(re:replace("defdef","^(?|(abc)|(def))(?1)","Tt&N",[global])),
-    <<"abcdef">> = iolist_to_binary(re:replace("abcdef","^(?|(abc)|(def))(?1)","&kPyHlRCnbcTx&oIkg&P",[])),
-    <<"abcdef">> = iolist_to_binary(re:replace("abcdef","^(?|(abc)|(def))(?1)","&kPyHlRCnbcTx&oIkg&P",[global])),
-    <<"AaCBCpoCxCfpsCeXfNhGD">> = iolist_to_binary(re:replace("ABCD","(?:(?1)|B)(A(*F)|C)","a\\1&po\\1x\\1fps\\1eXfNhG",[])),
-    <<"AaCBCpoCxCfpsCeXfNhGD">> = iolist_to_binary(re:replace("ABCD","(?:(?1)|B)(A(*F)|C)","a\\1&po\\1x\\1fps\\1eXfNhG",[global])),
-    <<"gfCCfFQYBVbwmD">> = iolist_to_binary(re:replace("CCD","(?:(?1)|B)(A(*F)|C)","gf&fFQYBVbwm",[])),
-    <<"gfCCfFQYBVbwmD">> = iolist_to_binary(re:replace("CCD","(?:(?1)|B)(A(*F)|C)","gf&fFQYBVbwm",[global])),
-    <<"CAD">> = iolist_to_binary(re:replace("CAD","(?:(?1)|B)(A(*F)|C)","ehBuh&q\\1\\1mV\\1s\\1&Wt&g",[])),
-    <<"CAD">> = iolist_to_binary(re:replace("CAD","(?:(?1)|B)(A(*F)|C)","ehBuh&q\\1\\1mV\\1s\\1&Wt&g",[global])),
-    <<"QD">> = iolist_to_binary(re:replace("CCD","^(?:(?1)|B)(A(*F)|C)","Q",[])),
-    <<"QD">> = iolist_to_binary(re:replace("CCD","^(?:(?1)|B)(A(*F)|C)","Q",[global])),
-    <<"CyFHgvqCLgSIvMD">> = iolist_to_binary(re:replace("BCD","^(?:(?1)|B)(A(*F)|C)","\\1yFHgvq\\1LgSIvM",[])),
-    <<"CyFHgvqCLgSIvMD">> = iolist_to_binary(re:replace("BCD","^(?:(?1)|B)(A(*F)|C)","\\1yFHgvq\\1LgSIvM",[global])),
-    <<"ABCD">> = iolist_to_binary(re:replace("ABCD","^(?:(?1)|B)(A(*F)|C)","\\1DLEECoGfL&tOKBYRuEP",[])),
-    <<"ABCD">> = iolist_to_binary(re:replace("ABCD","^(?:(?1)|B)(A(*F)|C)","\\1DLEECoGfL&tOKBYRuEP",[global])),
-    <<"CAD">> = iolist_to_binary(re:replace("CAD","^(?:(?1)|B)(A(*F)|C)","UeRrup\\1r\\1&Ly\\1Gd&OBlH",[])),
-    <<"CAD">> = iolist_to_binary(re:replace("CAD","^(?:(?1)|B)(A(*F)|C)","UeRrup\\1r\\1&Ly\\1Gd&OBlH",[global])),
-    <<"BAD">> = iolist_to_binary(re:replace("BAD","^(?:(?1)|B)(A(*F)|C)","mqfmU",[])),
-    <<"BAD">> = iolist_to_binary(re:replace("BAD","^(?:(?1)|B)(A(*F)|C)","mqfmU",[global])),
-    <<"jD">> = iolist_to_binary(re:replace("AAD","(?:(?1)|B)(A(*ACCEPT)XX|C)D","j",[])),
-    <<"jD">> = iolist_to_binary(re:replace("AAD","(?:(?1)|B)(A(*ACCEPT)XX|C)D","j",[global])),
-    <<"mCACDGm">> = iolist_to_binary(re:replace("ACD","(?:(?1)|B)(A(*ACCEPT)XX|C)D","m\\1&Gm",[])),
-    <<"mCACDGm">> = iolist_to_binary(re:replace("ACD","(?:(?1)|B)(A(*ACCEPT)XX|C)D","m\\1&Gm",[global])),
-    <<"VQBAqcD">> = iolist_to_binary(re:replace("BAD","(?:(?1)|B)(A(*ACCEPT)XX|C)D","VQ&qc",[])),
-    <<"VQBAqcD">> = iolist_to_binary(re:replace("BAD","(?:(?1)|B)(A(*ACCEPT)XX|C)D","VQ&qc",[global])),
-    <<"PuyLdBCDsxAquBCDIQCCeUSo">> = iolist_to_binary(re:replace("BCD","(?:(?1)|B)(A(*ACCEPT)XX|C)D","PuyLd&sxAqu&IQ\\1\\1eUSo",[])),
-    <<"PuyLdBCDsxAquBCDIQCCeUSo">> = iolist_to_binary(re:replace("BCD","(?:(?1)|B)(A(*ACCEPT)XX|C)D","PuyLd&sxAqu&IQ\\1\\1eUSo",[global])),
-    <<"PfBAaRX">> = iolist_to_binary(re:replace("BAX","(?:(?1)|B)(A(*ACCEPT)XX|C)D","Pf&aR",[])),
-    <<"PfBAaRX">> = iolist_to_binary(re:replace("BAX","(?:(?1)|B)(A(*ACCEPT)XX|C)D","Pf&aR",[global])),
-    <<"ACX">> = iolist_to_binary(re:replace("ACX","(?:(?1)|B)(A(*ACCEPT)XX|C)D","&FJaBfLkq&LOtea",[])),
-    <<"ACX">> = iolist_to_binary(re:replace("ACX","(?:(?1)|B)(A(*ACCEPT)XX|C)D","&FJaBfLkq&LOtea",[global])),
-    <<"ABC">> = iolist_to_binary(re:replace("ABC","(?:(?1)|B)(A(*ACCEPT)XX|C)D","\\1G&sLawsVtb\\1",[])),
-    <<"ABC">> = iolist_to_binary(re:replace("ABC","(?:(?1)|B)(A(*ACCEPT)XX|C)D","\\1G&sLawsVtb\\1",[global])),
-    <<"BACBACoiIuBACXBACrcbxYvQLU">> = iolist_to_binary(re:replace("BAC","(?(DEFINE)(A))B(?1)C","&&oiIu&X\\1&r\\1cbxYvQLU",[])),
-    <<"BACBACoiIuBACXBACrcbxYvQLU">> = iolist_to_binary(re:replace("BAC","(?(DEFINE)(A))B(?1)C","&&oiIu&X\\1&r\\1cbxYvQLU",[global])),
-    <<"Gg">> = iolist_to_binary(re:replace("BAAC","(?(DEFINE)((A)\\2))B(?1)C","\\1Gg",[])),
-    <<"Gg">> = iolist_to_binary(re:replace("BAAC","(?(DEFINE)((A)\\2))B(?1)C","\\1Gg",[global])),
+    <<"eMWvaaabQMxjJLaaabv">> = iolist_to_binary(re:replace("aaab","(a++b)","eMWv&QMxjJL&v",[])),
+    <<"eMWvaaabQMxjJLaaabv">> = iolist_to_binary(re:replace("aaab","(a++b)","eMWv&QMxjJL&v",[global])),
+    <<"sDaaatJKXaaabbIaaaVaaaQesK">> = iolist_to_binary(re:replace("aaab","(a++)b","sD\\1tJKX&bI\\1V\\1QesK",[])),
+    <<"sDaaatJKXaaabbIaaaVaaaQesK">> = iolist_to_binary(re:replace("aaab","(a++)b","sD\\1tJKX&bI\\1V\\1QesK",[global])),
+    <<"((phuiWK">> = iolist_to_binary(re:replace("((abc(ade)ufh()()x","([^()]++|\\([^()]*\\))+","phuiWK",[])),
+    <<"((phuiWK">> = iolist_to_binary(re:replace("((abc(ade)ufh()()x","([^()]++|\\([^()]*\\))+","phuiWK",[global])),
+    <<"e(abc)EpaabcKAPDabc(abc)M(abc)">> = iolist_to_binary(re:replace("(abc)","\\(([^()]++|\\([^()]+\\))+\\)","e&Epa\\1KAPD\\1&M&",[])),
+    <<"e(abc)EpaabcKAPDabc(abc)M(abc)">> = iolist_to_binary(re:replace("(abc)","\\(([^()]++|\\([^()]+\\))+\\)","e&Epa\\1KAPD\\1&M&",[global])),
+    <<"VKXxyzwWoyOhQtKxyztmxyz">> = iolist_to_binary(re:replace("(abc(def)xyz)","\\(([^()]++|\\([^()]+\\))+\\)","VKX\\1wWoyOhQtK\\1tm\\1",[])),
+    <<"VKXxyzwWoyOhQtKxyztmxyz">> = iolist_to_binary(re:replace("(abc(def)xyz)","\\(([^()]++|\\([^()]+\\))+\\)","VKX\\1wWoyOhQtK\\1tm\\1",[global])),
+    <<"((()aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa">> = iolist_to_binary(re:replace("((()aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","\\(([^()]++|\\([^()]+\\))+\\)","tPRweiQ",[])),
+    <<"((()aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa">> = iolist_to_binary(re:replace("((()aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","\\(([^()]++|\\([^()]+\\))+\\)","tPRweiQ",[global])),
+    <<"n">> = iolist_to_binary(re:replace("abc","^([^()]|\\((?1)*\\))*$","n",[])),
+    <<"n">> = iolist_to_binary(re:replace("abc","^([^()]|\\((?1)*\\))*$","n",[global])),
+    <<"bI">> = iolist_to_binary(re:replace("a(b)c","^([^()]|\\((?1)*\\))*$","bI",[])),
+    <<"bI">> = iolist_to_binary(re:replace("a(b)c","^([^()]|\\((?1)*\\))*$","bI",[global])),
+    <<"Ga(b(c))dDde">> = iolist_to_binary(re:replace("a(b(c))d","^([^()]|\\((?1)*\\))*$","G&D\\1e",[])),
+    <<"Ga(b(c))dDde">> = iolist_to_binary(re:replace("a(b(c))d","^([^()]|\\((?1)*\\))*$","G&D\\1e",[global])),
+    <<"a(b(c)d">> = iolist_to_binary(re:replace("a(b(c)d","^([^()]|\\((?1)*\\))*$","OV",[])),
+    <<"a(b(c)d">> = iolist_to_binary(re:replace("a(b(c)d","^([^()]|\\((?1)*\\))*$","OV",[global])),
+    <<"Xhjf3K>abc>123<xyz<ReHa>abc>123<xyz<NM3Sf">> = iolist_to_binary(re:replace(">abc>123<xyz<","^>abc>([^()]|\\((?1)*\\))*<xyz<$","Xhjf\\1K&ReHa&NM\\1Sf",[])),
+    <<"Xhjf3K>abc>123<xyz<ReHa>abc>123<xyz<NM3Sf">> = iolist_to_binary(re:replace(">abc>123<xyz<","^>abc>([^()]|\\((?1)*\\))*<xyz<$","Xhjf\\1K&ReHa&NM\\1Sf",[global])),
+    <<"SbOGt>abc>1(2)3<xyz<K">> = iolist_to_binary(re:replace(">abc>1(2)3<xyz<","^>abc>([^()]|\\((?1)*\\))*<xyz<$","SbOGt&K",[])),
+    <<"SbOGt>abc>1(2)3<xyz<K">> = iolist_to_binary(re:replace(">abc>1(2)3<xyz<","^>abc>([^()]|\\((?1)*\\))*<xyz<$","SbOGt&K",[global])),
+    <<"(1(2)3)x(1(2)3)Jrtco">> = iolist_to_binary(re:replace(">abc>(1(2)3)<xyz<","^>abc>([^()]|\\((?1)*\\))*<xyz<$","\\1x\\1Jrtco",[])),
+    <<"(1(2)3)x(1(2)3)Jrtco">> = iolist_to_binary(re:replace(">abc>(1(2)3)<xyz<","^>abc>([^()]|\\((?1)*\\))*<xyz<$","\\1x\\1Jrtco",[global])),
+    <<"Y12211221Fq12211221Lb12211221T12211221122112211221T">> = iolist_to_binary(re:replace("1221","^(?:((.)(?1)\\2|)|((.)(?3)\\4|.))$","Y\\1\\1Fq&&Lb&&T&\\1&\\1\\1T",[caseless])),
+    <<"Y12211221Fq12211221Lb12211221T12211221122112211221T">> = iolist_to_binary(re:replace("1221","^(?:((.)(?1)\\2|)|((.)(?3)\\4|.))$","Y\\1\\1Fq&&Lb&&T&\\1&\\1\\1T",[caseless,global])),
+    <<"ucWrNuavax">> = iolist_to_binary(re:replace("Satanoscillatemymetallicsonatas","^(?:((.)(?1)\\2|)|((.)(?3)\\4|.))$","ucWrNuavax",[caseless])),
+    <<"ucWrNuavax">> = iolist_to_binary(re:replace("Satanoscillatemymetallicsonatas","^(?:((.)(?1)\\2|)|((.)(?3)\\4|.))$","ucWrNuavax",[caseless,global])),
+    <<"icfCEEAmanaplanacanalPanamaitOwcwAmanaplanacanalPanamaBF">> = iolist_to_binary(re:replace("AmanaplanacanalPanama","^(?:((.)(?1)\\2|)|((.)(?3)\\4|.))$","i\\1cf\\1CEE&\\1itOwcw&BF",[caseless])),
+    <<"icfCEEAmanaplanacanalPanamaitOwcwAmanaplanacanalPanamaBF">> = iolist_to_binary(re:replace("AmanaplanacanalPanama","^(?:((.)(?1)\\2|)|((.)(?3)\\4|.))$","i\\1cf\\1CEE&\\1itOwcw&BF",[caseless,global])),
+    <<"WvhbrstiFWO">> = iolist_to_binary(re:replace("AblewasIereIsawElba","^(?:((.)(?1)\\2|)|((.)(?3)\\4|.))$","Wv\\1hbrstiFWO",[caseless])),
+    <<"WvhbrstiFWO">> = iolist_to_binary(re:replace("AblewasIereIsawElba","^(?:((.)(?1)\\2|)|((.)(?3)\\4|.))$","Wv\\1hbrstiFWO",[caseless,global])),
+    <<"Thequickbrownfox">> = iolist_to_binary(re:replace("Thequickbrownfox","^(?:((.)(?1)\\2|)|((.)(?3)\\4|.))$","UhNS&\\1\\1",[caseless])),
+    <<"Thequickbrownfox">> = iolist_to_binary(re:replace("Thequickbrownfox","^(?:((.)(?1)\\2|)|((.)(?3)\\4|.))$","UhNS&\\1\\1",[caseless,global])),
+    <<"12FEgUNUkGWxyqops1212">> = iolist_to_binary(re:replace("12","^(\\d+|\\((?1)([+*-])(?1)\\)|-(?1))$","\\1FEgUNUkGWxyqops&\\1",[])),
+    <<"12FEgUNUkGWxyqops1212">> = iolist_to_binary(re:replace("12","^(\\d+|\\((?1)([+*-])(?1)\\)|-(?1))$","\\1FEgUNUkGWxyqops&\\1",[global])),
+    <<"O(((2+2)*-3)-7)">> = iolist_to_binary(re:replace("(((2+2)*-3)-7)","^(\\d+|\\((?1)([+*-])(?1)\\)|-(?1))$","O\\1",[])),
+    <<"O(((2+2)*-3)-7)">> = iolist_to_binary(re:replace("(((2+2)*-3)-7)","^(\\d+|\\((?1)([+*-])(?1)\\)|-(?1))$","O\\1",[global])),
+    <<"xSV-12oQWsKe-12MpG-12Q">> = iolist_to_binary(re:replace("-12","^(\\d+|\\((?1)([+*-])(?1)\\)|-(?1))$","xSV&oQWsKe&MpG&Q",[])),
+    <<"xSV-12oQWsKe-12MpG-12Q">> = iolist_to_binary(re:replace("-12","^(\\d+|\\((?1)([+*-])(?1)\\)|-(?1))$","xSV&oQWsKe&MpG&Q",[global])),
+    <<"((2+2)*-3)-7)">> = iolist_to_binary(re:replace("((2+2)*-3)-7)","^(\\d+|\\((?1)([+*-])(?1)\\)|-(?1))$","hA&qy\\1nO",[])),
+    <<"((2+2)*-3)-7)">> = iolist_to_binary(re:replace("((2+2)*-3)-7)","^(\\d+|\\((?1)([+*-])(?1)\\)|-(?1))$","hA&qy\\1nO",[global])),
+    <<"bboxyzJlolQxyzxyzwgwa">> = iolist_to_binary(re:replace("xyz","^(x(y|(?1){2})z)","bbo\\1JlolQ\\1\\1wgwa",[])),
+    <<"bboxyzJlolQxyzxyzwgwa">> = iolist_to_binary(re:replace("xyz","^(x(y|(?1){2})z)","bbo\\1JlolQ\\1\\1wgwa",[global])),
+    <<"SrDgxxyzxyzz">> = iolist_to_binary(re:replace("xxyzxyzz","^(x(y|(?1){2})z)","SrDg&",[])),
+    <<"SrDgxxyzxyzz">> = iolist_to_binary(re:replace("xxyzxyzz","^(x(y|(?1){2})z)","SrDg&",[global])),
+    <<"xxyzz">> = iolist_to_binary(re:replace("xxyzz","^(x(y|(?1){2})z)","\\1a&iFPR\\1",[])),
+    <<"xxyzz">> = iolist_to_binary(re:replace("xxyzz","^(x(y|(?1){2})z)","\\1a&iFPR\\1",[global])),
+    <<"xxyzxyzxyzz">> = iolist_to_binary(re:replace("xxyzxyzxyzz","^(x(y|(?1){2})z)","u&QWHjmFmJgq\\1pv",[])),
+    <<"xxyzxyzxyzz">> = iolist_to_binary(re:replace("xxyzxyzxyzz","^(x(y|(?1){2})z)","u&QWHjmFmJgq\\1pv",[global])),
+    <<"tg<>tbuAe<>ydNDbQksB<>">> = iolist_to_binary(re:replace("<>","((< (?: (?(R) \\d++  | [^<>]*+) | (?2)) * >))","tg\\1tbuAe\\1ydNDbQksB\\1",[extended])),
+    <<"tg<>tbuAe<>ydNDbQksB<>">> = iolist_to_binary(re:replace("<>","((< (?: (?(R) \\d++  | [^<>]*+) | (?2)) * >))","tg\\1tbuAe\\1ydNDbQksB\\1",[extended,global])),
+    <<"geoFa<abcd>K<abcd><abcd>tBOld">> = iolist_to_binary(re:replace("<abcd>","((< (?: (?(R) \\d++  | [^<>]*+) | (?2)) * >))","geoFa\\1K\\1\\1tBOld",[extended])),
+    <<"geoFa<abcd>K<abcd><abcd>tBOld">> = iolist_to_binary(re:replace("<abcd>","((< (?: (?(R) \\d++  | [^<>]*+) | (?2)) * >))","geoFa\\1K\\1\\1tBOld",[extended,global])),
+    <<"<abc <123> hij>F<abc <123> hij>IQJiJK">> = iolist_to_binary(re:replace("<abc <123> hij>","((< (?: (?(R) \\d++  | [^<>]*+) | (?2)) * >))","&F\\1IQJiJK",[extended])),
+    <<"<abc <123> hij>F<abc <123> hij>IQJiJK">> = iolist_to_binary(re:replace("<abc <123> hij>","((< (?: (?(R) \\d++  | [^<>]*+) | (?2)) * >))","&F\\1IQJiJK",[extended,global])),
+    <<"<abc WWYQ<def>Cfo<def><def> hij>">> = iolist_to_binary(re:replace("<abc <def> hij>","((< (?: (?(R) \\d++  | [^<>]*+) | (?2)) * >))","WWYQ&Cfo&\\1",[extended])),
+    <<"<abc WWYQ<def>Cfo<def><def> hij>">> = iolist_to_binary(re:replace("<abc <def> hij>","((< (?: (?(R) \\d++  | [^<>]*+) | (?2)) * >))","WWYQ&Cfo&\\1",[extended,global])),
+    <<"q<abc<>def>DnjOTL<abc<>def><abc<>def>Og<abc<>def>twATf">> = iolist_to_binary(re:replace("<abc<>def>","((< (?: (?(R) \\d++  | [^<>]*+) | (?2)) * >))","q\\1DnjOTL\\1&Og\\1twATf",[extended])),
+    <<"q<abc<>def>DnjOTL<abc<>def><abc<>def>Og<abc<>def>twATf">> = iolist_to_binary(re:replace("<abc<>def>","((< (?: (?(R) \\d++  | [^<>]*+) | (?2)) * >))","q\\1DnjOTL\\1&Og\\1twATf",[extended,global])),
+    <<"<abc<><>">> = iolist_to_binary(re:replace("<abc<>","((< (?: (?(R) \\d++  | [^<>]*+) | (?2)) * >))","&\\1",[extended])),
+    <<"<abc<><>">> = iolist_to_binary(re:replace("<abc<>","((< (?: (?(R) \\d++  | [^<>]*+) | (?2)) * >))","&\\1",[extended,global])),
+    <<"<abc">> = iolist_to_binary(re:replace("<abc","((< (?: (?(R) \\d++  | [^<>]*+) | (?2)) * >))","\\1mcQy\\1\\1\\1lXKI",[extended])),
+    <<"<abc">> = iolist_to_binary(re:replace("<abc","((< (?: (?(R) \\d++  | [^<>]*+) | (?2)) * >))","\\1mcQy\\1\\1\\1lXKI",[extended,global])),
+    <<"aaaaaa">> = iolist_to_binary(re:replace("aaaaaa","^a+(*FAIL)","yLoVOOvX&MsmpqoJ\\1L",[])),
+    <<"aaaaaa">> = iolist_to_binary(re:replace("aaaaaa","^a+(*FAIL)","yLoVOOvX&MsmpqoJ\\1L",[global])),
+    <<"aaabccc">> = iolist_to_binary(re:replace("aaabccc","a+b?c+(*FAIL)","\\1\\1X",[])),
+    <<"aaabccc">> = iolist_to_binary(re:replace("aaabccc","a+b?c+(*FAIL)","\\1\\1X",[global])),
+    <<"aaabccc">> = iolist_to_binary(re:replace("aaabccc","a+b?(*PRUNE)c+(*FAIL)","U&xA\\1PsdeOWUae&&Yna",[])),
+    <<"aaabccc">> = iolist_to_binary(re:replace("aaabccc","a+b?(*PRUNE)c+(*FAIL)","U&xA\\1PsdeOWUae&&Yna",[global])),
+    <<"aaabccc">> = iolist_to_binary(re:replace("aaabccc","a+b?(*COMMIT)c+(*FAIL)","QIBuirGXrn",[])),
+    <<"aaabccc">> = iolist_to_binary(re:replace("aaabccc","a+b?(*COMMIT)c+(*FAIL)","QIBuirGXrn",[global])),
+    <<"aaabcccaaabccc">> = iolist_to_binary(re:replace("aaabcccaaabccc","a+b?(*SKIP)c+(*FAIL)","\\1w&DHBgVdwqBl&i",[])),
+    <<"aaabcccaaabccc">> = iolist_to_binary(re:replace("aaabcccaaabccc","a+b?(*SKIP)c+(*FAIL)","\\1w&DHBgVdwqBl&i",[global])),
+    <<"bMxcDhNdGOtJIJBuCaaaaxxxxxx">> = iolist_to_binary(re:replace("aaaxxxxxx","^(?:aaa(*THEN)\\w{6}|bbb(*THEN)\\w{5}|ccc(*THEN)\\w{4}|\\w{3})","bMx\\1cDhNdGOtJIJBuCa&",[])),
+    <<"bMxcDhNdGOtJIJBuCaaaaxxxxxx">> = iolist_to_binary(re:replace("aaaxxxxxx","^(?:aaa(*THEN)\\w{6}|bbb(*THEN)\\w{5}|ccc(*THEN)\\w{4}|\\w{3})","bMx\\1cDhNdGOtJIJBuCa&",[global])),
+    <<"nnHoUaaaCMWtr++++++">> = iolist_to_binary(re:replace("aaa++++++","^(?:aaa(*THEN)\\w{6}|bbb(*THEN)\\w{5}|ccc(*THEN)\\w{4}|\\w{3})","nnHoU&\\1CMWtr",[])),
+    <<"nnHoUaaaCMWtr++++++">> = iolist_to_binary(re:replace("aaa++++++","^(?:aaa(*THEN)\\w{6}|bbb(*THEN)\\w{5}|ccc(*THEN)\\w{4}|\\w{3})","nnHoU&\\1CMWtr",[global])),
+    <<"PXRohlV">> = iolist_to_binary(re:replace("bbbxxxxx","^(?:aaa(*THEN)\\w{6}|bbb(*THEN)\\w{5}|ccc(*THEN)\\w{4}|\\w{3})","PX\\1\\1RohlV",[])),
+    <<"PXRohlV">> = iolist_to_binary(re:replace("bbbxxxxx","^(?:aaa(*THEN)\\w{6}|bbb(*THEN)\\w{5}|ccc(*THEN)\\w{4}|\\w{3})","PX\\1\\1RohlV",[global])),
+    <<"bbbbbbqn+++++">> = iolist_to_binary(re:replace("bbb+++++","^(?:aaa(*THEN)\\w{6}|bbb(*THEN)\\w{5}|ccc(*THEN)\\w{4}|\\w{3})","&&qn",[])),
+    <<"bbbbbbqn+++++">> = iolist_to_binary(re:replace("bbb+++++","^(?:aaa(*THEN)\\w{6}|bbb(*THEN)\\w{5}|ccc(*THEN)\\w{4}|\\w{3})","&&qn",[global])),
+    <<"rFmutNbLVErcccxxxxId">> = iolist_to_binary(re:replace("cccxxxx","^(?:aaa(*THEN)\\w{6}|bbb(*THEN)\\w{5}|ccc(*THEN)\\w{4}|\\w{3})","rFmutN\\1bLVE\\1r&Id",[])),
+    <<"rFmutNbLVErcccxxxxId">> = iolist_to_binary(re:replace("cccxxxx","^(?:aaa(*THEN)\\w{6}|bbb(*THEN)\\w{5}|ccc(*THEN)\\w{4}|\\w{3})","rFmutN\\1bLVE\\1r&Id",[global])),
+    <<"uGFcccmOYW++++">> = iolist_to_binary(re:replace("ccc++++","^(?:aaa(*THEN)\\w{6}|bbb(*THEN)\\w{5}|ccc(*THEN)\\w{4}|\\w{3})","uGF&mOYW",[])),
+    <<"uGFcccmOYW++++">> = iolist_to_binary(re:replace("ccc++++","^(?:aaa(*THEN)\\w{6}|bbb(*THEN)\\w{5}|ccc(*THEN)\\w{4}|\\w{3})","uGF&mOYW",[global])),
+    <<"LwwyNOhXndddPddddd">> = iolist_to_binary(re:replace("dddddddd","^(?:aaa(*THEN)\\w{6}|bbb(*THEN)\\w{5}|ccc(*THEN)\\w{4}|\\w{3})","L\\1wwyNOhXn&P",[])),
+    <<"LwwyNOhXndddPddddd">> = iolist_to_binary(re:replace("dddddddd","^(?:aaa(*THEN)\\w{6}|bbb(*THEN)\\w{5}|ccc(*THEN)\\w{4}|\\w{3})","L\\1wwyNOhXn&P",[global])),
+    <<"asLUhduaaaxxxxxxQaaaxxxxxxyB">> = iolist_to_binary(re:replace("aaaxxxxxx","^(aaa(*THEN)\\w{6}|bbb(*THEN)\\w{5}|ccc(*THEN)\\w{4}|\\w{3})","asLUhdu\\1Q\\1yB",[])),
+    <<"asLUhduaaaxxxxxxQaaaxxxxxxyB">> = iolist_to_binary(re:replace("aaaxxxxxx","^(aaa(*THEN)\\w{6}|bbb(*THEN)\\w{5}|ccc(*THEN)\\w{4}|\\w{3})","asLUhdu\\1Q\\1yB",[global])),
+    <<"fiCaaaaaahaaaaaaTxFpRPHS++++++">> = iolist_to_binary(re:replace("aaa++++++","^(aaa(*THEN)\\w{6}|bbb(*THEN)\\w{5}|ccc(*THEN)\\w{4}|\\w{3})","fiC\\1&h&\\1TxFpRPHS",[])),
+    <<"fiCaaaaaahaaaaaaTxFpRPHS++++++">> = iolist_to_binary(re:replace("aaa++++++","^(aaa(*THEN)\\w{6}|bbb(*THEN)\\w{5}|ccc(*THEN)\\w{4}|\\w{3})","fiC\\1&h&\\1TxFpRPHS",[global])),
+    <<"bbbxxxxxRMNILObbbxxxxxxXbbbxxxxxkxRwpbbbxxxxx">> = iolist_to_binary(re:replace("bbbxxxxx","^(aaa(*THEN)\\w{6}|bbb(*THEN)\\w{5}|ccc(*THEN)\\w{4}|\\w{3})","\\1RMNILO&xX\\1kxRwp\\1",[])),
+    <<"bbbxxxxxRMNILObbbxxxxxxXbbbxxxxxkxRwpbbbxxxxx">> = iolist_to_binary(re:replace("bbbxxxxx","^(aaa(*THEN)\\w{6}|bbb(*THEN)\\w{5}|ccc(*THEN)\\w{4}|\\w{3})","\\1RMNILO&xX\\1kxRwp\\1",[global])),
+    <<"vAGipJbbbW+++++">> = iolist_to_binary(re:replace("bbb+++++","^(aaa(*THEN)\\w{6}|bbb(*THEN)\\w{5}|ccc(*THEN)\\w{4}|\\w{3})","vAGipJ&W",[])),
+    <<"vAGipJbbbW+++++">> = iolist_to_binary(re:replace("bbb+++++","^(aaa(*THEN)\\w{6}|bbb(*THEN)\\w{5}|ccc(*THEN)\\w{4}|\\w{3})","vAGipJ&W",[global])),
+    <<"ecccxxxxknrcccxxxxhbVcccxxxxOcccxxxxcccxxxxUlbPhcccxxxx">> = iolist_to_binary(re:replace("cccxxxx","^(aaa(*THEN)\\w{6}|bbb(*THEN)\\w{5}|ccc(*THEN)\\w{4}|\\w{3})","e&knr\\1hbV\\1O\\1\\1UlbPh&",[])),
+    <<"ecccxxxxknrcccxxxxhbVcccxxxxOcccxxxxcccxxxxUlbPhcccxxxx">> = iolist_to_binary(re:replace("cccxxxx","^(aaa(*THEN)\\w{6}|bbb(*THEN)\\w{5}|ccc(*THEN)\\w{4}|\\w{3})","e&knr\\1hbV\\1O\\1\\1UlbPh&",[global])),
+    <<"oYccc++++">> = iolist_to_binary(re:replace("ccc++++","^(aaa(*THEN)\\w{6}|bbb(*THEN)\\w{5}|ccc(*THEN)\\w{4}|\\w{3})","oY\\1",[])),
+    <<"oYccc++++">> = iolist_to_binary(re:replace("ccc++++","^(aaa(*THEN)\\w{6}|bbb(*THEN)\\w{5}|ccc(*THEN)\\w{4}|\\w{3})","oY\\1",[global])),
+    <<"nMNddddd">> = iolist_to_binary(re:replace("dddddddd","^(aaa(*THEN)\\w{6}|bbb(*THEN)\\w{5}|ccc(*THEN)\\w{4}|\\w{3})","nMN",[])),
+    <<"nMNddddd">> = iolist_to_binary(re:replace("dddddddd","^(aaa(*THEN)\\w{6}|bbb(*THEN)\\w{5}|ccc(*THEN)\\w{4}|\\w{3})","nMN",[global])),
+    <<"aaabccc">> = iolist_to_binary(re:replace("aaabccc","a+b?(*THEN)c+(*FAIL)","&uhY\\1qCJYVNVkj\\1Tafan",[])),
+    <<"aaabccc">> = iolist_to_binary(re:replace("aaabccc","a+b?(*THEN)c+(*FAIL)","&uhY\\1qCJYVNVkj\\1Tafan",[global])),
+    <<"WLaAB">> = iolist_to_binary(re:replace("AB","(A (A|B(*ACCEPT)|C) D)(E)","WLa\\1",[extended])),
+    <<"WLaAB">> = iolist_to_binary(re:replace("AB","(A (A|B(*ACCEPT)|C) D)(E)","WLa\\1",[extended,global])),
+    <<"kAbCkNABXOTPWkPhX">> = iolist_to_binary(re:replace("ABX","(A (A|B(*ACCEPT)|C) D)(E)","kAbCkN\\1XOTPWkPh",[extended])),
+    <<"kAbCkNABXOTPWkPhX">> = iolist_to_binary(re:replace("ABX","(A (A|B(*ACCEPT)|C) D)(E)","kAbCkN\\1XOTPWkPh",[extended,global])),
+    <<"AADELHRWAADvSiGAADEpKPe">> = iolist_to_binary(re:replace("AADE","(A (A|B(*ACCEPT)|C) D)(E)","&LHRW\\1vSiG&pKPe",[extended])),
+    <<"AADELHRWAADvSiGAADEpKPe">> = iolist_to_binary(re:replace("AADE","(A (A|B(*ACCEPT)|C) D)(E)","&LHRW\\1vSiG&pKPe",[extended,global])),
+    <<"FPwACDEACDSGgbdRnHYsACDEACDGACD">> = iolist_to_binary(re:replace("ACDE","(A (A|B(*ACCEPT)|C) D)(E)","FPw&\\1SGgbdRnHYs&\\1G\\1",[extended])),
+    <<"FPwACDEACDSGgbdRnHYsACDEACDGACD">> = iolist_to_binary(re:replace("ACDE","(A (A|B(*ACCEPT)|C) D)(E)","FPw&\\1SGgbdRnHYs&\\1G\\1",[extended,global])),
+    <<"AD">> = iolist_to_binary(re:replace("AD","(A (A|B(*ACCEPT)|C) D)(E)","\\1",[extended])),
+    <<"AD">> = iolist_to_binary(re:replace("AD","(A (A|B(*ACCEPT)|C) D)(E)","\\1",[extended,global])),
+    <<"rw1221r1221XcjPY">> = iolist_to_binary(re:replace("1221","^\\W*+(?:((.)\\W*+(?1)\\W*+\\2|)|((.)\\W*+(?3)\\W*+\\4|\\W*+.\\W*+))\\W*+$","rw\\1r\\1XcjPY",[caseless])),
+    <<"rw1221r1221XcjPY">> = iolist_to_binary(re:replace("1221","^\\W*+(?:((.)\\W*+(?1)\\W*+\\2|)|((.)\\W*+(?3)\\W*+\\4|\\W*+.\\W*+))\\W*+$","rw\\1r\\1XcjPY",[caseless,global])),
+    <<"Satan, oscillate my metallic sonatas!EbhbSatan, oscillate my metallic sonatas!">> = iolist_to_binary(re:replace("Satan, oscillate my metallic sonatas!","^\\W*+(?:((.)\\W*+(?1)\\W*+\\2|)|((.)\\W*+(?3)\\W*+\\4|\\W*+.\\W*+))\\W*+$","&Ebhb\\1&",[caseless])),
+    <<"Satan, oscillate my metallic sonatas!EbhbSatan, oscillate my metallic sonatas!">> = iolist_to_binary(re:replace("Satan, oscillate my metallic sonatas!","^\\W*+(?:((.)\\W*+(?1)\\W*+\\2|)|((.)\\W*+(?3)\\W*+\\4|\\W*+.\\W*+))\\W*+$","&Ebhb\\1&",[caseless,global])),
+    <<"vUGseV">> = iolist_to_binary(re:replace("A man, a plan, a canal: Panama!","^\\W*+(?:((.)\\W*+(?1)\\W*+\\2|)|((.)\\W*+(?3)\\W*+\\4|\\W*+.\\W*+))\\W*+$","vUGseV",[caseless])),
+    <<"vUGseV">> = iolist_to_binary(re:replace("A man, a plan, a canal: Panama!","^\\W*+(?:((.)\\W*+(?1)\\W*+\\2|)|((.)\\W*+(?3)\\W*+\\4|\\W*+.\\W*+))\\W*+$","vUGseV",[caseless,global])),
+    <<"pIMIKmlAble was I ere I saw Elba.OAble was I ere I saw Elba.E">> = iolist_to_binary(re:replace("Able was I ere I saw Elba.","^\\W*+(?:((.)\\W*+(?1)\\W*+\\2|)|((.)\\W*+(?3)\\W*+\\4|\\W*+.\\W*+))\\W*+$","p\\1\\1IMIKml&O&E",[caseless])),
+    <<"pIMIKmlAble was I ere I saw Elba.OAble was I ere I saw Elba.E">> = iolist_to_binary(re:replace("Able was I ere I saw Elba.","^\\W*+(?:((.)\\W*+(?1)\\W*+\\2|)|((.)\\W*+(?3)\\W*+\\4|\\W*+.\\W*+))\\W*+$","p\\1\\1IMIKml&O&E",[caseless,global])),
+    <<"The quick brown fox">> = iolist_to_binary(re:replace("The quick brown fox","^\\W*+(?:((.)\\W*+(?1)\\W*+\\2|)|((.)\\W*+(?3)\\W*+\\4|\\W*+.\\W*+))\\W*+$","x\\1",[caseless])),
+    <<"The quick brown fox">> = iolist_to_binary(re:replace("The quick brown fox","^\\W*+(?:((.)\\W*+(?1)\\W*+\\2|)|((.)\\W*+(?3)\\W*+\\4|\\W*+.\\W*+))\\W*+$","x\\1",[caseless,global])),
     ok.
 run42() ->
-    <<"(ab(cd)ef)u(ab(cd)ef)njE(ab(cd)ef)(ab(cd)ef)j(ab(cd)ef)(ab(cd)ef)e(ab(cd)ef)F(ab(cd)ef)Y(ab(cd)ef)(ab(cd)ef)">> = iolist_to_binary(re:replace("(ab(cd)ef)","(?<pn> \\( ( [^()]++ | (?&pn) )* \\) )","\\1u\\1njE&\\1j\\1&e\\1F&Y&\\1",[extended])),
-    <<"(ab(cd)ef)u(ab(cd)ef)njE(ab(cd)ef)(ab(cd)ef)j(ab(cd)ef)(ab(cd)ef)e(ab(cd)ef)F(ab(cd)ef)Y(ab(cd)ef)(ab(cd)ef)">> = iolist_to_binary(re:replace("(ab(cd)ef)","(?<pn> \\( ( [^()]++ | (?&pn) )* \\) )","\\1u\\1njE&\\1j\\1&e\\1F&Y&\\1",[extended,global])),
-    <<"ac">> = iolist_to_binary(re:replace("ac","^(?=a(*SKIP)b|ac)","v&JbYT&PQOPm&rKp",[])),
-    <<"ac">> = iolist_to_binary(re:replace("ac","^(?=a(*SKIP)b|ac)","v&JbYT&PQOPm&rKp",[global])),
-    <<"nab">> = iolist_to_binary(re:replace("ab","^(?=a(*PRUNE)b)","n",[])),
-    <<"nab">> = iolist_to_binary(re:replace("ab","^(?=a(*PRUNE)b)","n",[global])),
-    <<"ac">> = iolist_to_binary(re:replace("ac","^(?=a(*PRUNE)b)","wTE",[])),
-    <<"ac">> = iolist_to_binary(re:replace("ac","^(?=a(*PRUNE)b)","wTE",[global])),
-    <<"IcRpeac">> = iolist_to_binary(re:replace("ac","^(?=a(*ACCEPT)b)","IcRpe",[])),
-    <<"IcRpeac">> = iolist_to_binary(re:replace("ac","^(?=a(*ACCEPT)b)","IcRpe",[global])),
-    <<"aDJtCudRWwbqgG">> = iolist_to_binary(re:replace("ab","(?>a\\Kb)","DJtCudRWwbqgG",[])),
-    <<"aDJtCudRWwbqgG">> = iolist_to_binary(re:replace("ab","(?>a\\Kb)","DJtCudRWwbqgG",[global])),
-    <<"aababbSoBtHbbcWirPkbda">> = iolist_to_binary(re:replace("ab","((?>a\\Kb))","\\1\\1&SoBtH&&cWirPk&da",[])),
-    <<"aababbSoBtHbbcWirPkbda">> = iolist_to_binary(re:replace("ab","((?>a\\Kb))","\\1\\1&SoBtH&&cWirPk&da",[global])),
-    <<"axSIuiabbsLIGababPOY">> = iolist_to_binary(re:replace("ab","(a\\Kb)","xSIui\\1bsLIG\\1\\1POY",[])),
-    <<"axSIuiabbsLIGababPOY">> = iolist_to_binary(re:replace("ab","(a\\Kb)","xSIui\\1bsLIG\\1\\1POY",[global])),
-    <<"G">> = iolist_to_binary(re:replace("ac","^a\\Kcz|ac","G",[])),
-    <<"G">> = iolist_to_binary(re:replace("ac","^a\\Kcz|ac","G",[global])),
-    <<"DPoYmBjVu">> = iolist_to_binary(re:replace("ab","(?>a\\Kbz|ab)","DPoYmBjVu",[])),
-    <<"DPoYmBjVu">> = iolist_to_binary(re:replace("ab","(?>a\\Kbz|ab)","DPoYmBjVu",[global])),
-    <<"aKhb">> = iolist_to_binary(re:replace("ab","^(?&t)(?(DEFINE)(?<t>a\\Kb))$","Kh&\\1",[])),
-    <<"aKhb">> = iolist_to_binary(re:replace("ab","^(?&t)(?(DEFINE)(?<t>a\\Kb))$","Kh&\\1",[global])),
-    <<"ha(b)cMPAla(b)cbeeMvca(b)cFnYVJ">> = iolist_to_binary(re:replace("a(b)c","^([^()]|\\((?1)*\\))*$","h&MPAl&beeMvc&FnYVJ",[])),
-    <<"ha(b)cMPAla(b)cbeeMvca(b)cFnYVJ">> = iolist_to_binary(re:replace("a(b)c","^([^()]|\\((?1)*\\))*$","h&MPAl&beeMvc&FnYVJ",[global])),
-    <<"pskDieVpeeKjCOoya(b(c)d)e">> = iolist_to_binary(re:replace("a(b(c)d)e","^([^()]|\\((?1)*\\))*$","pskDi\\1Vp\\1\\1KjCOoy&",[])),
-    <<"pskDieVpeeKjCOoya(b(c)d)e">> = iolist_to_binary(re:replace("a(b(c)d)e","^([^()]|\\((?1)*\\))*$","pskDi\\1Vp\\1\\1KjCOoy&",[global])),
-    <<"0P0h0aRQ">> = iolist_to_binary(re:replace("0","(?P<L1>(?P<L2>0)(?P>L1)|(?P>L2))","\\1P\\1h&aRQ",[])),
-    <<"0P0h0aRQ">> = iolist_to_binary(re:replace("0","(?P<L1>(?P<L2>0)(?P>L1)|(?P>L2))","\\1P\\1h&aRQ",[global])),
-    <<"a00PvGqL00OcN00do">> = iolist_to_binary(re:replace("00","(?P<L1>(?P<L2>0)(?P>L1)|(?P>L2))","a\\1PvGqL&OcN&do",[])),
-    <<"a00PvGqL00OcN00do">> = iolist_to_binary(re:replace("00","(?P<L1>(?P<L2>0)(?P>L1)|(?P>L2))","a\\1PvGqL&OcN&do",[global])),
-    <<"nEGDfiQkQ00000000">> = iolist_to_binary(re:replace("0000","(?P<L1>(?P<L2>0)(?P>L1)|(?P>L2))","nEGDfiQkQ&&",[])),
-    <<"nEGDfiQkQ00000000">> = iolist_to_binary(re:replace("0000","(?P<L1>(?P<L2>0)(?P>L1)|(?P>L2))","nEGDfiQkQ&&",[global])),
-    <<"pH0PSTC0OlN">> = iolist_to_binary(re:replace("0","(?P<L1>(?P<L2>0)|(?P>L2)(?P>L1))","pH&PSTC\\1OlN",[])),
-    <<"pH0PSTC0OlN">> = iolist_to_binary(re:replace("0","(?P<L1>(?P<L2>0)|(?P>L2)(?P>L1))","pH&PSTC\\1OlN",[global])),
-    <<"j0nEA0N0">> = iolist_to_binary(re:replace("00","(?P<L1>(?P<L2>0)|(?P>L2)(?P>L1))","j\\1nEA\\1N",[])),
-    <<"j0nEA0Nj0nEA0N">> = iolist_to_binary(re:replace("00","(?P<L1>(?P<L2>0)|(?P>L2)(?P>L1))","j\\1nEA\\1N",[global])),
-    <<"0KPLVefHPcQ000">> = iolist_to_binary(re:replace("0000","(?P<L1>(?P<L2>0)|(?P>L2)(?P>L1))","&KPLVefHPcQ",[])),
-    <<"0KPLVefHPcQ0KPLVefHPcQ0KPLVefHPcQ0KPLVefHPcQ">> = iolist_to_binary(re:replace("0000","(?P<L1>(?P<L2>0)|(?P>L2)(?P>L1))","&KPLVefHPcQ",[global])),
-    <<"ACABX">> = iolist_to_binary(re:replace("ACABX","A(*COMMIT)(B|D)","kdvl&SEgE&i\\1&rnUyHF&",[])),
-    <<"ACABX">> = iolist_to_binary(re:replace("ACABX","A(*COMMIT)(B|D)","kdvl&SEgE&i\\1&rnUyHF&",[global])),
-    <<"WusspAABCeVjGLABCnwQKJDEFG">> = iolist_to_binary(re:replace("ABCDEFG","(*COMMIT)(A|P)(B|P)(C|P)","Wussp\\1&eVjGL&nwQKJ",[])),
-    <<"WusspAABCeVjGLABCnwQKJDEFG">> = iolist_to_binary(re:replace("ABCDEFG","(*COMMIT)(A|P)(B|P)(C|P)","Wussp\\1&eVjGL&nwQKJ",[global])),
-    <<"DEFGABC">> = iolist_to_binary(re:replace("DEFGABC","(*COMMIT)(A|P)(B|P)(C|P)","K\\1&",[])),
-    <<"DEFGABC">> = iolist_to_binary(re:replace("DEFGABC","(*COMMIT)(A|P)(B|P)(C|P)","K\\1&",[global])),
-    <<"Fantabbbt">> = iolist_to_binary(re:replace("abbb","(\\w+)(?>b(*COMMIT))\\w{2}","F\\1nt&t",[])),
-    <<"Fantabbbt">> = iolist_to_binary(re:replace("abbb","(\\w+)(?>b(*COMMIT))\\w{2}","F\\1nt&t",[global])),
-    <<"abbb">> = iolist_to_binary(re:replace("abbb","(\\w+)b(*COMMIT)\\w{2}","\\1\\1&OCbsBdbM\\1yTuvtAF",[])),
-    <<"abbb">> = iolist_to_binary(re:replace("abbb","(\\w+)b(*COMMIT)\\w{2}","\\1\\1&OCbsBdbM\\1yTuvtAF",[global])),
-    <<"bemXaaaSaauUtFc">> = iolist_to_binary(re:replace("bac","(?&t)(?#()(?(DEFINE)(?<t>a))","emX&&&\\1S&&uUtF",[])),
-    <<"bemXaaaSaauUtFc">> = iolist_to_binary(re:replace("bac","(?&t)(?#()(?(DEFINE)(?<t>a))","emX&&&\\1S&&uUtF",[global])),
-    <<"yes">> = iolist_to_binary(re:replace("yes","(?>(*COMMIT)(?>yes|no)(*THEN)(*F))?","d&uwF&X",[])),
-    <<"yes">> = iolist_to_binary(re:replace("yes","(?>(*COMMIT)(?>yes|no)(*THEN)(*F))?","d&uwF&X",[global])),
-    <<"yes">> = iolist_to_binary(re:replace("yes","(?>(*COMMIT)(yes|no)(*THEN)(*F))?","&aEP\\1EjNm&xCdm\\1\\1ima",[])),
-    <<"yes">> = iolist_to_binary(re:replace("yes","(?>(*COMMIT)(yes|no)(*THEN)(*F))?","&aEP\\1EjNm&xCdm\\1\\1ima",[global])),
+    <<"YaKYtfghC">> = iolist_to_binary(re:replace("a","^((.)(?1)\\2|.)$","Y\\1KYtfghC",[])),
+    <<"YaKYtfghC">> = iolist_to_binary(re:replace("a","^((.)(?1)\\2|.)$","Y\\1KYtfghC",[global])),
+    <<"CjJxtxeRkNqWb">> = iolist_to_binary(re:replace("aba","^((.)(?1)\\2|.)$","CjJxtxeRkNqWb",[])),
+    <<"CjJxtxeRkNqWb">> = iolist_to_binary(re:replace("aba","^((.)(?1)\\2|.)$","CjJxtxeRkNqWb",[global])),
+    <<"aabaaTaabaaIaabaaaabaaUFIhNaabaaaabaaa">> = iolist_to_binary(re:replace("aabaa","^((.)(?1)\\2|.)$","\\1T&I\\1\\1UFIhN&\\1a",[])),
+    <<"aabaaTaabaaIaabaaaabaaUFIhNaabaaaabaaa">> = iolist_to_binary(re:replace("aabaa","^((.)(?1)\\2|.)$","\\1T&I\\1\\1UFIhN&\\1a",[global])),
+    <<"TtabcdcbaN">> = iolist_to_binary(re:replace("abcdcba","^((.)(?1)\\2|.)$","Tt&N",[])),
+    <<"TtabcdcbaN">> = iolist_to_binary(re:replace("abcdcba","^((.)(?1)\\2|.)$","Tt&N",[global])),
+    <<"pqaabaaqpkPyHlRCnbcTxpqaabaaqpoIkgpqaabaaqpP">> = iolist_to_binary(re:replace("pqaabaaqp","^((.)(?1)\\2|.)$","&kPyHlRCnbcTx&oIkg&P",[])),
+    <<"pqaabaaqpkPyHlRCnbcTxpqaabaaqpoIkgpqaabaaqpP">> = iolist_to_binary(re:replace("pqaabaaqp","^((.)(?1)\\2|.)$","&kPyHlRCnbcTx&oIkg&P",[global])),
+    <<"ablewasiereisawelbaABigfWDnwablewasiereisawelbaJ">> = iolist_to_binary(re:replace("ablewasiereisawelba","^((.)(?1)\\2|.)$","&ABigfWDnw&J",[])),
+    <<"ablewasiereisawelbaABigfWDnwablewasiereisawelbaJ">> = iolist_to_binary(re:replace("ablewasiereisawelba","^((.)(?1)\\2|.)$","&ABigfWDnw&J",[global])),
+    <<"rhubarb">> = iolist_to_binary(re:replace("rhubarb","^((.)(?1)\\2|.)$","YX\\1\\1WbgOvNcDM&VYTh\\1u",[])),
+    <<"rhubarb">> = iolist_to_binary(re:replace("rhubarb","^((.)(?1)\\2|.)$","YX\\1\\1WbgOvNcDM&VYTh\\1u",[global])),
+    <<"the quick brown fox">> = iolist_to_binary(re:replace("the quick brown fox","^((.)(?1)\\2|.)$","Epm&PCouN&dKStK&",[])),
+    <<"the quick brown fox">> = iolist_to_binary(re:replace("the quick brown fox","^((.)(?1)\\2|.)$","Epm&PCouN&dKStK&",[global])),
+    <<"baaapoaxafpsaeXfNhGz">> = iolist_to_binary(re:replace("baz","(a)(?<=b(?1))","a\\1&po\\1x\\1fps\\1eXfNhG",[])),
+    <<"baaapoaxafpsaeXfNhGz">> = iolist_to_binary(re:replace("baz","(a)(?<=b(?1))","a\\1&po\\1x\\1fps\\1eXfNhG",[global])),
+    <<"caz">> = iolist_to_binary(re:replace("caz","(a)(?<=b(?1))","gf&fFQYBVbwm",[])),
+    <<"caz">> = iolist_to_binary(re:replace("caz","(a)(?<=b(?1))","gf&fFQYBVbwm",[global])),
+    <<"zbaehBuhaqaamVasaaWtagz">> = iolist_to_binary(re:replace("zbaaz","(?<=b(?1))(a)","ehBuh&q\\1\\1mV\\1s\\1&Wt&g",[])),
+    <<"zbaehBuhaqaamVasaaWtagz">> = iolist_to_binary(re:replace("zbaaz","(?<=b(?1))(a)","ehBuh&q\\1\\1mV\\1s\\1&Wt&g",[global])),
+    <<"aaa">> = iolist_to_binary(re:replace("aaa","(?<=b(?1))(a)","Q",[])),
+    <<"aaa">> = iolist_to_binary(re:replace("aaa","(?<=b(?1))(a)","Q",[global])),
+    <<"bayFHgvqaLgSIvMz">> = iolist_to_binary(re:replace("baz","(?<X>a)(?<=b(?&X))","\\1yFHgvq\\1LgSIvM",[])),
+    <<"bayFHgvqaLgSIvMz">> = iolist_to_binary(re:replace("baz","(?<X>a)(?<=b(?&X))","\\1yFHgvq\\1LgSIvM",[global])),
+    <<"abcDLEECoGfLabcabctOKBYRuEP">> = iolist_to_binary(re:replace("abcabc","^(?|(abc)|(def))\\1","\\1DLEECoGfL&tOKBYRuEP",[])),
+    <<"abcDLEECoGfLabcabctOKBYRuEP">> = iolist_to_binary(re:replace("abcabc","^(?|(abc)|(def))\\1","\\1DLEECoGfL&tOKBYRuEP",[global])),
+    <<"UeRrupdefrdefdefdefLydefGddefdefOBlH">> = iolist_to_binary(re:replace("defdef","^(?|(abc)|(def))\\1","UeRrup\\1r\\1&Ly\\1Gd&OBlH",[])),
+    <<"UeRrupdefrdefdefdefLydefGddefdefOBlH">> = iolist_to_binary(re:replace("defdef","^(?|(abc)|(def))\\1","UeRrup\\1r\\1&Ly\\1Gd&OBlH",[global])),
+    <<"abcdef">> = iolist_to_binary(re:replace("abcdef","^(?|(abc)|(def))\\1","mqfmU",[])),
+    <<"abcdef">> = iolist_to_binary(re:replace("abcdef","^(?|(abc)|(def))\\1","mqfmU",[global])),
+    <<"defabc">> = iolist_to_binary(re:replace("defabc","^(?|(abc)|(def))\\1","j",[])),
+    <<"defabc">> = iolist_to_binary(re:replace("defabc","^(?|(abc)|(def))\\1","j",[global])),
+    <<"mabcabcabcGm">> = iolist_to_binary(re:replace("abcabc","^(?|(abc)|(def))(?1)","m\\1&Gm",[])),
+    <<"mabcabcabcGm">> = iolist_to_binary(re:replace("abcabc","^(?|(abc)|(def))(?1)","m\\1&Gm",[global])),
+    <<"VQdefabcqc">> = iolist_to_binary(re:replace("defabc","^(?|(abc)|(def))(?1)","VQ&qc",[])),
+    <<"VQdefabcqc">> = iolist_to_binary(re:replace("defabc","^(?|(abc)|(def))(?1)","VQ&qc",[global])),
+    <<"defdef">> = iolist_to_binary(re:replace("defdef","^(?|(abc)|(def))(?1)","PuyLd&sxAqu&IQ\\1\\1eUSo",[])),
+    <<"defdef">> = iolist_to_binary(re:replace("defdef","^(?|(abc)|(def))(?1)","PuyLd&sxAqu&IQ\\1\\1eUSo",[global])),
+    <<"abcdef">> = iolist_to_binary(re:replace("abcdef","^(?|(abc)|(def))(?1)","Pf&aR",[])),
+    <<"abcdef">> = iolist_to_binary(re:replace("abcdef","^(?|(abc)|(def))(?1)","Pf&aR",[global])),
+    <<"ACGgD">> = iolist_to_binary(re:replace("ABCD","(?:(?1)|B)(A(*F)|C)","\\1Gg",[])),
+    <<"ACGgD">> = iolist_to_binary(re:replace("ABCD","(?:(?1)|B)(A(*F)|C)","\\1Gg",[global])),
+    <<"CuCnjECCCjCCCeCFCCYCCCD">> = iolist_to_binary(re:replace("CCD","(?:(?1)|B)(A(*F)|C)","\\1u\\1njE&\\1j\\1&e\\1F&Y&\\1",[])),
+    <<"CuCnjECCCjCCCeCFCCYCCCD">> = iolist_to_binary(re:replace("CCD","(?:(?1)|B)(A(*F)|C)","\\1u\\1njE&\\1j\\1&e\\1F&Y&\\1",[global])),
+    <<"CAD">> = iolist_to_binary(re:replace("CAD","(?:(?1)|B)(A(*F)|C)","v&JbYT&PQOPm&rKp",[])),
+    <<"CAD">> = iolist_to_binary(re:replace("CAD","(?:(?1)|B)(A(*F)|C)","v&JbYT&PQOPm&rKp",[global])),
+    <<"nD">> = iolist_to_binary(re:replace("CCD","^(?:(?1)|B)(A(*F)|C)","n",[])),
+    <<"nD">> = iolist_to_binary(re:replace("CCD","^(?:(?1)|B)(A(*F)|C)","n",[global])),
+    <<"wTED">> = iolist_to_binary(re:replace("BCD","^(?:(?1)|B)(A(*F)|C)","wTE",[])),
+    <<"wTED">> = iolist_to_binary(re:replace("BCD","^(?:(?1)|B)(A(*F)|C)","wTE",[global])),
+    <<"ABCD">> = iolist_to_binary(re:replace("ABCD","^(?:(?1)|B)(A(*F)|C)","IcRpe",[])),
+    <<"ABCD">> = iolist_to_binary(re:replace("ABCD","^(?:(?1)|B)(A(*F)|C)","IcRpe",[global])),
+    <<"CAD">> = iolist_to_binary(re:replace("CAD","^(?:(?1)|B)(A(*F)|C)","DJtCudRWwbqgG",[])),
+    <<"CAD">> = iolist_to_binary(re:replace("CAD","^(?:(?1)|B)(A(*F)|C)","DJtCudRWwbqgG",[global])),
+    <<"BAD">> = iolist_to_binary(re:replace("BAD","^(?:(?1)|B)(A(*F)|C)","\\1\\1&SoBtH&&cWirPk&da",[])),
+    <<"BAD">> = iolist_to_binary(re:replace("BAD","^(?:(?1)|B)(A(*F)|C)","\\1\\1&SoBtH&&cWirPk&da",[global])),
+    <<"xSIuiAbsLIGAAPOYD">> = iolist_to_binary(re:replace("AAD","(?:(?1)|B)(A(*ACCEPT)XX|C)D","xSIui\\1bsLIG\\1\\1POY",[])),
+    <<"xSIuiAbsLIGAAPOYD">> = iolist_to_binary(re:replace("AAD","(?:(?1)|B)(A(*ACCEPT)XX|C)D","xSIui\\1bsLIG\\1\\1POY",[global])),
+    <<"G">> = iolist_to_binary(re:replace("ACD","(?:(?1)|B)(A(*ACCEPT)XX|C)D","G",[])),
+    <<"G">> = iolist_to_binary(re:replace("ACD","(?:(?1)|B)(A(*ACCEPT)XX|C)D","G",[global])),
+    <<"DPoYmBjVuD">> = iolist_to_binary(re:replace("BAD","(?:(?1)|B)(A(*ACCEPT)XX|C)D","DPoYmBjVu",[])),
+    <<"DPoYmBjVuD">> = iolist_to_binary(re:replace("BAD","(?:(?1)|B)(A(*ACCEPT)XX|C)D","DPoYmBjVu",[global])),
+    <<"KhBCDC">> = iolist_to_binary(re:replace("BCD","(?:(?1)|B)(A(*ACCEPT)XX|C)D","Kh&\\1",[])),
+    <<"KhBCDC">> = iolist_to_binary(re:replace("BCD","(?:(?1)|B)(A(*ACCEPT)XX|C)D","Kh&\\1",[global])),
+    <<"hBAMPAlBAbeeMvcBAFnYVJX">> = iolist_to_binary(re:replace("BAX","(?:(?1)|B)(A(*ACCEPT)XX|C)D","h&MPAl&beeMvc&FnYVJ",[])),
+    <<"hBAMPAlBAbeeMvcBAFnYVJX">> = iolist_to_binary(re:replace("BAX","(?:(?1)|B)(A(*ACCEPT)XX|C)D","h&MPAl&beeMvc&FnYVJ",[global])),
+    <<"ACX">> = iolist_to_binary(re:replace("ACX","(?:(?1)|B)(A(*ACCEPT)XX|C)D","pskDi\\1Vp\\1\\1KjCOoy&",[])),
+    <<"ACX">> = iolist_to_binary(re:replace("ACX","(?:(?1)|B)(A(*ACCEPT)XX|C)D","pskDi\\1Vp\\1\\1KjCOoy&",[global])),
+    <<"ABC">> = iolist_to_binary(re:replace("ABC","(?:(?1)|B)(A(*ACCEPT)XX|C)D","\\1P\\1h&aRQ",[])),
+    <<"ABC">> = iolist_to_binary(re:replace("ABC","(?:(?1)|B)(A(*ACCEPT)XX|C)D","\\1P\\1h&aRQ",[global])),
+    <<"aPvGqLBACOcNBACdo">> = iolist_to_binary(re:replace("BAC","(?(DEFINE)(A))B(?1)C","a\\1PvGqL&OcN&do",[])),
+    <<"aPvGqLBACOcNBACdo">> = iolist_to_binary(re:replace("BAC","(?(DEFINE)(A))B(?1)C","a\\1PvGqL&OcN&do",[global])),
+    <<"nEGDfiQkQBAACBAAC">> = iolist_to_binary(re:replace("BAAC","(?(DEFINE)((A)\\2))B(?1)C","nEGDfiQkQ&&",[])),
+    <<"nEGDfiQkQBAACBAAC">> = iolist_to_binary(re:replace("BAAC","(?(DEFINE)((A)\\2))B(?1)C","nEGDfiQkQ&&",[global])),
+    <<"pH(ab(cd)ef)PSTC(ab(cd)ef)OlN">> = iolist_to_binary(re:replace("(ab(cd)ef)","(?<pn> \\( ( [^()]++ | (?&pn) )* \\) )","pH&PSTC\\1OlN",[extended])),
+    <<"pH(ab(cd)ef)PSTC(ab(cd)ef)OlN">> = iolist_to_binary(re:replace("(ab(cd)ef)","(?<pn> \\( ( [^()]++ | (?&pn) )* \\) )","pH&PSTC\\1OlN",[extended,global])),
+    <<"ac">> = iolist_to_binary(re:replace("ac","^(?=a(*SKIP)b|ac)","j\\1nEA\\1N",[])),
+    <<"ac">> = iolist_to_binary(re:replace("ac","^(?=a(*SKIP)b|ac)","j\\1nEA\\1N",[global])),
+    <<"KPLVefHPcQab">> = iolist_to_binary(re:replace("ab","^(?=a(*PRUNE)b)","&KPLVefHPcQ",[])),
+    <<"KPLVefHPcQab">> = iolist_to_binary(re:replace("ab","^(?=a(*PRUNE)b)","&KPLVefHPcQ",[global])),
+    <<"ac">> = iolist_to_binary(re:replace("ac","^(?=a(*PRUNE)b)","kdvl&SEgE&i\\1&rnUyHF&",[])),
+    <<"ac">> = iolist_to_binary(re:replace("ac","^(?=a(*PRUNE)b)","kdvl&SEgE&i\\1&rnUyHF&",[global])),
+    <<"WusspeVjGLnwQKJac">> = iolist_to_binary(re:replace("ac","^(?=a(*ACCEPT)b)","Wussp\\1&eVjGL&nwQKJ",[])),
+    <<"WusspeVjGLnwQKJac">> = iolist_to_binary(re:replace("ac","^(?=a(*ACCEPT)b)","Wussp\\1&eVjGL&nwQKJ",[global])),
+    <<"aKb">> = iolist_to_binary(re:replace("ab","(?>a\\Kb)","K\\1&",[])),
+    <<"aKb">> = iolist_to_binary(re:replace("ab","(?>a\\Kb)","K\\1&",[global])),
+    <<"aFabntbt">> = iolist_to_binary(re:replace("ab","((?>a\\Kb))","F\\1nt&t",[])),
+    <<"aFabntbt">> = iolist_to_binary(re:replace("ab","((?>a\\Kb))","F\\1nt&t",[global])),
+    <<"aababbOCbsBdbMabyTuvtAF">> = iolist_to_binary(re:replace("ab","(a\\Kb)","\\1\\1&OCbsBdbM\\1yTuvtAF",[])),
+    <<"aababbOCbsBdbMabyTuvtAF">> = iolist_to_binary(re:replace("ab","(a\\Kb)","\\1\\1&OCbsBdbM\\1yTuvtAF",[global])),
+    <<"emXacacacSacacuUtF">> = iolist_to_binary(re:replace("ac","^a\\Kcz|ac","emX&&&\\1S&&uUtF",[])),
+    <<"emXacacacSacacuUtF">> = iolist_to_binary(re:replace("ac","^a\\Kcz|ac","emX&&&\\1S&&uUtF",[global])),
     ok.
 run43() ->
-    <<"LqguC">> = iolist_to_binary(re:replace("bc","b?(*SKIP)c","LqguC",[])),
-    <<"LqguC">> = iolist_to_binary(re:replace("bc","b?(*SKIP)c","LqguC",[global])),
-    <<"aYbcnbcOu">> = iolist_to_binary(re:replace("abc","b?(*SKIP)c","Y&n&Ou",[])),
-    <<"aYbcnbcOu">> = iolist_to_binary(re:replace("abc","b?(*SKIP)c","Y&n&Ou",[global])),
-    <<"a">> = iolist_to_binary(re:replace("a","(*SKIP)bc","n&&H&\\1u&EQf\\1s",[])),
-    <<"a">> = iolist_to_binary(re:replace("a","(*SKIP)bc","n&&H&\\1u&EQf\\1s",[global])),
-    <<"a">> = iolist_to_binary(re:replace("a","(*SKIP)b","&Er&tiYv\\1hB\\1J&TR",[])),
-    <<"a">> = iolist_to_binary(re:replace("a","(*SKIP)b","&Er&tiYv\\1hB\\1J&TR",[global])),
-    <<"sIKbikAxxx">> = iolist_to_binary(re:replace("xxx","(?P<abn>(?P=abn)xxx|)+","sIKbikA",[])),
-    <<"sIKbikAxsIKbikAxsIKbikAxsIKbikA">> = iolist_to_binary(re:replace("xxx","(?P<abn>(?P=abn)xxx|)+","sIKbikA",[global])),
-    <<"vaWGLwaaAjaaaPaayFVaoME">> = iolist_to_binary(re:replace("aa","(?i:([^b]))(?1)","v\\1WGLw&Aj\\1&P&yFV\\1oME",[])),
-    <<"vaWGLwaaAjaaaPaayFVaoME">> = iolist_to_binary(re:replace("aa","(?i:([^b]))(?1)","v\\1WGLw&Aj\\1&P&yFV\\1oME",[global])),
-    <<"OLaaJBdVsaArNnoabN">> = iolist_to_binary(re:replace("aA","(?i:([^b]))(?1)","OL\\1\\1JBdVs&rNno\\1bN",[])),
-    <<"OLaaJBdVsaArNnoabN">> = iolist_to_binary(re:replace("aA","(?i:([^b]))(?1)","OL\\1\\1JBdVs&rNno\\1bN",[global])),
-    <<"ab">> = iolist_to_binary(re:replace("ab","(?i:([^b]))(?1)","b\\1U",[])),
-    <<"ab">> = iolist_to_binary(re:replace("ab","(?i:([^b]))(?1)","b\\1U",[global])),
-    <<"aB">> = iolist_to_binary(re:replace("aB","(?i:([^b]))(?1)","o",[])),
-    <<"aB">> = iolist_to_binary(re:replace("aB","(?i:([^b]))(?1)","o",[global])),
-    <<"Ba">> = iolist_to_binary(re:replace("Ba","(?i:([^b]))(?1)","is",[])),
-    <<"Ba">> = iolist_to_binary(re:replace("Ba","(?i:([^b]))(?1)","is",[global])),
-    <<"ba">> = iolist_to_binary(re:replace("ba","(?i:([^b]))(?1)","DuvhoTEpKLbL&",[])),
-    <<"ba">> = iolist_to_binary(re:replace("ba","(?i:([^b]))(?1)","DuvhoTEpKLbL&",[global])),
-    <<"xaaaaaaXaaaaaaXaaaaaaXG">> = iolist_to_binary(re:replace("aaaaaaX","^(?&t)*+(?(DEFINE)(?<t>a))\\w$","\\1\\1x&\\1&&G",[])),
-    <<"xaaaaaaXaaaaaaXaaaaaaXG">> = iolist_to_binary(re:replace("aaaaaaX","^(?&t)*+(?(DEFINE)(?<t>a))\\w$","\\1\\1x&\\1&&G",[global])),
-    <<"aaaaaa">> = iolist_to_binary(re:replace("aaaaaa","^(?&t)*+(?(DEFINE)(?<t>a))\\w$","Nt&ll\\1w",[])),
-    <<"aaaaaa">> = iolist_to_binary(re:replace("aaaaaa","^(?&t)*+(?(DEFINE)(?<t>a))\\w$","Nt&ll\\1w",[global])),
-    <<"R">> = iolist_to_binary(re:replace("aaaaaaX","^(?&t)*(?(DEFINE)(?<t>a))\\w$","R",[])),
-    <<"R">> = iolist_to_binary(re:replace("aaaaaaX","^(?&t)*(?(DEFINE)(?<t>a))\\w$","R",[global])),
-    <<"CaaaaaaPYhX">> = iolist_to_binary(re:replace("aaaaaa","^(?&t)*(?(DEFINE)(?<t>a))\\w$","C&PYhX",[])),
-    <<"CaaaaaaPYhX">> = iolist_to_binary(re:replace("aaaaaa","^(?&t)*(?(DEFINE)(?<t>a))\\w$","C&PYhX",[global])),
-    <<"dajkBrqRaaaaXXaaaaXFcavd">> = iolist_to_binary(re:replace("aaaaX","^(a)*+(\\w)","d\\1jkBrqR&X&Fc\\1vd",[])),
-    <<"dajkBrqRaaaaXXaaaaXFcavd">> = iolist_to_binary(re:replace("aaaaX","^(a)*+(\\w)","d\\1jkBrqR&X&Fc\\1vd",[global])),
-    <<"KNABawONSZ">> = iolist_to_binary(re:replace("YZ","^(a)*+(\\w)","KNABa\\1\\1wON\\1S",[])),
-    <<"KNABawONSZ">> = iolist_to_binary(re:replace("YZ","^(a)*+(\\w)","KNABa\\1\\1wON\\1S",[global])),
-    <<"aaaa">> = iolist_to_binary(re:replace("aaaa","^(a)*+(\\w)","CQ&DXxjEdVkGvk\\1",[])),
-    <<"aaaa">> = iolist_to_binary(re:replace("aaaa","^(a)*+(\\w)","CQ&DXxjEdVkGvk\\1",[global])),
-    <<"aaaaXdTXqBlsLHXnaaaaXSPAX">> = iolist_to_binary(re:replace("aaaaX","^(?:a)*+(\\w)","&dTXqBlsLH\\1n&SPA\\1",[])),
-    <<"aaaaXdTXqBlsLHXnaaaaXSPAX">> = iolist_to_binary(re:replace("aaaaX","^(?:a)*+(\\w)","&dTXqBlsLH\\1n&SPA\\1",[global])),
-    <<"jVZ">> = iolist_to_binary(re:replace("YZ","^(?:a)*+(\\w)","jV",[])),
-    <<"jVZ">> = iolist_to_binary(re:replace("YZ","^(?:a)*+(\\w)","jV",[global])),
-    <<"aaaa">> = iolist_to_binary(re:replace("aaaa","^(?:a)*+(\\w)","os&mdgX",[])),
-    <<"aaaa">> = iolist_to_binary(re:replace("aaaa","^(?:a)*+(\\w)","os&mdgX",[global])),
-    <<"YpwLaicvrdWdBXR">> = iolist_to_binary(re:replace("aaaaX","^(a)++(\\w)","YpwL\\1icvrdWdBXR",[])),
-    <<"YpwLaicvrdWdBXR">> = iolist_to_binary(re:replace("aaaaX","^(a)++(\\w)","YpwL\\1icvrdWdBXR",[global])),
-    <<"aaaa">> = iolist_to_binary(re:replace("aaaa","^(a)++(\\w)","ia\\1lhP\\1",[])),
-    <<"aaaa">> = iolist_to_binary(re:replace("aaaa","^(a)++(\\w)","ia\\1lhP\\1",[global])),
-    <<"YZ">> = iolist_to_binary(re:replace("YZ","^(a)++(\\w)","&BYHaB\\1&jJ",[])),
-    <<"YZ">> = iolist_to_binary(re:replace("YZ","^(a)++(\\w)","&BYHaB\\1&jJ",[global])),
-    <<"BVB">> = iolist_to_binary(re:replace("aaaaX","^(?:a)++(\\w)","BVB",[])),
-    <<"BVB">> = iolist_to_binary(re:replace("aaaaX","^(?:a)++(\\w)","BVB",[global])),
-    <<"aaaa">> = iolist_to_binary(re:replace("aaaa","^(?:a)++(\\w)","&cSk&xmMuHJpt\\1&VoP",[])),
-    <<"aaaa">> = iolist_to_binary(re:replace("aaaa","^(?:a)++(\\w)","&cSk&xmMuHJpt\\1&VoP",[global])),
-    <<"YZ">> = iolist_to_binary(re:replace("YZ","^(?:a)++(\\w)","c",[])),
-    <<"YZ">> = iolist_to_binary(re:replace("YZ","^(?:a)++(\\w)","c",[global])),
-    <<"GeKmcaWhXfkaTBYDbaaCaaaX">> = iolist_to_binary(re:replace("aaaaX","^(a)?+(\\w)","GeKmc\\1WhXfk\\1TBYDb&Ca",[])),
-    <<"GeKmcaWhXfkaTBYDbaaCaaaX">> = iolist_to_binary(re:replace("aaaaX","^(a)?+(\\w)","GeKmc\\1WhXfk\\1TBYDb&Ca",[global])),
-    <<"MMBtYlbYjbxkZ">> = iolist_to_binary(re:replace("YZ","^(a)?+(\\w)","MMBt&lb\\1&jbxk",[])),
-    <<"MMBtYlbYjbxkZ">> = iolist_to_binary(re:replace("YZ","^(a)?+(\\w)","MMBt&lb\\1&jbxk",[global])),
-    <<"pwtaatvQaaXauUUqymOuOaaX">> = iolist_to_binary(re:replace("aaaaX","^(?:a)?+(\\w)","pwt&tvQ&X\\1uUUqymOuO",[])),
-    <<"pwtaatvQaaXauUUqymOuOaaX">> = iolist_to_binary(re:replace("aaaaX","^(?:a)?+(\\w)","pwt&tvQ&X\\1uUUqymOuO",[global])),
-    <<"YZ">> = iolist_to_binary(re:replace("YZ","^(?:a)?+(\\w)","\\1",[])),
-    <<"YZ">> = iolist_to_binary(re:replace("YZ","^(?:a)?+(\\w)","\\1",[global])),
-    <<"ODb">> = iolist_to_binary(re:replace("aaaaX","^(a){2,}+(\\w)","ODb",[])),
-    <<"ODb">> = iolist_to_binary(re:replace("aaaaX","^(a){2,}+(\\w)","ODb",[global])),
-    <<"aaa">> = iolist_to_binary(re:replace("aaa","^(a){2,}+(\\w)","OUSVkw\\1k&ixHS\\1&u\\1&h",[])),
-    <<"aaa">> = iolist_to_binary(re:replace("aaa","^(a){2,}+(\\w)","OUSVkw\\1k&ixHS\\1&u\\1&h",[global])),
-    <<"YZ">> = iolist_to_binary(re:replace("YZ","^(a){2,}+(\\w)","wcl",[])),
-    <<"YZ">> = iolist_to_binary(re:replace("YZ","^(a){2,}+(\\w)","wcl",[global])),
-    <<"R">> = iolist_to_binary(re:replace("aaaaX","^(?:a){2,}+(\\w)","R",[])),
-    <<"R">> = iolist_to_binary(re:replace("aaaaX","^(?:a){2,}+(\\w)","R",[global])),
-    <<"aaa">> = iolist_to_binary(re:replace("aaa","^(?:a){2,}+(\\w)","&UeGhR&",[])),
-    <<"aaa">> = iolist_to_binary(re:replace("aaa","^(?:a){2,}+(\\w)","&UeGhR&",[global])),
-    <<"YZ">> = iolist_to_binary(re:replace("YZ","^(?:a){2,}+(\\w)","&e&aKbUC&nHH\\1qy\\1",[])),
-    <<"YZ">> = iolist_to_binary(re:replace("YZ","^(?:a){2,}+(\\w)","&e&aKbUC&nHH\\1qy\\1",[global])),
-    <<"JqKpfdXTbMbybb">> = iolist_to_binary(re:replace("b","(a|)*(?1)b","JqKpfdXT&Mby&\\1&",[])),
-    <<"JqKpfdXTbMbybb">> = iolist_to_binary(re:replace("b","(a|)*(?1)b","JqKpfdXT&Mby&\\1&",[global])),
-    <<"FAmVeO">> = iolist_to_binary(re:replace("ab","(a|)*(?1)b","FAmVe\\1O",[])),
-    <<"FAmVeO">> = iolist_to_binary(re:replace("ab","(a|)*(?1)b","FAmVe\\1O",[global])),
-    <<"mSDSJp">> = iolist_to_binary(re:replace("aab","(a|)*(?1)b","\\1mSDSJp",[])),
-    <<"mSDSJp">> = iolist_to_binary(re:replace("aab","(a|)*(?1)b","\\1mSDSJp",[global])),
-    <<"ab">> = iolist_to_binary(re:replace("ab","(a)++(?1)b","JagFUGCxoJ&\\1SMGCK",[])),
-    <<"ab">> = iolist_to_binary(re:replace("ab","(a)++(?1)b","JagFUGCxoJ&\\1SMGCK",[global])),
-    <<"aab">> = iolist_to_binary(re:replace("aab","(a)++(?1)b","&an&\\1uIjsv\\1",[])),
-    <<"aab">> = iolist_to_binary(re:replace("aab","(a)++(?1)b","&an&\\1uIjsv\\1",[global])),
-    <<"ab">> = iolist_to_binary(re:replace("ab","(a)*+(?1)b","&C\\1nyt\\1\\1&\\1sJWoCUIsrr",[])),
-    <<"ab">> = iolist_to_binary(re:replace("ab","(a)*+(?1)b","&C\\1nyt\\1\\1&\\1sJWoCUIsrr",[global])),
-    <<"aab">> = iolist_to_binary(re:replace("aab","(a)*+(?1)b","heJfENVeR\\1TJ\\1&&Dvf",[])),
-    <<"aab">> = iolist_to_binary(re:replace("aab","(a)*+(?1)b","heJfENVeR\\1TJ\\1&&Dvf",[global])),
-    <<"gb">> = iolist_to_binary(re:replace("b","(?1)(?:(b)){0}","g&",[])),
-    <<"gb">> = iolist_to_binary(re:replace("b","(?1)(?:(b)){0}","g&",[global])),
-    <<"bvH">> = iolist_to_binary(re:replace("foo(bar(baz)+baz(bop))","(foo ( \\( ((?:(?> [^()]+ )|(?2))*) \\) ) )","bvH",[extended])),
-    <<"bvH">> = iolist_to_binary(re:replace("foo(bar(baz)+baz(bop))","(foo ( \\( ((?:(?> [^()]+ )|(?2))*) \\) ) )","bvH",[extended,global])),
+    <<"dabuwFabX">> = iolist_to_binary(re:replace("ab","(?>a\\Kbz|ab)","d&uwF&X",[])),
+    <<"dabuwFabX">> = iolist_to_binary(re:replace("ab","(?>a\\Kbz|ab)","d&uwF&X",[global])),
+    <<"abaEPEjNmbxCdmima">> = iolist_to_binary(re:replace("ab","^(?&t)(?(DEFINE)(?<t>a\\Kb))$","&aEP\\1EjNm&xCdm\\1\\1ima",[])),
+    <<"abaEPEjNmbxCdmima">> = iolist_to_binary(re:replace("ab","^(?&t)(?(DEFINE)(?<t>a\\Kb))$","&aEP\\1EjNm&xCdm\\1\\1ima",[global])),
+    <<"LqguC">> = iolist_to_binary(re:replace("a(b)c","^([^()]|\\((?1)*\\))*$","LqguC",[])),
+    <<"LqguC">> = iolist_to_binary(re:replace("a(b)c","^([^()]|\\((?1)*\\))*$","LqguC",[global])),
+    <<"Ya(b(c)d)ena(b(c)d)eOu">> = iolist_to_binary(re:replace("a(b(c)d)e","^([^()]|\\((?1)*\\))*$","Y&n&Ou",[])),
+    <<"Ya(b(c)d)ena(b(c)d)eOu">> = iolist_to_binary(re:replace("a(b(c)d)e","^([^()]|\\((?1)*\\))*$","Y&n&Ou",[global])),
+    <<"n00H00u0EQf0s">> = iolist_to_binary(re:replace("0","(?P<L1>(?P<L2>0)(?P>L1)|(?P>L2))","n&&H&\\1u&EQf\\1s",[])),
+    <<"n00H00u0EQf0s">> = iolist_to_binary(re:replace("0","(?P<L1>(?P<L2>0)(?P>L1)|(?P>L2))","n&&H&\\1u&EQf\\1s",[global])),
+    <<"00Er00tiYv00hB00J00TR">> = iolist_to_binary(re:replace("00","(?P<L1>(?P<L2>0)(?P>L1)|(?P>L2))","&Er&tiYv\\1hB\\1J&TR",[])),
+    <<"00Er00tiYv00hB00J00TR">> = iolist_to_binary(re:replace("00","(?P<L1>(?P<L2>0)(?P>L1)|(?P>L2))","&Er&tiYv\\1hB\\1J&TR",[global])),
+    <<"sIKbikA">> = iolist_to_binary(re:replace("0000","(?P<L1>(?P<L2>0)(?P>L1)|(?P>L2))","sIKbikA",[])),
+    <<"sIKbikA">> = iolist_to_binary(re:replace("0000","(?P<L1>(?P<L2>0)(?P>L1)|(?P>L2))","sIKbikA",[global])),
+    <<"v0WGLw0Aj00P0yFV0oME">> = iolist_to_binary(re:replace("0","(?P<L1>(?P<L2>0)|(?P>L2)(?P>L1))","v\\1WGLw&Aj\\1&P&yFV\\1oME",[])),
+    <<"v0WGLw0Aj00P0yFV0oME">> = iolist_to_binary(re:replace("0","(?P<L1>(?P<L2>0)|(?P>L2)(?P>L1))","v\\1WGLw&Aj\\1&P&yFV\\1oME",[global])),
+    <<"OL00JBdVs0rNno0bN0">> = iolist_to_binary(re:replace("00","(?P<L1>(?P<L2>0)|(?P>L2)(?P>L1))","OL\\1\\1JBdVs&rNno\\1bN",[])),
+    <<"OL00JBdVs0rNno0bNOL00JBdVs0rNno0bN">> = iolist_to_binary(re:replace("00","(?P<L1>(?P<L2>0)|(?P>L2)(?P>L1))","OL\\1\\1JBdVs&rNno\\1bN",[global])),
+    <<"b0U000">> = iolist_to_binary(re:replace("0000","(?P<L1>(?P<L2>0)|(?P>L2)(?P>L1))","b\\1U",[])),
+    <<"b0Ub0Ub0Ub0U">> = iolist_to_binary(re:replace("0000","(?P<L1>(?P<L2>0)|(?P>L2)(?P>L1))","b\\1U",[global])),
+    <<"ACABX">> = iolist_to_binary(re:replace("ACABX","A(*COMMIT)(B|D)","o",[])),
+    <<"ACABX">> = iolist_to_binary(re:replace("ACABX","A(*COMMIT)(B|D)","o",[global])),
+    <<"AC">> = iolist_to_binary(re:replace("AC","^(A(*PRUNE:A)B|C(*PRUNE:B)D)","is",[])),
+    <<"AC">> = iolist_to_binary(re:replace("AC","^(A(*PRUNE:A)B|C(*PRUNE:B)D)","is",[global])),
+    <<"CB">> = iolist_to_binary(re:replace("CB","^(A(*PRUNE:A)B|C(*PRUNE:B)D)","DuvhoTEpKLbL&",[])),
+    <<"CB">> = iolist_to_binary(re:replace("CB","^(A(*PRUNE:A)B|C(*PRUNE:B)D)","DuvhoTEpKLbL&",[global])),
+    <<"CCxCCCCG">> = iolist_to_binary(re:replace("C","(*MARK:A)(*SKIP:B)(C|X)","\\1\\1x&\\1&&G",[])),
+    <<"CCxCCCCG">> = iolist_to_binary(re:replace("C","(*MARK:A)(*SKIP:B)(C|X)","\\1\\1x&\\1&&G",[global])),
+    <<"D">> = iolist_to_binary(re:replace("D","(*MARK:A)(*SKIP:B)(C|X)","Nt&ll\\1w",[])),
+    <<"D">> = iolist_to_binary(re:replace("D","(*MARK:A)(*SKIP:B)(C|X)","Nt&ll\\1w",[global])),
+    <<"CB">> = iolist_to_binary(re:replace("CB","^(A(*THEN:A)B|C(*THEN:B)D)","R",[])),
+    <<"CB">> = iolist_to_binary(re:replace("CB","^(A(*THEN:A)B|C(*THEN:B)D)","R",[global])),
+    <<"CB">> = iolist_to_binary(re:replace("CB","^(?:A(*THEN:A)B|C(*THEN:B)D)","C&PYhX",[])),
+    <<"CB">> = iolist_to_binary(re:replace("CB","^(?:A(*THEN:A)B|C(*THEN:B)D)","C&PYhX",[global])),
+    <<"CB">> = iolist_to_binary(re:replace("CB","^(?>A(*THEN:A)B|C(*THEN:B)D)","d\\1jkBrqR&X&Fc\\1vd",[])),
+    <<"CB">> = iolist_to_binary(re:replace("CB","^(?>A(*THEN:A)B|C(*THEN:B)D)","d\\1jkBrqR&X&Fc\\1vd",[global])),
+    <<"AAKNABawONS">> = iolist_to_binary(re:replace("AAAC","A(*MARK:A)A+(*SKIP:A)(B|Z) | AC","KNABa\\1\\1wON\\1S",[extended])),
+    <<"AAKNABawONS">> = iolist_to_binary(re:replace("AAAC","A(*MARK:A)A+(*SKIP:A)(B|Z) | AC","KNABa\\1\\1wON\\1S",[extended,global])),
+    <<"AACQACDXxjEdVkGvk">> = iolist_to_binary(re:replace("AAAC","A(*MARK:A)A+(*MARK:B)(*SKIP:A)(B|Z) | AC","CQ&DXxjEdVkGvk\\1",[extended])),
+    <<"AACQACDXxjEdVkGvk">> = iolist_to_binary(re:replace("AAAC","A(*MARK:A)A+(*MARK:B)(*SKIP:A)(B|Z) | AC","CQ&DXxjEdVkGvk\\1",[extended,global])),
+    <<"AAACdTXqBlsLHnACSPA">> = iolist_to_binary(re:replace("AAAC","A(*:A)A+(*SKIP:A)(B|Z) | AC","&dTXqBlsLH\\1n&SPA\\1",[extended])),
+    <<"AAACdTXqBlsLHnACSPA">> = iolist_to_binary(re:replace("AAAC","A(*:A)A+(*SKIP:A)(B|Z) | AC","&dTXqBlsLH\\1n&SPA\\1",[extended,global])),
+    <<"AAAC">> = iolist_to_binary(re:replace("AAAC","(*:A)A+(*SKIP:A)(B|Z)","jV",[])),
+    <<"AAAC">> = iolist_to_binary(re:replace("AAAC","(*:A)A+(*SKIP:A)(B|Z)","jV",[global])),
+    <<"AAosACmdgX">> = iolist_to_binary(re:replace("AAAC","A(*MARK:A)A+(*SKIP:B)(B|Z) | AC","os&mdgX",[extended])),
+    <<"AAosACmdgX">> = iolist_to_binary(re:replace("AAAC","A(*MARK:A)A+(*SKIP:B)(B|Z) | AC","os&mdgX",[extended,global])),
+    <<"AAYpwLicvrdWdBXR">> = iolist_to_binary(re:replace("AAAC","A(*MARK:A)A+(*SKIP:B)(B|Z) | AC(*:B)","YpwL\\1icvrdWdBXR",[extended])),
+    <<"AAYpwLicvrdWdBXR">> = iolist_to_binary(re:replace("AAAC","A(*MARK:A)A+(*SKIP:B)(B|Z) | AC(*:B)","YpwL\\1icvrdWdBXR",[extended,global])),
+    <<"iaAlhPADEFG">> = iolist_to_binary(re:replace("ABCDEFG","(*COMMIT)(A|P)(B|P)(C|P)","ia\\1lhP\\1",[])),
+    <<"iaAlhPADEFG">> = iolist_to_binary(re:replace("ABCDEFG","(*COMMIT)(A|P)(B|P)(C|P)","ia\\1lhP\\1",[global])),
+    <<"DEFGABC">> = iolist_to_binary(re:replace("DEFGABC","(*COMMIT)(A|P)(B|P)(C|P)","&BYHaB\\1&jJ",[])),
+    <<"DEFGABC">> = iolist_to_binary(re:replace("DEFGABC","(*COMMIT)(A|P)(B|P)(C|P)","&BYHaB\\1&jJ",[global])),
+    <<"BVB">> = iolist_to_binary(re:replace("abbb","(\\w+)(?>b(*COMMIT))\\w{2}","BVB",[])),
+    <<"BVB">> = iolist_to_binary(re:replace("abbb","(\\w+)(?>b(*COMMIT))\\w{2}","BVB",[global])),
+    <<"abbb">> = iolist_to_binary(re:replace("abbb","(\\w+)b(*COMMIT)\\w{2}","&cSk&xmMuHJpt\\1&VoP",[])),
+    <<"abbb">> = iolist_to_binary(re:replace("abbb","(\\w+)b(*COMMIT)\\w{2}","&cSk&xmMuHJpt\\1&VoP",[global])),
     ok.
 run44() ->
-    <<"ABGrQwABU">> = iolist_to_binary(re:replace("AB","(A (A|B(*ACCEPT)|C) D)(E)","&GrQw\\1U",[extended])),
-    <<"ABGrQwABU">> = iolist_to_binary(re:replace("AB","(A (A|B(*ACCEPT)|C) D)(E)","&GrQw\\1U",[extended,global])),
-    <<"xe">> = iolist_to_binary(re:replace("ba","\\A.*?(a|bc)","xe",[])),
-    <<"xe">> = iolist_to_binary(re:replace("ba","\\A.*?(a|bc)","xe",[global])),
-    <<"PvFpbapueukCvxbaUJ">> = iolist_to_binary(re:replace("ba","\\A.*?(?:a|bc)++","PvFp&pueukCv\\1\\1\\1x&UJ",[])),
-    <<"PvFpbapueukCvxbaUJ">> = iolist_to_binary(re:replace("ba","\\A.*?(?:a|bc)++","PvFp&pueukCv\\1\\1\\1x&UJ",[global])),
-    <<"aenigqoaQeBUcbaFyFLjg">> = iolist_to_binary(re:replace("ba","\\A.*?(a|bc)++","\\1enigqo\\1QeBUc&FyFLjg",[])),
-    <<"aenigqoaQeBUcbaFyFLjg">> = iolist_to_binary(re:replace("ba","\\A.*?(a|bc)++","\\1enigqo\\1QeBUc&FyFLjg",[global])),
-    <<"X">> = iolist_to_binary(re:replace("ba","\\A.*?(?:a|bc|d)","X",[])),
-    <<"X">> = iolist_to_binary(re:replace("ba","\\A.*?(?:a|bc|d)","X",[global])),
-    <<"CSYvJMwNrXbeetle">> = iolist_to_binary(re:replace("beetle","(?:(b))++","CSYvJMwNrX\\1",[])),
-    <<"CSYvJMwNrXbeetle">> = iolist_to_binary(re:replace("beetle","(?:(b))++","CSYvJMwNrX\\1",[global])),
-    <<"WVcuLyAOpQa">> = iolist_to_binary(re:replace("a","(?(?=(a(*ACCEPT)z))a)","WVcuLyAOpQ&",[])),
-    <<"WVcuLyAOpQaWVcuLyAOpQ">> = iolist_to_binary(re:replace("a","(?(?=(a(*ACCEPT)z))a)","WVcuLyAOpQ&",[global])),
-    <<"EaaaabPIMaaaaabEavk">> = iolist_to_binary(re:replace("aaaab","^(a)(?1)+ab","E&PIM\\1&E\\1vk",[])),
-    <<"EaaaabPIMaaaaabEavk">> = iolist_to_binary(re:replace("aaaab","^(a)(?1)+ab","E&PIM\\1&E\\1vk",[global])),
-    <<"aaaab">> = iolist_to_binary(re:replace("aaaab","^(a)(?1)++ab","\\1ux",[])),
-    <<"aaaab">> = iolist_to_binary(re:replace("aaaab","^(a)(?1)++ab","\\1ux",[global])),
-    <<"IlIckgammon">> = iolist_to_binary(re:replace("backgammon","(?(DEFINE)(a))?b(?1)","IlI",[])),
-    <<"IlIckgammon">> = iolist_to_binary(re:replace("backgammon","(?(DEFINE)(a))?b(?1)","IlI",[global])),
-    <<"MAwltkWfEDP
-def">> = iolist_to_binary(re:replace("abc
-def","^\\N+","MA\\1wltkWfEDP",[])),
-    <<"MAwltkWfEDP
-def">> = iolist_to_binary(re:replace("abc
-def","^\\N+","MA\\1wltkWfEDP",[global])),
-    <<"abchoMQ
-def">> = iolist_to_binary(re:replace("abc
-def","^\\N{1,}","&hoMQ",[])),
-    <<"abchoMQ
-def">> = iolist_to_binary(re:replace("abc
-def","^\\N{1,}","&hoMQ",[global])),
-    <<"enlaaaabOskJvtaaaaabePBUcde">> = iolist_to_binary(re:replace("aaaabcde","(?(R)a+|(?R)b)","enl&\\1OskJvta&\\1ePBU",[])),
-    <<"enlaaaabOskJvtaaaaabePBUcde">> = iolist_to_binary(re:replace("aaaabcde","(?(R)a+|(?R)b)","enl&\\1OskJvta&\\1ePBU",[global])),
-    <<"xETCwaaaaAQOTcde">> = iolist_to_binary(re:replace("aaaabcde","(?(R)a+|((?R))b)","xETCw\\1AQOT",[])),
-    <<"xETCwaaaaAQOTcde">> = iolist_to_binary(re:replace("aaaabcde","(?(R)a+|((?R))b)","xETCw\\1AQOT",[global])),
-    <<"BDWEaaaabsaaaabaaaabcde">> = iolist_to_binary(re:replace("aaaabcde","((?(R)a+|(?1)b))","BDWE\\1s&&",[])),
-    <<"BDWEaaaabsaaaabaaaabcde">> = iolist_to_binary(re:replace("aaaabcde","((?(R)a+|(?1)b))","BDWE\\1s&&",[global])),
-    <<"wjaaaabFaaaabcde">> = iolist_to_binary(re:replace("aaaabcde","((?(R1)a+|(?1)b))","wj\\1F&",[])),
-    <<"wjaaaabFaaaabcde">> = iolist_to_binary(re:replace("aaaabcde","((?(R1)a+|(?1)b))","wj\\1F&",[global])),
-    <<"Sx">> = iolist_to_binary(re:replace("aaa","((?(R)a|(?1)))*","Sx",[])),
-    <<"SxSx">> = iolist_to_binary(re:replace("aaa","((?(R)a|(?1)))*","Sx",[global])),
-    <<"H">> = iolist_to_binary(re:replace("aaa","((?(R)a|(?1)))+","H",[])),
-    <<"H">> = iolist_to_binary(re:replace("aaa","((?(R)a|(?1)))+","H",[global])),
-    <<"yWcaduabfPinElhSaa">> = iolist_to_binary(re:replace("a","(?>(?&t)c|(?&t))(?(DEFINE)(?<t>a|b(*PRUNE)c))","y\\1Wc&duabfPinElhS&&",[])),
-    <<"yWcaduabfPinElhSaa">> = iolist_to_binary(re:replace("a","(?>(?&t)c|(?&t))(?(DEFINE)(?<t>a|b(*PRUNE)c))","y\\1Wc&duabfPinElhS&&",[global])),
-    <<"bbalayoQ">> = iolist_to_binary(re:replace("ba","(?>(?&t)c|(?&t))(?(DEFINE)(?<t>a|b(*PRUNE)c))","b\\1&layoQ",[])),
-    <<"bbalayoQ">> = iolist_to_binary(re:replace("ba","(?>(?&t)c|(?&t))(?(DEFINE)(?<t>a|b(*PRUNE)c))","b\\1&layoQ",[global])),
-    <<"bbpF">> = iolist_to_binary(re:replace("bba","(?>(?&t)c|(?&t))(?(DEFINE)(?<t>a|b(*PRUNE)c))","pF",[])),
-    <<"bbpF">> = iolist_to_binary(re:replace("bba","(?>(?&t)c|(?&t))(?(DEFINE)(?<t>a|b(*PRUNE)c))","pF",[global])),
-    <<"aabc">> = iolist_to_binary(re:replace("aabc","^.*? (a(*THEN)b) c","GblOAJxEl",[extended])),
-    <<"aabc">> = iolist_to_binary(re:replace("aabc","^.*? (a(*THEN)b) c","GblOAJxEl",[extended,global])),
+    <<"bcc">> = iolist_to_binary(re:replace("bac","(?&t)(?#()(?(DEFINE)(?<t>a))","c",[])),
+    <<"bcc">> = iolist_to_binary(re:replace("bac","(?&t)(?#()(?(DEFINE)(?<t>a))","c",[global])),
+    <<"yes">> = iolist_to_binary(re:replace("yes","(?>(*COMMIT)(?>yes|no)(*THEN)(*F))?","GeKmc\\1WhXfk\\1TBYDb&Ca",[])),
+    <<"yes">> = iolist_to_binary(re:replace("yes","(?>(*COMMIT)(?>yes|no)(*THEN)(*F))?","GeKmc\\1WhXfk\\1TBYDb&Ca",[global])),
+    <<"yes">> = iolist_to_binary(re:replace("yes","(?>(*COMMIT)(yes|no)(*THEN)(*F))?","MMBt&lb\\1&jbxk",[])),
+    <<"yes">> = iolist_to_binary(re:replace("yes","(?>(*COMMIT)(yes|no)(*THEN)(*F))?","MMBt&lb\\1&jbxk",[global])),
+    <<"pwtbctvQbcXuUUqymOuO">> = iolist_to_binary(re:replace("bc","b?(*SKIP)c","pwt&tvQ&X\\1uUUqymOuO",[])),
+    <<"pwtbctvQbcXuUUqymOuO">> = iolist_to_binary(re:replace("bc","b?(*SKIP)c","pwt&tvQ&X\\1uUUqymOuO",[global])),
+    <<"a">> = iolist_to_binary(re:replace("abc","b?(*SKIP)c","\\1",[])),
+    <<"a">> = iolist_to_binary(re:replace("abc","b?(*SKIP)c","\\1",[global])),
+    <<"a">> = iolist_to_binary(re:replace("a","(*SKIP)bc","ODb",[])),
+    <<"a">> = iolist_to_binary(re:replace("a","(*SKIP)bc","ODb",[global])),
+    <<"a">> = iolist_to_binary(re:replace("a","(*SKIP)b","OUSVkw\\1k&ixHS\\1&u\\1&h",[])),
+    <<"a">> = iolist_to_binary(re:replace("a","(*SKIP)b","OUSVkw\\1k&ixHS\\1&u\\1&h",[global])),
+    <<"wclxxx">> = iolist_to_binary(re:replace("xxx","(?P<abn>(?P=abn)xxx|)+","wcl",[])),
+    <<"wclxwclxwclxwcl">> = iolist_to_binary(re:replace("xxx","(?P<abn>(?P=abn)xxx|)+","wcl",[global])),
+    <<"R">> = iolist_to_binary(re:replace("aa","(?i:([^b]))(?1)","R",[])),
+    <<"R">> = iolist_to_binary(re:replace("aa","(?i:([^b]))(?1)","R",[global])),
+    <<"aAUeGhRaA">> = iolist_to_binary(re:replace("aA","(?i:([^b]))(?1)","&UeGhR&",[])),
+    <<"aAUeGhRaA">> = iolist_to_binary(re:replace("aA","(?i:([^b]))(?1)","&UeGhR&",[global])),
+    <<"ab">> = iolist_to_binary(re:replace("ab","(?i:([^b]))(?1)","&e&aKbUC&nHH\\1qy\\1",[])),
+    <<"ab">> = iolist_to_binary(re:replace("ab","(?i:([^b]))(?1)","&e&aKbUC&nHH\\1qy\\1",[global])),
+    <<"aB">> = iolist_to_binary(re:replace("aB","(?i:([^b]))(?1)","JqKpfdXT&Mby&\\1&",[])),
+    <<"aB">> = iolist_to_binary(re:replace("aB","(?i:([^b]))(?1)","JqKpfdXT&Mby&\\1&",[global])),
+    <<"Ba">> = iolist_to_binary(re:replace("Ba","(?i:([^b]))(?1)","FAmVe\\1O",[])),
+    <<"Ba">> = iolist_to_binary(re:replace("Ba","(?i:([^b]))(?1)","FAmVe\\1O",[global])),
+    <<"ba">> = iolist_to_binary(re:replace("ba","(?i:([^b]))(?1)","\\1mSDSJp",[])),
+    <<"ba">> = iolist_to_binary(re:replace("ba","(?i:([^b]))(?1)","\\1mSDSJp",[global])),
+    <<"JagFUGCxoJaaaaaaXSMGCK">> = iolist_to_binary(re:replace("aaaaaaX","^(?&t)*+(?(DEFINE)(?<t>a))\\w$","JagFUGCxoJ&\\1SMGCK",[])),
+    <<"JagFUGCxoJaaaaaaXSMGCK">> = iolist_to_binary(re:replace("aaaaaaX","^(?&t)*+(?(DEFINE)(?<t>a))\\w$","JagFUGCxoJ&\\1SMGCK",[global])),
+    <<"aaaaaa">> = iolist_to_binary(re:replace("aaaaaa","^(?&t)*+(?(DEFINE)(?<t>a))\\w$","&an&\\1uIjsv\\1",[])),
+    <<"aaaaaa">> = iolist_to_binary(re:replace("aaaaaa","^(?&t)*+(?(DEFINE)(?<t>a))\\w$","&an&\\1uIjsv\\1",[global])),
+    <<"aaaaaaXCnytaaaaaaXsJWoCUIsrr">> = iolist_to_binary(re:replace("aaaaaaX","^(?&t)*(?(DEFINE)(?<t>a))\\w$","&C\\1nyt\\1\\1&\\1sJWoCUIsrr",[])),
+    <<"aaaaaaXCnytaaaaaaXsJWoCUIsrr">> = iolist_to_binary(re:replace("aaaaaaX","^(?&t)*(?(DEFINE)(?<t>a))\\w$","&C\\1nyt\\1\\1&\\1sJWoCUIsrr",[global])),
+    <<"heJfENVeRTJaaaaaaaaaaaaDvf">> = iolist_to_binary(re:replace("aaaaaa","^(?&t)*(?(DEFINE)(?<t>a))\\w$","heJfENVeR\\1TJ\\1&&Dvf",[])),
+    <<"heJfENVeRTJaaaaaaaaaaaaDvf">> = iolist_to_binary(re:replace("aaaaaa","^(?&t)*(?(DEFINE)(?<t>a))\\w$","heJfENVeR\\1TJ\\1&&Dvf",[global])),
+    <<"gaaaaX">> = iolist_to_binary(re:replace("aaaaX","^(a)*+(\\w)","g&",[])),
+    <<"gaaaaX">> = iolist_to_binary(re:replace("aaaaX","^(a)*+(\\w)","g&",[global])),
+    <<"bvHZ">> = iolist_to_binary(re:replace("YZ","^(a)*+(\\w)","bvH",[])),
+    <<"bvHZ">> = iolist_to_binary(re:replace("YZ","^(a)*+(\\w)","bvH",[global])),
+    <<"aaaa">> = iolist_to_binary(re:replace("aaaa","^(a)*+(\\w)","&GrQw\\1U",[])),
+    <<"aaaa">> = iolist_to_binary(re:replace("aaaa","^(a)*+(\\w)","&GrQw\\1U",[global])),
+    <<"xe">> = iolist_to_binary(re:replace("aaaaX","^(?:a)*+(\\w)","xe",[])),
+    <<"xe">> = iolist_to_binary(re:replace("aaaaX","^(?:a)*+(\\w)","xe",[global])),
+    <<"PvFpYpueukCvYYYxYUJZ">> = iolist_to_binary(re:replace("YZ","^(?:a)*+(\\w)","PvFp&pueukCv\\1\\1\\1x&UJ",[])),
+    <<"PvFpYpueukCvYYYxYUJZ">> = iolist_to_binary(re:replace("YZ","^(?:a)*+(\\w)","PvFp&pueukCv\\1\\1\\1x&UJ",[global])),
+    <<"aaaa">> = iolist_to_binary(re:replace("aaaa","^(?:a)*+(\\w)","\\1enigqo\\1QeBUc&FyFLjg",[])),
+    <<"aaaa">> = iolist_to_binary(re:replace("aaaa","^(?:a)*+(\\w)","\\1enigqo\\1QeBUc&FyFLjg",[global])),
+    <<"X">> = iolist_to_binary(re:replace("aaaaX","^(a)++(\\w)","X",[])),
+    <<"X">> = iolist_to_binary(re:replace("aaaaX","^(a)++(\\w)","X",[global])),
+    <<"aaaa">> = iolist_to_binary(re:replace("aaaa","^(a)++(\\w)","CSYvJMwNrX\\1",[])),
+    <<"aaaa">> = iolist_to_binary(re:replace("aaaa","^(a)++(\\w)","CSYvJMwNrX\\1",[global])),
+    <<"YZ">> = iolist_to_binary(re:replace("YZ","^(a)++(\\w)","WVcuLyAOpQ&",[])),
+    <<"YZ">> = iolist_to_binary(re:replace("YZ","^(a)++(\\w)","WVcuLyAOpQ&",[global])),
+    <<"EaaaaXPIMXaaaaXEXvk">> = iolist_to_binary(re:replace("aaaaX","^(?:a)++(\\w)","E&PIM\\1&E\\1vk",[])),
+    <<"EaaaaXPIMXaaaaXEXvk">> = iolist_to_binary(re:replace("aaaaX","^(?:a)++(\\w)","E&PIM\\1&E\\1vk",[global])),
+    <<"aaaa">> = iolist_to_binary(re:replace("aaaa","^(?:a)++(\\w)","\\1ux",[])),
+    <<"aaaa">> = iolist_to_binary(re:replace("aaaa","^(?:a)++(\\w)","\\1ux",[global])),
+    <<"YZ">> = iolist_to_binary(re:replace("YZ","^(?:a)++(\\w)","IlI",[])),
+    <<"YZ">> = iolist_to_binary(re:replace("YZ","^(?:a)++(\\w)","IlI",[global])),
+    <<"MAawltkWfEDPaaX">> = iolist_to_binary(re:replace("aaaaX","^(a)?+(\\w)","MA\\1wltkWfEDP",[])),
+    <<"MAawltkWfEDPaaX">> = iolist_to_binary(re:replace("aaaaX","^(a)?+(\\w)","MA\\1wltkWfEDP",[global])),
+    <<"YhoMQZ">> = iolist_to_binary(re:replace("YZ","^(a)?+(\\w)","&hoMQ",[])),
+    <<"YhoMQZ">> = iolist_to_binary(re:replace("YZ","^(a)?+(\\w)","&hoMQ",[global])),
+    <<"enlaaaOskJvtaaaaePBUaaX">> = iolist_to_binary(re:replace("aaaaX","^(?:a)?+(\\w)","enl&\\1OskJvta&\\1ePBU",[])),
+    <<"enlaaaOskJvtaaaaePBUaaX">> = iolist_to_binary(re:replace("aaaaX","^(?:a)?+(\\w)","enl&\\1OskJvta&\\1ePBU",[global])),
+    <<"xETCwYAQOTZ">> = iolist_to_binary(re:replace("YZ","^(?:a)?+(\\w)","xETCw\\1AQOT",[])),
+    <<"xETCwYAQOTZ">> = iolist_to_binary(re:replace("YZ","^(?:a)?+(\\w)","xETCw\\1AQOT",[global])),
+    <<"BDWEasaaaaXaaaaX">> = iolist_to_binary(re:replace("aaaaX","^(a){2,}+(\\w)","BDWE\\1s&&",[])),
+    <<"BDWEasaaaaXaaaaX">> = iolist_to_binary(re:replace("aaaaX","^(a){2,}+(\\w)","BDWE\\1s&&",[global])),
+    <<"aaa">> = iolist_to_binary(re:replace("aaa","^(a){2,}+(\\w)","wj\\1F&",[])),
+    <<"aaa">> = iolist_to_binary(re:replace("aaa","^(a){2,}+(\\w)","wj\\1F&",[global])),
+    <<"YZ">> = iolist_to_binary(re:replace("YZ","^(a){2,}+(\\w)","Sx",[])),
+    <<"YZ">> = iolist_to_binary(re:replace("YZ","^(a){2,}+(\\w)","Sx",[global])),
+    <<"H">> = iolist_to_binary(re:replace("aaaaX","^(?:a){2,}+(\\w)","H",[])),
+    <<"H">> = iolist_to_binary(re:replace("aaaaX","^(?:a){2,}+(\\w)","H",[global])),
+    <<"aaa">> = iolist_to_binary(re:replace("aaa","^(?:a){2,}+(\\w)","y\\1Wc&duabfPinElhS&&",[])),
+    <<"aaa">> = iolist_to_binary(re:replace("aaa","^(?:a){2,}+(\\w)","y\\1Wc&duabfPinElhS&&",[global])),
+    <<"YZ">> = iolist_to_binary(re:replace("YZ","^(?:a){2,}+(\\w)","b\\1&layoQ",[])),
+    <<"YZ">> = iolist_to_binary(re:replace("YZ","^(?:a){2,}+(\\w)","b\\1&layoQ",[global])),
+    <<"pF">> = iolist_to_binary(re:replace("b","(a|)*(?1)b","pF",[])),
+    <<"pF">> = iolist_to_binary(re:replace("b","(a|)*(?1)b","pF",[global])),
+    <<"GblOAJxEl">> = iolist_to_binary(re:replace("ab","(a|)*(?1)b","GblOAJxEl",[])),
+    <<"GblOAJxEl">> = iolist_to_binary(re:replace("ab","(a|)*(?1)b","GblOAJxEl",[global])),
+    <<"wDMUaJIhLW">> = iolist_to_binary(re:replace("aab","(a|)*(?1)b","wDMUaJIhLW",[])),
+    <<"wDMUaJIhLW">> = iolist_to_binary(re:replace("aab","(a|)*(?1)b","wDMUaJIhLW",[global])),
+    <<"ab">> = iolist_to_binary(re:replace("ab","(a)++(?1)b","uhDu\\1JEuDD&JKa&vdX",[])),
+    <<"ab">> = iolist_to_binary(re:replace("ab","(a)++(?1)b","uhDu\\1JEuDD&JKa&vdX",[global])),
+    <<"aab">> = iolist_to_binary(re:replace("aab","(a)++(?1)b","oUFI&utTyJ",[])),
+    <<"aab">> = iolist_to_binary(re:replace("aab","(a)++(?1)b","oUFI&utTyJ",[global])),
     ok.
 run45() ->
-    <<"wDMUaJIhLW">> = iolist_to_binary(re:replace("aabc","^.*? (a(*THEN)b|(*F)) c","wDMUaJIhLW",[extended])),
-    <<"wDMUaJIhLW">> = iolist_to_binary(re:replace("aabc","^.*? (a(*THEN)b|(*F)) c","wDMUaJIhLW",[extended,global])),
-    <<"uhDuabJEuDDaabcJKaaabcvdX">> = iolist_to_binary(re:replace("aabc","^.*? ( (a(*THEN)b) | (*F) ) c","uhDu\\1JEuDD&JKa&vdX",[extended])),
-    <<"uhDuabJEuDDaabcJKaaabcvdX">> = iolist_to_binary(re:replace("aabc","^.*? ( (a(*THEN)b) | (*F) ) c","uhDu\\1JEuDD&JKa&vdX",[extended,global])),
-    <<"aabc">> = iolist_to_binary(re:replace("aabc","^.*? ( (a(*THEN)b) ) c","oUFI&utTyJ",[extended])),
-    <<"aabc">> = iolist_to_binary(re:replace("aabc","^.*? ( (a(*THEN)b) ) c","oUFI&utTyJ",[extended,global])),
-    <<"aabc">> = iolist_to_binary(re:replace("aabc","^.*? (?:a(*THEN)b) c","ib\\1&erlkw&wuHdHNtS",[extended])),
-    <<"aabc">> = iolist_to_binary(re:replace("aabc","^.*? (?:a(*THEN)b) c","ib\\1&erlkw&wuHdHNtS",[extended,global])),
-    <<"UAyUaabcpHoaabcOHkaabc">> = iolist_to_binary(re:replace("aabc","^.*? (?:a(*THEN)b|(*F)) c","UAyU&\\1pH\\1o&O\\1\\1Hk&",[extended])),
-    <<"UAyUaabcpHoaabcOHkaabc">> = iolist_to_binary(re:replace("aabc","^.*? (?:a(*THEN)b|(*F)) c","UAyU&\\1pH\\1o&O\\1\\1Hk&",[extended,global])),
-    <<"UlaabcmKaP">> = iolist_to_binary(re:replace("aabc","^.*? (?: (?:a(*THEN)b) | (*F) ) c","Ul&mKaP",[extended])),
-    <<"UlaabcmKaP">> = iolist_to_binary(re:replace("aabc","^.*? (?: (?:a(*THEN)b) | (*F) ) c","Ul&mKaP",[extended,global])),
-    <<"aabc">> = iolist_to_binary(re:replace("aabc","^.*? (?: (?:a(*THEN)b) ) c","mOVI&kb\\1NflC",[extended])),
-    <<"aabc">> = iolist_to_binary(re:replace("aabc","^.*? (?: (?:a(*THEN)b) ) c","mOVI&kb\\1NflC",[extended,global])),
-    <<"aabc">> = iolist_to_binary(re:replace("aabc","^.*? (?>a(*THEN)b) c","&\\1u&a&caKjjSkMS\\1L",[extended])),
-    <<"aabc">> = iolist_to_binary(re:replace("aabc","^.*? (?>a(*THEN)b) c","&\\1u&a&caKjjSkMS\\1L",[extended,global])),
-    <<"aabcD">> = iolist_to_binary(re:replace("aabc","^.*? (?>a(*THEN)b|(*F)) c","&D\\1\\1",[extended])),
-    <<"aabcD">> = iolist_to_binary(re:replace("aabc","^.*? (?>a(*THEN)b|(*F)) c","&D\\1\\1",[extended,global])),
-    <<"NhofxbKsmLiNJYyrV">> = iolist_to_binary(re:replace("aabc","^.*? (?> (?>a(*THEN)b) | (*F) ) c","NhofxbK\\1smLiNJ\\1YyrV",[extended])),
-    <<"NhofxbKsmLiNJYyrV">> = iolist_to_binary(re:replace("aabc","^.*? (?> (?>a(*THEN)b) | (*F) ) c","NhofxbK\\1smLiNJ\\1YyrV",[extended,global])),
-    <<"aabc">> = iolist_to_binary(re:replace("aabc","^.*? (?> (?>a(*THEN)b) ) c","&R&&m&&",[extended])),
-    <<"aabc">> = iolist_to_binary(re:replace("aabc","^.*? (?> (?>a(*THEN)b) ) c","&R&&m&&",[extended,global])),
-    <<"aabc">> = iolist_to_binary(re:replace("aabc","^.*? (a(*THEN)b)++ c","cxccnpYwqQ",[extended])),
-    <<"aabc">> = iolist_to_binary(re:replace("aabc","^.*? (a(*THEN)b)++ c","cxccnpYwqQ",[extended,global])),
-    <<"wabYQqaabclJrcNaabcQujabFaabcn">> = iolist_to_binary(re:replace("aabc","^.*? (a(*THEN)b|(*F))++ c","w\\1YQq&lJrcN&Quj\\1F&n",[extended])),
-    <<"wabYQqaabclJrcNaabcQujabFaabcn">> = iolist_to_binary(re:replace("aabc","^.*? (a(*THEN)b|(*F))++ c","w\\1YQq&lJrcN&Quj\\1F&n",[extended,global])),
-    <<"SSNdaabcnWnnujabaabcaabc">> = iolist_to_binary(re:replace("aabc","^.*? ( (a(*THEN)b)++ | (*F) )++ c","SSNd&nWnnuj\\1&&",[extended])),
-    <<"SSNdaabcnWnnujabaabcaabc">> = iolist_to_binary(re:replace("aabc","^.*? ( (a(*THEN)b)++ | (*F) )++ c","SSNd&nWnnuj\\1&&",[extended,global])),
-    <<"aabc">> = iolist_to_binary(re:replace("aabc","^.*? ( (a(*THEN)b)++ )++ c","sC\\1",[extended])),
-    <<"aabc">> = iolist_to_binary(re:replace("aabc","^.*? ( (a(*THEN)b)++ )++ c","sC\\1",[extended,global])),
-    <<"aabc">> = iolist_to_binary(re:replace("aabc","^.*? (?:a(*THEN)b)++ c","\\1&KtbPW\\1jI",[extended])),
-    <<"aabc">> = iolist_to_binary(re:replace("aabc","^.*? (?:a(*THEN)b)++ c","\\1&KtbPW\\1jI",[extended,global])),
-    <<"aabcDh">> = iolist_to_binary(re:replace("aabc","^.*? (?:a(*THEN)b|(*F))++ c","&Dh",[extended])),
-    <<"aabcDh">> = iolist_to_binary(re:replace("aabc","^.*? (?:a(*THEN)b|(*F))++ c","&Dh",[extended,global])),
-    <<"HX">> = iolist_to_binary(re:replace("aabc","^.*? (?: (?:a(*THEN)b)++ | (*F) )++ c","HX",[extended])),
-    <<"HX">> = iolist_to_binary(re:replace("aabc","^.*? (?: (?:a(*THEN)b)++ | (*F) )++ c","HX",[extended,global])),
-    <<"aabc">> = iolist_to_binary(re:replace("aabc","^.*? (?: (?:a(*THEN)b)++ )++ c","BlTx\\1ckgd",[extended])),
-    <<"aabc">> = iolist_to_binary(re:replace("aabc","^.*? (?: (?:a(*THEN)b)++ )++ c","BlTx\\1ckgd",[extended,global])),
-    <<"Wbqac">> = iolist_to_binary(re:replace("ac","^(?(?=a(*THEN)b)ab|ac)","Wbq&",[])),
-    <<"Wbqac">> = iolist_to_binary(re:replace("ac","^(?(?=a(*THEN)b)ab|ac)","Wbq&",[global])),
+    <<"ab">> = iolist_to_binary(re:replace("ab","(a)*+(?1)b","ib\\1&erlkw&wuHdHNtS",[])),
+    <<"ab">> = iolist_to_binary(re:replace("ab","(a)*+(?1)b","ib\\1&erlkw&wuHdHNtS",[global])),
+    <<"aab">> = iolist_to_binary(re:replace("aab","(a)*+(?1)b","UAyU&\\1pH\\1o&O\\1\\1Hk&",[])),
+    <<"aab">> = iolist_to_binary(re:replace("aab","(a)*+(?1)b","UAyU&\\1pH\\1o&O\\1\\1Hk&",[global])),
+    <<"UlbmKaP">> = iolist_to_binary(re:replace("b","(?1)(?:(b)){0}","Ul&mKaP",[])),
+    <<"UlbmKaP">> = iolist_to_binary(re:replace("b","(?1)(?:(b)){0}","Ul&mKaP",[global])),
+    <<"mOVIfoo(bar(baz)+baz(bop))kbfoo(bar(baz)+baz(bop))NflC">> = iolist_to_binary(re:replace("foo(bar(baz)+baz(bop))","(foo ( \\( ((?:(?> [^()]+ )|(?2))*) \\) ) )","mOVI&kb\\1NflC",[extended])),
+    <<"mOVIfoo(bar(baz)+baz(bop))kbfoo(bar(baz)+baz(bop))NflC">> = iolist_to_binary(re:replace("foo(bar(baz)+baz(bop))","(foo ( \\( ((?:(?> [^()]+ )|(?2))*) \\) ) )","mOVI&kb\\1NflC",[extended,global])),
+    <<"ABABuABaABcaKjjSkMSABL">> = iolist_to_binary(re:replace("AB","(A (A|B(*ACCEPT)|C) D)(E)","&\\1u&a&caKjjSkMS\\1L",[extended])),
+    <<"ABABuABaABcaKjjSkMSABL">> = iolist_to_binary(re:replace("AB","(A (A|B(*ACCEPT)|C) D)(E)","&\\1u&a&caKjjSkMS\\1L",[extended,global])),
+    <<"baDaa">> = iolist_to_binary(re:replace("ba","\\A.*?(a|bc)","&D\\1\\1",[])),
+    <<"baDaa">> = iolist_to_binary(re:replace("ba","\\A.*?(a|bc)","&D\\1\\1",[global])),
+    <<"NhofxbKsmLiNJYyrV">> = iolist_to_binary(re:replace("ba","\\A.*?(?:a|bc)++","NhofxbK\\1smLiNJ\\1YyrV",[])),
+    <<"NhofxbKsmLiNJYyrV">> = iolist_to_binary(re:replace("ba","\\A.*?(?:a|bc)++","NhofxbK\\1smLiNJ\\1YyrV",[global])),
+    <<"baRbabambaba">> = iolist_to_binary(re:replace("ba","\\A.*?(a|bc)++","&R&&m&&",[])),
+    <<"baRbabambaba">> = iolist_to_binary(re:replace("ba","\\A.*?(a|bc)++","&R&&m&&",[global])),
+    <<"cxccnpYwqQ">> = iolist_to_binary(re:replace("ba","\\A.*?(?:a|bc|d)","cxccnpYwqQ",[])),
+    <<"cxccnpYwqQ">> = iolist_to_binary(re:replace("ba","\\A.*?(?:a|bc|d)","cxccnpYwqQ",[global])),
+    <<"wbYQqblJrcNbQujbFbneetle">> = iolist_to_binary(re:replace("beetle","(?:(b))++","w\\1YQq&lJrcN&Quj\\1F&n",[])),
+    <<"wbYQqblJrcNbQujbFbneetle">> = iolist_to_binary(re:replace("beetle","(?:(b))++","w\\1YQq&lJrcN&Quj\\1F&n",[global])),
+    <<"SSNdanWnnujaaa">> = iolist_to_binary(re:replace("a","(?(?=(a(*ACCEPT)z))a)","SSNd&nWnnuj\\1&&",[])),
+    <<"SSNdanWnnujaaaSSNdnWnnuj">> = iolist_to_binary(re:replace("a","(?(?=(a(*ACCEPT)z))a)","SSNd&nWnnuj\\1&&",[global])),
+    <<"sCa">> = iolist_to_binary(re:replace("aaaab","^(a)(?1)+ab","sC\\1",[])),
+    <<"sCa">> = iolist_to_binary(re:replace("aaaab","^(a)(?1)+ab","sC\\1",[global])),
+    <<"aaaab">> = iolist_to_binary(re:replace("aaaab","^(a)(?1)++ab","\\1&KtbPW\\1jI",[])),
+    <<"aaaab">> = iolist_to_binary(re:replace("aaaab","^(a)(?1)++ab","\\1&KtbPW\\1jI",[global])),
+    <<"aZDhbc">> = iolist_to_binary(re:replace("aZbc","^(?=a(*:M))aZ","&Dh",[])),
+    <<"aZDhbc">> = iolist_to_binary(re:replace("aZbc","^(?=a(*:M))aZ","&Dh",[global])),
+    <<"HXbc">> = iolist_to_binary(re:replace("aZbc","^(?!(*:M)b)aZ","HX",[])),
+    <<"HXbc">> = iolist_to_binary(re:replace("aZbc","^(?!(*:M)b)aZ","HX",[global])),
+    <<"BlTxckgdckgammon">> = iolist_to_binary(re:replace("backgammon","(?(DEFINE)(a))?b(?1)","BlTx\\1ckgd",[])),
+    <<"BlTxckgdckgammon">> = iolist_to_binary(re:replace("backgammon","(?(DEFINE)(a))?b(?1)","BlTx\\1ckgd",[global])),
+    <<"Wbqabc
+def">> = iolist_to_binary(re:replace("abc
+def","^\\N+","Wbq&",[])),
+    <<"Wbqabc
+def">> = iolist_to_binary(re:replace("abc
+def","^\\N+","Wbq&",[global])),
+    <<"xLqYouuKkU
+def">> = iolist_to_binary(re:replace("abc
+def","^\\N{1,}","xLq\\1Y\\1ouuKk\\1U",[])),
+    <<"xLqYouuKkU
+def">> = iolist_to_binary(re:replace("abc
+def","^\\N{1,}","xLq\\1Y\\1ouuKk\\1U",[global])),
+    <<"uADaaaabXiwJcde">> = iolist_to_binary(re:replace("aaaabcde","(?(R)a+|(?R)b)","uAD&XiwJ",[])),
+    <<"uADaaaabXiwJcde">> = iolist_to_binary(re:replace("aaaabcde","(?(R)a+|(?R)b)","uAD&XiwJ",[global])),
+    <<"aaaabyCaaaabjQaaaaaaaabaaaabEcde">> = iolist_to_binary(re:replace("aaaabcde","(?(R)a+|((?R))b)","&yC&jQ\\1&&E",[])),
+    <<"aaaabyCaaaabjQaaaaaaaabaaaabEcde">> = iolist_to_binary(re:replace("aaaabcde","(?(R)a+|((?R))b)","&yC&jQ\\1&&E",[global])),
+    <<"csUtcde">> = iolist_to_binary(re:replace("aaaabcde","((?(R)a+|(?1)b))","csUt",[])),
+    <<"csUtcde">> = iolist_to_binary(re:replace("aaaabcde","((?(R)a+|(?1)b))","csUt",[global])),
     ok.
 run46() ->
-    <<"ba">> = iolist_to_binary(re:replace("ba","^.*?(?(?=a)a|b(*THEN)c)","xLq\\1Y\\1ouuKk\\1U",[])),
-    <<"ba">> = iolist_to_binary(re:replace("ba","^.*?(?(?=a)a|b(*THEN)c)","xLq\\1Y\\1ouuKk\\1U",[global])),
-    <<"uADbaXiwJ">> = iolist_to_binary(re:replace("ba","^.*?(?:(?(?=a)a|b(*THEN)c)|d)","uAD&XiwJ",[])),
-    <<"uADbaXiwJ">> = iolist_to_binary(re:replace("ba","^.*?(?:(?(?=a)a|b(*THEN)c)|d)","uAD&XiwJ",[global])),
-    <<"ac">> = iolist_to_binary(re:replace("ac","^.*?(?(?=a)a(*THEN)b|c)","&yC&jQ\\1&&E",[])),
-    <<"ac">> = iolist_to_binary(re:replace("ac","^.*?(?(?=a)a(*THEN)b|c)","&yC&jQ\\1&&E",[global])),
-    <<"csUtabc">> = iolist_to_binary(re:replace("aabc","^.*(?=a(*THEN)b)","csUt",[])),
-    <<"csUtabc">> = iolist_to_binary(re:replace("aabc","^.*(?=a(*THEN)b)","csUt",[global])),
-    <<"xacCEyciDmGacDld">> = iolist_to_binary(re:replace("xacd","(?<=a(*ACCEPT)b)c","&CEy&iDmGa&\\1Dl",[])),
-    <<"xacCEyciDmGacDld">> = iolist_to_binary(re:replace("xacd","(?<=a(*ACCEPT)b)c","&CEy&iDmGa&\\1Dl",[global])),
-    <<"xaYQqPscDQgoaacNnyicNyd">> = iolist_to_binary(re:replace("xacd","(?<=(a(*ACCEPT)b))c","YQqPs&DQgo\\1\\1&Nnyi&Ny",[])),
-    <<"xaYQqPscDQgoaacNnyicNyd">> = iolist_to_binary(re:replace("xacd","(?<=(a(*ACCEPT)b))c","YQqPs&DQgo\\1\\1&Nnyi&Ny",[global])),
-    <<"xaboababccDscFcd">> = iolist_to_binary(re:replace("xabcd","(?<=(a(*COMMIT)b))c","o\\1\\1&&Ds&F&",[])),
-    <<"xaboababccDscFcd">> = iolist_to_binary(re:replace("xabcd","(?<=(a(*COMMIT)b))c","o\\1\\1&&Ds&F&",[global])),
-    <<"xacd">> = iolist_to_binary(re:replace("xacd","(?<=(a(*COMMIT)b))c","s&\\1BXWRj\\1rQXiOeLx",[])),
-    <<"xacd">> = iolist_to_binary(re:replace("xacd","(?<=(a(*COMMIT)b))c","s&\\1BXWRj\\1rQXiOeLx",[global])),
-    <<"xYd">> = iolist_to_binary(re:replace("xcd","(?<!a(*FAIL)b)c","Y",[])),
-    <<"xYd">> = iolist_to_binary(re:replace("xcd","(?<!a(*FAIL)b)c","Y",[global])),
-    <<"aDaLYYtnYd">> = iolist_to_binary(re:replace("acd","(?<!a(*FAIL)b)c","DaLYYtnY",[])),
-    <<"aDaLYYtnYd">> = iolist_to_binary(re:replace("acd","(?<!a(*FAIL)b)c","DaLYYtnY",[global])),
-    <<"xabMBUMd">> = iolist_to_binary(re:replace("xabcd","(?<=a(*PRUNE)b)c","MBU\\1M",[])),
-    <<"xabMBUMd">> = iolist_to_binary(re:replace("xabcd","(?<=a(*PRUNE)b)c","MBU\\1M",[global])),
-    <<"xabcLpd">> = iolist_to_binary(re:replace("xabcd","(?<=a(*SKIP)b)c","&Lp",[])),
-    <<"xabcLpd">> = iolist_to_binary(re:replace("xabcd","(?<=a(*SKIP)b)c","&Lp",[global])),
-    <<"xabhrcUSJrDd">> = iolist_to_binary(re:replace("xabcd","(?<=a(*THEN)b)c","hr&USJrD",[])),
-    <<"xabhrcUSJrDd">> = iolist_to_binary(re:replace("xabcd","(?<=a(*THEN)b)c","hr&USJrD",[global])),
-    <<"BbfgCNDoabcdaCa">> = iolist_to_binary(re:replace("abcd","(a)(?2){2}(.)","BbfgCNDo&\\1C\\1",[])),
-    <<"BbfgCNDoabcdaCa">> = iolist_to_binary(re:replace("abcd","(a)(?2){2}(.)","BbfgCNDo&\\1C\\1",[global])),
-    <<"hello world wtestYt">> = iolist_to_binary(re:replace("hello world test","(another)?(\\1?)test","w&Yt",[])),
-    <<"hello world wtestYt">> = iolist_to_binary(re:replace("hello world test","(another)?(\\1?)test","w&Yt",[global])),
-    <<"hello world test">> = iolist_to_binary(re:replace("hello world test","(another)?(\\1+)test","Ag&V",[])),
-    <<"hello world test">> = iolist_to_binary(re:replace("hello world test","(another)?(\\1+)test","Ag&V",[global])),
-    <<"VxnHOwDhnQQemGfaacIJ">> = iolist_to_binary(re:replace("aac","(a(*COMMIT)b){0}a(?1)|aac","VxnH\\1OwDhnQQemGf&IJ",[])),
-    <<"VxnHOwDhnQQemGfaacIJ">> = iolist_to_binary(re:replace("aac","(a(*COMMIT)b){0}a(?1)|aac","VxnH\\1OwDhnQQemGf&IJ",[global])),
-    <<"OmSWaacaacyOcffpn">> = iolist_to_binary(re:replace("aac","((?:a?)*)*c","OmS\\1W&&yOcff\\1pn",[])),
-    <<"OmSWaacaacyOcffpn">> = iolist_to_binary(re:replace("aac","((?:a?)*)*c","OmS\\1W&&yOcff\\1pn",[global])),
-    <<"XaacM">> = iolist_to_binary(re:replace("aac","((?>a?)*)*c","X&M",[])),
-    <<"XaacM">> = iolist_to_binary(re:replace("aac","((?>a?)*)*c","X&M",[global])),
-    <<"aGbaQAbaqhihaMMrQ">> = iolist_to_binary(re:replace("aba","(?>.*?a)(?<=ba)","G&QA&qhihaMMrQ",[])),
-    <<"aGbaQAbaqhihaMMrQ">> = iolist_to_binary(re:replace("aba","(?>.*?a)(?<=ba)","G&QA&qhihaMMrQ",[global])),
-    <<"kIxMrDBa">> = iolist_to_binary(re:replace("aba","(?:.*?a)(?<=ba)","kIxM\\1rD\\1B\\1a",[])),
-    <<"kIxMrDBa">> = iolist_to_binary(re:replace("aba","(?:.*?a)(?<=ba)","kIxM\\1rD\\1B\\1a",[global])),
-    <<"atkeKIY">> = iolist_to_binary(re:replace("aab","(?>.*?a)b","tkeKIY",[dotall])),
-    <<"atkeKIY">> = iolist_to_binary(re:replace("aab","(?>.*?a)b","tkeKIY",[dotall,global])),
+    <<"aaaabCEyaaaabiDmGaaaaabaaaabDlcde">> = iolist_to_binary(re:replace("aaaabcde","((?(R1)a+|(?1)b))","&CEy&iDmGa&\\1Dl",[])),
+    <<"aaaabCEyaaaabiDmGaaaaabaaaabDlcde">> = iolist_to_binary(re:replace("aaaabcde","((?(R1)a+|(?1)b))","&CEy&iDmGa&\\1Dl",[global])),
+    <<"YQqPsaaaDQgoaaaaaNnyiaaaNy">> = iolist_to_binary(re:replace("aaa","((?(R)a|(?1)))*","YQqPs&DQgo\\1\\1&Nnyi&Ny",[])),
+    <<"YQqPsaaaDQgoaaaaaNnyiaaaNyYQqPsDQgoNnyiNy">> = iolist_to_binary(re:replace("aaa","((?(R)a|(?1)))*","YQqPs&DQgo\\1\\1&Nnyi&Ny",[global])),
+    <<"oaaaaaaaaDsaaaFaaa">> = iolist_to_binary(re:replace("aaa","((?(R)a|(?1)))+","o\\1\\1&&Ds&F&",[])),
+    <<"oaaaaaaaaDsaaaFaaa">> = iolist_to_binary(re:replace("aaa","((?(R)a|(?1)))+","o\\1\\1&&Ds&F&",[global])),
+    <<"saBXWRjrQXiOeLxbc">> = iolist_to_binary(re:replace("abc","a(*:any 
+name)","s&\\1BXWRj\\1rQXiOeLx",[])),
+    <<"saBXWRjrQXiOeLxbc">> = iolist_to_binary(re:replace("abc","a(*:any 
+name)","s&\\1BXWRj\\1rQXiOeLx",[global])),
+    <<"Y">> = iolist_to_binary(re:replace("a","(?>(?&t)c|(?&t))(?(DEFINE)(?<t>a|b(*PRUNE)c))","Y",[])),
+    <<"Y">> = iolist_to_binary(re:replace("a","(?>(?&t)c|(?&t))(?(DEFINE)(?<t>a|b(*PRUNE)c))","Y",[global])),
+    <<"bDaLYYtnY">> = iolist_to_binary(re:replace("ba","(?>(?&t)c|(?&t))(?(DEFINE)(?<t>a|b(*PRUNE)c))","DaLYYtnY",[])),
+    <<"bDaLYYtnY">> = iolist_to_binary(re:replace("ba","(?>(?&t)c|(?&t))(?(DEFINE)(?<t>a|b(*PRUNE)c))","DaLYYtnY",[global])),
+    <<"bbMBUM">> = iolist_to_binary(re:replace("bba","(?>(?&t)c|(?&t))(?(DEFINE)(?<t>a|b(*PRUNE)c))","MBU\\1M",[])),
+    <<"bbMBUM">> = iolist_to_binary(re:replace("bba","(?>(?&t)c|(?&t))(?(DEFINE)(?<t>a|b(*PRUNE)c))","MBU\\1M",[global])),
+    <<"aabc">> = iolist_to_binary(re:replace("aabc","^.*? (a(*THEN)b) c","&Lp",[extended])),
+    <<"aabc">> = iolist_to_binary(re:replace("aabc","^.*? (a(*THEN)b) c","&Lp",[extended,global])),
+    <<"hraabcUSJrD">> = iolist_to_binary(re:replace("aabc","^.*? (a(*THEN)b|(*F)) c","hr&USJrD",[extended])),
+    <<"hraabcUSJrD">> = iolist_to_binary(re:replace("aabc","^.*? (a(*THEN)b|(*F)) c","hr&USJrD",[extended,global])),
+    <<"BbfgCNDoaabcabCab">> = iolist_to_binary(re:replace("aabc","^.*? ( (a(*THEN)b) | (*F) ) c","BbfgCNDo&\\1C\\1",[extended])),
+    <<"BbfgCNDoaabcabCab">> = iolist_to_binary(re:replace("aabc","^.*? ( (a(*THEN)b) | (*F) ) c","BbfgCNDo&\\1C\\1",[extended,global])),
+    <<"aabc">> = iolist_to_binary(re:replace("aabc","^.*? ( (a(*THEN)b) ) c","w&Yt",[extended])),
+    <<"aabc">> = iolist_to_binary(re:replace("aabc","^.*? ( (a(*THEN)b) ) c","w&Yt",[extended,global])),
+    <<"aabc">> = iolist_to_binary(re:replace("aabc","^.*? (?:a(*THEN)b) c","Ag&V",[extended])),
+    <<"aabc">> = iolist_to_binary(re:replace("aabc","^.*? (?:a(*THEN)b) c","Ag&V",[extended,global])),
+    <<"VxnHOwDhnQQemGfaabcIJ">> = iolist_to_binary(re:replace("aabc","^.*? (?:a(*THEN)b|(*F)) c","VxnH\\1OwDhnQQemGf&IJ",[extended])),
+    <<"VxnHOwDhnQQemGfaabcIJ">> = iolist_to_binary(re:replace("aabc","^.*? (?:a(*THEN)b|(*F)) c","VxnH\\1OwDhnQQemGf&IJ",[extended,global])),
+    <<"OmSWaabcaabcyOcffpn">> = iolist_to_binary(re:replace("aabc","^.*? (?: (?:a(*THEN)b) | (*F) ) c","OmS\\1W&&yOcff\\1pn",[extended])),
+    <<"OmSWaabcaabcyOcffpn">> = iolist_to_binary(re:replace("aabc","^.*? (?: (?:a(*THEN)b) | (*F) ) c","OmS\\1W&&yOcff\\1pn",[extended,global])),
+    <<"aabc">> = iolist_to_binary(re:replace("aabc","^.*? (?: (?:a(*THEN)b) ) c","X&M",[extended])),
+    <<"aabc">> = iolist_to_binary(re:replace("aabc","^.*? (?: (?:a(*THEN)b) ) c","X&M",[extended,global])),
+    <<"aabc">> = iolist_to_binary(re:replace("aabc","^.*? (?>a(*THEN)b) c","G&QA&qhihaMMrQ",[extended])),
+    <<"aabc">> = iolist_to_binary(re:replace("aabc","^.*? (?>a(*THEN)b) c","G&QA&qhihaMMrQ",[extended,global])),
+    <<"kIxMrDBa">> = iolist_to_binary(re:replace("aabc","^.*? (?>a(*THEN)b|(*F)) c","kIxM\\1rD\\1B\\1a",[extended])),
+    <<"kIxMrDBa">> = iolist_to_binary(re:replace("aabc","^.*? (?>a(*THEN)b|(*F)) c","kIxM\\1rD\\1B\\1a",[extended,global])),
+    <<"tkeKIY">> = iolist_to_binary(re:replace("aabc","^.*? (?> (?>a(*THEN)b) | (*F) ) c","tkeKIY",[extended])),
+    <<"tkeKIY">> = iolist_to_binary(re:replace("aabc","^.*? (?> (?>a(*THEN)b) | (*F) ) c","tkeKIY",[extended,global])),
+    <<"aabc">> = iolist_to_binary(re:replace("aabc","^.*? (?> (?>a(*THEN)b) ) c","\\1I\\1",[extended])),
+    <<"aabc">> = iolist_to_binary(re:replace("aabc","^.*? (?> (?>a(*THEN)b) ) c","\\1I\\1",[extended,global])),
+    <<"aabc">> = iolist_to_binary(re:replace("aabc","^.*? (a(*THEN)b)++ c","rO&YBnR",[extended])),
+    <<"aabc">> = iolist_to_binary(re:replace("aabc","^.*? (a(*THEN)b)++ c","rO&YBnR",[extended,global])),
+    <<"uwsqruwBU">> = iolist_to_binary(re:replace("aabc","^.*? (a(*THEN)b|(*F))++ c","uwsqruwBU",[extended])),
+    <<"uwsqruwBU">> = iolist_to_binary(re:replace("aabc","^.*? (a(*THEN)b|(*F))++ c","uwsqruwBU",[extended,global])),
+    <<"aabcGFFGlEEaBgxgufwp">> = iolist_to_binary(re:replace("aabc","^.*? ( (a(*THEN)b)++ | (*F) )++ c","&GFFGlEEaBgxgufwp",[extended])),
+    <<"aabcGFFGlEEaBgxgufwp">> = iolist_to_binary(re:replace("aabc","^.*? ( (a(*THEN)b)++ | (*F) )++ c","&GFFGlEEaBgxgufwp",[extended,global])),
     ok.
 run47() ->
-    <<"aI">> = iolist_to_binary(re:replace("aab","(?>.*?a)b","\\1I\\1",[])),
-    <<"aI">> = iolist_to_binary(re:replace("aab","(?>.*?a)b","\\1I\\1",[global])),
-    <<"aab">> = iolist_to_binary(re:replace("aab","(?>^a)b","rO&YBnR",[dotall])),
-    <<"aab">> = iolist_to_binary(re:replace("aab","(?>^a)b","rO&YBnR",[dotall,global])),
-    <<"alphabetabcduwsqruwBU">> = iolist_to_binary(re:replace("alphabetabcd","(?>.*?)(?<=(abcd)|(wxyz))","uwsqruwBU",[])),
-    <<"alphabetabcduwsqruwBU">> = iolist_to_binary(re:replace("alphabetabcd","(?>.*?)(?<=(abcd)|(wxyz))","uwsqruwBU",[global])),
-    <<"endingwxyzGFFGlEEaBgxgufwp">> = iolist_to_binary(re:replace("endingwxyz","(?>.*?)(?<=(abcd)|(wxyz))","&GFFGlEEaBgxgufwp",[])),
-    <<"endingwxyzGFFGlEEaBgxgufwp">> = iolist_to_binary(re:replace("endingwxyz","(?>.*?)(?<=(abcd)|(wxyz))","&GFFGlEEaBgxgufwp",[global])),
-    <<"xalphabetabcdalphabetabcdJvxalphabetabcdabcddalphabetabcdalphabetabcd">> = iolist_to_binary(re:replace("alphabetabcd","(?>.*)(?<=(abcd)|(wxyz))","x&&Jvx&\\1d&&",[])),
-    <<"xalphabetabcdalphabetabcdJvxalphabetabcdabcddalphabetabcdalphabetabcdxJvxabcdd">> = iolist_to_binary(re:replace("alphabetabcd","(?>.*)(?<=(abcd)|(wxyz))","x&&Jvx&\\1d&&",[global])),
-    <<"ieLIsedxuM">> = iolist_to_binary(re:replace("endingwxyz","(?>.*)(?<=(abcd)|(wxyz))","ieL\\1IsedxuM",[])),
-    <<"ieLIsedxuMieLIsedxuM">> = iolist_to_binary(re:replace("endingwxyz","(?>.*)(?<=(abcd)|(wxyz))","ieL\\1IsedxuM",[global])),
-    <<"abcdfooxyz">> = iolist_to_binary(re:replace("abcdfooxyz","(?>.*)foo","&\\1fqeu\\1",[])),
-    <<"abcdfooxyz">> = iolist_to_binary(re:replace("abcdfooxyz","(?>.*)foo","&\\1fqeu\\1",[global])),
-    <<"abcdkqQTClxyz">> = iolist_to_binary(re:replace("abcdfooxyz","(?>.*?)foo","kqQTCl",[])),
-    <<"abcdkqQTClxyz">> = iolist_to_binary(re:replace("abcdfooxyz","(?>.*?)foo","kqQTCl",[global])),
-    <<"RlacG">> = iolist_to_binary(re:replace("ac","(?:(a(*PRUNE)b)){0}(?:(?1)|ac)","\\1Rl&G\\1",[])),
-    <<"RlacG">> = iolist_to_binary(re:replace("ac","(?:(a(*PRUNE)b)){0}(?:(?1)|ac)","\\1Rl&G\\1",[global])),
-    <<"KacfGnCr">> = iolist_to_binary(re:replace("ac","(?:(a(*SKIP)b)){0}(?:(?1)|ac)","\\1K&fGn\\1Cr",[])),
-    <<"KacfGnCr">> = iolist_to_binary(re:replace("ac","(?:(a(*SKIP)b)){0}(?:(?1)|ac)","\\1K&fGn\\1Cr",[global])),
-    <<"aa">> = iolist_to_binary(re:replace("aa","(?<=(*SKIP)ac)a","\\1n\\1&umpF&",[])),
-    <<"aa">> = iolist_to_binary(re:replace("aa","(?<=(*SKIP)ac)a","\\1n\\1&umpF&",[global])),
-    <<"aaJTc">> = iolist_to_binary(re:replace("aaaaaac","aaaaa(*PRUNE)b|a+c","\\1JTc",[])),
-    <<"aaJTc">> = iolist_to_binary(re:replace("aaaaaac","aaaaa(*PRUNE)b|a+c","\\1JTc",[global])),
-    <<"aaaaaacPoPcntBnXovXUUqId">> = iolist_to_binary(re:replace("aaaaaac","aaaaa(*SKIP)(*PRUNE)b|a+c","&Po\\1Pcn\\1tBnXovXUUqId",[])),
-    <<"aaaaaacPoPcntBnXovXUUqId">> = iolist_to_binary(re:replace("aaaaaac","aaaaa(*SKIP)(*PRUNE)b|a+c","&Po\\1Pcn\\1tBnXovXUUqId",[global])),
-    <<"aaPKXinsyIho">> = iolist_to_binary(re:replace("aaaaaac","aaaaa(*SKIP:N)(*PRUNE)b|a+c","P\\1KXinsyIho",[])),
-    <<"aaPKXinsyIho">> = iolist_to_binary(re:replace("aaaaaac","aaaaa(*SKIP:N)(*PRUNE)b|a+c","P\\1KXinsyIho",[global])),
-    <<"aadQIOxaaaacMgBmiaaaacSNVV">> = iolist_to_binary(re:replace("aaaaaac","aaaa(*:N)a(*SKIP:N)(*PRUNE)b|a+c","dQI\\1Ox&MgB\\1\\1m\\1i&SNVV",[])),
-    <<"aadQIOxaaaacMgBmiaaaacSNVV">> = iolist_to_binary(re:replace("aaaaaac","aaaa(*:N)a(*SKIP:N)(*PRUNE)b|a+c","dQI\\1Ox&MgB\\1\\1m\\1i&SNVV",[global])),
-    <<"aafjn">> = iolist_to_binary(re:replace("aaaaaac","aaaaa(*THEN)(*PRUNE)b|a+c","fjn",[])),
-    <<"aafjn">> = iolist_to_binary(re:replace("aaaaaac","aaaaa(*THEN)(*PRUNE)b|a+c","fjn",[global])),
-    <<"aaaaaEWyIbgb">> = iolist_to_binary(re:replace("aaaaaac","aaaaa(*SKIP)b|a+c","EW\\1yIbgb",[])),
-    <<"aaaaaEWyIbgb">> = iolist_to_binary(re:replace("aaaaaac","aaaaa(*SKIP)b|a+c","EW\\1yIbgb",[global])),
-    <<"aaaaaaacyDfacanKSCjCr">> = iolist_to_binary(re:replace("aaaaaac","aaaaa(*PRUNE)(*SKIP)b|a+c","a&yDf&anKS\\1CjCr",[])),
-    <<"aaaaaaacyDfacanKSCjCr">> = iolist_to_binary(re:replace("aaaaaac","aaaaa(*PRUNE)(*SKIP)b|a+c","a&yDf&anKS\\1CjCr",[global])),
-    <<"aaaaahTo">> = iolist_to_binary(re:replace("aaaaaac","aaaaa(*THEN)(*SKIP)b|a+c","\\1h\\1To",[])),
-    <<"aaaaahTo">> = iolist_to_binary(re:replace("aaaaaac","aaaaa(*THEN)(*SKIP)b|a+c","\\1h\\1To",[global])),
-    <<"aaaaaSQq">> = iolist_to_binary(re:replace("aaaaaac","aaaaa(*COMMIT)(*SKIP)b|a+c","SQq",[])),
-    <<"aaaaaSQq">> = iolist_to_binary(re:replace("aaaaaac","aaaaa(*COMMIT)(*SKIP)b|a+c","SQq",[global])),
-    <<"aaaaaac">> = iolist_to_binary(re:replace("aaaaaac","aaaaa(*COMMIT)b|a+c","m&\\1ypjt",[])),
-    <<"aaaaaac">> = iolist_to_binary(re:replace("aaaaaac","aaaaa(*COMMIT)b|a+c","m&\\1ypjt",[global])),
+    <<"aabc">> = iolist_to_binary(re:replace("aabc","^.*? ( (a(*THEN)b)++ )++ c","x&&Jvx&\\1d&&",[extended])),
+    <<"aabc">> = iolist_to_binary(re:replace("aabc","^.*? ( (a(*THEN)b)++ )++ c","x&&Jvx&\\1d&&",[extended,global])),
+    <<"aabc">> = iolist_to_binary(re:replace("aabc","^.*? (?:a(*THEN)b)++ c","ieL\\1IsedxuM",[extended])),
+    <<"aabc">> = iolist_to_binary(re:replace("aabc","^.*? (?:a(*THEN)b)++ c","ieL\\1IsedxuM",[extended,global])),
+    <<"aabcfqeu">> = iolist_to_binary(re:replace("aabc","^.*? (?:a(*THEN)b|(*F))++ c","&\\1fqeu\\1",[extended])),
+    <<"aabcfqeu">> = iolist_to_binary(re:replace("aabc","^.*? (?:a(*THEN)b|(*F))++ c","&\\1fqeu\\1",[extended,global])),
+    <<"kqQTCl">> = iolist_to_binary(re:replace("aabc","^.*? (?: (?:a(*THEN)b)++ | (*F) )++ c","kqQTCl",[extended])),
+    <<"kqQTCl">> = iolist_to_binary(re:replace("aabc","^.*? (?: (?:a(*THEN)b)++ | (*F) )++ c","kqQTCl",[extended,global])),
+    <<"aabc">> = iolist_to_binary(re:replace("aabc","^.*? (?: (?:a(*THEN)b)++ )++ c","\\1Rl&G\\1",[extended])),
+    <<"aabc">> = iolist_to_binary(re:replace("aabc","^.*? (?: (?:a(*THEN)b)++ )++ c","\\1Rl&G\\1",[extended,global])),
+    <<"KacfGnCr">> = iolist_to_binary(re:replace("ac","^(?(?=a(*THEN)b)ab|ac)","\\1K&fGn\\1Cr",[])),
+    <<"KacfGnCr">> = iolist_to_binary(re:replace("ac","^(?(?=a(*THEN)b)ab|ac)","\\1K&fGn\\1Cr",[global])),
+    <<"ba">> = iolist_to_binary(re:replace("ba","^.*?(?(?=a)a|b(*THEN)c)","\\1n\\1&umpF&",[])),
+    <<"ba">> = iolist_to_binary(re:replace("ba","^.*?(?(?=a)a|b(*THEN)c)","\\1n\\1&umpF&",[global])),
+    <<"JTc">> = iolist_to_binary(re:replace("ba","^.*?(?:(?(?=a)a|b(*THEN)c)|d)","\\1JTc",[])),
+    <<"JTc">> = iolist_to_binary(re:replace("ba","^.*?(?:(?(?=a)a|b(*THEN)c)|d)","\\1JTc",[global])),
+    <<"ac">> = iolist_to_binary(re:replace("ac","^.*?(?(?=a)a(*THEN)b|c)","&Po\\1Pcn\\1tBnXovXUUqId",[])),
+    <<"ac">> = iolist_to_binary(re:replace("ac","^.*?(?(?=a)a(*THEN)b|c)","&Po\\1Pcn\\1tBnXovXUUqId",[global])),
+    <<"PKXinsyIhoabc">> = iolist_to_binary(re:replace("aabc","^.*(?=a(*THEN)b)","P\\1KXinsyIho",[])),
+    <<"PKXinsyIhoabc">> = iolist_to_binary(re:replace("aabc","^.*(?=a(*THEN)b)","P\\1KXinsyIho",[global])),
+    <<"dQIOxaMgBmiaSNVV">> = iolist_to_binary(re:replace("a","(?>a(*:m))","dQI\\1Ox&MgB\\1\\1m\\1i&SNVV",[extended,dotall,multiline,caseless])),
+    <<"dQIOxaMgBmiaSNVV">> = iolist_to_binary(re:replace("a","(?>a(*:m))","dQI\\1Ox&MgB\\1\\1m\\1i&SNVV",[extended,dotall,multiline,caseless,global])),
+    <<"fjn">> = iolist_to_binary(re:replace("a","(?>(a)(*:m))","fjn",[extended,dotall,multiline,caseless])),
+    <<"fjn">> = iolist_to_binary(re:replace("a","(?>(a)(*:m))","fjn",[extended,dotall,multiline,caseless,global])),
+    <<"xaEWyIbgbd">> = iolist_to_binary(re:replace("xacd","(?<=a(*ACCEPT)b)c","EW\\1yIbgb",[])),
+    <<"xaEWyIbgbd">> = iolist_to_binary(re:replace("xacd","(?<=a(*ACCEPT)b)c","EW\\1yIbgb",[global])),
+    <<"xaacyDfcanKSaCjCrd">> = iolist_to_binary(re:replace("xacd","(?<=(a(*ACCEPT)b))c","a&yDf&anKS\\1CjCr",[])),
+    <<"xaacyDfcanKSaCjCrd">> = iolist_to_binary(re:replace("xacd","(?<=(a(*ACCEPT)b))c","a&yDf&anKS\\1CjCr",[global])),
+    <<"xababhabTod">> = iolist_to_binary(re:replace("xabcd","(?<=(a(*COMMIT)b))c","\\1h\\1To",[])),
+    <<"xababhabTod">> = iolist_to_binary(re:replace("xabcd","(?<=(a(*COMMIT)b))c","\\1h\\1To",[global])),
+    <<"xacd">> = iolist_to_binary(re:replace("xacd","(?<=(a(*COMMIT)b))c","SQq",[])),
+    <<"xacd">> = iolist_to_binary(re:replace("xacd","(?<=(a(*COMMIT)b))c","SQq",[global])),
+    <<"xmcypjtd">> = iolist_to_binary(re:replace("xcd","(?<!a(*FAIL)b)c","m&\\1ypjt",[])),
+    <<"xmcypjtd">> = iolist_to_binary(re:replace("xcd","(?<!a(*FAIL)b)c","m&\\1ypjt",[global])),
+    <<"avmtlvgrhXoIVUjuxCJd">> = iolist_to_binary(re:replace("acd","(?<!a(*FAIL)b)c","vmtlvgrhXoIVUjuxCJ",[])),
+    <<"avmtlvgrhXoIVUjuxCJd">> = iolist_to_binary(re:replace("acd","(?<!a(*FAIL)b)c","vmtlvgrhXoIVUjuxCJ",[global])),
+    <<"xabShoEGuxAELDlwIpNd">> = iolist_to_binary(re:replace("xabcd","(?<=a(*:N)b)c","S\\1hoEGuxAELDlwIpN",[])),
+    <<"xabShoEGuxAELDlwIpNd">> = iolist_to_binary(re:replace("xabcd","(?<=a(*:N)b)c","S\\1hoEGuxAELDlwIpN",[global])),
+    <<"xabfncKd">> = iolist_to_binary(re:replace("xabcd","(?<=a(*PRUNE)b)c","fn&K",[])),
+    <<"xabfncKd">> = iolist_to_binary(re:replace("xabcd","(?<=a(*PRUNE)b)c","fn&K",[global])),
+    <<"xabkbKqwYdbLnMd">> = iolist_to_binary(re:replace("xabcd","(?<=a(*SKIP)b)c","kbKqwY\\1dbLnM",[])),
+    <<"xabkbKqwYdbLnMd">> = iolist_to_binary(re:replace("xabcd","(?<=a(*SKIP)b)c","kbKqwY\\1dbLnM",[global])),
+    <<"xabcaHqiPd">> = iolist_to_binary(re:replace("xabcd","(?<=a(*THEN)b)c","&aHqiP",[])),
+    <<"xabcaHqiPd">> = iolist_to_binary(re:replace("xabcd","(?<=a(*THEN)b)c","&aHqiP",[global])),
     ok.
 run48() ->
-    <<"vmtlvgrhXoIVUjuxCJ">> = iolist_to_binary(re:replace("aaaaaac","aaaaa(*THEN)b|a+c","vmtlvgrhXoIVUjuxCJ",[])),
-    <<"vmtlvgrhXoIVUjuxCJ">> = iolist_to_binary(re:replace("aaaaaac","aaaaa(*THEN)b|a+c","vmtlvgrhXoIVUjuxCJ",[global])),
-    <<"ShoEGuxAELDlwIpN">> = iolist_to_binary(re:replace("aaaaaac","aaaaa(*SKIP)(*THEN)b|a+c","S\\1hoEGuxAELDlwIpN",[])),
-    <<"ShoEGuxAELDlwIpN">> = iolist_to_binary(re:replace("aaaaaac","aaaaa(*SKIP)(*THEN)b|a+c","S\\1hoEGuxAELDlwIpN",[global])),
-    <<"fnaaaaaacK">> = iolist_to_binary(re:replace("aaaaaac","aaaaa(*PRUNE)(*THEN)b|a+c","fn&K",[])),
-    <<"fnaaaaaacK">> = iolist_to_binary(re:replace("aaaaaac","aaaaa(*PRUNE)(*THEN)b|a+c","fn&K",[global])),
-    <<"kbKqwYdbLnM">> = iolist_to_binary(re:replace("aaaaaac","aaaaa(*COMMIT)(*THEN)b|a+c","kbKqwY\\1dbLnM",[])),
-    <<"kbKqwYdbLnM">> = iolist_to_binary(re:replace("aaaaaac","aaaaa(*COMMIT)(*THEN)b|a+c","kbKqwY\\1dbLnM",[global])),
-    <<"aaaaaaaHqiP">> = iolist_to_binary(re:replace("aaaaaa","aaaaa(*:m)(*PRUNE:m)(*SKIP:m)m|a+","&aHqiP",[])),
-    <<"aaaaaaaHqiP">> = iolist_to_binary(re:replace("aaaaaa","aaaaa(*:m)(*PRUNE:m)(*SKIP:m)m|a+","&aHqiP",[global])),
-    <<"aaaaaqaCk">> = iolist_to_binary(re:replace("aaaaaa","aaaaa(*:m)(*MARK:m)(*PRUNE)(*SKIP:m)m|a+","q&Ck",[])),
-    <<"aaaaaqaCk">> = iolist_to_binary(re:replace("aaaaaa","aaaaa(*:m)(*MARK:m)(*PRUNE)(*SKIP:m)m|a+","q&Ck",[global])),
-    <<"aaLaaaaSIHmXmaaaaaaaaQaGiQRaaaa">> = iolist_to_binary(re:replace("aaaaaa","aaaaa(*:n)(*PRUNE:m)(*SKIP:m)m|a+","L&SI\\1HmX\\1m&&QaGiQR&",[])),
-    <<"aaLaaaaSIHmXmaaaaaaaaQaGiQRaaaa">> = iolist_to_binary(re:replace("aaaaaa","aaaaa(*:n)(*PRUNE:m)(*SKIP:m)m|a+","L&SI\\1HmX\\1m&&QaGiQR&",[global])),
-    <<"aaaaaJDpAfOcLFC">> = iolist_to_binary(re:replace("aaaaaa","aaaaa(*:n)(*MARK:m)(*PRUNE)(*SKIP:m)m|a+","JDpAfO\\1cLFC",[])),
-    <<"aaaaaJDpAfOcLFC">> = iolist_to_binary(re:replace("aaaaaa","aaaaa(*:n)(*MARK:m)(*PRUNE)(*SKIP:m)m|a+","JDpAfO\\1cLFC",[global])),
-    <<"aaiyeb">> = iolist_to_binary(re:replace("aaaac","a(*MARK:A)aa(*PRUNE:A)a(*SKIP:A)b|a+c","iy\\1e\\1b",[])),
-    <<"aaiyeb">> = iolist_to_binary(re:replace("aaaac","a(*MARK:A)aa(*PRUNE:A)a(*SKIP:A)b|a+c","iy\\1e\\1b",[global])),
-    <<"aaaxpghdaVtJPnXNvALV">> = iolist_to_binary(re:replace("aaaac","a(*MARK:A)aa(*MARK:A)a(*SKIP:A)b|a+c","xpghdaVtJ\\1PnXNv\\1ALV",[])),
-    <<"aaaxpghdaVtJPnXNvALV">> = iolist_to_binary(re:replace("aaaac","a(*MARK:A)aa(*MARK:A)a(*SKIP:A)b|a+c","xpghdaVtJ\\1PnXNv\\1ALV",[global])),
-    <<"aap">> = iolist_to_binary(re:replace("aaaac","aaa(*PRUNE:A)a(*SKIP:A)b|a+c","p",[])),
-    <<"aap">> = iolist_to_binary(re:replace("aaaac","aaa(*PRUNE:A)a(*SKIP:A)b|a+c","p",[global])),
-    <<"aaaYRKO">> = iolist_to_binary(re:replace("aaaac","aaa(*MARK:A)a(*SKIP:A)b|a+c","YRKO",[])),
-    <<"aaaYRKO">> = iolist_to_binary(re:replace("aaaac","aaa(*MARK:A)a(*SKIP:A)b|a+c","YRKO",[global])),
-    <<"BraUcvnkvGpATSbajqC">> = iolist_to_binary(re:replace("ba",".?(a|b(*THEN)c)","BraUcvnkvGpATS&jqC",[])),
-    <<"BraUcvnkvGpATSbajqC">> = iolist_to_binary(re:replace("ba",".?(a|b(*THEN)c)","BraUcvnkvGpATS&jqC",[global])),
-    <<"SvwukUabcxYabctLabcWMabjohX">> = iolist_to_binary(re:replace("abc","(a(*COMMIT)b)c|abd","SvwukU&xY&tL&WM\\1johX",[])),
-    <<"SvwukUabcxYabctLabcWMabjohX">> = iolist_to_binary(re:replace("abc","(a(*COMMIT)b)c|abd","SvwukU&xY&tL&WM\\1johX",[global])),
-    <<"abd">> = iolist_to_binary(re:replace("abd","(a(*COMMIT)b)c|abd","nrGC&R",[])),
-    <<"abd">> = iolist_to_binary(re:replace("abd","(a(*COMMIT)b)c|abd","nrGC&R",[global])),
-    <<"qCRcTneabcivabcsCXFrnd">> = iolist_to_binary(re:replace("abc","(?=a(*COMMIT)b)abc|abd","qCRcTne&iv&sCXFrnd",[])),
-    <<"qCRcTneabcivabcsCXFrnd">> = iolist_to_binary(re:replace("abc","(?=a(*COMMIT)b)abc|abd","qCRcTne&iv&sCXFrnd",[global])),
-    <<"babdultabdhgP">> = iolist_to_binary(re:replace("abd","(?=a(*COMMIT)b)abc|abd","\\1b&ult&hg\\1P",[])),
-    <<"babdultabdhgP">> = iolist_to_binary(re:replace("abd","(?=a(*COMMIT)b)abc|abd","\\1b&ult&hg\\1P",[global])),
-    <<"tRwOvxXkpyskSn">> = iolist_to_binary(re:replace("abc","(?>a(*COMMIT)b)c|abd","tRwOvxXk\\1pyskS\\1n",[])),
-    <<"tRwOvxXkpyskSn">> = iolist_to_binary(re:replace("abc","(?>a(*COMMIT)b)c|abd","tRwOvxXk\\1pyskS\\1n",[global])),
-    <<"gLGD">> = iolist_to_binary(re:replace("abd","(?>a(*COMMIT)b)c|abd","gLGD",[])),
-    <<"gLGD">> = iolist_to_binary(re:replace("abd","(?>a(*COMMIT)b)c|abd","gLGD",[global])),
-    <<"eSWabgEuWBlc">> = iolist_to_binary(re:replace("abc","a(?=b(*COMMIT)c)[^d]|abd","e\\1SW&\\1gEu\\1WBl",[])),
-    <<"eSWabgEuWBlc">> = iolist_to_binary(re:replace("abc","a(?=b(*COMMIT)c)[^d]|abd","e\\1SW&\\1gEu\\1WBl",[global])),
-    <<"abd">> = iolist_to_binary(re:replace("abd","a(?=b(*COMMIT)c)[^d]|abd","Cy",[])),
-    <<"abd">> = iolist_to_binary(re:replace("abd","a(?=b(*COMMIT)c)[^d]|abd","Cy",[global])),
-    <<"lCKqNoFrmqk">> = iolist_to_binary(re:replace("abd","a(?=bc).|abd","lCKqNoFrmqk",[])),
-    <<"lCKqNoFrmqk">> = iolist_to_binary(re:replace("abd","a(?=bc).|abd","lCKqNoFrmqk",[global])),
-    <<"ghAabNTPGyRCabc">> = iolist_to_binary(re:replace("abc","a(?=bc).|abd","gh\\1A&NTPGyR\\1C&",[])),
-    <<"ghAabNTPGyRCabc">> = iolist_to_binary(re:replace("abc","a(?=bc).|abd","gh\\1A&NTPGyR\\1C&",[global])),
-    <<"abceabd">> = iolist_to_binary(re:replace("abceabd","a(?>b(*COMMIT)c)d|abd","IU&P",[])),
-    <<"abceabd">> = iolist_to_binary(re:replace("abceabd","a(?>b(*COMMIT)c)d|abd","IU&P",[global])),
-    <<"abcehdKDpy">> = iolist_to_binary(re:replace("abceabd","a(?>bc)d|abd","hdKDpy",[])),
-    <<"abcehdKDpy">> = iolist_to_binary(re:replace("abceabd","a(?>bc)d|abd","hdKDpy",[global])),
+    <<"qabcdCk">> = iolist_to_binary(re:replace("abcd","(a)(?2){2}(.)","q&Ck",[])),
+    <<"qabcdCk">> = iolist_to_binary(re:replace("abcd","(a)(?2){2}(.)","q&Ck",[global])),
+    <<"LCSICHmXCmCCQaGiQRC">> = iolist_to_binary(re:replace("C","(*MARK:A)(*PRUNE:B)(C|X)","L&SI\\1HmX\\1m&&QaGiQR&",[])),
+    <<"LCSICHmXCmCCQaGiQRC">> = iolist_to_binary(re:replace("C","(*MARK:A)(*PRUNE:B)(C|X)","L&SI\\1HmX\\1m&&QaGiQR&",[global])),
+    <<"D">> = iolist_to_binary(re:replace("D","(*MARK:A)(*PRUNE:B)(C|X)","JDpAfO\\1cLFC",[])),
+    <<"D">> = iolist_to_binary(re:replace("D","(*MARK:A)(*PRUNE:B)(C|X)","JDpAfO\\1cLFC",[global])),
+    <<"iyCeCb">> = iolist_to_binary(re:replace("C","(*MARK:A)(*PRUNE:B)(C|X)","iy\\1e\\1b",[])),
+    <<"iyCeCb">> = iolist_to_binary(re:replace("C","(*MARK:A)(*PRUNE:B)(C|X)","iy\\1e\\1b",[global])),
+    <<"D">> = iolist_to_binary(re:replace("D","(*MARK:A)(*PRUNE:B)(C|X)","xpghdaVtJ\\1PnXNv\\1ALV",[])),
+    <<"D">> = iolist_to_binary(re:replace("D","(*MARK:A)(*PRUNE:B)(C|X)","xpghdaVtJ\\1PnXNv\\1ALV",[global])),
+    <<"p">> = iolist_to_binary(re:replace("C","(*MARK:A)(*THEN:B)(C|X)","p",[])),
+    <<"p">> = iolist_to_binary(re:replace("C","(*MARK:A)(*THEN:B)(C|X)","p",[global])),
+    <<"D">> = iolist_to_binary(re:replace("D","(*MARK:A)(*THEN:B)(C|X)","YRKO",[])),
+    <<"D">> = iolist_to_binary(re:replace("D","(*MARK:A)(*THEN:B)(C|X)","YRKO",[global])),
+    <<"BraUcvnkvGpATSCjqC">> = iolist_to_binary(re:replace("C","(*MARK:A)(*THEN:B)(C|X)","BraUcvnkvGpATS&jqC",[no_start_optimize])),
+    <<"BraUcvnkvGpATSCjqC">> = iolist_to_binary(re:replace("C","(*MARK:A)(*THEN:B)(C|X)","BraUcvnkvGpATS&jqC",[no_start_optimize,global])),
+    <<"D">> = iolist_to_binary(re:replace("D","(*MARK:A)(*THEN:B)(C|X)","SvwukU&xY&tL&WM\\1johX",[no_start_optimize])),
+    <<"D">> = iolist_to_binary(re:replace("D","(*MARK:A)(*THEN:B)(C|X)","SvwukU&xY&tL&WM\\1johX",[no_start_optimize,global])),
+    <<"nrGCCR">> = iolist_to_binary(re:replace("C","(*MARK:A)(*THEN:B)(C|X)","nrGC&R",[])),
+    <<"nrGCCR">> = iolist_to_binary(re:replace("C","(*MARK:A)(*THEN:B)(C|X)","nrGC&R",[global])),
+    <<"D">> = iolist_to_binary(re:replace("D","(*MARK:A)(*THEN:B)(C|X)","qCRcTne&iv&sCXFrnd",[])),
+    <<"D">> = iolist_to_binary(re:replace("D","(*MARK:A)(*THEN:B)(C|X)","qCRcTne&iv&sCXFrnd",[global])),
+    <<"bABCultABChgP">> = iolist_to_binary(re:replace("ABC","(*COMMIT)ABC","\\1b&ult&hg\\1P",[no_start_optimize])),
+    <<"bABCultABChgP">> = iolist_to_binary(re:replace("ABC","(*COMMIT)ABC","\\1b&ult&hg\\1P",[no_start_optimize,global])),
+    %<<"DEFtRwOvxXkpyskSn">> = iolist_to_binary(re:replace("DEFABC","(*COMMIT)ABC","tRwOvxXk\\1pyskS\\1n",[no_start_optimize])),
+    %<<"DEFtRwOvxXkpyskSn">> = iolist_to_binary(re:replace("DEFABC","(*COMMIT)ABC","tRwOvxXk\\1pyskS\\1n",[no_start_optimize,global])),
+    <<"gLGD">> = iolist_to_binary(re:replace("ABC","(*COMMIT)ABC","gLGD",[])),
+    <<"gLGD">> = iolist_to_binary(re:replace("ABC","(*COMMIT)ABC","gLGD",[global])),
+    <<"DEFeSWABCgEuWBl">> = iolist_to_binary(re:replace("DEFABC","(*COMMIT)ABC","e\\1SW&\\1gEu\\1WBl",[])),
+    <<"DEFeSWABCgEuWBl">> = iolist_to_binary(re:replace("DEFABC","(*COMMIT)ABC","e\\1SW&\\1gEu\\1WBl",[global])),
+    <<"AAAC">> = iolist_to_binary(re:replace("AAAC","A(*MARK:A)A+(*SKIP)(B|Z) | AC","Cy",[extended])),
+    <<"AAAC">> = iolist_to_binary(re:replace("AAAC","A(*MARK:A)A+(*SKIP)(B|Z) | AC","Cy",[extended,global])),
+    <<"AAAC">> = iolist_to_binary(re:replace("AAAC","A(*MARK:A)A+(*MARK:B)(*SKIP:B)(B|Z) | AC","lCKqNoFrmqk",[extended])),
+    <<"AAAC">> = iolist_to_binary(re:replace("AAAC","A(*MARK:A)A+(*MARK:B)(*SKIP:B)(B|Z) | AC","lCKqNoFrmqk",[extended,global])),
+    <<"AAAC">> = iolist_to_binary(re:replace("AAAC","A(*:A)A+(*SKIP)(B|Z) | AC","gh\\1A&NTPGyR\\1C&",[extended])),
+    <<"AAAC">> = iolist_to_binary(re:replace("AAAC","A(*:A)A+(*SKIP)(B|Z) | AC","gh\\1A&NTPGyR\\1C&",[extended,global])),
+    <<"AAAC">> = iolist_to_binary(re:replace("AAAC","A(*MARK:A)A+(*SKIP:)(B|Z) | AC","IU&P",[extended])),
+    <<"AAAC">> = iolist_to_binary(re:replace("AAAC","A(*MARK:A)A+(*SKIP:)(B|Z) | AC","IU&P",[extended,global])),
+    <<"AhdKDpyC">> = iolist_to_binary(re:replace("AABC","A(*:A)B|XX(*:B)Y","hdKDpy",[])),
+    <<"AhdKDpyC">> = iolist_to_binary(re:replace("AABC","A(*:A)B|XX(*:B)Y","hdKDpy",[global])),
+    <<"nAXgVEXXYhYFcyFVwuVZ">> = iolist_to_binary(re:replace("XXYZ","A(*:A)B|XX(*:B)Y","nAX\\1gVE&hYF\\1cy\\1FVwuV",[])),
+    <<"nAXgVEXXYhYFcyFVwuVZ">> = iolist_to_binary(re:replace("XXYZ","A(*:A)B|XX(*:B)Y","nAX\\1gVE&hYF\\1cy\\1FVwuV",[global])),
+    <<"XAQQ">> = iolist_to_binary(re:replace("XAQQ","A(*:A)B|XX(*:B)Y","jM",[])),
+    <<"XAQQ">> = iolist_to_binary(re:replace("XAQQ","A(*:A)B|XX(*:B)Y","jM",[global])),
+    <<"XAQQXZZ">> = iolist_to_binary(re:replace("XAQQXZZ","A(*:A)B|XX(*:B)Y","xqHG",[])),
+    <<"XAQQXZZ">> = iolist_to_binary(re:replace("XAQQXZZ","A(*:A)B|XX(*:B)Y","xqHG",[global])),
+    <<"AXQQQ">> = iolist_to_binary(re:replace("AXQQQ","A(*:A)B|XX(*:B)Y","GeWPQyG&Ahl\\1Bc&x",[])),
+    <<"AXQQQ">> = iolist_to_binary(re:replace("AXQQQ","A(*:A)B|XX(*:B)Y","GeWPQyG&Ahl\\1Bc&x",[global])),
+    <<"AXXQQQ">> = iolist_to_binary(re:replace("AXXQQQ","A(*:A)B|XX(*:B)Y","dNWE\\1R&Bm&\\1lSrd",[])),
+    <<"AXXQQQ">> = iolist_to_binary(re:replace("AXXQQQ","A(*:A)B|XX(*:B)Y","dNWE\\1R&Bm&\\1lSrd",[global])),
+    <<"ABABABXAFhdfF">> = iolist_to_binary(re:replace("AB","^(A(*THEN:A)B|C(*THEN:B)D)","&\\1&XAFhdfF",[])),
+    <<"ABABABXAFhdfF">> = iolist_to_binary(re:replace("AB","^(A(*THEN:A)B|C(*THEN:B)D)","&\\1&XAFhdfF",[global])),
+    <<"BADWi">> = iolist_to_binary(re:replace("CD","^(A(*THEN:A)B|C(*THEN:B)D)","BADWi",[])),
+    <<"BADWi">> = iolist_to_binary(re:replace("CD","^(A(*THEN:A)B|C(*THEN:B)D)","BADWi",[global])),
+    <<"AC">> = iolist_to_binary(re:replace("AC","^(A(*THEN:A)B|C(*THEN:B)D)","iGh&Y",[])),
+    <<"AC">> = iolist_to_binary(re:replace("AC","^(A(*THEN:A)B|C(*THEN:B)D)","iGh&Y",[global])),
+    <<"CB">> = iolist_to_binary(re:replace("CB","^(A(*THEN:A)B|C(*THEN:B)D)","o",[])),
+    <<"CB">> = iolist_to_binary(re:replace("CB","^(A(*THEN:A)B|C(*THEN:B)D)","o",[global])),
+    <<"ABYEHeABABIOtAN">> = iolist_to_binary(re:replace("AB","^(A(*PRUNE:A)B|C(*PRUNE:B)D)","\\1YEHe\\1\\1IOtAN",[])),
+    <<"ABYEHeABABIOtAN">> = iolist_to_binary(re:replace("AB","^(A(*PRUNE:A)B|C(*PRUNE:B)D)","\\1YEHe\\1\\1IOtAN",[global])),
+    <<"RgCDpCDcCrLGCDCDGS">> = iolist_to_binary(re:replace("CD","^(A(*PRUNE:A)B|C(*PRUNE:B)D)","Rg\\1p&cCrLG\\1\\1GS",[])),
+    <<"RgCDpCDcCrLGCDCDGS">> = iolist_to_binary(re:replace("CD","^(A(*PRUNE:A)B|C(*PRUNE:B)D)","Rg\\1p&cCrLG\\1\\1GS",[global])),
+    <<"AC">> = iolist_to_binary(re:replace("AC","^(A(*PRUNE:A)B|C(*PRUNE:B)D)","aJ",[])),
+    <<"AC">> = iolist_to_binary(re:replace("AC","^(A(*PRUNE:A)B|C(*PRUNE:B)D)","aJ",[global])),
+    <<"CB">> = iolist_to_binary(re:replace("CB","^(A(*PRUNE:A)B|C(*PRUNE:B)D)","O&n",[])),
+    <<"CB">> = iolist_to_binary(re:replace("CB","^(A(*PRUNE:A)B|C(*PRUNE:B)D)","O&n",[global])),
+    <<"TxOFuVua">> = iolist_to_binary(re:replace("AB","^(A(*PRUNE:)B|C(*PRUNE:B)D)","TxOFuVua",[])),
+    <<"TxOFuVua">> = iolist_to_binary(re:replace("AB","^(A(*PRUNE:)B|C(*PRUNE:B)D)","TxOFuVua",[global])),
+    <<"SU">> = iolist_to_binary(re:replace("CD","^(A(*PRUNE:)B|C(*PRUNE:B)D)","SU",[])),
+    <<"SU">> = iolist_to_binary(re:replace("CD","^(A(*PRUNE:)B|C(*PRUNE:B)D)","SU",[global])),
+    <<"ACABLrNnABnGvABaNIaWn">> = iolist_to_binary(re:replace("ACAB","A(*PRUNE:A)B","\\1\\1&LrN\\1n&nGv&aNIaWn",[])),
+    <<"ACABLrNnABnGvABaNIaWn">> = iolist_to_binary(re:replace("ACAB","A(*PRUNE:A)B","\\1\\1&LrN\\1n&nGv&aNIaWn",[global])),
+    <<"AYODJodgCmmfKwfC">> = iolist_to_binary(re:replace("AABC","A(*:A)B|X(*:A)Y","\\1YODJodgCmmfKwf\\1",[])),
+    <<"AYODJodgCmmfKwfC">> = iolist_to_binary(re:replace("AABC","A(*:A)B|X(*:A)Y","\\1YODJodgCmmfKwf\\1",[global])),
+    <<"XNFtqpFbrLUwrXYuZ">> = iolist_to_binary(re:replace("XXYZ","A(*:A)B|X(*:A)Y","N\\1FtqpFbrL\\1Uwr&u",[])),
+    <<"XNFtqpFbrLUwrXYuZ">> = iolist_to_binary(re:replace("XXYZ","A(*:A)B|X(*:A)Y","N\\1FtqpFbrL\\1Uwr&u",[global])),
+    <<"AQPFrGi">> = iolist_to_binary(re:replace("aw","b(*:m)f|a(*:n)w","\\1A\\1QPFrGi",[])),
+    <<"AQPFrGi">> = iolist_to_binary(re:replace("aw","b(*:m)f|a(*:n)w","\\1A\\1QPFrGi",[global])),
+    <<"abc">> = iolist_to_binary(re:replace("abc","b(*:m)f|a(*:n)w","xw\\1OijBNT\\1R\\1\\1",[])),
+    <<"abc">> = iolist_to_binary(re:replace("abc","b(*:m)f|a(*:n)w","xw\\1OijBNT\\1R\\1\\1",[global])),
+    <<"abawlqABSOBaw">> = iolist_to_binary(re:replace("abaw","b(*:m)f|aw","&\\1lqABSOB&",[])),
+    <<"abawlqABSOBaw">> = iolist_to_binary(re:replace("abaw","b(*:m)f|aw","&\\1lqABSOB&",[global])),
+    <<"abc">> = iolist_to_binary(re:replace("abc","b(*:m)f|aw","fUpPJGc\\1mtHgP\\1Tjp",[])),
+    <<"abc">> = iolist_to_binary(re:replace("abc","b(*:m)f|aw","fUpPJGc\\1mtHgP\\1Tjp",[global])),
+    <<"abax">> = iolist_to_binary(re:replace("abax","b(*:m)f|aw","&pQyfPUb\\1HSt",[])),
+    <<"abax">> = iolist_to_binary(re:replace("abax","b(*:m)f|aw","&pQyfPUb\\1HSt",[global])),
     ok.
 run49() ->
-    <<"nAXgVEabdhYFcyFVwuV">> = iolist_to_binary(re:replace("abd","(?>a(*COMMIT)b)c|abd","nAX\\1gVE&hYF\\1cy\\1FVwuV",[])),
-    <<"nAXgVEabdhYFcyFVwuV">> = iolist_to_binary(re:replace("abd","(?>a(*COMMIT)b)c|abd","nAX\\1gVE&hYF\\1cy\\1FVwuV",[global])),
-    <<"abd">> = iolist_to_binary(re:replace("abd","(?>a(*COMMIT)c)d|abd","jM",[])),
-    <<"abd">> = iolist_to_binary(re:replace("abd","(?>a(*COMMIT)c)d|abd","jM",[global])),
-    <<"xqHG">> = iolist_to_binary(re:replace("ac","((?=a(*COMMIT)b)ab|ac){0}(?:(?1)|a(c))","xqHG",[])),
-    <<"xqHG">> = iolist_to_binary(re:replace("ac","((?=a(*COMMIT)b)ab|ac){0}(?:(?1)|a(c))","xqHG",[global])),
-    <<"a">> = iolist_to_binary(re:replace("a","^(a)?(?(1)a|b)+$","GeWPQyG&Ahl\\1Bc&x",[])),
-    <<"a">> = iolist_to_binary(re:replace("a","^(a)?(?(1)a|b)+$","GeWPQyG&Ahl\\1Bc&x",[global])),
-    <<"dNWEabcdRabcdBmabcdabcdlSrd">> = iolist_to_binary(re:replace("abcd","^((abc|abcx)(*THEN)y|abcd)","dNWE\\1R&Bm&\\1lSrd",[])),
-    <<"dNWEabcdRabcdBmabcdabcdlSrd">> = iolist_to_binary(re:replace("abcd","^((abc|abcx)(*THEN)y|abcd)","dNWE\\1R&Bm&\\1lSrd",[global])),
-    <<"abcxy">> = iolist_to_binary(re:replace("abcxy","^((abc|abcx)(*THEN)y|abcd)","&\\1&XAFhdfF",[])),
-    <<"abcxy">> = iolist_to_binary(re:replace("abcxy","^((abc|abcx)(*THEN)y|abcd)","&\\1&XAFhdfF",[global])),
-    <<"yes">> = iolist_to_binary(re:replace("yes","^((yes|no)(*THEN)(*F))?","BADWi",[])),
-    <<"yes">> = iolist_to_binary(re:replace("yes","^((yes|no)(*THEN)(*F))?","BADWi",[global])),
-    <<"AbcdCBefgBhiBqz">> = iolist_to_binary(re:replace("AbcdCBefgBhiBqz","(A (.*)   C? (*THEN)  | A D) (*FAIL)","iGh&Y",[extended])),
-    <<"AbcdCBefgBhiBqz">> = iolist_to_binary(re:replace("AbcdCBefgBhiBqz","(A (.*)   C? (*THEN)  | A D) (*FAIL)","iGh&Y",[extended,global])),
-    <<"AbcdCBefgBhiBqz">> = iolist_to_binary(re:replace("AbcdCBefgBhiBqz","(A (.*)   C? (*THEN)  | A D) z","o",[extended])),
-    <<"AbcdCBefgBhiBqz">> = iolist_to_binary(re:replace("AbcdCBefgBhiBqz","(A (.*)   C? (*THEN)  | A D) z","o",[extended,global])),
-    <<"AbcdCBefgBhiBqz">> = iolist_to_binary(re:replace("AbcdCBefgBhiBqz","(A (.*)   C? (*THEN)  | A D) \\s* (*FAIL)","\\1YEHe\\1\\1IOtAN",[extended])),
-    <<"AbcdCBefgBhiBqz">> = iolist_to_binary(re:replace("AbcdCBefgBhiBqz","(A (.*)   C? (*THEN)  | A D) \\s* (*FAIL)","\\1YEHe\\1\\1IOtAN",[extended,global])),
-    <<"AbcdCBefgBhiBqz">> = iolist_to_binary(re:replace("AbcdCBefgBhiBqz","(A (.*)   C? (*THEN)  | A D) \\s* z","Rg\\1p&cCrLG\\1\\1GS",[extended])),
-    <<"AbcdCBefgBhiBqz">> = iolist_to_binary(re:replace("AbcdCBefgBhiBqz","(A (.*)   C? (*THEN)  | A D) \\s* z","Rg\\1p&cCrLG\\1\\1GS",[extended,global])),
-    <<"AbcdCBefgBhiBqz">> = iolist_to_binary(re:replace("AbcdCBefgBhiBqz","(A (.*)   (?:C|) (*THEN)  | A D) (*FAIL)","aJ",[extended])),
-    <<"AbcdCBefgBhiBqz">> = iolist_to_binary(re:replace("AbcdCBefgBhiBqz","(A (.*)   (?:C|) (*THEN)  | A D) (*FAIL)","aJ",[extended,global])),
-    <<"AbcdCBefgBhiBqz">> = iolist_to_binary(re:replace("AbcdCBefgBhiBqz","(A (.*)   (?:C|) (*THEN)  | A D) z","O&n",[extended])),
-    <<"AbcdCBefgBhiBqz">> = iolist_to_binary(re:replace("AbcdCBefgBhiBqz","(A (.*)   (?:C|) (*THEN)  | A D) z","O&n",[extended,global])),
-    <<"AbcdCBefgBhiBqz">> = iolist_to_binary(re:replace("AbcdCBefgBhiBqz","(A (.*)   C{0,6} (*THEN)  | A D) (*FAIL)","TxOFuVua",[extended])),
-    <<"AbcdCBefgBhiBqz">> = iolist_to_binary(re:replace("AbcdCBefgBhiBqz","(A (.*)   C{0,6} (*THEN)  | A D) (*FAIL)","TxOFuVua",[extended,global])),
-    <<"AbcdCBefgBhiBqz">> = iolist_to_binary(re:replace("AbcdCBefgBhiBqz","(A (.*)   C{0,6} (*THEN)  | A D) z","SU",[extended])),
-    <<"AbcdCBefgBhiBqz">> = iolist_to_binary(re:replace("AbcdCBefgBhiBqz","(A (.*)   C{0,6} (*THEN)  | A D) z","SU",[extended,global])),
-    <<"AbcdCEBefgBhiBqz">> = iolist_to_binary(re:replace("AbcdCEBefgBhiBqz","(A (.*)   (CE){0,6} (*THEN)  | A D) (*FAIL)","\\1\\1&LrN\\1n&nGv&aNIaWn",[extended])),
-    <<"AbcdCEBefgBhiBqz">> = iolist_to_binary(re:replace("AbcdCEBefgBhiBqz","(A (.*)   (CE){0,6} (*THEN)  | A D) (*FAIL)","\\1\\1&LrN\\1n&nGv&aNIaWn",[extended,global])),
-    <<"AbcdCEBefgBhiBqz">> = iolist_to_binary(re:replace("AbcdCEBefgBhiBqz","(A (.*)   (CE){0,6} (*THEN)  | A D) z","\\1YODJodgCmmfKwf\\1",[extended])),
-    <<"AbcdCEBefgBhiBqz">> = iolist_to_binary(re:replace("AbcdCEBefgBhiBqz","(A (.*)   (CE){0,6} (*THEN)  | A D) z","\\1YODJodgCmmfKwf\\1",[extended,global])),
-    <<"AbcdCBefgBhiBqz">> = iolist_to_binary(re:replace("AbcdCBefgBhiBqz","(A (.*)   (CE*){0,6} (*THEN)  | A D) (*FAIL)","N\\1FtqpFbrL\\1Uwr&u",[extended])),
-    <<"AbcdCBefgBhiBqz">> = iolist_to_binary(re:replace("AbcdCBefgBhiBqz","(A (.*)   (CE*){0,6} (*THEN)  | A D) (*FAIL)","N\\1FtqpFbrL\\1Uwr&u",[extended,global])),
-    <<"AbcdCBefgBhiBqz">> = iolist_to_binary(re:replace("AbcdCBefgBhiBqz","(A (.*)   (CE*){0,6} (*THEN)  | A D) z","\\1A\\1QPFrGi",[extended])),
-    <<"AbcdCBefgBhiBqz">> = iolist_to_binary(re:replace("AbcdCBefgBhiBqz","(A (.*)   (CE*){0,6} (*THEN)  | A D) z","\\1A\\1QPFrGi",[extended,global])),
-    <<"ac">> = iolist_to_binary(re:replace("ac","(?=a(*COMMIT)b|ac)ac|ac","xw\\1OijBNT\\1R\\1\\1",[])),
-    <<"ac">> = iolist_to_binary(re:replace("ac","(?=a(*COMMIT)b|ac)ac|ac","xw\\1OijBNT\\1R\\1\\1",[global])),
-    <<"ac">> = iolist_to_binary(re:replace("ac","(?=a(*COMMIT)b|(ac)) ac | (a)c","&\\1lqABSOB&",[extended])),
-    <<"ac">> = iolist_to_binary(re:replace("ac","(?=a(*COMMIT)b|(ac)) ac | (a)c","&\\1lqABSOB&",[extended,global])),
+    <<"AQItDtAACXKbLqmp">> = iolist_to_binary(re:replace("AAAC","A(*MARK:A)A+(*SKIP:B)(B|Z) | AAC","QItD\\1t&XKbLqmp",[extended])),
+    <<"AQItDtAACXKbLqmp">> = iolist_to_binary(re:replace("AAAC","A(*MARK:A)A+(*SKIP:B)(B|Z) | AAC","QItD\\1t&XKbLqmp",[extended,global])),
+    <<"HyrLabxy">> = iolist_to_binary(re:replace("abxy","(?=a(*MARK:A)b)..x","HyrL&",[])),
+    <<"HyrLabxy">> = iolist_to_binary(re:replace("abxy","(?=a(*MARK:A)b)..x","HyrL&",[global])),
+    <<"abpq">> = iolist_to_binary(re:replace("abpq","(?=a(*MARK:A)b)..x","MUxDT&",[])),
+    <<"abpq">> = iolist_to_binary(re:replace("abpq","(?=a(*MARK:A)b)..x","MUxDT&",[global])),
+    <<"sdqy">> = iolist_to_binary(re:replace("abxy","(?=a(*MARK:A)b)..(*:Y)x","sd\\1q",[])),
+    <<"sdqy">> = iolist_to_binary(re:replace("abxy","(?=a(*MARK:A)b)..(*:Y)x","sd\\1q",[global])),
+    <<"abpq">> = iolist_to_binary(re:replace("abpq","(?=a(*MARK:A)b)..(*:Y)x","FQLj&HLRN\\1\\1t",[])),
+    <<"abpq">> = iolist_to_binary(re:replace("abpq","(?=a(*MARK:A)b)..(*:Y)x","FQLj&HLRN\\1\\1t",[global])),
+    <<"dAayeBfabxUNIy">> = iolist_to_binary(re:replace("abxy","(?=a(*PRUNE:A)b)..x","dAaye\\1Bf&UNI",[])),
+    <<"dAayeBfabxUNIy">> = iolist_to_binary(re:replace("abxy","(?=a(*PRUNE:A)b)..x","dAaye\\1Bf&UNI",[global])),
+    <<"abpq">> = iolist_to_binary(re:replace("abpq","(?=a(*PRUNE:A)b)..x","O&Q\\1fkfGJxw&xkmrGM&",[])),
+    <<"abpq">> = iolist_to_binary(re:replace("abpq","(?=a(*PRUNE:A)b)..x","O&Q\\1fkfGJxw&xkmrGM&",[global])),
+    <<"bdVxabxYcoMDjqabxfdtinEy">> = iolist_to_binary(re:replace("abxy","(?=a(*PRUNE:A)b)..(*:Y)x","bdVx&YcoMDjq&fd\\1tinE",[])),
+    <<"bdVxabxYcoMDjqabxfdtinEy">> = iolist_to_binary(re:replace("abxy","(?=a(*PRUNE:A)b)..(*:Y)x","bdVx&YcoMDjq&fd\\1tinE",[global])),
+    <<"abpq">> = iolist_to_binary(re:replace("abpq","(?=a(*PRUNE:A)b)..(*:Y)x","XD\\1&vY\\1SvD&NK&AfJ",[])),
+    <<"abpq">> = iolist_to_binary(re:replace("abpq","(?=a(*PRUNE:A)b)..(*:Y)x","XD\\1&vY\\1SvD&NK&AfJ",[global])),
+    <<"MnEjDLxqRfDdksvBNUy">> = iolist_to_binary(re:replace("abxy","(?=a(*THEN:A)b)..x","MnEjDLxqRfD\\1dksvBNU",[])),
+    <<"MnEjDLxqRfDdksvBNUy">> = iolist_to_binary(re:replace("abxy","(?=a(*THEN:A)b)..x","MnEjDLxqRfD\\1dksvBNU",[global])),
+    <<"abpq">> = iolist_to_binary(re:replace("abpq","(?=a(*THEN:A)b)..x","S\\1n",[])),
+    <<"abpq">> = iolist_to_binary(re:replace("abpq","(?=a(*THEN:A)b)..x","S\\1n",[global])),
+    <<"IabxBaUakXjhOFhQykvy">> = iolist_to_binary(re:replace("abxy","(?=a(*THEN:A)b)..(*:Y)x","I\\1&BaUakXjhOFhQy\\1kv",[])),
+    <<"IabxBaUakXjhOFhQykvy">> = iolist_to_binary(re:replace("abxy","(?=a(*THEN:A)b)..(*:Y)x","I\\1&BaUakXjhOFhQy\\1kv",[global])),
+    <<"abpq">> = iolist_to_binary(re:replace("abpq","(?=a(*THEN:A)b)..(*:Y)x","&x&&&cABhoecjW&D",[])),
+    <<"abpq">> = iolist_to_binary(re:replace("abpq","(?=a(*THEN:A)b)..(*:Y)x","&x&&&cABhoecjW&D",[global])),
+    <<"hello world mBPmYeGJstestgtestj">> = iolist_to_binary(re:replace("hello world test","(another)?(\\1?)test","mBP\\1mYeGJ\\1s&g&j",[])),
+    <<"hello world mBPmYeGJstestgtestj">> = iolist_to_binary(re:replace("hello world test","(another)?(\\1?)test","mBP\\1mYeGJ\\1s&g&j",[global])),
+    <<"hello world test">> = iolist_to_binary(re:replace("hello world test","(another)?(\\1+)test","&y&R&ANqnrUXsC",[])),
+    <<"hello world test">> = iolist_to_binary(re:replace("hello world test","(another)?(\\1+)test","&y&R&ANqnrUXsC",[global])),
+    <<"FaacaaclbOEkErhaacsT">> = iolist_to_binary(re:replace("aac","(a(*COMMIT)b){0}a(?1)|aac","F&&lb\\1OEkErh\\1&s\\1T",[])),
+    <<"FaacaaclbOEkErhaacsT">> = iolist_to_binary(re:replace("aac","(a(*COMMIT)b){0}a(?1)|aac","F&&lb\\1OEkErh\\1&s\\1T",[global])),
+    <<"saacBtugJSlfoIoa">> = iolist_to_binary(re:replace("aac","((?:a?)*)*c","\\1s&BtugJS\\1lfoIo\\1a",[])),
+    <<"saacBtugJSlfoIoa">> = iolist_to_binary(re:replace("aac","((?:a?)*)*c","\\1s&BtugJS\\1lfoIo\\1a",[global])),
+    <<"aacdfYwAHcFyJUBIKaacaacaac">> = iolist_to_binary(re:replace("aac","((?>a?)*)*c","&dfYwAHcFyJUBIK&&&",[])),
+    <<"aacdfYwAHcFyJUBIKaacaacaac">> = iolist_to_binary(re:replace("aac","((?>a?)*)*c","&dfYwAHcFyJUBIK&&&",[global])),
+    <<"abaewRuSbab">> = iolist_to_binary(re:replace("aba","(?>.*?a)(?<=ba)","&ewRuS&b",[])),
+    <<"abaewRuSbab">> = iolist_to_binary(re:replace("aba","(?>.*?a)(?<=ba)","&ewRuS&b",[global])),
+    <<"iOiPewDMrMwabaIy">> = iolist_to_binary(re:replace("aba","(?:.*?a)(?<=ba)","iOiPewDMrMw&Iy",[])),
+    <<"iOiPewDMrMwabaIy">> = iolist_to_binary(re:replace("aba","(?:.*?a)(?<=ba)","iOiPewDMrMw&Iy",[global])),
+    <<"arkSqOQ">> = iolist_to_binary(re:replace("aab","(?>.*?a)b","rkSqOQ",[dotall])),
+    <<"arkSqOQ">> = iolist_to_binary(re:replace("aab","(?>.*?a)b","rkSqOQ",[dotall,global])),
+    <<"aV">> = iolist_to_binary(re:replace("aab","(?>.*?a)b","V",[])),
+    <<"aV">> = iolist_to_binary(re:replace("aab","(?>.*?a)b","V",[global])),
+    <<"aab">> = iolist_to_binary(re:replace("aab","(?>^a)b","LfjQyR",[dotall])),
+    <<"aab">> = iolist_to_binary(re:replace("aab","(?>^a)b","LfjQyR",[dotall,global])),
+    <<"alphabetabcdtWpTOWabcdkYBc">> = iolist_to_binary(re:replace("alphabetabcd","(?>.*?)(?<=(abcd)|(wxyz))","tWpTOW&\\1k&YBc",[])),
+    <<"alphabetabcdtWpTOWabcdkYBc">> = iolist_to_binary(re:replace("alphabetabcd","(?>.*?)(?<=(abcd)|(wxyz))","tWpTOW&\\1k&YBc",[global])),
+    <<"endingwxyzXvMpW">> = iolist_to_binary(re:replace("endingwxyz","(?>.*?)(?<=(abcd)|(wxyz))","&XvMpW",[])),
+    <<"endingwxyzXvMpW">> = iolist_to_binary(re:replace("endingwxyz","(?>.*?)(?<=(abcd)|(wxyz))","&XvMpW",[global])),
+    <<"JSabcdAJlalphabetabcdS">> = iolist_to_binary(re:replace("alphabetabcd","(?>.*)(?<=(abcd)|(wxyz))","JS\\1AJl&S",[])),
+    <<"JSabcdAJlalphabetabcdSJSabcdAJlS">> = iolist_to_binary(re:replace("alphabetabcd","(?>.*)(?<=(abcd)|(wxyz))","JS\\1AJl&S",[global])),
+    <<"sendingwxyz">> = iolist_to_binary(re:replace("endingwxyz","(?>.*)(?<=(abcd)|(wxyz))","s&",[])),
+    <<"sendingwxyzs">> = iolist_to_binary(re:replace("endingwxyz","(?>.*)(?<=(abcd)|(wxyz))","s&",[global])),
+    <<"abcdfooxyz">> = iolist_to_binary(re:replace("abcdfooxyz","(?>.*)foo","e&wW\\1g\\1&per",[])),
+    <<"abcdfooxyz">> = iolist_to_binary(re:replace("abcdfooxyz","(?>.*)foo","e&wW\\1g\\1&per",[global])),
     ok.
 run50() ->
-    <<"fUpPJGcmtHgPTjpn">> = iolist_to_binary(re:replace("bnn","(?(?!b(*THEN)a)bn|bnn)","fUpPJGc\\1mtHgP\\1Tjp",[])),
-    <<"fUpPJGcmtHgPTjpn">> = iolist_to_binary(re:replace("bnn","(?(?!b(*THEN)a)bn|bnn)","fUpPJGc\\1mtHgP\\1Tjp",[global])),
-    <<"bnpQyfPUbHStn">> = iolist_to_binary(re:replace("bnn","(?!b(*SKIP)a)bn|bnn","&pQyfPUb\\1HSt",[])),
-    <<"bnpQyfPUbHStn">> = iolist_to_binary(re:replace("bnn","(?!b(*SKIP)a)bn|bnn","&pQyfPUb\\1HSt",[global])),
-    <<"QItDtbnXKbLqmpn">> = iolist_to_binary(re:replace("bnn","(?(?!b(*SKIP)a)bn|bnn)","QItD\\1t&XKbLqmp",[])),
-    <<"QItDtbnXKbLqmpn">> = iolist_to_binary(re:replace("bnn","(?(?!b(*SKIP)a)bn|bnn)","QItD\\1t&XKbLqmp",[global])),
-    <<"HyrLbnn">> = iolist_to_binary(re:replace("bnn","(?!b(*PRUNE)a)bn|bnn","HyrL&",[])),
-    <<"HyrLbnn">> = iolist_to_binary(re:replace("bnn","(?!b(*PRUNE)a)bn|bnn","HyrL&",[global])),
-    <<"MUxDTbnn">> = iolist_to_binary(re:replace("bnn","(?(?!b(*PRUNE)a)bn|bnn)","MUxDT&",[])),
-    <<"MUxDTbnn">> = iolist_to_binary(re:replace("bnn","(?(?!b(*PRUNE)a)bn|bnn)","MUxDT&",[global])),
-    <<"sdqn">> = iolist_to_binary(re:replace("bnn","(?!b(*COMMIT)a)bn|bnn","sd\\1q",[])),
-    <<"sdqn">> = iolist_to_binary(re:replace("bnn","(?!b(*COMMIT)a)bn|bnn","sd\\1q",[global])),
-    <<"FQLjbnHLRNtn">> = iolist_to_binary(re:replace("bnn","(?(?!b(*COMMIT)a)bn|bnn)","FQLj&HLRN\\1\\1t",[])),
-    <<"FQLjbnHLRNtn">> = iolist_to_binary(re:replace("bnn","(?(?!b(*COMMIT)a)bn|bnn)","FQLj&HLRN\\1\\1t",[global])),
-    <<"bnn">> = iolist_to_binary(re:replace("bnn","(?=b(*SKIP)a)bn|bnn","dAaye\\1Bf&UNI",[])),
-    <<"bnn">> = iolist_to_binary(re:replace("bnn","(?=b(*SKIP)a)bn|bnn","dAaye\\1Bf&UNI",[global])),
-    <<"ObnnQfkfGJxwbnnxkmrGMbnn">> = iolist_to_binary(re:replace("bnn","(?=b(*THEN)a)bn|bnn","O&Q\\1fkfGJxw&xkmrGM&",[])),
-    <<"ObnnQfkfGJxwbnnxkmrGMbnn">> = iolist_to_binary(re:replace("bnn","(?=b(*THEN)a)bn|bnn","O&Q\\1fkfGJxw&xkmrGM&",[global])),
-    <<"bdVxYcoMDjqfdtinEac">> = iolist_to_binary(re:replace("ac","^(?!a(*SKIP)b)","bdVx&YcoMDjq&fd\\1tinE",[])),
-    <<"bdVxYcoMDjqfdtinEac">> = iolist_to_binary(re:replace("ac","^(?!a(*SKIP)b)","bdVx&YcoMDjq&fd\\1tinE",[global])),
-    <<"XDacvYSvDacNKacAfJd">> = iolist_to_binary(re:replace("acd","^(?!a(*SKIP)b)..","XD\\1&vY\\1SvD&NK&AfJ",[])),
-    <<"XDacvYSvDacNKacAfJd">> = iolist_to_binary(re:replace("acd","^(?!a(*SKIP)b)..","XD\\1&vY\\1SvD&NK&AfJ",[global])),
-    <<"MnEjDLxqRfDdksvBNUd">> = iolist_to_binary(re:replace("acd","(?!a(*SKIP)b)..","MnEjDLxqRfD\\1dksvBNU",[])),
-    <<"MnEjDLxqRfDdksvBNUd">> = iolist_to_binary(re:replace("acd","(?!a(*SKIP)b)..","MnEjDLxqRfD\\1dksvBNU",[global])),
-    <<"Snac">> = iolist_to_binary(re:replace("ac","^(?(?!a(*SKIP)b))","S\\1n",[])),
-    <<"Snac">> = iolist_to_binary(re:replace("ac","^(?(?!a(*SKIP)b))","S\\1n",[global])),
-    <<"IacBaUakXjhOFhQykvd">> = iolist_to_binary(re:replace("acd","^(?!a(*PRUNE)b)..","I\\1&BaUakXjhOFhQy\\1kv",[])),
-    <<"IacBaUakXjhOFhQykvd">> = iolist_to_binary(re:replace("acd","^(?!a(*PRUNE)b)..","I\\1&BaUakXjhOFhQy\\1kv",[global])),
-    <<"acxacacaccABhoecjWacDd">> = iolist_to_binary(re:replace("acd","(?!a(*PRUNE)b)..","&x&&&cABhoecjW&D",[])),
-    <<"acxacacaccABhoecjWacDd">> = iolist_to_binary(re:replace("acd","(?!a(*PRUNE)b)..","&x&&&cABhoecjW&D",[global])),
-    <<"mBPmYeGJsacgacj">> = iolist_to_binary(re:replace("ac","(?!a(*COMMIT)b)ac|cd","mBP\\1mYeGJ\\1s&g&j",[])),
-    <<"mBPmYeGJsacgacj">> = iolist_to_binary(re:replace("ac","(?!a(*COMMIT)b)ac|cd","mBP\\1mYeGJ\\1s&g&j",[global])),
-    <<"baybaRbaANqnrUXsC">> = iolist_to_binary(re:replace("ba","\\A.*?(?:a|bc)","&y&R&ANqnrUXsC",[])),
-    <<"baybaRbaANqnrUXsC">> = iolist_to_binary(re:replace("ba","\\A.*?(?:a|bc)","&y&R&ANqnrUXsC",[global])),
-    <<"FCDCDlbCDOEkErhCDCDsCDT">> = iolist_to_binary(re:replace("CD","^(A(*THEN)B|C(*THEN)D)","F&&lb\\1OEkErh\\1&s\\1T",[])),
-    <<"FCDCDlbCDOEkErhCDCDsCDT">> = iolist_to_binary(re:replace("CD","^(A(*THEN)B|C(*THEN)D)","F&&lb\\1OEkErh\\1&s\\1T",[global])),
-    <<"s1234BtugJSlfoIoa">> = iolist_to_binary(re:replace("1234","^\\d*\\w{4}","\\1s&BtugJS\\1lfoIo\\1a",[])),
-    <<"s1234BtugJSlfoIoa">> = iolist_to_binary(re:replace("1234","^\\d*\\w{4}","\\1s&BtugJS\\1lfoIo\\1a",[global])),
-    <<"123">> = iolist_to_binary(re:replace("123","^\\d*\\w{4}","&dfYwAHcFyJUBIK&&&",[])),
-    <<"123">> = iolist_to_binary(re:replace("123","^\\d*\\w{4}","&dfYwAHcFyJUBIK&&&",[global])),
-    <<"aaaaewRuSaaaab">> = iolist_to_binary(re:replace("aaaa","^[^b]*\\w{4}","&ewRuS&b",[])),
-    <<"aaaaewRuSaaaab">> = iolist_to_binary(re:replace("aaaa","^[^b]*\\w{4}","&ewRuS&b",[global])),
-    <<"aaa">> = iolist_to_binary(re:replace("aaa","^[^b]*\\w{4}","iOiPewDMrMw&Iy",[])),
-    <<"aaa">> = iolist_to_binary(re:replace("aaa","^[^b]*\\w{4}","iOiPewDMrMw&Iy",[global])),
+    <<"abcdHExyz">> = iolist_to_binary(re:replace("abcdfooxyz","(?>.*?)foo","HE",[])),
+    <<"abcdHExyz">> = iolist_to_binary(re:replace("abcdfooxyz","(?>.*?)foo","HE",[global])),
+    <<"OeFyUacaac">> = iolist_to_binary(re:replace("ac","(?:(a(*PRUNE)b)){0}(?:(?1)|ac)","Oe\\1FyU&a&",[])),
+    <<"OeFyUacaac">> = iolist_to_binary(re:replace("ac","(?:(a(*PRUNE)b)){0}(?:(?1)|ac)","Oe\\1FyU&a&",[global])),
+    <<"MROljaccG">> = iolist_to_binary(re:replace("ac","(?:(a(*SKIP)b)){0}(?:(?1)|ac)","MR\\1Olj&cG\\1",[])),
+    <<"MROljaccG">> = iolist_to_binary(re:replace("ac","(?:(a(*SKIP)b)){0}(?:(?1)|ac)","MR\\1Olj&cG\\1",[global])),
+    <<"aa">> = iolist_to_binary(re:replace("aa","(?<=(*SKIP)ac)a","\\1IMa&\\1\\1rt&LBSuRcqDCr",[])),
+    <<"aa">> = iolist_to_binary(re:replace("aa","(?<=(*SKIP)ac)a","\\1IMa&\\1\\1rt&LBSuRcqDCr",[global])),
+    <<"AAoACiACkfarUTF">> = iolist_to_binary(re:replace("AAAC","A(*MARK:A)A+(*SKIP:B)(B|Z) | AC","o&i&\\1k\\1far\\1UTF",[extended])),
+    <<"AAoACiACkfarUTF">> = iolist_to_binary(re:replace("AAAC","A(*MARK:A)A+(*SKIP:B)(B|Z) | AC","o&i&\\1k\\1far\\1UTF",[extended,global])),
+    <<"acfRPOKyacdhtsX">> = iolist_to_binary(re:replace("acacd","a(*SKIP:m)x|ac(*:n)(*SKIP:n)d|ac","fR\\1POKy&h\\1tsX",[])),
+    <<"acfRPOKyacdhtsX">> = iolist_to_binary(re:replace("acacd","a(*SKIP:m)x|ac(*:n)(*SKIP:n)d|ac","fR\\1POKy&h\\1tsX",[global])),
+    <<"ABhHXGDtfghlx">> = iolist_to_binary(re:replace("AB","A(*SKIP:m)x|A(*SKIP:n)x|AB","&hH\\1XGD\\1tfghlx\\1",[])),
+    <<"ABhHXGDtfghlx">> = iolist_to_binary(re:replace("AB","A(*SKIP:m)x|A(*SKIP:n)x|AB","&hH\\1XGD\\1tfghlx\\1",[global])),
+    <<"acePUJnkSacd">> = iolist_to_binary(re:replace("acacd","((*SKIP:r)d){0}a(*SKIP:m)x|ac(*:n)|ac","&ePUJnkS",[])),
+    <<"acePUJnkSacePUJnkSd">> = iolist_to_binary(re:replace("acacd","((*SKIP:r)d){0}a(*SKIP:m)x|ac(*:n)|ac","&ePUJnkS",[global])),
+    <<"aaHDSaaaacbcRNYiEPlVoYX">> = iolist_to_binary(re:replace("aaaaaac","aaaaa(*PRUNE)b|a+c","HDS&bc\\1RNYiEPlVoYX",[])),
+    <<"aaHDSaaaacbcRNYiEPlVoYX">> = iolist_to_binary(re:replace("aaaaaac","aaaaa(*PRUNE)b|a+c","HDS&bc\\1RNYiEPlVoYX",[global])),
+    <<"aaS">> = iolist_to_binary(re:replace("aaaaaac","aaaaa(*SKIP)(*PRUNE)b|a+c","S",[])),
+    <<"aaS">> = iolist_to_binary(re:replace("aaaaaac","aaaaa(*SKIP)(*PRUNE)b|a+c","S",[global])),
+    <<"aajMfVowwsesaaaacoWOLaaaacyd">> = iolist_to_binary(re:replace("aaaaaac","aaaaa(*SKIP:N)(*PRUNE)b|a+c","jMfVoww\\1ses&oWOL&yd",[])),
+    <<"aajMfVowwsesaaaacoWOLaaaacyd">> = iolist_to_binary(re:replace("aaaaaac","aaaaa(*SKIP:N)(*PRUNE)b|a+c","jMfVoww\\1ses&oWOL&yd",[global])),
+    <<"aaQqHTIgCoaaaaciIlqXaaaacO">> = iolist_to_binary(re:replace("aaaaaac","aaaa(*:N)a(*SKIP:N)(*PRUNE)b|a+c","QqHTIgCo\\1&\\1\\1iIlqX&O",[])),
+    <<"aaQqHTIgCoaaaaciIlqXaaaacO">> = iolist_to_binary(re:replace("aaaaaac","aaaa(*:N)a(*SKIP:N)(*PRUNE)b|a+c","QqHTIgCo\\1&\\1\\1iIlqX&O",[global])),
+    <<"aafBLv">> = iolist_to_binary(re:replace("aaaaaac","aaaaa(*THEN)(*PRUNE)b|a+c","fBLv",[])),
+    <<"aafBLv">> = iolist_to_binary(re:replace("aaaaaac","aaaaa(*THEN)(*PRUNE)b|a+c","fBLv",[global])),
+    <<"aaaaalyLDBYgv">> = iolist_to_binary(re:replace("aaaaaac","aaaaa(*SKIP)b|a+c","lyLD\\1BYgv\\1",[])),
+    <<"aaaaalyLDBYgv">> = iolist_to_binary(re:replace("aaaaaac","aaaaa(*SKIP)b|a+c","lyLD\\1BYgv\\1",[global])),
+    <<"aaaaaRyacXacqsvwyackyHc">> = iolist_to_binary(re:replace("aaaaaac","aaaaa(*PRUNE)(*SKIP)b|a+c","Ry&\\1X&qs\\1vwy\\1&kyHc",[])),
+    <<"aaaaaRyacXacqsvwyackyHc">> = iolist_to_binary(re:replace("aaaaaac","aaaaa(*PRUNE)(*SKIP)b|a+c","Ry&\\1X&qs\\1vwy\\1&kyHc",[global])),
+    <<"aaaaauXMdu">> = iolist_to_binary(re:replace("aaaaaac","aaaaa(*THEN)(*SKIP)b|a+c","\\1uXMdu",[])),
+    <<"aaaaauXMdu">> = iolist_to_binary(re:replace("aaaaaac","aaaaa(*THEN)(*SKIP)b|a+c","\\1uXMdu",[global])),
+    <<"aaaaaoTbEDv">> = iolist_to_binary(re:replace("aaaaaac","aaaaa(*COMMIT)(*SKIP)b|a+c","oTbEDv",[])),
+    <<"aaaaaoTbEDv">> = iolist_to_binary(re:replace("aaaaaac","aaaaa(*COMMIT)(*SKIP)b|a+c","oTbEDv",[global])),
+    <<"aaaaaac">> = iolist_to_binary(re:replace("aaaaaac","aaaaa(*COMMIT)b|a+c","R&elTeY&&\\1",[])),
+    <<"aaaaaac">> = iolist_to_binary(re:replace("aaaaaac","aaaaa(*COMMIT)b|a+c","R&elTeY&&\\1",[global])),
+    <<"aaaaaacaaaaaacX">> = iolist_to_binary(re:replace("aaaaaac","aaaaa(*THEN)b|a+c","&&X\\1",[])),
+    <<"aaaaaacaaaaaacX">> = iolist_to_binary(re:replace("aaaaaac","aaaaa(*THEN)b|a+c","&&X\\1",[global])),
     ok.
 run51() ->
-    <<"rkSqOQ">> = iolist_to_binary(re:replace("aaaa","^[^b]*\\w{4}","rkSqOQ",[caseless])),
-    <<"rkSqOQ">> = iolist_to_binary(re:replace("aaaa","^[^b]*\\w{4}","rkSqOQ",[caseless,global])),
-    <<"aaa">> = iolist_to_binary(re:replace("aaa","^[^b]*\\w{4}","V",[caseless])),
-    <<"aaa">> = iolist_to_binary(re:replace("aaa","^[^b]*\\w{4}","V",[caseless,global])),
-    <<"LfjQyR">> = iolist_to_binary(re:replace("aaaa","^a*\\w{4}","LfjQyR",[])),
-    <<"LfjQyR">> = iolist_to_binary(re:replace("aaaa","^a*\\w{4}","LfjQyR",[global])),
-    <<"aaa">> = iolist_to_binary(re:replace("aaa","^a*\\w{4}","tWpTOW&\\1k&YBc",[])),
-    <<"aaa">> = iolist_to_binary(re:replace("aaa","^a*\\w{4}","tWpTOW&\\1k&YBc",[global])),
-    <<"aaaaXvMpW">> = iolist_to_binary(re:replace("aaaa","^a*\\w{4}","&XvMpW",[caseless])),
-    <<"aaaaXvMpW">> = iolist_to_binary(re:replace("aaaa","^a*\\w{4}","&XvMpW",[caseless,global])),
-    <<"aaa">> = iolist_to_binary(re:replace("aaa","^a*\\w{4}","JS\\1AJl&S",[caseless])),
-    <<"aaa">> = iolist_to_binary(re:replace("aaa","^a*\\w{4}","JS\\1AJl&S",[caseless,global])),
-    <<"o1 IN SOA non-sp1 non-sp2(i1 IN SOA non-sp1 non-sp2(1k1far1UTF">> = iolist_to_binary(re:replace("1 IN SOA non-sp1 non-sp2(","^(\\d+)\\s+IN\\s+SOA\\s+(\\S+)\\s+(\\S+)\\s*\\(\\s*$","o&i&\\1k\\1far\\1UTF",[])),
-    <<"o1 IN SOA non-sp1 non-sp2(i1 IN SOA non-sp1 non-sp2(1k1far1UTF">> = iolist_to_binary(re:replace("1 IN SOA non-sp1 non-sp2(","^(\\d+)\\s+IN\\s+SOA\\s+(\\S+)\\s+(\\S+)\\s*\\(\\s*$","o&i&\\1k\\1far\\1UTF",[global])),
-    <<"AZ">> = iolist_to_binary(re:replace("AZ","^A\\xZ","&ePUJnkS",[])),
-    <<"AZ">> = iolist_to_binary(re:replace("AZ","^A\\xZ","&ePUJnkS",[global])),
-    <<"HDSASBbcRNYiEPlVoYX">> = iolist_to_binary(re:replace("ASB","^A\\o{123}B","HDS&bc\\1RNYiEPlVoYX",[])),
-    <<"HDSASBbcRNYiEPlVoYX">> = iolist_to_binary(re:replace("ASB","^A\\o{123}B","HDS&bc\\1RNYiEPlVoYX",[global])),
-    <<"S">> = iolist_to_binary(re:replace("aaaab"," ^ a + + b $ ","S",[extended])),
-    <<"S">> = iolist_to_binary(re:replace("aaaab"," ^ a + + b $ ","S",[extended,global])),
-    <<"jMfVowwsesaaaaboWOLaaaabyd">> = iolist_to_binary(re:replace("aaaab"," ^ a + #comment
-  + b $ ","jMfVoww\\1ses&oWOL&yd",[extended])),
-    <<"jMfVowwsesaaaaboWOLaaaabyd">> = iolist_to_binary(re:replace("aaaab"," ^ a + #comment
-  + b $ ","jMfVoww\\1ses&oWOL&yd",[extended,global])),
-    <<"QqHTIgCoaaaabiIlqXaaaabO">> = iolist_to_binary(re:replace("aaaab"," ^ a + #comment
-  #comment
-  + b $ ","QqHTIgCo\\1&\\1\\1iIlqX&O",[extended])),
-    <<"QqHTIgCoaaaabiIlqXaaaabO">> = iolist_to_binary(re:replace("aaaab"," ^ a + #comment
-  #comment
-  + b $ ","QqHTIgCo\\1&\\1\\1iIlqX&O",[extended,global])),
-    <<"fBLv">> = iolist_to_binary(re:replace("aaaab"," ^ (?> a + ) b $ ","fBLv",[extended])),
-    <<"fBLv">> = iolist_to_binary(re:replace("aaaab"," ^ (?> a + ) b $ ","fBLv",[extended,global])),
-    <<"lyLDaaaaBYgvaaaa">> = iolist_to_binary(re:replace("aaaab"," ^ ( a + ) + + \\w $ ","lyLD\\1BYgv\\1",[extended])),
-    <<"lyLDaaaaBYgvaaaa">> = iolist_to_binary(re:replace("aaaab"," ^ ( a + ) + + \\w $ ","lyLD\\1BYgv\\1",[extended,global])),
-    <<"acb">> = iolist_to_binary(re:replace("acb","(?:x|(?:(xx|yy)+|x|x|x|x|x)|a|a|a)bc","Ry&\\1X&qs\\1vwy\\1&kyHc",[])),
-    <<"acb">> = iolist_to_binary(re:replace("acb","(?:x|(?:(xx|yy)+|x|x|x|x|x)|a|a|a)bc","Ry&\\1X&qs\\1vwy\\1&kyHc",[global])),
-    <<"uXMdu\"NOT MATCHED">> = iolist_to_binary(re:replace("NON QUOTED \"QUOT\"\"ED\" AFTER \"NOT MATCHED","\\A(?:[^\\\"]++|\\\"(?:[^\\\"]*+|\\\"\\\")*+\\\")++","\\1uXMdu",[])),
-    <<"uXMdu\"NOT MATCHED">> = iolist_to_binary(re:replace("NON QUOTED \"QUOT\"\"ED\" AFTER \"NOT MATCHED","\\A(?:[^\\\"]++|\\\"(?:[^\\\"]*+|\\\"\\\")*+\\\")++","\\1uXMdu",[global])),
-    <<"oTbEDv\"NOT MATCHED">> = iolist_to_binary(re:replace("NON QUOTED \"QUOT\"\"ED\" AFTER \"NOT MATCHED","\\A(?:[^\\\"]++|\\\"(?:[^\\\"]++|\\\"\\\")*+\\\")++","oTbEDv",[])),
-    <<"oTbEDv\"NOT MATCHED">> = iolist_to_binary(re:replace("NON QUOTED \"QUOT\"\"ED\" AFTER \"NOT MATCHED","\\A(?:[^\\\"]++|\\\"(?:[^\\\"]++|\\\"\\\")*+\\\")++","oTbEDv",[global])),
-    <<"RNON QUOTED \"QUOT\"\"ED\" AFTER elTeYNON QUOTED \"QUOT\"\"ED\" AFTER NON QUOTED \"QUOT\"\"ED\" AFTER \"NOT MATCHED">> = iolist_to_binary(re:replace("NON QUOTED \"QUOT\"\"ED\" AFTER \"NOT MATCHED","\\A(?:[^\\\"]++|\\\"(?:[^\\\"]++|\\\"\\\")++\\\")++","R&elTeY&&\\1",[])),
-    <<"RNON QUOTED \"QUOT\"\"ED\" AFTER elTeYNON QUOTED \"QUOT\"\"ED\" AFTER NON QUOTED \"QUOT\"\"ED\" AFTER \"NOT MATCHED">> = iolist_to_binary(re:replace("NON QUOTED \"QUOT\"\"ED\" AFTER \"NOT MATCHED","\\A(?:[^\\\"]++|\\\"(?:[^\\\"]++|\\\"\\\")++\\\")++","R&elTeY&&\\1",[global])),
-    <<"NON QUOTED \"QUOT\"\"ED\" AFTER NON QUOTED \"QUOT\"\"ED\" AFTER X AFTER \"NOT MATCHED">> = iolist_to_binary(re:replace("NON QUOTED \"QUOT\"\"ED\" AFTER \"NOT MATCHED","\\A([^\\\"1]++|[\\\"2]([^\\\"3]*+|[\\\"4][\\\"5])*+[\\\"6])++","&&X\\1",[])),
-    <<"NON QUOTED \"QUOT\"\"ED\" AFTER NON QUOTED \"QUOT\"\"ED\" AFTER X AFTER \"NOT MATCHED">> = iolist_to_binary(re:replace("NON QUOTED \"QUOT\"\"ED\" AFTER \"NOT MATCHED","\\A([^\\\"1]++|[\\\"2]([^\\\"3]*+|[\\\"4][\\\"5])*+[\\\"6])++","&&X\\1",[global])),
-    <<"YnMwtestestesNxitesWfbt test">> = iolist_to_binary(re:replace("test test","^\\w+(?>\\s*)(?<=\\w)","\\1YnMw&&&\\1Nxi&Wfb",[])),
-    <<"YnMwtestestesNxitesWfbt test">> = iolist_to_binary(re:replace("test test","^\\w+(?>\\s*)(?<=\\w)","\\1YnMw&&&\\1Nxi&Wfb",[global])),
+    <<"YnMwaaaaaacaaaaaacaaaaaacNxiaaaaaacWfb">> = iolist_to_binary(re:replace("aaaaaac","aaaaa(*SKIP)(*THEN)b|a+c","\\1YnMw&&&\\1Nxi&Wfb",[])),
+    <<"YnMwaaaaaacaaaaaacaaaaaacNxiaaaaaacWfb">> = iolist_to_binary(re:replace("aaaaaac","aaaaa(*SKIP)(*THEN)b|a+c","\\1YnMw&&&\\1Nxi&Wfb",[global])),
+    <<"eXYNXkcuaal">> = iolist_to_binary(re:replace("aaaaaac","aaaaa(*PRUNE)(*THEN)b|a+c","eX\\1YNXkcuaal",[])),
+    <<"eXYNXkcuaal">> = iolist_to_binary(re:replace("aaaaaac","aaaaa(*PRUNE)(*THEN)b|a+c","eX\\1YNXkcuaal",[global])),
+    <<"cpDaaaaaacdDivSoeWp">> = iolist_to_binary(re:replace("aaaaaac","aaaaa(*COMMIT)(*THEN)b|a+c","cpD&dD\\1i\\1vSoeWp",[])),
+    <<"cpDaaaaaacdDivSoeWp">> = iolist_to_binary(re:replace("aaaaaac","aaaaa(*COMMIT)(*THEN)b|a+c","cpD&dD\\1i\\1vSoeWp",[global])),
+    <<"aaaaaHTa">> = iolist_to_binary(re:replace("aaaaaa","aaaaa(*:m)(*PRUNE:m)(*SKIP:m)m|a+","H\\1T&",[])),
+    <<"aaaaaHTa">> = iolist_to_binary(re:replace("aaaaaa","aaaaa(*:m)(*PRUNE:m)(*SKIP:m)m|a+","H\\1T&",[global])),
+    <<"aaaaaUWy">> = iolist_to_binary(re:replace("aaaaaa","aaaaa(*:m)(*MARK:m)(*PRUNE)(*SKIP:m)m|a+","U\\1Wy",[])),
+    <<"aaaaaUWy">> = iolist_to_binary(re:replace("aaaaaa","aaaaa(*:m)(*MARK:m)(*PRUNE)(*SKIP:m)m|a+","U\\1Wy",[global])),
+    <<"aarGTHaaaaRVHejdaaaak">> = iolist_to_binary(re:replace("aaaaaa","aaaaa(*:n)(*PRUNE:m)(*SKIP:m)m|a+","rGTH&RVHejd&k",[])),
+    <<"aarGTHaaaaRVHejdaaaak">> = iolist_to_binary(re:replace("aaaaaa","aaaaa(*:n)(*PRUNE:m)(*SKIP:m)m|a+","rGTH&RVHejd&k",[global])),
+    <<"aaaaaaGCtaDaLja">> = iolist_to_binary(re:replace("aaaaaa","aaaaa(*:n)(*MARK:m)(*PRUNE)(*SKIP:m)m|a+","\\1&GCt&D&Lja",[])),
+    <<"aaaaaaGCtaDaLja">> = iolist_to_binary(re:replace("aaaaaa","aaaaa(*:n)(*MARK:m)(*PRUNE)(*SKIP:m)m|a+","\\1&GCt&D&Lja",[global])),
+    <<"aafQfwLk">> = iolist_to_binary(re:replace("aaaac","a(*MARK:A)aa(*PRUNE:A)a(*SKIP:A)b|a+c","f\\1QfwLk",[])),
+    <<"aafQfwLk">> = iolist_to_binary(re:replace("aaaac","a(*MARK:A)aa(*PRUNE:A)a(*SKIP:A)b|a+c","f\\1QfwLk",[global])),
+    <<"aaayjrFTacQUQPacu">> = iolist_to_binary(re:replace("aaaac","a(*MARK:A)aa(*MARK:A)a(*SKIP:A)b|a+c","\\1yjrFT&QU\\1QP\\1&u",[])),
+    <<"aaayjrFTacQUQPacu">> = iolist_to_binary(re:replace("aaaac","a(*MARK:A)aa(*MARK:A)a(*SKIP:A)b|a+c","\\1yjrFT&QU\\1QP\\1&u",[global])),
+    <<"aaaacgpi">> = iolist_to_binary(re:replace("aaaac","aaa(*PRUNE:A)a(*SKIP:A)b|a+c","&gpi\\1",[])),
+    <<"aaaacgpi">> = iolist_to_binary(re:replace("aaaac","aaa(*PRUNE:A)a(*SKIP:A)b|a+c","&gpi\\1",[global])),
+    <<"aaakQ">> = iolist_to_binary(re:replace("aaaac","aaa(*MARK:A)a(*SKIP:A)b|a+c","kQ",[])),
+    <<"aaakQ">> = iolist_to_binary(re:replace("aaaac","aaa(*MARK:A)a(*SKIP:A)b|a+c","kQ",[global])),
+    <<"aaaaajacIaclt">> = iolist_to_binary(re:replace("aaaaaac","a(*:m)a(*COMMIT)(*SKIP:m)b|a+c","j&I&lt",[])),
+    <<"aaaaajacIaclt">> = iolist_to_binary(re:replace("aaaaaac","a(*:m)a(*COMMIT)(*SKIP:m)b|a+c","j&I&lt",[global])),
+    <<"jOfKaMbavu">> = iolist_to_binary(re:replace("ba",".?(a|b(*THEN)c)","jOfK\\1M&vu",[])),
+    <<"jOfKaMbavu">> = iolist_to_binary(re:replace("ba",".?(a|b(*THEN)c)","jOfK\\1M&vu",[global])),
+    <<"WabcQSVababHodUgHSHnt">> = iolist_to_binary(re:replace("abc","(a(*COMMIT)b)c|abd","W&QSV\\1\\1HodUgHSHnt",[])),
+    <<"WabcQSVababHodUgHSHnt">> = iolist_to_binary(re:replace("abc","(a(*COMMIT)b)c|abd","W&QSV\\1\\1HodUgHSHnt",[global])),
+    <<"abd">> = iolist_to_binary(re:replace("abd","(a(*COMMIT)b)c|abd","oyDWsqkc\\1nur&\\1Wk",[])),
+    <<"abd">> = iolist_to_binary(re:replace("abd","(a(*COMMIT)b)c|abd","oyDWsqkc\\1nur&\\1Wk",[global])),
+    <<"drmFabcyB">> = iolist_to_binary(re:replace("abc","(?=a(*COMMIT)b)abc|abd","dr\\1mF&yB",[])),
+    <<"drmFabcyB">> = iolist_to_binary(re:replace("abc","(?=a(*COMMIT)b)abc|abd","dr\\1mF&yB",[global])),
+    <<"jabdVLabdJkkPEEGEA">> = iolist_to_binary(re:replace("abd","(?=a(*COMMIT)b)abc|abd","j\\1&VL&Jk\\1kPEE\\1G\\1E\\1A",[])),
+    <<"jabdVLabdJkkPEEGEA">> = iolist_to_binary(re:replace("abd","(?=a(*COMMIT)b)abc|abd","j\\1&VL&Jk\\1kPEE\\1G\\1E\\1A",[global])),
+    <<"Uabc">> = iolist_to_binary(re:replace("abc","(?>a(*COMMIT)b)c|abd","U&",[])),
+    <<"Uabc">> = iolist_to_binary(re:replace("abc","(?>a(*COMMIT)b)c|abd","U&",[global])),
+    <<"abdU">> = iolist_to_binary(re:replace("abd","(?>a(*COMMIT)b)c|abd","&U",[])),
+    <<"abdU">> = iolist_to_binary(re:replace("abd","(?>a(*COMMIT)b)c|abd","&U",[global])),
+    <<"Wcabensc">> = iolist_to_binary(re:replace("abc","a(?=b(*COMMIT)c)[^d]|abd","Wc&\\1ens",[])),
+    <<"Wcabensc">> = iolist_to_binary(re:replace("abc","a(?=b(*COMMIT)c)[^d]|abd","Wc&\\1ens",[global])),
+    <<"abd">> = iolist_to_binary(re:replace("abd","a(?=b(*COMMIT)c)[^d]|abd","ot",[])),
+    <<"abd">> = iolist_to_binary(re:replace("abd","a(?=b(*COMMIT)c)[^d]|abd","ot",[global])),
+    <<"TKKhmnqBabdjhwMeabdabdabd">> = iolist_to_binary(re:replace("abd","a(?=bc).|abd","TKKhmnqB&j\\1hwMe&&&",[])),
+    <<"TKKhmnqBabdjhwMeabdabdabd">> = iolist_to_binary(re:replace("abd","a(?=bc).|abd","TKKhmnqB&j\\1hwMe&&&",[global])),
+    <<"AabFKEFFLoabgFNcabISDNVc">> = iolist_to_binary(re:replace("abc","a(?=bc).|abd","A&FKEFFLo&gFNc&ISDNV",[])),
+    <<"AabFKEFFLoabgFNcabISDNVc">> = iolist_to_binary(re:replace("abc","a(?=bc).|abd","A&FKEFFLo&gFNc&ISDNV",[global])),
+    <<"abceabd">> = iolist_to_binary(re:replace("abceabd","a(?>b(*COMMIT)c)d|abd","gbEHUma\\1JEum\\1t\\1TGBi",[])),
+    <<"abceabd">> = iolist_to_binary(re:replace("abceabd","a(?>b(*COMMIT)c)d|abd","gbEHUma\\1JEum\\1t\\1TGBi",[global])),
+    <<"abceMfhabdOrMhJabdCabdsjabd">> = iolist_to_binary(re:replace("abceabd","a(?>bc)d|abd","Mfh&OrMhJ&C&\\1sj&",[])),
+    <<"abceMfhabdOrMhJabdCabdsjabd">> = iolist_to_binary(re:replace("abceabd","a(?>bc)d|abd","Mfh&OrMhJ&C&\\1sj&",[global])),
     ok.
 run52() ->
-    <<"rGTHaclRVHejdaclk">> = iolist_to_binary(re:replace("acl","(?P<Name>a)?(?P<Name2>b)?(?(<Name>)c|d)*l","rGTH&RVHejd&k",[])),
-    <<"rGTHaclRVHejdaclk">> = iolist_to_binary(re:replace("acl","(?P<Name>a)?(?P<Name2>b)?(?(<Name>)c|d)*l","rGTH&RVHejd&k",[global])),
-    <<"bdlGCtbdlDbdlLja">> = iolist_to_binary(re:replace("bdl","(?P<Name>a)?(?P<Name2>b)?(?(<Name>)c|d)*l","\\1&GCt&D&Lja",[])),
-    <<"bdlGCtbdlDbdlLja">> = iolist_to_binary(re:replace("bdl","(?P<Name>a)?(?P<Name2>b)?(?(<Name>)c|d)*l","\\1&GCt&D&Lja",[global])),
-    <<"afQfwLk">> = iolist_to_binary(re:replace("adl","(?P<Name>a)?(?P<Name2>b)?(?(<Name>)c|d)*l","f\\1QfwLk",[])),
-    <<"afQfwLk">> = iolist_to_binary(re:replace("adl","(?P<Name>a)?(?P<Name2>b)?(?(<Name>)c|d)*l","f\\1QfwLk",[global])),
-    <<"bcyjrFTlQUQPlu">> = iolist_to_binary(re:replace("bcl","(?P<Name>a)?(?P<Name2>b)?(?(<Name>)c|d)*l","\\1yjrFT&QU\\1QP\\1&u",[])),
-    <<"bcyjrFTlQUQPlu">> = iolist_to_binary(re:replace("bcl","(?P<Name>a)?(?P<Name2>b)?(?(<Name>)c|d)*l","\\1yjrFT&QU\\1QP\\1&u",[global])),
-    <<"abcgpi">> = iolist_to_binary(re:replace("abc","\\sabc","&gpi\\1",[])),
-    <<"abcgpi">> = iolist_to_binary(re:replace("abc","\\sabc","&gpi\\1",[global])),
-    <<"kQ">> = iolist_to_binary(re:replace("aa]]","[\\Qa]\\E]+","kQ",[])),
-    <<"kQ">> = iolist_to_binary(re:replace("aa]]","[\\Qa]\\E]+","kQ",[global])),
-    <<"jaa]]Iaa]]lt">> = iolist_to_binary(re:replace("aa]]","[\\Q]a\\E]+","j&I&lt",[])),
-    <<"jaa]]Iaa]]lt">> = iolist_to_binary(re:replace("aa]]","[\\Q]a\\E]+","j&I&lt",[global])),
-    <<"jOfKaMAaaBvu">> = iolist_to_binary(re:replace("AaaB","A((((((((a))))))))\\8B","jOfK\\1M&vu",[])),
-    <<"jOfKaMAaaBvu">> = iolist_to_binary(re:replace("AaaB","A((((((((a))))))))\\8B","jOfK\\1M&vu",[global])),
-    <<"WAaaBQSVaaHodUgHSHnt">> = iolist_to_binary(re:replace("AaaB","A(((((((((a)))))))))\\9B","W&QSV\\1\\1HodUgHSHnt",[])),
-    <<"WAaaBQSVaaHodUgHSHnt">> = iolist_to_binary(re:replace("AaaB","A(((((((((a)))))))))\\9B","W&QSV\\1\\1HodUgHSHnt",[global])),
-    <<"oyDWsqkcnurA8BWk">> = iolist_to_binary(re:replace("A8B","A[\\8\\9]B","oyDWsqkc\\1nur&\\1Wk",[])),
-    <<"oyDWsqkcnurA8BWk">> = iolist_to_binary(re:replace("A8B","A[\\8\\9]B","oyDWsqkc\\1nur&\\1Wk",[global])),
-    <<"drmFA9ByB">> = iolist_to_binary(re:replace("A9B","A[\\8\\9]B","dr\\1mF&yB",[])),
-    <<"drmFA9ByB">> = iolist_to_binary(re:replace("A9B","A[\\8\\9]B","dr\\1mF&yB",[global])),
-    <<"jababdVLabdJkabkPEEabGabEabA">> = iolist_to_binary(re:replace("abd","(|ab)*?d","j\\1&VL&Jk\\1kPEE\\1G\\1E\\1A",[])),
-    <<"jababdVLabdJkabkPEEabGabEabA">> = iolist_to_binary(re:replace("abd","(|ab)*?d","j\\1&VL&Jk\\1kPEE\\1G\\1E\\1A",[global])),
-    <<"xyUd">> = iolist_to_binary(re:replace("xyd","(|ab)*?d","U&",[])),
-    <<"xyUd">> = iolist_to_binary(re:replace("xyd","(|ab)*?d","U&",[global])),
-    <<"U1234abcd">> = iolist_to_binary(re:replace("1234abcd","(?:((abcd))|(((?:(?:(?:(?:abc|(?:abcdef))))b)abcdefghi)abc)|((*ACCEPT)))","&U",[])),
-    <<"U1U2U3U4abcdUU">> = iolist_to_binary(re:replace("1234abcd","(?:((abcd))|(((?:(?:(?:(?:abc|(?:abcdef))))b)abcdefghi)abc)|((*ACCEPT)))","&U",[global])),
-    <<"Wcaaaensa">> = iolist_to_binary(re:replace("aaa","(\\2|a)(\\1)","Wc&\\1ens",[])),
-    <<"Wcaaaensa">> = iolist_to_binary(re:replace("aaa","(\\2|a)(\\1)","Wc&\\1ens",[global])),
-    <<"botc">> = iolist_to_binary(re:replace("baaaaaaaaac","(?1)(?#?'){8}(a)","ot",[])),
-    <<"botc">> = iolist_to_binary(re:replace("baaaaaaaaac","(?1)(?#?'){8}(a)","ot",[global])),
-    <<"TKKhmnqBxxjxhwMexxxxxx">> = iolist_to_binary(re:replace("xx","((((((((((((x))))))))))))\\12","TKKhmnqB&j\\1hwMe&&&",[])),
-    <<"TKKhmnqBxxjxhwMexxxxxx">> = iolist_to_binary(re:replace("xx","((((((((((((x))))))))))))\\12","TKKhmnqB&j\\1hwMe&&&",[global])),
-    <<"AA8B9CFKEFFLoA8B9CgFNcA8B9CISDNV">> = iolist_to_binary(re:replace("A8B9C","A[\\8]B[\\9]C","A&FKEFFLo&gFNc&ISDNV",[])),
-    <<"AA8B9CFKEFFLoA8B9CgFNcA8B9CISDNV">> = iolist_to_binary(re:replace("A8B9C","A[\\8]B[\\9]C","A&FKEFFLo&gFNc&ISDNV",[global])),
-    <<"gbEHUmaJEumtTGBi">> = iolist_to_binary(re:replace("","(?1)()((((((\\1++))\\x85)+)|))","gbEHUma\\1JEum\\1t\\1TGBi",[])),
-    <<"gbEHUmaJEumtTGBigbEHUmaJEumtTGBi">> = iolist_to_binary(re:replace("","(?1)()((((((\\1++))\\x85)+)|))","gbEHUma\\1JEum\\1t\\1TGBi",[global])),
+    <<"RuGESUvQDVqs">> = iolist_to_binary(re:replace("abd","(?>a(*COMMIT)b)c|abd","RuGESUvQDVqs",[])),
+    <<"RuGESUvQDVqs">> = iolist_to_binary(re:replace("abd","(?>a(*COMMIT)b)c|abd","RuGESUvQDVqs",[global])),
+    <<"abd">> = iolist_to_binary(re:replace("abd","(?>a(*COMMIT)c)d|abd","\\1&QY&ch\\1SpSgMsjmJ",[])),
+    <<"abd">> = iolist_to_binary(re:replace("abd","(?>a(*COMMIT)c)d|abd","\\1&QY&ch\\1SpSgMsjmJ",[global])),
+    <<"OnYLacyacYaeLacRpacBh">> = iolist_to_binary(re:replace("ac","((?=a(*COMMIT)b)ab|ac){0}(?:(?1)|a(c))","OnYL&y&\\1\\1YaeL&Rp&Bh",[])),
+    <<"OnYLacyacYaeLacRpacBh">> = iolist_to_binary(re:replace("ac","((?=a(*COMMIT)b)ab|ac){0}(?:(?1)|a(c))","OnYL&y&\\1\\1YaeL&Rp&Bh",[global])),
+    <<"a">> = iolist_to_binary(re:replace("a","^(a)?(?(1)a|b)+$","oeob&",[])),
+    <<"a">> = iolist_to_binary(re:replace("a","^(a)?(?(1)a|b)+$","oeob&",[global])),
+    <<"AAAC">> = iolist_to_binary(re:replace("AAAC","A(*PRUNE:A)A+(*SKIP:A)(B|Z) | AC","axGk&GcWn",[extended])),
+    <<"AAAC">> = iolist_to_binary(re:replace("AAAC","A(*PRUNE:A)A+(*SKIP:A)(B|Z) | AC","axGk&GcWn",[extended,global])),
+    <<"lCabcd">> = iolist_to_binary(re:replace("abcd","^((abc|abcx)(*THEN)y|abcd)","lC\\1",[])),
+    <<"lCabcd">> = iolist_to_binary(re:replace("abcd","^((abc|abcx)(*THEN)y|abcd)","lC\\1",[global])),
+    <<"abcxy">> = iolist_to_binary(re:replace("abcxy","^((abc|abcx)(*THEN)y|abcd)","\\1RbYbp\\1&\\1R\\1dHcFNH&v\\1",[])),
+    <<"abcxy">> = iolist_to_binary(re:replace("abcxy","^((abc|abcx)(*THEN)y|abcd)","\\1RbYbp\\1&\\1R\\1dHcFNH&v\\1",[global])),
+    <<"yes">> = iolist_to_binary(re:replace("yes","^((yes|no)(*THEN)(*F))?","C\\1&LrSNg",[])),
+    <<"yes">> = iolist_to_binary(re:replace("yes","^((yes|no)(*THEN)(*F))?","C\\1&LrSNg",[global])),
+    <<"AbcdCBefgBhiBqz">> = iolist_to_binary(re:replace("AbcdCBefgBhiBqz","(A (.*)   C? (*THEN)  | A D) (*FAIL)","nLsXq",[extended])),
+    <<"AbcdCBefgBhiBqz">> = iolist_to_binary(re:replace("AbcdCBefgBhiBqz","(A (.*)   C? (*THEN)  | A D) (*FAIL)","nLsXq",[extended,global])),
+    <<"AbcdCBefgBhiBqz">> = iolist_to_binary(re:replace("AbcdCBefgBhiBqz","(A (.*)   C? (*THEN)  | A D) z","ifJxMRlgah\\1Wwj&U\\1G",[extended])),
+    <<"AbcdCBefgBhiBqz">> = iolist_to_binary(re:replace("AbcdCBefgBhiBqz","(A (.*)   C? (*THEN)  | A D) z","ifJxMRlgah\\1Wwj&U\\1G",[extended,global])),
+    <<"AbcdCBefgBhiBqz">> = iolist_to_binary(re:replace("AbcdCBefgBhiBqz","(A (.*)   C? (*THEN)  | A D) \\s* (*FAIL)","FcoMMtM",[extended])),
+    <<"AbcdCBefgBhiBqz">> = iolist_to_binary(re:replace("AbcdCBefgBhiBqz","(A (.*)   C? (*THEN)  | A D) \\s* (*FAIL)","FcoMMtM",[extended,global])),
+    <<"AbcdCBefgBhiBqz">> = iolist_to_binary(re:replace("AbcdCBefgBhiBqz","(A (.*)   C? (*THEN)  | A D) \\s* z","K&KkIb\\1J\\1ADN\\1y",[extended])),
+    <<"AbcdCBefgBhiBqz">> = iolist_to_binary(re:replace("AbcdCBefgBhiBqz","(A (.*)   C? (*THEN)  | A D) \\s* z","K&KkIb\\1J\\1ADN\\1y",[extended,global])),
+    <<"AbcdCBefgBhiBqz">> = iolist_to_binary(re:replace("AbcdCBefgBhiBqz","(A (.*)   (?:C|) (*THEN)  | A D) (*FAIL)","ug",[extended])),
+    <<"AbcdCBefgBhiBqz">> = iolist_to_binary(re:replace("AbcdCBefgBhiBqz","(A (.*)   (?:C|) (*THEN)  | A D) (*FAIL)","ug",[extended,global])),
+    <<"AbcdCBefgBhiBqz">> = iolist_to_binary(re:replace("AbcdCBefgBhiBqz","(A (.*)   (?:C|) (*THEN)  | A D) z","IByJwJUuLMj",[extended])),
+    <<"AbcdCBefgBhiBqz">> = iolist_to_binary(re:replace("AbcdCBefgBhiBqz","(A (.*)   (?:C|) (*THEN)  | A D) z","IByJwJUuLMj",[extended,global])),
+    <<"AbcdCBefgBhiBqz">> = iolist_to_binary(re:replace("AbcdCBefgBhiBqz","(A (.*)   C{0,6} (*THEN)  | A D) (*FAIL)","VPS\\1&\\1bC&dQC&L&By",[extended])),
+    <<"AbcdCBefgBhiBqz">> = iolist_to_binary(re:replace("AbcdCBefgBhiBqz","(A (.*)   C{0,6} (*THEN)  | A D) (*FAIL)","VPS\\1&\\1bC&dQC&L&By",[extended,global])),
+    <<"AbcdCBefgBhiBqz">> = iolist_to_binary(re:replace("AbcdCBefgBhiBqz","(A (.*)   C{0,6} (*THEN)  | A D) z","y\\1fgfEXSPbN&Hn",[extended])),
+    <<"AbcdCBefgBhiBqz">> = iolist_to_binary(re:replace("AbcdCBefgBhiBqz","(A (.*)   C{0,6} (*THEN)  | A D) z","y\\1fgfEXSPbN&Hn",[extended,global])),
+    <<"AbcdCEBefgBhiBqz">> = iolist_to_binary(re:replace("AbcdCEBefgBhiBqz","(A (.*)   (CE){0,6} (*THEN)  | A D) (*FAIL)","jtvi\\1CH&b",[extended])),
+    <<"AbcdCEBefgBhiBqz">> = iolist_to_binary(re:replace("AbcdCEBefgBhiBqz","(A (.*)   (CE){0,6} (*THEN)  | A D) (*FAIL)","jtvi\\1CH&b",[extended,global])),
+    <<"AbcdCEBefgBhiBqz">> = iolist_to_binary(re:replace("AbcdCEBefgBhiBqz","(A (.*)   (CE){0,6} (*THEN)  | A D) z","ufawxH&",[extended])),
+    <<"AbcdCEBefgBhiBqz">> = iolist_to_binary(re:replace("AbcdCEBefgBhiBqz","(A (.*)   (CE){0,6} (*THEN)  | A D) z","ufawxH&",[extended,global])),
+    <<"AbcdCBefgBhiBqz">> = iolist_to_binary(re:replace("AbcdCBefgBhiBqz","(A (.*)   (CE*){0,6} (*THEN)  | A D) (*FAIL)","kJi\\1Q",[extended])),
+    <<"AbcdCBefgBhiBqz">> = iolist_to_binary(re:replace("AbcdCBefgBhiBqz","(A (.*)   (CE*){0,6} (*THEN)  | A D) (*FAIL)","kJi\\1Q",[extended,global])),
+    <<"AbcdCBefgBhiBqz">> = iolist_to_binary(re:replace("AbcdCBefgBhiBqz","(A (.*)   (CE*){0,6} (*THEN)  | A D) z","JMtj&Suu\\1jXYqQqQYj",[extended])),
+    <<"AbcdCBefgBhiBqz">> = iolist_to_binary(re:replace("AbcdCBefgBhiBqz","(A (.*)   (CE*){0,6} (*THEN)  | A D) z","JMtj&Suu\\1jXYqQqQYj",[extended,global])),
+    <<"ac">> = iolist_to_binary(re:replace("ac","(?=a(*COMMIT)b|ac)ac|ac","T\\1Qayl\\1T",[])),
+    <<"ac">> = iolist_to_binary(re:replace("ac","(?=a(*COMMIT)b|ac)ac|ac","T\\1Qayl\\1T",[global])),
     ok.
 run53() ->
-    <<"MfhOrMhJCsjabcd">> = iolist_to_binary(re:replace("abcd","(?|(\\k'Pm')|(?'Pm'))","Mfh&OrMhJ&C&\\1sj&",[])),
-    <<"MfhOrMhJCsjaMfhOrMhJCsjbMfhOrMhJCsjcMfhOrMhJCsjdMfhOrMhJCsj">> = iolist_to_binary(re:replace("abcd","(?|(\\k'Pm')|(?'Pm'))","Mfh&OrMhJ&C&\\1sj&",[global])),
-    <<"RuGESUvQDVqs">> = iolist_to_binary(re:replace("aaaaaa","(?|(aaa)|(b))\\g{1}","RuGESUvQDVqs",[])),
-    <<"RuGESUvQDVqs">> = iolist_to_binary(re:replace("aaaaaa","(?|(aaa)|(b))\\g{1}","RuGESUvQDVqs",[global])),
-    <<"bbbQYbbchbSpSgMsjmJ">> = iolist_to_binary(re:replace("bb","(?|(aaa)|(b))\\g{1}","\\1&QY&ch\\1SpSgMsjmJ",[])),
-    <<"bbbQYbbchbSpSgMsjmJ">> = iolist_to_binary(re:replace("bb","(?|(aaa)|(b))\\g{1}","\\1&QY&ch\\1SpSgMsjmJ",[global])),
-    <<"OnYLaaaaaayaaaaaaaaaaaaYaeLaaaaaaRpaaaaaaBh">> = iolist_to_binary(re:replace("aaaaaa","(?|(aaa)|(b))(?1)","OnYL&y&\\1\\1YaeL&Rp&Bh",[])),
-    <<"OnYLaaaaaayaaaaaaaaaaaaYaeLaaaaaaRpaaaaaaBh">> = iolist_to_binary(re:replace("aaaaaa","(?|(aaa)|(b))(?1)","OnYL&y&\\1\\1YaeL&Rp&Bh",[global])),
-    <<"oeobbaaa">> = iolist_to_binary(re:replace("baaa","(?|(aaa)|(b))(?1)","oeob&",[])),
-    <<"oeobbaaa">> = iolist_to_binary(re:replace("baaa","(?|(aaa)|(b))(?1)","oeob&",[global])),
-    <<"bb">> = iolist_to_binary(re:replace("bb","(?|(aaa)|(b))(?1)","axGk&GcWn",[])),
-    <<"bb">> = iolist_to_binary(re:replace("bb","(?|(aaa)|(b))(?1)","axGk&GcWn",[global])),
-    <<"xlCaaa">> = iolist_to_binary(re:replace("xaaa","(?|(aaa)|(b))","lC\\1",[])),
-    <<"xlCaaa">> = iolist_to_binary(re:replace("xaaa","(?|(aaa)|(b))","lC\\1",[global])),
-    <<"xbRbYbpbbbRbdHcFNHbvbc">> = iolist_to_binary(re:replace("xbc","(?|(aaa)|(b))","\\1RbYbp\\1&\\1R\\1dHcFNH&v\\1",[])),
-    <<"xbRbYbpbbbRbdHcFNHbvbc">> = iolist_to_binary(re:replace("xbc","(?|(aaa)|(b))","\\1RbYbp\\1&\\1R\\1dHcFNH&v\\1",[global])),
-    <<"CaaaaaaaaaLrSNg">> = iolist_to_binary(re:replace("aaaaaa","(?|(?'a'aaa)|(?'a'b))\\k'a'","C\\1&LrSNg",[])),
-    <<"CaaaaaaaaaLrSNg">> = iolist_to_binary(re:replace("aaaaaa","(?|(?'a'aaa)|(?'a'b))\\k'a'","C\\1&LrSNg",[global])),
-    <<"nLsXq">> = iolist_to_binary(re:replace("bb","(?|(?'a'aaa)|(?'a'b))\\k'a'","nLsXq",[])),
-    <<"nLsXq">> = iolist_to_binary(re:replace("bb","(?|(?'a'aaa)|(?'a'b))\\k'a'","nLsXq",[global])),
-    <<"acKXKkIbJADNy">> = iolist_to_binary(re:replace("acX","(?<=a(B){0}c)X","K&KkIb\\1J\\1ADN\\1y",[])),
-    <<"acKXKkIbJADNy">> = iolist_to_binary(re:replace("acX","(?<=a(B){0}c)X","K&KkIb\\1J\\1ADN\\1y",[global])),
-    <<"ugbb">> = iolist_to_binary(re:replace("bbbb","(?<DEFINE>b)(?(DEFINE)(a+))(?&DEFINE)","ug",[])),
-    <<"ugug">> = iolist_to_binary(re:replace("bbbb","(?<DEFINE>b)(?(DEFINE)(a+))(?&DEFINE)","ug",[global])),
-    <<"baaab">> = iolist_to_binary(re:replace("baaab","(?<DEFINE>b)(?(DEFINE)(a+))(?&DEFINE)","IByJwJUuLMj",[])),
-    <<"baaab">> = iolist_to_binary(re:replace("baaab","(?<DEFINE>b)(?(DEFINE)(a+))(?&DEFINE)","IByJwJUuLMj",[global])),
-    <<"   VPSbCdQCLByFred:099">> = iolist_to_binary(re:replace("   Fred:099","(?=.*[A-Z])(?=.*[a-z])(?=.*[0-9])(?=.*[,;:])(?=.{8,16})(?!.*[\\s])","VPS\\1&\\1bC&dQC&L&By",[])),
-    <<"   VPSbCdQCLByFred:099">> = iolist_to_binary(re:replace("   Fred:099","(?=.*[A-Z])(?=.*[a-z])(?=.*[0-9])(?=.*[,;:])(?=.{8,16})(?!.*[\\s])","VPS\\1&\\1bC&dQC&L&By",[global])),
-    <<"  yfgfEXSPbNXHn">> = iolist_to_binary(re:replace("  X","(?=.*X)X$","y\\1fgfEXSPbN&Hn",[])),
-    <<"  yfgfEXSPbNXHn">> = iolist_to_binary(re:replace("  X","(?=.*X)X$","y\\1fgfEXSPbN&Hn",[global])),
-    <<"aajtviCHbbc">> = iolist_to_binary(re:replace("aabc","(?s)(?=.*?)b","jtvi\\1CH&b",[])),
-    <<"aajtviCHbbc">> = iolist_to_binary(re:replace("aabc","(?s)(?=.*?)b","jtvi\\1CH&b",[global])),
-    <<"ufawxHZaAAZX">> = iolist_to_binary(re:replace("ZaAAZX","(Z)(a)\\2{1,2}?(?-i)\\1X","ufawxH&",[caseless])),
-    <<"ufawxHZaAAZX">> = iolist_to_binary(re:replace("ZaAAZX","(Z)(a)\\2{1,2}?(?-i)\\1X","ufawxH&",[caseless,global])),
-    <<"kJiQ">> = iolist_to_binary(re:replace("s09-H","[s[:digit:]\\E-H]+","kJi\\1Q",[])),
-    <<"kJiQ">> = iolist_to_binary(re:replace("s09-H","[s[:digit:]\\E-H]+","kJi\\1Q",[global])),
-    <<"JMtjs09-HSuujXYqQqQYj">> = iolist_to_binary(re:replace("s09-H","[s[:digit:]\\Q\\E-H]+","JMtj&Suu\\1jXYqQqQYj",[])),
-    <<"JMtjs09-HSuujXYqQqQYj">> = iolist_to_binary(re:replace("s09-H","[s[:digit:]\\Q\\E-H]+","JMtj&Suu\\1jXYqQqQYj",[global])),
-    <<"TQaylT">> = iolist_to_binary(re:replace("aaaa","a+(?:|b)a","T\\1Qayl\\1T",[])),
-    <<"TQaylT">> = iolist_to_binary(re:replace("aaaa","a+(?:|b)a","T\\1Qayl\\1T",[global])),
-    <<"lxmLDk">> = iolist_to_binary(re:replace("ABD","(?1)(A(*COMMIT)|B)D","lxmLDk",[])),
-    <<"lxmLDk">> = iolist_to_binary(re:replace("ABD","(?1)(A(*COMMIT)|B)D","lxmLDk",[global])),
-    <<"XaFfF">> = iolist_to_binary(re:replace("XABD","(?1)(A(*COMMIT)|B)D","aFfF",[])),
-    <<"XaFfF">> = iolist_to_binary(re:replace("XABD","(?1)(A(*COMMIT)|B)D","aFfF",[global])),
-    <<"QEtPABADAOwM">> = iolist_to_binary(re:replace("BAD","(?1)(A(*COMMIT)|B)D","QEtPA&\\1OwM",[])),
-    <<"QEtPABADAOwM">> = iolist_to_binary(re:replace("BAD","(?1)(A(*COMMIT)|B)D","QEtPA&\\1OwM",[global])),
-    <<"ABXSmAoeEyBABDbwguE">> = iolist_to_binary(re:replace("ABXABD","(?1)(A(*COMMIT)|B)D","SmAoeEyB&bwguE",[])),
-    <<"ABXSmAoeEyBABDbwguE">> = iolist_to_binary(re:replace("ABXABD","(?1)(A(*COMMIT)|B)D","SmAoeEyB&bwguE",[global])),
-    <<"ABX">> = iolist_to_binary(re:replace("ABX","(?1)(A(*COMMIT)|B)D","U&x&afp",[])),
-    <<"ABX">> = iolist_to_binary(re:replace("ABX","(?1)(A(*COMMIT)|B)D","U&x&afp",[global])),
-    <<"H123123d123123reQQQkMYO">> = iolist_to_binary(re:replace("123","(?(DEFINE)(?<m> 1? (?=(?<cond>2)?) 1 2 (?('cond')|3)))
-    \\A
-    ()
-    (?&m)
-    \\Z","H&&\\1d&&\\1reQQQkMYO\\1",[extended])),
-    <<"H123123d123123reQQQkMYO">> = iolist_to_binary(re:replace("123","(?(DEFINE)(?<m> 1? (?=(?<cond>2)?) 1 2 (?('cond')|3)))
-    \\A
-    ()
-    (?&m)
-    \\Z","H&&\\1d&&\\1reQQQkMYO\\1",[extended,global])),
-    <<"bRpsdEAZ123ZGFIG123PlQJ123JvL">> = iolist_to_binary(re:replace("AZ123Z","^(?: 
-(?: A| (1? (?=(?<cond>2)?) (1) 2 (?('cond')|3)) )
-(Z)
-)+$","bRpsdE&GFIG\\1PlQJ\\1JvL",[extended])),
-    <<"bRpsdEAZ123ZGFIG123PlQJ123JvL">> = iolist_to_binary(re:replace("AZ123Z","^(?: 
-(?: A| (1? (?=(?<cond>2)?) (1) 2 (?('cond')|3)) )
-(Z)
-)+$","bRpsdE&GFIG\\1PlQJ\\1JvL",[extended,global])),
-    <<"AZ12Z">> = iolist_to_binary(re:replace("AZ12Z","^(?: 
-(?: A| (1? (?=(?<cond>2)?) (1) 2 (?('cond')|3)) )
-(Z)
-)+$","TEN&fs\\1AcOopKHNR&j",[extended])),
-    <<"AZ12Z">> = iolist_to_binary(re:replace("AZ12Z","^(?: 
-(?: A| (1? (?=(?<cond>2)?) (1) 2 (?('cond')|3)) )
-(Z)
-)+$","TEN&fs\\1AcOopKHNR&j",[extended,global])),
+    <<"ac">> = iolist_to_binary(re:replace("ac","(?=a(*COMMIT)b|(ac)) ac | (a)c","lxmLDk",[extended])),
+    <<"ac">> = iolist_to_binary(re:replace("ac","(?=a(*COMMIT)b|(ac)) ac | (a)c","lxmLDk",[extended,global])),
+    <<"aFfFn">> = iolist_to_binary(re:replace("bnn","(?(?!b(*THEN)a)bn|bnn)","aFfF",[])),
+    <<"aFfFn">> = iolist_to_binary(re:replace("bnn","(?(?!b(*THEN)a)bn|bnn)","aFfF",[global])),
+    <<"QEtPAbnOwMn">> = iolist_to_binary(re:replace("bnn","(?!b(*SKIP)a)bn|bnn","QEtPA&\\1OwM",[])),
+    <<"QEtPAbnOwMn">> = iolist_to_binary(re:replace("bnn","(?!b(*SKIP)a)bn|bnn","QEtPA&\\1OwM",[global])),
+    <<"SmAoeEyBbnbwguEn">> = iolist_to_binary(re:replace("bnn","(?(?!b(*SKIP)a)bn|bnn)","SmAoeEyB&bwguE",[])),
+    <<"SmAoeEyBbnbwguEn">> = iolist_to_binary(re:replace("bnn","(?(?!b(*SKIP)a)bn|bnn)","SmAoeEyB&bwguE",[global])),
+    <<"Ubnxbnafpn">> = iolist_to_binary(re:replace("bnn","(?!b(*PRUNE)a)bn|bnn","U&x&afp",[])),
+    <<"Ubnxbnafpn">> = iolist_to_binary(re:replace("bnn","(?!b(*PRUNE)a)bn|bnn","U&x&afp",[global])),
+    <<"HbnbndbnbnreQQQkMYOn">> = iolist_to_binary(re:replace("bnn","(?(?!b(*PRUNE)a)bn|bnn)","H&&\\1d&&\\1reQQQkMYO\\1",[])),
+    <<"HbnbndbnbnreQQQkMYOn">> = iolist_to_binary(re:replace("bnn","(?(?!b(*PRUNE)a)bn|bnn)","H&&\\1d&&\\1reQQQkMYO\\1",[global])),
+    <<"bRpsdEbnGFIGPlQJJvLn">> = iolist_to_binary(re:replace("bnn","(?!b(*COMMIT)a)bn|bnn","bRpsdE&GFIG\\1PlQJ\\1JvL",[])),
+    <<"bRpsdEbnGFIGPlQJJvLn">> = iolist_to_binary(re:replace("bnn","(?!b(*COMMIT)a)bn|bnn","bRpsdE&GFIG\\1PlQJ\\1JvL",[global])),
+    <<"TENbnfsAcOopKHNRbnjn">> = iolist_to_binary(re:replace("bnn","(?(?!b(*COMMIT)a)bn|bnn)","TEN&fs\\1AcOopKHNR&j",[])),
+    <<"TENbnfsAcOopKHNRbnjn">> = iolist_to_binary(re:replace("bnn","(?(?!b(*COMMIT)a)bn|bnn)","TEN&fs\\1AcOopKHNR&j",[global])),
+    <<"bnn">> = iolist_to_binary(re:replace("bnn","(?=b(*SKIP)a)bn|bnn","mRufNYP&WdWMD",[])),
+    <<"bnn">> = iolist_to_binary(re:replace("bnn","(?=b(*SKIP)a)bn|bnn","mRufNYP&WdWMD",[global])),
+    <<"TFRbnnfHTvEuMCNthKV">> = iolist_to_binary(re:replace("bnn","(?=b(*THEN)a)bn|bnn","TFR&fH\\1Tv\\1EuMCNthKV",[])),
+    <<"TFRbnnfHTvEuMCNthKV">> = iolist_to_binary(re:replace("bnn","(?=b(*THEN)a)bn|bnn","TFR&fH\\1Tv\\1EuMCNthKV",[global])),
+    <<"tkFkuQac">> = iolist_to_binary(re:replace("ac","^(?!a(*SKIP)b)","tk\\1FkuQ",[])),
+    <<"tkFkuQac">> = iolist_to_binary(re:replace("ac","^(?!a(*SKIP)b)","tk\\1FkuQ",[global])),
+    <<"kdPEKSAALacxud">> = iolist_to_binary(re:replace("acd","^(?!a(*SKIP)b)..","kd\\1PEKSAAL&xu",[])),
+    <<"kdPEKSAALacxud">> = iolist_to_binary(re:replace("acd","^(?!a(*SKIP)b)..","kd\\1PEKSAAL&xu",[global])),
+    <<"Lfd">> = iolist_to_binary(re:replace("acd","(?!a(*SKIP)b)..","Lf",[])),
+    <<"Lfd">> = iolist_to_binary(re:replace("acd","(?!a(*SKIP)b)..","Lf",[global])),
+    <<"oFjgULdVac">> = iolist_to_binary(re:replace("ac","^(?(?!a(*SKIP)b))","o\\1Fj\\1gULdV",[])),
+    <<"oFjgULdVac">> = iolist_to_binary(re:replace("ac","^(?(?!a(*SKIP)b))","o\\1Fj\\1gULdV",[global])),
+    <<"vpcd">> = iolist_to_binary(re:replace("acd","^(?!a(*PRUNE)b)..","vpc",[])),
+    <<"vpcd">> = iolist_to_binary(re:replace("acd","^(?!a(*PRUNE)b)..","vpc",[global])),
+    <<"Bld">> = iolist_to_binary(re:replace("acd","(?!a(*PRUNE)b)..","Bl",[])),
+    <<"Bld">> = iolist_to_binary(re:replace("acd","(?!a(*PRUNE)b)..","Bl",[global])),
+    <<"pWacFBWdWwacnp">> = iolist_to_binary(re:replace("ac","(?!a(*COMMIT)b)ac|cd","pW\\1&FBWdWw&np",[])),
+    <<"pWacFBWdWwacnp">> = iolist_to_binary(re:replace("ac","(?!a(*COMMIT)b)ac|cd","pW\\1&FBWdWw&np",[global])),
+    <<"GTnbaYlwcc">> = iolist_to_binary(re:replace("ba","\\A.*?(?:a|bc)","\\1GT\\1n&\\1Ylwc\\1c",[])),
+    <<"GTnbaYlwcc">> = iolist_to_binary(re:replace("ba","\\A.*?(?:a|bc)","\\1GT\\1n&\\1Ylwc\\1c",[global])),
+    <<"knydJYgCD">> = iolist_to_binary(re:replace("CD","^(A(*THEN)B|C(*THEN)D)","knydJYg\\1",[])),
+    <<"knydJYgCD">> = iolist_to_binary(re:replace("CD","^(A(*THEN)B|C(*THEN)D)","knydJYg\\1",[global])),
+    <<"aBYc">> = iolist_to_binary(re:replace("abc","(*:m(m)(?&y)(?(DEFINE)(?<y>b))","BY",[])),
+    <<"aBYc">> = iolist_to_binary(re:replace("abc","(*:m(m)(?&y)(?(DEFINE)(?<y>b))","BY",[global])),
     ok.
 run54() ->
-    <<"mRufNYPacWdWMDb">> = iolist_to_binary(re:replace("acb","^ (?(DEFINE) ( (?!(a)\\2b)..) )   ()(?1)  ","mRufNYP&WdWMD",[extended])),
-    <<"mRufNYPacWdWMDb">> = iolist_to_binary(re:replace("acb","^ (?(DEFINE) ( (?!(a)\\2b)..) )   ()(?1)  ","mRufNYP&WdWMD",[extended,global])),
-    <<"aab">> = iolist_to_binary(re:replace("aab","^ (?(DEFINE) ( (?!(a)\\2b)..) )   ()(?1)  ","TFR&fH\\1Tv\\1EuMCNthKV",[extended])),
-    <<"aab">> = iolist_to_binary(re:replace("aab","^ (?(DEFINE) ( (?!(a)\\2b)..) )   ()(?1)  ","TFR&fH\\1Tv\\1EuMCNthKV",[extended,global])),
-    <<"ababababababtkFkuQ">> = iolist_to_binary(re:replace("abababababababababababM","(?>ab|abab){1,5}?M","tk\\1FkuQ",[])),
-    <<"ababababababtkFkuQ">> = iolist_to_binary(re:replace("abababababababababababM","(?>ab|abab){1,5}?M","tk\\1FkuQ",[global])),
-    <<"abkdPEKSAALababMxu">> = iolist_to_binary(re:replace("abababM","(?>ab|abab){2}?M","kd\\1PEKSAAL&xu",[])),
-    <<"abkdPEKSAALababMxu">> = iolist_to_binary(re:replace("abababM","(?>ab|abab){2}?M","kd\\1PEKSAAL&xu",[global])),
-    <<"bbLf">> = iolist_to_binary(re:replace("bbak","((?(?=(a))a)+k)","Lf",[])),
-    <<"bbLf">> = iolist_to_binary(re:replace("bbak","((?(?=(a))a)+k)","Lf",[global])),
-    <<"bboakFjakgULdV">> = iolist_to_binary(re:replace("bbak","((?(?=(a))a|)+k)","o\\1Fj\\1gULdV",[])),
-    <<"bboakFjakgULdV">> = iolist_to_binary(re:replace("bbak","((?(?=(a))a|)+k)","o\\1Fj\\1gULdV",[global])),
-    <<"ababbalbbadvpc">> = iolist_to_binary(re:replace("ababbalbbadabak","(?(?!(b))a|b)+k","vpc",[])),
-    <<"ababbalbbadvpc">> = iolist_to_binary(re:replace("ababbalbbadabak","(?(?!(b))a|b)+k","vpc",[global])),
-    <<"ABl">> = iolist_to_binary(re:replace("Ab","(?!(b))c|b","Bl",[])),
-    <<"ABl">> = iolist_to_binary(re:replace("Ab","(?!(b))c|b","Bl",[global])),
-    <<"ApWcFBWdWwcnp">> = iolist_to_binary(re:replace("Ac","(?!(b))c|b","pW\\1&FBWdWw&np",[])),
-    <<"ApWcFBWdWwcnp">> = iolist_to_binary(re:replace("Ac","(?!(b))c|b","pW\\1&FBWdWw&np",[global])),
-    <<"AbGTbnbbYlwcbc">> = iolist_to_binary(re:replace("Ab","(?=(b))b|c","\\1GT\\1n&\\1Ylwc\\1c",[])),
-    <<"AbGTbnbbYlwcbc">> = iolist_to_binary(re:replace("Ab","(?=(b))b|c","\\1GT\\1n&\\1Ylwc\\1c",[global])),
-    <<"AknydJYg">> = iolist_to_binary(re:replace("Ac","(?=(b))b|c","knydJYg\\1",[])),
-    <<"AknydJYg">> = iolist_to_binary(re:replace("Ac","(?=(b))b|c","knydJYg\\1",[global])),
-    <<"BY">> = iolist_to_binary(re:replace("a","^(.|(.)(?1)\\2)$","BY",[])),
-    <<"BY">> = iolist_to_binary(re:replace("a","^(.|(.)(?1)\\2)$","BY",[global])),
-    <<"abaWnuGAPabaRVIbabaabagaba">> = iolist_to_binary(re:replace("aba","^(.|(.)(?1)\\2)$","&WnuGAP&RVIb\\1&g&",[])),
-    <<"abaWnuGAPabaRVIbabaabagaba">> = iolist_to_binary(re:replace("aba","^(.|(.)(?1)\\2)$","&WnuGAP&RVIb\\1&g&",[global])),
-    <<"abcbabOabcbagw">> = iolist_to_binary(re:replace("abcba","^(.|(.)(?1)\\2)$","\\1bO&gw",[])),
-    <<"abcbabOabcbagw">> = iolist_to_binary(re:replace("abcba","^(.|(.)(?1)\\2)$","\\1bO&gw",[global])),
-    <<"vfWlFqvTQcSsMBue">> = iolist_to_binary(re:replace("ababa","^(.|(.)(?1)\\2)$","vfWlFqvTQcSsMBue",[])),
-    <<"vfWlFqvTQcSsMBue">> = iolist_to_binary(re:replace("ababa","^(.|(.)(?1)\\2)$","vfWlFqvTQcSsMBue",[global])),
-    <<"gcD">> = iolist_to_binary(re:replace("abcdcba","^(.|(.)(?1)\\2)$","gcD",[])),
-    <<"gcD">> = iolist_to_binary(re:replace("abcdcba","^(.|(.)(?1)\\2)$","gcD",[global])),
-    <<"AXarLumLDPdeahs">> = iolist_to_binary(re:replace("a","^((.)(?1)\\2|.?)$","AX\\1rLumLDPde&hs",[])),
-    <<"AXarLumLDPdeahs">> = iolist_to_binary(re:replace("a","^((.)(?1)\\2|.?)$","AX\\1rLumLDPde&hs",[global])),
-    <<"GbIoTYfSk">> = iolist_to_binary(re:replace("aba","^((.)(?1)\\2|.?)$","GbIoTYfSk",[])),
-    <<"GbIoTYfSk">> = iolist_to_binary(re:replace("aba","^((.)(?1)\\2|.?)$","GbIoTYfSk",[global])),
-    <<"XIWabbaphpabbaDabbaabbauKhDBabbafhy">> = iolist_to_binary(re:replace("abba","^((.)(?1)\\2|.?)$","XIW&php\\1D&&uKhDB\\1fhy",[])),
-    <<"XIWabbaphpabbaDabbaabbauKhDBabbafhy">> = iolist_to_binary(re:replace("abba","^((.)(?1)\\2|.?)$","XIW&php\\1D&&uKhDB\\1fhy",[global])),
-    <<"eqYabcbaDrabcbaluTHwQ">> = iolist_to_binary(re:replace("abcba","^((.)(?1)\\2|.?)$","eqY\\1Dr\\1luTHwQ",[])),
-    <<"eqYabcbaDrabcbaluTHwQ">> = iolist_to_binary(re:replace("abcba","^((.)(?1)\\2|.?)$","eqY\\1Dr\\1luTHwQ",[global])),
-    <<"DCSsYSA">> = iolist_to_binary(re:replace("ababa","^((.)(?1)\\2|.?)$","DCSsYSA",[])),
-    <<"DCSsYSA">> = iolist_to_binary(re:replace("ababa","^((.)(?1)\\2|.?)$","DCSsYSA",[global])),
-    <<"sXOEXqrabccbaNLjeIpAFEqS">> = iolist_to_binary(re:replace("abccba","^((.)(?1)\\2|.?)$","sXOEXqr\\1NLjeIpAFEqS",[])),
-    <<"sXOEXqrabccbaNLjeIpAFEqS">> = iolist_to_binary(re:replace("abccba","^((.)(?1)\\2|.?)$","sXOEXqr\\1NLjeIpAFEqS",[global])),
-    <<"RhGabcdcbaSVJRvrSbFfks">> = iolist_to_binary(re:replace("abcdcba","^((.)(?1)\\2|.?)$","RhG&SVJRvrSbFfks",[])),
-    <<"RhGabcdcbaSVJRvrSbFfks">> = iolist_to_binary(re:replace("abcdcba","^((.)(?1)\\2|.?)$","RhG&SVJRvrSbFfks",[global])),
-    <<"VMSsQqabcddcbax">> = iolist_to_binary(re:replace("abcddcba","^((.)(?1)\\2|.?)$","VMSsQq&x",[])),
-    <<"VMSsQqabcddcbax">> = iolist_to_binary(re:replace("abcddcba","^((.)(?1)\\2|.?)$","VMSsQq&x",[global])),
-    <<"IbabofEGKbgkbaby">> = iolist_to_binary(re:replace("bab","^(.)(\\1|a(?2))","I&ofEGK\\1gk&y",[])),
-    <<"IbabofEGKbgkbaby">> = iolist_to_binary(re:replace("bab","^(.)(\\1|a(?2))","I&ofEGK\\1gk&y",[global])),
-    <<"abcbaabcbaRSn">> = iolist_to_binary(re:replace("abcba","^(.|(.)(?1)?\\2)$","\\1&RSn",[])),
-    <<"abcbaabcbaRSn">> = iolist_to_binary(re:replace("abcba","^(.|(.)(?1)?\\2)$","\\1&RSn",[global])),
-    <<"kaOQDaBCniDmabcX">> = iolist_to_binary(re:replace("abc","^(?(?=(a))abc|def)","k\\1OQD\\1BCniDm&X",[])),
-    <<"kaOQDaBCniDmabcX">> = iolist_to_binary(re:replace("abc","^(?(?=(a))abc|def)","k\\1OQD\\1BCniDm&X",[global])),
-    <<"DxcDd">> = iolist_to_binary(re:replace("abc","^(?(?!(a))def|abc)","DxcDd",[])),
-    <<"DxcDd">> = iolist_to_binary(re:replace("abc","^(?(?!(a))def|abc)","DxcDd",[global])),
-    <<"VTtmaabcqWBwHabcTFG">> = iolist_to_binary(re:replace("abc","^(?(?=(a)(*ACCEPT))abc|def)","VTtm\\1&qWBwH&TFG",[])),
-    <<"VTtmaabcqWBwHabcTFG">> = iolist_to_binary(re:replace("abc","^(?(?=(a)(*ACCEPT))abc|def)","VTtm\\1&qWBwH&TFG",[global])),
-    <<"cVqmxH">> = iolist_to_binary(re:replace("abc","^(?(?!(a)(*ACCEPT))def|abc)","cVqmxH",[])),
-    <<"cVqmxH">> = iolist_to_binary(re:replace("abc","^(?(?!(a)(*ACCEPT))def|abc)","cVqmxH",[global])),
-    <<"VPevbaIl">> = iolist_to_binary(re:replace("a123a","^(?1)\\d{3}(a)","VPevb\\1Il",[])),
-    <<"VPevbaIl">> = iolist_to_binary(re:replace("a123a","^(?1)\\d{3}(a)","VPevb\\1Il",[global])),
-    <<"Alan Other <user.ain>">> = iolist_to_binary(re:replace("Alan Other <user.ain>","(?ix)(?(DEFINE)
-(?<addr_spec>       (?&local_part) \\@ (?&domain) )
-(?<angle_addr>      (?&CFWS)?+ < (?&addr_spec) > (?&CFWS)?+ )
-(?<atext>           [a-z\\d!#\\$%&'*+-\\x{2f}=?^_`{|}~] )
-(?<atom>            (?&CFWS)?+ (?&atext)+ (?&CFWS)?+ )
-(?<ccontent>        (?&ctext) | (?&quoted_pair) | (?&comment) )
-(?<ctext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ ()\\\\] )
-(?<comment>         \\( (?: (?&FWS)?+ (?&ccontent) )*+ (?&FWS)?+ \\) )
-(?<CFWS>            (?: (?&FWS)?+ (?&comment) )* (?# NOT possessive)
-                    (?: (?&FWS)?+ (?&comment) | (?&FWS) ) )
-(?<dcontent>        (?&dtext) | (?&quoted_pair) )
-(?<display_name>    (?&phrase) )
-(?<domain>          (?&dot_atom) | (?&domain_literal) )
-(?<domain_literal>  (?&CFWS)?+ \\[ (?: (?&FWS)?+ (?&dcontent) )* (?&FWS)?+ \\]
-                    (?&CFWS)?+ )
-(?<dot_atom>        (?&CFWS)?+ (?&dot_atom_text) (?&CFWS)?+ )
-(?<dot_atom_text>   (?&atext)++ (?: \\. (?&atext)++)*+ )
-(?<dtext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ \\[\\]\\\\] )
-(?<FWS>             (?: [\\t\\ ]*+ \\n)?+ [\\t\\ ]++ )
-(?<local_part>      (?&dot_atom) | (?&quoted_string)  )
-(?<mailbox>         (?&name_addr) | (?&addr_spec) )
-(?<name_addr>       (?&display_name)? (?&angle_addr) )
-(?<phrase>          (?&word)++ )
-(?<qcontent>        (?&qtext) | (?&quoted_pair) )
-(?<quoted_pair>     \" (?&text) )
-(?<quoted_string>   (?&CFWS)?+ \" (?: (?&FWS)?+ (?&qcontent))* (?&FWS)?+ \"
-                    (?&CFWS)?+ )
-(?<qtext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ \"\\\\] )
-(?<text>            [^\\r\\n] )
-(?<word>            (?&atom) | (?&quoted_string) )
-) # End DEFINE
-^(?&mailbox)$","\\1KCKqqqW&OhQmC&c",[])),
-    <<"Alan Other <user.ain>">> = iolist_to_binary(re:replace("Alan Other <user.ain>","(?ix)(?(DEFINE)
-(?<addr_spec>       (?&local_part) \\@ (?&domain) )
-(?<angle_addr>      (?&CFWS)?+ < (?&addr_spec) > (?&CFWS)?+ )
-(?<atext>           [a-z\\d!#\\$%&'*+-\\x{2f}=?^_`{|}~] )
-(?<atom>            (?&CFWS)?+ (?&atext)+ (?&CFWS)?+ )
-(?<ccontent>        (?&ctext) | (?&quoted_pair) | (?&comment) )
-(?<ctext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ ()\\\\] )
-(?<comment>         \\( (?: (?&FWS)?+ (?&ccontent) )*+ (?&FWS)?+ \\) )
-(?<CFWS>            (?: (?&FWS)?+ (?&comment) )* (?# NOT possessive)
-                    (?: (?&FWS)?+ (?&comment) | (?&FWS) ) )
-(?<dcontent>        (?&dtext) | (?&quoted_pair) )
-(?<display_name>    (?&phrase) )
-(?<domain>          (?&dot_atom) | (?&domain_literal) )
-(?<domain_literal>  (?&CFWS)?+ \\[ (?: (?&FWS)?+ (?&dcontent) )* (?&FWS)?+ \\]
-                    (?&CFWS)?+ )
-(?<dot_atom>        (?&CFWS)?+ (?&dot_atom_text) (?&CFWS)?+ )
-(?<dot_atom_text>   (?&atext)++ (?: \\. (?&atext)++)*+ )
-(?<dtext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ \\[\\]\\\\] )
-(?<FWS>             (?: [\\t\\ ]*+ \\n)?+ [\\t\\ ]++ )
-(?<local_part>      (?&dot_atom) | (?&quoted_string)  )
-(?<mailbox>         (?&name_addr) | (?&addr_spec) )
-(?<name_addr>       (?&display_name)? (?&angle_addr) )
-(?<phrase>          (?&word)++ )
-(?<qcontent>        (?&qtext) | (?&quoted_pair) )
-(?<quoted_pair>     \" (?&text) )
-(?<quoted_string>   (?&CFWS)?+ \" (?: (?&FWS)?+ (?&qcontent))* (?&FWS)?+ \"
-                    (?&CFWS)?+ )
-(?<qtext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ \"\\\\] )
-(?<text>            [^\\r\\n] )
-(?<word>            (?&atom) | (?&quoted_string) )
-) # End DEFINE
-^(?&mailbox)$","\\1KCKqqqW&OhQmC&c",[global])),
-    <<"<user.ain>">> = iolist_to_binary(re:replace("<user.ain>","(?ix)(?(DEFINE)
-(?<addr_spec>       (?&local_part) \\@ (?&domain) )
-(?<angle_addr>      (?&CFWS)?+ < (?&addr_spec) > (?&CFWS)?+ )
-(?<atext>           [a-z\\d!#\\$%&'*+-\\x{2f}=?^_`{|}~] )
-(?<atom>            (?&CFWS)?+ (?&atext)+ (?&CFWS)?+ )
-(?<ccontent>        (?&ctext) | (?&quoted_pair) | (?&comment) )
-(?<ctext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ ()\\\\] )
-(?<comment>         \\( (?: (?&FWS)?+ (?&ccontent) )*+ (?&FWS)?+ \\) )
-(?<CFWS>            (?: (?&FWS)?+ (?&comment) )* (?# NOT possessive)
-                    (?: (?&FWS)?+ (?&comment) | (?&FWS) ) )
-(?<dcontent>        (?&dtext) | (?&quoted_pair) )
-(?<display_name>    (?&phrase) )
-(?<domain>          (?&dot_atom) | (?&domain_literal) )
-(?<domain_literal>  (?&CFWS)?+ \\[ (?: (?&FWS)?+ (?&dcontent) )* (?&FWS)?+ \\]
-                    (?&CFWS)?+ )
-(?<dot_atom>        (?&CFWS)?+ (?&dot_atom_text) (?&CFWS)?+ )
-(?<dot_atom_text>   (?&atext)++ (?: \\. (?&atext)++)*+ )
-(?<dtext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ \\[\\]\\\\] )
-(?<FWS>             (?: [\\t\\ ]*+ \\n)?+ [\\t\\ ]++ )
-(?<local_part>      (?&dot_atom) | (?&quoted_string)  )
-(?<mailbox>         (?&name_addr) | (?&addr_spec) )
-(?<name_addr>       (?&display_name)? (?&angle_addr) )
-(?<phrase>          (?&word)++ )
-(?<qcontent>        (?&qtext) | (?&quoted_pair) )
-(?<quoted_pair>     \" (?&text) )
-(?<quoted_string>   (?&CFWS)?+ \" (?: (?&FWS)?+ (?&qcontent))* (?&FWS)?+ \"
-                    (?&CFWS)?+ )
-(?<qtext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ \"\\\\] )
-(?<text>            [^\\r\\n] )
-(?<word>            (?&atom) | (?&quoted_string) )
-) # End DEFINE
-^(?&mailbox)$","\\1\\1AofrA\\1",[])),
-    <<"<user.ain>">> = iolist_to_binary(re:replace("<user.ain>","(?ix)(?(DEFINE)
-(?<addr_spec>       (?&local_part) \\@ (?&domain) )
-(?<angle_addr>      (?&CFWS)?+ < (?&addr_spec) > (?&CFWS)?+ )
-(?<atext>           [a-z\\d!#\\$%&'*+-\\x{2f}=?^_`{|}~] )
-(?<atom>            (?&CFWS)?+ (?&atext)+ (?&CFWS)?+ )
-(?<ccontent>        (?&ctext) | (?&quoted_pair) | (?&comment) )
-(?<ctext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ ()\\\\] )
-(?<comment>         \\( (?: (?&FWS)?+ (?&ccontent) )*+ (?&FWS)?+ \\) )
-(?<CFWS>            (?: (?&FWS)?+ (?&comment) )* (?# NOT possessive)
-                    (?: (?&FWS)?+ (?&comment) | (?&FWS) ) )
-(?<dcontent>        (?&dtext) | (?&quoted_pair) )
-(?<display_name>    (?&phrase) )
-(?<domain>          (?&dot_atom) | (?&domain_literal) )
-(?<domain_literal>  (?&CFWS)?+ \\[ (?: (?&FWS)?+ (?&dcontent) )* (?&FWS)?+ \\]
-                    (?&CFWS)?+ )
-(?<dot_atom>        (?&CFWS)?+ (?&dot_atom_text) (?&CFWS)?+ )
-(?<dot_atom_text>   (?&atext)++ (?: \\. (?&atext)++)*+ )
-(?<dtext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ \\[\\]\\\\] )
-(?<FWS>             (?: [\\t\\ ]*+ \\n)?+ [\\t\\ ]++ )
-(?<local_part>      (?&dot_atom) | (?&quoted_string)  )
-(?<mailbox>         (?&name_addr) | (?&addr_spec) )
-(?<name_addr>       (?&display_name)? (?&angle_addr) )
-(?<phrase>          (?&word)++ )
-(?<qcontent>        (?&qtext) | (?&quoted_pair) )
-(?<quoted_pair>     \" (?&text) )
-(?<quoted_string>   (?&CFWS)?+ \" (?: (?&FWS)?+ (?&qcontent))* (?&FWS)?+ \"
-                    (?&CFWS)?+ )
-(?<qtext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ \"\\\\] )
-(?<text>            [^\\r\\n] )
-(?<word>            (?&atom) | (?&quoted_string) )
-) # End DEFINE
-^(?&mailbox)$","\\1\\1AofrA\\1",[global])),
-    <<"user.ain">> = iolist_to_binary(re:replace("user.ain","(?ix)(?(DEFINE)
-(?<addr_spec>       (?&local_part) \\@ (?&domain) )
-(?<angle_addr>      (?&CFWS)?+ < (?&addr_spec) > (?&CFWS)?+ )
-(?<atext>           [a-z\\d!#\\$%&'*+-\\x{2f}=?^_`{|}~] )
-(?<atom>            (?&CFWS)?+ (?&atext)+ (?&CFWS)?+ )
-(?<ccontent>        (?&ctext) | (?&quoted_pair) | (?&comment) )
-(?<ctext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ ()\\\\] )
-(?<comment>         \\( (?: (?&FWS)?+ (?&ccontent) )*+ (?&FWS)?+ \\) )
-(?<CFWS>            (?: (?&FWS)?+ (?&comment) )* (?# NOT possessive)
-                    (?: (?&FWS)?+ (?&comment) | (?&FWS) ) )
-(?<dcontent>        (?&dtext) | (?&quoted_pair) )
-(?<display_name>    (?&phrase) )
-(?<domain>          (?&dot_atom) | (?&domain_literal) )
-(?<domain_literal>  (?&CFWS)?+ \\[ (?: (?&FWS)?+ (?&dcontent) )* (?&FWS)?+ \\]
-                    (?&CFWS)?+ )
-(?<dot_atom>        (?&CFWS)?+ (?&dot_atom_text) (?&CFWS)?+ )
-(?<dot_atom_text>   (?&atext)++ (?: \\. (?&atext)++)*+ )
-(?<dtext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ \\[\\]\\\\] )
-(?<FWS>             (?: [\\t\\ ]*+ \\n)?+ [\\t\\ ]++ )
-(?<local_part>      (?&dot_atom) | (?&quoted_string)  )
-(?<mailbox>         (?&name_addr) | (?&addr_spec) )
-(?<name_addr>       (?&display_name)? (?&angle_addr) )
-(?<phrase>          (?&word)++ )
-(?<qcontent>        (?&qtext) | (?&quoted_pair) )
-(?<quoted_pair>     \" (?&text) )
-(?<quoted_string>   (?&CFWS)?+ \" (?: (?&FWS)?+ (?&qcontent))* (?&FWS)?+ \"
-                    (?&CFWS)?+ )
-(?<qtext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ \"\\\\] )
-(?<text>            [^\\r\\n] )
-(?<word>            (?&atom) | (?&quoted_string) )
-) # End DEFINE
-^(?&mailbox)$","YU&W&&&br&b&&T\\1&",[])),
-    <<"user.ain">> = iolist_to_binary(re:replace("user.ain","(?ix)(?(DEFINE)
-(?<addr_spec>       (?&local_part) \\@ (?&domain) )
-(?<angle_addr>      (?&CFWS)?+ < (?&addr_spec) > (?&CFWS)?+ )
-(?<atext>           [a-z\\d!#\\$%&'*+-\\x{2f}=?^_`{|}~] )
-(?<atom>            (?&CFWS)?+ (?&atext)+ (?&CFWS)?+ )
-(?<ccontent>        (?&ctext) | (?&quoted_pair) | (?&comment) )
-(?<ctext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ ()\\\\] )
-(?<comment>         \\( (?: (?&FWS)?+ (?&ccontent) )*+ (?&FWS)?+ \\) )
-(?<CFWS>            (?: (?&FWS)?+ (?&comment) )* (?# NOT possessive)
-                    (?: (?&FWS)?+ (?&comment) | (?&FWS) ) )
-(?<dcontent>        (?&dtext) | (?&quoted_pair) )
-(?<display_name>    (?&phrase) )
-(?<domain>          (?&dot_atom) | (?&domain_literal) )
-(?<domain_literal>  (?&CFWS)?+ \\[ (?: (?&FWS)?+ (?&dcontent) )* (?&FWS)?+ \\]
-                    (?&CFWS)?+ )
-(?<dot_atom>        (?&CFWS)?+ (?&dot_atom_text) (?&CFWS)?+ )
-(?<dot_atom_text>   (?&atext)++ (?: \\. (?&atext)++)*+ )
-(?<dtext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ \\[\\]\\\\] )
-(?<FWS>             (?: [\\t\\ ]*+ \\n)?+ [\\t\\ ]++ )
-(?<local_part>      (?&dot_atom) | (?&quoted_string)  )
-(?<mailbox>         (?&name_addr) | (?&addr_spec) )
-(?<name_addr>       (?&display_name)? (?&angle_addr) )
-(?<phrase>          (?&word)++ )
-(?<qcontent>        (?&qtext) | (?&quoted_pair) )
-(?<quoted_pair>     \" (?&text) )
-(?<quoted_string>   (?&CFWS)?+ \" (?: (?&FWS)?+ (?&qcontent))* (?&FWS)?+ \"
-                    (?&CFWS)?+ )
-(?<qtext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ \"\\\\] )
-(?<text>            [^\\r\\n] )
-(?<word>            (?&atom) | (?&quoted_string) )
-) # End DEFINE
-^(?&mailbox)$","YU&W&&&br&b&&T\\1&",[global])),
-    <<"yluser@[]lrGgeOFdq">> = iolist_to_binary(re:replace("user@[]","(?ix)(?(DEFINE)
-(?<addr_spec>       (?&local_part) \\@ (?&domain) )
-(?<angle_addr>      (?&CFWS)?+ < (?&addr_spec) > (?&CFWS)?+ )
-(?<atext>           [a-z\\d!#\\$%&'*+-\\x{2f}=?^_`{|}~] )
-(?<atom>            (?&CFWS)?+ (?&atext)+ (?&CFWS)?+ )
-(?<ccontent>        (?&ctext) | (?&quoted_pair) | (?&comment) )
-(?<ctext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ ()\\\\] )
-(?<comment>         \\( (?: (?&FWS)?+ (?&ccontent) )*+ (?&FWS)?+ \\) )
-(?<CFWS>            (?: (?&FWS)?+ (?&comment) )* (?# NOT possessive)
-                    (?: (?&FWS)?+ (?&comment) | (?&FWS) ) )
-(?<dcontent>        (?&dtext) | (?&quoted_pair) )
-(?<display_name>    (?&phrase) )
-(?<domain>          (?&dot_atom) | (?&domain_literal) )
-(?<domain_literal>  (?&CFWS)?+ \\[ (?: (?&FWS)?+ (?&dcontent) )* (?&FWS)?+ \\]
-                    (?&CFWS)?+ )
-(?<dot_atom>        (?&CFWS)?+ (?&dot_atom_text) (?&CFWS)?+ )
-(?<dot_atom_text>   (?&atext)++ (?: \\. (?&atext)++)*+ )
-(?<dtext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ \\[\\]\\\\] )
-(?<FWS>             (?: [\\t\\ ]*+ \\n)?+ [\\t\\ ]++ )
-(?<local_part>      (?&dot_atom) | (?&quoted_string)  )
-(?<mailbox>         (?&name_addr) | (?&addr_spec) )
-(?<name_addr>       (?&display_name)? (?&angle_addr) )
-(?<phrase>          (?&word)++ )
-(?<qcontent>        (?&qtext) | (?&quoted_pair) )
-(?<quoted_pair>     \" (?&text) )
-(?<quoted_string>   (?&CFWS)?+ \" (?: (?&FWS)?+ (?&qcontent))* (?&FWS)?+ \"
-                    (?&CFWS)?+ )
-(?<qtext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ \"\\\\] )
-(?<text>            [^\\r\\n] )
-(?<word>            (?&atom) | (?&quoted_string) )
-) # End DEFINE
-^(?&mailbox)$","yl&lrGgeOFdq",[])),
-    <<"yluser@[]lrGgeOFdq">> = iolist_to_binary(re:replace("user@[]","(?ix)(?(DEFINE)
-(?<addr_spec>       (?&local_part) \\@ (?&domain) )
-(?<angle_addr>      (?&CFWS)?+ < (?&addr_spec) > (?&CFWS)?+ )
-(?<atext>           [a-z\\d!#\\$%&'*+-\\x{2f}=?^_`{|}~] )
-(?<atom>            (?&CFWS)?+ (?&atext)+ (?&CFWS)?+ )
-(?<ccontent>        (?&ctext) | (?&quoted_pair) | (?&comment) )
-(?<ctext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ ()\\\\] )
-(?<comment>         \\( (?: (?&FWS)?+ (?&ccontent) )*+ (?&FWS)?+ \\) )
-(?<CFWS>            (?: (?&FWS)?+ (?&comment) )* (?# NOT possessive)
-                    (?: (?&FWS)?+ (?&comment) | (?&FWS) ) )
-(?<dcontent>        (?&dtext) | (?&quoted_pair) )
-(?<display_name>    (?&phrase) )
-(?<domain>          (?&dot_atom) | (?&domain_literal) )
-(?<domain_literal>  (?&CFWS)?+ \\[ (?: (?&FWS)?+ (?&dcontent) )* (?&FWS)?+ \\]
-                    (?&CFWS)?+ )
-(?<dot_atom>        (?&CFWS)?+ (?&dot_atom_text) (?&CFWS)?+ )
-(?<dot_atom_text>   (?&atext)++ (?: \\. (?&atext)++)*+ )
-(?<dtext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ \\[\\]\\\\] )
-(?<FWS>             (?: [\\t\\ ]*+ \\n)?+ [\\t\\ ]++ )
-(?<local_part>      (?&dot_atom) | (?&quoted_string)  )
-(?<mailbox>         (?&name_addr) | (?&addr_spec) )
-(?<name_addr>       (?&display_name)? (?&angle_addr) )
-(?<phrase>          (?&word)++ )
-(?<qcontent>        (?&qtext) | (?&quoted_pair) )
-(?<quoted_pair>     \" (?&text) )
-(?<quoted_string>   (?&CFWS)?+ \" (?: (?&FWS)?+ (?&qcontent))* (?&FWS)?+ \"
-                    (?&CFWS)?+ )
-(?<qtext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ \"\\\\] )
-(?<text>            [^\\r\\n] )
-(?<word>            (?&atom) | (?&quoted_string) )
-) # End DEFINE
-^(?&mailbox)$","yl&lrGgeOFdq",[global])),
-    <<"RVQuser@[domain literal]nWTFmuu">> = iolist_to_binary(re:replace("user@[domain literal]","(?ix)(?(DEFINE)
-(?<addr_spec>       (?&local_part) \\@ (?&domain) )
-(?<angle_addr>      (?&CFWS)?+ < (?&addr_spec) > (?&CFWS)?+ )
-(?<atext>           [a-z\\d!#\\$%&'*+-\\x{2f}=?^_`{|}~] )
-(?<atom>            (?&CFWS)?+ (?&atext)+ (?&CFWS)?+ )
-(?<ccontent>        (?&ctext) | (?&quoted_pair) | (?&comment) )
-(?<ctext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ ()\\\\] )
-(?<comment>         \\( (?: (?&FWS)?+ (?&ccontent) )*+ (?&FWS)?+ \\) )
-(?<CFWS>            (?: (?&FWS)?+ (?&comment) )* (?# NOT possessive)
-                    (?: (?&FWS)?+ (?&comment) | (?&FWS) ) )
-(?<dcontent>        (?&dtext) | (?&quoted_pair) )
-(?<display_name>    (?&phrase) )
-(?<domain>          (?&dot_atom) | (?&domain_literal) )
-(?<domain_literal>  (?&CFWS)?+ \\[ (?: (?&FWS)?+ (?&dcontent) )* (?&FWS)?+ \\]
-                    (?&CFWS)?+ )
-(?<dot_atom>        (?&CFWS)?+ (?&dot_atom_text) (?&CFWS)?+ )
-(?<dot_atom_text>   (?&atext)++ (?: \\. (?&atext)++)*+ )
-(?<dtext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ \\[\\]\\\\] )
-(?<FWS>             (?: [\\t\\ ]*+ \\n)?+ [\\t\\ ]++ )
-(?<local_part>      (?&dot_atom) | (?&quoted_string)  )
-(?<mailbox>         (?&name_addr) | (?&addr_spec) )
-(?<name_addr>       (?&display_name)? (?&angle_addr) )
-(?<phrase>          (?&word)++ )
-(?<qcontent>        (?&qtext) | (?&quoted_pair) )
-(?<quoted_pair>     \" (?&text) )
-(?<quoted_string>   (?&CFWS)?+ \" (?: (?&FWS)?+ (?&qcontent))* (?&FWS)?+ \"
-                    (?&CFWS)?+ )
-(?<qtext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ \"\\\\] )
-(?<text>            [^\\r\\n] )
-(?<word>            (?&atom) | (?&quoted_string) )
-) # End DEFINE
-^(?&mailbox)$","RVQ&nWTFmuu",[])),
-    <<"RVQuser@[domain literal]nWTFmuu">> = iolist_to_binary(re:replace("user@[domain literal]","(?ix)(?(DEFINE)
-(?<addr_spec>       (?&local_part) \\@ (?&domain) )
-(?<angle_addr>      (?&CFWS)?+ < (?&addr_spec) > (?&CFWS)?+ )
-(?<atext>           [a-z\\d!#\\$%&'*+-\\x{2f}=?^_`{|}~] )
-(?<atom>            (?&CFWS)?+ (?&atext)+ (?&CFWS)?+ )
-(?<ccontent>        (?&ctext) | (?&quoted_pair) | (?&comment) )
-(?<ctext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ ()\\\\] )
-(?<comment>         \\( (?: (?&FWS)?+ (?&ccontent) )*+ (?&FWS)?+ \\) )
-(?<CFWS>            (?: (?&FWS)?+ (?&comment) )* (?# NOT possessive)
-                    (?: (?&FWS)?+ (?&comment) | (?&FWS) ) )
-(?<dcontent>        (?&dtext) | (?&quoted_pair) )
-(?<display_name>    (?&phrase) )
-(?<domain>          (?&dot_atom) | (?&domain_literal) )
-(?<domain_literal>  (?&CFWS)?+ \\[ (?: (?&FWS)?+ (?&dcontent) )* (?&FWS)?+ \\]
-                    (?&CFWS)?+ )
-(?<dot_atom>        (?&CFWS)?+ (?&dot_atom_text) (?&CFWS)?+ )
-(?<dot_atom_text>   (?&atext)++ (?: \\. (?&atext)++)*+ )
-(?<dtext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ \\[\\]\\\\] )
-(?<FWS>             (?: [\\t\\ ]*+ \\n)?+ [\\t\\ ]++ )
-(?<local_part>      (?&dot_atom) | (?&quoted_string)  )
-(?<mailbox>         (?&name_addr) | (?&addr_spec) )
-(?<name_addr>       (?&display_name)? (?&angle_addr) )
-(?<phrase>          (?&word)++ )
-(?<qcontent>        (?&qtext) | (?&quoted_pair) )
-(?<quoted_pair>     \" (?&text) )
-(?<quoted_string>   (?&CFWS)?+ \" (?: (?&FWS)?+ (?&qcontent))* (?&FWS)?+ \"
-                    (?&CFWS)?+ )
-(?<qtext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ \"\\\\] )
-(?<text>            [^\\r\\n] )
-(?<word>            (?&atom) | (?&quoted_string) )
-) # End DEFINE
-^(?&mailbox)$","RVQ&nWTFmuu",[global])),
-    <<"Ssuser@[domain literal with \"[square brackets\"] inside]nuser@[domain literal with \"[square brackets\"] inside]jAuser@[domain literal with \"[square brackets\"] inside]WrFxNxT">> = iolist_to_binary(re:replace("user@[domain literal with \"[square brackets\"] inside]","(?ix)(?(DEFINE)
-(?<addr_spec>       (?&local_part) \\@ (?&domain) )
-(?<angle_addr>      (?&CFWS)?+ < (?&addr_spec) > (?&CFWS)?+ )
-(?<atext>           [a-z\\d!#\\$%&'*+-\\x{2f}=?^_`{|}~] )
-(?<atom>            (?&CFWS)?+ (?&atext)+ (?&CFWS)?+ )
-(?<ccontent>        (?&ctext) | (?&quoted_pair) | (?&comment) )
-(?<ctext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ ()\\\\] )
-(?<comment>         \\( (?: (?&FWS)?+ (?&ccontent) )*+ (?&FWS)?+ \\) )
-(?<CFWS>            (?: (?&FWS)?+ (?&comment) )* (?# NOT possessive)
-                    (?: (?&FWS)?+ (?&comment) | (?&FWS) ) )
-(?<dcontent>        (?&dtext) | (?&quoted_pair) )
-(?<display_name>    (?&phrase) )
-(?<domain>          (?&dot_atom) | (?&domain_literal) )
-(?<domain_literal>  (?&CFWS)?+ \\[ (?: (?&FWS)?+ (?&dcontent) )* (?&FWS)?+ \\]
-                    (?&CFWS)?+ )
-(?<dot_atom>        (?&CFWS)?+ (?&dot_atom_text) (?&CFWS)?+ )
-(?<dot_atom_text>   (?&atext)++ (?: \\. (?&atext)++)*+ )
-(?<dtext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ \\[\\]\\\\] )
-(?<FWS>             (?: [\\t\\ ]*+ \\n)?+ [\\t\\ ]++ )
-(?<local_part>      (?&dot_atom) | (?&quoted_string)  )
-(?<mailbox>         (?&name_addr) | (?&addr_spec) )
-(?<name_addr>       (?&display_name)? (?&angle_addr) )
-(?<phrase>          (?&word)++ )
-(?<qcontent>        (?&qtext) | (?&quoted_pair) )
-(?<quoted_pair>     \" (?&text) )
-(?<quoted_string>   (?&CFWS)?+ \" (?: (?&FWS)?+ (?&qcontent))* (?&FWS)?+ \"
-                    (?&CFWS)?+ )
-(?<qtext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ \"\\\\] )
-(?<text>            [^\\r\\n] )
-(?<word>            (?&atom) | (?&quoted_string) )
-) # End DEFINE
-^(?&mailbox)$","Ss&n&jA&WrFx\\1NxT\\1",[])),
-    <<"Ssuser@[domain literal with \"[square brackets\"] inside]nuser@[domain literal with \"[square brackets\"] inside]jAuser@[domain literal with \"[square brackets\"] inside]WrFxNxT">> = iolist_to_binary(re:replace("user@[domain literal with \"[square brackets\"] inside]","(?ix)(?(DEFINE)
-(?<addr_spec>       (?&local_part) \\@ (?&domain) )
-(?<angle_addr>      (?&CFWS)?+ < (?&addr_spec) > (?&CFWS)?+ )
-(?<atext>           [a-z\\d!#\\$%&'*+-\\x{2f}=?^_`{|}~] )
-(?<atom>            (?&CFWS)?+ (?&atext)+ (?&CFWS)?+ )
-(?<ccontent>        (?&ctext) | (?&quoted_pair) | (?&comment) )
-(?<ctext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ ()\\\\] )
-(?<comment>         \\( (?: (?&FWS)?+ (?&ccontent) )*+ (?&FWS)?+ \\) )
-(?<CFWS>            (?: (?&FWS)?+ (?&comment) )* (?# NOT possessive)
-                    (?: (?&FWS)?+ (?&comment) | (?&FWS) ) )
-(?<dcontent>        (?&dtext) | (?&quoted_pair) )
-(?<display_name>    (?&phrase) )
-(?<domain>          (?&dot_atom) | (?&domain_literal) )
-(?<domain_literal>  (?&CFWS)?+ \\[ (?: (?&FWS)?+ (?&dcontent) )* (?&FWS)?+ \\]
-                    (?&CFWS)?+ )
-(?<dot_atom>        (?&CFWS)?+ (?&dot_atom_text) (?&CFWS)?+ )
-(?<dot_atom_text>   (?&atext)++ (?: \\. (?&atext)++)*+ )
-(?<dtext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ \\[\\]\\\\] )
-(?<FWS>             (?: [\\t\\ ]*+ \\n)?+ [\\t\\ ]++ )
-(?<local_part>      (?&dot_atom) | (?&quoted_string)  )
-(?<mailbox>         (?&name_addr) | (?&addr_spec) )
-(?<name_addr>       (?&display_name)? (?&angle_addr) )
-(?<phrase>          (?&word)++ )
-(?<qcontent>        (?&qtext) | (?&quoted_pair) )
-(?<quoted_pair>     \" (?&text) )
-(?<quoted_string>   (?&CFWS)?+ \" (?: (?&FWS)?+ (?&qcontent))* (?&FWS)?+ \"
-                    (?&CFWS)?+ )
-(?<qtext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ \"\\\\] )
-(?<text>            [^\\r\\n] )
-(?<word>            (?&atom) | (?&quoted_string) )
-) # End DEFINE
-^(?&mailbox)$","Ss&n&jA&WrFx\\1NxT\\1",[global])),
-    <<"\"A. Other\" <user.1234.ain> (a comment)">> = iolist_to_binary(re:replace("\"A. Other\" <user.1234.ain> (a comment)","(?ix)(?(DEFINE)
-(?<addr_spec>       (?&local_part) \\@ (?&domain) )
-(?<angle_addr>      (?&CFWS)?+ < (?&addr_spec) > (?&CFWS)?+ )
-(?<atext>           [a-z\\d!#\\$%&'*+-\\x{2f}=?^_`{|}~] )
-(?<atom>            (?&CFWS)?+ (?&atext)+ (?&CFWS)?+ )
-(?<ccontent>        (?&ctext) | (?&quoted_pair) | (?&comment) )
-(?<ctext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ ()\\\\] )
-(?<comment>         \\( (?: (?&FWS)?+ (?&ccontent) )*+ (?&FWS)?+ \\) )
-(?<CFWS>            (?: (?&FWS)?+ (?&comment) )* (?# NOT possessive)
-                    (?: (?&FWS)?+ (?&comment) | (?&FWS) ) )
-(?<dcontent>        (?&dtext) | (?&quoted_pair) )
-(?<display_name>    (?&phrase) )
-(?<domain>          (?&dot_atom) | (?&domain_literal) )
-(?<domain_literal>  (?&CFWS)?+ \\[ (?: (?&FWS)?+ (?&dcontent) )* (?&FWS)?+ \\]
-                    (?&CFWS)?+ )
-(?<dot_atom>        (?&CFWS)?+ (?&dot_atom_text) (?&CFWS)?+ )
-(?<dot_atom_text>   (?&atext)++ (?: \\. (?&atext)++)*+ )
-(?<dtext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ \\[\\]\\\\] )
-(?<FWS>             (?: [\\t\\ ]*+ \\n)?+ [\\t\\ ]++ )
-(?<local_part>      (?&dot_atom) | (?&quoted_string)  )
-(?<mailbox>         (?&name_addr) | (?&addr_spec) )
-(?<name_addr>       (?&display_name)? (?&angle_addr) )
-(?<phrase>          (?&word)++ )
-(?<qcontent>        (?&qtext) | (?&quoted_pair) )
-(?<quoted_pair>     \" (?&text) )
-(?<quoted_string>   (?&CFWS)?+ \" (?: (?&FWS)?+ (?&qcontent))* (?&FWS)?+ \"
-                    (?&CFWS)?+ )
-(?<qtext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ \"\\\\] )
-(?<text>            [^\\r\\n] )
-(?<word>            (?&atom) | (?&quoted_string) )
-) # End DEFINE
-^(?&mailbox)$","oyk\\1GJTnwyJ",[])),
-    <<"\"A. Other\" <user.1234.ain> (a comment)">> = iolist_to_binary(re:replace("\"A. Other\" <user.1234.ain> (a comment)","(?ix)(?(DEFINE)
-(?<addr_spec>       (?&local_part) \\@ (?&domain) )
-(?<angle_addr>      (?&CFWS)?+ < (?&addr_spec) > (?&CFWS)?+ )
-(?<atext>           [a-z\\d!#\\$%&'*+-\\x{2f}=?^_`{|}~] )
-(?<atom>            (?&CFWS)?+ (?&atext)+ (?&CFWS)?+ )
-(?<ccontent>        (?&ctext) | (?&quoted_pair) | (?&comment) )
-(?<ctext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ ()\\\\] )
-(?<comment>         \\( (?: (?&FWS)?+ (?&ccontent) )*+ (?&FWS)?+ \\) )
-(?<CFWS>            (?: (?&FWS)?+ (?&comment) )* (?# NOT possessive)
-                    (?: (?&FWS)?+ (?&comment) | (?&FWS) ) )
-(?<dcontent>        (?&dtext) | (?&quoted_pair) )
-(?<display_name>    (?&phrase) )
-(?<domain>          (?&dot_atom) | (?&domain_literal) )
-(?<domain_literal>  (?&CFWS)?+ \\[ (?: (?&FWS)?+ (?&dcontent) )* (?&FWS)?+ \\]
-                    (?&CFWS)?+ )
-(?<dot_atom>        (?&CFWS)?+ (?&dot_atom_text) (?&CFWS)?+ )
-(?<dot_atom_text>   (?&atext)++ (?: \\. (?&atext)++)*+ )
-(?<dtext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ \\[\\]\\\\] )
-(?<FWS>             (?: [\\t\\ ]*+ \\n)?+ [\\t\\ ]++ )
-(?<local_part>      (?&dot_atom) | (?&quoted_string)  )
-(?<mailbox>         (?&name_addr) | (?&addr_spec) )
-(?<name_addr>       (?&display_name)? (?&angle_addr) )
-(?<phrase>          (?&word)++ )
-(?<qcontent>        (?&qtext) | (?&quoted_pair) )
-(?<quoted_pair>     \" (?&text) )
-(?<quoted_string>   (?&CFWS)?+ \" (?: (?&FWS)?+ (?&qcontent))* (?&FWS)?+ \"
-                    (?&CFWS)?+ )
-(?<qtext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ \"\\\\] )
-(?<text>            [^\\r\\n] )
-(?<word>            (?&atom) | (?&quoted_string) )
-) # End DEFINE
-^(?&mailbox)$","oyk\\1GJTnwyJ",[global])),
-    <<"A. Other <user.1234.ain> (a comment)">> = iolist_to_binary(re:replace("A. Other <user.1234.ain> (a comment)","(?ix)(?(DEFINE)
-(?<addr_spec>       (?&local_part) \\@ (?&domain) )
-(?<angle_addr>      (?&CFWS)?+ < (?&addr_spec) > (?&CFWS)?+ )
-(?<atext>           [a-z\\d!#\\$%&'*+-\\x{2f}=?^_`{|}~] )
-(?<atom>            (?&CFWS)?+ (?&atext)+ (?&CFWS)?+ )
-(?<ccontent>        (?&ctext) | (?&quoted_pair) | (?&comment) )
-(?<ctext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ ()\\\\] )
-(?<comment>         \\( (?: (?&FWS)?+ (?&ccontent) )*+ (?&FWS)?+ \\) )
-(?<CFWS>            (?: (?&FWS)?+ (?&comment) )* (?# NOT possessive)
-                    (?: (?&FWS)?+ (?&comment) | (?&FWS) ) )
-(?<dcontent>        (?&dtext) | (?&quoted_pair) )
-(?<display_name>    (?&phrase) )
-(?<domain>          (?&dot_atom) | (?&domain_literal) )
-(?<domain_literal>  (?&CFWS)?+ \\[ (?: (?&FWS)?+ (?&dcontent) )* (?&FWS)?+ \\]
-                    (?&CFWS)?+ )
-(?<dot_atom>        (?&CFWS)?+ (?&dot_atom_text) (?&CFWS)?+ )
-(?<dot_atom_text>   (?&atext)++ (?: \\. (?&atext)++)*+ )
-(?<dtext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ \\[\\]\\\\] )
-(?<FWS>             (?: [\\t\\ ]*+ \\n)?+ [\\t\\ ]++ )
-(?<local_part>      (?&dot_atom) | (?&quoted_string)  )
-(?<mailbox>         (?&name_addr) | (?&addr_spec) )
-(?<name_addr>       (?&display_name)? (?&angle_addr) )
-(?<phrase>          (?&word)++ )
-(?<qcontent>        (?&qtext) | (?&quoted_pair) )
-(?<quoted_pair>     \" (?&text) )
-(?<quoted_string>   (?&CFWS)?+ \" (?: (?&FWS)?+ (?&qcontent))* (?&FWS)?+ \"
-                    (?&CFWS)?+ )
-(?<qtext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ \"\\\\] )
-(?<text>            [^\\r\\n] )
-(?<word>            (?&atom) | (?&quoted_string) )
-) # End DEFINE
-^(?&mailbox)$","r\\1P",[])),
-    <<"A. Other <user.1234.ain> (a comment)">> = iolist_to_binary(re:replace("A. Other <user.1234.ain> (a comment)","(?ix)(?(DEFINE)
-(?<addr_spec>       (?&local_part) \\@ (?&domain) )
-(?<angle_addr>      (?&CFWS)?+ < (?&addr_spec) > (?&CFWS)?+ )
-(?<atext>           [a-z\\d!#\\$%&'*+-\\x{2f}=?^_`{|}~] )
-(?<atom>            (?&CFWS)?+ (?&atext)+ (?&CFWS)?+ )
-(?<ccontent>        (?&ctext) | (?&quoted_pair) | (?&comment) )
-(?<ctext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ ()\\\\] )
-(?<comment>         \\( (?: (?&FWS)?+ (?&ccontent) )*+ (?&FWS)?+ \\) )
-(?<CFWS>            (?: (?&FWS)?+ (?&comment) )* (?# NOT possessive)
-                    (?: (?&FWS)?+ (?&comment) | (?&FWS) ) )
-(?<dcontent>        (?&dtext) | (?&quoted_pair) )
-(?<display_name>    (?&phrase) )
-(?<domain>          (?&dot_atom) | (?&domain_literal) )
-(?<domain_literal>  (?&CFWS)?+ \\[ (?: (?&FWS)?+ (?&dcontent) )* (?&FWS)?+ \\]
-                    (?&CFWS)?+ )
-(?<dot_atom>        (?&CFWS)?+ (?&dot_atom_text) (?&CFWS)?+ )
-(?<dot_atom_text>   (?&atext)++ (?: \\. (?&atext)++)*+ )
-(?<dtext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ \\[\\]\\\\] )
-(?<FWS>             (?: [\\t\\ ]*+ \\n)?+ [\\t\\ ]++ )
-(?<local_part>      (?&dot_atom) | (?&quoted_string)  )
-(?<mailbox>         (?&name_addr) | (?&addr_spec) )
-(?<name_addr>       (?&display_name)? (?&angle_addr) )
-(?<phrase>          (?&word)++ )
-(?<qcontent>        (?&qtext) | (?&quoted_pair) )
-(?<quoted_pair>     \" (?&text) )
-(?<quoted_string>   (?&CFWS)?+ \" (?: (?&FWS)?+ (?&qcontent))* (?&FWS)?+ \"
-                    (?&CFWS)?+ )
-(?<qtext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ \"\\\\] )
-(?<text>            [^\\r\\n] )
-(?<word>            (?&atom) | (?&quoted_string) )
-) # End DEFINE
-^(?&mailbox)$","r\\1P",[global])),
-    <<"\"/s=user/ou=host/o=place/prmd=uu.yy/admd= /c=gb/\"-re.lay">> = iolist_to_binary(re:replace("\"/s=user/ou=host/o=place/prmd=uu.yy/admd= /c=gb/\"-re.lay","(?ix)(?(DEFINE)
-(?<addr_spec>       (?&local_part) \\@ (?&domain) )
-(?<angle_addr>      (?&CFWS)?+ < (?&addr_spec) > (?&CFWS)?+ )
-(?<atext>           [a-z\\d!#\\$%&'*+-\\x{2f}=?^_`{|}~] )
-(?<atom>            (?&CFWS)?+ (?&atext)+ (?&CFWS)?+ )
-(?<ccontent>        (?&ctext) | (?&quoted_pair) | (?&comment) )
-(?<ctext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ ()\\\\] )
-(?<comment>         \\( (?: (?&FWS)?+ (?&ccontent) )*+ (?&FWS)?+ \\) )
-(?<CFWS>            (?: (?&FWS)?+ (?&comment) )* (?# NOT possessive)
-                    (?: (?&FWS)?+ (?&comment) | (?&FWS) ) )
-(?<dcontent>        (?&dtext) | (?&quoted_pair) )
-(?<display_name>    (?&phrase) )
-(?<domain>          (?&dot_atom) | (?&domain_literal) )
-(?<domain_literal>  (?&CFWS)?+ \\[ (?: (?&FWS)?+ (?&dcontent) )* (?&FWS)?+ \\]
-                    (?&CFWS)?+ )
-(?<dot_atom>        (?&CFWS)?+ (?&dot_atom_text) (?&CFWS)?+ )
-(?<dot_atom_text>   (?&atext)++ (?: \\. (?&atext)++)*+ )
-(?<dtext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ \\[\\]\\\\] )
-(?<FWS>             (?: [\\t\\ ]*+ \\n)?+ [\\t\\ ]++ )
-(?<local_part>      (?&dot_atom) | (?&quoted_string)  )
-(?<mailbox>         (?&name_addr) | (?&addr_spec) )
-(?<name_addr>       (?&display_name)? (?&angle_addr) )
-(?<phrase>          (?&word)++ )
-(?<qcontent>        (?&qtext) | (?&quoted_pair) )
-(?<quoted_pair>     \" (?&text) )
-(?<quoted_string>   (?&CFWS)?+ \" (?: (?&FWS)?+ (?&qcontent))* (?&FWS)?+ \"
-                    (?&CFWS)?+ )
-(?<qtext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ \"\\\\] )
-(?<text>            [^\\r\\n] )
-(?<word>            (?&atom) | (?&quoted_string) )
-) # End DEFINE
-^(?&mailbox)$","mVY\\1&iTtvcE",[])),
-    <<"\"/s=user/ou=host/o=place/prmd=uu.yy/admd= /c=gb/\"-re.lay">> = iolist_to_binary(re:replace("\"/s=user/ou=host/o=place/prmd=uu.yy/admd= /c=gb/\"-re.lay","(?ix)(?(DEFINE)
-(?<addr_spec>       (?&local_part) \\@ (?&domain) )
-(?<angle_addr>      (?&CFWS)?+ < (?&addr_spec) > (?&CFWS)?+ )
-(?<atext>           [a-z\\d!#\\$%&'*+-\\x{2f}=?^_`{|}~] )
-(?<atom>            (?&CFWS)?+ (?&atext)+ (?&CFWS)?+ )
-(?<ccontent>        (?&ctext) | (?&quoted_pair) | (?&comment) )
-(?<ctext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ ()\\\\] )
-(?<comment>         \\( (?: (?&FWS)?+ (?&ccontent) )*+ (?&FWS)?+ \\) )
-(?<CFWS>            (?: (?&FWS)?+ (?&comment) )* (?# NOT possessive)
-                    (?: (?&FWS)?+ (?&comment) | (?&FWS) ) )
-(?<dcontent>        (?&dtext) | (?&quoted_pair) )
-(?<display_name>    (?&phrase) )
-(?<domain>          (?&dot_atom) | (?&domain_literal) )
-(?<domain_literal>  (?&CFWS)?+ \\[ (?: (?&FWS)?+ (?&dcontent) )* (?&FWS)?+ \\]
-                    (?&CFWS)?+ )
-(?<dot_atom>        (?&CFWS)?+ (?&dot_atom_text) (?&CFWS)?+ )
-(?<dot_atom_text>   (?&atext)++ (?: \\. (?&atext)++)*+ )
-(?<dtext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ \\[\\]\\\\] )
-(?<FWS>             (?: [\\t\\ ]*+ \\n)?+ [\\t\\ ]++ )
-(?<local_part>      (?&dot_atom) | (?&quoted_string)  )
-(?<mailbox>         (?&name_addr) | (?&addr_spec) )
-(?<name_addr>       (?&display_name)? (?&angle_addr) )
-(?<phrase>          (?&word)++ )
-(?<qcontent>        (?&qtext) | (?&quoted_pair) )
-(?<quoted_pair>     \" (?&text) )
-(?<quoted_string>   (?&CFWS)?+ \" (?: (?&FWS)?+ (?&qcontent))* (?&FWS)?+ \"
-                    (?&CFWS)?+ )
-(?<qtext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ \"\\\\] )
-(?<text>            [^\\r\\n] )
-(?<word>            (?&atom) | (?&quoted_string) )
-) # End DEFINE
-^(?&mailbox)$","mVY\\1&iTtvcE",[global])),
-    <<"A missing angle <user.where">> = iolist_to_binary(re:replace("A missing angle <user.where","(?ix)(?(DEFINE)
-(?<addr_spec>       (?&local_part) \\@ (?&domain) )
-(?<angle_addr>      (?&CFWS)?+ < (?&addr_spec) > (?&CFWS)?+ )
-(?<atext>           [a-z\\d!#\\$%&'*+-\\x{2f}=?^_`{|}~] )
-(?<atom>            (?&CFWS)?+ (?&atext)+ (?&CFWS)?+ )
-(?<ccontent>        (?&ctext) | (?&quoted_pair) | (?&comment) )
-(?<ctext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ ()\\\\] )
-(?<comment>         \\( (?: (?&FWS)?+ (?&ccontent) )*+ (?&FWS)?+ \\) )
-(?<CFWS>            (?: (?&FWS)?+ (?&comment) )* (?# NOT possessive)
-                    (?: (?&FWS)?+ (?&comment) | (?&FWS) ) )
-(?<dcontent>        (?&dtext) | (?&quoted_pair) )
-(?<display_name>    (?&phrase) )
-(?<domain>          (?&dot_atom) | (?&domain_literal) )
-(?<domain_literal>  (?&CFWS)?+ \\[ (?: (?&FWS)?+ (?&dcontent) )* (?&FWS)?+ \\]
-                    (?&CFWS)?+ )
-(?<dot_atom>        (?&CFWS)?+ (?&dot_atom_text) (?&CFWS)?+ )
-(?<dot_atom_text>   (?&atext)++ (?: \\. (?&atext)++)*+ )
-(?<dtext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ \\[\\]\\\\] )
-(?<FWS>             (?: [\\t\\ ]*+ \\n)?+ [\\t\\ ]++ )
-(?<local_part>      (?&dot_atom) | (?&quoted_string)  )
-(?<mailbox>         (?&name_addr) | (?&addr_spec) )
-(?<name_addr>       (?&display_name)? (?&angle_addr) )
-(?<phrase>          (?&word)++ )
-(?<qcontent>        (?&qtext) | (?&quoted_pair) )
-(?<quoted_pair>     \" (?&text) )
-(?<quoted_string>   (?&CFWS)?+ \" (?: (?&FWS)?+ (?&qcontent))* (?&FWS)?+ \"
-                    (?&CFWS)?+ )
-(?<qtext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ \"\\\\] )
-(?<text>            [^\\r\\n] )
-(?<word>            (?&atom) | (?&quoted_string) )
-) # End DEFINE
-^(?&mailbox)$","L&ssxlIODj&n\\1\\1ukQ",[])),
-    <<"A missing angle <user.where">> = iolist_to_binary(re:replace("A missing angle <user.where","(?ix)(?(DEFINE)
-(?<addr_spec>       (?&local_part) \\@ (?&domain) )
-(?<angle_addr>      (?&CFWS)?+ < (?&addr_spec) > (?&CFWS)?+ )
-(?<atext>           [a-z\\d!#\\$%&'*+-\\x{2f}=?^_`{|}~] )
-(?<atom>            (?&CFWS)?+ (?&atext)+ (?&CFWS)?+ )
-(?<ccontent>        (?&ctext) | (?&quoted_pair) | (?&comment) )
-(?<ctext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ ()\\\\] )
-(?<comment>         \\( (?: (?&FWS)?+ (?&ccontent) )*+ (?&FWS)?+ \\) )
-(?<CFWS>            (?: (?&FWS)?+ (?&comment) )* (?# NOT possessive)
-                    (?: (?&FWS)?+ (?&comment) | (?&FWS) ) )
-(?<dcontent>        (?&dtext) | (?&quoted_pair) )
-(?<display_name>    (?&phrase) )
-(?<domain>          (?&dot_atom) | (?&domain_literal) )
-(?<domain_literal>  (?&CFWS)?+ \\[ (?: (?&FWS)?+ (?&dcontent) )* (?&FWS)?+ \\]
-                    (?&CFWS)?+ )
-(?<dot_atom>        (?&CFWS)?+ (?&dot_atom_text) (?&CFWS)?+ )
-(?<dot_atom_text>   (?&atext)++ (?: \\. (?&atext)++)*+ )
-(?<dtext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ \\[\\]\\\\] )
-(?<FWS>             (?: [\\t\\ ]*+ \\n)?+ [\\t\\ ]++ )
-(?<local_part>      (?&dot_atom) | (?&quoted_string)  )
-(?<mailbox>         (?&name_addr) | (?&addr_spec) )
-(?<name_addr>       (?&display_name)? (?&angle_addr) )
-(?<phrase>          (?&word)++ )
-(?<qcontent>        (?&qtext) | (?&quoted_pair) )
-(?<quoted_pair>     \" (?&text) )
-(?<quoted_string>   (?&CFWS)?+ \" (?: (?&FWS)?+ (?&qcontent))* (?&FWS)?+ \"
-                    (?&CFWS)?+ )
-(?<qtext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ \"\\\\] )
-(?<text>            [^\\r\\n] )
-(?<word>            (?&atom) | (?&quoted_string) )
-) # End DEFINE
-^(?&mailbox)$","L&ssxlIODj&n\\1\\1ukQ",[global])),
-    <<"The quick brown fox">> = iolist_to_binary(re:replace("The quick brown fox","(?ix)(?(DEFINE)
-(?<addr_spec>       (?&local_part) \\@ (?&domain) )
-(?<angle_addr>      (?&CFWS)?+ < (?&addr_spec) > (?&CFWS)?+ )
-(?<atext>           [a-z\\d!#\\$%&'*+-\\x{2f}=?^_`{|}~] )
-(?<atom>            (?&CFWS)?+ (?&atext)+ (?&CFWS)?+ )
-(?<ccontent>        (?&ctext) | (?&quoted_pair) | (?&comment) )
-(?<ctext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ ()\\\\] )
-(?<comment>         \\( (?: (?&FWS)?+ (?&ccontent) )*+ (?&FWS)?+ \\) )
-(?<CFWS>            (?: (?&FWS)?+ (?&comment) )* (?# NOT possessive)
-                    (?: (?&FWS)?+ (?&comment) | (?&FWS) ) )
-(?<dcontent>        (?&dtext) | (?&quoted_pair) )
-(?<display_name>    (?&phrase) )
-(?<domain>          (?&dot_atom) | (?&domain_literal) )
-(?<domain_literal>  (?&CFWS)?+ \\[ (?: (?&FWS)?+ (?&dcontent) )* (?&FWS)?+ \\]
-                    (?&CFWS)?+ )
-(?<dot_atom>        (?&CFWS)?+ (?&dot_atom_text) (?&CFWS)?+ )
-(?<dot_atom_text>   (?&atext)++ (?: \\. (?&atext)++)*+ )
-(?<dtext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ \\[\\]\\\\] )
-(?<FWS>             (?: [\\t\\ ]*+ \\n)?+ [\\t\\ ]++ )
-(?<local_part>      (?&dot_atom) | (?&quoted_string)  )
-(?<mailbox>         (?&name_addr) | (?&addr_spec) )
-(?<name_addr>       (?&display_name)? (?&angle_addr) )
-(?<phrase>          (?&word)++ )
-(?<qcontent>        (?&qtext) | (?&quoted_pair) )
-(?<quoted_pair>     \" (?&text) )
-(?<quoted_string>   (?&CFWS)?+ \" (?: (?&FWS)?+ (?&qcontent))* (?&FWS)?+ \"
-                    (?&CFWS)?+ )
-(?<qtext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ \"\\\\] )
-(?<text>            [^\\r\\n] )
-(?<word>            (?&atom) | (?&quoted_string) )
-) # End DEFINE
-^(?&mailbox)$","aPbcQm&Yu",[])),
-    <<"The quick brown fox">> = iolist_to_binary(re:replace("The quick brown fox","(?ix)(?(DEFINE)
-(?<addr_spec>       (?&local_part) \\@ (?&domain) )
-(?<angle_addr>      (?&CFWS)?+ < (?&addr_spec) > (?&CFWS)?+ )
-(?<atext>           [a-z\\d!#\\$%&'*+-\\x{2f}=?^_`{|}~] )
-(?<atom>            (?&CFWS)?+ (?&atext)+ (?&CFWS)?+ )
-(?<ccontent>        (?&ctext) | (?&quoted_pair) | (?&comment) )
-(?<ctext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ ()\\\\] )
-(?<comment>         \\( (?: (?&FWS)?+ (?&ccontent) )*+ (?&FWS)?+ \\) )
-(?<CFWS>            (?: (?&FWS)?+ (?&comment) )* (?# NOT possessive)
-                    (?: (?&FWS)?+ (?&comment) | (?&FWS) ) )
-(?<dcontent>        (?&dtext) | (?&quoted_pair) )
-(?<display_name>    (?&phrase) )
-(?<domain>          (?&dot_atom) | (?&domain_literal) )
-(?<domain_literal>  (?&CFWS)?+ \\[ (?: (?&FWS)?+ (?&dcontent) )* (?&FWS)?+ \\]
-                    (?&CFWS)?+ )
-(?<dot_atom>        (?&CFWS)?+ (?&dot_atom_text) (?&CFWS)?+ )
-(?<dot_atom_text>   (?&atext)++ (?: \\. (?&atext)++)*+ )
-(?<dtext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ \\[\\]\\\\] )
-(?<FWS>             (?: [\\t\\ ]*+ \\n)?+ [\\t\\ ]++ )
-(?<local_part>      (?&dot_atom) | (?&quoted_string)  )
-(?<mailbox>         (?&name_addr) | (?&addr_spec) )
-(?<name_addr>       (?&display_name)? (?&angle_addr) )
-(?<phrase>          (?&word)++ )
-(?<qcontent>        (?&qtext) | (?&quoted_pair) )
-(?<quoted_pair>     \" (?&text) )
-(?<quoted_string>   (?&CFWS)?+ \" (?: (?&FWS)?+ (?&qcontent))* (?&FWS)?+ \"
-                    (?&CFWS)?+ )
-(?<qtext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ \"\\\\] )
-(?<text>            [^\\r\\n] )
-(?<word>            (?&atom) | (?&quoted_string) )
-) # End DEFINE
-^(?&mailbox)$","aPbcQm&Yu",[global])),
-    <<"< >">> = iolist_to_binary(re:replace("< >","<(?xxx:[a b])>","G\\1q&",[])),
-    <<"< >">> = iolist_to_binary(re:replace("< >","<(?xxx:[a b])>","G\\1q&",[global])),
-    <<"12-24jQnJbi12-24tUxBujcSC">> = iolist_to_binary(re:replace("12-24","[[:digit:]-]+","&jQnJbi&tUxBujcSC",[])),
-    <<"12-24jQnJbi12-24tUxBujcSC">> = iolist_to_binary(re:replace("12-24","[[:digit:]-]+","&jQnJbi&tUxBujcSC",[global])),
+    <<"abWnuGAPbRVIbbgbc">> = iolist_to_binary(re:replace("abc","(*PRUNE:m(m)(?&y)(?(DEFINE)(?<y>b))","&WnuGAP&RVIb\\1&g&",[])),
+    <<"abWnuGAPbRVIbbgbc">> = iolist_to_binary(re:replace("abc","(*PRUNE:m(m)(?&y)(?(DEFINE)(?<y>b))","&WnuGAP&RVIb\\1&g&",[global])),
+    <<"abObgwc">> = iolist_to_binary(re:replace("abc","(*SKIP:m(m)(?&y)(?(DEFINE)(?<y>b))","\\1bO&gw",[])),
+    <<"abObgwc">> = iolist_to_binary(re:replace("abc","(*SKIP:m(m)(?&y)(?(DEFINE)(?<y>b))","\\1bO&gw",[global])),
+    <<"avfWlFqvTQcSsMBuec">> = iolist_to_binary(re:replace("abc","(*THEN:m(m)(?&y)(?(DEFINE)(?<y>b))","vfWlFqvTQcSsMBue",[])),
+    <<"avfWlFqvTQcSsMBuec">> = iolist_to_binary(re:replace("abc","(*THEN:m(m)(?&y)(?(DEFINE)(?<y>b))","vfWlFqvTQcSsMBue",[global])),
+    <<"gcD">> = iolist_to_binary(re:replace("1234","^\\d*\\w{4}","gcD",[])),
+    <<"gcD">> = iolist_to_binary(re:replace("1234","^\\d*\\w{4}","gcD",[global])),
+    <<"123">> = iolist_to_binary(re:replace("123","^\\d*\\w{4}","AX\\1rLumLDPde&hs",[])),
+    <<"123">> = iolist_to_binary(re:replace("123","^\\d*\\w{4}","AX\\1rLumLDPde&hs",[global])),
+    <<"GbIoTYfSk">> = iolist_to_binary(re:replace("aaaa","^[^b]*\\w{4}","GbIoTYfSk",[])),
+    <<"GbIoTYfSk">> = iolist_to_binary(re:replace("aaaa","^[^b]*\\w{4}","GbIoTYfSk",[global])),
+    <<"aaa">> = iolist_to_binary(re:replace("aaa","^[^b]*\\w{4}","XIW&php\\1D&&uKhDB\\1fhy",[])),
+    <<"aaa">> = iolist_to_binary(re:replace("aaa","^[^b]*\\w{4}","XIW&php\\1D&&uKhDB\\1fhy",[global])),
+    <<"eqYDrluTHwQ">> = iolist_to_binary(re:replace("aaaa","^[^b]*\\w{4}","eqY\\1Dr\\1luTHwQ",[caseless])),
+    <<"eqYDrluTHwQ">> = iolist_to_binary(re:replace("aaaa","^[^b]*\\w{4}","eqY\\1Dr\\1luTHwQ",[caseless,global])),
+    <<"aaa">> = iolist_to_binary(re:replace("aaa","^[^b]*\\w{4}","DCSsYSA",[caseless])),
+    <<"aaa">> = iolist_to_binary(re:replace("aaa","^[^b]*\\w{4}","DCSsYSA",[caseless,global])),
+    <<"sXOEXqrNLjeIpAFEqS">> = iolist_to_binary(re:replace("aaaa","^a*\\w{4}","sXOEXqr\\1NLjeIpAFEqS",[])),
+    <<"sXOEXqrNLjeIpAFEqS">> = iolist_to_binary(re:replace("aaaa","^a*\\w{4}","sXOEXqr\\1NLjeIpAFEqS",[global])),
+    <<"aaa">> = iolist_to_binary(re:replace("aaa","^a*\\w{4}","RhG&SVJRvrSbFfks",[])),
+    <<"aaa">> = iolist_to_binary(re:replace("aaa","^a*\\w{4}","RhG&SVJRvrSbFfks",[global])),
+    <<"VMSsQqaaaax">> = iolist_to_binary(re:replace("aaaa","^a*\\w{4}","VMSsQq&x",[caseless])),
+    <<"VMSsQqaaaax">> = iolist_to_binary(re:replace("aaaa","^a*\\w{4}","VMSsQq&x",[caseless,global])),
+    <<"aaa">> = iolist_to_binary(re:replace("aaa","^a*\\w{4}","I&ofEGK\\1gk&y",[caseless])),
+    <<"aaa">> = iolist_to_binary(re:replace("aaa","^a*\\w{4}","I&ofEGK\\1gk&y",[caseless,global])),
+    <<"1KCKqqqW1 IN SOA non-sp1 non-sp2(OhQmC1 IN SOA non-sp1 non-sp2(c">> = iolist_to_binary(re:replace("1 IN SOA non-sp1 non-sp2(","^(\\d+)\\s+IN\\s+SOA\\s+(\\S+)\\s+(\\S+)\\s*\\(\\s*$","\\1KCKqqqW&OhQmC&c",[])),
+    <<"1KCKqqqW1 IN SOA non-sp1 non-sp2(OhQmC1 IN SOA non-sp1 non-sp2(c">> = iolist_to_binary(re:replace("1 IN SOA non-sp1 non-sp2(","^(\\d+)\\s+IN\\s+SOA\\s+(\\S+)\\s+(\\S+)\\s*\\(\\s*$","\\1KCKqqqW&OhQmC&c",[global])),
+    <<"ylAzlrGgeOFdq">> = iolist_to_binary(re:replace("Az","^A\\xBz","yl&lrGgeOFdq",[])),
+    <<"ylAzlrGgeOFdq">> = iolist_to_binary(re:replace("Az","^A\\xBz","yl&lrGgeOFdq",[global])),
+    <<"RVQA«znWTFmuu">> = iolist_to_binary(re:replace("A«z","^A\\xABz","RVQ&nWTFmuu",[])),
+    <<"RVQA«znWTFmuu">> = iolist_to_binary(re:replace("A«z","^A\\xABz","RVQ&nWTFmuu",[global])),
+    <<"SsA«CznA«CzjAA«CzWrFxNxT">> = iolist_to_binary(re:replace("A«Cz","^A\\xABCz","Ss&n&jA&WrFx\\1NxT\\1",[])),
+    <<"SsA«CznA«CzjAA«CzWrFxNxT">> = iolist_to_binary(re:replace("A«Cz","^A\\xABCz","Ss&n&jA&WrFx\\1NxT\\1",[global])),
+    <<"oykGJTnwyJ">> = iolist_to_binary(re:replace("ASB","^A\\o{123}B","oyk\\1GJTnwyJ",[])),
+    <<"oykGJTnwyJ">> = iolist_to_binary(re:replace("ASB","^A\\o{123}B","oyk\\1GJTnwyJ",[global])),
+    <<"rP">> = iolist_to_binary(re:replace("aaaab"," ^ a + + b $ ","r\\1P",[extended])),
+    <<"rP">> = iolist_to_binary(re:replace("aaaab"," ^ a + + b $ ","r\\1P",[extended,global])),
+    <<"mVYaaaabiTtvcE">> = iolist_to_binary(re:replace("aaaab"," ^ a + #comment
+  + b $ ","mVY\\1&iTtvcE",[extended])),
+    <<"mVYaaaabiTtvcE">> = iolist_to_binary(re:replace("aaaab"," ^ a + #comment
+  + b $ ","mVY\\1&iTtvcE",[extended,global])),
+    <<"LaaaabssxlIODjaaaabnukQ">> = iolist_to_binary(re:replace("aaaab"," ^ a + #comment
+  #comment
+  + b $ ","L&ssxlIODj&n\\1\\1ukQ",[extended])),
+    <<"LaaaabssxlIODjaaaabnukQ">> = iolist_to_binary(re:replace("aaaab"," ^ a + #comment
+  #comment
+  + b $ ","L&ssxlIODj&n\\1\\1ukQ",[extended,global])),
+    <<"aPbcQmaaaabYu">> = iolist_to_binary(re:replace("aaaab"," ^ (?> a + ) b $ ","aPbcQm&Yu",[extended])),
+    <<"aPbcQmaaaabYu">> = iolist_to_binary(re:replace("aaaab"," ^ (?> a + ) b $ ","aPbcQm&Yu",[extended,global])),
     ok.
 run55() ->
-    <<"((?<=((*ACCEPT)) )\\1?\\b) ">> = iolist_to_binary(re:replace("((?<=((*ACCEPT)) )\\1?\\b) ","((?<=((*ACCEPT)) )\\1?\\b) ","DNWp&\\1",[])),
-    <<"((?<=((*ACCEPT)) )\\1?\\b) ">> = iolist_to_binary(re:replace("((?<=((*ACCEPT)) )\\1?\\b) ","((?<=((*ACCEPT)) )\\1?\\b) ","DNWp&\\1",[global])),
-    <<"XFYYUCYYjUSvYYbLskbVFDSRZ">> = iolist_to_binary(re:replace("XYYZ","((?<=((*ACCEPT))X)\\1?Y)\\1","F&UC&jUSv&bLskbVFDSR",[])),
-    <<"XFYYUCYYjUSvYYbLskbVFDSRZ">> = iolist_to_binary(re:replace("XYYZ","((?<=((*ACCEPT))X)\\1?Y)\\1","F&UC&jUSv&bLskbVFDSR",[global])),
-    <<"XxYZ">> = iolist_to_binary(re:replace("XYYZ","((?<=((*ACCEPT))X)\\1?Y(*ACCEPT))\\1","x",[])),
-    <<"XxxZ">> = iolist_to_binary(re:replace("XYYZ","((?<=((*ACCEPT))X)\\1?Y(*ACCEPT))\\1","x",[global])),
-    <<"uvwVXaa">> = iolist_to_binary(re:replace("aa","(?(DEFINE)(?<optional_a>a?)X)^(?&optional_a)a$","uv\\1wVX\\1&",[])),
-    <<"uvwVXaa">> = iolist_to_binary(re:replace("aa","(?(DEFINE)(?<optional_a>a?)X)^(?&optional_a)a$","uv\\1wVX\\1&",[global])),
-    <<"aXqaqcahUB">> = iolist_to_binary(re:replace("a","(?(DEFINE)(?<optional_a>a?)X)^(?&optional_a)a$","aXq&qc&hUB",[])),
-    <<"aXqaqcahUB">> = iolist_to_binary(re:replace("a","(?(DEFINE)(?<optional_a>a?)X)^(?&optional_a)a$","aXq&qc&hUB",[global])),
-    <<"abaadaBabaaXbaefaOwsSNUSdK">> = iolist_to_binary(re:replace("abaa","^(a?)b(?1)a","&d\\1B&Xb\\1ef\\1OwsSNUSdK",[])),
-    <<"abaadaBabaaXbaefaOwsSNUSdK">> = iolist_to_binary(re:replace("abaa","^(a?)b(?1)a","&d\\1B&Xb\\1ef\\1OwsSNUSdK",[global])),
-    <<"YRabaaaVaajPdaajabamabaKMm">> = iolist_to_binary(re:replace("aba","^(a?)b(?1)a","YR&\\1aV\\1\\1jPd\\1\\1j&m&KMm",[])),
-    <<"YRabaaaVaajPdaajabamabaKMm">> = iolist_to_binary(re:replace("aba","^(a?)b(?1)a","YR&\\1aV\\1\\1jPd\\1\\1j&m&KMm",[global])),
-    <<"CKJwaLFbaaMsbaaLr">> = iolist_to_binary(re:replace("baa","^(a?)b(?1)a","CKJwaLF&Ms&\\1\\1Lr",[])),
-    <<"CKJwaLFbaaMsbaaLr">> = iolist_to_binary(re:replace("baa","^(a?)b(?1)a","CKJwaLF&Ms&\\1\\1Lr",[global])),
-    <<"eMVQRJEebaVBfXba">> = iolist_to_binary(re:replace("ba","^(a?)b(?1)a","e\\1MVQRJEe&V\\1BfX&",[])),
-    <<"eMVQRJEebaVBfXba">> = iolist_to_binary(re:replace("ba","^(a?)b(?1)a","e\\1MVQRJEe&V\\1BfX&",[global])),
-    <<"MkJwuACGqDMabaaaUnx">> = iolist_to_binary(re:replace("abaa","^(a?)+b(?1)a","M\\1kJwuACGqDM\\1&aUnx",[])),
-    <<"MkJwuACGqDMabaaaUnx">> = iolist_to_binary(re:replace("abaa","^(a?)+b(?1)a","M\\1kJwuACGqDM\\1&aUnx",[global])),
-    <<"h">> = iolist_to_binary(re:replace("aba","^(a?)+b(?1)a","h",[])),
-    <<"h">> = iolist_to_binary(re:replace("aba","^(a?)+b(?1)a","h",[global])),
-    <<"RCbaaBnbaabaanS">> = iolist_to_binary(re:replace("baa","^(a?)+b(?1)a","RC&Bn&\\1\\1&nS",[])),
-    <<"RCbaaBnbaabaanS">> = iolist_to_binary(re:replace("baa","^(a?)+b(?1)a","RC&Bn&\\1\\1&nS",[global])),
-    <<"abagbabaxOODdgKqbaOJ">> = iolist_to_binary(re:replace("ba","^(a?)+b(?1)a","a\\1&g&&xOODd\\1g\\1Kq&\\1OJ",[])),
-    <<"abagbabaxOODdgKqbaOJ">> = iolist_to_binary(re:replace("ba","^(a?)+b(?1)a","a\\1&g&&xOODd\\1g\\1Kq&\\1OJ",[global])),
-    <<"TsVxnH">> = iolist_to_binary(re:replace("abaa","^(a?)++b(?1)a","TsVxnH\\1",[])),
-    <<"TsVxnH">> = iolist_to_binary(re:replace("abaa","^(a?)++b(?1)a","TsVxnH\\1",[global])),
-    <<"aknabasabaxIQjWA">> = iolist_to_binary(re:replace("aba","^(a?)++b(?1)a","akn&\\1\\1\\1s\\1&xIQjWA",[])),
-    <<"aknabasabaxIQjWA">> = iolist_to_binary(re:replace("aba","^(a?)++b(?1)a","akn&\\1\\1\\1s\\1&xIQjWA",[global])),
-    <<"F">> = iolist_to_binary(re:replace("baa","^(a?)++b(?1)a","F",[])),
-    <<"F">> = iolist_to_binary(re:replace("baa","^(a?)++b(?1)a","F",[global])),
-    <<"bITLsMJKkm">> = iolist_to_binary(re:replace("ba","^(a?)++b(?1)a","bITLs\\1MJKk\\1\\1m",[])),
-    <<"bITLsMJKkm">> = iolist_to_binary(re:replace("ba","^(a?)++b(?1)a","bITLs\\1MJKk\\1\\1m",[global])),
-    <<"ubIJDMWAKIIbGhn">> = iolist_to_binary(re:replace("b","^(a?)+b","u&IJDM\\1WAKII&G\\1hn",[])),
-    <<"ubIJDMWAKIIbGhn">> = iolist_to_binary(re:replace("b","^(a?)+b","u&IJDM\\1WAKII&G\\1hn",[global])),
-    <<"KPwyWqtephabcFNSg">> = iolist_to_binary(re:replace("ab","^(a?)+b","KPwy\\1Wqteph&cFN\\1Sg\\1",[])),
-    <<"KPwyWqtephabcFNSg">> = iolist_to_binary(re:replace("ab","^(a?)+b","KPwy\\1Wqteph&cFN\\1Sg\\1",[global])),
-    <<"HHvvo">> = iolist_to_binary(re:replace("aaab","^(a?)+b","HHvvo",[])),
-    <<"HHvvo">> = iolist_to_binary(re:replace("aaab","^(a?)+b","HHvvo",[global])),
-    <<"QVIAad">> = iolist_to_binary(re:replace("aab","(?=a+)a(a+)++b","QVIA\\1d",[])),
-    <<"QVIAad">> = iolist_to_binary(re:replace("aab","(?=a+)a(a+)++b","QVIA\\1d",[global])),
-    <<"qjrOIaanRtGbfbc">> = iolist_to_binary(re:replace("abc","a(?=.(*:X))(*SKIP:X)(*F)|(.)","qjrOI&&nRtGbf",[])),
-    <<"qjrOIaanRtGbfqjrOIbbnRtGbfqjrOIccnRtGbf">> = iolist_to_binary(re:replace("abc","a(?=.(*:X))(*SKIP:X)(*F)|(.)","qjrOI&&nRtGbf",[global])),
-    <<"wbc">> = iolist_to_binary(re:replace("abc","a(?>(*:X))(*SKIP:X)(*F)|(.)","w",[])),
-    <<"www">> = iolist_to_binary(re:replace("abc","a(?>(*:X))(*SKIP:X)(*F)|(.)","w",[global])),
-    <<"akeXPouTAhbXevPvyjQTc">> = iolist_to_binary(re:replace("abc","a(?:(*:X))(*SKIP:X)(*F)|(.)","keXPouTAh&XevPvyjQT",[])),
-    <<"akeXPouTAhbXevPvyjQTkeXPouTAhcXevPvyjQT">> = iolist_to_binary(re:replace("abc","a(?:(*:X))(*SKIP:X)(*F)|(.)","keXPouTAh&XevPvyjQT",[global])),
-    <<"abcRjabcsfrR">> = iolist_to_binary(re:replace("abc","(?>a(*:1))(?>b(*:1))(*SKIP:1)x|.*","&Rj&sfrR",[])),
-    <<"abcRjabcsfrRRjsfrR">> = iolist_to_binary(re:replace("abc","(?>a(*:1))(?>b(*:1))(*SKIP:1)x|.*","&Rj&sfrR",[global])),
-    <<"prYdoWFMgrcQIUdFSO">> = iolist_to_binary(re:replace("abc","(?>a(*:1))(?>b)(*SKIP:1)x|.*","\\1prYdoWF\\1MgrcQIUdFSO",[])),
-    <<"prYdoWFMgrcQIUdFSOprYdoWFMgrcQIUdFSO">> = iolist_to_binary(re:replace("abc","(?>a(*:1))(?>b)(*SKIP:1)x|.*","\\1prYdoWF\\1MgrcQIUdFSO",[global])),
-    <<"MOanbyBtGHNaobc">> = iolist_to_binary(re:replace("abc","a(*ACCEPT:X)b","MO&nbyB\\1tGHNao",[])),
-    <<"MOanbyBtGHNaobc">> = iolist_to_binary(re:replace("abc","a(*ACCEPT:X)b","MO&nbyB\\1tGHNao",[global])),
+    <<"Gaaaaqaaaab">> = iolist_to_binary(re:replace("aaaab"," ^ ( a + ) + + \\w $ ","G\\1q&",[extended])),
+    <<"Gaaaaqaaaab">> = iolist_to_binary(re:replace("aaaab"," ^ ( a + ) + + \\w $ ","G\\1q&",[extended,global])),
+    <<"ababjQnJbibtUxBujcSCc">> = iolist_to_binary(re:replace("ababc","(?:a\\Kb)*+","&jQnJbi&tUxBujcSC",[])),
+    <<"ababjQnJbibtUxBujcSCjQnJbitUxBujcSCcjQnJbitUxBujcSC">> = iolist_to_binary(re:replace("ababc","(?:a\\Kb)*+","&jQnJbi&tUxBujcSC",[global])),
+    <<"abaDNWpbc">> = iolist_to_binary(re:replace("ababc","(?>a\\Kb)*","DNWp&\\1",[])),
+    <<"abaDNWpbDNWpcDNWp">> = iolist_to_binary(re:replace("ababc","(?>a\\Kb)*","DNWp&\\1",[global])),
+    <<"abaFbUCbjUSvbbLskbVFDSRc">> = iolist_to_binary(re:replace("ababc","(?:a\\Kb)*","F&UC&jUSv&bLskbVFDSR",[])),
+    <<"abaFbUCbjUSvbbLskbVFDSRFUCjUSvbLskbVFDSRcFUCjUSvbLskbVFDSR">> = iolist_to_binary(re:replace("ababc","(?:a\\Kb)*","F&UC&jUSv&bLskbVFDSR",[global])),
+    <<"abaxc">> = iolist_to_binary(re:replace("ababc","(a\\Kb)*+","x",[])),
+    <<"abaxxcx">> = iolist_to_binary(re:replace("ababc","(a\\Kb)*+","x",[global])),
+    <<"abauvabwVXabbc">> = iolist_to_binary(re:replace("ababc","(a\\Kb)*","uv\\1wVX\\1&",[])),
+    <<"abauvabwVXabbuvwVXcuvwVX">> = iolist_to_binary(re:replace("ababc","(a\\Kb)*","uv\\1wVX\\1&",[global])),
+    <<"acb">> = iolist_to_binary(re:replace("acb","(?:x|(?:(xx|yy)+|x|x|x|x|x)|a|a|a)bc","aXq&qc&hUB",[])),
+    <<"acb">> = iolist_to_binary(re:replace("acb","(?:x|(?:(xx|yy)+|x|x|x|x|x)|a|a|a)bc","aXq&qc&hUB",[global])),
+    <<"NON QUOTED \"QUOT\"\"ED\" AFTER dBNON QUOTED \"QUOT\"\"ED\" AFTER XbefOwsSNUSdK\"NOT MATCHED">> = iolist_to_binary(re:replace("NON QUOTED \"QUOT\"\"ED\" AFTER \"NOT MATCHED","\\A(?:[^\\\"]++|\\\"(?:[^\\\"]*+|\\\"\\\")*+\\\")++","&d\\1B&Xb\\1ef\\1OwsSNUSdK",[])),
+    <<"NON QUOTED \"QUOT\"\"ED\" AFTER dBNON QUOTED \"QUOT\"\"ED\" AFTER XbefOwsSNUSdK\"NOT MATCHED">> = iolist_to_binary(re:replace("NON QUOTED \"QUOT\"\"ED\" AFTER \"NOT MATCHED","\\A(?:[^\\\"]++|\\\"(?:[^\\\"]*+|\\\"\\\")*+\\\")++","&d\\1B&Xb\\1ef\\1OwsSNUSdK",[global])),
+    <<"YRNON QUOTED \"QUOT\"\"ED\" AFTER aVjPdjNON QUOTED \"QUOT\"\"ED\" AFTER mNON QUOTED \"QUOT\"\"ED\" AFTER KMm\"NOT MATCHED">> = iolist_to_binary(re:replace("NON QUOTED \"QUOT\"\"ED\" AFTER \"NOT MATCHED","\\A(?:[^\\\"]++|\\\"(?:[^\\\"]++|\\\"\\\")*+\\\")++","YR&\\1aV\\1\\1jPd\\1\\1j&m&KMm",[])),
+    <<"YRNON QUOTED \"QUOT\"\"ED\" AFTER aVjPdjNON QUOTED \"QUOT\"\"ED\" AFTER mNON QUOTED \"QUOT\"\"ED\" AFTER KMm\"NOT MATCHED">> = iolist_to_binary(re:replace("NON QUOTED \"QUOT\"\"ED\" AFTER \"NOT MATCHED","\\A(?:[^\\\"]++|\\\"(?:[^\\\"]++|\\\"\\\")*+\\\")++","YR&\\1aV\\1\\1jPd\\1\\1j&m&KMm",[global])),
+    <<"CKJwaLFNON QUOTED \"QUOT\"\"ED\" AFTER MsNON QUOTED \"QUOT\"\"ED\" AFTER Lr\"NOT MATCHED">> = iolist_to_binary(re:replace("NON QUOTED \"QUOT\"\"ED\" AFTER \"NOT MATCHED","\\A(?:[^\\\"]++|\\\"(?:[^\\\"]++|\\\"\\\")++\\\")++","CKJwaLF&Ms&\\1\\1Lr",[])),
+    <<"CKJwaLFNON QUOTED \"QUOT\"\"ED\" AFTER MsNON QUOTED \"QUOT\"\"ED\" AFTER Lr\"NOT MATCHED">> = iolist_to_binary(re:replace("NON QUOTED \"QUOT\"\"ED\" AFTER \"NOT MATCHED","\\A(?:[^\\\"]++|\\\"(?:[^\\\"]++|\\\"\\\")++\\\")++","CKJwaLF&Ms&\\1\\1Lr",[global])),
+    <<"e AFTER MVQRJEeNON QUOTED \"QUOT\"\"ED\" AFTER V AFTER BfXNON QUOTED \"QUOT\"\"ED\" AFTER \"NOT MATCHED">> = iolist_to_binary(re:replace("NON QUOTED \"QUOT\"\"ED\" AFTER \"NOT MATCHED","\\A([^\\\"1]++|[\\\"2]([^\\\"3]*+|[\\\"4][\\\"5])*+[\\\"6])++","e\\1MVQRJEe&V\\1BfX&",[])),
+    <<"e AFTER MVQRJEeNON QUOTED \"QUOT\"\"ED\" AFTER V AFTER BfXNON QUOTED \"QUOT\"\"ED\" AFTER \"NOT MATCHED">> = iolist_to_binary(re:replace("NON QUOTED \"QUOT\"\"ED\" AFTER \"NOT MATCHED","\\A([^\\\"1]++|[\\\"2]([^\\\"3]*+|[\\\"4][\\\"5])*+[\\\"6])++","e\\1MVQRJEe&V\\1BfX&",[global])),
+    <<"MkJwuACGqDMtesaUnxt test">> = iolist_to_binary(re:replace("test test","^\\w+(?>\\s*)(?<=\\w)","M\\1kJwuACGqDM\\1&aUnx",[])),
+    <<"MkJwuACGqDMtesaUnxt test">> = iolist_to_binary(re:replace("test test","^\\w+(?>\\s*)(?<=\\w)","M\\1kJwuACGqDM\\1&aUnx",[global])),
+    <<"aknaclaaasaaclxIQjWA">> = iolist_to_binary(re:replace("acl","(?P<Name>a)?(?P<Name2>b)?(?(<Name>)c|d)*l","akn&\\1\\1\\1s\\1&xIQjWA",[])),
+    <<"aknaclaaasaaclxIQjWA">> = iolist_to_binary(re:replace("acl","(?P<Name>a)?(?P<Name2>b)?(?(<Name>)c|d)*l","akn&\\1\\1\\1s\\1&xIQjWA",[global])),
+    <<"F">> = iolist_to_binary(re:replace("bdl","(?P<Name>a)?(?P<Name2>b)?(?(<Name>)c|d)*l","F",[])),
+    <<"F">> = iolist_to_binary(re:replace("bdl","(?P<Name>a)?(?P<Name2>b)?(?(<Name>)c|d)*l","F",[global])),
+    <<"abITLsMJKkm">> = iolist_to_binary(re:replace("adl","(?P<Name>a)?(?P<Name2>b)?(?(<Name>)c|d)*l","bITLs\\1MJKk\\1\\1m",[])),
+    <<"abITLsMJKkm">> = iolist_to_binary(re:replace("adl","(?P<Name>a)?(?P<Name2>b)?(?(<Name>)c|d)*l","bITLs\\1MJKk\\1\\1m",[global])),
+    <<"bculIJDMWAKIIlGhn">> = iolist_to_binary(re:replace("bcl","(?P<Name>a)?(?P<Name2>b)?(?(<Name>)c|d)*l","u&IJDM\\1WAKII&G\\1hn",[])),
+    <<"bculIJDMWAKIIlGhn">> = iolist_to_binary(re:replace("bcl","(?P<Name>a)?(?P<Name2>b)?(?(<Name>)c|d)*l","u&IJDM\\1WAKII&G\\1hn",[global])),
+    <<"KPwyWqtephabccFNSg">> = iolist_to_binary(re:replace("abc","\\sabc","KPwy\\1Wqteph&cFN\\1Sg\\1",[])),
+    <<"KPwyWqtephabccFNSg">> = iolist_to_binary(re:replace("abc","\\sabc","KPwy\\1Wqteph&cFN\\1Sg\\1",[global])),
+    <<"HHvvo">> = iolist_to_binary(re:replace("aa]]","[\\Qa]\\E]+","HHvvo",[])),
+    <<"HHvvo">> = iolist_to_binary(re:replace("aa]]","[\\Qa]\\E]+","HHvvo",[global])),
+    <<"QVIAd">> = iolist_to_binary(re:replace("aa]]","[\\Q]a\\E]+","QVIA\\1d",[])),
+    <<"QVIAd">> = iolist_to_binary(re:replace("aa]]","[\\Q]a\\E]+","QVIA\\1d",[global])),
     ok.
 run56() ->
-    <<"yxJFsgWaxyzhb">> = iolist_to_binary(re:replace("axyz","(?=a(*ACCEPT:QQ)bc)axyz","yxJFsgW&hb",[])),
-    <<"yxJFsgWaxyzhb">> = iolist_to_binary(re:replace("axyz","(?=a(*ACCEPT:QQ)bc)axyz","yxJFsgW&hb",[global])),
-    <<"EmmhYababc">> = iolist_to_binary(re:replace("abc","(?(DEFINE)(a(*ACCEPT:X)))(?1)b","EmmhY&&",[])),
-    <<"EmmhYababc">> = iolist_to_binary(re:replace("abc","(?(DEFINE)(a(*ACCEPT:X)))(?1)b","EmmhY&&",[global])),
-    <<"abc">> = iolist_to_binary(re:replace("abc","a(*F:X)b","RD",[])),
-    <<"abc">> = iolist_to_binary(re:replace("abc","a(*F:X)b","RD",[global])),
-    <<"abc">> = iolist_to_binary(re:replace("abc","(?(DEFINE)(a(*F:X)))(?1)b","HVPtJ&k\\1\\1h&TDNQ\\1F&",[])),
-    <<"abc">> = iolist_to_binary(re:replace("abc","(?(DEFINE)(a(*F:X)))(?1)b","HVPtJ&k\\1\\1h&TDNQ\\1F&",[global])),
-    <<"GYWUPwDc">> = iolist_to_binary(re:replace("abc","a(*COMMIT:X)b","GYWUPwD",[])),
-    <<"GYWUPwDc">> = iolist_to_binary(re:replace("abc","a(*COMMIT:X)b","GYWUPwD",[global])),
-    <<"fEkabrabc">> = iolist_to_binary(re:replace("abc","(?(DEFINE)(a(*COMMIT:X)))(?1)b","f\\1\\1Ek&r\\1\\1&",[])),
-    <<"fEkabrabc">> = iolist_to_binary(re:replace("abc","(?(DEFINE)(a(*COMMIT:X)))(?1)b","f\\1\\1Ek&r\\1\\1&",[global])),
-    <<"aaaatbdlqoaJUC">> = iolist_to_binary(re:replace("aaaabd","a+(*:Z)b(*COMMIT:X)(*SKIP:Z)c|.*","t&lqoaJUC",[])),
-    <<"aaaatbdlqoaJUCtlqoaJUC">> = iolist_to_binary(re:replace("aaaabd","a+(*:Z)b(*COMMIT:X)(*SKIP:Z)c|.*","t&lqoaJUC",[global])),
-    <<"aaaabd">> = iolist_to_binary(re:replace("aaaabd","a+(*:Z)b(*COMMIT:X)(*SKIP:X)c|.*","Vh\\1CaWxBWkPj&",[])),
-    <<"aaaabd">> = iolist_to_binary(re:replace("aaaabd","a+(*:Z)b(*COMMIT:X)(*SKIP:X)c|.*","Vh\\1CaWxBWkPj&",[global])),
-    <<"axabc">> = iolist_to_binary(re:replace("axabc","a(*COMMIT:X)b","keB",[])),
-    <<"axabc">> = iolist_to_binary(re:replace("axabc","a(*COMMIT:X)b","keB",[global])),
-    <<"aBCDE FhGHyUT">> = iolist_to_binary(re:replace("aBCDE F","(?i)A(?^)B(?^x:C D)(?^i)e f","&hGHyUT",[])),
-    <<"aBCDE FhGHyUT">> = iolist_to_binary(re:replace("aBCDE F","(?i)A(?^)B(?^x:C D)(?^i)e f","&hGHyUT",[global])),
-    <<"aBCDEF">> = iolist_to_binary(re:replace("aBCDEF","(?i)A(?^)B(?^x:C D)(?^i)e f","\\1\\1&al\\1\\1wRkdRudO\\1gVi",[])),
-    <<"aBCDEF">> = iolist_to_binary(re:replace("aBCDEF","(?i)A(?^)B(?^x:C D)(?^i)e f","\\1\\1&al\\1\\1wRkdRudO\\1gVi",[global])),
-    <<"AbCDe f">> = iolist_to_binary(re:replace("AbCDe f","(?i)A(?^)B(?^x:C D)(?^i)e f","Bj\\1vlyeNRa\\1kKKd",[])),
-    <<"AbCDe f">> = iolist_to_binary(re:replace("AbCDe f","(?i)A(?^)B(?^x:C D)(?^i)e f","Bj\\1vlyeNRa\\1kKKd",[global])),
-    <<"abchwEupkeifoobarxyz">> = iolist_to_binary(re:replace("abcfoobarxyz","(*pla:foo).{6}","hwEupk\\1e\\1i&",[])),
-    <<"abchwEupkeifoobarxyz">> = iolist_to_binary(re:replace("abcfoobarxyz","(*pla:foo).{6}","hwEupk\\1e\\1i&",[global])),
-    <<"abcfooba">> = iolist_to_binary(re:replace("abcfooba","(*pla:foo).{6}","TIskAGiopxb\\1oXHqh",[])),
-    <<"abcfooba">> = iolist_to_binary(re:replace("abcfooba","(*pla:foo).{6}","TIskAGiopxb\\1oXHqh",[global])),
-    <<"abcfoobarkSiunbmxyz">> = iolist_to_binary(re:replace("abcfoobarxyz","(*positive_lookahead:foo).{6}","&kSi\\1u\\1nbm",[])),
-    <<"abcfoobarkSiunbmxyz">> = iolist_to_binary(re:replace("abcfoobarxyz","(*positive_lookahead:foo).{6}","&kSi\\1u\\1nbm",[global])),
-    <<"WkCqBltfoobarHiYuyKEbaz">> = iolist_to_binary(re:replace("foobarbaz","(?(*pla:foo).{6}|a..)","W\\1\\1kCqBlt&Hi\\1YuyKE",[])),
-    <<"WkCqBltfoobarHiYuyKEbaz">> = iolist_to_binary(re:replace("foobarbaz","(?(*pla:foo).{6}|a..)","W\\1\\1kCqBlt&Hi\\1YuyKE",[global])),
-    <<"lBhbKjabcSfoobar">> = iolist_to_binary(re:replace("abcfoobar","(?(*pla:foo).{6}|a..)","l\\1\\1\\1Bhb\\1Kj&S",[])),
-    <<"lBhbKjabcSlBhbKjfoobarS">> = iolist_to_binary(re:replace("abcfoobar","(?(*pla:foo).{6}|a..)","l\\1\\1\\1Bhb\\1Kj&S",[global])),
-    <<"TnbXLTibaz">> = iolist_to_binary(re:replace("foobarbaz","(?(*positive_lookahead:foo).{6}|a..)","Tn\\1bXLTi\\1",[])),
-    <<"TnbXLTibaz">> = iolist_to_binary(re:replace("foobarbaz","(?(*positive_lookahead:foo).{6}|a..)","Tn\\1bXLTi\\1",[global])),
-    <<"iSfoobar">> = iolist_to_binary(re:replace("abcfoobar","(?(*positive_lookahead:foo).{6}|a..)","i\\1\\1S",[])),
-    <<"iSiS">> = iolist_to_binary(re:replace("abcfoobar","(?(*positive_lookahead:foo).{6}|a..)","i\\1\\1S",[global])),
-    <<"abcfooPPMbbarbarnlbarFnbcFteu">> = iolist_to_binary(re:replace("abcfoobar","(*plb:foo)bar","PPMb&&nl&FnbcFteu",[])),
-    <<"abcfooPPMbbarbarnlbarFnbcFteu">> = iolist_to_binary(re:replace("abcfoobar","(*plb:foo)bar","PPMb&&nl&FnbcFteu",[global])),
-    <<"abcbarfoo">> = iolist_to_binary(re:replace("abcbarfoo","(*plb:foo)bar","V\\1UmuVj",[])),
-    <<"abcbarfoo">> = iolist_to_binary(re:replace("abcbarfoo","(*plb:foo)bar","V\\1UmuVj",[global])),
-    <<"abcfoofQbarbarjOmbrqfbarAbBVYRO">> = iolist_to_binary(re:replace("abcfoobar","(*positive_lookbehind:foo)bar","fQ&&jOmbrqf&AbBVY\\1RO",[])),
-    <<"abcfoofQbarbarjOmbrqfbarAbBVYRO">> = iolist_to_binary(re:replace("abcfoobar","(*positive_lookbehind:foo)bar","fQ&&jOmbrqf&AbBVY\\1RO",[global])),
-    <<"abcbarfoo">> = iolist_to_binary(re:replace("abcbarfoo","(*positive_lookbehind:foo)bar","yxxigMcOS&rk",[])),
-    <<"abcbarfoo">> = iolist_to_binary(re:replace("abcbarfoo","(*positive_lookbehind:foo)bar","yxxigMcOS&rk",[global])),
-    <<"abcfoodxgiHSxbarBeVbarE">> = iolist_to_binary(re:replace("abcfoobar","(?(*plb:foo)bar|baz)","dx\\1giHSx&BeV&E",[])),
-    <<"abcfoodxgiHSxbarBeVbarE">> = iolist_to_binary(re:replace("abcfoobar","(?(*plb:foo)bar|baz)","dx\\1giHSx&BeV&E",[global])),
-    <<"DwfbazPJXbazSNfoobar">> = iolist_to_binary(re:replace("bazfoobar","(?(*plb:foo)bar|baz)","Dwf&PJX\\1\\1&SN",[])),
-    <<"DwfbazPJXbazSNfooDwfbarPJXbarSN">> = iolist_to_binary(re:replace("bazfoobar","(?(*plb:foo)bar|baz)","Dwf&PJX\\1\\1&SN",[global])),
-    <<"abclQfoobar">> = iolist_to_binary(re:replace("abcbazfoobar","(?(*plb:foo)bar|baz)","l\\1Q",[])),
-    <<"abclQfoolQ">> = iolist_to_binary(re:replace("abcbazfoobar","(?(*plb:foo)bar|baz)","l\\1Q",[global])),
-    <<"foobazfoomytQYMtByQalFhPaqAF">> = iolist_to_binary(re:replace("foobazfoobar","(?(*plb:foo)bar|baz)","\\1mytQYMtByQalFhPaqAF",[])),
-    <<"foobazfoomytQYMtByQalFhPaqAF">> = iolist_to_binary(re:replace("foobazfoobar","(?(*plb:foo)bar|baz)","\\1mytQYMtByQalFhPaqAF",[global])),
+    <<"qjrOIAaaBAaaBnRtGbf">> = iolist_to_binary(re:replace("AaaB","A((((((((a))))))))\\8B","qjrOI&&nRtGbf",[])),
+    <<"qjrOIAaaBAaaBnRtGbf">> = iolist_to_binary(re:replace("AaaB","A((((((((a))))))))\\8B","qjrOI&&nRtGbf",[global])),
+    <<"w">> = iolist_to_binary(re:replace("AaaB","A(((((((((a)))))))))\\9B","w",[])),
+    <<"w">> = iolist_to_binary(re:replace("AaaB","A(((((((((a)))))))))\\9B","w",[global])),
+    <<"keXPouTAhA8BXevPvyjQT">> = iolist_to_binary(re:replace("A8B","A[\\8\\9]B","keXPouTAh&XevPvyjQT",[])),
+    <<"keXPouTAhA8BXevPvyjQT">> = iolist_to_binary(re:replace("A8B","A[\\8\\9]B","keXPouTAh&XevPvyjQT",[global])),
+    <<"A9BRjA9BsfrR">> = iolist_to_binary(re:replace("A9B","A[\\8\\9]B","&Rj&sfrR",[])),
+    <<"A9BRjA9BsfrR">> = iolist_to_binary(re:replace("A9B","A[\\8\\9]B","&Rj&sfrR",[global])),
+    <<"abprYdoWFabMgrcQIUdFSO">> = iolist_to_binary(re:replace("abd","(|ab)*?d","\\1prYdoWF\\1MgrcQIUdFSO",[])),
+    <<"abprYdoWFabMgrcQIUdFSO">> = iolist_to_binary(re:replace("abd","(|ab)*?d","\\1prYdoWF\\1MgrcQIUdFSO",[global])),
+    <<"xyMOdnbyBtGHNao">> = iolist_to_binary(re:replace("xyd","(|ab)*?d","MO&nbyB\\1tGHNao",[])),
+    <<"xyMOdnbyBtGHNao">> = iolist_to_binary(re:replace("xyd","(|ab)*?d","MO&nbyB\\1tGHNao",[global])),
+    <<"yxJFsgWhb1234abcd">> = iolist_to_binary(re:replace("1234abcd","(?:((abcd))|(((?:(?:(?:(?:abc|(?:abcdef))))b)abcdefghi)abc)|((*ACCEPT)))","yxJFsgW&hb",[])),
+    <<"yxJFsgWhb1yxJFsgWhb2yxJFsgWhb3yxJFsgWhb4yxJFsgWabcdhbyxJFsgWhb">> = iolist_to_binary(re:replace("1234abcd","(?:((abcd))|(((?:(?:(?:(?:abc|(?:abcdef))))b)abcdefghi)abc)|((*ACCEPT)))","yxJFsgW&hb",[global])),
+    <<"EmmhYaaaaa">> = iolist_to_binary(re:replace("aaa","(\\2|a)(\\1)","EmmhY&&",[])),
+    <<"EmmhYaaaaa">> = iolist_to_binary(re:replace("aaa","(\\2|a)(\\1)","EmmhY&&",[global])),
+    <<"bRDc">> = iolist_to_binary(re:replace("baaaaaaaaac","(?1)(?#?'){8}(a)","RD",[])),
+    <<"bRDc">> = iolist_to_binary(re:replace("baaaaaaaaac","(?1)(?#?'){8}(a)","RD",[global])),
+    <<"HVPtJxxkxxhxxTDNQxFxx">> = iolist_to_binary(re:replace("xx","((((((((((((x))))))))))))\\12","HVPtJ&k\\1\\1h&TDNQ\\1F&",[])),
+    <<"HVPtJxxkxxhxxTDNQxFxx">> = iolist_to_binary(re:replace("xx","((((((((((((x))))))))))))\\12","HVPtJ&k\\1\\1h&TDNQ\\1F&",[global])),
+    <<"GYWUPwD">> = iolist_to_binary(re:replace("A8B9C","A[\\8]B[\\9]C","GYWUPwD",[])),
+    <<"GYWUPwD">> = iolist_to_binary(re:replace("A8B9C","A[\\8]B[\\9]C","GYWUPwD",[global])),
+    <<"fEkr">> = iolist_to_binary(re:replace("","(?1)()((((((\\1++))\\x85)+)|))","f\\1\\1Ek&r\\1\\1&",[])),
+    <<"fEkrfEkr">> = iolist_to_binary(re:replace("","(?1)()((((((\\1++))\\x85)+)|))","f\\1\\1Ek&r\\1\\1&",[global])),
+    <<"tlqoaJUCabcd">> = iolist_to_binary(re:replace("abcd","(?|(\\k'Pm')|(?'Pm'))","t&lqoaJUC",[])),
+    <<"tlqoaJUCatlqoaJUCbtlqoaJUCctlqoaJUCdtlqoaJUC">> = iolist_to_binary(re:replace("abcd","(?|(\\k'Pm')|(?'Pm'))","t&lqoaJUC",[global])),
+    <<"VhaaaCaWxBWkPjaaaaaa">> = iolist_to_binary(re:replace("aaaaaa","(?|(aaa)|(b))\\g{1}","Vh\\1CaWxBWkPj&",[])),
+    <<"VhaaaCaWxBWkPjaaaaaa">> = iolist_to_binary(re:replace("aaaaaa","(?|(aaa)|(b))\\g{1}","Vh\\1CaWxBWkPj&",[global])),
+    <<"keB">> = iolist_to_binary(re:replace("bb","(?|(aaa)|(b))\\g{1}","keB",[])),
+    <<"keB">> = iolist_to_binary(re:replace("bb","(?|(aaa)|(b))\\g{1}","keB",[global])),
+    <<"aaaaaahGHyUT">> = iolist_to_binary(re:replace("aaaaaa","(?|(aaa)|(b))(?1)","&hGHyUT",[])),
+    <<"aaaaaahGHyUT">> = iolist_to_binary(re:replace("aaaaaa","(?|(aaa)|(b))(?1)","&hGHyUT",[global])),
+    <<"bbbaaaalbbwRkdRudObgVi">> = iolist_to_binary(re:replace("baaa","(?|(aaa)|(b))(?1)","\\1\\1&al\\1\\1wRkdRudO\\1gVi",[])),
+    <<"bbbaaaalbbwRkdRudObgVi">> = iolist_to_binary(re:replace("baaa","(?|(aaa)|(b))(?1)","\\1\\1&al\\1\\1wRkdRudO\\1gVi",[global])),
+    <<"bb">> = iolist_to_binary(re:replace("bb","(?|(aaa)|(b))(?1)","Bj\\1vlyeNRa\\1kKKd",[])),
+    <<"bb">> = iolist_to_binary(re:replace("bb","(?|(aaa)|(b))(?1)","Bj\\1vlyeNRa\\1kKKd",[global])),
+    <<"xhwEupkaaaeaaaiaaa">> = iolist_to_binary(re:replace("xaaa","(?|(aaa)|(b))","hwEupk\\1e\\1i&",[])),
+    <<"xhwEupkaaaeaaaiaaa">> = iolist_to_binary(re:replace("xaaa","(?|(aaa)|(b))","hwEupk\\1e\\1i&",[global])),
+    <<"xTIskAGiopxbboXHqhc">> = iolist_to_binary(re:replace("xbc","(?|(aaa)|(b))","TIskAGiopxb\\1oXHqh",[])),
+    <<"xTIskAGiopxbboXHqhc">> = iolist_to_binary(re:replace("xbc","(?|(aaa)|(b))","TIskAGiopxb\\1oXHqh",[global])),
+    <<"aaaaaakSiaaauaaanbm">> = iolist_to_binary(re:replace("aaaaaa","(?|(?'a'aaa)|(?'a'b))\\k'a'","&kSi\\1u\\1nbm",[])),
+    <<"aaaaaakSiaaauaaanbm">> = iolist_to_binary(re:replace("aaaaaa","(?|(?'a'aaa)|(?'a'b))\\k'a'","&kSi\\1u\\1nbm",[global])),
+    <<"WbbkCqBltbbHibYuyKE">> = iolist_to_binary(re:replace("bb","(?|(?'a'aaa)|(?'a'b))\\k'a'","W\\1\\1kCqBlt&Hi\\1YuyKE",[])),
+    <<"WbbkCqBltbbHibYuyKE">> = iolist_to_binary(re:replace("bb","(?|(?'a'aaa)|(?'a'b))\\k'a'","W\\1\\1kCqBlt&Hi\\1YuyKE",[global])),
+    <<"aiSz">> = iolist_to_binary(re:replace("axxz","x (*MARK:ab cd # comment
+ef) x","i\\1\\1S",[extended])),
+    <<"aiSz">> = iolist_to_binary(re:replace("axxz","x (*MARK:ab cd # comment
+ef) x","i\\1\\1S",[extended,global])),
+    <<"acPPMbXXnlXFnbcFteu">> = iolist_to_binary(re:replace("acX","(?<=a(B){0}c)X","PPMb&&nl&FnbcFteu",[])),
+    <<"acPPMbXXnlXFnbcFteu">> = iolist_to_binary(re:replace("acX","(?<=a(B){0}c)X","PPMb&&nl&FnbcFteu",[global])),
     ok.
 run57() ->
-    <<"abcfooJcbartLdoGHtuOHxJ">> = iolist_to_binary(re:replace("abcfoobar","(?(*positive_lookbehind:foo)bar|baz)","Jc&tLdoGHt\\1uOHxJ",[])),
-    <<"abcfooJcbartLdoGHtuOHxJ">> = iolist_to_binary(re:replace("abcfoobar","(?(*positive_lookbehind:foo)bar|baz)","Jc&tLdoGHt\\1uOHxJ",[global])),
-    <<"jnJTrfoobar">> = iolist_to_binary(re:replace("bazfoobar","(?(*positive_lookbehind:foo)bar|baz)","jnJTr",[])),
-    <<"jnJTrfoojnJTr">> = iolist_to_binary(re:replace("bazfoobar","(?(*positive_lookbehind:foo)bar|baz)","jnJTr",[global])),
-    <<"abcSSoEgfoobar">> = iolist_to_binary(re:replace("abcbazfoobar","(?(*positive_lookbehind:foo)bar|baz)","SS\\1\\1oE\\1g",[])),
-    <<"abcSSoEgfooSSoEg">> = iolist_to_binary(re:replace("abcbazfoobar","(?(*positive_lookbehind:foo)bar|baz)","SS\\1\\1oE\\1g",[global])),
-    <<"foobazfooOdJuWtvQ">> = iolist_to_binary(re:replace("foobazfoobar","(?(*positive_lookbehind:foo)bar|baz)","OdJuWtvQ",[])),
-    <<"foobazfooOdJuWtvQ">> = iolist_to_binary(re:replace("foobazfoobar","(?(*positive_lookbehind:foo)bar|baz)","OdJuWtvQ",[global])),
-    <<"abcuoOBfoo">> = iolist_to_binary(re:replace("abcbarfoo","(*nlb:foo)bar","u\\1oO\\1B\\1\\1",[])),
-    <<"abcuoOBfoo">> = iolist_to_binary(re:replace("abcbarfoo","(*nlb:foo)bar","u\\1oO\\1B\\1\\1",[global])),
-    <<"abcfoobar">> = iolist_to_binary(re:replace("abcfoobar","(*nlb:foo)bar","\\1UtmYVc\\1&mq\\1fPDm",[])),
-    <<"abcfoobar">> = iolist_to_binary(re:replace("abcfoobar","(*nlb:foo)bar","\\1UtmYVc\\1&mq\\1fPDm",[global])),
-    <<"abcmgfoo">> = iolist_to_binary(re:replace("abcbarfoo","(*negative_lookbehind:foo)bar","m\\1g",[])),
-    <<"abcmgfoo">> = iolist_to_binary(re:replace("abcbarfoo","(*negative_lookbehind:foo)bar","m\\1g",[global])),
-    <<"abcfoobar">> = iolist_to_binary(re:replace("abcfoobar","(*negative_lookbehind:foo)bar","P&RwBtwCmc&VfNb\\1\\1s",[])),
-    <<"abcfoobar">> = iolist_to_binary(re:replace("abcfoobar","(*negative_lookbehind:foo)bar","P&RwBtwCmc&VfNb\\1\\1s",[global])),
-    <<"abcfooaa">> = iolist_to_binary(re:replace("abcfoobaz","(?(*nlb:foo)bar|baz)","a\\1a",[])),
-    <<"abcfooaa">> = iolist_to_binary(re:replace("abcfoobaz","(?(*nlb:foo)bar|baz)","a\\1a",[global])),
-    <<"abcQVHlseDxWoyVopbaz">> = iolist_to_binary(re:replace("abcbarbaz","(?(*nlb:foo)bar|baz)","QVHlseDxWoyVop",[])),
-    <<"abcQVHlseDxWoyVopbaz">> = iolist_to_binary(re:replace("abcbarbaz","(?(*nlb:foo)bar|baz)","QVHlseDxWoyVop",[global])),
-    <<"abcfoobar">> = iolist_to_binary(re:replace("abcfoobar","(?(*nlb:foo)bar|baz)","vOE\\1VceUN&",[])),
-    <<"abcfoobar">> = iolist_to_binary(re:replace("abcfoobar","(?(*nlb:foo)bar|baz)","vOE\\1VceUN&",[global])),
-    <<"abcfooVaQAuDRbazGQKSMbhX">> = iolist_to_binary(re:replace("abcfoobaz","(?(*negative_lookbehind:foo)bar|baz)","VaQAu\\1DR&GQKS\\1MbhX",[])),
-    <<"abcfooVaQAuDRbazGQKSMbhX">> = iolist_to_binary(re:replace("abcfoobaz","(?(*negative_lookbehind:foo)bar|baz)","VaQAu\\1DR&GQKS\\1MbhX",[global])),
-    <<"abcLbarbaz">> = iolist_to_binary(re:replace("abcbarbaz","(?(*negative_lookbehind:foo)bar|baz)","L\\1&",[])),
-    <<"abcLbarbaz">> = iolist_to_binary(re:replace("abcbarbaz","(?(*negative_lookbehind:foo)bar|baz)","L\\1&",[global])),
-    <<"abcfoobar">> = iolist_to_binary(re:replace("abcfoobar","(?(*negative_lookbehind:foo)bar|baz)","O\\1",[])),
-    <<"abcfoobar">> = iolist_to_binary(re:replace("abcfoobar","(?(*negative_lookbehind:foo)bar|baz)","O\\1",[global])),
-    <<"EDLXM">> = iolist_to_binary(re:replace("aaab","(*atomic:a+)\\w","EDLXM",[])),
-    <<"EDLXM">> = iolist_to_binary(re:replace("aaab","(*atomic:a+)\\w","EDLXM",[global])),
-    <<"aaaa">> = iolist_to_binary(re:replace("aaaa","(*atomic:a+)\\w","K&vfWficUMXYUhCR",[])),
-    <<"aaaa">> = iolist_to_binary(re:replace("aaaa","(*atomic:a+)\\w","K&vfWficUMXYUhCR",[global])),
-    <<"lVNcLhkqs">> = iolist_to_binary(re:replace("pokus.","   (?<word> \\w+ )*    \\.   ","lVNcLhkqs",[extended,caseless])),
-    <<"lVNcLhkqs">> = iolist_to_binary(re:replace("pokus.","   (?<word> \\w+ )*    \\.   ","lVNcLhkqs",[extended,caseless,global])),
-    <<"WAysWU">> = iolist_to_binary(re:replace("pokus.","(?(DEFINE) (?<word> \\w+ ) ) (?&word)*   \\.","WA\\1ysWU",[extended,caseless])),
-    <<"WAysWU">> = iolist_to_binary(re:replace("pokus.","(?(DEFINE) (?<word> \\w+ ) ) (?&word)*   \\.","WA\\1ysWU",[extended,caseless,global])),
-    <<"HvYt">> = iolist_to_binary(re:replace("pokus.","(?(DEFINE) (?<word> \\w+ ) ) ( (?&word)* )   \\.","Hv\\1Yt",[extended,caseless])),
-    <<"HvYt">> = iolist_to_binary(re:replace("pokus.","(?(DEFINE) (?<word> \\w+ ) ) ( (?&word)* )   \\.","Hv\\1Yt",[extended,caseless,global])),
-    <<"mkEpokus.lOsMTmDx">> = iolist_to_binary(re:replace("pokus.","(?&word)*  (?(DEFINE) (?<word> \\w+ ) )  \\.","mkE&lOsM\\1TmDx",[extended,caseless])),
-    <<"mkEpokus.lOsMTmDx">> = iolist_to_binary(re:replace("pokus.","(?&word)*  (?(DEFINE) (?<word> \\w+ ) )  \\.","mkE&lOsM\\1TmDx",[extended,caseless,global])),
-    <<"rTnhokusFhwuhokuspokus.hokusOCC">> = iolist_to_binary(re:replace("pokus.hokus","(?&word)*  \\. (?<word> \\w+ )","rTn\\1Fhwu\\1&OCC",[extended,caseless])),
-    <<"rTnhokusFhwuhokuspokus.hokusOCC">> = iolist_to_binary(re:replace("pokus.hokus","(?&word)*  \\. (?<word> \\w+ )","rTn\\1Fhwu\\1&OCC",[extended,caseless,global])),
-    <<"abc">> = iolist_to_binary(re:replace("abc","(?:a|ab){1}+c","WgwMatYijEPVVhET",[])),
-    <<"abc">> = iolist_to_binary(re:replace("abc","(?:a|ab){1}+c","WgwMatYijEPVVhET",[global])),
-    <<"abc">> = iolist_to_binary(re:replace("abc","(a|ab){1}+c","DFl\\1diXfsqAo&gy&&",[])),
-    <<"abc">> = iolist_to_binary(re:replace("abc","(a|ab){1}+c","DFl\\1diXfsqAo&gy&&",[global])),
-    <<"aaaa">> = iolist_to_binary(re:replace("aaaa","(a+){1}+a","&&LQG\\1\\1PDsB&W\\1qi",[])),
-    <<"aaaa">> = iolist_to_binary(re:replace("aaaa","(a+){1}+a","&&LQG\\1\\1PDsB&W\\1qi",[global])),
-    <<"abc">> = iolist_to_binary(re:replace("abc","(?(DEFINE)(a|ab))(?1){1}+c","qFvS",[])),
-    <<"abc">> = iolist_to_binary(re:replace("abc","(?(DEFINE)(a|ab))(?1){1}+c","qFvS",[global])),
-    <<"xduXkuthyKkfDvdGK">> = iolist_to_binary(re:replace("abc","(?:a|(?=b)|.)*\\z","xduXkuthyK\\1kfDvdGK",[])),
-    <<"xduXkuthyKkfDvdGKxduXkuthyKkfDvdGK">> = iolist_to_binary(re:replace("abc","(?:a|(?=b)|.)*\\z","xduXkuthyK\\1kfDvdGK",[global])),
-    <<"Tbc">> = iolist_to_binary(re:replace("abc","(?:a|(?=b)|.)*","T",[])),
-    <<"TTTT">> = iolist_to_binary(re:replace("abc","(?:a|(?=b)|.)*","T",[global])),
-    <<"abcd">> = iolist_to_binary(re:replace("abcd","(?<=a(*SKIP)x)|c","tK\\1X\\1ycVaGLc\\1RU\\1&",[])),
-    <<"abcd">> = iolist_to_binary(re:replace("abcd","(?<=a(*SKIP)x)|c","tK\\1X\\1ycVaGLc\\1RU\\1&",[global])),
-    <<"abciVdkkBjFkdmlfslVAM">> = iolist_to_binary(re:replace("abcd","(?<=a(*SKIP)x)|d","iV&kkBjFk&mlfslVAM",[])),
-    <<"abciVdkkBjFkdmlfslVAM">> = iolist_to_binary(re:replace("abcd","(?<=a(*SKIP)x)|d","iV&kkBjFk&mlfslVAM",[global])),
-    <<"ao">> = iolist_to_binary(re:replace("ab","(?<=(?=(?<=a)))b","o",[])),
-    <<"ao">> = iolist_to_binary(re:replace("ab","(?<=(?=(?<=a)))b","o",[global])),
+    <<"VbUmuVjbb">> = iolist_to_binary(re:replace("bbbb","(?<DEFINE>b)(?(DEFINE)(a+))(?&DEFINE)","V\\1UmuVj",[])),
+    <<"VbUmuVjVbUmuVj">> = iolist_to_binary(re:replace("bbbb","(?<DEFINE>b)(?(DEFINE)(a+))(?&DEFINE)","V\\1UmuVj",[global])),
+    <<"baaab">> = iolist_to_binary(re:replace("baaab","(?<DEFINE>b)(?(DEFINE)(a+))(?&DEFINE)","fQ&&jOmbrqf&AbBVY\\1RO",[])),
+    <<"baaab">> = iolist_to_binary(re:replace("baaab","(?<DEFINE>b)(?(DEFINE)(a+))(?&DEFINE)","fQ&&jOmbrqf&AbBVY\\1RO",[global])),
+    <<"   yxxigMcOSrkFred:099">> = iolist_to_binary(re:replace("   Fred:099","(?=.*[A-Z])(?=.*[a-z])(?=.*[0-9])(?=.*[,;:])(?=.{8,16})(?!.*[\\s])","yxxigMcOS&rk",[])),
+    <<"   yxxigMcOSrkFred:099">> = iolist_to_binary(re:replace("   Fred:099","(?=.*[A-Z])(?=.*[a-z])(?=.*[0-9])(?=.*[,;:])(?=.{8,16})(?!.*[\\s])","yxxigMcOS&rk",[global])),
+    <<"  dxgiHSxXBeVXE">> = iolist_to_binary(re:replace("  X","(?=.*X)X$","dx\\1giHSx&BeV&E",[])),
+    <<"  dxgiHSxXBeVXE">> = iolist_to_binary(re:replace("  X","(?=.*X)X$","dx\\1giHSx&BeV&E",[global])),
+    <<"aaDwfbPJXbSNc">> = iolist_to_binary(re:replace("aabc","(?s)(?=.*?)b","Dwf&PJX\\1\\1&SN",[])),
+    <<"aaDwfbPJXbSNc">> = iolist_to_binary(re:replace("aabc","(?s)(?=.*?)b","Dwf&PJX\\1\\1&SN",[global])),
+    <<"lZQ">> = iolist_to_binary(re:replace("ZaAAZX","(Z)(a)\\2{1,2}?(?-i)\\1X","l\\1Q",[caseless])),
+    <<"lZQ">> = iolist_to_binary(re:replace("ZaAAZX","(Z)(a)\\2{1,2}?(?-i)\\1X","l\\1Q",[caseless,global])),
+    <<"mytQYMtByQalFhPaqAF">> = iolist_to_binary(re:replace("aaaa","a+(?:|b)a","\\1mytQYMtByQalFhPaqAF",[])),
+    <<"mytQYMtByQalFhPaqAF">> = iolist_to_binary(re:replace("aaaa","a+(?:|b)a","\\1mytQYMtByQalFhPaqAF",[global])),
+    <<"JcABDtLdoGHtBuOHxJ">> = iolist_to_binary(re:replace("ABD","(?1)(A(*COMMIT)|B)D","Jc&tLdoGHt\\1uOHxJ",[])),
+    <<"JcABDtLdoGHtBuOHxJ">> = iolist_to_binary(re:replace("ABD","(?1)(A(*COMMIT)|B)D","Jc&tLdoGHt\\1uOHxJ",[global])),
+    <<"XjnJTr">> = iolist_to_binary(re:replace("XABD","(?1)(A(*COMMIT)|B)D","jnJTr",[])),
+    <<"XjnJTr">> = iolist_to_binary(re:replace("XABD","(?1)(A(*COMMIT)|B)D","jnJTr",[global])),
+    <<"SSAAoEAg">> = iolist_to_binary(re:replace("BAD","(?1)(A(*COMMIT)|B)D","SS\\1\\1oE\\1g",[])),
+    <<"SSAAoEAg">> = iolist_to_binary(re:replace("BAD","(?1)(A(*COMMIT)|B)D","SS\\1\\1oE\\1g",[global])),
+    <<"ABXOdJuWtvQ">> = iolist_to_binary(re:replace("ABXABD","(?1)(A(*COMMIT)|B)D","OdJuWtvQ",[])),
+    <<"ABXOdJuWtvQ">> = iolist_to_binary(re:replace("ABXABD","(?1)(A(*COMMIT)|B)D","OdJuWtvQ",[global])),
+    <<"ABX">> = iolist_to_binary(re:replace("ABX","(?1)(A(*COMMIT)|B)D","u\\1oO\\1B\\1\\1",[])),
+    <<"ABX">> = iolist_to_binary(re:replace("ABX","(?1)(A(*COMMIT)|B)D","u\\1oO\\1B\\1\\1",[global])),
+    <<"UtmYVc123mqfPDm">> = iolist_to_binary(re:replace("123","(?(DEFINE)(?<m> 1? (?=(?<cond>2)?) 1 2 (?('cond')|3)))
+    \\A
+    ()
+    (?&m)
+    \\Z","\\1UtmYVc\\1&mq\\1fPDm",[extended])),
+    <<"UtmYVc123mqfPDm">> = iolist_to_binary(re:replace("123","(?(DEFINE)(?<m> 1? (?=(?<cond>2)?) 1 2 (?('cond')|3)))
+    \\A
+    ()
+    (?&m)
+    \\Z","\\1UtmYVc\\1&mq\\1fPDm",[extended,global])),
+    <<"m123g">> = iolist_to_binary(re:replace("AZ123Z","^(?: 
+(?: A| (1? (?=(?<cond>2)?) (1) 2 (?('cond')|3)) )
+(Z)
+)+$","m\\1g",[extended])),
+    <<"m123g">> = iolist_to_binary(re:replace("AZ123Z","^(?: 
+(?: A| (1? (?=(?<cond>2)?) (1) 2 (?('cond')|3)) )
+(Z)
+)+$","m\\1g",[extended,global])),
+    <<"AZ12Z">> = iolist_to_binary(re:replace("AZ12Z","^(?: 
+(?: A| (1? (?=(?<cond>2)?) (1) 2 (?('cond')|3)) )
+(Z)
+)+$","P&RwBtwCmc&VfNb\\1\\1s",[extended])),
+    <<"AZ12Z">> = iolist_to_binary(re:replace("AZ12Z","^(?: 
+(?: A| (1? (?=(?<cond>2)?) (1) 2 (?('cond')|3)) )
+(Z)
+)+$","P&RwBtwCmc&VfNb\\1\\1s",[extended,global])),
+    <<"aab">> = iolist_to_binary(re:replace("acb","^ (?(DEFINE) ( (?!(a)\\2b)..) )   ()(?1)  ","a\\1a",[extended])),
+    <<"aab">> = iolist_to_binary(re:replace("acb","^ (?(DEFINE) ( (?!(a)\\2b)..) )   ()(?1)  ","a\\1a",[extended,global])),
+    <<"aab">> = iolist_to_binary(re:replace("aab","^ (?(DEFINE) ( (?!(a)\\2b)..) )   ()(?1)  ","QVHlseDxWoyVop",[extended])),
+    <<"aab">> = iolist_to_binary(re:replace("aab","^ (?(DEFINE) ( (?!(a)\\2b)..) )   ()(?1)  ","QVHlseDxWoyVop",[extended,global])),
+    <<"ababababababvOEVceUNabababababM">> = iolist_to_binary(re:replace("abababababababababababM","(?>ab|abab){1,5}?M","vOE\\1VceUN&",[])),
+    <<"ababababababvOEVceUNabababababM">> = iolist_to_binary(re:replace("abababababababababababM","(?>ab|abab){1,5}?M","vOE\\1VceUN&",[global])),
+    <<"abVaQAuDRababMGQKSMbhX">> = iolist_to_binary(re:replace("abababM","(?>ab|abab){2}?M","VaQAu\\1DR&GQKS\\1MbhX",[])),
+    <<"abVaQAuDRababMGQKSMbhX">> = iolist_to_binary(re:replace("abababM","(?>ab|abab){2}?M","VaQAu\\1DR&GQKS\\1MbhX",[global])),
+    <<"bbLakak">> = iolist_to_binary(re:replace("bbak","((?(?=(a))a)+k)","L\\1&",[])),
+    <<"bbLakak">> = iolist_to_binary(re:replace("bbak","((?(?=(a))a)+k)","L\\1&",[global])),
+    <<"bbOak">> = iolist_to_binary(re:replace("bbak","((?(?=(a))a|)+k)","O\\1",[])),
+    <<"bbOak">> = iolist_to_binary(re:replace("bbak","((?(?=(a))a|)+k)","O\\1",[global])),
+    <<"ababbalbbadEDLXM">> = iolist_to_binary(re:replace("ababbalbbadabak","(?(?!(b))a|b)+k","EDLXM",[])),
+    <<"ababbalbbadEDLXM">> = iolist_to_binary(re:replace("ababbalbbadabak","(?(?!(b))a|b)+k","EDLXM",[global])),
+    <<"AKbvfWficUMXYUhCR">> = iolist_to_binary(re:replace("Ab","(?!(b))c|b","K&vfWficUMXYUhCR",[])),
+    <<"AKbvfWficUMXYUhCR">> = iolist_to_binary(re:replace("Ab","(?!(b))c|b","K&vfWficUMXYUhCR",[global])),
+    <<"AlVNcLhkqs">> = iolist_to_binary(re:replace("Ac","(?!(b))c|b","lVNcLhkqs",[])),
+    <<"AlVNcLhkqs">> = iolist_to_binary(re:replace("Ac","(?!(b))c|b","lVNcLhkqs",[global])),
+    <<"AWAbysWU">> = iolist_to_binary(re:replace("Ab","(?=(b))b|c","WA\\1ysWU",[])),
+    <<"AWAbysWU">> = iolist_to_binary(re:replace("Ab","(?=(b))b|c","WA\\1ysWU",[global])),
+    <<"AHvYt">> = iolist_to_binary(re:replace("Ac","(?=(b))b|c","Hv\\1Yt",[])),
+    <<"AHvYt">> = iolist_to_binary(re:replace("Ac","(?=(b))b|c","Hv\\1Yt",[global])),
+    <<"mkEalOsMaTmDx">> = iolist_to_binary(re:replace("a","^(.|(.)(?1)\\2)$","mkE&lOsM\\1TmDx",[])),
+    <<"mkEalOsMaTmDx">> = iolist_to_binary(re:replace("a","^(.|(.)(?1)\\2)$","mkE&lOsM\\1TmDx",[global])),
+    <<"rTnabaFhwuabaabaOCC">> = iolist_to_binary(re:replace("aba","^(.|(.)(?1)\\2)$","rTn\\1Fhwu\\1&OCC",[])),
+    <<"rTnabaFhwuabaabaOCC">> = iolist_to_binary(re:replace("aba","^(.|(.)(?1)\\2)$","rTn\\1Fhwu\\1&OCC",[global])),
+    <<"WgwMatYijEPVVhET">> = iolist_to_binary(re:replace("abcba","^(.|(.)(?1)\\2)$","WgwMatYijEPVVhET",[])),
+    <<"WgwMatYijEPVVhET">> = iolist_to_binary(re:replace("abcba","^(.|(.)(?1)\\2)$","WgwMatYijEPVVhET",[global])),
+    <<"DFlababadiXfsqAoababagyababaababa">> = iolist_to_binary(re:replace("ababa","^(.|(.)(?1)\\2)$","DFl\\1diXfsqAo&gy&&",[])),
+    <<"DFlababadiXfsqAoababagyababaababa">> = iolist_to_binary(re:replace("ababa","^(.|(.)(?1)\\2)$","DFl\\1diXfsqAo&gy&&",[global])),
+    <<"abcdcbaabcdcbaLQGabcdcbaabcdcbaPDsBabcdcbaWabcdcbaqi">> = iolist_to_binary(re:replace("abcdcba","^(.|(.)(?1)\\2)$","&&LQG\\1\\1PDsB&W\\1qi",[])),
+    <<"abcdcbaabcdcbaLQGabcdcbaabcdcbaPDsBabcdcbaWabcdcbaqi">> = iolist_to_binary(re:replace("abcdcba","^(.|(.)(?1)\\2)$","&&LQG\\1\\1PDsB&W\\1qi",[global])),
     ok.
 run58() ->
-    <<"wLxnFakabcAX">> = iolist_to_binary(re:replace("abc","^(?<A>a)(?(<A>)b)((?<=b).*)$","wLxnF\\1k&AX",[])),
-    <<"wLxnFakabcAX">> = iolist_to_binary(re:replace("abc","^(?<A>a)(?(<A>)b)((?<=b).*)$","wLxnF\\1k&AX",[global])),
-    <<"RkacioIataaaaT">> = iolist_to_binary(re:replace("aaaa","^(a\\1?){4}$","Rk\\1cioI\\1t&T",[])),
-    <<"RkacioIataaaaT">> = iolist_to_binary(re:replace("aaaa","^(a\\1?){4}$","Rk\\1cioI\\1t&T",[global])),
-    <<"WSYDaO">> = iolist_to_binary(re:replace("aaaaaa","^(a\\1?){4}$","WSYDaO",[])),
-    <<"WSYDaO">> = iolist_to_binary(re:replace("aaaaaa","^(a\\1?){4}$","WSYDaO",[global])),
-    <<"WA11111133Xdd11111133XTedlmqyrPY">> = iolist_to_binary(re:replace("111133X","^((\\1+)|\\d)+133X$","WA\\1&dd\\1&TedlmqyrPY",[])),
-    <<"WA11111133Xdd11111133XTedlmqyrPY">> = iolist_to_binary(re:replace("111133X","^((\\1+)|\\d)+133X$","WA\\1&dd\\1&TedlmqyrPY",[global])),
-    <<"JwThe quick brown fox jumps over the lazy dogtThe quick brown fox jumps over the lazy dogThe quick brown fox jumps over the lazy dogJ.">> = iolist_to_binary(re:replace("The quick brown fox jumps over the lazy dog.","^(?>.*?([A-Z])(?!.*\\1)){26}","Jw&t&&J",[caseless])),
-    <<"JwThe quick brown fox jumps over the lazy dogtThe quick brown fox jumps over the lazy dogThe quick brown fox jumps over the lazy dogJ.">> = iolist_to_binary(re:replace("The quick brown fox jumps over the lazy dog.","^(?>.*?([A-Z])(?!.*\\1)){26}","Jw&t&&J",[caseless,global])),
-    <<"waezihzCezjEsBaGzR.">> = iolist_to_binary(re:replace("Jackdaws love my big sphinx of quartz.","^(?>.*?([A-Z])(?!.*\\1)){26}","wae\\1ih\\1Ce\\1jEsBaG\\1R",[caseless])),
-    <<"waezihzCezjEsBaGzR.">> = iolist_to_binary(re:replace("Jackdaws love my big sphinx of quartz.","^(?>.*?([A-Z])(?!.*\\1)){26}","wae\\1ih\\1Ce\\1jEsBaG\\1R",[caseless,global])),
-    <<"vPack my box with five dozen liquor jugssNX.">> = iolist_to_binary(re:replace("Pack my box with five dozen liquor jugs.","^(?>.*?([A-Z])(?!.*\\1)){26}","v&\\1NX",[caseless])),
-    <<"vPack my box with five dozen liquor jugssNX.">> = iolist_to_binary(re:replace("Pack my box with five dozen liquor jugs.","^(?>.*?([A-Z])(?!.*\\1)){26}","v&\\1NX",[caseless,global])),
-    <<"The quick brown fox jumps over the lazy cat.">> = iolist_to_binary(re:replace("The quick brown fox jumps over the lazy cat.","^(?>.*?([A-Z])(?!.*\\1)){26}","pmNFtwlMXJ\\1wfQ",[caseless])),
-    <<"The quick brown fox jumps over the lazy cat.">> = iolist_to_binary(re:replace("The quick brown fox jumps over the lazy cat.","^(?>.*?([A-Z])(?!.*\\1)){26}","pmNFtwlMXJ\\1wfQ",[caseless,global])),
-    <<"Hackdaws love my big sphinx of quartz.">> = iolist_to_binary(re:replace("Hackdaws love my big sphinx of quartz.","^(?>.*?([A-Z])(?!.*\\1)){26}","E&nKG",[caseless])),
-    <<"Hackdaws love my big sphinx of quartz.">> = iolist_to_binary(re:replace("Hackdaws love my big sphinx of quartz.","^(?>.*?([A-Z])(?!.*\\1)){26}","E&nKG",[caseless,global])),
-    <<"Pack my fox with five dozen liquor jugs.">> = iolist_to_binary(re:replace("Pack my fox with five dozen liquor jugs.","^(?>.*?([A-Z])(?!.*\\1)){26}","E\\1mXmY\\1yXMvMP&sIUn&b",[caseless])),
-    <<"Pack my fox with five dozen liquor jugs.">> = iolist_to_binary(re:replace("Pack my fox with five dozen liquor jugs.","^(?>.*?([A-Z])(?!.*\\1)){26}","E\\1mXmY\\1yXMvMP&sIUn&b",[caseless,global])),
-    <<"AXYZ">> = iolist_to_binary(re:replace("AXYZ","(?<=X(?(DEFINE)(A)))X(*F)","sctyV\\1",[])),
-    <<"AXYZ">> = iolist_to_binary(re:replace("AXYZ","(?<=X(?(DEFINE)(A)))X(*F)","sctyV\\1",[global])),
-    <<"AXYEYyELepBwYDneZ">> = iolist_to_binary(re:replace("AXYZ","(?<=X(?(DEFINE)(A))).","&E&yE\\1LepBw&Dne",[])),
-    <<"AXYEYyELepBwYDneZ">> = iolist_to_binary(re:replace("AXYZ","(?<=X(?(DEFINE)(A))).","&E&yE\\1LepBw&Dne",[global])),
-    <<"AXYEnmKFsmZ">> = iolist_to_binary(re:replace("AXYZ","(?<=X(?(DEFINE)(.*))Y).","EnmKFsm&",[])),
-    <<"AXYEnmKFsmZ">> = iolist_to_binary(re:replace("AXYZ","(?<=X(?(DEFINE)(.*))Y).","EnmKFsm&",[global])),
-    <<"AXYpXGcB">> = iolist_to_binary(re:replace("AXYZ","(?<=X(?(DEFINE)(Y))(?1)).","pXGcB",[])),
-    <<"AXYpXGcB">> = iolist_to_binary(re:replace("AXYZ","(?<=X(?(DEFINE)(Y))(?1)).","pXGcB",[global])),
-    <<"yqRflvWfdword">> = iolist_to_binary(re:replace("word","(?(DEFINE)(?<foo>bar))(?<![-a-z0-9])word","yqR\\1flvW\\1fd&",[])),
-    <<"yqRflvWfdword">> = iolist_to_binary(re:replace("word","(?(DEFINE)(?<foo>bar))(?<![-a-z0-9])word","yqR\\1flvW\\1fd&",[global])),
-    <<"caqa{1,2,3}bfAa{1,2,3}bVd">> = iolist_to_binary(re:replace("a{1,2,3}b","a{1,2,3}b","caq&fA&Vd",[])),
-    <<"caqa{1,2,3}bfAa{1,2,3}bVd">> = iolist_to_binary(re:replace("a{1,2,3}b","a{1,2,3}b","caq&fA&Vd",[global])),
-    <<">BYnSX<">> = iolist_to_binary(re:replace(">748364<","\\214748364","BY\\1nSX",[])),
-    <<">BYnSX<">> = iolist_to_binary(re:replace(">748364<","\\214748364","BY\\1nSX",[global])),
-    <<">dha{65536<">> = iolist_to_binary(re:replace(">a{65536<","a{65536","d\\1h\\1&",[])),
-    <<">dha{65536<">> = iolist_to_binary(re:replace(">a{65536<","a{65536","d\\1h\\1&",[global])),
-    <<"abarYJdMtasq">> = iolist_to_binary(re:replace("abac","a\\K.(?0)*","rYJd\\1Mtasq\\1",[])),
-    <<"abarYJdMtasq">> = iolist_to_binary(re:replace("abac","a\\K.(?0)*","rYJd\\1Mtasq\\1",[global])),
-    <<"abaoabac">> = iolist_to_binary(re:replace("abac","(a\\K.(?1)*)","o\\1",[])),
-    <<"abaoabac">> = iolist_to_binary(re:replace("abac","(a\\K.(?1)*)","o\\1",[global])),
-    <<"abcWSUNxSjyjPQXxigacxyz">> = iolist_to_binary(re:replace("abcdefgacxyz","(?<=ab?c)...","W\\1SUNxSjyjPQXxi",[])),
-    <<"abcWSUNxSjyjPQXxigacWSUNxSjyjPQXxi">> = iolist_to_binary(re:replace("abcdefgacxyz","(?<=ab?c)...","W\\1SUNxSjyjPQXxi",[global])),
-    <<"abciFgacxyzPQR123">> = iolist_to_binary(re:replace("abcdefgacxyzPQR123","(?<=PQR|ab?c)...","iF",[])),
-    <<"abciFgaciFPQRiF">> = iolist_to_binary(re:replace("abcdefgacxyzPQR123","(?<=PQR|ab?c)...","iF",[global])),
-    <<"abcoxdefvpqchdefcfPpHmTCgacxyzPQR123">> = iolist_to_binary(re:replace("abcdefgacxyzPQR123","(?<=ab?c|PQR)...","ox&vpq\\1ch&cfPpHmTC",[])),
-    <<"abcoxdefvpqchdefcfPpHmTCgacoxxyzvpqchxyzcfPpHmTCPQRox123vpqch123cfPpHmTC">> = iolist_to_binary(re:replace("abcdefgacxyzPQR123","(?<=ab?c|PQR)...","ox&vpq\\1ch&cfPpHmTC",[global])),
-    <<"abcEPsAiuAXGaggacxyzPQR123">> = iolist_to_binary(re:replace("abcdefgacxyzPQR123","(?<=PQ|ab?c)...","EPsAiuAXGag",[])),
-    <<"abcEPsAiuAXGaggacEPsAiuAXGagPQEPsAiuAXGag3">> = iolist_to_binary(re:replace("abcdefgacxyzPQR123","(?<=PQ|ab?c)...","EPsAiuAXGag",[global])),
-    <<"abciTRKirHaAmudefLgacxyzPQR123">> = iolist_to_binary(re:replace("abcdefgacxyzPQR123","(?<=ab?c|PQ)...","iTR\\1KirHaAm\\1u&L",[])),
-    <<"abciTRKirHaAmudefLgaciTRKirHaAmuxyzLPQiTRKirHaAmuR12L3">> = iolist_to_binary(re:replace("abcdefgacxyzPQR123","(?<=ab?c|PQ)...","iTR\\1KirHaAm\\1u&L",[global])),
-    <<"acfhopmcccrjzzzaefX2zzzadeefX3zzzX4zzz">> = iolist_to_binary(re:replace("acfX1zzzaefX2zzzadeefX3zzzX4zzz","(?<=a(b?c|d?e?e)f)X.","hopm\\1\\1\\1rj",[])),
-    <<"acfhopmcccrjzzzaefhopmeeerjzzzadeefhopmdeedeedeerjzzzX4zzz">> = iolist_to_binary(re:replace("acfX1zzzaefX2zzzadeefX3zzzX4zzz","(?<=a(b?c|d?e?e)f)X.","hopm\\1\\1\\1rj",[global])),
+    <<"qFvS">> = iolist_to_binary(re:replace("a","^((.)(?1)\\2|.?)$","qFvS",[])),
+    <<"qFvS">> = iolist_to_binary(re:replace("a","^((.)(?1)\\2|.?)$","qFvS",[global])),
+    <<"xduXkuthyKabakfDvdGK">> = iolist_to_binary(re:replace("aba","^((.)(?1)\\2|.?)$","xduXkuthyK\\1kfDvdGK",[])),
+    <<"xduXkuthyKabakfDvdGK">> = iolist_to_binary(re:replace("aba","^((.)(?1)\\2|.?)$","xduXkuthyK\\1kfDvdGK",[global])),
+    <<"T">> = iolist_to_binary(re:replace("abba","^((.)(?1)\\2|.?)$","T",[])),
+    <<"T">> = iolist_to_binary(re:replace("abba","^((.)(?1)\\2|.?)$","T",[global])),
+    <<"tKabcbaXabcbaycVaGLcabcbaRUabcbaabcba">> = iolist_to_binary(re:replace("abcba","^((.)(?1)\\2|.?)$","tK\\1X\\1ycVaGLc\\1RU\\1&",[])),
+    <<"tKabcbaXabcbaycVaGLcabcbaRUabcbaabcba">> = iolist_to_binary(re:replace("abcba","^((.)(?1)\\2|.?)$","tK\\1X\\1ycVaGLc\\1RU\\1&",[global])),
+    <<"iVababakkBjFkababamlfslVAM">> = iolist_to_binary(re:replace("ababa","^((.)(?1)\\2|.?)$","iV&kkBjFk&mlfslVAM",[])),
+    <<"iVababakkBjFkababamlfslVAM">> = iolist_to_binary(re:replace("ababa","^((.)(?1)\\2|.?)$","iV&kkBjFk&mlfslVAM",[global])),
+    <<"o">> = iolist_to_binary(re:replace("abccba","^((.)(?1)\\2|.?)$","o",[])),
+    <<"o">> = iolist_to_binary(re:replace("abccba","^((.)(?1)\\2|.?)$","o",[global])),
+    <<"wLxnFabcdcbakabcdcbaAX">> = iolist_to_binary(re:replace("abcdcba","^((.)(?1)\\2|.?)$","wLxnF\\1k&AX",[])),
+    <<"wLxnFabcdcbakabcdcbaAX">> = iolist_to_binary(re:replace("abcdcba","^((.)(?1)\\2|.?)$","wLxnF\\1k&AX",[global])),
+    <<"RkabcddcbacioIabcddcbatabcddcbaT">> = iolist_to_binary(re:replace("abcddcba","^((.)(?1)\\2|.?)$","Rk\\1cioI\\1t&T",[])),
+    <<"RkabcddcbacioIabcddcbatabcddcbaT">> = iolist_to_binary(re:replace("abcddcba","^((.)(?1)\\2|.?)$","Rk\\1cioI\\1t&T",[global])),
+    <<"WSYDaO">> = iolist_to_binary(re:replace("bab","^(.)(\\1|a(?2))","WSYDaO",[])),
+    <<"WSYDaO">> = iolist_to_binary(re:replace("bab","^(.)(\\1|a(?2))","WSYDaO",[global])),
+    <<"WAabcbaabcbaddabcbaabcbaTedlmqyrPY">> = iolist_to_binary(re:replace("abcba","^(.|(.)(?1)?\\2)$","WA\\1&dd\\1&TedlmqyrPY",[])),
+    <<"WAabcbaabcbaddabcbaabcbaTedlmqyrPY">> = iolist_to_binary(re:replace("abcba","^(.|(.)(?1)?\\2)$","WA\\1&dd\\1&TedlmqyrPY",[global])),
+    <<"JwabctabcabcJ">> = iolist_to_binary(re:replace("abc","^(?(?=(a))abc|def)","Jw&t&&J",[])),
+    <<"JwabctabcabcJ">> = iolist_to_binary(re:replace("abc","^(?(?=(a))abc|def)","Jw&t&&J",[global])),
+    <<"waeaihaCeajEsBaGaR">> = iolist_to_binary(re:replace("abc","^(?(?!(a))def|abc)","wae\\1ih\\1Ce\\1jEsBaG\\1R",[])),
+    <<"waeaihaCeajEsBaGaR">> = iolist_to_binary(re:replace("abc","^(?(?!(a))def|abc)","wae\\1ih\\1Ce\\1jEsBaG\\1R",[global])),
+    <<"vabcaNX">> = iolist_to_binary(re:replace("abc","^(?(?=(a)(*ACCEPT))abc|def)","v&\\1NX",[])),
+    <<"vabcaNX">> = iolist_to_binary(re:replace("abc","^(?(?=(a)(*ACCEPT))abc|def)","v&\\1NX",[global])),
+    <<"pmNFtwlMXJawfQ">> = iolist_to_binary(re:replace("abc","^(?(?!(a)(*ACCEPT))def|abc)","pmNFtwlMXJ\\1wfQ",[])),
+    <<"pmNFtwlMXJawfQ">> = iolist_to_binary(re:replace("abc","^(?(?!(a)(*ACCEPT))def|abc)","pmNFtwlMXJ\\1wfQ",[global])),
+    <<"Ea123anKG">> = iolist_to_binary(re:replace("a123a","^(?1)\\d{3}(a)","E&nKG",[])),
+    <<"Ea123anKG">> = iolist_to_binary(re:replace("a123a","^(?1)\\d{3}(a)","E&nKG",[global])),
+    <<"Alan Other <user.ain>">> = iolist_to_binary(re:replace("Alan Other <user.ain>","(?ix)(?(DEFINE)
+(?<addr_spec>       (?&local_part) \\@ (?&domain) )
+(?<angle_addr>      (?&CFWS)?+ < (?&addr_spec) > (?&CFWS)?+ )
+(?<atext>           [a-z\\d!#\\$%&'*+-\\x{2f}=?^_`{|}~] )
+(?<atom>            (?&CFWS)?+ (?&atext)+ (?&CFWS)?+ )
+(?<ccontent>        (?&ctext) | (?&quoted_pair) | (?&comment) )
+(?<ctext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ ()\\\\] )
+(?<comment>         \\( (?: (?&FWS)?+ (?&ccontent) )*+ (?&FWS)?+ \\) )
+(?<CFWS>            (?: (?&FWS)?+ (?&comment) )* (?# NOT possessive)
+                    (?: (?&FWS)?+ (?&comment) | (?&FWS) ) )
+(?<dcontent>        (?&dtext) | (?&quoted_pair) )
+(?<display_name>    (?&phrase) )
+(?<domain>          (?&dot_atom) | (?&domain_literal) )
+(?<domain_literal>  (?&CFWS)?+ \\[ (?: (?&FWS)?+ (?&dcontent) )* (?&FWS)?+ \\]
+                    (?&CFWS)?+ )
+(?<dot_atom>        (?&CFWS)?+ (?&dot_atom_text) (?&CFWS)?+ )
+(?<dot_atom_text>   (?&atext)++ (?: \\. (?&atext)++)*+ )
+(?<dtext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ \\[\\]\\\\] )
+(?<FWS>             (?: [\\t\\ ]*+ \\n)?+ [\\t\\ ]++ )
+(?<local_part>      (?&dot_atom) | (?&quoted_string)  )
+(?<mailbox>         (?&name_addr) | (?&addr_spec) )
+(?<name_addr>       (?&display_name)? (?&angle_addr) )
+(?<phrase>          (?&word)++ )
+(?<qcontent>        (?&qtext) | (?&quoted_pair) )
+(?<quoted_pair>     \" (?&text) )
+(?<quoted_string>   (?&CFWS)?+ \" (?: (?&FWS)?+ (?&qcontent))* (?&FWS)?+ \"
+                    (?&CFWS)?+ )
+(?<qtext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ \"\\\\] )
+(?<text>            [^\\r\\n] )
+(?<word>            (?&atom) | (?&quoted_string) )
+) # End DEFINE
+^(?&mailbox)$","E\\1mXmY\\1yXMvMP&sIUn&b",[])),
+    <<"Alan Other <user.ain>">> = iolist_to_binary(re:replace("Alan Other <user.ain>","(?ix)(?(DEFINE)
+(?<addr_spec>       (?&local_part) \\@ (?&domain) )
+(?<angle_addr>      (?&CFWS)?+ < (?&addr_spec) > (?&CFWS)?+ )
+(?<atext>           [a-z\\d!#\\$%&'*+-\\x{2f}=?^_`{|}~] )
+(?<atom>            (?&CFWS)?+ (?&atext)+ (?&CFWS)?+ )
+(?<ccontent>        (?&ctext) | (?&quoted_pair) | (?&comment) )
+(?<ctext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ ()\\\\] )
+(?<comment>         \\( (?: (?&FWS)?+ (?&ccontent) )*+ (?&FWS)?+ \\) )
+(?<CFWS>            (?: (?&FWS)?+ (?&comment) )* (?# NOT possessive)
+                    (?: (?&FWS)?+ (?&comment) | (?&FWS) ) )
+(?<dcontent>        (?&dtext) | (?&quoted_pair) )
+(?<display_name>    (?&phrase) )
+(?<domain>          (?&dot_atom) | (?&domain_literal) )
+(?<domain_literal>  (?&CFWS)?+ \\[ (?: (?&FWS)?+ (?&dcontent) )* (?&FWS)?+ \\]
+                    (?&CFWS)?+ )
+(?<dot_atom>        (?&CFWS)?+ (?&dot_atom_text) (?&CFWS)?+ )
+(?<dot_atom_text>   (?&atext)++ (?: \\. (?&atext)++)*+ )
+(?<dtext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ \\[\\]\\\\] )
+(?<FWS>             (?: [\\t\\ ]*+ \\n)?+ [\\t\\ ]++ )
+(?<local_part>      (?&dot_atom) | (?&quoted_string)  )
+(?<mailbox>         (?&name_addr) | (?&addr_spec) )
+(?<name_addr>       (?&display_name)? (?&angle_addr) )
+(?<phrase>          (?&word)++ )
+(?<qcontent>        (?&qtext) | (?&quoted_pair) )
+(?<quoted_pair>     \" (?&text) )
+(?<quoted_string>   (?&CFWS)?+ \" (?: (?&FWS)?+ (?&qcontent))* (?&FWS)?+ \"
+                    (?&CFWS)?+ )
+(?<qtext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ \"\\\\] )
+(?<text>            [^\\r\\n] )
+(?<word>            (?&atom) | (?&quoted_string) )
+) # End DEFINE
+^(?&mailbox)$","E\\1mXmY\\1yXMvMP&sIUn&b",[global])),
+    <<"<user.ain>">> = iolist_to_binary(re:replace("<user.ain>","(?ix)(?(DEFINE)
+(?<addr_spec>       (?&local_part) \\@ (?&domain) )
+(?<angle_addr>      (?&CFWS)?+ < (?&addr_spec) > (?&CFWS)?+ )
+(?<atext>           [a-z\\d!#\\$%&'*+-\\x{2f}=?^_`{|}~] )
+(?<atom>            (?&CFWS)?+ (?&atext)+ (?&CFWS)?+ )
+(?<ccontent>        (?&ctext) | (?&quoted_pair) | (?&comment) )
+(?<ctext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ ()\\\\] )
+(?<comment>         \\( (?: (?&FWS)?+ (?&ccontent) )*+ (?&FWS)?+ \\) )
+(?<CFWS>            (?: (?&FWS)?+ (?&comment) )* (?# NOT possessive)
+                    (?: (?&FWS)?+ (?&comment) | (?&FWS) ) )
+(?<dcontent>        (?&dtext) | (?&quoted_pair) )
+(?<display_name>    (?&phrase) )
+(?<domain>          (?&dot_atom) | (?&domain_literal) )
+(?<domain_literal>  (?&CFWS)?+ \\[ (?: (?&FWS)?+ (?&dcontent) )* (?&FWS)?+ \\]
+                    (?&CFWS)?+ )
+(?<dot_atom>        (?&CFWS)?+ (?&dot_atom_text) (?&CFWS)?+ )
+(?<dot_atom_text>   (?&atext)++ (?: \\. (?&atext)++)*+ )
+(?<dtext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ \\[\\]\\\\] )
+(?<FWS>             (?: [\\t\\ ]*+ \\n)?+ [\\t\\ ]++ )
+(?<local_part>      (?&dot_atom) | (?&quoted_string)  )
+(?<mailbox>         (?&name_addr) | (?&addr_spec) )
+(?<name_addr>       (?&display_name)? (?&angle_addr) )
+(?<phrase>          (?&word)++ )
+(?<qcontent>        (?&qtext) | (?&quoted_pair) )
+(?<quoted_pair>     \" (?&text) )
+(?<quoted_string>   (?&CFWS)?+ \" (?: (?&FWS)?+ (?&qcontent))* (?&FWS)?+ \"
+                    (?&CFWS)?+ )
+(?<qtext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ \"\\\\] )
+(?<text>            [^\\r\\n] )
+(?<word>            (?&atom) | (?&quoted_string) )
+) # End DEFINE
+^(?&mailbox)$","sctyV\\1",[])),
+    <<"<user.ain>">> = iolist_to_binary(re:replace("<user.ain>","(?ix)(?(DEFINE)
+(?<addr_spec>       (?&local_part) \\@ (?&domain) )
+(?<angle_addr>      (?&CFWS)?+ < (?&addr_spec) > (?&CFWS)?+ )
+(?<atext>           [a-z\\d!#\\$%&'*+-\\x{2f}=?^_`{|}~] )
+(?<atom>            (?&CFWS)?+ (?&atext)+ (?&CFWS)?+ )
+(?<ccontent>        (?&ctext) | (?&quoted_pair) | (?&comment) )
+(?<ctext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ ()\\\\] )
+(?<comment>         \\( (?: (?&FWS)?+ (?&ccontent) )*+ (?&FWS)?+ \\) )
+(?<CFWS>            (?: (?&FWS)?+ (?&comment) )* (?# NOT possessive)
+                    (?: (?&FWS)?+ (?&comment) | (?&FWS) ) )
+(?<dcontent>        (?&dtext) | (?&quoted_pair) )
+(?<display_name>    (?&phrase) )
+(?<domain>          (?&dot_atom) | (?&domain_literal) )
+(?<domain_literal>  (?&CFWS)?+ \\[ (?: (?&FWS)?+ (?&dcontent) )* (?&FWS)?+ \\]
+                    (?&CFWS)?+ )
+(?<dot_atom>        (?&CFWS)?+ (?&dot_atom_text) (?&CFWS)?+ )
+(?<dot_atom_text>   (?&atext)++ (?: \\. (?&atext)++)*+ )
+(?<dtext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ \\[\\]\\\\] )
+(?<FWS>             (?: [\\t\\ ]*+ \\n)?+ [\\t\\ ]++ )
+(?<local_part>      (?&dot_atom) | (?&quoted_string)  )
+(?<mailbox>         (?&name_addr) | (?&addr_spec) )
+(?<name_addr>       (?&display_name)? (?&angle_addr) )
+(?<phrase>          (?&word)++ )
+(?<qcontent>        (?&qtext) | (?&quoted_pair) )
+(?<quoted_pair>     \" (?&text) )
+(?<quoted_string>   (?&CFWS)?+ \" (?: (?&FWS)?+ (?&qcontent))* (?&FWS)?+ \"
+                    (?&CFWS)?+ )
+(?<qtext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ \"\\\\] )
+(?<text>            [^\\r\\n] )
+(?<word>            (?&atom) | (?&quoted_string) )
+) # End DEFINE
+^(?&mailbox)$","sctyV\\1",[global])),
+    <<"user.ain">> = iolist_to_binary(re:replace("user.ain","(?ix)(?(DEFINE)
+(?<addr_spec>       (?&local_part) \\@ (?&domain) )
+(?<angle_addr>      (?&CFWS)?+ < (?&addr_spec) > (?&CFWS)?+ )
+(?<atext>           [a-z\\d!#\\$%&'*+-\\x{2f}=?^_`{|}~] )
+(?<atom>            (?&CFWS)?+ (?&atext)+ (?&CFWS)?+ )
+(?<ccontent>        (?&ctext) | (?&quoted_pair) | (?&comment) )
+(?<ctext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ ()\\\\] )
+(?<comment>         \\( (?: (?&FWS)?+ (?&ccontent) )*+ (?&FWS)?+ \\) )
+(?<CFWS>            (?: (?&FWS)?+ (?&comment) )* (?# NOT possessive)
+                    (?: (?&FWS)?+ (?&comment) | (?&FWS) ) )
+(?<dcontent>        (?&dtext) | (?&quoted_pair) )
+(?<display_name>    (?&phrase) )
+(?<domain>          (?&dot_atom) | (?&domain_literal) )
+(?<domain_literal>  (?&CFWS)?+ \\[ (?: (?&FWS)?+ (?&dcontent) )* (?&FWS)?+ \\]
+                    (?&CFWS)?+ )
+(?<dot_atom>        (?&CFWS)?+ (?&dot_atom_text) (?&CFWS)?+ )
+(?<dot_atom_text>   (?&atext)++ (?: \\. (?&atext)++)*+ )
+(?<dtext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ \\[\\]\\\\] )
+(?<FWS>             (?: [\\t\\ ]*+ \\n)?+ [\\t\\ ]++ )
+(?<local_part>      (?&dot_atom) | (?&quoted_string)  )
+(?<mailbox>         (?&name_addr) | (?&addr_spec) )
+(?<name_addr>       (?&display_name)? (?&angle_addr) )
+(?<phrase>          (?&word)++ )
+(?<qcontent>        (?&qtext) | (?&quoted_pair) )
+(?<quoted_pair>     \" (?&text) )
+(?<quoted_string>   (?&CFWS)?+ \" (?: (?&FWS)?+ (?&qcontent))* (?&FWS)?+ \"
+                    (?&CFWS)?+ )
+(?<qtext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ \"\\\\] )
+(?<text>            [^\\r\\n] )
+(?<word>            (?&atom) | (?&quoted_string) )
+) # End DEFINE
+^(?&mailbox)$","&E&yE\\1LepBw&Dne",[])),
+    <<"user.ain">> = iolist_to_binary(re:replace("user.ain","(?ix)(?(DEFINE)
+(?<addr_spec>       (?&local_part) \\@ (?&domain) )
+(?<angle_addr>      (?&CFWS)?+ < (?&addr_spec) > (?&CFWS)?+ )
+(?<atext>           [a-z\\d!#\\$%&'*+-\\x{2f}=?^_`{|}~] )
+(?<atom>            (?&CFWS)?+ (?&atext)+ (?&CFWS)?+ )
+(?<ccontent>        (?&ctext) | (?&quoted_pair) | (?&comment) )
+(?<ctext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ ()\\\\] )
+(?<comment>         \\( (?: (?&FWS)?+ (?&ccontent) )*+ (?&FWS)?+ \\) )
+(?<CFWS>            (?: (?&FWS)?+ (?&comment) )* (?# NOT possessive)
+                    (?: (?&FWS)?+ (?&comment) | (?&FWS) ) )
+(?<dcontent>        (?&dtext) | (?&quoted_pair) )
+(?<display_name>    (?&phrase) )
+(?<domain>          (?&dot_atom) | (?&domain_literal) )
+(?<domain_literal>  (?&CFWS)?+ \\[ (?: (?&FWS)?+ (?&dcontent) )* (?&FWS)?+ \\]
+                    (?&CFWS)?+ )
+(?<dot_atom>        (?&CFWS)?+ (?&dot_atom_text) (?&CFWS)?+ )
+(?<dot_atom_text>   (?&atext)++ (?: \\. (?&atext)++)*+ )
+(?<dtext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ \\[\\]\\\\] )
+(?<FWS>             (?: [\\t\\ ]*+ \\n)?+ [\\t\\ ]++ )
+(?<local_part>      (?&dot_atom) | (?&quoted_string)  )
+(?<mailbox>         (?&name_addr) | (?&addr_spec) )
+(?<name_addr>       (?&display_name)? (?&angle_addr) )
+(?<phrase>          (?&word)++ )
+(?<qcontent>        (?&qtext) | (?&quoted_pair) )
+(?<quoted_pair>     \" (?&text) )
+(?<quoted_string>   (?&CFWS)?+ \" (?: (?&FWS)?+ (?&qcontent))* (?&FWS)?+ \"
+                    (?&CFWS)?+ )
+(?<qtext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ \"\\\\] )
+(?<text>            [^\\r\\n] )
+(?<word>            (?&atom) | (?&quoted_string) )
+) # End DEFINE
+^(?&mailbox)$","&E&yE\\1LepBw&Dne",[global])),
+    <<"EnmKFsmuser@[]">> = iolist_to_binary(re:replace("user@[]","(?ix)(?(DEFINE)
+(?<addr_spec>       (?&local_part) \\@ (?&domain) )
+(?<angle_addr>      (?&CFWS)?+ < (?&addr_spec) > (?&CFWS)?+ )
+(?<atext>           [a-z\\d!#\\$%&'*+-\\x{2f}=?^_`{|}~] )
+(?<atom>            (?&CFWS)?+ (?&atext)+ (?&CFWS)?+ )
+(?<ccontent>        (?&ctext) | (?&quoted_pair) | (?&comment) )
+(?<ctext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ ()\\\\] )
+(?<comment>         \\( (?: (?&FWS)?+ (?&ccontent) )*+ (?&FWS)?+ \\) )
+(?<CFWS>            (?: (?&FWS)?+ (?&comment) )* (?# NOT possessive)
+                    (?: (?&FWS)?+ (?&comment) | (?&FWS) ) )
+(?<dcontent>        (?&dtext) | (?&quoted_pair) )
+(?<display_name>    (?&phrase) )
+(?<domain>          (?&dot_atom) | (?&domain_literal) )
+(?<domain_literal>  (?&CFWS)?+ \\[ (?: (?&FWS)?+ (?&dcontent) )* (?&FWS)?+ \\]
+                    (?&CFWS)?+ )
+(?<dot_atom>        (?&CFWS)?+ (?&dot_atom_text) (?&CFWS)?+ )
+(?<dot_atom_text>   (?&atext)++ (?: \\. (?&atext)++)*+ )
+(?<dtext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ \\[\\]\\\\] )
+(?<FWS>             (?: [\\t\\ ]*+ \\n)?+ [\\t\\ ]++ )
+(?<local_part>      (?&dot_atom) | (?&quoted_string)  )
+(?<mailbox>         (?&name_addr) | (?&addr_spec) )
+(?<name_addr>       (?&display_name)? (?&angle_addr) )
+(?<phrase>          (?&word)++ )
+(?<qcontent>        (?&qtext) | (?&quoted_pair) )
+(?<quoted_pair>     \" (?&text) )
+(?<quoted_string>   (?&CFWS)?+ \" (?: (?&FWS)?+ (?&qcontent))* (?&FWS)?+ \"
+                    (?&CFWS)?+ )
+(?<qtext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ \"\\\\] )
+(?<text>            [^\\r\\n] )
+(?<word>            (?&atom) | (?&quoted_string) )
+) # End DEFINE
+^(?&mailbox)$","EnmKFsm&",[])),
+    <<"EnmKFsmuser@[]">> = iolist_to_binary(re:replace("user@[]","(?ix)(?(DEFINE)
+(?<addr_spec>       (?&local_part) \\@ (?&domain) )
+(?<angle_addr>      (?&CFWS)?+ < (?&addr_spec) > (?&CFWS)?+ )
+(?<atext>           [a-z\\d!#\\$%&'*+-\\x{2f}=?^_`{|}~] )
+(?<atom>            (?&CFWS)?+ (?&atext)+ (?&CFWS)?+ )
+(?<ccontent>        (?&ctext) | (?&quoted_pair) | (?&comment) )
+(?<ctext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ ()\\\\] )
+(?<comment>         \\( (?: (?&FWS)?+ (?&ccontent) )*+ (?&FWS)?+ \\) )
+(?<CFWS>            (?: (?&FWS)?+ (?&comment) )* (?# NOT possessive)
+                    (?: (?&FWS)?+ (?&comment) | (?&FWS) ) )
+(?<dcontent>        (?&dtext) | (?&quoted_pair) )
+(?<display_name>    (?&phrase) )
+(?<domain>          (?&dot_atom) | (?&domain_literal) )
+(?<domain_literal>  (?&CFWS)?+ \\[ (?: (?&FWS)?+ (?&dcontent) )* (?&FWS)?+ \\]
+                    (?&CFWS)?+ )
+(?<dot_atom>        (?&CFWS)?+ (?&dot_atom_text) (?&CFWS)?+ )
+(?<dot_atom_text>   (?&atext)++ (?: \\. (?&atext)++)*+ )
+(?<dtext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ \\[\\]\\\\] )
+(?<FWS>             (?: [\\t\\ ]*+ \\n)?+ [\\t\\ ]++ )
+(?<local_part>      (?&dot_atom) | (?&quoted_string)  )
+(?<mailbox>         (?&name_addr) | (?&addr_spec) )
+(?<name_addr>       (?&display_name)? (?&angle_addr) )
+(?<phrase>          (?&word)++ )
+(?<qcontent>        (?&qtext) | (?&quoted_pair) )
+(?<quoted_pair>     \" (?&text) )
+(?<quoted_string>   (?&CFWS)?+ \" (?: (?&FWS)?+ (?&qcontent))* (?&FWS)?+ \"
+                    (?&CFWS)?+ )
+(?<qtext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ \"\\\\] )
+(?<text>            [^\\r\\n] )
+(?<word>            (?&atom) | (?&quoted_string) )
+) # End DEFINE
+^(?&mailbox)$","EnmKFsm&",[global])),
+    <<"pXGcB">> = iolist_to_binary(re:replace("user@[domain literal]","(?ix)(?(DEFINE)
+(?<addr_spec>       (?&local_part) \\@ (?&domain) )
+(?<angle_addr>      (?&CFWS)?+ < (?&addr_spec) > (?&CFWS)?+ )
+(?<atext>           [a-z\\d!#\\$%&'*+-\\x{2f}=?^_`{|}~] )
+(?<atom>            (?&CFWS)?+ (?&atext)+ (?&CFWS)?+ )
+(?<ccontent>        (?&ctext) | (?&quoted_pair) | (?&comment) )
+(?<ctext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ ()\\\\] )
+(?<comment>         \\( (?: (?&FWS)?+ (?&ccontent) )*+ (?&FWS)?+ \\) )
+(?<CFWS>            (?: (?&FWS)?+ (?&comment) )* (?# NOT possessive)
+                    (?: (?&FWS)?+ (?&comment) | (?&FWS) ) )
+(?<dcontent>        (?&dtext) | (?&quoted_pair) )
+(?<display_name>    (?&phrase) )
+(?<domain>          (?&dot_atom) | (?&domain_literal) )
+(?<domain_literal>  (?&CFWS)?+ \\[ (?: (?&FWS)?+ (?&dcontent) )* (?&FWS)?+ \\]
+                    (?&CFWS)?+ )
+(?<dot_atom>        (?&CFWS)?+ (?&dot_atom_text) (?&CFWS)?+ )
+(?<dot_atom_text>   (?&atext)++ (?: \\. (?&atext)++)*+ )
+(?<dtext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ \\[\\]\\\\] )
+(?<FWS>             (?: [\\t\\ ]*+ \\n)?+ [\\t\\ ]++ )
+(?<local_part>      (?&dot_atom) | (?&quoted_string)  )
+(?<mailbox>         (?&name_addr) | (?&addr_spec) )
+(?<name_addr>       (?&display_name)? (?&angle_addr) )
+(?<phrase>          (?&word)++ )
+(?<qcontent>        (?&qtext) | (?&quoted_pair) )
+(?<quoted_pair>     \" (?&text) )
+(?<quoted_string>   (?&CFWS)?+ \" (?: (?&FWS)?+ (?&qcontent))* (?&FWS)?+ \"
+                    (?&CFWS)?+ )
+(?<qtext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ \"\\\\] )
+(?<text>            [^\\r\\n] )
+(?<word>            (?&atom) | (?&quoted_string) )
+) # End DEFINE
+^(?&mailbox)$","pXGcB",[])),
+    <<"pXGcB">> = iolist_to_binary(re:replace("user@[domain literal]","(?ix)(?(DEFINE)
+(?<addr_spec>       (?&local_part) \\@ (?&domain) )
+(?<angle_addr>      (?&CFWS)?+ < (?&addr_spec) > (?&CFWS)?+ )
+(?<atext>           [a-z\\d!#\\$%&'*+-\\x{2f}=?^_`{|}~] )
+(?<atom>            (?&CFWS)?+ (?&atext)+ (?&CFWS)?+ )
+(?<ccontent>        (?&ctext) | (?&quoted_pair) | (?&comment) )
+(?<ctext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ ()\\\\] )
+(?<comment>         \\( (?: (?&FWS)?+ (?&ccontent) )*+ (?&FWS)?+ \\) )
+(?<CFWS>            (?: (?&FWS)?+ (?&comment) )* (?# NOT possessive)
+                    (?: (?&FWS)?+ (?&comment) | (?&FWS) ) )
+(?<dcontent>        (?&dtext) | (?&quoted_pair) )
+(?<display_name>    (?&phrase) )
+(?<domain>          (?&dot_atom) | (?&domain_literal) )
+(?<domain_literal>  (?&CFWS)?+ \\[ (?: (?&FWS)?+ (?&dcontent) )* (?&FWS)?+ \\]
+                    (?&CFWS)?+ )
+(?<dot_atom>        (?&CFWS)?+ (?&dot_atom_text) (?&CFWS)?+ )
+(?<dot_atom_text>   (?&atext)++ (?: \\. (?&atext)++)*+ )
+(?<dtext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ \\[\\]\\\\] )
+(?<FWS>             (?: [\\t\\ ]*+ \\n)?+ [\\t\\ ]++ )
+(?<local_part>      (?&dot_atom) | (?&quoted_string)  )
+(?<mailbox>         (?&name_addr) | (?&addr_spec) )
+(?<name_addr>       (?&display_name)? (?&angle_addr) )
+(?<phrase>          (?&word)++ )
+(?<qcontent>        (?&qtext) | (?&quoted_pair) )
+(?<quoted_pair>     \" (?&text) )
+(?<quoted_string>   (?&CFWS)?+ \" (?: (?&FWS)?+ (?&qcontent))* (?&FWS)?+ \"
+                    (?&CFWS)?+ )
+(?<qtext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ \"\\\\] )
+(?<text>            [^\\r\\n] )
+(?<word>            (?&atom) | (?&quoted_string) )
+) # End DEFINE
+^(?&mailbox)$","pXGcB",[global])),
+    <<"yqRflvWfduser@[domain literal with \"[square brackets\"] inside]">> = iolist_to_binary(re:replace("user@[domain literal with \"[square brackets\"] inside]","(?ix)(?(DEFINE)
+(?<addr_spec>       (?&local_part) \\@ (?&domain) )
+(?<angle_addr>      (?&CFWS)?+ < (?&addr_spec) > (?&CFWS)?+ )
+(?<atext>           [a-z\\d!#\\$%&'*+-\\x{2f}=?^_`{|}~] )
+(?<atom>            (?&CFWS)?+ (?&atext)+ (?&CFWS)?+ )
+(?<ccontent>        (?&ctext) | (?&quoted_pair) | (?&comment) )
+(?<ctext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ ()\\\\] )
+(?<comment>         \\( (?: (?&FWS)?+ (?&ccontent) )*+ (?&FWS)?+ \\) )
+(?<CFWS>            (?: (?&FWS)?+ (?&comment) )* (?# NOT possessive)
+                    (?: (?&FWS)?+ (?&comment) | (?&FWS) ) )
+(?<dcontent>        (?&dtext) | (?&quoted_pair) )
+(?<display_name>    (?&phrase) )
+(?<domain>          (?&dot_atom) | (?&domain_literal) )
+(?<domain_literal>  (?&CFWS)?+ \\[ (?: (?&FWS)?+ (?&dcontent) )* (?&FWS)?+ \\]
+                    (?&CFWS)?+ )
+(?<dot_atom>        (?&CFWS)?+ (?&dot_atom_text) (?&CFWS)?+ )
+(?<dot_atom_text>   (?&atext)++ (?: \\. (?&atext)++)*+ )
+(?<dtext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ \\[\\]\\\\] )
+(?<FWS>             (?: [\\t\\ ]*+ \\n)?+ [\\t\\ ]++ )
+(?<local_part>      (?&dot_atom) | (?&quoted_string)  )
+(?<mailbox>         (?&name_addr) | (?&addr_spec) )
+(?<name_addr>       (?&display_name)? (?&angle_addr) )
+(?<phrase>          (?&word)++ )
+(?<qcontent>        (?&qtext) | (?&quoted_pair) )
+(?<quoted_pair>     \" (?&text) )
+(?<quoted_string>   (?&CFWS)?+ \" (?: (?&FWS)?+ (?&qcontent))* (?&FWS)?+ \"
+                    (?&CFWS)?+ )
+(?<qtext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ \"\\\\] )
+(?<text>            [^\\r\\n] )
+(?<word>            (?&atom) | (?&quoted_string) )
+) # End DEFINE
+^(?&mailbox)$","yqR\\1flvW\\1fd&",[])),
+    <<"yqRflvWfduser@[domain literal with \"[square brackets\"] inside]">> = iolist_to_binary(re:replace("user@[domain literal with \"[square brackets\"] inside]","(?ix)(?(DEFINE)
+(?<addr_spec>       (?&local_part) \\@ (?&domain) )
+(?<angle_addr>      (?&CFWS)?+ < (?&addr_spec) > (?&CFWS)?+ )
+(?<atext>           [a-z\\d!#\\$%&'*+-\\x{2f}=?^_`{|}~] )
+(?<atom>            (?&CFWS)?+ (?&atext)+ (?&CFWS)?+ )
+(?<ccontent>        (?&ctext) | (?&quoted_pair) | (?&comment) )
+(?<ctext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ ()\\\\] )
+(?<comment>         \\( (?: (?&FWS)?+ (?&ccontent) )*+ (?&FWS)?+ \\) )
+(?<CFWS>            (?: (?&FWS)?+ (?&comment) )* (?# NOT possessive)
+                    (?: (?&FWS)?+ (?&comment) | (?&FWS) ) )
+(?<dcontent>        (?&dtext) | (?&quoted_pair) )
+(?<display_name>    (?&phrase) )
+(?<domain>          (?&dot_atom) | (?&domain_literal) )
+(?<domain_literal>  (?&CFWS)?+ \\[ (?: (?&FWS)?+ (?&dcontent) )* (?&FWS)?+ \\]
+                    (?&CFWS)?+ )
+(?<dot_atom>        (?&CFWS)?+ (?&dot_atom_text) (?&CFWS)?+ )
+(?<dot_atom_text>   (?&atext)++ (?: \\. (?&atext)++)*+ )
+(?<dtext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ \\[\\]\\\\] )
+(?<FWS>             (?: [\\t\\ ]*+ \\n)?+ [\\t\\ ]++ )
+(?<local_part>      (?&dot_atom) | (?&quoted_string)  )
+(?<mailbox>         (?&name_addr) | (?&addr_spec) )
+(?<name_addr>       (?&display_name)? (?&angle_addr) )
+(?<phrase>          (?&word)++ )
+(?<qcontent>        (?&qtext) | (?&quoted_pair) )
+(?<quoted_pair>     \" (?&text) )
+(?<quoted_string>   (?&CFWS)?+ \" (?: (?&FWS)?+ (?&qcontent))* (?&FWS)?+ \"
+                    (?&CFWS)?+ )
+(?<qtext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ \"\\\\] )
+(?<text>            [^\\r\\n] )
+(?<word>            (?&atom) | (?&quoted_string) )
+) # End DEFINE
+^(?&mailbox)$","yqR\\1flvW\\1fd&",[global])),
+    <<"\"A. Other\" <user.1234.ain> (a comment)">> = iolist_to_binary(re:replace("\"A. Other\" <user.1234.ain> (a comment)","(?ix)(?(DEFINE)
+(?<addr_spec>       (?&local_part) \\@ (?&domain) )
+(?<angle_addr>      (?&CFWS)?+ < (?&addr_spec) > (?&CFWS)?+ )
+(?<atext>           [a-z\\d!#\\$%&'*+-\\x{2f}=?^_`{|}~] )
+(?<atom>            (?&CFWS)?+ (?&atext)+ (?&CFWS)?+ )
+(?<ccontent>        (?&ctext) | (?&quoted_pair) | (?&comment) )
+(?<ctext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ ()\\\\] )
+(?<comment>         \\( (?: (?&FWS)?+ (?&ccontent) )*+ (?&FWS)?+ \\) )
+(?<CFWS>            (?: (?&FWS)?+ (?&comment) )* (?# NOT possessive)
+                    (?: (?&FWS)?+ (?&comment) | (?&FWS) ) )
+(?<dcontent>        (?&dtext) | (?&quoted_pair) )
+(?<display_name>    (?&phrase) )
+(?<domain>          (?&dot_atom) | (?&domain_literal) )
+(?<domain_literal>  (?&CFWS)?+ \\[ (?: (?&FWS)?+ (?&dcontent) )* (?&FWS)?+ \\]
+                    (?&CFWS)?+ )
+(?<dot_atom>        (?&CFWS)?+ (?&dot_atom_text) (?&CFWS)?+ )
+(?<dot_atom_text>   (?&atext)++ (?: \\. (?&atext)++)*+ )
+(?<dtext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ \\[\\]\\\\] )
+(?<FWS>             (?: [\\t\\ ]*+ \\n)?+ [\\t\\ ]++ )
+(?<local_part>      (?&dot_atom) | (?&quoted_string)  )
+(?<mailbox>         (?&name_addr) | (?&addr_spec) )
+(?<name_addr>       (?&display_name)? (?&angle_addr) )
+(?<phrase>          (?&word)++ )
+(?<qcontent>        (?&qtext) | (?&quoted_pair) )
+(?<quoted_pair>     \" (?&text) )
+(?<quoted_string>   (?&CFWS)?+ \" (?: (?&FWS)?+ (?&qcontent))* (?&FWS)?+ \"
+                    (?&CFWS)?+ )
+(?<qtext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ \"\\\\] )
+(?<text>            [^\\r\\n] )
+(?<word>            (?&atom) | (?&quoted_string) )
+) # End DEFINE
+^(?&mailbox)$","caq&fA&Vd",[])),
+    <<"\"A. Other\" <user.1234.ain> (a comment)">> = iolist_to_binary(re:replace("\"A. Other\" <user.1234.ain> (a comment)","(?ix)(?(DEFINE)
+(?<addr_spec>       (?&local_part) \\@ (?&domain) )
+(?<angle_addr>      (?&CFWS)?+ < (?&addr_spec) > (?&CFWS)?+ )
+(?<atext>           [a-z\\d!#\\$%&'*+-\\x{2f}=?^_`{|}~] )
+(?<atom>            (?&CFWS)?+ (?&atext)+ (?&CFWS)?+ )
+(?<ccontent>        (?&ctext) | (?&quoted_pair) | (?&comment) )
+(?<ctext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ ()\\\\] )
+(?<comment>         \\( (?: (?&FWS)?+ (?&ccontent) )*+ (?&FWS)?+ \\) )
+(?<CFWS>            (?: (?&FWS)?+ (?&comment) )* (?# NOT possessive)
+                    (?: (?&FWS)?+ (?&comment) | (?&FWS) ) )
+(?<dcontent>        (?&dtext) | (?&quoted_pair) )
+(?<display_name>    (?&phrase) )
+(?<domain>          (?&dot_atom) | (?&domain_literal) )
+(?<domain_literal>  (?&CFWS)?+ \\[ (?: (?&FWS)?+ (?&dcontent) )* (?&FWS)?+ \\]
+                    (?&CFWS)?+ )
+(?<dot_atom>        (?&CFWS)?+ (?&dot_atom_text) (?&CFWS)?+ )
+(?<dot_atom_text>   (?&atext)++ (?: \\. (?&atext)++)*+ )
+(?<dtext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ \\[\\]\\\\] )
+(?<FWS>             (?: [\\t\\ ]*+ \\n)?+ [\\t\\ ]++ )
+(?<local_part>      (?&dot_atom) | (?&quoted_string)  )
+(?<mailbox>         (?&name_addr) | (?&addr_spec) )
+(?<name_addr>       (?&display_name)? (?&angle_addr) )
+(?<phrase>          (?&word)++ )
+(?<qcontent>        (?&qtext) | (?&quoted_pair) )
+(?<quoted_pair>     \" (?&text) )
+(?<quoted_string>   (?&CFWS)?+ \" (?: (?&FWS)?+ (?&qcontent))* (?&FWS)?+ \"
+                    (?&CFWS)?+ )
+(?<qtext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ \"\\\\] )
+(?<text>            [^\\r\\n] )
+(?<word>            (?&atom) | (?&quoted_string) )
+) # End DEFINE
+^(?&mailbox)$","caq&fA&Vd",[global])),
+    <<"A. Other <user.1234.ain> (a comment)">> = iolist_to_binary(re:replace("A. Other <user.1234.ain> (a comment)","(?ix)(?(DEFINE)
+(?<addr_spec>       (?&local_part) \\@ (?&domain) )
+(?<angle_addr>      (?&CFWS)?+ < (?&addr_spec) > (?&CFWS)?+ )
+(?<atext>           [a-z\\d!#\\$%&'*+-\\x{2f}=?^_`{|}~] )
+(?<atom>            (?&CFWS)?+ (?&atext)+ (?&CFWS)?+ )
+(?<ccontent>        (?&ctext) | (?&quoted_pair) | (?&comment) )
+(?<ctext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ ()\\\\] )
+(?<comment>         \\( (?: (?&FWS)?+ (?&ccontent) )*+ (?&FWS)?+ \\) )
+(?<CFWS>            (?: (?&FWS)?+ (?&comment) )* (?# NOT possessive)
+                    (?: (?&FWS)?+ (?&comment) | (?&FWS) ) )
+(?<dcontent>        (?&dtext) | (?&quoted_pair) )
+(?<display_name>    (?&phrase) )
+(?<domain>          (?&dot_atom) | (?&domain_literal) )
+(?<domain_literal>  (?&CFWS)?+ \\[ (?: (?&FWS)?+ (?&dcontent) )* (?&FWS)?+ \\]
+                    (?&CFWS)?+ )
+(?<dot_atom>        (?&CFWS)?+ (?&dot_atom_text) (?&CFWS)?+ )
+(?<dot_atom_text>   (?&atext)++ (?: \\. (?&atext)++)*+ )
+(?<dtext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ \\[\\]\\\\] )
+(?<FWS>             (?: [\\t\\ ]*+ \\n)?+ [\\t\\ ]++ )
+(?<local_part>      (?&dot_atom) | (?&quoted_string)  )
+(?<mailbox>         (?&name_addr) | (?&addr_spec) )
+(?<name_addr>       (?&display_name)? (?&angle_addr) )
+(?<phrase>          (?&word)++ )
+(?<qcontent>        (?&qtext) | (?&quoted_pair) )
+(?<quoted_pair>     \" (?&text) )
+(?<quoted_string>   (?&CFWS)?+ \" (?: (?&FWS)?+ (?&qcontent))* (?&FWS)?+ \"
+                    (?&CFWS)?+ )
+(?<qtext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ \"\\\\] )
+(?<text>            [^\\r\\n] )
+(?<word>            (?&atom) | (?&quoted_string) )
+) # End DEFINE
+^(?&mailbox)$","BY\\1nSX",[])),
+    <<"A. Other <user.1234.ain> (a comment)">> = iolist_to_binary(re:replace("A. Other <user.1234.ain> (a comment)","(?ix)(?(DEFINE)
+(?<addr_spec>       (?&local_part) \\@ (?&domain) )
+(?<angle_addr>      (?&CFWS)?+ < (?&addr_spec) > (?&CFWS)?+ )
+(?<atext>           [a-z\\d!#\\$%&'*+-\\x{2f}=?^_`{|}~] )
+(?<atom>            (?&CFWS)?+ (?&atext)+ (?&CFWS)?+ )
+(?<ccontent>        (?&ctext) | (?&quoted_pair) | (?&comment) )
+(?<ctext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ ()\\\\] )
+(?<comment>         \\( (?: (?&FWS)?+ (?&ccontent) )*+ (?&FWS)?+ \\) )
+(?<CFWS>            (?: (?&FWS)?+ (?&comment) )* (?# NOT possessive)
+                    (?: (?&FWS)?+ (?&comment) | (?&FWS) ) )
+(?<dcontent>        (?&dtext) | (?&quoted_pair) )
+(?<display_name>    (?&phrase) )
+(?<domain>          (?&dot_atom) | (?&domain_literal) )
+(?<domain_literal>  (?&CFWS)?+ \\[ (?: (?&FWS)?+ (?&dcontent) )* (?&FWS)?+ \\]
+                    (?&CFWS)?+ )
+(?<dot_atom>        (?&CFWS)?+ (?&dot_atom_text) (?&CFWS)?+ )
+(?<dot_atom_text>   (?&atext)++ (?: \\. (?&atext)++)*+ )
+(?<dtext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ \\[\\]\\\\] )
+(?<FWS>             (?: [\\t\\ ]*+ \\n)?+ [\\t\\ ]++ )
+(?<local_part>      (?&dot_atom) | (?&quoted_string)  )
+(?<mailbox>         (?&name_addr) | (?&addr_spec) )
+(?<name_addr>       (?&display_name)? (?&angle_addr) )
+(?<phrase>          (?&word)++ )
+(?<qcontent>        (?&qtext) | (?&quoted_pair) )
+(?<quoted_pair>     \" (?&text) )
+(?<quoted_string>   (?&CFWS)?+ \" (?: (?&FWS)?+ (?&qcontent))* (?&FWS)?+ \"
+                    (?&CFWS)?+ )
+(?<qtext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ \"\\\\] )
+(?<text>            [^\\r\\n] )
+(?<word>            (?&atom) | (?&quoted_string) )
+) # End DEFINE
+^(?&mailbox)$","BY\\1nSX",[global])),
+    <<"\"/s=user/ou=host/o=place/prmd=uu.yy/admd= /c=gb/\"-re.lay">> = iolist_to_binary(re:replace("\"/s=user/ou=host/o=place/prmd=uu.yy/admd= /c=gb/\"-re.lay","(?ix)(?(DEFINE)
+(?<addr_spec>       (?&local_part) \\@ (?&domain) )
+(?<angle_addr>      (?&CFWS)?+ < (?&addr_spec) > (?&CFWS)?+ )
+(?<atext>           [a-z\\d!#\\$%&'*+-\\x{2f}=?^_`{|}~] )
+(?<atom>            (?&CFWS)?+ (?&atext)+ (?&CFWS)?+ )
+(?<ccontent>        (?&ctext) | (?&quoted_pair) | (?&comment) )
+(?<ctext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ ()\\\\] )
+(?<comment>         \\( (?: (?&FWS)?+ (?&ccontent) )*+ (?&FWS)?+ \\) )
+(?<CFWS>            (?: (?&FWS)?+ (?&comment) )* (?# NOT possessive)
+                    (?: (?&FWS)?+ (?&comment) | (?&FWS) ) )
+(?<dcontent>        (?&dtext) | (?&quoted_pair) )
+(?<display_name>    (?&phrase) )
+(?<domain>          (?&dot_atom) | (?&domain_literal) )
+(?<domain_literal>  (?&CFWS)?+ \\[ (?: (?&FWS)?+ (?&dcontent) )* (?&FWS)?+ \\]
+                    (?&CFWS)?+ )
+(?<dot_atom>        (?&CFWS)?+ (?&dot_atom_text) (?&CFWS)?+ )
+(?<dot_atom_text>   (?&atext)++ (?: \\. (?&atext)++)*+ )
+(?<dtext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ \\[\\]\\\\] )
+(?<FWS>             (?: [\\t\\ ]*+ \\n)?+ [\\t\\ ]++ )
+(?<local_part>      (?&dot_atom) | (?&quoted_string)  )
+(?<mailbox>         (?&name_addr) | (?&addr_spec) )
+(?<name_addr>       (?&display_name)? (?&angle_addr) )
+(?<phrase>          (?&word)++ )
+(?<qcontent>        (?&qtext) | (?&quoted_pair) )
+(?<quoted_pair>     \" (?&text) )
+(?<quoted_string>   (?&CFWS)?+ \" (?: (?&FWS)?+ (?&qcontent))* (?&FWS)?+ \"
+                    (?&CFWS)?+ )
+(?<qtext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ \"\\\\] )
+(?<text>            [^\\r\\n] )
+(?<word>            (?&atom) | (?&quoted_string) )
+) # End DEFINE
+^(?&mailbox)$","d\\1h\\1&",[])),
+    <<"\"/s=user/ou=host/o=place/prmd=uu.yy/admd= /c=gb/\"-re.lay">> = iolist_to_binary(re:replace("\"/s=user/ou=host/o=place/prmd=uu.yy/admd= /c=gb/\"-re.lay","(?ix)(?(DEFINE)
+(?<addr_spec>       (?&local_part) \\@ (?&domain) )
+(?<angle_addr>      (?&CFWS)?+ < (?&addr_spec) > (?&CFWS)?+ )
+(?<atext>           [a-z\\d!#\\$%&'*+-\\x{2f}=?^_`{|}~] )
+(?<atom>            (?&CFWS)?+ (?&atext)+ (?&CFWS)?+ )
+(?<ccontent>        (?&ctext) | (?&quoted_pair) | (?&comment) )
+(?<ctext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ ()\\\\] )
+(?<comment>         \\( (?: (?&FWS)?+ (?&ccontent) )*+ (?&FWS)?+ \\) )
+(?<CFWS>            (?: (?&FWS)?+ (?&comment) )* (?# NOT possessive)
+                    (?: (?&FWS)?+ (?&comment) | (?&FWS) ) )
+(?<dcontent>        (?&dtext) | (?&quoted_pair) )
+(?<display_name>    (?&phrase) )
+(?<domain>          (?&dot_atom) | (?&domain_literal) )
+(?<domain_literal>  (?&CFWS)?+ \\[ (?: (?&FWS)?+ (?&dcontent) )* (?&FWS)?+ \\]
+                    (?&CFWS)?+ )
+(?<dot_atom>        (?&CFWS)?+ (?&dot_atom_text) (?&CFWS)?+ )
+(?<dot_atom_text>   (?&atext)++ (?: \\. (?&atext)++)*+ )
+(?<dtext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ \\[\\]\\\\] )
+(?<FWS>             (?: [\\t\\ ]*+ \\n)?+ [\\t\\ ]++ )
+(?<local_part>      (?&dot_atom) | (?&quoted_string)  )
+(?<mailbox>         (?&name_addr) | (?&addr_spec) )
+(?<name_addr>       (?&display_name)? (?&angle_addr) )
+(?<phrase>          (?&word)++ )
+(?<qcontent>        (?&qtext) | (?&quoted_pair) )
+(?<quoted_pair>     \" (?&text) )
+(?<quoted_string>   (?&CFWS)?+ \" (?: (?&FWS)?+ (?&qcontent))* (?&FWS)?+ \"
+                    (?&CFWS)?+ )
+(?<qtext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ \"\\\\] )
+(?<text>            [^\\r\\n] )
+(?<word>            (?&atom) | (?&quoted_string) )
+) # End DEFINE
+^(?&mailbox)$","d\\1h\\1&",[global])),
+    <<"A missing angle <user.where">> = iolist_to_binary(re:replace("A missing angle <user.where","(?ix)(?(DEFINE)
+(?<addr_spec>       (?&local_part) \\@ (?&domain) )
+(?<angle_addr>      (?&CFWS)?+ < (?&addr_spec) > (?&CFWS)?+ )
+(?<atext>           [a-z\\d!#\\$%&'*+-\\x{2f}=?^_`{|}~] )
+(?<atom>            (?&CFWS)?+ (?&atext)+ (?&CFWS)?+ )
+(?<ccontent>        (?&ctext) | (?&quoted_pair) | (?&comment) )
+(?<ctext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ ()\\\\] )
+(?<comment>         \\( (?: (?&FWS)?+ (?&ccontent) )*+ (?&FWS)?+ \\) )
+(?<CFWS>            (?: (?&FWS)?+ (?&comment) )* (?# NOT possessive)
+                    (?: (?&FWS)?+ (?&comment) | (?&FWS) ) )
+(?<dcontent>        (?&dtext) | (?&quoted_pair) )
+(?<display_name>    (?&phrase) )
+(?<domain>          (?&dot_atom) | (?&domain_literal) )
+(?<domain_literal>  (?&CFWS)?+ \\[ (?: (?&FWS)?+ (?&dcontent) )* (?&FWS)?+ \\]
+                    (?&CFWS)?+ )
+(?<dot_atom>        (?&CFWS)?+ (?&dot_atom_text) (?&CFWS)?+ )
+(?<dot_atom_text>   (?&atext)++ (?: \\. (?&atext)++)*+ )
+(?<dtext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ \\[\\]\\\\] )
+(?<FWS>             (?: [\\t\\ ]*+ \\n)?+ [\\t\\ ]++ )
+(?<local_part>      (?&dot_atom) | (?&quoted_string)  )
+(?<mailbox>         (?&name_addr) | (?&addr_spec) )
+(?<name_addr>       (?&display_name)? (?&angle_addr) )
+(?<phrase>          (?&word)++ )
+(?<qcontent>        (?&qtext) | (?&quoted_pair) )
+(?<quoted_pair>     \" (?&text) )
+(?<quoted_string>   (?&CFWS)?+ \" (?: (?&FWS)?+ (?&qcontent))* (?&FWS)?+ \"
+                    (?&CFWS)?+ )
+(?<qtext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ \"\\\\] )
+(?<text>            [^\\r\\n] )
+(?<word>            (?&atom) | (?&quoted_string) )
+) # End DEFINE
+^(?&mailbox)$","rYJd\\1Mtasq\\1",[])),
+    <<"A missing angle <user.where">> = iolist_to_binary(re:replace("A missing angle <user.where","(?ix)(?(DEFINE)
+(?<addr_spec>       (?&local_part) \\@ (?&domain) )
+(?<angle_addr>      (?&CFWS)?+ < (?&addr_spec) > (?&CFWS)?+ )
+(?<atext>           [a-z\\d!#\\$%&'*+-\\x{2f}=?^_`{|}~] )
+(?<atom>            (?&CFWS)?+ (?&atext)+ (?&CFWS)?+ )
+(?<ccontent>        (?&ctext) | (?&quoted_pair) | (?&comment) )
+(?<ctext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ ()\\\\] )
+(?<comment>         \\( (?: (?&FWS)?+ (?&ccontent) )*+ (?&FWS)?+ \\) )
+(?<CFWS>            (?: (?&FWS)?+ (?&comment) )* (?# NOT possessive)
+                    (?: (?&FWS)?+ (?&comment) | (?&FWS) ) )
+(?<dcontent>        (?&dtext) | (?&quoted_pair) )
+(?<display_name>    (?&phrase) )
+(?<domain>          (?&dot_atom) | (?&domain_literal) )
+(?<domain_literal>  (?&CFWS)?+ \\[ (?: (?&FWS)?+ (?&dcontent) )* (?&FWS)?+ \\]
+                    (?&CFWS)?+ )
+(?<dot_atom>        (?&CFWS)?+ (?&dot_atom_text) (?&CFWS)?+ )
+(?<dot_atom_text>   (?&atext)++ (?: \\. (?&atext)++)*+ )
+(?<dtext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ \\[\\]\\\\] )
+(?<FWS>             (?: [\\t\\ ]*+ \\n)?+ [\\t\\ ]++ )
+(?<local_part>      (?&dot_atom) | (?&quoted_string)  )
+(?<mailbox>         (?&name_addr) | (?&addr_spec) )
+(?<name_addr>       (?&display_name)? (?&angle_addr) )
+(?<phrase>          (?&word)++ )
+(?<qcontent>        (?&qtext) | (?&quoted_pair) )
+(?<quoted_pair>     \" (?&text) )
+(?<quoted_string>   (?&CFWS)?+ \" (?: (?&FWS)?+ (?&qcontent))* (?&FWS)?+ \"
+                    (?&CFWS)?+ )
+(?<qtext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ \"\\\\] )
+(?<text>            [^\\r\\n] )
+(?<word>            (?&atom) | (?&quoted_string) )
+) # End DEFINE
+^(?&mailbox)$","rYJd\\1Mtasq\\1",[global])),
+    <<"The quick brown fox">> = iolist_to_binary(re:replace("The quick brown fox","(?ix)(?(DEFINE)
+(?<addr_spec>       (?&local_part) \\@ (?&domain) )
+(?<angle_addr>      (?&CFWS)?+ < (?&addr_spec) > (?&CFWS)?+ )
+(?<atext>           [a-z\\d!#\\$%&'*+-\\x{2f}=?^_`{|}~] )
+(?<atom>            (?&CFWS)?+ (?&atext)+ (?&CFWS)?+ )
+(?<ccontent>        (?&ctext) | (?&quoted_pair) | (?&comment) )
+(?<ctext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ ()\\\\] )
+(?<comment>         \\( (?: (?&FWS)?+ (?&ccontent) )*+ (?&FWS)?+ \\) )
+(?<CFWS>            (?: (?&FWS)?+ (?&comment) )* (?# NOT possessive)
+                    (?: (?&FWS)?+ (?&comment) | (?&FWS) ) )
+(?<dcontent>        (?&dtext) | (?&quoted_pair) )
+(?<display_name>    (?&phrase) )
+(?<domain>          (?&dot_atom) | (?&domain_literal) )
+(?<domain_literal>  (?&CFWS)?+ \\[ (?: (?&FWS)?+ (?&dcontent) )* (?&FWS)?+ \\]
+                    (?&CFWS)?+ )
+(?<dot_atom>        (?&CFWS)?+ (?&dot_atom_text) (?&CFWS)?+ )
+(?<dot_atom_text>   (?&atext)++ (?: \\. (?&atext)++)*+ )
+(?<dtext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ \\[\\]\\\\] )
+(?<FWS>             (?: [\\t\\ ]*+ \\n)?+ [\\t\\ ]++ )
+(?<local_part>      (?&dot_atom) | (?&quoted_string)  )
+(?<mailbox>         (?&name_addr) | (?&addr_spec) )
+(?<name_addr>       (?&display_name)? (?&angle_addr) )
+(?<phrase>          (?&word)++ )
+(?<qcontent>        (?&qtext) | (?&quoted_pair) )
+(?<quoted_pair>     \" (?&text) )
+(?<quoted_string>   (?&CFWS)?+ \" (?: (?&FWS)?+ (?&qcontent))* (?&FWS)?+ \"
+                    (?&CFWS)?+ )
+(?<qtext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ \"\\\\] )
+(?<text>            [^\\r\\n] )
+(?<word>            (?&atom) | (?&quoted_string) )
+) # End DEFINE
+^(?&mailbox)$","o\\1",[])),
+    <<"The quick brown fox">> = iolist_to_binary(re:replace("The quick brown fox","(?ix)(?(DEFINE)
+(?<addr_spec>       (?&local_part) \\@ (?&domain) )
+(?<angle_addr>      (?&CFWS)?+ < (?&addr_spec) > (?&CFWS)?+ )
+(?<atext>           [a-z\\d!#\\$%&'*+-\\x{2f}=?^_`{|}~] )
+(?<atom>            (?&CFWS)?+ (?&atext)+ (?&CFWS)?+ )
+(?<ccontent>        (?&ctext) | (?&quoted_pair) | (?&comment) )
+(?<ctext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ ()\\\\] )
+(?<comment>         \\( (?: (?&FWS)?+ (?&ccontent) )*+ (?&FWS)?+ \\) )
+(?<CFWS>            (?: (?&FWS)?+ (?&comment) )* (?# NOT possessive)
+                    (?: (?&FWS)?+ (?&comment) | (?&FWS) ) )
+(?<dcontent>        (?&dtext) | (?&quoted_pair) )
+(?<display_name>    (?&phrase) )
+(?<domain>          (?&dot_atom) | (?&domain_literal) )
+(?<domain_literal>  (?&CFWS)?+ \\[ (?: (?&FWS)?+ (?&dcontent) )* (?&FWS)?+ \\]
+                    (?&CFWS)?+ )
+(?<dot_atom>        (?&CFWS)?+ (?&dot_atom_text) (?&CFWS)?+ )
+(?<dot_atom_text>   (?&atext)++ (?: \\. (?&atext)++)*+ )
+(?<dtext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ \\[\\]\\\\] )
+(?<FWS>             (?: [\\t\\ ]*+ \\n)?+ [\\t\\ ]++ )
+(?<local_part>      (?&dot_atom) | (?&quoted_string)  )
+(?<mailbox>         (?&name_addr) | (?&addr_spec) )
+(?<name_addr>       (?&display_name)? (?&angle_addr) )
+(?<phrase>          (?&word)++ )
+(?<qcontent>        (?&qtext) | (?&quoted_pair) )
+(?<quoted_pair>     \" (?&text) )
+(?<quoted_string>   (?&CFWS)?+ \" (?: (?&FWS)?+ (?&qcontent))* (?&FWS)?+ \"
+                    (?&CFWS)?+ )
+(?<qtext>           [^\\x{9}\\x{10}\\x{13}\\x{7f}-\\x{ff}\\ \"\\\\] )
+(?<text>            [^\\r\\n] )
+(?<word>            (?&atom) | (?&quoted_string) )
+) # End DEFINE
+^(?&mailbox)$","o\\1",[global])),
+    <<"< >">> = iolist_to_binary(re:replace("< >","<(?xxx:[a b])>","W\\1SUNxSjyjPQXxi",[])),
+    <<"< >">> = iolist_to_binary(re:replace("< >","<(?xxx:[a b])>","W\\1SUNxSjyjPQXxi",[global])),
+    <<"iF">> = iolist_to_binary(re:replace("12-24","[[:digit:]-]+","iF",[])),
+    <<"iF">> = iolist_to_binary(re:replace("12-24","[[:digit:]-]+","iF",[global])),
+    <<"((?<=((*ACCEPT)) )\\1?\\b) ">> = iolist_to_binary(re:replace("((?<=((*ACCEPT)) )\\1?\\b) ","((?<=((*ACCEPT)) )\\1?\\b) ","ox&vpq\\1ch&cfPpHmTC",[])),
+    <<"((?<=((*ACCEPT)) )\\1?\\b) ">> = iolist_to_binary(re:replace("((?<=((*ACCEPT)) )\\1?\\b) ","((?<=((*ACCEPT)) )\\1?\\b) ","ox&vpq\\1ch&cfPpHmTC",[global])),
+    <<"XEPsAiuAXGagZ">> = iolist_to_binary(re:replace("XYYZ","((?<=((*ACCEPT))X)\\1?Y)\\1","EPsAiuAXGag",[])),
+    <<"XEPsAiuAXGagZ">> = iolist_to_binary(re:replace("XYYZ","((?<=((*ACCEPT))X)\\1?Y)\\1","EPsAiuAXGag",[global])),
+    <<"XiTRYKirHaAmYuYLYZ">> = iolist_to_binary(re:replace("XYYZ","((?<=((*ACCEPT))X)\\1?Y(*ACCEPT))\\1","iTR\\1KirHaAm\\1u&L",[])),
+    <<"XiTRYKirHaAmYuYLiTRYKirHaAmYuYLZ">> = iolist_to_binary(re:replace("XYYZ","((?<=((*ACCEPT))X)\\1?Y(*ACCEPT))\\1","iTR\\1KirHaAm\\1u&L",[global])),
+    <<"hopmrj">> = iolist_to_binary(re:replace("aa","(?(DEFINE)(?<optional_a>a?)X)^(?&optional_a)a$","hopm\\1\\1\\1rj",[])),
+    <<"hopmrj">> = iolist_to_binary(re:replace("aa","(?(DEFINE)(?<optional_a>a?)X)^(?&optional_a)a$","hopm\\1\\1\\1rj",[global])),
+    <<"GaaHbVyaaKV">> = iolist_to_binary(re:replace("a","(?(DEFINE)(?<optional_a>a?)X)^(?&optional_a)a$","G&aHbV\\1y&\\1&KV\\1\\1",[])),
+    <<"GaaHbVyaaKV">> = iolist_to_binary(re:replace("a","(?(DEFINE)(?<optional_a>a?)X)^(?&optional_a)a$","G&aHbV\\1y&\\1&KV\\1\\1",[global])),
+    <<"vJmSalMayqaFabaaT">> = iolist_to_binary(re:replace("abaa","^(a?)b(?1)a","vJmS\\1lM\\1yq\\1F&T",[])),
+    <<"vJmSalMayqaFabaaT">> = iolist_to_binary(re:replace("abaa","^(a?)b(?1)a","vJmS\\1lM\\1yq\\1F&T",[global])),
+    <<"abaROagE">> = iolist_to_binary(re:replace("aba","^(a?)b(?1)a","&RO\\1gE",[])),
+    <<"abaROagE">> = iolist_to_binary(re:replace("aba","^(a?)b(?1)a","&RO\\1gE",[global])),
+    <<"AVraX">> = iolist_to_binary(re:replace("baa","^(a?)b(?1)a","AVraX",[])),
+    <<"AVraX">> = iolist_to_binary(re:replace("baa","^(a?)b(?1)a","AVraX",[global])),
+    <<"rftobagfVofMMeQba">> = iolist_to_binary(re:replace("ba","^(a?)b(?1)a","rfto&gfVofMM\\1eQ&",[])),
+    <<"rftobagfVofMMeQba">> = iolist_to_binary(re:replace("ba","^(a?)b(?1)a","rfto&gfVofMM\\1eQ&",[global])),
+    <<"NHQVjk">> = iolist_to_binary(re:replace("abaa","^(a?)+b(?1)a","N\\1HQVjk",[])),
+    <<"NHQVjk">> = iolist_to_binary(re:replace("abaa","^(a?)+b(?1)a","N\\1HQVjk",[global])),
+    <<"GLeLtFYgLpecJf">> = iolist_to_binary(re:replace("aba","^(a?)+b(?1)a","GLeLtFY\\1\\1gLpecJf",[])),
+    <<"GLeLtFYgLpecJf">> = iolist_to_binary(re:replace("aba","^(a?)+b(?1)a","GLeLtFY\\1\\1gLpecJf",[global])),
+    <<"wcL">> = iolist_to_binary(re:replace("baa","^(a?)+b(?1)a","wcL\\1",[])),
+    <<"wcL">> = iolist_to_binary(re:replace("baa","^(a?)+b(?1)a","wcL\\1",[global])),
+    <<"RUVUoonAhCsbWrFjwfb">> = iolist_to_binary(re:replace("ba","^(a?)+b(?1)a","RUVUoonAhCsbWrFjwfb",[])),
+    <<"RUVUoonAhCsbWrFjwfb">> = iolist_to_binary(re:replace("ba","^(a?)+b(?1)a","RUVUoonAhCsbWrFjwfb",[global])),
+    <<"abaaymEfDGabaa">> = iolist_to_binary(re:replace("abaa","^(a?)++b(?1)a","&ymEfDG&",[])),
+    <<"abaaymEfDGabaa">> = iolist_to_binary(re:replace("abaa","^(a?)++b(?1)a","&ymEfDG&",[global])),
+    <<"VWaTi">> = iolist_to_binary(re:replace("aba","^(a?)++b(?1)a","VWaTi",[])),
+    <<"VWaTi">> = iolist_to_binary(re:replace("aba","^(a?)++b(?1)a","VWaTi",[global])),
+    <<"QYqbaa">> = iolist_to_binary(re:replace("baa","^(a?)++b(?1)a","QYq&",[])),
+    <<"QYqbaa">> = iolist_to_binary(re:replace("baa","^(a?)++b(?1)a","QYq&",[global])),
+    <<"CRAbaGGrAbaXLfMKFA">> = iolist_to_binary(re:replace("ba","^(a?)++b(?1)a","CRA&G\\1G\\1r\\1A&XLfMKFA",[])),
+    <<"CRAbaGGrAbaXLfMKFA">> = iolist_to_binary(re:replace("ba","^(a?)++b(?1)a","CRA&G\\1G\\1r\\1A&XLfMKFA",[global])),
+    <<"p">> = iolist_to_binary(re:replace("b","^(a?)+b","p",[])),
+    <<"p">> = iolist_to_binary(re:replace("b","^(a?)+b","p",[global])),
+    <<"avnuwGVQnbabM">> = iolist_to_binary(re:replace("ab","^(a?)+b","avnuw\\1\\1GVQ\\1nb&M",[])),
+    <<"avnuwGVQnbabM">> = iolist_to_binary(re:replace("ab","^(a?)+b","avnuw\\1\\1GVQ\\1nb&M",[global])),
+    <<"dbJHaaabQmNvUj">> = iolist_to_binary(re:replace("aaab","^(a?)+b","dbJH&QmNvU\\1j",[])),
+    <<"dbJHaaabQmNvUj">> = iolist_to_binary(re:replace("aaab","^(a?)+b","dbJH&QmNvU\\1j",[global])),
+    <<"aCjOj">> = iolist_to_binary(re:replace("aab","(?=a+)a(a+)++b","\\1CjOj",[])),
+    <<"aCjOj">> = iolist_to_binary(re:replace("aab","(?=a+)a(a+)++b","\\1CjOj",[global])),
     ok.
 run59() ->
-    <<"acfX1zzzaefX2zzzadeefX3zzzGX4aHbVyX4X4KVzzz">> = iolist_to_binary(re:replace("acfX1zzzaefX2zzzadeefX3zzzX4zzz","(?<!a(b?c|d?e?e)f)X.","G&aHbV\\1y&\\1&KV\\1\\1",[])),
-    <<"acfX1zzzaefX2zzzadeefX3zzzGX4aHbVyX4X4KVzzz">> = iolist_to_binary(re:replace("acfX1zzzaefX2zzzadeefX3zzzX4zzz","(?<!a(b?c|d?e?e)f)X.","G&aHbV\\1y&\\1&KV\\1\\1",[global])),
-    <<"abcvJmSlMyqFdTefg">> = iolist_to_binary(re:replace("abcdefg","(?(?<=ab?c)d|e)","vJmS\\1lM\\1yq\\1F&T",[])),
-    <<"abcvJmSlMyqFdTvJmSlMyqFeTfg">> = iolist_to_binary(re:replace("abcdefg","(?(?<=ab?c)d|e)","vJmS\\1lM\\1yq\\1F&T",[global])),
-    <<"acdROgEefg">> = iolist_to_binary(re:replace("acdefg","(?(?<=ab?c)d|e)","&RO\\1gE",[])),
-    <<"acdROgEefg">> = iolist_to_binary(re:replace("acdefg","(?(?<=ab?c)d|e)","&RO\\1gE",[global])),
-    <<"axdAVraXfg">> = iolist_to_binary(re:replace("axdefg","(?(?<=ab?c)d|e)","AVraX",[])),
-    <<"axdAVraXfg">> = iolist_to_binary(re:replace("axdefg","(?(?<=ab?c)d|e)","AVraX",[global])),
-    <<"ABCrftoDgfVofMMeQD">> = iolist_to_binary(re:replace("ABCD","(?<=\\d{2,3}|ABC).","rfto&gfVofMM\\1eQ&",[])),
-    <<"ABCrftoDgfVofMMeQD">> = iolist_to_binary(re:replace("ABCD","(?<=\\d{2,3}|ABC).","rfto&gfVofMM\\1eQ&",[global])),
-    <<"1234N1234HQVjk">> = iolist_to_binary(re:replace("1234X","(?<=(\\d{1,255}))X","N\\1HQVjk",[])),
-    <<"1234N1234HQVjk">> = iolist_to_binary(re:replace("1234X","(?<=(\\d{1,255}))X","N\\1HQVjk",[global])),
-    <<"ZXacbccdGLeLtFYccgLpecJfYZ">> = iolist_to_binary(re:replace("ZXacbccdXYZ","(?<=a(b?c){3}d)X","GLeLtFY\\1\\1gLpecJf",[])),
-    <<"ZXacbccdGLeLtFYccgLpecJfYZ">> = iolist_to_binary(re:replace("ZXacbccdXYZ","(?<=a(b?c){3}d)X","GLeLtFY\\1\\1gLpecJf",[global])),
-    <<"ZXadwcLYZ">> = iolist_to_binary(re:replace("ZXadXYZ","(?<=a(b?c){0}d)X","wcL\\1",[])),
-    <<"ZXadwcLYZ">> = iolist_to_binary(re:replace("ZXadXYZ","(?<=a(b?c){0}d)X","wcL\\1",[global])),
-    <<"ZXadRUVUoonAhCsbWrFjwfbZ">> = iolist_to_binary(re:replace("ZXadXYZ","(?<=a?(b?c){0}d)X.","RUVUoonAhCsbWrFjwfb",[])),
-    <<"ZXadRUVUoonAhCsbWrFjwfbZ">> = iolist_to_binary(re:replace("ZXadXYZ","(?<=a?(b?c){0}d)X.","RUVUoonAhCsbWrFjwfb",[global])),
-    <<"
-XymEfDGX">> = iolist_to_binary(re:replace("
-X","(?<=\\R)X","&ymEfDG&",[])),
-    <<"
-XymEfDGX">> = iolist_to_binary(re:replace("
-X","(?<=\\R)X","&ymEfDG&",[global])),
-    <<"a
-VWaTi">> = iolist_to_binary(re:replace("a
-X","(?<=\\R)X","VWaTi",[])),
-    <<"a
-VWaTi">> = iolist_to_binary(re:replace("a
-X","(?<=\\R)X","VWaTi",[global])),
-    <<"a
-QYqX">> = iolist_to_binary(re:replace("a
-X","(?<=\\R)X","QYq&",[])),
-    <<"a
-QYqX">> = iolist_to_binary(re:replace("a
-X","(?<=\\R)X","QYq&",[global])),
-    <<"XCRABGGrABXLfMKFABB">> = iolist_to_binary(re:replace("XBBB","a{,3}B","CRA&G\\1G\\1r\\1A&XLfMKFA",[])),
-    <<"XCRABGGrABXLfMKFACRABGGrABXLfMKFACRABGGrABXLfMKFA">> = iolist_to_binary(re:replace("XBBB","a{,3}B","CRA&G\\1G\\1r\\1A&XLfMKFA",[global])),
-    <<"XpBB">> = iolist_to_binary(re:replace("XaBBB","a{,3}B","p",[])),
-    <<"Xppp">> = iolist_to_binary(re:replace("XaBBB","a{,3}B","p",[global])),
-    <<"XavnuwGVQnbaaBMBB">> = iolist_to_binary(re:replace("XaaBBB","a{,3}B","avnuw\\1\\1GVQ\\1nb&M",[])),
-    <<"XavnuwGVQnbaaBMavnuwGVQnbBMavnuwGVQnbBM">> = iolist_to_binary(re:replace("XaaBBB","a{,3}B","avnuw\\1\\1GVQ\\1nb&M",[global])),
-    <<"XdbJHaaaBQmNvUjBB">> = iolist_to_binary(re:replace("XaaaBBB","a{,3}B","dbJH&QmNvU\\1j",[])),
-    <<"XdbJHaaaBQmNvUjdbJHBQmNvUjdbJHBQmNvUj">> = iolist_to_binary(re:replace("XaaaBBB","a{,3}B","dbJH&QmNvU\\1j",[global])),
-    <<"XaCjOjBB">> = iolist_to_binary(re:replace("XaaaaBBB","a{,3}B","\\1CjOj",[])),
-    <<"XaCjOjCjOjCjOj">> = iolist_to_binary(re:replace("XaaaaBBB","a{,3}B","\\1CjOj",[global])),
-    <<"XKpYyerFiCpuOBB">> = iolist_to_binary(re:replace("Xa{,}BBB","a{,}B","KpYyerF\\1iCpuO",[])),
-    <<"XKpYyerFiCpuOBB">> = iolist_to_binary(re:replace("Xa{,}BBB","a{,}B","KpYyerF\\1iCpuO",[global])),
-    <<"XBBB">> = iolist_to_binary(re:replace("XBBB","a{,}B","YmcadB&nCCREKHHXlMoH",[])),
-    <<"XBBB">> = iolist_to_binary(re:replace("XBBB","a{,}B","YmcadB&nCCREKHHXlMoH",[global])),
-    <<"XaBBB">> = iolist_to_binary(re:replace("XaBBB","a{,}B","OvTfjYJC\\1XmGdYVUwWCW",[])),
-    <<"XaBBB">> = iolist_to_binary(re:replace("XaBBB","a{,}B","OvTfjYJC\\1XmGdYVUwWCW",[global])),
-    <<"ZZFDbNbagX{gDbDDd}YY">> = iolist_to_binary(re:replace("ZZX{}YY","X{","FDbNbag&gDbDDd",[])),
-    <<"ZZFDbNbagX{gDbDDd}YY">> = iolist_to_binary(re:replace("ZZX{}YY","X{","FDbNbag&gDbDDd",[global])),
-    <<"ZZsX{AhjxkMNX{ACQoCXVcBC}">> = iolist_to_binary(re:replace("ZZX{ABC}","X{A","s&hjxkMN&CQoCXVc",[])),
-    <<"ZZsX{AhjxkMNX{ACQoCXVcBC}">> = iolist_to_binary(re:replace("ZZX{ABC}","X{A","s&hjxkMN&CQoCXVc",[global])),
-    <<"ZZRdrPCVLRX{}ILnYZ">> = iolist_to_binary(re:replace("ZZX{}YZ","X{}","RdrPCVLR&ILn\\1",[])),
-    <<"ZZRdrPCVLRX{}ILnYZ">> = iolist_to_binary(re:replace("ZZX{}YZ","X{}","RdrPCVLR&ILn\\1",[global])),
-    <<"ZZbKbX{1234X{1234MX{1234X{1234HkX{1234tlX{1234T56">> = iolist_to_binary(re:replace("ZZX{123456","X{1234","bKb\\1&&M&&Hk&tl&T",[])),
-    <<"ZZbKbX{1234X{1234MX{1234X{1234HkX{1234tlX{1234T56">> = iolist_to_binary(re:replace("ZZX{123456","X{1234","bKb\\1&&M&&Hk&tl&T",[global])),
-    <<"ZZX{12ABC}gUOdBxWpuY">> = iolist_to_binary(re:replace("ZZX{12ABC}Y","X{12ABC}","&gUO\\1dB\\1\\1x\\1\\1\\1Wpu",[])),
-    <<"ZZX{12ABC}gUOdBxWpuY">> = iolist_to_binary(re:replace("ZZX{12ABC}Y","X{12ABC}","&gUO\\1dB\\1\\1x\\1\\1\\1Wpu",[global])),
-    <<"ZZCX{1,XhvafX{1,X{1,FX{1,dgX{1,n...">> = iolist_to_binary(re:replace("ZZX{1,...","X{1,","C&Xhvaf&\\1&\\1\\1F&dg&n",[])),
-    <<"ZZCX{1,XhvafX{1,X{1,FX{1,dgX{1,n...">> = iolist_to_binary(re:replace("ZZX{1,...","X{1,","C&Xhvaf&\\1&\\1\\1F&dg&n",[global])),
-    <<"ZZVF}abc">> = iolist_to_binary(re:replace("ZZX{,9}abc","X{,9","V\\1F",[])),
-    <<"ZZVF}abc">> = iolist_to_binary(re:replace("ZZX{,9}abc","X{,9","V\\1F",[global])),
-    <<"ZZTNX{,9]..">> = iolist_to_binary(re:replace("ZZX{,9]..","X{,9]","\\1TN&\\1",[])),
-    <<"ZZTNX{,9]..">> = iolist_to_binary(re:replace("ZZX{,9]..","X{,9]","\\1TN&\\1",[global])),
-    <<"xxAAoHKKlAAOsTAQzz">> = iolist_to_binary(re:replace("xxAABBzz","(A)(?-1)(?+1)(B)","A\\1oHKKl\\1\\1OsT\\1Q",[])),
-    <<"xxAAoHKKlAAOsTAQzz">> = iolist_to_binary(re:replace("xxAABBzz","(A)(?-1)(?+1)(B)","A\\1oHKKl\\1\\1OsT\\1Q",[global])),
-    <<"XnVISfRIANBaCAhAABAABAABiabX">> = iolist_to_binary(re:replace("XAABX","(A)(\\g{ -2 }B)","nVISfRI\\1NBaC\\1h&&&iab",[])),
-    <<"XnVISfRIANBaCAhAABAABAABiabX">> = iolist_to_binary(re:replace("XAABX","(A)(\\g{ -2 }B)","nVISfRI\\1NBaC\\1h&&&iab",[global])),
+    <<"aKpYyerFiCpuObc">> = iolist_to_binary(re:replace("abc","(?<=\\G.)","KpYyerF\\1iCpuO",[])),
+    <<"aKpYyerFiCpuObKpYyerFiCpuOcKpYyerFiCpuO">> = iolist_to_binary(re:replace("abc","(?<=\\G.)","KpYyerF\\1iCpuO",[global])),
+    <<"YmcadBanCCREKHHXlMoHbc">> = iolist_to_binary(re:replace("abc","a(?=.(*:X))(*SKIP:X)(*F)|(.)","YmcadB&nCCREKHHXlMoH",[])),
+    <<"YmcadBanCCREKHHXlMoHYmcadBbnCCREKHHXlMoHYmcadBcnCCREKHHXlMoH">> = iolist_to_binary(re:replace("abc","a(?=.(*:X))(*SKIP:X)(*F)|(.)","YmcadB&nCCREKHHXlMoH",[global])),
+    <<"OvTfjYJCaXmGdYVUwWCWbc">> = iolist_to_binary(re:replace("abc","a(?>(*:X))(*SKIP:X)(*F)|(.)","OvTfjYJC\\1XmGdYVUwWCW",[])),
+    <<"OvTfjYJCaXmGdYVUwWCWOvTfjYJCbXmGdYVUwWCWOvTfjYJCcXmGdYVUwWCW">> = iolist_to_binary(re:replace("abc","a(?>(*:X))(*SKIP:X)(*F)|(.)","OvTfjYJC\\1XmGdYVUwWCW",[global])),
+    <<"aFDbNbagbgDbDDdc">> = iolist_to_binary(re:replace("abc","a(?:(*:X))(*SKIP:X)(*F)|(.)","FDbNbag&gDbDDd",[])),
+    <<"aFDbNbagbgDbDDdFDbNbagcgDbDDd">> = iolist_to_binary(re:replace("abc","a(?:(*:X))(*SKIP:X)(*F)|(.)","FDbNbag&gDbDDd",[global])),
+    <<"sabchjxkMNabcCQoCXVc">> = iolist_to_binary(re:replace("abc","(?>a(*:1))(?>b(*:1))(*SKIP:1)x|.*","s&hjxkMN&CQoCXVc",[])),
+    <<"sabchjxkMNabcCQoCXVcshjxkMNCQoCXVc">> = iolist_to_binary(re:replace("abc","(?>a(*:1))(?>b(*:1))(*SKIP:1)x|.*","s&hjxkMN&CQoCXVc",[global])),
+    <<"RdrPCVLRabcILn">> = iolist_to_binary(re:replace("abc","(?>a(*:1))(?>b)(*SKIP:1)x|.*","RdrPCVLR&ILn\\1",[])),
+    <<"RdrPCVLRabcILnRdrPCVLRILn">> = iolist_to_binary(re:replace("abc","(?>a(*:1))(?>b)(*SKIP:1)x|.*","RdrPCVLR&ILn\\1",[global])),
+    <<"bKbaaMaaHkatlaTbc">> = iolist_to_binary(re:replace("abc","a(*ACCEPT:X)b","bKb\\1&&M&&Hk&tl&T",[])),
+    <<"bKbaaMaaHkatlaTbc">> = iolist_to_binary(re:replace("abc","a(*ACCEPT:X)b","bKb\\1&&M&&Hk&tl&T",[global])),
+    <<"axyzgUOdBxWpu">> = iolist_to_binary(re:replace("axyz","(?=a(*ACCEPT:QQ)bc)axyz","&gUO\\1dB\\1\\1x\\1\\1\\1Wpu",[])),
+    <<"axyzgUOdBxWpu">> = iolist_to_binary(re:replace("axyz","(?=a(*ACCEPT:QQ)bc)axyz","&gUO\\1dB\\1\\1x\\1\\1\\1Wpu",[global])),
+    <<"CabXhvafababFabdgabnc">> = iolist_to_binary(re:replace("abc","(?(DEFINE)(a(*ACCEPT:X)))(?1)b","C&Xhvaf&\\1&\\1\\1F&dg&n",[])),
+    <<"CabXhvafababFabdgabnc">> = iolist_to_binary(re:replace("abc","(?(DEFINE)(a(*ACCEPT:X)))(?1)b","C&Xhvaf&\\1&\\1\\1F&dg&n",[global])),
+    <<"abc">> = iolist_to_binary(re:replace("abc","a(*F:X)b","V\\1F",[])),
+    <<"abc">> = iolist_to_binary(re:replace("abc","a(*F:X)b","V\\1F",[global])),
+    <<"abc">> = iolist_to_binary(re:replace("abc","(?(DEFINE)(a(*F:X)))(?1)b","\\1TN&\\1",[])),
+    <<"abc">> = iolist_to_binary(re:replace("abc","(?(DEFINE)(a(*F:X)))(?1)b","\\1TN&\\1",[global])),
+    <<"AoHKKlOsTQc">> = iolist_to_binary(re:replace("abc","a(*COMMIT:X)b","A\\1oHKKl\\1\\1OsT\\1Q",[])),
+    <<"AoHKKlOsTQc">> = iolist_to_binary(re:replace("abc","a(*COMMIT:X)b","A\\1oHKKl\\1\\1OsT\\1Q",[global])),
+    <<"nVISfRINBaChabababiabc">> = iolist_to_binary(re:replace("abc","(?(DEFINE)(a(*COMMIT:X)))(?1)b","nVISfRI\\1NBaC\\1h&&&iab",[])),
+    <<"nVISfRINBaChabababiabc">> = iolist_to_binary(re:replace("abc","(?(DEFINE)(a(*COMMIT:X)))(?1)b","nVISfRI\\1NBaC\\1h&&&iab",[global])),
+    <<"aaaaubdipipyibdbbdV">> = iolist_to_binary(re:replace("aaaabd","a+(*:Z)b(*COMMIT:X)(*SKIP:Z)c|.*","u&ip\\1ip\\1\\1yi&\\1b&V",[])),
+    <<"aaaaubdipipyibdbbdVuipipyibV">> = iolist_to_binary(re:replace("aaaabd","a+(*:Z)b(*COMMIT:X)(*SKIP:Z)c|.*","u&ip\\1ip\\1\\1yi&\\1b&V",[global])),
+    <<"aaaabd">> = iolist_to_binary(re:replace("aaaabd","a+(*:Z)b(*COMMIT:X)(*SKIP:X)c|.*","wAjTGXoySgBSd",[])),
+    <<"aaaabd">> = iolist_to_binary(re:replace("aaaabd","a+(*:Z)b(*COMMIT:X)(*SKIP:X)c|.*","wAjTGXoySgBSd",[global])),
     ok.
 run60() ->
-    <<"XuAABipAipAAyiAABAbAABVX">> = iolist_to_binary(re:replace("XAABX","(A)((?-2)B)","u&ip\\1ip\\1\\1yi&\\1b&V",[])),
-    <<"XuAABipAipAAyiAABAbAABVX">> = iolist_to_binary(re:replace("XAABX","(A)((?-2)B)","u&ip\\1ip\\1\\1yi&\\1b&V",[global])),
-    <<"--wAjTGXoySgBSd--">> = iolist_to_binary(re:replace("--aX--","a\\c\\X","wAjTGXoySgBSd",[])),
-    <<"--wAjTGXoySgBSd--">> = iolist_to_binary(re:replace("--aX--","a\\c\\X","wAjTGXoySgBSd",[global])),
-    <<"bcHIJOeNBWAOXb">> = iolist_to_binary(re:replace("baab","(a)\\g{ 1 }","cHIJOeNBWAOX",[])),
-    <<"bcHIJOeNBWAOXb">> = iolist_to_binary(re:replace("baab","(a)\\g{ 1 }","cHIJOeNBWAOX",[global])),
-    <<"Xaawbaaaagaaaaa">> = iolist_to_binary(re:replace("Xaaaaa","a{ 1,2 }","&wb&&g&",[])),
-    <<"Xaawbaaaagaaaawbaaaagaaawbaaga">> = iolist_to_binary(re:replace("Xaaaaa","a{ 1,2 }","&wb&&g&",[global])),
-    <<"XXSEMaaaaa">> = iolist_to_binary(re:replace("Xaaaaa","a{ 1 , 2 }","XSEM&",[])),
-    <<"XXSEMaaXSEMaaXSEMa">> = iolist_to_binary(re:replace("Xaaaaa","a{ 1 , 2 }","XSEM&",[global])),
-    <<"XQmAqwBScoVababEX">> = iolist_to_binary(re:replace("XabababX","(?'name'ab)\\k{ name }(?P=name)","QmAqwBScoV\\1\\1E",[])),
-    <<"XQmAqwBScoVababEX">> = iolist_to_binary(re:replace("XabababX","(?'name'ab)\\k{ name }(?P=name)","QmAqwBScoV\\1\\1E",[global])),
-    <<"OMTiwdqw">> = iolist_to_binary(re:replace("A{,}B","A{,}B","OMTiwdqw",[])),
-    <<"OMTiwdqw">> = iolist_to_binary(re:replace("A{,}B","A{,}B","OMTiwdqw",[global])),
-    <<"NxA{ , }BtwnfgviUXLq">> = iolist_to_binary(re:replace("A{ , }B","A{ , }B","N\\1x&twnfgviUXLq",[])),
-    <<"NxA{ , }BtwnfgviUXLq">> = iolist_to_binary(re:replace("A{ , }B","A{ , }B","N\\1x&twnfgviUXLq",[global])),
-    <<"vIdLQAAACC">> = iolist_to_binary(re:replace("AAAAAACC","A{ ,3}","vI\\1dL\\1Q",[])),
-    <<"vIdLQvIdLQvIdLQCvIdLQCvIdLQ">> = iolist_to_binary(re:replace("AAAAAACC","A{ ,3}","vI\\1dL\\1Q",[global])),
-    <<"BBeCC">> = iolist_to_binary(re:replace("BBAAAAAACC","A{ 3, }","e",[])),
-    <<"BBeCC">> = iolist_to_binary(re:replace("BBAAAAAACC","A{ 3, }","e",[global])),
-    <<"isvEuyKowYXlOom[abcdef]">> = iolist_to_binary(re:replace("[abcdef]","^
+    <<"axabc">> = iolist_to_binary(re:replace("axabc","a(*COMMIT:X)b","cHIJOeNBWAOX",[])),
+    <<"axabc">> = iolist_to_binary(re:replace("axabc","a(*COMMIT:X)b","cHIJOeNBWAOX",[global])),
+    <<"aBCDE FwbaBCDE FaBCDE FgaBCDE F">> = iolist_to_binary(re:replace("aBCDE F","(?i)A(?^)B(?^x:C D)(?^i)e f","&wb&&g&",[])),
+    <<"aBCDE FwbaBCDE FaBCDE FgaBCDE F">> = iolist_to_binary(re:replace("aBCDE F","(?i)A(?^)B(?^x:C D)(?^i)e f","&wb&&g&",[global])),
+    <<"aBCDEF">> = iolist_to_binary(re:replace("aBCDEF","(?i)A(?^)B(?^x:C D)(?^i)e f","XSEM&",[])),
+    <<"aBCDEF">> = iolist_to_binary(re:replace("aBCDEF","(?i)A(?^)B(?^x:C D)(?^i)e f","XSEM&",[global])),
+    <<"AbCDe f">> = iolist_to_binary(re:replace("AbCDe f","(?i)A(?^)B(?^x:C D)(?^i)e f","QmAqwBScoV\\1\\1E",[])),
+    <<"AbCDe f">> = iolist_to_binary(re:replace("AbCDe f","(?i)A(?^)B(?^x:C D)(?^i)e f","QmAqwBScoV\\1\\1E",[global])),
+    <<"abcOMTiwdqwxyz">> = iolist_to_binary(re:replace("abcfoobarxyz","(*pla:foo).{6}","OMTiwdqw",[])),
+    <<"abcOMTiwdqwxyz">> = iolist_to_binary(re:replace("abcfoobarxyz","(*pla:foo).{6}","OMTiwdqw",[global])),
+    <<"abcfooba">> = iolist_to_binary(re:replace("abcfooba","(*pla:foo).{6}","N\\1x&twnfgviUXLq",[])),
+    <<"abcfooba">> = iolist_to_binary(re:replace("abcfooba","(*pla:foo).{6}","N\\1x&twnfgviUXLq",[global])),
+    <<"abcvIdLQxyz">> = iolist_to_binary(re:replace("abcfoobarxyz","(*positive_lookahead:foo).{6}","vI\\1dL\\1Q",[])),
+    <<"abcvIdLQxyz">> = iolist_to_binary(re:replace("abcfoobarxyz","(*positive_lookahead:foo).{6}","vI\\1dL\\1Q",[global])),
+    <<"ebaz">> = iolist_to_binary(re:replace("foobarbaz","(?(*pla:foo).{6}|a..)","e",[])),
+    <<"ebaz">> = iolist_to_binary(re:replace("foobarbaz","(?(*pla:foo).{6}|a..)","e",[global])),
+    <<"isvEuyKowYXlOomabcfoobar">> = iolist_to_binary(re:replace("abcfoobar","(?(*pla:foo).{6}|a..)","isvEuyKowYXlOom&",[])),
+    <<"isvEuyKowYXlOomabcisvEuyKowYXlOomfoobar">> = iolist_to_binary(re:replace("abcfoobar","(?(*pla:foo).{6}|a..)","isvEuyKowYXlOom&",[global])),
+    <<"AdTVJEYuVBbaz">> = iolist_to_binary(re:replace("foobarbaz","(?(*positive_lookahead:foo).{6}|a..)","AdTV\\1JEYuVB",[])),
+    <<"AdTVJEYuVBbaz">> = iolist_to_binary(re:replace("foobarbaz","(?(*positive_lookahead:foo).{6}|a..)","AdTV\\1JEYuVB",[global])),
+    <<"yJabcNyBfoobar">> = iolist_to_binary(re:replace("abcfoobar","(?(*positive_lookahead:foo).{6}|a..)","yJ&N\\1yB",[])),
+    <<"yJabcNyByJfoobarNyB">> = iolist_to_binary(re:replace("abcfoobar","(?(*positive_lookahead:foo).{6}|a..)","yJ&N\\1yB",[global])),
+    <<"abcfoouaGCKNavdW">> = iolist_to_binary(re:replace("abcfoobar","(*plb:foo)bar","uaGCKNavdW\\1",[])),
+    <<"abcfoouaGCKNavdW">> = iolist_to_binary(re:replace("abcfoobar","(*plb:foo)bar","uaGCKNavdW\\1",[global])),
+    <<"abcbarfoo">> = iolist_to_binary(re:replace("abcbarfoo","(*plb:foo)bar","&ITgBp&BJFr\\1PT\\1",[])),
+    <<"abcbarfoo">> = iolist_to_binary(re:replace("abcbarfoo","(*plb:foo)bar","&ITgBp&BJFr\\1PT\\1",[global])),
+    <<"abcfooDRwRRJbarbarsbarOXDATy">> = iolist_to_binary(re:replace("abcfoobar","(*positive_lookbehind:foo)bar","DRwRRJ&&s&OXDATy",[])),
+    <<"abcfooDRwRRJbarbarsbarOXDATy">> = iolist_to_binary(re:replace("abcfoobar","(*positive_lookbehind:foo)bar","DRwRRJ&&s&OXDATy",[global])),
+    <<"abcbarfoo">> = iolist_to_binary(re:replace("abcbarfoo","(*positive_lookbehind:foo)bar","qog\\1gXPBQjq",[])),
+    <<"abcbarfoo">> = iolist_to_binary(re:replace("abcbarfoo","(*positive_lookbehind:foo)bar","qog\\1gXPBQjq",[global])),
+    <<"abcfooSVASuT">> = iolist_to_binary(re:replace("abcfoobar","(?(*plb:foo)bar|baz)","SV\\1ASuT\\1",[])),
+    <<"abcfooSVASuT">> = iolist_to_binary(re:replace("abcfoobar","(?(*plb:foo)bar|baz)","SV\\1ASuT\\1",[global])),
+    <<"eTOfoobar">> = iolist_to_binary(re:replace("bazfoobar","(?(*plb:foo)bar|baz)","eTO",[])),
+    <<"eTOfooeTO">> = iolist_to_binary(re:replace("bazfoobar","(?(*plb:foo)bar|baz)","eTO",[global])),
+    <<"abcHAJbazwfoobar">> = iolist_to_binary(re:replace("abcbazfoobar","(?(*plb:foo)bar|baz)","HAJ&w\\1",[])),
+    <<"abcHAJbazwfooHAJbarw">> = iolist_to_binary(re:replace("abcbazfoobar","(?(*plb:foo)bar|baz)","HAJ&w\\1",[global])),
+    <<"foobazfooEMvXhBG">> = iolist_to_binary(re:replace("foobazfoobar","(?(*plb:foo)bar|baz)","EMvXhBG",[])),
+    <<"foobazfooEMvXhBG">> = iolist_to_binary(re:replace("foobazfoobar","(?(*plb:foo)bar|baz)","EMvXhBG",[global])),
+    <<"abcfoorWbarlOQEcegVcvQpr">> = iolist_to_binary(re:replace("abcfoobar","(?(*positive_lookbehind:foo)bar|baz)","r\\1W&lOQEcegVcvQp\\1r",[])),
+    <<"abcfoorWbarlOQEcegVcvQpr">> = iolist_to_binary(re:replace("abcfoobar","(?(*positive_lookbehind:foo)bar|baz)","r\\1W&lOQEcegVcvQp\\1r",[global])),
+    <<"JABcbazTfoobar">> = iolist_to_binary(re:replace("bazfoobar","(?(*positive_lookbehind:foo)bar|baz)","JABc&T",[])),
+    <<"JABcbazTfooJABcbarT">> = iolist_to_binary(re:replace("bazfoobar","(?(*positive_lookbehind:foo)bar|baz)","JABc&T",[global])),
+    <<"abcnEIdwsbazYofoobar">> = iolist_to_binary(re:replace("abcbazfoobar","(?(*positive_lookbehind:foo)bar|baz)","\\1nEIdws&\\1Yo",[])),
+    <<"abcnEIdwsbazYofoonEIdwsbarYo">> = iolist_to_binary(re:replace("abcbazfoobar","(?(*positive_lookbehind:foo)bar|baz)","\\1nEIdws&\\1Yo",[global])),
+    <<"foobazfoowbard">> = iolist_to_binary(re:replace("foobazfoobar","(?(*positive_lookbehind:foo)bar|baz)","w&d",[])),
+    <<"foobazfoowbard">> = iolist_to_binary(re:replace("foobazfoobar","(?(*positive_lookbehind:foo)bar|baz)","w&d",[global])),
+    <<"abcsprnhfoo">> = iolist_to_binary(re:replace("abcbarfoo","(*nlb:foo)bar","sp\\1rnh",[])),
+    <<"abcsprnhfoo">> = iolist_to_binary(re:replace("abcbarfoo","(*nlb:foo)bar","sp\\1rnh",[global])),
+    <<"abcfoobar">> = iolist_to_binary(re:replace("abcfoobar","(*nlb:foo)bar","&h\\1DhrD&\\1Lif",[])),
+    <<"abcfoobar">> = iolist_to_binary(re:replace("abcfoobar","(*nlb:foo)bar","&h\\1DhrD&\\1Lif",[global])),
+    <<"abcFFjebarFbarevYbfoo">> = iolist_to_binary(re:replace("abcbarfoo","(*negative_lookbehind:foo)bar","FF\\1je&F&ev\\1Yb",[])),
+    <<"abcFFjebarFbarevYbfoo">> = iolist_to_binary(re:replace("abcbarfoo","(*negative_lookbehind:foo)bar","FF\\1je&F&ev\\1Yb",[global])),
+    <<"abcfoobar">> = iolist_to_binary(re:replace("abcfoobar","(*negative_lookbehind:foo)bar","lk&&ep",[])),
+    <<"abcfoobar">> = iolist_to_binary(re:replace("abcfoobar","(*negative_lookbehind:foo)bar","lk&&ep",[global])),
+    <<"abcfooQwrEsgmHnPVabazUBbazN">> = iolist_to_binary(re:replace("abcfoobaz","(?(*nlb:foo)bar|baz)","QwrEs\\1g\\1m\\1HnPVa&UB&N",[])),
+    <<"abcfooQwrEsgmHnPVabazUBbazN">> = iolist_to_binary(re:replace("abcfoobaz","(?(*nlb:foo)bar|baz)","QwrEs\\1g\\1m\\1HnPVa&UB&N",[global])),
+    <<"abcqsLGpXygYrbaz">> = iolist_to_binary(re:replace("abcbarbaz","(?(*nlb:foo)bar|baz)","qsL\\1GpX\\1ygYr",[])),
+    <<"abcqsLGpXygYrbaz">> = iolist_to_binary(re:replace("abcbarbaz","(?(*nlb:foo)bar|baz)","qsL\\1GpX\\1ygYr",[global])),
+    <<"abcfoobar">> = iolist_to_binary(re:replace("abcfoobar","(?(*nlb:foo)bar|baz)","W&M\\1AC",[])),
+    <<"abcfoobar">> = iolist_to_binary(re:replace("abcfoobar","(?(*nlb:foo)bar|baz)","W&M\\1AC",[global])),
+    <<"abcfoobazbazEEWrMfRW">> = iolist_to_binary(re:replace("abcfoobaz","(?(*negative_lookbehind:foo)bar|baz)","&&EEW\\1rMf\\1RW",[])),
+    <<"abcfoobazbazEEWrMfRW">> = iolist_to_binary(re:replace("abcfoobaz","(?(*negative_lookbehind:foo)bar|baz)","&&EEW\\1rMf\\1RW",[global])),
+    <<"abcOWWbaz">> = iolist_to_binary(re:replace("abcbarbaz","(?(*negative_lookbehind:foo)bar|baz)","OWW",[])),
+    <<"abcOWWbaz">> = iolist_to_binary(re:replace("abcbarbaz","(?(*negative_lookbehind:foo)bar|baz)","OWW",[global])),
+    <<"abcfoobar">> = iolist_to_binary(re:replace("abcfoobar","(?(*negative_lookbehind:foo)bar|baz)","\\1cH&H&bwcSlFtbMU&",[])),
+    <<"abcfoobar">> = iolist_to_binary(re:replace("abcfoobar","(?(*negative_lookbehind:foo)bar|baz)","\\1cH&H&bwcSlFtbMU&",[global])),
+    <<"QnwXYs">> = iolist_to_binary(re:replace("aaab","(*atomic:a+)\\w","QnwXYs",[])),
+    <<"QnwXYs">> = iolist_to_binary(re:replace("aaab","(*atomic:a+)\\w","QnwXYs",[global])),
+    <<"aaaa">> = iolist_to_binary(re:replace("aaaa","(*atomic:a+)\\w","pJjRp\\1VdTtnNitYw\\1RL",[])),
+    <<"aaaa">> = iolist_to_binary(re:replace("aaaa","(*atomic:a+)\\w","pJjRp\\1VdTtnNitYw\\1RL",[global])),
+    <<"tpokus.Hpokus.Ppokus.UHuXIoBk">> = iolist_to_binary(re:replace("pokus.","   (?<word> \\w+ )*    \\.   ","t&H&P&UHuXIoBk",[caseless,extended])),
+    <<"tpokus.Hpokus.Ppokus.UHuXIoBk">> = iolist_to_binary(re:replace("pokus.","   (?<word> \\w+ )*    \\.   ","t&H&P&UHuXIoBk",[caseless,extended,global])),
+    <<"pmpokus.SoBpokus.">> = iolist_to_binary(re:replace("pokus.","(?(DEFINE) (?<word> \\w+ ) ) (?&word)*   \\.","pm&SoB&",[caseless,extended])),
+    <<"pmpokus.SoBpokus.">> = iolist_to_binary(re:replace("pokus.","(?(DEFINE) (?<word> \\w+ ) ) (?&word)*   \\.","pm&SoB&",[caseless,extended,global])),
+    ok.
+run61() ->
+    <<"vbIJpokus.y">> = iolist_to_binary(re:replace("pokus.","(?(DEFINE) (?<word> \\w+ ) ) ( (?&word)* )   \\.","vbIJ&y",[caseless,extended])),
+    <<"vbIJpokus.y">> = iolist_to_binary(re:replace("pokus.","(?(DEFINE) (?<word> \\w+ ) ) ( (?&word)* )   \\.","vbIJ&y",[caseless,extended,global])),
+    <<"wY">> = iolist_to_binary(re:replace("pokus.","(?&word)*  (?(DEFINE) (?<word> \\w+ ) )  \\.","wY",[caseless,extended])),
+    <<"wY">> = iolist_to_binary(re:replace("pokus.","(?&word)*  (?(DEFINE) (?<word> \\w+ ) )  \\.","wY",[caseless,extended,global])),
+    <<"y">> = iolist_to_binary(re:replace("pokus.hokus","(?&word)*  \\. (?<word> \\w+ )","y",[caseless,extended])),
+    <<"y">> = iolist_to_binary(re:replace("pokus.hokus","(?&word)*  \\. (?<word> \\w+ )","y",[caseless,extended,global])),
+    <<"iaARIMc">> = iolist_to_binary(re:replace("abc","a(?(?=(*:2)b).)","iaARIM",[])),
+    <<"iaARIMc">> = iolist_to_binary(re:replace("abc","a(?(?=(*:2)b).)","iaARIM",[global])),
+    <<"GBRdccb">> = iolist_to_binary(re:replace("acb","a(?(?=(*:2)b).)","GBRdc",[])),
+    <<"GBRdccb">> = iolist_to_binary(re:replace("acb","a(?(?=(*:2)b).)","GBRdc",[global])),
+    <<"PqUuuXKRgscaccvHSb">> = iolist_to_binary(re:replace("acb","a(?(?!(*:2)b).)","PqUuuXKRgsc&\\1cvHS\\1",[])),
+    <<"PqUuuXKRgscaccvHSb">> = iolist_to_binary(re:replace("acb","a(?(?!(*:2)b).)","PqUuuXKRgsc&\\1cvHS\\1",[global])),
+    <<"aMaumdPEaebc">> = iolist_to_binary(re:replace("abc","a(?(?!(*:2)b).)","\\1&M&umdPE&e",[])),
+    <<"aMaumdPEaebc">> = iolist_to_binary(re:replace("abc","a(?(?!(*:2)b).)","\\1&M&umdPE&e",[global])),
+    <<"abc">> = iolist_to_binary(re:replace("abc","(?:a|ab){1}+c","ugxGKrB&EcHyG",[])),
+    <<"abc">> = iolist_to_binary(re:replace("abc","(?:a|ab){1}+c","ugxGKrB&EcHyG",[global])),
+    <<"abc">> = iolist_to_binary(re:replace("abc","(a|ab){1}+c","MHFv",[])),
+    <<"abc">> = iolist_to_binary(re:replace("abc","(a|ab){1}+c","MHFv",[global])),
+    <<"aaaa">> = iolist_to_binary(re:replace("aaaa","(a+){1}+a","lT\\1ldxfHXO\\1wsrRor&",[])),
+    <<"aaaa">> = iolist_to_binary(re:replace("aaaa","(a+){1}+a","lT\\1ldxfHXO\\1wsrRor&",[global])),
+    <<"abc">> = iolist_to_binary(re:replace("abc","(?(DEFINE)(a|ab))(?1){1}+c","Oea&xo",[])),
+    <<"abc">> = iolist_to_binary(re:replace("abc","(?(DEFINE)(a|ab))(?1){1}+c","Oea&xo",[global])),
+    <<"Wabcpity">> = iolist_to_binary(re:replace("abc","(?:a|(?=b)|.)*\\z","W&pity",[])),
+    <<"WabcpityWpity">> = iolist_to_binary(re:replace("abc","(?:a|(?=b)|.)*\\z","W&pity",[global])),
+    <<"iujmNtBvmcyibc">> = iolist_to_binary(re:replace("abc","(?:a|(?=b)|.)*","iuj\\1m\\1NtBvmcyi\\1",[])),
+    <<"iujmNtBvmcyiiujmNtBvmcyiiujmNtBvmcyiiujmNtBvmcyi">> = iolist_to_binary(re:replace("abc","(?:a|(?=b)|.)*","iuj\\1m\\1NtBvmcyi\\1",[global])),
+    <<"abcd">> = iolist_to_binary(re:replace("abcd","(?<=a(*SKIP)x)|c","I&bQ&B",[])),
+    <<"abcd">> = iolist_to_binary(re:replace("abcd","(?<=a(*SKIP)x)|c","I&bQ&B",[global])),
+    <<"abcNdpCRTa">> = iolist_to_binary(re:replace("abcd","(?<=a(*SKIP)x)|d","\\1N&p\\1CRTa",[])),
+    <<"abcNdpCRTa">> = iolist_to_binary(re:replace("abcd","(?<=a(*SKIP)x)|d","\\1N&p\\1CRTa",[global])),
+    <<"abJx">> = iolist_to_binary(re:replace("abx","(?<=(?=.(?<=x)))","\\1J",[])),
+    <<"abJx">> = iolist_to_binary(re:replace("abx","(?<=(?=.(?<=x)))","\\1J",[global])),
+    <<"axqb">> = iolist_to_binary(re:replace("ab","(?<=(?=(?<=a)))b","x\\1q&",[])),
+    <<"axqb">> = iolist_to_binary(re:replace("ab","(?<=(?=(?<=a)))b","x\\1q&",[global])),
+    <<"agAtWsUOJVRDFk">> = iolist_to_binary(re:replace("abc","^(?<A>a)(?(<A>)b)((?<=b).*)$","\\1gAtWsUOJVRDFk",[])),
+    <<"agAtWsUOJVRDFk">> = iolist_to_binary(re:replace("abc","^(?<A>a)(?(<A>)b)((?<=b).*)$","\\1gAtWsUOJVRDFk",[global])),
+    <<"oaUaaoBdoIMWHoYaajhq">> = iolist_to_binary(re:replace("aaaa","^(a\\1?){4}$","o\\1U\\1\\1oBdoIMWHoY\\1\\1jhq",[])),
+    <<"oaUaaoBdoIMWHoYaajhq">> = iolist_to_binary(re:replace("aaaa","^(a\\1?){4}$","o\\1U\\1\\1oBdoIMWHoY\\1\\1jhq",[global])),
+    <<"u">> = iolist_to_binary(re:replace("aaaaaa","^(a\\1?){4}$","u",[])),
+    <<"u">> = iolist_to_binary(re:replace("aaaaaa","^(a\\1?){4}$","u",[global])),
+    <<"111133XUG">> = iolist_to_binary(re:replace("111133X","^((\\1+)|\\d)+133X$","&UG",[])),
+    <<"111133XUG">> = iolist_to_binary(re:replace("111133X","^((\\1+)|\\d)+133X$","&UG",[global])),
+    <<"sPThe quick brown fox jumps over the lazy dogyqWomyThe quick brown fox jumps over the lazy dogHdTNYThe quick brown fox jumps over the lazy dog.">> = iolist_to_binary(re:replace("The quick brown fox jumps over the lazy dog.","^(?>.*?([A-Z])(?!.*\\1)){26}","sP&yqWomy&HdTNY&",[caseless])),
+    <<"sPThe quick brown fox jumps over the lazy dogyqWomyThe quick brown fox jumps over the lazy dogHdTNYThe quick brown fox jumps over the lazy dog.">> = iolist_to_binary(re:replace("The quick brown fox jumps over the lazy dog.","^(?>.*?([A-Z])(?!.*\\1)){26}","sP&yqWomy&HdTNY&",[caseless,global])),
+    <<"WniNHQO.">> = iolist_to_binary(re:replace("Jackdaws love my big sphinx of quartz.","^(?>.*?([A-Z])(?!.*\\1)){26}","WniNHQO",[caseless])),
+    <<"WniNHQO.">> = iolist_to_binary(re:replace("Jackdaws love my big sphinx of quartz.","^(?>.*?([A-Z])(?!.*\\1)){26}","WniNHQO",[caseless,global])),
+    <<"BYhKDoEP.">> = iolist_to_binary(re:replace("Pack my box with five dozen liquor jugs.","^(?>.*?([A-Z])(?!.*\\1)){26}","BYhKDoEP",[caseless])),
+    <<"BYhKDoEP.">> = iolist_to_binary(re:replace("Pack my box with five dozen liquor jugs.","^(?>.*?([A-Z])(?!.*\\1)){26}","BYhKDoEP",[caseless,global])),
+    <<"The quick brown fox jumps over the lazy cat.">> = iolist_to_binary(re:replace("The quick brown fox jumps over the lazy cat.","^(?>.*?([A-Z])(?!.*\\1)){26}","yxeIgME",[caseless])),
+    <<"The quick brown fox jumps over the lazy cat.">> = iolist_to_binary(re:replace("The quick brown fox jumps over the lazy cat.","^(?>.*?([A-Z])(?!.*\\1)){26}","yxeIgME",[caseless,global])),
+    <<"Hackdaws love my big sphinx of quartz.">> = iolist_to_binary(re:replace("Hackdaws love my big sphinx of quartz.","^(?>.*?([A-Z])(?!.*\\1)){26}","XrsU\\1",[caseless])),
+    <<"Hackdaws love my big sphinx of quartz.">> = iolist_to_binary(re:replace("Hackdaws love my big sphinx of quartz.","^(?>.*?([A-Z])(?!.*\\1)){26}","XrsU\\1",[caseless,global])),
+    <<"Pack my fox with five dozen liquor jugs.">> = iolist_to_binary(re:replace("Pack my fox with five dozen liquor jugs.","^(?>.*?([A-Z])(?!.*\\1)){26}","vO\\1",[caseless])),
+    <<"Pack my fox with five dozen liquor jugs.">> = iolist_to_binary(re:replace("Pack my fox with five dozen liquor jugs.","^(?>.*?([A-Z])(?!.*\\1)){26}","vO\\1",[caseless,global])),
+    <<"AXYZ">> = iolist_to_binary(re:replace("AXYZ","(?<=X(?(DEFINE)(A)))X(*F)","Q&Uku&v&&pBhmm\\1NO",[])),
+    <<"AXYZ">> = iolist_to_binary(re:replace("AXYZ","(?<=X(?(DEFINE)(A)))X(*F)","Q&Uku&v&&pBhmm\\1NO",[global])),
+    ok.
+run62() ->
+    <<"AXioeuZ">> = iolist_to_binary(re:replace("AXYZ","(?<=X(?(DEFINE)(A))).","ioeu",[])),
+    <<"AXioeuZ">> = iolist_to_binary(re:replace("AXYZ","(?<=X(?(DEFINE)(A))).","ioeu",[global])),
+    <<"AXYA">> = iolist_to_binary(re:replace("AXYZ","(?<=X(?(DEFINE)(.*))Y).","A",[])),
+    <<"AXYA">> = iolist_to_binary(re:replace("AXYZ","(?<=X(?(DEFINE)(.*))Y).","A",[global])),
+    <<"AXYNvKvZvUN">> = iolist_to_binary(re:replace("AXYZ","(?<=X(?(DEFINE)(Y))(?1)).","NvKv&vUN",[])),
+    <<"AXYNvKvZvUN">> = iolist_to_binary(re:replace("AXYZ","(?<=X(?(DEFINE)(Y))(?1)).","NvKv&vUN",[global])),
+    <<"pUjNlrgIFwordAXRVwordm">> = iolist_to_binary(re:replace("word","(?(DEFINE)(?<foo>bar))(?<![-a-z0-9])word","pUjNlrgIF&AXRV&m\\1",[])),
+    <<"pUjNlrgIFwordAXRVwordm">> = iolist_to_binary(re:replace("word","(?(DEFINE)(?<foo>bar))(?<![-a-z0-9])word","pUjNlrgIF&AXRV&m\\1",[global])),
+    <<"SptEmSPPkBpa{1,2,3}ba{1,2,3}bILCXx">> = iolist_to_binary(re:replace("a{1,2,3}b","a{1,2,3}b","SptEmSPPkBp&&ILCXx",[])),
+    <<"SptEmSPPkBpa{1,2,3}ba{1,2,3}bILCXx">> = iolist_to_binary(re:replace("a{1,2,3}b","a{1,2,3}b","SptEmSPPkBp&&ILCXx",[global])),
+    <<">sluPc748364OaJ748364<">> = iolist_to_binary(re:replace(">748364<","\\214748364","sluPc&Oa\\1J&",[])),
+    <<">sluPc748364OaJ748364<">> = iolist_to_binary(re:replace(">748364<","\\214748364","sluPc&Oa\\1J&",[global])),
+    <<"qkyxtlw00PE00oFq">> = iolist_to_binary(re:replace("00","\\21300","qk\\1yxtlw&PE\\1&oFq",[])),
+    <<"qkyxtlw00PE00oFq">> = iolist_to_binary(re:replace("00","\\21300","qk\\1yxtlw&PE\\1&oFq",[global])),
+    <<"">> = iolist_to_binary(re:replace("000","\\213000","\\1",[])),
+    <<"">> = iolist_to_binary(re:replace("000","\\213000","\\1",[global])),
+    <<"GuYkCVslgt00000000oWK">> = iolist_to_binary(re:replace("00000000","\\21300000000","G\\1u\\1\\1YkCVslgt&oWK",[])),
+    <<"GuYkCVslgt00000000oWK">> = iolist_to_binary(re:replace("00000000","\\21300000000","G\\1u\\1\\1YkCVslgt&oWK",[global])),
+    <<">xja{65536yOqkTkjeXWdKBPfY<">> = iolist_to_binary(re:replace(">a{65536<","a{65536","xj&yOqkTkjeXWdK\\1BPfY",[])),
+    <<">xja{65536yOqkTkjeXWdKBPfY<">> = iolist_to_binary(re:replace(">a{65536<","a{65536","xj&yOqkTkjeXWdK\\1BPfY",[global])),
+    <<"abaBLTB">> = iolist_to_binary(re:replace("abac","a\\K.(?0)*","B\\1LTB",[])),
+    <<"abaBLTB">> = iolist_to_binary(re:replace("abac","a\\K.(?0)*","B\\1LTB",[global])),
+    <<"abaROTciFSqcDcP">> = iolist_to_binary(re:replace("abac","(a\\K.(?1)*)","ROT&iFSq&D&P",[])),
+    <<"abaROTciFSqcDcP">> = iolist_to_binary(re:replace("abac","(a\\K.(?1)*)","ROT&iFSq&D&P",[global])),
+    <<"abcXpgacxyz">> = iolist_to_binary(re:replace("abcdefgacxyz","(?<=ab?c)...","Xp",[])),
+    <<"abcXpgacXp">> = iolist_to_binary(re:replace("abcdefgacxyz","(?<=ab?c)...","Xp",[global])),
+    <<"abcAohGqdefdefytMLRigacxyzPQR123">> = iolist_to_binary(re:replace("abcdefgacxyzPQR123","(?<=PQR|ab?c)...","\\1AohGq\\1&&ytMLRi",[])),
+    <<"abcAohGqdefdefytMLRigacAohGqxyzxyzytMLRiPQRAohGq123123ytMLRi">> = iolist_to_binary(re:replace("abcdefgacxyzPQR123","(?<=PQR|ab?c)...","\\1AohGq\\1&&ytMLRi",[global])),
+    <<"abcUYdefPdgacxyzPQR123">> = iolist_to_binary(re:replace("abcdefgacxyzPQR123","(?<=ab?c|PQR)...","UY&Pd",[])),
+    <<"abcUYdefPdgacUYxyzPdPQRUY123Pd">> = iolist_to_binary(re:replace("abcdefgacxyzPQR123","(?<=ab?c|PQR)...","UY&Pd",[global])),
+    <<"abcJETudefaWgacxyzPQR123">> = iolist_to_binary(re:replace("abcdefgacxyzPQR123","(?<=PQ|ab?c)...","JETu&aW",[])),
+    <<"abcJETudefaWgacJETuxyzaWPQJETuR12aW3">> = iolist_to_binary(re:replace("abcdefgacxyzPQR123","(?<=PQ|ab?c)...","JETu&aW",[global])),
+    <<"abcuYbLEigacxyzPQR123">> = iolist_to_binary(re:replace("abcdefgacxyzPQR123","(?<=ab?c|PQ)...","uY\\1b\\1LEi",[])),
+    <<"abcuYbLEigacuYbLEiPQuYbLEi3">> = iolist_to_binary(re:replace("abcdefgacxyzPQR123","(?<=ab?c|PQ)...","uY\\1b\\1LEi",[global])),
+    <<"acfSpchGzzzaefX2zzzadeefX3zzzX4zzz">> = iolist_to_binary(re:replace("acfX1zzzaefX2zzzadeefX3zzzX4zzz","(?<=a(b?c|d?e?e)f)X.","Sp\\1hG",[])),
+    <<"acfSpchGzzzaefSpehGzzzadeefSpdeehGzzzX4zzz">> = iolist_to_binary(re:replace("acfX1zzzaefX2zzzadeefX3zzzX4zzz","(?<=a(b?c|d?e?e)f)X.","Sp\\1hG",[global])),
+    <<"acfX1zzzaefX2zzzadeefX3zzzX4USTdXiEMBGTCVQzzz">> = iolist_to_binary(re:replace("acfX1zzzaefX2zzzadeefX3zzzX4zzz","(?<!a(b?c|d?e?e)f)X.","&USTdXiEMBGT\\1CVQ",[])),
+    <<"acfX1zzzaefX2zzzadeefX3zzzX4USTdXiEMBGTCVQzzz">> = iolist_to_binary(re:replace("acfX1zzzaefX2zzzadeefX3zzzX4zzz","(?<!a(b?c|d?e?e)f)X.","&USTdXiEMBGT\\1CVQ",[global])),
+    <<"abcLKNFqFbPmpefg">> = iolist_to_binary(re:replace("abcdefg","(?(?<=ab?c)d|e)","LKNFqFbPmp",[])),
+    <<"abcLKNFqFbPmpLKNFqFbPmpfg">> = iolist_to_binary(re:replace("abcdefg","(?(?<=ab?c)d|e)","LKNFqFbPmp",[global])),
+    <<"acorjGARdKonefg">> = iolist_to_binary(re:replace("acdefg","(?(?<=ab?c)d|e)","orjGARdKon",[])),
+    <<"acorjGARdKonorjGARdKonfg">> = iolist_to_binary(re:replace("acdefg","(?(?<=ab?c)d|e)","orjGARdKon",[global])),
+    <<"axdCeefg">> = iolist_to_binary(re:replace("axdefg","(?(?<=ab?c)d|e)","C&&\\1",[])),
+    <<"axdCeefg">> = iolist_to_binary(re:replace("axdefg","(?(?<=ab?c)d|e)","C&&\\1",[global])),
+    ok.
+run63() ->
+    <<"ABChNukouxMufhIlpCD">> = iolist_to_binary(re:replace("ABCD","(?<=\\d{2,3}|ABC).","h\\1\\1Nukou\\1\\1xMufhIlpC&",[])),
+    <<"ABChNukouxMufhIlpCD">> = iolist_to_binary(re:replace("ABCD","(?<=\\d{2,3}|ABC).","h\\1\\1Nukou\\1\\1xMufhIlpC&",[global])),
+    <<"1234HhOiBhbKpJjsNoSYt">> = iolist_to_binary(re:replace("1234X","(?<=(\\d{1,255}))X","HhOiBhbKpJjsNoSYt",[])),
+    <<"1234HhOiBhbKpJjsNoSYt">> = iolist_to_binary(re:replace("1234X","(?<=(\\d{1,255}))X","HhOiBhbKpJjsNoSYt",[global])),
+    <<"ZXacbccdlxkhcYZ">> = iolist_to_binary(re:replace("ZXacbccdXYZ","(?<=a(b?c){3}d)X","lxkh\\1",[])),
+    <<"ZXacbccdlxkhcYZ">> = iolist_to_binary(re:replace("ZXacbccdXYZ","(?<=a(b?c){3}d)X","lxkh\\1",[global])),
+    <<"ZXadpKVnYZ">> = iolist_to_binary(re:replace("ZXadXYZ","(?<=a(b?c){0}d)X","pKV\\1n\\1\\1",[])),
+    <<"ZXadpKVnYZ">> = iolist_to_binary(re:replace("ZXadXYZ","(?<=a(b?c){0}d)X","pKV\\1n\\1\\1",[global])),
+    <<"ZXadXYZ">> = iolist_to_binary(re:replace("ZXadXYZ","(?<=a?(b?c){0}d)X.","&",[])),
+    <<"ZXadXYZ">> = iolist_to_binary(re:replace("ZXadXYZ","(?<=a?(b?c){0}d)X.","&",[global])),
+    <<"
+oYIQGUNjrXjXjVXf">> = iolist_to_binary(re:replace("
+X","(?<=\\R)X","oYIQGUNjr&j&jV&f",[])),
+    <<"
+oYIQGUNjrXjXjVXf">> = iolist_to_binary(re:replace("
+X","(?<=\\R)X","oYIQGUNjr&j&jV&f",[global])),
+    <<"a
+aXAwXBXP">> = iolist_to_binary(re:replace("a
+X","(?<=\\R)X","a&\\1AwXBXP",[])),
+    <<"a
+aXAwXBXP">> = iolist_to_binary(re:replace("a
+X","(?<=\\R)X","a&\\1AwXBXP",[global])),
+    <<"a
+eYSBEcWAXKlmfD">> = iolist_to_binary(re:replace("a
+X","(?<=\\R)X","eYSBE\\1cWA&KlmfD",[])),
+    <<"a
+eYSBEcWAXKlmfD">> = iolist_to_binary(re:replace("a
+X","(?<=\\R)X","eYSBE\\1cWA&KlmfD",[global])),
+    <<"XrxuWUsGBmnblBOBB">> = iolist_to_binary(re:replace("XBBB","a{,3}B","\\1\\1r\\1xuWUsG&mnbl&\\1O",[])),
+    <<"XrxuWUsGBmnblBOrxuWUsGBmnblBOrxuWUsGBmnblBO">> = iolist_to_binary(re:replace("XBBB","a{,3}B","\\1\\1r\\1xuWUsG&mnbl&\\1O",[global])),
+    <<"XaBFiwCFiRBB">> = iolist_to_binary(re:replace("XaBBB","a{,3}B","&FiwCFiR\\1",[])),
+    <<"XaBFiwCFiRBFiwCFiRBFiwCFiR">> = iolist_to_binary(re:replace("XaBBB","a{,3}B","&FiwCFiR\\1",[global])),
+    <<"XOnaaBBB">> = iolist_to_binary(re:replace("XaaBBB","a{,3}B","On\\1&",[])),
+    <<"XOnaaBOnBOnB">> = iolist_to_binary(re:replace("XaaBBB","a{,3}B","On\\1&",[global])),
+    <<"XtSBB">> = iolist_to_binary(re:replace("XaaaBBB","a{,3}B","tS",[])),
+    <<"XtStStS">> = iolist_to_binary(re:replace("XaaaBBB","a{,3}B","tS",[global])),
+    <<"XarRBB">> = iolist_to_binary(re:replace("XaaaaBBB","a{,3}B","rR",[])),
+    <<"XarRrRrR">> = iolist_to_binary(re:replace("XaaaaBBB","a{,3}B","rR",[global])),
+    <<"Xa{,}BWha{,}BhHfJVBB">> = iolist_to_binary(re:replace("Xa{,}BBB","a{,}B","&Wh&hHfJV",[])),
+    <<"Xa{,}BWha{,}BhHfJVBB">> = iolist_to_binary(re:replace("Xa{,}BBB","a{,}B","&Wh&hHfJV",[global])),
+    <<"XBBB">> = iolist_to_binary(re:replace("XBBB","a{,}B","lndvNT\\1D",[])),
+    <<"XBBB">> = iolist_to_binary(re:replace("XBBB","a{,}B","lndvNT\\1D",[global])),
+    <<"XaBBB">> = iolist_to_binary(re:replace("XaBBB","a{,}B","KfVV\\1h\\1tnImV&\\1KvnVr",[])),
+    <<"XaBBB">> = iolist_to_binary(re:replace("XaBBB","a{,}B","KfVV\\1h\\1tnImV&\\1KvnVr",[global])),
+    <<"ZZLiKbuohVu}YY">> = iolist_to_binary(re:replace("ZZX{}YY","X{","LiKbu\\1ohVu",[])),
+    <<"ZZLiKbuohVu}YY">> = iolist_to_binary(re:replace("ZZX{}YY","X{","LiKbu\\1ohVu",[global])),
+    <<"ZZgTX{ApBDFXBC}">> = iolist_to_binary(re:replace("ZZX{ABC}","X{A","g\\1T&pBDFX",[])),
+    <<"ZZgTX{ApBDFXBC}">> = iolist_to_binary(re:replace("ZZX{ABC}","X{A","g\\1T&pBDFX",[global])),
+    <<"ZZNTnCemVYZ">> = iolist_to_binary(re:replace("ZZX{}YZ","X{}","NTn\\1CemV",[])),
+    <<"ZZNTnCemVYZ">> = iolist_to_binary(re:replace("ZZX{}YZ","X{}","NTn\\1CemV",[global])),
+    <<"ZZwaJTI56">> = iolist_to_binary(re:replace("ZZX{123456","X{1234","waJTI",[])),
+    <<"ZZwaJTI56">> = iolist_to_binary(re:replace("ZZX{123456","X{1234","waJTI",[global])),
+    <<"ZZtrdDTX{12ABC}dpCX{12ABC}OflrY">> = iolist_to_binary(re:replace("ZZX{12ABC}Y","X{12ABC}","trdDT&dpC&Oflr",[])),
+    <<"ZZtrdDTX{12ABC}dpCX{12ABC}OflrY">> = iolist_to_binary(re:replace("ZZX{12ABC}Y","X{12ABC}","trdDT&dpC&Oflr",[global])),
+    <<"ZZwbABINX{1,fX{1,HMALKX{1,XX{1,n...">> = iolist_to_binary(re:replace("ZZX{1,...","X{1,","wbAB\\1IN&\\1f&HMALK&X&n",[])),
+    <<"ZZwbABINX{1,fX{1,HMALKX{1,XX{1,n...">> = iolist_to_binary(re:replace("ZZX{1,...","X{1,","wbAB\\1IN&\\1f&HMALK&X&n",[global])),
+    <<"ZZgXNCO}abc">> = iolist_to_binary(re:replace("ZZX{,9}abc","X{,9","gXNCO",[])),
+    <<"ZZgXNCO}abc">> = iolist_to_binary(re:replace("ZZX{,9}abc","X{,9","gXNCO",[global])),
+    <<"ZZuc..">> = iolist_to_binary(re:replace("ZZX{,9]..","X{,9]","uc",[])),
+    <<"ZZuc..">> = iolist_to_binary(re:replace("ZZX{,9]..","X{,9]","uc",[global])),
+    <<"xxmFrAlDzz">> = iolist_to_binary(re:replace("xxAABBzz","(A)(?-1)(?+1)(B)","mFrAlD",[])),
+    <<"xxmFrAlDzz">> = iolist_to_binary(re:replace("xxAABBzz","(A)(?-1)(?+1)(B)","mFrAlD",[global])),
+    <<"XvkRRvBlGQHmCAkX">> = iolist_to_binary(re:replace("XAABX","(A)(\\g{ -2 }B)","vkRRvBlGQHmC\\1k",[])),
+    <<"XvkRRvBlGQHmCAkX">> = iolist_to_binary(re:replace("XAABX","(A)(\\g{ -2 }B)","vkRRvBlGQHmC\\1k",[global])),
+    <<"XfAAX">> = iolist_to_binary(re:replace("XAABX","(A)((?-2)B)","f\\1\\1",[])),
+    <<"XfAAX">> = iolist_to_binary(re:replace("XAABX","(A)((?-2)B)","f\\1\\1",[global])),
+    <<"--JkaNWWjYobdlmQ--">> = iolist_to_binary(re:replace("--aX--","a\\c\\X","JkaN\\1WWjYobdlm\\1\\1Q",[])),
+    <<"--JkaNWWjYobdlmQ--">> = iolist_to_binary(re:replace("--aX--","a\\c\\X","JkaN\\1WWjYobdlm\\1\\1Q",[global])),
+    ok.
+run64() ->
+    <<"bGUdeKYWpFhGAHVb">> = iolist_to_binary(re:replace("baab","(a)\\g{ 1 }","GUdeKYWpFhGAHV",[])),
+    <<"bGUdeKYWpFhGAHVb">> = iolist_to_binary(re:replace("baab","(a)\\g{ 1 }","GUdeKYWpFhGAHV",[global])),
+    <<"XVBlaaLSRICRaaa">> = iolist_to_binary(re:replace("Xaaaaa","a{ 1,2 }","VBl&LSRICR",[])),
+    <<"XVBlaaLSRICRVBlaaLSRICRVBlaLSRICR">> = iolist_to_binary(re:replace("Xaaaaa","a{ 1,2 }","VBl&LSRICR",[global])),
+    <<"XaafcSOXCdgSaaa">> = iolist_to_binary(re:replace("Xaaaaa","a{ 1 , 2 }","&fcSOXC\\1dgS",[])),
+    <<"XaafcSOXCdgSaafcSOXCdgSafcSOXCdgS">> = iolist_to_binary(re:replace("Xaaaaa","a{ 1 , 2 }","&fcSOXC\\1dgS",[global])),
+    <<"XTX">> = iolist_to_binary(re:replace("XabababX","(?'name'ab)\\k{ name }(?P=name)","T",[])),
+    <<"XTX">> = iolist_to_binary(re:replace("XabababX","(?'name'ab)\\k{ name }(?P=name)","T",[global])),
+    <<"EUKcwoeGMSFH">> = iolist_to_binary(re:replace("A{,}B","A{,}B","EUKcwoeGMSF\\1H",[])),
+    <<"EUKcwoeGMSFH">> = iolist_to_binary(re:replace("A{,}B","A{,}B","EUKcwoeGMSF\\1H",[global])),
+    <<"asA{ , }BPXmFA{ , }BuMeAGv">> = iolist_to_binary(re:replace("A{ , }B","A{ , }B","as&PX\\1mF&\\1uM\\1eAG\\1v",[])),
+    <<"asA{ , }BPXmFA{ , }BuMeAGv">> = iolist_to_binary(re:replace("A{ , }B","A{ , }B","as&PX\\1mF&\\1uM\\1eAG\\1v",[global])),
+    <<"rssMAAACC">> = iolist_to_binary(re:replace("AAAAAACC","A{ ,3}","rssM",[])),
+    <<"rssMrssMrssMCrssMCrssM">> = iolist_to_binary(re:replace("AAAAAACC","A{ ,3}","rssM",[global])),
+    <<"BBkAAAAAATSpWAAAAAAHvAAAAAAwyxOkYCC">> = iolist_to_binary(re:replace("BBAAAAAACC","A{ 3, }","k&\\1TSpW&Hv&wyxOkY",[])),
+    <<"BBkAAAAAATSpWAAAAAAHvAAAAAAwyxOkYCC">> = iolist_to_binary(re:replace("BBAAAAAACC","A{ 3, }","k&\\1TSpW&Hv&wyxOkY",[global])),
+    <<"O[abcdef]Qmmyuxw[abcdef]J[abcdef]y">> = iolist_to_binary(re:replace("[abcdef]","^
 (?<re>
 # A regular expression is zero or more of these items.
   (?:
@@ -18736,8 +19007,8 @@ run60() ->
 
   )*  # Zero or more top-level items.
 )     # End regex group.
-$","isvEuyKowYXlOom&",[extended])),
-    <<"isvEuyKowYXlOom[abcdef]">> = iolist_to_binary(re:replace("[abcdef]","^
+$","O\\1Qmmyuxw\\1J\\1y",[extended])),
+    <<"O[abcdef]Qmmyuxw[abcdef]J[abcdef]y">> = iolist_to_binary(re:replace("[abcdef]","^
 (?<re>
 # A regular expression is zero or more of these items.
   (?:
@@ -18802,8 +19073,8 @@ $","isvEuyKowYXlOom&",[extended])),
 
   )*  # Zero or more top-level items.
 )     # End regex group.
-$","isvEuyKowYXlOom&",[extended,global])),
-    <<"AdTV[abc\\]def]JEYuVB">> = iolist_to_binary(re:replace("[abc\\]def]","^
+$","O\\1Qmmyuxw\\1J\\1y",[extended,global])),
+    <<"n[abc\\]def]Hmh">> = iolist_to_binary(re:replace("[abc\\]def]","^
 (?<re>
 # A regular expression is zero or more of these items.
   (?:
@@ -18868,8 +19139,8 @@ $","isvEuyKowYXlOom&",[extended,global])),
 
   )*  # Zero or more top-level items.
 )     # End regex group.
-$","AdTV\\1JEYuVB",[extended])),
-    <<"AdTV[abc\\]def]JEYuVB">> = iolist_to_binary(re:replace("[abc\\]def]","^
+$","n\\1Hmh",[extended])),
+    <<"n[abc\\]def]Hmh">> = iolist_to_binary(re:replace("[abc\\]def]","^
 (?<re>
 # A regular expression is zero or more of these items.
   (?:
@@ -18934,8 +19205,8 @@ $","AdTV\\1JEYuVB",[extended])),
 
   )*  # Zero or more top-level items.
 )     # End regex group.
-$","AdTV\\1JEYuVB",[extended,global])),
-    <<"yJa.b|abcdNa.b|abcdyB">> = iolist_to_binary(re:replace("a.b|abcd","^
+$","n\\1Hmh",[extended,global])),
+    <<"Ua.b|abcda.b|abcddBOFa.b|abcdrk">> = iolist_to_binary(re:replace("a.b|abcd","^
 (?<re>
 # A regular expression is zero or more of these items.
   (?:
@@ -19000,8 +19271,8 @@ $","AdTV\\1JEYuVB",[extended,global])),
 
   )*  # Zero or more top-level items.
 )     # End regex group.
-$","yJ&N\\1yB",[extended])),
-    <<"yJa.b|abcdNa.b|abcdyB">> = iolist_to_binary(re:replace("a.b|abcd","^
+$","U\\1&dBOF&rk",[extended])),
+    <<"Ua.b|abcda.b|abcddBOFa.b|abcdrk">> = iolist_to_binary(re:replace("a.b|abcd","^
 (?<re>
 # A regular expression is zero or more of these items.
   (?:
@@ -19066,8 +19337,8 @@ $","yJ&N\\1yB",[extended])),
 
   )*  # Zero or more top-level items.
 )     # End regex group.
-$","yJ&N\\1yB",[extended,global])),
-    <<"uaGCKNavdWab()d">> = iolist_to_binary(re:replace("ab()d","^
+$","U\\1&dBOF&rk",[extended,global])),
+    <<"ab()dEOUab()dvWab()dwfab()dab()d">> = iolist_to_binary(re:replace("ab()d","^
 (?<re>
 # A regular expression is zero or more of these items.
   (?:
@@ -19132,8 +19403,8 @@ $","yJ&N\\1yB",[extended,global])),
 
   )*  # Zero or more top-level items.
 )     # End regex group.
-$","uaGCKNavdW\\1",[extended])),
-    <<"uaGCKNavdWab()d">> = iolist_to_binary(re:replace("ab()d","^
+$","\\1EOU&vW\\1wf&\\1",[extended])),
+    <<"ab()dEOUab()dvWab()dwfab()dab()d">> = iolist_to_binary(re:replace("ab()d","^
 (?<re>
 # A regular expression is zero or more of these items.
   (?:
@@ -19198,8 +19469,8 @@ $","uaGCKNavdW\\1",[extended])),
 
   )*  # Zero or more top-level items.
 )     # End regex group.
-$","uaGCKNavdW\\1",[extended,global])),
-    <<"ab{1,3}dITgBpab{1,3}dBJFrab{1,3}dPTab{1,3}d">> = iolist_to_binary(re:replace("ab{1,3}d","^
+$","\\1EOU&vW\\1wf&\\1",[extended,global])),
+    <<"GtOab{1,3}dvlHtpEab{1,3}dSab{1,3}duab{1,3}dab{1,3}d">> = iolist_to_binary(re:replace("ab{1,3}d","^
 (?<re>
 # A regular expression is zero or more of these items.
   (?:
@@ -19264,8 +19535,8 @@ $","uaGCKNavdW\\1",[extended,global])),
 
   )*  # Zero or more top-level items.
 )     # End regex group.
-$","&ITgBp&BJFr\\1PT\\1",[extended])),
-    <<"ab{1,3}dITgBpab{1,3}dBJFrab{1,3}dPTab{1,3}d">> = iolist_to_binary(re:replace("ab{1,3}d","^
+$","GtO\\1vlHtpE\\1S\\1u&&",[extended])),
+    <<"GtOab{1,3}dvlHtpEab{1,3}dSab{1,3}duab{1,3}dab{1,3}d">> = iolist_to_binary(re:replace("ab{1,3}d","^
 (?<re>
 # A regular expression is zero or more of these items.
   (?:
@@ -19330,8 +19601,8 @@ $","&ITgBp&BJFr\\1PT\\1",[extended])),
 
   )*  # Zero or more top-level items.
 )     # End regex group.
-$","&ITgBp&BJFr\\1PT\\1",[extended,global])),
-    <<"DRwRRJab{,3}dab{,3}dsab{,3}dOXDATy">> = iolist_to_binary(re:replace("ab{,3}d","^
+$","GtO\\1vlHtpE\\1S\\1u&&",[extended,global])),
+    <<"pfeNhqUyxab{,3}dCfab{,3}dSab{,3}dj">> = iolist_to_binary(re:replace("ab{,3}d","^
 (?<re>
 # A regular expression is zero or more of these items.
   (?:
@@ -19396,8 +19667,8 @@ $","&ITgBp&BJFr\\1PT\\1",[extended,global])),
 
   )*  # Zero or more top-level items.
 )     # End regex group.
-$","DRwRRJ&&s&OXDATy",[extended])),
-    <<"DRwRRJab{,3}dab{,3}dsab{,3}dOXDATy">> = iolist_to_binary(re:replace("ab{,3}d","^
+$","pfeNhqUyx&Cf\\1S&j",[extended])),
+    <<"pfeNhqUyxab{,3}dCfab{,3}dSab{,3}dj">> = iolist_to_binary(re:replace("ab{,3}d","^
 (?<re>
 # A regular expression is zero or more of these items.
   (?:
@@ -19462,8 +19733,8 @@ $","DRwRRJ&&s&OXDATy",[extended])),
 
   )*  # Zero or more top-level items.
 )     # End regex group.
-$","DRwRRJ&&s&OXDATy",[extended,global])),
-    <<"qogab(*FAIL)d(*COMMIT)(*SKIP)(*THEN:abc)gXPBQjq">> = iolist_to_binary(re:replace("ab(*FAIL)d(*COMMIT)(*SKIP)(*THEN:abc)","^
+$","pfeNhqUyx&Cf\\1S&j",[extended,global])),
+    <<"Nus">> = iolist_to_binary(re:replace("ab(*FAIL)d(*COMMIT)(*SKIP)(*THEN:abc)","^
 (?<re>
 # A regular expression is zero or more of these items.
   (?:
@@ -19528,8 +19799,8 @@ $","DRwRRJ&&s&OXDATy",[extended,global])),
 
   )*  # Zero or more top-level items.
 )     # End regex group.
-$","qog\\1gXPBQjq",[extended])),
-    <<"qogab(*FAIL)d(*COMMIT)(*SKIP)(*THEN:abc)gXPBQjq">> = iolist_to_binary(re:replace("ab(*FAIL)d(*COMMIT)(*SKIP)(*THEN:abc)","^
+$","Nus",[extended])),
+    <<"Nus">> = iolist_to_binary(re:replace("ab(*FAIL)d(*COMMIT)(*SKIP)(*THEN:abc)","^
 (?<re>
 # A regular expression is zero or more of these items.
   (?:
@@ -19594,8 +19865,8 @@ $","qog\\1gXPBQjq",[extended])),
 
   )*  # Zero or more top-level items.
 )     # End regex group.
-$","qog\\1gXPBQjq",[extended,global])),
-    <<"SVab(*MARK:xyz)ASuTab(*MARK:xyz)">> = iolist_to_binary(re:replace("ab(*MARK:xyz)","^
+$","Nus",[extended,global])),
+    <<"FCHKN">> = iolist_to_binary(re:replace("ab(*MARK:xyz)","^
 (?<re>
 # A regular expression is zero or more of these items.
   (?:
@@ -19660,8 +19931,8 @@ $","qog\\1gXPBQjq",[extended,global])),
 
   )*  # Zero or more top-level items.
 )     # End regex group.
-$","SV\\1ASuT\\1",[extended])),
-    <<"SVab(*MARK:xyz)ASuTab(*MARK:xyz)">> = iolist_to_binary(re:replace("ab(*MARK:xyz)","^
+$","FCHKN",[extended])),
+    <<"FCHKN">> = iolist_to_binary(re:replace("ab(*MARK:xyz)","^
 (?<re>
 # A regular expression is zero or more of these items.
   (?:
@@ -19726,8 +19997,8 @@ $","SV\\1ASuT\\1",[extended])),
 
   )*  # Zero or more top-level items.
 )     # End regex group.
-$","SV\\1ASuT\\1",[extended,global])),
-    <<"eTO">> = iolist_to_binary(re:replace("(?=.*[A-Z])(?=.*[a-z])(?=.*[0-9])(?=.*[,;:])(?=.{8,16})(?!.*[\\s])","^
+$","FCHKN",[extended,global])),
+    <<"ywOBATs(?=.*[A-Z])(?=.*[a-z])(?=.*[0-9])(?=.*[,;:])(?=.{8,16})(?!.*[\\s])(?=.*[A-Z])(?=.*[a-z])(?=.*[0-9])(?=.*[,;:])(?=.{8,16})(?!.*[\\s])(?=.*[A-Z])(?=.*[a-z])(?=.*[0-9])(?=.*[,;:])(?=.{8,16})(?!.*[\\s])(?=.*[A-Z])(?=.*[a-z])(?=.*[0-9])(?=.*[,;:])(?=.{8,16})(?!.*[\\s])Ml(?=.*[A-Z])(?=.*[a-z])(?=.*[0-9])(?=.*[,;:])(?=.{8,16})(?!.*[\\s])">> = iolist_to_binary(re:replace("(?=.*[A-Z])(?=.*[a-z])(?=.*[0-9])(?=.*[,;:])(?=.{8,16})(?!.*[\\s])","^
 (?<re>
 # A regular expression is zero or more of these items.
   (?:
@@ -19792,8 +20063,8 @@ $","SV\\1ASuT\\1",[extended,global])),
 
   )*  # Zero or more top-level items.
 )     # End regex group.
-$","eTO",[extended])),
-    <<"eTO">> = iolist_to_binary(re:replace("(?=.*[A-Z])(?=.*[a-z])(?=.*[0-9])(?=.*[,;:])(?=.{8,16})(?!.*[\\s])","^
+$","ywOBATs\\1\\1&\\1Ml&",[extended])),
+    <<"ywOBATs(?=.*[A-Z])(?=.*[a-z])(?=.*[0-9])(?=.*[,;:])(?=.{8,16})(?!.*[\\s])(?=.*[A-Z])(?=.*[a-z])(?=.*[0-9])(?=.*[,;:])(?=.{8,16})(?!.*[\\s])(?=.*[A-Z])(?=.*[a-z])(?=.*[0-9])(?=.*[,;:])(?=.{8,16})(?!.*[\\s])(?=.*[A-Z])(?=.*[a-z])(?=.*[0-9])(?=.*[,;:])(?=.{8,16})(?!.*[\\s])Ml(?=.*[A-Z])(?=.*[a-z])(?=.*[0-9])(?=.*[,;:])(?=.{8,16})(?!.*[\\s])">> = iolist_to_binary(re:replace("(?=.*[A-Z])(?=.*[a-z])(?=.*[0-9])(?=.*[,;:])(?=.{8,16})(?!.*[\\s])","^
 (?<re>
 # A regular expression is zero or more of these items.
   (?:
@@ -19858,8 +20129,8 @@ $","eTO",[extended])),
 
   )*  # Zero or more top-level items.
 )     # End regex group.
-$","eTO",[extended,global])),
-    <<"HAJabcd\\t\\n\\r\\f\\a\\e\\071\\x3b\\^\\\\\\?caxyzwabcd\\t\\n\\r\\f\\a\\e\\071\\x3b\\^\\\\\\?caxyz">> = iolist_to_binary(re:replace("abcd\\t\\n\\r\\f\\a\\e\\071\\x3b\\^\\\\\\?caxyz","^
+$","ywOBATs\\1\\1&\\1Ml&",[extended,global])),
+    <<"TWDDAwkHnHsYYdabcd\\t\\n\\r\\f\\a\\e\\071\\x3b\\^\\\\\\?caxyzabcd\\t\\n\\r\\f\\a\\e\\071\\x3b\\^\\\\\\?caxyzabcd\\t\\n\\r\\f\\a\\e\\071\\x3b\\^\\\\\\?caxyz">> = iolist_to_binary(re:replace("abcd\\t\\n\\r\\f\\a\\e\\071\\x3b\\^\\\\\\?caxyz","^
 (?<re>
 # A regular expression is zero or more of these items.
   (?:
@@ -19924,8 +20195,8 @@ $","eTO",[extended,global])),
 
   )*  # Zero or more top-level items.
 )     # End regex group.
-$","HAJ&w\\1",[extended])),
-    <<"HAJabcd\\t\\n\\r\\f\\a\\e\\071\\x3b\\^\\\\\\?caxyzwabcd\\t\\n\\r\\f\\a\\e\\071\\x3b\\^\\\\\\?caxyz">> = iolist_to_binary(re:replace("abcd\\t\\n\\r\\f\\a\\e\\071\\x3b\\^\\\\\\?caxyz","^
+$","TWDDAwkHnHsYYd\\1\\1\\1",[extended])),
+    <<"TWDDAwkHnHsYYdabcd\\t\\n\\r\\f\\a\\e\\071\\x3b\\^\\\\\\?caxyzabcd\\t\\n\\r\\f\\a\\e\\071\\x3b\\^\\\\\\?caxyzabcd\\t\\n\\r\\f\\a\\e\\071\\x3b\\^\\\\\\?caxyz">> = iolist_to_binary(re:replace("abcd\\t\\n\\r\\f\\a\\e\\071\\x3b\\^\\\\\\?caxyz","^
 (?<re>
 # A regular expression is zero or more of these items.
   (?:
@@ -19990,8 +20261,8 @@ $","HAJ&w\\1",[extended])),
 
   )*  # Zero or more top-level items.
 )     # End regex group.
-$","HAJ&w\\1",[extended,global])),
-    <<"EMvXhBG">> = iolist_to_binary(re:replace("a*abc?xyz+pqr{3}ab{2,}xy{4,5}pq{0,6}AB{0,}zz","^
+$","TWDDAwkHnHsYYd\\1\\1\\1",[extended,global])),
+    <<"qa*abc?xyz+pqr{3}ab{2,}xy{4,5}pq{0,6}AB{0,}zzgOeBtuPWra*abc?xyz+pqr{3}ab{2,}xy{4,5}pq{0,6}AB{0,}zza*abc?xyz+pqr{3}ab{2,}xy{4,5}pq{0,6}AB{0,}zzwwFwu">> = iolist_to_binary(re:replace("a*abc?xyz+pqr{3}ab{2,}xy{4,5}pq{0,6}AB{0,}zz","^
 (?<re>
 # A regular expression is zero or more of these items.
   (?:
@@ -20056,8 +20327,8 @@ $","HAJ&w\\1",[extended,global])),
 
   )*  # Zero or more top-level items.
 )     # End regex group.
-$","EMvXhBG",[extended])),
-    <<"EMvXhBG">> = iolist_to_binary(re:replace("a*abc?xyz+pqr{3}ab{2,}xy{4,5}pq{0,6}AB{0,}zz","^
+$","q&gOeBtuPWr&\\1wwFwu",[extended])),
+    <<"qa*abc?xyz+pqr{3}ab{2,}xy{4,5}pq{0,6}AB{0,}zzgOeBtuPWra*abc?xyz+pqr{3}ab{2,}xy{4,5}pq{0,6}AB{0,}zza*abc?xyz+pqr{3}ab{2,}xy{4,5}pq{0,6}AB{0,}zzwwFwu">> = iolist_to_binary(re:replace("a*abc?xyz+pqr{3}ab{2,}xy{4,5}pq{0,6}AB{0,}zz","^
 (?<re>
 # A regular expression is zero or more of these items.
   (?:
@@ -20122,8 +20393,8 @@ $","EMvXhBG",[extended])),
 
   )*  # Zero or more top-level items.
 )     # End regex group.
-$","EMvXhBG",[extended,global])),
-    <<"r\\G(?:(?=(\\1.|)(.))){1,13}?(?!.*\\2.*\\2)\\1\\K\\2W\\G(?:(?=(\\1.|)(.))){1,13}?(?!.*\\2.*\\2)\\1\\K\\2lOQEcegVcvQp\\G(?:(?=(\\1.|)(.))){1,13}?(?!.*\\2.*\\2)\\1\\K\\2r">> = iolist_to_binary(re:replace("\\G(?:(?=(\\1.|)(.))){1,13}?(?!.*\\2.*\\2)\\1\\K\\2","^
+$","q&gOeBtuPWr&\\1wwFwu",[extended,global])),
+    <<"\\G(?:(?=(\\1.|)(.))){1,13}?(?!.*\\2.*\\2)\\1\\K\\2gl\\G(?:(?=(\\1.|)(.))){1,13}?(?!.*\\2.*\\2)\\1\\K\\2pP\\G(?:(?=(\\1.|)(.))){1,13}?(?!.*\\2.*\\2)\\1\\K\\2\\G(?:(?=(\\1.|)(.))){1,13}?(?!.*\\2.*\\2)\\1\\K\\2L\\G(?:(?=(\\1.|)(.))){1,13}?(?!.*\\2.*\\2)\\1\\K\\2c\\G(?:(?=(\\1.|)(.))){1,13}?(?!.*\\2.*\\2)\\1\\K\\2QNQ\\G(?:(?=(\\1.|)(.))){1,13}?(?!.*\\2.*\\2)\\1\\K\\2">> = iolist_to_binary(re:replace("\\G(?:(?=(\\1.|)(.))){1,13}?(?!.*\\2.*\\2)\\1\\K\\2","^
 (?<re>
 # A regular expression is zero or more of these items.
   (?:
@@ -20188,8 +20459,8 @@ $","EMvXhBG",[extended,global])),
 
   )*  # Zero or more top-level items.
 )     # End regex group.
-$","r\\1W&lOQEcegVcvQp\\1r",[extended])),
-    <<"r\\G(?:(?=(\\1.|)(.))){1,13}?(?!.*\\2.*\\2)\\1\\K\\2W\\G(?:(?=(\\1.|)(.))){1,13}?(?!.*\\2.*\\2)\\1\\K\\2lOQEcegVcvQp\\G(?:(?=(\\1.|)(.))){1,13}?(?!.*\\2.*\\2)\\1\\K\\2r">> = iolist_to_binary(re:replace("\\G(?:(?=(\\1.|)(.))){1,13}?(?!.*\\2.*\\2)\\1\\K\\2","^
+$","&gl\\1pP&&L\\1c\\1QNQ\\1",[extended])),
+    <<"\\G(?:(?=(\\1.|)(.))){1,13}?(?!.*\\2.*\\2)\\1\\K\\2gl\\G(?:(?=(\\1.|)(.))){1,13}?(?!.*\\2.*\\2)\\1\\K\\2pP\\G(?:(?=(\\1.|)(.))){1,13}?(?!.*\\2.*\\2)\\1\\K\\2\\G(?:(?=(\\1.|)(.))){1,13}?(?!.*\\2.*\\2)\\1\\K\\2L\\G(?:(?=(\\1.|)(.))){1,13}?(?!.*\\2.*\\2)\\1\\K\\2c\\G(?:(?=(\\1.|)(.))){1,13}?(?!.*\\2.*\\2)\\1\\K\\2QNQ\\G(?:(?=(\\1.|)(.))){1,13}?(?!.*\\2.*\\2)\\1\\K\\2">> = iolist_to_binary(re:replace("\\G(?:(?=(\\1.|)(.))){1,13}?(?!.*\\2.*\\2)\\1\\K\\2","^
 (?<re>
 # A regular expression is zero or more of these items.
   (?:
@@ -20254,7 +20525,7 @@ $","r\\1W&lOQEcegVcvQp\\1r",[extended])),
 
   )*  # Zero or more top-level items.
 )     # End regex group.
-$","r\\1W&lOQEcegVcvQp\\1r",[extended,global])),
+$","&gl\\1pP&&L\\1c\\1QNQ\\1",[extended,global])),
     <<"ab)d">> = iolist_to_binary(re:replace("ab)d","^
 (?<re>
 # A regular expression is zero or more of these items.
@@ -20320,7 +20591,7 @@ $","r\\1W&lOQEcegVcvQp\\1r",[extended,global])),
 
   )*  # Zero or more top-level items.
 )     # End regex group.
-$","JABc&T",[extended])),
+$","t\\1JesK",[extended])),
     <<"ab)d">> = iolist_to_binary(re:replace("ab)d","^
 (?<re>
 # A regular expression is zero or more of these items.
@@ -20386,7 +20657,7 @@ $","JABc&T",[extended])),
 
   )*  # Zero or more top-level items.
 )     # End regex group.
-$","JABc&T",[extended,global])),
+$","t\\1JesK",[extended,global])),
     <<"ab(d">> = iolist_to_binary(re:replace("ab(d","^
 (?<re>
 # A regular expression is zero or more of these items.
@@ -20452,7 +20723,7 @@ $","JABc&T",[extended,global])),
 
   )*  # Zero or more top-level items.
 )     # End regex group.
-$","\\1nEIdws&\\1Yo",[extended])),
+$","&&eXQX",[extended])),
     <<"ab(d">> = iolist_to_binary(re:replace("ab(d","^
 (?<re>
 # A regular expression is zero or more of these items.
@@ -20518,7 +20789,7 @@ $","\\1nEIdws&\\1Yo",[extended])),
 
   )*  # Zero or more top-level items.
 )     # End regex group.
-$","\\1nEIdws&\\1Yo",[extended,global])),
+$","&&eXQX",[extended,global])),
     <<"{4,5}">> = iolist_to_binary(re:replace("{4,5}","^
 (?<re>
 # A regular expression is zero or more of these items.
@@ -20584,7 +20855,7 @@ $","\\1nEIdws&\\1Yo",[extended,global])),
 
   )*  # Zero or more top-level items.
 )     # End regex group.
-$","w&d",[extended])),
+$","\\1wTTg",[extended])),
     <<"{4,5}">> = iolist_to_binary(re:replace("{4,5}","^
 (?<re>
 # A regular expression is zero or more of these items.
@@ -20650,7 +20921,7 @@ $","w&d",[extended])),
 
   )*  # Zero or more top-level items.
 )     # End regex group.
-$","w&d",[extended,global])),
+$","\\1wTTg",[extended,global])),
     <<"a[]b">> = iolist_to_binary(re:replace("a[]b","^
 (?<re>
 # A regular expression is zero or more of these items.
@@ -20716,7 +20987,7 @@ $","w&d",[extended,global])),
 
   )*  # Zero or more top-level items.
 )     # End regex group.
-$","sp\\1rnh",[extended])),
+$","PRndDf\\1JBL&",[extended])),
     <<"a[]b">> = iolist_to_binary(re:replace("a[]b","^
 (?<re>
 # A regular expression is zero or more of these items.
@@ -20782,7 +21053,7 @@ $","sp\\1rnh",[extended])),
 
   )*  # Zero or more top-level items.
 )     # End regex group.
-$","sp\\1rnh",[extended,global])),
+$","PRndDf\\1JBL&",[extended,global])),
     <<"(a)(?(1)a|b|c)">> = iolist_to_binary(re:replace("(a)(?(1)a|b|c)","^
 (?<re>
 # A regular expression is zero or more of these items.
@@ -20848,7 +21119,7 @@ $","sp\\1rnh",[extended,global])),
 
   )*  # Zero or more top-level items.
 )     # End regex group.
-$","&h\\1DhrD&\\1Lif",[extended])),
+$","&rh",[extended])),
     <<"(a)(?(1)a|b|c)">> = iolist_to_binary(re:replace("(a)(?(1)a|b|c)","^
 (?<re>
 # A regular expression is zero or more of these items.
@@ -20914,9 +21185,371 @@ $","&h\\1DhrD&\\1Lif",[extended])),
 
   )*  # Zero or more top-level items.
 )     # End regex group.
-$","&h\\1DhrD&\\1Lif",[extended,global])),
-    <<"12ADFFjeCFCevYb">> = iolist_to_binary(re:replace("12ADC","^..A(*SKIP)B|C","FF\\1je&F&ev\\1Yb",[])),
-    <<"12ADFFjeCFCevYb">> = iolist_to_binary(re:replace("12ADC","^..A(*SKIP)B|C","FF\\1je&F&ev\\1Yb",[global])),
-    <<"a">> = iolist_to_binary(re:replace("a","(?<!a?)","lk&&ep",[])),
-    <<"a">> = iolist_to_binary(re:replace("a","(?<!a?)","lk&&ep",[global])),
+$","&rh",[extended,global])),
+    <<"12ADPPpTCGideabhEIC">> = iolist_to_binary(re:replace("12ADC","^..A(*SKIP)B|C","PPpT&\\1GideabhEI&",[])),
+    <<"12ADPPpTCGideabhEIC">> = iolist_to_binary(re:replace("12ADC","^..A(*SKIP)B|C","PPpT&\\1GideabhEI&",[global])),
+    <<"a">> = iolist_to_binary(re:replace("a","(?<!a?)","lnpSB",[])),
+    <<"a">> = iolist_to_binary(re:replace("a","(?<!a?)","lnpSB",[global])),
+    <<"eWKAqNsPbab***nnagz">> = iolist_to_binary(re:replace("ab***z","\\Qab*\\E{2,}","\\1eWKAqNsPb&n\\1na\\1g",[])),
+    <<"eWKAqNsPbab***nnagz">> = iolist_to_binary(re:replace("ab***z","\\Qab*\\E{2,}","\\1eWKAqNsPb&n\\1na\\1g",[global])),
+    <<"lrDNAALOabcdwxyzQllVgmp">> = iolist_to_binary(re:replace("abcdwxyz","[\\Qabc\\E-z]+","lrDNAALO&QllVg\\1mp",[])),
+    <<"lrDNAALOabcdwxyzQllVgmp">> = iolist_to_binary(re:replace("abcdwxyz","[\\Qabc\\E-z]+","lrDNAALO&QllVg\\1mp",[global])),
+    <<"xPz-zaacuqNWaCXtXASirXex">> = iolist_to_binary(re:replace("xz-zaax","[\\Qa-\\Ez]+","\\1P&cuqNWaCXtXAS\\1irXe",[])),
+    <<"xPz-zaacuqNWaCXtXASirXex">> = iolist_to_binary(re:replace("xz-zaax","[\\Qa-\\Ez]+","\\1P&cuqNWaCXtXAS\\1irXe",[global])),
+    <<"xYWKBx">> = iolist_to_binary(re:replace("xa{,2}x","a{(?#XYZ),2}","YWKB",[])),
+    <<"xYWKBx">> = iolist_to_binary(re:replace("xa{,2}x","a{(?#XYZ),2}","YWKB",[global])),
+    <<"xaax">> = iolist_to_binary(re:replace("xaax","a{(?#XYZ),2}","\\1J\\1GLwhKrM",[])),
+    <<"xaax">> = iolist_to_binary(re:replace("xaax","a{(?#XYZ),2}","\\1J\\1GLwhKrM",[global])),
+    <<"Pc.LVCbcEHgbWbbUddq">> = iolist_to_binary(re:replace("Pc.b","(?<=PQ|Pc.b?)(.?)(b?)","LVC&cEHg\\1W&\\1Uddq",[])),
+    <<"Pc.LVCbcEHgbWbbUddqLVCcEHgWUddq">> = iolist_to_binary(re:replace("Pc.b","(?<=PQ|Pc.b?)(.?)(b?)","LVC&cEHg\\1W&\\1Uddq",[global])),
+    <<"aaxfab">> = iolist_to_binary(re:replace("aaab","(?(?<=aa.b|ab)b).b","xf&",[])),
+    <<"aaxfab">> = iolist_to_binary(re:replace("aaab","(?(?<=aa.b|ab)b).b","xf&",[global])),
+    <<"aaqabxbtWX">> = iolist_to_binary(re:replace("aaab","(?(?<=a(?:a.b|b))b).b","\\1q&\\1x\\1btWX",[])),
+    <<"aaqabxbtWX">> = iolist_to_binary(re:replace("aaab","(?(?<=a(?:a.b|b))b).b","\\1q&\\1x\\1btWX",[global])),
+    <<"pvQYEPhJkWKwETy">> = iolist_to_binary(re:replace("a","(?=a)b?a","pv\\1QYEPhJkWKwETy",[])),
+    <<"pvQYEPhJkWKwETy">> = iolist_to_binary(re:replace("a","(?=a)b?a","pv\\1QYEPhJkWKwETy",[global])),
+    <<"nSukabTCBabPwSHOLKK">> = iolist_to_binary(re:replace("ab","(?=a)b?a.","nSuk&TCB&\\1\\1PwSHOLK\\1K",[])),
+    <<"nSukabTCBabPwSHOLKK">> = iolist_to_binary(re:replace("ab","(?=a)b?a.","nSuk&TCB&\\1\\1PwSHOLK\\1K",[global])),
+    ok.
+run65() ->
+    <<"VVisnRfPlt">> = iolist_to_binary(re:replace("grtgt","\\w(?R)*\\w","VVisn\\1RfPl",[])),
+    <<"VVisnRfPlt">> = iolist_to_binary(re:replace("grtgt","\\w(?R)*\\w","VVisn\\1RfPl",[global])),
+    <<"abcdefDabcdefYkutfsmOjabcdefCyVJ">> = iolist_to_binary(re:replace("abcdef","\\w(?R)*\\w","&D&Ykut\\1fsmOj&Cy\\1V\\1J",[])),
+    <<"abcdefDabcdefYkutfsmOjabcdefCyVJ">> = iolist_to_binary(re:replace("abcdef","\\w(?R)*\\w","&D&Ykut\\1fsmOj&Cy\\1V\\1J",[global])),
+    <<"qgVpg">> = iolist_to_binary(re:replace("abcdefg","\\w(?R)*\\w","qgVp\\1",[])),
+    <<"qgVpg">> = iolist_to_binary(re:replace("abcdefg","\\w(?R)*\\w","qgVp\\1",[global])),
+    <<".a.HMxmLvIbcbcIot.d.">> = iolist_to_binary(re:replace(".a.bc.d.","\\w(?R)*\\w","\\1HMxmLvI&&Iot",[])),
+    <<".a.HMxmLvIbcbcIot.d.">> = iolist_to_binary(re:replace(".a.bc.d.","\\w(?R)*\\w","\\1HMxmLvI&&Iot",[global])),
+    <<".a.b.c.">> = iolist_to_binary(re:replace(".a.b.c.","\\w(?R)*\\w","\\1QIX&V&SP",[])),
+    <<".a.b.c.">> = iolist_to_binary(re:replace(".a.b.c.","\\w(?R)*\\w","\\1QIX&V&SP",[global])),
+    <<"">> = iolist_to_binary(re:replace("","(?[\\n])","Di&PvURgDEP\\1mAiQFCGg",[])),
+    <<"">> = iolist_to_binary(re:replace("","(?[\\n])","Di&PvURgDEP\\1mAiQFCGg",[global])),
+    <<"\\ ">> = iolist_to_binary(re:replace("\\ ","(?[\\n])","gWgSN",[])),
+    <<"\\ ">> = iolist_to_binary(re:replace("\\ ","(?[\\n])","gWgSN",[global])),
+    <<"n">> = iolist_to_binary(re:replace("n","(?[\\n])","wY\\1rYQRbJj\\1pooSc",[])),
+    <<"n">> = iolist_to_binary(re:replace("n","(?[\\n])","wY\\1rYQRbJj\\1pooSc",[global])),
+    <<"jabOab">> = iolist_to_binary(re:replace("ab","^(?[\\x61])b","j&O&",[])),
+    <<"jabOab">> = iolist_to_binary(re:replace("ab","^(?[\\x61])b","j&O&",[global])),
+    <<"b">> = iolist_to_binary(re:replace("b","^(?[\\x61])b","n",[])),
+    <<"b">> = iolist_to_binary(re:replace("b","^(?[\\x61])b","n",[global])),
+    <<"a">> = iolist_to_binary(re:replace("a","^(?[\\x61])b","\\1XGJk&&Vh&J&k&",[])),
+    <<"a">> = iolist_to_binary(re:replace("a","^(?[\\x61])b","\\1XGJk&&Vh&J&k&",[global])),
+    <<"abXVvwVO">> = iolist_to_binary(re:replace("ab","^(?[\\x61])+b","&XVvwVO",[])),
+    <<"abXVvwVO">> = iolist_to_binary(re:replace("ab","^(?[\\x61])+b","&XVvwVO",[global])),
+    <<"AG">> = iolist_to_binary(re:replace("aab","^(?[\\x61])+b","AG",[])),
+    <<"AG">> = iolist_to_binary(re:replace("aab","^(?[\\x61])+b","AG",[global])),
+    <<"b">> = iolist_to_binary(re:replace("b","^(?[\\x61])+b","\\1xSYE\\1kJLm\\1elHHfu",[])),
+    <<"b">> = iolist_to_binary(re:replace("b","^(?[\\x61])+b","\\1xSYE\\1kJLm\\1elHHfu",[global])),
+    <<"uICPaGTLnPKKCaY">> = iolist_to_binary(re:replace("a","(?[ [[:graph:]] ])","uICP&G\\1TLnPKKC&Y",[])),
+    <<"uICPaGTLnPKKCaY">> = iolist_to_binary(re:replace("a","(?[ [[:graph:]] ])","uICP&G\\1TLnPKKC&Y",[global])),
+    <<"">> = iolist_to_binary(re:replace("","(?[ [[:graph:]] ])","urePyVLB\\1ohMj",[])),
+    <<"">> = iolist_to_binary(re:replace("","(?[ [[:graph:]] ])","urePyVLB\\1ohMj",[global])),
+    <<"gaAEK">> = iolist_to_binary(re:replace("a","(?[ [:graph:] ])","g&AEK",[])),
+    <<"gaAEK">> = iolist_to_binary(re:replace("a","(?[ [:graph:] ])","g&AEK",[global])),
+    <<"">> = iolist_to_binary(re:replace("","(?[ [:graph:] ])","kp\\1P\\1ACW&emnX",[])),
+    <<"">> = iolist_to_binary(re:replace("","(?[ [:graph:] ])","kp\\1P\\1ACW&emnX",[global])),
+    <<"saFmfrQMr">> = iolist_to_binary(re:replace("a","(?[ [[:graph:]\\x02] ])","s&FmfrQMr",[])),
+    <<"saFmfrQMr">> = iolist_to_binary(re:replace("a","(?[ [[:graph:]\\x02] ])","s&FmfrQMr",[global])),
+    <<"HCYIEhywOHBkg">> = iolist_to_binary(re:replace("","(?[ [[:graph:]\\x02] ])","HC&&YIEhy\\1wOHBkg\\1",[])),
+    <<"HCYIEhywOHBkg">> = iolist_to_binary(re:replace("","(?[ [[:graph:]\\x02] ])","HC&&YIEhy\\1wOHBkg\\1",[global])),
+    <<"">> = iolist_to_binary(re:replace("","(?[ [[:graph:]\\x02] ])","TTRu\\1seL&\\1",[])),
+    <<"">> = iolist_to_binary(re:replace("","(?[ [[:graph:]\\x02] ])","TTRu\\1seL&\\1",[global])),
+    <<"">> = iolist_to_binary(re:replace("","(?[\\E\\n])","RTWxpFPI",[])),
+    <<"">> = iolist_to_binary(re:replace("","(?[\\E\\n])","RTWxpFPI",[global])),
+    <<"\\ ">> = iolist_to_binary(re:replace("\\ ","(?[\\E\\n])","AmAw\\1",[])),
+    <<"\\ ">> = iolist_to_binary(re:replace("\\ ","(?[\\E\\n])","AmAw\\1",[global])),
+    <<"E">> = iolist_to_binary(re:replace("E","(?[\\E\\n])","V",[])),
+    <<"E">> = iolist_to_binary(re:replace("E","(?[\\E\\n])","V",[global])),
+    <<"">> = iolist_to_binary(re:replace("","(?[\\n \\Q\\E])","GdO",[])),
+    <<"">> = iolist_to_binary(re:replace("","(?[\\n \\Q\\E])","GdO",[global])),
+    <<"\\ ">> = iolist_to_binary(re:replace("\\ ","(?[\\n \\Q\\E])","bnjtB\\1oPOWLgmNyx",[])),
+    <<"\\ ">> = iolist_to_binary(re:replace("\\ ","(?[\\n \\Q\\E])","bnjtB\\1oPOWLgmNyx",[global])),
+    <<"Q">> = iolist_to_binary(re:replace("Q","(?[\\n \\Q\\E])","mqebo\\1pVSyjK&kqcfINI",[])),
+    <<"Q">> = iolist_to_binary(re:replace("Q","(?[\\n \\Q\\E])","mqebo\\1pVSyjK&kqcfINI",[global])),
+    <<"bpufjPUga">> = iolist_to_binary(re:replace("a","(?[ ( \\x02 + [:graph:] ) | [ \\x02 [:graph:] ] ])","bpufjPUg&",[])),
+    <<"bpufjPUga">> = iolist_to_binary(re:replace("a","(?[ ( \\x02 + [:graph:] ) | [ \\x02 [:graph:] ] ])","bpufjPUg&",[global])),
+    <<"oNoVGXR">> = iolist_to_binary(re:replace("","(?[ ( \\x02 + [:graph:] ) | [ \\x02 [:graph:] ] ])","oN&oV&GXR\\1",[])),
+    <<"oNoVGXR">> = iolist_to_binary(re:replace("","(?[ ( \\x02 + [:graph:] ) | [ \\x02 [:graph:] ] ])","oN&oV&GXR\\1",[global])),
+    <<"">> = iolist_to_binary(re:replace("","(?[ ( \\x02 + [:graph:] ) | [ \\x02 [:graph:] ] ])","v",[])),
+    <<"">> = iolist_to_binary(re:replace("","(?[ ( \\x02 + [:graph:] ) | [ \\x02 [:graph:] ] ])","v",[global])),
+    <<"RUUkPbPMr1i">> = iolist_to_binary(re:replace("1","(?[ \\d ])","RUUkPbPMr&\\1i",[])),
+    <<"RUUkPbPMr1i">> = iolist_to_binary(re:replace("1","(?[ \\d ])","RUUkPbPMr&\\1i",[global])),
+    <<"d">> = iolist_to_binary(re:replace("d","(?[ \\d ])","&chfQg&YJlHL\\1kpncUH",[])),
+    <<"d">> = iolist_to_binary(re:replace("d","(?[ \\d ])","&chfQg&YJlHL\\1kpncUH",[global])),
+    <<"DnRGpve1J1rnsKxiUA">> = iolist_to_binary(re:replace("1","(?[[1]])","DnRGpve&\\1J&rnsKxiUA\\1",[])),
+    <<"DnRGpve1J1rnsKxiUA">> = iolist_to_binary(re:replace("1","(?[[1]])","DnRGpve&\\1J&rnsKxiUA\\1",[global])),
+    <<"]">> = iolist_to_binary(re:replace("]","(?[[1]])","s\\1N&cb",[])),
+    <<"]">> = iolist_to_binary(re:replace("]","(?[[1]])","s\\1N&cb",[global])),
+    <<"pyPa">> = iolist_to_binary(re:replace("a","(?[[a]])","\\1pyP&",[])),
+    <<"pyPa">> = iolist_to_binary(re:replace("a","(?[[a]])","\\1pyP&",[global])),
+    <<"]">> = iolist_to_binary(re:replace("]","(?[[a]])","CewSQ\\1e\\1y&in",[])),
+    <<"]">> = iolist_to_binary(re:replace("]","(?[[a]])","CewSQ\\1e\\1y&in",[global])),
+    <<"btg">> = iolist_to_binary(re:replace("a","(?[[a-c]])","btg",[])),
+    <<"btg">> = iolist_to_binary(re:replace("a","(?[[a-c]])","btg",[global])),
+    <<"aobYVeaJ">> = iolist_to_binary(re:replace("b","(?[[a-c]])","ao\\1&YVeaJ",[])),
+    <<"aobYVeaJ">> = iolist_to_binary(re:replace("b","(?[[a-c]])","ao\\1&YVeaJ",[global])),
+    <<"-">> = iolist_to_binary(re:replace("-","(?[[a-c]])","LgTphY",[])),
+    <<"-">> = iolist_to_binary(re:replace("-","(?[[a-c]])","LgTphY",[global])),
+    <<"]">> = iolist_to_binary(re:replace("]","(?[[a-c]])","NuYjKlU",[])),
+    <<"]">> = iolist_to_binary(re:replace("]","(?[[a-c]])","NuYjKlU",[global])),
+    <<"BDj	AWo">> = iolist_to_binary(re:replace("	","(?[ [\\t] + [\\n] ])","BDj&\\1A\\1Wo",[])),
+    <<"BDj	AWo">> = iolist_to_binary(re:replace("	","(?[ [\\t] + [\\n] ])","BDj&\\1A\\1Wo",[global])),
+    <<"">> = iolist_to_binary(re:replace("","(?[ [\\t] + [\\n] ])","g&m&llAD",[])),
+    <<"">> = iolist_to_binary(re:replace("","(?[ [\\t] + [\\n] ])","g&m&llAD",[global])),
+    <<"t">> = iolist_to_binary(re:replace("t","(?[ [\\t] + [\\n] ])","Qgt",[])),
+    <<"t">> = iolist_to_binary(re:replace("t","(?[ [\\t] + [\\n] ])","Qgt",[global])),
+    <<"\\ ">> = iolist_to_binary(re:replace("\\ ","(?[ [\\t] + [\\n] ])","a\\1\\1jXk&DO&\\1m\\1Kc",[])),
+    <<"\\ ">> = iolist_to_binary(re:replace("\\ ","(?[ [\\t] + [\\n] ])","a\\1\\1jXk&DO&\\1m\\1Kc",[global])),
+    <<"[">> = iolist_to_binary(re:replace("[","(?[ [\\t] + [\\n] ])","&lw",[])),
+    <<"[">> = iolist_to_binary(re:replace("[","(?[ [\\t] + [\\n] ])","&lw",[global])),
+    <<"DYAqQeS	OTW">> = iolist_to_binary(re:replace("	","(?[ \\t + \\n ])","DYAq\\1QeS&OT\\1\\1W",[])),
+    <<"DYAqQeS	OTW">> = iolist_to_binary(re:replace("	","(?[ \\t + \\n ])","DYAq\\1QeS&OT\\1\\1W",[global])),
+    <<"">> = iolist_to_binary(re:replace("","(?[ \\t + \\n ])","QxI&",[])),
+    <<"">> = iolist_to_binary(re:replace("","(?[ \\t + \\n ])","QxI&",[global])),
+    <<"t">> = iolist_to_binary(re:replace("t","(?[ \\t + \\n ])","mOyLasmNS",[])),
+    <<"t">> = iolist_to_binary(re:replace("t","(?[ \\t + \\n ])","mOyLasmNS",[global])),
+    <<"\\ ">> = iolist_to_binary(re:replace("\\ ","(?[ \\t + \\n ])","cBy\\1axaYuYWsr",[])),
+    <<"\\ ">> = iolist_to_binary(re:replace("\\ ","(?[ \\t + \\n ])","cBy\\1axaYuYWsr",[global])),
+    <<"[">> = iolist_to_binary(re:replace("[","(?[ \\t + \\n ])","rWYaeh",[])),
+    <<"[">> = iolist_to_binary(re:replace("[","(?[ \\t + \\n ])","rWYaeh",[global])),
+    <<"pXa)joJRQ">> = iolist_to_binary(re:replace(")","(?[ [()] ])","p\\1Xa&joJR\\1Q",[])),
+    <<"pXa)joJRQ">> = iolist_to_binary(re:replace(")","(?[ [()] ])","p\\1Xa&joJR\\1Q",[global])),
+    <<"OtKpOiIXULGf(pj">> = iolist_to_binary(re:replace("(","(?[ [()] ])","\\1OtKp\\1OiIX\\1U\\1LGf&pj",[])),
+    <<"OtKpOiIXULGf(pj">> = iolist_to_binary(re:replace("(","(?[ [()] ])","\\1OtKp\\1OiIX\\1U\\1LGf&pj",[global])),
+    <<"]">> = iolist_to_binary(re:replace("]","(?[ [()] ])","kFsYc\\1DLiE",[])),
+    <<"]">> = iolist_to_binary(re:replace("]","(?[ [()] ])","kFsYc\\1DLiE",[global])),
+    <<"FRXyF">> = iolist_to_binary(re:replace(")","(?[ ( [()] ) ])","FRXyF",[])),
+    <<"FRXyF">> = iolist_to_binary(re:replace(")","(?[ ( [()] ) ])","FRXyF",[global])),
+    <<"HAo">> = iolist_to_binary(re:replace("(","(?[ ( [()] ) ])","HAo",[])),
+    <<"HAo">> = iolist_to_binary(re:replace("(","(?[ ( [()] ) ])","HAo",[global])),
+    <<"]">> = iolist_to_binary(re:replace("]","(?[ ( [()] ) ])","YaY",[])),
+    <<"]">> = iolist_to_binary(re:replace("]","(?[ ( [()] ) ])","YaY",[global])),
+    <<"">> = iolist_to_binary(re:replace("","(?[ (( [\\n\\t] )) ])","bdrCdhlrwaWY\\1",[])),
+    <<"">> = iolist_to_binary(re:replace("","(?[ (( [\\n\\t] )) ])","bdrCdhlrwaWY\\1",[global])),
+    <<"OUVOIc	grEFebb">> = iolist_to_binary(re:replace("	","(?[ (( [\\n\\t] )) ])","OUV\\1OIc&\\1g\\1rEFebb\\1",[])),
+    <<"OUVOIc	grEFebb">> = iolist_to_binary(re:replace("	","(?[ (( [\\n\\t] )) ])","OUV\\1OIc&\\1g\\1rEFebb\\1",[global])),
+    <<")">> = iolist_to_binary(re:replace(")","(?[ (( [\\n\\t] )) ])","d&&omGSOMTV",[])),
+    <<")">> = iolist_to_binary(re:replace(")","(?[ (( [\\n\\t] )) ])","d&&omGSOMTV",[global])),
+    <<"(">> = iolist_to_binary(re:replace("(","(?[ (( [\\n\\t] )) ])","Ysv",[])),
+    <<"(">> = iolist_to_binary(re:replace("(","(?[ (( [\\n\\t] )) ])","Ysv",[global])),
+    <<"t">> = iolist_to_binary(re:replace("t","(?[ (( [\\n\\t] )) ])","OjS\\1ravaOqpBpoVuY",[])),
+    <<"t">> = iolist_to_binary(re:replace("t","(?[ (( [\\n\\t] )) ])","OjS\\1ravaOqpBpoVuY",[global])),
+    <<"zEWTomXq">> = iolist_to_binary(re:replace("z","(?[ !\\n ])","&EW\\1\\1TomX\\1q",[])),
+    <<"zEWTomXq">> = iolist_to_binary(re:replace("z","(?[ !\\n ])","&EW\\1\\1TomX\\1q",[global])),
+    <<"">> = iolist_to_binary(re:replace("","(?[ !\\n ])","&\\1sIJ&ds\\1V\\1rHf\\1\\1lUU",[])),
+    <<"">> = iolist_to_binary(re:replace("","(?[ !\\n ])","&\\1sIJ&ds\\1V\\1rHf\\1\\1lUU",[global])),
+    ok.
+run66() ->
+    <<"LaCrRARuKAa">> = iolist_to_binary(re:replace("a","(?[ !\\d ])","L&CrRARuKAa",[])),
+    <<"LaCrRARuKAa">> = iolist_to_binary(re:replace("a","(?[ !\\d ])","L&CrRARuKAa",[global])),
+    <<"1">> = iolist_to_binary(re:replace("1","(?[ !\\d ])","T&a\\1kH\\1yX\\1gPFAExs\\1YY",[])),
+    <<"1">> = iolist_to_binary(re:replace("1","(?[ !\\d ])","T&a\\1kH\\1yX\\1gPFAExs\\1YY",[global])),
+    <<"oi">> = iolist_to_binary(re:replace("1","(?[ ![:alpha:] ])","oi",[])),
+    <<"oi">> = iolist_to_binary(re:replace("1","(?[ ![:alpha:] ])","oi",[global])),
+    <<"a">> = iolist_to_binary(re:replace("a","(?[ ![:alpha:] ])","LN",[])),
+    <<"a">> = iolist_to_binary(re:replace("a","(?[ ![:alpha:] ])","LN",[global])),
+    <<"vmKXGgXhzcU">> = iolist_to_binary(re:replace("z","(?[ ![\\n] ])","vmKXGgXh&cU\\1",[])),
+    <<"vmKXGgXhzcU">> = iolist_to_binary(re:replace("z","(?[ ![\\n] ])","vmKXGgXh&cU\\1",[global])),
+    <<"">> = iolist_to_binary(re:replace("","(?[ ![\\n] ])","CHu\\1&moPuDCDtWpkMTSS",[])),
+    <<"">> = iolist_to_binary(re:replace("","(?[ ![\\n] ])","CHu\\1&moPuDCDtWpkMTSS",[global])),
+    <<"uzDjg">> = iolist_to_binary(re:replace("z","(?[ !(\\n) ])","u&Djg",[])),
+    <<"uzDjg">> = iolist_to_binary(re:replace("z","(?[ !(\\n) ])","u&Djg",[global])),
+    <<"">> = iolist_to_binary(re:replace("","(?[ !(\\n) ])","FIXt",[])),
+    <<"">> = iolist_to_binary(re:replace("","(?[ !(\\n) ])","FIXt",[global])),
+    <<"">> = iolist_to_binary(re:replace("","(?[ !!\\n ])","jas\\1NskMD&",[])),
+    <<"">> = iolist_to_binary(re:replace("","(?[ !!\\n ])","jas\\1NskMD&",[global])),
+    <<"z">> = iolist_to_binary(re:replace("z","(?[ !!\\n ])","aa",[])),
+    <<"z">> = iolist_to_binary(re:replace("z","(?[ !!\\n ])","aa",[global])),
+    <<"">> = iolist_to_binary(re:replace("","(?[ (\\n) ])","\\1oItlXuJB&h",[])),
+    <<"">> = iolist_to_binary(re:replace("","(?[ (\\n) ])","\\1oItlXuJB&h",[global])),
+    <<"z">> = iolist_to_binary(re:replace("z","(?[ (\\n) ])","s&m",[])),
+    <<"z">> = iolist_to_binary(re:replace("z","(?[ (\\n) ])","s&m",[global])),
+    <<"jOd">> = iolist_to_binary(re:replace("1","(?[ (\\d) ])","\\1jOd\\1",[])),
+    <<"jOd">> = iolist_to_binary(re:replace("1","(?[ (\\d) ])","\\1jOd\\1",[global])),
+    <<"a">> = iolist_to_binary(re:replace("a","(?[ (\\d) ])","\\1PWagCRYIEP\\1uFi\\1\\1u",[])),
+    <<"a">> = iolist_to_binary(re:replace("a","(?[ (\\d) ])","\\1PWagCRYIEP\\1uFi\\1\\1u",[global])),
+    <<"gKeNwupiFCQavMpNERl">> = iolist_to_binary(re:replace("a","(?[ ([:alpha:]) ])","gKeNwupiFCQ&vMpNERl\\1",[])),
+    <<"gKeNwupiFCQavMpNERl">> = iolist_to_binary(re:replace("a","(?[ ([:alpha:]) ])","gKeNwupiFCQ&vMpNERl\\1",[global])),
+    <<"1">> = iolist_to_binary(re:replace("1","(?[ ([:alpha:]) ])","\\1k",[])),
+    <<"1">> = iolist_to_binary(re:replace("1","(?[ ([:alpha:]) ])","\\1k",[global])),
+    <<"">> = iolist_to_binary(re:replace("","(?[ ([\\n]) ])","Km",[])),
+    <<"">> = iolist_to_binary(re:replace("","(?[ ([\\n]) ])","Km",[global])),
+    <<"z">> = iolist_to_binary(re:replace("z","(?[ ([\\n]) ])","\\1",[])),
+    <<"z">> = iolist_to_binary(re:replace("z","(?[ ([\\n]) ])","\\1",[global])),
+    <<"">> = iolist_to_binary(re:replace("","(?[ ((\\n)) ])","NHkrECqt&\\1shLM\\1cj\\1\\1",[])),
+    <<"">> = iolist_to_binary(re:replace("","(?[ ((\\n)) ])","NHkrECqt&\\1shLM\\1cj\\1\\1",[global])),
+    <<"z">> = iolist_to_binary(re:replace("z","(?[ ((\\n)) ])","&EcdLVu",[])),
+    <<"z">> = iolist_to_binary(re:replace("z","(?[ ((\\n)) ])","&EcdLVu",[global])),
+    <<"uznQBzPYin">> = iolist_to_binary(re:replace("z","(?[ (!\\n) ])","\\1\\1u&nQB&PYin",[])),
+    <<"uznQBzPYin">> = iolist_to_binary(re:replace("z","(?[ (!\\n) ])","\\1\\1u&nQB&PYin",[global])),
+    <<"">> = iolist_to_binary(re:replace("","(?[ (!\\n) ])","EI",[])),
+    <<"">> = iolist_to_binary(re:replace("","(?[ (!\\n) ])","EI",[global])),
+    <<"">> = iolist_to_binary(re:replace("","(?[ (\\n + \\t) ])","H&dH",[])),
+    <<"">> = iolist_to_binary(re:replace("","(?[ (\\n + \\t) ])","H&dH",[global])),
+    <<"yYqSKikNjKl	DAV	N">> = iolist_to_binary(re:replace("	","(?[ (\\n + \\t) ])","yYqSKikNjKl&DAV&N\\1",[])),
+    <<"yYqSKikNjKl	DAV	N">> = iolist_to_binary(re:replace("	","(?[ (\\n + \\t) ])","yYqSKikNjKl&DAV&N\\1",[global])),
+    <<"z">> = iolist_to_binary(re:replace("z","(?[ (\\n + \\t) ])","&Mi\\1GvQ&",[])),
+    <<"z">> = iolist_to_binary(re:replace("z","(?[ (\\n + \\t) ])","&Mi\\1GvQ&",[global])),
+    <<"">> = iolist_to_binary(re:replace("","(?[ \\n & [\\n\\t] ])","&MEG&Lme\\1oR\\1cY",[])),
+    <<"">> = iolist_to_binary(re:replace("","(?[ \\n & [\\n\\t] ])","&MEG&Lme\\1oR\\1cY",[global])),
+    <<"t">> = iolist_to_binary(re:replace("t","(?[ \\n & [\\n\\t] ])","&wAQ\\1h",[])),
+    <<"t">> = iolist_to_binary(re:replace("t","(?[ \\n & [\\n\\t] ])","&wAQ\\1h",[global])),
+    <<"MmkOtbYUU1X1BLKsOW">> = iolist_to_binary(re:replace("1","(?[ \\d & [\\d\\t] ])","MmkOtbYUU&X&BLK\\1sOW",[])),
+    <<"MmkOtbYUU1X1BLKsOW">> = iolist_to_binary(re:replace("1","(?[ \\d & [\\d\\t] ])","MmkOtbYUU&X&BLK\\1sOW",[global])),
+    <<"a">> = iolist_to_binary(re:replace("a","(?[ \\d & [\\d\\t] ])","Kx\\1",[])),
+    <<"a">> = iolist_to_binary(re:replace("a","(?[ \\d & [\\d\\t] ])","Kx\\1",[global])),
+    <<"evCpadRGyYJ">> = iolist_to_binary(re:replace("a","(?[ [:alpha:] & [a-z\\t] ])","evCp&dRGyYJ",[])),
+    <<"evCpadRGyYJ">> = iolist_to_binary(re:replace("a","(?[ [:alpha:] & [a-z\\t] ])","evCp&dRGyYJ",[global])),
+    <<"A">> = iolist_to_binary(re:replace("A","(?[ [:alpha:] & [a-z\\t] ])","&&KjdKSH\\1D&&qxsXHhcX",[])),
+    <<"A">> = iolist_to_binary(re:replace("A","(?[ [:alpha:] & [a-z\\t] ])","&&KjdKSH\\1D&&qxsXHhcX",[global])),
+    <<"	">> = iolist_to_binary(re:replace("	","(?[ [:alpha:] & [a-z\\t] ])","neiqqg&QglQnBoeqH\\1\\1k",[])),
+    <<"	">> = iolist_to_binary(re:replace("	","(?[ [:alpha:] & [a-z\\t] ])","neiqqg&QglQnBoeqH\\1\\1k",[global])),
+    <<"">> = iolist_to_binary(re:replace("","(?[ [\\n] & [\\n\\t] ])","JNH\\1kihc\\1uFBKWQvAi&&",[])),
+    <<"">> = iolist_to_binary(re:replace("","(?[ [\\n] & [\\n\\t] ])","JNH\\1kihc\\1uFBKWQvAi&&",[global])),
+    <<"	">> = iolist_to_binary(re:replace("	","(?[ [\\n] & [\\n\\t] ])","F",[])),
+    <<"	">> = iolist_to_binary(re:replace("	","(?[ [\\n] & [\\n\\t] ])","F",[global])),
+    <<"">> = iolist_to_binary(re:replace("","(?[ (\\n) & [\\n\\t] ])","nNvvk\\1",[])),
+    <<"">> = iolist_to_binary(re:replace("","(?[ (\\n) & [\\n\\t] ])","nNvvk\\1",[global])),
+    <<"	">> = iolist_to_binary(re:replace("	","(?[ (\\n) & [\\n\\t] ])","&eF&pwtn\\1Sw",[])),
+    <<"	">> = iolist_to_binary(re:replace("	","(?[ (\\n) & [\\n\\t] ])","&eF&pwtn\\1Sw",[global])),
+    <<"dSNXaO">> = iolist_to_binary(re:replace("a","(?[ !\\n & [^\\n\\t] ])","dSNX\\1&O",[])),
+    <<"dSNXaO">> = iolist_to_binary(re:replace("a","(?[ !\\n & [^\\n\\t] ])","dSNX\\1&O",[global])),
+    <<"">> = iolist_to_binary(re:replace("","(?[ !\\n & [^\\n\\t] ])","T&MD&lk",[])),
+    <<"">> = iolist_to_binary(re:replace("","(?[ !\\n & [^\\n\\t] ])","T&MD&lk",[global])),
+    <<"	">> = iolist_to_binary(re:replace("	","(?[ !\\n & [^\\n\\t] ])","OvTuqyaGbMlvd&F\\1K",[])),
+    <<"	">> = iolist_to_binary(re:replace("	","(?[ !\\n & [^\\n\\t] ])","OvTuqyaGbMlvd&F\\1K",[global])),
+    <<"">> = iolist_to_binary(re:replace("","(?[ \\n & [\\n\\t] + [\\d] ])","C",[])),
+    <<"">> = iolist_to_binary(re:replace("","(?[ \\n & [\\n\\t] + [\\d] ])","C",[global])),
+    <<"eoQ1Gr1">> = iolist_to_binary(re:replace("1","(?[ \\n & [\\n\\t] + [\\d] ])","e\\1oQ&G\\1r&",[])),
+    <<"eoQ1Gr1">> = iolist_to_binary(re:replace("1","(?[ \\n & [\\n\\t] + [\\d] ])","e\\1oQ&G\\1r&",[global])),
+    <<"	">> = iolist_to_binary(re:replace("	","(?[ \\n & [\\n\\t] + [\\d] ])","&d&\\1dyYnKyUSxTdToVHe",[])),
+    <<"	">> = iolist_to_binary(re:replace("	","(?[ \\n & [\\n\\t] + [\\d] ])","&d&\\1dyYnKyUSxTdToVHe",[global])),
+    <<"a">> = iolist_to_binary(re:replace("a","(?[ \\n & [\\n\\t] + [\\d] ])","G\\1",[])),
+    <<"a">> = iolist_to_binary(re:replace("a","(?[ \\n & [\\n\\t] + [\\d] ])","G\\1",[global])),
+    <<"">> = iolist_to_binary(re:replace("","(?[ [\\n\\t] & \\n ])","a&BDB",[])),
+    <<"">> = iolist_to_binary(re:replace("","(?[ [\\n\\t] & \\n ])","a&BDB",[global])),
+    <<"t">> = iolist_to_binary(re:replace("t","(?[ [\\n\\t] & \\n ])","qkkiTVXJ&EPH\\1\\1MbQX&\\1",[])),
+    <<"t">> = iolist_to_binary(re:replace("t","(?[ [\\n\\t] & \\n ])","qkkiTVXJ&EPH\\1\\1MbQX&\\1",[global])),
+    ok.
+run67() ->
+    <<"1r">> = iolist_to_binary(re:replace("1","(?[ [\\d\\t] & \\d ])","&r",[])),
+    <<"1r">> = iolist_to_binary(re:replace("1","(?[ [\\d\\t] & \\d ])","&r",[global])),
+    <<"a">> = iolist_to_binary(re:replace("a","(?[ [\\d\\t] & \\d ])","lN\\1IybMvxh&CRE",[])),
+    <<"a">> = iolist_to_binary(re:replace("a","(?[ [\\d\\t] & \\d ])","lN\\1IybMvxh&CRE",[global])),
+    <<"saLSIxdgsxJDhu">> = iolist_to_binary(re:replace("a","(?[ [a-z\\t] & [:alpha:] ])","s&\\1LSIx\\1dgsxJ\\1D\\1hu",[])),
+    <<"saLSIxdgsxJDhu">> = iolist_to_binary(re:replace("a","(?[ [a-z\\t] & [:alpha:] ])","s&\\1LSIx\\1dgsxJ\\1D\\1hu",[global])),
+    <<"A">> = iolist_to_binary(re:replace("A","(?[ [a-z\\t] & [:alpha:] ])","nnP&",[])),
+    <<"A">> = iolist_to_binary(re:replace("A","(?[ [a-z\\t] & [:alpha:] ])","nnP&",[global])),
+    <<"	">> = iolist_to_binary(re:replace("	","(?[ [a-z\\t] & [:alpha:] ])","&to&wfyr\\1mspvgFdrtU",[])),
+    <<"	">> = iolist_to_binary(re:replace("	","(?[ [a-z\\t] & [:alpha:] ])","&to&wfyr\\1mspvgFdrtU",[global])),
+    <<"">> = iolist_to_binary(re:replace("","(?[ [\\n\\t] & [\\n] ])","Ch&khQ\\1&y&oO\\1K&QwB&",[])),
+    <<"">> = iolist_to_binary(re:replace("","(?[ [\\n\\t] & [\\n] ])","Ch&khQ\\1&y&oO\\1K&QwB&",[global])),
+    <<"	">> = iolist_to_binary(re:replace("	","(?[ [\\n\\t] & [\\n] ])","&w&\\1&X",[])),
+    <<"	">> = iolist_to_binary(re:replace("	","(?[ [\\n\\t] & [\\n] ])","&w&\\1&X",[global])),
+    <<"">> = iolist_to_binary(re:replace("","(?[ [\\n\\t] & (\\n) ])","PQhTcPdU&hIG\\1AxG&J&U",[])),
+    <<"">> = iolist_to_binary(re:replace("","(?[ [\\n\\t] & (\\n) ])","PQhTcPdU&hIG\\1AxG&J&U",[global])),
+    <<"	">> = iolist_to_binary(re:replace("	","(?[ [\\n\\t] & (\\n) ])","RFmTlM&&xiON&\\1V&S",[])),
+    <<"	">> = iolist_to_binary(re:replace("	","(?[ [\\n\\t] & (\\n) ])","RFmTlM&&xiON&\\1V&S",[global])),
+    <<"VVpexWIEyaIR">> = iolist_to_binary(re:replace("a","(?[ [^\\n\\t] & !\\n ])","VVpexWIEy\\1&IR",[])),
+    <<"VVpexWIEyaIR">> = iolist_to_binary(re:replace("a","(?[ [^\\n\\t] & !\\n ])","VVpexWIEy\\1&IR",[global])),
+    <<"">> = iolist_to_binary(re:replace("","(?[ [^\\n\\t] & !\\n ])","eJNuO",[])),
+    <<"">> = iolist_to_binary(re:replace("","(?[ [^\\n\\t] & !\\n ])","eJNuO",[global])),
+    <<"	">> = iolist_to_binary(re:replace("	","(?[ [^\\n\\t] & !\\n ])","jnpPH\\1&u\\1xR\\1q",[])),
+    <<"	">> = iolist_to_binary(re:replace("	","(?[ [^\\n\\t] & !\\n ])","jnpPH\\1&u\\1xR\\1q",[global])),
+    <<"">> = iolist_to_binary(re:replace("","(?[ [\\d] + \\n & [\\n\\t] ])","aDcb\\1JBjF&eyAGMc",[])),
+    <<"">> = iolist_to_binary(re:replace("","(?[ [\\d] + \\n & [\\n\\t] ])","aDcb\\1JBjF&eyAGMc",[global])),
+    <<"QMlfncYuHcKh1DV">> = iolist_to_binary(re:replace("1","(?[ [\\d] + \\n & [\\n\\t] ])","QMlfncYuH\\1cKh&DV",[])),
+    <<"QMlfncYuHcKh1DV">> = iolist_to_binary(re:replace("1","(?[ [\\d] + \\n & [\\n\\t] ])","QMlfncYuH\\1cKh&DV",[global])),
+    <<"	">> = iolist_to_binary(re:replace("	","(?[ [\\d] + \\n & [\\n\\t] ])","rc\\1A&",[])),
+    <<"	">> = iolist_to_binary(re:replace("	","(?[ [\\d] + \\n & [\\n\\t] ])","rc\\1A&",[global])),
+    <<"a">> = iolist_to_binary(re:replace("a","(?[ [\\d] + \\n & [\\n\\t] ])","IXi",[])),
+    <<"a">> = iolist_to_binary(re:replace("a","(?[ [\\d] + \\n & [\\n\\t] ])","IXi",[global])),
+    <<"">> = iolist_to_binary(re:replace("","(?[ [\\d] + \\n + [\\t] ])","hye&RgN\\1&",[])),
+    <<"">> = iolist_to_binary(re:replace("","(?[ [\\d] + \\n + [\\t] ])","hye&RgN\\1&",[global])),
+    <<"gP	efjduSL">> = iolist_to_binary(re:replace("	","(?[ [\\d] + \\n + [\\t] ])","\\1gP&efjduSL",[])),
+    <<"gP	efjduSL">> = iolist_to_binary(re:replace("	","(?[ [\\d] + \\n + [\\t] ])","\\1gP&efjduSL",[global])),
+    <<"CubfCRC">> = iolist_to_binary(re:replace("1","(?[ [\\d] + \\n + [\\t] ])","CubfCRC\\1",[])),
+    <<"CubfCRC">> = iolist_to_binary(re:replace("1","(?[ [\\d] + \\n + [\\t] ])","CubfCRC\\1",[global])),
+    <<"a">> = iolist_to_binary(re:replace("a","(?[ [\\d] + \\n + [\\t] ])","nV&\\1dejw\\1\\1\\1u\\1",[])),
+    <<"a">> = iolist_to_binary(re:replace("a","(?[ [\\d] + \\n + [\\t] ])","nV&\\1dejw\\1\\1\\1u\\1",[global])),
+    <<"">> = iolist_to_binary(re:replace("","(?[ \\d + \\n ])","tXYNJ&\\1blcQXRCb\\1HcFh",[])),
+    <<"">> = iolist_to_binary(re:replace("","(?[ \\d + \\n ])","tXYNJ&\\1blcQXRCb\\1HcFh",[global])),
+    <<"paXLYnmobgvDfA1cdf">> = iolist_to_binary(re:replace("1","(?[ \\d + \\n ])","paXLYnmobgvDfA&c\\1df",[])),
+    <<"paXLYnmobgvDfA1cdf">> = iolist_to_binary(re:replace("1","(?[ \\d + \\n ])","paXLYnmobgvDfA&c\\1df",[global])),
+    <<"a">> = iolist_to_binary(re:replace("a","(?[ \\d + \\n ])","N&Cl\\1VfSOqL&Nh\\1Pi",[])),
+    <<"a">> = iolist_to_binary(re:replace("a","(?[ \\d + \\n ])","N&Cl\\1VfSOqL&Nh\\1Pi",[global])),
+    <<"">> = iolist_to_binary(re:replace("","(?[ \\d | \\n ])","etdaE\\1RjPadOHMNtvw\\1",[])),
+    <<"">> = iolist_to_binary(re:replace("","(?[ \\d | \\n ])","etdaE\\1RjPadOHMNtvw\\1",[global])),
+    <<"HObFQ1VEjs">> = iolist_to_binary(re:replace("1","(?[ \\d | \\n ])","HOb\\1FQ&VEjs",[])),
+    <<"HObFQ1VEjs">> = iolist_to_binary(re:replace("1","(?[ \\d | \\n ])","HOb\\1FQ&VEjs",[global])),
+    <<"a">> = iolist_to_binary(re:replace("a","(?[ \\d | \\n ])","NM&HWbKb\\1BCfULfbB\\1&",[])),
+    <<"a">> = iolist_to_binary(re:replace("a","(?[ \\d | \\n ])","NM&HWbKb\\1BCfULfbB\\1&",[global])),
+    <<"bOeQY">> = iolist_to_binary(re:replace("1","(?[ \\d - [2] ])","bOeQY\\1",[])),
+    <<"bOeQY">> = iolist_to_binary(re:replace("1","(?[ \\d - [2] ])","bOeQY\\1",[global])),
+    <<"3">> = iolist_to_binary(re:replace("3","(?[ \\d - [2] ])","&",[])),
+    <<"3">> = iolist_to_binary(re:replace("3","(?[ \\d - [2] ])","&",[global])),
+    <<"2">> = iolist_to_binary(re:replace("2","(?[ \\d - [2] ])","dYgc&R&ORDD\\1f",[])),
+    <<"2">> = iolist_to_binary(re:replace("2","(?[ \\d - [2] ])","dYgc&R&ORDD\\1f",[global])),
+    <<"BJsHs">> = iolist_to_binary(re:replace("A","(?[ [AC] ^ [BC] ])","B\\1JsHs",[])),
+    <<"BJsHs">> = iolist_to_binary(re:replace("A","(?[ [AC] ^ [BC] ])","B\\1JsHs",[global])),
+    <<"imsxBa">> = iolist_to_binary(re:replace("B","(?[ [AC] ^ [BC] ])","imsx&a",[])),
+    <<"imsxBa">> = iolist_to_binary(re:replace("B","(?[ [AC] ^ [BC] ])","imsx&a",[global])),
+    <<"C">> = iolist_to_binary(re:replace("C","(?[ [AC] ^ [BC] ])","SJ&cXcqIhOv\\1kOBn&ap&",[])),
+    <<"C">> = iolist_to_binary(re:replace("C","(?[ [AC] ^ [BC] ])","SJ&cXcqIhOv\\1kOBn&ap&",[global])),
+    <<"D">> = iolist_to_binary(re:replace("D","(?[ [AC] ^ [BC] ])","o",[])),
+    <<"D">> = iolist_to_binary(re:replace("D","(?[ [AC] ^ [BC] ])","o",[global])),
+    <<"DyeEXeRMxLCxjRjXCe">> = iolist_to_binary(re:replace("j","(?[	(	[	^	z	]	) ])","DyeEXe\\1RMxLCxjR&XCe\\1",[])),
+    <<"DyeEXeRMxLCxjRjXCe">> = iolist_to_binary(re:replace("j","(?[	(	[	^	z	]	) ])","DyeEXe\\1RMxLCxjR&XCe\\1",[global])),
+    <<"z">> = iolist_to_binary(re:replace("z","(?[	(	[	^	z	]	) ])","&RE\\1Ba&\\1&eH\\1LUy",[])),
+    <<"z">> = iolist_to_binary(re:replace("z","(?[	(	[	^	z	]	) ])","&RE\\1Ba&\\1&eH\\1LUy",[global])),
+    <<"gwabcdjBkMYQdNef">> = iolist_to_binary(re:replace("abcdef","^.{4}","\\1g\\1w&jBk\\1\\1MYQdN",[dotall])),
+    <<"gwabcdjBkMYQdNef">> = iolist_to_binary(re:replace("abcdef","^.{4}","\\1g\\1w&jBk\\1\\1MYQdN",[dotall,global])),
+    <<"hArAWabcdWEJabcdKGabcdwKe">> = iolist_to_binary(re:replace("abcde","^.{4}","\\1\\1hArAW&WEJ\\1&KG&wK",[dotall])),
+    <<"hArAWabcdWEJabcdKGabcdwKe">> = iolist_to_binary(re:replace("abcde","^.{4}","\\1\\1hArAW&WEJ\\1&KG&wK",[dotall,global])),
+    <<"LEwlPP">> = iolist_to_binary(re:replace("abcd","^.{4}","LEwl\\1PP",[dotall])),
+    <<"LEwlPP">> = iolist_to_binary(re:replace("abcd","^.{4}","LEwl\\1PP",[dotall,global])),
+    <<"abc">> = iolist_to_binary(re:replace("abc","^.{4}","&Io\\1u&kLjC&NyNY\\1",[dotall])),
+    <<"abc">> = iolist_to_binary(re:replace("abc","^.{4}","&Io\\1u&kLjC&NyNY\\1",[dotall,global])),
+    <<"ab">> = iolist_to_binary(re:replace("ab","^.{4}","&dNbL&rACA&\\1p\\1Puwa",[dotall])),
+    <<"ab">> = iolist_to_binary(re:replace("ab","^.{4}","&dNbL&rACA&\\1p\\1Puwa",[dotall,global])),
+    <<"a">> = iolist_to_binary(re:replace("a","^.{4}","FpeyTEEhTG",[dotall])),
+    <<"a">> = iolist_to_binary(re:replace("a","^.{4}","FpeyTEEhTG",[dotall,global])),
+    <<"CpjBSabc!defghi!Bbdefghi!wPtpvlDdefghi!">> = iolist_to_binary(re:replace("abc!defghi!","^(.{3,6}!)+$","CpjBS&Bb\\1wPtpvlD\\1",[dotall])),
+    <<"CpjBSabc!defghi!Bbdefghi!wPtpvlDdefghi!">> = iolist_to_binary(re:replace("abc!defghi!","^(.{3,6}!)+$","CpjBS&Bb\\1wPtpvlD\\1",[dotall,global])),
+    <<"EYHcinghi!MoUabcdef!ghi!ghi!">> = iolist_to_binary(re:replace("abcdef!ghi!","^(.{3,6}!)+$","EYHcin\\1MoU&\\1",[dotall])),
+    <<"EYHcinghi!MoUabcdef!ghi!ghi!">> = iolist_to_binary(re:replace("abcdef!ghi!","^(.{3,6}!)+$","EYHcin\\1MoU&\\1",[dotall,global])),
+    <<"Vjkl!nWjkl!abc!def!ghi!jkl!">> = iolist_to_binary(re:replace("abc!def!ghi!jkl!","^(.{3,6}!)+$","V\\1nW\\1&",[dotall])),
+    <<"Vjkl!nWjkl!abc!def!ghi!jkl!">> = iolist_to_binary(re:replace("abc!def!ghi!jkl!","^(.{3,6}!)+$","V\\1nW\\1&",[dotall,global])),
+    <<"ETuab!cd!BeDDab!cd!xcG">> = iolist_to_binary(re:replace("ab!cd!","^(.{3,6}!)+$","ETu&BeDD\\1xcG",[dotall])),
+    <<"ETuab!cd!BeDDab!cd!xcG">> = iolist_to_binary(re:replace("ab!cd!","^(.{3,6}!)+$","ETu&BeDD\\1xcG",[dotall,global])),
+    <<"abcd!ef!">> = iolist_to_binary(re:replace("abcd!ef!","^(.{3,6}!)+$","D",[dotall])),
+    <<"abcd!ef!">> = iolist_to_binary(re:replace("abcd!ef!","^(.{3,6}!)+$","D",[dotall,global])),
+    <<"ab!cdefg!">> = iolist_to_binary(re:replace("ab!cdefg!","^(.{3,6}!)+$","aO&V",[dotall])),
+    <<"ab!cdefg!">> = iolist_to_binary(re:replace("ab!cdefg!","^(.{3,6}!)+$","aO&V",[dotall,global])),
+    <<"ofLcWHpYBVFGbabcdefghbijbw">> = iolist_to_binary(re:replace("abcdefghbijb","[a-z]{5,}b|x","ofLcWHpYB\\1VFGb&\\1w",[])),
+    <<"ofLcWHpYBVFGbabcdefghbijbw">> = iolist_to_binary(re:replace("abcdefghbijb","[a-z]{5,}b|x","ofLcWHpYB\\1VFGb&\\1w",[global])),
+    <<"Mwpbniij">> = iolist_to_binary(re:replace("abcdefghbij","[a-z]{5,}b|x","\\1Mwpbni",[])),
+    <<"Mwpbniij">> = iolist_to_binary(re:replace("abcdefghbij","[a-z]{5,}b|x","\\1Mwpbni",[global])),
+    <<"abcdebCMlJabcdebjkpjLrNI">> = iolist_to_binary(re:replace("abcdeb","[a-z]{5,}b|x","&CMlJ&j\\1kpjLrNI",[])),
+    <<"abcdebCMlJabcdebjkpjLrNI">> = iolist_to_binary(re:replace("abcdeb","[a-z]{5,}b|x","&CMlJ&j\\1kpjLrNI",[global])),
+    <<"abcdefghijWuXxoxDwTVdxEAAOfH">> = iolist_to_binary(re:replace("abcdefghijx","[a-z]{5,}b|x","WuX&\\1o&D\\1wTVd&EAAOfH",[])),
+    <<"abcdefghijWuXxoxDwTVdxEAAOfH">> = iolist_to_binary(re:replace("abcdefghijx","[a-z]{5,}b|x","WuX&\\1o&D\\1wTVd&EAAOfH",[global])),
+    <<"abcdb">> = iolist_to_binary(re:replace("abcdb","[a-z]{5,}b|x","hpDS",[])),
+    <<"abcdb">> = iolist_to_binary(re:replace("abcdb","[a-z]{5,}b|x","hpDS",[global])),
+    <<"abcdefghijk">> = iolist_to_binary(re:replace("abcdefghijk","[a-z]{5,}b|x","&QEv",[])),
+    <<"abcdefghijk">> = iolist_to_binary(re:replace("abcdefghijk","[a-z]{5,}b|x","&QEv",[global])),
+    <<"BkCaseXTassPyTeasbs">> = iolist_to_binary(re:replace("asbs","[a-z]{1,6}?s|x","BkC&e\\1XT&sPyTe&",[])),
+    <<"BkCaseXTassPyTeasBkCbseXTbssPyTebs">> = iolist_to_binary(re:replace("asbs","[a-z]{1,6}?s|x","BkC&e\\1XT&sPyTe&",[global])),
+    <<"DG">> = iolist_to_binary(re:replace("abcdefs","[a-z]{1,6}?s|x","D\\1G",[])),
+    <<"DG">> = iolist_to_binary(re:replace("abcdefs","[a-z]{1,6}?s|x","D\\1G",[global])),
+    <<"abcdeTs">> = iolist_to_binary(re:replace("abcdefghijkss","[a-z]{1,6}?s|x","T",[])),
+    <<"abcdeTs">> = iolist_to_binary(re:replace("abcdefghijkss","[a-z]{1,6}?s|x","T",[global])),
+    <<"abcdefghijktToJKVyxs">> = iolist_to_binary(re:replace("abcdefghijkx","[a-z]{1,6}?s|x","tT\\1oJKVy&s",[])),
+    <<"abcdefghijktToJKVyxs">> = iolist_to_binary(re:replace("abcdefghijkx","[a-z]{1,6}?s|x","tT\\1oJKVy&s",[global])),
+    <<"IY">> = iolist_to_binary(re:replace("ss","[a-z]{1,6}?s|x","IY",[])),
+    <<"IY">> = iolist_to_binary(re:replace("ss","[a-z]{1,6}?s|x","IY",[global])),
+    <<"s">> = iolist_to_binary(re:replace("s","[a-z]{1,6}?s|x","HLMEjS\\1qfK",[])),
+    <<"s">> = iolist_to_binary(re:replace("s","[a-z]{1,6}?s|x","HLMEjS\\1qfK",[global])),
+    <<"aaa">> = iolist_to_binary(re:replace("aaa","[a-z]{1,6}?s|x","XBwBxIp&",[])),
+    <<"aaa">> = iolist_to_binary(re:replace("aaa","[a-z]{1,6}?s|x","XBwBxIp&",[global])),
     ok.

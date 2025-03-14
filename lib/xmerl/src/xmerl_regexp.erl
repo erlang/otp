@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2006-2024. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2025. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -241,10 +241,13 @@ sh_special_char(_C) -> false.
 %%  Parse the regexp described in the string RegExp.
 
 parse(S) ->
-    case catch reg(S, 0) of
-	{R,Sc,[]} -> {ok,{regexp,{R,Sc}}};
-	{_R,_Sc,[C|_]} -> {error,{illegal,[C]}};
-	{error,E} -> {error,E}
+    try reg(S, 0) of
+	{R,Sc,[]} ->
+            {ok,{regexp,{R,Sc}}};
+	{_R,_Sc,[C|_]} ->
+            {error,{illegal,[C]}}
+    catch
+	throw:{error,E} -> {error,E}
     end.
 
 %% format_error(Error) -> String.

@@ -240,7 +240,6 @@ Floats (\+|-)?[0-9]+\.[0-9]+((E|e)(\+|-)?[0-9]+)?
 > Anchoring a regular expression with `^` and `$` is not implemented in the
 > current version of `leex` and generates a parse error.
 """.
--moduledoc(#{titles => [{function,<<"Generated Scanner Exports">>}]}).
 
 -export([compile/3,file/1,file/2,format_error/1]).
 
@@ -281,7 +280,7 @@ Floats (\+|-)?[0-9]+\.[0-9]+((E|e)(\+|-)?[0-9]+)?
 %%%
 -export([string/1, string/2, token/2, token/3, tokens/2, tokens/3]).
 -doc #{equiv => string(String, 1)}.
--doc(#{title => <<"Generated Scanner Exports">>}).
+-doc(#{group => <<"Generated Scanner Exports">>}).
 -spec string(String) -> StringRet when
       String :: string(),
       StringRet :: {ok, Tokens, EndLoc} | ErrorInfo,
@@ -301,7 +300,7 @@ or [`erl_anno:location()`](`t:erl_anno:location/0`), depending on the
 >
 > It is an error if not all of the characters in `String` are consumed.
 """.
--doc(#{title => <<"Generated Scanner Exports">>}).
+-doc(#{group => <<"Generated Scanner Exports">>}).
 -spec string(String, StartLoc) -> StringRet when
       String :: string(),
       StringRet :: {ok, Tokens, EndLoc} | ErrorInfo,
@@ -313,7 +312,7 @@ or [`erl_anno:location()`](`t:erl_anno:location/0`), depending on the
 string(_String, _StartLoc) -> erlang:nif_error(undef).
 
 -doc #{equiv => token(Cont, Chars, 1)}.
--doc(#{title => <<"Generated Scanner Exports">>}).
+-doc(#{group => <<"Generated Scanner Exports">>}).
 -spec token(Cont, Chars) ->
     {more, Cont1} | {done, TokenRet, RestChars} when
       Cont :: [] | Cont1,
@@ -347,7 +346,7 @@ io:request(InFile, {get_until,unicode,Prompt,Module,token,[Loc]})
   -> TokenRet
 ```
 """.
--doc(#{title => <<"Generated Scanner Exports">>}).
+-doc(#{group => <<"Generated Scanner Exports">>}).
 -spec token(Cont, Chars, StartLoc) ->
     {more, Cont1} | {done, TokenRet, RestChars} when
       Cont :: [] | Cont1,
@@ -364,7 +363,7 @@ io:request(InFile, {get_until,unicode,Prompt,Module,token,[Loc]})
 token(_Cont, _Chars, _StartLoc) -> erlang:nif_error(undef).
 
 -doc #{equiv => tokens(Cont, Chars, 1)}.
--doc(#{title => <<"Generated Scanner Exports">>}).
+-doc(#{group => <<"Generated Scanner Exports">>}).
 -spec tokens(Cont, Chars) ->
     {more, Cont1} | {done, TokensRet, RestChars} when
       Cont :: [] | Cont1,
@@ -404,7 +403,7 @@ io:request(InFile, {get_until,unicode,Prompt,Module,tokens,[Loc]})
   -> TokensRet
 ```
 """.
--doc(#{title => <<"Generated Scanner Exports">>}).
+-doc(#{group => <<"Generated Scanner Exports">>}).
 -spec tokens(Cont, Chars, StartLoc) ->
     {more, Cont1} | {done, TokensRet, RestChars} when
       Cont :: [] | Cont1,

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2006-2024. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2025. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -118,7 +118,7 @@ start() ->
              ?DEFAULT_RUN_TIME, ?DEFAULT_MODE, ?DEFAULT_MESSAGE_PACKAGE).
 
 -doc """
-start(MessagePackage)
+start(RunTime | MessagePackage)
 
 This function starts the _mstone2_ performance test with all codec configs.
 Processes are created dynamically. Each process make _one_ run through their
@@ -128,6 +128,12 @@ exits, a new is created with the same codec config and set of messages.
 The number of messages processed in total (for all processes) is the mstone
 value.
 """.
+
+-spec start(RunTime) -> ok when
+      RunTime :: pos_integer();
+           (MessagePackage) -> ok when
+      MessagePackage :: atom().
+
 start([RunTimeAtom, Mode, MessagePackage])
   when is_atom(RunTimeAtom) andalso
        is_atom(Mode) andalso

@@ -622,7 +622,7 @@ flatrev([], As, []) ->
 %% selects the "best" layout of a document, returning a simplified
 %% representation that can be given directly to `layout', unless the
 %% returned value is `empty', signaling that no layout could be
-%% produced. In addition, documents on the form `#union{d1 = D1, d2 =
+%% produced. In addition, documents of the form `#union{d1 = D1, d2 =
 %% D2}' and `#fit{d = D}' are used internally.
 %%
 %% Note: It is vital for this algorithm to maintain the invariant on

@@ -540,7 +540,9 @@ void process_main(ErtsSchedulerData *esdp)
             Goto(*I);
         }
     }
- /* Fall through */
+#ifdef NO_JUMP_TABLE
+    ERTS_FALLTHROUGH();
+#endif
  OpCase(error_action_code): {
     handle_error:
      SWAPOUT;

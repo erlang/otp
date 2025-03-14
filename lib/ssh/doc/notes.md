@@ -19,31 +19,29 @@ limitations under the License.
 -->
 # SSH Release Notes
 
-## Ssh 5.3
+## Ssh 5.2.8
 
 ### Fixed Bugs and Malfunctions
 
-- The implementation of the ssh server-side supervision tree has been improved.
+- Minor documentation improvements.
 
-  Own Id: OTP-19324 Aux Id: [PR-8968], [GH-8223]
+  Own Id: OTP-19410 Aux Id: [PR-9188]
 
-[PR-8968]: https://github.com/erlang/otp/pull/8968
-[GH-8223]: https://github.com/erlang/otp/issues/8223
+- Function specification for `ssh_sftp:start_channel/2` is fixed.
 
-### Improvements and New Features
+  Own Id: OTP-19475 Aux Id: [PR-9368], [GH-9359]
 
-- The [`Erlang SSH daemon`](using_ssh.md#running-an-erlang-ssh-daemon) now uses the same backend to handle multiline functionality as the Erlang shell.
+[PR-9188]: https://github.com/erlang/otp/pull/9188
+[PR-9368]: https://github.com/erlang/otp/pull/9368
+[GH-9359]: https://github.com/erlang/otp/issues/9359
 
-  Own Id: OTP-19226 Aux Id: [PR-8805]
+## Ssh 5.2.7
 
-- CBC algorithms are not offered by default. See Configuring algorithms in SSH if you wish to enable them.
+### Fixed Bugs and Malfunctions
 
-  *** POTENTIAL INCOMPATIBILITY ***
+- SFTP packets exceeding max packet size are not processed and dropped.
 
-  Own Id: OTP-19420 Aux Id: [PR-9277]
-
-[PR-8805]: https://github.com/erlang/otp/pull/8805
-[PR-9277]: https://github.com/erlang/otp/pull/9277
+  Own Id: OTP-19466 Aux Id: ERIERL-1173, CVE-2025-26618
 
 ## Ssh 5.2.6
 
@@ -166,6 +164,14 @@ limitations under the License.
 
 [PR-7845]: https://github.com/erlang/otp/pull/7845
 [PR-8026]: https://github.com/erlang/otp/pull/8026
+
+## Ssh 5.1.4.6
+
+### Fixed Bugs and Malfunctions
+
+* SFTP packets exceeding max packet size are not processed and dropped.
+
+  Own Id: OTP-19466 Aux Id: ERIERL-1173, CVE-2025-26618
 
 ## Ssh 5.1.4.5
 
@@ -341,6 +347,28 @@ limitations under the License.
   \*** POTENTIAL INCOMPATIBILITY \***
 
   Own Id: OTP-18490 Aux Id: OTP-18471, GH-6339, PR-6843
+
+## Ssh 4.15.3.10
+
+### Fixed Bugs and Malfunctions
+
+* SFTP packets exceeding max packet size are not processed and dropped.
+
+  Own Id: OTP-19466 Aux Id: ERIERL-1173, CVE-2025-26618
+
+## Ssh 4.15.3.9
+
+### Fixed Bugs and Malfunctions
+
+* With this change, type specs for ssh:connection_info/1,2 functions are fixed so they include \{error, term()\} return value.
+
+  Own Id: OTP-19388 Aux Id: ERIERL-1165, PR-9161
+* With this change, ssh client accepts a banner sent during processing keyboard interactive user authentication.
+
+  Own Id: OTP-19392 Aux Id: PR-9139, GH-9065
+* With this change, large sftp transfers does not hang. Redundant window adjustment are not requested.
+
+  Own Id: OTP-19435 Aux Id: PR-9309
 
 ## Ssh 4.15.3.8
 

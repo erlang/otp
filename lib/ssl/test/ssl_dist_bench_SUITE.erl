@@ -59,26 +59,27 @@ all() ->
     [{group, smoketest}].
 
 groups() ->
-    [{smoketest,   protocols()},
-     {benchmark,   protocols()},
-     {perf_record, protocols()},
+    [{smoketest,    protocols()},
+     {benchmark,    protocols()},
+     {perf_record,  protocols()},
      %%
      %% protocols()
-     {ssl,             ssl_backends()},
-     {cryptcookie,     cryptcookie_backends()},
-     {plain,           categories()},
-     {plain2,          categories()},
-     {socket,          categories()},
+     {ssl,          ssl_backends()},
+     {cryptcookie,  cryptcookie_backends()},
+     {ssl_socket,   categories()},
+     {plain,        categories()},
+     {plain2,       categories()},
+     {socket,       categories()},
      %%
      %% ssl_backends()
-     {tls,  categories()},
-     {ktls, categories()},
+     {tls,          categories()},
+     {ktls,         categories()},
      %%
      %% cryptcookie_backends()
-     {dist_cryptcookie_socket, categories()},
-     {cryptcookie_socket_ktls, categories()},
-     {dist_cryptcookie_inet,   categories()},
-     {cryptcookie_inet_ktls,   categories()},
+     {dist_cryptcookie_socket,  categories()},
+     {cryptcookie_socket_ktls,  categories()},
+     {dist_cryptcookie_inet,    categories()},
+     {cryptcookie_inet_ktls,    categories()},
      {cryptcookie_inet_ktls_ih, categories()},
      %%
      %% categories()
@@ -102,6 +103,7 @@ groups() ->
 protocols() ->
     [{group, ssl},
      {group, cryptcookie},
+     {group, ssl_socket},
      {group, plain},
      {group, plain2},
      {group, socket}].
@@ -205,7 +207,6 @@ init_per_suite(Config) ->
          {server_name, ServerName},
          {server, Server},
          {server_dist_args,
-          "-proto_dist inet_tls "
           "-ssl_dist_optfile " ++ ServerConfFile ++ " "},
          {clients, Schedulers} |
          init_client_node(
@@ -241,7 +242,6 @@ init_client_node(
       [{{client_name, N}, ClientName},
        {{client, N}, Client},
        {{client_dist_args, N},
-        "-proto_dist inet_tls "
         "-ssl_dist_optfile " ++ ClientConfFile ++ " "} | Config]).
 
 end_per_suite(Config) ->
@@ -254,7 +254,13 @@ init_per_group(perf_record, Config) ->
     [{perf_record,true}, {effort,10}|Config];
 %%
 init_per_group(ssl, Config) ->
-    [{ssl_dist, true}, {ssl_dist_prefix, "SSL"}|Config];
+    [{ssl_dist, true}, {ssl_dist_prefix, "SSL"},
+     {ssl_dist_args, "-proto_dist inet_tls "}
+    |Config];
+init_per_group(ssl_socket, Config) ->
+    [{ssl_dist, true}, {ssl_dist_prefix, "SSL-Socket"},
+     {ssl_dist_args, "-proto_dist inet_epmd -inet_epmd tls_socket"}
+    | Config];
 init_per_group(dist_cryptcookie_socket, Config) ->
     try inet_epmd_dist_cryptcookie_socket:supported() of
         ok ->
@@ -371,8 +377,21 @@ end_per_group(_GroupName, _Config) ->
     ok.
 
 init_per_testcase(Func, Conf) ->
-    case proplists:is_defined(effort, Conf) of
-        false ->
+    PerfRecord = proplists:get_value(perf_record, Conf, false),
+    Effort = proplists:is_defined(effort, Conf),
+    if
+        PerfRecord ->
+            case atom_to_list(Func) of
+                "throughput_65536" ->
+                    Conf;
+                "throughput_"++_ ->
+                    {skipped, "Don't perf record all sizes"};
+                _ ->
+                    Conf
+            end;
+        Effort ->
+            Conf;
+        true ->
             %% Not a benchmark run
             case atom_to_list(Func) of
                 "throughput_64" ->
@@ -381,9 +400,7 @@ init_per_testcase(Func, Conf) ->
                     {skipped, "Benchmarks run separately"};
                 _ ->
                     Conf
-            end;
-        true ->
-            Conf
+            end
     end.
 
 end_per_testcase(_Func, _Conf) ->
@@ -488,7 +505,8 @@ report(LFormat, LArgs, Name, Value, Info) ->
       #event{
          name = benchmark_data,
          data = [{value, Value}, {suite, "ssl_dist"}, {name, Name}]}),
-    {comment, term_to_string(Value) ++ " " ++ Info}.
+    {comment,
+     term_to_string(Value) ++ " " ++ unicode:characters_to_list(Info)}.
 
 -define(REPORT(Name, Value, Info, Time),
         begin
@@ -499,9 +517,7 @@ report(LFormat, LArgs, Name, Value, Info) ->
 report(LFormat, LArgs, Name, Value, Info, Time) -> % Time in microseconds
     report(
       LFormat, LArgs, Name, Value,
-      Info ++
-          unicode:characters_to_list(
-            io_lib:fwrite(" [~.1f s]", [begin Time end/1000_000]))).
+      io_lib:fwrite("~ts [~.1f s]", [Info, Time/1000_000])).
 
 term_to_string(Term) ->
     unicode:characters_to_list(
@@ -1524,7 +1540,7 @@ perf_starter(Name, Config) ->
                      %% will per default write the collected data to it
                      PerfCmd =
                          "perf record -p " ++ NodePid ++ " "
-                         "--output=" ++ Name ++ ".data --call-graph=fp",
+                         "--output=" ++ Name ++ ".data --call-graph=lbr",
                      ?CT_PAL("~nPerfCmd: ~s~n", [PerfCmd]),
                      _ = spawn_link(
                            fun () ->
@@ -1571,8 +1587,8 @@ get_node_args(Tag, Config) ->
                     ""
             end ++ proplists:get_value(Tag, Config);
         false ->
-            proplists:get_value(ssl_dist_args, Config, "")
-    end.
+            ""
+    end ++ proplists:get_value(ssl_dist_args, Config, "").
 
 
 

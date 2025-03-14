@@ -23,7 +23,8 @@
          init_per_group/2,end_per_group/2,
          init_per_testcase/2,end_per_testcase/2,
          basic/1,mixed_zlc/1,zmc/1,filter_guard/1,
-         filter_pattern/1,cartesian/1,nomatch/1,bad_generators/1]).
+         filter_pattern/1,cartesian/1,nomatch/1,bad_generators/1,
+         strict_pat/1]).
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("stdlib/include/assert.hrl").
@@ -40,7 +41,8 @@ all() ->
      filter_pattern,
      cartesian,
      nomatch,
-     bad_generators].
+     bad_generators,
+     strict_pat].
 
 groups() ->
     [].
@@ -408,3 +410,45 @@ bad_generators(Config) when is_list(Config) ->
         catch #{X => Y || X <- [a,b,c,d] && Y <- [1,2,3], Y > 1},
 
     ok.
+
+strict_pat(Config) when is_list(Config) ->
+    [a] = strict_pat_1([a], [a], [a]),
+    {'EXIT',{{bad_generators,{[b],[a],[a]}},_}} =
+        catch strict_pat_1([b], [a], [a]),
+    {'EXIT',{{bad_generators,{[b],[a],[b]}},_}} =
+        catch strict_pat_1([b], [a], [b]),
+    {'EXIT',{{bad_generators,{[b],[a],[b]}},_}} =
+        catch strict_pat_1([a,b], [a,a], [a,b]),
+
+    [{a,b}] = strict_pat_2([{a,b}], [b], [a]),
+    [] = strict_pat_2([{a,b}], [b], [b]),
+    {'EXIT',{{bad_generators,{[{a,b}],[a],[b]}},_}} =
+        catch strict_pat_2([{a,b}], [a], [b]),
+
+    #{1:= 2} = strict_pat_3(#{1=>2}, #{1=>3}),
+    {'EXIT',{{bad_generators,{#{1 := 2},#{2 := 3}}},_}} =
+        catch strict_pat_3(#{1=>2}, #{2=>3}),
+
+    [{a,b,c}] = strict_pat_4([{{a,b},c}], [c]),
+    [] = strict_pat_4([{[a,b],c}], [c]),
+    [] = strict_pat_4([{no_tuple,c}], [c]),
+    {'EXIT',{{bad_generators,{[{{a,b},c}],[d]}},_}} =
+        catch strict_pat_4([{{a,b},c}], [d]),
+
+    ok.
+
+strict_pat_1(G1, G2, G3) ->
+    Res = [Y || Y <- G1 && Y <:- G2 && Y <- G3],
+    Res = [Y || Y <- G1 && Y <- G2 && Y <:- G3],
+    Res = [Y || Y <:- G1 && Y <- G2 && Y <- G3].
+
+strict_pat_2(G1, G2, G3) ->
+    [{X,Y} || {X,Y} <- G1 && Y <:- G2 && X <- G3].
+
+strict_pat_3(G1, G2) ->
+    #{K => V || K := V <- G1 && K := _ <:- G2}.
+
+strict_pat_4(G1, G2) ->
+    Res = [{X,Y,Z} || {{X,Y},Z} <- G1 && Z <:- G2],
+    Res = [{X,Y,Z} || Z <:- G2 && {{X,Y},Z} <- G1],
+    Res.

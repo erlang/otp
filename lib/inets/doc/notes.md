@@ -23,11 +23,11 @@ limitations under the License.
 
 ### Fixed Bugs and Malfunctions
 
-- Replaced calls to deprecated `crypto:start()` with `application:start(crypto)`.
+- Improved robustness of httpd startup procedure.
 
-  Own Id: OTP-19485 Aux Id: [PR-8592]
+  Own Id: OTP-19486 Aux Id: ERIERL-1190, [PR-9408]
 
-[PR-8592]: https://github.com/erlang/otp/pull/8592
+[PR-9408]: https://github.com/erlang/otp/pull/9408
 
 ## Inets 9.3.1
 

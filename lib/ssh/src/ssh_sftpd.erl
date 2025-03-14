@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2024. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -32,7 +32,7 @@ Specifies a channel process to handle an SFTP subsystem.
 -behaviour(ssh_server_channel).
 
 -include_lib("kernel/include/file.hrl").
-
+-include_lib("kernel/include/logger.hrl").
 -include("ssh.hrl").
 -include("ssh_xfer.hrl").
 -include("ssh_connect.hrl"). %% For ?DEFAULT_PACKET_SIZE and ?DEFAULT_WINDOW_SIZE
@@ -163,9 +163,8 @@ init(Options) ->
 %%--------------------------------------------------------------------
 -doc false.
 handle_ssh_msg({ssh_cm, _ConnectionManager,
-		{data, _ChannelId, Type, Data}}, State) ->
-    State1 = handle_data(Type, Data, State),
-    {ok, State1};
+		{data, ChannelId, Type, Data}}, State) ->
+    handle_data(Type, ChannelId, Data, State);
 
 handle_ssh_msg({ssh_cm, _, {eof, ChannelId}}, State) ->
     {stop, ChannelId, State};
@@ -224,24 +223,42 @@ terminate(_, #state{handles=Handles, file_handler=FileMod, file_state=FS}) ->
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
-handle_data(0, <<?UINT32(Len), Msg:Len/binary, Rest/binary>>, 
+handle_data(0, ChannelId, <<?UINT32(Len), Msg:Len/binary, Rest/binary>>,
 	    State = #state{pending = <<>>}) ->
     <<Op, ?UINT32(ReqId), Data/binary>> = Msg,
     NewState = handle_op(Op, ReqId, Data, State),
     case Rest of
 	<<>> ->
-	    NewState;   
+	    {ok, NewState};
 	_ ->
-	    handle_data(0, Rest, NewState)
+	    handle_data(0, ChannelId, Rest, NewState)
     end;
-	     
-handle_data(0, Data, State = #state{pending = <<>>}) ->
-    State#state{pending = Data};
+handle_data(0, _ChannelId, Data, State = #state{pending = <<>>}) ->
+    {ok, State#state{pending = Data}};
+handle_data(Type, ChannelId, Data0, State = #state{pending = Pending}) ->
+    Data = <<Pending/binary, Data0/binary>>,
+    Size = byte_size(Data),
+    case Size > ?SSH_MAX_PACKET_SIZE of
+        true ->
+            ReportFun =
+                fun([S]) ->
+                        Report =
+                            #{label => {error_logger, error_report},
+                              report =>
+                                  io_lib:format("SFTP packet size (~B) exceeds the limit!",
+                                                [S])},
+                        Meta =
+                            #{error_logger =>
+                                  #{tag => error_report,type => std_error},
+                             report_cb => fun(#{report := Msg}) -> {Msg, []} end},
+                        {Report, Meta}
+                end,
+            ?LOG_ERROR(ReportFun, [Size]),
+            {stop, ChannelId, State};
+        _ ->
+            handle_data(Type, ChannelId, Data, State#state{pending = <<>>})
+    end.
 
-handle_data(Type, Data, State = #state{pending = Pending}) -> 
-     handle_data(Type, <<Pending/binary, Data/binary>>, 
-                 State#state{pending = <<>>}).
- 
 handle_op(?SSH_FXP_INIT, Version, B, State) when is_binary(B) ->
     XF = State#state.xf,
     Vsn = lists:min([XF#ssh_xfer.vsn, Version]),

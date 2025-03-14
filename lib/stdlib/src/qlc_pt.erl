@@ -2284,7 +2284,7 @@ bindings_subset(F1, F2, Imp) ->
                       deref_var(V, F1, Imp) =:= deref_var(V, F2, Imp)
               end, Vars).
 
-%% Recognizes all QLCs on the form [T || P <- LE, F] such that
+%% Recognizes all QLCs of the form [T || P <- LE, F] such that
 %% ets:fun2ms(fun(P) when F -> T end) is a match spec. This is OK with
 %% the guard semantics implemented in filter/_ below. If one chooses
 %% not to have guard semantics, affected filters will have to be

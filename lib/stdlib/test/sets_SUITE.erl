@@ -29,7 +29,8 @@
 	 create/1,add_element/1,del_element/1,
 	 subtract/1,intersection/1,union/1,is_subset/1,
 	 is_equal/1, is_disjoint/1,is_set/1,is_empty/1,fold/1,filter/1,
-	 map/1, filtermap/1, take_smallest/1,take_largest/1, iterate/1]).
+	 map/1, filtermap/1, take_smallest/1,take_largest/1, iterate/1,
+         doctests_gb_sets/1, doctests_ordsets/1, doctests_sets/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -49,7 +50,8 @@ all() ->
     [create, add_element, del_element, subtract,
      intersection, union, is_subset, is_set, fold, filter, map,
      filtermap, take_smallest, take_largest, iterate, is_empty,
-     is_disjoint, is_equal].
+     is_disjoint, is_equal,
+     doctests_gb_sets, doctests_ordsets, doctests_sets].
 
 groups() ->
     [].
@@ -534,6 +536,15 @@ iterate_set_1(_, none, R) ->
     R;
 iterate_set_1(M, {E, I}, R) ->
     iterate_set_1(M, M(next, I), [E | R]).
+
+doctests_gb_sets(_Config) ->
+    shell_docs:test(gb_sets, []).
+
+doctests_ordsets(_Config) ->
+    shell_docs:test(ordsets, []).
+
+doctests_sets(_Config) ->
+    shell_docs:test(sets, []).
 
 %%%
 %%% Helper functions.

@@ -59,7 +59,10 @@ main(Args) ->
     PropF = file_open("../uc_spec/PropList.txt"),
     Props2 = foldl(fun parse_properties/2, Props1, PropF),
     ok = file:close(PropF),
-    Props = sofs:to_external(sofs:relation_to_family(sofs:relation(Props2))),
+    Indic = file_open("../uc_spec/IndicSyllabicCategory.txt"),
+    Props3 = foldl(fun parse_properties/2, Props2, Indic),
+    ok = file:close(Indic),
+    Props = sofs:to_external(sofs:relation_to_family(sofs:relation(Props3))),
 
     WidthF = file_open("../uc_spec/EastAsianWidth.txt"),
     WideCs = foldl(fun parse_widths/2, [], WidthF),
@@ -295,7 +298,7 @@ gen_static(Fd) ->
                  "        {U,L,T,F} -> #{upper=>U,lower=>L,title=>T,fold=>F}\n"
                  "    end.\n\n"),
 
-    io:put_chars(Fd, "spec_version() -> {15,0}.\n\n\n"),
+    io:put_chars(Fd, "spec_version() -> {16,0}.\n\n\n"),
     io:put_chars(Fd, "class(Codepoint) when ?IS_CP(Codepoint) -> \n"
                  "    {CCC,_,_,_} = unicode_table(Codepoint),\n    CCC.\n\n"),
 
@@ -480,89 +483,119 @@ gen_norm(Fd) ->
                  "decompose_compat_1([]) -> [].\n\n"),
 
 
+    %% See: https://www.unicode.org/versions/Unicode16.0.0/core-spec/chapter-3/#G49537
+
     io:put_chars(Fd,
-                 "compose(CP) when is_integer(CP) -> CP;\n"
-                 "compose([Lead,Vowel|Trail]) %% Hangul\n"
-                 "  when is_integer(Lead), 16#1100 =< Lead, Lead =< 16#1112, is_integer(Vowel) ->\n"
-                 "    if 16#1161 =< Vowel, Vowel =< 16#1175 ->\n"
-                 "            CP = 16#AC00 + ((Lead - 16#1100) * 588) + ((Vowel - 16#1161) * 28),\n"
-                 "            case Trail of\n"
-                 "                [T|Acc] when is_integer(T), 16#11A7 =< T, T =< 16#11C2 ->"
-                 "                     nolist(CP+T-16#11A7,Acc);\n"
-                 "                Acc -> nolist(CP,Acc)\n"
-                 "            end;\n"
-                 "       true ->\n"
-                 "            case compose([Vowel|Trail]) of\n"
-                 "                [_|_] = CPs -> [Lead|CPs];\n"
-                 "                CP -> [Lead,CP]\n"
-                 "            end\n"
-                 "    end;\n"
-                 "compose([Base,Accent]=GC0) ->\n"
-                 "    case compose_pair(Base,Accent) of\n"
-                 "        false -> GC0;\n"
-                 "        GC -> GC\n"
-                 "    end;\n"
-                 "compose([CP|Many]) ->\n"
-                 "    compose_many(Many, CP, [], class(CP)).\n"
-                 "\n"
-                 "compose_many([CP|Rest], Base, Accents, Prev) ->\n"
-                 "    Class = class(CP),\n"
-                 "    case (Prev =:= 0 orelse Prev < Class) andalso compose_pair(Base, CP) of\n"
-                 "        false -> compose_many(Rest, Base, [CP|Accents], Class);\n"
-                 "        Combined -> compose_many(Rest, Combined, Accents, Prev)\n"
-                 "    end;\n"
-                 "compose_many([], Base, [], Prev) ->\n"
-                 "    Base;\n"
-                 "compose_many([], Base, Accents, Prev) ->\n"
-                 "    [Base|lists:reverse(Accents)].\n"
-                 "\n\n"),
+                 """
+                 compose(CP) when is_integer(CP) -> CP;
+                 compose([Lead,Vowel|Trail]) %% Hangul
+                   when is_integer(Lead), 16#1100 =< Lead, Lead =< 16#1112, is_integer(Vowel) ->
+                     if 16#1161 =< Vowel, Vowel =< 16#1175 ->
+                             CP = 16#AC00 + ((Lead - 16#1100) * 588) + ((Vowel - 16#1161) * 28),
+                             case Trail of
+                                 [T|Acc] when is_integer(T), 16#11A7 =< T, T =< 16#11C2 ->
+                                      nolist(CP+T-16#11A7,Acc);
+                                 Acc -> nolist(CP,Acc)
+                             end;
+                        true ->
+                             case compose([Vowel|Trail]) of
+                                 [_|_] = CPs -> [Lead|CPs];
+                                 CP -> [Lead,CP]
+                             end
+                     end;
+                 compose([Base,Accent]=GC0) ->
+                     case compose_pair(Base,Accent) of
+                         false -> GC0;
+                         GC -> GC
+                     end;
+                 compose([CP|Many]) ->
+                     compose_many(Many, CP, [], class(CP)).
+
+                 compose_many([CP|Rest], Base, Accents, Prev) ->
+                     Class = class(CP),
+                     case (Prev =:= 0 orelse Prev < Class) andalso compose_pair(Base, CP) of
+                         false ->
+                             if Class =:= 0 ->
+                                   Begin = [Base|lists:reverse(Accents)],
+                                   case compose_many(Rest, CP, [], 0) of
+                                       [_|_] = GC -> Begin ++ GC;
+                                       Composed -> Begin ++ [Composed]
+                                   end;
+                                true ->
+                                   compose_many(Rest, Base, [CP|Accents], Class)
+                             end;
+                         Combined ->
+                             compose_many(Rest, Combined, Accents, Prev)
+                     end;
+                 compose_many([], Base, [], Prev) ->
+                     Base;
+                 compose_many([], Base, Accents, Prev) ->
+                     [Base|lists:reverse(Accents)].
+
+
+                 """
+                 ),
     io:put_chars(Fd,
-                 "compose_compat_0(CP) when is_integer(CP) ->\n"
-                 "    CP;\n"
-                 "compose_compat_0(L) ->\n"
-                 "    case gc(L) of\n"
-                 "        [First|Rest] ->\n"
-                 "            case compose_compat(First) of\n"
-                 "                [_|_] = GC -> GC ++ compose_compat_0(Rest);\n"
-                 "                CP -> [CP|compose_compat_0(Rest)]\n"
-                 "            end;\n"
-                 "        [] -> []\n"
-                 "    end.\n\n"
-                 "compose_compat(CP) when is_integer(CP) -> CP;\n"
-                 "compose_compat([Lead,Vowel|Trail]) %% Hangul\n"
-                 "  when is_integer(Lead), 16#1100 =< Lead, Lead =< 16#1112, is_integer(Vowel) ->\n"
-                 "    if 16#1161 =< Vowel, Vowel =< 16#1175 ->\n"
-                 "            CP = 16#AC00 + ((Lead - 16#1100) * 588) + ((Vowel - 16#1161) * 28),\n"
-                 "            case Trail of\n"
-                 "                [T|Acc] when is_integer(T), 16#11A7 =< T, T =< 16#11C2 ->"
-                 "                    nolist(CP+T-16#11A7,Acc);\n"
-                 "                Acc -> nolist(CP,Acc)\n"
-                 "            end;\n"
-                 "       true ->\n"
-                 "            case compose_compat([Vowel|Trail]) of\n"
-                 "                [_|_] = CPs -> [Lead|CPs];\n"
-                 "                CP -> [Lead,CP]\n"
-                 "            end\n"
-                 "    end;\n"
-                 "compose_compat([Base,Accent]=GC0) ->\n"
-                 "    case compose_pair(Base,Accent) of\n"
-                 "        false -> GC0;\n"
-                 "        GC -> GC\n"
-                 "    end;\n"
-                 "compose_compat([CP|Many]) ->\n"
-                 "    compose_compat_many(Many, CP, [], class(CP)).\n"
-                 "\n"
-                 "compose_compat_many([CP|Rest], Base, Accents, Prev) ->\n"
-                 "    Class = class(CP),\n"
-                 "    case (Prev =:= 0 orelse Prev < Class) andalso compose_pair(Base, CP) of\n"
-                 "        false -> compose_compat_many(Rest, Base, [CP|Accents], Class);\n"
-                 "        Combined -> compose_compat_many(Rest, Combined, Accents, Prev)\n"
-                 "    end;\n"
-                 "compose_compat_many([], Base, [], Prev) ->\n"
-                 "    Base;\n"
-                 "compose_compat_many([], Base, Accents, Prev) ->\n"
-                 "    [Base|lists:reverse(Accents)].\n"
-                 "\n\n"),
+                 """
+                 compose_compat_0(CP) when is_integer(CP) ->
+                     CP;
+                 compose_compat_0(L) ->
+                     case gc(L) of
+                         [First|Rest] ->
+                             case compose_compat(First) of
+                                 [_|_] = GC -> GC ++ compose_compat_0(Rest);
+                                 CP -> [CP|compose_compat_0(Rest)]
+                             end;
+                         [] -> []
+                     end.
+
+                 compose_compat(CP) when is_integer(CP) -> CP;
+                 compose_compat([Lead,Vowel|Trail]) %% Hangul
+                   when is_integer(Lead), 16#1100 =< Lead, Lead =< 16#1112, is_integer(Vowel) ->
+                     if 16#1161 =< Vowel, Vowel =< 16#1175 ->
+                             CP = 16#AC00 + ((Lead - 16#1100) * 588) + ((Vowel - 16#1161) * 28),
+                             case Trail of
+                                 [T|Acc] when is_integer(T), 16#11A7 =< T, T =< 16#11C2 ->
+                                     nolist(CP+T-16#11A7,Acc);
+                                 Acc -> nolist(CP,Acc)
+                             end;
+                        true ->
+                             case compose_compat([Vowel|Trail]) of
+                                 [_|_] = CPs -> [Lead|CPs];
+                                 CP -> [Lead,CP]
+                             end
+                     end;
+                 compose_compat([Base,Accent]=GC0) ->
+                     case compose_pair(Base,Accent) of
+                         false -> GC0;
+                         GC -> GC
+                     end;
+                 compose_compat([CP|Many]) ->
+                     compose_compat_many(Many, CP, [], class(CP)).
+
+                 compose_compat_many([CP|Rest], Base, Accents, Prev) ->
+                     Class = class(CP),
+                     case (Prev =:= 0 orelse Prev < Class) andalso compose_pair(Base, CP) of
+                         false ->
+                             if Class =:= 0 ->
+                                   Begin = [Base|lists:reverse(Accents)],
+                                   case compose_compat_many(Rest, CP, [], 0) of
+                                       [_|_] = GC -> Begin ++ GC;
+                                       Composed -> Begin ++ [Composed]
+                                   end;
+                                true ->
+                                   compose_compat_many(Rest, Base, [CP|Accents], Class)
+                             end;
+                         Combined ->
+                             compose_compat_many(Rest, Combined, Accents, Prev)
+                     end;
+                 compose_compat_many([], Base, [], Prev) ->
+                     Base;
+                 compose_compat_many([], Base, Accents, Prev) ->
+                     [Base|lists:reverse(Accents)].
+
+
+                 """),
 
     ok.
 
@@ -759,10 +792,21 @@ gen_gc(Fd, GBP) ->
     %% GenEBG = fun(Range) -> io:format(Fd, "gc_1~s gc_e_cont(R1,[CP]);\n", [gen_clause(Range)]) end,
     %% [GenEBG(CP) || CP <- merge_ranges(maps:get(e_base_gaz,GBP))],
 
-    io:put_chars(Fd, "%% Handle extended_pictographic\n"),
+    io:put_chars(Fd, "\n%% Handle extended_pictographic\n"),
     [GenExtP(CP) || CP <- merge_ranges(ExtendedPictographicHigh)],
+
     io:put_chars(Fd, "\n%% default clauses\n"),
-    io:put_chars(Fd, "gc_1([CP|R]) -> gc_extend(cp(R), R, CP).\n\n"),
+    io:put_chars(Fd,
+                 """
+                 gc_1([CP|R]) ->
+                     case is_indic_consonant(CP) of
+                         true ->
+                             gc_indic(cp(R), R, false, [CP]);
+                         false ->
+                             gc_extend(cp(R), R, CP)
+                     end.
+
+                 """),
 
     io:put_chars(Fd, "%% Handle Prepend\n"),
     io:put_chars(Fd,
@@ -808,11 +852,12 @@ gen_gc(Fd, GBP) ->
                  "gc_extend2({error,R}, _, Acc) ->\n"
                  "    [lists:reverse(Acc)] ++ [R].\n\n"
                  ),
-    [ZWJ] = maps:get(zwj, GBP),
-    GenExtend = fun(R) when R =:= ZWJ -> io:format(Fd, "is_extend~s zwj;\n", [gen_single_clause(ZWJ)]);
+    [{ZWJ, undefined}=ZWJRange] = maps:get(zwj, GBP),
+    GenExtend = fun(R) when R =:= ZWJRange -> ok;
                    (Range) -> io:format(Fd, "is_extend~s true;\n", [gen_single_clause(Range)])
                 end,
-    Extends = merge_ranges(maps:get(extend,GBP)++maps:get(spacingmark, GBP) ++ maps:get(zwj, GBP), split),
+    io:format(Fd, "is_extend(~w) -> zwj;\n", [ZWJ]),
+    Extends = merge_ranges(maps:get(extend,GBP)++maps:get(spacingmark, GBP), true),
     [GenExtend(CP) || CP <- Extends],
     io:put_chars(Fd, "is_extend(_) -> false.\n\n"),
 
@@ -823,34 +868,20 @@ gen_gc(Fd, GBP) ->
                  "    case is_extend(CP) of\n"
                  "        zwj -> gc_ext_pict_zwj(cp(R1), R1, [CP|Acc]);\n"
                  "        true -> gc_ext_pict(R1, [CP|Acc]);\n"
-                 "        false ->\n"
-                 "            case Acc of\n"
-                 "                [A] -> [A|T0];\n"
-                 "                _ -> [lists:reverse(Acc)|T0]\n"
-                 "            end\n"
+                 "        false -> add_acc(Acc, T0)\n"
                  "    end;\n"
                  "gc_ext_pict([], T0, Acc) ->\n"
-                 "    case Acc of\n"
-                 "        [A] -> [A|T0];\n"
-                 "        _ -> [lists:reverse(Acc)|T0]\n"
-                 "    end;\n"
+                 "    add_acc(Acc, T0);\n"
                  "gc_ext_pict({error,R}, T, Acc) ->\n"
                  "    gc_ext_pict([], T, Acc) ++ [R].\n\n"),
     io:put_chars(Fd,
                  "gc_ext_pict_zwj([CP|R1], T0, Acc) ->\n"
                  "    case is_ext_pict(CP) of\n"
                  "        true -> gc_ext_pict(R1, [CP|Acc]);\n"
-                 "        false ->\n"
-                 "            case Acc of\n"
-                 "                [A] -> [A|T0];\n"
-                 "                _ -> [lists:reverse(Acc)|T0]\n"
-                 "            end\n"
+                 "        false -> add_acc(Acc, T0)\n"
                  "    end;\n"
                  "gc_ext_pict_zwj([], T0, Acc) ->\n"
-                 "    case Acc of\n"
-                 "        [A] -> [A|T0];\n"
-                 "        _ -> [lists:reverse(Acc)|T0]\n"
-                 "    end;\n"
+                 "    add_acc(Acc, T0);\n"
                  "gc_ext_pict_zwj({error,R}, T, Acc) ->\n"
                  "    gc_ext_pict_zwj([], T, Acc) ++ [R].\n\n"),
 
@@ -918,6 +949,48 @@ gen_gc(Fd, GBP) ->
     io:put_chars(Fd, "%% Also handles error tuples\n"),
     io:put_chars(Fd, "gc_h_lv_lvt(R1, R0, [CP]) -> gc_extend(R1, R0, CP);\n"),
     io:put_chars(Fd, "gc_h_lv_lvt(R1, R0, Acc) -> gc_extend2(R1, R0, Acc).\n\n"),
+
+    %% Indic
+    io:put_chars(Fd, "\n%% Handle Indic Conjunt Break\n"),
+    GenIndicC = fun(Range) -> io:format(Fd, "is_indic_consonant~s true;\n", [gen_single_clause(Range)]) end,
+    [GenIndicC(CP) || CP <- merge_ranges(maps:get(consonant, GBP))],
+    io:format(Fd, "is_indic_consonant(_) -> false.\n\n", []),
+
+    GenIndicL = fun(Range) -> io:format(Fd, "is_indic_linker~s true;\n", [gen_single_clause(Range)]) end,
+    [GenIndicL(CP) || CP <- merge_ranges(maps:get(virama, GBP))],
+    io:format(Fd, "is_indic_linker(_) -> false.\n\n", []),
+    %% io:format("Consonants: ~p~n", [merge_ranges(maps:get(consonant, GBP))]),
+
+    io:put_chars(Fd,
+                 """
+                 gc_indic([CP|R1], R0, FetchedLinker, CPs) ->
+                     case is_indic_linker(CP) of
+                         true ->
+                             gc_indic(cp(R1), R1, true, [CP|CPs]);
+                         false ->
+                             case is_extend(CP) of
+                                 false when FetchedLinker ->
+                                     case is_indic_consonant(CP) of
+                                         true -> gc_indic(cp(R1), R1, false, [CP|CPs]);
+                                         false -> add_acc(CPs, R0)
+                                     end;
+                                 false ->
+                                     add_acc(CPs, R0);
+                                 _ ->
+                                     gc_indic(cp(R1), R1, FetchedLinker, [CP|CPs])
+                             end
+                     end;
+                 gc_indic([], R0, _, CPs) ->
+                     add_acc(CPs, R0);
+                 gc_indic({error, R0}, _, _, CPs) ->
+                     add_acc(CPs, R0).
+
+                 add_acc([CP], R) -> [CP|R];
+                 add_acc(CPs, R) -> [lists:reverse(CPs)|R].
+
+
+                 """),
+
     ok.
 
 gen_compose_pairs(Fd, ExclData, Data) ->

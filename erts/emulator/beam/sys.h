@@ -177,6 +177,25 @@ typedef ERTS_SYS_FD_TYPE ErtsSysFdType;
 #  define ERTS_UNLIKELY(BOOL) (BOOL)
 #endif
 
+#if (ERTS_AT_LEAST_GCC_VSN__(5, 1, 0) || __has_builtin(__builtin_unreachable))
+#  define ERTS_UNREACHABLE __builtin_unreachable()
+#elif defined(_MSC_VER)
+#  define ERTS_UNREACHABLE __assume(0)
+#else
+/* Unsupported compiler, just ignore it. */
+#  define ERTS_UNREACHABLE ((void)0)
+#endif
+
+/* Tells the compiler to assume that a certain fact always holds, suppressing
+ * bogus warnings and/or enabling better optimizations. */
+#if !defined(DEBUG)
+#  define ERTS_ASSUME(Expr) ((Expr) ?                                          \
+                             (void)0 :                                         \
+                             (void)ERTS_UNREACHABLE)
+#else
+#  define ERTS_ASSUME(Expr) ASSERT((Expr))
+#endif
+
 /* AIX doesn't like this and claims section conflicts */
 #if ERTS_AT_LEAST_GCC_VSN__(2, 96, 0) && !defined(_AIX)
 #if (defined(__APPLE__) && defined(__MACH__)) || defined(__DARWIN__)

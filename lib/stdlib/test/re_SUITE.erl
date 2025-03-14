@@ -32,7 +32,7 @@
 	 opt_no_start_optimize/1,opt_never_utf/1,opt_ucp/1,
 	 match_limit/1,sub_binaries/1,copt/1,global_unicode_validation/1,
          yield_on_subject_validation/1, bad_utf8_subject/1,
-         error_info/1]).
+         error_info/1, subject_is_sub_binary/1, pattern_is_sub_binary/1]).
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/file.hrl").
@@ -53,7 +53,7 @@ all() ->
      inspect, opt_no_start_optimize,opt_never_utf,opt_ucp,
      match_limit, sub_binaries, re_version, global_unicode_validation,
      yield_on_subject_validation, bad_utf8_subject,
-     error_info].
+     error_info, subject_is_sub_binary, pattern_is_sub_binary].
 
 groups() -> 
     [].
@@ -1115,3 +1115,44 @@ error_info(_Config) ->
          {urun, 3}                              %Internal.
         ],
     error_info_lib:test_error_info(re, L).
+
+pattern_is_sub_binary(Config) when is_list(Config) ->
+    %% Aligned sub binary - will not copy the binary
+    Bin = <<"pattern = ^((:|(0?|([1-9a-f][0-9a-f]{0,3}))):)((0?|([1-9a-f][0-9a-f]{0,3})):){0,6}(:|(0?|([1-9a-f][0-9a-f]{0,3})))$">>,
+    Subject = <<"::1">>,
+    {_,RE} = split_binary(Bin, 10),
+    {ok,REC} = re:compile(RE),
+    match = re:run(Subject, REC, [{capture, none}]),
+    match = re:run(Subject, RE, [{capture, none}]),
+    nomatch = re:run(Subject, Bin, [{capture, none}]),
+    %% Unaligned sub binary - will result in a copy operation
+    <<0:1, RE2/binary>> = Bin2 = <<0:1, "^((:|(0?|([1-9a-f][0-9a-f]{0,3}))):)((0?|([1-9a-f][0-9a-f]{0,3})):){0,6}(:|(0?|([1-9a-f][0-9a-f]{0,3})))$">>,
+    {ok,REC2} = re:compile(RE2),
+    match = re:run(Subject, REC2, [{capture, none}]),
+    match = re:run(Subject, RE2, [{capture, none}]),
+    ok = try
+        _ = re:run(Subject, Bin2, [{capture, none}])
+    catch error:badarg ->
+        %% *** argument 2: neither an iodata term nor a compiled regular expression
+        ok
+    end.
+
+subject_is_sub_binary(Config) when is_list(Config) ->
+    %% Aligned subject sub binary
+    Bin = <<"subject = ::1">>,
+    RE = <<"^((:|(0?|([1-9a-f][0-9a-f]{0,3}))):)((0?|([1-9a-f][0-9a-f]{0,3})):){0,6}(:|(0?|([1-9a-f][0-9a-f]{0,3})))$">>,
+    {_,Subject} = split_binary(Bin, 10),
+    {ok,REC} = re:compile(RE),
+    match = re:run(Subject, REC, [{capture, none}]),
+    match = re:run(Subject, RE, [{capture, none}]),
+    nomatch = re:run(Bin, RE, [{capture, none}]),
+    %% Unaligned subject sub binary
+    <<0:1, Subject2/binary>> = Bin2 = <<0:1,"::1">>,
+    match = re:run(Subject2, REC, [{capture, none}]),
+    match = re:run(Subject2, RE, [{capture, none}]),
+    ok = try
+        _ = re:run(Bin2, RE, [{capture, none}])
+    catch error:badarg ->
+        %% *** argument 1: not an iodata term
+        ok
+    end.

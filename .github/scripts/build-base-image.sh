@@ -2,7 +2,7 @@
 
 ## %CopyrightBegin%
 ##
-## Copyright Ericsson AB 2024. All Rights Reserved.
+## Copyright Ericsson AB 2024-2025. All Rights Reserved.
 ##
 ## Licensed under the Apache License, Version 2.0 (the "License");
 ## you may not use this file except in compliance with the License.
@@ -67,19 +67,21 @@ else
     if [ "${BASE_USE_CACHE}" != "false" ]; then
         if docker pull "${BASE_TAG}:${BASE_BRANCH}"; then
             docker tag "${BASE_TAG}:${BASE_BRANCH}" "${BASE_TAG}:latest"
-            BASE_CACHE="--cache-from ${BASE_TAG}"
         fi
+        BASE_CACHE="--cache-from type=registry,ref=${BASE_TAG}:${BASE_BRANCH}"
     fi
 
     BASE_IMAGE_ID=$(docker images -q "${BASE_TAG}:latest")
 
-    docker build --pull --tag "${BASE_TAG}:latest" \
+    DOCKER_BUILDKIT=1 docker build --pull --tag "${BASE_TAG}:latest" \
        ${BASE_CACHE} \
        --file ".github/dockerfiles/Dockerfile.${BASE_TYPE}" \
-       --build-arg MAKEFLAGS=-j$(($(nproc) + 2)) \
+       --build-arg MAKEFLAGS=-j6 \
        --build-arg USER=otptest --build-arg GROUP=uucp \
        --build-arg uid="$(id -u)" \
-       --build-arg BASE="${BASE}" .github/
+       --build-arg BASE="${BASE}" \
+       --build-arg BUILDKIT_INLINE_CACHE=1 \
+       .github/
 
     NEW_BASE_IMAGE_ID=$(docker images -q "${BASE_TAG}:latest")
     if [ "${BASE_IMAGE_ID}" = "${NEW_BASE_IMAGE_ID}" ]; then

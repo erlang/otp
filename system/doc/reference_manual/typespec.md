@@ -290,12 +290,13 @@ warning), and Dialyzer will not emit any additional warnings.
 ## Type Declarations of User-Defined Types
 
 As seen, the basic syntax of a type is an atom followed by closed parentheses.
-New types are declared using `-type` and `-opaque` attributes as in the
-following:
+New types are declared using `-type`, [`-opaque`](opaques.md), and
+[`-nominal`](nominals.md) attributes as in the following example:
 
 ```erlang
 -type my_struct_type() :: Type.
 -opaque my_opaq_type() :: Type.
+-nominal my_nominal_type() :: Type.
 ```
 
 The type name is the atom `my_struct_type`, followed by parentheses. `Type` is a
@@ -352,7 +353,16 @@ module defining them is allowed to depend on their term structure. Consequently,
 such types do not make much sense as module local - module local types are not
 accessible by other modules anyway - and is always to be exported.
 
-Read more on [Opaques](opaques.md)
+> #### Change {: .info }
+>
+> Nominal types were introduced in Erlang/OTP 28.
+
+Types declared as `nominal` are type-checked according to the user-defined
+names instead of their structure. That is, `-nominal feet() :: integer()` and
+`-nominal meter() :: integer()` are not the same type, while if `-type` is
+used it would be.
+
+Read more on [Opaques](opaques.md) and [Nominals](nominals.md)
 
 [](){: #typeinrecords }
 

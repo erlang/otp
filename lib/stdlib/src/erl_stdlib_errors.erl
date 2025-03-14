@@ -27,7 +27,7 @@
       StackTrace :: erlang:stacktrace(),
       ErrorMap :: #{pos_integer() => unicode:chardata()}.
 
-format_error(_Reason, [{M,F,As,Info}|_]) ->
+format_error(Reason, [{M,F,As,Info}|_]) ->
     ErrorInfoMap = proplists:get_value(error_info, Info, #{}),
     Cause = maps:get(cause, ErrorInfoMap, none),
     Res = case M of
@@ -47,6 +47,8 @@ format_error(_Reason, [{M,F,As,Info}|_]) ->
                   format_unicode_error(F, As);
               io ->
                   format_io_error(F, As, Cause);
+              json ->
+                  format_json_error(F, As, Reason, Cause);
               _ ->
                   []
           end,
@@ -632,6 +634,18 @@ check_io_arguments([Type|TypeT], [Arg|ArgT], No) ->
             [io_lib:format("element ~B must be of type ~p", [No, Type]) |
              check_io_arguments(TypeT, ArgT, No+1)]
     end.
+
+format_json_error(_F, _As, {invalid_byte, Int}, #{position := Position}) ->
+    Str = if 32 =< Int, Int < 127 ->
+                  io_lib:format("invalid byte 16#~2.16.0B '~c' at byte position ~w",
+                                [Int, Int, Position]);
+             true ->
+                  io_lib:format("invalid byte 16#~2.16.0B at byte position ~w",
+                                [Int, Position])
+          end,
+    [{general, Str}];
+format_json_error(_, _, _, _) ->
+    [""].
 
 format_ets_error(delete_object, Args, Cause) ->
     format_object(Args, Cause);

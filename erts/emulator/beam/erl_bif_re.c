@@ -629,6 +629,7 @@ static bool get_iolist_as_bytes(Eterm iolist,
 
         ERTS_GET_BITSTRING(iolist, *bytes_p, bit_offs, bit_sz);
         if (!BIT_OFFSET(bit_offs) && !TAIL_BITS(bit_sz)) {
+            *bytes_p += BYTE_OFFSET(bit_offs);
             *slen_p = BYTE_SIZE(bit_sz);
             *tmp_buf_p = NULL;
             return true;
