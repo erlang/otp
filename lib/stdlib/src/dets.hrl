@@ -47,7 +47,7 @@
 -define(DETS_CALL(Pid, Req), {'$dets_call', Pid, Req}).
 
 -type access()      :: 'read' | 'read_write'.
--type auto_save()   :: 'infinity' | non_neg_integer().
+-type auto_save()   :: 'infinity' | timer:time().
 -type hash_bif()    :: 'phash' | 'phash2'.
 -type keypos()      :: pos_integer().
 -type no_colls()    :: [{LogSize :: non_neg_integer(),

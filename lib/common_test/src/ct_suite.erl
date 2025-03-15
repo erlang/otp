@@ -70,7 +70,7 @@ The test suite information, as returned by [`Module:suite/0`](`c:suite/0`),
             {silent_connections, Conns :: [atom()]} |
             {stylesheet, CSSFile :: string()} |
             {ct_hooks, CTHs :: ct_hooks()}.
--type ct_info_timetrap() :: MilliSec :: integer() |
+-type ct_info_timetrap() :: timer:time() |
             {seconds, integer()} |
             {minutes, integer()} |
             {hours, integer()} |

@@ -1451,7 +1451,7 @@ the new timetrap.
            Hours :: integer(),
            Mins :: integer(),
            Secs :: integer(),
-           Millisecs :: integer(),
+           Millisecs :: timer:time(),
            Func :: {M, F, A} | function(),
            M :: atom(),
            F :: atom(),
@@ -1488,7 +1488,7 @@ up the time automatically if `scale_timetraps` is set to `true` (default is
            Hours :: integer(),
            Mins :: integer(),
            Secs :: integer(),
-           Millisecs :: integer() | float().
+           Millisecs :: timer:time() | float().
 sleep({hours,Hs}) ->
     sleep(trunc(Hs * 1000 * 60 * 60));
 sleep({minutes,Ms}) ->
