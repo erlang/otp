@@ -1012,6 +1012,42 @@ find_app_src_files(Folder) ->
     SCommonTest = os:cmd("find " ++ Folder ++ " -regex .*.app.src | grep -v test_dir | grep common_test | cut -d/ -f2-"),
     lists:map(fun erlang:list_to_binary/1, string:split(S ++ SCommonTest, "\n", all)).
 
+get_otp_apps_from_table() ->
+    {ok, BinTable} = file:read_file("otp_versions.table"),
+    {ok, ReleaseBin0} = file:read_file("OTP_VERSION"),
+    ReleaseBin = string:trim(ReleaseBin0),
+    OTPVersion = <<"OTP-", ReleaseBin/binary>>,
+
+    Lines = string:split(BinTable, "\n", all),
+    LineOTP = lists:filter(fun (Line) ->
+                                   [V | _Rest] = string:split(Line, " "),
+                                   V == OTPVersion
+                           end, Lines),
+    case LineOTP of
+        [Line] ->
+            Line1 = re:replace(Line, "(#|:)", "", [global]),
+            Line2 = string:trim(re:replace(Line1, OTPVersion, "", [global])),
+
+            AppsWithVersion = string:split(Line2, " ", all),
+            AppsWithVersion1 = lists:filter(fun (Bin) ->
+                                                    case Bin of
+                                                        <<>> ->
+                                                            false;
+                                                        _ ->
+                                                            true
+                                                    end
+                                            end, AppsWithVersion),
+            lists:map(fun (App) ->
+                              [Name, Version] = string:split(App, "-"),
+                              {Name, Version}
+                      end, AppsWithVersion1);
+            %% lists:map(fun (App) -> iolist_to_binary(re:replace(App, "-.*", "", [global])) end, AppsWithVersion);
+        [] ->
+            [];
+        _ ->
+            io:format("ERROR, there cannot be multiple lines matching")
+    end.
+
 find_vendor_src_files(Folder) ->
     S = os:cmd("find "++ Folder ++ " -name vendor.info"),
     lists:map(fun erlang:list_to_binary/1, string:split(S, "\n", all)).
@@ -1115,7 +1151,7 @@ build_package_location(AppSrcPath) ->
                         AppKey1 = app_key_to_record(AppKey),
                         #{App => {<<"lib/", App/binary>>, AppKey1}};
                     _E ->
-                        % TODO: Remove this case. useful only for debudding, but any software running
+                        % useful only for debugging.
                         % this script should have all dependencies and never end up here.
                         io:format("[Error] ~p~n", [{AppSrcPath, _E, AppName, App}]),
                         #{}
@@ -1334,6 +1370,16 @@ test_minimum_apps(#{~"documentDescribes" := [ProjectName], ~"packages" := Packag
             io:format("Minimum apps not captured.~n~p distinct from ~p~n", [TestPackageNames -- SPDXIds, SPDXIds -- TestPackageNames])
             %% error(?FUNCTION_NAME)
     end,
+    AppNamesVersion = lists:map(fun ({Name, Version}) -> {generate_spdxid_name(Name), Version} end, get_otp_apps_from_table()),
+    true = lists:all(fun (#{~"SPDXID" := Id, ~"versionInfo" := Version}) ->
+                              case lists:keyfind(Id, 1, AppNamesVersion) of
+                                  {_, TableVersion} ->
+                                      io:format("Table ~p AppVersion ~p, ~p~n", [TableVersion, Version, Id]),
+                                      TableVersion == Version;
+                                  false ->
+                                      true
+                              end
+                      end, Packages),
     ok.
 
 minimum_otp_apps() ->
