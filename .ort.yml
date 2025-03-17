@@ -164,7 +164,7 @@ curations:
           This file does not admit comments to add a license.
         concluded_license: "Apache-2.0"
 
-      - path: "scripts/scan-code.escript"
+      - path: ".github/scripts/ort-scanner.es"
         reason: "CODE"
         comment: >-
           The script contains licenses names in source code, and the

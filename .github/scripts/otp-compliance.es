@@ -768,8 +768,14 @@ curations(Input) ->
     Curations.
 
 scan_results(Input) ->
-    #{<<"scanner">> := #{<<"scan_results">> := [ScanResults]}} = Input,
-    ScanResults.
+    #{<<"scanner">> := #{<<"scan_results">> := ScanResults}} = Input,
+    ScanResult = hd(ScanResults),
+    NewSummary =
+        lists:foldl(fun(#{ ~"summary" := #{ ~"licenses" := Licenses, ~"copyrights" := Copyrights}}, Acc) ->
+            Acc#{ ~"licenses" := Licenses ++ maps:get(~"licenses", Acc),
+                ~"copyrights" := Copyrights ++ maps:get(~"copyrights", Acc) }
+        end, maps:get(~"summary",ScanResult), tl(ScanResults)),
+    ScanResult#{ ~"summary" := NewSummary }.
 
 licenses(Input) ->
     #{<<"summary">> := #{<<"licenses">> := Licenses}} = Input,
