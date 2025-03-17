@@ -323,7 +323,9 @@ expr(#c_binary{anno=A,segments=Cv}, Sub, St0) ->
             Error = #c_call{anno=A,module=Erl,name=Name,args=Args},
             expr(Error, Sub, St1)
     end;
-expr(#c_fun{anno=A,vars=Cvs,body=Cb}, Sub0, #kern{fargs=OldFargs}=St0) ->
+expr(#c_fun{anno=A,vars=Cvs}=Fun, Sub0, #kern{fargs=OldFargs}=St0) ->
+    FilteredAnno = [Item || {debug_line,_}=Item <- A],
+    #c_fun{body=Cb} = handle_debug_line(FilteredAnno, Fun),
     {Kvs,Sub1,St1} = pattern_list(Cvs, Sub0, St0),
     {Kb,Pb,St2} = body(Cb, Sub1, St1#kern{fargs=Kvs}),
     {#ifun{anno=A,vars=Kvs,body=pre_seq(Pb, Kb)},[],St2#kern{fargs=OldFargs}};
@@ -435,12 +437,13 @@ primop_succeeded(Op, Anno0, Args) ->
 letrec_local_function(A, Cfs, Cb, Sub0, St0) ->
     %% Make new function names and store substitution.
     {Fs0,{Sub1,St1}} =
-        mapfoldl(fun ({#c_var{name={F,Ar}},#c_fun{}=B0}, {Sub,S0}) ->
+        mapfoldl(fun ({#c_var{name={F,Ar}},#c_fun{anno=Anno0}=B0}, {Sub,S0}) ->
                          {N,St1} = new_fun_name(atom_to_list(F)
                                                 ++ "/" ++
                                                     integer_to_list(Ar),
                                                 S0),
-                         B = B0#c_fun{anno=[{letrec_name,N}]},
+                         Anno = [{letrec_name,N} | [Dbg || {debug_line,_}=Dbg <- Anno0]],
+                         B = B0#c_fun{anno=Anno},
                          {{N,B},{set_fsub(F, Ar, N, Sub),St1}}
                  end, {Sub0,St0}, Cfs),
     %% Run translation on functions and body.
