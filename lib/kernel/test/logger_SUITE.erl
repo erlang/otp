@@ -1047,19 +1047,31 @@ app_config(Config) ->
 
     ok = peer:stop(Peer2),
 
-    %% Start a silent node, then add an own default handler
-    {ok,#{handlers:=[]}, Peer3, Node3} =
-        logger_test_lib:setup(Config,[{error_logger,silent}]),
+    %% Start a node with no default handler, then add an own default handler,
+    %% but via logger:add_handler/3
+    {ok, #{handlers := [#{id := simple}]}, Peer3, Node3} =
+        logger_test_lib:setup(Config, [{logger, [{handler, default, undefined}]}]),
 
-    {error,{bad_config,{handler,[{some,bad,config}]}}} =
-        rpc:call(Node3,logger,add_handlers,[[{some,bad,config}]]),
-    ok = rpc:call(Node3,logger,add_handlers,
-                  [[{handler,default,logger_std_h,#{}}]]),
+    ok = rpc:call(Node3,logger,add_handler,[default, logger_std_h, #{}]),
 
     #{handlers:=[#{id:=default,filters:=DF}]} =
         rpc:call(Node3,logger,get_config,[]),
 
-    ok = peer:stop(Peer3).
+    ok = peer:stop(Peer3),
+
+    %% Start a silent node, then add an own default handler
+    {ok,#{handlers:=[]}, Peer4, Node4} =
+        logger_test_lib:setup(Config,[{error_logger,silent}]),
+
+    {error,{bad_config,{handler,[{some,bad,config}]}}} =
+        rpc:call(Node4,logger,add_handlers,[[{some,bad,config}]]),
+    ok = rpc:call(Node4,logger,add_handlers,
+                  [[{handler,default,logger_std_h,#{}}]]),
+
+    #{handlers:=[#{id:=default,filters:=DF}]} =
+        rpc:call(Node4,logger,get_config,[]),
+
+    ok = peer:stop(Peer4).
 
 %% This test case is mainly to see code coverage. Note that
 %% logger_env_var_SUITE tests a lot of the same, and checks the

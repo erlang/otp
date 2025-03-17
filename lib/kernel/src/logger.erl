@@ -826,6 +826,24 @@ referring to this handler.
       HandlerId :: logger_handler:id(),
       Module :: module(),
       Config :: logger_handler:config().
+add_handler(default = HandlerId, Module, Config)
+        when not is_map_key(filters, Config) ->
+    %% The default handler should have a couple of extra filters
+    %% set on it by default.
+    DefConfig = #{ filter_default => stop,
+                   filters => get_default_handler_filters()},
+    add_handler(HandlerId,Module,maps:merge(DefConfig, Config));
+add_handler(default = HandlerId, Module, Config) ->
+    case logger_server:add_handler(HandlerId,Module,Config) of
+        ok ->
+            %% If a default handler was added we try to remove the simple_logger
+            %% If the simple logger exists it will replay its log events
+            %% to the handler(s) added in the fold above.
+            logger_server:remove_handler(simple),
+            ok;
+        Error ->
+            Error
+    end;
 add_handler(HandlerId,Module,Config) ->
     logger_server:add_handler(HandlerId,Module,Config).
 
@@ -1508,6 +1526,13 @@ Reconfigure Logger using updated `kernel` configuration that was set after
 
 Beware, that this is meant to be run only by the build tools, not manually
 during application lifetime, as this may cause missing log entries.
+
+Before reconfiguration, `simple` logger handler is added to capture log events
+before the logging infrastructure is started and prints them to standard
+output. After the `default` handler is added again, all log events captured by
+the `simple` handler are replayed to the `default` handler, and the `simple`
+handler is removed. Notice that if you don't add the `default` handler,
+`simple` handler will persist.
 """.
 -doc(#{group => <<"Miscellaneous API functions">>,since => <<"OTP 24.2">>}).
 -spec reconfigure() -> ok | {error,term()}.
@@ -1516,13 +1541,13 @@ during application lifetime, as this may cause missing log entries.
 %% before running main application.
 reconfigure() ->
     try
+        _ = logger:add_handler(simple,logger_simple_h,
+                            #{filter_default=>stop,
+                              filters=>?DEFAULT_HANDLER_FILTERS}),
         [case logger:remove_handler(Id) of
              ok -> ok;
              {error, Reason} -> throw({remove, Id, Reason})
-         end || #{id := Id} <- logger:get_handler_config()],
-        ok=logger:add_handler(simple,logger_simple_h,
-                              #{filter_default=>stop,
-                                filters=>?DEFAULT_HANDLER_FILTERS}),
+         end || Id <- logger:get_handler_ids(), Id =/= simple],
         logger:unset_module_level(),
         internal_init_logger()
     of
@@ -1659,28 +1684,7 @@ add_handlers(HandlerConfig) ->
 add_handlers(App,HandlerConfig) ->
     try
         check_logger_config(App,HandlerConfig),
-        DefaultAdded =
-            lists:foldl(
-              fun({handler, default = Id, Module, Config}, _)
-                    when not is_map_key(filters, Config) ->
-                      %% The default handler should have a couple of extra filters
-                      %% set on it by default.
-                      DefConfig = #{ filter_default => stop,
-                                     filters => get_default_handler_filters()},
-                      setup_handler(Id, Module, maps:merge(DefConfig,Config)),
-                      true;
-                 ({handler, Id, Module, Config}, Default) ->
-                      setup_handler(Id, Module, Config),
-                      Default orelse Id == default;
-                 (_,Default) -> Default
-              end, false, HandlerConfig),
-        %% If a default handler was added we try to remove the simple_logger
-        %% If the simple logger exists it will replay its log events
-        %% to the handler(s) added in the fold above.
-        [case logger:remove_handler(simple) of
-             ok -> ok;
-             {error,{not_found,simple}} -> ok
-         end || DefaultAdded],
+        [setup_handler(Id,Module,Config) || {handler,Id,Module,Config} <- HandlerConfig],
         ok
     catch throw:Reason0 ->
             Reason =
