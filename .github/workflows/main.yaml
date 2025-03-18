@@ -683,20 +683,21 @@ jobs:
   sbom:
     name: Create SBOM
     runs-on: ubuntu-latest
+    needs: pack
     env:
         ORT_VERSION: 52.1.0
         SCAN_RESULT_CACHE_PATH: .ort/scan-result.json
 
     steps:
 
-      - uses: erlef/setup-beam@5304e04ea2b355f03681464e683d92e3b2f18451 # ratchet:erlef/setup-beam@v1
-        with:
-            otp-version: "27"
-
       - name: Use HTTPS instead of SSH for Git cloning
         run: git config --global url.https://github.com/.insteadOf ssh://git@github.com/
       - name: Checkout project
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # ratchet:actions/checkout@v4
+
+      - uses: ./.github/actions/build-base-image
+        with:
+            BASE_BRANCH: ${{ env.BASE_BRANCH }}
 
       - name: Fetch Default ORT Config
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # ratchet:actions/checkout@v4
@@ -740,15 +741,22 @@ jobs:
                 ort-scan-result-${{ env.ORT_VERSION }}-${{ github.base_ref }}-${{ github.event.pull_request.base.sha }}
                 ort-scan-result-${{ env.ORT_VERSION }}-${{ github.base_ref }}-
 
+      - name: Install dependencies in docker image
+        run: |
+          SCANCODE_VERSION=$(docker run --entrypoint="" ghcr.io/oss-review-toolkit/ort-minimal:${{ env.ORT_VERSION }} bash -c "scancode --version" | grep "ScanCode version" | awk '{print $3}')
+          docker build -t otp - <<EOF
+          FROM otp
+          RUN sudo apt-get install -y pip && pip install scancode-toolkit==${SCANCODE_VERSION} reuse
+          RUN echo 'export PATH="\$HOME/.local/bin:\$PATH"' >> /buildroot/env.sh
+          EOF
+
       - name: Restore from cache
         if: hashFiles(env.SCAN_RESULT_CACHE_PATH) != ''
         run: |
-            SCANCODE_VERSION=$(docker run --entrypoint="" ghcr.io/oss-review-toolkit/ort-minimal:${{ env.ORT_VERSION }} bash -c "scancode --version" | grep "ScanCode version" | awk '{print $3}')
-            pip install scancode-toolkit==${SCANCODE_VERSION}
-            scancode-reindex-licenses --additional-directory scripts/licensedetection/
-            ./scripts/scan-code.escript --scan-result-cache ${{ env.SCAN_RESULT_CACHE_PATH }} \
-               --analyzer-result $HOME/.ort/ort-results/analyzer-result.json --file-or-dir . \
-               --scan-result $HOME/.ort/ort-results/scan-result.json
+            docker run -v $PWD/:/github -v $HOME:$HOME otp \
+              "/github/./scripts/scan-code.escript --scan-result-cache /github/${{ env.SCAN_RESULT_CACHE_PATH }} \
+               --analyzer-result $HOME/.ort/ort-results/analyzer-result.json --file-or-dir /github/ \
+               --scan-result $HOME/.ort/ort-results/scan-result.json"
             diff $HOME/.ort/ort-results/scan-result.json $HOME/.ort/ort-results/scan-result.json.old || true
 
       - name: Run OSS Review Toolkit (scanner)
@@ -792,7 +800,11 @@ jobs:
             key: ${{ steps.ort-cache.outputs.cache-primary-key }}
 
       - name: Process SBOM
-        run: .github/scripts/otp-compliance.es sbom otp-info --sbom-file $HOME/.ort/ort-results/bom.spdx.json --input-file $HOME/.ort/ort-results/scan-result.json
+        run: |
+          docker run -v $PWD/:/github -v $HOME:$HOME otp \
+            "/github/.github/scripts/otp-compliance.es sbom otp-info \
+              --sbom-file $HOME/.ort/ort-results/bom.spdx.json \
+              --input-file $HOME/.ort/ort-results/scan-result.json"
 
       - name: Run OSS Review Toolkit reporter
         uses: oss-review-toolkit/ort-ci-github-action@1805edcf1f4f55f35ae6e4d2d9795ccfb29b6021 # ratchet:oss-review-toolkit/ort-ci-github-action@v1.1.0
