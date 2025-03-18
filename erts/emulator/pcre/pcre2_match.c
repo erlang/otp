@@ -251,6 +251,28 @@ for (i = 0, Q = match_data->heapframes;
 #endif
 
 #ifdef ERLANG_INTEGRATION
+
+#define NAME_XCAT(A,B) A##B
+#define NAME_CAT(A,B) NAME_XCAT(A,B)
+
+#ifdef DEBUG
+
+const int erts_dbg_pcre_cost_chk_lines[] = {
+#include "pcre2_match_yield_coverage.gen.h"
+};
+int erts_dbg_pcre_cost_chk_visits[ERLANG_YIELD_POINT_CNT];
+int erts_dbg_pcre_cost_chk_yields[ERLANG_YIELD_POINT_CNT];
+const int erts_dbg_pcre_cost_chk_cnt = ERLANG_YIELD_POINT_CNT;
+
+# define DBG_COST_CHK_VISIT() ++erts_dbg_pcre_cost_chk_visits[NAME_CAT(ERLANG_YIELD_POINT_,__LINE__)]
+# define DBG_COST_CHK_YIELD() ++erts_dbg_pcre_cost_chk_yields[NAME_CAT(ERLANG_YIELD_POINT_,__LINE__)]
+# define DBG_FAKE_COST_CHK() (DBG_COST_CHK_VISIT(), DBG_COST_CHK_YIELD())
+#else  // !DEBUG
+# define DBG_COST_CHK_VISIT()
+# define DBG_COST_CHK_YIELD()
+# define DBG_FAKE_COST_CHK()
+#endif // !DEBUG
+
 #ifdef ERLANG_DEBUG
 #include <stdarg.h>
 static void
@@ -697,16 +719,16 @@ int rgb;
 int32_t* restrict loops_left_p = &match_data->loops_left;
 
 #define COST(N) (*loops_left_p -= (N))
-#define LABEL_XCAT(A,B) A##B
-#define LABEL_CAT(A,B) LABEL_XCAT(A,B)
 
 #define COST_CHK(N) 				\
 do {						\
   *loops_left_p -= (N);	                        \
+  DBG_COST_CHK_VISIT();                         \
   if (*loops_left_p <= 0) {                     \
-      Freturn_id = __LINE__ + 100;	        \
+      DBG_COST_CHK_YIELD();                     \
+      Freturn_id = __LINE__ ;	                \
       goto LOOP_COUNT_BREAK;			\
-      LABEL_CAT(L_LOOP_COUNT_,__LINE__):	\
+      NAME_CAT(L_LOOP_COUNT_,__LINE__):	        \
       ;                                         \
   }						\
 } while (0)
@@ -7039,10 +7061,11 @@ LOOP_COUNT_RETURN:
   switch (F->return_id) 
     {
 
-#include "pcre2_match_loop_break_cases.inc"
+#include "pcre2_match_loop_break_cases.gen.h"
      default:
        EDEBUGF(("jump error in pcre match: label %d non-existent\n", F->return_id));
-       return PCRE2_ERROR_INTERNAL;
+       abort();
+       //return PCRE2_ERROR_INTERNAL;
      }
 }
 
@@ -7653,6 +7676,7 @@ restart_valid_utf:
 
 #if defined(ERLANG_INTEGRATION)
     if (match_data->rc == PCRE2_ERROR_UTF8_YIELD) {
+        DBG_FAKE_COST_CHK();
         goto erlang_swapout;
     }
 #endif
