@@ -803,6 +803,7 @@ pgen_dispatcher(Gen, Types) ->
         false ->
             ok
     end,
+
     %% DECODER
     ReturnRest = proplists:get_bool(undec_rest, Gen#gen.options),
     Data = case Gen#gen.erule =:= ber andalso ReturnRest of
@@ -811,80 +812,16 @@ pgen_dispatcher(Gen, Types) ->
 	   end,
 
     emit(["decode(Type, ",Data,") ->",nl]),
-
-    case NoOkWrapper of
-        false -> emit(["try",nl]);
-        true -> ok
-    end,
-
-    DecWrap =
-	case {Gen,ReturnRest} of
-	    {#gen{erule=ber},false} ->
-		asn1ct_func:need({ber,ber_decode_nif,1}),
-		"element(1, ber_decode_nif(Data))";
-	    {#gen{erule=ber},true} ->
-		asn1ct_func:need({ber,ber_decode_nif,1}),
-		emit(["   {Data,Rest} = ber_decode_nif(Data0),",nl]),
-		"Data";
-	    {#gen{erule=jer},false} ->
-		"json:decode(Data)";
-	    {#gen{erule=jer},true} ->
-		exit("JER + return rest not supported");
-	    {_,_} ->
-		"Data"
-	end,
-
-    DecodeDisp = ["decode_disp(Type, ",DecWrap,")"],
-    case {Gen,ReturnRest} of
-	{#gen{erule=ber},true} ->
-	    emit(["   Result = ",DecodeDisp,",",nl]),
-            result_line(NoOkWrapper, ["Result","Rest"]);
-	{#gen{erule=ber},false} ->
-	    emit(["   Result = ",DecodeDisp,",",nl]),
-            result_line(NoOkWrapper, ["Result"]);
-	{#gen{erule=jer},false} ->
-	    emit(["   Result = ",{call,jer,decode_jer,[CurrMod,"Type",DecWrap]},",",nl]),
-            result_line(NoOkWrapper, ["Result"]);
-
-
-	{#gen{erule=per},true} ->
-	    emit(["   {Result,Rest} = ",DecodeDisp,",",nl]),
-            result_line(NoOkWrapper, ["Result","Rest"]);
-	{#gen{erule=per},false} ->
-	    emit(["   {Result,_Rest} = ",DecodeDisp,",",nl]),
-            result_line(NoOkWrapper, ["Result"])
-    end,
-
-    case NoOkWrapper of
-	false ->
-	    emit([nl,try_catch(),".",nl,nl]);
-	true ->
-	    emit([".",nl,nl])
-    end,
+    pgen_dispatcher_decode(Gen, ReturnRest, NoOkWrapper),
 
     case Gen#gen.jer of
         true ->
             emit(["jer_decode(Type, ",Data,") ->",nl]),
-            case NoOkWrapper of
-                false -> emit(["try",nl]);
-                true -> ok
-            end,
-            JerDecWrap = "json:decode(Data)",
-	    emit(["   Result = ",
-                  {call,jer,
-                   decode_jer,
-                   [CurrMod,"Type",JerDecWrap]},",",nl]),
-            result_line(false, ["Result"]),
-            case NoOkWrapper of
-                false ->
-                    emit([nl,try_catch(),".",nl,nl]);
-                true ->
-                    emit([".",nl,nl])
-            end;        
+            pgen_dispatcher_decode(Gen#gen{erule=jer},
+                                   ReturnRest, NoOkWrapper);
         false ->
             ok
     end,
-    
 
     %% REST of MODULE
     gen_decode_partial_incomplete(Gen, NoOkWrapper),
@@ -897,6 +834,64 @@ pgen_dispatcher(Gen, Types) ->
             gen_dispatcher(Types, "encode_disp", "enc_"),
             gen_dispatcher(Types, "decode_disp", "dec_")
     end.
+
+pgen_dispatcher_decode(Gen, ReturnRest, NoOkWrapper) ->
+    CurrMod = lists:concat(["'",get(currmod),"'"]),
+
+    case NoOkWrapper of
+        false -> emit(["try",nl]);
+        true -> ok
+    end,
+
+    DecWrap =
+        case {Gen,ReturnRest} of
+            {#gen{erule=ber},false} ->
+                asn1ct_func:need({ber,ber_decode_nif,1}),
+                "element(1, ber_decode_nif(Data))";
+            {#gen{erule=ber},true} ->
+                asn1ct_func:need({ber,ber_decode_nif,1}),
+                emit(["   {Data,Rest} = ber_decode_nif(Data0),",nl]),
+                "Data";
+            {#gen{erule=jer},false} ->
+                ~S"""
+                case Data of
+                    {json_decoded,Decoded} -> Decoded;
+                    _ -> json:decode(Data)
+                    end
+                """;
+            {#gen{erule=jer},true} ->
+                exit("JER + return rest not supported");
+            {_,_} ->
+                "Data"
+        end,
+
+    DecodeDisp = ["decode_disp(Type, ",DecWrap,")"],
+    case {Gen,ReturnRest} of
+        {#gen{erule=ber},true} ->
+            emit(["   Result = ",DecodeDisp,",",nl]),
+            result_line(NoOkWrapper, ["Result","Rest"]);
+        {#gen{erule=ber},false} ->
+            emit(["   Result = ",DecodeDisp,",",nl]),
+            result_line(NoOkWrapper, ["Result"]);
+        {#gen{erule=JER},false} when JER =:= jer ->
+            emit(["   Result = ",{call,jer,decode_jer,[CurrMod,"Type",DecWrap]},",",nl]),
+            result_line(NoOkWrapper, ["Result"]);
+        {#gen{erule=per},true} ->
+            emit(["   {Result,Rest} = ",DecodeDisp,",",nl]),
+            result_line(NoOkWrapper, ["Result","Rest"]);
+        {#gen{erule=per},false} ->
+            emit(["   {Result,_Rest} = ",DecodeDisp,",",nl]),
+            result_line(NoOkWrapper, ["Result"])
+    end,
+
+    case NoOkWrapper of
+        false ->
+            emit([nl,try_catch()]);
+        true ->
+            ok
+    end,
+
+    emit([".",nl,nl]).
 
 result_line(NoOkWrapper, Items) ->
     S = ["   "|case NoOkWrapper of

@@ -197,7 +197,7 @@ roundtrip_enc(Mod, Type, Value, ExpectedValue) ->
             ExpectedValue = Mod:decode(Type, Encoded)
     end,
     map_roundtrip(Mod, Type, Encoded),
-    test_ber_indefinite(Mod, Type, Encoded, ExpectedValue),
+    test_special(Mod, Type, Encoded, ExpectedValue),
     Encoded.
 
 map_roundtrip(Mod, Type, Encoded) ->
@@ -248,9 +248,10 @@ match_value_tuple(I, T1, T2) when I =< tuple_size(T1) ->
 match_value_tuple(_, _, _) ->
     ok.
 
-test_ber_indefinite(Mod, Type, Encoded, ExpectedValue) ->
+test_special(Mod, Type, Encoded, ExpectedValue) ->
     case Mod:encoding_rule() of
 	ber ->
+            %% Test indefinite decoding for BER.
 	    Indefinite = iolist_to_binary(ber_indefinite(Encoded)),
             case Mod:decode(Type, Indefinite) of
                 {ok,ExpectedValue} ->
@@ -258,7 +259,14 @@ test_ber_indefinite(Mod, Type, Encoded, ExpectedValue) ->
                 ExpectedValue ->
                     ok
             end;
-	_ ->
+        jer ->
+            %% Test already decoded JSON for JER.
+            JsonDecoded = json:decode(Encoded),
+            case Mod:decode(Type, {json_decoded,JsonDecoded}) of
+                {ok,ExpectedValue} -> ok;
+                ExpectedValue -> ok
+            end;
+        _ ->
 	    ok
     end.
 
