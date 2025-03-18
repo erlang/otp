@@ -21,6 +21,25 @@ limitations under the License.
 
 This document describes the changes made to the SASL application.
 
+## SASL 4.3
+
+### Fixed Bugs and Malfunctions
+
+- Fixed the documentation for the ExtraFiles option to `systools:make_tar/2`.
+
+  Own Id: OTP-19279 Aux Id: [GH-8842], [PR-8894]
+
+[GH-8842]: https://github.com/erlang/otp/issues/8842
+[PR-8894]: https://github.com/erlang/otp/pull/8894
+
+### Improvements and New Features
+
+- [`.appup`](appup.md) files are now included in releases in order to make it possible to create upgrade packages from an installed release.
+
+  Own Id: OTP-19398 Aux Id: [PR-8973]
+
+[PR-8973]: https://github.com/erlang/otp/pull/8973
+
 ## SASL 4.2.2
 
 ### Improvements and New Features

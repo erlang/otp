@@ -21,6 +21,18 @@ limitations under the License.
 
 This document describes the changes made to the asn1 application.
 
+## Asn1 5.3.3
+
+### Fixed Bugs and Malfunctions
+
+- The `undec_rest` option would be ignored in generated functions for exclusive decode. The option is now respected, meaning that the return value from such functions are now three-tuples instead of a two-tuples.
+
+  *** POTENTIAL INCOMPATIBILITY ***
+
+  Own Id: OTP-19290 Aux Id: [PR-8798]
+
+[PR-8798]: https://github.com/erlang/otp/pull/8798
+
 ## Asn1 5.3.2
 
 ### Fixed Bugs and Malfunctions

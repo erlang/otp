@@ -21,6 +21,16 @@ limitations under the License.
 
 This document describes the changes made to the Xmerl application.
 
+## Xmerl 2.1.2
+
+### Fixed Bugs and Malfunctions
+
+- With this change all public functions in xmerl have specs.
+
+  Own Id: OTP-19534 Aux Id: [PR-9327]
+
+[PR-9327]: https://github.com/erlang/otp/pull/9327
+
 ## Xmerl 2.1.1
 
 ### Fixed Bugs and Malfunctions

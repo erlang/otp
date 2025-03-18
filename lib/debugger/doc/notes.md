@@ -21,6 +21,63 @@ limitations under the License.
 
 This document describes the changes made to the Debugger application.
 
+## Debugger 6.0
+
+### Fixed Bugs and Malfunctions
+
+- Error handling has been improved when modules fail to load.
+
+  Own Id: OTP-19484 Aux Id: [GH-7819], [PR-9399]
+
+[GH-7819]: https://github.com/erlang/otp/issues/7819
+[PR-9399]: https://github.com/erlang/otp/pull/9399
+
+### Improvements and New Features
+
+- Comprehensions have been extended with zip generators  according to [EEP 73](https://www.erlang.org/eeps/eep-0073). 
+  
+  Example:
+  
+  ```
+  1> [A+B || A <- [1,2,3] && B <- [4,5,6]].
+  [5,7,9]
+  ```
+
+  Own Id: OTP-19184 Aux Id: [PR-8926]
+
+- New strict generators have been added for comprehensions.
+  
+  The currently existing generators are "relaxed": they ignore terms in the
+  right-hand side expression that do not match the left-hand side pattern.
+  
+  The new strict generators fail with exception `badmatch` if a pattern doesn't match.
+  
+  Examples:
+  
+  Using the current relaxed generator operator `<-`, any element not matching
+  the pattern `{_,_}` will be silently discarded:
+  
+  ```
+  1> [T || {_,_}=T <- [{ok,1},ok,{error,2}]].
+  [{ok,1},{error,2}]
+  ```
+  If the intention is that all lists processed by a list comprehension must only
+  contain tuples of size two, using the new strict version of the operator ensures
+  that term not matching will cause a crash:
+  
+  ```
+  2> [T || {_,_}=T <:- [{ok,1},ok,{error,2}]].
+  ** exception error: no match of right hand side value ok
+  ```
+  Using the strict generator operator to mark the intention that all list elements must match the pattern could help finding mistakes quicker if something unpexected is added to the list processed by the generator.
+  
+  The strict version for bitstring generators is `<:=`.
+
+  Own Id: OTP-19317 Aux Id: [PR-8625]
+
+[PR-8926]: https://github.com/erlang/otp/pull/8926
+[PR-8625]: https://github.com/erlang/otp/pull/8625
+
 ## Debugger 5.5
 
 ### Fixed Bugs and Malfunctions
