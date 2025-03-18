@@ -1,7 +1,7 @@
 <!--
 %CopyrightBegin%
 
-SPDX-FileCopyrightText: Copyright (c) 2024 The AsmJit Authors
+SPDX-FileCopyrightText: Copyright (c) 2024-2025 The AsmJit Authors
 
 SPDX-License-Identifier: Zlib
 
