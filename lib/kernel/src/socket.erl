@@ -392,6 +392,9 @@ server(Addr, Port) ->
 %% -define(DBG(T),
 %%         erlang:display({{self(), ?MODULE, ?LINE, ?FUNCTION_NAME}, T})).
 
+%% -define(P(F),    ?P(F, [])).
+%% -define(P(F, A), p("~w:~w(~w) -> " ++ F, [?MODULE, ?FUNCTION_NAME, ?LINE | A])).
+
 %% Also in prim_socket
 -define(REGISTRY, socket_registry).
 
@@ -6904,8 +6907,8 @@ f(F, A) ->
 %%                       [YYYY, MM, DD, Hour, Min, Sec] ++ ArgsExtra),
 %%     lists:flatten(FormatDate).
 
-%% p(F) ->
-%%     p(F, []).
+%% %% p(F) ->
+%% %%     p(F, []).
 
 %% p(F, A) ->
 %%     p(get(sname), F, A).
