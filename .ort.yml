@@ -875,7 +875,6 @@ curations:
 
       - path: ".github/scripts/otp-compliance.es"
         reason: "CODE"
-        detected_license: "BSL-1.0 OR LGPL-2.1-or-later OR NOASSERTION OR Unlicense"
         comment: >-
           The scanner mixes up the copyright and license notice
         concluded_license: "Apache-2.0"
