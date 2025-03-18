@@ -43,15 +43,17 @@
 %%
 %% (cd /mnt/c/$LOCAL_TESTS/26/kernel_test/ && $ERL_TOP/bin/win32/erl.exe -sname kernel-26-tester -pa c:$LOCAL_TESTS/26/test_server)
 %% application:set_env(kernel, test_inet_backends, true).
+%%
 %% S = fun() -> ts:run(kernel, socket_SUITE, [batch]) end.
 %% S = fun(SUITE) -> ts:run(kernel, SUITE, [batch]) end.
-%% S = fun() -> ct:run_test([{suite, socket_SUITE}]) end.
-%% S = fun(SUITE) -> ct:run_test([{suite, SUITE}]) end.
 %% G = fun(GROUP) -> ts:run(kernel, socket_SUITE, {group, GROUP}, [batch]) end.
 %% G = fun(SUITE, GROUP) -> ts:run(kernel, SUITE, {group, GROUP}, [batch]) end.
+%% T = fun(TC) -> ts:run(kernel, socket_SUITE, TC, [batch]) end.
+%%
+%% S = fun() -> ct:run_test([{suite, socket_SUITE}]) end.
+%% S = fun(SUITE) -> ct:run_test([{suite, SUITE}]) end.
 %% G = fun(GROUP) -> ct:run_test([{suite, socket_SUITE}, {group, GROUP}]) end.
 %% G = fun(SUITE, GROUP) -> ct:run_test([{suite, SUITE}, {group, GROUP}]) end.
-%% T = fun(TC) -> ts:run(kernel, socket_SUITE, TC, [batch]) end.
 %% T = fun(TC) -> ct:run_test([{suite, socket_SUITE}, {testcase, TC}]) end.
 %% T = fun(S, TC) -> ct:run_test([{suite, S}, {testcase, TC}]) end.
 %% T = fun(S, G, TC) -> ct:run_test([{suite, S}, {group, G}, {testcase, TC}]) end.
@@ -2817,6 +2819,7 @@ traffic_send_and_recv_chunks_stream(InitState) ->
          %% *** Wait for start order part ***
          #{desc => "await start",
            cmd  => fun(State) ->
+			   put(sname, server),
                            Tester = ?SEV_AWAIT_START(),
                            {ok, State#{tester => Tester}}
                    end},
@@ -2908,9 +2911,10 @@ traffic_send_and_recv_chunks_stream(InitState) ->
          #{desc => "recv chunk 1",
            cmd  => fun(#{csock := Sock} = State) ->
                            case socket:recv(Sock, 100) of
-                               {ok, Chunk} ->
-                                   ?SEV_IPRINT("recv of chunk 1 of ~p bytes",
-                                               [size(Chunk)]),
+                               {ok, Chunk} when byte_size(Chunk) =:= 100 ->
+                                   ?SEV_IPRINT(
+				      "recv chunk 1 (~p bytes)",
+				      [byte_size(Chunk)]),
                                    {ok, State#{chunks => [b2l(Chunk)]}};
                                {error, _} = ERROR ->
                                    ERROR
@@ -2920,9 +2924,12 @@ traffic_send_and_recv_chunks_stream(InitState) ->
            cmd  => fun(#{csock  := Sock,
                          chunks := Chunks} = State) ->
                            case socket:recv(Sock, 100) of
-                               {ok, Chunk} ->
-                                   ?SEV_IPRINT("recv of chunk 2 of ~p bytes",
-                                               [size(Chunk)]),
+                               {ok, Chunk} when byte_size(Chunk) =:= 100 ->
+                                   ?SEV_IPRINT(
+				      "recv chunk 2 (~p bytes):"
+				      "~n   (Acced) Chunks: ~p bytes",
+				      [byte_size(Chunk),
+				       lists:flatlength(Chunks)]),
                                    {ok, State#{chunks => [b2l(Chunk)|Chunks]}};
                                {error, _} = ERROR ->
                                    ERROR
@@ -2932,9 +2939,12 @@ traffic_send_and_recv_chunks_stream(InitState) ->
            cmd  => fun(#{csock  := Sock,
                          chunks := Chunks} = State) ->
                            case socket:recv(Sock, 100) of
-                               {ok, Chunk} ->
-                                   ?SEV_IPRINT("recv of chunk 3 of ~p bytes",
-                                               [size(Chunk)]),
+                               {ok, Chunk} when byte_size(Chunk) =:= 100 ->
+                                   ?SEV_IPRINT(
+				      "recv chunk 3 (~p bytes):"
+				      "~n   (Acced) Chunks: ~p bytes",
+				      [byte_size(Chunk),
+				       lists:flatlength(Chunks)]),
                                    {ok, State#{chunks => [b2l(Chunk)|Chunks]}};
                                {error, _} = ERROR ->
                                    ERROR
@@ -2944,9 +2954,12 @@ traffic_send_and_recv_chunks_stream(InitState) ->
            cmd  => fun(#{csock  := Sock,
                          chunks := Chunks} = State) ->
                            case socket:recv(Sock, 100) of
-                               {ok, Chunk} ->
-                                   ?SEV_IPRINT("recv of chunk 4 of ~p bytes",
-                                               [size(Chunk)]),
+                               {ok, Chunk} when byte_size(Chunk) =:= 100 ->
+                                   ?SEV_IPRINT(
+				      "recv chunk 4 (~p bytes):"
+				      "~n   (Acced) Chunks: ~p bytes",
+				      [byte_size(Chunk),
+				       lists:flatlength(Chunks)]),
                                    {ok, State#{chunks => [b2l(Chunk)|Chunks]}};
                                {error, _} = ERROR ->
                                    ERROR
@@ -2956,9 +2969,12 @@ traffic_send_and_recv_chunks_stream(InitState) ->
            cmd  => fun(#{csock  := Sock,
                          chunks := Chunks} = State) ->
                            case socket:recv(Sock, 100) of
-                               {ok, Chunk} ->
-                                   ?SEV_IPRINT("recv of chunk 5 of ~p bytes",
-                                               [size(Chunk)]),
+                               {ok, Chunk} when byte_size(Chunk) =:= 100 ->
+                                   ?SEV_IPRINT(
+				      "recv chunk 5 (~p bytes):"
+				      "~n   (Acced) Chunks: ~p bytes",
+				      [byte_size(Chunk),
+				       lists:flatlength(Chunks)]),
                                    {ok, State#{chunks => [b2l(Chunk)|Chunks]}};
                                {error, _} = ERROR ->
                                    ERROR
@@ -2968,9 +2984,12 @@ traffic_send_and_recv_chunks_stream(InitState) ->
            cmd  => fun(#{csock  := Sock,
                          chunks := Chunks} = State) ->
                            case socket:recv(Sock, 100) of
-                               {ok, Chunk} ->
-                                   ?SEV_IPRINT("recv of chunk 6 of ~p bytes",
-                                               [size(Chunk)]),
+                               {ok, Chunk} when byte_size(Chunk) =:= 100 ->
+                                   ?SEV_IPRINT(
+				      "recv chunk 6 (~p bytes):"
+				      "~n   (Acced) Chunks: ~p bytes",
+				      [byte_size(Chunk),
+				       lists:flatlength(Chunks)]),
                                    {ok, State#{chunks => [b2l(Chunk)|Chunks]}};
                                {error, _} = ERROR ->
                                    ERROR
@@ -2980,9 +2999,12 @@ traffic_send_and_recv_chunks_stream(InitState) ->
            cmd  => fun(#{csock  := Sock,
                          chunks := Chunks} = State) ->
                            case socket:recv(Sock, 100) of
-                               {ok, Chunk} ->
-                                   ?SEV_IPRINT("recv of chunk 7 of ~p bytes",
-                                               [size(Chunk)]),
+                               {ok, Chunk} when byte_size(Chunk) =:= 100 ->
+                                   ?SEV_IPRINT(
+				      "recv chunk 7 (~p bytes):"
+				      "~n   (Acced) Chunks: ~p bytes",
+				      [byte_size(Chunk),
+				       lists:flatlength(Chunks)]),
                                    {ok, State#{chunks => [b2l(Chunk)|Chunks]}};
                                {error, _} = ERROR ->
                                    ERROR
@@ -2992,9 +3014,12 @@ traffic_send_and_recv_chunks_stream(InitState) ->
            cmd  => fun(#{csock  := Sock,
                          chunks := Chunks} = State) ->
                            case socket:recv(Sock, 100) of
-                               {ok, Chunk} ->
-                                   ?SEV_IPRINT("recv of chunk 8 of ~p bytes",
-                                               [size(Chunk)]),
+                               {ok, Chunk} when byte_size(Chunk) =:= 100 ->
+                                   ?SEV_IPRINT(
+				      "recv chunk 8 (~p bytes):"
+				      "~n   (Acced) Chunks: ~p bytes",
+				      [byte_size(Chunk),
+				       lists:flatlength(Chunks)]),
                                    {ok, State#{chunks => [b2l(Chunk)|Chunks]}};
                                {error, _} = ERROR ->
                                    ERROR
@@ -3004,9 +3029,12 @@ traffic_send_and_recv_chunks_stream(InitState) ->
            cmd  => fun(#{csock  := Sock,
                          chunks := Chunks} = State) ->
                            case socket:recv(Sock, 100) of
-                               {ok, Chunk} ->
-                                   ?SEV_IPRINT("recv of chunk 9 of ~p bytes",
-                                               [size(Chunk)]),
+                               {ok, Chunk} when byte_size(Chunk) =:= 100 ->
+                                   ?SEV_IPRINT(
+				      "recv chunk 9 (~p bytes):"
+				      "~n   (Acced) Chunks: ~p bytes",
+				      [byte_size(Chunk),
+				       lists:flatlength(Chunks)]),
                                    {ok, State#{chunks => [b2l(Chunk)|Chunks]}};
                                {error, _} = ERROR ->
                                    ERROR
@@ -3016,9 +3044,12 @@ traffic_send_and_recv_chunks_stream(InitState) ->
            cmd  => fun(#{csock  := Sock,
                          chunks := Chunks} = State) ->
                            case socket:recv(Sock, 100) of
-                               {ok, Chunk} ->
-                                   ?SEV_IPRINT("recv of chunk 10 of ~p bytes",
-                                               [size(Chunk)]),
+                               {ok, Chunk} when byte_size(Chunk) =:= 100 ->
+                                   ?SEV_IPRINT(
+				      "recv (final) chunk 10 (~p bytes):"
+				      "~n   (Acced) Chunks: ~p",
+				      [byte_size(Chunk),
+				       lists:flatlength(Chunks)]),
                                    {ok, State#{chunks => [b2l(Chunk)|Chunks]}};
                                {error, _} = ERROR ->
                                    ERROR
@@ -3044,8 +3075,11 @@ traffic_send_and_recv_chunks_stream(InitState) ->
          #{desc => "recv (one big)",
            cmd  => fun(#{tester := Tester, csock := Sock, size := Size} = _State) ->
                            %% socket:setopt(Sock, otp, debug, true),
+			   ?SEV_IPRINT("try recv ~w bytes", [Size]),
                            case socket:recv(Sock, Size) of
                                {ok, Data} ->
+				   ?SEV_IPRINT("recv ~w bytes",
+					       [byte_size(Data)]),
                                    ?SEV_ANNOUNCE_READY(Tester,
                                                        recv_one_big,
                                                        b2l(Data)),
@@ -3095,6 +3129,7 @@ traffic_send_and_recv_chunks_stream(InitState) ->
          %% *** Wait for start order part ***
          #{desc => "await start",
            cmd  => fun(State) ->
+			   put(sname, client),
                            {Tester, ServerSA} = ?SEV_AWAIT_START(),
                            {ok, State#{tester    => Tester,
                                        server_sa => ServerSA}}
@@ -3515,6 +3550,7 @@ traffic_send_and_recv_chunks_stream(InitState) ->
          %% *** Init part ***
          #{desc => "monitor server",
            cmd  => fun(#{server := Pid} = _State) ->
+			   put(sname, tester),
                            _MRef = erlang:monitor(process, Pid),
                            ok
                    end},
