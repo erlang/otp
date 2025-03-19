@@ -806,6 +806,19 @@ jobs:
               --sbom-file $HOME/.ort/ort-results/bom.spdx.json \
               --input-file $HOME/.ort/ort-results/scan-result.json"
 
+      - name: Verify SBOM
+        run: |
+          docker run -v $PWD/:/github -v $HOME:$HOME otp \
+            "/github/.github/scripts/otp-compliance.es sbom test-file \
+              --sbom-file $HOME/.ort/ort-results/bom.spdx.json"
+
+      - name: Upload SPDX SBOM result
+        uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # ratchet:actions/upload-artifact@v4.6.1
+        with:
+          name: spdx-sbom-result
+          path: |
+            /home/runner/.ort/ort-results/bom.spdx.json
+
       - name: Run OSS Review Toolkit reporter
         uses: oss-review-toolkit/ort-ci-github-action@1805edcf1f4f55f35ae6e4d2d9795ccfb29b6021 # ratchet:oss-review-toolkit/ort-ci-github-action@v1.1.0
         with:
