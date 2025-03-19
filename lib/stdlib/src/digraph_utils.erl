@@ -57,18 +57,18 @@ For basic functions on directed graphs, see the `m:digraph` module.
   process is repeated.
 - A _partial ordering_{: #partial_ordering } of a set S is a transitive,
   antisymmetric, and reflexive relation between the objects of S.
-- The problem of _topological sorting_{: #topsort } is to find a total ordering
-  of S that is a superset of the partial ordering. A digraph G = (V, E) is
-  equivalent to a relation E on V (we neglect that the version of directed
-  graphs provided by the `digraph` module allows multiple edges between
-  vertices). If the digraph has no cycles of length two or more, the reflexive
-  and transitive closure of E is a partial ordering.
+- The problem of [_topological sorting_](https://en.wikipedia.org/wiki/Topological_sorting) {: #topsort }
+  is to find a total ordering of S that is a superset of the partial ordering.
+  A digraph G = (V, E) is equivalent to a relation E on V (we neglect that
+  the version of directed graphs provided by the `digraph` module allows
+  multiple edges between vertices). If the digraph has no cycles of length
+  two or more, the reflexive and transitive closure of E is a partial ordering.
 - A _subgraph_{: #subgraph } G' of G is a digraph whose vertices and edges form
   subsets of the vertices and edges of G.
 - G' is _maximal_ with respect to a property P if all other subgraphs that
   include the vertices of G' do not have property P.
-- A _strongly connected component_{: #strong_components } is a maximal subgraph
-  such that there is a path between each pair of vertices.
+- A [_strongly connected component_](https://en.wikipedia.org/wiki/Strongly_connected_component) {: #strong_components }
+  is a maximal subgraph such that there is a path between each pair of vertices
 - A _connected component_{: #components } is a maximal subgraph such that there
   is a path between each pair of vertices, considering all edges undirected.
 - An _arborescence_{: #arborescence } is an acyclic digraph with a vertex V, the
