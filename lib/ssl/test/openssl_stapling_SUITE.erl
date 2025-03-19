@@ -98,7 +98,7 @@ init_per_suite(Config0) ->
 
 do_init_per_suite(Config) ->
     {ok, _} = make_certs:all(?config(data_dir, Config),
-                             ?config(priv_dir, Config)),
+                             ?config(priv_dir, Config), [{staple, true}]),
     ssl_test_lib:cert_options(Config).
 
 end_per_suite(Config) ->
