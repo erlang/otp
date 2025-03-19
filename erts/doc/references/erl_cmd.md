@@ -65,14 +65,14 @@ arguments_:
 _Examples:_
 
 ```erlang
-% erl +W w -sname arnie +R 9 -s my_init -extra +bertie
+% erl +W w -sname arnie +S 2 -s my_init -extra +bertie
 (arnie@host)1> init:get_argument(sname).
 {ok,[["arnie"]]}
 (arnie@host)2> init:get_plain_arguments().
 ["+bertie"]
 ```
 
-Here `+W w` and `+R 9` are emulator flags. `-s my_init` is an init flag,
+Here `+W w` and `+S 2` are emulator flags. `-s my_init` is an init flag,
 interpreted by `init`. `-sname arnie` is a user flag, stored by `init`. It is
 read by Kernel and causes the Erlang runtime system to become distributed.
 Finally, everything after `-extra` (that is, `+bertie`) is considered as plain
@@ -855,21 +855,6 @@ behavior of earlier flags.
 
   On Windows the default value is set to `8196` because the normal OS
   limitations are set higher than most machines can handle.
-
-- **`+R ReleaseNumber`{: #compat_rel }** - Sets the compatibility mode.
-
-  The distribution mechanism is not backward compatible by default. This flag
-  sets the emulator in compatibility mode with an earlier Erlang/OTP release
-  `ReleaseNumber`. The release number must be in the range
-  `<current release>-2` through `<current release>`. This limits the emulator,
-  making it possible for it to communicate with Erlang nodes (as well as C
-  and Java nodes) running that earlier release.
-
-  > #### Note {: .info }
-  >
-  > Ensure that all nodes (Erlang-, C-, and Java nodes) of a distributed Erlang
-  > system is of the same Erlang/OTP release, or from two different Erlang/OTP
-  > releases X and Y, where _all_ Y nodes have compatibility mode X.
 
 - **`+r`** - Forces ETS memory blocks to be moved on reallocation.
 

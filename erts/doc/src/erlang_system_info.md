@@ -70,7 +70,6 @@ order to make it easier to navigate.
 - [`System Information`](`m:erlang#system_info/1-system-information`) -
   [`c_compiler_used`](`m:erlang#system_info_c_compiler_used`),
   [`check_io`](`m:erlang#system_info_check_io`),
-  [`compat_rel`](`m:erlang#system_info_compat_rel`),
   [`debug_compiled`](`m:erlang#system_info_debug_compiled`),
   [`driver_version`](`m:erlang#system_info_driver_version`),
   [`dynamic_trace`](`m:erlang#system_info_dynamic_trace`),
@@ -785,12 +784,6 @@ Returns various information about the current system (emulator) as specified by 
   miscellaneous information about the emulators internal I/O checking. Notice
   that the content of the returned list can vary between platforms and over
   time. It is only guaranteed that a list is returned.
-
-- `compat_rel`{: #system_info_compat_rel } - Returns the compatibility mode
-  of the local node as an integer. The integer returned represents the
-  Erlang/OTP release that the current emulator has been set to be backward
-  compatible with. The compatibility mode can be configured at startup by using
-  command-line flag [`+R`](erl_cmd.md#compat_rel) in `erl(1)`.
 
 - `debug_compiled`{: #system_info_debug_compiled } - Returns `true` if the
   emulator has been debug-compiled, otherwise `false`.
