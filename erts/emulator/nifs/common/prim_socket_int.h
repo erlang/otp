@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2022-2024. All Rights Reserved.
+ * Copyright Ericsson AB 2022-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,28 +31,6 @@
 
 #include "socket_int.h"
 #include "socket_dbg.h"
-
-
-/* ********************************************************************* *
- *                              SOCKET and HANDLE                        *
- * ********************************************************************* *
- */
-
-#if defined(__WIN32__)
-
-#define INVALID_EVENT NULL
-#define SOCKET_FORMAT_STR "%lld"
-
-#else
-
-#define INVALID_HANDLE (-1)
-typedef int HANDLE;
-#define INVALID_SOCKET (-1)
-typedef int SOCKET; /* A subset of HANDLE */
-#define INVALID_EVENT INVALID_HANDLE
-#define SOCKET_FORMAT_STR "%d"
-
-#endif
 
 
 /* ********************************************************************* *
