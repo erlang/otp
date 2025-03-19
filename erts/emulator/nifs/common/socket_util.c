@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2018-2024. All Rights Reserved.
+ * Copyright Ericsson AB 2018-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -145,6 +145,40 @@ static void make_sockaddr_dl(ErlNifEnv*    env,
 #ifdef HAS_AF_LOCAL
 static SOCKLEN_T sa_local_length(int l, struct sockaddr_un* sa);
 #endif
+
+
+/* The pre string has to be large enough (suggest 64) that
+ * the name fits.
+ * This function creates a mutex with a specific name:
+ *       <pre>[<file descriptor>]
+ * For example: esock.w[10]
+ *
+ * But this is only done if ESOCK_VERBOSE_MTX_NAMES is defined.
+ * Otherwise it will just be the pre string.
+ */
+extern
+ErlNifMutex* esock_mutex_create(const char* pre, char* buf, SOCKET sock)
+{
+#if defined(ESOCK_VERBOSE_MTX_NAMES)
+    /* ESOCK_PRINTF("esock_mutex_create -> create name with" */
+    /*              "\r\n   pre:  %s" */
+    /*              "\r\n   sock: %d" */
+    /*              "\r\n", pre, sock); */
+    sprintf(buf, "%s[" SOCKET_FORMAT_STR "]", pre, sock);
+#else
+    /* ESOCK_PRINTF("esock_mutex_create -> create name with" */
+    /*              "\r\n   pre: %s" */
+    /*              "\r\n", pre); */
+    VOID(sock);
+    sprintf(buf, "%s", pre);
+#endif
+
+    /* ESOCK_PRINTF("esock_mutex_create -> create mtx with name: %s" */
+    /*              "\r\n", buf); */
+
+    return enif_mutex_create(buf);
+}
+
 
 
 /* *** esock_get_uint_from_map ***
@@ -2629,11 +2663,10 @@ size_t esock_strnlen(const char *s, size_t maxlen)
  *
  */
 extern
-void __noreturn
-esock_abort(const char* expr,
-                 const char* func,
-                 const char* file,
-                 int         line)
+void __noreturn esock_abort(const char* expr,
+                            const char* func,
+                            const char* file,
+                            int         line)
 {
 #if 0
     fflush(stdout);
