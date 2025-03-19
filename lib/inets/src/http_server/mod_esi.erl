@@ -98,7 +98,7 @@ connection is lost due to network failure) the value will be `undefined`.
 -doc """
 Identifies the requesting client.
 """.
--doc #{since => ~"OTP 28.0"}.
+-doc #{since => ~"OTP @OTP-19521@"}.
 -opaque session_id() :: term().
 
 %%%=========================================================================

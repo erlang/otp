@@ -21,33 +21,6 @@ limitations under the License.
 
 This document describes the changes made to the Erl_interface application.
 
-## Erl_Interface 5.6
-
-### Improvements and New Features
-
-- Fixed licenses in files and added ORT curations to the following apps: otp, eldap, erl_interface, eunit, parsetools, stdlib, syntax_tools, and ERTS.
-
-  Own Id: OTP-19478 Aux Id: [PR-9376], [PR-9402]
-
-- Added support for compiling Erlang/OTP for Windows on ARM64.
-
-  Own Id: OTP-19480 Aux Id: [PR-8734]
-
-- When compiling C/C++ code on Unix systems, the compiler hardening flags suggested by the [Open Source Security Foundation](https://github.com/ossf/wg-best-practices-os-developers/blob/main/docs/Compiler-Hardening-Guides/Compiler-Options-Hardening-Guide-for-C-and-C%2B%2B.md) are now enabled by default. To disable them, pass `--disable-security-hardening-flags` to `configure`.
-
-  Own Id: OTP-19519 Aux Id: [PR-9441]
-
-[PR-9376]: https://github.com/erlang/otp/pull/9376
-[PR-9402]: https://github.com/erlang/otp/pull/9402
-[PR-8734]: https://github.com/erlang/otp/pull/8734
-[PR-9441]: https://github.com/erlang/otp/pull/9441
-
-### Known Bugs and Problems
-
-- The `ei` API for decoding/encoding terms is not fully 64-bit compatible since terms that have a representation on the external term format larger than 2 GB cannot be handled.
-
-  Own Id: OTP-16607 Aux Id: OTP-16608
-
 ## Erl_Interface 5.5.2
 
 ### Improvements and New Features
