@@ -1169,30 +1169,30 @@ last_test(Config) when is_list(Config) ->
                       Type when Type =/= debug ->
                           {skip, {"No yield coverage in",Type}}
                   end;
-              Tuple ->
-                  io:format("re_yield_coverage tuple =\n~p\n", [Tuple]),
-                  ok = check_yield_coverage(Tuple, 0, ok)
+              Coverage ->
+                  io:format("re_yield_coverage = ~p\n", [Coverage]),
+                  ok = check_yield_coverage(Coverage, ok)
           end,
     erts_debug:set_internal_state(available_internal_state, false),
     Res.
 
-check_yield_coverage(Tuple, Ix, Err0) when Ix*2 >= size(Tuple) ->
-    Err0;
-check_yield_coverage(Tuple, Ix, Err0) ->
-    Visits = element(Ix*2+1, Tuple),
-    Yields = element(Ix*2+2, Tuple),
+check_yield_coverage([], Err) ->
+    Err;
+check_yield_coverage([Tuple | Tail], Err0) ->
     Err1 =
-        case {Visits,Yields} of
-            {0,0} ->
-                io:format("COST_CHK with index ~p never visited", [Ix]),
+        case Tuple of
+            {Line, 0, 0} ->
+                io:format("COST_CHK at line ~p never visited", [Line]),
                 error;
-            {_,0} ->
-                io:format("COST_CHK with index ~p visited but never yielded", [Ix]),
+            {Line, Visits, 0} ->
+                io:format("COST_CHK at line ~p visited ~p times but never yielded",
+                          [Line, Visits]),
                 error;
-            {0,_} ->
-                io:format("COST_CHK with index ~p never visited but has yielded ?!?!??!?!?!?", [Ix]),
+            {Line, 0, Yields} ->
+                io:format("COST_CHK at line ~p never visited but has yielded ~p times ????",
+                          [Line, Yields]),
                 error;
-            {_,_} ->
+            {_,_,_} ->
                 Err0
         end,
-    check_yield_coverage(Tuple, Ix+1, Err1).
+    check_yield_coverage(Tail, Err1).

@@ -257,17 +257,20 @@ for (i = 0, Q = match_data->heapframes;
 
 #ifdef DEBUG
 
+const int erts_dbg_pcre_cost_chk_lines[] = {
 #include "pcre2_match_yield_coverage.gen.h"
-
+};
 int erts_dbg_pcre_cost_chk_visits[ERLANG_YIELD_POINT_CNT];
 int erts_dbg_pcre_cost_chk_yields[ERLANG_YIELD_POINT_CNT];
 const int erts_dbg_pcre_cost_chk_cnt = ERLANG_YIELD_POINT_CNT;
 
 # define DBG_COST_CHK_VISIT() ++erts_dbg_pcre_cost_chk_visits[NAME_CAT(ERLANG_YIELD_POINT_,__LINE__)]
 # define DBG_COST_CHK_YIELD() ++erts_dbg_pcre_cost_chk_yields[NAME_CAT(ERLANG_YIELD_POINT_,__LINE__)]
+# define DBG_FAKE_COST_CHK() (DBG_COST_CHK_VISIT(), DBG_COST_CHK_YIELD())
 #else  // !DEBUG
 # define DBG_COST_CHK_VISIT()
 # define DBG_COST_CHK_YIELD()
+# define DBG_FAKE_COST_CHK()
 #endif // !DEBUG
 
 #ifdef ERLANG_DEBUG
@@ -7672,6 +7675,7 @@ restart_valid_utf:
 
 #if defined(ERLANG_INTEGRATION)
     if (match_data->rc == PCRE2_ERROR_UTF8_YIELD) {
+        DBG_FAKE_COST_CHK();
         goto erlang_swapout;
     }
 #endif
