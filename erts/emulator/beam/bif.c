@@ -55,6 +55,7 @@
 #include "erl_global_literals.h"
 #include "beam_load.h"
 #include "beam_common.h"
+#include "dtrace-wrapper.h"
 
 Export *erts_await_result;
 static Export await_exit_trap;
