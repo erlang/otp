@@ -82,6 +82,10 @@ t_float(Config) when is_list(Config) ->
 
     {'EXIT',{{badmatch,_},_}} = (catch match_float(<<0,0>>, 8, 0)),
     {'EXIT',{{badmatch,_},_}} = (catch match_float(<<0,0>>, 16#7fffffff, 0)),
+    NaN = <<0:1,31:5,42:10>>,
+    {'EXIT',{{badmatch,_},_}} = (catch match_float(NaN, 16, 0)),
+    Inf = <<0:1,31:5,0:10>>,
+    {'EXIT',{{badmatch,_},_}} = (catch match_float(Inf, 16, 0)),
 
     ok.
 
