@@ -9908,7 +9908,6 @@ the `CpuTopology` type to change.
                          gcov | valgrind | gprof | lcnt | frmptr;
          (c_compiler_used) -> {atom(), term()};
          (check_io) -> [_];
-         (compat_rel) -> integer();
          (cpu_topology) ->  CpuTopology when
       CpuTopology :: cpu_topology();
          ({cpu_topology, defined | detected | used}) -> CpuTopology when
