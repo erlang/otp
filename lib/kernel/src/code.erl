@@ -418,7 +418,7 @@ common reasons.
 
 -export_type([coverage_mode/0]).
 -type coverage_mode() :: 'none' | 'function' | 'function_counters' |
-                         'line_coverage' | 'line_counters'.
+                         'line' | 'line_counters'.
 
 -export_type([debug_line/0, debug_frame/0, debug_name/0, debug_source/0,
               debug_value/0, debug_info/0]).
