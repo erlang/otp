@@ -400,6 +400,7 @@ sbom_fixing_functions(Licenses, Copyrights) ->
      {fun fix_download_location/2, ?spdx_download_location},
      {fun fix_project_package_license/2, {Licenses, Copyrights}},
      {fun fix_project_package_version/2, 'OTP_VERSION'},
+     {fun fix_has_extracted_license_info/2, extracted_license_info()},
      {fun fix_project_purl/2, ?spdx_project_purl},
      {fun fix_beam_licenses/2, {Licenses, Copyrights}} ].
 
@@ -469,6 +470,35 @@ fix_project_purl(Purl, #{ ~"documentDescribes" := [RootProject],
 
 otp_purl(Name, VersionInfo) ->
     <<"pkg:otp/", Name/binary, "@", VersionInfo/binary>>.
+
+fix_has_extracted_license_info(MissingLicenses, #{~"hasExtractedLicensingInfos" := LicenseInfos,
+                                                   ~"packages" := Packages,
+                                                  ~"documentDescribes" := [RootProject]}=Spdx) ->
+    ExtractedLicenses = [maps:get(~"licenseId", ExtractedLicense) || ExtractedLicense <- LicenseInfos ],
+    MissingExtractedLicenses =
+        lists:foldl(fun (Package, Acc) ->
+                            case maps:get(~"SPDXID", Package) of
+                                RootProject ->
+                                    %% list of SPDX identifier
+                                    InfoFromFiles = maps:get(~"licenseInfoFromFiles", Package),
+
+                                    %% Licenses is a list of tuples (Spdx Id, License Text)
+                                    Licenses = lists:filter(
+                                                 fun (License) ->
+                                                         %% License must be used, and not already extracted.
+                                                         %% this only makes sense for LicenseRef-XXXX
+                                                         lists:member(element(1, License), InfoFromFiles) andalso
+                                                             not lists:member(element(1, License), ExtractedLicenses)
+                                                 end, MissingLicenses),
+                                    Licenses ++ Acc;
+                              _ ->
+                                  Acc
+                          end
+                  end, [], Packages),
+    AddAllExtractedLicenses = lists:foldl(fun ({K, V}, Acc) ->
+                                                  [#{~"extractedText" => V, ~"licenseId" => K} | Acc]
+                                          end, LicenseInfos, MissingExtractedLicenses),
+    Spdx#{~"hasExtractedLicensingInfos" := AddAllExtractedLicenses}.
 
 -spec create_externalRef_purl(Desc :: binary(), Purl :: binary()) -> map().
 create_externalRef_purl(Description, Purl) ->
@@ -1331,6 +1361,7 @@ package_generator(Sbom) ->
     ok = test_packages_purl(Sbom),
     ok = test_download_location(Sbom),
     ok = test_package_relations(Sbom),
+    ok = test_has_extracted_licenses(Sbom),
     ok = test_snippets(Sbom),
     %% ok = test_doc_relation(Sbom),
     ok = test_vendor_packages(Sbom),
@@ -1558,6 +1589,19 @@ test_package_relations(#{~"packages" := Packages}=Spdx) ->
                      end, Relations),
     ok.
 
+test_has_extracted_licenses(#{~"hasExtractedLicensingInfos" := LicensesInfo,
+                              ~"packages" := Packages}=_Spdx) ->
+    LicenseRefsInProject =
+        lists:uniq(
+          lists:foldl(fun (#{~"licenseInfoFromFiles" := InfoFromFilesInPackage }, Acc) ->
+                              LicenseRefs = lists:filter(fun (<<"LicenseRef-", _/binary>>) -> true ;
+                                                             (_) -> false
+                                                         end, InfoFromFilesInPackage),
+                              LicenseRefs ++ Acc
+                      end, [], Packages)),
+    true = lists:all(fun (#{~"licenseId" := LicenseId}) -> lists:member(LicenseId, LicenseRefsInProject) end, LicensesInfo),
+    ok.
+
 test_snippets(#{~"snippets" := Snippets, ~"files" := Files}=_Spdx) ->
     true = lists:all(fun (#{ ~"SPDXID" := _Id,
                          ~"copyrightText" := _Copyright,
@@ -1575,3 +1619,77 @@ test_snippets(#{~"snippets" := Snippets, ~"files" := Files}=_Spdx) ->
                       length(lists:filter(fun (#{~"SPDXID" := Id}) -> SpdxId == Id end, Files)) == 1
                      end, Snippets),
     ok.
+
+
+%% Adds LicenseRef licenses where the text is missing.
+extracted_license_info() ->
+    [{~"LicenseRef-scancode-wxwindows-free-doc-3",
+      ~"""
+wxWindows Free Documentation Licence, Version 3
+===============================================
+
+Everyone is permitted to copy and distribute verbatim copies
+of this licence document, but changing it is not allowed.
+
+                 WXWINDOWS FREE DOCUMENTATION LICENCE
+   TERMS AND CONDITIONS FOR COPYING, DISTRIBUTION AND MODIFICATION
+
+1. Permission is granted to make and distribute verbatim copies of this
+manual or piece of documentation provided any copyright notice and this
+permission notice are preserved on all copies.
+
+2. Permission is granted to process this file or document through a
+document processing system and, at your option and the option of any third
+party, print the results, provided a printed document carries a copying
+permission notice identical to this one.
+
+3. Permission is granted to copy and distribute modified versions of this
+manual or piece of documentation under the conditions for verbatim copying,
+provided also that any sections describing licensing conditions for this
+manual, such as, in particular, the GNU General Public Licence, the GNU
+Library General Public Licence, and any wxWindows Licence are included
+exactly as in the original, and provided that the entire resulting derived
+work is distributed under the terms of a permission notice identical to
+this one.
+
+4. Permission is granted to copy and distribute translations of this manual
+or piece of documentation into another language, under the above conditions
+for modified versions, except that sections related to licensing, including
+this paragraph, may also be included in translations approved by the
+copyright holders of the respective licence documents in addition to the
+original English.
+
+                          WARRANTY DISCLAIMER
+
+5. BECAUSE THIS MANUAL OR PIECE OF DOCUMENTATION IS LICENSED FREE OF
+CHARGE, THERE IS NO WARRANTY FOR IT, TO THE EXTENT PERMITTED BY APPLICABLE
+LAW.  EXCEPT WHEN OTHERWISE STATED IN WRITING THE COPYRIGHT HOLDERS AND/OR
+OTHER PARTIES PROVIDE THIS MANUAL OR PIECE OF DOCUMENTATION "AS IS" WITHOUT
+WARRANTY OF ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING, BUT NOT
+LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
+PARTICULAR PURPOSE.  THE ENTIRE RISK AS TO THE QUALITY AND PERFORMANCE OF
+THE MANUAL OR PIECE OF DOCUMENTATION IS WITH YOU.  SHOULD THE MANUAL OR
+PIECE OF DOCUMENTATION PROVE DEFECTIVE, YOU ASSUME THE COST OF ALL
+NECESSARY SERVICING, REPAIR OR CORRECTION.
+
+6. IN NO EVENT UNLESS REQUIRED BY APPLICABLE LAW OR AGREED TO IN WRITING
+WILL ANY COPYRIGHT HOLDER, OR ANY OTHER PARTY WHO MAY MODIFY AND/OR
+REDISTRIBUTE THE MANUAL OR PIECE OF DOCUMENTATION AS PERMITTED ABOVE, BE
+LIABLE TO YOU FOR DAMAGES, INCLUDING ANY GENERAL, SPECIAL, INCIDENTAL OR
+CONSEQUENTIAL DAMAGES ARISING OUT OF THE USE OR INABILITY TO USE THE MANUAL
+OR PIECE OF DOCUMENTATION (INCLUDING BUT NOT LIMITED TO LOSS OF DATA OR
+DATA BEING RENDERED INACCURATE OR LOSSES SUSTAINED BY YOU OR THIRD PARTIES
+OR A FAILURE OF A PROGRAM BASED ON THE MANUAL OR PIECE OF DOCUMENTATION TO
+OPERATE WITH ANY OTHER PROGRAMS), EVEN IF SUCH HOLDER OR OTHER PARTY HAS
+BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.
+"""}].
+
+
+
+%% Parts easiest to relate:
+
+%% - Information too scatered
+%% - Processes slow us down
+%% - Lack of use of best software in class
+%% - Coordination with other teams via private repos
+%% - no connection to internet from logged computer
