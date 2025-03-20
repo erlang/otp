@@ -45,6 +45,7 @@ API_HEADERS="zstd.h zdict.h zstd_errors.h"
 for API_HEADER in ${API_HEADERS}; do
     cp "zstd-copy/lib/${API_HEADER}" "erl_${API_HEADER}"
     sed -i "s@../${API_HEADER}@../erl_${API_HEADER}@g" ./*/*.{c,S,h}
+    sed -i "s@${API_HEADER}@erl_${API_HEADER}@g" ./*.h
 done
 
 rm -rf zstd-copy
