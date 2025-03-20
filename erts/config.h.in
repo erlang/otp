@@ -1242,6 +1242,15 @@
 /* define if h_errno is declared (in some way) in a system header file */
 #undef H_ERRNO_DECLARED
 
+/* Default size of the buffer for an SCTP socket (in bytes) */
+#undef INET_BUFFER_SCTP_DEFAULT
+
+/* Default size of the buffer for an TCP socket (in bytes) */
+#undef INET_BUFFER_TCP_DEFAULT
+
+/* Default size of the buffer for an UDP socket (in bytes) */
+#undef INET_BUFFER_UDP_DEFAULT
+
 /* Define to monotonic clock id to use */
 #undef MONOTONIC_CLOCK_ID
 
