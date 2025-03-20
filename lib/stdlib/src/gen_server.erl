@@ -298,11 +298,7 @@ The return value `Result` is interpreted as follows:
   `{ok,State,_}`** - Initialization was succesful
    and `State` is the internal state of the `gen_server` process.
 
-- **`{ok,_,Timeout}`\
-  `{ok,_,hibernate}`\
-  `{ok,_,{continue,Continue}}`** - See the corresponding return values from
-  [`Module:handle_call/3`](`c:handle_call/3`) for a description
-  of this tuple member.
+- **`{ok,_,Action}`**  - `Action` is described by the `t:action/0` type.
 
 - **`{stop,Reason}`** - Initialization failed.  The `gen_server`
   process exits with reason `Reason`.
@@ -316,7 +312,7 @@ See function [`start_link/3,4`](`start_link/3`)'s return value
 """.
 -callback init(Args :: term()) ->
     {ok, State :: term()} |
-    {ok, State :: term(), action()} |
+    {ok, State :: term(), Action :: action()} |
     {stop, Reason :: term()} |
     ignore |
     {error, Reason :: term()}.
@@ -352,24 +348,8 @@ The return value `Result` is interpreted as follows:
   [`reply(From, Reply)`](`reply/2`), either in this
   or in a later callback.
 
-- **`{reply,_,_,Timeout}`\
-  `{noreply,_,Timeout}`** - If an integer `Timeout` is provided,
-  a time-out occurs unless a request or a message is received
-  within that many milliseconds. A time-out is represented
-  by the atom `timeout` to be handled by the
-  [`Module:handle_info/2`](`c:handle_info/2`) callback function.
-  `Timeout =:= infinity` can be used to wait indefinitely,
-  which is the same as returning a value without a `Timeout` member.
-
-- **`{reply,_,_,hibernate}`\
-  `{noreply,_,hibernate}`** - The process goes into hibernation,
-  by calling `proc_lib:hibernate/3`, waiting for
-  the next message to arrive
-
-- **`{reply,_,_,{continue,Continue}}`\
-  `{noreply,_,{continue,Continue}}`** - The process will execute the
-  [`Module:handle_continue/2`](`c:handle_continue/2`) callback function,
-  with `Continue` as the first argument.
+- **`{reply,_,_,Action}`\
+  `{noreply,_,Action}`** - `Action` is described by the `t:action/0` type.
 
 - **`{stop,Reason,NewState}`\
   `{stop,Reason,Reply,NewState}`** - The `gen_server` process will call
@@ -384,9 +364,9 @@ The return value `Result` is interpreted as follows:
 -callback handle_call(Request :: term(), From :: from(),
                       State :: term()) ->
     {reply, Reply :: term(), NewState :: term()} |
-    {reply, Reply :: term(), NewState :: term(), action()} |
+    {reply, Reply :: term(), NewState :: term(), Action :: action()} |
     {noreply, NewState :: term()} |
-    {noreply, NewState :: term(), action()} |
+    {noreply, NewState :: term(), Action :: action()} |
     {stop, Reason :: term(), Reply :: term(), NewState :: term()} |
     {stop, Reason :: term(), NewState :: term()}.
 
@@ -402,7 +382,7 @@ see [`Module:handle_call/3`](`c:handle_call/3`).
 """.
 -callback handle_cast(Request :: term(), State :: term()) ->
     {noreply, NewState :: term()} |
-    {noreply, NewState :: term(), action()} |
+    {noreply, NewState :: term(), Action :: action()} |
     {stop, Reason :: term(), NewState :: term()}.
 
 -doc """
@@ -428,7 +408,7 @@ see [`Module:handle_call/3`](`c:handle_call/3`).
 """.
 -callback handle_info(Info :: timeout | term(), State :: term()) ->
     {noreply, NewState :: term()} |
-    {noreply, NewState :: term(), action()} |
+    {noreply, NewState :: term(), Action :: action()} |
     {stop, Reason :: term(), NewState :: term()}.
 
 -doc """
@@ -456,7 +436,7 @@ see [`Module:handle_call/3`](`c:handle_call/3`).
 -doc(#{since => <<"OTP 21.0">>}).
 -callback handle_continue(Info :: term(), State :: term()) ->
     {noreply, NewState :: term()} |
-    {noreply, NewState :: term(), action()} |
+    {noreply, NewState :: term(), Action :: action()} |
     {stop, Reason :: term(), NewState :: term()}.
 
 -doc """
@@ -692,7 +672,68 @@ See [`erlang:start_timer/4`](`erlang:start_timer/4`) for details.
 """.
 -type timeout_option() :: {abs, Abs :: boolean()}.
 
--type action() :: Timeout :: timeout() |
+-doc """
+Callback and server loop action.
+
+Returned by the callbacks [`Module:init/1`](`c:init/1`),
+[`Module:handle_call/3`](`c:handle_call/3`),
+[`Module:handle_cast/2`](`c:handle_cast/2`),
+[`Module:handle_info/2`](`c:handle_info/2`),
+and [`Module:handle_continue/2`](`c:handle_continue/2`).
+It is also the last argument to [`enter_loop/4,5`](`enter_loop/4`).
+
+`t:action/0` is one of:
+
+- **`Time :: `[`timeout()`](`t:timeout/0`)** -
+  If the action is an integer `Time`, a time-out occurs
+  unless a request or a message is received within that many milliseconds.
+  A time-out is represented by the atom `timeout` as the `Info` argument
+  to be handled by the [`Module:handle_info/2`](`c:handle_info/2`)
+  callback function.  The action `infinity` can be used to wait indefinitely,
+  which is the default when there is no `t:action/0` specified.
+
+  For `Time = 0`, if there is a request or message waiting to be received,
+  it interrupts (cancels) the time-out.
+
+  > #### Note {: .info }
+  > A system message restarts the time-out, which is a known
+  > and unfortunate flaw in its implementation.  This also applies to
+  > stray (cancelled) timer messages from the
+  > `{timeout|hibernate, ...}` time-outs described below,
+  > so it is recommended to not use them
+  > in combination with this legacy time-out type.
+
+- **`{timeout, Time, Message}`\
+  `{timeout, Time, Message, Options}`** - Like `Time` above,
+  but the delivered `Info` argument is specified by `Message`,
+  and the time-out is not affected by system messages.
+
+  `Options` can be used to trigger the time-out at an absolute point in time
+  instead.  See `t:timeout_option/0` and `erlang:start_timer/4` for details.
+
+  A relative time-out with `Time = 0` is immediately delivered,
+  before any request or message is received, including system messages.
+
+  A time-out with `Time = infinity` will never be delivered
+  so the action is ignored; no time-out is started.
+
+- **`{hibernate, Time, Message}`\
+  `{hibernate, Time, Message, Options}`** - A combination of
+  the action `hibernate` below, and  `{timeout, Time, Message}`
+  or `{timeout, Time, Message, Options}` above.
+
+  The process goes into hibernation while waiting for the next
+  request or message to arrive, or for the time-out to expire.
+
+- **`hibernate`** - The process goes into hibernation
+  (by calling `erlang:hibernate/0`), waiting for the next
+  request or message to arrive
+
+- **`{continue, Continue}`** - The process will immediately execute the
+  [`Module:handle_continue/2`](`c:handle_continue/2`) callback function,
+  with `Continue` as the first argument.
+""".
+-type action() :: (Time :: timeout()) |
                   'hibernate' |
                   {'timeout', Time :: timeout(), Message :: term()} |
                   {'timeout', Time :: timeout(), Message :: term(), Options :: timeout_option() | [timeout_option()]} |
@@ -2080,8 +2121,8 @@ With argument `ServerName` equivalent to
 [`enter_loop(Module, Options,
   State, ServerName, infinity)`](`enter_loop/5`).
 
-With argument `How` equivalent to
-[`enter_loop(Module, Options, State, self(), How)`](`enter_loop/5`).
+With argument `Action` equivalent to
+[`enter_loop(Module, Options, State, self(), Action)`](`enter_loop/5`).
 """.
 -spec enter_loop(
         Module     :: module(),
@@ -2132,9 +2173,9 @@ without a `ServerName` argument.  However, if `ServerName`
 is specified (and not as `self/0`), the process must have been registered
 accordingly _before_ this function is called.
 
-`State`, `Timeout`, `Hibernate` and `Cont` have the same meanings
-as in the return value of [`Module:init/1`](`c:init/1`),
-which is _not_ called when `enter_loop/3,4,5` is used.  Note that
+`State` has the same meanings as in the return value of
+[`Module:init/1`](`c:init/1`), which is _not_ called when
+[`enter_loop/3,4,5`](`enter_loop/3`) is used.  Note that
 to adhere to the [gen_server Behaviour](`e:system:gen_server_concepts.md`)
 such a callback function needs to be defined, and it might as well
 be the one used when starting the `gen_server` process
@@ -2144,6 +2185,8 @@ in for example error cases, cannot call `enter_loop/3,4,5`,
 it should return a value that follows the type specification
 for [`Module:init/1`](`c:init/1`) such as `ignore`,
 although that value will be lost when returning to the spawning function.
+
+`Action` is described by the `t:action/0` type.
 
 This function fails if the calling process was not started
 by a `proc_lib` start function, or if it is not registered
