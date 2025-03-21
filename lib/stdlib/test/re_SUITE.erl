@@ -32,7 +32,9 @@
 	 opt_no_start_optimize/1,opt_never_utf/1,opt_ucp/1,
 	 match_limit/1,sub_binaries/1,copt/1,global_unicode_validation/1,
          yield_on_subject_validation/1, bad_utf8_subject/1,
-         error_info/1, subject_is_sub_binary/1, pattern_is_sub_binary/1]).
+         error_info/1, subject_is_sub_binary/1, pattern_is_sub_binary/1,
+
+         last_test/1]).
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/file.hrl").
@@ -53,7 +55,9 @@ all() ->
      inspect, opt_no_start_optimize,opt_never_utf,opt_ucp,
      match_limit, sub_binaries, re_version, global_unicode_validation,
      yield_on_subject_validation, bad_utf8_subject,
-     error_info, subject_is_sub_binary, pattern_is_sub_binary].
+     error_info, subject_is_sub_binary, pattern_is_sub_binary,
+
+     last_test].
 
 groups() -> 
     [].
@@ -1156,3 +1160,39 @@ subject_is_sub_binary(Config) when is_list(Config) ->
         %% *** argument 1: not an iodata term
         ok
     end.
+
+last_test(Config) when is_list(Config) ->
+    erts_debug:set_internal_state(available_internal_state, true),
+    Res = case erts_debug:get_internal_state(re_yield_coverage) of
+              undefined ->
+                  case erlang:system_info(build_type) of
+                      Type when Type =/= debug ->
+                          {skip, {"No yield coverage in",Type}}
+                  end;
+              Coverage ->
+                  io:format("re_yield_coverage = ~p\n", [Coverage]),
+                  ok = check_yield_coverage(Coverage, ok)
+          end,
+    erts_debug:set_internal_state(available_internal_state, false),
+    Res.
+
+check_yield_coverage([], Err) ->
+    Err;
+check_yield_coverage([Tuple | Tail], Err0) ->
+    Err1 =
+        case Tuple of
+            {Line, 0, 0} ->
+                io:format("COST_CHK at line ~p never visited", [Line]),
+                error;
+            {Line, Visits, 0} ->
+                io:format("COST_CHK at line ~p visited ~p times but never yielded",
+                          [Line, Visits]),
+                error;
+            {Line, 0, Yields} ->
+                io:format("COST_CHK at line ~p never visited but has yielded ~p times ????",
+                          [Line, Yields]),
+                error;
+            {_,_,_} ->
+                Err0
+        end,
+    check_yield_coverage(Tail, Err1).
