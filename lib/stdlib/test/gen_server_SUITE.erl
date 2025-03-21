@@ -376,13 +376,13 @@ start_event_timeout(Config) when is_list(Config) ->
 	    sys:get_status(Pid),
 	    case element(1, Arg) of
 		timeout ->
-		    is_not_in_erlang_hibernate(Pid);
+		    is_not_hibernated(Pid);
 		continue_timeout ->
-		    is_not_in_erlang_hibernate(Pid);
+		    is_not_hibernated(Pid);
 		hibernate ->
-		    is_in_erlang_hibernate(Pid);
+		    is_hibernated(Pid);
 		continue_hibernate ->
-		    is_in_erlang_hibernate(Pid)
+		    is_hibernated(Pid)
 	    end,
 	    case Interrupt of
 		true ->
@@ -396,7 +396,7 @@ start_event_timeout(Config) when is_list(Config) ->
 	    after 1000 ->
 		Interrupt orelse ct:fail(event_timeout_message_not_received)
 	    end,
-	    is_not_in_erlang_hibernate(Pid),
+	    is_not_hibernated(Pid),
 	    ok = gen_server:call(Pid, stop),
 	    receive
 		{'EXIT', Pid, _} ->
@@ -444,7 +444,7 @@ start_event_timeout_zero(Config) when is_list(Config) ->
 	    after 1000 ->
 		ct:fail(after_event_timeout_zero_message_not_received)
 	    end,
-	    is_not_in_erlang_hibernate(Pid),
+	    is_not_hibernated(Pid),
 	    ok = gen_server:call(Pid, stop),
 	    receive
 		{'EXIT', Pid, _} ->
@@ -1365,13 +1365,13 @@ handle_event_timeout(Config) when is_list(Config) ->
 	    sys:get_status(Pid),
 	    case element(1, Arg) of
 		timeout ->
-		    is_not_in_erlang_hibernate(Pid);
+		    is_not_hibernated(Pid);
 		continue_timeout ->
-		    is_not_in_erlang_hibernate(Pid);
+		    is_not_hibernated(Pid);
 		hibernate ->
-		    is_in_erlang_hibernate(Pid);
+		    is_hibernated(Pid);
 		continue_hibernate ->
-		    is_in_erlang_hibernate(Pid)
+		    is_hibernated(Pid)
 	    end,
 	    case Interrupt of
 		true ->
@@ -1385,7 +1385,7 @@ handle_event_timeout(Config) when is_list(Config) ->
 	    after T bsl 1 ->
 		Interrupt orelse ct:fail(event_timeout_message_not_received)
 	    end,
-	    is_not_in_erlang_hibernate(Pid)
+	    is_not_hibernated(Pid)
 	end,
 	[{Cmd, Arg, Interrupt} || Cmd <- [fun gen_server:call/2,
 					  fun gen_server:cast/2,
@@ -1425,13 +1425,13 @@ handle_event_timeout_infinity(Config) when is_list(Config) ->
               sys:get_status(Pid),
               case element(1, Arg) of
                   timeout ->
-                      is_not_in_erlang_hibernate(Pid);
+                      is_not_hibernated(Pid);
                   continue_timeout ->
-                      is_not_in_erlang_hibernate(Pid);
+                      is_not_hibernated(Pid);
                   hibernate ->
-                      is_in_erlang_hibernate(Pid);
+                      is_hibernated(Pid);
                   continue_hibernate ->
-                      is_in_erlang_hibernate(Pid)
+                      is_hibernated(Pid)
               end,
               pong = gen_server:call(Pid, ping),
               receive
@@ -1440,7 +1440,7 @@ handle_event_timeout_infinity(Config) when is_list(Config) ->
               after T bsl 1 ->
                       ok
               end,
-              is_not_in_erlang_hibernate(Pid)
+              is_not_hibernated(Pid)
       end,
       [{Cmd, Arg} ||
           Cmd <- [fun gen_server:call/2,
@@ -1547,7 +1547,7 @@ hibernate(Config) when is_list(Config) ->
     {ok, Pid0} =
 	gen_server:start_link({local, my_test_name_hibernate0},
 			      gen_server_SUITE, hibernate, []),
-    is_in_erlang_hibernate(Pid0),
+    is_hibernated(Pid0),
     ok = gen_server:call(my_test_name_hibernate0, stop),
     receive 
 	{'EXIT', Pid0, stopped} ->
@@ -1562,7 +1562,7 @@ hibernate(Config) when is_list(Config) ->
 
     ok = gen_server:call(my_test_name_hibernate, started_p),
     true = gen_server:call(my_test_name_hibernate, hibernate),
-    is_in_erlang_hibernate(Pid),
+    is_hibernated(Pid),
     Parent = self(),
     Fun = fun() ->
 		  receive go -> ok end,
@@ -1577,13 +1577,13 @@ hibernate(Config) when is_list(Config) ->
     gen_server:cast(my_test_name_hibernate, hibernate_later),
     true = ({current_function,{gen_server, loop_hibernate, 4}} =/=
 		erlang:process_info(Pid, current_function)),
-    is_in_erlang_hibernate(Pid),
+    is_hibernated(Pid),
     ok = gen_server:call(my_test_name_hibernate, started_p),
     true = ({current_function,{gen_server, loop_hibernate, 4}} =/=
 		erlang:process_info(Pid, current_function)),
 
     gen_server:cast(my_test_name_hibernate, hibernate_now),
-    is_in_erlang_hibernate(Pid),
+    is_hibernated(Pid),
     ok = gen_server:call(my_test_name_hibernate, started_p),
     true = ({current_function,{gen_server, loop_hibernate, 4}} =/=
 		erlang:process_info(Pid, current_function)),
@@ -1591,13 +1591,13 @@ hibernate(Config) when is_list(Config) ->
     Pid ! hibernate_later,
     true = ({current_function,{gen_server, loop_hibernate, 4}} =/=
 		erlang:process_info(Pid, current_function)),
-    is_in_erlang_hibernate(Pid),
+    is_hibernated(Pid),
     ok = gen_server:call(my_test_name_hibernate, started_p),
     true = ({current_function,{gen_server, loop_hibernate, 4}} =/=
 		erlang:process_info(Pid, current_function)),
 
     Pid ! hibernate_now,
-    is_in_erlang_hibernate(Pid),
+    is_hibernated(Pid),
     ok = gen_server:call(my_test_name_hibernate, started_p),
     true = ({current_function,{gen_server, loop_hibernate, 4}} =/=
 		erlang:process_info(Pid, current_function)),
@@ -1607,11 +1607,11 @@ hibernate(Config) when is_list(Config) ->
     end,
 
     true = gen_server:call(my_test_name_hibernate, hibernate),
-    is_in_erlang_hibernate(Pid),
+    is_hibernated(Pid),
     sys:suspend(my_test_name_hibernate),
-    is_in_erlang_hibernate(Pid),
+    is_hibernated(Pid),
     sys:resume(my_test_name_hibernate),
-    is_in_erlang_hibernate(Pid),
+    is_hibernated(Pid),
     ok = gen_server:call(my_test_name_hibernate, started_p),
     true = ({current_function,{gen_server, loop_hibernate, 4}} =/= erlang:process_info(Pid,current_function)),
 
@@ -1633,17 +1633,17 @@ auto_hibernate(Config) when is_list(Config) ->
         gen_server:start_link({local, my_test_name_auto_hibernate},
             gen_server_SUITE, {state,State}, [{hibernate_after, HibernateAfterTimeout}]),
     %% After init test
-    is_not_in_erlang_hibernate(Pid),
+    is_not_hibernated(Pid),
     timer:sleep(HibernateAfterTimeout),
-    is_in_erlang_hibernate(Pid),
+    is_hibernated(Pid),
     %% Get state test
     State = sys:get_state(my_test_name_auto_hibernate),
-    is_in_erlang_hibernate(Pid),
+    is_hibernated(Pid),
     %% Call test
     ok = gen_server:call(my_test_name_auto_hibernate, started_p),
-    is_not_in_erlang_hibernate(Pid),
+    is_not_hibernated(Pid),
     timer:sleep(HibernateAfterTimeout),
-    is_in_erlang_hibernate(Pid),
+    is_hibernated(Pid),
     %% Cast test
     ok = gen_server:cast(my_test_name_auto_hibernate, {self(),handle_cast}),
     receive
@@ -1652,9 +1652,9 @@ auto_hibernate(Config) when is_list(Config) ->
     after 1000 ->
         ct:fail(cast)
     end,
-    is_not_in_erlang_hibernate(Pid),
+    is_not_hibernated(Pid),
     timer:sleep(HibernateAfterTimeout),
-    is_in_erlang_hibernate(Pid),
+    is_hibernated(Pid),
     %% Info test
     Pid ! {self(),handle_info},
     receive
@@ -1663,9 +1663,9 @@ auto_hibernate(Config) when is_list(Config) ->
     after 1000 ->
         ct:fail(info)
     end,
-    is_not_in_erlang_hibernate(Pid),
+    is_not_hibernated(Pid),
     timer:sleep(HibernateAfterTimeout),
-    is_in_erlang_hibernate(Pid),
+    is_hibernated(Pid),
 
     ok = gen_server:call(my_test_name_auto_hibernate, stop),
     receive
@@ -1677,14 +1677,14 @@ auto_hibernate(Config) when is_list(Config) ->
     process_flag(trap_exit, OldFl),
     ok.
 
-is_in_erlang_hibernate(Pid) ->
+is_hibernated(Pid) ->
     receive after 1 -> ok end,
-    is_in_erlang_hibernate_1(200, Pid).
+    is_hibernated_1(200, Pid).
 
-is_in_erlang_hibernate_1(0, Pid) ->
+is_hibernated_1(0, Pid) ->
     io:format("~p\n", [erlang:process_info(Pid, current_function)]),
-    ct:fail(not_in_erlang_hibernate_3);
-is_in_erlang_hibernate_1(N, Pid) ->
+    ct:fail(is_not_hibernated);
+is_hibernated_1(N, Pid) ->
     {current_function,MFA} = erlang:process_info(Pid, current_function),
     case MFA of
 	{gen_server, loop_hibernate, 4} ->
@@ -1693,25 +1693,25 @@ is_in_erlang_hibernate_1(N, Pid) ->
 	    ok;
 	_ ->
 	    receive after 10 -> ok end,
-	    is_in_erlang_hibernate_1(N-1, Pid)
+	    is_hibernated_1(N-1, Pid)
     end.
 
-is_not_in_erlang_hibernate(Pid) ->
+is_not_hibernated(Pid) ->
     receive after 1 -> ok end,
-    is_not_in_erlang_hibernate_1(200, Pid).
+    is_not_hibernated_1(200, Pid).
 
-is_not_in_erlang_hibernate_1(0, Pid) ->
+is_not_hibernated_1(0, Pid) ->
     io:format("~p\n", [erlang:process_info(Pid, current_function)]),
-    ct:fail(not_in_erlang_hibernate_3);
-is_not_in_erlang_hibernate_1(N, Pid) ->
+    ct:fail(is_hibernated);
+is_not_hibernated_1(N, Pid) ->
     {current_function,MFA} = erlang:process_info(Pid, current_function),
     case MFA of
         {gen_server, loop_hibernate, 4} ->
             receive after 10 -> ok end,
-            is_not_in_erlang_hibernate_1(N-1, Pid);
+            is_not_hibernated_1(N-1, Pid);
         {erlang,hibernate,3} ->
             receive after 10 -> ok end,
-            is_not_in_erlang_hibernate_1(N-1, Pid);
+            is_not_hibernated_1(N-1, Pid);
         _ ->
             ok
     end.
