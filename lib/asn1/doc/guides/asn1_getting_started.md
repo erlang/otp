@@ -233,6 +233,32 @@ module and the NIF library in `asn1/priv_dir` are needed at runtime.
 By calling function `info/0` in a generated module, you get information about
 which compiler options were used.
 
+### Special Decode Functionality for JSON Encoding Rules (JER)
+
+When using the JSON encoding rules, it is possible to call the
+`decode/2` function in the following way with data that has already
+been decoded by `json:decode/1`:
+
+```erlang
+SomeModule:decode(Type, {json_decoded, Decoded}).
+```
+
+Example:
+
+```erlang
+1> asn1ct:compile("People", [jer]).
+ok
+2> Rockstar = {'Person',"Vince Eclipse",roving,50}.
+{'Person',"Vince Eclipse",roving,50}
+3> {ok,Bin} = 'People':encode('Person', Rockstar).
+{ok,<<"{\"name\":\"Vince Eclipse\",\"location\":2,\"age\":50}">>}
+4> 'People':decode('Person', Bin).
+{ok,{'Person',"Vince Eclipse",roving,50}}
+5> 'People':decode('Person', {json_decoded,json:decode(Bin)}).
+{ok,{'Person',"Vince Eclipse",roving,50}}
+
+```
+
 ### Errors
 
 Errors detected at compile-time are displayed on the screen together with line
