@@ -98,3 +98,15 @@ the last line for the previous release note example:
 Note that if a change requires a release note, it should generally
 have a corresponding pull request. Exceptions are fixes for
 vulnerabilities, which are often released without a pull request.
+
+### Bug fixes
+
+When the release note describes a fix to a bug, consider include the following:
+
+* **Symptom** -- Describe the undesired effect of the bug. Like for example
+  an incorrect function return value, an unexpectedly raised exception
+  or a beam process crash.
+* **Trigger** -- The conditions that are needed for the bug to manifest.
+  Like specific function arguments or actions that need to happen in a specific
+  order or at the same time.
+* **Version** -- The oldest OTP version where the bug exists.
