@@ -2256,7 +2256,7 @@ loop(ServerData, State, {continue, Continue} = Msg, Debug) ->
 loop(ServerData, State, LoopAction, Debug) ->
     case LoopAction of
         {timeout_zero, TimeoutMsg} ->
-            decode_msg(ServerData, State, TimeoutMsg, Debug, [], false);
+            decode_msg(ServerData, State, infinity, Debug, [], TimeoutMsg);
         {timeout, Timer, HibInf} ->
             loop(ServerData, State, HibInf, Debug, Timer);
         HibT ->
@@ -2267,45 +2267,38 @@ loop(ServerData, State, hibernate, Debug, Timer) ->
     receive
 	Msg ->
 	    erlang:garbage_collect(),
-	    decode_msg(ServerData, State, Msg, Debug, Timer, true)
+	    decode_msg(ServerData, State, hibernate, Debug, Timer, Msg)
     after 0 ->
-	loop_hibernate(ServerData, State, Debug, Timer)
+	loop_hibernate(ServerData, State, Timer, Debug)
     end;
 %%
-loop(#server_data{hibernate_after = HibernateAfterTimeout} = ServerData, State, infinity, Debug, Timer) ->
+loop(ServerData, State, infinity, Debug, Timer) ->
     receive
 	Msg ->
-	    decode_msg(ServerData, State, Msg, Debug, Timer, false)
-    after HibernateAfterTimeout ->
-	loop_hibernate(ServerData, State, Debug, Timer)
+	    decode_msg(ServerData, State, infinity, Debug, Timer, Msg)
+    after ServerData#server_data.hibernate_after ->
+	loop_hibernate(ServerData, State, Timer, Debug)
     end;
 %%
 loop(ServerData, State, Time, Debug, Timer)
   when ?is_rel_timeout(Time) ->
-    Msg = receive
-	      Input ->
-		  Input
-	  after Time ->
-	      timeout
-	  end,
-    decode_msg(ServerData, State, Msg, Debug, Timer, false).
-
-loop_hibernate(ServerData, State, Debug, Timer) ->
-    erlang:hibernate(),
-    loop_wakeup(ServerData, State, Debug, Timer).
-
-loop_wakeup(ServerData, State, Debug, Timer) ->
     receive
-	Msg ->
-	    decode_msg(update_callback_cache(ServerData), State, Msg, Debug, Timer, true)
+        Msg ->
+            decode_msg(ServerData, State, Time, Debug, Timer, Msg)
+    after Time  ->
+            decode_msg(ServerData, State, infinity, Debug, Timer, timeout)
     end.
 
-loop_continue(ServerData, State, Hib, Debug, Timer) ->
-    Action = case Hib of
-		 true -> hibernate;
-		 false -> infinity
-	     end,
-    loop(ServerData, State, Action, Debug, Timer).
+loop_hibernate(ServerData, State, Timer, Debug) ->
+    erlang:hibernate(),
+    loop_wakeup(ServerData, State, Timer, Debug).
+
+loop_wakeup(ServerData, State, Timer, Debug) ->
+    receive
+	Msg ->
+	    decode_msg(
+              update_callback_cache(ServerData), State, hibernate, Debug, Timer, Msg)
+    end.
 
 cancel_timer([]) ->
     ok;
@@ -2332,17 +2325,17 @@ update_callback_cache(#server_data{module = Mod} = ServerData) ->
       handle_info     = fun Mod:handle_info/2,
       handle_continue = fun Mod:handle_continue/2}.
 
-decode_msg(#server_data{parent = Parent, tag = Tag} = ServerData, State, Msg, Debug, Timer, Hib) ->
+decode_msg(#server_data{parent = Parent, tag = Tag} = ServerData, State, HibT, Debug, Timer, Msg) ->
     case Msg of
         {system, From, Req} ->
             sys:handle_system_msg(Req, From, Parent, ?MODULE, Debug,
-                                  [ServerData, State, Timer, Hib], Hib);
+                                  [ServerData, State, HibT, Timer], HibT =:= hibernate);
         {'EXIT', Parent, Reason} ->
             terminate(ServerData, State, Msg, undefined, Reason, ?STACKTRACE(), Debug);
 	{timeout, TRef, Tag} when TRef =:= hd(Timer) ->
             decode_msg(ServerData, State, tl(Timer), Debug);
 	{timeout, _Stale, Tag} ->
-	    loop_continue(ServerData, State, Hib, Debug, Timer);
+	    loop(ServerData, State, HibT, Debug, Timer);
         _ ->
 	    cancel_timer(Timer),
             decode_msg(ServerData, State, Msg, Debug)
@@ -2613,8 +2606,9 @@ listify(Opt) ->
 %% Callback functions for system messages handling.
 %%-----------------------------------------------------------------
 -doc false.
-system_continue(Parent, Debug, [#server_data{parent=Parent} = ServerData, State, Timer, Hib]) ->
-    loop_continue(update_callback_cache(ServerData), State, Hib, Debug, Timer).
+system_continue(
+  Parent, Debug, [#server_data{parent=Parent} = ServerData, State, HibT, Timer]) ->
+    loop(update_callback_cache(ServerData), State, HibT, Debug, Timer).
 
 -doc false.
 -spec system_terminate(_, _, _, [_]) -> no_return().

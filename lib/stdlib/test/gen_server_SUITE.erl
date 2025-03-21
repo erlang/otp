@@ -33,6 +33,7 @@
          send_request_check_reqid_collection/1,
          cast/1, cast_fast/1, continue/1, info/1, abcast/1,
 	 handle_event_timeout/1, handle_event_timeout_zero/1,
+	 handle_event_timeout_plain/1,
          multicall/1, multicall_down/1, multicall_remote/1,
          multicall_remote_old1/1, multicall_remote_old2/1,
          multicall_recv_opt_success/1,
@@ -93,6 +94,7 @@ all() ->
      send_request_receive_reqid_collection, send_request_wait_reqid_collection,
      send_request_check_reqid_collection, cast, cast_fast, info, abcast,
      continue, handle_event_timeout, handle_event_timeout_zero,
+     handle_event_timeout_plain,
      {group, multi_call},
      call_remote1, call_remote2, calling_self,
      call_remote3, call_remote_n1, call_remote_n2,
@@ -1434,6 +1436,40 @@ handle_event_timeout_zero(Config) when is_list(Config) ->
 			       {continue_timeout_zero, self()},
 			       {hibernate_zero, self()},
 			       {continue_hibernate_zero, self()}]]),
+    ok = gen_server:call(Pid, stop),
+    busy_wait_for_process(Pid, 600),
+    {'EXIT', {noproc, _}} = (catch gen_server:call(Pid, started_p, 1)),
+
+    process_flag(trap_exit, OldFl),
+    ok.
+
+handle_event_timeout_plain(Config) when is_list(Config) ->
+    OldFl = process_flag(trap_exit, true),
+
+    {ok, Pid} =
+        gen_server:start(gen_server_SUITE, [], []),
+    pong = gen_server:call(Pid, ping),
+
+    %% a `system` message should not cancel a plain timeout
+    ok = gen_server:cast(Pid, {self(), delayed_cast, 500}),
+    sys:get_status(Pid),
+    receive
+	{Pid, delayed} ->
+	    ok
+    after 1000 ->
+	ct:fail(delayed_cast_message_not_received)
+    end,
+
+    %% a request (or other message) should cancel a plain timeout
+    ok = gen_server:cast(Pid, {self(), delayed_cast, 500}),
+    pong = gen_server:call(Pid, ping),
+    receive
+	{Pid, delayed} ->
+	    ct:fail(delayed_cast_message_received)
+    after 1000 ->
+	ok
+    end,
+
     ok = gen_server:call(Pid, stop),
     busy_wait_for_process(Pid, 600),
     {'EXIT', {noproc, _}} = (catch gen_server:call(Pid, started_p, 1)),
