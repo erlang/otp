@@ -198,7 +198,7 @@ All TCP socket options are accepted except `active`, `binary`, `deliver`,
     Options ::
         [{port, integer()} |
 	 {log, function()} |
-	 {timeout, timer:time()} |
+	 {timeout, timeout()} |
 	 {ssl, boolean()} |
 	 {sslopts, [ssl:tls_client_option()]} |
 	 {tcpopts, [inet:inet_backend() | gen_tcp:connect_option()]}],

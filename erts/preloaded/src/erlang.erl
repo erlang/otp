@@ -242,7 +242,7 @@ codepoints.
 A timeout value that can be passed to a
 [receive expression](`e:system:expressions.md#receive`).
 """.
--type timeout() :: 'infinity' | timer:time().
+-type timeout() :: 'infinity' | non_neg_integer().
 -doc "An Erlang [tuple](`e:system:data_types.md#tuple`).".
 -type tuple() :: tuple().
 -export_type([any/0, arity/0, atom/0, binary/0, bitstring/0, bool/0, boolean/0, byte/0,

@@ -892,7 +892,7 @@ open_port(Arg1, ExtraOpts) ->
 %%% Sleeping
 
 %%% Milli sec
--spec sleep_millisec(timer:time()) -> ok.
+-spec sleep_millisec(timeout()) -> ok.
 sleep_millisec(Nms) -> receive after Nms -> ok end.
 
 %%% Micro sec

@@ -1447,11 +1447,10 @@ the new timetrap.
 """.
 -doc(#{since => <<"OTP R14B">>}).
 -spec timetrap(Time) -> infinity | pid()
-      when Time :: {hours, Hours} | {minutes, Mins} | {seconds, Secs} | Millisecs | infinity | Func,
+      when Time :: {hours, Hours} | {minutes, Mins} | {seconds, Secs} | timeout() | Func,
            Hours :: integer(),
            Mins :: integer(),
            Secs :: integer(),
-           Millisecs :: timer:time(),
            Func :: {M, F, A} | function(),
            M :: atom(),
            F :: atom(),
@@ -1469,7 +1468,7 @@ Note the `Time` is not the scaled result.
 """.
 -doc(#{since => <<"OTP R15B">>}).
 -spec get_timetrap_info() -> {Time, {Scaling,ScaleVal}}
-      when Time :: integer() | infinity,
+      when Time :: timeout(),
            Scaling :: boolean(),
            ScaleVal :: integer().
 get_timetrap_info() ->
@@ -1484,11 +1483,11 @@ up the time automatically if `scale_timetraps` is set to `true` (default is
 """.
 -doc(#{since => <<"OTP R14B">>}).
 -spec sleep(Time) -> ok
-      when Time :: {hours, Hours} | {minutes, Mins} | {seconds, Secs} | Millisecs | infinity,
+      when Time :: {hours, Hours} | {minutes, Mins} | {seconds, Secs} | Millisecs,
            Hours :: integer(),
            Mins :: integer(),
            Secs :: integer(),
-           Millisecs :: timer:time() | float().
+           Millisecs :: timeout() | float().
 sleep({hours,Hs}) ->
     sleep(trunc(Hs * 1000 * 60 * 60));
 sleep({minutes,Ms}) ->

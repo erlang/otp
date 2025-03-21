@@ -3055,7 +3055,7 @@ The OS time-out may be very long.
 [](){: #connect-timeout }
 
 If the time-out argument (argument 3) is a time-out value
-(`t:timer:time/0`); return `{error, timeout}`
+(`t:non_neg_integer/0`); return `{error, timeout}`
 if the connection hasn't been established within `Timeout` milliseconds.
 
 > #### Note {: .info }
@@ -3103,7 +3103,7 @@ about [connection time-out](#connect-timeout).
                   {add_socket,             posix()} |
                   {update_connect_context, posix()};
 
-             (Socket, SockAddr, Timeout :: timer:time()) ->
+             (Socket, SockAddr, Timeout :: non_neg_integer()) ->
           'ok' |
           {'error', Reason} when
       Socket   :: socket(),
@@ -3292,7 +3292,7 @@ at the start of this module reference manual page.
                       {add_socket,            posix()} |
                       {update_accept_context, posix()};
 
-            (ListenSocket, Timeout :: timer:time()) ->
+            (ListenSocket, Timeout :: non_neg_integer()) ->
           {'ok', Socket} |
           {'error', Reason} when
       ListenSocket :: socket(),
@@ -3494,7 +3494,7 @@ or return an error.
 [](){: #send-timeout }
 
 If the `Timeout` argument is a time-out value
-(`t:timer:time/0`); return `{error, timeout}`
+(`t:non_neg_integer/0`); return `{error, timeout}`
 if no data has been sent within `Timeout` millisecond,
 or `{error, {timeout, RestData}}` if some data was sent
 (accepted by the OS for delivery).  `RestData` is the tail of the data
@@ -3537,7 +3537,7 @@ and encode message flags in every call but the first.
       Reason     :: posix() | 'closed' | invalid() |
                     netname_deleted | too_many_cmds | eei();
 
-          (Socket, Data, Flags | Cont, Timeout :: timer:time()) ->
+          (Socket, Data, Flags | Cont, Timeout :: non_neg_integer()) ->
           'ok' |
           {'ok', RestData} |
           {'error', Reason | 'timeout'} |
@@ -3853,7 +3853,7 @@ or return an error.
 [](){: #sendto-timeout }
 
 If the `Timeout` argument is a time-out value
-(`t:timer:time/0`); return `{error, timeout}`
+(`t:non_neg_integer/0`); return `{error, timeout}`
 if no data has been sent within `Timeout` millisecond,
 or `{error, {timeout, RestData}}` if some data was sent
 (accepted by the OS for delivery).  `RestData` is the tail of the data
@@ -3890,7 +3890,7 @@ to complete the operation.
       RestData   :: binary(),
       Reason     :: posix() | 'closed' | invalid();
 
-            (Socket, Data, Dest, Flags, Timeout :: timer:time()) ->
+            (Socket, Data, Dest, Flags, Timeout :: non_neg_integer()) ->
                   'ok' |
                   {'ok', RestData} |
                   {'error', Reason | 'timeout'} |
@@ -4081,7 +4081,7 @@ or return an error.
 [](){: #sendmsg-timeout }
 
 If the `Timeout` argument is a time-out value
-(`t:timer:time/0`); return `{error, timeout}`
+(`t:non_neg_integer/0`); return `{error, timeout}`
 if no data has been sent within `Timeout` millisecond,
 or `{error, {timeout, RestData}}` if some data was sent
 (accepted by the OS for delivery).  `RestData` is the tail of the data
@@ -4127,7 +4127,7 @@ where only the key `iov` is used, or an `t:erlang:iovec/0`.
       RestData   :: erlang:iovec(),
       Reason     :: posix() | 'closed' | invalid();
 
-             (Socket, Msg, Flags, Timeout :: timer:time()) ->
+             (Socket, Msg, Flags, Timeout :: non_neg_integer()) ->
           'ok' |
           {'ok', RestData} |
           {'error', Reason | 'timeout'} |
@@ -4169,7 +4169,7 @@ where only the key `iov` is used, or an `t:erlang:iovec/0`.
       RestData   :: erlang:iovec(),
       Reason     :: posix() | 'closed' | invalid();
 
-             (Socket, Data, Cont, Timeout :: timer:time()) ->
+             (Socket, Data, Cont, Timeout :: non_neg_integer()) ->
           'ok' |
           {'ok', RestData} |
           {'error', Reason | 'timeout'} |
@@ -4330,7 +4330,7 @@ or return an error.
 [](){: #sendv-timeout }
 
 If the `Timeout` argument is a time-out value
-(`t:timer:time/0`); return `{error, timeout}`
+(`t:non_neg_integer/0`); return `{error, timeout}`
 if no data has been sent within `Timeout` millisecond,
 or `{error, {timeout, RestIOV}}` if some data was sent
 (accepted by the OS for delivery).  `RestIOV` is the tail of the data
@@ -4366,7 +4366,7 @@ With the argument [`Cont`](`t:select_info/0`), equivalent to
       RestIOV    :: erlang:iovec(),
       Reason     :: posix() | 'closed' | invalid();
 
-             (Socket, IOV, Timeout :: timer:time()) ->
+             (Socket, IOV, Timeout :: non_neg_integer()) ->
           'ok' |
           {'ok', RestIOV} |
           {'error', Reason} |
@@ -4458,7 +4458,7 @@ See `sendv/3` about the return values.
       RestIOV    :: erlang:iovec(),
       Reason     :: posix() | 'closed' | invalid();
 
-           (Socket, IOV, Cont, Timeout :: timer:time()) ->
+           (Socket, IOV, Cont, Timeout :: non_neg_integer()) ->
           'ok' |
           {'ok', RestIOV} |
           {'error', Reason} |
@@ -4576,7 +4576,7 @@ Equivalent to
       Socket       :: socket(),
       FileHandle   :: file:fd(),
       Continuation :: select_info(),
-      Timeout      :: timeout(),
+      Timeout      :: 'infinity' | non_neg_integer(),
       Handle       :: 'nowait' | select_handle().
 sendfile(Socket, FileHandle_Cont, Timeout_Handle) ->
     sendfile(Socket, FileHandle_Cont, 0, 0, Timeout_Handle).
@@ -4642,7 +4642,7 @@ or return an error.
 [](){: #sendfile-timeout }
 
 If the `Timeout` argument is a time-out value
-(`t:timer:time/0`); return `{error, timeout}`
+(`t:non_neg_integer/0`); return `{error, timeout}`
 if no data has been sent within `Timeout` millisecond,
 or `{error, {timeout, BytesSent}}` if some but not all data was sent
 (accepted by the OS for delivery).
@@ -4690,7 +4690,7 @@ need to be updated between continuation calls.
       Reason       :: posix() | 'closed' | invalid();
 
               (Socket, FileHandle | Continuation, Offset, Count,
-               Timeout :: timer:time()) ->
+               Timeout :: non_neg_integer()) ->
           {'ok', BytesSent} |
           {'error', Reason} |
           {'error', {Reason, BytesSent}}
@@ -4989,7 +4989,7 @@ or if the OS reports an error for the operation.
 [](){: #recv-timeout }
 
 If the `Timeout` argument is a time-out value
-(`t:timer:time/0`); return `{error, timeout}`
+(`t:non_neg_integer/0`); return `{error, timeout}`
 if no data has arrived after `Timeout` milliseconds,
 or `{error, {timeout, Data}}` if some but not enough data
 has been received on a socket of [type `stream`](`t:type/0`) with Length > 0.
@@ -5039,7 +5039,7 @@ a receive operation is completed.
       Data    :: binary(),
       Reason  :: posix() | 'closed' | invalid();
 
-          (Socket, Length, Flags, Timeout :: timer:time()) ->
+          (Socket, Length, Flags, Timeout :: non_neg_integer()) ->
           {'ok', Data} |
           {'error', Reason} |
           {'error', {Reason, Data}} when
@@ -5458,7 +5458,7 @@ to arrive, or for a socket error.
 [](){: #recvfrom-timeout }
 
 If the `Timeout` argument is a time-out value
-(`t:timer:time/0`); returns `{error, timeout}`
+(`t:non_neg_integer/0`); returns `{error, timeout}`
 if no message has arrived after `Timeout` milliseconds.
 
 `Timeout = 0` only polls the OS receive call and doesn't
@@ -5489,7 +5489,7 @@ at the start of this module reference manual page.
       Data    :: binary(),
       Reason  :: posix() | 'closed' | invalid();
 
-              (Socket, BufSz, Flags, Timeout :: timer:time()) ->
+              (Socket, BufSz, Flags, Timeout :: non_neg_integer()) ->
           {'ok', {Source, Data}} |
           {'error', Reason} when
       Socket  :: socket(),
@@ -5715,7 +5715,7 @@ to arrive, or for a socket error.
 [](){: #recvmsg-timeout }
 
 If the `Timeout` argument is a time-out value
-(`t:timer:time/0`); return `{error, timeout}`
+(`t:non_neg_integer/0`); return `{error, timeout}`
 if no message has arrived after `Timeout` milliseconds.
 
 `Timeout = 0` only polls the OS receive call and doesn't
@@ -5746,7 +5746,7 @@ at the start of this module reference manual page.
       Msg     :: msg_recv(),
       Reason  :: posix() | 'closed' | invalid();
 
-             (Socket, BufSz, CtrlSz, Flags, Timeout :: timer:time()) ->
+             (Socket, BufSz, CtrlSz, Flags, Timeout :: non_neg_integer()) ->
           {'ok', Msg} |
           {'error', Reason} when
       Socket  :: socket(),

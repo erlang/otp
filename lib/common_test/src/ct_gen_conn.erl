@@ -218,7 +218,7 @@ end_log() ->
 -spec do_within_time(Fun, Tmo)
    -> Result
  when Fun :: fun(),
-      Tmo :: timer:time(),
+      Tmo :: timeout(),
       Result :: term().
 
 %% Return the result of evaluating Fun, or interrupt after Tmo

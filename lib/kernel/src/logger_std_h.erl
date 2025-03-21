@@ -107,7 +107,7 @@ the key `config`, and can contain the following parameters:
 
   Defaults to `false`.
 
-- **`file_check = ` `t:timer:time/0`**{: #file_check } - When `logger_std_h`
+- **`file_check = ` `t:non_neg_integer/0`**{: #file_check } - When `logger_std_h`
   logs to a file, it reads the file information of the log file prior to each
   write operation. This is to make sure the file still exists and has the same
   inode as when it was opened. This implies some performance loss, but ensures
