@@ -223,13 +223,14 @@ get_new_results(#{ ~"type" :=  ~"file", ~"path" := Path,
                    ~"license_detections" := Licenses,
                    ~"copyrights" := Copyrights
                  }, Mappings) ->
-    lists:flatmap(fun(#{ ~"license_expression_spdx" := SPDX, ~"matches" := Matches }) ->
+    lists:flatmap(fun(#{ ~"matches" := Matches }) ->
                            [#{ ~"license" => replace_mappings(SPDX, Mappings),
                                ~"location" => #{ ~"path" => prefix(Path,?tmp_folder),
                                                  ~"start_line" => Start,
                                                  ~"end_line" => End},
                                ~"score" => Score }
-                            || #{ ~"score" := Score,
+                            || #{ ~"license_expression_spdx" := SPDX,
+                                  ~"score" := Score,
                                   ~"start_line" := Start,
                                   ~"end_line" := End } <- Matches]
                    end, Licenses) ++

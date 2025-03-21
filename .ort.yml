@@ -22,12 +22,18 @@ excludes:
 # Curations are used to fix wrongly detected licenses
 curations:
     license_findings:
+      - path: "**/vendor.info"
+        reason: "DATA_OF"
+        comment: >-
+          License of vendor library confuses the scanner
+        concluded_license: "Apache-2.0"
+
       - path: "lib/wx/src/gen/**/wx*.erl"
         reason: "INCORRECT"
         comment: >-
           Documentation was taken from wxWidgets, source code is Apache-2.0
         detected_license: "Apache-2.0"
-        concluded_license: "Apache-2.0 AND LicenseRef-wxwindows-free-doc"
+        concluded_license: "Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3"
 
       - path: "lib/edoc/doc/guides/chapter.md"
         reason: "INCORRECT"
@@ -364,7 +370,7 @@ curations:
         reason: "DOCUMENTATION_OF"
         comment: >-
           The scanner incorrectly categorises this license
-        concluded_license: "Apache-2.0 OR LGPL-2.1-or-later"
+        concluded_license: "Apache-2.0"
 
       - path: "lib/edoc/include/edoc_doclet.hrl"
         reason: "INCORRECT"
@@ -865,6 +871,18 @@ curations:
         reason: "DOCUMENTATION_OF"
         comment: >-
           The scanner mixes up the copyright and license notice
+        concluded_license: "Apache-2.0"
+
+      - path: ".github/scripts/otp-compliance.es"
+        reason: "CODE"
+        comment: >-
+          The scanner mixes up the copyright and license notice
+        concluded_license: "Apache-2.0"
+
+      - path: "HOWTO/SBOM.md"
+        reason: "DOCUMENTATION_OF"
+        comment: >-
+          This file contains an example of copyright text
         concluded_license: "Apache-2.0"
 
         #

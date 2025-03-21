@@ -1,0 +1,14 @@
+%% SPDX-License-Identifier: Apache-2.0
+%% SPDX-FileCopyrightText: 2024 Erlang/OTP and its contributors
+{
+  "ID": "erts-ryu",
+  "description": "ryu library",
+  "copyrightText": "Copyright 2018 Ulf Adams",
+  "downloadLocation": "https://github.com/ulfjack/ryu",
+  "homepage": "https://github.com/ulfjack/ryu",
+  "licenseDeclared": "Apache-2.0 OR BSL-1.0",
+  "name": "ryu",
+  "versionInfo": "844864ac213bdbf1fb57e6f51c653b3d90af0937",
+  "path": "./erts/emulator/ryu",
+  "supplier": "Person: Ulf Adams"
+}
