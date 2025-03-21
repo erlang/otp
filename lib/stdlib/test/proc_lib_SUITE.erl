@@ -383,6 +383,20 @@ spawn_opt(Config) when is_list(Config) ->
     FunMFArgs = proc_lib:initial_call(Pid1),
     FunMFArity = proc_lib:translate_initial_call(Pid1),
     Pid1 ! die,
+
+    %% Check modified initial_call
+
+    Pid2 = proc_lib:spawn_opt(fun() ->
+                                      put('$initial_call', undefined),
+                                      receive _ -> ok end
+                              end, [link]),
+    false = proc_lib:initial_call(Pid2),
+    {proc_lib, init_p, 5} = proc_lib:translate_initial_call(Pid2),
+    Dict2 = process_info(Pid2, [{dictionary, '$initial_call'}]),
+    false = proc_lib:initial_call(Dict2),
+    {proc_lib, init_p, 5} = proc_lib:translate_initial_call(Dict2),
+
+    Pid2 ! die,
     ok.
 
 
