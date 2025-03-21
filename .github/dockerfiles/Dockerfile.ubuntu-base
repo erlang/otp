@@ -123,7 +123,7 @@ ENV USER=${USER}
 RUN ssh-keygen -q -t rsa -N '' -f $HOME/.ssh/id_rsa && \
     cp $HOME/.ssh/id_rsa.pub $HOME/.ssh/authorized_keys
 
-COPY --chown=${USER}:${GROUP} dockerfiles/init.sh /buildroot/
+COPY --chown=${USER}:${GROUP} dockerfiles/.profile /home/otptest/.profile
 
 WORKDIR /buildroot/
 
@@ -151,4 +151,4 @@ RUN export PATH="$(cat /home/${USER}/LATEST):${PATH}" && \
 
 ENV ERL_LIBS=/buildroot/proper
 
-ENTRYPOINT ["/buildroot/init.sh"]
+ENTRYPOINT ["/bin/bash","-l","-c"]

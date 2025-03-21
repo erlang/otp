@@ -305,7 +305,7 @@ sbom_otp(#{sbom_file  := SbomFile, write_to_file := Write, input_file := Input})
     Spdx = improve_sbom_with_info(Sbom, ScanResults),
     case Write of
         true ->
-            file:write_file(SbomFile, json:encode(Spdx));
+            file:write_file(SbomFile, json:format(Spdx));
             %% Should we not overwritte the given file?
             %% Output = json:encode(Spdx),
             %% file:write_file("otp.spdx.json", Output),
@@ -768,8 +768,14 @@ curations(Input) ->
     Curations.
 
 scan_results(Input) ->
-    #{<<"scanner">> := #{<<"scan_results">> := [ScanResults]}} = Input,
-    ScanResults.
+    #{<<"scanner">> := #{<<"scan_results">> := ScanResults}} = Input,
+    ScanResult = hd(ScanResults),
+    NewSummary =
+        lists:foldl(fun(#{ ~"summary" := #{ ~"licenses" := Licenses, ~"copyrights" := Copyrights}}, Acc) ->
+            Acc#{ ~"licenses" := Licenses ++ maps:get(~"licenses", Acc),
+                ~"copyrights" := Copyrights ++ maps:get(~"copyrights", Acc) }
+        end, maps:get(~"summary",ScanResult), tl(ScanResults)),
+    ScanResult#{ ~"summary" := NewSummary }.
 
 licenses(Input) ->
     #{<<"summary">> := #{<<"licenses">> := Licenses}} = Input,
