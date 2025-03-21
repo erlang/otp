@@ -354,7 +354,7 @@ extract_src_vars({named_fun,_,Name,Cs}, Lc, Acc0) ->
             %% none of the variables defined in the fun should ever
             %% show up in the debug info.
             Acc0;
-        true when Name =/= '_' ->
+        true ->
             Acc = case Name of
                       '_' -> Acc0;
                       _ -> extract_src_vars({var,anno,Name}, Lc, Acc0)
@@ -471,9 +471,7 @@ extract_guards([A|As], Acc) ->
     extract_guards(As, extract_args(A, Acc));
 extract_guards([], Acc) -> Acc.
 
-extract_sv_qs([{block,BlkL,[{executable_line,_,_}|Bs]}|Qs1]) ->
-    %% Note: `debug_line` instructions are `executable_line`
-    %% instructions in the abstract code.
+extract_sv_qs([{block,BlkL,[{debug_line,_,_}|Bs]}|Qs1]) ->
     [{block,BlkL,Bs}|extract_sv_qs_1(Qs1)];
 extract_sv_qs(Qs) -> Qs.
 
@@ -770,7 +768,7 @@ missing_vars(Config) ->
                    end || {debug_line,Anno,_,_,{FrameSz,Vars}} <- Is],
     DebugLines = lists:sort(DebugLines0),
     io:format("~p\n", [DebugLines]),
-    Expected = [{3,entry,[{integer,1},{integer,2},{integer,3}]},
+    Expected = [{3,entry,[1,2,3]},
                 {4,none,['X','Y','Z0']},
                 {6,none,['X','Y','Z0']},
                 {7,none,['X','Z0','Z1']},

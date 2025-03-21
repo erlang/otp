@@ -477,7 +477,8 @@ build_bdi([{FrameSize0,Vars0}|Items], Dict0) ->
                 end,
     Vars1 = case FrameSize0 of
                 entry ->
-                    [[Name,Reg] || {Name,[Reg]} <:- Vars0];
+                    [[bdi_name_to_term(Name),Reg] ||
+                        {Name,[Reg]} <:- Vars0];
                 _ ->
                     [[{literal,atom_to_binary(Name)},last(Regs)] ||
                         {Name,[_|_]=Regs} <:- Vars0]
@@ -489,6 +490,11 @@ build_bdi([{FrameSize0,Vars0}|Items], Dict0) ->
     {[Instr|Tail],Dict2};
 build_bdi([], Dict) ->
     {[],Dict}.
+
+bdi_name_to_term(Int) when is_integer(Int) ->
+    {integer,Int};
+bdi_name_to_term(Atom) when is_atom(Atom) ->
+    {literal,atom_to_binary(Atom)}.
 
 %%%
 %%% Functions for assembling BEAM instruction.

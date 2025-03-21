@@ -150,10 +150,17 @@ fix_debug_line(Is0, Live, #cg{debug_info=true}) ->
          {line,_}=Li,
          {func_info,_,_,_}=Fi,
          {label,_}=Entry,
-         {debug_line,Location,Index,Live,{none,[]}}|Is] ->
+         {debug_line,Location,Index,Live,{none,Args0}}|Is] ->
             %% Mark this debug_line instruction as being the
             %% very first instruction in the function.
-            Args = [{{integer,I}, [{x,I-1}]} || I <- lists:seq(1, Live)],
+            RegToVar = #{Reg => Var || {Var,[{x,_}=Reg|_]} <- Args0},
+            Args = [begin
+                        X = {x,I-1},
+                        case RegToVar of
+                            #{X := Var} -> {Var,[X]};
+                            #{} -> {I,[X]}
+                        end
+                    end || I <- lists:seq(1, Live)],
             DbgLine = {debug_line,Location,Index,Live,{entry,Args}},
             [FiLbl,Li,Fi,Entry,DbgLine|Is];
         _ ->

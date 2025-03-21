@@ -555,10 +555,10 @@ munge_expr({'maybe',MaybeAnno,Exprs,{'else',ElseAnno,Clauses}}, Vars0) ->
     {MungedClauses, Vars2} = munge_clauses(Clauses, Vars1),
     {{'maybe',MaybeAnno,MungedExprs,{'else',ElseAnno,MungedClauses}}, Vars2};
 munge_expr({'fun',Anno,{clauses,Clauses}}, Vars0) ->
-    {MungedClauses,Vars1} = munge_clauses(Clauses, Vars0),
+    {MungedClauses, Vars1} = munge_fun(Anno, Clauses, Vars0),
     {{'fun',Anno,{clauses,MungedClauses}}, Vars1};
 munge_expr({named_fun,Anno,Name,Clauses}, Vars0) ->
-    {MungedClauses,Vars1} = munge_clauses(Clauses, Vars0),
+    {MungedClauses, Vars1} = munge_fun(Anno, Clauses, Vars0),
     {{named_fun,Anno,Name,MungedClauses}, Vars1};
 munge_expr({bin,Anno,BinElements}, Vars0) ->
     {MungedBinElements,Vars1} = munge_exprs(BinElements, Vars0),
@@ -569,6 +569,21 @@ munge_expr({bin_element,Anno,Value,Size,TypeSpecifierList}, Vars0) ->
     {{bin_element,Anno,MungedValue,MungedSize,TypeSpecifierList},Vars2};
 munge_expr(Form, Vars0) ->
     {Form, Vars0}.
+
+munge_fun(Anno, Clauses, #vars{bump_instr=debug_line}=Vars0) ->
+    [{clause,_,Args0,_,_}|_] = Clauses,
+    Arity = length(Args0),
+    Args = duplicate(Arity, {var,Anno,'_'}),
+    FakeBif = {remote,Anno,{atom,Anno,fake},{atom,Anno,is_beam_bif_info}},
+    Gs = [[{call,Anno,FakeBif,[]}]],
+    Bump = bump_call(Vars0, Anno),
+    Body = [Bump],
+    C = {clause,Anno,Args,Gs,Body},
+    {MungedClauses0,Vars1} = munge_clauses(Clauses, Vars0),
+    MungedClauses = [C|MungedClauses0],
+    {MungedClauses,Vars1};
+munge_fun(_Anno, Clauses, Vars) ->
+    munge_clauses(Clauses, Vars).
 
 munge_args(Args0, #vars{in_guard=false,bump_instr=debug_line}=Vars) ->
     %% We want to have `debug_line` instructions inserted before each line in

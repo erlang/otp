@@ -1610,17 +1610,18 @@ make_combined(SegLine, Val, Size) ->
 %% fun_tq(Id, [Clauses], Line, State, NameInfo) -> {Fun,[PreExp],State}.
 
 fun_tq(Cs0, L, St0, NameInfo) ->
-    Arity = clause_arity(hd(Cs0)),
-    {Cs1,St1} = clauses(Cs0, St0),
+    {Cs1,Anno0} = handle_debug_line(Cs0, St0),
+    Arity = clause_arity(hd(Cs1)),
+    {Cs2,St1} = clauses(Cs1, St0),
     {Args,St2} = new_vars(Arity, St1),
     {Ps,St3} = new_vars(Arity, St2),		%Need new variables here
-    Anno = full_anno(L, St3),
+    Anno = Anno0 ++ full_anno(L, St3),
     {Name,St4} = new_fun_name(St3),
     Fc = function_clause(Ps, Anno),
     Id = {0,0,Name},
     Fun = #ifun{anno=#a{anno=Anno},
 		id=[{id,Id}],				%We KNOW!
-		vars=Args,clauses=Cs1,fc=Fc,name=NameInfo},
+		vars=Args,clauses=Cs2,fc=Fc,name=NameInfo},
     {Fun,[],St4}.
 
 %% lc_tq(Line, Exp, [Qualifier], Mc, State) -> {LetRec,[PreExp],State}.
