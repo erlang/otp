@@ -576,18 +576,18 @@ delete_crl_with_path(Config) ->
     PemEntries = public_key:pem_decode(PemBin),
     CRLs = [CRL || {'CertificateList', CRL, not_encrypted}
                        <- PemEntries],
-
     {status, _, _, StatusInfo} = sys:get_status(whereis(ssl_manager)),
     [_, _,_, _, Prop] = StatusInfo,
     State = ssl_test_lib:state(Prop),
+    #'DistributionPoint'{distributionPoint = {fullName, Names}} = DP,
+    {_, URI} = lists:keyfind(uniformResourceIdentifier, 1, Names),
     case element(5, State) of
         [_, _, _, {CRLCache, _}] ->
-            URI = "http://localhost/otpCA/crl.pem",
-            not_available = ssl_crl_cache:lookup(DP, issuer, {{CRLCache, unused}, unused}),
+            not_available = ssl_crl_cache:lookup(URI, issuer, {{CRLCache, unused}, unused}),
             ok = ssl_crl_cache:insert(URI, {der, CRLs}),
             CRLs = ssl_crl_cache:lookup(DP, issuer, {{CRLCache, unused}, unused}),
             ok = ssl_crl_cache:delete(URI),
-            not_available = ssl_crl_cache:lookup(DP, issuer, {{CRLCache, unused}, unused}),
+            not_available = ssl_crl_cache:lookup(URI, issuer, {{CRLCache, unused}, unused}),
             ok
     end.
 
