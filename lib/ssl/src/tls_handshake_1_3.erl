@@ -62,11 +62,10 @@
          calculate_exporter_master_secret/1,
          verify_certificate_verify/2,
          validate_finished/2,
-         maybe_calculate_resumption_master_secret/1,
          replace_ch1_with_message_hash/1,
          select_common_groups/2,
          verify_signature_algorithm/2,
-         forget_master_secret/1,
+         handle_secrets/1,
          set_client_random/2,
          handle_pre_shared_key/3,
          update_start_state/2,
@@ -84,6 +83,8 @@
          calculate_traffic_secrets/1,
          calculate_client_early_traffic_secret/5,
          calculate_client_early_traffic_secret/2,
+         early_data_secret/1,
+         hs_traffic_secrets/1,
          encode_early_data/2,
          get_ticket_data/3,
          ciphers_for_early_data/1,
@@ -890,6 +891,12 @@ message_hash(ClientHello1, HKDFAlgo) ->
      0,0,ssl_cipher:hash_size(HKDFAlgo),
      crypto:hash(HKDFAlgo, ClientHello1)].
 
+handle_secrets(State0) ->
+    State1 = calculate_traffic_secrets(State0),
+    State2 = #state{protocol_specific = PS} = maybe_calculate_resumption_master_secret(State1),
+    ExporterSecret = calculate_exporter_master_secret(State2),
+    State3 =  State2#state{protocol_specific = PS#{exporter_master_secret => ExporterSecret}},
+    forget_master_secret(State3).
 
 calculate_handshake_secrets(PublicKey, PrivateKey, SelectedGroup, PSK,
                               #state{connection_states = ConnectionStates,
@@ -921,7 +928,7 @@ calculate_handshake_secrets(PublicKey, PrivateKey, SelectedGroup, PSK,
     ReadFinishedKey = tls_v1:finished_key(ClientHSTrafficSecret, HKDFAlgo),
     WriteFinishedKey = tls_v1:finished_key(ServerHSTrafficSecret, HKDFAlgo),
 
-    State1 = maybe_store_handshake_traffic_secret(State0, ClientHSTrafficSecret, ServerHSTrafficSecret),
+    State1 = maybe_store_handshake_traffic_secret(State0, HKDFAlgo, ClientHSTrafficSecret, ServerHSTrafficSecret),
 
     update_pending_connection_states(State1, HandshakeSecret, undefined,
                                      undefined, undefined,
@@ -959,7 +966,7 @@ calculate_client_early_traffic_secret(
         client ->
             PendingWrite0 = ssl_record:pending_connection_state(ConnectionStates, write),
             PendingWrite1 = maybe_store_early_data_secret(Opts, ClientEarlyTrafficSecret,
-                                                          PendingWrite0),
+                                                          PendingWrite0, HKDFAlgo),
             PendingWrite = update_connection_state(PendingWrite1, undefined, undefined,
                                                    undefined,
                                                    Key, IV, undefined),
@@ -967,21 +974,40 @@ calculate_client_early_traffic_secret(
         server ->
             PendingRead0 = ssl_record:pending_connection_state(ConnectionStates, read),
             PendingRead1 = maybe_store_early_data_secret(Opts, ClientEarlyTrafficSecret,
-                                                         PendingRead0),
+                                                         PendingRead0, HKDFAlgo),
             PendingRead = update_connection_state(PendingRead1, undefined, undefined,
                                                    undefined,
                                                    Key, IV, undefined),
             State0#state{connection_states = ConnectionStates#{pending_read => PendingRead}}
     end.
 
+early_data_secret(undefined) ->
+    [];
+early_data_secret(Secret) ->
+    [{client_early_data_secret, Secret}].
 
+hs_traffic_secrets(#{client_handshake_traffic_secret := ClientHSTrafficSecret,
+                      server_handshake_traffic_secret := ServerHSTrafficSecret}) ->
+     [{client_handshake_traffic_secret, ClientHSTrafficSecret},
+      {server_handshake_traffic_secret, ServerHSTrafficSecret}];
+hs_traffic_secrets(_) ->
+    [].
 
-maybe_store_early_data_secret(#{keep_secrets := true}, EarlySecret, State) ->
-    #{security_parameters := SecParams0} = State,
-    SecParams = SecParams0#security_parameters{client_early_data_secret = EarlySecret},
-    State#{security_parameters := SecParams};
-maybe_store_early_data_secret(_, _, State) ->
-    State.
+maybe_store_early_data_secret(#{keep_secrets := Keep}, EarlySecret,
+                              #{security_parameters := SecParams0} = CSState,
+                              Prf) when Keep =/= false ->
+    case Keep of
+        {keylog, Fun} ->
+            ClientRand = SecParams0#security_parameters.client_random,
+            KeyLog = ssl_logger:keylog_early_data(ClientRand, Prf, EarlySecret),
+            ssl_logger:keylog(KeyLog, ClientRand, Fun),
+            CSState;
+        _ ->
+            SecParams = SecParams0#security_parameters{client_early_data_secret = EarlySecret},
+            CSState#{security_parameters := SecParams}
+    end;
+maybe_store_early_data_secret(_, _, CSState, _) ->
+    CSState.
 
 %% Server
 %% get_pre_shared_key(undefined, HKDFAlgo) ->
@@ -1176,12 +1202,21 @@ overwrite_client_random(ConnectionState = #{security_parameters := SecurityParam
 
 
 maybe_store_handshake_traffic_secret(#state{connection_states =
-                                                #{pending_read := PendingRead} = CS,
-                                            ssl_options = #{keep_secrets := true}} = State,
-                                     ClientHSTrafficSecret, ServerHSTrafficSecret) ->
-    PendingRead1 = store_handshake_traffic_secret(PendingRead, ClientHSTrafficSecret, ServerHSTrafficSecret),
-    State#state{connection_states = CS#{pending_read => PendingRead1}};
-maybe_store_handshake_traffic_secret(State, _, _) ->
+                                                #{pending_read := PendingRead0}= CS,
+                                            ssl_options = #{keep_secrets := Keep}} = State, Prf,
+                                     ClientHSTrafficSecret, ServerHSTrafficSecret) when Keep =/= false ->
+     case Keep of
+        {keylog, Fun} ->
+             #{security_parameters := SecParams0} = PendingRead0,
+             ClientRand = SecParams0#security_parameters.client_random,
+             KeyLog = ssl_logger:keylog_hs(ClientRand, Prf, ClientHSTrafficSecret, ServerHSTrafficSecret),
+             ssl_logger:keylog(KeyLog, ClientRand, Fun),
+             State;
+         _ ->
+             PendingRead = store_handshake_traffic_secret(PendingRead0, ClientHSTrafficSecret, ServerHSTrafficSecret),
+             State#state{connection_states = CS#{pending_read => PendingRead}}
+     end;
+maybe_store_handshake_traffic_secret(State, _, _, _) ->
     State.
 
 store_handshake_traffic_secret(ConnectionState, ClientHSTrafficSecret, ServerHSTrafficSecret) ->
