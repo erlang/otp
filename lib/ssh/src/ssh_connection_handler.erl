@@ -1148,8 +1148,8 @@ handle_event(info, {Proto, Sock, NewData}, StateName,
                     MaxLogItemLen = ?GET_OPT(max_log_item_len,SshParams#ssh.opts),
                     {Shutdown, D} =
                         ?send_disconnect(?SSH_DISCONNECT_PROTOCOL_ERROR,
-                                         io_lib:format("Bad packet: Decrypted, but can't decode~n~p:~p~n~P",
-                                                       [C,E,ST,MaxLogItemLen]),
+                                         io_lib:format("Bad packet: Decrypted, but can't decode~n~p:~p~n~p",
+                                                       [C,E,ST], [{chars_limit, MaxLogItemLen}]),
                                          StateName, D1),
                     {stop, Shutdown, D}
 	    end;
@@ -1183,8 +1183,8 @@ handle_event(info, {Proto, Sock, NewData}, StateName,
             MaxLogItemLen = ?GET_OPT(max_log_item_len,SshParams#ssh.opts),
             {Shutdown, D} =
                 ?send_disconnect(?SSH_DISCONNECT_PROTOCOL_ERROR,
-                                 io_lib:format("Bad packet: Couldn't decrypt~n~p:~p~n~P",
-                                               [C,E,ST,MaxLogItemLen]),
+                                 io_lib:format("Bad packet: Couldn't decrypt~n~p:~p~n~p",
+                                               [C,E,ST], [{chars_limit, MaxLogItemLen}]),
                                  StateName, D0),
             {stop, Shutdown, D}
     end;
