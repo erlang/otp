@@ -10,6 +10,18 @@ existing Erlang terms. See note on
 [data types](`e:system:data_types.md#no_user_types`). Any code assuming
 knowledge of the format is running on thin ice.
 
+## Getting started
+
+A recommended starting point for the first-time user is the examples
+for the following functions:
+
+* `relation_to_family/1`
+* `restriction/2` and `drestriction/2`
+* `image/2` and `inverse_image/2`
+* `converse/1`
+
+## Set theory
+
 Given a set A and a sentence S(x), where x is a free variable, a new set B whose
 elements are exactly those elements of A for which S(x) holds can be formed,
 this is denoted B = \{x in A : S(x)\}. Sentences are expressed using the logical
@@ -181,6 +193,7 @@ the case in this module), this is denoted B = \{x : S(x)\}.
   element y\[i] in Y\[i] for each 1 <= i <= n such that x R\[i] y\[i] and
   (y\[1], ..., y\[n]) S z. Now let TR be a an ordered set (R\[1], ..., R\[n]) of
   binary relations from X\[i] to Y\[i] and S a subset of X\[1] × ... × X\[n].
+
   The _multiple relative product_{: #multiple_relative_product } of TR and S is
   defined to be the set \{z : z = ((x\[1], ..., x\[n]), (y\[1],...,y\[n])) for
   some (x\[1], ..., x\[n]) in S and for some (x\[i], y\[i]) in R\[i],
@@ -192,42 +205,44 @@ the case in this module), this is denoted B = \{x : S(x)\}.
   (x\[1], ..., x\[n]) in R and for some (y\[1], ..., y\[m]) in S such that
   x\[i] = y\[j]\}.
 
-- [](){: #sets_definition } The sets recognized by this module are represented
-  by elements of the relation Sets, which is defined as the smallest set such
-  that:
+## Sets handled by this module
 
-  - For every atom T, except '\_', and for every term X, (T, X) belongs to Sets
-    (_atomic sets_).
-  - (\['\_'], []) belongs to Sets (the _untyped empty set_).
-  - For every tuple T = \{T\[1], ..., T\[n]\} and for every tuple X =
-    \{X\[1], ..., X\[n]\}, if (T\[i], X\[i]) belongs to Sets for every
-    1 <= i <= n, then (T, X) belongs to Sets (_ordered sets_).
-  - For every term T, if X is the empty list or a non-empty sorted list
-    \[X[1], ..., X\[n]] without duplicates such that (T, X\[i]) belongs to Sets
-    for every 1 <= i <= n, then (\[T], X) belongs to Sets (_typed unordered
-    sets_).
+The sets recognized by this module are represented
+by elements of the relation Sets, which is defined as the smallest set such
+that:
 
-  An _external set_{: #external_set } is an element of the range of Sets.
+- For every atom T, except '\_', and for every term X, (T, X) belongs to Sets
+  (_atomic sets_).
+- (\['\_'], []) belongs to Sets (the _untyped empty set_).
+- For every tuple T = \{T\[1], ..., T\[n]\} and for every tuple X =
+  \{X\[1], ..., X\[n]\}, if (T\[i], X\[i]) belongs to Sets for every
+  1 <= i <= n, then (T, X) belongs to Sets (_ordered sets_).
+- For every term T, if X is the empty list or a non-empty sorted list
+  \[X[1], ..., X\[n]] without duplicates such that (T, X\[i]) belongs to Sets
+  for every 1 <= i <= n, then (\[T], X) belongs to Sets (_typed unordered
+  sets_).
 
-  A _type_{: #type } is an element of the domain of Sets.
+An _external set_{: #external_set } is an element of the range of Sets.
 
-  If S is an element (T, X) of Sets, then T is a _valid type_{: #valid_type } of
-  X, T is the type of S, and X is the external set of S. `from_term/2` creates a
-  set from a type and an Erlang term turned into an external set.
+A _type_{: #type } is an element of the domain of Sets.
 
-  The sets represented by Sets are the elements of the range of function Set
-  from Sets to Erlang terms and sets of Erlang terms:
+If S is an element (T, X) of Sets, then T is a _valid type_{: #valid_type } of
+X, T is the type of S, and X is the external set of S. `from_term/2` creates a
+set from a type and an Erlang term turned into an external set.
 
-  - Set(T,Term) = Term, where T is an atom
-  - Set(\{T\[1], ..., T\[n]\}, \{X\[1], ...,  X\[n]\}) =
-    (Set(T\[1], X\[1]), ...,  Set(T\[n], X\[n]))
-  - Set(\[T], \[X[1], ..., X\[n]]) = \{Set(T, X\[1]), ..., Set(T, X\[n])\}
-  - Set(\[T], []) = \{\}
+The sets represented by Sets are the elements of the range of function Set
+from Sets to Erlang terms and sets of Erlang terms:
 
-  When there is no risk of confusion, elements of Sets are identified with the
-  sets they represent. For example, if U is the result of calling `union/2` with
-  S1 and S2 as arguments, then U is said to be the union of S1 and S2. A more
-  precise formulation is that Set(U) is the union of Set(S1) and Set(S2).
+- Set(T,Term) = Term, where T is an atom
+- Set(\{T\[1], ..., T\[n]\}, \{X\[1], ...,  X\[n]\}) =
+  (Set(T\[1], X\[1]), ...,  Set(T\[n], X\[n]))
+- Set(\[T], \[X[1], ..., X\[n]]) = \{Set(T, X\[1]), ..., Set(T, X\[n])\}
+- Set(\[T], []) = \{\}
+
+When there is no risk of confusion, elements of Sets are identified with the
+sets they represent. For example, if U is the result of calling `union/2` with
+S1 and S2 as arguments, then U is said to be the union of S1 and S2. A more
+precise formulation is that Set(U) is the union of Set(S1) and Set(S2).
 
 The types are used to implement the various conditions that sets must fulfill.
 As an example, consider the relative product of two sets R and S, and recall
@@ -267,16 +282,26 @@ following, can be specified as a functional object (fun), a tuple
   `{external, fun(X) -> element(I, X) end}`, but is to be preferred, as it makes
   it possible to handle this case even more efficiently.
 
-Examples of SetFuns:
+Examples of valid SetFuns:
 
 ```erlang
 fun sofs:union/1
 fun(S) -> sofs:partition(1, S) end
+fun(S) -> sofs:from_term(sofs:no_elements(S)) end
 {external, fun(A) -> A end}
 {external, fun({A,_,C}) -> {C,A} end}
 {external, fun({_,{_,C}}) -> C end}
 {external, fun({_,{_,{_,E}=C}}) -> {E,{E,C}} end}
 2
+```
+
+Examples of invalid SetFuns:
+
+```erlang
+fun sofs:no_elements/1
+{external, fun(A) -> 2 * A end}
+{external, fun({A,B,C}) -> A + B + C end}
+{external, fun lists:sum/1}
 ```
 
 The order in which a SetFun is applied to the elements of an unordered set is
@@ -296,4 +321,4 @@ When comparing external sets, operator `==/2` is used.
 
 ## See Also
 
-`m:dict`, `m:digraph`, `m:orddict`, `m:ordsets`, `m:sets`
+`m:digraph`, `m:gb_sets`, `m:gb_trees`, `m:maps`, `m:orddict`, `m:ordsets`, `m:sets`
