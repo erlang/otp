@@ -99,6 +99,8 @@ for delete in $DELETED; do
         rm -r "${CACHE_DIR}/${delete}"
     elif [ -f "${CACHE_DIR}/${delete}" ]; then
         rm "${CACHE_DIR}/${delete}"
+    elif [ "$(basename ${delete})" = ".gitignore" ]; then
+        echo "Should not delete .gitignore files"
     else
         echo "Could not find $delete to delete"
         exit 1
