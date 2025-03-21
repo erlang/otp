@@ -691,12 +691,16 @@ It is also the last argument to [`enter_loop/4,5`](`enter_loop/4`).
   callback function.  The action `infinity` can be used to wait indefinitely,
   which is the default when there is no `t:action/0` specified.
 
-  A system message restarts the time-out, which is a known
-  and unfortunate flaw in its implementation.  This also applies to
-  stray (cancelled) timer messages from the
-  `{timeout|hibernate, ...}` time-outs described below,
-  so it is recommended to not use them
-  in combination with this legacy time-out type.
+  For `Time = 0`, if there is a request or message waiting to be received,
+  it interrupts (cancels) the time-out.
+
+  > #### Note {: .info }
+  > A system message restarts the time-out, which is a known
+  > and unfortunate flaw in its implementation.  This also applies to
+  > stray (cancelled) timer messages from the
+  > `{timeout|hibernate, ...}` time-outs described below,
+  > so it is recommended to not use them
+  > in combination with this legacy time-out type.
 
 - **`{timeout, Time, Message}`\
   `{timeout, Time, Message, Options}`** - Like `Time` above,
@@ -724,11 +728,11 @@ It is also the last argument to [`enter_loop/4,5`](`enter_loop/4`).
   (by calling `erlang:hibernate/0`), waiting for the next
   request or message to arrive
 
-- **`{continue, Continue}`** - The process will execute the
+- **`{continue, Continue}`** - The process will immediately execute the
   [`Module:handle_continue/2`](`c:handle_continue/2`) callback function,
   with `Continue` as the first argument.
 """.
--type action() :: Timeout :: timeout() |
+-type action() :: (Time :: timeout()) |
                   'hibernate' |
                   {'timeout', Time :: timeout(), Message :: term()} |
                   {'timeout', Time :: timeout(), Message :: term(), Options :: timeout_option() | [timeout_option()]} |
