@@ -49,7 +49,21 @@ while (@ARGV) {
 	$mode = 1;
 	next;
     }
-    if ( $d =~ /^.*\.a$/ ) {
+    if ( $d =~ /^(.*\.a)(:[A-Za-z_][A-Za-z0-9_]*)+$/ ) {
+        # Only implemented for NIFs
+        if ($mode != 2) {
+            next;
+        }
+
+        my @nifs = split(/:/, $2);
+        shift(@nifs);
+
+        foreach my $nif_symbol ( @nifs ) {
+            push(@static_nifs, $nif_symbol)
+        }
+        next;
+    }
+    elsif ( $d =~ /\.a$/ ) {
 	$d = basename $d;
 	$d =~ s/\.a$//;	# strip .a
 	$d =~ s/\.gprof$//;	# strip .gprof

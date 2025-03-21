@@ -209,6 +209,7 @@ LIBS += $(TYPE_LIBS)
 ORIG_LIBS:= $(LIBS)
 
 comma:=,
+colon:=:
 empty:=
 space:=$(empty) $(empty)
 
@@ -662,7 +663,7 @@ GENERATE += $(TARGET)/erl_version.h
 
 # driver table
 $(TTF_DIR)/driver_tab.c: Makefile.in utils/make_driver_tab
-	$(gen_verbose)LANG=C $(PERL) utils/make_driver_tab -o $@ -nifs $(NIF_OBJS) $(STATIC_NIF_LIBS) -drivers $(DRV_OBJS) $(STATIC_DRIVER_LIBS)
+	$(gen_verbose)LANG=C $(PERL) utils/make_driver_tab -o $@ -nifs $(NIF_OBJS) $(STATIC_NIF_SYMBOLS) -drivers $(DRV_OBJS) $(STATIC_DRIVER_LIBS)
 GENERATE += $(TTF_DIR)/driver_tab.c
 
 
@@ -1204,11 +1205,12 @@ DRV_OBJS = \
 endif
 
 ifneq ($(STATIC_NIFS),no)
-STATIC_NIF_LIBS = $(STATIC_NIFS)
+STATIC_NIF_LIBS = $(foreach n,$(STATIC_NIFS),$(word 1, $(subst $(colon),$(space),$(n))))
+STATIC_NIF_SYMBOLS = $(STATIC_NIFS)
 DEPLIBS += $(STATIC_NIF_LIBS)
 COMPILE_STATIC_LIBS = yes
 else
-STATIC_NIF_LIBS=
+STATIC_NIF_SYMBOLS=
 endif
 
 ifneq ($(STATIC_DRIVERS),no)
