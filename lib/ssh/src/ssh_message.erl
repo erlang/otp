@@ -24,6 +24,7 @@
 -module(ssh_message).
 
 -include_lib("public_key/include/public_key.hrl").
+-include_lib("kernel/include/logger.hrl").
 
 -include("ssh.hrl").
 -include("ssh_connect.hrl").
@@ -42,6 +43,7 @@
 
 -behaviour(ssh_dbg).
 -export([ssh_dbg_trace_points/0, ssh_dbg_flags/1, ssh_dbg_on/1, ssh_dbg_off/1, ssh_dbg_format/2]).
+-define(ALG_NAME_LIMIT, 64).
 
 ucl(B) ->
     try unicode:characters_to_list(B) of
@@ -820,8 +822,22 @@ decode_kex_init(<<?BYTE(Bool)>>, Acc, 0) ->
     X = 0,
     list_to_tuple(lists:reverse([X, erl_boolean(Bool) | Acc]));
 decode_kex_init(<<?DEC_BIN(Data,__0), Rest/binary>>, Acc, N) ->
-    Names = string:tokens(?unicode_list(Data), ","),
-    decode_kex_init(Rest, [Names | Acc], N -1).
+    BinParts = binary:split(Data, <<$,>>, [global]),
+    Process =
+        fun(<<>>, PAcc) ->
+                PAcc;
+           (Part, PAcc) ->
+                case byte_size(Part) > ?ALG_NAME_LIMIT of
+                    true ->
+                        ?LOG_DEBUG("Ignoring too long name", []),
+                        PAcc;
+                    false ->
+                        Name = binary:bin_to_list(Part),
+                        [Name | PAcc]
+                end
+        end,
+    Names = lists:foldr(Process, [], BinParts),
+    decode_kex_init(Rest, [Names | Acc], N - 1).
 
 
 %%%================================================================
