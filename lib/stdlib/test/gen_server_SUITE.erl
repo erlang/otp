@@ -32,7 +32,9 @@
          send_request_wait_reqid_collection/1,
          send_request_check_reqid_collection/1,
          cast/1, cast_fast/1, continue/1, info/1, abcast/1,
-	 handle_event_timeout/1, handle_event_timeout_zero/1,
+	 handle_event_timeout/1,
+         handle_event_timeout_infinity/1,
+         handle_event_timeout_zero/1,
 	 handle_event_timeout_plain/1,
          multicall/1, multicall_down/1, multicall_remote/1,
          multicall_remote_old1/1, multicall_remote_old2/1,
@@ -93,7 +95,9 @@ all() ->
      {group,stop}, crash, loop_start_fail, call, send_request,
      send_request_receive_reqid_collection, send_request_wait_reqid_collection,
      send_request_check_reqid_collection, cast, cast_fast, info, abcast,
-     continue, handle_event_timeout, handle_event_timeout_zero,
+     continue, handle_event_timeout,
+     handle_event_timeout_infinity,
+     handle_event_timeout_zero,
      handle_event_timeout_plain,
      {group, multi_call},
      call_remote1, call_remote2, calling_self,
@@ -1353,6 +1357,8 @@ handle_event_timeout(Config) when is_list(Config) ->
         gen_server:start(gen_server_SUITE, [], []),
     pong = gen_server:call(Pid, ping),
 
+    T = 100,
+
     lists:foreach(
 	fun({Cmd, Arg, Interrupt}) ->
 	    Cmd(Pid, Arg),
@@ -1376,7 +1382,7 @@ handle_event_timeout(Config) when is_list(Config) ->
 	    receive
 		{Pid, event_timeout} ->
 		    not Interrupt orelse ct:fail(event_timeout_message_received)
-	    after 1000 ->
+	    after T bsl 1 ->
 		Interrupt orelse ct:fail(event_timeout_message_not_received)
 	    end,
 	    is_not_in_erlang_hibernate(Pid)
@@ -1384,21 +1390,76 @@ handle_event_timeout(Config) when is_list(Config) ->
 	[{Cmd, Arg, Interrupt} || Cmd <- [fun gen_server:call/2,
 					  fun gen_server:cast/2,
 					  fun erlang:send/2],
-				  Arg <- [{timeout, 500, self()},
-					  {timeout, 500, self(), relative},
-					  {timeout, 500, self(), absolute},
-					  {continue_timeout, 500, self()},
-					  {continue_timeout, 500, self(), relative},
-					  {continue_timeout, 500, self(), absolute},
-					  {hibernate, 500, self()},
-					  {hibernate, 500, self(), relative},
-					  {hibernate, 500, self(), absolute},
-					  {continue_hibernate, 500, self()},
-					  {continue_hibernate, 500, self(), relative},
-					  {continue_hibernate, 500, self(), absolute}],
+				  Arg <- [{timeout, T, self()},
+					  {timeout, T, self(), relative},
+					  {timeout, T, self(), absolute},
+					  {continue_timeout, T, self()},
+					  {continue_timeout, T, self(), relative},
+					  {continue_timeout, T, self(), absolute},
+					  {hibernate, T, self()},
+					  {hibernate, T, self(), relative},
+					  {hibernate, T, self(), absolute},
+					  {continue_hibernate, T, self()},
+					  {continue_hibernate, T, self(), relative},
+					  {continue_hibernate, T, self(), absolute}],
 				  Interrupt <- [false, true]]),
     ok = gen_server:call(Pid, stop),
-    busy_wait_for_process(Pid, 600),
+    busy_wait_for_process(Pid, T + (T bsr 1)),
+    {'EXIT', {noproc, _}} = (catch gen_server:call(Pid, started_p, 1)),
+
+    process_flag(trap_exit, OldFl),
+    ok.
+
+handle_event_timeout_infinity(Config) when is_list(Config) ->
+    OldFl = process_flag(trap_exit, true),
+
+    {ok, Pid} =
+        gen_server:start(gen_server_SUITE, [], []),
+    pong = gen_server:call(Pid, ping),
+
+    T = 100,
+
+    lists:foreach(
+      fun({Cmd, Arg}) ->
+              Cmd(Pid, Arg),
+              sys:get_status(Pid),
+              case element(1, Arg) of
+                  timeout ->
+                      is_not_in_erlang_hibernate(Pid);
+                  continue_timeout ->
+                      is_not_in_erlang_hibernate(Pid);
+                  hibernate ->
+                      is_in_erlang_hibernate(Pid);
+                  continue_hibernate ->
+                      is_in_erlang_hibernate(Pid)
+              end,
+              pong = gen_server:call(Pid, ping),
+              receive
+                  {Pid, event_timeout} ->
+                      ct:fail(event_timeout_message_received)
+              after T bsl 1 ->
+                      ok
+              end,
+              is_not_in_erlang_hibernate(Pid)
+      end,
+      [{Cmd, Arg} ||
+          Cmd <- [fun gen_server:call/2,
+                  fun gen_server:cast/2,
+                  fun erlang:send/2],
+          Arg <- [{timeout, infinity, self()},
+                  {timeout, infinity, self(), relative},
+                  {timeout, infinity, self(), absolute},
+                  {continue_timeout, infinity, self()},
+                  {continue_timeout, infinity, self(), relative},
+                  {continue_timeout, infinity, self(), absolute},
+                  {hibernate, infinity, self()},
+                  {hibernate, infinity, self(), relative},
+                  {hibernate, infinity, self(), absolute},
+                  {continue_hibernate, infinity, self()},
+                  {continue_hibernate, infinity, self(), relative},
+                  {continue_hibernate, infinity, self(), absolute}]]),
+    ok = gen_server:call(Pid, stop),
+    busy_wait_for_process(Pid, T + (T bsr 1)),
     {'EXIT', {noproc, _}} = (catch gen_server:call(Pid, started_p, 1)),
 
     process_flag(trap_exit, OldFl),
@@ -1411,6 +1472,8 @@ handle_event_timeout_zero(Config) when is_list(Config) ->
         gen_server:start(gen_server_SUITE, [], []),
     pong = gen_server:call(Pid, ping),
 
+    T = 100,
+
     lists:foreach(
 	fun({Cmd, Arg}) ->
 	    Cmd(Pid, Arg),
@@ -1419,13 +1482,13 @@ handle_event_timeout_zero(Config) when is_list(Config) ->
 		    ct:fail(after_event_timeout_zero_message_received);
 		{Pid, event_timeout} ->
 		    ok
-	    after 1000 ->
+	    after T bsl 1 ->
 		ct:fail(event_timeout_message_not_received)
 	    end,
 	    receive
 		{Pid, after_event_timeout_zero} ->
 		    ok
-	    after 1000 ->
+	    after T bsl 1 ->
 		ct:fail(after_event_timeout_zero_message_not_received)
 	    end
 	end,
@@ -1437,7 +1500,7 @@ handle_event_timeout_zero(Config) when is_list(Config) ->
 			       {hibernate_zero, self()},
 			       {continue_hibernate_zero, self()}]]),
     ok = gen_server:call(Pid, stop),
-    busy_wait_for_process(Pid, 600),
+    busy_wait_for_process(Pid, T + (T bsr 1)),
     {'EXIT', {noproc, _}} = (catch gen_server:call(Pid, started_p, 1)),
 
     process_flag(trap_exit, OldFl),
@@ -1450,28 +1513,30 @@ handle_event_timeout_plain(Config) when is_list(Config) ->
         gen_server:start(gen_server_SUITE, [], []),
     pong = gen_server:call(Pid, ping),
 
+    T = 100,
+
     %% a `system` message should not cancel a plain timeout
-    ok = gen_server:cast(Pid, {self(), delayed_cast, 500}),
+    ok = gen_server:cast(Pid, {self(), delayed_cast, T}),
     sys:get_status(Pid),
     receive
 	{Pid, delayed} ->
 	    ok
-    after 1000 ->
+    after T bsl 1 ->
 	ct:fail(delayed_cast_message_not_received)
     end,
 
     %% a request (or other message) should cancel a plain timeout
-    ok = gen_server:cast(Pid, {self(), delayed_cast, 500}),
+    ok = gen_server:cast(Pid, {self(), delayed_cast, T}),
     pong = gen_server:call(Pid, ping),
     receive
 	{Pid, delayed} ->
 	    ct:fail(delayed_cast_message_received)
-    after 1000 ->
+    after T bsl 1 ->
 	ok
     end,
 
     ok = gen_server:call(Pid, stop),
-    busy_wait_for_process(Pid, 600),
+    busy_wait_for_process(Pid, T + (T bsr 1)),
     {'EXIT', {noproc, _}} = (catch gen_server:call(Pid, started_p, 1)),
 
     process_flag(trap_exit, OldFl),
@@ -3210,7 +3275,7 @@ handle_call({timeout, T, Pid}, _From, State) ->
 handle_call({timeout, T, Pid, relative}, _From, State) ->
     {reply, ok, State, {timeout, T, {event_timeout, Pid}, [{abs, false}]}};
 handle_call({timeout, T, Pid, absolute}, _From, State) ->
-    {reply, ok, State, {timeout, erlang:monotonic_time(millisecond) + T, {event_timeout, Pid}, [{abs, true}]}};
+    {reply, ok, State, {timeout, relative_absolute_timeout(T), {event_timeout, Pid}, [{abs, true}]}};
 handle_call({continue_timeout, T, Pid}, _From, State) ->
     {reply, ok, State, {continue, {timeout, T, Pid}}};
 handle_call({continue_timeout, T, Pid, Abs}, _From, State) ->
@@ -3220,7 +3285,7 @@ handle_call({hibernate, T, Pid}, _From, State) ->
 handle_call({hibernate, T, Pid, relative}, _From, State) ->
     {reply, ok, State, {hibernate, T, {event_timeout, Pid}, [{abs, false}]}};
 handle_call({hibernate, T, Pid, absolute}, _From, State) ->
-    {reply, ok, State, {hibernate, erlang:monotonic_time(millisecond) + T, {event_timeout, Pid}, [{abs, true}]}};
+    {reply, ok, State, {hibernate, relative_absolute_timeout(T), {event_timeout, Pid}, [{abs, true}]}};
 handle_call({continue_hibernate, T, Pid}, _From, State) ->
     {reply, ok, State, {continue, {hibernate, T, Pid}}};
 handle_call({continue_hibernate, T, Pid, Abs}, _From, State) ->
@@ -3278,7 +3343,7 @@ handle_cast({timeout, T, Pid}, State) ->
 handle_cast({timeout, T, Pid, relative}, State) ->
     {noreply, State, {timeout, T, {event_timeout, Pid}, [{abs, false}]}};
 handle_cast({timeout, T, Pid, absolute}, State) ->
-    {noreply, State, {timeout, erlang:monotonic_time(millisecond) + T, {event_timeout, Pid}, [{abs, true}]}};
+    {noreply, State, {timeout, relative_absolute_timeout(T), {event_timeout, Pid}, [{abs, true}]}};
 handle_cast({continue_timeout, T, Pid}, State) ->
     {noreply, State, {continue, {timeout, T, Pid}}};
 handle_cast({continue_timeout, T, Pid, Abs}, State) ->
@@ -3288,7 +3353,7 @@ handle_cast({hibernate, T, Pid}, State) ->
 handle_cast({hibernate, T, Pid, relative}, State) ->
     {noreply, State, {hibernate, T, {event_timeout, Pid}, [{abs, false}]}};
 handle_cast({hibernate, T, Pid, absolute}, State) ->
-    {noreply, State, {hibernate, erlang:monotonic_time(millisecond) + T, {event_timeout, Pid}, [{abs, true}]}};
+    {noreply, State, {hibernate, relative_absolute_timeout(T), {event_timeout, Pid}, [{abs, true}]}};
 handle_cast({continue_hibernate, T, Pid}, State) ->
     {noreply, State, {continue, {hibernate, T, Pid}}};
 handle_cast({continue_hibernate, T, Pid, Abs}, State) ->
@@ -3328,7 +3393,7 @@ handle_info({timeout, T, Pid}, State) ->
 handle_info({timeout, T, Pid, relative}, State) ->
     {noreply, State, {timeout, T, {event_timeout, Pid}, [{abs, false}]}};
 handle_info({timeout, T, Pid, absolute}, State) ->
-    {noreply, State, {timeout, erlang:monotonic_time(millisecond) + T, {event_timeout, Pid}, [{abs, true}]}};
+    {noreply, State, {timeout, relative_absolute_timeout(T), {event_timeout, Pid}, [{abs, true}]}};
 handle_info({continue_timeout, T, Pid}, State) ->
     {noreply, State, {continue, {timeout, T, Pid}}};
 handle_info({continue_timeout, T, Pid, Abs}, State) ->
@@ -3338,7 +3403,7 @@ handle_info({hibernate, T, Pid}, State) ->
 handle_info({hibernate, T, Pid, relative}, State) ->
     {noreply, State, {hibernate, T, {event_timeout, Pid}, [{abs, false}]}};
 handle_info({hibernate, T, Pid, absolute}, State) ->
-    {noreply, State, {hibernate, erlang:monotonic_time(millisecond) + T, {event_timeout, Pid}, [{abs, true}]}};
+    {noreply, State, {hibernate, relative_absolute_timeout(T), {event_timeout, Pid}, [{abs, true}]}};
 handle_info({continue_hibernate, T, Pid}, State) ->
     {noreply, State, {continue, {hibernate, T, Pid}}};
 handle_info({continue_hibernate, T, Pid, Abs}, State) ->
@@ -3411,13 +3476,13 @@ handle_continue({timeout, T, Pid}, State) ->
 handle_continue({timeout, T, Pid, relative}, State) ->
     {noreply, State, {timeout, T, {event_timeout, Pid}, [{abs, false}]}};
 handle_continue({timeout, T, Pid, absolute}, State) ->
-    {noreply, State, {timeout, erlang:monotonic_time(millisecond) + T, {event_timeout, Pid}, [{abs, true}]}};
+    {noreply, State, {timeout, relative_absolute_timeout(T), {event_timeout, Pid}, [{abs, true}]}};
 handle_continue({hibernate, T, Pid}, State) ->
     {noreply, State, {hibernate, T, {event_timeout, Pid}}};
 handle_continue({hibernate, T, Pid, relative}, State) ->
     {noreply, State, {hibernate, T, {event_timeout, Pid}, [{abs, false}]}};
 handle_continue({hibernate, T, Pid, absolute}, State) ->
-    {noreply, State, {hibernate, erlang:monotonic_time(millisecond) + T, {event_timeout, Pid}, [{abs, true}]}};
+    {noreply, State, {hibernate, relative_absolute_timeout(T), {event_timeout, Pid}, [{abs, true}]}};
 handle_continue({timeout_zero, Pid}, State) ->
     self() ! {after_event_timeout_zero, Pid},
     {noreply, State, {timeout, 0, {event_timeout, Pid}}};
@@ -3437,6 +3502,14 @@ handle_continue({message, Pid, From}, State) ->
     Pid ! {self(), continue},
     gen_server:reply(From, ok),
     {noreply, State}.
+
+relative_absolute_timeout(T) ->
+    if
+        T =:= infinity ->
+            infinity;
+        is_integer(T) ->
+            erlang:monotonic_time(millisecond) + T
+    end.
 
 code_change(_OldVsn,
             {new, {undef_in_code_change, {Mod, Fun}}} = State,

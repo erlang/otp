@@ -2586,6 +2586,8 @@ handle_timer(_ServerData, 0, M, HibInf, false) ->
         infinity  -> true
     end,
     {timeout_zero, M};
+handle_timer(_ServerData, infinity, _M, HibInf, _Abs) ->
+    HibInf;
 handle_timer(#server_data{tag = Tag}, T, M, HibInf, Abs) ->
     TRef =
         case Abs of
