@@ -305,7 +305,7 @@ sbom_otp(#{sbom_file  := SbomFile, write_to_file := Write, input_file := Input})
     Spdx = improve_sbom_with_info(Sbom, ScanResults),
     case Write of
         true ->
-            file:write_file(SbomFile, json:encode(Spdx));
+            file:write_file(SbomFile, json:format(Spdx));
             %% Should we not overwritte the given file?
             %% Output = json:encode(Spdx),
             %% file:write_file("otp.spdx.json", Output),
