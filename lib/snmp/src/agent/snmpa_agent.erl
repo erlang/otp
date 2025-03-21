@@ -2535,7 +2535,8 @@ validate_next_v1_2([], _MibView, Res) ->
 %% problems.
 %%-----------------------------------------------------------------
 mk_next_oid(Vb) ->
-    case snmpa_mib:lookup(get(mibserver), Oid = Vb#varbind.oid) of
+    Oid = Vb#varbind.oid,
+    case snmpa_mib:lookup(get(mibserver), Oid) of
 	{table_column, _MibEntry, TableEntryOid} ->
 	    [Col | _] = Oid -- TableEntryOid,
 	    Vb#varbind{oid = TableEntryOid ++ [Col+1]};
