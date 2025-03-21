@@ -3677,7 +3677,7 @@ send_common_deadline_result(
                     send_common_error(timeout, Data, false)
             end;
 
-        {completion, _} ->
+        {completion, _} -> % ONLY FOR SENDV
             %% Would block, wait for continuation
             Timeout = timeout(Deadline),
             receive
@@ -3698,7 +3698,7 @@ send_common_deadline_result(
                     send_common_error(timeout, Data, false)
             end;
 
-        {completion, RestData, _} ->
+        {completion, RestData, _} -> % ONLY FOR SENDV
             %% Would block, wait for continuation
             Timeout = timeout(Deadline),
             receive
