@@ -546,7 +546,7 @@ static ERL_NIF_TERM send_check_result(ErlNifEnv*       env,
                                       size_t           dataSize,
                                       BOOLEAN_T        dataInTail,
                                       ERL_NIF_TERM     sockRef,
-                                      ERL_NIF_TERM     sendRef,
+                                      ERL_NIF_TERM*    sendRef,
                                       BOOLEAN_T*       cleanup);
 static ERL_NIF_TERM send_check_ok(ErlNifEnv*       env,
                                   ESockDescriptor* descP,
@@ -2680,7 +2680,7 @@ ERL_NIF_TERM esaio_send(ErlNifEnv*       env,
 
     eres = send_check_result(env, descP, opP, caller,
                              wres, toWrite, FALSE,
-                             sockRef, sendRef, &cleanup);
+                             sockRef, &opP->data.send.sendRef, &cleanup);
 
     if (cleanup) {
 
@@ -2795,7 +2795,7 @@ ERL_NIF_TERM esaio_sendto(ErlNifEnv*       env,
 
     eres = send_check_result(env, descP, opP, caller,
                              wres, toWrite, FALSE,
-                             sockRef, sendRef, &cleanup);
+                             sockRef, &opP->data.sendto.sendRef, &cleanup);
 
     if (cleanup) {
 
@@ -3094,7 +3094,7 @@ ERL_NIF_TERM esaio_sendmsg(ErlNifEnv*       env,
     eres = send_check_result(env, descP, opP, caller,
                              wres, dataSize,
                              (! enif_is_empty_list(opP->env, tail)),
-                             sockRef, sendRef, &cleanup);
+                             sockRef, &opP->data.sendmsg.sendRef, &cleanup);
 
     if (cleanup) {
         
@@ -3500,7 +3500,7 @@ ERL_NIF_TERM esaio_sendv(ErlNifEnv*       env,
 
     eres = send_check_result(env, descP, opP, caller,
                              sendv_result, dataSize, dataInTail,
-                             sockRef, sendRef, &cleanup);
+                             sockRef, &opP->data.sendv.sendRef, &cleanup);
 
     SSDBG( descP,
            ("WIN-ESAIO", "esaio_sendv(%d) -> sent and analyzed: %d\r\n",
@@ -8049,10 +8049,10 @@ void esaio_completion_send_completed(ErlNifEnv*       env,
     ESOCK_ASSERT( DEMONP("esaio_completion_send_completed - sender",
                          env, descP, &reqP->mon) == 0);
 
-    /* Success, but we need to check how much we actually got.
+    /* Success, but we need to check how much we actually sent.
      * Also the 'flags' (which we currentöy ignore)
      *
-     * CompletionStatus = ok | {ok, RestData}
+     * CompletionStatus = ok | {ok, Written}
      * CompletionInfo   = {ConnRef, CompletionStatus}
      */
 
@@ -11797,7 +11797,7 @@ ERL_NIF_TERM send_check_result(ErlNifEnv*       env,
                                size_t           dataSize,
                                BOOLEAN_T        dataInTail,
                                ERL_NIF_TERM     sockRef,
-                               ERL_NIF_TERM     sendRef,
+                               ERL_NIF_TERM*    sendRef,
                                BOOLEAN_T*       cleanup)
 {
     ERL_NIF_TERM res;
@@ -11805,6 +11805,22 @@ ERL_NIF_TERM send_check_result(ErlNifEnv*       env,
     int          err;
 
     if (send_result == 0) {
+
+        /* Reset the send reference (for 'sendv').
+         * This ref will be used by the completion threads when it
+         * activates to "get" the operation and since we reuse the
+         * ref for the entire IOV send, we need to reset when we are
+         * "partly" successfull!.
+         *
+         * Note that for any sendv where lengtb of the I/O vector is >
+         * IOV_MAX, this is a problem. And since IOV_MAX for Windows
+         * is low it can be as low as 16), this is almost certain to
+         * happen.
+         *
+         * Note that for the other send operations this is much more unlikely,
+         * but could still happen.
+         */
+        *sendRef = esock_atom_undefined;
 
         if (!dataInTail) {
 
@@ -11858,7 +11874,8 @@ ERL_NIF_TERM send_check_result(ErlNifEnv*       env,
 
             *cleanup = FALSE;
 
-            res = send_check_pending(env, descP, opP, caller, sockRef, sendRef);
+            res = send_check_pending(env, descP, opP, caller,
+                                     sockRef, *sendRef);
 
         } else {
 
