@@ -47,8 +47,8 @@ ENV LDFLAGS=""
 ENV CXXFLAGS=""
 
 ## Update init.sh with correct env vars
-RUN echo "export MAKEFLAGS=$MAKEFLAGS" > /buildroot/env.sh && \
-    echo "export ERLC_USE_SERVER=$ERLC_USE_SERVER" >> /buildroot/env.sh && \
-    echo "export ERL_TOP=\"$ERL_TOP\"" >> /buildroot/env.sh && \
-    echo "export PATH=\"$PATH\"" >> /buildroot/env.sh && \
-    echo "export ERL_LIBS=\"$ERL_LIBS\"" >> /buildroot/env.sh
+RUN echo "export MAKEFLAGS=$MAKEFLAGS" >> /home/otptest/.profile && \
+    echo "export ERLC_USE_SERVER=$ERLC_USE_SERVER" >> /home/otptest/.profile && \
+    echo "export ERL_TOP=\"$ERL_TOP\"" >> /home/otptest/.profile && \
+    echo "export PATH=\"$PATH\"" >> /home/otptest/.profile && \
+    echo "export ERL_LIBS=\"$ERL_LIBS\"" >> /home/otptest/.profile
