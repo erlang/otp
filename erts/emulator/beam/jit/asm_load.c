@@ -29,6 +29,7 @@
 #include "beam_load.h"
 #include "erl_version.h"
 #include "beam_bp.h"
+#include "erl_debugger.h"
 
 #include "beam_asm.h"
 
@@ -68,6 +69,7 @@ int beam_load_prepare_emit(LoaderState *stp) {
     hdr->literal_area = NULL;
     hdr->md5_ptr = NULL;
     hdr->are_nifs = NULL;
+    hdr->debugger_flags = erts_debugger_flags;
 
     stp->coverage = hdr->coverage = NULL;
     stp->line_coverage_valid = hdr->line_coverage_valid = NULL;
@@ -629,6 +631,8 @@ int beam_load_emit_op(LoaderState *stp, BeamOp *tmp_op) {
         stp->function = tmp_op->a[2].val;
         stp->arity = tmp_op->a[3].val;
 
+        stp->debug_line_seen = 0;
+
         if (stp->arity > MAX_ARG) {
             BeamLoadError1(stp, "too many arguments: %d", stp->arity);
         }
@@ -706,17 +710,28 @@ int beam_load_emit_op(LoaderState *stp, BeamOp *tmp_op) {
         }
         break;
     }
-    case op_debug_line_IIt: {
-        BeamFile_DebugItem *items = stp->beam.debug.items;
-        Uint location_index = tmp_op->a[0].val;
-        Sint index = tmp_op->a[1].val - 1;
+    case op_i_debug_line_IIt: {
+        if (!stp->debug_line_seen) {
+            /* The first debug_line in a function is an instrumentation point before
+             * clause selection, so needs to be handled separately
+             */
+            stp->debug_line_seen = 1;
+        } else {
+            BeamFile_DebugItem *items = stp->beam.debug.items;
+            Uint location_index = tmp_op->a[0].val;
+            Sint index = tmp_op->a[1].val - 1;
 
-        if (add_line_entry(stp, location_index, 1)) {
-            goto load_error;
+            /* Each i_debug_line is a distinct instrumentation point and we don't
+             * want to miss a single one of them (so they all can be selected),
+             * so allow duplicates here.
+             */
+            if (add_line_entry(stp, location_index, 1)) {
+                goto load_error;
+            }
+
+            ASSERT(items[index].location_index == -1);
+            items[index].location_index = stp->current_li - 1;
         }
-
-        ASSERT(items[index].location_index == -1);
-        items[index].location_index = stp->current_li - 1;
 
         break;
     }

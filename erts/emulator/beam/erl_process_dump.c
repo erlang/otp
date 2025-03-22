@@ -442,16 +442,7 @@ print_function_from_pc(fmtfn_t to, void *to_arg, ErtsCodePtr x)
     const ErtsCodeMFA* cmfa = erts_find_function_from_pc(x);
 
     if (cmfa == NULL) {
-        if (x == beam_exit) {
-            erts_print(to, to_arg, "<terminate process>");
-        } else if (x == beam_continue_exit) {
-            erts_print(to, to_arg, "<continue terminate process>");
-        } else if (x == beam_normal_exit) {
-            erts_print(to, to_arg, "<terminate process normally>");
-        }
-        else {
-            erts_print(to, to_arg, "unknown function");
-        }
+        erts_print(to, to_arg, erts_internal_fun_description_from_pc(x));
     } else {
         const char *mfa_addr, *cp_addr;
 
