@@ -546,7 +546,7 @@ portnr(<<>>, aaa, #{rfc := 6733}) ->
     3868;
 portnr(<<>>, aaas, #{rfc := 6733}) ->
     5868;
-portnr(<<>>, _, #{rfc := 3588}) ->
+portnr(<<>>, _, _) ->
     3868;
 portnr(B, _, _) ->
     binary_to_integer(B).
@@ -555,6 +555,8 @@ transport(<<>>, #{rfc := 6733}) ->
     tcp;
 transport(<<>>, #{rfc := 3588}) ->
     sctp;
+transport(<<>>, _) ->
+    tcp;
 transport(B, _) ->
     to_atom(B).
 
