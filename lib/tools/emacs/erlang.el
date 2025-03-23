@@ -498,8 +498,8 @@ To activate the workaround, place the following in your `~/.emacs' file:
 nil means keeping default behavior.  When non-nil, indent to the column of
 if/case/receive."
   :group 'erlang
-  :type 'boolean
-  :safe 'booleanp)
+  :type '(restricted-sexp :match-alternatives (integerp 'nil))
+  :safe (lambda (val) (or (eq val nil) (integerp val))))
 
 (defcustom erlang-indent-guard 2
   "Indentation of Erlang guards."
