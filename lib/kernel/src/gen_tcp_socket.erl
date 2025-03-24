@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2019-2024. All Rights Reserved.
+%% Copyright Ericsson AB 2019-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -59,6 +59,9 @@
 
 %% -define(DBG(T),
 %% 	erlang:display({{self(), ?MODULE, ?LINE, ?FUNCTION_NAME}, T})).
+
+%% -define(P(F),    ?P(F, [])).
+%% -define(P(F, A), d("~w:~w(~w) -> " ++ F, [?MODULE, ?FUNCTION_NAME, ?LINE | A])).
 
 
 %% -------------------------------------------------------------------------
@@ -879,20 +882,23 @@ socket_sendv(Socket, Data, Timeout) ->
 end.
 
 -compile({inline, [socket_send_error/1]}).
-socket_send_error(Result) ->
-    case Result of
-        {error, epipe}                          -> {error, econnreset};
-        {error, Reason} when is_atom(Reason)    -> Result;
-        {error, #{info := Reason}} ->
-            case Reason of
-                netname_deleted ->
-                    {error, econnreset};
-                too_many_cmds ->
-                    {error, closed};
-                _ ->
-                    Result
-            end
-    end.
+socket_send_error({error, Reason}) ->
+    {error, socket_send_reason(Reason)}.
+
+-compile({inline, [socket_send_reason/1]}).
+socket_send_reason({completion_status, CS}) ->
+    socket_send_reason(CS);
+socket_send_reason(#{info := Info}) ->
+    socket_send_reason(Info);
+socket_send_reason(epipe) ->
+    econnreset;
+socket_send_reason(netname_deleted) ->
+    econnreset;
+socket_send_reason(too_many_cmds) ->
+    closed;
+socket_send_reason(Reason) ->
+    Reason.
+
 
 
 -compile({inline, [socket_recv/2]}).
@@ -2042,7 +2048,7 @@ handle_event(
   #recv{info = ?completion_info(CompletionRef)} = _State,
   {#params{socket = Socket} = P, D}) ->
     %% ?DBG(['abort msg', {reason, Reason}]),
-    handle_recv_error(P, D, [], completion_status_reason(Reason));
+    handle_recv_error(P, D, [], Reason);
 
 handle_event(
   {timeout, recv}, recv, #recv{info = Info},
@@ -2309,6 +2315,10 @@ handle_recv(P, #{buffer := Buffer} = D, ActionsR, CS) ->
 
         %% CompletionStatus
         {ok, <<Data/binary>>} ->
+            handle_recv(
+              P, D, ActionsR, buffer(Data, Buffer),
+              BufferSize + byte_size(Data), recv);
+        {more, <<Data/binary>>} ->
             handle_recv(
               P, D, ActionsR, buffer(Data, Buffer),
               BufferSize + byte_size(Data), recv);
@@ -2670,14 +2680,22 @@ handle_send_error(#params{socket = Socket} = P, D_0, State, From, Reason) ->
     end.
 
 %% -> CuratedReason
+curated_error_reason(D, {completion_status, CS}) ->
+    curated_error_reason(D, CS);
+curated_error_reason(D, #{info := Info}) ->
+    curated_error_reason(D, Info);
 curated_error_reason(D, Reason) ->
     if
         Reason =:= econnreset;
-        Reason =:= econnaborted ->
+        Reason =:= econnaborted;
+	Reason =:= netname_deleted;
+	Reason =:= epipe ->
             case maps:get(show_econnreset, D) of
                 true  -> econnreset;
                 false -> closed
             end;
+	Reason =:= too_many_commands ->
+	    closed;
         true ->
             Reason
     end.

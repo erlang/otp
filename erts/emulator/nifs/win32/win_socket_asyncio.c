@@ -9433,10 +9433,32 @@ ERL_NIF_TERM esaio_completion_recv_partial_part(ErlNifEnv*       env,
                                                 ssize_t          read,
                                                 DWORD            flags)
 {
-    /* This is just a "placeholder". Is this really all we need to do? */
-    return esaio_completion_recv_partial_done(env, descP,
-                                              opEnv, opDataP,
-                                              read, flags);
+    ERL_NIF_TERM sockRef = opDataP->sockRef;
+    ERL_NIF_TERM data;
+
+    ESOCK_CNT_INC(env, descP, sockRef,
+                  esock_atom_read_pkg, &descP->readPkgCnt, 1);
+    ESOCK_CNT_INC(env, descP, sockRef,
+                  esock_atom_read_byte, &descP->readByteCnt, read);
+
+    if (read > descP->readPkgMax)
+        descP->readPkgMax = read;
+
+    /* This transfers "ownership" of the *allocated* binary to an
+     * erlang term (no need for an explicit free).
+     */
+    data = MKBIN(opEnv, &opDataP->buf);
+    data = MKSBIN(opEnv, data, 0, read);
+
+    (void) flags;
+
+    SSDBG( descP,
+           ("WIN-ESAIO",
+            "esaio_completion_recv_partial_part(%T) {%d} -> done\r\n",
+            sockRef, descP->sock) );
+
+    return MKT2(env, esock_atom_more, data);
+
 }
 
 
