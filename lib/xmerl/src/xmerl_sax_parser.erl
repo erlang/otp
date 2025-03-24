@@ -223,6 +223,8 @@ parse_options([{external_entities, Type} |Options], State) when Type =:= all;
     parse_options(Options, State#xmerl_sax_parser_state{external_entities = Type});
 parse_options([{fail_undeclared_ref, Bool} |Options], State) when is_boolean(Bool) ->
     parse_options(Options, State#xmerl_sax_parser_state{fail_undeclared_ref = Bool});
+parse_options([{discard_ws_before_xml_document, Bool} |Options], State) when is_boolean(Bool) ->
+    parse_options(Options, State#xmerl_sax_parser_state{discard_ws_before_xml_document = Bool});
 parse_options([O |_], _State) ->
      {error, lists:flatten(io_lib:format("Option: ~p not supported", [O]))}.
 
