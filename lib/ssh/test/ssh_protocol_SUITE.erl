@@ -69,6 +69,7 @@
          modify_rm/1,
          no_common_alg_client_disconnects/1,
          no_common_alg_server_disconnects/1,
+         custom_kexinit/1,
          no_ext_info_s1/1,
          no_ext_info_s2/1,
          packet_length_too_large/1,
@@ -129,7 +130,8 @@ groups() ->
      {field_size_error, [], [service_name_length_too_large,
 			     service_name_length_too_short]},
       
-     {kex, [], [no_common_alg_server_disconnects,
+     {kex, [], [custom_kexinit,
+                no_common_alg_server_disconnects,
 		no_common_alg_client_disconnects,
 		gex_client_init_option_groups,
 		gex_server_gex_limit,
@@ -168,9 +170,7 @@ init_per_suite(Config) ->
 end_per_suite(Config) ->
     stop_apps(Config).
 
-
-
-init_per_testcase(no_common_alg_server_disconnects, Config) ->
+init_per_testcase(Tc, Config) when Tc == no_common_alg_server_disconnects; Tc == custom_kexinit ->
     start_std_daemon(Config, [{preferred_algorithms,[{public_key,['ssh-rsa']},
                                                      {cipher,?DEFAULT_CIPHERS}
                                                     ]}]);
@@ -215,7 +215,7 @@ init_per_testcase(TC, Config) when TC == gex_client_init_option_groups ;
 init_per_testcase(_TestCase, Config) ->
     check_std_daemon_works(Config, ?LINE).
 
-end_per_testcase(no_common_alg_server_disconnects, Config) ->
+end_per_testcase(Tc, Config) when Tc == no_common_alg_server_disconnects; Tc == custom_kexinit ->
     stop_std_daemon(Config);
 end_per_testcase(TC, Config) when TC == gex_client_init_option_groups ;
 				  TC == gex_client_init_option_groups_moduli_file ;
@@ -373,6 +373,88 @@ no_common_alg_server_disconnects(Config) ->
 	   {match, disconnect(), receive_msg}
 	  ]
 	 ).
+
+custom_kexinit(Config) ->
+    %% 16#C0 value causes unicode:characters_to_list to return a big error value
+    Trash = lists:duplicate(260_000, 16#C0),
+    FunnyAlg = "curve25519-sha256",
+    KexInit =
+        #ssh_msg_kexinit{cookie = <<"Ã/Ï!9zñKá:ñÀv¿JÜ">>,
+                         kex_algorithms =
+                             [FunnyAlg ++ Trash],
+                         server_host_key_algorithms = ["ssh-rsa"],
+                         encryption_algorithms_client_to_server =
+                             ["aes256-ctr","aes192-ctr","aes128-ctr","aes128-cbc","3des-cbc"],
+                         encryption_algorithms_server_to_client =
+                             ["aes256-ctr","aes192-ctr","aes128-ctr","aes128-cbc","3des-cbc"],
+                         mac_algorithms_client_to_server =
+                             ["hmac-sha2-512-etm@openssh.com","hmac-sha2-256-etm@openssh.com",
+                              "hmac-sha2-512","hmac-sha2-256","hmac-sha1-etm@openssh.com","hmac-sha1"],
+                         mac_algorithms_server_to_client =
+                             ["hmac-sha2-512-etm@openssh.com","hmac-sha2-256-etm@openssh.com",
+                              "hmac-sha2-512","hmac-sha2-256","hmac-sha1-etm@openssh.com","hmac-sha1"],
+                         compression_algorithms_client_to_server = ["none","zlib@openssh.com","zlib"],
+                         compression_algorithms_server_to_client = ["none","zlib@openssh.com","zlib"],
+                         languages_client_to_server = [],
+                         languages_server_to_client = [],
+                         first_kex_packet_follows = false,
+                         reserved = 0
+                        },
+    PacketFun =
+        fun(Msg, Ssh) ->
+                BinMsg = custom_encode(Msg),
+                ssh_transport:pack(BinMsg, Ssh, 0)
+        end,
+    {ok,_} =
+	ssh_trpt_test_lib:exec(
+	  [{set_options, [print_ops, {print_messages,detail}]},
+	   {connect,
+	    server_host(Config),server_port(Config),
+	    [{silently_accept_hosts, true},
+	     {user_dir, user_dir(Config)},
+	     {user_interaction, false},
+	     {preferred_algorithms,[{public_key,['ssh-rsa']},
+                                    {cipher,?DEFAULT_CIPHERS}
+                                   ]}
+	    ]},
+	   receive_hello,
+	   {send, hello},
+	   {match, #ssh_msg_kexinit{_='_'}, receive_msg},
+	   {send, {special, KexInit, PacketFun}},  % with server unsupported 'ssh-dss' !
+	   {match, disconnect(), receive_msg}
+	  ]
+	 ).
+
+custom_encode(#ssh_msg_kexinit{
+	  cookie = Cookie,
+	  kex_algorithms = KeyAlgs,
+	  server_host_key_algorithms = HostKeyAlgs,
+	  encryption_algorithms_client_to_server = EncAlgC2S,
+	  encryption_algorithms_server_to_client = EncAlgS2C,
+	  mac_algorithms_client_to_server = MacAlgC2S,
+	  mac_algorithms_server_to_client = MacAlgS2C,
+	  compression_algorithms_client_to_server = CompAlgS2C,
+	  compression_algorithms_server_to_client = CompAlgC2S,
+	  languages_client_to_server = LangC2S,
+	  languages_server_to_client = LangS2C,
+	  first_kex_packet_follows = Bool,
+	  reserved = Reserved
+	 }) ->
+    KeyAlgsBin0 = <<?Ename_list(KeyAlgs)>>,
+    <<?UINT32(Len0), Data:Len0/binary>> = KeyAlgsBin0,
+    KeyAlgsBin = <<?UINT32(Len0), Data/binary>>,
+    <<?Ebyte(?SSH_MSG_KEXINIT), Cookie/binary,
+      KeyAlgsBin/binary,
+      ?Ename_list(HostKeyAlgs),
+      ?Ename_list(EncAlgC2S),
+      ?Ename_list(EncAlgS2C),
+      ?Ename_list(MacAlgC2S),
+      ?Ename_list(MacAlgS2C),
+      ?Ename_list(CompAlgS2C),
+      ?Ename_list(CompAlgC2S),
+      ?Ename_list(LangC2S),
+      ?Ename_list(LangS2C),
+      ?Eboolean(Bool), ?Euint32(Reserved)>>.
 
 %%--------------------------------------------------------------------
 %%% Algo negotiation fail.  This should result in a ssh_msg_disconnect
