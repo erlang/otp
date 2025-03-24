@@ -48,7 +48,7 @@
     cancel/3
    ]).
 
--export([enc_sockaddr/1, p_get/1]).
+-export([enc_sockaddr/1, p_get/1, rest_iov/2]).
 
 -nifs([nif_info/0, nif_info/1, nif_supports/0, nif_supports/1, nif_command/1,
        nif_open/2, nif_open/4, nif_bind/2, nif_connect/1, nif_connect/3,
@@ -654,7 +654,6 @@ sendmsg_result(
             RestIOV = rest_iov(Written, IOV),
             {select, RestIOV, Cont};
 
-        %% Either the message was written or not. No half ways...
         completion = C ->
             C;
 
@@ -733,8 +732,20 @@ sendv_result(SockRef, IOV, SendRef, HasWritten, Result) ->
             %% Cont is not used for sendv
             {select, RestIOV, undefined};
 
+        %% We may have previously been able to send part of
+        %% the message: Depends on how long the I/O vector is!
+        %% A vector of length > IOV_MAX *will* result in a partial
+        %% send (and a return of '{iov, Written}').
+        %% On Windows, IOV_MAX can be as low 16, so there is a
+        %% good chance this will happen (unless the user has
+        %% already pruned the I/O vector).
         completion = C ->
-            C;
+            if
+                HasWritten ->
+                    {C, IOV, undefined};
+                true ->
+                    {C, undefined}
+            end;
 
         {error, _Reason} = Result ->
             Result
