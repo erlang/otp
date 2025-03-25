@@ -672,6 +672,11 @@ support all of them.
                      | aes_256_gcm
                      | aes_gcm
 
+                     | aes_128_gcm_siv
+                     | aes_192_gcm_siv
+                     | aes_256_gcm_siv
+                     | aes_gcm_siv
+
                      | sm4_gcm
                      | sm4_ccm
 
@@ -1431,10 +1436,10 @@ support and possibly other properties of the cipher algorithm in question.
 > #### Note {: .info }
 >
 > The ciphers `aes_cbc`, `aes_cfb8`, `aes_cfb128`, `aes_ctr`, `aes_ecb`,
-> `aes_gcm` and `aes_ccm` has no keylength in the `Type` as opposed to for
-> example `aes_128_ctr`. They adapt to the length of the key provided in the
-> encrypt and decrypt function. Therefore it is impossible to return a valid
-> keylength in the map.
+> `aes_gcm`, `aes_gcm_siv`, and `aes_ccm` has no keylength in the `Type` as
+> opposed to for example `aes_128_ctr`. They adapt to the length of the key
+> provided in the encrypt and decrypt function. Therefore it is impossible
+> to return a valid keylength in the map.
 >
 > Always use a `Type` with an explicit key length,
 
@@ -1833,6 +1838,10 @@ aead_tag_len(aes_gcm    ) -> 16;
 aead_tag_len(aes_128_gcm) -> 16;
 aead_tag_len(aes_192_gcm) -> 16;
 aead_tag_len(aes_256_gcm) -> 16;
+aead_tag_len(aes_gcm_siv) -> 16;
+aead_tag_len(aes_128_gcm_siv) -> 16;
+aead_tag_len(aes_192_gcm_siv) -> 16;
+aead_tag_len(aes_256_gcm_siv) -> 16;
 aead_tag_len(chacha20_poly1305) -> 16;
 aead_tag_len(sm4_gcm) -> 16;
 aead_tag_len(sm4_ccm) -> 16;
@@ -1927,6 +1936,7 @@ alias(aes_cfb128, Key) -> alias1(aes_cfb128, iolist_size(Key));
 alias(aes_ctr, Key)    -> alias1(aes_ctr, iolist_size(Key));
 alias(aes_ecb, Key)    -> alias1(aes_ecb, iolist_size(Key));
 alias(aes_gcm, Key)    -> alias1(aes_gcm, iolist_size(Key));
+alias(aes_gcm_siv, Key) -> alias1(aes_gcm_siv, iolist_size(Key));
 alias(aes_ccm, Key)    -> alias1(aes_ccm, iolist_size(Key));
 alias(Alg, _) -> Alg.
 
@@ -1954,6 +1964,10 @@ alias1(aes_ecb, 32)  -> aes_256_ecb;
 alias1(aes_gcm, 16)  -> aes_128_gcm;
 alias1(aes_gcm, 24)  -> aes_192_gcm;
 alias1(aes_gcm, 32)  -> aes_256_gcm;
+
+alias1(aes_gcm_siv, 16) -> aes_128_gcm_siv;
+alias1(aes_gcm_siv, 24) -> aes_192_gcm_siv;
+alias1(aes_gcm_siv, 32) -> aes_256_gcm_siv;
 
 alias1(aes_ccm, 16)  -> aes_128_ccm;
 alias1(aes_ccm, 24)  -> aes_192_ccm;
@@ -1985,6 +1999,10 @@ alias1_rev(aes_256_ecb)    -> aes_ecb;
 alias1_rev(aes_128_gcm)    -> aes_gcm;
 alias1_rev(aes_192_gcm)    -> aes_gcm;
 alias1_rev(aes_256_gcm)    -> aes_gcm;
+
+alias1_rev(aes_128_gcm_siv) -> aes_gcm_siv;
+alias1_rev(aes_192_gcm_siv) -> aes_gcm_siv;
+alias1_rev(aes_256_gcm_siv) -> aes_gcm_siv;
 
 alias1_rev(aes_128_ccm)    -> aes_ccm;
 alias1_rev(aes_192_ccm)    -> aes_ccm;

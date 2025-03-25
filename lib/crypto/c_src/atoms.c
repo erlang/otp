@@ -66,6 +66,7 @@ ERL_NIF_TERM atom_cfb_mode;
 ERL_NIF_TERM atom_ofb_mode;
 ERL_NIF_TERM atom_ctr_mode;
 ERL_NIF_TERM atom_gcm_mode;
+ERL_NIF_TERM atom_gcm_siv_mode;
 ERL_NIF_TERM atom_ccm_mode;
 ERL_NIF_TERM atom_xts_mode;
 ERL_NIF_TERM atom_wrap_mode;
@@ -208,6 +209,7 @@ int init_atoms(ErlNifEnv *env) {
     atom_ofb_mode = enif_make_atom(env,"ofb_mode");
     atom_ctr_mode = enif_make_atom(env,"ctr_mode");
     atom_gcm_mode = enif_make_atom(env,"gcm_mode");
+    atom_gcm_siv_mode = enif_make_atom(env,"gcm_siv_mode");
     atom_ccm_mode = enif_make_atom(env,"ccm_mode");
     atom_xts_mode = enif_make_atom(env,"xts_mode");
     atom_wrap_mode = enif_make_atom(env,"wrap_mode");
