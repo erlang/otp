@@ -439,7 +439,9 @@ wait_finished(internal = Type, #change_cipher_spec{} = Msg, State) ->
                                                      ?STATE(wait_finished), State);
 wait_finished(internal,
               #finished{verify_data = VerifyData},
-              #state{static_env = #static_env{protocol_cb = Connection}}
+              #state{static_env = #static_env{protocol_cb = Connection,
+                                              role = Role},
+                     ssl_options = SSLOpts}
               = State0) ->
     {Ref,Maybe} = tls_gen_connection_1_3:do_maybe(),
     try
@@ -456,20 +458,15 @@ wait_finished(internal,
         State4 = Connection:queue_handshake(Finished, State3),
         %% Send first flight
         {State5, _} = Connection:send_handshake_flight(State4),
-        State6 = tls_handshake_1_3:calculate_traffic_secrets(State5),
-        State7 =
-            tls_handshake_1_3:maybe_calculate_resumption_master_secret(State6),
-        ExporterMasterSecret = tls_handshake_1_3:calculate_exporter_master_secret(State7),
-        State8 = tls_handshake_1_3:forget_master_secret(State7),
+        State6 = tls_handshake_1_3:handle_secrets(State5),
         %% Configure traffic keys
-        State9 = ssl_record:step_encryption_state(State8),
-        {Record, #state{protocol_specific = PS} = State} =
-            ssl_gen_statem:prepare_connection(State9, tls_gen_connection),
-
-        tls_gen_connection:next_event(connection, Record,
-                                      State#state{protocol_specific =
-                                                      PS#{exporter_master_secret =>
-                                                              ExporterMasterSecret}},
+        State7 = ssl_record:step_encryption_state(State6),
+        {Record, State} =
+            ssl_gen_statem:prepare_connection(State7, tls_gen_connection),
+        KeepSecrets = maps:get(keep_secrets, SSLOpts, false),
+        tls_gen_connection_1_3:maybe_traffic_keylog_1_3(KeepSecrets, Role,
+                                                        State#state.connection_states, 0),
+        tls_gen_connection:next_event(connection, Record, State,
                                       [{{timeout, handshake}, cancel}])
     catch
         {Ref, #alert{} = Alert} ->
