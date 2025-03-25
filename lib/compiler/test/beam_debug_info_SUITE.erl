@@ -540,7 +540,7 @@ get_debug_info(Mod, Beam) ->
     {beam_file,Mod,_Exp,_Attr,_Opts,Fs} = beam_disasm:file(Beam),
     DebugMap = #{Index => LocationIndex ||
                    {function,_Name,_Arity,_Entry,Is} <:- Fs,
-                   {debug_line,LocationIndex,Index,_Live} <- Is},
+                   {debug_line,{atom,line},LocationIndex,Index,_Live} <- Is},
     CookedDebugInfo =
         [{map_get(map_get(Index, DebugMap), Lines),Info} ||
             {Index,Info} <:- RawDebugInfo,
@@ -733,6 +733,7 @@ call_in_call_args(Config) ->
     ok = file:write_file(SrcName, S),
     {ok,M,Asm} = compile:file(SrcName, [report,beam_debug_info,binary,to_asm]),
     {M,_,_,[{function,f,1,_,Is}|_],_} = Asm,
+
     DebugLines = [I || I <- Is, element(1, I) =:= debug_line],
     io:format("~p\n", [DebugLines]),
     4 = length(DebugLines),
@@ -764,17 +765,17 @@ missing_vars(Config) ->
     {M,_,_,[{function,f,3,_,Is}|_],_} = Asm,
     DebugLines0 = [begin
                        {location,_File,Line} = lists:keyfind(location, 1, Anno),
-                       {Line,FrameSz,[Name || {Name,_} <- Vars]}
-                   end || {debug_line,Anno,_,_,{FrameSz,Vars}} <- Is],
+                       {Kind,Line,FrameSz,[Name || {Name,_} <- Vars]}
+                   end || {debug_line,{atom,Kind},Anno,_,_,{FrameSz,Vars}} <- Is],
     DebugLines = lists:sort(DebugLines0),
     io:format("~p\n", [DebugLines]),
-    Expected = [{3,entry,[1,2,3]},
-                {4,none,['X','Y','Z0']},
-                {6,none,['X','Y','Z0']},
-                {7,none,['X','Z0','Z1']},
-                {8,1,['Z1']},
-                {10,none,['X','Y','Z0']},
-                {11,none,['Y','Z0','Z1']}],
+    Expected = [{entry,3,entry,[1,2,3]},
+                {line,4,none,['X','Y','Z0']},
+                {line,6,none,['X','Y','Z0']},
+                {line,7,none,['X','Z0','Z1']},
+                {line,8,1,['Z1']},
+                {line,10,none,['X','Y','Z0']},
+                {line,11,none,['Y','Z0','Z1']}],
 
     ?assertEqual(Expected, DebugLines),
 
