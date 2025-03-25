@@ -62,7 +62,7 @@ jobs:
 
       - name: "Upload artifact"
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v4.4.3 ratchet:actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.4.3 ratchet:actions/upload-artifact@v4
         with:
             name: SARIF file
             path: results.sarif
@@ -82,10 +82,10 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # ratchet:actions/checkout@v4.2.2
       - name: Download sarif file
-        uses: actions/download-artifact@cc203385981b70ca67e1cc392babf9cc229d5806 # ratchet:actions/download-artifact@v4.1.9
+        uses: actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e # ratchet:actions/download-artifact@v4.2.1
       # Upload the results to GitHub's code scanning dashboard.
       - name: "Upload to code-scanning"
         if: ${{ !cancelled() }}
-        uses: github/codeql-action/upload-sarif@6bb031afdd8eb862ea3fc1848194185e076637e5 # ratchet:github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@1b549b9259bda1cb5ddde3b41741a82a2d15a841 # ratchet:github/codeql-action/upload-sarif@v3
         with:
           sarif_file: "SARIF file/results.sarif"
