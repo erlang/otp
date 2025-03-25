@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2024. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -3304,7 +3304,17 @@ udp_options() ->
 
 -doc false.
 udp_options(Opts, Mod) ->
-    case udp_opt(Opts, #udp_opts { }, udp_options()) of
+    BaseOpts =
+	case application:get_env(kernel, inet_default_udp_options) of
+	    {ok, List} when is_list(List) ->
+                %% io:format("~w:~w -> inet_default_udp_options: "
+                %%           "~n   ~p"
+                %%           "~n", [?MODULE, ?FUNCTION_NAME, List]),
+		#udp_opts{opts = List};
+	    _ ->
+		#udp_opts{}
+	end,
+    case udp_opt(Opts, BaseOpts, udp_options()) of
 	{ok, R} ->
 	    {ok, R#udp_opts {
 		   opts = lists:reverse(R#udp_opts.opts),
@@ -3437,7 +3447,15 @@ sctp_options() ->
 -doc false.
 sctp_options(Opts, Mod)  ->
     %% ?DBG([{opts, Opts}, {mod, Mod}]),
-    case sctp_opt(Opts, Mod, #sctp_opts{}, sctp_options()) of
+    BaseOpts =
+	case application:get_env(kernel, inet_default_sctp_options) of
+	    {ok, List} when is_list(List) ->
+		#sctp_opts{opts = List};
+            _ ->
+		#sctp_opts{}
+	end,
+    %% ?DBG([{base_opts, BaseOpts}]),
+    case sctp_opt(Opts, Mod, BaseOpts, sctp_options()) of
 	{ok, SO} ->
 	    {ok,SO#sctp_opts{opts=lists:reverse(SO#sctp_opts.opts)}};
 	Error ->
