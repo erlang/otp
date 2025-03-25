@@ -30,14 +30,20 @@ See also [ERTS User's Guide: Inet Configuration](`e:erts:inet_cfg.md`)
 or more information about how to configure an Erlang runtime system
 for IP communication.
 
-The following two Kernel configuration parameters affect the behavior of all
-`m:gen_tcp` sockets opened on an Erlang node:
+The following four Kernel configuration parameters affect the behavior of all
+`m:gen_tcp`, `m:gen_udp` and `m:gen_sctp` sockets opened on an Erlang node:
 
 - `inet_default_connect_options` can contain a list of
-  default options used for all sockets created by
-  a `gen_tcp:connect/2,3,4`](`gen_tcp:connect/2`) call.
+default options used for all sockets created by
+a `gen_tcp:connect/2,3,4`](`gen_tcp:connect/2`) call.
 - `inet_default_listen_options` can contain a list of default options
   used for sockets created by a `gen_tcp:listen/2` call.
+- `inet_default_udp_options` can contain a list of
+default options used for all sockets created by
+a `gen_udp:open/1,2`](`gen_udp:open/2`) call.
+- `inet_default_sctp_options` can contain a list of
+default options used for all sockets created by
+a `gen_sctp:open/0,1`](`gen_sctp:open/1`) call.
 
 For the [`gen_tcp:accept/1,2`](`gen_tcp:accept/1`) call,
 the values of the listening socket options are inherited.
