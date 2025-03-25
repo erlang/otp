@@ -505,6 +505,8 @@ pcre2_set_offset_limit(pcre2_match_context *mcontext, PCRE2_SIZE limit)
 mcontext->offset_limit = limit;
 return 0;
 }
+
+#ifdef ERLANG_INTEGRATION
 PCRE2_EXP_DEFN void PCRE2_CALL_CONVENTION
 pcre2_set_loops_left(pcre2_match_data *mdata, int budget)
 {
@@ -527,6 +529,8 @@ pcre2_set_restart_flags(pcre2_match_data *mdata, uint32_t flags)
 mdata->restart_flags = flags;
 return 0;
 }
+#endif // ERLANG_INTEGRATION
+
 /* These functions became obsolete at release 10.30. The first is kept as a
 synonym for backwards compatibility. The second now does nothing. Exclude both
 from coverage reports. */
