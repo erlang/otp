@@ -70,6 +70,7 @@ MODULES = \
 	erl_debugger \
 	erl_ddll \
 	erl_distribution \
+	erl_debugger \
 	erl_erts_errors \
 	erl_epmd \
 	erl_kernel_errors \
