@@ -902,6 +902,8 @@ raw_initial_call(ProcInfo) when is_list(ProcInfo) ->
     case lists:keyfind({dictionary, '$initial_call'}, 1, ProcInfo) of
         {{dictionary,_}, {_,_,_}=MFA} ->
             MFA;
+        {{dictionary,_}, _} ->
+            false;
         false ->
             case lists:keyfind(dictionary, 1, ProcInfo) of
                 {dictionary,Dict} ->
