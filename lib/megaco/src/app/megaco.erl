@@ -311,7 +311,7 @@ corresponding value can be of any type.[](){: #ci_control_pid }
   The timeout time is in milliseconds. A value of 0 (zero) means that the proxy
   process will exit directly after the reply has been delivered.
 
-  Value type: `t:timer:time/0`
+  Value type: [non_neg_integer()](`t:erlang:non_neg_integer/0`)
 
   Defaults to `5000` (= 5 seconds).
 
@@ -408,7 +408,7 @@ corresponding value can be of any type.[](){: #ci_control_pid }
 
   See also [transaction sender](megaco_run.md#transaction_sender) for more info.
 
-  Value type: `t:timer:time/0`
+  Value type: [non_neg_integer()](`t:erlang:non_neg_integer/0`)
 
   Defaults to `0`.
 
