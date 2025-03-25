@@ -37,7 +37,7 @@ runs:
 
       - name: "Upload artifact"
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # ratchet:actions/upload-artifact@v4.6.1
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # ratchet:actions/upload-artifact@v4.6.2
         with:
             name: SARIF file
             path: results.sarif
@@ -45,6 +45,6 @@ runs:
       # Upload the results to GitHub's code scanning dashboard.
       - name: "Upload to code-scanning"
         if: ${{ !cancelled() && inputs.upload == 'true' }}
-        uses: github/codeql-action/upload-sarif@6bb031afdd8eb862ea3fc1848194185e076637e5 # ratchet:github/codeql-action/upload-sarif@v3.28.11
+        uses: github/codeql-action/upload-sarif@1b549b9259bda1cb5ddde3b41741a82a2d15a841 # ratchet:github/codeql-action/upload-sarif@v3.28.13
         with:
             sarif_file: results.sarif
