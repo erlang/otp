@@ -377,6 +377,9 @@ vi({line,_}, Vst) ->
     Vst;
 vi({executable_line,_,Index}, Vst) when is_integer(Index) ->
     Vst;
+vi({debug_line_entry,_,Index,Live,Info}, Vst) when is_integer(Index),
+                                                   is_integer(Live) ->
+    validate_debug_line({entry,Info}, Live, Vst);
 vi({debug_line,_,Index,Live,Info}, Vst) when is_integer(Index),
                                              is_integer(Live) ->
     validate_debug_line(Info, Live, Vst);

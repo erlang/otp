@@ -91,6 +91,7 @@ line I
 
 executable_line I I
 
+debug_line_entry I I t
 debug_line I I t
 
 allocate t t

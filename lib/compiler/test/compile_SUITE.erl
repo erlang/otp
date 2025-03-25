@@ -1744,8 +1744,8 @@ bc_options(Config) ->
 
          {183, small, [line_coverage]},
 
-         {184, small, [beam_debug_info]},
-         {184, big, [beam_debug_info]}
+         {185, small, [beam_debug_info]},
+         {185, big, [beam_debug_info]}
         ],
 
     Test = fun({Expected,Mod,Options}) ->

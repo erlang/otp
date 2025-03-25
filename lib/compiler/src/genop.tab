@@ -701,3 +701,9 @@ BEAM_FORMAT_NUMBER=0
 ## @spec debug_line Location Index Live
 ## @doc  Provide location for a place where a break point can be placed.
 184: debug_line/3
+
+## @spec debug_line_entry Location Index Live
+## @doc  Provide location for a place where a break point can be placed.
+##       This instruction can optionally be used as the very first
+##       instruction in a function.
+185: debug_line_entry/3

@@ -516,6 +516,10 @@ make_op({line=Op,Location}, Dict0) ->
 make_op({executable_line=Op,Location,Index}, Dict0) ->
     {LocationIndex,Dict} = beam_dict:line(Location, Dict0, Op),
     encode_op(executable_line, [LocationIndex,Index], Dict);
+make_op({debug_line_entry,Location,Index,Live,DebugInfo}, Dict0) ->
+    {LocationIndex,Dict1} = beam_dict:line(Location, Dict0, debug_line),
+    Dict = beam_dict:debug_info(Index, {entry,DebugInfo}, Dict1),
+    encode_op(debug_line_entry, [LocationIndex,Index,Live], Dict);
 make_op({debug_line=Op,Location,Index,Live,DebugInfo}, Dict0) ->
     {LocationIndex,Dict1} = beam_dict:line(Location, Dict0, Op),
     Dict = beam_dict:debug_info(Index, DebugInfo, Dict1),

@@ -1305,6 +1305,9 @@ resolve_inst({executable_line,[Location,Index]},_,_,_) ->
 
 resolve_inst({debug_line,[Location,Index,Live]},_,_,_) ->
     {debug_line,resolve_arg(Location),resolve_arg(Index),resolve_arg(Live)};
+resolve_inst({debug_line_entry,[Location,Index,Live]},_,_,_) ->
+    {debug_line_entry,resolve_arg(Location),resolve_arg(Index),
+     resolve_arg(Live)};
 
 %%
 %% Catches instructions that are not yet handled.

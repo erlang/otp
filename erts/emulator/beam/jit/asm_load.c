@@ -706,6 +706,20 @@ int beam_load_emit_op(LoaderState *stp, BeamOp *tmp_op) {
         }
         break;
     }
+    case op_debug_line_entry_IIt: {
+        BeamFile_DebugItem *items = stp->beam.debug.items;
+        Uint location_index = tmp_op->a[0].val;
+        Sint index = tmp_op->a[1].val - 1;
+
+        if (add_line_entry(stp, location_index, 1)) {
+            goto load_error;
+        }
+
+        ASSERT(items[index].location_index == -1);
+        items[index].location_index = stp->current_li - 1;
+
+        break;
+    }
     case op_debug_line_IIt: {
         BeamFile_DebugItem *items = stp->beam.debug.items;
         Uint location_index = tmp_op->a[0].val;
