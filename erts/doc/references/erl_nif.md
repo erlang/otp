@@ -513,6 +513,14 @@ calling NIF API functions. Functions exist for the following functionality:
   instead used, then the name of the archive file must match the name of the
   module.
 
+  Multiple static NIF libraries can be included in a single archive file by
+  specifying the respective `STATIC_ERLANG_NIF_LIBNAME` values in the configure
+  call separated by colons after the archive file name:
+
+  ```sh
+  ./confgure --enable-static-nifs=/path/to/archive.a:nif_lib1:nif_lib2
+  ```
+
 - __`int (*load)(ErlNifEnv* caller_env, void** priv_data, ERL_NIF_TERM load_info)`__ - 
   `load`{: #load } is called when the NIF library is loaded and no previously
   loaded library exists for this module.
