@@ -2921,7 +2921,7 @@ erts_active_schedulers(void)
 {
     Uint as = erts_no_schedulers;
 
-    ERTS_ATOMIC_FOREACH_NORMAL_RUNQ(rq, as -= abs(rq->waiting));
+    ERTS_ATOMIC_FOREACH_NORMAL_RUNQ(rq, as -= rq->waiting);
 
     return as;
 }
@@ -2932,10 +2932,7 @@ sched_waiting(Uint no, ErtsRunQueue *rq)
     ERTS_LC_ASSERT(erts_lc_runq_is_locked(rq));
     (void) ERTS_RUNQ_FLGS_SET(rq, (ERTS_RUNQ_FLG_OUT_OF_WORK
 				   | ERTS_RUNQ_FLG_HALFTIME_OUT_OF_WORK));
-    if (rq->waiting < 0)
-	rq->waiting--;
-    else
-	rq->waiting++;
+    rq->waiting++;
     rq->woken = 0;
     if (!ERTS_RUNQ_IX_IS_DIRTY(rq->ix) && erts_system_profile_flags.scheduler)
 	profile_scheduler(make_small(no), am_inactive);
@@ -2945,10 +2942,7 @@ static ERTS_INLINE void
 sched_active(Uint no, ErtsRunQueue *rq)
 {
     ERTS_LC_ASSERT(erts_lc_runq_is_locked(rq));
-    if (rq->waiting < 0)
-	rq->waiting++;
-    else
-	rq->waiting--;
+    rq->waiting--;
     if (!ERTS_RUNQ_IX_IS_DIRTY(rq->ix) && erts_system_profile_flags.scheduler)
 	profile_scheduler(make_small(no), am_active);
 }
@@ -6147,7 +6141,6 @@ erts_init_scheduling(int no_schedulers, int no_schedulers_online, int no_poll_th
 
 	erts_mtx_init(&rq->mtx, "run_queue", make_small(ix + 1),
         ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_SCHEDULER);
-	erts_cnd_init(&rq->cnd);
 
         if (ERTS_RUNQ_IX_IS_DIRTY(ix)) {
             erts_mtx_init(&rq->sleepers.lock, "dirty_run_queue_sleep_list",

@@ -472,12 +472,11 @@ struct ErtsRunQueue_ {
     int ix;
 
     erts_mtx_t mtx;
-    erts_cnd_t cnd;
 
     ErtsSchedulerSleepList sleepers;
 
     ErtsSchedulerData *scheduler;
-    int waiting; /* < 0 in sys schedule; > 0 on cnd variable */
+    int waiting;
     int woken;
     erts_atomic32_t flags;
     int check_balance_reds;
