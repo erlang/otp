@@ -1700,16 +1700,20 @@ build_sigil(SigilPrefix, String, SigilSuffix) ->
                       element(2, SigilSuffix),
                       "illegal sigil suffix")
             end;
-%%%         Type =:= 'r' -> % Regular expression
+        Type =:= 'r';
+        Type =:= 'R';
+        Type =:= 're' -> % Regular expression (make it reserved)
 %%%             %% Convert to {re,RE,Flags}
 %%%             {tuple, ?anno(SigilPrefix),
 %%%              [{atom,?anno(SigilPrefix),'re'},
 %%%               String,
 %%%               {string,?anno(SigilSuffix),Suffix}]};
-        true ->
             ret_err(
               element(2, SigilPrefix),
-              "illegal sigil prefix")
+              "illegal sigil prefix");
+        true ->
+            %% Custom sigils
+            {sigil, ?anno(SigilPrefix), Type, String, Suffix}
     end.
 
 -spec ret_err(_, _) -> no_return().
