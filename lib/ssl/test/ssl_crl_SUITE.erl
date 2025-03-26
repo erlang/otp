@@ -227,6 +227,12 @@ crl_verify_valid() ->
 crl_verify_valid(Config) when is_list(Config) ->
     PrivDir = proplists:get_value(cert_dir, Config),
     Check = proplists:get_value(crl_check, Config),
+    {status, _, _, StatusInfo} = sys:get_status(whereis(ssl_manager)),
+    [_, _,_, _, Prop] = StatusInfo,
+    State = ssl_test_lib:state(Prop),
+
+    [_, _, _, {CRLCache,_}]  = element(5, State),
+
     ServerOpts =  [{keyfile, filename:join([PrivDir, "server", "key.pem"])},
       		  {certfile, filename:join([PrivDir, "server", "cert.pem"])},
 		   {cacertfile, filename:join([PrivDir, "server", "cacerts.pem"])}],
@@ -251,8 +257,19 @@ crl_verify_valid(Config) when is_list(Config) ->
 
     crl_verify_valid(Hostname, ServerNode, ServerOpts, ClientNode, ClientOpts),
 
+    ssl_crl_cache:insert("http://foobar/erlangCA/crl.pem", {file, filename:join([PrivDir, "otpCA", "crl.pem"])}),
+
+    R1 = ssl_crl_cache:lookup(#'DistributionPoint'{distributionPoint =
+                                                       {fullName, [{uniformResourceIdentifier, "http://foobar/erlangCA/crl.pem"}]}},
+                              undefined, {{CRLCache, internal_dummy}, internal_dummy}),
+    R2 = ssl_crl_cache:lookup(#'DistributionPoint'{distributionPoint =
+                                                       {fullName, [{uniformResourceIdentifier, "http://localhost/erlangCA/crl.pem"}]}},
+                              undefined, {{CRLCache, internal_dummy}, internal_dummy}),
+    %% Check that same path in URI does not evaluate to same result
+    true = R1 =/= R2,
+
     %% check that delete WITH URI works as well.
-    ssl_crl_cache:delete("http://localhost/erlangCA/crl.pem").
+    ok = ssl_crl_cache:delete("http://localhost/erlangCA/crl.pem").
 
 crl_verify_revoked() ->
     [{doc,"Verify a simple CRL chain when peer cert is reveoked"}].
