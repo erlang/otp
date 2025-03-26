@@ -2,7 +2,7 @@ dnl Process this file with autoconf to produce a configure script. -*-Autoconf-*
 
 dnl %CopyrightBegin%
 dnl
-dnl Copyright Ericsson AB 1997-2024. All Rights Reserved.
+dnl Copyright Ericsson AB 1997-2025. All Rights Reserved.
 dnl
 dnl Licensed under the Apache License, Version 2.0 (the "License");
 dnl you may not use this file except in compliance with the License.
@@ -1376,6 +1376,17 @@ dnl Temporary! Currently we require eei to be *explicitly*
 dnl disabled (for debug reasons).
 if test "x$enable_esock_extended_error_info" != "xno"; then
     AC_DEFINE(ESOCK_USE_EXTENDED_ERROR_INFO, [1], [Use extended error info])
+fi
+
+
+dnl *** ESOCK_VERBOSE_MTX_NAMES ***
+
+AC_ARG_ENABLE(esock_verbose_mtx_names,
+AS_HELP_STRING([--enable-esock-verbose-mtx-names], [enable use of verbose mutex names (default)])
+AS_HELP_STRING([--disable-esock-verbose-mtx-names], [disable use of verbose mutex names]))
+
+if test "x$enable_esock_verbose_mtx_names" != "xno"; then
+    AC_DEFINE(ESOCK_VERBOSE_MTX_NAMES, [1], [Use verbose mutex names])
 fi
 
 
