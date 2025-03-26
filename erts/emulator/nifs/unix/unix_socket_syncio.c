@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2022-2023. All Rights Reserved.
+ * Copyright Ericsson AB 2022-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -2566,7 +2566,9 @@ ERL_NIF_TERM essio_recv(ErlNifEnv*       env,
     size_t       bufSz = (len != 0 ? len : descP->rBufSz);
 
     SSDBG( descP, ("UNIX-ESSIO", "essio_recv {%d} -> entry with"
-                   "\r\n   count,size: (%ld:%u:%lu)"
+                   "\r\n   len:   %ld"
+                   "\r\n   count: %u"
+                   "\r\n   bufSz: %lu"
                    "\r\n", descP->sock,
                    (long) len, descP->rNumCnt, (unsigned long) bufSz) );
 

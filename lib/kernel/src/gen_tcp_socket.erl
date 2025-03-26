@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2019-2023. All Rights Reserved.
+%% Copyright Ericsson AB 2019-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -319,13 +319,14 @@ which_default_bind_address2(Domain) ->
     case net_getifaddrs(Domain) of
         {ok, Addrs} ->
             %% ?DBG([{addrs, Addrs}]),
-            %% Pick first *non-loopback* interface that is 'up'
+            %% Pick first *non-loopback* interface that is 'up' and 'running'
             UpNonLoopbackAddrs =
                 [Addr ||
                     #{flags := Flags} = Addr <-
                         Addrs,
                     (not lists:member(loopback, Flags)) andalso
-                        lists:member(up, Flags)],
+                        lists:member(up, Flags) andalso
+                        lists:member(running, Flags)],
             %% ?DBG([{up_non_loopback_addrs, UpNonLoopbackAddrs}]),
             case UpNonLoopbackAddrs of
                 [#{addr := #{addr := Addr}} | _] ->
@@ -2029,8 +2030,12 @@ handle_event(
     _ = socket_close(Socket),
     NewReason = case Reason of
                     {completion_status, #{info := netname_deleted}} ->
-                        closed;
+                        econnreset;
                     {completion_status, netname_deleted} ->
+                        econnreset;
+                    {completion_status, #{info := too_many_cmds}} ->
+                        closed;
+                    {completion_status, too_many_cmds} ->
                         closed;
                     {completion_status, #{info := INFO}} ->
                         INFO;
@@ -2110,8 +2115,12 @@ handle_event(
     %% ?DBG(['abort msg', {reason, Reason}]),
     NewReason = case Reason of
                     {completion_status, #{info := netname_deleted}} ->
-                        closed;
+                        econnreset;
                     {completion_status, netname_deleted} ->
+                        econnreset;
+                    {completion_status, #{info := too_many_cmds}} ->
+                        closed;
+                    {completion_status, too_many_cmds} ->
                         closed;
                     {completion_status, #{info := INFO}} ->
                         INFO;
@@ -2632,10 +2641,16 @@ handle_recv_length(P, D, ActionsR, Length, Buffer, CS)
     %% ?DBG(['socket recv result', {cs_result, element(1, CS)}]),
     case CS of
         {ok, <<Data/binary>>} ->
-	    %% ?DBG([{received, byte_size(Data)}]),
+	    %% ?DBG([{ok_received, byte_size(Data)}]),
             handle_recv_deliver(
               P, D#{buffer := <<>>}, ActionsR,
               condense_buffer([Data | Buffer]));
+
+        {more, <<Data/binary>>} ->
+	    %% ?DBG([{more_received, byte_size(Data)}]),
+	    N = Length - byte_size(Data),
+	    handle_recv_length(P, D, ActionsR, N,
+			       condense_buffer([Data | Buffer]), recv);
 
         {error, {Reason, <<Data/binary>>}} ->
             %% Error before all data
@@ -2923,28 +2938,36 @@ cleanup_recv_reply(
         #{active := false} -> ok;
         #{active := _} ->
             ModuleSocket = module_socket(P),
-            Owner = P#params.owner,
+            Owner        = P#params.owner,
+	    Reason1      = curate_error_reason(Reason),
             %% ?DBG({ModuleSocket, {Reason,ShowEconnreset}}),
-            if
-                Reason =:= timeout;
-                Reason =:= emsgsize ->
-                    %% ?DBG({P#params.socket, Reason}),
-                    Owner ! {tcp_error, ModuleSocket, Reason},
+	    case Reason1 of
+		_ when (Reason1 =:= timeout) orelse
+		       (Reason1 =:= emsgsize) ->
+		    %% ?DBG({P#params.socket, Reason1}),
+                    Owner ! {tcp_error, ModuleSocket, Reason1},
                     ok;
-                Reason =:= closed, ShowEconnreset =:= false;
-                Reason =:= econnreset, ShowEconnreset =:= false ->
-                    %% ?DBG({P#params.socket, {Reason,ShowEconnreset}}),
+
+		closed when (ShowEconnreset =:= false) ->
+		    %% ?DBG({P#params.socket, {Reason,ShowEconnreset}}),
                     Owner ! {tcp_closed, ModuleSocket},
                     ok;
-                Reason =:= closed -> % ShowEconnreset =:= true
+
+		econnreset when (ShowEconnreset =:= false) ->
+		    %% ?DBG({P#params.socket, {Reason,ShowEconnreset}}),
+                    Owner ! {tcp_closed, ModuleSocket},
+                    ok;
+
+		closed -> % ShowEconnreset =:= true
                     %% ?DBG({P#params.socket, {Reason,ShowEconnreset}}),
                     %% Try to be bug-compatible with the inet-driver...
                     Owner ! {tcp_error, ModuleSocket, econnreset},
                     Owner ! {tcp_closed, ModuleSocket},
-                    ok;
-                true ->
+                    ok;	
+
+		_ ->
                     %% ?DBG({P#params.socket, {Reason,ShowEconnreset}}),
-                    Owner ! {tcp_error, ModuleSocket, Reason},
+                    Owner ! {tcp_error, ModuleSocket, Reason1},
                     Owner ! {tcp_closed, ModuleSocket},
                     ok
             end
@@ -2953,10 +2976,13 @@ cleanup_recv_reply(
      case D of
          #{recv_from := From} ->
              Reason_1 =
-                 case Reason of
-                     econnreset when ShowEconnreset =:= false -> closed;
-                     closed     when ShowEconnreset =:= true  -> econnreset;
-                     _ -> Reason
+                 case curate_error_reason(Reason) of
+                     econnreset when ShowEconnreset =:= false ->
+			 closed;
+                     closed     when ShowEconnreset =:= true  ->
+			 econnreset;
+                     OtherReason ->
+			 OtherReason
                  end,
              [{reply, From, {error, Reason_1}},
               {{timeout, recv}, cancel}
@@ -2964,6 +2990,22 @@ cleanup_recv_reply(
          #{} ->
              ActionsR
      end}.
+
+
+curate_error_reason({completion_status, CS}) ->
+    curate_error_reason(CS);
+curate_error_reason(#{info := Info}) ->
+    curate_error_reason(Info);
+curate_error_reason(more_data) ->
+    emsgsize;
+curate_error_reason(netname_deleted) ->
+    econnreset;
+curate_error_reason(too_many_cmds) ->
+    closed;
+curate_error_reason(Reason) ->
+    Reason.
+
+
 
 %% Initialize packet recv state
 recv_start(D) ->

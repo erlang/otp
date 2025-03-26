@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2022-2023. All Rights Reserved.
+ * Copyright Ericsson AB 2022-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -361,7 +361,8 @@ typedef struct {
     int          iov_max;
 
     /* XXX
-     * Should be locked but too awkward for no gain since it is not used yet
+     * Should be locked but too awkward for no gain
+     * since it is not used yet.
      */
     BOOLEAN_T    iow; // Where do we send this? Subscription?
 

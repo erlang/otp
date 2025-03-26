@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2020-2024. All Rights Reserved.
+%% Copyright Ericsson AB 2020-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -161,7 +161,7 @@
 %% -include("socket_int.hrl").
 
 %% -define(DBG(T),
-%%         erlang:display({{self(), ?MODULE, ?LINE, ?FUNCTION_NAME}, T})).
+%%         erlang:display({'DBG', {self(), ?MODULE, ?LINE, ?FUNCTION_NAME}, T})).
 
 %% Also in prim_socket
 -define(REGISTRY, socket_registry).
@@ -3485,15 +3485,32 @@ recv_nowait(SockRef, Length, Flags, Handle, Acc) ->
 recv_deadline(SockRef, Length, Flags, Deadline, Acc) ->
     Handle = make_ref(),
     case prim_socket:recv(SockRef, Length, Flags, Handle) of
-        {more, Bin} ->
-            %% There is more data readily available
+        {more, Bin} when (Length =:= 0) ->
+            %% There may be more data available
             %% - repeat unless time's up
             Timeout = timeout(Deadline),
             if
                 0 < Timeout ->
                     %% Recv more
                     recv_deadline(
-                      SockRef, Length, Flags, Deadline, bincat(Acc, Bin));
+                      SockRef, Length,
+		      Flags, Deadline, bincat(Acc, Bin));
+                true ->
+                    {ok, bincat(Acc, Bin)}
+            end;
+        {more, Bin} when (Length =:= byte_size(Bin)) ->
+            %% We got the last chunk
+            {ok, bincat(Acc, Bin)};
+        {more, Bin} ->
+            %% There may be more data available
+            %% - repeat unless time's up
+            Timeout = timeout(Deadline),
+            if
+                0 < Timeout ->
+                    %% Recv more
+                    recv_deadline(
+                      SockRef, Length-byte_size(Bin),
+		      Flags, Deadline, bincat(Acc, Bin));
                 true ->
                     {ok, bincat(Acc, Bin)}
             end;
@@ -3528,7 +3545,8 @@ recv_deadline(SockRef, Length, Flags, Deadline, Acc) ->
             {ok, Acc};
         %%
         select ->
-            %% There is nothing just now, but we will be notified when there
+            %% There is nothing just now,
+	    %% but we will be notified when there
             %% is something to read (a select message).
             Timeout = timeout(Deadline),
             receive
@@ -3550,29 +3568,50 @@ recv_deadline(SockRef, Length, Flags, Deadline, Acc) ->
 
         %%
         completion ->
-            %% There is nothing just now, but we will be notified when the
-            %% data has been read (with a completion message).
+            %% There is nothing just now, but we will be notified
+	    %% when the data has been read (with a completion message).
             Timeout = timeout(Deadline),
             receive
+                %% On Windows we are *always* done when we get {ok, Bin}
+                %% If we should/can read more, the result is {more, Bin}
                 ?socket_msg(?socket(SockRef), completion,
-                            {Handle, {ok, _Bin} = OK})
-                  when (Length =:= 0) ->
+                            {Handle, {ok, _Bin} = OK}) ->
                     recv_result(Acc, OK);
+
+                %% Do we actually (currently) ever get this when Length =:= 0?
+                %% Future proofing?
+                %% This actually depends on the nif to stop reading
+                %% (stop returning 'more').
                 ?socket_msg(?socket(SockRef), completion,
-                            {Handle, {ok, Bin} = OK})
+			    {Handle, {more, Bin}}) when (Length =:= 0) ->
+		    if
+			0 < Timeout ->
+			    %% Recv more
+			    recv_deadline(
+			      SockRef, Length, Flags,
+			      Deadline, bincat(Acc, Bin));
+			true ->
+			    {error, {timeout, bincat(Acc, Bin)}}
+		    end;
+                %% We got the last chunk
+                ?socket_msg(?socket(SockRef), completion,
+			    {Handle, {more, Bin}})
                   when (Length =:= byte_size(Bin)) ->
-                    recv_result(Acc, OK);
+                    {ok, bincat(Acc, Bin)};
+
+                %% Just another chunk, but not the last
                 ?socket_msg(?socket(SockRef), completion,
-                            {Handle, {ok, Bin}}) ->
-                    if
-                        0 < Timeout ->
-                            %% Recv more
-                            recv_deadline(
-                              SockRef, Length - byte_size(Bin), Flags,
-                              Deadline, bincat(Acc, Bin));
-                        true ->
-                            {error, {timeout, bincat(Acc, Bin)}}
-                    end;
+			    {Handle, {more, Bin}}) ->
+		    if
+			0 < Timeout ->
+			    %% Recv more
+			    recv_deadline(
+			      SockRef, Length - byte_size(Bin), Flags,
+			      Deadline, bincat(Acc, Bin));
+			true ->
+			    {error, {timeout, bincat(Acc, Bin)}}
+		    end;
+
                 ?socket_msg(?socket(SockRef), completion,
                             {Handle, {error, Reason}}) ->
                     recv_error(Acc, Reason);
@@ -3583,19 +3622,6 @@ recv_deadline(SockRef, Length, Flags, Deadline, Acc) ->
                     recv_error(Acc, timeout)
             end;
 
-        %% We got some data, but not all
-        {ok, Bin} when (Length > byte_size(Bin)) ->
-            Timeout = timeout(Deadline),
-            if
-                0 < Timeout ->
-                    %% Recv more
-                    recv_deadline(
-                      SockRef, Length - byte_size(Bin), Flags,
-                      Deadline, bincat(Acc, Bin));
-                true ->
-                    {error, {timeout, bincat(Acc, Bin)}}
-            end;
-            
         %%
         Result ->
             recv_result(Acc, Result)
@@ -4857,3 +4883,5 @@ f(F, A) ->
 %%     TS = formated_timestamp(),
 %%     io:format(user,"[~s][~s,~p] " ++ F ++ "~n", [TS, SName, self()|A]),
 %%     io:format("[~s][~s,~p] " ++ F ++ "~n", [TS, SName, self()|A]).
+
+

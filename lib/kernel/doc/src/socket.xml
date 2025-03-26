@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2018</year><year>2023</year>
+      <year>2018</year><year>2025</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -2831,6 +2831,14 @@
           or if some data arrived before the error;
 	  <c>{error,&nbsp;{<anno>Reason</anno>,&nbsp;<anno>Data</anno>}}</c>.
 	</p>
+	<p>
+	  When this function is used with a DGRAM socket,
+	  it will always return with whatever data is available,
+	  regardless of what length is specified
+	  (that is, data is *only* return with <c>{ok, <anno>Data</anno>}</c>).
+	  If no data is available, *then* it will wait (if a timeout is
+	  specified).
+	</p>
       </desc>
     </func>
 
@@ -2854,6 +2862,14 @@
 	  <c>{error,&nbsp;{timeout,&nbsp;<anno>Data</anno>}}</c>
 	  after <c><anno>Timeout</anno></c> milliseconds,
 	  if the requested data has not been delivered.
+	</p>
+	<p>
+	  When this function is used with a DGRAM socket,
+	  it will always return with whatever data is available,
+	  regardless of what length is specified
+	  (that is, data is *only* return with <c>{ok, <anno>Data</anno>}</c>).
+	  If no data is available, *then* it will wait (if a timeout is
+	  specified).
 	</p>
       </desc>
     </func>

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2018-2024. All Rights Reserved.
+%% Copyright Ericsson AB 2018-2025. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -70,23 +70,24 @@
 %%
 %% (cd /mnt/c/$LOCAL_TESTS/26/kernel_test/ && $ERL_TOP/bin/win32/erl.exe -sname kernel-26-tester -pa c:$LOCAL_TESTS/26/test_server)
 %% application:set_env(kernel, test_inet_backends, true).
+%%
 %% S = fun() -> ts:run(kernel, socket_SUITE, [batch]) end.
 %% S = fun(SUITE) -> ts:run(kernel, SUITE, [batch]) end.
-%% S = fun() -> ct:run_test([{suite, socket_SUITE}]) end.
-%% S = fun(SUITE) -> ct:run_test([{suite, SUITE}]) end.
 %% G = fun(GROUP) -> ts:run(kernel, socket_SUITE, {group, GROUP}, [batch]) end.
 %% G = fun(SUITE, GROUP) -> ts:run(kernel, SUITE, {group, GROUP}, [batch]) end.
+%% T = fun(TC) -> ts:run(kernel, socket_SUITE, TC, [batch]) end.
+%%
+%% S = fun() -> ct:run_test([{suite, socket_SUITE}]) end.
+%% S = fun(SUITE) -> ct:run_test([{suite, SUITE}]) end.
 %% G = fun(GROUP) -> ct:run_test([{suite, socket_SUITE}, {group, GROUP}]) end.
 %% G = fun(SUITE, GROUP) -> ct:run_test([{suite, SUITE}, {group, GROUP}]) end.
-%% T = fun(TC) -> ts:run(kernel, socket_SUITE, TC, [batch]) end.
 %% T = fun(TC) -> ct:run_test([{suite, socket_SUITE}, {testcase, TC}]) end.
 %% T = fun(S, TC) -> ct:run_test([{suite, S}, {testcase, TC}]) end.
 %% T = fun(S, G, TC) -> ct:run_test([{suite, S}, {group, G}, {testcase, TC}]) end.
 %%
-%% Some official info about AF_UNIX
+%% Some (Microsoft-) official info about AF_UNIX
 %% https://devblogs.microsoft.com/commandline/windowswsl-interop-with-af_unix/
-
-
+%%
 
 -module(socket_SUITE).
 
@@ -751,7 +752,8 @@
          otp18240_accept_mon_leak_tcp6/1,
          otp18635/1,
          otp19063/1,
-         otp19251/1
+         otp19251/1,
+         otp19469_read_all/1, otp19469_read_part/1
         ]).
 
 
@@ -967,7 +969,8 @@ groups() ->
      %% Ticket groups
      {tickets,                     [], tickets_cases()},
      {otp16359,                    [], otp16359_cases()},
-     {otp18240,                    [], otp18240_cases()}
+     {otp18240,                    [], otp18240_cases()},
+     {otp19469,                    [], otp19469_cases()}
     ].
      
 api_cases() ->
@@ -2357,7 +2360,8 @@ tickets_cases() ->
      {group, otp18240},
      otp18635,
      otp19063,
-     otp19251
+     otp19251,
+     {group, otp19469}
     ].
 
 otp16359_cases() ->
@@ -2372,6 +2376,13 @@ otp18240_cases() ->
     [
      otp18240_accept_mon_leak_tcp4,
      otp18240_accept_mon_leak_tcp6
+    ].
+
+
+otp19469_cases() ->
+    [
+     otp19469_read_all,
+     otp19469_read_part
     ].
 
 
@@ -2529,7 +2540,8 @@ end_per_group(_GroupName, Config) ->
 init_per_testcase(_TC, Config) ->
     io:format("init_per_testcase(~w) -> entry with"
               "~n   Config: ~p"
-              "~n", [_TC, Config]),
+              "~n   links:  ~p"
+              "~n", [_TC, Config, links()]),
     %% case quiet_mode(Config) of
     %%     default ->
     %%         ?LOGGER:start();
@@ -12584,6 +12596,10 @@ api_opt_simple_otp_meta_option() ->
 %% The operations we test here are only for type = stream and
 %% protocol = tcp.
 api_opt_simple_otp_rcvbuf_option(_Config) when is_list(_Config) ->
+    ?SEV_IPRINT("~w -> entry with"
+		"~n   Config: ~p"
+		"~n   links:  ~p",
+		[?FUNCTION_NAME, _Config, links()]),
     ?TT(?SECS(15)),
     tc_try(?FUNCTION_NAME,
            fun() ->
@@ -12591,6 +12607,10 @@ api_opt_simple_otp_rcvbuf_option(_Config) when is_list(_Config) ->
            end).
 
 api_opt_simple_otp_rcvbuf_option() ->
+    put(sname, tc),
+    ?SEV_IPRINT("~w -> entry with"
+		"~n   links:  ~p",
+		[?FUNCTION_NAME, links()]),
     Get = fun(S) ->
                   socket:getopt(S, otp, rcvbuf)
           end,
@@ -12672,19 +12692,19 @@ api_opt_simple_otp_rcvbuf_option() ->
                    end},
 
          %% Recv with default size for (otp) rcvbuf
-         #{desc => "await continue (recv initial)",
+         #{desc => "await continue (recv initial = 1)",
            cmd  => fun(#{tester := Tester} = State) ->
                            case ?SEV_AWAIT_CONTINUE(Tester, tester, recv) of
                                {ok, MsgSz} ->
-                                   ?SEV_IPRINT("MsgSz: ~p", [MsgSz]),
+                                   ?SEV_IPRINT("Msg Sz to expect: ~p", [MsgSz]),
                                    {ok, State#{msg_sz => MsgSz}};
                                {error, _} = ERROR ->
                                    ERROR
                            end
                    end},
-         #{desc => "attempt to recv",
+         #{desc => "attempt to recv (1)",
            cmd  => fun(#{sock := Sock, msg_sz := MsgSz} = _State) ->
-                           ?SEV_IPRINT("try recv ~w bytes when rcvbuf is ~s", 
+                           ?SEV_IPRINT("try (recv ~w) bytes when rcvbuf is ~s", 
                                        [MsgSz,
                                         case Get(Sock) of
                                             {ok, RcvBuf} -> f("~w", [RcvBuf]);
@@ -12694,55 +12714,19 @@ api_opt_simple_otp_rcvbuf_option() ->
                                {ok, Data} when (size(Data) =:= MsgSz) ->
                                    ok;
                                {ok, Data} ->
-                                   {error, {invalid_msg_sz, MsgSz, size(Data)}};
-                               {error, _} = ERROR ->
+                                   ?SEV_EPRINT("got unexpected amount of data:"
+                                               "~n   Expected: ~p"
+                                               "~n   Got:      ~p",
+                                               [MsgSz, byte_size(Data)]),
+                                   {error,
+                                    {invalid_msg_sz, MsgSz, byte_size(Data)}};
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("unexpected recv error:"
+                                               "~n   Reason: ~p", [Reason]),
                                    ERROR
                            end
                    end},
-         #{desc => "announce ready (recv initial)",
-           cmd  => fun(#{tester := Tester}) ->
-                           ?SEV_ANNOUNCE_READY(Tester, recv),
-                           ok
-                   end},
-
-         %% Recv with new size (1) for (otp) rcvbuf
-         #{desc => "await continue (recv 1)",
-           cmd  => fun(#{tester := Tester} = State) ->
-                           case ?SEV_AWAIT_CONTINUE(Tester, tester, recv) of
-                               {ok, NewRcvBuf} ->
-                                   ?SEV_IPRINT("set new rcvbuf: ~p", [NewRcvBuf]),
-                                   {ok, State#{rcvbuf => NewRcvBuf}};
-                               {error, _} = ERROR ->
-                                   ERROR
-                           end
-                   end},
-         #{desc => "attempt to setopt rcvbuf",
-           cmd  => fun(#{sock := Sock, rcvbuf := NewRcvBuf} = _State) ->
-                           case Set(Sock, NewRcvBuf) of
-                               ok ->
-                                   ok;
-                               {error, _} = ERROR ->
-                                   ERROR
-                           end
-                   end},
-         #{desc => "attempt to recv",
-           cmd  => fun(#{sock := Sock, msg_sz := MsgSz} = _State) ->
-                           ?SEV_IPRINT("try recv ~w bytes when rcvbuf is ~s", 
-                                       [MsgSz,
-                                        case Get(Sock) of
-                                            {ok, RcvBuf} -> f("~w", [RcvBuf]);
-                                            {error, _}   -> "-"
-                                        end]),
-                           case socket:recv(Sock) of
-                               {ok, Data} when (size(Data) =:= MsgSz) ->
-                                   ok;
-                               {ok, Data} ->
-                                   {error, {invalid_msg_sz, MsgSz, size(Data)}};
-                               {error, _} = ERROR ->
-                                   ERROR
-                           end
-                   end},
-         #{desc => "announce ready (recv 1)",
+         #{desc => "announce ready (recv initial = 1)",
            cmd  => fun(#{tester := Tester}) ->
                            ?SEV_ANNOUNCE_READY(Tester, recv),
                            ok
@@ -12753,6 +12737,57 @@ api_opt_simple_otp_rcvbuf_option() ->
            cmd  => fun(#{tester := Tester} = State) ->
                            case ?SEV_AWAIT_CONTINUE(Tester, tester, recv) of
                                {ok, NewRcvBuf} ->
+                                   ?SEV_IPRINT("set new rcvbuf: ~p",
+                                               [NewRcvBuf]),
+                                   {ok, State#{rcvbuf => NewRcvBuf}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "attempt to setopt rcvbuf",
+           cmd  => fun(#{sock := Sock, rcvbuf := NewRcvBuf} = _State) ->
+                           case Set(Sock, NewRcvBuf) of
+                               ok ->
+                                   ok;
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "attempt to recv (2)",
+           cmd  => fun(#{sock := Sock, msg_sz := MsgSz} = _State) ->
+                           ?SEV_IPRINT("try recv ~w bytes when rcvbuf is ~s", 
+                                       [MsgSz,
+                                        case Get(Sock) of
+                                            {ok, RcvBuf} -> f("~w", [RcvBuf]);
+                                            {error, _}   -> "-"
+                                        end]),
+                           case socket:recv(Sock) of
+                               {ok, Data} when (size(Data) =:= MsgSz) ->
+                                   ok;
+                               {ok, Data} ->
+                                   ?SEV_EPRINT("got unexpected amount of data:"
+                                               "~n   Expected: ~p"
+                                               "~n   Got:      ~p",
+                                               [MsgSz, byte_size(Data)]),
+                                   {error,
+                                    {invalid_msg_sz, MsgSz, byte_size(Data)}};
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("unexpected recv error:"
+                                               "~n   Reason: ~p", [Reason]),
+                                   ERROR
+                           end
+                   end},
+         #{desc => "announce ready (recv 2)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, recv),
+                           ok
+                   end},
+
+         %% Recv with new size (2) for (otp) rcvbuf
+         #{desc => "await continue (recv 3)",
+           cmd  => fun(#{tester := Tester} = State) ->
+                           case ?SEV_AWAIT_CONTINUE(Tester, tester, recv) of
+                               {ok, NewRcvBuf} ->
                                    ?SEV_IPRINT("set new rcvbuf: ~p", [NewRcvBuf]),
                                    {ok, State#{rcvbuf => NewRcvBuf}};
                                {error, _} = ERROR ->
@@ -12768,29 +12803,37 @@ api_opt_simple_otp_rcvbuf_option() ->
                                    ERROR
                            end
                    end},
-         #{desc => "attempt to recv",
+         #{desc => "attempt to recv (3)",
            cmd  => fun(#{sock := Sock, msg_sz := MsgSz} = _State) ->
+                           ?SEV_IPRINT("try recv (~w bytes) of data", [MsgSz]),
                            case socket:recv(Sock) of
                                {ok, Data} when (size(Data) =:= MsgSz) ->
                                    ok;
                                {ok, Data} ->
-                                   {error, {invalid_msg_sz, MsgSz, size(Data)}};
-                               {error, _} = ERROR ->
+                                   ?SEV_EPRINT("got unexpected amount of data:"
+                                               "~n   Expected: ~p"
+                                               "~n   Got:      ~p",
+                                               [MsgSz, byte_size(Data)]),
+                                   {error,
+                                    {invalid_msg_sz, MsgSz, byte_size(Data)}};
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("unexpected recv error:"
+                                               "~n   Reason: ~p", [Reason]),
                                    ERROR
                            end
                    end},
-         #{desc => "announce ready (recv 2)",
+         #{desc => "announce ready (recv 3)",
            cmd  => fun(#{tester := Tester}) ->
                            ?SEV_ANNOUNCE_READY(Tester, recv),
                            ok
                    end},
 
-         %% Recv with new size (3) for (otp) rcvbuf
-         #{desc => "await continue (recv 3, truncated)",
+         %% Recv with new size (4) for (otp) rcvbuf
+         #{desc => "await continue (recv 4, truncated)",
            cmd  => fun(#{tester := Tester} = State) ->
                            case ?SEV_AWAIT_CONTINUE(Tester, tester, recv) of
                                {ok, {ExpSz, NewRcvBuf}} ->
-                                   ?SEV_IPRINT("set new rcvbuf:"
+                                   ?SEV_IPRINT("new sizes:"
                                                "~n   New RcvBuf:  ~p"
                                                "~n   Expect Size: ~p",
                                                [ExpSz, NewRcvBuf]),
@@ -12802,6 +12845,7 @@ api_opt_simple_otp_rcvbuf_option() ->
                    end},
          #{desc => "attempt to setopt rcvbuf",
            cmd  => fun(#{sock := Sock, rcvbuf := NewRcvBuf} = _State) ->
+			   ?SEV_IPRINT("try set new rcvbuf"),
                            case Set(Sock, NewRcvBuf) of
                                ok ->
                                    ?SEV_IPRINT("set new rcvbuf: ~p",
@@ -12811,19 +12855,26 @@ api_opt_simple_otp_rcvbuf_option() ->
                                    ERROR
                            end
                    end},
-         #{desc => "attempt to recv",
+         #{desc => "attempt to recv (4)",
            cmd  => fun(#{sock := Sock, msg_sz := MsgSz} = _State) ->
-                           ?SEV_IPRINT("try recv ~w bytes of data", [MsgSz]),
+                           ?SEV_IPRINT("try recv (~w bytes) of data", [MsgSz]),
                            case socket:recv(Sock) of
                                {ok, Data} when (size(Data) =:= MsgSz) ->
                                    ok;
                                {ok, Data} ->
-                                   {error, {invalid_msg_sz, MsgSz, size(Data)}};
-                               {error, _} = ERROR ->
+                                   ?SEV_EPRINT("got unexpected amount of data:"
+                                               "~n   Expected: ~p"
+                                               "~n   Got:      ~p",
+                                               [MsgSz, byte_size(Data)]),
+                                   {error,
+                                    {invalid_msg_sz, MsgSz, byte_size(Data)}};
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("unexpected recv error:"
+                                               "~n   Reason: ~p", [Reason]),
                                    ERROR
                            end
                    end},
-         #{desc => "announce ready (recv)",
+         #{desc => "announce ready (recv 4)",
            cmd  => fun(#{tester := Tester}) ->
                            ?SEV_ANNOUNCE_READY(Tester, recv),
                            ok
@@ -37681,7 +37732,8 @@ do_ioctl_nread(_) ->
     i("Give it some time to arrive"),
     ?SLEEP(?SECS(1)),
     
-    i("Verify that the correct amount of data (atleast ~p) is available", [DataSz]),
+    i("Verify that the correct amount of data (atleast ~p) is available", 
+      [DataSz]),
     case socket:ioctl(S1, nread) of
         {ok, DataSize} when (DataSize >= DataSz) ->
             i("Success: "
@@ -41098,29 +41150,43 @@ traffic_send_and_recv_chunks_tcp(InitState) ->
            cmd  => fun(#{tester := Tester,
                          chunks := Chunks} = State) ->
                            Data = lists:flatten(lists:reverse(Chunks)),
+			   ?SEV_IPRINT("announce receiption of ~p bytes",
+				       [iolist_size(Data)]),
                            ?SEV_ANNOUNCE_READY(Tester, recv_many_small, Data),
                            {ok, maps:remove(chunks, State)}
                    end},
 
          #{desc => "await continue (recv-one-big)",
            cmd  => fun(#{tester := Tester} = State) ->
+			   ?SEV_IPRINT("await 'recv-one-big' continue"),
                            case ?SEV_AWAIT_CONTINUE(Tester, tester, recv_one_big) of
                                {ok, Size} ->
+				   ?SEV_IPRINT("received "
+					       "'recv-one-big' "
+					       "continue: ~p", [Size]),
                                    {ok, State#{size => Size}};
                                {error, _} = ERROR ->
                                    ERROR
                            end
                    end},
          #{desc => "recv (one big)",
-           cmd  => fun(#{tester := Tester, csock := Sock, size := Size} = _State) ->
-                           %% socket:setopt(Sock, otp, debug, true),
+           cmd  => fun(#{tester := Tester,
+			 csock  := Sock,
+			 size   := Size} = _State) ->
+			   ?SEV_IPRINT("try read one-big chunk (~w)",
+				       [Size]),
                            case socket:recv(Sock, Size) of
                                {ok, Data} ->
+				   ?SEV_IPRINT("received "
+					       "one big chunk (~w)",
+					       [sz(Data)]),
                                    ?SEV_ANNOUNCE_READY(Tester,
                                                        recv_one_big,
                                                        b2l(Data)),
                                    ok;
-                               {error, _} = ERROR ->
+                               {error, Reason} = ERROR ->
+				   ?SEV_EPRINT("failed reading: "
+					       "~n   ~p", [Reason]),
                                    ERROR
                            end
                    end},
@@ -41792,18 +41858,31 @@ traffic_snr_tcp_client(Parent) ->
 traffic_snr_tcp_client_send_loop(Parent, Sock) ->
     case ?SEV_AWAIT_CONTINUE(Parent, parent, send) of
         {ok, stop} -> % Breaks the loop
+	    i("traffic_snr_tcp_client_send_loop -> "
+	      "received expected 'stop': break the loop (send ready)"),
             ?SEV_ANNOUNCE_READY(Parent, send, ok),
             ok;
         {ok, Data} ->
+	    i("traffic_snr_tcp_client_send_loop -> "
+	      "received expected data (~w bytes) - send data",
+	      [sz(Data)]),
             case socket:send(Sock, Data) of
                 ok ->
+		    i("traffic_snr_tcp_client_send_loop -> "
+		      "data sent (send ready)"),
                     ?SEV_ANNOUNCE_READY(Parent, send, ok),
                     traffic_snr_tcp_client_send_loop(Parent, Sock);
                 {error, Reason} = ERROR ->
+		    i("traffic_snr_tcp_client_send_loop -> "
+		      "failed send data: "
+		      "~n   ~p", [Reason]),
                     ?SEV_ANNOUNCE_READY(Parent, send, ERROR),
                     exit({send, Reason})
             end;
         {error, Reason} ->
+	    i("traffic_snr_tcp_client_send_loop -> "
+	      "unexpected error: "
+	      "~n   ~p", [Reason]),
             exit({await_continue, Reason})
     end.
 
@@ -43529,12 +43608,12 @@ tpp_tcp_handler_msg_exchange(Sock, Send, Recv) ->
     tpp_tcp_handler_msg_exchange_loop(Sock, Send, Recv, 0, 0, 0, undefined).
 
 tpp_tcp_handler_msg_exchange_loop(Sock, Send, Recv, N, Sent, Received, Start) ->
-    %% ?SEV_IPRINT("[~w] try receive", [N]),
+    ?SEV_IPRINT("try receive request ~w", [N]),
     case tpp_tcp_recv_req(Sock, Recv) of
         {ok, Msg, RecvSz} ->
             NewStart = if (Start =:= undefined) -> ?LIB:timestamp(); 
                           true -> Start end,
-            %% ?SEV_IPRINT("[~w] received - now try send", [N]),
+            ?SEV_IPRINT("received request ~w - now try send reply", [N]),
             case tpp_tcp_send_rep(Sock, Send, Msg) of
                 {ok, SendSz} ->
                     tpp_tcp_handler_msg_exchange_loop(Sock, Send, Recv,
@@ -43543,15 +43622,19 @@ tpp_tcp_handler_msg_exchange_loop(Sock, Send, Recv, N, Sent, Received, Start) ->
                                                       Received+RecvSz,
                                                       NewStart);
                 {error, SReason} ->
-                    ?SEV_EPRINT("send (~w): ~p", [N, SReason]),
+                    ?SEV_EPRINT("send reply ~w failed: ~p", [N, SReason]),
                     exit({send, SReason, N})
             end;
         {error, closed} ->
-            ?SEV_IPRINT("closed - we are done: ~w, ~w, ~w", [N, Sent, Received]),
+            ?SEV_IPRINT("closed - we are done: "
+			"~n   Number of msgs Exchanged: ~w"
+			"~n   Number of bytes Sent:     ~w"
+			"~n   Number of bytes Received: ~w",
+			[N, Sent, Received]),
             Stop = ?LIB:timestamp(),
             {N, Sent, Received, Start, Stop};
         {error, RReason} ->
-            ?SEV_EPRINT("recv (~w): ~p", [N, RReason]),
+            ?SEV_EPRINT("receive request ~w failed: ~p", [N, RReason]),
             exit({recv, RReason, N})
     end.
             
@@ -43561,6 +43644,7 @@ tpp_tcp_client_create(Node) ->
     Self = self(),
     Fun  = fun() -> tpp_tcp_client(Self) end,
     erlang:spawn(Node, Fun).
+    %% erlang:spawn(node(), Fun).
 
 tpp_tcp_client(Parent) ->
     tpp_tcp_client_init(Parent),
@@ -43625,6 +43709,9 @@ tpp_tcp_client_await_terminate(Parent) ->
 
 tpp_tcp_client_msg_exchange(Sock, Send, Recv, InitMsg, Num) ->
     Start = ?LIB:timestamp(),
+    ?SEV_IPRINT("begin exchange with"
+		"~n   Num:   ~p"
+		"~n   Start: ~p", [Num, Start]),
     tpp_tcp_client_msg_exchange_loop(Sock, Send, Recv, InitMsg, 
                                      Num, 0, 0, 0, Start).
 
@@ -43641,13 +43728,14 @@ tpp_tcp_client_msg_exchange_loop(Sock, _Send, _Recv, _Msg,
     end;
 tpp_tcp_client_msg_exchange_loop(Sock, Send, Recv, Data, 
                                  Num, N, Sent, Received, Start) ->
-    %% d("tpp_tcp_client_msg_exchange_loop(~w,~w) try send ~w", [Num,N,size(Data)]),
     case tpp_tcp_send_req(Sock, Send, Data) of
         {ok, SendSz} ->
-            %% d("tpp_tcp_client_msg_exchange_loop(~w,~w) sent - "
-            %%   "now try recv", [Num,N]),
+	    ?SEV_IPRINT("request (~w bytes) sent - try receive reply",
+			[SendSz]),
             case tpp_tcp_recv_rep(Sock, Recv) of
                 {ok, NewData, RecvSz} ->
+		    ?SEV_IPRINT("reply (~w bytes) received",
+				[RecvSz]),
                     tpp_tcp_client_msg_exchange_loop(Sock, Send, Recv,
                                                      NewData, Num, N+1,
                                                      Sent+SendSz, 
@@ -43723,13 +43811,18 @@ tpp_tcp_recv_rep(Sock, Recv) ->
     tpp_tcp_recv(Sock, Recv, ?TPP_REPLY).
 
 tpp_tcp_recv(Sock, Recv, Tag) ->
+    ?SEV_IPRINT("try receive as much as possible (sz = 0)"),
     case Recv(Sock, 0) of
         {ok, <<Tag:32/integer, Sz:32/integer, Data/binary>> = Msg} 
           when (Sz =:= size(Data)) ->
+	    ?SEV_IPRINT("we got the entire message in one go"),
             %% We got it all
             {ok, Data, size(Msg)};
         {ok, <<Tag:32/integer, Sz:32/integer, Data/binary>> = Msg} ->
             Remains = Sz - size(Data),
+	    ?SEV_IPRINT("we only got a fraction (of the message): "
+			"~n   Sz:      ~p"
+			"~n   Remains: ~p", [Sz, Remains]),
             tpp_tcp_recv(Sock, Recv, Tag, Remains, size(Msg), [Data]);
         {ok, <<Tag:32/integer, _/binary>>} ->
             {error, {invalid_msg_tag, Tag}};
@@ -43738,14 +43831,19 @@ tpp_tcp_recv(Sock, Recv, Tag) ->
     end.
 
 tpp_tcp_recv(Sock, Recv, Tag, Remaining, AccSz, Acc) ->
+    ?SEV_IPRINT("try receive remaining ~w bytes", [Remaining]),
     case Recv(Sock, Remaining) of
         {ok, Data} when (Remaining =:= size(Data)) ->
             %% We got the rest
+	    ?SEV_IPRINT("we got the rest of the message"),
             TotSz = AccSz + size(Data),
             {ok, erlang:iolist_to_binary(lists:reverse([Data | Acc])), TotSz};
         {ok, Data} when (Remaining > size(Data)) ->
+	    NewRemaining = Remaining - size(Data),
+	    ?SEV_IPRINT("we only got a fraction (of the remaining ~w bytes): "
+			"~n   Remains: ~p", [Remaining, NewRemaining]),
             tpp_tcp_recv(Sock, Recv, Tag, 
-                         Remaining - size(Data), AccSz + size(Data),     
+                         NewRemaining, AccSz + size(Data),
                          [Data | Acc]);
         {error, _R} = ERROR ->
             ERROR
@@ -50719,12 +50817,22 @@ ttest_manager_loop() ->
             ?LOGGER:format("manager stopping~n", []),
             ttest_manager_done();
 
-        #ttest_report{id    = _ID,
+        #ttest_report{id    = ID,
                       time  = _RunTime,
                       bytes = _NumBytes,
                       msgs  = _NumMsgs} = Report ->
-            true = ets:insert_new(?TTEST_MANAGER, Report),
-            ttest_manager_loop()
+            case ets:insert_new(?TTEST_MANAGER, Report) of
+		true ->
+		    ttest_manager_loop();
+		false ->
+		    [Current] = ets:lookup(?TTEST_MANAGER, ID),
+		    ?LOGGER:format("manager received duplicate report:"
+				   "~n   ID:      ~p"
+				   "~n   Current: ~p"
+				   "~n   New:     ~p"
+				   "~n", [ID, Current, Report]),
+		    ttest_manager_loop()
+	    end
     end.
 
 %% We are supposed to pretty print the result here...
@@ -51988,7 +52096,6 @@ otp19251(Config) when is_list(Config) ->
                    ok = do_otp19251(InitState)
            end).
 
-
 do_otp19251(_) ->
 
     %% Just be on the safe side
@@ -52064,6 +52171,226 @@ do_otp19251(_) ->
     _ = socket:close(Sock1),
 
     ?P("done"),
+    ok.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Client connects to server and sends chunks of data with 1 sec between
+%% sends. Server reads all in one read.
+
+otp19469_read_all(Config) when is_list(Config) ->
+    ?TT(?SECS(10)),
+    Cond = fun() -> 
+                   has_support_ipv4()
+           end,
+    Pre  = fun() ->
+                   Fam = inet,
+                   case ?KLIB:which_local_addr(Fam) of
+                       {ok, LA} ->
+                           LSA = #{family => Fam,
+                                   addr   => LA},
+                           #{lsa => LSA};
+                       _ ->
+                           skip(no_local_addr)
+                   end
+           end,
+    TC   = fun(InitState) ->
+                   ok = do_otp19469_read_all(InitState)
+           end,
+    Post = fun(_) ->
+                   ok
+           end,
+    ?KLIB:tc_try(?FUNCTION_NAME, Cond, Pre, TC, Post).
+
+otp19469_ra_client(SSA, Data) when is_list(Data) ->
+    ?P("[client] create socket"),
+    Socket = case socket:open(inet, stream) of
+		 {ok, Sock} ->
+		     Sock;
+		 {error, Reason} ->
+		     exit({failed_create_socket, Reason})
+	     end,
+    %% We are on the same host as the server so we can reuse the
+    %% SockAddr of the server, except for the port.
+    ?P("[client] bind socket"),
+    ok = socket:bind(Socket, SSA#{port => 0}),
+    
+    ?P("[client] connect to server"),
+    ok = socket:connect(Socket, SSA),
+    
+    ok = otp19469_ra_client(Socket, Data, 1),
+
+    _ = socket:close(Socket),
+
+    ok.
+
+otp19469_ra_client(_Socket, [] = _Data, _N) ->
+    ?P("[client] all chunks sent"),
+    ok;
+otp19469_ra_client(Socket, [Chunk|Data], N) when is_binary(Chunk) ->
+    ?P("[client,~w] sleep some before send", [N]),
+    ?SLEEP(500),
+    ?P("[client,~w] try send chunk (~w bytes)", [N, byte_size(Chunk)]),
+    ok = socket:send(Socket, Chunk),
+    ?P("[client,~w] chunk sent", [N]),
+    otp19469_ra_client(Socket, Data, N + 1).
+
+
+do_otp19469_read_all(#{lsa := LSA}) ->
+
+    ?P("[ctrl] create listen socket"),
+    {ok, S1} = socket:open(inet, stream),
+    ?P("[ctrl] bind socket"),
+    ok = socket:bind(S1, LSA#{port => 0}),
+    {ok, SA1} = socket:sockname(S1),
+    ?P("[ctrl] make listen socket"),
+    ok = socket:listen(S1),
+ 
+    ?P("[ctrl] create data"),
+    Chunk   = <<"0123456789">>,
+    Data    = lists:duplicate(10, Chunk),
+    DataSz  = iolist_size(Data),
+    DataBin = iolist_to_binary(Data),
+    
+    ?P("[ctrl] create data"),
+    _ = spawn_link(fun() -> otp19469_ra_client(SA1, Data) end),
+    		        
+    ?P("[ctrl] accept connection"),
+    {ok, S2} = socket:accept(S1),
+
+    ?P("[ctrl] try read ~w bytes", [DataSz]),
+    {ok, DataBin} = socket:recv(S2, DataSz),
+
+    ?P("[ctrl] cleanup"),
+    _ = socket:close(S2),
+    _ = socket:close(S1),
+    
+    ?P("[ctrl] done"),			
+    ok.
+
+
+%% ----------------------------------------------------------------------
+
+%% Tests that results are correct when only parts of the requested
+%% amount of data is available when using socket:recv.
+%% Behaviour should be as expected for both STREAM and DGRAM sockets.
+%% That is;
+%%   STREAM: read until buffer is full or timeout
+%%   DGRAM:  - do never wait for *more* data - return with *any* available data
+%%           - only wait if there is currently *no* data.
+
+otp19469_read_part(Config) when is_list(Config) ->
+    ?TT(?SECS(10)),
+    Cond = fun() -> 
+                   has_support_ipv4()
+           end,
+    Pre  = fun() ->
+                   Fam = inet,
+                   case ?KLIB:which_local_addr(Fam) of
+                       {ok, LA} ->
+                           LSA = #{family => Fam,
+                                   addr   => LA},
+                           #{lsa => LSA};
+                       _ ->
+                           skip(no_local_addr)
+                   end
+           end,
+    TC   = fun(InitState) ->
+                   ok = do_otp19469_read_part(InitState)
+           end,
+    Post = fun(_) ->
+                   ok
+           end,
+    ?KLIB:tc_try(?FUNCTION_NAME, Cond, Pre, TC, Post).
+
+
+do_otp19469_read_part(#{lsa := LSA}) ->
+
+    ?P("try stream"),
+    ok = do_otp19469_stream(LSA),
+    ?P("try dgram"),
+    ok = do_otp19469_dgram(LSA),
+    
+    ?P("done"),
+    ok.
+
+
+do_otp19469_stream(#{family := Fam} = LSA) ->
+
+    ?P("[stream] create listen socket"),
+    {ok, S1} = socket:open(Fam, stream),
+    ok = socket:bind(S1, LSA#{port => 0}),
+    {ok, SA1} = socket:sockname(S1),
+    ok = socket:listen(S1),
+
+    ?P("[stream] create connector socket"),
+    {ok, S2} = socket:open(Fam, stream),
+    ok = socket:bind(S2, LSA#{port => 0}),
+    ok = socket:connect(S2, SA1),
+
+    ?P("[stream] accept connection (acceptor socket)"),
+    {ok, S3} = socket:accept(S1),
+
+    %% send and receive the same amount =>
+    %% expect plain success
+    Data = <<"0123456789">>,
+    DataSz = byte_size(Data),
+    ?P("[stream] try send and recv ~w bytes", [DataSz]),
+    ok = socket:send(S2, Data),
+    {ok, Data} = socket:recv(S3, DataSz, ?SECS(5)),
+
+    %% send 10 bytes and try receive 20 bytes =>
+    %% expect timeout with data
+    Data = <<"0123456789">>,
+    ?P("[stream] try send ~w bytes and recv ~w bytes", [DataSz, 2*DataSz]),
+    ok = socket:send(S2, Data),
+    {error, {timeout, Data}} = socket:recv(S3, 2*DataSz, ?SECS(5)),
+
+    ?P("[stream] cleanup"),
+    _ = socket:close(S3),
+    _ = socket:close(S2),
+    _ = socket:close(S1),
+
+    ?P("[stream] done"),
+
+    ok.
+
+
+do_otp19469_dgram(#{family := Fam} = LSA) ->
+
+    ?P("[dgram] create socket 1"),
+    {ok, S1} = socket:open(Fam, dgram),
+    ok = socket:bind(S1, LSA#{port => 0}),
+    {ok, SA1} = socket:sockname(S1),
+
+    ?P("[dgram] create socket 2"),
+    {ok, S2} = socket:open(Fam, dgram),
+    ok = socket:bind(S2, LSA#{port => 0}),
+
+    %% send and receive the same amount =>
+    %% expect plain success
+    Data = <<"0123456789">>,
+    DataSz = byte_size(Data),
+    ?P("[dgram] try send and recv ~w bytes", [DataSz]),
+    ok = socket:sendto(S2, Data, SA1),
+    {ok, Data} = socket:recv(S1, DataSz, ?SECS(5)),
+    ?P("[dgram] success"),
+
+    %% send 10 bytes and try receive 20 bytes =>
+    %% expect plain success
+    Data = <<"0123456789">>,
+    ?P("[dgram] try send ~w bytes and recv ~w bytes", [DataSz, 2*DataSz]),
+    ok = socket:sendto(S2, Data, SA1),
+    {ok, Data} = socket:recv(S1, 2*DataSz, ?SECS(5)),
+    ?P("[dgram] success"),
+
+    ?P("[dgram] cleanup"),
+    _ = socket:close(S2),
+    _ = socket:close(S1),
+
+    ?P("[dgram] done"),
+
     ok.
 
 
@@ -52921,8 +53248,20 @@ mq() ->
     mq(self()).
 
 mq(Pid) when is_pid(Pid) ->
-    {messages, MQ} = process_info(Pid, messages),
-    MQ.
+    pi(Pid, messages).
+
+
+links() ->
+    links(self()).
+
+links(Pid) when is_pid(Pid) ->
+    pi(Pid, links).
+
+
+pi(Pid, Key) when is_pid(Pid) ->
+    {Key, Value} = process_info(Pid, Key),
+    Value.
+
 
              
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -52947,6 +53286,11 @@ l2b(L) when is_list(L) ->
 b2l(B) when is_binary(B) ->
     binary_to_list(B).
 
+sz(B) when is_binary(B) ->
+    byte_size(B);
+sz(L) when is_list(L) ->
+    iolist_size(L).
+
 f(F, A) ->
     lists:flatten(io_lib:format(F, A)).
 
@@ -52954,7 +53298,7 @@ i(F) ->
     i(F, []).
 
 i(F, A) ->
-    FStr = f("[~s] " ++ F, [formated_timestamp()|A]),
+    FStr = f("[~s] ~p " ++ F, [formated_timestamp(), self()|A]),
     io:format(user, FStr ++ "~n", []),
     io:format(FStr, []).
 
