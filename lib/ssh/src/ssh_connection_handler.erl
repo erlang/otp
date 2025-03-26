@@ -671,11 +671,15 @@ handle_event(internal, {version_exchange,Version}, {hello,Role}, D0) ->
 
 %%% timeout after tcp:connect but then nothing arrives
 handle_event(state_timeout, no_hello_received, {hello,_Role}=StateName, D0 = #data{ssh_params = Ssh0}) ->
-    Time = ?GET_OPT(hello_timeout, Ssh0#ssh.opts),
+    MsgFun =
+        fun (debug) ->
+                Time = ?GET_OPT(hello_timeout, Ssh0#ssh.opts),
+                lists:concat(["No HELLO received within ",ssh_lib:format_time_ms(Time)]);
+            (_) ->
+                ["No HELLO received within hello_timeout"]
+        end,
     {Shutdown, D} =
-        ?send_disconnect(?SSH_DISCONNECT_PROTOCOL_ERROR,
-                         lists:concat(["No HELLO received within ",ssh_lib:format_time_ms(Time)]),
-                         StateName, D0),
+        ?send_disconnect(?SSH_DISCONNECT_PROTOCOL_ERROR, ?SELECT_MSG(MsgFun), StateName, D0),
     {stop, Shutdown, D};
 
 
@@ -1177,8 +1181,8 @@ handle_event(info, {Proto, Sock, NewData}, StateName,
                     MaxLogItemLen = ?GET_OPT(max_log_item_len,SshParams#ssh.opts),
                     {Shutdown, D} =
                         ?send_disconnect(?SSH_DISCONNECT_PROTOCOL_ERROR,
-                                         io_lib:format("Bad packet: Decrypted, but can't decode~n~p:~p~n~P",
-                                                       [C,E,ST,MaxLogItemLen]),
+                                         io_lib:format("Bad packet: Decrypted, but can't decode~n~p:~p~n~p",
+                                                       [C,E,ST], [{chars_limit, MaxLogItemLen}]),
                                          StateName, D1),
                     {stop, Shutdown, D}
 	    end;
@@ -1212,8 +1216,8 @@ handle_event(info, {Proto, Sock, NewData}, StateName,
             MaxLogItemLen = ?GET_OPT(max_log_item_len,SshParams#ssh.opts),
             {Shutdown, D} =
                 ?send_disconnect(?SSH_DISCONNECT_PROTOCOL_ERROR,
-                                 io_lib:format("Bad packet: Couldn't decrypt~n~p:~p~n~P",
-                                               [C,E,ST,MaxLogItemLen]),
+                                 io_lib:format("Bad packet: Couldn't decrypt~n~p:~p~n~p",
+                                               [C,E,ST], [{chars_limit, MaxLogItemLen}]),
                                  StateName, D0),
             {stop, Shutdown, D}
     end;
