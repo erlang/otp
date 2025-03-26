@@ -55,7 +55,7 @@
 %% Tracing
 -export([handle_trace/3]).
 
--record(static,
+-record(env,
         {connection_pid,
          role,
          socket,
@@ -70,7 +70,7 @@
 
 -record(data,
         {
-         static = #static{},
+         env = #env{},
          connection_states = #{},
          bytes_sent     %% TLS 1.3
         }).
@@ -225,7 +225,7 @@ init({call, From}, {Pid, #{current_write := WriteState,
                            key_update_at := KeyUpdateAt,
                            log_level := LogLevel,
                            hibernate_after := HibernateAfter}},
-     #data{connection_states = ConnectionStates0, static = Static0} = StateData0) ->
+     #data{connection_states = ConnectionStates0, env = Env0} = StateData0) ->
     ConnectionStates = case BeastMitigation of
                            disabled ->
                                ConnectionStates0#{current_write => WriteState};
@@ -236,7 +236,7 @@ init({call, From}, {Pid, #{current_write := WriteState,
     StateData =
         StateData0#data{connection_states = ConnectionStates,
                         bytes_sent = 0,
-                        static = Static0#static{connection_pid = Pid,
+                        env = Env0#env{connection_pid = Pid,
                                                 role = Role,
                                                 socket = Socket,
                                                 socket_options = SockOpts,
@@ -279,14 +279,14 @@ connection({call, From}, downgrade, #data{connection_states =
 connection({call, From}, {set_opts, Opts}, StateData) ->
     handle_set_opts(connection, From, Opts, StateData);
 connection({call, From}, {dist_handshake_complete, _Node, DHandle},
-           #data{static = #static{connection_pid = Pid} = Static} = StateData0) ->
+           #data{env = #env{connection_pid = Pid} = Env} = StateData0) ->
     false = erlang:dist_ctrl_set_opt(DHandle, get_size, true),
     ok = erlang:dist_ctrl_input_handler(DHandle, Pid),
     ok = ssl_gen_statem:dist_handshake_complete(Pid, DHandle),
     %% From now on we execute on normal priority
     process_flag(priority, normal),
 
-    StateData = StateData0#data{static = Static#static{dist_handle = DHandle}},
+    StateData = StateData0#data{env = Env#env{dist_handle = DHandle}},
     case dist_data(DHandle) of
         [] ->
             hibernate_after(connection, StateData, [{reply,From,ok}]);
@@ -309,15 +309,15 @@ connection(cast, #alert{} = Alert, StateData0) ->
     StateData = send_tls_alert(Alert, StateData0),
     {next_state, connection, StateData};
 connection(cast, {new_write, WritesState, Version}, 
-           #data{connection_states = ConnectionStates, static = Static} = StateData) ->
+           #data{connection_states = ConnectionStates, env = Env} = StateData) ->
     hibernate_after(connection,
                     StateData#data{connection_states =
                                        ConnectionStates#{current_write => maps:remove(aead_handle, WritesState)},
-                                   static =
-                                       Static#static{negotiated_version = Version}}, []);
+                                   env =
+                                       Env#env{negotiated_version = Version}}, []);
 %%
 connection(info, dist_data,
-           #data{static = #static{dist_handle = DHandle}} = StateData) ->
+           #data{env = #env{dist_handle = DHandle}} = StateData) ->
       case dist_data(DHandle) of
           [] -> hibernate_after(connection, StateData, []);
           Data -> send_application_data(Data, dist_data, connection, StateData)
@@ -356,11 +356,11 @@ handshake(internal, {application_packets,_,_}, _) ->
     {keep_state_and_data, [postpone]};
 handshake(cast, {new_write, WriteState, Version},
           #data{connection_states = ConnectionStates,
-                static = #static{key_update_at = KeyUpdateAt0} = Static} = StateData) ->
+                env = #env{key_update_at = KeyUpdateAt0} = Env} = StateData) ->
     KeyUpdateAt = key_update_at(Version, WriteState, KeyUpdateAt0),
     {next_state, connection,
      StateData#data{connection_states = ConnectionStates#{current_write => maps:remove(aead_handle, WriteState)},
-                    static = Static#static{negotiated_version = Version,
+                    env = Env#env{negotiated_version = Version,
                                            key_update_at = KeyUpdateAt}}};
 handshake(info, dist_data, _) ->
     {keep_state_and_data, [postpone]};
@@ -414,18 +414,18 @@ code_change(_OldVsn, State, Data, _Extra) ->
 %%% Internal functions
 %%%===================================================================
 handle_set_opts(StateName, From, Opts,
-                #data{static = #static{socket_options = SockOpts} = Static}
+                #data{env = #env{socket_options = SockOpts} = Env}
                 = StateData) ->
     hibernate_after(StateName,
                     StateData#data{
-                      static = Static#static{
+                      env = Env#env{
                                  socket_options = set_opts(SockOpts, Opts)}},
                     [{reply, From, ok}]).
 
 handle_common(StateName, {call, From}, {set_opts, Opts}, StateData) ->
     handle_set_opts(StateName, From, Opts, StateData);
 handle_common(_StateName, info, {'EXIT', _Sup, Reason},
-              #data{static = #static{dist_handle = DistHandle}} = StateData)
+              #data{env = #env{dist_handle = DistHandle}} = StateData)
   when DistHandle =/= undefined ->
     case Reason of
         shutdown ->
@@ -449,7 +449,7 @@ handle_common(StateName, Type, Msg, StateData) ->
     hibernate_after(StateName, StateData, []).
 
 send_tls_alert(#alert{} = Alert,
-               #data{static = #static{negotiated_version = Version,
+               #data{env = #env{negotiated_version = Version,
                                       socket = Socket,
                                       transport_cb = Transport},
                      connection_states = ConnectionStates0} = StateData0) ->
@@ -460,7 +460,7 @@ send_tls_alert(#alert{} = Alert,
     StateData0#data{connection_states = ConnectionStates}.
 
 send_application_data(Data, From, StateName,
-                      #data{static = #static{socket = Socket,
+                      #data{env = #env{socket = Socket,
                                              negotiated_version = Version,
                                              transport_cb = Transport} = Opts,
                             bytes_sent = BytesSent0,
@@ -481,7 +481,7 @@ send_application_data(Data, From, StateName,
                                            {next_event, internal, {application_packets, From, [Rest]}}]}
             end;
 	{renegotiate, _} ->
-            #static{connection_pid = Pid} = Opts,
+            #env{connection_pid = Pid} = Opts,
 	    tls_dtls_gen_connection:internal_renegotiation(Pid, ConnStates0),
             {next_state, handshake, StateData0,
              [{next_event, internal, {application_packets, From, Data}}]};
@@ -507,7 +507,7 @@ send_application_data(Data, From, StateName,
 
 %% TLS 1.3 Post Handshake Data
 send_post_handshake_data(Handshake, From, StateName,
-                         #data{static = #static{socket = Socket,
+                         #data{env = #env{socket = Socket,
                                                 negotiated_version = Version,
                                                 transport_cb = Transport},
                                connection_states = ConnStates0} = StateData0) ->
@@ -555,11 +555,11 @@ key_update_at(_, _, KeyUpdateAt) ->
 set_opts(SocketOptions, [{packet, N}]) ->
     SocketOptions#socket_options{packet = N}.
 
-time_to_rekey(Version, _DataSz, _BytesSent, CS, #static{key_update_at = seq_num_wrap})
+time_to_rekey(Version, _DataSz, _BytesSent, CS, #env{key_update_at = seq_num_wrap})
   when ?TLS_GTE(Version, ?TLS_1_3) ->
     #{current_write := #{sequence_number := Seq}} = CS,
     {Seq >= ?MAX_SEQUENCE_NUMBER, 0};
-time_to_rekey(Version, DataSize, BytesSent0, _, #static{key_update_at = KeyUpdateAt})
+time_to_rekey(Version, DataSize, BytesSent0, _, #env{key_update_at = KeyUpdateAt})
   when ?TLS_GTE(Version, ?TLS_1_3) ->
     BytesSent = BytesSent0 + DataSize,
     case BytesSent > KeyUpdateAt of
@@ -568,7 +568,7 @@ time_to_rekey(Version, DataSize, BytesSent0, _, #static{key_update_at = KeyUpdat
         false ->
             {false, BytesSent}
     end;
-time_to_rekey(_, DataSz, BytesSent, CS, #static{renegotiate_at = Max}) ->
+time_to_rekey(_, DataSz, BytesSent, CS, #env{renegotiate_at = Max}) ->
     #{current_write := #{sequence_number := Seq}} = CS,
     %% We could do test:
     %% is_time_to_renegotiate((erlang:byte_size(_Data) div
@@ -634,7 +634,7 @@ consume_ticks() ->
     end.
 
 hibernate_after(connection = StateName,
-		#data{static=#static{hibernate_after = HibernateAfter}} = State,
+		#data{env=#env{hibernate_after = HibernateAfter}} = State,
 		Actions) when HibernateAfter =/= infinity ->
     {next_state, StateName, State, [{timeout, HibernateAfter, hibernate} | Actions]};
 hibernate_after(StateName, State, []) ->
@@ -648,7 +648,7 @@ hibernate_after(StateName, State, Actions) ->
 %%%#
 handle_trace(kdt,
              {call, {?MODULE, time_to_rekey,
-                     [_Version, DataSize, BytesSent, Map, #static{key_update_at = KeyUpdateAt}]}},
+                     [_Version, DataSize, BytesSent, Map, #env{key_update_at = KeyUpdateAt}]}},
              Stack) ->
     #{current_write := #{sequence_number := Sn}} = Map,
     {io_lib:format("~w) (BytesSent:~w + DataSize:~w) > KeyUpdateAt:~w",
@@ -669,7 +669,7 @@ handle_trace(hbn,
                  {call, {?MODULE, hibernate_after,
                          [_StateName = connection, State, Actions]}},
              Stack) ->
-    #data{static=#static{hibernate_after = HibernateAfter}} = State,
+    #data{env=#env{hibernate_after = HibernateAfter}} = State,
     {io_lib:format("* * * maybe hibernating in ~w ms * * * Actions = ~W ",
                    [HibernateAfter, Actions, 10]), Stack};
 handle_trace(hbn,
