@@ -664,7 +664,7 @@ daemon_replace_options(DaemonRef, NewUserOptions) ->
     case ssh_system_sup:get_acceptor_options(DaemonRef) of
         {ok, Options0} ->
             Options = ssh_options:merge_options(server, NewUserOptions, Options0),
-            ssh_system_sup:restart_acceptor_options(DaemonRef, Options);
+            ssh_system_sup:restart_acceptor(DaemonRef, Options);
         {error, _Reason} = Error ->
             Error
     end.
