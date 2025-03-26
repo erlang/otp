@@ -1489,17 +1489,25 @@ orphan_tables([Tab | Tabs], Node, Ns, Local, Remote) ->
 orphan_tables([], _, _, LocalOrphans, RemoteMasters) ->
     {LocalOrphans, RemoteMasters}.
 
-node_has_tabs([Tab | Tabs], Node, State) when Node /= node() ->
-    State2 =
-	try update_whereabouts(Tab, Node, State) of
-	    State1 = #state{} -> State1
-	catch exit:R -> %% Tab was just deleted?
-		case ?catch_val({Tab, cstruct}) of
-		    {'EXIT', _} -> State; % yes
-		    _ ->  erlang:error(R)
-		end
-	end,
-    node_has_tabs(Tabs, Node, State2);
+node_has_tabs([Tab | Tabs], Node, State0) when Node /= node() ->
+    State = try
+                case ?catch_val({Tab, cstruct}) of
+                    {'EXIT', _} -> State0;
+                    Cs ->
+                        case mnesia_lib:cs_to_storage_type(Node, Cs) of
+                            unknown ->   %% handle_early_msgs may come with obsolete
+                                State0;  %% information, if irrelevant ignore it.
+                            _ ->
+                                #state{} = update_whereabouts(Tab, Node, State0)
+                        end
+                end
+            catch exit:R:ST -> %% Tab was just deleted?
+                    case ?catch_val({Tab, cstruct}) of
+                        {'EXIT', _} -> State0; % yes
+                        _ ->  erlang:error({R, ST})
+                    end
+            end,
+    node_has_tabs(Tabs, Node, State);
 node_has_tabs([Tab | Tabs], Node, State) ->
     user_sync_tab(Tab),
     node_has_tabs(Tabs, Node, State);
