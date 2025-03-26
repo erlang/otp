@@ -31,6 +31,22 @@
   </header>
   <p>This document describes the changes made to the Kernel application.</p>
 
+<section><title>Kernel 8.5.4.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>An infinite loop in CNAME loop detection that can
+	    cause Out Of Memory has been fixed. This affected CNAME
+	    lookup with the internal DNS resolver. </p>
+          <p>
+	    Own Id: OTP-19545 Aux Id: PR-9587, OTP-19544 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Kernel 8.5.4.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

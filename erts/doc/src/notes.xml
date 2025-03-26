@@ -31,6 +31,25 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 13.2.2.15</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Trace messages due to <c>receive</c> tracing could
+	    potentially be delayed a very long time if the traced
+	    process waited in a <c>receive</c> expression without
+	    clauses matching on messages (timed wait), or just did
+	    not enter a <c>receive</c> expression for a very long
+	    time.</p>
+          <p>
+	    Own Id: OTP-19527 Aux Id: PR-9577 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 13.2.2.14</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
