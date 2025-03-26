@@ -661,9 +661,13 @@ chapters [Configuration in SSH](configurations.md) and
       NewUserOptions :: daemon_options().
 
 daemon_replace_options(DaemonRef, NewUserOptions) ->
-    {ok, Options0} = ssh_system_sup:get_acceptor_options(DaemonRef),
-    Options = ssh_options:merge_options(server, NewUserOptions, Options0),
-    ssh_system_sup:restart_acceptor(DaemonRef, Options).
+    case ssh_system_sup:get_acceptor_options(DaemonRef) of
+        {ok, Options0} ->
+            Options = ssh_options:merge_options(server, NewUserOptions, Options0),
+            ssh_system_sup:restart_acceptor_options(DaemonRef, Options);
+        {error, _Reason} = Error ->
+            Error
+    end.
 
 %%--------------------------------------------------------------------
 -doc """
