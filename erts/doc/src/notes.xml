@@ -31,6 +31,46 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 14.2.5.9</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Behavior for socket:recv/3 has been improved. The
+	    behavior has also been clarified in the
+	    documentation.</p>
+          <p>
+	    Own Id: OTP-19469 Aux Id: #9172 </p>
+        </item>
+        <item>
+	    <p>Fix <c>prim_inet:send/3</c> (and in extension
+	    <c>gen_tcp:send/2,3</c>) to use the selective recive
+	    optimization when waiting for a send acknowledgement.</p>
+          <p>
+	    Own Id: OTP-19493 Aux Id: PR-9443 </p>
+        </item>
+        <item>
+	    <p>Trace messages due to <c>receive</c> tracing could
+	    potentially be delayed a very long time if the traced
+	    process waited in a <c>receive</c> expression without
+	    clauses matching on messages (timed wait), or just did
+	    not enter a <c>receive</c> expression for a very long
+	    time.</p>
+          <p>
+	    Own Id: OTP-19527 Aux Id: PR-9577 </p>
+        </item>
+        <item>
+	    <p>Improve the naming of the (internal) esock mutex(es).
+	    It is now possible to configure (as in autoconf) the use
+	    of simple names for the esock mutex(es).</p>
+          <p>
+	    Own Id: OTP-19548 Aux Id: OTP-19472 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 14.2.5.8</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

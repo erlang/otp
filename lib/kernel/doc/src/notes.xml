@@ -31,6 +31,29 @@
   </header>
   <p>This document describes the changes made to the Kernel application.</p>
 
+<section><title>Kernel 9.2.4.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Behavior for socket:recv/3 has been improved. The
+	    behavior has also been clarified in the
+	    documentation.</p>
+          <p>
+	    Own Id: OTP-19469 Aux Id: #9172 </p>
+        </item>
+        <item>
+	    <p>An infinite loop in CNAME loop detection that can
+	    cause Out Of Memory has been fixed. This affected CNAME
+	    lookup with the internal DNS resolver. </p>
+          <p>
+	    Own Id: OTP-19545 Aux Id: PR-9587, OTP-19544 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Kernel 9.2.4.6</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

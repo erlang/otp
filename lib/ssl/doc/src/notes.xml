@@ -27,6 +27,22 @@
   </header>
   <p>This document describes the changes made to the SSL application.</p>
 
+<section><title>SSL 11.1.4.8</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Correct handling of unassigned signature algorithms to
+	    properly ignore them instead of failing the handshake.
+	    </p>
+          <p>
+	    Own Id: OTP-19529 Aux Id: GH-9483, PR-9486 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SSL 11.1.4.7</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

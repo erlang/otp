@@ -39,7 +39,28 @@
     thus constitutes one section in this document. The title of each
     section is the version number of Mnesia.</p>
 
-  <section><title>Mnesia 4.23.1.1</title>
+  <section><title>Mnesia 4.23.1.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>With this change mnesia will merge schema of tables
+	    using external backends.</p>
+          <p>
+	    Own Id: OTP-19437 Aux Id: PR-9534 </p>
+        </item>
+        <item>
+	    <p>Mnesia could fail to load a table, if one of the copy
+	    holders was moved during startup.</p>
+          <p>
+	    Own Id: OTP-19501 Aux Id: ERIERL-1195, PR-9499 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Mnesia 4.23.1.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
