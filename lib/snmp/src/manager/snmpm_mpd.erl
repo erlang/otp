@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2024. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -495,7 +495,8 @@ process_v3_msg(NoteStore, Msg, Hdr, Data, Address, Log) ->
 		    %% handle CtxEngineID to ourselves
 		    %% Check that we actually know of an agent with this
 		    %% CtxEngineID and Address
-		    case is_known_engine_id(CtxEngineID, Address) of
+		    %% case is_known_engine_id(CtxEngineID, Address) of
+                    case is_known_engine_id(CtxEngineID) of
 			true ->
 			    ?vtrace("and the agent EngineID (~p) "
 				    "is know to us", [CtxEngineID]),
@@ -1087,8 +1088,10 @@ get_engine_id() ->
 get_agent_engine_id(Name) ->
     snmpm_config:get_agent_engine_id(Name).
 
-is_known_engine_id(EngineID, {Addr, Port}) ->
-    snmpm_config:is_known_engine_id(EngineID, Addr, Port).
+%% is_known_engine_id(EngineID, {Addr, Port}) ->
+%%     snmpm_config:is_known_engine_id(EngineID, Addr, Port).
+is_known_engine_id(EngineID) ->
+    snmpm_config:is_known_engine_id(EngineID).
 
 
 %%-----------------------------------------------------------------
