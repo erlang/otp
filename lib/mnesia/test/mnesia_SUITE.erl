@@ -58,7 +58,7 @@ suite() -> [{ct_hooks,[{ts_install_cth,[{nodenames,2}]}]}].
 
 all() -> 
     [app, appup, {group, light}, {group, medium}, {group, heavy},
-     clean_up_suite].
+     clean_up_suite, {group, external}].
 
 groups() -> 
     %% The 'light' test suite runs a selected set of test suites and is
@@ -123,7 +123,8 @@ groups() ->
        {mnesia_dirty_access_test,
 	dirty_index_update_set_disc_only},
        {mnesia_evil_coverage_test,
-	create_live_table_index_disc_only}]}].
+	create_live_table_index_disc_only}]},
+     {external, [], [{mnesia_external_backend_test, all}]}].
 
 init_per_group(_GroupName, Config) ->
 	Config.
