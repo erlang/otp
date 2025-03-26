@@ -319,15 +319,15 @@ separate_sessions(Config) when is_list(Config) ->
     lists:reverse([1, 2, 3, 4, 5]),
     lists:map(fun(X) -> X * 2 end, [1, 2, 3, 4, 5]),
 
-    Profile1 = tprof:collect(Srv1),
-    Profile2 = tprof:collect(Srv2),
-    ProcInspected1 = tprof:inspect(Profile1),
-    ProcInspected2 = tprof:inspect(Profile2),
+    {call_memory, Profile1} = tprof:collect(Srv1),
+    {call_memory, Profile2} = tprof:collect(Srv2),
 
     tprof:stop(Srv1),
     tprof:stop(Srv2),
 
-    ?assertNotEqual(ProcInspected1, ProcInspected2).    
+    ?assertNotEqual(Profile1, Profile2),
+    ?assert(lists:all(fun({lists, reverse, 1, _}) -> true; (_) -> false end, Profile1)),
+    ?assert(lists:all(fun({lists, map, 2, _}) -> true; (_) -> false end, Profile2)).
 
 live_trace() ->
     [{doc, "Tests memory tracing for pre-existing processes"}].
