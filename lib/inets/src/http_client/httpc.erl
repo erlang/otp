@@ -237,6 +237,7 @@ request(Url, Profile) ->
       Result :: { StatusLine , [HttpHeader], HttpBodyResult}
               | { StatusCode, HttpBodyResult}
               | RequestId
+              | {await, RequestId}
               | saved_to_file,
       StatusCode::non_neg_integer(),
       StatusLine :: { HttpVersion
@@ -256,8 +257,10 @@ request(Method, Request, HttpOptions, Options) ->
 
 -doc """
 Sends an HTTP request. The function can be both synchronous and asynchronous. In
-the latter case, the function returns `{ok, RequestId}` and then the information
-is delivered to the `receiver` depending on that value.
+the latter case, the function returns `{ok, RequestId}` or {ok, {await, RequestId}}
+and then the information is delivered to the `receiver` depending on that value.
+The `{await, RequestId}` means that the request is not yet sent, and has been enqueued
+based on the [`MaxHandlersOpen`](`set_options/1`) option that is set for the profile in use.
 
 When `Profile` is `stand_alone` only the pid can be used.
 
@@ -328,6 +331,10 @@ Options details:
   the `stream_end` message than in `stream_start`. When streaming to a file and
   the request is asynchronous, the message `{http, {RequestId, saved_to_file}}`
   is sent.
+
+  When a request happens to be enqueued based on the [`MaxHandlersOpen`](`set_options/1`)
+  option, the first message sent to the receiver is `{started, RequestId}`. This is to ensure a
+  proper behavior of timeout mechanisms.
 
   Default is `none`.
 
@@ -549,6 +556,7 @@ cancel_request(RequestId, Profile)
       Option :: {proxy, {Proxy, NoProxy}}
               | {https_proxy, {Proxy, NoProxy}}
               | {max_sessions, MaxSessions}
+              | {max_handlers_open, MaxHandlersOpen}
               | {max_keep_alive_length, MaxKeepAlive}
               | {keep_alive_timeout, KeepAliveTimeout}
               | {max_pipeline_length, MaxPipeline}
@@ -564,6 +572,7 @@ cancel_request(RequestId, Profile)
       Port :: non_neg_integer(),
       NoProxy :: [DomainDesc | HostName | IpAddressDesc],
       MaxSessions :: integer(),
+      MaxHandlersOpen :: integer(),
       MaxKeepAlive :: integer(),
       KeepAliveTimeout :: integer(),
       MaxPipeline :: integer(),
@@ -595,6 +604,9 @@ Sets options to be used for subsequent requests.
   "[2010:836B:4179::836B:4179]" (a complete IP address). `proxy` defaults to
   `{undefined, []}`, that is, no proxy is configured and `https_proxy` defaults
   to the value of `proxy`.
+
+- **`MaxHandlersOpen`** - `MaxHandlersOpen` Maximum number of handlers that can be
+  opened at the same time. Default is `-1` which means that it's not limited.
 
 - **`MaxSessions`** - `MaxSessions` Maximum number of persistent connections to
   a host. Default is `2`.
@@ -668,6 +680,7 @@ Sets options to be used for subsequent requests.
       Options :: [Option],
       Option :: {proxy, {Proxy, NoProxy}}
               | {https_proxy, {Proxy, NoProxy}}
+              | {max_handlers_open, MaxHandlersOpen}
               | {max_sessions, MaxSessions}
               | {max_keep_alive_length, MaxKeepAlive}
               | {keep_alive_timeout, KeepAliveTimeout}
@@ -685,6 +698,7 @@ Sets options to be used for subsequent requests.
       Proxy :: {HostName, Port},
       Port :: non_neg_integer(),
       NoProxy :: [DomainDesc | HostName | IpAddressDesc],
+      MaxHandlersOpen :: integer(),
       MaxSessions :: integer(),
       MaxKeepAlive :: integer(),
       KeepAliveTimeout :: integer(),
@@ -701,10 +715,15 @@ Sets options to be used for subsequent requests.
       HostName :: string().
 set_options(Options, Profile) when is_atom(Profile) orelse is_pid(Profile) ->
     maybe
-        {ok, CurrOpts} ?= get_options([ipfamily, unix_socket], Profile),
+        % eqwalizer:ignore get_options can return {error, term()} short-circuiting maybe expr
+        {ok, CurrOpts} ?= get_options([ipfamily, unix_socket,
+                                       max_sessions, max_handlers_open], Profile),
         IpFamily = proplists:get_value(ipfamily, CurrOpts),
         UnixSock = proplists:get_value(unix_socket, CurrOpts),
-        {ok, Opts} ?= validate_options(Options, IpFamily, UnixSock),
+        MaxSessions = get_option(max_sessions, CurrOpts),
+        MaxHandlersOpen = get_option(max_handlers_open, CurrOpts),
+            
+        {ok, Opts} ?= validate_options(Options, IpFamily, UnixSock, MaxSessions, MaxHandlersOpen),
         try
             httpc_manager:set_options(Opts, profile_name(Profile))
         catch
@@ -735,7 +754,7 @@ get_options() ->
 -doc(#{since => <<"OTP R15B01">>}).
 -spec get_options(OptionItems) -> {ok, Values} | {error, Reason} when
       OptionItems :: all | [OptionItem],
-      OptionItem :: proxy | https_proxy | max_sessions | keep_alive_timeout
+      OptionItem :: proxy | https_proxy | max_sessions | max_handlers_open | keep_alive_timeout
                   | max_keep_alive_length | pipeline_timeout | max_pipeline_length | cookies
                   | ipfamily | ip | port | socket_opts | verbose | unix_socket,
       Values :: [{OptionItem, term()}],
@@ -750,7 +769,7 @@ get_options(Options) ->
 -doc(#{since => <<"OTP R15B01">>}).
 -spec get_options(OptionItems, Profile) -> {ok, Values} | {error, Reason} when
       OptionItems :: all | [OptionItem],
-      OptionItem :: proxy | https_proxy | max_sessions | keep_alive_timeout
+      OptionItem :: proxy | https_proxy | max_sessions | max_handlers_open | keep_alive_timeout
                   | max_keep_alive_length | pipeline_timeout | max_pipeline_length | cookies
                   | ipfamily | ip | port | socket_opts | verbose | unix_socket,
       Values :: [{OptionItem, term()}],
@@ -1274,6 +1293,10 @@ mk_chunkify_fun(ProcessBody) ->
 
 handle_answer(RequestId, _, false, _, _) ->
     {ok, RequestId};
+handle_answer({await, RequestId}, ClientAlias, true, Options, Timeout) ->
+    receive {started, RequestId} ->
+        handle_answer(RequestId, ClientAlias, true, Options, Timeout)
+    end;
 handle_answer(RequestId, ClientAlias, true, Options, Timeout) ->
     receive
         {http, {RequestId, {ok, saved_to_file}}} ->
@@ -1623,8 +1646,15 @@ validate_ipfamily_unix_socket(IpFamily, UnixSocket) ->
     validate_ipfamily(IpFamily),
     validate_unix_socket(UnixSocket).
 
-validate_options(Options0, CurrIpFamily, CurrUnixSock) ->
+validate_max_sessions_max_handlers_open(MaxSessions, MaxHandlersOpen)
+  when MaxSessions > MaxHandlersOpen andalso MaxHandlersOpen =/= -1 ->
+    throw({error, {max_sessions_over_max_handlers, MaxSessions, MaxHandlersOpen}});
+validate_max_sessions_max_handlers_open(_, _) ->
+    ok.
+
+validate_options(Options0, CurrIpFamily, CurrUnixSock, MaxSessions, MaxHandlersOpen) ->
     try
+        validate_max_sessions_max_handlers_open(MaxSessions, MaxHandlersOpen),
         validate_ipfamily_unix_socket(Options0, CurrIpFamily, CurrUnixSock),
         validate_options(Options0, [])
     catch
@@ -1645,6 +1675,10 @@ validate_options([{https_proxy, Proxy} = Opt| Tail], Acc) ->
 
 validate_options([{max_sessions, Value} = Opt| Tail], Acc) ->
     validate_max_sessions(Value),
+    validate_options(Tail, [Opt | Acc]);
+
+validate_options([{max_handlers_open, Value} = Opt| Tail], Acc) ->
+    validate_max_handlers_open(Value),
     validate_options(Tail, [Opt | Acc]);
 
 validate_options([{keep_alive_timeout, Value} = Opt| Tail], Acc) ->
@@ -1721,6 +1755,11 @@ validate_max_sessions(Value) when is_integer(Value) andalso (Value >= 0) ->
     Value;
 validate_max_sessions(BadValue) ->
     bad_option(max_sessions, BadValue).
+
+validate_max_handlers_open(Value) when is_integer(Value) andalso (Value >= 0) ->
+    Value;
+validate_max_handlers_open(BadValue) ->
+    bad_option(max_handlers_open, BadValue).
 
 validate_keep_alive_timeout(Value) when is_integer(Value) andalso (Value >= 0) ->
     Value;

@@ -33,6 +33,7 @@
 -define(SOCKET_BACKLOG, 100).
 
 dummy_server(SocketType, Inet, Extra) ->
+        ok, % added to force github cache renewal
     dummy_server(self(), SocketType, Inet, Extra).
 
 dummy_server(Caller, SocketType, Inet, Extra) ->
