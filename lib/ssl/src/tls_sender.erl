@@ -366,7 +366,7 @@ handshake(cast, {new_write, WriteState0, Version},
                                  role = Role,
                                  num_key_updates = N,
                                  keylog_fun = Fun} = Env} = StateData) ->
-    WriteState = maps:remove(aead_handle, WriteState0)
+    WriteState = maps:remove(aead_handle, WriteState0),
     ConnectionStates = ConnectionStates0#{current_write => WriteState},
     KeyUpdateAt = key_update_at(Version, WriteState, KeyUpdateAt0),
      case Version of
