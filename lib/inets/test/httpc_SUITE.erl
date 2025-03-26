@@ -44,6 +44,7 @@
 
 -define(SSL_NO_VERIFY, {ssl, [{verify, verify_none}]}).
 
+-define(DATA_20MB, <<0:16#A000000>>).
 %% Using hardcoded file path to keep it below 107 characters
 %% (maximum length supported by erlang)
 -define(UNIX_SOCKET, "/tmp/inets_httpc_SUITE.sock").
@@ -68,7 +69,9 @@ all() ->
      {group, https},
      {group, sim_https},
      {group, misc},
-     {group, sim_mixed} % HTTP and HTTPS sim servers
+     {group, sim_mixed}, % HTTP and HTTPS sim servers
+     {group, http_high_load},
+     {group, https_high_load}
     ].
 
 groups() ->
@@ -83,12 +86,13 @@ groups() ->
           -- [server_closing_connection_on_second_response]
           },
      {http_internal, [parallel], real_requests_esi()},
-     {http_internal_minimum_bytes, [parallel], [remote_socket_close_parallel]},
      {http_unix_socket, [parallel], simulated_unix_socket()},
      {https, [parallel], [def_ssl_opt | real_requests()]},
      {sim_https, [parallel], only_simulated()},
      {misc, [parallel], misc()},
-     {sim_mixed, [parallel], sim_mixed()}
+     {sim_mixed, [parallel], sim_mixed()},
+     {http_high_load, [remote_socket_close_high_load]},
+     {https_high_load, [remote_socket_close_high_load]}
     ].
 
 real_requests()->
@@ -238,6 +242,7 @@ sim_mixed() ->
 %%--------------------------------------------------------------------
 
 init_per_suite(Config) ->
+        ok, % added to force github cache renewal
     logger:set_primary_config(level, warning),
     PrivDir = proplists:get_value(priv_dir, Config),
     DataDir = proplists:get_value(data_dir, Config),
@@ -303,6 +308,13 @@ init_per_group(http_ipv6 = Group, Config0) ->
         false ->
             {skip, "Host does not support IPv6"}
     end;
+init_per_group(http_high_load, Config0) ->
+    Config0;
+init_per_group(https_high_load, Config0) ->
+    start_apps(https_high_load),
+    application:ensure_all_started([asn1, crypto, public_key, ssl]),
+    Config = init_ssl(Config0),
+    Config;
 init_per_group(Group, Config0) ->
     start_apps(Group),
     Config = proplists:delete(port, Config0),
@@ -329,9 +341,11 @@ do_init_per_group(Group, Config0) ->
             _ ->
                 Config0
         end,
-    Config = proplists:delete(port, Config1),
+        Config = proplists:delete(port, Config1),
+    application:ensure_all_started([asn1, crypto, public_key, ssl]),
     Port = server_start(Group, server_config(Group, Config)),
     [{port, Port} | Config].
+    % Config.
 
 init_ssl(Config) ->
     ClientFileBase = filename:join([proplists:get_value(priv_dir, Config), "client"]),
@@ -362,6 +376,32 @@ init_per_testcase(Name, Config) when Name == pipeline; Name == persistent_connec
                             {max_pipeline_length, 3} | GivenOptions], Name),
 
     [{profile, Name} | Config];
+init_per_testcase(remote_socket_close_high_load = Case, Config0) ->
+    Profile = Case,
+    {ok, _Pid} = inets:start(httpc, [{profile, Profile}]),
+    MaxHandlersOpen = 20,
+    Config = [{profile, Profile}, {max_handlers_open, MaxHandlersOpen} | Config0],
+    GivenOptions = proplists:get_value(httpc_options, Config, []),
+    ok = httpc:set_options([{max_handlers_open, MaxHandlersOpen} | GivenOptions], Profile),
+    case group_name(Config) of
+        Group when Group == http_high_load orelse Group == https_high_load ->
+            SocketType =
+                case group_name(Config) of
+                    https_high_load -> ssl;
+                    _ -> gen_tcp
+                end,
+            Self = self(),
+            SslConfig = proplists:get_value(ssl_conf, Config, []),
+            ServerConfig = proplists:get_value(server_config, SslConfig, []),
+            ListenerPid = spawn(fun() -> open_big_data_socket(SocketType, Self, ServerConfig) end),
+            ListenPort = receive
+                             {started_listen, Port} -> Port
+                         end,
+            Config1 = proplists:delete(port, Config),
+            [{port, ListenPort}, {listener, ListenerPid} | Config1];
+        _ ->
+            Config
+    end;
 init_per_testcase(Case, Config) ->
     {ok, _Pid} = inets:start(httpc, [{profile, Case}]),
     GivenOptions = proplists:get_value(httpc_options, Config, []),
@@ -386,6 +426,12 @@ end_per_testcase(Case, Config)
             ct:log("Not cleaning up because test case status was ~p", [Status]),
             ok
     end,
+    inets:stop(httpc, ?config(profile, Config));
+end_per_testcase(remote_socket_close_high_load, Config) ->
+    ?config(listener, Config) ! {stop_listen, self()},
+    Request = {url(group_name(Config), "", Config), []},
+    httpc:request(get, Request, [{ssl, [{verify, verify_none}]}, {connect_timeout, infinity}], [], ?profile(Config)),
+    receive stopped_listen -> ok end,
     inets:stop(httpc, ?config(profile, Config));
 end_per_testcase(_Case, Config) ->
     inets:stop(httpc, ?config(profile, Config)).
@@ -2138,18 +2184,22 @@ def_ssl_opt(_Config) ->
     ok.
 
 %%-------------------------------------------------------------------------
-remote_socket_close_parallel() ->
+remote_socket_close_high_load() ->
     [{doc,
       "Verify remote socket closure (related tickets: OTP-18509, OTP-18545,"
-      "ERIERL-937). Transferred data size needs to be significant, so that "
-      "socket is closed, in the middle of a transfer."
-      "Note: test case is require good network and CPU - due to that "
-      " it is not included in all()."}, {timetrap, timer:minutes(3)}].
-remote_socket_close_parallel(Config0) when is_list(Config0) ->
-    ClientNumber = 200,
-    Config = [{iterations, 10} | Config0],
+      "ERIERL-937, OTP-19587). Transferred data size needs to be significant,"
+      "so that socket would close, in the middle of a transfer,"
+      "without max_handlers_open option set"}, {timetrap, timer:minutes(15)}].
+remote_socket_close_high_load(Config0) when is_list(Config0) ->
+    {ok, MaxHandlersOpen} = httpc:get_option(max_handlers_open, ?profile(Config0)),
+    case MaxHandlersOpen =:= ?config(max_handlers_open, Config0) of
+        true -> ok;
+        _ -> ct:fail("max_handlers_open option not set")
+    end,
+    ClientNumber = 300,
+    Config = [{iterations, 3} | Config0],
     ClientPids =
-        [spawn(?MODULE, connect, [self(), [{client_id, Id} | Config]]) ||
+        [spawn_link(?MODULE, connect, [self(), [{client_id, Id} | Config]]) ||
             Id <- lists:seq(1, ClientNumber)],
     ct:log("Started ~p clients: ~w", [ClientNumber, ClientPids]),
     Receive = fun(S) ->
@@ -2158,6 +2208,7 @@ remote_socket_close_parallel(Config0) when is_list(Config0) ->
                               ct:log("++ Client finished (~p)", [S]),
                               ok;
                           Other ->
+                              ct:log("failed with: ~p", [Other]),
                               ct:fail(Other)
                       end
               end,
@@ -2174,22 +2225,36 @@ loop(0, Acc, _Config) ->
     ok;
 loop(Cnt, Acc, Config) ->
     case request(Config) of
-        {ok, {{_,200,"OK"}, _, _}} ->
+        {ok, {{_,200,"OK"}, _, Body}} ->
             case process_info(self(), message_queue_len) of
                 {message_queue_len,0} ->
-                    loop(Cnt-1, Acc ++ ".", Config);
+                    case length(Body) =:= byte_size(?DATA_20MB) of
+                        true ->
+                            Info = httpc_manager:info(httpc:profile_name(?profile(Config))),
+                            Handlers = proplists:get_value(handlers, Info),
+                            SetMax = ?config(max_handlers_open, Config),
+                            case length(Handlers) of
+                                Length when Length > SetMax ->
+                                    {too_many_handlers_open, Length};
+                                _ ->
+                                    loop(Cnt-1, Acc ++ ".", Config)
+                            end;
+                        false ->
+                            ct:log("200 OK body invalid length (~p) ~n", [length(Body)]),
+                            invalid_body_length
+                        end;
                 _ ->
                     %% queue is expected to be empty
                     queue_check(),
                     ct:log("~n~s|", [Acc ++ "x"]),
-                    fail
+                    message_queue_not_empty
             end;
         {ok, NotOk} ->
             ct:log("200 OK was not received~n~p", [NotOk]),
-            fail;
+            NotOk;
         Error ->
             ct:log("Error: ~p",[Error]),
-            fail
+            Error
     end.
 
 queue_check() ->
@@ -2206,8 +2271,9 @@ queue_check() ->
     end.
 
 request(Config) ->
-    Request = {url(group_name(Config), "/httpc_SUITE/foo", Config), []},
-    httpc:request(get, Request, [],[{sync,true}, {body_format,binary}], ?profile(Config)).
+    Id = integer_to_list(?config(client_id, Config)),
+    Request = {url(group_name(Config), "", Config), [{"X-Request-Id", Id}]},
+    httpc:request(get, Request, [{ssl, [{verify, verify_none}]}], [], ?profile(Config)).
 
 foo(SID, _Env, _Input) ->
     EightyMillionBits = 80000000, %% ~10MB transferred
@@ -2302,7 +2368,7 @@ url(Group, End, Config) when Group == http;
                              Group == sim_http;
                              Group == sim_http_process_leak;
                              Group == http_internal;
-                             Group == http_internal_minimum_bytes ->
+                             Group == http_high_load ->
     Port = proplists:get_value(port, Config),
     {ok,Host} = inet:gethostname(),
     ?URL_START ++ Host ++ ":" ++ integer_to_list(Port) ++ End;
@@ -2311,7 +2377,8 @@ url(Group, End, Config) when Group == http_ipv6;
     Port = proplists:get_value(port, Config),
     ?URL_START ++ "[::1]" ++ ":" ++ integer_to_list(Port) ++ End;
 url(Group, End, Config) when Group == https;
-                             Group == sim_https ->
+                             Group == sim_https;
+                             Group == https_high_load ->
     Port = proplists:get_value(port, Config),
     {ok,Host} = inet:gethostname(),
     ?TLS_URL_START ++ Host ++ ":" ++ integer_to_list(Port) ++ End.
@@ -2412,9 +2479,6 @@ server_config(http_ipv6, Config) ->
 server_config(http_internal, Config) ->
     server_config(http, Config) ++
         [{erl_script_alias, {"", [httpc_SUITE]}}];
-server_config(http_internal_minimum_bytes, Config) ->
-    server_config(http_internal, Config) ++
-        [{minimum_bytes_per_second, 100}];
 server_config(https, Config) ->
     [{socket_type, {ssl, ssl_config(Config)}} | server_config(http, Config)];
 server_config(sim_https, Config) ->
@@ -2433,6 +2497,8 @@ start_apps(https) ->
 start_apps(sim_https) ->
     inets_test_lib:start_apps([crypto, public_key, ssl]);
 start_apps(sim_mixed) ->
+    inets_test_lib:start_apps([crypto, public_key, ssl]);
+start_apps(https_high_load) ->
     inets_test_lib:start_apps([crypto, public_key, ssl]);
 start_apps(_) ->
     ok.
@@ -3561,3 +3627,62 @@ is_ipv6_supported() ->
          _: _ ->
             false
     end.
+
+
+open_big_data_socket(gen_tcp, Pid, _Config) ->
+    {ok, LSock} = gen_tcp:listen(0, [binary, {packet, 0},
+                                        {active, false}]),
+    {ok, Port} = inet:port(LSock),
+    Pid ! {started_listen, Port},
+    (fun F() ->
+        receive
+            {stop_listen, CleanupPid} ->
+                gen_tcp:close(LSock),
+                CleanupPid ! stopped_listen
+        after 0 ->
+            accept_and_send_data(gen_tcp, LSock),
+            F()
+        end
+    end)();
+
+open_big_data_socket(ssl, Pid, Config) ->
+    SSLOptions =  Config ++ [{verify, verify_none}, {reuseaddr, true}, binary, {packet, 0}, {active, false}],
+    {ok, LSock} = ssl:listen(0, SSLOptions),
+    {ok, {_, Port}} = ssl:sockname(LSock),
+    Pid ! {started_listen, Port},
+    (fun F() ->
+        receive
+            {stop_listen, CleanupPid} ->
+                ssl:close(LSock),
+                CleanupPid ! stopped_listen
+        after 0 ->
+            accept_and_send_data(ssl, LSock),
+            F()
+        end
+    end)().
+
+accept_and_send_data(gen_tcp, Sock) ->
+    {ok, Sock1} = gen_tcp:accept(Sock),
+    F = fun() ->
+        gen_tcp:recv(Sock1, 0),
+        gen_tcp:send(Sock1, ["HTTP/1.1 200 OK\r\nConnection: close\r\n\r\n"]),
+        ChunkSize = 1024*64*8, % 64KB
+        << begin gen_tcp:send(Sock1, <<Chunk:ChunkSize>>), <<>> end || <<Chunk:ChunkSize>> <= ?DATA_20MB>>,
+        receive after 10000 -> ok end,
+        gen_tcp:close(Sock1)
+    end,
+    HandlerPid = spawn(F),
+    gen_tcp:controlling_process(Sock1, HandlerPid);
+accept_and_send_data(ssl, LSock) ->
+    {ok, Sock1} = ssl:transport_accept(LSock),
+    F = fun() ->
+        {ok, Sock} = ssl:handshake(Sock1),
+        ssl:recv(Sock, 0),
+        ssl:send(Sock, ["HTTP/1.1 200 OK\r\nConnection: close\r\n\r\n"]),
+        ChunkSize = 1024*64*8, % 64KB
+        << begin ssl:send(Sock, <<Chunk:ChunkSize>>), <<>> end || <<Chunk:ChunkSize>> <= ?DATA_20MB>>,
+        receive after 10000 -> ok end,
+        ssl:close(Sock)
+     end,
+    HandlerPid = spawn(F),
+    ssl:controlling_process(Sock1, HandlerPid).
