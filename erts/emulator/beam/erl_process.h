@@ -469,35 +469,36 @@ struct ErtsMigrationPaths_ {
 
 
 struct ErtsRunQueue_ {
-    int ix;
-
     erts_mtx_t mtx;
+    erts_atomic32_t flags;
 
+    struct {
+	ErtsRunQueueInfo prio_info[ERTS_NO_PROC_PRIO_LEVELS];
+	/* We use the same prio queue for low and
+	   normal prio processes */
+	ErtsRunPrioQueue prio[ERTS_NO_PROC_PRIO_LEVELS-1];
+      Uint context_switches;
+      Uint reductions;
+    } procs;
+
+    erts_aint32_t max_len;
+    erts_atomic32_t len;
+
+    /* The fields above are the ones that are commonly accessed by other cores during task stealing
+       They are grouped together to improve cache locality. */
+
+    int ix;
     ErtsSchedulerSleepList sleepers;
 
     ErtsSchedulerData *scheduler;
     int waiting;
     int woken;
-    erts_atomic32_t flags;
     int check_balance_reds;
     int full_reds_history_sum;
     int full_reds_history[ERTS_FULL_REDS_HISTORY_SIZE];
     int out_of_work_count;
-    erts_aint32_t max_len;
-    erts_atomic32_t len;
     int wakeup_other;
     int wakeup_other_reds;
-
-    struct {
-	Uint context_switches;
-	Uint reductions;
-
-	ErtsRunQueueInfo prio_info[ERTS_NO_PROC_PRIO_LEVELS];
-
-	/* We use the same prio queue for low and
-	   normal prio processes */
-	ErtsRunPrioQueue prio[ERTS_NO_PROC_PRIO_LEVELS-1];
-    } procs;
 
     struct {
 	ErtsMiscOpList *start;
