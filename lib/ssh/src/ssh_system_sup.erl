@@ -161,8 +161,8 @@ get_acceptor_options(SysPid) ->
     case get_daemon_listen_address(SysPid) of
         {ok,Address} ->
             get_options(SysPid, Address);
-        {error,Error} ->
-            {error,Error}
+        {error,not_found} ->
+            {error,bad_daemon_ref}
     end.
 
 replace_acceptor_options(SysPid, NewOpts) ->
