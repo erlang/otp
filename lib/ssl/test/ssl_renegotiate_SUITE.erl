@@ -64,7 +64,9 @@
          renegotiate_dos_mitigate_absolute/0,
          renegotiate_dos_mitigate_absolute/1,
          active_error_disallowed_client_renegotiate/0,
-         active_error_disallowed_client_renegotiate/1
+         active_error_disallowed_client_renegotiate/1,
+         keylog_renegotiate/0,
+         keylog_renegotiate/1
         ]).
 
 %% Apply export
@@ -111,15 +113,15 @@ renegotiate_tests() ->
      server_renegotiate_reused_session,
      client_no_wrap_sequence_number,
      server_no_wrap_sequence_number,
-     active_error_disallowed_client_renegotiate].
+     active_error_disallowed_client_renegotiate,
+     keylog_renegotiate].
 
 init_per_suite(Config) ->
-    catch application:stop(crypto),
-    try application:start(crypto) of
+    case application:ensure_started(crypto) of
 	ok ->
 	    ssl_test_lib:clean_start(),
-            ssl_test_lib:make_rsa_cert(Config)
-    catch _:_ ->
+            ssl_test_lib:make_rsa_cert(Config);
+        _ ->
 	    {skip, "Crypto did not start"}
     end.
 
@@ -500,6 +502,49 @@ active_error_disallowed_client_renegotiate(Config) when is_list(Config) ->
     end.
 
 %%--------------------------------------------------------------------
+keylog_renegotiate() ->
+    [{doc,"Test keylog callback when connection is renegotiated"}].
+keylog_renegotiate(Config) when is_list(Config) ->
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    Data = "From erlang to erlang",
+
+    Testcase = self(),
+
+    SFun = fun(KeyLogInfo) ->
+                   Testcase ! {server, {keylog, KeyLogInfo}}
+           end,
+                    
+    CFun = fun(KeyLogInfo) ->
+                   Testcase ! {client, {keylog, KeyLogInfo}}
+           end,
+
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+					{from, self()},
+					{mfa, {?MODULE,
+					       renegotiate, [Data]}},
+					{options, [{keep_secrets, {keylog, SFun}} | ServerOpts]}]),
+    Port = ssl_test_lib:inet_port(Server),
+
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+					{host, Hostname},
+					{from, self()},
+					{mfa, {?MODULE, erlang_ssl_receive, [Data]}},
+					{options, [{reuse_sessions, false},
+                                                   {keep_secrets, {keylog, CFun}}| ClientOpts]}]),
+    true = check_keylog(server),
+    true = check_keylog(client),
+
+    ssl_test_lib:check_result(Server, ok, Client, ok),
+
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
+
+
+%%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
 %%--------------------------------------------------------------------
 renegotiate(Socket, Data) ->
@@ -552,3 +597,16 @@ erlang_ssl_receive(Socket, Data) ->
         Other ->
             ct:fail({{expected, Data}, {got, Other}})
     end.
+
+check_keylog(From) ->
+   #{items := Initial} =
+        receive
+            {From, {keylog, K0}} ->
+                K0
+        end,
+    #{items := Renegotiated} =
+        receive
+            {From, {keylog, K1}} ->
+                K1
+        end,
+    Initial =/= Renegotiated.

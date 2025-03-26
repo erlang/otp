@@ -37,7 +37,12 @@
          key_update_at_server/0,
          key_update_at_server/1,
          explicit_key_update/0,
-         explicit_key_update/1]).
+         explicit_key_update/1,
+         keylog_client_cb/0,
+         keylog_client_cb/1,
+         keylog_server_cb/0,
+         keylog_server_cb/1
+        ]).
 
 -include("ssl_test_lib.hrl").
 -include_lib("common_test/include/ct.hrl").
@@ -53,11 +58,12 @@ groups() ->
 tls_1_3_tests() ->
     [key_update_at_client,
      key_update_at_server,
-     explicit_key_update].
+     explicit_key_update,
+     keylog_client_cb,
+     keylog_server_cb].
 
 init_per_suite(Config0) ->
-    catch application:stop(crypto),
-    try application:start(crypto) of
+    case application:ensure_started(crypto) of
         ok ->
             ssl_test_lib:clean_start(),
             case proplists:get_bool(ecdh, proplists:get_value(public_keys, crypto:supports())) of
@@ -65,8 +71,8 @@ init_per_suite(Config0) ->
                     ssl_test_lib:make_ecdsa_cert(Config0);
                 false ->
                     {skip, "Missing EC crypto support"}
-            end
-    catch _:_ ->
+            end;
+        _ ->
             {skip, "Crypto did not start"}
     end.
 
@@ -79,7 +85,7 @@ init_per_group(GroupName, Config) ->
     ssl_test_lib:init_per_group(GroupName, Config).
 
 end_per_group(GroupName, Config) ->
-  ssl_test_lib:end_per_group(GroupName, Config).
+    ssl_test_lib:end_per_group(GroupName, Config).
 
 init_per_testcase(_TestCase, Config) ->
     ssl_test_lib:ct_log_supported_protocol_versions(Config),
@@ -104,6 +110,102 @@ key_update_at_server() ->
       "Server initiating the update."}].
 key_update_at_server(Config) ->
     key_update_at(Config, server).
+
+explicit_key_update() ->
+    [{doc,"Test ssl:update_key/2 between erlang client and erlang server."}].
+
+explicit_key_update(Config) ->
+    Data = "123456789012345",  %% 15 bytes
+
+    Server = ssl_test_lib:start_server(erlang, [], Config),
+    Port = ssl_test_lib:inet_port(Server),
+
+    Client = ssl_test_lib:start_client(erlang, [{port, Port}], Config),
+    ssl_test_lib:send_recv_result_active(Client, Server, Data),
+
+    ssl_test_lib:update_keys(Client, write),
+    ssl_test_lib:update_keys(Client, read_write),
+    ssl_test_lib:send_recv_result_active(Client, Server, Data),
+
+    ssl_test_lib:update_keys(Server, write),
+    ssl_test_lib:update_keys(Server, read_write),
+    ssl_test_lib:send_recv_result_active(Client, Server, Data),
+    %% TODO check if key has been updated (needs debug logging of secrets)
+
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
+
+keylog_client_cb() ->
+    [{doc,"Test option {keep_secrets, {keylog, fun()}}"}].
+keylog_client_cb(Config) ->
+    Data = "123456789012345",  %% 15 bytes
+    TestCase = self(),
+    Fun = fun(KeyLogInfo) ->
+                  TestCase ! {keylog, KeyLogInfo}
+          end,
+    Server = ssl_test_lib:start_server(erlang,[], Config),
+    Port = ssl_test_lib:inet_port(Server),
+    {_Client, ClientSocket} =
+        ssl_test_lib:start_client(erlang, [return_socket,{port, Port},
+                                          {options, [{keep_secrets, {keylog, Fun}},
+                                                     {key_update_at, 9}]}],Config),
+    ssl:send(ClientSocket, Data),
+    receive
+        {keylog, #{items := HSKeylog}} ->
+            ["CLIENT_HANDSHAKE_TRAFFIC_SECRET" ++ _| _] = HSKeylog
+    end,
+    receive
+        {keylog, #{items := RConKeylog}} ->
+            ["SERVER_TRAFFIC_SECRET_0" ++ _| _] = RConKeylog
+    end,
+    receive
+     {keylog, #{items := SConKeylog}} ->
+            ["CLIENT_TRAFFIC_SECRET_0" ++ _| _] = SConKeylog
+    end,
+    receive
+        {keylog, #{items := UpdateKeylog}} ->
+            ["CLIENT_TRAFFIC_SECRET_1" ++ _| _] = UpdateKeylog
+    end.
+
+keylog_server_cb() ->
+    [{doc,"Test option {keep_secrets, {keylog, fun()}}"}].
+keylog_server_cb(Config) ->
+    Data = "123456789012345",  %% 15 bytes
+    TestCase = self(),
+    Fun = fun(KeyLogInfo) ->
+                  TestCase ! {keylog, KeyLogInfo}
+          end,
+    Server = ssl_test_lib:start_server(erlang,[{options, [{keep_secrets, {keylog, Fun}},
+                                                          {key_update_at, 9}]}], Config),
+    Port = ssl_test_lib:inet_port(Server),
+    
+    _ = ssl_test_lib:start_client(erlang, [{port, Port}], Config),
+
+    Server ! get_socket,
+    ServerSocket = receive
+                       {Server, {socket, S}} -> S
+                   end,
+    ssl:send(ServerSocket, Data),
+    receive
+        {keylog, #{items := HSKeylog}} ->
+             ["CLIENT_HANDSHAKE_TRAFFIC_SECRET" ++ _| _] = HSKeylog
+    end,
+    receive
+        {keylog, #{items := RConKeylog}} ->
+            ["CLIENT_TRAFFIC_SECRET_0" ++ _| _] = RConKeylog
+    end,
+    receive
+     {keylog, #{items := SConKeylog}} ->
+            ["SERVER_TRAFFIC_SECRET_0" ++ _| _] = SConKeylog
+    end,
+    receive
+        {keylog, #{items := UpdateKeylog}} ->
+            ["SERVER_TRAFFIC_SECRET_1" ++ _| _] = UpdateKeylog
+    end.
+
+%%--------------------------------------------------------------------
+%% Internal functions  -----------------------------------------------
+%%--------------------------------------------------------------------
 
 key_update_at(Config, Role) ->
     Data = "123456789012345",  %% 15 bytes
@@ -143,78 +245,28 @@ key_update_at(Config, Role) ->
     ?CT_LOG("sent and waited 2", []),
     Keys2 = get_traffic_secrets(ClientSocket, ServerSocket),
     verify_key_update(Keys1, Keys2),
+    %% Verify prevention 
+    {["CLIENT_TRAFFIC_SECRET_10"| _], ["CLIENT_TRAFFIC_SECRET_10"| _]} = Keys2,
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
 
 get_traffic_secrets(ClientSocket, ServerSocket) ->
-    ProcessSocket =
-        fun(Socket, Role) ->
-                {ok, [{keylog, KeyLog}]} = ssl:connection_information(Socket, [keylog]),
-                Interesting =
-                    fun(S) ->
-                            Patterns = ["CLIENT_TRAFFIC_SECRET", "SERVER_TRAFFIC_SECRET"],
-                            SearchResults = [string:find(S, P) || P <- Patterns],
-                            lists:any(fun(I) -> I /= nomatch end, SearchResults)
-                    end,
-                TrafficSecrets = lists:filter(Interesting, KeyLog),
-                Print = fun(Secret) ->
-                                [Name, _A, B] = string:lexemes(Secret, " "),
-                                [Key] = io_lib:format("~s", [B]),
-                                {Name, {Role, Key}}
-                        end,
-                [Print(Scr) || Scr <- TrafficSecrets]
-        end,
-    Secrets = lists:flatten(
-                [ProcessSocket(S, R) ||
-                    {S, R} <-
-                        [{ClientSocket, client}, {ServerSocket, server}]]),
-    P = fun(Direction) ->
-                Vals = proplists:get_all_values(Direction, Secrets),
-                ?CT_LOG("~30s ~10s(c) ~10s(s)",
-                     [Direction, proplists:get_value(client, Vals),
-                      proplists:get_value(server, Vals)]),
-                {Direction, [proplists:get_value(client, Vals),
-                             proplists:get_value(server, Vals)]}
-        end,
-    [P(Direction) ||
-        Direction <-
-            ["CLIENT_TRAFFIC_SECRET_0", "SERVER_TRAFFIC_SECRET_0"]].
+    {ok, [{keylog, KeyLog1}]} = ssl:connection_information(ClientSocket, [keylog]),
+    {ok, [{keylog, KeyLog2}]} = ssl:connection_information(ServerSocket, [keylog]),
+    {KeyLog1, KeyLog2}.
 
-verify_key_update(Keys0, Keys1) ->
-    CTS0 = proplists:get_value("CLIENT_TRAFFIC_SECRET_0", Keys0),
-    CTS1 = proplists:get_value("CLIENT_TRAFFIC_SECRET_0", Keys1),
-    STS0 = proplists:get_value("SERVER_TRAFFIC_SECRET_0", Keys0),
-    STS1 = proplists:get_value("SERVER_TRAFFIC_SECRET_0", Keys1),
-    CTS = lists:zip(CTS0, CTS1),
-    STS = lists:zip(STS0, STS1),
-    Pred = fun({A, B}) when A == B ->
-                   ct:fail(no_key_update),
-                   false;
-              (_) ->
-                   true
-           end,
-    [true = lists:all(Pred, X) || X <- [CTS, STS]].
 
-explicit_key_update() ->
-    [{doc,"Test ssl:update_key/2 between erlang client and erlang server."}].
+%% Only traffic secrets
+verify_key_update({[TS1, TS2, TS3, TS4, TS5, TS6],
+                   [TS1, TS2, TS3, TS4, TS5, TS6]} = TSC,
+                  {[TS7, TS8, TS9, TS10, TS11, TS12],
+                   [TS7, TS8, TS9, TS10, TS11, TS12]}= TSS
+                 ) ->
+    TSC =/= TSS;
+%% Handshake + traffic secrets
+verify_key_update({[CH1, SH1 | T1], [CH1, SH1 | T1]},
+                  {[CH2, SH2 | T2], [CH2, SH2 | T2]}) ->
+    CH1 =/= CH2 andalso
+        SH1 =/= SH2 andalso
+        T1 =/= T2.
 
-explicit_key_update(Config) ->
-    Data = "123456789012345",  %% 15 bytes
-
-    Server = ssl_test_lib:start_server(erlang, [], Config),
-    Port = ssl_test_lib:inet_port(Server),
-
-    Client = ssl_test_lib:start_client(erlang, [{port, Port}], Config),
-    ssl_test_lib:send_recv_result_active(Client, Server, Data),
-
-    ssl_test_lib:update_keys(Client, write),
-    ssl_test_lib:update_keys(Client, read_write),
-    ssl_test_lib:send_recv_result_active(Client, Server, Data),
-
-    ssl_test_lib:update_keys(Server, write),
-    ssl_test_lib:update_keys(Server, read_write),
-    ssl_test_lib:send_recv_result_active(Client, Server, Data),
-    %% TODO check if key has been updated (needs debug logging of secrets)
-
-    ssl_test_lib:close(Server),
-    ssl_test_lib:close(Client).

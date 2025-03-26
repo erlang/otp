@@ -65,7 +65,10 @@
          renegotiate_at,
          key_update_at,  %% TLS 1.3
          dist_handle,
-         hibernate_after
+         log_level,
+         hibernate_after,
+         keylog_fun,
+         num_key_updates = 0
         }).
 
 -record(data,
@@ -224,7 +227,8 @@ init({call, From}, {Pid, #{current_write := WriteState,
                            renegotiate_at := RenegotiateAt,
                            key_update_at := KeyUpdateAt,
                            log_level := LogLevel,
-                           hibernate_after := HibernateAfter}},
+                           hibernate_after := HibernateAfter,
+                           keylog_fun := Fun}},
      #data{connection_states = ConnectionStates0, env = Env0} = StateData0) ->
     ConnectionStates = case BeastMitigation of
                            disabled ->
@@ -245,7 +249,9 @@ init({call, From}, {Pid, #{current_write := WriteState,
                                                 negotiated_version = Version,
                                                 renegotiate_at = RenegotiateAt,
                                                 key_update_at = KeyUpdateAt,
-                                                hibernate_after = HibernateAfter}},
+                                                log_level = LogLevel,
+                                                hibernate_after = HibernateAfter,
+                                                keylog_fun = Fun}},
     proc_lib:set_label({tls_sender, Role, {connection, Pid}}),
     put(log_level, LogLevel),
     put(tls_role, Role),
@@ -294,13 +300,13 @@ connection({call, From}, {dist_handshake_complete, _Node, DHandle},
             {keep_state, StateData,
              [{reply,From,ok}, {next_event, internal, {application_packets, dist_data, Data}}]}
     end;
-connection({call, From}, get_application_traffic_secret, State) ->
-    CurrentWrite = maps:get(current_write, State#data.connection_states),
+connection({call, From}, get_application_traffic_secret, #data{env = #env{num_key_updates = N}} = Data) ->
+    CurrentWrite = maps:get(current_write, Data#data.connection_states),
     SecurityParams = maps:get(security_parameters, CurrentWrite),
     ApplicationTrafficSecret =
         SecurityParams#security_parameters.application_traffic_secret,
-    hibernate_after(connection, State,
-                    [{reply, From, {ok, ApplicationTrafficSecret}}]);
+    hibernate_after(connection, Data,
+                    [{reply, From, {ok, ApplicationTrafficSecret, N}}]);
 connection(internal, {application_packets, From, Data}, StateData) ->
     send_application_data(Data, From, connection, StateData);
 connection(internal, {post_handshake_data, From, HSData}, StateData) ->
@@ -354,12 +360,23 @@ handshake({call, _}, _, _) ->
     {keep_state_and_data, [postpone]};
 handshake(internal, {application_packets,_,_}, _) ->
     {keep_state_and_data, [postpone]};
-handshake(cast, {new_write, WriteState, Version},
-          #data{connection_states = ConnectionStates,
-                env = #env{key_update_at = KeyUpdateAt0} = Env} = StateData) ->
+handshake(cast, {new_write, WriteState0, Version},
+          #data{connection_states = ConnectionStates0,
+                env = #env{key_update_at = KeyUpdateAt0,
+                                 role = Role,
+                                 num_key_updates = N,
+                                 keylog_fun = Fun} = Env} = StateData) ->
+    WriteState = maps:remove(aead_handle, WriteState0)
+    ConnectionStates = ConnectionStates0#{current_write => WriteState},
     KeyUpdateAt = key_update_at(Version, WriteState, KeyUpdateAt0),
-    {next_state, connection,
-     StateData#data{connection_states = ConnectionStates#{current_write => maps:remove(aead_handle, WriteState)},
+     case Version of
+         ?TLS_1_3 ->
+             maybe_traffic_keylog_1_3(Fun, Role, ConnectionStates, N);
+          _ ->
+             ok
+     end,
+    {next_state, connection, 
+     StateData#data{connection_states = ConnectionStates,
                     env = Env#env{negotiated_version = Version,
                                            key_update_at = KeyUpdateAt}}};
 handshake(info, dist_data, _) ->
@@ -461,8 +478,8 @@ send_tls_alert(#alert{} = Alert,
 
 send_application_data(Data, From, StateName,
                       #data{env = #env{socket = Socket,
-                                             negotiated_version = Version,
-                                             transport_cb = Transport} = Opts,
+                                       negotiated_version = Version,
+                                       transport_cb = Transport} = Opts,
                             bytes_sent = BytesSent0,
                             connection_states = ConnStates0} = StateData0) ->
     DataSz = iolist_size(Data),
@@ -508,8 +525,8 @@ send_application_data(Data, From, StateName,
 %% TLS 1.3 Post Handshake Data
 send_post_handshake_data(Handshake, From, StateName,
                          #data{env = #env{socket = Socket,
-                                                negotiated_version = Version,
-                                                transport_cb = Transport},
+                                          negotiated_version = Version,
+                                          transport_cb = Transport},
                                connection_states = ConnStates0} = StateData0) ->
     BinHandshake = tls_handshake:encode_handshake(Handshake, Version),
     {Encoded, ConnStates} =
@@ -532,11 +549,28 @@ send_post_handshake_data(Handshake, From, StateName,
             {next_state, StateName, StateData1,  [{reply, From, Result}]}
     end.
 
-maybe_update_cipher_key(#data{connection_states = ConnStates0}= StateData, #key_update{}) ->
-    ConnStates = tls_gen_connection_1_3:update_cipher_key(current_write, ConnStates0),
-    StateData#data{connection_states = ConnStates, bytes_sent = 0};
+maybe_update_cipher_key(#data{connection_states = ConnectionStates0,
+                              env = #env{role = Role,
+                                         num_key_updates = N,
+                                         keylog_fun = Fun} = Env
+                             } = StateData, #key_update{}) ->
+    ConnectionStates = tls_gen_connection_1_3:update_cipher_key(current_write, ConnectionStates0),
+    maybe_traffic_keylog_1_3(Fun, Role, ConnectionStates, N + 1),
+    StateData#data{connection_states = ConnectionStates,
+                   env = Env#env{num_key_updates = N + 1},
+                   bytes_sent = 0};
 maybe_update_cipher_key(StateData, _) ->
     StateData.
+
+maybe_traffic_keylog_1_3(Fun, Role, ConnectionStates, N) when is_function(Fun) ->
+    #{security_parameters := #security_parameters{client_random = ClientRandom,
+                                                  prf_algorithm = Prf,
+                                                  application_traffic_secret = TrafficSecret}}
+        = ssl_record:current_connection_state(ConnectionStates, write),
+    KeyLog =  ssl_logger:keylog_traffic_1_3(Role, ClientRandom, Prf, TrafficSecret, N),
+    ssl_logger:keylog(KeyLog, ClientRandom, Fun);
+maybe_traffic_keylog_1_3(_,_,_,_) ->
+    ok.
 
 %% For AES-GCM, up to 2^24.5 full-size records (about 24 million) may be
 %% encrypted on a given connection while keeping a safety margin of

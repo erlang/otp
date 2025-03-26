@@ -178,7 +178,8 @@ Special Erlang node configuration for the application can be found in
               tls_server_option/0,
               client_option_cert/0,
               server_option_cert/0,
-              common_option_tls13/0
+              common_option_tls13/0,
+              keylog_info/0
              ]).
 
 %% -------------------------------------------------------------------------------------------------------
@@ -637,14 +638,44 @@ Options common to both client and server side.
   on hello extensions before continuing or aborting the handshake by
   calling `handshake_continue/3` or `handshake_cancel/1`.
 
-- **`{keep_secrets, KeepSecrets}`** - Configures a TLS 1.3 connection for keylogging.
+- **`{keep_secrets, KeepSecrets}`** - Configures a TLS connection for keylogging.
 
-  In order to retrieve keylog information on a TLS 1.3 connection, it must be
-  configured in advance to keep `client_random` and various handshake secrets.
+  In order to be able retrieve all keylog information on a TLS connection, it must be
+  configured in advance.
+
+  > #### Warning {: .warning }
+  > The keylog information defeats the purpose of the protocol
+  > and enabling it makes the user responsible for the information
+  > not ending up compromising security, it is intended for debugging.
 
   The `keep_secrets` functionality is disabled (`false`) by default.
+  If set to legacy value `true` keylog information can be retrieved from the connection
+  using connection_information/2. 
 
   Added in OTP 23.2.
+
+  > #### Note {: .info }
+  > Note that having to ask the connection has some drawbacks
+  > as for instance you can not get keylog information for 
+  > failed connections, and other keylog items have
+  > to be retrieved in a polling manner and are not correctly
+  > formatted for key_updates.
+
+  Since OTP 27.3.1 you may instead of true provide a callback fun
+  providing keylog information for either just failing handshakes or
+  for entire connections, by setting `keep_secrets` option to
+  {keylog_hs, fun()} or {keylog, fun()}.  The fun is of arity one and
+  will be called with keylog information
+  [`keylog_info()`](`t:keylog_info/0`) as an argument. `keylog_hs fun`
+  will only be called if the handshake fails, and is only relevant for
+  `TLS-1.3` that has encrypted messages before the first handshake is
+  complete.`keylog fun` will be called every time some secrets are
+  updated and provide keylog for that update that is during the
+  connection establishment and after that at `renegotiation` or `key
+  update` (depending on TLS protocol version).  When a fun is used the
+  connection_information/2 can not be used to retrieve key log
+  information.  For more information see [NSS
+  keylog](using_ssl.md#nss-keylog).
 
 - **`{max_handshake_size, HandshakeSize}`** - Limit the acceptable handshake packet size.
 
@@ -676,12 +707,15 @@ Options common to both client and server side.
   is `[...{priority, max}]`; this priority option cannot be changed. For all
   connections, `...link` is added to receiver and cannot be changed.
 """.
+
 -type common_option()        :: {protocol, tls | dtls} |
                                 {handshake,  hello | full} |
                                 {ciphers, cipher_suites()} |
                                 {signature_algs, signature_algs()} |
                                 {signature_algs_cert, [sign_scheme()]} |
-                                {keep_secrets, KeepSecrets:: boolean()} |
+                                {keep_secrets, KeepSecrets:: boolean() |
+                                                             {keylog_hs, fun((Info::keylog_info()) -> any())} |
+                                                             {keylog, fun((Info::keylog_info()) -> any())}} |
                                 {max_handshake_size, HandshakeSize::pos_integer()} |
                                 {versions, [protocol_version()]} |
                                 {log_level, Level::logger:level() | none | all} |
@@ -2037,8 +2071,12 @@ TLS connection information that can be used for NSS key logging.
 -type security_info() :: [{client_random, binary()} |
                           {server_random, binary()} |
                           {master_secret, binary()} |
-                          {keylog, term()}].
+                          {keylog, [keylog_item()]}].
 
+-type keylog_item() :: unicode:chardata().
+
+-type keylog_info() ::  #{items => [keylog_item()],
+                          client_random => binary()}.
 
 -doc(#{group => <<"Info">>}).
 -doc """
@@ -2691,9 +2729,8 @@ defined.
 Note that the values for `client_random`, `server_random`, `master_secret`, and `keylog`
 affect the security of connection.
 
-In order to retrieve `keylog` and other secret information from a TLS 1.3
-connection, the `keep_secrets` option must be configured in advance and
-set to `true`.
+In order to retrieve `keylog` information from a TLS
+connection, the `keep_secrets` option must be configured in advance.
 
 > #### Note {: .info }
 >

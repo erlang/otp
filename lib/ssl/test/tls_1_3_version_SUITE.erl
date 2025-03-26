@@ -79,7 +79,9 @@
          client_cert_fail_alert_active/0,
          client_cert_fail_alert_active/1,
          client_cert_fail_alert_passive/0,
-         client_cert_fail_alert_passive/1
+         client_cert_fail_alert_passive/1,
+         keylog_on_alert/0,
+         keylog_on_alert/1
         ]).
 
 
@@ -117,7 +119,8 @@ tls_1_3_1_2_tests() ->
      middle_box_client_tls_v2_session_reused,
      renegotiate_error,
      client_cert_fail_alert_active,
-     client_cert_fail_alert_passive   
+     client_cert_fail_alert_passive,
+     keylog_on_alert
     ].
 legacy_tests() ->
     [tls_client_tls10_server,
@@ -134,8 +137,7 @@ legacy_tests() ->
     ].
 
 init_per_suite(Config) ->
-    catch application:stop(crypto),
-    try application:start(crypto) of
+    case application:ensure_started(crypto) of
 	ok ->
             case ssl_test_lib:sufficient_crypto_support('tlsv1.3') of                
                 true ->
@@ -144,8 +146,8 @@ init_per_suite(Config) ->
                      Config];
                 false ->
                     {skip, "Insufficient crypto support for TLS-1.3"}
-            end
-    catch _:_ ->
+            end;
+        _ ->
 	    {skip, "Crypto did not start"}
     end.
 
@@ -533,7 +535,7 @@ client_cert_fail_alert_active(Config) when is_list(Config) ->
     ServerOpts0 = ssl_test_lib:ssl_options(extra_server, server_cert_opts, Config),
     PrivDir = proplists:get_value(priv_dir, Config),
 
-    NewClientCertFile = filename:join(PrivDir, "clinet_invalid_cert.pem"),
+    NewClientCertFile = filename:join(PrivDir, "client_invalid_cert.pem"),
     create_bad_client_certfile(NewClientCertFile, ClientOpts0),
 
     ClientOpts = [{active, true},
@@ -584,6 +586,51 @@ tls13_client_tls11_server(Config) when is_list(Config) ->
     ServerOpts =  [{versions, ['tlsv1']} | ssl_test_lib:ssl_options(server_cert_opts, Config)],
     ssl_test_lib:basic_alert(ClientOpts, ServerOpts, Config, insufficient_security).
 
+keylog_on_alert() ->
+    [{doc,"Test that keep_secrets keylog_hs callback, if specified, "
+      "is called with keylog info when handshake alert is raised"}].
+
+keylog_on_alert(Config) when is_list(Config) ->
+    ssl:clear_pem_cache(),
+    {_, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    ClientOpts0 = ssl_test_lib:ssl_options(extra_client, client_cert_opts, Config),
+    ServerOpts0 = ssl_test_lib:ssl_options(extra_server, server_cert_opts, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
+    NewClientCertFile = filename:join(PrivDir, "client_invalid_cert.pem"),
+    create_bad_client_certfile(NewClientCertFile, ClientOpts0),
+    ClientOpts = [{versions, ['tlsv1.3']}, {active, false}, {certfile, NewClientCertFile}|
+                  proplists:delete(certfile, ClientOpts0)],
+    ServerOpts =  [{versions, ['tlsv1.3']},
+                   {verify, verify_peer}, {fail_if_no_peer_cert, true}
+                  | ServerOpts0],
+
+    Me = self(),
+    Fun = fun(AlertInfo) ->
+                  Me ! {alert_info, AlertInfo}
+          end,
+    alert_passive([{keep_secrets, {keylog_hs, Fun}} | ServerOpts], ClientOpts, recv,
+                  ServerNode, Hostname),
+    receive
+        {alert_info, #{items := SKeyLog}} ->
+            case SKeyLog of
+                ["CLIENT_HANDSHAKE_TRAFFIC_SECRET"++_,_|_] ->
+                    ok;
+                SOther ->
+                    ct:fail({server_received, SOther})
+            end
+    end,
+
+    alert_passive(ServerOpts, [{keep_secrets, {keylog_hs, Fun}} | ClientOpts], recv,
+                  ServerNode, Hostname),
+    receive
+        {alert_info, #{items := CKeyLog}} ->
+            case CKeyLog of
+                ["CLIENT_HANDSHAKE_TRAFFIC_SECRET"++_,_,_|_] ->
+                    ok;
+            COther ->
+                    ct:fail({client_received, COther})
+            end
+    end.
 
 %%--------------------------------------------------------------------
 %% Internal functions and callbacks -----------------------------------
@@ -645,14 +692,14 @@ create_bad_client_certfile(NewClientCertFile, ClientOpts) ->
 
 test_rsa_pcks1_cert(SHA, COpts, SOpts, Config) ->
     #{client_config := ClientOpts,
-      server_config := ServerOpts} = public_key:pkix_test_data(#{server_chain => #{root => root_key(SHA),
-                                                                                   intermediates => intermediates(SHA, 1),
-                                                                                   peer => peer_key(SHA)},
-                                                                 client_chain => #{root => root_key(SHA),
-                                                                                   intermediates => intermediates(SHA, 1),
-                                                                                   peer => peer_key(SHA)}}),
+      server_config := ServerOpts} =
+        public_key:pkix_test_data(#{server_chain => #{root => root_key(SHA),
+                                                      intermediates => intermediates(SHA, 1),
+                                                      peer => peer_key(SHA)},
+                                    client_chain => #{root => root_key(SHA),
+                                                      intermediates => intermediates(SHA, 1),
+                                                      peer => peer_key(SHA)}}),
     ssl_test_lib:basic_test(COpts ++ ClientOpts, SOpts ++ ServerOpts, Config).
-
 
 root_key(SHA) ->
     root_key(SHA, undefined).

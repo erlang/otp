@@ -206,15 +206,17 @@ negotiated_hashsign(HashSign = {_, _}, _, _, _) ->
     HashSign.
 
 finalize_handshake(State0, StateName, Connection) ->
-    #state{connection_states = ConnectionStates0} =
+    #state{connection_states = ConnectionStates0,
+           ssl_options = SslOpts} =
 	State1 = cipher_protocol(State0, Connection),
 
     ConnectionStates =
         ssl_record:activate_pending_connection_state(ConnectionStates0,
                                                      write, Connection),
-
     State2 = State1#state{connection_states = ConnectionStates},
     State = next_protocol(State2, Connection),
+    KeepSecrets = maps:get(keep_secrets, SslOpts, false),
+    maybe_keylog_pre_1_3(KeepSecrets, ConnectionStates),
     finished(State, StateName, Connection).
 
 calculate_master_secret(PremasterSecret,
@@ -469,3 +471,12 @@ master_secret(PremasterSecret, #state{static_env = #static_env{role = Role},
 	#alert{} = Alert ->
 	    throw(Alert)
     end.
+
+maybe_keylog_pre_1_3({keylog, Fun}, ConnectionStates) ->
+    #{security_parameters := #security_parameters{client_random = ClientRandom,
+                                                   master_secret = MasterSecret}}
+        = ssl_record:current_connection_state(ConnectionStates, write),
+    KeyLog = ssl_logger:keylog_traffic_pre_1_3(ClientRandom, MasterSecret),
+    ssl_logger:keylog(KeyLog, ClientRandom, Fun);
+maybe_keylog_pre_1_3(_,_) ->
+    ok.

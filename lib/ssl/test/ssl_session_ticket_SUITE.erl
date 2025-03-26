@@ -1182,7 +1182,8 @@ early_data_enabled_small_limit(Config) when is_list(Config) ->
     ssl_test_lib:close(Client1).
 
 early_data_basic() ->
-    [{doc,"Test early data when client is not authenticated (erlang client - erlang server)"}].
+    [{doc,"Test early data when client is not authenticated (erlang client - erlang server)"
+      "Also test that early data keylog happens"}].
 early_data_basic(Config) when is_list(Config) ->
     ClientOpts0 = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     ServerOpts0 = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
@@ -1201,13 +1202,19 @@ early_data_basic(Config) when is_list(Config) ->
     ServerOpts = [{session_tickets, ServerTicketMode}, {early_data, enabled},
                   {versions, ['tlsv1.2','tlsv1.3']}|ServerOpts0],
 
+    %%% Test keylog
+    TestCase = self(),
+    Fun = fun(KeyLogInfo) ->
+                  TestCase ! {keylog, KeyLogInfo}
+          end,
+
     Server0 =
 	ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
 				   {from, self()},
 				   {mfa, {ssl_test_lib,
                                           verify_active_session_resumption,
                                           [false]}},
-				   {options, ServerOpts}]),
+				   {options, [{keep_secrets, {keylog, Fun}} | ServerOpts]}]),
     Port0 = ssl_test_lib:inet_port(Server0),
 
     %% Store ticket from first connection
@@ -1217,6 +1224,8 @@ early_data_basic(Config) when is_list(Config) ->
                                                 verify_active_session_resumption,
                                                 [false]}},
                                          {from, self()}, {options, ClientOpts1}]),
+    skip_keylogs(3), %% HS and two traffic secrets
+
     ssl_test_lib:check_result(Server0, ok, Client0, ok),
 
     Server0 ! {listen, {mfa, {ssl_test_lib,
@@ -1235,11 +1244,27 @@ early_data_basic(Config) when is_list(Config) ->
                                                 verify_active_session_resumption,
                                                 [true]}},
                                          {from, self()}, {options, ClientOpts2}]),
+    %% Check that we get the EARLY DATA keylog event
+    receive
+        {keylog, #{items := EarlyKeylog}} ->
+            ["CLIENT_EARLY_TRAFFIC_SECRET" ++ _| _] = EarlyKeylog
+    end,
+    skip_keylogs(3), %% HS and two traffic secrets so they do not end up
+                     %% in check_result
+
     ssl_test_lib:check_result(Server0, ok, Client1, ok),
 
     process_flag(trap_exit, false),
     ssl_test_lib:close(Server0),
     ssl_test_lib:close(Client1).
+
+skip_keylogs(0) ->
+    ok;
+skip_keylogs(N) ->
+    receive
+        {keylog, _} ->
+            skip_keylogs(N-1)
+    end.
 
 early_data_basic_auth() ->
     [{doc,"Test early data when client is authenticated (erlang client - erlang server)"}].

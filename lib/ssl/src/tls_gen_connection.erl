@@ -136,6 +136,12 @@ initialize_tls_sender(#state{static_env = #static_env{
                              connection_states = #{current_write := ConnectionWriteState} = CS,
                              protocol_specific = #{sender := Sender}}) ->
     HibernateAfter = maps:get(hibernate_after, SSLOpts, infinity),
+    KeyLogFun = case maps:get(keep_secrets, SSLOpts, false) of
+                    {keylog, Fun} ->
+                        Fun;
+                    _ ->
+                        undefined
+                end,
     Init = #{current_write => ConnectionWriteState,
              beast_mitigation => maps:get(beast_mitigation, CS, disabled),
              role => Role,
@@ -148,7 +154,8 @@ initialize_tls_sender(#state{static_env = #static_env{
              renegotiate_at => RenegotiateAt,
              key_update_at => KeyUpdateAt,
              log_level => LogLevel,
-             hibernate_after => HibernateAfter},
+             hibernate_after => HibernateAfter,
+             keylog_fun => KeyLogFun},
     tls_sender:initialize(Sender, Init).
 
 %%====================================================================
@@ -906,10 +913,12 @@ handle_alerts([#alert{level = ?WARNING, description = ?CLOSE_NOTIFY} | _Alerts],
                                                           recv =  #recv{from = From}} = State}) when From == undefined ->
     %% Linger to allow recv and setopts to possibly fetch data not yet delivered to user to be fetched
     {next_state, StateName, State#state{connection_env = CEnv#connection_env{socket_tls_closed = true}}};
-handle_alerts([#alert{level = ?FATAL} = Alert | _Alerts], 
+handle_alerts([#alert{level = ?FATAL} = Alert0 | _Alerts],
               {next_state, connection = StateName, #state{connection_env = CEnv, 
+                                                          static_env = #static_env{role = Role},
                                                           socket_options = #socket_options{active = false},
                                                           recv = #recv{from = From}} = State}) when From == undefined ->
+    Alert = Alert0#alert{role = ssl_gen_statem:opposite_role(Role)},
     %% Linger to allow recv and setopts to retrieve alert reason 
     {next_state, StateName, State#state{connection_env = CEnv#connection_env{socket_tls_closed = Alert}}};
 handle_alerts([Alert | Alerts], {next_state, StateName, State}) ->
