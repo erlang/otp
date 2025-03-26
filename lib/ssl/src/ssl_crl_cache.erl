@@ -143,8 +143,12 @@ delete({der, CRLs}) ->
 
 delete(URI) ->
     case uri_string:normalize(URI, [return_map]) of
-	#{scheme := "http", path := Path} ->
-	    ssl_manager:delete_crls(string:trim(Path, leading, "/"));
+	#{scheme := "http",
+          host := Host,
+          path := Path} = Map ->
+            Port = maps:get(port, Map, 80),
+            Key = make_key(Host, Port, Path),
+	    ssl_manager:delete_crls(Key);
 	_ ->
 	    {error, {only_http_distribution_points_supported, URI}}
     end.
@@ -154,8 +158,12 @@ delete(URI) ->
 %%--------------------------------------------------------------------
 do_insert(URI, CRLs) ->
     case uri_string:normalize(URI, [return_map]) of
-	#{scheme := "http", path := Path} ->
-	    ssl_manager:insert_crls(string:trim(Path, leading, "/"), CRLs);
+	#{scheme := "http", 
+          host := Host,
+          path := Path} = Map ->
+            Port = maps:get(port, Map, 80),
+            Key = make_key(Host, Port, Path),
+	    ssl_manager:insert_crls(Key, CRLs);
 	_ ->
 	    {error, {only_http_distribution_points_supported, URI}}
     end.
@@ -211,8 +219,11 @@ http_get(URL, Rest, CRLDbInfo, Timeout) ->
 cache_lookup(_, undefined) ->
     [];
 cache_lookup(URL, {{Cache, _}, _}) ->
-    #{path :=  Path} = uri_string:normalize(URL, [return_map]),
-    case ssl_pkix_db:lookup(string:trim(Path, leading, "/"), Cache) of
+    #{path :=  Path,
+      host := Host} = Map = uri_string:normalize(URL, [return_map]),
+    Port = maps:get(port, Map, 80),
+    Key = make_key(Host, Port, Path),
+    case ssl_pkix_db:lookup(Key, Cache) of
 	undefined ->
 	    [];
 	[CRLs] ->
@@ -229,3 +240,6 @@ handle_http(URI, Rest, {_,  [{http, Timeout}]} = CRLDbInfo) ->
 handle_http(_, Rest, CRLDbInfo) ->
     get_crls(Rest, CRLDbInfo).
 
+
+make_key(Host, Port, Path) -> 
+    Host ++ ":" ++ integer_to_list(Port) ++ Path.
