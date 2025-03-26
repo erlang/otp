@@ -4525,11 +4525,11 @@ try_steal_task_from_victim(ErtsRunQueue *rq, ErtsRunQueue *vrq, Uint32 flags, Pr
             continue;
         }
         rpq = &vrq->procs.prio[prio_q];
-        // Steal at least one task, even if there is a single one
+        /* Steal at least one task, even if there is a single one */
         max_processes_to_steal++;
-        // Only steal half the tasks (to balance the load between the victim runqueue and this one)
+        /* Only steal half the tasks (to balance the load between the victim runqueue and this one) */
         max_processes_to_steal /= 2;
-        // Don't steal too many tasks at once, to keep the critical section from getting too long
+        /* Don't steal too many tasks at once, to keep the critical section from getting too long */
         max_processes_to_steal = max_processes_to_steal > 100 ? 100 : max_processes_to_steal;
         for (int i = 0; i < ERTS_NO_PROC_PRIO_LEVELS; ++i) {
             n_procs_stolen[i] = 0;
@@ -4565,7 +4565,7 @@ try_steal_task_from_victim(ErtsRunQueue *rq, ErtsRunQueue *vrq, Uint32 flags, Pr
             erts_runq_unlock(vrq);
             *result_proc = first_stolen_proc;
             ASSERT(n_procs_stolen[first_stolen_proc_prio] > 0);
-            n_procs_stolen[first_stolen_proc_prio]--; // We're not going to requeue this one, as we're returning it
+            n_procs_stolen[first_stolen_proc_prio]--; /* We're not going to requeue this one, as we're returning it */
             ASSERT(last_stolen_proc);
             last_stolen_proc->next = NULL;
             first_stolen_proc = first_stolen_proc->next;
@@ -4579,7 +4579,7 @@ try_steal_task_from_victim(ErtsRunQueue *rq, ErtsRunQueue *vrq, Uint32 flags, Pr
                     }
                 }
                 rpq = &rq->procs.prio[prio_q];
-                // Someone may have pushed work to us while we were not holding our lock
+                /* Someone may have pushed work to us while we were not holding our lock */
                 if (rpq->last) {
                     rpq->last->next = first_stolen_proc;
                 } else {
@@ -4616,8 +4616,8 @@ no_procs:
     return 0;
 }
 
-// Expects rq to be unlocked
-// rq is locked on return iff the return value is non-zero
+/* Expects rq to be unlocked
+   rq is locked on return iff the return value is non-zero */
 static ERTS_INLINE int
 check_possible_steal_victim(ErtsRunQueue *rq, int vix, Process **result_proc, ErtsWStack* contended_runqueues)
 {
@@ -4698,8 +4698,8 @@ try_steal_task(ErtsRunQueue *rq, Process **result_proc)
             }
 	}
 
-        /* ... and finally re-try stealing from the queues that were skipped because contended. */
-        // We recheck the number of empty runqueues in each iteration, as taking the runqueue lock in check_possible_steal_victim can take quite a while.
+        /* ... and finally re-try stealing from the queues that were skipped because contended.
+           We recheck the number of empty runqueues in each iteration, as taking the runqueue lock in check_possible_steal_victim can take quite a while. */
         while (!WSTACK_ISEMPTY(contended_runqueues)
                 && (erts_atomic32_read_acqb(&no_empty_run_queues) < blnc_rqs)) {
             vix = WSTACK_POP(contended_runqueues);
@@ -9912,7 +9912,6 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
                     if (try_steal_task(rq, &p)) {
                         if (p) {
                             non_empty_runq(rq);
-                            // TODO: avoid re-reading state, but it's ok for now
                             state = erts_atomic32_read_acqb(&p->state);
                             goto execute_process;
                         }
