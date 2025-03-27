@@ -307,12 +307,12 @@ separate_sessions() ->
 
 separate_sessions(Config) when is_list(Config) ->
     %% Trace lists:reverse/1
-    {ok, Srv1} = tprof:start_link(#{session => tprof_SUEITE_separate_sessions_1, type => call_memory}),
+    {ok, Srv1} = tprof:start_link(#{session => tprof_SUITE_separate_sessions_1, type => call_memory}),
     tprof:set_pattern(Srv1, lists, reverse, 1),
     tprof:enable_trace(Srv1, self(), #{}),
 
     %% Trace lists:map/2
-    {ok, Srv2} = tprof:start_link(#{session => tprof_SUEITE_separate_sessions_2, type => call_memory}),
+    {ok, Srv2} = tprof:start_link(#{session => tprof_SUITE_separate_sessions_2, type => call_memory}),
     tprof:set_pattern(Srv2, lists, map, 2),
     tprof:enable_trace(Srv2, self(), #{}),
 
