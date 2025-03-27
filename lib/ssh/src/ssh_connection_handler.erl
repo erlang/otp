@@ -35,8 +35,8 @@
 -include("ssh_transport.hrl").
 -include("ssh_auth.hrl").
 -include("ssh_connect.hrl").
-
 -include("ssh_fsm.hrl").
+-include_lib("kernel/include/logger.hrl").
 
 %%====================================================================
 %%% Exports
@@ -1329,40 +1329,40 @@ handle_event({call,From},
 handle_event(info, UnexpectedMessage, StateName, D = #data{ssh_params = Ssh}) ->
     case unexpected_fun(UnexpectedMessage, D) of
 	report ->
-	    Msg = lists:flatten(
-		    io_lib:format(
-                      "*** SSH: "
-		      "Unexpected message '~p' received in state '~p'\n"
-		      "Role: ~p\n"
-		      "Peer: ~p\n"
-		      "Local Address: ~p\n",
-                      [UnexpectedMessage,
-                       StateName,
-                       Ssh#ssh.role,
-                       Ssh#ssh.peer,
-                       ?GET_INTERNAL_OPT(address, Ssh#ssh.opts, undefined)])),
-	    error_logger:info_report(Msg),
+	    FmtFun = fun(_) ->
+                             {"*** SSH: "
+                              "Unexpected message '~p' received in state '~p'\n"
+                              "Role: ~p\n"
+                              "Peer: ~p\n"
+                              "Local Address: ~p\n",
+                              [UnexpectedMessage,
+                               StateName,
+                               Ssh#ssh.role,
+                               Ssh#ssh.peer,
+                               ?GET_INTERNAL_OPT(address, Ssh#ssh.opts, undefined)]}
+                     end,
+            ?LOG_NOTICE(FmtFun, []),
 	    keep_state_and_data;
 
 	skip ->
 	    keep_state_and_data;
 
 	Other ->
-	    Msg = lists:flatten(
-		    io_lib:format("*** SSH: "
-                                  "Call to fun in 'unexpectedfun' failed:~n"
-				  "Return: ~p\n"
-				  "Message: ~p\n"
-				  "Role: ~p\n"
-				  "Peer: ~p\n"
-				  "Local Address: ~p\n",
-                                  [Other,
-                                   UnexpectedMessage,
-                                   Ssh#ssh.role,
-                                   Ssh#ssh.peer,
-                                   ?GET_INTERNAL_OPT(address, Ssh#ssh.opts, undefined)]
-				 )),
-	    error_logger:error_report(Msg),
+	    FmtFun = fun(_) ->
+                             {"*** SSH: "
+                              "Call to fun in 'unexpectedfun' failed:~n"
+                              "Return: ~p\n"
+                              "Message: ~p\n"
+                              "Role: ~p\n"
+                              "Peer: ~p\n"
+                              "Local Address: ~p\n",
+                              [Other,
+                               UnexpectedMessage,
+                               Ssh#ssh.role,
+                               Ssh#ssh.peer,
+                               ?GET_INTERNAL_OPT(address, Ssh#ssh.opts, undefined)]}
+                     end,
+            ?LOG_ERROR(FmtFun, []),
 	    keep_state_and_data
     end;
 
@@ -1422,7 +1422,8 @@ terminate(shutdown, _StateName, D0) ->
 
 terminate(Reason, StateName, D0) ->
     %% Others, e.g  undef, {badmatch,_}, ...
-    log(error, D0, Reason),
+    FmtFun = fun(_) -> prepare_fargs(Reason, D0) end,
+    ?LOG_ERROR(FmtFun, []),
     {_ShutdownReason, D} = ?send_disconnect(?SSH_DISCONNECT_BY_APPLICATION,
                                             "Internal error",
                                             io_lib:format("Reason: ~p",[Reason]),
@@ -1800,12 +1801,17 @@ send_disconnect(Code, Reason, DetailedText, Module, Line, StateName, D0) ->
 call_disconnectfun_and_log_cond(LogMsg, DetailedText, Module, Line, StateName, D) ->
     case disconnect_fun(LogMsg, D) of
         void ->
-            log(info, D,
-                "~s~n"
-                "State = ~p~n"
-                "Module = ~p, Line = ~p.~n"
-                "Details:~n  ~s~n",
-                [LogMsg, StateName, Module, Line, DetailedText]);
+            FmtFun =
+                fun(_) ->
+                        Fmt =
+                            "~s~n"
+                            "State = ~p~n"
+                            "Module = ~p, Line = ~p.~n"
+                            "Details:~n  ~s~n",
+                        Args = [LogMsg, StateName, Module, Line, DetailedText],
+                        prepare_fargs(io_lib:format(Fmt, Args), D)
+                end,
+            ?LOG_NOTICE(FmtFun, []);
         _ ->
             ok
     end.
@@ -1907,19 +1913,7 @@ fold_keys(Keys, Fun, Extra) ->
 			end
 		end, [], Keys).
 
-%%%----------------------------------------------------------------
-log(Tag, D, Format, Args) ->
-    log(Tag, D, io_lib:format(Format,Args)).
-
-log(Tag, D, Reason) ->
-    case atom_to_list(Tag) of                   % Dialyzer-technical reasons...
-        "error"   -> do_log(error_msg,   Reason, D);
-        "warning" -> do_log(warning_msg, Reason, D);
-        "info"    -> do_log(info_msg,    Reason, D)
-    end.
-
-
-do_log(F, Reason0, #data{ssh_params=S}) ->
+prepare_fargs(Reason0, #data{ssh_params=S}) ->
     Reason1 = string:chomp(assure_string(Reason0)),
     Reason = limit_size(Reason1, ?GET_OPT(max_log_item_len,S#ssh.opts)),
     case S of
@@ -1930,21 +1924,22 @@ do_log(F, Reason0, #data{ssh_params=S}) ->
                     server -> {"Peer client", S#ssh.c_version};
                     client -> {"Peer server", S#ssh.s_version}
                 end,
-            error_logger:F("Erlang SSH ~p version: ~s ~s.~n"
-                           "Address: ~s~n"
-                           "~s version: ~p~n"
-                           "Peer address: ~s~n"
-                           "~s~n",
-                           [Role, ssh_log_version(), crypto_log_info(),
-                            ssh_lib:format_address_port(S#ssh.local),
-                            PeerRole, PeerVersion,
-                            ssh_lib:format_address_port(element(2,S#ssh.peer)),
-                            Reason]);
+            Fmt = "Erlang SSH ~p version: ~s ~s.~n"
+                "Address: ~s~n"
+                "~s version: ~p~n"
+                "Peer address: ~s~n"
+                "~s~n",
+            Args = [Role, ssh_log_version(), crypto_log_info(),
+                    ssh_lib:format_address_port(S#ssh.local),
+                    PeerRole, PeerVersion,
+                    ssh_lib:format_address_port(element(2,S#ssh.peer)),
+                    Reason],
+            {Fmt, Args};
         _ ->
-            error_logger:F("Erlang SSH ~s ~s.~n"
-                           "~s~n",
-                           [ssh_log_version(), crypto_log_info(), 
-                            Reason])
+            Fmt = "Erlang SSH ~s ~s.~n"
+                "~s~n",
+            Args = [ssh_log_version(), crypto_log_info(), Reason],
+            {Fmt, Args}
     end.
 
 assure_string(S) ->

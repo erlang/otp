@@ -174,19 +174,14 @@ handle_ssh_msg({ssh_cm, _, {signal, _, _}}, State) ->
     {ok, State};
 
 handle_ssh_msg({ssh_cm, _, {exit_signal, ChannelId, Signal, Error, _}}, State) ->
-    Report = io_lib:format("Connection closed by peer signal ~p~n Error ~p~n",
-			   [Signal,Error]),
-    error_logger:error_report(Report),
+    ?LOG_ERROR("Connection closed by peer signal ~p~n Error ~p~n", [Signal, Error]),
     {stop, ChannelId,  State};
 
 handle_ssh_msg({ssh_cm, _, {exit_status, ChannelId, 0}}, State) ->
     {stop, ChannelId, State};
 
 handle_ssh_msg({ssh_cm, _, {exit_status, ChannelId, Status}}, State) ->
-    
-    Report = io_lib:format("Connection closed by peer ~n Status ~p~n",
-			   [Status]),
-    error_logger:error_report(Report),
+    ?LOG_ERROR("Connection closed by peer ~n Status ~p~n", [Status]),
     {stop, ChannelId, State}.
 
 %%--------------------------------------------------------------------
@@ -240,20 +235,11 @@ handle_data(Type, ChannelId, Data0, State = #state{pending = Pending}) ->
     Size = byte_size(Data),
     case Size > ?SSH_MAX_PACKET_SIZE of
         true ->
-            ReportFun =
-                fun([S]) ->
-                        Report =
-                            #{label => {error_logger, error_report},
-                              report =>
-                                  io_lib:format("SFTP packet size (~B) exceeds the limit!",
-                                                [S])},
-                        Meta =
-                            #{error_logger =>
-                                  #{tag => error_report,type => std_error},
-                             report_cb => fun(#{report := Msg}) -> {Msg, []} end},
-                        {Report, Meta}
+            FormatFun =
+                fun([]) ->
+                        {"SFTP packet size (~B) exceeds the limit!", [Size]}
                 end,
-            ?LOG_ERROR(ReportFun, [Size]),
+            ?LOG_ERROR(FormatFun, []),
             {stop, ChannelId, State};
         _ ->
             handle_data(Type, ChannelId, Data, State#state{pending = <<>>})

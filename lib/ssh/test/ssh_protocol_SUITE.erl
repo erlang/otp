@@ -837,7 +837,7 @@ banner_not_sent_to_client(Config) ->
 client_info_line(Config) ->
     %% A client must not send an info-line. If it does, the server should handle
     %% handle this gracefully
-    {ok,Pid} = ssh_eqc_event_handler:add_report_handler(),
+    {ok, Ref} = ssh_eqc_event_handler:add_report_handler(),
     DataDir = proplists:get_value(data_dir, Config),
     {_, _, Port} = ssh_test_lib:daemon([{system_dir,DataDir}]),
 
@@ -850,13 +850,18 @@ client_info_line(Config) ->
     timer:sleep(1000),
 
     %% check if a badmatch was received:
-    {ok, Reports} = ssh_eqc_event_handler:get_reports(Pid),
-    case lists:any(fun({error_report,_,{_,supervisor_report,L}}) when is_list(L) -> 
-			   lists:member({reason,{badmatch,{error,closed}}}, L);
-		      (_) ->
-			   false
-		   end, Reports) of
+    {ok, Reports} = ssh_eqc_event_handler:get_reports(Ref),
+    FilterFun = fun(#{level := Level}) ->
+                        case logger:compare_levels(Level, warning) of
+                            gt -> true;
+                            _ -> false
+                        end;
+                   (_) ->
+                        false
+                end,
+    case lists:any(FilterFun, Reports) of
 	true ->
+            ct:log("Reports = ~n~p", [lists:filter(FilterFun, Reports)]),
 	    ct:fail("Bad error report on info_line from client");
 	false ->
 	    ok
