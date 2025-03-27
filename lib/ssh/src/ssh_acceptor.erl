@@ -147,39 +147,63 @@ handle_error(Reason, ToAddress, ToPort, _) ->
 handle_error(Reason, ToAddress, ToPort, FromAddress, FromPort) ->
     case Reason of
         {max_sessions, MaxSessions} ->
-            error_logger:info_report(
-              lists:concat(["Ssh login attempt to ",ssh_lib:format_address_port(ToAddress,ToPort),
-                            " from ",ssh_lib:format_address_port(FromAddress,FromPort),
-                            " denied due to option max_sessions limits to ",
-                            MaxSessions, " sessions."
-                           ])
-             );
-
+            MsgFun =
+                fun(debug) ->
+                        lists:concat(["Ssh login attempt to ",
+                                      ssh_lib:format_address_port(ToAddress,ToPort),
+                                      " from ",
+                                      ssh_lib:format_address_port(FromAddress,FromPort),
+                                      " denied due to option max_sessions limits to ",
+                                      MaxSessions, " sessions."]);
+                   (_) ->
+                        ["Ssh login attempt denied max_session limits"]
+                end,
+            error_logger:info_report(?SELECT_MSG(MsgFun));
         Limit when Limit==enfile ; Limit==emfile ->
             %% Out of sockets...
-            error_logger:info_report([atom_to_list(Limit),": out of accept sockets on ",
-                                      ssh_lib:format_address_port(ToAddress, ToPort),
-                                      " - retrying"]),
+            MsgFun =
+                fun(debug) ->
+                        [atom_to_list(Limit),": out of accept sockets on ",
+                         ssh_lib:format_address_port(ToAddress, ToPort),
+                         " - retrying"];
+                   (_) ->
+                        ["Out of accept sockets on - retrying"]
+                end,
+            error_logger:info_report(?SELECT_MSG(MsgFun)),
             timer:sleep(?SLEEP_TIME);
-
         closed ->
-            error_logger:info_report(["The ssh accept socket on ",ssh_lib:format_address_port(ToAddress,ToPort),
-                                      "was closed by a third party."]
-                                    );
-
+            MsgFun =
+                fun(debug) ->
+                        ["The ssh accept socket on ", ssh_lib:format_address_port(ToAddress,ToPort),
+                         "was closed by a third party."];
+                   (_) ->
+                        ["The ssh accept socket on was closed by a third party"]
+                end,
+            error_logger:info_report(?SELECT_MSG(MsgFun));
         timeout ->
             ok;
-
         Error when is_list(Error) ->
             ok;
         Error when FromAddress=/=undefined,
                    FromPort=/=undefined ->
-            error_logger:info_report(["Accept failed on ",ssh_lib:format_address_port(ToAddress,ToPort),
-                                      " for connect from ",ssh_lib:format_address_port(FromAddress,FromPort),
-                                      io_lib:format(": ~p", [Error])]);
+            MsgFun =
+                fun(debug) ->
+                        ["Accept failed on ",ssh_lib:format_address_port(ToAddress,ToPort),
+                         " for connect from ",ssh_lib:format_address_port(FromAddress,FromPort),
+                         io_lib:format(": ~p", [Error])];
+                   (_) ->
+                        [io_lib:format("Accept failed on for connection: ~p", [Error])]
+                end,
+            error_logger:info_report(?SELECT_MSG(MsgFun));
         Error ->
-            error_logger:info_report(["Accept failed on ",ssh_lib:format_address_port(ToAddress,ToPort),
-                                      io_lib:format(": ~p", [Error])])
+            MsgFun =
+                fun(debug) ->
+                        ["Accept failed on ",ssh_lib:format_address_port(ToAddress,ToPort),
+                         io_lib:format(": ~p", [Error])];
+                   (_) ->
+                        [io_lib:format("Accept failed on for connection: ~p", [Error])]
+                end,
+            error_logger:info_report(?SELECT_MSG(MsgFun))
     end.
 
 %%%----------------------------------------------------------------
