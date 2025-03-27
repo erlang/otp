@@ -24,7 +24,9 @@
 #  include "config.h"
 #endif
 
+
 #include "global.h"
+#include "beam_bp.h"
 #include "bif.h"
 #include "erl_debugger.h"
 #include "erl_map.h"
@@ -254,12 +256,146 @@ erts_send_debugger_event(Process *c_p, Eterm event)
 
 /* Line breakpoints */
 
+/* Protected by code modification permission */
+static struct {
+    ErtsCodeBarrier barrier;
+    Process* process;
+
+    Module *module;
+    ErtsCodePtr first_target;
+    unsigned int search_next_from;
+    unsigned int line;
+    int enable;
+    int stage;
+} finish_line_bp;
+
+static void line_breakpoint_finisher(void *ignored)
+{
+    ERTS_LC_ASSERT(erts_has_code_mod_permission());
+
+    (void)ignored;
+
+    if (finish_line_bp.stage++ == 0) {
+        struct erl_module_instance *mi = &finish_line_bp.module->curr;
+        const BeamCodeHeader *code_hdr = finish_line_bp.module->curr.code_hdr;
+        ErtsCodePtr cp_exec = finish_line_bp.first_target;
+        unsigned int start_from = finish_line_bp.search_next_from;
+        unsigned int line = finish_line_bp.line;
+
+        do {
+            enum erts_is_line_breakpoint curr = erts_is_line_breakpoint_code(cp_exec);
+            if (finish_line_bp.enable && curr == IS_DISABLED_LINE_BP) {
+                erts_install_line_breakpoint(mi, cp_exec);
+            } else if (!finish_line_bp.enable && curr == IS_ENABLED_LINE_BP) {
+                erts_uninstall_line_breakpoint(mi, cp_exec);
+            }
+            cp_exec = erts_find_next_code_for_line(code_hdr,
+                                                   line,
+                                                   &start_from);
+        } while (cp_exec);
+
+        erts_schedule_code_barrier(&finish_line_bp.barrier,
+                                   line_breakpoint_finisher, NULL);
+    } else {
+        Process* p = finish_line_bp.process;
+
+        erts_release_code_mod_permission();
+
+        erts_proc_lock(p, ERTS_PROC_LOCK_STATUS);
+        if (!ERTS_PROC_IS_EXITING(p)) {
+            erts_resume(p, ERTS_PROC_LOCK_STATUS);
+        }
+        erts_proc_unlock(p, ERTS_PROC_LOCK_STATUS);
+        erts_proc_dec_refc(p);
+    }
+}
+
 BIF_RETTYPE
 erl_debugger_breakpoint_3(BIF_ALIST_3) {
+    Eterm module_name, line_term, enable;
+    int line, found_at_least_once = 0;
+    Eterm error_type, error_source;
+    const BeamCodeHeader *code_hdr;
+
     BIF_UNDEF_IF_NO_DEBUGGER_SUPPORT();
 
-    /* TO BE IMPLEMENTED */
-    BIF_ERROR(BIF_P, EXC_UNDEF);
+    module_name = BIF_ARG_1;
+    if (is_not_atom(module_name)) {
+        BIF_ERROR(BIF_P, BADARG);
+    }
+
+    line_term = BIF_ARG_2;
+    if (is_not_small(line_term)) {
+        BIF_ERROR(BIF_P, BADARG);
+    }
+    line = signed_val(line_term);
+
+    if (line <= 0) {
+        BIF_ERROR(BIF_P, BADARG);
+    }
+
+    enable = BIF_ARG_3;
+    if (enable != am_true && enable != am_false) {
+        BIF_ERROR(BIF_P, BADARG);
+    }
+
+    if (!erts_try_seize_code_mod_permission(BIF_P)) {
+        ERTS_BIF_YIELD3(BIF_TRAP_EXPORT(BIF_erl_debugger_breakpoint_3),
+                        BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
+    }
+
+    finish_line_bp.process = BIF_P;
+    finish_line_bp.enable = (enable == am_true);
+    finish_line_bp.stage = 0;
+    finish_line_bp.module = erts_get_module(module_name,
+                                            erts_active_code_ix());
+    finish_line_bp.line = line;
+    finish_line_bp.search_next_from = 0;
+
+    if (!finish_line_bp.module) {
+        error_type = am_badkey, error_source = module_name;
+        goto error;
+    }
+
+    code_hdr = finish_line_bp.module->curr.code_hdr;
+    if (!ERTS_DEBUGGER_IS_ENABLED_IN(code_hdr->debugger_flags,
+                                     ERTS_DEBUGGER_LINE_BREAKPOINTS)) {
+        error_type = am_unsupported, error_source = module_name;
+        goto error;
+    }
+
+    do {
+        finish_line_bp.first_target = erts_find_next_code_for_line(code_hdr,
+                                                                   line,
+                                                                   &finish_line_bp.search_next_from);
+        found_at_least_once |= !!(finish_line_bp.first_target);
+    } while (finish_line_bp.first_target &&
+             !erts_is_line_breakpoint_code(finish_line_bp.first_target));
+
+    if (!finish_line_bp.first_target) {
+        if (found_at_least_once) {
+            error_type = am_unsupported, error_source = line_term;
+        } else {
+            error_type = am_badkey, error_source = line_term;
+        }
+        goto error;
+    }
+
+    erts_schedule_code_barrier(&finish_line_bp.barrier,
+                               line_breakpoint_finisher, NULL);
+    erts_proc_inc_refc(BIF_P);
+    erts_suspend(BIF_P, ERTS_PROC_LOCK_MAIN, NULL);
+    ERTS_BIF_YIELD_RETURN(BIF_P, am_ok);
+
+    {
+        Eterm *hp1, *hp2;
+    error:
+        erts_release_code_mod_permission();
+
+        hp1 = HAlloc(BIF_P, 6);
+        hp2 = hp1 + 3;
+        return TUPLE2(hp2, am_error, TUPLE2(hp1, error_type, error_source));
+    }
 }
 
 BIF_RETTYPE

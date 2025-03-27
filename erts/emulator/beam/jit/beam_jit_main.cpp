@@ -693,4 +693,9 @@ extern "C"
         BeamModuleAssembler *ba = static_cast<BeamModuleAssembler *>(instance);
         ba->patchStrings(rw_base, string_table);
     }
+
+    enum erts_is_line_breakpoint beamasm_is_line_breakpoint_trampoline(
+            ErtsCodePtr addr) {
+        return bga->is_line_breakpoint_trampoline(addr);
+    }
 }
