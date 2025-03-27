@@ -128,20 +128,11 @@ other alternative exists, Erlang/OTP will consider accepting Pull Requests with
 Under no circumstances the Erlang/OTP project will accept non-compatible Apache 2.0 contributions.
 
 Erlang/OTP has automatic checks to enforce this policy:
-- License Scanner checks that contributions are Apache 2.0. Any non-Apache 2.0
+* License Scanner checks that contributions are Apache 2.0. Any non-Apache 2.0
   contribution will be manually checked, and will trigger a non-passing test in
   Github.
 
-
-- The [REUSE tool](https://reuse.software/) checks that all files have `SPDX-License-Identifier:` and
-  `SPDX-FileCopyrightText:`. The License identifier should be `Apache-2.0` in
-  all cases, and the copyright should be in the format
-  `SPDX-FileCopyrightText: YYYY Name Lastname <email@example.com>` (or use as
-  default `SPDX-FileCopyrightText: YYYY Erlang/OTP and contributors`). These annotations 
-  can be generated in files via the REUSE tool as follows (e.g.,):
-  ```
-  reuse annotate --no-replace --license "Apache-2.0" --copyright "Ericsson and contributors" -y 2025
-  ```
+See <HOWTO/LICENSE-HEADERS.md> for details on the layout of file headers.
 
 ### Before you submit your pull request
 
