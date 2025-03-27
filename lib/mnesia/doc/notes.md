@@ -25,6 +25,16 @@ as all enhancements and bugfixes for every release of Mnesia. Each release of
 Mnesia thus constitutes one section in this document. The title of each section
 is the version number of Mnesia.
 
+## Mnesia 4.23.5
+
+### Fixed Bugs and Malfunctions
+
+- With this change mnesia will merge schema of tables using external backends.
+
+  Own Id: OTP-19437 Aux Id: [PR-9534]
+
+[PR-9534]: https://github.com/erlang/otp/pull/9534
+
 ## Mnesia 4.23.4
 
 ### Fixed Bugs and Malfunctions

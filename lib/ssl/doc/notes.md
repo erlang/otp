@@ -21,6 +21,33 @@ limitations under the License.
 
 This document describes the changes made to the SSL application.
 
+## SSL 11.2.10
+
+### Fixed Bugs and Malfunctions
+
+- Correct handling of unassigned signature algorithms to properly ignore them instead of failing the handshake.
+
+  Own Id: OTP-19529 Aux Id: [GH-9483], [PR-9486]
+
+- Update key mechanism in 
+  CRL cache so that CRL DP with same
+  URI path component becomes distinguishable from each other.
+
+  Own Id: OTP-19549 Aux Id: [GH-8891], [PR-9612]
+
+[GH-9483]: https://github.com/erlang/otp/issues/9483
+[PR-9486]: https://github.com/erlang/otp/pull/9486
+[GH-8891]: https://github.com/erlang/otp/issues/8891
+[PR-9612]: https://github.com/erlang/otp/pull/9612
+
+### Improvements and New Features
+
+- Add callback for NSS keylogging so that it can work as expected for all scenarios.
+
+  Own Id: OTP-19391 Aux Id: [PR-9221]
+
+[PR-9221]: https://github.com/erlang/otp/pull/9221
+
 ## SSL 11.2.9
 
 ### Fixed Bugs and Malfunctions
