@@ -34,28 +34,6 @@
 
 
 /* ********************************************************************* *
- *                              SOCKET and HANDLE                        *
- * ********************************************************************* *
- */
-
-#if defined(__WIN32__)
-
-#define INVALID_EVENT NULL
-#define SOCKET_FORMAT_STR "%lld"
-
-#else
-
-#define INVALID_HANDLE (-1)
-typedef int HANDLE;
-#define INVALID_SOCKET (-1)
-typedef int SOCKET; /* A subset of HANDLE */
-#define INVALID_EVENT INVALID_HANDLE
-#define SOCKET_FORMAT_STR "%d"
-
-#endif
-
-
-/* ********************************************************************* *
  *                   Socket state defs and macros                        *
  * ********************************************************************* *
  */

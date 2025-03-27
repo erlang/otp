@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2018-2024. All Rights Reserved.
+ * Copyright Ericsson AB 2018-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -61,6 +61,9 @@
 #define ENO2T(E, ENO) esock_errno_to_term((E), (ENO))
 #endif
 
+
+extern
+ErlNifMutex* esock_mutex_create(const char* pre, char* buf, SOCKET sock);
 
 extern
 ERL_NIF_TERM esock_make_extra_error_info_term(ErlNifEnv*   env,

@@ -1353,6 +1353,17 @@ if test "x$enable_esock_extended_error_info" != "xno"; then
 fi
 
 
+dnl *** ESOCK_VERBOSE_MTX_NAMES ***
+
+AC_ARG_ENABLE(esock_verbose_mtx_names,
+AS_HELP_STRING([--enable-esock-verbose-mtx-names], [enable use of verbose mutex names (default)])
+AS_HELP_STRING([--disable-esock-verbose-mtx-names], [disable use of verbose mutex names]))
+
+if test "x$enable_esock_verbose_mtx_names" != "xno"; then
+    AC_DEFINE(ESOCK_VERBOSE_MTX_NAMES, [1], [Use verbose mutex names])
+fi
+
+
 dnl *** ESOCK_COUNTER_SIZE ***
 
 AC_ARG_WITH(esock-counter-size, 
