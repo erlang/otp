@@ -1307,5 +1307,11 @@ in the User's Guide chapter.
 -define(CIRC_BUF_IN_ONCE(VALUE),
         ((fun(V) -> ?CIRC_BUF_IN(V), V end)(VALUE))
        ).
-                 
+
+-define(SELECT_MSG(__Fun),
+        (fun() ->
+                #{level := __Level} = logger:get_primary_config(),
+                __Fun(__Level)
+        end)()).
+
 -endif. % SSH_HRL defined
