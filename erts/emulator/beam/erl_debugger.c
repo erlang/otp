@@ -27,7 +27,10 @@
 
 #include "global.h"
 #include "beam_bp.h"
+#include "beam_catches.h"
+#include "beam_common.h"
 #include "bif.h"
+#include "big.h"
 #include "erl_debugger.h"
 #include "erl_map.h"
 
@@ -439,4 +442,385 @@ erts_internal_notify_breakpoint_hit_3(BIF_ALIST_3) {
     }
 
     BIF_RET(am_ok);
+}
+
+/* Inspecting stack-frames and X registers */
+
+static Process*
+suspended_proc_lock(Eterm pid, ErtsProcLocks locks) {
+    erts_aint32_t state;
+    erts_aint32_t fail_state = ERTS_PSFLG_FREE | ERTS_PSFLG_RUNNING;
+    Process *rp = erts_proc_lookup_raw(pid);
+
+    if (!rp) {
+        return NULL;
+    }
+
+    state = erts_atomic32_read_nob(&rp -> state);
+    if (state & fail_state) {
+        return NULL;
+    }
+
+    if (!(state & ERTS_PSFLG_SUSPENDED)) {
+        return NULL;
+    }
+
+    erts_proc_lock(rp, locks);
+    state = erts_atomic32_read_nob(&rp -> state);
+
+    if (!(state & ERTS_PSFLG_SUSPENDED)) {
+        erts_proc_unlock(rp, locks);
+        rp = NULL;
+    }
+
+    return rp;
+}
+
+static Eterm
+stack_frame_fun_info(Process *c_p, ErtsCodePtr pc, Process *rp, int is_return_addr) {
+    Eterm fun_info;
+    FunctionInfo fi;
+
+    if (!is_return_addr) {
+        if (pc != beam_run_process) {
+            erts_lookup_function_info(&fi, pc, 1);
+        } else {
+            fi.mfa = rp->current;
+            fi.loc = LINE_INVALID_LOCATION;
+        }
+    } else {
+        ErtsCodePtr return_address = pc;
+        ErtsCodePtr approx_caller_addr;
+
+        ASSERT(pc != beam_run_process);
+
+#ifdef BEAMASM
+        /* Some instructions can be shorter than one word (e.g. call in x86_64),
+         * so we subtract just one byte from the return address to avoid
+         * over-shooting the caller.
+         * */
+        approx_caller_addr = ((char*)return_address) - 1;
+#else
+        approx_caller_addr = ((char*)return_address) - sizeof(UWord);
+#endif
+
+        erts_lookup_function_info(&fi, approx_caller_addr, 1);
+    }
+
+    if (fi.mfa == NULL) {
+        const char *fname = erts_internal_fun_description_from_pc(pc);
+        fun_info = am_atom_put(fname, sys_strlen(fname));
+    } else {
+        Eterm *hp, mfa, line;
+        int mfa_arity = 3;
+
+        hp = HAlloc(c_p, MAP2_SZ + (mfa_arity + 1));
+
+        mfa = make_tuple(hp);
+        *hp++ = make_arityval(mfa_arity);
+        *hp++ = fi.mfa->module;
+        *hp++ = fi.mfa->function;
+        *hp++ = make_small(fi.mfa->arity);
+
+        line = fi.loc == LINE_INVALID_LOCATION
+                ? am_undefined
+                : make_small(LOC_LINE(fi.loc));
+
+        fun_info = MAP2(hp, am_function, mfa, am_line, line);
+    }
+
+    return fun_info;
+}
+
+static Eterm
+make_value_or_too_large_tuple(Process *p, Eterm val, Uint max_size) {
+    Uint val_size;
+    int tup_arity = 2;
+    Eterm result, *hp;
+
+    hp = HAlloc(p, tup_arity + 1);
+    result = make_tuple(hp);
+    *hp++ = make_arityval(tup_arity);
+
+    val_size = size_object(val);
+    if (val_size <= max_size) {
+        *hp++ = am_value;
+        *hp++ = copy_object(val, p);
+    } else {
+        *hp++ = ERTS_MAKE_AM("too_large");
+        *hp++ = make_small(val_size);
+    }
+
+    return result;
+}
+
+static Eterm
+make_catch_tuple(Process *c_p, ErtsCodePtr catch_addr) {
+    int tup_arity = 2;
+    Eterm result, *hp;
+
+    hp = HAlloc(c_p, tup_arity + 1);
+    result = make_tuple(hp);
+    *hp++ = make_arityval(tup_arity);
+
+    *hp++ = ERTS_MAKE_AM("catch");
+    *hp++ = stack_frame_fun_info(c_p, catch_addr, NULL, 0);
+
+    return result;
+}
+
+BIF_RETTYPE
+erl_debugger_stack_frames_2(BIF_ALIST_2)
+{
+    Eterm pid;
+    Process *rp = NULL;
+    int frame_no, max_term_size = -1;
+    Eterm result = NIL, yregs;
+
+    BIF_UNDEF_IF_NO_DEBUGGER_SUPPORT();
+
+    pid = BIF_ARG_1;
+    if (is_not_internal_pid(pid)) {
+        BIF_ERROR(BIF_P, BADARG);
+    }
+
+    if (pid == BIF_P->common.id) {
+        BIF_ERROR(BIF_P, BADARG);
+    }
+
+    if (is_small(BIF_ARG_2)) {
+        max_term_size = signed_val(BIF_ARG_2);
+    }
+
+    if (max_term_size < 0) {
+        BIF_ERROR(BIF_P, BADARG);
+    }
+
+    rp = suspended_proc_lock(pid, ERTS_PROC_LOCK_MAIN);
+    if (!rp) {
+        BIF_RET(am_running);
+    }
+
+    frame_no = 0;
+    yregs = NIL;
+    for(Eterm *sp = STACK_START(rp) - 1; rp->stop - 1 <= sp; sp--) {
+        int is_last_iter = (rp->stop - 1 == sp);
+        int tup_arity;
+        Eterm *hp, x;
+
+        /* On the last iteration, past the stack end, x is the current pc,
+         * so we get the location of the current stack-frame. */
+        x = is_last_iter ? (Eterm) rp->i : *sp;
+
+        if (is_CP(x)) {
+            int is_return_addr = !is_last_iter;
+            int frame_info_map_sz;
+            ErtsCodePtr code_ptr = cp_val(x);
+            Eterm this_frame, frame_info_map, addr;
+
+            if (!is_last_iter) {
+                /* Typically, we'd call erts_frame_layout() to find the
+                 * actual return address. However, this assumes we are traversing
+                 * the stack in the opposite direction as we do here. So instead
+                 * we inline the logic here. */
+                if (ERTS_UNLIKELY(erts_frame_layout == ERTS_FRAME_LAYOUT_FP_RA)) {
+                    ASSERT(cp_val(sp[0]) == NULL || sp < (Eterm*)cp_val(sp[0]));
+
+                    x = *--sp;
+                    code_ptr = cp_val(x);
+                }
+            }
+
+            addr = erts_make_integer((Uint) code_ptr, BIF_P);
+
+            tup_arity = 3;
+            frame_info_map_sz = MAP2_SZ;
+            hp = HAlloc(BIF_P,
+                        2 /* cons */ +
+                        (tup_arity + 1) /* this_frame */ +
+                        frame_info_map_sz /* frame_info_map */);
+
+            frame_info_map = MAP2(hp, am_code, addr, am_slots, yregs);
+            hp += frame_info_map_sz;
+
+            this_frame = make_tuple(hp);
+            *hp++ = make_arityval(tup_arity);
+            *hp++ = make_small(frame_no++);
+            *hp++ = stack_frame_fun_info(BIF_P, code_ptr, rp, is_return_addr);
+            *hp++ = frame_info_map;
+
+            result = CONS(hp, this_frame, result);
+
+            yregs = NIL;
+        } else {
+            Eterm yreg_info;
+
+            if (is_catch(x)) {
+                yreg_info = make_catch_tuple(BIF_P, catch_pc(x));
+            } else {
+                yreg_info = make_value_or_too_large_tuple(BIF_P, x, max_term_size);
+            }
+
+            hp = HAlloc(BIF_P, 2 /* cons */);
+            yregs = CONS(hp, yreg_info, yregs);
+        }
+    }
+
+    erts_proc_unlock(rp, ERTS_PROC_LOCK_MAIN);
+
+    return result;
+}
+
+BIF_RETTYPE
+erl_debugger_peek_stack_frame_slot_4(BIF_ALIST_4)
+{
+    Eterm pid;
+    Process *rp = NULL;
+    int frame_no = -1, yreg_no = -1, max_term_size = -1;
+    int current_frame, yreg_count;
+    Eterm result = am_undefined;
+
+    BIF_UNDEF_IF_NO_DEBUGGER_SUPPORT();
+
+    pid = BIF_ARG_1;
+    if (is_not_internal_pid(pid)) {
+        BIF_ERROR(BIF_P, BADARG);
+    }
+
+    if (pid == BIF_P->common.id) {
+        BIF_ERROR(BIF_P, BADARG);
+    }
+
+    if (is_small(BIF_ARG_2)) {
+        frame_no = signed_val(BIF_ARG_2);
+    }
+
+    if (is_small(BIF_ARG_3)) {
+        yreg_no = signed_val(BIF_ARG_3);
+    }
+
+    if (is_small(BIF_ARG_4)) {
+        max_term_size = signed_val(BIF_ARG_4);
+    }
+
+    if (frame_no < 0 || yreg_no < 0 || max_term_size < 0) {
+        BIF_ERROR(BIF_P, BADARG);
+    }
+
+    rp = suspended_proc_lock(pid, ERTS_PROC_LOCK_MAIN);
+    if (!rp) {
+        BIF_RET(am_running);
+    }
+
+    current_frame = 0, yreg_count = 0;
+    for(Eterm *sp = STACK_START(rp) - 1; rp->stop - 1 <= sp; sp--) {
+        Eterm x;
+
+        /* On the last iteration, past the stack end, x is the current pc,
+         * so we get the location of the current stack-frame. */
+        x = rp->stop <= sp ? *sp : (Eterm) rp->i;
+
+        if (is_not_CP(x)) {
+            yreg_count++;
+        } else if (current_frame != frame_no) {
+            current_frame++;
+            yreg_count = 0;
+        } else if (yreg_no >= yreg_count) {
+            result = am_undefined;
+            break;
+        } else {
+            Eterm val = sp[yreg_no + 1];
+
+            if (is_catch(val)) {
+                result = make_catch_tuple(BIF_P, catch_pc(val));
+            } else {
+                result = make_value_or_too_large_tuple(BIF_P, val, max_term_size);
+            }
+
+            break;
+        }
+    }
+
+    erts_proc_unlock(rp, ERTS_PROC_LOCK_MAIN);
+
+    return result;
+}
+
+BIF_RETTYPE
+erl_debugger_xregs_count_1(BIF_ALIST_1) {
+    Eterm result, pid;
+    Process *rp = NULL;
+
+    BIF_UNDEF_IF_NO_DEBUGGER_SUPPORT();
+
+    pid = BIF_ARG_1;
+    if (is_not_internal_pid(pid)) {
+        BIF_ERROR(BIF_P, BADARG);
+    }
+
+    if (pid == BIF_P->common.id) {
+        BIF_ERROR(BIF_P, BADARG);
+    }
+
+    rp = suspended_proc_lock(pid, ERTS_PROC_LOCK_MAIN);
+    if (!rp) {
+        BIF_RET(am_running);
+    }
+
+    result = make_small(rp->arity);
+    erts_proc_unlock(rp, ERTS_PROC_LOCK_MAIN);
+
+    return result;
+}
+
+BIF_RETTYPE
+erl_debugger_peek_xreg_3(BIF_ALIST_3)
+{
+    Eterm result, pid;
+    int xreg_no, max_term_size;
+    Process *rp = NULL;
+
+    BIF_UNDEF_IF_NO_DEBUGGER_SUPPORT();
+
+    pid = BIF_ARG_1;
+    if (is_not_internal_pid(pid)) {
+        BIF_ERROR(BIF_P, BADARG);
+    }
+
+    if (pid == BIF_P->common.id) {
+        BIF_ERROR(BIF_P, BADARG);
+    }
+
+    if (is_small(BIF_ARG_2)) {
+        xreg_no = signed_val(BIF_ARG_2);
+        if (xreg_no < 0) {
+            BIF_ERROR(BIF_P, BADARG);
+        }
+    } else {
+        BIF_ERROR(BIF_P, BADARG);
+    }
+
+    if (is_small(BIF_ARG_3)) {
+        max_term_size = signed_val(BIF_ARG_3);
+        if (max_term_size < 0) {
+            BIF_ERROR(BIF_P, BADARG);
+        }
+    } else {
+        BIF_ERROR(BIF_P, BADARG);
+    }
+
+    rp = suspended_proc_lock(pid, ERTS_PROC_LOCK_MAIN);
+    if (!rp) {
+        BIF_RET(am_running);
+    }
+
+    if (xreg_no >= (int) rp->arity) {
+        result = am_undefined;
+    } else {
+        Eterm val = rp->arg_reg[xreg_no];
+        result = make_value_or_too_large_tuple(BIF_P, val, max_term_size);
+    }
+
+    erts_proc_unlock(rp, ERTS_PROC_LOCK_MAIN);
+    return result;
 }

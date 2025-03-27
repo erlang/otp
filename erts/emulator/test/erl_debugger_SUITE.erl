@@ -46,11 +46,23 @@
 -export([test_setting_bp_fails_on_non_existent_line/1]).
 -export([test_setting_bp_fails_on_nonexecutable_line/1]).
 -export([test_setting_bp_fails_on_unsupported_lines/1]).
--export([test_stops_and_notifies_debugger_process/1]).
--export([test_works_with_inlined_functions/1]).
--export([test_works_with_large_number_of_live_xregs/1]).
--export([test_works_with_a_huge_stack_depth_which_should_require_gc/1]).
--export([test_avoids_blocking_debugger/1]).
+-export([test_hitting_bp_stops_and_notifies_debugger_process/1]).
+-export([test_bps_work_with_inlined_functions/1]).
+-export([test_bps_work_with_large_number_of_live_xregs/1]).
+-export([test_bps_work_with_a_huge_stack_depth_which_should_require_gc/1]).
+-export([test_hitting_bp_avoids_blocking_debugger/1]).
+
+%% Stack-frame tests
+-export([test_stack_frames_returns_running_if_not_suspended/1]).
+-export([test_stack_frames_returns_frames/1]).
+-export([test_stack_frames_returns_y_regs_controlled_by_size/1]).
+-export([test_stack_frames_returns_catch/1]).
+-export([test_stack_frames_returns_breakpoint_frame/1]).
+-export([test_stack_frames_works_with_hibernate/1]).
+
+%% Register tests
+-export([test_peek_stack_frame_slot_works/1]).
+-export([test_peek_xreg_works/1]).
 
 -include_lib("stdlib/include/assert.hrl").
 -include_lib("common_test/include/ct.hrl").
@@ -65,7 +77,9 @@ all() ->
         {group, debugger_support_enabled},
         {group, instrumentations},
         {group, registration},
-        {group, line_breakpoints}
+        {group, line_breakpoints},
+        {group, stack_frames},
+        {group, registers}
     ].
 
 groups() ->
@@ -91,11 +105,23 @@ groups() ->
             test_setting_bp_fails_on_non_existent_line,
             test_setting_bp_fails_on_nonexecutable_line,
             test_setting_bp_fails_on_unsupported_lines,
-            test_stops_and_notifies_debugger_process,
-            test_works_with_inlined_functions,
-            test_works_with_large_number_of_live_xregs,
-            test_works_with_a_huge_stack_depth_which_should_require_gc,
-            test_avoids_blocking_debugger
+            test_hitting_bp_stops_and_notifies_debugger_process,
+            test_bps_work_with_inlined_functions,
+            test_bps_work_with_large_number_of_live_xregs,
+            test_bps_work_with_a_huge_stack_depth_which_should_require_gc,
+            test_hitting_bp_avoids_blocking_debugger
+        ]},
+        {stack_frames, [], [
+            test_stack_frames_returns_running_if_not_suspended,
+            test_stack_frames_returns_frames,
+            test_stack_frames_returns_y_regs_controlled_by_size,
+            test_stack_frames_returns_catch,
+            test_stack_frames_returns_breakpoint_frame,
+            test_stack_frames_works_with_hibernate
+        ]},
+        {registers, [], [
+            test_peek_stack_frame_slot_works,
+            test_peek_xreg_works
         ]}
     ].
 
@@ -116,7 +142,7 @@ init_per_group(_Group, Config) ->
 end_per_group(_Group, _Config) ->
     ok.
 
-init_per_testcase(test_works_with_inlined_functions, _Config) ->
+init_per_testcase(test_bps_work_with_inlined_functions, _Config) ->
     % TODO(T202887216) unskip once this is fixed
     {skip, "+beam_debug_info is currently blocking inline annotations"};
 init_per_testcase(_TC, Config) ->
@@ -366,7 +392,7 @@ test_setting_bp_fails_on_nonexecutable_line(Config) ->
 test_setting_bp_fails_on_unsupported_lines(Config) ->
     Mod = foo,
     erl_debugger:toggle_instrumentations(#{line_breakpoint => true}),
-    compile_and_load_module(Config, Mod, [line_coverage]),
+    compile_and_load_module(Config, Mod, [beam_debug_info]),
 
     % NB. This line is currently unsupported since it is a
     % function header (for go/1).
@@ -377,7 +403,7 @@ test_setting_bp_fails_on_unsupported_lines(Config) ->
     Expected = Actual,
     ok.
 
-test_stops_and_notifies_debugger_process(Config) ->
+test_hitting_bp_stops_and_notifies_debugger_process(Config) ->
     Session = ?config(debugger_session, Config),
     erl_debugger:toggle_instrumentations(#{line_breakpoint => true}),
     compile_and_load_module(Config, foo, [beam_debug_info]),
@@ -417,7 +443,7 @@ test_stops_and_notifies_debugger_process(Config) ->
     ?expectReceive({done, Pid}),
     ok.
 
-test_works_with_inlined_functions(Config) ->
+test_bps_work_with_inlined_functions(Config) ->
     Session = ?config(debugger_session, Config),
     erl_debugger:toggle_instrumentations(#{line_breakpoint => true}),
 
@@ -448,7 +474,7 @@ test_works_with_inlined_functions(Config) ->
     ?expectReceive({done, Pid, ExpectedResult}),
     ok.
 
-test_works_with_large_number_of_live_xregs(Config) ->
+test_bps_work_with_large_number_of_live_xregs(Config) ->
     Session = ?config(debugger_session, Config),
     erl_debugger:toggle_instrumentations(#{line_breakpoint => true}),
 
@@ -478,7 +504,7 @@ test_works_with_large_number_of_live_xregs(Config) ->
     ?expectReceive({result, Pid, ExpectedResult}),
     ok.
 
-test_works_with_a_huge_stack_depth_which_should_require_gc(Config) ->
+test_bps_work_with_a_huge_stack_depth_which_should_require_gc(Config) ->
     Session = ?config(debugger_session, Config),
     erl_debugger:toggle_instrumentations(#{line_breakpoint => true}),
     compile_and_load_module(Config, gc_test, [beam_debug_info]),
@@ -506,7 +532,7 @@ test_works_with_a_huge_stack_depth_which_should_require_gc(Config) ->
     ?expectReceive({done, Pid}),
     ok.
 
-test_avoids_blocking_debugger(Config) ->
+test_hitting_bp_avoids_blocking_debugger(Config) ->
     Session = ?config(debugger_session, Config),
     erl_debugger:toggle_instrumentations(#{line_breakpoint => true}),
     compile_and_load_module(Config, ping, [beam_debug_info]),
@@ -533,6 +559,283 @@ test_avoids_blocking_debugger(Config) ->
     ?assertMailboxEmpty(),
     ok.
 
+%% Stack-frames tests
+test_stack_frames_returns_running_if_not_suspended(_Config) ->
+    P = erlang:spawn_link(fun() -> receive _ -> ok end end),
+    running = erl_debugger:stack_frames(P, 1),
+
+    true = erlang:suspend_process(P),
+    [_ | _] = erl_debugger:stack_frames(P, 1),
+
+    true = erlang:resume_process(P),
+    wait_for_process_status(P, waiting),
+
+    running = erl_debugger:stack_frames(P, 1),
+
+    P ! done,
+    ok.
+
+-define(IS_ADDR(Addr), is_integer(Addr) andalso Addr > 0).
+
+test_stack_frames_returns_frames(Config) ->
+    erl_debugger:toggle_instrumentations(#{line_breakpoint => true}),
+
+    Mod = call_stacks,
+    compile_and_load_module(Config, Mod, [beam_debug_info]),
+
+    %% To sync from Mod:base_level().
+    erlang:register(?MODULE, self()),
+
+    %% Launch a process, sync at a known location and suspend it
+    %% so we can inspect the stack.
+    P = erlang:spawn(Mod, three_levels, [42, 13]),
+    ?expectReceive({sync, P}),
+    wait_for_process_status(P, waiting),
+    erlang:suspend_process(P),
+
+    Actual = erl_debugger:stack_frames(P, 1),
+    ?assertMatch(
+        [
+            {4, #{function := {Mod, base_level, 1}, line := 18}, #{slots := [_Y0], code := Addr4}},
+            {3, #{function := {Mod, one_level, 1}, line := 13}, #{slots := [], code := Addr3}},
+            {2, #{function := {Mod, two_levels, 2}, line := 9}, #{slots := [], code := Addr2}},
+            {1, #{function := {Mod, three_levels, 2}, line := 5}, #{slots := [], code := Addr1}},
+            {0, '<terminate process normally>', #{slots := [], code := Addr0}}
+        ] when ?IS_ADDR(Addr0)
+            andalso ?IS_ADDR(Addr1)
+            andalso ?IS_ADDR(Addr2)
+            andalso ?IS_ADDR(Addr3)
+            andalso ?IS_ADDR(Addr4),
+        Actual
+    ),
+    ok.
+
+test_stack_frames_returns_y_regs_controlled_by_size(Config) ->
+    erl_debugger:toggle_instrumentations(#{line_breakpoint => true}),
+
+    Mod = call_stacks,
+    compile_and_load_module(Config, Mod, [beam_debug_info]),
+
+    %% To sync from Mod:base_level().
+    erlang:register(?MODULE, self()),
+
+    Line = 23,
+
+    %% Get the var mapping for Line, so that we ensure we are
+    %% returning Y-registers in the right order.
+    YRegMap = #{
+        YRegNo => Var
+        || {L, {_, SymMap}} <- code:get_debug_info(Mod),
+           L == Line,
+           {Var, {y, YRegNo}} <- SymMap
+    },
+
+    P = erlang:spawn(Mod, args_as_yvars, [foo, [1,2,3,4,5], ~"hellooooooooo"]),
+    ?expectReceive({sync, P}),
+    erlang:suspend_process(P),
+
+    CheckVarsSize = fun(Size, ExpectedVars) ->
+        case erl_debugger:stack_frames(P, Size) of
+            [{1, #{function := {Mod, args_as_yvars, 3}, line := Line}, #{slots := YRegs}} | _] ->
+                ActualVars = #{
+                    maps:get(YRegNo, YRegMap) => YRegVal
+                    || {YRegNo, YRegVal} <- lists:enumerate(0, YRegs)
+                },
+                ?assertEqual(ExpectedVars, ActualVars)
+        end
+    end,
+
+    ExpectedListSize = 10,
+    ExpectedBinSize = 4,  % TODO: we are currently counting only heap space
+
+    %% Immediate values are free, we get them even with size 0
+    CheckVarsSize(0, #{
+        ~"X" => {value, foo},
+        ~"Y" => {too_large, ExpectedListSize},
+        ~"Z" => {too_large, ExpectedBinSize}
+    }),
+
+    %% Size limit is respected
+    CheckVarsSize(min(ExpectedListSize, ExpectedBinSize) - 1, #{
+        ~"X" => {value, foo},
+        ~"Y" => {too_large, ExpectedListSize},
+        ~"Z" => {too_large, ExpectedBinSize}
+    }),
+    CheckVarsSize(min(ExpectedListSize, ExpectedBinSize), #{
+        ~"X" => {value, foo},
+        ~"Y" => {too_large, ExpectedListSize},
+        ~"Z" => {value, ~"hellooooooooo"}
+    }),
+    CheckVarsSize(max(ExpectedListSize, ExpectedBinSize), #{
+        ~"X" => {value, foo},
+        ~"Y" => {value, [1,2,3,4,5]},
+        ~"Z" => {value, ~"hellooooooooo"}
+    }),
+
+    ok.
+
+test_stack_frames_returns_catch(Config) ->
+    erl_debugger:toggle_instrumentations(#{line_breakpoint => true}),
+
+    Mod = call_stacks,
+    compile_and_load_module(Config, Mod, [beam_debug_info]),
+
+    %% To sync from Mod:base_level().
+    erlang:register(?MODULE, self()),
+
+    P = erlang:spawn(Mod, call_with_catches, [42]),
+    ?expectReceive({sync, P}),
+    erlang:suspend_process(P),
+
+    Actual = erl_debugger:stack_frames(P, 0),
+    ?assertMatch(
+        [
+            {2,
+                #{function := {call_stacks, call_with_catches_aux, 1}, line := 33},
+                #{slots :=  [
+                    {value, 43},
+                    {'catch', #{function := {call_stacks, call_with_catches_aux, 1}, line := 33}}
+                ]}
+            },
+            {1,
+                #{function := {call_stacks, call_with_catches, 1}, line := 27},
+                #{slots := [
+                    {value, 42},
+                    {'catch', #{function := {call_stacks, call_with_catches, 1}, line := 27}}
+                ]}
+            },
+            {0, '<terminate process normally>', #{slots := []}}
+        ],
+        Actual
+    ),
+    ok.
+
+test_stack_frames_returns_breakpoint_frame(Config) ->
+    Session = ?config(debugger_session, Config),
+    erl_debugger:toggle_instrumentations(#{line_breakpoint => true}),
+
+    Mod = call_stacks,
+    compile_and_load_module(Config, Mod, [beam_debug_info]),
+
+    Line = 5,
+    erl_debugger:breakpoint(Mod, Line, true),
+
+    P = erlang:spawn(Mod, three_levels, [42, 13]),
+
+    {P, _Resume} = ?assertBreakpointHit(Session, {Mod, three_levels, 2}, Line),
+    erlang:suspend_process(P),
+
+    Actual = erl_debugger:stack_frames(P, 0),
+    ?assertMatch(
+         [
+            {3, #{function := {erts_internal,breakpoint, 4}}, _},
+            {2, '<breakpoint>', #{slots := [_SavedX0 = {value, 42}, _SavedX1 = {value, 13}]}},
+            {1, #{function := {call_stacks, three_levels, 2}, line := 5}, #{slots := []}},
+            {0, '<terminate process normally>', #{slots := []}}
+        ],
+        Actual
+    ),
+    ok.
+
+test_stack_frames_works_with_hibernate(Config) ->
+    %% NB. This testcase should cover all BIFs using beam_run_process internally,
+    %% e.g. when a process is suspended while starting to execute `erlang:apply(M, F, A)`.
+
+    erl_debugger:toggle_instrumentations(#{line_breakpoint => true}),
+
+    Mod = call_stacks,
+    compile_and_load_module(Config, Mod, [beam_debug_info]),
+
+                                                %% To sync from Mod:base_level().
+    erlang:register(?MODULE, self()),
+
+    P = erlang:spawn(Mod, sync_and_hibernate, []),
+    ?expectReceive({sync, P}),
+    erlang:suspend_process(P),
+
+    Actual = erl_debugger:stack_frames(P, 0),
+    ?assertMatch(
+        [
+            {1, #{function := {erlang, hibernate, 3}, line := undefined}, #{slots := []}},
+            {0, '<terminate process normally>',  #{slots := []}}
+        ],
+        Actual
+    ),
+    ok.
+
+%% Registers tests
+test_peek_stack_frame_slot_works(Config) ->
+    erl_debugger:toggle_instrumentations(#{line_breakpoint => true}),
+
+    Mod = call_stacks,
+    compile_and_load_module(Config, Mod, [beam_debug_info]),
+
+    %% To sync from Mod:base_level().
+    erlang:register(?MODULE, self()),
+
+    P = erlang:spawn(fun () ->
+        catch Mod:args_as_yvars(foo, [1,2,3,4,5], ~"hellooooooooo")
+    end),
+    ?expectReceive({sync, P}),
+
+    %% While not suspended, return running.
+    running = erl_debugger:peek_stack_frame_slot(P, 0, 0, 0),
+
+    erlang:suspend_process(P),
+    MaxYRegSize = lists:max([
+        N
+        || {_FrameId, _Fun, #{slots := Slots}} <- erl_debugger:stack_frames(P, 0),
+        {too_large, N} <- Slots
+    ]),
+
+    CheckItMatchesStackFrames = fun(MaxSize) ->
+        StackFrames = erl_debugger:stack_frames(P, MaxSize),
+        [
+            ?assertEqual(
+                SlotVal,
+                erl_debugger:peek_stack_frame_slot(P, FrameId, SlotNo, MaxSize),
+                #{frame => FrameId, slot => SlotNo, size => MaxSize}
+            )
+            || {FrameId, _, #{slots := Slots}} <- StackFrames,
+            {SlotNo, SlotVal} <- lists:enumerate(0, Slots)
+        ],
+        ok
+    end,
+
+    [CheckItMatchesStackFrames(MaxSize) || MaxSize <- lists:seq(0, MaxYRegSize)],
+    ok.
+
+test_peek_xreg_works(Config) ->
+    erl_debugger:toggle_instrumentations(#{line_breakpoint => true}),
+
+    Mod = call_stacks,
+    compile_and_load_module(Config, Mod, [beam_debug_info]),
+
+    %% To sync from Mod:base_level().
+    erlang:register(?MODULE, self()),
+
+    P = erlang:spawn(Mod, sync_and_hibernate, []),
+    ?expectReceive({sync, P}),
+
+    %% While the process is running, no results.
+    running = erl_debugger:xregs_count(P),
+    running = erl_debugger:peek_xreg(P, 0, 0),
+
+    %% Suspend the process, so we can inspect it.
+    erlang:suspend_process(P),
+
+    %% We are paused in a call to erlang:hibernate/3, only X0,X1,X2 are live,
+    %% we test the arguments to the call.
+    3 = erl_debugger:xregs_count(P),
+    {value, Mod} = erl_debugger:peek_xreg(P, 0, 0),
+    {value, three_levels} = erl_debugger:peek_xreg(P, 1, 0),
+    {too_large, ListSize} = erl_debugger:peek_xreg(P, 2, 0),
+
+    %% The size control works.
+    {too_large, ListSize} = erl_debugger:peek_xreg(P, 2, ListSize - 1),
+    {value, [10, 20]} = erl_debugger:peek_xreg(P, 2, ListSize),
+    ok.
+
 %% Helpers
 
 compile_and_load_module(Config, Mod, Opts) when is_atom(Mod), is_list(Opts) ->
@@ -542,3 +845,20 @@ compile_and_load_module(Config, Mod, Opts) when is_atom(Mod), is_list(Opts) ->
     {ok, Mod, Code} = compile:file(File, [binary, report | Opts]),
     {module, Mod} = code:load_binary(Mod, "", Code),
     ok.
+
+wait_for_process_status(P, Status) ->
+    wait_for_process_status(P, Status, 2_000).
+
+wait_for_process_status(_, _, Timeout) when Timeout =< 0 ->
+    error(timeout_waiting_for_status);
+wait_for_process_status(P, Status, Timeout) when is_integer(Timeout) ->
+    T0 = erlang:system_time(millisecond),
+
+    case erlang:process_info(P, status) of
+        {status, Status} ->
+            ok;
+        _ ->
+            T1 = erlang:system_time(millisecond),
+            Elapsed = T1 - T0,
+            wait_for_process_status(P, Status, Timeout - Elapsed)
+    end.
