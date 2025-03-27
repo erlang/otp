@@ -820,3 +820,7 @@ bif erl_debugger:unregister/2
 bif erl_debugger:whereis/0
 bif erl_debugger:breakpoint/3
 bif erts_internal:notify_breakpoint_hit/3
+bif erl_debugger:stack_frames/2
+bif erl_debugger:peek_stack_frame_slot/4
+bif erl_debugger:xregs_count/1
+bif erl_debugger:peek_xreg/3
