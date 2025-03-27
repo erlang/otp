@@ -25,6 +25,7 @@
 #    include "bif.h"
 #    include "erl_fun.h"
 #    include "erl_process.h"
+#    include "beam_bp.h"
 #    include "beam_code.h"
 #    include "beam_file.h"
 #    include "beam_common.h"
@@ -105,6 +106,9 @@ char *beamasm_get_base(void *instance);
 
 /* Return current instruction offset, for line information. */
 size_t beamasm_get_offset(void *ba);
+
+enum erts_is_line_breakpoint beamasm_is_line_breakpoint_trampoline(
+        ErtsCodePtr addr);
 
 void beamasm_unseal_module(const void *executable_region,
                            void *writable_region,

@@ -19,6 +19,7 @@
  */
 
 #include <algorithm>
+#include <cstring>
 #include <sstream>
 #include <float.h>
 
@@ -350,6 +351,89 @@ void BeamModuleAssembler::emit_i_line_breakpoint_trampoline() {
                           disp128MB));
 
     a.bind(next);
+}
+
+enum erts_is_line_breakpoint BeamGlobalAssembler::is_line_breakpoint_trampoline(
+        ErtsCodePtr addr) {
+    auto pc = static_cast<const int32_t *>(addr);
+    enum erts_is_line_breakpoint line_bp_type;
+
+    /* The b and bl opcodes take 6 bits, the remaining 26 bits are a
+     * a signed offset, given in 32-bit words. */
+    const auto opcode6_mask = 0xFC000000;
+    const auto b_opcode = 0x14000000;
+    const auto bl_opcode = 0x94000000;
+
+    int32_t instr = *pc;
+    switch (instr) {
+    /* B .next .enabled: BL breakpoint_handler, .next: */
+    case b_opcode | 2:
+        line_bp_type = IS_DISABLED_LINE_BP;
+        break;
+
+    /* B .enabled .enabled: BL breakpoint_handler, .next: */
+    case b_opcode | 1:
+        line_bp_type = IS_ENABLED_LINE_BP;
+        break;
+
+    default:
+        return IS_NOT_LINE_BP;
+    }
+
+    instr = *++pc;
+
+    /* We expect a bl here. The target is a signed 26-bit offset */
+    if ((instr & opcode6_mask) != bl_opcode) {
+        return IS_NOT_LINE_BP;
+    }
+    const int32_t bl_offset = (instr << 6) >> 6;
+
+    /* Offset is expressed in 32-bit words, not bytes */
+    pc = pc + bl_offset;
+
+    const auto expected_target = get_i_line_breakpoint_trampoline_shared();
+    if (pc == (const int32_t *)expected_target)
+        return line_bp_type;
+
+    /* Now we expect to be in a veneer, that will encode a jump
+     * to the actual function based on the distance to the pc
+     * This can be a direct branch if close enough or branch-to-register after
+     * loading the expected_address (see emit_veneer() method) */
+    instr = *pc;
+
+    if ((instr & opcode6_mask) == b_opcode) {
+        /* using relative branch when expected_target is close enough */
+        const int32_t b_offset = (instr << 6) >> 6;
+        return (pc + b_offset == (const int32_t *)expected_target)
+                       ? line_bp_type
+                       : IS_NOT_LINE_BP;
+    }
+
+    const auto super_tmp_reg = SUPER_TMP.id();
+    /* we expect to see up to four MOVs into SUPER_TMP to load expected_address,
+     * followed by a `br SUPER_TMP` */
+    auto mov_opcode =
+            0xD2800000 | super_tmp_reg; /* movz SUPER_TMP, #0, lsl #0 */
+
+    uint64_t expected_target_addr = (uint64_t)expected_target;
+    for (int32_t hw = 0; hw < 4; hw++) {
+        uint32_t chunk = expected_target_addr & 0xFFFF;
+        expected_target_addr >>= 16;
+        if (chunk == 0)
+            continue;
+
+        if ((uint32_t)instr != (mov_opcode | (hw << 21) | (chunk << 5))) {
+            return IS_NOT_LINE_BP;
+        }
+
+        instr = *++pc;
+        mov_opcode =
+                0xF2800000 | super_tmp_reg; /* movk SUPER_TMP, #0, lsl #0 */
+    };
+
+    const int32_t expected_br_instr =
+            0xd61f0000 | (super_tmp_reg << 5); /* br SUPER_TMP */
+    return (instr == expected_br_instr) ? line_bp_type : IS_NOT_LINE_BP;
 }
 
 static void i_emit_nyi(const char *msg) {

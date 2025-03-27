@@ -988,6 +988,9 @@ Eterm erts_preload_module(Process *c_p, ErtsProcLocks c_p_locks,
                           const byte *code, Uint size);
 void init_load(void);
 const ErtsCodeMFA* erts_find_function_from_pc(ErtsCodePtr pc);
+ErtsCodePtr erts_find_next_code_for_line(const BeamCodeHeader* code_hdr,
+                                         unsigned int line,
+                                         unsigned int *start_from);
 Eterm* erts_build_mfa_item(FunctionInfo* fi, Eterm* hp,
 			   Eterm args, Eterm* mfa_p, Eterm loc_tail);
 void erts_set_current_function(FunctionInfo* fi, const ErtsCodeMFA* mfa);
