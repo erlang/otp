@@ -40,7 +40,7 @@ handle_event(error_event, _State) ->
 handle_event(do_crash, _State) ->
     erlang:error({badmatch,4});
 handle_event(hibernate, _State) ->
-   {ok,[],hibernate};
+    {ok,[],hibernate};
 handle_event(wakeup, _State) ->
     {ok,[]};
 handle_event({From, handle_event}, _State) ->

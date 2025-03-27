@@ -48,7 +48,8 @@
          throw_in_format_status/1, format_all_status/1,
 	 get_state/1, replace_state/1, call_with_huge_message_queue/1,
 	 undef_handle_call/1, undef_handle_cast/1, undef_handle_info/1,
-	 undef_init/1, undef_code_change/1, undef_terminate1/1,
+	 undef_init/1, throw_code_change/1, undef_code_change/1,
+	 throw_terminate/1, undef_terminate1/1,
 	 undef_terminate2/1, undef_in_terminate/1, undef_in_handle_info/1,
 	 undef_handle_continue/1,
 
@@ -190,12 +191,18 @@ start(Config) when is_list(Config) ->
     busy_wait_for_process(Pid0,600),
     {'EXIT', {noproc,_}} = (catch gen_server:call(Pid0, started_p, 1)),
 
+    %% init can throw its response.
+    {ok, Pid0b} = gen_server:start(gen_server_SUITE, throw, []),
+    ok = gen_server:call(Pid0b, started_p),
+    ok = gen_server:call(Pid0b, stop),
+    busy_wait_for_process(Pid0b,600),
+
     %% anonymous with timeout
     io:format("try init timeout~n", []),
-    {ok, Pid00} = gen_server:start(gen_server_SUITE, [],
+    {ok, Pid0c} = gen_server:start(gen_server_SUITE, [],
 				   [{timeout,1000}]),
-    ok = gen_server:call(Pid00, started_p),
-    ok = gen_server:call(Pid00, stop),
+    ok = gen_server:call(Pid0c, started_p),
+    ok = gen_server:call(Pid0c, stop),
     {error, timeout} = gen_server:start(gen_server_SUITE, sleep,
 					[{timeout,100}]),
 
@@ -698,6 +705,8 @@ call(Config) when is_list(Config) ->
     timer:sleep(1500),
     false = gen_server:call(my_test_name, next_call),
 
+    ok = gen_server:call(my_test_name, throw_reply),
+
     %% timeout call.
     delayed = gen_server:call(my_test_name, {delayed_answer,1}, 30),
     {'EXIT',{timeout,_}} =
@@ -1128,10 +1137,19 @@ continue(Config) when is_list(Config) ->
     gen_server:cast(Pid, {continue_noreply, self()}),
     [{Pid, continue}, {Pid, after_continue}] = read_replies(Pid),
 
+    gen_server:cast(Pid, {throw_continue_noreply, self()}),
+    [{Pid, continue}, {Pid, after_continue}] = read_replies(Pid),
+
     Pid ! {continue_noreply, self()},
     [{Pid, continue}, {Pid, after_continue}] = read_replies(Pid),
 
+    Pid ! {throw_continue_noreply, self()},
+    [{Pid, continue}, {Pid, after_continue}] = read_replies(Pid),
+
     Pid ! {continue_continue, self()},
+    [{Pid, before_continue}, {Pid, continue}, {Pid, after_continue}] = read_replies(Pid),
+
+    Pid ! {continue_throw_continue, self()},
     [{Pid, before_continue}, {Pid, continue}, {Pid, after_continue}] = read_replies(Pid),
 
     Ref = monitor(process, Pid),
@@ -2595,6 +2613,12 @@ echo_loop() ->
 	    echo_loop()
     end.
 
+throw_terminate(Config) when is_list(Config) ->
+    {ok, Server} = gen_server:start_link(?MODULE, [], []),
+    MRef = monitor(process, Server),
+    Server ! throw_terminate,
+    ok = verify_down_reason(MRef, Server, normal).
+
 %% Test the default implementation of terminate if the callback module
 %% does not export it
 undef_terminate1(Config) when is_list(Config) ->
@@ -2624,6 +2648,11 @@ undef_init(_Config) ->
     after 500 ->
             ok
     end.
+
+throw_code_change(Config) when is_list(Config) ->
+    {ok, Server} = gen_server:start(?MODULE, {state, throw_code_change}, []),
+    ok = fake_upgrade(Server, ?MODULE),
+    true = is_process_alive(Server).
 
 %% The upgrade should fail if code_change is expected in the callback module
 %% but not exported, but the server should continue with the old code
@@ -3182,6 +3211,8 @@ init(sleep) ->
     io:format("init(sleep)~n"),
     ct:sleep(1000),
     {ok, []};
+init(throw) ->
+    throw({ok, []});
 init({continue, Pid}) ->
     io:format("init(continue) -> ~p~n", [Pid]),
     self() ! {after_continue, Pid},
@@ -3255,6 +3286,8 @@ handle_call(stop, _From, State) ->
     {stop,stopped,ok,State};
 handle_call(crash, _From, _State) ->
     exit(crashed);
+handle_call(throw_reply, _From, State) ->
+    throw({reply,ok,State});
 handle_call(exit_shutdown, _From, _State) ->
     exit(shutdown);
 handle_call(stop_shutdown, _From, State) ->
@@ -3319,6 +3352,9 @@ handle_cast({call_undef_fun, Mod, Fun}, State) ->
 handle_cast({continue_noreply, Pid}, State) ->
     self() ! {after_continue, Pid},
     {noreply, State, {continue, {message, Pid}}};
+handle_cast({throw_continue_noreply, Pid}, State) ->
+    self() ! {after_continue, Pid},
+    throw({noreply, State, {continue, {message, Pid}}});
 handle_cast({From, stop}, State) ->
     io:format("BAZ"),
     {stop, {From,stopped}, State}.
@@ -3392,15 +3428,22 @@ handle_info(continue, From) ->
     {noreply, []};
 handle_info({From, stop}, State) ->
     {stop, {From,stopped_info}, State};
+handle_info(throw_terminate, State) ->
+    {stop, throw_terminate, State};
 handle_info({after_continue, Pid}, State) ->
     Pid ! {self(), after_continue},
     Pid ! {self(), ack},
     {noreply, State};
+handle_info({throw_continue_noreply, Pid}, State) ->
+    self() ! {after_continue, Pid},
+    throw({noreply, State, {continue, {message, Pid}}});
 handle_info({continue_noreply, Pid}, State) ->
     self() ! {after_continue, Pid},
     {noreply, State, {continue, {message, Pid}}};
 handle_info({continue_continue, Pid}, State) ->
     {noreply, State, {continue, {continue, Pid}}};
+handle_info({continue_throw_continue, Pid}, State) ->
+    {noreply, State, {continue, {throw_continue, Pid}}};
 handle_info(continue_stop, State) ->
     {noreply, State, {continue, stop}};
 handle_info(_Info, State) ->
@@ -3428,6 +3471,8 @@ handle_continue({continue, Pid}, State) ->
     Pid ! {self(), before_continue},
     self() ! {after_continue, Pid},
     {noreply, State, {continue, {message, Pid}}};
+handle_continue({throw_continue, Pid}, State) ->
+    throw(handle_continue({continue, Pid}, State));
 handle_continue(stop, State) ->
     {stop, normal, State};
 handle_continue({message, Pid}, State) ->
@@ -3438,11 +3483,8 @@ handle_continue({message, Pid, From}, State) ->
     gen_server:reply(From, ok),
     {noreply, State}.
 
-code_change(_OldVsn,
-            {new, {undef_in_code_change, {Mod, Fun}}} = State,
-            _Extra) ->
-    Mod:Fun(),
-    {ok, State}.
+code_change(_OldVsn, {new, throw_code_change} = State, _Extra) ->
+    throw({ok, State}).
 
 terminate({From, stopped}, _State) ->
     io:format("FOOBAR"),
@@ -3451,6 +3493,8 @@ terminate({From, stopped}, _State) ->
 terminate({From, stopped_info}, _State) ->
     From ! {self(), stopped_info},
     ok;
+terminate(throw_terminate, _State) ->
+    throw(ok);
 terminate(_, crash_terminate) ->
     exit({crash, terminate});
 terminate(_, {undef_in_terminate, {Mod, Fun}}) ->
