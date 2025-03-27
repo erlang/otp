@@ -42,31 +42,28 @@ git fetch upstream
 ```
 
 4. Checkout the branch:
-`git checkout origin/ERLANG_INTEGRATION_pcre2-10.44`
+`git checkout ERLANG_INTEGRATION`
 
-5. Create a new branch
-`git co -b ERLANG_INTEGRATION_pcre2-10.45`
-
-6. Rebase the branch on top of pcre2-10.45:
-`git rebase pcre2-10.45`
+5. Merge in the new pcre2 version:
+`git merge pcre2-10.45`
 
 Jump to *what the diff means* below, for more details on merge conflicts.
 
-7. Fix all the conflicts. Once that is done review it all to verify that conflicts automatically resolved are sane.
+6. Fix all the conflicts. Once that is done review it all to verify that conflicts automatically resolved are sane.
 `gitk`
 
-8. Check if there are new loops in pcre2_match.c's match function, that are missing
+7. Check if there are new loops in pcre2_match.c's match function, that are missing
 comments /* LOOP_COUNT: Ok/COST/CHK */
 
-9. Check that it builds
+8. Check that it builds
 mkdir build
 cd build
 ../autogen.sh
 ../configure
 make
 
-10. Push the changes
-`git push -u origin ERLANG_INTEGRATION_pcre2-10.45`
+9. Push the changes
+`git push -u origin ERLANG_INTEGRATION`
 
 ## Updating OTP repo with pcre2 changes
 
@@ -186,9 +183,9 @@ machine loop (!).
 
 The COST\_CHK macro works like this:
 
-1. Add to the loop count.
-2. If loop count > limit:
-    1. Store the line (+100) in the Xwhere member of the frame structure
+1. Decrement the loop counter.
+2. If loop counter <= 0:
+    1. Store the line in the return_id member of the frame structure
     2. Goto LOOP\_COUNT\_BREAK, which ultimately returns from the function
 3. Insert a label, which is named L\_LOOP\_COUNT\_&lt;line number&gt;
 
@@ -204,13 +201,13 @@ like this in the C source:
   switch (F->return_id) 
     {
 
-#include "pcre2_match_loop_break_cases.inc"
+#include "pcre2_match_loop_break_cases.gen.h"
      default:
        EDEBUGF(("jump error in pcre match: label %d non-existent\n", F->return_id));
        return PCRE2_ERROR_INTERNAL;
      }
 
-When building, pcre2\_match\_loop\_break\_cases.inc will be generated
+When building, pcre2\_match\_loop\_break\_cases.gen.h will be generated
 during build by pcre.mk, it will look like:
 
      case 791: goto L_LOOP_COUNT_691;
@@ -288,7 +285,7 @@ patching in the changes...
 
 ## Updating pcre2_match.c
 
-If git rebase works like a charm, you still have to go through the main loop and see
+If git merge works like a charm, you still have to go through the main loop and see
 that all do, while and for loops in the code contains COST\_CHK or at
 least COST, or, if it's a small loop (over, say one UTF character),
 mark it as OK with a comment.

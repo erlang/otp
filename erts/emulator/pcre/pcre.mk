@@ -45,13 +45,14 @@ pcre2_xclass.o
 
 PCRE_OBJS = $(PCRE_O:%=$(PCRE_OBJDIR)/%)
 
-PCRE_GENINC = $(ERL_TOP)/erts/emulator/pcre/pcre2_match_loop_break_cases.inc
+PCRE_GENINC = $(ERL_TOP)/erts/emulator/pcre/pcre2_match_loop_break_cases.gen.h
+PCRE_YIELD_COV = $(ERL_TOP)/erts/emulator/pcre/pcre2_match_yield_coverage.gen.h
 
 PCRE_OBJDIR = $(ERL_TOP)/erts/emulator/pcre/obj/$(TARGET)/$(TYPE)
 
 PCRE_DIR =  $(ERL_TOP)/erts/emulator/pcre
 
-PCRE_CFLAGS = $(filter-out -DDEBUG -Wimplicit-fallthrough,$(CFLAGS)) -DERLANG_INTEGRATION
+PCRE_CFLAGS = $(filter-out -Wimplicit-fallthrough,$(CFLAGS)) -DERLANG_INTEGRATION
 
 ifeq ($(TARGET), win32)
 $(EPCRE_LIB): $(PCRE_OBJS)
@@ -66,12 +67,20 @@ $(PCRE_OBJDIR)/%.o: $(PCRE_DIR)/%.c
 	$(V_CC) -c $(PCRE_CFLAGS) -o $@ $<
 
 $(PCRE_GENINC): $(PCRE_DIR)/pcre2_match.c
-	$(gen_verbose)echo "/* SPDX-License-Identifier: BSD-3-Clause */" > $(PCRE_GENINC); \
-	for x in `grep -n COST_CHK $(PCRE_DIR)/pcre2_match.c | grep -v 'COST_CHK(N)' | awk -F: '{print $$1}'`; \
+	$(gen_verbose)for line in `grep -n 'COST_CHK(' $(PCRE_DIR)/pcre2_match.c | grep -E -v 'define|DBG_FAKE_' | awk -F: '{print $$1}'`; \
 	do \
-		N=`expr $$x + 100`; \
-		echo "case $$N: goto L_LOOP_COUNT_$${x};"; \
-	done >> $(PCRE_GENINC)
+		echo "case $$line: goto L_LOOP_COUNT_$${line};"; \
+	done > $(PCRE_GENINC)
+
+$(PCRE_YIELD_COV): $(PCRE_DIR)/pcre2_match.c
+	$(gen_verbose) INDEX=0; \
+	for line in `grep -n 'COST_CHK(' $(PCRE_DIR)/pcre2_match.c | grep -v 'define' | awk -F: '{print $$1}'`; \
+	do \
+		echo "#define ERLANG_YIELD_POINT_$${line} $$INDEX"; \
+		echo "$$line,"; \
+		INDEX=`expr $$INDEX + 1`; \
+	done > $@; \
+	echo "#define ERLANG_YIELD_POINT_CNT $$INDEX" >> $@
 
 # Dependencies.
 $(PCRE_OBJDIR)/pcre2_auto_possess.o: $(PCRE_DIR)/pcre2_auto_possess.c \
@@ -106,7 +115,7 @@ $(PCRE_OBJDIR)/pcre2_find_bracket.o: $(PCRE_DIR)/pcre2_find_bracket.c \
  $(PCRE_DIR)/pcre2_util.h
 $(PCRE_OBJDIR)/pcre2_match.o: $(PCRE_DIR)/pcre2_match.c \
  $(PCRE_DIR)/pcre2_internal.h $(PCRE_DIR)/local_config.h $(PCRE_DIR)/pcre2.h $(PCRE_DIR)/pcre2_ucp.h $(PCRE_DIR)/pcre2_intmodedep.h \
- $(PCRE_DIR)/pcre2_util.h $(PCRE_DIR)/pcre2_match_loop_break_cases.inc
+ $(PCRE_DIR)/pcre2_util.h $(PCRE_DIR)/pcre2_match_loop_break_cases.gen.h $(PCRE_DIR)/pcre2_match_yield_coverage.gen.h
 $(PCRE_OBJDIR)/pcre2_match_data.o: $(PCRE_DIR)/pcre2_match_data.c \
  $(PCRE_DIR)/pcre2_internal.h $(PCRE_DIR)/local_config.h $(PCRE_DIR)/pcre2.h $(PCRE_DIR)/pcre2_ucp.h $(PCRE_DIR)/pcre2_intmodedep.h \
  $(PCRE_DIR)/pcre2_util.h

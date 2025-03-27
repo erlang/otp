@@ -4476,6 +4476,31 @@ BIF_RETTYPE erts_debug_get_internal_state_1(BIF_ALIST_1)
             return am_false;
 #endif
         }
+        else if (ERTS_IS_ATOM_STR("re_yield_coverage", BIF_ARG_1)) {
+#ifdef DEBUG
+            extern const int erts_dbg_pcre_cost_chk_lines[];
+            extern int erts_dbg_pcre_cost_chk_visits[];
+            extern int erts_dbg_pcre_cost_chk_yields[];
+            extern const int erts_dbg_pcre_cost_chk_cnt;
+            const Uint hsz = (2 + 1 + 3) * erts_dbg_pcre_cost_chk_cnt;
+            Eterm *hp = HAlloc(BIF_P, hsz);
+            Eterm *hp_end = hp + hsz;
+            Eterm list = NIL;
+            for (int i=erts_dbg_pcre_cost_chk_cnt-1; i>=0; i--) {
+                Eterm tuple = TUPLE3(hp,
+                    make_small(erts_dbg_pcre_cost_chk_lines[i]),
+                    make_small(erts_dbg_pcre_cost_chk_visits[i]),
+                    make_small(erts_dbg_pcre_cost_chk_yields[i]));
+                hp += 1+3;
+                list = CONS(hp, tuple, list);
+                hp += 2;
+            }
+            ASSERT(hp == hp_end);
+            return list;
+#else
+            return am_undefined;
+#endif
+        }
     }
     else if (is_tuple(BIF_ARG_1)) {
 	Eterm* tp = tuple_val(BIF_ARG_1);

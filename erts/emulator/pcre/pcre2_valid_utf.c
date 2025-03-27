@@ -113,7 +113,7 @@ if (!ystate) {
     loops_left = INT32_MAX;
 }
 else {
-    loops_left = *(ystate->loops_left_p);
+    loops_left = ystate->loops_left;
     if (ystate->yielded) {
         p = ystate->p;
         length = ystate->length;
@@ -165,7 +165,7 @@ for (p = string; length > 0; p++)
     {
     if (ystate)
       {
-      *(ystate->loops_left_p) = 0;
+      ystate->loops_left = 0;
       ystate->yielded = !0;
       ystate->length = length;
       ystate->p = p;
@@ -359,7 +359,7 @@ for (p = string; length > 0; p++)
 #if defined(ERLANG_INTEGRATION) && !defined(PCRE2_BUILDING_PCRE2TEST)
 if (ystate)
   {
-  *(ystate->loops_left_p) = loops_left;
+  ystate->loops_left = loops_left;
   ystate->yielded = 0;
   }
 #endif
