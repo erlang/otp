@@ -190,13 +190,14 @@ keylog_server_cb(Config) ->
         {keylog, #{items := HSKeylog}} ->
              ["CLIENT_HANDSHAKE_TRAFFIC_SECRET" ++ _| _] = HSKeylog
     end,
+    Role = receive
+               {keylog, #{items := TConKeylog0}} ->
+                   traffic_secret(TConKeylog0)
+           end,
+    OppsitRole = opposite_role(Role),
     receive
-        {keylog, #{items := RConKeylog}} ->
-            ["CLIENT_TRAFFIC_SECRET_0" ++ _| _] = RConKeylog
-    end,
-    receive
-     {keylog, #{items := SConKeylog}} ->
-            ["SERVER_TRAFFIC_SECRET_0" ++ _| _] = SConKeylog
+        {keylog, #{items := TConKeylog2}} ->
+            OppsitRole = traffic_secret(TConKeylog2)
     end,
     receive
         {keylog, #{items := UpdateKeylog}} ->
@@ -206,6 +207,18 @@ keylog_server_cb(Config) ->
 %%--------------------------------------------------------------------
 %% Internal functions  -----------------------------------------------
 %%--------------------------------------------------------------------
+traffic_secret(KeyLog) ->
+    case KeyLog of
+        ["CLIENT_TRAFFIC_SECRET_0" ++ _| _] ->
+            client;
+        ["SERVER_TRAFFIC_SECRET_0" ++ _| _] ->
+            server
+    end.
+
+opposite_role(client) ->
+    server;
+opposite_role(server) ->
+    client.
 
 key_update_at(Config, Role) ->
     Data = "123456789012345",  %% 15 bytes
