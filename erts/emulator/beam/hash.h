@@ -37,7 +37,7 @@ typedef void (*HFREE_FUN)(void*);
 /* Meta functions */
 typedef void* (*HMALLOC_FUN)(int,size_t);
 typedef void (*HMFREE_FUN)(int,void*);
-typedef int (*HMPRINT_FUN)(fmtfn_t,void*,char*, ...);
+typedef int (*HMPRINT_FUN)(fmtfn_t,void*,const char*, ...);
 typedef void (*HFOREACH_FUN)(void *, void *);
 
 /*

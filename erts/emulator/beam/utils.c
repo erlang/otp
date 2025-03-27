@@ -403,7 +403,7 @@ int erts_fit_in_bits_uint(Uint value)
 }
 
 int
-erts_print(fmtfn_t to, void *arg, char *format, ...)
+erts_print(fmtfn_t to, void *arg, const char *format, ...)
 {
     int res;
     va_list arg_list;
