@@ -258,8 +258,8 @@ export_content([#xmlText{value = Text, type = cdata} | Es], Callbacks) ->
     [apply_cdata_cb(Callbacks, Text) | export_content(Es, Callbacks)];
 export_content([#xmlPI{} | Es], Callbacks) ->
     export_content(Es, Callbacks);
-export_content([#xmlComment{} | Es], Callbacks) ->
-    export_content(Es, Callbacks);
+export_content([#xmlComment{value = Text} | Es], Callbacks) ->
+    [apply_comment_cb(Callbacks, Text) | export_content(Es, Callbacks)];
 export_content([#xmlDecl{} | Es], Callbacks) ->
     export_content(Es, Callbacks);
 export_content([E | Es], Callbacks) ->
@@ -299,8 +299,8 @@ export_element(E = #xmlElement{name = Tag,
     tagdef(Tag,Pos,Parents,Args,CBs);
 export_element(#xmlPI{}, _CBs) ->
     [];
-export_element(#xmlComment{}, _CBs) ->
-    [];
+export_element(#xmlComment{value = Text}, CBs) ->
+    apply_comment_cb(CBs, Text);
 export_element(#xmlDecl{}, _CBs) ->
     [].
 
@@ -330,8 +330,8 @@ export_element(E=#xmlElement{name = Tag,
     tagdef(Tag,Pos,Parents,Args,Callbacks);
 export_element(#xmlPI{}, _CallbackModule, CallbackState) ->
     CallbackState;
-export_element(#xmlComment{},_CallbackModule, CallbackState) ->
-    CallbackState;
+export_element(#xmlComment{value = Text},CallbackModule,_CallbackState) ->
+    apply_comment_cb(CallbackModule,Text);
 export_element(#xmlDecl{},_CallbackModule, CallbackState) ->
     CallbackState.
 
@@ -382,6 +382,9 @@ apply_text_cb(Ms, Text) ->
 
 apply_cdata_cb(Ms, Text) ->
     apply_cb(Ms, '#cdata#', '#cdata#', [Text]).
+
+apply_comment_cb(Ms, Text) ->
+    apply_cb(Ms, '#comment#', '#comment#', [Text]).
 
 apply_tag_cb(Ms, F, Args) ->
     apply_cb(Ms, F, '#element#', Args).
