@@ -495,8 +495,7 @@ process_v3_msg(NoteStore, Msg, Hdr, Data, Address, Log) ->
 		    %% handle CtxEngineID to ourselves
 		    %% Check that we actually know of an agent with this
 		    %% CtxEngineID and Address
-		    %% case is_known_engine_id(CtxEngineID, Address) of
-                    case is_known_engine_id(CtxEngineID) of
+		    case is_known_engine_id(CtxEngineID, Address) of
 			true ->
 			    ?vtrace("and the agent EngineID (~p) "
 				    "is know to us", [CtxEngineID]),
@@ -1088,10 +1087,21 @@ get_engine_id() ->
 get_agent_engine_id(Name) ->
     snmpm_config:get_agent_engine_id(Name).
 
-%% is_known_engine_id(EngineID, {Addr, Port}) ->
-%%     snmpm_config:is_known_engine_id(EngineID, Addr, Port).
-is_known_engine_id(EngineID) ->
-    snmpm_config:is_known_engine_id(EngineID).
+%% We cannot include 'Port' in this check since agents
+%% can use ephemeral ports (random ports) for traps/notifications.
+is_known_engine_id(EngineID, {Addr, _Port}) ->
+    Agents = snmpm_config:which_agents(engine_id, EngineID),
+    is_known_engine_id2(Agents, Addr).
+
+is_known_engine_id2([], _Addr) ->
+    false;
+is_known_engine_id2([TargetName|Agents], Addr) ->
+    case snmpm_config:agent_info(TargetName, address) of
+        {ok, Addr} ->
+            true;
+        _ ->
+            is_known_engine_id2(Agents, Addr)
+    end.
 
 
 %%-----------------------------------------------------------------
