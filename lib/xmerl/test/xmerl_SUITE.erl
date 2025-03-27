@@ -57,7 +57,7 @@ groups() ->
      {misc, [],
       [latin1_alias, syntax_bug1, syntax_bug2, syntax_bug3,
        pe_ref1, copyright, testXSEIF, export_simple1, export,
-       export_cdata,
+       export_cdata, export_comments,
        default_attrs_bug, xml_ns, scan_splits_string_bug,
        allow_entities_test]},
      {eventp_tests, [], [sax_parse_and_export]},
@@ -321,6 +321,17 @@ export_cdata(Config) ->
 </doc>">>,
     Prolog = ["<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"],
     {E,_} = xmerl_scan:string(binary:bin_to_list(InData)),
+    Exported = xmerl:export([E],xmerl_xml,[{prolog,Prolog}]),
+    InData = list_to_binary(Exported),
+    ok.
+
+export_comments(Config) ->
+    InData = <<"<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<doc>
+    <!-- top comment --><a>Test...</a>
+    <!-- bottom comment --></doc>">>,
+    Prolog = ["<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"],
+    {E, _} = xmerl_scan:string(binary:bin_to_list(InData)),
     Exported = xmerl:export([E],xmerl_xml,[{prolog,Prolog}]),
     InData = list_to_binary(Exported),
     ok.
@@ -784,6 +795,7 @@ xml_namespace_indented() ->
   "\n  <title>Cheaper by the Dozen</title>"
   "\n  <isbn:number>1568491379</isbn:number>"
   "\n  <notes>"
+  "\n    <!-- make HTML the default namespace for some comments -->"
   "\n    <p xmlns=\"urn:w3-org-ns:HTML\">This is a <i>funny</i> book!</p>"
   "\n  </notes>"
   "\n</book>".
