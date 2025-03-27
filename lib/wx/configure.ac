@@ -2,6 +2,8 @@ dnl Process this file with autoconf to produce a configure script. -*-m4-*-
 
 dnl %CopyrightBegin%
 dnl
+dnl SPDX-License-Identifier: Apache-2.0
+dnl
 dnl Copyright Ericsson AB 2008-2025. All Rights Reserved.
 dnl
 dnl Licensed under the Apache License, Version 2.0 (the "License");

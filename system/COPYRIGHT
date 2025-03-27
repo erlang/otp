@@ -8,6 +8,8 @@ This software is subject to the following Copyrights and Licenses:
 
 %CopyrightBegin%
 
+SPDX-License-Identifier: Apache-2.0
+
 Copyright Ericsson AB 1997-2025. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");

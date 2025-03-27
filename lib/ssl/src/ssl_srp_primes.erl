@@ -1,5 +1,7 @@
 %%
 %% %CopyrightBegin%
+%% 
+%% SPDX-License-Identifier: Apache-2.0
 %%
 %% Copyright Ericsson AB 2012-2025. All Rights Reserved.
 %%
@@ -8,8 +10,6 @@
 %% You may obtain a copy of the License at
 %%
 %%     http://www.apache.org/licenses/LICENSE-2.0
-%%
-%%     SPDX-License-Identifier: Apache-2.0
 %%
 %% Unless required by applicable law or agreed to in writing, software
 %% distributed under the License is distributed on an "AS IS" BASIS,

@@ -1,6 +1,8 @@
 dnl Process this file with autoconf to produce a configure script for Erlang.
 dnl
 dnl %CopyrightBegin%
+dnl
+dnl SPDX-License-Identifier: Apache-2.0
 dnl 
 dnl Copyright Ericsson AB 1997-2024. All Rights Reserved.
 dnl 

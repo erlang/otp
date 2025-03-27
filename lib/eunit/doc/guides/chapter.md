@@ -1,6 +1,8 @@
 <!--
 %CopyrightBegin%
 
+SPDX-License-Identifier: Apache-2.0
+
 Copyright 2004-2025 Mickaël Rémond, Richard Carlsson. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");

@@ -1,6 +1,8 @@
 %%-*-erlang-*-
 %%----------------------------------------------------------------------
 %% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
 %% 
 %% Copyright Ericsson AB 2017-2021. All Rights Reserved.
 %% 
