@@ -59,12 +59,6 @@ curations:
           License mistaken by Scancode
         concluded_license: "Apache-2.0 OR LGPL-2.0-or-later"
 
-      - path: "scripts/licensedetection/licenses/apache-2.0-or-lgpl-2.1-or-later.LICENSE"
-        reason: "INCORRECT"
-        comment: >-
-          License mistaken by Scancode
-        concluded_license: "Apache-2.0 OR LGPL-2.0-or-later"
-
       - path: "erts/emulator/test/bs_utf_SUITE_data/NormalizationTest.txt"
         reason: "INCORRECT"
         comment: >-
