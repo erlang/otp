@@ -387,28 +387,40 @@ See also [crypto documentation](`e:crypto:engine_load.md#engine_load`)
 The NSS keylog debug feature can be used by authorized users to for instance
 enable wireshark to decrypt TLS packets.
 
-_Server (with NSS key logging)_
-
-```erlang
-    server() ->
-        application:load(ssl),
-        {ok, _} = application:ensure_all_started(ssl),
-        Port = 11029,
-        LOpts = [{certs_keys, [#{certfile => "cert.pem", keyfile => "key.pem"}]},
-        {reuseaddr, true},
-        {versions, ['tlsv1.2','tlsv1.3']},
-        {keep_secrets, true} %% Enable NSS key log (debug option)
-        ],
-        {ok, LSock} = ssl:listen(Port, LOpts),
-        {ok, ASock} = ssl:transport_accept(LSock),
-        {ok, CSock} = ssl:handshake(ASock).
-```
-
-_Exporting the secrets_
+The option to be used is for legacy reasons called `keep_secrets` and of course
+defaults to `false`. The legacy value `true` will enable you retrieve keylogging from
+the connection in a polling manner and does not work as intended for all use cases.
 
 ```erlang
       {ok, [{keylog, KeylogItems}]} = ssl:connection_information(CSock, [keylog]).
-      file:write_file("key.log", [[KeylogItem,$\n] || KeylogItem <- KeylogItems]).
+      file:write(FileHandle, [[KeylogItem,$\n] || KeylogItem <- KeylogItems]).
+```
+
+Instead you should use the option values `{keylog, fun()}` or
+`{keylog_hs, fun()}` to retrieve keylogs on all key update events or to
+retrieve keylog if the connection fails during the handshake.
+
+> #### Warning {: .warning }
+>Note that enabling this is for debug
+>purposes and defeats the purpose of the TLS protocol, so use with
+>care.
+
+An outline of this use case:
+
+```erlang
+    Me = self(),
+    Fun = fun(KeylogInfo) ->
+                  Me ! {keylog, KeylogInfo}
+          end,
+    Options = [{keep_secrets, {keylog, Fun} ...]
+
+    ...
+
+    receive
+        {keylog	,#{items := KeylogItems, client_random := Rand}} ->
+	    FileHandle = get_file(Rand),
+	    file:write(FileHandle, [[KeylogItem,$\n] || KeylogItem <- KeylogItems])
+    ...
 ```
 
 ## Session Reuse Prior to TLS 1.3

@@ -979,16 +979,9 @@ read_application_data(Data,
             end
     end.
 
-passive_receive(#state{static_env = #static_env{role = Role,
-                                                socket = Socket,
-                                                trackers = Trackers,
-                                                transport_cb = Transport,
-                                                protocol_cb = Connection},
-                       recv = #recv{from = RecvFrom},
-                       connection_env = #connection_env{socket_tls_closed = #alert{} = Alert}} = State, 
+passive_receive(#state{connection_env = #connection_env{socket_tls_closed = #alert{} = Alert}} = State,
                 StateName, _) ->
-    Pids = Connection:pids(State),
-    alert_user(Pids, Transport, Trackers, Socket, RecvFrom, Alert, Role, StateName, Connection),
+    handle_normal_shutdown(Alert, StateName, State),
     {stop, {shutdown, normal}, State};
 passive_receive(#state{user_data_buffer = {Front,BufferSize,Rear},
                        %% Assert! Erl distribution uses active sockets
@@ -1036,15 +1029,16 @@ handle_own_alert(Alert0, StateName,
 		 #state{static_env = #static_env{role = Role,
                                                  protocol_cb = Connection},
                         ssl_options = #{log_level := LogLevel}} = State) ->
+    Alert = Alert0#alert{role = Role},
     try %% Try to tell the other side
-        send_alert(Alert0, StateName, State)
+        send_alert(Alert, StateName, State)
     catch _:_ ->  %% Can crash if we are in a uninitialized state
 	    ignore
     end,
-    try %% Try to tell the local user
-        Alert = Alert0#alert{role = Role},
-	log_alert(LogLevel, Role, Connection:protocol_name(), StateName, Alert),
-	handle_normal_shutdown(Alert,StateName, State)
+    try
+        log_alert(LogLevel, Role, Connection:protocol_name(), StateName, Alert),
+        %% Try to tell the local user
+        handle_normal_shutdown(Alert, StateName, State)
     catch _:_ ->
 	    ok
     end,
@@ -1059,6 +1053,7 @@ handle_normal_shutdown(Alert, StateName, #state{static_env = #static_env{role = 
                                                 recv = #recv{from = StartFrom}
                                                } = State) ->
     Pids = Connection:pids(State),
+    maybe_keylog_hs_callback(Alert, StateName, State),
     alert_user(Pids, Transport, Trackers, Socket, StartFrom, Alert, Role, StateName, Connection);
 
 handle_normal_shutdown(Alert, StateName, #state{static_env = #static_env{role = Role,
@@ -1072,6 +1067,7 @@ handle_normal_shutdown(Alert, StateName, #state{static_env = #static_env{role = 
                                                 recv = #recv{from = RecvFrom}
                                                } = State) ->
     Pids = Connection:pids(State),
+    maybe_keylog_hs_callback(Alert, StateName, State),
     alert_user(Pids, Transport, Trackers, Socket, Type, Opts, Pid, RecvFrom, Alert, Role, StateName, Connection).
 
 handle_alert(#alert{level = ?FATAL} = Alert, StateName, State) ->
@@ -1171,23 +1167,16 @@ handle_alert(Alert, StateName, State) ->
 
 handle_fatal_alert(Alert0, StateName,
                    #state{static_env = #static_env{role = Role,
-                                                   socket = Socket,
                                                    host = Host,
                                                    port = Port,
-                                                   trackers = Trackers,
-                                                   transport_cb = Transport,
                                                    protocol_cb = Connection},
-                          connection_env  = #connection_env{user_application = {_Mon, Pid}},
                           ssl_options = #{log_level := LogLevel},
-                          recv = #recv{from = From},
-                          session = Session,
-                          socket_options = Opts} = State) ->
+                          session = Session} = State) ->
     invalidate_session(Role, Host, Port, Session),
     Alert = Alert0#alert{role = opposite_role(Role)},
     log_alert(LogLevel, Role, Connection:protocol_name(),
               StateName, Alert),
-    Pids = Connection:pids(State),
-    alert_user(Pids, Transport, Trackers, Socket, StateName, Opts, Pid, From, Alert, Role, StateName, Connection),
+    handle_normal_shutdown(Alert, StateName, State),
     {stop, {shutdown, normal}, State}.
 
 handle_trusted_certs_db(#state{ssl_options =#{cacerts := []} = Opts})
@@ -1308,6 +1297,7 @@ format_status(terminate, [_, StateName, State]) ->
 					       session =  ?SECRET_PRINTOUT,
 					       ssl_options = NewOptions}
 		       }}]}].
+
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
@@ -1575,7 +1565,7 @@ read_application_data_bin(State, Front0, BufferSize0, Rear0, SocketOpts0, RecvFr
             %% We do not have a packet in the buffer - wait for more
             {no_record, State#state{socket_options = SocketOpts0,
                                     recv = State#state.recv#recv{from = RecvFrom,
-                                                                bytes_to_read = BytesToRead},
+                                                                 bytes_to_read = BytesToRead},
                                     user_data_buffer = {[Bin0|Front0],BufferSize0,Rear0}}};
         passive ->
             {no_record, State#state{socket_options = SocketOpts0,
@@ -1838,10 +1828,10 @@ deliver_app_data(CPids, Transport, Socket,
     end.
 
 format_reply(_, _, _,#socket_options{active = false, mode = Mode, packet = Packet,
-				  header = Header}, Data, _, _) ->
+                                     header = Header}, Data, _, _) ->
     {ok, do_format_reply(Mode, Packet, Header, Data)};
 format_reply(CPids, Transport, Socket, #socket_options{active = _, mode = Mode, packet = Packet,
-						header = Header}, Data, Trackers, Connection) ->
+                                                       header = Header}, Data, Trackers, Connection) ->
     {ssl, Connection:socket(CPids, Transport, Socket, Trackers),
      do_format_reply(Mode, Packet, Header, Data)}.
 
@@ -1982,57 +1972,48 @@ connection_info(#state{handshake_env = #handshake_env{sni_hostname = SNIHostname
 
 security_info(#state{connection_states = ConnectionStates,
                      static_env = #static_env{role = Role},
+                     connection_env = #connection_env{negotiated_version = Version},
                      ssl_options = Opts,
                      protocol_specific = ProtocolSpecific}) ->
     ReadState = ssl_record:current_connection_state(ConnectionStates, read),
     #{security_parameters :=
 	  #security_parameters{client_random = ClientRand,
                                server_random = ServerRand,
-                               master_secret = MasterSecret,
-                               application_traffic_secret = AppTrafSecretRead,
-                               client_early_data_secret = ServerEarlyData
-                              }} = ReadState,
-    BaseSecurityInfo = [{client_random, ClientRand}, {server_random, ServerRand}, {master_secret, MasterSecret}],
-
+                               master_secret = MasterSecret}} = ReadState,
+    SecInfo = [{client_random, ClientRand},
+               {server_random, ServerRand}, {master_secret, MasterSecret}],
     KeepSecrets = maps:get(keep_secrets, Opts, false),
-    if KeepSecrets =/= true ->
-            BaseSecurityInfo;
-       true ->
-            #{security_parameters :=
-                  #security_parameters{
-                     application_traffic_secret = AppTrafSecretWrite0,
-                     client_early_data_secret = ClientEarlyData}} =
-                ssl_record:current_connection_state(ConnectionStates, write),
-            Sender = maps:get(sender, ProtocolSpecific, undefined),
-            AppTrafSecretWrite = {Sender, AppTrafSecretWrite0},
-            if Role == server ->
-                    if ServerEarlyData =/= undefined ->
-                            [{server_traffic_secret_0, AppTrafSecretWrite},
-                             {client_traffic_secret_0, AppTrafSecretRead},
-                             {client_early_data_secret, ServerEarlyData}];
-                       true ->
-                            [{server_traffic_secret_0, AppTrafSecretWrite},
-                             {client_traffic_secret_0, AppTrafSecretRead}]
-                    end;
-               true ->
-                    if ClientEarlyData =/= undefined ->
-                            [{client_traffic_secret_0, AppTrafSecretWrite},
-                             {server_traffic_secret_0, AppTrafSecretRead},
-                             {client_early_data_secret, ClientEarlyData}];
-                       true ->
-                            [{client_traffic_secret_0, AppTrafSecretWrite},
-                             {server_traffic_secret_0, AppTrafSecretRead}]
-                    end
-            end ++
-                case ReadState of
-                    #{client_handshake_traffic_secret := ClientHSTrafficSecret,
-                      server_handshake_traffic_secret := ServerHSTrafficSecret} ->
-                        [{client_handshake_traffic_secret, ClientHSTrafficSecret},
-                         {server_handshake_traffic_secret, ServerHSTrafficSecret}];
-                   _ ->
-                        []
-                end ++ BaseSecurityInfo
+    case KeepSecrets of
+        false ->
+            %% Need to include {keep_secrets, false} for maybe_add_keylog
+            %% to be able to run in user process context
+            [{keep_secrets, false} | SecInfo];
+        _  -> %% true or keylog fun tuple
+            maybe_security_info_1_3(Version, ReadState, ProtocolSpecific, Role)
+                ++ SecInfo
     end.
+
+maybe_security_info_1_3(Version, #{security_parameters :=
+                             #security_parameters{application_traffic_secret = AppTrafSecretRead,
+                                                  client_early_data_secret = EarlyData
+                                                 }} = ReadState,
+              ProtocolSpecific, Role) when ?TLS_GTE(Version, ?TLS_1_3)->
+    N = maps:get(num_key_updates, ProtocolSpecific, 0),
+    Sender = maps:get(sender, ProtocolSpecific, undefined),
+    case Role of
+        server ->
+            tls_handshake_1_3:early_data_secret(EarlyData) ++
+                tls_handshake_1_3:hs_traffic_secrets(ReadState) ++
+                [{client_traffic_secret, AppTrafSecretRead, N},
+                 {Role, Sender}];
+        client ->
+            tls_handshake_1_3:early_data_secret(EarlyData) ++
+                tls_handshake_1_3:hs_traffic_secrets(ReadState) ++
+                [{server_traffic_secret, AppTrafSecretRead, N},
+                 {Role, Sender}]
+    end;
+maybe_security_info_1_3(_,_,_,_) ->
+    [].
 
 record_cb(tls) ->
     tls_record;
@@ -2151,8 +2132,8 @@ set_socket_opts(ConnectionCb, Transport, Socket, [{header, Header}| Opts], SockO
 set_socket_opts(_, _, _, [{header, _} = Opt| _], SockOpts, _) ->
     {{error,{options, {socket_options, Opt}}}, SockOpts};
 set_socket_opts(ConnectionCb, Transport,Socket, [{packet_size, Size}| Opts], SockOpts, Other) when is_integer(Size) -> 
-      set_socket_opts(ConnectionCb, Transport, Socket, Opts,
-                      SockOpts#socket_options{packet_size = Size}, Other);
+    set_socket_opts(ConnectionCb, Transport, Socket, Opts,
+                    SockOpts#socket_options{packet_size = Size}, Other);
 set_socket_opts(_,_, _, [{packet_size, _} = Opt| _], SockOpts, _) ->
     {{error, {options, {socket_options, Opt}} }, SockOpts};
 set_socket_opts(ConnectionCb, Transport, Socket, [Opt | Opts], SockOpts, Other) ->
@@ -2161,8 +2142,6 @@ set_socket_opts(ConnectionCb, Transport, Socket, [Opt | Opts], SockOpts, Other) 
 ssl_options_list(SslOptions) ->
     L = maps:to_list(SslOptions),
     ssl_options_list(L, []).
-
-
 
 ssl_options_list([], Acc) ->
     lists:reverse(Acc);
@@ -2177,90 +2156,138 @@ ssl_options_list([{max_fragment_length, _}|T], Acc) ->
     %% skip max_fragment_length from options since it is taken above from connection_states
     ssl_options_list(T, Acc);
 ssl_options_list([{ciphers = Key, Value}|T], Acc) ->
-   ssl_options_list(T,
-		    [{Key, lists:map(
-			     fun(Suite) ->
-				     ssl_cipher_format:suite_bin_to_map(Suite)
-			     end, Value)}
+    ssl_options_list(T,
+                     [{Key, lists:map(
+                              fun(Suite) ->
+                                      ssl_cipher_format:suite_bin_to_map(Suite)
+                              end, Value)}
 		     | Acc]);
 ssl_options_list([{Key, Value}|T], Acc) ->
-   ssl_options_list(T, [{Key, Value} | Acc]).
+    ssl_options_list(T, [{Key, Value} | Acc]).
+
+keylog_1_3(Info) ->
+    {client_random, ClientRandomBin} = lists:keyfind(client_random, 1, Info),
+    {selected_cipher_suite, #{prf := Prf}} = lists:keyfind(selected_cipher_suite, 1, Info),
+    {Role, Sender} = case lists:keyfind(server, 1, Info) of
+                         false ->
+                             lists:keyfind(client, 1, Info);
+                         Result ->
+                             Result
+                     end,
+    keylog_1_3(ClientRandomBin, Prf, Role, Sender, Info).
+
+keylog_1_3(ClientRandom, Prf, Role, Sender, Info) ->
+    {ok, SecretWrite, NWrite} = call(Sender, get_application_traffic_secret),
+    EarlySecret = proplists:get_value(client_early_data_secret, Info, undefined),
+    case Role of
+        client ->
+            {server_traffic_secret, SecretRead, NRead} = lists:keyfind(server_traffic_secret, 1, Info),
+            hs_logs(NRead, ClientRandom, Prf, EarlySecret, Info) ++
+                ssl_logger:keylog_traffic_1_3(Role, ClientRandom, Prf, SecretRead, NRead) ++
+                ssl_logger:keylog_traffic_1_3(server, ClientRandom, Prf, SecretWrite, NWrite);
+        server ->
+            {client_traffic_secret, SecretRead, NRead} = lists:keyfind(client_traffic_secret, 1, Info),
+            hs_logs(NRead, ClientRandom, Prf, EarlySecret, Info) ++
+                ssl_logger:keylog_traffic_1_3(client, ClientRandom, Prf, SecretWrite, NWrite) ++
+                ssl_logger:keylog_traffic_1_3(Role, ClientRandom, Prf, SecretRead, NRead)
+    end.
+
+hs_logs(0, ClientRandom, Prf, EarlySecret, Info) ->
+    {client_handshake_traffic_secret, ClientHSecret} =
+        lists:keyfind(client_handshake_traffic_secret, 1, Info),
+    {server_handshake_traffic_secret, ServerHSecret} =
+        lists:keyfind(server_handshake_traffic_secret, 1, Info),
+    HSItems = ssl_logger:keylog_hs(ClientRandom, Prf, ClientHSecret, ServerHSecret),
+    case EarlySecret of
+        undefined ->
+            HSItems;
+        _  ->
+            [ssl_logger:keylog_early_data(ClientRandom, Prf, EarlySecret) | HSItems]
+    end;
+hs_logs(_,_,_,_, _) ->
+    [].
+
+keylog_pre_1_3(Info) ->
+    {client_random, ClientRandom} = lists:keyfind(client_random, 1, Info),
+    {master_secret, MasterSecret} = lists:keyfind(master_secret, 1, Info),
+    ssl_logger:keylog_traffic_pre_1_3(ClientRandom, MasterSecret).
 
 %% Maybe add NSS keylog info according to
 %% https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/Key_Log_Format
 maybe_add_keylog(Info) ->
-    maybe_add_keylog(lists:keyfind(protocol, 1, Info), Info).
-
-maybe_add_keylog({_, 'tlsv1.3'}, Info) ->
-    try
-        {client_random, ClientRandomBin} = lists:keyfind(client_random, 1, Info),
-        %% after traffic key update current traffic secret
-        %% is stored in tls_sender process state
-        MaybeUpdateTrafficSecret =
-            fun({Direction, {Sender, TrafficSecret0}}) ->
-                    TrafficSecret =
-                        case call(Sender, get_application_traffic_secret) of
-                            {ok, SenderAppTrafSecretWrite} ->
-                                SenderAppTrafSecretWrite;
-                            _ ->
-                                TrafficSecret0
-                        end,
-                    {Direction, TrafficSecret};
-               (TrafficSecret0) ->
-                    TrafficSecret0
-            end,
-        {client_traffic_secret_0, ClientTrafficSecret0Bin} =
-            MaybeUpdateTrafficSecret(lists:keyfind(client_traffic_secret_0, 1, Info)),
-        {server_traffic_secret_0, ServerTrafficSecret0Bin} =
-            MaybeUpdateTrafficSecret(lists:keyfind(server_traffic_secret_0, 1, Info)),
-        {client_handshake_traffic_secret, ClientHSecretBin} = lists:keyfind(client_handshake_traffic_secret, 1, Info),
-        {server_handshake_traffic_secret, ServerHSecretBin} = lists:keyfind(server_handshake_traffic_secret, 1, Info),
-        {selected_cipher_suite, #{prf := Prf}} = lists:keyfind(selected_cipher_suite, 1, Info),
-        ClientRandom = binary:decode_unsigned(ClientRandomBin),
-        ClientTrafficSecret0 = keylog_secret(ClientTrafficSecret0Bin, Prf),
-        ServerTrafficSecret0 = keylog_secret(ServerTrafficSecret0Bin, Prf),
-        ClientHSecret = keylog_secret(ClientHSecretBin, Prf),
-        ServerHSecret = keylog_secret(ServerHSecretBin, Prf),
-        Keylog0 = [io_lib:format("CLIENT_HANDSHAKE_TRAFFIC_SECRET ~64.16.0B ", [ClientRandom]) ++ ClientHSecret,
-                   io_lib:format("SERVER_HANDSHAKE_TRAFFIC_SECRET ~64.16.0B ", [ClientRandom]) ++ ServerHSecret,
-                   io_lib:format("CLIENT_TRAFFIC_SECRET_0 ~64.16.0B ", [ClientRandom]) ++ ClientTrafficSecret0,
-                   io_lib:format("SERVER_TRAFFIC_SECRET_0 ~64.16.0B ", [ClientRandom]) ++ ServerTrafficSecret0],
-        Keylog = case lists:keyfind(client_early_data_secret, 1, Info) of
-                     {client_early_data_secret, EarlySecret} ->
-                         ClientEarlySecret = keylog_secret(EarlySecret, Prf),
-                         [io_lib:format("CLIENT_EARLY_TRAFFIC_SECRET ~64.16.0B ", [ClientRandom]) ++ ClientEarlySecret
-                          | Keylog0];
-                     _ ->
-                         Keylog0
-                 end,
-        Info ++ [{keylog,Keylog}]
-    catch
-        _Cxx:_Exx ->
+    case lists:keyfind(keep_secrets, 1, Info) of
+        {keep_secrets, true} ->
+            case lists:keyfind(protocol, 1, Info) of
+                {protocol, 'tlsv1.3'} ->
+                    Info ++ [{keylog, keylog_1_3(Info)}];
+                {protocol, _} ->
+                    Info ++ [{keylog, keylog_pre_1_3(Info)}]
+            end;
+        {keep_secrets, false} ->
             Info
+    end.
+
+maybe_keylog_hs_callback(#alert{level = ?FATAL}, StateName,
+                         #state{ssl_options = #{keep_secrets := {keylog_hs, Fun}}}
+                         = State) when is_function(Fun)  ->
+    case keylog_hs_alert(StateName, State) of
+        {[], _} ->
+            ok;
+        {KeyLog, Random} ->
+            ssl_logger:keylog(KeyLog, Random, Fun)
     end;
-maybe_add_keylog({_, _}, Info) ->
-    try
-        {client_random, ClientRandomBin} = lists:keyfind(client_random, 1, Info),
-        {master_secret, MasterSecretBin} = lists:keyfind(master_secret, 1, Info),
-        ClientRandom = binary:decode_unsigned(ClientRandomBin),
-        MasterSecret = binary:decode_unsigned(MasterSecretBin),
-        Keylog = [io_lib:format("CLIENT_RANDOM ~64.16.0B ~96.16.0B", [ClientRandom, MasterSecret])],
-        Info ++ [{keylog,Keylog}]
-    catch
-        _Cxx:_Exx ->
-            Info
+maybe_keylog_hs_callback(_, _, _) ->
+    ok.
+ 
+keylog_hs_alert(start, _) -> %% TLS 1.3: No secrets yet established
+    [];
+keylog_hs_alert(wait_sh, _) -> %% TLS 1.3: No secrets yet established
+    [];
+%% Server alert for certificate validation can happen when client is in connection state already.
+keylog_hs_alert(connection,  #state{static_env = #static_env{role = client},
+                                    connection_env =
+                                        #connection_env{negotiated_version = TlsVersion},
+                                    connection_states = ConnectionStates,
+                                    protocol_specific = #{sender := Sender} = PS})
+  when ?TLS_GTE(TlsVersion, ?TLS_1_3) ->
+    CSRead =  #{security_parameters :=
+                    #security_parameters{application_traffic_secret = SecretRead,
+                                         client_random = ClientRandom,
+                                         prf_algorithm = Prf}}
+        = ssl_record:current_connection_state(ConnectionStates, read),
+    NRead = maps:get(num_key_updates, PS, 0),
+    {ok, SecretWrite, NWrite} = call(Sender, get_application_traffic_secret),
+    {keylog_hs_1_3(CSRead) ++
+        ssl_logger:keylog_traffic_1_3(client, ClientRandom, Prf, SecretWrite, NWrite) ++
+        ssl_logger:keylog_traffic_1_3(server, ClientRandom, Prf, SecretRead, NRead), ClientRandom};
+keylog_hs_alert(_, #state{connection_env =
+                              #connection_env{negotiated_version = TlsVersion},
+                          connection_states = ConnectionStates})
+  when ?TLS_GTE(TlsVersion, ?TLS_1_3) ->
+    CSRead = #{security_parameters :=
+                   #security_parameters{client_random = ClientRandom}}
+        = ssl_record:pending_connection_state(ConnectionStates, read),
+    {keylog_hs_1_3(CSRead), ClientRandom};
+keylog_hs_alert(_,_) -> % NOT Relevant pre TLS-1.3
+    {[], undefined}.
+
+keylog_hs_1_3(#{client_handshake_traffic_secret := ClientHSTrafficSecret,
+                server_handshake_traffic_secret := ServerHSTrafficSecret,
+                security_parameters := #security_parameters{client_random = ClientRandomBin,
+                                                            prf_algorithm = Prf,
+                                                            client_early_data_secret = EarlySecret}}) ->
+    HSItems =
+        ssl_logger:keylog_hs(ClientRandomBin, Prf, ClientHSTrafficSecret, ServerHSTrafficSecret),
+    case EarlySecret of
+        undefined ->
+            HSItems;
+        _  ->
+            [ssl_logger:keylog_early_data(ClientRandomBin, Prf, EarlySecret) | HSItems]
     end;
-maybe_add_keylog(_, Info) ->
-    Info.
+keylog_hs_1_3(_) ->
+    [].
 
-keylog_secret(SecretBin, sha256) ->
-    io_lib:format("~64.16.0B", [binary:decode_unsigned(SecretBin)]);
-keylog_secret(SecretBin, sha384) ->
-    io_lib:format("~96.16.0B", [binary:decode_unsigned(SecretBin)]);
-keylog_secret(SecretBin, sha512) ->
-    io_lib:format("~128.16.0B", [binary:decode_unsigned(SecretBin)]).
-
-
+ 
 %%%################################################################
 %%%#
 %%%# Tracing
