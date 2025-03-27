@@ -3268,8 +3268,10 @@ do_kernel_options(Config) ->
             Expected = [{buffer, BSz}, {recbuf, RBSz}],
             ?P("node ~p started - try get (udp) buffer options", [Node]),
             case rpc:call(Node, ?MODULE, do_kernel_options_remote, [Config]) of
-                {ok, Expected} ->
-                    ?P("options verified"),
+                {ok, [{buffer, BSz}, {recbuf, RBSzExp}]}
+                  when (RBSzExp >= RBSz) ->
+                    ?P("options verified: "
+                       "~n   RcvBuf: ~p (>= ~p)", [RBSzExp, RBSz]),
                     (catch ?STOP_NODE(Node)),
                     ok;
                 {ok, Actual} ->
