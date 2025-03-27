@@ -85,6 +85,7 @@ my @beam_global_funcs = qw(
     i_get_map_element_hash_shared
     i_length_guard_shared
     i_length_body_shared
+    i_line_breakpoint_trampoline_shared
     i_loop_rec_shared
     i_test_yield_shared
     i_bxor_body_shared
@@ -118,29 +119,31 @@ my @beam_global_funcs = qw(
     update_map_single_exact_body_shared
     );
 
+my @internal_labels = (
+    # Labels exported from within process_main
+    'context_switch',
+    'context_switch_simplified',
+    'do_schedule',
 
-# Labels exported from within process_main
-my @process_main_labels = qw(
-    context_switch
-    context_switch_simplified
-    do_schedule
+    # Labels exported from within i_line_breakpoint_trampoline_shared
+    'i_line_breakpoint_cleanup',
     );
 
 my $decl_enums =
-    gen_list('        %s,', @beam_global_funcs, '', @process_main_labels);
+    gen_list('        %s,', @beam_global_funcs, '', @internal_labels);
 
 my $decl_emit_funcs =
     gen_list('    void emit_%s(void);', @beam_global_funcs);
 
 my $decl_get_funcs =
     gen_list('    void (*get_%s(void))() { return get(%s); }',
-             @beam_global_funcs, '', @process_main_labels);
+             @beam_global_funcs, '', @internal_labels);
 
 my $decl_emitPtrs =
     gen_list('    {%s, &BeamGlobalAssembler::emit_%s},', @beam_global_funcs);
 
 my $decl_label_names =
-    gen_list('    {%s, "%s"},', @beam_global_funcs, '', @process_main_labels);
+    gen_list('    {%s, "%s"},', @beam_global_funcs, '', @internal_labels);
 
 sub gen_list {
     my ($format, @strings) = @_;
