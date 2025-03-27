@@ -321,11 +321,16 @@ end_per_testcase(_Func, _Config) ->
     testcase_cleanup().
 
 testcase_cleanup() ->
-    driver_SUITE:check_io_debug(),
     P1 = code:purge(nif_mod),
     Del = code:delete(nif_mod),
     P2 = code:purge(nif_mod),
-    io:format("fin purged=~p, deleted=~p and then purged=~p\n",[P1,Del,P2]).
+    io:format("fin purged=~p, deleted=~p and then purged=~p\n",[P1,Del,P2]),
+    try
+        ok = driver_SUITE:check_io_debug()
+    catch
+        E:R ->
+            {fail,{check_io_debug,E,R}}
+    end.
 
 %% Basic smoke test of load_nif and a simple NIF call
 basic(Config) when is_list(Config) ->
