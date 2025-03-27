@@ -22,6 +22,8 @@
 %% other validator tools, such as, ntia-conformance-checker.
 %%
 
+-include_lib("kernel/include/file.hrl").
+
 -define(default_classified_result, "scan-result-classified.json").
 -define(default_scan_result, "scan-result.json").
 -define(diff_classified_result, "scan-result-diff.json").
@@ -52,6 +54,7 @@
                        'copyrightText'    :: unicode:chardata(),
                        'filesAnalyzed'    = false :: boolean(),
                        'hasFiles'         = [] :: [unicode:chardata()],
+                       'purl'             = false :: false | unicode:chardata(),
                        'homepage'         :: unicode:chardata(),
                        'licenseConcluded' :: unicode:chardata(),
                        'licenseDeclared'  :: unicode:chardata(),
@@ -307,9 +310,7 @@ sbom_otp(#{sbom_file  := SbomFile, write_to_file := Write, input_file := Input})
         true ->
             file:write_file(SbomFile, json:format(Spdx));
             %% Should we not overwritte the given file?
-            %% Output = json:encode(Spdx),
-            %% file:write_file("otp.spdx.json", Output),
-            %% file:write_file("otp.spdx.json", unicode:characters_to_binary(json:format(json:decode(element(2, file:read_file("otp.spdx.json"))))));
+            %% file:write_file("otp.spdx.json", json:format(Spdx));
         false ->
             {ok, Spdx}
     end.
@@ -459,7 +460,7 @@ fix_project_package_version(OtpVersion, #{ ~"documentDescribes" := [RootProject]
     Spdx#{~"packages" := Packages1}.
 
 fix_project_purl(Purl, #{ ~"documentDescribes" := [RootProject],
-                                ~"packages" := Packages}=Spdx) ->
+                          ~"packages" := Packages}=Spdx) ->
     Packages1= [case maps:get(~"SPDXID", Package) of
                     RootProject ->
                         Package#{ ~"externalRefs" => [Purl]};
@@ -959,7 +960,10 @@ create_spdx_package(Pkg) ->
     PackageVerification = Pkg#spdx_package.'packageVerificationCode',
     PackageVerificationCodeValue = maps:get('packageVerificationCodeValue', PackageVerification),
     Supplier = Pkg#spdx_package.'supplier',
-    Purl = create_externalRef_purl(Pkg#spdx_package.'description', otp_purl(Name, VersionInfo)),
+    Purl1 = case Pkg#spdx_package.'purl' of
+               false -> [];
+               _ -> [Pkg#spdx_package.'purl']
+           end,
     #{ ~"SPDXID" => SPDXID,
        ~"versionInfo" => VersionInfo,
        ~"name" => Name,
@@ -971,7 +975,7 @@ create_spdx_package(Pkg) ->
        ~"licenseDeclared" => LicenseDeclared,
        ~"licenseInfoFromFiles" => LicenseInfo,
        ~"downloadLocation" => DownloadLocation,
-       ~"externalRefs" => [Purl],
+       ~"externalRefs" => Purl1,
        ~"packageVerificationCode" => #{~"packageVerificationCodeValue" => PackageVerificationCodeValue},
        ~"supplier" => Supplier
      }.
@@ -981,10 +985,14 @@ create_spdx_package(Pkg) ->
 create_package_relationships(Packages, Spdx) ->
     Relationships =
         lists:foldl(fun (Pkg, Acc) ->
-                            #{'PACKAGE_OF' := L} = Pkg#spdx_package.'relationships',
+                            {Key, Ls} = case Pkg#spdx_package.'relationships' of
+                                            #{'PACKAGE_OF' := L } -> {'PACKAGE_OF', L};
+                                            #{'TEST_OF' := L} -> {'TEST_OF', L};
+                                            #{'DOCUMENTATION_OF' := L} -> {'DOCUMENTATION_OF', L}
+                                        end,
                             lists:foldl(fun ({ElementId, RelatedElement}, Acc1) ->
-                                              [create_spdx_relation('PACKAGE_OF', ElementId, RelatedElement) | Acc1]
-                                      end, Acc, L)
+                                              [create_spdx_relation(Key, ElementId, RelatedElement) | Acc1]
+                                      end, Acc, Ls)
                     end, [], Packages),
     Spdx#{~"relationships" => Relationships}.
 
@@ -1190,7 +1198,7 @@ build_package_location(AppSrcPath) ->
                         % useful only for debugging.
                         % this script should have all dependencies and never end up here.
                         io:format("[Error] ~p~n", [{AppSrcPath, _E, AppName, App}]),
-                        #{}
+                        error(?FUNCTION_NAME)
                 end;
         [~"erts"=Erts | _] ->
             #{Erts => {Erts, #app_info{ description = ~"Erlang Runtime System",
@@ -1230,32 +1238,66 @@ generate_spdx_packages(PackageMappings, #{~"files" := Files,
                                           ~"documentDescribes" := [ProjectName]}=_Spdx) ->
     maps:fold(fun (PackageName, {PrefixPath, AppInfo}, Acc) ->
                       SpdxPackageFiles = group_files_by_app(Files, PrefixPath),
-                      SpdxPackageName = generate_spdxid_name(PackageName),
-                      VerificationCodeValue = generate_verification_code_value(SpdxPackageFiles),
-                      Package =
-                          #spdx_package {
-                             'SPDXID' = SpdxPackageName,
-                             'versionInfo' = AppInfo#app_info.vsn,
-                             'description' = AppInfo#app_info.description,
-                             'name' = PackageName,
-                             'copyrightText' = generate_copyright_text(SpdxPackageFiles),
-                             'filesAnalyzed' = true,
 
-                             %% O(n2) complexity... fix if necessary
-                             'hasFiles' = generate_has_files(SpdxPackageFiles),
+                      TestFiles = group_files_by_folder(SpdxPackageFiles, binary_to_list(PrefixPath)++"/test/**"),
 
-                             'homepage' = ?spdx_homepage,
-                             'licenseConcluded' = ?erlang_license,
-                             'licenseDeclared'  = otp_app_license_mapping(PackageName),
-                             'licenseInfoFromFiles' = generate_license_info_from_files(SpdxPackageFiles),
-                             'packageVerificationCode' = #{ 'packageVerificationCodeValue' => VerificationCodeValue},
+                      DocFiles = group_files_by_folder(SpdxPackageFiles, binary_to_list(PrefixPath)++"/doc/**"),
+                      OTPAppFiles = (SpdxPackageFiles -- TestFiles) -- DocFiles,
 
-                             %% TODO: write the documentation folder, and the BUILD of a Make
-                             %%       and the dependencies between apps.
-                             'relationships' = #{ 'PACKAGE_OF' => [{SpdxPackageName, ProjectName}]}
-                            },
-                      [Package | Acc]
+                      LicenseOTPApp = otp_app_license_mapping(PackageName),
+                      Package = create_spdx_package_record(PackageName, AppInfo#app_info.vsn,
+                                                           AppInfo#app_info.description,
+                                                           OTPAppFiles, ?spdx_homepage,
+                                                           LicenseOTPApp,LicenseOTPApp, true),
+                      DocPackage = create_spdx_package_record(<<PackageName/binary, "-documentation">>,
+                                                              AppInfo#app_info.vsn,
+                                                              <<"Documentation of ", PackageName/binary>>,
+                                                              DocFiles, ?spdx_homepage,
+                                                              LicenseOTPApp, LicenseOTPApp, false),
+                      TestPackage = create_spdx_package_record(<<PackageName/binary, "-test">>,
+                                                              AppInfo#app_info.vsn,
+                                                              <<"Tests of ", PackageName/binary>>,
+                                                              TestFiles, ?spdx_homepage,
+                                                              LicenseOTPApp, LicenseOTPApp, false),
+
+                      Relations = [ {'PACKAGE_OF', [{ Package#spdx_package.'SPDXID', ProjectName }]},
+                                    {'DOCUMENTATION_OF', [{ DocPackage#spdx_package.'SPDXID', Package#spdx_package.'SPDXID' }]},
+                                    {'TEST_OF', [{ TestPackage#spdx_package.'SPDXID', Package#spdx_package.'SPDXID' }]} ],
+
+                      Packages = lists:zipwith(fun (P, {K, R}) ->
+                                                       P#spdx_package { 'relationships' = #{ K => R} }
+                                               end, [Package, DocPackage, TestPackage], Relations),
+                      Packages ++ Acc
                end, [], PackageMappings).
+
+create_spdx_package_record(PackageName, Vsn, Description, SpdxPackageFiles,
+                           Homepage, LicenseConcluded, LicenseDeclared, Purl) ->
+    SpdxPackageName = generate_spdxid_name(PackageName),
+    VerificationCodeValue = generate_verification_code_value(SpdxPackageFiles),
+    Purl1 = case Purl of
+                false -> false;
+                true -> create_externalRef_purl(Description, otp_purl(PackageName, Vsn))
+            end,
+    #spdx_package {
+       'SPDXID' = SpdxPackageName,
+       'versionInfo' = Vsn,
+       'description' = Description,
+       'name' = PackageName,
+       'copyrightText' = generate_copyright_text(SpdxPackageFiles),
+       'filesAnalyzed' = true,
+
+       %% O(n2) complexity... fix if necessary
+       'hasFiles' = generate_has_files(SpdxPackageFiles),
+
+       'purl' = Purl1,
+       'homepage' = Homepage,
+       'licenseConcluded' = LicenseConcluded,
+       'licenseDeclared'  = LicenseDeclared,
+       'licenseInfoFromFiles' = generate_license_info_from_files(SpdxPackageFiles),
+       'packageVerificationCode' = #{ 'packageVerificationCodeValue' => VerificationCodeValue},
+       'relationships' = #{}
+      }.
+
 
 otp_app_license_mapping(Name) ->
     case Name of
@@ -1331,6 +1373,12 @@ group_files_by_app(Files, PrefixPath) ->
                          end
                  end, Files).
 
+group_files_by_folder(Files, Wildcard) ->
+    FilesInFolder = lists:map(fun unicode:characters_to_binary/1, filelib:wildcard(Wildcard)),
+    lists:filter(fun (#{~"fileName" := Filename}) ->
+                         lists:member(Filename, FilesInFolder)
+                 end, Files).
+
 test_file(#{sbom_file := SbomFile}) ->
     Sbom = decode(SbomFile),
     test_generator(Sbom).
@@ -1404,8 +1452,8 @@ test_minimum_apps(#{~"documentDescribes" := [ProjectName], ~"packages" := Packag
         true = [] == TestPackageNames -- SPDXIds
     catch
         _E:_S:_ ->
-            io:format("Minimum apps not captured.~n~p distinct from ~p~n", [TestPackageNames -- SPDXIds, SPDXIds -- TestPackageNames])
-            %% error(?FUNCTION_NAME)
+            io:format("Minimum apps not captured.~n~p distinct from ~p~n", [TestPackageNames -- SPDXIds, SPDXIds -- TestPackageNames]),
+            error(?FUNCTION_NAME)
     end,
     AppNamesVersion = lists:map(fun ({Name, Version}) -> {generate_spdxid_name(Name), Version} end, get_otp_apps_from_table()),
     true = lists:all(fun (#{~"SPDXID" := Id, ~"versionInfo" := Version}) ->
@@ -1588,7 +1636,8 @@ test_package_relations(#{~"packages" := Packages}=Spdx) ->
     true = lists:all(fun (#{~"relatedSpdxElement" := Related,
                             ~"relationshipType"   := Relation,
                             ~"spdxElementId" := PackageId}) ->
-                             lists:member(Relation, [~"PACKAGE_OF", ~"DEPENDS_ON", ~"OPTIONAL_DEPENDENCY_OF"]) andalso
+                             lists:member(Relation, [~"PACKAGE_OF", ~"DEPENDS_ON", ~"TEST_OF",
+                                                     ~"OPTIONAL_DEPENDENCY_OF", ~"DOCUMENTATION_OF"]) andalso
                                  lists:member(Related, PackageIds) andalso
                                  lists:member(PackageId, PackageIds) andalso
                                  PackageId =/= Related
