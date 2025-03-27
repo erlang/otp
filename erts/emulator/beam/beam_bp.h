@@ -187,6 +187,13 @@ void erts_clear_memory_break(BpFunctions *f);
 Eterm erts_make_bp_session_list(ErtsHeapFactory*, const ErtsCodeInfo*,
                                 Eterm tail);
 
+const Export *erts_line_breakpoint_hit__prepare_call(Process* c_p,
+                                                     ErtsCodePtr pc,
+                                                     Uint live,
+                                                     Eterm *regs,
+                                                     UWord *stk);
+Uint erts_line_breakpoint_hit__cleanup(Eterm *regs, UWord *stk);
+
 const ErtsCodeInfo *erts_find_local_func(const ErtsCodeMFA *mfa);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF

@@ -14860,6 +14860,8 @@ erts_internal_fun_description_from_pc(ErtsCodePtr x) {
         return "<continue terminate process>";
     } else if (x == beam_normal_exit) {
         return "<terminate process normally>";
+    } else if (x == beam_i_line_breakpoint_cleanup) {
+        return "<breakpoint>";
     } else if (x == 0) {
         return "invalid";
     }

@@ -93,10 +93,11 @@ executable_line I I
 
 debug_line a==am_entry u u u => _
 debug_line _Kind Loc Index Live | instrumenting_line_breakpoints() =>
-    i_debug_line Loc Index Live
+    i_debug_line Loc Index Live | i_line_breakpoint_trampoline
 debug_line _Kind _Loc _Index _Live => _
 
 i_debug_line I I t
+i_line_breakpoint_trampoline
 
 allocate t t
 allocate_heap t I t

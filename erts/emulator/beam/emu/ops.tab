@@ -44,6 +44,9 @@ i_generic_breakpoint
 i_debug_breakpoint
 i_call_trace_return
 i_return_to_trace
+i_disabled_line_breakpoint t
+i_enabled_line_breakpoint t
+i_line_breakpoint_cleanup
 i_yield
 trace_jump W
 %hot
@@ -99,7 +102,7 @@ executable_line _Id _Line => _
 
 debug_line a==am_entry u u u => _
 debug_line _Kind Loc _Index Live | instrumenting_line_breakpoints() =>
-    i_debug_line Loc Live
+    i_debug_line Loc Live | i_disabled_line_breakpoint Live
 debug_line _Kind _Loc _Index _Live => _
 
 i_debug_line I t
@@ -1612,4 +1615,3 @@ i_update_record_in_place t xy xy t s
 i_update_record_continue t s
 
 i_update_record_in_place_done
-

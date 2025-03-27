@@ -1492,6 +1492,70 @@ int erts_is_call_break(Process *p, ErtsTraceSession *session, int is_time,
     return 1;
 }
 
+const Export *
+erts_line_breakpoint_hit__prepare_call(Process* c_p, ErtsCodePtr pc, Uint live, Eterm *regs, UWord *stk) {
+    FunctionInfo fi;
+    const Export *ep;
+
+    ASSERT(live <= MAX_REG);
+
+    /*
+     * Search the error_handler module
+     */
+    ep = erts_find_function(am_erts_internal, am_breakpoint, 4,
+                            erts_active_code_ix());
+    if (ep == NULL) {
+        /* No error handler */
+        return NULL;
+    }
+
+    /*
+     * Find breakpoint location
+     */
+    erts_lookup_function_info(&fi, pc, 1);
+    if (!fi.mfa) {
+        return NULL;
+    }
+
+    if (ep->info.mfa.module == fi.mfa->module
+        && ep->info.mfa.function == fi.mfa->function
+        && ep->info.mfa.arity == fi.mfa->arity) {
+        /* Cycle breaker */
+        return NULL;
+    }
+
+    /*
+     * Save live regs on the stack
+     */
+    for(int i = 0; i < live; i++) {
+        *(stk++) = regs[i];
+    }
+
+    regs[0] = fi.mfa->module;
+    regs[1] = fi.mfa->function;
+    regs[2] = make_small(fi.mfa->arity);
+    regs[3] = make_small(LOC_LINE(fi.loc));
+
+    return ep;
+}
+
+Uint
+erts_line_breakpoint_hit__cleanup(Eterm *regs, UWord *stk) {
+    int i = 0;
+
+    /*
+     * Restore X-registers
+     */
+    while(is_not_CP(*stk)) {
+        regs[i++] = *(stk++);
+    }
+
+    /*
+     * Return number of registers restored
+     */
+    return i;
+}
+
 const ErtsCodeInfo *
 erts_find_local_func(const ErtsCodeMFA *mfa) {
     const BeamCodeHeader *code_hdr;

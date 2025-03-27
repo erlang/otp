@@ -119,6 +119,8 @@ ErtsCodePtr beam_exit;
 static BeamInstr beam_continue_exit_[1];
 ErtsCodePtr beam_continue_exit;
 
+static BeamInstr beam_i_line_breakpoint_cleanup_[1];
+ErtsCodePtr beam_i_line_breakpoint_cleanup;
 
 /* NOTE These should be the only variables containing trace instructions.
 **      Sometimes tests are for the instruction value, and sometimes
@@ -688,6 +690,9 @@ init_emulator_finish(void)
 
     beam_continue_exit_[0]     = BeamOpCodeAddr(op_continue_exit);
     beam_continue_exit = (ErtsCodePtr)&beam_continue_exit_[0];
+
+    beam_i_line_breakpoint_cleanup_[0] = BeamOpCodeAddr(op_i_line_breakpoint_cleanup);
+    beam_i_line_breakpoint_cleanup = (ErtsCodePtr)&beam_i_line_breakpoint_cleanup_[0];
 
     beam_return_to_trace_[0]   = BeamOpCodeAddr(op_i_return_to_trace);
     beam_return_to_trace = (ErtsCodePtr)&beam_return_to_trace_[0];

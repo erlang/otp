@@ -3339,4 +3339,19 @@ void BeamModuleAssembler::emit_i_debug_line(const ArgWord &Loc,
                                             const ArgWord &Index,
                                             const ArgWord &Live) {
     emit_validate(Live);
+
+    /*
+     * We store live in TMP1, which will be used in case the line-breakpoint
+     * is enabled in the trampoline that follows. Doing it here keeps the.
+     * trampoline logic simpler
+     */
+    ASSERT(Live.get() <= MAX_ARG);
+    a.mov(TMP1, imm(Live.get()));
+
+    /* The trampoline code for a line-breakpoint needs to be aligned to
+     * a word, so that changing the code at runtime to enable the breakpoint
+     * happens atomically. Notice this is emitted before the current offset
+     * is added to the line-table.
+     */
+    a.align(AlignMode::kCode, 8);
 }
