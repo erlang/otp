@@ -21,6 +21,16 @@ limitations under the License.
 
 This document describes the changes made to the STDLIB application.
 
+## STDLIB 6.2.2
+
+### Fixed Bugs and Malfunctions
+
+- Fixed crash when fetching `initial_call` when user code have modified the `process_dictionary`.
+
+  Own Id: OTP-19546 Aux Id: ERIERL-1205, [PR-9596]
+
+[PR-9596]: https://github.com/erlang/otp/pull/9596
+
 ## STDLIB 6.2.1
 
 ### Fixed Bugs and Malfunctions

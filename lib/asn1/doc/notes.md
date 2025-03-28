@@ -21,6 +21,28 @@ limitations under the License.
 
 This document describes the changes made to the asn1 application.
 
+## Asn1 5.3.3
+
+### Fixed Bugs and Malfunctions
+
+- The JER backend will now include the SIZE constraint in the type info for OCTET STRINGs, and a SIZE constraint with a range will now be included for BIT STRINGs. This does not change the actual encoding or decoding of JER, but can be useful for tools.
+
+  Own Id: OTP-19542 Aux Id: ERIERL-1204, [PR-9588]
+
+[PR-9588]: https://github.com/erlang/otp/pull/9588
+
+### Improvements and New Features
+
+- When using the JSON encoding rules, it is now possible to call the decode/2 function in the following way with data that has already been decoded by json:decode/1:
+  
+  ```
+  SomeModule:decode(Type, {json_decoded, Decoded}).
+  ```
+
+  Own Id: OTP-19547 Aux Id: ERIERL-1206, [PR-9611]
+
+[PR-9611]: https://github.com/erlang/otp/pull/9611
+
 ## Asn1 5.3.2
 
 ### Fixed Bugs and Malfunctions

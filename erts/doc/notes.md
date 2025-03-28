@@ -21,6 +21,25 @@ limitations under the License.
 
 This document describes the changes made to the ERTS application.
 
+## Erts 15.2.4
+
+### Fixed Bugs and Malfunctions
+
+- Behavior for socket:recv/3 has been improved. The behavior has also been clarified in the documentation.
+
+  Own Id: OTP-19469 Aux Id: [#9172]
+
+- Trace messages due to `receive` tracing could potentially be delayed a very long time if the traced process waited in a `receive` expression without clauses matching on messages (timed wait), or just did not enter a `receive` expression for a very long time.
+
+  Own Id: OTP-19527 Aux Id: [PR-9577]
+
+- Improve the naming of the (internal) esock mutex(es). It is now possible to configure (as in autoconf) the use of simple names for the esock mutex(es).
+
+  Own Id: OTP-19548 Aux Id: OTP-19472
+
+[#9172]: https://github.com/erlang/otp/issues/9172
+[PR-9577]: https://github.com/erlang/otp/pull/9577
+
 ## Erts 15.2.3
 
 ### Fixed Bugs and Malfunctions
