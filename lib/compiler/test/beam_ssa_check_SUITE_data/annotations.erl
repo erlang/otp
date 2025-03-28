@@ -26,7 +26,7 @@
 t0() ->
 %ssa% () when post_ssa_opt ->
 %ssa% _ = call(fun return_int/0) { result_type => {t_integer,{17,17}},
-%ssa%                              location => {_,32} },
+%ssa%                              location => {_,34} },
 %ssa% _ = call(fun return_tuple/0) {
 %ssa%    result_type => {t_tuple,2,true,#{1 => {t_integer,{1,1}},
 %ssa%                                     2 => {t_integer,{2,2}}}}
