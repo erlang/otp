@@ -146,6 +146,14 @@ is the version number of Mnesia.
 
   Own Id: OTP-18490 Aux Id: OTP-18471, GH-6339, PR-6843
 
+## Mnesia 4.21.4.4
+
+### Fixed Bugs and Malfunctions
+
+* Mnesia could fail to load a table, if one of the copy holders was moved during startup.
+
+  Own Id: OTP-19501 Aux Id: ERIERL-1195, PR-9499
+
 ## Mnesia 4.21.4.3
 
 ### Fixed Bugs and Malfunctions

@@ -1247,6 +1247,14 @@ This document describes the changes made to the Kernel application.
 
   Own Id: OTP-18575 Aux Id: PR-7169
 
+## Kernel 8.5.4.5
+
+### Fixed Bugs and Malfunctions
+
+* An infinite loop in CNAME loop detection that can cause Out Of Memory has been fixed. This affected CNAME lookup with the internal DNS resolver.
+
+  Own Id: OTP-19545 Aux Id: PR-9587, OTP-19544
+
 ## Kernel 8.5.4.4
 
 ### Fixed Bugs and Malfunctions
