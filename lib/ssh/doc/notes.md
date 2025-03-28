@@ -374,6 +374,17 @@ limitations under the License.
 
   Own Id: OTP-18490 Aux Id: OTP-18471, GH-6339, PR-6843
 
+## Ssh 4.15.3.11
+
+### Fixed Bugs and Malfunctions
+
+* Reception of malicious KEX init message does not result with ssh daemon excessive memory usage.
+
+  Own Id: OTP-19543 Aux Id: CVE-2025-30211
+* Call to ssh:daemon_replace_options does not crash when argument is not a valid daemon ref.
+
+  Own Id: OTP-19559 Aux Id: GH-9554, PR-9545
+
 ## Ssh 4.15.3.10
 
 ### Fixed Bugs and Malfunctions

@@ -1727,6 +1727,14 @@ This document describes the changes made to the ERTS application.
 
   Own Id: OTP-18574
 
+## Erts 13.2.2.15
+
+### Fixed Bugs and Malfunctions
+
+* Trace messages due to `receive` tracing could potentially be delayed a very long time if the traced process waited in a `receive` expression without clauses matching on messages (timed wait), or just did not enter a `receive` expression for a very long time.
+
+  Own Id: OTP-19527 Aux Id: PR-9577
+
 ## Erts 13.2.2.14
 
 ### Fixed Bugs and Malfunctions
