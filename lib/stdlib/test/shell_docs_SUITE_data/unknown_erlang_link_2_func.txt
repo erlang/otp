@@ -1,0 +1,44 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
+
+[;1m  link(PidOrPort, OptList)[0m
+
+[;;4mSince[0m:
+  OTP @OTP-19198@
+
+  Provides an option list for modification of the link functionality
+  provided by [;;4mlink/1[0m. The [;;4mPidOrPort[0m argument has the same
+  meaning as when passed to [;;4mlink/1[0m.
+
+  Currently available options:
+
+   • [;;4mpriority[0m - Since OTP @OTP-19198@
+
+     Enables priority message reception of [;;4mEXIT[0m messages due to
+     the link for the calling process. If the link already exists
+     without priority message reception enabled for the link,
+     priority message reception will be enabled on the existing
+     link. If the link already exists with priority message
+     reception enabled and this option is not passed or [;;4mlink/1[0m
+     is called, priority message reception for this link will be
+     disabled.
+
+     Note that priority message reception due to the link is 
+     only enabled for the process that passed this option. If
+     the linked process also wants to enable priority message
+     reception, it needs to call [;;4mlink/2[0m passing the [;;4mpriority[0m
+     option itself.
+
+  [;;4mWarning[0m
+
+       You very seldom need to resort to using priority
+       messages and you may cause issues instead of solving
+       issues if not used with care.
+
+     For more information see the Adding Messages to the Message
+     Queue section of the Erlang Reference Manual.

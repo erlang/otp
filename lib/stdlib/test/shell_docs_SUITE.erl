@@ -112,10 +112,11 @@ render(Config) ->
       fun(Module) ->
               maps:map(
                 fun(FName, Current) ->
-                        case file:read_file(filename:join(DataDir,FName)) of
+                        case read_file(filename:join(DataDir,FName)) of
                             {ok, Original} when Original =:= Current ->
                                 ok;
                             {ok, Original} ->
+                                ct:log("Filename: ~ts",[FName]),
                                 ct:log("Original: ~n~ts",[Original]),
                                 ct:log("Current : ~n~ts",[Current]),
                                 ct:fail(output_changed);
@@ -127,6 +128,19 @@ render(Config) ->
                         end
                 end, render_module(Module, DataDir))
       end, ?RENDER_MODULES).
+
+read_file(Filename) ->
+    case file:read_file(Filename) of
+        {ok, B} ->
+            strip_comment(B);
+        Else -> Else
+    end.
+
+strip_comment(Data) ->
+    case re:replace(Data, "^%.*\n", "", [{return, binary}]) of
+        Data -> {ok, Data};
+        NewData -> strip_comment(NewData)
+    end.
 
 update_render() ->
     update_render(
@@ -163,15 +177,31 @@ update_render(DataDir) ->
 
                       ok = file:write_file(
                              filename:join(DataDir, atom_to_list(Module) ++ ".docs_v1"),
-                             io_lib:format("~w.",[Docs#docs_v1{ docs = NewEntries }]));
+                             io_lib:format("~ts\n~w.",[header(), Docs#docs_v1{ docs = NewEntries }]));
                   {error, _} ->
                       ok
               end,
               maps:map(
                 fun(FName, Output) ->
-                        ok = file:write_file(filename:join(DataDir, FName), Output)
+                        ok = file:write_file(filename:join(DataDir, FName),
+                                            [header(), Output])
                 end, render_module(Module, DataDir))
       end, ?RENDER_MODULES).
+
+header() ->
+    {{YY, _, _}, _} = erlang:localtime(),
+
+    Format = """
+        %% %CopyrightBegin%
+        %%
+        %% SPDX-License-Identifier: Apache-2.0
+        %%
+        %% Copyright Ericsson AB 2021-~p. All Rights Reserved.
+        %%
+        %% %CopyrightEnd%
+        
+        """,
+    io_lib:format(Format, [YY]).
 
 find_path(Module) ->
     maybe

@@ -1,3 +1,10 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
 [;1m  from_term(Term, Type)[0m
 
@@ -15,7 +22,7 @@
        sofs:to_external(S).
     [{{"foo"},[1]},{"foo",[2]}]
 
-  [;;4mfrom_term[0m can be used for creating atomic or ordered sets. The
+  [;;4mfrom_term/1[0m can be used for creating atomic or ordered sets. The
   only purpose of such a set is that of later building unordered
   sets, as all functions in this module that do anything operate
   on unordered sets. Creating unordered sets from a collection of
@@ -24,12 +31,12 @@
   unordered set. The following example shows that a set can be built
   "layer by layer":
 
-    1> A = sofs:from_term(a),
-    S = sofs:set([1,2,3]),
-    P1 = sofs:from_sets({A,S}),
-    P2 = sofs:from_term({b,[6,5,4]}),
-    Ss = sofs:from_sets([P1,P2]),
-    sofs:to_external(Ss).
+    1> A = sofs:from_term(a).
+    2> S = sofs:set([1,2,3]).
+    3> P1 = sofs:from_sets({A,S}).
+    4> P2 = sofs:from_term({b,[6,5,4]}).
+    5> Ss = sofs:from_sets([P1,P2]).
+    6> sofs:to_external(Ss).
     [{a,[1,2,3]},{b,[4,5,6]}]
 
   Other functions that create sets are [;;4mfrom_external/2[0m and [;;4m[0m

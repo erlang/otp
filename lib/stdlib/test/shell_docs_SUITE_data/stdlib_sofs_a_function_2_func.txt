@@ -1,3 +1,10 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
 [;1m  a_function(Tuples, Type)[0m
 
@@ -5,3 +12,11 @@
 
   [;;4ma_function(F, T)[0m is equivalent to [;;4mfrom_term(F, T)[0m if the result
   is a function.
+
+[;1mExamples[0m
+
+    1> sofs:is_a_function(sofs:a_function([{1,a},{2,b},{3,c}])).
+    true
+    2> sofs:a_function([{1,a},{1,b}]).
+    ** exception error: bad_function
+         in function  sofs:a_function/1

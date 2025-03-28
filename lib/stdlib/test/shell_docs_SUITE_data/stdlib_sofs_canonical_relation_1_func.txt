@@ -1,3 +1,10 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
 [;1m  canonical_relation(SetOfSets)[0m
 
@@ -9,7 +16,9 @@
   is the canonical map from X onto the equivalence classes with
   respect to R.
 
-    1> Ss = sofs:from_term([[a,b],[b,c]]),
-    CR = sofs:canonical_relation(Ss),
-    sofs:to_external(CR).
+[;1mExamples[0m
+
+    1> Ss = sofs:from_term([[a,b],[b,c]]).
+    2> CR = sofs:canonical_relation(Ss).
+    3> sofs:to_external(CR).
     [{a,[a,b]},{b,[a,b]},{b,[b,c]},{c,[b,c]}]
