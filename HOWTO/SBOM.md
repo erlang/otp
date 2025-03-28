@@ -205,3 +205,27 @@ in its own package.
 
 Delete the code and any remaining `vendor.info` files. 
 Re-run the source SBOM generation steps ([Erlang/OTP source SBOM]). 
+
+## Delete SPDX Package Dependencies
+
+Given an Erlang SPDX souce SBOM from `otp-compliance.es`, one can remove non-needed packages from it, together with its dependencies via `otp-compliance.es`.
+
+```
+.github/scripts/otp-compliance.es sbom remove-packages --sbom-file otp.spdx.json --input_file removed.json
+```
+
+
+### Example 1
+Assume,
+- the Erlang source SBOM was downloaded and is named `otp.spdx.json`.
+- the following package should be removed `SPDXRef-otp-erts-documentation` from the source SBOM.
+
+This implies removing the package, its dependencies, and all the files associated with this package in the SBOM.
+
+To facilitate this task, one should write a list of dependencies to be removed in a JSON file, named (e.g.) `removed.json`, which contains `["SPDXRef-otp-erts-documentation"]`.
+After this, run the following command to remove this package and its dependencies.
+
+```
+.github/scripts/otp-compliance.es sbom remove-packages --sbom-file otp.spdx.json --input_file removed.json
+```
+

@@ -155,7 +155,13 @@ cli() ->
                           "test-file" =>
                               #{ help => "Run unit tests",
                                  arguments => [ sbom_option() ],
-                                 handler => fun test_file/1}
+                                 handler => fun test_file/1},
+
+                          "remove-packages" =>
+                              #{ help => "Remove the lists of given packages in JSON format",
+                                 arguments => [ sbom_option(),
+                                                input_option("removed.json")],
+                                 handler => fun sbom_package_removal/1}
                          }},
              "explore" =>
                  #{  help => """
@@ -1378,6 +1384,80 @@ group_files_by_folder(Files, Wildcard) ->
                          lists:member(Filename, FilesInFolder)
                  end, Files).
 
+%%
+%% Tool
+%%
+
+
+sbom_package_removal(#{input_file := File, sbom_file := SbomFile}) ->
+    Dependencies = decode(File),
+    Spdx = decode(SbomFile),
+
+    Spdx1 = remove_dependencies(Spdx, Dependencies),
+    file:write_file(SbomFile, json:format(Spdx1)).
+
+remove_dependencies(#{~"packages" := Packages,
+                      ~"documentDescribes" := [ ProjectName ],
+                      ~"files" := Files,
+                      ~"relationships" := Relations}=Spdx, Dependencies) ->
+
+    %% assert that the package to remove is not root
+    false = lists:member(ProjectName, Dependencies),
+
+    %%
+    %% Filter relationships
+    %%
+    %% lists of packages to be removed
+    Relations1 = fixpoint_package_removal(Relations, Dependencies),
+
+    Relationships = lists:filter(fun (#{~"relatedSpdxElement" := Id, ~"spdxElementId" := ElemId }) ->
+                                         not (lists:member(Id, Relations1) orelse lists:member(ElemId, Relations1))
+                                 end, Relations),
+
+    {Packages1, RemoveFiles} = lists:foldl(fun(#{~"SPDXID" := Id, ~"hasFiles" := PkgFiles}=Pkg, {Stay, Leave}) ->
+                                                   case lists:member(Id, Relations1) of
+                                                       true ->
+                                                           {Stay, PkgFiles ++ Leave};
+                                                       false ->
+                                                           {[Pkg | Stay], Leave}
+                                                   end
+                                           end, {[], []}, Packages),
+    Files1 = lists:filter(fun(#{~"SPDXID" := Id}) -> not lists:member(Id, RemoveFiles) end, Files),
+    Spdx#{~"packages" := Packages1, ~"relationships" := Relationships, ~"files" := Files1}.
+
+
+fixpoint_package_removal(Relations, PackagesToRemove) ->
+    PackagesToRemove1 =
+        lists:uniq(lists:foldl(fun (RelationElem, ToRemovedAcc) ->
+                                       PkgToBeRemoved = relation_analysis(RelationElem, PackagesToRemove),
+                                       case PkgToBeRemoved of
+                                           false ->
+                                               ToRemovedAcc;
+                                           _ ->
+                                               [PkgToBeRemoved | ToRemovedAcc]
+                                       end
+                               end, PackagesToRemove, Relations)),
+    case lists:sort(PackagesToRemove1) == lists:sort(PackagesToRemove) of
+        true ->
+            PackagesToRemove1;
+        false ->
+            fixpoint_package_removal(Relations, PackagesToRemove1)
+    end.
+
+relation_analysis(#{~"spdxElementId" := ElementId,
+                    ~"relatedSpdxElement" := RelatedElement}, PackagesToRemove) ->
+    case lists:member(RelatedElement, PackagesToRemove) of
+        true ->
+            ElementId;
+        false ->
+            false
+    end.
+
+
+%%
+%% Tests
+%%
+
 test_file(#{sbom_file := SbomFile}) ->
     Sbom = decode(SbomFile),
     test_generator(Sbom).
@@ -1416,7 +1496,7 @@ package_generator(Sbom) ->
     ok = test_package_relations(Sbom),
     ok = test_has_extracted_licenses(Sbom),
     ok = test_snippets(Sbom),
-    %% ok = test_doc_relation(Sbom),
+    ok = test_package_removal(Sbom),
     ok = test_vendor_packages(Sbom),
     ok.
 
@@ -1695,6 +1775,55 @@ test_snippets(#{~"snippets" := Snippets, ~"files" := Files}=_Spdx) ->
                      end, Snippets),
     ok.
 
+
+test_package_removal(Sbom) ->
+    test_remove_erlang_app(Sbom),
+    test_remove_erlang_doc(Sbom),
+    test_remove_erlang_test(Sbom),
+    test_remove_vendor(Sbom),
+    ok.
+
+test_remove_erlang_app(Sbom) ->
+    PackageToRemove = generate_spdxid_name(~"dialyzer"),
+    test_remove_package(Sbom, PackageToRemove),
+    ok.
+
+test_remove_erlang_doc(Sbom) ->
+    PackageToRemove = generate_spdxid_name(~"dialyzer-documentation"),
+    test_remove_package(Sbom, PackageToRemove),
+    ok.
+
+test_remove_erlang_test(Sbom) ->
+    PackageToRemove = generate_spdxid_name(~"dialyzer-test"),
+    test_remove_package(Sbom, PackageToRemove),
+    ok.
+
+test_remove_vendor(Sbom) ->
+    test_remove_package(Sbom, generate_spdxid_name(~"erts-asmjit")),
+    test_remove_package(Sbom, generate_spdxid_name(~"erts-zlib")),
+    test_remove_package(Sbom, generate_spdxid_name(~"erts-install-sh")),
+    ok.
+
+test_remove_package(Sbom, PackageToRemove) ->
+    #{~"packages" := Packages,
+      ~"relationships" := Relationships,
+      ~"files" := SpdxFiles} = remove_dependencies(Sbom, [PackageToRemove]),
+    PackageIds = lists:map(fun (#{~"SPDXID" := Id}) -> Id end, Packages),
+    RelatedIds = lists:map(fun (#{~"relatedSpdxElement" := Id}) -> Id end, Relationships),
+    ElementIds = lists:map(fun (#{~"spdxElementId" := Id}) -> Id end, Relationships),
+
+    %% test package was removed
+    false = lists:member(PackageToRemove, PackageIds),
+
+    %% test package not in related or spdx element id list.
+    false = lists:member(PackageToRemove, RelatedIds ++ ElementIds),
+
+    %% TODO test remove package with dependencies and check dependencies are gone.
+    [#{~"hasFiles" := FilesRemoved}] =
+        lists:filter(fun (#{~"SPDXID" := Id}) -> Id == PackageToRemove end, maps:get(~"packages", Sbom)),
+    FileIds = lists:map(fun (#{~"SPDXID" := Id}) -> Id end, SpdxFiles),
+    [] = lists:filter(fun (Id) -> lists:member(Id, FileIds) end, FilesRemoved),
+    ok.
 
 %% Adds LicenseRef licenses where the text is missing.
 extracted_license_info() ->
