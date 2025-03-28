@@ -147,6 +147,9 @@ update_render() ->
       filename:join([os:getenv("ERL_TOP"),
                      "lib", "stdlib", "test", "shell_docs_SUITE_data"])).
 update_render(DataDir) ->
+    os:cmd("git rm " ++ filename:join(DataDir, "*.txt"), #{ exception_on_failure => true }),
+    os:cmd("git rm " ++ filename:join(DataDir, "*.docs_v1"), #{ exception_on_failure => true }),
+    ok = filelib:ensure_path(DataDir),
     lists:foreach(
       fun(Module) ->
               case code:get_doc(Module) of
@@ -175,16 +178,19 @@ update_render(DataDir) ->
                                   Docs#docs_v1.docs
                           end,
 
-                      ok = file:write_file(
-                             filename:join(DataDir, atom_to_list(Module) ++ ".docs_v1"),
-                             io_lib:format("~ts\n~w.",[header(), Docs#docs_v1{ docs = NewEntries }]));
+                      Name = filename:join(DataDir, atom_to_list(Module) ++ ".docs_v1"),
+
+                      ok = file:write_file(Name,
+                             io_lib:format("~ts\n~w.",[header(), Docs#docs_v1{ docs = NewEntries }])),
+                      os:cmd("git add " ++ Name, #{ exception_on_failure => true });
                   {error, _} ->
                       ok
               end,
               maps:map(
                 fun(FName, Output) ->
-                        ok = file:write_file(filename:join(DataDir, FName),
-                                            [header(), Output])
+                        FullName = filename:join(DataDir, FName),
+                        ok = file:write_file(FullName, [header(), Output]),
+                        os:cmd("git add " ++ FullName, #{ exception_on_failure => true })
                 end, render_module(Module, DataDir))
       end, ?RENDER_MODULES).
 
