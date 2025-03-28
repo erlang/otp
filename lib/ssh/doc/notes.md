@@ -180,6 +180,17 @@ limitations under the License.
 [PR-7845]: https://github.com/erlang/otp/pull/7845
 [PR-8026]: https://github.com/erlang/otp/pull/8026
 
+## Ssh 5.1.4.7
+
+### Fixed Bugs and Malfunctions
+
+* Reception of malicious KEX init message does not result with ssh daemon excessive memory usage.
+
+  Own Id: OTP-19543 Aux Id: CVE-2025-30211
+* Call to ssh:daemon_replace_options does not crash when argument is not a valid daemon ref.
+
+  Own Id: OTP-19559 Aux Id: GH-9554, PR-9545
+
 ## Ssh 5.1.4.6
 
 ### Fixed Bugs and Malfunctions

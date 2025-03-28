@@ -77,6 +77,17 @@ is the version number of Mnesia.
 
 [PR-8026]: https://github.com/erlang/otp/pull/8026
 
+## Mnesia 4.23.1.2
+
+### Fixed Bugs and Malfunctions
+
+* With this change mnesia will merge schema of tables using external backends.
+
+  Own Id: OTP-19437 Aux Id: PR-9534
+* Mnesia could fail to load a table, if one of the copy holders was moved during startup.
+
+  Own Id: OTP-19501 Aux Id: ERIERL-1195, PR-9499
+
 ## Mnesia 4.23.1.1
 
 ### Fixed Bugs and Malfunctions

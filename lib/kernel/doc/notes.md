@@ -468,6 +468,17 @@ This document describes the changes made to the Kernel application.
 [#6724]: https://github.com/erlang/otp/issues/6724
 [PR-8396]: https://github.com/erlang/otp/pull/8396
 
+## Kernel 9.2.4.7
+
+### Fixed Bugs and Malfunctions
+
+* Behavior for socket:recv/3 has been improved. The behavior has also been clarified in the documentation.
+
+  Own Id: OTP-19469 Aux Id: #9172
+* An infinite loop in CNAME loop detection that can cause Out Of Memory has been fixed. This affected CNAME lookup with the internal DNS resolver.
+
+  Own Id: OTP-19545 Aux Id: PR-9587, OTP-19544
+
 ## Kernel 9.2.4.6
 
 ### Fixed Bugs and Malfunctions
