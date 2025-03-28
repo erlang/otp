@@ -683,10 +683,8 @@ endif
 # ---------------------------------------------------- 
 
 EXTRA = \
-	INSTALL \
 	Makefile \
 	Makefile.in \
-	README \
 	README.internal \
 	$(TARGET)/eidefs.mk
 

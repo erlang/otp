@@ -1,4 +1,10 @@
+%% %CopyrightBegin%
+%%
 %% SPDX-License-Identifier: MIT
+%%
+%% Copyright (c) 2010, Torbjörn Törnkvist
+%%
+%% %CopyrightEnd%
 {application, eldap,
  [{description, "Ldap api"},
   {vsn, "%VSN%"},

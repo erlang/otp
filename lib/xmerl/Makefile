@@ -1,8 +1,9 @@
-#<copyright>
-# <year>2003-2007</year>
-# <holder>Ericsson AB, All Rights Reserved</holder>
-#</copyright>
-#<legalnotice>
+# %CopyrightBegin%
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 2003-2007. All Rights Reserved.
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -15,8 +16,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# The Initial Developer of the Original Code is Ericsson AB.
-#</legalnotice>
+# %CopyrightEnd%
 #
 include $(ERL_TOP)/make/target.mk
 include $(ERL_TOP)/make/$(TARGET)/otp.mk

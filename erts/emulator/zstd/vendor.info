@@ -1,5 +1,10 @@
+%% %CopyrightBegin%
+%%
 %% SPDX-License-Identifier: Apache-2.0
-%% SPDX-FileCopyrightText: 2024 Erlang/OTP and its contributors
+%%
+%% Copyright Ericsson AB 2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 {
   "ID": "erts-zstd",
   "description": "zstd",

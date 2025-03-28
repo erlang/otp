@@ -1,3 +1,11 @@
+%%
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright (C) 1999-2001 Sven-Olof Nyström, Richard Carlsson
+%% Copyright Ericsson AB 2011-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -10,10 +18,10 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 %%
+%% %CopyrightEnd%
+%%
 %% =====================================================================
 %% General Balanced Trees - highly efficient dictionaries.
-%%
-%% Copyright (C) 1999-2001 Sven-Olof Nyström, Richard Carlsson
 %%
 %% An efficient implementation of Prof. Arne Andersson's General
 %% Balanced Trees. These have no storage overhead compared to plain

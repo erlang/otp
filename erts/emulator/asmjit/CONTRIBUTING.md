@@ -1,11 +1,6 @@
 <!--
-%CopyrightBegin%
-
-SPDX-FileCopyrightText: Copyright (c) 2024-2025 The AsmJit Authors
-
 SPDX-License-Identifier: Zlib
-
-%CopyrightEnd%
+Copyright (c) 2024-2025 The AsmJit Authors
 -->
 
 ## How to Contribute to AsmJit
