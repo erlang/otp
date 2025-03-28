@@ -520,6 +520,19 @@ records(Config) when is_list(Config) ->
     ok = file:write_file(Test, Contents),
     {ok, test} = compile:file(Test, [{outdir, BeamDir}]),
 
+    ErrorMod = """
+        -module(error_record_init).
+        -export([t/0]).
+        -record(r_error, {a=case 1 of X -> X=2 end}).
+        t() ->
+            #r_error{}.
+    """,
+    ErrorModFile = filename:join(proplists:get_value(priv_dir, Config), "error_record_init.erl"),
+    ok = file:write_file(ErrorModFile, ErrorMod),
+    {ok, error_record_init} = compile:file(ErrorModFile, [outdir, BeamDir]),
+    "** exception error: no match of right hand side value 2\n     in record default value (" ++ Rest1 = t("error_record_init:t()."),
+    true = (nomatch =/= string:find(Rest1, "error_record_init.erl:5).\n", trailing)),
+
     RR5 = "rr(\"" ++ Test ++ "\", '_', {d,test1}), rl([test1,test2]).",
     A1 = erl_anno:new(1),
     [{attribute,A1,record,{test1,_}},ok] = scan(RR5),
