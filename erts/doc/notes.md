@@ -674,6 +674,23 @@ This document describes the changes made to the ERTS application.
 [PR-7809]: https://github.com/erlang/otp/pull/7809
 [PR-7977]: https://github.com/erlang/otp/pull/7977
 
+## Erts 14.2.5.9
+
+### Fixed Bugs and Malfunctions
+
+* Behavior for socket:recv/3 has been improved. The behavior has also been clarified in the documentation.
+
+  Own Id: OTP-19469 Aux Id: #9172
+* Fix `prim_inet:send/3` (and in extension `gen_tcp:send/2,3`) to use the selective recive optimization when waiting for a send acknowledgement.
+
+  Own Id: OTP-19493 Aux Id: PR-9443
+* Trace messages due to `receive` tracing could potentially be delayed a very long time if the traced process waited in a `receive` expression without clauses matching on messages (timed wait), or just did not enter a `receive` expression for a very long time.
+
+  Own Id: OTP-19527 Aux Id: PR-9577
+* Improve the naming of the (internal) esock mutex(es). It is now possible to configure (as in autoconf) the use of simple names for the esock mutex(es).
+
+  Own Id: OTP-19548 Aux Id: OTP-19472
+
 ## Erts 14.2.5.8
 
 ### Fixed Bugs and Malfunctions

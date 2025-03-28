@@ -324,6 +324,14 @@ This document describes the changes made to the SSL application.
 [PR-8250]: https://github.com/erlang/otp/pull/8250
 [PR-8255]: https://github.com/erlang/otp/pull/8255
 
+## SSL 11.1.4.8
+
+### Fixed Bugs and Malfunctions
+
+* Correct handling of unassigned signature algorithms to properly ignore them instead of failing the handshake.
+
+  Own Id: OTP-19529 Aux Id: GH-9483, PR-9486
+
 ## SSL 11.1.4.7
 
 ### Fixed Bugs and Malfunctions
