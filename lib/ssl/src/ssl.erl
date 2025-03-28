@@ -661,7 +661,7 @@ Options common to both client and server side.
   > to be retrieved in a polling manner and are not correctly
   > formatted for key_updates.
 
-  Since OTP @OTP-19391@ you may instead of true provide a callback fun
+  Since OTP 27.3.1 you may instead of true provide a callback fun
   providing keylog information for either just failing handshakes or
   for entire connections, by setting `keep_secrets` option to
   {keylog_hs, fun()} or {keylog, fun()}.  The fun is of arity one and
