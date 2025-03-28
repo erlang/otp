@@ -67,8 +67,10 @@ MODULES = \
 	dist_util \
 	erl_boot_server \
 	erl_compile_server \
+	erl_debugger \
 	erl_ddll \
 	erl_distribution \
+	erl_debugger \
 	erl_erts_errors \
 	erl_epmd \
 	erl_kernel_errors \

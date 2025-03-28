@@ -59,6 +59,7 @@ ErtsCodePtr beam_continue_exit;
 ErtsCodePtr beam_save_calls_export;
 ErtsCodePtr beam_save_calls_fun;
 ErtsCodePtr beam_unloaded_fun;
+ErtsCodePtr beam_i_line_breakpoint_cleanup;
 
 /* NOTE These should be the only variables containing trace instructions.
 **      Sometimes tests are for the instruction value, and sometimes
@@ -391,6 +392,8 @@ void beamasm_init() {
 
     beam_unloaded_fun = (ErtsCodePtr)bga->get_unloaded_fun();
 
+    beam_i_line_breakpoint_cleanup = (ErtsCodePtr)bga->get_i_line_breakpoint_cleanup();
+
     beamasm_metadata_late_init();
 }
 
@@ -688,5 +691,9 @@ extern "C"
                                const byte *string_table) {
         BeamModuleAssembler *ba = static_cast<BeamModuleAssembler *>(instance);
         ba->patchStrings(rw_base, string_table);
+    }
+
+    enum erts_is_line_breakpoint beamasm_is_line_breakpoint_trampoline(ErtsCodePtr addr) {
+        return bga->is_line_breakpoint_trampoline(addr);
     }
 }
