@@ -705,19 +705,18 @@ Z = erlang:adler32_combine(X,Y,iolist_size(Data2)).
 adler32_combine(_FirstAdler, _SecondAdler, _SecondSize) ->
     erlang:nif_error(undefined).
 
-%% append_element/2
 -doc """
 Returns a new tuple that has one element more than `Tuple1`, and contains the
 elements in `Tuple1` followed by `Term` as the last element.
 
 Semantically equivalent to
-[`list_to_tuple(tuple_to_list(Tuple1) ++ [Term])`](`list_to_tuple/1`), but much
+[`list_to_tuple(tuple_to_list(Tuple1) ++ [Term])`](`list_to_tuple/1`), but
 faster.
 
-For example:
+## Examples
 
 ```erlang
-> erlang:append_element({one, two}, three).
+1> erlang:append_element({one, two}, three).
 {one,two,three}
 ```
 """.
@@ -729,7 +728,6 @@ For example:
 append_element(_Tuple1, _Term) ->
     erlang:nif_error(undefined).
 
-%% atom_to_binary/1
 -doc(#{ equiv => atom_to_binary(Atom, utf8) }).
 -doc(#{since => <<"OTP 23.0">>}).
 -doc #{ category => terms }.
@@ -743,13 +741,13 @@ atom_to_binary(Atom) ->
             error_with_info(Error, [Atom])
     end.
 
-%% atom_to_binary/2
 -doc """
 Returns a binary corresponding to the text representation of `Atom`.
 
-If `Encoding` is `latin1`, one byte exists for each character in the text
-representation. If `Encoding` is `utf8` or `unicode`, the characters are encoded
-using UTF-8 where characters may require multiple bytes.
+If `Encoding` is `latin1`, each character in the text representation
+is stored as a single byte.  If `Encoding` is `utf8` or `unicode`, the
+characters are encoded using UTF-8, where some characters may require
+multiple bytes.
 
 > #### Change {: .info }
 >
@@ -757,11 +755,18 @@ using UTF-8 where characters may require multiple bytes.
 > [`atom_to_binary(Atom, latin1)`](`atom_to_binary/2`) may fail if the text
 > representation for `Atom` contains a Unicode character > 255.
 
-Example:
+## Examples
 
 ```erlang
-> atom_to_binary('Erlang', latin1).
+1> atom_to_binary('Erlang', latin1).
 <<"Erlang">>
+2> atom_to_binary('π', unicode).
+<<207,128>>
+3> atom_to_binary('π', latin1).
+** exception error: bad argument
+     in function  atom_to_binary/2
+        called as atom_to_binary('π',latin1)
+        *** argument 1: contains a character not expressible in latin1
 ```
 """.
 -doc #{ category => terms }.
@@ -771,24 +776,23 @@ Example:
 atom_to_binary(_Atom, _Encoding) ->
     erlang:nif_error(undefined).
 
-%% atom_to_list/1
 -doc """
 Returns a list of unicode code points corresponding to the text representation
 of `Atom`.
 
-For example:
+See the `m:unicode` module for instructions on converting the resulting list into
+different formats.
+
+## Examples
 
 ```erlang
-> atom_to_list('Erlang').
+1> atom_to_list('Erlang').
 "Erlang"
-```
-
-```erlang
-> atom_to_list('你好').
+2> atom_to_list('π').
+[960]
+3> atom_to_list('你好').
 [20320,22909]
 ```
-
-See `m:unicode` for how to convert the resulting list to different formats.
 """.
 -doc #{ category => terms }.
 -spec atom_to_list(Atom) -> string() when
@@ -796,33 +800,8 @@ See `m:unicode` for how to convert the resulting list to different formats.
 atom_to_list(_Atom) ->
     erlang:nif_error(undefined).
 
-%% binary_part/2
 %% Shadowed by erl_bif_types: erlang:binary_part/2
--doc """
-Extracts the part of the binary described by `PosLen`.
-
-Negative length can be used to extract bytes at the end of a binary. 
-
-For example:
-
-```erlang
-1> Bin = <<1,2,3,4,5,6,7,8,9,10>>.
-2> binary_part(Bin,{byte_size(Bin), -5}).
-<<6,7,8,9,10>>
-```
-
-Failure: `badarg` if `PosLen` in any way references outside the binary.
-
-`Start` is zero-based, that is:
-
-```erlang
-1> Bin = <<1,2,3>>
-2> binary_part(Bin,{0,2}).
-<<1,2>>
-```
-
-For details about the `PosLen` semantics, see `m:binary`.
-""".
+-doc #{ equiv => binary_part(Subject, Start, Length) }.
 -doc #{ category => terms }.
 -doc(#{since => <<"OTP R14B">>}).
 -spec binary_part(Subject, PosLen) -> binary() when
@@ -831,9 +810,32 @@ For details about the `PosLen` semantics, see `m:binary`.
 binary_part(_Subject, _PosLen) ->
     erlang:nif_error(undefined).
 
-%% binary_part/3
 %% Shadowed by erl_bif_types: erlang:binary_part/3
--doc( #{ equiv =>  binary_part(Subject, {Start, Length}) }).
+-doc """
+Extracts the part of the binary described by `Start` and `Length`.
+
+A negative length can be used to extract bytes at the end of a binary.
+
+`Start` is zero-based.
+
+Failure: `badarg` if `Start` and `Length` in any way reference
+outside the binary.
+
+For details about the semantics of `Start` and `Length`, see
+`binary:part/3`.
+
+## Examples
+
+```erlang
+1> Bin = <<1,2,3,4,5,6,7,8,9,10>>.
+2> binary_part(Bin, 0, 2).
+<<1,2>>
+3> binary_part(Bin, 2, 3).
+<<3,4,5>>
+4> binary_part(Bin, byte_size(Bin), -5).
+<<6,7,8,9,10>>
+```
+""".
 -doc(#{since => <<"OTP R14B">>}).
 -doc #{ category => terms }.
 -spec binary_part(Subject, Start, Length) -> binary() when
@@ -843,7 +845,6 @@ binary_part(_Subject, _PosLen) ->
 binary_part(_Subject, _Start, _Length) ->
     erlang:nif_error(undefined).
 
-%% binary_to_atom/1
 -doc(#{ equiv => binary_to_atom(Binary, utf8) }).
 -doc(#{since => <<"OTP 23.0">>}).
 -doc #{ category => terms }.
@@ -856,10 +857,25 @@ binary_to_atom(Binary) ->
 	error:Error -> error_with_info(Error, [Binary])
     end.
 
-%% binary_to_atom/2
 -doc """
-Returns the atom whose text representation is `Binary`. If `Encoding` is `utf8`
-or `unicode`, the binary must contain valid UTF-8 sequences.
+Returns the atom whose text representation is `Binary`, creating a new
+atom if necessary.
+
+If `Encoding` is `utf8` or `unicode`, the binary must contain valid
+UTF-8 sequences.
+
+> #### Note {: .info }
+>
+> Note that once an atom is created, it cannot be deleted.
+> The Erlang system has a
+> [configurable limit](`e:system:system_limits.md#atoms`)
+> on the number of atoms that can exist.
+> To avoid reaching this limit, consider whether
+> [`binary_to_existing_atom/2`](`binary_to_existing_atom/2`) is a better choice
+> than [`binary_to_atom/2`](`binary_to_atom/2`).
+>
+> The number of characters that are permitted in an atom name is
+> [limited](`e:system:system_limits.md#atom_name_limit`).
 
 > #### Change {: .info }
 >
@@ -867,30 +883,13 @@ or `unicode`, the binary must contain valid UTF-8 sequences.
 > capable of decoding any Unicode character. Earlier versions would fail if the
 > binary contained Unicode characters > 255.
 
-> #### Note {: .info }
->
-> The number of characters that are permitted in an atom name is limited. The
-> default limits can be found in the
-> [Efficiency Guide (section System Limits)](`e:system:system_limits.md`).
-
-> #### Note {: .info }
->
-> There is configurable limit on how many atoms that can exist and atoms are not
-> garbage collected. Therefore, it is recommended to consider whether
-> [`binary_to_existing_atom/2`](`binary_to_existing_atom/2`) is a better option
-> than [`binary_to_atom/2`](`binary_to_atom/2`). The default limits can be found
-> in [Efficiency Guide (section System Limits)](`e:system:system_limits.md#atoms`).
-
-Examples:
+## Examples
 
 ```erlang
-> binary_to_atom(<<"Erlang">>, latin1).
+1> binary_to_atom(<<"Erlang">>, latin1).
 'Erlang'
-```
-
-```erlang
-> binary_to_atom(<<1024/utf8>>, utf8).
-'Ѐ'
+2> binary_to_atom(<<960/utf8>>, utf8).
+'π'
 ```
 """.
 -doc #{ category => terms }.
@@ -900,7 +899,6 @@ Examples:
 binary_to_atom(_Binary, _Encoding) ->
     erlang:nif_error(undefined).
 
-%% binary_to_existing_atom/1
 -doc(#{ equiv => binary_to_existing_atom(Binary, utf8) }).
 -doc(#{since => <<"OTP 23.0">>}).
 -doc #{ category => terms }.
@@ -913,16 +911,18 @@ binary_to_existing_atom(Binary) ->
 	error:Error -> error_with_info(Error, [Binary])
     end.
 
-%% binary_to_existing_atom/2
 -doc """
-As `binary_to_atom/2`, but the atom must exist.
+Returns the atom whose text representation is `Binary` provided that such
+atom already exists.
 
-The Erlang system has a [configurable limit](`e:system:system_limits.md#atoms`) for the
-total number of atoms that can exist, and atoms are not garbage collected.
-Therefore, it is not safe to create many atoms from binaries that come from an
-untrusted source (for example, a file fetched from the Internet), for example,
-using `binary_to_atom/2`. This function is thus the appropriate option when the
-input binary comes from an untrusted source.
+The Erlang system has a [configurable
+limit](`e:system:system_limits.md#atoms`) for the total number of
+atoms that can exist. Once an atom is created, it cannot be
+deleted. Therefore, it is not safe to create many atoms from binaries
+that come from an untrusted source (for example, a file fetched from
+the Internet), for example, using `binary_to_atom/2`. This function is
+thus the appropriate option when the input binary comes from an
+untrusted source.
 
 An atom exists in an Erlang system when included in a loaded Erlang module or
 when created programmatically (for example, by
@@ -947,6 +947,20 @@ Failure: `badarg` if the atom does not exist.
 > The number of characters that are permitted in an atom name is limited. The
 > default limits can be found in the
 > [Efficiency Guide (section System Limits)](`e:system:system_limits.md`).
+
+## Examples
+
+```erlang
+1> binary_to_existing_atom(~"definitely_not_existing_at_all", utf8).
+** exception error: bad argument
+     in function  binary_to_existing_atom/2
+        called as binary_to_existing_atom(<<"definitely_not_existing_at_all">>,utf8)
+        *** argument 1: not an already existing atom
+2> hello.
+hello
+3> binary_to_existing_atom(~"hello", utf8).
+hello
+```
 """.
 -doc #{ category => terms }.
 -spec binary_to_existing_atom(Binary, Encoding) -> atom() when
@@ -955,22 +969,25 @@ Failure: `badarg` if the atom does not exist.
 binary_to_existing_atom(_Binary, _Encoding) ->
     erlang:nif_error(undefined).
 
-%% binary_to_float/1
 -doc """
 Returns the float whose text representation is `Binary`.
 
-For example:
-
-```erlang
-> binary_to_float(<<"2.2017764e+0">>).
-2.2017764
-```
-
 The float string format is the same as the format for
-[Erlang float literals](`e:system:data_types.md`) except for that underscores
+[Erlang float literals](`e:system:data_types.md`), except that underscores
 are not permitted.
 
-Failure: `badarg` if `Binary` contains a bad representation of a float.
+Failure: `badarg` if `Binary` contains an invalid representation of a float.
+
+## Examples
+
+```erlang
+1> binary_to_float(~"10.5").
+10.5
+2> binary_to_float(~"17.0").
+17.0
+3> binary_to_float(<<"2.2017764e+1">>).
+22.017764
+```
 """.
 -doc(#{since => <<"OTP R16B">>}).
 -doc #{ category => terms }.
@@ -979,21 +996,24 @@ Failure: `badarg` if `Binary` contains a bad representation of a float.
 binary_to_float(_Binary) ->
     erlang:nif_error(undefined).
 
-%% binary_to_integer/1
 -doc """
 Returns an integer whose text representation is `Binary`.
-
-For example:
-
-```erlang
-> binary_to_integer(<<"123">>).
-123
-```
 
 [`binary_to_integer/1`](`binary_to_integer/1`) accepts the same string formats
 as `list_to_integer/1`.
 
-Failure: `badarg` if `Binary` contains a bad representation of an integer.
+Failure: `badarg` if `Binary` contains an invalid representation of an integer.
+
+## Examples
+
+```erlang
+1> binary_to_integer(<<"123">>).
+123
+2> binary_to_integer(<<"-99">>).
+-99
+3> binary_to_integer(<<"+33">>).
+33
+```
 """.
 -doc(#{since => <<"OTP R16B">>}).
 -doc #{ category => terms }.
@@ -1014,21 +1034,22 @@ binary_to_integer(Binary) ->
             badarg_with_info([Binary])
     end.
 
-%% binary_to_integer/2
 -doc """
 Returns an integer whose text representation in base `Base` is `Binary`.
 
-For example:
+## Example
 
 ```erlang
-> binary_to_integer(<<"3FF">>, 16).
+1> binary_to_integer(<<"3FF">>, 16).
 1023
+2> binary_to_integer(<<"101">>, 2).
+5
 ```
 
 [`binary_to_integer/2`](`binary_to_integer/2`) accepts the same string formats
 as `list_to_integer/2`.
 
-Failure: `badarg` if `Binary` contains a bad representation of an integer.
+Failure: `badarg` if `Binary` contains a invalid representation of an integer.
 """.
 -doc #{ category => terms }.
 -doc(#{since => <<"OTP R16B">>}).
@@ -1192,25 +1213,40 @@ radix(WordSize, Base) ->
         end,
     erlang:element(Base - 1, T).
 
-%% binary_to_list/1
--doc "Returns a list of integers corresponding to the bytes of `Binary`.".
+-doc """
+Returns a list of integers corresponding to the bytes of `Binary`.
+
+## Examples
+
+```erlang
+1> binary_to_list(<<1,2,3>>).
+[1,2,3]
+```
+""".
 -doc #{ category => terms }.
 -spec binary_to_list(Binary) -> [byte()] when
       Binary :: binary().
 binary_to_list(_Binary) ->
     erlang:nif_error(undefined).
 
-%% binary_to_list/3
 -doc """
 As [`binary_to_list/1`](`binary_to_list/1`), but returns a list of integers
 corresponding to the bytes from position `Start` to position `Stop` in `Binary`.
+
 The positions in the binary are numbered starting from 1.
 
 > #### Note {: .info }
 >
-> _The one-based indexing for binaries used by this function is deprecated._ New
-> code is to use `binary:bin_to_list/3` in STDLIB instead. All functions in
+> **The one-based indexing for binaries used by this function is deprecated.** New
+> code should use `binary:bin_to_list/3`. All functions in
 > module `binary` consistently use zero-based indexing.
+
+## Examples
+
+```erlang
+1> binary_to_list(~"abcdef", 2, 3).
+"bc"
+```
 """.
 -doc #{ category => terms }.
 -spec binary_to_list(Binary, Start, Stop) -> [byte()] when
@@ -1220,26 +1256,27 @@ The positions in the binary are numbered starting from 1.
 binary_to_list(_Binary, _Start, _Stop) ->
     erlang:nif_error(undefined).
 
-%% binary_to_term/1
 -doc """
 Returns an Erlang term that is the result of decoding binary object `Binary`,
 which must be encoded according to the
 [Erlang external term format](erl_ext_dist.md).
 
-```erlang
-> Bin = term_to_binary(hello).
-<<131,100,0,5,104,101,108,108,111>>
-> hello = binary_to_term(Bin).
-hello
-```
-
 > #### Warning {: .warning }
 >
 > When decoding binaries from untrusted sources, the untrusted source may submit
 > data in a way to create resources, such as atoms and remote references, that
-> cannot be garbage collected and lead to Denial of Service attack. In such
-> cases, consider using [`binary_to_term/2`](`binary_to_term/2`) with the `safe`
+> cannot be garbage collected and lead to a Denial of Service (DoS) attack.
+> In such cases, use [`binary_to_term/2`](`binary_to_term/2`) with the `safe`
 > option.
+
+## Examples
+
+```erlang
+1> Bin = term_to_binary(hello).
+<<131,119,5,104,101,108,108,111>>
+2> hello = binary_to_term(Bin).
+hello
+```
 
 See also `term_to_binary/1` and `binary_to_term/2`.
 """.
@@ -1249,7 +1286,6 @@ See also `term_to_binary/1` and `binary_to_term/2`.
 binary_to_term(_Binary) ->
     erlang:nif_error(undefined).
 
-%% binary_to_term/2
 -doc """
 Equivalent to [`binary_to_term(Binary)`](`binary_to_term/1`), but can be configured to
 fit special purposes.
@@ -1262,39 +1298,46 @@ The allowed options are:
   runtime. In the event of receiving unsafe data, decoding fails with a `badarg`
   error.
 
-  This prevents creation of new atoms directly, creation of new atoms indirectly
-  (as they are embedded in certain structures, such as process identifiers,
-  refs, and funs), and creation of new external function references. None of
-  those resources are garbage collected, so unchecked creation of them can
+  The `safe` option prevents direct and indirect creation of new atoms
+  (such as those embedded in certain structures like process
+  identifiers) and creation of new external function references. None
+  of these resources are garbage collected, so unchecked creation can
   exhaust available memory.
-
-  ```erlang
-  > binary_to_term(<<131,100,0,5,"hello">>, [safe]).
-  ** exception error: bad argument
-  > hello.
-  hello
-  > binary_to_term(<<131,100,0,5,"hello">>, [safe]).
-  hello
-  ```
 
   > #### Warning {: .warning }
   >
-  > The `safe` option ensures the data is safely processed by the Erlang runtime
-  > but it does not guarantee the data is safe to your application. You must
-  > always validate data from untrusted sources. If the binary is stored or
-  > transits through untrusted sources, you should also consider
-  > cryptographically signing it.
+  > The `safe` option ensures data is safely processed by the Erlang runtime,
+  > but it does not guarantee that the data is safe for your application.
+  > Always validate data from untrusted sources. If a binary is stored or
+  > transmitted through untrusted sources, consider cryptographically signing it.
+
+  ## Examples
+
+  ```erlang
+  1> Bin = <<131,119,8,"tjenixen">>.
+  2> binary_to_term(Bin, [safe]).
+  ** exception error: bad argument
+       in function  binary_to_term/2
+          called as binary_to_term(<<131,119,8,116,106,101,110,105,120,101,110>>,[safe])
+          *** argument 1: invalid or unsafe external representation of a term
+  3> tjenixen.
+  tjenixen
+  4> binary_to_term(Bin, [safe]).
+  tjenixen
+  ```
 
 - **`used`** - Changes the return value to `{Term, Used}` where `Used` is the
   number of bytes actually read from `Binary`.
 
+  ## Examples
+
   ```erlang
-  > Input = <<131,100,0,5,"hello","world">>.
-  <<131,100,0,5,104,101,108,108,111,119,111,114,108,100>>
-  > {Term, Used} = binary_to_term(Input, [used]).
-  {hello, 9}
-  > split_binary(Input, Used).
-  {<<131,100,0,5,104,101,108,108,111>>, <<"world">>}
+  1> Input = <<(term_to_binary(hello))/binary, "world">>.
+  <<131,119,5,104,101,108,108,111,119,111,114,108,100>>
+  2> {Term, Used} = binary_to_term(Input, [used]).
+  {hello, 8}
+  3> split_binary(Input, Used).
+  {<<131,119,5,104,101,108,108,111>>, <<"world">>}
   ```
 
 Failure: `badarg` if `safe` is specified and unsafe data is decoded.
@@ -1311,17 +1354,16 @@ See also `term_to_binary/1`, `binary_to_term/1`, and `list_to_existing_atom/1`.
 binary_to_term(_Binary, _Opts) ->
     erlang:nif_error(undefined).
 
-%% bit_size/1
 %% Shadowed by erl_bif_types: erlang:bit_size/1
 -doc """
 Returns an integer that is the size in bits of `Bitstring`.
 
-For example:
+## Examples
 
 ```erlang
-> bit_size(<<433:16,3:3>>).
+1> bit_size(<<433:16,3:3>>).
 19
-> bit_size(<<1,2,3>>).
+2> bit_size(<<1,2,3>>).
 24
 ```
 """.
@@ -1331,22 +1373,18 @@ For example:
 bit_size(_Bitstring) ->
     erlang:nif_error(undefined).
 
-%% bitstring_to_list/1
 -doc """
 Returns a list of integers corresponding to the bytes of `Bitstring`.
 
-If the number of bits in the binary is not divisible by 8, the last element of
-the list is a bitstring containing the remaining 1-7 bits.
+If the number of bits in the binary is not a multiple of 8, the last element of
+the list is a bitstring containing the remaining 1 to 7 bits.
 
-For example:
+## Examples
 
 ```erlang
-> bitstring_to_list(<<433:16>>).
+1> bitstring_to_list(<<433:16>>).
 [1,177]
-```
-
-```erlang
-> bitstring_to_list(<<433:16,3:3>>).
+2> bitstring_to_list(<<433:16,3:3>>).
 [1,177,<<3:3>>]
 ```
 """.
@@ -1376,20 +1414,20 @@ the maximum number of reductions for a process (4000 reductions in Erlang/OTP 19
 bump_reductions(_Reductions) ->
     erlang:nif_error(undefined).
 
-%% byte_size/1
 %% Shadowed by erl_bif_types: erlang:byte_size/1
 -doc """
 Returns an integer that is the number of bytes needed to contain `Bitstring`.
-That is, if the number of bits in `Bitstring` is not divisible by 8, the
-resulting number of bytes is rounded _up_.
 
-For example:
+If the number of bits in `Bitstring` is not a multiple of 8, the
+result is rounded **up**.
+
+## Examples
 
 ```erlang
-> byte_size(<<433:16,3:3>>).
+1> byte_size(<<433:16,3:3>>).
 3
-> byte_size(<<1,2,3>>).
-3
+2> byte_size(<<1,2,3,4>>).
+4
 ```
 """.
 -doc #{ category => terms }.
@@ -1481,16 +1519,21 @@ See also [`erlang:send_after/4`](`send_after/4`),
 cancel_timer(_TimerRef, _Options) ->
     erlang:nif_error(undefined).
 
-%% ceil/1
 %% Shadowed by erl_bif_types: erlang:ceil/1
 -doc """
 Returns the smallest integer not less than `Number`.
 
-For example:
+See also `trunc/1`.
+
+## Examples
 
 ```erlang
-> ceil(5.5).
+1> ceil(5.5).
 6
+2> ceil(-2.3).
+-2
+3> ceil(10.0).
+10
 ```
 """.
 -doc(#{since => <<"OTP 20.0">>}).
@@ -1696,18 +1739,17 @@ For example:
 date() ->
     erlang:nif_error(undefined).
 
-%% decode_packet/3
 -doc """
-Decodes the binary `Bin` according to the packet protocol specified by `Type`.
-Similar to the packet handling done by sockets with option `{packet,Type}.`
+Decodes the binary `Bin` according to the packet protocol specified by `Type`,
+similar to the packet handling done by sockets with the `{packet,Type}` option.
 
-If an entire packet is contained in `Bin`, it is returned together with the
+If `Bin` contains an entire packet, it is returned along with the
 remainder of the binary as `{ok,Packet,Rest}`.
 
 If `Bin` does not contain the entire packet, `{more,Length}` is returned.
-`Length` is either the expected _total size_ of the packet, or `undefined` if
+`Length` is either the expected _total size_ of the packet or `undefined` if
 the expected packet size is unknown. `decode_packet` can then be called again
-with more data added.
+with additional data.
 
 If the packet does not conform to the protocol format, `{error,Reason}` is
 returned.
@@ -1779,12 +1821,12 @@ Options:
 - **`{line_delimiter, 0 =< byte() =< 255}`** - For packet type `line`, sets the
   delimiting byte. Default is the latin-1 character `$\n`.
 
-Examples:
+## Examples
 
 ```erlang
-> erlang:decode_packet(1,<<3,"abcd">>,[]).
+1> erlang:decode_packet(1, <<3,"abcd">>, []).
 {ok,<<"abc">>,<<"d">>}
-> erlang:decode_packet(1,<<5,"abcd">>,[]).
+2> erlang:decode_packet(1, <<5,"abcd">>, []).
 {more,6}
 ```
 """.
@@ -1885,14 +1927,13 @@ Examples:
 decode_packet(_Type, _Bin, _Options) ->
     erlang:nif_error(undefined).
 
-%% delete_element/2
 -doc """
 Returns a new tuple with element at `Index` removed from tuple `Tuple1`.
 
-For example:
+## Examples
 
 ```erlang
-> erlang:delete_element(2, {one, two, three}).
+1> erlang:delete_element(2, {one, two, three}).
 {one,three}
 ```
 """.
@@ -2132,7 +2173,6 @@ the _Erlang Reference Manual_.
 unalias(_Alias) ->
     erlang:nif_error(undefined).
 
-%% display/1
 -doc """
 Prints a text representation of `Term` on the standard output.
 
@@ -2307,7 +2347,8 @@ The intent of the exception class `error` is to signal that an unexpected error
 has happened (for example, a function is called with a parameter that has an
 incorrect type). See the guide about
 [errors and error handling](`e:system:errors.md`) for additional information.
-Example:
+
+## Examples
 
 `test.erl`:
 
@@ -2321,10 +2362,10 @@ example_fun(A1, A2) ->
 
 Erlang shell:
 
-```erlang
-6> c(test).
+```text
+1> c(test).
 {ok,test}
-7> test:example_fun(arg1,"this is the second argument").
+2> test:example_fun(arg1, "this is the second argument").
 ** exception error: my_error
      in function  test:example_fun/2
          called as test:example_fun(arg1,"this is the second argument")
@@ -2545,7 +2586,6 @@ exit(_Pid, _Reason, _OptList) ->
 exit_signal(_Pid, _Reason) ->
     erlang:nif_error(undefined).
 
-%% external_size/1
 -doc """
 Calculates, without doing the encoding, the maximum byte size for a term encoded
 in the Erlang external term format.
@@ -2559,10 +2599,14 @@ The following condition applies always:
 true
 ```
 
-This is equivalent to a call to:
+## Examples
 
 ```erlang
-erlang:external_size(Term, [])
+1> Term = {ok,"abc"}.
+2> erlang:external_size(Term).
+13
+3> byte_size(term_to_binary(Term)).
+13
 ```
 """.
 -doc(#{since => <<"OTP R14B04">>}).
@@ -2572,7 +2616,6 @@ erlang:external_size(Term, [])
 external_size(_Term) ->
     erlang:nif_error(undefined).
 
-%% external_size/2
 -doc """
 Calculates, without doing the encoding, the maximum byte size for a term encoded
 in the Erlang external term format.
@@ -2586,8 +2629,18 @@ The following condition applies always:
 true
 ```
 
-Option `{minor_version, Version}` specifies how floats are encoded. For a
-detailed description, see `term_to_binary/2`.
+See `term_to_binary/2` for a description of the options.
+
+## Examples
+
+```erlang
+1> Term = {ok,lists:duplicate(50, $A)}.
+{ok,"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"}
+2> erlang:external_size(Term, [compressed]).
+60
+3> byte_size(term_to_binary(Term, [compressed])).
+26
+```
 """.
 -doc #{ category => terms }.
 -doc(#{since => <<"OTP R14B04">>}).
@@ -2619,15 +2672,14 @@ finish_loading(_List) ->
 finish_after_on_load(_P1, _P2) ->
     erlang:nif_error(undefined).
 
-%% float/1
 %% Shadowed by erl_bif_types: erlang:float/1
 -doc """
 Returns a float by converting `Number` to a float.
 
-For example:
+## Examples
 
 ```erlang
-> float(55).
+1> float(55).
 55.0
 ```
 
@@ -2645,7 +2697,6 @@ For example:
 float(_Number) ->
     erlang:nif_error(undefined).
 
-%% float_to_binary/1
 -doc(#{ equiv => float_to_binary(Float,[{scientific,20}]) }).
 -doc(#{since => <<"OTP R16B">>}).
 -doc #{ category => terms }.
@@ -2654,27 +2705,26 @@ float(_Number) ->
 float_to_binary(_Float) ->
     erlang:nif_error(undefined).
 
-%% float_to_binary/2
 -doc """
 Returns a binary corresponding to the text representation of `Float` using fixed
 decimal point formatting.
 
 `Options` behaves in the same way as `float_to_list/2`.
 
-For example:
+## Examples
 
 ```erlang
-> float_to_binary(7.12, [{decimals, 4}]).
+1> float_to_binary(7.12, [{decimals, 4}]).
 <<"7.1200">>
-> float_to_binary(7.12, [{decimals, 4}, compact]).
+2> float_to_binary(7.12, [{decimals, 4}, compact]).
 <<"7.12">>
-> float_to_binary(7.12, [{scientific, 3}]).
+3> float_to_binary(7.12, [{scientific, 3}]).
 <<"7.120e+00">>
-> float_to_binary(7.12, [short]).
+4> float_to_binary(7.12, [short]).
 <<"7.12">>
-> float_to_binary(0.1+0.2, [short]).
+5> float_to_binary(0.1+0.2, [short]).
 <<"0.30000000000000004">>
-> float_to_binary(0.1+0.2)
+6> float_to_binary(0.1+0.2)
 <<"3.00000000000000044409e-01">>
 ```
 """.
@@ -2690,7 +2740,6 @@ For example:
 float_to_binary(_Float, _Options) ->
     erlang:nif_error(undefined).
 
-%% float_to_list/1
 -doc(#{ equiv => float_to_list(Float,[{scientific,20}]) }).
 -doc #{ category => terms }.
 -spec float_to_list(Float) -> string() when
@@ -2698,7 +2747,6 @@ float_to_binary(_Float, _Options) ->
 float_to_list(_Float) ->
     erlang:nif_error(undefined).
 
-%% float_to_list/2
 -doc """
 Returns a string corresponding to the text representation of `Float` using fixed
 decimal point formatting.
@@ -2721,20 +2769,20 @@ Available options:
   confusing results when doing arithmetic operations.
 - If `Options` is `[]`, the function behaves as `float_to_list/1`.
 
-Examples:
+## Examples
 
 ```erlang
-> float_to_list(7.12, [{decimals, 4}]).
+1> float_to_list(7.12, [{decimals, 4}]).
 "7.1200"
-> float_to_list(7.12, [{decimals, 4}, compact]).
+2> float_to_list(7.12, [{decimals, 4}, compact]).
 "7.12"
-> float_to_list(7.12, [{scientific, 3}]).
+3> float_to_list(7.12, [{scientific, 3}]).
 "7.120e+00"
-> float_to_list(7.12, [short]).
+4> float_to_list(7.12, [short]).
 "7.12"
-> float_to_list(0.1+0.2, [short]).
+5> float_to_list(0.1+0.2, [short]).
 "0.30000000000000004"
-> float_to_list(0.1+0.2)
+6> float_to_list(0.1+0.2)
 "3.00000000000000044409e-01"
 ```
 
@@ -2754,16 +2802,21 @@ In the last example, [`float_to_list(0.1+0.2)`](`float_to_list/1`) evaluates to
 float_to_list(_Float, _Options) ->
     erlang:nif_error(undefined).
 
-%% floor/1
 %% Shadowed by erl_bif_types: erlang:floor/1
 -doc """
 Returns the largest integer not greater than `Number`.
 
-For example:
+See also `trunc/1`.
+
+## Examples
 
 ```erlang
-> floor(-10.5).
+1> floor(-10.5).
 -11
+2> floor(5.5).
+5
+3> floor(10.0).
+10
 ```
 """.
 -doc(#{since => <<"OTP 20.0">>}).
@@ -2773,7 +2826,6 @@ For example:
 floor(_) ->
     erlang:nif_error(undef).
 
-%% fun_info/2
 -doc """
 Returns information about `Fun` as specified by `Item`, in the form
 `{Item,Info}`.
@@ -2785,7 +2837,16 @@ For a local fun, `Item` can also be any of the atoms `index`, `new_index`,
 `new_uniq`, `uniq`, and `pid`. For an external fun, the value of any of these
 items is always the atom `undefined`.
 
-See [`erlang:fun_info/1`](`fun_info/1`).
+See [`erlang:fun_info/1`](`fun_info/1`) for a description of the items.
+
+## Examples
+
+```erlang
+1> erlang:fun_info(fun() -> ok end, type).
+{type,local}
+2> erlang:fun_info(fun lists:sum/1, type).
+{type,external}
+```
 """.
 -doc #{ category => terms }.
 -spec fun_info(Fun, Item) -> {Item, Info} when
@@ -2805,7 +2866,6 @@ fun_info(_Fun, _Item) ->
 fun_info_mfa(_Fun) ->
     erlang:nif_error(undefined).
 
-%% fun_to_list/1
 -doc """
 Returns `String` that represents the code that created `Fun`.
 
@@ -2841,7 +2901,7 @@ escripts, the Erlang shell, and other code executed by the erl_eval module):
 > The output of [`fun_to_list/1`](`fun_to_list/1`) can differ between Erlang
 > implementations and may change in future versions.
 
-Examples:
+## Examples
 
 ```erlang
 -module(test).
@@ -2867,7 +2927,7 @@ Explanation: `test:add(1)` and `test:add(42)` has the same string representation
 as the environment is not taken into account.
 
 ```erlang
->test:fun_tuple().
+> test:fun_tuple().
 {#Fun<test.2.107738983>,#Fun<test.3.107738983>}
 ```
 
@@ -3429,16 +3489,17 @@ exception handler continues to work when the process wakes up.
 hibernate(_Module, _Function, _Args) ->
     erlang:nif_error(undefined).
 
-%% insert_element/3
 -doc """
 Returns a new tuple with element `Term` inserted at position `Index` in tuple
-`Tuple1`. All elements from position `Index` and upwards are pushed one step
+`Tuple1`.
+
+All elements from position `Index` and upwards are pushed one step
 higher in the new tuple `Tuple2`.
 
-For example:
+## Examples
 
 ```erlang
-> erlang:insert_element(2, {one, two, three}, new).
+1> erlang:insert_element(2, {one, two, three}, new).
 {one,new,two,three}
 ```
 """.
@@ -3452,14 +3513,13 @@ For example:
 insert_element(_Index, _Tuple1, _Term) ->
     erlang:nif_error(undefined).
 
-%% integer_to_binary/1
 -doc """
 Returns a binary corresponding to the text representation of `Integer`.
 
-For example:
+## Examples
 
 ```erlang
-> integer_to_binary(77).
+1> integer_to_binary(77).
 <<"77">>
 ```
 """.
@@ -3470,14 +3530,13 @@ For example:
 integer_to_binary(_Integer) ->
     erlang:nif_error(undefined).
 
-%% integer_to_list/1
 -doc """
 Returns a string corresponding to the text representation of `Integer`.
 
-For example:
+## Examples
 
 ```erlang
-> integer_to_list(77).
+1> integer_to_list(77).
 "77"
 ```
 """.
@@ -3487,15 +3546,14 @@ For example:
 integer_to_list(_Integer) ->
     erlang:nif_error(undefined).
 
-%% iolist_size/1
 -doc """
-Returns an integer, that is the size in bytes, of the binary that would be the
-result of [`iolist_to_binary(Item)`](`iolist_to_binary/1`).
+Returns the size in bytes of the binary that would result from
+[`iolist_to_binary(Item)`](`iolist_to_binary/1`).
 
-For example:
+## Examples
 
 ```erlang
-> iolist_size([1,2|<<3,4>>]).
+1> iolist_size([1,2|<<3,4>>]).
 4
 ```
 """.
@@ -3505,21 +3563,20 @@ For example:
 iolist_size(_Item) ->
     erlang:nif_error(undefined).
 
-%% iolist_to_binary/1
 -doc """
-Returns a binary that is made from the integers and binaries in
+Returns a binary constructed from the integers and binaries in
 `IoListOrBinary`.
 
-For example:
+## Examples
 
 ```erlang
-> Bin1 = <<1,2,3>>.
+1> Bin1 = <<1,2,3>>.
 <<1,2,3>>
-> Bin2 = <<4,5>>.
+2> Bin2 = <<4,5>>.
 <<4,5>>
-> Bin3 = <<6>>.
+3> Bin3 = <<6>>.
 <<6>>
-> iolist_to_binary([Bin1,1,[2,3,Bin2],4|Bin3]).
+4> iolist_to_binary([Bin1,1,[2,3,Bin2],4|Bin3]).
 <<1,2,3,1,2,3,4,5,4,6>>
 ```
 """.
@@ -3532,27 +3589,34 @@ iolist_to_binary(_IoListOrBinary) ->
 %% iolist_to_iovec/1
 -doc """
 Returns an [iovec](`t:iovec/0`) that is made from the integers and binaries in
-`IoListOrBinary`. This function is useful when you want to flatten an iolist but
-you do not need a single binary. This can be useful for passing the data to nif
-functions such as [`enif_inspect_iovec`](erl_nif.md#enif_inspect_iovec) or do
-more efficient message passing. The advantage of using this function over
-`iolist_to_binary/1` is that it does not have to copy
-[off-heap binaries](`e:system:binaryhandling.md#refc_binary`).
+`IoListOrBinary`.
 
-For example:
+This function is useful when you need to flatten an iolist but do not
+require a single binary. It can be beneficial for passing data to NIF
+functions such as
+[`enif_inspect_iovec`](erl_nif.md#enif_inspect_iovec) or for more
+efficient message passing. The advantage of using this function over
+`iolist_to_binary/1` is that it does not need to copy off-heap binaries.
+
+## Examples
+
+If you pass small binaries and integers, it works like `iolist_to_binary/1`.
 
 ```erlang
-> Bin1 = <<1,2,3>>.
+1> Bin1 = <<1,2,3>>.
 <<1,2,3>>
-> Bin2 = <<4,5>>.
+2> Bin2 = <<4,5>>.
 <<4,5>>
-> Bin3 = <<6>>.
+3> Bin3 = <<6>>.
 <<6>>
-%% If you pass small binaries and integers it works as iolist_to_binary
-> erlang:iolist_to_iovec([Bin1,1,[2,3,Bin2],4|Bin3]).
+4> erlang:iolist_to_iovec([Bin1,1,[2,3,Bin2],4|Bin3]).
 [<<1,2,3,1,2,3,4,5,4,6>>]
-%% If you pass larger binaries, they are split and returned in a form
-%% optimized for calling the C function writev.
+```
+
+If you pass larger binaries, they are split and returned in a form
+optimized for calling the C function `writev()`.
+
+```erlang
 > erlang:iolist_to_iovec([<<1>>,<<2:8096>>,<<3:8096>>]).
 [<<1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
    0,...>>,
@@ -3604,17 +3668,22 @@ is_builtin(_Module, _Function, _Arity) ->
 Returns `true` if map `Map` contains `Key` and returns `false` if it does not
 contain the `Key`.
 
-The call fails with a `{badmap,Map}` exception if `Map` is not a map.
+Failure: A `{badmap,Map}` exception is raised if `Map` is not a map.
 
-_Example:_
+## Examples
 
 ```erlang
 > Map = #{"42" => value}.
 #{"42" => value}
-> is_map_key("42",Map).
+1> is_map_key("42", Map).
 true
-> is_map_key(value,Map).
+2> is_map_key(value, Map).
 false
+3> is_map_key(value, no_map).
+** exception error: bad map: no_map
+     in function  is_map_key/2
+        called as is_map_key(value,no_map)
+        *** argument 2: not a map
 ```
 """.
 -doc(#{since => <<"OTP 21.0">>}).
@@ -3659,16 +3728,20 @@ signals.
 is_process_alive(_Pid) ->
     erlang:nif_error(undefined).
 
-%% length/1
 %% Shadowed by erl_bif_types: erlang:length/1
 -doc """
 Returns the length of `List`.
 
-For example:
+## Examples
 
 ```erlang
-> length([1,2,3,4,5,6,7,8,9]).
+1> length([1,2,3,4,5,6,7,8,9]).
 9
+2> length([a,b|c]).
+** exception error: bad argument
+     in function  length/1
+        called as length([a,b|c])
+        *** argument 1: not a list
 ```
 """.
 -doc #{ category => terms }.
@@ -3780,9 +3853,9 @@ Currently available options:
 link(_PidOrPort, _OptList) ->
     erlang:nif_error(undefined).
 
-%% list_to_atom/1
 -doc """
-Returns the atom whose text representation is `String`.
+Returns the atom whose text representation is `String`, creating a new
+atom if necessary.
 
 As from Erlang/OTP 20, `String` may contain any Unicode character. Earlier
 versions allowed only ISO-latin-1 characters as the implementation did not allow
@@ -3790,24 +3863,24 @@ Unicode characters above 255.
 
 > #### Note {: .info }
 >
-> The number of characters that are permitted in an atom name is limited. The
-> default limits can be found in the
-> [efficiency guide (section System Limits)](`e:system:system_limits.md`).
-
-> #### Note {: .info }
+> Note that once an atom is created, it cannot be deleted.
+> The Erlang system has a
+> [configurable limit](`e:system:system_limits.md#atoms`)
+> on the number of atoms that can exist.
+> To avoid reaching this limit, consider whether
+> [`list_to_existing_atom/1`](`list_to_existing_atom/1`) is a better choice
+> than [`list_to_atom/1`](`list_to_atom/1`).
 >
-> There is a [configurable limit](`e:system:system_limits.md#atoms`)
-> on how many atoms that can exist and atoms are not
-> garbage collected. Therefore, it is recommended to consider if
-> `list_to_existing_atom/1` is a better option than
-> [`list_to_atom/1`](`list_to_atom/1`). The default limits can be found in the
-> [Efficiency Guide (section System Limits)](`e:system:system_limits.md`).
+> The number of characters that are permitted in an atom name is
+> [limited](`e:system:system_limits.md#atom_name_limit`).
 
-Example:
+## Examples
 
 ```erlang
-> list_to_atom("Erlang").
+1> list_to_atom("Erlang").
 'Erlang'
+2> list_to_atom([960]).
+'π'
 ```
 """.
 -doc #{ category => terms }.
@@ -3816,20 +3889,19 @@ Example:
 list_to_atom(_String) ->
     erlang:nif_error(undefined).
 
-%% list_to_binary/1
 -doc """
-Returns a binary that is made from the integers and binaries in `IoList`.
+Returns a binary made from the integers and binaries in `IoList`.
 
-For example:
+## Examples
 
 ```erlang
-> Bin1 = <<1,2,3>>.
+1> Bin1 = <<1,2,3>>.
 <<1,2,3>>
-> Bin2 = <<4,5>>.
+2> Bin2 = <<4,5>>.
 <<4,5>>
-> Bin3 = <<6>>.
+3> Bin3 = <<6>>.
 <<6>>
-> list_to_binary([Bin1,1,[2,3,Bin2],4|Bin3]).
+4> list_to_binary([Bin1,1,[2,3,Bin2],4|Bin3]).
 <<1,2,3,1,2,3,4,5,4,6>>
 ```
 """.
@@ -3839,22 +3911,22 @@ For example:
 list_to_binary(_IoList) ->
     erlang:nif_error(undefined).
 
-%% list_to_bitstring/1
 -doc """
-Returns a bitstring that is made from the integers and bitstrings in
-`BitstringList`. (The last tail in `BitstringList` is allowed to be a
-bitstring.)
+Returns a bitstring made from the integers and bitstrings in
+`BitstringList`.
 
-For example:
+The last tail in `BitstringList` is allowed to be a bitstring.
+
+## Examples
 
 ```erlang
-> Bin1 = <<1,2,3>>.
+1> Bin1 = <<1,2,3>>.
 <<1,2,3>>
-> Bin2 = <<4,5>>.
+2> Bin2 = <<4,5>>.
 <<4,5>>
-> Bin3 = <<6,7:4>>.
+3> Bin3 = <<6,7:4>>.
 <<6,7:4>>
-> list_to_bitstring([Bin1,1,[2,3,Bin2],4|Bin3]).
+4> list_to_bitstring([Bin1,1,[2,3,Bin2],4|Bin3]).
 <<1,2,3,1,2,3,4,5,4,6,7:4>>
 ```
 """.
@@ -3864,11 +3936,12 @@ For example:
 list_to_bitstring(_BitstringList) ->
     erlang:nif_error(undefined).
 
-%% list_to_existing_atom/1
 -doc """
 Returns the atom whose text representation is `String`, but only if there
-already exists such atom. An atom exists if it has been created by the run-time
-system by either loading code or creating a term in which the atom is part.
+already exists such atom.
+
+An atom exists if it has been created by the run-time system by either
+loading code or creating a term that the atom is a part of.
 
 Failure: `badarg` if there does not already exist an atom whose text
 representation is `String`.
@@ -3881,6 +3954,20 @@ representation is `String`.
 > module, the atom will not be created when the module is loaded, and a
 > subsequent call to
 > [`list_to_existing_atom("some_atom")`](`list_to_existing_atom/1`) will fail.
+
+## Examples
+
+```erlang
+1> list_to_existing_atom("a_blatal_DOS_attack").
+** exception error: bad argument
+     in function  list_to_existing_atom/1
+        called as list_to_existing_atom("a_blatal_DOS_attack")
+        *** argument 1: not an already existing atom
+2> hello.
+hello
+3> list_to_existing_atom("hello").
+hello
+```
 """.
 -doc #{ category => terms }.
 -spec list_to_existing_atom(String) -> atom() when
@@ -3888,14 +3975,13 @@ representation is `String`.
 list_to_existing_atom(_String) ->
     erlang:nif_error(undefined).
 
-%% list_to_float/1
 -doc """
-Returns the float whose text representation is `String`. 
+Returns the float whose text representation is `String`.
 
-For example:
+## Examples
 
 ```erlang
-> list_to_float("2.2017764e+0").
+1> list_to_float("2.2017764e+0").
 2.2017764
 ```
 
@@ -3903,7 +3989,7 @@ The float string format is the same as the format for
 [Erlang float literals](`e:system:data_types.md`) except for that underscores
 are not permitted.
 
-Failure: `badarg` if `String` contains a bad representation of a float.
+Failure: `badarg` if `String` contains a invalid representation of a float.
 """.
 -doc #{ category => terms }.
 -spec list_to_float(String) -> float() when
@@ -3911,32 +3997,25 @@ Failure: `badarg` if `String` contains a bad representation of a float.
 list_to_float(_String) ->
     erlang:nif_error(undefined).
 
-%% list_to_integer/1
 -doc """
 Returns an integer whose text representation is `String`.
-
-For example:
-
-```erlang
-> list_to_integer("123").
-123
-```
-
-```erlang
-> list_to_integer("-123").
--123
-```
-
-```erlang
-> list_to_integer("+123234982304982309482093833234234").
-123234982304982309482093833234234
-```
 
 `String` must contain at least one digit character and can have an optional
 prefix consisting of a single "`+`" or "`-`" character (that is, `String` must
 match the regular expression `"^[+-]?[0-9]+$"`).
 
-Failure: `badarg` if `String` contains a bad representation of an integer.
+Failure: `badarg` if `String` contains a invalid representation of an integer.
+
+## Examples
+
+```erlang
+1> list_to_integer("123").
+123
+2> list_to_integer("-123").
+-123
+3> list_to_integer("+123234982304982309482093833234234").
+123234982304982309482093833234234
+```
 """.
 -doc #{ category => terms }.
 -spec list_to_integer(String) -> integer() when
@@ -3963,41 +4042,33 @@ list_to_integer(String) ->
             badarg_with_info([String])
     end.
 
-%% list_to_integer/2
 -doc """
 Returns an integer whose text representation in base `Base` is `String`.
 
-For example:
+`String` must contain at least one digit character and can have an optional
+prefix consisting of a single "`+`" or "`-`" character.
+
+Failure: `badarg` if `String` contains an invalid integer representation.
+
+## Examples
 
 ```erlang
-> list_to_integer("3FF", 16).
+1> list_to_integer("3FF", 16).
 1023
-```
-
-```erlang
-> list_to_integer("+3FF", 16).
+2> list_to_integer("+3FF", 16).
 1023
-```
-
-```erlang
-> list_to_integer("3ff", 16).
+3> list_to_integer("3ff", 16).
 1023
-```
-
-```erlang
-> list_to_integer("3fF", 16).
-1023
-```
-
-```erlang
-> list_to_integer("-3FF", 16).
+4> list_to_integer("-3FF", 16).
 -1023
+5> list_to_integer("Base36IsFun", 36).
+41313437507787071
+6> list_to_integer("102", 2).
+** exception error: bad argument
+     in function  list_to_integer/2
+        called as list_to_integer("102",2)
+        *** argument 1: not a textual representation of an integer
 ```
-
-For example, when `Base` is 16, `String` must match the regular expression
-`"^[+-]?([0-9]|[A-F]|[a-f])+$"`.
-
-Failure: `badarg` if `String` contains a bad representation of an integer.
 """.
 -doc #{ category => terms }.
 -spec list_to_integer(String, Base) -> integer() when
@@ -4024,24 +4095,23 @@ list_to_integer(String, Base) ->
             badarg_with_info([String,Base])
     end.
 
-%% list_to_pid/1
 -doc """
 Returns a process identifier whose text representation is a `String`.
 
-For example:
-
-```erlang
-> list_to_pid("<0.4.1>").
-<0.4.1>
-```
-
-Failure: `badarg` if `String` contains a bad representation of a process
+Failure: `badarg` if `String` contains an invalid representation of a process
 identifier.
 
 > #### Warning {: .warning }
 >
 > This BIF is intended for debugging and is not to be used in application
 > programs.
+
+## Examples
+
+```erlang
+> list_to_pid("<0.4.1>").
+<0.4.1>
+```
 """.
 -doc #{ category => terms }.
 -spec list_to_pid(String) -> pid() when
@@ -4049,16 +4119,8 @@ identifier.
 list_to_pid(_String) ->
     erlang:nif_error(undefined).
 
-%% list_to_port/1
 -doc """
 Returns a port identifier whose text representation is a `String`.
-
-For example:
-
-```erlang
-> list_to_port("#Port<0.4>").
-#Port<0.4>
-```
 
 Failure: `badarg` if `String` contains a bad representation of a port
 identifier.
@@ -4067,6 +4129,14 @@ identifier.
 >
 > This BIF is intended for debugging and is not to be used in application
 > programs.
+
+## Examples
+
+```erlang
+> list_to_port("#Port<0.4>").
+#Port<0.4>
+```
+
 """.
 -doc(#{since => <<"OTP 20.0">>}).
 -doc #{ category => terms }.
@@ -4074,17 +4144,9 @@ identifier.
       String :: string().
 list_to_port(_String) ->
     erlang:nif_error(undefined).
- 
-%% list_to_ref/1
+
 -doc """
 Returns a reference whose text representation is a `String`.
-
-For example:
-
-```erlang
-> list_to_ref("#Ref<0.4192537678.4073193475.71181>").
-#Ref<0.4192537678.4073193475.71181>
-```
 
 Failure: `badarg` if `String` contains a bad representation of a reference.
 
@@ -4092,6 +4154,13 @@ Failure: `badarg` if `String` contains a bad representation of a reference.
 >
 > This BIF is intended for debugging and is not to be used in application
 > programs.
+
+## Examples
+
+```erlang
+> list_to_ref("#Ref<0.4192537678.4073193475.71181>").
+#Ref<0.4192537678.4073193475.71181>
+```
 """.
 -doc(#{since => <<"OTP 20.0">>}).
 -doc #{ category => terms }.
@@ -4100,16 +4169,15 @@ Failure: `badarg` if `String` contains a bad representation of a reference.
 list_to_ref(_String) ->
     erlang:nif_error(undefined).
 
-%% list_to_tuple/1
 -doc """
-Returns a tuple corresponding to `List`, for example
+Returns a tuple whose elements are the elements of `List`.
+
+## Examples
 
 ```erlang
-> list_to_tuple([share, ['Ericsson_B', 163]]).
+1> list_to_tuple([share, ['Ericsson_B', 163]]).
 {share, ['Ericsson_B', 163]}
 ```
-
-`List` can contain any Erlang terms.
 """.
 -doc #{ category => terms }.
 -spec list_to_tuple(List) -> tuple() when
@@ -4152,16 +4220,23 @@ The return value is based on the
 localtime() ->
     erlang:nif_error(undefined).
 
-%% make_ref/0
 -doc """
-Returns a [unique reference](`e:system:system_limits.md#unique_references`). The
-reference is unique among connected nodes.
+Returns a [unique reference](`e:system:system_limits.md#unique_references`).
+
+The reference is unique among connected nodes.
 
 > #### Warning {: .warning }
 >
-> Before OTP 23 when a node is restarted multiple times with the same node name,
-> references created on a newer node can be mistaken for a reference created on
-> an older node with the same node name.
+> Before OTP 23, if a node was restarted multiple times with the same
+> node name, references created on a newer instance could be mistaken
+> for those created on an older instance with the same name.
+
+## Examples
+
+```erlang
+1> is_reference(make_ref()).
+true
+```
 """.
 -doc #{ category => terms }.
 -spec make_ref() -> reference().
@@ -4170,12 +4245,12 @@ make_ref() ->
 
 %% Shadowed by erl_bif_types: erlang:map_size/1
 -doc """
-Returns an integer, which is the number of key-value pairs in `Map`.
+Returns the number of key-value pairs in `Map`.
 
-For example:
+## Examples
 
 ```erlang
-> map_size(#{a=>1, b=>2, c=>3}).
+1> map_size(#{a=>1, b=>2, c=>3}).
 3
 ```
 """.
@@ -4193,13 +4268,23 @@ Returns value `Value` associated with `Key` if `Map` contains `Key`.
 The call fails with a `{badmap,Map}` exception if `Map` is not a map, or with a
 `{badkey,Key}` exception if no value is associated with `Key`.
 
-_Example:_
+## Examples
 
 ```erlang
-> Key = 1337,
-  Map = #{42 => value_two,1337 => "value one","a" => 1},
-  map_get(Key,Map).
+1> Key = 1337.
+2> Map = #{42 => value_two,Key => "value one","a" => 1}.
+3> map_get(Key, Map).
 "value one"
+4> map_get(unknown_key, Map).
+** exception error: bad key: unknown_key
+     in function  map_get/2
+        called as map_get(unknown_key,#{42 => value_two,1337 => "value one","a" => 1})
+        *** argument 1: not present in map
+5> map_get(key, no_map).
+** exception error: bad map: no_map
+     in function  map_get/2
+        called as map_get(key,no_map)
+        *** argument 2: not a map
 ```
 """.
 -doc(#{since => <<"OTP 21.0">>}).
@@ -4211,7 +4296,6 @@ _Example:_
 map_get(_Key, _Map) ->
     erlang:nif_error(undefined).
 
-%% match_spec_test/3
 -doc """
 Tests a match specification used in calls to `ets:select/2` and
 `trace:function/4`.
@@ -4234,13 +4318,20 @@ returns `{ok, Result, Flags, Warnings}`, where `Result` is one of the following:
 - `false` if a trace message is not to be emitted
 - The message term to be appended to the trace message
 
-`Flags` is a list containing all the trace flags to be enabled, currently this
-is only `return_trace`.
-
-This is a useful debugging and test tool, especially when writing complicated
-match specifications.
+`Flags` is a list of trace flags to be enabled; currently, the only
+available flag is `return_trace`.
 
 See also `ets:test_ms/2`.
+
+## Examples
+
+```erlang
+1> Ms = [{{'$1','$2'}, [], [{{'$2','$1'}}]}].
+2> erlang:match_spec_test({a,b}, Ms, table).
+{ok,{b,a},[],[]}
+3> erlang:match_spec_test({a,b,c}, Ms, table).
+{ok,false,[],[]}
+```
 """.
 -doc(#{since => <<"OTP 19.0">>}).
 -doc #{ category => terms }.
@@ -4722,11 +4813,18 @@ when the NIF library is not loaded, Dialyzer does not generate false warnings.
 nif_error(_Reason, _Args) ->
     erlang:nif_error(undefined).
 
-%% node/0
 %% Shadowed by erl_bif_types: erlang:node/0
 -doc """
-Returns the name of the local node. If the node is not alive, `nonode@nohost` is
-returned instead.
+Returns the name of the local node.
+
+If the node is not alive, `nonode@nohost` is returned.
+
+## Examples
+
+```erlang
+> node().
+nonode@nohost
+```
 """.
 -doc #{ category => distribution }.
 -spec node() -> Node when
@@ -4734,12 +4832,19 @@ returned instead.
 node() ->
     erlang:nif_error(undefined).
 
-%% node/1
 %% Shadowed by erl_bif_types: erlang:node/1
 -doc """
-Returns the node where `Arg` originates. `Arg` can be a process identifier, a
-reference, or a port. If `Arg` originates from the local node and the local node
-is not alive, `nonode@nohost` is returned.
+Returns the node where `Arg` originates.
+
+If `Arg` originates from the local node and the local node is not
+alive, `nonode@nohost` is returned.
+
+## Examples
+
+```erlang
+1> node(self()) =:= node().
+true
+```
 """.
 -doc #{ category => terms }.
 -spec node(Arg) -> Node when
@@ -4776,7 +4881,6 @@ the underlying OS is properly configured.
 now() ->
     erlang:nif_error(undefined).
 
-%% phash/2
 -doc """
 > #### Warning {: .warning }
 >
@@ -4798,7 +4902,7 @@ phash(_Term, _Range) ->
     erlang:nif_error(undefined).
 
 %% phash2/1
--doc(#{equiv => phash2/2}).
+-doc(#{equiv => phash2(Term, Range)}).
 -doc #{ category => terms }.
 -spec phash2(Term) -> Hash when
       Term :: term(),
@@ -4808,18 +4912,34 @@ phash2(_Term) ->
 
 %% phash2/2
 -doc """
-Portable hash function that gives the same hash for the same Erlang term
+Returns a hash value for `Term`.
+
+The hash value for the same Erlang term is guaranteed to be the same
 regardless of machine architecture and ERTS version.
 
 The function returns a hash value for `Term` within the range
 `0..Range-1`. The maximum value for `Range` is 2^32. When without argument
 `Range`, a value in the range 0..2^27-1 is returned.
 
-This BIF is always to be used for hashing terms. It distributes small integers
-better than [`phash/2`](`phash/2`), and it is faster for bignums and binaries.
+This BIF is always to be used for hashing terms. It distributes small
+integers better than [`phash/2`](`phash/2`), and it is faster for
+large integers and binaries.
 
 Notice that the range `0..Range-1` is different from the range of
 [`phash/2`](`phash/2`), which is `1..Range`.
+
+## Examples
+
+```erlang
+1> erlang:phash2({a,b,c}, 1_000).
+870
+2> erlang:phash2(41, 1_000).
+297
+3> erlang:phash2(42, 1_000).
+368
+4> erlang:phash2(43, 1_000).
+725
+```
 """.
 -doc(#{ category => terms }).
 -spec phash2(Term, Range) -> Hash when
@@ -4829,22 +4949,21 @@ Notice that the range `0..Range-1` is different from the range of
 phash2(_Term, _Range) ->
     erlang:nif_error(undefined).
 
-%% pid_to_list/1
 -doc """
 Returns a string corresponding to the text representation of `Pid`.
-
-For example:
-
-```erlang
-> erlang:pid_to_list(self()).
-"<0.85.0>"
-```
 
 > #### Note {: .info }
 >
 > The [creation](erl_dist_protocol.md) for the node is not included in the list
 > representation of `Pid`. This means that processes in different incarnations
 > of a node with a specific name can get the same list representation.
+
+## Examples
+
+```erlang
+> erlang:pid_to_list(self()).
+"<0.85.0>"
+```
 """.
 -doc #{ category => terms }.
 -spec pid_to_list(Pid) -> string() when
@@ -4852,7 +4971,6 @@ For example:
 pid_to_list(_Pid) ->
     erlang:nif_error(undefined).
 
-%% port_to_list/1
 -doc """
 Returns a string corresponding to the text representation of the port identifier
 `Port`.
@@ -4885,6 +5003,7 @@ posixtime_to_universaltime(_P1) ->
 -doc """
 Generates and returns an
 [integer unique on current runtime system instance](`e:system:system_limits.md#unique_integers`).
+
 The integer is unique in the sense that this BIF, using the same set of
 modifiers, does not return the same integer more than once on the current
 runtime system instance. Each integer value can of course be constructed by
@@ -4938,6 +5057,13 @@ Failures:
 - **`badarg`** - if `ModifierList` is not a proper list.
 
 - **`badarg`** - if `Modifier` is not a valid modifier.
+
+## Examples
+
+```erlang
+> erlang:unique_integer([positive]).
+1186
+```
 """.
 -doc #{ category => terms }.
 -doc(#{since => <<"OTP 18.0">>}).
@@ -4951,7 +5077,15 @@ unique_integer(_ModifierList) ->
 -doc """
 Generates and returns an
 [integer unique on current runtime system instance](`e:system:system_limits.md#unique_integers`).
+
 Equivalent to calling [`erlang:unique_integer([])`](`unique_integer/1`).
+
+## Examples
+
+```erlang
+> erlang:unique_integer().
+-576460752303422335
+```
 """.
 -doc(#{since => <<"OTP 18.0">>}).
 -doc #{ category => terms }.
@@ -5617,7 +5751,6 @@ See also [`erlang:send_after/4`](`send_after/4`),
 read_timer(_TimerRef, _Options) ->
     erlang:nif_error(undefined).
 
-%% ref_to_list/1
 -doc """
 Returns a string corresponding to the text representation of `Ref`.
 
@@ -5718,30 +5851,20 @@ Failures:
 resume_process(_Suspendee) ->
     erlang:nif_error(undefined).
 
-%% round/1
 %% Shadowed by erl_bif_types: erlang:round/1
 -doc """
-Returns an integer by rounding `Number`.
+Returns an integer by rounding `Number` to the nearest integer.
 
-For example:
+Example:
 
 ```erlang
-round(42.1).
+1> round(42.1).
 42
-```
-
-```erlang
-round(5.5).
+2> round(5.5).
 6
-```
-
-```erlang
-round(-5.5).
+3> round(-5.5).
 -6
-```
-
-```erlang
-round(36028797018963969.0).
+4> round(36028797018963969.0).
 36028797018963968
 ```
 
@@ -5860,26 +5983,39 @@ setnode(Node, DistCtrlr, Opts) ->
     badarg_with_info([Node, DistCtrlr, Opts]).
 
 
-%% size/1
 %% Shadowed by erl_bif_types: erlang:size/1
 -doc """
 Returns the number of elements in a tuple or the number of bytes in a binary or
 bitstring.
-
-For example:
-
-```erlang
-> size({morni, mulle, bwange}).
-3
-> size(<<11, 22, 33>>).
-3
-```
 
 For bitstrings, the number of whole bytes is returned. That is, if the number of
 bits in the bitstring is not divisible by 8, the resulting number of bytes is
 rounded _down_.
 
 See also `tuple_size/1`, `byte_size/1`, and `bit_size/1`.
+
+> #### Note {: .info }
+>
+> It is recommended to avoid `size/1` in new code.
+
+## Examples
+
+```erlang
+1> size({a, b, c}).
+3
+2> tuple_size({a, b, c}).
+3
+3> size(<<11, 22, 33>>).
+3
+4> byte_size(<<11, 22, 33>>).
+3
+5> size(<<11, 7:4>>).
+1
+6> byte_size(<<11, 7:4>>).
+2
+7> bit_size(<<11, 7:4>>).
+12
+```
 """.
 -doc #{ category => terms }.
 -spec size(Item) -> non_neg_integer() when
@@ -5929,25 +6065,25 @@ the new process, atomically. Otherwise works like `spawn/3`.
 spawn_link(_Module, _Function, _Args) ->
     erlang:nif_error(undefined).
 
-%% split_binary/2
 -doc """
 Returns a tuple containing the binaries that are the result of splitting `Bin`
 into two parts at position `Pos`.
 
-This is not a destructive operation. After the operation, there are three binaries altogether.
+This operation is non-destructive. After the operation, there are
+three binaries altogether.
 
-For example:
+## Examples
 
 ```erlang
-> B = list_to_binary("0123456789").
+1> B = list_to_binary("0123456789").
 <<"0123456789">>
-> byte_size(B).
+2> byte_size(B).
 10
-> {B1, B2} = split_binary(B,3).
+3> {B1, B2} = split_binary(B, 3).
 {<<"012">>,<<"3456789">>}
-> byte_size(B1).
+4> byte_size(B1).
 3
-> byte_size(B2).
+5> byte_size(B2).
 7
 ```
 """.
@@ -6513,35 +6649,29 @@ trace_info(_PidPortFuncEvent, _Item) ->
 -doc """
 Truncates the decimals of `Number`.
 
-For example:
+See also `round/1`, `floor/1`, and `ceil/1`.
+
+## Examples
 
 ```erlang
-> trunc(5.7).
+1> trunc(5.7).
 5
-```
-
-```erlang
-> trunc(-5.7).
+2> trunc(-5.7).
 -5
-```
-
-```erlang
-> trunc(5).
+3> trunc(5).
 5
-```
-
-```erlang
-> trunc(36028797018963969.0).
+4> trunc(36028797018963969.0).
 36028797018963968
 ```
 
-In the last example, [`trunc(36028797018963969.0)`](`trunc/1`) evaluates to
-`36028797018963968`. The reason for this is that the number
-`36028797018963969.0` cannot be represented exactly as a float value. Instead,
-the float literal is represented as `36028797018963968.0`, which is the closest
-number that can be represented exactly as a float value. See
-[Representation of Floating Point Numbers](`e:system:data_types.md#float_representation_problem`)
-for additional information.
+In the last example, [`trunc(36028797018963969.0)`](`trunc/1`)
+evaluates to `36028797018963968`. This happens because the number
+`36028797018963969.0` cannot be represented exactly as a
+floating-point value. Instead, it is represented as
+`36028797018963968.0`, which is the closest representable
+floating-point value. See [Representation of Floating Point
+Numbers](`e:system:data_types.md#float_representation_problem`) for
+additional information.
 """.
 -doc #{ category => terms }.
 -spec trunc(Number) -> integer() when
@@ -6549,15 +6679,14 @@ for additional information.
 trunc(_Number) ->
     erlang:nif_error(undefined).
 
-%% tuple_size/1
 %% Shadowed by erl_bif_types: erlang:tuple_size/1
 -doc """
-Returns an integer that is the number of elements in `Tuple`.
+Returns the number of elements in `Tuple`.
 
-For example:
+## Examples
 
 ```erlang
-> tuple_size({morni, mulle, bwange}).
+1> tuple_size({a, b, c}).
 3
 ```
 """.
@@ -6708,16 +6837,18 @@ whereis(_RegName) ->
 
 %% Shadowed by erl_bif_types: erlang:abs/1
 -doc """
-Returns an integer or float that is the arithmetical absolute value of `Float`
+Returns an integer or float representing the absolute value of `Float`
 or `Int`.
 
-For example:
+## Examples
 
 ```erlang
-> abs(-3.33).
+1> abs(-3.33).
 3.33
-> abs(-3).
+2> abs(-3).
 3
+3> abs(5).
+5
 ```
 """.
 -doc #{ category => terms }.
@@ -6741,10 +6872,10 @@ append(_List,_Tail) ->
 -doc """
 Returns the `N`th element (numbering from 1) of `Tuple`.
 
-For example:
+## Examples
 
 ```erlang
-> element(2, {a, b, c}).
+1> element(2, {a, b, c}).
 b
 ```
 """.
@@ -6768,23 +6899,25 @@ get_module_info(_Module, _Item) ->
 
 %% Shadowed by erl_bif_types: erlang:hd/1
 -doc """
-Returns the head of `List`, that is, the first element.
+Returns the first element of `List`.
 
 It works with improper lists.
 
-Examples:
+Failure: `badarg` if `List` is the empty list `[]`.
+
+## Examples
 
 ```erlang
-> hd([1,2,3,4,5]).
+1> hd([1,2,3,4,5]).
 1
-```
-
-```erlang
-> hd([first, second, third, so_on | improper_end]).
+2> hd([first, second, third, so_on | improper_end]).
 first
+3> hd([]).
+** exception error: bad argument
+     in function  hd/1
+        called as hd([])
+        *** argument 1: not a nonempty list
 ```
-
-Failure: `badarg` if `List` is an empty list `[]`.
 """.
 -doc #{ category => terms }.
 -spec hd(List) -> Head when
@@ -6793,11 +6926,18 @@ Failure: `badarg` if `List` is an empty list `[]`.
 hd(_List) ->
     erlang:nif_error(undefined).
 
-%% erlang:info/1 no longer exists!
-
 %% Shadowed by erl_bif_types: erlang:is_atom/1
 -doc """
-Returns `true` if `Term` is an atom, otherwise `false`.
+Returns `true` if `Term` is an atom; otherwise, returns `false`.
+
+## Examples
+
+```erlang
+1> is_atom(42).
+false
+2> is_atom(ok).
+true
+```
 """.
 -doc #{ category => terms }.
 -spec is_atom(Term) -> boolean() when
@@ -6807,9 +6947,20 @@ is_atom(_Term) ->
 
 %% Shadowed by erl_bif_types: erlang:is_binary/1
 -doc """
-Returns `true` if `Term` is a binary, otherwise `false`.
+Returns `true` if `Term` is a binary; otherwise, returns `false`.
 
 A binary always contains a complete number of bytes.
+
+## Examples
+
+```erlang
+1> is_binary(42).
+false
+2> is_binary(<<1,2,3>>).
+true
+3> is_binary(<<7:12>>).
+false
+```
 """.
 -doc #{ category => terms }.
 -spec is_binary(Term) -> boolean() when
@@ -6819,7 +6970,18 @@ is_binary(_Term) ->
 
 %% Shadowed by erl_bif_types: erlang:is_bitstring/1
 -doc """
-Returns `true` if `Term` is a bitstring (including a binary), otherwise `false`.
+Returns `true` if `Term` is a bitstring (including a binary); otherwise, returns `false`.
+
+## Examples
+
+```erlang
+1> is_bitstring(42).
+false
+2> is_bitstring(<<1,2,3>>).
+true
+3> is_bitstring(<<7:12>>).
+true
+```
 """.
 -doc #{ category => terms }.
 -spec is_bitstring(Term) -> boolean() when
@@ -6829,8 +6991,20 @@ is_bitstring(_Term) ->
 
 %% Shadowed by erl_bif_types: erlang:is_boolean/1
 -doc """
-Returns `true` if `Term` is the atom `true` or the atom `false` (that is, a
-boolean). Otherwise returns `false`.
+Returns `true` if `Term` is the atom `true` or `false`; otherwise, returns `false`.
+
+## Examples
+
+```erlang
+1> is_boolean(true).
+true
+2> is_boolean(false).
+true
+3> is_boolean(ok).
+false
+4> is_boolean(42).
+false
+```
 """.
 -doc #{ category => terms }.
 -spec is_boolean(Term) -> boolean() when
@@ -6840,7 +7014,18 @@ is_boolean(_Term) ->
 
 %% Shadowed by erl_bif_types: erlang:is_float/1
 -doc """
-Returns `true` if `Term` is a floating point number, otherwise `false`.
+Returns `true` if `Term` is a floating point number; otherwise, returns `false`.
+
+## Examples
+
+```erlang
+1> is_float(42).
+false
+2> is_float(42.0).
+true
+3> is_float(zero).
+false
+```
 """.
 -doc #{ category => terms }.
 -spec is_float(Term) -> boolean() when
@@ -6850,7 +7035,18 @@ is_float(_Term) ->
 
 %% Shadowed by erl_bif_types: erlang:is_function/1
 -doc """
-Returns `true` if `Term` is a fun, otherwise `false`.
+Returns `true` if `Term` is a fun; otherwise, returns `false`.
+
+## Examples
+
+```erlang
+1> is_function(fun() -> ok end).
+true
+2> is_function(fun lists:sum/1).
+true
+3> is_function({lists,sum}).
+false
+```
 """.
 -doc #{ category => terms }.
 -spec is_function(Term) -> boolean() when
@@ -6861,7 +7057,28 @@ is_function(_Term) ->
 %% Shadowed by erl_bif_types: erlang:is_function/2
 -doc """
 Returns `true` if `Term` is a fun that can be applied with `Arity` number of
-arguments, otherwise `false`.
+arguments; otherwise, returns `false`.
+
+## Examples
+
+```erlang
+1> is_function(fun() -> ok end, 0).
+true
+2> is_function(fun lists:sum/1, 1).
+true
+3> is_function({lists,sum}, 1).
+false
+4> is_function(fun lists:sum/1, -1).
+** exception error: bad argument
+     in function  is_function/2
+        called as is_function(fun lists:sum/1,-1)
+        *** argument 2: out of range
+5> is_function(fun lists:sum/1, bad_arity).
+** exception error: bad argument
+     in function  is_function/2
+        called as is_function(fun lists:sum/1,bad_arity)
+        *** argument 2: not an integer
+```
 """.
 -doc #{ category => terms }.
 -spec is_function(Term, Arity) -> boolean() when
@@ -6872,7 +7089,20 @@ is_function(_Term, _Arity) ->
 
 %% Shadowed by erl_bif_types: erlang:is_integer/1
 -doc """
-Returns `true` if `Term` is an integer, otherwise `false`.
+Returns `true` if `Term` is an integer; otherwise, returns `false`.
+
+## Examples
+
+```erlang
+1> is_integer(1).
+true
+2> is_integer(-1234567890123456789012345678901234567890).
+true
+3> is_integer(1.0).
+false
+4> is_integer(zero).
+false
+```
 """.
 -doc #{ category => terms }.
 -spec is_integer(Term) -> boolean() when
@@ -6882,8 +7112,23 @@ is_integer(_Term) ->
 
 %% Shadowed by erl_bif_types: erlang:is_list/1
 -doc """
-Returns `true` if `Term` is a list with zero or more elements, otherwise
-`false`.
+Returns `true` if `Term` is a list with zero or more elements; otherwise,
+returns `false`.
+
+## Examples
+
+```erlang
+1> is_list({a,b,c}).
+false
+2> is_list([]).
+true
+3> is_list([1]).
+true
+4> is_list([1,2]).
+true
+5> is_list([1,2|3]).
+true
+```
 """.
 -doc #{ category => terms }.
 -spec is_list(Term) -> boolean() when
@@ -6893,8 +7138,19 @@ is_list(_Term) ->
 
 %% Shadowed by erl_bif_types: erlang:is_number/1
 -doc """
-Returns `true` if `Term` is an integer or a floating point number. Otherwise
+Returns `true` if `Term` is an integer or a floating point number; otherwise,
 returns `false`.
+
+## Examples
+
+```erlang
+1> is_number(10.0).
+true
+2> is_number(7).
+true
+3> is_number(zero).
+false
+```
 """.
 -doc #{ category => terms }.
 -spec is_number(Term) -> boolean() when
@@ -6904,7 +7160,16 @@ is_number(_Term) ->
 
 %% Shadowed by erl_bif_types: erlang:is_pid/1
 -doc """
-Returns `true` if `Term` is a process identifier, otherwise `false`.
+Returns `true` if `Term` is a process identifier; otherwise, returns `false`.
+
+## Examples
+
+```erlang
+1> is_pid(self()).
+true
+2> is_pid(ok).
+false
+```
 """.
 -doc #{ category => terms }.
 -spec is_pid(Term) -> boolean() when
@@ -6914,7 +7179,18 @@ is_pid(_Term) ->
 
 %% Shadowed by erl_bif_types: erlang:is_map/1
 -doc """
-Returns `true` if `Term` is a map, otherwise `false`.
+Returns `true` if `Term` is a map; otherwise, returns `false`.
+
+## Examples
+
+```erlang
+1> is_map(#{}).
+true
+2> is_map(#{key => value}).
+true
+3> is_map([]).
+false
+```
 """.
 -doc(#{since => <<"OTP 17.0">>}).
 -doc #{ category => terms }.
@@ -6925,7 +7201,17 @@ is_map(_Term) ->
 
 %% Shadowed by erl_bif_types: erlang:is_port/1
 -doc """
-Returns `true` if `Term` is a port identifier, otherwise `false`.
+Returns `true` if `Term` is a port identifier; otherwise, returns `false`.
+
+## Examples
+
+```erlang
+1> APort = hd(erlang:ports()).
+2> is_port(APort).
+true
+3> is_port(self()).
+false
+```
 """.
 -doc #{ category => terms }.
 -spec is_port(Term) -> boolean() when
@@ -6935,21 +7221,21 @@ is_port(_Term) ->
 
 %% Shadowed by erl_bif_types: erlang:is_record/2
 -doc """
-Returns `true` if `Term` is a tuple and its first element is `RecordTag`.
-Otherwise returns `false`.
+Returns `true` if `Term` is a tuple and its first element is `RecordTag`;
+otherwise, returns `false`.
 
 > #### Note {: .info }
 >
-> Normally the compiler treats calls to [`is_record/2`](`is_record/2`)
-> especially. It emits code to verify that `Term` is a tuple, that its first
-> element is `RecordTag`, and that the size is correct. However, if `RecordTag`
+> Normally, the compiler treats calls to [`is_record/2`](`is_record/2`)
+> specially. It emits code to verify that `Term` is a tuple, its first
+> element is `RecordTag`, and its size is correct. However, if `RecordTag`
 > is not a literal atom, the BIF [`is_record/2`](`is_record/2`) is called
 > instead and the size of the tuple is not verified.
 
 Allowed in guard tests, if `RecordTag` is a literal atom.
 """.
 -doc #{ category => terms }.
--spec is_record(Term,RecordTag) -> boolean() when
+-spec is_record(Term, RecordTag) -> boolean() when
       Term :: term(),
       RecordTag :: atom().
 is_record(_Term,_RecordTag) ->
@@ -6957,10 +7243,8 @@ is_record(_Term,_RecordTag) ->
 
 %% Shadowed by erl_bif_types: erlang:is_record/3
 -doc """
-`RecordTag` must be an atom.
-
 Returns `true` if `Term` is a tuple, its first element is `RecordTag`, and its
-size is `Size`. Otherwise returns `false`.
+size is `Size`; otherwise, returns `false`.
 
 Allowed in guard tests if `RecordTag` is a literal atom and `Size` is a literal
 integer.
@@ -6971,7 +7255,7 @@ integer.
 > [`is_record/2`](`is_record/2`) is to be used.
 """.
 -doc #{ category => terms }.
--spec is_record(Term,RecordTag,Size) -> boolean() when
+-spec is_record(Term, RecordTag, Size) -> boolean() when
       Term :: term(),
       RecordTag :: atom(),
       Size :: non_neg_integer().
@@ -6980,7 +7264,16 @@ is_record(_Term,_RecordTag,_Size) ->
 
 %% Shadowed by erl_bif_types: erlang:is_reference/1
 -doc """
-Returns `true` if `Term` is a reference, otherwise `false`.
+Returns `true` if `Term` is a reference; otherwise, returns `false`.
+
+## Examples
+
+```erlang
+1> is_reference(make_ref()).
+true
+2> is_reference(self()).
+false
+```
 """.
 -doc #{ category => terms }.
 -spec is_reference(Term) -> boolean() when
@@ -6990,7 +7283,16 @@ is_reference(_Term) ->
 
 %% Shadowed by erl_bif_types: erlang:is_tuple/1
 -doc """
-Returns `true` if `Term` is a tuple, otherwise `false`.
+Returns `true` if `Term` is a tuple; otherwise, returns `false`.
+
+## Examples
+
+```erlang
+1> is_tuple({a, b, c}).
+true
+2> is_tuple([a, b, c]).
+false
+```
 """.
 -doc #{ category => terms }.
 -spec is_tuple(Term) -> boolean() when
@@ -7149,10 +7451,10 @@ make_fun(_Module,_Function, _Arity) ->
 Creates a new tuple of the specified `Arity`, where all elements are
 `InitialValue`.
 
-For example:
+## Examples
 
 ```erlang
-> erlang:make_tuple(4, []).
+1> erlang:make_tuple(4, []).
 {[],[],[],[]}
 ```
 """.
@@ -7173,10 +7475,10 @@ a position in the newly created tuple and the second element is any term. If a
 position occurs more than once in the list, the term corresponding to the last
 occurrence is used.
 
-For example:
+## Examples
 
 ```erlang
-> erlang:make_tuple(5, [], [{2,ignored},{5,zz},{2,aa}]).
+1> erlang:make_tuple(5, [], [{2,ignored},{5,zz},{2,aa}]).
 {[],aa,[],[],zz}
 ```
 """.
@@ -8321,10 +8623,10 @@ Returns a tuple that is a copy of argument `Tuple1` with the element specified
 by integer argument `Index` (the first element is the element with index 1)
 replaced by argument `Value`.
 
-For example:
+## Examples
 
 ```erlang
-> setelement(2, {10, green, bottles}, red).
+1> setelement(2, {10, green, bottles}, red).
 {10,red,bottles}
 ```
 """.
@@ -9499,25 +9801,27 @@ system_flag(_Flag, _Value) ->
 
 -doc """
 Returns a binary data object that is the result of encoding `Term` according to
-the [Erlang external term format.](erl_ext_dist.md)
+the [Erlang external term format](erl_ext_dist.md).
 
-This can be used for various purposes, for example, writing a term to a file in
-an efficient way, or sending an Erlang term to some type of communications
+This can be used for various purposes, such as efficiently writing a
+term to a file or sending an Erlang term through a communication
 channel not supported by distributed Erlang.
-
-```erlang
-> Bin = term_to_binary(hello).
-<<131,100,0,5,104,101,108,108,111>>
-> hello = binary_to_term(Bin).
-hello
-```
 
 See also `binary_to_term/1`.
 
 > #### Note {: .info }
 >
-> There is no guarantee that this function will return the same encoded
+> There is no guarantee that this function will always return the same encoded
 > representation for the same term.
+
+## Examples
+
+```erlang
+1> Bin = term_to_binary(hello).
+<<131,119,5,104,101,108,108,111>>
+2> hello = binary_to_term(Bin).
+hello
+```
 """.
 -doc #{ category => terms }.
 -spec term_to_binary(Term) -> ext_binary() when
@@ -9529,7 +9833,7 @@ term_to_binary(_Term) ->
 Returns a binary data object that is the result of encoding `Term` according to
 the Erlang external term format.
 
-Currently supported options:
+Supported options:
 
 - **`compressed`** - Compress the external term format. The compressed format is
   automatically recognized by [`binary_to_term/1`](`binary_to_term/1`) as from
@@ -9537,20 +9841,20 @@ Currently supported options:
 
 - **`{compressed, Level}`** - Compress the external term format to a given
   level. The compression level is specified by `Level` which is an integer in
-  the range 0..9, where:
+  the range 0 to 9, where:
 
-  - **`0`** - No compression is done (it is the same as giving no `compressed`
+  - **`0`** - No compression is applied (equivalent to omitting the `compressed`
     option).
 
-  - **`1`** - Takes least time but may not compress as well as the higher
+  - **`1`** - Fastest compression but may not compress as well as the higher
     levels.
 
-  - **`6`** - Default level when option `compressed` is provided.
+  - **`6`** - Default level when the `compressed` option is provided.
 
-  - **`9`** - Takes most time and tries to produce a smaller result. Notice
-    "tries" in the preceding sentence; depending on the input term, level 9
-    compression either does or does not produce a smaller result than level 1
-    compression.
+  - **`9`** - Highest compression level, taking the longest time while
+    attempting to produce the smallest result. However, depending on
+    the input term, level 9 compression may not always produce a smaller
+    result than level 1 compression.
 
 - **`{minor_version, Version}`**(Since R11B-4)  
   The option can be used to control some encoding details. Valid values for
@@ -9584,73 +9888,97 @@ Currently supported options:
   This option cannot be combined with the `local` option.
 
 - **`local`[](){: #term_to_binary_local } **(Since OTP 26.0)  
-   This option will cause encoding of `Term` to an alternative local version of the
-  external term format which when decoded by the same runtime system instance will
-  produce a term identical to the encoded term even when the node name and/or [creation](#system_info_creation)
-  of the current runtime system instance have changed between encoding and decoding.
-  When encoding without the `local` option, local identifiers such as [pids](`t:pid/0`),
-  [ports](`t:port/0`) and [references](`t:reference/0`) will not be the same if node
-  name and/or creation of the current runtime system instance changed between encoding
-  and decoding. This since such identifiers refer to a specific node by node name
-  and creation.
+  This option encodes `Term` in an alternative local version of the
+  external term format. When decoded by the same runtime system
+  instance, it produces a term identical to original term, even if the
+  node name and/or [creation](#system_info_creation) of the runtime
+  system instance have changed between encoding and decoding.
 
-  Node name and creation of a runtime system instance change when the
-  distribution is started or stopped. The distribution is started when the
-  runtime system is started using the [`-name`](erl_cmd.md#name) or
-  [`-sname`](erl_cmd.md#sname) command line arguments. Note that the actual
-  start of the distribution happens after other code in the startup phase has
-  begun executing. The distribution can also be started by calling
-  `net_kernel:start/2` and stopped by calling
-  [`net_kernel:stop/1`](`net_kernel:stop/0`) if it has not been started via the
-  command line.
+  When encoding without the `local` option, local identifiers such as
+  [pids](`t:pid/0`), [ports](`t:port/0`), and
+  [references](`t:reference/0`) will not remain the same if node name
+  and/or creation of the runtime system instance changed
+  between encoding and decoding. This is because such identifiers refer to
+  a specific node by node name and creation.
 
-  The decoding of a term encoded with the `local` option, using for example
-  [`binary_to_term()`](`term_to_binary/1`), will try to verify that the term
-  actually was encoded by the same runtime system instance, and will in the vast
-  majority of cases fail if the encoding was performed by another runtime system
-  instance. You should however _not_ trust that this verification will work in
-  all cases. You _should_ make sure to _only_ decode terms encoded with the
-  `local` option on the same Erlang runtime system instance as the one that
-  encoded the terms.
+  The node name and creation change when the distribution is started
+  or stopped. The distribution starts when the runtime system is
+  started with the [`-name`](erl_cmd.md#name) or
+  [`-sname`](erl_cmd.md#sname) command-line arguments. Note that the
+  actual start of the distribution occurs after other code in the
+  startup phase has already begun executing. The distribution can also
+  be started by calling `net_kernel:start/2` and stopped by calling
+  [`net_kernel:stop/1`](`net_kernel:stop/0`), provided it was not
+  started via the command line.
 
-  Since it is only the runtime system that encoded a term using the `local`
-  option that can decode it, the local encoding is typically pieced together
-  with something else to produce a reply to where the `local` encoding
-  originates from. If a term encoded using the `local` option is stripped of its
-  leading version number, it can be added as part of a larger term (for example
-  as an element in a tuple) when encoding on the external term format using, for
-  example, [ei](`e:erl_interface:ei.md`). In the `ei` case, you would strip it
-  of the version number using
-  [`ei_decode_version()`](`e:erl_interface:ei.md#ei_decode_version`) and then
-  add the remaining local encoding to what you are encoding using for example
-  [`ei_x_append_buf()`](`e:erl_interface:ei.md#ei_x_append_buf`).
+  When decoding a term encoded with the `local` option using, for
+  example, `binary_to_term/1`, the runtime system attempts to verify
+  that the term was encoded by the same runtime system instance. In
+  most cases, decoding will fail if it was encoded by a different
+  instance. However, this verification is not foolproof. You _should_
+  ensure that terms encoded with the local option are _only_ decoded by
+  the same Erlang runtime system instance that encoded them.
 
-  A good example of when you want to use the `local` option, is when you want to
-  make a request from a process to a port [driver](erl_driver.md) and utilize
-  the
-  [selective receive optimization](`e:system:eff_guide_processes.md#receiving-messages`)
-  when receiving the reply. In this scenario you want to create a reference,
-  serialize the reference on the external term format using the `local` option,
-  pass this to the driver in the request, and then wait for the reply message in
-  a selective receive matching on the reference. The driver should send the
-  reply using either
+  Since only the runtime system that encoded a term using the `local`
+  option can decode it, the local encoding is typically pieced
+  together with something else to produce a reply to where the local
+  encoding originates. If a term encoded with the local option has its
+  leading version number stripped, it can be embedded as part of a
+  larger term (for example as an element in a tuple) when encoding in
+  the external term format using, for example,
+  [EI](`e:erl_interface:ei.md`).  In this case, you would strip the
+  version number using `ei_decode_version()` and append the remaining
+  local encoding using, for example, `ei_x_append_buf()`.
+
+  A common use case for the `local` option is when making a request
+  from a process to a port driver [driver](erl_driver.md) while
+  leveraging the [selective receive
+  optimization](`e:system:eff_guide_processes.md#receiving-messages`)
+  for handling the reply.
+
+  In this scenario:
+
+  1. A reference is created.
+
+  2. The reference is serialized using the external term format with
+  the `local` option.
+
+  3. This serialized reference is passed to the driver in the request.
+
+  4. The process then waits for a reply message in a selective
+  receive, matching on the reference.
+
+  The driver should send the reply using either
   [`erl_drv_output_term()`](erl_driver.md#erl_drv_output_term) or
-  [`erl_drv_send_term()`](erl_driver.md#erl_drv_send_term) using the term type
-  [`ERL_DRV_EXT2TERM`](erl_driver.md#ERL_DRV_EXT2TERM) for the, in the request,
-  previously received reference on the external term format. Note that you
-  should not strip the leading version number from the local encoding when using
-  the term type `ERL_DRV_EXT2TERM` of this functionality. If you in this example
-  do not encode the reference using the `local` option, and the distribution is
-  started or stopped while the request is ongoing, the process that made the
-  request will hang indefinitely since the reference in the reply message will
-  never match.
+  [`erl_drv_send_term()`](erl_driver.md#erl_drv_send_term) using the
+  term type [`ERL_DRV_EXT2TERM`](erl_driver.md#ERL_DRV_EXT2TERM)
+  for the reference previously received in the request.
+
+  Note that you should not strip the leading version number from the
+  local encoding when using the term type `ERL_DRV_EXT2TERM`. If the
+  reference is not encoded with the `local` option, and distribution is
+  started or stopped while the request is ongoing, the requesting
+  process will hang indefinitely because the reference in the reply
+  message will never match.
 
   This option cannot be combined with the `deterministic` option.
 
-  For more information see the [`LOCAL_EXT`](erl_ext_dist.md#local_ext) tag in
-  the documentation of the external term format.
+  For more details, see [`LOCAL_EXT`](erl_ext_dist.md#local_ext).
 
-See also `binary_to_term/1`.
+  See also `binary_to_term/1`.
+
+## Examples
+
+```erlang
+1> List = lists:duplicate(20, $=).
+"===================="
+2> term_to_binary(List, []).
+<<131,107,0,20,61,61,61,61,61,61,61,61,61,61,61,61,61,61,
+  61,61,61,61,61,61>>
+3> term_to_binary(List, [compressed]).
+<<131,80,0,0,0,23,120,156,203,102,16,177,197,2,0,61,98,5,
+  68>>
+```
 """.
 -doc #{ category => terms }.
 -spec term_to_binary(Term, Options) -> ext_binary() when
@@ -9673,11 +10001,21 @@ return type. The call
 exactly the same result as the call
 [`term_to_binary(Term)`](`term_to_binary/1`).
 
-`term_to_iovec()` is a pure optimization of the functionality `term_to_binary()`
-provide. `term_to_iovec()` can for example refer directly to off heap binaries
-instead of copying the binary data into the result.
+`term_to_iovec/1` is a pure optimization of the functionality provided
+by `term_to_binary/1`. For example, it can reference off-heap binaries
+directly instead of copying their contents into the result.
 
 See also `term_to_binary/1`.
+
+## Examples
+
+```erlang
+1> term_to_iovec({binary:copy(~"a", 65), binary:copy(~"b", 65)}).
+[<<131,104,2,109,0,0,0,65>>,
+ <<"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa">>,
+ <<109,0,0,0,65>>,
+ <<"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb">>]
+```
 """.
 -doc(#{since => <<"OTP 23.0">>}).
 -doc #{ category => terms }.
@@ -9696,13 +10034,23 @@ return type. The call
 produce exactly the same result as
 [`term_to_binary(Term, Opts)`](`term_to_binary/2`).
 
-Currently recognised options are all options recognised by `term_to_binary/2`.
+This function supports all options supported by `term_to_binary/2`.
 
-`term_to_iovec()` is a pure optimization of the functionality `term_to_binary()`
-provide. `term_to_iovec()` can for example refer directly to off heap binaries
-instead of copying the binary data into the result.
+`term_to_iovec/2` is a pure optimization of the functionality provided
+by `term_to_binary/2`. For example, it can reference off-heap binaries
+directly instead of copying their contents into the result.
 
 See also `term_to_binary/2`.
+
+## Examples
+
+```erlang
+1> term_to_iovec({binary:copy(~"a", 65), binary:copy(~"b", 65)}, [deterministic]).
+[<<131,104,2,109,0,0,0,65>>,
+ <<"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa">>,
+ <<109,0,0,0,65>>,
+ <<"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb">>]
+```
 """.
 -doc(#{since => <<"OTP 23.0">>}).
 -doc #{ category => terms }.
@@ -9718,30 +10066,26 @@ term_to_iovec(_Term, _Options) ->
 
 %% Shadowed by erl_bif_types: erlang:tl/1
 -doc """
-Returns the tail of `List`, that is, the list minus the first element
+Returns the tail of `List`, which is the list without its first element.
 
 It works with improper lists.
 
-Examples:
+## Examples
 
 ```erlang
-> tl([geesties, guilies, beasties]).
+1> tl([geesties, guilies, beasties]).
 [guilies, beasties]
-```
-
-```erlang
-> tl([geesties]).
+2> tl([geesties]).
 []
-```
-
-```erlang
-> tl([geesties, guilies, beasties | improper_end]).
+3> tl([geesties, guilies, beasties | improper_end]).
 [guilies, beasties | improper_end]
-```
-
-```erlang
-> tl([geesties | improper_end]).
+4> tl([geesties | improper_end]).
 improper_end
+5> tl([]).
+** exception error: bad argument
+     in function  tl/1
+        called as tl([])
+        *** argument 1: not a nonempty list
 ```
 
 Failure: `badarg` if `List` is an empty list `[]`.
@@ -9829,11 +10173,12 @@ trace_pattern(MFA, MatchSpec, FlagList) ->
 
 %% Shadowed by erl_bif_types: erlang:tuple_to_list/1
 -doc """
-Returns a list corresponding to `Tuple`. `Tuple` can contain any Erlang terms.
-Example:
+Returns a list corresponding to `Tuple`.
+
+## Examples
 
 ```erlang
-> tuple_to_list({share, {'Ericsson_B', 163}}).
+1> tuple_to_list({share, {'Ericsson_B', 163}}).
 [share,{'Ericsson_B',163}]
 ```
 """.
@@ -11142,14 +11487,15 @@ disconnect_node(Node) ->
     net_kernel:disconnect(Node).
 
 -doc """
-Returns a list with information about the fun `Fun`. Each list element is a
-tuple. The order of the tuples is undefined, and more tuples can be added in a
-future release.
+Returns a list with information about the fun `Fun`.
+
+Each list element is a tuple. The order of the tuples is undefined,
+and more tuples can be added in a future release.
 
 > #### Warning {: .warning }
 >
-> This BIF is mainly intended for debugging, but it can sometimes be useful in
-> library functions that need to verify, for example, the arity of a fun.
+> This BIF is intended for debugging. Library functions that
+> need to check some property of a fun should use `fun_info/2`.
 
 Two types of funs have slightly different semantics:
 
@@ -11215,6 +11561,8 @@ The following elements are only present in the list if `Fun` is local:
   from Erlang/OTP R15, this integer is calculated from the compiled code for the
   entire module. Before Erlang/OTP R15, this integer was based on only the body
   of the fun.
+
+See also `fun_info/2` and `is_function/2`.
 """.
 -doc #{ category => terms }.
 -spec fun_info(Fun) -> [{Item, Info}] when
@@ -12121,10 +12469,10 @@ get_cookie(Node) ->
 Returns a string corresponding to the text representation of `Integer` in base
 `Base`.
 
-For example:
+## Examples
 
 ```erlang
-> integer_to_list(1023, 16).
+1> integer_to_list(1023, 16).
 "3FF"
 ```
 """.
@@ -12139,10 +12487,10 @@ integer_to_list(_I, _Base) ->
 Returns a binary corresponding to the text representation of `Integer` in base
 `Base`.
 
-For example:
+## Examples
 
 ```erlang
-> integer_to_binary(1023, 16).
+1> integer_to_binary(1023, 16).
 <<"3FF">>
 ```
 """.
@@ -12302,37 +12650,29 @@ rvrs([X|Xs],Ys) -> rvrs(Xs, [X|Ys]).
 
 %% Shadowed by erl_bif_types: erlang:min/2
 -doc """
-Returns the smallest of `Term1` and `Term2`. If the terms compare equal with the
-`==` operator, `Term1` is returned.
+Returns the smallest of `Term1` and `Term2`.
+
+If the terms compare equal with the `==` operator, `Term1` is returned.
 
 The [Expressions section](`e:system:expressions.md#term-comparisons`) contains
 descriptions of the `==` operator and how terms are ordered.
 
-Examples:
+> #### Change {: .info }
+>
+> Allowed in guards tests from Erlang/OTP 26.
+
+## Examples
 
 ```erlang
 > min(1, 2).
 1
-```
-
-```erlang
 > min(1.0, 1).
 1.0
-```
-
-```erlang
 > min(1, 1.0).
 1
-```
-
-```erlang
 > min("abc", "b").
 "abc"
 ```
-
-> #### Change {: .info }
->
-> Allowed in guards tests from Erlang/OTP 26.
 """.
 -doc #{ category => terms }.
 -spec min(Term1, Term2) -> Minimum when
@@ -12346,37 +12686,29 @@ min(A, _) -> A.
 
 %% Shadowed by erl_bif_types: erlang:max/2
 -doc """
-Returns the largest of `Term1` and `Term2`. If the terms compare equal with the
-`==` operator, `Term1` is returned.
+Returns the largest of `Term1` and `Term2`.
+
+If the terms compare equal with the `==` operator, `Term1` is returned.
 
 The [Expressions section](`e:system:expressions.md#term-comparisons`) contains
 descriptions of the `==` operator and how terms are ordered.
 
-Examples:
-
-```erlang
-> max(1, 2).
-2
-```
-
-```erlang
-> max(1.0, 1).
-1.0
-```
-
-```erlang
-> max(1, 1.0).
-1
-```
-
-```erlang
-> max("abc", "b").
-"b"
-```
-
 > #### Change {: .info }
 >
 > Allowed in guards tests from Erlang/OTP 26.
+
+## Examples:
+
+```erlang
+1> max(1, 2).
+2
+2> max(1.0, 1).
+1.0
+3> max(1, 1.0).
+1
+4> max("abc", "b").
+"b"
+```
 """.
 -doc #{ category => terms }.
 -spec max(Term1, Term2) -> Maximum when

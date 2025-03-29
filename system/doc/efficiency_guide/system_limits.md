@@ -45,7 +45,7 @@ limited by either the maximum number of simultaneously known remote nodes,
 [the maximum number of (Erlang) ports](#ports) available,
 or [the maximum number of sockets](#files_sockets) available.
 
-- **Characters in an atom** - 255.
+- [](){: #atom_name_limit } **Characters in an atom** - 255.
 
 - [](){: #atoms } **Atoms** - By default, the maximum number of atoms is 1,048,576.
 This limit can be raised or lowered using the `+t` option.
