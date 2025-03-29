@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2024. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1087,8 +1087,21 @@ get_engine_id() ->
 get_agent_engine_id(Name) ->
     snmpm_config:get_agent_engine_id(Name).
 
-is_known_engine_id(EngineID, {Addr, Port}) ->
-    snmpm_config:is_known_engine_id(EngineID, Addr, Port).
+%% We cannot include 'Port' in this check since agents
+%% can use ephemeral ports (random ports) for traps/notifications.
+is_known_engine_id(EngineID, {Addr, _Port}) ->
+    Agents = snmpm_config:which_agents(engine_id, EngineID),
+    is_known_engine_id2(Agents, Addr).
+
+is_known_engine_id2([], _Addr) ->
+    false;
+is_known_engine_id2([TargetName|Agents], Addr) ->
+    case snmpm_config:agent_info(TargetName, address) of
+        {ok, Addr} ->
+            true;
+        _ ->
+            is_known_engine_id2(Agents, Addr)
+    end.
 
 
 %%-----------------------------------------------------------------
