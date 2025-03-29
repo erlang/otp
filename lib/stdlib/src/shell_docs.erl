@@ -590,24 +590,26 @@ render_type(Module, D) ->
 
 %% extract AST raw type specifications.
 extract_type_specs(Module) ->
-  maybe
-    Path = find_path(Module),
-    true ?= non_existing =/= Path,
-    {ok, {_ModName,
-            [{debug_info,
-                {debug_info_v1,erl_abstract_code,
-                   {AST, _Opts}}}]}} ?= beam_lib:chunks(Path, [debug_info]),
+    case find_path(Module) of
+        Path when is_list(Path); is_list(binary) ->
+            extract_type_specs1(Path);
+        _ ->
+            #{}
+    end.
 
-    %% the mapping keys 'type', 'function', and 'callback' correspond
-    %% to existing EEP-48 {**Kind**, Name, Arity} format, where Kind
-    %% ranges over these values. This is needed to differentiate
-    %% function, callback, and types when looking up their type specs
-    Acc = #{type => #{}, 'function' => #{}, 'callback' => #{}},
-    lists:foldl(fun filter_exported_types/2, Acc, AST)
-  else
-    false -> #{}; % when non_existing =/= Path,
-    {error,beam_lib,{file_error,_,_}} -> #{} % from beam_lib:chunks/1
-  end.
+%% extract AST raw type specifications.
+extract_type_specs1(Path) ->
+    case beam_lib:chunks(Path, [debug_info]) of
+        {ok, {_ModName, [{debug_info, {debug_info_v1, erl_abstract_code, {[_|_] = AST, _Opts}}}]}} ->
+            %% the mapping keys 'type', 'function', and 'callback' correspond
+            %% to existing EEP-48 {**Kind**, Name, Arity} format, where Kind
+            %% ranges over these values. This is needed to differentiate
+            %% function, callback, and types when looking up their type specs
+            Acc = #{'type' => #{}, 'function' => #{}, 'callback' => #{}},
+            lists:foldl(fun filter_exported_types/2, Acc, AST);
+        _ ->
+            #{}
+    end.
 
 -spec find_path(Mod :: module()) -> non_existing | file:filename_all().
 find_path(Module) ->
