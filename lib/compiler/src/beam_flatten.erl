@@ -65,7 +65,7 @@ norm({set,[D],[S|Puts],{alloc,R,{put_map,Op,F}}}) ->
 norm({set,[],[],remove_message})   -> remove_message;
 norm({set,[],[],{line,_}=Line}) -> Line;
 norm({set,[],[],{executable_line,_,_}=Line}) -> Line;
-norm({set,[],_,{debug_line,_,_,_,_}=Line}) -> Line;
+norm({set,[],_,{debug_line,_,_,_,_}=Line}) -> norm_debug_line(Line);
 norm({set,[D1,D2],[D1,D2],swap})   -> {swap,D1,D2}.
 
 norm_allocate({_Zero,nostack,Nh,[]}, Regs) ->
@@ -74,3 +74,11 @@ norm_allocate({nozero,Ns,0,Inits}, Regs) ->
     [{allocate,Ns,Regs}|Inits];
 norm_allocate({nozero,Ns,Nh,Inits}, Regs) ->
     [{allocate_heap,Ns,Nh,Regs}|Inits].
+
+norm_debug_line({debug_line,Location,Index,Live,Info}) ->
+    Kind = case Info of
+               {entry,_} -> entry;
+               {_,_} -> line
+           end,
+    {debug_line,{atom,Kind},Location,Index,Live,Info}.
+

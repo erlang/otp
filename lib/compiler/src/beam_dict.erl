@@ -36,7 +36,7 @@
 
 -type index() :: non_neg_integer().
 
--type frame_size() :: 'none' | non_neg_integer().
+-type frame_size() :: 'none' | 'entry' | non_neg_integer().
 -type debug_info() :: {frame_size(), list()}.
 
 -type atom_tab()   :: #{atom() => index()}.
