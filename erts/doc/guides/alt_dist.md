@@ -423,7 +423,7 @@ The following `#hs_data{}` record fields need to be set unless otherwise stated:
 - **`f_recv`{: #hs_data_f_recv }** - A fun with the following signature:
 
   ```erlang
-  fun (DistCtrlr, Length) -> {ok, Packet} | {error, Reason}
+  fun (DistCtrlr, Length, Timeout) -> {ok, Packet} | {error, Reason}
   ```
 
   where `DistCtrlr` is the identifier of the distribution controller. If
