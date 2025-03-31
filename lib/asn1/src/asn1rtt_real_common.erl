@@ -36,7 +36,7 @@ encode_real('PLUS-INFINITY') ->
 encode_real('MINUS-INFINITY') ->
     <<2#0100_0001>>;
 encode_real(Val) when is_tuple(Val); is_list(Val) ->
-    encode_real([], Val).
+    do_encode_real(Val).
 
 %%%%%%%%%%%%%%
 %% only base 2 encoding!
@@ -72,7 +72,7 @@ encode_real(Val) when is_tuple(Val); is_list(Val) ->
 %% bit shifted until it is an odd number. Thus, do this for BER as
 %% well.
 
-encode_real(_C, {Mantissa, Base, Exponent}) when Base =:= 2 ->
+do_encode_real({Mantissa, Base, Exponent}) when Base =:= 2 ->
 %%    io:format("Mantissa: ~w Base: ~w, Exp: ~w~n",[Man, Base, Exp]),
     {Man,ExpAdd} = truncate_zeros(Mantissa), %% DER adjustment
     Exp = Exponent + ExpAdd,
@@ -103,7 +103,7 @@ encode_real(_C, {Mantissa, Base, Exponent}) when Base =:= 2 ->
 		  end,
     %%    ok = io:format("LenMask: ~w EOctets: ~w~nFirstOctet: ~w OctMantissa: ~w OctExpLen: ~w~n", [LenMask, EOctets, FirstOctet, OctMantissa, OctExpLen]),
     <<FirstOctet/binary, EOctets/binary, OctMantissa/binary>>;
-encode_real(C, {Mantissa,Base,Exponent})
+do_encode_real({Mantissa,Base,Exponent})
   when Base =:= 10, is_integer(Mantissa), is_integer(Exponent) ->
     %% always encode as NR3 due to DER on the format
     %% mmmm.Eseeee where
@@ -114,11 +114,11 @@ encode_real(C, {Mantissa,Base,Exponent})
     %% ex: 1234.E-5679
     ManStr = integer_to_list(Mantissa),
 
-    encode_real_as_string(C,ManStr,Exponent);
-encode_real(_C, {_,Base,_}) ->
+    encode_real_as_string(ManStr, Exponent);
+do_encode_real({_,Base,_}) ->
     exit({error,{asn1, {encode_real_non_supported_encoding, Base}}});
 %% base 10
-encode_real(C, Real) when is_list(Real) ->
+do_encode_real(Real) when is_list(Real) ->
     %% The Real string may come in as a NR1, NR2 or NR3 string.
     {Mantissa, Exponent} =
 	case string:lexemes(Real,"Ee") of
@@ -142,18 +142,18 @@ encode_real(C, Real) when is_list(Real) ->
 	    _ ->
 		case string:lexemes(Mantissa,",.") of
 		    [Num] -> %% No decimal-mark
-			{integer_to_list(list_to_integer(Num)),0};
+			{remove_plus_and_leading_zeros(Num),0};
 		    [Num,Dec] ->
 			NewDec = ZeroDecimal(remove_trailing_zeros(Dec)),
-			NewMan = integer_to_list(list_to_integer(Num)) ++ NewDec,
-			{integer_to_list(list_to_integer(NewMan)),
+			NewMan = remove_plus_and_leading_zeros(Num) ++ NewDec,
+			{remove_plus_and_leading_zeros(NewMan),
 			 length(NewDec)}
 		end
 	end,
 
-    encode_real_as_string(C, NewMantissa, Exponent - LenDecimal).
+    encode_real_as_string(NewMantissa, Exponent - LenDecimal).
 
-encode_real_as_string(_C, Mantissa, Exponent)
+encode_real_as_string(Mantissa, Exponent)
   when is_list(Mantissa), is_integer(Exponent) ->
     %% Remove trailing zeros in Mantissa and add this to Exponent
     TruncMant = remove_trailing_zeros(Mantissa),
@@ -173,6 +173,11 @@ encode_real_as_string(_C, Mantissa, Exponent)
     ManBin = list_to_binary(TruncMant),
     NR3 = 3,
     <<NR3,ManBin/binary,$.,ExpBin/binary>>.
+
+remove_plus_and_leading_zeros("-0") ->
+    "-0";
+remove_plus_and_leading_zeros(IntStr) ->
+    integer_to_list(list_to_integer(IntStr)).
 
 remove_trailing_zeros(IntStr) ->
     case lists:dropwhile(fun($0)-> true;
