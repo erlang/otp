@@ -897,6 +897,8 @@ aggregate_ret_patches([R={self,heap_tuple}]) ->
     R;
 aggregate_ret_patches([R={self,init_writable}]) ->
     R;
+aggregate_ret_patches([{tuple_element,I,_,_}=A, {tuple_element,I,_,_}=B|Rest]) ->
+    aggregate_ret_patches([merge_patches(A, B)|Rest]);
 aggregate_ret_patches([{tuple_element,I,E,_}|Rest]) ->
     Elements = [{I,E}|aggregate_ret_patches_tuple(Rest)],
     {tuple_elements,Elements};
