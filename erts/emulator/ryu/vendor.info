@@ -10,5 +10,6 @@
   "name": "ryu",
   "versionInfo": "844864ac213bdbf1fb57e6f51c653b3d90af0937",
   "path": "./erts/emulator/ryu",
-  "supplier": "Person: Ulf Adams"
+  "supplier": "Person: Ulf Adams",
+  "purl": "pkg:github/ulfjack/ryu"
 }

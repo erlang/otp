@@ -1126,7 +1126,8 @@ generate_spdx_vendor_packages(VendorInfoPackages, #{~"files" := SpdxFiles}=_SPDX
                   (#{~"ID" := Id, ~"path" := [_ | _]=ExplicitFiles}=Package) when is_list(ExplicitFiles) ->
                       %% Deals with the cases of creating a package out of specific files
                       Paths = lists:map(fun cleanup_path/1, ExplicitFiles),
-                      Package1 = maps:remove(~"ID", Package),
+                      Package0 = maps:remove(~"purl", Package),
+                      Package1 = maps:remove(~"ID", Package0),
                       Package2 = maps:remove(~"path", Package1),
 
                       %% place files in SPDX in the corresponding package
@@ -1140,6 +1141,7 @@ generate_spdx_vendor_packages(VendorInfoPackages, #{~"files" := SpdxFiles}=_SPDX
                                     end, [], Files)),
 
                       PackageVerificationCodeValue = generate_verification_code_value(Files),
+                      ExternalRefs = generate_vendor_purl(Package),
                       Package2#{
                                 ~"SPDXID" => generate_spdxid_name(Id),
                                 ~"filesAnalyzed" => true,
@@ -1147,12 +1149,14 @@ generate_spdx_vendor_packages(VendorInfoPackages, #{~"files" := SpdxFiles}=_SPDX
                                 ~"licenseConcluded" => ~"NOASSERTION",
                                 ~"licenseInfoFromFiles" => lists:uniq(LicenseInfoInFiles),
                                 ~"packageVerificationCode" => #{~"packageVerificationCodeValue" => PackageVerificationCodeValue},
-                                ~"comment" => ~"vendor package"
+                                ~"comment" => ~"vendor package",
+                                ~"externalRefs" => ExternalRefs
                        };
                   (#{~"ID" := Id, ~"path" := DirtyPath}=Package) when is_binary(DirtyPath) ->
                       %% Deals with the case of creating a package out of a path
                       Path = cleanup_path(DirtyPath),
-                      Package1 = maps:remove(~"ID", Package),
+                      Package0 = maps:remove(~"purl", Package),
+                      Package1 = maps:remove(~"ID", Package0),
                       Package2 = maps:remove(~"path", Package1),
 
                       %% place files in SPDX in the corresponding package
@@ -1168,6 +1172,7 @@ generate_spdx_vendor_packages(VendorInfoPackages, #{~"files" := SpdxFiles}=_SPDX
                                     end, [], Files)),
 
                       PackageVerificationCodeValue = generate_verification_code_value(Files),
+                      ExternalRefs = generate_vendor_purl(Package),
                       Package2#{
                                 ~"SPDXID" => generate_spdxid_name(Id),
                                 ~"filesAnalyzed" => true,
@@ -1175,9 +1180,24 @@ generate_spdx_vendor_packages(VendorInfoPackages, #{~"files" := SpdxFiles}=_SPDX
                                 ~"licenseConcluded" => ~"NOASSERTION",
                                 ~"licenseInfoFromFiles" => lists:uniq(LicenseInfoInFiles),
                                 ~"packageVerificationCode" => #{~"packageVerificationCodeValue" => PackageVerificationCodeValue},
-                                ~"comment" => ~"vendor package"
+                                ~"comment" => ~"vendor package",
+                                ~"externalRefs" => ExternalRefs
                        }
               end, VendorInfoPackages).
+
+generate_vendor_purl(Package) ->
+    Description = maps:get(~"description", Package, ""),
+    Vsn = maps:get(~"versionInfo", Package, false),
+    Purl = maps:get(~"purl", Package, false),
+
+    case {Purl, Vsn}  of
+        {false, _} ->
+            [];
+        {Purl, false} ->
+            [create_externalRef_purl(Description, Purl)];
+        {Purl, Vsn} ->
+            [create_externalRef_purl(Description, <<Purl/binary, "@", Vsn/binary>>)]
+    end.
 
 cleanup_path(<<"./", Path/binary>>) when is_binary(Path) -> Path;
 cleanup_path(Path) when is_binary(Path) -> Path.

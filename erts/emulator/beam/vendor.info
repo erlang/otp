@@ -3,7 +3,7 @@
 [
   {
   "ID": "erts-fp16",
-  "description": "fp16 vendor library",
+  "description": "fp16 library",
   "copyrightText": "Copyright (c) 2017 Facebook Inc./nCopyright (c) 2017 Georgia Institute of Technology/nCopyright 2019 Google LLC",
   "downloadLocation": "https://github.com/Maratyszcza/FP16",
   "homepage": "https://github.com/Maratyszcza/FP16",
@@ -11,7 +11,8 @@
   "name": "fp16",
   "versionInfo": "0a92994d729ff76a58f692d3028ca1b64b145d91",
   "path": "./erts/emulator/beam/erl_bits_f16.h",
-  "supplier": "Person:  Marat Dukhan"
+  "supplier": "Person:  Marat Dukhan",
+  "purl": "pkg:github/maratyszcza/fp16"
   },
   {
   "ID": "erts-tcl",
@@ -23,6 +24,7 @@
   "name": "tcl",
   "versionInfo": "7.6",
   "path": "./erts/emulator/beam/erl_posix_str.c",
-  "supplier": "Organization: Tcl Core Team"
+  "supplier": "Organization: Tcl Core Team",
+  "purl": "pkg:generic/tcl"
   }
 ]

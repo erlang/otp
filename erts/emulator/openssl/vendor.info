@@ -10,5 +10,6 @@
   "name": "openssl",
   "versionInfo": "3.1.4",
   "path": "./erts/emulator/openssl",
-  "supplier": "Organization: OpenSSL Mission"
+  "supplier": "Organization: OpenSSL Mission",
+  "purl": "pkg:generic/openssl"
 }

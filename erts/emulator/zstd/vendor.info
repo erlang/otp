@@ -11,5 +11,6 @@
   "name": "zstd",
   "versionInfo": "v1.5.6",
   "path": "./erts/emulator/zstd",
-  "supplier": "Organization: Meta"
+  "supplier": "Organization: Meta",
+  "purl": "pkg:generic/zstd"
 }
