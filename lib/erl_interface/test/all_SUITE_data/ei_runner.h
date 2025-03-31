@@ -64,3 +64,4 @@ void message(char* format, ...);
 
 void send_bin_term(ei_x_buff* x);
 
+int my_strcmp(const char *s1, const char *s2);

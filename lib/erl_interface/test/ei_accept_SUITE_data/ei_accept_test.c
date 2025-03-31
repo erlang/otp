@@ -126,9 +126,9 @@ static void cmd_ei_connect_init(char* buf, int len)
     if (ei_decode_atom_as(buf, &index, socket_impl, sizeof(socket_impl),
                           ERLANG_ASCII, NULL, NULL) < 0)
 	fail("expected atom (socket_impl)");
-    if (strcmp(socket_impl,"default") == 0)
+    if (my_strcmp(socket_impl,"default") == 0)
         r = ei_connect_init(&ec, node_name, cp, creation);
-    else if (strcmp(socket_impl,"ussi") == 0)
+    else if (my_strcmp(socket_impl,"ussi") == 0)
         r = ei_connect_init_ussi(&ec, node_name, cp, creation,
                                  &my_ussi, sizeof(my_ussi), NULL);
     else
