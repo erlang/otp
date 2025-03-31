@@ -91,7 +91,8 @@ line I
 
 executable_line I I
 
-debug_line I I t
+debug_line a==am_entry u u u => _
+debug_line a I I t
 
 allocate t t
 allocate_heap t I t

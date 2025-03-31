@@ -516,10 +516,10 @@ make_op({line=Op,Location}, Dict0) ->
 make_op({executable_line=Op,Location,Index}, Dict0) ->
     {LocationIndex,Dict} = beam_dict:line(Location, Dict0, Op),
     encode_op(executable_line, [LocationIndex,Index], Dict);
-make_op({debug_line=Op,Location,Index,Live,DebugInfo}, Dict0) ->
+make_op({debug_line=Op,Kind,Location,Index,Live,DebugInfo}, Dict0) ->
     {LocationIndex,Dict1} = beam_dict:line(Location, Dict0, Op),
     Dict = beam_dict:debug_info(Index, DebugInfo, Dict1),
-    encode_op(debug_line, [LocationIndex,Index,Live], Dict);
+    encode_op(debug_line, [Kind,LocationIndex,Index,Live], Dict);
 make_op({bif, Bif, {f,_}, [], Dest}, Dict) ->
     %% BIFs without arguments cannot fail.
     encode_op(bif0, [{extfunc, erlang, Bif, 0}, Dest], Dict);

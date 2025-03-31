@@ -698,6 +698,10 @@ BEAM_FORMAT_NUMBER=0
 
 # OTP 28
 
-## @spec debug_line Location Index Live
+## @spec debug_line Kind Location Index Live
 ## @doc  Provide location for a place where a break point can be placed.
-184: debug_line/3
+##       Kind can be one of:
+##
+##       * {atom,entry}       - Function entry.
+##       * {atom,line}        - Any other line in the function.
+184: debug_line/4
