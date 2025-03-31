@@ -44,7 +44,7 @@
          test_length/1,
          fixed_apply_badarg/1,
          external_fun_apply3/1,
-         node_1/1]).
+         node_1/1,doctests/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -62,7 +62,7 @@ all() ->
      is_process_alive, is_process_alive_signal_from,
      process_info_blast, os_env_case_sensitivity,
      verify_middle_queue_save, test_length,fixed_apply_badarg,
-     external_fun_apply3, node_1].
+     external_fun_apply3, node_1, doctests].
 
 init_per_testcase(guard_bifs_in_erl_bif_types, Config) when is_list(Config) ->
     skip_missing_erl_bif_types(Config);
@@ -1774,6 +1774,9 @@ node_error(E0) ->
         true ->
             ok
     end.
+
+doctests(_Config) ->
+    shell_docs:test(erlang, []).
 
 %% helpers
 
