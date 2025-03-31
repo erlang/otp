@@ -78,7 +78,7 @@ nth(N, [_|T]) when N > 1 ->
 nthtail(1, [H|T]) -> T;
 nthtail(N, [H|T]) when N > 1 ->
     nthtail(N - 1, T);
-nthtail(0, L) when list(L) -> L.
+nthtail(0, L) when is_list(L) -> L.
 
 %% prefix(Prefix, List) -> (true | false)
 
@@ -106,7 +106,7 @@ last([E|Es]) ->
 %%  returns the sequence Min..Max
 %%  Min <= Max and Min and Max must be integers
 
-seq(Min, Max) when integer(Min), integer(Max), Min =< Max ->
+seq(Min, Max) when is_integer(Min), is_integer(Max), Min =< Max ->
     seq(Min, Max, 1, []).
 
 seq(Min, Max, Incr) ->
@@ -124,7 +124,7 @@ sum([], Sum)    -> Sum.
 %% duplicate(N, X) -> [X,X,X,.....,X]  (N times)
 %%   return N copies of X
 
-duplicate(N, X) when integer(N), N >= 0 -> duplicate(N, X, []).
+duplicate(N, X) when is_integer(N), N >= 0 -> duplicate(N, X, []).
 
 duplicate(0, _, L) -> L;
 duplicate(N, X, L) -> duplicate(N-1, X, [X|L]).
@@ -198,10 +198,10 @@ merge([], [], L) ->
 concat(List) ->
     flatmap(fun thing_to_list/1, List).
 
-thing_to_list(X) when integer(X) -> integer_to_list(X);
-thing_to_list(X) when float(X)	 -> float_to_list(X);
-thing_to_list(X) when atom(X)	 -> atom_to_list(X);
-thing_to_list(X) when list(X)	 -> X.		%Assumed to be a string
+thing_to_list(X) when is_integer(X) -> integer_to_list(X);
+thing_to_list(X) when is_float(X)	 -> float_to_list(X);
+thing_to_list(X) when is_atom(X)	 -> atom_to_list(X);
+thing_to_list(X) when is_list(X)	 -> X.  % Assumed to be a string
 
 %% flatten(List)
 %% flatten(List, Tail)
@@ -213,7 +213,7 @@ flatten(List) ->
 flatten(List, Tail) ->
     flatten(List, [], Tail).
 
-flatten([H|T], Cont, Tail) when list(H) ->
+flatten([H|T], Cont, Tail) when is_list(H) ->
     flatten(H, [T|Cont], Tail);
 flatten([H|T], Cont, Tail) ->
     [H|flatten(T, Cont, Tail)];
@@ -233,7 +233,7 @@ flat_length(List) -> flatlength(List).
 flatlength(List) ->
     flatlength(List, 0).
 
-flatlength([H|T], L) when list(H) ->
+flatlength([H|T], L) when is_list(H) ->
     flatlength(H, flatlength(T, L));
 flatlength([H|T], L) ->
     flatlength(T, L + 1);
@@ -488,9 +488,9 @@ mapfoldr(F, Eas, Accu, []) -> {[],Accu}.
 %	member_1(X, Y);
 %member_1(X, []) -> false.
 
-member_1(X, L) when list(L) ->
+member_1(X, L) when is_list(L) ->
     case erlang:member_1(X, L) of
-	L1 when list(L1) ->
+	L1 when is_list(L1) ->
 	    receive after 1 -> ok end,
 	    member_1(X, L1);
 	Boolean ->
@@ -519,7 +519,7 @@ reverse_1(X) -> reverse_1(X, []).
 %    reverse_1(T, [H|Y]);
 %reverse_1([], X) -> X.
 
-reverse_1(List0, Result0) when list(List0) ->
+reverse_1(List0, Result0) when is_list(List0) ->
     case erlang:reverse_1(List0, Result0) of
 	{List, Result} ->
 	    receive after 1 -> ok end,
@@ -539,7 +539,7 @@ nth_1(N, [_|T]) when N > 1 ->
 nthtail_1(1, [H|T]) -> T;
 nthtail_1(N, [H|T]) when N > 1 ->
     nthtail_1(N - 1, T);
-nthtail_1(0, L) when list(L) -> L.
+nthtail_1(0, L) when is_list(L) -> L.
 
 %% prefix_1(Prefix, List) -> (true | false)
 
@@ -567,7 +567,7 @@ last_1([E|Es]) ->
 %%  returns the sequence Min..Max
 %%  Min <= Max and Min and Max must be integers
 
-seq_1(Min, Max) when integer(Min), integer(Max), Min =< Max ->
+seq_1(Min, Max) when is_integer(Min), is_integer(Max), Min =< Max ->
     seq_1(Min, Max, 1, []).
 
 seq_1(Min, Max, Incr) ->
@@ -585,7 +585,7 @@ sum_1([], Sum)    -> Sum.
 %% duplicate(N, X) -> [X,X,X,.....,X]  (N times)
 %%   return N copies of X
 
-duplicate_1(N, X) when integer(N), N >= 0 -> duplicate_1(N, X, []).
+duplicate_1(N, X) when is_integer(N), N >= 0 -> duplicate_1(N, X, []).
 
 duplicate_1(0, _, L) -> L;
 duplicate_1(N, X, L) -> duplicate_1(N-1, X, [X|L]).
@@ -659,10 +659,10 @@ merge_1([], [], L) ->
 concat_1(List) ->
     flatmap_1(fun thing_to_list/1, List).
 
-thing_to_list_1(X) when integer(X) -> integer_to_list(X);
-thing_to_list_1(X) when float(X)	 -> float_to_list(X);
-thing_to_list_1(X) when atom(X)	 -> atom_to_list(X);
-thing_to_list_1(X) when list(X)	 -> X.		%Assumed to be a string
+thing_to_list_1(X) when is_integer(X) -> integer_to_list(X);
+thing_to_list_1(X) when is_float(X)   -> float_to_list(X);
+thing_to_list_1(X) when is_atom(X)    -> atom_to_list(X);
+thing_to_list_1(X) when is_list(X)    -> X.  % Assumed to be a string
 
 %% flatten(List)
 %% flatten(List, Tail)
@@ -674,7 +674,7 @@ flatten_1(List) ->
 flatten_1(List, Tail) ->
     flatten_1(List, [], Tail).
 
-flatten_1([H|T], Cont, Tail) when list(H) ->
+flatten_1([H|T], Cont, Tail) when is_list(H) ->
     flatten_1(H, [T|Cont], Tail);
 flatten_1([H|T], Cont, Tail) ->
     [H|flatten_1(T, Cont, Tail)];
@@ -694,7 +694,7 @@ flat_length_1(List) -> flatlength_1(List).
 flatlength_1(List) ->
     flatlength_1(List, 0).
 
-flatlength_1([H|T], L) when list(H) ->
+flatlength_1([H|T], L) when is_list(H) ->
     flatlength_1(H, flatlength_1(T, L));
 flatlength_1([H|T], L) ->
     flatlength_1(T, L + 1);
@@ -952,9 +952,9 @@ mapfoldr_1(F, Eas, Accu, []) -> {[],Accu}.
 %	member_2(X, Y);
 %member_2(X, []) -> false.
 
-member_2(X, L) when list(L) ->
+member_2(X, L) when is_list(L) ->
     case erlang:member_2(X, L) of
-	L1 when list(L1) ->
+	L1 when is_list(L1) ->
 	    receive after 1 -> ok end,
 	    member_2(X, L1);
 	Boolean ->
@@ -983,7 +983,7 @@ reverse_2(X) -> reverse_2(X, []).
 %    reverse_2(T, [H|Y]);
 %reverse_2([], X) -> X.
 
-reverse_2(List0, Result0) when list(List0) ->
+reverse_2(List0, Result0) when is_list(List0) ->
     case erlang:reverse_2(List0, Result0) of
 	{List, Result} ->
 	    receive after 1 -> ok end,
@@ -1003,7 +1003,7 @@ nth_2(N, [_|T]) when N > 1 ->
 nthtail_2(1, [H|T]) -> T;
 nthtail_2(N, [H|T]) when N > 1 ->
     nthtail_2(N - 1, T);
-nthtail_2(0, L) when list(L) -> L.
+nthtail_2(0, L) when is_list(L) -> L.
 
 %% prefix_2(Prefix, List) -> _2(true | false)
 
@@ -1031,7 +1031,7 @@ last_2([E|Es]) ->
 %%  returns the sequence Min..Max
 %%  Min <= Max and Min and Max must be integers
 
-seq_2(Min, Max) when integer(Min), integer(Max), Min =< Max ->
+seq_2(Min, Max) when is_integer(Min), is_integer(Max), Min =< Max ->
     seq_2(Min, Max, 1, []).
 
 seq_2(Min, Max, Incr) ->
@@ -1049,7 +1049,7 @@ sum_2([], Sum)    -> Sum.
 %% duplicate_2(N, X) -> [X,X,X,.....,X]  _2(N times)
 %%   return N copies of X
 
-duplicate_2(N, X) when integer(N), N >= 0 -> duplicate_2(N, X, []).
+duplicate_2(N, X) when is_integer(N), N >= 0 -> duplicate_2(N, X, []).
 
 duplicate_2(0, _, L) -> L;
 duplicate_2(N, X, L) -> duplicate_2(N-1, X, [X|L]).
@@ -1123,10 +1123,10 @@ merge_2([], [], L) ->
 concat_2(List) ->
     flatmap_2(fun thing_to_list/1, List).
 
-thing_to_list_2(X) when integer(X) -> integer_to_list(X);
-thing_to_list_2(X) when float(X)	 -> float_to_list(X);
-thing_to_list_2(X) when atom(X)	 -> atom_to_list(X);
-thing_to_list_2(X) when list(X)	 -> X.		%Assumed to be a string
+thing_to_list_2(X) when is_integer(X) -> integer_to_list(X);
+thing_to_list_2(X) when is_float(X)   -> float_to_list(X);
+thing_to_list_2(X) when is_atom(X)    -> atom_to_list(X);
+thing_to_list_2(X) when is_list(X)    -> X.  % Assumed to be a string
 
 %% flatten_2(List)
 %% flatten_2(List, Tail)
@@ -1138,7 +1138,7 @@ flatten_2(List) ->
 flatten_2(List, Tail) ->
     flatten_2(List, [], Tail).
 
-flatten_2([H|T], Cont, Tail) when list(H) ->
+flatten_2([H|T], Cont, Tail) when is_list(H) ->
     flatten_2(H, [T|Cont], Tail);
 flatten_2([H|T], Cont, Tail) ->
     [H|flatten_2(T, Cont, Tail)];
@@ -1158,7 +1158,7 @@ flat_length_2(List) -> flatlength_2(List).
 flatlength_2(List) ->
     flatlength_2(List, 0).
 
-flatlength_2([H|T], L) when list(H) ->
+flatlength_2([H|T], L) when is_list(H) ->
     flatlength_2(H, flatlength_2(T, L));
 flatlength_2([H|T], L) ->
     flatlength_2(T, L + 1);
@@ -1414,9 +1414,9 @@ mapfoldr_2(F, Eas, Accu, []) -> {[],Accu}.
 %	member_3(X, Y);
 %member_3(X, []) -> false.
 
-member_3(X, L) when list(L) ->
+member_3(X, L) when is_list(L) ->
     case erlang:member(X, L) of
-	L1 when list(L1) ->
+	L1 when is_list(L1) ->
 	    receive after 1 -> ok end,
 	    member_3(X, L1);
 	Boolean ->
@@ -1445,7 +1445,7 @@ reverse_3(X) -> reverse_3(X, []).
 %    reverse_3(T, [H|Y]);
 %reverse_3([], X) -> X.
 
-reverse_3(List0, Result0) when list(List0) ->
+reverse_3(List0, Result0) when is_list(List0) ->
     case erlang:reverse_3(List0, Result0) of
 	{List, Result} ->
 	    receive after 1 -> ok end,
@@ -1465,7 +1465,7 @@ nth_3(N, [_|T]) when N > 1 ->
 nthtail_3(1, [H|T]) -> T;
 nthtail_3(N, [H|T]) when N > 1 ->
     nthtail_3(N - 1, T);
-nthtail_3(0, L) when list(L) -> L.
+nthtail_3(0, L) when is_list(L) -> L.
 
 %% prefix_3(Prefix, List) -> _3(true | false)
 
@@ -1493,7 +1493,7 @@ last_3([E|Es]) ->
 %%  returns the sequence Min..Max
 %%  Min <= Max and Min and Max must be integers
 
-seq_3(Min, Max) when integer(Min), integer(Max), Min =< Max ->
+seq_3(Min, Max) when is_integer(Min), is_integer(Max), Min =< Max ->
     seq_3(Min, Max, 1, []).
 
 seq_3(Min, Max, Incr) ->
@@ -1511,7 +1511,7 @@ sum_3([], Sum)    -> Sum.
 %% duplicate_3(N, X) -> [X,X,X,.....,X]  _3(N times)
 %%   return N copies of X
 
-duplicate_3(N, X) when integer(N), N >= 0 -> duplicate_3(N, X, []).
+duplicate_3(N, X) when is_integer(N), N >= 0 -> duplicate_3(N, X, []).
 
 duplicate_3(0, _, L) -> L;
 duplicate_3(N, X, L) -> duplicate_3(N-1, X, [X|L]).
@@ -1585,10 +1585,10 @@ merge_3([], [], L) ->
 concat_3(List) ->
     flatmap_3(fun thing_to_list/1, List).
 
-thing_to_list_3(X) when integer(X) -> integer_to_list(X);
-thing_to_list_3(X) when float(X)	 -> float_to_list(X);
-thing_to_list_3(X) when atom(X)	 -> atom_to_list(X);
-thing_to_list_3(X) when list(X)	 -> X.		%Assumed to be a string
+thing_to_list_3(X) when is_integer(X) -> integer_to_list(X);
+thing_to_list_3(X) when is_float(X)   -> float_to_list(X);
+thing_to_list_3(X) when is_atom(X)    -> atom_to_list(X);
+thing_to_list_3(X) when is_list(X)    -> X.  % Assumed to be a string
 
 %% flatten_3(List)
 %% flatten_3(List, Tail)
@@ -1600,7 +1600,7 @@ flatten_3(List) ->
 flatten_3(List, Tail) ->
     flatten_3(List, [], Tail).
 
-flatten_3([H|T], Cont, Tail) when list(H) ->
+flatten_3([H|T], Cont, Tail) when is_list(H) ->
     flatten_3(H, [T|Cont], Tail);
 flatten_3([H|T], Cont, Tail) ->
     [H|flatten_3(T, Cont, Tail)];
@@ -1620,7 +1620,7 @@ flat_length_3(List) -> flatlength_3(List).
 flatlength_3(List) ->
     flatlength_3(List, 0).
 
-flatlength_3([H|T], L) when list(H) ->
+flatlength_3([H|T], L) when is_list(H) ->
     flatlength_3(H, flatlength_3(T, L));
 flatlength_3([H|T], L) ->
     flatlength_3(T, L + 1);
