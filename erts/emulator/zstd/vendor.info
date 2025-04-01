@@ -9,7 +9,8 @@
   "license": "BSD-3-Clause OR GPL-2.0-only",
   "licenseDeclared": "BSD-3-Clause OR GPL-2.0-only",
   "name": "zstd",
-  "versionInfo": "v1.5.6",
+  "versionInfo": "v1.5.7",
   "path": "./erts/emulator/zstd",
-  "supplier": "Organization: Meta"
+  "supplier": "Organization: Meta",
+  "purl": "pkg:github/facebook/zstd"
 }

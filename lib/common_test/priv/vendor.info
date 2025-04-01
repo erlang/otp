@@ -11,7 +11,8 @@
       "name": "jquery",
       "versionInfo": "3.7.1",
       "path": "./lib/common_test/priv/jquery-latest.js",
-      "supplier": "Organization: The jQuery Team"
+      "supplier": "Organization: The jQuery Team",
+      "purl": "pkg:github/jquery/jquery"
     },
     {
       "ID": "common_test-tablesorter",
@@ -23,6 +24,7 @@
       "name": "jquery-tablesorter",
       "versionInfo": "2.32",
       "path": "./lib/common_test/priv/jquery.tablesorter.min.js",
-      "supplier": "Person: Christian Bach"
+      "supplier": "Person: Christian Bach",
+      "purl": "pkg:github/mottie/tablesorter"
     }
 ]
