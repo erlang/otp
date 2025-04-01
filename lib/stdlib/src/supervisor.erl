@@ -466,7 +466,8 @@ see more details [above](`m:supervisor#sup_flags`).
 -type child_rec() :: #child{}.
 
 -record(state, {name,
-		strategy = one_for_one:: strategy(),
+		tag = make_ref()       :: reference(),
+		strategy = one_for_one :: strategy(),
 		children = {[],#{}}    :: children(), % Ids in start order
                 dynamics               :: {'maps', #{pid() => list()}}
                                         | {'mapsets', #{pid() => []}}
@@ -477,7 +478,6 @@ see more details [above](`m:supervisor#sup_flags`).
                 nrestarts = 0,
 		dynamic_restarts = 0   :: non_neg_integer(),
 		auto_shutdown = never  :: auto_shutdown(),
-		hibernate_after_ref = make_ref() :: reference(),
 		hibernate_after = infinity :: timeout(),
 	        module,
 	        args}).
@@ -1221,7 +1221,7 @@ handle_cast({try_again_restart,TryAgainId}, State) ->
 -spec handle_info(term(), state()) ->
         {'noreply', state(), gen_server:action()} | {'stop', 'shutdown', state()}.
 
-handle_info(HRef, #state{hibernate_after_ref = HRef} = State) ->
+handle_info({HRef, hibernate}, #state{tag = HRef} = State) ->
     {noreply, State, hibernate};
 
 handle_info({'EXIT', Pid, Reason}, State) ->
@@ -1971,15 +1971,13 @@ check_flags(SupFlags) when is_map(SupFlags) ->
     case maps:merge(?default_flags, SupFlags) of
 	#{hibernate_after := _} = MergedFlags ->
 	    do_check_flags(MergedFlags);
-	#{strategy := Strategy, period := Period} = MergedFlags ->
-	    do_check_flags(MergedFlags#{hibernate_after => default_hibernate_after(Strategy, Period)})
+	#{strategy := Strategy} = MergedFlags ->
+	    do_check_flags(MergedFlags#{hibernate_after => default_hibernate_after(Strategy)})
     end;
 check_flags({Strategy, MaxIntensity, Period}) ->
     check_flags(#{strategy => Strategy,
 		  intensity => MaxIntensity,
-		  period => Period,
-		  auto_shutdown => never,
-		  hibernate_after => default_hibernate_after(Strategy, Period)});
+		  period => Period});
 check_flags(What) ->
     throw({invalid_type, What}).
 
@@ -2029,21 +2027,17 @@ validHibernateAfter(Timeout) when is_integer(Timeout), Timeout >= 0 ->
 validHibernateAfter(What) ->
     throw({invalid_hibernate_after, What}).
 
+-compile({inline, [hibernate_after_action/1]}).
+hibernate_after_action(#state{tag = HRef, hibernate_after = HibernateAfter}) ->
+    {timeout, HibernateAfter, {HRef, hibernate}}.
+
+default_hibernate_after(simple_one_for_one) ->
+    infinity;
+default_hibernate_after(_) ->
+    1000.
 
 supname(self, Mod) -> {self(), Mod};
 supname(N, _)      -> N.
-
-
--compile({inline, [hibernate_after_action/1]}).
-hibernate_after_action(#state{hibernate_after_ref = HRef, hibernate_after = HibernateAfter}) ->
-    {timeout, HibernateAfter, HRef}.
-
-default_hibernate_after(simple_one_for_one, _) ->
-    infinity;
-default_hibernate_after(_, infinity) ->
-    5000;
-default_hibernate_after(_, Period) ->
-    1000 * Period.
 
 %%% ------------------------------------------------------
 %%% Check that the children start specification is valid.
