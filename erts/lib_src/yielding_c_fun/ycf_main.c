@@ -26,7 +26,6 @@
 #include "ycf_utils.h"
 #include "ycf_yield_fun.h"
 #include "ycf_node.h"
-#include "lib/simple_c_gc/simple_c_gc.h"
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -87,7 +86,6 @@ void parse_and_print_ast(const char* file_name){
 
 void print_help_text_and_exit(char* program_name, int error_code) {
   printf("Usage: %s [-h]\n"
-         "       %s [-use_gc [-print_gc_info]]\n"
          "                              [-log_max_mem_usage log_file]\n"
          "                              [(( -f | -frec | -fnoauto | -fextenal) function_name)...\n"
          "                               [-output_file_name output_file]\n"
@@ -98,7 +96,6 @@ void print_help_text_and_exit(char* program_name, int error_code) {
          "                               input_c_file]]\n"
          "\n"
          "Please see the README.md file for more details.\n",
-         program_name,
          program_name);
   exit(0);
 }
@@ -290,25 +287,16 @@ return
 int main( int argc, char* argv[] )
 {
   bool log_max_mem_usage = false;
-  bool use_gc = false;
   char * log_max_mem_usage_file = NULL;
   int i = 1;
   if (argc == 1) {
     print_help_text_and_exit(argv[0], 0);
   }
   while(i < argc &&
-        (ycf_string_is_equal("-use_gc", argv[i]) ||
-         ycf_string_is_equal("-log_max_mem_usage", argv[i]) ||
-         ycf_string_is_equal("-print_gc_info", argv[i]) ||
+        (ycf_string_is_equal("-log_max_mem_usage", argv[i]) ||
          is_help_option(argv[i]))) {
     if (is_help_option(argv[i])) {
       print_help_text_and_exit(argv[0], 0);
-    } else if (ycf_string_is_equal("-use_gc", argv[i])) {
-      use_gc = true;
-      i++;
-    } else if(ycf_string_is_equal("-print_gc_info", argv[i])) {
-      scgc_enable_print_gc_info();
-      i++;
     } else if(ycf_string_is_equal(argv[i], "-log_max_mem_usage")) {
       ycf_enable_memory_tracking();
       log_max_mem_usage = true;
@@ -318,18 +306,8 @@ int main( int argc, char* argv[] )
     }
   }
   int nr_of_params_to_remove =  i - 1;
-  int ret;
-  if (!use_gc) {
-    ret = ycf_main(argc - nr_of_params_to_remove ,
-                       argv + nr_of_params_to_remove);
-  } else {
-    ycf_enable_gc();
-    ret = scgc_start_gced_code(ycf_main,
-                                   argc - nr_of_params_to_remove,
-                                   argv + nr_of_params_to_remove,
-                                   ycf_raw_malloc,
-                                   ycf_free);
-  }
+  int ret = ycf_main(argc - nr_of_params_to_remove ,
+                     argv + nr_of_params_to_remove);
   if(log_max_mem_usage){
     ycf_malloc_log(log_max_mem_usage_file, "all");
   }
