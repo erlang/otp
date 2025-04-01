@@ -395,6 +395,7 @@ server(Addr, Port) ->
 %% -define(P(F),    ?P(F, [])).
 %% -define(P(F, A), p("~w:~w(~w) -> " ++ F, [?MODULE, ?FUNCTION_NAME, ?LINE | A])).
 
+
 %% Also in prim_socket
 -define(REGISTRY, socket_registry).
 
@@ -3682,11 +3683,54 @@ send_common_deadline_result(
                 ?socket_msg(_Socket, abort, {Handle, Reason}) ->
                     send_common_error(Reason, Data, false)
             after Timeout ->
+                    %% ?DBG(['completion send timeout - cancel']),
+                    _ = cancel(SockRef, Op, Handle),
+                    send_common_error(timeout, Data, false)
+            end;
+
+        {completion, _} -> % ONLY FOR SENDV
+            %% Would block, wait for continuation
+            Timeout = timeout(Deadline),
+            receive
+                ?socket_msg(_Socket, completion, {Handle, {ok, Written}}) ->
+                    case prim_socket:rest_iov(Written, Data) of
+			[] ->
+			    ok;
+			Data_1 ->
+			    Fun(SockRef, Data_1, undefined, Deadline, true)
+		    end;
+                ?socket_msg(_Socket, completion, {Handle, CompletionStatus}) ->
+                    CompletionStatus;
+                ?socket_msg(_Socket, abort, {Handle, Reason}) ->
+                    send_common_error(Reason, Data, false)
+            after Timeout ->
 		    %% ?DBG(['completion send timeout - cancel']),
                     _ = cancel(SockRef, Op, Handle),
                     send_common_error(timeout, Data, false)
             end;
 
+        {completion, RestData, _} -> % ONLY FOR SENDV
+            %% Would block, wait for continuation
+            Timeout = timeout(Deadline),
+            receive
+                ?socket_msg(_Socket, completion, {Handle, {ok, Written}}) ->
+                    case prim_socket:rest_iov(Written, RestData) of
+			[] ->
+			    ok;
+			Data_1 ->
+			    Fun(SockRef, Data_1, undefined, Deadline, true)
+		    end;
+                ?socket_msg(_Socket, completion, {Handle, CompletionStatus}) ->
+                    CompletionStatus;
+                ?socket_msg(_Socket, abort, {Handle, Reason}) ->
+                    send_common_error(Reason, RestData, false)
+            after Timeout ->
+		    %% ?DBG(['completion send timeout - cancel']),
+                    _ = cancel(SockRef, Op, Handle),
+                    send_common_error(timeout, RestData, false)
+            end;
+
+	%%
         {select, Cont} ->
             %% Would block, wait for continuation
             Timeout = timeout(Deadline),
