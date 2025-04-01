@@ -1,10 +1,10 @@
-;; erlang-start.el --- Load this file to initialize the Erlang package.
+;;; erlang-start.el --- Load this file to initialize the Erlang package.
 
 ;; %CopyrightBegin%
 ;;
 ;; SPDX-License-Identifier: Apache-2.0
 ;;
-;; Copyright Ericsson AB 1996-2020. All Rights Reserved.
+;; Copyright Ericsson AB 1996-2025. All Rights Reserved.
 ;;
 ;; Licensed under the Apache License, Version 2.0 (the "License");
 ;; you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@
 ;; limitations under the License.
 ;;
 ;; %CopyrightEnd%
+
 
 ;; Author:   Anders Lindgren
 ;; Version:  2.3
