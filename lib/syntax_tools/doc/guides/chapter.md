@@ -1,7 +1,7 @@
 <!--
 %CopyrightBegin%
 
-SPDX-License-Identifier: Apache-2.0
+SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
 
 Copyright 1997-2025 Richard Carlsson. All Rights Reserved.
 
