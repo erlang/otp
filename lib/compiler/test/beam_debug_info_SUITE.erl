@@ -65,7 +65,7 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 smoke(_Config) ->
-    {ok, Peer, Node} = ?CT_PEER(#{}),
+    {ok, Peer, Node} = ?CT_PEER(#{args => ["+D"]}),
 
     TestBeams0 = get_unique_beam_files(),
     TestBeams = compiler_beams() ++ TestBeams0,
@@ -83,7 +83,7 @@ smoke(_Config) ->
          """,
     io:put_chars(S),
 
-    HasDbgSupport = erlang:system_info(emu_flavor) =:= jit,
+    HasDbgSupport = erl_debugger:supported() andalso erlang:system_info(emu_flavor) =:= jit,
 
     test_lib:p_run(fun(Beam) ->
                            do_smoke(Beam, Node, HasDbgSupport)

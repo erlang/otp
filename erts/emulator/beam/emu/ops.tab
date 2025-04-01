@@ -97,7 +97,12 @@ line I
 
 executable_line _Id _Line => _
 
-debug_line a u u u => _
+debug_line a==am_entry u u u => _
+debug_line _Kind Loc _Index Live | instrumenting_line_breakpoints() =>
+    i_debug_line Loc Live
+debug_line _Kind _Loc _Index _Live => _
+
+i_debug_line I t
 
 # For the JIT, the init_yregs/1 instruction allows generation of better code.
 # For the BEAM interpreter, though, it will probably be more efficient to

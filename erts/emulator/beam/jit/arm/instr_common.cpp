@@ -3187,9 +3187,8 @@ void BeamModuleAssembler::emit_coverage(void *coverage, Uint index, Uint size) {
     }
 }
 
-void BeamModuleAssembler::emit_debug_line(const ArgAtom &Kind,
-                                          const ArgWord &Loc,
-                                          const ArgWord &Index,
-                                          const ArgWord &Live) {
+void BeamModuleAssembler::emit_i_debug_line(const ArgWord &Loc,
+                                            const ArgWord &Index,
+                                            const ArgWord &Live) {
     emit_validate(Live);
 }

@@ -861,6 +861,7 @@ sub emulator_output {
     print '#include "erl_binary.h"', "\n";
     print '#include "beam_transform_helpers.h"', "\n";
     print '#include "erl_global_literals.h"', "\n";
+    print '#include "erl_debugger.h"', "\n";
     print "\n";
 
     print "const char tag_to_letter[] = {\n  ";
