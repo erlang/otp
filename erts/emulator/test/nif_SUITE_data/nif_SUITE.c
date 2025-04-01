@@ -64,6 +64,9 @@ static ErlNifMutex* dbg_trace_lock;
 #define enif_make_port(ENV, PORT) ((void)(ENV),(const ERL_NIF_TERM)((PORT)->port_id))
 #endif
 
+static void last_fd_stop_init(void);
+static void last_fd_stop_fini(void);
+
 static int static_cntA; /* zero by default */
 static int static_cntB = NIF_SUITE_LIB_VER * 100;
 
@@ -258,6 +261,8 @@ static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
                                                 ioq_resource_dtor,
                                                 ERL_NIF_RT_CREATE, NULL);
 
+    last_fd_stop_init();
+
     atom_false = enif_make_atom(env,"false");
     atom_true = enif_make_atom(env,"true");
     atom_self = enif_make_atom(env,"self");
@@ -338,6 +343,7 @@ static void unload(ErlNifEnv* env, void* priv_data)
 	    NifModPrivData_release(data->nif_mod);
 	}
 	enif_free(priv_data);
+        last_fd_stop_fini();
     }
     DBG_TRACE_FINI;
 }
@@ -2894,10 +2900,24 @@ static void fd_resource_dtor(ErlNifEnv* env, void* obj)
 }
 
 static struct {
+    ErlNifMutex* lock;
     void* obj;
     int was_direct_call;
+    int cnt;
 }last_fd_stop;
-int fd_stop_cnt = 0;
+
+static void last_fd_stop_init(void)
+{
+    last_fd_stop.lock = enif_mutex_create("nif_SUITE:last_fd_stop");
+    last_fd_stop.obj = NULL;
+    last_fd_stop.cnt = 0;
+}
+
+static void last_fd_stop_fini(void)
+{
+    enif_mutex_destroy(last_fd_stop.lock);
+    last_fd_stop.lock = NULL;
+}
 
 static void fd_resource_stop(ErlNifEnv* env, void* obj, ErlNifEvent fd,
                              int is_direct_call)
@@ -2906,9 +2926,11 @@ static void fd_resource_stop(ErlNifEnv* env, void* obj, ErlNifEvent fd,
     assert(fd == fdr->fd);
     assert(fd >= 0);
 
+    enif_mutex_lock(last_fd_stop.lock);
     last_fd_stop.obj = obj;
     last_fd_stop.was_direct_call = is_direct_call;
-    fd_stop_cnt++;
+    last_fd_stop.cnt++;
+    enif_mutex_unlock(last_fd_stop.lock);
 
     close(fd);
     fdr->fd = -1;   /* thread safety ? */
@@ -2930,10 +2952,13 @@ static void fd_resource_stop(ErlNifEnv* env, void* obj, ErlNifEvent fd,
 static ERL_NIF_TERM last_fd_stop_call(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     ERL_NIF_TERM last, ret;
+
+    enif_mutex_lock(last_fd_stop.lock);
     last = enif_make_tuple2(env, make_pointer(env, last_fd_stop.obj),
                             enif_make_int(env, last_fd_stop.was_direct_call));
-    ret = enif_make_tuple2(env, enif_make_int(env, fd_stop_cnt), last);
-    fd_stop_cnt = 0;
+    ret = enif_make_tuple2(env, enif_make_int(env, last_fd_stop.cnt), last);
+    last_fd_stop.cnt = 0;
+    enif_mutex_unlock(last_fd_stop.lock);
     return ret;
 }
 
