@@ -1198,10 +1198,10 @@ count_child(#child{pid = Pid, child_type = supervisor},
 %%% from restart/2 in order to give gen_server the chance to
 %%% check it's inbox before trying again.
 -doc false.
--spec handle_cast({try_again_restart, child_id() | {'restarting',pid()}}, state()) ->
+-spec handle_cast({try_again_restart, reference(), child_id() | {'restarting',pid()}}, state()) ->
 			 {'noreply', state(), gen_server:action()} | {stop, shutdown, state()}.
 
-handle_cast({try_again_restart,TryAgainId}, State) ->
+handle_cast({try_again_restart, HRef, TryAgainId}, #state{tag = HRef} = State) ->
     case find_child_and_args(TryAgainId, State) of
 	{ok, Child = #child{pid=?restarting(_)}} ->
 	    case restart(Child,State) of
@@ -1411,7 +1411,7 @@ restart(Child, State) ->
 		    %% for the supervisor can be handled - e.g. a
 		    %% shutdown request for the supervisor or the
 		    %% child.
-                    try_again_restart(TryAgainId),
+                    try_again_restart(TryAgainId, NState2#state.tag),
 		    {ok,NState2};
 		Other ->
 		    Other
@@ -1496,9 +1496,9 @@ restart_multiple_children(Child, Children, SupName) ->
 restarting(Pid) when is_pid(Pid) -> ?restarting(Pid);
 restarting(RPid) -> RPid.
 
--spec try_again_restart(child_id() | {'restarting',pid()}) -> 'ok'.
-try_again_restart(TryAgainId) ->
-    gen_server:cast(self(), {try_again_restart, TryAgainId}).
+-spec try_again_restart(child_id() | {'restarting',pid()}, reference()) -> 'ok'.
+try_again_restart(TryAgainId, HRef) ->
+    gen_server:cast(self(), {try_again_restart, HRef, TryAgainId}).
 
 %%-----------------------------------------------------------------
 %% Func: terminate_children/2
