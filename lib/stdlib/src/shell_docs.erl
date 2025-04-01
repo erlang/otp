@@ -591,7 +591,7 @@ render_type(Module, D) ->
 %% extract AST raw type specifications.
 extract_type_specs(Module) ->
     case find_path(Module) of
-        Path when is_list(Path); is_list(binary) ->
+        Path when is_list(Path); is_binary(Path) ->
             extract_type_specs1(Path);
         _ ->
             #{}
