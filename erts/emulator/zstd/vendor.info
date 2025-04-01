@@ -12,5 +12,5 @@
   "versionInfo": "v1.5.7",
   "path": "./erts/emulator/zstd",
   "supplier": "Organization: Meta",
-  "purl": "pkg:generic/zstd"
+  "purl": "pkg:github/facebook/zstd"
 }
