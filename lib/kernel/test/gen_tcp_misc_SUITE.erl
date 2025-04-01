@@ -110,6 +110,7 @@
 	 otp_18357/1,
          otp_18883/1,
 	 otp_18707/1,
+         otp_19560_inet/1, otp_19560_inet6/1,
          send_block_unblock/1,
          prim_inet_recv_marker/1
 	]).
@@ -201,7 +202,8 @@ groups() ->
      {pktoptions,             [], pktoptions_cases()},
      {accept,                 [], accept_cases()},
      {send_timeout,           [], send_timeout_cases()},
-     {socket_monitor,         [], socket_monitor_cases()}
+     {socket_monitor,         [], socket_monitor_cases()},
+     {otp_19560,              [], otp_19560_cases()}
     ].
 
 inet_backend_default_cases() ->
@@ -246,7 +248,8 @@ all_std_cases() ->
 ticket_cases() ->
     [
      otp_18357,
-     otp_18883
+     otp_18883,
+     {group, otp_19560}
     ].
 
 close_cases() ->
@@ -358,6 +361,12 @@ socket_monitor_cases() ->
      socket_monitor2,
      socket_monitor2_manys,
      socket_monitor2_manyc
+    ].
+
+otp_19560_cases() ->
+    [
+     otp_19560_inet,
+     otp_19560_inet6
     ].
 
 init_per_suite(Config0) ->
@@ -9636,6 +9645,70 @@ do_otp_18707(_Config) ->
     ?P("done"),
     ok.
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% This is the most basic of tests.
+otp_19560_inet(Config) when is_list(Config) ->
+    ?TC_TRY(?FUNCTION_NAME,
+            fun() ->
+                    %% This is only because we use family = inet
+                    %% in the test case.
+                    ?HAS_SUPPORT_IPV4()
+            end,
+            fun() -> do_otp_19560(inet) end).
+
+%% This is the most basic of tests.
+otp_19560_inet6(Config) when is_list(Config) ->
+    ?TC_TRY(?FUNCTION_NAME,
+            fun() ->
+                    %% This is only because we use family = inet
+                    %% in the test case.
+                    ?HAS_SUPPORT_IPV6()
+            end,
+            fun() -> do_otp_19560(inet6) end).
+
+do_otp_19560(Family) ->
+    ?P("create listen socket"),
+    {ok, L} = gen_tcp:listen(0, [{ip, loopback}]),
+    ?P("get sockname (port) for listen socket"),
+    {ok, {_, P} = LSA} = inet:sockname(L),
+    ?P("connect to listen socket using 'loopback' address"),
+    C = case gen_tcp:connect(#{family => Family,
+                               addr   => loopback,
+                               port   => P},
+                             [{ip, loopback}]) of
+            {ok, S} ->
+                S;
+            {error, eafnosupport = Reason} ->
+                ?P("~w not supported: ~w", [Family, Reason]),
+                exit({skip, Reason})
+        end,
+
+    ?P("accept connection"),
+    {ok, A} = gen_tcp:accept(L),
+
+    ?P("get sockname for connected socket"),
+    {ok, CSA} = inet:sockname(C),
+
+    ?P("get sockname for accepted socket"),
+    {ok, ASA} = inet:sockname(A),
+
+    ?P("connected:"
+       "~n   Listen SockAddr:  ~p"
+       "~n   Connect SockAddr: ~p"
+       "~n   Accept SockAddr:  ~p", [LSA, CSA, ASA]),
+
+    ?P("cleanup"),
+    (catch gen_tcp:close(A)),
+    (catch gen_tcp:close(C)),
+    (catch gen_tcp:close(L)),
+
+    ?P("done"),
+    ok.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 %% Disassemble prim_inet.beam and make that sure each function has
 %% the correct number of recv markers.
 prim_inet_recv_marker(_Config) ->
@@ -9654,6 +9727,7 @@ prim_inet_recv_marker(_Config) ->
     ?assert(lists:member({do_sendto,4}, RecvMarkers)),
 
     ok.
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
