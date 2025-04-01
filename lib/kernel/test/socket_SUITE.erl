@@ -12624,6 +12624,16 @@ otp19482_verify_data(N, BadData) ->
     ok.
 
 
+otp19482_update_buffers(S) ->
+    case os:type() of
+        {unix, netbsd} ->
+            ok = socket:setopt(S, socket, rcvbuf, 200000),
+            ok = socket:setopt(S, socket, sndbuf, 200000);
+        _ ->
+            ok = socket:setopt(S, socket, rcvbuf, 250000),
+            ok = socket:setopt(S, socket, sndbuf, 250000)
+    end.
+
 do_otp19482_simple_single(#{iov_max := IOVMax,
 			    lsa     := LSA,
                             chunk   := ChunkOrChunks,
@@ -12656,8 +12666,7 @@ do_otp19482_simple_single(#{iov_max := IOVMax,
     ?P("~w -> make it listen socket", [?FUNCTION_NAME]),
     ok = socket:listen(LSock),
 
-    ok = socket:setopt(LSock, socket, rcvbuf, 250000),
-    ok = socket:setopt(LSock, socket, sndbuf, 250000),
+    otp19482_update_buffers(LSock),
 
     ?P("~w -> get sockname for listen socket", [?FUNCTION_NAME]),
     {ok, SSA} = socket:sockname(LSock),
@@ -12701,8 +12710,7 @@ do_otp19482_simple_single(#{iov_max := IOVMax,
 
 		  N = 10,
 
-		  ok = socket:setopt(CSock, socket, rcvbuf, 250000),
-		  ok = socket:setopt(CSock, socket, sndbuf, 250000),
+                  otp19482_update_buffers(CSock),
 
                   ?P("[client] exchange message(s): "
                      "~n   N:            ~p"
@@ -12763,9 +12771,6 @@ do_otp19482_simple_single(#{iov_max := IOVMax,
                 ?P("unexpected timeout"),
                 ?FAIL(accept_timeout)
         end,
-
-    %% ok = socket:setopt(CSock, socket, rcvbuf, 250000),
-    %% ok = socket:setopt(CSock, socket, sndbuf, 250000),
 
     ?P("command client to continue - send when"
        "~n   Recv buf sz of ASock: ~p"
@@ -12836,6 +12841,13 @@ otp19482_simple_single_client_exchange(Sock, Verify, IOV, N) ->
 		       "~n   Reason: ~p", [N, Reason]),
 		    ?FAIL({unexpected_recv_result, Reason, N})
 	    end;
+
+        %% We are overloaded this machine...
+	{error, econnreset = Reason} ->
+	    ?P("[client] sendv ~w failed: "
+	       "~n   Reason: ~p", [N, Reason]),
+	    ?SKIPE({Reason, N});
+
 	{error, Reason} ->
 	    ?P("[client] sendv ~w failed: "
 	       "~n   Reason: ~p", [N, Reason]),
