@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %% 
-%% Copyright Ericsson AB 1999-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2025. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -58,7 +58,7 @@
 -define(DFLAG_V4_NC,        (16#04 bsl 32)).
 -define(DFLAG_ALIAS,        (16#08 bsl 32)).
 -define(DFLAG_LOCAL_EXT,    (16#10 bsl 32)). %% only used internally
--define(DFLAG_ALTACT_MSG,   (16#20 bsl 32)).
+-define(DFLAG_ALTACT_SIG,   (16#20 bsl 32)).
 
 %% The following flags are mandatory in OTP 25. OTP 25 and higher
 %% will accept ?DFLAG_MANDATORY_25_DIGEST as a shorthand for all those
