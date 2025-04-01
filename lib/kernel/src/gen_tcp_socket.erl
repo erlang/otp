@@ -2591,12 +2591,6 @@ handle_recv_error(
                         end,
                     Caller =/= Owner andalso
                         begin
-			    io:format("~w(~w) -> send closed to ~p when"
-				      "~n   Reason:     ~p"
-				      "~n   ShowReason: ~p"
-				      "~n",
-				      [?FUNCTION_NAME, ?LINE, Owner,
-				       Reason, ShowReason]),
                             Owner ! {tcp_closed, ModuleSocket}
                         end,
                     handle_recv_error_exit_on_close(
@@ -2658,8 +2652,6 @@ handle_send_error(#params{socket = Socket} = P, D_0, State, From, Reason) ->
                         begin
                             Owner ! {tcp_error, ModuleSocket, ReplyReason}
                         end,
-		    io:format("~w(~w) -> send closed to ~p~n",
-			      [?FUNCTION_NAME, ?LINE, Owner]),
                     Owner ! {tcp_closed, ModuleSocket},
                     {_, ActionsR} = exit_on_close(D_1, [Reply]),
                     {next_state, 'closed', {P, D_1}, ActionsR}
@@ -3024,8 +3016,6 @@ call_setopts_active(P, D_0, State, Opts, Active)
                     #{} ->
                         D_0
                 end,
-	    io:format("~w(~w) -> send closed to ~p~n",
-		      [?FUNCTION_NAME, ?LINE, Owner]),
             Owner ! {tcp_closed, ModuleSocket},
             socket_close(P#params.socket),
             {ok, D_1, [{next_event, internal, exit}]}
