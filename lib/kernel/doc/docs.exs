@@ -1,6 +1,14 @@
 [
   groups_for_modules: [
-    "Code & System": [:application, :code, :erl_ddll, :error_handler, :heart, :os],
+    "Code & System": [
+      :application,
+      :code,
+      :erl_ddll,
+      :erl_debugger,
+      :error_handler,
+      :heart,
+      :os
+    ],
     Distribution: [
       :net_adm,
       :net_kernel,

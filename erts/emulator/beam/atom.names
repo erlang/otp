@@ -215,6 +215,7 @@ atom current_location
 atom current_stacktrace
 atom data
 atom debug_flags
+atom debugger_event
 atom decentralized_counters
 atom decimals
 atom default
@@ -406,6 +407,7 @@ atom Le='=<'
 atom legacy
 atom lf
 atom line
+atom line_breakpoint
 atom line_counters
 atom line_delimiter
 atom line_length

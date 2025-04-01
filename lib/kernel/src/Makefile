@@ -68,6 +68,7 @@ MODULES = \
 	erl_boot_server \
 	erl_compile_server \
 	erl_ddll \
+	erl_debugger \
 	erl_distribution \
 	erl_erts_errors \
 	erl_epmd \
