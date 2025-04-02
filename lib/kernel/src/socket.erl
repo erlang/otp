@@ -392,8 +392,8 @@ server(Addr, Port) ->
 %% -define(DBG(T),
 %%         erlang:display({{self(), ?MODULE, ?LINE, ?FUNCTION_NAME}, T})).
 
-%% -define(P(F),    ?P(F, [])).
-%% -define(P(F, A), p("~w:~w(~w) -> " ++ F, [?MODULE, ?FUNCTION_NAME, ?LINE | A])).
+%% -define(P(F),   ?P(F, [])).
+%% -define(P(F,A), p("~w:~w(~w) -> " ++ F, [?MODULE, ?FUNCTION_NAME, ?LINE | A])).
 
 
 %% Also in prim_socket
@@ -1730,10 +1730,10 @@ Information element designators for the  `i/1` and `i/2` functions.
 %%
 
 -define(ASYNCH_DATA_TAG, (recv | recvfrom | recvmsg |
-                          send | sendto | sendmsg | sendfile)).
+                          send | sendv | sendto | sendmsg | sendfile)).
 -define(ASYNCH_TAG,      ((accept | connect) | ?ASYNCH_DATA_TAG)).
 
-%% -type asynch_data_tag() :: send | sendto | sendmsg |
+%% -type asynch_data_tag() :: send | sendv | sendto | sendmsg |
 %%                            recv | recvfrom | recvmsg |
 %%                            sendfile.
 %% -type asynch_tag()      :: connect | accept |
@@ -3672,7 +3672,6 @@ send_common_nowait_result(Handle, Op, Result) ->
 send_common_deadline_result(
   SockRef, Data, Handle, Deadline, HasWritten,
   Op, Fun, SendResult) ->
-    %%
     case SendResult of
         completion ->
             %% Would block, wait for continuation
@@ -4340,7 +4339,7 @@ sendmsg_deadline_cont(SockRef, Data, Cont, Deadline, HasWritten) ->
       Reason  :: posix() | 'closed' | invalid().
 
 sendv(Socket, IOV) ->
-    sendv(Socket, IOV, ?ESOCK_SENDMSG_TIMEOUT_DEFAULT).
+    sendv(Socket, IOV, ?ESOCK_SENDV_TIMEOUT_DEFAULT).
 
 
 -doc """

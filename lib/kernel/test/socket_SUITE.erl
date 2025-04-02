@@ -58,6 +58,7 @@
 %% G = fun(SUITE, GROUP) -> ct:run_test([{suite, SUITE}, {group, GROUP}]) end.
 %% T = fun(TC) -> ct:run_test([{suite, socket_SUITE}, {testcase, TC}]) end.
 %% T = fun(S, TC) -> ct:run_test([{suite, S}, {testcase, TC}]) end.
+%% T = fun(G, TC) -> ct:run_test([{suite, socket_SUITE}, {group, G}, {testcase, TC}]) end.
 %% T = fun(S, G, TC) -> ct:run_test([{suite, S}, {group, G}, {testcase, TC}]) end.
 %%
 %% Some official info about AF_UNIX
@@ -12718,22 +12719,22 @@ do_otp19469_dgram(#{family := Fam} = LSA) ->
 
 -define(OTP19482_CHUNK_8B,   <<"01234567">>).
 -define(OTP19482_CHUNK_256B,
-        iolist_to_binary(lists:duplicate(32, ?OTP19482_CHUNK_8B))).
+	iolist_to_binary(lists:duplicate(32, ?OTP19482_CHUNK_8B))).
 -define(OTP19482_CHUNK_1K,
-        iolist_to_binary(lists:duplicate(4, ?OTP19482_CHUNK_256B))).
+	iolist_to_binary(lists:duplicate(4, ?OTP19482_CHUNK_256B))).
 -define(OTP19482_CHUNK_8K,
-        iolist_to_binary(lists:duplicate(8, ?OTP19482_CHUNK_1K))).
+	iolist_to_binary(lists:duplicate(8, ?OTP19482_CHUNK_1K))).
 -define(OTP19482_CHUNK_32K,
-        iolist_to_binary(lists:duplicate(4, ?OTP19482_CHUNK_8K))).
+	iolist_to_binary(lists:duplicate(4, ?OTP19482_CHUNK_8K))).
 -define(OTP19482_CHUNK_256K,
-        iolist_to_binary(lists:duplicate(32, ?OTP19482_CHUNK_8K))).
+	iolist_to_binary(lists:duplicate(32, ?OTP19482_CHUNK_8K))).
 
 -define(OTP19482_CHUNK_SMALL,  ?OTP19482_CHUNK_8B).
 -define(OTP19482_CHUNK_MEDIUM, ?OTP19482_CHUNK_8K).
 
 otp19482_simple_single_small(Config) when is_list(Config) ->
     ?TT(?SECS(10)),
-
+    
     Cond = fun() ->
                    has_support_ipv4()
            end,
@@ -12749,7 +12750,7 @@ otp19482_simple_single_small(Config) when is_list(Config) ->
                    #{iov_max => IOVMax,
                      lsa     => LSA,
                      chunk   => ?OTP19482_CHUNK_SMALL,
-                     verify  => fun(_) -> ok end}
+		     verify  => fun(_) -> ok end}
            end,
     TC   = fun(S) ->
                    do_otp19482_simple_single(S)
@@ -12775,7 +12776,7 @@ otp19482_simple_single_medium(Config) when is_list(Config) ->
                    #{iov_max => IOVMax,
                      lsa     => LSA,
                      chunk   => ?OTP19482_CHUNK_MEDIUM,
-                     verify  => fun(_) -> ok end}
+		     verify  => fun(_) -> ok end}
            end,
     TC   = fun(S) ->
                    do_otp19482_simple_single(S)
@@ -12798,16 +12799,16 @@ otp19482_simple_single_mixed(Config) when is_list(Config) ->
                       [Info, socket:which_sockets()]),
 
                    LSA = which_local_socket_addr(inet),
-                   Chunks = [?OTP19482_CHUNK_8B,
-                             ?OTP19482_CHUNK_256K,
-                             ?OTP19482_CHUNK_1K,
-                             ?OTP19482_CHUNK_256B,
-                             ?OTP19482_CHUNK_8K,
-                             ?OTP19482_CHUNK_32K],
+		   Chunks = [?OTP19482_CHUNK_8B,
+			     ?OTP19482_CHUNK_256K,
+			     ?OTP19482_CHUNK_1K,
+			     ?OTP19482_CHUNK_256B,
+			     ?OTP19482_CHUNK_8K,
+			     ?OTP19482_CHUNK_32K],
                    #{iov_max => IOVMax,
                      lsa     => LSA,
                      chunk   => Chunks,
-                     verify  => fun(_) -> ok end}
+		     verify  => fun(_) -> ok end}
            end,
     TC   = fun(S) ->
                    do_otp19482_simple_single(S)
@@ -12830,21 +12831,21 @@ otp19482_simple_single_mixed_long(Config) when is_list(Config) ->
                       [Info, socket:which_sockets()]),
 
                    LSA = which_local_socket_addr(inet),
-                   Chunks0 = [?OTP19482_CHUNK_1K,
-                              ?OTP19482_CHUNK_256B,
-                              ?OTP19482_CHUNK_8K,
-                              ?OTP19482_CHUNK_32K],
-                   Chunks1 = lists:flatten(
-                               [begin
-                                    CLen = byte_size(C),
-                                    CChk = erlang:crc32(C),
-                                    [<<CLen:32>>, <<CChk:32>>, C]
-                                end || C <- Chunks0]),
-                   Chunks2 = lists:flatten(lists:duplicate(100, Chunks1)),
+		   Chunks0 = [?OTP19482_CHUNK_1K,
+			      ?OTP19482_CHUNK_256B,
+			      ?OTP19482_CHUNK_8K,
+			      ?OTP19482_CHUNK_32K],
+		   Chunks1 = lists:flatten(
+			       [begin
+				    CLen = byte_size(C),
+				    CChk = erlang:crc32(C),
+				    [<<CLen:32>>, <<CChk:32>>, C]
+				end || C <- Chunks0]),
+		   Chunks2 = lists:flatten(lists:duplicate(100, Chunks1)),
                    #{iov_max => IOVMax,
                      lsa     => LSA,
                      chunk   => Chunks2,
-                     verify  => fun(Data) -> otp19482_verify_data(Data) end}
+		     verify  => fun(Data) -> otp19482_verify_data(Data) end}
            end,
     TC   = fun(S) ->
                    do_otp19482_simple_single(S)
@@ -12854,23 +12855,23 @@ otp19482_simple_single_mixed_long(Config) when is_list(Config) ->
 
 otp19482_verify_data(Data) ->
     otp19482_verify_data(1, Data).
-
+    
 otp19482_verify_data(_N, <<>>) ->
     ?P("~w -> verified", [?FUNCTION_NAME]),
     ok;
 otp19482_verify_data(N, <<Sz:32, CHKSUM:32, Chunk:Sz/binary, Rest/binary>>) ->
     ?P("~w -> try verify chunk ~w (~w bytes)", [?FUNCTION_NAME, N, Sz]),
     case erlang:crc32(Chunk) of
-        CHKSUM ->
-            otp19482_verify_data(N+1, Rest);
-        BadCHKSUM ->
-            %% ?P("~w -> bad checksum for chunk ~w: "
-            %%    "~n   Sz:                ~w"
-            %%    "~n   Expected CheckSum: ~w"
-            %%    "~n   CheckSum:          ~w"
-            %%    "~n   size of Rest:      ~w",
-            %%    [?FUNCTION_NAME, N, Sz, CHKSUM, BadCHKSUM, byte_size(Rest)]),
-            ct:fail({bad_checksum, CHKSUM, BadCHKSUM})
+	CHKSUM ->
+	    otp19482_verify_data(N+1, Rest);
+	BadCHKSUM ->
+	    %% ?P("~w -> bad checksum for chunk ~w: "
+	    %%    "~n   Sz:                ~w"
+	    %%    "~n   Expected CheckSum: ~w"
+	    %%    "~n   CheckSum:          ~w"
+	    %%    "~n   size of Rest:      ~w",
+	    %%    [?FUNCTION_NAME, N, Sz, CHKSUM, BadCHKSUM, byte_size(Rest)]),
+	    ct:fail({bad_checksum, CHKSUM, BadCHKSUM})
     end;
 otp19482_verify_data(N, BadData) ->
     ?P("~w -> bad data (~w): "
@@ -12888,11 +12889,10 @@ otp19482_update_buffers(S) ->
             ok = socket:setopt(S, socket, sndbuf, 250000)
     end.
 
-
 do_otp19482_simple_single(#{iov_max := IOVMax,
-                            lsa     := LSA,
+			    lsa     := LSA,
                             chunk   := ChunkOrChunks,
-                            verify  := Verify}) ->
+			    verify  := Verify}) ->
 
     ?P("~w -> entry with"
        "~n   IOVMax: ~p", [?FUNCTION_NAME, IOVMax]),
@@ -12900,16 +12900,16 @@ do_otp19482_simple_single(#{iov_max := IOVMax,
     Parent = self(),
 
     IOV = if
-              is_list(ChunkOrChunks) andalso (length(ChunkOrChunks) > IOVMax) ->
-                  ChunkOrChunks;
-              is_list(ChunkOrChunks) ->
-                  lists:flatten(
-                    lists:duplicate(
-                            ((IOVMax+10) div length(ChunkOrChunks)) + 1,
-                      ChunkOrChunks));
-              is_binary(ChunkOrChunks) ->
-                  lists:duplicate(IOVMax + 10, ChunkOrChunks)
-          end,
+	      is_list(ChunkOrChunks) andalso (length(ChunkOrChunks) > IOVMax) ->
+		  ChunkOrChunks;
+	      is_list(ChunkOrChunks) ->
+		  lists:flatten(
+		    lists:duplicate(
+			  ((IOVMax+10) div length(ChunkOrChunks)) + 1,
+		      ChunkOrChunks));
+	      is_binary(ChunkOrChunks) ->
+		  lists:duplicate(IOVMax + 10, ChunkOrChunks)
+	  end,
 
     ?P("~w -> try create (listen) socket", [?FUNCTION_NAME]),
     {ok, LSock} = socket:open(inet, stream),
@@ -12945,7 +12945,7 @@ do_otp19482_simple_single(#{iov_max := IOVMax,
     {Client, MRef} =
         spawn_monitor(
           fun() ->
-                  put(sname, "client"),
+		  put(sname, "client"),
                   ?P("[client] try create socket"),
                   {ok, CSock} = socket:open(inet, stream),
 
@@ -12953,7 +12953,7 @@ do_otp19482_simple_single(#{iov_max := IOVMax,
                      "~n   ~p", [LSA]),
                   ok = socket:bind(CSock, LSA#{port => 0}),
 
-                  ?P("[client] try connect to: "
+                   ?P("[client] try connect to: "
                      "~n   (server) ~p", [SSA]),
                   ok = socket:connect(CSock, SSA),
 
@@ -12963,7 +12963,7 @@ do_otp19482_simple_single(#{iov_max := IOVMax,
                           ?P("[client] continue")
                   end,
 
-                  N = 10,
+		  N = 10,
 
                   otp19482_update_buffers(CSock),
 
@@ -12974,12 +12974,12 @@ do_otp19482_simple_single(#{iov_max := IOVMax,
                      "~n   info(CSock):  ~p"
                      "~n   Recv Buf Sz:  ~p"
                      "~n   Send Buf Sz:  ~p",
-                     [N, length(IOV), iolist_size(IOV),
-                      socket:info(CSock),
-                      socket:getopt(CSock, socket, rcvbuf),
-                      socket:getopt(CSock, socket, sndbuf)]),
-                  ok = otp19482_simple_single_client_exchange(CSock, Verify,
-                                                              IOV, N),
+		     [N, length(IOV), iolist_size(IOV),
+		      socket:info(CSock),
+		      socket:getopt(CSock, socket, rcvbuf),
+		      socket:getopt(CSock, socket, sndbuf)]),
+		  ok = otp19482_simple_single_client_exchange(CSock, Verify,
+							      IOV, N),
 
                   ?P("[client] socket shutdown (read-write)"),
                   ok = socket:shutdown(CSock, read_write),
@@ -12991,7 +12991,7 @@ do_otp19482_simple_single(#{iov_max := IOVMax,
                               socket:info(CSock),
                           ?P("[client] received terminate command when:"
                              "~n   Socket info: ~p", [CInfo]),
-                          %% Each send should require atleast 2 tries...
+			  %% Each send should require atleast 2 tries...
                           if
                               (WT > 2*N) ->
                                   ?P("write tries validated"),
@@ -13031,13 +13031,13 @@ do_otp19482_simple_single(#{iov_max := IOVMax,
        "~n   Recv buf sz of ASock: ~p"
        "~n   Send buf sz of ASock: ~p",
        [socket:getopt(ASock, socket, rcvbuf),
-        socket:getopt(ASock, socket, sndbuf)]),
+	socket:getopt(ASock, socket, sndbuf)]),
     Client ! {self(), continue},
 
 
     ?P("try recv"),
     ok = otp19482_simple_single_server_exchange(ASock, Verify,
-                                                iolist_size(IOV)),
+						iolist_size(IOV)),
 
     AInfo = socket:info(ASock),
     ?P("Accepted socket info: "
@@ -13067,46 +13067,46 @@ otp19482_simple_single_client_exchange(Sock, Verify, IOV, N) ->
     ?P("[client] try sendv ~w (~w bytes)", [N, Sz]),
     %% ok = socket:setopt(Sock, otp, debug, true),
     case socket:sendv(Sock, IOV) of
-        ok ->
-            %% ok = socket:setopt(Sock, otp, debug, false),
-            ?P("[client] sent - try recv ~w (~w bytes) when"
-               "~n   info(Sock):  ~p"
-               "~n   Recv buf sz: ~p"
-               "~n   Send buf sz: ~p",
-               [N, Sz,
-                socket:info(Sock),
-                socket:getopt(Sock, socket, rcvbuf),
-                socket:getopt(Sock, socket, sndbuf)]),
-            case socket:recv(Sock, Sz) of
-                {ok, Data} when (byte_size(Data) =:= Sz) ->
-                    ?P("[client] recv ~w ok when"
-                       "~n   info(Sock): ~p"
-                       "~n   Recv buf sz: ~p"
-                       "~n   Send buf sz: ~p",
-                       [N,
-                        socket:info(Sock),
-                        socket:getopt(Sock, socket, rcvbuf),
-                        socket:getopt(Sock, socket, sndbuf)]),
-                    Verify(Data),
-                    ?P("[client] received data verified"),
-                    otp19482_simple_single_client_exchange(Sock, Verify,
-                                                           IOV, N-1);
-                {error, Reason} ->
-                    ?P("[client] receive ~w failed: "
-                       "~n   Reason: ~p", [N, Reason]),
-                    ?FAIL({unexpected_recv_result, Reason, N})
-            end;
+	ok ->
+	    %% ok = socket:setopt(Sock, otp, debug, false),
+	    ?P("[client] sent - try recv ~w (~w bytes) when"
+	       "~n   info(Sock):  ~p"
+	       "~n   Recv buf sz: ~p"
+	       "~n   Send buf sz: ~p",
+	       [N, Sz,
+		socket:info(Sock),
+		socket:getopt(Sock, socket, rcvbuf),
+		socket:getopt(Sock, socket, sndbuf)]),
+	    case socket:recv(Sock, Sz) of
+		{ok, Data} when (byte_size(Data) =:= Sz) ->
+		    ?P("[client] recv ~w ok when"
+		       "~n   info(Sock): ~p"
+		       "~n   Recv buf sz: ~p"
+		       "~n   Send buf sz: ~p",
+		       [N,
+			socket:info(Sock),
+			socket:getopt(Sock, socket, rcvbuf),
+			socket:getopt(Sock, socket, sndbuf)]),
+		    Verify(Data),
+		    ?P("[client] received data verified"),
+		    otp19482_simple_single_client_exchange(Sock, Verify,
+							   IOV, N-1);
+		{error, Reason} ->
+		    ?P("[client] receive ~w failed: "
+		       "~n   Reason: ~p", [N, Reason]),
+		    ?FAIL({unexpected_recv_result, Reason, N})
+	    end;
 
         %% We are overloaded this machine...
-        {error, econnreset = Reason} ->
-            ?P("[client] sendv ~w failed: "
-               "~n   Reason: ~p", [N, Reason]),
-            ?SKIPE({Reason, N});
+	{error, econnreset = Reason} ->
+	    ?P("[client] sendv ~w failed: "
+	       "~n   Reason: ~p", [N, Reason]),
+	    ?SKIPE({Reason, N});
 
-        {error, Reason} ->
-            ?P("[client] sendv ~w failed: "
-               "~n   Reason: ~p", [N, Reason]),
-            ?FAIL({unexpected_sendv_result, Reason, N})
+	{error, Reason} ->
+	    ?P("[client] sendv ~w failed: "
+	       "~n   Reason: ~p", [N, Reason]),
+	    ?FAIL({unexpected_sendv_result, Reason, N})
     end.
 
 otp19482_simple_single_server_exchange(Sock, Verify, Sz) ->
@@ -13115,46 +13115,47 @@ otp19482_simple_single_server_exchange(Sock, Verify, Sz) ->
 otp19482_simple_single_server_exchange(Sock, Verify, Sz, N) ->
     ?P("[server] try recv ~w (~w bytes)", [N, Sz]),
     case socket:recv(Sock, Sz, 10000) of
-        {ok, Data} when (byte_size(Data) =:= Sz) ->
-            ?P("[server] received (~w bytes of) data when"
-               "~n   info(Sock):  ~p"
-               "~n   Recv buf sz: ~p"
-               "~n   Send buf sz: ~p",
-               [Sz,
-                socket:info(Sock),
-                socket:getopt(Sock, socket, rcvbuf),
-                socket:getopt(Sock, socket, sndbuf)]),
-            Verify(Data),
-            ?P("[server] received data verified - try send it back", []),
-            case socket:send(Sock, Data) of
-                ok ->
-                    ?P("[server] send ~w ok", [N]),
-                    otp19482_simple_single_server_exchange(Sock, Verify,
-                                                           Sz, N+1);
-                {error, closed} ->
-                    ?P("[server,~w] socket closed", [N]),
-                    ok;
-                {error, Reason} ->
-                    ?P("[server,~w] send failed: "
-                       "~n   Reason: ~p", [N, Reason]),
-                    ?FAIL({unexpected_send_result, Reason})
-            end;
-        {error, closed} ->
-            ?P("[server,~w] socket closed", [N]),
-            ok;
-        {error, {timeout, BadData}} ->
-            ?P("[server,~w] receive failed: timeout"
-               "~n   sz:          ~w"
-               "~n   sz(BadData): ~w"
-               "~n   info(Sock):  ~p",
-               [N, Sz, byte_size(BadData), socket:info(Sock)]),
-            (catch Verify(BadData)),
-            ?FAIL({unexpected_recv_result, timeout});
-        {error, Reason} ->
-            ?P("[server,~w] receive failed: "
-               "~n   Reason: ~p", [N, Reason]),
-            ?FAIL({unexpected_recv_result, Reason})
+	{ok, Data} when (byte_size(Data) =:= Sz) ->
+	    ?P("[server] received (~w bytes of) data when"
+	       "~n   info(Sock):  ~p"
+	       "~n   Recv buf sz: ~p"
+	       "~n   Send buf sz: ~p",
+	       [Sz,
+		socket:info(Sock),
+		socket:getopt(Sock, socket, rcvbuf),
+		socket:getopt(Sock, socket, sndbuf)]),
+	    Verify(Data),
+	    ?P("[server] received data verified - try send it back", []),
+	    case socket:send(Sock, Data) of
+		ok ->
+		    ?P("[server] send ~w ok", [N]),
+		    otp19482_simple_single_server_exchange(Sock, Verify,
+							   Sz, N+1);
+		{error, closed} ->
+		    ?P("[server,~w] socket closed", [N]),
+		    ok;
+		{error, Reason} ->
+		    ?P("[server,~w] send failed: "
+		       "~n   Reason: ~p", [N, Reason]),
+		    ?FAIL({unexpected_send_result, Reason})
+	    end;
+	{error, closed} ->
+	    ?P("[server,~w] socket closed", [N]),
+	    ok;
+	{error, {timeout, BadData}} ->
+	    ?P("[server,~w] receive failed: timeout"
+	       "~n   sz:          ~w"
+	       "~n   sz(BadData): ~w"
+	       "~n   info(Sock):  ~p",
+	       [N, Sz, byte_size(BadData), socket:info(Sock)]),
+	    (catch Verify(BadData)),
+	    ?FAIL({unexpected_recv_result, timeout});
+	{error, Reason} ->
+	    ?P("[server,~w] receive failed: "
+	       "~n   Reason: ~p", [N, Reason]),
+	    ?FAIL({unexpected_recv_result, Reason})
     end.
+
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -13180,7 +13181,7 @@ otp19482_simple_multi_small(Config) when is_list(Config) ->
                    LSA = which_local_socket_addr(inet),
                    #{iov_max => IOVMax,
                      lsa     => LSA,
-                     chunk   => ?OTP19482_CHUNK_SMALL}
+		     chunk   => ?OTP19482_CHUNK_SMALL}
            end,
     TC   = fun(S) ->
                    do_otp19482_simple_multi(S)
@@ -13205,7 +13206,7 @@ otp19482_simple_multi_medium(Config) when is_list(Config) ->
                    LSA = which_local_socket_addr(inet),
                    #{iov_max => IOVMax,
                      lsa     => LSA,
-                     chunk   => ?OTP19482_CHUNK_MEDIUM}
+		     chunk   => ?OTP19482_CHUNK_MEDIUM}
            end,
     TC   = fun(S) ->
                    do_otp19482_simple_multi(S)
@@ -13215,7 +13216,7 @@ otp19482_simple_multi_medium(Config) when is_list(Config) ->
 
 do_otp19482_simple_multi(#{iov_max := IOVMax,
                            lsa     := LSA,
-                           chunk   := Chunk}) ->
+			   chunk   := Chunk}) ->
 
     IOV = lists:duplicate(IOVMax + 10, Chunk),
 
@@ -13285,8 +13286,8 @@ do_otp19482_simple_multi_await_client_success(Clients, Success, Failure) ->
             Clients2 = lists:delete(Pid, Clients),
             ?P("~w -> -> client ~p done (~w)", [?FUNCTION_NAME, Pid, length(Clients)]),
             do_otp19482_simple_multi_await_client_success(Clients2,
-                                                          [Pid|Success],
-                                                          Failure);
+							  [Pid|Success],
+							  Failure);
         {'EXIT', Pid, Reason} ->
             ?P("~w -> received unexpected exit: "
                "~n   Pid:    ~p"
@@ -13295,21 +13296,20 @@ do_otp19482_simple_multi_await_client_success(Clients, Success, Failure) ->
                "~n   Clients: ~p"
                "~n   length(Success): ~p"
                "~n   length(Failure): ~p",
-               [?FUNCTION_NAME, Pid, Reason, Clients, length(Success), length(Failure)]),
+	       [?FUNCTION_NAME, Pid, Reason, Clients, length(Success), length(Failure)]),
             case lists:delete(Pid, Clients) of
                 Clients ->
                     ?P("~w -> ~p not a client", [?FUNCTION_NAME, Pid]),
                     do_otp19482_simple_multi_await_client_success(Clients,
-                                                                  Success,
-                                                                  Failure);
+								  Success,
+								  Failure);
                 Clients2 ->
                     ?P("~w -> ~p a client", [?FUNCTION_NAME, Pid]),
                     do_otp19482_simple_multi_await_client_success(Clients2,
-                                                                  Success,
-                                                                  [Pid|Failure])
+								  Success,
+								  [Pid|Failure])
             end
     end.
-
 
 do_otp19482_simple_multi_collect_procs(undefined, []) ->
     ?P("~w -> done", [?FUNCTION_NAME]),
@@ -13358,9 +13358,9 @@ do_otp19482_simple_multi_collect_procs(APid, Clients) ->
 otp19482_simple_multi_acceptor_start(LSA, Num) ->
     Self = self(),
     Pid  = spawn_link(
-             fun() ->
-                     otp19482_simple_multi_acceptor_init(Self, LSA, Num)
-             end),
+	     fun() ->
+		     otp19482_simple_multi_acceptor_init(Self, LSA, Num)
+	     end),
     Port =
         receive
             {Pid, started, {ok, ListenPort}} ->
@@ -13370,7 +13370,6 @@ otp19482_simple_multi_acceptor_start(LSA, Num) ->
         end,
     Pid ! {self(), continue},
     {Pid, Port}.
-
 
 otp19482_simple_multi_acceptor_init(Parent, LSA, Num) ->
 
@@ -13450,7 +13449,7 @@ otp19482_simple_multi_acceptor_loop(Parent, LSock, Ref, ID, Num) ->
                     Handler ! {self(), continue, ASock},
                     otp19482_simple_multi_acceptor_loop(Parent,
                                                         LSock, undefined, ID+1,
-                                                        Num);
+							Num);
                 ?SELECT_RES(accept, NewRef) ->
                     ?P("A(~p,~w) -> select: "
                        "~n   NewRef: ~p", [Ref, ID, NewRef]),
@@ -13472,11 +13471,11 @@ otp19482_simple_multi_acceptor_loop(Parent, LSock, Ref, ID, Num) ->
             ok = otp19482_simple_multi_transfer_ownership(ASock, Handler),
             Handler ! {self(), continue, ASock},
             otp19482_simple_multi_acceptor_loop(Parent,
-                                                LSock, undefined, ID+1,
+						LSock, undefined, ID+1,
                                                 Num);
 
-        {'$socket', LSock, completion, {Ref, ERROR}} ->
-            ?P("A(~p,~w) -> completion message received - with error:"
+	{'$socket', LSock, completion, {Ref, ERROR}} ->
+	     ?P("A(~p,~w) -> completion message received - with error:"
                "~n   ERROR: ~p", [Ref, ID, ERROR]),
             exit(ERROR);
 
@@ -13492,9 +13491,9 @@ otp19482_simple_multi_transfer_ownership(Sock, Pid) ->
 otp19482_simple_multi_handler_start(ID, Num) ->
     Self = self(),
     Handler = spawn_link(
-                fun() ->
-                        otp19482_simple_multi_handler_init(Self, ID, Num)
-                end),
+		fun() ->
+			otp19482_simple_multi_handler_init(Self, ID, Num)
+		end),
     receive
         {Handler, started} ->
             Handler
@@ -13533,6 +13532,7 @@ otp19482_simple_multi_handler_loop(Parent, ID, Sock, Num, Acc) ->
     end.
 
 
+
 %% Client stuff
 
 otp19482_simple_multi_clients_start(LSA, Port, IOV, NumClients) ->
@@ -13547,13 +13547,14 @@ otp19482_simple_multi_client_start(Parent, ID, LSA, Port, IOV) ->
     Client = spawn_link(
                fun() ->
                        otp19482_simple_multi_client_init(Parent,
-                                                         ID, LSA, Port, IOV)
+							 ID, LSA, Port, IOV)
                end),
     receive
         {Client, started, ok} ->
             ok
     end,
     Client.
+
 
 otp19482_simple_multi_client_init(Parent, ID, LSA, Port, IOV) ->
     ?P("C[~w] -> try create (listen) socket", [ID]),
@@ -13629,6 +13630,7 @@ otp19482_simple_multi_client_recv_loop(Sock, ID, Num) ->
                "~n   Reason: ~p", [ID, Reason]),
             ?FAIL({recv_failure, Reason})
     end.
+
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
