@@ -1201,7 +1201,7 @@ count_child(#child{pid = Pid, child_type = supervisor},
 -spec handle_cast({try_again_restart, reference(), child_id() | {'restarting',pid()}}, state()) ->
 			 {'noreply', state(), gen_server:action()} | {stop, shutdown, state()}.
 
-handle_cast({try_again_restart, HRef, TryAgainId}, #state{tag = HRef} = State) ->
+handle_cast({try_again_restart, Tag, TryAgainId}, #state{tag = Tag} = State) ->
     case find_child_and_args(TryAgainId, State) of
 	{ok, Child = #child{pid=?restarting(_)}} ->
 	    case restart(Child,State) of
@@ -1221,7 +1221,7 @@ handle_cast({try_again_restart, HRef, TryAgainId}, #state{tag = HRef} = State) -
 -spec handle_info(term(), state()) ->
         {'noreply', state(), gen_server:action()} | {'stop', 'shutdown', state()}.
 
-handle_info({HRef, hibernate}, #state{tag = HRef} = State) ->
+handle_info({hibernate, Tag}, #state{tag = Tag} = State) ->
     {noreply, State, hibernate};
 
 handle_info({'EXIT', Pid, Reason}, State) ->
@@ -1497,8 +1497,8 @@ restarting(Pid) when is_pid(Pid) -> ?restarting(Pid);
 restarting(RPid) -> RPid.
 
 -spec try_again_restart(child_id() | {'restarting',pid()}, reference()) -> 'ok'.
-try_again_restart(TryAgainId, HRef) ->
-    gen_server:cast(self(), {try_again_restart, HRef, TryAgainId}).
+try_again_restart(TryAgainId, Tag) ->
+    gen_server:cast(self(), {try_again_restart, Tag, TryAgainId}).
 
 %%-----------------------------------------------------------------
 %% Func: terminate_children/2
@@ -2028,8 +2028,8 @@ validHibernateAfter(What) ->
     throw({invalid_hibernate_after, What}).
 
 -compile({inline, [hibernate_after_action/1]}).
-hibernate_after_action(#state{tag = HRef, hibernate_after = HibernateAfter}) ->
-    {timeout, HibernateAfter, {HRef, hibernate}}.
+hibernate_after_action(#state{tag = Tag, hibernate_after = HibernateAfter}) ->
+    {timeout, HibernateAfter, {hibernate, Tag}}.
 
 default_hibernate_after(simple_one_for_one) ->
     infinity;
