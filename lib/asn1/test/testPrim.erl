@@ -254,6 +254,7 @@ real(_Rules) ->
     %% Base 10, string format NR3
 
     real_roundtrip('AngleInRadians', "123.123E123", "123123.E120"),
+    real_roundtrip('AngleInRadians', "+123.123E123", "123123.E120"),
     real_roundtrip('AngleInRadians', "0.0E0", "0.E+0"),
     real_roundtrip('AngleInRadians', "0.0123", "123.E-4"),
     real_roundtrip('AngleInRadians', "0", "0.E+0"),
@@ -262,6 +263,14 @@ real(_Rules) ->
 		   "123456789.E123456789"),
     real_roundtrip('AngleInRadians', "01.000E1", "1.E1"),
     real_roundtrip('AngleInRadians', "120.0001", "1200001.E-4"),
+    real_roundtrip('AngleInRadians', "5", "5.E+0"),
+    real_roundtrip('AngleInRadians', "53", "53.E+0"),
+
+    real_roundtrip('AngleInRadians', "-123.123E123", "-123123.E120"),
+    real_roundtrip('AngleInRadians', "-0.0123", "-123.E-4"),
+    real_roundtrip('AngleInRadians', "-0.73", "-73.E-2"),
+    real_roundtrip('AngleInRadians', "-5", "-5.E+0"),
+    real_roundtrip('AngleInRadians', "-53", "-53.E+0"),
 
     ok.
 
