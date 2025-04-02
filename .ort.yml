@@ -831,12 +831,6 @@ curations:
           The scanner incorrectly categorises the license
         concluded_license: "Apache-2.0"
 
-      - path: "lib/crypto/doc/guides/licenses.md"
-        reason: "INCORRECT"
-        comment: >-
-          The scanner incorrectly categorises the license
-        concluded_license: "Apache-2.0"
-
       - path: "erts/emulator/openssl/include/openssl_local/md5.h"
         reason: "DOCUMENTATION_OF"
         comment: >-
