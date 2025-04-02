@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2025-2025. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@
 %%
 
 {exclusive_decode,
- {'megaco_ber_media_gateway_control_v3',
+ {'megaco_ber_media_gateway_control_v2',
   [
    {decode_message_trans_partial,
     [
@@ -58,6 +58,7 @@
      ]
     ]
    }
+
   ]
  }
 }.
