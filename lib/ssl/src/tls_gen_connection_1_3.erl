@@ -151,10 +151,9 @@ connection(internal, #new_session_ticket{} = NewSessionTicket, State) ->
     tls_gen_connection:next_event(?STATE(connection), no_record, State);
 
 connection(internal, #key_update{} = KeyUpdate, #state{static_env = #static_env{role = Role},
-                                                       ssl_options = SslOpts,
-                                                       protocol_specific = PS} = State0) ->
+                                                       ssl_options = SslOpts} = State0) ->
     case handle_key_update(KeyUpdate, State0) of
-        {ok, #state{connection_states = ConnectionStates} = State} ->
+        {ok, #state{connection_states = ConnectionStates, protocol_specific = PS} = State} ->
             Keep = maps:get(keep_secrets, SslOpts, false),
             N = maps:get(num_key_updates, PS, 0),
             maybe_traffic_keylog_1_3(Keep, Role, ConnectionStates, N),
