@@ -1913,11 +1913,9 @@ permit_io(GroupLeader, FromPid) ->
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% sleep(Time) -> ok
-%% Time = integer() | float() | infinity
-%%
 %% Sleeps the specified number of milliseconds. This sleep also accepts
 %% floating point numbers (which are truncated) and the atom 'infinity'.
+-spec sleep(timeout() | float()) -> ok.
 sleep(infinity) ->
     receive
     after infinity ->
@@ -1931,14 +1929,12 @@ sleep(MSecs) ->
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% adjusted_sleep(Time) -> ok
-%% Time = integer() | float() | infinity
-%%
 %% Sleeps the specified number of milliseconds, multiplied by the
 %% 'multiply_timetraps' value (if set) and possibly also automatically scaled
 %% up if 'scale_timetraps' is set to true (which is default).
 %% This function also accepts floating point numbers (which are truncated) and
 %% the atom 'infinity'.
+-spec adjusted_sleep(timeout() | float()) -> ok.
 adjusted_sleep(infinity) ->
     receive
     after infinity ->
