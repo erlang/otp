@@ -4,13 +4,20 @@
 [build_info]
 apps = [
     "lib/*",
-    {"name" = "erts", "dir" = "erts/preloaded", "src_dirs" = ["src"]},
-    {"name" = "wx", "dir" = "lib/wx", "src_dirs" = ["src", "gen"]},
-    {"name" = "inets", "dir" = "lib/inets", "src_dirs" = ["src/http_client", "src/http_server", "src/http_lib", "src/inets_app"]},
-    {"name" = "common_test", "dir" = "lib/common_test", "src_dirs" = ["src", "test_server"]},
+    {"name" = "erts", "dir" = "erts/preloaded", "src_dirs" = ["src"], "include_dirs" = ["../../lib/kernel/src", "../../lib/kernel/include"]},
+    {"name" = "wx", "dir" = "lib/wx", "src_dirs" = ["src", "gen"], "include_dirs" = ["include"]},
+    {"name" = "inets", "dir" = "lib/inets", "src_dirs" = ["src"], "include_dirs" = ["include", "src/inets_app", "src/http_lib"]},
+    {"name" = "common_test", "dir" = "lib/common_test", "src_dirs" = ["src", "test_server"], "include_dirs" = ["include", "../snmp/include", "../kernel/include"]},
     # Due to some Erlang/OTP bootstrapping issues, `stdlib` modules such as `gen_server` includes headers from the kernel application
     # using a simple `-include` directive, causing ELP to fail resolving those inclusions.
     # Include kernel as an `include_dir` for `stdlib` to solve the issue
-    {"name" = "stdlib", "dir" = "lib/stdlib", "include_dirs" = ["include", "../kernel/include"]},
+    {"name" = "stdlib", "dir" = "lib/stdlib", "src_dirs" = ["src"], "include_dirs" = ["include", "../kernel/include"]},
+    {"name" = "dialyzer", "dir" = "lib/dialyzer", "src_dirs" = ["src"], "extra_src_dirs" = ["test"], "macros" = {"VSN" = "DEFAULT_VSN"}},
+    {"name" = "snmp", "dir" = "lib/snmp", "src_dirs" = ["src"], "extra_src_dirs" = ["test"], "include_dirs" = ["include", "src/misc", "src/compile", "src/app"], "macros" = {"default_verbosity"="silence", "version"="version"}},
+    {"name" = "sasl", "dir" = "lib/sasl", "src_dirs" = ["src"], "extra_src_dirs" = ["test"], "include_dirs" = ["../stdlib/include"]},
+    {"name" = "compiler", "dir" = "lib/compiler", "src_dirs" = ["src"], "extra_src_dirs" = ["test"], "include_dirs" = [ "../stdlib/include"], "macros" = {"COMPILER_VSN"="COMPILER_VSN"}},
+    {"name" = "parsetools", "dir" = "lib/parsetools", "src_dirs" = ["src"], "extra_src_dirs" = ["test"], "include_dirs" = ["../stdlib/include"]},
+    {"name" = "eldap", "dir" = "lib/eldap", "src_dirs" = ["src"], "extra_src_dirs" = ["test"], "include_dirs" = ["include", "ebin"]},
+    {"name" = "observer", "dir" = "lib/observer", "src_dirs" = ["src"], "extra_src_dirs" = ["test"], "include_dirs" = ["include", "../et/include"]},
     ]
 deps = []
