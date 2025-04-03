@@ -877,7 +877,7 @@ for automatic hibernation.
 > If there are enqueued events to process when hibernation is requested,
 > this is optimized by not hibernating but instead calling
 > [`erlang:garbage_collect/0`](`erlang:garbage_collect/0`) to simulate,
-> in a more effective way, that the `gen_statem` entered hibernation
+> in a more efficient way, that the `gen_statem` entered hibernation
 > and immediately got awakened by an enqueued event.
 """.
 -type hibernate() ::
