@@ -1,4 +1,6 @@
 # %CopyrightBegin%
+#
+# SPDX-License-Identifier: Apache-2.0
 # 
 # Copyright Ericsson AB 1997-2025. All Rights Reserved.
 # 
