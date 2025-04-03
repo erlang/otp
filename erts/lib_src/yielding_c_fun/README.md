@@ -86,8 +86,7 @@ Command Line Parameters
 
 ```
 Usage: yielding_c_fun [-h]
-       yielding_c_fun [-use_gc [-print_gc_info]]
-                      [-log_max_mem_usage log_file]
+       yielding_c_fun [-log_max_mem_usage log_file]
                       [(( -f | -frec | -fnoauto ) function_name)...
                        [-output_file_name output_file]
                        [-header_file_name header_file]
@@ -100,18 +99,6 @@ Usage: yielding_c_fun [-h]
 * `-h`
 
   Print help text
-
-* `-use_gc`
-
-  Use garbage collection. The garbage collection system assumes that
-  the C call stack consists of a continuous memory block and is
-  therefore not enabled by default even though this assumption is
-  valid on all major platforms. YCF does not reclaim any allocated
-  memory if the `-use_gc` flag is not set.
-
-* `-print_gc_info`
-
-  (For debugging) Print garbage collection information to `stderr`
 
 * `-log_max_mem_usage log_file`
 

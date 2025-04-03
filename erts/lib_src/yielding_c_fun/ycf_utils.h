@@ -29,7 +29,6 @@
 #include <stdbool.h>
 
 
-void ycf_enable_gc(void);
 void ycf_enable_memory_tracking(void);
 void* ycf_malloc(size_t size);
 void ycf_malloc_log(char* log_file, char* log_entry_id);
