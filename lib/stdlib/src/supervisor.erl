@@ -118,11 +118,11 @@ In order to save memory, a supervisor, like any other process, can go into
 hibernation. By default, a `simple_one_for_one` supervisor will never hibernate,
 as it is expected its children will come and go at potentially high rates.
 In counterpart, other strategies rather expect children to be stable and
-therefore will default to hibernating after a `period` of time of inactivity,
-in order to be responsive to bursts of restarts and save memory in periods of
-stability. You can however finetune this flag by setting `hibernate_after`,
-when for example the supervisor will be regularly queried for `which_child/1`
-or similar and hibernation is to be better controlled.
+therefore will default to hibernating after a certain period of time of
+inactivity, in order to be responsive to bursts of restarts and save memory in
+periods of stability. You can finetune this flag by setting `hibernate_after`,
+when for example the supervisor will be regularly queried for `which_child/1` or
+similar and hibernation is to be better controlled.
 
 [](){: #auto_shutdown }
 
