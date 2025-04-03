@@ -206,12 +206,12 @@ encode(#ssh_msg_disconnect{
 encode(#ssh_msg_service_request{
 	  name = Service
 	 }) ->
-    <<?Ebyte(?SSH_MSG_SERVICE_REQUEST), ?Estring_utf8(Service)>>;
+    <<?Ebyte(?SSH_MSG_SERVICE_REQUEST), ?Estring(Service)>>;
 
 encode(#ssh_msg_service_accept{
 	  name = Service
 	 }) ->
-    <<?Ebyte(?SSH_MSG_SERVICE_ACCEPT), ?Estring_utf8(Service)>>;
+    <<?Ebyte(?SSH_MSG_SERVICE_ACCEPT), ?Estring(Service)>>;
 
 encode(#ssh_msg_ext_info{
           nr_extensions = N,
@@ -374,7 +374,7 @@ decode(<<?BYTE(?SSH_MSG_CHANNEL_REQUEST), ?UINT32(Recipient),
     try
         #ssh_msg_channel_request{
            recipient_channel = Recipient,
-           request_type = ?unicode_list(RequestType),
+           request_type = binary:bin_to_list(RequestType),
            want_reply = erl_boolean(Bool),
            data  = Data
           }
@@ -404,8 +404,8 @@ decode(<<?BYTE(?SSH_MSG_USERAUTH_REQUEST),
 	 Data/binary>>) ->
     #ssh_msg_userauth_request{
        user =    ?unicode_list(User),
-       service = ?unicode_list(Service),
-       method =  ?unicode_list(Method),
+       service = binary:bin_to_list(Service),
+       method =  binary:bin_to_list(Method),
        data = Data
       };
 
@@ -413,7 +413,7 @@ decode(<<?BYTE(?SSH_MSG_USERAUTH_FAILURE),
 	 ?DEC_BIN(Auths,__0),
 	 ?BYTE(Bool)>>) ->
     #ssh_msg_userauth_failure {
-       authentications = ?unicode_list(Auths),
+       authentications = binary:bin_to_list(Auths),
        partial_success = erl_boolean(Bool)
       };
 
@@ -527,12 +527,12 @@ decode(<<"ecdh",?BYTE(?SSH_MSG_KEX_ECDH_REPLY),
 
 decode(<<?SSH_MSG_SERVICE_REQUEST, ?DEC_BIN(Service,__0)>>) ->
     #ssh_msg_service_request{
-       name = ?unicode_list(Service)
+       name = binary:bin_to_list(Service)
       };
 
 decode(<<?SSH_MSG_SERVICE_ACCEPT, ?DEC_BIN(Service,__0)>>) ->
     #ssh_msg_service_accept{
-       name = ?unicode_list(Service)
+       name = binary:bin_to_list(Service)
       };
 
 decode(<<?BYTE(?SSH_MSG_DISCONNECT), ?UINT32(Code), ?DEC_BIN(Desc,__0), ?DEC_BIN(Lang,__1)>>) ->
