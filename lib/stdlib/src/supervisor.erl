@@ -466,7 +466,6 @@ see more details [above](`m:supervisor#sup_flags`).
 -type child_rec() :: #child{}.
 
 -record(state, {name,
-		tag = make_ref()       :: reference(),
 		strategy = one_for_one :: strategy(),
 		children = {[],#{}}    :: children(), % Ids in start order
                 dynamics               :: {'maps', #{pid() => list()}}
@@ -479,6 +478,7 @@ see more details [above](`m:supervisor#sup_flags`).
 		dynamic_restarts = 0   :: non_neg_integer(),
 		auto_shutdown = never  :: auto_shutdown(),
 		hibernate_after = infinity :: timeout(),
+		tag = make_ref()       :: reference(),
 	        module,
 	        args}).
 -type state() :: #state{}.
