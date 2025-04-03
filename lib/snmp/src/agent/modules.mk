@@ -47,7 +47,6 @@ MIB_MODULES = \
 # the behaviour modules...
 # Some of the MIB modules also define types used elsewhere and therefore
 # has to be built before the other mods.
-# snmpa_mib_data_ttln
 MODULES = \
 	snmpa \
 	$(MIB_MODULES) \
