@@ -46,7 +46,7 @@
 ucl(B) ->
     try unicode:characters_to_list(B) of
 	L when is_list(L) -> L;
-	{error,_Matched,Rest} -> throw({error,{bad_unicode,Rest}})
+	{error,_Matched,_Rest} -> throw({error,bad_unicode})
     catch
 	_:_ -> throw({error,bad_unicode})
     end.
