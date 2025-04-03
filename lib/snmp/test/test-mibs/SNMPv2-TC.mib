@@ -1,3 +1,9 @@
+-- %CopyrightBegin%
+--
+-- Copyright (C) The Internet Society (1999).  All Rights Reserved.
+--
+-- %CopyrightEnd%
+
 SNMPv2-TC DEFINITIONS ::= BEGIN
 
 snmpMIB MODULE-IDENTITY

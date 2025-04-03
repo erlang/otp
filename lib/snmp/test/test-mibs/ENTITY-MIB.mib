@@ -1,3 +1,9 @@
+-- %CopyrightBegin%
+-- 
+-- Copyright (C) The Internet Society (1996).  All Rights Reserved.
+-- 
+-- %CopyrightEnd%
+
 ENTITY-MIB DEFINITIONS ::= BEGIN
 
 IMPORTS
