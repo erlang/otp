@@ -1728,7 +1728,10 @@ cacerts_load(Config) ->
     false = public_key:cacerts_clear(),
 
     %% Reload from file
-    ok = public_key:cacerts_load(filename:join(Datadir, "cacerts.pem")),
+    {ok, Bin} = file:read_file(filename:join(Datadir, "cacerts.pem")),
+    ok = file:write_file("cacerts_with_key.pem", [Bin, priv_key()]),
+
+    ok = public_key:cacerts_load("cacerts_with_key.pem"),
     [_TestCert1, _TestCert2] = public_key:cacerts_get(),
 
     %% Reload default OS certs
@@ -1805,6 +1808,39 @@ list_cacerts() ->
     IO = fun(C, N) -> io:format("~.3w:~0p~n", [N,C]), N+1 end,
     lists:foldl(IO, 0, lists:sort(cert_info(Certs))),
     ok.
+
+priv_key() ->
+    ~"""
+-----BEGIN PRIVATE KEY-----
+MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCyuMx6KYPg5lYp
+igiML9VAu22Iil2mugAylYOHeZAgodMmKNY0t63EIR24ncKTRT0CE0PcKf58w4ka
+UN0fu7su+rtvY8J2BKcNOTya6v03b8tdcs+ABCI3XgW2MURfsihVsF6AEfoVZiB6
+IxTraAx9P8uPS+htGVC2h8KvNDRs4g/O69B6Xuzybu77CbEOR6n8ckLfBNbxZPdR
+hspTv3x8FazEel4rfYvzcsPe/aUzu0WmwCgZsk6DfyO0QtpX1fuEfcN8hrk2NvYj
+dQPzF1hlMizFVMo/vw1svEtEHbCxxeXcL+zjkU8qrUAcORiqWuB0V1ihjYK2Oolv
+j3lA9subAgMBAAECggEAN+0UL3YmSo5JkB4dpqChPuxnzj5eJ/o0bZ/T1OT5cPyy
+slI9FaoUujcSsd7MMIGOIcQdjBuoAyq9EHsVdwSsAnt7g9PX2k6CZ+TtTh0St/JH
+1SpEPG8Otfy6FNU97CQ38viJ2dHGTEP1DcNEnJWmstrvvBuo09sEItpA1cqkTR26
+cSxsxPwBxYo0vJiNn7eMfKZVgW6kb2vdNTd1ybtKaDBF+fSyhYqj0c0CjZtOWP+Y
+r1c73rZKF8g7TyNMbRsgnFoTDPobkFlVL0THE4cUIFfBdl1zvNnGfiSD7X553NJk
+2oV/c/bIo9wQqWTmWHd1TjsSJ3VkF4KRZ5ukKw8HwQKBgQDjCAwibHY/aRC6WSon
+pv9fdVUx40nJ+bW+yjX6OfgMwNBP+rnLPclcbFiBAQGSXDwt52wgh7LM/FyorNcw
+fdbJ2/PJbfmWOqku5eqBMzqvaVWWn8sDyVvPl+ENppDw25//VjNdWzgBwwsLqa5M
+VDWpbPL3KtIIPOuZBtSUKBJywwKBgQDJhrnB6NmQaDauYX69x0lWTyef/aBQWX86
+gym6kLP2GrT7l9ZJzO8jVsIglM+8G0eMM5IBNGYn0xoNr7U35vwTp+gBdWVvJdW1
+9N2q8NFuBYzF56LqIoiMeZf08I5ntzyyyF3NlFq+KuhnApNjwyx7nS6/zZ6GC/l+
+lmePx7aGSQKBgBMKAbqBTglTTkvSXm6k2pWuyU49uVpuzocJfi1V3y9ynAWZCSu6
+KsDNdT6cTv1vLrzKw46W0q/OGhcrJ4CxjOmwwGkMB/pJQRblwRzEpw8+ziarj+Lp
+aAGowv7aER2hzXEkUXpqw++h47M+r5dHGJj0wgtoU+TM9xUGNZ2XHrTxAoGAKOjo
+nKygPehp8UxpZi0mfhbjfF8IREdmxIIL3ouxfKw/QTO5lJG9mfbqwaJz6UPAan2t
+jgENG9iG2XBp4UdKtNLJDkK+rKmJkL58oU7xtNv7j9FOCSmpfprQdjC/N97Cu6hh
+InKTWTdspjynnwDn7tAhxV4AaEXWCBSQQWfRbcECgYEAkBd9KJD2Ypedp/2dtJHC
+jDr1ePl71oDwe8vEwN/DujwyaJXJL6gdEbOhPIp/D65L+JayPN1C2lHxDF/zIAKz
+j1exw1nyGDYNeBhQXyk+uKGkEN53Rrb+wYnfK74ItBBdf/5XotYTGH24wB2GLwdO
+bAMOCtAd2sl//30zzUVW1dc=
+-----END PRIVATE KEY-----
+""".
+
 
 
 %%--------------------------------------------------------------------
