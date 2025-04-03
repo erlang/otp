@@ -1,3 +1,10 @@
+-- %CopyrightBegin%
+-- 
+-- Copyright (C) The Internet Society (1998).  All Rights Reserved.
+-- 
+-- %CopyrightEnd%
+
+
    SNMP-TARGET-MIB DEFINITIONS ::= BEGIN
 
    IMPORTS

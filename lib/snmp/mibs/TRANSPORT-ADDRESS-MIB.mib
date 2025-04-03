@@ -1,3 +1,9 @@
+-- %CopyrightBegin%
+-- 
+-- Copyright (C) The Internet Society (2002).  All Rights Reserved.
+-- 
+-- %CopyrightEnd%
+
 TRANSPORT-ADDRESS-MIB DEFINITIONS ::= BEGIN
 
 IMPORTS

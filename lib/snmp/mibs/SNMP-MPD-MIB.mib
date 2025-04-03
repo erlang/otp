@@ -1,3 +1,10 @@
+-- %CopyrightBegin%
+-- 
+-- Copyright (C) The Internet Society (1999).  All Rights Reserved.
+-- 
+-- %CopyrightEnd%
+
+
    SNMP-MPD-MIB DEFINITIONS ::= BEGIN
 
    IMPORTS

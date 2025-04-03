@@ -1,3 +1,9 @@
+-- %CopyrightBegin%
+-- 
+-- Copyright (C) The Internet Society (1991).  All Rights Reserved.
+-- 
+-- %CopyrightEnd%
+
 RFC-1212 DEFINITIONS ::= BEGIN
 
 IMPORTS

@@ -1,3 +1,9 @@
+-- %CopyrightBegin%
+-- 
+-- Copyright (C) The Internet Society (1999).  All Rights Reserved.
+-- 
+-- %CopyrightEnd%
+
    SNMP-FRAMEWORK-MIB DEFINITIONS ::= BEGIN
 
    IMPORTS
