@@ -74,4 +74,4 @@ jobs:
         security-events: write
         # Only needs to read contents
         contents: read
-    uses: "google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@98b584ee2ed2da3935ccce10e06739d54cdcd20b" # ratchet:google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@v2.0.0
+    uses: "google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@6fc714450122bda9d00e4ad5d639ad6a39eedb1f" # ratchet:google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@v2.0.1
