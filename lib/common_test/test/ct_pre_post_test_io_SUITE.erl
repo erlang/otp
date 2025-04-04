@@ -57,13 +57,13 @@ all() ->
 
 init_per_suite(Config) ->
     TTInfo = {_T,{_Scaled,ScaleVal}} = ct:get_timetrap_info(),
-    ct:pal("Timetrap info = ~w", [TTInfo]),
+    ct:log("Timetrap info = ~w", [TTInfo]),
     if ScaleVal > 1 ->
 	    {skip,"Skip on systems running e.g. cover or debug!"};
        ScaleVal =< 1 ->
 	    DataDir = ?config(data_dir, Config),
 	    CTH = filename:join(DataDir, "cth_ctrl.erl"),
-	    ct:pal("Compiling ~p: ~p",
+	    ct:log("Compiling ~p: ~p",
 		   [CTH,compile:file(CTH,[{outdir,DataDir},
 					  debug_info])]),
 	    ct_test_support:init_per_suite([{path_dirs,[DataDir]},
@@ -101,20 +101,20 @@ pre_post_io(Config) ->
     %%!--------------------------------------------------------------------
 
     spawn(fun() ->
-		  ct:pal("CONTROLLER: Starting test run #1...", []),
+		  ct:log("CONTROLLER: Starting test run #1...", []),
 		  %% --- test run 1 ---
 		  try_loop(ct_test_support, ct_rpc, [{cth_log_redirect,
 						      handle_remote_events,
 						      [true]}, Config], 3000),
 		  CTLoggerPid1 = ct_test_support:ct_rpc({erlang,whereis,
 							[ct_logs]}, Config),
-		  ct:pal("CONTROLLER: Logger = ~w~nHandle remote events = true",
+		  ct:log("CONTROLLER: Logger = ~w~nHandle remote events = true",
 			 [CTLoggerPid1]),
 		  ct:sleep(5000),
-		  ct:pal("CONTROLLER: Proceeding with test run #1...", []),
+		  ct:log("CONTROLLER: Proceeding with test run #1...", []),
 		  ok = ct_test_support:ct_rpc({cth_ctrl,proceed,[]}, Config),
 		  ct:sleep(6000),
-		  ct:pal("CONTROLLER: Proceeding with shutdown #1...", []),
+		  ct:log("CONTROLLER: Proceeding with shutdown #1...", []),
 		  ok = ct_test_support:ct_rpc({cth_ctrl,proceed,[]}, Config),
 		  try_loop(fun() ->
 				   false = ct_test_support:ct_rpc({erlang,
@@ -122,21 +122,21 @@ pre_post_io(Config) ->
 								    [CTLoggerPid1]},
 								   Config)
 			   end, 3000),
-		  ct:pal("CONTROLLER: Shutdown #1 complete!", []),
-		  ct:pal("CONTROLLER: Starting test run #2...", []),
+		  ct:log("CONTROLLER: Shutdown #1 complete!", []),
+		  ct:log("CONTROLLER: Starting test run #2...", []),
 		  %% --- test run 2 ---
 		  try_loop(ct_test_support, ct_rpc, [{cth_log_redirect,
 						      handle_remote_events,
 						      [true]}, Config], 3000),
 		  CTLoggerPid2 = ct_test_support:ct_rpc({erlang,whereis,
 							[ct_logs]}, Config),
-		  ct:pal("CONTROLLER: Logger = ~w~nHandle remote events = true",
+		  ct:log("CONTROLLER: Logger = ~w~nHandle remote events = true",
 			 [CTLoggerPid2]),
 		  ct:sleep(5000),
-		  ct:pal("CONTROLLER: Proceeding with test run #2...", []),
+		  ct:log("CONTROLLER: Proceeding with test run #2...", []),
 		  ok = ct_test_support:ct_rpc({cth_ctrl,proceed,[]}, Config),
 		  ct:sleep(6000),
-		  ct:pal("CONTROLLER: Proceeding with shutdown #2...", []),
+		  ct:log("CONTROLLER: Proceeding with shutdown #2...", []),
 		  ok = ct_test_support:ct_rpc({cth_ctrl,proceed,[]}, Config),
 		  try_loop(fun() ->
 				   false = ct_test_support:ct_rpc({erlang,
@@ -144,7 +144,7 @@ pre_post_io(Config) ->
 								   [CTLoggerPid2]},
 								  Config)
 			   end, 3000),
-		  ct:pal("CONTROLLER: Shutdown #2 complete!", [])
+		  ct:log("CONTROLLER: Shutdown #2 complete!", [])
 	  end),
     ct_test_support:run(Opts, Config),
     Events = ct_test_support:get_events(ERPid, Config),
@@ -187,7 +187,7 @@ pre_post_io(Config) ->
 				      Counters
 			      end, {pre,0,0,0,0}, Ts),
 	      [_|Counters] = tuple_to_list(PrePostIOEntries),
-	      ct:pal("Entries in the Pre/Post Test IO Log: ~w", [Counters]),
+	      ct:log("Entries in the Pre/Post Test IO Log: ~w", [Counters]),
 	      case [C || C <- Counters, C < 2] of
 		  [] ->
 		      ok;
@@ -239,7 +239,7 @@ reformat(Events, EH) ->
     ct_test_support:reformat(Events, EH).
 
 try_loop(_Fun, 0) ->
-    ct:pal("WARNING! Fun never succeeded!", []),
+    ct:log("WARNING! Fun never succeeded!", []),
     gave_up;
 try_loop(Fun, N) ->
     try Fun() of
@@ -255,7 +255,7 @@ try_loop(Fun, N) ->
     end.
 
 try_loop(M, F, _A, 0) ->
-    ct:pal("WARNING! ~w:~w never succeeded!", [M,F]),
+    ct:log("WARNING! ~w:~w never succeeded!", [M,F]),
     gave_up;
 try_loop(M, F, A, N) ->
     try apply(M, F, A) of
