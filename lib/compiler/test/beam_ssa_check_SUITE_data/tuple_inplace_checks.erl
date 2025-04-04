@@ -23,11 +23,12 @@
 -export([do0a/0, do0b/2, different_sizes/2, ambiguous_inits/1,
          update_record0/0, fc/0, track_update_record/1,
          gh8124_a/0, gh8124_b/0,
-         failure_to_patch_list/0]).
+         failure_to_patch_list/0, erierl1208/0]).
 
 -record(r, {a=0,b=0,c=0,tot=0}).
 -record(r1, {a}).
 -record(r2, {b}).
+-record(r3, {c}).
 
 do0a() ->
     Ls = ex:f(),
@@ -237,6 +238,17 @@ gh8124_b() ->
     [R] = gh8124_b_inner(),
     R#r{a = <<"value 2">>}.
 
+erierl1208_inner() ->
+%ssa% () when post_ssa_opt ->
+%ssa% R3 = put_tuple(r3, _),
+%ssa% R2 = put_tuple(r2, R3),
+%ssa% R1 = put_tuple(r1, R2),
+%ssa% ret(R1).
+    #r1{a = #r2{b = #r3{c = <<"value1">>}}}.
+
+erierl1208() ->
+    R1 = #r1{a=A=#r2{b=B}} = erierl1208_inner(),
+    R1#r1{a = A#r2{b= B#r3{c= <<"new value">>}}}.
 
 %% Check that the list of tuples is built on the heap.
 
