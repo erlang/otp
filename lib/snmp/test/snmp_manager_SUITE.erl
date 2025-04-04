@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2024. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -2257,31 +2257,64 @@ do_register_agent2([{_ManagerPeer, ManagerNode}], Config) ->
     ?IPRINT("manager info: ~p~n", [mgr_info(ManagerNode)]),
 
     ?IPRINT("register agent(s)"),
-    TargetName1 = "agent1", 
+    TargetName1 = "agent1",
+    EngineID1   = "agentEngineId-1",
     ok = mgr_register_agent(ManagerNode, user_alfa, TargetName1,
-				  [{address,   LocalHost},
-				   {port,      5001},
-				   {engine_id, "agentEngineId-1"}]),
+                            [{address,   LocalHost},
+                             {port,      5001},
+                             {engine_id, EngineID1}]),
     TargetName2 = "agent2", 
+    EngineID2   = "agentEngineId-2",
     ok = mgr_register_agent(ManagerNode, user_alfa, TargetName2,
-				  [{address,   LocalHost},
-				   {port,      5002},
-				   {engine_id, "agentEngineId-2"}]),
+                            [{address,   LocalHost},
+                             {port,      5002},
+                             {engine_id, EngineID2}]),
     TargetName3 = "agent3", 
+    EngineID3   = "agentEngineId-3",
     ok = mgr_register_agent(ManagerNode, user_beta, TargetName3,
-				  [{address,   LocalHost},
-				   {port,      5003},
-				   {engine_id, "agentEngineId-3"}]),
+                            [{address,   LocalHost},
+                             {port,      5003},
+                             {engine_id, EngineID3}]),
     TargetName4 = "agent4", 
+    EngineID4   = "agentEngineId-4",
     ok = mgr_register_agent(ManagerNode, user_beta, TargetName4,
-				  [{address,   LocalHost},
-				   {port,      5004},
-				   {engine_id, "agentEngineId-4"}]),
+                            [{address,   LocalHost},
+                             {port,      5004},
+                             {engine_id, EngineID4}]),
 
     ?IPRINT("verify all agent(s): expect 4"),
     case mgr_which_agents(ManagerNode) of
 	Agents1 when length(Agents1) =:= 4 ->
-	    ?IPRINT("all agents: ~p~n", [Agents1]),
+            UnknownEngineID = "agentEngineId-X",
+	    ?IPRINT("all agents: "
+                    "~n   ~p"
+                    "~nwhen"
+                    "~n   Which Agents (from EngineID 1; ~p):"
+                    "~n      ~p (~p)"
+                    "~n   Which Agents (from EngineID 2; ~p):"
+                    "~n      ~p (~p)"
+                    "~n   Which Agents (from EngineID 3; ~p):"
+                    "~n      ~p (~p)"
+                    "~n   Which Agents (from EngineID 4; ~p):"
+                    "~n      ~p (~p)"
+                    "~n   Which Agents (from unknown engine; ~p):"
+                    "~n      ~p (~p)"
+                    "~n", [Agents1,
+                           EngineID1,
+                           mgr_which_agents(ManagerNode, engine_id, EngineID1),
+                           mgr_is_known_engine_id(ManagerNode, EngineID1),
+                           EngineID2,
+                           mgr_which_agents(ManagerNode, engine_id, EngineID2),
+                           mgr_is_known_engine_id(ManagerNode, EngineID2),
+                           EngineID3,
+                           mgr_which_agents(ManagerNode, engine_id, EngineID3),
+                           mgr_is_known_engine_id(ManagerNode, EngineID3),
+                           EngineID4,
+                           mgr_which_agents(ManagerNode, engine_id, EngineID4),
+                           mgr_is_known_engine_id(ManagerNode, EngineID4),
+                           UnknownEngineID,
+                           mgr_which_agents(ManagerNode, engine_id, UnknownEngineID),
+                           mgr_is_known_engine_id(ManagerNode, UnknownEngineID)]),
 	    ok;
 	Agents1 ->
 	    ?FAIL({agent_registration_failure, Agents1})
@@ -5635,6 +5668,12 @@ mgr_which_agents(Node) ->
 
 mgr_which_agents(Node, Id) ->
     rcall(Node, snmpm, which_agents, [Id]).
+
+mgr_which_agents(Node, Key, Id) ->
+    rcall(Node, snmpm, which_agents, [Key, Id]).
+
+mgr_is_known_engine_id(Node, EngineId) ->
+    rcall(Node, snmpm_config, is_known_engine_id, [EngineId]).
 
 
 %% -- Misc crypto wrapper functions --

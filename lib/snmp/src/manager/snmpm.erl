@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2024. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2025. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -55,7 +55,7 @@ The module `snmpm` contains interface functions to the SNMP manager.
 
 	 register_agent/2, register_agent/3, register_agent/4, 
 	 unregister_agent/2, unregister_agent/3,
-	 which_agents/0, which_agents/1, 
+	 which_agents/0, which_agents/1, which_agents/2,
 	 agent_info/2, update_agent_info/3, update_agent_info/4, 
 	 
 	 register_usm_user/3, unregister_usm_user/2, 
@@ -947,6 +947,20 @@ Get a list of all registered agents or all agents registered by a specific user.
 
 which_agents(UserId) ->
     snmpm_config:which_agents(UserId).
+
+
+-doc false.
+-spec which_agents(Key, Id) -> Agents when
+      Key    :: user_id,
+      Id     :: user_id(),
+      Agents :: [target_name()];
+                  (Key, Id) -> Agents when
+      Key    :: engine_id,
+      Id     :: snmp:engine_id(),
+      Agents :: [target_name()].      
+      
+which_agents(Key, Id) ->
+    snmpm_config:which_agents(Key, Id).
 
 
 %% -- USM users --
