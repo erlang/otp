@@ -121,7 +121,16 @@ scan(Opts) ->
     io:format("Checked ~p files\n", [length(N)]),
     [io:format("Updated ~p files\n", [length([update || update <- N])]) || maps:get(update, Opts, false)],
     io:format("Warnings ~p in files\n", [length([warn || warn <- N])]),
-    length([warn || warn <- N]) > 0 andalso erlang:halt(1),
+    length([warn || warn <- N]) > 0 andalso
+        begin
+            Notice = """
+              Found some invalid license headers.
+              See https://github.com/erlang/otp/tree/master/HOWTO/LICENSE-HEADERS.md for details
+              on how license headers should look.
+              """,
+            io:format("~ts~n",[Notice]),
+            erlang:halt(1)
+        end,
     ok.
 
 update(Opts) ->
