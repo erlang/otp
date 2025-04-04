@@ -332,7 +332,11 @@ public:
 
         /* LLVM places this file in ~/.debug/jit/ maybe we should do that to? */
 
-        erts_snprintf(name, sizeof(name), "/tmp/jit-%d.dump", getpid());
+        erts_snprintf(name,
+                      sizeof(name),
+                      "%s/jit-%d.dump",
+                      etrs_jit_perf_directory,
+                      getpid());
 
         file = fopen(name, "w+");
 
@@ -473,7 +477,11 @@ public:
 
         if (erts_sys_explicit_host_getenv("ERL_SYM_MAP_FILE", name, &namesz) !=
             1) {
-            snprintf(name, sizeof(name), "/tmp/perf-%i.map", getpid());
+            erts_snprintf(name,
+                          sizeof(name),
+                          "%s/perf-%i.map",
+                          etrs_jit_perf_directory,
+                          getpid());
         }
         file = fopen(name, "w");
         if (!file) {

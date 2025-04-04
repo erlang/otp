@@ -47,6 +47,7 @@ enum beamasm_perf_flags {
     BEAMASM_PERF_DISABLED = 0,
 };
 extern enum beamasm_perf_flags erts_jit_perf_support;
+extern char etrs_jit_perf_directory[MAXPATHLEN];
 #    endif
 extern int erts_jit_single_map;
 
