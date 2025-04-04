@@ -9470,4 +9470,9 @@ No match
  0: pokus.hokus
  1: hokus
 
+/(?:A(*:X))*+/K
+    A
+ 0: A
+MK: X
+
 /-- End of testinput1 --/
