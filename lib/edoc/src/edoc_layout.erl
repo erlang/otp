@@ -201,9 +201,9 @@ layout_module(#xmlElement{name = module, content = Es}=E, Opts) ->
     Desc = get_content(description, Es),
     ShortDesc = get_content(briefDescription, Desc),
     FullDesc = get_content(fullDescription, Desc),
-    Functions = [{function_name(E, Opts), E} ||
-                    E <- get_content(functions, Es)],
-    Types = [{type_name(E, Opts), E} || E <- get_content(typedecls, Es)],
+    Functions = [{function_name(FunE, Opts), FunE} ||
+                    FunE <- get_content(functions, Es)],
+    Types = [{type_name(TypeE, Opts), TypeE} || TypeE <- get_content(typedecls, Es)],
     SortedFs = if Opts#opts.sort_functions -> lists:sort(Functions);
                   true -> Functions
                end,
