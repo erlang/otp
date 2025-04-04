@@ -294,7 +294,7 @@ can be retrieved with the`recv/2,3`](`recv/2`) calls. Note that incoming
 UDP packets that are longer than the receive buffer option specifies
 can be truncated without warning.
 
-The default value for the receive buffer option is `{recbuf, 8192}`.
+The default value for the receive buffer option is `{recbuf, 9216}`.
 """.
 -spec open(Port, Opts) -> {ok, Socket} | {error, Reason} when
       Port   :: inet:port_number(),

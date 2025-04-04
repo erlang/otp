@@ -55,7 +55,8 @@
 -include("inet_int.hrl").
 -include("socket_int.hrl").
 
--define(RECV_BUFFER_SIZE_DEFAULT, 8192).
+%% Try to mirror the default value for the INET driver
+-define(RECV_BUFFER_SIZE_DEFAULT, 9216).
 
 %% -define(DBG(T),
 %% 	erlang:display({{self(), ?MODULE, ?LINE, ?FUNCTION_NAME}, T})).
