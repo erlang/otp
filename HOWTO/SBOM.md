@@ -166,9 +166,9 @@ Re-run the source SBOM generation steps ([Erlang/OTP source SBOM]).
 
 ### Update SPDX Vendor Packages
 
-Vendor packages are identified by a JSON `vendor.info` file that contains fields  to identify the vendor dependency. 
+Vendor packages are identified by a JSON `vendor.info` file that contains fields to identify the vendor dependency. 
 
-Each `vendor.info` file will implicitly generate  a SPDX Package to separate vendor libraries from Erlang/OTP applications.
+Each `vendor.info` file will implicitly generate a [SPDX](https://spdx.dev/) Package (within the source SBOM) to separate vendor libraries from Erlang/OTP applications.
 
 This file may be a JSON object or a list of JSON objects. For simplicity, we document the fields using a JSON object.
 
@@ -215,7 +215,6 @@ Fields summary:
 
 To update the package, perform any modifications in a `vendor.info` package
 and re-run the source SBOM generation steps ([Erlang/OTP source SBOM]).
-
 
 ### Add a New Vendor Dependency
 
