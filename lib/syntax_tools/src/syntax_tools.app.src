@@ -1,5 +1,11 @@
 % This is an -*- erlang -*- file.
+% %CopyrightBegin%
+%
 % SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+%
+% Copyright Ericsson AB 2004. All Rights Reserved.
+%
+% %CopyrightEnd%
 
 {application, syntax_tools,
  [{description, "Syntax tools"},

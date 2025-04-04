@@ -1,6 +1,8 @@
 %%
 %% %CopyrightBegin%
 %%
+%% SPDX-License-Identifier: Apache-2.0
+%%
 %% Copyright Ericsson AB 1998-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
@@ -177,7 +179,7 @@ bif_clashes(Config) when is_list(Config) ->
 %% Tests that a head mismatch is reported on the correct line (OTP-2125).
 head_mismatch_line(Config) when is_list(Config) ->
     [E|_] = get_compilation_errors(Config, "head_mismatch_line"),
-    {{26,1}, Mod, Reason} = E,
+    {{28,1}, Mod, Reason} = E,
     ("head mismatch: previous function foo/1 is distinct from bar/1. "
      "Is the semicolon in foo/1 unwanted?") = lists:flatten(Reason),
     Mod:format_error(Reason),
@@ -187,7 +189,7 @@ head_mismatch_line(Config) when is_list(Config) ->
 %% https://github.com/erlang/otp/pull/7383#issuecomment-1586564294
 head_mismatch_same_function_name(Config) when is_list(Config) ->
     [E|_] = get_compilation_errors(Config, "head_mismatch_same_function_name"),
-    {{25,1}, Mod, Reason} = E,
+    {{27,1}, Mod, Reason} = E,
     ("head mismatch: function foo with arities 1 and 2 is regarded as "
      "two distinct functions. Is the number of arguments incorrect "
      "or is the semicolon in foo/1 unwanted?") = lists:flatten(Reason),

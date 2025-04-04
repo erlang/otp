@@ -1,3 +1,10 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
 [;1m  alias(Opts)[0m
 
@@ -18,6 +25,22 @@
    • [;;4mreply[0m - The alias will be automatically deactivated when a
      reply message sent via the alias is received. The alias can
      also still be deactivated via a call to [;;4munalias/1[0m.
+
+   • [;;4mpriority[0m - Since OTP @OTP-19198@
+
+     The alias can be used for sending priority messages to the
+     process that created this alias. An alias created with this
+     option is also known as a priority process alias or
+     shorter priority alias.
+
+  [;;4mWarning[0m
+
+       You very seldom need to resort to using priority
+       messages and you may cause issues instead of solving
+       issues if not used with care.
+
+     For more information see, the Enabling Priority Message
+     Reception section of the Erlang Reference Manual.
 
   Example:
 

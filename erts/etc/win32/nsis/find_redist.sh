@@ -1,6 +1,8 @@
 #! /bin/sh
 # 
 # %CopyrightBegin%
+#
+# SPDX-License-Identifier: Apache-2.0
 # 
 # Copyright Ericsson AB 2007-2025. All Rights Reserved.
 # 

@@ -1,6 +1,8 @@
 %%
 %% %CopyrightBegin%
 %%
+%% SPDX-License-Identifier: Apache-2.0
+%%
 %% Copyright Ericsson AB 1996-2018. All Rights Reserved.
 %% Copyright 2020-2024 Facebook, Inc. and its affiliates.
 %%

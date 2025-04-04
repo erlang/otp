@@ -1,6 +1,3 @@
-%% SPDX-License-Identifier: Apache-2.0
-%% Copyright 2024 Ericsson and the Erlang/OTP contributors
-
 Welcome to Erlang/OTP!
 
 This Erlang installation requires "Microsoft Visual C++ Redistributable". Unless it is already
@@ -11,3 +8,11 @@ For scripts, CIs, etc you may want to install it in "passive" mode:
 
 For an installation that is more integrated with Windows (Adds Erlang to Start menu, Add/Remove
 Programs, etc), download a "Windows installer" from https://www.erlang.org/downloads.
+
+%CopyrightBegin%
+
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2025. All Rights Reserved.
+
+%CopyrightEnd%

@@ -1,5 +1,7 @@
 /*
  * %CopyrightBegin%
+ *
+ * SPDX-License-Identifier: Apache-2.0
  * 
  * Copyright Ericsson AB 2008-2021. All Rights Reserved.
  * 
@@ -15,7 +17,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  * 
- * %CopyrightEnd% 
+ * %CopyrightEnd%
  */
 
 #include <stdio.h>

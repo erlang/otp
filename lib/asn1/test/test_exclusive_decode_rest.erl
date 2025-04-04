@@ -1,6 +1,8 @@
 %%
 %% %CopyrightBegin%
 %%
+%% SPDX-License-Identifier: Apache-2.0
+%%
 %% Copyright 2024 Vance Shipley <vances@sigscale.org>
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");

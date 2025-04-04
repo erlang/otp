@@ -1,6 +1,8 @@
 %%
 %% %CopyrightBegin%
 %%
+%% SPDX-License-Identifier: Apache-2.0
+%%
 %% Copyright Ericsson AB 2002-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,7 +17,6 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 %%
-%% The Initial Developer of the Original Code is Ericsson AB.
 %% %CopyrightEnd%
 %%
 

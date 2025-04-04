@@ -1,13 +1,15 @@
 
-contract6.erl:28:2: Invalid type specification for function contract6:swap/1.
+contract6.erl:30:2: Invalid type specification for function contract6:swap/1.
  The success typing is contract6:swap(_) -> none()
  But the spec is contract6:swap(#r{}) -> #r{}
  They do not overlap in the 1st argument
-contract6.erl:29:1: Function swap/1 has no local return
-contract6.erl:29:1: Matching of pattern {'r', T1, T2} tagged with a record name violates the declared type of any()
+contract6.erl:31:1: Function swap/1 has no local return
+contract6.erl:31:1: Matching of pattern {'r', T1, T2} tagged with a record name violates the declared type of any()
 
 %%
 %% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
 %%
 %% Copyright Ericsson AB 2024. All Rights Reserved.
 %%

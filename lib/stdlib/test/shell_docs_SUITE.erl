@@ -1,6 +1,8 @@
 %%
 %% %CopyrightBegin%
 %%
+%% SPDX-License-Identifier: Apache-2.0
+%%
 %% Copyright Ericsson AB 2020-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
@@ -110,10 +112,11 @@ render(Config) ->
       fun(Module) ->
               maps:map(
                 fun(FName, Current) ->
-                        case file:read_file(filename:join(DataDir,FName)) of
+                        case read_file(filename:join(DataDir,FName)) of
                             {ok, Original} when Original =:= Current ->
                                 ok;
                             {ok, Original} ->
+                                ct:log("Filename: ~ts",[FName]),
                                 ct:log("Original: ~n~ts",[Original]),
                                 ct:log("Current : ~n~ts",[Current]),
                                 ct:fail(output_changed);
@@ -126,11 +129,27 @@ render(Config) ->
                 end, render_module(Module, DataDir))
       end, ?RENDER_MODULES).
 
+read_file(Filename) ->
+    case file:read_file(Filename) of
+        {ok, B} ->
+            strip_comment(B);
+        Else -> Else
+    end.
+
+strip_comment(Data) ->
+    case re:replace(Data, "^%.*\n", "", [{return, binary}]) of
+        Data -> {ok, Data};
+        NewData -> strip_comment(NewData)
+    end.
+
 update_render() ->
     update_render(
       filename:join([os:getenv("ERL_TOP"),
                      "lib", "stdlib", "test", "shell_docs_SUITE_data"])).
 update_render(DataDir) ->
+    os:cmd("git rm " ++ filename:join(DataDir, "*.txt"), #{ exception_on_failure => true }),
+    os:cmd("git rm " ++ filename:join(DataDir, "*.docs_v1"), #{ exception_on_failure => true }),
+    ok = filelib:ensure_path(DataDir),
     lists:foreach(
       fun(Module) ->
               case code:get_doc(Module) of
@@ -159,17 +178,36 @@ update_render(DataDir) ->
                                   Docs#docs_v1.docs
                           end,
 
-                      ok = file:write_file(
-                             filename:join(DataDir, atom_to_list(Module) ++ ".docs_v1"),
-                             io_lib:format("~w.",[Docs#docs_v1{ docs = NewEntries }]));
+                      Name = filename:join(DataDir, atom_to_list(Module) ++ ".docs_v1"),
+
+                      ok = file:write_file(Name,
+                             io_lib:format("~ts\n~w.",[header(), Docs#docs_v1{ docs = NewEntries }])),
+                      os:cmd("git add " ++ Name, #{ exception_on_failure => true });
                   {error, _} ->
                       ok
               end,
               maps:map(
                 fun(FName, Output) ->
-                        ok = file:write_file(filename:join(DataDir, FName), Output)
+                        FullName = filename:join(DataDir, FName),
+                        ok = file:write_file(FullName, [header(), Output]),
+                        os:cmd("git add " ++ FullName, #{ exception_on_failure => true })
                 end, render_module(Module, DataDir))
       end, ?RENDER_MODULES).
+
+header() ->
+    {{YY, _, _}, _} = erlang:localtime(),
+
+    Format = """
+        %% %CopyrightBegin%
+        %%
+        %% SPDX-License-Identifier: Apache-2.0
+        %%
+        %% Copyright Ericsson AB 2021-~p. All Rights Reserved.
+        %%
+        %% %CopyrightEnd%
+        
+        """,
+    io_lib:format(Format, [YY]).
 
 find_path(Module) ->
     maybe

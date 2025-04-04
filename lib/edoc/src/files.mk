@@ -1,3 +1,10 @@
+# %CopyrightBegin%
+#
+# SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+#
+# Copyright Ericsson AB 1996-2025. All Rights Reserved.
+#
+# %CopyrightEnd%
 SOURCES= \
 	edoc.erl edoc_cli.erl edoc_data.erl edoc_doclet.erl edoc_doclet_chunks.erl \
 	edoc_extract.erl edoc_layout.erl edoc_layout_chunks.erl \

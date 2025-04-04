@@ -1,6 +1,8 @@
 # coding=utf-8
 #
 # %CopyrightBegin%
+#
+# SPDX-License-Identifier: Apache-2.0
 # 
 # Copyright Ericsson AB 2013-2025. All Rights Reserved.
 # 

@@ -1,3 +1,11 @@
+%%
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2010. All Rights Reserved.
+%% Copyright 1999-2002 Richard Carlsson
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -10,13 +18,9 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 %%
-%% @copyright 1999-2002 Richard Carlsson
+%% %CopyrightEnd%
+%%
 %% @author Richard Carlsson <carlsson.richard@gmail.com>
-%% @doc Utility functions for Core Erlang case/receive clauses.
-%%
-%% <p>Syntax trees are defined in the module {@link cerl}.</p>
-%%
-%% @type cerl() = cerl:cerl()
 
 -module(cerl_clauses).
 -moduledoc """

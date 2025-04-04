@@ -1,3 +1,11 @@
+%%
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2010. All Rights Reserved.
+%% Copyright 1999-2004 Richard Carlsson
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -10,7 +18,9 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 %%
-%% @copyright 1999-2004 Richard Carlsson
+%% %CopyrightEnd%
+%% 
+
 %% @author Richard Carlsson <carlsson.richard@gmail.com>
 %% @doc Abstract environments, supporting self-referential bindings and
 %% automatic new-key generation.

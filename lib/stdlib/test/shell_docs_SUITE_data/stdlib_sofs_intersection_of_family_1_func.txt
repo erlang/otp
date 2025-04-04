@@ -1,3 +1,10 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
 [;1m  intersection_of_family(Family)[0m
 
@@ -6,7 +13,9 @@
   Intersecting an empty family exits the process with a [;;4mbadarg[0m
   message.
 
-    1> F = sofs:family([{a,[0,2,4]},{b,[0,1,2]},{c,[2,3]}]),
-    S = sofs:intersection_of_family(F),
-    sofs:to_external(S).
+[;1mExamples[0m
+
+    1> F = sofs:family([{a,[0,2,4]},{b,[0,1,2]},{c,[2,3]}]).
+    2> S = sofs:intersection_of_family(F).
+    3> sofs:to_external(S).
     [2]

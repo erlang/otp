@@ -1,6 +1,8 @@
 #-*-makefile-*-   ; force emacs to enter makefile-mode
 
 # %CopyrightBegin%
+#
+# SPDX-License-Identifier: Apache-2.0
 # 
 # Copyright Ericsson AB 1997-2024. All Rights Reserved.
 # 

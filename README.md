@@ -102,6 +102,8 @@ For any license inquiry, please send an email to opensource@ericsson.com
 
 > %CopyrightBegin%
 >
+> SPDX-License-Identifier: Apache-2.0
+>
 > Copyright Ericsson AB 2010-2025. All Rights Reserved.
 >
 > Licensed under the Apache License, Version 2.0 (the "License");

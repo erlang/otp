@@ -1,6 +1,8 @@
 %%
 %% %CopyrightBegin%
 %%
+%% SPDX-License-Identifier: Apache-2.0
+%%
 %% Copyright Ericsson AB 2012-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
@@ -511,23 +513,23 @@ assert_lines(Case, A) when Case =/= fail_pre_init_per_suite,
     ?assertMatch("surefire_SUITE.erl",filename:basename(File#xmlAttribute.value)),
     case Name#xmlAttribute.value of
         "init_per_suite" ->
-            ?assertMatch("51", Line#xmlAttribute.value);
+            ?assertMatch("53", Line#xmlAttribute.value);
         "end_per_suite" ->
-            ?assertMatch("54", Line#xmlAttribute.value);
+            ?assertMatch("56", Line#xmlAttribute.value);
         "tc_ok" ->
-            ?assertMatch("80", Line#xmlAttribute.value);
+            ?assertMatch("82", Line#xmlAttribute.value);
         "tc_fail" ->
-            ?assertMatch("85", Line#xmlAttribute.value);
+            ?assertMatch("87", Line#xmlAttribute.value);
         "tc_badmatch" ->
-            ?assertMatch("89", Line#xmlAttribute.value);
-        "tc_skip" ->
             ?assertMatch("91", Line#xmlAttribute.value);
+        "tc_skip" ->
+            ?assertMatch("93", Line#xmlAttribute.value);
         "tc_autoskip_require" ->
-            ?assertMatch("96", Line#xmlAttribute.value);
+            ?assertMatch("98", Line#xmlAttribute.value);
         "init_per_group" ->
-            ?assertMatch("57", Line#xmlAttribute.value);
+            ?assertMatch("59", Line#xmlAttribute.value);
         "end_per_group" ->
-            ?assertMatch("62", Line#xmlAttribute.value)
+            ?assertMatch("64", Line#xmlAttribute.value)
     end;
 assert_lines(_, _) ->
     ok.

@@ -1,3 +1,8 @@
+%%
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: BSD-2-Clause
+%%
 %% Copyright (c) 2008,2009 Robert Virding. All rights reserved.
 %%
 %% Redistribution and use in source and binary forms, with or without
@@ -22,6 +27,9 @@
 %% LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
 %% ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 %% POSSIBILITY OF SUCH DAMAGE.
+%%
+%% %CopyrightEnd%
+%% 
 
 %%% A Lexical Analyser Generator for Erlang.
 %%%

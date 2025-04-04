@@ -1,5 +1,7 @@
 %%
-%% %ExternalCopyright%
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
 %%
 %% Copyright Bartłomiej Puzoń 1996-2025 <bartlomiej.puzon@erlang-solutions.com>.
 %%

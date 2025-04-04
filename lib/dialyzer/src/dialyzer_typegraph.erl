@@ -1,6 +1,8 @@
 %% -*- erlang-indent-level: 2 -*-
 %%
-%% %ExternalCopyright%
+%% %CopyrightBegin%
+%% 
+%% SPDX-License-Identifier: Apache-2.0
 %%
 %% Copyright (c) Meta Platforms, Inc. and affiliates.
 %%

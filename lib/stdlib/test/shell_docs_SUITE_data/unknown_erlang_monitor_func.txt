@@ -1,3 +1,10 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
 [;1m  monitor(Type, Item)[0m
 
@@ -271,3 +278,17 @@
      In order for this example to work as intended, the client
      must be executing on at least an OTP 24 system, but the
      servers may execute on older systems.
+
+   • [;;4mpriority[0m - Since OTP @OTP-19198@
+
+     Enables priority message reception of the monitor message(s)
+     sent when this monitor is triggered for the calling process.
+
+  [;;4mWarning[0m
+
+       You very seldom need to resort to using priority
+       messages and you may cause issues instead of solving
+       issues if not used with care.
+
+     For more information see the Adding Messages to the Message
+     Queue section of the Erlang Reference Manual.

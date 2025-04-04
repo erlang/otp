@@ -1,0 +1,41 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
+
+[;1m  exit(Dest, Reason, OptList)[0m
+
+[;;4mSince[0m:
+  OTP @OTP-19198@
+
+  Provides an option list for modification of the functionality
+  provided by the [;;4mexit/2[0m BIF. The [;;4mDest[0m and [;;4mReason[0m arguments
+  has the same meaning as when passed to the [;;4mexit/2[0m BIF.
+
+  Currently available options:
+
+   • [;;4mpriority[0m -- Since OTP @OTP-19198@
+
+     Send this exit signal as a priority exit signal. In order
+     for the signal to be handled as a priority [;;4mEXIT[0m message by
+     the receiver, this option must be passed, [;;4mDest[0m must be
+     an active priority alias and the receiver must be
+     trapping exits.
+
+     If [;;4mDest[0m is an active priority alias, but this option is
+     not passed, the exit signal will be handled as on ordinary
+     exit signal. The same is true, if this option is passed, but [;;4m[0m
+     [;;4mDest[0m is not an active priority alias.
+
+  [;;4mWarning[0m
+
+       You very seldom need to resort to using priority
+       messages and you may cause issues instead of solving
+       issues if not used with care.
+
+     For more information see, the Adding Messages to the
+     Message Queue and the Enabling Priority Message Reception
+     sections of the Erlang Reference Manual.

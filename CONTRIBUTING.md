@@ -1,9 +1,21 @@
 <!--
 %CopyrightBegin%
 
-SPDX-FileCopyrightText: Copyright Ericsson AB 2016-2025. All Rights Reserved.
-
 SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2016-2025. All Rights Reserved.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 
 %CopyrightEnd%
 -->
@@ -116,20 +128,11 @@ other alternative exists, Erlang/OTP will consider accepting Pull Requests with
 Under no circumstances the Erlang/OTP project will accept non-compatible Apache 2.0 contributions.
 
 Erlang/OTP has automatic checks to enforce this policy:
-- License Scanner checks that contributions are Apache 2.0. Any non-Apache 2.0
+* License Scanner checks that contributions are Apache 2.0. Any non-Apache 2.0
   contribution will be manually checked, and will trigger a non-passing test in
   Github.
 
-
-- The [REUSE tool](https://reuse.software/) checks that all files have `SPDX-License-Identifier:` and
-  `SPDX-FileCopyrightText:`. The License identifier should be `Apache-2.0` in
-  all cases, and the copyright should be in the format
-  `SPDX-FileCopyrightText: YYYY Name Lastname <email@example.com>` (or use as
-  default `SPDX-FileCopyrightText: YYYY Erlang/OTP and contributors`). These annotations 
-  can be generated in files via the REUSE tool as follows (e.g.,):
-  ```
-  reuse annotate --no-replace --license "Apache-2.0" --copyright "Ericsson and contributors" -y 2025
-  ```
+See <HOWTO/LICENSE-HEADERS.md> for details on the layout of file headers.
 
 ### Before you submit your pull request
 
