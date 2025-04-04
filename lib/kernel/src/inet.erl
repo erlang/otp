@@ -30,14 +30,20 @@ See also [ERTS User's Guide: Inet Configuration](`e:erts:inet_cfg.md`)
 or more information about how to configure an Erlang runtime system
 for IP communication.
 
-The following two Kernel configuration parameters affect the behavior of all
-`m:gen_tcp` sockets opened on an Erlang node:
+The following four Kernel configuration parameters affect the behavior of all
+`m:gen_tcp`, `m:gen_udp` and `m:gen_sctp` sockets opened on an Erlang node:
 
 - `inet_default_connect_options` can contain a list of
-  default options used for all sockets created by
-  a `gen_tcp:connect/2,3,4`](`gen_tcp:connect/2`) call.
+default options used for all sockets created by
+a `gen_tcp:connect/2,3,4`](`gen_tcp:connect/2`) call.
 - `inet_default_listen_options` can contain a list of default options
   used for sockets created by a `gen_tcp:listen/2` call.
+- `inet_default_udp_options` can contain a list of
+default options used for all sockets created by
+a `gen_udp:open/1,2`](`gen_udp:open/2`) call.
+- `inet_default_sctp_options` can contain a list of
+default options used for all sockets created by
+a `gen_sctp:open/0,1`](`gen_sctp:open/1`) call.
 
 For the [`gen_tcp:accept/1,2`](`gen_tcp:accept/1`) call,
 the values of the listening socket options are inherited.
@@ -3304,7 +3310,17 @@ udp_options() ->
 
 -doc false.
 udp_options(Opts, Mod) ->
-    case udp_opt(Opts, #udp_opts { }, udp_options()) of
+    BaseOpts =
+	case application:get_env(kernel, inet_default_udp_options) of
+	    {ok, List} when is_list(List) ->
+                %% io:format("~w:~w -> inet_default_udp_options: "
+                %%           "~n   ~p"
+                %%           "~n", [?MODULE, ?FUNCTION_NAME, List]),
+		#udp_opts{opts = List};
+	    _ ->
+		#udp_opts{}
+	end,
+    case udp_opt(Opts, BaseOpts, udp_options()) of
 	{ok, R} ->
 	    {ok, R#udp_opts {
 		   opts = lists:reverse(R#udp_opts.opts),
@@ -3437,7 +3453,15 @@ sctp_options() ->
 -doc false.
 sctp_options(Opts, Mod)  ->
     %% ?DBG([{opts, Opts}, {mod, Mod}]),
-    case sctp_opt(Opts, Mod, #sctp_opts{}, sctp_options()) of
+    BaseOpts =
+	case application:get_env(kernel, inet_default_sctp_options) of
+	    {ok, List} when is_list(List) ->
+		#sctp_opts{opts = List};
+            _ ->
+		#sctp_opts{}
+	end,
+    %% ?DBG([{base_opts, BaseOpts}]),
+    case sctp_opt(Opts, Mod, BaseOpts, sctp_options()) of
 	{ok, SO} ->
 	    {ok,SO#sctp_opts{opts=lists:reverse(SO#sctp_opts.opts)}};
 	Error ->
