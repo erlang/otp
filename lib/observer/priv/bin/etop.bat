@@ -21,4 +21,4 @@
 ::
 
 @ECHO OFF
-CALL werl -sname etop -hidden -s etop -s erlang halt -output text %*
+CALL werl -sname etop -hidden -s etop -s erlang halt -output text -noshell %*
