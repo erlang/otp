@@ -6,7 +6,7 @@
 %%
 %% %CopyrightEnd%
 {
-  "ID": "unicode",
+  "ID": "stdlib-unicode",
   "description": "Unicode Character Database used for generating code",
   "copyrightText": "© 2024 Unicode®, Inc.",
   "downloadLocation": "https://www.unicode.org/Public/16.0.0/ucd/",
