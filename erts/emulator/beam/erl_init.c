@@ -1820,14 +1820,16 @@ erl_start(int argc, char **argv)
 	    if (sys_strcmp(arg, "legacy") == 0)
 		legacy_proc_tab = 1;
 	    else {
+                long val;
 		errno = 0;
-		proc_tab_sz = strtol(arg, NULL, 10);
+		val = strtol(arg, NULL, 10);
 		if (errno != 0
-		    || proc_tab_sz < ERTS_MIN_PROCESSES
-		    || ERTS_MAX_PROCESSES < proc_tab_sz) {
+		    || val < ERTS_MIN_PROCESSES
+		    || ERTS_MAX_PROCESSES < val) {
 		    erts_fprintf(stderr, "bad number of processes %s\n", arg);
 		    erts_usage();
 		}
+                proc_tab_sz=val;
 	    }
 	    break;
 
@@ -1836,14 +1838,16 @@ erl_start(int argc, char **argv)
 	    if (sys_strcmp(arg, "legacy") == 0)
 		legacy_port_tab = 1;
 	    else {
+                long val;
 		errno = 0;
-		port_tab_sz = strtol(arg, NULL, 10);
+		val = strtol(arg, NULL, 10);
 		if (errno != 0
-		    || port_tab_sz < ERTS_MIN_PORTS
-		    || ERTS_MAX_PORTS < port_tab_sz) {
+		    || val < ERTS_MIN_PORTS
+		    || ERTS_MAX_PORTS < val) {
 		    erts_fprintf(stderr, "bad number of ports %s\n", arg);
 		    erts_usage();
 		}
+                port_tab_sz = val;
 		port_tab_sz_ignore_files = 1;
 	    }
 	    break;
@@ -2160,15 +2164,17 @@ erl_start(int argc, char **argv)
 	}
 	case 't':
 	    /* set atom table size */
-	    arg = get_arg(argv[i]+2, argv[i+1], &i);
+            long val;
+            arg = get_arg(argv[i]+2, argv[i+1], &i);
 	    errno = 0;
-	    erts_atom_table_size = strtol(arg, NULL, 10);
+	    val = strtol(arg, NULL, 10);
 	    if (errno != 0 ||
-		erts_atom_table_size < MIN_ATOM_TABLE_SIZE ||
-		erts_atom_table_size > MAX_ATOM_TABLE_SIZE) {
+		val < MIN_ATOM_TABLE_SIZE ||
+		val > MAX_ATOM_TABLE_SIZE) {
 		erts_fprintf(stderr, "bad atom table size %s\n", arg);
 		erts_usage();
 	    }
+            erts_atom_table_size=val;
 	    VERBOSE(DEBUG_SYSTEM,
                     ("setting maximum number of atoms to %d\n",
 		     erts_atom_table_size));
