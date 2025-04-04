@@ -1,5 +1,22 @@
+%CopyrightBegin%
+
 SPDX-License-Identifier: Apache-2.0
-SPDX-FileCopyrightText: Copyright Ericsson AB 2025. All Rights Reserved.
+
+Copyright Ericsson AB 2025. All Rights Reserved.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+%CopyrightEnd%
 
 Unicode 16.0.0 was updated from:
 - https://www.unicode.org/Public/16.0.0/ucd/
@@ -36,7 +53,8 @@ version in lib/stdlib/uc_spec/gen_unicode_mod.escript
 and assess if additional changes are necessary in the Erlang code.
 
 5. Replace all occurrences of the previous version of Unicode with the new one in
-this very same file (lib/stdlib/uc_spec/README-UPDATE.txt).
+this very same file (lib/stdlib/uc_spec/README-UPDATE.txt) and in
+lib/stdlib/uc_spec/vendor.info.
 Remember to update these instructions if a new file is added or any other change
 is required for future version updates.
 
