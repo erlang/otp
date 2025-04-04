@@ -1670,13 +1670,13 @@ Optional Packages:
   --without-threadnames   do not set any thread names
   --with-inet-buffer-tcp-default=SZ
                           Default size of the internal buffer (for a tcp
-                          socket) in bytes (default value is 8192)
+                          socket) in bytes (default value is 9216)
   --with-inet-buffer-udp-default=SZ
                           Default size of the internal buffer (for a udp
-                          socket) in bytes (default value is 8192)
+                          socket) in bytes (default value is 9216)
   --with-inet-buffer-sctp-default=SZ
                           Default size of the internal buffer (for a sctp
-                          socket) in bytes (default value is 8192)
+                          socket) in bytes (default value is 9216)
   --with-esock-counter-size=SZ
                           Size of the esock counters, in number of bits: 16 |
                           24 | 32 | 48 | 64; default is 64
@@ -16473,7 +16473,7 @@ if test ${with_inet_buffer_tcp_default+y}
 then :
   withval=$with_inet_buffer_tcp_default;
 else case e in #(
-  e) with_inet_buffer_tcp_default=8192 ;;
+  e) with_inet_buffer_tcp_default=9216 ;;
 esac
 fi
 
@@ -16513,7 +16513,7 @@ printf "%s\n" "#define INET_BUFFER_TCP_DEFAULT $with_inet_buffer_tcp_default" >>
                                                 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: --with-inet-buffer-tcp-default - Invalid buffer size - using default" >&5
 printf "%s\n" "$as_me: WARNING: --with-inet-buffer-tcp-default - Invalid buffer size - using default" >&2;}
 
-printf "%s\n" "#define INET_BUFFER_TCP_DEFAULT 8192" >>confdefs.h
+printf "%s\n" "#define INET_BUFFER_TCP_DEFAULT 9216" >>confdefs.h
 
                 ;;
 esac
@@ -16523,7 +16523,7 @@ else case e in #(
                 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: --with-inet-buffer-tcp-default - Invalid buffer size - using default" >&5
 printf "%s\n" "$as_me: WARNING: --with-inet-buffer-tcp-default - Invalid buffer size - using default" >&2;}
 
-printf "%s\n" "#define INET_BUFFER_TCP_DEFAULT 8192" >>confdefs.h
+printf "%s\n" "#define INET_BUFFER_TCP_DEFAULT 9216" >>confdefs.h
 
        ;;
 esac
@@ -16537,7 +16537,7 @@ if test ${with_inet_buffer_udp_default+y}
 then :
   withval=$with_inet_buffer_udp_default;
 else case e in #(
-  e) with_inet_buffer_udp_default=8192 ;;
+  e) with_inet_buffer_udp_default=9216 ;;
 esac
 fi
 
@@ -16577,7 +16577,7 @@ printf "%s\n" "#define INET_BUFFER_UDP_DEFAULT $with_inet_buffer_udp_default" >>
                                                 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: --with-inet-buffer-udp-default - Invalid buffer size - using default" >&5
 printf "%s\n" "$as_me: WARNING: --with-inet-buffer-udp-default - Invalid buffer size - using default" >&2;}
 
-printf "%s\n" "#define INET_BUFFER_UDP_DEFAULT 8192" >>confdefs.h
+printf "%s\n" "#define INET_BUFFER_UDP_DEFAULT 9216" >>confdefs.h
 
                 ;;
 esac
@@ -16587,7 +16587,7 @@ else case e in #(
                 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: --with-inet-buffer-udp-default - Invalid buffer size - using default" >&5
 printf "%s\n" "$as_me: WARNING: --with-inet-buffer-udp-default - Invalid buffer size - using default" >&2;}
 
-printf "%s\n" "#define INET_BUFFER_UDP_DEFAULT 8192" >>confdefs.h
+printf "%s\n" "#define INET_BUFFER_UDP_DEFAULT 9216" >>confdefs.h
 
        ;;
 esac
@@ -16601,7 +16601,7 @@ if test ${with_inet_buffer_sctp_default+y}
 then :
   withval=$with_inet_buffer_sctp_default;
 else case e in #(
-  e) with_inet_buffer_sctp_default=8192 ;;
+  e) with_inet_buffer_sctp_default=9216 ;;
 esac
 fi
 
@@ -16641,7 +16641,7 @@ printf "%s\n" "#define INET_BUFFER_SCTP_DEFAULT $with_inet_buffer_sctp_default" 
                                                 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: --with-inet-buffer-sctp-default - Invalid buffer size - using default" >&5
 printf "%s\n" "$as_me: WARNING: --with-inet-buffer-sctp-default - Invalid buffer size - using default" >&2;}
 
-printf "%s\n" "#define INET_BUFFER_SCTP_DEFAULT 8192" >>confdefs.h
+printf "%s\n" "#define INET_BUFFER_SCTP_DEFAULT 9216" >>confdefs.h
 
                 ;;
 esac
@@ -16651,7 +16651,7 @@ else case e in #(
                 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: --with-inet-buffer-sctp-default - Invalid buffer size - using default" >&5
 printf "%s\n" "$as_me: WARNING: --with-inet-buffer-sctp-default - Invalid buffer size - using default" >&2;}
 
-printf "%s\n" "#define INET_BUFFER_SCTP_DEFAULT 8192" >>confdefs.h
+printf "%s\n" "#define INET_BUFFER_SCTP_DEFAULT 9216" >>confdefs.h
 
        ;;
 esac

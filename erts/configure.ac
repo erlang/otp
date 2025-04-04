@@ -1306,13 +1306,13 @@ dnl -------------
 dnl inet (driver)
 dnl -------------
 
-dnl *** INET_BUFFER_TCP_DEFAULT
+dnl *** INET_BUFFER_TCP_DEFAULT ( 9K = 9216 )
 
 AC_ARG_WITH(inet-buffer-tcp-default, 
 AS_HELP_STRING([--with-inet-buffer-tcp-default=SZ], 
-               [Default size of the internal buffer (for a tcp socket) in bytes (default value is 8192)]), 
+               [Default size of the internal buffer (for a tcp socket) in bytes (default value is 9216)]), 
 [], 
-[with_inet_buffer_tcp_default=8192])
+[with_inet_buffer_tcp_default=9216])
 
 AC_MSG_CHECKING([Validate (tcp) buffer size])
 dnl This takes care of the case when its not even a number ("foobar")
@@ -1338,7 +1338,7 @@ AS_IF([test "$inet_tcp_buf_sz" = yes],
                 dnl Shall we fail instead?
                 AC_MSG_WARN([--with-inet-buffer-tcp-default - Invalid buffer size - using default])
                 AC_DEFINE_UNQUOTED(INET_BUFFER_TCP_DEFAULT,
-                                   8192,
+                                   9216,
                                    [Default size of the buffer for an TCP socket (in bytes)])
                ])
       ],
@@ -1346,7 +1346,7 @@ AS_IF([test "$inet_tcp_buf_sz" = yes],
         dnl Shall we fail instead?
         AC_MSG_WARN([--with-inet-buffer-tcp-default - Invalid buffer size - using default])
         AC_DEFINE_UNQUOTED(INET_BUFFER_TCP_DEFAULT,
-                           8192,
+                           9216,
                            [Default size of the buffer for an TCP socket (in bytes)])
       ])
 
@@ -1355,9 +1355,9 @@ dnl *** INET_BUFFER_UDP_DEFAULT
 
 AC_ARG_WITH(inet-buffer-udp-default, 
 AS_HELP_STRING([--with-inet-buffer-udp-default=SZ], 
-               [Default size of the internal buffer (for a udp socket) in bytes (default value is 8192)]), 
+               [Default size of the internal buffer (for a udp socket) in bytes (default value is 9216)]), 
 [], 
-[with_inet_buffer_udp_default=8192])
+[with_inet_buffer_udp_default=9216])
 
 AC_MSG_CHECKING([Validate (udp) buffer size])
 dnl This takes care of the case when its not even a number ("foobar")
@@ -1383,7 +1383,7 @@ AS_IF([test "$inet_udp_buf_sz" = yes],
                 dnl Shall we fail instead?
                 AC_MSG_WARN([--with-inet-buffer-udp-default - Invalid buffer size - using default])
                 AC_DEFINE_UNQUOTED(INET_BUFFER_UDP_DEFAULT,
-                                   8192,
+                                   9216,
                                    [Default size of the buffer for an UDP socket (in bytes)])
                ])
       ],
@@ -1391,7 +1391,7 @@ AS_IF([test "$inet_udp_buf_sz" = yes],
         dnl Shall we fail instead?
         AC_MSG_WARN([--with-inet-buffer-udp-default - Invalid buffer size - using default])
         AC_DEFINE_UNQUOTED(INET_BUFFER_UDP_DEFAULT,
-                           8192,
+                           9216,
                            [Default size of the buffer for an UDP socket (in bytes)])
       ])
 
@@ -1400,9 +1400,9 @@ dnl *** INET_BUFFER_SCTP_DEFAULT
 
 AC_ARG_WITH(inet-buffer-sctp-default, 
 AS_HELP_STRING([--with-inet-buffer-sctp-default=SZ], 
-               [Default size of the internal buffer (for a sctp socket) in bytes (default value is 8192)]), 
+               [Default size of the internal buffer (for a sctp socket) in bytes (default value is 9216)]), 
 [], 
-[with_inet_buffer_sctp_default=8192])
+[with_inet_buffer_sctp_default=9216])
 
 AC_MSG_CHECKING([Validate (sctp) buffer size])
 dnl This takes care of the case when its not even a number ("foobar")
@@ -1428,7 +1428,7 @@ AS_IF([test "$inet_sctp_buf_sz" = yes],
                 dnl Shall we fail instead?
                 AC_MSG_WARN([--with-inet-buffer-sctp-default - Invalid buffer size - using default])
                 AC_DEFINE_UNQUOTED(INET_BUFFER_SCTP_DEFAULT,
-                                   8192,
+                                   9216,
                                    [Default size of the buffer for an SCTP socket (in bytes)])
                ])
       ],
@@ -1436,7 +1436,7 @@ AS_IF([test "$inet_sctp_buf_sz" = yes],
         dnl Shall we fail instead?
         AC_MSG_WARN([--with-inet-buffer-sctp-default - Invalid buffer size - using default])
         AC_DEFINE_UNQUOTED(INET_BUFFER_SCTP_DEFAULT,
-                           8192,
+                           9216,
                            [Default size of the buffer for an SCTP socket (in bytes)])
       ])
 
