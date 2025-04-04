@@ -21,6 +21,24 @@ limitations under the License.
 
 This document describes the changes made to the Kernel application.
 
+## Kernel 10.2.5
+
+### Fixed Bugs and Malfunctions
+
+- On Windows, using socket:sendv, a large IOV (size > MAX), the tail was not sent.
+
+  Own Id: OTP-19482
+
+- gen_tcp connect with a sockaddr with loopback address failed.
+
+  Own Id: OTP-19560 Aux Id: [GH-9541]
+
+- Remove debug printouts from gen_tcp_socket
+
+  Own Id: OTP-19564
+
+[GH-9541]: https://github.com/erlang/otp/issues/9541
+
 ## Kernel 10.2.4
 
 ### Fixed Bugs and Malfunctions
