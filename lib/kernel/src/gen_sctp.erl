@@ -212,9 +212,9 @@ Defaults to `inet_sctp` for IPv4 and `inet6_sctp` for IPv6.
   after which an idle association is automatically closed. `0` means that the
   association is never automatically closed.
 
-- **`{sctp_nodelay, true|false}`** - Turns on|off the Nagle algorithm for
-  merging small packets into larger ones. This improves throughput at the
-  expense of latency.
+- **`{sctp_nodelay, true|false}`** - Turns off (`true`) / on (`false`) the Nagle
+  algorithm for merging small packets into larger ones. This improves throughput
+  at the expense of latency.
 
 - **`{sctp_disable_fragments, true|false}`** - If `true`, induces an error on an
   attempt to send a message larger than the current PMTU size (which would
