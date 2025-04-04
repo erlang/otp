@@ -418,6 +418,8 @@ setup_verify_client(_Socket, [], _, OptsR) ->
     lists:reverse(OptsR);
 setup_verify_client(Socket, [Opt|Opts], First, OptsR) ->
     case Opt of
+        {verify_fun,{Mod,Fun,Init}} ->
+            setup_verify_client(Socket, Opts, First, [{verify_fun, {fun Mod:Fun/3, Init}} | OptsR]);
         {verify_fun,{Fun,_}} ->
             case Fun =:= fun ?MODULE:verify_client/3 of
                 true ->
@@ -445,6 +447,15 @@ setup_verify_client(Socket, [Opt|Opts], First, OptsR) ->
             end;
         _ ->
             setup_verify_client(Socket, Opts, First, [Opt|OptsR])
+    end.
+setup_verify_server([]) ->
+    [];
+setup_verify_server([Opt|Opts]) ->
+    case Opt of
+        {verify_fun,{Mod,Fun,Init}} ->
+            [{verify_fun, {fun Mod:Fun/3, Init}} | setup_verify_server(Opts)];
+        _ ->
+            [Opt | setup_verify_server(Opts)]
     end.
 
 allowed_hosts(Allowed) ->
@@ -640,7 +651,7 @@ do_setup(
         inet_tcp_dist:merge_options(
           inet_tcp_dist:merge_options(
             ConnectOptions,
-            get_ssl_options(client)),
+            setup_verify_server(get_ssl_options(client))),
           [Family, binary, {active, false}, {packet, 4},
            {read_ahead, false}, {nodelay, true}],
           [{server_name_indication, Host}]),
