@@ -1,4 +1,4 @@
---%CopyrightBegin%
+-- %CopyrightBegin%
 --
 -- SPDX-License-Identifier: NOASSERTION
 --
@@ -21,6 +21,7 @@
 -- RSA Security makes no representations regarding intellectual property
 -- claims by other parties. Such determination is the responsibility of
 -- the user.
+--
 -- %CopyrightEnd%
 
 -- PKCS #5 v2.0 ASN.1 Module
