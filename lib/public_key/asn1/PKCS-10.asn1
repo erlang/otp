@@ -42,14 +42,34 @@ BEGIN
 IMPORTS
     Name
     FROM PKIX1Explicit88; --InformationFramework informationFramework
-       
+
 -- Certificate requests
 
-CertificationRequestInfo ::= SEQUENCE {
+   CertificationRequestInfo ::= SEQUENCE {
         version       INTEGER { v1(0) } (v1,...),
         subject       Name,
         subjectPKInfo PKCS10SubjectPublicKeyInfo{{ PKInfoAlgorithms }},
-        attributes    [0] PKCS10Attributes{{ CRIAttributes }}
+        attributes    [0] Pkcs10EmptyAttributes{{ CRIAttributes }}
+   }
+
+   PKCS-10-DUMMY-ATTRIBUTE ::= CLASS {
+     &Type                  OPTIONAL,
+     &id                    OBJECT IDENTIFIER UNIQUE
+   } WITH SYNTAX {
+     [WITH SYNTAX &Type]
+     ID &id
+   }
+
+   -- A set of empty attributes.
+   Pkcs10EmptyAttributes { PKCS-10-DUMMY-ATTRIBUTE:IOSet } ::= SET OF AttributePKCS-10{{ IOSet }}
+
+   CRIAttributes  PKCS-10-DUMMY-ATTRIBUTE  ::= {
+   ... -- don't add any local definitions here; must remain empty -- }
+
+   -- The exact definition does not matter because the SET where this SEQUENCE is used
+   -- is always empty.
+   AttributePKCS-10 { PKCS-10-DUMMY-ATTRIBUTE:IOSet } ::= SEQUENCE {
+       type   	PKCS-10-DUMMY-ATTRIBUTE.&id({IOSet})
    }
 
    PKCS10SubjectPublicKeyInfo {ALGORITHM: IOSet} ::= SEQUENCE {
@@ -59,16 +79,6 @@ CertificationRequestInfo ::= SEQUENCE {
 
    PKInfoAlgorithms ALGORITHM ::= {
         ...  -- add any locally defined algorithms here -- }
-
-   PKCS10Attributes { ATTRIBUTE:IOSet } ::= SET OF PKC10Attribute{{ IOSet }}
-
-   CRIAttributes  ATTRIBUTE  ::= {
-        ... -- add any locally defined attributes here -- }
-
-   PKC10Attribute { ATTRIBUTE:IOSet } ::= SEQUENCE {
-        type   ATTRIBUTE.&id({IOSet}),
-        values SET SIZE(1..MAX) OF ATTRIBUTE.&Type({IOSet}{@type})
-   }
 
    CertificationRequest ::= SEQUENCE {
         certificationRequestInfo CertificationRequestInfo,
@@ -84,55 +94,10 @@ CertificationRequestInfo ::= SEQUENCE {
    SignatureAlgorithms ALGORITHM ::= {
         ... -- add any locally defined algorithms here -- }
 
-ALGORITHM ::= CLASS {&Type  OPTIONAL,
-                     &id    OBJECT IDENTIFIER UNIQUE
-}WITH SYNTAX {[&Type]
-              IDENTIFIED BY &id
-}
-
-ATTRIBUTE ::= CLASS {
-  &derivation            ATTRIBUTE OPTIONAL,
-  &Type                  OPTIONAL, -- either &Type or &derivation required
-  &equality-match        MATCHING-RULE OPTIONAL,
-  &ordering-match        MATCHING-RULE OPTIONAL,
-  &substrings-match      MATCHING-RULE OPTIONAL,
-  &single-valued         BOOLEAN DEFAULT FALSE,
-  &collective            BOOLEAN DEFAULT FALSE,
-  &dummy                 BOOLEAN DEFAULT FALSE,
-  -- operational extensions
-  &no-user-modification  BOOLEAN DEFAULT FALSE,
-  &usage                 AttributeUsage DEFAULT userApplications,
-  &id                    OBJECT IDENTIFIER UNIQUE
-}
-WITH SYNTAX {
-  [SUBTYPE OF &derivation]
-  [WITH SYNTAX &Type]
-  [EQUALITY MATCHING RULE &equality-match]
-  [ORDERING MATCHING RULE &ordering-match]
-  [SUBSTRINGS MATCHING RULE &substrings-match]
-  [SINGLE VALUE &single-valued]
-  [COLLECTIVE &collective]
-  [DUMMY &dummy]
-  [NO USER MODIFICATION &no-user-modification]
-  [USAGE &usage]
-  ID &id
-}
-
-MATCHING-RULE ::= CLASS {
-  &ParentMatchingRules   MATCHING-RULE OPTIONAL,
-  &AssertionType         OPTIONAL,
-  &uniqueMatchIndicator  ATTRIBUTE OPTIONAL,
-  &id                    OBJECT IDENTIFIER UNIQUE
-}
-WITH SYNTAX {
-  [PARENT &ParentMatchingRules]
-  [SYNTAX &AssertionType]
-  [UNIQUE-MATCH-INDICATOR &uniqueMatchIndicator]
-  ID &id
-}
-
-AttributeUsage ::= ENUMERATED {
-  userApplications(0), directoryOperation(1), distributedOperation(2),
-  dSAOperation(3)}
-
+   ALGORITHM ::= CLASS {
+       &Type  OPTIONAL,
+       &id    OBJECT IDENTIFIER UNIQUE
+   } WITH SYNTAX {[&Type]
+       IDENTIFIED BY &id
+   }
 END
