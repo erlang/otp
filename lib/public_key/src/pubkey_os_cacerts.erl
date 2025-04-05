@@ -148,7 +148,11 @@ decode_result(Binary) ->
                                [#cert{der=Der, otp=Decoded}|Acc]
                            catch _:_ ->
                                    Acc
-                           end
+                           end;
+                      (Wrong, Acc) ->
+                           ?LOG_WARNING("PUBKEY cacerts load: Ignored content of type: ~w",
+                                        [element(1, Wrong)]),
+                           Acc
                    end,
         Certs = lists:foldl(MakeCert, [], pubkey_pem:decode(Binary)),
         store(Certs)
