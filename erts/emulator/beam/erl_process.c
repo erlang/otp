@@ -2923,7 +2923,7 @@ erts_active_schedulers(void)
 {
     Uint as = erts_no_schedulers;
 
-    ERTS_ATOMIC_FOREACH_NORMAL_RUNQ(rq, as -= abs(rq->waiting));
+    ERTS_ATOMIC_FOREACH_NORMAL_RUNQ(rq, as -= rq->waiting);
 
     return as;
 }
@@ -2934,10 +2934,7 @@ sched_waiting(Uint no, ErtsRunQueue *rq)
     ERTS_LC_ASSERT(erts_lc_runq_is_locked(rq));
     (void) ERTS_RUNQ_FLGS_SET(rq, (ERTS_RUNQ_FLG_OUT_OF_WORK
 				   | ERTS_RUNQ_FLG_HALFTIME_OUT_OF_WORK));
-    if (rq->waiting < 0)
-	rq->waiting--;
-    else
-	rq->waiting++;
+    rq->waiting++;
     rq->woken = 0;
     if (!ERTS_RUNQ_IX_IS_DIRTY(rq->ix) && erts_system_profile_flags.scheduler)
 	profile_scheduler(make_small(no), am_inactive);
@@ -2947,10 +2944,7 @@ static ERTS_INLINE void
 sched_active(Uint no, ErtsRunQueue *rq)
 {
     ERTS_LC_ASSERT(erts_lc_runq_is_locked(rq));
-    if (rq->waiting < 0)
-	rq->waiting++;
-    else
-	rq->waiting--;
+    rq->waiting--;
     if (!ERTS_RUNQ_IX_IS_DIRTY(rq->ix) && erts_system_profile_flags.scheduler)
 	profile_scheduler(make_small(no), am_active);
 }
@@ -2980,16 +2974,14 @@ empty_runq_aux(ErtsRunQueue *rq, Uint32 old_flags)
 static ERTS_INLINE void
 empty_runq(ErtsRunQueue *rq)
 {
-    Uint32 old_flags = ERTS_RUNQ_FLGS_UNSET(rq, ERTS_RUNQ_FLG_NONEMPTY|ERTS_RUNQ_FLG_PROTECTED);
+    Uint32 old_flags = ERTS_RUNQ_FLGS_UNSET(rq, ERTS_RUNQ_FLG_NONEMPTY);
     empty_runq_aux(rq, old_flags);
 }
 
 static ERTS_INLINE Uint32
-empty_protected_runq(ErtsRunQueue *rq)
+empty_runq_get_old_flags(ErtsRunQueue *rq)
 {
-    Uint32 old_flags = ERTS_RUNQ_FLGS_BSET(rq,
-					   ERTS_RUNQ_FLG_NONEMPTY|ERTS_RUNQ_FLG_PROTECTED,
-					   ERTS_RUNQ_FLG_PROTECTED);
+    Uint32 old_flags = ERTS_RUNQ_FLGS_UNSET(rq, ERTS_RUNQ_FLG_NONEMPTY);
     empty_runq_aux(rq, old_flags);
     return old_flags;
 }
@@ -3944,6 +3936,16 @@ erts_sched_notify_check_cpu_bind(void)
     }
 }
 
+static ERTS_INLINE void
+enqueue_process_internal(ErtsRunPrioQueue *rpq, Process *p)
+{
+    p->next = NULL;
+    if (rpq->last)
+	rpq->last->next = p;
+    else
+	rpq->first = p;
+    rpq->last = p;
+}
 
 static ERTS_INLINE void
 enqueue_process(ErtsRunQueue *runq, int prio, Process *p)
@@ -3962,15 +3964,24 @@ enqueue_process(ErtsRunQueue *runq, int prio, Process *p)
 	p->schedule_count = 1;
 	rpq = &runq->procs.prio[prio];
     }
-
-    p->next = NULL;
-    if (rpq->last)
-	rpq->last->next = p;
-    else
-	rpq->first = p;
-    rpq->last = p;
+    enqueue_process_internal(rpq, p);
 }
 
+static ERTS_INLINE void
+unqueue_process_no_update_lengths(ErtsRunPrioQueue *rpq,
+		Process *prev_proc,
+		Process *proc)
+{
+    if (prev_proc)
+	prev_proc->next = proc->next;
+    else
+	rpq->first = proc->next;
+    if (!proc->next)
+	rpq->last = prev_proc;
+
+    if (!rpq->first)
+	rpq->last = NULL;
+}
 
 static ERTS_INLINE void
 unqueue_process(ErtsRunQueue *runq,
@@ -3981,20 +3992,9 @@ unqueue_process(ErtsRunQueue *runq,
 		Process *proc)
 {
     ERTS_LC_ASSERT(erts_lc_runq_is_locked(runq));
-
-    if (prev_proc)
-	prev_proc->next = proc->next;
-    else
-	rpq->first = proc->next;
-    if (!proc->next)
-	rpq->last = prev_proc;
-
-    if (!rpq->first)
-	rpq->last = NULL;
-
+    unqueue_process_no_update_lengths(rpq, prev_proc, proc);
     erts_dec_runq_len(runq, rqi, prio);
 }
-
 
 static ERTS_INLINE Process *
 dequeue_process(ErtsRunQueue *runq, int prio_q, erts_aint32_t *statep)
@@ -4038,6 +4038,7 @@ check_requeue_process(ErtsRunQueue *rq, int prio_q)
 {
     ErtsRunPrioQueue *rpq = &rq->procs.prio[prio_q];
     Process *p = rpq->first;
+    ASSERT(p);
     if (--p->schedule_count > 0 && p != rpq->last) {
 	/* reschedule */
 	rpq->first = p->next;
@@ -4083,8 +4084,6 @@ check_immigration_need(ErtsRunQueue *c_rq, ErtsMigrationPath *mp, int prio)
 #endif
 
     f_rq_flags = ERTS_RUNQ_FLGS_GET(f_rq);
-    if (f_rq_flags & ERTS_RUNQ_FLG_PROTECTED)
-	return NULL;
 
     if (ERTS_CHK_RUNQ_FLG_EVACUATE(f_flags, prio))
 	return f_rq;
@@ -4310,8 +4309,6 @@ evacuate_run_queue(ErtsRunQueue *rq,
 
     ERTS_LC_ASSERT(erts_lc_runq_is_locked(rq));
 
-    (void) ERTS_RUNQ_FLGS_UNSET(rq, ERTS_RUNQ_FLG_PROTECTED);
-
     ASSERT(!ERTS_RUNQ_IX_IS_DIRTY(rq->ix));
 
     mps = erts_get_migration_paths_managed();
@@ -4465,23 +4462,20 @@ evacuate_run_queue(ErtsRunQueue *rq,
 }
 
 static int
-try_steal_task_from_victim(ErtsRunQueue *rq, int *rq_lockedp, ErtsRunQueue *vrq, Uint32 flags)
+try_steal_task_from_victim(ErtsRunQueue *rq, ErtsRunQueue *vrq, Uint32 flags, Process **result_proc)
 {
     Uint32 procs_qmask = flags & ERTS_RUNQ_FLGS_PROCS_QMASK;
     int max_prio_bit;
     ErtsRunPrioQueue *rpq;
-
-    if (*rq_lockedp) {
-	erts_runq_unlock(rq);
-	*rq_lockedp = 0;
-    }
+    Process *first_stolen_proc = NULL;
+    Process *last_stolen_proc = NULL;
+    unsigned first_stolen_proc_prio;
 
     ERTS_LC_ASSERT(!erts_lc_runq_is_locked(rq));
 
-    erts_runq_lock(vrq);
-
-    if (ERTS_RUNQ_FLGS_GET_NOB(rq) & ERTS_RUNQ_FLG_HALTING)
+    if (ERTS_RUNQ_FLGS_GET_NOB(rq) & ERTS_RUNQ_FLG_HALTING) {
 	goto no_procs;
+    }
 
     /*
      * Check for a runnable process to steal...
@@ -4490,18 +4484,31 @@ try_steal_task_from_victim(ErtsRunQueue *rq, int *rq_lockedp, ErtsRunQueue *vrq,
     while (procs_qmask) {
 	Process *prev_proc;
 	Process *proc;
+        unsigned max_processes_to_steal;
+        unsigned n_procs_stolen[ERTS_NO_PROC_PRIO_LEVELS];
+        unsigned prio_q;
+        ErtsRunQueueInfo *rqi;
 
 	max_prio_bit = procs_qmask & -procs_qmask;
+	procs_qmask &= ~max_prio_bit;
 	switch (max_prio_bit) {
 	case MAX_BIT:
-	    rpq = &vrq->procs.prio[PRIORITY_MAX];
+            prio_q = PRIORITY_MAX;
+            rqi = &vrq->procs.prio_info[prio_q];
+            max_processes_to_steal = erts_atomic32_read_dirty(&rqi->len);
 	    break;
 	case HIGH_BIT:
-	    rpq = &vrq->procs.prio[PRIORITY_HIGH];
+            prio_q = PRIORITY_HIGH;
+            rqi = &vrq->procs.prio_info[prio_q];
+            max_processes_to_steal = erts_atomic32_read_dirty(&rqi->len);
 	    break;
 	case NORMAL_BIT:
 	case LOW_BIT:
-	    rpq = &vrq->procs.prio[PRIORITY_NORMAL];
+            prio_q = PRIORITY_NORMAL;
+            rqi = &vrq->procs.prio_info[PRIORITY_NORMAL];
+            max_processes_to_steal = erts_atomic32_read_dirty(&rqi->len);
+            rqi = &vrq->procs.prio_info[PRIORITY_LOW];
+            max_processes_to_steal += erts_atomic32_read_dirty(&rqi->len);
 	    break;
 	case 0:
 	    goto no_procs;
@@ -4510,28 +4517,72 @@ try_steal_task_from_victim(ErtsRunQueue *rq, int *rq_lockedp, ErtsRunQueue *vrq,
 	    goto no_procs;
 	}
 
+        if (!max_processes_to_steal) {
+            continue;
+        }
+        rpq = &vrq->procs.prio[prio_q];
+        /* Only steal half the tasks (to balance the load between the victim runqueue and this one) */
+        max_processes_to_steal /= 2;
+        /* Don't steal too many tasks at once, to keep the critical section from getting too long */
+        max_processes_to_steal = max_processes_to_steal > 100 ? 100 : max_processes_to_steal;
+        for (int i = 0; i < ERTS_NO_PROC_PRIO_LEVELS; ++i) {
+            n_procs_stolen[i] = 0;
+        }
 	prev_proc = NULL;
 	proc = rpq->first;
-
-	while (proc) {
-	    if (erts_try_change_runq_proc(proc, rq)) {
+	while (proc && max_processes_to_steal) {
+            if (erts_try_change_runq_proc(proc, rq)) {
                 erts_aint32_t state = erts_atomic32_read_acqb(&proc->state);
-		/* Steal process */
-		int prio = (int) ERTS_PSFLGS_GET_PRQ_PRIO(state);
-		ErtsRunQueueInfo *rqi = &vrq->procs.prio_info[prio];
-		unqueue_process(vrq, rpq, rqi, prio, prev_proc, proc);
-		erts_runq_unlock(vrq);
-
-		erts_runq_lock(rq);
-		*rq_lockedp = 1;
-		enqueue_process(rq, prio, proc);
-		return !0;
-	    }
-	    prev_proc = proc;
+                int prio = (int) ERTS_PSFLGS_GET_PRQ_PRIO(state);
+                unqueue_process_no_update_lengths(rpq, prev_proc, proc);
+                if (!first_stolen_proc) {
+                    first_stolen_proc = proc;
+                    first_stolen_proc_prio = prio;
+                } else {
+                    last_stolen_proc->next = proc;
+                }
+                last_stolen_proc = proc;
+                n_procs_stolen[prio]++;
+                --max_processes_to_steal;
+            } else {
+                prev_proc = proc;
+            }
 	    proc = proc->next;
 	}
+        if (first_stolen_proc) {
+            for (int i = 0; i < ERTS_NO_PROC_PRIO_LEVELS; ++i) {
+                if (n_procs_stolen[i] > 0) {
+                    ErtsRunQueueInfo *rqi = &vrq->procs.prio_info[i];
+                    erts_sub_runq_len(vrq, rqi, i, n_procs_stolen[i]);
+                }
+            }
+            erts_runq_unlock(vrq);
+            *result_proc = first_stolen_proc;
+            ASSERT(n_procs_stolen[first_stolen_proc_prio] > 0);
+            n_procs_stolen[first_stolen_proc_prio]--; /* We're not going to requeue this one, as we're returning it */
+            ASSERT(last_stolen_proc);
+            last_stolen_proc->next = NULL;
+            first_stolen_proc = first_stolen_proc->next;
 
-	procs_qmask &= ~max_prio_bit;
+            erts_runq_lock(rq);
+            if (first_stolen_proc) {
+                for (int i = 0; i < ERTS_NO_PROC_PRIO_LEVELS; ++i) {
+                    if (n_procs_stolen[i] > 0) {
+                        ErtsRunQueueInfo *rqi = &rq->procs.prio_info[i];
+                        erts_add_runq_len(rq, rqi, i, n_procs_stolen[i]);
+                    }
+                }
+                rpq = &rq->procs.prio[prio_q];
+                /* Someone may have pushed work to us while we were not holding our lock */
+                if (rpq->last) {
+                    rpq->last->next = first_stolen_proc;
+                } else {
+                    rpq->first = first_stolen_proc;
+                }
+                rpq->last = last_stolen_proc;
+            }
+            return !0;
+        }
     }
 
 no_procs:
@@ -4550,7 +4601,6 @@ no_procs:
 	prt_rq = erts_port_runq(prt);
         if (prt_rq != rq)
             ERTS_INTERNAL_ERROR("Unexpected run-queue");
-        *rq_lockedp = 1;
         erts_enqueue_port(rq, prt);
         return !0;
     }
@@ -4560,50 +4610,63 @@ no_procs:
     return 0;
 }
 
-
+/* Expects rq to be unlocked
+   rq is locked on return iff the return value is non-zero */
 static ERTS_INLINE int
-check_possible_steal_victim(ErtsRunQueue *rq, int *rq_lockedp, int vix)
+check_possible_steal_victim(ErtsRunQueue *rq, int vix, Process **result_proc, ErtsWStack* contended_runqueues)
 {
     ErtsRunQueue *vrq = ERTS_RUNQ_IX(vix);
     Uint32 flags = ERTS_RUNQ_FLGS_GET(vrq);
-    if (runq_got_work_to_execute_flags(flags) & (!(flags & ERTS_RUNQ_FLG_PROTECTED)))
-	return try_steal_task_from_victim(rq, rq_lockedp, vrq, flags);
-    else
-	return 0;
+
+    if (!runq_got_work_to_execute_flags(flags))
+        return 0;
+
+    if (contended_runqueues) {
+        if (erts_mtx_trylock(&vrq->mtx) == EBUSY) {
+            WSTACK_PUSH((*contended_runqueues), vix);
+            return 0;
+        }
+        goto lock_taken;
+    }
+
+    erts_mtx_lock(&vrq->mtx);
+lock_taken:
+    return try_steal_task_from_victim(rq, vrq, flags, result_proc);
 }
 
-
 static int
-try_steal_task(ErtsRunQueue *rq)
+try_steal_task(ErtsRunQueue *rq, Process **result_proc)
 {
-    int res, rq_locked, vix, active_rqs, blnc_rqs;
+    int res, vix, active_rqs, blnc_rqs;
     Uint32 flags;
+    DECLARE_WSTACK(contended_runqueues);
 
-    /* Protect jobs we steal from getting stolen from us... */
-    flags = empty_protected_runq(rq);
+    flags = empty_runq_get_old_flags(rq);
     if (flags & ERTS_RUNQ_FLG_SUSPENDED)
 	return 0; /* go suspend instead... */
 
-    res = 0;
-    rq_locked = 1;
-
-    ERTS_LC_CHK_RUNQ_LOCK(rq, rq_locked);
+    ERTS_LC_ASSERT(erts_lc_runq_is_locked(rq));
+    erts_runq_unlock(rq);
 
     get_no_runqs(&active_rqs, &blnc_rqs);
 
     if (active_rqs > blnc_rqs)
 	active_rqs = blnc_rqs;
 
-    if (rq->ix < active_rqs) {
+    if (erts_atomic32_read_acqb(&no_empty_run_queues) >= blnc_rqs)
+        goto end_try_steal_task;
 
+    if (rq->ix < active_rqs) {
 	/* First try to steal from an inactive run queue... */
 	if (active_rqs < blnc_rqs) {
 	    int no = blnc_rqs - active_rqs;
 	    int stop_ix = vix = active_rqs + rq->ix % no;
-	    while (erts_atomic32_read_acqb(&no_empty_run_queues) < blnc_rqs) {
-		res = check_possible_steal_victim(rq, &rq_locked, vix);
-		if (res)
-		    goto done;
+	    while (1) {
+		res = check_possible_steal_victim(rq, vix, result_proc, &contended_runqueues);
+		if (res) {
+                    DESTROY_WSTACK(contended_runqueues);
+                    return res;
+                }
 		vix++;
 		if (vix >= blnc_rqs)
 		    vix = active_rqs;
@@ -4615,27 +4678,36 @@ try_steal_task(ErtsRunQueue *rq)
 	vix = rq->ix;
 
 	/* ... then try to steal a job from another active queue... */
-	while (erts_atomic32_read_acqb(&no_empty_run_queues) < blnc_rqs) {
+	while (1) {
 	    vix++;
 	    if (vix >= active_rqs)
 		vix = 0;
 	    if (vix == rq->ix)
 		break;
 
-	    res = check_possible_steal_victim(rq, &rq_locked, vix);
-	    if (res)
-		goto done;
+	    res = check_possible_steal_victim(rq, vix, result_proc, &contended_runqueues);
+	    if (res) {
+                DESTROY_WSTACK(contended_runqueues);
+                return res;
+            }
 	}
 
+        /* ... and finally re-try stealing from the queues that were skipped because contended.
+           We recheck the number of empty runqueues in each iteration, as taking the runqueue lock in check_possible_steal_victim can take quite a while. */
+        while (!WSTACK_ISEMPTY(contended_runqueues)
+                && (erts_atomic32_read_acqb(&no_empty_run_queues) < blnc_rqs)) {
+            vix = WSTACK_POP(contended_runqueues);
+            res = check_possible_steal_victim(rq, vix, result_proc, NULL);
+            if (res) {
+                DESTROY_WSTACK(contended_runqueues);
+                return res;
+            }
+        }
     }
 
- done:
-
-    if (!rq_locked)
-	erts_runq_lock(rq);
-
-    if (res)
-        return res;
+end_try_steal_task:
+    DESTROY_WSTACK(contended_runqueues);
+    erts_runq_lock(rq);
     return runq_got_work_to_execute(rq);
 }
 
@@ -5558,8 +5630,6 @@ wakeup_other_check(ErtsRunQueue *rq, Uint32 flags)
 		{
 		    int empty_rqs =
 			erts_atomic32_read_acqb(&no_empty_run_queues);
-		    if (flags & ERTS_RUNQ_FLG_PROTECTED)
-			(void) ERTS_RUNQ_FLGS_UNSET(rq, ERTS_RUNQ_FLG_PROTECTED);
 		    if (empty_rqs != 0)
 			wake_scheduler_on_empty_runq(rq);
 		    rq->wakeup_other = 0;
@@ -5620,8 +5690,6 @@ wakeup_other_check_legacy(ErtsRunQueue *rq, Uint32 flags)
 	else if (rq->wakeup_other < wo_params->limit)
 	    rq->wakeup_other += len*wo_reds + ERTS_WAKEUP_OTHER_FIXED_INC_LEGACY;
 	else {
-	    if (flags & ERTS_RUNQ_FLG_PROTECTED)
-		(void) ERTS_RUNQ_FLGS_UNSET(rq, ERTS_RUNQ_FLG_PROTECTED);
 	    if (erts_atomic32_read_acqb(&no_empty_run_queues) != 0) {
 		wake_scheduler_on_empty_runq(rq);
 		rq->wakeup_other = 0;
@@ -6075,7 +6143,6 @@ erts_init_scheduling(int no_schedulers, int no_schedulers_online, int no_poll_th
 
 	erts_mtx_init(&rq->mtx, "run_queue", make_small(ix + 1),
         ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_SCHEDULER);
-	erts_cnd_init(&rq->cnd);
 
         if (ERTS_RUNQ_IX_IS_DIRTY(ix)) {
             erts_mtx_init(&rq->sleepers.lock, "dirty_run_queue_sleep_list",
@@ -6797,8 +6864,7 @@ schedule_out_process(ErtsRunQueue *c_rq, erts_aint32_t *statep, Process *p,
 
 static ERTS_INLINE void
 add2runq(int enqueue, erts_aint32_t prio,
-	 Process *proc, erts_aint32_t state,
-	 Process **proxy)
+	 Process *proc, erts_aint32_t state)
 {
     ErtsRunQueue *runq;
 
@@ -6810,12 +6876,7 @@ add2runq(int enqueue, erts_aint32_t prio,
 	if (enqueue < 0) { /* use proxy */
 	    Process *pxy;
 
-	    if (!proxy)
-		pxy = NULL;
-	    else {
-		pxy = *proxy;
-		*proxy = NULL;
-	    }
+	    pxy = NULL;
 	    sched_p = make_proxy_proc(pxy, proc, prio);
 	}
 
@@ -6950,7 +7011,7 @@ schedule_process(Process *p, erts_aint32_t in_state, ErtsProcLocks locks)
 					     &state,
 					     &enq_prio,
 					     locks);
-    add2runq(enqueue, enq_prio, p, state, NULL);
+    add2runq(enqueue, enq_prio, p, state);
 }
 
 void
@@ -7083,7 +7144,7 @@ active_sys_enqueue(Process *p, ErtsProcSysTask *sys_task,
     }
 
     if (!already_scheduled) {
-        add2runq(enqueue, enq_prio, p, n, NULL);
+        add2runq(enqueue, enq_prio, p, n);
     }
 
 cleanup:
@@ -7259,7 +7320,7 @@ resume_process(Process *p, ErtsProcLocks locks)
 					 &state,
 					 &enq_prio,
 					 locks);
-    add2runq(enqueue, enq_prio, p, state, NULL);
+    add2runq(enqueue, enq_prio, p, state);
 }
 
 
@@ -9836,11 +9897,19 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
                         /* Go suspend... */
                         goto continue_check_activities_to_run_known_flags;
                     }
+                    empty_runq(rq);
                 }
                 else {
                     /* Normal scheduler */
-                    if (try_steal_task(rq))
+                    p = NULL;
+                    if (try_steal_task(rq, &p)) {
+                        if (p) {
+                            non_empty_runq(rq);
+                            state = erts_atomic32_read_acqb(&p->state);
+                            goto execute_process;
+                        }
                         goto continue_check_activities_to_run;
+                    }
                     /*
                      * Check for suspend has to be done after trying
                      * to steal a task...
@@ -9863,7 +9932,6 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
                         goto continue_check_activities_to_run_known_flags;
                     }
 		}
-		empty_runq(rq);
 	    }
 
 	    (void) ERTS_RUNQ_FLGS_UNSET(rq, ERTS_RUNQ_FLG_EXEC);
@@ -9974,14 +10042,15 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
             }
 #endif
 
+execute_process:
 	    if (is_normal_sched) {
 		psflg_band_mask = ~(((erts_aint32_t) 1) << (ERTS_PSFLGS_GET_PRQ_PRIO(state)
 							    + ERTS_PSFLGS_IN_PRQ_MASK_OFFSET));
 	    }
 	    else {
 		psflg_band_mask = ~((erts_aint32_t) 0);
-                qbit = ((erts_aint32_t) 1) << ERTS_PSFLGS_GET_PRQ_PRIO(state);
 	    }
+            qbit = ((erts_aint32_t) 1) << ERTS_PSFLGS_GET_PRQ_PRIO(state);
 
 	    if (!(state & ERTS_PSFLG_PROXY))
 		psflg_band_mask &= ~ERTS_PSFLG_IN_RUNQ;
@@ -10117,10 +10186,6 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
 	}
 
         ERTS_MSACC_SET_STATE_CACHED(ERTS_MSACC_STATE_EMULATOR);
-
-
-	if (flags & ERTS_RUNQ_FLG_PROTECTED)
-	    (void) ERTS_RUNQ_FLGS_UNSET(rq, ERTS_RUNQ_FLG_PROTECTED);
 
 	ERTS_CHK_NO_PROC_LOCKS;
 
@@ -13471,7 +13536,7 @@ erts_set_self_exiting(Process *c_p, Eterm reason)
 
     erts_proc_unlock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
     if (enqueue)
-        add2runq(enqueue, enq_prio, c_p, state, NULL);
+        add2runq(enqueue, enq_prio, c_p, state);
 }
 
 static int
@@ -15078,8 +15143,6 @@ void erts_print_run_queue_info(fmtfn_t to, void *to_arg,
                 erts_print(to, to_arg, "INACTIVE"); break;
             case ERTS_RUNQ_FLG_NONEMPTY:
                 erts_print(to, to_arg, "NONEMPTY"); break;
-            case ERTS_RUNQ_FLG_PROTECTED:
-                erts_print(to, to_arg, "PROTECTED"); break;
             case ERTS_RUNQ_FLG_EXEC:
                 erts_print(to, to_arg, "EXEC"); break;
             case ERTS_RUNQ_FLG_MSB_EXEC:
