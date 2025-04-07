@@ -113,8 +113,7 @@ scan(Opts) ->
     persistent_term:put(ericsson_copyright, EricssonCopyright),
     FilesToScan = get_files_to_scan(Opts),
     RootDir = get_rootdir(Opts),
-    TemplatePath = filename:join([RootDir, "scripts", "license-header-templates"]),
-    LicenseTemplates = get_license_templates(TemplatePath),
+    LicenseTemplates = get_license_templates(RootDir),
     VendorPaths = get_vendor_paths(RootDir),
     LargestLicense = lists:max([byte_size(L) || _ := L <- LicenseTemplates]),
     N = pmap(fun(File) -> check_file(File, LargestLicense, LicenseTemplates, VendorPaths, Opts) end, FilesToScan),
@@ -544,18 +543,21 @@ read(Filename, Bytes) ->
     file:close(D),
     Data.
 
-get_license_templates(Path) ->
-    case file:list_dir(Path) of
-        {ok, Files} ->
-            maps:from_list(
-              lists:map(
-                fun(FN) ->
-                        {ok, Template} = file:read_file(filename:join(Path,FN)),
-                        {unicode:characters_to_binary(string:replace(filename:rootname(FN)," ","-")), Template}
-                end, Files) ++ [{~"NOASSERTION", ~""},{~"NONE", ~""}]);
-        _Err ->
-            fail("Could not list ~ts~n",[Path])
-    end.
+get_license_templates(RootDir) ->
+    Headers = filename:join([RootDir, "LICENSE-HEADERS"]),
+    Licenses = filename:join([RootDir, "LICENSES"]),
+    %% The order matters as there are duplicates in HEADERS and LICENSES.
+    %% We want to select HEADERS before LICENSES.
+    maps:from_list(get_license_templates_from_dir(Licenses) ++
+                       get_license_templates_from_dir(Headers) ++
+                       [{~"NOASSERTION", ~""},{~"NONE", ~""}]).
+
+get_license_templates_from_dir(Path) ->
+    lists:map(
+      fun(FN) ->
+              {ok, Template} = file:read_file(FN),
+              {unicode:characters_to_binary(filename:basename(filename:rootname(FN))), Template}
+      end, filelib:wildcard(filename:join(Path,"*.txt"))).
 
 get_vendor_paths(RootPath) ->
     lists:flatmap(fun get_vendor_path/1, filelib:wildcard(filename:join(RootPath, "**/vendor.info"))).
@@ -585,6 +587,8 @@ is_ignored(Filename) ->
               [
                "/LICENSE$",
                "^LICENSE.txt$",
+               "^LICENSES/.*",
+               "^LICENSE-HEADERS/.*",
                "^system/COPYRIGHT$",
                "^.mailmap$",
                "^OTP_VERSION$",
@@ -595,7 +599,6 @@ is_ignored(Filename) ->
                "config\\.cache\\.static$",
                "^bootstrap/.*\\.boot$",
                "^otp_versions\\.table$",
-               "^scripts/license-header-templates/.*\\.template",
                "\\.beam$",
                "\\.gitignore$",
                "\\.gitattributes$",
@@ -662,8 +665,11 @@ get_files_from_dir(Dir) ->
         not is_link(Name)].
 
 is_link(Name) ->
-    {ok, #file_info{ type = Type }} = file:read_link_info(Name),
-    Type =/= regular.
+    case file:read_link_info(Name) of
+        {ok, #file_info{ type = Type }} ->
+            Type =/= regular;
+        _Else -> false
+    end.
 
 warn(Fmt, Args) ->
     io:format(Fmt++"\n", Args).

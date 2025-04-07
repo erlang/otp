@@ -61,7 +61,14 @@ limitations under the License.
 ```
 
 If the file is under some other license, it needs to have its `SPDX-License-Identifier`
-and also a copy of the license information needs to be in `scripts/license-header-templates/`.
+and also a copy of the license header information needs to be in `LICENSE-HEADERS/`.
+If the entire license is to be part of the header, you should place the license
+text in `LICENSES/` directly and the tool will use those. Different licenses have
+different conventions regarding if the whole license should be in the header or not.
+If you are adding a new license, please check what the community at large is doing
+with that specific license. If it is unclear, then a general guideline is that
+"small" licenses should be in the header and "large" should have a short text in
+the header and a link to where you can find the license.
 
 You can find a list of all `SPDX-License-Identifier`s on <https://spdx.org/licenses/>.
 
