@@ -37,7 +37,7 @@
          
          meas/1,    bench_meas/1,
          mstone1/1, bench_mstone1/1,
-         mstone2/1
+         mstone2/1, bench_mstone2/1
 
         ]).
 
@@ -84,8 +84,8 @@ meas_cases() ->
 bench_cases() ->
     [
      bench_meas,
-     bench_mstone1 %%,
-     %% bench_mstone2
+     bench_mstone1,
+     bench_mstone2
     ].
 
 
@@ -198,8 +198,9 @@ init_per_testcase(Case, Config) when (Case =:= mstone1) orelse
             ?SKIP(flex_scanner_not_enabled)
     end;
 
-init_per_testcase(mstone2 = Case, Config) ->
-
+init_per_testcase(Case, Config) when (Case =:= mstone2) orelse
+                                     (Case =:= bench_mstone2) ->
+    
     p("init_per_testcase -> entry with"
       "~n   Config: ~p"
       "~n   Nodes:  ~p", [Config, erlang:nodes()]),
@@ -267,7 +268,8 @@ end_per_testcase(Case, Config) when (Case =:= mstone1) orelse
 
     end_per_testcase_meas(Case, example_meas_mstone1_modules(), Config);
 
-end_per_testcase(mstone2 = Case, Config) ->
+end_per_testcase(Case, Config) when (Case =:= mstone2) orelse
+                                    (Case =:= bench_mstone2) ->
 
     p("end_per_testcase -> entry with"
       "~n   Config: ~p"
@@ -660,11 +662,9 @@ common_meas(TC, Opts0, Config) when is_map(Opts0) ->
            end,
     Opts = Opts0#{verbose => false},
     Case = fun({Factor, WorkerNode}) ->
-                   CRes = do_meas(WorkerNode,
-                                  meas,
-                                  megaco_codec_meas, start, [Factor, Opts]),
-                   p("~w:~w -> CRes: ~p", [?MODULE, ?FUNCTION_NAME, CRes]),
-                   CRes
+                   do_meas(WorkerNode,
+                           meas,
+                           megaco_codec_meas, start, [Factor, Opts])
            end,
     Post = fun(_) -> ok end,
     try_tc(TC, Pre, Case, Post).
@@ -682,10 +682,7 @@ do_meas(Node,
         {'DOWN', MRef, process, Pid, {bench, Results}} ->
             p("worker process terminated with bench results: "
               "~n      ~p", [Results]),
-            Res = publish_bench_results(BenchName, Results),
-            p("publication: "
-              "~n      ~p", [Res]),
-            Res;
+            publish_bench_results(BenchName, Results);
 
         {'DOWN', MRef, process, Pid,
          {error, {failed_loading_flex_scanner_driver, Reason}}} ->
@@ -791,6 +788,9 @@ common_mstone1(TC, Opts, Config) when is_list(Config) ->
 mstone2(suite) ->
     [];
 mstone2(Config) when is_list(Config) ->
+    common_mstone2(?FUNCTION_NAME, #{}, Config).
+
+common_mstone2(TC, Opts, Config) when is_list(Config) ->
     Pre  = fun() ->
                    RunTime  = 1, % Minutes
                    NumSched =
@@ -805,7 +805,7 @@ mstone2(Config) when is_list(Config) ->
                    Mode = standard,
                    Mod  = megaco_codec_mstone2,
                    Func = start,
-                   Args = [Factor, RunTime, Mode],
+                   Args = [Opts, Factor, RunTime, Mode],
                    p("Run with: "
                      "~n      Factor:   ~p"
                      "~n      Run Time: ~p min(s)"
@@ -815,7 +815,7 @@ mstone2(Config) when is_list(Config) ->
                            Mod, Func, Args)
            end,
     Post = fun(_) -> ok end,
-    try_tc(?FUNCTION_NAME, Pre, Case, Post).
+    try_tc(TC, Pre, Case, Post).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -838,7 +838,10 @@ bench_mstone1(Config) when is_list(Config) ->
 
 %% ------------------ bench:mstone2 ---------------------
 
-
+bench_mstone2(suite) ->
+    [];
+bench_mstone2(Config) when is_list(Config) ->
+    common_mstone2(?FUNCTION_NAME, #{bench => true}, Config).
 
 
 

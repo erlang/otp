@@ -65,7 +65,7 @@ application.
 
 %% Exports
 -export([
-	 start/0, start/1, start/2, start/3, start/4
+	 start/0, start/1, start/2, start/3, start/4, start/5
 	]).
 
 
@@ -116,7 +116,8 @@ application.
 
 -doc(#{equiv => start/1}).
 start() ->
-    do_start(?DEFAULT_FACTOR,
+    do_start(#{},
+             ?DEFAULT_FACTOR,
              ?DEFAULT_RUN_TIME, ?DEFAULT_MODE, ?DEFAULT_MESSAGE_PACKAGE).
 
 -doc """
@@ -140,13 +141,16 @@ start([RunTimeAtom, Mode, MessagePackage])
   when is_atom(RunTimeAtom) andalso
        is_atom(Mode) andalso
        is_atom(MessagePackage) ->
-    do_start(?DEFAULT_FACTOR,
+    do_start(#{},
+             ?DEFAULT_FACTOR,
              ?LIB:parse_runtime(RunTimeAtom), Mode, MessagePackage);
 start(RunTime) when is_integer(RunTime) andalso (RunTime > 0) ->
-    do_start(?DEFAULT_FACTOR,
+    do_start(#{},
+             ?DEFAULT_FACTOR,
              timer:minutes(RunTime), ?DEFAULT_MODE, ?DEFAULT_MESSAGE_PACKAGE);
 start(MessagePackage) ->
-    do_start(?DEFAULT_FACTOR,
+    do_start(#{},
+             ?DEFAULT_FACTOR,
              ?DEFAULT_RUN_TIME, ?DEFAULT_MODE, MessagePackage).
 
 -doc false.
@@ -157,24 +161,28 @@ start(RunTime, Mode)
         (Mode =:= flex) orelse
         (Mode =:= no_drv) orelse
         (Mode =:= only_drv)) ->
-    do_start(?DEFAULT_FACTOR,
+    do_start(#{},
+             ?DEFAULT_FACTOR,
              timer:minutes(RunTime), Mode, ?DEFAULT_MESSAGE_PACKAGE);
 start(Factor, RunTime)
   when is_integer(Factor) andalso
        (Factor > 0) andalso
        is_integer(RunTime) andalso
        (RunTime > 0) ->
-    do_start(Factor, timer:minutes(RunTime),
+    do_start(#{},
+             Factor, timer:minutes(RunTime),
              ?DEFAULT_MODE, ?DEFAULT_MESSAGE_PACKAGE);
 start(RunTime, MessagePackage) when is_integer(RunTime) andalso (RunTime > 0) ->
-    do_start(?DEFAULT_FACTOR,
+    do_start(#{},
+             ?DEFAULT_FACTOR,
              timer:minutes(RunTime), ?DEFAULT_MODE, MessagePackage);
 start(Mode, MessagePackage)
   when (Mode =:= standard) orelse
        (Mode =:= flex) orelse
        (Mode =:= no_drv) orelse
        (Mode =:= only_drv) ->
-    do_start(?DEFAULT_FACTOR,
+    do_start(#{},
+             ?DEFAULT_FACTOR,
              ?DEFAULT_RUN_TIME, Mode, MessagePackage).
 
 -doc false.
@@ -185,7 +193,8 @@ start(RunTime, Mode, MessagePackage)
         (Mode =:= flex) orelse
         (Mode =:= no_drv) orelse
         (Mode =:= only_drv)) ->
-    do_start(?DEFAULT_FACTOR,
+    do_start(#{},
+             ?DEFAULT_FACTOR,
              timer:minutes(RunTime), Mode, MessagePackage);
 start(Factor, RunTime, Mode)
   when is_integer(Factor) andalso
@@ -196,7 +205,8 @@ start(Factor, RunTime, Mode)
         (Mode =:= flex) orelse
         (Mode =:= no_drv) orelse
         (Mode =:= only_drv)) ->
-    do_start(Factor,
+    do_start(#{},
+             Factor,
              timer:minutes(RunTime), Mode, ?DEFAULT_MESSAGE_PACKAGE).
 
 
@@ -210,11 +220,43 @@ start(Factor, RunTime, Mode, MessagePackage)
         (Mode =:= flex) orelse
         (Mode =:= no_drv) orelse
         (Mode =:= only_drv)) ->
-    do_start(Factor, timer:minutes(RunTime), Mode, MessagePackage).
+    start(#{},
+          Factor, RunTime, Mode, MessagePackage);
+start(Opts, Factor, RunTime, Mode) when is_map(Opts) ->
+    start(Opts,
+          Factor, RunTime, Mode, ?DEFAULT_MESSAGE_PACKAGE).
 
-do_start(Factor, RunTime, Mode, MessagePackageRaw) ->
+-doc false.
+start(#{bench := Bench},
+      Factor, RunTime, Mode, MessagePackage)
+  when is_boolean(Bench) andalso
+       is_integer(Factor) andalso
+       (Factor > 0) andalso
+       is_integer(RunTime) andalso
+       (RunTime > 0) andalso
+       ((Mode =:= standard) orelse
+        (Mode =:= flex) orelse
+        (Mode =:= no_drv) orelse
+        (Mode =:= only_drv)) ->
+    do_start(Bench,
+             Factor, timer:minutes(RunTime), Mode, MessagePackage);
+start(_,
+      Factor, RunTime, Mode, MessagePackage)
+  when is_integer(Factor) andalso
+       (Factor > 0) andalso
+       is_integer(RunTime) andalso
+       (RunTime > 0) andalso
+       ((Mode =:= standard) orelse
+        (Mode =:= flex) orelse
+        (Mode =:= no_drv) orelse
+        (Mode =:= only_drv)) ->
+    do_start(false,
+             Factor, timer:minutes(RunTime), Mode, MessagePackage).
+
+
+do_start(Bench, Factor, RunTime, Mode, MessagePackageRaw) ->
     MessagePackage = parse_message_package(MessagePackageRaw),
-    mstone_init(Factor, RunTime, Mode, MessagePackage).
+    mstone_init(Bench, Factor, RunTime, Mode, MessagePackage).
     
 parse_message_package(MessagePackageRaw) when is_list(MessagePackageRaw) ->
     list_to_atom(MessagePackageRaw);
@@ -224,7 +266,8 @@ parse_message_package(BadMessagePackage) ->
     throw({error, {bad_message_package, BadMessagePackage}}).
 
 
-mstone_init(Factor, RunTime, Mode, MessagePackage) ->
+mstone_init(Bench,
+            Factor, RunTime, Mode, MessagePackage) ->
     io:format("~n", []),
     %% io:format("MStone init with"
     %%           "~n   Run Time:        ~p ms"
@@ -241,8 +284,7 @@ mstone_init(Factor, RunTime, Mode, MessagePackage) ->
 			       end)),
     receive
 	{'DOWN', Ref, process, _Pid, {done, Result}} ->
-	    display_result(Result),
-            ok;
+	    display_result(Bench, Result);
 
 	{'DOWN', Ref, process, _Pid, Result} ->
 	    io:format("Unexpected result:"
@@ -252,11 +294,17 @@ mstone_init(Factor, RunTime, Mode, MessagePackage) ->
     end.
 
 
+mstone_maybe_bench(true, MStone) ->
+    {bench, MStone};
+mstone_maybe_bench(false, _) ->
+    ok.
+
+
 %%%----------------------------------------------------------------------
 %%% Internal functions
 %%%----------------------------------------------------------------------
 
-display_result(Result) ->
+display_result(Bench, Result) ->
     {value, {worker_cnt, WC}} = lists:keysearch(worker_cnt, 1, Result),
     CodecStat = 
 	[{Mod, Conf, Cnt} || {{codec_cnt, Mod, Conf}, Cnt} <- Result],
@@ -265,7 +313,7 @@ display_result(Result) ->
 	      "MStone:                  ~w~n"
 	      "~n", [WC, MStone]),
     display_worker_result(lists:keysort(3, CodecStat)),
-    ok.
+    mstone_maybe_bench(Bench, MStone).
     
 display_worker_result([]) ->
     io:format("~n", []);
@@ -400,34 +448,40 @@ loader_loop(finishing, #state{flex_handler = Pid, running = []}) ->
 loader_loop(finishing, State) ->
     receive
 	{'DOWN', Ref, process, _Pid, {mstone_done, Codec, Conf, Cnt}} ->
-            %% io:format("[loader:finishing] worker done~n", []),
+            %% io:format("[~s] [loader:finishing] worker done~n",
+            %%           [megaco:formated_timestamp()]),
 	    loader_loop(finishing, done_worker(Ref, Codec, Conf, Cnt, State))
     end;
 
 loader_loop(running, #state{idle = []} = State) ->	    
     receive
 	mstone_finished ->
-            %% io:format("[loader:running,idle] -> finish~n", []),
+            %% io:format("[~s] [loader:running,idle] -> finish~n",
+            %%           [megaco:formated_timestamp()]),
 	    loader_loop(finishing, State);
 
 	{'DOWN', Ref, process, _Pid, {mstone_done, Codec, Conf, Cnt}} ->
-            %% io:format("[loader:running] worker done~n", []),
+            %% io:format("[~s] [loader:running] worker done~n",
+            %%           [megaco:formated_timestam()]),
 	    loader_loop(running, done_worker(Ref, Codec, Conf, Cnt, State))
     end;
 
 loader_loop(running, State) ->	
     receive
 	mstone_finished ->
-            %% io:format("[loader:running] -> finish~n", []),
+            %% io:format("[~s] [loader:running] -> finish~n",
+            %%           [megaco:formated_timestamp()]),
 	    loader_loop(finishing, State);
 
 	{'DOWN', Ref, process, _Pid, {mstone_done, Codec, Conf, Cnt}} ->
-            %% io:format("[loader:running] worker done~n", []),
+            %% io:format("[~s] [loader:running] worker done~n",
+            %%           [megaco:formated_timestamp()]),
 	    State2 = done_worker(Ref, Codec, Conf, Cnt, State),
 	    loader_loop(running, State2)
 
     after 0 ->
-            %% io:format("[loader:running] start worker~n", []),
+            %% io:format("[~s] [loader:running] start worker~n",
+            %%           [megaco:formated_timestamp()]),
 	    loader_loop(running, start_worker(State))
     end.
 
