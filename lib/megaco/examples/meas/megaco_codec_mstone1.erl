@@ -148,7 +148,7 @@ start(MessagePackage, RunTime, Factor) ->
 
 -doc false.
 start(#{bench := Bench},
-      MessagePackage, RunTime, Factor) ->
+      MessagePackage, RunTime, Factor) when is_boolean(Bench) ->
     do_start(Bench,
              MessagePackage, RunTime, Factor, ?DEFAULT_DRV_INCLUDE);
 start(_,
