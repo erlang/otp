@@ -42,7 +42,7 @@ application.
 
 %% API
 -export([
-	 start/0, start/1, start/2, start/3,
+	 start/0, start/1, start/2, start/3, start/4,
 	 start_flex/0,     start_flex/1,     start_flex/2,
 	 start_no_drv/0,   start_no_drv/1,   start_no_drv/2,
 	 start_only_drv/0, start_only_drv/1, start_only_drv/2
@@ -141,8 +141,20 @@ start(MessagePackage, Factor)
     start(MessagePackage, ?MSTONE_RUN_TIME, Factor).
 
 -doc false.
+start(Opts, RunTime, Factor) when is_map(Opts) ->
+    start(Opts, ?DEFAULT_MESSAGE_PACKAGE, RunTime, Factor);
 start(MessagePackage, RunTime, Factor) ->
-    do_start(MessagePackage, RunTime, Factor, ?DEFAULT_DRV_INCLUDE).
+    start(#{}, MessagePackage, RunTime, Factor).
+
+-doc false.
+start(#{bench := Bench},
+      MessagePackage, RunTime, Factor) ->
+    do_start(Bench,
+             MessagePackage, RunTime, Factor, ?DEFAULT_DRV_INCLUDE);
+start(_,
+      MessagePackage, RunTime, Factor) ->
+    do_start(false,
+             MessagePackage, RunTime, Factor, ?DEFAULT_DRV_INCLUDE).
 
 
 -doc(#{equiv => start_flex/2}).
@@ -184,10 +196,12 @@ processed in total (for all processes) is the mstone value.
       Factor         :: pos_integer().
 
 start_flex(MessagePackage, Factor) ->
-    do_start(MessagePackage, ?MSTONE_RUN_TIME, Factor, flex).
+    do_start(false,
+             MessagePackage, ?MSTONE_RUN_TIME, Factor, flex).
 
 start_flex(MessagePackage, RunTime, Factor) ->
-    do_start(MessagePackage, RunTime, Factor, flex).
+    do_start(false,
+             MessagePackage, RunTime, Factor, flex).
 
 
 -doc(#{equiv => start_only_drv/2}).
@@ -230,10 +244,12 @@ total (for all processes) is the mstone value.
       Factor         :: pos_integer().
 
 start_only_drv(MessagePackage, Factor) ->
-    do_start(MessagePackage, ?MSTONE_RUN_TIME, Factor, only_drv).
+    do_start(false,
+             MessagePackage, ?MSTONE_RUN_TIME, Factor, only_drv).
 
 start_only_drv(MessagePackage, RunTime, Factor) ->
-    do_start(MessagePackage, RunTime, Factor, only_drv).
+    do_start(false,
+             MessagePackage, RunTime, Factor, only_drv).
 
 
 -doc(#{equiv => start_no_drv/2}).
@@ -276,17 +292,21 @@ total (for all processes) is the mstone value.
       Factor         :: pos_integer().
 
 start_no_drv(MessagePackage, Factor) ->
-    do_start(MessagePackage, ?MSTONE_RUN_TIME, Factor, no_drv).
+    do_start(false,
+             MessagePackage, ?MSTONE_RUN_TIME, Factor, no_drv).
 
 start_no_drv(MessagePackage, RunTime, Factor) ->
-    do_start(MessagePackage, RunTime, Factor, no_drv).
+    do_start(false,
+             MessagePackage, RunTime, Factor, no_drv).
 
     
-do_start(MessagePackageRaw, RunTimeRaw, FactorRaw, DrvInclude) ->
+do_start(Bench,
+         MessagePackageRaw, RunTimeRaw, FactorRaw, DrvInclude) ->
     RunTime        = parse_runtime(RunTimeRaw),
     Factor         = parse_factor(FactorRaw),
     MessagePackage = parse_message_package(MessagePackageRaw),
-    mstone_init(MessagePackage, RunTime, Factor, DrvInclude).
+    mstone_init(Bench,
+                MessagePackage, RunTime, Factor, DrvInclude).
 
 
 parse_runtime(RunTimeAtom) ->
@@ -327,7 +347,8 @@ parse_message_package(BadMessagePackage) ->
 %%    pretty | compact | ber | per | erlang
 %%
 
-mstone_init(MessagePackage, RunTime, Factor, DrvInclude) ->
+mstone_init(Bench,
+            MessagePackage, RunTime, Factor, DrvInclude) ->
     %% io:format("MStone init with:"
     %%           "~n   MessagePackage: ~p"
     %%           "~n   RunTime:        ~p ms"
@@ -335,9 +356,11 @@ mstone_init(MessagePackage, RunTime, Factor, DrvInclude) ->
     %%           "~n   DrvInclude:     ~p"
     %%           "~n", [MessagePackage, RunTime, Factor, DrvInclude]),
     Codecs = ?MSTONE_CODECS, 
-    mstone_init(MessagePackage, RunTime, Factor, Codecs, DrvInclude).
+    mstone_init(Bench,
+                MessagePackage, RunTime, Factor, Codecs, DrvInclude).
 
-mstone_init(MessagePackage, RunTime, Factor, Codecs, DrvInclude) ->
+mstone_init(Bench,
+            MessagePackage, RunTime, Factor, Codecs, DrvInclude) ->
     Parent = self(), 
     Pid = spawn(
 	    fun() -> 
@@ -347,11 +370,16 @@ mstone_init(MessagePackage, RunTime, Factor, Codecs, DrvInclude) ->
 		    Parent ! {Done, self()}
 	    end),
     receive
-	{done, Pid} ->
-	    ok;
+	{{ok, _} = OK, Pid} ->
+	    mstone_maybe_bench(Bench, OK);
         {{error, _} = ERROR, Pid} ->
             ERROR
     end.
+
+mstone_maybe_bench(true, {ok, MStone}) ->
+    {bench, MStone};
+mstone_maybe_bench(false, {ok, _}) ->
+    ok.
 			 
 do_mstone(MessagePackage, RunTime, Factor, Codecs, DrvInclude) ->
     io:format("~n", []),
@@ -368,7 +396,7 @@ do_mstone(MessagePackage, RunTime, Factor, Codecs, DrvInclude) ->
             ?LIB:stop_flex_scanner(Pid),
             io:format("~n", []),
             io:format("MStone: ~p~n", [MStone]),
-            done
+            {ok, MStone}
     catch
         throw:{error, Reason} = ERROR ->
             io:format("<ERROR> Failed starting flex scanner: "

@@ -2752,6 +2752,9 @@ try_tc(TCName, Name, Verbosity, Cond, Pre, Case, Post)
                                                  Post(State)
                                          end),
                             tc_end("ok"),
+                            io:format("~w:~w -> "
+                                      "~n   Res: ~p"
+                                      "~n", [?MODULE, ?FUNCTION_NAME, Res]),
                             Res
                         end
                     catch

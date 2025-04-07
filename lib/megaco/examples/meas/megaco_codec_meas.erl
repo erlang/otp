@@ -176,7 +176,6 @@ meas_init(Factor, Opts, MessagePackage, Codecs) ->
 	    ExpandedMessages = expand_messages(Codecs, Messages),
 	    Results = t1(Factor, Opts, ExpandedMessages, []), 
 	    display_time(Started, os:timestamp()),
-	    %% store_results(Results);
             process_results(Opts, Results);
 	Error ->
 	    Error

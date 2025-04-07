@@ -36,7 +36,7 @@
          simple/1,
          
          meas/1,    bench_meas/1,
-         mstone1/1,
+         mstone1/1, bench_mstone1/1,
          mstone2/1
 
         ]).
@@ -83,8 +83,8 @@ meas_cases() ->
 
 bench_cases() ->
     [
-     bench_meas%% ,
-     %% bench_mstone1,
+     bench_meas,
+     bench_mstone1 %%,
      %% bench_mstone2
     ].
 
@@ -183,7 +183,8 @@ init_per_testcase(Case, Config) when (Case =:= meas) orelse
             ?SKIP(flex_scanner_not_enabled)
     end;
 
-init_per_testcase(mstone1 = Case, Config) ->
+init_per_testcase(Case, Config) when (Case =:= mstone1) orelse
+                                     (Case =:= bench_mstone1) ->
 
     p("init_per_testcase -> entry with"
       "~n   Config: ~p"
@@ -254,7 +255,8 @@ end_per_testcase(Case, Config) when (Case =:= meas) orelse
 
     end_per_testcase_meas(Case, example_meas_meas_modules(), Config);
 
-end_per_testcase(mstone1 = Case, Config) ->
+end_per_testcase(Case, Config) when (Case =:= mstone1) orelse
+                                    (Case =:= bench_mstone1) ->
 
     p("end_per_testcase -> entry with"
       "~n   Config: ~p"
@@ -658,12 +660,18 @@ common_meas(TC, Opts0, Config) when is_map(Opts0) ->
            end,
     Opts = Opts0#{verbose => false},
     Case = fun({Factor, WorkerNode}) ->
-                   do_meas(WorkerNode, megaco_codec_meas, start, [Factor, Opts])
+                   CRes = do_meas(WorkerNode,
+                                  meas,
+                                  megaco_codec_meas, start, [Factor, Opts]),
+                   p("~w:~w -> CRes: ~p", [?MODULE, ?FUNCTION_NAME, CRes]),
+                   CRes
            end,
     Post = fun(_) -> ok end,
     try_tc(TC, Pre, Case, Post).
 
-do_meas(Node, Mod, Func, Args) ->
+do_meas(Node,
+        BenchName,
+        Mod, Func, Args) ->
     F = fun() ->
                 exit( rpc:call(Node, Mod, Func, Args) )
         end,
@@ -674,8 +682,10 @@ do_meas(Node, Mod, Func, Args) ->
         {'DOWN', MRef, process, Pid, {bench, Results}} ->
             p("worker process terminated with bench results: "
               "~n      ~p", [Results]),
-            publish_bench_results(meas, Results),
-            ok;
+            Res = publish_bench_results(BenchName, Results),
+            p("publication: "
+              "~n      ~p", [Res]),
+            Res;
 
         {'DOWN', MRef, process, Pid,
          {error, {failed_loading_flex_scanner_driver, Reason}}} ->
@@ -701,18 +711,38 @@ do_meas(Node, Mod, Func, Args) ->
               "~n      TC Stack: ~p", [TCTimeout, TCPid, TCSTack]),
             exit(Pid, kill),
             ?SKIP(R)
-    end,
-    ok.
+    end.
 
 
-publish_bench_results(_Pre, []) ->
-    ok;
-publish_bench_results(Pre, [{Name, {_, Enc, Dec}} | Results]) ->
+%%% A list means a list of results, so we cannot return a comment
+publish_bench_results(Pre, Results) when is_list(Results) ->
+    publish_bench_results_multiple(Pre, Results);
+publish_bench_results(Pre, Result) when is_integer(Result) ->
+    Event = #event{name = Pre,
+                   data = [{suite, atom_to_list(?MODULE)},
+                           {value, Result}]},
+    ct_event:notify(Event),
+    {comment, ?F("~w: ~p", [Pre, Result])}.
+
+publish_bench_results_multiple(Pre, Results) ->
+    publish_bench_results_multiple(Pre, Results, 0).
+
+publish_bench_results_multiple(Pre, [], Acc) ->
+    {Time, UnitStr} =
+        if
+            (Acc > 1000) ->
+                {Acc div 1000, "msec"};
+            true ->
+                {Acc, "nsec"}
+        end,
+    {comment, ?F("~w: ~w ~s", [Pre, Time, UnitStr])};
+publish_bench_results_multiple(Pre, [{Name, {_, Enc, Dec}} | Results], Acc) ->
+    Time = Enc + Dec,
     Event = #event{name = list_to_atom(?F("~w_~w", [Pre, Name])),
                    data = [{suite, atom_to_list(?MODULE)},
-                           {value, Enc + Dec}]},
+                           {value, Time}]},
     ct_event:notify(Event),
-    publish_bench_results(Pre, Results).
+    publish_bench_results_multiple(Pre, Results, Acc + Time).
     
                     
 
@@ -723,6 +753,9 @@ publish_bench_results(Pre, [{Name, {_, Enc, Dec}} | Results]) ->
 mstone1(suite) ->
     [];
 mstone1(Config) when is_list(Config) ->
+    common_mstone1(?FUNCTION_NAME, #{}, Config).
+
+common_mstone1(TC, Opts, Config) when is_list(Config) ->
     Pre  = fun() ->
                    %% The point of this is to make sure we
                    %% utilize as much of the host as possible...
@@ -738,14 +771,16 @@ mstone1(Config) when is_list(Config) ->
     Case = fun({RunTime, Factor, WorkerNode}) ->
                    Mod  = megaco_codec_mstone1,
                    Func = start,
-                   Args = [RunTime, Factor],
+                   Args = [Opts, RunTime, Factor],
                    p("Run with: "
                      "~n      Run Time: ~p min(s)"
                      "~n      Factor:   ~p", [RunTime, Factor]),
-                   do_meas(WorkerNode, Mod, Func, Args)
+                   do_meas(WorkerNode,
+                           mstone1,
+                           Mod, Func, Args)
            end,
     Post = fun(_) -> ok end,
-    try_tc(?FUNCTION_NAME, Pre, Case, Post).
+    try_tc(TC, Pre, Case, Post).
                    
 
 
@@ -775,7 +810,9 @@ mstone2(Config) when is_list(Config) ->
                      "~n      Factor:   ~p"
                      "~n      Run Time: ~p min(s)"
                      "~n      Mode:     ~p", [Factor, RunTime, Mode]),
-                   do_meas(WorkerNode, Mod, Func, Args)
+                   do_meas(WorkerNode,
+                           mstone2,
+                           Mod, Func, Args)
            end,
     Post = fun(_) -> ok end,
     try_tc(?FUNCTION_NAME, Pre, Case, Post).
@@ -792,6 +829,13 @@ bench_meas(Config) when is_list(Config) ->
 
 
 %% ------------------ bench:mstone1 ---------------------
+
+bench_mstone1(suite) ->
+    [];
+bench_mstone1(Config) when is_list(Config) ->
+    common_mstone1(?FUNCTION_NAME, #{bench => true}, Config).
+
+
 %% ------------------ bench:mstone2 ---------------------
 
 
