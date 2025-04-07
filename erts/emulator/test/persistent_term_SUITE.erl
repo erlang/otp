@@ -108,7 +108,6 @@ basic(_Config) ->
     [] = [P || {{?MODULE,_},_}=P <- pget(Chk)],
     chk(Chk).
 
-%% Parallely persists key value pairs and checks if they match
 par(C, N, Seq, Chk) ->
     _ = [spawn_link(fun() ->
                             ok = persistent_term:put({?MODULE,{key,I}},
@@ -121,7 +120,6 @@ par(C, N, Seq, Chk) ->
          end || {I,Res} <- lists:zip(Seq, Result)],
     ok.
 
-%% Sequentially persists key value pairs and checks if they match
 seq(C, Seq, Chk) ->
     _ = [ok = persistent_term:put({?MODULE,{key,I}}, {value,C*I}) ||
             I <- Seq],
@@ -135,7 +133,6 @@ seq(C, Seq, Chk) ->
          end || {I,Res} <- lists:zip(Seq, Result)],
     ok.
 
-%% Waits until N terms are persisted and then retrieves and sorts them
 wait(N, Chk) ->
     All = [P || {{?MODULE,_},_}=P <- pget(Chk)],
     case length(All) of
