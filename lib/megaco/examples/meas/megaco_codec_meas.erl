@@ -176,7 +176,8 @@ meas_init(Factor, Opts, MessagePackage, Codecs) ->
 	    ExpandedMessages = expand_messages(Codecs, Messages),
 	    Results = t1(Factor, Opts, ExpandedMessages, []), 
 	    display_time(Started, os:timestamp()),
-	    store_results(Results);
+	    %% store_results(Results);
+            process_results(Opts, Results);
 	Error ->
 	    Error
     end.
@@ -334,9 +335,7 @@ measure(_Factor, _Opts, _Dir, _Codec, _Conf, [], [], _MCount) ->
 
 measure(_Factor, _Opts, _Dir, _Codec, _Conf, [], Res, _MCount) ->
 
-    Eavg = avg([Etime/Ecnt || #stat{ecount = Ecnt, etime = Etime} <- Res]),
-    Davg = avg([Dtime/Dcnt || #stat{dcount = Dcnt, dtime = Dtime} <- Res]),
-    Savg = avg([Size       || #stat{size = Size} <- Res]),
+    {Savg, Eavg, Davg} = process_measure_results(Res),
 
     io:format("~n[~s] Measurment on ~p messages:"
 	      "~n  Average:"
@@ -377,6 +376,13 @@ measure(Factor, #{verbose := Verbose} = Opts,
 	    measure(Factor, Opts, Dir, Codec, Conf, Msgs, Results, MCount)
 
     end.
+
+process_measure_results(Res) when is_list(Res) ->
+    Savg = avg([Size       || #stat{size = Size} <- Res]),
+    Eavg = avg([Etime/Ecnt || #stat{ecount = Ecnt, etime = Etime} <- Res]),
+    Davg = avg([Dtime/Dcnt || #stat{dcount = Dcnt, dtime = Dtime} <- Res]),
+    {Savg, Eavg, Davg}.
+
 
 
 do_measure(Factor, Opts, _Id, Codec, Conf, Name, BinMsg, MCount) ->
@@ -509,6 +515,50 @@ do_measure_codec_loop(Codec, Func, Conf, Version, Bin, Count, _) ->
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+process_results(#{bench := true}, Results) ->
+    ProcessedResults = process_bench_results(Results),
+    {bench, ProcessedResults};
+process_results(_, Results) ->
+    store_results(Results).
+
+process_bench_results(Results) ->
+    process_bench_results(Results, []).
+
+process_bench_results([] = _Results, AccProcessedResults) ->
+    lists:reverse(AccProcessedResults);
+process_bench_results([{BaseName, Config, Result} | Results],
+                      AccProcessedResults) ->
+    Name = process_bench_result_name(BaseName, Config),
+    ProcessedResult = process_measure_results(Result),
+    process_bench_results(Results,
+                          [{Name, ProcessedResult} | AccProcessedResults]).
+
+process_bench_result_name(pretty = BaseName, []) ->
+    BaseName;
+process_bench_result_name(pretty = BaseName, [flex_scanner]) ->
+    list_to_atom(f("~w_~w", [BaseName, flex]));
+process_bench_result_name(compact = BaseName, []) ->
+    BaseName;
+process_bench_result_name(compact = BaseName, [flex_scanner]) ->
+    list_to_atom(f("~w_~w", [BaseName, flex]));
+process_bench_result_name(ber = BaseName, []) ->
+    BaseName;
+process_bench_result_name(ber = BaseName, [native]) ->
+    list_to_atom(f("~w_~w", [BaseName, native]));
+process_bench_result_name(per = BaseName, []) ->
+    BaseName;
+process_bench_result_name(per = BaseName, [native]) ->
+    list_to_atom(f("~w_~w", [BaseName, native]));
+process_bench_result_name(erlang, []) ->
+    erl;
+process_bench_result_name(erlang, [megaco_compressed]) ->
+    erl_mc;
+process_bench_result_name(erlang, [compressed]) ->
+    erl_c;
+process_bench_result_name(erlang, [megaco_compressed, compressed]) ->
+    erl_mc_c.
+
 
 store_results(Results) ->
     io:format("storing: ~n", []),    
@@ -698,6 +748,12 @@ vprint(true, F, A) ->
     io:format(F, A);
 vprint(_, _, _) ->
     ok.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+f(F, A) ->
+    lists:flatten(io_lib:format(F, A)).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

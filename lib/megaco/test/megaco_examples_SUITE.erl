@@ -35,7 +35,7 @@
 
          simple/1,
          
-         meas/1,
+         meas/1,    bench_meas/1,
          mstone1/1,
          mstone2/1
 
@@ -43,6 +43,7 @@
 
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("common_test/include/ct_event.hrl").
 -include("megaco_test_lib.hrl").
 -include_lib("megaco/include/megaco.hrl").
 -include_lib("megaco/include/megaco_message_v1.hrl").
@@ -52,6 +53,9 @@
 
 %%======================================================================
 %% Common Test interface functions
+%%
+%% The difference between the bench cases and the meas cases is simply
+%% how the results are reported.
 %%======================================================================
 
 suite() -> 
@@ -60,12 +64,14 @@ suite() ->
 all() -> 
     [
      simple,
-     {group, meas}
+     {group, meas},
+     {group, bench}
     ].
 
 groups() -> 
     [
-     {meas, [], meas_cases()}
+     {meas,  [], meas_cases()},
+     {bench, [], bench_cases()}
     ].
 
 meas_cases() ->
@@ -75,6 +81,12 @@ meas_cases() ->
      mstone2
     ].
 
+bench_cases() ->
+    [
+     bench_meas%% ,
+     %% bench_mstone1,
+     %% bench_mstone2
+    ].
 
 
 %%
@@ -156,7 +168,8 @@ init_per_testcase(simple = Case, Config) ->
 
     megaco_test_lib:init_per_testcase(Case, Config);
 
-init_per_testcase(meas = Case, Config) ->
+init_per_testcase(Case, Config) when (Case =:= meas) orelse
+                                     (Case =:= bench_meas) ->
 
     p("init_per_testcase -> entry with"
       "~n   Config: ~p"
@@ -229,7 +242,8 @@ end_per_testcase(simple = Case, Config) ->
 
     megaco_test_lib:end_per_testcase(Case, Config);
 
-end_per_testcase(meas = Case, Config) ->
+end_per_testcase(Case, Config) when (Case =:= meas) orelse
+                                    (Case =:= bench_meas) ->
 
     p("end_per_testcase -> entry with"
       "~n   Config: ~p"
@@ -613,6 +627,9 @@ users(Proxy) ->
 meas(suite) ->
     [];
 meas(Config) when is_list(Config) ->
+    common_meas(?FUNCTION_NAME, #{}, Config).
+
+common_meas(TC, Opts0, Config) when is_map(Opts0) ->
     Pre  = fun() ->
                    MFactor = ?config(megaco_factor, Config),
                    {Time, Factor} =
@@ -639,12 +656,12 @@ meas(Config) when is_list(Config) ->
                    WorkerNode = ?config(worker_node, Config),
                    {Factor, WorkerNode}
            end,
-    Opts = #{verbose => false},
+    Opts = Opts0#{verbose => false},
     Case = fun({Factor, WorkerNode}) ->
                    do_meas(WorkerNode, megaco_codec_meas, start, [Factor, Opts])
            end,
     Post = fun(_) -> ok end,
-    try_tc(?FUNCTION_NAME, Pre, Case, Post).
+    try_tc(TC, Pre, Case, Post).
 
 do_meas(Node, Mod, Func, Args) ->
     F = fun() ->
@@ -654,6 +671,12 @@ do_meas(Node, Mod, Func, Args) ->
     {Pid, MRef} = spawn_monitor(F),
     p("await completion"),
     receive
+        {'DOWN', MRef, process, Pid, {bench, Results}} ->
+            p("worker process terminated with bench results: "
+              "~n      ~p", [Results]),
+            publish_bench_results(meas, Results),
+            ok;
+
         {'DOWN', MRef, process, Pid,
          {error, {failed_loading_flex_scanner_driver, Reason}}} ->
             p("<ERROR> worker process failed loading flex scanner: "
@@ -682,6 +705,16 @@ do_meas(Node, Mod, Func, Args) ->
     ok.
 
 
+publish_bench_results(_Pre, []) ->
+    ok;
+publish_bench_results(Pre, [{Name, {_, Enc, Dec}} | Results]) ->
+    Event = #event{name = list_to_atom(?F("~w_~w", [Pre, Name])),
+                   data = [{suite, atom_to_list(?MODULE)},
+                           {value, Enc + Dec}]},
+    ct_event:notify(Event),
+    publish_bench_results(Pre, Results).
+    
+                    
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -746,6 +779,23 @@ mstone2(Config) when is_list(Config) ->
            end,
     Post = fun(_) -> ok end,
     try_tc(?FUNCTION_NAME, Pre, Case, Post).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% ------------------ bench:meas ------------------------
+
+bench_meas(suite) ->
+    [];
+bench_meas(Config) when is_list(Config) ->
+    common_meas(?FUNCTION_NAME, #{bench => true}, Config).
+
+
+%% ------------------ bench:mstone1 ---------------------
+%% ------------------ bench:mstone2 ---------------------
+
+
+
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

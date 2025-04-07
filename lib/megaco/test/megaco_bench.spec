@@ -20,4 +20,4 @@
 %% %CopyrightEnd%
 %%
 
-{groups,"../megaco_test",megaco_examples_SUITE,[meas]}.
+{groups,"../megaco_test",megaco_examples_SUITE,[bench]}.
