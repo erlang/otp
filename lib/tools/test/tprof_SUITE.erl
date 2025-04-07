@@ -37,6 +37,7 @@
     sort/0, sort/1,
     rootset/0, rootset/1,
     set_on_spawn/0, set_on_spawn/1, seq/1,
+    separate_sessions/0, separate_sessions/1,
     live_trace/0, live_trace/1,
     patterns/0, patterns/1, pattern_fun/1, pattern_fun/2, pattern_fun/3,
     processes/0, processes/1,
@@ -63,7 +64,7 @@ groups() ->
     [{all, parallel(),
       [call_time_ad_hoc, call_memory_ad_hoc,
        call_memory_total, sort, rootset, set_on_spawn,
-       code_load, code_reload,
+       code_load, code_reload, separate_sessions,
        {group, default_session},
        {group, custom_session}]},
      {default_session,[],session()},
@@ -304,6 +305,33 @@ set_on_spawn(Config) when is_list(Config) ->
 seq(Max) ->
     {Pid, MRef} = spawn_monitor(fun () -> lists:seq(1, Max) end),
     receive {'DOWN', MRef, process, Pid, normal} -> done end.
+
+separate_sessions() ->
+    [{doc, "Tests separate tprof sessions"}].
+
+separate_sessions(Config) when is_list(Config) ->
+    %% Trace lists:reverse/1
+    {ok, Srv1} = tprof:start_link(#{session => tprof_SUITE_separate_sessions_1, type => call_memory}),
+    tprof:set_pattern(Srv1, lists, reverse, 1),
+    tprof:enable_trace(Srv1, self(), #{}),
+
+    %% Trace lists:map/2
+    {ok, Srv2} = tprof:start_link(#{session => tprof_SUITE_separate_sessions_2, type => call_memory}),
+    tprof:set_pattern(Srv2, lists, map, 2),
+    tprof:enable_trace(Srv2, self(), #{}),
+
+    lists:reverse([1, 2, 3, 4, 5]),
+    lists:map(fun(X) -> X * 2 end, [1, 2, 3, 4, 5]),
+
+    {call_memory, Profile1} = tprof:collect(Srv1),
+    {call_memory, Profile2} = tprof:collect(Srv2),
+
+    tprof:stop(Srv1),
+    tprof:stop(Srv2),
+
+    ?assertNotEqual(Profile1, Profile2),
+    ?assert(lists:all(fun({lists, reverse, 1, _}) -> true; (_) -> false end, Profile1)),
+    ?assert(lists:all(fun({lists, map, 2, _}) -> true; (_) -> false end, Profile2)).
 
 live_trace() ->
     [{doc, "Tests memory tracing for pre-existing processes"}].

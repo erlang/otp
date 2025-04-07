@@ -945,7 +945,7 @@ profile(Module, Function, Args, Options) when is_atom(Module), is_atom(Function)
 init(Config) ->
     Type = maps:get(type, Config, call_count),
     false = erlang:process_flag(trap_exit, true), %% need this for reliable terminate/2 call
-    Session = trace:session_create(maps:get(session_name, Config, ?MODULE), self(), []),
+    Session = trace:session_create(maps:get(session, Config, ?MODULE), self(), []),
     {ok, #tprof_state{session = Session, type = Type}}.
 
 -doc false.
