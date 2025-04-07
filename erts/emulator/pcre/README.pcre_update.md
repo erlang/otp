@@ -31,7 +31,7 @@ makefiles etc.
 
 ## Update PCRE2 Repo, quick guide
 1. Check out our PCRE2 fork:
-`git clone https://github.com/frazze-jobb/pcre2.git`
+`git clone https://github.com/erlang/pcre2.git`
 
 2. Change directory: `cd pcre2`
 
