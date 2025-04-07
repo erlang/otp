@@ -21,13 +21,16 @@
 ## %CopyrightEnd%
 
 cat <<EOF
-changes:
+c-files:
   - 'erts/**'
   - 'make/**'
   - 'lib/Makefile'
   - 'Makefile.in'
   - 'otp_build'
   - 'configure'
+  - '.github/dockerfiles/**'
+  - '.github/scripts/**'
+  - 'xcomp/**'
 EOF
 
 APPS=$(ls -d lib/*/doc | awk -F '/' '{print $2}')

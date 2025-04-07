@@ -38,8 +38,7 @@ cli() ->
                      handler => fun scan/1},
               "ci" =>
                   #{ help => "Scan files using CI settings.",
-                     arguments => [path_option(),
-                                   new_files_option()],
+                     arguments => [path_option()],
                      handler => fun ci/1},
               "update" =>
                   #{ help => "Update copyright on files in folder for correct license headers.",
@@ -98,14 +97,6 @@ path_option() ->
        nargs => list,
        help => "The files and directories to be scanned. Use 'stdin' for reading the list of files from stdin." }.
 
-new_files_option() ->
-    #{ name => git_ref,
-       long => "-git-ref",
-       help => """
-       The git ref to test against. For example:
-         $ license-header.es --git-ref HEAD
-       """ }.
-
 scan(Opts) ->
     YearMatch = "(?:19|20)[0-9]{2}",
     {ok, EricssonCopyright} = re:compile(["^Copyright Ericsson AB (",YearMatch,"-)?(",YearMatch,")\\. "
@@ -113,8 +104,7 @@ scan(Opts) ->
     persistent_term:put(ericsson_copyright, EricssonCopyright),
     FilesToScan = get_files_to_scan(Opts),
     RootDir = get_rootdir(Opts),
-    TemplatePath = filename:join([RootDir, "scripts", "license-header-templates"]),
-    LicenseTemplates = get_license_templates(TemplatePath),
+    LicenseTemplates = get_license_templates(RootDir),
     VendorPaths = get_vendor_paths(RootDir),
     LargestLicense = lists:max([byte_size(L) || _ := L <- LicenseTemplates]),
     N = pmap(fun(File) -> check_file(File, LargestLicense, LicenseTemplates, VendorPaths, Opts) end, FilesToScan),
@@ -273,23 +263,13 @@ ci(Opts) ->
                         string:split(string:strip(Res, both, $\n),"\n",all)
                 end,
 
-    ScanAllFiles =
-        case maps:get(git_ref, Opts, undefined) of
-            undefined -> maps:get(path, Opts);
-            Ref ->
-                ListFiles("git ls-tree --name-only -r "++Ref)
-        end,
-
+    ScanAllFiles = maps:get(path, Opts),
 
     io:format("Scan all files...~n"),
-    End = maps:get(git_ref, Opts, ""),
     scan(Opts#{ path => ScanAllFiles, no_missing => NoWarnAllFiles }),
 
-    NewFiles = ListFiles("git diff --name-only --diff-filter=d OTP-27.3 "++End),
-    EndStr = if End =:= "" -> "INDEX";
-                true -> End
-             end,
-    io:format("Scan new files between OTP-27.3 and ~ts~n",[EndStr]),
+    NewFiles = ListFiles("git diff --name-only --diff-filter=d OTP-27.3"),
+    io:format("Scan new files since OTP-27.3~n",[]),
     scan(Opts#{ path => NewFiles, no_missing => NoWarnNewFiles }).
 
 check_file(File, LargestLicense, Templates, VendorPaths, Opts) ->
@@ -482,11 +462,17 @@ check_copyright([Line | _], _Copyrights) ->
 
 check_license(License, Spdx, Templates, LinesAfterLicense, Filename, IsLicenseFile, Opts) ->
     FlatSPDX = unicode:characters_to_binary(string:replace(Spdx, " ", "-", all)),
-    check_license(lists:join($\n, License),
-                  string:trim(maps:get(FlatSPDX, Templates)),
-                  Opts#{ lines_after_license => LinesAfterLicense,
-                         is_license_file => IsLicenseFile,
-                         filename => Filename }).
+    case maps:find(FlatSPDX, Templates) of
+        {ok, Template} ->
+            check_license(lists:join($\n, License),
+                          string:trim(Template),
+                          Opts#{ lines_after_license => LinesAfterLicense,
+                                 is_license_file => IsLicenseFile,
+                                 filename => Filename });
+        _ ->
+            throw({warn, "Could not find ~ts.txt in LICENSES or LICENSES/HEADERS",[FlatSPDX]})
+    end.
+
 check_license([], <<>>, _) ->
     %% SPDX was NOASSERTION or NONE
     ok;
@@ -544,18 +530,21 @@ read(Filename, Bytes) ->
     file:close(D),
     Data.
 
-get_license_templates(Path) ->
-    case file:list_dir(Path) of
-        {ok, Files} ->
-            maps:from_list(
-              lists:map(
-                fun(FN) ->
-                        {ok, Template} = file:read_file(filename:join(Path,FN)),
-                        {unicode:characters_to_binary(string:replace(filename:rootname(FN)," ","-")), Template}
-                end, Files) ++ [{~"NOASSERTION", ~""},{~"NONE", ~""}]);
-        _Err ->
-            fail("Could not list ~ts~n",[Path])
-    end.
+get_license_templates(RootDir) ->
+    Headers = filename:join([RootDir, "LICENSE-HEADERS"]),
+    Licenses = filename:join([RootDir, "LICENSES"]),
+    %% The order matters as there are duplicates in HEADERS and LICENSES.
+    %% We want to select HEADERS before LICENSES.
+    maps:from_list(get_license_templates_from_dir(Licenses) ++
+                       get_license_templates_from_dir(Headers) ++
+                       [{~"NOASSERTION", ~""},{~"NONE", ~""}]).
+
+get_license_templates_from_dir(Path) ->
+    lists:map(
+      fun(FN) ->
+              {ok, Template} = file:read_file(FN),
+              {unicode:characters_to_binary(filename:basename(filename:rootname(FN))), Template}
+      end, filelib:wildcard(filename:join(Path,"*.txt"))).
 
 get_vendor_paths(RootPath) ->
     lists:flatmap(fun get_vendor_path/1, filelib:wildcard(filename:join(RootPath, "**/vendor.info"))).
@@ -585,6 +574,8 @@ is_ignored(Filename) ->
               [
                "/LICENSE$",
                "^LICENSE.txt$",
+               "^LICENSES/.*",
+               "^LICENSE-HEADERS/.*",
                "^system/COPYRIGHT$",
                "^.mailmap$",
                "^OTP_VERSION$",
@@ -595,7 +586,6 @@ is_ignored(Filename) ->
                "config\\.cache\\.static$",
                "^bootstrap/.*\\.boot$",
                "^otp_versions\\.table$",
-               "^scripts/license-header-templates/.*\\.template",
                "\\.beam$",
                "\\.gitignore$",
                "\\.gitattributes$",
@@ -659,7 +649,7 @@ get_rootdir(#{ path := Paths }) ->
 get_files_from_dir(Dir) ->
     Filenames = cmd("git ls-tree -z -r --name-only HEAD " ++ Dir),
     [Name || Name <- string:split(string:trim(Filenames, both, "\0"),"\0",all),
-        not is_link(Name)].
+        filelib:is_file(Name), not is_link(Name)].
 
 is_link(Name) ->
     {ok, #file_info{ type = Type }} = file:read_link_info(Name),
