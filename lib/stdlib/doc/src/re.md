@@ -47,11 +47,15 @@ The following sections contain reference material for the regular expressions
 used by this module. The information is based on the PCRE2 documentation, with
 changes where this module behaves differently to the PCRE2 library.
 
+> #### Note {: .info }
+>
+> Incompatabilities with the old PCRE library, see [PCRE incompatabilities](../guides/re_incompat.md).
 
 ## PCRE2 Regular Expression Details
 
 The syntax and semantics of the regular expressions that are supported by PCRE2
-are described in detail below. Perl's regular expressions are described in its own documentation, and regular expressions in general are covered in a number of books, some of which have
+are described in detail below. Perl's regular expressions are described in its own documentation,
+and regular expressions in general are covered in a number of books, some of which have
 copious examples. Jeffrey Friedl's "Mastering Regular Expressions", published
 by O'Reilly, covers regular expressions in great detail. This description of
 PCRE2's regular expressions is intended as reference material.

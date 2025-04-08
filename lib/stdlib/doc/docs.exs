@@ -94,6 +94,7 @@
     "guides/terminal_interface.md",
     "guides/unicode_usage.md",
     "guides/uri_string_usage.md",
+    "guides/re_incompat.md",
     "references/assert_hrl.md",
     "stdlib_app.md"
   ]
