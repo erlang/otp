@@ -2903,7 +2903,7 @@ expr({ssa_check_when,_Anno,_WantedResult,_Args,_Tag,_Exprs}, _Vt, St) ->
 
 %% Check a call to function without a module name. This can be a call
 %% to a BIF or a local function.
-check_call(Anno, record_info, As, Aa, St0) ->
+check_call(Anno, record_info, [_,_]=As, Aa, St0) ->
     check_record_info_call(Anno, Aa, As, St0);
 check_call(Anno, F, As, _Aa, St0) ->
     A = length(As),
