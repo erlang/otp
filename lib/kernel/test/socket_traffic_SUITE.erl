@@ -152,7 +152,8 @@
          traffic_ping_pong_medium_sendmsg_and_recvmsg_udpL/1,
 
          %% *** Bench ***
-         traffic_bench_sendv_and_recv_tcp4/1
+         traffic_bench_sendv_and_recv_tcp4/1,
+         traffic_bench_send_and_recv_tcp4/1
         ]).
 
 
@@ -262,12 +263,12 @@ traffic_ping_pong_cases() ->
 
 traffic_bench_cases() ->
     [
-     traffic_bench_sendv_and_recv_tcp4%% ,
-     %% traffic_bench_send_recv_tcp4,
-     %% traffic_bench_sendv_recv_tcp6,
-     %% traffic_bench_send_recv_tcp6,
-     %% traffic_bench_sendv_recv_tcpL,
-     %% traffic_bench_send_recv_tcpL
+     traffic_bench_sendv_and_recv_tcp4,
+     traffic_bench_send_and_recv_tcp4 %%,
+     %% traffic_bench_sendv_and_recv_tcp6,
+     %% traffic_bench_send_and_recv_tcp6,
+     %% traffic_bench_sendv_and_recv_tcpL,
+     %% traffic_bench_send_and_recv_tcpL
     ].
 
 traffic_pp_send_recv_cases() ->
@@ -7066,6 +7067,22 @@ traffic_bench_sendv_and_recv_tcp4(Config) when is_list(Config) ->
     IOV = tb_iov(),
     Send = fun(S, Data) when is_list(Data) ->
                    socket:sendv(S, Data)
+           end,
+    tc_try(?FUNCTION_NAME,
+           fun() -> has_support_ipv4() end,
+           fun() ->
+                   InitState = #{domain   => inet,
+                                 send     => Send,
+                                 iov      => IOV,
+                                 run_time => ?MINS(1)},
+                   do_traffic_bench_send_and_recv(InitState)
+           end).
+
+traffic_bench_send_and_recv_tcp4(Config) when is_list(Config) ->
+    ?TT(?MINS(2)), %% Test *should* run for 60 secs
+    IOV = tb_iov(),
+    Send = fun(S, Data) when is_list(Data) ->
+                   socket:send(S, iolist_to_binary(Data))
            end,
     tc_try(?FUNCTION_NAME,
            fun() -> has_support_ipv4() end,
