@@ -155,7 +155,8 @@
          traffic_bench_sendv_and_recv_tcp4/1,
          traffic_bench_send_and_recv_tcp4/1,
          traffic_bench_sendv_and_recv_tcp6/1,
-         traffic_bench_send_and_recv_tcp6/1
+         traffic_bench_send_and_recv_tcp6/1,
+         traffic_bench_sendv_and_recv_tcpL/1
         ]).
 
 
@@ -268,8 +269,8 @@ traffic_bench_cases() ->
      traffic_bench_sendv_and_recv_tcp4,
      traffic_bench_send_and_recv_tcp4,
      traffic_bench_sendv_and_recv_tcp6,
-     traffic_bench_send_and_recv_tcp6 %%,
-     %% traffic_bench_sendv_and_recv_tcpL,
+     traffic_bench_send_and_recv_tcp6,
+     traffic_bench_sendv_and_recv_tcpL%%,
      %% traffic_bench_send_and_recv_tcpL
     ].
 
@@ -7128,11 +7129,27 @@ traffic_bench_send_and_recv_tcp6(Config) when is_list(Config) ->
                    do_traffic_bench_send_and_recv(InitState)
            end).
 
+traffic_bench_sendv_and_recv_tcpL(Config) when is_list(Config) ->
+    ?TT(?MINS(2)), %% Test *should* run for 60 secs
+    IOV = tb_iov(),
+    Send = fun(S, Data) when is_list(Data) ->
+                   socket:sendv(S, Data)
+           end,
+    tc_try(?FUNCTION_NAME,
+           fun() -> has_support_unix_domain_socket() end,
+           fun() ->
+                   InitState = #{domain   => local,
+                                 send     => Send,
+                                 iov      => IOV,
+                                 run_time => ?MINS(1)},
+                   do_traffic_bench_send_and_recv(InitState)
+           end).
+
 do_traffic_bench_send_and_recv(#{run_time := RTime} = InitState) ->
     ?SEV_IPRINT("[ctrl] start server"),
-    {PortNumber, Server} = tb_server_start(InitState),
+    {PathOrPort, Server} = tb_server_start(InitState),
     ?SEV_IPRINT("[ctrl] start client"),
-    Client               = tb_client_start(InitState, PortNumber),
+    Client               = tb_client_start(InitState, PathOrPort),
     TRef = erlang:start_timer(RTime, self(), tb_timeout),
     ?SEV_IPRINT("[ctrl] await completion"),
     tb_await_completion(Server, Client, TRef).
@@ -7208,13 +7225,18 @@ tb_server_start(#{domain := Fam,
     Self = self(),
     Server = {Pid, MRef} =
         spawn_monitor(fun() ->
+                              ?SEV_IPRINT("~w:fun -> "
+                                          "Received down from client",
+                                          [?FUNCTION_NAME]),
                               tb_server_init(#{parent => Self,
                                                domain => Fam,
                                                send   => Send})
                       end),
     receive
-        {Pid, PortNumber} ->
-            {PortNumber, Server};
+        {Pid, PathOrPort} ->
+            ?SEV_IPRINT("~w -> server started: ~p",
+                        [?FUNCTION_NAME, PathOrPort]),
+            {PathOrPort, Server};
         {'DOWN', MRef, process, Pid, Info} ->
             ?SEV_EPRINT("[ctrl] server start failure: "
                         "~n   ~p", [Info]),
@@ -7232,10 +7254,15 @@ tb_decode(<<Sz:32/integer, Data:Sz/binary, Rest/binary>>, Acc) ->
 tb_server_init(#{parent := Pid, domain := Fam} = State) ->
     SA                    = which_local_socket_addr(Fam),
     {ok, LS}              = socket:open(Fam, stream),
-    ok                    = socket:bind(LS, SA#{port => 0}),
+    ok                    = socket:bind(LS, SA),
     ok                    = socket:listen(LS),
-    {ok, #{port := Port}} = socket:sockname(LS),
-    Pid ! {self(), Port},
+    case SA of
+         #{path := Path} ->
+            Pid ! {self(), {path, Path}};
+        _ ->
+            {ok, #{port := Port}} = socket:sockname(LS),
+            Pid ! {self(), {port, Port}}
+    end,
     {ok, AS}              = socket:accept(LS),
     tb_server_loop(State#{listen => LS,
                           accept => AS}).
@@ -7281,15 +7308,15 @@ tb_server_loop(#{listen := LS, accept := AS, send := Send} = State) ->
 
 tb_client_start(#{domain := Fam,
                   send   := Send,
-                  iov    := IOV}, PortNumber) ->
+                  iov    := IOV}, PathOrPort) ->
     Self = self(),
     Client = {Pid, MRef} =
         spawn_monitor(fun() ->
-                              tb_client_init(#{parent => Self,
-                                               domain => Fam,
-                                               send   => Send,
-                                               iov    => IOV,
-                                               port   => PortNumber})
+                              tb_client_init(#{parent       => Self,
+                                               domain       => Fam,
+                                               send         => Send,
+                                               iov          => IOV,
+                                               path_or_port => PathOrPort})
                       end),
     receive
         {Pid, ok} ->
@@ -7300,15 +7327,21 @@ tb_client_start(#{domain := Fam,
             exit({tb_client_start, Info})
     end.
 
-tb_client_init(#{parent := Pid,
-                 domain := Fam,
-                 port   := Port,
-                 send   := Send,
-                 iov    := IOV}) ->
+tb_client_init(#{parent       := Pid,
+                 domain       := Fam,
+                 path_or_port := PathOrPort,
+                 send         := Send,
+                 iov          := IOV}) ->
     SA       = which_local_socket_addr(Fam),
     {ok, CS} = socket:open(Fam, stream),
-    ok       = socket:bind(CS, SA#{port => 0}),
-    ok       = socket:connect(CS, SA#{port => Port}),
+    ok       = socket:bind(CS, SA),
+    SSA = case PathOrPort of
+              {path, Path} ->
+                  SA#{path => Path};
+              {port, Port} ->
+                  SA#{port => Port}
+          end,
+    ok       = socket:connect(CS, SSA),
     Pid ! {self(), ok},
     tb_client_loop(Pid, CS, Send, IOV, ts(), 0, 0).
 
