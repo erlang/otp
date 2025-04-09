@@ -97,7 +97,7 @@ void *ei_m_create(void)
 { 
   pthread_mutex_t *l;
  
-  if ((l = malloc(sizeof(*l)))) { /* FIXME get memory or abort */
+  if ((l = malloc(sizeof(pthread_mutex_t)))) { /* FIXME get memory or abort */
     pthread_mutex_init(l,NULL);
   }
 
