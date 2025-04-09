@@ -50,6 +50,8 @@ env:
     ## Equivalent to github.event_name == 'pull_request' ? github.base_ref : github.ref_name
     BASE_BRANCH: ${{ github.event_name == 'pull_request' && github.base_ref || github.ref_name }}
     OTP_SBOM_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || github.sha }}
+    ## 'true' if all steps should be built and all tests run
+    FULL_BUILD_AND_CHECK: ${{ github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'full-build-and-check') || github.event_name == 'scheduled' }}
 
 permissions:
   contents: read
@@ -62,7 +64,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
         changes: ${{ steps.changes.outputs.changes }}
-        c-code-changes: ${{ steps.c-code-changes.outputs.changes }}
+        build-c-code: ${{ steps.c-code-changes.outputs.changes != '[]' || env.FULL_BUILD_AND_CHECK == 'true' }}
         all: ${{ steps.apps.outputs.all }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # ratchet:actions/checkout@v4.2.2
@@ -92,7 +94,7 @@ jobs:
             ALL_APPS: ${{ steps.apps.outputs.all }}
             CHANGED_APPS: ${{ steps.app-changes.outputs.changes }}
         run: |
-          if ${{ github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'full-build-and-check') }} || ${{ github.event_name == 'schedule' }}; then
+          if ${{ env.FULL_BUILD_AND_CHECK }}; then
               echo "changes=${ALL_APPS}" >> "$GITHUB_OUTPUT"
           else
               echo "changes=${CHANGED_APPS}" >> "$GITHUB_OUTPUT"
@@ -139,21 +141,9 @@ jobs:
                   - '**.ac'
                   - '**.in'
           list-files: shell
-      - name: "Check '@github-action disable-cache' in PR Comment"
-        id: issue_comment
-        env:
-          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
-        shell: /usr/bin/bash {0}
-        run: |
-            ISSUE_COMMENTS=$(gh api -H "Accept: application/vnd.github+json" /repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments | jq ".[] | .body")
-            if echo "${ISSUE_COMMENTS}" | grep "@github-actions disable-cache"; then
-              echo "DISABLE_CACHE=true" >> $GITHUB_OUTPUT
-            else
-              echo "DISABLE_CACHE=false" >> $GITHUB_OUTPUT
-            fi
       - name: Restore from cache
         env:
-            NO_CACHE: ${{ fromJson(steps.cache.outputs.no-cache) || fromJson(steps.issue_comment.outputs.DISABLE_CACHE) || fromJson(steps.cache.outputs.deleted_count) > 20 }}
+            NO_CACHE: ${{ fromJson(steps.cache.outputs.no-cache) || fromJson(env.FULL_BUILD_AND_CHECK) || fromJson(steps.cache.outputs.deleted_count) > 20 }}
             BOOTSTRAP: ${{ steps.cache.outputs.bootstrap }}
             CONFIGURE: ${{ steps.cache.outputs.configure }}
             EVENT: ${{ github.event_name }}
@@ -201,7 +191,7 @@ jobs:
     name: Build Erlang/OTP (macOS)
     runs-on: macos-15
     needs: pack
-    if: needs.pack.outputs.c-code-changes != '[]'
+    if: needs.pack.outputs.build-c-code == 'true'
     env:
       WXWIDGETS_VERSION: 3.2.6
       MACOS_VERSION: 15
@@ -253,7 +243,7 @@ jobs:
     name: Build Erlang/OTP (iOS)
     runs-on: macos-15
     needs: pack
-    if: needs.pack.outputs.c-code-changes != '[]'
+    if: needs.pack.outputs.build-c-code == 'true'
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # ratchet:actions/checkout@v4.2.2
       - name: Download source archive
@@ -290,7 +280,7 @@ jobs:
     name: Build Erlang/OTP (Windows)
     runs-on: windows-2022
     needs: pack
-    if: needs.pack.outputs.c-code-changes != '[]'
+    if: needs.pack.outputs.build-c-code == 'true'
     steps:
       - uses: Vampire/setup-wsl@f40fb59d850112c9a292b0218bca8271305b9127 # ratchet:Vampire/setup-wsl@v5.0.0
         with:
@@ -385,7 +375,7 @@ jobs:
     name: Build Erlang/OTP (Types and Flavors)
     runs-on: ubuntu-latest
     needs: pack
-    if: needs.pack.outputs.c-code-changes != '[]'
+    if: needs.pack.outputs.build-c-code == 'true'
 
     strategy:
       matrix:
@@ -438,7 +428,7 @@ jobs:
     name: Build Erlang/OTP
     runs-on: ubuntu-latest
     needs: pack
-    if: needs.pack.outputs.c-code-changes != '[]'
+    if: needs.pack.outputs.build-c-code == 'true'
 
     strategy:
       matrix:
@@ -456,7 +446,7 @@ jobs:
     name: Build Erlang/OTP (FreeBSD)
     runs-on: ubuntu-latest
     needs: pack
-    if: needs.pack.outputs.c-code-changes != '[]'
+    if: needs.pack.outputs.build-c-code == 'true'
     steps:
       - name: Download source archive
         uses: actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e # ratchet:actions/download-artifact@v4.2.1
