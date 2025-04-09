@@ -383,8 +383,6 @@ further explained below.
       | fd_common_option()
         .
 
--define(COMMON_OPTION, common_option()).
-
 -doc """
 Used together with `ip-address` and `port` to uniquely identify a ssh daemon.
 This can be useful in a virtualized environment, where there can be more that
@@ -545,11 +543,10 @@ protocol).
 
 
 -doc """
-Opaque types that define experimental options that are not to be used in
-products.
+Experimental options that should not to be used in products.
 """.
 -doc(#{group => <<"Other data types">>}).
--type opaque_common_options() ::
+-type experimental_common_options() ::
         {transport, {atom(),atom(),atom()} }
       | {vsn, {non_neg_integer(),non_neg_integer()} }
       | {tstflg, list(term())}
@@ -577,19 +574,20 @@ risk.
       | diffie_hellman_group_exchange_client_option()
       | connect_timeout_client_option()
       | recv_ext_info_client_option()
-      | opaque_client_options()
       | gen_tcp:connect_option()
-      | ?COMMON_OPTION .
+      | common_option()
+      | experimental_client_options() .
 
+-doc """
+Experimental options that should not to be used in products.
+""".
 -doc(#{group => <<"Other data types">>}).
--type opaque_client_options() ::
+-type experimental_client_options() ::
         {keyboard_interact_fun, fun((Name::iodata(),
                                      Instruction::iodata(),
-                                     Prompts::[{Prompt::iodata(),Echo::boolean()}]
-                                    ) ->
-                                      [Response::iodata()]
-                                   )} 
-        | opaque_common_options().
+                                     Prompts::[{Prompt::iodata(), Echo::boolean()}] ) ->
+                                           [Response::iodata()])}
+      | experimental_common_options().
 
 -doc """
 - **`silently_accept_hosts`{: #hardening_client_options-silently_accept_hosts
@@ -748,9 +746,9 @@ risk.
       | hardening_daemon_options()
       | callbacks_daemon_options()
       | send_ext_info_daemon_option()
-      | opaque_daemon_options()
       | gen_tcp:listen_option()
-      | ?COMMON_OPTION .
+      | common_option()
+      | experimental_daemon_options() .
 
 -doc(#{group => <<"Daemon Options">>}).
 -type subsystem_daemon_option() :: {subsystems, subsystem_specs()}.
@@ -1190,10 +1188,13 @@ in the User's Guide chapter.
       | {connectfun, fun((User::string(), Peer::{inet:ip_address(), inet:port_number()}, Method::string()) ->_)}
       | {bannerfun, fun((User::string()) -> binary())}.
 
+-doc """
+Experimental options that should not to be used in products.
+""".
 -doc(#{group => <<"Other data types">>}).
--type opaque_daemon_options()  ::
+-type experimental_daemon_options()  ::
         {infofun, fun()}
-      | opaque_common_options().
+      | experimental_common_options() .
 
 -doc(#{group => <<"Other data types">>}).
 -type ip_port() :: {inet:ip_address(), inet:port_number()} .
