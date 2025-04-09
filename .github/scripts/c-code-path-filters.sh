@@ -28,8 +28,7 @@ c-files:
   - 'Makefile.in'
   - 'otp_build'
   - 'configure'
-  - '.github/dockerfiles/**'
-  - '.github/scripts/**'
+  - '.github/**'
   - 'xcomp/**'
 EOF
 
