@@ -47,9 +47,12 @@ The following sections contain reference material for the regular expressions
 used by this module. The information is based on the PCRE2 documentation, with
 changes where this module behaves differently to the PCRE2 library.
 
-> #### Note {: .info }
->
-> Incompatabilities with the old PCRE library, see [PCRE incompatabilities](../guides/re_incompat.md).
+> #### Change {: .info }
+> Starting with Erlang/OTP 28, the underlying library for handling regular expressions via the `re`
+> module changes from PCRE to PCRE2. This upgrade brings Erlang's regular expression capabilities
+> more in line with modern standards, particularly Perl, but also introduces several breaking
+> changes and differences in behavior compared to PCRE, see
+> [PCRE incompatabilities](../guides/re_incompat.md).
 
 ## PCRE2 Regular Expression Details
 
