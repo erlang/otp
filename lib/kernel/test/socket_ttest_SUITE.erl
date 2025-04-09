@@ -6864,7 +6864,7 @@ ttest_tcp(TC,
                                  client_mod      => ClientMod,
                                  client_active   => ClientActive,
 				 remote          => Remote},
-                   ok = ttest_tcp(InitState)
+                   ttest_tcp(InitState)
            end).
 
 
@@ -7336,7 +7336,8 @@ ttest_tcp(InitState) ->
          
          %% Present the results
          #{desc => "present the results",
-           cmd  => fun(#{result        := Result,
+           cmd  => fun(#{ctrl          := CTRL,
+                         result        := Result,
                          domain        := Domain,
                          server_mod    := ServerTrans,
                          server_active := ServerActive,
@@ -7375,6 +7376,17 @@ ttest_tcp(InitState) ->
                                                                  [Cnt, Cnt div RunTime])
                                        end
                                       ]),
+                                   if ((BCnt > 0) andalso (RunTime > 0)) ->
+                                           ?SEV_IPRINT("send short form results to CTRL (~p)", [CTRL]),
+                                           CTRL ! {self(), {BCnt div RunTime,
+                                                            Cnt div RunTime}};
+                                      true ->
+                                           ?SEV_IPRINT("no proper result: "
+                                                       "~n   RunTime: ~p"
+                                                       "~n   BCnt:    ~p"
+                                                       "~n   Cnt:     ~p",
+                                                       [RunTime, BCnt, Cnt])
+                                   end,
                                    {ok, maps:remove(result, State)};
 
                                #{status  := Failure,
@@ -7436,7 +7448,8 @@ ttest_tcp(InitState) ->
     Client          = ?SEV_START("client", ClientSeq, ClientInitState),
     
     i("start 'tester' evaluator"),
-    TesterInitState = #{domain        => Domain,
+    TesterInitState = #{ctrl          => self(),
+                        domain        => Domain,
 			msg_id        => maps:get(msg_id,        InitState),
                         client        => Client#ev.pid,
 			client_mod    => maps:get(client_mod,    InitState),
@@ -7444,10 +7457,17 @@ ttest_tcp(InitState) ->
                         server        => Server#ev.pid,
                         server_mod    => maps:get(server_mod,    InitState),
                         server_active => maps:get(server_active, InitState)},
-    Tester = ?SEV_START("tester", TesterSeq, TesterInitState),
+    #ev{pid = TesterPid} = Tester =
+        ?SEV_START("tester", TesterSeq, TesterInitState),
 
     i("await evaluator(s)"),
-    ok = ?SEV_AWAIT_FINISH([Server, Client, Tester]).
+    ok = ?SEV_AWAIT_FINISH([Server, Client, Tester]),
+    receive
+        {TesterPid, {BCnt, MCnt}} ->
+            {comment, ?F("~w b/ms, ~w iter/ms", [BCnt, MCnt])}
+    after 0 ->
+            {comment, "-"}
+    end.
 
 
 
@@ -7526,13 +7546,15 @@ ttest_tcp_client_start(Node,
                        bytes :: non_neg_integer(),
                        msgs  :: non_neg_integer()}).
 
--spec ttest_report(Domain      :: socket:domain(),
-                   ServTrans   :: gen | sock, ServActive   :: once | boolean(),
-                   ClientTrans :: gen | sock, ClientActive :: once | boolean(),
-                   MsgID       :: 1 | 2 | 3,
-                   RunTime     :: non_neg_integer(),
-                   NumBytes    :: non_neg_integer(),
-                   NumMsgs     :: non_neg_integer()) -> ok.
+-spec ttest_report(Domain       :: socket:domain(),
+                   ServTrans    :: gen | gs | sock,
+                   ServActive   :: once | boolean(),
+                   ClientTrans  :: gen | gs | sock,
+                   ClientActive :: once | boolean(),
+                   MsgID        :: 1 | 2 | 3,
+                   RunTime      :: non_neg_integer(),
+                   NumBytes     :: non_neg_integer(),
+                   NumMsgs      :: non_neg_integer()) -> ok.
 
 ttest_report(Domain,
              ServTrans,   ServActive,
@@ -7608,9 +7630,24 @@ ttest_manager_loop() ->
             ttest_manager_done();
 
         #ttest_report{id    = ID,
-                      time  = _RunTime,
-                      bytes = _NumBytes,
+                      time  = RunTime,
+                      bytes = NumBytes,
                       msgs  = _NumMsgs} = Report ->
+            %% ?LOGGER:format("received (ttest) report:"
+            %%                "~n   ID: ~p"
+            %%                "~n      RunTime:   ~p"
+            %%                "~n      Num Bytes: ~p"
+            %%                "~n      Num Msgs:  ~p"
+            %%                "~n", [ID, RunTime, NumBytes, _NumMsgs]),
+            Event = #event{
+                       name = format_ttest_report_id(ID),
+                       data = [{suite, atom_to_list(?MODULE)},
+                               {value, format_ttest_report_value(RunTime,
+                                                                 NumBytes)}]},
+            %% ?LOGGER:format("send CT event:"
+            %%                "~n   ~p"
+            %%                "~n", [Event]),
+            ct_event:notify(Event),
             %% true = ets:insert_new(?TTEST_MANAGER, Report),
             %% ttest_manager_loop()
             case ets:insert_new(?TTEST_MANAGER, Report) of
@@ -7626,6 +7663,43 @@ ttest_manager_loop() ->
 		    ttest_manager_loop()
 	    end
     end.
+
+format_ttest_report_id(#ttest_report_id{domain        = Domain,
+                                        serv_trans    = STrans,
+                                        serv_active   = SActive,
+                                        client_trans  = CTrans,
+                                        client_active = CActive,
+                                        msg_id        = MsgID}) ->
+    EventNameStr = ?F("server:~w:~w_client:~w:~w_~w_~w",
+                      [format_ttest_report_id_trans(STrans),
+                       format_ttest_report_id_active(SActive),
+                       format_ttest_report_id_trans(CTrans),
+                       format_ttest_report_id_active(CActive),
+                       format_ttest_report_id_domain(Domain),
+                       format_ttest_report_id_msg_id(MsgID)]),
+    list_to_atom(EventNameStr).
+    
+format_ttest_report_id_trans(gen)  -> g;
+format_ttest_report_id_trans(gs)   -> gs;
+format_ttest_report_id_trans(sock) -> s.
+
+format_ttest_report_id_active(once)  -> o;
+format_ttest_report_id_active(true)  -> t;
+format_ttest_report_id_active(false) -> f.
+
+format_ttest_report_id_domain(D) -> D.
+
+format_ttest_report_id_msg_id(ID) -> ID.
+
+format_ttest_report_value(RunTime, NumBytes)
+  when (RunTime > 0) andalso (NumBytes > 0) ->
+    NumBytes div RunTime;
+format_ttest_report_value(RunTime, _) when (RunTime > 0) ->
+    -1;
+format_ttest_report_value(_, _) ->
+    -2.
+
+
 
 %% We are supposed to pretty print the result here...
 ttest_manager_done() ->
