@@ -4025,13 +4025,7 @@ monitor_open_and_close_multi_socks_and_mon(Config) when is_list(Config) ->
     ?TT(?SECS(30)),
     tc_try(?FUNCTION_NAME,
            fun() ->
-                   FactorKey = kernel_factor,
-                   case lists:keysearch(FactorKey, 1, Config) of
-                       {value, {FactorKey, Factor}} when (Factor > 15) ->
-                           skip("Very slow machine");
-                       _ ->
-                           ok
-                   end
+                   factor_limit(Config)
            end,
            fun() ->
 		   InitState = #{domain   => inet,
@@ -12735,10 +12729,10 @@ do_otp19469_dgram(#{family := Fam} = LSA) ->
 -define(OTP19482_CHUNK_MEDIUM, ?OTP19482_CHUNK_8K).
 
 otp19482_simple_single_small(Config) when is_list(Config) ->
-    ?TT(?SECS(10)),
-    
+    ?TT(?SECS(10 * which_factor(Config))),
     Cond = fun() ->
-                   has_support_ipv4()
+                   has_support_ipv4(),
+                   factor_limit(Config)
            end,
     Pre  = fun() ->
                    #{iov_max := IOVMax} = Info = socket:info(),
@@ -12762,9 +12756,10 @@ otp19482_simple_single_small(Config) when is_list(Config) ->
 
 
 otp19482_simple_single_medium(Config) when is_list(Config) ->
-    ?TT(?SECS(10)),
+    ?TT(?SECS(10 * which_factor(Config))),
     Cond = fun() ->
-                   has_support_ipv4()
+                   has_support_ipv4(),
+                   factor_limit(Config)
            end,
     Pre  = fun() ->
                    #{iov_max := IOVMax} = Info = socket:info(),
@@ -12788,9 +12783,10 @@ otp19482_simple_single_medium(Config) when is_list(Config) ->
 
 
 otp19482_simple_single_mixed(Config) when is_list(Config) ->
-    ?TT(?SECS(10)),
+    ?TT(?SECS(10 * which_factor(Config))),
     Cond = fun() ->
-                   has_support_ipv4()
+                   has_support_ipv4(),
+                   factor_limit(Config)
            end,
     Pre  = fun() ->
                    #{iov_max := IOVMax} = Info = socket:info(),
@@ -12820,9 +12816,10 @@ otp19482_simple_single_mixed(Config) when is_list(Config) ->
 
 
 otp19482_simple_single_mixed_long(Config) when is_list(Config) ->
-    ?TT(?SECS(10)),
+    ?TT(?SECS(10 * which_factor(Config))),
     Cond = fun() ->
-                   has_support_ipv4()
+                   has_support_ipv4(),
+                   factor_limit(Config)
            end,
     Pre  = fun() ->
                    #{iov_max := IOVMax} = Info = socket:info(),
@@ -13167,9 +13164,10 @@ otp19482_simple_single_server_exchange(Sock, Verify, Sz, N) ->
 %% 1024*8 bytes, medium).
 
 otp19482_simple_multi_small(Config) when is_list(Config) ->
-    ?TT(?SECS(20)),
+    ?TT(?SECS(20 * which_factor(Config))),
     Cond = fun() ->
-                   has_support_ipv4()
+                   has_support_ipv4(),
+                   factor_limit(Config)
            end,
     Pre  = fun() ->
                    process_flag(trap_exit, true),
@@ -13192,9 +13190,10 @@ otp19482_simple_multi_small(Config) when is_list(Config) ->
     ?TC_TRY(?FUNCTION_NAME, Cond, Pre, TC, Post).
 
 otp19482_simple_multi_medium(Config) when is_list(Config) ->
-    ?TT(?SECS(20)),
+    ?TT(?SECS(20 * which_factor(Config))),
     Cond = fun() ->
-                   has_support_ipv4()
+                   has_support_ipv4(),
+                   factor_limit(Config)
            end,
     Pre  = fun() ->
                    process_flag(trap_exit, true),
@@ -13944,6 +13943,27 @@ unlink_path(Path, Success, Failure)
                                 "~n   Res:  ~p", [Path, Error]),
                     Failure()
             end
+    end.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+factor_limit(Config) ->
+    FactorKey = kernel_factor,
+    case lists:keysearch(FactorKey, 1, Config) of
+        {value, {FactorKey, Factor}} when (Factor > 15) ->
+            skip("Very slow machine");
+        _ ->
+            ok
+    end.
+
+which_factor(Config) ->
+    FactorKey = kernel_factor,
+    case lists:keysearch(FactorKey, 1, Config) of
+        {value, {FactorKey, Factor}} ->
+            Factor;
+        _ ->
+            10
     end.
 
 
