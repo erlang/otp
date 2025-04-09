@@ -124,17 +124,14 @@
 
 
 %% Types
--doc(#{group => <<"Other Data Types">>}).
 -type role()                  :: client | server .
 
--doc(#{group => <<"Other data types">>}).
 -type host()                  :: string() | inet:ip_address() | loopback .
 -doc """
 The socket is supposed to be result of a [gen_tcp:connect](`gen_tcp:connect/3`)
 or a [gen_tcp:accept](`gen_tcp:accept/1`). The socket must be in passive mode
 (that is, opened with the option `{active,false})`.
 """.
--doc(#{group => <<"Other data types">>}).
 -type open_socket()           :: gen_tcp:socket().
 
 -doc """
@@ -545,7 +542,6 @@ protocol).
 -doc """
 Experimental options that should not to be used in products.
 """.
--doc(#{group => <<"Other data types">>}).
 -type experimental_common_options() ::
         {transport, {atom(),atom(),atom()} }
       | {vsn, {non_neg_integer(),non_neg_integer()} }
@@ -581,7 +577,6 @@ risk.
 -doc """
 Experimental options that should not to be used in products.
 """.
--doc(#{group => <<"Other data types">>}).
 -type experimental_client_options() ::
         {keyboard_interact_fun, fun((Name::iodata(),
                                      Instruction::iodata(),
@@ -1191,17 +1186,11 @@ in the User's Guide chapter.
 -doc """
 Experimental options that should not to be used in products.
 """.
--doc(#{group => <<"Other data types">>}).
 -type experimental_daemon_options()  ::
         {infofun, fun()}
       | experimental_common_options() .
-
--doc(#{group => <<"Other data types">>}).
 -type ip_port() :: {inet:ip_address(), inet:port_number()} .
-
--doc(#{group => <<"Other data types">>}).
 -type mod_args() :: {Module::atom(), Args::list()} .
--doc(#{group => <<"Other data types">>}).
 -type mod_fun_args() :: {Module::atom(), Function::atom(), Args::list()} .
 
 

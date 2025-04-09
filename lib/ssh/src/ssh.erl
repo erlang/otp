@@ -209,7 +209,6 @@ Opaque data type representing a daemon.
 
 Returned by the functions [`daemon/1,2,3`](`daemon/1`).
 """.
--doc(#{group => <<"Other data types">>}).
 -opaque daemon_ref()         :: pid() .
 -doc """
 Opaque data type representing a channel inside a connection.
@@ -217,7 +216,6 @@ Opaque data type representing a channel inside a connection.
 Returned by the functions
 [ssh_connection:session_channel/2,4](`ssh_connection:session_channel/2`).
 """.
--doc(#{group => <<"Other data types">>}).
 -opaque channel_id()     :: non_neg_integer().
 -doc """
 Opaque data type representing a connection between a client and a server
@@ -226,7 +224,6 @@ Opaque data type representing a connection between a client and a server
 Returned by the functions [`connect/2,3,4`](`connect/3`) and
 [`ssh_sftp:start_channel/2,3`](`ssh_sftp:start_channel/2`).
 """.
--doc(#{group => <<"Other data types">>}).
 -type connection_ref()       :: pid().  % should be -opaque, but that gives problems
 
 %%--------------------------------------------------------------------
@@ -428,13 +425,9 @@ close(ConnectionRef) ->
 %%--------------------------------------------------------------------
 %% Description: Retrieves information about a connection.
 %%---------------------------------------------------------------------
--doc(#{group => <<"Other data types">>}).
 -type version() :: {protocol_version(), software_version()}.
--doc(#{group => <<"Other data types">>}).
 -type protocol_version() :: {Major::pos_integer(), Minor::non_neg_integer()}.
--doc(#{group => <<"Other data types">>}).
 -type software_version() :: string().
--doc(#{group => <<"Other data types">>}).
 -type conn_info_algs() :: [{kex, kex_alg()}
                            | {hkey, pubkey_alg()}
                            | {encrypt, cipher_alg()}
@@ -455,7 +448,6 @@ Return values from the `connection_info/1` and `connection_info/2` functions.
 >
 > Note that `options` info tuple contains only items with nondefault values.
 """.
--doc(#{group => <<"Other data types">>}).
 -type connection_info_tuple() ::
         {client_version, version()}
       | {server_version, version()}
@@ -682,7 +674,6 @@ Return values from the `daemon_info/1` and `daemon_info/2` functions.
 >
 > Note that `options` info tuple contains only items with nondefault values.
 """.
--doc(#{group => <<"Other data types">>}).
 -type daemon_info_tuple() ::
         {port, inet:port_number()}
       | {ip, inet:ip_address()}
