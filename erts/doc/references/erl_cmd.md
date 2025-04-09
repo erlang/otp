@@ -772,6 +772,10 @@ behavior of earlier flags.
   [perf support](BeamAsm.md#linux-perf-support) section in the BeamAsm internal
   documentation.
 
+- **`+JPperfdirectory <directory>`{: #+JPperfdirectory }** - Set the directory
+  used to store `perf` dump and map files when running with the JIT on Linux.
+  Defaults to `/tmp`.
+
 - **`+JMsingle true|false`{: #+JMsingle }** - Enables or disables the use of
   single-mapped RWX memory for JIT code.
 

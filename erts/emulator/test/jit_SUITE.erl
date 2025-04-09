@@ -26,7 +26,7 @@
          init_per_suite/1, end_per_suite/1,
          init_per_group/2, end_per_group/2,
          init_per_testcase/2, end_per_testcase/2]).
--export([annotate/1, jmsingle/1, named_labels/1, symbols/1]).
+-export([annotate/1, jmsingle/1, named_labels/1, symbols/1, perfdirectory_set/1, perfdirectory_not_set/1]).
 
 suite() ->
     [{timetrap, {minutes, 4}}].
@@ -35,7 +35,7 @@ groups() ->
     [{perf, [symbols, annotate]}].
 
 all() ->
-    [{group, perf}, jmsingle, named_labels].
+    [{group, perf}, jmsingle, named_labels, perfdirectory_set, perfdirectory_not_set].
 
 init_per_suite(Config) ->
     case erlang:system_info(emu_flavor) of
@@ -285,4 +285,27 @@ named_labels(_Config) ->
             end;
         _ ->
             ct:fail("No labels found in assembly dump")
+    end.
+
+perfdirectory_set(_Config) ->
+    %% Confirm that when +JPperfdirectory is set, the jit/perf files
+    %% end up in the appropriate directory
+    TempDir = string:strip(os:cmd("mktemp -d"), right, $\n),
+    run_perfdirectory_test("+JPperfdirectory " ++ TempDir, TempDir).
+
+perfdirectory_not_set(_Config) ->
+    %% Confirm that when +JPperfdirectory is not set, the jit/perf files
+    %% end up in /tmp
+    run_perfdirectory_test("", "/tmp").
+
+run_perfdirectory_test(AdditionalFlags, ExpectedDirectory) ->
+    Cmd = "erl -noinput -eval 'io:format(\"~s~n\", [os:getpid()]).' -s init stop +JPperf true " ++ AdditionalFlags,
+    ThePid = string:strip(os:cmd(Cmd), right, $\n),
+    JitDumpFile = ExpectedDirectory ++ "/jit-" ++ ThePid ++ ".dump",
+    PerfMapFile = ExpectedDirectory ++ "/perf-" ++ ThePid ++ ".map",
+    case lists:all(fun filelib:is_file/1, [JitDumpFile, PerfMapFile]) of
+        true ->
+            ok;
+        _ ->
+            ct:fail("Expected ~s and ~s to exist", [JitDumpFile, PerfMapFile])
     end.

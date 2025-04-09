@@ -594,6 +594,7 @@ __decl_noreturn void __noreturn  erts_usage(void)
     erts_fprintf(stderr, "-JDdump bool   enable or disable dumping of generated assembly code for each module loaded\n");
     erts_fprintf(stderr, "-JPcover true|false|line|line_counters|function|function_counters  enable or disable instrumentation for coverage\n");
     erts_fprintf(stderr, "-JPperf true|false|dump|map|fp|no_fp   enable or disable support for perf on Linux\n");
+    erts_fprintf(stderr, "-JPperfdirectory <directory>    set the directory perf files are stored. Default: /tmp\n");
     erts_fprintf(stderr, "-JMsingle bool enable the use of single-mapped RWX memory for JIT:ed code\n");
     erts_fprintf(stderr, "\n");
 #endif
@@ -1686,7 +1687,17 @@ erl_start(int argc, char **argv)
             case 'P':
                 sub_param++;
 
-                if (has_prefix("perf", sub_param)) {
+                if (has_prefix("perfdirectory", sub_param)){
+                    arg = get_arg(sub_param+13, argv[i + 1], &i);
+#ifdef HAVE_LINUX_PERF_SUPPORT
+                    sys_strncpy(etrs_jit_perf_directory, arg, sizeof(etrs_jit_perf_directory));
+                    etrs_jit_perf_directory[sizeof(etrs_jit_perf_directory) -1 ] = '\0';
+#else
+                    erts_fprintf(stderr, "+JPperfdirectory is not supported on this platform\n");
+                    erts_usage();
+#endif
+                }
+                else if (has_prefix("perf", sub_param)) {
                     arg = get_arg(sub_param+4, argv[i + 1], &i);
 
 #ifdef HAVE_LINUX_PERF_SUPPORT
