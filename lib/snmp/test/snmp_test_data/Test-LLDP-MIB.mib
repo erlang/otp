@@ -1,3 +1,11 @@
+-- %CopyrightBegin%
+--
+-- SPDX-License-Identifier: NOASSERTION
+--
+-- Copyright (C) IEEE (2005).  All Rights Reserved.
+--
+-- %CopyrightEnd%
+
 Test-LLDP-MIB DEFINITIONS ::= BEGIN
 
 IMPORTS
