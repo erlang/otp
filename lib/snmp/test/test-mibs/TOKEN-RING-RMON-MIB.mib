@@ -1,3 +1,15 @@
+-- %CopyrightBegin%
+--
+-- SPDX-License-Identifier: NOASSERTION
+--
+-- Copyright (C) The Internet Society (1993).  All Rights Reserved.
+--
+-- %CopyrightEnd%
+
+--
+-- This definition of the mib is taken from RFC 1513.
+--
+
           TOKEN-RING-RMON-MIB DEFINITIONS ::= BEGIN
 
           IMPORTS
