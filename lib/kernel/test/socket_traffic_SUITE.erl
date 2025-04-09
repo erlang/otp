@@ -7078,7 +7078,8 @@ traffic_bench_sendv_and_recv_tcp4(Config) when is_list(Config) ->
     tc_try(?FUNCTION_NAME,
            fun() -> has_support_ipv4() end,
            fun() ->
-                   InitState = #{domain   => inet,
+                   InitState = #{bname    => sendv_inet4,
+                                 domain   => inet,
                                  send     => Send,
                                  iov      => IOV,
                                  run_time => ?MINS(1)},
@@ -7094,7 +7095,8 @@ traffic_bench_send_and_recv_tcp4(Config) when is_list(Config) ->
     tc_try(?FUNCTION_NAME,
            fun() -> has_support_ipv4() end,
            fun() ->
-                   InitState = #{domain   => inet,
+                   InitState = #{bname    => send_inet4,
+                                 domain   => inet,
                                  send     => Send,
                                  iov      => IOV,
                                  run_time => ?MINS(1)},
@@ -7110,7 +7112,8 @@ traffic_bench_sendv_and_recv_tcp6(Config) when is_list(Config) ->
     tc_try(?FUNCTION_NAME,
            fun() -> has_support_ipv6() end,
            fun() ->
-                   InitState = #{domain   => inet6,
+                   InitState = #{bname    => sendv_inet6,
+                                 domain   => inet6,
                                  send     => Send,
                                  iov      => IOV,
                                  run_time => ?MINS(1)},
@@ -7126,7 +7129,8 @@ traffic_bench_send_and_recv_tcp6(Config) when is_list(Config) ->
     tc_try(?FUNCTION_NAME,
            fun() -> has_support_ipv6() end,
            fun() ->
-                   InitState = #{domain   => inet6,
+                   InitState = #{bname    => send_inet6,
+                                 domain   => inet6,
                                  send     => Send,
                                  iov      => IOV,
                                  run_time => ?MINS(1)},
@@ -7142,7 +7146,8 @@ traffic_bench_sendv_and_recv_tcpL(Config) when is_list(Config) ->
     tc_try(?FUNCTION_NAME,
            fun() -> has_support_unix_domain_socket() end,
            fun() ->
-                   InitState = #{domain   => local,
+                   InitState = #{bname    => sendv_local,
+                                 domain   => local,
                                  send     => Send,
                                  iov      => IOV,
                                  run_time => ?MINS(1)},
@@ -7158,30 +7163,33 @@ traffic_bench_send_and_recv_tcpL(Config) when is_list(Config) ->
     tc_try(?FUNCTION_NAME,
            fun() -> has_support_unix_domain_socket() end,
            fun() ->
-                   InitState = #{domain   => local,
+                   InitState = #{bname    => send_local,
+                                 domain   => local,
                                  send     => Send,
                                  iov      => IOV,
                                  run_time => ?MINS(1)},
                    do_traffic_bench_send_and_recv(InitState)
            end).
 
-do_traffic_bench_send_and_recv(#{run_time := RTime} = InitState) ->
+do_traffic_bench_send_and_recv(#{bname    := BName,
+                                 run_time := RTime} = InitState) ->
     ?SEV_IPRINT("[ctrl] start server"),
     {PathOrPort, Server} = tb_server_start(InitState),
     ?SEV_IPRINT("[ctrl] start client"),
     Client               = tb_client_start(InitState, PathOrPort),
     TRef = erlang:start_timer(RTime, self(), tb_timeout),
     ?SEV_IPRINT("[ctrl] await completion"),
-    tb_await_completion(Server, Client, TRef).
+    tb_await_completion(BName, Server, Client, TRef).
 
-tb_await_completion({ServerPid, ServerMRef} = Server,
+tb_await_completion(BName,
+                    {ServerPid, ServerMRef} = Server,
                     {ClientPid, ClientMRef} = Client,
                     TRef) ->
     receive
         {timeout, TRef, tb_timeout} ->
-            ?SEV_IPRINT("[ctrl] done - begin termination"),
+            ?SEV_IPRINT("[ctrl] bench timeout received - begin termination"),
             ClientPid ! {self(), stop},
-            tb_await_termination(Server, Client);
+            tb_await_termination(BName, Server, Client);
         {'DOWN', ClientMRef, process, ClientPid, ClientReason} ->
             ?SEV_EPRINT("[ctrl] received unexpected client down: "
                         "~n   ~p", [ClientReason]),
@@ -7196,42 +7204,64 @@ tb_await_completion({ServerPid, ServerMRef} = Server,
             exit(ServerReason)
     end.
 
-tb_await_termination(Server, Client) ->
-    tb_await_termination(Server, Client, undefined).
+tb_await_termination(BName, Server, Client) ->
+    tb_await_termination(BName, Server, Client, undefined).
 
-tb_await_termination({ServerPid, ServerMRef} = Server,
+-define(BENCH_EVENT(__N__, __V__),
+        #event{name = (__N__),
+               data = [{suite, atom_to_list(?MODULE)},
+                       {value, (__V__)}]}).
+
+tb_await_termination(BName,
+                     {ServerPid, ServerMRef} = Server,
                      {ClientPid, ClientMRef} = Client,
                      undefined = Comment) ->
+    %% ?SEV_IPRINT("[ctrl] await client and server down"),
     receive
         {'DOWN', ClientMRef, process, ClientPid, {done, {Exchange, UnitStr}}} ->
             ?SEV_IPRINT("[ctrl] "
-                        "Received (expected) down from client with result"),
-            tb_await_termination(Server, undefined,
-                                 {comment, ?F("~p ~s", [Exchange, UnitStr])});
+                        "received (expected) down from client with result"),
+            ?SEV_IPRINT("[ctrl] send (ct) event"),
+            ct_event:notify( ?BENCH_EVENT(BName, Exchange) ),
+            ?SEV_IPRINT("[ctrl] await server termination"),
+            NewComment = {comment, ?F("~p ~s", [Exchange, UnitStr])},
+            tb_await_termination(BName,
+                                 Server, undefined, NewComment);
         {'DOWN', ClientMRef, process, ClientPid, ClientReason} ->
             ?SEV_EPRINT("[ctrl] unexpected termination from client: "
                         "~n   ~p", [ClientReason]),
             exit(ServerPid, kill),
             exit(ClientReason);
         {'DOWN', ServerMRef, process, ServerPid, ServerReason} ->
-            ?SEV_IPRINT("[ctrl] Received down from server: "
+            ?SEV_IPRINT("[ctrl] received down from server: "
                         "~n   ~p", [ServerReason]),
-            tb_await_termination(undefined, Client, Comment)
+            tb_await_termination(BName,
+                                 undefined, Client, Comment)
+    %% after 1000 ->
+    %%         ?SEV_IPRINT("[ctrl] timeout waiting for client and/or server exit:"
+    %%                     "~n   MQueue: ~p", [?SLIB:pi(messages)]),
+    %%         tb_await_termination(BName, Server, Client, Comment)
     end;
-tb_await_termination({ServerPid, ServerMRef} = _Server,
+tb_await_termination(_BName,
+                     {ServerPid, ServerMRef} = _Server,
                      undefined,
                      Result) ->
+    %% ?SEV_IPRINT("[ctrl] await server down"),
     receive
         {'DOWN', ServerMRef, process, ServerPid, _} ->
-            ?SEV_IPRINT("[ctrl] Received (expected) down from server"),
+            ?SEV_IPRINT("[ctrl] received (expected) down from server - "
+                        "we are done"),
             Result
     end;
-tb_await_termination(undefined,
+tb_await_termination(BName,
+                     undefined,
                      {ClientPid, ClientMRef} = _Client,
                      undefined = _Result) ->
+    %% ?SEV_IPRINT("[ctrl] await client down (with result)"),
     receive
         {'DOWN', ClientMRef, process, ClientPid, {done, {Exchange, UnitStr}}} ->
-            ?SEV_IPRINT("[ctrl] Received down from client"),
+            ?SEV_IPRINT("[ctrl] received down from client - we are done"),
+            ct_event:notify( ?BENCH_EVENT(BName, Exchange) ),
             {comment, ?F("~p ~s", [Exchange, UnitStr])};
         {'DOWN', ClientMRef, process, ClientPid, ClientReason} ->
             ?SEV_EPRINT("[ctrl] unexpected termination from client: "
@@ -7245,17 +7275,13 @@ tb_server_start(#{domain := Fam,
     Self = self(),
     Server = {Pid, MRef} =
         spawn_monitor(fun() ->
-                              ?SEV_IPRINT("~w:fun -> "
-                                          "Received down from client",
-                                          [?FUNCTION_NAME]),
                               tb_server_init(#{parent => Self,
                                                domain => Fam,
                                                send   => Send})
                       end),
     receive
         {Pid, PathOrPort} ->
-            ?SEV_IPRINT("~w -> server started: ~p",
-                        [?FUNCTION_NAME, PathOrPort]),
+            ?SEV_IPRINT("[ctrl] server started: ~p", [PathOrPort]),
             {PathOrPort, Server};
         {'DOWN', MRef, process, Pid, Info} ->
             ?SEV_EPRINT("[ctrl] server start failure: "
@@ -7272,6 +7298,7 @@ tb_decode(<<Sz:32/integer, Data:Sz/binary, Rest/binary>>, Acc) ->
     tb_decode(Rest, [Data, <<Sz:32/integer>> | Acc]).
 
 tb_server_init(#{parent := Pid, domain := Fam} = State) ->
+    ?SEV_IPRINT("[server] initiate"),
     SA                    = which_local_socket_addr(Fam),
     {ok, LS}              = socket:open(Fam, stream),
     ok                    = socket:bind(LS, SA),
@@ -7283,7 +7310,9 @@ tb_server_init(#{parent := Pid, domain := Fam} = State) ->
             {ok, #{port := Port}} = socket:sockname(LS),
             Pid ! {self(), {port, Port}}
     end,
+    ?SEV_IPRINT("[server] ready for client connect"),
     {ok, AS}              = socket:accept(LS),
+    ?SEV_IPRINT("[server] client connected - test started"),
     tb_server_loop(State#{listen => LS,
                           accept => AS}).
 
@@ -7313,7 +7342,7 @@ tb_server_loop(#{listen := LS, accept := AS, send := Send} = State) ->
                     exit({tb_server_recv2, R2Reason})
             end;
         {error, closed} ->
-            ?SEV_IPRINT("[server] socket closed => terminating"),
+            ?SEV_IPRINT("[server] socket closed => terminate"),
             (catch socket:close(LS)),
             (catch socket:close(AS)),
             exit(normal);
@@ -7352,6 +7381,7 @@ tb_client_init(#{parent       := Pid,
                  path_or_port := PathOrPort,
                  send         := Send,
                  iov          := IOV}) ->
+    ?SEV_IPRINT("[client] initiate"),
     SA       = which_local_socket_addr(Fam),
     {ok, CS} = socket:open(Fam, stream),
     ok       = socket:bind(CS, SA),
@@ -7363,6 +7393,7 @@ tb_client_init(#{parent       := Pid,
           end,
     ok       = socket:connect(CS, SSA),
     Pid ! {self(), ok},
+    ?SEV_IPRINT("[client] connected to server - begin test"),
     tb_client_loop(Pid, CS, Send, IOV, ts(), 0, 0).
 
 tb_client_loop(Pid, Sock, Send, Data0, TStart, ARcv0, N0) ->
@@ -7387,7 +7418,7 @@ tb_client_loop(Pid, Sock, Send, Data0, TStart, ARcv0, N0) ->
                                                 {E, "b/msec"}
                                         end,
                                     N     = N0 + 1,
-                                    ?SEV_IPRINT("[client] test done:"
+                                    ?SEV_IPRINT("[client] test result:"
                                                 "~n   TDiff:      ~w msec"
                                                 "~n   Data:       ~w bytes"
                                                 "~n   Exchange:   ~w ~s"
@@ -7427,6 +7458,7 @@ tb_client_loop(Pid, Sock, Send, Data0, TStart, ARcv0, N0) ->
 tb_client_is_done(Pid) ->
     receive
         {Pid, stop} ->
+            ?SEV_IPRINT("[client] received stop command - test is over"),
             true
     after 0 ->
             false
