@@ -1525,6 +1525,7 @@ logging_gl(Config) when is_list(Config) ->
                                  end),
                       register(?MODULE, Device),
                       ok = logger:add_handler(default, logger_std_h, #{ filter_default => stop, config => #{ type => {device, Device} }}),
+                      logger:set_primary_config(level, all),
                       ok = io:setopts(user, [{log,output}])
               end},
        {putline, "io:format(user,\"abc\n\",[])."},
@@ -1556,7 +1557,6 @@ logging_gl(Config) when is_list(Config) ->
       ["-pz",filename:dirname(code:which(?MODULE)),
        "-oldshell",
        "-connect_all","false",
-       "-kernel","logger_level","all",
        "-kernel","logger","[{handler, default, undefined}]",
        "-kernel","shell_history","disabled",
        "-kernel","prevent_overlapping_partitions","false"]),
