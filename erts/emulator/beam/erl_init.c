@@ -2162,7 +2162,7 @@ erl_start(int argc, char **argv)
 	    }
 	    break;
 	}
-	case 't':
+	case 't': {
 	    /* set atom table size */
             long val;
             arg = get_arg(argv[i]+2, argv[i+1], &i);
@@ -2179,6 +2179,7 @@ erl_start(int argc, char **argv)
                     ("setting maximum number of atoms to %d\n",
 		     erts_atom_table_size));
 	    break;
+        }
 
 	case 'T' :
 	    arg = get_arg(argv[i]+2, argv[i+1], &i);
