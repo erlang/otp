@@ -526,17 +526,18 @@ fetch_stats_loop(Parent, Time) ->
 %% Chunk sending process info to etop/observer
 %%
 procs_info(Collector) ->
-    All = processes(),
-    Send = fun Send (Pids) ->
-                   try lists:split(10000, Pids) of
-                       {First, Rest} ->
-                           Collector ! {procs_info, self(), etop_collect(First, [])},
-                           Send(Rest)
-                   catch _:_ ->
-                           Collector ! {procs_info, self(), etop_collect(Pids, [])}
+    Iter0 = erlang:processes_iterator(),
+    Limit = 10000,
+    Send = fun Send(Iter1, Count) ->
+                   case etop_collect(Iter1, Count, Limit, []) of
+                       {none, ProcInfo} ->
+                           Collector ! {procs_info, self(), ProcInfo};
+                       {Iter, ProcInfo} ->
+                           Collector ! {procs_info, self(), ProcInfo},
+                           Send(Iter, 0)
                    end
            end,
-    Send(All).
+    Send(Iter0, 0).
 
 %%
 %% etop backend
@@ -547,7 +548,8 @@ etop_collect(Collector) ->
     %% utilization in etop). Next time the flag will be true and then
     %% there will be a measurement.
     SchedulerWallTime = erlang:statistics(scheduler_wall_time),
-    ProcInfo = etop_collect(processes(), []),
+    Iter = erlang:processes_iterator(),
+    {none, ProcInfo} = etop_collect(Iter, 0, infinity, []),
 
     Collector ! {self(),#etop_info{now = erlang:timestamp(),
 				   n_procs = length(ProcInfo),
@@ -587,15 +589,19 @@ etop_memi() ->
 	    undefined
     end.
 
-etop_collect([P|Ps], Acc) when P =:= self() ->
-    etop_collect(Ps, Acc);
-etop_collect([P|Ps], Acc) ->
+etop_collect({P, Iter}, Count, Limit, Acc) when P =:= self() ->
+    etop_collect(erlang:processes_next(Iter), Count, Limit, Acc);
+etop_collect(Iter, Limit, Limit, Acc) ->
+    {Iter, Acc};
+etop_collect(none, _Count, _Limit, Acc) ->
+    {none, Acc};
+etop_collect({P, Iter}, Count, Limit, Acc) when is_pid(P) ->
     Fs = [registered_name,initial_call,
           {dictionary, '$initial_call'}, {dictionary, '$process_label'},
           memory,reductions,current_function,message_queue_len],
     case process_info(P, Fs) of
 	undefined ->
-	    etop_collect(Ps, Acc);
+	    etop_collect(erlang:processes_next(Iter), Count + 1, Limit, Acc);
 	[{registered_name,Reg},{initial_call,Initial},
          {{dictionary, '$initial_call'}, DictInitial},
          {{dictionary, '$process_label'}, ProcId},
@@ -608,9 +614,10 @@ etop_collect([P|Ps], Acc) ->
 		   end,
 	    Info = #etop_proc_info{pid=P,mem=Mem,reds=Reds,name=Name,
 				   cf=Current,mq=Qlen},
-	    etop_collect(Ps, [Info|Acc])
+	    etop_collect(erlang:processes_next(Iter), Count + 1, Limit, [Info|Acc])
     end;
-etop_collect([], Acc) -> Acc.
+etop_collect(Iter, Count, Limit, Acc) ->
+    etop_collect(erlang:processes_next(Iter), Count, Limit, Acc).
 
 id_to_binary(Id) when is_list(Id); is_binary(Id) ->
     try unicode:characters_to_binary(Id) of
