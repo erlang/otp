@@ -93,6 +93,7 @@
          update_literal/1,
          messages_with_jaro_suggestions/1,
          illegal_zip_generator/1,
+         record_info_0/1,
          coverage/1]).
 
 suite() ->
@@ -133,6 +134,7 @@ all() ->
      update_literal,
      messages_with_jaro_suggestions,
      illegal_zip_generator,
+     record_info_0,
      coverage].
 
 groups() -> 
@@ -5652,6 +5654,27 @@ illegal_zip_generator(Config) ->
                     []}}
            ],
     [] = run(Config,Ts),
+
+    ok.
+
+%% GH-9694. Only record_info/2 should be checked for illegal_record_info
+record_info_0(Config) ->
+    Ts = [{record_info_0,
+           <<"-export([f/0]).
+              record_info() -> ok.
+              f() -> record_info().
+            ">>,
+           [],
+           []},
+          {record_info_1,
+           <<"-export([g/0]).
+              record_info(X) -> X.
+              g() -> record_info(ok).
+            ">>,
+           [],
+           []}
+         ],
+    [] = run(Config, Ts),
 
     ok.
 
