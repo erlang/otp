@@ -459,7 +459,7 @@ jobs:
             copyback: false
             prepare: |
               pkg update
-              pkg upgrade
+              pkg upgrade -y
               pkg install -y bash gmake gtar autoconf ncurses pkgconf
 
             run: |
