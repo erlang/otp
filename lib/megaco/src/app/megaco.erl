@@ -132,11 +132,11 @@ Interface module for the Megaco application
 -type void() :: term().
 
 -doc "The Megaco Identifier.".
--type mid()               :: megaco_encoder:ip4Address() |
-                             megaco_encoder:ip6Address() |
-                             megaco_encoder:domainName() |
-                             megaco_encoder:deviceName() |
-                             megaco_encoder:mtpAddress().
+-type mid()               :: {ip4Address, megaco_encoder:ip4Address()} |
+                             {ip6Address, megaco_encoder:ip6Address()} |
+                             {domainName, megaco_encoder:domainName()} |
+                             {deviceName, megaco_encoder:deviceName()} |
+                             {mtpAddress, megaco_encoder:mtpAddress()}.
 -type megaco_message()    :: megaco_encoder:megaco_message().
 -type action_request()    :: megaco_encoder:action_request().
 -type action_reply()      :: megaco_encoder:action_reply().
