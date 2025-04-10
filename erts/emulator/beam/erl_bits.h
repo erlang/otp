@@ -389,6 +389,7 @@ Eterm erts_wrap_refc_bitstring(struct erl_off_heap_header **oh,
                 /* If the source was writable its underlying binary may */    \
                 /* move at any point, so we need to follow it instead of */   \
                 /* using the stored pointer. */                               \
+                ASSERT(_br);                                                  \
                 Base = (byte*)((_br->val)->orig_bytes);                       \
                 if (!((_br->val)->intern.flags & BIN_FLAG_WRITABLE)) {        \
                     _sb->base_flags = (UWord)Base;                            \
