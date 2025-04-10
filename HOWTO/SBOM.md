@@ -170,22 +170,24 @@ Vendor packages are identified by a JSON `vendor.info` file that contains fields
 
 Each `vendor.info` file will implicitly generate a [SPDX](https://spdx.dev/) Package (within the source SBOM) to separate vendor libraries from Erlang/OTP applications.
 
-This file may be a JSON object or a list of JSON objects. For simplicity, we document the fields using a JSON object.
+This file may be a list of JSON objects. For simplicity, we document the fields using a JSON object.
 
 ```json
-{
-  "ID": "erts-asmjit",
-  "description": "Asmjit library",
-  "copyrightText": "Copyright (c) 2008-2023 The AsmJit Authors",
-  "downloadLocation": "https://github.com/asmjit/asmjit",
-  "homepage": "https://github.com/asmjit/asmjit",
-  "licenseDeclared": "Zlib",
-  "name": "asmjit",
-  "versionInfo": "a465fe71ab3d0e224b2b4bd0fac69ae68ab9239d",
-  "path": "./erts/emulator/asmjit",
-  "supplier": "Person: Petr Kobalicek",
-  "purl": "pkg:github/asmjit/asmjit"
-}
+[
+  {
+    "ID": "erts-asmjit",
+    "description": "Asmjit library",
+    "copyrightText": "Copyright (c) 2008-2023 The AsmJit Authors",
+    "downloadLocation": "https://github.com/asmjit/asmjit",
+    "homepage": "https://github.com/asmjit/asmjit",
+    "licenseDeclared": "Zlib",
+    "name": "asmjit",
+    "versionInfo": "a465fe71ab3d0e224b2b4bd0fac69ae68ab9239d",
+    "path": "./erts/emulator/asmjit",
+    "supplier": "Person: Petr Kobalicek",
+    "purl": "pkg:github/asmjit/asmjit"
+  }
+]
 ```
 
 Fields summary:
