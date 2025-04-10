@@ -41,6 +41,21 @@
 
 -include_lib("kernel/include/file.hrl").
 
+-export([test_project_name/1,
+         test_name/1,
+         test_creators_tooling/1,
+         test_spdx_version/1]).
+
+-export([test_minimum_apps/1, test_copyright_not_empty/1, test_filesAnalised/1,
+         test_hasFiles_not_empty/1, test_homepage/1,
+         test_licenseConcluded_exists/1, test_licenseDeclared_exists/1,
+         test_licenseInfoFromFiles_not_empty/1, test_package_names/1,
+         test_package_ids/1, test_verificationCode/1, test_supplier_Ericsson/1,
+         test_originator_Ericsson/1, test_versionInfo_not_empty/1, test_package_hasFiles/1,
+         test_project_purl/1, test_packages_purl/1, test_download_location/1, 
+         test_package_relations/1, test_has_extracted_licenses/1, test_snippets/1,
+         test_vendor_packages/1]).
+
 -define(default_classified_result, "scan-result-classified.json").
 -define(default_scan_result, "scan-result.json").
 -define(diff_classified_result, "scan-result-diff.json").
@@ -163,6 +178,9 @@ cli() ->
                                        - Fixes license of `*.beam` files
                                        - Fixes project name
 
+                                     Example:
+
+                                     > .github/scripts/otp-compliance.es sbom otp-info --sbom-file bom.spdx.json --input-file scan-result.json
                                      """,
                                  arguments => [ sbom_option(),
                                                 write_to_file_option(),
@@ -170,8 +188,15 @@ cli() ->
                                  handler => fun sbom_otp/1},
 
                           "test-file" =>
-                              #{ help => "Run unit tests",
-                                 arguments => [ sbom_option() ],
+                              #{ help =>
+                                     """
+                                     Verify that the produced SBOM satisfies some minimum requirements
+
+                                     Example:
+
+                                     > .github/scripts/otp-compliance.es sbom test-file --sbom-file otp.spdx.json
+                                     """,
+                                 arguments => [ sbom_option(), ntia_checker() ],
                                  handler => fun test_file/1}
                          }},
              "explore" =>
@@ -271,6 +296,12 @@ sbom_option() ->
       type => binary,
       default => "bom.spdx.json",
       long => "-sbom-file"}.
+
+ntia_checker() ->
+    #{name => ntia_checker,
+      type => boolean,
+      default => true,
+      long => "-ntia-checker"}.
 
 write_to_file_option() ->
     #{name => write_to_file,
@@ -1416,46 +1447,85 @@ group_files_by_folder(Files, Wildcard) ->
                          lists:member(Filename, FilesInFolder)
                  end, Files).
 
-test_file(#{sbom_file := SbomFile}) ->
+test_file(#{sbom_file := SbomFile, ntia_checker := Verification}) ->
     Sbom = decode(SbomFile),
-    test_generator(Sbom).
-
-test_generator(Sbom) ->
-    ok = project_generator(Sbom),
-    ok = package_generator(Sbom),
+    ok = test_generator(Sbom),
+    ok = test_ntia_checker(Verification, SbomFile),
     ok.
 
-project_generator(Sbom) ->
-    ok = test_project_name(Sbom),
-    ok = test_name(Sbom),
-    ok = test_creators_tooling(Sbom),
-    ok = test_spdx_version(Sbom),
+test_ntia_checker(false, _SbomFile) -> ok;
+test_ntia_checker(true, SbomFile) -> 
+    have_tool("ntia-checker"),
+    Cmd = "sbomcheck --comply ntia --file " ++ SbomFile,
+    io:format("~nRunning: NTIA Compliance Checker~n[~ts]~n", [Cmd]),
+    _ = cmd(Cmd),
+    io:format("OK~n"),
+    ok.
+
+cmd(Cmd) ->
+    string:trim(os:cmd(unicode:characters_to_list(Cmd),
+                       #{ exception_on_failure => true })).    
+
+have_tool(Tool) ->
+    case os:find_executable(Tool) of
+        false -> fail("Could not find '~ts' in PATH", [Tool]);
+        _ -> ok
+    end.
+
+fail(Fmt, Args) ->
+    io:format(standard_error, Fmt++"\n", Args),
+    erlang:halt(1).
+
+test_generator(Sbom) ->
+    io:format("~nRunning: verification of OTP SBOM integrity~n"),
+    ok = project_generator(Sbom),
+    ok = package_generator(Sbom),    
+    ok.
+
+-define(CALL_TEST_FUNCTIONS(Tests, Sbom), 
+         (begin
+            io:format("[~s]~n", [?FUNCTION_NAME]),
+            lists:all(fun (Fun) ->
+                              Module = ?MODULE,
+                              Result = apply(Module, Fun, [Sbom]),
+                              L = length(atom_to_list(Fun)),
+                              io:format("- ~s~s~s~n", [Fun, lists:duplicate(40 - L, "."), Result]),                                                          
+                              ok == Result
+                      end, Tests)
+        end)).
+
+project_generator(Sbom) ->    
+    Tests = [test_project_name,
+             test_name,
+             test_creators_tooling,
+             test_spdx_version],
+    true = ?CALL_TEST_FUNCTIONS(Tests, Sbom),    
     ok.
 
 package_generator(Sbom) ->
-    ok = test_minimum_apps(Sbom),
-    ok = test_copyright_not_empty(Sbom),
-    ok = test_filesAnalised(Sbom),
-    ok = test_hasFiles_not_empty(Sbom),
-    ok = test_homepage(Sbom),
-    ok = test_licenseConcluded_exists(Sbom),
-    ok = test_licenseDeclared_exists(Sbom),
-    ok = test_licenseInfoFromFiles_not_empty(Sbom),
-    ok = test_package_names(Sbom),
-    ok = test_package_ids(Sbom),
-    ok = test_verificationCode(Sbom),
-    ok = test_supplier_Ericsson(Sbom),
-    ok = test_originator_Ericsson(Sbom),
-    ok = test_versionInfo_not_empty(Sbom),
-    ok = test_package_hasFiles(Sbom),
-    ok = test_project_purl(Sbom),
-    ok = test_packages_purl(Sbom),
-    ok = test_download_location(Sbom),
-    ok = test_package_relations(Sbom),
-    ok = test_has_extracted_licenses(Sbom),
-    ok = test_snippets(Sbom),
-    %% ok = test_doc_relation(Sbom),
-    ok = test_vendor_packages(Sbom),
+    Tests = [test_minimum_apps,
+             test_copyright_not_empty,
+             test_filesAnalised,
+             test_hasFiles_not_empty,
+             test_homepage,
+             test_licenseConcluded_exists,
+             test_licenseDeclared_exists,
+             test_licenseInfoFromFiles_not_empty,
+             test_package_names,
+             test_package_ids,
+             test_verificationCode,
+             test_supplier_Ericsson,
+             test_originator_Ericsson,
+             test_versionInfo_not_empty,
+             test_package_hasFiles,
+             test_project_purl,
+             test_packages_purl,
+             test_download_location,
+             test_package_relations,
+             test_has_extracted_licenses,
+             test_snippets,
+             test_vendor_packages],
+    true = ?CALL_TEST_FUNCTIONS(Tests, Sbom),
     ok.
 
 test_project_name(#{~"documentDescribes" := [ProjectName]}=_Sbom) ->
@@ -1719,11 +1789,3 @@ extracted_license_info() ->
          {ok, License} = file:read_file(Name),
          {unicode:characters_to_binary(filename:basename(filename:rootname(Name))), License}
      end || Name <- filelib:wildcard("LICENSES/LicenseRef*.txt")].
-
-%% Parts easiest to relate:
-
-%% - Information too scatered
-%% - Processes slow us down
-%% - Lack of use of best software in class
-%% - Coordination with other teams via private repos
-%% - no connection to internet from logged computer

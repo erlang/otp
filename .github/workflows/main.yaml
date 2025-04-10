@@ -739,7 +739,9 @@ jobs:
           docker build -t otp - <<EOF
           FROM otp
           RUN echo 'export PATH="\$HOME/.local/bin:\$PATH"' >> /home/otptest/.profile
-          RUN sudo apt-get install -y pip && pip install scancode-toolkit==${SCANCODE_VERSION} reuse
+          RUN sudo apt-get install -y pip && \
+              pip install scancode-toolkit==${SCANCODE_VERSION} reuse && \
+              pip install -U ntia-conformance-checker
           EOF
 
       - name: Restore from cache
