@@ -1,3 +1,12 @@
+-- %CopyrightBegin%
+-- 
+-- SPDX-License-Identifier: NOASSERTION
+--
+-- Copyright (C) The Internet Society (2000).  All Rights Reserved.
+-- 
+-- %CopyrightEnd%
+
+
 SNMP-USM-AES-MIB DEFINITIONS ::= BEGIN
     IMPORTS
         MODULE-IDENTITY, OBJECT-IDENTITY,

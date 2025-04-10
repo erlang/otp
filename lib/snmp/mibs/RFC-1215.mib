@@ -1,3 +1,11 @@
+-- %CopyrightBegin%
+-- 
+-- SPDX-License-Identifier: NOASSERTION
+--
+-- Copyright (C) The Internet Society (1991).  All Rights Reserved.
+-- 
+-- %CopyrightEnd%
+
 RFC-1215 DEFINITIONS ::= BEGIN
 
 IMPORTS

@@ -1,3 +1,20 @@
+-- %CopyrightBegin%
+--
+-- SPDX-License-Identifier: NOASSERTION
+--
+-- Copyright (C) The Internet Society (1996).  All Rights Reserved.
+--
+-- %CopyrightEnd%
+
+--
+-- All the definitions in this MIB comes from the SNMPv2 mib (rfc1903).
+-- Two possible reasons for this MIB:
+-- 1) Put here befare SNMPv2 was folly baked.
+--    (The traps are defined differently, which points in that direction).
+-- 2) Its a subset of SNMPv2,
+--    maybe a (useful) subset of SNMPv2 was selected and put here.
+--
+
 STANDARD-MIB DEFINITIONS ::= BEGIN
  
           IMPORTS
