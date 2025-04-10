@@ -3,7 +3,7 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright Ericsson AB 1997-2024. All Rights Reserved.
+ * Copyright Ericsson AB 1997-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -1034,8 +1034,19 @@ static size_t my_strnlen(const char *s, size_t maxlen)
 
 #define INET_MAX_OPT_BUFFER (64*1024)
 
-#define INET_DEF_BUFFER     1460        /* default buffer size */
-#define INET_MIN_BUFFER     1           /* internal min buffer */
+/* Jumbo Frames size(s) */
+#if !defined(INET_BUFFER_TCP_DEFAULT)
+#define INET_BUFFER_TCP_DEFAULT      9216
+#endif
+#if !defined(INET_BUFFER_UDP_DEFAULT)
+#define INET_BUFFER_UDP_DEFAULT      9216
+#endif
+#if !defined(INET_BUFFER_SCTP_DEFAULT)
+#define INET_BUFFER_SCTP_DEFAULT     9216
+#endif
+#define INET_BUFFER_MIN              1
+#define INET_UDP_THEORETICAL_MAX_MTU (1 << 16)
+
 
 #define INET_HIGH_WATERMARK (1024*8) /* 8k pending high => busy  */
 #define INET_LOW_WATERMARK  (1024*4) /* 4k pending => allow more */
@@ -1879,7 +1890,13 @@ static void end_caller_ref(CallerRef *cref_p) {
 #else
 #   define IS_SCTP(desc) 0
 #endif
-#   define ANC_BUFF_SIZE   INET_DEF_BUFFER/2 /* XXX: not very good... */
+/*
+ * Can we "calculate" this dynamically?
+ * On linux: sysctl net.core.optmem_max
+ * This is better than the previous value which was 1460 / 2.
+ */
+#define ANC_BUFF_SIZE           1024
+
 
 
 #ifdef HAVE_UDP
@@ -6906,7 +6923,7 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
                  ("INET-DRV-DBG[%d][" SOCKET_FSTR ",%T] "
                   "inet_set_opts(buffer) -> %d\r\n",
                   __LINE__, desc->s, driver_caller(desc->port), ival) );
-	    if (ival < INET_MIN_BUFFER) ival = INET_MIN_BUFFER;
+	    if (ival < INET_BUFFER_MIN) ival = INET_BUFFER_MIN;
 	    desc->bufsz = ival;
             desc->flags |= INET_FLG_BUFFER_SET;
 	    continue;
@@ -7270,14 +7287,39 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
                   "inet_set_opts(rcvbuf) -> %d\r\n",
                   __LINE__, desc->s, driver_caller(desc->port), ival) );
             if (!(desc->flags & INET_FLG_BUFFER_SET)) {
-                /* make sure we have desc->bufsz >= SO_RCVBUF */
-                if (ival > (1 << 16) && desc->stype == SOCK_DGRAM && !IS_SCTP(desc))
+
+                /* BUFFER has not previously been explicitly set.
+                 * Make sure we have desc->bufsz >= SO_RCVBUF,
+                 * except if rcvbuf is larger than max when type = DGRAM.
+                 */
+
+                if ((ival > INET_UDP_THEORETICAL_MAX_MTU) &&
+                    (desc->stype == SOCK_DGRAM) &&
+                    !IS_SCTP(desc)) {
+
                     /* For UDP we don't want to automatically
-                       set the buffer size to be larger than
-                       the theoretical max MTU */
-                    desc->bufsz = 1 << 16;
-                else if (ival > desc->bufsz)
+                     * set the buffer size to be larger than
+                     * the theoretical max MTU. */
+
+                    DDBG(desc,
+                         ("INET-DRV-DBG[%d][" SOCKET_FSTR ",%T] "
+                          "inet_set_opts(rcvbuf) -> "
+                          "force update of 'buffer' to max-mtu (%d)\r\n",
+                          __LINE__, desc->s, driver_caller(desc->port),
+                          INET_UDP_THEORETICAL_MAX_MTU) );
+
+                    desc->bufsz = INET_UDP_THEORETICAL_MAX_MTU;
+
+                } else if (ival > desc->bufsz) {
+
+                    DDBG(desc,
+                         ("INET-DRV-DBG[%d][" SOCKET_FSTR ",%T] "
+                          "inet_set_opts(rcvbuf) -> "
+                          "force update of 'buffer'\r\n",
+                          __LINE__, desc->s, driver_caller(desc->port)) );
+
                     desc->bufsz = ival;
+                }
             }
 	    break;
 
@@ -8001,8 +8043,8 @@ static int sctp_set_opts(inet_descriptor* desc, char* ptr, int len)
 
                 desc->bufsz  = ival;
 
-                if (desc->bufsz < INET_MIN_BUFFER)
-                    desc->bufsz = INET_MIN_BUFFER;
+                if (desc->bufsz < INET_BUFFER_MIN)
+                    desc->bufsz = INET_BUFFER_MIN;
                 desc->flags |= INET_FLG_BUFFER_SET;
                 res = 0;   /* This does not affect the kernel buffer size */
             }
@@ -9026,6 +9068,10 @@ static ErlDrvSSizeT inet_fill_opts(inet_descriptor* desc,
 
 	switch(opt) {
 	case INET_LOPT_BUFFER:
+            DDBG(desc,
+                 ("INET-DRV-DBG[%d][" SOCKET_FSTR ",%T] "
+                  "inet_fill_opts -> buffer: %d\r\n",
+                  __LINE__, desc->s, driver_caller(desc->port), desc->bufsz) );
 	    *ptr++ = opt;
 	    put_int32(desc->bufsz, ptr);
 	    continue;
@@ -10751,7 +10797,18 @@ static ErlDrvData inet_start(ErlDrvPort port, int size, int protocol)
     desc->dport = driver_mk_port(port);
     desc->state = INET_STATE_CLOSED;
     desc->prebound = 0;
-    desc->bufsz = INET_DEF_BUFFER; 
+
+    if (protocol == IPPROTO_TCP)
+        desc->bufsz = INET_BUFFER_TCP_DEFAULT;
+    else if (protocol == IPPROTO_UDP)
+        desc->bufsz = INET_BUFFER_UDP_DEFAULT;
+#if defined(HAVE_SCTP)
+    else if (protocol == IPPROTO_SCTP)
+        desc->bufsz = INET_BUFFER_SCTP_DEFAULT;
+#endif
+    else /* We only support tcp, udp and SCTP so this "should not" happen... */
+        desc->bufsz = 9999;
+
     desc->hsz = 0;                     /* list header size */
     desc->htype = TCP_PB_RAW;          /* default packet type */
     desc->psize = 0;                   /* no size check */

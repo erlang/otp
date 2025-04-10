@@ -78,6 +78,8 @@
          t_simple_local_sockaddr_in6_send_recv/1,
          t_simple_link_local_sockaddr_in6_send_recv/1,
 
+         t_kernel_options/1, do_kernel_options_remote/1,
+
          otp_18323_opts_processing/1,
          otp_18323_open/1,
          otp_19332/1,
@@ -156,6 +158,7 @@ all_cases() ->
      {group, socket_monitor},
      otp_17492,
      {group, sockaddr},
+     t_kernel_options,
      {group, tickets}
     ].
 
@@ -2844,8 +2847,8 @@ t_simple_local_sockaddr_in6_send_recv(Config) when is_list(Config) ->
                         case ?LIB:which_local_addr(Domain) of
                             {ok, LA} ->
                                 LA;
-                        {error, _} ->
-                            skip("No local address")
+                            {error, _} ->
+                                skip("No local address")
                     end,
                     SockAddr = #{family   => Domain,
                                  addr     => LocalAddr,
@@ -3239,6 +3242,63 @@ do_simple_sockaddr_send_recv(#{family := _Fam} = SockAddr, _) ->
     ok.
 
     
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% This is the most basic of tests.
+
+%% Create a new node with kernel option 'inet_default_udp_options' set
+%% then rpc call a function which creates a socket and reads back the
+%% values of that socket (buffer and recbuf).
+%%
+t_kernel_options(Config) when is_list(Config) ->
+    ?TC_TRY(?FUNCTION_NAME,
+            fun() -> ok end,
+            fun() ->
+                    do_kernel_options(Config)
+            end).
+
+
+do_kernel_options(Config) ->
+    BSz   = 12345,
+    RBSz  = 54321,
+    KOpts = ?F("-kernel inet_default_udp_options "
+               "\"[{buffer,~w},{recbuf,~w}]\"", [BSz, RBSz]),
+    ?P("try start node"),
+    case ?START_NODE(?UNIQ_NODE_NAME, KOpts) of
+        {ok, Node} ->
+            Expected = [{buffer, BSz}, {recbuf, RBSz}],
+            ?P("node ~p started - try get (udp) buffer options", [Node]),
+            case rpc:call(Node, ?MODULE, do_kernel_options_remote, [Config]) of
+                {ok, Expected} ->
+                    ?P("options verified"),
+                    (catch ?STOP_NODE(Node)),
+                    ok;
+                {ok, Actual} ->
+                    ?P("unexpected success:"
+                       "~n   Expected: ~p"
+                       "~n   Actual:   ~p", [Expected, Actual]),
+                    (catch ?STOP_NODE(Node)),
+                    exit({unexpected_success, Expected, Actual});
+                {error, Reason} ->
+                    ?P("unexpected failure:"
+                       "~n   ~p", [Reason]),
+                    (catch ?STOP_NODE(Node)),
+                    exit({unexpected_failure, Reason})
+            end;
+        {error, Reason} ->
+            ?P("failed start node: ~p", [Reason]),
+            error
+    end.
+
+do_kernel_options_remote(Config) ->
+    case ?OPEN(Config, 0, []) of
+        {ok, S} ->
+            inet:getopts(S, [buffer, recbuf]);
+        {error, _} = ERROR ->
+            ERROR
+    end.
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 

@@ -108,6 +108,7 @@
 	 socket_monitor2/1,
 	 socket_monitor2_manys/1,
 	 socket_monitor2_manyc/1,
+         t_kernel_options/1, do_kernel_options_remote/2,
 	 otp_17492/1,
 	 otp_18357/1,
          otp_18883/1,
@@ -244,7 +245,8 @@ all_std_cases() ->
      {group, socket_monitor},
      otp_17492,
      otp_18707,
-     send_block_unblock
+     send_block_unblock,
+     t_kernel_options
     ].
 
 ticket_cases() ->
@@ -9841,6 +9843,113 @@ payload(0, Bin) -> Bin;
 payload(N, Bin) ->
     C = rand:uniform($z - $0 + 1) + $0,
     payload(N - 1, <<Bin/binary, C>>).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% This is the most basic of tests.
+
+%% Create a new node with kernel option(s) 'inet_default_listen_options'
+%% and 'inet_default_connect_options' set then rpc call a function which
+%% creates socket(s) and reads back their values of that socket (buffer
+%% and recbuf).
+%%
+t_kernel_options(Config) when is_list(Config) ->
+    ?TC_TRY(?FUNCTION_NAME,
+            fun() -> ok end,
+            fun() -> case ?WHICH_LOCAL_ADDR(inet) of
+                         {ok, Addr} ->
+                             Addr;
+                         {error, Reason} ->
+                             throw({skip, Reason})
+                     end
+            end,
+            fun(Addr) ->
+                    do_kernel_options(Config, Addr)
+            end,
+            fun(_) ->
+                    ok
+            end).
+
+do_kernel_options(Config, Addr) ->
+    LBSz   = 12345,
+    LRBSz  = 54321,
+    CBSz   = 23456,
+    CRBSz  = 65432,
+    KOpts = ?F("-kernel inet_default_listen_options "
+               "\"[{buffer,~w},{recbuf,~w}]\" "
+               "-kernel inet_default_connect_options "
+               "\"[{buffer,~w},{recbuf,~w}]\"",
+               [LBSz, LRBSz, CBSz, CRBSz]),
+    ?P("try start node"),
+    case ?START_NODE(?UNIQ_NODE_NAME, KOpts) of
+        {ok, Node} ->
+            LExpected = [{buffer, LBSz}, {recbuf, LRBSz}],
+            CExpected = [{buffer, CBSz}, {recbuf, CRBSz}],
+            %% Listen, Connect, Accept
+            Expected = {LExpected, CExpected, LExpected},
+            ?P("node ~p started - try get (tcp) buffer options", [Node]),
+            case rpc:call(Node,
+                          ?MODULE,
+                          do_kernel_options_remote,
+                          [Config, Addr]) of
+                {
+                 [{buffer, LBSz}, {recbuf, RB1}], % Listen
+                 [{buffer, CBSz}, {recbuf, RB2}], % Connect
+                 [{buffer, LBSz}, {recbuf, RB3}]  % Accept
+                }
+                  when (RB1 =:= LRBSz) andalso
+                       (RB2 >= CRBSz) andalso
+                       (RB3 >= LRBSz) -> 
+                    ?P("options (buffers) verified:"
+                       "~n   listen:  ~p"
+                       "~n   connect: ~p (>= ~p)"
+                       "~n   accept:  ~p (>= ~p)",
+                       [RB1, RB2, CRBSz, RB3, LRBSz]),
+                    (catch ?STOP_NODE(Node)),
+                    ok;
+                Actual ->
+                    ?P("unexpected:"
+                       "~n   Expected: ~p"
+                       "~n   Actual:   ~p", [Expected, Actual]),
+                    (catch ?STOP_NODE(Node)),
+                    exit({unexpected, Expected, Actual})
+            end;
+        {error, Reason} ->
+            ?P("failed start node: ~p", [Reason]),
+            error
+    end.
+
+do_kernel_options_remote(Config, Addr) ->
+    LS = case ?LISTEN(Config, 0, [{ip, Addr}]) of
+             {ok, S1} ->
+                 S1;
+             {error, _} = ERROR1 ->
+                 exit({listen, ERROR1})
+         end,
+    {LAddr, LPort} = case inet:sockname(LS) of
+                         {ok, {A, P}} ->
+                             {A, P};
+                                                  {error, _} = SN_ERROR ->
+                             exit({sockname, SN_ERROR})
+                     end,
+    CS = case ?CONNECT(Config, LAddr, LPort, [{ip, Addr}]) of
+             {ok, S2} ->
+                 S2;
+             {error, _} = ERROR2 ->
+                 exit({connect, ERROR2})
+         end,
+    AS = case gen_tcp:accept(LS) of
+             {ok, S3} ->
+                 S3;
+             {error, _} = ERROR3 ->
+                 exit({accept, ERROR3})
+         end,
+    {ok, LBuffs} = inet:getopts(LS, [buffer, recbuf]),
+    {ok, CBuffs} = inet:getopts(CS, [buffer, recbuf]),
+    {ok, ABuffs} = inet:getopts(AS, [buffer, recbuf]),
+    {LBuffs, CBuffs, ABuffs}.
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
