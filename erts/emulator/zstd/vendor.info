@@ -1,21 +1,23 @@
-%% %CopyrightBegin%
-%%
-%% SPDX-License-Identifier: Apache-2.0
-%%
-%% Copyright Ericsson AB 2025. All Rights Reserved.
-%%
-%% %CopyrightEnd%
-{
-  "ID": "erts-zstd",
-  "description": "zstd",
-  "copyrightText": "Copyright (c) Meta Platforms, Inc. and affiliates. All rights reserved.",
-  "downloadLocation": "https://github.com/facebook/zstd",
-  "homepage": "https://github.com/facebook/zstd",
-  "license": "BSD-3-Clause OR GPL-2.0-only",
-  "licenseDeclared": "BSD-3-Clause OR GPL-2.0-only",
-  "name": "zstd",
-  "versionInfo": "v1.5.7",
-  "path": "./erts/emulator/zstd",
-  "supplier": "Organization: Meta",
-  "purl": "pkg:github/facebook/zstd"
-}
+// %CopyrightBegin%
+//
+// SPDX-License-Identifier: Apache-2.0
+//
+// Copyright Ericsson AB 2025. All Rights Reserved.
+//
+// %CopyrightEnd%
+[
+  {
+    "ID": "erts-zstd",
+    "description": "zstd",
+    "copyrightText": "Copyright (c) Meta Platforms, Inc. and affiliates. All rights reserved.",
+    "downloadLocation": "https://github.com/facebook/zstd",
+    "homepage": "https://github.com/facebook/zstd",
+    "license": "BSD-3-Clause OR GPL-2.0-only",
+    "licenseDeclared": "BSD-3-Clause OR GPL-2.0-only",
+    "name": "zstd",
+    "versionInfo": "v1.5.7",
+    "path": "./erts/emulator/zstd",
+    "supplier": "Organization: Meta",
+    "purl": "pkg:github/facebook/zstd"
+  }
+]

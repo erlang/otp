@@ -550,17 +550,20 @@ get_vendor_paths(RootPath) ->
     lists:flatmap(fun get_vendor_path/1, filelib:wildcard(filename:join(RootPath, "**/vendor.info"))).
 get_vendor_path(File) ->
     {ok, B} = file:read_file(File),
-    Vendors = case json:decode(re:replace(B, "^%.*", "", [multiline, global, {return, binary}])) of
-                  #{ } = V -> [V];
-                  [_ | _] = Vs -> Vs
-              end,
+    [_ | _] = Vendors = json:decode(re:replace(B, "^//.*", "", [multiline, global, {return, binary}])),
     lists:flatmap(
         fun(V) ->
                 case maps:get(~"path", V) of
                     Path when is_binary(Path) ->
+                        filelib:is_dir(binary_to_list(Path)) orelse
+                            fail("~ts: path must be a directory or an array of files", [File]),
                         [filename:absname(Path)];
                     Paths ->
-                        [filename:absname(P) || P <- Paths]
+                        [begin
+                            not filelib:is_dir(binary_to_list(P)) orelse
+                                fail("~ts: path must be a directory or an array of files", [File]),
+                            filename:absname(P)
+                         end || P <- Paths]
                 end
         end, Vendors).
 

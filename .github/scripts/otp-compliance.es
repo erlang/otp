@@ -858,7 +858,7 @@ decode_without_spdx_license(Filename) ->
 
     %% remove comments
     Lines = string:split(Bin, "\n", all),
-    Lines1 = lists:map(fun (Line) -> re:replace(Line, "%.*", "", [global]) end, Lines),
+    Lines1 = lists:map(fun (Line) -> re:replace(Line, "^//.*", "", [global]) end, Lines),
     Bin1 = erlang:iolist_to_binary(Lines1),
 
     json:decode(Bin1).
@@ -1141,8 +1141,7 @@ get_otp_apps_from_table() ->
     end.
 
 find_vendor_src_files(Folder) ->
-    S = os:cmd("find "++ Folder ++ " -name vendor.info"),
-    lists:map(fun erlang:list_to_binary/1, string:split(S, "\n", all)).
+    string:split(string:trim(os:cmd("find "++ Folder ++ " -name vendor.info")), "\n", all).
 
 -spec generate_spdx_mappings(Path :: [binary()]) -> Result when
       Result :: #{AppName :: binary() => {AppPath :: binary(), AppInfo :: app_info()}}.
@@ -1152,21 +1151,10 @@ generate_spdx_mappings(AppSrcPath) ->
                         maps:merge(Acc, DetectedPackages)
                 end, #{}, AppSrcPath).
 
--spec generate_vendor_info_package(VendorSrcPath :: [binary()]) -> map().
-generate_vendor_info_package(VendorSrcPath) ->
-    lists:foldl(fun vendor_info_to_map/2, [], VendorSrcPath).
-
-
 %% Read Path file and generate Json (map) following vendor.info specification
-vendor_info_to_map(<<>>, Acc) ->
-    Acc;
-vendor_info_to_map(Path, Acc) ->
-    case decode_without_spdx_license(Path) of
-        Json when is_list(Json) ->
-            Json ++ Acc;
-        Json when is_map(Json) ->
-            [Json | Acc]
-    end.
+-spec generate_vendor_info_package(VendorSrcPath :: [file:name()]) -> map().
+generate_vendor_info_package(VendorSrcPath) ->
+    lists:flatmap(fun decode_without_spdx_license/1, VendorSrcPath).
 
 -spec generate_spdx_vendor_packages(VendorInfoPackage :: map(), map()) -> map().
 generate_spdx_vendor_packages(VendorInfoPackages, #{~"files" := SpdxFiles}=_SPDX) ->
@@ -1203,6 +1191,7 @@ generate_spdx_vendor_packages(VendorInfoPackages, #{~"files" := SpdxFiles}=_SPDX
                   (#{~"ID" := Id, ~"path" := DirtyPath}=Package) when is_binary(DirtyPath) ->
                       %% Deals with the case of creating a package out of a path
                       Path = cleanup_path(DirtyPath),
+                      true = filelib:is_dir(DirtyPath),
                       Package0 = maps:remove(~"purl", Package),
                       Package1 = maps:remove(~"ID", Package0),
                       Package2 = maps:remove(~"path", Package1),
@@ -1614,7 +1603,7 @@ test_hasFiles_not_empty(#{~"packages" := Packages}) ->
         true = lists:all(fun (#{~"hasFiles" := Files}) -> length(Files) > 0 end, Packages)
     catch
         _:_:_ ->
-            lists:map(fun (#{~"hasFiles" := Files, ~"SPDXID":=Id}) ->
+            lists:foreach(fun (#{~"hasFiles" := Files, ~"SPDXID":=Id}) ->
                               io:format("~p: length: ~p~n", [Id, length(Files)])
                       end, Packages),
             error(?FUNCTION_NAME)
@@ -1742,7 +1731,13 @@ test_download_location(#{~"packages" := Packages}) ->
 test_package_hasFiles(#{~"packages" := Packages}) ->
     %% test files are not repeated
     AllFiles = lists:foldl(fun (#{~"hasFiles" := FileIds}, Acc) -> FileIds ++ Acc end, [], Packages),
-    true = length(AllFiles) == length(lists:uniq(AllFiles)),
+
+    try
+        true = length(AllFiles) == length(lists:uniq(AllFiles))
+    catch _:_:_ ->
+            io:format("~p~n",[AllFiles -- lists:uniq(AllFiles)]),
+            error(?FUNCTION_NAME)
+    end,
 
     %% Test all files contain at least one file
     true = lists:all(fun (#{~"hasFiles" := Files}) -> erlang:length(Files) > 0 end, Packages),
