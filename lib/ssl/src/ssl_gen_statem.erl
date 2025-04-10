@@ -1854,6 +1854,12 @@ log_alert(Level, Role, ProtocolName, StateName, #alert{role = Role} = Alert) ->
                                     statename => StateName,
                                     alert => Alert,
                                     alerter => own}, Alert#alert.where);
+log_alert(Level, Role, ProtocolName, StateName, #alert{description = ?USER_CANCELED} = Alert) ->
+    ssl_logger:log(info, Level, #{protocol => ProtocolName,
+                                  role => Role,
+                                  statename => StateName,
+                                  alert => Alert,
+                                  alerter => peer}, Alert#alert.where);
 log_alert(Level, Role, ProtocolName, StateName,  Alert) ->
     ssl_logger:log(notice, Level, #{protocol => ProtocolName,
                                     role => Role,
