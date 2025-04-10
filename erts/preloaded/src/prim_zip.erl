@@ -534,8 +534,15 @@ add_extra_info(FI, _) ->
 dos_date_time_to_datetime(DosDate, DosTime) ->
     <<Hour:5, Min:6, Sec:5>> = <<DosTime:16>>,
     <<YearFrom1980:7, Month:4, Day:5>> = <<DosDate:16>>,
+
+    %% Note that we have a different solution here than in zip.erl
+    %% as it uses calendar and we don't have access to that here.
+    %%
+    %% The assumption is that prim_zip will never really care about
+    %% the timestamps and thus it does not really matter.
+
     {{YearFrom1980+1980, Month, Day},
-     {Hour, Min, Sec * 2}}.
+     {Hour, Min, min(Sec * 2, 59)}}.
 
 cd_file_header_from_bin(<<VersionMadeBy:16/little,
 			 VersionNeeded:16/little,

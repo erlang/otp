@@ -2468,10 +2468,21 @@ file_header_ctime_to_datetime(FH) ->
 %% bit   0 - 4 	 5 - 10 11 - 15    16 - 20      21 - 24        25 - 31
 %% value second  minute hour 	   day (1 - 31) month (1 - 12) years from 1980
 dos_date_time_to_datetime(DosDate, DosTime) ->
-    <<Hour:5, Min:6, Sec:5>> = <<DosTime:16>>,
+    <<Hour:5, Min:6, DoubleSec:5>> = <<DosTime:16>>,
     <<YearFrom1980:7, Month:4, Day:5>> = <<DosDate:16>>,
-    {{YearFrom1980+1980, Month, Day},
-     {Hour, Min, Sec * 2}}.
+
+    Datetime = {{YearFrom1980+1980, Month, Day},
+                {Hour, Min, DoubleSec * 2}},
+    if DoubleSec > 29 ->
+            %% If DoubleSec * 2 > 59, something is broken
+            %% with this archive, but unzip wraps the value
+            %% so we do the same by converting to greg seconds
+            %% and then back again.
+            calendar:gregorian_seconds_to_datetime(
+              calendar:datetime_to_gregorian_seconds(Datetime));
+       true ->
+            Datetime
+    end.
 
 dos_date_time_from_datetime({{Year, Month, Day}, {Hour, Min, Sec}}) ->
     YearFrom1980 = Year-1980,
