@@ -61,8 +61,8 @@ flowchart TD
     API ---> ML[Module Level <hr> Global Level <hr> Global Filters]
     API -.Update configuration.-> DB
     ML -.-> DB
-    ML ---> HL1[Hander Level <hr> Handler Filter]
-    ML ---> HL2[Hander Level <hr> Handler Filter]
+    ML ---> HL1[Handler Level <hr> Handler Filter]
+    ML ---> HL2[Handler Level <hr> Handler Filter]
     HL1 ---> HC1[Handler Callback]
     HL2 ---> HC2[Handler Callback]
     HL1 -.-> DB
