@@ -63,10 +63,10 @@ Below is a summary of notable incompatibilities and behavioral changes:
 ## Option Handling
 
   * **Compile-Time vs. Run-Time Options:** Options affecting newline conventions (`{newline, _}`)
-  or backslash R behavior (`bsr_anycrlf`, `bsr_unicode`) primarily control pattern *compilation*.
+  or backslash R behavior (`bsr_anycrlf`, `bsr_unicode`) only control pattern *compilation*.
   If a pattern is pre-compiled using `re:compile/2`, passing incompatible options for these
-  settings later to `re:run/3`, `re:replace/4`, or `re:split/3` will result in an error. The
-  options must match those used at compile time.
+  settings later to `re:run/3`, `re:replace/4`, or `re:split/3` will result in an error.
+  If present, the options must match those used at compile time.
 
 ## Behavioral Changes & Feature Restrictions
 
