@@ -18,16 +18,6 @@
 %% %CopyrightEnd%
 %%
 
-%% There are some environment variables that can be used to "manipulate"
-%% the test suite: 
-%%
-%% Variable that controls which 'groups' are to run (with default values)
-%%
-%%         ESOCK_TEST_TRAFFIC_COUNTERS:   include
-%%         ESOCK_TEST_TRAFFIC_CHUNKS:     include
-%%         ESOCK_TEST_TRAFFIC_PING_PONG:  include
-%%         ESOCK_TEST_TRAFFIC_BENCH:      exclude
-%%
 %% Variable that controls "verbosity" of the test case(s):
 %%
 %%         ESOCK_TEST_QUIET: true (default) | false
@@ -188,47 +178,71 @@ suite() ->
      {timetrap, {minutes,1}}].
 
 all() -> 
-    Groups = [
-              {counters,  "ESOCK_TEST_TRAFFIC_COUNTERS",  include},
-              {chunks,    "ESOCK_TEST_TRAFFIC_CHUNKS",    include},
-              {ping_pong, "ESOCK_TEST_TRAFFIC_PING_PONG", include},
-              %% {bench,     "ESOCK_TEST_TRAFFIC_BENCH",     exclude},
-              {bench,     "ESOCK_TEST_TRAFFIC_BENCH",     include}
-             ],
-    [use_group(Group, Env, Default) || {Group, Env, Default} <- Groups].
+    %% Groups = [
+    %%           {counters,  "ESOCK_TEST_TRAFFIC_COUNTERS",  include},
+    %%           {chunks,    "ESOCK_TEST_TRAFFIC_CHUNKS",    include},
+    %%           {ping_pong, "ESOCK_TEST_TRAFFIC_PING_PONG", include},
+    %%           {tbench,    "ESOCK_TEST_TRAFFIC_BENCH",     include}
+    %%          ],
+    %% [use_group(Group, Env, Default) || {Group, Env, Default} <- Groups].
+    [{group, standard}].
 
-use_group(_Group, undefined, exclude) ->
-    [];
-use_group(Group, undefined, _Default) ->
-    [{group, Group}];
-use_group(Group, Env, Default) ->
-	case os:getenv(Env) of
-	    false when (Default =:= include) ->
-		[{group, Group}];
-	    false ->
-		[];
-	    Val ->
-		case list_to_atom(string:to_lower(Val)) of
-		    Use when (Use =:= include) orelse 
-			     (Use =:= enable) orelse 
-			     (Use =:= true) ->
-			[{group, Group}];
-		    _ ->
-			[]
-		end
-	end.
+%% use_group(_Group, undefined, exclude) ->
+%%     [];
+%% use_group(Group, undefined, _Default) ->
+%%     [{group, Group}];
+%% use_group(Group, Env, Default) ->
+%% 	case os:getenv(Env) of
+%% 	    false when (Default =:= include) ->
+%% 		[{group, Group}];
+%% 	    false ->
+%% 		[];
+%% 	    Val ->
+%% 		case list_to_atom(string:to_lower(Val)) of
+%% 		    Use when (Use =:= include) orelse 
+%% 			     (Use =:= enable) orelse 
+%% 			     (Use =:= true) ->
+%% 			[{group, Group}];
+%% 		    _ ->
+%% 			[]
+%% 		end
+%% 	end.
     
 
 groups() -> 
-    [{counters,            [], traffic_counters_cases()},
+    [
+     %% Top level "wrapper" groups
+     %% A normal (standard) test run will be running the 'suite'.
+     %% Which will run the 'standard' group, with all test cases but
+     %% the 'tbench' group of test cases will run with a short
+     %% run time.
+     %% A benchmark test run will run the 'bench' group directly,
+     %% with an "extended" run time.
+     %%
+     {standard,            [], standard_cases()},
+     {bench,               [], bench_cases()},
+
+     {counters,            [], traffic_counters_cases()},
      {chunks,              [], traffic_chunks_cases()},
      {ping_pong,           [], traffic_ping_pong_cases()},
-     {bench,               [], traffic_bench_cases()},
+     {tbench,              [], traffic_bench_cases()},
      {pp_send_recv,        [], traffic_pp_send_recv_cases()},
      {pp_sendto_recvfrom,  [], traffic_pp_sendto_recvfrom_cases()},
      {pp_sendmsg_recvmsg,  [], traffic_pp_sendmsg_recvmsg_cases()}
     ].
-     
+
+standard_cases() ->
+    [
+     {group, counters},
+     {group, chunks},
+     {group, ping_pong},
+     {group, tbench}
+    ].
+
+bench_cases() ->
+    [
+     {group, tbench}
+    ].
 
 traffic_counters_cases() ->
     [
@@ -405,7 +419,31 @@ end_per_suite(Config0) ->
     Config1.
 
 
+init_per_group(standard = GroupName, Config) ->
+    ?P("init_per_group -> entry with"
+       "~n      GroupName: ~p"
+       "~n      Config:    ~p"
+       "~n   when"
+       "~n      Nodes:     ~p", [GroupName, Config, erlang:nodes()]),
+    [{category, GroupName} | Config];
+init_per_group(bench = GroupName, Config) ->
+    ?P("init_per_group -> entry with"
+       "~n      GroupName: ~p"
+       "~n      Config:    ~p"
+       "~n   when"
+       "~n      Nodes:     ~p", [GroupName, Config, erlang:nodes()]),
+    case proplists:get_value(category, Config, undefined) of
+        undefined ->
+            [{category, GroupName} | Config];
+        _ ->
+            Config
+    end;
 init_per_group(_GroupName, Config) ->
+    ?P("init_per_group -> entry with"
+       "~n      GroupName: ~p"
+       "~n      Config:    ~p"
+       "~n   when"
+       "~n      Nodes:     ~p", [_GroupName, Config, erlang:nodes()]),
     Config.
 
 end_per_group(_GroupName, Config) ->
@@ -7033,6 +7071,8 @@ tpp_udp_sock_close(Sock, Path) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% Benchmark test cases
+%% This test is (currently) very simple. Both parties of the test
+%% (server and client) runs in the same (this) node.
 
 -define(TB_IOV_CHUNK(Sz,V), list_to_binary(lists:duplicate((Sz), (V)))).
 tb_iov() ->
@@ -7069,8 +7109,19 @@ tb_iov() ->
     TSz = iolist_size(IOV1),
     [<<TSz:32/integer>> | IOV1].
 
+tb_runtime(Config) ->
+    ?SEV_IPRINT("~w -> entry with"
+                "~n   Config: ~p", [?FUNCTION_NAME, Config]),
+    case proplists:get_value(category, Config, standard) of
+        bench ->
+            ?MINS(1);
+        standard ->
+            ?SECS(10)
+    end.
+
 traffic_bench_sendv_and_recv_tcp4(Config) when is_list(Config) ->
-    ?TT(?MINS(2)), %% Test *should* run for 60 secs
+    RunTime = tb_runtime(Config),
+    ?TT(RunTime + ?MINS(1)),
     IOV = tb_iov(),
     Send = fun(S, Data) when is_list(Data) ->
                    socket:sendv(S, Data)
@@ -7082,12 +7133,13 @@ traffic_bench_sendv_and_recv_tcp4(Config) when is_list(Config) ->
                                  domain   => inet,
                                  send     => Send,
                                  iov      => IOV,
-                                 run_time => ?MINS(1)},
+                                 run_time => RunTime},
                    do_traffic_bench_send_and_recv(InitState)
            end).
 
 traffic_bench_send_and_recv_tcp4(Config) when is_list(Config) ->
-    ?TT(?MINS(2)), %% Test *should* run for 60 secs
+    RunTime = tb_runtime(Config),
+    ?TT(RunTime + ?MINS(1)),
     IOV = tb_iov(),
     Send = fun(S, Data) when is_list(Data) ->
                    socket:send(S, iolist_to_binary(Data))
@@ -7099,12 +7151,13 @@ traffic_bench_send_and_recv_tcp4(Config) when is_list(Config) ->
                                  domain   => inet,
                                  send     => Send,
                                  iov      => IOV,
-                                 run_time => ?MINS(1)},
+                                 run_time => RunTime},
                    do_traffic_bench_send_and_recv(InitState)
            end).
 
 traffic_bench_sendv_and_recv_tcp6(Config) when is_list(Config) ->
-    ?TT(?MINS(2)), %% Test *should* run for 60 secs
+    RunTime = tb_runtime(Config),
+    ?TT(RunTime + ?MINS(1)),
     IOV = tb_iov(),
     Send = fun(S, Data) when is_list(Data) ->
                    socket:sendv(S, Data)
@@ -7116,12 +7169,13 @@ traffic_bench_sendv_and_recv_tcp6(Config) when is_list(Config) ->
                                  domain   => inet6,
                                  send     => Send,
                                  iov      => IOV,
-                                 run_time => ?MINS(1)},
+                                 run_time => RunTime},
                    do_traffic_bench_send_and_recv(InitState)
            end).
 
 traffic_bench_send_and_recv_tcp6(Config) when is_list(Config) ->
-    ?TT(?MINS(2)), %% Test *should* run for 60 secs
+    RunTime = tb_runtime(Config),
+    ?TT(RunTime + ?MINS(1)),
     IOV = tb_iov(),
     Send = fun(S, Data) when is_list(Data) ->
                    socket:send(S, iolist_to_binary(Data))
@@ -7133,12 +7187,13 @@ traffic_bench_send_and_recv_tcp6(Config) when is_list(Config) ->
                                  domain   => inet6,
                                  send     => Send,
                                  iov      => IOV,
-                                 run_time => ?MINS(1)},
+                                 run_time => RunTime},
                    do_traffic_bench_send_and_recv(InitState)
            end).
 
 traffic_bench_sendv_and_recv_tcpL(Config) when is_list(Config) ->
-    ?TT(?MINS(2)), %% Test *should* run for 60 secs
+    RunTime = tb_runtime(Config),
+    ?TT(RunTime + ?MINS(1)),
     IOV = tb_iov(),
     Send = fun(S, Data) when is_list(Data) ->
                    socket:sendv(S, Data)
@@ -7150,12 +7205,13 @@ traffic_bench_sendv_and_recv_tcpL(Config) when is_list(Config) ->
                                  domain   => local,
                                  send     => Send,
                                  iov      => IOV,
-                                 run_time => ?MINS(1)},
+                                 run_time => RunTime},
                    do_traffic_bench_send_and_recv(InitState)
            end).
 
 traffic_bench_send_and_recv_tcpL(Config) when is_list(Config) ->
-    ?TT(?MINS(2)), %% Test *should* run for 60 secs
+    RunTime = tb_runtime(Config),
+    ?TT(RunTime + ?MINS(1)),
     IOV = tb_iov(),
     Send = fun(S, Data) when is_list(Data) ->
                    socket:send(S, iolist_to_binary(Data))
@@ -7167,7 +7223,7 @@ traffic_bench_send_and_recv_tcpL(Config) when is_list(Config) ->
                                  domain   => local,
                                  send     => Send,
                                  iov      => IOV,
-                                 run_time => ?MINS(1)},
+                                 run_time => RunTime},
                    do_traffic_bench_send_and_recv(InitState)
            end).
 
@@ -7221,7 +7277,6 @@ tb_await_termination(BName,
         {'DOWN', ClientMRef, process, ClientPid, {done, {Exchange, UnitStr}}} ->
             ?SEV_IPRINT("[ctrl] "
                         "received (expected) down from client with result"),
-            ?SEV_IPRINT("[ctrl] send (ct) event"),
             ct_event:notify( ?BENCH_EVENT(BName, Exchange) ),
             ?SEV_IPRINT("[ctrl] await server termination"),
             NewComment = {comment, ?F("~p ~s", [Exchange, UnitStr])},

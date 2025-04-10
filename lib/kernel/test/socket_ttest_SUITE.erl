@@ -439,7 +439,8 @@
 
 -define(WINDOWS, {win32,nt}).
 
--define(TTEST_RUNTIME,                       ?SECS(1)).
+-define(TTEST_STANDARD_RUNTIME,              ?SECS(1)).
+-define(TTEST_BENCH_RUNTIME,                 ?SECS(10)).
 -define(TTEST_MIN_FACTOR,                    3).
 -define(TTEST_MIN_FACTOR_WIN,                ?TTEST_MIN_FACTOR-1).
 -define(TTEST_DEFAULT_SMALL_MAX_OUTSTANDING, 50).
@@ -465,33 +466,36 @@ suite() ->
      {timetrap, {minutes,1}}].
 
 all() -> 
-    Groups = [{ttest, "ESOCK_TEST_TTEST", include}],
-    [use_group(Group, Env, Default) || {Group, Env, Default} <- Groups].
+    [{group, standard}].
+    %% Groups = [{ttest, "ESOCK_TEST_TTEST", include}],
+    %% [use_group(Group, Env, Default) || {Group, Env, Default} <- Groups].
 
-use_group(_Group, undefined, exclude) ->
-    [];
-use_group(Group, undefined, _Default) ->
-    [{group, Group}];
-use_group(Group, Env, Default) ->
-	case os:getenv(Env) of
-	    false when (Default =:= include) ->
-		[{group, Group}];
-	    false ->
-		[];
-	    Val ->
-		case list_to_atom(string:to_lower(Val)) of
-		    Use when (Use =:= include) orelse 
-			     (Use =:= enable) orelse 
-			     (Use =:= true) ->
-			[{group, Group}];
-		    _ ->
-			[]
-		end
-	end.
+%% use_group(_Group, undefined, exclude) ->
+%%     [];
+%% use_group(Group, undefined, _Default) ->
+%%     [{group, Group}];
+%% use_group(Group, Env, Default) ->
+%% 	case os:getenv(Env) of
+%% 	    false when (Default =:= include) ->
+%% 		[{group, Group}];
+%% 	    false ->
+%% 		[];
+%% 	    Val ->
+%% 		case list_to_atom(string:to_lower(Val)) of
+%% 		    Use when (Use =:= include) orelse 
+%% 			     (Use =:= enable) orelse 
+%% 			     (Use =:= true) ->
+%% 			[{group, Group}];
+%% 		    _ ->
+%% 			[]
+%% 		end
+%% 	end.
     
 
 groups() -> 
-    [{ttest,                       [], ttest_cases()},
+    [{standard,                    [], standard_cases()},
+     {bench,                       [], bench_cases()},
+     {ttest,                       [], ttest_cases()},
      {ttest_sgenf,                 [], ttest_sgenf_cases()},
      {ttest_sgenf_cgen,            [], ttest_sgenf_cgen_cases()},
      {ttest_sgenf_cgenf,           [], ttest_sgenf_cgenf_cases()},
@@ -555,7 +559,7 @@ groups() ->
      {ttest_simple_ssockt_csock,   [], ttest_simple_ssockt_csock_cases()},
      {ttest_simple_ssockt_csocko,  [], ttest_simple_ssockt_csocko_cases()}
     ].
-     
+
 
 %% Condition for running the ttest cases.
 %% No point in running these cases unless the machine is
@@ -631,6 +635,16 @@ ttest_max_outstanding(Config, EnvKey, Default) ->
                     end
             end
     end.
+
+standard_cases() ->
+    [
+     {group, ttest}
+    ].
+
+bench_cases() ->
+    [
+     {group, ttest}
+    ].
 
 ttest_cases() ->
     [
@@ -1509,6 +1523,16 @@ end_per_suite(Config0) ->
     Config1.
 
 
+init_per_group(standard = GroupName, Config) ->
+    io:format("init_per_group(~w) -> entry with"
+              "~n   Config: ~p"
+              "~n", [GroupName, Config]),
+    [{category, GroupName} | Config];
+init_per_group(bench = GroupName, Config) ->
+    io:format("init_per_group(~w) -> entry with"
+              "~n   Config: ~p"
+              "~n", [GroupName, Config]),
+    [{category, GroupName} | Config];
 init_per_group(ttest = _GroupName, Config) ->
     io:format("init_per_group(~w) -> entry with"
               "~n   Config: ~p"
@@ -6750,11 +6774,13 @@ ttest_simple_ssockt_csocko_small_tcpL(Config) when is_list(Config) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 which_ttest_runtime(Config) when is_list(Config) ->
-    case lists:keysearch(esock_test_ttest_runtime, 1, Config) of
-        {value, {esock_test_ttest_runtime, Runtime}} ->
-            Runtime;
-        false ->
-            which_ttest_runtime_env()
+    case proplists:get_value(category, Config, standard) of
+        standard ->
+            proplists:get_value(esock_test_ttest_runtime,
+                                Config, which_ttest_runtime_env());
+        bench ->
+            %% We always run a certain time for benchmark runs
+            ?TTEST_BENCH_RUNTIME
     end.
 
 which_ttest_runtime_env() ->
@@ -6763,7 +6789,7 @@ which_ttest_runtime_env() ->
 which_ttest_runtime_env(TStr) when is_list(TStr) ->
     which_ttest_runtime_env2(lists:reverse(TStr));
 which_ttest_runtime_env(false) ->
-    ?TTEST_RUNTIME.
+    ?TTEST_STANDARD_RUNTIME.
 
 
 %% The format is: <int>[unit]
@@ -6785,7 +6811,7 @@ convert_time(TStrRev, Convert) ->
         I -> Convert(I)
     catch
         _:_ ->
-            ?TTEST_RUNTIME
+            ?TTEST_STANDARD_RUNTIME
     end.
 
 %% ttest_tcp(TC,
@@ -6794,7 +6820,7 @@ convert_time(TStrRev, Convert) ->
 %%           ClientMod, ClientActive,
 %%           MsgID, MaxOutstanding) ->
 %%     ttest_tcp(TC,
-%%               ?TTEST_RUNTIME,
+%%               ?TTEST_STANDARD_RUNTIME,
 %%               Domain,
 %%               ServerMod, ServerActive,
 %%               ClientMod, ClientActive,
