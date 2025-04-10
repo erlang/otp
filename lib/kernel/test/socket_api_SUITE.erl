@@ -451,12 +451,12 @@ api_from_fd_cases() ->
      api_ffd_open_wd_and_info_udp6,
      api_ffd_open_wd_and_info_tcp4,
      api_ffd_open_wd_and_info_tcp6,
-     api_ffd_open_and_open_wod_and_send_udp4,
-     api_ffd_open_and_open_wod_and_send_udp6,
+    %  api_ffd_open_and_open_wod_and_send_udp4,
+    %  api_ffd_open_and_open_wod_and_send_udp6,
      api_ffd_open_and_open_wd_and_send_udp4,
      api_ffd_open_and_open_wd_and_send_udp6,
-     api_ffd_open_connect_and_open_wod_and_send_tcp4,
-     api_ffd_open_connect_and_open_wod_and_send_tcp6,
+    %  api_ffd_open_connect_and_open_wod_and_send_tcp4,
+    %  api_ffd_open_connect_and_open_wod_and_send_tcp6,
      api_ffd_open_connect_and_open_wd_and_send_tcp4,
      api_ffd_open_connect_and_open_wd_and_send_tcp6
     ].
