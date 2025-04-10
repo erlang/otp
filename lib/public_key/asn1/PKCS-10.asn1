@@ -1,7 +1,35 @@
+-- %CopyrightBegin%
+--
+-- SPDX-License-Identifier: NOASSERTION
+--
+-- Copyright (C) The Internet Society (2000).  All Rights Reserved.
+--
+-- This document and translations of it may be copied and furnished to
+-- others provided that the above copyright notice and this paragraph
+-- are included on all such copies.  However, this document itself may
+-- not be modified in any way, such as by removing the copyright notice
+-- or references to the Internet Society or other Internet
+-- organizations, except as required to translate it into languages
+-- other than English.
+--
+-- The limited permissions granted above are perpetual and will not be
+-- revoked by the Internet Society or its successors or assigns.
+--
+-- This document and the information contained herein is provided on an
+-- "AS IS" basis and THE INTERNET SOCIETY AND THE INTERNET ENGINEERING
+-- TASK FORCE DISCLAIMS ALL WARRANTIES, EXPRESS OR  IMPLIED, INCLUDING
+-- BUT NOT  LIMITED TO ANY WARRANTY THAT THE USE OF THE INFORMATION
+-- HEREIN WILL NOT INFRINGE ANY RIGHTS OR ANY  IMPLIED WARRANTIES OF
+-- MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.
+--
+-- Acknowledgement
+-- Funding for the RFC Editor function is currently provided by the
+-- Internet Society.
+--
+-- %CopyrightEnd%
+
 PKCS-10 {iso(1) member-body(2) us(840) rsadsi(113549) pkcs(1)
 pkcs-10(10) modules(1) pkcs-10(1)}
-
--- $Revision: 1.3 $ --
 
 DEFINITIONS IMPLICIT TAGS ::=
 
@@ -12,83 +40,64 @@ BEGIN
 -- in other ASN.1 modules.
 
 IMPORTS
+    Name
+    FROM PKIX1Explicit88; --InformationFramework informationFramework
 
---informationFramework, authenticationFramework
---    FROM UsefulDefinitions {joint-iso-itu-t(2) ds(5) module(1)
---    usefulDefinitions(0) 3}
-
-    ATTRIBUTE
-    FROM InformationFramework informationFramework
-
-    Name, Extensions, DirectoryString
-    FROM PKIX1Explicit88 --InformationFramework informationFramework
-
-    ALGORITHM
-       FROM PKCS-7; --AuthenticationFramework authenticationFramework;
-
--- start inlined from PKCS-9
-
---pkcs-9-ub-pkcs9String          		INTEGER ::= 255
---pkcs-9-ub-challengePassword     	INTEGER ::= pkcs-9-ub-pkcs9String
-pkcs-9-at-challengePassword             OBJECT IDENTIFIER ::= {pkcs-9 7}
-
-challengePassword ATTRIBUTE ::= {
-        WITH SYNTAX DirectoryString --{pkcs-9-ub-challengePassword}
-        SINGLE VALUE TRUE
-        ID pkcs-9-at-challengePassword
-}
-
-pkcs-9-at-extensionRequest              OBJECT IDENTIFIER ::= {pkcs-9 14}
-
-extensionRequest ATTRIBUTE ::= {
-        WITH SYNTAX ExtensionRequest
-        SINGLE VALUE TRUE
-        ID pkcs-9-at-extensionRequest
-}
-
-ExtensionRequest ::= Extensions
-
--- end inlined from PKCS-9
-       
 -- Certificate requests
 
-CertificationRequestInfo ::= SEQUENCE {
-    version       INTEGER { v1(0) } (v1,...),
-    subject       Name,
-    subjectPKInfo SubjectPublicKeyInfo-PKCS-10{{ PKInfoAlgorithms }},
-    attributes    [0] Attributes{{ CRIAttributes }}
-}
+   CertificationRequestInfo ::= SEQUENCE {
+        version       INTEGER { v1(0) } (v1,...),
+        subject       Name,
+        subjectPKInfo PKCS10SubjectPublicKeyInfo{{ PKInfoAlgorithms }},
+        attributes    [0] Pkcs10EmptyAttributes{{ CRIAttributes }}
+   }
 
-SubjectPublicKeyInfo-PKCS-10 {ALGORITHM: IOSet} ::= SEQUENCE {
-    algorithm		AlgorithmIdentifierPKCS-10{{IOSet}},
-    subjectPublicKey 	BIT STRING
-}
+   PKCS-10-DUMMY-ATTRIBUTE ::= CLASS {
+     &Type                  OPTIONAL,
+     &id                    OBJECT IDENTIFIER UNIQUE
+   } WITH SYNTAX {
+     [WITH SYNTAX &Type]
+     ID &id
+   }
 
-PKInfoAlgorithms ALGORITHM ::= {
-    ... -- add any locally defined algorithms here -- }
+   -- A set of empty attributes.
+   Pkcs10EmptyAttributes { PKCS-10-DUMMY-ATTRIBUTE:IOSet } ::= SET OF AttributePKCS-10{{ IOSet }}
 
-Attributes { ATTRIBUTE:IOSet } ::= SET OF AttributePKCS-10{{ IOSet }}
+   CRIAttributes  PKCS-10-DUMMY-ATTRIBUTE  ::= {
+   ... -- don't add any local definitions here; must remain empty -- }
 
-CRIAttributes  ATTRIBUTE  ::= {
-... -- add any locally defined attributes here -- }
+   -- The exact definition does not matter because the SET where this SEQUENCE is used
+   -- is always empty.
+   AttributePKCS-10 { PKCS-10-DUMMY-ATTRIBUTE:IOSet } ::= SEQUENCE {
+       type   	PKCS-10-DUMMY-ATTRIBUTE.&id({IOSet})
+   }
 
-AttributePKCS-10 { ATTRIBUTE:IOSet } ::= SEQUENCE {
-    type   	ATTRIBUTE.&id({IOSet}),
-    values 	SET SIZE(1..MAX) OF ATTRIBUTE.&Type({IOSet}{@type})
-}
+   PKCS10SubjectPublicKeyInfo {ALGORITHM: IOSet} ::= SEQUENCE {
+        algorithm        PKCS10AlgorithmIdentifier {{IOSet}},
+        subjectPublicKey BIT STRING
+   }
 
-CertificationRequest ::= SEQUENCE {
-    certificationRequestInfo CertificationRequestInfo,
-    signatureAlgorithm	     AlgorithmIdentifierPKCS-10{{ SignatureAlgorithms }},
-    signature                BIT STRING
-}
+   PKInfoAlgorithms ALGORITHM ::= {
+        ...  -- add any locally defined algorithms here -- }
 
-AlgorithmIdentifierPKCS-10 {ALGORITHM:IOSet } ::= SEQUENCE {
-    algorithm  	ALGORITHM.&id({IOSet}),
-    parameters 	ALGORITHM.&Type({IOSet}{@algorithm}) OPTIONAL
-}
+   CertificationRequest ::= SEQUENCE {
+        certificationRequestInfo CertificationRequestInfo,
+        signatureAlgorithm PKCS10AlgorithmIdentifier{{ SignatureAlgorithms }},
+        signature          BIT STRING
+   }
 
-SignatureAlgorithms ALGORITHM ::= {
-    ... -- add any locally defined algorithms here -- }
+   PKCS10AlgorithmIdentifier {ALGORITHM:IOSet } ::= SEQUENCE {
+        algorithm  ALGORITHM.&id({IOSet}),
+        parameters ALGORITHM.&Type({IOSet}{@algorithm}) OPTIONAL
+   }
 
+   SignatureAlgorithms ALGORITHM ::= {
+        ... -- add any locally defined algorithms here -- }
+
+   ALGORITHM ::= CLASS {
+       &Type  OPTIONAL,
+       &id    OBJECT IDENTIFIER UNIQUE
+   } WITH SYNTAX {[&Type]
+       IDENTIFIED BY &id
+   }
 END
