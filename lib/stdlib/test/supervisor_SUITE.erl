@@ -3940,7 +3940,7 @@ is_in_erlang_hibernate(Pid) ->
     is_in_erlang_hibernate_1(200, Pid).
 
 is_in_erlang_hibernate_1(0, Pid) ->
-    io:format("~p\n", [erlang:process_info(Pid, current_function)]),
+    ct:pal("~p\n", [erlang:process_info(Pid, current_function)]),
     ct:fail(not_in_erlang_hibernate_3);
 is_in_erlang_hibernate_1(N, Pid) ->
     {current_function,MFA} = erlang:process_info(Pid, current_function),
@@ -3959,7 +3959,7 @@ is_not_in_erlang_hibernate(Pid) ->
     is_not_in_erlang_hibernate_1(200, Pid).
 
 is_not_in_erlang_hibernate_1(0, Pid) ->
-    io:format("~p\n", [erlang:process_info(Pid, current_function)]),
+    ct:pal("~p\n", [erlang:process_info(Pid, current_function)]),
     ct:fail(not_in_erlang_hibernate_3);
 is_not_in_erlang_hibernate_1(N, Pid) ->
     {current_function,MFA} = erlang:process_info(Pid, current_function),
