@@ -232,6 +232,18 @@ start(#{bench := Bench},
   when is_boolean(Bench) andalso
        is_integer(Factor) andalso
        (Factor > 0) andalso
+       is_list(RunTime) andalso
+       ((Mode =:= standard) orelse
+        (Mode =:= flex) orelse
+        (Mode =:= no_drv) orelse
+        (Mode =:= only_drv)) ->
+    do_start(Bench,
+             Factor, ?LIB:parse_runtime(RunTime), Mode, MessagePackage);
+start(#{bench := Bench},
+      Factor, RunTime, Mode, MessagePackage)
+  when is_boolean(Bench) andalso
+       is_integer(Factor) andalso
+       (Factor > 0) andalso
        is_integer(RunTime) andalso
        (RunTime > 0) andalso
        ((Mode =:= standard) orelse
