@@ -47,11 +47,18 @@ The following sections contain reference material for the regular expressions
 used by this module. The information is based on the PCRE2 documentation, with
 changes where this module behaves differently to the PCRE2 library.
 
+> #### Change {: .info }
+> Starting with Erlang/OTP 28, the underlying library for handling regular expressions via the `re`
+> module changes from PCRE to PCRE2. This upgrade brings Erlang's regular expression capabilities
+> more in line with modern standards, particularly Perl, but also introduces several breaking
+> changes and differences in behavior compared to PCRE, see
+> [PCRE incompatabilities](../guides/re_incompat.md).
 
 ## PCRE2 Regular Expression Details
 
 The syntax and semantics of the regular expressions that are supported by PCRE2
-are described in detail below. Perl's regular expressions are described in its own documentation, and regular expressions in general are covered in a number of books, some of which have
+are described in detail below. Perl's regular expressions are described in its own documentation,
+and regular expressions in general are covered in a number of books, some of which have
 copious examples. Jeffrey Friedl's "Mastering Regular Expressions", published
 by O'Reilly, covers regular expressions in great detail. This description of
 PCRE2's regular expressions is intended as reference material.
