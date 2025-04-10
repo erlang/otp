@@ -446,6 +446,16 @@ erts_internal_notify_breakpoint_hit_3(BIF_ALIST_3) {
 
 /* Inspecting stack-frames and X registers */
 
+/* A replacement for erts_inspect_frame() since here we traverse
+ * the stack in the opposite direction as done everywhere else.
+ */
+static ERTS_INLINE void maybe_skip_fp(Eterm **sp) {
+    if (ERTS_UNLIKELY(erts_frame_layout == ERTS_FRAME_LAYOUT_FP_RA)) {
+        (*sp)--; /* This puts us on the frame-pointer, to be skipped */
+        ASSERT(cp_val(*sp[0]) == NULL || *sp < (Eterm*)cp_val(*sp[0]));
+    }
+}
+
 static Process*
 suspended_proc_lock(Eterm pid, ErtsProcLocks locks) {
     erts_aint32_t state;
@@ -619,16 +629,7 @@ erl_debugger_stack_frames_2(BIF_ALIST_2)
             Eterm this_frame, frame_info_map, addr;
 
             if (!is_last_iter) {
-                /* Typically, we'd call erts_frame_layout() to find the
-                 * actual return address. However, this assumes we are traversing
-                 * the stack in the opposite direction as we do here. So instead
-                 * we inline the logic here. */
-                if (ERTS_UNLIKELY(erts_frame_layout == ERTS_FRAME_LAYOUT_FP_RA)) {
-                    ASSERT(cp_val(sp[0]) == NULL || sp < (Eterm*)cp_val(sp[0]));
-
-                    x = *--sp;
-                    code_ptr = cp_val(x);
-                }
+                maybe_skip_fp(&sp);
             }
 
             addr = erts_make_integer((Uint) code_ptr, BIF_P);
@@ -725,6 +726,8 @@ erl_debugger_peek_stack_frame_slot_4(BIF_ALIST_4)
         } else if (current_frame != frame_no) {
             current_frame++;
             yreg_count = 0;
+
+            maybe_skip_fp(&sp);
         } else if (yreg_no >= yreg_count) {
             result = am_undefined;
             break;
