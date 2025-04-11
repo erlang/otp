@@ -179,13 +179,31 @@ put_supports_table(Tag, MkTable) ->
     Table =
         try nif_supports(Tag) of
             Data ->
-                maps:from_list(MkTable(Data))
+                merge_values(MkTable(Data))
         catch
             error : notsup ->
                 #{}
         end,
     p_put(Tag, Table),
     Table.
+
+%% Like maps:from_list/1 the last duplicate key wins,
+%% except if both values are lists; append the second to the first.
+%%
+merge_values([]) -> #{};
+merge_values([{Key, Val} | L]) ->
+    M = merge_values(L),
+    case M of
+        #{ Key := Val2 } ->
+            if
+                is_list(Val), is_list(Val2) ->
+                    M#{ Key := Val ++ Val2 };
+                true ->
+                    M
+            end;
+        #{} ->
+            M#{ Key => Val }
+    end.
 
 %% ->
 %% [{Num, [Name, ...]}
