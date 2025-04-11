@@ -92,7 +92,7 @@ get_output() ->
 %%
 %%   {progress, 'end', {Status, Data}}
 %%       Status = 'ok' | {error, Exception} | {skipped, Cause} | integer()
-%%       Data = [{time,integer()}, {output,binary()}]
+%%       Data = [{time,timer:time()}, {output,binary()}]
 %%
 %%       where Time is measured in milliseconds and Output is the data
 %%       written to the standard output stream during the test; if
