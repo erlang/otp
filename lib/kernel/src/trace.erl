@@ -210,8 +210,10 @@ being destroyed when the last strong handle is garbage collected.
        {meta, module(), term() } |
        {meta_match_spec, trace_match_spec() | false | undefined} |
        {call_count, non_neg_integer() | boolean() | undefined} |
-       {call_time | call_memory, [{pid(), non_neg_integer(),
-		     non_neg_integer(), non_neg_integer()}] | boolean() | undefined}.
+       {call_time, [{pid(), non_neg_integer(), non_neg_integer(), non_neg_integer()}]
+                   | boolean() | undefined} |
+       {call_memory, [{pid(), non_neg_integer(), non_neg_integer()}]
+                   | boolean() | undefined}.
 
 -type trace_info_system_item() ::
       'busy_port' |
@@ -896,6 +898,9 @@ Argument **`FlagList`** is a list of options. The following are the valid option
 
 - **`call_memory`**{: #call_memory } - Start (`MatchSpec == true`) or stop
   (`MatchSpec == false`) call memory tracing for all types of function calls.
+  For every function, a counter is incremented when the function is called and
+  the memory consumed by the function is measured and accumulated in another
+  counter. Separate counters are stored for each call traced process.
 
   If call memory tracing is started while already running, counters and
   allocations restart from zero. To pause running counters, use

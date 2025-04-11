@@ -546,11 +546,6 @@ delay_garbage_collection(Process *p, int need, int fcalls)
 
     p->hend = hend;
 
-    /* Keep the high water mark pointing into the current heap to ensure
-     * that the test for the safe range in the update_record_in_place (JIT)
-     * stays honest. */
-    p->high_water = p->heap;
-
     if (p->abandoned_heap) {
 	/*
          * Active heap already in a fragment; adjust it and
@@ -579,6 +574,11 @@ delay_garbage_collection(Process *p, int need, int fcalls)
 	p->abandoned_heap = orig_heap;
         erts_adjust_memory_break(p, orig_htop - p->high_water);
     }
+
+    /* Keep the high water mark pointing into the current heap to ensure
+     * that the test for the safe range in the update_record_in_place (JIT)
+     * stays honest. */
+    p->high_water = p->heap;
 
 #ifdef CHECK_FOR_HOLES
     p->last_htop = p->htop;

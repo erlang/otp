@@ -43,7 +43,7 @@
     spawn_memory/0, spawn_memory/1, spawn_memory_internal/1,
     spawn_memory_lambda/1,
     conflict_traces/0, conflict_traces/1,
-    big_words/0, big_words/1
+    big_words/0, big_words/1, delayed_gc/1
 ]).
 
 suite() ->
@@ -57,7 +57,7 @@ groups() ->
 
 testcases() ->
     [basic, on_load, late_trace, skip, message, parallel_map, trace_all, spawn_memory,
-    spawn_memory_lambda, conflict_traces, big_words].
+     spawn_memory_lambda, conflict_traces, big_words, delayed_gc].
 
 init_per_suite(Config) ->
     trace_sessions:init_per_suite(Config, ?MODULE).
@@ -117,6 +117,10 @@ end_per_testcase(conflict_traces, Config) ->
     trace_sessions:end_per_testcase(Config);
 end_per_testcase(big_words, Config) ->
     erlang_trace_pattern({?MODULE,alloc_tuples,2}, false, [call_memory]),
+    erlang_trace(self(), false, [call]),
+    trace_sessions:end_per_testcase(Config);
+end_per_testcase(delayed_gc, Config) ->
+    erlang_trace_pattern({?MODULE, build_on_heap, 1}, false, [call_memory]),
     erlang_trace(self(), false, [call]),
     trace_sessions:end_per_testcase(Config).
 
@@ -453,3 +457,47 @@ alloc_tuples(0, _) ->
 alloc_tuples(N, TupleSz) ->
     erlang:make_tuple(TupleSz, []),
     alloc_tuples(N-1, TupleSz).
+
+
+%% OTP-19581
+%% Verify that reported memory is correct after getting disabled GC with "need".
+delayed_gc(Config) when is_list(Config) ->
+    AIS = erts_debug:set_internal_state(available_internal_state, true),
+    try
+        Self = self(),
+        Traced = {?MODULE, build_on_heap, 1},
+        1 = erlang_trace_pattern(Traced, true, [call_memory]),
+        1 = erlang_trace(Self, true, [call]),
+
+        {heap_size, HeapSize} = process_info(self(), heap_size),
+        [begin
+             %% Disable GC and fill up heap to trigger GC with need != 0
+             %% which will provoke the abandoned heap scenario.
+             true = erts_debug:set_internal_state(gc_state, false),
+             Term = build_on_heap(Words),
+             false = erts_debug:set_internal_state(gc_state, true),
+
+             ?assertEqual(Words, erts_debug:flat_size(Term)),
+             ?assertEqual({call_memory, [{Self, 1, Words}]},
+                          erlang_trace_info(Traced, call_memory)),
+             1 = erlang_trace_pattern(Traced, restart, [call_memory])
+         end
+         || Words <- lists:seq(HeapSize, HeapSize*10, HeapSize)],
+
+        1 = erlang_trace(Self, false, [call]),
+        1 = erlang_trace_pattern(Traced, false, [call_memory])
+    after
+        erts_debug:set_internal_state(available_internal_state, AIS)
+    end,
+    ok.
+
+
+build_on_heap(Words) ->
+    build_on_heap(Words, []).
+
+build_on_heap(0, Acc) ->
+    Acc;
+build_on_heap(3, Acc) ->
+    {3, Acc};
+build_on_heap(Words, Acc) when Words > 1 ->
+    build_on_heap(Words-2, [Words | Acc]).
