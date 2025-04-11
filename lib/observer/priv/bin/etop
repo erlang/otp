@@ -22,4 +22,4 @@
 #
 
 NAME="etop"
-erl -sname $NAME -hidden -s etop -s erlang halt -output text $@
+erl -sname $NAME -hidden -s etop -s erlang halt -output text -noshell $@

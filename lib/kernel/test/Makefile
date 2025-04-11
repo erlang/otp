@@ -129,6 +129,7 @@ MODULES= \
 	sendfile_SUITE \
 	standard_error_SUITE \
 	multi_load_SUITE \
+	shell_test_lib \
 	zzz_SUITE
 
 APP_FILES = \
@@ -155,7 +156,8 @@ HRL_FILES= \
 	kernel_test_lib.hrl \
 	socket_test_evaluator.hrl \
 	socket_test_ttest.hrl \
-	socket_test_ttest_client.hrl
+	socket_test_ttest_client.hrl \
+	shell_test_lib.hrl
 
 EXTRA_FILES= $(ERL_TOP)/otp_versions.table
 
