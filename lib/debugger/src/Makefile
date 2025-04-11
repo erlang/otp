@@ -87,7 +87,7 @@ APPUP_TARGET = $(EBIN)/$(APPUP_FILE)
 # ----------------------------------------------------
 # FLAGS
 # ----------------------------------------------------
-ERL_COMPILE_FLAGS += -Werror
+ERL_COMPILE_FLAGS += -Werror -I $(ERL_TOP)/lib -pa $(ERL_TOP)/lib/wx/ebin
 
 
 # ----------------------------------------------------
