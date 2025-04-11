@@ -22,7 +22,7 @@
              "./erts/emulator/ryu/digit_table.h",
              "./erts/emulator/ryu/ryu.h",
              "./erts/emulator/ryu/ryu.mk",
-             "./erts/emulator/ryu/README.ryu_update.md"],
+             "./erts/emulator/ryu/README.md"],
     "supplier": "Person: Ulf Adams",
     "purl": "pkg:github/ulfjack/ryu#ryu",
     "update": "./erts/emulator/ryu/update.sh"
@@ -37,7 +37,8 @@
     "name": "ryu_to_chars",
     "versionInfo": "vs-2019-16.10",
     "path": [
-      "./erts/emulator/ryu/to_chars.h"
+      "./erts/emulator/ryu/to_chars.h",
+      "./erts/emulator/ryu/xcharconv_ryu.h.sha"
     ],
     "supplier": "Organization: Microsoft Corporation",
     "purl": "pkg:github/microsoft/STL#stl/inc/xcharconv_ryu.h",
