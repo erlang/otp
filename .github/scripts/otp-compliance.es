@@ -1585,7 +1585,7 @@ root_vendor_packages() ->
 minimum_vendor_packages() ->
     %% self-contained
     root_vendor_packages() ++
-        [~"tcl", ~"json-test-suite", ~"openssl", ~"Autoconf", ~"wx", ~"jquery", ~"jquery-tablesorter"].
+        [~"tcl", ~"ryu_to_chars", ~"json-test-suite", ~"openssl", ~"Autoconf", ~"wx", ~"jquery", ~"jquery-tablesorter"].
 
 test_copyright_not_empty(#{~"packages" := Packages}) ->
     true = lists:all(fun (#{~"copyrightText" := Copyright}) -> Copyright =/= ~"" end, Packages),
