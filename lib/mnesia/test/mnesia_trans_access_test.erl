@@ -467,6 +467,13 @@ select14(Config) when is_list(Config) ->
     Test(Tab2),
     Test(Tab3),
     Test(Tab4),
+
+    OneRec = {Tab1, 1, 2},
+    TwoRec = {Tab1, 2, 3},
+    All = [OneRec, TwoRec],
+    AllPat = [{'_', [], ['$_']}],
+    ?match(All, rpc:call(Node1, mnesia, ets, [fun() -> Loop(Tab1, AllPat) end])),
+
     ?verify_mnesia(Nodes, []).
 
 %% select_reverse
@@ -574,6 +581,23 @@ select_reverse14(Config) when is_list(Config) ->
 			    {[TwoRec], _Cont} = mnesia:select_reverse(Cont)
 		    end
 		end),
+
+		case TabType of
+		ets ->
+		    ?match(All, mnesia:sync_dirty(fun() -> mnesia:select_reverse(Tab, AllPat, read) end)),
+		    mnesia:sync_dirty(fun() ->
+		        {[TwoRec], Cont} = mnesia:select_reverse(Tab, AllPat, 1, read),
+		        {[OneRec], _Cont} = mnesia:select_reverse(Cont)
+		    end);
+		dets ->
+		    %% DETS will behave like a normal `select`
+		    ?match([OneRec,TwoRec], mnesia:sync_dirty(fun() -> mnesia:select_reverse(Tab, AllPat, read) end)),
+		    mnesia:sync_dirty(fun() ->
+		        {[OneRec], Cont} = mnesia:select_reverse(Tab, AllPat, 1, read),
+		        {[TwoRec], _Cont} = mnesia:select_reverse(Cont)
+		    end)
+		end,
+
 
 		?match({aborted, _}, Trans(fun() -> mnesia:select_reverse(Tab, {match, '$1', 2},1,read) end)),
 		?match({aborted, _}, Trans(fun() -> mnesia:select_reverse(Tab, [{'_', [], '$1'}],1,read) end)),

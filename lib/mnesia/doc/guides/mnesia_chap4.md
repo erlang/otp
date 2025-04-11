@@ -852,7 +852,7 @@ collect.
 There is also [`select_reverse/1,2,3,4`](`mnesia:select_reverse/2`), should you
 want to traverse from the end of the result set. This is only applicable to
 `ram_copies` or `disc_copies` tables of type `ordered_set`. For other table
-configurations, it behaves the same as `mnesia:select/1,2,3,4`.
+configurations, it behaves the same as [`mnesia:select/1,2,3,4`](`mnesia:select/2`).
 
 > #### Warning {: .warning }
 >
