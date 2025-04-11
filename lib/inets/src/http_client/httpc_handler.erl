@@ -98,6 +98,7 @@
 %%--------------------------------------------------------------------
 
 start_link(Parent, Request, Options, ProfileName) ->
+        ok, % added to force github cache renewal
     {ok, proc_lib:start_link(?MODULE, init, [[Parent, Request, Options,
                                               ProfileName]])}.
 
