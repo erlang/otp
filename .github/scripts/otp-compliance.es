@@ -54,7 +54,7 @@
          test_originator_Ericsson/1, test_versionInfo_not_empty/1, test_package_hasFiles/1,
          test_project_purl/1, test_packages_purl/1, test_download_location/1, 
          test_package_relations/1, test_has_extracted_licenses/1, test_snippets/1,
-         test_vendor_packages/1]).
+         test_vendor_packages/1, test_erts/1]).
 
 -define(default_classified_result, "scan-result-classified.json").
 -define(default_scan_result, "scan-result.json").
@@ -1307,9 +1307,9 @@ generate_spdx_packages(PackageMappings, #{~"files" := Files,
     maps:fold(fun (PackageName, {PrefixPath, AppInfo}, Acc) ->
                       SpdxPackageFiles = group_files_by_app(Files, PrefixPath),
 
-                      TestFiles = group_files_by_folder(SpdxPackageFiles, binary_to_list(PrefixPath)++"/test/**"),
+                      TestFiles = group_files_by_folder(SpdxPackageFiles, binary_to_list(PrefixPath)++"/**/test/**"),
 
-                      DocFiles = group_files_by_folder(SpdxPackageFiles, binary_to_list(PrefixPath)++"/doc/**"),
+                      DocFiles = group_files_by_folder(SpdxPackageFiles, binary_to_list(PrefixPath)++"/**/doc/**"),
                       OTPAppFiles = (SpdxPackageFiles -- TestFiles) -- DocFiles,
 
                       LicenseOTPApp = otp_app_license_mapping(PackageName),
@@ -1513,6 +1513,7 @@ package_generator(Sbom) ->
              test_licenseInfoFromFiles_not_empty,
              test_package_names,
              test_package_ids,
+             test_erts,
              test_verificationCode,
              test_supplier_Ericsson,
              test_originator_Ericsson,
@@ -1667,6 +1668,32 @@ test_package_ids(#{~"packages" := Packages}) ->
                      end, Packages),
     ok.
 
+test_erts(#{~"packages" := Packages, ~"files" := Files}) ->
+    ErtsSpdxId = generate_spdxid_name(~"erts"),
+    ErtsPkg = lists:search(fun (#{~"SPDXID" := SpdxId}) -> SpdxId == ErtsSpdxId end, Packages),
+    {value, #{~"hasFiles" := HasFiles}} = ErtsPkg,
+
+    %% checks that there are no test files in erts package.
+    %% test files for erts should be in erts-test
+    ErtsTestFiles = lists:filtermap(fun (#{~"fileName" := <<"erts/emulator/test/", _/binary>>,
+                                           ~"SPDXID" := FileId}) -> {true, FileId};
+                                        (#{~"fileName" := <<"erts/test/", _/binary>>,
+                                           ~"SPDXID" := FileId}) -> {true, FileId};
+                                        (_) -> false
+                                    end, Files),
+    io:format("~p~n", [lists:filter(fun(File) -> lists:member(File, HasFiles) end, ErtsTestFiles)]),
+    HasFiles = HasFiles -- ErtsTestFiles,
+
+    %% checks that there are no doc files in erts package.
+    %% doc files for erts should be in erts-doc
+    ErtsDocFiles = lists:filtermap(fun (#{~"fileName" := <<"erts/preloaded/doc/", _/binary>>,
+                                          ~"SPDXID" := FileId}) -> {true, FileId};
+                                       (#{~"fileName" := <<"erts/doc/", _/binary>>,
+                                          ~"SPDXID" := FileId}) -> {true, FileId};
+                                       (_) -> false
+                                   end, Files),
+    HasFiles = HasFiles -- ErtsDocFiles,
+    ok.
 
 test_verificationCode(#{~"packages" := Packages}) ->
     true = lists:all(fun (#{~"packageVerificationCode" := #{~"packageVerificationCodeValue" := Value}}) ->
