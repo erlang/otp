@@ -1154,9 +1154,7 @@ generate_spdx_vendor_packages(VendorInfoPackages, #{~"files" := SpdxFiles}=_SPDX
                   (#{~"ID" := Id, ~"path" := [_ | _]=ExplicitFiles}=Package) when is_list(ExplicitFiles) ->
                       %% Deals with the cases of creating a package out of specific files
                       Paths = lists:map(fun cleanup_path/1, ExplicitFiles),
-                      Package0 = maps:remove(~"purl", Package),
-                      Package1 = maps:remove(~"ID", Package0),
-                      Package2 = maps:remove(~"path", Package1),
+                      Package1 = maps:without([~"purl", ~"ID", ~"path", ~"update"], Package),
 
                       %% place files in SPDX in the corresponding package
                       Files = lists:filter(fun (#{~"fileName" := Filename}) ->
@@ -1170,7 +1168,7 @@ generate_spdx_vendor_packages(VendorInfoPackages, #{~"files" := SpdxFiles}=_SPDX
 
                       PackageVerificationCodeValue = generate_verification_code_value(Files),
                       ExternalRefs = generate_vendor_purl(Package),
-                      Package2#{
+                      Package1#{
                                 ~"SPDXID" => generate_spdxid_name(Id),
                                 ~"filesAnalyzed" => true,
                                 ~"hasFiles" => lists:map(fun (#{~"SPDXID":=Id0}) -> Id0 end, Files),
@@ -1183,9 +1181,7 @@ generate_spdx_vendor_packages(VendorInfoPackages, #{~"files" := SpdxFiles}=_SPDX
                   (#{~"ID" := Id, ~"path" := DirtyPath}=Package) when is_binary(DirtyPath) ->
                       %% Deals with the case of creating a package out of a path
                       Path = cleanup_path(DirtyPath),
-                      Package0 = maps:remove(~"purl", Package),
-                      Package1 = maps:remove(~"ID", Package0),
-                      Package2 = maps:remove(~"path", Package1),
+                      Package1 = maps:without([~"purl", ~"ID", ~"path", ~"update"], Package),
 
                       %% place files in SPDX in the corresponding package
                       Files = lists:filter(fun (#{~"fileName" := Filename}) ->
@@ -1201,7 +1197,7 @@ generate_spdx_vendor_packages(VendorInfoPackages, #{~"files" := SpdxFiles}=_SPDX
 
                       PackageVerificationCodeValue = generate_verification_code_value(Files),
                       ExternalRefs = generate_vendor_purl(Package),
-                      Package2#{
+                      Package1#{
                                 ~"SPDXID" => generate_spdxid_name(Id),
                                 ~"filesAnalyzed" => true,
                                 ~"hasFiles" => lists:map(fun (#{~"SPDXID":=Id0}) -> Id0 end, Files),

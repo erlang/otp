@@ -22,20 +22,21 @@
 
 cd $ERL_TOP/erts/emulator/zstd
 
+set -eo pipefail
+
+## Remove old files
+shopt -s extglob
+git rm -rf $(ls -d !(update.sh|vendor.info|zstd.mk|obj))
+shopt -u extglob
+
 ## Fetch latest version of zstd from github
 VSN=$(curl -sL -H "Authorization: Bearer $(cat ~/.githubtoken)" -H "Accept: application/vnd.github+json"   -H "X-GitHub-Api-Version: 2022-11-28"   https://api.github.com/repos/facebook/zstd/releases/latest | jq ".tag_name" | sed 's/"//g')
 
 ## Clone it
-git clone git@github.com:facebook/zstd -b $VSN zstd-copy
+git clone https://github.com/facebook/zstd -b $VSN zstd-copy
 
 ## Save sha version for book keeping
 SHA=$(cd zstd-copy && git rev-parse --verify HEAD)
-echo "// SPDX-License-Identifier: Apache-2.0
-// SPDX-FileCopyrightText: 2025 Ericsson and the Erlang/OTP contributors
-${SHA}" > zstd.version
-
-## Remove old files
-rm -rf common compress decompress ezstd.h LICENSE
 
 ## Copy new files
 cp -r zstd-copy/lib/{common,compress,decompress} ./
@@ -52,27 +53,16 @@ done
 
 rm -rf zstd-copy
 
-git add common compress decompress ./erl_*.h COPYING LICENSE zstd.version
+## Update vendor info
+COMMENTS=$(cat vendor.info | grep "^//")
+NEW_VENDOR_INFO=$(cat vendor.info | grep -v "^//" | jq "map(if .ID == \"erts-zstd\" then .versionInfo = \"${VSN}\" | .sha = \"${SHA}\" else . end)")
 
-LICENSE=$(cat LICENSE)
-COPYING=$(cat COPYING)
-read -r -d '' SYSTEM_COPYRIGHT << EOM
-[zstd]
+cat <<EOF > vendor.info
+${COMMENTS}
+${NEW_VENDOR_INFO}
+EOF
 
-* Info:
-  * SPDX-License-Identifier: BSD-3-Clause OR GPL-2.0-only
-  * Tool: zstd
-  * Git Repository: https://github.com/facebook/zstd
-  * Version: ${VSN}
-  * Commit: ${SHA}
-  * OTP Location: ./erts/emulator/zstd
+## Add and commit everything
+git add common compress decompress ./erl_*.h COPYING LICENSE vendor.info
 
-${LICENSE}
-
-${COPYING}
-
-EOM
-SYSTEM_COPYRIGHT=$(echo "${SYSTEM_COPYRIGHT}" | sed 's@/@\\/@g')
-
-perl -0777 -i -pe 's/\[zstd\](.|\n)*(\n------*)/'"${SYSTEM_COPYRIGHT}"'\n$2/is' \
-    "$ERL_TOP/system/COPYRIGHT"
+git commit -m "erts: Update zstd version to ${VSN}"
