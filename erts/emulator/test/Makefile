@@ -64,6 +64,7 @@ MODULES= \
 	dummy \
 	dump_SUITE \
 	efile_SUITE \
+	erl_debugger_SUITE \
 	erts_debug_SUITE \
 	estone_SUITE \
 	erl_link_SUITE \

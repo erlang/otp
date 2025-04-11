@@ -1120,7 +1120,7 @@ RUN_OBJS += \
 	$(OBJDIR)/erl_trace.o		$(OBJDIR)/copy.o \
 	$(OBJDIR)/utils.o		$(OBJDIR)/bif.o \
 	$(OBJDIR)/io.o 			$(OBJDIR)/erl_printf_term.o\
-	$(OBJDIR)/erl_debug.o \
+	$(OBJDIR)/erl_debug.o           $(OBJDIR)/erl_debugger.o \
 	$(OBJDIR)/erl_message.o		$(OBJDIR)/erl_proc_sig_queue.o \
 	$(OBJDIR)/erl_process_dict.o	$(OBJDIR)/erl_process_lock.o \
 	$(OBJDIR)/erl_port_task.o	$(OBJDIR)/erl_arith.o \
