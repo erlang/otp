@@ -585,6 +585,7 @@ erl_debugger_stack_frames_2(BIF_ALIST_2)
     Eterm pid;
     Process *rp = NULL;
     int frame_no, max_term_size = -1;
+    Eterm *stack_top;
     Eterm result = NIL, yregs;
 
     BIF_UNDEF_IF_NO_DEBUGGER_SUPPORT();
@@ -611,10 +612,19 @@ erl_debugger_stack_frames_2(BIF_ALIST_2)
         BIF_RET(am_running);
     }
 
+    stack_top = rp->stop;
+#ifndef BEAMASM
+    /* On emu, the top word on the stack is NIL,
+     * reserved for the CP when calling another function */
+    if (*stack_top == NIL) {
+        stack_top++;
+    }
+#endif
+
     frame_no = 0;
     yregs = NIL;
-    for(Eterm *sp = STACK_START(rp) - 1; rp->stop - 1 <= sp; sp--) {
-        int is_last_iter = (rp->stop - 1 == sp);
+    for(Eterm *sp = STACK_START(rp) - 1; stack_top - 1 <= sp; sp--) {
+        int is_last_iter = (stack_top - 1 == sp);
         int tup_arity;
         Eterm *hp, x;
 
@@ -679,6 +689,7 @@ erl_debugger_peek_stack_frame_slot_4(BIF_ALIST_4)
     Process *rp = NULL;
     int frame_no = -1, yreg_no = -1, max_term_size = -1;
     int current_frame, yreg_count;
+    Eterm *stack_top;
     Eterm result = am_undefined;
 
     BIF_UNDEF_IF_NO_DEBUGGER_SUPPORT();
@@ -713,13 +724,22 @@ erl_debugger_peek_stack_frame_slot_4(BIF_ALIST_4)
         BIF_RET(am_running);
     }
 
+    stack_top = rp->stop;
+#ifndef BEAMASM
+    /* On emu, the top word on the stack is NIL,
+     * reserved for the CP when calling another function */
+    if (*stack_top == NIL) {
+        stack_top++;
+    }
+#endif
+
     current_frame = 0, yreg_count = 0;
-    for(Eterm *sp = STACK_START(rp) - 1; rp->stop - 1 <= sp; sp--) {
+    for(Eterm *sp = STACK_START(rp) - 1; stack_top - 1 <= sp; sp--) {
         Eterm x;
 
         /* On the last iteration, past the stack end, x is the current pc,
          * so we get the location of the current stack-frame. */
-        x = rp->stop <= sp ? *sp : (Eterm) rp->i;
+        x = stack_top <= sp ? *sp : (Eterm) rp->i;
 
         if (is_not_CP(x)) {
             yreg_count++;
