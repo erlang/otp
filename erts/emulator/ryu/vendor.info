@@ -14,7 +14,7 @@
     "homepage": "https://github.com/ulfjack/ryu",
     "licenseDeclared": "Apache-2.0",
     "name": "ryu",
-    "versionInfo": "844864ac213bdbf1fb57e6f51c653b3d90af0937",
+    "versionInfo": "1264a946ba66eab320e927bfd2362e0c8580c42f",
     "path": ["./erts/emulator/ryu/common.h",
              "./erts/emulator/ryu/d2s.c",
              "./erts/emulator/ryu/d2s_full_table.h",
@@ -22,10 +22,14 @@
              "./erts/emulator/ryu/digit_table.h",
              "./erts/emulator/ryu/ryu.h",
              "./erts/emulator/ryu/ryu.mk",
-             "./erts/emulator/ryu/README.md"],
+             "./erts/emulator/ryu/README.md",
+             "./erts/emulator/ryu/LICENSE-Apache2",
+             "./erts/emulator/ryu/LICENSE-Boost"
+            ],
     "supplier": "Person: Ulf Adams",
     "purl": "pkg:github/ulfjack/ryu#ryu",
-    "update": "./erts/emulator/ryu/update.sh"
+    "update": "./erts/emulator/ryu/update.sh",
+    "sha": "1264a946ba66eab320e927bfd2362e0c8580c42f"
   },
   {
     "ID": "ryu-to_chars",
@@ -35,13 +39,14 @@
     "homepage": "https://github.com/microsoft/STL",
     "licenseDeclared": "Apache-2.0 WITH LLVM-exception AND BSL-1.0",
     "name": "ryu_to_chars",
-    "versionInfo": "vs-2019-16.10",
+    "versionInfo": "vs-2022-17.13",
     "path": [
       "./erts/emulator/ryu/to_chars.h",
       "./erts/emulator/ryu/xcharconv_ryu.h.sha"
     ],
     "supplier": "Organization: Microsoft Corporation",
     "purl": "pkg:github/microsoft/STL#stl/inc/xcharconv_ryu.h",
-    "update": "./erts/emulator/ryu/update.sh"
+    "update": "./erts/emulator/ryu/update.sh",
+    "sha": "442029c6fa37f1b6f9203357de09672d5704077c"
   }
 ]
