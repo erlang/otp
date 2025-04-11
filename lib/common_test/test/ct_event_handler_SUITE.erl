@@ -101,7 +101,9 @@ start_stop(Config) when is_list(Config) ->
 
     ERPid = ct_test_support:start_event_receiver(Config),
 
+    ct:capture_start(),
     ok = ct_test_support:run(Opts, Config),
+    ct:capture_stop(),  % hush the tests
     
     Events = ct_test_support:get_events(ERPid, Config),    
 
@@ -148,7 +150,9 @@ results(Config) when is_list(Config) ->
 
     ERPid = ct_test_support:start_event_receiver(Config),
 
+    ct:capture_start(),
     ok = ct_test_support:run(Opts, Config),
+    ct:capture_stop(),  % hush the tests
     
     Events = ct_test_support:get_events(ERPid, Config),
     

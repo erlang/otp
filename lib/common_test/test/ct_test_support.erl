@@ -39,7 +39,7 @@
 	 verify_events/3, verify_events/4, reformat/2, log_events/4,
 	 join_abs_dirs/2]).
 
--export([start_slave/3, slave_stop/1]).
+-export([start_slave/3, slave_stop/2]).
 
 -export([ct_test_halt/1, ct_rpc/2]).
 
@@ -89,18 +89,27 @@ init_per_suite(Config, Level) ->
     start_slave(Config, Level).
 
 start_slave(Config, Level) ->
-    start_slave(ct, Config, Level).
+    start_slave(peer:random_name(ct), Config, Level).
+
+start_slave(NodeName, Config, Level) when is_atom(NodeName) ->
+    start_slave(atom_to_list(NodeName), Config, Level);
 
 start_slave(NodeName, Config, Level) ->
     [_,Host] = string:lexemes(atom_to_list(node()), "@"),
-    test_server:format(0, "Trying to start ~s~n",
-		       [atom_to_list(NodeName)++"@"++Host]),
+    ct:log("Trying to start ~s~n", [NodeName++"@"++Host]),
     PR = proplists:get_value(printable_range,Config,io:printable_range()),
-    case slave:start(Host, NodeName, "+pc " ++ atom_to_list(PR)) of
+    PeerOpts = #{
+      host => Host,
+      name => NodeName,
+      args => ["+pc", atom_to_list(PR)],
+      shutdown => timer:seconds(60),
+      wait_boot => timer:seconds(10)
+    },
+    case peer:start(PeerOpts) of
 	{error,Reason} ->
 	    ct:fail(Reason);
-	{ok,CTNode} ->
-	    test_server:format(0, "Node ~p started~n", [CTNode]),
+	{ok, Controller, CTNode} ->
+            ct:log("Node ~p started~n", [CTNode]),
 	    IsCover = test_server:is_cover(),
 	    if IsCover ->
 		    cover:start(CTNode);
@@ -122,14 +131,13 @@ start_slave(NodeName, Config, Level) ->
 	    TestSupDir = filename:dirname(code:which(?MODULE)),
 	    PathDirs = [PrivDir,TSDir,TestSupDir | AddPathDirs],
 	    [true = rpc:call(CTNode, code, add_patha, [D]) || D <- PathDirs],
-	    test_server:format(Level, "Dirs added to code path (on ~w):~n",
-			       [CTNode]),
+	    ct:log("Dirs added to code path (on ~w):~n", [CTNode]),
 	    [io:format("~ts~n", [D]) || D <- PathDirs],
 	    
 	    case proplists:get_value(start_sasl, Config) of
 		true ->
 		    rpc:call(CTNode, application, start, [sasl]),
-		    test_server:format(Level, "SASL started on ~w~n", [CTNode]);
+		    ct:log("SASL started on ~w~n", [CTNode]);
 		_ ->
 		    ok
 	    end,
@@ -138,11 +146,13 @@ start_slave(NodeName, Config, Level) ->
 		{ok,_} -> 
 		    [{trace_level,0},
 		     {ct_opts,[{ct_trace,TraceFile}]},
-		     {ct_node,CTNode} | Config];
+		     {ct_node,CTNode},
+                     {ct_node_controller,Controller} | Config];
 		_ -> 
 		    [{trace_level,Level},
 		     {ct_opts,[]},
-		     {ct_node,CTNode} | Config]     
+		     {ct_node,CTNode},
+                     {ct_node_controller,Controller} | Config]
 	    end
     end.
 
@@ -151,9 +161,10 @@ start_slave(NodeName, Config, Level) ->
 
 end_per_suite(Config) ->
     CTNode = proplists:get_value(ct_node, Config),
+    Controller = proplists:get_value(ct_node_controller, Config),
     PrivDir = proplists:get_value(priv_dir, Config),
     true = rpc:call(CTNode, code, del_path, [filename:join(PrivDir,"")]),
-    slave_stop(CTNode),
+    slave_stop(CTNode, Controller),
     ok.
 
 %%%-----------------------------------------------------------------
@@ -181,10 +192,11 @@ init_per_testcase(_TestCase, Config) ->
 
 end_per_testcase(_TestCase, Config) ->
     CTNode = proplists:get_value(ct_node, Config),
+    Controller = proplists:get_value(ct_node_controller, Config),
     case wait_for_ct_stop(CTNode) of
 	%% Common test was not stopped to we restart node.
 	false ->
-	    slave_stop(CTNode),
+	    slave_stop(CTNode, Controller),
 	    start_slave(Config,proplists:get_value(trace_level,Config)),
 	    {fail, "Could not stop common_test"};
 	true ->
@@ -200,8 +212,8 @@ write_testspec(TestSpec, TSFile) ->
     {ok,Dev} = file:open(TSFile, [write,{encoding,utf8}]),
     [io:format(Dev, "~tp.~n", [Entry]) || Entry <- TestSpec],
     file:close(Dev),
-    io:format("Test specification written to: ~tp~n", [TSFile]),
-    io:format(user, "Test specification written to: ~tp~n", [TSFile]),
+    ct:log("Test specification written to: ~tp~n", [TSFile]),
+    ct:log("Test specification written to: ~tp~n", [TSFile]),
     TSFile.
     
 
@@ -264,8 +276,8 @@ run(Opts0, Config) when is_list(Opts0) ->
 			    {ok,OROpts} ->
 				Override =
 				    fun(O={Key,_}, Os) ->
-					    io:format(user, "ADDING START "
-						      "OPTION: ~tp~n", [O]),
+					    ct:log("ADDING START "
+						   "OPTION: ~tp~n", [O]),
 					    [O | lists:keydelete(Key, 1, Os)]
 				    end,
 				lists:foldl(Override, Opts0, OROpts);
@@ -427,12 +439,12 @@ random_error(Config) when is_list(Config) ->
     Type = lists:nth(rand:uniform(length(ErrorTypes)), ErrorTypes),
     Where = case rand:uniform(2) of
 		1 ->
-		    io:format("ct_test_support *returning* error of type ~w",
-			      [Type]),
+		    ct:log("ct_test_support *returning* error of type ~w",
+			   [Type]),
 		    tc;
 		2 ->
-		    io:format("ct_test_support *generating* error of type ~w",
-			      [Type]),
+		    ct:log("ct_test_support *generating* error of type ~w",
+			  [Type]),
 		    lib
 	    end,
     ErrorFun =
@@ -474,17 +486,15 @@ handle_event(EH, Event) ->
     
 start_event_receiver(Config) ->
     CTNode = proplists:get_value(ct_node, Config),
-    Level = proplists:get_value(trace_level, Config),
     ER = spawn_link(CTNode, fun() -> er() end),
-    test_server:format(Level, "~nEvent receiver ~w started!~n", [ER]),
+    ct:log("Event receiver ~w started!~n", [ER]),
     ER.
 
 get_events(_, Config) ->
     CTNode = proplists:get_value(ct_node, Config),
-    Level = proplists:get_value(trace_level, Config),
     {event_receiver,CTNode} ! {self(),get_events},
     Events = receive {event_receiver,Evs} -> Evs end,
-    test_server:format(Level, "Stopping event receiver!~n", []),
+    ct:log("Stopping event receiver!~n"),
     {event_receiver,CTNode} ! {self(),stop},
     receive {event_receiver,stopped} -> ok end,
     Events.
@@ -1238,8 +1248,7 @@ log_events(TC, Events, EvLogDir, Opts) ->
     FullLogFile = join_abs_dirs(proplists:get_value(net_dir, Opts),
 				LogFile),
     ct:log("Events written to logfile: <a href=\"file://~ts\">~ts</a>~n",
-	   [FullLogFile,FullLogFile],[no_css]),
-    io:format(user, "Events written to logfile: ~tp~n", [LogFile]).
+	   [FullLogFile,FullLogFile],[no_css]).
 
 log_events1(Evs, Dev, "") ->
     log_events1(Evs, Dev, " ");
@@ -1456,13 +1465,13 @@ unique_timestamp(TS0, N) ->
 
 %%%-----------------------------------------------------------------
 %%%
-slave_stop(Node) ->
+slave_stop(Node, Controller) when is_pid(Controller) ->
     Cover = test_server:is_cover(),
     if Cover-> cover:flush(Node);
        true -> ok
     end,
     erlang:monitor_node(Node, true),
-    slave:stop(Node),
+    ok = peer:stop(Controller),
     receive
 	{nodedown, Node} ->
 	    if Cover -> cover:stop(Node);

@@ -54,8 +54,8 @@
 init_per_suite(Config) ->
     DataDir = ?config(data_dir,Config),
     Hook = "fail_pre_init_per_suite.erl",
-    io:format("Compiling ~p: ~p~n",
-        [Hook, compile:file(Hook,[{outdir,DataDir},debug_info])]),
+    ct:log("Compiling ~p: ~p~n",
+           [Hook, compile:file(Hook,[{outdir,DataDir},debug_info])]),
     ct_test_support:init_per_suite([{path_dirs,[DataDir]}|Config]).
 
 end_per_suite(Config) ->
