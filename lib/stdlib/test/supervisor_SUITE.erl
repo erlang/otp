@@ -48,7 +48,7 @@
 	  sup_start_map_faulty_specs/1,
 	  sup_stop_infinity/1, sup_stop_timeout/1, sup_stop_timeout_dynamic/1,
 	  sup_stop_brutal_kill/1, sup_stop_brutal_kill_dynamic/1,
-          sup_stop_race/1, sup_stop_non_shutdown_exit_dynamic/1,
+          sup_stop_race/1, sup_stop_non_shutdown_exit_dynamic/1, auto_hibernate/1,
 	  child_adm/1, child_adm_simple/1, child_specs/1, child_specs_map/1,
 	  extra_return/1, sup_flags/1]).
 
@@ -104,7 +104,7 @@ suite() ->
 all() -> 
     [{group, sup_start}, {group, sup_start_map}, {group, sup_stop}, child_adm,
      child_adm_simple, extra_return, child_specs, child_specs_map, sup_flags,
-     multiple_restarts,
+     multiple_restarts, auto_hibernate,
      {group, restart_one_for_one},
      {group, restart_one_for_all},
      {group, restart_simple_one_for_one},
@@ -706,6 +706,36 @@ extra_return(Config) when is_list(Config) ->
             ok
     end.
 
+auto_hibernate(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    HibernateAfterTimeout = 100,
+    Child = {child1, {supervisor_1, start_child, []}, permanent, 1000,
+	     worker, []},
+    SupFlags = #{strategy => one_for_one,
+		 intensity => 2,
+		 period => 3600,
+                 hibernate_after => HibernateAfterTimeout},
+    {ok, SPid} = start_link({ok, {SupFlags, [Child]}}),
+
+    %% After init test
+    is_not_in_erlang_hibernate(SPid),
+    timer:sleep(HibernateAfterTimeout),
+    is_in_erlang_hibernate(SPid),
+
+    %% Trigger an action
+    [{child1, CPid, worker, []}] = supervisor:which_children(sup_test),
+    is_not_in_erlang_hibernate(SPid),
+    timer:sleep(HibernateAfterTimeout),
+    is_in_erlang_hibernate(SPid),
+
+    %% Kill a child
+    terminate(CPid, kill),
+    is_not_in_erlang_hibernate(SPid),
+    timer:sleep(HibernateAfterTimeout),
+    is_in_erlang_hibernate(SPid),
+
+    ok.
+
 %%-------------------------------------------------------------------------
 %% Test API functions start_child/2, terminate_child/2, delete_child/2
 %% restart_child/2, which_children/1, count_children/1. Only correct
@@ -715,7 +745,11 @@ child_adm(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     Child = {child1, {supervisor_1, start_child, []}, permanent, 1000,
 	     worker, []},
-    {ok, Pid} = start_link({ok, {{one_for_one, 2, 3600}, [Child]}}),
+    SupFlags = #{strategy => one_for_one,
+		 intensity => 1,
+		 period => 1000,
+                 hibernate_after => 0},
+    {ok, Pid} = start_link({ok, {SupFlags, [Child]}}),
 
     %% Test that supervisors of static nature are hibernated after start
     {current_function, {gen_server, loop_hibernate, 4}} =
@@ -3899,6 +3933,45 @@ ensure_supervisor_is_stopped() ->
             ok;
         Pid ->
             terminate(Pid, shutdown)
+    end.
+
+is_in_erlang_hibernate(Pid) ->
+    receive after 1 -> ok end,
+    is_in_erlang_hibernate_1(200, Pid).
+
+is_in_erlang_hibernate_1(0, Pid) ->
+    ct:pal("~p\n", [erlang:process_info(Pid, current_function)]),
+    ct:fail(not_in_erlang_hibernate_3);
+is_in_erlang_hibernate_1(N, Pid) ->
+    {current_function,MFA} = erlang:process_info(Pid, current_function),
+    case MFA of
+	{gen_server, loop_hibernate, 4} ->
+	    ok;
+	{erlang,hibernate,3} ->
+	    ok;
+	_ ->
+	    receive after 10 -> ok end,
+	    is_in_erlang_hibernate_1(N-1, Pid)
+    end.
+
+is_not_in_erlang_hibernate(Pid) ->
+    receive after 1 -> ok end,
+    is_not_in_erlang_hibernate_1(200, Pid).
+
+is_not_in_erlang_hibernate_1(0, Pid) ->
+    ct:pal("~p\n", [erlang:process_info(Pid, current_function)]),
+    ct:fail(not_in_erlang_hibernate_3);
+is_not_in_erlang_hibernate_1(N, Pid) ->
+    {current_function,MFA} = erlang:process_info(Pid, current_function),
+    case MFA of
+        {gen_server, loop_hibernate, 4} ->
+            receive after 10 -> ok end,
+            is_not_in_erlang_hibernate_1(N-1, Pid);
+        {erlang,hibernate,3} ->
+            receive after 10 -> ok end,
+            is_not_in_erlang_hibernate_1(N-1, Pid);
+        _ ->
+            ok
     end.
 
 %%-----------------------------------------------------------------
