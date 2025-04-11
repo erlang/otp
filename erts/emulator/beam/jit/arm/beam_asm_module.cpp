@@ -305,7 +305,7 @@ void BeamGlobalAssembler::emit_i_line_breakpoint_trampoline_shared() {
     a.ldr(ARG2, saved_pc); /* pc */
     a.ldr(ARG3, saved_live);
     load_x_reg_array(ARG4);
-    a.mov(ARG5, E); /* stk */
+    a.mov(ARG5, getYRef(0)); /* stk */
 
     emit_enter_runtime<Update::eXRegs>();
     runtime_call<
@@ -323,7 +323,7 @@ void BeamGlobalAssembler::emit_i_line_breakpoint_trampoline_shared() {
 
     a.bind(labels[i_line_breakpoint_cleanup]);
     load_x_reg_array(ARG1);
-    a.mov(ARG2, E); /* stk */
+    a.mov(ARG2, getYRef(0)); /* stk */
 
     emit_enter_runtime<Update::eXRegs>();
     runtime_call<Uint (*)(Eterm *, UWord *),

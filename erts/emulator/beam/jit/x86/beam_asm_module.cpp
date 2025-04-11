@@ -251,8 +251,13 @@ void BeamGlobalAssembler::emit_i_line_breakpoint_trampoline_shared() {
     a.mov(saved_live, TMP1); /* stash live */
 
     /* Pass address of trampoline, will be used to find current function info */
-    a.mov(TMP2, x86::qword_ptr(x86::rsp));
-    a.sub(TMP2, imm(8));   /* TMP2:= pc */
+    if (ERTS_LIKELY(erts_frame_layout == ERTS_FRAME_LAYOUT_RA)) {
+        a.mov(TMP2, x86::qword_ptr(E)); /* TMP2 := CP */
+    } else {
+        ASSERT(erts_frame_layout == ERTS_FRAME_LAYOUT_FP_RA);
+        a.mov(TMP2, x86::qword_ptr(E, 8)); /* TMP2 := CP, skipping FP */
+    }
+    a.sub(TMP2, imm(8));   /* TMP2:= pc (CP adjusted to line of caller) */
     a.mov(saved_pc, TMP2); /* Stash pc */
 
 /* START allocate live live */
@@ -291,8 +296,7 @@ void BeamGlobalAssembler::emit_i_line_breakpoint_trampoline_shared() {
     a.mov(ARG2, saved_pc);   /* pc */
     a.mov(ARG3, saved_live); /* live */
     load_x_reg_array(ARG4);  /* reg */
-    a.lea(ARG5,
-          x86::qword_ptr(E, cp_space * 8)); /* stk (skipping CP, if needed) */
+    a.lea(ARG5, getYRef(0)); /* stk */
 
     emit_enter_runtime();
     runtime_call<
@@ -311,8 +315,7 @@ void BeamGlobalAssembler::emit_i_line_breakpoint_trampoline_shared() {
 
     a.bind(labels[i_line_breakpoint_cleanup]);
     load_x_reg_array(ARG1); /* reg */
-    a.lea(ARG2,
-          x86::qword_ptr(E, cp_space * 8)); /* stk (skipping CP, if needed) */
+    a.lea(ARG2, getYRef(0)); /* stk */
 
     emit_enter_runtime();
     runtime_call<Uint (*)(Eterm *, UWord *),
