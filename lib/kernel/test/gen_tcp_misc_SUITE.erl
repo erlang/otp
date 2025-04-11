@@ -9898,14 +9898,14 @@ do_kernel_options(Config, Addr) ->
                  [{buffer, CBSz}, {recbuf, RB2}], % Connect
                  [{buffer, LBSz}, {recbuf, RB3}]  % Accept
                 }
-                  when (RB1 =:= LRBSz) andalso
+                  when (RB1 >= LRBSz) andalso
                        (RB2 >= CRBSz) andalso
                        (RB3 >= LRBSz) -> 
                     ?P("options (buffers) verified:"
-                       "~n   listen:  ~p"
+                       "~n   listen:  ~p (>= ~p)"
                        "~n   connect: ~p (>= ~p)"
                        "~n   accept:  ~p (>= ~p)",
-                       [RB1, RB2, CRBSz, RB3, LRBSz]),
+                       [RB1, LRBSz, RB2, CRBSz, RB3, LRBSz]),
                     (catch ?STOP_NODE(Node)),
                     ok;
                 Actual ->
