@@ -101,6 +101,9 @@ file transfer service available for SSH.
 -define(XF(S), S#state.xf).
 -define(REQID(S), S#state.req_id).
 
+-doc """
+Specifies available SFTP options.
+""".
 -type sftp_option() :: {timeout, timeout()}
                      | {sftp_vsn, pos_integer()}
                      | {window_size, pos_integer()}
@@ -129,30 +132,38 @@ The `t:tuple/0` reason are other errors like for example `{exit_status,1}`.
 %%====================================================================
 %% API
 %%====================================================================
-
-
-%%%================================================================
-%%%
-
-%%%----------------------------------------------------------------
-%%% start_channel/1
--doc(#{equiv => start_channel/3}).
+-doc(#{equiv => start_channel/2}).
 -spec start_channel(ssh:open_socket() | ssh:connection_ref() | ssh:host()) ->
           {ok, pid()} | {ok, pid(), ssh:connection_ref()} | {error, reason()}.
 start_channel(Dest) ->
     start_channel(Dest, []).
- 
-%%%----------------------------------------------------------------
-%%% start_channel/2
+
 %%% -spec:s are as if Dialyzer handled signatures for separate
 %%% function clauses.
--doc(#{equiv => start_channel/3}).
+-doc """
+Starts new ssh channel for communicating with the SFTP server.
+
+Starts an ssh channel when first argument is a connection reference.
+
+Equivalent to [start_channel(Host, 22, UserOptions)](`start_channel/3`) when
+first argument is recognized as network host.
+
+Otherwise, first argument is treated as a network socket which will be used for
+establishing new SSH connection. New connection reference will be used for
+starting an SSH channel.
+
+The returned `pid` for this process is to be used as input to all other API
+functions in this module.
+
+See also (`start_channel/3`).
+
+""".
 -spec start_channel(ssh:open_socket(), [ssh:client_option() | sftp_option()]) ->
           {ok, pid(), ssh:connection_ref()} | {error,reason()};
                    (ssh:connection_ref(), [ssh:client_option() | sftp_option()]) ->
           {ok, pid()}  | {ok, pid(), ssh:connection_ref()} | {error, reason()};
                    (ssh:host(), [ssh:client_option() | sftp_option()]) ->
-          {ok, pid(), ssh:connection_ref()} | {error, reason()} .
+          {ok, pid(), ssh:connection_ref()} | {error, reason()}.
 start_channel(Cm, UserOptions0) when is_pid(Cm) ->
     UserOptions = legacy_timeout(UserOptions0),
     Timeout = proplists:get_value(timeout, UserOptions, infinity),
@@ -200,14 +211,10 @@ start_channel(Dest, UserOptions0) ->
             end
     end.
 
-%%%----------------------------------------------------------------
-%%% start_channel/3
 -doc """
-start_channel(Host, Port, Options) ->
+Starts new ssh connection and channel for communicating with the SFTP server.
 
-If no connection reference is provided, a connection is set up, and the new
-connection is returned. An SSH channel process is started to handle the
-communication with the SFTP server. The returned `pid` for this process is to be
+The returned `pid` for this process is to be
 used as input to all other API functions in this module.
 
 Options:

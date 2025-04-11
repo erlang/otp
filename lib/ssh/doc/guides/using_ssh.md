@@ -537,7 +537,7 @@ DecryptFun =
     end,
 
 Cr = {InitFun,DecryptFun},
-{ok,HandleRead} = ssh_sftp:open_tar(ChannelPid, ?tar_file_name, [read,{crypto,Cw}]),
+{ok,HandleRead} = ssh_sftp:open_tar(ChannelPid, ?tar_file_name, [read,{crypto,Cr}]),
 {ok,NameValueList} = erl_tar:extract(HandleRead,[memory]),
 ok = erl_tar:close(HandleRead),
 ```
