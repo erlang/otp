@@ -65,7 +65,7 @@ definition for the supervisor flags is as follows:
 sup_flags() = #{strategy => strategy(),           % optional
                 intensity => non_neg_integer(),   % optional
                 period => pos_integer(),          % optional
-                hibernate_after => timeout(),     % optional
+                hibernate_after => timeout(),     % optional, available since OTP 28.0
                 auto_shutdown => auto_shutdown()} % optional
 ```
 
