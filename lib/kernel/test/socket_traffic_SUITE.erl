@@ -20,28 +20,19 @@
 %% %CopyrightEnd%
 %%
 
-%% There are some environment variables that can be used to "manipulate"
-%% the test suite: 
-%%
-%% Variable that controls which 'groups' are to run (with default values)
-%%
-%%         ESOCK_TEST_TRAFFIC_COUNTERS:   include
-%%         ESOCK_TEST_TRAFFIC_CHUNKS:     include
-%%         ESOCK_TEST_TRAFFIC_PING_PONG:  include
-%%
 %% Variable that controls "verbosity" of the test case(s):
 %%
 %%         ESOCK_TEST_QUIET: true (default) | false
 %%
 
 %% Run the entire test suite: 
-%% ts:run(kernel, socket_SUITE, [batch]).
+%% ts:run(kernel, socket_traffic_SUITE, [batch]).
 %%
 %% Run a specific group:
-%% ts:run(kernel, socket_SUITE, {group, foo}, [batch]).
+%% ts:run(kernel, socket_traffic_SUITE, {group, foo}, [batch]).
 %%
 %% Run a specific test case:
-%% ts:run(kernel, socket_SUITE, foo, [batch]).
+%% ts:run(kernel, socket_traffic_SUITE, foo, [batch]).
 %%
 %% (cd /mnt/c/$LOCAL_TESTS/26/kernel_test/ && $ERL_TOP/bin/win32/erl.exe -sname kernel-26-tester -pa c:$LOCAL_TESTS/26/test_server)
 %% application:set_env(kernel, test_inet_backends, true).
@@ -80,7 +71,7 @@
 
 %% Test cases
 -export([
-         %% *** Traffic ***
+         %% *** Counters ***
          traffic_send_and_recv_counters_tcp4/1,
          traffic_send_and_recv_counters_tcp6/1,
          traffic_send_and_recv_counters_tcpL/1,
@@ -98,12 +89,14 @@
          traffic_sendmsg_and_recvmsg_counters_udp6/1,
          traffic_sendmsg_and_recvmsg_counters_udpL/1,
 
+         %% *** Chunks ***
          traffic_send_and_recv_chunks_tcp4/1,
          traffic_send_and_recv_chunks_tcp6/1,
          traffic_send_and_recv_chunks_tcpL/1,
          traffic_send_and_recv_chunks_sctp4/1,
          traffic_send_and_recv_chunks_sctp6/1,
 
+         %% *** Ping Pong ***
          traffic_ping_pong_small_send_and_recv_tcp4/1,
          traffic_ping_pong_small_send_and_recv_tcp6/1,
          traffic_ping_pong_small_send_and_recv_tcpL/1,
@@ -148,7 +141,15 @@
          traffic_ping_pong_small_sendmsg_and_recvmsg_udpL/1,
          traffic_ping_pong_medium_sendmsg_and_recvmsg_udp4/1,
          traffic_ping_pong_medium_sendmsg_and_recvmsg_udp6/1,
-         traffic_ping_pong_medium_sendmsg_and_recvmsg_udpL/1
+         traffic_ping_pong_medium_sendmsg_and_recvmsg_udpL/1,
+
+         %% *** Bench ***
+         traffic_bench_sendv_and_recv_tcp4/1,
+         traffic_bench_send_and_recv_tcp4/1,
+         traffic_bench_sendv_and_recv_tcp6/1,
+         traffic_bench_send_and_recv_tcp6/1,
+         traffic_bench_sendv_and_recv_tcpL/1,
+         traffic_bench_send_and_recv_tcpL/1
         ]).
 
 
@@ -179,42 +180,71 @@ suite() ->
      {timetrap, {minutes,1}}].
 
 all() -> 
-    Groups = [{counters,  "ESOCK_TEST_TRAFFIC_COUNTERS",  include},
-              {chunks,    "ESOCK_TEST_TRAFFIC_CHUNKS",    include},
-              {ping_pong, "ESOCK_TEST_TRAFFIC_PING_PONG", include}],
-    [use_group(Group, Env, Default) || {Group, Env, Default} <- Groups].
+    %% Groups = [
+    %%           {counters,  "ESOCK_TEST_TRAFFIC_COUNTERS",  include},
+    %%           {chunks,    "ESOCK_TEST_TRAFFIC_CHUNKS",    include},
+    %%           {ping_pong, "ESOCK_TEST_TRAFFIC_PING_PONG", include},
+    %%           {tbench,    "ESOCK_TEST_TRAFFIC_BENCH",     include}
+    %%          ],
+    %% [use_group(Group, Env, Default) || {Group, Env, Default} <- Groups].
+    [{group, standard}].
 
-use_group(_Group, undefined, exclude) ->
-    [];
-use_group(Group, undefined, _Default) ->
-    [{group, Group}];
-use_group(Group, Env, Default) ->
-	case os:getenv(Env) of
-	    false when (Default =:= include) ->
-		[{group, Group}];
-	    false ->
-		[];
-	    Val ->
-		case list_to_atom(string:to_lower(Val)) of
-		    Use when (Use =:= include) orelse 
-			     (Use =:= enable) orelse 
-			     (Use =:= true) ->
-			[{group, Group}];
-		    _ ->
-			[]
-		end
-	end.
+%% use_group(_Group, undefined, exclude) ->
+%%     [];
+%% use_group(Group, undefined, _Default) ->
+%%     [{group, Group}];
+%% use_group(Group, Env, Default) ->
+%% 	case os:getenv(Env) of
+%% 	    false when (Default =:= include) ->
+%% 		[{group, Group}];
+%% 	    false ->
+%% 		[];
+%% 	    Val ->
+%% 		case list_to_atom(string:to_lower(Val)) of
+%% 		    Use when (Use =:= include) orelse 
+%% 			     (Use =:= enable) orelse 
+%% 			     (Use =:= true) ->
+%% 			[{group, Group}];
+%% 		    _ ->
+%% 			[]
+%% 		end
+%% 	end.
     
 
 groups() -> 
-    [{counters,            [], traffic_counters_cases()},
+    [
+     %% Top level "wrapper" groups
+     %% A normal (standard) test run will be running the 'suite'.
+     %% Which will run the 'standard' group, with all test cases but
+     %% the 'tbench' group of test cases will run with a short
+     %% run time.
+     %% A benchmark test run will run the 'bench' group directly,
+     %% with an "extended" run time.
+     %%
+     {standard,            [], standard_cases()},
+     {bench,               [], bench_cases()},
+
+     {counters,            [], traffic_counters_cases()},
      {chunks,              [], traffic_chunks_cases()},
      {ping_pong,           [], traffic_ping_pong_cases()},
+     {tbench,              [], traffic_bench_cases()},
      {pp_send_recv,        [], traffic_pp_send_recv_cases()},
      {pp_sendto_recvfrom,  [], traffic_pp_sendto_recvfrom_cases()},
      {pp_sendmsg_recvmsg,  [], traffic_pp_sendmsg_recvmsg_cases()}
     ].
-     
+
+standard_cases() ->
+    [
+     {group, counters},
+     {group, chunks},
+     {group, ping_pong},
+     {group, tbench}
+    ].
+
+bench_cases() ->
+    [
+     {group, tbench}
+    ].
 
 traffic_counters_cases() ->
     [
@@ -250,6 +280,16 @@ traffic_ping_pong_cases() ->
      {group, pp_send_recv},
      {group, pp_sendto_recvfrom},
      {group, pp_sendmsg_recvmsg}
+    ].
+
+traffic_bench_cases() ->
+    [
+     traffic_bench_sendv_and_recv_tcp4,
+     traffic_bench_send_and_recv_tcp4,
+     traffic_bench_sendv_and_recv_tcp6,
+     traffic_bench_send_and_recv_tcp6,
+     traffic_bench_sendv_and_recv_tcpL,
+     traffic_bench_send_and_recv_tcpL
     ].
 
 traffic_pp_send_recv_cases() ->
@@ -381,7 +421,31 @@ end_per_suite(Config0) ->
     Config1.
 
 
+init_per_group(standard = GroupName, Config) ->
+    ?P("init_per_group -> entry with"
+       "~n      GroupName: ~p"
+       "~n      Config:    ~p"
+       "~n   when"
+       "~n      Nodes:     ~p", [GroupName, Config, erlang:nodes()]),
+    [{category, GroupName} | Config];
+init_per_group(bench = GroupName, Config) ->
+    ?P("init_per_group -> entry with"
+       "~n      GroupName: ~p"
+       "~n      Config:    ~p"
+       "~n   when"
+       "~n      Nodes:     ~p", [GroupName, Config, erlang:nodes()]),
+    case proplists:get_value(category, Config, undefined) of
+        undefined ->
+            [{category, GroupName} | Config];
+        _ ->
+            Config
+    end;
 init_per_group(_GroupName, Config) ->
+    ?P("init_per_group -> entry with"
+       "~n      GroupName: ~p"
+       "~n      Config:    ~p"
+       "~n   when"
+       "~n      Nodes:     ~p", [_GroupName, Config, erlang:nodes()]),
     Config.
 
 end_per_group(_GroupName, Config) ->
@@ -7016,6 +7080,458 @@ tpp_udp_sock_close(Sock, Path) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+%% Benchmark test cases
+%% This test is (currently) very simple. Both parties of the test
+%% (server and client) runs in the same (this) node.
+
+-define(TB_IOV_CHUNK(Sz,V), list_to_binary(lists:duplicate((Sz), (V)))).
+tb_iov() ->
+    IOV0 = 
+        [
+         ?TB_IOV_CHUNK(8,       16#01),
+         ?TB_IOV_CHUNK(16*1024, 16#02),
+         ?TB_IOV_CHUNK(256,     16#03),
+         ?TB_IOV_CHUNK(8*1024,  16#04),
+         ?TB_IOV_CHUNK(512,     16#05),
+         ?TB_IOV_CHUNK(1*1024,  16#06),
+         ?TB_IOV_CHUNK(1*1024,  16#07),
+         ?TB_IOV_CHUNK(1*1024,  16#08),
+         ?TB_IOV_CHUNK(1*1024,  16#09),
+         ?TB_IOV_CHUNK(1*1024,  16#0A),
+         ?TB_IOV_CHUNK(1*1024,  16#0B),
+         ?TB_IOV_CHUNK(1*1024,  16#0C),
+         ?TB_IOV_CHUNK(16,      16#0D),
+         ?TB_IOV_CHUNK(256,     16#0E),
+         ?TB_IOV_CHUNK(16*1024, 16#0F),
+         ?TB_IOV_CHUNK(32,      16#10),
+         ?TB_IOV_CHUNK(8,       16#11),
+         ?TB_IOV_CHUNK(128,     16#12),
+         ?TB_IOV_CHUNK(2*1024,  16#13),
+         ?TB_IOV_CHUNK(16,      16#14),
+         ?TB_IOV_CHUNK(32,      16#15),
+         ?TB_IOV_CHUNK(64,      16#16),
+         ?TB_IOV_CHUNK(4*1024,  16#17)     
+        ],
+    IOV1 = lists:flatten([begin
+                              Sz = byte_size(B),
+                              [<<Sz:32/integer>>, B]
+                          end || B <- IOV0]),
+    TSz = iolist_size(IOV1),
+    [<<TSz:32/integer>> | IOV1].
+
+tb_runtime(Config) ->
+    ?SEV_IPRINT("~w -> entry with"
+                "~n   Config: ~p", [?FUNCTION_NAME, Config]),
+    case proplists:get_value(category, Config, standard) of
+        bench ->
+            ?MINS(1);
+        standard ->
+            ?SECS(10)
+    end.
+
+traffic_bench_sendv_and_recv_tcp4(Config) when is_list(Config) ->
+    RunTime = tb_runtime(Config),
+    ?TT(RunTime + ?MINS(1)),
+    IOV = tb_iov(),
+    Send = fun(S, Data) when is_list(Data) ->
+                   socket:sendv(S, Data)
+           end,
+    tc_try(?FUNCTION_NAME,
+           fun() -> has_support_ipv4() end,
+           fun() ->
+                   InitState = #{bname    => sendv_inet4,
+                                 domain   => inet,
+                                 send     => Send,
+                                 iov      => IOV,
+                                 run_time => RunTime},
+                   do_traffic_bench_send_and_recv(InitState)
+           end).
+
+traffic_bench_send_and_recv_tcp4(Config) when is_list(Config) ->
+    RunTime = tb_runtime(Config),
+    ?TT(RunTime + ?MINS(1)),
+    IOV = tb_iov(),
+    Send = fun(S, Data) when is_list(Data) ->
+                   socket:send(S, iolist_to_binary(Data))
+           end,
+    tc_try(?FUNCTION_NAME,
+           fun() -> has_support_ipv4() end,
+           fun() ->
+                   InitState = #{bname    => send_inet4,
+                                 domain   => inet,
+                                 send     => Send,
+                                 iov      => IOV,
+                                 run_time => RunTime},
+                   do_traffic_bench_send_and_recv(InitState)
+           end).
+
+traffic_bench_sendv_and_recv_tcp6(Config) when is_list(Config) ->
+    RunTime = tb_runtime(Config),
+    ?TT(RunTime + ?MINS(1)),
+    IOV = tb_iov(),
+    Send = fun(S, Data) when is_list(Data) ->
+                   socket:sendv(S, Data)
+           end,
+    tc_try(?FUNCTION_NAME,
+           fun() -> has_support_ipv6() end,
+           fun() ->
+                   InitState = #{bname    => sendv_inet6,
+                                 domain   => inet6,
+                                 send     => Send,
+                                 iov      => IOV,
+                                 run_time => RunTime},
+                   do_traffic_bench_send_and_recv(InitState)
+           end).
+
+traffic_bench_send_and_recv_tcp6(Config) when is_list(Config) ->
+    RunTime = tb_runtime(Config),
+    ?TT(RunTime + ?MINS(1)),
+    IOV = tb_iov(),
+    Send = fun(S, Data) when is_list(Data) ->
+                   socket:send(S, iolist_to_binary(Data))
+           end,
+    tc_try(?FUNCTION_NAME,
+           fun() -> has_support_ipv6() end,
+           fun() ->
+                   InitState = #{bname    => send_inet6,
+                                 domain   => inet6,
+                                 send     => Send,
+                                 iov      => IOV,
+                                 run_time => RunTime},
+                   do_traffic_bench_send_and_recv(InitState)
+           end).
+
+traffic_bench_sendv_and_recv_tcpL(Config) when is_list(Config) ->
+    RunTime = tb_runtime(Config),
+    ?TT(RunTime + ?MINS(1)),
+    IOV = tb_iov(),
+    Send = fun(S, Data) when is_list(Data) ->
+                   socket:sendv(S, Data)
+           end,
+    tc_try(?FUNCTION_NAME,
+           fun() -> has_support_unix_domain_socket() end,
+           fun() ->
+                   InitState = #{bname    => sendv_local,
+                                 domain   => local,
+                                 send     => Send,
+                                 iov      => IOV,
+                                 run_time => RunTime},
+                   do_traffic_bench_send_and_recv(InitState)
+           end).
+
+traffic_bench_send_and_recv_tcpL(Config) when is_list(Config) ->
+    RunTime = tb_runtime(Config),
+    ?TT(RunTime + ?MINS(1)),
+    IOV = tb_iov(),
+    Send = fun(S, Data) when is_list(Data) ->
+                   socket:send(S, iolist_to_binary(Data))
+           end,
+    tc_try(?FUNCTION_NAME,
+           fun() -> has_support_unix_domain_socket() end,
+           fun() ->
+                   InitState = #{bname    => send_local,
+                                 domain   => local,
+                                 send     => Send,
+                                 iov      => IOV,
+                                 run_time => RunTime},
+                   do_traffic_bench_send_and_recv(InitState)
+           end).
+
+do_traffic_bench_send_and_recv(#{bname    := BName,
+                                 run_time := RTime} = InitState) ->
+    ?SEV_IPRINT("[ctrl] start server"),
+    {PathOrPort, Server} = tb_server_start(InitState),
+    ?SEV_IPRINT("[ctrl] start client"),
+    Client               = tb_client_start(InitState, PathOrPort),
+    TRef = erlang:start_timer(RTime, self(), tb_timeout),
+    ?SEV_IPRINT("[ctrl] await completion"),
+    tb_await_completion(BName, Server, Client, TRef).
+
+tb_await_completion(BName,
+                    {ServerPid, ServerMRef} = Server,
+                    {ClientPid, ClientMRef} = Client,
+                    TRef) ->
+    receive
+        {timeout, TRef, tb_timeout} ->
+            ?SEV_IPRINT("[ctrl] bench timeout received - begin termination"),
+            ClientPid ! {self(), stop},
+            tb_await_termination(BName, Server, Client);
+        {'DOWN', ClientMRef, process, ClientPid, ClientReason} ->
+            ?SEV_EPRINT("[ctrl] received unexpected client down: "
+                        "~n   ~p", [ClientReason]),
+            erlang:cancel_timer(TRef),
+            exit(ClientPid, kill),
+            exit(ClientReason);
+        {'DOWN', ServerMRef, process, ServerPid, ServerReason} ->
+            ?SEV_EPRINT("[ctrl] received unexpected server down: "
+                        "~n   ~p", [ServerReason]),
+            erlang:cancel_timer(TRef),
+            exit(ClientPid, kill),
+            exit(ServerReason)
+    end.
+
+tb_await_termination(BName, Server, Client) ->
+    tb_await_termination(BName, Server, Client, undefined).
+
+-define(BENCH_EVENT(__N__, __V__),
+        #event{name = (__N__),
+               data = [{suite, atom_to_list(?MODULE)},
+                       {value, (__V__)}]}).
+
+tb_await_termination(BName,
+                     {ServerPid, ServerMRef} = Server,
+                     {ClientPid, ClientMRef} = Client,
+                     undefined = Comment) ->
+    %% ?SEV_IPRINT("[ctrl] await client and server down"),
+    receive
+        {'DOWN', ClientMRef, process, ClientPid, {done, {Exchange, UnitStr}}} ->
+            ?SEV_IPRINT("[ctrl] "
+                        "received (expected) down from client with result"),
+            ct_event:notify( ?BENCH_EVENT(BName, Exchange) ),
+            ?SEV_IPRINT("[ctrl] await server termination"),
+            NewComment = {comment, ?F("~p ~s", [Exchange, UnitStr])},
+            tb_await_termination(BName,
+                                 Server, undefined, NewComment);
+        {'DOWN', ClientMRef, process, ClientPid, ClientReason} ->
+            ?SEV_EPRINT("[ctrl] unexpected termination from client: "
+                        "~n   ~p", [ClientReason]),
+            exit(ServerPid, kill),
+            exit(ClientReason);
+        {'DOWN', ServerMRef, process, ServerPid, ServerReason} ->
+            ?SEV_IPRINT("[ctrl] received down from server: "
+                        "~n   ~p", [ServerReason]),
+            tb_await_termination(BName,
+                                 undefined, Client, Comment)
+    %% after 1000 ->
+    %%         ?SEV_IPRINT("[ctrl] timeout waiting for client and/or server exit:"
+    %%                     "~n   MQueue: ~p", [?SLIB:pi(messages)]),
+    %%         tb_await_termination(BName, Server, Client, Comment)
+    end;
+tb_await_termination(_BName,
+                     {ServerPid, ServerMRef} = _Server,
+                     undefined,
+                     Result) ->
+    %% ?SEV_IPRINT("[ctrl] await server down"),
+    receive
+        {'DOWN', ServerMRef, process, ServerPid, _} ->
+            ?SEV_IPRINT("[ctrl] received (expected) down from server - "
+                        "we are done"),
+            Result
+    end;
+tb_await_termination(BName,
+                     undefined,
+                     {ClientPid, ClientMRef} = _Client,
+                     undefined = _Result) ->
+    %% ?SEV_IPRINT("[ctrl] await client down (with result)"),
+    receive
+        {'DOWN', ClientMRef, process, ClientPid, {done, {Exchange, UnitStr}}} ->
+            ?SEV_IPRINT("[ctrl] received down from client - we are done"),
+            ct_event:notify( ?BENCH_EVENT(BName, Exchange) ),
+            {comment, ?F("~p ~s", [Exchange, UnitStr])};
+        {'DOWN', ClientMRef, process, ClientPid, ClientReason} ->
+            ?SEV_EPRINT("[ctrl] unexpected termination from client: "
+                        "~n   ~p", [ClientReason]),
+            exit(ClientReason)
+    end.
+    
+
+tb_server_start(#{domain := Fam,
+                  send   := Send}) ->
+    Self = self(),
+    Server = {Pid, MRef} =
+        spawn_monitor(fun() ->
+                              tb_server_init(#{parent => Self,
+                                               domain => Fam,
+                                               send   => Send})
+                      end),
+    receive
+        {Pid, PathOrPort} ->
+            ?SEV_IPRINT("[ctrl] server started: ~p", [PathOrPort]),
+            {PathOrPort, Server};
+        {'DOWN', MRef, process, Pid, Info} ->
+            ?SEV_EPRINT("[ctrl] server start failure: "
+                        "~n   ~p", [Info]),
+            exit({tb_server_start, Info})
+    end.
+
+tb_decode(Bin) when is_binary(Bin) ->
+    tb_decode(Bin, []).
+
+tb_decode(<<>>, Acc) ->
+    lists:reverse(Acc);
+tb_decode(<<Sz:32/integer, Data:Sz/binary, Rest/binary>>, Acc) ->
+    tb_decode(Rest, [Data, <<Sz:32/integer>> | Acc]).
+
+tb_server_init(#{parent := Pid, domain := Fam} = State) ->
+    ?SEV_IPRINT("[server] initiate"),
+    SA                    = which_local_socket_addr(Fam),
+    {ok, LS}              = socket:open(Fam, stream),
+    ok                    = socket:bind(LS, SA),
+    ok                    = socket:listen(LS),
+    case SA of
+         #{path := Path} ->
+            Pid ! {self(), {path, Path}};
+        _ ->
+            {ok, #{port := Port}} = socket:sockname(LS),
+            Pid ! {self(), {port, Port}}
+    end,
+    ?SEV_IPRINT("[server] ready for client connect"),
+    {ok, AS}              = socket:accept(LS),
+    ?SEV_IPRINT("[server] client connected - test started"),
+    tb_server_loop(State#{listen => LS,
+                          accept => AS}).
+
+%% Make it simple: The data begins with a 4 byte size, so read that,
+%% and then that amount of data.
+tb_server_loop(#{listen := LS, accept := AS, send := Send} = State) ->
+    case socket:recv(AS, 4) of
+        {ok, <<Sz:32/integer>> = SzBin} ->
+            case socket:recv(AS, Sz) of
+                {ok, Data} ->
+                    IOV = tb_decode(Data),
+                    case Send(AS, [SzBin | IOV]) of
+                        ok ->
+                            tb_server_loop(State);
+                        {error, SReason} ->
+                            ?SEV_EPRINT("[server] unexpected send error:"
+                                        "~n   ~p", [SReason]),
+                            (catch socket:close(LS)),
+                            (catch socket:close(AS)),
+                            exit({tb_server_send, SReason})
+                    end;
+                {error, R2Reason} ->
+                    ?SEV_EPRINT("[server] unexpected read (data) error:"
+                                "~n   ~p", [R2Reason]),
+                    (catch socket:close(LS)),
+                    (catch socket:close(AS)),
+                    exit({tb_server_recv2, R2Reason})
+            end;
+        {error, closed} ->
+            ?SEV_IPRINT("[server] socket closed => terminate"),
+            (catch socket:close(LS)),
+            (catch socket:close(AS)),
+            exit(normal);
+        {error, R1Reason} ->
+            ?SEV_EPRINT("[server] unexpected read (sz) error:"
+                        "~n   ~p", [R1Reason]),
+            (catch socket:close(LS)),
+            (catch socket:close(AS)),
+            exit({tb_server_recv1, R1Reason})
+    end.                    
+
+
+tb_client_start(#{domain := Fam,
+                  send   := Send,
+                  iov    := IOV}, PathOrPort) ->
+    Self = self(),
+    Client = {Pid, MRef} =
+        spawn_monitor(fun() ->
+                              tb_client_init(#{parent       => Self,
+                                               domain       => Fam,
+                                               send         => Send,
+                                               iov          => IOV,
+                                               path_or_port => PathOrPort})
+                      end),
+    receive
+        {Pid, ok} ->
+            Client;
+        {'DOWN', MRef, process, Pid, Info} ->
+            ?SEV_EPRINT("client start failure: "
+                        "~n   ~p", [Info]),
+            exit({tb_client_start, Info})
+    end.
+
+tb_client_init(#{parent       := Pid,
+                 domain       := Fam,
+                 path_or_port := PathOrPort,
+                 send         := Send,
+                 iov          := IOV}) ->
+    ?SEV_IPRINT("[client] initiate"),
+    SA       = which_local_socket_addr(Fam),
+    {ok, CS} = socket:open(Fam, stream),
+    ok       = socket:bind(CS, SA),
+    SSA = case PathOrPort of
+              {path, Path} ->
+                  SA#{path => Path};
+              {port, Port} ->
+                  SA#{port => Port}
+          end,
+    ok       = socket:connect(CS, SSA),
+    Pid ! {self(), ok},
+    ?SEV_IPRINT("[client] connected to server - begin test"),
+    tb_client_loop(Pid, CS, Send, IOV, ts(), 0, 0).
+
+tb_client_loop(Pid, Sock, Send, Data0, TStart, ARcv0, N0) ->
+    case Send(Sock, Data0) of
+        ok ->
+            case socket:recv(Sock, 4) of
+                {ok, <<Sz:32/integer>> = SzBin} ->
+                    case socket:recv(Sock, Sz) of
+                        {ok, Data} ->
+                            IOV0 = tb_decode(Data),
+                            case tb_client_is_done(Pid) of
+                                true ->
+                                    TStop = ts(),
+                                    TDiff = TStop - TStart,
+                                    ARcv  = ARcv0 + 4 + byte_size(Data),
+                                    {Exchange, UnitStr} = Res =
+                                        case ARcv div TDiff of
+                                            E when (E > 1024) ->
+                                                {E div 1024,
+                                                 "kb/msec"};
+                                            E ->
+                                                {E, "b/msec"}
+                                        end,
+                                    N     = N0 + 1,
+                                    ?SEV_IPRINT("[client] test result:"
+                                                "~n   TDiff:      ~w msec"
+                                                "~n   Data:       ~w bytes"
+                                                "~n   Exchange:   ~w ~s"
+                                                "~n   Iterations: ~w",
+                                                [TDiff, ARcv,
+                                                 Exchange, UnitStr,
+                                                 N]),
+                                    (catch socket:close(Sock)),
+                                    exit({done, Res});
+                                false ->
+                                    IOV = [SzBin | IOV0],
+                                    tb_client_loop(Pid,
+                                                   Sock, Send, IOV,
+                                                   TStart,
+                                                   ARcv0 + 4 + byte_size(Data),
+                                                   N0+1)
+                            end;
+                        {error, R2Reason} ->
+                            ?SEV_EPRINT("[client] unexpected read (data) error:"
+                                        "~n   ~p", [R2Reason]),
+                            (catch socket:close(Sock)),
+                            exit({tb_client_recv2, R2Reason})
+                    end;
+                {error, R1Reason} ->
+                    ?SEV_EPRINT("[client] unexpected read (sz) error:"
+                                "~n   ~p", [R1Reason]),
+                    (catch socket:close(Sock)),
+                    exit({tb_client_recv1, R1Reason})
+            end;
+        {error, SReason} ->
+            ?SEV_EPRINT("[client] unexpected send error:"
+                        "~n   ~p", [SReason]),
+            (catch socket:close(Sock)),
+            exit({tb_client_send, SReason})
+    end.                    
+
+tb_client_is_done(Pid) ->
+    receive
+        {Pid, stop} ->
+            ?SEV_IPRINT("[client] received stop command - test is over"),
+            true
+    after 0 ->
+            false
+end.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 sock_bind(Sock, LSA) ->
     try socket:bind(Sock, LSA) of
         ok = OK ->
@@ -7299,3 +7815,5 @@ i(F, A) ->
     io:format(user, FStr ++ "~n", []),
     io:format(FStr, []).
 
+ts() ->
+    erlang:system_time(millisecond).

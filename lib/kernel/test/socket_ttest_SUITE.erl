@@ -441,7 +441,8 @@
 
 -define(WINDOWS, {win32,nt}).
 
--define(TTEST_RUNTIME,                       ?SECS(1)).
+-define(TTEST_STANDARD_RUNTIME,              ?SECS(1)).
+-define(TTEST_BENCH_RUNTIME,                 ?SECS(10)).
 -define(TTEST_MIN_FACTOR,                    3).
 -define(TTEST_MIN_FACTOR_WIN,                ?TTEST_MIN_FACTOR-1).
 -define(TTEST_DEFAULT_SMALL_MAX_OUTSTANDING, 50).
@@ -467,33 +468,36 @@ suite() ->
      {timetrap, {minutes,1}}].
 
 all() -> 
-    Groups = [{ttest, "ESOCK_TEST_TTEST", include}],
-    [use_group(Group, Env, Default) || {Group, Env, Default} <- Groups].
+    [{group, standard}].
+    %% Groups = [{ttest, "ESOCK_TEST_TTEST", include}],
+    %% [use_group(Group, Env, Default) || {Group, Env, Default} <- Groups].
 
-use_group(_Group, undefined, exclude) ->
-    [];
-use_group(Group, undefined, _Default) ->
-    [{group, Group}];
-use_group(Group, Env, Default) ->
-	case os:getenv(Env) of
-	    false when (Default =:= include) ->
-		[{group, Group}];
-	    false ->
-		[];
-	    Val ->
-		case list_to_atom(string:to_lower(Val)) of
-		    Use when (Use =:= include) orelse 
-			     (Use =:= enable) orelse 
-			     (Use =:= true) ->
-			[{group, Group}];
-		    _ ->
-			[]
-		end
-	end.
+%% use_group(_Group, undefined, exclude) ->
+%%     [];
+%% use_group(Group, undefined, _Default) ->
+%%     [{group, Group}];
+%% use_group(Group, Env, Default) ->
+%% 	case os:getenv(Env) of
+%% 	    false when (Default =:= include) ->
+%% 		[{group, Group}];
+%% 	    false ->
+%% 		[];
+%% 	    Val ->
+%% 		case list_to_atom(string:to_lower(Val)) of
+%% 		    Use when (Use =:= include) orelse 
+%% 			     (Use =:= enable) orelse 
+%% 			     (Use =:= true) ->
+%% 			[{group, Group}];
+%% 		    _ ->
+%% 			[]
+%% 		end
+%% 	end.
     
 
 groups() -> 
-    [{ttest,                       [], ttest_cases()},
+    [{standard,                    [], standard_cases()},
+     {bench,                       [], bench_cases()},
+     {ttest,                       [], ttest_cases()},
      {ttest_sgenf,                 [], ttest_sgenf_cases()},
      {ttest_sgenf_cgen,            [], ttest_sgenf_cgen_cases()},
      {ttest_sgenf_cgenf,           [], ttest_sgenf_cgenf_cases()},
@@ -557,7 +561,7 @@ groups() ->
      {ttest_simple_ssockt_csock,   [], ttest_simple_ssockt_csock_cases()},
      {ttest_simple_ssockt_csocko,  [], ttest_simple_ssockt_csocko_cases()}
     ].
-     
+
 
 %% Condition for running the ttest cases.
 %% No point in running these cases unless the machine is
@@ -633,6 +637,16 @@ ttest_max_outstanding(Config, EnvKey, Default) ->
                     end
             end
     end.
+
+standard_cases() ->
+    [
+     {group, ttest}
+    ].
+
+bench_cases() ->
+    [
+     {group, ttest}
+    ].
 
 ttest_cases() ->
     [
@@ -1511,6 +1525,16 @@ end_per_suite(Config0) ->
     Config1.
 
 
+init_per_group(standard = GroupName, Config) ->
+    io:format("init_per_group(~w) -> entry with"
+              "~n   Config: ~p"
+              "~n", [GroupName, Config]),
+    [{category, GroupName} | Config];
+init_per_group(bench = GroupName, Config) ->
+    io:format("init_per_group(~w) -> entry with"
+              "~n   Config: ~p"
+              "~n", [GroupName, Config]),
+    [{category, GroupName} | Config];
 init_per_group(ttest = _GroupName, Config) ->
     io:format("init_per_group(~w) -> entry with"
               "~n   Config: ~p"
@@ -6752,11 +6776,13 @@ ttest_simple_ssockt_csocko_small_tcpL(Config) when is_list(Config) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 which_ttest_runtime(Config) when is_list(Config) ->
-    case lists:keysearch(esock_test_ttest_runtime, 1, Config) of
-        {value, {esock_test_ttest_runtime, Runtime}} ->
-            Runtime;
-        false ->
-            which_ttest_runtime_env()
+    case proplists:get_value(category, Config, standard) of
+        standard ->
+            proplists:get_value(esock_test_ttest_runtime,
+                                Config, which_ttest_runtime_env());
+        bench ->
+            %% We always run a certain time for benchmark runs
+            ?TTEST_BENCH_RUNTIME
     end.
 
 which_ttest_runtime_env() ->
@@ -6765,7 +6791,7 @@ which_ttest_runtime_env() ->
 which_ttest_runtime_env(TStr) when is_list(TStr) ->
     which_ttest_runtime_env2(lists:reverse(TStr));
 which_ttest_runtime_env(false) ->
-    ?TTEST_RUNTIME.
+    ?TTEST_STANDARD_RUNTIME.
 
 
 %% The format is: <int>[unit]
@@ -6787,7 +6813,7 @@ convert_time(TStrRev, Convert) ->
         I -> Convert(I)
     catch
         _:_ ->
-            ?TTEST_RUNTIME
+            ?TTEST_STANDARD_RUNTIME
     end.
 
 %% ttest_tcp(TC,
@@ -6796,7 +6822,7 @@ convert_time(TStrRev, Convert) ->
 %%           ClientMod, ClientActive,
 %%           MsgID, MaxOutstanding) ->
 %%     ttest_tcp(TC,
-%%               ?TTEST_RUNTIME,
+%%               ?TTEST_STANDARD_RUNTIME,
 %%               Domain,
 %%               ServerMod, ServerActive,
 %%               ClientMod, ClientActive,
@@ -6866,7 +6892,7 @@ ttest_tcp(TC,
                                  client_mod      => ClientMod,
                                  client_active   => ClientActive,
 				 remote          => Remote},
-                   ok = ttest_tcp(InitState)
+                   ttest_tcp(InitState)
            end).
 
 
@@ -7338,7 +7364,8 @@ ttest_tcp(InitState) ->
          
          %% Present the results
          #{desc => "present the results",
-           cmd  => fun(#{result        := Result,
+           cmd  => fun(#{ctrl          := CTRL,
+                         result        := Result,
                          domain        := Domain,
                          server_mod    := ServerTrans,
                          server_active := ServerActive,
@@ -7377,6 +7404,17 @@ ttest_tcp(InitState) ->
                                                                  [Cnt, Cnt div RunTime])
                                        end
                                       ]),
+                                   if ((BCnt > 0) andalso (RunTime > 0)) ->
+                                           ?SEV_IPRINT("send short form results to CTRL (~p)", [CTRL]),
+                                           CTRL ! {self(), {BCnt div RunTime,
+                                                            Cnt div RunTime}};
+                                      true ->
+                                           ?SEV_IPRINT("no proper result: "
+                                                       "~n   RunTime: ~p"
+                                                       "~n   BCnt:    ~p"
+                                                       "~n   Cnt:     ~p",
+                                                       [RunTime, BCnt, Cnt])
+                                   end,
                                    {ok, maps:remove(result, State)};
 
                                #{status  := Failure,
@@ -7438,7 +7476,8 @@ ttest_tcp(InitState) ->
     Client          = ?SEV_START("client", ClientSeq, ClientInitState),
     
     i("start 'tester' evaluator"),
-    TesterInitState = #{domain        => Domain,
+    TesterInitState = #{ctrl          => self(),
+                        domain        => Domain,
 			msg_id        => maps:get(msg_id,        InitState),
                         client        => Client#ev.pid,
 			client_mod    => maps:get(client_mod,    InitState),
@@ -7446,10 +7485,17 @@ ttest_tcp(InitState) ->
                         server        => Server#ev.pid,
                         server_mod    => maps:get(server_mod,    InitState),
                         server_active => maps:get(server_active, InitState)},
-    Tester = ?SEV_START("tester", TesterSeq, TesterInitState),
+    #ev{pid = TesterPid} = Tester =
+        ?SEV_START("tester", TesterSeq, TesterInitState),
 
     i("await evaluator(s)"),
-    ok = ?SEV_AWAIT_FINISH([Server, Client, Tester]).
+    ok = ?SEV_AWAIT_FINISH([Server, Client, Tester]),
+    receive
+        {TesterPid, {BCnt, MCnt}} ->
+            {comment, ?F("~w b/ms, ~w iter/ms", [BCnt, MCnt])}
+    after 0 ->
+            {comment, "-"}
+    end.
 
 
 
@@ -7528,13 +7574,15 @@ ttest_tcp_client_start(Node,
                        bytes :: non_neg_integer(),
                        msgs  :: non_neg_integer()}).
 
--spec ttest_report(Domain      :: socket:domain(),
-                   ServTrans   :: gen | sock, ServActive   :: once | boolean(),
-                   ClientTrans :: gen | sock, ClientActive :: once | boolean(),
-                   MsgID       :: 1 | 2 | 3,
-                   RunTime     :: non_neg_integer(),
-                   NumBytes    :: non_neg_integer(),
-                   NumMsgs     :: non_neg_integer()) -> ok.
+-spec ttest_report(Domain       :: socket:domain(),
+                   ServTrans    :: gen | gs | sock,
+                   ServActive   :: once | boolean(),
+                   ClientTrans  :: gen | gs | sock,
+                   ClientActive :: once | boolean(),
+                   MsgID        :: 1 | 2 | 3,
+                   RunTime      :: non_neg_integer(),
+                   NumBytes     :: non_neg_integer(),
+                   NumMsgs      :: non_neg_integer()) -> ok.
 
 ttest_report(Domain,
              ServTrans,   ServActive,
@@ -7609,13 +7657,77 @@ ttest_manager_loop() ->
             ?LOGGER:format("manager stopping~n", []),
             ttest_manager_done();
 
-        #ttest_report{id    = _ID,
-                      time  = _RunTime,
-                      bytes = _NumBytes,
+        #ttest_report{id    = ID,
+                      time  = RunTime,
+                      bytes = NumBytes,
                       msgs  = _NumMsgs} = Report ->
-            true = ets:insert_new(?TTEST_MANAGER, Report),
-            ttest_manager_loop()
+            %% ?LOGGER:format("received (ttest) report:"
+            %%                "~n   ID: ~p"
+            %%                "~n      RunTime:   ~p"
+            %%                "~n      Num Bytes: ~p"
+            %%                "~n      Num Msgs:  ~p"
+            %%                "~n", [ID, RunTime, NumBytes, _NumMsgs]),
+            Event = #event{
+                       name = format_ttest_report_id(ID),
+                       data = [{suite, atom_to_list(?MODULE)},
+                               {value, format_ttest_report_value(RunTime,
+                                                                 NumBytes)}]},
+            %% ?LOGGER:format("send CT event:"
+            %%                "~n   ~p"
+            %%                "~n", [Event]),
+            ct_event:notify(Event),
+            %% true = ets:insert_new(?TTEST_MANAGER, Report),
+            %% ttest_manager_loop()
+            case ets:insert_new(?TTEST_MANAGER, Report) of
+		true ->
+		    ttest_manager_loop();
+		false ->
+		    [Current] = ets:lookup(?TTEST_MANAGER, ID),
+		    ?LOGGER:format("manager received duplicate report:"
+				   "~n   ID:      ~p"
+				   "~n   Current: ~p"
+				   "~n   New:     ~p"
+				   "~n", [ID, Current, Report]),
+		    ttest_manager_loop()
+	    end
     end.
+
+format_ttest_report_id(#ttest_report_id{domain        = Domain,
+                                        serv_trans    = STrans,
+                                        serv_active   = SActive,
+                                        client_trans  = CTrans,
+                                        client_active = CActive,
+                                        msg_id        = MsgID}) ->
+    EventNameStr = ?F("server:~w:~w_client:~w:~w_~w_~w",
+                      [format_ttest_report_id_trans(STrans),
+                       format_ttest_report_id_active(SActive),
+                       format_ttest_report_id_trans(CTrans),
+                       format_ttest_report_id_active(CActive),
+                       format_ttest_report_id_domain(Domain),
+                       format_ttest_report_id_msg_id(MsgID)]),
+    list_to_atom(EventNameStr).
+    
+format_ttest_report_id_trans(gen)  -> g;
+format_ttest_report_id_trans(gs)   -> gs;
+format_ttest_report_id_trans(sock) -> s.
+
+format_ttest_report_id_active(once)  -> o;
+format_ttest_report_id_active(true)  -> t;
+format_ttest_report_id_active(false) -> f.
+
+format_ttest_report_id_domain(D) -> D.
+
+format_ttest_report_id_msg_id(ID) -> ID.
+
+format_ttest_report_value(RunTime, NumBytes)
+  when (RunTime > 0) andalso (NumBytes > 0) ->
+    NumBytes div RunTime;
+format_ttest_report_value(RunTime, _) when (RunTime > 0) ->
+    -1;
+format_ttest_report_value(_, _) ->
+    -2.
+
+
 
 %% We are supposed to pretty print the result here...
 ttest_manager_done() ->
