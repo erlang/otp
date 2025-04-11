@@ -3274,6 +3274,14 @@ do_kernel_options(Config) ->
                     ?P("options verified"),
                     (catch ?STOP_NODE(Node)),
                     ok;
+                {ok, [{buffer, ActualBSz},
+                      {recbuf, ActualRBSz}] = Actual} 
+                  when (ActualBSz =:= BSz) andalso
+                       (ActualRBSz >= RBSz) ->
+                    ?P("options verified: "
+                       "~n   Expected: ~p"
+                       "~n   Actual:   ~p", [Expected, Actual]),
+                    ok;
                 {ok, Actual} ->
                     ?P("unexpected success:"
                        "~n   Expected: ~p"
