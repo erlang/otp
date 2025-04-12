@@ -314,7 +314,7 @@ void BeamGlobalAssembler::emit_i_line_breakpoint_trampoline_shared() {
     erlang_call(emit_setup_dispatchable_call(RET), ARG1);
 
     a.bind(labels[i_line_breakpoint_cleanup]);
-    load_x_reg_array(ARG1); /* reg */
+    load_x_reg_array(ARG1);  /* reg */
     a.lea(ARG2, getYRef(0)); /* stk */
 
     emit_enter_runtime();
