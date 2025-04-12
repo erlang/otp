@@ -145,6 +145,18 @@ end_per_group(_Group, _Config) ->
 init_per_testcase(test_bps_work_with_inlined_functions, _Config) ->
     % TODO(T202887216) unskip once this is fixed
     {skip, "+beam_debug_info is currently blocking inline annotations"};
+init_per_testcase(test_stack_frames_returns_y_regs_controlled_by_size, Config) ->
+    case erlang:system_info(emu_flavor) of
+        emu ->
+            compile_and_load_module(Config, call_stacks, [beam_debug_info]),
+            try code:get_debug_info(call_stacks) of
+                _ -> {fail, "code:get_debug_info() now works on emu, testcase needs updating"}
+            catch error:badarg ->
+                {skip, "code:get_debug_info() doesn't currently work on emu"}
+            end;
+        _ ->
+            init_per_testcase(default, Config)
+    end;
 init_per_testcase(_TC, Config) ->
     erl_debugger:supported() andalso
         erl_debugger:toggle_instrumentations(#{line_breakpoint => false}),
