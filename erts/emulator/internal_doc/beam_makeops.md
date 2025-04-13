@@ -409,7 +409,7 @@ used by `beam_load.c` but also by `beam_{hot,warm,cold}.h`.
 For the traditional BEAM interpreter, the following files are also
 generated:
 
-* `beam_hot.h`, `beam_warm.h`, `beam_cold.`h - Implementation of
+* `beam_hot.h`, `beam_warm.h`, `beam_cold.h` - Implementation of
 instructions.  Included inside the `process_main()` function in
 `beam_emu.c`.
 
