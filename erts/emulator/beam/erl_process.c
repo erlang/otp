@@ -9908,7 +9908,6 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
                     p = NULL;
                     if (try_steal_task(rq, &p)) {
                         if (p) {
-                            non_empty_runq(rq);
                             state = erts_atomic32_read_acqb(&p->state);
                             goto execute_process;
                         }
