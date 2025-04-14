@@ -42,6 +42,7 @@
 
 %% Line-breakpoint test-cases
 -export([test_setting_bp_fails_on_module_not_found/1]).
+-export([test_setting_bp_fails_on_recently_deleted_module/1]).
 -export([test_setting_bp_fails_on_module_loaded_without_line_bp_instrumentation/1]).
 -export([test_setting_bp_fails_on_non_existent_line/1]).
 -export([test_setting_bp_fails_on_nonexecutable_line/1]).
@@ -101,6 +102,7 @@ groups() ->
         ]},
         {line_breakpoints, [], [
             test_setting_bp_fails_on_module_not_found,
+            test_setting_bp_fails_on_recently_deleted_module,
             test_setting_bp_fails_on_module_loaded_without_line_bp_instrumentation,
             test_setting_bp_fails_on_non_existent_line,
             test_setting_bp_fails_on_nonexecutable_line,
@@ -365,6 +367,17 @@ test_setting_bp_fails_on_module_not_found(_Config) ->
     Expected = Actual,
     ok.
 
+test_setting_bp_fails_on_recently_deleted_module(Config) ->
+    Mod = foo,
+    erl_debugger:toggle_instrumentations(#{line_breakpoint => false}),
+    compile_and_load_module(Config, Mod, [beam_debug_info]),
+
+    code:delete(Mod),
+    Actual = erl_debugger:breakpoint(Mod, 42, true),
+    Expected = {error, {badkey, Mod}},
+
+    Expected = Actual,
+    ok.
 
 test_setting_bp_fails_on_module_loaded_without_line_bp_instrumentation(Config) ->
     Mod = foo,

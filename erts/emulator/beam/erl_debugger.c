@@ -361,6 +361,11 @@ erl_debugger_breakpoint_3(BIF_ALIST_3) {
     }
 
     code_hdr = finish_line_bp.module->curr.code_hdr;
+    if (!code_hdr) {
+        error_type = am_badkey, error_source = module_name;
+        goto error;
+    }
+
     if (!ERTS_DEBUGGER_IS_ENABLED_IN(code_hdr->debugger_flags,
                                      ERTS_DEBUGGER_LINE_BREAKPOINTS)) {
         error_type = am_unsupported, error_source = module_name;
