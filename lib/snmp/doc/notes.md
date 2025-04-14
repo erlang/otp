@@ -19,6 +19,18 @@ limitations under the License.
 -->
 # SNMP Release Notes
 
+## SNMP 5.18.2
+
+### Fixed Bugs and Malfunctions
+
+- When manager receives an v3 inform (request) it used engine-id and full address (including port number) to check if engine was known. This did not work if agent used ephemeral ports for notifications. Has now been changed to only use (context) engine-id and address (without port).
+
+  Own Id: OTP-19562 Aux Id: ERIERL-1207
+
+- Fixed snmp_generic (dialyzer) spec for function table_func.
+
+  Own Id: OTP-19568 Aux Id: ERIERL-1211
+
 ## SNMP 5.18.1
 
 ### Fixed Bugs and Malfunctions

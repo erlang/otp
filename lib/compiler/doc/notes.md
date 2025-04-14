@@ -21,6 +21,16 @@ limitations under the License.
 
 This document describes the changes made to the Compiler application.
 
+## Compiler 8.6.1
+
+### Fixed Bugs and Malfunctions
+
+- Fix the compiler crash when the inner-most tuple in a nested tuple with 3 layers is updated.
+
+  Own Id: OTP-19561 Aux Id: ERIERL-1208, ERIERL-1210, [PR-9650]
+
+[PR-9650]: https://github.com/erlang/otp/pull/9650
+
 ## Compiler 8.6
 
 ### Improvements and New Features

@@ -21,6 +21,18 @@ limitations under the License.
 
 This document describes the changes made to the ERTS application.
 
+## Erts 15.2.5
+
+### Fixed Bugs and Malfunctions
+
+- On Windows, using socket:sendv, a large IOV (size > MAX), the tail was not sent.
+
+  Own Id: OTP-19482
+
+- Uplift pcre 8.44 to pcre 8.45
+
+  Own Id: OTP-19565
+
 ## Erts 15.2.4
 
 ### Fixed Bugs and Malfunctions

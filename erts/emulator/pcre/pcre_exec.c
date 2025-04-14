@@ -6,7 +6,7 @@
 and semantics are as close as possible to those of the Perl 5 language.
 
                        Written by Philip Hazel
-           Copyright (c) 1997-2018 University of Cambridge
+           Copyright (c) 1997-2021 University of Cambridge
 
 -----------------------------------------------------------------------------
 Redistribution and use in source and binary forms, with or without
@@ -846,7 +846,7 @@ for (;;)
     md->mark = NULL;    /* In case previously set by assertion */
     RMATCH(eptr, ecode + PRIV(OP_lengths)[*ecode] + ecode[1], offset_top, md,
       eptrb, RM55);
-    if ((rrc == MATCH_MATCH || rrc == MATCH_ACCEPT) &&
+    if ((rrc == MATCH_MATCH || rrc == MATCH_ACCEPT || rrc == MATCH_KETRPOS) &&
          md->mark == NULL) md->mark = ecode + 2;
 
     /* A return of MATCH_SKIP_ARG means that matching failed at SKIP with an

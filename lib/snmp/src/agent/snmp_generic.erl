@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2024. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -519,7 +519,7 @@ function.
 
 """.
 -spec table_func(Op, RowIndex, Cols, NameDb) -> Return when
-      Op       :: get | next | is_set_ok | set | undo,
+      Op       :: get | get_next | is_set_ok | set | undo,
       RowIndex :: snmp:row_index(),
       Cols     :: columns(),
       NameDb   :: snmpa:name_db(),

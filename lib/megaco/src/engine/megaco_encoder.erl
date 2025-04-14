@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2024. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2025. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -173,7 +173,7 @@ of the protocol we are using. As of version 3, it has two more fields.
 %% -type action_request()           :: #'ActionRequest'{}.
 -type action_request()           :: {'ActionRequest', _, _, _, _}.
 %% -type action_reply()             :: #'ActionReply'{}.
--type action_reply()             :: {'ActionReply', _, _, _}.
+-type action_reply()             :: {'ActionReply', _, _, _, _}.
 %% -type command_request()           :: #'CommandRequest'{}.
 -type command_request()          :: {'CommandRequest', _, _, _}.
 -type error_desc()               :: #'ErrorDescriptor'{}.

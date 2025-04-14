@@ -21,6 +21,21 @@ limitations under the License.
 
 This document describes the changes made to the Xmerl application.
 
+## Xmerl 2.1.2
+
+### Fixed Bugs and Malfunctions
+
+- Corrected faulty type specification
+  
+  Corrected type specification for the input parameter of `xmerl_xs:value_of/1`.
+  
+  Also replaced underscore in the return type specifications of `xmerl_xs:select/2`,
+  `xmerl_xpath:string/2` and `xmerl_xpath:string/3` with specified return values to improve documentation.
+
+  Own Id: OTP-19571 Aux Id: ERIERL-1212, [PR-9676]
+
+[PR-9676]: https://github.com/erlang/otp/pull/9676
+
 ## Xmerl 2.1.1
 
 ### Fixed Bugs and Malfunctions
