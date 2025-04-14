@@ -13526,6 +13526,13 @@ otp19482_simple_multi_handler_loop(Parent, ID, Sock, Num, Acc) ->
             otp19482_simple_multi_handler_loop(Parent, ID, Sock,
                                                Num - byte_size(Data),
                                                [Data|Acc]);
+        
+        {error, {Reason, Data}} ->
+            ?P("H[~w] -> receive (with data) failure: "
+               "~n   sz(Data): ~w (~w)"
+               "~n   Reason:   ~p", [byte_size(Data), Num, Reason]),
+            exit({recv_failed});
+
         {error, Reason} ->
             ?P("H[~w] -> receive failure: "
                "~n   Reason: ~p", [Reason]),
@@ -13582,7 +13589,26 @@ otp19482_simple_multi_client_init(Parent, ID, LSA, Port, IOV) ->
     ?P("C[~w] -> try send message: "
        "~n   IOV Length: ~w"
        "~n   IOV size:   ~w", [ID, length(IOV), iolist_size(IOV)]),
-    ok = socket:sendv(Sock, IOV),
+    case socket:sendv(Sock, IOV) of
+        ok ->
+            ok;
+        {error, enobufs = Reason} ->
+            ?P("C[~w] -> send faild: ~p", [ID, Reason]),
+            ?SKIPE(enobufs);
+        {error, {enobufs = Reason, RestIOV}} when is_list(RestIOV) ->
+            ?P("C[~w] -> send faild: ~w with"
+               "~n   Rest IOV size: ~w", [ID, Reason, iolist_size(RestIOV)]),
+            ?SKIPE(enobufs);
+        {error, {Reason, RestIOV}} when is_atom(Reason) andalso
+                                        is_list(RestIOV) ->
+            ?P("C[~w] -> send faild: ~w with"
+               "~n   Rest IOV size: ~w", [ID, Reason, iolist_size(RestIOV)]),
+            ?FAIL(Reason);
+        {error, Reason} ->
+            ?P("C[~w] -> send faild: "
+               "~n   ~p", [ID, Reason]),
+            ?FAIL(Reason)
+    end,
 
     %% _ = socket:setopt(Sock, otp, debug, false),
 
