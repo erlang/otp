@@ -176,6 +176,16 @@ await_finish([], _OK, Fails) ->
     Fails;
 await_finish(Evs, OK, Fails) ->
     receive
+        {'EXIT', _Pid, {timetrap_timeout, _Timeout, _Stack}} ->
+            %% The test timeout is up.
+            ?SEV_EPRINT("timetrap timeout when: "
+                        "~n   Num Remaining Evs: ~w"
+                        "~n   OK Evs:            ~p"
+                        "~n   Failed Evs:        ~p"
+                        "~n   ~p", [length(Evs), OK, Fails]),
+            force_evs_kill(Evs),
+            exit(timetrap_timeout);
+
         %% Successful termination of evaluator
         {'DOWN', _MRef, process, Pid, normal} ->
             {Evs2, OK2, Fails2} = await_finish_normal(Pid, Evs, OK, Fails),
@@ -642,6 +652,22 @@ check_down(Pid, DownReason, Pids) ->
         false ->
             ok
     end.
+
+
+%% ============================================================================
+
+force_evs_kill(Evs) when is_list(Evs) ->
+    force_evs_exit(Evs, kill).
+
+force_evs_exit([], _) ->
+    ok;
+force_evs_exit([#ev{name = Name,
+                    pid  = Pid,
+                    mref = MRef} | Evs], Reason) ->
+    ?SEV_IPRINT("Force terminate evaluator ~p (~p)", [Name, Pid]),
+    (catch erlang:demonitor(MRef, [flush])),
+    exit(Pid, Reason),
+    force_evs_exit(Evs, Reason).
 
 
 %% ============================================================================
