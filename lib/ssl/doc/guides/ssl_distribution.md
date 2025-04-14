@@ -256,8 +256,9 @@ verify(OtpCert, _SslStatus, Init) ->
 ```
 
 > #### Note {: .info }
-> The legacy command line format for verify_fun described below
-> cannot be used in a `-ssl_dist_optfile` file.
+> The legacy command line format for `verify_fun` cannot be used
+> in a `-ssl_dist_optfile` file as described below in
+> [Specifying TLS Options (Legacy)](#specifying-tls-options-legacy).
 
 ## Using TLS distribution over IPv6
 
