@@ -580,14 +580,6 @@ fix_beam_licenses(LicensesAndCopyrights,
                               %% follows from otp/lib/stdlib/uc_spec/README-UPDATE.txt
                               files_have_no_license(SPDX#{~"licenseConcluded" := ~"Unicode-3.0 AND Apache-2.0"});
 
-                          #{~"fileName" := <<"erts/emulator/internal_doc/",Filename/binary>>} ->
-                              case binary:split(Filename, ~".md") of
-                                  [_File, _Ext] ->
-                                      SPDX#{~"licenseConcluded" := ~"Apache-2.0"};
-                                  _ ->
-                                      SPDX
-                              end;
-
                           #{~"fileName" := Filename} ->
                               case bootstrap_mappings(Filename) of
                                   {error, not_beam_file} ->
