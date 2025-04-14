@@ -5887,6 +5887,25 @@ api_ffd_open_connect_and_open_and_send_tcp2(InitState) ->
                    end},
 
          %% *** The actual test ***
+         #{desc => "order server to continue (with accept)",
+           cmd  => fun(#{server := Server} = _State) ->
+                           ?SEV_ANNOUNCE_CONTINUE(Server, accept),
+                           ok
+                   end},
+         ?SEV_SLEEP(?SECS(1)),
+         #{desc => "order client 2 to continue (with connect)",
+           cmd  => fun(#{client2 := Client} = _State) ->
+                           ?SEV_ANNOUNCE_CONTINUE(Client, connect),
+                           ok
+                   end},
+         #{desc => "await client 2 ready (connect)",
+           cmd  => fun(#{client2 := Pid} = _State) ->
+                           ?SEV_AWAIT_READY(Pid, client2, connect)
+                   end},
+         #{desc => "await server ready (accept)",
+           cmd  => fun(#{server := Server} = _State) ->
+                           ?SEV_AWAIT_READY(Server, server, accept)
+                   end},         
 
          #{desc => "order client 1 to continue (with send request 1)",
            cmd  => fun(#{client1 := Client} = _State) ->
