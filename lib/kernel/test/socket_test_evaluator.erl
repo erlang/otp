@@ -181,8 +181,8 @@ await_finish(Evs, OK, Fails) ->
             ?SEV_EPRINT("timetrap timeout when: "
                         "~n   Num Remaining Evs: ~w"
                         "~n   OK Evs:            ~p"
-                        "~n   Failed Evs:        ~p"
-                        "~n   ~p", [length(Evs), OK, Fails]),
+                        "~n   Failed Evs:        ~p",
+                        [length(Evs), OK, Fails]),
             force_evs_kill(Evs),
             exit(timetrap_timeout);
 
