@@ -1,3 +1,5 @@
+%% -*- erlang -*-
+%%
 %% %CopyrightBegin%
 %%
 %% SPDX-License-Identifier: Apache-2.0
@@ -18,5 +20,6 @@
 %%
 %% %CopyrightEnd%
 
-AsymmetricKeyPackageModuleV1.asn1
-PKCS5v2-0.asn1
+{exclusive_decode,
+ {'OTP-PKIX',
+  [{decode_TBSCert_exclusive,['OTPCertificate',[{tbsCertificate,undecoded}]]}]}}.

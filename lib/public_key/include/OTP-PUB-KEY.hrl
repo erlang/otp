@@ -1,3 +1,4 @@
+%%
 %% %CopyrightBegin%
 %%
 %% SPDX-License-Identifier: Apache-2.0
@@ -17,6 +18,6 @@
 %% limitations under the License.
 %%
 %% %CopyrightEnd%
+%%
 
-AsymmetricKeyPackageModuleV1.asn1
-PKCS5v2-0.asn1
+-include("public_key.hrl").

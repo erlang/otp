@@ -156,8 +156,8 @@ ocsp_test(Config) when is_list(Config) ->
                                     IsTrustedReponderFun),
     {'SingleResponse',
      {'CertID',
-      {'AlgorithmIdentifier',
-       {1,3,14,3,2,26},<<5,0>>},
+      {'CertID_hashAlgorithm',
+       {1,3,14,3,2,26},{asn1_OPENTYPE, <<5,0>>}},
       <<227,147,252,182,155,101,129,45,194,162,22,93,127,46,112,193,196,28,241,232>>,
       <<34,25,129,87,115,255,155,246,200,97,92,7,51,110,152,61,97,155,164,171>>,9},
      {good,'NULL'},"20230720122949Z",asn1_NOVALUE,asn1_NOVALUE} =

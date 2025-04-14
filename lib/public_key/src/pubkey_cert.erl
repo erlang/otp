@@ -23,8 +23,6 @@
 -module(pubkey_cert).
 -moduledoc false.
 
--include("public_key.hrl").
-
 %% path validation
 -export([init_validation_state/3,
          validate_extensions/4,
@@ -57,7 +55,7 @@
          x509_pkix_sign_types/1,
          root_cert/2]).
 
--define(NULL, 0).
+-include("public_key_internal.hrl").
 
 %%====================================================================
 %% Internal application APIs
@@ -1441,7 +1439,7 @@ is_dir_name([[{'AttributeTypeAndValue', Type, What1}]|Rest1],
     end;
 is_dir_name(_,[],false) ->
     true;
-is_dir_name(_,_,_) ->
+is_dir_name(_A,_B,_) ->
     false.
 
 %% attribute values in types other than PrintableString are case
@@ -1732,6 +1730,8 @@ verify_signature(OtpCert, DerCert, Key, KeyParams) ->
                     public_key:verify(PlainText, DigestType, Signature, Key,
                                       verify_options(KeyParams));
                 'NULL' ->
+                    public_key:verify(PlainText, DigestType, Signature, Key);
+                asn1_NOVALUE ->
                     public_key:verify(PlainText, DigestType, Signature, Key)
             end;
 	_ ->
@@ -1739,10 +1739,9 @@ verify_signature(OtpCert, DerCert, Key, KeyParams) ->
     end.
 
 encoded_tbs_cert(Cert) ->
-    {ok, PKIXCert} =
-	'OTP-PUB-KEY':decode_TBSCert_exclusive(Cert),
-    {'Certificate',
-     {'Certificate_tbsCertificate', EncodedTBSCert}, _, _} = PKIXCert,
+    {ok, PKIXCert} = 'OTP-PKIX':decode_TBSCert_exclusive(Cert),
+    {'OTPCertificate',
+     {'OTPCertificate_tbsCertificate', EncodedTBSCert}, _, _} = PKIXCert,
     EncodedTBSCert.
 
 public_key_info(PublicKeyInfo,
@@ -1750,8 +1749,8 @@ public_key_info(PublicKeyInfo,
 				       WorkingAlgorithm,
 				       working_public_key_parameters =
 				       WorkingParams}) ->
-    PublicKey = PublicKeyInfo#'OTPSubjectPublicKeyInfo'.subjectPublicKey,
-    AlgInfo = PublicKeyInfo#'OTPSubjectPublicKeyInfo'.algorithm,
+    #'OTPSubjectPublicKeyInfo'{subjectPublicKey=PublicKey,
+                               algorithm=AlgInfo} = PublicKeyInfo,
 
     PublicKeyParams = AlgInfo#'PublicKeyAlgorithm'.parameters,
     Algorithm = AlgInfo#'PublicKeyAlgorithm'.algorithm,
@@ -1979,10 +1978,10 @@ sign_algorithm(#'RSAPrivateKey'{} = Key , Opts) ->
       case proplists:get_value(rsa_padding, Opts, rsa_pkcs1_pss_padding) of
         rsa_pkcs1_pss_padding ->
             DigestId = rsa_digest_oid(proplists:get_value(digest, Opts, sha1)),
-            rsa_sign_algo(Key, DigestId, 'NULL');
+            rsa_sign_algo(Key, DigestId, asn1_NOVALUE);
         rsa_pss_rsae ->
             DigestId = rsa_digest_oid(proplists:get_value(digest, Opts, sha256)),
-            rsa_sign_algo(Key, DigestId, 'NULL')
+            rsa_sign_algo(Key, DigestId, asn1_NOVALUE)
       end;
 sign_algorithm({#'RSAPrivateKey'{} = Key,#'RSASSA-PSS-params'{} = Params}, _Opts) ->
     rsa_sign_algo(Key, ?'id-RSASSA-PSS', Params);
@@ -2094,7 +2093,7 @@ public_key({#'RSAPrivateKey'{modulus=N, publicExponent=E}, #'RSASSA-PSS-params'{
 			       subjectPublicKey = Public};
 public_key(#'RSAPrivateKey'{modulus=N, publicExponent=E}, _) ->
     Public = #'RSAPublicKey'{modulus=N, publicExponent=E},
-    Algo = #'PublicKeyAlgorithm'{algorithm= ?rsaEncryption, parameters='NULL'},
+    Algo = #'PublicKeyAlgorithm'{algorithm= ?rsaEncryption, parameters=asn1_NOVALUE},
     #'OTPSubjectPublicKeyInfo'{algorithm = Algo,
 			       subjectPublicKey = Public};
 public_key(#'DSAPrivateKey'{p=P, q=Q, g=G, y=Y}, _) ->
