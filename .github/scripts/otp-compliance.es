@@ -1081,10 +1081,10 @@ create_vendor_relations(NewVendorPackages, #{~"packages" := Packages, ~"relation
                           [App | _] = string:split(undo_spdxid_name(ID), ~"-"),
                           case lists:filter(fun (#{~"name" := N}) -> App == generate_spdx_valid_name(N) end, Packages) of
                               [#{~"SPDXID" := RootId}=_RootPackage] ->
-                                  create_spdx_relation('PACKAGE_OF', RootId, ID);
+                                  create_spdx_relation('PACKAGE_OF', ID, RootId);
                               [] ->
                                   %% Attach to root level package
-                                  create_spdx_relation('PACKAGE_OF', ?spdxref_project_name, ID)
+                                  create_spdx_relation('PACKAGE_OF', ID, ?spdxref_project_name)
                               end
                   end, NewVendorPackages),
     SpdxWithVendor#{~"relationships" := Relations ++ VendorRelations}.
@@ -1766,6 +1766,7 @@ test_packages_purl(#{~"documentDescribes" := [ProjectName], ~"packages" := Packa
 
 test_vendor_packages(Sbom) ->
     ok = minimum_vendor_packages(Sbom),
+    ok = vendor_relations(Sbom),
     ok.
 
 minimum_vendor_packages(#{~"packages" := Packages}=_Sbom) ->
@@ -1774,17 +1775,45 @@ minimum_vendor_packages(#{~"packages" := Packages}=_Sbom) ->
     true = [] == VendorNames -- Names,
     ok.
 
+vendor_relations(#{~"packages" := Packages, ~"relationships" := Relations}) ->
+    PackageIds = lists:map(fun (#{~"SPDXID" := Id}) -> Id end, Packages),
+    VendorIds = lists:filtermap(fun (#{~"comment" := " vendor package", ~"SPDXID" := Id}) -> {true, Id} ;
+                                      (_) -> false
+                                  end, Packages),
+    true = lists:all(fun (#{~"relatedSpdxElement" := Related,
+                            ~"relationshipType"   := _,
+                            ~"spdxElementId" := PackageId}) ->
+                             case lists:member(PackageId, VendorIds) of
+                                 true ->
+                                     lists:member(Related, PackageIds) andalso
+                                         PackageId =/= Related ;
+                                 false ->
+                                     %% ignore non-vendor relations
+                                     true
+                             end
+                     end, Relations),
+    ok.
+
 test_package_relations(#{~"packages" := Packages}=Spdx) ->
     PackageIds = lists:map(fun (#{~"SPDXID" := Id}) -> Id end, Packages),
     Relations = maps:get(~"relationships", Spdx),
     true = lists:all(fun (#{~"relatedSpdxElement" := Related,
                             ~"relationshipType"   := Relation,
-                            ~"spdxElementId" := PackageId}) ->
-                             lists:member(Relation, [~"PACKAGE_OF", ~"DEPENDS_ON", ~"TEST_OF",
-                                                     ~"OPTIONAL_DEPENDENCY_OF", ~"DOCUMENTATION_OF"]) andalso
+                            ~"spdxElementId" := PackageId}=Rel) ->
+                             Result =   
+                                 lists:member(Relation, [~"PACKAGE_OF", ~"DEPENDS_ON", ~"TEST_OF",
+                                                         ~"OPTIONAL_DEPENDENCY_OF", ~"DOCUMENTATION_OF"]) andalso
                                  lists:member(Related, PackageIds) andalso
                                  lists:member(PackageId, PackageIds) andalso
-                                 PackageId =/= Related
+                                 PackageId =/= Related andalso
+                                 PackageId =/= ?spdxref_project_name,
+                            case Result of 
+                                false ->
+                                    io:format("Error in relation: ~p~n", [Rel]),
+                                    false;
+                                true ->
+                                    true
+                            end
                      end, Relations),
     ok.
 
