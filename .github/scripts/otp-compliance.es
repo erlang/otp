@@ -60,7 +60,7 @@
          test_package_ids/1, test_verificationCode/1, test_supplier_Ericsson/1,
          test_originator_Ericsson/1, test_versionInfo_not_empty/1, test_package_hasFiles/1,
          test_project_purl/1, test_packages_purl/1, test_download_location/1, 
-         test_package_relations/1, test_has_extracted_licenses/1, test_snippets/1,
+         test_package_relations/1, test_has_extracted_licenses/1,
          test_vendor_packages/1, test_erts/1, test_copyright_format/1]).
 
 -define(default_classified_result, "scan-result-classified.json").
@@ -372,10 +372,7 @@ sbom_otp(#{sbom_file  := SbomFile, write_to_file := Write, input_file := Input})
 
 improve_sbom_with_info(Sbom, ScanResults) ->
     {Licenses, Copyrights} = fetch_license_copyrights(ScanResults),
-    Spdx = generate_spdx_fixes(Sbom, Licenses, Copyrights),
-    generate_snippet_fixes(Spdx, ScanResults).
-    %% Spdx.
-
+    generate_spdx_fixes(Sbom, Licenses, Copyrights).
 
 fetch_license_copyrights(Input) ->
     {path_to_license(Input), path_to_copyright(Input)}.
@@ -385,68 +382,6 @@ generate_spdx_fixes(Input, Licenses, Copyrights) ->
     FixFuns = sbom_fixing_functions(Licenses, Copyrights),
     Spdx = lists:foldl(fun ({Fun, Data}, Acc) -> Fun(Data, Acc) end, Input, FixFuns),
     package_by_app(Spdx).
-
-%% this function has a hard dependency to ScanResults.
-%% ScanResults has license results on a per line found basis.
-%% Spdx result builds using ScanResult and loses this information.
-generate_snippet_fixes(Spdx, ScanResults) ->
-    Licenses = licenses(scan_results(ScanResults)),
-    %% We identify the known copied snippet
-    [Snippet] = lists:filter(fun(#{~"location" := #{~"path" := Path}, ~"license" := License}) ->
-                                    case {License, Path} of
-                                        {~"Apache-2.0 WITH LLVM-exception AND BSL-1.0", ~"erts/emulator/ryu/d2s.c"} ->
-                                            true;
-                                        _ ->
-                                            false
-                                    end
-                            end, Licenses),
-    Snippets = generate_snippet(Spdx, [Snippet]),
-    Spdx#{ ~"snippets" => Snippets }.
-
-%% we are doing the assumption that we only have one known snippet.
-generate_snippet(#{~"files" := Files}=_Spdx, [#{~"location" := #{~"path" := ~"erts/emulator/ryu/d2s.c"=Path}, ~"license" := License}]) ->
-    [#{~"SPDXID" := SpdxId}=SpdxFile] = lists:filter(fun (#{~"fileName" := FileName}) -> FileName == Path end, Files),
-
-    %% read file to find snippet byte range and lines
-    {ok, Content} = file:read_file(Path),
-    #{~"begin_byte" := StartOffsetBytes, ~"end_byte" := EndOffsetBytes,
-      ~"start_line" := StartLine,        ~"end_line" := EndLine} = get_snippet_range(Content),
-
-    [#{ ~"SPDXID" => ~"SPDXRef-Snippet-STL",
-        ~"comment" => ~"""
-                       vendor package.
-                       This is inspired from the MS STL Charconv, under Apache with LLVM exception licence see https://github.com/microsoft/STL/blob/main/LICENSE.txt
-                       The inspiration is at https://github.com/microsoft/STL/blob/e745bad3b1d05b5b19ec652d68abb37865ffa454/stl/inc/xcharconv_ryu.h#L1926
-                       Changes are described in the file.
-                       """,
-        ~"copyrightText" => maps:get(~"copyrightText", SpdxFile),
-        ~"licenseConcluded" => ~"Apache-2.0 WITH LLVM-exception AND BSL-1.0",
-        ~"licenseInfoInSnippets" => split_licenses_in_individual_parts([License]),
-        ~"name" => ~"stl",
-        ~"ranges" => [ #{~"endPointer" => #{ ~"lineNumber" => EndLine, ~"reference" => SpdxId},
-                         ~"startPointer" => #{ ~"lineNumber" => StartLine, ~"reference" => SpdxId}},
-                       #{~"endPointer" => #{ ~"offset" => EndOffsetBytes, ~"reference" => SpdxId},
-                         ~"startPointer" => #{ ~"offset" => StartOffsetBytes, ~"reference" => SpdxId}} ],
-        ~"snippetFromFile" => SpdxId
-      }].
-
-%% assumes that there is only one snippet in the whole file.
--spec get_snippet_range(Content :: binary()) -> map().
-get_snippet_range(Content) ->
-    get_snippet_range(Content, {<<>>, 1}).
-get_snippet_range(<<"\n", Rest/binary>>, {Acc, Lines}) ->
-    get_snippet_range(Rest, {<<"\n", Acc/binary>>, Lines+1});
-get_snippet_range(<<"// SPDX-SnippetBegin", Rest/binary>>, {Content, Line}) ->
-    {BeginContent, StartLine} = {Content, Line},
-    {EndContent, EndLine} = get_snippet_range(Rest, {<<"// SPDX-SnippetBegin", Content/binary>>, Line+1}),
-    #{~"begin_byte" => byte_size(BeginContent),
-      ~"end_byte" => byte_size(EndContent),
-      ~"start_line" => StartLine,
-      ~"end_line" => EndLine};
-get_snippet_range(<<"// SPDX-SnippetEnd", _Rest/binary>>, {Content, Line}) ->
-    {Content, Line};
-get_snippet_range(<<C, Rest/binary>>, {Content, Line}) ->
-    get_snippet_range(Rest, {<<C, Content/binary>>, Line}).
 
 sbom_fixing_functions(Licenses, Copyrights) ->
     [{fun fix_project_name/2, ?spdxref_project_name},
@@ -1521,7 +1456,6 @@ package_generator(Sbom) ->
              test_download_location,
              test_package_relations,
              test_has_extracted_licenses,
-             test_snippets,
              test_vendor_packages],
     true = ?CALL_TEST_FUNCTIONS(Tests, Sbom),
     ok.
@@ -1857,25 +1791,6 @@ test_has_extracted_licenses(#{~"hasExtractedLicensingInfos" := LicensesInfo,
                       end, [], Packages)),
     true = lists:all(fun (#{~"licenseId" := LicenseId}) -> lists:member(LicenseId, LicenseRefsInProject) end, LicensesInfo),
     ok.
-
-test_snippets(#{~"snippets" := Snippets, ~"files" := Files}=_Spdx) ->
-    true = lists:all(fun (#{ ~"SPDXID" := _Id,
-                         ~"copyrightText" := _Copyright,
-                         ~"licenseConcluded" := License,
-                         ~"licenseInfoInSnippets" := Licenses,
-                         ~"name" := _Name,
-                         ~"ranges" := [ #{~"endPointer" := #{ ~"lineNumber" := EndLine, ~"reference" := SpdxId},
-                                          ~"startPointer" := #{ ~"lineNumber" := StartLine, ~"reference" := SpdxId}},
-                                        #{~"endPointer" := #{ ~"offset" := EndOffsetBytes, ~"reference" := SpdxId},
-                                          ~"startPointer" := #{ ~"offset" := StartOffsetBytes, ~"reference" := SpdxId}} ],
-                         ~"snippetFromFile" := SpdxId}) ->
-                       EndLine >= StartLine andalso
-                      EndOffsetBytes >= StartOffsetBytes andalso
-                      lists:all(fun (L) -> lists:member(L, Licenses) end, split_licenses_in_individual_parts([License])) andalso
-                      length(lists:filter(fun (#{~"SPDXID" := Id}) -> SpdxId == Id end, Files)) == 1
-                     end, Snippets),
-    ok.
-
 
 %% Adds LicenseRef licenses where the text is missing.
 extracted_license_info() ->
