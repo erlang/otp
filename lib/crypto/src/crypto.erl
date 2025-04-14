@@ -683,7 +683,7 @@ support all of them.
 -doc(#{group => <<"Digests and hash">>,equiv => blake2()}).
 -type sha1() :: sha .
 -doc(#{group => <<"Digests and hash">>,equiv => blake2()}).
--type sha2() :: sha224 | sha256 | sha384 | sha512 .
+-type sha2() :: sha224 | sha256 | sha384 | sha512 | sha512_224 | sha512_256 .
 -doc(#{group => <<"Digests and hash">>,equiv => blake2()}).
 -type sha3() :: sha3_224 | sha3_256 | sha3_384 | sha3_512 .
 -doc(#{group => <<"Digests and hash">>,equiv => blake2()}).
@@ -983,7 +983,7 @@ Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
 """.
 -doc(#{group => <<"Engine API">>,since => <<"OTP 24.2">>}).
 -spec pbkdf2_hmac(Digest, Pass, Salt, Iter, KeyLen) -> Result
-          when Digest :: sha | sha224 | sha256 | sha384 | sha512,
+          when Digest :: sha | sha224 | sha256 | sha384 | sha512 | sha512_224 | sha512_256,
                Pass :: binary(),
                Salt :: binary(),
                Iter :: pos_integer(),

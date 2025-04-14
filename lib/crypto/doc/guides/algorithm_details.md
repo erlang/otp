@@ -178,6 +178,8 @@ name is present in the list returned by
 | `sha256`    | 32                                                     |
 | `sha384`    | 48                                                     |
 | `sha512`    | 64                                                     |
+| `sha512_224`| 28                                                     |
+| `sha512_256`| 32                                                     |
 | `sha3_224`  | 28                                                     |
 | `sha3_256`  | 32                                                     |
 | `sha3_384`  | 48                                                     |
@@ -211,7 +213,7 @@ column is present in the list returned by
 | **Type** | **Names**                                                  | **Limited to** **OpenSSL versions** |
 | -------- | ---------------------------------------------------------- | ----------------------------------- |
 | SHA1     | sha                                                        |                                     |
-| SHA2     | sha224, sha256, sha384, sha512                             |                                     |
+| SHA2     | sha224, sha256, sha384, sha512, sha512_224, sha512_256     |                                     |
 | SHA3     | sha3_224, sha3_256, sha3_384, sha3_512, shake128, shake256 | ≥1.1.1                              |
 | SM3      | sm3                                                        | ≥1.1.1                              |
 | MD4      | md4                                                        |                                     |
