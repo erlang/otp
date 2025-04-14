@@ -164,15 +164,14 @@ on_load(Extra) when is_map(Extra) ->
     init().
 
 init() ->
-    PT =
-        put_supports_table(protocols,
-			   fun (Protocols) -> protocols_table(Protocols) end),
-    _ = put_supports_table(options,
-			   fun (Options) -> options_table(Options, PT) end),
-    _ = put_supports_table(ioctl_requests,
-			   fun (Requests) -> Requests end),
-    _ = put_supports_table(ioctl_flags, fun (Flags) -> Flags end),
-    _ = put_supports_table(msg_flags, fun (Flags) -> Flags end),
+    put_supports_table(protocols,
+                       fun (Protocols) -> protocols_table(Protocols) end),
+    put_supports_table(options,
+                       fun (Options) -> options_table(Options) end),
+    put_supports_table(ioctl_requests,
+                       fun (Requests) -> Requests end),
+    put_supports_table(ioctl_flags, fun (Flags) -> Flags end),
+    put_supports_table(msg_flags, fun (Flags) -> Flags end),
     ok.
 
 put_supports_table(Tag, MkTable) ->
@@ -184,8 +183,7 @@ put_supports_table(Tag, MkTable) ->
             error : notsup ->
                 #{}
         end,
-    p_put(Tag, Table),
-    Table.
+    p_put(Tag, Table).
 
 %% Like maps:from_list/1 the last duplicate key wins,
 %% except if both values are lists; append the second to the first.
@@ -219,41 +217,24 @@ protocols_table(Protocols, [], _Num) ->
     protocols_table(Protocols).
 
 %% ->
-%% [{{socket,Opt}, {socket,OptNum}} |
-%%  {{Level, Opt}, {LevelNum, OptNum}} for all Levels (protocol aliases)]
-options_table([], _PT) ->
+%% [{{socket,Opt}, {socket,OptNum} | undefined} |
+%%  {{Level, Opt}, {LevelNum, OptNum} | undefined}]
+options_table([]) ->
     [];
-options_table([{socket, LevelOpts} | Options], PT) ->
-    options_table(Options, PT, socket, LevelOpts, [socket]);
-options_table([{LevelNum, LevelOpts} | Options], PT) ->
-    Levels = maps:get(LevelNum, PT),
-    options_table(Options, PT, LevelNum, LevelOpts, Levels).
+options_table([{socket = Level, _LevelNum, LevelOpts} | Options]) ->
+    options_table(Options, Level, Level, LevelOpts);
+options_table([{Level, LevelNum, LevelOpts} | Options]) ->
+    options_table(Options, Level, LevelNum, LevelOpts).
 %%
-options_table(Options, PT, _Level, [], _Levels) ->
-    options_table(Options, PT);
-options_table(Options, PT, Level, [LevelOpt | LevelOpts], Levels) ->
-    LevelOptNum =
-        case LevelOpt of
-            {Opt, OptNum} ->
-                {Level,OptNum};
-            Opt when is_atom(Opt) ->
-                undefined
-        end,
-    options_table(
-      Options, PT, Level, LevelOpts, Levels,
-      Opt, LevelOptNum, Levels).
-%%
-options_table(
-  Options, PT, Level, LevelOpts, Levels,
-  _Opt, _LevelOptNum, []) ->
-    options_table(Options, PT, Level, LevelOpts, Levels);
-options_table(
-  Options, PT, Level, LevelOpts, Levels,
-  Opt, LevelOptNum, [L | Ls]) ->
-    [{{L,Opt}, LevelOptNum} |
-     options_table(
-       Options, PT, Level, LevelOpts, Levels,
-       Opt, LevelOptNum, Ls)].
+options_table(Options, _Level, _LevelNum, []) ->
+    options_table(Options);
+options_table(Options, Level, LevelNum, [LevelOpt | LevelOpts]) ->
+    [case LevelOpt of
+         {Opt, OptNum} ->
+             {{Level, Opt}, {LevelNum,OptNum}};
+         Opt when is_atom(Opt) ->
+             {{Level, Opt}, undefined}
+     end | options_table(Options, Level, LevelNum, LevelOpts)].
 
 %% ===========================================================================
 %% API for 'socket'

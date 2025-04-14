@@ -5088,8 +5088,7 @@ ERL_NIF_TERM esock_supports_options(ErlNifEnv* env)
         }
         levels =
             MKC(env,
-                MKT2(env,
-                     esock_encode_level(env, levelP->level), options),
+                MKT3(env, *levelP->nameP, MKI(env, levelP->level), options),
                 levels);
     }
 
