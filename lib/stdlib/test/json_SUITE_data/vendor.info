@@ -1,11 +1,11 @@
-%% %CopyrightBegin%
-%%
-%% SPDX-License-Identifier: Apache-2.0
-%%
-%% Copyright Ericsson AB 2025. All Rights Reserved.
-%%
-%% %CopyrightEnd%
-{
+// %CopyrightBegin%
+//
+// SPDX-License-Identifier: Apache-2.0
+//
+// Copyright Ericsson AB 2025. All Rights Reserved.
+//
+// %CopyrightEnd%
+[{
   "ID": "stdlib-json-suite",
   "description": "JSON Test Suite",
   "copyrightText": "Copyright (c) 2016 Nicolas Seriot",
@@ -17,4 +17,4 @@
   "path": "./lib/stdlib/test/json_SUITE_data",
   "supplier": "Person: Nicolas Seriot",
   "purl": "pkg:github/nst/JSONTestSuite"
-}
+}]
