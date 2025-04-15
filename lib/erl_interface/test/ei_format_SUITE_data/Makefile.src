@@ -39,6 +39,6 @@ clean:
 	$(RM) ei_format_test@exe@
 
 ei_format_test@exe@: $(EI_FORMAT_OBJS) $(LIBEI)
-	$(LD) @CROSSLDFLAGS@ -o $@ $(EI_FORMAT_OBJS) $(LIBFLAGS)
+	$(LD) $(EI_LDFLAGS) @CROSSLDFLAGS@ -o $@ $(EI_FORMAT_OBJS) $(LIBFLAGS)
 
 

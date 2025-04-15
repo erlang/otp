@@ -33,7 +33,7 @@ LIBFLAGS = $(LIBEI) @LIBS@ @erl_interface_sock_libs@ @erl_interface_threadlib@
 all: fwd_node@exe@
 
 fwd_node@exe@: fwd_node@obj@ $(LIBEI)
-	$(LD) @CROSSLDFLAGS@ -o $@ fwd_node@obj@ $(LIBFLAGS)
+	$(LD) $(EI_LDFLAGS) @CROSSLDFLAGS@ -o $@ fwd_node@obj@ $(LIBFLAGS)
 
 clean:
 	$(RM) fwd_node@obj@

@@ -47,28 +47,28 @@ PROGS = eterm_test@exe@ format_test@exe@ print_term@exe@ match_test@exe@ ei_form
 all: $(PROGS)
 
 eterm_test@exe@: $(ETERM_OBJS) $(LIBERL) $(LIBEI)
-	$(LD) @CROSSLDFLAGS@ -o eterm_test $(ETERM_OBJS) $(LIBFLAGS)
+	$(LD) $(EI_LDFLAGS) @CROSSLDFLAGS@ -o eterm_test $(ETERM_OBJS) $(LIBFLAGS)
 
 ext_test@exe@: $(EXT_OBJS) $(LIBERL) $(LIBEI)
-	$(LD) @CROSSLDFLAGS@ -o ext_test $(EXT_OBJS) $(LIBFLAGS)
+	$(LD) $(EI_LDFLAGS) @CROSSLDFLAGS@ -o ext_test $(EXT_OBJS) $(LIBFLAGS)
 
 format_test@exe@: $(FORMAT_OBJS) $(LIBERL) $(LIBEI)
-	$(LD) @CROSSLDFLAGS@ -o format_test $(FORMAT_OBJS) $(LIBFLAGS)
+	$(LD) $(EI_LDFLAGS) @CROSSLDFLAGS@ -o format_test $(FORMAT_OBJS) $(LIBFLAGS)
 
 ei_format_test@exe@: $(EI_FORMAT_OBJS) $(LIBERL) $(LIBEI)
-	$(LD) @CROSSLDFLAGS@ -o ei_format_test $(EI_FORMAT_OBJS) $(LIBFLAGS)
+	$(LD) $(EI_LDFLAGS) @CROSSLDFLAGS@ -o ei_format_test $(EI_FORMAT_OBJS) $(LIBFLAGS)
 
 ei_print_test@exe@: $(EI_PRINT_OBJS) $(LIBERL) $(LIBEI)
-	$(LD) @CROSSLDFLAGS@ -o ei_print_test $(EI_PRINT_OBJS) $(LIBFLAGS)
+	$(LD) $(EI_LDFLAGS) @CROSSLDFLAGS@ -o ei_print_test $(EI_PRINT_OBJS) $(LIBFLAGS)
 
 ei_connect_test@exe@: $(EI_CONNECT_OBJS) $(LIBERL) $(LIBEI)
-	$(LD) @CROSSLDFLAGS@ -o ei_connect_test $(EI_CONNECT_OBJS) $(LIBFLAGS)
+	$(LD) $(EI_LDFLAGS) @CROSSLDFLAGS@ -o ei_connect_test $(EI_CONNECT_OBJS) $(LIBFLAGS)
 
 ei_accept_test@exe@: $(EI_ACCEPT_OBJS) $(LIBERL) $(LIBEI)
-	$(LD) @CROSSLDFLAGS@ -o ei_accept_test $(EI_ACCEPT_OBJS) $(LIBFLAGS)
+	$(LD) $(EI_LDFLAGS) @CROSSLDFLAGS@ -o ei_accept_test $(EI_ACCEPT_OBJS) $(LIBFLAGS)
 
 match_test@exe@: $(MATCH_OBJS) $(LIBERL) $(LIBEI)
-	$(LD) @CROSSLDFLAGS@ -o match_test $(MATCH_OBJS) $(LIBFLGAS)
+	$(LD) $(EI_LDFLAGS) @CROSSLDFLAGS@ -o match_test $(MATCH_OBJS) $(LIBFLGAS)
 
 print_term@exe@: print_term@obj@ $(LIBERL) $(LIBEI)
-	$(LD) @CROSSLDFLAGS@ -o print_term print_term@obj@ $(LIBFLGAS)
+	$(LD) $(EI_LDFLAGS) @CROSSLDFLAGS@ -o print_term print_term@obj@ $(LIBFLGAS)

@@ -39,6 +39,6 @@ clean:
 	$(RM) ei_print_test@exe@
 
 ei_print_test@exe@: $(EI_PRINT_OBJS) $(LIBEI)
-	$(LD) @CROSSLDFLAGS@ -o $@ $(EI_PRINT_OBJS) $(LIBFLAGS)
+	$(LD) $(EI_LDFLAGS) @CROSSLDFLAGS@ -o $@ $(EI_PRINT_OBJS) $(LIBFLAGS)
 
 
