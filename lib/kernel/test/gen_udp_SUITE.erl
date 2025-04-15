@@ -493,7 +493,7 @@ buffer_size(Config) when is_list(Config) ->
     TC   = fun() -> do_buffer_size(Config) end,
     ?TC_TRY(?FUNCTION_NAME, Cond, TC).
 
-%% Note trhat as of OTP 28, the default buffer size has increased to 9K (for UDP)
+%% Note that as of OTP 28, the default buffer size has increased to 9K (for UDP)
 %% Up from 8K
 -define(BF_NUM_K(N), (N*1024)).
 %%-define(BF_8K,       ?BF_NUM_K(8)).
