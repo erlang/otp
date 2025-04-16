@@ -13514,10 +13514,19 @@ otp19482_simple_multi_handler_init(Parent, ID, Num) ->
 otp19482_simple_multi_handler_loop(_Parent, ID, Sock, 0, Acc) ->
     %% Received all data, now send it back
     ?P("H[~w] -> entry when all data received - try send it back", [ID]),
-    ok = socket:sendv(Sock, lists:reverse(Acc)),
-    ?P("H[~w] -> data sent", [ID]),
-    _ = socket:shutdown(Sock, read_write),
-    exit(normal);
+    case otp19482_send(Sock, lists:reverse(Acc)) of
+        ok ->
+            ?P("H[~w] -> data sent", [ID]),
+            _ = socket:shutdown(Sock, read_write),
+            exit(normal);
+        {error, {send_limit, Remaining} = Reason} ->
+           ?P("H[~w] -> send failed: ~p", [ID, Remaining]),
+            exit({skip, Reason});
+        {error, Reason} ->
+            ?P("H[~w] -> send failed: "
+               "~n   ~p", [ID, Reason]),
+            ?FAIL(Reason)
+    end;
 otp19482_simple_multi_handler_loop(Parent, ID, Sock, Num, Acc) ->
     ?P("H[~w] -> entry when Num = ~w", [ID, Num]),
     case socket:recv(Sock, Num) of
@@ -13589,21 +13598,12 @@ otp19482_simple_multi_client_init(Parent, ID, LSA, Port, IOV) ->
     ?P("C[~w] -> try send message: "
        "~n   IOV Length: ~w"
        "~n   IOV size:   ~w", [ID, length(IOV), iolist_size(IOV)]),
-    case socket:sendv(Sock, IOV) of
+    case otp19482_send(Sock, IOV) of
         ok ->
             ok;
-        {error, enobufs = Reason} ->
-            ?P("C[~w] -> send faild: ~p", [ID, Reason]),
-            ?SKIPE(enobufs);
-        {error, {enobufs = Reason, RestIOV}} when is_list(RestIOV) ->
-            ?P("C[~w] -> send faild: ~w with"
-               "~n   Rest IOV size: ~w", [ID, Reason, iolist_size(RestIOV)]),
-            ?SKIPE(enobufs);
-        {error, {Reason, RestIOV}} when is_atom(Reason) andalso
-                                        is_list(RestIOV) ->
-            ?P("C[~w] -> send faild: ~w with"
-               "~n   Rest IOV size: ~w", [ID, Reason, iolist_size(RestIOV)]),
-            ?FAIL(Reason);
+        {error, {send_limit, Remaining} = Reason} ->
+            ?P("C[~w] -> send failed: ~p bytes remaining", [ID, Remaining]),
+            ?SKIPE(Reason);
         {error, Reason} ->
             ?P("C[~w] -> send faild: "
                "~n   ~p", [ID, Reason]),
@@ -13656,6 +13656,40 @@ otp19482_simple_multi_client_recv_loop(Sock, ID, Num) ->
             ?P("C[~w] recv-loop -> receive failure:"
                "~n   Reason: ~p", [ID, Reason]),
             ?FAIL({recv_failure, Reason})
+    end.
+
+otp19482_send(Sock, IOV) ->
+    otp19482_send(Sock, IOV, 0, 10).
+    
+otp19482_send(_Sock, IOV, N, Limit) when (N > Limit) ->
+    ?P("~w -> send limit (~w) reached with ~w bytes still unsent",
+       [?FUNCTION_NAME, Limit, iolist_size(IOV)]),    
+    {error, {send_limit, iolist_size(IOV)}};
+otp19482_send(Sock, IOV, N, Limit) ->
+    ?P("~w(~w) -> try send ~w bytes",
+       [?FUNCTION_NAME, N, iolist_size(IOV)]),
+    case socket:sendv(Sock, IOV) of
+        ok ->
+            ok;
+        {error, enobufs = Reason} ->
+            ?P("~w(~w) -> ~p - sleep some and then try again",
+               [?FUNCTION_NAME, N, Reason]),
+            ?SLEEP(?SECS(1)),
+            otp19482_send(Sock, IOV, N+1, Limit);
+        {error, {enobufs = Reason, RestIOV}} when is_list(RestIOV) ->
+            ?P("~w(~w) -> ~p with ~w bytes in RestIOV - "
+               "sleep some and then try again",
+               [?FUNCTION_NAME, N, Reason, iolist_size(RestIOV)]),
+            ?SLEEP(?SECS(1)),
+            otp19482_send(Sock, RestIOV, N+1, Limit);
+        {error, {Reason, RestIOV}} when is_list(RestIOV) ->
+            ?P("~w(~w) -> ~p with ~w bytes in RestIOV - give up",
+               [?FUNCTION_NAME, N, Reason, iolist_size(RestIOV)]),
+            {error, Reason};
+        {error, Reason} ->
+            ?P("~w(~w) -> ~p with ~w bytes remaining in IOV - give up",
+               [?FUNCTION_NAME, N, Reason, iolist_size(IOV)]),
+            {error, Reason}
     end.
 
 
