@@ -2091,7 +2091,7 @@ Currently available options for [`alias/1`](`alias/1`):
   sent via the alias is received. The alias can also still be deactivated via a
   call to [`unalias/1`](`unalias/1`).
 
-- **`priority`** - [](){: #priority_alias } Since OTP @OTP-19198@
+- **`priority`** - [](){: #priority_alias } Since OTP 28.0
 
   The alias can be used for sending
   [priority messages](`e:system:ref_man_processes.md#priority-messages`) to the
@@ -2468,7 +2468,7 @@ Sends an exit signal with exit reason `Reason` to the process or port identified
 by `Dest`. If `Dest` is a reference, the exit signal will *only* affect the
 identified process if the reference is an active
 [process alias](`e:system:ref_man_processes.md#process-aliases`) of a process
-executing on an OTP @OTP-19198@ node or newer.
+executing on an OTP 28.0 node or newer.
 
 The following behavior applies if `Reason` is any term, except `normal` or
 `kill`, and `P` is the process or port identified by `Dest`:
@@ -2544,7 +2544,7 @@ passed to the `exit/2` BIF.
 
 Currently available options:
 
-- **`priority`** -- Since OTP @OTP-19198@
+- **`priority`** -- Since OTP 28.0
 
   Send this exit signal as a priority exit signal. In order for
   the signal to be handled as a
@@ -2572,7 +2572,7 @@ Currently available options:
 """.
 
 -doc #{ category => processes }.
--doc(#{since => <<"OTP @OTP-19198@">>}).
+-doc(#{since => <<"OTP 28.0">>}).
 -spec exit(Dest, Reason, OptList) -> true when
       Dest :: pid() | port() | reference(),
       Reason :: term(),
@@ -3443,7 +3443,7 @@ The process is awakened when a message is sent to it, and control resumes
 normally to the caller. Unlike `erlang:hibernate/3`, it does not discard the
 call stack.
 """.
--doc #{ since => <<"OTP @OTP-19503@">> }.
+-doc #{ since => <<"OTP 28.0">> }.
 -doc #{ category => processes }.
 -spec hibernate() -> ok.
 hibernate() ->
@@ -3821,7 +3821,7 @@ Provides an option list for modification of the link functionality provided by
 
 Currently available options:
 
-- **`priority`** - Since OTP @OTP-19198@
+- **`priority`** - Since OTP 28.0
 
   [Enables priority message reception](`e:system:ref_man_processes.md#enable-prio-msg-recv`)
   of `EXIT` messages due to the link for the calling process. If the link
@@ -3849,7 +3849,7 @@ Currently available options:
 """.
 
 -doc #{ category => processes }.
--doc(#{since => <<"OTP @OTP-19198@">>}).
+-doc(#{since => <<"OTP 28.0">>}).
 -spec link(PidOrPort, [link_option()]) -> true when
       PidOrPort :: pid() | port().
 link(_PidOrPort, _OptList) ->
@@ -4421,7 +4421,7 @@ module_loaded(_Module) ->
 -doc """
 See `link/2`.
 
-Since OTP @OTP-19198@"
+Since OTP 28.0"
 """.
 -type link_option() :: priority.
 
@@ -4695,7 +4695,7 @@ Currently available options:
   In order for this example to work as intended, the client must be executing on
   at least an OTP 24 system, but the servers may execute on older systems.
 
-- **`priority`** - Since OTP @OTP-19198@
+- **`priority`** - Since OTP 28.0
 
   [Enables priority message reception](`e:system:ref_man_processes.md#enable-prio-msg-recv`)
   of the monitor message(s) sent when this monitor is triggered for the calling
@@ -5519,7 +5519,7 @@ processes() ->
 Returns a processes iterator that can be used in
 [`processes_next/1`](`processes_next/1`).
 """.
--doc #{ category => processes, since => <<"OTP @OTP-19369@">> }.
+-doc #{ category => processes, since => <<"OTP 28.0">> }.
 -spec processes_iterator() -> processes_iter_ref().
 processes_iterator() ->
     {0, []}.
@@ -5556,7 +5556,7 @@ ok
 > `processes_next/1` returns `none` is guaranteed to be part of the result
 > returned from one of the calls to `processes_next/1`.
 """.
--doc #{ category => processes, since => <<"OTP @OTP-19369@">> }.
+-doc #{ category => processes, since => <<"OTP 28.0">> }.
 -spec processes_next(Iter) -> {Pid, NewIter} | 'none' when
       Iter :: processes_iter_ref(),
       NewIter :: processes_iter_ref(),
@@ -8433,7 +8433,7 @@ Valid `InfoTuple`s with corresponding `Item`s:
   process. For more information on priorities, see
   [`process_flag(priority, Level)`](#process_flag_priority).
 
-- **`{priority_messages, Enabled}`** - Since OTP @OTP-19198@
+- **`{priority_messages, Enabled}`** - Since OTP 28.0
 
   If `Enabled` equals `true`, the process has
   [enabled priority message reception](`e:system:ref_man_processes.md#enable-prio-msg-recv`)
@@ -8563,7 +8563,7 @@ Options:
 - **`noconnect`** - If the destination node would have to be auto-connected to
   do the send, `noconnect` is returned instead.
 
-- **`priority`** - Since OTP @OTP-19198@
+- **`priority`** - Since OTP 28.0
 
   Send this message as a priority message. In order for the message to be
   handled as a

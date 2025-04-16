@@ -32,4 +32,4 @@
     {env,          []},
     {mod,          {runtime_tools, []}},
     {runtime_dependencies, ["stdlib-6.0","mnesia-4.12","kernel-10.0",
-			    "erts-@OTP-19369@"]}]}.
+			    "erts-16.0"]}]}.
