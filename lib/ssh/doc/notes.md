@@ -405,6 +405,19 @@ limitations under the License.
 
   Own Id: OTP-18490 Aux Id: OTP-18471, GH-6339, PR-6843
 
+## Ssh 4.15.3.12
+
+### Fixed Bugs and Malfunctions
+
+* Reception of wrong Unicode does not cause unnecessary processing. US-ASCII fields are not decoded as Unicode.
+
+  Own Id: OTP-19582 Aux Id: PR-9679
+* SSH daemon disconnects upon receiving connection protocol message for unauthenticated used.
+
+  Thanks to Fabian Bäumer, Marcel Maehren, Marcus Brinkmann, Nurullah Erinola, Jörg Schwenk (Ruhr University Bochum).
+
+  Own Id: OTP-19595 Aux Id: CVE-2025-32433
+
 ## Ssh 4.15.3.11
 
 ### Fixed Bugs and Malfunctions
