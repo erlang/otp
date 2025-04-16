@@ -3,6 +3,7 @@
 %% SPDX-License-Identifier: MIT
 %%
 %% Copyright (c) 2010, Torbjörn Törnkvist
+%% Copyright Ericsson AB 2012-2025. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 {application, eldap,

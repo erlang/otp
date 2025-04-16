@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 #
-# Copyright Ericsson AB 2012. All Rights Reserved.
+# Copyright Ericsson AB 2012-2025. All Rights Reserved.
 #
 # %CopyrightEnd%
 

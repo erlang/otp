@@ -1,9 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
+%%
 %% SPDX-License-Identifier: BSD-2-Clause
-%% 
+%%
 %% Copyright (c) 2008,2009 Robert Virding. All rights reserved.
+%% Copyright Ericsson AB 2009-2025. All Rights Reserved.
 %%
 %% Redistribution and use in source and binary forms, with or without
 %% modification, are permitted provided that the following conditions
@@ -27,7 +28,7 @@
 %% LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
 %% ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 %% POSSIBILITY OF SUCH DAMAGE.
-%% 
+%%
 %% %CopyrightEnd%
 %% 
 

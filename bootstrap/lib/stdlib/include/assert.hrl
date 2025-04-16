@@ -3,8 +3,8 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
+%% Copyright Ericsson AB 2018-2025. All Rights Reserved.
 %% Copyright (C) 2004-2016 Richard Carlsson, Mickaël Rémond
-%% Copyright Ericsson AB 2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.

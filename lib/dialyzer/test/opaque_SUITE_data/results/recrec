@@ -35,7 +35,7 @@ dialyzer_races.erl:2183:13: Body yields the opaque type dict:dict(_,_) whose opa
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2024. All Rights Reserved.
+%% Copyright Ericsson AB 2024-2025. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 %%
