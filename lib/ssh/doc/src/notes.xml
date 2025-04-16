@@ -30,6 +30,31 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 4.15.3.12</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Reception of wrong Unicode does not cause unnecessary
+	    processing. US-ASCII fields are not decoded as
+	    Unicode.</p>
+          <p>
+	    Own Id: OTP-19582 Aux Id: PR-9679 </p>
+        </item>
+        <item>
+	    <p>SSH daemon disconnects upon receiving connection
+	    protocol message for unauthenticated used.</p>
+	    <p>Thanks to Fabian Bäumer, Marcel Maehren, Marcus
+	    Brinkmann, Nurullah Erinola, Jörg Schwenk (Ruhr
+	    University Bochum).</p>
+          <p>
+	    Own Id: OTP-19595 Aux Id: CVE-2025-32433 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 4.15.3.11</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
