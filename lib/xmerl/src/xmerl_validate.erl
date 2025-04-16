@@ -35,7 +35,13 @@ validate(#xmerl_scanner{doctype_name=DTName,doctype_DTD=OpProv},
     {error, {mismatched_root_element,Name,DTName}};
 validate(#xmerl_scanner{rules=Rules}=S,
 	 XML=#xmlElement{name=Name})->
-    catch do_validation(read_rules(Rules,Name),XML,Rules,S);
+    try
+        do_validation(read_rules(Rules,Name),XML,Rules,S)
+    catch
+        %% Just to make it compatible with old catch result
+        error:Reason:StackTrace -> {'EXIT', {Reason,StackTrace}};
+        exit:Reason -> {'EXIT', Reason}
+    end;
 validate(_, XML) ->
     {error, {no_xml_element, XML}}.
 
@@ -46,12 +52,8 @@ validate(_, XML) ->
 do_validation(undefined,#xmlElement{name=Name}, _Rules,_S) ->
     {error,{unknown_element,Name}};
 do_validation(El_Rule,XML,Rules,S)->
-    case catch valid_attributes(El_Rule#xmlElement.attributes,
-			  XML#xmlElement.attributes,S) of
-	{'EXIT',Reason} ->
-	    {error,Reason};
-	{error,Reason} ->
-	    {error,Reason};
+    try valid_attributes(El_Rule#xmlElement.attributes,
+                         XML#xmlElement.attributes,S) of
 	Attr_2->
 %	    XML_=XML#xmlElement{attributes=Attr_2},
 	    El_Rule_Cont = El_Rule#xmlElement.content,
@@ -68,6 +70,11 @@ do_validation(El_Rule,XML,Rules,S)->
 		XMLS ->
 		    XML#xmlElement{attributes=Attr_2,content=XMLS}
 	    end
+    catch
+        exit:Reason ->
+	    {error,Reason};
+        throw:{error,Reason} ->
+	    {error,Reason}
     end.
 
 check_direct_ws_SDD(XML,always_preserve) ->
@@ -450,9 +457,11 @@ parse(El_Name, [#xmlElement{name=El_Name} = XML |T], Rules, _WSaction, S)
 	    {[XML_], T}
     end;
 parse(any, Cont, Rules, _WSaction, S) ->
-    case catch parse_any(Cont, Rules, S) of
-	Err = {error, _} -> Err;
+    try parse_any(Cont, Rules, S) of
 	ValidContents -> {ValidContents, []}
+    catch
+	throw:{error, _} = Err ->
+            Err
     end;
 parse(El_Name, [#xmlElement{name=Name} |_T] = XMLS, _Rules, _WSa, _S) when is_atom(El_Name) ->
     {error,

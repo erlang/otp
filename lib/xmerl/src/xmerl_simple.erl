@@ -50,11 +50,12 @@ scanner_options(Opts) ->
 		     {close_fun, fun close/1}]).
 
 scanner_options([H|T], Opts) ->
-    case catch keyreplace(H, 1, Opts) of
-	false ->
-	    scanner_options(T, [H|Opts]);
-	NewOpts ->
+    try keyreplace(H, 1, Opts) of
+        NewOpts ->
 	    scanner_options(T, NewOpts)
+    catch
+	throw:false ->
+	    scanner_options(T, [H|Opts])
     end;
 scanner_options([], Opts) ->
     Opts.

@@ -146,10 +146,11 @@ state2file(S=#xsd_state{schema_name=SN}) ->
 %% added.
 state2file(S,FileName) when is_record(S,xsd_state) ->
     save_xsd_state(S),
-    case catch ets:tab2file(S#xsd_state.table,lists:append(FileName,".xss")) of
-	{'EXIT',Reason} ->
-	    {error,{[],?MODULE,Reason}};
-	Ret -> Ret
+    try
+        ets:tab2file(S#xsd_state.table,lists:append(FileName,".xss"))
+    catch
+	error:Reason:StackTrace ->
+	    {error,{[],?MODULE,{Reason, StackTrace}}}
     end.
 
 %% @spec file2state(FileName) -> {ok,State} | {error,Reason}
@@ -160,7 +161,7 @@ state2file(S,FileName) when is_record(S,xsd_state) ->
 %% format of this file is internal. The state can then be used
 %% validating an XML document.
 file2state(FileName) ->
-    case catch ets:file2tab(FileName) of
+    try ets:file2tab(FileName) of
 	{ok,Tab} ->
 	    case load_xsd_state(Tab) of
 		[{state,S}] when is_record(S,xsd_state) ->
@@ -170,15 +171,24 @@ file2state(FileName) ->
 		    {error,{[],?MODULE,{incomplete_file,FileName,Other}}}
 	    end;
 	{error,Reason} ->
-	    {error,{[],?MODULE,Reason}};
-	Other ->
-	    {error,{[],?MODULE,Other}}
+	    {error,{[],?MODULE,Reason}}
+    catch
+        error:Reason:StackTrace ->
+	    {error,{[],?MODULE,{'EXIT', {Reason, StackTrace}}}}
     end.
 
 save_xsd_state(S) ->
-    catch ets:insert(S#xsd_state.table,{state,S}).
+    try
+        ets:insert(S#xsd_state.table,{state,S})
+    catch
+        _:_ -> ok
+    end.
 load_xsd_state(Table) ->
-    catch ets:lookup(Table,state).
+    try
+        ets:lookup(Table,state)
+    catch
+        error:Reason:StackTrace -> {'EXIT', {Reason, StackTrace}}
+    end.
    
 xmerl_xsd_vsn() ->
     case lists:keysearch(vsn,1,xmerl_xsd:module_info(attributes)) of
@@ -247,12 +257,9 @@ process_validate2({SE,_},Schema,Xml,Opts) ->
 
 validate3(Schema, Xml,S =#xsd_state{errors=[]}) -> 
     Ret = {_, S2} = 
-	case catch validate_xml(Xml, S) of
+	try validate_xml(Xml, S) of
 	    _Err = {error, Reason} ->
 		{Xml, acc_errs(S, Reason)};
-	    {'EXIT', Reason} ->
-		{Xml, acc_errs(S, {error_path(Xml, Xml#xmlElement.name), ?MODULE,
-				 {undefined, {internal_error, Reason}}})};
 	    {XML2, Rest, Sx} ->
 		case lists:dropwhile(fun(X) when is_record(X, xmlComment) -> true; (_) -> false end, Rest) of
 		    [] ->
@@ -266,6 +273,13 @@ validate3(Schema, Xml,S =#xsd_state{errors=[]}) ->
 			{Xml,acc_errs(Sx,{error_path(UnValidated,Xml#xmlElement.name),?MODULE,
 					  {unvalidated_rest,UnValidated}})}
 		end
+        catch
+            error:Reason:StackTrace -> 
+                {Xml, acc_errs(S, {error_path(Xml, Xml#xmlElement.name), ?MODULE,
+                                   {undefined, {internal_error, {Reason, StackTrace}}}})};
+	    exit:Reason ->
+		{Xml, acc_errs(S, {error_path(Xml, Xml#xmlElement.name), ?MODULE,
+                                   {undefined, {internal_error, Reason}}})}            
 	end,
     save_to_file(S2,filename:rootname(Schema)++".tab2"),
     case S2#xsd_state.errors of
@@ -316,7 +330,7 @@ process_schema2({SE,_},State,_Schema) ->
 	S3 = #xsd_state{errors=[]} ->
 	    {ok,S3};
 	S3 ->
-	    delete_table(S3),
+	    _ = delete_table(S3),
 	    return_error(S3#xsd_state.errors)
     end.
 
@@ -1626,11 +1640,23 @@ optional(#chain{occurrence={0,_}}) ->
 optional(#alternative{occurrence={0,_}}) ->
     true;
 optional(#chain{content=Content}) ->
-    catch is_optional_content(Content);
+    try
+        is_optional_content(Content)
+    catch
+        throw:false -> false
+    end;
 optional(#alternative{content=Content}) ->
-    catch is_optional_content(Content);
+    try
+        is_optional_content(Content)
+    catch
+        throw:false -> false
+    end;
 optional({all,{Content,_}}) ->
-    catch is_optional_content(Content);
+    try
+        is_optional_content(Content)
+    catch
+        throw:false -> false
+    end;
 optional(_) ->
     false.
 
@@ -2277,12 +2303,13 @@ set_num_el(S=#xsd_state{},#xsd_state{num_el=I}) ->
 
 occurrence(El=#xmlElement{attributes=Atts},{Min,Max},S) ->
     AttVal=fun(#xmlAttribute{value=V},Sin) -> 
-		   case catch mk_int_or_atom(V) of
-		       {'EXIT',_} ->
+		   try mk_int_or_atom(V) of
+		       IAV -> {IAV,Sin}
+                   catch
+		       error:_ ->
 			   Err = {error_path(El,schema),?MODULE,
 				  {illegal_occurance_value,V}},
-			   {V,acc_errs(Sin,Err)};
-		       IAV -> {IAV,Sin}
+			   {V,acc_errs(Sin,Err)}
 		   end;
 	      (V1,Sin) -> {V1,Sin}
 	   end,
@@ -2895,7 +2922,7 @@ check_all([],CM,_Occ,_,S,Checked,_PrevXML) ->
     end.
 
 check_any(E,Any,_Env,S) ->
-    case catch validate_xml(E,S#xsd_state{scope=[]}) of
+    try validate_xml(E,S#xsd_state{scope=[]}) of
 	{[Result],[],S2} ->
 	    {Result,S2#xsd_state{scope=S#xsd_state.scope}};
 	{Result,[],S2} ->
@@ -2903,10 +2930,15 @@ check_any(E,Any,_Env,S) ->
 	{_,_Unvalidated,S2} ->
 	    Err = {error_path(E,undefined),?MODULE,{failed_validating,E,Any}},
 	    {E,acc_errs(S2#xsd_state{scope=S#xsd_state.scope},Err)};
-	{error,Reason} -> 
-	    {E,acc_errs(S,Reason)};
-	{'EXIT',Reason} ->
-%%	    {E,acc_errs(S,format_error({internal_error,Reason},E,Any,Env))}
+	{error,Reason} ->
+	    {E,acc_errs(S,Reason)}
+    catch
+	error:Reason:StackTrace ->
+            %% {E,acc_errs(S,format_error({internal_error,Reason},E,Any,Env))}
+	    Err = {error_path(E,undefined),?MODULE,{internal_error,{Reason, StackTrace}}},
+	    {E,acc_errs(S,Err)};
+        exit:Reason ->
+            %% {E,acc_errs(S,format_error({internal_error,Reason},E,Any,Env))}
 	    Err = {error_path(E,undefined),?MODULE,{internal_error,Reason}},
 	    {E,acc_errs(S,Err)}
     end.
@@ -3651,12 +3683,13 @@ check_substitutionGroups(SGs,S) ->
     save_substitutionGroup(SGs,S3).
 check_substGr_acyclic(SGs,S) ->
     Set = sofs:family(SGs),
-    case catch sofs:family_to_digraph(Set, [acyclic]) of
-	{'EXIT',{cyclic,_}} ->
-	    acc_errs(S,{[],?MODULE,{cyclic_substitutionGroup,SGs}});
+    try sofs:family_to_digraph(Set, [acyclic]) of
 	DG ->
 	    digraph:delete(DG),
 	    S
+    catch
+        error:cyclic ->
+            acc_errs(S,{[],?MODULE,{cyclic_substitutionGroup,SGs}})
     end.
 check_substGr_type_structure([SG|SGs],S) ->
     check_substGr_type_structure(SGs,check_substGr_type_structure2(SG,S));
@@ -3665,36 +3698,41 @@ check_substGr_type_structure([],S) ->
 check_substGr_type_structure2({Head,SGMembers},S) ->
     TypeCheck =
 	fun(SG,S_in) ->
-		case catch cmp_substGr_types(Head,SG,S_in) of
-		    {'EXIT',_} -> 
-			acc_errs(S_in,{[],?MODULE,
+                try
+                    cmp_substGr_types(Head,SG,S_in)
+                catch
+                    error:_ ->
+                        acc_errs(S_in,{[],?MODULE,
 				       {substitutionGroup_error,Head,SG}});
-		    S_out -> S_out
-		end
+                    exit:_ ->
+                        acc_errs(S_in,{[],?MODULE,
+				       {substitutionGroup_error,Head,SG}})
+                end
 	end,
     foldl(TypeCheck,S,SGMembers).
 cmp_substGr_types(Head,SG,S) ->
     {HeadElement,S2} = load_object({element,Head},S),
     {MemberElement,S3} = load_object({element,SG},S2),
-    case catch derived_or_equal(MemberElement#schema_element.type,
-				HeadElement#schema_element.type,
-				[],S3) of
-	S4=#xsd_state{} ->
-	    S4;
-	_ ->
+    try
+        derived_or_equal(MemberElement#schema_element.type,
+                         HeadElement#schema_element.type,
+                         [],S3)
+    catch
+	_:_ ->
 	    acc_errs(S3,{[],?MODULE,{internal_error,derived_or_equal,
 				     MemberElement#schema_element.type,
 				     HeadElement#schema_element.type}})
     end.
 check_cyclic_defs(S=#xsd_state{circularity_disallowed=CA}) ->
     Set = sofs:relation_to_family(sofs:relation(CA)),
-    case catch sofs:family_to_digraph(Set, [acyclic]) of
-	{'EXIT',{cyclic,_}} ->
-	    acc_errs(S,{[],?MODULE,{cyclic_definition,CA}});
+    try sofs:family_to_digraph(Set, [acyclic]) of
 	DG ->
 	    digraph:delete(DG),
 	    S
-    end.
+    catch
+        error:cyclic ->
+	    acc_errs(S,{[],?MODULE,{cyclic_definition,CA}})
+        end.
 
 
 
@@ -4006,14 +4044,17 @@ merge_derived_types(Type1,Type2,Mode,S) ->
 merge_derived_types(Type,Type,_Blocks,_Mode,S) ->
     {Type,S};
 merge_derived_types(XSDType,InstType,Blocks,Mode,S) ->
-    case catch merge_derived_types2(XSDType,InstType,Blocks,Mode,S) of
-	{'EXIT',Reason} ->
-	    {InstType,acc_errs(S,{[],?MODULE,{internal_error,merge_derived_types,Reason}})};
+    try merge_derived_types2(XSDType,InstType,Blocks,Mode,S) of
 	{error,S2} ->
 	    {InstType,S2};
 	{MergedType,S2} ->
 	    _ = save_merged_type(MergedType,S2),
 	    {MergedType,S2}
+    catch
+	error:Reason:StackTrace ->
+	    {InstType,acc_errs(S,{[],?MODULE,{internal_error,merge_derived_types,{Reason, StackTrace}}})};
+	exit:Reason ->
+	    {InstType,acc_errs(S,{[],?MODULE,{internal_error,merge_derived_types,Reason}})}
     end.
 
 merge_derived_types2(XSDType=#schema_complex_type{},
@@ -4818,12 +4859,13 @@ qualified_name(Name,NS,Default,Scope) ->
     end.
 
 atom_if_shortasciilist(N) when is_list(N) ->
-    case catch list_to_atom(N) of
-	{'EXIT',_Reason} ->
+    try
+        list_to_atom(N)
+    catch
+	error:_ ->
 	    %% Reason may be system_limit if N is very long, it may be
 	    %% badarg ifN is a list of UTF characters.
-	    N;
-	AN -> AN
+	    N
     end;
 atom_if_shortasciilist(N) ->
     N.
@@ -4891,15 +4933,19 @@ create_tables(S) ->
     S.
 
 delete_table(#xsd_state{table=Tab}) ->
-    catch ets:delete(Tab).
-
+    try
+        ets:delete(Tab)
+    catch
+        error:Reason:StackTrace -> {'EXIT', {Reason, StackTrace}};
+        exit:Reason -> {'EXIT', Reason}
+    end.
 %% @hidden
 print_table(#xsd_state{table=Tab}) ->
-    case catch ets:tab2list(Tab) of
-	Res when is_list(Res) ->
-	    Res;
-	{'EXIT',Reason} ->
-	    {error,{?MODULE,[],Reason}}
+    try
+        ets:tab2list(Tab)
+    catch
+	error:Reason:StackTrace ->
+	    {error,{?MODULE,[],{Reason, StackTrace}}}
     end;
 print_table(_) ->
     ok.
@@ -5003,13 +5049,27 @@ save_to_file(S=#xsd_state{tab2file=TF}) ->
 	true ->
 	    {ok,IO}=file:open(filename:rootname(S#xsd_state.schema_name)++".tab",
 			      [write]),
-	    io:format(IO,"~p~n",[catch ets:tab2list(S#xsd_state.table)]),
+            try
+                List = ets:tab2list(S#xsd_state.table),
+                io:format(IO,"~p~n",[List])
+            catch
+                E:Reason:Stacktrace ->
+                    logger:info("~p:save_to_file: ~p\n~p\n~p\n\n", [?MODULE, E, Reason, Stacktrace]),
+                    ok
+            end,
 	    ok = file:close(IO);
 	false ->
 	    ok;
 	IOFile ->
 	    {ok,IO}=file:open(IOFile,[write]),
-	    io:format(IO,"~p~n",[catch ets:tab2list(S#xsd_state.table)]),
+            try
+                List = ets:tab2list(S#xsd_state.table),
+                io:format(IO,"~p~n",[List])
+            catch
+                E:Reason:Stacktrace ->
+                    logger:info("~p:save_to_file: ~p\n~p\n~p\n\n", [?MODULE, E, Reason, Stacktrace]),
+                    ok
+            end,
 	    ok = file:close(IO)
     end.
 
@@ -5021,8 +5081,12 @@ resave_object({Kind,Obj},S) ->
     save_in_table({Kind,object_name(Obj)},Obj,S).
 
 save_in_table(Name,ElDef,S=#xsd_state{table=Tab}) ->
-    catch ets:insert(Tab,{Name,ElDef}),
-    S.
+    try
+        ets:insert(Tab,{Name,ElDef}),
+        S
+    catch
+        _:_ -> S
+    end.
 
 save_idc(key,IDConstr,S) ->
     save_key(IDConstr,S);
@@ -5171,11 +5235,13 @@ get_schema_cm(Tab,Namespace) ->
     NSC = Schema#schema.content,
     Schema#schema{content=NSC++[X||X<-NoNamespaceC,member(X,NSC)==false]}.
 get_schema_cm1(Tab,Namespace) ->
-    case catch ets:lookup(Tab,{schema,Namespace}) of
+    try ets:lookup(Tab,{schema,Namespace}) of
 	[{_,H}] ->
 	    H;
 	_ ->
 	    #schema{}
+    catch
+        _:_ ->  #schema{}
     end.
 get_no_namespace_content(Tab) ->
     case get_schema_cm1(Tab,[]) of

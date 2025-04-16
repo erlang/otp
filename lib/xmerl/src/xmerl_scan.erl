@@ -1415,7 +1415,7 @@ check_notations(Tab,S) ->
     end.
 
 check_elements(Tab,S) ->
-    case catch ets:match(Tab,{{elem_def,'_'},'$2'},10) of
+    try ets:match(Tab,{{elem_def,'_'},'$2'},10) of
 	{_,_}=M ->
 	    Fun = fun({Match,'$end_of_table'},_F) ->
 			  lists:foreach(fun(X)->check_elements2(X,S) end,
@@ -1429,8 +1429,9 @@ check_elements(Tab,S) ->
 			  F(ets:match(Cont),F)
 		  end,
 	    Fun(M,Fun);
-	'$end_of_table' -> ok;
-	Err -> ?fatal({error_missing_declaration_in_DTD,Err},S)
+	'$end_of_table' -> ok
+    catch
+	_:Err -> ?fatal({error_missing_declaration_in_DTD,Err},S)
     end.
 
 % it is not an error to declare attributes for an element that is not
@@ -2786,11 +2787,11 @@ scan_reference("#" ++ T, S0) ->
 	    ?fatal(invalid_char_ref, S)
     end;
 scan_reference(T, S) ->
-    case catch scan_entity_ref(T, S) of
-	{'EXIT', _} ->
-	    ?fatal(error_scanning_entity_ref,S);
-	Other ->
-	    Other
+    try
+        scan_entity_ref(T, S)
+    catch
+	exit:_ ->
+	    ?fatal(error_scanning_entity_ref,S)
     end.
 
 
@@ -3844,16 +3845,14 @@ predefined_entity(_) ->    false.
 check_entity_recursion(EName,
 		       S=#xmerl_scanner{entity_references=EntityRefList}) ->
     Set = sofs:family(EntityRefList),
-    case catch sofs:family_to_digraph(Set, [acyclic]) of
-	{'EXIT',{cyclic,_}} ->
-	    ?fatal({illegal_recursion_in_Entity, EName}, S);
-	DG ->
+    try sofs:family_to_digraph(Set, [acyclic]) of
+        DG ->
 	    digraph:delete(DG),
-	    ok
+            ok
+    catch
+        error:{cyclic,_} ->
+	    ?fatal({illegal_recursion_in_Entity, EName}, S)
     end.
-
-
-
 
 %%%%%%% [15] Comment
 scan_comment(Str, S) ->
