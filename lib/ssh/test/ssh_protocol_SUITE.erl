@@ -402,10 +402,10 @@ early_rce(Config) ->
     DataReq = <<?STRING(<<"lists:seq(1,10).">>)>>,
     SshMsgChannelRequest =
         ssh_connection:channel_request_msg(Id, TypeReq, WantReply, DataReq),
-    {ok,AfterKexState} =
+    {ok,_} =
         ssh_trpt_test_lib:exec(
           [{connect,
-            server_host(Config),server_port(Config),
+            ssh_test_lib:server_host(Config),ssh_test_lib:server_port(Config),
             [{preferred_algorithms,[{kex,[?DEFAULT_KEX]},
                                     {cipher,?DEFAULT_CIPHERS}
                                    ]},
