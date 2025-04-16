@@ -53,6 +53,8 @@ these messages are handled by
                   {type,<<"Signals">>},
                   {type,<<"Exit Status">>}]}).
 
+-include_lib("kernel/include/logger.hrl").
+
 -include("ssh.hrl").
 -include("ssh_connect.hrl").
 -include("ssh_transport.hrl").
@@ -756,6 +758,25 @@ channel_data(ChannelId, DataType, Data0,
 %%%
 
 -doc false.
+handle_msg(#ssh_msg_disconnect{code = Code, description = Description}, Connection, _, _SSH) ->
+    {disconnect, {Code, Description}, handle_stop(Connection)};
+
+handle_msg(Msg, Connection, server, Ssh = #ssh{authenticated = false}) ->
+    %% See RFC4252 6.
+    %% Message numbers of 80 and higher are reserved for protocols running
+    %% after this authentication protocol, so receiving one of them before
+    %% authentication is complete is an error, to which the server MUST
+    %% respond by disconnecting, preferably with a proper disconnect message
+    %% sent to ease troubleshooting.
+    MsgFun = fun(M) ->
+                     MaxLogItemLen = ?GET_OPT(max_log_item_len, Ssh#ssh.opts),
+                     io_lib:format("Connection terminated. Unexpected message for unauthenticated user."
+                                   " Message:  ~w", [M],
+                                   [{chars_limit, MaxLogItemLen}])
+             end,
+    ?LOG_DEBUG(MsgFun, [Msg]),
+    {disconnect, {?SSH_DISCONNECT_PROTOCOL_ERROR, "Connection refused"}, handle_stop(Connection)};
+
 handle_msg(#ssh_msg_channel_open_confirmation{recipient_channel = ChannelId, 
 					      sender_channel = RemoteId,
 					      initial_window_size = WindowSz,
@@ -1260,12 +1281,7 @@ handle_msg(#ssh_msg_request_success{data = Data},
 	   #connection{requests = [{_, From, Fun} | Rest]} = Connection0, _, _SSH) ->
     Connection = Fun({success,Data}, Connection0),
     {[{channel_request_reply, From, {success, Data}}],
-     Connection#connection{requests = Rest}};
-
-handle_msg(#ssh_msg_disconnect{code = Code,
-			       description = Description},
-	   Connection, _, _SSH) ->
-    {disconnect, {Code, Description}, handle_stop(Connection)}.
+     Connection#connection{requests = Rest}}.
 
 
 %%%----------------------------------------------------------------
