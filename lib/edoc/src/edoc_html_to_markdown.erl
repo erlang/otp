@@ -66,7 +66,7 @@ convert_html(Application, Html) when is_atom(Application) ->
 convert_xml(Application, Binary) when is_atom(Application) ->
     convert_xml(Application, '', Binary).
 %% @hidden
-convert_xml(Application, Module, Binary) when is_atom(Application), is_atom(Module) ->
+convert_xml(Application, Module, Binary) when is_atom(Application), is_atom(Module), is_binary(Binary) ->
     put(application, atom_to_binary(Application)),
     case xmerl_sax_parser:stream(iolist_to_binary(["<section>",Binary,"</section>"]),
                                   [{event_fun, fun event/3},
