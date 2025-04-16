@@ -32,6 +32,26 @@
   <p>This document describes the changes made to the Xmerl application.</p>
 
 
+<section><title>Xmerl 1.3.34.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Some old-style <c>catch</c> expressions in the
+	    xmerl_sax_parser when the continuation fun was called
+	    caused the stack to grow until all free memory was
+	    exhausted. These parts have been rewritten so that the
+	    parser now runs correctly without growing the stack. At
+	    the same time all old-style <c>catch</c> expressions in
+	    xmerl were replaced with <c>try</c>/<c>catch</c>. </p>
+          <p>
+	    Own Id: OTP-19496 Aux Id: GH-9190, PR-9463 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Xmerl 1.3.34.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
