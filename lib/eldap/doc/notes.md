@@ -23,22 +23,6 @@ limitations under the License.
 
 This document describes the changes made to the Eldap application.
 
-## Eldap 1.2.15
-
-### Improvements and New Features
-
-- Fixed licenses in files and added ORT curations to the following apps: otp, eldap, erl_interface, eunit, parsetools, stdlib, syntax_tools, and ERTS.
-
-  Own Id: OTP-19478 Aux Id: [PR-9376], [PR-9402]
-
-- The license and copyright header has changed format to include an `SPDX-License-Identifier`. At the same time, most files have been updated to follow a uniform standard for license headers.
-
-  Own Id: OTP-19575 Aux Id: [PR-9670]
-
-[PR-9376]: https://github.com/erlang/otp/pull/9376
-[PR-9402]: https://github.com/erlang/otp/pull/9402
-[PR-9670]: https://github.com/erlang/otp/pull/9670
-
 ## Eldap 1.2.14
 
 ### Fixed Bugs and Malfunctions

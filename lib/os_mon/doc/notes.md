@@ -23,21 +23,6 @@ limitations under the License.
 
 This document describes the changes made to the OS_Mon application.
 
-## Os_Mon 2.11
-
-### Improvements and New Features
-
-- `m:disksup` will now recognize HAMMER2 volumes.
-
-  Own Id: OTP-19207 Aux Id: [PR-8704]
-
-- The license and copyright header has changed format to include an `SPDX-License-Identifier`. At the same time, most files have been updated to follow a uniform standard for license headers.
-
-  Own Id: OTP-19575 Aux Id: [PR-9670]
-
-[PR-8704]: https://github.com/erlang/otp/pull/8704
-[PR-9670]: https://github.com/erlang/otp/pull/9670
-
 ## Os_Mon 2.10.1
 
 ### Fixed Bugs and Malfunctions
