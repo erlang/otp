@@ -23,6 +23,16 @@ limitations under the License.
 
 This document describes the changes made to the SSL application.
 
+## SSL 11.2.12
+
+### Improvements and New Features
+
+- Lower log level for user cancelation as this is not an error case. Also handle possible undecrypted close alert  during TLS-1.3 handshake.
+
+  Own Id: OTP-19592 Aux Id: [PR-9566]
+
+[PR-9566]: https://github.com/erlang/otp/pull/9566
+
 ## SSL 11.2.11
 
 ### Fixed Bugs and Malfunctions

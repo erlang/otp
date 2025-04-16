@@ -23,6 +23,18 @@ limitations under the License.
 
 This document describes the changes made to the Kernel application.
 
+## Kernel 10.2.6
+
+### Fixed Bugs and Malfunctions
+
+- Fixed bug in `call_memory` tracing that could cause wildly incorrect reported memory values. Bug exists since OTP 27.1.
+  
+  Also fixed return type spec of `trace:info/3`.
+
+  Own Id: OTP-19581 Aux Id: ERIERL-1219, [PR-9706]
+
+[PR-9706]: https://github.com/erlang/otp/pull/9706
+
 ## Kernel 10.2.5
 
 ### Fixed Bugs and Malfunctions

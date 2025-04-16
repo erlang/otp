@@ -20,7 +20,7 @@
 # %CopyrightEnd%
 # 
 
-VSN = 15.2.5
+VSN = 15.2.6
 
 # Port number 4365 in 4.2
 # Port number 4366 in 4.3
