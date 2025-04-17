@@ -261,7 +261,7 @@ _Options:_
              {overload_check, {MSec, Module, Function}} | {flush, MSec} |
              resume | {resume, MSec} | {queue_size, non_neg_integer()},
       TimerSpec :: MSec | {MSec, stop_opts()},
-      MSec :: integer(),
+      MSec :: timer:time(),
       Module :: atom(),
       Function :: atom(),
       Client :: File | {local, File},
