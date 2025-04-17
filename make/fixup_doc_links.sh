@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # %CopyrightBegin%
 #
@@ -20,7 +20,24 @@
 #
 # %CopyrightEnd%
 
-APP_VSNS=$(head -1 ${ERL_TOP}/otp_versions.table | awk -F: '{print $2}' | sed 's:#::g')
+set -eo pipefail
+
+APPS=$(head -1 ${ERL_TOP}/otp_versions.table | awk -F: '{print $2}' | sed 's:#::g' | sed 's: \+: :g' | tr ' ' '\n' | awk -F- '{print $1}')
+
+APP_VSNS=()
+
+for app in ${APPS}; do
+    dir="lib/${app}"
+    VSN_VAR="$(echo $app | tr [:lower:] [:upper:])_VSN"
+    if [ ${app} = "erts" ]; then
+        dir="erts/"
+        VSN_VAR="VSN"
+    elif [ ${app} = "erl_interface" ]; then
+        VSN_VAR="EI_VSN"
+    fi
+    VSN=$(grep "^${VSN_VAR}" "${ERL_TOP}/${dir}/vsn.mk" | grep "=" | awk -F= '{print $2}' | xargs)
+    APP_VSNS=("${app}-${VSN}" ${APP_VSNS[@]})
+done
 
 FIXUP="-e s:lib/\\.\\./::g"
 
@@ -31,7 +48,7 @@ fi
 
 FIXUP="${FIXUP} -e s:${ADJUST_PATH}system/doc/html:doc/system:g"
 
-for APP_VSN in ${APP_VSNS}; do
+for APP_VSN in ${APP_VSNS[@]}; do
     APP=$(echo ${APP_VSN} | awk -F- '{print $1}')
     if [ $APP = "erts" ]; then
         FIXUP="${FIXUP} -e s:${ADJUST_PATH}${APP}/doc/html/:${APP_VSN}/doc/html/:g"
