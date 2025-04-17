@@ -294,7 +294,7 @@ to ensure that trace patterns do not overlap:
 
 ```erlang
 1> tprof:profile(fun() -> lists:seq(1, 32) end,
-    #{registered => false, pattern => [{lists, '_', '_'}]}).
+    #{session => my_lists_session, pattern => [{lists, '_', '_'}]}).
 ```
 
 ## Server-aided profiling
@@ -496,7 +496,8 @@ Column to sort by `inspect/3` or [`profile/4`](`profile/4`).
           set_on_spawn => boolean(),                      %% trace spawned processes or not (true by default)
           rootset => rootset(),                           %% extra processes to trace
           report => return | process | total | {process, sort_by()} | {total, sort_by()},   %% print or return results
-          device => io:device()                          %% device to report to
+          device => io:device(),                          %% device to report to
+          session => atom()                               %% custom session name
          }.
 
 %%--------------------------------------------------------------------
@@ -921,6 +922,9 @@ The ad-hoc profiler supports the following `Options`:
 
 - **`timeout`** - Terminate profiling after the specified amount of time
   (milliseconds).
+
+- **`session`** - The name of the session to use. If not specified, a new
+  session is created and the profiling server is registered as `tprof_profile`.
 """.
 -spec profile(module(), Fun :: atom(), Args :: [term()], profile_options()) ->
           ok | {term(), {trace_type(), [trace_info()]}}.
@@ -1268,7 +1272,9 @@ disable_patterns(Session, Patterns, Map, Type) ->
 %% ad-hoc profiler implementation
 do_profile(What, Options) ->
     %% start a new tprof server
-    Pid = start_result(start_link(Options#{ session => tprof_profile })),
+    DefaultOptions = #{session => tprof_profile},
+    StartOptions = maps:merge(DefaultOptions, Options),
+    Pid = start_result(start_link(StartOptions)),
     try
         {Ret, Profile} = gen_server:call(Pid, {profile, What, Options}, infinity),
         return_profile(maps:get(report, Options, process), Profile, Ret,
