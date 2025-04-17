@@ -67,7 +67,7 @@ handle_event(internal, #ssh_msg_ext_info{}=Msg, {userauth,client}, D0) ->
 %%---- received userauth success from the server
 handle_event(internal, #ssh_msg_userauth_success{}, {userauth,client}, D0=#data{ssh_params = Ssh}) ->
     ssh_auth:ssh_msg_userauth_result(success),
-    ssh_connection_handler:handshake(ssh_connected, D0),
+    ssh_connection_handler:notify_handshaker(ssh_connected, D0),
     D = D0#data{ssh_params=Ssh#ssh{authenticated = true}},
     {next_state, {connected,client}, D, {change_callback_module,ssh_connection_handler}};
 
