@@ -21,9 +21,15 @@
  */
 
 #include <algorithm>
+#include <cstring>
 #include <float.h>
 
 #include "beam_asm.hpp"
+extern "C"
+{
+#include "beam_bp.h"
+}
+
 using namespace asmjit;
 
 #ifdef BEAMASM_DUMP_SIZES
@@ -229,6 +235,175 @@ void BeamModuleAssembler::emit_i_breakpoint_trampoline() {
     a.bind(next);
     ASSERT((a.offset() - code.labelOffsetFromBase(current_label)) ==
            BEAM_ASM_FUNC_PROLOGUE_SIZE);
+}
+
+void BeamGlobalAssembler::emit_i_line_breakpoint_trampoline_shared() {
+    Label exit_trampoline = a.newLabel();
+    Label dealloc_and_exit_trampoline = a.newLabel();
+    Label after_gc_check = a.newLabel();
+    Label dispatch_call = a.newLabel();
+
+    emit_enter_frame();
+
+    const auto &saved_live = TMP_MEM1q;
+    const auto &saved_pc = TMP_MEM2q;
+    const auto &saved_stack_needed = TMP_MEM3q;
+
+    /* NB. TMP1 = live */
+    a.mov(saved_live, TMP1); /* stash live */
+
+    /* Pass address of trampoline, will be used to find current function info */
+    if (ERTS_LIKELY(erts_frame_layout == ERTS_FRAME_LAYOUT_RA)) {
+        a.mov(TMP2, x86::qword_ptr(E)); /* TMP2 := CP */
+    } else {
+        ASSERT(erts_frame_layout == ERTS_FRAME_LAYOUT_FP_RA);
+        a.mov(TMP2, x86::qword_ptr(E, 8)); /* TMP2 := CP, skipping FP */
+    }
+    a.sub(TMP2, imm(8));   /* TMP2:= pc (CP adjusted to line of caller) */
+    a.mov(saved_pc, TMP2); /* Stash pc */
+
+/* START allocate live live */
+#if !defined(NATIVE_ERLANG_STACK)
+    const int cp_space = CP_SIZE;
+#else
+    const int cp_space = 0;
+#endif
+
+    a.mov(ARG4, TMP1); /* ARG4 := live */
+    a.lea(RET, x86::ptr_abs(cp_space * 8, TMP1, 3));
+    /* lea RET, [cp_space * 8 + (TMP1 << 3)]
+       RET:= stack-needed = (live + cp_space) * sizeof(Eterm) */
+    a.mov(saved_stack_needed, RET); /* stash stack-needed */
+
+    a.lea(ARG3, x86::ptr(RET, S_RESERVED * 8));
+    /* ARG3 := stack-needed + S_RESERVED * sizeof(Eterm); */
+
+    a.lea(ARG3, x86::qword_ptr(HTOP, ARG3));
+    a.cmp(ARG3, E);
+    a.short_().jbe(after_gc_check);
+
+    /* gc needed */
+    fragment_call(labels[garbage_collect]);
+    a.mov(RET, saved_stack_needed); /* RET := (stashed) stack-needed */
+    a.bind(after_gc_check);
+
+    a.sub(E, RET);
+
+#if !defined(NATIVE_ERLANG_STACK)
+    a.mov(getCPRef(), imm(NIL));
+#endif
+    /* END allocate live live */
+
+    a.mov(ARG1, c_p);
+    a.mov(ARG2, saved_pc);   /* pc */
+    a.mov(ARG3, saved_live); /* live */
+    load_x_reg_array(ARG4);  /* reg */
+    a.lea(ARG5, getYRef(0)); /* stk */
+
+    emit_enter_runtime();
+    runtime_call<
+            const Export *(*)(Process *, ErtsCodePtr, Uint, Eterm *, UWord *),
+            erts_line_breakpoint_hit__prepare_call>();
+    emit_leave_runtime();
+
+    /* If non-null, RET points to error_handler:breakpoint/4 */
+    a.test(RET, RET);
+    a.jnz(dispatch_call);
+    a.mov(RET, saved_stack_needed); /* RET := (stashed) stack-needed */
+    a.jmp(dealloc_and_exit_trampoline);
+
+    a.bind(dispatch_call);
+    erlang_call(emit_setup_dispatchable_call(RET), ARG1);
+
+    a.bind(labels[i_line_breakpoint_cleanup]);
+    load_x_reg_array(ARG1);  /* reg */
+    a.lea(ARG2, getYRef(0)); /* stk */
+
+    emit_enter_runtime();
+    runtime_call<Uint (*)(Eterm *, UWord *),
+                 erts_line_breakpoint_hit__cleanup>();
+    emit_leave_runtime();
+
+    a.lea(RET, x86::ptr_abs(cp_space * 8, RET, 3)); /* RET := stack-needed */
+
+    a.bind(dealloc_and_exit_trampoline); /* ASSUMES RET = stack-needed */
+    a.add(E, RET);
+
+    a.bind(exit_trampoline);
+    emit_leave_frame();
+    a.ret();
+}
+
+void BeamModuleAssembler::emit_i_line_breakpoint_trampoline() {
+    /* This prologue is used to implement line-breakpoints. The "jmp next" can
+     * be replaced by nops when the breakpoint is enabled, which will instead
+     * trigger the breakpoint when control goes through here */
+    Label next = a.newLabel();
+    a.short_().jmp(next);
+
+    auto fragment = ga->get_i_line_breakpoint_trampoline_shared();
+    aligned_call(resolve_fragment(fragment));
+
+    a.bind(next);
+}
+
+enum erts_is_line_breakpoint BeamGlobalAssembler::is_line_breakpoint_trampoline(
+        ErtsCodePtr addr) {
+    auto pc = static_cast<const char *>(addr);
+    uint64_t word;
+    enum erts_is_line_breakpoint line_bp_type;
+    std::memcpy(&word, pc, sizeof(word));
+
+    /* If addr is a trampoline, first two-bytes are either a JMP SHORT with
+     * offset 1 (breakpoint enabled), or offset 6 (breakpoint disabled). */
+    const auto jmp_short_opcode = 0x00EB;
+    if ((word & 0xFF) != jmp_short_opcode) {
+        return IS_NOT_LINE_BP;
+    }
+    word >>= 8;
+    switch (word & 0xFF) {
+    case 1:
+        line_bp_type = IS_ENABLED_LINE_BP;
+        break;
+    case 6:
+        line_bp_type = IS_DISABLED_LINE_BP;
+        break;
+    default:
+        return IS_NOT_LINE_BP;
+    }
+    word >>= 8;
+    pc += 2;
+
+    /* We expect an aligned call here, because we align the trampoline to 8
+     * bytes, we expect a NOP to align the call. The target is a 32-bit offset
+     * from the call return address (i.e. addr + 2 + 5) */
+    const auto aligned_call_opcode = 0xE890;
+    if ((word & 0xFFFF) != aligned_call_opcode) {
+        return IS_NOT_LINE_BP;
+    }
+    word >>= 16;
+    const auto call_offset = (static_cast<int64_t>(word) << 32) >> 32;
+    pc += 6 + call_offset;
+
+    const auto expected_target =
+            (const char *)get_i_line_breakpoint_trampoline_shared();
+    if (pc == expected_target)
+        return line_bp_type;
+
+    /* The call target must be to an an entry in the dispatch-table
+     * that comes at the end of the module, which contains a
+     * "JMP i_line_breakpoint_trampoline_shared" */
+    std::memcpy(&word, pc, sizeof(word));
+
+    const auto jmp_opcode = 0xE940;
+    if ((word & 0xFFFF) != jmp_opcode) {
+        return IS_NOT_LINE_BP;
+    }
+    word >>= 16;
+    const int32_t jmp_offset = (static_cast<int64_t>(word) << 32) >> 32;
+    pc += 6 + jmp_offset;
+
+    return pc == expected_target ? line_bp_type : IS_NOT_LINE_BP;
 }
 
 static void i_emit_nyi(char *msg) {
