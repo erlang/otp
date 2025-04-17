@@ -84,6 +84,22 @@ static struct digest_type_t digest_types[] =
 #endif
     },
 
+    {"sha512_224", "SHA2-512/224", 0, PBKDF2_ELIGIBLE_DIGEST,
+#ifdef HAVE_SHA512_224
+     {&EVP_sha512_224,NULL}
+#else
+     {NULL,NULL}
+#endif
+    },
+
+    {"sha512_256", "SHA2-512/256", 0, PBKDF2_ELIGIBLE_DIGEST,
+#ifdef HAVE_SHA512_256
+     {&EVP_sha512_256,NULL}
+#else
+     {NULL,NULL}
+#endif
+    },
+
     {"sha3_224", "SHA3-224", 0, 0,
 #ifdef HAVE_SHA3_224
      {&EVP_sha3_224,NULL}
