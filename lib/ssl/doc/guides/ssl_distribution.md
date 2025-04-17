@@ -214,6 +214,51 @@ present any certificate.
 A node started in this way is fully functional, using TLS as the distribution
 protocol.
 
+## verify_fun Configuration Example
+
+The `verify_fun` option creates a reference to the implementing
+function since the configuratin is evaluated as an Erlang term. In
+an example file for use with `-ssl_dist_optfile`:
+
+
+```erlang
+[{server,[{fail_if_no_peer_cert,true},
+          {certfile,"/home/me/ssl/cert.pem"},
+          {keyfile,"/home/me/ssl/privkey.pem"},
+          {cacertfile,"/home/me/ssl/ca_cert.pem"},
+          {verify,verify_peer},
+          {verify_fun,{fun mydist:verify/3,"any initial value"}}]},
+ {client,[{certfile,"/home/me/ssl/cert.pem"},
+          {keyfile,"/home/me/ssl/privkey.pem"},
+          {cacertfile,"/home/me/ssl/ca_cert.pem"},
+          {verify,verify_peer},
+          {verify_fun,{fun mydist:verify/3,"any initial value"}}]}].
+
+```
+
+`mydist:verify/3` will be called with:
+
+  * OtpCert, the other party's certificate [PKIX Certificates](`e:public_key:public_key_records.html#pkix-certificates`)
+  * SslStatus, OTP's verification outcome, such as `valid` or a tuple `{bad_cert, unknown_ca}`
+  * Init will be `"any initial value"`
+
+For more details see `{verify_fun, Verify}` [in common_option_cert](`t:ssl:common_option_cert/0`)
+
+```erlang
+verify(OtpCert, _SslStatus, Init) ->
+    IsOk = is_ok(OtpCert, Init),
+    NewInitValue = "some new value",
+    if IsOk ->
+            {valid, NewInitValue};
+       true ->
+            {failure, NewInitValue}
+    end.
+```
+
+> #### Note {: .info }
+> The legacy command line format for `verify_fun` cannot be used
+> in a `-ssl_dist_optfile` file as described below in
+> [Specifying TLS Options (Legacy)](#specifying-tls-options-legacy).
 
 ## Using TLS distribution over IPv6
 
