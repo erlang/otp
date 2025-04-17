@@ -462,9 +462,13 @@ encrypt_and_send_chunk(
    Chunk, Size) ->
     %%
     Timestamp = timestamp(),
+    Seq_1 = Seq + 1,
     if
-        RekeyCount =< Seq;
-        RekeyTimestamp + RekeyTime =< Timestamp ->
+        Seq_1 < RekeyCount,
+        Timestamp < RekeyTimestamp + RekeyTime ->
+            {encrypt_and_send_chunk(OutStream, Seq, Params, Chunk, Size),
+             [Seq_1 | Params]};
+        true ->
             {OutStream_1, Params_1} =
                 encrypt_and_send_rekey_chunk(
                   OutStream, Seq, Params, Timestamp),
@@ -475,15 +479,12 @@ encrypt_and_send_chunk(
                     {encrypt_and_send_chunk(
                        OutStream_1, 0, Params_1, Chunk, Size),
                      [1 | Params_1]}
-            end;
-        true ->
-            {encrypt_and_send_chunk(OutStream, Seq, Params, Chunk, Size),
-             [Seq + 1 | Params]}
+            end
     end.
 
 encrypt_and_send_chunk(OutStream, Seq, Params, Chunk, 0) -> % Tick
     <<>> = Chunk, % ASSERT
-    %% A ticks are sent as a somewhat random size block
+    %% A tick is sent as a somewhat random size block
     %% to make it less obvious to spot
     <<S:8>> = crypto:strong_rand_bytes(1),
     TickSize = 8 + (S band 63),
@@ -565,8 +566,8 @@ recv_and_decrypt_chunk(InStream, SeqParams = [Seq | Params]) ->
                     {[DataChunk | InStream_1], [Seq + 1 | Params]};
                 <<?TICK_CHUNK, _/binary>> ->
                     {[<<>> | InStream_1], [Seq + 1 | Params]};
-                <<?REKEY_CHUNK, RekeyChunk>> ->
-                    case decrypt_rekey(Params, RekeyChunk) of
+                <<?REKEY_CHUNK, RekeyChunk/binary>> ->
+                    case decrypt_rekey(Seq, Params, RekeyChunk) of
                         Params_1 = #params{} ->
                             recv_and_decrypt_chunk(
                               InStream_1, [0 | Params_1]);
@@ -644,24 +645,26 @@ decrypt_block(
     end.
 
 decrypt_rekey(
+  Seq,
   Params =
       #params{
-         iv = IV,
+         iv = {IVSalt, IVNo},
          key = Key,
          rekey_key = #keypair{public = PubKeyA} = KeyPair,
-         hmac_algorithm = HmacAlgorithm},
+         hmac_algorithm = HmacAlgo},
   RekeyChunk) ->
     %%
     PubKeyLen = byte_size(PubKeyA),
     case RekeyChunk of
         <<PubKeyB:PubKeyLen/binary>> ->
-            SharedSecret = compute_shared_secret(KeyPair, PubKeyB),
             KeyLen = byte_size(Key),
-            IVLen = byte_size(IV),
-            IVSaltLen = IVLen - 6,
+            IVSaltLen = byte_size(IVSalt),
+            SharedSecret = compute_shared_secret(KeyPair, PubKeyB),
+            IV = <<(IVNo + Seq):48>>,
             {Key_1, <<IVSalt_1:IVSaltLen/binary, IVNo_1:48>>} =
                 hmac_key_iv(
-                  HmacAlgorithm, SharedSecret, [Key, IV], KeyLen, IVLen),
+                  HmacAlgo, SharedSecret, [Key, IVSalt, IV],
+                  KeyLen, IVSaltLen + 6),
             Params#params{
               iv = {IVSalt_1, IVNo_1},
               key = Key_1 };
