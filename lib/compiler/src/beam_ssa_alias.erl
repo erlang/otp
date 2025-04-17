@@ -1256,7 +1256,7 @@ aa_call(Dst, [#b_local{}=Callee|Args], Anno, SS0,
         _ when IsNif ->
             %% This is a nif, assume that all arguments will be
             %% aliased and that the result is aliased.
-            aa_set_aliased([Dst|Args], SS0);
+            {aa_set_aliased([Dst|Args], SS0), AAS0};
         #{} ->
             %% We don't know anything about the function, don't change
             %% the status of any variables
@@ -1277,8 +1277,10 @@ aa_add_call_info(Callee, Args, SS0, #aas{call_args=Info0}=AAS) ->
     AAS#aas{call_args=Info}.
 
 aa_get_call_args_status(Args, Callee, #aas{call_args=Info}) ->
-    #{ Callee := Status } = Info,
-    zip(Args, Status).
+    case Info of
+        #{ Callee := Status } -> zip(Args, Status);
+        _ -> []
+    end.
 
 %% Pair extraction.
 aa_pair_extraction(Dst, #b_var{}=Pair, Element, SS) ->
