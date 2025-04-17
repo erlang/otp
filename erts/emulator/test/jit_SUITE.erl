@@ -32,10 +32,10 @@ suite() ->
     [{timetrap, {minutes, 4}}].
 
 groups() ->
-    [{perf, [symbols, annotate]}].
+    [{perf, [symbols, annotate, perfdirectory_set, perfdirectory_not_set]}].
 
 all() ->
-    [{group, perf}, jmsingle, named_labels, perfdirectory_set, perfdirectory_not_set].
+    [{group, perf}, jmsingle, named_labels].
 
 init_per_suite(Config) ->
     case erlang:system_info(emu_flavor) of
