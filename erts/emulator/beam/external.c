@@ -202,8 +202,6 @@ void erts_late_init_external(void)
     erts_free(ERTS_ALC_T_TMP, lnid);
 }
 
-#define ERTS_MAX_INTERNAL_ATOM_CACHE_ENTRIES 255
-
 #define ERTS_DIST_HDR_ATOM_CACHE_FLAG_BYTE_IX(IIX) \
   (((((Uint32) (IIX)) >> 1) & 0x7fffffff))
 #define ERTS_DIST_HDR_ATOM_CACHE_FLAG_BIT_IX(IIX) \
@@ -822,17 +820,15 @@ byte* erts_encode_ext_ets(Eterm term, byte *ep, struct erl_off_heap_header** off
 static Uint
 dist_ext_size(ErtsDistExternal *edep)
 {
-    Uint sz = sizeof(ErtsDistExternal);
+    Uint sz = offsetof(ErtsDistExternal, attab.atom);
 
     ASSERT(edep->data->ext_endp && edep->data->extp);
     ASSERT(edep->data->ext_endp >= edep->data->extp);
 
     if (edep->flags & ERTS_DIST_EXT_ATOM_TRANS_TAB) {
-        ASSERT(0 <= edep->attab.size \
-               && edep->attab.size <= ERTS_ATOM_CACHE_SIZE);
-        sz -= sizeof(Eterm)*(ERTS_ATOM_CACHE_SIZE - edep->attab.size);
-    } else {
-        sz -= sizeof(ErtsAtomTranslationTable);
+        ASSERT(0 <= edep->attab.size
+               && edep->attab.size <= ERTS_MAX_INTERNAL_ATOM_CACHE_ENTRIES);
+        sz += sizeof(Eterm) * edep->attab.size;
     }
     ASSERT(sz % 4 == 0);
     return sz;
@@ -998,7 +994,7 @@ erts_prepare_dist_ext(ErtsDistExternal *edep,
 	CHKSIZE(1+1+1);
 	ep += 2;
 	no_atoms = (int) get_int8(ep);
-	if (no_atoms < 0 || ERTS_ATOM_CACHE_SIZE < no_atoms)
+        if (no_atoms < 0 || no_atoms > ERTS_MAX_INTERNAL_ATOM_CACHE_ENTRIES)
 	    goto bad_hdr;
 	ep++;
 	if (no_atoms) {
@@ -1184,10 +1180,12 @@ bad_dist_ext(ErtsDistExternal *edep)
 	if (!(edep->flags & ERTS_DIST_EXT_ATOM_TRANS_TAB) || !edep->attab.size)
 	    erts_dsprintf(dsbufp, "none");
 	else {
+            const char* delim = "";
 	    int i;
-	    erts_dsprintf(dsbufp, "0=%T", edep->attab.atom[0]);
-	    for (i = 1; i < edep->attab.size; i++)
-		erts_dsprintf(dsbufp, ", %d=%T", i, edep->attab.atom[i]);
+	    for (i = 0; i < edep->attab.size; i++) {
+		erts_dsprintf(dsbufp, "%s%d=%T", delim, i, edep->attab.atom[i]);
+                delim = ", ";
+            }
 	}
 	erts_send_warning_to_logger_nogl(dsbufp);
 	erts_kill_dist_connection(dep, edep->connection_id);
