@@ -31,4 +31,6 @@ THR_DEFS=@THR_DEFS@
 # Threads libs
 THR_LIBS=@THR_LIBS@
 
+EI_LDFLAGS=@LDFLAGS@
+
 # ----------------------------------------------------------------------
