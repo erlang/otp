@@ -170,22 +170,24 @@ Vendor packages are identified by a JSON `vendor.info` file that contains fields
 
 Each `vendor.info` file will implicitly generate a [SPDX](https://spdx.dev/) Package (within the source SBOM) to separate vendor libraries from Erlang/OTP applications.
 
-This file may be a JSON object or a list of JSON objects. For simplicity, we document the fields using a JSON object.
+This file may be a list of JSON objects. For simplicity, we document the fields using a JSON object.
 
 ```json
-{
-  "ID": "erts-asmjit",
-  "description": "Asmjit library",
-  "copyrightText": "Copyright (c) 2008-2023 The AsmJit Authors",
-  "downloadLocation": "https://github.com/asmjit/asmjit",
-  "homepage": "https://github.com/asmjit/asmjit",
-  "licenseDeclared": "Zlib",
-  "name": "asmjit",
-  "versionInfo": "a465fe71ab3d0e224b2b4bd0fac69ae68ab9239d",
-  "path": "./erts/emulator/asmjit",
-  "supplier": "Person: Petr Kobalicek",
-  "purl": "pkg:github/asmjit/asmjit"
-}
+[
+  {
+    "ID": "erts-asmjit",
+    "description": "Asmjit library",
+    "copyrightText": "Copyright (c) 2008-2023 The AsmJit Authors",
+    "downloadLocation": "https://github.com/asmjit/asmjit",
+    "homepage": "https://github.com/asmjit/asmjit",
+    "licenseDeclared": "Zlib",
+    "name": "asmjit",
+    "versionInfo": "a465fe71ab3d0e224b2b4bd0fac69ae68ab9239d",
+    "path": "./erts/emulator/asmjit",
+    "supplier": "Person: Petr Kobalicek",
+    "purl": "pkg:github/asmjit/asmjit"
+  }
+]
 ```
 
 Fields summary:
@@ -202,8 +204,7 @@ Fields summary:
 - `licenseDeclared`: license as declared by the vendor, following a [SPDX license identifier](https://spdx.org/licenses/).
 - `name`: name of the library.
 - `versionInfo`: version of the library/project/3pp. In case of no version number being available, write the commit sha.
-- `path`: path to the vendor library inside Erlang/OTP. This can point to a file, folder, or a list of files.
-  - File: only a single file is part of this vendor library (e.g., `erl_posix_str.c` [vendor.info](../erts/emulator/beam/erl_posix_str.c)).
+- `path`: path to the vendor library inside Erlang/OTP. This can point to a folder or a list of files.
   - Folder: any file inside the folder is considered part of the vendor library (e.g., asmjit [vendor.info](../erts/emulator/asmjit/vendor.info)).
   - List of files: only the files listed here are part of a vendor library (e.g., erts-config [vendor.info](../erts/autoconf/vendor.info)).
 - `comment`: any comment.

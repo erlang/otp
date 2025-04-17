@@ -1,10 +1,10 @@
-%% %CopyrightBegin%
-%%
-%% SPDX-License-Identifier: Apache-2.0
-%%
-%% Copyright Ericsson AB 2025. All Rights Reserved.
-%%
-%% %CopyrightEnd%
+// %CopyrightBegin%
+//
+// SPDX-License-Identifier: Apache-2.0
+//
+// Copyright Ericsson AB 2025. All Rights Reserved.
+//
+// %CopyrightEnd%
 [
     {
       "ID": "common_test-config",
@@ -28,7 +28,7 @@
       "licenseDeclared": "MIT",
       "name": "Autoconf",
       "versionInfo": "2.71",
-      "path": "./lib/common_test/test_server/install-sh",
+      "path": ["./lib/common_test/test_server/install-sh"],
       "supplier": "Organization: Free Software Foundation",
       "purl": "pkg:generic/autoconf"
     }

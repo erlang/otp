@@ -487,8 +487,8 @@ format_scan_results(ScanResult) ->
         end
      end)).
 
-sort_arrays(JSon) ->
-    sort_arrays(JSon, fun(_) -> true end).
+% sort_arrays(JSon) ->
+%     sort_arrays(JSon, fun(_) -> true end).
 sort_arrays(JSon, KeyFun) ->
     sort_arrays(JSon, KeyFun, true).
 sort_arrays(Map, KeyFun, _Sort) when is_map(Map) ->

@@ -62,6 +62,7 @@ jobs:
   pack:
     name: Build Erlang/OTP (64-bit)
     runs-on: ubuntu-latest
+    if: github.repository == 'erlang/otp' || github.event_name != 'scheduled'
     outputs:
         changes: ${{ steps.changes.outputs.changes }}
         build-c-code: ${{ steps.c-code-changes.outputs.changes != '[]' || env.FULL_BUILD_AND_CHECK == 'true' }}
