@@ -48,9 +48,8 @@ typedef _Float16 erlfp16;
 #define FP16_TO_FP64(x) ((double) x)
 #else
 typedef Uint16 erlfp16;
-#define FP16_FROM_FP64(x) (fp16_ieee_from_fp32_value((float) x))
-#define FP16_TO_FP64(x) ((double) fp16_ieee_to_fp32_value(x))
-#include "erl_bits_f16.h"
+#define FP16_FROM_FP64(x) (f32_to_f16((float) x))
+#define FP16_TO_FP64(x) ((double) f16_to_f32(x))
 #endif
 
 /*
@@ -422,6 +421,115 @@ erts_bs_get_binary_2(Process *p, Uint num_bits, ErlSubBits *sb)
     sb->start += num_bits;
 
     return result;
+}
+
+static ERTS_INLINE Uint16 f32_to_f16(float fp)
+{
+    union {
+        float f32;
+        Uint32 u32;
+    } u;
+    Uint32 u32;
+    Uint32 sign, exp, mantissa;
+    int signed_exp;
+    Uint16 res;
+
+    u.f32 = fp;
+    u32 = u.u32;
+
+    sign = (u32 >> 31) & 0x1;
+    exp = (u32 >> 23) & 0xff;
+    mantissa = (u32 >> (23 - 10)) & 0x3ff;
+
+    if (exp == 0) {
+        /* Convert zero to f16. */
+        res = sign << 15;
+        return res;
+    }
+
+    signed_exp = exp - (127 - 15);
+    exp -= (127 - 15); /* Convert exponent from f32 bias to f16 bias. */
+    if (signed_exp <= 0) {
+        Uint32 shift;
+        mantissa |= 1 << 23;
+        shift = -signed_exp;
+        if (shift <= 24 ) {
+            /* Subnormal value in f16. */
+            Uint32 round = 1 << shift;
+            mantissa = (mantissa + round + ((mantissa >> shift) & 1)) >> shift;
+            res = sign << 15 | (mantissa & 0x3ff);
+        } else {
+            /* Underflow to 0. */
+            res = sign << 15;
+        }
+    } else if (exp > 0x1f) {
+        /* Overflow becomes infinity. */
+        res = (sign << 15) | (0x1f << 10);
+        return res;
+    } else {
+        /* Normal value in f16. Apply rounding. */
+        Uint32 bit_11 = u32 & (0x1 << 10);
+        Uint32 bit_12 = u32 & (0x1 << 11);
+        Uint32 bit_13 = u32 & (0x1 << 12);
+        Uint32 bit_14 = u32 & (0x1 << 13);
+        if (bit_13 && (bit_11 || bit_12 || bit_14)) {
+            /* Round to nearest, ties to even. */
+            mantissa += 1;
+            if (mantissa == 1 << 10) {
+                /* Mantissa overflow: carry into exponent. */
+                exp += 1;
+                mantissa = 0;
+                if (exp > 0x1f) {
+                    /* Overflow becomes infinity. */
+                    res = (sign << 15) | (0x1f << 10);
+                    return res;
+                }
+            }
+        }
+        res = sign << 15 | exp << 10 | (mantissa & 0x3ff);
+    }
+    return res;
+}
+
+static ERTS_INLINE float f16_to_f32(Uint16 fp)
+{
+    union {
+        float f32;
+        Uint32 u32;
+    }u;
+    Uint32 sign, exp, mantissa;
+    Uint32 res;
+
+    sign = (fp >> 15) & 0x1;
+    exp = (fp >> 10) & 0x1f;
+    mantissa = fp & 0x3ff;
+    res = sign << 31;
+    if (exp == 0) {
+        if (mantissa != 0) {
+            /* Normalize subnormals in f16 to f32 */
+            while ((mantissa & 0x400) == 0) {
+                mantissa <<= 1;
+                exp -= 1;
+            }
+            mantissa = mantissa & 0x3ff;
+            exp = 127 - 15 + 1 + exp;
+            res |= exp << 23;
+            res |= mantissa << 13;
+        }
+    } else if (exp == 0x1f) {
+        /* Convert infinity and NaN to f32 */
+        res |= 0xff << 23;
+        if (mantissa != 0) {
+            res |= mantissa << 13;
+        }
+    } else {
+        /* Convert normal values to f32. */
+        exp += (127 - 15);
+        res |= exp << 23;
+        res |= mantissa << 13;
+    }
+    u.u32 = res;
+    return u.f32;
 }
 
 Eterm
