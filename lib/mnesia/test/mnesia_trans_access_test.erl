@@ -488,8 +488,7 @@ select_reverse(Config) when is_list(Config) ->
     TwoRec = {Tab, 2, 3},
     ThreeRec = {Tab, 3, 4},
     OnePat = [{{Tab, '$1', 2}, [], ['$_']}],
-    All = [ThreeRec,TwoRec,OneRec],
-    AllPat = [{'_', [], ['$_']}],
+
     ?match({atomic, []},
 	   mnesia:transaction(fun() -> mnesia:select_reverse(Tab, OnePat) end)),
     ?match({atomic, ok},
