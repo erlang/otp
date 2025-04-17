@@ -1086,7 +1086,24 @@ erts_check_copy_literals_gc_need(Process *c_p, int *redsp,
 		goto done;
 	}
     }
-    
+
+    /* Check if there are any *direct* references to literals in the process'
+     * registers.
+     *
+     * These are not guaranteed to be kept up to date, but as we can only land
+     * here during signal handling we KNOW that these are either up to date, or
+     * they are not actually live (effective arity is 0 in a `receive`). Should
+     * any of these registers contain garbage, we merely risk scheduling a
+     * pointless garbage collection as `any_heap_ref_ptrs` doesn't follow
+     * pointers, it just range-checks them. */
+    scanned += c_p->arity;
+    if (any_heap_ref_ptrs(&c_p->arg_reg[0],
+                          &c_p->arg_reg[c_p->arity],
+                          literals,
+                          lit_bsize)) {
+        goto done;
+    }
+
     res = 0; /* no need for gc */
 
 done: {
