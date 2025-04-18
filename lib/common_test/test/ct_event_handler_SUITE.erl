@@ -44,7 +44,7 @@ init_per_suite(Config) ->
 
     EH = filename:join(DataDir, "eh_A.erl"),
     CResult = compile:file(EH, [verbose,report,{outdir,PrivDir}]),
-    test_server:format("~s compilation result: ~p~n", [EH,CResult]),
+    ct:log("~s compilation result: ~p~n", [EH,CResult]),
 
     Config1 = ct_test_support:init_per_suite(Config, 0),
     Config1.
