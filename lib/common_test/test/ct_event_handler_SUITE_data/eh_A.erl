@@ -136,6 +136,6 @@ code_change(_OldVsn, State, _Extra) ->
 %%--------------------------------------------------------------------
 
 print(Level, _Str, _Args) ->
-    test_server:format(Level, _Str,_Args).
+    ct:log(Level, _Str,_Args).
 
 
