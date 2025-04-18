@@ -9200,9 +9200,9 @@ insert_prepared_prio_msg_attached(Process *c_p, ErtsSigRecvTracing *tracing,
         for (i = 0; i < ERTS_RECV_MARKER_BLOCK_SIZE; i++) {
             if (empty_prio_q)
                 blk->marker[i].in_prioq = 0;
-            if (blk->marker[i].in_sigq
-                && !blk->marker[i].in_prioq
-                && is_internal_ref(blk->ref[i])) {
+            if (is_internal_ref(blk->ref[i])
+                && blk->marker[i].in_sigq
+                && !blk->marker[i].in_prioq) {
                 not_pq[n_not_pq++] = i;
             }
         }
