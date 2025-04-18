@@ -9021,10 +9021,8 @@ erts_proc_sig_queue_try_enqueue_to_buffer(Eterm from,
         int nonmsg = ERTS_SIG_IS_NON_MSG(first);
         int restarted = 0;
         ErtsSignalInQueueBuffer* buffer;
-        Uint64 nonempty_slots_before;
+        Uint64 nonempty_slots_before = 0;
         Uint32 slot, state;
-
-        ERTS_UNDEF(nonempty_slots_before, 0);
 
         ASSERT(is_value(from));
 
