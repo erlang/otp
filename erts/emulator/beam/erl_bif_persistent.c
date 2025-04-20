@@ -113,7 +113,8 @@ typedef struct {
 } ErtsPersistentTermCpyTableCtx;
 
 typedef enum {
-    PUT2_TRAP_LOCATION_NEW_KEY
+    PUT2_TRAP_LOCATION_NEW_KEY,
+    PUT_NEW2_TRAP_LOCATION_NEW_KEY
 } ErtsPersistentTermPut2TrapLocation;
 
 typedef struct {
@@ -453,7 +454,7 @@ BIF_RETTYPE persistent_term_put_new_2(BIF_ALIST_2)
 #define PUT_NEW_TRAP_CODE                                                   \
     BIF_TRAP2(BIF_TRAP_EXPORT(BIF_persistent_term_put_new_2), BIF_P, state_mref, BIF_ARG_2)
 #define TRAPPING_COPY_TABLE_PUT_NEW(TABLE_DEST, OLD_TABLE, NEW_SIZE, COPY_TYPE, LOC_NAME) \
-    TRAPPING_COPY_TABLE(TABLE_DEST, OLD_TABLE, NEW_SIZE, COPY_TYPE, LOC_NAME, PUT_TRAP_CODE)
+    TRAPPING_COPY_TABLE(TABLE_DEST, OLD_TABLE, NEW_SIZE, COPY_TYPE, LOC_NAME, PUT_NEW_TRAP_CODE)
 
 #ifdef DEBUG
         (void)ITERATIONS_PER_RED;
@@ -474,7 +475,7 @@ BIF_RETTYPE persistent_term_put_new_2(BIF_ALIST_2)
         ASSERT(BIF_P->flags & F_DISABLE_GC);
         erts_set_gc_state(BIF_P, 1);
         ASSERT(ctx->trap_location == PUT2_TRAP_LOCATION_NEW_KEY);
-        goto L_PUT2_TRAP_LOCATION_NEW_KEY;
+        goto L_PUT_NEW2_TRAP_LOCATION_NEW_KEY;
     } else {
         /* Save state in magic bin in case trapping is necessary */
         Eterm* hp;
@@ -514,7 +515,7 @@ BIF_RETTYPE persistent_term_put_new_2(BIF_ALIST_2)
                                     ctx->hash_table,
                                     new_size,
                                     ERTS_PERSISTENT_TERM_CPY_NO_REHASH,
-                                    PUT2_TRAP_LOCATION_NEW_KEY);
+                                    PUT_NEW2_TRAP_LOCATION_NEW_KEY);
             ctx->entry_index = lookup(ctx->hash_table,
                                       ctx->key,
                                       &old_bucket);
