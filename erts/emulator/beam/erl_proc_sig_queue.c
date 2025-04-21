@@ -314,13 +314,17 @@ insert_prepared_prio_msg_attached(Process *c_p, ErtsSigRecvTracing *tracing,
                                   ErtsMessage *sig, void *attached,
                                   Eterm message, Eterm token,
                                   ErtsMessage ***next_nm_sig);
+static void
+destroy_prio_q_info(Process *c_p,
+                    ErtsPrioQInfo *pq_info,
+                    int terminating);
 
 static ERTS_INLINE ErtsPrioQInfo *
 get_prio_queue_info(Process *c_p)
 {
     ErtsPrioQInfo *pq_info = ERTS_PROC_GET_PRIO_Q_INFO(c_p);
     ASSERT(pq_info);
-    ASSERT(c_p->sig_qs.flags & (FS_PRIO_MQ|FS_PRIO_MQ_PENDING_RM));
+    ASSERT(c_p->sig_qs.flags & (FS_PRIO_MQ|FS_PRIO_MQ_END_MARK));
     return pq_info;
 }
 
@@ -3724,6 +3728,7 @@ remove_innerq_sig(Process *c_p, ErtsMessage *sig, ErtsMessage **next_sig)
     /*
      * Remove signal from message queue (inner queue).
      */
+    ASSERT(!(c_p->sig_qs.flags & FS_DBG_MQ_PTRS_UNREL));
     ASSERT(c_p->sig_qs.cont_last != &sig->next);
     ASSERT(c_p->sig_qs.nmsigs.next != &sig->next);
     ASSERT(c_p->sig_qs.nmsigs.last != &sig->next);
@@ -4383,10 +4388,40 @@ erts_msgq_recv_marker_create_insert_set_save(Process *c_p, Eterm id)
 }
 
 static ERTS_INLINE void
-remove_prio_q_marker(Process *c_p, ErtsRecvMarker *markp)
+remove_prio_q_marker(Process *c_p, ErtsRecvMarker *markp,
+                     ErtsMessage ***next_nm_sig)
 {
-    remove_innerq_sig(c_p, (ErtsMessage *) markp, markp->prev_next);
+    ErtsMessage **next = markp->prev_next;
+#ifdef DEBUG
+    Uint32 q_unrel_flag = (c_p->sig_qs.flags & FS_DBG_MQ_PTRS_UNREL);
+    ASSERT(!!next_nm_sig || !(c_p->sig_qs.flags & FS_DBG_MQ_PTRS_UNREL));
+#endif
+
+    if (next_nm_sig) {
+        /*
+         * This marker might exist in the "to be inner queue part" of the
+         * middle queue, so we need to check the following pointers as
+         * well...
+         */
+        ErtsMessage **mark_next = &((ErtsMessage *) markp)->next;
+        if (*next_nm_sig == mark_next)
+            *next_nm_sig = next;
+        if (c_p->sig_qs.nmsigs.last == mark_next)
+            c_p->sig_qs.nmsigs.last = next;
+        if (c_p->sig_qs.cont_last == mark_next)
+            c_p->sig_qs.cont_last = next;
+#ifdef DEBUG
+        /* The unreliability taken care of for this operation */
+        c_p->sig_qs.flags &= ~FS_DBG_MQ_PTRS_UNREL;
+#endif
+    }
+
+    remove_innerq_sig(c_p, (ErtsMessage *) markp, next);
     markp->in_msgq = markp->in_sigq = 0;
+
+#ifdef DEBUG
+    c_p->sig_qs.flags |= q_unrel_flag;
+#endif
 }
 
 static ErtsMessage **
@@ -4398,6 +4433,7 @@ msgq_pass_recv_markers(Process *c_p, ErtsMessage **markpp, int leading)
     ErtsMessage **sigpp = markpp;
     ErtsMessage *sigp = *sigpp;
     ASSERT(ERTS_SIG_IS_RECV_MARKER(sigp));
+    ASSERT(!(c_p->sig_qs.flags & FS_DBG_MQ_PTRS_UNREL));
     do {
 	ErtsRecvMarker *markp = (ErtsRecvMarker *) sigp;
         switch (markp->mark_type) {
@@ -4408,7 +4444,6 @@ msgq_pass_recv_markers(Process *c_p, ErtsMessage **markpp, int leading)
             }
             /* Fall through... */
         case ERTS_RECV_MARKER_TYPE_YIELD:
-        pass_it:
             sigpp = &markp->sig.common.next;
             break;
         case ERTS_RECV_MARKER_TYPE_PRIO_Q_END:
@@ -4417,19 +4452,23 @@ msgq_pass_recv_markers(Process *c_p, ErtsMessage **markpp, int leading)
                 && ERTS_MQ_GET_SAVE_INFO(c_p) == FS_SET_SAVE_INFO_FIRST) {
                 /* empty prio queue; remove end marker */
                 sigpp = markp->prev_next;
-                remove_prio_q_marker(c_p, markp);
                 c_p->sig_qs.flags &= ~(FS_PRIO_MQ_SAVE|FS_PRIO_MQ_END_MARK);
+                if (c_p->sig_qs.flags & FS_PRIO_MQ)
+                    remove_prio_q_marker(c_p, markp, NULL);
+                else
+                    destroy_prio_q_info(c_p, NULL, 0);
             }
             else {
                 c_p->sig_qs.flags &= ~FS_PRIO_MQ_SAVE;
                 if (ERTS_MQ_GET_SAVE_INFO(c_p) != FS_SET_SAVE_INFO_FIRST)
                     return msgq_pass_recv_markers_prioq_end(c_p, sigpp);
-                goto pass_it;
+                sigpp = &markp->sig.common.next;
             }
+            break;
         case ERTS_RECV_MARKER_TYPE_PRIO_Q_CONT:
             /* remove it */
             sigpp = markp->prev_next;
-            remove_prio_q_marker(c_p, markp);
+            remove_prio_q_marker(c_p, markp, NULL);
             break;
         default:
             ERTS_INTERNAL_ERROR("Invalid recv marker");
@@ -4482,7 +4521,7 @@ msgq_pass_recv_markers_prioq_end(Process *c_p, ErtsMessage **pq_endpp)
         ERTS_MQ_SET_SAVE_INFO(c_p, pq_info->saved_save_info);
 
         sigpp = pq_cont->prev_next;
-        remove_prio_q_marker(c_p, pq_cont);
+        remove_prio_q_marker(c_p, pq_cont, NULL);
         break;
     }
 
@@ -4535,7 +4574,7 @@ msgq_pass_recv_markers_prioq_end(Process *c_p, ErtsMessage **pq_endpp)
         case ERTS_RECV_MARKER_TYPE_PRIO_Q_CONT:
             /* remove it */
             sigpp = markp->prev_next;
-            remove_prio_q_marker(c_p, markp);
+            remove_prio_q_marker(c_p, markp, NULL);
             break;
         default:
             ERTS_INTERNAL_ERROR("Invalid recv marker");
@@ -5310,6 +5349,10 @@ handle_process_info(Process *c_p, ErtsSigRecvTracing *tracing,
                 *next_nm_sig = &c_p->sig_qs.cont;
                 *c_p->sig_qs.last = NULL;
             }
+#ifdef DEBUG
+            /* Message queue pointers not unreliable now... */
+            c_p->sig_qs.flags &= ~FS_DBG_MQ_PTRS_UNREL;
+#endif
         }
 
         if (!pisig->common.specific.next) {
@@ -5377,6 +5420,10 @@ handle_process_info(Process *c_p, ErtsSigRecvTracing *tracing,
     }
 
     destroy_process_info_sig(pisig);
+
+#ifdef DEBUG
+    c_p->sig_qs.flags |= FS_DBG_MQ_PTRS_UNREL;
+#endif
 
     if (reds > INT_MAX/8)
         reds = INT_MAX/8;
@@ -6185,6 +6232,13 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
     }
 
     c_p->sig_qs.flags |= FS_HANDLING_SIGS;
+#ifdef DEBUG
+    /*
+     * Message queue pointers unreliable for external access
+     * of message queue...
+     */
+    c_p->sig_qs.flags |= FS_DBG_MQ_PTRS_UNREL;
+#endif
 
     limit = *redsp;
     *redsp = 0;
@@ -6195,6 +6249,9 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
         *statep = state;
         ASSERT(!(c_p->sig_qs.flags & FS_WAIT_HANDLE_SIGS));
         c_p->sig_qs.flags &= ~FS_HANDLING_SIGS;
+#ifdef DEBUG
+        c_p->sig_qs.flags &= ~FS_DBG_MQ_PTRS_UNREL;
+#endif
         return !0;
     }
 
@@ -6202,6 +6259,9 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
         *statep = state;
         ASSERT(!(c_p->sig_qs.flags & FS_WAIT_HANDLE_SIGS));
         c_p->sig_qs.flags &= ~FS_HANDLING_SIGS;
+#ifdef DEBUG
+        c_p->sig_qs.flags &= ~FS_DBG_MQ_PTRS_UNREL;
+#endif
         return 0;
     }
 
@@ -7053,6 +7113,10 @@ stop: {
 
 	*statep = state;
 
+#ifdef DEBUG
+        c_p->sig_qs.flags &= ~FS_DBG_MQ_PTRS_UNREL;
+#endif
+
         /* Ensure that 'save' doesn't point to a receive marker... */
         if (*c_p->sig_qs.save
             && ERTS_SIG_IS_RECV_MARKER(*c_p->sig_qs.save)) {
@@ -7166,10 +7230,6 @@ stretch_limit(Process *c_p, ErtsSigRecvTracing *tp,
     return !0;
 }
 
-static void destroy_prio_q_info(Process *c_p,
-                                ErtsPrioQInfo *pq_info,
-                                int terminating);
-
 int
 erts_proc_sig_handle_exit(Process *c_p, Sint *redsp,
                           ErtsProcExitContext *pe_ctxt_p)
@@ -7182,10 +7242,8 @@ erts_proc_sig_handle_exit(Process *c_p, Sint *redsp,
     ERTS_HDBG_CHECK_SIGNAL_PRIV_QUEUE(c_p, 0);
     ERTS_LC_ASSERT(erts_proc_lc_my_proc_locks(c_p) == ERTS_PROC_LOCK_MAIN);
 
-    if (c_p->sig_qs.flags & (FS_PRIO_MQ|FS_PRIO_MQ_PENDING_RM)) {
-        ErtsPrioQInfo *pq_info = get_prio_queue_info(c_p);
-        destroy_prio_q_info(c_p, pq_info, !0);
-    }
+    if (c_p->sig_qs.flags & (FS_PRIO_MQ|FS_PRIO_MQ_END_MARK))
+        destroy_prio_q_info(c_p, NULL, !0);
 
     limit = *redsp;
     limit *= ERTS_SIG_REDS_CNT_FACTOR;
@@ -7809,15 +7867,26 @@ init_yield_marker(Process *c_p, ErtsRecvMarker *mrkp)
 static void
 remove_yield_marker(Process *c_p, ErtsRecvMarker *mrkp)
 {
-    ASSERT(mrkp);
-    ASSERT(mrkp->mark_type == ERTS_RECV_MARKER_TYPE_YIELD);
-    ASSERT(mrkp->in_msgq);
+#ifdef DEBUG
+    Uint32 q_unrel_flag = (c_p->sig_qs.flags & FS_DBG_MQ_PTRS_UNREL);
+    /*
+     * Only called on signals that exist in the actual inner queue. Never called
+     * on signals in the "to be inner queue part" of the middle queue. That is,
+     * the unreliability has been taken care of for this operation...
+     */
+    c_p->sig_qs.flags &= ~FS_DBG_MQ_PTRS_UNREL;
+#endif
+
     remove_innerq_sig(c_p, (ErtsMessage *) mrkp, mrkp->prev_next);
     mrkp->in_msgq = 0;
     mrkp->in_sigq = 0;
     mrkp->in_prioq = 0;
     mrkp->prev_next = NULL;
     mrkp->sig.common.next = NULL;
+
+#ifdef DEBUG
+    c_p->sig_qs.flags |= q_unrel_flag;
+#endif
 }
 
 static ErtsYieldAdjMsgQ *
@@ -8888,7 +8957,7 @@ insert_prio_q_marker(Process *c_p, ErtsRecvMarker *mark, ErtsMessage **next)
     mark->in_sigq = mark->in_msgq = !0;
 }
 
-static void
+static ErtsPrioQInfo *
 create_prio_q_info(Process *c_p)
 {
     ErtsPrioQInfo *pq_info, *prev_pq_info;
@@ -8944,6 +9013,8 @@ create_prio_q_info(Process *c_p)
     prev_pq_info = ERTS_PROC_SET_PRIO_Q_INFO(c_p, pq_info);
 
     ASSERT(!prev_pq_info); (void) prev_pq_info;
+
+    return pq_info;
 }
 
 static void
@@ -8951,6 +9022,11 @@ destroy_prio_q_info(Process *c_p, ErtsPrioQInfo *pq_info, int terminating)
 {
     ErtsPrioQInfo *prev_pq_info;
     int i;
+
+    if (!pq_info)
+        pq_info = ERTS_PROC_GET_PRIO_Q_INFO(c_p);
+
+    ASSERT(pq_info);
 
     ASSERT(terminating || !(c_p->sig_qs.flags & FS_PRIO_MQ_SAVE));
     ASSERT(terminating || !(c_p->sig_qs.flags & FS_PRIO_MQ_END_MARK));
@@ -8961,8 +9037,10 @@ destroy_prio_q_info(Process *c_p, ErtsPrioQInfo *pq_info, int terminating)
 
     for (i = ERTS_PRIO_Q_MARK_IX_MIN; i <= ERTS_PRIO_Q_MARK_IX_MAX; i++) {
         ErtsRecvMarker *mark = &pq_info->marker[i];
-        if (mark->in_msgq)
-            remove_prio_q_marker(c_p, mark);
+        if (mark->in_msgq) {
+            remove_innerq_sig(c_p, (ErtsMessage *) mark, mark->prev_next);
+            mark->in_msgq = mark->in_sigq = 0;
+        }
     }
 
     prev_pq_info = ERTS_PROC_SET_PRIO_Q_INFO(c_p, NULL);
@@ -9322,7 +9400,7 @@ insert_prepared_prio_msg_attached(Process *c_p, ErtsSigRecvTracing *tracing,
              * continue when we reach the end of the prio queue.
              */
             if (pq_cont->in_msgq)
-                remove_prio_q_marker(c_p, pq_cont);
+                remove_prio_q_marker(c_p, pq_cont, next_nm_sig);
             insert_prio_q_marker(c_p, pq_cont, c_p->sig_qs.save);
             pq_info->saved_save_info = ERTS_MQ_GET_SAVE_INFO(c_p);
             ERTS_MQ_SET_SAVE_INFO(c_p, FS_SET_SAVE_INFO_MARK);
@@ -9379,97 +9457,6 @@ insert_prepared_prio_msg(Process *c_p, ErtsSigRecvTracing *tracing,
                                              next_nm_sig);
 }
 
-static void
-send_try_destroy_prio_q_info(void *vpid);
-
-static Eterm
-try_destroy_prio_q_info(Process *c_p, void *arg, int *redsp, ErlHeapFragment **hpp)
-{
-    ErtsPrioQInfo *pq_info = get_prio_queue_info(c_p);
-
-    ASSERT(pq_info);
-    ASSERT(c_p->sig_qs.flags & FS_PRIO_MQ_PENDING_RM);
-
-    if (c_p->sig_qs.flags & FS_PRIO_MQ) {
-        /* Prio messages have been enabled again; do not remove info... */
-        c_p->sig_qs.flags &= ~FS_PRIO_MQ_PENDING_RM;
-        return THE_NON_VALUE;
-    }
-
-    if (c_p->sig_qs.flags & FS_PRIO_MQ_END_MARK) {
-        /* Cannot remove until prio queue is empty; try again in 5 minutes... */
-        erts_start_timer_callback(5*60*1000, send_try_destroy_prio_q_info,
-                                  (void *) c_p->common.id);
-        return THE_NON_VALUE;
-    }
-
-    destroy_prio_q_info(c_p, pq_info, 0);
-    c_p->sig_qs.flags &= ~FS_PRIO_MQ_PENDING_RM;
-
-    return THE_NON_VALUE;
-}
-
-static void
-send_try_destroy_prio_q_info(void *vpid)
-{
-    ASSERT(is_internal_pid((Eterm) vpid));
-    (void) erts_proc_sig_send_rpc_request(NULL, (Eterm) vpid, 0,
-                                          try_destroy_prio_q_info,
-                                          NULL);
-
-}
-
-static void
-install_prio_msg_queue(Process *c_p)
-{
-    ASSERT(!(c_p->sig_qs.flags & FS_PRIO_MQ));
-
-    c_p->sig_qs.flags |= FS_PRIO_MQ;
-
-    /*
-     * If FS_PRIO_MQ_PENDING_RM is set, the prio q info is already there
-     * and we just aborted the operation. We leave the flag and let the
-     * scheduled job remove the flag. If we remove it here, we might end
-     * up with multiple remove jobs...
-     */
-    if (!(c_p->sig_qs.flags & FS_PRIO_MQ_PENDING_RM))
-        create_prio_q_info(c_p);
-
-    ASSERT(!(c_p->sig_qs.flags & FS_PRIO_MQ_SAVE));
-    ASSERT(!(c_p->sig_qs.flags & FS_PRIO_MQ_END_MARK));
-    ASSERT(!!get_prio_queue_info(c_p));
-}
-
-static void
-uninstall_prio_msg_queue(Process *c_p, ErtsPrioQInfo *pq_info)
-{
-    ASSERT(pq_info == get_prio_queue_info(c_p));
-
-    ASSERT(c_p->sig_qs.flags & FS_PRIO_MQ);
-
-    c_p->sig_qs.flags &= ~FS_PRIO_MQ;
-
-    if (c_p->sig_qs.flags & FS_PRIO_MQ_PENDING_RM) {
-        /* removal already ongoing... */
-        return;
-    }
-
-    if (!(c_p->sig_qs.flags & FS_PRIO_MQ_END_MARK)) {
-        /* Prio queue empty so we can safely remove it at once... */
-        destroy_prio_q_info(c_p, pq_info, 0);
-    }
-    else {
-        /*
-         * Prio queue not empty so we cannot remove it now, set a timer
-         * and try again in 10 seconds...
-         */
-        c_p->sig_qs.flags |= FS_PRIO_MQ_PENDING_RM;
-        (void) erts_start_timer_callback(10*1000,
-                                         send_try_destroy_prio_q_info,
-                                         (void *) c_p->common.id);
-    }
-}
-
 void
 erts_proc_sig_prio_item_deleted(Process *c_p, ErtsPrioItemType type)
 {
@@ -9495,11 +9482,20 @@ erts_proc_sig_prio_item_deleted(Process *c_p, ErtsPrioItemType type)
     ASSERT(pq_info->refc >= 0 && pq_info->alias >= 0 && pq_info->link >= 0
            && pq_info->monitor >= 0);
     ASSERT(pq_info->refc == pq_info->alias + pq_info->link + pq_info->monitor);
+    ASSERT(c_p->sig_qs.flags & FS_PRIO_MQ);
 #endif
 
+    if (uninstall_pq) {
+        c_p->sig_qs.flags &= ~FS_PRIO_MQ;
 
-    if (uninstall_pq)
-        uninstall_prio_msg_queue(c_p, pq_info);
+        if (!(c_p->sig_qs.flags & FS_PRIO_MQ_END_MARK)) {
+            /* Prio queue empty so we can safely remove it at once... */
+            destroy_prio_q_info(c_p, pq_info, 0);
+        }
+        /* else: Will be destroyed when the prio queue is empty and we
+         *       reach the end marker...
+         */
+    }
 }
 
 void
@@ -9507,10 +9503,23 @@ erts_proc_sig_prio_item_added(Process *c_p, ErtsPrioItemType type)
 {
     ErtsPrioQInfo *pq_info;
 
-    if (!(c_p->sig_qs.flags & FS_PRIO_MQ))
-        install_prio_msg_queue(c_p);
+    if (c_p->sig_qs.flags & FS_PRIO_MQ) {
+        pq_info = get_prio_queue_info(c_p);
+    }
+    else {
+        c_p->sig_qs.flags |= FS_PRIO_MQ;
 
-    pq_info = get_prio_queue_info(c_p);
+        /* If FS_PRIO_MQ_END_MARK is set, the prio-q info is already there... */
+        if (c_p->sig_qs.flags & FS_PRIO_MQ_END_MARK)
+            pq_info = get_prio_queue_info(c_p);
+        else
+            pq_info = create_prio_q_info(c_p);
+
+        ASSERT(!(c_p->sig_qs.flags & FS_PRIO_MQ_SAVE));
+    }
+
+    ASSERT(pq_info);
+
     ++pq_info->refc;
 
 #ifdef DEBUG
