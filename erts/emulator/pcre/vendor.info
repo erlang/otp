@@ -1,20 +1,22 @@
-%% %CopyrightBegin%
-%%
-%% SPDX-License-Identifier: Apache-2.0
-%%
-%% Copyright Ericsson AB 2025. All Rights Reserved.
-%%
-%% %CopyrightEnd%
-{
-  "ID": "erts-pcre",
-  "description": "PCRE2 library",
-  "copyrightText": "NOASSERTION",
-  "downloadLocation": "git+https://github.com/PCRE2Project/pcre2.git",
-  "homepage": "https://pcre2project.github.io/pcre2/",
-  "licenseDeclared": "BSD-3-Clause",
-  "name": "pcre2",
-  "versionInfo": "10.44",
-  "path": "./erts/emulator/pcre",
-  "supplier": "Person: Philip Hazel",
-  "purl": "pkg:generic/pcre2"
-}
+// %CopyrightBegin%
+//
+// SPDX-License-Identifier: Apache-2.0
+//
+// Copyright Ericsson AB 2025. All Rights Reserved.
+//
+// %CopyrightEnd%
+[
+  {
+    "ID": "erts-pcre",
+    "description": "PCRE2 library",
+    "copyrightText": "NOASSERTION",
+    "downloadLocation": "git+https://github.com/PCRE2Project/pcre2.git",
+    "homepage": "https://pcre2project.github.io/pcre2/",
+    "licenseDeclared": "BSD-3-Clause",
+    "name": "pcre2",
+    "versionInfo": "10.44",
+    "path": "./erts/emulator/pcre",
+    "supplier": "Person: Philip Hazel",
+    "purl": "pkg:generic/pcre2"
+  }
+]
