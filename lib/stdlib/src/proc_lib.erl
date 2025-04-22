@@ -112,18 +112,15 @@ is _not_ part of these options.
 %% in erlang:spawn_opt_options().
 %%
 -define(VERIFY_NO_MONITOR_OPT(M, F, A, T, Opts),
-        Monitor = monitor,
-        case lists:member(Monitor, Opts) of
-            true ->
+	case
+	    lists:member(monitor, Opts) orelse
+	    lists:keymember(monitor, 1, Opts)
+	of
+	    true ->
                 erlang:error(badarg, [M,F,A,T,Opts]);
-            false ->
-                case lists:keyfind(Monitor, 1, Opts) of
-                    false ->
-                        ok;
-                    {Monitor, _} ->
-                        erlang:error(badarg, [M,F,A,T,Opts])
-                end
-        end).
+	    false ->
+		ok
+	end).
 
 -doc """
 An exception passed to `init_fail/3`. See `erlang:raise/3` for a description
