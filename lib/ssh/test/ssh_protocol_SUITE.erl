@@ -174,8 +174,7 @@ groups() ->
                                  modify_rm,
                                  modify_combo
                                 ]},
-     {client_close_early, [], [client_close_after_hello
-                               ]},
+     {client_close_early, [], [client_close_after_hello]},
      {channel_close, [], [channel_close_timeout]}
     ].
 
@@ -1514,11 +1513,9 @@ connect_and_kex(Config, InitialState) ->
 
 channel_close_timeout(Config) ->
     {User,_Pwd} = server_user_password(Config),
-
     %% Create a listening socket as server socket:
     {ok,InitialState} = ssh_trpt_test_lib:exec(listen),
     HostPort = ssh_trpt_test_lib:server_host_port(InitialState),
-
     %% Start a process handling one connection on the server side:
     spawn_link(
       fun() ->
@@ -1530,27 +1527,20 @@ channel_close_timeout(Config) ->
                                {idle_time, 50000}]},
 		     receive_hello,
 		     {send, hello},
-
 		     {send, ssh_msg_kexinit},
 		     {match, #ssh_msg_kexinit{_='_'}, receive_msg},
-
 		     {match, #ssh_msg_kexdh_init{_='_'}, receive_msg},
 		     {send, ssh_msg_kexdh_reply},
-
 		     {send, #ssh_msg_newkeys{}},
 		     {match,  #ssh_msg_newkeys{_='_'}, receive_msg},
-
 		     {match, #ssh_msg_service_request{name="ssh-userauth"}, receive_msg},
 		     {send, #ssh_msg_service_accept{name="ssh-userauth"}},
-
 		     {match, #ssh_msg_userauth_request{service="ssh-connection",
 						       method="none",
 						       user=User,
 						       _='_'}, receive_msg},
-
 		     {send, #ssh_msg_userauth_failure{authentications = "password",
 						      partial_success = false}},
-
 		     {match, #ssh_msg_userauth_request{service="ssh-connection",
 						       method="password",
 						       user=User,
@@ -1570,15 +1560,12 @@ channel_close_timeout(Config) ->
 		     {send, #ssh_msg_channel_open_confirmation{recipient_channel= 1,
                                                                sender_channel = 1,
                                                                initial_window_size = 64*1024,
-                                                               maximum_packet_size = 32*1024
-                                                               }},
+                                                               maximum_packet_size = 32*1024}},
                      {match, #ssh_msg_channel_close{recipient_channel = 0}, receive_msg},
                      {match, disconnect(), receive_msg},
-		     print_state
-		    ],
+		     print_state],
 		    InitialState)
       end),
-
     %% connect to it with a regular Erlang SSH client:
     ChannelCloseTimeout = 3000,
     {ok, ConnRef} = std_connect(HostPort, Config,
@@ -1602,8 +1589,6 @@ channel_close_timeout(Config) ->
         1 = length(Channels),
         ssh:close(ConnRef)
     end.
-
-
 %%%----------------------------------------------------------------
 
 %%% For matching peer disconnection

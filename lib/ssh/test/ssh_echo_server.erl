@@ -54,7 +54,7 @@ handle_msg({ssh_channel_up, ChannelId, ConnectionManager}, State) ->
     Pid = State#state.parent,
     if Pid /= undefined ->
             Pid ! {conn_peer, ConnectionManager};
-        true -> ok
+       true -> ok
     end,
     {ok, State#state{id = ChannelId,
 		     cm = ConnectionManager}}.

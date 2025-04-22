@@ -1296,7 +1296,7 @@ simple_eval(Inp) -> {simple_eval,Inp}.
 
 do_start_shell_exec_fun(Fun, Command, Expect, ExpectType, Config) ->
     DefaultReceiveFun =
-        fun(ConnectionRef, ChannelId, Expect, ExpectType) ->
+        fun(ConnectionRef, ChannelId, _Expect, _ExpectType) ->
                 receive
                     {ssh_cm, ConnectionRef, {data, ChannelId, ExpectType, Expect}} ->
                         ok
@@ -1972,44 +1972,45 @@ handler_down_before_open(Config) ->
 						      {user_dir, UserDir}]),
     ct:log("~p:~p connected", [?MODULE,?LINE]),
 
-    ExecChannelPid = spawn(
-        fun() ->
-            {ok, ChannelId0} = ssh_connection:session_channel(ConnectionRef, infinity),
+    ExecChannelPid =
+        spawn(
+          fun() ->
+                  {ok, ChannelId0} = ssh_connection:session_channel(ConnectionRef, infinity),
 
-            %% This is to get peer's connection handler PID ({conn_peer ...} below) and suspend it
-            {ok, ChannelId1} = ssh_connection:session_channel(ConnectionRef, infinity),
-            ssh_connection:subsystem(ConnectionRef, ChannelId1, "echo_n", infinity),
-            ssh_connection:close(ConnectionRef, ChannelId1),
-            receive
-                {ssh_cm, ConnectionRef, {closed, 1}} -> ok
-            end,
+                  %% This is to get peer's connection handler PID ({conn_peer ...} below) and suspend it
+                  {ok, ChannelId1} = ssh_connection:session_channel(ConnectionRef, infinity),
+                  ssh_connection:subsystem(ConnectionRef, ChannelId1, "echo_n", infinity),
+                  ssh_connection:close(ConnectionRef, ChannelId1),
+                  receive
+                      {ssh_cm, ConnectionRef, {closed, 1}} -> ok
+                  end,
 
-            Parent ! {self(), channelId, ChannelId0},
-            Result = receive
-                cmd ->
-                    ct:log("~p:~p Channel ~p executing", [?MODULE, ?LINE, ChannelId0]),
-                    success = ssh_connection:exec(ConnectionRef, ChannelId0, "testing", infinity),
-                    Expect = <<"echo testing\n">>,
-                    ExpSz = size(Expect),
-                    receive
-                        {ssh_cm, ConnectionRef, {data, ChannelId0, 0,
-                                                 <<Expect:ExpSz/binary, _/binary>>}} = R ->
-                            ct:log("~p:~p Got expected ~p",[?MODULE,?LINE, R]),
-                            ok;
-                        Other ->
-                            ct:log("~p:~p Got unexpected ~p~nExpect: ~p~n",
-                                   [?MODULE,?LINE, Other, {ssh_cm, ConnectionRef,
-                                                          {data, ChannelId0, 0, Expect}}]),
-                            {fail, "Unexpected data"}
-                    after 5000 ->
-                            {fail, "Exec Timeout"}
-                    end;
-                stop -> {fail, "Stopped"}
-            end,
-            Parent ! {self(), Result}
-      end),
+                  Parent ! {self(), channelId, ChannelId0},
+                  Result = receive
+                               cmd ->
+                                   ct:log("~p:~p Channel ~p executing", [?MODULE, ?LINE, ChannelId0]),
+                                   success = ssh_connection:exec(ConnectionRef, ChannelId0, "testing", infinity),
+                                   Expect = <<"echo testing\n">>,
+                                   ExpSz = size(Expect),
+                                   receive
+                                       {ssh_cm, ConnectionRef, {data, ChannelId0, 0,
+                                                                <<Expect:ExpSz/binary, _/binary>>}} = R ->
+                                           ct:log("~p:~p Got expected ~p",[?MODULE,?LINE, R]),
+                                           ok;
+                                       Other ->
+                                           ct:log("~p:~p Got unexpected ~p~nExpect: ~p~n",
+                                                  [?MODULE,?LINE, Other, {ssh_cm, ConnectionRef,
+                                                                          {data, ChannelId0, 0, Expect}}]),
+                                           {fail, "Unexpected data"}
+                                   after 5000 ->
+                                           {fail, "Exec Timeout"}
+                                   end;
+                               stop -> {fail, "Stopped"}
+                           end,
+                  Parent ! {self(), Result}
+          end),
     try
-        TestResult = receive
+        receive
             {ExecChannelPid, channelId, ExId} ->
                 ct:log("~p:~p Channel that should stay: ~p pid ~p",
                        [?MODULE, ?LINE, ExId, ExecChannelPid]),
