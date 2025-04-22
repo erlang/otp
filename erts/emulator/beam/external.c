@@ -2021,7 +2021,7 @@ static BIF_RETTYPE binary_to_term_int(Process* p, Eterm bin, B2TContext *ctx)
 	case B2TSizeInit:
 	    ctx->u.sc.ep = NULL;
 	    ctx->state = B2TSize;
-	    /*fall through*/
+            ERTS_FALLTHROUGH();
         case B2TSize:
             ctx->heap_size = decoded_size(ctx->b2ts.extp,
 					  ctx->b2ts.extp + ctx->b2ts.extsize,
@@ -2041,7 +2041,7 @@ static BIF_RETTYPE binary_to_term_int(Process* p, Eterm bin, B2TContext *ctx)
 	    erts_factory_proc_prealloc_init(&ctx->u.dc.factory, p, ctx->heap_size);
 	    ctx->u.dc.map_array.pstart = NULL;
             ctx->state = B2TDecode;
-            /*fall through*/
+            ERTS_FALLTHROUGH();
 	case B2TDecode:
         case B2TDecodeList:
         case B2TDecodeTuple:
@@ -2051,7 +2051,6 @@ static BIF_RETTYPE binary_to_term_int(Process* p, Eterm bin, B2TContext *ctx)
             break;
 	}
         case B2TDecodeFail:
-            /*fall through*/
         case B2TBadArg:
             BUMP_REDS(p, (initial_reds - ctx->reds) / B2T_BYTES_PER_REDUCTION);
 
@@ -3791,7 +3790,7 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
                         next_map_element = map_array = alloc_map_array(*ptr);
                         WSTACK_PUSH2(s, ENC_START_SORTING_MAP, THE_NON_VALUE);
                     }
-		    /*fall through*/
+                    ERTS_FALLTHROUGH();
 		case HAMT_SUBTAG_NODE_BITMAP:
 		    node_sz = hashmap_bitcount(MAP_HEADER_VAL(hdr));
 		    ASSERT(node_sz < 17);
@@ -3881,7 +3880,7 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
                 case BITSTRING_INTERNAL_REF:
                     sys_memcpy(ep, boxed_val(obj), sizeof(ErlSubBits));
                     ep += sizeof(ErlSubBits);
-                    /* Fall through! */
+                    ERTS_FALLTHROUGH();
                 case BINARY_INTERNAL_REF:
                     {
                         BinRef tmp_ref;
@@ -5540,7 +5539,7 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
 		case HAMT_SUBTAG_HEAD_BITMAP:
 		    ptr++;
 		    result += 1 + 4; /* tag + 4 bytes size */
-		    /*fall through*/
+                    ERTS_FALLTHROUGH();
 		case HAMT_SUBTAG_NODE_BITMAP:
 		    node_sz = hashmap_bitcount(MAP_HEADER_VAL(hdr));
 		    ASSERT(node_sz < 17);
@@ -5613,14 +5612,14 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
             switch (encoding) {
             case BITSTRING_INTERNAL_REF:
                 result += sizeof(ErlSubBits);
-                /* !! FALL THROUGH !! */
+                ERTS_FALLTHROUGH();
             case BINARY_INTERNAL_REF:
                 result += 1 /* [BIT_]BINARY_INTERNAL_REF */
                           + sizeof(BinRef);
                 break;
             case BIT_BINARY_EXT:
                 result += 1; /* Trailing bit count. */
-                /* !! FALL THROUGH !! */
+                ERTS_FALLTHROUGH();
             case BINARY_EXT:
                 result += 1   /* [BIT_]BINARY_EXT */
                           + 4 /* Size in bytes */;
@@ -6163,7 +6162,7 @@ init_done:
                 goto error;
             }
             SKIP(sizeof(ErlSubBits));
-            /* !!! FALL THROUGH !!! */
+            ERTS_FALLTHROUGH();
         case BINARY_INTERNAL_REF:
             if (!internal_tags) {
                 goto error;

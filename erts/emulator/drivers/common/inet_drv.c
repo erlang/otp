@@ -7204,7 +7204,7 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
                   "inet_set_opts(reuseport) -> %s\r\n",
                   __LINE__, desc->s, driver_caller(desc->port), B2S(ival)) );
 #if defined(__WIN32__)
-            /* fall through to INET_OPT_REUSEADDR */
+            ERTS_FALLTHROUGH(); /* to INET_OPT_REUSEADDR */
 #elif defined(SO_REUSEPORT)
             type = SO_REUSEPORT;
             break;
@@ -8308,7 +8308,7 @@ static int sctp_set_opts(inet_descriptor* desc, char* ptr, int len)
                   "sctp_set_opts -> REUSEPORT\r\n",
                   __LINE__, desc->s, driver_caller(desc->port)) );
 #if defined(__WIN32__)
-            /* fall through to INET_OPT_REUSEADDR */
+            ERTS_FALLTHROUGH(); /* to INET_OPT_REUSEADDR */
 #elif defined(SO_REUSEPORT)
 	    arg.ival= get_int32 (curr);	  curr += 4;
 	    proto   = SOL_SOCKET;

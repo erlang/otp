@@ -260,7 +260,6 @@ erts_shift(Process* p, Eterm arg1, Eterm arg2, int right)
                 }
 		BIF_ERROR(p, SYSTEM_LIMIT);
 	    }
-	     /* Fall through if the left argument is not an integer. */
 	}
     }
     BIF_ERROR(p, BADARITH);
@@ -888,7 +887,7 @@ erts_mul_add(Process* p, Eterm arg1, Eterm arg2, Eterm arg3, Eterm* pp)
             break;
         }
         big_arg1 = small_to_big(signed_val(big_arg1), tmp_big1);
-        /* Fall through */
+        ERTS_FALLTHROUGH();
     case TAG_PRIMARY_BOXED:
         hdr = *boxed_val(big_arg1);
         switch ((hdr & _TAG_HEADER_MASK) >> _TAG_PRIMARY_SIZE) {
@@ -900,7 +899,7 @@ erts_mul_add(Process* p, Eterm arg1, Eterm arg2, Eterm arg3, Eterm* pp)
                     break;
                 }
                 big_arg2 = small_to_big(signed_val(big_arg2), tmp_big2);
-                /* Fall through */
+                ERTS_FALLTHROUGH();
             case TAG_PRIMARY_BOXED:
                 hdr = *boxed_val(big_arg2);
                 switch ((hdr & _TAG_HEADER_MASK) >> _TAG_PRIMARY_SIZE) {
@@ -912,7 +911,7 @@ erts_mul_add(Process* p, Eterm arg1, Eterm arg2, Eterm arg3, Eterm* pp)
                             break;
                         }
                         big_arg3 = small_to_big(signed_val(big_arg3), tmp_big3);
-                        /* Fall through */
+                        ERTS_FALLTHROUGH();
                     case TAG_PRIMARY_BOXED:
                         hdr = *boxed_val(big_arg3);
                         switch ((hdr & _TAG_HEADER_MASK) >> _TAG_PRIMARY_SIZE) {
@@ -1131,7 +1130,7 @@ int erts_int_div_rem(Process* p, Eterm arg1, Eterm arg2, Eterm *q, Eterm *r)
         ASSERT(rhs == make_small(-1));
         lhs = small_to_big(signed_val(lhs), tmp_big1);
 
-        /* ! Fall through ! */
+        ERTS_FALLTHROUGH();
     case BIG_SMALL:
         rhs = small_to_big(signed_val(rhs), tmp_big2);
         break;

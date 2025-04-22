@@ -519,7 +519,7 @@ static void subtract_ctx_move(ErtsSubtractContext *from,
             break;
         case SUBTRACT_STAGE_SET_FINISH:
             uses_result_cdr = 1;
-            /* FALL THROUGH */
+            ERTS_FALLTHROUGH();
         case SUBTRACT_STAGE_SET_BUILD:
             to->u.rhs_set.alloc_start = from->u.rhs_set.alloc_start;
             to->u.rhs_set.alloc = from->u.rhs_set.alloc;

@@ -1493,7 +1493,7 @@ do_update_counter(Process *p, DbTable* tb,
 	    else if (is_not_small(warp)) {
 		goto finalize;
 	    }
-	    /* Fall through */
+            ERTS_FALLTHROUGH();
 	case 2:
 	    if (!is_small(tpl[1])) {
 		goto finalize;

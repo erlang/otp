@@ -2298,12 +2298,14 @@ tailrecur_ne:
 #endif /* ERTS_SIZEOF_ETERM == 8 */
 	    break;
         case FLOAT_BIG:
-	    if (exact) goto exact_fall_through;
-	{
-	    Eterm tmp = aw;
-	    aw = bw;
-	    bw = tmp;
-	}/* fall through */
+	    if (exact) {
+                goto exact_fall_through;
+            } else {
+                Eterm tmp = aw;
+                aw = bw;
+                bw = tmp;
+            }
+            ERTS_FALLTHROUGH();
 	case BIG_FLOAT:
 	    if (exact) goto exact_fall_through;
 	    GET_DOUBLE(bw, f2);

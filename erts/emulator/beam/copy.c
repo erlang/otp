@@ -705,7 +705,6 @@ Eterm copy_struct_x(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap,
 		break;
 	    }
 	    argp = hp++;
-	    /* Fall through */
 
 	L_copy_list:
 	    tailp = argp;
@@ -916,7 +915,7 @@ Eterm copy_struct_x(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap,
 		    erts_refc_inc(&mreft->mb->intern.refc, 2);
 		    goto L_off_heap_node_container_common;
 		}
-		/* Fall through... */
+                ERTS_FALLTHROUGH();
 	    default:
 		i = thing_arityval(hdr)+1;
 		hbot -= i;
@@ -1723,7 +1722,7 @@ Uint copy_shared_perform_x(Eterm obj, Uint size, erts_shcopy_t *info,
 		    erts_refc_inc(&mreft->mb->intern.refc, 2);
 		    goto off_heap_node_container_common;
 		}
-		/* Fall through... */
+                ERTS_FALLTHROUGH();
 	    default:
 		sz = thing_arityval(hdr);
 		*resp = make_boxed(hp);
