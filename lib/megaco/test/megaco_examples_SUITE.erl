@@ -673,9 +673,9 @@ common_meas(TC, #{bench := Bench} = Opts0, Config) ->
                                 meas_bench_adjust_factor(Bench, 600)}
                        end,
                    p("Run with: "
-                     "~n      Timetrap: ~p mins"
+                     "~n      Timetrap: ~p (+1) mins"
                      "~n      Factor:   ~p", [Time, Factor]),
-                   ct:timetrap(?MINS(Time)),
+                   ct:timetrap(?MINS(1 + Time)),
                    WorkerNode = ?config(worker_node, Config),
                    {Factor, WorkerNode}
            end,
