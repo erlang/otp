@@ -1585,7 +1585,7 @@ erts_sched_finish_poke(ErtsSchedulerSleepInfo *ssi,
 	 * to signal on both...
 	 */
 	erts_check_io_interrupt(ssi->psi, 1);
-	/* fall through */
+	ERTS_FALLTHROUGH();
     case ERTS_SSI_FLG_TSE_SLEEPING:
 	erts_tse_set(ssi->event);
 	break;
@@ -10706,7 +10706,7 @@ fetch_sys_task(Process *c_p, erts_aint32_t state, int *qmaskp, int *priop)
 	}
 	c_p->sys_task_qs->ncount = 0;
         qbit = LOW_BIT;
-	/* Fall through */
+	ERTS_FALLTHROUGH();
     case LOW_BIT:
 	qp = &c_p->sys_task_qs->q[PRIORITY_LOW];
 	*priop = PRIORITY_LOW;
@@ -11031,7 +11031,7 @@ cleanup_sys_tasks(Process *c_p, erts_aint32_t in_state, int in_reds)
         case ERTS_PSTT_PRIO_SIG:
             state = erts_atomic32_read_nob(&c_p->state);                         
             exit_permanent_prio_elevation(c_p, state, st_prio);
-            /* fall through... */
+            ERTS_FALLTHROUGH();
         case ERTS_PSTT_GC_MAJOR:
         case ERTS_PSTT_GC_MINOR:
 	case ERTS_PSTT_CPC:

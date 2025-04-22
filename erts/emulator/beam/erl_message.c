@@ -1468,7 +1468,7 @@ void erts_factory_close(ErtsHeapFactory* factory)
 	    else
 		factory->message->data.heap_frag = factory->heap_frags;
 
-    /* Fall through */
+            ERTS_FALLTHROUGH();
     case FACTORY_HEAP_FRAGS:
 	    bp = factory->heap_frags;
 	}
