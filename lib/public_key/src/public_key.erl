@@ -1133,6 +1133,8 @@ pkix_sign_types(?sha384WithRSAEncryption) ->
     {sha384, rsa};
 pkix_sign_types(?sha512WithRSAEncryption) ->
     {sha512, rsa};
+pkix_sign_types(?md2WithRSAEncryption) ->
+    {md2, rsa};
 pkix_sign_types(?md5WithRSAEncryption) ->
     {md5, rsa};
 pkix_sign_types(?'id-dsa-with-sha1') ->
