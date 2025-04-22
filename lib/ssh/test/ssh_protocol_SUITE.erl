@@ -1582,15 +1582,15 @@ channel_close_timeout(Config) ->
     %% connect to it with a regular Erlang SSH client:
     ChannelCloseTimeout = 3000,
     {ok, ConnRef} = std_connect(HostPort, Config,
-			 [{preferred_algorithms,[{kex,[?DEFAULT_KEX]},
-                                                 {cipher,?DEFAULT_CIPHERS}
-                                                ]},
-                          {channel_close_timeout, ChannelCloseTimeout},
-                          {idle_time, 50000}
-                         ]
-			),
-    {ok, Channel0} = ssh_connection:session_channel(ConnRef, 50000),
-    {ok, Channel1} = ssh_connection:session_channel(ConnRef, 50000),
+				[{preferred_algorithms,[{kex,[?DEFAULT_KEX]},
+                                                        {cipher,?DEFAULT_CIPHERS}
+                                                       ]},
+                                 {channel_close_timeout, ChannelCloseTimeout},
+                                 {idle_time, 50000}
+                                ]
+			       ),
+    {ok,  Channel0} = ssh_connection:session_channel(ConnRef, 50000),
+    {ok, _Channel1} = ssh_connection:session_channel(ConnRef, 50000),
     %% Close the channel from client side, the server does not reply with 'channel-close'
     %% After the timeout, the client should drop the cache entry
     _ = ssh_connection:close(ConnRef, Channel0),

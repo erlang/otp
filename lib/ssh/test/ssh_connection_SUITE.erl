@@ -1879,37 +1879,40 @@ handler_down_before_open(Config) ->
                         Other ->
                             ct:log("~p:~p Got unexpected ~p~nExpect: ~p~n",
                                    [?MODULE,?LINE, Other, {ssh_cm, ConnectionRef,
-                                                           {data, ChannelId0, 0, Expect}}]),
+                                                          {data, ChannelId0, 0, Expect}}]),
                             {fail, "Unexpected data"}
                     after 5000 ->
                             {fail, "Exec Timeout"}
                     end;
-                    stop -> {fail, "Stopped"}
+                stop -> {fail, "Stopped"}
             end,
             Parent ! {self(), Result}
       end),
     try
         TestResult = receive
             {ExecChannelPid, channelId, ExId} ->
-                ct:log("~p:~p Channel that should stay: ~p pid ~p", [?MODULE, ?LINE, ExId, ExecChannelPid]),
+                ct:log("~p:~p Channel that should stay: ~p pid ~p",
+                       [?MODULE, ?LINE, ExId, ExecChannelPid]),
+                %% This is sent by the echo subsystem as a reaction to channel1 above
                 ConnPeer = receive {conn_peer, CM} -> CM end,
-                %% The sole purpose of this channel is to go down before the opening procedure is complete
+                %% The sole purpose of this channel is to go down
+                %% before the opening procedure is complete
                 DownChannelPid = spawn(
                     fun() ->
                         ct:log("~p:~p open channel (incomplete)",[?MODULE,?LINE]),
                         Parent ! {self(), channelId, ok},
                         %% This is to prevent the peer from answering our 'channel-open' in time
                         sys:suspend(ConnPeer),
-                        {ok, _ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity),
-                        ct:log("~p:~p open incomplete channel done - should not have happened",[?MODULE,?LINE]),
-                        Parent ! {self(), {fail, "Unexpected channel success"}}
+                        {ok, _} = ssh_connection:session_channel(ConnectionRef, infinity)
                     end),
                 MonRef = erlang:monitor(process, DownChannelPid),
                 receive
                     {DownChannelPid, channelId, ok} ->
-                        ct:log("~p:~p Channel handler that won't continue: pid ~p", [?MODULE, ?LINE, DownChannelPid]),
+                        ct:log("~p:~p Channel handler that won't continue: pid ~p",
+                               [?MODULE, ?LINE, DownChannelPid]),
                         ensure_channels(ConnectionRef, 2),
-                        channel_down_sequence(DownChannelPid, ExecChannelPid, ExId, MonRef, ConnectionRef, ConnPeer)
+                        channel_down_sequence(DownChannelPid, ExecChannelPid,
+                                              ExId, MonRef, ConnectionRef, ConnPeer)
                 end
         end,
         ensure_channels(ConnectionRef, 0)
@@ -1925,15 +1928,15 @@ ensure_channels(ConnRef, Expected) ->
 do_ensure_channels(_ConnRef, NumExpected, NumExpected) ->
     ok;
 do_ensure_channels(ConnRef, NumExpected, _ChannelListLen) ->
-    receive after 100 -> ok end,
+    ct:sleep(100),
     {ok, ChannelList} = ssh_connection_handler:info(ConnRef),
     do_ensure_channels(ConnRef, NumExpected, length(ChannelList)).
 
 channel_down_sequence(DownChannelPid, ExecChannelPid, ExecChannelId, MonRef, ConnRef, Peer) ->
-    ct:log("~p:~p sending order to go down", [?MODULE, ?LINE]),
+    ct:log("~p:~p sending order to ~p to go down", [?MODULE, ?LINE, DownChannelPid]),
     exit(DownChannelPid, die),
     receive {'DOWN', MonRef, _, _, _} -> ok end,
-    ct:log("~p:~p order executed, sending order to proceed", [?MODULE, ?LINE]),
+    ct:log("~p:~p order executed, sending order to ~p to proceed", [?MODULE, ?LINE, Peer]),
     %% Resume the peer connection to let it clean up among its channels
     sys:resume(Peer),
     ensure_channels(ConnRef, 1),
