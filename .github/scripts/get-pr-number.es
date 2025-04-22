@@ -49,29 +49,7 @@ append_to_github_output(Fmt, Args) ->
     end.
 
 ghapi(CMD) ->
-    decode(cmd(CMD)).
-
-decode(Data) ->
-    try jsx:decode(Data,[{return_maps, true}, return_tail]) of
-        {with_tail, Json, <<>>} ->
-            Json;
-        {with_tail, Json, Tail} ->
-            lists:concat([Json | decodeTail(Tail)])
-    catch E:R:ST ->
-            io:format("Failed to decode: ~ts",[Data]),
-            erlang:raise(E,R,ST)
-    end.
-
-decodeTail(Data) ->
-    try jsx:decode(Data,[{return_maps, true}, return_tail]) of
-        {with_tail, Json, <<>>} ->
-            [Json];
-        {with_tail, Json, Tail} ->
-            [Json | decodeTail(Tail)]
-    catch E:R:ST ->
-            io:format(standard_error, "Failed to decode: ~ts",[Data]),
-            erlang:raise(E,R,ST)
-    end.
+    json:decode(cmd(CMD)).
 
 cmd(CMD) ->
     ListCmd = unicode:characters_to_list(CMD),
