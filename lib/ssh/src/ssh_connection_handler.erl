@@ -1264,29 +1264,29 @@ handle_event(info, {'DOWN', _Ref, process, ChannelPid, _Reason}, _, D) ->
     %% Here we first collect the list of channel id's  handled by the process
     %% Do NOT remove them from the cache - they are not closed yet!
     Channels = ssh_client_channel:cache_foldl(
-      fun(#channel{user=U} = Channel, Acc) when U == ChannelPid ->
-              [Channel | Acc];
-         (_,Acc) ->
-              Acc
-      end, [], Cache),
+                 fun(#channel{user=U} = Channel, Acc) when U == ChannelPid ->
+                         [Channel | Acc];
+                    (_,Acc) ->
+                         Acc
+                 end, [], Cache),
     %% Then for each channel where 'channel-close' has not been sent yet
     %% we send 'channel-close' and(!) update the cache so that we remember
     %% what we've done.
     %% Also set user as 'undefined' as there is no such process anyway
     {D2, NewTimers} = lists:foldl(
-      fun(#channel{remote_id = Id, sent_close = false} = Channel,
-          {D0, Timers}) when Id /= undefined ->
-          D1 = send_msg(ssh_connection:channel_close_msg(Id), D0),
-          ssh_client_channel:cache_update(cache(D1),
-                                          Channel#channel{sent_close = true,
-                                                          user = undefined}),
-          ChannelTimer = channel_close_timer(D1, Id),
-          {D1, [ChannelTimer | Timers]};
-         (Channel, {D0, _} = Acc) ->
-          ssh_client_channel:cache_update(cache(D0),
-                                          Channel#channel{user = undefined}),
-          Acc
-      end, {D, []}, Channels),
+                        fun(#channel{remote_id = Id, sent_close = false} = Channel,
+                            {D0, Timers}) when Id /= undefined ->
+                                D1 = send_msg(ssh_connection:channel_close_msg(Id), D0),
+                                ssh_client_channel:cache_update(cache(D1),
+                                                                Channel#channel{sent_close = true,
+                                                                                user = undefined}),
+                                ChannelTimer = channel_close_timer(D1, Id),
+                                {D1, [ChannelTimer | Timers]};
+                           (Channel, {D0, _} = Acc) ->
+                                ssh_client_channel:cache_update(cache(D0),
+                                                                Channel#channel{user = undefined}),
+                                Acc
+                        end, {D, []}, Channels),
     {keep_state, D2, [cond_set_idle_timer(D2) | NewTimers]};
 
 handle_event({timeout,idle_time}, _Data,  _StateName, D) ->
@@ -2084,7 +2084,7 @@ cond_set_idle_timer(D) ->
 
 channel_close_timer(D, ChannelId) ->
     {{timeout, {channel_close, ChannelId}},
-               ?GET_OPT(channel_close_timeout, (D#data.ssh_params)#ssh.opts), none}.
+     ?GET_OPT(channel_close_timeout, (D#data.ssh_params)#ssh.opts), none}.
 
 %%%----------------------------------------------------------------
 start_channel_request_timer(_,_, infinity) ->
