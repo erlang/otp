@@ -2087,7 +2087,6 @@ cond_set_idle_timer(D) ->
     end.
 
 channel_close_timer(D, ChannelId) ->
-    %{{timeout, {channel_close, ChannelId}}, 3000, none}. %?GET_OPT(idle_time, (D#data.ssh_params)#ssh.opts), none}.
     {{timeout, {channel_close, ChannelId}},
                ?GET_OPT(channel_close_timeout, (D#data.ssh_params)#ssh.opts), none}.
 
