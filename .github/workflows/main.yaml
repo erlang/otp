@@ -373,7 +373,7 @@ jobs:
           path: otp/release/win32/otp*.exe
 
   build-flavors:
-    name: Build Erlang/OTP (Types and Flavors)
+    name: Build Erlang/OTP (Flavors and Types)
     runs-on: ubuntu-latest
     needs: pack
     if: needs.pack.outputs.build-c-code == 'true'
@@ -381,6 +381,7 @@ jobs:
     strategy:
       matrix:
         flavor: [jit, emu]
+        type: [opt, debug, lcnt, asan, gcov, valgrind]
       fail-fast: false
 
     steps:
@@ -390,18 +391,14 @@ jobs:
             BASE_BRANCH: ${{ env.BASE_BRANCH }}
       - name: Build Erlang/OTP flavors and types
         run: |
-            TYPES="opt debug lcnt asan gcov valgrind"
-            FLAVORS="${{ matrix.flavor }}"
-            for TYPE in ${TYPES}; do
-              for FLAVOR in ${FLAVORS}; do
-                echo "::group::{TYPE=$TYPE FLAVOR=$FLAVOR}"
-                docker run otp \
-                  "if [ ${TYPE} = \"valgrind\" ]; then sudo apt-get install -y valgrind bc; fi && \
-                   make TYPE=$TYPE FLAVOR=$FLAVOR && \
-                   cerl -$TYPE -emu_flavor $FLAVOR -noshell -s init stop"
-                echo "::endgroup::"
-              done
-            done
+            FLAVOR="${{ matrix.flavor }}"
+            TYPE="${{ matrix.type }}"
+            echo "::group::{FLAVOR=$FLAVOR TYPE=$TYPE}"
+            docker run otp \
+              "if [ ${TYPE} = \"valgrind\" ]; then sudo apt-get install -y valgrind bc; fi && \
+               make TYPE=$TYPE FLAVOR=$FLAVOR && \
+               cerl -$TYPE -emu_flavor $FLAVOR -noshell -s init stop"
+            echo "::endgroup::"
       - name: Build Erlang/OTP JIT Win32 ABI
         if: ${{ matrix.flavor == 'jit' }}
         run: >
