@@ -8991,7 +8991,7 @@ The possible flags are:
   system have been busy. This value is normally a better indicator of how much
   load an Erlang node is under instead of looking at the CPU utilization provided
   by tools such as `top` or `sysstat`. This is because `scheduler_wall_time` also
-  includes time where the scheduler is waiting for some other reasource (such as
+  includes time where the scheduler is waiting for some other resource (such as
   an internal mutex) to be available but does not use the CPU. In order to better
   understand what a scheduler is busy doing you can use
   [microstate accounting](#statistics_microstate_accounting).
