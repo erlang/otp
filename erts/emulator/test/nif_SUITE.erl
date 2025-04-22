@@ -1028,9 +1028,9 @@ select_scheduler(Config) ->
 
     RefBin = list_to_binary(lists:duplicate(100, $x)),
 
-    select_scheduler_do(0, make_ref(), null),
-    select_scheduler_do(?ERL_NIF_SELECT_CUSTOM_MSG, [a, "list", RefBin], null),
-    select_scheduler_do(?ERL_NIF_SELECT_CUSTOM_MSG, [a, "list", RefBin], alloc_env),
+    select_scheduler(0, make_ref(), null),
+    select_scheduler(?ERL_NIF_SELECT_CUSTOM_MSG, [a, "list", RefBin], null),
+    select_scheduler(?ERL_NIF_SELECT_CUSTOM_MSG, [a, "list", RefBin], alloc_env),
 
     case has_scheduler_pollset() of
         true ->
@@ -1038,14 +1038,30 @@ select_scheduler(Config) ->
 
             erpc:call(Node, fun() ->
                                     ensure_lib_loaded(Config),
-                                    select_scheduler_do(0, make_ref(), null),
-                                    select_scheduler_do(?ERL_NIF_SELECT_CUSTOM_MSG, [a, "list", RefBin], null),
-                                    select_scheduler_do(?ERL_NIF_SELECT_CUSTOM_MSG, [a, "list", RefBin], alloc_env)
+                                    select_scheduler(0, make_ref(), null),
+                                    select_scheduler(?ERL_NIF_SELECT_CUSTOM_MSG, [a, "list", RefBin], null),
+                                    select_scheduler(?ERL_NIF_SELECT_CUSTOM_MSG, [a, "list", RefBin], alloc_env)
                             end),
 
             peer:stop(Peer);
         _ ->
             ok
+    end.
+
+
+select_scheduler(Flag, Ref, MSG_ENV) ->
+    try
+        put(cleanup, []),
+        select_scheduler_do(Flag, Ref, MSG_ENV)
+    catch E:R:ST ->
+            %% We close all FDs here so that a failure in this testcase does not
+            %% cascade into a failure in all following testcases.
+            [select_nif(R, ?ERL_NIF_SELECT_STOP, R, null, Ref, null) ||
+                R <- get(cleanup)],
+            last_fd_stop_call(),
+            erlang:raise(E,R,ST)
+    after
+        put(cleanup, [])
     end.
 
 %% This testcase tests so that scheduler polling works as it should for NIFs
@@ -1058,6 +1074,7 @@ select_scheduler_do(Flag, Ref, MSG_ENV) ->
     end,
 
     {{R, _R_ptr}, {W, W_ptr}} = socketpair_nif(),
+    put(cleanup, [R, W]),
     ok = write_nif(W, <<"hej">>),
     <<"hej">> = read_nif(R, 3),
 
@@ -1107,6 +1124,7 @@ select_scheduler_do(Flag, Ref, MSG_ENV) ->
 
     %% Close write side, while read side is in scheduler pollset
     check_stop_ret(select_nif(W, ?ERL_NIF_SELECT_STOP, W, null, Ref, null)),
+    put(cleanup, [R]),
     [{fd_resource_stop, W_ptr, _}] = flush(),
     {1, {W_ptr,_}} = last_fd_stop_call(),
     true = is_closed_nif(W),
@@ -1116,6 +1134,7 @@ select_scheduler_do(Flag, Ref, MSG_ENV) ->
     eof = read_nif(R,1),
 
     check_stop_ret(select_nif(R, ?ERL_NIF_SELECT_STOP, R, null, Ref, null)),
+    put(cleanup, []),
     [{fd_resource_stop, R_ptr, _}] = flush(),
     {1, {R_ptr,_}} = last_fd_stop_call(),
     true = is_closed_nif(R),
