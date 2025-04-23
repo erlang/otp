@@ -119,6 +119,7 @@
              snmp_mini_mib,
              snmp_misc,
              snmp_note_store,
+             snmp_pdus_basic, % Generated from ASN.1 spec
              snmp_pdus,
              snmp_usm,
 	     snmp_verbosity
