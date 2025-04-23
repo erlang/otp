@@ -63,6 +63,7 @@ extern IndexTable erts_atom_table;
 ERTS_GLB_INLINE Atom* atom_tab(Uint i);
 ERTS_GLB_INLINE int erts_is_atom_utf8_bytes(byte *text, size_t len, Eterm term);
 ERTS_GLB_INLINE int erts_is_atom_str(const char *str, Eterm term, int is_latin1);
+ERTS_GLB_INLINE int erts_is_atom_index_ok(Uint ix);
 
 const byte *erts_atom_get_name(const Atom *atom);
 
@@ -118,6 +119,21 @@ ERTS_GLB_INLINE int erts_is_atom_str(const char *str, Eterm term, int is_latin1)
     }
     return *s == '\0';
 }
+
+ERTS_GLB_INLINE int erts_is_atom_index_ok(Uint ix)
+{
+    /*
+     * This is technically a thread-unsafe read, but we assume
+     * + the hardware will get us a consistent integer value even during
+     *   concurrent writes.
+     * + the tested 'ix' (if ok) comes from an earlier read of 'entries'
+     *   and 'entries' is never decremented.
+     *
+     * So we don't care if we race and miss some unrelated increments.
+     */
+    return ix < (Uint)erts_atom_table.entries;
+}
+
 
 #endif
 
