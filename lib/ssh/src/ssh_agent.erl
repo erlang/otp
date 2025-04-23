@@ -79,7 +79,7 @@ Sets the time-out in milliseconds when communicating with the agent via the
 socket. The default value is `1000`.
 """.
 -doc(#{group => <<"Options">>}).
--type timeout_option() :: {timeout, integer()}.
+-type timeout_option() :: {timeout, timeout()}.
 -doc """
 The module which the `add_host_key` and `is_host_key` callbacks are delegated
 to. Defaults to the `m:ssh_file` module.

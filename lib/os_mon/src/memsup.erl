@@ -248,7 +248,7 @@ get_system_memory_data() ->
 -doc """
 Returns the time interval, in milliseconds, for the periodic memory check.
 """.
--spec get_check_interval() -> Milliseconds :: integer().
+-spec get_check_interval() -> Milliseconds :: timer:time().
 get_check_interval() ->
     os_mon:call(memsup, get_check_interval, infinity).
 -doc """
