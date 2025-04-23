@@ -455,14 +455,20 @@ long_path_env(Config) when is_list(Config) ->
 
     IsWindows = element(1, os:type()) =:= win32,
 
-        LongPathLength =
+    LongPathLength =
         if IsWindows ->
                 %% Windows truncates larger PATHs
-                1024 * 3;
-           true -> 1024 * 10
+                10;
+           true ->
+                40
         end,
 
-    LongPath = lists:flatten(lists:duplicate(LongPathLength, "x")),
+    %% Each individual segment cannot be larger than 255 on docker,
+    %% so we limit for all system to that.
+    LongPath = lists:flatten(
+                 lists:join(pathsep(),
+                            lists:duplicate(LongPathLength,
+                                            lists:duplicate(250, "x")))),
 
     %% In order to run this on windows we do a bit of trickery, namely
     %% get the program name, add the potential extension using find_executable,
@@ -472,12 +478,18 @@ long_path_env(Config) when is_list(Config) ->
     PNameWExt = filename:basename(FullPathPName),
 
     PathComponents = string:split(ActualPath, pathsep(), all),
-    ActualPathNoBinPath = path_var_join(
-                            lists:filter(fun (Path) ->
-                                                 os:find_executable(PName,[Path]) =:= false
-                                         end, PathComponents)),
+    {ActualNoErl, ActualErl} =
+        lists:partition(fun(Path) ->
+                                os:find_executable(PName,[Path]) =/= false
+                        end, PathComponents),
+
+    ActualPathNoErl = path_var_join(ActualNoErl),
+    ActualPathErl = path_var_join([P || P <- ActualErl, string:prefix(P, code:root_dir()) =:= nomatch]),
+
     ct:log("BINDIR: ~ts", [BinPath]),
     ct:log("PATH: ~ts", [ActualPath]),
+    ct:log("PATH_MAX: '~ts'", [string:trim(os:cmd("getconf PATH_MAX /"))]),
+    ct:log("NAME_MAX: '~ts'", [string:trim(os:cmd("getconf NAME_MAX /"))]),
 
     CmdArgs = " " ++ Rest ++ ~S' -noshell -eval "io:format(\"~ts\", [os:getenv(\"PATH\")]),erlang:halt()"',
 
@@ -492,13 +504,13 @@ long_path_env(Config) when is_list(Config) ->
     compare_erl_path(PName, RelCmd, BinPath, path_var_join([BinPath, ActualPath, LongPath, BinPath])),
 
     %% Test that the LongPath is there
-    RelOutput = compare_erl_path(PName, RelCmd, BinPath, path_var_join([ActualPathNoBinPath, BinPath, LongPath])),
+    RelOutput = compare_erl_path(PName, RelCmd, BinPath, path_var_join([ActualPathNoErl, BinPath, ActualPathErl, LongPath])),
     ?assertNotEqual(nomatch, string:find(RelOutput, LongPath)),
 
 
     %% Test that we can run using an absolute path and a long PATH
     AbsCmd = [$" || not IsWindows] ++ os:find_executable(PName) ++ [$" || not IsWindows] ++ CmdArgs,
-    AbsOutput = compare_erl_path(PName, AbsCmd, BinPath, path_var_join([ActualPathNoBinPath, LongPath, LongPath])),
+    AbsOutput = compare_erl_path(PName, AbsCmd, BinPath, path_var_join([ActualPathNoErl, ActualPathErl, LongPath, LongPath])),
     ?assertNotEqual(nomatch, string:find(AbsOutput, path_var_join([LongPath, LongPath]))),
 
     ok.
@@ -506,13 +518,17 @@ long_path_env(Config) when is_list(Config) ->
 compare_erl_path(Pname, Cmd, BinPath, Path) ->
     os:putenv("PATH", Path),
     Output = os:cmd(Cmd),
-    ct:log("Cmd: ~ts~nBinPath: ~ts~nOutput: ~ts",[Cmd, BinPath, Output]),
+    ct:log("Cmd: ~ts~nBinPath: ~ts~nPATH: ~ts~nOutput: ~ts",[Cmd, BinPath, Path, Output]),
 
     [BinDir | Rest] = string:split(Output, pathsep(), all),
 
     % BinPath is at the front of PATH and nowhere else
     ?assertNotEqual(os:find_executable(Pname, [BinDir]), false),
-    ?assertEqual(os:find_executable(Pname, Rest), false),
+    case os:find_executable(Pname, Rest) of
+        false -> ok;
+        AbsPname ->
+            ?assertEqual(string:prefix(AbsPname, code:root_dir()), nomatch)
+    end,
     Output.
 
 pathsep() ->
