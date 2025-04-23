@@ -134,6 +134,18 @@ the format described by the [REUSE Copyright Spec](https://reuse.software/spec-3
 > will check that this format is followed and will automatically update the copyright
 > year when any changes are made.
 
+Below, we explictly state the formats we allow and their use cases (we allow a subset of [REUSE Copyright Spec](https://reuse.software/spec-3.3/#format-of-copyright-notices)):
+1. To be used exclusively by OTP team
+   - `Copyright Ericsson AB YYYY. All Rights Reserved.`
+   - `Copyright Ericsson AB YYYY-YYYY. All Rights Reserved.`
+2. To be used by the community
+  - `Copyright YYYY CopyrightHolder <your-email@email.com>`
+  - `Copyright YYYY-YYYY CopyrightHolder <your-email@email.com>`
+  - `Copyright YYYY Erlang/OTP and its contributors`, default case but not recommended due to missing contact information
+3. To be used exclusively in case of need in vendor applications, but not recommended as it misses the contact information.
+  - `Copyright (C) YYYY CopyrightHolder` 
+  - `Copyright (C) YYYY-YYYY CopyrightHolder`
+
 There can be multiple "Copyright" lines if there are multiple copyright holders.
 
 For example:

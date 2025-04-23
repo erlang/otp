@@ -1596,11 +1596,13 @@ test_copyright_not_empty(#{~"packages" := Packages}) ->
     ok.
 
 test_copyright_format(#{~"packages" := Packages, ~"files" := Files}) ->
-    EricssonRegex = "^Copyright Ericsson AB ((?:19|20)[0-9]{2}-)?((?:19|20)[0-9]{2})\. All Rights Reserved.",
-    ContributorRegex = "^Copyright ((?:19|20)[0-9]{2}-)?((?:19|20)[0-9]{2}) ((\\w|\\s|-)*)<(\\w|\.|-)+@(\\w|\.|-)+>$",
-    FSF = "^Copyright (\(.\))? ((?:19|20)[0-9]{2}-)?((?:19|20)[0-9]{2}) ((\\w|\\s|-|,|\.)*)$",
+
+    EricssonRegex = ~S"^Copyright Ericsson AB ((?:19|20)[0-9]{2}-)?((?:19|20)[0-9]{2})\. All Rights Reserved.$",
+    ContributorRegex = ~S"^Copyright ((?:19|20)[0-9]{2}-)?((?:19|20)[0-9]{2}) ((\w|\\s|-)*)<(\w|\.|-)+@(\w|\.|-)+>$",
+    FSF = ~S"^Copyright (\(.\))? ((?:19|20)[0-9]{2}-)?((?:19|20)[0-9]{2}) ((\w|\\s|-|,|\.)*)$",
+    Default = ~S"^Copyright ((?:19|20)[0-9]{2}-)?((?:19|20)[0-9]{2}) Erlang/OTP and its contributors$",
     NoAssertionRegex = "^NOASSERTION",
-    Regexes = [EricssonRegex, ContributorRegex, FSF, NoAssertionRegex],
+    Regexes = [EricssonRegex, ContributorRegex, FSF, NoAssertionRegex, Default],
 
     Regex = lists:join(Regexes, "|"),
     {ok, CopyrightRegex} = re:compile([Regex]),
