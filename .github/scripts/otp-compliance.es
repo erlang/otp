@@ -39,6 +39,13 @@
 %% other validator tools, such as, ntia-conformance-checker.
 %%
 
+%%
+%% REUSE-IgnoreStart
+%%
+%% Ignore copyright detection heuristics of REUSE tool in this file.
+%% this is needed to avoid REUSE false positives on 'Copyright' variable name.
+%%
+
 -include_lib("kernel/include/file.hrl").
 
 -export([test_project_name/1,
@@ -54,7 +61,7 @@
          test_originator_Ericsson/1, test_versionInfo_not_empty/1, test_package_hasFiles/1,
          test_project_purl/1, test_packages_purl/1, test_download_location/1, 
          test_package_relations/1, test_has_extracted_licenses/1, test_snippets/1,
-         test_vendor_packages/1, test_erts/1]).
+         test_vendor_packages/1, test_erts/1, test_copyright_format/1]).
 
 -define(default_classified_result, "scan-result-classified.json").
 -define(default_scan_result, "scan-result.json").
@@ -603,6 +610,7 @@ bootstrap_mappings(<<"bootstrap/lib/stdlib/ebin/",Filename/binary>>) -> {<<"lib/
 bootstrap_mappings(<<"erts/preloaded/ebin/",Filename/binary>>) -> {<<"erts/preloaded/src/">>, Filename};
 bootstrap_mappings(_Other) ->
     {error, not_beam_file}.
+
 
 %% fixes spdx license of beam files
 fix_beam_spdx_license(Path, {Licenses, Copyrights}, SPDX) ->
@@ -1497,6 +1505,7 @@ project_generator(Sbom) ->
 package_generator(Sbom) ->
     Tests = [test_minimum_apps,
              test_copyright_not_empty,
+             test_copyright_format,
              test_filesAnalised,
              test_hasFiles_not_empty,
              test_homepage,
@@ -1585,6 +1594,42 @@ minimum_vendor_packages() ->
 test_copyright_not_empty(#{~"packages" := Packages}) ->
     true = lists:all(fun (#{~"copyrightText" := Copyright}) -> Copyright =/= ~"" end, Packages),
     ok.
+
+test_copyright_format(#{~"packages" := Packages, ~"files" := Files}) ->
+    EricssonRegex = ~S"^Copyright Ericsson AB ((?:19|20)[0-9]{2}-)?((?:19|20)[0-9]{2})\. All Rights Reserved.$",
+    ContributorRegex = ~S"^Copyright (\([cC©]\))? ((?:19|20)[0-9]{2}-)?((?:19|20)[0-9]{2}) ((\w|\s|-)*)<(\w|\.|-)+@(\w|\.|-)+>$",
+    VendorRegex = ~S"^Copyright (\([cC©]\))? ((?:19|20)[0-9]{2}-)?((?:19|20)[0-9]{2}) ((\w|\s|-|,|\.)*)$",
+    Default = ~S"^Copyright (\([cC©]\))? ((?:19|20)[0-9]{2}-)?((?:19|20)[0-9]{2}) Erlang/OTP and its contributors$",
+    NoAssertionRegex = "^NOASSERTION",
+    Regexes = [EricssonRegex, ContributorRegex, VendorRegex, NoAssertionRegex, Default],
+
+    Regex = lists:join(Regexes, "|"),
+    {ok, CopyrightRegex} = re:compile([Regex]),
+    true = lists:all(fun (#{~"copyrightText" := CopyrightText, ~"fileName" := Filename}) ->
+                             Copyrights = string:split(CopyrightText, "\n", all),
+                             lists:all(fun (C) ->
+                                               case re:run(C, CopyrightRegex) of
+                                                   nomatch ->
+                                                       throw({warn, "Invalid Copyright: '~ts' in '~ts for ~ts~n'", [C, Filename, Regex]});
+                                                   _ ->
+                                                       true
+                                               end
+                                       end, Copyrights)
+                     end, Files),
+
+    true = lists:all(fun (#{~"copyrightText" := CopyrightText}) ->
+                             Copyrights = string:split(CopyrightText, "\n", all),
+                             lists:all(fun (C) ->
+                                               case re:run(C, CopyrightRegex) of
+                                                   nomatch ->
+                                                       throw({warn, "Invalid Copyright: '~ts'", [C]});
+                                                   _ ->
+                                                       true
+                                               end
+                                       end, Copyrights)
+                     end, Packages),
+    ok.
+
 
 test_filesAnalised(#{~"packages" := Packages}) ->
     true = lists:all(fun (#{~"filesAnalyzed" := Bool}) -> Bool = true end, Packages),
@@ -1842,3 +1887,7 @@ extracted_license_info() ->
          {ok, License} = file:read_file(Name),
          {unicode:characters_to_binary(filename:basename(filename:rootname(Name))), License}
      end || Name <- filelib:wildcard("LICENSES/LicenseRef*.txt")].
+
+%%
+%% REUSE-IgnoreEnd
+%%

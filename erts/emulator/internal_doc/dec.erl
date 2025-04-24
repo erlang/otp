@@ -56,6 +56,10 @@ read(FName) ->
 	      length(A) > 1% , hd(A) < 769
 		 ].
 
+%%
+%% REUSE-IgnoreStart
+%%
+
 dec() ->
     L = read(?INPUT_FILE_NAME),
     G = group(L),
@@ -112,6 +116,9 @@ dec() ->
 %%    dump_big_prefixes(Out,BigPreTab),
     file:close(Out),
     ok.
+%%
+%% REUSE-IgnoreEnd
+%%
     
    
 

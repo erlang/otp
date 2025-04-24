@@ -125,14 +125,29 @@ the above is valid, while the example below is invalid:
 
 When creating or editing a file you should add the copyright statement of
 you or the organization you represent in the license header.
-The copyright notice must start with either `Copyright ` or `SPDX-FileCopyrightText: `
-followed by the holders of the copyright. It is highly recommended that you follow
-the format described by the [REUSE Copyright Spec](https://reuse.software/spec-3.3/#format-of-copyright-notices).
+The copyright notice must start with `Copyright`, and can have as prefix the SPDX annotation `SPDX-FileCopyrightText: `
+followed by the holders of the copyright, as follows:
+
+1. To be used exclusively by OTP team
+   - `Copyright Ericsson AB YYYY. All Rights Reserved.`
+   - `Copyright Ericsson AB YYYY-YYYY. All Rights Reserved.`
+2. To be used by the community
+  - `Copyright YYYY CopyrightHolder <your-email@email.com>`
+  - `Copyright YYYY-YYYY CopyrightHolder <your-email@email.com>`
+  - `SPDX-FileCopyrightText: Copyright YYYY CopyrightHolder <your-email@email.com>`
+  - `SPDX-FileCopyrightText: Copyright YYYY-YYYY CopyrightHolder <your-email@email.com>`
+  - `SPDX-FileCopyrightText: Copyright YYYY Erlang/OTP and its contributors`, default case but not recommended due to missing contact information
+3. To be used exclusively in case of need in vendor applications, but not recommended as it misses the contact information.
+  - `Copyright (C) YYYY CopyrightHolder` 
+  - `Copyright (C) YYYY-YYYY CopyrightHolder`
+  - `SPDX-FileCopyrightText: Copyright (C) YYYY CopyrightHolder`
+  - `SPDX-FileCopyrightText: Copyright (C) YYYY-YYYY CopyrightHolder`
 
 > For any contributions made by the Erlang/OTP team, the copyright statement must
 > be `Copyright Ericsson AB YYYY. All Rights Reserved.`. The `license-header.es` script
 > will check that this format is followed and will automatically update the copyright
 > year when any changes are made.
+
 
 There can be multiple "Copyright" lines if there are multiple copyright holders.
 
@@ -144,7 +159,7 @@ For example:
 SPDX-License-Identifier: Apache-2.0
 
 Copyright Ericsson AB 2025. All Rights Reserved.
-SPDX-FileCopyrightText: (C) 2019 The ORT Project Authors
+SPDX-FileCopyrightText: Copyright (C) 2019 The ORT Project Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 ...
