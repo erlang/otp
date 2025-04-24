@@ -3182,7 +3182,6 @@ AC_DEFUN([ERL_OSSF_CFLAGS],
         LM_TRY_ENABLE_CFLAG([-fno-strict-overflow],[$1])
         LM_TRY_ENABLE_CFLAG([-fno-delete-null-pointer-checks],[$1])
         LM_TRY_ENABLE_CFLAG([-fno-strict-aliasing],[$1])
-        LM_TRY_ENABLE_CFLAG([-ftrivial-auto-var-init=zero],[$1])
         LM_TRY_ENABLE_CFLAG([-fstrict-flex-arrays=3],[$1])
         AS_IF([test "X$can_enable_flag" = "Xfalse"],
           [
