@@ -4521,6 +4521,8 @@ try_steal_task_from_victim(ErtsRunQueue *rq, ErtsRunQueue *vrq, Uint32 flags, Pr
             continue;
         }
         rpq = &vrq->procs.prio[prio_q];
+        /* Steal at least one task, even if there is a single one */
+        max_processes_to_steal++;
         /* Only steal half the tasks (to balance the load between the victim runqueue and this one) */
         max_processes_to_steal /= 2;
         /* Don't steal too many tasks at once, to keep the critical section from getting too long */
