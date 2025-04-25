@@ -204,7 +204,19 @@ cli() ->
                                      > .github/scripts/otp-compliance.es sbom test-file --sbom-file otp.spdx.json
                                      """,
                                  arguments => [ sbom_option(), ntia_checker() ],
-                                 handler => fun test_file/1}
+                                 handler => fun test_file/1},
+
+                          "vendor" =>
+                              #{ help =>
+                                     """
+                                     SBoM contains only vendor dependencies
+
+                                     Example:
+
+                                     > .github/scripts/otp-compliance.es sbom vendor --sbom-file otp.spdx.json
+                                     """,
+                                 arguments => [ sbom_option()],
+                                 handler => fun sbom_vendor/1}
                          }},
              "explore" =>
                  #{  help => """
@@ -356,6 +368,23 @@ base_file(DefaultFile) ->
 %%
 %% Commands
 %%
+
+sbom_vendor(#{sbom_file  := SbomFile}) ->
+    Sbom = decode(SbomFile),
+    Spdx = get_vendor_dependencies(Sbom),
+    file:write_file(SbomFile, json:format(Spdx)).
+
+get_vendor_dependencies(#{~"packages" := Packages}=Spdx) ->
+    AppPackages = create_otp_app_packages(Spdx),
+    VendorPackages = create_otp_vendor_packages(Spdx),
+
+    VendorPackageIds = lists:map(fun (#{~"SPDXID" := Id}) -> Id end, VendorPackages),
+    OTPPackageIds = lists:map(fun (#{~"SPDXID" := Id}) -> Id end, AppPackages),
+    Packages1 = lists:filter(fun (#{~"SPDXID" := Id}) ->
+                                     lists:member(Id, VendorPackageIds) andalso not lists:member(Id, OTPPackageIds)
+                             end, Packages),
+    Spdx#{~"packages" := Packages1}.
+
 
 sbom_otp(#{sbom_file  := SbomFile, write_to_file := Write, input_file := Input}) ->
     Sbom = decode(SbomFile),
@@ -937,15 +966,24 @@ package_by_app(Spdx) ->
     Spdx2 = create_otp_relationships(Packages, PackageTemplates, Spdx1),
 
     %% create vendor packages
-    VendorSrcFiles = find_vendor_src_files("."),
-    VendorInfoPackage = generate_vendor_info_package(VendorSrcFiles),
-    VendorPackages = generate_spdx_vendor_packages(VendorInfoPackage, Spdx2),
+    VendorPackages = create_otp_vendor_packages(Spdx2),
 
     %% Remove possible duplicates of vendor packages
     {NewVendorPackages, Spdx3} = remove_duplicate_packages(VendorPackages, Spdx2),
 
     SpdxWithVendor = add_packages(NewVendorPackages, Spdx3),
     create_vendor_relations(NewVendorPackages, SpdxWithVendor).
+
+create_otp_app_packages(Spdx) ->
+    AppSrcFiles = find_app_src_files("."),
+    PackageTemplates = generate_spdx_mappings(AppSrcFiles),
+    Packages = generate_spdx_packages(PackageTemplates, Spdx),
+    lists:map(fun create_spdx_package/1, Packages).
+
+create_otp_vendor_packages(Spdx) ->
+    VendorSrcFiles = find_vendor_src_files("."),
+    VendorInfoPackage = generate_vendor_info_package(VendorSrcFiles),
+    generate_spdx_vendor_packages(VendorInfoPackage, Spdx).
 
 create_otp_relationships(Packages, PackageTemplates, Spdx) ->
     Spdx1 = create_package_relationships(Packages, Spdx),
