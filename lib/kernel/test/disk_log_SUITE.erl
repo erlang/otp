@@ -85,7 +85,9 @@
 
 	 change_attribute/1,
 
-         otp_6278/1, otp_10131/1, otp_16768/1, otp_16809/1]).
+         otp_6278/1, otp_10131/1, otp_16768/1, otp_16809/1,
+        
+         decrease_size_with_chunk_step/1]).
 
 -export([head_fun/1, hf/0, lserv/1, 
 	 measure/0, init_m/1, xx/0]).
@@ -159,7 +161,7 @@ groups() ->
      {change_size, [],
       [change_size_before, change_size_during,
        change_size_after, default_size, change_size2,
-       change_size_truncate]}].
+       change_size_truncate, decrease_size_with_chunk_step]}].
 
 init_per_suite(Config) ->
     Config.
@@ -4202,6 +4204,28 @@ otp_16809(Conf) when is_list(Conf) ->
     ok = disk_log:change_header(Log, {head_func, HeadFunc2}),
     HeadFunc2 = info(Log, head, undef),
     ok = disk_log:close(Log).
+
+decrease_size_with_chunk_step(Conf) when is_list(Conf) ->
+    Dir = ?privdir(Conf),
+    Log = test,
+    File = filename:join(Dir, lists:concat([Log, ".LOG"])),
+    {ok, test} = disk_log:open([{size, {1000, 3}}, {name,Log},{type, wrap},
+                                {file, File}, {notify, true}]),
+    eof = disk_log:chunk(Log,start,1),
+    {error, end_of_log} = disk_log:chunk_step(Log,start,1),
+    [disk_log:log(Log, X) || X <- lists:seq(1, 1000)],
+    ok = disk_log:close(Log),
+    {ok, test} = disk_log:open([{name, Log}, {type, wrap}, {file, File},
+                                {notify, true}]),
+    %% Decrease maximum number of files from 10 to 2.
+    ok = disk_log:change_size(Log, {1000, 2}),
+    %% The exception error of rem/2 operator should not occur in here.
+    {ok, _} = disk_log:chunk_step(Log, start, 1),
+    %% Continue to append the items to the log in order to make sure it can work
+    %% as normal.
+    [disk_log:log(Log, X) || X <- lists:seq(1, 5000)],
+    ok = disk_log:close(Log),
+    del(File, 2).
 
 mark(FileName, What) ->
     {ok,Fd} = file:open(FileName, [raw, binary, read, write]),
