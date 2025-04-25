@@ -1375,6 +1375,8 @@ inc_wrap(FName, CurF, MaxF) ->
 inc(N, {_NewMax, OldMax}) -> inc(N, OldMax, 1);
 inc(N, Max) -> inc(N, Max, 1).
 
+inc(N, {_NewMax, OldMax}, Step) ->
+    inc(N, OldMax, Step);
 inc(N, Max, Step) ->
     Nx = (N + Step) rem Max,
     if
