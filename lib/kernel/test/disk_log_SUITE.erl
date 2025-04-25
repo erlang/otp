@@ -4207,23 +4207,27 @@ otp_16809(Conf) when is_list(Conf) ->
 
 decrease_size_with_chunk_step(Conf) when is_list(Conf) ->
     Dir = ?privdir(Conf),
-    Log = test,
+    Log = decrease_size_with_chunk_step,
     File = filename:join(Dir, lists:concat([Log, ".LOG"])),
-    {ok, test} = disk_log:open([{size, {1000, 3}}, {name,Log},{type, wrap},
-                                {file, File}, {notify, true}]),
-    eof = disk_log:chunk(Log,start,1),
-    {error, end_of_log} = disk_log:chunk_step(Log,start,1),
-    [disk_log:log(Log, X) || X <- lists:seq(1, 1000)],
+    {ok, Log} = disk_log:open([{size, {50, 3}}, {name, Log}, {type, wrap},
+                               {file, File}, {notify, true}]),
+    eof = disk_log:chunk(Log, start, 1),
+    {error, end_of_log} = disk_log:chunk_step(Log, start, 1),
+    ok = disk_log:log_terms(Log, [1, 2, 3, 4, 5, 6, 7, 8, 9]),
     ok = disk_log:close(Log),
-    {ok, test} = disk_log:open([{name, Log}, {type, wrap}, {file, File},
-                                {notify, true}]),
-    %% Decrease maximum number of files from 10 to 2.
-    ok = disk_log:change_size(Log, {1000, 2}),
+    {ok, Log} = disk_log:open([{name, Log}, {type, wrap}, {file, File},
+                               {notify, true}]),
+    %% Decrease maximum number of files from 3 to 2.
+    ok = disk_log:change_size(Log, {50, 2}),
     %% The exception error of rem/2 operator should not occur in here.
-    {ok, _} = disk_log:chunk_step(Log, start, 1),
+    {ok, Cont} = disk_log:chunk_step(Log, start, 2),
+    %% Verify that chunk_step has stepped to old max file (3)
+    {_, [7, 8, 9]} = disk_log:chunk(Log, Cont),
     %% Continue to append the items to the log in order to make sure it can work
     %% as normal.
-    [disk_log:log(Log, X) || X <- lists:seq(1, 5000)],
+    ok = disk_log:log_terms(Log, [9, 8, 7, 6, 5, 4, 3, 2, 1]),
+    %% Verify that log files were decreased to 2 after wrapping
+    [6, 5, 4, 3, 2, 1] = get_all_terms(Log),
     ok = disk_log:close(Log),
     del(File, 2).
 
