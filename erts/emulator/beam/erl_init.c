@@ -56,6 +56,7 @@
 #include "beam_load.h"
 #include "erl_global_literals.h"
 #include "erl_iolist.h"
+#include "erl_debugger.h"
 
 #include "jit/beam_asm.h"
 
@@ -276,6 +277,7 @@ erl_init(int ncpu,
     H_MIN_SIZE      = erts_next_heap_size(H_MIN_SIZE, 0);
     BIN_VH_MIN_SIZE = erts_next_heap_size(BIN_VH_MIN_SIZE, 0);
 
+    erts_init_debugger();
     erts_init_trace();
     erts_code_ix_init();
     erts_init_fun_table();
@@ -555,6 +557,8 @@ __decl_noreturn void __noreturn  erts_usage(void)
     erts_fprintf(stderr, "               no_time_warp | single_time_warp | multi_time_warp\n");
     erts_fprintf(stderr, "\n");
 
+    erts_fprintf(stderr, "-D             enable debugging support\n");
+    erts_fprintf(stderr, "-Dibpl bool    enable or disable instrumentation for breakpoints on lines (default true)\n");
     erts_fprintf(stderr, "-d             don't write a crash dump for internally detected errors\n");
     erts_fprintf(stderr, "               (halt(String) will still produce a crash dump)\n");
     erts_fprintf(stderr, "-dcg           set the limit for the number of decentralized counter groups\n");
@@ -1630,6 +1634,34 @@ erl_start(int argc, char **argv)
 	    }
 	    break;
 	}
+	case 'D':
+            if (sys_strcmp(argv[i]+1, "D") == 0) {
+                erts_debugger_flags |= ERTS_DEBUGGER_ENABLED;
+            } else if (argv[i][2] == 'i') {
+                const char *instr_opt = argv[i]+1;
+                Uint flag;
+
+                if (sys_strcmp(instr_opt, "Dibpl") == 0) {
+                    flag = ERTS_DEBUGGER_LINE_BREAKPOINTS;
+                    arg = get_arg(argv[i]+6, argv[i+1], &i);
+                } else {
+                    erts_fprintf(stderr, "Unknown instrumentation option %s\n", instr_opt);
+                    erts_usage();
+                }
+
+                if (sys_strcmp(arg, "true") == 0) {
+                    erts_debugger_flags |= flag;
+                } else if (sys_strcmp(arg, "false") == 0) {
+                    erts_debugger_flags &= ~flag;
+                } else {
+                    erts_fprintf(stderr, "%s expected `true' or `false' but got: `%s'\n", instr_opt, arg);
+                    erts_usage();
+                }
+            } else {
+                erts_fprintf(stderr, "Unknown option %s\n", argv[i]+1);
+                erts_usage();
+            }
+	    break;
 	case 'd':
 	    /*
 	     * Never produce crash dumps for internally detected

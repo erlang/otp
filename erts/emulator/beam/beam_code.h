@@ -110,6 +110,11 @@ typedef struct beam_code_header {
 #endif
 
     /*
+     * Debugging instrumentation to use while loading the module
+     */
+    Uint debugger_flags;
+
+    /*
      * Pointer to the module MD5 sum (16 bytes)
      */
     const byte *md5_ptr;

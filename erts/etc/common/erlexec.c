@@ -888,6 +888,16 @@ int main(int argc, char **argv)
 		      add_Eargs(argv[i+1]);
 		      i++;
 		      break;
+                  case 'D':
+                      if (argv[i][2] != 'i') {
+                          goto the_default;
+                      }
+                      NEXT_ARG_CHECK();
+                      argv[i][0] = '-';
+                      add_Eargs(argv[i]);
+                      add_Eargs(argv[i+1]);
+                      i++;
+                      break;
 		  case 'I':
                       if (argv[i][2] == 'O' && (argv[i][3] == 't' || argv[i][3] == 'p')) {
                           if (argv[i][4] != '\0')

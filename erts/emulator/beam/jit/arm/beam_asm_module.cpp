@@ -21,10 +21,16 @@
  */
 
 #include <algorithm>
+#include <cstring>
 #include <sstream>
 #include <float.h>
 
 #include "beam_asm.hpp"
+extern "C"
+{
+#include "beam_bp.h"
+}
+
 using namespace asmjit;
 
 #ifdef BEAMASM_DUMP_SIZES
@@ -254,6 +260,182 @@ void BeamModuleAssembler::emit_i_breakpoint_trampoline() {
 
     ASSERT((a.offset() - code.labelOffsetFromBase(current_label)) ==
            BEAM_ASM_FUNC_PROLOGUE_SIZE);
+}
+
+void BeamGlobalAssembler::emit_i_line_breakpoint_trampoline_shared() {
+    Label exit_trampoline = a.newLabel();
+    Label dealloc_and_exit_trampoline = a.newLabel();
+    Label after_gc_check = a.newLabel();
+    Label dispatch_call = a.newLabel();
+
+    const auto &saved_live = TMP_MEM1q;
+    const auto &saved_pc = TMP_MEM2q;
+    const auto &saved_stack_needed = TMP_MEM3q;
+
+    emit_enter_erlang_frame();
+
+    /* NB. TMP1 = live */
+    a.str(TMP1, saved_live); /* stash live */
+
+    /* Pass return address of trampoline, will be used to find current function
+     * info */
+    a.sub(ARG1, a64::x30, imm(8)); /* ARG1 := pc */
+    a.str(ARG1, saved_pc);         /* Stash pc */
+
+    /* START allocate live live */
+    a.mov(ARG4, TMP1);         /* ARG4 := live */
+    a.lsl(TMP1, TMP1, imm(3)); /* TMP1 := stack-needed = live * sizeof(Eterm) */
+    a.str(TMP1, saved_stack_needed); /* stash stack-needed */
+    a.add(ARG3,
+          TMP1,
+          imm(S_RESERVED *
+              8)); /* ARG3 := stack-needed + S_RESERVED * sizeof(Eterm) */
+
+    a.add(ARG3, ARG3, HTOP);
+    a.cmp(ARG3, E);
+    a.b_ls(after_gc_check);
+
+    /* gc needed */
+    aligned_call(labels[garbage_collect]);
+    a.ldr(TMP1, saved_stack_needed); /* TMP1 := (stashed) stack-needed */
+    a.bind(after_gc_check);
+
+    a.sub(E, E, TMP1);
+    /* END allocate live live */
+
+    a.mov(ARG1, c_p);
+    a.ldr(ARG2, saved_pc); /* pc */
+    a.ldr(ARG3, saved_live);
+    load_x_reg_array(ARG4);
+    a.mov(ARG5, E); /* stk */
+
+    emit_enter_runtime<Update::eXRegs>();
+    runtime_call<
+            const Export *(*)(Process *, ErtsCodePtr, Uint, Eterm *, UWord *),
+            erts_line_breakpoint_hit__prepare_call>();
+    emit_leave_runtime<Update::eXRegs>();
+
+    /* If non-null, ARG1 points to error_handler:breakpoint/4 */
+    a.cbnz(ARG1, dispatch_call);
+    a.ldr(ARG1, saved_stack_needed); /* ARG1 := (stashed) stack-needed */
+    a.b(dealloc_and_exit_trampoline);
+
+    a.bind(dispatch_call);
+    erlang_call(emit_setup_dispatchable_call(ARG1));
+
+    a.bind(labels[i_line_breakpoint_cleanup]);
+    load_x_reg_array(ARG1);
+    a.mov(ARG2, E); /* stk */
+
+    emit_enter_runtime<Update::eXRegs>();
+    runtime_call<Uint (*)(Eterm *, UWord *),
+                 erts_line_breakpoint_hit__cleanup>();
+    emit_leave_runtime<Update::eXRegs>();
+
+    a.lsl(ARG1, ARG1, imm(3)); /* ARG1 = stack-needed */
+
+    a.bind(dealloc_and_exit_trampoline); /* ASUMES ARG1 = stack-needed */
+    a.add(E, E, ARG1);
+
+    a.bind(exit_trampoline);
+    emit_leave_erlang_frame();
+    a.ret(a64::x30);
+}
+
+void BeamModuleAssembler::emit_i_line_breakpoint_trampoline() {
+    /* This prologue is used to implement line-breakpoints. The "b next" can
+     * be replaced by nops when the breakpoint is enabled, which will instead
+     * trigger the breakpoint when control goes through here */
+    Label next = a.newLabel();
+    a.b(next);
+
+    a.bl(resolve_fragment(ga->get_i_line_breakpoint_trampoline_shared(),
+                          disp128MB));
+
+    a.bind(next);
+}
+
+enum erts_is_line_breakpoint BeamGlobalAssembler::is_line_breakpoint_trampoline(
+        ErtsCodePtr addr) {
+    auto pc = static_cast<const int32_t *>(addr);
+    enum erts_is_line_breakpoint line_bp_type;
+
+    /* The b and bl opcodes take 6 bits, the remaining 26 bits are a
+     * a signed offset, given in 32-bit words. */
+    const auto opcode6_mask = 0xFC000000;
+    const auto b_opcode = 0x14000000;
+    const auto bl_opcode = 0x94000000;
+
+    int32_t instr = *pc;
+    switch (instr) {
+    /* B .next .enabled: BL breakpoint_handler, .next: */
+    case b_opcode | 2:
+        line_bp_type = IS_DISABLED_LINE_BP;
+        break;
+
+    /* B .enabled .enabled: BL breakpoint_handler, .next: */
+    case b_opcode | 1:
+        line_bp_type = IS_ENABLED_LINE_BP;
+        break;
+
+    default:
+        return IS_NOT_LINE_BP;
+    }
+
+    instr = *++pc;
+
+    /* We expect a bl here. The target is a signed 26-bit offset */
+    if ((instr & opcode6_mask) != bl_opcode) {
+        return IS_NOT_LINE_BP;
+    }
+    const int32_t bl_offset = (instr << 6) >> 6;
+
+    /* Offset is expressed in 32-bit words, not bytes */
+    pc = pc + bl_offset;
+
+    const auto expected_target = get_i_line_breakpoint_trampoline_shared();
+    if (pc == (const int32_t *)expected_target)
+        return line_bp_type;
+
+    /* Now we expect to be in a veneer, that will encode a jump
+     * to the actual function based on the distance to the pc
+     * This can be a direct branch if close enough or branch-to-register after
+     * loading the expected_address (see emit_veneer() method) */
+    instr = *pc;
+
+    if ((instr & opcode6_mask) == b_opcode) {
+        /* using relative branch when expected_target is close enough */
+        const int32_t b_offset = (instr << 6) >> 6;
+        return (pc + b_offset == (const int32_t *)expected_target)
+                       ? line_bp_type
+                       : IS_NOT_LINE_BP;
+    }
+
+    const auto super_tmp_reg = SUPER_TMP.id();
+    /* we expect to see up to four MOVs into SUPER_TMP to load expected_address,
+     * followed by a `br SUPER_TMP` */
+    auto mov_opcode =
+            0xD2800000 | super_tmp_reg; /* movz SUPER_TMP, #0, lsl #0 */
+
+    uint64_t expected_target_addr = (uint64_t)expected_target;
+    for (int32_t hw = 0; hw < 4; hw++) {
+        uint32_t chunk = expected_target_addr & 0xFFFF;
+        expected_target_addr >>= 16;
+        if (chunk == 0)
+            continue;
+
+        if ((uint32_t)instr != (mov_opcode | (hw << 21) | (chunk << 5))) {
+            return IS_NOT_LINE_BP;
+        }
+
+        instr = *++pc;
+        mov_opcode =
+                0xF2800000 | super_tmp_reg; /* movk SUPER_TMP, #0, lsl #0 */
+    };
+
+    const int32_t expected_br_instr =
+            0xd61f0000 | (super_tmp_reg << 5); /* br SUPER_TMP */
+    return (instr == expected_br_instr) ? line_bp_type : IS_NOT_LINE_BP;
 }
 
 static void i_emit_nyi(const char *msg) {

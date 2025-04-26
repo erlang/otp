@@ -57,6 +57,7 @@
 #include "beam_load.h"
 #include "erl_md5.h"
 #include "erl_iolist.h"
+#include "erl_debugger.h"
 
 #ifdef ERTS_ENABLE_LOCK_COUNT
 #include "erl_lock_count.h"
@@ -4503,6 +4504,9 @@ BIF_RETTYPE erts_debug_get_internal_state_1(BIF_ALIST_1)
             return am_undefined;
 #endif
         }
+        else if (ERTS_IS_ATOM_STR("debugger_support", BIF_ARG_1)) {
+            return erts_debugger_flags & ERTS_DEBUGGER_ENABLED ? am_true : am_false;
+        }
     }
     else if (is_tuple(BIF_ARG_1)) {
 	Eterm* tp = tuple_val(BIF_ARG_1);
@@ -5377,6 +5381,13 @@ BIF_RETTYPE erts_debug_set_internal_state_2(BIF_ALIST_2)
                     BIF_RET(am_true);
                 }
             }
+        } else if (ERTS_IS_ATOM_STR("debugger_support", BIF_ARG_1)) {
+            if (BIF_ARG_2 == am_true) {
+                erts_debugger_flags |= ERTS_DEBUGGER_ENABLED;
+                BIF_RET(am_ok);
+            }
+
+            BIF_RET(am_badarg);
         }
     }
 
