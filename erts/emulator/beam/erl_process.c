@@ -4471,6 +4471,8 @@ try_steal_task_from_victim(ErtsRunQueue *rq, ErtsRunQueue *vrq, Uint32 flags, Pr
     Process *last_stolen_proc = NULL;
     unsigned first_stolen_proc_prio;
 
+    ERTS_UNDEF(first_stolen_proc_prio, INT_MAX);
+
     ERTS_LC_ASSERT(!erts_lc_runq_is_locked(rq));
 
     if (ERTS_RUNQ_FLGS_GET_NOB(rq) & ERTS_RUNQ_FLG_HALTING) {
