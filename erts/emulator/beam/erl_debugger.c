@@ -527,15 +527,15 @@ stack_frame_fun_info(Process *c_p, ErtsCodePtr pc, Process *rp, int is_return_ad
         fun_info = am_atom_put(fname, sys_strlen(fname));
     } else {
         Eterm *hp, mfa, line;
-        int mfa_arity = 3;
+        const int mfa_tup_sz = 4;
 
-        hp = HAlloc(c_p, MAP2_SZ + (mfa_arity + 1));
+        hp = HAlloc(c_p, MAP2_SZ + mfa_tup_sz);
 
-        mfa = make_tuple(hp);
-        *hp++ = make_arityval(mfa_arity);
-        *hp++ = fi.mfa->module;
-        *hp++ = fi.mfa->function;
-        *hp++ = make_small(fi.mfa->arity);
+        mfa = TUPLE3(hp,
+                     fi.mfa->module,
+                     fi.mfa->function,
+                     make_small(fi.mfa->arity));
+        hp += mfa_tup_sz;
 
         line = fi.loc == LINE_INVALID_LOCATION
                 ? am_undefined
@@ -550,20 +550,15 @@ stack_frame_fun_info(Process *c_p, ErtsCodePtr pc, Process *rp, int is_return_ad
 static Eterm
 make_value_or_too_large_tuple(Process *p, Eterm val, Uint max_size) {
     Uint val_size;
-    int tup_arity = 2;
+    const int tup2_sz = 3;
     Eterm result, *hp;
 
-    hp = HAlloc(p, tup_arity + 1);
-    result = make_tuple(hp);
-    *hp++ = make_arityval(tup_arity);
-
+    hp = HAlloc(p, tup2_sz);
     val_size = size_object(val);
     if (val_size <= max_size) {
-        *hp++ = am_value;
-        *hp++ = copy_object(val, p);
+        result = TUPLE2(hp, am_value, copy_object(val, p));
     } else {
-        *hp++ = ERTS_MAKE_AM("too_large");
-        *hp++ = make_small(val_size);
+        result = TUPLE2(hp, ERTS_MAKE_AM("too_large"), make_small(val_size));
     }
 
     return result;
@@ -571,15 +566,13 @@ make_value_or_too_large_tuple(Process *p, Eterm val, Uint max_size) {
 
 static Eterm
 make_catch_tuple(Process *c_p, ErtsCodePtr catch_addr) {
-    int tup_arity = 2;
+    const int tup2_sz = 3;
     Eterm result, *hp;
 
-    hp = HAlloc(c_p, tup_arity + 1);
-    result = make_tuple(hp);
-    *hp++ = make_arityval(tup_arity);
-
-    *hp++ = ERTS_MAKE_AM("catch");
-    *hp++ = stack_frame_fun_info(c_p, catch_addr, NULL, 0);
+    hp = HAlloc(c_p, tup2_sz);
+    result = TUPLE2(hp,
+                    ERTS_MAKE_AM("catch"),
+                    stack_frame_fun_info(c_p, catch_addr, NULL, 0));
 
     return result;
 }
@@ -630,7 +623,7 @@ erl_debugger_stack_frames_2(BIF_ALIST_2)
     yregs = NIL;
     for(Eterm *sp = STACK_START(rp) - 1; stack_top - 1 <= sp; sp--) {
         int is_last_iter = (stack_top - 1 == sp);
-        int tup_arity;
+        const int tup3_sz = 4;
         Eterm *hp, x;
 
         /* On the last iteration, past the stack end, x is the current pc,
@@ -649,21 +642,23 @@ erl_debugger_stack_frames_2(BIF_ALIST_2)
 
             addr = erts_make_integer((Uint) code_ptr, BIF_P);
 
-            tup_arity = 3;
             frame_info_map_sz = MAP2_SZ;
             hp = HAlloc(BIF_P,
                         2 /* cons */ +
-                        (tup_arity + 1) /* this_frame */ +
+                        tup3_sz /* this_frame */ +
                         frame_info_map_sz /* frame_info_map */);
 
             frame_info_map = MAP2(hp, am_code, addr, am_slots, yregs);
             hp += frame_info_map_sz;
 
-            this_frame = make_tuple(hp);
-            *hp++ = make_arityval(tup_arity);
-            *hp++ = make_small(frame_no++);
-            *hp++ = stack_frame_fun_info(BIF_P, code_ptr, rp, is_return_addr);
-            *hp++ = frame_info_map;
+            this_frame = TUPLE3(hp,
+                                make_small(frame_no++),
+                                stack_frame_fun_info(BIF_P,
+                                                    code_ptr,
+                                                     rp,
+                                                     is_return_addr),
+                                frame_info_map);
+            hp += tup3_sz;
 
             result = CONS(hp, this_frame, result);
 
