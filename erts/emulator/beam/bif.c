@@ -195,6 +195,8 @@ static BIF_RETTYPE link_opt(Process *c_p, Eterm other, Eterm opts)
 	if (!prt && !(c_p->flags & F_TRAP_EXIT))
             goto res_no_proc;
 
+        ERTS_UNDEF(ref, THE_NON_VALUE);
+
         lnk = erts_link_internal_tree_lookup_create(&ERTS_P_LINKS(c_p),
                                                     &created,
                                                     ERTS_LNK_TYPE_PORT,
@@ -1250,6 +1252,8 @@ BIF_RETTYPE unlink_1(BIF_ALIST_1)
 	    Port *prt;
 
             unlink_clear_prio(BIF_P, &ilnk->link.flags);
+
+            ERTS_UNDEF(ref, THE_NON_VALUE);
 
 	    /* Send unlink signal */
 	    prt = erts_port_lookup(BIF_ARG_1, ERTS_PORT_SFLGS_DEAD);
