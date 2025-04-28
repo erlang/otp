@@ -1675,9 +1675,10 @@ extern int erts_system_profile_ts_type;
 #define FS_SET_SAVE_INFO_1     (1 << 14)/* set save info bit 1 */
 #define FS_SET_SAVE_INFO_2     (1 << 15)/* set save info bit 2 */
 #define FS_PRIO_MQ_SAVE        (1 << 16)/* Save points into prio queue */
-#define FS_PRIO_MQ_PENDING_RM  (1 << 17)/* Pending removal of prio message queue */
-#define FS_PRIO_MQ             (1 << 18)/* Prio message queue installed */
-#define FS_PRIO_MQ_END_MARK    (1 << 19)/* Prio message queue end marker in queue */
+#define FS_PRIO_MQ             (1 << 17)/* Prio message queue installed */
+#define FS_PRIO_MQ_END_MARK    (1 << 18)/* Prio message queue end marker in queue */
+
+#define FS_DBG_MQ_PTRS_UNREL   (1 << 31)/* MsgQ pointers unreliable (signal handling) */
 
 /*
  * The FS_SET_SAVE_INFO_* bits of the signal queue flags map to the following
