@@ -19,11 +19,7 @@
 %% %CopyrightEnd%
 -->
 
-# How to update the Ryu version used by Erlang
-
-Last commit taken : 844864ac213bdbf1fb57e6f51c653b3d90af0937
-
-## The basic changes to the Ryu library
+# Erlang RYU
 
 To work with the Erlang VM, Ryu has been changed in three important ways. These
 changes have been marked with a `//CHANGE_FOR_ERLANG` comment explaining them in
@@ -39,3 +35,15 @@ Some of the more minor difference:
 
 - the Zero case in common.h is changed to correspond to erlang fixed point version
 - the MS STL pointer check are not here. Erlang generate a 256 bytes buffer, we only need 30 maximum. Beware what this mean when refactoring.
+
+# How to update the Ryu version used by Erlang
+
+To update run the `update.sh` script in this folder. It uses
+<https://github.com/erlang/ryu> as a base and tries to merge
+<https://github.com/ulfjack/ryu> into it. If there are no merge conflicts it then
+checks that the STL file we use had changed. If it has changed you need to manually
+check if there are any changes in the `__to_chars` function and if so see if they
+need to be uplifted.
+
+The update script will also bump the versions in vendor.info so that the SBOM
+contains the latest versions.
