@@ -1584,7 +1584,7 @@ minimum_otp_apps() ->
      ~"compiler", ~"common_test", ~"erts", ~"asn1", ~"odbc"].
 
 root_vendor_packages() ->
-    [ ~"asmjit", ~"pcre2", ~"zlib", ~"ryu", ~"fp16", ~"zstd"].
+    [ ~"asmjit", ~"pcre2", ~"zlib", ~"ryu", ~"zstd"].
 
 minimum_vendor_packages() ->
     %% self-contained
