@@ -1313,13 +1313,15 @@ dirty_test(Process *c_p, Eterm type, Eterm arg1, Eterm arg2, ErtsCodePtr I)
 	dirty_send_message(c_p, arg2, AM_done);
 	ERTS_BIF_PREP_RET(ret, am_ok);
     }
-    else if (ERTS_IS_ATOM_STR("alive_waitexiting", arg1)) {
+    else if (ERTS_IS_ATOM_STR("alive_waitexiting", arg1)
+             || ERTS_IS_ATOM_STR("alive_waitexitingonly", arg1)) {
 	Process *real_c_p = erts_proc_shadow2real(c_p);
 	Eterm *hp, *hp2;
 	Uint sz;
 	int i;
 	ErtsSchedulerData *esdp = erts_get_scheduler_data();
         int dirty_io = esdp->type == ERTS_SCHED_DIRTY_IO;
+        int no_wait_alloc = ERTS_IS_ATOM_STR("alive_waitexitingonly", arg1);
 
 	if (ERTS_PROC_IS_EXITING(real_c_p))
 	    goto badarg;
@@ -1333,16 +1335,21 @@ dirty_test(Process *c_p, Eterm type, Eterm arg1, Eterm arg2, ErtsCodePtr I)
                 erts_thr_yield();
         }
 
-	ms_wait(c_p, make_small(1000), 0);
+        if (no_wait_alloc) {
+            ERTS_BIF_PREP_RET(ret, am_ok);
+        }
+        else {
+            ms_wait(c_p, make_small(1000), 0);
 
-	/* Should still be able to allocate memory */
-	hp = HAlloc(c_p, 3); /* Likely on heap */
-	sz = 10000;
-	hp2 = HAlloc(c_p, sz); /* Likely in heap fragment */
-	*hp2 = make_pos_bignum_header(sz);
-	for (i = 1; i < sz; i++)
-	    hp2[i] = (Eterm) 4711;
-	ERTS_BIF_PREP_RET(ret, TUPLE2(hp, am_ok, make_big(hp2)));
+            /* Should still be able to allocate memory */
+            hp = HAlloc(c_p, 3); /* Likely on heap */
+            sz = 10000;
+            hp2 = HAlloc(c_p, sz); /* Likely in heap fragment */
+            *hp2 = make_pos_bignum_header(sz);
+            for (i = 1; i < sz; i++)
+                hp2[i] = (Eterm) 4711;
+            ERTS_BIF_PREP_RET(ret, TUPLE2(hp, am_ok, make_big(hp2)));
+        }
     }
     else {
     badarg:
