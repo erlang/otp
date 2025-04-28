@@ -4292,6 +4292,7 @@ handle_exit_signal(Process *c_p, ErtsSigRecvTracing *tracing,
     Eterm reason;
     Eterm from;
 
+    ERTS_UNDEF(reason, THE_NON_VALUE);
     ASSERT(ERTS_PROC_SIG_TYPE(tag) == ERTS_SIG_Q_TYPE_GEN_EXIT);
     
     xsigd = get_exit_signal_data(sig);
@@ -4788,6 +4789,8 @@ handle_persistent_mon_msg(Process *c_p, ErtsSigRecvTracing *tracing,
             ErtsMessage *first = NULL, *prev, *last;
             Uint hsz = size_object(msg);
             Uint i;
+            ERTS_UNDEF(last,NULL);
+            ERTS_UNDEF(prev,NULL);
 
             for (i = 0; i < n; i++) {
                 Eterm *hp;
@@ -9023,10 +9026,8 @@ erts_proc_sig_queue_try_enqueue_to_buffer(Eterm from,
         int nonmsg = ERTS_SIG_IS_NON_MSG(first);
         int restarted = 0;
         ErtsSignalInQueueBuffer* buffer;
-        Uint64 nonempty_slots_before;
+        Uint64 nonempty_slots_before = 0;
         Uint32 slot, state;
-
-        ERTS_UNDEF(nonempty_slots_before, 0);
 
         ASSERT(is_value(from));
 

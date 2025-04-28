@@ -3857,6 +3857,7 @@ fun_info_2(BIF_ALIST_2)
     case am_module:
         /* Unloaded funs must report their module even though we can't find
          * their full MFA. */
+        ASSERT(fe != NULL || mfa != NULL);
         val = (mfa != NULL) ? mfa->module : fe->module;
         hp = HAlloc(p, 3);
         break;
