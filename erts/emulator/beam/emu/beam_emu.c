@@ -547,7 +547,7 @@ void process_main(ErtsSchedulerData *esdp)
             Goto(*I);
         }
 
-        I = handle_error(c_p, I, reg, mfa);
+        I = handle_error(c_p, cp_val(*E), reg, mfa);
         goto post_error_handling;
     }
  OpCase(error_action_code): {
