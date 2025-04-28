@@ -6096,46 +6096,6 @@ esac
 fi
 
 
-    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -ftrivial-auto-var-init=zero to DED_CFLAGS (via CFLAGS)" >&5
-printf %s "checking if we can add -ftrivial-auto-var-init=zero to DED_CFLAGS (via CFLAGS)... " >&6; }
-    saved_CFLAGS=$CFLAGS;
-    CFLAGS="-Werror -ftrivial-auto-var-init=zero $DED_CFLAGS";
-    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-
-int
-main (void)
-{
-return 0;
-  ;
-  return 0;
-}
-_ACEOF
-if ac_fn_c_try_compile "$LINENO"
-then :
-  can_enable_flag=true
-else case e in #(
-  e) can_enable_flag=false ;;
-esac
-fi
-rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
-    CFLAGS=$saved_CFLAGS;
-    if test "X$can_enable_flag" = "Xtrue"
-then :
-
-        DED_CFLAGS="-ftrivial-auto-var-init=zero $DED_CFLAGS"
-        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
-printf "%s\n" "yes" >&6; }
-
-else case e in #(
-  e)
-        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
-printf "%s\n" "no" >&6; }
-       ;;
-esac
-fi
-
-
     { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -fstrict-flex-arrays=3 to DED_CFLAGS (via CFLAGS)" >&5
 printf %s "checking if we can add -fstrict-flex-arrays=3 to DED_CFLAGS (via CFLAGS)... " >&6; }
     saved_CFLAGS=$CFLAGS;
@@ -11355,46 +11315,6 @@ rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
 then :
 
         CFLAGS="-fno-strict-aliasing $CFLAGS"
-        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
-printf "%s\n" "yes" >&6; }
-
-else case e in #(
-  e)
-        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
-printf "%s\n" "no" >&6; }
-       ;;
-esac
-fi
-
-
-    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -ftrivial-auto-var-init=zero to CFLAGS (via CFLAGS)" >&5
-printf %s "checking if we can add -ftrivial-auto-var-init=zero to CFLAGS (via CFLAGS)... " >&6; }
-    saved_CFLAGS=$CFLAGS;
-    CFLAGS="-Werror -ftrivial-auto-var-init=zero $CFLAGS";
-    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-
-int
-main (void)
-{
-return 0;
-  ;
-  return 0;
-}
-_ACEOF
-if ac_fn_c_try_compile "$LINENO"
-then :
-  can_enable_flag=true
-else case e in #(
-  e) can_enable_flag=false ;;
-esac
-fi
-rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
-    CFLAGS=$saved_CFLAGS;
-    if test "X$can_enable_flag" = "Xtrue"
-then :
-
-        CFLAGS="-ftrivial-auto-var-init=zero $CFLAGS"
         { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
 printf "%s\n" "yes" >&6; }
 
