@@ -20,7 +20,7 @@
 %% %CopyrightEnd%
 %%
 
-%% This is a wrapper suite, to make it possible to simplyu run all 
+%% This is a wrapper suite, to make it possible to simply run all 
 %% socket suites in one go.
 %%
 

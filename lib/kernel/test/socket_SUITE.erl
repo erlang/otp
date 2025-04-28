@@ -4025,13 +4025,7 @@ monitor_open_and_close_multi_socks_and_mon(Config) when is_list(Config) ->
     ?TT(?SECS(30)),
     tc_try(?FUNCTION_NAME,
            fun() ->
-                   FactorKey = kernel_factor,
-                   case lists:keysearch(FactorKey, 1, Config) of
-                       {value, {FactorKey, Factor}} when (Factor > 15) ->
-                           skip("Very slow machine");
-                       _ ->
-                           ok
-                   end
+                   factor_limit(Config)
            end,
            fun() ->
 		   InitState = #{domain   => inet,
@@ -12735,10 +12729,10 @@ do_otp19469_dgram(#{family := Fam} = LSA) ->
 -define(OTP19482_CHUNK_MEDIUM, ?OTP19482_CHUNK_8K).
 
 otp19482_simple_single_small(Config) when is_list(Config) ->
-    ?TT(?SECS(10)),
-    
+    ?TT(?SECS(10 * which_factor(Config))),
     Cond = fun() ->
-                   has_support_ipv4()
+                   has_support_ipv4(),
+                   factor_limit(Config)
            end,
     Pre  = fun() ->
                    #{iov_max := IOVMax} = Info = socket:info(),
@@ -12762,9 +12756,10 @@ otp19482_simple_single_small(Config) when is_list(Config) ->
 
 
 otp19482_simple_single_medium(Config) when is_list(Config) ->
-    ?TT(?SECS(10)),
+    ?TT(?SECS(10 * which_factor(Config))),
     Cond = fun() ->
-                   has_support_ipv4()
+                   has_support_ipv4(),
+                   factor_limit(Config)
            end,
     Pre  = fun() ->
                    #{iov_max := IOVMax} = Info = socket:info(),
@@ -12788,9 +12783,10 @@ otp19482_simple_single_medium(Config) when is_list(Config) ->
 
 
 otp19482_simple_single_mixed(Config) when is_list(Config) ->
-    ?TT(?SECS(10)),
+    ?TT(?SECS(10 * which_factor(Config))),
     Cond = fun() ->
-                   has_support_ipv4()
+                   has_support_ipv4(),
+                   factor_limit(Config)
            end,
     Pre  = fun() ->
                    #{iov_max := IOVMax} = Info = socket:info(),
@@ -12820,9 +12816,10 @@ otp19482_simple_single_mixed(Config) when is_list(Config) ->
 
 
 otp19482_simple_single_mixed_long(Config) when is_list(Config) ->
-    ?TT(?SECS(10)),
+    ?TT(?SECS(10 * which_factor(Config))),
     Cond = fun() ->
-                   has_support_ipv4()
+                   has_support_ipv4(),
+                   factor_limit(Config)
            end,
     Pre  = fun() ->
                    #{iov_max := IOVMax} = Info = socket:info(),
@@ -13167,9 +13164,10 @@ otp19482_simple_single_server_exchange(Sock, Verify, Sz, N) ->
 %% 1024*8 bytes, medium).
 
 otp19482_simple_multi_small(Config) when is_list(Config) ->
-    ?TT(?SECS(20)),
+    ?TT(?SECS(20 * which_factor(Config))),
     Cond = fun() ->
-                   has_support_ipv4()
+                   has_support_ipv4(),
+                   factor_limit(Config)
            end,
     Pre  = fun() ->
                    process_flag(trap_exit, true),
@@ -13192,9 +13190,10 @@ otp19482_simple_multi_small(Config) when is_list(Config) ->
     ?TC_TRY(?FUNCTION_NAME, Cond, Pre, TC, Post).
 
 otp19482_simple_multi_medium(Config) when is_list(Config) ->
-    ?TT(?SECS(20)),
+    ?TT(?SECS(20 * which_factor(Config))),
     Cond = fun() ->
-                   has_support_ipv4()
+                   has_support_ipv4(),
+                   factor_limit(Config)
            end,
     Pre  = fun() ->
                    process_flag(trap_exit, true),
@@ -13515,10 +13514,19 @@ otp19482_simple_multi_handler_init(Parent, ID, Num) ->
 otp19482_simple_multi_handler_loop(_Parent, ID, Sock, 0, Acc) ->
     %% Received all data, now send it back
     ?P("H[~w] -> entry when all data received - try send it back", [ID]),
-    ok = socket:sendv(Sock, lists:reverse(Acc)),
-    ?P("H[~w] -> data sent", [ID]),
-    _ = socket:shutdown(Sock, read_write),
-    exit(normal);
+    case otp19482_send(Sock, lists:reverse(Acc)) of
+        ok ->
+            ?P("H[~w] -> data sent", [ID]),
+            _ = socket:shutdown(Sock, read_write),
+            exit(normal);
+        {error, {send_limit, Remaining} = Reason} ->
+           ?P("H[~w] -> send failed: ~p", [ID, Remaining]),
+            exit({skip, Reason});
+        {error, Reason} ->
+            ?P("H[~w] -> send failed: "
+               "~n   ~p", [ID, Reason]),
+            ?FAIL(Reason)
+    end;
 otp19482_simple_multi_handler_loop(Parent, ID, Sock, Num, Acc) ->
     ?P("H[~w] -> entry when Num = ~w", [ID, Num]),
     case socket:recv(Sock, Num) of
@@ -13527,6 +13535,13 @@ otp19482_simple_multi_handler_loop(Parent, ID, Sock, Num, Acc) ->
             otp19482_simple_multi_handler_loop(Parent, ID, Sock,
                                                Num - byte_size(Data),
                                                [Data|Acc]);
+        
+        {error, {Reason, Data}} ->
+            ?P("H[~w] -> receive (with data) failure: "
+               "~n   sz(Data): ~w (~w)"
+               "~n   Reason:   ~p", [byte_size(Data), Num, Reason]),
+            exit({recv_failed});
+
         {error, Reason} ->
             ?P("H[~w] -> receive failure: "
                "~n   Reason: ~p", [Reason]),
@@ -13583,7 +13598,17 @@ otp19482_simple_multi_client_init(Parent, ID, LSA, Port, IOV) ->
     ?P("C[~w] -> try send message: "
        "~n   IOV Length: ~w"
        "~n   IOV size:   ~w", [ID, length(IOV), iolist_size(IOV)]),
-    ok = socket:sendv(Sock, IOV),
+    case otp19482_send(Sock, IOV) of
+        ok ->
+            ok;
+        {error, {send_limit, Remaining} = Reason} ->
+            ?P("C[~w] -> send failed: ~p bytes remaining", [ID, Remaining]),
+            ?SKIPE(Reason);
+        {error, Reason} ->
+            ?P("C[~w] -> send faild: "
+               "~n   ~p", [ID, Reason]),
+            ?FAIL(Reason)
+    end,
 
     %% _ = socket:setopt(Sock, otp, debug, false),
 
@@ -13631,6 +13656,40 @@ otp19482_simple_multi_client_recv_loop(Sock, ID, Num) ->
             ?P("C[~w] recv-loop -> receive failure:"
                "~n   Reason: ~p", [ID, Reason]),
             ?FAIL({recv_failure, Reason})
+    end.
+
+otp19482_send(Sock, IOV) ->
+    otp19482_send(Sock, IOV, 0, 10).
+    
+otp19482_send(_Sock, IOV, N, Limit) when (N > Limit) ->
+    ?P("~w -> send limit (~w) reached with ~w bytes still unsent",
+       [?FUNCTION_NAME, Limit, iolist_size(IOV)]),    
+    {error, {send_limit, iolist_size(IOV)}};
+otp19482_send(Sock, IOV, N, Limit) ->
+    ?P("~w(~w) -> try send ~w bytes",
+       [?FUNCTION_NAME, N, iolist_size(IOV)]),
+    case socket:sendv(Sock, IOV) of
+        ok ->
+            ok;
+        {error, enobufs = Reason} ->
+            ?P("~w(~w) -> ~p - sleep some and then try again",
+               [?FUNCTION_NAME, N, Reason]),
+            ?SLEEP(?SECS(1)),
+            otp19482_send(Sock, IOV, N+1, Limit);
+        {error, {enobufs = Reason, RestIOV}} when is_list(RestIOV) ->
+            ?P("~w(~w) -> ~p with ~w bytes in RestIOV - "
+               "sleep some and then try again",
+               [?FUNCTION_NAME, N, Reason, iolist_size(RestIOV)]),
+            ?SLEEP(?SECS(1)),
+            otp19482_send(Sock, RestIOV, N+1, Limit);
+        {error, {Reason, RestIOV}} when is_list(RestIOV) ->
+            ?P("~w(~w) -> ~p with ~w bytes in RestIOV - give up",
+               [?FUNCTION_NAME, N, Reason, iolist_size(RestIOV)]),
+            {error, Reason};
+        {error, Reason} ->
+            ?P("~w(~w) -> ~p with ~w bytes remaining in IOV - give up",
+               [?FUNCTION_NAME, N, Reason, iolist_size(IOV)]),
+            {error, Reason}
     end.
 
 
@@ -13944,6 +14003,27 @@ unlink_path(Path, Success, Failure)
                                 "~n   Res:  ~p", [Path, Error]),
                     Failure()
             end
+    end.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+factor_limit(Config) ->
+    FactorKey = kernel_factor,
+    case lists:keysearch(FactorKey, 1, Config) of
+        {value, {FactorKey, Factor}} when (Factor > 15) ->
+            skip("Very slow machine");
+        _ ->
+            ok
+    end.
+
+which_factor(Config) ->
+    FactorKey = kernel_factor,
+    case lists:keysearch(FactorKey, 1, Config) of
+        {value, {FactorKey, Factor}} ->
+            Factor;
+        _ ->
+            10
     end.
 
 

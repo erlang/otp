@@ -493,8 +493,10 @@ buffer_size(Config) when is_list(Config) ->
     TC   = fun() -> do_buffer_size(Config) end,
     ?TC_TRY(?FUNCTION_NAME, Cond, TC).
 
+%% Note that as of OTP 28, the default buffer size has increased to 9K (for UDP)
+%% Up from 8K
 -define(BF_NUM_K(N), (N*1024)).
--define(BF_8K,       ?BF_NUM_K(8)).
+%%-define(BF_8K,       ?BF_NUM_K(8)).
 -define(BF_9K,       ?BF_NUM_K(9)).
 do_buffer_size(Config) when is_list(Config) ->
     {ok, Addr} = ?LIB:which_local_addr(inet),
@@ -502,7 +504,7 @@ do_buffer_size(Config) when is_list(Config) ->
     ServerIP = Addr,
     Len = 256,
     Bin = list_to_binary(lists:seq(0, Len-1)),
-    M = 8192 div Len,
+    M = (?BF_9K) div Len,
     SAFE = 3,
     LONG = 1,
     Spec0 =
