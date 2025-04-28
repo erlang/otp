@@ -5180,6 +5180,7 @@ handle_persistent_mon_msg(Process *c_p, ErtsSigRecvTracing *tracing,
             Uint hsz = size_object(msg);
             Uint i;
             ERTS_UNDEF(last,NULL);
+            ERTS_UNDEF(prev,NULL);
 
             for (i = 0; i < n; i++) {
                 Eterm *hp;
@@ -9278,18 +9279,23 @@ insert_prepared_prio_msg_attached(Process *c_p, ErtsSigRecvTracing *tracing,
 
         case FS_SET_SAVE_INFO_RCVM:
 
-            i = blk->set_save_ix;
-
-            if (i < 0 || ERTS_RECV_MARKER_BLOCK_SIZE <= i)
-                ERTS_INTERNAL_ERROR("Invalid message queue state");
-
-            if (blk && !blk->marker[i].in_prioq) {
-                /*
-                 * We know that the reference of the receive marker we are
-                 * waiting for has not been seen in the prio queue, so we
-                 * can safely continue where we are...
-                 */
+            if (!blk) {
                 set_save = 0;
+            }
+            else {
+                i = blk->set_save_ix;
+
+                if (i < 0 || ERTS_RECV_MARKER_BLOCK_SIZE <= i)
+                    ERTS_INTERNAL_ERROR("Invalid message queue state");
+
+                if (!blk->marker[i].in_prioq) {
+                    /*
+                     * We know that the reference of the receive marker we are
+                     * waiting for has not been seen in the prio queue, so we
+                     * can safely continue where we are...
+                     */
+                    set_save = 0;
+                }
             }
             break;
 
@@ -10228,10 +10234,8 @@ erts_proc_sig_queue_try_enqueue_to_buffer(Eterm from,
         int nonmsg = ERTS_SIG_IS_NON_MSG(first);
         int restarted = 0;
         ErtsSignalInQueueBuffer* buffer;
-        Uint64 nonempty_slots_before;
+        Uint64 nonempty_slots_before = 0;
         Uint32 slot, state;
-
-        ERTS_UNDEF(nonempty_slots_before, 0);
 
         ASSERT(is_value(from));
 
