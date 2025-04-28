@@ -14,7 +14,7 @@
     "homepage": "https://www.openssl.org/",
     "licenseDeclared": "Apache-2.0",
     "name": "openssl",
-    "versionInfo": "3.1.4",
+    "versionInfo": "3.5",
     "path": "./erts/emulator/openssl",
     "supplier": "Organization: OpenSSL Mission",
     "purl": "pkg:generic/openssl"
