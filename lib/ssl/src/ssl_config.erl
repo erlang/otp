@@ -557,7 +557,7 @@ opt_protocol_versions(UserOpts, Opts, Env) ->
 
     DefaultLevel = case logger:get_module_level(?MODULE) of
                        [] -> notice;
-                       [{ssl,Level}] -> Level
+                       [{?MODULE,Level}] -> Level
                    end,
 
     {_, LL} = get_opt_of(log_level, LogLevels, DefaultLevel, UserOpts, Opts),
