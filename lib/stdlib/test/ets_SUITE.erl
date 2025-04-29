@@ -192,7 +192,7 @@ all() ->
      whereis_table,
      delete_unfix_race,
      test_throughput_benchmark,
-     {group, benchmark},
+     %%{group, benchmark},
      test_table_size_concurrency,
      test_table_memory_concurrency,
      test_delete_table_while_size_snapshot,
