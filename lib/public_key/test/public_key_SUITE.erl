@@ -121,6 +121,8 @@
          pkix_iso_rsa_oid/1,
          pkix_iso_dsa_oid/0,
          pkix_iso_dsa_oid/1,
+         pkix_rsa_md2_oid/0,
+         pkix_rsa_md2_oid/1,
          pkix_dsa_sha2_oid/0,
          pkix_dsa_sha2_oid/1,
          pkix_crl/0,
@@ -180,6 +182,7 @@ all() ->
      pkix_path_validation_bad_date,
      pkix_iso_rsa_oid, 
      pkix_iso_dsa_oid, 
+     pkix_rsa_md2_oid,
      pkix_dsa_sha2_oid,
      pkix_crl, 
      pkix_hash_type,
@@ -1368,6 +1371,18 @@ pkix_iso_dsa_oid(Config) when is_list(Config) ->
     OTPCert = public_key:pkix_decode_cert(Cert, otp),
     SigAlg = OTPCert#'OTPCertificate'.signatureAlgorithm,
     {_, dsa} = public_key:pkix_sign_types(SigAlg#'SignatureAlgorithm'.algorithm).
+
+%%--------------------------------------------------------------------
+
+pkix_rsa_md2_oid() ->
+ [{doc, "Test support for MD2 signed RSA certs." "oid 1.2.840.113549.1.1.2"}].
+pkix_rsa_md2_oid(Config) when is_list(Config) ->
+    Datadir = proplists:get_value(data_dir, Config),
+    {ok, PemCert} = file:read_file(filename:join(Datadir, "rsa_md2.pem")),
+    [{_, Cert, _}] = public_key:pem_decode(PemCert),
+    OTPCert = public_key:pkix_decode_cert(Cert, otp),
+    SigAlg = OTPCert#'OTPCertificate'.signatureAlgorithm,
+    {md2, rsa} = public_key:pkix_sign_types(SigAlg#'SignatureAlgorithm'.algorithm).
 
 %%--------------------------------------------------------------------
 pkix_dsa_sha2_oid() ->
