@@ -7413,7 +7413,12 @@ smp_insert_do(Opts) ->
     ExecF = fun(_) -> true = ets:insert(smp_insert,{rand:uniform(KeyRange)})
             end,
     FiniF = fun(_) -> ok end,
-    run_smp_workers(InitF,ExecF,FiniF,100000),
+    %% Limit number of concurrent inserters on large multicore machines
+    %% as hash tables have been seen to not keep up with growth.
+    %% But probably not a problem in practice with such massively
+    %% concurrent frequent insertions.
+    MaxWorkers = 150,
+    run_smp_workers(InitF,ExecF,FiniF,100000, #{max => MaxWorkers}),
     verify_table_load(smp_insert),
     ets:delete(smp_insert).
 
@@ -8003,7 +8008,7 @@ otp_9423(Config) when is_list(Config) ->
                               end
                       end,
               FiniF = fun(R) -> R end,
-              case run_smp_workers(InitF, ExecF, FiniF, infinite, 1) of
+              case run_smp_workers(InitF, ExecF, FiniF, infinite, #{exclude => 1}) of
                   Pids when is_list(Pids) ->
                       %%[P ! start || P <- Pids],
                       repeat(fun() -> ets_new(otp_9423, [named_table, public,
@@ -8916,11 +8921,15 @@ add_lists([E1|T1], [E2|T2], Acc) ->
     add_lists(T1, T2, [E1+E2 | Acc]).
 
 run_smp_workers(InitF,ExecF,FiniF,Laps) ->
-    run_smp_workers(InitF,ExecF,FiniF,Laps, 0).
-run_smp_workers(InitF,ExecF,FiniF,Laps, Exclude) ->
+    run_smp_workers(InitF,ExecF,FiniF,Laps, #{}).
+
+run_smp_workers(InitF,ExecF,FiniF,Laps, Opts) ->
+    Exclude = maps:get(exclude, Opts, 0),
+    Max = maps:get(max, Opts, infinite),
     case erlang:system_info(schedulers_online) of
         N when N > Exclude ->
-            run_workers_do(InitF,ExecF,FiniF,Laps, N - Exclude);
+            Workers = min(N - Exclude, Max),
+            run_workers_do(InitF, ExecF, FiniF, Laps, Workers);
         _ ->
             {skipped, "Too few schedulers online"}
     end.
