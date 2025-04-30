@@ -306,7 +306,7 @@ make_name(Dict) ->
 %% Compile example code under examples/code.
 
 compile_code(Tmpdir) ->
-    {ok, Pid, Node} = slave(peer:random_name(), here()),
+    {ok, Pid, Node} = peer(peer:random_name(), here()),
     try
         {ok, _Ebin} = rpc:call(Node, ?MODULE, install, [Tmpdir])
     after
@@ -373,17 +373,17 @@ store(Path, Dict) ->
 
 %% ===========================================================================
 
-%% enslave/1
+%% get_nodes/1
 %%
 %% Start two nodes: one for the server, one for the client.
 
-enslave(Prefix) ->
+get_nodes(Prefix) ->
     [{S,N} || D <- [here()],
               S <- ?NODES,
               M <- [lists:append(["diameter", Prefix, ?L(S)])],
-              {ok, _, N} <- [slave(M,D)]].
+              {ok, _, N} <- [peer(M,D)]].
 
-slave(Name, Dir) ->
+peer(Name, Dir) ->
     Args = ["-pa", Dir, filename:join([Dir, "..", "ebin"])],
     {ok, _Pid, _Node} = ?PEER(#{name => Name, args => Args}).
 
@@ -438,7 +438,7 @@ traffic(client) ->
     receive {'DOWN', MRef, process, _, Reason} -> Reason end;
 
 traffic({Prot, Ebin}) ->
-    Nodes = enslave(?L(Prot)),
+    Nodes = get_nodes(?L(Prot)),
     [] = start([Prot, Ebin | Nodes]),
     [] = [RC || {T,N} <- Nodes,
                 RC <- [rpc:call(N, ?MODULE, traffic, [T])],

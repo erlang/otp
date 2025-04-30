@@ -148,7 +148,7 @@ do_traffic(Factor) ->
     ?DL("do_traffic -> check we have distribution"),
     true = is_alive(),  %% need distribution for peer nodes
     ?DL("do_traffic -> get nodes"),
-    Nodes = enslave(),
+    Nodes = get_nodes(),
     ?DL("do_traffic -> ping nodes (except client node)"),
     [] = ping(lists:droplast(Nodes)),  %% drop client node
     ?DL("do_traffic -> start nodes"),
@@ -160,12 +160,12 @@ do_traffic(Factor) ->
     ?DL("do_traffic -> done"),
     ok.
 
-%% enslave/1
+%% get_nodes/0
 %%
-%% Start four slave nodes, three to implement a Diameter server,
+%% Start four peer nodes, three to implement a Diameter server,
 %% one to implement a client.
 
-enslave() ->
+get_nodes() ->
     Here = filename:dirname(code:which(?MODULE)),
     Ebin = filename:join([Here, "..", "ebin"]),
     Args = ["-pa", Here, Ebin],
