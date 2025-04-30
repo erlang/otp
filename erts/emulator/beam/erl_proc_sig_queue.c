@@ -8942,14 +8942,33 @@ erts_internal_dirty_process_handle_signals_1(BIF_ALIST_1)
  */
 
 static ERTS_INLINE void
-insert_prio_q_marker(Process *c_p, ErtsRecvMarker *mark, ErtsMessage **next)
+insert_prio_q_marker(Process *c_p, ErtsRecvMarker *mark, ErtsMessage **next,
+                     ErtsMessage ***next_nm_sig)
 {
+    ErtsMessage **mark_next = &mark->sig.common.next;
+
+    ASSERT(next_nm_sig
+           || &c_p->sig_qs.first == next);
+
+    if (next_nm_sig) {
+        /*
+         * 'next' might point into the "to be inner queue part" of the
+         * middle queue, so we need to check the following pointers as
+         * well...
+         */
+        if (*next_nm_sig == next)
+            *next_nm_sig = mark_next;
+        if (c_p->sig_qs.nmsigs.last == next)
+            c_p->sig_qs.nmsigs.last = mark_next;
+        if (c_p->sig_qs.cont_last == next)
+            c_p->sig_qs.cont_last = mark_next;
+    }
     if (c_p->sig_qs.last == next)
-        c_p->sig_qs.last = &mark->sig.common.next;
+        c_p->sig_qs.last = mark_next;
     if (c_p->sig_qs.save == next)
-        c_p->sig_qs.save = &mark->sig.common.next;
+        c_p->sig_qs.save = mark_next;
     if (*next && ERTS_SIG_IS_RECV_MARKER(*next))
-        ((ErtsRecvMarker *) *next)->prev_next = &mark->sig.common.next;
+        ((ErtsRecvMarker *) *next)->prev_next = mark_next;
     mark->prev_next = next;
     mark->sig.common.next = *next;
     *next = (ErtsMessage *) mark;
@@ -9380,7 +9399,7 @@ insert_prepared_prio_msg_attached(Process *c_p, ErtsSigRecvTracing *tracing,
         if (empty_prio_q) {
             /* end marker not in queue; insert it */
             ASSERT(!pq_end->in_msgq);
-            insert_prio_q_marker(c_p, pq_end, &c_p->sig_qs.first);
+            insert_prio_q_marker(c_p, pq_end, &c_p->sig_qs.first, NULL);
             c_p->sig_qs.flags |= FS_PRIO_MQ_END_MARK;
         }
 
@@ -9401,7 +9420,7 @@ insert_prepared_prio_msg_attached(Process *c_p, ErtsSigRecvTracing *tracing,
              */
             if (pq_cont->in_msgq)
                 remove_prio_q_marker(c_p, pq_cont, next_nm_sig);
-            insert_prio_q_marker(c_p, pq_cont, c_p->sig_qs.save);
+            insert_prio_q_marker(c_p, pq_cont, c_p->sig_qs.save, next_nm_sig);
             pq_info->saved_save_info = ERTS_MQ_GET_SAVE_INFO(c_p);
             ERTS_MQ_SET_SAVE_INFO(c_p, FS_SET_SAVE_INFO_MARK);
 
