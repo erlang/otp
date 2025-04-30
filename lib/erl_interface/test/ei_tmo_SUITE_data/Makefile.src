@@ -40,5 +40,5 @@ clean:
 	$(RM) ei_tmo_test@exe@
 
 ei_tmo_test@exe@: $(EI_TMO_OBJS) $(LIBEI)
-	$(LD) @CROSSLDFLAGS@ -o $@ $(EI_TMO_OBJS) $(LIBFLAGS)
+	$(LD) $(EI_LDFLAGS) @CROSSLDFLAGS@ -o $@ $(EI_TMO_OBJS) $(LIBFLAGS)
 

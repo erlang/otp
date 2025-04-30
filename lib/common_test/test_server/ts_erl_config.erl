@@ -68,7 +68,7 @@ dl_vars(Vars, Base3, OsType) ->
  	".SUFFIXES: @dll@ @obj@ .c\n\n" ++
  	".c@dll@:\n" ++
  	"\t@CC@ -c @SHLIB_CFLAGS@ $(SHLIB_EXTRA_CFLAGS) -I@erl_include@ @DEFS@ $<\n" ++
-	"\t@SHLIB_LD@ @CROSSLDFLAGS@ @SHLIB_LDFLAGS@ $(SHLIB_EXTRA_LDFLAGS) -o $@ $*@obj@ @SHLIB_LDLIBS@ $(SHLIB_EXTRA_LDLIBS)",
+	"\t@SHLIB_LD@ $(EI_LDFLAGS) @CROSSLDFLAGS@ @SHLIB_LDFLAGS@ $(SHLIB_EXTRA_LDFLAGS) -o $@ $*@obj@ @SHLIB_LDLIBS@ $(SHLIB_EXTRA_LDLIBS)",
 
     ShlibRules = ts_lib:subst(ShlibRules0, Vars),
     case get_app_vars2(fun jinterface/2, Base3, OsType) of

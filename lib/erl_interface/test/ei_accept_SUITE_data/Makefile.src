@@ -41,8 +41,8 @@ clean:
 	$(RM) ei_accept_test@exe@ eiaccnode@exe@
 
 ei_accept_test@exe@: $(EI_ACCEPT_OBJS) $(LIBEI)
-	$(LD) @CROSSLDFLAGS@ -o $@ $(EI_ACCEPT_OBJS) $(LIBFLAGS)
+	$(LD) $(EI_LDFLAGS) @CROSSLDFLAGS@ -o $@ $(EI_ACCEPT_OBJS) $(LIBFLAGS)
 
 
 eiaccnode@exe@: $(EIACCNODE_OBJS) $(LIBEI)
-	$(LD) @CROSSLDFLAGS@ -o $@ $(EIACCNODE_OBJS) $(LIBFLAGS)
+	$(LD) $(EI_LDFLAGS) @CROSSLDFLAGS@ -o $@ $(EIACCNODE_OBJS) $(LIBFLAGS)

@@ -654,7 +654,6 @@ HCC
 ERTS_LIBS
 ERTS_CFLAGS
 EI_CFLAGS
-SHLIB_EXTRACT_ALL
 SHLIB_SUFFIX
 SHLIB_CFLAGS
 SHLIB_LDLIBS
@@ -4131,7 +4130,6 @@ fi
 	        as_fn_error $? "don't know how to link 32-bit dynamic drivers" "$LINENO" 5
 	    fi
 	fi
-	SHLIB_EXTRACT_ALL=""
      ;; #(
   *-openbsd*|*-netbsd*|*-freebsd*|*-dragonfly*) :
 
@@ -4163,13 +4161,12 @@ else case e in #(
 esac
 fi
 
-	SHLIB_EXTRACT_ALL=""
      ;; #(
   *-solaris2*|*-sysv4*) :
 
 	SHLIB_CFLAGS="-KPIC"
-	SHLIB_LD="/usr/ccs/bin/ld"
-	SHLIB_LDFLAGS="$no_mXX_LDFLAGS -G -z text"
+	SHLIB_LD="${CC}"
+	SHLIB_LDFLAGS="$no_mXX_LDFLAGS -G -Wl,-z,text"
 	if test X${enable_m64_build} = Xyes; then
 	   SHLIB_LDFLAGS="-64 $SHLIB_LDFLAGS"
 	fi
@@ -4177,7 +4174,6 @@ fi
 	   as_fn_error $? "don't know how to link 32-bit dynamic drivers" "$LINENO" 5
 	fi
 	SHLIB_SUFFIX=".so"
-	SHLIB_EXTRACT_ALL="-z allextract"
      ;; #(
   *darwin*) :
 
@@ -4185,7 +4181,6 @@ fi
 	SHLIB_LD="cc"
 	SHLIB_LDFLAGS="$LDFLAGS -bundle -flat_namespace -undefined suppress"
 	SHLIB_SUFFIX=".so"
-	SHLIB_EXTRACT_ALL=""
      ;; #(
   *osf1*) :
 
@@ -4199,7 +4194,6 @@ fi
 	   as_fn_error $? "don't know how to link 32-bit dynamic drivers" "$LINENO" 5
 	fi
 	SHLIB_SUFFIX=".so"
-	SHLIB_EXTRACT_ALL=""
      ;; #(
   *osf5*) :
 
@@ -4207,7 +4201,6 @@ fi
 	SHLIB_LD="${CC} -shared"
 	SHLIB_LDFLAGS="$LDFLAGS"
 	SHLIB_SUFFIX=".so"
-	SHLIB_EXTRACT_ALL=""
      ;; #(
   *) :
 
@@ -4217,7 +4210,6 @@ fi
 	SHLIB_LDFLAGS=""
 	SHLIB_LDLIBS=""
 	SHLIB_SUFFIX=""
-	SHLIB_EXTRACT_ALL=""
 	as_fn_error $? "don't know how to compile and link dynamic drivers" "$LINENO" 5
      ;;
 esac
@@ -4265,7 +4257,6 @@ fi
 
 
 SHLIB_CFLAGS="$SHLIB_CFLAGS $CFLAGS"
-
 
 
 

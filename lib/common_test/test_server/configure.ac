@@ -175,7 +175,6 @@ AS_CASE([$system],
 	        AC_MSG_ERROR(don't know how to link 32-bit dynamic drivers)
 	    fi
 	fi
-	SHLIB_EXTRACT_ALL=""
     ],
 
     [*-openbsd*|*-netbsd*|*-freebsd*|*-dragonfly*],
@@ -200,14 +199,13 @@ AS_CASE([$system],
 	    SHLIB_SUFFIX=""
 	    AC_MSG_ERROR(don't know how to compile and link dynamic drivers)
 	])
-	SHLIB_EXTRACT_ALL=""
     ],
 
     [*-solaris2*|*-sysv4*],
     [
 	SHLIB_CFLAGS="-KPIC"
-	SHLIB_LD="/usr/ccs/bin/ld"
-	SHLIB_LDFLAGS="$no_mXX_LDFLAGS -G -z text"
+	SHLIB_LD="${CC}"
+	SHLIB_LDFLAGS="$no_mXX_LDFLAGS -G -Wl,-z,text"
 	if test X${enable_m64_build} = Xyes; then
 	   SHLIB_LDFLAGS="-64 $SHLIB_LDFLAGS"
 	fi
@@ -215,7 +213,6 @@ AS_CASE([$system],
 	   AC_MSG_ERROR(don't know how to link 32-bit dynamic drivers)
 	fi
 	SHLIB_SUFFIX=".so"
-	SHLIB_EXTRACT_ALL="-z allextract"
     ],
 
     [*darwin*],
@@ -224,7 +221,6 @@ AS_CASE([$system],
 	SHLIB_LD="cc"
 	SHLIB_LDFLAGS="$LDFLAGS -bundle -flat_namespace -undefined suppress"
 	SHLIB_SUFFIX=".so"
-	SHLIB_EXTRACT_ALL=""
     ],
 
     [*osf1*],
@@ -239,7 +235,6 @@ AS_CASE([$system],
 	   AC_MSG_ERROR(don't know how to link 32-bit dynamic drivers)
 	fi
 	SHLIB_SUFFIX=".so"
-	SHLIB_EXTRACT_ALL=""
     ],
 
     [*osf5*],
@@ -248,7 +243,6 @@ AS_CASE([$system],
 	SHLIB_LD="${CC} -shared"
 	SHLIB_LDFLAGS="$LDFLAGS"
 	SHLIB_SUFFIX=".so"
-	SHLIB_EXTRACT_ALL=""
     ],
 
     [
@@ -258,7 +252,6 @@ AS_CASE([$system],
 	SHLIB_LDFLAGS=""
 	SHLIB_LDLIBS=""
 	SHLIB_SUFFIX=""
-	SHLIB_EXTRACT_ALL=""
 	AC_MSG_ERROR(don't know how to compile and link dynamic drivers)
     ])
 
@@ -310,7 +303,6 @@ AC_SUBST(SHLIB_LDFLAGS)
 AC_SUBST(SHLIB_LDLIBS)
 AC_SUBST(SHLIB_CFLAGS)
 AC_SUBST(SHLIB_SUFFIX)
-AC_SUBST(SHLIB_EXTRACT_ALL)
 AC_SUBST(EI_CFLAGS)
 
 #--------------------------------------------------------------------

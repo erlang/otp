@@ -39,6 +39,6 @@ clean:
 	$(RM) ei_decode_test@exe@
 
 ei_decode_test@exe@: $(EI_DECODE_OBJS) $(LIBEI)
-	$(LD) @CROSSLDFLAGS@ -o $@ $(EI_DECODE_OBJS) $(LIBFLAGS)
+	$(LD) $(EI_LDFLAGS) @CROSSLDFLAGS@ -o $@ $(EI_DECODE_OBJS) $(LIBFLAGS)
 
 
