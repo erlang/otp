@@ -45,17 +45,18 @@ MODULES = \
 	public_key \
 	pubkey_pem \
 	pubkey_ssh \
-	pubkey_pbe \
-	pubkey_cert \
-	pubkey_policy_tree \
         pubkey_cert_records \
-	pubkey_crl\
+	pubkey_crl \
+	pubkey_os_cacerts \
+	pubkey_translation \
+	pubkey_pbe \
 	pubkey_ocsp \
-	pubkey_os_cacerts
+	pubkey_cert \
+	pubkey_policy_tree
 
-HRL_FILES = $(INCLUDE)/public_key.hrl 
+HRL_FILES = $(INCLUDE)/public_key.hrl $(INCLUDE)/OTP-PUB-KEY.hrl
 
-INTERNAL_HRL_FILES = pubkey_moduli.hrl
+INTERNAL_HRL_FILES = pubkey_moduli.hrl public_key_internal.hrl
 
 ERL_FILES = $(MODULES:%=%.erl)
 

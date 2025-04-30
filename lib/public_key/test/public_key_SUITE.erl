@@ -55,8 +55,6 @@
          rsa_priv_pkcs8/1,
          ec_pem/0,
          ec_pem/1,
-         ec_pem2/0,
-         ec_pem2/1,
          ec_priv_pkcs8/0,
          ec_priv_pkcs8/1,
          eddsa_priv_pkcs8/0,
@@ -142,13 +140,21 @@
          short_cert_issuer_hash/1,
          short_crl_issuer_hash/0,
          short_crl_issuer_hash/1,
-         gen_ec_param_prime_field/0,
-         gen_ec_param_prime_field/1,
-         gen_ec_param_char_2_field/0,
-         gen_ec_param_char_2_field/1,
          cacerts_load/0, cacerts_load/1,
          ocsp_extensions/0, ocsp_extensions/1
         ]).
+
+%% Explicit parameters for EC are currently not implemented.
+%%-define('EXPLICIT_EC_PARAMS', true).
+
+-ifdef('EXPLICIT_EC_PARAMS').
+-export([ec_pem2/0,
+         ec_pem2/1,
+         gen_ec_param_prime_field/0,
+         gen_ec_param_prime_field/1,
+         gen_ec_param_char_2_field/0,
+         gen_ec_param_char_2_field/1]).
+-endif.
 
 -export([list_cacerts/0]).  % debug exports
 
@@ -199,21 +205,33 @@ all() ->
      short_crl_issuer_hash,
      cacerts_load,
      ocsp_extensions,
-     pkix_ocsp_validate
+     pkix_ocsp_validate | maybe_more()
     ].
 
 groups() -> 
     [{pem_decode_encode, [], [dsa_pem, rsa_pem, rsa_pss_pss_pem, 
                               rsa_pss_default_pem, ec_pem,
 			      encrypted_pem_pwdstring, encrypted_pem_pwdfun,
-			      dh_pem, cert_pem, pkcs7_pem, pkcs10_pem, ec_pem2,
+			      dh_pem, cert_pem, pkcs7_pem, pkcs10_pem,
 			      rsa_priv_pkcs8, dsa_priv_pkcs8, ec_priv_pkcs8,
 			      eddsa_priv_pkcs8, eddsa_priv_rfc5958,
-			      ec_pem_encode_generated, gen_ec_param_prime_field,
-			      gen_ec_param_char_2_field]},
+                              ec_pem_encode_generated]},
      {sign_verify, [], [rsa_sign_verify, rsa_pss_sign_verify, dsa_sign_verify,
-                        eddsa_sign_verify_24_compat, custom_sign_fun_verify]}
+                        eddsa_sign_verify_24_compat, custom_sign_fun_verify]},
+     {explicit_ec_params,
+      [ec_pem2,
+       gen_ec_param_char_2_field,
+       gen_ec_param_prime_field
+      ]}
     ].
+
+
+-ifdef('EXPLICIT_EC_PARAMS').
+maybe_more() -> [{group, explicit_ec_params}].
+-else.
+maybe_more() -> [].
+-endif.
+
 %%-------------------------------------------------------------------
 init_per_suite(Config) ->
     application:stop(crypto),
@@ -441,7 +459,8 @@ ec_pem(Config) when is_list(Config) ->
     true = check_entry_type(ECPrivKey#'ECPrivateKey'.parameters, 'EcpkParameters'),
     ECPemNoEndNewLines = strip_superfluous_newlines(ECPrivPem),
     ECPemNoEndNewLines = strip_superfluous_newlines(public_key:pem_encode([Entry1, Entry2])).
-    
+
+-ifdef('EXPLICIT_EC_PARAMS').
 ec_pem2() ->
     [{doc, "EC key w/explicit params PEM-file decode/encode"}].
 ec_pem2(Config) when is_list(Config) ->
@@ -460,6 +479,7 @@ ec_pem2(Config) when is_list(Config) ->
     true = check_entry_type(ECPrivKey#'ECPrivateKey'.parameters, 'EcpkParameters'),
     ECPemNoEndNewLines = strip_superfluous_newlines(ECPrivPem),
     ECPemNoEndNewLines = strip_superfluous_newlines(public_key:pem_encode([Entry1, Entry2])).
+-endif.
 
 ec_priv_pkcs8() ->
     [{doc, "EC PKCS8 private key decode/encode"}].
@@ -1400,7 +1420,7 @@ pkix_crl(Config) when is_list(Config) ->
     Datadir = proplists:get_value(data_dir, Config),
     {ok, PemCRL} = file:read_file(filename:join(Datadir, "idp_crl.pem")),
     [{_, CRL, _}] = public_key:pem_decode(PemCRL),
-    
+
     {ok, IDPPemCert} = file:read_file(filename:join(Datadir, "idp_cert.pem")),
     [{_, IDPCert, _}] = public_key:pem_decode(IDPPemCert),
 
@@ -1413,7 +1433,6 @@ pkix_crl(Config) when is_list(Config) ->
 
     {rdnSequence,_} = public_key:pkix_crl_issuer(CRL),
     {rdnSequence,_} = public_key:pkix_crl_issuer(ERLCRL),
-    
     true = public_key:pkix_crl_verify(CRL, SignCert),
     true = public_key:pkix_crl_verify(ERLCRL, OTPSignCert),
 
@@ -1585,6 +1604,7 @@ short_crl_issuer_hash(Config) when is_list(Config) ->
 
     CrlIssuerHash = public_key:short_name_hash(Issuer).
 
+-ifdef('EXPLICIT_EC_PARAMS').
 %%--------------------------------------------------------------------
 gen_ec_param_prime_field() ->
     [{doc, "Generate key with EC prime_field parameters"}].
@@ -1598,18 +1618,24 @@ gen_ec_param_char_2_field() ->
 gen_ec_param_char_2_field(Config) when is_list(Config) ->
     Datadir = proplists:get_value(data_dir, Config),
     do_gen_ec_param(filename:join(Datadir, "ec_key_param1.pem")).
+-endif.
 
 %%--------------------------------------------------------------------
 ocsp_extensions() ->
     [{doc, "Check OCSP extensions"}].
 ocsp_extensions(_Config) ->
     Nonce = <<4,8,66,243,220,236,16,118,51,215>>,
-    ExpectedExtentions =
+    ExpectedExtensions =
         [{'Extension',
           ?'id-pkix-ocsp-nonce',
           asn1_DEFAULT,
-          <<4,8,66,243,220,236,16,118,51,215>>}],
-    ExpectedExtentions = public_key:ocsp_extensions(Nonce).
+          Nonce}],
+    ExpectedExtensions = public_key:ocsp_extensions(Nonce),
+    Encoded = public_key:der_encode('Extensions', ExpectedExtensions),
+    [#'Extension'{extnID=?'id-pkix-ocsp-nonce',
+                  critical=false,
+                  extnValue=Nonce}] = public_key:der_decode('Extensions', Encoded),
+    ok.
 
 pkix_ocsp_validate() ->
     [{doc, "Check OCSP extensions"}].
@@ -1797,20 +1823,22 @@ cert_info([]) ->
 
 
 subject(S) ->
-    string:lowercase(subject(public_key:pkix_normalize_name(S), "unknown")).
+    unicode:characters_to_list(
+      string:lowercase(
+        subject(public_key:pkix_normalize_name(S), "unknown"))).
 
 subject({rdnSequence, Seq}, Def) ->
     subject(Seq, Def);
 subject([[{'AttributeTypeAndValue', ?'id-at-commonName', Name0}]|_], _Def) ->
     case Name0 of
         {printableString, Name} -> Name;
-        {utf8String, Name} -> unicode:characters_to_list(Name);
+        {utf8String, Name} -> Name;
         Name -> Name
     end;
 subject([[{'AttributeTypeAndValue', ?'id-at-organizationName', Name0}]|Rest], _Def) ->
     Name = case Name0 of
                {printableString, Name1} -> Name1;
-               {utf8String, Name1} -> unicode:characters_to_list(Name1);
+               {utf8String, Name1} -> Name1;
                Name1 -> Name1
            end,
     subject(Rest, Name);

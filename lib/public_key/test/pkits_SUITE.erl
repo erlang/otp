@@ -1503,10 +1503,8 @@ run({Chap, Test, Result, CertsBody}, TA) ->
 	    ?error(" ~p ~p~n  Expected ~p got ~p ~n", [Chap, Test, Result, _OK]),
 	    fail
     catch Type:Reason:Stack ->
-            Str1 = lists:flatten(io_lib:format("Crash ~p:~p in ~p~n",[Type,Reason,Stack])),
-	    Str2 = lists:flatten(io_lib:format("   ~p ~p Expected ~p ~n", [Chap, Test, Result])),
-            erlang:display(Str1),
-            erlang:display(Str2),
+            io:format("Crash ~p:~p in ~p~n",[Type,Reason,Stack]),
+	    io:format("   ~p ~p Expected ~p ~n", [Chap, Test, Result]),
             exit(crash)
     end;
 

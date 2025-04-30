@@ -43,9 +43,7 @@ macros described here and in the User's Guide:
 ```
 """.
 
-
--feature(maybe_expr,enable).
--include("public_key.hrl").
+-include("public_key_internal.hrl").
 
 -export([pem_decode/1, pem_encode/1, 
 	 der_decode/2, der_encode/2,
@@ -398,17 +396,18 @@ pem_encode(PemEntries) when is_list(PemEntries) ->
 -spec pem_entry_decode(PemEntry) -> term() when PemEntry :: pem_entry() .
 
 pem_entry_decode({'SubjectPublicKeyInfo', Der, _}) ->
-    {_, {'AlgorithmIdentifier', AlgId, Params}, Key0}
-        = der_decode('SubjectPublicKeyInfo', Der),
+    {_, {'PublicKeyAlgorithm', AlgId, Params0}, Key0} =
+        der_decode('SubjectPublicKeyInfo', Der),
+
     KeyType = pubkey_cert_records:supportedPublicKeyAlgorithms(AlgId),
     case KeyType of
         'RSAPublicKey' ->
             der_decode(KeyType, Key0);
         'DSAPublicKey' ->
-            {params, DssParams} = der_decode('DSAParams', Params),
-            {der_decode(KeyType, Key0), DssParams};
+            {params, Params} = Params0,
+            {der_decode(KeyType, Key0), Params};
         'ECPoint' ->
-            ECCParams = ec_decode_params(AlgId, Params),
+            ECCParams = ec_decode_params(AlgId, Params0),
             {#'ECPoint'{point = Key0}, ECCParams}
     end;
 pem_entry_decode({Asn1Type, Der, not_encrypted}) when is_atom(Asn1Type),
@@ -465,26 +464,23 @@ pem_entry_encode('SubjectPublicKeyInfo', Entity=#'RSAPublicKey'{}) ->
                                                           parameters =?DER_NULL}, KeyDer),
     pem_entry_encode('SubjectPublicKeyInfo', Spki);
 pem_entry_encode('SubjectPublicKeyInfo',
-                 {DsaInt, Params=#'Dss-Parms'{}}) when is_integer(DsaInt) ->
+                 {DsaInt, Params0=#'Dss-Parms'{}}) when is_integer(DsaInt) ->
+    #'Dss-Parms'{p=P, q=Q, g=G} = Params0,
+    Params = #'DSA-Params'{p=P, q=Q, g=G},
     KeyDer = der_encode('DSAPublicKey', DsaInt),
-    ParamDer = der_encode('DSAParams', {params, Params}),
-    Spki = subject_public_key_info(#'AlgorithmIdentifier'{algorithm =?'id-dsa',
-                                                          parameters = ParamDer},
-                                   KeyDer),
+    AlgId = #'SubjectPublicKeyInfo_algorithm'{algorithm=?'id-dsa',
+                                              parameters=Params},
+    Spki = subject_public_key_info(AlgId, KeyDer),
     pem_entry_encode('SubjectPublicKeyInfo', Spki);
 pem_entry_encode('SubjectPublicKeyInfo',
-		 {#'ECPoint'{point = Key}, {namedCurve, ?'id-Ed25519' = ID}}) when is_binary(Key)->
-    Spki = subject_public_key_info(#'AlgorithmIdentifier'{algorithm = ID}, Key),
-    pem_entry_encode('SubjectPublicKeyInfo', Spki);
-pem_entry_encode('SubjectPublicKeyInfo',
-		 {#'ECPoint'{point = Key}, {namedCurve, ?'id-Ed448' = ID}}) when is_binary(Key)->
-    Spki = subject_public_key_info(#'AlgorithmIdentifier'{algorithm = ID}, Key),
+		 {#'ECPoint'{point = Key}, {namedCurve, ID}})
+  when is_binary(Key), ID =:= ?'id-Ed448' orelse ID =:= ?'id-Ed25519' ->
+    Spki = subject_public_key_info(#'PublicKeyAlgorithm'{algorithm = ID}, Key),
     pem_entry_encode('SubjectPublicKeyInfo', Spki);
 pem_entry_encode('SubjectPublicKeyInfo',
 		 {#'ECPoint'{point = Key}, ECParam}) when is_binary(Key)->
-    Params = der_encode('EcpkParameters',ECParam),
-    Spki = subject_public_key_info(#'AlgorithmIdentifier'{algorithm =?'id-ecPublicKey',
-                                                          parameters = Params},
+    Spki = subject_public_key_info(#'PublicKeyAlgorithm'{algorithm =?'id-ecPublicKey',
+                                                         parameters = ECParam},
                                    Key),
     pem_entry_encode('SubjectPublicKeyInfo', Spki);
 pem_entry_encode(Asn1Type, Entity)  when is_atom(Asn1Type) ->
@@ -550,15 +546,70 @@ der_decode(Asn1Type, Der) when (((Asn1Type == 'PrivateKeyInfo')
 	error:{badmatch, {error, _}} = Error ->
             handle_pkcs_frame_error(Asn1Type, Der, Error)
     end;
-
+der_decode('EcpkParameters', Der) ->
+    try
+	{ok, Decoded} = 'PKIXAlgs-2009':decode('ECParameters', Der),
+        pubkey_translation:decode(Decoded)
+    catch
+	error:{badmatch, {error, _}} = Error ->
+	    erlang:error(Error)
+    end;
+der_decode('Dss-Sig-Value', Der) ->
+    try
+	{ok, Decoded} = 'PKIXAlgs-2009':decode('DSA-Sig-Value', Der),
+        pubkey_translation:decode(Decoded)
+    catch
+	error:{badmatch, {error, _}} = Error ->
+	    erlang:error(Error)
+    end;
 der_decode(Asn1Type, Der) when is_atom(Asn1Type), is_binary(Der) ->
-    try 
-	{ok, Decoded} = 'OTP-PUB-KEY':decode(Asn1Type, Der),
-	Decoded
-    catch	    
+    Asn1Module = get_asn1_module(Asn1Type),
+    try
+	{ok, Decoded} = Asn1Module:decode(Asn1Type, Der),
+        pubkey_translation:decode(Decoded)
+    catch
 	error:{badmatch, {error, _}} = Error ->
 	    erlang:error(Error)
     end.
+
+get_asn1_module('BasicOCSPResponse') -> 'OCSP-2024-08';
+get_asn1_module('Nonce') -> 'OCSP-2024-08';
+get_asn1_module('OCSPResponse') -> 'OCSP-2024-08';
+get_asn1_module('ResponseData') -> 'OCSP-2024-08';
+get_asn1_module('Name') -> 'PKIX1Explicit-2009';
+get_asn1_module('Extensions') -> 'OTP-PKIX';
+
+get_asn1_module('AuthorityInfoAccessSyntax') -> 'PKIX1Implicit-2009';
+get_asn1_module('AuthorityKeyIdentifier') -> 'PKIX1Implicit-2009';
+get_asn1_module('BasicConstraints') -> 'PKIX1Implicit-2009';
+get_asn1_module('ExtKeyUsageSyntax') -> 'PKIX1Implicit-2009';
+get_asn1_module('KeyUsage') -> 'PKIX1Implicit-2009';
+get_asn1_module('RSAPublicKey') -> 'PKIXAlgs-2009';
+get_asn1_module('SubjectKeyIdentifier') -> 'CryptographicMessageSyntax-2009';
+
+get_asn1_module('Certificate') -> 'PKIX1Explicit-2009';
+get_asn1_module('CertificateList') -> 'PKIX1Explicit-2009';
+get_asn1_module('CertificationRequest') -> 'PKCS-10';
+get_asn1_module('ContentInfo') -> 'CryptographicMessageSyntax-2009';
+get_asn1_module('CurvePrivateKey') -> 'Safecurves-pkix-18';
+get_asn1_module('DHParameter') -> 'PKCS-3';
+get_asn1_module('ECPrivateKey') -> 'ECPrivateKey';
+get_asn1_module('DSA-Params') -> 'PKIXAlgs-2009';
+get_asn1_module('DSAPrivateKey') -> 'DSS';
+get_asn1_module('DSAPublicKey') -> 'PKIXAlgs-2009';
+get_asn1_module('ECDSA-Sig-Value') -> 'PKIXAlgs-2009';
+get_asn1_module('RSAPrivateKey') -> 'PKCS-1';
+get_asn1_module('RSASSA-PSS-params') -> 'PKIX1-PSS-OAEP-Algorithms-2009';
+get_asn1_module('SubjectPublicKeyInfo') -> 'PKIX1Explicit-2009';
+get_asn1_module('OTPTBSCertificate') -> 'OTP-PKIX';
+get_asn1_module('OTPCertificate') -> 'OTP-PKIX';
+get_asn1_module('CRLDistributionPoints') -> 'PKIX1Implicit-2009';
+get_asn1_module('CRLReason') ->  'PKIX1Implicit-2009';
+get_asn1_module('CRLNumber') ->  'PKIX1Implicit-2009';
+get_asn1_module('FreshestCRL') ->  'PKIX1Implicit-2009';
+get_asn1_module('IssuingDistributionPoint') ->  'PKIX1Implicit-2009';
+get_asn1_module('GeneralNames') -> 'PKIX1Implicit-2009'.
+
 
 handle_pkcs_frame_error('PrivateKeyInfo', Der, _) ->
     try
@@ -571,22 +622,28 @@ handle_pkcs_frame_error('PrivateKeyInfo', Der, _) ->
 handle_pkcs_frame_error(_, _, Error) ->
     erlang:error(Error).
 
-der_priv_key_decode(#'PrivateKeyInfo'{version = v1,
-                                      privateKeyAlgorithm =
-                                          #'PrivateKeyInfo_privateKeyAlgorithm'{algorithm = ?'id-ecPublicKey',
-                                                                                parameters = {asn1_OPENTYPE, Parameters}},
-                                      privateKey = PrivKey}) ->
+%% The type for a DSA private key is not defined in any of our ASN.1 modules.
+%% However, we KNOW that it has the same type as the public key (an INTEGER).
+-define(dsa_private_key_type, 'DSAPublicKey').
+
+%% NOTE: No longer defined in modern ASN.1 specs.
+der_priv_key_decode(#'OneAsymmetricKey'{version = v1,
+                                        privateKeyAlgorithm =
+                                            #'PrivateKeyAlgorithmIdentifier'{algorithm = ?'id-ecPublicKey',
+                                                                             parameters = {asn1_OPENTYPE, Parameters}},
+                                        privateKey = PrivKey}) ->
     EcPrivKey = der_decode('ECPrivateKey', PrivKey),
     EcPrivKey#'ECPrivateKey'{parameters = der_decode('EcpkParameters', Parameters)};
-der_priv_key_decode(#'PrivateKeyInfo'{version = v1,
-                                      privateKeyAlgorithm =#'PrivateKeyInfo_privateKeyAlgorithm'{algorithm = CurveOId},
-                                      privateKey = CurvePrivKey}) when
+der_priv_key_decode(#'OneAsymmetricKey'{version = v1,
+                                        privateKeyAlgorithm =
+                                            #'PrivateKeyAlgorithmIdentifier'{algorithm = CurveOId},
+                                        privateKey = CurvePrivKey}) when
       CurveOId == ?'id-Ed25519'orelse
       CurveOId == ?'id-Ed448' ->
     PrivKey = der_decode('CurvePrivateKey', CurvePrivKey),
     #'ECPrivateKey'{version = 1, parameters = {namedCurve, CurveOId}, privateKey = PrivKey};
 der_priv_key_decode(#'OneAsymmetricKey'{
-                       privateKeyAlgorithm = #'OneAsymmetricKey_privateKeyAlgorithm'{algorithm = CurveOId},
+                       privateKeyAlgorithm = #'PrivateKeyAlgorithmIdentifier'{algorithm = CurveOId},
                        privateKey = CurvePrivKey,
                        attributes = Attr,
                        publicKey = PubKey}) when
@@ -596,36 +653,36 @@ der_priv_key_decode(#'OneAsymmetricKey'{
     #'ECPrivateKey'{version = 2, parameters = {namedCurve, CurveOId}, privateKey = PrivKey,
                     attributes = Attr,
                     publicKey = PubKey};
-der_priv_key_decode(#'PrivateKeyInfo'{version = v1,
-                                      privateKeyAlgorithm =
-                                          #'PrivateKeyInfo_privateKeyAlgorithm'{algorithm = ?'rsaEncryption'},
-                                      privateKey = PrivKey}) ->
+der_priv_key_decode(#'OneAsymmetricKey'{version = v1,
+                                        privateKeyAlgorithm =
+                                            #'PrivateKeyAlgorithmIdentifier'{algorithm = ?'rsaEncryption'},
+                                        privateKey = PrivKey}) ->
     der_decode('RSAPrivateKey', PrivKey);
-der_priv_key_decode(#'PrivateKeyInfo'{version = v1,
-                                      privateKeyAlgorithm =
-                                          #'PrivateKeyInfo_privateKeyAlgorithm'{algorithm = ?'id-RSASSA-PSS',
-                                                                                parameters = {asn1_OPENTYPE, Parameters}},
-                                      privateKey = PrivKey}) ->
+der_priv_key_decode(#'OneAsymmetricKey'{version = v1,
+                                        privateKeyAlgorithm =
+                                            #'PrivateKeyAlgorithmIdentifier'{algorithm = ?'id-RSASSA-PSS',
+                                                                             parameters = {asn1_OPENTYPE, Parameters}},
+                                        privateKey = PrivKey}) ->
     Key = der_decode('RSAPrivateKey', PrivKey),
     Params = der_decode('RSASSA-PSS-params', Parameters),
     {Key, Params};
-der_priv_key_decode(#'PrivateKeyInfo'{version = v1,
-                                      privateKeyAlgorithm =
-                                          #'PrivateKeyInfo_privateKeyAlgorithm'{algorithm = ?'id-RSASSA-PSS',
-                                                                                parameters = asn1_NOVALUE},
-                                      privateKey = PrivKey}) ->
+der_priv_key_decode(#'OneAsymmetricKey'{version = v1,
+                                        privateKeyAlgorithm =
+                                            #'PrivateKeyAlgorithmIdentifier'{algorithm = ?'id-RSASSA-PSS',
+                                                                             parameters = asn1_NOVALUE},
+                                        privateKey = PrivKey}) ->
     Key = der_decode('RSAPrivateKey', PrivKey),
     #'RSASSA-AlgorithmIdentifier'{parameters = Params} = ?'rSASSA-PSS-Default-Identifier',
     {Key, Params};
-der_priv_key_decode(#'PrivateKeyInfo'{version = v1,
-                                      privateKeyAlgorithm =
-                                          #'PrivateKeyInfo_privateKeyAlgorithm'{algorithm = ?'id-dsa',
-                                                                                parameters =
-                                                                                    {asn1_OPENTYPE, Parameters}},
-                                      privateKey = PrivKey}) ->
-    {params, #'Dss-Parms'{p=P, q=Q, g=G}} = der_decode('DSAParams', Parameters),
-    X = der_decode('Prime-p', PrivKey),
-    #'DSAPrivateKey'{p=P, q=Q, g=G, x=X};
+der_priv_key_decode(#'OneAsymmetricKey'{version = v1,
+                                        privateKeyAlgorithm =
+                                            #'PrivateKeyAlgorithmIdentifier'{algorithm = ?'id-dsa',
+                                                                             parameters =
+                                                                                 {asn1_OPENTYPE, Parameters}},
+                                        privateKey = PrivKey}) ->
+    {ok, #'DSA-Params'{p=P, q=Q, g=G}} = 'PKIXAlgs-2009':decode('DSA-Params', Parameters),
+    X = der_decode(?dsa_private_key_type, PrivKey),
+    #'DSAPrivateKey'{version=1, p=P, q=Q, g=G, x=X};
 der_priv_key_decode(PKCS8Key) ->
     PKCS8Key.
 
@@ -638,24 +695,24 @@ der_priv_key_decode(PKCS8Key) ->
                                                Der :: binary() .
 %%--------------------------------------------------------------------
 der_encode('PrivateKeyInfo', #'DSAPrivateKey'{p=P, q=Q, g=G, x=X}) ->
-    Params = der_encode('Dss-Parms', #'Dss-Parms'{p=P, q=Q, g=G}),
-    Alg =  #'PrivateKeyInfo_privateKeyAlgorithm'{algorithm = ?'id-dsa',
-                                                 parameters =
-                                                     {asn1_OPENTYPE, Params}},
-    Key = der_encode('Prime-p', X),
-    der_encode('PrivateKeyInfo',
-               #'PrivateKeyInfo'{version = v1,
-                                 privateKeyAlgorithm = Alg,
-                                 privateKey = Key});
+    Params = der_encode('DSA-Params', #'DSA-Params'{p=P, q=Q, g=G}),
+    Alg =  #'PrivateKeyAlgorithmIdentifier'{algorithm = ?'id-dsa',
+                                            parameters =
+                                                {asn1_OPENTYPE, Params}},
+    Key = der_encode(?dsa_private_key_type, X),
+    der_encode('OneAsymmetricKey',
+               #'OneAsymmetricKey'{version = 0,
+                                   privateKeyAlgorithm = Alg,
+                                   privateKey = Key});
 der_encode('PrivateKeyInfo', #'RSAPrivateKey'{} = PrivKey) ->
     Parms = ?DER_NULL,
-    Alg = #'PrivateKeyInfo_privateKeyAlgorithm'{algorithm = ?'rsaEncryption',
-                                                parameters = {asn1_OPENTYPE, Parms}},
+    Alg = #'PrivateKeyAlgorithmIdentifier'{algorithm = ?'rsaEncryption',
+                                           parameters = {asn1_OPENTYPE, Parms}},
     Key = der_encode('RSAPrivateKey', PrivKey),
-    der_encode('PrivateKeyInfo',
-               #'PrivateKeyInfo'{version = v1,
-                                 privateKeyAlgorithm = Alg,
-                                 privateKey = Key});
+    der_encode('OneAsymmetricKey',
+               #'OneAsymmetricKey'{version = 0,
+                                   privateKeyAlgorithm = Alg,
+                                   privateKey = Key});
 der_encode('PrivateKeyInfo', {#'RSAPrivateKey'{} = PrivKey, Parameters}) ->
     #'RSASSA-AlgorithmIdentifier'{parameters = DefaultParams} = ?'rSASSA-PSS-Default-Identifier',
     Params = case Parameters of
@@ -664,30 +721,30 @@ der_encode('PrivateKeyInfo', {#'RSAPrivateKey'{} = PrivKey, Parameters}) ->
                  _ ->
                      {asn1_OPENTYPE, der_encode('RSASSA-PSS-params', Parameters)}
              end,
-    Alg = #'PrivateKeyInfo_privateKeyAlgorithm'{algorithm = ?'id-RSASSA-PSS',
+    Alg = #'PrivateKeyAlgorithmIdentifier'{algorithm = ?'id-RSASSA-PSS',
                                                 parameters = Params},
     Key = der_encode('RSAPrivateKey', PrivKey),
-    der_encode('PrivateKeyInfo', #'PrivateKeyInfo'{version = v1,
-                                                   privateKeyAlgorithm = Alg,
-                                                   privateKey = Key});
+    der_encode('OneAsymmetricKey', #'OneAsymmetricKey'{version = 0,
+                                                       privateKeyAlgorithm = Alg,
+                                                       privateKey = Key});
 der_encode('PrivateKeyInfo', #'ECPrivateKey'{parameters = {namedCurve, CurveOId},
                                              privateKey = Key}) when
       CurveOId == ?'id-Ed25519' orelse
       CurveOId == ?'id-Ed448' ->
     CurvePrivKey = der_encode('CurvePrivateKey', Key),
-    Alg = #'PrivateKeyInfo_privateKeyAlgorithm'{algorithm = CurveOId},
-    der_encode('PrivateKeyInfo', #'PrivateKeyInfo'{version = v1,
-                                                   privateKeyAlgorithm = Alg,
-                                                   privateKey = CurvePrivKey});
+    Alg = #'PrivateKeyAlgorithmIdentifier'{algorithm = CurveOId},
+    der_encode('OneAsymmetricKey', #'OneAsymmetricKey'{version = 0,
+                                                       privateKeyAlgorithm = Alg,
+                                                       privateKey = CurvePrivKey});
 der_encode('PrivateKeyInfo', #'ECPrivateKey'{parameters = Parameters} = PrivKey) ->
     Params = der_encode('EcpkParameters', Parameters),
-    Alg = #'PrivateKeyInfo_privateKeyAlgorithm'{algorithm = ?'id-ecPublicKey',
+    Alg = #'PrivateKeyAlgorithmIdentifier'{algorithm = ?'id-ecPublicKey',
                                                 parameters = {asn1_OPENTYPE, Params}},
     Key = der_encode('ECPrivateKey', PrivKey#'ECPrivateKey'{parameters = asn1_NOVALUE}),
-    der_encode('PrivateKeyInfo',
-               #'PrivateKeyInfo'{version = v1,
-                                 privateKeyAlgorithm = Alg,
-                                 privateKey = Key});
+    der_encode('OneAsymmetricKey',
+               #'OneAsymmetricKey'{version = 0,
+                                   privateKeyAlgorithm = Alg,
+                                   privateKey = Key});
 der_encode('OneAsymmetricKey', #'ECPrivateKey'{parameters = {namedCurve, CurveOId},
                                                privateKey = Key,
                                                attributes = Attr,
@@ -695,7 +752,7 @@ der_encode('OneAsymmetricKey', #'ECPrivateKey'{parameters = {namedCurve, CurveOI
       CurveOId == ?'id-Ed25519' orelse
       CurveOId == ?'id-Ed448' ->
     CurvePrivKey = der_encode('CurvePrivateKey', Key),
-    Alg = #'OneAsymmetricKey_privateKeyAlgorithm'{algorithm = CurveOId},
+    Alg = #'PrivateKeyAlgorithmIdentifier'{algorithm = CurveOId},
     der_encode('OneAsymmetricKey',
                #'OneAsymmetricKey'{version = 1,
                                    privateKeyAlgorithm = Alg,
@@ -706,7 +763,7 @@ der_encode('OneAsymmetricKey', #'ECPrivateKey'{parameters = {namedCurve, CurveOI
                                                privateKey = Key,
                                                attributes = Attr,
                                                publicKey = PubKey}) ->
-    Alg = #'OneAsymmetricKey_privateKeyAlgorithm'{algorithm = CurveOId},
+    Alg = #'PrivateKeyAlgorithmIdentifier'{algorithm = CurveOId},
     der_encode('OneAsymmetricKey',
                #'OneAsymmetricKey'{version = 1,
                                    privateKeyAlgorithm = Alg,
@@ -723,11 +780,29 @@ der_encode(Asn1Type, Entity) when (Asn1Type == 'PrivateKeyInfo') orelse
 	error:{badmatch, {error, _}} = Error ->
              erlang:error(Error)
      end;
-der_encode(Asn1Type, Entity) when is_atom(Asn1Type) ->
-    try 
-	{ok, Encoded} = 'OTP-PUB-KEY':encode(Asn1Type, Entity),
+der_encode('EcpkParameters', {namedCurve,_}=Entity) ->
+    try
+	{ok, Encoded} = 'PKIXAlgs-2009':encode('ECParameters', Entity),
 	Encoded
-    catch	    
+    catch
+	error:{badmatch, {error, _}} = Error ->
+	    erlang:error(Error)
+    end;
+der_encode('Dss-Sig-Value', Entity) ->
+    try
+	{ok, Encoded} = 'PKIXAlgs-2009':encode('DSA-Sig-Value', Entity),
+	Encoded
+    catch
+	error:{badmatch, {error, _}} = Error ->
+	    erlang:error(Error)
+    end;
+der_encode(Asn1Type, Entity0) when is_atom(Asn1Type) ->
+    Asn1Module = get_asn1_module(Asn1Type),
+    try
+        Entity = pubkey_translation:encode(Entity0),
+	{ok, Encoded} = Asn1Module:encode(Asn1Type, Entity),
+	Encoded
+    catch
 	error:{badmatch, {error, _}} = Error ->
 	    erlang:error(Error)
     end.
@@ -794,10 +869,19 @@ the plain format this function directly calls
 %%--------------------------------------------------------------------
 pkix_encode(Asn1Type, Term, plain) when is_atom(Asn1Type) ->
     der_encode(Asn1Type, Term);
-
-pkix_encode(Asn1Type, Term0, otp) when is_atom(Asn1Type) ->
+pkix_encode(Type, Term0, otp)
+  when Type =:= 'OTPCertificate'; Type =:= 'OTPTBSCertificate';
+       Type =:= 'OTPSubjectPublicKeyInfo' ->
     Term = pubkey_cert_records:transform(Term0, encode),
-    der_encode(Asn1Type, Term).
+    try
+	{ok, Encoded} = 'OTP-PKIX':encode(Type, Term),
+	Encoded
+    catch
+	error:{badmatch, {error, _}} = Error ->
+	    erlang:error(Error)
+    end;
+pkix_encode(Type, Term, otp) ->
+    pkix_encode(Type, Term, plain).
 
 %%--------------------------------------------------------------------
 -doc(#{equiv => decrypt_private(CipherText, Key, []),
@@ -1123,13 +1207,11 @@ pkix_sign_types(?md2WithRSAEncryption) ->
     {md2, rsa};
 pkix_sign_types(?md5WithRSAEncryption) ->
     {md5, rsa};
-pkix_sign_types(?'id-dsa-with-sha1') ->
+pkix_sign_types(?'dsa-with-sha1') ->
     {sha, dsa};
-pkix_sign_types(?'id-dsaWithSHA1') ->
-    {sha, dsa};
-pkix_sign_types(?'id-dsa-with-sha224') ->
+pkix_sign_types(?'dsa-with-sha224') ->
     {sha224, dsa};
-pkix_sign_types(?'id-dsa-with-sha256') ->
+pkix_sign_types(?'dsa-with-sha256') ->
     {sha256, dsa};
 pkix_sign_types(?'ecdsa-with-SHA1') ->
     {sha, ecdsa};
@@ -1261,12 +1343,9 @@ be used as input to `pkix_crls_validate/3`
 %%--------------------------------------------------------------------
 pkix_dist_point(OtpCert) when is_binary(OtpCert) ->
     pkix_dist_point(pkix_decode_cert(OtpCert, otp));
-pkix_dist_point(OtpCert) ->
-    Issuer = public_key:pkix_normalize_name(
-	       pubkey_cert_records:transform(
-		 OtpCert#'OTPCertificate'.tbsCertificate#'OTPTBSCertificate'.issuer, encode)),
-    
-    TBSCert = OtpCert#'OTPCertificate'.tbsCertificate,
+pkix_dist_point(#'OTPCertificate'{tbsCertificate = TBSCert}) ->
+    Issuer = pkix_normalize_name(TBSCert#'OTPTBSCertificate'.issuer),
+
     Extensions = pubkey_cert:extensions_list(TBSCert#'OTPTBSCertificate'.extensions),
     AltNames = case pubkey_cert:select_extension(?'id-ce-issuerAltName', Extensions) of 
 		   undefined ->
@@ -1317,9 +1396,8 @@ pkix_match_dist_point(#'CertificateList'{},
     %% No distribution point name specified - that's considered a match.
     true;
 pkix_match_dist_point(#'CertificateList'{
-			 tbsCertList =
-			     #'TBSCertList'{
-				crlExtensions = Extensions}},
+			 toBeSigned = #'TBSCertList'{
+                                         crlExtensions = Extensions}},
 		      #'DistributionPoint'{
 			 distributionPoint = {fullName, DPs}}) ->
     case pubkey_cert:select_extension(?'id-ce-issuingDistributionPoint', Extensions) of
@@ -1340,13 +1418,13 @@ pkix_match_dist_point(#'CertificateList'{
 -doc "Signs an 'OTPTBSCertificate'. Returns the corresponding DER-encoded certificate.".
 -doc(#{group => <<"Sign/Verify API">>,
        since => <<"OTP R14B">>}).
--spec pkix_sign(Cert, Key) -> Der when Cert :: #'OTPTBSCertificate'{}, 
+-spec pkix_sign(Cert, Key) -> Der when Cert :: #'OTPTBSCertificate'{},
                                        Key :: private_key(),
                                        Der :: der_encoded().
 %%--------------------------------------------------------------------
-pkix_sign(#'OTPTBSCertificate'{signature = 
-				   #'SignatureAlgorithm'{} 
-			       = SigAlg} = TBSCert, Key) ->
+pkix_sign(#'OTPTBSCertificate'{signature =
+				   #'SignatureAlgorithm'{} = SigAlg} = TBSCert, Key) ->
+
     Msg = pkix_encode('OTPTBSCertificate', TBSCert, otp),
     {DigestType, _, Opts} = pubkey_cert:x509_pkix_sign_types(SigAlg),
     Signature = sign(Msg, DigestType, format_pkix_sign_key(Key), Opts),
@@ -1364,7 +1442,7 @@ pkix_sign(#'OTPTBSCertificate'{signature =
                                                Key :: public_key() .
 
 %%--------------------------------------------------------------------
-pkix_verify(DerCert, {Key, #'Dss-Parms'{}} = DSAKey) 
+pkix_verify(DerCert, {Key, #'Dss-Parms'{}} = DSAKey)
   when is_binary(DerCert), is_integer(Key) ->
     {DigestType, PlainText, Signature} = pubkey_cert:verify_data(DerCert),
     verify(PlainText, DigestType, Signature, DSAKey);
@@ -1408,14 +1486,14 @@ pkix_crl_verify(CRL, Cert) when is_binary(CRL) ->
 pkix_crl_verify(CRL, Cert) when is_binary(Cert) ->
     pkix_crl_verify(CRL, pkix_decode_cert(Cert, otp));
 pkix_crl_verify(#'CertificateList'{} = CRL, #'OTPCertificate'{} = Cert) ->
-    TBSCert = Cert#'OTPCertificate'.tbsCertificate, 
+    TBSCert = Cert#'OTPCertificate'.tbsCertificate,
     PublicKeyInfo = TBSCert#'OTPTBSCertificate'.subjectPublicKeyInfo,
     PublicKey = PublicKeyInfo#'OTPSubjectPublicKeyInfo'.subjectPublicKey,
     AlgInfo = PublicKeyInfo#'OTPSubjectPublicKeyInfo'.algorithm,
     PublicKeyParams = AlgInfo#'PublicKeyAlgorithm'.parameters,
-    pubkey_crl:verify_crl_signature(CRL, 
-				    der_encode('CertificateList', CRL), 
-				    PublicKey, PublicKeyParams).
+    pubkey_crl:verify_crl_signature(CRL,
+                                    der_encode('CertificateList', CRL),
+                                    PublicKey, PublicKeyParams).
 
 %%--------------------------------------------------------------------
 -doc "Checks if `IssuerCert` issued `Cert`.".
@@ -1425,17 +1503,17 @@ pkix_crl_verify(#'CertificateList'{} = CRL, #'OTPCertificate'{} = Cert) ->
           boolean() when CertorCRL :: cert() | #'CertificateList'{},
                          IssuerCert :: cert().
 %%--------------------------------------------------------------------
-pkix_is_issuer(Cert, IssuerCert)  when is_binary(Cert) ->
+pkix_is_issuer(Cert, IssuerCert) when is_binary(Cert) ->
     OtpCert = pkix_decode_cert(Cert, otp),
     pkix_is_issuer(OtpCert, IssuerCert);
 pkix_is_issuer(Cert, IssuerCert) when is_binary(IssuerCert) ->
     OtpIssuerCert = pkix_decode_cert(IssuerCert, otp),
     pkix_is_issuer(Cert, OtpIssuerCert);
-pkix_is_issuer(#'OTPCertificate'{tbsCertificate = TBSCert}, 
+pkix_is_issuer(#'OTPCertificate'{tbsCertificate = TBSCert},
 	       #'OTPCertificate'{tbsCertificate = Candidate}) ->
     pubkey_cert:is_issuer(TBSCert#'OTPTBSCertificate'.issuer,
 			  Candidate#'OTPTBSCertificate'.subject);
-pkix_is_issuer(#'CertificateList'{tbsCertList = TBSCRL},
+pkix_is_issuer(#'CertificateList'{toBeSigned = TBSCRL},
 	       #'OTPCertificate'{tbsCertificate = Candidate}) ->
     pubkey_cert:is_issuer(Candidate#'OTPTBSCertificate'.subject,
 			  pubkey_cert_records:transform(TBSCRL#'TBSCertList'.issuer, decode)).
@@ -1509,7 +1587,7 @@ pkix_crl_issuer(CRL) when is_binary(CRL) ->
     pkix_crl_issuer(der_decode('CertificateList', CRL));
 pkix_crl_issuer(#'CertificateList'{} = CRL) ->
     pubkey_cert_records:transform(
-      CRL#'CertificateList'.tbsCertList#'TBSCertList'.issuer, decode).
+      CRL#'CertificateList'.toBeSigned#'TBSCertList'.issuer, decode).
 
 %%--------------------------------------------------------------------
 -doc(#{group => <<"Certificate API">>,
@@ -2262,8 +2340,8 @@ cacerts_clear() ->
 ec_decode_params(AlgId, _) when AlgId == ?'id-Ed25519';
                                 AlgId == ?'id-Ed448' ->
     {namedCurve, AlgId};
-ec_decode_params(_, Params) ->
-    der_decode('EcpkParameters', Params).
+ec_decode_params(_AlgId, {namedCurve,_}=Entity) ->
+    Entity.
 
 default_options([]) ->
     [{rsa_padding, rsa_pkcs1_padding}];
@@ -2342,7 +2420,7 @@ format_verify_key(#'ECPrivateKey'{parameters = Param, publicKey = {_, Point}}) -
 format_verify_key(#'ECPrivateKey'{parameters = Param, publicKey = Point}) ->
     format_verify_key({#'ECPoint'{point = Point}, Param});
 format_verify_key(#'DSAPrivateKey'{y=Y, p=P, q=Q, g=G}) ->
-    format_verify_key({Y, #'Dss-Parms'{p=P, q=Q, g=G}});
+    format_verify_key({Y, #'DSA-Params'{p=P, q=Q, g=G}});
 format_verify_key(_) ->
     badarg.
 
@@ -2590,8 +2668,8 @@ combine(CRL, DeltaCRLs) ->
 	    Delta;
 	[_,_|_] ->
 	    Fun =
-		fun({_, #'CertificateList'{tbsCertList = FirstTBSCRL}} = CRL1,
-		    {_, #'CertificateList'{tbsCertList = SecondTBSCRL}} = CRL2) ->
+		fun({_, #'CertificateList'{toBeSigned = FirstTBSCRL}} = CRL1,
+		    {_, #'CertificateList'{toBeSigned = SecondTBSCRL}} = CRL2) ->
 			Time1 = pubkey_cert:time_str_2_gregorian_sec(
 				  FirstTBSCRL#'TBSCertList'.thisUpdate),
 			Time2 = pubkey_cert:time_str_2_gregorian_sec(
@@ -2666,26 +2744,10 @@ ec_curve_type(x448) ->
 ec_curve_type(_) ->
     ecdh.
 
-format_field(characteristic_two_field = Type, Params0) ->
-    #'Characteristic-two'{
-       m = M,
-       basis = BasisOid,
-       parameters = Params} = der_decode('Characteristic-two', Params0),
-    {Type, M, field_param_decode(BasisOid, Params)};
 format_field(prime_field, Params0) ->
     Prime = der_decode('Prime-p', Params0),
     {prime_field, Prime}.
 
-field_param_decode(?'ppBasis', Params) ->
-    #'Pentanomial'{k1 = K1, k2 = K2, k3 = K3} =
-        der_decode('Pentanomial', Params),
-    {ppbasis, K1, K2, K3};
-field_param_decode(?'tpBasis', Params) ->
-    K = der_decode('Trinomial', Params),
-    {tpbasis, K};
-field_param_decode(?'gnBasis', _) ->
-    onbasis.
-        
 ec_key({PubKey, PrivateKey}, Params) ->
     #'ECPrivateKey'{version = 1,
 		    privateKey = PrivateKey,
@@ -2694,25 +2756,16 @@ ec_key({PubKey, PrivateKey}, Params) ->
 
 encode_name_for_short_hash({rdnSequence, Attributes0}) ->
     Attributes = lists:map(fun normalise_attribute/1, Attributes0),
-    {Encoded, _} = 'OTP-PUB-KEY':'enc_RDNSequence'(Attributes, []),
+    {Encoded, _} = 'OTP-PKIX':enc_HashRDNSequence(Attributes, []),
     Encoded.
 
-%% Normalise attribute for "short hash".  If the attribute value
-%% hasn't been decoded yet, decode it so we can normalise it.
+%% Normalise attribute for "short hash". We can't use the encoding
+%% function for the actual type of the attribute, since some of them
+%% don't allow utf8Strings, which is the required encoding when
+%% creating the hash.
 normalise_attribute([#'AttributeTypeAndValue'{
-                        type = _Type,
-                        value = Binary} = ATV]) when is_binary(Binary) ->
-    case pubkey_cert_records:transform(ATV, decode) of
-	#'AttributeTypeAndValue'{value = Binary} ->
-	    %% Cannot decode attribute; return original.
-	    [ATV];
-	DecodedATV = #'AttributeTypeAndValue'{} ->
-	    %% The new value will either be String or {Encoding,String}.
-	    normalise_attribute([DecodedATV])
-    end;
-normalise_attribute([#'AttributeTypeAndValue'{
-                        type = _Type,
-                        value = {Encoding, String}} = ATV])
+                        type = Type,
+                        value = {Encoding, String}}])
   when
       Encoding =:= utf8String;
       Encoding =:= printableString;
@@ -2721,23 +2774,19 @@ normalise_attribute([#'AttributeTypeAndValue'{
     %% These string types all give us something that the unicode
     %% module understands.
     NewValue = normalise_attribute_value(String),
-    [ATV#'AttributeTypeAndValue'{value = NewValue}];
+    [#'HashSingleAttribute'{type = Type, value = NewValue}];
 normalise_attribute([#'AttributeTypeAndValue'{
-                        type = _Type,
-                        value = String} = ATV]) when is_list(String) ->
+                        type = Type,
+                        value = String}]) when is_list(String) ->
     %% A string returned by pubkey_cert_records:transform/2, for
     %% certain attributes that commonly have incorrect value types.
     NewValue = normalise_attribute_value(String),
-    [ATV#'AttributeTypeAndValue'{value = NewValue}].
+    [#'HashSingleAttribute'{type = Type, value = NewValue}].
 
 normalise_attribute_value(String) ->
     Converted = unicode:characters_to_binary(String),
     NormalisedString = normalise_string(Converted),
-    %% We can't use the encoding function for the actual type of the
-    %% attribute, since some of them don't allow utf8Strings, which is
-    %% the required encoding when creating the hash.
-    {NewBinary, _} = 'OTP-PUB-KEY':'enc_X520CommonName'({utf8String, NormalisedString}, []),
-    NewBinary.
+    unicode:characters_to_list(NormalisedString).
 
 normalise_string(String) ->
     %% Normalise attribute values as required for "short hashes", as
@@ -2900,7 +2949,7 @@ format_details(Details) ->
     Details.
 
 subject_public_key_info(Alg, PubKey) ->
-    #'OTPSubjectPublicKeyInfo'{algorithm = Alg, subjectPublicKey = PubKey}.
+    #'SubjectPublicKeyInfo'{algorithm = Alg, subjectPublicKey = PubKey}.
 
 %%%################################################################
 %%%#

@@ -25,7 +25,7 @@
 -module(pubkey_cert_records).
 -moduledoc false.
 
--include("public_key.hrl").
+-include("public_key_internal.hrl").
 
 -export([decode_cert/1, transform/2, supportedPublicKeyAlgorithms/1,
 	 supportedCurvesTypes/1, namedCurves/1]).
@@ -40,67 +40,134 @@
 %% Description: Recursively decodes a Certificate. 
 %%-------------------------------------------------------------------- 
 decode_cert(DerCert) ->
-    {ok, Cert} = 'OTP-PUB-KEY':decode('OTPCertificate', DerCert),
-    #'OTPCertificate'{tbsCertificate = TBS} = Cert,
-    {ok, Cert#'OTPCertificate'{tbsCertificate = decode_tbs(TBS)}}.
+    {ok, Cert0} = 'OTP-PKIX':decode('OTPCertificate', DerCert),
+    Cert = dec_transform(Cert0),
+    {ok, Cert}.
 
 %%--------------------------------------------------------------------
 -spec transform(term(), encode | decode) ->term().
 %%
 %% Description: Transforms between encoded and decode otp formatted
 %% certificate parts.
-%%-------------------------------------------------------------------- 
+%%
+%% Note that this function operates on raw data that has not gone
+%% through the pubkey_translation module. Thus does the same
+%% backwards compatibility translation done in pubkey_translation.
+%%--------------------------------------------------------------------
 
-transform(#'OTPCertificate'{tbsCertificate = TBS} = Cert, encode) ->
-    Cert#'OTPCertificate'{tbsCertificate=encode_tbs(TBS)};
-transform(#'OTPCertificate'{tbsCertificate = TBS} = Cert, decode) ->
-    Cert#'OTPCertificate'{tbsCertificate=decode_tbs(TBS)};
-transform(#'OTPTBSCertificate'{}= TBS, encode) ->
-    encode_tbs(TBS);
-transform(#'OTPTBSCertificate'{}= TBS, decode) ->
-    decode_tbs(TBS);
-transform(#'AttributeTypeAndValue'{type=Id,value=Value0} = ATAV, Func) ->
-    {ok, Value} =
-        case attribute_type(Id) of
-	    'X520countryName'when Func == decode ->
-		%% Workaround that some certificates break the ASN-1 spec
-		%% and encode countryname as utf8
-		case 'OTP-PUB-KEY':Func('OTP-X520countryname', Value0) of
-		    {ok, {utf8String, Utf8Value}} ->
-			{ok, unicode:characters_to_list(Utf8Value)};
-		    {ok, {printableString, ASCCI}} ->
-			{ok, ASCCI}
-		end;
-	    'EmailAddress' when Func == decode ->
-		%% Workaround that some certificates break the ASN-1 spec
-		%% and encode emailAddress as utf8
-		case 'OTP-PUB-KEY':Func('OTP-emailAddress', Value0) of
-		    {ok, {utf8String, Utf8Value}} ->
-			{ok, unicode:characters_to_list(Utf8Value)};
-		    {ok, {ia5String, Ia5Value}} ->
-			{ok, Ia5Value}
-		end;
-            Type when is_atom(Type) -> 'OTP-PUB-KEY':Func(Type, Value0);
-            _UnknownType            -> {ok, Value0}
-        end,
-    ATAV#'AttributeTypeAndValue'{value=Value};
-transform(AKI = #'AuthorityKeyIdentifier'{authorityCertIssuer=ACI},Func) ->
-    AKI#'AuthorityKeyIdentifier'{authorityCertIssuer=transform(ACI,Func)};
-transform(List = [{directoryName, _}],Func) ->
-    [{directoryName, transform(Value,Func)} || {directoryName, Value} <- List];
-transform({directoryName, Value},Func) ->
-    {directoryName, transform(Value,Func)};
-transform({rdnSequence, SeqList},Func) when is_list(SeqList) ->
-    {rdnSequence, 
-     lists:map(fun(Seq) -> 
-		       lists:map(fun(Element) -> transform(Element,Func) end, Seq)
+transform(Term, encode) -> enc_transform(Term);
+transform(Term, decode) -> dec_transform(Term).
+
+enc_transform(#'OTPCertificate'{tbsCertificate = TBS, signatureAlgorithm=SA} = Cert) ->
+    Cert#'OTPCertificate'{tbsCertificate=enc_transform(TBS),
+                          signatureAlgorithm=enc_transform(SA)};
+enc_transform(#'OTPTBSCertificate'{signature=Signature0,
+                                   issuer=Issuer0,
+                                   subject=Subject0,
+                                   subjectPublicKeyInfo=Spki0,
+                                   extensions=Exts0}=TBS) ->
+    Signature = enc_transform(Signature0),
+    Issuer = enc_transform(Issuer0),
+    Subject = enc_transform(Subject0),
+    Spki = encode_supportedPublicKey(Spki0),
+    Exts = encode_extensions(Exts0),
+    TBS#'OTPTBSCertificate'{signature = Signature,
+                            issuer=Issuer,
+                            subject=Subject,
+                            subjectPublicKeyInfo=Spki,
+                            extensions=Exts};
+enc_transform(#'SignatureAlgorithm'{algorithm=Algo,parameters=Params}) ->
+    #'OTPTBSCertificate_signature'{algorithm=Algo,parameters=enc_transform(Params)};
+enc_transform({params, #'Dss-Parms'{p=P,q=Q,g=G}}) ->
+    {present,#'DSA-Params'{p=P,q=Q,g=G}};
+enc_transform(#'AttributeTypeAndValue'{type=Id, value=Value0}) ->
+    case Id of
+        ?'id-at-countryName' ->
+            #'SingleAttribute'{type=Id, value={correct, Value0}};
+        ?'id-emailAddress' ->
+            #'SingleAttribute'{type=Id, value={correct, Value0}};
+        _ ->
+            #'SingleAttribute'{type=Id,value=Value0}
+    end;
+enc_transform(#'AuthorityKeyIdentifier'{authorityCertIssuer=ACI}=AKI) ->
+    AKI#'AuthorityKeyIdentifier'{authorityCertIssuer=enc_transform(ACI)};
+enc_transform([{directoryName, _}]=List) ->
+    [{directoryName, enc_transform(Value)} || {directoryName, Value} <- List];
+enc_transform({directoryName, Value}) ->
+    {directoryName, enc_transform(Value)};
+enc_transform({rdnSequence, SeqList}) when is_list(SeqList) ->
+    {rdnSequence,
+     lists:map(fun(Seq) ->
+		       lists:map(fun(Element) -> enc_transform(Element) end, Seq)
 	       end, SeqList)};
-transform(#'NameConstraints'{permittedSubtrees=Permitted, excludedSubtrees=Excluded}, Func) ->
-    #'NameConstraints'{permittedSubtrees=transform_sub_tree(Permitted,Func),
-		       excludedSubtrees=transform_sub_tree(Excluded,Func)};
-	  
-transform(Other,_) ->
+enc_transform(#'NameConstraints'{permittedSubtrees=Permitted, excludedSubtrees=Excluded}) ->
+    #'NameConstraints'{permittedSubtrees=enc_transform_sub_tree(Permitted),
+		       excludedSubtrees=enc_transform_sub_tree(Excluded)};
+enc_transform(Other) ->
     Other.
+
+dec_transform(#'OTPCertificate'{tbsCertificate = TBS, signatureAlgorithm=SA}=Cert) ->
+    Cert#'OTPCertificate'{tbsCertificate=dec_transform(TBS),
+                          signatureAlgorithm=dec_transform(SA)};
+dec_transform(#'OTPCertificate_signatureAlgorithm'{algorithm=Algo,parameters=Params}) ->
+    #'SignatureAlgorithm'{algorithm=Algo,parameters=dec_transform(Params)};
+dec_transform(#'OTPTBSCertificate'{signature=Signature0,
+                                   issuer=Issuer0,
+                                   subject=Subject0,
+                                   subjectPublicKeyInfo=Spki0,
+                                   extensions=Exts0}=TBS) ->
+    Signature = dec_transform(Signature0),
+    Issuer  = dec_transform(Issuer0),
+    Subject = dec_transform(Subject0),
+    Spki = decode_supportedPublicKey(Spki0),
+    Exts = decode_extensions(Exts0),
+    TBS#'OTPTBSCertificate'{issuer=Issuer, subject=Subject,
+                            signature=setelement(1, Signature, 'SignatureAlgorithm'),
+			    subjectPublicKeyInfo=Spki,extensions=Exts};
+dec_transform(#'OTPTBSCertificate_signature'{algorithm=Algo,parameters=Params}) ->
+    #'SignatureAlgorithm'{algorithm=Algo,parameters=dec_transform(Params)};
+dec_transform({present,#'DSA-Params'{p=P,q=Q,g=G}}) ->
+    {params, #'Dss-Parms'{p=P,q=Q,g=G}};
+dec_transform({absent,'NULL'}) ->
+    'NULL';
+dec_transform(#'SingleAttribute'{type=Id,value=Value0}) ->
+    case {Id, Value0} of
+        {?'id-at-countryName', {_,String}} ->
+            #'AttributeTypeAndValue'{type=Id, value=String};
+        {?'id-emailAddress', {_,String}} ->
+            #'AttributeTypeAndValue'{type=Id, value=String};
+        {_, _} ->
+            #'AttributeTypeAndValue'{type=Id, value=Value0}
+    end;
+dec_transform(#'AuthorityKeyIdentifier'{authorityCertIssuer=ACI}=AKI) ->
+    AKI#'AuthorityKeyIdentifier'{authorityCertIssuer=dec_transform(ACI)};
+dec_transform([{directoryName, _}]=List) ->
+    [{directoryName, dec_transform(Value)} || {directoryName, Value} <- List];
+dec_transform({directoryName, Value}) ->
+    {directoryName, dec_transform(Value)};
+dec_transform({rdnSequence, SeqList}) when is_list(SeqList) ->
+    {rdnSequence,
+     lists:map(fun(Seq) ->
+		       lists:map(fun(Element) -> dec_transform(Element) end, Seq)
+	       end, SeqList)};
+dec_transform(#'NameConstraints'{permittedSubtrees=Permitted, excludedSubtrees=Excluded}) ->
+    #'NameConstraints'{permittedSubtrees=dec_transform_sub_tree(Permitted),
+		       excludedSubtrees=dec_transform_sub_tree(Excluded)};
+dec_transform(Other) ->
+    Other.
+
+
+enc_transform_sub_tree(asn1_NOVALUE) ->
+    asn1_NOVALUE;
+enc_transform_sub_tree(TreeList) ->
+    [Tree#'GeneralSubtree'{base=enc_transform(Name)} ||
+	#'GeneralSubtree'{base=Name}=Tree <- TreeList].
+
+dec_transform_sub_tree(asn1_NOVALUE) ->
+    asn1_NOVALUE;
+dec_transform_sub_tree(TreeList) ->
+    [Tree#'GeneralSubtree'{base=dec_transform(Name)} ||
+	#'GeneralSubtree'{base=Name}=Tree <- TreeList].
 
 %%--------------------------------------------------------------------
 -spec supportedPublicKeyAlgorithms(Oid::tuple()) -> public_key:asn1_type().
@@ -233,29 +300,40 @@ namedCurves(brainpoolP512t1) -> ?'brainpoolP512t1'.
 
 %%% SubjectPublicKey
 
-decode_supportedPublicKey(#'OTPSubjectPublicKeyInfo'{algorithm= PA =
-							 #'PublicKeyAlgorithm'{algorithm=Algo},
-						     subjectPublicKey = SPK0}) ->
+decode_supportedPublicKey(#'SubjectPublicKeyInfo'{algorithm=PA,
+                                                  subjectPublicKey=SPK0}) ->
+    #'SubjectPublicKeyInfo_algorithm'{algorithm=Algo,parameters=Params0} = PA,
     Type = supportedPublicKeyAlgorithms(Algo),
     SPK = case Type of
-              'ECPoint' -> #'ECPoint'{point = SPK0};
-              _ -> {ok, SPK1} = 'OTP-PUB-KEY':decode(Type, SPK0),
-                   SPK1
+              'ECPoint' ->
+                  #'ECPoint'{point = SPK0};
+              _ ->
+                  public_key:der_decode(Type, SPK0)
           end,
-    #'OTPSubjectPublicKeyInfo'{subjectPublicKey = SPK, algorithm=PA}.
-
-encode_supportedPublicKey(#'OTPSubjectPublicKeyInfo'{algorithm= PA =
-						     #'PublicKeyAlgorithm'{algorithm=Algo},
-						     subjectPublicKey = SPK0}) ->
+    Params = case Params0 of
+                 #'DSA-Params'{p=P,q=Q,g=G} -> {params, #'Dss-Parms'{p=P,q=Q,g=G}};
+                 _ -> Params0
+             end,
+    #'OTPSubjectPublicKeyInfo'{subjectPublicKey = SPK,
+                               algorithm=#'PublicKeyAlgorithm'{algorithm=Algo,
+                                                               parameters=Params}}.
+encode_supportedPublicKey(#'OTPSubjectPublicKeyInfo'{
+                             algorithm =
+                                 #'PublicKeyAlgorithm'{algorithm=Algo,parameters = Params0},
+                             subjectPublicKey = SPK0}) ->
     Type = supportedPublicKeyAlgorithms(Algo),
     SPK = case Type of
               'ECPoint' ->
                   SPK0#'ECPoint'.point;
               _ ->
-                  {ok, SPK1} = 'OTP-PUB-KEY':encode(Type, SPK0),
-                  SPK1
+                  public_key:der_encode(Type, SPK0)
           end,
-    #'OTPSubjectPublicKeyInfo'{subjectPublicKey = SPK, algorithm=PA}.
+    Params = case Params0 of
+                 {params, #'Dss-Parms'{p=P,q=Q,g=G}} -> #'DSA-Params'{p=P,q=Q,g=G};
+                 _ -> Params0
+             end,
+    PA = #'SubjectPublicKeyInfo_algorithm'{algorithm=Algo,parameters=Params},
+    #'SubjectPublicKeyInfo'{subjectPublicKey = SPK, algorithm=PA}.
 
 %%% Extensions
 
@@ -286,77 +364,70 @@ extension_id(?'id-ce-holdInstructionCode') -> 	  'HoldInstructionCode';
 extension_id(?'id-ce-invalidityDate') -> 	  'InvalidityDate';
 extension_id(_) ->
     undefined.
-     
 
 decode_extensions(asn1_NOVALUE) ->
     asn1_NOVALUE;
 
 decode_extensions(Exts) ->
     lists:map(fun(Ext = #'Extension'{extnID=Id, extnValue=Value0}) ->
-		      case extension_id(Id) of
-			  undefined -> Ext;
-			  Type ->
-			      {ok, Value} = 'OTP-PUB-KEY':decode(Type, iolist_to_binary(Value0)),
-			      Ext#'Extension'{extnValue=transform(Value,decode)}
+                      ExtId = extension_id(Id),
+		      case ExtId =/= undefined andalso
+                          'PKIX1Implicit-2009':getdec_CertExtensions(Id)
+                      of
+			  false ->
+                              Ext;
+                          DecodeExt when ExtId =:= 'CertificatePolicies',
+                                         is_function(DecodeExt, 3) ->
+                              %% Might need workaround to gracefully handle long user notices
+                              try
+                                  Value = DecodeExt('ExtnType', iolist_to_binary(Value0), dummy),
+                                  Ext#'Extension'{extnValue=transform(Value,decode)}
+                              catch exit:{_, {error,{asn1,bad_range}}} ->
+                                      decode_otp_cert_polices(Ext, iolist_to_binary(Value0))
+                              end;
+			  DecodeExt when is_function(DecodeExt, 3) ->
+                              %% Undocumented asn1 usage, but
+                              %% currently the only way to decode
+                              %% extensions.
+                              Value = DecodeExt('ExtnType', iolist_to_binary(Value0), dummy),
+                              Ext#'Extension'{extnValue=transform(Value,decode)}
 		      end
 	      end, Exts).
+
+decode_otp_cert_polices(Ext, Value) ->
+    %% RFC 3280 states that certificate users SHOULD gracefully handle
+    %% explicitText with more than 200 characters.
+    {ok, CPs} = 'OTP-PKIX':decode('OTPCertificatePolicies', Value),
+    Ext#'Extension'{extnValue=[translate_cert_polices(CP) || CP <- CPs]}.
+
+translate_cert_polices(#'OTPPolicyInformation'{policyIdentifier = Id, policyQualifiers = Qs0}) ->
+    Qs = [translate_cert_polices(Q) || Q <- Qs0],
+    #'PolicyInformation'{policyIdentifier = Id, policyQualifiers = Qs};
+translate_cert_polices(#'OTPPolicyQualifierInfo'{policyQualifierId = Id, qualifier = Q0}) ->
+    Q = case Q0 of
+            #'OTPUserNotice'{noticeRef = Ref, explicitText = {Type, Text0}} ->
+                Text = string:slice(Text0, 0, 350),
+                #'UserNotice'{noticeRef = Ref, explicitText = {Type, Text}};
+            Other ->
+                Other
+        end,
+    #'PolicyQualifierInfo'{policyQualifierId = Id, qualifier = Q}.
 
 encode_extensions(asn1_NOVALUE) ->
     asn1_NOVALUE;
 
 encode_extensions(Exts) ->
     lists:map(fun(Ext = #'Extension'{extnID=Id, extnValue=Value0}) ->
-		      case extension_id(Id) of
-			  undefined -> Ext;			  
-			  Type ->
-			      Value1 = transform(Value0,encode),
-			      {ok, Value} = 'OTP-PUB-KEY':encode(Type, Value1),
-			      Ext#'Extension'{extnValue=Value}
+		      case extension_id(Id) =/= undefined andalso
+                          'PKIX1Implicit-2009':getenc_CertExtensions(Id)
+                      of
+			  false ->
+                              Ext;
+			  EncodeExt when is_function(EncodeExt, 3) ->
+                              %% Undocumented asn1 usage, but currently the only way
+                              %% to decode extensions.
+			      Value1 = pubkey_translation:encode(Value0),
+                              Value = element(1,EncodeExt('ExtnType', Value1, dummy)),
+			      Ext#'Extension'{extnValue= iolist_to_binary(Value)}
 		      end
 	      end, Exts).
-
-encode_tbs(TBS=#'OTPTBSCertificate'{issuer=Issuer0,
-				    subject=Subject0,
-				    subjectPublicKeyInfo=Spki0,
-				    extensions=Exts0}) ->
-    Issuer  = transform(Issuer0,encode),
-    Subject = transform(Subject0,encode),
-    Spki = encode_supportedPublicKey(Spki0),
-    Exts = encode_extensions(Exts0),
-    TBS#'OTPTBSCertificate'{issuer=Issuer, subject=Subject,
-			    subjectPublicKeyInfo=Spki,extensions=Exts}.
-
-decode_tbs(TBS = #'OTPTBSCertificate'{issuer=Issuer0,
-				      subject=Subject0,
-				      subjectPublicKeyInfo=Spki0,
-				      extensions=Exts0}) -> 
-    Issuer  = transform(Issuer0,decode),
-    Subject = transform(Subject0,decode),
-    Spki = decode_supportedPublicKey(Spki0),
-    Exts = decode_extensions(Exts0),
-    TBS#'OTPTBSCertificate'{issuer=Issuer, subject=Subject,
-			    subjectPublicKeyInfo=Spki,extensions=Exts}.
-
-transform_sub_tree(asn1_NOVALUE,_) -> asn1_NOVALUE;
-transform_sub_tree(TreeList,Func) ->
-    [Tree#'GeneralSubtree'{base=transform(Name,Func)} || 
-	Tree = #'GeneralSubtree'{base=Name} <- TreeList].
-
-attribute_type(?'id-at-name') -> 'X520name';
-attribute_type(?'id-at-surname') -> 'X520name';
-attribute_type(?'id-at-givenName') -> 'X520name';
-attribute_type(?'id-at-initials') -> 'X520name';
-attribute_type(?'id-at-generationQualifier') -> 'X520name';
-attribute_type(?'id-at-commonName') -> 'X520CommonName';
-attribute_type(?'id-at-localityName') -> 'X520LocalityName';
-attribute_type(?'id-at-stateOrProvinceName') -> 'X520StateOrProvinceName';
-attribute_type(?'id-at-organizationName') -> 'X520OrganizationName';
-attribute_type(?'id-at-organizationalUnitName') -> 'X520OrganizationalUnitName';
-attribute_type(?'id-at-title') -> 'X520Title';
-attribute_type(?'id-at-dnQualifier') -> 'X520dnQualifier';
-attribute_type(?'id-at-countryName') -> 'X520countryName';
-attribute_type(?'id-at-serialNumber') -> 'X520SerialNumber';
-attribute_type(?'id-at-pseudonym') -> 'X520Pseudonym';
-attribute_type(?'id-domainComponent') -> 'DomainComponent';
-attribute_type(?'id-emailAddress') -> 'EmailAddress';
-attribute_type(Type) -> Type.

@@ -150,7 +150,10 @@
       printableString  PrintableString(SIZE (1..maxSize)),
       bmpString        BMPString(SIZE (1..maxSize)),
       universalString  UniversalString(SIZE (1..maxSize)),
-      uTF8String       UTF8String(SIZE (1..maxSize))
+      -- Note: The tag was spelled as `uTF8String` in the
+      -- RFC for unknown reason. That breaks backward
+      -- for public_key.
+      utf8String       UTF8String(SIZE (1..maxSize))
   }
 
   X520name ::= DirectoryString {ub-name}
