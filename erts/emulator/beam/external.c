@@ -119,6 +119,11 @@ static void store_in_vec(TTBEncodeContext *ctx, byte *ep, Binary *ohbin, Eterm o
 static Uint32 calc_iovec_fun_size(SysIOVec* iov, Uint32 fun_high_ix, byte* size_p);
 
 void erts_init_external(void) {
+    ERTS_CT_ASSERT(offsetof(ErtsDistExternalFake,data) ==
+                   offsetof(ErtsDistExternal,data));
+    ERTS_CT_ASSERT(offsetof(ErtsDistExternalFake,flags) ==
+                   offsetof(ErtsDistExternal,flags));
+
     erts_init_trap_export(&term_to_binary_trap_export,
 			  am_erts_internal, am_term_to_binary_trap, 1,
 			  &term_to_binary_trap_1);
@@ -1312,7 +1317,8 @@ erts_decode_dist_ext(ErtsHeapFactory* factory,
 
 Eterm erts_decode_ext(ErtsHeapFactory* factory, const byte **ext, Uint32 flags)
 {
-    ErtsDistExternal ede, *edep;
+    ErtsDistExternalFake ede;
+    ErtsDistExternal *edep;
     Eterm obj;
     const byte *ep = *ext;
     if (*ep++ != VERSION_MAGIC) {
@@ -1323,7 +1329,7 @@ Eterm erts_decode_ext(ErtsHeapFactory* factory, const byte **ext, Uint32 flags)
         ASSERT(flags == ERTS_DIST_EXT_BTT_SAFE);
         ede.flags = flags; /* a dummy struct just for the flags */
         ede.data = NULL;
-        edep = &ede;
+        edep = (ErtsDistExternal*) &ede;
     } else {
         edep = NULL;
     }
@@ -2058,10 +2064,10 @@ static BIF_RETTYPE binary_to_term_int(Process* p, Eterm bin, B2TContext *ctx)
         case B2TDecodeTuple:
         case B2TDecodeString:
         case B2TDecodeBinary: {
-	    ErtsDistExternal fakedep;
+	    ErtsDistExternalFake fakedep;
             fakedep.flags = ctx->flags;
             fakedep.data = NULL;
-            dec_term(&fakedep, NULL, NULL, NULL, ctx, 0);
+            dec_term((ErtsDistExternal*)&fakedep, NULL, NULL, NULL, ctx, 0);
             break;
 	}
         case B2TDecodeFail:
