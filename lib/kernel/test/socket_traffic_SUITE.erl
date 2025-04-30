@@ -503,7 +503,7 @@ traffic_send_and_recv_counters_tcp4(_Config) when is_list(_Config) ->
 
 traffic_send_and_recv_counters_tcp6(_Config) when is_list(_Config) ->
     ?TT(?SECS(15)),
-    tc_try(traffic_send_and_recv_counters_tcp6,
+    tc_try(?FUNCTION_NAME,
            fun() -> has_support_ipv6() end,
            fun() ->
                    InitState = #{domain => inet6,
@@ -522,7 +522,7 @@ traffic_send_and_recv_counters_tcp6(_Config) when is_list(_Config) ->
 
 traffic_send_and_recv_counters_tcpL(_Config) when is_list(_Config) ->
     ?TT(?SECS(15)),
-    tc_try(traffic_send_and_recv_counters_tcpL,
+    tc_try(?FUNCTION_NAME,
            fun() -> has_support_unix_domain_socket() end,
            fun() ->
                    InitState = #{domain => local,
@@ -619,7 +619,7 @@ traffic_sendmsg_and_recvmsg_counters_tcp4(_Config) when is_list(_Config) ->
 
 traffic_sendmsg_and_recvmsg_counters_tcp6(_Config) when is_list(_Config) ->
     ?TT(?SECS(15)),
-    tc_try(traffic_sendmsg_and_recvmsg_counters_tcp6,
+    tc_try(?FUNCTION_NAME,
            fun() ->
                    is_not_windows(),
                    has_support_ipv6()
@@ -651,7 +651,7 @@ traffic_sendmsg_and_recvmsg_counters_tcp6(_Config) when is_list(_Config) ->
 
 traffic_sendmsg_and_recvmsg_counters_tcpL(_Config) when is_list(_Config) ->
     ?TT(?SECS(15)),
-    tc_try(traffic_sendmsg_and_recvmsg_counters_tcpL,
+    tc_try(?FUNCTION_NAME,
            fun() -> has_support_unix_domain_socket() end,
            fun() ->
                    InitState = #{domain => local,
