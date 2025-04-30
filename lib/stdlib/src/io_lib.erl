@@ -72,13 +72,17 @@ used for flattening deep lists.
 -compile(nowarn_deprecated_catch).
 
 -export([fwrite/2,fwrite/3,fread/2,fread/3,format/2,format/3]).
+-export([bfwrite/2, bfwrite/3, bformat/2, bformat/3]).
 -export([scan_format/2,unscan_format/1,build_text/1,build_text/2]).
 -export([print/1,print/4,indentation/2]).
 
--export([write/1,write/2,write/3,nl/0,format_prompt/1,format_prompt/2]).
+-export([write/1,write/2,write/3,write/5,bwrite/2]).
+-export([nl/0,format_prompt/1,format_prompt/2]).
 -export([write_binary/3]).
 -export([write_atom/1,write_string/1,write_string/2,write_latin1_string/1,
-         write_latin1_string/2, write_char/1, write_latin1_char/1]).
+         write_latin1_string/2, write_char/1, write_latin1_char/1,
+         bwrite_string/3
+        ]).
 
 -export([write_atom_as_latin1/1, write_string_as_latin1/1,
          write_string_as_latin1/2, write_char_as_latin1/1]).
@@ -100,8 +104,15 @@ used for flattening deep lists.
 
 -export([chars_length/1]).
 
+-export([write_bin/5, write_string_bin/3, write_binary_bin/4]).
+
 -export_type([chars/0, latin1_string/0, continuation/0,
               fread_error/0, fread_item/0, format_spec/0, chars_limit/0]).
+
+-dialyzer([{nowarn_function,
+            [string_bin_escape_unicode/6,
+             string_bin_escape_latin1/6]},
+           no_improper_lists]).
 
 %%----------------------------------------------------------------------
 
@@ -207,6 +218,32 @@ Valid option:
 fwrite(Format, Args, Options) ->
     format(Format, Args, Options).
 
+
+-doc(#{equiv => bfwrite(Format, Data, [])}).
+-doc(#{since => <<"OTP @OTP-19556@">>}).
+-spec bfwrite(Format, Data) -> unicode:unicode_binary() when
+      Format :: io:format(),
+      Data :: [term()].
+
+bfwrite(F, A) ->
+    bformat(F, A, []).
+
+-doc("""
+   Binary variant of `fwrite/3`
+
+   Returns a UTF-8 encoded binary string.
+   """).
+-doc(#{since => <<"OTP @OTP-19556@">>}).
+-spec bfwrite(Format, Data, Options) -> unicode:unicode_binary() when
+      Format :: io:format(),
+      Data :: [term()],
+      Options :: [Option],
+      Option :: {'chars_limit', CharsLimit},
+      CharsLimit :: chars_limit().
+
+bfwrite(F, A, Opts) ->
+    bformat(F, A, Opts).
+
 -doc """
 Tries to read `String` in accordance with the control sequences in `Format`.
 
@@ -234,6 +271,7 @@ _Example:_
 {ok,[15.6,1.73e-5,24.5],[]}
 ```
 """.
+
 -spec fread(Format, String) -> Result when
       Format :: string(),
       String :: string(),
@@ -310,6 +348,38 @@ format(Format, Args) ->
 
 format(Format, Args, Options) ->
     try io_lib_format:fwrite(Format, Args, Options)
+    catch
+        C:R:S ->
+            test_modules_loaded(C, R, S),
+            erlang:error(badarg, [Format, Args])
+    end.
+
+
+-doc(#{equiv => bfwrite(Format, Data, [])}).
+-doc(#{since => <<"OTP @OTP-19556@">>}).
+-spec bformat(Format, Data) -> unicode:unicode_binary() when
+      Format :: io:format(),
+      Data :: [term()].
+
+bformat(Format, Args) ->
+    try io_lib_format:fwrite_bin(Format, Args)
+    catch
+        C:R:S ->
+            test_modules_loaded(C, R, S),
+            erlang:error(badarg, [Format, Args])
+    end.
+
+-doc(#{equiv => bfwrite(Format, Data, Options)}).
+-doc(#{since => <<"OTP @OTP-19556@">>}).
+-spec bformat(Format, Data, Options) -> unicode:unicode_binary() when
+      Format :: io:format(),
+      Data :: [term()],
+      Options :: [Option],
+      Option :: {'chars_limit', CharsLimit},
+      CharsLimit :: chars_limit().
+
+bformat(Format, Args, Options) ->
+    try io_lib_format:fwrite_bin(Format, Args, Options)
     catch
         C:R:S ->
             test_modules_loaded(C, R, S),
@@ -513,7 +583,8 @@ _Example:_
       Options :: [Option],
       Option :: {'chars_limit', CharsLimit}
               | {'depth', Depth}
-              | {'encoding', 'latin1' | 'utf8' | 'unicode'},
+              | {'encoding', 'latin1' | 'utf8' | 'unicode'}
+              | {'maps_order', maps:iterator_order()},
       CharsLimit :: chars_limit(),
       Depth :: depth().
 
@@ -522,6 +593,12 @@ write(Term, Options) when is_list(Options) ->
     Encoding = get_option(encoding, Options, epp:default_encoding()),
     CharsLimit = get_option(chars_limit, Options, -1),
     MapsOrder = get_option(maps_order, Options, undefined),
+    write(Term, Depth, Encoding, MapsOrder, CharsLimit);
+write(Term, Depth) ->
+    write(Term, [{depth, Depth}, {encoding, latin1}]).
+
+-doc false.
+write(Term, Depth, Encoding, MapsOrder, CharsLimit) ->
     if
         Depth =:= 0; CharsLimit =:= 0 ->
             "...";
@@ -532,29 +609,195 @@ write(Term, Options) when is_list(Options) ->
             If = io_lib_pretty:intermediate
                  (Term, Depth, CharsLimit, RecDefFun, Encoding, _Str=false, MapsOrder),
             io_lib_pretty:write(If)
+    end.
+
+-doc """
+Behaves as `write/2` but returns a UTF-8 encoded binary string.
+""".
+-doc(#{since => <<"OTP @OTP-19556@">>}).
+-spec bwrite(Term, Options) -> unicode:unicode_binary() when
+      Term :: term(),
+      Options :: [Option],
+      Option :: {'chars_limit', CharsLimit}
+              | {'depth', Depth}
+              | {'encoding', 'latin1' | 'utf8' | 'unicode'}
+              | {'maps_order', maps:iterator_order()},
+      CharsLimit :: chars_limit(),
+      Depth :: depth().
+
+bwrite(Term, Options) when is_list(Options) ->
+    Depth = get_option(depth, Options, -1),
+    %% InEncoding = How should we display atoms
+    InEncoding = get_option(encoding, Options, epp:default_encoding()),
+    CharsLimit = get_option(chars_limit, Options, -1),
+    MapsOrder = get_option(maps_order, Options, undefined),
+    {S, _Sz} = write_bin(Term, Depth, InEncoding, MapsOrder, CharsLimit),
+    S.
+
+-doc false.
+-spec write_bin(Term, Depth, InEncoding, MapsOrder, CharsLimit) ->
+          {unicode:unicode_binary(), Sz::integer()} when
+      Term :: term(),
+      Depth :: depth(),
+      InEncoding :: 'latin1' | 'utf8' | 'unicode',
+      MapsOrder :: maps:iterator_order() | undefined,
+      CharsLimit :: chars_limit().
+
+write_bin(Term, Depth, InEncoding, MapsOrder, CharsLimit) ->
+    if
+        Depth =:= 0; CharsLimit =:= 0 ->
+            {<<"...">>, 3};
+        is_integer(CharsLimit), CharsLimit < 0, is_integer(Depth) ->
+            write_bin1(Term, Depth, InEncoding, MapsOrder, 0, <<>>);
+        is_integer(CharsLimit), CharsLimit > 0 ->
+            RecDefFun = fun(_, _) -> no end,
+            If = io_lib_pretty:intermediate(Term, Depth, CharsLimit, RecDefFun,
+                                            {InEncoding, utf8}, _Str=false, MapsOrder),
+            {_, Len, _, _} = If,
+            Bin = io_lib_pretty:write(If, {unicode,utf8}),
+            {Bin, Len}
+    end.
+
+write_bin1(_Term, 0, _Enc, _O, Sz, Acc) ->
+    {<<Acc/binary, "...">>, Sz+3};
+write_bin1(Term, _D, _Enc, _O, Sz, Acc) when is_integer(Term) ->
+    Int = integer_to_binary(Term),
+    {<<Acc/binary, Int/binary>>, byte_size(Int) + Sz};
+write_bin1(Term, _D, _Enc, _O, Sz, Acc) when is_float(Term) ->
+    Float = float_to_binary(Term, [short]),
+    {<<Acc/binary, Float/binary>>, byte_size(Float)+Sz};
+write_bin1(Atom, _D, latin1, _O, Sz, Acc) when is_atom(Atom) ->
+    Str = unicode:characters_to_binary(write_atom_as_latin1(Atom)),
+    {<<Acc/binary, Str/binary>>, byte_size(Str)+Sz};
+write_bin1(Atom, _D, _Enc, _O, Sz, Acc) when is_atom(Atom) ->
+    Str = write_atom(Atom),
+    {<<Acc/binary, (unicode:characters_to_binary(Str))/binary>>, length(Str)+Sz};
+write_bin1(Term, _D, _Enc, _O, Sz, Acc) when is_port(Term) ->
+    Str = (list_to_binary(erlang:port_to_list(Term))),
+    {<<Acc/binary, Str/binary>>, byte_size(Str)+Sz};
+write_bin1(Term, _D, _Enc, _O, Sz, Acc) when is_pid(Term) ->
+    Str = (list_to_binary(pid_to_list(Term))),
+    {<<Acc/binary, Str/binary>>, byte_size(Str)+Sz};
+write_bin1(Term, _D, _Enc, _O, Sz, Acc) when is_reference(Term) ->
+    Str = (list_to_binary(erlang:ref_to_list(Term))),
+    {<<Acc/binary, Str/binary>>, byte_size(Str)+Sz};
+write_bin1(<<_/bitstring>>=Term, D, _Enc, _O, Sz, Acc) ->
+    write_binary_bin0(Term, D, Sz, Acc);
+write_bin1([], _D, _Enc, _O, Sz, Acc) ->
+    {<<Acc/binary, "[]">>, Sz+2};
+write_bin1({}, _D, _Enc, _O, Sz, Acc) ->
+    {<<Acc/binary, "{}">>, Sz+2};
+write_bin1(F, _D, _Enc, _O, Sz, Acc) when is_function(F) ->
+    Str = (list_to_binary(erlang:fun_to_list(F))),
+    {<<Acc/binary, Str/binary>>, byte_size(Str) + Sz};
+write_bin1([H|T], D, Enc, O, Sz, Acc) ->
+    if
+	D =:= 1 -> {<<Acc/binary, "[...]">>, Sz+5};
+	true ->
+            {Head, Sz1} = write_bin1(H, D-1, Enc, O, Sz+1, <<Acc/binary, $[>>),
+            write_tail_bin(T, D-1, Enc, O, Sz1, Head)
     end;
-write(Term, Depth) ->
-    write(Term, [{depth, Depth}, {encoding, latin1}]).
+write_bin1(T, D, Enc, O, Sz, Acc) when is_tuple(T) ->
+    if
+	D =:= 1 -> {<<Acc/binary, "{...}">>, Sz+5};
+	true ->
+            {First, Sz1} = write_bin1(element(1, T), D-1, Enc, O, Sz+1, <<Acc/binary, ${>>),
+            write_tuple_bin(T, 2, D-1, Enc, O, Sz1, First)
+    end;
+write_bin1(Term, 1, _Enc, _O, Sz, Acc) when is_map(Term) ->
+    {<<Acc/binary, "#{}">>, Sz+3};
+write_bin1(Map, D, Enc, O, Sz, Acc) when is_map(Map), is_integer(D) ->
+    I = maps:iterator(Map, O),
+    case maps:next(I) of
+        {K, V, NextI} ->
+            D0 = D - 1,
+            {Start,Sz1} = write_map_assoc_bin(K, V, D0, Enc, O, Sz+2, <<Acc/binary, $#, ${>>),
+            write_map_body_bin(NextI, D0, D0, Enc, O, Sz1, Start);
+        none ->
+            {~"#{}", 3}
+    end.
+
+write_tail_bin([], _D, _Enc, _O, Sz, Acc) -> {<<Acc/binary, $]>>, Sz+1};
+write_tail_bin(_, 1, _Enc, _O, Sz, Acc) -> {<<Acc/binary, "|...]">>, Sz+1};
+write_tail_bin([H|T], D, Enc, O, Sz, Acc) ->
+    {Head, Sz1} = write_bin1(H, D-1, Enc, O, Sz+1, <<Acc/binary,$,>>),
+    write_tail_bin(T, D-1, Enc, O, Sz1, Head);
+write_tail_bin(Other, D, Enc, O, Sz, Acc) ->
+    {Tail, Sz1} = write_bin1(Other, D-1, Enc, O, Sz+1, <<Acc/binary, $|>>),
+    {<<Tail/binary, $]>>, Sz1+1}.
+
+write_tuple_bin(T, I, _D, _Enc, _O, Sz, Acc) when I > tuple_size(T) ->
+    {<<Acc/binary, $}>>, Sz+1};
+write_tuple_bin(_, _I, 1, _Enc, _O, Sz, Acc) ->
+    {<<Acc/binary, ",...}">>, Sz+4};
+write_tuple_bin(T, I, D, Enc, O, Sz, Acc) ->
+    {Elem, Sz1} = write_bin1(element(I, T), D-1, Enc, O, Sz+1, <<Acc/binary, $,>>),
+    write_tuple_bin(T, I+1, D-1, Enc, O, Sz1, Elem).
+
+write_map_body_bin(_, 1, _D0, _Enc, _O, Sz, Acc) ->
+    {<<Acc/binary, ",...}">>, Sz+5};
+write_map_body_bin(I, D, D0, Enc, O, Sz, Acc) ->
+    case maps:next(I) of
+        {K, V, NextI} ->
+            {W, Sz1} = write_map_assoc_bin(K, V, D0, Enc, O, Sz+1, <<Acc/binary, $,>>),
+            write_map_body_bin(NextI, D - 1, D0, Enc, O, Sz1, W);
+        none ->
+            {<<Acc/binary, "}">>, Sz+1}
+    end.
+write_map_assoc_bin(K, V, D, Enc, O, Sz, Acc) ->
+    {KBin, Sz1} = write_bin1(K, D, Enc, O, Sz, Acc),
+    write_bin1(V, D, Enc, O, Sz1 + 4, <<KBin/binary, " => ">>).
+
+write_binary_bin0(B, D, Sz, Acc) ->
+    {S, _} = write_binary_bin(B, D, -1, Acc),
+    {S, byte_size(S)+Sz}.
+
+-doc false.
+-spec write_binary_bin(Bin, Depth, T, Acc) -> {unicode:unicode_binary(), binary()} when
+      Bin :: binary(),
+      Depth :: integer(),
+      T :: integer(),
+      Acc :: unicode:unicode_binary().
+
+write_binary_bin(B, D, T, Acc) when is_integer(T) ->
+    write_binary_body_bin(B, D, tsub(T, 4), <<Acc/binary, "<<" >>).
+
+write_binary_body_bin(<<>> = B, _D, _T, Acc) ->
+    {<<Acc/binary, ">>" >>, B};
+write_binary_body_bin(<<_/bitstring>>=B, D, T, Acc) when D =:= 1; T =:= 0->
+    {<<Acc/binary, "...>>">>, B};
+write_binary_body_bin(<<X:8>>, _D, _T, Acc) ->
+    {<<Acc/binary, (integer_to_binary(X))/binary, ">>">>, <<>>};
+write_binary_body_bin(<<X:8,Rest/bitstring>>, D, T, Acc) ->
+    IntBin = integer_to_binary(X),
+    write_binary_body_bin(Rest, D-1, tsub(T, byte_size(IntBin) + 1),
+                          <<Acc/binary, IntBin/binary, $,>>);
+write_binary_body_bin(B, _D, _T, Acc) ->
+    L = bit_size(B),
+    <<X:L>> = B,
+    {<<Acc/binary, (integer_to_binary(X))/binary, $:,
+       (integer_to_binary(L))/binary,">>">>,
+     <<>>}.
+
 
 write1(_Term, 0, _E, _O) -> "...";
 write1(Term, _D, _E, _O) when is_integer(Term) -> integer_to_list(Term);
 write1(Term, _D, _E, _O) when is_float(Term) -> io_lib_format:fwrite_g(Term);
 write1(Atom, _D, latin1, _O) when is_atom(Atom) -> write_atom_as_latin1(Atom);
 write1(Atom, _D, _E, _O) when is_atom(Atom) -> write_atom(Atom);
-write1(Term, _D, _E, _O) when is_port(Term) -> write_port(Term);
+write1(Term, _D, _E, _O) when is_port(Term) -> erlang:port_to_list(Term);
 write1(Term, _D, _E, _O) when is_pid(Term) -> pid_to_list(Term);
-write1(Term, _D, _E, _O) when is_reference(Term) -> write_ref(Term);
+write1(Term, _D, _E, _O) when is_reference(Term) -> erlang:ref_to_list(Term);
 write1(<<_/bitstring>>=Term, D, _E, _O) -> write_binary(Term, D);
 write1([], _D, _E, _O) -> "[]";
 write1({}, _D, _E, _O) -> "{}";
+write1(F, _D, _E, _O) when is_function(F) -> erlang:fun_to_list(F);
 write1([H|T], D, E, O) ->
     if
 	D =:= 1 -> "[...]";
 	true ->
 	    [$[,[write1(H, D-1, E, O)|write_tail(T, D-1, E, O)],$]]
     end;
-write1(F, _D, _E, _O) when is_function(F) ->
-    erlang:fun_to_list(F);
 write1(Term, D, E, O) when is_map(Term) ->
     write_map(Term, D, E, O);
 write1(T, D, E, O) when is_tuple(T) ->
@@ -580,12 +823,6 @@ write_tuple(T, I, _D, _E, _O) when I > tuple_size(T) -> "";
 write_tuple(_, _I, 1, _E, _O) -> [$, | "..."];
 write_tuple(T, I, D, E, O) ->
     [$,,write1(element(I, T), D-1, E, O)|write_tuple(T, I+1, D-1, E, O)].
-
-write_port(Port) ->
-    erlang:port_to_list(Port).
-
-write_ref(Ref) ->
-    erlang:ref_to_list(Ref).
 
 write_map(_, 1, _E, _O) -> "#{}";
 write_map(Map, D, E, O) when is_integer(D) ->
@@ -737,6 +974,105 @@ write_string(S) ->
 
 write_string(S, Q) ->
     [Q|write_string1(unicode_as_unicode, S, Q)].
+
+-doc "Returns the UTF-8 encoded binary `String` surrounded by `Qoute`.".
+-doc(#{since => <<"OTP @OTP-19556@">>}).
+-spec bwrite_string(String, Qoute, InEnc) -> unicode:unicode_binary() when
+      String :: string() | binary(),
+      Qoute  :: integer() | [],
+      InEnc  :: 'unicode' | 'latin1'.  %% In case of binary input
+
+bwrite_string(S, Q, InEnc) ->
+    {Bin, _Sz} = write_string_bin(S, Q, InEnc),
+    Bin.
+
+-doc false.
+-spec write_string_bin(String, Qoute, InEnc) -> {unicode:unicode_binary(), Sz::integer()} when
+      String :: string() | binary(),
+      Qoute  :: integer() | [],
+      InEnc  :: 'unicode' | 'latin1'.  %% In case of binary input
+
+write_string_bin(S, Q, _InEnc) when is_list(S) ->
+    Escaped = write_string(S,Q),
+    Sz = chars_length(Escaped),
+    Bin = unicode:characters_to_binary(Escaped),
+    true = is_binary(Bin),
+    {Bin, Sz};
+write_string_bin(S, Q, latin1) when is_binary(S) ->
+    Escaped = string_bin_escape_latin1(S, S, Q, [], 0, 0),
+    Sz = iolist_size(Escaped) + if Q == [] -> 0; true -> 2 end,
+    Bin = unicode:characters_to_binary([Q,Escaped,Q], latin1, utf8),
+    true = is_binary(Bin),
+    {Bin, Sz};
+write_string_bin(S, Q, unicode) when is_binary(S) ->
+    Escaped = string_bin_escape_unicode(S, S, Q, [], 0, 0),
+    Bin = case Q of
+              [] when is_binary(Escaped) -> Escaped;
+              _ -> unicode:characters_to_binary([Q,Escaped,Q])
+          end,
+    {Bin, string:length(Bin)}.
+
+string_bin_escape_latin1(<<Byte, Rest/binary>>, Orig, Q, Acc, Skip0, Len) ->
+    case needs_escape(Byte, Q) of
+        false ->
+            string_bin_escape_latin1(Rest, Orig, Q, Acc, Skip0, Len+1);
+        Escape when Len =:= 0 ->
+            Skip = Skip0 + Len + 1,
+            string_bin_escape_latin1(Rest, Orig, Q, [Acc | Escape], Skip, 0);
+        Escape ->
+            Skip = Skip0 + Len + 1,
+            Part = binary_part(Orig, Skip0, Len),
+            string_bin_escape_latin1(Rest, Orig, Q, [Acc, Part | Escape], Skip, 0)
+    end;
+string_bin_escape_latin1(_, Orig, _, _Acc, 0, _) ->
+    Orig;
+string_bin_escape_latin1(_, Orig, _, Acc, Skip, Len) ->
+    case Len =:= 0 of
+        true -> Acc;
+        false -> [Acc | binary_part(Orig, Skip, Len)]
+    end.
+
+string_bin_escape_unicode(<<Byte, Rest/binary>>, Orig, Q, Acc, Skip0, Len) when Byte > 127 ->
+    string_bin_escape_unicode(Rest, Orig, Q, Acc, Skip0, Len+1);
+string_bin_escape_unicode(<<Byte, Rest/binary>>, Orig, Q, Acc, Skip0, Len) ->
+    case needs_escape(Byte, Q) of
+        false ->
+            string_bin_escape_unicode(Rest, Orig, Q, Acc, Skip0, Len+1);
+        Escape when Len =:= 0 ->
+            Skip = Skip0 + Len + 1,
+            string_bin_escape_unicode(Rest, Orig, Q, [Acc | Escape], Skip, 0);
+        Escape ->
+            Skip = Skip0 + Len + 1,
+            Part = binary_part(Orig, Skip0, Len),
+            string_bin_escape_unicode(Rest, Orig, Q, [Acc, Part | Escape], Skip, 0)
+    end;
+string_bin_escape_unicode(_, Orig, _, _Acc, 0, _) ->
+    Orig;
+string_bin_escape_unicode(_, Orig, _, Acc, Skip, Len) ->
+    case Len =:= 0 of
+        true -> Acc;
+        false -> [Acc | binary_part(Orig, Skip, Len)]
+    end.
+
+needs_escape(Q, Q)   -> [$\\, Q];
+needs_escape($\\, _) -> [$\\, $\\];
+needs_escape(C, _) when C >= $\s,   C =< $~ ->
+    false;
+needs_escape($\n, _) -> [$\\, $n];
+needs_escape($\r, _) -> [$\\, $r];
+needs_escape($\t, _) -> [$\\, $t];
+needs_escape($\v, _) -> [$\\, $v];
+needs_escape($\b, _) -> [$\\, $b];
+needs_escape($\f, _) -> [$\\, $f];
+needs_escape($\e, _) -> [$\\, $e];
+needs_escape($\d, _) -> [$\\, $d];
+needs_escape(C, _) when C >= $\240, C =< $\377 ->
+    false;
+needs_escape(C, _) when C < $\240 ->
+    C1 = (C bsr 6) + $0,
+    C2 = ((C bsr 3) band 7) + $0,
+    C3 = (C band 7) + $0,
+    [$\\,C1,C2,C3].
 
 %% Backwards compatibility.
 -doc false.
