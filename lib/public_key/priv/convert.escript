@@ -29,34 +29,37 @@ main([InFile,OutFile]) ->
     file:close(In),
     file:close(Out).
 
-write_file(D, {ok,Ms}) ->
+write_file(D, {ok,#{license := Copyright, data := Ms}}) ->
+    io:format(D,'~s~n',[lists:reverse(Copyright)]),
     io:format(D,'-define(dh_default_groups,~n    ~p~n    ).~n',[Ms]).
 
 one_line(Line, Acc) when is_binary(Line) -> 
     one_line(binary_to_list(Line), Acc);
-one_line("#"++_, Acc) ->
-    Acc;
-one_line(Line, Acc) when is_list(Line) -> 
+one_line("#"++ Data, #{license:=License} = Acc) ->
+    Acc#{license => [[ "%%" | Data]|License]};
+one_line(Line, #{data := Data} = Acc) when is_list(Line) ->
     try
-	[_Time,_Type,_Tests,_Tries,Size,G,P] = string:tokens(Line," \r\n"),
-	[{list_to_integer(Size),
-	  {list_to_integer(G), list_to_integer(P,16)}
-	 } | Acc]
+        [_Time,_Type,_Tests,_Tries,Size,G,P] = string:tokens(Line," \r\n"),
+        Acc#{data =>
+                [{list_to_integer(Size),
+                        {list_to_integer(G), list_to_integer(P,16)}
+                        } | Data]}
     catch
 	_:_ -> io:format("*** skip line ~p",[Line]),
 	       Acc
     end.
 
 
-collect_per_size(L) ->
-    lists:foldr(
-      fun({Sz,GP}, [{Sz,GPs}|Acc]) -> [{Sz,[GP|GPs]}|Acc];
-	 ({Sz,GP}, Acc) -> [{Sz,[GP]}|Acc]
-      end, [], lists:sort(L)).
+collect_per_size(#{data := L} = Acc0) ->
+    Acc0#{data =>
+        lists:foldr(
+        fun({Sz,GP}, [{Sz,GPs}|Acc]) -> [{Sz,[GP|GPs]}|Acc];
+                ({Sz,GP}, Acc) -> [{Sz,[GP]}|Acc]
+        end, [], lists:sort(L))}.
 
 
 read_file(D) ->
-    read_file(D, []).
+    read_file(D, #{license => [], data => []}).
 
 read_file(D, Acc) ->
     case io:get_line(D,"") of
