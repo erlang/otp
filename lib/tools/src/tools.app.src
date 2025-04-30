@@ -24,6 +24,7 @@
 	     cprof,
 	     eprof,
 	     fprof,
+	     tprof,
 	     lcnt,
 	     make,
 	     tags,
