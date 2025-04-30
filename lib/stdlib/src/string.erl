@@ -364,7 +364,7 @@ reverse(CD) ->
 
 %% Slice a string and return rest of string
 %% Note: counts grapheme_clusters
--doc(#{equiv => slice(String, Length, infinity)}).
+-doc(#{equiv => slice(String, Start, infinity)}).
 -doc(#{group => <<"Functions">>,since => <<"OTP 20.0">>}).
 -spec slice(String, Start) -> Slice when
       String::unicode:chardata(),
@@ -1146,6 +1146,13 @@ length_1(Str, N) ->
         {error, Err} -> error({badarg, Err})
     end.
 
+length_b(<<CP2, CP3, CP4, CP5, CP6, CP7, CP8, CP9, Rest/binary>>,
+         CP1, N)
+  when CP1 =/= $\r,CP2 =/= $\r,CP3 =/= $\r,CP4 =/= $\r,
+       CP5 =/= $\r,CP6 =/= $\r,CP7 =/= $\r,CP8 =/= $\r,
+       ((CP1 bor CP2 bor CP3 bor CP4 bor CP5 bor CP6 bor CP7 bor CP8 bor CP9)
+            band bnot 127) =:= 0 ->
+    length_b(Rest, CP9, N+8);
 length_b(<<CP2/utf8, Rest/binary>>, CP1, N)
   when ?ASCII_LIST(CP1,CP2) ->
     length_b(Rest, CP2, N+1);
