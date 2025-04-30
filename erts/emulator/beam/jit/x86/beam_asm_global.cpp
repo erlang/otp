@@ -203,6 +203,14 @@ void BeamGlobalAssembler::emit_export_trampoline() {
 
     a.bind(error_handler);
     {
+        Label error;
+
+#ifdef NATIVE_ERLANG_STACK
+        error = labels[raise_exception];
+#else
+        error = a.newLabel();
+#endif
+
         a.lea(ARG2, x86::qword_ptr(RET, offsetof(Export, info.mfa)));
         a.mov(TMP_MEM1q, ARG2);
 
@@ -220,8 +228,17 @@ void BeamGlobalAssembler::emit_export_trampoline() {
 
         a.mov(ARG4, TMP_MEM1q);
         a.test(RET, RET);
-        a.je(labels[raise_exception]);
+        a.je(error);
         a.jmp(emit_setup_dispatchable_call(RET));
+
+#ifndef NATIVE_ERLANG_STACK
+        a.bind(error);
+        {
+            a.push(getCPRef());
+            a.mov(getCPRef(), imm(NIL));
+            a.jmp(labels[raise_exception]);
+        }
+#endif
     }
 }
 
