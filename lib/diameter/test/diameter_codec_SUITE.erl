@@ -166,7 +166,10 @@ run(gen) ->
                                       lists:prefix("diameter_gen_", ?L(M))
                               end,
                               Ms),
-    lists:foreach(fun diameter_codec_test:gen/1, Gs);
+    lists:foreach(fun(G) ->
+                          diameter_codec_test:gen(G, 6733),
+                          diameter_codec_test:gen(G, unknown)
+                  end, Gs);
 
 run(lib) ->
     diameter_codec_test:lib();
