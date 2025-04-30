@@ -8134,7 +8134,7 @@ void esaio_completion_send_completed(ErlNifEnv*       env,
              * that is; size (length) of I/O vector > IOV_MAX.
              * This is *only* possible for *sendv*!
              * sendmsg also has the data in an I/O vector, but is only
-             * supported for DGRAM, where *all* of the I/O vector must
+             * supported for DGRAM, where *all* of the I/O vector *must*
              * fit in one message.
              */
 
@@ -8341,7 +8341,7 @@ void esaio_completion_send_fail(ErlNifEnv*       env,
  *
  *     CompletionInfo:   {CompletionHandle, CompletionStatus}
  *     CompletionHandle: reference()
- *     Result:           ok | {ok, Written} | {error, Reason}
+ *     CompletionStatus: ok | {ok, Written} | {error, Reason}
  *
  * Note that the normal result is 'ok', but if the attempt was to send
  * an I/O vector with length > IOV_MAX, then the vector will be cut
