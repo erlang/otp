@@ -26,6 +26,31 @@
 -define(COOKED_ENDING, <<"Type Ctrl+G, then enter 'i' to interrupt etop.">>).
 -define(RAW_ENDING, <<"Press 'q' to stop etop.">>).
 -define(ATTEMPTS, 10).
+-define(SUPPORTS_MEMORY, try erlang:memory(), true catch error : notsup -> false end).
+-define(EXPECTED_LOAD_1(MEMORY),
+    case MEMORY of
+        true ->
+            [<<"Load:">>, <<"cpu">>, <<"Memory:">>, <<"total">>, <<"binary">>];
+        false ->
+            [<<"Load:">>, <<"cpu">>]
+    end
+).
+-define(EXPECTED_LOAD_2(MEMORY),
+    case MEMORY of
+        true ->
+            [<<"procs">>, <<"processes">>, <<"code">>];
+        false ->
+            [<<"procs">>]
+    end
+).
+-define(EXPECTED_LOAD_3(MEMORY),
+    case MEMORY of
+        true ->
+            [<<"runq">>, <<"atom">>, <<"ets">>];
+        false ->
+            [<<"runq">>]
+    end
+).
 
 %% Test functions
 -export([all/0,
@@ -350,13 +375,13 @@ verify_etop_output(Config, Lines, ShellMode) ->
     verify_node_and_time_line(Node, NodeAndTimeLine),
 
     LoadLine1 = lists:nth(3, Lines),
-    verify_load_line([<<"Load:">>, <<"cpu">>, <<"Memory:">>, <<"total">>, <<"binary">>], LoadLine1),
+    verify_load_line(?EXPECTED_LOAD_1(?SUPPORTS_MEMORY), LoadLine1),
 
     LoadLine2 = lists:nth(4, Lines),
-    verify_load_line([<<"procs">>, <<"processes">>, <<"code">>], LoadLine2),
+    verify_load_line(?EXPECTED_LOAD_2(?SUPPORTS_MEMORY), LoadLine2),
 
     LoadLine3 = lists:nth(5, Lines),
-    verify_load_line([<<"runq">>, <<"atom">>, <<"ets">>], LoadLine3),
+    verify_load_line(?EXPECTED_LOAD_3(?SUPPORTS_MEMORY), LoadLine3),
 
     <<"">> = lists:nth(6, Lines),
 
@@ -431,7 +456,24 @@ verify_load_line(Expected, LoadLine) when length(Expected) == 3 ->
     Expected3 = lists:nth(3, Expected),
     Expected3 = lists:nth(5, SplitLine),
 
-    _ = binary_to_integer(lists:nth(6, SplitLine)).
+    _ = binary_to_integer(lists:nth(6, SplitLine));
+verify_load_line(Expected, LoadLine) when length(Expected) == 2 ->
+    SplitLine = string:lexemes(LoadLine, " "),
+
+    Expected1 = lists:nth(1, Expected),
+    Expected1 = lists:nth(1, SplitLine),
+
+    Expected2 = lists:nth(2, Expected),
+    Expected2 = lists:nth(2, SplitLine),
+
+    _ = binary_to_integer(lists:nth(3, SplitLine));
+verify_load_line(Expected, LoadLine) when length(Expected) == 1 ->
+    SplitLine = string:lexemes(LoadLine, " "),
+
+    Expected1 = lists:nth(1, Expected),
+    Expected1 = lists:nth(1, SplitLine),
+
+    _ = binary_to_integer(lists:nth(2, SplitLine)).
 
 verify_content_lines([]) ->
     ok;
