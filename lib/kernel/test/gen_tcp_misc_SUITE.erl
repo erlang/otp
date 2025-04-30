@@ -8674,7 +8674,7 @@ do_bidirectional_traffic(Config, #{lsock       := LSock,
     ?P("case -> done"),
     Result.
 
-%% The point of this (function) is so that the 'receivers' should
+%% The point of this (function) is to ensure that the 'receivers' should
 %% get a chance to "tell us" what they are up to...
 bt_terminate_receivers(Recvs) ->
     bt_terminate_receivers_nice(Recvs),
@@ -8697,17 +8697,31 @@ exchange(Config, #{lsock    := LSock,
                    ctrl     := Control,
                    active_n := ActiveN}) ->
     %% spin up client
+    ?P("exchange -> spin up client"),
     ClientRcv =
         spawn_link(
           fun () ->
                   erlang:process_flag(trap_exit, true),
                   ?P("exchange:client -> connect"),
-                  {ok, Client} =
-                      ?CONNECT(Config,
-                               Addr,
-                               Port,
-                               [binary,
-                                {ip, Addr}, {packet, 0}, {active, ActiveN}]),
+                  %% Should we have some error handling here?
+                  %% That is, what does it mean if we fail to connect?
+                  %% After all the test case is about bidirectional traffic,
+                  %% connecting and accepting is not what this is about...
+                  %% System congested?
+                  COpts = [binary,
+                           {ip,     Addr},
+                           {packet, 0},
+                           {active, ActiveN}],
+                  Client =
+                      case ?CONNECT(Config, Addr, Port, COpts) of
+                          {ok, CS} ->
+                              CS;
+                          {error, econnreset = Reason} ->
+                              ?P("exchange:client -> "
+                                 "failed connect: ~p => SKIP",
+                                 [Reason]),
+                              exit({skip, Reason})
+                      end,
                   ?P("exchange:client -> connected: ~p"
                      "~n      PeerName: ~p"
                      "~n      SockName: ~p",
@@ -8718,7 +8732,17 @@ exchange(Config, #{lsock    := LSock,
                                  Client, Payload, Control, ActiveN)
           end),
     ?P("exchange -> accept"),
-    {ok, Socket} = gen_tcp:accept(LSock),
+    Socket = case gen_tcp:accept(LSock) of
+                 {ok, AS} ->
+                     AS;
+                 {error, AReason} ->
+                     ?P("exchange -> accept failed: "
+                        "~n     ~p"
+                        "~n   when"
+                        "~n     (listen) Socket Info: ~p",
+                        [AReason, socket:info(LSock)]),
+                     exit({accept, AReason})
+             end,
     ?P("exchange -> accepted: ~p"
        "~n      PeerName: ~p"
        "~n      SockName: ~p",
@@ -8824,9 +8848,8 @@ recv(ClientPid, SenderPid,
                  Total, TotIter, TotAct,
                  Control, ActiveN);
 
-        Other ->
-            ?P("[~w,recv] received unexpected message"
-               "~n      Msg:               ~p"
+        {'EXIT', ClientPid, Reason} ->
+            ?P("[~w,recv] received unexpected exit message from client"
                "~n   when:"
                "~n      Total received:    ~w"
                "~n      Total iterations:  ~w"
@@ -8836,7 +8859,29 @@ recv(ClientPid, SenderPid,
                "~n      SockName:          ~p"
                "~n      Socket Info:       ~p",
                [get(role),
+                Total, TotIter, TotAct,
+                Socket, oki(inet:peername(Socket)), oki(inet:sockname(Socket)),
+                (catch inet:info(Socket))]),
+            (catch gen_tcp:close(Socket)),
+            await_sender_exit(SenderPid),
+            Control ! {error, Socket, Reason};
+
+        Other ->
+            ?P("[~w,recv] received unexpected message"
+               "~n      Msg:               ~p"
+               "~n   when:"
+               "~n      Client Pid:        ~p"
+               "~n      Sender Pid:        ~p"
+               "~n      Total received:    ~w"
+               "~n      Total iterations:  ~w"
+               "~n      Total activations: ~w"
+               "~n      Socket:            ~p"
+               "~n      PeerName:          ~p"
+               "~n      SockName:          ~p"
+               "~n      Socket Info:       ~p",
+               [get(role),
                 Other,
+                ClientPid, SenderPid,
                 Total, TotIter, TotAct,
                 Socket, oki(inet:peername(Socket)), oki(inet:sockname(Socket)),
                 (catch inet:info(Socket))]),
