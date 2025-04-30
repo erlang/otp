@@ -850,6 +850,7 @@ jobs:
   vendor-analysis:
     name: Vendor Dependency Analysis
     runs-on: ubuntu-latest
+    if: github.event_name == 'push'
     needs:
         - sbom
         - pack
@@ -878,8 +879,6 @@ jobs:
       # allows Dependabot to give us alert of the vendor libraries that use semantic versioning
       - name: Upload SBOM to Github Dependency API
         uses: advanced-security/spdx-dependency-submission-action@5530bab9ee4bbe66420ce8280624036c77f89746 # ratchet:advanced-security/spdx-dependency-submission-action@v0.1.1
-
-
 
   ## If this is an "OTP-*" tag that has been pushed we do some release work
   release:
