@@ -847,6 +847,39 @@ jobs:
             fail-on: ${{ github.ref_type == 'tag' && '' || '' }} # 'violations,issues' }}
             sw-version: ${{ env.OTP_SBOM_VERSION }}
 
+  vendor-analysis:
+    name: Vendor Dependency Analysis
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+    needs:
+        - sbom
+        - pack
+    ## Needed to use Github Dependency API
+    permissions:
+      contents: write
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # ratchet:actions/checkout@v4.2.2
+      - uses: ./.github/actions/build-base-image
+        with:
+            BASE_BRANCH: ${{ env.BASE_BRANCH }}
+
+      - name: Download SBoM
+        uses: actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e # ratchet:actions/download-artifact@v4.2.1
+        with:
+            name: ort-results-otp-${{ env.OTP_SBOM_VERSION }}
+
+      - name: Generate Vendor SBOM
+        run: |
+          docker run -v $PWD/:/github -v $HOME:$HOME otp \
+            "/github/.github/scripts/otp-compliance.es sbom vendor \
+              --sbom-file /github/bom.spdx.json"
+
+      # allows Dependabot to give us alert of the vendor libraries that use semantic versioning
+      - name: Upload SBOM to Github Dependency API
+        uses: advanced-security/spdx-dependency-submission-action@5530bab9ee4bbe66420ce8280624036c77f89746 # ratchet:advanced-security/spdx-dependency-submission-action@v0.1.1
+
   ## If this is an "OTP-*" tag that has been pushed we do some release work
   release:
     name: Release Erlang/OTP
