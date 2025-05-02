@@ -22,8 +22,7 @@
              "./erts/emulator/ryu/digit_table.h",
              "./erts/emulator/ryu/ryu.h",
              "./erts/emulator/ryu/LICENSE-Apache2",
-             "./erts/emulator/ryu/LICENSE-Boost"
-            ],
+             "./erts/emulator/ryu/LICENSE-Boost"],
     "supplier": "Person: Ulf Adams",
     "purl": "pkg:github/ulfjack/ryu#ryu",
     "update": "./erts/emulator/ryu/update.sh",

@@ -44,3 +44,6 @@ to use Erlang/OTP and different aspects of working with Erlang/OTP. The guides a
   interoperability between Erlang and C.
 * [Embedded Systems User's Guide](embedded/embedded.md) -
   This section describes the issues that are specific for running Erlang on an embedded system.
+* [VEX Statements](vex/vulnerabilities.md) -
+  This section describes how Erlang/OTP reports OpenVex statements and their meaning
+  towards third parties.

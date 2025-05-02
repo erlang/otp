@@ -1,0 +1,226 @@
+{
+  "otp-26": [
+    {
+      "pkg:github/madler/zlib@04f42ceca40f73e2978b50e93806c2a18c1281fc": "CVE-2023-45853",
+      "status": { "not_affected": "vulnerable_code_not_present",
+                  "apps": ["pkg:otp/erts@14.0"]}
+    },
+    {
+      "pkg:github/openssl/openssl@01d5e2318405362b4de5e670c90d9b40a351d053": "CVE-2023-6129",
+      "status": { "not_affected": "vulnerable_code_not_present",
+                  "apps": ["pkg:otp/erts@14.0", "pkg:otp/erl_interface@5.4"]}
+    },
+    {
+      "pkg:github/openssl/openssl@01d5e2318405362b4de5e670c90d9b40a351d053": "CVE-2023-6237",
+      "status": { "not_affected": "vulnerable_code_not_present",
+                  "apps": ["pkg:otp/erts@14.0", "pkg:otp/erl_interface@5.4"]}
+    },
+    {
+      "pkg:github/openssl/openssl@01d5e2318405362b4de5e670c90d9b40a351d053": "CVE-2024-0727",
+      "status": { "not_affected": "vulnerable_code_not_present",
+                  "apps": ["pkg:otp/erts@14.0", "pkg:otp/erl_interface@5.4"]}
+    },
+    {
+      "pkg:github/openssl/openssl@01d5e2318405362b4de5e670c90d9b40a351d053": "CVE-2024-13176",
+      "status": { "not_affected": "vulnerable_code_not_present",
+                  "apps": ["pkg:otp/erts@14.0", "pkg:otp/erl_interface@5.4"]}
+    },
+    {
+      "pkg:github/openssl/openssl@01d5e2318405362b4de5e670c90d9b40a351d053": "CVE-2024-2511",
+      "status": { "not_affected": "vulnerable_code_not_present",
+                  "apps": ["pkg:otp/erts@14.0", "pkg:otp/erl_interface@5.4"]}
+    },
+    {
+      "pkg:github/openssl/openssl@01d5e2318405362b4de5e670c90d9b40a351d053": "CVE-2024-4603",
+      "status": { "not_affected": "vulnerable_code_not_present",
+                  "apps": ["pkg:otp/erts@14.0", "pkg:otp/erl_interface@5.4"]}
+    },
+    {
+      "pkg:github/openssl/openssl@01d5e2318405362b4de5e670c90d9b40a351d053": "CVE-2024-4741",
+      "status": { "not_affected": "vulnerable_code_not_present",
+                  "apps": ["pkg:otp/erts@14.0", "pkg:otp/erl_interface@5.4"]}
+    },
+    {
+      "pkg:github/openssl/openssl@01d5e2318405362b4de5e670c90d9b40a351d053": "CVE-2024-5535",
+      "status": { "not_affected": "vulnerable_code_not_present",
+                  "apps": ["pkg:otp/erts@14.0", "pkg:otp/erl_interface@5.4"]}
+    },
+    {
+      "pkg:github/openssl/openssl@01d5e2318405362b4de5e670c90d9b40a351d053": "CVE-2024-6119",
+      "status": { "not_affected": "vulnerable_code_not_present",
+                  "apps": ["pkg:otp/erts@14.0", "pkg:otp/erl_interface@5.4"]}
+    },
+    {
+      "pkg:github/openssl/openssl@01d5e2318405362b4de5e670c90d9b40a351d053": "CVE-2024-9143",
+      "status": { "not_affected": "vulnerable_code_not_present",
+                  "apps": ["pkg:otp/erts@14.0", "pkg:otp/erl_interface@5.4"]}
+    },
+    {
+      "pkg:github/openssl/openssl@01d5e2318405362b4de5e670c90d9b40a351d053": "CVE-2025-4575",
+      "status": { "not_affected": "vulnerable_code_not_present",
+                  "apps": ["pkg:otp/erts@14.0", "pkg:otp/erl_interface@5.4"]}
+    },
+    {
+      "pkg:otp/ssh@5.1": "CVE-2023-48795",
+      "status": { "affected": "Mitigation: If strict KEX availability cannot be ensured on both connection sides, affected encryption modes(CHACHA and CBC) can be disabled with standard ssh configuration. This will provide protection against vulnerability, but at a cost of affecting interoperability",
+                  "fixed": ["pkg:otp/ssh@5.1.1"]
+                }
+    },
+    {
+      "pkg:otp/ssh@5.0": "CVE-2025-26618",
+      "status": { "affected": "Update to the next version",
+                  "fixed": ["pkg:otp/ssh@5.1.4.6"]
+                }
+    },
+    {
+      "pkg:otp/ssh@5.1.4.7": "CVE-2025-32433",
+      "status": { "affected": "A temporary workaround involves disabling the SSH server or to prevent access via firewall rules.",
+                  "fixed": ["pkg:otp/ssh@5.1.4.8"]
+                }
+    },
+    {
+      "pkg:otp/ssh@5.1.1": "CVE-2025-46712",
+      "status": { "affected": "Update to the next version",
+                  "fixed": ["pkg:otp/ssh@5.1.4.9"]
+                }
+    },
+    {
+      "pkg:otp/stdlib@5.0": "CVE-2025-4748",
+      "status": { "affected": "Mitigation: Update to pkg:otp/stdlib@5.2.3.4",
+                  "fixed": ["pkg:otp/stdlib@5.2.3.4"]
+                }
+    },
+    {
+      "pkg:otp/ssh@5.0": "CVE-2025-30211",
+      "status": { "affected": "Workaround: set option `parallel_login` to false. Reduce `max_sessions` option.",
+                  "fixed": ["pkg:otp/ssh@5.1.4.7"]
+                }
+    },
+    {
+      "pkg:otp/ssl@11.1": "CVE-2025-53846",
+      "status": { "affected": "Update to ssl@11.1.4.6",
+                  "fixed": ["pkg:otp/ssl@11.1.4.6"]
+                }
+    }
+  ],
+  "otp-27": [
+    {
+      "pkg:github/madler/zlib@04f42ceca40f73e2978b50e93806c2a18c1281fc": "CVE-2023-45853",
+            "status": { "not_affected": "vulnerable_code_not_present",
+                        "apps": ["pkg:otp/erts@15.0"]}
+    },
+    {
+      "pkg:github/openssl/openssl@01d5e2318405362b4de5e670c90d9b40a351d053": "CVE-2023-6129",
+      "status": { "not_affected": "vulnerable_code_not_present",
+                        "apps": ["pkg:otp/erts@15.0", "pkg:otp/erl_interface@5.5.2"]}
+    },
+    {
+      "pkg:github/openssl/openssl@01d5e2318405362b4de5e670c90d9b40a351d053": "CVE-2023-6237",
+      "status": { "not_affected": "vulnerable_code_not_present",
+                        "apps": ["pkg:otp/erts@15.0", "pkg:otp/erl_interface@5.5.2"]}
+    },
+    {
+      "pkg:github/openssl/openssl@01d5e2318405362b4de5e670c90d9b40a351d053": "CVE-2024-0727",
+      "status": { "not_affected": "vulnerable_code_not_present",
+                        "apps": ["pkg:otp/erts@15.0", "pkg:otp/erl_interface@5.5.2"]}
+    },
+    {
+      "pkg:github/openssl/openssl@01d5e2318405362b4de5e670c90d9b40a351d053": "CVE-2024-13176",
+      "status": { "not_affected": "vulnerable_code_not_present",
+                        "apps": ["pkg:otp/erts@15.0", "pkg:otp/erl_interface@5.5.2"]}
+    },
+    {
+      "pkg:github/openssl/openssl@01d5e2318405362b4de5e670c90d9b40a351d053": "CVE-2024-2511",
+      "status": { "not_affected": "vulnerable_code_not_present",
+                        "apps": ["pkg:otp/erts@15.0", "pkg:otp/erl_interface@5.5.2"]}
+    },
+    {
+      "pkg:github/openssl/openssl@01d5e2318405362b4de5e670c90d9b40a351d053": "CVE-2024-4603",
+      "status": { "not_affected": "vulnerable_code_not_present",
+                        "apps": ["pkg:otp/erts@15.0", "pkg:otp/erl_interface@5.5.2"]}
+    },
+    {
+      "pkg:github/openssl/openssl@01d5e2318405362b4de5e670c90d9b40a351d053": "CVE-2024-4741",
+      "status": { "not_affected": "vulnerable_code_not_present",
+                        "apps": ["pkg:otp/erts@15.0", "pkg:otp/erl_interface@5.5.2"]}
+    },
+    {
+      "pkg:github/openssl/openssl@01d5e2318405362b4de5e670c90d9b40a351d053": "CVE-2024-5535",
+      "status": { "not_affected": "vulnerable_code_not_present",
+                        "apps": ["pkg:otp/erts@15.0", "pkg:otp/erl_interface@5.5.2"]}
+    },
+    {
+      "pkg:github/openssl/openssl@01d5e2318405362b4de5e670c90d9b40a351d053": "CVE-2024-6119",
+      "status": { "not_affected": "vulnerable_code_not_present",
+                        "apps": ["pkg:otp/erts@15.0", "pkg:otp/erl_interface@5.5.2"]}
+    },
+    {
+      "pkg:github/openssl/openssl@01d5e2318405362b4de5e670c90d9b40a351d053": "CVE-2024-9143",
+      "status": { "not_affected": "vulnerable_code_not_present",
+                        "apps": ["pkg:otp/erts@15.0", "pkg:otp/erl_interface@5.5.2"]}
+    },
+    {
+      "pkg:github/openssl/openssl@01d5e2318405362b4de5e670c90d9b40a351d053": "CVE-2025-4575",
+      "status": { "not_affected": "vulnerable_code_not_present",
+                        "apps": ["pkg:otp/erts@15.0", "pkg:otp/erl_interface@5.5.2"]}
+    },
+    {
+      "pkg:otp/ssh@5.2": "CVE-2025-26618",
+      "status": { "affected": "Update to the next version",
+                  "fixed": ["pkg:otp/ssh@5.2.7"]
+                }
+    },
+    {
+      "pkg:otp/ssh@5.2.9": "CVE-2025-32433",
+      "status": { "affected": "A temporary workaround involves disabling the SSH server or to prevent access via firewall rules.",
+                  "fixed": ["pkg:otp/ssh@5.2.10"]
+                }
+    },
+    {
+      "pkg:otp/ssh@5.2": "CVE-2025-46712",
+      "status": { "affected": "Update to ssh@5.2.11",
+                  "fixed": ["pkg:otp/ssh@5.2.11"]
+                }
+    },
+    {
+      "pkg:otp/stdlib@6.0": "CVE-2025-4748",
+      "status": { "affected": "Mitigation: Update to pkg:otp/stdlib@6.2.2.1",
+                  "fixed": ["pkg:otp/stdlib@6.2.2.1"]
+                }
+    },
+    {
+      "pkg:otp/ssh@5.2": "CVE-2025-30211",
+      "status": { "affected": "Workaround: set option `parallel_login` to false. Reduce `max_sessions` option.",
+                  "fixed": ["pkg:otp/ssh@5.2.9"]
+                }
+    },
+    {
+      "pkg:otp/ssl@11.2": "CVE-2025-53846",
+      "status": { "affected": "Update to ssl@11.2.5",
+                  "fixed": ["pkg:otp/ssl@11.2.5"]
+                }
+    }
+  ],
+  "otp-28": [
+    {
+      "pkg:github/PCRE2Project/pcre2@2dce7761b1831fd3f82a9c2bd5476259d945da4d": "OSV-2025-300",
+      "status": { "not_affected": "vulnerable_code_not_present",
+                  "apps": ["pkg:otp/erts@16.0"]}
+    },
+    {
+      "pkg:github/madler/zlib@1a8db63788c34a50e39e273d39b7e1033208aea2": "CVE-2023-45853",
+      "status": { "not_affected": "vulnerable_code_not_present" }
+    },
+    {
+      "pkg:otp/stdlib@7.0": "CVE-2025-4748",
+      "status": { "affected": "Mitigation: Update to pkg:otp/stdlib@7.0.1",
+                  "fixed": ["pkg:otp/stdlib@7.0.1"]
+                }
+    },
+    {
+      "pkg:github/openssl/openssl@01d5e2318405362b4de5e670c90d9b40a351d053": "CVE-2025-4575",
+      "status": { "not_affected": "vulnerable_code_not_present",
+                        "apps": ["pkg:otp/erts@16.0", "pkg:otp/erl_interface@5.6"]}
+    }
+  ]
+}
