@@ -426,6 +426,15 @@ jobs:
                 docker run otp "erl ${OPTION} -noshell -s init stop"
             done
 
+  # this is a call to a workflow_call
+  pr-vendor-vulnerability-analysis:
+    name: Vendor Vulnerability Scanning
+    uses: ./.github/workflows/reusable-vendor-vulnerability-scanner.yml
+    with:
+      sarif: false
+      version: ${{ github.event_name == 'pull_request' && github.base_ref || github.ref_name }}
+      # equivalent of ${{ env.BASE_BRANCH }} but reusable-workflows do not allow to pass env.
+
   build:
     name: Build Erlang/OTP
     runs-on: ubuntu-latest
@@ -848,18 +857,17 @@ jobs:
             fail-on: ${{ github.ref_type == 'tag' && '' || 'violations,issues' }}
             sw-version: ${{ env.OTP_SBOM_VERSION }}
 
-  vendor-analysis:
-    name: Vendor Dependency Analysis
+  vendor-dependency-upload:
+    name: Vendor Dependency Upload
     runs-on: ubuntu-latest
-    if: github.event_name == 'push'
     needs:
         - sbom
         - pack
+    if: github.repository == 'erlang/otp'
     ## Needed to use Github Dependency API
     permissions:
       contents: write
       id-token: write
-
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # ratchet:actions/checkout@v4.2.2
       - uses: ./.github/actions/build-base-image
@@ -878,7 +886,9 @@ jobs:
               --sbom-file /github/bom.spdx.json"
 
       # allows Dependabot to give us alert of the vendor libraries that use semantic versioning
+      # it also allows dependencies to be looked up from github dependencies
       - name: Upload SBOM to Github Dependency API
+        if: github.event_name == 'push'
         uses: advanced-security/spdx-dependency-submission-action@5530bab9ee4bbe66420ce8280624036c77f89746 # ratchet:advanced-security/spdx-dependency-submission-action@v0.1.1
 
   ## If this is an "OTP-*" tag that has been pushed we do some release work

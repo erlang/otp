@@ -220,7 +220,19 @@ cli() ->
                                      > .github/scripts/otp-compliance.es sbom vendor --sbom-file otp.spdx.json
                                      """,
                                  arguments => [ sbom_option()],
-                                 handler => fun sbom_vendor/1}
+                                 handler => fun sbom_vendor/1},
+
+                          "osv-scan" =>
+                              #{ help =>
+                                     """
+                                     Performs vulnerability scanning on vendor libraries
+
+                                     Example:
+
+                                     > .github/scripts/otp-compliance.es sbom osv-scan
+                                     """,
+                                 arguments => [ versions_file(), sarif_option() ],
+                                 handler => fun osv_scan/1}
                          }},
              "explore" =>
                  #{  help => """
@@ -319,6 +331,17 @@ sbom_option() ->
       type => binary,
       default => "bom.spdx.json",
       long => "-sbom-file"}.
+
+versions_file() ->
+    #{name => version,
+      type => binary,
+      long => "-version"}.
+
+sarif_option() ->
+    #{name => sarif,
+      type => boolean,
+      default => true,
+      long => "-sarif"}.
 
 ntia_checker() ->
     #{name => ntia_checker,
@@ -1297,6 +1320,270 @@ generate_vendor_purl(Package) ->
             [create_externalRef_purl(Description, <<Purl/binary, "@", Vsn/binary>>)]
     end.
 
+osv_scan(#{version := Version, sarif := Sarif}) ->
+    application:ensure_all_started([ssl, inets]),
+    OSVQuery = vendor_by_version(Version),
+
+    io:format("[OSV] Information sent~n~s~n", [json:format(OSVQuery)]),
+
+    OSV = json:encode(OSVQuery),
+
+    Format = "application/x-www-form-urlencoded",
+    URI = "https://api.osv.dev/v1/querybatch",
+    Content = {URI, [], Format, OSV},
+    Result = httpc:request(post, Content, [], []),
+    Vulns =
+        case Result of
+            {ok,{{_, 200,_}, _Headers, Body}} ->
+                #{~"results" := OSVResults} = json:decode(erlang:list_to_binary(Body)),
+                Vulnerabilities = lists:filter(fun (#{~"vulns" := _Ids}) -> true; (_) -> false end, OSVResults),
+                case Vulnerabilities of
+                    [] ->
+                        [];
+                    _ ->
+                        NameVulnerabilities = lists:zip(osv_names(OSVQuery), OSVResults),
+                        lists:filtermap(fun ({Name, #{~"vulns" := Ids}}) ->
+                                                {true, {Name, [Id || #{~"id" := Id} <- Ids]}};
+                                            (_) ->
+                                                false
+                                        end, NameVulnerabilities)
+                end;
+            {error, Error} ->
+                {error, [URI, Error]}
+        end,
+    Vulns1 = ignore_vex_cves(Vulns),
+    ok = generate_sarif(Sarif, Vulns1),
+    FormattedVulns = format_vulnerabilities(Vulns1),
+    report_vulnerabilities(FormattedVulns).
+
+generate_sarif(false, _Vulns) ->
+    io:format("[SARIF] No sarif file generated~n~n"),
+    ok;
+generate_sarif(true, Vulns) ->
+    SarifFilename = "results.sarif",
+
+    {ok, Cwd} = file:get_cwd(),
+    io:format("[SARIF] Generating Sarif: ~s~n", [Cwd ++ "/" ++ SarifFilename]),
+    io:format("ok~n~n"),
+
+    Sarif = json:format(generate_sarif(Vulns)),
+    file:write_file(SarifFilename, Sarif).
+
+generate_sarif(Vulns) ->
+    #{ ~"version" => ~"2.1.0",
+         ~"$schema" => ~"https://raw.githubusercontent.com/oasis-tcs/sarif-spec/main/sarif-2.1/schema/sarif-schema-2.1.0.json",
+         ~"runs" =>
+             [ #{
+                 ~"tool" =>
+                     #{ ~"driver" =>
+                            #{ ~"informationUri" => ~"https://github.com/erlang/otp/scripts/otp-compliance.es",
+                               ~"name" => ~"otp-compliance",
+                               ~"rules" =>
+                                   [ #{ ~"id" => ~"CVE-OTP-VENDOR",
+                                        ~"name" => ~"CVEInDependency",
+                                        ~"shortDescription" =>
+                                            #{ ~"text" => ~"CVE found in dependency" },
+                                        ~"fullDescription" =>
+                                            #{
+                                              ~"text" => ~"CVE found in OTP runtime dependency"
+                                             }
+                                      }],
+                               ~"version" => ~"1.0"
+                             }
+                      },
+                 ~"results" =>
+                     [ #{
+                         ~"ruleId" => ~"CVE-OTP-VENDOR",
+                         ~"ruleIndex" => 0, % matches rule object that should apply
+                         ~"level" => ~"warning",
+                         ~"message" => #{ ~"text" => error_to_text({Dependency, CVE}) },
+                         ~"locations" =>
+                             [ #{ ~"physicalLocation" =>
+                                      #{ ~"artifactLocation" =>
+                                             #{ ~"uri" => Dependency }}}
+                             ]
+                        } || {Dependency, CVEs} <- Vulns, CVE <- CVEs],
+                 ~"artifacts" =>
+                     [ #{ ~"location" => #{ ~"uri" => Dependency},
+                          ~"length" => -1
+                        } || {Dependency, _} <- Vulns]
+                }]
+       }.
+
+error_to_text({Dependency, Vuln}) ->
+    <<"Dependency ", Dependency/binary, " has ", Vuln/binary>>.
+
+%% TODO: fix by reading VEX files from erlang/vex or repo containing VEX files
+ignore_vex_cves(Vulns) ->
+    lists:foldl(fun ({~"github.com/wxWidgets/wxWidgets", _CVEs}, Acc) ->
+                        %% OTP cannot be vulnerable to wxwidgets because
+                        %% we only take documentation.
+                        Acc;
+                    ({Name, CVEs}, Acc) ->
+                        case maps:get(Name, non_vulnerable_cves(), not_found) of
+                            not_found ->
+                                [{Name, CVEs} | Acc];
+                            NonCVEs ->
+                                case CVEs -- NonCVEs of
+                                    [] ->
+                                        Acc;
+                                    Vs ->
+                                        [{Name, Vs} | Acc]
+                                end
+                        end
+                end, [], Vulns).
+
+non_vulnerable_cves() -> #{}.
+    %% #{ ~"github.com/madler/zlib" => [~"CVE-2023-45853"],
+    %%    ~"github.com/openssl/openssl" =>
+    %%        [~"CVE-2024-12797", ~"CVE-2023-6129", ~"CVE-2023-6237", ~"CVE-2024-0727",
+    %%         ~"CVE-2024-13176", ~"CVE-2024-2511", ~"CVE-2024-4603", ~"CVE-2024-4741",
+    %%         ~"CVE-2024-5535", ~"CVE-2024-6119", ~"CVE-2024-9143"],
+    %%    ~"github.com/PCRE2Project/pcre2" => [~"OSV-2025-300"]}.
+
+
+format_vulnerabilities({error, ErrorContext}) ->
+    {error, ErrorContext};
+format_vulnerabilities(ExistingVulnerabilities) when is_list(ExistingVulnerabilities) ->
+    lists:map(fun ({N, Ids}) ->
+                      io_lib:format("- ~s: ~s~n", [N, lists:join(",", Ids)])
+              end, ExistingVulnerabilities).
+
+report_vulnerabilities([]) ->
+    io:format("[OSV] No vulnerabilities found.~n");
+report_vulnerabilities({error, [URI, Error]}) ->
+    fail("[OSV] POST request to ~p errors: ~p", [URI, Error]);
+report_vulnerabilities(FormatVulns) ->
+    io:format("[OSV] There are existing vulnerabilities:~n~s", [FormatVulns]).
+
+osv_names(#{~"queries" := Packages}) ->
+    lists:map(fun osv_names/1, Packages);
+osv_names(#{~"package" := #{~"name" := Name }}) ->
+    Name.
+
+generate_osv_query(Packages) ->
+    #{~"queries" => lists:foldl(fun generate_osv_query/2, [], Packages)}.
+generate_osv_query(#{~"versionInfo" := Vsn, ~"ecosystem" := Ecosystem, ~"name" := Name}, Acc) ->
+    Package = #{~"package" => #{~"name" => Name, ~"ecosystem" => Ecosystem}, ~"version" => Vsn},
+    [Package | Acc];
+generate_osv_query(#{~"sha" := SHA, ~"downloadLocation" := Location}, Acc) ->
+    case string:prefix(Location, ~"https://") of
+        nomatch ->
+            Acc;
+        URI ->
+            Package = #{~"package" => #{~"name" => URI}, ~"commit" => SHA},
+            [Package | Acc]
+    end;
+generate_osv_query(_, Acc) ->
+    Acc.
+
+%% when we no longer need to maintain maint-27, we can remove
+%% this hard-coded commits and versions.
+vendor_by_version(~"maint-25") ->
+    #{~"queries" =>
+          [#{~"commit"=> ~"21767c654d31d2dccdde4330529775c6c5fd5389",
+             ~"package" => #{~"name"=> ~"github.com/madler/zlib"}},
+
+           #{~"commit"=> ~"23ddf56b00f47d8aa0c82ad225e4b3a92661da7e",
+             ~"package" => #{~"name"=> ~"github.com/asmjit/asmjit"}},
+
+           #{ ~"commit"=> ~"e745bad3b1d05b5b19ec652d68abb37865ffa454",
+              ~"package" => #{~"name"=> ~"github.com/microsoft/STL"}},
+
+           #{~"commit"=> ~"844864ac213bdbf1fb57e6f51c653b3d90af0937",
+             ~"package" => #{~"name"=> ~"github.com/ulfjack/ryu"}},
+
+           #{ ~"commit"=> ~"01d5e2318405362b4de5e670c90d9b40a351d053",
+              ~"package"=> #{~"name"=> ~"github.com/openssl/openssl"}},
+
+           #{ % 8.45, not offial but the official sourceforge is not available
+             ~"commit"=> ~"3934406b50b8c2a4e2fc7362ed8026224ac90828",
+             ~"package"=> #{~"name"=> ~"github.com/nektro/pcre-8.45"}},
+
+           #{~"commit"=> ~"dc585039bbd426829e3433002023a93f9bedd0c2",
+             ~"package"=> #{~"name"=> ~"github.com/wxWidgets/wxWidgets"}},
+
+           #{~"version"=> ~"2.32",
+             ~"package"=> #{~"ecosystem"=> ~"npm",
+                            ~"name"=> ~"tablesorter"}},
+
+           #{~"version"=> ~"3.7.1",
+             ~"package"=> #{~"ecosystem"=> ~"npm",
+                            ~"name"=> ~"jquery"}}
+          ]};
+vendor_by_version(~"maint-26") ->
+    #{~"queries" =>
+          [#{%% v1.2.13
+             ~"commit"=> ~"04f42ceca40f73e2978b50e93806c2a18c1281fc",
+             ~"package"=> #{~"name"=> ~"github.com/madler/zlib"}},
+
+           #{~"commit"=> ~"915186f6c5c2f5a4638e5cb97ccc23d741521a64",
+             ~"package"=> #{~"name"=> ~"github.com/asmjit/asmjit"}},
+
+           #{~"commit"=> ~"e745bad3b1d05b5b19ec652d68abb37865ffa454",
+             ~"package"=> #{~"name"=> ~"github.com/microsoft/STL"}},
+
+           #{~"commit"=> ~"844864ac213bdbf1fb57e6f51c653b3d90af0937",
+             ~"package"=> #{~"name"=> ~"github.com/ulfjack/ryu"}},
+
+           #{% 3.1.4
+             ~"commit"=> ~"01d5e2318405362b4de5e670c90d9b40a351d053",
+             ~"package"=> #{~"name"=> ~"github.com/openssl/openssl"}},
+
+           #{% 8.45, not offial but the official sourceforge is not available
+             ~"commit"=> ~"3934406b50b8c2a4e2fc7362ed8026224ac90828",
+             ~"package"=> #{~"name"=> ~"github.com/nektro/pcre-8.45"}},
+
+           #{~"commit"=> ~"dc585039bbd426829e3433002023a93f9bedd0c2",
+             ~"package"=> #{~"name"=> ~"github.com/wxWidgets/wxWidgets"}},
+
+           #{~"version"=> ~"2.32",
+             ~"package"=> #{~"ecosystem"=> ~"npm",
+                            ~"name"=> ~"tablesorter"}},
+
+           #{~"version"=> ~"3.7.1",
+             ~"package"=> #{~"ecosystem"=> ~"npm",
+                            ~"name"=> ~"jquery"}}
+          ]};
+vendor_by_version(~"maint-27") ->
+    #{~"queries" =>
+          [#{ %% v1.2.13
+             ~"commit"=> ~"04f42ceca40f73e2978b50e93806c2a18c1281fc",
+             ~"package"=> #{~"name"=> ~"github.com/madler/zlib"}},
+
+           #{~"commit"=> ~"a465fe71ab3d0e224b2b4bd0fac69ae68ab9239d",
+             ~"package"=> #{ ~"name"=> ~"github.com/asmjit/asmjit"}},
+
+           #{~"commit"=> ~"e745bad3b1d05b5b19ec652d68abb37865ffa454",
+             ~"package"=> #{~"name"=> ~"github.com/microsoft/STL"}},
+
+           #{~"commit"=> ~"844864ac213bdbf1fb57e6f51c653b3d90af0937",
+             ~"package"=>#{~"name"=> ~"github.com/ulfjack/ryu"}},
+
+           #{  % 3.1.4
+             ~"commit"=> ~"01d5e2318405362b4de5e670c90d9b40a351d053",
+             ~"package"=> #{~"name"=> ~"github.com/openssl/openssl"}},
+
+           #{% 8.45, not offial but the official sourceforge is not available
+             ~"commit"=> ~"3934406b50b8c2a4e2fc7362ed8026224ac90828",
+             ~"package"=> #{ ~"name"=> ~"github.com/nektro/pcre-8.45"}},
+
+           #{~"commit"=> ~"dc585039bbd426829e3433002023a93f9bedd0c2",
+             ~"package"=>#{~"name"=> ~"github.com/wxWidgets/wxWidgets"}},
+
+           #{~"version"=> ~"2.32",
+             ~"package"=> #{~"ecosystem"=> ~"npm",
+                            ~"name"=> ~"tablesorter"}},
+
+           #{~"version"=> ~"3.7.1",
+             ~"package"=> #{~"ecosystem"=> ~"npm",
+                            ~"name"=> ~"jquery"}}
+          ]};
+vendor_by_version(_) ->
+    VendorSrcFiles = find_vendor_src_files("."),
+    Packages = generate_vendor_info_package(VendorSrcFiles),
+    generate_osv_query(Packages).
+
 cleanup_path(<<"./", Path/binary>>) when is_binary(Path) -> Path;
 cleanup_path(Path) when is_binary(Path) -> Path.
 
@@ -1672,7 +1959,7 @@ root_vendor_packages() ->
 minimum_vendor_packages() ->
     %% self-contained
     root_vendor_packages() ++
-        [~"tcl", ~"STL", ~"json-test-suite", ~"openssl", ~"Autoconf", ~"wx", ~"jquery", ~"jquery-tablesorter"].
+        [~"tcl", ~"STL", ~"json-test-suite", ~"openssl", ~"Autoconf", ~"wx", ~"jquery", ~"tablesorter"].
 
 test_copyright_not_empty(#{~"packages" := Packages}) ->
     true = lists:all(fun (#{~"copyrightText" := Copyright}) -> Copyright =/= ~"" end, Packages),
