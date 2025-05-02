@@ -183,6 +183,7 @@ This file may be a list of JSON objects. For simplicity, we document the fields 
     "licenseDeclared": "Zlib",
     "name": "asmjit",
     "versionInfo": "029075b84bf0161a761beb63e6eda519a29020db",
+    "sha": "029075b84bf0161a761beb63e6eda519a29020db",
     "path": "./erts/emulator/asmjit",
     "exclude": ["./erts/emulator/asmjit/vendor.info"],
     "supplier": "Person: Petr Kobalicek",
@@ -202,11 +203,15 @@ Fields summary:
         - If you are unsure about the name of the `SPDX-TOP-LEVEL-PACKAGE`, take a look at the source SBOM to identify packages (under key `packages` in the SBOM).
 - `description`: a brief description of what this vendor library does.
 - `copyrightText`: copyright text associated with the top-level package/library/3pp using [SPDX License Identifiers](https://spdx.org/licenses/).
-- `downloadLocation`: URI of the vendor library to download.
+- `downloadLocation`: URI of the vendor library to download. If using Github, use preferably `https//` rather than `git+https//` or similars.
+   This is because the download location is used for vulnerability scanning in `.github/scripts/otp-compliance.es`.
 - `homepage`: homepage of the vendor library.
 - `licenseDeclared`: license as declared by the vendor, following a [SPDX license identifier](https://spdx.org/licenses/).
 - `name`: name of the library.
 - `versionInfo`: version of the library/project/3pp. In case of no version number being available, write the commit sha.
+- `sha`: sha commit for `versionInfo`, they need to be updated together!
+- `ecosystem`: List of valid ecosystems in [OSV Ecosystems](https://ossf.github.io/osv-schema/#defined-ecosystems)
+  where this value is omitted for C/C++ code (e.g., `asmjit`, `pcre2`, `zlib`, `zstd`, etc), and used in `vendor.json` for `jquery`.
 - `path`: path to the vendor library inside Erlang/OTP. This can point to a folder or a list of files.
   - Folder: any file inside the folder is considered part of the vendor library (e.g., asmjit [vendor.info](../erts/emulator/asmjit/vendor.info)).
   - List of files: only the files listed here are part of a vendor library (e.g., erts-config [vendor.info](../erts/autoconf/vendor.info)).
@@ -225,8 +230,7 @@ and re-run the source SBOM generation steps ([Erlang/OTP source SBOM]).
 ### Add a New Vendor Dependency
 
 Follow the same steps as in [Update SPDX Vendor Packages].
-When running the SBOM generator, make sure to check that the new vendor dependency exists
-in its own package.
+When running the SBOM generator, make sure to check that the new vendor dependency exists in its own package.
 
 The [`renovate.json5`](../renovate.json5) file also needs to be updated
 to make sure that the new vendored dependency gets updated as it should.
