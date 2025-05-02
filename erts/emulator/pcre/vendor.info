@@ -20,6 +20,7 @@
                 "./erts/emulator/pcre/README.pcre_update.md",
                 "./erts/emulator/pcre/pcre.mk"],
     "supplier": "Person: Nicholas Wilson",
+    "sha": "2dce7761b1831fd3f82a9c2bd5476259d945da4d",
     "purl": "pkg:generic/pcre2"
   }
 ]

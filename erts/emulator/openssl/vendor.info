@@ -15,6 +15,7 @@
     "licenseDeclared": "Apache-2.0",
     "name": "openssl",
     "versionInfo": "3.5",
+    "sha": "636dfadc70ce26f2473870570bfd9ec352806b1d",
     "path": "./erts/emulator/openssl",
     "exclude": ["./erts/emulator/openssl/vendor.info",
                 "./erts/emulator/openssl/README",
