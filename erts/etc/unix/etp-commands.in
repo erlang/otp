@@ -1622,6 +1622,7 @@ define etp-sig-int
       end
     end
   end
+  printf " (ErtsMessage*)%p", ($arg1)
 end
 
 
@@ -1669,17 +1670,17 @@ end
 define etp-sigq-flags-int
 # Args: int
 #
-  if ($arg0 & ~((1 << 20)-1))
-    printf "GARBAGE<%x> ", ($arg0 & ~((1 << 19)-1))
+  if ($arg0 & (~((1 << 19)-1) & ~(1 << 31)))
+    printf "GARBAGE<%x> ", ($arg0 & (~((1 << 19)-1) & ~(1 << 31)))
   end
-  if ($arg0 & (1 << 19))
-    printf "prio-msgq-end-mark "
+  if ($arg0 & (1 << 31))
+    printf "debug-msgq-ptrs-unreliable "
   end
   if ($arg0 & (1 << 18))
-    printf "prio-msgq "
+    printf "prio-msgq-end-mark "
   end
   if ($arg0 & (1 << 17))
-    printf "prio-msgq-pending-rm "
+    printf "prio-msgq "
   end
   if ($arg0 & (1 << 16))
     printf "prio-msgq-save "
@@ -1746,6 +1747,19 @@ document etp-sigq-flags
 % etp-sigqs-flags Process*
 %
 % Print the signal queue flags of process
+%---------------------------------------------------------------------------
+end
+
+define etp-signal
+  etp-sig-int ($arg0)->sig_qs.recv_mrk_blk ($arg1)
+  printf "\n"
+end
+
+document etp-signal
+%---------------------------------------------------------------------------
+% etp-sigqs-flags Process* ErtsMessage*
+%
+% Print a signal
 %---------------------------------------------------------------------------
 end
 

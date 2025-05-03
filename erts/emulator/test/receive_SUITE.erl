@@ -31,8 +31,8 @@
 	 call_with_huge_message_queue/1,receive_in_between/1,
          receive_opt_exception/1,receive_opt_recursion/1,
          receive_opt_deferred_save/1,
-         erl_1199/1, multi_recv_opt/1,
-         multi_recv_opt_clear/1,
+         erl_1199/1, multi_recv_opt/1, multi_recv_opt_cla/1,
+         multi_recv_opt_clear/1, multi_recv_opt_clear_cla/1,
          gh_5235_missing_save_reset/1,
          gh_5235_recv_mark/1,
          recv_marker_reserve/1,
@@ -78,7 +78,9 @@ common_test_cases() ->
      receive_opt_recursion,
      receive_opt_deferred_save,
      multi_recv_opt,
+     multi_recv_opt_cla,
      multi_recv_opt_clear,
+     multi_recv_opt_clear_cla,
      gh_5235_missing_save_reset,
      gh_5235_recv_mark
     ].
@@ -479,7 +481,24 @@ erl_1199_flush_blipp() ->
     end.
 
 multi_recv_opt(Config) when is_list(Config) ->
-    Ctx = case proplists:get_value(test_group, Config) of
+    TGroup = proplists:get_value(test_group, Config),
+    multi_recv_opt_test(TGroup, false).
+
+multi_recv_opt_cla(Config) when is_list(Config) ->
+    %% Also interrupt the operation by 'copy literal area' requests that will
+    %% insert yield markers into the message queue. We don't bother about the
+    %% timing, we just want to see that the signal implementation can handle it.
+    %%
+    %% We run this on a separate node since we'll flood the system with CLA
+    %% requests that we cannot abort and we don't want to affect other tests.
+    TGroup = proplists:get_value(test_group, Config),
+    {ok, Peer, Node} = ?CT_PEER(),
+    ok = erpc:call(Node, fun () -> multi_recv_opt_test(TGroup, true) end),
+    peer:stop(Peer),
+    ok.
+
+multi_recv_opt_test(TGroup, CLA) ->
+    Ctx = case TGroup of
               default -> make_def_context();
               priority -> make_prio_context()
           end,
@@ -491,16 +510,38 @@ multi_recv_opt(Config) when is_list(Config) ->
     io:format("Time with empty message queue: ~p microsecond~n",
 	      [erlang:convert_time_unit(EmptyTime, native, microsecond)]),
     _ = [self() ! {msg,N} || N <- lists:seq(1, HugeMsgQ)],
+
+    CLAP = case CLA of
+               false ->
+                   undefined;
+               true ->
+                   erlang:system_flag(outstanding_system_requests_limit,
+                                      1000000),
+                   spawn_link(fun CLAF () ->
+                                      Time = erlang:monotonic_time(),
+                                      persistent_term:put({?MODULE, key},
+                                                          {value, Time}),
+                                      CLAF()
+                              end)
+           end,
+
     HugeTime = time_multi_call(Ctx, Srv, fun multi_call/2),
     io:format("Time with huge message queue: ~p microsecond~n",
 	      [erlang:convert_time_unit(HugeTime, native, microsecond)]),
     Q = HugeTime / EmptyTime,
     HugeMsgQ = flush_msgq(),
-    case Q > 10 of
-	true ->
-	    ct:fail({ratio, Q});
-	false ->
-	    {comment, "Ratio: "++erlang:float_to_list(Q)}
+    if CLAP == undefined ->
+            case Q > 10 of
+                true ->
+                    ct:fail({ratio, Q});
+                false ->
+                    {comment, "Ratio: "++erlang:float_to_list(Q)}
+            end;
+       true ->
+            unlink(CLAP),
+            exit(CLAP, kill),
+            false = is_process_alive(CLAP),
+            ok
     end.
     
 multi_echoer() ->
@@ -561,7 +602,24 @@ multi_receive(Mref, Msg, N) ->
     multi_receive(Mref, Msg, N-1).
 
 multi_recv_opt_clear(Config) when is_list(Config) ->
-    Ctx = case proplists:get_value(test_group, Config) of
+    TGroup = proplists:get_value(test_group, Config),
+    multi_recv_opt_clear_test(TGroup, false).
+
+multi_recv_opt_clear_cla(Config) when is_list(Config) ->
+    %% Also interrupt the operation by 'copy literal area' requests that will
+    %% insert yield markers into the message queue. We don't bother about the
+    %% timing, we just want to see that the signal implementation can handle it.
+    %%
+    %% We run this on a separate node since we'll flood the system with CLA
+    %% requests that we cannot abort and we don't want to affect other tests.
+    TGroup = proplists:get_value(test_group, Config),
+    {ok, Peer, Node} = ?CT_PEER(),
+    ok = erpc:call(Node, fun () -> multi_recv_opt_clear_test(TGroup, true) end),
+    peer:stop(Peer),
+    ok.
+
+multi_recv_opt_clear_test(TGroup, CLA) ->
+    Ctx = case TGroup of
               default -> make_def_context();
               priority -> make_prio_context()
           end,
@@ -583,16 +641,38 @@ multi_recv_opt_clear(Config) when is_list(Config) ->
     io:format("Time with empty message queue: ~p microsecond~n",
 	      [erlang:convert_time_unit(EmptyTime, native, microsecond)]),
     _ = [self() ! {msg,N} || N <- lists:seq(1, HugeMsgQ)],
+
+    CLAP = case CLA of
+               false ->
+                   undefined;
+               true ->
+                   erlang:system_flag(outstanding_system_requests_limit,
+                                      1000000),
+                   spawn_link(fun CLAF () ->
+                                      Time = erlang:monotonic_time(),
+                                      persistent_term:put({?MODULE, key},
+                                                          {value, Time}),
+                                      CLAF()
+                              end)
+           end,
+
     HugeTime = time_multi_call(Ctx, Srv, fun multi_call_clear/2),
     io:format("Time with huge message queue: ~p microsecond~n",
 	      [erlang:convert_time_unit(HugeTime, native, microsecond)]),
     Q = HugeTime / EmptyTime,
     HugeMsgQ = flush_msgq(),
-    case Q > 10 of
-	true ->
-	    ct:fail({ratio, Q});
-	false ->
-	    {comment, "Ratio: "++erlang:float_to_list(Q)}
+    if CLAP == undefined ->
+            case Q > 10 of
+                true ->
+                    ct:fail({ratio, Q});
+                false ->
+                    {comment, "Ratio: "++erlang:float_to_list(Q)}
+            end;
+       true ->
+            unlink(CLAP),
+            exit(CLAP, kill),
+            false = is_process_alive(CLAP),
+            ok
     end.
 
 multi_call_clear(Ctx, Srv) ->
