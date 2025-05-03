@@ -9412,14 +9412,6 @@ insert_prepared_prio_msg_attached(Process *c_p, ErtsSigRecvTracing *tracing,
         if (set_save) {
             ErtsRecvMarker *pq_cont = &pq_info->marker[ERTS_PRIO_Q_MARK_CONT];
             ASSERT(pq_cont->mark_type == ERTS_RECV_MARKER_TYPE_PRIO_Q_CONT);
-            if (c_p->sig_qs.save == *next_nm_sig) {
-                /*
-                 * We do *not* want to handle the continuation marker we are
-                 * about to insert as next non-msg signal; adjust
-                 * '*next_nm_sig'...
-                 */
-                *next_nm_sig = &pq_cont->sig.common.next;
-            }
             /*
              * Save a marker where save pointer points now, so we know where to
              * continue when we reach the end of the prio queue.
