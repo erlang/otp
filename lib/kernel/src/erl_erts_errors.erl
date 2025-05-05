@@ -1055,13 +1055,6 @@ format_erlang_error(term_to_iovec, [_,Options], _) ->
     [[],must_be_option_list(Options)];
 format_erlang_error(time_offset, [_], _) ->
     [bad_time_unit];
-format_erlang_error(trace, [_Session,PidOrPort,How,Options], Cause) ->
-    case Cause of
-        session ->
-            [bad_session];
-        _ ->
-            [[] | format_erlang_error(trace, [PidOrPort,How,Options], Cause)]
-    end;
 format_erlang_error(trace, [PidOrPort,How,Options], Cause) ->
     PidOrPortError =
         if
@@ -1083,13 +1076,6 @@ format_erlang_error(trace, [PidOrPort,How,Options], Cause) ->
                 _ ->
                     [PidOrPortError, HowError, []]
             end
-    end;
-format_erlang_error(trace_pattern, [_Session,MFA,MatchSpec,Options], Cause) ->
-    case Cause of
-        session ->
-            [bad_session];
-        _ ->
-            [[] | format_erlang_error(trace_pattern, [MFA,MatchSpec,Options], Cause)]
     end;
 format_erlang_error(trace_pattern=F, [_,_]=Args, Cause) ->
     [Err1,Err2|_] = format_erlang_error(F, Args ++ [[]], Cause),
@@ -1116,13 +1102,6 @@ format_erlang_error(tuple_size, [_], _) ->
     [not_tuple];
 format_erlang_error(tl, [_], _) ->
     [not_cons];
-format_erlang_error(trace_info, [_Session,Tracee,Item], Cause) ->
-    case Cause of
-        session ->
-            [bad_session];
-        _ ->
-            [[] | format_erlang_error(trace_info, [Tracee,Item], Cause)]
-    end;
 format_erlang_error(trace_info, [Tracee,_], Cause) ->
     case Cause of
         badopt ->
@@ -1137,27 +1116,6 @@ format_erlang_error(trace_info, [Tracee,_], Cause) ->
         none ->
             [[],<<"invalid trace item">>]
     end;
-format_erlang_error(trace_session_create, [Name,Tracer,Options], _) ->
-    NameError = if
-                    is_atom(Name) -> [];
-                    true -> not_atom
-                end,
-    TracerError = case Tracer of
-                      _ when is_pid(Tracer), node(Tracer) =:= node() -> [];
-                      _ when is_port(Tracer), node(Tracer) =:= node() -> [];
-                      {Mod,_} when is_atom(Mod) -> [];
-                      _ -> bad_tracer
-                  end,
-    OptError = case Options of
-                   [] -> [];
-                   [_|_] -> bad_option;
-                   _ -> not_list
-               end,
-    [NameError, TracerError, OptError];
-format_erlang_error(trace_session_destroy, [_Session], _) ->
-    [bad_session];
-format_erlang_error(trace_session_info, [_PidPortFuncEvent], _) ->
-    [<<"not a valid tracee specification">>];
 format_erlang_error(trunc, [_], _) ->
     [not_number];
 format_erlang_error(tuple_to_list, [_], _) ->
@@ -1555,14 +1513,10 @@ expand_error(bad_option) ->
     <<"invalid option in list">>;
 expand_error(bad_path) ->
     <<"not a valid path name">>;
-expand_error(bad_session) ->
-    <<"invalid trace session">>;
 expand_error(bad_status) ->
     <<"invalid status">>;
 expand_error(bad_time_unit) ->
     <<"invalid time unit">>;
-expand_error(bad_tracer) ->
-    <<"invalid tracer">>;
 expand_error(bad_unicode) ->
     <<"invalid UTF8 encoding">>;
 expand_error(bad_universaltime) ->
