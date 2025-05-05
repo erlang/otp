@@ -1,4 +1,4 @@
-OS_MON_VSN = 2.11
+OS_MON_VSN = 2.10.1
 
 # %CopyrightBegin%
 #
