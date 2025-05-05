@@ -21,6 +21,43 @@ limitations under the License.
 -->
 # Public_Key Release Notes
 
+## Public_Key 1.18
+
+### Fixed Bugs and Malfunctions
+
+- Enable public_key to decode legacy certs using md2 hash.
+
+  Own Id: OTP-19616 Aux Id: [PR-9755], [GH-9754]
+
+[PR-9755]: https://github.com/erlang/otp/pull/9755
+[GH-9754]: https://github.com/erlang/otp/issues/9754
+
+### Improvements and New Features
+
+- When compiling C/C++ code on Unix systems, the compiler hardening flags suggested by the [Open Source Security Foundation](https://github.com/ossf/wg-best-practices-os-developers/blob/main/docs/Compiler-Hardening-Guides/Compiler-Options-Hardening-Guide-for-C-and-C%2B%2B.md) are now enabled by default. To disable them, pass `--disable-security-hardening-flags` to `configure`.
+
+  Own Id: OTP-19519 Aux Id: [PR-9441]
+
+- Ignore instead of crashing unhandled entries when loading CA-certificates.
+
+  Own Id: OTP-19573 Aux Id: [GH-9565], [PR-9677]
+
+- The license and copyright header has changed format to include an `SPDX-License-Identifier`. At the same time, most files have been updated to follow a uniform standard for license headers.
+
+  Own Id: OTP-19575 Aux Id: [PR-9670]
+
+- The ancient ASN.1 modules used in `public_key` has been replaced with more modern versions, but we have strived to keep the documented Erlang API for the `public_key` application compatible.
+
+  *** POTENTIAL INCOMPATIBILITY ***
+
+  Own Id: OTP-19612 Aux Id: [PR-9774]
+
+[PR-9441]: https://github.com/erlang/otp/pull/9441
+[GH-9565]: https://github.com/erlang/otp/issues/9565
+[PR-9677]: https://github.com/erlang/otp/pull/9677
+[PR-9670]: https://github.com/erlang/otp/pull/9670
+[PR-9774]: https://github.com/erlang/otp/pull/9774
+
 ## Public_Key 1.17.1
 
 ### Fixed Bugs and Malfunctions

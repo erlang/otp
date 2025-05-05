@@ -6,4 +6,4 @@
 #
 # %CopyrightEnd%
 
-EDOC_VSN = 1.3.2
+EDOC_VSN = 1.4

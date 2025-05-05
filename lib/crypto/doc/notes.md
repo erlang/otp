@@ -23,6 +23,65 @@ limitations under the License.
 
 This document describes the changes made to the Crypto application.
 
+## Crypto 5.6
+
+### Fixed Bugs and Malfunctions
+
+- Fixed minor potential leak of EVP_MAC when `crypto` module is unloaded.
+
+  Own Id: OTP-19500 Aux Id: [PR-9119]
+
+- Added copyright and license to crypto_ec_curves.erl
+
+  Own Id: OTP-19554
+
+[PR-9119]: https://github.com/erlang/otp/pull/9119
+
+### Improvements and New Features
+
+- The `crypto:start/0`, `crypto:stop/0`, and `crypto:enable_fips_mode/1` functions have been deprecated.
+
+  Own Id: OTP-19155 Aux Id: [PR-8592]
+
+- Warnings are now logged if module `m:crypto` with FIPS-supported OpenSSL is loaded without application [`crypto`](index.html) being loaded. In this case FIPS will be disabled even if the user had set application parameter `fips_mode`.
+
+  Own Id: OTP-19156 Aux Id: [PR-8590]
+
+- The functionality of `crypto:crypto_one_time_aead/6` is now also available in the new functions `crypto:crypto_one_time_aead_init/4` and
+  `crypto:crypto_one_time_aead/4`, which makes it possible to reuse initialization.
+
+  Own Id: OTP-19426 Aux Id: [PR-9289]
+
+- Added support for compiling Erlang/OTP for Windows on ARM64.
+
+  Own Id: OTP-19480 Aux Id: [PR-8734]
+
+- New key `fips_provider_buildinfo` in map returned by `crypto:info/0`. If present, it contains the version of the FIPS provider which may be different than the version of the rest of OpenSSL.
+
+  Own Id: OTP-19487 Aux Id: [GH-9366], [PR-9410]
+
+- Exported `crypto` types `sha3()`, `hmac_hash_algorithm()` and `cmac_cipher_algorithm()`.
+
+  Own Id: OTP-19510 Aux Id: [PR-9448]
+
+- When compiling C/C++ code on Unix systems, the compiler hardening flags suggested by the [Open Source Security Foundation](https://github.com/ossf/wg-best-practices-os-developers/blob/main/docs/Compiler-Hardening-Guides/Compiler-Options-Hardening-Guide-for-C-and-C%2B%2B.md) are now enabled by default. To disable them, pass `--disable-security-hardening-flags` to `configure`.
+
+  Own Id: OTP-19519 Aux Id: [PR-9441]
+
+- The license and copyright header has changed format to include an `SPDX-License-Identifier`. At the same time, most files have been updated to follow a uniform standard for license headers.
+
+  Own Id: OTP-19575 Aux Id: [PR-9670]
+
+[PR-8592]: https://github.com/erlang/otp/pull/8592
+[PR-8590]: https://github.com/erlang/otp/pull/8590
+[PR-9289]: https://github.com/erlang/otp/pull/9289
+[PR-8734]: https://github.com/erlang/otp/pull/8734
+[GH-9366]: https://github.com/erlang/otp/issues/9366
+[PR-9410]: https://github.com/erlang/otp/pull/9410
+[PR-9448]: https://github.com/erlang/otp/pull/9448
+[PR-9441]: https://github.com/erlang/otp/pull/9441
+[PR-9670]: https://github.com/erlang/otp/pull/9670
+
 ## Crypto 5.5.3
 
 ### Fixed Bugs and Malfunctions

@@ -222,7 +222,7 @@ fwrite(Format, Args, Options) ->
 
 
 -doc(#{equiv => bfwrite(Format, Data, [])}).
--doc(#{since => <<"OTP @OTP-19556@">>}).
+-doc(#{since => <<"OTP 28.0">>}).
 -spec bfwrite(Format, Data) -> unicode:unicode_binary() when
       Format :: io:format(),
       Data :: [term()].
@@ -235,7 +235,7 @@ bfwrite(F, A) ->
 
    Returns a UTF-8 encoded binary string.
    """).
--doc(#{since => <<"OTP @OTP-19556@">>}).
+-doc(#{since => <<"OTP 28.0">>}).
 -spec bfwrite(Format, Data, Options) -> unicode:unicode_binary() when
       Format :: io:format(),
       Data :: [term()],
@@ -358,7 +358,7 @@ format(Format, Args, Options) ->
 
 
 -doc(#{equiv => bfwrite(Format, Data, [])}).
--doc(#{since => <<"OTP @OTP-19556@">>}).
+-doc(#{since => <<"OTP 28.0">>}).
 -spec bformat(Format, Data) -> unicode:unicode_binary() when
       Format :: io:format(),
       Data :: [term()].
@@ -372,7 +372,7 @@ bformat(Format, Args) ->
     end.
 
 -doc(#{equiv => bfwrite(Format, Data, Options)}).
--doc(#{since => <<"OTP @OTP-19556@">>}).
+-doc(#{since => <<"OTP 28.0">>}).
 -spec bformat(Format, Data, Options) -> unicode:unicode_binary() when
       Format :: io:format(),
       Data :: [term()],
@@ -616,7 +616,7 @@ write(Term, Depth, Encoding, MapsOrder, CharsLimit) ->
 -doc """
 Behaves as `write/2` but returns a UTF-8 encoded binary string.
 """.
--doc(#{since => <<"OTP @OTP-19556@">>}).
+-doc(#{since => <<"OTP 28.0">>}).
 -spec bwrite(Term, Options) -> unicode:unicode_binary() when
       Term :: term(),
       Options :: [Option],
@@ -978,7 +978,7 @@ write_string(S, Q) ->
     [Q|write_string1(unicode_as_unicode, S, Q)].
 
 -doc "Returns the UTF-8 encoded binary `String` surrounded by `Qoute`.".
--doc(#{since => <<"OTP @OTP-19556@">>}).
+-doc(#{since => <<"OTP 28.0">>}).
 -spec bwrite_string(String, Qoute, InEnc) -> unicode:unicode_binary() when
       String :: string() | binary(),
       Qoute  :: integer() | [],

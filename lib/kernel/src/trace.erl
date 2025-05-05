@@ -1391,7 +1391,7 @@ Failures:
 
 - **`badarg`** - If the session tracer is not a local process.
 """.
--doc #{ since => <<"OTP @OTP-19271@">> }.
+-doc #{ since => <<"OTP 28.0">> }.
 -spec system(Session :: session(),
              Event :: system_event(),
              Value :: system_value()) -> ok.

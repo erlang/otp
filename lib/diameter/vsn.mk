@@ -19,5 +19,5 @@
 # %CopyrightEnd%
 
 APPLICATION  = diameter
-DIAMETER_VSN = 2.4.1
+DIAMETER_VSN = 2.5
 APP_VSN      = $(APPLICATION)-$(DIAMETER_VSN)$(PRE_VSN)

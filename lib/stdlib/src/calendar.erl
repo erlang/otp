@@ -402,12 +402,12 @@ local_time() ->
     erlang:localtime().
 
 -doc(#{equiv => local_time_to_system_time(LocalTime, [])}).
--doc(#{since => <<"OTP @OTP-19505@">>}).
+-doc(#{since => <<"OTP 28.0">>}).
 -spec local_time_to_system_time(datetime1970()) -> pos_integer().
 local_time_to_system_time(LocalTime) ->
     local_time_to_system_time(LocalTime, []).
 
--doc(#{since => <<"OTP @OTP-19505@">>}).
+-doc(#{since => <<"OTP 28.0">>}).
 -doc """
 Converts local time into system time.
 Error will occur if the local time is non existing or ambiguous due to DST,
@@ -831,12 +831,12 @@ universal_time() ->
     erlang:universaltime().
 
 -doc(#{equiv => universal_time_to_system_time(LocalTime, [])}).
--doc(#{since => <<"OTP @OTP-19505@">>}).
+-doc(#{since => <<"OTP 28.0">>}).
 -spec universal_time_to_system_time(datetime()) -> integer().
 universal_time_to_system_time(UniversalTime) ->
     universal_time_to_system_time(UniversalTime, []).
 
--doc(#{since => <<"OTP @OTP-19505@">>}).
+-doc(#{since => <<"OTP 28.0">>}).
 -doc "Converts universal time into system time.".
 -spec universal_time_to_system_time(datetime(), Options) -> integer() when
       Options :: [Option],
