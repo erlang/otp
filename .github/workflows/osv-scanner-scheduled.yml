@@ -72,4 +72,4 @@ jobs:
     # run-scheduled-scan triggers this job
     # PRs and pushes trigger this job
     if: github.event_name != 'schedule'
-    uses: "google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@v2.0.1"
+    uses: "google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@v2.0.2"
