@@ -23,6 +23,7 @@
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/inet_sctp.hrl").
+-include_lib("kernel/src/inet_int.hrl").
 -include("kernel_test_lib.hrl").
 
 %%-compile(export_all).
@@ -59,7 +60,9 @@
          t_simple_link_local_sockaddr_in6_send_recv/1,
          t_simple_local_sockaddr_in_connectx_init/1,
 
-         non_block_send/1
+         non_block_send/1,
+
+         default_options/1
         ]).
 
 suite() ->
@@ -126,7 +129,8 @@ sockaddr_cases() ->
 
 misc_cases() ->
     [
-     non_block_send
+     non_block_send,
+     default_options
     ].
 
 
@@ -2501,7 +2505,7 @@ do_non_block_send(_Config, Addr) ->
 nbs_command_continue(Who, Pid) ->
     ?P("[ctrl] command ~s continue", [Who]),
     Pid ! {?MODULE, self(), continue}.
-    
+
 nbs_await_server_recv(Server) ->
     ?P("[ctrl] await server recv"),
     receive
@@ -2509,7 +2513,7 @@ nbs_await_server_recv(Server) ->
             ?P("[ctrl] server recv"),
             ok
     end.
-    
+
 nbs_await_client_blocked(Client) ->
     ?P("[ctrl] await client blocked"),
     receive
@@ -2616,7 +2620,7 @@ nbs_server_loop(Parent, Sock, Retry) ->
         {error, Reason} ->
             exit({server_recv, Reason})
     end.
-            
+
 
 nbs_client_start(Addr, Port) ->
     Self = self(),
@@ -2712,6 +2716,202 @@ nbs_client_loop(_Parent, S, Assoc, NumWrites, NumBytes, Data, false) ->
             exit({send_failed, Reason})
     end.
 
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+default_options(Config) when is_list(Config) ->
+    Cond = fun() -> ok end,
+    Pre  = fun() -> case ?WHICH_LOCAL_ADDR(inet) of
+                        {ok, Addr} ->
+                            Addr;
+                        {error, Reason} ->
+                            throw({skip, Reason})
+                    end
+           end,
+    TC   = fun(Addr) -> do_default_options(Config, Addr) end,
+    Post = fun(_) -> ok end,
+    ?TC_TRY(?FUNCTION_NAME, Cond, Pre, TC, Post).
+
+do_default_options(_Config, _Addr) ->
+    ?P("*** standard open without any options ***"),
+    ok = dos_open([]),
+    ?P("*** standard open with updated recbuf option ***"),
+    ok = dos_open([{recbuf, 8*1024}]),
+
+    ?P("*** update kernel application env "
+       "(inet_default_sctp_options with active and recbuf) ***"),
+    application:set_env(kernel, inet_default_sctp_options,
+                        [{active, once}, {recbuf, 12*1024}]),
+
+    ?P("*** open without any options ***"),
+    ok = dos_open([]),
+    ?P("*** open with updated recbuf option ***"),
+    ok = dos_open([{recbuf, 8*1024}]),
+
+    ?P("*** update kernel application env "
+       "(inet_default_sctp_options with active) ***"),
+    application:set_env(kernel, inet_default_sctp_options,
+                        [{active, true}]),
+
+    ?P("*** open without any options ***"),
+    ok = dos_open([]),
+    ?P("*** open with updated recbuf option ***"),
+    ok = dos_open([{recbuf, 8*1024}]),
+
+    ?P("done"),
+    ok.
+
+%% Allways check the following options:
+%%    active, mode, buffer, sndbuf, recbuf
+dos_open(OpenOpts) ->    
+    ?P("~w -> try open", [?FUNCTION_NAME]),
+    case gen_sctp:open(OpenOpts) of
+        {ok, Sock} ->
+            CheckOpts = [mode, buffer, sndbuf, recbuf],
+            ?P("~w -> try get options ~p", [?FUNCTION_NAME, CheckOpts]),
+            case inet:getopts(Sock, CheckOpts) of
+                {ok, Opts} ->
+                    ?P("~w -> try verify when"
+                       "~n   (Current) Opts:"
+                       "~n      ~p", [?FUNCTION_NAME, Opts]),
+                    dos_open_verify_opts(OpenOpts, Opts);
+                {error, GReason} ->
+                    ?P("~w -> failed get options"
+                       "~n   Reason:"
+                       "~n      ~p", [?FUNCTION_NAME, GReason]),
+                    error
+            end;
+        {error, OReason} ->
+            ?P("~w -> failed open socket"
+               "~n   Reason:"
+               "~n      ~p", [?FUNCTION_NAME, OReason]),
+            error
+    end.
+                    
+dos_open_verify_opts(OpenOpts, Opts) ->
+    Defaults = #sctp_opts{},
+    dos_open_verify_opts(OpenOpts, Opts,
+                         Defaults#sctp_opts.ifaddr,
+                         Defaults#sctp_opts.opts).
+
+dos_open_verify_opts(OpenOpts, Opts, DefaultIfAddr, DefaultOpts) ->
+    ?P("~w ->"
+       "~n   OpenOpts:"
+       "~n      ~p"
+       "~n   Opts:"
+       "~n      ~p"
+       "~n   DefaultIfAddr:"
+       "~n      ~p"
+       "~n   DefaultOpts:"
+       "~n      ~p",
+       [?FUNCTION_NAME,
+        OpenOpts, Opts, DefaultIfAddr, DefaultOpts]),
+    dos_open_verify_opts2(OpenOpts, Opts, DefaultIfAddr, DefaultOpts).
+
+dos_open_verify_opts2([], Opts, _DefaultIfAddr, DefaultOpts) ->
+    dos_open_verify_rest_opts(Opts, DefaultOpts);
+dos_open_verify_opts2([{Key, OpenValue}|OpenOpts], Opts,
+                      DefaultIfAddr, DefaultOpts) ->
+    case dos_open_verify_opt(Key, OpenValue, Opts) of
+        ok ->
+            Opts2 = lists:keydelete(Key, 1, Opts),
+            dos_open_verify_opts2(OpenOpts, Opts2,
+                                  DefaultIfAddr, DefaultOpts);
+        {error, _} = ERROR ->
+            ERROR
+    end.
+
+dos_open_verify_opt(Key, OpenValue, Opts)
+  when (Key =:= buffer) orelse
+       (Key =:= sndbuf) orelse
+       (Key =:= recbuf) ->
+    case lists:keysearch(Key, 1, Opts) of
+        {value, {Key, Value}} when (Value >= OpenValue) ->
+            ?P("~w -> ~w verified (~w >= ~w)",
+               [?FUNCTION_NAME, Key, Value, OpenValue]),
+            ok;
+        {value, {Key, Value}} ->
+            ?P("~w -> ~w *not* verified: ~w not >= ~w",
+               [?FUNCTION_NAME, Key, Value, OpenValue]),
+            {error, {invalid_value, {Key, Value, OpenValue}}};
+        false ->
+            ?P("~w -> ~w not found", [?FUNCTION_NAME, Key]),
+            {error, {not_found, Key}}
+    end;
+dos_open_verify_opt(Key, OpenValue, Opts) ->
+    case lists:keysearch(Key, 1, Opts) of
+        {value, {Key, Value}} when (Value =:= OpenValue) ->
+            ?P("~w -> ~w verified (~w =:= ~w)",
+               [?FUNCTION_NAME, Key, Value, OpenValue]),
+            ok;
+        {value, {Key, Value}} ->
+            ?P("~w -> ~w *not* verified: ~w =/= ~w",
+               [?FUNCTION_NAME, Key, Value, OpenValue]),
+            {error, {invalid_value, {Key, Value, OpenValue}}};
+        false ->
+            ?P("~w -> ~w not found", [?FUNCTION_NAME, Key]),
+            {error, {not_found, Key}}
+    end.
+
+dos_open_verify_rest_opts(Opts, DefaultOpts) ->
+    ?P("~w ->"
+       "~n   Opts:"
+       "~n      ~p"
+       "~n   DefaultOpts:"
+       "~n      ~p",
+       [?FUNCTION_NAME,
+        Opts, DefaultOpts]),
+    dos_open_verify_rest_opts2(Opts, DefaultOpts).
+
+dos_open_verify_rest_opts2([], _DefaultOpts) ->
+    ok;
+dos_open_verify_rest_opts2([{Key, Value}|Opts], DefaultOpts) ->
+    case dos_open_verify_rest_opt(Key, Value, DefaultOpts) of
+        ok ->
+            dos_open_verify_rest_opts2(Opts, DefaultOpts);
+        {error, _} = ERROR ->
+            ERROR
+    end.
+
+dos_open_verify_rest_opt(Key, Value, DefaultOpts)
+  when (Key =:= buffer) orelse
+       (Key =:= sndbuf) orelse
+       (Key =:= recbuf) ->
+    case lists:keysearch(Key, 1, DefaultOpts) of
+        {value, {Key, DefaultValue}} when (Value >= DefaultValue) ->
+            ?P("~w -> ~w verified (~w >= (default) ~w)",
+               [?FUNCTION_NAME, Key, Value, DefaultValue]),
+            ok;
+        {value, {Key, DefaultValue}} ->
+            ?P("~w -> ~w *not* verified: ~w not >= (default) ~w",
+               [?FUNCTION_NAME, Key, Value, DefaultValue]),
+            {error, {invalid_value, {Key, Value, DefaultValue}}};
+        false ->
+            ?P("~w -> ~w not found", [?FUNCTION_NAME, Key]),
+            {error, {not_found, Key}}
+    end;
+dos_open_verify_rest_opt(Key, Value, DefaultOpts) ->
+    case lists:keysearch(Key, 1, DefaultOpts) of
+        {value, {Key, DefaultValue}} when (Value =:= DefaultValue) ->
+            ?P("~w -> ~w verified (~w =:= (default) ~w)",
+               [?FUNCTION_NAME, Key, Value, DefaultValue]),
+            ok;
+        {value, {Key, DefaultValue}} ->
+            ?P("~w -> ~w *not* verified: ~w =/= (default) ~w",
+               [?FUNCTION_NAME, Key, Value, DefaultValue]),
+            {error, {invalid_value, {Key, Value, DefaultValue}}};
+        false -> % No default value for this is ok
+            ?P("~w -> no default value for ~w - ignore", [?FUNCTION_NAME, Key]),
+            ok
+    end.
+
+            
+
+
+
+%% dos_opt_value(Key, Opts) ->
+%%     proplists:get_value(Key, Opts, undefined).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
