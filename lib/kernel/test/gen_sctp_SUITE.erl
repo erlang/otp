@@ -2888,8 +2888,8 @@ dos_open_verify_rest_opt(Key, Value, DefaultOpts)
                [?FUNCTION_NAME, Key, Value, DefaultValue]),
             {error, {invalid_value, {Key, Value, DefaultValue}}};
         false ->
-            ?P("~w -> ~w not found", [?FUNCTION_NAME, Key]),
-            {error, {not_found, Key}}
+            ?P("~w -> no default value for ~w - ignore", [?FUNCTION_NAME, Key]),
+            ok
     end;
 dos_open_verify_rest_opt(Key, Value, DefaultOpts) ->
     case lists:keysearch(Key, 1, DefaultOpts) of
