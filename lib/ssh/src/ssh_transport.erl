@@ -26,12 +26,11 @@
 
 -include_lib("public_key/include/public_key.hrl").
 -include_lib("kernel/include/inet.hrl").
-
 -include("ssh_transport.hrl").
 -include("ssh.hrl").
 
 -export([versions/2, hello_version_msg/1]).
--export([next_seqnum/1, 
+-export([next_seqnum/3,
 	 supported_algorithms/0, supported_algorithms/1,
 	 default_algorithms/0, default_algorithms/1,
          clear_default_algorithms_env/0,
@@ -295,7 +294,12 @@ random_id(Nlo, Nup) ->
 hello_version_msg(Data) ->
     [Data,"\r\n"].
 
-next_seqnum(SeqNum) ->
+next_seqnum({State, _Role, init}, 16#ffffffff,
+            #ssh{algorithms = #alg{kex_strict_negotiated = true}})
+  when State == kexinit; State == key_exchange; State == new_keys ->
+    ?DISCONNECT(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
+                io_lib:format("KEX strict violation: recv_sequence = 16#ffffffff", []));
+next_seqnum(_State, SeqNum, _) ->
     (SeqNum + 1) band 16#ffffffff.
 
 is_valid_mac(_, _ , #ssh{recv_mac_size = 0}) ->
@@ -1080,7 +1084,7 @@ known_host_key(#ssh{opts = Opts, peer = {PeerName,{IP,Port}}} = Ssh,
 %%   algorithm.  Each string MUST contain at least one algorithm name.
 select_algorithm(Role, Client, Server,
                  #ssh{opts = Opts,
-                         kex_strict_negotiated = KexStrictNegotiated0},
+                      kex_strict_negotiated = KexStrictNegotiated0},
                  ReNeg) ->
     KexStrictNegotiated =
         case ReNeg of
@@ -1105,7 +1109,6 @@ select_algorithm(Role, Client, Server,
             _ ->
                 KexStrictNegotiated0
         end,
-
     {Encrypt0, Decrypt0} = select_encrypt_decrypt(Role, Client, Server),
     {SendMac0, RecvMac0} = select_send_recv_mac(Role, Client, Server),
 
