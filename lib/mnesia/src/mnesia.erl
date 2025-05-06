@@ -2604,44 +2604,32 @@ Notice that any modifying operations, that is, `mnesia:write` or
       Match::term(),
       Cont::select_continuation().
 select_reverse(Cont) ->
-    case get(mnesia_activity_state) of
-	{?DEFAULT_ACCESS, Tid, Ts} ->
-	    select_cont(Tid,Ts,Cont,reverse);
-	{Mod, Tid, Ts} ->
-	    Mod:select_cont(Tid,Ts,Cont,reverse);
-	_ ->
-	    abort(no_transaction)
-    end.
+    select(Cont).
 
 -doc false.
-select_cont(Tid,Ts,State) ->
-    select_cont(Tid,Ts,State,forward).
-select_cont(_Tid,_Ts,'$end_of_table',_Dir) ->
+select_cont(_Tid,_Ts,'$end_of_table') ->
     '$end_of_table';
-select_cont(Tid,_Ts,State=#mnesia_select{tid=Tid,cont=Cont, orig=Ms},Dir)
+select_cont(Tid,_Ts,State=#mnesia_select{tid=Tid,cont=Cont, orig=Ms})
   when element(1,Tid) == ets ->
     case Cont of
 	'$end_of_table' -> '$end_of_table';
 	_ ->
-	    Result = case Dir of
-	        forward -> mnesia_lib:db_select_cont(ram_copies,Cont,Ms);
-	        reverse -> mnesia_lib:db_select_rev_cont(ram_copies,Cont,Ms)
-	    end,
+	    Result = mnesia_lib:db_select_cont(ram_copies,Cont,Ms),
 	    select_state(Result,State)
     end;
-select_cont(Tid,_,State=#mnesia_select{tid=Tid,written=[]},Dir) ->
-    select_state(dirty_sel_cont(State,Dir),State);
-select_cont(Tid,_Ts,State=#mnesia_select{tid=Tid},Dir)  ->
-    trans_select(dirty_sel_cont(State,Dir), State);
-select_cont(Tid2,_,#mnesia_select{tid=_Tid1},_Dir)
+select_cont(Tid,_,State=#mnesia_select{tid=Tid,written=[]}) ->
+    select_state(dirty_sel_cont(State),State);
+select_cont(Tid,_Ts,State=#mnesia_select{tid=Tid}) ->
+    trans_select(dirty_sel_cont(State), State);
+select_cont(Tid2,_,#mnesia_select{tid=_Tid1})
   when element(1,Tid2) == tid ->  % Mismatching tids
     abort(wrong_transaction);
-select_cont(Tid,Ts,State=#mnesia_select{},Dir) ->
+select_cont(Tid,Ts,State=#mnesia_select{}) ->
     % Repair mismatching tids in non-transactional contexts
     RepairedState = State#mnesia_select{tid = Tid, written = [],
                                         spec = undefined, type = undefined},
-    select_cont(Tid,Ts,RepairedState,Dir);
-select_cont(_,_,Cont,_Dir) ->
+    select_cont(Tid,Ts,RepairedState);
+select_cont(_,_,Cont) ->
     abort({badarg, Cont}).
 
 trans_select('$end_of_table', #mnesia_select{written=Written0,spec=CMS,type=Type}) ->
@@ -3117,11 +3105,9 @@ dirty_sel_init(Node,Tab,Spec,NObjects,Type,forward) ->
 dirty_sel_init(Node,Tab,Spec,NObjects,Type,reverse) ->
     do_dirty_rpc(Tab,Node,mnesia_lib,db_select_rev_init,[Type,Tab,Spec,NObjects]).
 
-dirty_sel_cont(#mnesia_select{cont='$end_of_table'},_Dir) -> '$end_of_table';
-dirty_sel_cont(#mnesia_select{node=Node,tab=Tab,storage=Type,cont=Cont,orig=Ms},forward) ->
-    do_dirty_rpc(Tab,Node,mnesia_lib,db_select_cont,[Type,Cont,Ms]);
-dirty_sel_cont(#mnesia_select{node=Node,tab=Tab,storage=Type,cont=Cont,orig=Ms},reverse) ->
-    do_dirty_rpc(Tab,Node,mnesia_lib,db_select_rev_cont,[Type,Cont,Ms]).
+dirty_sel_cont(#mnesia_select{cont='$end_of_table'}) -> '$end_of_table';
+dirty_sel_cont(#mnesia_select{node=Node,tab=Tab,storage=Type,cont=Cont,orig=Ms}) ->
+    do_dirty_rpc(Tab,Node,mnesia_lib,db_select_cont,[Type,Cont,Ms]).
 
 -doc """
 Dirty equivalent to `mnesia:all_keys/1`.

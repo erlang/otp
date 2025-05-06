@@ -80,7 +80,6 @@
 	 db_select_init/4,
 	 db_select_rev_init/4,
 	 db_select_cont/3,
-	 db_select_rev_cont/3,
 	 db_slot/2,
 	 db_slot/3,
 	 db_update_counter/3,
@@ -1249,16 +1248,6 @@ db_select_rev_init(disc_only_copies, Tab, Pat, Limit) ->
     dets:select(Tab, Pat, Limit);
 db_select_rev_init(_, Tab, Pat, Limit) ->
     ets:select_reverse(Tab, Pat, Limit).
-
-db_select_rev_cont({ext, _Alias, Mod}, Cont0, Ms) ->
-    Cont = Mod:repair_continuation(Cont0, Ms),
-    Mod:select_reverse(Cont);
-db_select_rev_cont(disc_only_copies, Cont0, Ms) ->
-    Cont = dets:repair_continuation(Cont0, Ms),
-    dets:select(Cont);
-db_select_rev_cont(_, Cont0, Ms) ->
-    Cont = ets:repair_continuation(Cont0, Ms),
-    ets:select_reverse(Cont).
 
 db_erase(Tab, Key) ->
     db_erase(val({Tab, storage_type}), Tab, Key).
