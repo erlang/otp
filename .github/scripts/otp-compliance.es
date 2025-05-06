@@ -73,6 +73,7 @@
 -define(spdx_supplier, ~"Organization: Ericsson AB").
 -define(spdx_download_location, ~"https://github.com/erlang/otp/releases").
 -define(spdx_homepage, ~"https://www.erlang.org").
+-define(spdx_purl_meta_data, ~"?vcs_url=git+https://github.com/erlang/otp.git").
 -define(spdx_version, ~"SPDX-2.2").
 -define(spdx_project_purl, #{ ~"comment" => ~"",
                               ~"referenceCategory" => ~"PACKAGE-MANAGER",
@@ -489,7 +490,8 @@ fix_project_purl(Purl, #{ ~"documentDescribes" := [RootProject],
     Spdx#{~"packages" := Packages1}.
 
 otp_purl(Name, VersionInfo) ->
-    <<"pkg:otp/", Name/binary, "@", VersionInfo/binary>>.
+    Metadata = ?spdx_purl_meta_data,
+    <<"pkg:otp/", Name/binary, "@", VersionInfo/binary, Metadata/binary>>.
 
 fix_has_extracted_license_info(MissingLicenses, #{~"hasExtractedLicensingInfos" := LicenseInfos,
                                                    ~"packages" := Packages,
@@ -1758,9 +1760,15 @@ test_packages_purl(#{~"documentDescribes" := [ProjectName], ~"packages" := Packa
     true = Purl == ?spdx_project_purl,
 
     OTPPackages = lists:filter(fun (#{~"SPDXID" := Id, ~"name" := Name}) -> ProjectName =/= Id andalso lists:member(Name, minimum_otp_apps()) end, Packages),
-    true = lists:all(fun (#{~"name" := Name, ~"versionInfo" := Version, ~"externalRefs" := [Ref]}) ->
+    true = lists:all(fun (#{~"name" := Name, ~"versionInfo" := Version, ~"externalRefs" := [#{~"referenceLocator":= RefLoc}=Ref]}) ->
                              ExternalRef = create_externalRef_purl(~"", otp_purl(Name, Version)),
-                             maps:remove(~"comment", ExternalRef) == maps:remove(~"comment", Ref)
+                             ExternalRef1 = maps:remove(~"comment", ExternalRef),
+                             Ref1 = maps:remove(~"comment", Ref),
+
+                             %% check expected external ref
+                             ExternalRef1 =:= Ref1  andalso
+                                 %% check metadata is included in purl
+                                 nomatch =/= string:find(RefLoc, ?spdx_purl_meta_data)
                      end, OTPPackages),
     ok.
 
