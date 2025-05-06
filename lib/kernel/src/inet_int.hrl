@@ -450,8 +450,8 @@
 	  type   = seqpacket,
 	  opts   = [{mode,	  binary},
 		    {buffer,	  ?SCTP_DEF_BUFSZ},
-		    {sndbuf,	  ?SCTP_DEF_BUFSZ},
-		    {recbuf,	  1024},
+		    %% {sndbuf,	  ?SCTP_DEF_BUFSZ},
+		    %% {recbuf,	  1024},
 		    {sctp_events, undefined}%,
 		    %%{active,      true}
 		   ]
