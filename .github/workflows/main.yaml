@@ -270,7 +270,7 @@ jobs:
     needs: pack
     if: needs.pack.outputs.c-code-changes
     steps:
-      - uses: Vampire/setup-wsl@f40fb59d850112c9a292b0218bca8271305b9127 # ratchet:Vampire/setup-wsl@v5.0.0
+      - uses: Vampire/setup-wsl@3b46b44374d5d0ae94654c45d114a3ed7a0e07a8 # ratchet:Vampire/setup-wsl@v5.0.1
         with:
           distribution: Ubuntu-18.04
 
