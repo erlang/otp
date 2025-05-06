@@ -51,6 +51,7 @@ jobs:
       - name: Sync releases
         env:
           ERLANG_ORG_TOKEN: ${{ secrets.TRIGGER_ERLANG_ORG_BUILD }}
-        run: >
-          .github/scripts/sync-github-releases.sh ${{ github.repository }}
-          "Bearer ${{ secrets.GITHUB_TOKEN }}" "^[2-9][1-9]\\..*" 25m
+        run: |
+          pip install mdformat mdformat-gfm
+          .github/scripts/sync-github-releases.sh ${{ github.repository }} \
+            "Bearer ${{ secrets.GITHUB_TOKEN }}" "^[2-9][1-9]\\..*" 25m

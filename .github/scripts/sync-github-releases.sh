@@ -41,7 +41,7 @@ set -e
 
 REPOSITORY=${1}
 TOKEN=${2:-"token ${GITHUB_TOKEN}"}
-RELEASE_FILTER=${3}
+RELEASE_FILTER=${3:-"^[2-9][1-9]\\..*"}
 TIME_LIMIT=${4:-120m}
 HDR=(-H "Authorization: ${TOKEN}")
 REPO="https://api.github.com/repos/${REPOSITORY}"
@@ -67,6 +67,14 @@ _curl_patch() {
     curl -o /dev/null --silent --fail --show-error -X PATCH "${HDR[@]}" \
          -H "Accept: application/vnd.github+json" -H "X-GitHub-Api-Version: 2022-11-28" \
         "${@}"
+}
+
+_format_markdown() {
+    TMP_BODY=$(mktemp)
+    echo "${1}" > "${TMP_BODY}"
+    mdformat --wrap no "${TMP_BODY}"
+    cat "${TMP_BODY}"
+    rm -rf "${TMP_BODY}"
 }
 
 RI=()
@@ -124,16 +132,30 @@ while [ "${TAG_URL}" != "" ]; do
                 }
 
                 ## Check if we need to patch the body of the release
-                if ! echo "${RELEASE}" | jq -e 'select(.body != "")' > /dev/null; then
+                RELEASE_BODY=$(echo "${RELEASE}" | jq --raw-output '.body' | tr -d '\015')
+                UPDATE_RELEASE_BODY=yes
+                if [ "${RELEASE_BODY}" != "" ]; then
+                    ## Check if we need to reformat the body
+                    FORMATTED_BODY=$(_format_markdown "${RELEASE_BODY}")
+                    if [ "${FORMATTED_BODY}" = "${RELEASE_BODY}" ]; then
+                        UPDATE_RELEASE_BODY=no
+                    else
+                        UPDATE_RELEASE_BODY=format
+                    fi
+                    rm -rf "${TMP_BODY}"
+                fi
+                if [ "${UPDATE_RELEASE_BODY}" != "no" ]; then
                     RELEASE_ID=$(echo "${RELEASE}" | jq '.id')
                     UPDATE_BODY=("${UPDATE_BODY[@]}" "${name}:${RELEASE_ID}")
-                    if [[ ${RELEASE_VSN} -gt 26 ]]; then
-                        RM="${name}.README.md"
-                    else
-                        RM="${name}.README"
+                    if [ "${UPDATE_RELEASE_BODY}" = "yes" ]; then
+                        if [[ ${RELEASE_VSN} -gt 26 ]]; then
+                            RM="${name}.README.md"
+                        else
+                            RM="${name}.README"
+                        fi
+                        echo "Sync ${RM} for ${name} (for update of release body, release id = ${RELEASE_ID})"
+                        RI=("${RM}" "${RI[@]}")
                     fi
-                    echo "Sync ${RM} for ${name} (for update of release body, release id = ${RELEASE_ID})"
-                    RI=("${RM}" "${RI[@]}")
                 fi
 
                 _asset "${name}.README" "${name}.README" "otp_src_${stripped_name}.readme"
@@ -201,6 +223,7 @@ for name in "${CREATE_RELEASE[@]}"; do
     echo "Create release for ${name}"
     stripped_name=$(_strip_name ${name})
     if [ -s "downloads/${name}.README.md" ]; then
+        mdformat --wrap no "downloads/${name}.README.md"
         README=$(cat downloads/${name}.README.md)
         README=$(_json_escape "${README}")
     elif [ -s "downloads/${name}.README" ]; then
@@ -229,11 +252,18 @@ for name_id in "${UPDATE_BODY[@]}"; do
     name=$(echo "${name_id}" | awk -F: '{print $1}')
     RELEASE_ID=$(echo "${name_id}" | awk -F: '{print $2}')
     if [ -s downloads/"${name}.README.md" ]; then
+        mdformat --wrap no "downloads/${name}.README.md"
         README=$(cat downloads/"${name}.README.md")
         README=$(_json_escape "${README}")
     elif [ -s downloads/"${name}.README" ]; then
         README=$(cat downloads/"${name}.README")
         README=$(_json_escape "$(printf '```\n%s\n```' "${README}")")
+    else
+        ## This happens when we should reformat an already existing description
+        RELEASE=$(_curl_get "${REPO}/releases/tags/${name}")
+        README=$(echo "${RELEASE}" | jq --raw-output '.body' | tr -d '\015')
+        README=$(_format_markdown "${README}")
+        README=$(_json_escape "${README}")
     fi
     echo "Update body of ${name}"
     _curl_patch "${REPO}/releases/${RELEASE_ID}" -d "{\"body\":${README}}"
