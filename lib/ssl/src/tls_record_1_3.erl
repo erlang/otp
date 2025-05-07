@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2024. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -157,15 +157,17 @@ decode_cipher_text(#ssl_tls{type = ?ALERT,
     {#ssl_tls{type = ?ALERT,
               version = ?TLS_1_3, %% Internally use real version
               fragment = <<?FATAL,?ILLEGAL_PARAMETER>>}, ConnectionStates0};
-%% TLS 1.3 server can receive a User Cancelled Alert when handshake is
-%% paused and then cancelled on the client side.
+%% TLS 1.3 server can receive Closure Alerts before the handshake is completed
 decode_cipher_text(#ssl_tls{type = ?ALERT,
                             version = ?LEGACY_VERSION,
-                            fragment = <<?FATAL,?USER_CANCELED>>},
-		   ConnectionStates0) ->
+                            fragment = <<_Level,ClosureAlert>>},
+                   #{current_read :=
+                         #{security_parameters :=
+                               #security_parameters{application_traffic_secret = undefined}}} = ConnectionStates0)
+  when (ClosureAlert == ?USER_CANCELED orelse ClosureAlert == ?CLOSE_NOTIFY) ->
     {#ssl_tls{type = ?ALERT,
               version = ?TLS_1_3, %% Internally use real version
-              fragment = <<?FATAL,?USER_CANCELED>>}, ConnectionStates0};
+              fragment = <<?FATAL,ClosureAlert>>}, ConnectionStates0};
 %% RFC8446 - TLS 1.3
 %% D.4.  Middlebox Compatibility Mode
 %%    -  If not offering early data, the client sends a dummy

@@ -19,6 +19,22 @@ limitations under the License.
 -->
 # SSH Release Notes
 
+## Ssh 5.2.10
+
+### Fixed Bugs and Malfunctions
+
+- Reception of wrong Unicode does not cause unnecessary processing. US-ASCII fields are not decoded as Unicode.
+
+  Own Id: OTP-19582 Aux Id: [PR-9679]
+
+- SSH daemon disconnects upon receiving connection protocol message for unauthenticated used.
+  
+  Thanks to Fabian Bäumer, Marcel Maehren, Marcus Brinkmann, Nurullah Erinola, Jörg Schwenk (Ruhr University Bochum).
+
+  Own Id: OTP-19595 Aux Id: CVE-2025-32433
+
+[PR-9679]: https://github.com/erlang/otp/pull/9679
+
 ## Ssh 5.2.9
 
 ### Fixed Bugs and Malfunctions

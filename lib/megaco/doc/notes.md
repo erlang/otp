@@ -25,6 +25,14 @@ as all enhancements and bugfixes for every release of Megaco. Each release of
 Megaco thus constitutes one section in this document. The title of each section
 is the version number of Megaco.
 
+## Megaco 4.7.2
+
+### Fixed Bugs and Malfunctions
+
+- Corrected type spec for type mid().
+
+  Own Id: OTP-19585 Aux Id: ERIERL-1222
+
 ## Megaco 4.7.1
 
 ### Fixed Bugs and Malfunctions
