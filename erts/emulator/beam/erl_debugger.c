@@ -500,6 +500,7 @@ stack_frame_fun_info(Process *c_p, ErtsCodePtr pc, Process *rp, int is_return_ad
         if (pc != beam_run_process) {
             erts_lookup_function_info(&fi, pc, 1);
         } else {
+            ERTS_ASSUME(rp);
             fi.mfa = rp->current;
             fi.loc = LINE_INVALID_LOCATION;
         }
