@@ -99,6 +99,17 @@ expect(Id, ParentId, GroupMinSize, St0) ->
 	    %% cast no cancel event (since the item might not exist)
 	    {true, St1};
 	{cancel, exact, Msg, St1} ->
+            %% We got a cancel before begin. If we're running in
+            %% parallel we might still have a begin message in the
+            %% message queue since the cancel message might have been
+            %% picked up by wait_1/5 for an different test case. So
+            %% flush the queue to avoid silently ignoring the cancel.
+            receive
+                {status, Id, {progress, 'begin', _}} = M ->
+                    cast(M, St1)
+            after 0 ->
+                ok
+            end,
 	    cast_cancel(Id, Msg, St1),
 	    {false, St1};
 	{ok, Msg, St1} ->

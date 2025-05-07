@@ -26,7 +26,8 @@
 	 app_test/1, appup_test/1, eunit_test/1, eunit_exact_test/1,
          fixture_test/1, primitive_test/1, surefire_utf8_test/1,
          surefire_latin_test/1, surefire_c0_test/1, surefire_ensure_dir_test/1,
-         stacktrace_at_timeout_test/1, scale_timeouts_test/1]).
+         stacktrace_at_timeout_test/1, scale_timeouts_test/1,
+         report_failed_setup_inparallel_test/1]).
 
 %% Two eunit tests:
 -export([times_out_test_/0, times_out_default_test/0]).
@@ -43,7 +44,7 @@ all() ->
     [app_test, appup_test, eunit_test, eunit_exact_test, primitive_test,
      fixture_test, surefire_utf8_test, surefire_latin_test, surefire_c0_test,
      surefire_ensure_dir_test, stacktrace_at_timeout_test,
-     scale_timeouts_test].
+     scale_timeouts_test, report_failed_setup_inparallel_test].
 
 groups() ->
     [].
@@ -258,3 +259,18 @@ times_out_default_test() ->
     %% so this is long enough to cause a time out.
     timer:sleep(20_000).
 
+report_failed_setup_inparallel_test(_Config) ->
+    Test =
+        {
+         inparallel,
+         [
+          fun() -> test1 end,
+          {setup,
+           fun() -> exit(failing_setup) end,
+           fun(_) -> ok end,
+           [fun() -> test11 end]}
+         ]
+        },
+    eunit:test(Test,[verbose, {report, {eunit_test_listener, [self()]}}]),
+    check_test_results(Test, #{skip => 0,cancel => 1,fail => 0,pass => 1}),
+    ok.
