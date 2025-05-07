@@ -38,10 +38,11 @@
 %%----------------------------------------------------------------------
 
 all() ->
-    [{group, bugs}].
+    [{group, basic}, {group, bugs}].
 
 groups() ->
-    [{bugs, [], [ticket_8213, ticket_8214, ticket_11551, 
+    [{basic, [], [discard_ws_before_xml_tag_test]},
+     {bugs, [], [ticket_8213, ticket_8214, ticket_11551, 
                  fragmented_xml_directive,
                  old_dom_event_fun_endDocument_bug, 
                  event_fun_endDocument_error_test,
@@ -210,6 +211,23 @@ fail_undeclared_ref_test(Config) ->
     {fatal_error, _, _, _, _} = xmerl_sax_parser:file(File, [{external_entities, none}]),
     %% fail_undeclared_ref == false
     {ok, undefined, <<>>} = xmerl_sax_parser:file(File, [{external_entities, none}, {fail_undeclared_ref, false}]),
+    ok.
+
+%%----------------------------------------------------------------------
+%% Test Case 
+%% ID: Test option that allows whitespace before xml tag
+discard_ws_before_xml_tag_test(Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+    File = filename:join(DataDir, "two_messages_with_ws_between.xml"),
+    {ok, Bin} = file:read_file(File),
+    %% Use Bin as stream
+    %% Parse first
+    {ok, undefined, RestBin} = xmerl_sax_parser:stream(Bin, []),
+    %% Parse second that has a number of whitespaces first
+    %% Whithout option
+    {fatal_error, _, _, _, _} = xmerl_sax_parser:stream(RestBin, []),
+    %% Whit option
+    {ok, undefined, _} = xmerl_sax_parser:stream(RestBin, [{discard_ws_before_xml_document, true}]),
     ok.
 
 %%======================================================================

@@ -93,9 +93,7 @@
          attribute_values = [],     % default attribute values
          allow_entities = true,     % If true entities are allowed in the document
          entity_recurse_limit = 3,  % How many levels of recursion is allowed for entities
-         external_entities = none,   % Which types of external entities are allowed: all, file or none(default)
-         fail_undeclared_ref = true % If false the reference will be left unresolved in the document, true is default
+         external_entities = none,  % Which types of external entities are allowed: all, file or none(default)
+         fail_undeclared_ref = true, % If false the reference will be left unresolved in the document, true is default
+         discard_ws_before_xml_document = false % If true allow whitespace fefore the xml tag
         }).
-
-
-
