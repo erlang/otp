@@ -432,7 +432,10 @@ common reasons.
                          | {'y',non_neg_integer()}
                          | {value, _}.
 -nominal debug_value() :: {debug_name(), debug_source()}.
--nominal debug_info() :: [{debug_line(), #{frame_size => debug_frame(), vars => [debug_value()]}}].
+-nominal debug_call() :: mfa() | {LocalFun :: atom(), arity} | debug_name().
+-nominal debug_info() :: [{debug_line(), #{frame_size => debug_frame(),
+                                           vars => [debug_value()],
+                                           calls => [debug_call()]}}].
 
 -export([coverage_support/0,
          get_coverage/2,
