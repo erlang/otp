@@ -1486,6 +1486,19 @@ basic_stream(Config) when is_list(Config) ->
 
 %% Minimal data transfer.
 xfer_stream_min(Config) when is_list(Config) ->
+    Cond = fun() -> ok end,
+    Pre  = fun() -> case ?WHICH_LOCAL_ADDR(inet) of
+                        {ok, Addr} ->
+                            Addr;
+                        {error, Reason} ->
+                            throw({skip, Reason})
+                    end
+           end,
+    TC   = fun(Addr) -> do_xfer_stream_min(Addr) end,
+    Post = fun(_) -> ok end,
+    ?TC_TRY(?FUNCTION_NAME, Cond, Pre, TC, Post).
+
+do_xfer_stream_min(LAddr) ->
     {_, OSName} = os:type(),
     Stream = 0,
     Data = <<"The quick brown fox jumps over a lazy dog 0123456789">>,
@@ -1604,13 +1617,30 @@ xfer_stream_min(Config) when is_list(Config) ->
             Res4 = log_ok(gen_sctp:recv(Sb, infinity)),
             ?P("[4] recv ok => "
                "~n   ~p", [Res4]),
-	    {Loopback,
-	     Pa,
-	     [#sctp_sndrcvinfo{stream   = Stream,
-                               assoc_id = SbAssocId}],
-	     Data} = Res4,
-            ?P("[4] received expected data with ancillary data => done"),
-            Res4;
+            case Res4 of
+                {Loopback,
+                 Pa,
+                 [#sctp_sndrcvinfo{stream   = Stream,
+                                   assoc_id = SbAssocId}],
+                 Data} ->
+                    ?P("[4] received expected data with ancillary data => "
+                       "done"),
+                    Res4;
+                {Loopback, Pa, [],
+                 #sctp_paddr_change{addr     = {LAddr, _},
+                                    state    = addr_confirmed,
+                                    error    = 0,
+                                    assoc_id = SbAssocId}} ->
+                    ?P("[4] received paddr-change event - receive again"),
+                    {Loopback,
+                     Pa,
+                     [#sctp_sndrcvinfo{stream   = Stream,
+                                       assoc_id = SbAssocId}],
+                     Data} = log_ok(gen_sctp:recv(Sb, infinity)),
+                    ?P("[4] *now* we received expected data "
+                       "with ancillary data => done"),
+                    Res4
+            end;
 
         {FromIPX, FromPortX, AncDataX, DataX} = Other1 ->
             ?P("UNEXPECTED: "
