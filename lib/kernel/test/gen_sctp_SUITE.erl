@@ -285,25 +285,45 @@ basic(Config) when is_list(Config) ->
 
 %% Minimal data transfer.
 xfer_min(Config) when is_list(Config) ->
+    Cond = fun() -> ok end,
+    Pre  = fun() -> case ?WHICH_LOCAL_ADDR(inet) of
+                        {ok, Addr} ->
+                            Addr;
+                        {error, Reason} ->
+                            throw({skip, Reason})
+                    end
+           end,
+    TC   = fun(Addr) -> do_xfer_min(Config, Addr) end,
+    Post = fun(_) -> ok end,
+    ?TC_TRY(?FUNCTION_NAME, Cond, Pre, TC, Post).
+
+do_xfer_min(Config, LAddr) when is_list(Config) ->
     Stream = 0,
     Data = <<"The quick brown fox jumps over a lazy dog 0123456789">>,
     Loopback = {127,0,0,1},
     StatOpts =
 	[recv_avg,recv_cnt,recv_max,recv_oct,
 	 send_avg,send_cnt,send_max,send_oct],
+
+    ?P("~w -> [b] try create server socket", [?FUNCTION_NAME]),
     {ok,Sb} = gen_sctp:open([{type,seqpacket}]),
     {ok,SbStat1} = inet:getstat(Sb, StatOpts),
     {ok,Pb} = inet:port(Sb),
     ok = gen_sctp:listen(Sb, true),
 
+    ?P("~w -> [a] try create client socket", [?FUNCTION_NAME]),
     {ok,Sa} = gen_sctp:open(),
     {ok,Pa} = inet:port(Sa),
+
+    ?P("~w -> [a] try connect (to server)", [?FUNCTION_NAME]),
     {ok,#sctp_assoc_change{state=comm_up,
 			   error=0,
 			   outbound_streams=SaOutboundStreams,
 			   inbound_streams=SaInboundStreams,
 			   assoc_id=SaAssocId}=SaAssocChange} =
 	gen_sctp:connect(Sa, Loopback, Pb, []),
+
+    ?P("~w -> [b] try accept connection", [?FUNCTION_NAME]),
     {SbAssocId,SaOutboundStreams,SaInboundStreams} =
 	case recv_event(log_ok(gen_sctp:recv(Sb, infinity))) of
 	    {Loopback,Pa,
@@ -329,28 +349,10 @@ xfer_min(Config) when is_list(Config) ->
 	end,
 
     ok = gen_sctp:send(Sa, SaAssocId, 0, Data),
-    case log_ok(gen_sctp:recv(Sb, infinity)) of
-	{Loopback,
-	 Pa,
-	 [#sctp_sndrcvinfo{stream   = Stream,
-			   assoc_id = SbAssocId}],
-	 Data} -> ok;
-	Event1 ->
-	    case recv_event(Event1) of
-		{Loopback,Pa,
-		 #sctp_paddr_change{addr = {Loopback,_},
-				    state = State,
-				    error = 0,
-				    assoc_id = SbAssocId}}
-		  when State =:= addr_available;
-		       State =:= addr_confirmed ->
-		    {Loopback,
-		     Pa,
-		     [#sctp_sndrcvinfo{stream=Stream,
-				       assoc_id=SbAssocId}],
-		     Data} = log_ok(gen_sctp:recv(Sb, infinity))
-	    end
-    end,
+    ok = await_first_data(Loopback, LAddr,
+                          Pa, SaAssocId,
+                          Sb, Pb, SbAssocId,
+                          Data),
     ok = gen_sctp:send(Sb, SbAssocId, 0, Data),
     case log_ok(gen_sctp:recv(Sa, infinity)) of
 	{Loopback,Pb,
@@ -396,6 +398,75 @@ xfer_min(Config) when is_list(Config) ->
     after 17 -> ok
     end,
     ok.
+
+await_first_data(Loopback, LAddr,
+                 CPort, CAssocId,
+                 SSock, SPort, SAssocId,
+                 Data) ->
+    await_first_data(Loopback, LAddr,
+                     CPort, CAssocId,
+                     SSock, SPort, SAssocId,
+                     Data, 2).    
+
+await_first_data(Loopback, LAddr,
+                 CPort, CAssocId,
+                 SSock, SPort, SAssocId,
+                 Data,
+                 N) when (N >= 0) ->
+    case log_ok(gen_sctp:recv(SSock, infinity)) of
+        {Loopback, CPort,
+         [#sctp_sndrcvinfo{stream   = Stream,
+			   assoc_id = SAssocId}],
+         Data} ->
+            ?P("~w -> received expected data (sndrcvinfo) event with"
+               "~n   Stream: ~p",
+               [?FUNCTION_NAME, Stream]),
+            ok;
+        %% Something else...
+        %% We *can* also first receive one or more paddr-change events...
+        Event ->
+            ?P("~w -> received other event - check", [?FUNCTION_NAME]),
+            case recv_event(Event) of
+                {Loopback, CPort,
+                 #sctp_paddr_change{addr     = {IPAddr, _} = Addr,
+                                    state    = State,
+                                    error    = 0 = Error,
+                                    assoc_id = SAssocId}}
+                  when ((IPAddr =:= Loopback) orelse
+		        (IPAddr =:= LAddr)) andalso
+		       ((State =:= addr_available) orelse
+                        (State =:= addr_confirmed)) ->
+                    ?P("~w -> was expected paddr-change event with expected:"
+                       "~n   Addr:  ~p"
+                       "~n   State: ~p"
+                       "~n   Error: ~p",
+                       [?FUNCTION_NAME, Addr, State, Error]),
+                    await_first_data(Loopback, LAddr,
+                                     CPort, CAssocId,
+                                     SSock, SPort, SAssocId,
+                                     Data,
+                                     N-1);
+                {Loopback, CPort,
+                 #sctp_paddr_change{addr     = Addr,
+                                    state    = State,
+                                    error    = Error,
+                                    assoc_id = AssocId}} ->
+                    ?P("~w -> was expected paddr-change event with unexpected:"
+                       "~n   Addr:    ~p"
+                       "~n   State:   ~p"
+                       "~n   Error:   ~p"
+                       "~n   AssocId: ~p",
+                       [?FUNCTION_NAME, Addr, State, Error, AssocId]),
+                    ct:fail({unexpected_paddr_change,
+                             {Addr, State, Error, AssocId}});
+                OtherEvent ->
+                    ?P("~w -> was unexpected event:"
+                       "~n   ~p",
+                       [?FUNCTION_NAME, OtherEvent]),
+                    ct:fail({unexpected_event, OtherEvent})
+            end
+    end.
+
 
 filter_stat_eq([], []) ->
     [];
