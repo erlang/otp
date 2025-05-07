@@ -94,6 +94,9 @@ Possible options are:
 - **`{fail_undeclared_ref, Boolean}`** - Decides how the parser should behave
   when an undeclared reference is found. Can be useful if one has turned of
   external entities so that an external DTD is not parsed. Default is `true`.
+
+- **`{discard_ws_before_xml_document, Boolean}`** - Discard whitespace before
+  `xml` tag instead of returning a fatal error. Default is `false`.
 """.
 -type options() :: [{continuation_fun, continuation_fun()} |
                     {continuation_state, continuation_state()} |
@@ -104,7 +107,8 @@ Possible options are:
                     skip_external_dtd | disallow_entities |
                     {entity_recurse_limit, non_neg_integer()} |
                     {external_entities, all | file | none} |
-                    {fail_undeclared_ref, boolean()}].
+                    {fail_undeclared_ref, boolean()} |
+                    {discard_ws_before_xml_document, boolean()}].
 
 -type continuation_state() :: term().
 
@@ -474,6 +478,8 @@ parse_options([{external_entities, Type} |Options], State) when Type =:= all;
     parse_options(Options, State#xmerl_sax_parser_state{external_entities = Type});
 parse_options([{fail_undeclared_ref, Bool} |Options], State) when is_boolean(Bool) ->
     parse_options(Options, State#xmerl_sax_parser_state{fail_undeclared_ref = Bool});
+parse_options([{discard_ws_before_xml_document, Bool} |Options], State) when is_boolean(Bool) ->
+    parse_options(Options, State#xmerl_sax_parser_state{discard_ws_before_xml_document = Bool});
 parse_options([O |_], _State) ->
      {error, lists:flatten(io_lib:format("Option: ~p not supported", [O]))}.
 
