@@ -127,6 +127,30 @@ prop_delete_absent() ->
         lists:delete(make_ref(), InList) =:= InList
     ).
 
+%% deleteall/2
+prop_deleteall() ->
+    ?FORALL(
+        {InList, DelElem},
+        ?LET(
+            E,
+            ct_proper_ext:safe_any(),
+            {list(oneof([E, ct_proper_ext:safe_any()])), E}
+        ),
+        begin
+            DeletedList = lists:deleteall(DelElem, InList),
+            NE = length([E || E <- InList, E =:= DelElem]),
+            length(DeletedList) =:= length(InList) - NE andalso
+            check_all_deleted(DelElem, InList, DeletedList)
+        end
+    ).
+
+prop_deleteall_absent() ->
+    ?FORALL(
+        InList,
+        ct_proper_ext:safe_list(),
+        lists:deleteall(make_ref(), InList) =:= InList
+    ).
+
 %% droplast/1
 prop_droplast() ->
     ?FORALL(
@@ -416,6 +440,33 @@ prop_keydelete_absent() ->
         {N, InList},
         {pos_integer(), ct_proper_ext:safe_list()},
         lists:keydelete(make_ref(), N, InList) =:= InList
+    ).
+
+%% keydeleteall/3
+prop_keydeleteall() ->
+    ?FORALL(
+        {Key, N, InList},
+        ?LET(
+            {K, N},
+            {
+                ct_proper_ext:safe_any(),
+                range(1, 5)
+            },
+            {K, N, list(oneof([gen_keytuple(K, N, N + 3), gen_tuple(N, N + 3), ct_proper_ext:safe_any()]))}
+        ),
+        begin
+            DeletedList = lists:keydeleteall(Key, N, InList),
+            NE = length([E || E <- InList, is_tuple(E), tuple_size(E) >= N, element(N, E) == Key]),
+            length(DeletedList) =:= length(InList) - NE andalso
+            check_all_keydeleted(Key, N, InList, DeletedList)
+        end
+    ).
+
+prop_keydeleteall_absent() ->
+    ?FORALL(
+        {N, InList},
+        {pos_integer(), ct_proper_ext:safe_list()},
+        lists:keydeleteall(make_ref(), N, InList) =:= InList
     ).
 
 %% keyfind/3
@@ -1869,11 +1920,21 @@ check_appended(_Ls, _AL) ->
 %% --------------------------------------------------------------------
 check_deleted(E, [E|L], DL) ->
     L =:= DL;
-check_deleted(E, [_|L], [_|DL]) ->
+check_deleted(E, [X|L], [X|DL]) ->
     check_deleted(E, L, DL);
 check_deleted(_E, [], []) ->
     true;
 check_deleted(_E, _L, _DL) ->
+    false.
+
+%% --------------------------------------------------------------------
+check_all_deleted(E, [E|L], DL) ->
+    check_all_deleted(E, L, DL);
+check_all_deleted(E, [X|L], [X|DL]) ->
+    check_all_deleted(E, L, DL);
+check_all_deleted(_E, [], []) ->
+    true;
+check_all_deleted(_E, _L, _DL) ->
     false.
 
 %% --------------------------------------------------------------------
@@ -1889,9 +1950,21 @@ check_joined(_Sep, _L, _JL) ->
 %% --------------------------------------------------------------------
 check_keydeleted(K, N, [E|L], KDL) when element(N, E) == K ->
     L =:= KDL;
-check_keydeleted(K, N, [_|L], [_|KDL]) ->
+check_keydeleted(K, N, [X|L], [X|KDL]) ->
     check_keydeleted(K, N, L, KDL);
+check_keydeleted(_N, _K, [], []) ->
+    true;
 check_keydeleted(_K, _N, _L, _KDL) ->
+    false.
+
+%% --------------------------------------------------------------------
+check_all_keydeleted(K, N, [E|L], KDL) when element(N, E) == K ->
+    check_all_keydeleted(K, N, L, KDL);
+check_all_keydeleted(K, N, [X|L], [X|KDL]) ->
+    check_all_keydeleted(K, N, L, KDL);
+check_all_keydeleted(_K, _N, [], []) ->
+    true;
+check_all_keydeleted(_K, _N, _L, _KDL) ->
     false.
 
 %% --------------------------------------------------------------------

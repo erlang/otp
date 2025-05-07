@@ -32,6 +32,7 @@ all() ->
         append_2_case,
         concat_case,
         delete_case, delete_absent_case,
+        deleteall_case, deleteall_absent_case,
         droplast_case,
         dropwhile_case,
         duplicate_case,
@@ -49,6 +50,7 @@ all() ->
         foreach_case,
         join_case,
         keydelete_case, keydelete_absent_case,
+        keydeleteall_case, keydeleteall_absent_case,
         keyfind_case, keyfind_absent_case,
         keymap_case,
         keymember_case, keymember_absent_case,
@@ -146,6 +148,12 @@ delete_case(Config) ->
 delete_absent_case(Config) ->
     do_proptest(prop_delete_absent, Config).
 
+deleteall_case(Config) ->
+    do_proptest(prop_deleteall, Config).
+
+deleteall_absent_case(Config) ->
+    do_proptest(prop_deleteall_absent, Config).
+
 droplast_case(Config) ->
     do_proptest(prop_droplast, Config).
 
@@ -199,6 +207,12 @@ keydelete_case(Config) ->
 
 keydelete_absent_case(Config) ->
     do_proptest(prop_keydelete_absent, Config).
+
+keydeleteall_case(Config) ->
+    do_proptest(prop_keydeleteall, Config).
+
+keydeleteall_absent_case(Config) ->
+    do_proptest(prop_keydeleteall_absent, Config).
 
 keyfind_case(Config) ->
     do_proptest(prop_keyfind, Config).
