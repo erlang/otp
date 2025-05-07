@@ -482,37 +482,81 @@ filter_stat_eq([{Tag,Val1}=Stat|SbStat1], [{Tag,Val2}|SbStat2]) ->
 
 %% Minimal data transfer in active mode.
 xfer_active(Config) when is_list(Config) ->
+    Cond = fun() -> ok end,
+    Pre  = fun() ->
+                   Addr =
+                       case ?WHICH_LOCAL_ADDR(inet) of
+                           {ok, A} ->
+                               A;
+                           {error, Reason} ->
+                               throw({skip, Reason})
+                       end,
+                   OS =
+                       case os:type() of
+                           {unix, Flavor} ->
+                               Flavor;
+                           {win32 = Win, _} ->
+                               Win
+                       end,
+                   {Addr, OS}
+           end,
+    TC   = fun({Addr, OS}) -> do_xfer_active(#{addr => Addr,
+                                               os   => OS}) end,
+    Post = fun(_) -> ok end,
+    ?TC_TRY(?FUNCTION_NAME, Cond, Pre, TC, Post).
+
+do_xfer_active(#{addr := LAddr, os := OS}) ->
     Timeout = 2000,
     Stream = 0,
     Data = <<"The quick brown fox jumps over a lazy dog 0123456789">>,
     Loopback = {127,0,0,1},
+
+    ?P("~w -> [b] try create server socket", [?FUNCTION_NAME]),
     {ok,Sb} = gen_sctp:open([{active,true}]),
     {ok,Pb} = inet:port(Sb),
     ok = gen_sctp:listen(Sb, true),
 
+    ?P("~w -> [a] try create client socket", [?FUNCTION_NAME]),
     {ok,Sa} = gen_sctp:open([{active,true}]),
     {ok,Pa} = inet:port(Sa),
+
+    ?P("~w -> [a] try initiaate connect (to server)", [?FUNCTION_NAME]),
     ok = gen_sctp:connect_init(Sa, Loopback, Pb, []),
-    #sctp_assoc_change{state=comm_up,
-		       error=0,
-		       outbound_streams=SaOutboundStreams,
-		       inbound_streams=SaInboundStreams,
-		       assoc_id=SaAssocId} = SaAssocChange =
+    ?P("~w -> [a] await (assoc-change) comm-up event", [?FUNCTION_NAME]),
+    #sctp_assoc_change{state            = comm_up,
+		       error            = 0,
+		       outbound_streams = SaOutboundStreams,
+		       inbound_streams  = SaInboundStreams,
+		       assoc_id         = SaAssocId} = SaAssocChange =
 	recv_assoc_change(Sa, Loopback, Pb, Timeout),
-    io:format("Sa=~p, Pa=~p, Sb=~p, Pb=~p, SaAssocId=~p, "
-	      "SaOutboundStreams=~p, SaInboundStreams=~p~n",
-	      [Sa,Pa,Sb,Pb,SaAssocId,
-	       SaOutboundStreams,SaInboundStreams]),
-    #sctp_assoc_change{state=comm_up,
-		       error=0,
-		       outbound_streams=SbOutboundStreams,
-		       inbound_streams=SbInboundStreams,
-		       assoc_id=SbAssocId} =
+    ?P("~w -> [a] received expected comm-up event with"
+       "~n   Sa:          ~p"
+       "~n   Pa:          ~p"
+       "~n   SaAssocId:   ~p"
+       "~n   Out Streams: ~p"
+       "~n   In Streams:  ~p",
+       [?FUNCTION_NAME,
+        Sa, Pa, SaAssocId, SaOutboundStreams, SaInboundStreams]),
+
+    ?P("~w -> [b] await (assoc-change) comm-up event", [?FUNCTION_NAME]),
+    #sctp_assoc_change{state            = comm_up,
+		       error            = 0,
+		       outbound_streams = SbOutboundStreams,
+		       inbound_streams  = SbInboundStreams,
+		       assoc_id         = SbAssocId} =
 	recv_assoc_change(Sb, Loopback, Pa, Timeout),
+    ?P("~w -> [b] received expected comm-up event with"
+       "~n   SbAssocId:   ~p"
+       "~n   Out Streams: ~p"
+       "~n   In Streams:  ~p",
+       [?FUNCTION_NAME,
+        SbAssocId, SbOutboundStreams, SbInboundStreams]),
+
+    ?P("~w -> ensure in/out streams match", [?FUNCTION_NAME]),
     SbOutboundStreams = SaInboundStreams,
     SbInboundStreams = SaOutboundStreams,
-    io:format("SbAssocId=~p~n", [SbAssocId]),
 
+    ?P("~w -> [a] await paddr-change", [?FUNCTION_NAME]),
     case recv_paddr_change(Sa, Loopback, Pb, 314) of
 	#sctp_paddr_change{state=addr_confirmed,
 			   addr={_,Pb},
@@ -524,6 +568,8 @@ xfer_active(Config) when is_list(Config) ->
 			   assoc_id=SaAssocId} -> ok;
 	timeout -> ok
     end,
+
+    ?P("~w -> [b] await paddr-change", [?FUNCTION_NAME]),
     case recv_paddr_change(Sb, Loopback, Pa, 314) of
 	#sctp_paddr_change{state=addr_confirmed,
 			   addr={Loopback,Pa},
@@ -536,11 +582,28 @@ xfer_active(Config) when is_list(Config) ->
 	    match_unless_solaris(Pa, P);
 	timeout -> ok
     end,
-    [] = flush(),
+    
+    ?P("~w -> ensure (nearly) empty message queue", [?FUNCTION_NAME]),
+    case flush() of
+        [] ->
+            ?P("~w -> no events", [?FUNCTION_NAME]),
+            ok;
+        [{sctp,  Sb,  Loopback, Pa,
+	 {[],
+	  #sctp_paddr_change{addr     = {LAddr, Pa},
+                             state    = addr_confirmed,
+                             error    = 0,
+                             assoc_id = SaAssocId}}}]
+	  when (OS =:= freebsd) ->
+            ?P("~w -> accepted (paddr-change) event", [?FUNCTION_NAME]),
+            ok
+    end,
 
+    ?P("~w -> send from other process", [?FUNCTION_NAME]),
     ok =
 	do_from_other_process(
 	  fun () -> gen_sctp:send(Sa, SaAssocId, 0, Data) end),
+    ?P("~w -> receive data", [?FUNCTION_NAME]),
     receive
 	{sctp,Sb,Loopback,Pa,
 	 {[#sctp_sndrcvinfo{stream=Stream,
@@ -549,7 +612,10 @@ xfer_active(Config) when is_list(Config) ->
     after Timeout ->
 	    ct:fail({timeout,flush()})
     end,
+
+    ?P("~w -> send", [?FUNCTION_NAME]),
     ok = gen_sctp:send(Sb, SbAssocId, 0, Data),
+    ?P("~w -> receive data", [?FUNCTION_NAME]),
     receive
 	{sctp,Sa,Loopback,Pb,
 	 {[#sctp_sndrcvinfo{stream=Stream,
@@ -558,32 +624,43 @@ xfer_active(Config) when is_list(Config) ->
     after Timeout ->
 	    ct:fail({timeout,flush()})
     end,
+
     %%
+    ?P("~w -> [a] abort", [?FUNCTION_NAME]),
     ok = gen_sctp:abort(Sa, SaAssocChange),
+    ?P("~w -> [b] await comm-lost event", [?FUNCTION_NAME]),
     case recv_assoc_change(Sb, Loopback, Pa, Timeout) of
 	#sctp_assoc_change{state=comm_lost,
 			   assoc_id=SbAssocId} -> ok;
 	timeout ->
+            ?P("~w -> timeout", [?FUNCTION_NAME]),
 	    ct:fail({timeout,flush()})
     end,
+
+    ?P("~w -> [b] close socket", [?FUNCTION_NAME]),
     ok = gen_sctp:close(Sb),
+    ?P("~w -> [a] await comm-lost event", [?FUNCTION_NAME]),
     case recv_assoc_change(Sa, Loopback, Pb, Timeout) of
 	#sctp_assoc_change{state=comm_lost,
 			   assoc_id=SaAssocId} -> ok;
 	timeout ->
-	    io:format("timeout waiting for comm_lost on Sa~n"),
+            ?P("~w -> timeout waiting for comm-lost", [?FUNCTION_NAME]),
 	    match_unless_solaris(ok, {timeout,flush()})
     end,
     receive
 	{sctp_error,Sa,enotconn} -> ok % Solaris
     after 17 -> ok
     end,
+
+    ?P("~w -> [a] close socket", [?FUNCTION_NAME]),
     ok = gen_sctp:close(Sa),
     %%
     receive
 	Msg -> ct:fail({unexpected,[Msg]++flush()})
     after 17 -> ok
     end,
+
+    ?P("~w -> done", [?FUNCTION_NAME]),
     ok.
 
 recv_assoc_change(S, Addr, Port, Timeout) ->
