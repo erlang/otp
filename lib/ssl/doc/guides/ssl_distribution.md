@@ -242,18 +242,32 @@ an example file for use with `-ssl_dist_optfile`:
   * SslStatus, OTP's verification outcome, such as `valid` or a tuple `{bad_cert, unknown_ca}`
   * Init will be `"any initial value"`
 
-For more details see `{verify_fun, Verify}` [in common_option_cert](`t:ssl:common_option_cert/0`)
+A pattern for `verify/3` will look like:
 
 ```erlang
 verify(OtpCert, _SslStatus, Init) ->
     IsOk = is_ok(OtpCert, Init),
     NewInitValue = "some new value",
-    if IsOk ->
-            {valid, NewInitValue};
+    case IsOk of
        true ->
-            {failure, NewInitValue}
+           {valid, NewInitValue};
+       false ->
+           {failure, NewInitValue}
     end.
 ```
+
+`verify_fun` can accept a `verify/4` function, which will receive:
+
+  * OtpCert, the other party's certificate [PKIX Certificates](`e:public_key:public_key_records.html#pkix-certificates`)
+  * DerCert, the other party's original [DER Encoded](`t:public_key:der_encoded/0`) certificate
+  * SslStatus, OTP's verification outcome, such as `valid` or a tuple `{bad_cert, unknown_ca}`
+  * Init will be `"any initial value"`
+
+The `verify/4` can use the DerCert for atypical workarounds such as
+handling decoding errors and directly verifying signatures.
+
+For more details see `{verify_fun, Verify}` [in common_option_cert](`t:ssl:common_option_cert/0`)
+
 
 > #### Note {: .info }
 > The legacy command line format for `verify_fun` cannot be used
