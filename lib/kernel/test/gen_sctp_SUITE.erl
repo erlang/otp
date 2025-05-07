@@ -690,6 +690,19 @@ recv_paddr_change(S, Addr, Port, Timeout) ->
 %% Test that #sctp_sndrcvinfo{} parameters set on a socket
 %% are used by gen_sctp:send/4.
 def_sndrcvinfo(Config) when is_list(Config) ->
+    Cond = fun() -> ok end,
+    Pre  = fun() -> case ?WHICH_LOCAL_ADDR(inet) of
+                        {ok, Addr} ->
+                            Addr;
+                        {error, Reason} ->
+                            throw({skip, Reason})
+                    end
+           end,
+    TC   = fun(Addr) -> do_def_sndrcvinfo(Addr) end,
+    Post = fun(_) -> ok end,
+    ?TC_TRY(?FUNCTION_NAME, Cond, Pre, TC, Post).
+
+do_def_sndrcvinfo(LAddr) ->
     Loopback = {127,0,0,1},
     Data = <<"What goes up, must come down.">>,
     %%
@@ -812,12 +825,31 @@ def_sndrcvinfo(Config) when is_list(Config) ->
 		    error=0, assoc_id=S1AssocId}}
 		  when State =:= addr_available;
 		       State =:= addr_confirmed ->
+                    %% We *may* get an paddr-event before the data event
+                    %% (on FreeBSD)
 		    case log_ok(gen_sctp:recv(S1)) of
 			{Loopback,P2,
 			 [#sctp_sndrcvinfo{
 			     stream=1, ppid=0, context=0,
 			     assoc_id=S1AssocId}],
-			 <<"3: ",Data/binary>>} -> ok
+			 <<"3: ",Data/binary>>} ->
+                            ok;
+                        {Loopback, P2, [],
+                          #sctp_paddr_change{addr     = {LAddr, _},
+                                             state    = addr_confirmed,
+                                             error    = 0,
+                                             assoc_id = S1AssocId}} ->
+                            ?P("~w -> paddr-change (addr-confirmed) event "
+                               "before data event - receive again",
+                               [?FUNCTION_NAME]),
+                            {Loopback,P2,
+                             [#sctp_sndrcvinfo{
+                                 stream   = 1,
+                                 ppid     = 0,
+                                 context  = 0,
+                                 assoc_id = S1AssocId}],
+                             <<"3: ",Data/binary>>} = log_ok(gen_sctp:recv(S1)),
+                            ok
 		    end
 	    end
     end,
