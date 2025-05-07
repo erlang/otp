@@ -239,13 +239,9 @@ ci(Opts) ->
                       "**/TAR.exclude",
                       "make/autoconf/*.static",
                       "**/*.cover",
-                      "lib/public_key/asn1/*",
-                      "lib/public_key/priv/moduli",
-                      "lib/public_key/src/pubkey_moduli.hrl",
                       "lib/jinterface/.**",
                       "erts/etc/win32/",
                       "erts/lib_src/yielding_c_fun/lib/simple_c_gc/**",
-                      "scripts/license-header-templates/**",
                       "lib/inets/test/httpd_test_data/**"] ++
                       NoWarnNewFiles,
 
