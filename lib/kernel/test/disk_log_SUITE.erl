@@ -87,7 +87,7 @@
 
          otp_6278/1, otp_10131/1, otp_16768/1, otp_16809/1,
         
-         decrease_size_with_chunk_step/1]).
+         decrease_size_with_chunk_step/1, decrease_size_twice/1]).
 
 -export([head_fun/1, hf/0, lserv/1, 
 	 measure/0, init_m/1, xx/0]).
@@ -161,7 +161,8 @@ groups() ->
      {change_size, [],
       [change_size_before, change_size_during,
        change_size_after, default_size, change_size2,
-       change_size_truncate, decrease_size_with_chunk_step]}].
+       change_size_truncate, decrease_size_with_chunk_step,
+       decrease_size_twice]}].
 
 init_per_suite(Config) ->
     Config.
@@ -4230,6 +4231,73 @@ decrease_size_with_chunk_step(Conf) when is_list(Conf) ->
     [6, 5, 4, 3, 2, 1] = get_all_terms(Log),
     ok = disk_log:close(Log),
     del(File, 2).
+
+decrease_size_twice(Conf) when is_list(Conf) ->
+    Dir = ?privdir(Conf),
+    Log = decrease_size_twice,
+    File = filename:join(Dir, lists:concat([Log, ".LOG"])),
+
+    Data_1 = [1, 2, 3],
+    Data_2 = [4, 5, 6],
+    Data_3 = [7, 8, 9],
+    Data_2_3 = Data_2 ++ Data_3,
+    Data = Data_1 ++ Data_2_3,
+
+    {ok, Log} = disk_log:open([{size, {50, 3}}, {name, Log}, {type, wrap},
+                               {file, File}, {notify, true}]),
+
+    ok = disk_log:log_terms(Log, Data),
+
+    %% Changing size to the same size should make no changes
+    ok = disk_log:change_size(Log, {50, 3}),
+    Data = get_all_terms(Log),
+
+    %% Changing size to smaller and then again to the same smaller size,
+    %% should leave OldMaxF as it was before
+    ok = disk_log:change_size(Log, {50, 2}),
+    ok = disk_log:change_size(Log, {50, 2}),
+    Data = get_all_terms(Log),
+
+    %% After writing data with new (smaller) log size, some terms should be truncated
+    ok = disk_log:log_terms(Log, Data),
+    Data_2_3 = get_all_terms(Log),
+
+    %% Changing size to bigger should remove OldMaxF
+    ok = disk_log:change_size(Log, {50, 3}),
+    ok = disk_log:log_terms(Log, Data),
+    Data = get_all_terms(Log),
+
+    %% Changing size to smaller, and then to even smaller should keep bigger OldMaxF
+    ok = disk_log:change_size(Log, {50, 2}),
+    ok = disk_log:change_size(Log, {50, 1}),
+    Data = get_all_terms(Log),
+
+    %% After writing data with new (even smaller) log size, some terms should be truncated
+    ok = disk_log:log_terms(Log, Data),
+    Data_3 = get_all_terms(Log),
+
+    %% Changing size to bigger should remove OldMaxF
+    ok = disk_log:change_size(Log, {50, 3}),
+    ok = disk_log:log_terms(Log, Data),
+    Data = get_all_terms(Log),
+
+    %% Changing size to smaller, writing some data (but less than required to cause logs to wrap),
+    %% and then to even smaller should keep bigger OldMaxF
+    ok = disk_log:log_terms(Log, lists:seq(1, 7)),
+    ok = disk_log:change_size(Log, {50, 2}),
+    ok = disk_log:log_terms(Log, [8, 9]),
+    ok = disk_log:change_size(Log, {50, 1}),
+    Data = get_all_terms(Log),
+
+    %% Changing size to bigger and than to bigger again, should allow to read all data
+    ok = disk_log:change_size(Log, {50, 2}),
+    Data = get_all_terms(Log),
+    ok = disk_log:change_size(Log, {50, 3}),
+    Data = get_all_terms(Log),
+
+    ok = disk_log:close(Log),
+
+    del(File, 3).
 
 mark(FileName, What) ->
     {ok,Fd} = file:open(FileName, [raw, binary, read, write]),

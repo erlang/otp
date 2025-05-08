@@ -971,13 +971,14 @@ mf_ext_close(#handle{filename = FName, curF = CurF,
 change_size_wrap(Handle, {NewMaxB, NewMaxF}, Version) ->
     FName = Handle#handle.filename,
     {_MaxB, MaxF} = get_wrap_size(Handle),
+    BiggerMaxF = lists:max([MaxF, get_old_max_f(Handle#handle.maxF)]),
     write_size_file(read_write, FName, NewMaxB, NewMaxF, Version),
     if
-	NewMaxF > MaxF ->
+	NewMaxF > BiggerMaxF ->
 	    remove_files(FName, MaxF + 1, NewMaxF),
 	    {ok, Handle#handle{maxB = NewMaxB, maxF = NewMaxF}};
-	NewMaxF < MaxF ->
-	    {ok, Handle#handle{maxB = NewMaxB, maxF = {NewMaxF, MaxF}}};
+	NewMaxF < BiggerMaxF ->
+	    {ok, Handle#handle{maxB = NewMaxB, maxF = {NewMaxF, BiggerMaxF}}};
 	true ->
 	    {ok, Handle#handle{maxB = NewMaxB, maxF = NewMaxF}}
     end.
@@ -1595,3 +1596,8 @@ file_error(FileName, {error, Error}) ->
 file_error_close(Fd, FileName, {error, Error}) ->
     _ = file:close(Fd),
     throw({error, {file_error, FileName, Error}}).
+
+get_old_max_f({_, OldMaxF}) ->
+    OldMaxF;
+get_old_max_f(MaxF) ->
+    MaxF.
