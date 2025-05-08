@@ -740,7 +740,7 @@ make_catch_tuple(Process *c_p, ErtsCodePtr catch_addr) {
 
     hp = HAlloc(c_p, tup2_sz);
     result = TUPLE2(hp,
-                    ERTS_MAKE_AM("catch"),
+                    am_catch,
                     stack_frame_fun_info(c_p, catch_addr, NULL, 0));
 
     return result;
