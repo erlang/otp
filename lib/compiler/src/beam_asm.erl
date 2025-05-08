@@ -438,11 +438,11 @@ build_bdi_fill_holes([{I0,Item}|[{I1,_}|_]=T]) ->
         I1 ->
             [Item|build_bdi_fill_holes(T)];
         Next ->
-            NewPair = {Next,{none,[]}},
+            NewPair = {Next,#{frame_size => none, vars => []}},
             [Item|build_bdi_fill_holes([NewPair|T])]
     end.
 
-build_bdi_instrs({FrameSize0,Vars0}) ->
+build_bdi_instrs(#{frame_size:=FrameSize0, vars:=Vars0}) ->
     %% The debug information utilizes the encoding machinery for BEAM
     %% instructions. Each entry in the the debug information for
     %% `debug_line` instructions (frame size, var mappings, etc) is
