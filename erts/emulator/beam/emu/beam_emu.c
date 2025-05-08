@@ -529,19 +529,25 @@ void process_main(ErtsSchedulerData *esdp)
          * code[3]: &&call_error_handler
          * code[4]: Not used
          */
+        const ErtsCodeMFA *mfa;
         Export *error_handler;
 
         HEAVY_SWAPOUT;
-        error_handler = call_error_handler(c_p, erts_code_to_codemfa(I),
-                                           reg, am_undefined_function);
+        mfa = erts_code_to_codemfa(I);
+        error_handler = call_error_handler(c_p,
+                                           mfa,
+                                           reg,
+                                           am_undefined_function);
         HEAVY_SWAPIN;
 
         if (error_handler) {
             I = error_handler->dispatch.addresses[erts_active_code_ix()];
             Goto(*I);
         }
+
+        I = handle_error(c_p, cp_val(*E), reg, mfa);
+        goto post_error_handling;
     }
- /* Fall through */
  OpCase(error_action_code): {
     handle_error:
      SWAPOUT;

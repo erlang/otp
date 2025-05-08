@@ -208,24 +208,44 @@ void BeamGlobalAssembler::emit_export_trampoline() {
 
     a.bind(error_handler);
     {
+        Label error;
+
+#ifdef NATIVE_ERLANG_STACK
+        error = labels[raise_exception];
+#else
+        error = a.newLabel();
+#endif
+
+        a.lea(ARG2, x86::qword_ptr(RET, offsetof(Export, info.mfa)));
+        a.mov(TMP_MEM1q, ARG2);
+
         emit_enter_frame();
         emit_enter_runtime<Update::eReductions | Update::eStack |
                            Update::eHeap>();
 
         a.mov(ARG1, c_p);
-        a.lea(ARG2, x86::qword_ptr(RET, offsetof(Export, info.mfa)));
+        /* ARG2 set above */
         load_x_reg_array(ARG3);
         mov_imm(ARG4, am_undefined_function);
         runtime_call<4>(call_error_handler);
 
         emit_leave_runtime<Update::eReductions | Update::eStack |
                            Update::eHeap>();
-
-        a.test(RET, RET);
-        a.je(labels[process_exit]);
-
         emit_leave_frame();
+
+        a.mov(ARG4, TMP_MEM1q);
+        a.test(RET, RET);
+        a.je(error);
         a.jmp(emit_setup_dispatchable_call(RET));
+
+#ifndef NATIVE_ERLANG_STACK
+        a.bind(error);
+        {
+            a.push(getCPRef());
+            a.mov(getCPRef(), imm(NIL));
+            a.jmp(labels[raise_exception]);
+        }
+#endif
     }
 }
 
