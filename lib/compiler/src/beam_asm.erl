@@ -35,7 +35,9 @@
 -include("beam_opcodes.hrl").
 -include("beam_asm.hrl").
 
--define(BEAM_DEBUG_INFO_VERSION, 0).
+-define(BEAM_DEBUG_INFO_VERSION, 1).
+-define(BEAM_DEBUG_INFO_ENTRY_FRAME_SIZE, 0).
+-define(BEAM_DEBUG_INFO_ENTRY_VAR_MAPPINGS, 1).
 
 %% Common types for describing operands for BEAM instructions.
 -type src() :: beam_reg() |
@@ -411,17 +413,18 @@ build_beam_debug_info_1(ExtraChunks0, Dict0) ->
     DebugTab1 = [{Index,Info} ||
                     Index := Info <- maps:iterator(DebugTab0, ordered)],
     DebugTab = build_bdi_fill_holes(DebugTab1),
-    NumVars = lists:sum([length(Vs) || {_,Vs} <- DebugTab]),
-    {Contents0,Dict} = build_bdi(DebugTab, Dict0),
-    NumItems = length(Contents0),
+    NumItems = length(DebugTab),
+    BdiInstrs = [Instr || Item <- DebugTab, Instr <- build_bdi_instrs(Item), Instr /= none],
+    NumTerms = lists:sum([length(Ts) || {_call,_,{list, Ts}} <- BdiInstrs]),
+    {Contents0, Dict} = lists:mapfoldl(fun make_op/2, Dict0, BdiInstrs),
     Contents1 = iolist_to_binary(Contents0),
 
     0 = NumItems bsr 31,                        %Assertion.
-    0 = NumVars bsr 31,                         %Assertion.
+    0 = NumTerms bsr 31,                         %Assertion.
 
     Contents = <<?BEAM_DEBUG_INFO_VERSION:32,
                  NumItems:32,
-                 NumVars:32,
+                 NumTerms:32,
                  Contents1/binary>>,
     ExtraChunks = [{~"DbgB",Contents}|ExtraChunks0],
     {ExtraChunks,Dict}.
@@ -439,22 +442,30 @@ build_bdi_fill_holes([{I0,Item}|[{I1,_}|_]=T]) ->
             [Item|build_bdi_fill_holes([NewPair|T])]
     end.
 
-build_bdi([{FrameSize0,Vars0}|Items], Dict0) ->
+build_bdi_instrs({FrameSize0,Vars0}) ->
     %% The debug information utilizes the encoding machinery for BEAM
-    %% instructions. The debug information for `debug_line`
-    %% instructions is translated to:
+    %% instructions. Each entry in the the debug information for
+    %% `debug_line` instructions (frame size, var mappings, etc) is
+    %% translated to:
     %%
-    %%    {call,FrameSize,{list,[VariableName,Where,...]}}
-    %%
-    %% Where:
-    %%
-    %%    FrameSize := 'none' | 0..1023
-    %%    VariableName := binary()
-    %%    Where := {x,0..1023} | {y,0..1023} | {literal,_} |
-    %%             {integer,_} | {atom,_} | {float,_} | nil
+    %%    {call,EntryCode,EntryEncoding}
     %%
     %% The only reason the `call` instruction is used is because it
     %% has two operands.
+    %%
+    %% The only mandatory entry is "frame size", as it will be used
+    %% as an item delimiter when loading.
+    %%
+    %% Encodings:
+    %%
+    %% * ENTRY_FRAME_SIZE:  'none' | 'entry' | 0..1023
+    %% * ENTRY_VAR_MAPPINGS:  {list,[VarName,VarLoc,...]}}
+    %%
+    %% Where:
+    %%
+    %%    VarName := binary()
+    %%    VarLoc := {x,0..1023} | {y,0..1023} | {literal,_} |
+    %%              {integer,_} | {atom,_} | {float,_} | nil
     %%
     %% The debug information in the following example:
     %%
@@ -463,9 +474,10 @@ build_bdi([{FrameSize0,Vars0}|Items], Dict0) ->
     %%            {'Line',[{y,2}]},
     %%            {'Live',[{x,0},{y,1}]}]}}
     %%
-    %% will be translated to the following instruction:
+    %% will be translated to the following instructions:
     %%
-    %%     {call,4,{list,[{literal,<<"Args">>},{y,3},
+    %%     {call,0,4}
+    %%     {call,1,{list,[{literal,<<"Args">>},{y,3},
     %%                    {literal,<<"Line">>},{y,2},
     %%                    {literal,<<"Live">>},{y,1}]}}
     %%
@@ -477,21 +489,25 @@ build_bdi([{FrameSize0,Vars0}|Items], Dict0) ->
                     entry -> {atom,entry};
                     _ -> FrameSize0
                 end,
-    Vars1 = case FrameSize0 of
-                entry ->
-                    [[bdi_name_to_term(Name),Reg] ||
-                        {Name,[Reg]} <:- Vars0];
-                _ ->
-                    [[{literal,atom_to_binary(Name)},last(Regs)] ||
-                        {Name,[_|_]=Regs} <:- Vars0]
-            end,
-    Vars = append(Vars1),
-    Instr0 = {call,FrameSize,{list,Vars}},
-    {Instr,Dict1} = make_op(Instr0, Dict0),
-    {Tail,Dict2} = build_bdi(Items, Dict1),
-    {[Instr|Tail],Dict2};
-build_bdi([], Dict) ->
-    {[],Dict}.
+    FrameSizeInstr = {call,?BEAM_DEBUG_INFO_ENTRY_FRAME_SIZE,FrameSize},
+
+    VarMappingsInstr =
+        case Vars0 of
+            [] ->
+                none;
+            _ ->
+                Vars =  case FrameSize0 of
+                            entry ->
+                                [[bdi_name_to_term(Name),Reg] ||
+                                    {Name,[Reg]} <:- Vars0];
+                            _ ->
+                                [[{literal,atom_to_binary(Name)},last(Regs)] ||
+                                    {Name,[_|_]=Regs} <:- Vars0]
+                        end,
+                {call,?BEAM_DEBUG_INFO_ENTRY_VAR_MAPPINGS,{list,append(Vars)}}
+        end,
+
+    [FrameSizeInstr, VarMappingsInstr].
 
 bdi_name_to_term(Int) when is_integer(Int) ->
     {integer,Int};
@@ -678,7 +694,7 @@ flag_to_bit(unsigned)-> 16#00;
 %%flag_to_bit(exact)   -> 16#08;
 flag_to_bit(native)  -> 16#10;
 flag_to_bit({anno,_}) -> 0.
-    
+
 encode_list([H|T], Dict0, Acc) when not is_list(H) ->
     {Enc,Dict} = encode_arg(H, Dict0),
     encode_list(T, Dict, [Acc,Enc]);

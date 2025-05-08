@@ -152,6 +152,10 @@ typedef struct {
     BeamType *entries;
 } BeamFile_TypeTable;
 
+
+#define BEAMFILE_DEBUG_INFO_ENTRY_FRAME_SIZE 0
+#define BEAMFILE_DEBUG_INFO_ENTRY_VAR_MAPPINGS 1
+
 #define BEAMFILE_FRAMESIZE_ENTRY (-2)
 #define BEAMFILE_FRAMESIZE_NONE (-1)
 

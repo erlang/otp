@@ -218,7 +218,8 @@ debug_info_vars(DebugInfo, IndexToFunctionMap) ->
     Literals = family_union(Literals0),
     {Vars,Literals}.
 
-debug_info_vars_1([{I,{_FrameSize,List}}|T], IndexToFunctionMap, VarAcc, LitAcc) ->
+debug_info_vars_1([{I,Info}|T], IndexToFunctionMap, VarAcc, LitAcc) ->
+    List = maps:get(vars, Info, []),
     case debug_info_vars_2(List, [], []) of
         {[],[]} ->
             debug_info_vars_1(T, IndexToFunctionMap, VarAcc, LitAcc);
@@ -539,13 +540,12 @@ get_debug_info(Mod, Beam) ->
                    {error,_,_} ->
                        []
                end,
-    Op = beam_opcodes:opcode(call, 2),
     <<Version:32,
       _NumItems:32,
-      _NumVars:32,
+      _NumTerms:32,
       DebugInfo1/binary>> = DebugInfo0,
-    0 = Version,
-    RawDebugInfo0 = decode_debug_info(DebugInfo1, Literals, Atoms, Op),
+    1 = Version,
+    RawDebugInfo0 = decode_debug_info(DebugInfo1, Literals, Atoms),
     RawDebugInfo = lists:zip(lists:seq(1, length(RawDebugInfo0)), RawDebugInfo0),
 
     %% The cooked debug info has line numbers instead of indices.
@@ -584,20 +584,59 @@ decode_literal_table(<<0:32,N:32,Tab/binary>>) ->
         Index <- lists:seq(0, N - 1) &&
             <<Size:32,Literal:Size/binary>> <:= Tab}.
 
-decode_debug_info(Code0, Literals, Atoms, Op) ->
+decode_debug_info(Code0, Literals, Atoms) ->
+    Entries = decode_entries(Code0, Literals, Atoms),
+    {Infos, NextEntry} = lists:foldr(
+        fun
+            ({K, V}, {InfosN, NextN}) ->
+                Next = case NextN of
+                    #{K := _} -> error({duplicated, K});
+                    _ -> NextN#{K => V}
+                end,
+                case K of
+                    frame_size -> {[Next|InfosN], #{}};
+                    _ -> {InfosN, Next}
+                end
+
+        end,
+        {[], #{}},
+        Entries
+    ),
+    0 = map_size(NextEntry),
+    Infos.
+
+decode_entries(<<>>, _Literals, _Atoms) ->
+    [];
+decode_entries(Code0, Literals, Atoms) ->
+    {Entry, Code1} = decode_entry(Code0, Literals, Atoms),
+    [Entry|decode_entries(Code1, Literals, Atoms)].
+
+decode_entry(Code0, Literals, Atoms) ->
+    Op = beam_opcodes:opcode(call, 2),
     case Code0 of
         <<Op,Code1/binary>> ->
-            {FrameSize0,Code2} = decode_arg(Code1, Literals, Atoms),
-            FrameSize = case FrameSize0 of
-                            nil -> none;
-                            {atom,entry} -> entry;
-                            _ -> FrameSize0
-                        end,
-            {{list,List0},Code3} = decode_arg(Code2, Literals, Atoms),
-            List = decode_list(List0),
-            [{FrameSize,List}|decode_debug_info(Code3, Literals, Atoms, Op)];
-        <<>> ->
-            []
+            {EntryType, Code2} = decode_arg(Code1, Literals, Atoms),
+            {Value, Code3} = decode_arg(Code2, Literals, Atoms),
+            Entry = case EntryType of
+                0 ->
+                    case Value of
+                        nil ->
+                            {frame_size, none};
+                        {atom,entry} ->
+                            {frame_size, entry};
+                        _ when is_integer(Value), Value >= 0 ->
+                            {frame_size, Value}
+                    end;
+
+                1 ->
+                    case Value of
+                        {list,List} -> {vars, decode_list(List)}
+                    end;
+
+                _ ->
+                    error({unknown_entry_type, EntryType})
+            end,
+            {Entry, Code3}
     end.
 
 decode_list([{integer,Var}|T]) when is_integer(Var) ->
