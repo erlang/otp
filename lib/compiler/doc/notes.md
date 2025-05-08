@@ -385,6 +385,14 @@ This document describes the changes made to the Compiler application.
 [PR-8090]: https://github.com/erlang/otp/pull/8090
 [PR-8205]: https://github.com/erlang/otp/pull/8205
 
+## Compiler 8.4.3.3
+
+### Fixed Bugs and Malfunctions
+
+* Fix a bug where unloaded nifs can crash the compiler.
+
+  Own Id: OTP-19600 Aux Id: PR-9737, GH-9715
+
 ## Compiler 8.4.3.2
 
 ### Fixed Bugs and Malfunctions

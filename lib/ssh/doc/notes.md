@@ -204,6 +204,14 @@ limitations under the License.
 [PR-7845]: https://github.com/erlang/otp/pull/7845
 [PR-8026]: https://github.com/erlang/otp/pull/8026
 
+## Ssh 5.1.4.9
+
+### Fixed Bugs and Malfunctions
+
+* Fix KEX strict implementation according to draft-miller-sshm-strict-kex-01 document.
+
+  Own Id: OTP-19625 Aux Id: CVE-2025-46712
+
 ## Ssh 5.1.4.8
 
 ### Fixed Bugs and Malfunctions
