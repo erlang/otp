@@ -337,6 +337,12 @@ scheduler_wall_time_test(Type) ->
     end.
 
 run_scheduler_wall_time_test(Type) ->
+    %% All dirty schedulers will be hogged during a period of time
+    %% during these tests. If the testcase fails during this time, all
+    %% disc io and large gc will be blocked making the test case
+    %% timeout instead of failing, i.e., do not add stuff that can
+    %% fail the test case while all dirty schedulers are hogged...
+
     %% Should return undefined if system_flag is not turned on yet
     undefined = statistics(Type),
     %% Turn on statistics
@@ -383,7 +389,7 @@ run_scheduler_wall_time_test(Type) ->
                    end,
         StartDirtyHog = fun(Func) ->
                                 F = fun() ->
-                                            erts_debug:Func(alive_waitexiting,
+                                            erts_debug:Func(alive_waitexitingonly,
                                                             MeMySelfAndI)
                                     end,
                                 Pid = spawn_link(F),
@@ -394,8 +400,9 @@ run_scheduler_wall_time_test(Type) ->
         %% Max on one, the other schedulers empty (hopefully)
         %% Be generous the process can jump between schedulers
         %% which is ok and we don't want the test to fail for wrong reasons
-        _L1 = [S1Load|EmptyScheds1] = get_load(Type),
-        {true,_}  = {S1Load > 50,S1Load},
+        L1 = get_load(Type),
+        [High1Load|EmptyScheds1] = lists:reverse(lists:sort(L1)),
+        {true,_}  = {High1Load > 50,High1Load},
         {false,_} = {lists:any(fun(Load) -> Load > 50 end, EmptyScheds1),EmptyScheds1},
         {true,_}  = {lists:sum(EmptyScheds1) < 60,EmptyScheds1},
 
@@ -417,33 +424,33 @@ run_scheduler_wall_time_test(Type) ->
         %% 100% load. Need to take into consideration an odd number of
         %% schedulers and also special consideration for when there is
         %% only 1 scheduler
-        LastHogs = [StartHog() || _ <- lists:seq(1, (Schedulers+1) div 2),
-                                  Schedulers =/= 1],
+
         LastDirtyCPUHogs = [StartDirtyHog(dirty_cpu)
                             || _ <- lists:seq(1, (DirtyCPUSchedulers+1) div 2),
                                    DirtyCPUSchedulers =/= 1],
         LastDirtyIOHogs = [StartDirtyHog(dirty_io)
                            || _ <- lists:seq(1, (DirtyIOSchedulers+1) div 2),
                                    DirtyIOSchedulers =/= 1],
+        LastHogs = [StartHog() || _ <- lists:seq(1, (Schedulers+1) div 2),
+                                  Schedulers =/= 1],
         FullScheds = get_load(Type),
         ct:log("FullScheds: ~w",[FullScheds]),
+
+        AllHogs = [P1|HalfHogs++HalfDirtyCPUHogs++HalfDirtyIOHogs
+                   ++LastHogs++LastDirtyCPUHogs++LastDirtyIOHogs],
+
+        KillHog = fun (HP) -> unlink(HP), exit(HP, kill) end,
+        WaitKilledHog = fun (HP) -> false = is_process_alive(HP) end,
+        [KillHog(Pid) || Pid <- AllHogs],
+        [WaitKilledHog(Pid) || Pid <- AllHogs],
+        receive after 1000 -> ok end, %% Give dirty schedulers time to complete...
+
         {false,_} = {lists:any(fun(Load) -> Load < 80 end, FullScheds),FullScheds},
         FullLoad = lists:sum(FullScheds) div TotLoadSchedulers,
         if FullLoad > 90 -> ok;
            true -> exit({fullload, FullLoad})
         end,
 
-	KillHog = fun (HP) ->
-			  HPM = erlang:monitor(process, HP),
-                          unlink(HP),
-			  exit(HP, kill),
-			  receive
-			      {'DOWN', HPM, process, HP, killed} ->
-				  ok
-			  end
-		  end,
-        [KillHog(Pid) || Pid <- [P1|HalfHogs++HalfDirtyCPUHogs++HalfDirtyIOHogs
-                                 ++LastHogs++LastDirtyCPUHogs++LastDirtyIOHogs]],
         receive after 2000 -> ok end, %% Give dirty schedulers time to complete...
         AfterLoad = get_load(Type),
 	io:format("AfterLoad=~p~n", [AfterLoad]),
@@ -454,12 +461,12 @@ run_scheduler_wall_time_test(Type) ->
     end.
 
 get_load(Type) ->
+    %% Returns info for each *online* scheduler in scheduler id order
     Start = erlang:statistics(Type),
     timer:sleep(1500),
     End = erlang:statistics(Type),
 
-    lists:reverse(
-      lists:sort(load_percentage(online_statistics(Start),online_statistics(End)))).
+    load_percentage(online_statistics(Start),online_statistics(End)).
 
 %% We are only interested in schedulers that are online to remove all
 %% offline normal and dirty cpu schedulers (dirty io cannot be offline)
