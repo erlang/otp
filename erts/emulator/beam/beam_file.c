@@ -670,11 +670,12 @@ static int parse_type_chunk(BeamFile *beam, IFF_Chunk *chunk) {
     }
 }
 
-static void init_debug_item(BeamFile_DebugItem *item) {
+static void init_debug_item(BeamFile_DebugItem *item, Eterm *tp) {
     item->location_index = -1;
     item->frame_size = -1;
     item->num_vars = 0;
-    item->first = NULL;
+    item->num_calls_terms = 0;
+    item->first = tp;
 }
 
 static int parse_debug_chunk_frame_size(const BeamOpArg *arg, BeamFile_DebugItem *item) {
@@ -716,7 +717,6 @@ static int parse_debug_chunk_var_mappings(int args_count, const BeamOpArg *args,
     num_vars = args_count / 2;
 
     item->num_vars = num_vars;
-    item->first = tp;
 
     while (args_count > 0) {
         Eterm var_name;
@@ -775,6 +775,75 @@ static int parse_debug_chunk_var_mappings(int args_count, const BeamOpArg *args,
         return 0;
 }
 
+static int parse_debug_chunk_calls(int args_count, const BeamOpArg *args, BeamFile_DebugItem *item,
+                                   Eterm *tp, byte* lp, const BeamFile *beam) {
+    int arity;
+    unsigned expected=0;
+
+    item->num_calls_terms = args_count;
+
+    for(;args_count > 0; args++,args_count--) {
+        Eterm var_name;
+
+        switch (args[0].type) {
+        case TAG_u:
+            if(expected > 0) {
+                goto error;
+            }
+
+            arity = args[0].val;
+
+            if (arity > MAX_ARG) {
+                arity -= (MAX_ARG + 1);
+                expected = 1;
+            } else {
+                expected = 2;
+            }
+
+            if (arity < 0 || arity > MAX_ARG) {
+                goto error;
+            }
+
+            *tp++ = make_small(args[0].val);
+            *lp++ = 0;
+            break;
+        case TAG_a:
+            if (expected == 0) {
+                goto error;
+            }
+            *tp++ = args[0].val;
+            *lp++ = 0;
+            expected--;
+            break;
+        case TAG_q:
+            var_name = beamfile_get_literal(beam, args[0].val);
+            if (is_not_bitstring(var_name) ||
+                TAIL_BITS(bitstring_size(var_name))) {
+                goto error;
+            }
+            *tp++ = args[0].val;
+            *lp++ = 1;
+
+            /* if expected == 0, this is a call to a variable */
+            if (expected > 0) {
+                expected --;
+            }
+            break;
+        default:
+            goto error;
+        }
+    }
+
+    if (expected > 0) {
+        goto error;
+    }
+
+    return 1;
+
+    error:
+        return 0;
+}
+
 static int parse_debug_chunk_data(BeamFile *beam, BeamReader *p_reader) {
     Sint32 count;
     Sint32 total_num_terms;
@@ -818,6 +887,7 @@ static int parse_debug_chunk_data(BeamFile *beam, BeamReader *p_reader) {
     while(count > 0 || total_num_terms > 0) {
         BeamOpArg *arg;
         int entry_type, extra_args;
+        int skip=0;
 
         if (!beamcodereader_next(op_reader, &op)) {
             goto error;
@@ -840,7 +910,7 @@ static int parse_debug_chunk_data(BeamFile *beam, BeamReader *p_reader) {
             }
             i++, count--, last_entry=entry_type;
 
-            init_debug_item(&debug->items[i]);
+            init_debug_item(&debug->items[i], tp);
             if (!parse_debug_chunk_frame_size(arg, &debug->items[i])) {
                 goto error;
             }
@@ -873,16 +943,26 @@ static int parse_debug_chunk_data(BeamFile *beam, BeamReader *p_reader) {
                     goto error;
                 }
                 break;
+            case BEAMFILE_DEBUG_INFO_ENTRY_CALLS:
+                if (!parse_debug_chunk_calls(extra_args,
+                                             arg,
+                                             &debug->items[i],
+                                             tp,
+                                             lp,
+                                             beam)) {
+                    goto error;
+                }
+                break;
             default:
                 /* unknown entry type, ignore */
                 debug->term_count -= extra_args;
-                goto skip;
+                skip = 1;
             }
 
-            tp += extra_args;
-            lp += extra_args;
-
-            skip:
+            if (!skip) {
+                tp += extra_args;
+                lp += extra_args;
+            }
         }
 
         beamopallocator_free_op(&op_allocator, op);
