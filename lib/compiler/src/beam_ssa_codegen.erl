@@ -1260,7 +1260,8 @@ format_call_target(#b_var{} = V, VarAliases) ->
     resolve_var_alias(V, VarAliases).
 
 -spec resolve_var_alias(VarOrLit, VarAliases) -> none | AtomOrVar when
-    VarOrLit :: b_var() | b_literal(),
+    VarOrLit :: b_var() | b_literal() | XReg,
+    XReg :: {x, non_neg_integer()},
     AtomOrVar :: {var, binary()} | {atom, atom()},
     VarAliases :: #{beam_ssa:var_name() => [beam_ssa:var_name()]}.
 resolve_var_alias(#b_var{name=V}, VarAliases) ->
@@ -1275,6 +1276,8 @@ resolve_var_alias(#b_var{name=V}, VarAliases) ->
 resolve_var_alias(#b_literal{val=Atom}, _VarAliases) when is_atom(Atom) ->
     {atom, Atom};
 resolve_var_alias(#b_literal{}, _VarAliases) ->
+    none;
+resolve_var_alias({x,_}, _VarAliases) ->
     none.
 
 %%%

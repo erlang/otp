@@ -169,6 +169,7 @@ atom call_time
 atom call_trace_return
 atom caller
 atom caller_line
+atom calls
 atom capture
 atom case_clause
 atom caseless

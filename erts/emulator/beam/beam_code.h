@@ -157,6 +157,7 @@ typedef struct {
     Uint32 location_index;
     Sint16 frame_size;
     Uint16 num_vars;
+    Uint32 num_calls_terms;
     Eterm *first;
 } BeamDebugItem;
 

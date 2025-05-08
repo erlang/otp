@@ -426,7 +426,7 @@ build_beam_debug_info_1(Dict0) ->
                     Index := Info <- maps:iterator(DebugTab0, ordered)],
     DebugTab2 = case DebugTab1 of
                     [{1,_}|_] -> DebugTab1;
-                    [_|_] -> [{1,{none,[]}}|DebugTab1];
+                    [_|_] -> [{1,#{frame_size => none, vars => []}}|DebugTab1];
                     [] -> []
                 end,
     DebugTab = build_bdi_fill_holes(DebugTab2),
