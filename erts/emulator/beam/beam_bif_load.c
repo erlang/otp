@@ -35,6 +35,7 @@
 #include "beam_bp.h"
 #include "beam_catches.h"
 #include "erl_binary.h"
+#include "erl_map.h"
 #include "erl_nif.h"
 #include "erl_bits.h"
 #include "erl_thr_progress.h"
@@ -1307,8 +1308,8 @@ BIF_RETTYPE code_get_debug_info_1(BIF_ALIST_1)
     alloc_size = 0;
 
     for (i = 0; i < debug->item_count; i++) {
-        /* [ {Line, {FrameSize, Pairs}} ] */
-        alloc_size += 2 + 3 + 3;
+        /* [ {Line, #{frame_size => FrameSize, vars => Pairs}} ] */
+        alloc_size += 2 + 3 + MAP2_SZ;
         /* Pairs = [{Name, Value}], where Value is an atom or 2-tuple.
          *
          * Assume they are all 2-tuples and HRelease() the excess
@@ -1384,8 +1385,8 @@ BIF_RETTYPE code_get_debug_info_1(BIF_ALIST_1)
             hp += 2;
         }
 
-        tmp = TUPLE2(hp, frame_size_term, var_list);
-        hp += 3;
+        tmp = MAP2(hp, am_frame_size, frame_size_term, am_vars, var_list);
+        hp += MAP2_SZ;
 
         tmp = TUPLE2(hp, make_small(LOC_LINE(location)), tmp);
         hp += 3;

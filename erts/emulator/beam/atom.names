@@ -319,6 +319,7 @@ atom flush_timeout
 atom force
 atom format_bs_fail
 atom format_cpu_topology
+atom frame_size
 atom free
 atom fullsweep_after
 atom function
@@ -776,6 +777,7 @@ atom unload_cancelled
 atom unsafe
 atom unsupported
 atom value
+atom vars
 atom version
 atom visible
 atom wait_release_literal_area_switch
