@@ -152,7 +152,7 @@ fix_debug_line(Is0, Live, #cg{debug_info=true}) ->
          {line,_}=Li,
          {func_info,_,_,_}=Fi,
          {label,_}=Entry,
-         {debug_line,Location,Index,Live,{none,Args0}}|Is] ->
+         {debug_line,Location,Index,Live,#{frame_size:=none, vars:=Args0}=Info0}|Is] ->
             %% Mark this debug_line instruction as being the
             %% very first instruction in the function.
             RegToVar = #{Reg => Var || {Var,[{x,_}=Reg|_]} <- Args0},
@@ -163,7 +163,8 @@ fix_debug_line(Is0, Live, #cg{debug_info=true}) ->
                             #{} -> {I,[X]}
                         end
                     end || I <- lists:seq(1, Live)],
-            DbgLine = {debug_line,Location,Index,Live,{entry,Args}},
+            Info=Info0#{frame_size:=entry,vars:=Args},
+            DbgLine = {debug_line,Location,Index,Live,Info},
             [FiLbl,Li,Fi,Entry,DbgLine|Is];
         _ ->
             Is0
@@ -1074,7 +1075,7 @@ add_debug_info_is([#cg_set{anno=Anno0,op=debug_line,args=[Index]}=I0|Is],
     S3 = sofs:relation_to_family(S2),
     S = sort(Literals ++ sofs:to_external(S3)),
     Live = max(NumLive0, num_live(DefRegs, Regs)),
-    Info = {FrameSize,S},
+    Info = #{frame_size => FrameSize, vars => S},
     I = I0#cg_set{args=[Index,#b_literal{val=Live},#b_literal{val=Info}]},
     add_debug_info_is(Is, Regs, FrameSize, VarMap, [I|Acc]);
 add_debug_info_is([#cg_set{}=I|Is], Regs, FrameSize, VarMap, Acc) ->

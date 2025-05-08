@@ -818,7 +818,7 @@ missing_vars(Config) ->
     DebugLines0 = [begin
                        {location,_File,Line} = lists:keyfind(location, 1, Anno),
                        {Kind,Line,FrameSz,[Name || {Name,_} <- Vars]}
-                   end || {debug_line,{atom,Kind},Anno,_,_,{FrameSz,Vars}} <- Is],
+                   end || {debug_line,{atom,Kind},Anno,_,_,#{frame_size:=FrameSz,vars:=Vars}} <- Is],
     DebugLines = lists:sort(DebugLines0),
     io:format("~p\n", [DebugLines]),
     Expected = [{entry,3,entry,[1,2,3]},
