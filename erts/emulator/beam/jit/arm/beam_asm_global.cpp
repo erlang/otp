@@ -199,12 +199,15 @@ void BeamGlobalAssembler::emit_export_trampoline() {
 
     a.bind(error_handler);
     {
+        lea(ARG2, arm::Mem(ARG1, offsetof(Export, info.mfa)));
+        a.str(ARG2, TMP_MEM1q);
+
         emit_enter_runtime_frame();
         emit_enter_runtime<Update::eReductions | Update::eHeapAlloc |
                            Update::eXRegs>();
 
-        lea(ARG2, arm::Mem(ARG1, offsetof(Export, info.mfa)));
         a.mov(ARG1, c_p);
+        /* ARG2 set above */
         load_x_reg_array(ARG3);
         mov_imm(ARG4, am_undefined_function);
         runtime_call<4>(call_error_handler);
@@ -215,7 +218,8 @@ void BeamGlobalAssembler::emit_export_trampoline() {
                            Update::eXRegs>();
         emit_leave_runtime_frame();
 
-        a.cbz(ARG1, labels[process_exit]);
+        a.ldr(ARG4, TMP_MEM1q);
+        a.cbz(ARG1, labels[raise_exception]);
 
         branch(emit_setup_dispatchable_call(ARG1));
     }
