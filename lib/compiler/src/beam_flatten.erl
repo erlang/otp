@@ -79,8 +79,7 @@ norm_allocate({nozero,Ns,Nh,Inits}, Regs) ->
 
 norm_debug_line({debug_line,Location,Index,Live,Info}) ->
     Kind = case Info of
-               {entry,_} -> entry;
-               {_,_} -> line
+               #{frame_size := entry} -> entry;
+               _ -> line
            end,
     {debug_line,{atom,Kind},Location,Index,Live,Info}.
-

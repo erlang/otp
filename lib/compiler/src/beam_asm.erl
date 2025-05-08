@@ -423,7 +423,7 @@ build_beam_debug_info_1(Dict0) ->
                     Index := Info <- maps:iterator(DebugTab0, ordered)],
     DebugTab2 = case DebugTab1 of
                     [{1,_}|_] -> DebugTab1;
-                    [_|_] -> [{1,{none,[]}}|DebugTab1];
+                    [_|_] -> [{1,#{frame_size => none, vars => []}}|DebugTab1];
                     [] -> []
                 end,
     DebugTab = build_bdi_fill_holes(DebugTab2),
@@ -451,11 +451,11 @@ build_bdi_fill_holes([{I0,Item}|[{I1,_}|_]=T]) ->
         I1 ->
             [Item|build_bdi_fill_holes(T)];
         Next ->
-            NewPair = {Next,{none,[]}},
+            NewPair = {Next,#{frame_size => none, vars => []}},
             [Item|build_bdi_fill_holes([NewPair|T])]
     end.
 
-build_bdi_instrs({FrameSize0,Vars0}) ->
+build_bdi_instrs(#{frame_size:=FrameSize0, vars:=Vars0}) ->
     %% The debug information utilizes the encoding machinery for BEAM
     %% instructions. Each entry in the the debug information for
     %% `debug_line` instructions (frame size, var mappings, etc) is

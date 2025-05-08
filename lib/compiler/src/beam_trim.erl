@@ -321,11 +321,11 @@ remap_block([{set,Ds0,Ss0,Info}|Is], Remap) ->
     [{set,Ds,Ss,Info}|remap_block(Is, Remap)];
 remap_block([], _) -> [].
 
-remap_debug_info({FrameSize0,Vars0}, {Trim,Map}) ->
+remap_debug_info(#{frame_size:=FrameSize0,vars:=Vars0}=Info0, {Trim,Map}) ->
     FrameSize = FrameSize0 - Trim,
     Vars = [{Name,[remap_arg(Arg, Trim, Map) || Arg <- Args]} ||
                {Name,Args} <- Vars0],
-    {FrameSize,Vars}.
+    Info0#{frame_size := FrameSize, vars := Vars}.
 
 remap_args(Args, {Trim,Map}) ->
     [remap_arg(Arg, Trim, Map) || Arg <- Args].
