@@ -30,6 +30,21 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 5.1.4.9</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fix KEX strict implementation according to
+	    draft-miller-sshm-strict-kex-01 document.</p>
+          <p>
+	    Own Id: OTP-19625 Aux Id: CVE-2025-46712 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 5.1.4.8</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

@@ -31,6 +31,28 @@
   </header>
   <p>This document describes the changes made to the Kernel application.</p>
 
+<section><title>Kernel 9.2.4.8</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>With this change, disk_log will not crash when using
+	    chunk_step/3 after log size was decreased.</p>
+          <p>
+	    Own Id: OTP-19605 Aux Id: GH-9720, PR-9765 </p>
+        </item>
+        <item>
+	    <p>With this change, disk_log will not run into infinite
+	    loop when using chunk/2,3 after log size was
+	    decreased.</p>
+          <p>
+	    Own Id: OTP-19608 Aux Id: GH-9707, PR-9767 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Kernel 9.2.4.7</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

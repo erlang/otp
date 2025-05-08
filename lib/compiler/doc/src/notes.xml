@@ -32,6 +32,21 @@
   <p>This document describes the changes made to the Compiler
     application.</p>
 
+<section><title>Compiler 8.4.3.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fix a bug where unloaded nifs can crash the
+	    compiler.</p>
+          <p>
+	    Own Id: OTP-19600 Aux Id: PR-9737, GH-9715 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Compiler 8.4.3.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
