@@ -1351,6 +1351,7 @@ set_log_level(Level) ->
     ok = logger:set_primary_config(level, Level).
 
 add_log_handler() ->
+    logger:remove_handler(?MODULE),
     TestRef = make_ref(),
     ok = logger:add_handler(?MODULE, ?MODULE,
                             #{level => debug,

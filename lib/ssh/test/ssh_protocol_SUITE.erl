@@ -60,7 +60,9 @@
          ext_info_c/1,
          ext_info_s/1,
          kex_strict_negotiated/1,
-         kex_strict_msg_ignore/1,
+         kex_strict_violation_key_exchange/1,
+         kex_strict_violation_new_keys/1,
+         kex_strict_violation/1,
          kex_strict_msg_unknown/1,
          gex_client_init_option_groups/1,
          gex_client_init_option_groups_file/1,
@@ -142,7 +144,9 @@ groups() ->
 		gex_client_old_request_exact,
 		gex_client_old_request_noexact,
                 kex_strict_negotiated,
-                kex_strict_msg_ignore,
+                kex_strict_violation_key_exchange,
+                kex_strict_violation_new_keys,
+                kex_strict_violation,
                 kex_strict_msg_unknown]},
      {service_requests, [], [bad_service_name,
 			     bad_long_service_name,
@@ -1075,22 +1079,145 @@ kex_strict_negotiated(Config0) ->
     ssh_test_lib:rm_log_handler(),
     ok.
 
-%% Connect to an erlang server and inject unexpected SSH ignore
-kex_strict_msg_ignore(Config) ->
-    ct:log("START: ~p~n=================================", [?FUNCTION_NAME]),
-    ExpectedReason = "strict KEX violation: unexpected SSH_MSG_IGNORE",
-    TestMessages =
-        [{send, ssh_msg_ignore},
-         {match, #ssh_msg_kexdh_reply{_='_'}, receive_msg},
-         {match, disconnect(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED), receive_msg}],
-    kex_strict_helper(Config, TestMessages, ExpectedReason).
+%% Connect to an erlang server and inject unexpected SSH message
+%% ssh_fsm_kexinit in key_exchange state
+kex_strict_violation_key_exchange(Config) ->
+    ExpectedReason = "KEX strict violation",
+    Injections = [ssh_msg_ignore, ssh_msg_debug, ssh_msg_unimplemented],
+    TestProcedure =
+        fun(M) ->
+                ct:log(
+                  "=================== START: ~p Message: ~p Expected Fail =================================",
+                  [?FUNCTION_NAME, M]),
+                [receive_hello,
+                 {send, hello},
+                 {send, ssh_msg_kexinit},
+                 {match, #ssh_msg_kexinit{_='_'}, receive_msg},
+                 {send, M},
+                 {match, disconnect(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED), receive_msg}]
+        end,
+    [kex_strict_helper(Config, TestProcedure(Msg), ExpectedReason) ||
+        Msg <- Injections],
+    ct:log("========== END ========"),
+    ok.
+
+%% Connect to an erlang server and inject unexpected SSH message
+%% ssh_fsm_kexinit in new_keys state
+kex_strict_violation_new_keys(Config) ->
+    ExpectedReason = "KEX strict violation",
+    Injections = [ssh_msg_ignore, ssh_msg_debug, ssh_msg_unimplemented],
+    TestProcedure =
+        fun(M) ->
+                ct:log(
+                  "=================== START: ~p Message: ~p Expected Fail =================================",
+                  [?FUNCTION_NAME, M]),
+                [receive_hello,
+                 {send, hello},
+                 {send, ssh_msg_kexinit},
+                 {match, #ssh_msg_kexinit{_='_'}, receive_msg},
+                 {send, ssh_msg_kexdh_init},
+                 {send, M},
+                 {match, #ssh_msg_kexdh_reply{_='_'}, receive_msg},
+                 {match, disconnect(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED), receive_msg}]
+        end,
+    [kex_strict_helper(Config, TestProcedure(Msg), ExpectedReason) ||
+        Msg <- Injections],
+    ct:log("========== END ========"),
+    ok.
+
+%% Connect to an erlang server and inject unexpected SSH message
+%% duplicated KEXINIT
+kex_strict_violation(Config) ->
+    KexDhReply =
+        #ssh_msg_kexdh_reply{
+           public_host_key = {{{'ECPoint',<<73,72,235,162,96,101,154,59,217,114,123,192,96,105,250,29,214,76,60,63,167,21,221,118,246,168,152,2,7,172,137,125>>},
+                               {namedCurve,{1,3,101,112}}},
+                              'ssh-ed25519'},
+           f = 18504393053016436370762156176197081926381112956345797067569792020930728564439992620494295053804030674742529174859108487694089045521619258420515443400605141150065440678508889060925968846155921972385560196703381004650914261218463420313738628465563288022895912907728767735629532940627575655703806353550720122093175255090704443612257683903495753071530605378193139909567971489952258218767352348904221407081210633467414579377014704081235998044497191940270966762124544755076128392259615566530695493013708460088312025006678879288856957348606386230195080105197251789635675011844976120745546472873505352732719507783227210178188,
+           h_sig = <<90,247,44,240,136,196,82,215,56,165,53,33,230,101,253,
+                     34,112,201,21,131,162,169,10,129,174,14,69,25,39,174,
+                     92,210,130,249,103,2,215,245,7,213,110,235,136,134,11,
+                     124,248,139,79,17,225,77,125,182,204,84,137,167,99,186,
+                     167,42,192,10>>},
+    TestFlows =
+        [
+         {kexinit, "KEX strict violation",
+          [receive_hello,
+           {send, hello},
+           {send, ssh_msg_kexinit},
+           {match, #ssh_msg_kexinit{_='_'}, receive_msg},
+           {send, ssh_msg_kexinit},
+           {match, disconnect(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED), receive_msg}]},
+         {ssh_msg_kexdh_init, "KEX strict violation",
+          [receive_hello,
+           {send, hello},
+           {send, ssh_msg_kexinit},
+           {match, #ssh_msg_kexinit{_='_'}, receive_msg},
+           {send, ssh_msg_kexdh_init_dup},
+           {match,# ssh_msg_kexdh_reply{_='_'}, receive_msg},
+           {match, disconnect(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED), receive_msg}]},
+         {new_keys, "Message ssh_msg_newkeys in wrong state",
+          [receive_hello,
+           {send, hello},
+           {send, ssh_msg_kexinit},
+           {match, #ssh_msg_kexinit{_='_'}, receive_msg},
+           {send, ssh_msg_kexdh_init},
+           {match,# ssh_msg_kexdh_reply{_='_'}, receive_msg},
+           {send, #ssh_msg_newkeys{}},
+           {match, #ssh_msg_newkeys{_='_'}, receive_msg},
+           {send, #ssh_msg_newkeys{}},
+           {match, disconnect(?SSH_DISCONNECT_PROTOCOL_ERROR), receive_msg}]},
+         {ssh_msg_unexpected_dh_gex, "KEX strict violation",
+          [receive_hello,
+           {send, hello},
+           {send, ssh_msg_kexinit},
+           {match, #ssh_msg_kexinit{_='_'}, receive_msg},
+           %% dh_alg is expected but dh_gex_alg is provided
+	   {send, #ssh_msg_kex_dh_gex_request{min = 1000, n = 3000, max = 4000}},
+           {match, disconnect(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED), receive_msg}]},
+         {wrong_role, "KEX strict violation",
+          [receive_hello,
+           {send, hello},
+           {send, ssh_msg_kexinit},
+           {match, #ssh_msg_kexinit{_='_'}, receive_msg},
+           %% client should not send message below
+           {send, KexDhReply},
+           {match, disconnect(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED), receive_msg}]},
+         {wrong_role2, "KEX strict violation",
+          [receive_hello,
+           {send, hello},
+           {send, ssh_msg_kexinit},
+           {match, #ssh_msg_kexinit{_='_'}, receive_msg},
+           {send, ssh_msg_kexdh_init},
+           {match,# ssh_msg_kexdh_reply{_='_'}, receive_msg},
+           %% client should not send message below
+           {send, KexDhReply},
+           {match, #ssh_msg_newkeys{_='_'}, receive_msg},
+           {match, disconnect(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED), receive_msg}]}
+        ],
+    TestProcedure =
+        fun({Msg, _, P}) ->
+                ct:log(
+                  "==== START: ~p (duplicated ~p) Expected Fail ====~n~p",
+                  [?FUNCTION_NAME, Msg, P]),
+                P
+        end,
+    [kex_strict_helper(Config, TestProcedure(Procedure), Reason) ||
+        Procedure = {_, Reason, _} <- TestFlows],
+    ct:log("==== END ====="),
+    ok.
 
 %% Connect to an erlang server and inject unexpected non-SSH binary
 kex_strict_msg_unknown(Config) ->
     ct:log("START: ~p~n=================================", [?FUNCTION_NAME]),
     ExpectedReason = "Bad packet: Size",
     TestMessages =
-        [{send, ssh_msg_unknown},
+        [receive_hello,
+         {send, hello},
+         {send, ssh_msg_kexinit},
+         {match, #ssh_msg_kexinit{_='_'}, receive_msg},
+         {send, ssh_msg_kexdh_init},
+         {send, ssh_msg_unknown},
          {match, #ssh_msg_kexdh_reply{_='_'}, receive_msg},
          {match, disconnect(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED), receive_msg}],
     kex_strict_helper(Config, TestMessages, ExpectedReason).
@@ -1115,12 +1242,7 @@ kex_strict_helper(Config, TestMessages, ExpectedReason) ->
              {user_dir, user_dir(Config)},
              {user_interaction, false}
             | proplists:get_value(extra_options,Config,[])
-            ]},
-           receive_hello,
-           {send, hello},
-           {send, ssh_msg_kexinit},
-           {match, #ssh_msg_kexinit{_='_'}, receive_msg},
-           {send, ssh_msg_kexdh_init}] ++
+            ]}] ++
               TestMessages,
           InitialState),
     ct:sleep(100),
