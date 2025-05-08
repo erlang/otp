@@ -85,7 +85,9 @@
 
 	 change_attribute/1,
 
-         otp_6278/1, otp_10131/1, otp_16768/1, otp_16809/1]).
+         otp_6278/1, otp_10131/1, otp_16768/1, otp_16809/1,
+        
+         decrease_size_with_chunk_step/1]).
 
 -export([head_fun/1, hf/0, lserv/1, 
 	 measure/0, init_m/1, xx/0]).
@@ -159,7 +161,7 @@ groups() ->
      {change_size, [],
       [change_size_before, change_size_during,
        change_size_after, default_size, change_size2,
-       change_size_truncate]}].
+       change_size_truncate, decrease_size_with_chunk_step]}].
 
 init_per_suite(Config) ->
     Config.
@@ -4202,6 +4204,32 @@ otp_16809(Conf) when is_list(Conf) ->
     ok = disk_log:change_header(Log, {head_func, HeadFunc2}),
     HeadFunc2 = info(Log, head, undef),
     ok = disk_log:close(Log).
+
+decrease_size_with_chunk_step(Conf) when is_list(Conf) ->
+    Dir = ?privdir(Conf),
+    Log = decrease_size_with_chunk_step,
+    File = filename:join(Dir, lists:concat([Log, ".LOG"])),
+    {ok, Log} = disk_log:open([{size, {50, 3}}, {name, Log}, {type, wrap},
+                               {file, File}, {notify, true}]),
+    eof = disk_log:chunk(Log, start, 1),
+    {error, end_of_log} = disk_log:chunk_step(Log, start, 1),
+    ok = disk_log:log_terms(Log, [1, 2, 3, 4, 5, 6, 7, 8, 9]),
+    ok = disk_log:close(Log),
+    {ok, Log} = disk_log:open([{name, Log}, {type, wrap}, {file, File},
+                               {notify, true}]),
+    %% Decrease maximum number of files from 3 to 2.
+    ok = disk_log:change_size(Log, {50, 2}),
+    %% The exception error of rem/2 operator should not occur in here.
+    {ok, Cont} = disk_log:chunk_step(Log, start, 2),
+    %% Verify that chunk_step has stepped to old max file (3)
+    {_, [7, 8, 9]} = disk_log:chunk(Log, Cont),
+    %% Continue to append the items to the log in order to make sure it can work
+    %% as normal.
+    ok = disk_log:log_terms(Log, [9, 8, 7, 6, 5, 4, 3, 2, 1]),
+    %% Verify that log files were decreased to 2 after wrapping
+    [6, 5, 4, 3, 2, 1] = get_all_terms(Log),
+    ok = disk_log:close(Log),
+    del(File, 2).
 
 mark(FileName, What) ->
     {ok,Fd} = file:open(FileName, [raw, binary, read, write]),
