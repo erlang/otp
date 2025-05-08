@@ -630,7 +630,12 @@ decode_entry(Code0, Literals, Atoms) ->
 
                 1 ->
                     case Value of
-                        {list,List} -> {vars, decode_list(List)}
+                        {list,List} -> {vars, decode_var_mappings(List)}
+                    end;
+
+                2 ->
+                    case Value of
+                        {list,List} -> {calls, decode_calls(List)}
                     end;
 
                 _ ->
@@ -639,9 +644,9 @@ decode_entry(Code0, Literals, Atoms) ->
             {Entry, Code3}
     end.
 
-decode_list([{integer,Var}|T]) when is_integer(Var) ->
-    decode_list([{literal,Var}|T]);
-decode_list([{literal,Var},Where0|T]) ->
+decode_var_mappings([{integer,Var}|T]) when is_integer(Var) ->
+    decode_var_mappings([{literal,Var}|T]);
+decode_var_mappings([{literal,Var},Where0|T]) ->
     Where = case Where0 of
                 {literal,Lit} -> {value,Lit};
                 {atom,A} -> {value,A};
@@ -650,8 +655,26 @@ decode_list([{literal,Var},Where0|T]) ->
                 {x,_} -> Where0;
                 {y,_} -> Where0
             end,
-    [{Var,Where}|decode_list(T)];
-decode_list([]) -> [].
+    [{Var,Where}|decode_var_mappings(T)];
+decode_var_mappings([]) -> [].
+
+decode_calls([{literal, V}|Rest]) when is_binary(V) ->
+    [V|decode_calls(Rest)];
+decode_calls([A,M0,F0|Rest]) when A>=0, A=<255 ->
+    M = decode_var_or_atom(M0),
+    F = decode_var_or_atom(F0),
+    [{M,F,A}|decode_calls(Rest)];
+decode_calls([A0,F0|Rest]) when A0>=256, A0=<511->
+    F = decode_var_or_atom(F0),
+    A = A0-256,
+    [{F,A}|decode_calls(Rest)];
+decode_calls([]) ->
+    [].
+
+decode_var_or_atom({literal, V}) when is_binary(V) ->
+    V;
+decode_var_or_atom({atom, A}) when is_atom(A) ->
+    A.
 
 decode_args(0, Code, _Literals, _Atoms) ->
     {[],Code};
@@ -820,7 +843,6 @@ missing_vars(Config) ->
                        {Kind,Line,FrameSz,[Name || {Name,_} <- Vars]}
                    end || {debug_line,{atom,Kind},Anno,_,_,#{frame_size:=FrameSz,vars:=Vars}} <- Is],
     DebugLines = lists:sort(DebugLines0),
-    io:format("~p\n", [DebugLines]),
     Expected = [{entry,3,entry,[1,2,3]},
                 {line,4,none,['X','Y','Z0']},
                 {line,6,none,['X','Y','Z0']},

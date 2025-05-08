@@ -39,7 +39,7 @@
 -type index() :: non_neg_integer().
 
 -type frame_size() :: 'none' | 'entry' | non_neg_integer().
--type debug_info() :: #{frame_size := frame_size(), vars := list()}.
+-type debug_info() :: #{frame_size := frame_size(), vars := list(), calls := list()}.
 
 -type atom_tab()   :: #{atom() => index()}.
 -type import_tab() :: gb_trees:tree(mfa(), index()).
