@@ -22,7 +22,7 @@
 -export([all/0, suite/0, groups/0,init_per_suite/1, end_per_suite/1,
          init_per_group/2, end_per_group/2,
          tuples/1, cons/1, catastrophic_runtime/1,
-         coverage/1]).
+         coverage/1, unloaded_nif/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -33,7 +33,7 @@ all() ->
 
 groups() ->
     [{p,[parallel],
-      [tuples, cons, catastrophic_runtime, coverage]}].
+      [tuples, cons, catastrophic_runtime, coverage, unloaded_nif]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -227,3 +227,17 @@ coverage(_Config) ->
 too_deep({_,undefined} = State) ->
     {State, "Can't detect character encoding due to lack of indata"}.
 
+unloaded_nif(Config) when is_list(Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    Path = filename:join(PrivDir, "unloaded_nif.erl"),
+    Source = "-module(unloaded_nif).
+              -compile([export_all, nowarn_export_all]).
+              -nifs([nif1/0]).
+              nif1() ->
+                erlang:nif_error(undef).
+              test_09() ->
+                nif1().",
+    ok = file:write_file(Path, Source),
+    {ok, unloaded_nif} = compile:file(Path, [return_error]),
+    file:delete(Path),
+    ok.
