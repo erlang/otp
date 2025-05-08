@@ -31,6 +31,28 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 13.2.2.16</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fixed an emulator crash when setting an error_handler
+	    module that was not yet loaded.</p>
+          <p>
+	    Own Id: OTP-19577 Aux Id: ERIERL-1220, PR-9696 </p>
+        </item>
+        <item>
+	    <p>Fixed a rare bug that could cause an emulator crash
+	    after unloading a module or erasing a
+	    persistent_term.</p>
+          <p>
+	    Own Id: OTP-19599 Aux Id: PR-9724 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 13.2.2.15</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
