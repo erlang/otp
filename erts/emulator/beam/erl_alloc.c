@@ -2907,6 +2907,7 @@ erts_allocator_options(void *proc)
     hpp = NULL;
     szp = &sz;
     sz = 0;
+    ERTS_UNDEF(hp, NULL);
 
  bld_term:
 
