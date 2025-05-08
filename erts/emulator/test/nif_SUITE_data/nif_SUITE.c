@@ -2955,7 +2955,7 @@ static void monitor_resource_down(ErlNifEnv* env, void* obj, ErlNifPid* pid,
      * without lock order violation. */
     {
         ErlNifPid pid;
-        ErlNifPid port;
+        ErlNifPort port;
         enif_whereis_pid(env, atom_null, &pid);
         enif_whereis_port(env, atom_null, &port);
     }
