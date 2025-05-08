@@ -821,6 +821,8 @@ bif erl_debugger:register/1
 bif erl_debugger:unregister/2
 bif erl_debugger:whereis/0
 bif erl_debugger:breakpoint/3
+bif erl_debugger:breakpoints/1
+bif erl_debugger:breakpoints/3
 bif erts_internal:notify_breakpoint_hit/3
 bif erl_debugger:stack_frames/2
 bif erl_debugger:peek_stack_frame_slot/4

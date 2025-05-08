@@ -44,7 +44,7 @@ or otherwise expect frequent incompatible changes.
 -export([supported/0]).
 -export([instrumentations/0, toggle_instrumentations/1]).
 -export([register/1, unregister/2, whereis/0]).
--export([breakpoint/3]).
+-export([breakpoint/3, breakpoints/1, breakpoints/3]).
 -export([stack_frames/2, peek_stack_frame_slot/4]).
 -export([xregs_count/1, peek_xreg/3]).
 
@@ -229,6 +229,40 @@ Returns `ok` on success. It can fail with the following reasons:
 breakpoint(_, _, _) ->
     erlang:nif_error(undef).
 
+-doc """
+Returns information on available breakpoints for a module.
+
+For each function in the module, returns a map `#{Line => boolean()}`,
+where the keys are lines where breakpoints can be set, and the value
+represents whether be breakpoint is enabled (`true`) or not (`false`).
+""".
+-spec breakpoints(Module) -> {ok, Result} | {error, Reason} when
+    Module :: module(),
+    Result :: #{Fun => #{Line => boolean()}},
+    Fun :: {atom(), arity()},
+    Line :: pos_integer(),
+    Reason :: badkey.
+breakpoints(_) ->
+    erlang:nif_error(undef).
+
+-doc """
+Returns information on available breakpoints for a given function. .
+
+The function need not be exported.
+
+Returns a map `#{Line => boolean()}`, where the keys are lines where
+breakpoints can be set, and the value represents whether be breakpoint
+is enabled (`true`) or not (`false`).
+""".
+-spec breakpoints(Module, FunName, Arity) -> {ok, Result} | {error, Reason} when
+    Module :: module(),
+    FunName :: atom(),
+    Arity ::  arity(),
+    Result :: #{Line => boolean()},
+    Line :: pos_integer(),
+    Reason :: {badkey, module() | {FunName, Arity}}.
+breakpoints(_, _, _) ->
+    erlang:nif_error(undef).
 
 %% Stack frames
 
