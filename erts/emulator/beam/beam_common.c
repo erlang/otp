@@ -1322,46 +1322,6 @@ call_error_handler(Process* p, const ErtsCodeMFA *mfa, Eterm* reg, Eterm func)
     return ep;
 }
 
-static Export*
-apply_setup_error_handler(Process* p, Eterm module, Eterm function, Uint arity, Eterm* reg)
-{
-    Export* ep;
-
-    /*
-     * Find the export table index for the error handler. Return NULL if
-     * there is no error handler module.
-     */
-
-    if ((ep = erts_active_export_entry(erts_proc_get_error_handler(p),
-				     am_undefined_function, 3)) == NULL) {
-	return NULL;
-    } else {
-	int i;
-	Uint sz = 2*arity;
-	Eterm* hp;
-	Eterm args = NIL;
-
-	/*
-	 * Always copy args from registers to a new list; this ensures
-	 * that we have the same behaviour whether or not this was
-	 * called from apply or fixed_apply (any additional last
-	 * THIS-argument will be included, assuming that arity has been
-	 * properly adjusted).
-	 */
-
-        hp = HAlloc(p, sz);
-	for (i = arity-1; i >= 0; i--) {
-	    args = CONS(hp, reg[i], args);
-	    hp += 2;
-	}
-	reg[0] = module;
-	reg[1] = function;
-	reg[2] = args;
-    }
-
-    return ep;
-}
-
 static ERTS_INLINE void
 apply_bif_error_adjustment(Process *p, Export *ep,
                            Eterm *reg, Uint arity,
@@ -1536,18 +1496,13 @@ apply(Process* p, Eterm* reg, ErtsCodePtr I, Uint stack_offset)
 	goto error;
     }
 
-    /*
-     * Get the index into the export table, or failing that the export
-     * entry for the error handler.
-     *
-     * Note: All BIFs have export entries; thus, no special case is needed.
-     */
+    /* Call the referenced function, if any: should the function not be found,
+     * create a stub entry which in turn calls the error handler. */
+    ep = erts_export_get_or_make_stub(module, function, arity);
 
-    if ((ep = erts_active_export_entry(module, function, arity)) == NULL) {
-	if ((ep = apply_setup_error_handler(p, module, function, arity, reg)) == NULL) goto error;
-    }
     apply_bif_error_adjustment(p, ep, reg, arity, I, stack_offset);
     DTRACE_GLOBAL_CALL_FROM_EXPORT(p, ep);
+
     return ep;
 }
 
@@ -1582,17 +1537,9 @@ fixed_apply(Process* p, Eterm* reg, Uint arity,
 	return apply(p, reg, I, stack_offset);
     }
 
-    /*
-     * Get the index into the export table, or failing that the export
-     * entry for the error handler module.
-     *
-     * Note: All BIFs have export entries; thus, no special case is needed.
-     */
-
-    if ((ep = erts_active_export_entry(module, function, arity)) == NULL) {
-	if ((ep = apply_setup_error_handler(p, module, function, arity, reg)) == NULL)
-	    goto error;
-    }
+    /* Call the referenced function, if any: should the function not be found,
+     * create a stub entry which in turn calls the error handler. */
+    ep = erts_export_get_or_make_stub(module, function, arity);
 
     apply_bif_error_adjustment(p, ep, reg, arity, I, stack_offset);
     DTRACE_GLOBAL_CALL_FROM_EXPORT(p, ep);
