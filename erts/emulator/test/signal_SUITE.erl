@@ -59,6 +59,7 @@
          copy_literal_area_signal_recv/1,
          copy_literal_area_signal_exit/1,
          copy_literal_area_signal_recv_exit/1,
+         copy_literal_area_signal_registers/1,
          simultaneous_signals_basic/1,
          simultaneous_signals_recv/1,
          simultaneous_signals_exit/1,
@@ -67,7 +68,7 @@
          parallel_signal_enqueue_race_2/1,
          dirty_schedule/1]).
 
--export([spawn_spammers/3]).
+-export([check_literal_conversion/1, spawn_spammers/3]).
 
 init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     [{testcase, Func}|Config].
@@ -120,6 +121,7 @@ groups() ->
        copy_literal_area_signal_recv,
        copy_literal_area_signal_exit,
        copy_literal_area_signal_recv_exit,
+       copy_literal_area_signal_registers,
        simultaneous_signals_basic,
        simultaneous_signals_recv,
        simultaneous_signals_exit,
@@ -1067,6 +1069,48 @@ copy_literal_area_signal_exit(Config) when is_list(Config) ->
 copy_literal_area_signal_recv_exit(Config) when is_list(Config) ->
     copy_literal_area_signal_test(true, true).
 
+%% Tests the case where the literal is only present in the process' saved
+%% registers. This is easy to provoke with hibernation, but can also occur
+%% if a process happens to be scheduled out on e.g. a function call with a
+%% literal argument just as it's being purged.
+copy_literal_area_signal_registers(Config) when is_list(Config) ->
+    persistent_term:put({?MODULE, ?FUNCTION_NAME}, [make_ref()]),
+    LiteralArgs = persistent_term:get({?MODULE, ?FUNCTION_NAME}),
+    true = is_list(LiteralArgs),
+    0 = erts_debug:size_shared(LiteralArgs), %% Should be a literal...
+
+    Self = self(),
+
+    {Pid, Monitor} =
+        spawn_monitor(fun() ->
+                              Self ! {sync, LiteralArgs},
+                              erlang:hibernate(?MODULE,
+                                               check_literal_conversion,
+                                               LiteralArgs)
+                      end),
+
+    receive
+        {sync, LiteralArgs} ->
+            receive after 500 ->
+                {current_function,{erlang,hibernate,3}} =
+                    process_info(Pid, current_function)
+            end
+    end,
+
+    persistent_term:erase({?MODULE, ?FUNCTION_NAME}),
+    receive after 1 -> ok end,
+
+    literal_area_collector_test:check_idle(),
+
+    false = (0 =:= erts_debug:size_shared(LiteralArgs)),
+    Pid ! check_literal_conversion,
+
+    receive
+        {'DOWN', Monitor, process, Pid, R} ->
+            normal = R,
+            ok
+    end.
+
 copy_literal_area_signal_test(RecvPair, Exit) ->
     persistent_term:put({?MODULE, ?FUNCTION_NAME}, make_ref()),
     Literal = persistent_term:get({?MODULE, ?FUNCTION_NAME}),
@@ -1080,12 +1124,7 @@ copy_literal_area_signal_test(RecvPair, Exit) ->
                        true ->
                             ok
                     end,
-                    receive check_literal_conversion -> ok end,
-                    receive
-                        Literal ->
-                            %% Should not be a literal anymore...
-                            false = (0 == erts_debug:size_shared(Literal))
-                    end
+                    check_literal_conversion(Literal)
             end,
     PMs = lists:map(fun (_) ->
                             spawn_opt(ProcF, [link, monitor])
@@ -1135,6 +1174,15 @@ copy_literal_area_signal_test(RecvPair, Exit) ->
                           end
                   end, PMs),
     ok.
+
+%% Exported for optional use with hibernate/3
+check_literal_conversion(Literal) ->
+    receive
+        check_literal_conversion ->
+            %% Should not be a literal anymore...
+            false = (0 == erts_debug:size_shared(Literal)),
+            ok
+    end.
 
 simultaneous_signals_basic(Config) when is_list(Config) ->
     simultaneous_signals_test(false, false).
