@@ -29,7 +29,8 @@
 -export(['#root#'/4,
 	 '#element#'/5,
 	 '#text#'/1,
-	 '#cdata#'/1]).
+	 '#cdata#'/1,
+	 '#comment#'/1]).
 
 -include("xmerl.hrl").
 
@@ -43,6 +44,10 @@
 %% The '#cdata#' function is called for every text segment of type cdata.
 %% Handled the same as text.
 '#cdata#'(Text) -> Text.
+
+%% The '#comment#' function is called for every comment element.
+%% Comment value is not exported since there is no markup.
+'#comment#'(_Text) -> [].
 
 %% The '#root#' tag is called when the entire structure has been
 %% exported. It does not appear in the structure itself.
