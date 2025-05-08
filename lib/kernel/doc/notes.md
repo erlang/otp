@@ -1305,6 +1305,17 @@ This document describes the changes made to the Kernel application.
 
   Own Id: OTP-18575 Aux Id: PR-7169
 
+## Kernel 8.5.4.6
+
+### Fixed Bugs and Malfunctions
+
+* With this change, disk_log will not crash when using chunk_step/3 after log size was decreased.
+
+  Own Id: OTP-19605 Aux Id: GH-9720, PR-9765
+* With this change, disk_log will not run into infinite loop when using chunk/2,3 after log size was decreased.
+
+  Own Id: OTP-19608 Aux Id: GH-9707, PR-9767
+
 ## Kernel 8.5.4.5
 
 ### Fixed Bugs and Malfunctions

@@ -419,6 +419,14 @@ limitations under the License.
 
   Own Id: OTP-18490 Aux Id: OTP-18471, GH-6339, PR-6843
 
+## Ssh 4.15.3.13
+
+### Fixed Bugs and Malfunctions
+
+* Fix KEX strict implementation according to draft-miller-sshm-strict-kex-01 document.
+
+  Own Id: OTP-19625 Aux Id: CVE-2025-46712
+
 ## Ssh 4.15.3.12
 
 ### Fixed Bugs and Malfunctions

@@ -1777,6 +1777,17 @@ This document describes the changes made to the ERTS application.
 
   Own Id: OTP-18574
 
+## Erts 13.2.2.16
+
+### Fixed Bugs and Malfunctions
+
+* Fixed an emulator crash when setting an error_handler module that was not yet loaded.
+
+  Own Id: OTP-19577 Aux Id: ERIERL-1220, PR-9696
+* Fixed a rare bug that could cause an emulator crash after unloading a module or erasing a persistent_term.
+
+  Own Id: OTP-19599 Aux Id: PR-9724
+
 ## Erts 13.2.2.15
 
 ### Fixed Bugs and Malfunctions
