@@ -80,10 +80,8 @@ Atoms sent over node distribution are always encoded in UTF-8 using either
 [`ATOM_CACHE_REF`](erl_ext_dist.md#atom_cache_ref).
 
 Atoms encoded with [`erlang:term_to_binary/1,2`](`erlang:term_to_binary/1`) or
-[`erlang:term_to_iovec/1,2`](`erlang:term_to_iovec/1`) are by default still
-using the old deprecated Latin-1 format [`ATOM_EXT`](erl_ext_dist.md#atom_ext)
-for atoms that only contain Latin-1 characters (Unicode code points 0-255).
-Atoms with higher code points will be encoded in UTF-8 using either
+[`erlang:term_to_iovec/1,2`](`erlang:term_to_iovec/1`) are by default
+also always encoded in UTF-8 using either
 [`ATOM_UTF8_EXT`](erl_ext_dist.md#atom_utf8_ext) or
 [`SMALL_ATOM_UTF8_EXT`](erl_ext_dist.md#small_atom_utf8_ext).
 
