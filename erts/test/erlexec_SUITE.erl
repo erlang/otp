@@ -32,7 +32,7 @@
 
 -export([args_file/1, evil_args_file/1, missing_args_file/1, env/1, args_file_env/1,
          otp_7461/1, otp_7461_remote/1, argument_separation/1, argument_with_option/1,
-         zdbbl_dist_buf_busy_limit/1, long_path_env/1, long_path_env_when_rootdir_not_present/1]).
+         zdbbl_dist_buf_busy_limit/1, long_path_env/1]).
 
 -include_lib("stdlib/include/assert.hrl").
 
@@ -43,7 +43,7 @@ suite() ->
 all() ->
     [args_file, evil_args_file, missing_args_file, env, args_file_env,
      otp_7461, argument_separation, argument_with_option, zdbbl_dist_buf_busy_limit,
-     long_path_env, long_path_env_when_rootdir_not_present].
+     long_path_env].
 
 init_per_suite(Config) ->
     [{suite_erl_flags, save_env()} | Config].
@@ -444,60 +444,91 @@ zdbbl_dist_buf_busy_limit(Config) when is_list(Config) ->
     ok = cleanup_node(SNameS, 10),
     ok.
 
+
+%% This testcase checks that erlexec does not crash with a huge PATH
+%% there used to be issues when the path was larger than 1024*10 on
+%% non-windows. (Windows truncates such long paths so no problem there).
 long_path_env(Config) when is_list(Config) ->
-    BinPath = os:getenv("BINDIR"),
+
+    {ok, BinPath} = init:get_argument(bindir),
     ActualPath = os:getenv("PATH"),
 
+    IsWindows = element(1, os:type()) =:= win32,
+
+    LongPathLength =
+        if IsWindows ->
+                %% Windows truncates larger PATHs
+                10;
+           true ->
+                40
+        end,
+
+    %% Each individual segment cannot be larger than 255 on docker,
+    %% so we limit for all system to that.
+    LongPath = lists:flatten(
+                 lists:join(pathsep(),
+                            lists:duplicate(LongPathLength,
+                                            lists:duplicate(250, "x")))),
+
+    %% In order to run this on windows we do a bit of trickery, namely
+    %% get the program name, add the potential extension using find_executable,
+    %% and then get the name at the end using basename.
+    [PName | Rest] = string:split(ct:get_progname()," "),
+    FullPathPName = os:find_executable(PName),
+    PNameWExt = filename:basename(FullPathPName),
+
     PathComponents = string:split(ActualPath, pathsep(), all),
-    ActualPathNoBinPath = path_var_join(lists:filter(fun (Path) ->
-                                                          Path =/= BinPath
-                                                  end, PathComponents)),
+    {ActualNoErl, ActualErl} =
+        lists:partition(fun(Path) ->
+                                os:find_executable(PName,[Path]) =/= false
+                        end, PathComponents),
+
+    ActualPathNoErl = path_var_join(ActualNoErl),
+    ActualPathErl = path_var_join([P || P <- ActualErl, string:prefix(P, code:root_dir()) =:= nomatch]),
+
     ct:log("BINDIR: ~ts", [BinPath]),
     ct:log("PATH: ~ts", [ActualPath]),
+    ct:log("PATH_MAX: '~ts'", [string:trim(os:cmd("getconf PATH_MAX /"))]),
+    ct:log("NAME_MAX: '~ts'", [string:trim(os:cmd("getconf NAME_MAX /"))]),
 
-    LongPath = lists:flatten(lists:duplicate(10240, "x")),
-    {ok, [[PName]]} = init:get_argument(progname),
-    Cmd = PName ++ " -noshell -eval 'io:format(\"~ts\", [os:getenv(\"PATH\")]),erlang:halt()'",
+    CmdArgs = " " ++ Rest ++ ~S' -noshell -eval "io:format(\"~ts\", [os:getenv(\"PATH\")]),erlang:halt()"',
 
-    compare_erl_path(Cmd, BinPath, ActualPath),
-    compare_erl_path(Cmd, BinPath, path_var_join([ActualPath, LongPath])),
-    compare_erl_path(Cmd, BinPath, path_var_join([ActualPath, LongPath, BinPath])),
-    compare_erl_path(Cmd, BinPath, path_var_join([BinPath, ActualPath, LongPath])),
-    compare_erl_path(Cmd, BinPath, path_var_join([BinPath, ActualPath, LongPath, BinPath])),
 
-    Output = compare_erl_path(Cmd, BinPath, path_var_join([ActualPathNoBinPath, LongPath])),
-    ?assertEqual(string:find(Output, LongPath), LongPath),
+    %% Test that erlexec does not crash with long path segments in various positions
+    RelCmd = PNameWExt ++ CmdArgs,
+
+    compare_erl_path(PName, RelCmd, BinPath, ActualPath),
+    compare_erl_path(PName, RelCmd, BinPath, path_var_join([ActualPath, LongPath])),
+    compare_erl_path(PName, RelCmd, BinPath, path_var_join([ActualPath, LongPath, BinPath])),
+    compare_erl_path(PName, RelCmd, BinPath, path_var_join([BinPath, ActualPath, LongPath])),
+    compare_erl_path(PName, RelCmd, BinPath, path_var_join([BinPath, ActualPath, LongPath, BinPath])),
+
+    %% Test that the LongPath is there
+    RelOutput = compare_erl_path(PName, RelCmd, BinPath, path_var_join([ActualPathNoErl, BinPath, ActualPathErl, LongPath])),
+    ?assertNotEqual(nomatch, string:find(RelOutput, LongPath)),
+
+
+    %% Test that we can run using an absolute path and a long PATH
+    AbsCmd = [$" || not IsWindows] ++ os:find_executable(PName) ++ [$" || not IsWindows] ++ CmdArgs,
+    AbsOutput = compare_erl_path(PName, AbsCmd, BinPath, path_var_join([ActualPathNoErl, ActualPathErl, LongPath, LongPath])),
+    ?assertNotEqual(nomatch, string:find(AbsOutput, path_var_join([LongPath, LongPath]))),
 
     ok.
 
-long_path_env_when_rootdir_not_present(Config) when is_list(Config) ->
-    BinPath = os:getenv("BINDIR"),
-    RootPath = os:getenv("ROOTDIR"),
-    RootPathWithBin = filename:join(RootPath, "bin"),
-    ActualPath = os:getenv("PATH"),
-    LongPathLength = 10240,
-
-    LongPath = lists:flatten(lists:duplicate(LongPathLength, "x")),
-    {ok, [[PName]]} = init:get_argument(progname),
-    Cmd = "\"" ++ filename:join(RootPathWithBin, PName) ++ "\"" ++ " -noshell -eval 'io:format(\"~ts\", [os:getenv(\"PATH\")]),erlang:halt()'",
-
-    PathComponents = string:split(ActualPath, pathsep(), all),
-    ActualPathNoRoot = path_var_join(lists:filter(fun (Path) ->
-        (Path =/= RootPathWithBin) and (Path =/= (RootPathWithBin ++ "/")) and (Path =/= BinPath)
-    end, PathComponents)),
-
-    os:putenv("PATH", path_var_join([ActualPathNoRoot, LongPath, LongPath])),
-    Output = os:cmd(Cmd),
-
-    ?assertEqual(string:length(string:find(Output, LongPath ++ pathsep() ++ LongPath)), (LongPathLength * 2) + string:length(pathsep())),
-    ok.
-
-compare_erl_path(Cmd, BinPath, Path) ->
+compare_erl_path(Pname, Cmd, BinPath, Path) ->
     os:putenv("PATH", Path),
     Output = os:cmd(Cmd),
+    ct:log("Cmd: ~ts~nBinPath: ~ts~nPATH: ~ts~nOutput: ~ts",[Cmd, BinPath, Path, Output]),
+
+    [BinDir | Rest] = string:split(Output, pathsep(), all),
+
     % BinPath is at the front of PATH and nowhere else
-    ?assertEqual(string:find(Output, BinPath ++ ":"), Output),
-    ?assertEqual(string:find(Output, ":" ++ BinPath), nomatch),
+    ?assertNotEqual(os:find_executable(Pname, [BinDir]), false),
+    case os:find_executable(Pname, Rest) of
+        false -> ok;
+        AbsPname ->
+            ?assertEqual(string:prefix(AbsPname, code:root_dir()), nomatch)
+    end,
     Output.
 
 pathsep() ->
