@@ -116,6 +116,16 @@ This document describes the changes made to the Xmerl application.
 [PR-7942]: https://github.com/erlang/otp/pull/7942
 [PR-8026]: https://github.com/erlang/otp/pull/8026
 
+## Xmerl 1.3.34.3
+
+### Improvements and New Features
+
+* A new option to discard whitespace before the `xml` tag when reading from a stream has been added to the Xmerl SAX parser.
+
+  * __`{discard_ws_before_xml_document, Boolean}`__ - Discard whitespace before `xml` tag instead of returning a fatal error if set to `true` (`false` is default)
+
+  Own Id: OTP-19602 Aux Id: PR-9753
+
 ## Xmerl 1.3.34.2
 
 ### Fixed Bugs and Malfunctions

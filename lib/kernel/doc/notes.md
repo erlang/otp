@@ -517,6 +517,17 @@ This document describes the changes made to the Kernel application.
 [#6724]: https://github.com/erlang/otp/issues/6724
 [PR-8396]: https://github.com/erlang/otp/pull/8396
 
+## Kernel 9.2.4.8
+
+### Fixed Bugs and Malfunctions
+
+* With this change, disk_log will not crash when using chunk_step/3 after log size was decreased.
+
+  Own Id: OTP-19605 Aux Id: GH-9720, PR-9765
+* With this change, disk_log will not run into infinite loop when using chunk/2,3 after log size was decreased.
+
+  Own Id: OTP-19608 Aux Id: GH-9707, PR-9767
+
 ## Kernel 9.2.4.7
 
 ### Fixed Bugs and Malfunctions
