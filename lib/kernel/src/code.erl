@@ -432,7 +432,7 @@ common reasons.
                          | {'y',non_neg_integer()}
                          | {value, _}.
 -nominal debug_value() :: {debug_name(), debug_source()}.
--nominal debug_info() :: [{debug_line(), {debug_frame(), [debug_value()]}}].
+-nominal debug_info() :: [{debug_line(), #{frame_size => debug_frame(), vars => [debug_value()]}}].
 
 -export([coverage_support/0,
          get_coverage/2,
