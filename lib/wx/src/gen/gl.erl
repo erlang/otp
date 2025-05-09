@@ -53,7 +53,7 @@ This documents the functions as a brief version of the complete
 -type mem() :: binary() | tuple().   %% Memory block
 -type f() :: float().
 -type i() :: integer().
--ifdef(CAN_USE_DRIVER).
+-ifdef(CAN_BUILD_DRIVER).
 -on_load(init_nif/0).
 -else.
 -export([init_nif/0]).
