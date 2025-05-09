@@ -148,7 +148,7 @@
 
 %%-----------------------------------------------------------------
 %% loading     = [{AppName, From}] - Load not yet finished
-%% starting    = [{AppName, RestartType, Type, From}] - Start not
+%% starting    = [{AppName, RestartType, Type, From, Starter}] - Start not
 %%                 yet finished
 %% start_p_false = [{AppName, RestartType, Type, From}] - Start not
 %%                 executed because permit == false
@@ -702,19 +702,19 @@ handle_call({start_application, AppName, RestartType}, From, S) ->
 		    Perm = application:get_env(kernel, permissions),
 		    case {Cntrl, Perm} of
 			{true, _} ->
-			    {noreply, S#state{starting = [{AppName, RestartType, normal, From} |
+			    {noreply, S#state{starting = [{AppName, RestartType, normal, From, undefined} |
 							  Starting],
 					      start_req = [{AppName, From} | Start_req]}};
 			{false, undefined} ->
-			    spawn_starter(Appl, S, normal),
-			    {noreply, S#state{starting = [{AppName, RestartType, normal, From} |
+			    Starter = spawn_starter(Appl, S, normal),
+			    {noreply, S#state{starting = [{AppName, RestartType, normal, From, Starter} |
 							  Starting],
 					      start_req = [{AppName, From} | Start_req]}};
 			{false, {ok, Perms}} ->
 			    case lists:member({AppName, false}, Perms) of
 				false ->
-				    spawn_starter(Appl, S, normal),
-				    {noreply, S#state{starting = [{AppName, RestartType, normal, From} |
+				    Starter = spawn_starter(Appl, S, normal),
+				    {noreply, S#state{starting = [{AppName, RestartType, normal, From, Starter} |
 								  Starting],
 						      start_req = [{AppName, From} | Start_req]}};
 				true ->
@@ -791,16 +791,16 @@ handle_call({permit_application, AppName, Bool}, From, S) ->
 		{true, {true, Appl}, false, {value, Tuple}, false, false} ->
 		    update_permissions(AppName, Bool),
 		    {_AppName2, RestartType, normal, _From} = Tuple,
-		    spawn_starter(Appl, S, normal),
-		    SS = S#state{starting = [{AppName, RestartType, normal, From} | Starting],
+		    Starter = spawn_starter(Appl, S, normal),
+		    SS = S#state{starting = [{AppName, RestartType, normal, From, Starter} | Starting],
 				 start_p_false = keydelete(AppName, 1, SPF),
 				 start_req = [{AppName, From} | Start_req]},
 		    {noreply, SS};
 		%% started but not running
 		{true, {true, Appl}, _, _, {value, {AppName, RestartType}}, false} ->
 		    update_permissions(AppName, Bool),
-		    spawn_starter(Appl, S, normal),
-		    SS = S#state{starting = [{AppName, RestartType, normal, From} | Starting],
+		    Starter = spawn_starter(Appl, S, normal),
+		    SS = S#state{starting = [{AppName, RestartType, normal, From, Starter} | Starting],
 				 started = keydelete(AppName, 1, Started),
 				 start_req = [{AppName, From} | Start_req]},
 		    {noreply, SS};
@@ -946,7 +946,7 @@ handle_call({start_type, AppName}, _From, S) ->
     StartType = case lists:keyfind(AppName, 1, Starting) of
 		    false ->
 			local;
-		    {_AppName, _RestartType, Type, _F} ->
+		    {_AppName, _RestartType, Type, _F, _Starter} ->
 			Type
 		end,
     {reply, StartType, S};
@@ -970,7 +970,7 @@ handle_application_started(AppName, Res, S) ->
     #state{starting = Starting, running = Running, started = Started, 
 	   start_req = Start_req} = S,
     Start_reqN = reply_to_requester(AppName, Start_req, Res),
-    {AppName, RestartType, _Type, _From} = lists:keyfind(AppName, 1, Starting),
+    {AppName, RestartType, _Type, _From, _Starter} = lists:keyfind(AppName, 1, Starting),
     case Res of
 	{ok, Id} ->
 	    case AppName of
@@ -1071,12 +1071,14 @@ handle_info({ac_load_application_reply, AppName, Res}, S) ->
 handle_info({ac_start_application_reply, AppName, Res}, S) ->
     Start_req = S#state.start_req,
     case lists:keyfind(AppName, 1, Starting = S#state.starting) of
-	{_AppName, RestartType, Type, From} ->
+	{_AppName, RestartType, Type, From, _Starter} ->
 	    case Res of
 		start_it ->
 		    {true, Appl} = get_loaded(AppName),
-		    spawn_starter(Appl, S, Type),
-		    {noreply, S};
+                    Starter = spawn_starter(Appl, S, Type),
+                    NewStartingEntry = {AppName, RestartType, Type, From, Starter},
+                    NewStarting = keyreplace(AppName, 1, Starting, NewStartingEntry),
+		    {noreply, S#state{starting = NewStarting}};
 		{started, Node} ->
 		    handle_application_started(AppName, 
 					       {ok, {distributed, Node}}, 
@@ -1091,13 +1093,15 @@ handle_info({ac_start_application_reply, AppName, Res}, S) ->
 			     start_req = Start_reqN}};
 		{takeover, _Node} = Takeover ->
 		    {true, Appl} = get_loaded(AppName),
-		    spawn_starter(Appl, S, Takeover),
+		    Starter = spawn_starter(Appl, S, Takeover),
 		    NewStarting1 = keydelete(AppName, 1, Starting),
-		    NewStarting = [{AppName, RestartType, Takeover, From} | NewStarting1],
+		    NewStarting = [{AppName, RestartType, Takeover, From, Starter} | NewStarting1],
 		    {noreply, S#state{starting = NewStarting}};
 		{error, Reason} = Error when RestartType =:= permanent ->
+                    NewStarting = keydelete(AppName, 1, Starting),
 		    Start_reqN = reply_to_requester(AppName, Start_req, Error),
-		    {stop, to_string(Reason), S#state{start_req = Start_reqN}};
+                    {stop, to_string(Reason), S#state{start_req = Start_reqN, 
+                                                      starting = NewStarting}};
 		{error, _Reason} = Error ->
 		    Start_reqN = reply_to_requester(AppName, Start_req, Error),
 		    {noreply, S#state{starting =
@@ -1180,7 +1184,7 @@ handle_info({ac_change_application_req, AppName, Msg}, S) ->
 			    {noreply, S};
 			%% starting
 			{{true, _Appl}, {value, Tuple}, false, false} ->
-			    {_AppName, _RStype, _Type, From} = Tuple,
+			    {_AppName, _RStype, _Type, From, _Starter} = Tuple,
 			    NewS = do_start(AppName, undefined, normal, From, S),
 			    {noreply, NewS};
 			%% started but not running
@@ -1241,35 +1245,61 @@ terminate(Reason, S) ->
 	    undefined -> infinity;
 	    {ok,T} -> T
 	end,
-    foreach(fun({_AppName, Id}) when is_pid(Id) -> 
-		    Ref = erlang:monitor(process, Id),
-		    unlink(Id),
-		    exit(Id, shutdown),
-		    receive
-			%% Proc died before link
-			{'EXIT', Id, _} -> ok
-		    after 0 ->
-                            (fun F() ->
-                                     receive
-                                         {'DOWN', Ref, process, Id, _} -> ok;
-                                         %% We need to handle any gen_server:call here
-                                         %% and reply to them so that they don't deadlock
-                                         {'$gen_call', From, _Msg} ->
-                                             gen_server:reply(From, {error, terminating}),
-                                             F()
-                                     after ShutdownTimeout ->
-                                             exit(Id, kill),
-                                             receive
-                                                 {'DOWN', Ref, process, Id, _} -> ok
-                                             end
-                                     end
-                             end)()
-		    end;
-	       (_) -> ok
-	    end,
-	    S#state.running),
+    [terminate_starting(AppName, Id, ShutdownTimeout) 
+     || {AppName, _RestartType, _Type, _From, Id} <- S#state.starting, is_pid(Id)],
+    [terminate_started(Id, ShutdownTimeout) 
+     || {_AppName, Id} <- S#state.running, is_pid(Id)],
     true = ets:delete(ac_tab),
     ok.
+
+terminate_starting(AppName, Starter, ShutdownTimeout) ->
+    receive
+        %% starter died before replying
+        {'EXIT', Starter, _} ->
+            ok;
+        {'$gen_cast', {application_started, AppName, {ok, Id}}} when is_pid(Id) ->
+            terminate_started(Id, ShutdownTimeout);
+        {'$gen_cast', {application_started, AppName, _}} ->
+            ok;
+        %% We need to handle any gen_server:call here
+        %% and reply to them so that they don't deadlock
+        {'$gen_call', From, _Msg} ->
+            gen_server:reply(From, {error, terminating}),
+            terminate_starting(AppName, Starter, ShutdownTimeout)
+    after ShutdownTimeout ->
+        Ref = erlang:monitor(process, Starter),
+        unlink(Starter),
+        exit(Starter, kill),
+        receive
+            {'DOWN', Ref, process, Starter, _} -> ok
+        end
+    end.
+
+terminate_started(Id, ShutdownTimeout) ->
+    Ref = erlang:monitor(process, Id),
+    unlink(Id),
+    exit(Id, shutdown),
+    receive
+        %% Proc died before link
+        {'EXIT', Id, _} -> ok
+    after 0 ->
+        wait_terminated(Ref, Id, ShutdownTimeout)
+    end.
+
+wait_terminated(Ref, Id, ShutdownTimeout) ->
+    receive
+        {'DOWN', Ref, process, Id, _} -> ok;
+        %% We need to handle any gen_server:call here
+        %% and reply to them so that they don't deadlock
+        {'$gen_call', From, _Msg} ->
+            gen_server:reply(From, {error, terminating}),
+            wait_terminated(Ref, Id, ShutdownTimeout)
+    after ShutdownTimeout ->
+        exit(Id, kill),
+        receive
+            {'DOWN', Ref, process, Id, _} -> ok
+        end
+    end.
 
 -spec code_change(term(), state(), term()) -> {'ok', state()}.
 
@@ -1391,11 +1421,11 @@ do_start(AppName, RT, Type, From, S) ->
 	false ->
 	    {true, Appl} = get_loaded(AppName),
 	    Start_req = S#state.start_req,
-	    spawn_starter(Appl, S, Type),
+	    Starter = spawn_starter(Appl, S, Type),
 	    Starting = case lists:keymember(AppName, 1, S#state.starting) of
 			   false ->
 			       %% UW: don't know if this is necessary
-			       [{AppName, RestartType, Type, From} | 
+			       [{AppName, RestartType, Type, From, Starter} | 
 				S#state.starting];
 			   true ->
 			       S#state.starting
@@ -1407,14 +1437,17 @@ do_start(AppName, RT, Type, From, S) ->
     end.
 
 spawn_starter(#appl{appl_data=#appl_data{mod=[]},name=Name}, _S, _Type) ->
-    gen_server:cast(?AC, {application_started, Name, {ok, undefined}});
+    gen_server:cast(?AC, {application_started, Name, {ok, undefined}}),
+    undefined;
 spawn_starter(Appl, S, Type) ->
     case find_missing_dependency(Appl, S#state.running) of
         {value, NotRunning} ->
             Reply = {info, {not_running, NotRunning}},
-            gen_server:cast(?AC, {application_started, Appl#appl.name, Reply});
+            gen_server:cast(?AC, {application_started, Appl#appl.name, Reply}),
+            undefined;
         false ->
-            application_master:start_link(Appl#appl.appl_data, Type)
+            {ok, Pid} = application_master:start_link(Appl#appl.appl_data, Type),
+            Pid
     end.
 
 reply(undefined, _Reply) ->
