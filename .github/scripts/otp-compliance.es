@@ -441,8 +441,9 @@ fix_name(Name, Sbom) ->
     Sbom#{ ~"name" => Name}.
 
 fix_creators_tooling(Tool, #{ ~"creationInfo" := #{~"creators" := [ORT | _]}=Creators}=Sbom) ->
-    SHA = list_to_binary(string:trim(".sha." ++ os:cmd("git rev-parse HEAD"))),
-    Sbom#{~"creationInfo" := Creators#{ ~"creators" := [ORT, <<Tool/binary, SHA/binary>>]}}.
+    %% TODO: we do not always run inside a git repo. fix me.
+    %% SHA = list_to_binary(string:trim(".sha." ++ os:cmd("git rev-parse HEAD"))),
+    Sbom#{~"creationInfo" := Creators#{ ~"creators" := [ORT, <<Tool/binary>>]}}.
 
 fix_supplier(_Name, #{~"packages" := [ ] }=Sbom) ->
     io:format("[warn] no packages available!~n"),
@@ -462,7 +463,7 @@ fix_project_package_license(_, #{ ~"documentDescribes" := [RootProject],
     Packages1= [case maps:get(~"SPDXID", Package) of
                     RootProject ->
                         Package#{ ~"homepage" := ~"https://www.erlang.org",
-                                  ~"licenseConcluded" := ~"Apache-2.0"};
+                                  ~"licenseConcluded" := maps:get(~"licenseDeclared", Package)};
                     _ ->
                         Package
                 end || Package <- Packages],
@@ -479,11 +480,13 @@ fix_project_package_version(OtpVersion, #{ ~"documentDescribes" := [RootProject]
                 end || Package <- Packages],
     Spdx#{~"packages" := Packages1}.
 
-fix_project_purl(Purl, #{ ~"documentDescribes" := [RootProject],
+fix_project_purl(#{~"referenceLocator" := RefLoc}=Purl, #{ ~"documentDescribes" := [RootProject],
                           ~"packages" := Packages}=Spdx) ->
     Packages1= [case maps:get(~"SPDXID", Package) of
                     RootProject ->
-                        Package#{ ~"externalRefs" => [Purl]};
+                        VersionInfo = maps:get(~"versionInfo", Package),
+                        Purl1 = Purl#{~"referenceLocator" := <<RefLoc/binary, "@", VersionInfo/binary>>},
+                        Package#{ ~"externalRefs" => [Purl1]};
                     _ ->
                         Package
                 end || Package <- Packages],
@@ -552,6 +555,22 @@ fix_beam_licenses(LicensesAndCopyrights,
                           #{~"fileName" := ~"bootstrap/lib/stdlib/ebin/unicode_util.beam"} ->
                               %% follows from otp/lib/stdlib/uc_spec/README-UPDATE.txt
                               files_have_no_license(SPDX#{~"licenseConcluded" := ~"Unicode-3.0 AND Apache-2.0"});
+
+                          #{~"fileName" := Filename} when
+                                Filename =:= ~"erts/emulator/zstd/COPYING";
+                                Filename =:= ~"lib/eldap/LICENSE";
+                                Filename =:= ~"erts/lib_src/yielding_c_fun/test/examples/sha256_erlang_nif/c_src/sha-2/LICENSE";
+                                Filename =:= ~"erts/lib_src/yielding_c_fun/test/examples/sha256_erlang_nif/LICENSE" ->
+                              %% license files have comment stating they are license files.
+                              SPDX#{~"comment" => ~"license file"};
+
+                          #{~"fileName" := <<"LICENSE-HEADERS/", Filename/binary>>} when Filename =/= ~"README.md" ->
+                              %% license files have comment stating they are license files.
+                              SPDX#{~"comment" => ~"license file"};
+
+                          #{~"fileName" := <<"LICENSES/", _Filename/binary>>} ->
+                              %% license files have comment stating they are license files.
+                              SPDX#{~"comment" => ~"license file"};
 
                           #{~"fileName" := Filename} ->
                               case bootstrap_mappings(Filename) of
@@ -1751,14 +1770,12 @@ test_package_hasFiles(#{~"packages" := Packages}) ->
     ok.
 
 test_project_purl(#{~"documentDescribes" := [ProjectName], ~"packages" := Packages}=_Sbom) ->
-    [#{~"externalRefs" := [Purl]}] = lists:filter(fun (#{~"SPDXID" := Id}) -> ProjectName == Id end, Packages),
-    true = Purl == ?spdx_project_purl,
+    [#{~"externalRefs" := [Purl], ~"versionInfo" := VersionInfo}] = lists:filter(fun (#{~"SPDXID" := Id}) -> ProjectName == Id end, Packages),
+    RefLoc = ?spdx_project_purl,
+    true = Purl == RefLoc#{ ~"referenceLocator" := <<"pkg:github/erlang/otp@", VersionInfo/binary>> },
     ok.
 
 test_packages_purl(#{~"documentDescribes" := [ProjectName], ~"packages" := Packages}=_Sbom) ->
-    [#{~"externalRefs" := [Purl]}] = lists:filter(fun (#{~"SPDXID" := Id}) -> ProjectName == Id end, Packages),
-    true = Purl == ?spdx_project_purl,
-
     OTPPackages = lists:filter(fun (#{~"SPDXID" := Id, ~"name" := Name}) -> ProjectName =/= Id andalso lists:member(Name, minimum_otp_apps()) end, Packages),
     true = lists:all(fun (#{~"name" := Name, ~"versionInfo" := Version, ~"externalRefs" := [#{~"referenceLocator":= RefLoc}=Ref]}) ->
                              ExternalRef = create_externalRef_purl(~"", otp_purl(Name, Version)),

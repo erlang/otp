@@ -39,6 +39,24 @@ excludes:
 # Curations are used to fix wrongly detected licenses
 curations:
     license_findings:
+      - path: "LICENSE-HEADERS/*"
+        reason: "INCORRECT"
+        comment: >-
+          License headers have NOASSERTION license
+        concluded_license: "NOASSERTION"
+
+      - path: "LICENSES/*"
+        reason: "INCORRECT"
+        comment: >-
+          Licenses have NOASSERTION license
+        concluded_license: "NOASSERTION"
+
+      - path: "erts/emulator/zstd/COPYING"
+        reason: "INCORRECT"
+        comment: >-
+          Licenses have NOASSERTION license
+        concluded_license: "NOASSERTION"
+
       - path: "lib/wx/src/gen/**/wx*.erl"
         reason: "INCORRECT"
         comment: >-
