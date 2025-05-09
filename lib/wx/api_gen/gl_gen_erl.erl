@@ -88,7 +88,7 @@ gl_api(Fs, _GluNifs) ->
     Exp = fun(F) -> gen_export(F) end,
     ExportList = lists:map(Exp,Fs),
 
-    w("-ifdef(CAN_USE_DRIVER).~n",[]),
+    w("-ifdef(CAN_BUILD_DRIVER).~n",[]),
     w("-on_load(init_nif/0).~n",[]),
     w("-else.~n",[]),
     w("-export([init_nif/0]).~n",[]),
