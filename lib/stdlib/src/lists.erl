@@ -51,7 +51,8 @@ An example of a typical ordering function is less than or equal to: `=</2`.
 %% Miscellaneous list functions that don't take funs as
 %% arguments. Please keep in alphabetical order.
 -export([append/1, append/2, concat/1,
-         delete/2, droplast/1, duplicate/2,
+         delete/2, deleteall/2,
+         droplast/1, duplicate/2,
          enumerate/1, enumerate/2, enumerate/3,
          flatlength/1, flatten/1, flatten/2,
          join/2, last/1, min/1, max/1,
@@ -63,7 +64,8 @@ An example of a typical ordering function is less than or equal to: `=</2`.
          zip/2, zip/3, zip3/3, zip3/4]).
 
 %% Functions taking a list of tuples and a position within the tuple.
--export([keydelete/3, keyreplace/4, keymap/3,
+-export([keydelete/3, keydeleteall/3,
+         keyreplace/4, keymap/3,
          keytake/3, keystore/4]).
 
 %% Sort functions that operate on list of tuples.
@@ -710,9 +712,11 @@ there is such an element.
 ## Examples
 
 ```erlang
-1> lists:delete(b, [a,b,c]).
+1> lists:delete(b, [a, b, c]).
 [a,c]
-2> lists:delete(x, [a,b,c]).
+2> lists:delete(x, [a, x, b, x, c]).
+[a,b,x,c]
+3> lists:delete(x, [a, b, c]).
 [a,b,c]
 ```
 """.
@@ -726,6 +730,32 @@ delete(Item, [Item|Rest]) -> Rest;
 delete(Item, [H|Rest]) -> 
     [H|delete(Item, Rest)];
 delete(_, []) -> [].
+
+-doc """
+Returns a copy of `List1` where all elements matching `Elem` are removed, if
+there are any such elements.
+
+## Examples
+
+```erlang
+1> lists:deleteall(x, [a, x, b, x, c]).
+[a,b,c]
+2> lists:deleteall(x, [d, e, f]).
+[d,e,f]
+```
+""".
+-spec deleteall(Elem, List1) -> List2 when
+      Elem :: T,
+      List1 :: [T],
+      List2 :: [T],
+      T :: term().
+
+deleteall(Item, [Item|Rest]) ->
+    deleteall(Item, Rest);
+deleteall(Item, [H|Rest]) ->
+    [H|deleteall(Item, Rest)];
+deleteall(_, []) ->
+    [].
 
 -doc(#{equiv => zip(List1, List2, fail)}).
 -spec zip(List1, List2) -> List3 when
@@ -1369,7 +1399,7 @@ flatlength([], L) -> L.
 %% keymap(Function, ExtraArgs, Index, [Tuple])
 
 -doc """
-Returns a copy of `TupleList1`, where the first occurrence of a tuple
+Returns a copy of `TupleList1` where the first occurrence of a tuple
 whose `N`th element compares equal to `Key` is removed, if there is
 such a tuple.
 
@@ -1378,6 +1408,8 @@ such a tuple.
 ```erlang
 1> lists:keydelete(c, 1, [{b,1}, {c,55}, {d,75}]).
 [{b,1},{d,75}]
+2> lists:keydelete(x, 1, [{b,1}, {x,99}, {c,55}, {x,-99}, {d,75}]).
+[{b,1},{c,55},{x,-99},{d,75}]
 2> lists:keydelete(unknown, 1, [{b,1}, {c,55}, {d,75}]).
 [{b,1},{c,55},{d,75}]
 ```
@@ -1396,6 +1428,37 @@ keydelete3(Key, N, [H|T]) when element(N, H) == Key -> T;
 keydelete3(Key, N, [H|T]) ->
     [H|keydelete3(Key, N, T)];
 keydelete3(_, _, []) -> [].
+
+-doc """
+Returns a copy of `TupleList1` where all occurrences of a tuple
+whose `N`th element compares equal to `Key` is removed, if there are
+any such a tuples.
+
+## Examples
+
+```erlang
+1> lists:keydelete(x, 1, [{b,1}, {x,99}, {c,55}, {x,-99}, {d,75}]).
+[{b,1},{d,75}]
+2> lists:keydelete(unknown, 1, [{b,1}, {c,55}, {d,75}]).
+[{b,1},{c,55},{d,75}]
+```
+""".
+-spec keydeleteall(Key, N, TupleList1) -> TupleList2 when
+      Key :: term(),
+      N :: pos_integer(),
+      TupleList1 :: [Tuple],
+      TupleList2 :: [Tuple],
+      Tuple :: tuple().
+
+keydeleteall(K, N, L) when is_integer(N), N > 0 ->
+    keydeleteall3(K, N, L).
+
+keydeleteall3(Key, N, [H|T]) when element(N, H) == Key ->
+    keydeleteall3(Key, N, T);
+keydeleteall3(Key, N, [H|T]) ->
+    [H|keydeleteall3(Key, N, T)];
+keydeleteall3(_, _, []) ->
+    [].
 
 -doc """
 Returns a copy of `TupleList1` where the first occurrence of a tuple `T` whose
