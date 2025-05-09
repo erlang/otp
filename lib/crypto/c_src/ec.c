@@ -439,45 +439,125 @@ ERL_NIF_TERM ec_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
     return ret;
 }
 
+/*
+ * Function to extract explicit EC params and construct an EC_GROUP
+ * Returns a NEWLY ALLOCATED EC_GROUP on success (caller must free), NULL on failure.
+ */
+static EC_GROUP* extract_and_build_ec_group_from_ctx(EVP_PKEY *pkey) {
+    EC_GROUP *new_group = NULL;
+    BN_CTX *bn_ctx = NULL;
+    EC_POINT *gen_point = NULL;
+
+    BIGNUM *bn_p = NULL, *bn_a = NULL, *bn_b = NULL, *bn_n = NULL, *bn_h = NULL;
+    unsigned char *gen_buf = NULL;
+    size_t gen_len_needed = 0;
+    size_t gen_len_written = 0;
+    char field_type_buf[64] = {0};
+    size_t field_type_len_written = 0;
+    size_t field_type_buf_len;
+
+    if (!EVP_PKEY_is_a(pkey, "EC"))
+        return NULL;
+
+    field_type_buf_len = sizeof(field_type_buf);
+    if (!EVP_PKEY_get_utf8_string_param(pkey, OSSL_PKEY_PARAM_EC_FIELD_TYPE,
+                                        field_type_buf, field_type_buf_len, &field_type_len_written)) {
+        ERR_clear_error();
+        /* Assuming prime field is okay for EC_GROUP_new_curve_GFp */
+    } else {
+        /* We currently only support prime field construction below */
+        if (strcmp(field_type_buf, SN_X9_62_prime_field) != 0) {
+            goto cleanup;
+        }
+    }
+
+    /* P, A, B, Order N (Mandatory for construction) */
+    if (!EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_EC_P, &bn_p) ||
+        !EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_EC_A, &bn_a) ||
+        !EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_EC_B, &bn_b) ||
+        !EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_EC_ORDER, &bn_n))
+        goto cleanup;
+
+    /* Cofactor H (Optional for construction, but good to get if available) */
+    if (!EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_EC_COFACTOR, &bn_h))
+        /* try to continue without Cofactor */
+        ERR_clear_error();
+
+    /* Generator G (Mandatory for construction) */
+    if (!EVP_PKEY_get_octet_string_param(pkey, OSSL_PKEY_PARAM_EC_GENERATOR,
+                                         NULL, 0, &gen_len_needed) || gen_len_needed == 0)
+        goto cleanup;
+
+    gen_buf = OPENSSL_malloc(gen_len_needed);
+    if (!gen_buf)
+        goto cleanup;
+
+    if (!EVP_PKEY_get_octet_string_param(pkey, OSSL_PKEY_PARAM_EC_GENERATOR,
+                                         gen_buf, gen_len_needed, &gen_len_written) ||
+        gen_len_written != gen_len_needed)
+        goto cleanup;
+
+    /* 4. Construct the EC_GROUP */
+    bn_ctx = BN_CTX_new();
+    if (!bn_ctx)
+        goto cleanup;
+
+    /* Create group structure with p, a, b */
+    new_group = EC_GROUP_new_curve_GFp(bn_p, bn_a, bn_b, bn_ctx);
+    if (!new_group)
+        goto cleanup;
+
+    /* Create and set the generator point */
+    gen_point = EC_POINT_new(new_group);
+    if (!gen_point)
+        goto cleanup;
+
+    /* Convert octet string generator to point object */
+    if (!EC_POINT_oct2point(new_group, gen_point, gen_buf, gen_len_written, bn_ctx))
+        goto cleanup;
+
+    /* Set generator, order (n), and cofactor (h)
+       EC_GROUP_set_generator takes ownership of bn_n and bn_h if they are non-NULL.
+       We pass bn_h which might be NULL if extraction failed - this is okay. */
+    if (!EC_GROUP_set_generator(new_group, gen_point, bn_n, bn_h))
+        goto cleanup;
+
+    /* Construction successful! Set return pointer and prevent cleanup from freeing inputs. */
+    EC_POINT_free(gen_point);
+    BN_CTX_free(bn_ctx);
+
+    if (bn_p) BN_free(bn_p);
+    if (bn_a) BN_free(bn_a);
+    if (bn_b) BN_free(bn_b);
+    if (bn_n) BN_free(bn_n);
+    if (bn_h) BN_free(bn_h);
+    OPENSSL_free(gen_buf);
+
+    return new_group;
+
+cleanup:
+    if (bn_p) BN_free(bn_p);
+    if (bn_a) BN_free(bn_a);
+    if (bn_b) BN_free(bn_b);
+    if (bn_n) BN_free(bn_n);
+    if (bn_h) BN_free(bn_h);
+    OPENSSL_free(gen_buf);
+    EC_POINT_free(gen_point);
+    EC_GROUP_free(new_group);
+    BN_CTX_free(bn_ctx);
+    return NULL;
+}
+
 static int mk_pub_key_binary(ErlNifEnv* env, EVP_PKEY *peer_pkey,
                              ErlNifBinary *pubkey_bin, ERL_NIF_TERM *ret)
 {
     size_t pub_key_size = 0;
-    size_t group_name_size = 0;
-    char group_name_buf[20];
-    char* group_name = group_name_buf;
-    int group_nid;
     EC_GROUP* ec_group = NULL;
     EC_POINT* pub_key = NULL;
     BIGNUM* priv_bn = NULL;
     int ok = 0;
 
-    /* This code was inspired by
-     * https://github.com/openssl/openssl/issues/18437
-     * which first tried to get public key directly with
-     * EVP_PKEY_get_octet_string_param(peer_pkey, OSSL_PKEY_PARAM_PUB_KEY,..)
-     *
-     * I removed that since I don't know what key format that will produce
-     * if it succeeds. That is, we go directly to the "fallback" and calculate
-     * the public key.
-     */
-
-    if (!EVP_PKEY_get_utf8_string_param(peer_pkey, OSSL_PKEY_PARAM_GROUP_NAME,
-                                        NULL, 0, &group_name_size))
-        assign_goto(*ret, err, EXCP_ERROR(env, "Couldn't get EC group name size"));
-
-    if (group_name_size >= sizeof(group_name_buf))
-        group_name = enif_alloc(group_name_size + 1);
-    if (!EVP_PKEY_get_utf8_string_param(peer_pkey, OSSL_PKEY_PARAM_GROUP_NAME,
-                                            group_name, group_name_size+1,
-                                            NULL))
-        assign_goto(*ret, err, EXCP_ERROR(env, "Couldn't get EC group name"));
-
-    group_nid = OBJ_sn2nid(group_name);
-    if (group_nid == NID_undef)
-        assign_goto(*ret, err, EXCP_ERROR(env, "Couldn't get EC group nid"));
-
-    ec_group = EC_GROUP_new_by_curve_name(group_nid);
+    ec_group = extract_and_build_ec_group_from_ctx(peer_pkey);
     if (ec_group == NULL)
         assign_goto(*ret, err, EXCP_ERROR(env, "Couldn't get EC_GROUP"));
 
@@ -508,7 +588,6 @@ static int mk_pub_key_binary(ErlNifEnv* env, EVP_PKEY *peer_pkey,
     ok = 1;
 
 err:
-    if (group_name != group_name_buf) enif_free(group_name);
     if (pub_key) EC_POINT_free(pub_key);
     if (ec_group) EC_GROUP_free(ec_group);
     if (priv_bn) BN_free(priv_bn);
