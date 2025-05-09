@@ -148,6 +148,7 @@ MODULES = \
 	trace \
 	user_drv \
 	user_sup \
+	via_registry \
 	prim_tty \
 	prim_tty_sighandler \
 	raw_file_io \
