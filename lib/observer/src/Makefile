@@ -125,6 +125,8 @@ ERL_COMPILE_FLAGS += \
 	-I../include \
 	-I ../../et/include \
 	-I ../../../libraries/et/include \
+	-I $(ERL_TOP)/lib \
+	-pa $(ERL_TOP)/lib/wx/ebin \
 	-Werror
 
 # ----------------------------------------------------

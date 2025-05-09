@@ -68,7 +68,11 @@ APPUP_TARGET = $(EBIN)/$(APPUP_FILE)
 # ----------------------------------------------------
 # FLAGS
 # ----------------------------------------------------
-ERL_COMPILE_FLAGS += -pa $(ERL_TOP)/lib/et/ebin -I../include -Werror
+ERL_COMPILE_FLAGS += -pa $(ERL_TOP)/lib/et/ebin \
+		     -pa $(ERL_TOP)/lib/wx/ebin \
+		     -I../include \
+		     -I $(ERL_TOP)/lib \
+		     -Werror
 
 # ----------------------------------------------------
 # Special Build Targets
