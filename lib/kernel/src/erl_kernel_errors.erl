@@ -247,7 +247,7 @@ format_trace_error(info, [_Session,Tracee,_Item], Cause) ->
                     [[], <<"not a valid tracee specification">>]
             end;
         none ->
-            [[], <<"invalid trace item">>]
+            [[], [], <<"invalid trace item">>]
     end;
 format_trace_error(session_create, [Name,Tracer,Options], _) ->
     NameError = if
