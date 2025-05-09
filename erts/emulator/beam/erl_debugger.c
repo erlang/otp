@@ -402,7 +402,7 @@ erl_debugger_breakpoint_3(BIF_ALIST_3) {
 
         hp1 = HAlloc(BIF_P, 6);
         hp2 = hp1 + 3;
-        return TUPLE2(hp2, am_error, TUPLE2(hp1, error_type, error_source));
+        BIF_RET(TUPLE2(hp2, am_error, TUPLE2(hp1, error_type, error_source)));
     }
 }
 
@@ -448,6 +448,175 @@ erts_internal_notify_breakpoint_hit_3(BIF_ALIST_3) {
 
     BIF_RET(am_ok);
 }
+
+static Eterm build_breakpoints_info_for_fun(Process *c_p, const BeamCodeLineTab *lt, int fun_idx);
+
+BIF_RETTYPE
+erl_debugger_breakpoints_1(BIF_ALIST_1) {
+    Eterm module_name, result, *hp;
+    Module* modp;
+    ErtsCodeIndex code_ix = erts_active_code_ix();
+    const BeamCodeHeader* code_hdr;
+
+    BIF_UNDEF_IF_NO_DEBUGGER_SUPPORT();
+
+    module_name = BIF_ARG_1;
+    if (is_not_atom(module_name)) {
+        BIF_ERROR(BIF_P, BADARG);
+    }
+
+    modp = erts_get_module(module_name, code_ix);
+    if (modp == NULL) {
+        goto error;
+    }
+
+    code_hdr = modp->curr.code_hdr;
+    if (code_hdr == NULL) {
+        goto error;
+    }
+
+    hp = HAlloc(BIF_P, MAP0_SZ);
+    result = MAP0(hp);
+
+    for(int fun_idx = 0; fun_idx < code_hdr->num_functions; fun_idx++) {
+        Eterm fun_lines = build_breakpoints_info_for_fun(BIF_P,
+                                                         code_hdr->line_table,
+                                                         fun_idx);
+
+        const ErtsCodeInfo *fun_info = code_hdr->functions[fun_idx];
+        Eterm fun_term;
+        hp = HAlloc(BIF_P, 3);
+        fun_term = TUPLE2(hp,
+                          fun_info->mfa.function,
+                          make_small(fun_info->mfa.arity));
+
+        result = erts_maps_put(BIF_P, fun_term, fun_lines, result);
+    }
+
+    hp = HAlloc(BIF_P, 3);
+    BIF_RET(TUPLE2(hp, am_ok, result));
+
+    {
+    error:
+        hp = HAlloc(BIF_P, 3);
+        BIF_RET(TUPLE2(hp, am_error, am_badkey));
+    }
+}
+
+BIF_RETTYPE
+erl_debugger_breakpoints_3(BIF_ALIST_3) {
+    Eterm module_name, fun_name, arity, badkey_source, *hp;
+    Uint arity_val;
+    Module* modp;
+    ErtsCodeIndex code_ix = erts_active_code_ix();
+    const BeamCodeHeader* code_hdr;
+
+    BIF_UNDEF_IF_NO_DEBUGGER_SUPPORT();
+
+    module_name = BIF_ARG_1;
+    if (is_not_atom(module_name)) {
+        BIF_ERROR(BIF_P, BADARG);
+    }
+
+    fun_name = BIF_ARG_2;
+    if (is_not_atom(fun_name)) {
+        BIF_ERROR(BIF_P, BADARG);
+    }
+
+    arity = BIF_ARG_3;
+    if (is_not_small(BIF_ARG_3)) {
+        BIF_ERROR(BIF_P, BADARG);
+    }
+    arity_val = unsigned_val(BIF_ARG_3);
+
+    modp = erts_get_module(module_name, code_ix);
+    if (modp == NULL) {
+        badkey_source = module_name;
+        goto error;
+    }
+
+    code_hdr = modp->curr.code_hdr;
+    if (code_hdr == NULL) {
+        badkey_source = module_name;
+        goto error;
+    }
+
+    for(int fun_idx = 0; fun_idx < code_hdr->num_functions; fun_idx++) {
+        const ErtsCodeInfo *fun_info = code_hdr->functions[fun_idx];
+        const ErtsCodeMFA *mfa = &fun_info->mfa;
+        if (mfa->function == fun_name && mfa->arity == arity_val) {
+            const BeamCodeLineTab *lt = code_hdr->line_table;
+            Eterm result = build_breakpoints_info_for_fun(BIF_P, lt, fun_idx);
+            Eterm *hp = HAlloc(BIF_P, 3);
+            BIF_RET(TUPLE2(hp, am_ok, result));
+        }
+    }
+
+    hp = HAlloc(BIF_P, 3);
+    badkey_source = TUPLE2(hp, fun_name, arity);
+    goto error;
+
+    {
+        Eterm *hp1, *hp2;
+    error:
+
+        hp1 = HAlloc(BIF_P, 6);
+        hp2 = hp1 + 3;
+        BIF_RET(TUPLE2(hp2, am_error, TUPLE2(hp1, am_badkey, badkey_source)));
+    }
+}
+
+static Eterm build_breakpoints_info_for_fun(Process *c_p, const BeamCodeLineTab *lt, int fun_idx) {
+    Eterm *hp = HAlloc(c_p, MAP0_SZ);
+    Eterm fun_lines = MAP0(hp);
+
+    if (lt) {
+        const void **fun_line_starts = lt->func_tab[fun_idx];
+        const void *next_fun_start = lt->func_tab[fun_idx+1][0];
+        int loc_tab_idx = lt->func_tab[fun_idx] - lt->func_tab[0];
+
+        for(int fun_line=0; fun_line_starts[fun_line] < next_fun_start; fun_line++) {
+            Uint32 loc;
+            Eterm line, status;
+            const Eterm *prev_status;
+
+            if (lt->loc_size == 2) {
+                loc = lt->loc_tab.p2[loc_tab_idx + fun_line];
+            } else {
+                ASSERT(lt->loc_size == 4);
+                loc = lt->loc_tab.p4[loc_tab_idx + fun_line];
+            }
+            if (loc == LINE_INVALID_LOCATION) {
+                continue;
+            }
+
+            line = make_small(LOC_LINE(loc));
+
+            switch (erts_is_line_breakpoint_code(fun_line_starts[fun_line])) {
+            case IS_NOT_LINE_BP:
+                continue;
+            case IS_ENABLED_LINE_BP:
+                status = am_true;
+                break;
+            case IS_DISABLED_LINE_BP:
+                status = am_false;
+                break;
+            default:
+                ASSERT(0);
+                continue;
+            }
+            prev_status = erts_maps_get(line, fun_lines);
+            if (prev_status == NULL) {
+                fun_lines = erts_maps_put(c_p, line, status, fun_lines);
+            } else {
+                ASSERT(*prev_status == status);
+            }
+        }
+    }
+
+    return fun_lines;
+}
+
 
 /* Inspecting stack-frames and X registers */
 
@@ -528,15 +697,15 @@ stack_frame_fun_info(Process *c_p, ErtsCodePtr pc, Process *rp, int is_return_ad
         fun_info = am_atom_put(fname, sys_strlen(fname));
     } else {
         Eterm *hp, mfa, line;
-        int mfa_arity = 3;
+        const int mfa_tup_sz = 4;
 
-        hp = HAlloc(c_p, MAP2_SZ + (mfa_arity + 1));
+        hp = HAlloc(c_p, MAP2_SZ + mfa_tup_sz);
 
-        mfa = make_tuple(hp);
-        *hp++ = make_arityval(mfa_arity);
-        *hp++ = fi.mfa->module;
-        *hp++ = fi.mfa->function;
-        *hp++ = make_small(fi.mfa->arity);
+        mfa = TUPLE3(hp,
+                     fi.mfa->module,
+                     fi.mfa->function,
+                     make_small(fi.mfa->arity));
+        hp += mfa_tup_sz;
 
         line = fi.loc == LINE_INVALID_LOCATION
                 ? am_undefined
@@ -551,20 +720,15 @@ stack_frame_fun_info(Process *c_p, ErtsCodePtr pc, Process *rp, int is_return_ad
 static Eterm
 make_value_or_too_large_tuple(Process *p, Eterm val, Uint max_size) {
     Uint val_size;
-    int tup_arity = 2;
+    const int tup2_sz = 3;
     Eterm result, *hp;
 
-    hp = HAlloc(p, tup_arity + 1);
-    result = make_tuple(hp);
-    *hp++ = make_arityval(tup_arity);
-
+    hp = HAlloc(p, tup2_sz);
     val_size = size_object(val);
     if (val_size <= max_size) {
-        *hp++ = am_value;
-        *hp++ = copy_object(val, p);
+        result = TUPLE2(hp, am_value, copy_object(val, p));
     } else {
-        *hp++ = ERTS_MAKE_AM("too_large");
-        *hp++ = make_small(val_size);
+        result = TUPLE2(hp, ERTS_MAKE_AM("too_large"), make_small(val_size));
     }
 
     return result;
@@ -572,15 +736,13 @@ make_value_or_too_large_tuple(Process *p, Eterm val, Uint max_size) {
 
 static Eterm
 make_catch_tuple(Process *c_p, ErtsCodePtr catch_addr) {
-    int tup_arity = 2;
+    const int tup2_sz = 3;
     Eterm result, *hp;
 
-    hp = HAlloc(c_p, tup_arity + 1);
-    result = make_tuple(hp);
-    *hp++ = make_arityval(tup_arity);
-
-    *hp++ = ERTS_MAKE_AM("catch");
-    *hp++ = stack_frame_fun_info(c_p, catch_addr, NULL, 0);
+    hp = HAlloc(c_p, tup2_sz);
+    result = TUPLE2(hp,
+                    am_catch,
+                    stack_frame_fun_info(c_p, catch_addr, NULL, 0));
 
     return result;
 }
@@ -631,7 +793,7 @@ erl_debugger_stack_frames_2(BIF_ALIST_2)
     yregs = NIL;
     for(Eterm *sp = STACK_START(rp) - 1; stack_top - 1 <= sp; sp--) {
         int is_last_iter = (stack_top - 1 == sp);
-        int tup_arity;
+        const int tup3_sz = 4;
         Eterm *hp, x;
 
         /* On the last iteration, past the stack end, x is the current pc,
@@ -650,21 +812,23 @@ erl_debugger_stack_frames_2(BIF_ALIST_2)
 
             addr = erts_make_integer((Uint) code_ptr, BIF_P);
 
-            tup_arity = 3;
             frame_info_map_sz = MAP2_SZ;
             hp = HAlloc(BIF_P,
                         2 /* cons */ +
-                        (tup_arity + 1) /* this_frame */ +
+                        tup3_sz /* this_frame */ +
                         frame_info_map_sz /* frame_info_map */);
 
             frame_info_map = MAP2(hp, am_code, addr, am_slots, yregs);
             hp += frame_info_map_sz;
 
-            this_frame = make_tuple(hp);
-            *hp++ = make_arityval(tup_arity);
-            *hp++ = make_small(frame_no++);
-            *hp++ = stack_frame_fun_info(BIF_P, code_ptr, rp, is_return_addr);
-            *hp++ = frame_info_map;
+            this_frame = TUPLE3(hp,
+                                make_small(frame_no++),
+                                stack_frame_fun_info(BIF_P,
+                                                     code_ptr,
+                                                     rp,
+                                                     is_return_addr),
+                                frame_info_map);
+            hp += tup3_sz;
 
             result = CONS(hp, this_frame, result);
 

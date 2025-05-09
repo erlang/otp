@@ -172,6 +172,7 @@ atom caller_line
 atom capture
 atom case_clause
 atom caseless
+atom catch
 atom catchlevel
 atom cause
 atom cd
