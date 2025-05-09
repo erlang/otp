@@ -8777,7 +8777,7 @@ Sets a system flag to the given value.
 The possible flags to set are:
 
 - ```erlang
-  system_flag(backtrace_depths, non_neg_integer()) -> non_neg_integer()
+  system_flag(backtrace_depth, non_neg_integer()) -> non_neg_integer()
   ```
 
    Sets the maximum depth of call stack back-traces in the exit reason element of
