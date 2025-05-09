@@ -132,7 +132,7 @@ Erlang/OTP has automatic checks to enforce this policy:
   contribution will be manually checked, and will trigger a non-passing test in
   Github.
 
-See <HOWTO/LICENSE-HEADERS.md> for details on the layout of file headers.
+See <HOWTO/FILE-HEADERS.md> for details on the layout of file headers.
 
 ### Before you submit your pull request
 

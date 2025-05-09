@@ -16,6 +16,9 @@
     "name": "openssl",
     "versionInfo": "3.5",
     "path": "./lib/erl_interface/src/openssl",
+    "exclude": ["./lib/erl_interface/src/openssl/vendor.info",
+                "./lib/erl_interface/src/openssl/README",
+                "./lib/erl_interface/src/openssl/openssl.mk"],
     "supplier": "Organization: OpenSSL Mission",
     "purl": "pkg:generic/openssl"
   }

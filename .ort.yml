@@ -39,6 +39,46 @@ excludes:
 # Curations are used to fix wrongly detected licenses
 curations:
     license_findings:
+
+        #
+        # LICENSE FILES
+        #
+        # License files are marked as NOASSERTION
+        #
+      - path: "LICENSES/*"
+        reason: "INCORRECT"
+        comment: >-
+          Licenses have NOASSERTION license
+        concluded_license: "NOASSERTION"
+
+      - path: "FILE-HEADERS/*"
+        reason: "INCORRECT"
+        comment: >-
+          Licenses have NOASSERTION license
+        concluded_license: "NOASSERTION"
+
+      - path: "**/COPYING"
+        reason: "INCORRECT"
+        comment: >-
+          Licenses have NOASSERTION license
+        concluded_license: "NOASSERTION"
+
+      - path: "**/LICENSE"
+        reason: "INCORRECT"
+        comment: >-
+          Licenses have NOASSERTION license
+        concluded_license: "NOASSERTION"
+
+      - path: "**/LICENSE-*"
+        reason: "INCORRECT"
+        comment: >-
+          Licenses have NOASSERTION license
+        concluded_license: "NOASSERTION"
+
+        #
+        # END OF LICENSE FILES
+        #
+
       - path: "lib/wx/src/gen/**/wx*.erl"
         reason: "INCORRECT"
         comment: >-
@@ -139,6 +179,12 @@ curations:
         concluded_license: "Apache-2.0 OR LGPL-2.0-or-later"
 
       - path: "OTP_VERSION"
+        reason: "NOT_DETECTED"
+        comment: >-
+          This file does not admit comments to add a license.
+        concluded_license: "Apache-2.0"
+
+      - path: "otp_versions.table"
         reason: "NOT_DETECTED"
         comment: >-
           This file does not admit comments to add a license.
@@ -293,6 +339,89 @@ curations:
         reason: "INCORRECT"
         comment: "We do not know this license"
         concluded_license: "NOASSERTION"
+
+        #
+        # prebuild.* files are all Apache-2.0 but do not admit comments to add
+        # a license.
+        #
+
+      - path: "erts/prebuild.keep"
+        reason: "NOT_DETECTED"
+        comment: >-
+          This file does not admit comments to add a license.
+        concluded_license: "Apache-2.0"
+
+      - path: "erts/prebuild.skip"
+        reason: "NOT_DETECTED"
+        comment: >-
+          This file does not admit comments to add a license.
+        concluded_license: "Apache-2.0"
+
+      - path: "lib/common_test/prebuild.skip"
+        reason: "NOT_DETECTED"
+        comment: >-
+          This file does not admit comments to add a license.
+        concluded_license: "Apache-2.0"
+
+      - path: "lib/jinterface/prebuild.keep"
+        reason: "NOT_DETECTED"
+        comment: >-
+          This file does not admit comments to add a license.
+        concluded_license: "Apache-2.0"
+
+      - path: "lib/jinterface/prebuild.skip"
+        reason: "NOT_DETECTED"
+        comment: >-
+          This file does not admit comments to add a license.
+        concluded_license: "Apache-2.0"
+
+      - path: "lib/megaco/prebuild.skip"
+        reason: "NOT_DETECTED"
+        comment: >-
+          This file does not admit comments to add a license.
+        concluded_license: "Apache-2.0"
+
+      - path: "lib/megaco/src/flex/prebuild.skip"
+        reason: "NOT_DETECTED"
+        comment: >-
+          This file does not admit comments to add a license.
+        concluded_license: "Apache-2.0"
+
+      - path: "lib/snmp/mibs/prebuild.skip"
+        reason: "NOT_DETECTED"
+        comment: >-
+          This file does not admit comments to add a license.
+        concluded_license: "Apache-2.0"
+
+      - path: "lib/ssh/prebuild.skip"
+        reason: "NOT_DETECTED"
+        comment: >-
+          This file does not admit comments to add a license.
+        concluded_license: "Apache-2.0"
+
+      - path: "lib/wx/prebuild.skip"
+        reason: "NOT_DETECTED"
+        comment: >-
+          This file does not admit comments to add a license.
+        concluded_license: "Apache-2.0"
+
+      - path: "make/prebuild.skip"
+        reason: "NOT_DETECTED"
+        comment: >-
+          This file does not admit comments to add a license.
+        concluded_license: "Apache-2.0"
+
+      - path: "prebuild.delete"
+        reason: "NOT_DETECTED"
+        comment: >-
+          This file does not admit comments to add a license.
+        concluded_license: "Apache-2.0"
+
+      - path: "prebuild.skip"
+        reason: "NOT_DETECTED"
+        comment: >-
+          This file does not admit comments to add a license.
+        concluded_license: "Apache-2.0"
 
         #
         #

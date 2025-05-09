@@ -260,7 +260,7 @@ export PATH="$ERL_TOP/release/$target/bin:$PATH"
 [ $license_header = no ] || {
     progress "Running License Header Check on OTP"
     ./scripts/license-header.es ci || {
-        fail "Checking license headers in OTP failed. See $ERL_TOP/LICENSE-HEADERS.md for details"
+        fail "Checking license headers in OTP failed. See $ERL_TOP/FILE-HEADERS.md for details"
     }
 }
 
