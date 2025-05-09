@@ -116,9 +116,11 @@ typedef struct {
     } cache[ERTS_ATOM_CACHE_SIZE];
 } ErtsAtomCacheMap;
 
+#define ERTS_MAX_INTERNAL_ATOM_CACHE_ENTRIES 255
+
 typedef struct {
     Uint32 size;
-    Eterm atom[ERTS_ATOM_CACHE_SIZE];
+    Eterm atom[ERTS_MAX_INTERNAL_ATOM_CACHE_ENTRIES];
 } ErtsAtomTranslationTable;
 
 /*
