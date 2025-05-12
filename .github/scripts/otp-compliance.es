@@ -400,23 +400,18 @@ sbom_otp(#{sbom_file  := SbomFile, write_to_file := Write, input_file := Input})
             {ok, Spdx}
     end.
 
+-spec improve_sbom_with_info(Sbom :: map(), ScanResults :: map()) -> Result :: map().
 improve_sbom_with_info(Sbom, ScanResults) ->
-    {Licenses, Copyrights} = fetch_license_copyrights(ScanResults),
-    generate_spdx_fixes(Sbom, Licenses, Copyrights).
-
-fetch_license_copyrights(Input) ->
-    {path_to_license(Input), path_to_copyright(Input)}.
-
--spec generate_spdx_fixes(Json :: map(), Licenses :: map(), Copyrights :: map()) -> Result :: map().
-generate_spdx_fixes(Input, Licenses, Copyrights) ->
-    FixFuns = sbom_fixing_functions(Licenses, Copyrights),
-    Spdx = lists:foldl(fun ({Fun, Data}, Acc) -> Fun(Data, Acc) end, Input, FixFuns),
+    FixFuns = sbom_fixing_functions(ScanResults),
+    Spdx = lists:foldl(fun ({Fun, Data}, Acc) -> Fun(Data, Acc) end, Sbom, FixFuns),
     package_by_app(Spdx).
 
-sbom_fixing_functions(Licenses, Copyrights) ->
+sbom_fixing_functions(ScanResults) ->
+    Licenses = path_to_license(ScanResults),
+    Copyrights = path_to_copyright(ScanResults),
     [{fun fix_project_name/2, ?spdxref_project_name},
      {fun fix_name/2, ?spdx_project_name},
-     {fun fix_creators_tooling/2, ?spdx_creators_tooling},
+     {fun fix_creators_tooling/2, {?spdx_creators_tooling, ScanResults}},
      {fun fix_supplier/2, ?spdx_supplier},
      {fun fix_download_location/2, ?spdx_download_location},
      {fun fix_project_package_license/2, {Licenses, Copyrights}},
@@ -440,10 +435,10 @@ fix_project_name(ProjectName, #{ ~"documentDescribes" := [ ProjectName0 ],
 fix_name(Name, Sbom) ->
     Sbom#{ ~"name" => Name}.
 
-fix_creators_tooling(Tool, #{ ~"creationInfo" := #{~"creators" := [ORT | _]}=Creators}=Sbom) ->
-    %% TODO: we do not always run inside a git repo. fix me.
-    %% SHA = list_to_binary(string:trim(".sha." ++ os:cmd("git rev-parse HEAD"))),
-    Sbom#{~"creationInfo" := Creators#{ ~"creators" := [ORT, <<Tool/binary>>]}}.
+fix_creators_tooling({Tool, #{~"repository" := #{~"vcs_processed" := #{~"revision" := Version}}}},
+                      #{ ~"creationInfo" := #{~"creators" := [ORT | _]}=Creators}=Sbom) ->
+    SHA = string:trim(<<".sha.", Version/binary>>),
+    Sbom#{~"creationInfo" := Creators#{ ~"creators" := [ORT, <<Tool/binary, SHA/binary>>]}}.
 
 fix_supplier(_Name, #{~"packages" := [ ] }=Sbom) ->
     io:format("[warn] no packages available!~n"),
