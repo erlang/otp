@@ -60,8 +60,7 @@ translate a filename specified as a binary on systems with transparent naming.
 
 When running in `utf8` mode, functions `list_dir/1` and `read_link/1` never
 return raw filenames. To return all filenames including raw filenames, use
-functions [`list_dir_all/1`](`m:file#list_dir_all`) and
-[`read_link_all/1`](`m:file#read_link_all`).
+functions `list_dir_all/1` and `read_link_all/1`.
 
 See also section
 [Notes About Raw Filenames](`e:stdlib:unicode_usage.md#notes-about-raw-filenames`)
@@ -343,10 +342,9 @@ runtime libraries of most C compilers.
 -export([native_name_encoding/0]).
 
 -doc """
-[](){: #native_name_encoding } Returns the filename encoding mode. If it is
-`latin1`, the system translates no filenames. If it is `utf8`, filenames are
-converted back and forth to the native filename encoding (usually UTF-8, but
-UTF-16 on Windows).
+Returns the filename encoding mode. If it is `latin1`, the system translates no
+filenames. If it is `utf8`, filenames are converted back and forth to the native
+filename encoding (usually UTF-8, but UTF-16 on Windows).
 """.
 -doc(#{since => <<"OTP R14B01">>}).
 -spec native_name_encoding() -> latin1 | utf8.
@@ -858,7 +856,7 @@ read_link_info(Name, Opts) when is_list(Opts) ->
 
 
 -doc """
-[](){: #read_link_all } Returns `{ok, Filename}` if `Name` refers to a symbolic
+Returns `{ok, Filename}` if `Name` refers to a symbolic
 link that is not a raw filename, or `{error, Reason}` otherwise. On platforms
 that do not support symbolic links, the return value is `{error,enotsup}`.
 
@@ -1043,7 +1041,7 @@ list_dir(Name) ->
     check_and_call(list_dir, [file_name(Name)]).
 
 -doc """
-[](){: #list_dir_all } Lists all the files in a directory, including files with
+Lists all the files in a directory, including files with
 raw filenames. Returns `{ok, Filenames}` if successful, otherwise
 `{error, Reason}`. `Filenames` is a list of the names of all the files in the
 directory. The names are not sorted.

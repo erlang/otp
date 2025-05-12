@@ -311,7 +311,7 @@ Closes a connection to a database. This will also terminate all processes that
 may have been spawned when the connection was opened. This call will always
 succeed. If the connection cannot be disconnected gracefully it will be brutally
 killed. However you may receive an error message as result if you try to
-disconnect a connection started by another process.[](){: #describe_table }
+disconnect a connection started by another process.
 """.
 -spec disconnect(ConnectionReferense) -> ok | {error, Reason} when
       ConnectionReferense :: connection_reference(),
@@ -551,7 +551,7 @@ Returns the next row of the result set relative the current cursor position and
 positions the cursor at this row. If the cursor is positioned at the last row of
 the result set when this function is called the returned value will be
 `{selected, ColNames,[]}` e.i. the list of row values is empty indicating that
-there is no more data to fetch.[](){: #param_query }
+there is no more data to fetch.
 """.
 -spec next(ConnectionReference, TimeOut) -> Result | {error, Reason} when
      ConnectionReference :: connection_reference(),

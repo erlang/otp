@@ -168,8 +168,8 @@ compile(FileName) ->
     compile(FileName, []).
 
 -doc """
-[](){: #compiler_opts } Compiles the specified MIB file `<FileName>.mib`. The
-compiled file `BinFileName` is called `<FileName>.bin`.
+Compiles the specified MIB file `<FileName>.mib`. The compiled file `BinFileName`
+is called `<FileName>.bin`.
 
 - The option `agent_capabilities`, if present, specifies that the
   AGENT-CAPABILITIES statement of the MIB shall be included (with a mib-entry
