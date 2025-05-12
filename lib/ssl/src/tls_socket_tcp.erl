@@ -43,7 +43,7 @@
 %%         open/2,   dtls only
          close/1,
          shutdown/2,
-         send/2,
+         send/2, send_async/3,
 %%         send/4,
          recv/2, recv/3,
 
@@ -189,6 +189,19 @@ send(Socket, Data) ->
         Err ->
             ?DBG_LOG("~w send ~w", [get(tls_role), Err]),
             Err
+    end.
+
+send_async(Socket, Data, Handle) ->
+    ?DBG_LOG("~w send_async ~w ~w", [get(tls_role), Socket, iolist_size(Data)]),
+    case socket:sendv(Socket, erlang:iolist_to_iovec(Data), Handle) of
+        ok ->
+            ok;
+        {ok, Cont} ->
+            %%?DBG_LOG("~w send loop ~w", [get(tls_role), iolist_size(Cont)]),
+            send_async(Socket, Cont, Handle);
+        AsyncOrErr ->
+            ?DBG_LOG("~w send ~w", [get(tls_role), Err]),
+            AsyncOrErr
     end.
 
 %% Note: returns the reverse list of packets
