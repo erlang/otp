@@ -1067,8 +1067,17 @@ create_opt_depency_relationships(PackageTemplates, #{~"relationships" := Relatio
 create_vendor_relations(NewVendorPackages, #{~"packages" := Packages, ~"relationships" := Relations}=SpdxWithVendor) ->
     VendorRelations =
         lists:map(fun (#{~"name" := _Name, ~"SPDXID" := ID}=_Vendor) ->
-                          [App | _] = string:split(undo_spdxid_name(ID), ~"-"),
-                          case lists:filter(fun (#{~"name" := N}) -> App == generate_spdx_valid_name(N) end, Packages) of
+                          %% Get root relation to point to
+                          App = case string:split(undo_spdxid_name(ID), ~"-", all) of
+                                    [BaseApp, ~"test" | _] ->
+                                        <<BaseApp/binary, "-test">>;
+                                    [BaseApp, ~"-documentation" | _] ->
+                                        <<BaseApp/binary, "-documentation">>;
+                                    [BaseApp | _] ->
+                                        BaseApp
+                                end,
+                          Pkgs = lists:filter(fun (#{~"name" := N}) -> App == generate_spdx_valid_name(N) end, Packages),
+                          case Pkgs of
                               [#{~"SPDXID" := RootId}=_RootPackage] ->
                                   create_spdx_relation('PACKAGE_OF', ID, RootId);
                               [] ->
@@ -1835,6 +1844,24 @@ test_package_relations(#{~"packages" := Packages}=Spdx) ->
                                     true
                             end
                      end, Relations),
+
+    %% test_known_special_cases(),
+    SpecialCases = [#{~"relatedSpdxElement" => ~"SPDXRef-otp-erlinterface",
+                      ~"relationshipType" => ~"PACKAGE_OF",
+                      ~"spdxElementId" => ~"SPDXRef-otp-erlinterface-openssl"},
+                    #{~"relatedSpdxElement" => ~"SPDXRef-otp-stdlib-test",
+                      ~"relationshipType" => ~"PACKAGE_OF",
+                      ~"spdxElementId" => ~"SPDXRef-otp-stdlib-test-json-suite"},
+                    #{~"relatedSpdxElement" => ~"SPDXRef-otp-stdlib",
+                      ~"relationshipType" => ~"PACKAGE_OF",
+                      ~"spdxElementId" => ~"SPDXRef-otp-stdlib-unicode"},
+                    #{~"relatedSpdxElement" => ~"SPDXRef-otp-commontest",
+                      ~"relationshipType" => ~"PACKAGE_OF",
+                      ~"spdxElementId" => ~"SPDXRef-otp-commontest-tablesorter"},
+                    #{~"relatedSpdxElement" => ~"SPDXRef-otp-commontest",
+                      ~"relationshipType" => ~"PACKAGE_OF",
+                      ~"spdxElementId" => ~"SPDXRef-otp-commontest-jquery"}],
+    true = lists:all(fun (Case) -> lists:member(Case, Relations) end, SpecialCases),
     ok.
 
 test_has_extracted_licenses(#{~"hasExtractedLicensingInfos" := LicensesInfo,
