@@ -755,9 +755,9 @@ do_activate_socket(#{active_n := N} = PS,
 next_record(State, CipherTexts, ConnectionStates, PBuffers, Check) ->
     next_record(State, CipherTexts, ConnectionStates, Check, PBuffers, false, []).
 %%
-next_record(#state{connection_env = #connection_env{negotiated_version = ?TLS_1_3 = Vsn}} = State,
+next_record(#state{connection_env = #connection_env{negotiated_version = ?TLS_1_3}} = State,
             [CT|CipherTexts], ConnectionStates0, Check, PBuffers0, IsEarlyData, Acc) ->
-    case tls_record:decode_cipher_text(Vsn, CT, ConnectionStates0, Check) of
+    case tls_record_1_3:decode_cipher_text(CT, ConnectionStates0) of
         {Record0 = #ssl_tls{type = ?APPLICATION_DATA, fragment = Fragment0}, ConnectionStates} ->
             case CipherTexts of
                 [] ->
