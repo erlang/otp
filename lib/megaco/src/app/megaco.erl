@@ -155,17 +155,15 @@ Interface module for the Megaco application
 -type action_reps()    :: [action_reply()].
 -doc """
 This type is a basic (atom) lookup key (for info on an active connection). The
-corresponding value can be of any type.[](){: #ci_control_pid }
+corresponding value can be of any type.
 
-- **`control_pid`** - The process identifier of the controlling process for a
-  connection.
+- **`control_pid`**{: #ci_control_pid } - The process identifier of the
+  controlling process for a connection.
 
   Value type: [pid()](`t:erlang:pid/0`)
 
-  [](){: #ci_send_handle }
-
-- **`send_handle`** - Opaque send handle whose contents is internal for the send
-  module.
+- **`send_handle`**{: #ci_send_handle } - Opaque send handle whose contents is
+  internal for the send module.
 
   Value type: `t:send_handle/0`
 
@@ -1166,9 +1164,9 @@ to file or to stdout after formating).
 -type counter_value()  :: non_neg_integer().
 
 -doc """
-[](){: #si_text_config }
+System info items.
 
-- **`text_config`** - The text encoding config.
+- **`text_config`**{: #si_text_config } - The text encoding config.
 
   Value type: [term()](`t:erlang:term/0`)
 

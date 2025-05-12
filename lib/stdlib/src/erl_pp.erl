@@ -63,7 +63,7 @@ expressions.
 -define(DEFAULT_INDENT, 4).
 
 -doc """
-Optional argument `HookFunction`{: #hook_function }, shown in the functions
+Optional argument `HookFunction`, shown in the functions
 described in this module, defines a function that is called when an unknown form
 occurs where there is to be a valid expression. If `HookFunction` is equal to
 `none`, there is no hook function.

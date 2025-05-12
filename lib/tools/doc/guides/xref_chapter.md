@@ -133,7 +133,7 @@ We can now continue with further analyses, or we can delete the Xref server:
 The check for calls to undefined functions is an example of a predefined
 analysis, probably the most useful one. Other examples are the analyses that
 find unused local functions, or functions that call some given functions. See
-the [analyze/2,3](`m:xref#analyze`) functions for a complete list of predefined
+the [analyze/2,3](`xref:analyze/3`) functions for a complete list of predefined
 analyses.
 
 Each predefined analysis is a shorthand for a [query](`m:xref#query`), a

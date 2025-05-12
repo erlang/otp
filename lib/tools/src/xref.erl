@@ -1531,7 +1531,7 @@ analyze(Name, What) ->
     gen_server:call(Name, {analyze, What}, infinity).
 
 -doc """
-[](){: #analyze } Evaluates a predefined analysis.
+Evaluates a predefined analysis.
 
 Returns a sorted list without duplicates of `t:call/0` or
 `t:constant/0`, depending on the chosen analysis.  The predefined

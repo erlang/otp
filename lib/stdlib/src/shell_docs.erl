@@ -272,7 +272,8 @@ This function can be used to do whitespace normalization of
 normalize(Docs) ->
     Trimmed = normalize_trim(Docs,true),
     Space = normalize_space(Trimmed),
-    normalize_paragraph(Space).
+    Paragraph = normalize_paragraph(Space),
+    normalize_list(Paragraph).
 
 normalize_trim(Bin,true) when is_binary(Bin) ->
     %% Remove any whitespace (except \n) before or after a newline
@@ -437,6 +438,15 @@ normalize_paragraph(Elems) ->
         {NotP, P} ->
             [{p,[],NotP} | normalize_paragraph(P)]
     end.
+
+%% Make sure all Content is in a list
+normalize_list([{Tag, Attr, Content} | T]) when is_binary(Content) ->
+    [{Tag, Attr, [Content]} | normalize_list(T)];
+normalize_list([{Tag, Attr, Content} | T]) ->
+    [{Tag, Attr, normalize_list(Content)} | normalize_list(T)];
+normalize_list([Content | T]) when is_binary(Content) ->
+    [Content | normalize_list(T)];
+normalize_list([]) -> [].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% API function for dealing with the function documentation
