@@ -784,7 +784,7 @@ on the socket until that buffered data has been written to the OS
 protocol stack.  If any errors are encountered, the socket is closed
 and `{error, closed}` is returned by the next `recv/2` or `send/2` call.
 
-Option `{exit_on_close, false}` is useful if the peer performs a shurdown
+Option `{exit_on_close, false}` is useful if the peer performs a shutdown
 of its write side.  Then the socket stays open for writing after
 receive has indicated that the socket was closed.
 
