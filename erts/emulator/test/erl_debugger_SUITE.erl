@@ -52,6 +52,8 @@
 -export([test_bps_work_with_large_number_of_live_xregs/1]).
 -export([test_bps_work_with_a_huge_stack_depth_which_should_require_gc/1]).
 -export([test_hitting_bp_avoids_blocking_debugger/1]).
+-export([test_breakpoints_1_works/1]).
+-export([test_breakpoints_3_agrees_with_breakpoints_1/1]).
 
 %% Stack-frame tests
 -export([test_stack_frames_returns_running_if_not_suspended/1]).
@@ -111,7 +113,9 @@ groups() ->
             test_bps_work_with_inlined_functions,
             test_bps_work_with_large_number_of_live_xregs,
             test_bps_work_with_a_huge_stack_depth_which_should_require_gc,
-            test_hitting_bp_avoids_blocking_debugger
+            test_hitting_bp_avoids_blocking_debugger,
+            test_breakpoints_1_works,
+            test_breakpoints_3_agrees_with_breakpoints_1
         ]},
         {stack_frames, [], [
             test_stack_frames_returns_running_if_not_suspended,
@@ -582,6 +586,66 @@ test_hitting_bp_avoids_blocking_debugger(Config) ->
 
     ?expectReceive({pong, TestCaseProcess}),
     ?assertMailboxEmpty(),
+    ok.
+
+test_breakpoints_1_works(Config) ->
+    erl_debugger:toggle_instrumentations(#{line_breakpoint => true}),
+    compile_and_load_module(Config, ping, [beam_debug_info]),
+
+    Expected1 = #{
+        {module_info,0} => #{},
+        {module_info,1} => #{},
+        {ping,1} => #{5 => false,6 => false}
+    },
+    {ok, Expected1} = erl_debugger:breakpoints(ping),
+
+    ok = erl_debugger:breakpoint(ping, 5, true),
+    Expected2 = #{
+        {module_info,0} => #{},
+        {module_info,1} => #{},
+        {ping,1} => #{5 => true,6 => false}
+    },
+    {ok, Expected2} = erl_debugger:breakpoints(ping),
+
+    ok = erl_debugger:breakpoint(ping, 6, true),
+    Expected3 = #{
+        {module_info,0} => #{},
+        {module_info,1} => #{},
+        {ping,1} => #{5 => true,6 => true}
+    },
+    {ok, Expected3} = erl_debugger:breakpoints(ping),
+
+    ok = erl_debugger:breakpoint(ping, 5, false),
+    ok = erl_debugger:breakpoint(ping, 6, false),
+    {ok, Expected1} = erl_debugger:breakpoints(ping),
+
+    code:purge(ping),
+    code:delete(ping),
+    {error, badkey} = erl_debugger:breakpoints(ping),
+    code:purge(ping),
+    {error, badkey} = erl_debugger:breakpoints(ping),
+
+    ok.
+
+test_breakpoints_3_agrees_with_breakpoints_1(Config) ->
+    erl_debugger:toggle_instrumentations(#{line_breakpoint => true}),
+    compile_and_load_module(Config, ping, [beam_debug_info]),
+    ok = erl_debugger:breakpoint(ping, 5, true),
+
+    {ok, AllBreakpoints} = erl_debugger:breakpoints(ping),
+    [?assertEqual({ok, Val}, erl_debugger:breakpoints(ping, F, A))
+    || {F, A} := Val <- AllBreakpoints
+    ],
+
+    {error, {badkey, {non_existent_function, 2}}} =
+        erl_debugger:breakpoints(ping, non_existent_function, 2),
+
+    code:purge(ping),
+    code:delete(ping),
+    {error, {badkey, ping}} = erl_debugger:breakpoints(ping, foo, 2),
+    code:purge(ping),
+    {error, {badkey, ping}} = erl_debugger:breakpoints(ping, foo, 2),
+
     ok.
 
 %% Stack-frames tests
