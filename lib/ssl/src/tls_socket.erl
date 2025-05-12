@@ -28,7 +28,7 @@
 -include("ssl_api.hrl").
 -include("ssl_record.hrl").
 
--export([send/3, 
+-export([send/3, send_async/3,
          listen/3, 
          accept/3, 
          socket/6,
@@ -75,6 +75,11 @@
 %%% Internal API
 %%--------------------------------------------------------------------
 send(Transport, Socket, Data) ->
+    Transport:send(Socket, Data).
+
+send_async(tls_socket_tcp, Socket, Data) ->
+    tls_socket_tcp:send_async(Socket, Data);
+send_async(Transport, Socket, Data) ->
     Transport:send(Socket, Data).
 
 listen(Transport, Port, #config{transport_info = {Transport, _, _, _, _}, 
