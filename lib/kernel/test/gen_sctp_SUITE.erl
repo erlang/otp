@@ -23,6 +23,7 @@
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/inet_sctp.hrl").
+-include_lib("kernel/src/inet_int.hrl").
 -include("kernel_test_lib.hrl").
 
 %%-compile(export_all).
@@ -59,7 +60,9 @@
          t_simple_link_local_sockaddr_in6_send_recv/1,
          t_simple_local_sockaddr_in_connectx_init/1,
 
-         non_block_send/1
+         non_block_send/1,
+
+         default_options/1
         ]).
 
 suite() ->
@@ -126,7 +129,8 @@ sockaddr_cases() ->
 
 misc_cases() ->
     [
-     non_block_send
+     non_block_send,
+     default_options
     ].
 
 
@@ -281,25 +285,45 @@ basic(Config) when is_list(Config) ->
 
 %% Minimal data transfer.
 xfer_min(Config) when is_list(Config) ->
+    Cond = fun() -> ok end,
+    Pre  = fun() -> case ?WHICH_LOCAL_ADDR(inet) of
+                        {ok, Addr} ->
+                            Addr;
+                        {error, Reason} ->
+                            throw({skip, Reason})
+                    end
+           end,
+    TC   = fun(Addr) -> do_xfer_min(Config, Addr) end,
+    Post = fun(_) -> ok end,
+    ?TC_TRY(?FUNCTION_NAME, Cond, Pre, TC, Post).
+
+do_xfer_min(Config, LAddr) when is_list(Config) ->
     Stream = 0,
     Data = <<"The quick brown fox jumps over a lazy dog 0123456789">>,
     Loopback = {127,0,0,1},
     StatOpts =
 	[recv_avg,recv_cnt,recv_max,recv_oct,
 	 send_avg,send_cnt,send_max,send_oct],
+
+    ?P("~w -> [b] try create server socket", [?FUNCTION_NAME]),
     {ok,Sb} = gen_sctp:open([{type,seqpacket}]),
     {ok,SbStat1} = inet:getstat(Sb, StatOpts),
     {ok,Pb} = inet:port(Sb),
     ok = gen_sctp:listen(Sb, true),
 
+    ?P("~w -> [a] try create client socket", [?FUNCTION_NAME]),
     {ok,Sa} = gen_sctp:open(),
     {ok,Pa} = inet:port(Sa),
+
+    ?P("~w -> [a] try connect (to server)", [?FUNCTION_NAME]),
     {ok,#sctp_assoc_change{state=comm_up,
 			   error=0,
 			   outbound_streams=SaOutboundStreams,
 			   inbound_streams=SaInboundStreams,
 			   assoc_id=SaAssocId}=SaAssocChange} =
 	gen_sctp:connect(Sa, Loopback, Pb, []),
+
+    ?P("~w -> [b] try accept connection", [?FUNCTION_NAME]),
     {SbAssocId,SaOutboundStreams,SaInboundStreams} =
 	case recv_event(log_ok(gen_sctp:recv(Sb, infinity))) of
 	    {Loopback,Pa,
@@ -325,28 +349,10 @@ xfer_min(Config) when is_list(Config) ->
 	end,
 
     ok = gen_sctp:send(Sa, SaAssocId, 0, Data),
-    case log_ok(gen_sctp:recv(Sb, infinity)) of
-	{Loopback,
-	 Pa,
-	 [#sctp_sndrcvinfo{stream   = Stream,
-			   assoc_id = SbAssocId}],
-	 Data} -> ok;
-	Event1 ->
-	    case recv_event(Event1) of
-		{Loopback,Pa,
-		 #sctp_paddr_change{addr = {Loopback,_},
-				    state = State,
-				    error = 0,
-				    assoc_id = SbAssocId}}
-		  when State =:= addr_available;
-		       State =:= addr_confirmed ->
-		    {Loopback,
-		     Pa,
-		     [#sctp_sndrcvinfo{stream=Stream,
-				       assoc_id=SbAssocId}],
-		     Data} = log_ok(gen_sctp:recv(Sb, infinity))
-	    end
-    end,
+    ok = await_first_data(Loopback, LAddr,
+                          Pa, SaAssocId,
+                          Sb, Pb, SbAssocId,
+                          Data),
     ok = gen_sctp:send(Sb, SbAssocId, 0, Data),
     case log_ok(gen_sctp:recv(Sa, infinity)) of
 	{Loopback,Pb,
@@ -393,6 +399,75 @@ xfer_min(Config) when is_list(Config) ->
     end,
     ok.
 
+await_first_data(Loopback, LAddr,
+                 CPort, CAssocId,
+                 SSock, SPort, SAssocId,
+                 Data) ->
+    await_first_data(Loopback, LAddr,
+                     CPort, CAssocId,
+                     SSock, SPort, SAssocId,
+                     Data, 2).    
+
+await_first_data(Loopback, LAddr,
+                 CPort, CAssocId,
+                 SSock, SPort, SAssocId,
+                 Data,
+                 N) when (N >= 0) ->
+    case log_ok(gen_sctp:recv(SSock, infinity)) of
+        {Loopback, CPort,
+         [#sctp_sndrcvinfo{stream   = Stream,
+			   assoc_id = SAssocId}],
+         Data} ->
+            ?P("~w -> received expected data (sndrcvinfo) event with"
+               "~n   Stream: ~p",
+               [?FUNCTION_NAME, Stream]),
+            ok;
+        %% Something else...
+        %% We *can* also first receive one or more paddr-change events...
+        Event ->
+            ?P("~w -> received other event - check", [?FUNCTION_NAME]),
+            case recv_event(Event) of
+                {Loopback, CPort,
+                 #sctp_paddr_change{addr     = {IPAddr, _} = Addr,
+                                    state    = State,
+                                    error    = 0 = Error,
+                                    assoc_id = SAssocId}}
+                  when ((IPAddr =:= Loopback) orelse
+		        (IPAddr =:= LAddr)) andalso
+		       ((State =:= addr_available) orelse
+                        (State =:= addr_confirmed)) ->
+                    ?P("~w -> was expected paddr-change event with expected:"
+                       "~n   Addr:  ~p"
+                       "~n   State: ~p"
+                       "~n   Error: ~p",
+                       [?FUNCTION_NAME, Addr, State, Error]),
+                    await_first_data(Loopback, LAddr,
+                                     CPort, CAssocId,
+                                     SSock, SPort, SAssocId,
+                                     Data,
+                                     N-1);
+                {Loopback, CPort,
+                 #sctp_paddr_change{addr     = Addr,
+                                    state    = State,
+                                    error    = Error,
+                                    assoc_id = AssocId}} ->
+                    ?P("~w -> was expected paddr-change event with unexpected:"
+                       "~n   Addr:    ~p"
+                       "~n   State:   ~p"
+                       "~n   Error:   ~p"
+                       "~n   AssocId: ~p",
+                       [?FUNCTION_NAME, Addr, State, Error, AssocId]),
+                    ct:fail({unexpected_paddr_change,
+                             {Addr, State, Error, AssocId}});
+                OtherEvent ->
+                    ?P("~w -> was unexpected event:"
+                       "~n   ~p",
+                       [?FUNCTION_NAME, OtherEvent]),
+                    ct:fail({unexpected_event, OtherEvent})
+            end
+    end.
+
+
 filter_stat_eq([], []) ->
     [];
 filter_stat_eq([{Tag,Val1}=Stat|SbStat1], [{Tag,Val2}|SbStat2]) ->
@@ -407,37 +482,81 @@ filter_stat_eq([{Tag,Val1}=Stat|SbStat1], [{Tag,Val2}|SbStat2]) ->
 
 %% Minimal data transfer in active mode.
 xfer_active(Config) when is_list(Config) ->
+    Cond = fun() -> ok end,
+    Pre  = fun() ->
+                   Addr =
+                       case ?WHICH_LOCAL_ADDR(inet) of
+                           {ok, A} ->
+                               A;
+                           {error, Reason} ->
+                               throw({skip, Reason})
+                       end,
+                   OS =
+                       case os:type() of
+                           {unix, Flavor} ->
+                               Flavor;
+                           {win32 = Win, _} ->
+                               Win
+                       end,
+                   {Addr, OS}
+           end,
+    TC   = fun({Addr, OS}) -> do_xfer_active(#{addr => Addr,
+                                               os   => OS}) end,
+    Post = fun(_) -> ok end,
+    ?TC_TRY(?FUNCTION_NAME, Cond, Pre, TC, Post).
+
+do_xfer_active(#{addr := LAddr, os := OS}) ->
     Timeout = 2000,
     Stream = 0,
     Data = <<"The quick brown fox jumps over a lazy dog 0123456789">>,
     Loopback = {127,0,0,1},
+
+    ?P("~w -> [b] try create server socket", [?FUNCTION_NAME]),
     {ok,Sb} = gen_sctp:open([{active,true}]),
     {ok,Pb} = inet:port(Sb),
     ok = gen_sctp:listen(Sb, true),
 
+    ?P("~w -> [a] try create client socket", [?FUNCTION_NAME]),
     {ok,Sa} = gen_sctp:open([{active,true}]),
     {ok,Pa} = inet:port(Sa),
+
+    ?P("~w -> [a] try initiaate connect (to server)", [?FUNCTION_NAME]),
     ok = gen_sctp:connect_init(Sa, Loopback, Pb, []),
-    #sctp_assoc_change{state=comm_up,
-		       error=0,
-		       outbound_streams=SaOutboundStreams,
-		       inbound_streams=SaInboundStreams,
-		       assoc_id=SaAssocId} = SaAssocChange =
+    ?P("~w -> [a] await (assoc-change) comm-up event", [?FUNCTION_NAME]),
+    #sctp_assoc_change{state            = comm_up,
+		       error            = 0,
+		       outbound_streams = SaOutboundStreams,
+		       inbound_streams  = SaInboundStreams,
+		       assoc_id         = SaAssocId} = SaAssocChange =
 	recv_assoc_change(Sa, Loopback, Pb, Timeout),
-    io:format("Sa=~p, Pa=~p, Sb=~p, Pb=~p, SaAssocId=~p, "
-	      "SaOutboundStreams=~p, SaInboundStreams=~p~n",
-	      [Sa,Pa,Sb,Pb,SaAssocId,
-	       SaOutboundStreams,SaInboundStreams]),
-    #sctp_assoc_change{state=comm_up,
-		       error=0,
-		       outbound_streams=SbOutboundStreams,
-		       inbound_streams=SbInboundStreams,
-		       assoc_id=SbAssocId} =
+    ?P("~w -> [a] received expected comm-up event with"
+       "~n   Sa:          ~p"
+       "~n   Pa:          ~p"
+       "~n   SaAssocId:   ~p"
+       "~n   Out Streams: ~p"
+       "~n   In Streams:  ~p",
+       [?FUNCTION_NAME,
+        Sa, Pa, SaAssocId, SaOutboundStreams, SaInboundStreams]),
+
+    ?P("~w -> [b] await (assoc-change) comm-up event", [?FUNCTION_NAME]),
+    #sctp_assoc_change{state            = comm_up,
+		       error            = 0,
+		       outbound_streams = SbOutboundStreams,
+		       inbound_streams  = SbInboundStreams,
+		       assoc_id         = SbAssocId} =
 	recv_assoc_change(Sb, Loopback, Pa, Timeout),
+    ?P("~w -> [b] received expected comm-up event with"
+       "~n   SbAssocId:   ~p"
+       "~n   Out Streams: ~p"
+       "~n   In Streams:  ~p",
+       [?FUNCTION_NAME,
+        SbAssocId, SbOutboundStreams, SbInboundStreams]),
+
+    ?P("~w -> ensure in/out streams match", [?FUNCTION_NAME]),
     SbOutboundStreams = SaInboundStreams,
     SbInboundStreams = SaOutboundStreams,
-    io:format("SbAssocId=~p~n", [SbAssocId]),
 
+    ?P("~w -> [a] await paddr-change", [?FUNCTION_NAME]),
     case recv_paddr_change(Sa, Loopback, Pb, 314) of
 	#sctp_paddr_change{state=addr_confirmed,
 			   addr={_,Pb},
@@ -449,6 +568,8 @@ xfer_active(Config) when is_list(Config) ->
 			   assoc_id=SaAssocId} -> ok;
 	timeout -> ok
     end,
+
+    ?P("~w -> [b] await paddr-change", [?FUNCTION_NAME]),
     case recv_paddr_change(Sb, Loopback, Pa, 314) of
 	#sctp_paddr_change{state=addr_confirmed,
 			   addr={Loopback,Pa},
@@ -461,11 +582,28 @@ xfer_active(Config) when is_list(Config) ->
 	    match_unless_solaris(Pa, P);
 	timeout -> ok
     end,
-    [] = flush(),
+    
+    ?P("~w -> ensure (nearly) empty message queue", [?FUNCTION_NAME]),
+    case flush() of
+        [] ->
+            ?P("~w -> no events", [?FUNCTION_NAME]),
+            ok;
+        [{sctp,  Sb,  Loopback, Pa,
+	 {[],
+	  #sctp_paddr_change{addr     = {LAddr, Pa},
+                             state    = addr_confirmed,
+                             error    = 0,
+                             assoc_id = SaAssocId}}}]
+	  when (OS =:= freebsd) ->
+            ?P("~w -> accepted (paddr-change) event", [?FUNCTION_NAME]),
+            ok
+    end,
 
+    ?P("~w -> send from other process", [?FUNCTION_NAME]),
     ok =
 	do_from_other_process(
 	  fun () -> gen_sctp:send(Sa, SaAssocId, 0, Data) end),
+    ?P("~w -> receive data", [?FUNCTION_NAME]),
     receive
 	{sctp,Sb,Loopback,Pa,
 	 {[#sctp_sndrcvinfo{stream=Stream,
@@ -474,7 +612,10 @@ xfer_active(Config) when is_list(Config) ->
     after Timeout ->
 	    ct:fail({timeout,flush()})
     end,
+
+    ?P("~w -> send", [?FUNCTION_NAME]),
     ok = gen_sctp:send(Sb, SbAssocId, 0, Data),
+    ?P("~w -> receive data", [?FUNCTION_NAME]),
     receive
 	{sctp,Sa,Loopback,Pb,
 	 {[#sctp_sndrcvinfo{stream=Stream,
@@ -483,32 +624,43 @@ xfer_active(Config) when is_list(Config) ->
     after Timeout ->
 	    ct:fail({timeout,flush()})
     end,
+
     %%
+    ?P("~w -> [a] abort", [?FUNCTION_NAME]),
     ok = gen_sctp:abort(Sa, SaAssocChange),
+    ?P("~w -> [b] await comm-lost event", [?FUNCTION_NAME]),
     case recv_assoc_change(Sb, Loopback, Pa, Timeout) of
 	#sctp_assoc_change{state=comm_lost,
 			   assoc_id=SbAssocId} -> ok;
 	timeout ->
+            ?P("~w -> timeout", [?FUNCTION_NAME]),
 	    ct:fail({timeout,flush()})
     end,
+
+    ?P("~w -> [b] close socket", [?FUNCTION_NAME]),
     ok = gen_sctp:close(Sb),
+    ?P("~w -> [a] await comm-lost event", [?FUNCTION_NAME]),
     case recv_assoc_change(Sa, Loopback, Pb, Timeout) of
 	#sctp_assoc_change{state=comm_lost,
 			   assoc_id=SaAssocId} -> ok;
 	timeout ->
-	    io:format("timeout waiting for comm_lost on Sa~n"),
+            ?P("~w -> timeout waiting for comm-lost", [?FUNCTION_NAME]),
 	    match_unless_solaris(ok, {timeout,flush()})
     end,
     receive
 	{sctp_error,Sa,enotconn} -> ok % Solaris
     after 17 -> ok
     end,
+
+    ?P("~w -> [a] close socket", [?FUNCTION_NAME]),
     ok = gen_sctp:close(Sa),
     %%
     receive
 	Msg -> ct:fail({unexpected,[Msg]++flush()})
     after 17 -> ok
     end,
+
+    ?P("~w -> done", [?FUNCTION_NAME]),
     ok.
 
 recv_assoc_change(S, Addr, Port, Timeout) ->
@@ -538,6 +690,19 @@ recv_paddr_change(S, Addr, Port, Timeout) ->
 %% Test that #sctp_sndrcvinfo{} parameters set on a socket
 %% are used by gen_sctp:send/4.
 def_sndrcvinfo(Config) when is_list(Config) ->
+    Cond = fun() -> ok end,
+    Pre  = fun() -> case ?WHICH_LOCAL_ADDR(inet) of
+                        {ok, Addr} ->
+                            Addr;
+                        {error, Reason} ->
+                            throw({skip, Reason})
+                    end
+           end,
+    TC   = fun(Addr) -> do_def_sndrcvinfo(Addr) end,
+    Post = fun(_) -> ok end,
+    ?TC_TRY(?FUNCTION_NAME, Cond, Pre, TC, Post).
+
+do_def_sndrcvinfo(LAddr) ->
     Loopback = {127,0,0,1},
     Data = <<"What goes up, must come down.">>,
     %%
@@ -660,12 +825,31 @@ def_sndrcvinfo(Config) when is_list(Config) ->
 		    error=0, assoc_id=S1AssocId}}
 		  when State =:= addr_available;
 		       State =:= addr_confirmed ->
+                    %% We *may* get an paddr-event before the data event
+                    %% (on FreeBSD)
 		    case log_ok(gen_sctp:recv(S1)) of
 			{Loopback,P2,
 			 [#sctp_sndrcvinfo{
 			     stream=1, ppid=0, context=0,
 			     assoc_id=S1AssocId}],
-			 <<"3: ",Data/binary>>} -> ok
+			 <<"3: ",Data/binary>>} ->
+                            ok;
+                        {Loopback, P2, [],
+                          #sctp_paddr_change{addr     = {LAddr, _},
+                                             state    = addr_confirmed,
+                                             error    = 0,
+                                             assoc_id = S1AssocId}} ->
+                            ?P("~w -> paddr-change (addr-confirmed) event "
+                               "before data event - receive again",
+                               [?FUNCTION_NAME]),
+                            {Loopback,P2,
+                             [#sctp_sndrcvinfo{
+                                 stream   = 1,
+                                 ppid     = 0,
+                                 context  = 0,
+                                 assoc_id = S1AssocId}],
+                             <<"3: ",Data/binary>>} = log_ok(gen_sctp:recv(S1)),
+                            ok
 		    end
 	    end
     end,
@@ -1302,6 +1486,19 @@ basic_stream(Config) when is_list(Config) ->
 
 %% Minimal data transfer.
 xfer_stream_min(Config) when is_list(Config) ->
+    Cond = fun() -> ok end,
+    Pre  = fun() -> case ?WHICH_LOCAL_ADDR(inet) of
+                        {ok, Addr} ->
+                            Addr;
+                        {error, Reason} ->
+                            throw({skip, Reason})
+                    end
+           end,
+    TC   = fun(Addr) -> do_xfer_stream_min(Addr) end,
+    Post = fun(_) -> ok end,
+    ?TC_TRY(?FUNCTION_NAME, Cond, Pre, TC, Post).
+
+do_xfer_stream_min(LAddr) ->
     {_, OSName} = os:type(),
     Stream = 0,
     Data = <<"The quick brown fox jumps over a lazy dog 0123456789">>,
@@ -1420,13 +1617,30 @@ xfer_stream_min(Config) when is_list(Config) ->
             Res4 = log_ok(gen_sctp:recv(Sb, infinity)),
             ?P("[4] recv ok => "
                "~n   ~p", [Res4]),
-	    {Loopback,
-	     Pa,
-	     [#sctp_sndrcvinfo{stream   = Stream,
-                               assoc_id = SbAssocId}],
-	     Data} = Res4,
-            ?P("[4] received expected data with ancillary data => done"),
-            Res4;
+            case Res4 of
+                {Loopback,
+                 Pa,
+                 [#sctp_sndrcvinfo{stream   = Stream,
+                                   assoc_id = SbAssocId}],
+                 Data} ->
+                    ?P("[4] received expected data with ancillary data => "
+                       "done"),
+                    Res4;
+                {Loopback, Pa, [],
+                 #sctp_paddr_change{addr     = {LAddr, _},
+                                    state    = addr_confirmed,
+                                    error    = 0,
+                                    assoc_id = SbAssocId}} ->
+                    ?P("[4] received paddr-change event - receive again"),
+                    {Loopback,
+                     Pa,
+                     [#sctp_sndrcvinfo{stream   = Stream,
+                                       assoc_id = SbAssocId}],
+                     Data} = log_ok(gen_sctp:recv(Sb, infinity)),
+                    ?P("[4] *now* we received expected data "
+                       "with ancillary data => done"),
+                    Res4
+            end;
 
         {FromIPX, FromPortX, AncDataX, DataX} = Other1 ->
             ?P("UNEXPECTED: "
@@ -2501,7 +2715,7 @@ do_non_block_send(_Config, Addr) ->
 nbs_command_continue(Who, Pid) ->
     ?P("[ctrl] command ~s continue", [Who]),
     Pid ! {?MODULE, self(), continue}.
-    
+
 nbs_await_server_recv(Server) ->
     ?P("[ctrl] await server recv"),
     receive
@@ -2509,7 +2723,7 @@ nbs_await_server_recv(Server) ->
             ?P("[ctrl] server recv"),
             ok
     end.
-    
+
 nbs_await_client_blocked(Client) ->
     ?P("[ctrl] await client blocked"),
     receive
@@ -2616,7 +2830,7 @@ nbs_server_loop(Parent, Sock, Retry) ->
         {error, Reason} ->
             exit({server_recv, Reason})
     end.
-            
+
 
 nbs_client_start(Addr, Port) ->
     Self = self(),
@@ -2712,6 +2926,202 @@ nbs_client_loop(_Parent, S, Assoc, NumWrites, NumBytes, Data, false) ->
             exit({send_failed, Reason})
     end.
 
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+default_options(Config) when is_list(Config) ->
+    Cond = fun() -> ok end,
+    Pre  = fun() -> case ?WHICH_LOCAL_ADDR(inet) of
+                        {ok, Addr} ->
+                            Addr;
+                        {error, Reason} ->
+                            throw({skip, Reason})
+                    end
+           end,
+    TC   = fun(Addr) -> do_default_options(Config, Addr) end,
+    Post = fun(_) -> ok end,
+    ?TC_TRY(?FUNCTION_NAME, Cond, Pre, TC, Post).
+
+do_default_options(_Config, _Addr) ->
+    ?P("*** standard open without any options ***"),
+    ok = dos_open([]),
+    ?P("*** standard open with updated recbuf option ***"),
+    ok = dos_open([{recbuf, 8*1024}]),
+
+    ?P("*** update kernel application env "
+       "(inet_default_sctp_options with active and recbuf) ***"),
+    application:set_env(kernel, inet_default_sctp_options,
+                        [{active, once}, {recbuf, 12*1024}]),
+
+    ?P("*** open without any options ***"),
+    ok = dos_open([]),
+    ?P("*** open with updated recbuf option ***"),
+    ok = dos_open([{recbuf, 8*1024}]),
+
+    ?P("*** update kernel application env "
+       "(inet_default_sctp_options with active) ***"),
+    application:set_env(kernel, inet_default_sctp_options,
+                        [{active, true}]),
+
+    ?P("*** open without any options ***"),
+    ok = dos_open([]),
+    ?P("*** open with updated recbuf option ***"),
+    ok = dos_open([{recbuf, 8*1024}]),
+
+    ?P("done"),
+    ok.
+
+%% Allways check the following options:
+%%    active, mode, buffer, sndbuf, recbuf
+dos_open(OpenOpts) ->    
+    ?P("~w -> try open", [?FUNCTION_NAME]),
+    case gen_sctp:open(OpenOpts) of
+        {ok, Sock} ->
+            CheckOpts = [mode, buffer, sndbuf, recbuf],
+            ?P("~w -> try get options ~p", [?FUNCTION_NAME, CheckOpts]),
+            case inet:getopts(Sock, CheckOpts) of
+                {ok, Opts} ->
+                    ?P("~w -> try verify when"
+                       "~n   (Current) Opts:"
+                       "~n      ~p", [?FUNCTION_NAME, Opts]),
+                    dos_open_verify_opts(OpenOpts, Opts);
+                {error, GReason} ->
+                    ?P("~w -> failed get options"
+                       "~n   Reason:"
+                       "~n      ~p", [?FUNCTION_NAME, GReason]),
+                    error
+            end;
+        {error, OReason} ->
+            ?P("~w -> failed open socket"
+               "~n   Reason:"
+               "~n      ~p", [?FUNCTION_NAME, OReason]),
+            error
+    end.
+                    
+dos_open_verify_opts(OpenOpts, Opts) ->
+    Defaults = #sctp_opts{},
+    dos_open_verify_opts(OpenOpts, Opts,
+                         Defaults#sctp_opts.ifaddr,
+                         Defaults#sctp_opts.opts).
+
+dos_open_verify_opts(OpenOpts, Opts, DefaultIfAddr, DefaultOpts) ->
+    ?P("~w ->"
+       "~n   OpenOpts:"
+       "~n      ~p"
+       "~n   Opts:"
+       "~n      ~p"
+       "~n   DefaultIfAddr:"
+       "~n      ~p"
+       "~n   DefaultOpts:"
+       "~n      ~p",
+       [?FUNCTION_NAME,
+        OpenOpts, Opts, DefaultIfAddr, DefaultOpts]),
+    dos_open_verify_opts2(OpenOpts, Opts, DefaultIfAddr, DefaultOpts).
+
+dos_open_verify_opts2([], Opts, _DefaultIfAddr, DefaultOpts) ->
+    dos_open_verify_rest_opts(Opts, DefaultOpts);
+dos_open_verify_opts2([{Key, OpenValue}|OpenOpts], Opts,
+                      DefaultIfAddr, DefaultOpts) ->
+    case dos_open_verify_opt(Key, OpenValue, Opts) of
+        ok ->
+            Opts2 = lists:keydelete(Key, 1, Opts),
+            dos_open_verify_opts2(OpenOpts, Opts2,
+                                  DefaultIfAddr, DefaultOpts);
+        {error, _} = ERROR ->
+            ERROR
+    end.
+
+dos_open_verify_opt(Key, OpenValue, Opts)
+  when (Key =:= buffer) orelse
+       (Key =:= sndbuf) orelse
+       (Key =:= recbuf) ->
+    case lists:keysearch(Key, 1, Opts) of
+        {value, {Key, Value}} when (Value >= OpenValue) ->
+            ?P("~w -> ~w verified (~w >= ~w)",
+               [?FUNCTION_NAME, Key, Value, OpenValue]),
+            ok;
+        {value, {Key, Value}} ->
+            ?P("~w -> ~w *not* verified: ~w not >= ~w",
+               [?FUNCTION_NAME, Key, Value, OpenValue]),
+            {error, {invalid_value, {Key, Value, OpenValue}}};
+        false ->
+            ?P("~w -> ~w not found", [?FUNCTION_NAME, Key]),
+            {error, {not_found, Key}}
+    end;
+dos_open_verify_opt(Key, OpenValue, Opts) ->
+    case lists:keysearch(Key, 1, Opts) of
+        {value, {Key, Value}} when (Value =:= OpenValue) ->
+            ?P("~w -> ~w verified (~w =:= ~w)",
+               [?FUNCTION_NAME, Key, Value, OpenValue]),
+            ok;
+        {value, {Key, Value}} ->
+            ?P("~w -> ~w *not* verified: ~w =/= ~w",
+               [?FUNCTION_NAME, Key, Value, OpenValue]),
+            {error, {invalid_value, {Key, Value, OpenValue}}};
+        false ->
+            ?P("~w -> ~w not found", [?FUNCTION_NAME, Key]),
+            {error, {not_found, Key}}
+    end.
+
+dos_open_verify_rest_opts(Opts, DefaultOpts) ->
+    ?P("~w ->"
+       "~n   Opts:"
+       "~n      ~p"
+       "~n   DefaultOpts:"
+       "~n      ~p",
+       [?FUNCTION_NAME,
+        Opts, DefaultOpts]),
+    dos_open_verify_rest_opts2(Opts, DefaultOpts).
+
+dos_open_verify_rest_opts2([], _DefaultOpts) ->
+    ok;
+dos_open_verify_rest_opts2([{Key, Value}|Opts], DefaultOpts) ->
+    case dos_open_verify_rest_opt(Key, Value, DefaultOpts) of
+        ok ->
+            dos_open_verify_rest_opts2(Opts, DefaultOpts);
+        {error, _} = ERROR ->
+            ERROR
+    end.
+
+dos_open_verify_rest_opt(Key, Value, DefaultOpts)
+  when (Key =:= buffer) orelse
+       (Key =:= sndbuf) orelse
+       (Key =:= recbuf) ->
+    case lists:keysearch(Key, 1, DefaultOpts) of
+        {value, {Key, DefaultValue}} when (Value >= DefaultValue) ->
+            ?P("~w -> ~w verified (~w >= (default) ~w)",
+               [?FUNCTION_NAME, Key, Value, DefaultValue]),
+            ok;
+        {value, {Key, DefaultValue}} ->
+            ?P("~w -> ~w *not* verified: ~w not >= (default) ~w",
+               [?FUNCTION_NAME, Key, Value, DefaultValue]),
+            {error, {invalid_value, {Key, Value, DefaultValue}}};
+        false ->
+            ?P("~w -> no default value for ~w - ignore", [?FUNCTION_NAME, Key]),
+            ok
+    end;
+dos_open_verify_rest_opt(Key, Value, DefaultOpts) ->
+    case lists:keysearch(Key, 1, DefaultOpts) of
+        {value, {Key, DefaultValue}} when (Value =:= DefaultValue) ->
+            ?P("~w -> ~w verified (~w =:= (default) ~w)",
+               [?FUNCTION_NAME, Key, Value, DefaultValue]),
+            ok;
+        {value, {Key, DefaultValue}} ->
+            ?P("~w -> ~w *not* verified: ~w =/= (default) ~w",
+               [?FUNCTION_NAME, Key, Value, DefaultValue]),
+            {error, {invalid_value, {Key, Value, DefaultValue}}};
+        false -> % No default value for this is ok
+            ?P("~w -> no default value for ~w - ignore", [?FUNCTION_NAME, Key]),
+            ok
+    end.
+
+            
+
+
+
+%% dos_opt_value(Key, Opts) ->
+%%     proplists:get_value(Key, Opts, undefined).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

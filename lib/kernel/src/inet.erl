@@ -3449,19 +3449,30 @@ sctp_options() ->
     sctp_status,	   	 sctp_get_peer_addr_info
 ].
 
+merge_base_sctp_options(Opts, Mod, BaseOpts) ->
+    case sctp_opt(Opts, Mod, BaseOpts, sctp_options()) of
+        {ok, SO} ->
+            SO#sctp_opts{opts = lists:reverse(SO#sctp_opts.opts)};
+        {error, _} ->
+            BaseOpts
+    end.
+
 -doc false.
 sctp_options(Opts, Mod)  ->
     %% ?DBG([{opts, Opts}, {mod, Mod}]),
     BaseOpts =
         case application:get_env(kernel, inet_default_sctp_options) of
             {ok, List} when is_list(List) ->
-                #sctp_opts{opts = List};
+                %% ?DBG([{list, List}]),
+                merge_base_sctp_options(List, Mod, #sctp_opts{});
             _ ->
                 #sctp_opts{}
         end,
+    %% ?DBG([{base_opts, BaseOpts}]),
     case sctp_opt(Opts, Mod, BaseOpts, sctp_options()) of
-	{ok, SO} ->
-	    {ok,SO#sctp_opts{opts=lists:reverse(SO#sctp_opts.opts)}};
+	{ok, #sctp_opts{opts = RevOpts} = SO} ->
+            %% ?DBG([{rev_opts, RevOpts}]),
+	    {ok,SO#sctp_opts{opts = lists:reverse(RevOpts)}};
 	Error ->
             %% ?DBG([{error, Error}]),
             Error
