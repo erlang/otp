@@ -84,6 +84,23 @@ curations:
         #
         # END OF LICENSE FILES
         #
+      - path: "lib/dialyzer/test/options1_SUITE_data/src/compiler/v3_core.erl"
+        reason: "INCORRECT"
+        comment: >-
+          Licenses have NOASSERTION license
+        concluded_license: "Apache-2.0"
+
+      - path: "lib/dialyzer/test/options1_SUITE_data/src/compiler/v3_kernel.erl"
+        reason: "INCORRECT"
+        comment: >-
+          Licenses have NOASSERTION license
+        concluded_license: "Apache-2.0"
+
+      - path: "lib/dialyzer/test/r9c_SUITE_data/src/mnesia/mnesia_log.erl"
+        reason: "INCORRECT"
+        comment: >-
+          Licenses have NOASSERTION license
+        concluded_license: "Apache-2.0"
 
       - path: "lib/wx/src/gen/**/wx*.erl"
         reason: "INCORRECT"
