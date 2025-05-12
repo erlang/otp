@@ -13102,6 +13102,12 @@ otp19482_simple_single_client_exchange(Sock, Verify, IOV, N) ->
 	       "~n   Reason: ~p", [N, Reason]),
 	    ?SKIPE({Reason, N});
 
+	{error, {econnreset = Reason, RestIOV}} ->
+	    ?P("[client] sendv ~w failed with rest-iov: "
+	       "~n   Reason:         ~p"
+	       "~n   size(Re3stIOV): ~w", [N, Reason, iolist_size(RestIOV)]),
+	    ?SKIPE({Reason, N, iolist_size(RestIOV)});
+
 	{error, Reason} ->
 	    ?P("[client] sendv ~w failed: "
 	       "~n   Reason: ~p", [N, Reason]),
