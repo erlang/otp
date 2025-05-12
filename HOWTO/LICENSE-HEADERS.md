@@ -21,6 +21,11 @@
 %% %CopyrightEnd%
 -->
 
+<!--
+%% REUSE-IgnoreStart
+-->
+
+
 License Headers in Erlang/OTP
 -----------------------------
 
@@ -210,3 +215,6 @@ It is highly recommended to place the license header at the top of the file,
 but sometime that is not possible so it is allowed to place it anywhere in the
 file.
 
+<!--
+%% REUSE-IgnoreEnd
+-->
