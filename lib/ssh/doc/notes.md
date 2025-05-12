@@ -25,7 +25,9 @@ limitations under the License.
 
 - Fix KEX strict implementation according to draft-miller-sshm-strict-kex-01 document.
 
-  Own Id: OTP-19625 Aux Id: CVE-2025-46712
+  Thanks to Fabian Bäumer, Marcel Maehren, Marcus Brinkmann, and Jörg Schwenk from the Ruhr University Bochum for finding and responsibly disclosing this vulnerability to the Erlang/OTP project.
+
+  Own Id: OTP-19625 Aux Id: [CVE-2025-46712](https://nvd.nist.gov/vuln/detail/CVE-2025-46712)
 
 ## Ssh 5.2.10
 
@@ -39,7 +41,7 @@ limitations under the License.
   
   Thanks to Fabian Bäumer, Marcel Maehren, Marcus Brinkmann, Nurullah Erinola, Jörg Schwenk (Ruhr University Bochum).
 
-  Own Id: OTP-19595 Aux Id: CVE-2025-32433
+  Own Id: OTP-19595 Aux Id: [CVE-2025-32433](https://nvd.nist.gov/vuln/detail/CVE-2025-32433)
 
 [PR-9679]: https://github.com/erlang/otp/pull/9679
 
@@ -210,7 +212,9 @@ limitations under the License.
 
 * Fix KEX strict implementation according to draft-miller-sshm-strict-kex-01 document.
 
-  Own Id: OTP-19625 Aux Id: CVE-2025-46712
+  Thanks to Fabian Bäumer, Marcel Maehren, Marcus Brinkmann, and Jörg Schwenk from the Ruhr University Bochum for finding and responsibly disclosing this vulnerability to the Erlang/OTP project.
+
+  Own Id: OTP-19625 Aux Id: [CVE-2025-46712](https://nvd.nist.gov/vuln/detail/CVE-2025-46712)
 
 ## Ssh 5.1.4.8
 
@@ -223,7 +227,7 @@ limitations under the License.
 
   Thanks to Fabian Bäumer, Marcel Maehren, Marcus Brinkmann, Nurullah Erinola, Jörg Schwenk (Ruhr University Bochum).
 
-  Own Id: OTP-19595 Aux Id: CVE-2025-32433
+  Own Id: OTP-19595 Aux Id: [CVE-2025-32433](https://nvd.nist.gov/vuln/detail/CVE-2025-32433)
 
 ## Ssh 5.1.4.7
 
@@ -425,7 +429,9 @@ limitations under the License.
 
 * Fix KEX strict implementation according to draft-miller-sshm-strict-kex-01 document.
 
-  Own Id: OTP-19625 Aux Id: CVE-2025-46712
+  Thanks to Fabian Bäumer, Marcel Maehren, Marcus Brinkmann, and Jörg Schwenk from the Ruhr University Bochum for finding and responsibly disclosing this vulnerability to the Erlang/OTP project.
+
+  Own Id: OTP-19625 Aux Id: [CVE-2025-46712](https://nvd.nist.gov/vuln/detail/CVE-2025-46712)
 
 ## Ssh 4.15.3.12
 
@@ -438,7 +444,7 @@ limitations under the License.
 
   Thanks to Fabian Bäumer, Marcel Maehren, Marcus Brinkmann, Nurullah Erinola, Jörg Schwenk (Ruhr University Bochum).
 
-  Own Id: OTP-19595 Aux Id: CVE-2025-32433
+  Own Id: OTP-19595 Aux Id: [CVE-2025-32433](https://nvd.nist.gov/vuln/detail/CVE-2025-32433)
 
 ## Ssh 4.15.3.11
 
