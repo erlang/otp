@@ -163,9 +163,10 @@ read(Fd, Size) ->
     try
         #{ handle := FRef,
            r_ahead_size := RASz,
-           r_buffer := RBuf } = get_fd_data(Fd),
+           r_buffer := RBuf } = get_fd_data_for_read(Fd),
         read_1(FRef, RBuf, prim_buffer:size(RBuf), RASz, Size)
     catch
+        throw:Err -> Err;
         error:badarg -> {error, badarg}
     end.
 
@@ -206,11 +207,12 @@ read_line(Fd) ->
     try
         #{ handle := FRef,
            r_ahead_size := RASz,
-           r_buffer := RBuf } = get_fd_data(Fd),
+           r_buffer := RBuf } = get_fd_data_for_read(Fd),
         SearchResult = prim_buffer:find_byte_index(RBuf, $\n),
         LineSize = max(?MIN_READLINE_SIZE, RASz),
         read_line_1(FRef, RBuf, SearchResult, LineSize)
     catch
+        throw:Err -> Err;
         error:badarg -> {error, badarg}
     end.
 
@@ -304,8 +306,10 @@ datasync(Fd) ->
 position(Fd, {cur, Offset}) ->
     try
         %% Adjust our current position according to how much we've read ahead.
-        #{ r_buffer := RBuf } = get_fd_data(Fd),
-        position_1(Fd, cur, Offset - prim_buffer:size(RBuf))
+        case get_fd_data(Fd) of
+            #{ r_buffer := write } -> position_1(Fd, cur, Offset);
+            #{ r_buffer := RBuf } -> position_1(Fd, cur, Offset - prim_buffer:size(RBuf))
+        end
     catch
         error:badarg -> {error, badarg}
     end;
@@ -322,7 +326,7 @@ position(Fd, Offset) -> position(Fd, {bof, Offset}).
 
 position_1(Fd, Mark, Offset) ->
     #{ handle := FRef, r_buffer := RBuf } = get_fd_data(Fd),
-    prim_buffer:wipe(RBuf),
+    buffer_wipe(RBuf),
     seek_nif(FRef, Mark, Offset).
 
 pread(Fd, Offset, Size) ->
@@ -362,7 +366,7 @@ pread_list(FRef, [{Offset, Size} | Rest], ResultList) ->
 pwrite(Fd, Offset, IOData) ->
     try
         #{ handle := FRef, r_buffer := RBuf } = get_fd_data(Fd),
-        prim_buffer:wipe(RBuf),
+        buffer_wipe(RBuf),
         pwrite_plain(FRef, Offset, erlang:iolist_to_iovec(IOData))
     catch
         error:badarg -> {error, badarg}
@@ -380,7 +384,7 @@ pwrite_plain(FRef, Offset, IOVec) ->
 pwrite(Fd, LocBytes) ->
     try
         #{ handle := FRef, r_buffer := RBuf } = get_fd_data(Fd),
-        prim_buffer:wipe(RBuf),
+        buffer_wipe(RBuf),
         pwrite_list(FRef, LocBytes, 0)
     catch
         error:badarg -> {error, badarg}
@@ -471,9 +475,13 @@ get_handle(Fd) ->
 %% not be the same as the real one when read caching is in effect.
 reset_write_position(Fd) ->
     #{ r_buffer := RBuf } = Fd#file_descriptor.data,
-    case prim_buffer:size(RBuf) of
-        Size when Size > 0 -> position(Fd, cur);
-        Size when Size =:= 0 -> ok
+    case RBuf =:= write of
+        true -> ok;
+        false ->
+            case prim_buffer:size(RBuf) of
+                Size when Size > 0 -> position(Fd, cur);
+                Size when Size =:= 0 -> ok
+            end
     end.
 
 get_fd_data(#file_descriptor{ data = Data }) ->
@@ -483,22 +491,30 @@ get_fd_data(#file_descriptor{ data = Data }) ->
         _ -> error(not_on_controlling_process)
     end.
 
+get_fd_data_for_read(Fd) ->
+    #{ r_buffer := RBuf} = Data = get_fd_data(Fd),
+    case RBuf of
+        write -> throw({error, ebadf});
+        _ -> Data
+    end.
+
+
 build_fd_data(FRef, Modes) ->
     Defaults =
         #{ owner => self(),
            handle => FRef,
            r_ahead_size => 0,
-           r_buffer => prim_buffer:new() },
+           r_buffer => write },
     fill_fd_option_map(Modes, Defaults).
 
 fill_fd_option_map([], Map) ->
     Map;
-
 fill_fd_option_map([read_ahead | Modes], Map) ->
     fill_fd_option_map([{read_ahead, 64 bsl 10} | Modes], Map);
 fill_fd_option_map([{read_ahead, Size} | Modes], Map) ->
     fill_fd_option_map(Modes, Map#{ r_ahead_size => Size });
-
+fill_fd_option_map([read | Modes], Map) ->
+    fill_fd_option_map(Modes, Map#{ r_buffer => prim_buffer:new() });
 fill_fd_option_map([_Ignored | Modes], Map) ->
     fill_fd_option_map(Modes, Map).
 
@@ -536,6 +552,9 @@ read_handle_info_nif(_FileRef) ->
 %%
 %% Quality-of-life helpers
 %%
+
+buffer_wipe(write) -> ok;
+buffer_wipe(RBuf) -> prim_buffer:wipe(RBuf).
 
 read_file(Filename) ->
     %% We're doing this operation in the NIF to avoid excessive rescheduling.
