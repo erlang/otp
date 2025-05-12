@@ -1065,6 +1065,7 @@ tls_server_handshake_timeout(Config) ->
     process_flag(trap_exit, true),
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
     {_, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    check_connection_processes(0),
     Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
 					{from, self()},
 					{timeout, 5000},
@@ -1078,11 +1079,7 @@ tls_server_handshake_timeout(Config) ->
 	{tcp_closed, CSocket} ->
 	    ssl_test_lib:check_result(Server, {error, timeout}),
 	    receive
-		{'EXIT', Server, _} ->
-		    %% Make sure supervisor had time to react on process exit
-		    %% Could we come up with a better solution to this?
-		    ct:sleep(500),
-		    [] = supervisor:which_children(tls_connection_sup)
+		{'EXIT', Server, _} -> check_connection_processes(0)
 	    end
     end.
 
@@ -1156,9 +1153,7 @@ transport_close_in_inital_hello(Config) when is_list(Config) ->
                            end),
 
 
-    Sup = (whereis(tls_connection_sup)),
-
-    check_connection_processes(Sup, 2),
+    check_connection_processes(2),
 
     Acceptor ! die,
 
@@ -1169,11 +1164,11 @@ transport_close_in_inital_hello(Config) when is_list(Config) ->
     receive
         {'EXIT', Connector, _} ->
             ok
-     end,
-    check_connection_processes(Sup, 0).
+    end,
+    check_connection_processes(0).
 
-check_connection_processes(Sup, N) ->
-    check_connection_processes(Sup, N, 5).
+check_connection_processes(N) ->
+    check_connection_processes(whereis(tls_connection_sup), N, 5).
 
 check_connection_processes(Sup, N, 0) ->
     N = count_children(supervisors, Sup);
