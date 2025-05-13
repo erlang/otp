@@ -237,6 +237,8 @@ erts_atom_put_index(const byte *name, Sint len, ErtsAtomEncoding enc, int trunc)
     Atom a;
     int aix;
 
+    ERTS_UNDEF(no_latin1_chars, -1);
+
 #ifdef ERTS_ATOM_PUT_OPS_STAT
     erts_atomic_inc_nob(&atom_put_ops);
 #endif
