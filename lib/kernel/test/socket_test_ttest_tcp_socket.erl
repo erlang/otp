@@ -621,9 +621,24 @@ reader_loop(#{active      := once,
                     Pid ! ?CLOSED_MSG(Sock, Method),
                     reader_exit(State, E1);
 
-                {error, Reason} = E2 ->
+                {error, {Reason, _}} ->
+                    E2 = {error, Reason},
                     Pid ! ?ERROR_MSG(Sock, Method, Reason),
-                    reader_exit(State, E2)
+                    reader_exit(State, E2);
+
+                {error, Reason} = E3 ->
+                    Pid ! ?ERROR_MSG(Sock, Method, Reason),
+                    reader_exit(State, E3);
+
+                {select, SelectInfo} ->
+                    %% Why would this happen?
+                    %% We get a select message telling us that
+                    %% something happened on the socket (data or maybe
+                    %% an error) but then when we try to read
+                    %% we get nothing...
+                    reader_loop(State#{asynch_info => SelectInfo,
+                                       asynch_num  => ANum+1})
+
             end;
 
         ?COMPLETION_MSG(Sock, Ref, Result) ->

@@ -12816,7 +12816,8 @@ otp19482_simple_single_mixed(Config) when is_list(Config) ->
 
 
 otp19482_simple_single_mixed_long(Config) when is_list(Config) ->
-    ?TT(?SECS(10 * which_factor(Config))),
+    Factor = which_factor(Config),
+    ?TT(?SECS(10 * Factor)),
     Cond = fun() ->
                    has_support_ipv4(),
                    factor_limit(Config)
@@ -12841,7 +12842,8 @@ otp19482_simple_single_mixed_long(Config) when is_list(Config) ->
 				    [<<CLen:32>>, <<CChk:32>>, C]
 				end || C <- Chunks0]),
 		   Chunks2 = lists:flatten(lists:duplicate(100, Chunks1)),
-                   #{iov_max => IOVMax,
+                   #{factor  => Factor,
+                     iov_max => IOVMax,
                      lsa     => LSA,
                      chunk   => Chunks2,
 		     verify  => fun(Data) -> otp19482_verify_data(Data) end}
@@ -12864,12 +12866,6 @@ otp19482_verify_data(N, <<Sz:32, CHKSUM:32, Chunk:Sz/binary, Rest/binary>>) ->
 	CHKSUM ->
 	    otp19482_verify_data(N+1, Rest);
 	BadCHKSUM ->
-	    %% ?P("~w -> bad checksum for chunk ~w: "
-	    %%    "~n   Sz:                ~w"
-	    %%    "~n   Expected CheckSum: ~w"
-	    %%    "~n   CheckSum:          ~w"
-	    %%    "~n   size of Rest:      ~w",
-	    %%    [?FUNCTION_NAME, N, Sz, CHKSUM, BadCHKSUM, byte_size(Rest)]),
 	    ct:fail({bad_checksum, CHKSUM, BadCHKSUM})
     end;
 otp19482_verify_data(N, BadData) ->
@@ -13062,8 +13058,9 @@ otp19482_simple_single_client_exchange(_Sock, _Verify, _IOV, 0) ->
     ?P("[client] done"),
     ok;
 otp19482_simple_single_client_exchange(Sock, Verify, IOV, N) ->
-    Sz = iolist_size(IOV),
-    ?P("[client] try sendv ~w (~w bytes)", [N, Sz]),
+    Sz  = iolist_size(IOV),
+    Len = length(IOV),
+    ?P("[client] try sendv IOV ~w (~w bytes, length ~w)", [N, Sz, Len]),
     %% ok = socket:setopt(Sock, otp, debug, true),
     case socket:sendv(Sock, IOV) of
 	ok ->
@@ -13097,10 +13094,26 @@ otp19482_simple_single_client_exchange(Sock, Verify, IOV, N) ->
 	    end;
 
         %% We are overloaded this machine...
+	{error, {econnreset = Reason, RestIOV}} ->
+	    ?P("[client] sendv ~w failed with rest-iov: "
+	       "~n   Reason:          ~p"
+	       "~n   length(RestIOV): ~w"
+	       "~n   size(RestIOV):   ~w",
+               [N, Reason, length(RestIOV), iolist_size(RestIOV)]),
+	    ?SKIPE({Reason, N, Sz, iolist_size(RestIOV), length(RestIOV)});
 	{error, econnreset = Reason} ->
 	    ?P("[client] sendv ~w failed: "
 	       "~n   Reason: ~p", [N, Reason]),
-	    ?SKIPE({Reason, N});
+	    ?SKIPE({Reason, N, Sz});
+
+	{error, {Reason, RestIOV}} when is_list(RestIOV)->
+	    ?P("[client] sendv ~w failed with rest-iov: "
+	       "~n   Reason:          ~p"
+	       "~n   length(RestIOV): ~w"
+	       "~n   size(RestIOV):   ~w",
+               [N, Reason, length(RestIOV), iolist_size(RestIOV)]),
+	    ?FAIL({unexpected_sendv_result, N, Reason,
+                   Sz, iolist_size(RestIOV), length(RestIOV)});
 
 	{error, Reason} ->
 	    ?P("[client] sendv ~w failed: "
