@@ -1255,14 +1255,14 @@ get_vendor_excludes(Package) ->
               end, maps:get(~"exclude", Package, [])).
 
 exclude_vendor_file(Filename, Excludes) ->
-    list:any(fun ({file, ExcludeFile}) ->
-                     string:equal(Filename, ExcludeFile);
-                 ({dir, ExcludeDir}) ->
-                     case string:prefix(Filename, ExcludeDir) of
-                         nomatch -> false;
-                         _ -> true
-                     end
-             end, Excludes).
+    lists:any(fun ({file, ExcludeFile}) ->
+                      string:equal(Filename, ExcludeFile);
+                  ({dir, ExcludeDir}) ->
+                      case string:prefix(Filename, ExcludeDir) of
+                          nomatch -> false;
+                          _ -> true
+                      end
+              end, Excludes).
 
 generate_vendor_purl(Package) ->
     Description = maps:get(~"description", Package, ""),
