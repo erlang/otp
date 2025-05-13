@@ -2333,6 +2333,7 @@ term_to_Uint(Eterm term, Uint *up)
 	    return 0;
 	}
 	while (xl-- > 0) {
+            ASSERT(n < 64);
 	    uval |= ((Uint)(*xr++)) << n;
 	    n += D_EXP;
 	}
@@ -2485,6 +2486,7 @@ int term_to_Sint(Eterm term, Sint *sp)
 	    return 0;
 	}
 	while (xl-- > 0) {
+            ASSERT(n < 64);
 	    uval |= ((Uint)(*xr++)) << n;
 	    n += D_EXP;
 	}
