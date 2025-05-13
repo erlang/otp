@@ -93,3 +93,24 @@ categorizations:
 - id: "LicenseRef-IETF-MIB"
   categories: 
   - "review"
+- id: "LicenseRef-scancode-wxwindows-free-doc-3"
+  categories:
+  - "review"
+- id: "LicenseRef-scancode-ietf"
+  categories:
+  - "review"
+- id: "LicenseRef-scancode-ietf-trust"
+  categories:
+  - "review"
+- id: "LicenseRef-RSA-PKCS3"
+  categories:
+  - "review"
+- id: "LicenseRef-RSA-PKCS5v2-0"
+  categories:
+  - "review"
+- id: "W3C-19980720"
+  categories:
+  - "review"
+- id: "LicenseRef-scancode-w3c-docs-19990405"
+  categories:
+  - "review"
