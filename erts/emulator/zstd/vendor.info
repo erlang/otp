@@ -17,6 +17,10 @@
     "name": "zstd",
     "versionInfo": "v1.5.7",
     "path": "./erts/emulator/zstd",
+    "exclude": ["./erts/emulator/zstd/vendor.info",
+                "./erts/emulator/zstd/update.sh",
+                "./erts/emulator/zstd/zstd.mk",
+                "./erts/emulator/zstd/zstd.version"],
     "supplier": "Organization: Meta",
     "purl": "pkg:github/facebook/zstd",
     "update": "./erts/emulator/zstd/update.sh"

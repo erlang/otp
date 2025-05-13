@@ -1182,10 +1182,14 @@ generate_spdx_vendor_packages(VendorInfoPackages, #{~"files" := SpdxFiles}=_SPDX
                       %% Deals with the cases of creating a package out of specific files
                       Paths = lists:map(fun cleanup_path/1, ExplicitFiles),
                       Package1 = maps:without([~"purl", ~"ID", ~"path", ~"update"], Package),
+                      Excludes = get_vendor_excludes(Package),
 
                       %% place files in SPDX in the corresponding package
                       Files = lists:filter(fun (#{~"fileName" := Filename}) ->
-                                                   lists:member(Filename, Paths)
+                                                   case lists:member(Filename, Paths) of
+                                                       false -> false;
+                                                       true -> not exclude_vendor_file(Filename, Excludes)
+                                                   end
                                            end, SpdxFiles),
 
                       LicenseInfoInFiles = split_licenses_in_individual_parts(
@@ -1210,12 +1214,13 @@ generate_spdx_vendor_packages(VendorInfoPackages, #{~"files" := SpdxFiles}=_SPDX
                       Path = cleanup_path(DirtyPath),
                       true = filelib:is_dir(DirtyPath),
                       Package1 = maps:without([~"purl", ~"ID", ~"path", ~"update"], Package),
+                      Excludes = get_vendor_excludes(Package),
 
                       %% place files in SPDX in the corresponding package
                       Files = lists:filter(fun (#{~"fileName" := Filename}) ->
                                                    case string:prefix(Filename, Path) of
                                                        nomatch -> false;
-                                                       _ -> true
+                                                       _ -> not exclude_vendor_file(Filename, Excludes)
                                                    end
                                            end, SpdxFiles),
                       LicenseInfoInFiles = split_licenses_in_individual_parts(
@@ -1236,6 +1241,28 @@ generate_spdx_vendor_packages(VendorInfoPackages, #{~"files" := SpdxFiles}=_SPDX
                                 ~"externalRefs" => ExternalRefs
                        }
               end, VendorInfoPackages).
+
+get_vendor_excludes(Package) ->
+    lists:map(fun (Exclude) ->
+                      CleanExclude = cleanup_path(Exclude),
+                      case filelib:is_dir(Exclude) of
+                          true ->
+                              {dir, CleanExclude};
+                          false ->
+                              true = filelib:is_regular(Exclude),
+                              {file, CleanExclude}
+                      end
+              end, maps:get(~"exclude", Package, [])).
+
+exclude_vendor_file(Filename, Excludes) ->
+    list:any(fun ({file, ExcludeFile}) ->
+                     string:equal(Filename, ExcludeFile);
+                 ({dir, ExcludeDir}) ->
+                     case string:prefix(Filename, ExcludeDir) of
+                         nomatch -> false;
+                         _ -> true
+                     end
+             end, Excludes).
 
 generate_vendor_purl(Package) ->
     Description = maps:get(~"description", Package, ""),
