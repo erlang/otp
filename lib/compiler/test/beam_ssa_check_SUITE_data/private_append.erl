@@ -107,8 +107,9 @@ transformable0([], Acc) ->
 transformable1(L) ->
     transformable1(L, start).
 
+%% TODO: Enable this optimization again.
 transformable1(L, start) ->
-%ssa% (_, Arg1) when post_ssa_opt ->
+%ssa% xfail (_, Arg1) when post_ssa_opt ->
 %ssa% A = bs_init_writable(_),
 %ssa% _ = call(fun transformable1/2, _, A),
 %ssa% _ = bs_create_bin(private_append, _, Arg1, ...).
@@ -121,8 +122,9 @@ transformable1([], Acc) ->
 transformable1b(L) ->
     transformable1b(L, start).
 
+%% TODO: Enable this optimization again.
 transformable1b([H|T], X) ->
-%ssa% (_, Arg1) when post_ssa_opt ->
+%ssa% xfail (_, Arg1) when post_ssa_opt ->
 %ssa% A = bs_init_writable(_),
 %ssa% Phi = phi({Arg1, _}, {A, _}, ...),
 %ssa% _ = bs_create_bin(private_append, _, Phi, ...).
@@ -248,8 +250,9 @@ transformable7([], Acc) ->
 transformable8(L) ->
     transformable8(L, start).
 
+%% TODO: Enable this optimization again.
 transformable8(L, start) ->
-%ssa% (_, Arg1) when post_ssa_opt ->
+%ssa% xfail (_, Arg1) when post_ssa_opt ->
 %ssa% B = bs_create_bin(private_append, _, Arg1, ...),
 %ssa% _ = call(fun transformable8b/2, _, B).
     transformable8(L, <<>>);
@@ -258,8 +261,9 @@ transformable8([H|T], Acc) ->
 transformable8([], Acc) ->
     Acc.
 
+%% TODO: Enable this optimization again.
 transformable8b(T, Acc) ->
-%ssa% (_, Arg1) when post_ssa_opt ->
+%ssa% xfail (_, Arg1) when post_ssa_opt ->
 %ssa% A = bs_create_bin(private_append, _, Arg1, ...),
 %ssa% _ = call(fun transformable8/2, _, B).
     transformable8(T, <<Acc/binary, 16#ff:8>>).
@@ -1020,6 +1024,7 @@ bs_create_bin_on_literal() ->
       >>/binary
     >>.
 
+%% TODO: Enable this optimization again.
 %% Check that the beam_ssa_destructive_update pass doesn't crash, if
 %% it, during initial value tracking, ends up in operations which do
 %% not create bit strings. This can happen as the initial value
@@ -1028,14 +1033,14 @@ bs_create_bin_on_literal() ->
 %% information, tracking values into not type-compatible execution
 %% paths is harmless.
 crash_in_value_tracking_inner(_, 1.0, _) ->
-%ssa% (_, _, _) when post_ssa_opt ->
+%ssa% xfail (_, _, _) when post_ssa_opt ->
 %ssa% _ = bs_init_writable(_).
     (<<>>);
 crash_in_value_tracking_inner(_V1, _, _) when _V1 ->
     _V1.
 
 crash_in_value_tracking(_, _V0, _) ->
-%ssa% (_, _, _) when post_ssa_opt ->
+%ssa% xfail (_, _, _) when post_ssa_opt ->
 %ssa% _ = bs_create_bin(private_append, ...).
     ((<<((crash_in_value_tracking_inner(
             {#{#{ ok => ok || _ := _ <- ok} => ok},

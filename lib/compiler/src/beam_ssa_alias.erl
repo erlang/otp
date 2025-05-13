@@ -1200,7 +1200,6 @@ aa_bif(Dst, Bif, Args, SS, _AAS) ->
     Arity = length(Args),
     case erl_internal:guard_bif(Bif, Arity)
         orelse erl_internal:bool_op(Bif, Arity)
-        orelse erl_internal:comp_op(Bif, Arity)
         orelse erl_internal:arith_op(Bif, Arity)
         orelse erl_internal:new_type_test(Bif, Arity) of
         true ->

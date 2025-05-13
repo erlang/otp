@@ -118,7 +118,8 @@
 
          see_through/0,
 
-         duplicated_args/1]).
+         duplicated_args/1,
+         gh9813/0]).
 
 %% Trivial smoke test
 transformable0(L) ->
@@ -136,8 +137,9 @@ transformable0([], Acc) ->
 transformable1(L) ->
     transformable1(L, start).
 
+%% TODO: Enable this optimization again.
 transformable1(L, start) ->
-%ssa% (_, Arg1) when post_ssa_opt ->
+%ssa% xfail (_, Arg1) when post_ssa_opt ->
 %ssa% _ = bs_create_bin(append, _, Arg1, _, _, _, X, _) { aliased => [X], unique => [Arg1], first_fragment_dies => true }.
     transformable1(L, <<>>);
 transformable1([H|T], Acc) ->
@@ -148,8 +150,9 @@ transformable1([], Acc) ->
 transformable1b(L) ->
     transformable1b(L, start).
 
+%% TODO: Enable this optimization again.
 transformable1b([H|T], X) ->
-%ssa% (_, Arg1) when post_ssa_opt ->
+%ssa% xfail (_, Arg1) when post_ssa_opt ->
 %ssa% Phi = phi({Arg1, _}, {_, _}, ...),
 %ssa% _ = bs_create_bin(append, _, Phi, _, _, _, X, _) { aliased => [X], unique => [Phi], first_fragment_dies => true }.
     Acc = case X of
@@ -249,8 +252,9 @@ transformable7([], Acc) ->
 transformable8(L) ->
     transformable8(L, start).
 
+%% TODO: Enable this optimization again.
 transformable8(L, start) ->
-%ssa% (_, Arg1) when post_ssa_opt ->
+%ssa% xfail (_, Arg1) when post_ssa_opt ->
 %ssa% _ = bs_create_bin(append, _, Arg1, _, _, _, X, _) { aliased => [X], unique => [Arg1], first_fragment_dies => true }.
     transformable8(L, <<>>);
 transformable8([H|T], Acc) ->
@@ -258,8 +262,9 @@ transformable8([H|T], Acc) ->
 transformable8([], Acc) ->
     Acc.
 
+%% TODO: Enable this optimization again.
 transformable8b(T, Acc) ->
-%ssa% (_, Arg1) when post_ssa_opt ->
+%ssa% xfail (_, Arg1) when post_ssa_opt ->
 %ssa% _ = bs_create_bin(append, _, Arg1, ...) { unique => [Arg1], first_fragment_dies => true }.
     transformable8(T, <<Acc/binary, 16#ff:8>>).
 
@@ -1260,3 +1265,15 @@ duplicated_args(A, B) ->
 %ssa% (A, B) when post_ssa_opt ->
 %ssa% _ = put_tuple(A, B) {aliased => [A, B]}.
     {A, B}.
+
+%% Force aliasing of Creation to prevent destructive update.
+gh9813() ->
+%ssa% () when post_ssa_opt ->
+%ssa% _ = get_tuple_element(Creation, 1) {aliased => [Creation]}.
+    R = e:f(),
+    {_, DT} = Creation = gh9813_inner(0),
+    Aged = {19, setelement(1, DT, 38)},
+    {Creation, Aged} = R.
+
+gh9813_inner(Sec) ->
+    {19, {2038, Sec}}.
