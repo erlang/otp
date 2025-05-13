@@ -545,11 +545,14 @@ fix_beam_licenses(LicensesAndCopyrights,
 
                           #{~"fileName" := ~"bootstrap/lib/stdlib/ebin/erl_parse.beam"} ->
                               %% beam file auto-generated from grammar file
-                              files_have_no_license(fix_beam_spdx_license(~"lib/stdlib/src/erl_parse.yrl", LicensesAndCopyrights, SPDX));
+                              Spdx1 = fix_beam_spdx_license(~"lib/stdlib/src/erl_parse.yrl", LicensesAndCopyrights, SPDX),
+                              Spdx2 = files_have_no_license(Spdx1),
+                              add_license_comment(Spdx2);
 
                           #{~"fileName" := ~"bootstrap/lib/stdlib/ebin/unicode_util.beam"} ->
                               %% follows from otp/lib/stdlib/uc_spec/README-UPDATE.txt
-                              files_have_no_license(SPDX#{~"licenseConcluded" := ~"Unicode-3.0 AND Apache-2.0"});
+                              Spdx1 = files_have_no_license(SPDX#{~"licenseConcluded" := ~"Unicode-3.0 AND Apache-2.0"}),
+                              add_license_comment(Spdx1);
 
                           #{~"fileName" := Filename} when
                                 Filename =:= ~"erts/emulator/zstd/COPYING";
@@ -574,7 +577,9 @@ fix_beam_licenses(LicensesAndCopyrights,
                                   {Path, Filename1} ->
                                       case binary:split(Filename1, ~".beam") of
                                           [File, _] ->
-                                              files_have_no_license(fix_beam_spdx_license(Path, File, LicensesAndCopyrights, SPDX));
+                                              Spdx1 = fix_beam_spdx_license(Path, File, LicensesAndCopyrights, SPDX),
+                                              Spdx2 = files_have_no_license(Spdx1),
+                                              add_license_comment(Spdx2);
                                           _ ->
                                               SPDX
                                       end
@@ -616,9 +621,14 @@ none_to_noassertion(~"NONE") ->
 none_to_noassertion(X) ->
     X.
 
-%% TODO: check which license curations have actually licenses in files, and which ones
-%%       are added to annotate a file with a license. this latter should not be a curation
-%%       in ORT, but in this script.
+add_license_comment(#{~"licenseConcluded" := Concluded,
+                     ~"licenseInfoInFiles" := [License]}=Spdx)
+  when (Concluded =:= ~"NOASSERTION" orelse Concluded =:= ~"NONE") andalso License =/= Concluded ->
+    Spdx#{~"licenseComments" := ~"BEAM files preserve their *.erl license"};
+add_license_comment(Spdx) ->
+    Spdx.
+
+
 %% fixes spdx license of non-beam files
 fix_spdx_license(#{~"licenseInfoInFiles" := [LicenseInFile],
                    ~"licenseConcluded" := License,
@@ -628,9 +638,9 @@ fix_spdx_license(#{~"licenseInfoInFiles" := [LicenseInFile],
                    ~"NOASSERTION" -> LicenseInFile;
                    Other -> Other
                end,
-    SPDX#{ ~"licenseConcluded" := none_to_noassertion(License1),
-           ~"copyrightText" := none_to_noassertion(C)
-         };
+    ConcludedLicense = none_to_noassertion(License1),
+    SPDX#{ ~"licenseConcluded" := ConcludedLicense,
+           ~"copyrightText" := none_to_noassertion(C) };
 fix_spdx_license(#{~"copyrightText" := C}=SPDX) ->
     SPDX#{ ~"copyrightText" := none_to_noassertion(C)}.
 
