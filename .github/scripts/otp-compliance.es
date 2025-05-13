@@ -60,7 +60,7 @@
          test_package_ids/1, test_verificationCode/1, test_supplier_Ericsson/1,
          test_originator_Ericsson/1, test_versionInfo_not_empty/1, test_package_hasFiles/1,
          test_project_purl/1, test_packages_purl/1, test_download_location/1, 
-         test_package_relations/1, test_has_extracted_licenses/1,
+         test_package_relations/1, test_has_extracted_licenses/1, test_files_licenses/1,
          test_vendor_packages/1, test_erts/1, test_copyright_format/1]).
 
 -define(default_classified_result, "scan-result-classified.json").
@@ -1502,6 +1502,7 @@ package_generator(Sbom) ->
              test_copyright_format,
              test_filesAnalised,
              test_hasFiles_not_empty,
+             test_files_licenses,
              test_homepage,
              test_licenseConcluded_exists,
              test_licenseDeclared_exists,
@@ -1639,6 +1640,46 @@ test_hasFiles_not_empty(#{~"packages" := Packages}) ->
             error(?FUNCTION_NAME)
     end,
     ok.
+
+test_files_licenses(#{~"files" := Files}) ->
+    true = lists:all(fun (#{~"licenseInfoInFiles" := Licenses, ~"SPDXID" := Id}) ->
+                             case length(Licenses) of
+                                 N when N > 1 ->
+                                     R = lists:all(fun(License) ->
+                                                           License =/= ~"NONE" andalso License =/= ~"NOASSERTION"
+                                                   end, Licenses),
+                                     print_error(R, {Id, Licenses});
+                                 1 ->
+                                     R = test_noassertion_in_license_one_liners(Licenses),
+                                     print_error(R, {Id, Licenses})
+                             end
+                     end, Files),
+    ok.
+
+print_error(false, Input) ->
+    io:format("[~p] ~p~n", [false, Input]),
+    false;
+print_error(true, _Input) ->
+    true.
+
+test_noassertion_in_license_one_liners([Licenses]) when is_binary(Licenses) ->
+    test_noassertion_in_license_one_liners(Licenses);
+test_noassertion_in_license_one_liners(Licenses) when is_binary(Licenses) ->
+    %% check that a one liner license (produced by ORT)does not
+    %% contain in it Apache-2.0 AND NOASSERTION, which makes no sense.
+    case re:run(Licenses, ".*(AND|OR)?.*(NOASSERTION|NONE).*") of
+        nomatch ->
+            true;
+        _ ->
+            case Licenses of
+                ~"NONE" ->
+                    true;
+                ~"NOASSERTION" ->
+                    true;
+                _ ->
+                    false
+            end
+    end.
 
 test_homepage(#{~"packages" := Packages})->
     true = lists:all(fun (#{~"homepage" := Homepage}) -> Homepage == ?spdx_homepage orelse Homepage =/= <<>> end, Packages),
