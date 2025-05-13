@@ -1651,7 +1651,40 @@ test_hasFiles_not_empty(#{~"packages" := Packages}) ->
     end,
     ok.
 
-test_files_licenses(#{~"files" := Files}) ->
+test_files_licenses(Input) ->
+    ok = test_dual_license_files_do_not_contain_noassertion(Input),
+    ok = test_concluded_license_equals_license_in_file(Input),
+    ok.
+
+print_error(false, Input) ->
+    io:format("[~p] ~p~n", [false, Input]),
+    false;
+print_error(true, _Input) ->
+    true.
+
+test_concluded_license_equals_license_in_file(#{~"files" := Files}) ->
+    true = lists:all(fun (#{~"licenseInfoInFiles" := [License], ~"licenseConcluded" := License}) ->
+                             true;
+                         (#{~"licenseInfoInFiles" := [~"NONE"],
+                            ~"licenseConcluded" := Concluded,
+                            ~"SPDXID" := Id}) ->
+                             R = Concluded =:= ~"NONE" orelse Concluded =:= ~"NOASSERTION",
+                             print_error(R, {Id, ~"NONE", Concluded});
+                         (#{~"licenseInfoInFiles" := Licenses,
+                            ~"licenseConcluded" := Concluded,
+                            ~"SPDXID" := Id}) when length(Licenses) > 1 ->
+                             Licenses1 = lists:map(fun erlang:binary_to_list/1, Licenses),
+                             LicensesBin = erlang:list_to_binary(lists:join(Licenses1, " AND ")),
+                             print_error(Concluded =:= LicensesBin, {Id, Licenses, Concluded});
+                         (#{~"licenseInfoInFiles" := Licenses,
+                            ~"licenseConcluded" := Concluded,
+                            ~"SPDXID" := Id}) ->
+                             print_error(Concluded =:= Licenses, {Id, Licenses, Concluded})
+                     end, Files),
+    ok.
+
+
+test_dual_license_files_do_not_contain_noassertion(#{~"files" := Files}) ->
     true = lists:all(fun (#{~"licenseInfoInFiles" := Licenses, ~"SPDXID" := Id}) ->
                              case length(Licenses) of
                                  N when N > 1 ->
@@ -1665,12 +1698,6 @@ test_files_licenses(#{~"files" := Files}) ->
                              end
                      end, Files),
     ok.
-
-print_error(false, Input) ->
-    io:format("[~p] ~p~n", [false, Input]),
-    false;
-print_error(true, _Input) ->
-    true.
 
 test_noassertion_in_license_one_liners([Licenses]) when is_binary(Licenses) ->
     test_noassertion_in_license_one_liners(Licenses);
