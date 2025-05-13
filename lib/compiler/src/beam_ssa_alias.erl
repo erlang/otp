@@ -654,7 +654,7 @@ aa_is([_I=#b_set{dst=Dst,op=Op,args=Args,anno=Anno0}|Is], SS0,
              false ->
                  SS3
          end,
-    ?DP("Post I: ~p.~n      ~p~n", [I, SS]),
+    ?DP("Post I: ~p.~n      ~p~n", [_I, SS]),
     aa_is(Is, SS, AAS, ForcedAliases);
 aa_is([], SS, AAS, _ForcedAliases) ->
     {SS, AAS}.
