@@ -1,9 +1,9 @@
 %% %CopyrightBegin%
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
-%% SPDX-FileCopyrightText: 2024 Erlang/OTP and its contributors
 %%
 %% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% SPDX-FileCopyrightText: 2024 Erlang/OTP and its contributors
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
