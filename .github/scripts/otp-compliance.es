@@ -61,7 +61,7 @@
          test_originator_Ericsson/1, test_versionInfo_not_empty/1, test_package_hasFiles/1,
          test_project_purl/1, test_packages_purl/1, test_download_location/1, 
          test_package_relations/1, test_has_extracted_licenses/1, test_files_licenses/1,
-         test_vendor_packages/1, test_erts/1,
+         test_vendor_packages/1, test_erts/1%%,
          %% test_copyright_format/1
         ]).
 
