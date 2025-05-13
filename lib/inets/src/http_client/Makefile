@@ -60,6 +60,17 @@ ERL_FILES = $(MODULES:%=%.erl)
 
 TARGET_FILES= $(MODULES:%=$(EBIN)/%.$(EMULATOR)) 
 
+DEPDIR=deps
+DEP_FILE=$(DEPDIR)/http_client.d
+$(shell mkdir -p $(dir $(DEP_FILE)) >/dev/null)
+
+ifeq ($(TARGET), win32)
+  # Native path without C: ignore driveletter case
+  ERL_TOP_NATIVE = $(shell w32_path.sh -m $(ERL_TOP) | sed "s@[a-zA-Z]:@:@")
+else
+  ERL_TOP_NATIVE = $(ERL_TOP)
+endif
+
 
 # ----------------------------------------------------
 # FLAGS
@@ -79,11 +90,14 @@ ERL_COMPILE_FLAGS += \
 # Targets
 # ----------------------------------------------------
 
-$(TYPES): $(TARGET_FILES)
+$(TYPES): $(TARGET_FILES) $(DEP_FILE)
+
+deps: $(DEP_FILE)
 
 clean:
 	rm -f $(TARGET_FILES)
 	rm -f core
+	rm -rf $(DEPDIR)
 
 docs:
 
@@ -106,5 +120,17 @@ info:
 	@echo "INETS_FLAGS       = $(INETS_FLAGS)"
 	@echo "ERL_COMPILE_FLAGS = $(ERL_COMPILE_FLAGS)"
 
+$(DEP_FILE): $(ERL_FILES)
+	@echo SED $(TARGET) $(ERL_TOP_NATIVE)
+	$(gen_verbose)erlc -M $(ERL_FILES) \
+	| perl -pe "s@ [a-zA-Z]?$(ERL_TOP_NATIVE)/(?:bootstrap/)?lib/([^/]+)@ ../../../\1@g" 2> /dev/null \
+	| sed "s/\.$(EMULATOR)/\.$$\(EMULATOR\)/" \
+	| sed 's@^httpc@$$(EBIN)/httpc@' \
+	> $(DEP_FILE)
 
+
+# ----------------------------------------------------
+# Dependencies
+# ----------------------------------------------------
+-include $(DEP_FILE)
 
