@@ -1,7 +1,8 @@
 %%
 %% %CopyrightBegin%
 %%
-%% SPDX-License-Identifier: Apache-2.0
+%% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
+%% SPDX-FileCopyrightText: 2024 Erlang/OTP and its contributors
 %%
 %% Copyright Ericsson AB 2008-2025. All Rights Reserved.
 %%
@@ -25,9 +26,6 @@
 %%%
 %%% Created : 22 Feb 2007 by Dan Gudmundsson <dgud@erix.ericsson.se>
 %%%-------------------------------------------------------------------
-%% SPDX-License-Identifier: Apache-2.0
-%% SPDX-License-Identifier: LicenseRef-scancode-wxwindows-free-doc-3
-%% SPDX-FileCopyrightText: 2024 Erlang/OTP and its contributors
 
 
 %% @doc A port of <a href="http://www.wxwidgets.org/">wxWidgets</a>.

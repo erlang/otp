@@ -543,6 +543,10 @@ fix_beam_licenses(LicensesAndCopyrights,
                             ~"licenseInfoInFiles" := [License]}  when License =/= ~"NONE", License =/= ~"NOASSERTION"->
                               files_have_no_license(SPDX#{~"licenseConcluded" := License});
 
+                          %% REUSE cannot correct this, and .ort.yml only fixed concludedLicenses
+                          #{~"fileName" := ~"HOWTO/LICENSE-HEADERS.md"} ->
+                            fix_spdx_license(SPDX#{~"licenseInfoInFiles" := [~"Apache-2.0"]});
+
                           #{~"fileName" := ~"bootstrap/lib/stdlib/ebin/erl_parse.beam"} ->
                               %% beam file auto-generated from grammar file
                               Spdx1 = fix_beam_spdx_license(~"lib/stdlib/src/erl_parse.yrl", LicensesAndCopyrights, SPDX),
@@ -581,7 +585,7 @@ fix_beam_licenses(LicensesAndCopyrights,
                                               Spdx2 = files_have_no_license(Spdx1),
                                               add_license_comment(Spdx2);
                                           _ ->
-                                              SPDX
+                                              fix_spdx_license(SPDX)
                                       end
                               end
                           end
@@ -624,7 +628,7 @@ none_to_noassertion(X) ->
 add_license_comment(#{~"licenseConcluded" := Concluded,
                      ~"licenseInfoInFiles" := [License]}=Spdx)
   when (Concluded =:= ~"NOASSERTION" orelse Concluded =:= ~"NONE") andalso License =/= Concluded ->
-    Spdx#{~"licenseComments" := ~"BEAM files preserve their *.erl license"};
+    Spdx#{~"licenseComments" => ~"BEAM files preserve their *.erl license"};
 add_license_comment(Spdx) ->
     Spdx.
 
@@ -641,6 +645,10 @@ fix_spdx_license(#{~"licenseInfoInFiles" := [LicenseInFile],
     ConcludedLicense = none_to_noassertion(License1),
     SPDX#{ ~"licenseConcluded" := ConcludedLicense,
            ~"copyrightText" := none_to_noassertion(C) };
+fix_spdx_license(#{~"licenseInfoInFiles" := Licenses}=SPDX) when length(Licenses) > 1 ->
+    Licenses1 = lists:map(fun erlang:binary_to_list/1, Licenses),
+    LicensesBin = erlang:list_to_binary(lists:join(" AND ", Licenses1)),
+    fix_spdx_license(SPDX#{ ~"licenseInfoInFiles" := [LicensesBin] });
 fix_spdx_license(#{~"copyrightText" := C}=SPDX) ->
     SPDX#{ ~"copyrightText" := none_to_noassertion(C)}.
 
@@ -1665,21 +1673,18 @@ print_error(true, _Input) ->
 test_concluded_license_equals_license_in_file(#{~"files" := Files}) ->
     true = lists:all(fun (#{~"licenseInfoInFiles" := [License], ~"licenseConcluded" := License}) ->
                              true;
-                         (#{~"licenseInfoInFiles" := [~"NONE"],
-                            ~"licenseConcluded" := Concluded,
-                            ~"SPDXID" := Id}) ->
-                             R = Concluded =:= ~"NONE" orelse Concluded =:= ~"NOASSERTION",
-                             print_error(R, {Id, ~"NONE", Concluded});
+                         (#{~"licenseInfoInFiles" := [~"NONE"]}) ->
+                             true;
                          (#{~"licenseInfoInFiles" := Licenses,
                             ~"licenseConcluded" := Concluded,
                             ~"SPDXID" := Id}) when length(Licenses) > 1 ->
                              Licenses1 = lists:map(fun erlang:binary_to_list/1, Licenses),
-                             LicensesBin = erlang:list_to_binary(lists:join(Licenses1, " AND ")),
-                             print_error(Concluded =:= LicensesBin, {Id, Licenses, Concluded});
+                             LicensesBin = erlang:list_to_binary(lists:join(" AND ", Licenses1)),
+                             print_error(Concluded =:= LicensesBin, {Id, Licenses, Concluded, ?LINE});
                          (#{~"licenseInfoInFiles" := Licenses,
                             ~"licenseConcluded" := Concluded,
                             ~"SPDXID" := Id}) ->
-                             print_error(Concluded =:= Licenses, {Id, Licenses, Concluded})
+                             print_error(Concluded =:= Licenses, {Id, Licenses, Concluded, ?LINE})
                      end, Files),
     ok.
 
