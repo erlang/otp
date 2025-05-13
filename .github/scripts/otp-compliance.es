@@ -563,6 +563,7 @@ fix_beam_licenses(LicensesAndCopyrights,
 
                           #{~"fileName" := Filename} when
                                 Filename =:= ~"erts/emulator/zstd/COPYING";
+                                Filename =:= ~"erts/emulator/zstd/LICENSE";
                                 Filename =:= ~"lib/eldap/LICENSE";
                                 Filename =:= ~"erts/lib_src/yielding_c_fun/test/examples/sha256_erlang_nif/c_src/sha-2/LICENSE";
                                 Filename =:= ~"erts/lib_src/yielding_c_fun/test/examples/sha256_erlang_nif/LICENSE" ->
@@ -1181,7 +1182,7 @@ generate_spdx_vendor_packages(VendorInfoPackages, #{~"files" := SpdxFiles}=_SPDX
                   (#{~"ID" := Id, ~"path" := [_ | _]=ExplicitFiles}=Package) when is_list(ExplicitFiles) ->
                       %% Deals with the cases of creating a package out of specific files
                       Paths = lists:map(fun cleanup_path/1, ExplicitFiles),
-                      Package1 = maps:without([~"purl", ~"ID", ~"path", ~"update"], Package),
+                      Package1 = maps:without([~"purl", ~"ID", ~"path", ~"update", ~"exclude"], Package),
                       Excludes = get_vendor_excludes(Package),
 
                       %% place files in SPDX in the corresponding package
@@ -1213,7 +1214,7 @@ generate_spdx_vendor_packages(VendorInfoPackages, #{~"files" := SpdxFiles}=_SPDX
                       %% Deals with the case of creating a package out of a path
                       Path = cleanup_path(DirtyPath),
                       true = filelib:is_dir(DirtyPath),
-                      Package1 = maps:without([~"purl", ~"ID", ~"path", ~"update"], Package),
+                      Package1 = maps:without([~"purl", ~"ID", ~"path", ~"update", ~"exclude"], Package),
                       Excludes = get_vendor_excludes(Package),
 
                       %% place files in SPDX in the corresponding package
