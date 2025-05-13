@@ -998,6 +998,9 @@ The following options are available:
   single recv call. If you are using higher than normal MTU consider setting
   buffer higher.
 
+  For SCTP, defaults to 65536.
+  For TCP and UDP, defaults to 1460.
+
 - **`{delay_send, Boolean}`** - Normally, when an Erlang process sends to a
   socket, the driver tries to send the data immediately. If that fails, the
   driver uses any means available to queue up the message to be sent whenever
@@ -1336,6 +1339,9 @@ The following options are available:
   You are encouraged to use `getopts/2` to retrieve the size
   set by your operating system.
 
+  For SCTP, defaults to 1024.
+  For UDP, defaults to 8K.
+
 - **`{recvtclass, Boolean}`** [](){: #option-recvtclass } -
   If set to `true` activates returning the received `TCLASS` value
   on platforms that implements the protocol `IPPROTO_IPV6` option
@@ -1492,6 +1498,8 @@ The following options are available:
   The minimum size of the send buffer to use for the socket.
   You are encouraged to use `getopts/2`, to retrieve the size
   set by your operating system.
+
+  For SCTP, defaults to 65536.
 
 - **`{priority, Integer}`** - Sets the `SO_PRIORITY` socket level option on
   platforms where this is implemented. The behavior and allowed range varies
