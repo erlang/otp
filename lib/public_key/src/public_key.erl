@@ -1979,7 +1979,7 @@ pkix_verify_hostname(Cert = #'OTPCertificate'{tbsCertificate = TbsCert}, Referen
 			],
 		    %% Example of PresentedCNs:  [{cn,"www.ericsson.se"}]
 		    %% match ReferenceIDs to PresentedCNs
-		    verify_hostname_match_loop(verify_hostname_fqnds(ReferenceIDs, FqdnFun),
+		    verify_hostname_match_loop(verify_hostname_fqdns(ReferenceIDs, FqdnFun),
 					       PresentedCNs,
 					       MatchFun, FailCB, Cert);
 		
@@ -1993,7 +1993,7 @@ pkix_verify_hostname(Cert = #'OTPCertificate'{tbsCertificate = TbsCert}, Referen
 		false ->
 		    %% Try to extract DNS-IDs from URIs etc
 		    DNS_ReferenceIDs =
-			[{dns_id,X} || X <- verify_hostname_fqnds(ReferenceIDs, FqdnFun)],
+			[{dns_id,X} || X <- verify_hostname_fqdns(ReferenceIDs, FqdnFun)],
 		    verify_hostname_match_loop(DNS_ReferenceIDs, PresentedIDs,
 					       MatchFun, FailCB, Cert);
 		true ->
@@ -2822,7 +2822,7 @@ verify_hostname_extract_fqdn_default({uri_id,URI}) ->
     Host.
 
 
-verify_hostname_fqnds(L, FqdnFun) ->
+verify_hostname_fqdns(L, FqdnFun) ->
     [E || E0 <- L,
 	  E <- [try case FqdnFun(E0) of
 			default -> verify_hostname_extract_fqdn_default(E0);
