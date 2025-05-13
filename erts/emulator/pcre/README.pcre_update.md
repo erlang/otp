@@ -18,10 +18,10 @@ be pushed on the C stack in the case of recursive calls. This is a
 technique we also use inside the VM to avoid building large C
 stacks.
 
-2. All visible symbols in PCRE gets the erts_ prefix, so that NIF's
-and such using a "real" pcre library does not get confused (or 're'
-gets confused when a "real" pcre library get's loaded into the VM
-process). We currently do not do this for PCRE2.
+2. We compile all PCRE2 files with `-fvisibility=hidden` (if supported),
+so that NIFs and drivers using a "real" PCRE2 library does not get confused.
+This to avoid the need to add `erts_` prefixes which the older PCRE
+integration did.
 
 3. All irrelevant functionality has been stripped from the library,
 which means for example UTF16 support, jit, DFA execution

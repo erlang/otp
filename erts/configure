@@ -704,6 +704,7 @@ XCRUN
 LLVM_PROFDATA
 WFLAGS
 DEBUG_FLAGS
+VISIBILITY_HIDDEN
 ERTS_CONFIG_H_IDIR
 MIXED_MINGW
 MIXED_VC
@@ -8554,13 +8555,55 @@ fi
 
 
 
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -fvisibility=hidden to VISIBILITY_HIDDEN (via CFLAGS)" >&5
+printf %s "checking if we can add -fvisibility=hidden to VISIBILITY_HIDDEN (via CFLAGS)... " >&6; }
+    saved_CFLAGS=$CFLAGS;
+    CFLAGS="-Werror -fvisibility=hidden $VISIBILITY_HIDDEN";
+    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main (void)
+{
+return 0;
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"
+then :
+  can_enable_flag=true
+else case e in #(
+  e) can_enable_flag=false ;;
+esac
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+    CFLAGS=$saved_CFLAGS;
+    if test "X$can_enable_flag" = "Xtrue"
+then :
+
+        VISIBILITY_HIDDEN="-fvisibility=hidden $VISIBILITY_HIDDEN"
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+printf "%s\n" "yes" >&6; }
+
+else case e in #(
+  e)
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+       ;;
+esac
+fi
+
+
 else case e in #(
   e)
   WFLAGS=""
   WERRORFLAGS=${WERRORFLAGS:-""}
+  VISIBILITY_HIDDEN=""
   ;;
 esac
 fi
+
 
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking C99 support" >&5
 printf %s "checking C99 support... " >&6; }
