@@ -58,7 +58,7 @@ extern ei_socket_callbacks ei_default_socket_callbacks;
 
 #define EI_DFLT_CTX_TO_FD__(CTX, FD)                                    \
     ((intptr_t) (CTX) < 0                                               \
-     ? EBADF                                                            \
+     ? (EI_UNDEF(*(FD), -1), EBADF)                                     \
      : (*(FD) = (int) (intptr_t) (CTX), 0))
 
 #define EI_GET_FD__(CBS, CTX, FD)                                       \
@@ -95,7 +95,9 @@ extern int ei_plugin_socket_impl__;
     (EI_HAVE_PLUGIN_SOCKET_IMPL__                                       \
      ? ei_get_cbs_ctx__((CBS), (CTX), (FD))                             \
      : ((FD) < 0                                                        \
-        ? EBADF                                                         \
+        ? (EI_UNDEF(*(CBS), NULL),                                      \
+           EI_UNDEF(*(CTX), NULL),                                      \
+           EBADF)                                                       \
         : (*(CBS) = &ei_default_socket_callbacks,                       \
            *(CTX) = EI_FD_AS_CTX__((FD)),                               \
            0)))
