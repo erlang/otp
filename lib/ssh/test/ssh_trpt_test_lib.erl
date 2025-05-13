@@ -26,7 +26,8 @@
 -export([exec/1, exec/2,
 	 instantiate/2,
 	 format_msg/1,
-	 server_host_port/1
+	 server_host_port/1,
+         return_value/1
 	]
        ).
 
@@ -816,3 +817,6 @@ opt(Flag, S, Fun) when is_function(Fun,1) ->
 
 save_prints({Fmt,Args}, S) -> 
     S#s{prints = [{Fmt,Args}|S#s.prints]}.
+
+return_value(#s{return_value = ReturnValue}) ->
+    ReturnValue.
