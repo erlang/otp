@@ -2246,9 +2246,9 @@ maybe_keylog_hs_callback(_, _, _) ->
     ok.
  
 keylog_hs_alert(start, _) -> %% TLS 1.3: No secrets yet established
-    [];
+    {[], undefined};
 keylog_hs_alert(wait_sh, _) -> %% TLS 1.3: No secrets yet established
-    [];
+    {[], undefined};
 %% Server alert for certificate validation can happen when client is in connection state already.
 keylog_hs_alert(connection,  #state{static_env = #static_env{role = client},
                                     connection_env =
