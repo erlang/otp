@@ -427,6 +427,8 @@ get_ssl_server_options(PeerIP) when PeerIP =/= undefined ->
 %%
 setup_verify_client([Opt | Opts], PeerIP) ->
     case Opt of
+        {verify_fun,{Mod,Fun,Init}} ->
+            [{verify_fun, {fun Mod:Fun/3, Init}} | setup_verify_client(Opts, PeerIP)];
         {verify_fun,{VerifyFun, _}} ->
             case fun inet_tls_dist:verify_client/3 of
                 VerifyFun ->
@@ -447,6 +449,16 @@ setup_verify_client([Opt | Opts], PeerIP) ->
       end;
 setup_verify_client([], _PeerIP) ->
     [].
+
+setup_verify_server([]) ->
+    [];
+setup_verify_server([Opt|Opts]) ->
+    case Opt of
+        {verify_fun,{Mod,Fun,Init}} ->
+            [{verify_fun, {fun Mod:Fun/3, Init}} | setup_verify_server(Opts)];
+        _ ->
+            [Opt | setup_verify_server(Opts)]
+    end.
 
 allowed_hosts(Allowed) ->
     lists:usort(allowed_node_hosts(Allowed)).
@@ -641,7 +653,7 @@ do_setup(
         inet_tcp_dist:merge_options(
           inet_tcp_dist:merge_options(
             ConnectOptions,
-            get_ssl_options(client)),
+            setup_verify_server(get_ssl_options(client))),
           [Family, binary, {active, false}, {packet, 4},
            {read_ahead, false}, {nodelay, true}],
           [{server_name_indication, Host}]),
