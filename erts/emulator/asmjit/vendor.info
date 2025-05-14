@@ -18,7 +18,7 @@
     "path": "./erts/emulator/asmjit",
     "exclude": ["./erts/emulator/asmjit/vendor.info"],
     "supplier": "Person: Petr Kobalicek",
-    "purl": "pkg:github/asmjit/asmjit"
+    "purl": "pkg:github/asmjit/asmjit",
     "sha": "029075b84bf0161a761beb63e6eda519a29020db"
   }
 ]
