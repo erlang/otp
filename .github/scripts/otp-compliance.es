@@ -1174,11 +1174,12 @@ generate_vendor_info_package(VendorSrcPath) ->
 
 -spec generate_spdx_vendor_packages(VendorInfoPackage :: map(), map()) -> map().
 generate_spdx_vendor_packages(VendorInfoPackages, #{~"files" := SpdxFiles}=_SPDX) ->
+    RemoveVendorInfoFields = [~"purl", ~"ID", ~"path", ~"update", ~"exclude", ~"sha"],
     lists:map(fun
                   (#{~"ID" := Id, ~"path" := [_ | _]=ExplicitFiles}=Package) when is_list(ExplicitFiles) ->
                       %% Deals with the cases of creating a package out of specific files
                       Paths = lists:map(fun cleanup_path/1, ExplicitFiles),
-                      Package1 = maps:without([~"purl", ~"ID", ~"path", ~"update", ~"exclude"], Package),
+                      Package1 = maps:without(RemoveVendorInfoFields, Package),
                       Excludes = get_vendor_excludes(Package),
 
                       %% place files in SPDX in the corresponding package
@@ -1208,9 +1209,9 @@ generate_spdx_vendor_packages(VendorInfoPackages, #{~"files" := SpdxFiles}=_SPDX
                        };
                   (#{~"ID" := Id, ~"path" := DirtyPath}=Package) when is_binary(DirtyPath) ->
                       %% Deals with the case of creating a package out of a path
-                      Path = cleanup_path(DirtyPath),
+                      Path = ensure_trailing_slash(cleanup_path(DirtyPath)),
                       true = filelib:is_dir(DirtyPath),
-                      Package1 = maps:without([~"purl", ~"ID", ~"path", ~"update", ~"exclude"], Package),
+                      Package1 = maps:without(RemoveVendorInfoFields, Package),
                       Excludes = get_vendor_excludes(Package),
 
                       %% place files in SPDX in the corresponding package
@@ -1244,7 +1245,7 @@ get_vendor_excludes(Package) ->
                       CleanExclude = cleanup_path(Exclude),
                       case filelib:is_dir(Exclude) of
                           true ->
-                              {dir, CleanExclude};
+                              {dir, ensure_trailing_slash(CleanExclude)};
                           false ->
                               true = filelib:is_regular(Exclude),
                               {file, CleanExclude}
@@ -1260,6 +1261,9 @@ exclude_vendor_file(Filename, Excludes) ->
                           _ -> true
                       end
               end, Excludes).
+
+ensure_trailing_slash(Path) ->
+    [string:trim(Path, trailing, "/"), $/].
 
 generate_vendor_purl(Package) ->
     Description = maps:get(~"description", Package, ""),
