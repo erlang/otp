@@ -559,12 +559,13 @@ jobs:
         run: |
           docker build -t otp_cc - <<EOF
           FROM otp
-          RUN sudo apt-get install -y pip clang-12 clang-tidy-12 && \
+          RUN export CLANG_VERSION=15 && \
+              sudo apt-get install -y pip clang-${CLANG_VERSION} clang-tidy-${CLANG_VERSION} && \
               sudo update-alternatives \
-                --install /usr/bin/clang clang /usr/bin/clang-12 81 \
-                --slave /usr/bin/clang++ clang++ /usr/bin/clang++-12 \
-                --slave /usr/bin/clang-tidy clang-tidy /usr/bin/clang-tidy-12 \
-                --slave /usr/bin/clang-format clang-format /usr/bin/clang-format-12 && \
+                --install /usr/bin/clang clang /usr/bin/clang-${CLANG_VERSION} 81 \
+                --slave /usr/bin/clang++ clang++ /usr/bin/clang++-${CLANG_VERSION} \
+                --slave /usr/bin/clang-tidy clang-tidy /usr/bin/clang-tidy-${CLANG_VERSION} \
+                --slave /usr/bin/clang-format clang-format /usr/bin/clang-format-${CLANG_VERSION} && \
               pip install codechecker
           RUN cd \$ERL_TOP && ./configure CC=clang CXX=clang++ --with-ssl-lib-subdir=lib/x86_64-linux-gnu
           EOF
