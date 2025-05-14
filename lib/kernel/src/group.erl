@@ -41,7 +41,7 @@
          xterm/3, dumb/3, handle_info/3]).
 
 %% gen statem callbacks
--export([init/1, callback_mode/0]).
+-export([init/1, callback_mode/0, format_status/1]).
 
 %% Logger report format fun
 -export([format_io_request_log/1, log_io_request/3]).
@@ -154,6 +154,9 @@ init([Drv, Shell, Options]) ->
     edlin:init(),
 
     {ok, init, State, {next_event, internal, [Shell, Options]}}.
+
+format_status(#{state := State}) ->
+    State#state{ line_history = undefined }.
 
 init(internal, [Shell, Options], State = #state{ dumb = Dumb }) ->
 
