@@ -425,6 +425,50 @@ jobs:
                 docker run otp "erl ${OPTION} -noshell -s init stop"
             done
 
+  extract-deps:
+    name: Extract Dependencies
+    runs-on: ubuntu-latest
+    needs:
+      - pack
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # ratchet:actions/checkout@v4.2.2
+      - uses: ./.github/actions/build-base-image
+        with:
+            BASE_BRANCH: ${{ env.BASE_BRANCH }}
+
+      # check that PRs do not introduce vulnerabilities in vendor dependencies
+      - name: 'Vendor Vulnerability Scanning'
+        run: |
+          docker run -v $PWD/:/github otp \
+            "/github/.github/scripts/otp-compliance.es sbom osv-scan > /github/osv-scanner.json"
+          sudo chown -R `whoami` osv-scanner.json
+
+      # Upload the deps
+      - name: "upload osv-scanner deps"
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # ratchet:actions/upload-artifact@v4.6.2
+        with:
+          name: converted-OSV-Scanner-deps
+          path: /home/runner/work/otp/otp/osv-scanner.json
+          retention-days: 2
+
+  scan-pr:
+    # run-scheduled-scan triggers this job
+    # PRs and pushes trigger this job
+    needs: extract-deps
+    permissions:
+        # Require writing security events to upload SARIF file to security tab
+        security-events: write
+        # Required to upload SARIF file to CodeQL.
+        # See: https://github.com/github/codeql-action/issues/2117
+        actions: read
+        contents: read
+    uses: "google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@6fc714450122bda9d00e4ad5d639ad6a39eedb1f" # ratchet:google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@v2.0.1
+    with:
+        download-artifact: converted-OSV-Scanner-deps
+        upload-sarif: ${{ github.repository == 'erlang/otp' }}
+        scan-args: |-
+            --lockfile=osv-scanner:osv-scanner.json
+
   build:
     name: Build Erlang/OTP
     runs-on: ubuntu-latest
@@ -847,10 +891,9 @@ jobs:
             fail-on: ${{ github.ref_type == 'tag' && '' || '' }} # 'violations,issues' }}
             sw-version: ${{ env.OTP_SBOM_VERSION }}
 
-  vendor-analysis:
-    name: Vendor Dependency Analysis
+  vendor-dependency-upload:
+    name: Vendor Dependency Upload
     runs-on: ubuntu-latest
-    if: github.event_name == 'push'
     needs:
         - sbom
         - pack
@@ -878,6 +921,7 @@ jobs:
 
       # allows Dependabot to give us alert of the vendor libraries that use semantic versioning
       - name: Upload SBOM to Github Dependency API
+        if: github.event_name == 'push'
         uses: advanced-security/spdx-dependency-submission-action@5530bab9ee4bbe66420ce8280624036c77f89746 # ratchet:advanced-security/spdx-dependency-submission-action@v0.1.1
 
   ## If this is an "OTP-*" tag that has been pushed we do some release work

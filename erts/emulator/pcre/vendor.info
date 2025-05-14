@@ -10,12 +10,13 @@
     "ID": "erts-pcre",
     "description": "PCRE2 library",
     "copyrightText": "NOASSERTION",
-    "downloadLocation": "git+https://github.com/PCRE2Project/pcre2.git",
+    "downloadLocation": "https://github.com/PCRE2Project/pcre2",
     "homepage": "https://pcre2project.github.io/pcre2/",
     "licenseDeclared": "BSD-3-Clause",
     "name": "pcre2",
-    "versionInfo": "10.44",
+    "versionInfo": "10.45",
     "path": "./erts/emulator/pcre",
+    "sha": "1e09555d6950bfcf83bd98fa597b0c6440d43c9c",
     "supplier": "Person: Philip Hazel",
     "purl": "pkg:generic/pcre2"
   }

@@ -217,7 +217,18 @@ cli() ->
                                      > .github/scripts/otp-compliance.es sbom vendor --sbom-file otp.spdx.json
                                      """,
                                  arguments => [ sbom_option()],
-                                 handler => fun sbom_vendor/1}
+                                 handler => fun sbom_vendor/1},
+
+                          "osv-scan" =>
+                              #{ help =>
+                                     """
+                                     Performs vulnerability scanning on vendor libraries
+
+                                     Example:
+
+                                     > .github/scripts/otp-compliance.es sbom osv-scan
+                                     """,
+                                 handler => fun osv_scan/1}
                          }},
              "explore" =>
                  #{  help => """
@@ -1207,6 +1218,87 @@ generate_vendor_purl(Package) ->
             [create_externalRef_purl(Description, <<Purl/binary, "@", Vsn/binary>>)]
     end.
 
+osv_scan(_) ->
+    application:ensure_all_started([ssl, inets]),
+
+    VendorSrcFiles = find_vendor_src_files("."),
+    Packages = generate_vendor_info_package(VendorSrcFiles),
+
+    %% Test if this works in a Github Workflow
+    OSVQueryResults = generate_osv_results(Packages),
+    io:format("~s", [json:format(OSVQueryResults)]).
+    %% file:write_file(File, json:format(OSVQueryResults)).
+
+    %% OSVQuery = generate_osv_query(Packages),
+%%     io:format("[OSV] Information sent~n~s~n", [json:format(OSVQuery)]),
+%%     OSV = json:encode(OSVQuery),
+
+%%     Content = {URI, [], Format, OSV},
+%%     Result = httpc:request(post, Content, [], []),
+%%     case Result of
+%%         {ok,{{_, 200,_}, _Headers, Body}} ->
+%%             #{~"results" := OSVResults} = json:decode(erlang:list_to_binary(Body)),
+%%             Vulnerabilities = lists:filter(fun (#{~"vulns" := _Ids}) -> true; (_) -> false end, OSVResults),
+%%             case Vulnerabilities of
+%%                 [] ->
+%%                     io:format("[OSV] No vulnerabilities found.~n");
+%%                 _ ->
+%%                     FormatVulns = format_vulnerabilities(OSVQuery, OSVResults),
+%%                     fail("[OSV] There are existing vulnerabilities:~n~s", [FormatVulns])
+%%             end;
+%%         {error, Error} ->
+%%             fail("[OSV] POST request to ~p errors: ~p", [URI, Error])
+%%     end.
+
+%% format_vulnerabilities(OSVQuery, OSVResults) ->
+%%     NameVulnerabilities = lists:zip(osv_names(OSVQuery), OSVResults),
+%%     ExistingVulnerabilities = lists:filtermap(fun ({Name, #{~"vulns" := Ids}}) ->
+%%                                                       {true, {Name, [Id || #{~"id" := Id} <- Ids]}};
+%%                                                   (_) ->
+%%                                                       false
+%%                                               end, NameVulnerabilities),
+%%     lists:map(fun ({N, Ids}) ->
+%%                       io_lib:format("- ~s: ~s~n", [N, lists:join(",", Ids)])
+%%               end, ExistingVulnerabilities).
+
+%% osv_names(#{~"queries" := Packages}) ->
+%%     lists:map(fun osv_names/1, Packages);
+%% osv_names(#{~"package" := #{~"name" := Name }}) ->
+%%     Name.
+
+%% generate_osv_query(Packages) ->
+%%     #{~"queries" => lists:foldl(fun generate_osv_query/2, [], Packages)}.
+%% generate_osv_query(#{~"versionInfo" := Vsn, ~"ecosystem" := Ecosystem, ~"name" := Name}, Acc) ->
+%%     Package = #{~"package" => #{~"name" => Name, ~"ecosystem" => Ecosystem}, ~"version" => Vsn},
+%%     [Package | Acc];
+%% generate_osv_query(#{~"sha" := SHA, ~"downloadLocation" := Location}, Acc) ->
+%%     case string:prefix(Location, ~"https://") of
+%%         nomatch ->
+%%             Acc;
+%%         URI ->
+%%             Package = #{~"package" => #{~"name" => URI}, ~"commit" => SHA},
+%%             [Package | Acc]
+%%     end;
+%% generate_osv_query(_, Acc) ->
+%%     Acc.
+
+
+generate_osv_results(Packages) ->
+    #{~"results" => [#{~"packages" => lists:foldl(fun generate_osv_results/2, [], Packages)}]}.
+generate_osv_results(#{~"versionInfo" := Vsn, ~"ecosystem" := Ecosystem, ~"name" := Name}, Acc) ->
+    Package = #{~"package" => #{~"name" => Name, ~"ecosystem" => Ecosystem, ~"version" => Vsn}},
+    [Package | Acc];
+generate_osv_results(#{~"sha" := SHA, ~"downloadLocation" := Location}, Acc) ->
+    case string:prefix(Location, ~"https://") of
+        nomatch ->
+            Acc;
+        URI ->
+            Package = #{~"package" => #{~"name" => URI, ~"commit" => SHA}},
+            [Package | Acc]
+    end;
+generate_osv_results(_, Acc) ->
+    Acc.
+
 cleanup_path(<<"./", Path/binary>>) when is_binary(Path) -> Path;
 cleanup_path(Path) when is_binary(Path) -> Path.
 
@@ -1559,7 +1651,7 @@ root_vendor_packages() ->
 minimum_vendor_packages() ->
     %% self-contained
     root_vendor_packages() ++
-        [~"tcl", ~"ryu_to_chars", ~"json-test-suite", ~"openssl", ~"Autoconf", ~"wx", ~"jquery", ~"jquery-tablesorter"].
+        [~"tcl", ~"ryu_to_chars", ~"json-test-suite", ~"openssl", ~"Autoconf", ~"wx", ~"jquery", ~"tablesorter"].
 
 test_copyright_not_empty(#{~"packages" := Packages}) ->
     true = lists:all(fun (#{~"copyrightText" := Copyright}) -> Copyright =/= ~"" end, Packages),
