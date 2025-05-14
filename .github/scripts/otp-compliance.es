@@ -545,11 +545,6 @@ fix_beam_licenses(LicensesAndCopyrights,
                             ~"licenseInfoInFiles" := [License]}  when License =/= ~"NONE", License =/= ~"NOASSERTION"->
                               files_have_no_license(SPDX#{~"licenseConcluded" := License});
 
-                          %% REUSE cannot correct this, and .ort.yml only fixed concludedLicenses
-                          #{~"fileName" := ~"HOWTO/LICENSE-HEADERS.md"} ->
-                            fix_spdx_license(SPDX#{~"licenseInfoInFiles" := [~"Apache-2.0"],
-                                                   ~"copyrightText" := ~"Copyright Ericsson AB 2025. All Rights Reserved."});
-
                           #{~"fileName" := ~"bootstrap/lib/stdlib/ebin/erl_parse.beam"} ->
                               %% beam file auto-generated from grammar file
                               Spdx1 = fix_beam_spdx_license(~"lib/stdlib/src/erl_parse.yrl", LicensesAndCopyrights, SPDX),
@@ -570,8 +565,9 @@ fix_beam_licenses(LicensesAndCopyrights,
                               %% license files have comment stating they are license files.
                               SPDX#{~"comment" => ~"license file"};
 
-                          #{~"fileName" := <<"LICENSE-HEADERS/", Filename/binary>>} when Filename =/= ~"README.md" ->
+                          #{~"fileName" := <<"FILE-HEADERS/", Filename/binary>>} when Filename =/= ~"README.md" ->
                               %% license files have comment stating they are license files.
+                              %% this cannot be encoded in .ort.yml as it does not allow to add comments
                               SPDX#{~"comment" => ~"license file"};
 
                           #{~"fileName" := <<"LICENSES/", _Filename/binary>>} ->

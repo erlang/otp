@@ -45,12 +45,6 @@ curations:
         #
         # License files are marked as NOASSERTION
         #
-      - path: "LICENSE-HEADERS/*"
-        reason: "INCORRECT"
-        comment: >-
-          License headers have NOASSERTION license
-        concluded_license: "NOASSERTION"
-
       - path: "LICENSES/*"
         reason: "INCORRECT"
         comment: >-
