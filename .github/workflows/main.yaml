@@ -559,13 +559,13 @@ jobs:
         run: |
           docker build -t otp_cc - <<EOF
           FROM otp
-          RUN export CLANG_VERSION=15 && \
-              sudo apt-get install -y pip clang-${CLANG_VERSION} clang-tidy-${CLANG_VERSION} && \
+          ENV CLANG_VERSION=15
+          RUN sudo apt-get install -y pip clang-$CLANG_VERSION clang-tidy-$CLANG_VERSION && \
               sudo update-alternatives \
-                --install /usr/bin/clang clang /usr/bin/clang-${CLANG_VERSION} 81 \
-                --slave /usr/bin/clang++ clang++ /usr/bin/clang++-${CLANG_VERSION} \
-                --slave /usr/bin/clang-tidy clang-tidy /usr/bin/clang-tidy-${CLANG_VERSION} \
-                --slave /usr/bin/clang-format clang-format /usr/bin/clang-format-${CLANG_VERSION} && \
+                --install /usr/bin/clang clang /usr/bin/clang-$CLANG_VERSION 81 \
+                --slave /usr/bin/clang++ clang++ /usr/bin/clang++-$CLANG_VERSION \
+                --slave /usr/bin/clang-tidy clang-tidy /usr/bin/clang-tidy-$CLANG_VERSION \
+                --slave /usr/bin/clang-format clang-format /usr/bin/clang-format-$CLANG_VERSION && \
               pip install codechecker
           RUN cd \$ERL_TOP && ./configure CC=clang CXX=clang++ --with-ssl-lib-subdir=lib/x86_64-linux-gnu
           EOF
@@ -603,7 +603,7 @@ jobs:
              "make VOID_EMULATOR=true TARGET=$(${ERL_TOP}/erts/autoconf/config.guess) ERTS_SKIP_DEPEND=true TYPE=debug" \
              -o /github/cc_results/otp; \
              \
-             $HOME/.local/bin/CodeChecker parse --print-steps -e html \
+             $HOME/.local/bin/CodeChecker parse -i /github/SKIP_FILE --print-steps -e html \
               -o /github/cc_results/html /github/cc_results/otp /github/cc_results/emulator || true'
           
           tree cc_results
