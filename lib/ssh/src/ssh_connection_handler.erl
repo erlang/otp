@@ -661,9 +661,12 @@ handle_event(state_timeout, no_hello_received, {hello,_Role}=StateName, D0 = #da
     {stop, Shutdown, D};
 
 
-%%% ######## {service_request, client|server} ####
-
-handle_event(internal, Msg = #ssh_msg_service_request{name=ServiceName}, StateName = {service_request,server}, D0) ->
+%%% ######## {service_request, client|server} #### StateName ==
+%% {userauth,server} guard added due to interoperability with clients
+%% sending extra ssh_msg_service_request (e.g. Paramiko for Python,
+%% see GH-6463)
+handle_event(internal, Msg = #ssh_msg_service_request{name=ServiceName}, StateName, D0)
+  when StateName == {service_request,server}; StateName == {userauth,server} ->
     case ServiceName of
 	"ssh-userauth" ->
 	    Ssh0 = #ssh{session_id=SessionId} = D0#data.ssh_params,
