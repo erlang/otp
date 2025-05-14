@@ -118,7 +118,8 @@
 
          see_through/0,
 
-         duplicated_args/1]).
+         duplicated_args/1,
+         gh9813/0]).
 
 %% Trivial smoke test
 transformable0(L) ->
@@ -1260,3 +1261,15 @@ duplicated_args(A, B) ->
 %ssa% (A, B) when post_ssa_opt ->
 %ssa% _ = put_tuple(A, B) {aliased => [A, B]}.
     {A, B}.
+
+%% Force aliasing of Creation to prevent destructive update.
+gh9813() ->
+%ssa% () when post_ssa_opt ->
+%ssa% _ = get_tuple_element(Creation, 1) {aliased => [Creation]}.
+    R = e:f(),
+    {_, DT} = Creation = gh9813_inner(0),
+    Aged = {19, setelement(1, DT, 38)},
+    {Creation, Aged} = R.
+
+gh9813_inner(Sec) ->
+    {19, {2038, Sec}}.

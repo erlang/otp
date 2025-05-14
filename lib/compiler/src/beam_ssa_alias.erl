@@ -492,7 +492,8 @@ aa_is([_I=#b_set{dst=Dst,op=Op,args=Args,anno=Anno0}|Is], SS0,
         case Op of
             %% Instructions changing the alias status.
             {bif,Bif} ->
-                {aa_bif(Dst, Bif, Args, SS0, AAS0), AAS0};
+                Types = maps:get(arg_types, Anno0, #{}),
+                {aa_bif(Dst, Bif, Args, Types, SS0, AAS0), AAS0};
             bs_create_bin ->
                 case Args of
                     [#b_literal{val=Flag},_,Arg|_] when
@@ -653,7 +654,7 @@ aa_is([_I=#b_set{dst=Dst,op=Op,args=Args,anno=Anno0}|Is], SS0,
              false ->
                  SS3
          end,
-    ?DP("Post I: ~p.~n      ~p~n", [I, SS]),
+    ?DP("Post I: ~p.~n      ~p~n", [_I, SS]),
     aa_is(Is, SS, AAS, ForcedAliases);
 aa_is([], SS, AAS, _ForcedAliases) ->
     {SS, AAS}.
@@ -1159,7 +1160,7 @@ aa_update_record_get_vars([#b_literal{val=I}, Value|Updates]) ->
 aa_update_record_get_vars([]) ->
     [].
 
-aa_bif(Dst, element, [#b_literal{val=Idx},Tuple], SS, _AAS)
+aa_bif(Dst, element, [#b_literal{val=Idx},Tuple], _Types, SS, _AAS)
   when is_integer(Idx), Idx > 0 ->
     %% The element bif is always rewritten to a get_tuple_element
     %% instruction when the index is an integer and the second
@@ -1168,39 +1169,40 @@ aa_bif(Dst, element, [#b_literal{val=Idx},Tuple], SS, _AAS)
     %% point in trying to provide aa_tuple_extraction/5 with type
     %% information.
     aa_tuple_extraction(Dst, Tuple, #b_literal{val=Idx-1}, #{}, SS);
-aa_bif(Dst, element, [#b_literal{},Tuple], SS, _AAS) ->
+aa_bif(Dst, element, [#b_literal{},Tuple], _Types, SS, _AAS) ->
     %% This BIF will fail, but in order to avoid any later transforms
     %% making use of uniqueness, conservatively alias.
     aa_set_aliased([Dst,Tuple], SS);
-aa_bif(Dst, element, [#b_var{},Tuple], SS, _AAS) ->
+aa_bif(Dst, element, [#b_var{},Tuple], _Types, SS, _AAS) ->
     aa_set_aliased([Dst,Tuple], SS);
-aa_bif(Dst, hd, [Pair], SS, _AAS) ->
+aa_bif(Dst, hd, [Pair], _Types, SS, _AAS) ->
     %% The hd bif is always rewritten to a get_hd instruction when the
     %% argument is known to be a pair. Therefore this code is only
     %% reached when the type of Pair is unknown, thus there is no
     %% point in trying to provide aa_pair_extraction/5 with type
     %% information.
     aa_pair_extraction(Dst, Pair, hd, SS);
-aa_bif(Dst, tl, [Pair], SS, _AAS) ->
+aa_bif(Dst, tl, [Pair], _Types, SS, _AAS) ->
     %% The tl bif is always rewritten to a get_tl instruction when the
     %% argument is known to be a pair. Therefore this code is only
     %% reached when the type of Pair is unknown, thus there is no
     %% point in trying to provide aa_pair_extraction/5 with type
     %% information.
     aa_pair_extraction(Dst, Pair, tl, SS);
-aa_bif(Dst, map_get, [_Key,Map], SS, AAS) ->
+aa_bif(Dst, map_get, [_Key,Map], _Types, SS, AAS) ->
     aa_map_extraction(Dst, Map, SS, AAS);
-aa_bif(Dst, binary_part, Args, SS0, _AAS) ->
+aa_bif(Dst, binary_part, Args, _Types, SS0, _AAS) ->
     %% bif:binary_part/{2,3} is the only guard bif which could lead to
     %% aliasing, it extracts a sub-binary with a reference to its
     %% argument.
     SS = beam_ssa_ss:add_var(Dst, unique, SS0),
     aa_set_aliased([Dst|Args], SS);
-aa_bif(Dst, Bif, Args, SS, _AAS) ->
+aa_bif(Dst, Bif, Args, Types, SS, _AAS) ->
     Arity = length(Args),
     case erl_internal:guard_bif(Bif, Arity)
         orelse erl_internal:bool_op(Bif, Arity)
-        orelse erl_internal:comp_op(Bif, Arity)
+        orelse (erl_internal:comp_op(Bif, Arity)
+                andalso comp_bif_can_avoid_aliasing(Args, Types))
         orelse erl_internal:arith_op(Bif, Arity)
         orelse erl_internal:new_type_test(Bif, Arity) of
         true ->
@@ -1210,6 +1212,50 @@ aa_bif(Dst, Bif, Args, SS, _AAS) ->
             %% aliased result.
             aa_set_aliased([Dst|Args], SS)
     end.
+
+comp_bif_can_avoid_aliasing([LHS, RHS], Types) ->
+    %% A comparison can see in-place mutated terms if it has to do
+    %% anything except compare tags.
+    LHSTy = to_general_type(maps:get(0, Types, any), LHS),
+    RHSTy = to_general_type(maps:get(1, Types, any), RHS),
+    case {LHSTy,RHSTy} of
+        %% We compare a non-aggregate with an aggregate, this is a tag
+        %% test, so it cannot "see" destructively updated terms.
+        {non_aggregate,_} ->
+            true;
+        {_,non_aggregate} ->
+            true;
+
+        %% For anything else, we trigger aliasing as we could be
+        %% traversing an aggregate term which has destructively
+        %% updated elements.
+        _ ->
+            false
+    end.
+
+to_general_type(any, #b_literal{val=V}) ->
+    to_general_type(beam_types:make_type_from_value(V));
+to_general_type(T, _) ->
+    to_general_type(T).
+
+to_general_type(any) ->
+    any;
+to_general_type(T=#t_bs_matchable{}) ->
+    T;
+to_general_type(T=#t_bitstring{}) ->
+    T;
+to_general_type(T=#t_tuple{}) ->
+    T;
+to_general_type(T=#t_list{}) ->
+    T;
+to_general_type(T=#t_cons{}) ->
+    T;
+to_general_type(#t_union{tuple_set=none,list=none,other=none}) ->
+    non_aggregate;
+to_general_type(#t_union{}) ->
+    any;
+to_general_type(_) ->
+    non_aggregate.
 
 aa_phi(Dst, Args0, SS0, #aas{cnt=Cnt0}=AAS) ->
     %% TODO: Use type info?
