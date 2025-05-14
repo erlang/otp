@@ -185,7 +185,9 @@ This file may be a list of JSON objects. For simplicity, we document the fields 
     "versionInfo": "a465fe71ab3d0e224b2b4bd0fac69ae68ab9239d",
     "path": "./erts/emulator/asmjit",
     "supplier": "Person: Petr Kobalicek",
-    "purl": "pkg:github/asmjit/asmjit"
+    "purl": "pkg:github/asmjit/asmjit",
+    "exclude": ["./erts/emulator/asmjit/vendor.info",
+                "./erts/emulator/asmjit.version"]
   }
 ]
 ```
@@ -212,7 +214,8 @@ Fields summary:
   - `Person: <person name> (<email>)`, where `email` is optional.
   - `Organization: <Organization name> (email)`, where `email` is optional.
   - `NOASSERTION`, where the person adding this information (you) could not reach a reasonable conclusion, the person adding this information made no attempt to determine this field, or this field was left with no information and no meaning should be implied by doing so.
-- `purl`: if the vendor has a specific `purl`, we choose this format. Otherwise, we follow the guidelines from the [PURL Specification](https://github.com/package-url/purl-spec/blob/main/PURL-TYPES.rst). 
+- `purl`: if the vendor has a specific `purl`, we choose this format. Otherwise, we follow the guidelines from the [PURL Specification](https://github.com/package-url/purl-spec/blob/main/PURL-TYPES.rst).
+- `exclude`: excludes the listed files from being included into the generated SPDX package. The excluded files will still be part of the SBOM, but they will belong to an upper SPDX package that contains the current one. As a last resort, they are considered part of the Erlang/OTP root SPDX package.
 
 To update the package, perform any modifications in a `vendor.info` package
 and re-run the source SBOM generation steps ([Erlang/OTP source SBOM]).
