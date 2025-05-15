@@ -77,6 +77,7 @@
 -define(spdx_homepage, ~"https://www.erlang.org").
 -define(spdx_purl_meta_data, ~"?vcs_url=git+https://github.com/erlang/otp.git").
 -define(spdx_version, ~"SPDX-2.2").
+-define(otp_version, 'OTP_VERSION'). % file name of the OTP version
 -define(spdx_project_purl, #{ ~"comment" => ~"",
                               ~"referenceCategory" => ~"PACKAGE-MANAGER",
                               ~"referenceLocator" => ~"pkg:github/erlang/otp",
@@ -466,16 +467,20 @@ fix_project_package_license(_, #{ ~"documentDescribes" := [RootProject],
                 end || Package <- Packages],
     Spdx#{~"packages" := Packages1}.
 
-fix_project_package_version(OtpVersion, #{ ~"documentDescribes" := [RootProject],
-                                           ~"packages" := Packages}=Spdx) ->
-    {ok, Content} = file:read_file(OtpVersion),
+fix_project_package_version(_, #{ ~"documentDescribes" := [RootProject],
+                                  ~"packages" := Packages}=Spdx) ->
+    OtpVersion = get_otp_version(),
     Packages1= [case maps:get(~"SPDXID", Package) of
                     RootProject ->
-                        Package#{ ~"versionInfo" := string:trim(Content) };
+                        Package#{ ~"versionInfo" := OtpVersion };
                     _ ->
                         Package
                 end || Package <- Packages],
     Spdx#{~"packages" := Packages1}.
+
+get_otp_version() ->
+    {ok, Content} = file:read_file(?otp_version),
+    string:trim(Content).
 
 fix_project_purl(#{~"referenceLocator" := RefLoc}=Purl, #{ ~"documentDescribes" := [RootProject],
                           ~"packages" := Packages}=Spdx) ->
@@ -1336,6 +1341,7 @@ app_key_to_record(AppKey) ->
       Spdx            :: map().
 generate_spdx_packages(PackageMappings, #{~"files" := Files,
                                           ~"documentDescribes" := [ProjectName]}=_Spdx) ->
+    SystemDocs = generate_spdx_system_docs(Files, ProjectName),
     maps:fold(fun (PackageName, {PrefixPath, AppInfo}, Acc) ->
                       SpdxPackageFiles = group_files_by_app(Files, PrefixPath),
                       TestFiles = get_test_files(PackageName, SpdxPackageFiles, PrefixPath),
@@ -1366,7 +1372,22 @@ generate_spdx_packages(PackageMappings, #{~"files" := Files,
                                                        P#spdx_package { 'relationships' = #{ K => R} }
                                                end, [Package, DocPackage, TestPackage], Relations),
                       Packages ++ Acc
-               end, [], PackageMappings).
+               end, [SystemDocs], PackageMappings).
+
+generate_spdx_system_docs(Files, ParentSPDXPackageId) ->
+    PrefixPath = ~"system",
+    SpdxPackageFiles = group_files_by_app(Files, PrefixPath),
+    PackageName = ~"system",
+    DocFiles = get_doc_files(PackageName, SpdxPackageFiles, PrefixPath),
+    LicenseUpdated = generate_license_info_from_files(DocFiles),
+    OneLinerLicense = binary:join(LicenseUpdated, ~" AND "),
+    DocPackage = create_spdx_package_record(<<PackageName/binary, "-documentation">>,
+                                            get_otp_version(),
+                                            <<"System Documentation">>,
+                                            DocFiles, ?spdx_homepage,
+                                            OneLinerLicense, OneLinerLicense, false),
+    Relations = #{ 'DOCUMENTATION_OF' => [{ DocPackage#spdx_package.'SPDXID', ParentSPDXPackageId }]},
+    DocPackage#spdx_package { 'relationships' = Relations }.
 
 %% Erlang/OTP apps always follow the convention of having 'test' and 'doc'
 %% folder at top-level of the app folder. erts is more special and we must check
