@@ -102,3 +102,8 @@ release_spec: opt
 
 release_docs_spec:
 
+# ----------------------------------------------------
+# Dependencies
+# ----------------------------------------------------
+ERL_FILES:=$(filter-out yeccparser.erl,$(ERL_FILES))
+include $(ERL_TOP)/make/dep.mk

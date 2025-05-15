@@ -192,13 +192,8 @@ $(TARGET_FILES): $(BEHAVIOUR_TARGET_FILES)
 
 $(DEP_FILE): $(ERL_FILES)
 	@echo SED $(TARGET) $(ERL_TOP_NATIVE)
-	$(gen_verbose)erlc -M $(ERL_FILES) \
+	$(gen_verbose)erlc -M -I ../include -o $(EBIN) $(ERL_FILES) \
 	| perl -pe "s@ [a-zA-Z]?$(ERL_TOP_NATIVE)/(?:bootstrap/)?lib/([^/]+)@ ../../\1@g" 2> /dev/null \
-	| sed "s/\.$(EMULATOR)/\.$$\(EMULATOR\)/" \
-	| sed 's@^dtls_@$$(EBIN)/dtls_@' \
-	| sed 's@^inet_@$$(EBIN)/inet_@' \
-	| sed 's@^ssl_@$$(EBIN)/ssl_@' \
-	| sed 's@^tls_@$$(EBIN)/tls_@' \
 	> $(DEP_FILE)
 
 
@@ -232,4 +227,4 @@ release_docs_spec:
 # ----------------------------------------------------
 # Dependencies
 # ----------------------------------------------------
--include $(DEP_FILE)
+-include $(ERL_TOP)/make/dep.mk
