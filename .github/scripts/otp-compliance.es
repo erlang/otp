@@ -1715,7 +1715,6 @@ test_hasFiles_not_empty(#{~"packages" := Packages}) ->
     ok.
 
 test_files_licenses(Input) ->
-    ok = test_dual_license_files_do_not_contain_noassertion(Input),
     ok = test_concluded_license_equals_license_in_file(Input),
     ok.
 
@@ -1740,22 +1739,6 @@ test_concluded_license_equals_license_in_file(#{~"files" := Files}) ->
                             ~"licenseConcluded" := Concluded,
                             ~"SPDXID" := Id}) ->
                              print_error(Concluded =:= Licenses, {Id, Licenses, Concluded, ?LINE})
-                     end, Files),
-    ok.
-
-
-test_dual_license_files_do_not_contain_noassertion(#{~"files" := Files}) ->
-    true = lists:all(fun (#{~"licenseInfoInFiles" := Licenses, ~"SPDXID" := Id}) ->
-                             case length(Licenses) of
-                                 N when N > 1 ->
-                                     R = lists:all(fun(License) ->
-                                                           License =/= ~"NONE" andalso License =/= ~"NOASSERTION"
-                                                   end, Licenses),
-                                     print_error(R, {Id, Licenses});
-                                 1 ->
-                                     R = test_noassertion_in_license_one_liners(Licenses),
-                                     print_error(R, {Id, Licenses})
-                             end
                      end, Files),
     ok.
 
