@@ -1,4 +1,10 @@
+%% %CopyrightBegin%
+%%
 %% SPDX-License-Identifier: NOASSERTION
+%%
+%% Copyright Erlang/OTP and its contributors
+%%
+%% %CopyrightEnd%
 
 mnesia.erl:1319:50: Guard test size(Spec::[{_,_,_},...]) can never succeed
 mnesia.erl:1498:27: The call mnesia:bad_info_reply(Tab::atom(),Item::'type') will never return since it differs in the 2nd argument from the success typing arguments: (atom(),'memory' | 'size')

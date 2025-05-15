@@ -1,4 +1,11 @@
+%% %CopyrightBegin%
+%%
 %% SPDX-License-Identifier: NOASSERTION
+%%
+%% Copyright Erlang/OTP and its contributors
+%%
+%% %CopyrightEnd%
+
 
 beam_asm.erl:32:2: The pattern {'error', Error} can never match the type <<_:64,_:_*8>>
 beam_bool.erl:193:2: The pattern {[], _} can never match the type {[{_,_,_,_},...],[any()]}
