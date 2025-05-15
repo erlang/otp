@@ -125,22 +125,6 @@ release_docs_spec:
 
 
 # ----------------------------------------------------
-# Include dependencies
+# Dependencies
 # ----------------------------------------------------
-
-$(EBIN)/et.$(EMULATOR): et.erl
-
-$(EBIN)/et_selector.$(EMULATOR): et_selector.erl ../include/et.hrl
-
-$(EBIN)/et_contents_viewer.$(EMULATOR): et_contents_viewer.erl ../include/et.hrl et_internal.hrl
-
-$(EBIN)/et_wx_contents_viewer.$(EMULATOR): et_wx_contents_viewer.erl ../include/et.hrl et_internal.hrl
-
-$(EBIN)/et_collector.$(EMULATOR): et_collector.erl ../include/et.hrl et_internal.hrl
-
-$(EBIN)/et_viewer.$(EMULATOR): et_viewer.erl ../include/et.hrl et_internal.hrl
-
-$(EBIN)/et_wx_viewer.$(EMULATOR): et_wx_viewer.erl ../include/et.hrl et_internal.hrl
-
-
-
+include $(ERL_TOP)/make/dep.mk

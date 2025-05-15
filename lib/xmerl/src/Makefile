@@ -237,23 +237,7 @@ release_docs_spec:
 
 release_tests_spec:
 
-
-#------------------------------------------------------------
-# .hrl dependencies
-$(EBIN)/xmerl.beam:../include/xmerl.hrl
-$(EBIN)/xmerl_lib.beam:../include/xmerl.hrl
-$(EBIN)/xmerl_scan.beam:../include/xmerl.hrl
-$(EBIN)/xmerl_xlate.beam:../include/xmerl.hrl
-$(EBIN)/xmerl_xml.beam:../include/xmerl.hrl
-$(EBIN)/xmerl_html.beam:../include/xmerl.hrl
-$(EBIN)/xmerl_text.beam:../include/xmerl.hrl
-$(EBIN)/xmerl_eventp.beam:../include/xmerl.hrl
-$(EBIN)/xmerl_simple.beam:../include/xmerl.hrl
-$(EBIN)/xmerl_xpath.beam:../include/xmerl.hrl
-$(EBIN)/xmerl_xpath_lib.beam:../include/xmerl.hrl
-$(EBIN)/xmerl_xpath_pred.beam:../include/xmerl.hrl
-$(EBIN)/xmerl_xpath_scan.beam:../include/xmerl.hrl
-#$(EBIN)/xmerl_xsd.beam:../include/xmerl_xsd.hrl
-#$(EBIN)/xmerl_xsd.beam:../include/xmerl.hrl
-
-
+# ----------------------------------------------------
+# Dependencies
+# ----------------------------------------------------
+include $(ERL_TOP)/make/dep.mk

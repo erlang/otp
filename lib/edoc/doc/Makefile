@@ -36,10 +36,10 @@ assets/edoc.dtd:
 	$(V_at)cp "../priv/edoc.dtd" "$@"
 
 
-## Include SOURCES, HRL_FILES and YRL_FILES
+## Include ERL_FILES, HRL_FILES and YRL_FILES
 include ../src/files.mk
 
-NO_PARSE_SOURCES=$(filter-out edoc_parser.erl, $(SOURCES))
+NO_PARSE_SOURCES=$(filter-out edoc_parser.erl, $(ERL_FILES))
 CHUNK_FILES=$(NO_PARSE_SOURCES:%.erl=$(CHUNKSDIR)/%.chunk) $(YRL_FILES:%.yrl=$(CHUNKSDIR)/%.chunk)
 
 $(HTMLDIR)/index.html: assets/edoc_doclet.hrl assets/edoc.dtd $(CHUNK_FILES)
