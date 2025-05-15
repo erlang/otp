@@ -557,16 +557,24 @@ jobs:
         uses: ./.github/actions/ossf-compiler-flags-scanner
       - name: Run codechecker
         run: |
+          export CLANG_VERSION=20
+
           docker build -t otp_cc - <<EOF
           FROM otp
-          ENV CLANG_VERSION=15
-          RUN sudo apt-get install -y pip clang-$CLANG_VERSION clang-tidy-$CLANG_VERSION && \
-              sudo update-alternatives \
+          USER root
+          RUN mkdir -p /etc/apt/keyrings && \
+              wget -qO /etc/apt/keyrings/llvm.asc https://apt.llvm.org/llvm-snapshot.gpg.key && \
+              echo "deb [signed-by=/etc/apt/keyrings/llvm.asc] http://apt.llvm.org/jammy/ llvm-toolchain-jammy-$CLANG_VERSION main" \
+                | tee /etc/apt/sources.list.d/llvm$CLANG_VERSION.list && \
+              apt-get update && apt-get install -y pip clang-$CLANG_VERSION clang-tidy-$CLANG_VERSION && \
+              update-alternatives \
                 --install /usr/bin/clang clang /usr/bin/clang-$CLANG_VERSION 81 \
                 --slave /usr/bin/clang++ clang++ /usr/bin/clang++-$CLANG_VERSION \
                 --slave /usr/bin/clang-tidy clang-tidy /usr/bin/clang-tidy-$CLANG_VERSION \
                 --slave /usr/bin/clang-format clang-format /usr/bin/clang-format-$CLANG_VERSION && \
-              pip install codechecker
+              rm -rf /var/lib/apt/lists/*
+          USER otptest
+          RUN pip install codechecker
           RUN cd \$ERL_TOP && ./configure CC=clang CXX=clang++ --with-ssl-lib-subdir=lib/x86_64-linux-gnu
           EOF
 
