@@ -200,12 +200,6 @@
          extensions = asn1_NOVALUE
         }).
 
--record('AlgorithmIdentifier',
-        {
-         algorithm,
-         parameters = asn1_NOVALUE
-        }).
-
 %%%
 %%% Erlang alternate representation of PKIX certificate
 %%%
@@ -237,32 +231,17 @@
          parameters = asn1_NOVALUE
         }).
 
--define('id-dsa-with-sha1', {1,2,840,10040,4,3}).
--define('id-dsaWithSHA1', {1,3,14,3,2,27}).     %Probably obsolete.
--define('md2WithRSAEncryption', {1,2,840,113549,1,1,2}).
--define('md5WithRSAEncryption', {1,2,840,113549,1,1,4}).
--define('sha1WithRSAEncryption', {1,2,840,113549,1,1,5}).
--define('sha-1WithRSAEncryption', {1,3,14,3,2,29}). %Probably obsolete.
--define('sha224WithRSAEncryption', {1,2,840,113549,1,1,14}).
--define('sha256WithRSAEncryption', {1,2,840,113549,1,1,11}).
--define('sha512WithRSAEncryption', {1,2,840,113549,1,1,13}).
--define('ecdsa-with-SHA1', {1,2,840,10045,4,1}).
 
-%% Undocumented but used by test suite.
--define('id-dsa-with-sha224', {2,16,840,1,101,3,4,3,1}).
--define('id-dsa-with-sha256', {2,16,840,1,101,3,4,3,2}).
+%% Hash functions
+
 -define('id-sha1', {1,3,14,3,2,26}).
 -define('id-sha224', {2,16,840,1,101,3,4,2,4}).
 -define('id-sha256', {2,16,840,1,101,3,4,2,1}).
 -define('id-sha384', {2,16,840,1,101,3,4,2,2}).
 -define('id-sha512', {2,16,840,1,101,3,4,2,3}).
--define('sha384WithRSAEncryption', {1,2,840,113549,1,1,12}).
--define('id-RSASSA-PSS', {1,2,840,113549,1,1,10}).
--define('ecdsa-with-SHA256', {1,2,840,10045,4,3,2}).
--define('ecdsa-with-SHA384', {1,2,840,10045,4,3,3}).
--define('ecdsa-with-SHA512', {1,2,840,10045,4,3,4}).
--define('rSASSA-PSS-Default-Identifier', {'RSASSA-AlgorithmIdentifier',{1,2,840,113549,1,1,10},{'RSASSA-PSS-params',{'HashAlgorithm',{1,3,14,3,2,26},'NULL'},{'MaskGenAlgorithm',{1,2,840,113549,1,1,8},{'HashAlgorithm',{1,3,14,3,2,26},'NULL'}},20,1}}).
--define('id-mgf1', {1,2,840,113549,1,1,8}).
+
+
+
 
 -record('AttributeTypeAndValue',
         {
@@ -285,7 +264,8 @@
 -define('id-at-serialNumber', {2,5,4,5}).
 -define('id-at-pseudonym', {2,5,4,65}).
 
-%% Not documented but used by the test suite.
+%% Should we document ?
+-define('id-domainComponent', {0,9,2342,19200300,100,1,25}).
 -define('id-emailAddress', {1,2,840,113549,1,9,1}).
 -define('id-at-organizationalUnitName', {2,5,4,11}).
 
@@ -305,20 +285,59 @@
          subjectPublicKey
         }).
 
+%% OTP certificate  format
 -record('PublicKeyAlgorithm',
         {
          algorithm,
          parameters = asn1_NOVALUE
         }).
 
+%% plain certificate format
+-record('AlgorithmIdentifier',
+        {
+         algorithm,
+         parameters = asn1_NOVALUE
+        }).
+
+
 %%%
 %%% Public-key algorithms
 %%%
+
+%% Digital signatures
+%% Modern
+-define('id-RSASSA-PSS', {1,2,840,113549,1,1,10}).
+-define('rSASSA-PSS-Default-Identifier', {'RSASSA-AlgorithmIdentifier',{1,2,840,113549,1,1,10},{'RSASSA-PSS-params',{'HashAlgorithm',{1,3,14,3,2,26},'NULL'},{'MaskGenAlgorithm',{1,2,840,113549,1,1,8},{'HashAlgorithm',{1,3,14,3,2,26},'NULL'}},20,1}}).
+-define('id-mgf1', {1,2,840,113549,1,1,8}).
+-define('id-ecPublicKey', {1,2,840,10045,2,1}).
+-define('ecdsa-with-SHA256', {1,2,840,10045,4,3,2}).
+-define('ecdsa-with-SHA384', {1,2,840,10045,4,3,3}).
+-define('ecdsa-with-SHA512', {1,2,840,10045,4,3,4}).
+
+%% Legacy
 -define('rsaEncryption', {1,2,840,113549,1,1,1}).
+-define('md2WithRSAEncryption', {1,2,840,113549,1,1,2}).
+-define('md5WithRSAEncryption', {1,2,840,113549,1,1,4}).
+-define('sha1WithRSAEncryption', {1,2,840,113549,1,1,5}).
+-define('sha224WithRSAEncryption', {1,2,840,113549,1,1,14}).
+-define('sha256WithRSAEncryption', {1,2,840,113549,1,1,11}).
+-define('sha384WithRSAEncryption', {1,2,840,113549,1,1,12}).
+-define('sha512WithRSAEncryption', {1,2,840,113549,1,1,13}).
+-define('sha512-224WithRSAEncryption', {1,2,840,113549,1,1,15}).
+-define('sha512-256WithRSAEncryption', {1,2,840,113549,1,1,16}).
+-define('sha-1WithRSAEncryption', {1,3,14,3,2,29}).
+-define('id-hmacWithSHA1', {1,2,840,113549,2,7}).
+-define('ecdsa-with-SHA1', {1,2,840,10045,4,1}).
 -define('id-dsa', {1,2,840,10040,4,1}).
+-define('id-dsaWithSHA1', {1,3,14,3,2,27}).
+-define('id-dsa-with-sha1', {1,2,840,10040,4,3}).
+-define('id-dsa-with-sha224', {2,16,840,1,101,3,4,3,1}).
+-define('id-dsa-with-sha256', {2,16,840,1,101,3,4,3,2}).
+
+%% Key exchange
 -define('dhpublicnumber', {1,2,840,10046,2,1}).
 -define('id-keyExchangeAlgorithm', {2,16,840,1,101,2,1,1,22}).
--define('id-ecPublicKey', {1,2,840,10045,2,1}).
+
 
 -record('Extension',
         {
@@ -672,6 +691,8 @@
         }).
 
 -define('id-pkix-ocsp-nonce', {1,3,6,1,5,5,7,48,1,2}).
+-define('id-ad-ocsp', {1,3,6,1,5,5,7,48,1}).
+-define('id-pe-authorityInfoAccess', {1,3,6,1,5,5,7,1,1}).
 
 %%%
 %%% Undocumented but used by SSL.
@@ -699,11 +720,83 @@
          parameters = asn1_NOVALUE
         }).
 
-%% used by SSL test suite
+-record('EncryptedPrivateKeyInfo', 
+        {
+         encryptionAlgorithm,
+         encryptedData
+        }).
 
+-record('EncryptedPrivateKeyInfo_encryptionAlgorithm',
+        {algorithm,
+         parameters
+        }).
+
+-record('OneAsymmetricKey', {
+  version,
+  privateKeyAlgorithm,
+  privateKey,
+  attributes = asn1_NOVALUE,
+  %% with extensions
+  publicKey = asn1_NOVALUE
+  %% end of extensions
+}).
+
+%% Password based encryption
+-define('id-PBES2', {1,2,840,113549,1,5,13}).
 -define('id-PBKDF2', {1,2,840,113549,1,5,12}).
--define('id-hmacWithSHA1', {1,2,840,113549,2,7}).
+
+-define('id-hmacWithSHA224', {1,2,840,113549,2,8}).
+-define('id-hmacWithSHA256', {1,2,840,113549,2,9}).
+-define('id-hmacWithSHA384', {1,2,840,113549,2,10}).
+-define('id-hmacWithSHA512', {1,2,840,113549,2,11}).
+
+-define('id-aes128-CBC', {2,16,840,1,101,3,4,1,2}).
+-define('id-aes192-CBC', {2,16,840,1,101,3,4,1,22}).
 -define('id-aes256-CBC', {2,16,840,1,101,3,4,1,42}).
+-define('rc2CBC', {1,2,840,113549,3,2}).
+
+-record('RC2-CBC-Parameter', {
+  rc2ParameterVersion = asn1_NOVALUE,
+  iv
+}).
+
+-record('PBES2-params', {
+  keyDerivationFunc,
+  encryptionScheme
+}).
+
+-record('PBES2-params_keyDerivationFunc', {
+  algorithm,
+  parameters = asn1_NOVALUE
+}).
+
+-record('PBES2-params_encryptionScheme', {
+  algorithm,
+  parameters = asn1_NOVALUE
+}).
+
+-record('PBEParameter', {
+  salt,
+  iterationCount
+}).
+
+-record('PBKDF2-params', {
+  salt,
+  iterationCount,
+  keyLength = asn1_NOVALUE,
+  prf = asn1_DEFAULT
+}).
+
+-record('PBKDF2-params_prf', {
+  algorithm,
+  parameters = asn1_NOVALUE
+}).
+
+-record('EncryptionAlgorithmIdentifier', {
+  algorithm,
+  parameters = asn1_NOVALUE
+}).
+
 
 %%%
 %%% Undocumented but used by SSH.
