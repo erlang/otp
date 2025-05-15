@@ -460,12 +460,23 @@ fix_project_package_license(_, #{ ~"documentDescribes" := [RootProject],
                                   ~"packages" := Packages}=Spdx) ->
     Packages1= [case maps:get(~"SPDXID", Package) of
                     RootProject ->
+                        Licenses = remove_invalid_spdx_licenses(maps:get(~"licenseDeclared", Package)),
                         Package#{ ~"homepage" := ~"https://www.erlang.org",
-                                  ~"licenseConcluded" := maps:get(~"licenseDeclared", Package)};
+                                  ~"licenseConcluded" := binary:join(Licenses, ~" AND ")};
                     _ ->
                         Package
                 end || Package <- Packages],
     Spdx#{~"packages" := Packages1}.
+
+remove_invalid_spdx_licenses(Licenses) when is_list(Licenses) ->
+    lists:foldl(fun (L, Acc) ->
+                        remove_invalid_spdx_licenses(L) ++ Acc
+                end, [], Licenses);
+remove_invalid_spdx_licenses(Licenses) when is_binary(Licenses) ->
+    lists:filter(fun (~"NONE") -> false;
+                     (~"NOASSERTION") -> false;
+                     (_) -> true
+                 end, string:split(Licenses, ~" AND ", all)).
 
 fix_project_package_version(_, #{ ~"documentDescribes" := [RootProject],
                                   ~"packages" := Packages}=Spdx) ->
@@ -1380,7 +1391,8 @@ generate_spdx_system_docs(Files, ParentSPDXPackageId) ->
     PackageName = ~"system",
     DocFiles = get_doc_files(PackageName, SpdxPackageFiles, PrefixPath),
     LicenseUpdated = generate_license_info_from_files(DocFiles),
-    OneLinerLicense = binary:join(LicenseUpdated, ~" AND "),
+    ValidLicense = remove_invalid_spdx_licenses(LicenseUpdated),
+    OneLinerLicense = binary:join(ValidLicense, ~" AND "),
     DocPackage = create_spdx_package_record(<<PackageName/binary, "-documentation">>,
                                             get_otp_version(),
                                             <<"System Documentation">>,
