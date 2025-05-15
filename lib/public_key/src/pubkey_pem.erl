@@ -44,22 +44,7 @@
 -module(pubkey_pem).
 -moduledoc false.
 
--record('PBEParameter', {
-  salt,
-  iterationCount
-}).
-
--record('PBES2-params', {
-  keyDerivationFunc,
-  encryptionScheme
-}).
-
--record('EncryptedPrivateKeyInfo', {
-  encryptionAlgorithm,
-  encryptedData
-}).
-
--include("public_key.hrl").
+-include("PKCS-FRAME.hrl").
 
 -export([encode/1, decode/1, decipher/2, cipher/3]).
 

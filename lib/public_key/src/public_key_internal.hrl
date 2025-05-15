@@ -195,6 +195,18 @@
          encryptionScheme
         }).
 
+
+-record('PrivateKeyInfo',
+        {
+         version,
+         privateKeyAlgorithm,
+         privateKey,
+         attributes = asn1_NOVALUE,
+         %% with extensions
+         publicKey = asn1_NOVALUE
+         %% end of extensions
+        }).
+
 -record('OneAsymmetricKey',
         {
          version,
@@ -211,6 +223,12 @@
          algorithm,
          parameters = asn1_NOVALUE
         }).
+
+-record('PrivateKeyInfo_privateKeyAlgorithm',
+       {
+        algorithm,
+        parameters = asn1_NOVALUE
+       }).
 
 -record('OTPSubjectPublicKeyInfo',
         {
