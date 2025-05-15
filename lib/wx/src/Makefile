@@ -138,3 +138,8 @@ release_spec: opt
 #	$(INSTALL_DATA) ../$(ARCHIVE) $(RELEASE_PATH)/lib
 
 release_docs_spec:
+
+# ----------------------------------------------------
+# Dependencies
+# ----------------------------------------------------
+include $(ERL_TOP)/make/dep.mk

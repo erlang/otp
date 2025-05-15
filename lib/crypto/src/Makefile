@@ -90,3 +90,8 @@ release_spec: opt
 		$(APPUP_TARGET) "$(RELSYSDIR)/ebin"
 
 release_docs_spec:
+
+# ----------------------------------------------------
+# Dependencies
+# ----------------------------------------------------
+include $(ERL_TOP)/make/dep.mk
