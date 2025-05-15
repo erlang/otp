@@ -1720,11 +1720,11 @@ test_hasFiles_not_empty(#{~"packages" := Packages}) ->
 %%     ok = test_concluded_license_equals_license_in_file(Input),
 %%     ok.
 
-print_error(false, Input) ->
-    io:format("[~p] ~p~n", [false, Input]),
-    false;
-print_error(true, _Input) ->
-    true.
+%% print_error(false, Input) ->
+%%     io:format("[~p] ~p~n", [false, Input]),
+%%     false;
+%% print_error(true, _Input) ->
+%%     true.
 
 %% test_concluded_license_equals_license_in_file(#{~"files" := Files}) ->
 %%     true = lists:all(fun (#{~"licenseInfoInFiles" := [License], ~"licenseConcluded" := License}) ->
@@ -1743,25 +1743,6 @@ print_error(true, _Input) ->
 %%                              print_error(Concluded =:= Licenses, {Id, Licenses, Concluded, ?LINE})
 %%                      end, Files),
 %%     ok.
-
-test_noassertion_in_license_one_liners([Licenses]) when is_binary(Licenses) ->
-    test_noassertion_in_license_one_liners(Licenses);
-test_noassertion_in_license_one_liners(Licenses) when is_binary(Licenses) ->
-    %% check that a one liner license (produced by ORT)does not
-    %% contain in it Apache-2.0 AND NOASSERTION, which makes no sense.
-    case re:run(Licenses, ".*(AND|OR)?.*(NOASSERTION|NONE).*") of
-        nomatch ->
-            true;
-        _ ->
-            case Licenses of
-                ~"NONE" ->
-                    true;
-                ~"NOASSERTION" ->
-                    true;
-                _ ->
-                    false
-            end
-    end.
 
 test_homepage(#{~"packages" := Packages})->
     true = lists:all(fun (#{~"homepage" := Homepage}) -> Homepage == ?spdx_homepage orelse Homepage =/= <<>> end, Packages),
