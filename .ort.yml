@@ -464,12 +464,6 @@ curations:
           The scanner incorrectly categorises the license
         concluded_license: "Apache-2.0 OR BSL-1.0"
 
-      - path: "erts/emulator/ryu/xcharconv_ryu.h.sha"
-        reason: "NOT_DETECTED"
-        comment: >-
-          This file does not admit comments to add a license.
-        concluded_license: "Apache-2.0"
-
       - path: "erts/emulator/pcre/LICENCE"
         reason: "DOCUMENTATION_OF"
         comment: >-
