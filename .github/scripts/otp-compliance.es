@@ -584,7 +584,7 @@ fix_beam_licenses(LicensesAndCopyrights,
                           #{~"fileName" := <<"FILE-HEADERS/", Filename/binary>>} when Filename =/= ~"README.md" ->
                               %% license files have comment stating they are license files.
                               %% this cannot be encoded in .ort.yml as it does not allow to add comments
-                              SPDX#{~"comment" => ~"license file"};
+                              SPDX#{~"comment" => ~"license file"};  % TODO: remove this later ~"licenseInfoInFiles" := [~"NOASSERTION"]};
 
                           #{~"fileName" := <<"LICENSES/", _Filename/binary>>} ->
                               %% license files have comment stating they are license files.

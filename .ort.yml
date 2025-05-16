@@ -51,31 +51,25 @@ curations:
           Licenses have NOASSERTION license
         concluded_license: "NOASSERTION"
 
-      - path: "erts/emulator/zstd/COPYING"
+      - path: "FILE-HEADERS/*"
         reason: "INCORRECT"
         comment: >-
           Licenses have NOASSERTION license
         concluded_license: "NOASSERTION"
 
-      - path: "erts/emulator/zstd/LICENSE"
+      - path: "**/COPYING"
         reason: "INCORRECT"
         comment: >-
           Licenses have NOASSERTION license
         concluded_license: "NOASSERTION"
 
-      - path: "lib/eldap/LICENSE"
+      - path: "**/LICENSE"
         reason: "INCORRECT"
         comment: >-
           Licenses have NOASSERTION license
         concluded_license: "NOASSERTION"
 
-      - path: "erts/lib_src/yielding_c_fun/test/examples/sha256_erlang_nif/c_src/sha-2/LICENSE"
-        reason: "INCORRECT"
-        comment: >-
-          Licenses have NOASSERTION license
-        concluded_license: "NOASSERTION"
-
-      - path: "erts/lib_src/yielding_c_fun/test/examples/sha256_erlang_nif/LICENSE"
+      - path: "**/LICENSE-*"
         reason: "INCORRECT"
         comment: >-
           Licenses have NOASSERTION license

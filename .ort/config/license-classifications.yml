@@ -96,24 +96,6 @@ categorizations:
 - id: "LicenseRef-scancode-wxwindows-free-doc-3"
   categories:
   - "review"
-  # Needed by "FILE-HEADERS/Apache-2.0-AND-LicenseRef-scancode-wxwindows-free-doc-3.txt"
-- id: "LGPL-2.0-or-later WITH WxWindows-exception-3.1"
-  categories:
-  - "review"
-  - "disallow"
-- id: "Latex2e"
-  categories:
-  - "review"
-  - "disallow"
-- id: "GPL-2.0-or-later"
-  categories:
-  - "review"
-  - "disallow"
-- id: "GPL-1.0-or-later"
-  categories:
-  - "review"
-  - "disallow"
-  # End
 - id: "LicenseRef-scancode-ietf"
   categories:
   - "review"
