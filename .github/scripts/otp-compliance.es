@@ -575,6 +575,8 @@ fix_beam_licenses(LicensesAndCopyrights,
                           #{~"fileName" := Filename} when
                                 Filename =:= ~"erts/emulator/zstd/COPYING";
                                 Filename =:= ~"erts/emulator/zstd/LICENSE";
+                                Filename =:= ~"erts/emulator/ryu/LICENSE-Apache2";
+                                Filename =:= ~"erts/emulator/ryu/LICENSE-Boost";
                                 Filename =:= ~"lib/eldap/LICENSE";
                                 Filename =:= ~"erts/lib_src/yielding_c_fun/test/examples/sha256_erlang_nif/c_src/sha-2/LICENSE";
                                 Filename =:= ~"erts/lib_src/yielding_c_fun/test/examples/sha256_erlang_nif/LICENSE" ->

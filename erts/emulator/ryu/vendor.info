@@ -21,8 +21,6 @@
              "./erts/emulator/ryu/d2s_intrinsics.h",
              "./erts/emulator/ryu/digit_table.h",
              "./erts/emulator/ryu/ryu.h",
-             "./erts/emulator/ryu/ryu.mk",
-             "./erts/emulator/ryu/README.md",
              "./erts/emulator/ryu/LICENSE-Apache2",
              "./erts/emulator/ryu/LICENSE-Boost"
             ],
@@ -42,7 +40,6 @@
     "versionInfo": "vs-2022-17.13",
     "path": [
       "./erts/emulator/ryu/to_chars.h",
-      "./erts/emulator/ryu/xcharconv_ryu.h.sha"
     ],
     "supplier": "Organization: Microsoft Corporation",
     "purl": "pkg:github/microsoft/STL#stl/inc/xcharconv_ryu.h",
