@@ -105,6 +105,15 @@ categorizations:
   categories:
   - "review"
   - "disallow"
+- id: "GPL-2.0-or-later"
+  categories:
+  - "review"
+  - "disallow"
+- id: "GPL-1.0-or-later"
+  categories:
+  - "review"
+  - "disallow"
+  # End
 - id: "LicenseRef-scancode-ietf"
   categories:
   - "review"
