@@ -60,6 +60,7 @@
          process_info_dict_lookup/1,
          process_info_label/1,
          suspend_process_pausing_proc_timer/1,
+         suspend_process_pausing_bif_timer/1,
 	 bump_reductions/1, low_prio/1, binary_owner/1, yield/1, yield2/1,
 	 otp_4725/1, dist_unlink_ack_exit_leak/1, bad_register/1,
          garbage_collect/1, otp_6237/1,
@@ -193,7 +194,8 @@ groups() ->
        process_info_dict_lookup,
        process_info_label]},
      {suspend_process_bif, [],
-      [suspend_process_pausing_proc_timer]},
+      [suspend_process_pausing_proc_timer,
+       suspend_process_pausing_bif_timer]},
      {otp_7738, [],
       [otp_7738_waiting, otp_7738_suspended,
        otp_7738_resume]},
@@ -1834,6 +1836,54 @@ suspend_process_pausing_proc_timer_aux(BeforeSuspend, AfterResume) ->
     true = erlang:resume_process(Pid),
     AfterResume(Pid),
     WaitForSync(),
+    ok.
+
+suspend_process_pausing_bif_timer(Config) ->
+    TcProc = self(),
+    Pid = erlang:spawn_link(
+        fun() ->
+        TcProc ! {sync, self(), start},
+        receive
+            {timeout, _, timer_msg_1} -> TcProc ! {sync, self(), received_message_1};
+            {timeout, _, timer_msg_2} -> exit(timer_2_before_1_receiver)
+            after 2_000 -> exit(timer_not_resumed_receiver)
+        end,
+        receive
+            {timeout, _, timer_msg_1} -> exit(timer_1_before_2_receiver);
+            {timeout, _, timer_msg_2} -> TcProc ! {sync, self(), received_message_2}
+            after 2_000 -> exit(timer_not_resumed_receiver_2)
+        end
+    end),
+
+    % Wait for the process to start
+    receive
+        {sync, Pid, start} -> ok
+        after 10_000 -> error(timeout)
+    end,
+
+    % Start the timers, but immediately suspend the process
+    _TimerRef = erlang:start_timer(1_000, Pid, timer_msg_1),
+    _TimerRef2 = erlang:start_timer(2_000, Pid, timer_msg_2),
+    true = erlang:suspend_process(Pid),
+    timer:sleep(5_000),
+    receive
+        {sync, Pid, received_message_1} -> exit(timer_1_not_paused);
+        {sync, Pid, received_message_2} -> exit(timer_2_not_paused)
+        after 2_000 -> ok
+    end,
+
+    % Resume the process and wait for the timer to fire
+    true = erlang:resume_process(Pid),
+    receive
+        {sync, Pid, received_message_1} -> ok;
+        {sync, Pid, received_message_2} -> exit(timer_2_before_1_spawner)
+        after 2_000 -> exit(timer_not_resumed_spawner)
+    end,
+    receive
+        {sync, Pid, received_message_2} -> ok;
+        {sync, Pid, received_message_1} -> exit(timer_1_before_2_spawner)
+        after 2_000 -> exit(timer_not_resumed_spawner_2)
+    end,
     ok.
 
 %% Tests erlang:bump_reductions/1.
