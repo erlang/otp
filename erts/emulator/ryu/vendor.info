@@ -39,7 +39,7 @@
     "name": "STL",
     "versionInfo": "vs-2022-17.13",
     "path": [
-      "./erts/emulator/ryu/to_chars.h",
+      "./erts/emulator/ryu/to_chars.h"
     ],
     "supplier": "Organization: Microsoft Corporation",
     "purl": "pkg:github/microsoft/STL#stl/inc/xcharconv_ryu.h",
