@@ -21,6 +21,11 @@
 %% %CopyrightEnd%
 -->
 
+<!--
+%% REUSE-IgnoreStart
+-->
+
+
 License Headers in Erlang/OTP
 -----------------------------
 
@@ -61,7 +66,7 @@ limitations under the License.
 ```
 
 If the file is under some other license, it needs to have its `SPDX-License-Identifier`
-and also a copy of the license header information needs to be in `LICENSE-HEADERS/`.
+and also a copy of the license header information needs to be in `FILE-HEADERS/`.
 If the entire license is to be part of the header, you should place the license
 text in `LICENSES/` directly and the tool will use those. Different licenses have
 different conventions regarding if the whole license should be in the header or not.
@@ -210,3 +215,6 @@ It is highly recommended to place the license header at the top of the file,
 but sometime that is not possible so it is allowed to place it anywhere in the
 file.
 
+<!--
+%% REUSE-IgnoreEnd
+-->

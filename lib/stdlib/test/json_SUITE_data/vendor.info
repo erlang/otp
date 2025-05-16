@@ -6,7 +6,7 @@
 //
 // %CopyrightEnd%
 [{
-  "ID": "stdlib-json-suite",
+  "ID": "stdlib-test-json-suite",
   "description": "JSON Test Suite",
   "copyrightText": "Copyright (c) 2016 Nicolas Seriot",
   "downloadLocation": "https://github.com/nst/JSONTestSuite",

@@ -22,6 +22,7 @@
 %%
 %% %CopyrightEnd%
 
+%% REUSE-IgnoreStart
 -define(tmp_folder, "tmp/").
 
 -include_lib("kernel/include/file.hrl").
@@ -531,3 +532,5 @@ cmd(Cmd) ->
 rfctime() ->
     unicode:characters_to_binary(
         calendar:system_time_to_rfc3339(erlang:system_time(second))).
+
+%% REUSE-IgnoreEnd

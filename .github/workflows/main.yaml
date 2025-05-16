@@ -708,8 +708,8 @@ jobs:
             # Move Fetched Default Config into Place
             mv .ort-config "$HOME/.ort/config"
 
-            # Append Global ORT Config
-            cat .ort/config/config.yml >> "$HOME/.ort/config/config.yml"
+            # Copy local configuration
+            cp .ort/config/* "$HOME/.ort/config/"
 
       - name: Run OSS Review Toolkit (analyzer)
         uses: oss-review-toolkit/ort-ci-github-action@1805edcf1f4f55f35ae6e4d2d9795ccfb29b6021 # ratchet:oss-review-toolkit/ort-ci-github-action@v1.1.0
@@ -836,7 +836,7 @@ jobs:
             sw-version: ${{ env.OTP_SBOM_VERSION }}
 
       - name: Link results
-        run: ln -s scan-result.json $HOME/.ort/ort-results/current-result.json
+        run: ln -f -s scan-result.reuse.json $HOME/.ort/ort-results/current-result.json
 
       - name: Run OSS Review Toolkit (evaluator)
         uses: oss-review-toolkit/ort-ci-github-action@1805edcf1f4f55f35ae6e4d2d9795ccfb29b6021 # ratchet:oss-review-toolkit/ort-ci-github-action@v1.1.0
@@ -845,7 +845,7 @@ jobs:
             run: >
               advisor,
               evaluator
-            fail-on: ${{ github.ref_type == 'tag' && '' || '' }} # 'violations,issues' }}
+            fail-on: ${{ github.ref_type == 'tag' && '' || 'violations,issues' }}
             sw-version: ${{ env.OTP_SBOM_VERSION }}
 
   vendor-analysis:
