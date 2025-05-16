@@ -1435,6 +1435,7 @@ do_update_counter(Process *p, DbTable* tb,
     Eterm* htop;          /* actual heap usage */
     Eterm* hstart;
     Eterm* hend;
+    ERTS_UNDEF(ret, THE_NON_VALUE);
 
     UseTmpHeap(5, p);
     if (!(tb->common.status & (DB_SET | DB_ORDERED_SET | DB_CA_ORDERED_SET))) {
