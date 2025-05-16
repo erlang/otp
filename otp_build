@@ -1259,13 +1259,13 @@ do_update_ex_doc ()
 do_debuginfo_win32 ()
 {
     setup_make
-    ($MAKE MAKE="$MAKE" TARGET=$TARGET TYPE=debug) || exit 1
+    (cd erts/emulator && $MAKE MAKE="$MAKE" TARGET=$TARGET debug) || exit 1
     if [ -z "$1" ]; then
        RELDIR="$ERL_TOP/release/$TARGET"
     else
        RELDIR="$1"
     fi
-    ($MAKE release RELEASE_ROOT="$RELDIR" MAKE="$MAKE" TARGET=$TARGET TYPE=debug) || exit 1
+    (cd erts/emulator && $MAKE release RELEASE_ROOT="$RELDIR" MAKE="$MAKE" TARGET=$TARGET TYPE=debug) || exit 1
 }
 
 do_installer_win32 ()
