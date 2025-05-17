@@ -113,3 +113,8 @@ release_docs_spec:
 info:
 	@echo "APPLICATION       = $(APPLICATION)"
 	@echo "ERL_COMPILE_FLAGS = $(ERL_COMPILE_FLAGS)"
+
+# ----------------------------------------------------
+# Dependencies
+# ----------------------------------------------------
+include $(ERL_TOP)/make/dep.mk
