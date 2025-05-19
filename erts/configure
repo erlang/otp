@@ -8554,6 +8554,8 @@ esac
 fi
 
 
+  # Make -fvisibility=hidden usable if supported. Currently only used by
+  # our PCRE2 to avoid symbol clashes with real PCRE2 if dynamically loaded.
 
     { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -fvisibility=hidden to VISIBILITY_HIDDEN (via CFLAGS)" >&5
 printf %s "checking if we can add -fvisibility=hidden to VISIBILITY_HIDDEN (via CFLAGS)... " >&6; }
