@@ -31,7 +31,8 @@ decode(#'SubjectPublicKeyInfo'{algorithm=AlgId0,subjectPublicKey=Key}) ->
     #'SubjectPublicKeyInfo_algorithm'{algorithm=AlgId1,parameters=Params1} = AlgId0,
     AlgId = decode(AlgId1),
     Params = decode(Params1),
-    #'SubjectPublicKeyInfo'{algorithm={'PublicKeyAlgorithm', AlgId, Params},
+    %% Documented as AlgorithmIdentifier in plain
+    #'SubjectPublicKeyInfo'{algorithm={'AlgorithmIdentifier', AlgId, Params},
                             subjectPublicKey=Key};
 decode(#'DSA-Params'{p=P,q=Q,g=G}) ->
     {params, #'Dss-Parms'{p=P,q=Q,g=G}};
@@ -46,6 +47,8 @@ decode({'OneAsymmetricKey', Vsn, KeyAlg, PrivKey, Attrs, PubKey} = Orig) ->   %%
         v1 -> {'PrivateKeyInfo', Vsn, KeyAlg, PrivKey, Attrs, PubKey};
         _  -> Orig
     end;
+decode({'EncryptionAlgorithmIdentifier', Algo, Params}) ->
+    {'EncryptedPrivateKeyInfo_encryptionAlgorithm', Algo, Params};
 decode(Tuple) when is_tuple(Tuple) ->
     case is_simple_tuple(Tuple) of
         true ->
@@ -61,7 +64,8 @@ decode(Other) ->
 decode_list(List) ->
     [decode(E) || E <- List].
 
-encode(#'SubjectPublicKeyInfo'{algorithm={'PublicKeyAlgorithm', AlgId0, Params},
+%% Documented as AlgorithmIdentifier in plain
+encode(#'SubjectPublicKeyInfo'{algorithm={'AlgorithmIdentifier', AlgId0, Params},
                                subjectPublicKey=Key}) ->
     AlgId1 = encode(AlgId0),
     Params1 = encode(Params),
@@ -77,6 +81,8 @@ encode({params, #'Dss-Parms'{p=P,q=Q,g=G}}) ->
     #'DSA-Params'{p=P,q=Q,g=G};
 encode({'Dss-Sig-Value', R,S}) ->
     #'DSA-Sig-Value'{r = R, s = S};
+encode({'EncryptedPrivateKeyInfo_encryptionAlgorithm', Algo, Params}) ->
+    {'EncryptionAlgorithmIdentifier', Algo, Params};
 encode(Tuple) when is_tuple(Tuple) ->
     case is_simple_tuple(Tuple) of
         true ->

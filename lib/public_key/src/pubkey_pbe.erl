@@ -25,17 +25,18 @@
 -moduledoc false.
 
 -include("PKCS-FRAME.hrl").
-
 -include("PKCS-1.hrl").
-
--define('id-aes128-CBC', {2,16,840,1,101,3,4,1,2}).
--define('id-aes192-CBC', {2,16,840,1,101,3,4,1,22}).
--define('id-aes256-CBC', {2,16,840,1,101,3,4,1,42}).
+-include("CMSAesRsaesOaep-2009.hrl").
 
 -export([encode/4, decode/4, decrypt_parameters/1, encrypt_parameters/1]). 
 -export([pbdkdf1/4, pbdkdf2/7]).
 
 -define(ASN1_OCTET_STR_TAG, 4).
+
+-record('EncryptedPrivateKeyInfo_encryptionAlgorithm',
+        {algorithm,
+         parameters
+        }).
 
 %%====================================================================
 %% Internal application API
@@ -114,17 +115,17 @@ pbdkdf2(Password, Salt, Count, DerivedKeyLen, Prf, PrfHash, PrfOutputLen)->
     blocks(NumBlocks, NumLastBlockOctets, 1, Password, Salt, 
 	   Count, Prf, PrfHash, PrfOutputLen, <<>>).
 %%--------------------------------------------------------------------
--spec decrypt_parameters(#'EncryptionAlgorithmIdentifier'{}) ->
+-spec decrypt_parameters(#'EncryptedPrivateKeyInfo_encryptionAlgorithm'{}) ->
           {Cipher::string(), #'PBES2-params'{}}.
 
 %% Description: Performs ANS1-decoding of encryption parameters.
 %%--------------------------------------------------------------------
-decrypt_parameters(#'EncryptionAlgorithmIdentifier'{
+decrypt_parameters(#'EncryptedPrivateKeyInfo_encryptionAlgorithm'{
 		      algorithm = Oid, parameters = Param}) ->
     decrypt_parameters(Oid, decode_handle_open_type_wrapper(Param)).
 %%--------------------------------------------------------------------
 -spec encrypt_parameters({Cipher::string(), Params::term()}) -> 
-          #'EncryptionAlgorithmIdentifier'{}.
+          #'EncryptedPrivateKeyInfo_encryptionAlgorithm'{}.
 %%
 %% Description: Performs ANS1-decoding of encryption parameters.
 %%--------------------------------------------------------------------
@@ -211,13 +212,13 @@ decrypt_parameters(?'pbeWithMD5AndDES-CBC', DekParams) ->
 
 encrypt_parameters(_Cipher, #'PBES2-params'{} = Params) ->
     {ok, Der} ='PKCS-FRAME':encode('PBES2-params', Params),
-    #'EncryptionAlgorithmIdentifier'{
+    #'EncryptedPrivateKeyInfo_encryptionAlgorithm'{
        algorithm = ?'id-PBES2', 
        parameters = encode_handle_open_type_wrapper(Der)};
 
 encrypt_parameters(Cipher, {#'PBEParameter'{} = Params, Hash}) ->
     {ok, Der} ='PKCS-FRAME':encode('PBEParameter', Params),
-    #'EncryptionAlgorithmIdentifier'{
+    #'EncryptedPrivateKeyInfo_encryptionAlgorithm'{
        algorithm = pbe1_oid(Cipher, Hash), 
        parameters = encode_handle_open_type_wrapper(Der)}.
 
