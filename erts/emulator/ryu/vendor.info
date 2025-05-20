@@ -12,7 +12,7 @@
     "copyrightText": "Copyright 2018 Ulf Adams",
     "downloadLocation": "https://github.com/ulfjack/ryu",
     "homepage": "https://github.com/ulfjack/ryu",
-    "licenseDeclared": "Apache-2.0",
+    "licenseDeclared": "Apache-2.0 OR BSL-1.0",
     "name": "ryu",
     "versionInfo": "1264a946ba66eab320e927bfd2362e0c8580c42f",
     "path": ["./erts/emulator/ryu/common.h",
@@ -21,8 +21,6 @@
              "./erts/emulator/ryu/d2s_intrinsics.h",
              "./erts/emulator/ryu/digit_table.h",
              "./erts/emulator/ryu/ryu.h",
-             "./erts/emulator/ryu/ryu.mk",
-             "./erts/emulator/ryu/README.md",
              "./erts/emulator/ryu/LICENSE-Apache2",
              "./erts/emulator/ryu/LICENSE-Boost"
             ],
@@ -38,11 +36,10 @@
     "downloadLocation": "https://github.com/microsoft/STL",
     "homepage": "https://github.com/microsoft/STL",
     "licenseDeclared": "Apache-2.0 WITH LLVM-exception AND BSL-1.0",
-    "name": "ryu_to_chars",
+    "name": "STL",
     "versionInfo": "vs-2022-17.13",
     "path": [
-      "./erts/emulator/ryu/to_chars.h",
-      "./erts/emulator/ryu/xcharconv_ryu.h.sha"
+      "./erts/emulator/ryu/to_chars.h"
     ],
     "supplier": "Organization: Microsoft Corporation",
     "purl": "pkg:github/microsoft/STL#stl/inc/xcharconv_ryu.h",

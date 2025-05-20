@@ -182,10 +182,12 @@ This file may be a list of JSON objects. For simplicity, we document the fields 
     "homepage": "https://github.com/asmjit/asmjit",
     "licenseDeclared": "Zlib",
     "name": "asmjit",
-    "versionInfo": "a465fe71ab3d0e224b2b4bd0fac69ae68ab9239d",
+    "versionInfo": "029075b84bf0161a761beb63e6eda519a29020db",
     "path": "./erts/emulator/asmjit",
+    "exclude": ["./erts/emulator/asmjit/vendor.info"],
     "supplier": "Person: Petr Kobalicek",
     "purl": "pkg:github/asmjit/asmjit"
+    "sha": "029075b84bf0161a761beb63e6eda519a29020db"
   }
 ]
 ```
@@ -207,12 +209,13 @@ Fields summary:
 - `path`: path to the vendor library inside Erlang/OTP. This can point to a folder or a list of files.
   - Folder: any file inside the folder is considered part of the vendor library (e.g., asmjit [vendor.info](../erts/emulator/asmjit/vendor.info)).
   - List of files: only the files listed here are part of a vendor library (e.g., erts-config [vendor.info](../erts/autoconf/vendor.info)).
+- `exclude`: excludes the listed files or directories from what is listed in `path`. That is, they will not included into the generated SPDX package, but will instead be part of the SPDX package which this package is part of.
 - `comment`: any comment.
 - `supplier`: supplier of the software, following this standard:
   - `Person: <person name> (<email>)`, where `email` is optional.
   - `Organization: <Organization name> (email)`, where `email` is optional.
   - `NOASSERTION`, where the person adding this information (you) could not reach a reasonable conclusion, the person adding this information made no attempt to determine this field, or this field was left with no information and no meaning should be implied by doing so.
-- `purl`: if the vendor has a specific `purl`, we choose this format. Otherwise, we follow the guidelines from the [PURL Specification](https://github.com/package-url/purl-spec/blob/main/PURL-TYPES.rst). 
+- `purl`: if the vendor has a specific `purl`, we choose this format. Otherwise, we follow the guidelines from the [PURL Specification](https://github.com/package-url/purl-spec/blob/main/PURL-TYPES.rst).
 
 To update the package, perform any modifications in a `vendor.info` package
 and re-run the source SBOM generation steps ([Erlang/OTP source SBOM]).

@@ -49,7 +49,7 @@ cli() ->
             },
        help => """
        license-header can be used to scan all files in an Erlang/OTP repo for
-       compliance with the license header format used. See HOWTO/LICENSE-HEADERS.md
+       compliance with the license header format used. See HOWTO/FILE-HEADERS.md
        for details on how to properly write license headers. Typical usage is:
 
          # Scan the entire repo
@@ -115,7 +115,7 @@ scan(Opts) ->
         begin
             Notice = """
               Found some invalid license headers.
-              See https://github.com/erlang/otp/tree/master/HOWTO/LICENSE-HEADERS.md for details
+              See https://github.com/erlang/otp/tree/master/HOWTO/FILE-HEADERS.md for details
               on how license headers should look.
               """,
             io:format("~ts~n",[Notice]),
@@ -518,7 +518,7 @@ read(Filename, Bytes) ->
     Data.
 
 get_license_templates(RootDir) ->
-    Headers = filename:join([RootDir, "LICENSE-HEADERS"]),
+    Headers = filename:join([RootDir, "FILE-HEADERS"]),
     Licenses = filename:join([RootDir, "LICENSES"]),
     %% The order matters as there are duplicates in HEADERS and LICENSES.
     %% We want to select HEADERS before LICENSES.
@@ -565,7 +565,7 @@ is_ignored(Filename) ->
                "/LICENSE$",
                "^LICENSE.txt$",
                "^LICENSES/.*",
-               "^LICENSE-HEADERS/.*",
+               "^FILE-HEADERS/.*",
                "^system/COPYRIGHT$",
                "^.mailmap$",
                "^OTP_VERSION$",

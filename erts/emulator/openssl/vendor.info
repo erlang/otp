@@ -16,6 +16,9 @@
     "name": "openssl",
     "versionInfo": "3.5",
     "path": "./erts/emulator/openssl",
+    "exclude": ["./erts/emulator/openssl/vendor.info",
+                "./erts/emulator/openssl/README",
+                "./erts/emulator/openssl/openssl.mk"],
     "supplier": "Organization: OpenSSL Mission",
     "purl": "pkg:generic/openssl"
   }

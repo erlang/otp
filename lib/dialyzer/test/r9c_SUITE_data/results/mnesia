@@ -1,3 +1,10 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: NOASSERTION
+%%
+%% Copyright Erlang/OTP and its contributors
+%%
+%% %CopyrightEnd%
 
 mnesia.erl:1319:50: Guard test size(Spec::[{_,_,_},...]) can never succeed
 mnesia.erl:1498:27: The call mnesia:bad_info_reply(Tab::atom(),Item::'type') will never return since it differs in the 2nd argument from the success typing arguments: (atom(),'memory' | 'size')
@@ -37,8 +44,8 @@ mnesia_loader.erl:95:4: Body yields the type number() which violates the opacity
 mnesia_loader.erl:96:4: Body yields the type atom() | {_,_} | ets:tid() which violates the opacity of the other clauses.
 mnesia_loader.erl:98:5: Body yields the type atom() | {_,_} | ets:tid() which violates the opacity of the other clauses.
 mnesia_locker.erl:1017:1: Function system_terminate/4 has no local return
-mnesia_log.erl:707:23: The test {'error',{[1..255,...],[any(),...]}} | {'ok',_} == atom() can never evaluate to 'true'
-mnesia_log.erl:727:13: The created fun has no local return
+mnesia_log.erl:715:23: The test {'error',{[1..255,...],[any(),...]}} | {'ok',_} == atom() can never evaluate to 'true'
+mnesia_log.erl:735:13: The created fun has no local return
 mnesia_monitor.erl:162:1: The pattern <[], []> can never match the type <[any(),...],[any(),...]>
 mnesia_monitor.erl:354:9: The pattern {'error', Reason} can never match the type 'ok'
 mnesia_recover.erl:159:43: The call mnesia_lib:other_val(Var::'latest_transient_decision' | 'max_wait_for_decision' | 'previous_transient_decisions' | 'recover_nodes',Reason::any()) will never return since it differs in the 1st argument from the success typing arguments: ({_,'active_replicas' | 'where_to_read' | 'where_to_write'},any())
