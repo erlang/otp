@@ -158,7 +158,7 @@ cli() ->
                                  handler => fun test_file/1},
 
                           "remove-packages" =>
-                              #{ help => "Remove the lists of given packages in JSON format",
+                              #{ help => "Remove the given packages from an OTP source SBOM",
                                  arguments => [ sbom_option(),
                                                 input_option("removed.json")],
                                  handler => fun sbom_package_removal/1}
@@ -1712,7 +1712,7 @@ minimum_vendor_packages(#{~"packages" := Packages}=_Sbom) ->
 
 vendor_relations(#{~"packages" := Packages, ~"relationships" := Relations}) ->
     PackageIds = lists:map(fun (#{~"SPDXID" := Id}) -> Id end, Packages),
-    VendorIds = lists:filtermap(fun (#{~"comment" := " vendor package", ~"SPDXID" := Id}) -> {true, Id} ;
+    VendorIds = lists:filtermap(fun (#{~"comment" := ~"vendor package", ~"SPDXID" := Id}) -> {true, Id} ;
                                       (_) -> false
                                   end, Packages),
     true = lists:all(fun (#{~"relatedSpdxElement" := Related,
