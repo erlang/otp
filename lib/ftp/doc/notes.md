@@ -21,6 +21,16 @@ limitations under the License.
 -->
 # FTP Release Notes
 
+## Ftp 1.2.4
+
+### Improvements and New Features
+
+- The license and copyright header has changed format to include an `SPDX-License-Identifier`. At the same time, most files have been updated to follow a uniform standard for license headers.
+
+  Own Id: OTP-19575 Aux Id: [PR-9670]
+
+[PR-9670]: https://github.com/erlang/otp/pull/9670
+
 ## Ftp 1.2.3
 
 ### Fixed Bugs and Malfunctions

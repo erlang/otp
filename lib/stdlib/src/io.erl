@@ -416,7 +416,7 @@ main(_) ->
     end.
 ```
 """.
--doc #{ since => ~"OTP @OTP-19315@" }.
+-doc #{ since => ~"OTP 28.0" }.
 -spec get_password() -> Data | server_no_data() when
     Data :: string() | unicode:unicode_binary().
 get_password() ->

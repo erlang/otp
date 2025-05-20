@@ -23,6 +23,55 @@ limitations under the License.
 
 This document describes the changes made to the Dialyzer application.
 
+## Dialyzer 5.4
+
+### Fixed Bugs and Malfunctions
+
+- The `-Wno_unknown` option will now prevent a warning being printed to standard output when the command line interface is used.
+
+  Own Id: OTP-19262 Aux Id: [GH-8822], [PR-8885]
+
+[GH-8822]: https://github.com/erlang/otp/issues/8822
+[PR-8885]: https://github.com/erlang/otp/pull/8885
+
+### Improvements and New Features
+
+- [EEP-69: Nominal Types](https://www.erlang.org/eeps/eep-0069) has been implemented. As a side effect, nominal types can encode opaque types. We changed all opaque-handling logic and improved opaque warnings in Dialyzer.
+  
+  All existing Erlang type systems are structural: two types are seen as equivalent if their structures are the same. Type comparisons are based on the structures of the types, not on how the user explicitly defines them. For example, in the following example, `meter()` and `foot()` are equivalent. The two types can be used interchangeably. Neither of them differ from the basic type `integer()`.
+  
+  ````
+  -type meter() :: integer().
+  -type foot() :: integer().
+  ````
+  
+  Nominal typing is an alternative type system, where two types are equivalent if and only if they are declared with the same type name. The EEP proposes one new syntax -nominal for declaring nominal types. Under nominal typing, `meter()` and `foot()` are no longer compatible. Whenever a function expects type `meter()`, passing in type `foot()` would result in a Dialyzer error.
+  
+  ````
+  -nominal meter() :: integer().
+  -nominal foot() :: integer().
+  ````
+  
+  More nominal type-checking rules can be found in the EEP. It is worth noting that most work for adding nominal types and type-checking is in `erl_types.erl`. The rest are changes that removed the previous opaque type-checking, and added an improved version of it using nominal type-checking with reworked warnings.
+  
+  Backwards compatibility for opaque type-checking is not preserved by this PR. Previous opaque warnings can appear with slightly different wordings. A new kind of opaque warning `opaque_union` is added, together with a Dialyzer option `no_opaque_union` to turn this kind of warnings off.
+
+  Own Id: OTP-19364 Aux Id: [PR-9079]
+
+- Fixed licenses in files and added ORT curations to the following apps: otp, eldap, erl_interface, eunit, parsetools, stdlib, syntax_tools, and ERTS.
+
+  Own Id: OTP-19478 Aux Id: [PR-9376], [PR-9402], [PR-9819]
+
+- The license and copyright header has changed format to include an `SPDX-License-Identifier`. At the same time, most files have been updated to follow a uniform standard for license headers.
+
+  Own Id: OTP-19575 Aux Id: [PR-9670]
+
+[PR-9079]: https://github.com/erlang/otp/pull/9079
+[PR-9376]: https://github.com/erlang/otp/pull/9376
+[PR-9402]: https://github.com/erlang/otp/pull/9402
+[PR-9819]: https://github.com/erlang/otp/pull/9819
+[PR-9670]: https://github.com/erlang/otp/pull/9670
+
 ## Dialyzer 5.3.1
 
 ### Fixed Bugs and Malfunctions

@@ -27,6 +27,46 @@ as all enhancements and bugfixes for every release of Megaco. Each release of
 Megaco thus constitutes one section in this document. The title of each section
 is the version number of Megaco.
 
+## Megaco 4.8
+
+### Fixed Bugs and Malfunctions
+
+- Add missing spec and doc for exported functions.
+
+  Own Id: OTP-19523
+
+### Improvements and New Features
+
+- Nano seconds are now used for (example) meas result presentation.
+  
+  Nanoseconds are now used, for example, in `meas` result presentations.
+
+  Own Id: OTP-19403
+
+- Added support for compiling Erlang/OTP for Windows on ARM64.
+
+  Own Id: OTP-19480 Aux Id: [PR-8734]
+
+- When compiling C/C++ code on Unix systems, the compiler hardening flags suggested by the [Open Source Security Foundation](https://github.com/ossf/wg-best-practices-os-developers/blob/main/docs/Compiler-Hardening-Guides/Compiler-Options-Hardening-Guide-for-C-and-C%2B%2B.md) are now enabled by default. To disable them, pass `--disable-security-hardening-flags` to `configure`.
+
+  Own Id: OTP-19519 Aux Id: [PR-9441]
+
+- Add copyright notice to files that still had none.
+
+  Own Id: OTP-19570
+
+- The license and copyright header has changed format to include an `SPDX-License-Identifier`. At the same time, most files have been updated to follow a uniform standard for license headers.
+
+  Own Id: OTP-19575 Aux Id: [PR-9670]
+
+- Tweaked some of the meas examples in order to make them benchmark compatible.
+
+  Own Id: OTP-19598
+
+[PR-8734]: https://github.com/erlang/otp/pull/8734
+[PR-9441]: https://github.com/erlang/otp/pull/9441
+[PR-9670]: https://github.com/erlang/otp/pull/9670
+
 ## Megaco 4.7.2
 
 ### Fixed Bugs and Malfunctions

@@ -175,7 +175,7 @@ done
 -type type()   :: 'once' | 'interval' | 'instant' | 'send_local'.
 
 -doc "Time in milliseconds.".
--doc #{since => ~"OTP @OTP-19526@"}.
+-doc #{since => ~"OTP 28.0"}.
 -nominal time() :: non_neg_integer().
 
 %%

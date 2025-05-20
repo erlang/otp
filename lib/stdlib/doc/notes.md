@@ -23,6 +23,545 @@ limitations under the License.
 
 This document describes the changes made to the STDLIB application.
 
+## STDLIB 7.0
+
+### Fixed Bugs and Malfunctions
+
+- Shell help now orders the commands in alphabetical order.
+
+  Own Id: OTP-19161 Aux Id: [PR-8573]
+
+- [`proc_lib:stop/1,3`](`proc_lib:stop/3`) (and in extension `gen_server:stop/3`, `gen_statem:stop/3` and so on) have been updated to not throw an error if the process to be stopped exits with the same reason as given to `proc_lib:stop/3`.
+
+  *** POTENTIAL INCOMPATIBILITY ***
+
+  Own Id: OTP-19233 Aux Id: [PR-8772]
+
+- The size of an atom in the Erlang source code was limited to 255 bytes in previous releases, meaning that an atom containing only emojis could contain only 63 emojis.
+  
+  While atoms are still only allowed to contain 255 characters, the number of bytes is no longer limited.
+  
+  External tools that parse the `AtU8` chunk of a BEAM file directly need to be updated. Tools that use [`beam_lib:chunks(Beam, [atoms])`](`beam_lib:chunks/2`) to read the atom table will continue to work.
+
+  *** POTENTIAL INCOMPATIBILITY ***
+
+  Own Id: OTP-19285 Aux Id: [PR-8913]
+
+- `argparse:help/1` now accepts `t:unicode:chardata/0`.
+
+  Own Id: OTP-19303 Aux Id: [PR-8932]
+
+- The literals chunk in BEAM is no longer compressed, resulting in slightly smaller BEAM files when a BEAM file is stripped using `beam_lib:strip_files/1`.
+  
+  This is a potential incompatibility for tools that read and interpret the contents of the literal chunk. One way to update such tools to work with the new format is to retrieve the chunk using [`beam_lib:chunks(Beam, [literals])`](`beam_lib:chunks/2`).
+
+  *** POTENTIAL INCOMPATIBILITY ***
+
+  Own Id: OTP-19323 Aux Id: [GH-8967], [PR-8988]
+
+- The previous `digraph_utils:preorder/1` and `digraph_utils:postorder/1` did not start the traversal from root nodes. This fix makes both traversals only start or restart from a root node in one of the components, or an arbitrary node if no root node can be visited.
+
+  Own Id: OTP-19393 Aux Id: [PR-9171]
+
+- Auto-completion in the shell is now significantly faster for function parameters that uses complex custom types.
+
+  Own Id: OTP-19413 Aux Id: [PR-9271]
+
+- Stringfying a non-latin1 atom will now produce a readable string instead of encoding each character using `\x{...}` escape sequences. Example:
+  
+  ```
+  -define(S(T), ??T).
+  
+  atom() ->
+      ?S('атом').
+  ```
+  
+  The `atom/0` function now returns `"'атом'"` instead of `"'\\x{430}\\x{442}\\x{43E}\\x{43C}'"`.
+
+  Own Id: OTP-19421 Aux Id: [GH-9173], [PR-9276]
+
+- A few minor issues were corrected in `m:syntax_tools`, as well in the `m:erl_anno` module.
+
+  Own Id: OTP-19422 Aux Id: [PR-9253]
+
+- `m:dets` could print error messages to standard output when repairing DETS files. This has been changed to send the messages to `m:logger`.
+  
+  `ets:fun2ms` would print an error message to standard output as well as returning an error tuple. The printing of the message has been removed.
+
+  Own Id: OTP-19427 Aux Id: [PR-9232], [PR-9446]
+
+- The functions for converting to and from the RFC1339 date and time format would not properly handle fractional seconds for negative times.
+
+  Own Id: OTP-19441 Aux Id: [GH-9279], [PR-9280]
+
+- Replaced calls to deprecated `crypto:start()` with `application:start(crypto)`.
+
+  Own Id: OTP-19485 Aux Id: [PR-8592]
+
+- Fixed a bug when calling shell completion on a reserved word followed by a *(* would crash the shell.
+
+  Own Id: OTP-19511 Aux Id: [GH-9470]
+
+- Corrected the spec of `ets:update_element/4`.
+
+  Own Id: OTP-19514 Aux Id: [PR-9504]
+
+- Corrected the spec for `ets:info/1`.
+
+  Own Id: OTP-19515 Aux Id: [PR-9514]
+
+- Fixed crash when defining records with a string field in the shell
+
+  Own Id: OTP-19533 Aux Id: [GH-9557]
+
+- Details in the hibernation implementation and time-out handling has been improved for `gen_statem`.  In particular to avoid selective receive when cancelling a time-out.
+
+  Own Id: OTP-19540 Aux Id: [PR-9579]
+
+- Fixed a bug when getting help on a module compiled without debug_info.
+
+  Own Id: OTP-19583 Aux Id: [PR-9654]
+
+- Fix `m:zip` extraction to wrap invalid DOS timestamps to their correct value instead of returning the actual value. Before this fix the timestamp returned could have a second greater than 59. The bug has been present since Erlang/OTP 27.1.
+
+  Own Id: OTP-19593 Aux Id: [PR-9537], [GH-9536]
+
+- Enhance specs of timeout for improving documentation and dialyzer analysis.
+
+  Own Id: OTP-19604 Aux Id: [PR-9574]
+
+[PR-8573]: https://github.com/erlang/otp/pull/8573
+[PR-8772]: https://github.com/erlang/otp/pull/8772
+[PR-8913]: https://github.com/erlang/otp/pull/8913
+[PR-8932]: https://github.com/erlang/otp/pull/8932
+[GH-8967]: https://github.com/erlang/otp/issues/8967
+[PR-8988]: https://github.com/erlang/otp/pull/8988
+[PR-9171]: https://github.com/erlang/otp/pull/9171
+[PR-9271]: https://github.com/erlang/otp/pull/9271
+[GH-9173]: https://github.com/erlang/otp/issues/9173
+[PR-9276]: https://github.com/erlang/otp/pull/9276
+[PR-9253]: https://github.com/erlang/otp/pull/9253
+[PR-9232]: https://github.com/erlang/otp/pull/9232
+[PR-9446]: https://github.com/erlang/otp/pull/9446
+[GH-9279]: https://github.com/erlang/otp/issues/9279
+[PR-9280]: https://github.com/erlang/otp/pull/9280
+[PR-8592]: https://github.com/erlang/otp/pull/8592
+[GH-9470]: https://github.com/erlang/otp/issues/9470
+[PR-9504]: https://github.com/erlang/otp/pull/9504
+[PR-9514]: https://github.com/erlang/otp/pull/9514
+[GH-9557]: https://github.com/erlang/otp/issues/9557
+[PR-9579]: https://github.com/erlang/otp/pull/9579
+[PR-9654]: https://github.com/erlang/otp/pull/9654
+[PR-9537]: https://github.com/erlang/otp/pull/9537
+[GH-9536]: https://github.com/erlang/otp/issues/9536
+[PR-9574]: https://github.com/erlang/otp/pull/9574
+
+### Improvements and New Features
+
+- Singleton type variables in an union type do not make sense from Dialyzer's point of view. The following example is ill-typed:
+  
+  ```erlang
+  -spec run_test(Opts) -> term()
+        when Opts :: {join_specs, Bool} | {test, Bool}.
+  ```
+  
+  This used to be reported as a warning. In OTP-28, this is an error
+
+  Own Id: OTP-19125 Aux Id: [PR-8556]
+
+- By default, sets created by the `m:sets` module will now be represented as maps.
+
+  Own Id: OTP-19127 Aux Id: [PR-8429]
+
+- For various error types, the compiler now tries to suggest potential fixes by adding "did you mean ...?" at the end of error messages.
+  
+  When a function is used with wrong arity, the compiler will try to suggest a defined function with the same name but a different arity. For example, given the following module:
+  
+  ````
+  -module(typos).
+  -export([t/0]).
+  bar(A) -> A.
+  bar(A,A,A) -> A.
+  bar(A,A,A,A) -> A.
+  t() -> bar(0, 0).
+  ````
+  
+  The compiler will emit the following message:
+  
+  ````
+  typo.erl:6:12: function bar/2 undefined, did you mean bar/1,3,4?
+  %   6|     t() -> bar(0, 0).
+  %    |            ^
+  ````
+  
+  For compiler errors that can easily be caused by typos, the compiler will try to suggest what the correct variable or function name, could be. For example, given the following module:
+  
+  ```
+  -module(typos).
+  -export([bar/2]).
+  
+  bar(A0, B0) ->
+      A + B.
+  ```
+  the compiler will emit the following error messages:
+  
+  ```
+  typos.erl:5:5: variable 'A' is unbound, did you mean 'A0'?
+  %    5|     A + B.
+  %     |     ^
+  
+  typos.erl:5:9: variable 'B' is unbound, did you mean 'B0'?
+  %    5|     A + B.
+  %     |         ^
+  ```
+  
+  Error types that now suggest correct arities: `bad_inline`, `undefined_nif`, `bad_nowarn_unused_function`, `bad_nowarn_bif_clash`, `undefined_function`.
+  
+  Error types that now suggest correct names: `bad_inline`, `undefined_nif`, `bad_nowarn_unused_function`, `undefined_on_load`, `undefined_function`, `undefined_record`, `undefined_field`, `unbound_var`.
+  
+  Using a function with wrong arity has higher precedence than having a typo in the function name. If the compiler can find a defined function with the same name but a different arity, it will not suggest a defined function with a close-enough name, regardless of arity.
+
+  Own Id: OTP-19180 Aux Id: [PR-8699], [PR-9094]
+
+- Comprehensions have been extended with zip generators  according to [EEP 73](https://www.erlang.org/eeps/eep-0073). 
+  
+  Example:
+  
+  ```
+  1> [A+B || A <- [1,2,3] && B <- [4,5,6]].
+  [5,7,9]
+  ```
+
+  Own Id: OTP-19184 Aux Id: [PR-8926]
+
+- Before restarting a child, a supervisor must check if the restart limit is reached. This adds a penalty to the overall restart time, which should be kept low. The algorithm 
+  has been optimized from 2*O(n) to O(n) behavior.
+
+  Own Id: OTP-19204 Aux Id: [PR-8261]
+
+- Added the possibility to configure shell docs column width through the stdlib parameter [`shell_docs_columns`](stdlib_app.md#shell_docs_columns).
+
+  Own Id: OTP-19224 Aux Id: [PR-8651]
+
+- The `io:setopts/2` function now accepts the `line_history` option for more explicit handling of when to save shell history.
+
+  Own Id: OTP-19230 Aux Id: [PR-8792]
+
+- The shell now prints a help message explaining how to interrupt a running command when stuck executing a command for longer than 5 seconds.
+
+  Own Id: OTP-19231 Aux Id: [PR-8793]
+
+- Binaries can now be used as input to `calendar:rfc3339_to_system_time/2`, and produced as output of `calendar:system_time_to_rfc3339/2`.
+
+  Own Id: OTP-19250 Aux Id: [PR-8812]
+
+- The [`erl -noshell`](`e:erts:erl_cmd.md#noshell`) mode has been updated to have two sub modes called `raw` and `cooked`, where `cooked` is the old default behaviour and `raw` can be used to bypass the line-editing support of the native terminal. Using `raw` mode it is possible to read keystrokes as they happen without the user having to press Enter. Also, the `raw` mode does not echo the typed characters to stdout. An example of how to create a tic-tac-toe game using this mechanism is included in [the documentation](terminal_interface.md).
+
+  Own Id: OTP-19314 Aux Id: [PR-8962], [GH-8037]
+
+- Added `io:get_password/0` that can read passwords from stdin when in "raw" `-noshell` mode.
+
+  Own Id: OTP-19315 Aux Id: [PR-8962], [PR-9006]
+
+- New strict generators have been added for comprehensions.
+  
+  The currently existing generators are "relaxed": they ignore terms in the
+  right-hand side expression that do not match the left-hand side pattern.
+  
+  The new strict generators fail with exception `badmatch` if a pattern doesn't match.
+  
+  Examples:
+  
+  Using the current relaxed generator operator `<-`, any element not matching
+  the pattern `{_,_}` will be silently discarded:
+  
+  ```
+  1> [T || {_,_}=T <- [{ok,1},ok,{error,2}]].
+  [{ok,1},{error,2}]
+  ```
+  If the intention is that all lists processed by a list comprehension must only
+  contain tuples of size two, using the new strict version of the operator ensures
+  that term not matching will cause a crash:
+  
+  ```
+  2> [T || {_,_}=T <:- [{ok,1},ok,{error,2}]].
+  ** exception error: no match of right hand side value ok
+  ```
+  Using the strict generator operator to mark the intention that all list elements must match the pattern could help finding mistakes quicker if something unpexected is added to the list processed by the generator.
+  
+  The strict version for bitstring generators is `<:=`.
+
+  Own Id: OTP-19317 Aux Id: [PR-8625]
+
+- New options for suppressing behaviour warnings have been added:
+  
+  * `nowarn_conflicting_behaviours`
+  * `nowarn_undefined_behaviour_func`
+  * `nowarn_undefined_behaviour`
+  * `nowarn_undefined_behaviour_callbacks`
+  * `nowarn_ill_defined_behaviour_callbacks`
+  * `nowarn_ill_defined_optional_callbacks`
+
+  Own Id: OTP-19334 Aux Id: [GH-8985], [PR-9020]
+
+- The [`join(Binaries, Separator)`](`binary:join/2`) function that joins a list of binaries has been added to the `m:binary` module.
+
+  Own Id: OTP-19337 Aux Id: [GH-8099], [PR-8100]
+
+- The `supervisor:which_child/2` function has been added to facilitate getting the pid of a sibling  process; that is a process under same supervisor as the process that calls to call the new function.
+
+  Own Id: OTP-19345 Aux Id: [PR-8976]
+
+- The function `erl_anno:set_end_location/2` for setting the end location of a token has been added.
+
+  Own Id: OTP-19354 Aux Id: [PR-8966]
+
+- Added a warning for calling non-exported functions with the remote function call syntax from the same module, and likewise for the remote fun syntax.
+
+  Own Id: OTP-19371 Aux Id: [GH-9092], [PR-9095]
+
+- The `warn_deprecated_catch` option enables warnings for use of old-style catch expressions on the form `catch Expr` instead of the modern `try ... catch ... end`. To prevent new uses of uses of old catches to be added, this compiler option can be enabled on the project level and `-compile(nowarn_deprecated_catch).` added to individual files that still contain old catches.
+
+  Own Id: OTP-19425 Aux Id: [PR-9154]
+
+- Module `m:re` has been updated to use PCRE2, which is mostly backward compatible with PCRE.
+  
+  The most noticeable incompatibilities are
+  * The default character encoding is pure ASCII and not Latin1. Unicode support
+    is still available with options `unicode` and `ucp`.
+  * Options `bsr_anycrlf`, `bsr_unicode` and `{newline,_}` are only set when a
+    regex is compiled and cannot be changed at matching for precompiled regex.
+
+  *** POTENTIAL INCOMPATIBILITY ***
+
+  Own Id: OTP-19431 Aux Id: [PR-9299], [PR-9610]
+
+- Defining a fun in terms of an imported function is not allowed. Before this release, the compiler would not catch this kind of error if the name of the imported function happened to be a BIF.  Consider this example:
+  
+  ```
+  -module(fun_example).
+  -export([foo/0, bar/0]).
+  -import(m, [max/2, not_a_bif/0]).
+  
+  foo() ->
+      fun max/2.
+  
+  bar() ->
+      fun not_a_bif/0.
+  ```
+  
+  The compiler in Erlang/OTP 27 would generate the following messages:
+  
+  ```text
+  fun_example.erl:9:5: function not_a_bif/0 undefined
+  %    9|     fun not_a_bif/0.
+  %     |     ^
+  
+  fun_example.erl:3:2: Warning: import directive overrides auto-imported BIF max/2 --
+  use "-compile({no_auto_import,[max/2]})." to resolve name clash
+  %    3| -import(m, [max/2, not_a_bif/0]).
+  %     |  ^
+  ```
+  
+  That is, there would be a (cryptic) error for `fun not_a_bif/0`, but only a warning for `fun max/2`.
+  
+  When compiling with this release, both attempts to create a fun will result in error messages (as well as a warning):
+  
+  ```text
+  fun_example.erl:6:5: creating a fun from imported name max/2 is not allowed
+  %    6|     fun max/2.
+  %     |     ^
+  
+  fun_example.erl:9:5: creating a fun from imported name not_a_bif/0 is not allowed
+  %    9|     fun not_a_bif/0.
+  %     |     ^
+  
+  fun_example.erl:3:2: Warning: import directive overrides auto-imported BIF max/2 --
+  use "-compile({no_auto_import,[max/2]})." to resolve name clash
+  %    3| -import(m, [max/2, not_a_bif/0]).
+  %     |  ^
+  ```
+  
+  Also, attempting to call a local function having the same name as auto-imported BIF would result in an error if the BIF was added to Erlang/OTP before R14, and a warning for newer BIFs. This has been changed to always emit a warning. For example:
+  
+  ```
+  -module(bif_example).
+  -export([bar/1]).
+  
+  bar(B) ->
+      is_boolean(B).
+  
+  is_boolean(B) ->
+          B =:= true orelse B =:= false.
+  ```
+  will now result in the following warning instead of an error:
+  
+  ```text
+  if_example.erl:5:5: Warning: ambiguous call of overridden auto-imported BIF is_boolean/1 --
+  use erlang:is_boolean/1 or "-compile({no_auto_import,[is_boolean/1]})." to resolve name clash
+  %    5|     is_boolean(B).
+  %     |     ^
+  ```
+
+  Own Id: OTP-19432 Aux Id: [PR-9246]
+
+- It is now possible to use any base for floating point numbers as described in [EEP 75: Based Floating Point Literals](https://www.erlang.org/eeps/eep-0075).
+  
+  Computers represent floating point numbers in binary, but such numbers are typically printed using base ten, for example 0.314159265e1. To maintain exact bit-level precision when converting numbers to and from text, it is better to use a base that matches the internally used base, such as 16 for a compact but still exact representation, or 2 for visualizing or writing down the exact internal format. One particular case where such exact representations are useful is in code generating tools.
+  
+  Examples:
+  
+  ```
+  > 2#0.111.
+  0.875
+  > 16#fefe.fefe#e16.
+  1.2041849337671418e24
+  ```
+
+  Own Id: OTP-19452 Aux Id: [PR-9106]
+
+- The callback function `handle_continue/2` in `gen_server` callback modules is now cached like the others, thanks to code cleanup and optimization of the internal behaviour loop.
+  
+  This should only improve performance, not affect functionality.
+
+  Own Id: OTP-19474 Aux Id: [PR-9333]
+
+- Encoding done by the `m:json` module has been optimized.
+
+  Own Id: OTP-19476 Aux Id: [PR-9251]
+
+- There is a new `m:zstd` module that does [Zstandard](https://facebook.github.io/zstd/) compression.
+
+  Own Id: OTP-19477 Aux Id: [PR-9316]
+
+- Fixed licenses in files and added ORT curations to the following apps: otp, eldap, erl_interface, eunit, parsetools, stdlib, syntax_tools, and ERTS.
+
+  Own Id: OTP-19478 Aux Id: [PR-9376], [PR-9402], [PR-9819]
+
+- Functions of a module can now be grouped in the shell code completion by using the *group* key in the *-doc* attribute e.g. ```
+  -doc(#{group=><<"Public API">>).
+  fetch()->...
+  ```.
+  
+  Functions, callbacks and types in the module reference documentation of OTP is now grouped using this feature.
+
+  Own Id: OTP-19483 Aux Id: [PR-9408]
+
+- Added calendar:universal_time_to_system_time/1,2 and calendar:local_time_to_system_time/1,2
+
+  Own Id: OTP-19505 Aux Id: [PR-9445]
+
+- Improve error messages for `json:decode/1`.
+
+  Own Id: OTP-19508 Aux Id: [PR-9484]
+
+- ETS `heir` can be set without getting an `ETS-TRANSFER` message. Useful when the heir is a supervisor process that cannot handle custom messages.
+
+  Own Id: OTP-19512 Aux Id: [PR-7970]
+
+- Added support for the Unicode 16 standard.
+
+  Own Id: OTP-19516 Aux Id: [PR-9518], [PR-9141]
+
+- When documenting a function or type that needs to deal with durations, usually we can document it as "time in milliseconds". Since the `timer` family of functions (`hms`, `hours`, `seconds`, ...) all return time in milliseconds, it is useful to be able to use this type in type specifications.
+
+  Own Id: OTP-19526 Aux Id: [PR-9515]
+
+- A new event time-out has been implemented in `gen_server`, that behaves more like the one in `gen_statem`.
+  
+  See the type `gen_server:action/0` for `{timeout|hibernate,...}`, and also related functions.
+
+  Own Id: OTP-19537 Aux Id: [PR-9287], [PR-9615], [PR-9621]
+
+- Line numbers used to be reported in the following way:
+  
+  ```
+  1> lists:last([]).
+  ** exception error: no function clause matching lists:last([]) (lists.erl, line 389)
+  ```
+  
+  Starting from Erlang/OTP 28, line numbers are now reported in the following way:
+  ```
+  1> lists:last([]).
+  ** exception error: no function clause matching lists:last([]) (lists.erl:389)
+  ```
+
+  Own Id: OTP-19538 Aux Id: [PR-9468]
+
+- Upgrade pcre2 to 10.45
+
+  Own Id: OTP-19541 Aux Id: [PR-9582]
+
+- Added functions that produce utf-8 binaries instead of iolists. 
+  New functions are: `io_lib:bformat/2`, `io_lib:bformat/3`, `io_lib:bfwrite/2`, `io_lib:bfwrite/3`, `io_lib:bwrite/2` and `io_lib:bwrite_string/3`.
+
+  Own Id: OTP-19556 Aux Id: [PR-9772]
+
+- The license and copyright header has changed format to include an `SPDX-License-Identifier`. At the same time, most files have been updated to follow a uniform standard for license headers.
+
+  Own Id: OTP-19575 Aux Id: [PR-9670]
+
+- A list of PCRE2 incompatibilities is documented in a user's guide for stdlib.
+
+  Own Id: OTP-19578 Aux Id: [PR-9705]
+
+- Change automatic hibernation of static supervisors so that they will hibernate after being idle for 1 second instead of only after starting, dynamic supervisors (simple_one_for_one) will not be hibernated at all.  An option to the supervisor is added to make it configurable for the application. This option defaults to 1 second for static supervisors and to infinity for the simple_one_for_one supervisors.
+
+  *** POTENTIAL INCOMPATIBILITY ***
+
+  Own Id: OTP-19597 Aux Id: [PR-9680]
+
+[PR-8556]: https://github.com/erlang/otp/pull/8556
+[PR-8429]: https://github.com/erlang/otp/pull/8429
+[PR-8699]: https://github.com/erlang/otp/pull/8699
+[PR-9094]: https://github.com/erlang/otp/pull/9094
+[PR-8926]: https://github.com/erlang/otp/pull/8926
+[PR-8261]: https://github.com/erlang/otp/pull/8261
+[PR-8651]: https://github.com/erlang/otp/pull/8651
+[PR-8792]: https://github.com/erlang/otp/pull/8792
+[PR-8793]: https://github.com/erlang/otp/pull/8793
+[PR-8812]: https://github.com/erlang/otp/pull/8812
+[PR-8962]: https://github.com/erlang/otp/pull/8962
+[GH-8037]: https://github.com/erlang/otp/issues/8037
+[PR-8962]: https://github.com/erlang/otp/pull/8962
+[PR-9006]: https://github.com/erlang/otp/pull/9006
+[PR-8625]: https://github.com/erlang/otp/pull/8625
+[GH-8985]: https://github.com/erlang/otp/issues/8985
+[PR-9020]: https://github.com/erlang/otp/pull/9020
+[GH-8099]: https://github.com/erlang/otp/issues/8099
+[PR-8100]: https://github.com/erlang/otp/pull/8100
+[PR-8976]: https://github.com/erlang/otp/pull/8976
+[PR-8966]: https://github.com/erlang/otp/pull/8966
+[GH-9092]: https://github.com/erlang/otp/issues/9092
+[PR-9095]: https://github.com/erlang/otp/pull/9095
+[PR-9154]: https://github.com/erlang/otp/pull/9154
+[PR-9299]: https://github.com/erlang/otp/pull/9299
+[PR-9610]: https://github.com/erlang/otp/pull/9610
+[PR-9246]: https://github.com/erlang/otp/pull/9246
+[PR-9106]: https://github.com/erlang/otp/pull/9106
+[PR-9333]: https://github.com/erlang/otp/pull/9333
+[PR-9251]: https://github.com/erlang/otp/pull/9251
+[PR-9316]: https://github.com/erlang/otp/pull/9316
+[PR-9376]: https://github.com/erlang/otp/pull/9376
+[PR-9402]: https://github.com/erlang/otp/pull/9402
+[PR-9819]: https://github.com/erlang/otp/pull/9819
+[PR-9408]: https://github.com/erlang/otp/pull/9408
+[PR-9445]: https://github.com/erlang/otp/pull/9445
+[PR-9484]: https://github.com/erlang/otp/pull/9484
+[PR-7970]: https://github.com/erlang/otp/pull/7970
+[PR-9518]: https://github.com/erlang/otp/pull/9518
+[PR-9141]: https://github.com/erlang/otp/pull/9141
+[PR-9515]: https://github.com/erlang/otp/pull/9515
+[PR-9287]: https://github.com/erlang/otp/pull/9287
+[PR-9615]: https://github.com/erlang/otp/pull/9615
+[PR-9621]: https://github.com/erlang/otp/pull/9621
+[PR-9468]: https://github.com/erlang/otp/pull/9468
+[PR-9582]: https://github.com/erlang/otp/pull/9582
+[PR-9772]: https://github.com/erlang/otp/pull/9772
+[PR-9670]: https://github.com/erlang/otp/pull/9670
+[PR-9705]: https://github.com/erlang/otp/pull/9705
+[PR-9680]: https://github.com/erlang/otp/pull/9680
+
 ## STDLIB 6.2.2
 
 ### Fixed Bugs and Malfunctions

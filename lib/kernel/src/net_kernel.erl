@@ -269,7 +269,7 @@ Returns a list of nodes that are explicitly allowed to connect to the node by ca
 [`allow/1`](`allow/1`). If empty list is returned, it means that any node using the
 same cookie will be able to connect.
 """.
--doc(#{since => <<"OTP @OTP-19287@">>}).
+-doc(#{since => <<"OTP 28.0">>}).
 -spec allowed() -> {ok, Nodes} | ignored when
       Nodes :: [node()].
 allowed() ->                   request(allowed).

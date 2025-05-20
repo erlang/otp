@@ -23,6 +23,24 @@ limitations under the License.
 
 This document describes the changes made to the Xmerl application.
 
+## Xmerl 2.1.4
+
+### Fixed Bugs and Malfunctions
+
+- With this change all public functions in xmerl have specs.
+
+  Own Id: OTP-19534 Aux Id: [PR-9327]
+
+[PR-9327]: https://github.com/erlang/otp/pull/9327
+
+### Improvements and New Features
+
+- The license and copyright header has changed format to include an `SPDX-License-Identifier`. At the same time, most files have been updated to follow a uniform standard for license headers.
+
+  Own Id: OTP-19575 Aux Id: [PR-9670]
+
+[PR-9670]: https://github.com/erlang/otp/pull/9670
+
 ## Xmerl 2.1.3
 
 ### Improvements and New Features

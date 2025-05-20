@@ -1,4 +1,4 @@
-MNESIA_VSN = 4.23.5
+MNESIA_VSN = 4.24
 
 # %CopyrightBegin%
 #

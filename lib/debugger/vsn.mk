@@ -1,4 +1,4 @@
-DEBUGGER_VSN = 5.5
+DEBUGGER_VSN = 6.0
 
 # %CopyrightBegin%
 #

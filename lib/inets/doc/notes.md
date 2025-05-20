@@ -21,6 +21,44 @@ limitations under the License.
 -->
 # Inets Release Notes
 
+## Inets 9.4
+
+### Fixed Bugs and Malfunctions
+
+- Replaced calls to deprecated `crypto:start()` with `application:start(crypto)`.
+
+  Own Id: OTP-19485 Aux Id: [PR-8592]
+
+- Enhance specs of timeout for improving documentation and dialyzer analysis.
+
+  Own Id: OTP-19604 Aux Id: [PR-9574]
+
+[PR-8592]: https://github.com/erlang/otp/pull/8592
+[PR-9574]: https://github.com/erlang/otp/pull/9574
+
+### Improvements and New Features
+
+- Enhanced http client documentation.
+
+  Own Id: OTP-19520 Aux Id: [PR-9516]
+
+- Enhance made to mod_esi documentation
+
+  Own Id: OTP-19521 Aux Id: [PR-9472]
+
+- The license and copyright header has changed format to include an `SPDX-License-Identifier`. At the same time, most files have been updated to follow a uniform standard for license headers.
+
+  Own Id: OTP-19575 Aux Id: [PR-9670]
+
+- Inets Makefiles now create and use dependencies files for .erl files
+
+  Own Id: OTP-19624 Aux Id: [PR-9101]
+
+[PR-9516]: https://github.com/erlang/otp/pull/9516
+[PR-9472]: https://github.com/erlang/otp/pull/9472
+[PR-9670]: https://github.com/erlang/otp/pull/9670
+[PR-9101]: https://github.com/erlang/otp/pull/9101
+
 ## Inets 9.3.2
 
 ### Fixed Bugs and Malfunctions

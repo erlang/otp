@@ -51,5 +51,5 @@
   {registered, [dbg_iserver, dbg_wx_mon, dbg_wx_winman]},
   {applications, [kernel, stdlib, compiler]},
   {optional_applications, [compiler, wx]},
-  {runtime_dependencies, ["wx-2.0","stdlib-@OTP-19184@","kernel-10.0","erts-15.0",
+  {runtime_dependencies, ["wx-2.0","stdlib-7.0","kernel-10.0","erts-15.0",
 			  "compiler-8.0"]}]}.

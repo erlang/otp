@@ -1,4 +1,4 @@
-KERNEL_VSN = 10.2.5
+KERNEL_VSN = 10.3
 
 # %CopyrightBegin%
 #

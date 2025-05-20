@@ -360,7 +360,7 @@ language.
 
 [](){: #priority-messages }
 
-As of OTP @OTP-19198@ a process may
+As of OTP 28.0 a process may
 [enable reception of priority messages](ref_man_processes.md#enable-prio-msg-recv).
 If the receiving process has enabled priority messages, the receiver will at
 reception of a message signal, or another signal that is converted into a

@@ -40,7 +40,7 @@ Using the BIFs in this module, a debugger can:
 At the moment, the API is highly experimental; so don't depend on it,
 or otherwise expect frequent incompatible changes.
 """.
--moduledoc(#{since => <<"OTP @OTP-19609@">>}).
+-moduledoc(#{since => <<"OTP 28.0">>}).
 
 %% Public API
 -export([supported/0]).
@@ -146,7 +146,7 @@ Returns `true` if the emulator supports debugging.
 The debugger can only be used if the `+D` argument was passed
 to the emulator on start-up.
 """.
--doc(#{since => <<"OTP @OTP-19609@">>}).
+-doc(#{since => <<"OTP 28.0">>}).
 -spec supported() -> boolean().
 supported() ->
     erlang:nif_error(undef).
@@ -157,7 +157,7 @@ Returns the instrumentations that will be applied on module loading.
 Modules that are already loaded may have had a different set of
 instrumentations applied.
 """.
--doc(#{since => <<"OTP @OTP-19609@">>}).
+-doc(#{since => <<"OTP 28.0">>}).
 -spec instrumentations() -> #{instrumentation() => boolean()}.
 instrumentations() ->
     erlang:nif_error(undef).
@@ -168,7 +168,7 @@ Updates the instrumentations that will be applied on module loading.
 Modules that are already loaded will keep the instrumentation they
 had at their time of loading.
 """.
--doc(#{since => <<"OTP @OTP-19609@">>}).
+-doc(#{since => <<"OTP 28.0">>}).
 -spec toggle_instrumentations(Toggle) -> ok when
     Toggle :: #{instrumentation() => boolean()}.
 toggle_instrumentations(_) ->
@@ -185,7 +185,7 @@ is a token that will be included in every message sent to the process.
 Returns `{error, already_exists}` if some process is currently
 registered as debugger.
 """.
--doc(#{since => <<"OTP @OTP-19609@">>}).
+-doc(#{since => <<"OTP 28.0">>}).
 -spec register(Pid) -> {ok, session()} | {error, already_exists} when
       Pid :: pid().
 register(_) ->
@@ -196,7 +196,7 @@ Unregisters the given process.
 
 The session given on registration needs to be provided.
 """.
--doc(#{since => <<"OTP @OTP-19609@">>}).
+-doc(#{since => <<"OTP 28.0">>}).
 -spec unregister(Pid, Session) -> ok when
       Pid :: pid(),
       Session :: session().
@@ -206,7 +206,7 @@ unregister(_, _) ->
 -doc """
 Returns the pid of the registered debugger.
 """.
--doc(#{since => <<"OTP @OTP-19609@">>}).
+-doc(#{since => <<"OTP 28.0">>}).
 -spec whereis() -> undefined | pid().
 whereis() ->
     erlang:nif_error(undef).
@@ -229,7 +229,7 @@ Returns `ok` on success. It can fail with the following reasons:
   - `{unsupported, Line}`: It is not possible to set a breakpoint in
     in the given line; for example, if it refers to a function head.
 """.
--doc(#{since => <<"OTP @OTP-19609@">>}).
+-doc(#{since => <<"OTP 28.0">>}).
 -spec breakpoint(Module, Line, Flag) -> ok | {error, Reason} when
     Module :: module(),
     Line :: pos_integer(),
@@ -284,7 +284,7 @@ content of each slot is returned. For slots containing terms,
 `MaxTermSize` controls the maximum size of values that are allowed to
 be returned (to avoid accidentally blowing the heap of the caller).
 """.
--doc(#{since => <<"OTP @OTP-19609@">>}).
+-doc(#{since => <<"OTP 28.0">>}).
 -spec stack_frames(Pid, MaxTermSize) -> running | [stack_frame()] when
       Pid :: pid(),
       MaxTermSize :: non_neg_integer().
@@ -299,7 +299,7 @@ if the frame or the slot does not exist for that process.
 Otherwise, returns the slot, that can be a term, if its size is less
 than `MaxTermSize`, or an exeption handler.
 """.
--doc(#{since => <<"OTP @OTP-19609@">>}).
+-doc(#{since => <<"OTP 28.0">>}).
 -spec peek_stack_frame_slot(Pid, FrameNo, Slot, MaxSize) ->
           running | undefined | stack_frame_slot() when
       Pid :: pid(),
@@ -314,7 +314,7 @@ peek_stack_frame_slot(_, _, _, _) ->
 -doc """
 Get the number of X registers currently in use by a suspended process.
 """.
--doc(#{since => <<"OTP @OTP-19609@">>}).
+-doc(#{since => <<"OTP 28.0">>}).
 -spec xregs_count(Pid) -> running | non_neg_integer() when
       Pid :: pid().
 xregs_count(_) ->
@@ -323,7 +323,7 @@ xregs_count(_) ->
 -doc """
 Get the value of an X register for a suspended process.
 """.
--doc(#{since => <<"OTP @OTP-19609@">>}).
+-doc(#{since => <<"OTP 28.0">>}).
 -spec peek_xreg(Pid, Reg, MaxSize) ->
           running | undefined | reg_val() when
       Pid :: pid(),

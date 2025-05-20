@@ -23,6 +23,50 @@ limitations under the License.
 
 This document describes the changes made to the Tools application.
 
+## Tools 4.1.2
+
+### Fixed Bugs and Malfunctions
+
+- A crash has been eliminated in `tprof:collect/0` when unloading a module while collecting traces.
+
+  Own Id: OTP-19135 Aux Id: [GH-8483], [PR-8547]
+
+- Improved the `indent-region` Emacs command, which could indent badly when inside multiline string.
+
+  Own Id: OTP-19396 Aux Id: [PR-9186]
+
+- `eprof:start_profiling/3` can now return information about which process it failed to trace.
+
+  Own Id: OTP-19419 Aux Id: [PR-9219]
+
+- Fixed a race condition when processes cause the Cover server to be started at the same time.
+
+  Own Id: OTP-19517 Aux Id: [PR-9124]
+
+- Fix bug in `m:tprof` where the session name could not be set.
+
+  Own Id: OTP-19580 Aux Id: [PR-9648]
+
+- Add `m:tprof` to the `.app` file.
+
+  Own Id: OTP-19628 Aux Id: [PR-9787]
+
+[GH-8483]: https://github.com/erlang/otp/issues/8483
+[PR-8547]: https://github.com/erlang/otp/pull/8547
+[PR-9186]: https://github.com/erlang/otp/pull/9186
+[PR-9219]: https://github.com/erlang/otp/pull/9219
+[PR-9124]: https://github.com/erlang/otp/pull/9124
+[PR-9648]: https://github.com/erlang/otp/pull/9648
+[PR-9787]: https://github.com/erlang/otp/pull/9787
+
+### Improvements and New Features
+
+- The license and copyright header has changed format to include an `SPDX-License-Identifier`. At the same time, most files have been updated to follow a uniform standard for license headers.
+
+  Own Id: OTP-19575 Aux Id: [PR-9670]
+
+[PR-9670]: https://github.com/erlang/otp/pull/9670
+
 ## Tools 4.1.1
 
 ### Fixed Bugs and Malfunctions

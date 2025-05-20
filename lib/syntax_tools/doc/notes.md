@@ -23,6 +23,74 @@ limitations under the License.
 
 This document describes the changes made to the Syntax_Tools application.
 
+## Syntax_Tools 4.0
+
+### Fixed Bugs and Malfunctions
+
+- A few minor issues were corrected in `m:syntax_tools`, as well in the `m:erl_anno` module.
+
+  Own Id: OTP-19422 Aux Id: [PR-9253]
+
+[PR-9253]: https://github.com/erlang/otp/pull/9253
+
+### Improvements and New Features
+
+- Comprehensions have been extended with zip generators  according to [EEP 73](https://www.erlang.org/eeps/eep-0073). 
+  
+  Example:
+  
+  ```
+  1> [A+B || A <- [1,2,3] && B <- [4,5,6]].
+  [5,7,9]
+  ```
+
+  Own Id: OTP-19184 Aux Id: [PR-8926]
+
+- New strict generators have been added for comprehensions.
+  
+  The currently existing generators are "relaxed": they ignore terms in the
+  right-hand side expression that do not match the left-hand side pattern.
+  
+  The new strict generators fail with exception `badmatch` if a pattern doesn't match.
+  
+  Examples:
+  
+  Using the current relaxed generator operator `<-`, any element not matching
+  the pattern `{_,_}` will be silently discarded:
+  
+  ```
+  1> [T || {_,_}=T <- [{ok,1},ok,{error,2}]].
+  [{ok,1},{error,2}]
+  ```
+  If the intention is that all lists processed by a list comprehension must only
+  contain tuples of size two, using the new strict version of the operator ensures
+  that term not matching will cause a crash:
+  
+  ```
+  2> [T || {_,_}=T <:- [{ok,1},ok,{error,2}]].
+  ** exception error: no match of right hand side value ok
+  ```
+  Using the strict generator operator to mark the intention that all list elements must match the pattern could help finding mistakes quicker if something unpexected is added to the list processed by the generator.
+  
+  The strict version for bitstring generators is `<:=`.
+
+  Own Id: OTP-19317 Aux Id: [PR-8625]
+
+- Fixed licenses in files and added ORT curations to the following apps: otp, eldap, erl_interface, eunit, parsetools, stdlib, syntax_tools, and ERTS.
+
+  Own Id: OTP-19478 Aux Id: [PR-9376], [PR-9402], [PR-9819]
+
+- The license and copyright header has changed format to include an `SPDX-License-Identifier`. At the same time, most files have been updated to follow a uniform standard for license headers.
+
+  Own Id: OTP-19575 Aux Id: [PR-9670]
+
+[PR-8926]: https://github.com/erlang/otp/pull/8926
+[PR-8625]: https://github.com/erlang/otp/pull/8625
+[PR-9376]: https://github.com/erlang/otp/pull/9376
+[PR-9402]: https://github.com/erlang/otp/pull/9402
+[PR-9819]: https://github.com/erlang/otp/pull/9819
+[PR-9670]: https://github.com/erlang/otp/pull/9670
+
 ## Syntax_Tools 3.2.2
 
 ### Fixed Bugs and Malfunctions

@@ -1,4 +1,4 @@
-PARSETOOLS_VSN = 2.6
+PARSETOOLS_VSN = 2.7
 
 # %CopyrightBegin%
 #

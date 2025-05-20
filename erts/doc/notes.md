@@ -23,6 +23,348 @@ limitations under the License.
 
 This document describes the changes made to the ERTS application.
 
+## Erts 16.0
+
+### Fixed Bugs and Malfunctions
+
+- ETS tables with more than 2 billion keys are now supported.
+
+  Own Id: OTP-19144 Aux Id: [PR-8589]
+
+- The zlib library included in Erlang/OTP has been updated to version 1.3.1.
+
+  Own Id: OTP-19259 Aux Id: [PR-8862]
+
+- [`to_erl`](`e:system:embedded.md#to_erl`) no longer clears the screen when attaching to a [`run_erl`](run_erl_cmd.md) session.
+
+  Own Id: OTP-19263 Aux Id: [PR-8943]
+
+- The size of an atom in the Erlang source code was limited to 255 bytes in previous releases, meaning that an atom containing only emojis could contain only 63 emojis.
+  
+  While atoms are still only allowed to contain 255 characters, the number of bytes is no longer limited.
+  
+  External tools that parse the `AtU8` chunk of a BEAM file directly need to be updated. Tools that use [`beam_lib:chunks(Beam, [atoms])`](`beam_lib:chunks/2`) to read the atom table will continue to work.
+
+  *** POTENTIAL INCOMPATIBILITY ***
+
+  Own Id: OTP-19285 Aux Id: [PR-8913]
+
+- Fixed a bug where [`erlc`](erlc_cmd.md) would crash if its path contained spaces.
+
+  Own Id: OTP-19295 Aux Id: [PR-8937]
+
+- The [`-noshell`](erl_cmd.md#noshell) mode has been updated to read data lazily from standard input. Before this fix any data would be read greedily which meant that Erlang could consume data not meant for it. It also meant that in order for `shell:start_interactive/0` to work on Windows an API that did not support reading of Unicode characters had to be used.
+
+  Own Id: OTP-19313 Aux Id: [PR-8962], [GH-8113]
+
+- The literals chunk in BEAM is no longer compressed, resulting in slightly smaller BEAM files when a BEAM file is stripped using `beam_lib:strip_files/1`.
+  
+  This is a potential incompatibility for tools that read and interpret the contents of the literal chunk. One way to update such tools to work with the new format is to retrieve the chunk using [`beam_lib:chunks(Beam, [literals])`](`beam_lib:chunks/2`).
+
+  *** POTENTIAL INCOMPATIBILITY ***
+
+  Own Id: OTP-19323 Aux Id: [GH-8967], [PR-8988]
+
+- Fixed `erlang:localtime_to_universaltime/2` with `IsDST` set to `true` and a timezone without daylight saving (for example `UTC`) to assume that the provided localtime does not have DST. This has always been the behaviour, but glibc versions after 2.37 changed it so that the behavior in Erlang also changed.
+
+  Own Id: OTP-19453 Aux Id: [PR-9207]
+
+- Support for the `TZ` environment variable has been added on Windows. Before this change only the time zone configured in the OS was ever used.
+
+  Own Id: OTP-19454 Aux Id: [PR-9207]
+
+- Suppressed various warnings when building the emulator with recent versions of GCC
+
+  Own Id: OTP-19488 Aux Id: [GH-9413], [PR-9417]
+
+- Fixed a bug in re:run and re:compile where the pattern parameter would be read incorrectly if it was a sub-binary.
+
+  Own Id: OTP-19507 Aux Id: [PR-9478], [GH-9438]
+
+- Fixed a broken makefile rule that made it so that  `O2` and `-O2` could not be part of the directory path when building Erlang/OTP. Bug has been present since R11B released 2006.
+
+  Own Id: OTP-19518 Aux Id: [PR-9488], [GH-9487]
+
+- Fixed the index types of modules `atomics` and `counters` from `integer()` to `pos_integer()`, which is more correct.
+
+  Own Id: OTP-19532 Aux Id: [PR-9538]
+
+- Fix [`erl`](erl_cmd.md) flags `+Q`, `+P` and `+t` to not allow values greater than 4294975487. Before this fix, the runtime would either truncate the value or crash depending on which value was given.
+
+  Own Id: OTP-19594 Aux Id: [PR-9671], [GH-9668]
+
+- The socket option names for built-in socket options in the module `socket` has been cleaned up.
+  
+  Now, for known socket options, it is only the canonical protocol names that are allowed such as `ip` for the socket option `{ip,recvtos}`.  Previously, due to being a protocol alias; `{'IP',recvtos}` was also allowed, as was the incorrect `{hopopt,recvtos}` because the protocol `hopopt` on Linux has the same protocol number as `ip`.
+  
+  So, to reduce confusion, all enumerated protocol names with the same number, are not allowed for the known protocol options, only the canonical name.
+
+  *** POTENTIAL INCOMPATIBILITY ***
+
+  Own Id: OTP-19615 Aux Id: [PR-9718]
+
+- On windows, socket:sendv could incorrectly return {ok, integer()} on Windows.
+
+  Own Id: OTP-19617 Aux Id: OTP-19482
+
+[PR-8589]: https://github.com/erlang/otp/pull/8589
+[PR-8862]: https://github.com/erlang/otp/pull/8862
+[PR-8943]: https://github.com/erlang/otp/pull/8943
+[PR-8913]: https://github.com/erlang/otp/pull/8913
+[PR-8937]: https://github.com/erlang/otp/pull/8937
+[PR-8962]: https://github.com/erlang/otp/pull/8962
+[GH-8113]: https://github.com/erlang/otp/issues/8113
+[GH-8967]: https://github.com/erlang/otp/issues/8967
+[PR-8988]: https://github.com/erlang/otp/pull/8988
+[PR-9207]: https://github.com/erlang/otp/pull/9207
+[PR-9207]: https://github.com/erlang/otp/pull/9207
+[GH-9413]: https://github.com/erlang/otp/issues/9413
+[PR-9417]: https://github.com/erlang/otp/pull/9417
+[PR-9478]: https://github.com/erlang/otp/pull/9478
+[GH-9438]: https://github.com/erlang/otp/issues/9438
+[PR-9488]: https://github.com/erlang/otp/pull/9488
+[GH-9487]: https://github.com/erlang/otp/issues/9487
+[PR-9538]: https://github.com/erlang/otp/pull/9538
+[PR-9671]: https://github.com/erlang/otp/pull/9671
+[GH-9668]: https://github.com/erlang/otp/issues/9668
+[PR-9718]: https://github.com/erlang/otp/pull/9718
+
+### Improvements and New Features
+
+- Functionality making it possible for processes to enable reception of [priority messages](`e:system:ref_man_processes.md#priority-messages`) has been introduced in accordance with [EEP 76](https://www.erlang.org/eeps/eep-0076).
+
+  Own Id: OTP-19198 Aux Id: [PR-9269], [PR-9519], [PR-9590]
+
+- The `trace:system/3` function has been added. It has a similar interface as `erlang:system_monitor/2` but it also supports trace sessions.
+
+  Own Id: OTP-19271 Aux Id: [PR-8660]
+
+- Added support for `SIGWINCH`, `SIGCONT`, and `SIGINFO` signals to `os:set_signal/2` where available.
+
+  Own Id: OTP-19278 Aux Id: [PR-8887], [PR-8938]
+
+- The [`erl -noshell`](erl_cmd.md#noshell) mode has been updated to have two sub modes called `raw` and `cooked`, where `cooked` is the old default behaviour and `raw` can be used to bypass the line-editing support of the native terminal. Using `raw` mode it is possible to read keystrokes as they happen without the user having to press Enter. Also, the `raw` mode does not echo the typed characters to stdout. An example of how to create a tic-tac-toe game using this mechanism is included in [the documentation](`e:stdlib:terminal_interface.md`).
+
+  Own Id: OTP-19314 Aux Id: [PR-8962], [GH-8037]
+
+- [EEP-69: Nominal Types](https://www.erlang.org/eeps/eep-0069) has been implemented. As a side effect, nominal types can encode opaque types. We changed all opaque-handling logic and improved opaque warnings in Dialyzer.
+  
+  All existing Erlang type systems are structural: two types are seen as equivalent if their structures are the same. Type comparisons are based on the structures of the types, not on how the user explicitly defines them. For example, in the following example, `meter()` and `foot()` are equivalent. The two types can be used interchangeably. Neither of them differ from the basic type `integer()`.
+  
+  ````
+  -type meter() :: integer().
+  -type foot() :: integer().
+  ````
+  
+  Nominal typing is an alternative type system, where two types are equivalent if and only if they are declared with the same type name. The EEP proposes one new syntax -nominal for declaring nominal types. Under nominal typing, `meter()` and `foot()` are no longer compatible. Whenever a function expects type `meter()`, passing in type `foot()` would result in a Dialyzer error.
+  
+  ````
+  -nominal meter() :: integer().
+  -nominal foot() :: integer().
+  ````
+  
+  More nominal type-checking rules can be found in the EEP. It is worth noting that most work for adding nominal types and type-checking is in `erl_types.erl`. The rest are changes that removed the previous opaque type-checking, and added an improved version of it using nominal type-checking with reworked warnings.
+  
+  Backwards compatibility for opaque type-checking is not preserved by this PR. Previous opaque warnings can appear with slightly different wordings. A new kind of opaque warning `opaque_union` is added, together with a Dialyzer option `no_opaque_union` to turn this kind of warnings off.
+
+  Own Id: OTP-19364 Aux Id: [PR-9079]
+
+- Two BIFs have been added to the `m:erlang` module. 
+  
+  `erlang:processes_iterator/0` returns a process iterator that can be used to
+  iterate through the process table.
+  
+  `erlang:process_next/1` takes in a process iterator and returns a 2-tuple, consisting of a process identifier and a new process iterator. When the process iterator runs out of processes in the process table, `none` will be returned.
+  
+  Using these BIFs to scan the processes scales better than using `erlang:processes/0`, at the cost of giving less consistency guarantees. Process identifiers returned from consecutive calls of `erlang:process_next/1` may not be a consistent snapshot of all elements existing in the table during any of the calls. A process identifier is only guaranteed to be returned from a call to `erlang:processes_next/1` if it was alive before the call to `erlang:processes_iterator/0` and was still alive when `erlang:processes_next/1` returned `none`.
+
+  Own Id: OTP-19369 Aux Id: [PR-9129]
+
+- Improved open debug for gen_tcp_socket (connect and listen) and gen_udp_socket (open).
+
+  Own Id: OTP-19386
+
+- Module `m:re` has been updated to use PCRE2, which is mostly backward compatible with PCRE.
+  
+  The most noticeable incompatibilities are
+  * The default character encoding is pure ASCII and not Latin1. Unicode support
+    is still available with options `unicode` and `ucp`.
+  * Options `bsr_anycrlf`, `bsr_unicode` and `{newline,_}` are only set when a
+    regex is compiled and cannot be changed at matching for precompiled regex.
+
+  *** POTENTIAL INCOMPATIBILITY ***
+
+  Own Id: OTP-19431 Aux Id: [PR-9299], [PR-9610]
+
+- When booting the runtime system on a 32-bit computer with a single core, the boot code will try to minimize the peak memory use by disabling parallel loading of BEAM files.
+
+  Own Id: OTP-19450 Aux Id: [PR-9342]
+
+- A `socket` option `{otp,select_read}` has been added that enables keeping a socket in the VM select/poll set between calls to recv functions.
+  
+  This increases throughput by reducing the number of calls to said functions.
+
+  Own Id: OTP-19451 Aux Id: [PR-9344]
+
+- `erlc` will now write compiler warnings and errors to standard error, instead of standard output, in common with other language compilers.
+
+  Own Id: OTP-19460 Aux Id: [GH-9255], [PR-9363]
+
+- Fixed the Windows build to always include `.pdb` files for all DLLs and executables to help with debugging.
+
+  Own Id: OTP-19465 Aux Id: [PR-9229]
+
+- Improve the naming of the (internal) esock mutex(es). It is now possible to configure (as in autoconf) the use of simple names for the esock mutex(es).
+
+  Own Id: OTP-19472 Aux Id: [PR-9388]
+
+- An optimization for appending 0 bits to a binary was removed in patch releases for OTP versions 25, 26, and 27. This optimization has been reintroduced in Erlang/OTP 28.
+
+  Own Id: OTP-19473 Aux Id: [PR-9396], [PR-8697]
+
+- Fixed licenses in files and added ORT curations to the following apps: otp, eldap, erl_interface, eunit, parsetools, stdlib, syntax_tools, and ERTS.
+
+  Own Id: OTP-19478 Aux Id: [PR-9376], [PR-9402], [PR-9819]
+
+- When using [`enif_select_read`](erl_nif.md#enif_select_read) (or [`enif_select`](erl_nif.md#enif_select) with `ERL_NIF_SELECT_READ`) on systems with kernel polling enabled (that is most Unix systems), file descriptors that are always re-enabled as soon as they trigger are now part of a specialized pollset just as [`driver_select`](erl_driver.md#driver_select). This reduces the CPU usage in such scenarios as the erts does not have to re-insert the FD everytime it it triggered. As a result of this optimization `m:socket` based reading uses a lot less CPU and achieves a higher throughput.
+
+  Own Id: OTP-19479 Aux Id: [PR-9275]
+
+- Added support for compiling Erlang/OTP for Windows on ARM64.
+
+  Own Id: OTP-19480 Aux Id: [PR-8734]
+
+- The Windows installer no longer creates the `erl.ini` file, making installations redistributable.
+
+  Own Id: OTP-19481 Aux Id: [PR-9330]
+
+- Added erlang:hibernate/0, which hibernates a process without discarding the stack.
+
+  Own Id: OTP-19503 Aux Id: [PR-9406]
+
+- The asmjit library (used by BeamJIT) has been updated to version 029075b84bf0161a761beb63e6eda519a29020db.
+
+  Own Id: OTP-19509 Aux Id: [PR-9495]
+
+- When compiling C/C++ code on Unix systems, the compiler hardening flags suggested by the [Open Source Security Foundation](https://github.com/ossf/wg-best-practices-os-developers/blob/main/docs/Compiler-Hardening-Guides/Compiler-Options-Hardening-Guide-for-C-and-C%2B%2B.md) are now enabled by default. To disable them, pass `--disable-security-hardening-flags` to `configure`.
+
+  Own Id: OTP-19519 Aux Id: [PR-9441]
+
+- If a process being suspended using [`erlang:suspend_process()`](`erlang:suspend_process/2`)
+  currently is waiting in a `receive ... after` expression, the timer for the timeout will now also be
+  suspended until the process is resumed.
+
+  *** POTENTIAL INCOMPATIBILITY ***
+
+  Own Id: OTP-19536 Aux Id: [PR-8670]
+
+- A test module for TLS distribution over `socket` has been implemented.
+
+  Own Id: OTP-19539 Aux Id: [PR-9511]
+
+- Upgrade pcre2 to 10.45
+
+  Own Id: OTP-19541 Aux Id: [PR-9582]
+
+- The `+R` emulator options has been removed. It has had any effect since Erlang/OTP R9.
+
+  Own Id: OTP-19551 Aux Id: [PR-9608]
+
+- The license and copyright header has changed format to include an `SPDX-License-Identifier`. At the same time, most files have been updated to follow a uniform standard for license headers.
+
+  Own Id: OTP-19575 Aux Id: [PR-9670]
+
+- Increase the default inet-driver buffer size(s). Also introduce kernel parameters for UDP and SCTP to change the sizes when creating (those) sockets.
+
+  Own Id: OTP-19576
+
+- Add [`+JPperfdirectory <dir>`](erl_cmd.md#%2BJPperfdirectory) for specifying which directory Erlang should place perf symbol information files.
+
+  Own Id: OTP-19589 Aux Id: [PR-9639], [GH-9500]
+
+- Allow multiple static nifs to be part of the same archive. See the [NIF documentation](erl_nif.md#initialization) for details.
+
+  Own Id: OTP-19590 Aux Id: [PR-9625]
+
+- Various improvements reducing lock contention on run queues due to task stealing.
+
+  Own Id: OTP-19591 Aux Id: [PR-9594]
+
+- The new implementation has the same behavior as the previous one. The newer compilers already have native support for FP16, so this implementation is only relevant for older compilers. For this reason, the new implementation has not been tested for speed.
+
+  Own Id: OTP-19603 Aux Id: [PR-9735]
+
+- An  **experimental** API for a native debugger has been added. The main components are the following:
+  
+  * A new compiler option `beam_debug_info` for the Erlang compiler. When given, most optimizations are disabled and debug information suitable for the native debugger are added to generated BEAM files.
+  
+  * A new `+D` emulator flag. When given, the VM becomes "debuggable", which means that when modules that been compiled with the `beam_debug_info` option are loaded, the code is instrumented so that one can enable and disable breakpoints on executable lines.
+  
+  * An experimental `erl_debugger` module with a new debugging API. Essentially, it allows a single, local, process to be registered as the "debugger" process for the node. This process is the one that will receive messages notifying that a process hit a breakpoint. This way, the front-end implementation of a debugger (such as [edb from WhatApp](https://github.com/WhatsApp/edb)) can be decoupled from OTP.
+  
+  * The `erl_debugger` module also exposes new BIFs to inspect `X` and `Y` registers of a suspended process. Together with new code-information BIFs, this let's a debugger show the values of variables in scope for a suspended process.
+
+  Own Id: OTP-19609 Aux Id: [PR-8670], [PR-9334], [PR-9604]
+
+- Update internal `ryu` implementation to use latest version. The new version is a little bit faster in some scenarios. `ryu` is used by `float_to_list/1` and similar functions to convert floats to strings.
+
+  Own Id: OTP-19613 Aux Id: [PR-9733]
+
+- Update of MD5 implementation from OpenSSL version 3.1.4 to 3.5.
+
+  Own Id: OTP-19614 Aux Id: [PR-9775]
+
+- Small optimization in binary_to_term by not allocating an unnecessary large native stack frame.
+
+  Own Id: OTP-19618 Aux Id: [PR-9759], [PR-9809]
+
+[PR-9269]: https://github.com/erlang/otp/pull/9269
+[PR-9519]: https://github.com/erlang/otp/pull/9519
+[PR-9590]: https://github.com/erlang/otp/pull/9590
+[PR-8660]: https://github.com/erlang/otp/pull/8660
+[PR-8887]: https://github.com/erlang/otp/pull/8887
+[PR-8938]: https://github.com/erlang/otp/pull/8938
+[PR-8962]: https://github.com/erlang/otp/pull/8962
+[GH-8037]: https://github.com/erlang/otp/issues/8037
+[PR-9079]: https://github.com/erlang/otp/pull/9079
+[PR-9129]: https://github.com/erlang/otp/pull/9129
+[PR-9299]: https://github.com/erlang/otp/pull/9299
+[PR-9610]: https://github.com/erlang/otp/pull/9610
+[PR-9342]: https://github.com/erlang/otp/pull/9342
+[PR-9344]: https://github.com/erlang/otp/pull/9344
+[GH-9255]: https://github.com/erlang/otp/issues/9255
+[PR-9363]: https://github.com/erlang/otp/pull/9363
+[PR-9229]: https://github.com/erlang/otp/pull/9229
+[PR-9388]: https://github.com/erlang/otp/pull/9388
+[PR-9396]: https://github.com/erlang/otp/pull/9396
+[PR-8697]: https://github.com/erlang/otp/pull/8697
+[PR-9376]: https://github.com/erlang/otp/pull/9376
+[PR-9402]: https://github.com/erlang/otp/pull/9402
+[PR-9819]: https://github.com/erlang/otp/pull/9819
+[PR-9275]: https://github.com/erlang/otp/pull/9275
+[PR-8734]: https://github.com/erlang/otp/pull/8734
+[PR-9330]: https://github.com/erlang/otp/pull/9330
+[PR-9406]: https://github.com/erlang/otp/pull/9406
+[PR-9495]: https://github.com/erlang/otp/pull/9495
+[PR-9441]: https://github.com/erlang/otp/pull/9441
+[PR-8670]: https://github.com/erlang/otp/pull/8670
+[PR-9511]: https://github.com/erlang/otp/pull/9511
+[PR-9582]: https://github.com/erlang/otp/pull/9582
+[PR-9608]: https://github.com/erlang/otp/pull/9608
+[PR-9670]: https://github.com/erlang/otp/pull/9670
+[PR-9639]: https://github.com/erlang/otp/pull/9639
+[GH-9500]: https://github.com/erlang/otp/issues/9500
+[PR-9625]: https://github.com/erlang/otp/pull/9625
+[PR-9594]: https://github.com/erlang/otp/pull/9594
+[PR-9735]: https://github.com/erlang/otp/pull/9735
+[PR-8670]: https://github.com/erlang/otp/pull/8670
+[PR-9334]: https://github.com/erlang/otp/pull/9334
+[PR-9604]: https://github.com/erlang/otp/pull/9604
+[PR-9733]: https://github.com/erlang/otp/pull/9733
+[PR-9775]: https://github.com/erlang/otp/pull/9775
+[PR-9759]: https://github.com/erlang/otp/pull/9759
+[PR-9809]: https://github.com/erlang/otp/pull/9809
+
 ## Erts 15.2.7
 
 ### Fixed Bugs and Malfunctions

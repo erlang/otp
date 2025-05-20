@@ -1,4 +1,4 @@
-RUNTIME_TOOLS_VSN = 2.1.1
+RUNTIME_TOOLS_VSN = 2.2
 
 # %CopyrightBegin%
 #

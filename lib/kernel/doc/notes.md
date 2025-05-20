@@ -23,6 +23,181 @@ limitations under the License.
 
 This document describes the changes made to the Kernel application.
 
+## Kernel 10.3
+
+### Fixed Bugs and Malfunctions
+
+- Fixed an issue where output to the shell would not print the prompt on a new line.
+
+  Own Id: OTP-19228 Aux Id: [PR-8820]
+
+- When in `m:shell` is in `-noshell` mode, and in `latin1` encoding mode, io requests in latin1 encoding will not be translated to unicode and back to latin1.
+
+  Own Id: OTP-19296 Aux Id: [PR-9013]
+
+- Fixed a bug where a composing unicode character would bind to a character not available to the user and deleting that character would cause a crash.
+
+  Own Id: OTP-19297 Aux Id: [PR-9005]
+
+- The [`-noshell`](`e:erts:erl_cmd.md#noshell`) mode has been updated to read data lazily from standard input. Before this fix any data would be read greedily which meant that Erlang could consume data not meant for it. It also meant that in order for `shell:start_interactive/0` to work on Windows an API that did not support reading of Unicode characters had to be used.
+
+  Own Id: OTP-19313 Aux Id: [PR-8962], [GH-8113]
+
+- The Erlang shell no longer crashes when a shell prompt ends with an escape sequence.
+
+  Own Id: OTP-19414 Aux Id: [PR-9272]
+
+- `code:get_doc/1` now works for cover-compiled modules.
+
+  Own Id: OTP-19513 Aux Id: [PR-9433]
+
+- An infinite loop in CNAME loop detection that can cause Out Of Memory has been fixed.  This affected CNAME lookup with the internal DNS resolver.
+
+  Own Id: OTP-19544 Aux Id: [PR-9587], OTP-19545
+
+- The internal resolver framework has been fixed to wait with the first resolver lookup until the ERL_INETRC environment variable has been applied.
+  
+  Previously, on some platform(s) (Linux) a first lookup when figuring out the domain name was always placed on the `native` resolver even if ERL_INETRC was used to disable it.
+
+  Own Id: OTP-19555 Aux Id: [PR-9543]
+
+- Fix [`logger:add_handler(default, ...)`](`logger:add_handler/3`) to correctly replay events generated during startup when the default logger is set to `undefined` in [logger's configuration parameters](logger_chapter.md#kernel-configuration-parameters).
+
+  Own Id: OTP-19588 Aux Id: [PR-9595], [GH-9436]
+
+- Enhance specs of timeout for improving documentation and dialyzer analysis.
+
+  Own Id: OTP-19604 Aux Id: [PR-9574]
+
+- Removed the default values for SCTP send (sndbuf) and receive (recbuf) buffers.
+
+  Own Id: OTP-19627 Aux Id: OTP-19576, [GH-9722]
+
+[PR-8820]: https://github.com/erlang/otp/pull/8820
+[PR-9013]: https://github.com/erlang/otp/pull/9013
+[PR-9005]: https://github.com/erlang/otp/pull/9005
+[PR-8962]: https://github.com/erlang/otp/pull/8962
+[GH-8113]: https://github.com/erlang/otp/issues/8113
+[PR-9272]: https://github.com/erlang/otp/pull/9272
+[PR-9433]: https://github.com/erlang/otp/pull/9433
+[PR-9587]: https://github.com/erlang/otp/pull/9587
+[PR-9543]: https://github.com/erlang/otp/pull/9543
+[PR-9595]: https://github.com/erlang/otp/pull/9595
+[GH-9436]: https://github.com/erlang/otp/issues/9436
+[PR-9574]: https://github.com/erlang/otp/pull/9574
+[GH-9722]: https://github.com/erlang/otp/issues/9722
+
+### Improvements and New Features
+
+- `application:load/1` slows down as the number of directories in the code path increases because the call to `code:where_is_file/1` for the '.app' file must scan each directory for the app. 
+  
+  `code_server` maintains a cache of the contents of directories in the path. Re-using that cache when searching for '.app' files in `application:load/1` may improve its runtime, especially when loading multiple applications.
+
+  Own Id: OTP-19194 Aux Id: [PR-8078]
+
+- The [`Erlang SSH daemon`](`e:ssh:using_ssh.md#running-an-erlang-ssh-daemon`) now uses the same backend to handle multiline functionality as the Erlang shell.
+
+  Own Id: OTP-19226 Aux Id: [PR-8805]
+
+- Added support for `SIGWINCH`, `SIGCONT`, and `SIGINFO` signals to `os:set_signal/2` where available.
+
+  Own Id: OTP-19278 Aux Id: [PR-8887], [PR-8938]
+
+- Add `net_kernel:allowed/0`, it returns a list of nodes that are explicitly allowed to connect to the node by calling
+  `net_kernel:allow/1`
+
+  Own Id: OTP-19287 Aux Id: [PR-8207]
+
+- Documentation chunks (EEP-48) has been updated to include the following reserved metadata fields: `behaviours`, `group`, `source_path`, and `source_annos`. The compiler has also been updated to emit this metadata. See the [EEP-48 documentation](eep48_chapter.md) for more details.
+
+  Own Id: OTP-19306 Aux Id: [PR-8945], [PR-8975]
+
+- The `erpc:call/3`, `erpc:call/5`, `erpc:multicall/3`, and `erpc:multicall/5` functions now also accept an option map as last argument containing the `timeout` and `always_spawn` options. The `always_spawn` option can be used in order to ensure that the call operation will use a newly spawned process when executing the remote call.
+
+  Own Id: OTP-19343 Aux Id: [PR-8642]
+
+- [EEP-69: Nominal Types](https://www.erlang.org/eeps/eep-0069) has been implemented. As a side effect, nominal types can encode opaque types. We changed all opaque-handling logic and improved opaque warnings in Dialyzer.
+  
+  All existing Erlang type systems are structural: two types are seen as equivalent if their structures are the same. Type comparisons are based on the structures of the types, not on how the user explicitly defines them. For example, in the following example, `meter()` and `foot()` are equivalent. The two types can be used interchangeably. Neither of them differ from the basic type `integer()`.
+  
+  ````
+  -type meter() :: integer().
+  -type foot() :: integer().
+  ````
+  
+  Nominal typing is an alternative type system, where two types are equivalent if and only if they are declared with the same type name. The EEP proposes one new syntax -nominal for declaring nominal types. Under nominal typing, `meter()` and `foot()` are no longer compatible. Whenever a function expects type `meter()`, passing in type `foot()` would result in a Dialyzer error.
+  
+  ````
+  -nominal meter() :: integer().
+  -nominal foot() :: integer().
+  ````
+  
+  More nominal type-checking rules can be found in the EEP. It is worth noting that most work for adding nominal types and type-checking is in `erl_types.erl`. The rest are changes that removed the previous opaque type-checking, and added an improved version of it using nominal type-checking with reworked warnings.
+  
+  Backwards compatibility for opaque type-checking is not preserved by this PR. Previous opaque warnings can appear with slightly different wordings. A new kind of opaque warning `opaque_union` is added, together with a Dialyzer option `no_opaque_union` to turn this kind of warnings off.
+
+  Own Id: OTP-19364 Aux Id: [PR-9079]
+
+- Improved open debug for gen_tcp_socket (connect and listen) and gen_udp_socket (open).
+
+  Own Id: OTP-19386
+
+- `t:io:standard_error/0` has been updated to write via a NIF API instead of a port. This allows it to access the dirty-scheduler pool and make sure that writes have been written to the OSs `stderr` when `io:format/3` and equivalent return.
+
+  Own Id: OTP-19401 Aux Id: [PR-9116]
+
+- Added the option `exception_on_failure` to `os:cmd/2` to make `os:cmd/2` raise an exception if the command fails to execute.
+
+  Own Id: OTP-19404 Aux Id: [PR-9082]
+
+- A `socket` option `{otp,select_read}` has been added that enables keeping a socket in the VM select/poll set between calls to recv functions.
+  
+  This increases throughput by reducing the number of calls to said functions.
+
+  Own Id: OTP-19451 Aux Id: [PR-9344]
+
+- Add a configure chapter to the socket usage guide
+
+  Own Id: OTP-19522 Aux Id: [PR-9508]
+
+- The license and copyright header has changed format to include an `SPDX-License-Identifier`. At the same time, most files have been updated to follow a uniform standard for license headers.
+
+  Own Id: OTP-19575 Aux Id: [PR-9670]
+
+- Increase the default inet-driver buffer size(s). Also introduce kernel parameters for UDP and SCTP to change the sizes when creating (those) sockets.
+
+  Own Id: OTP-19576
+
+- An  **experimental** API for a native debugger has been added. The main components are the following:
+  
+  * A new compiler option `beam_debug_info` for the Erlang compiler. When given, most optimizations are disabled and debug information suitable for the native debugger are added to generated BEAM files.
+  
+  * A new `+D` emulator flag. When given, the VM becomes "debuggable", which means that when modules that been compiled with the `beam_debug_info` option are loaded, the code is instrumented so that one can enable and disable breakpoints on executable lines.
+  
+  * An experimental `erl_debugger` module with a new debugging API. Essentially, it allows a single, local, process to be registered as the "debugger" process for the node. This process is the one that will receive messages notifying that a process hit a breakpoint. This way, the front-end implementation of a debugger (such as [edb from WhatApp](https://github.com/WhatsApp/edb)) can be decoupled from OTP.
+  
+  * The `erl_debugger` module also exposes new BIFs to inspect `X` and `Y` registers of a suspended process. Together with new code-information BIFs, this let's a debugger show the values of variables in scope for a suspended process.
+
+  Own Id: OTP-19609 Aux Id: [PR-8670], [PR-9334], [PR-9604]
+
+[PR-8078]: https://github.com/erlang/otp/pull/8078
+[PR-8805]: https://github.com/erlang/otp/pull/8805
+[PR-8887]: https://github.com/erlang/otp/pull/8887
+[PR-8938]: https://github.com/erlang/otp/pull/8938
+[PR-8207]: https://github.com/erlang/otp/pull/8207
+[PR-8945]: https://github.com/erlang/otp/pull/8945
+[PR-8975]: https://github.com/erlang/otp/pull/8975
+[PR-8642]: https://github.com/erlang/otp/pull/8642
+[PR-9079]: https://github.com/erlang/otp/pull/9079
+[PR-9116]: https://github.com/erlang/otp/pull/9116
+[PR-9082]: https://github.com/erlang/otp/pull/9082
+[PR-9344]: https://github.com/erlang/otp/pull/9344
+[PR-9508]: https://github.com/erlang/otp/pull/9508
+[PR-9670]: https://github.com/erlang/otp/pull/9670
+[PR-8670]: https://github.com/erlang/otp/pull/8670
+[PR-9334]: https://github.com/erlang/otp/pull/9334
+[PR-9604]: https://github.com/erlang/otp/pull/9604
+
 ## Kernel 10.2.7
 
 ### Fixed Bugs and Malfunctions

@@ -21,6 +21,57 @@ limitations under the License.
 -->
 # SSH Release Notes
 
+## Ssh 5.3
+
+### Fixed Bugs and Malfunctions
+
+- The implementation of the ssh server-side supervision tree has been improved.
+
+  Own Id: OTP-19324 Aux Id: [PR-8968], [GH-8223]
+
+- SSH daemon accepts fun as tcpip_tunnel_in option. This provides more control over TCP connection tunnel handle by server.
+
+  Own Id: OTP-19566 Aux Id: [PR-9571]
+
+[PR-8968]: https://github.com/erlang/otp/pull/8968
+[GH-8223]: https://github.com/erlang/otp/issues/8223
+[PR-9571]: https://github.com/erlang/otp/pull/9571
+
+### Improvements and New Features
+
+- The [`Erlang SSH daemon`](using_ssh.md#running-an-erlang-ssh-daemon) now uses the same backend to handle multiline functionality as the Erlang shell.
+
+  Own Id: OTP-19226 Aux Id: [PR-8805]
+
+- CBC algorithms are not offered by default. See Configuring algorithms in SSH if you wish to enable them.
+
+  *** POTENTIAL INCOMPATIBILITY ***
+
+  Own Id: OTP-19420 Aux Id: [PR-9277]
+
+- Daemon can be configured (bannerfun option) to send banner message at the beginning of user authentication.
+
+  Own Id: OTP-19535 Aux Id: [PR-9149]
+
+- The license and copyright header has changed format to include an `SPDX-License-Identifier`. At the same time, most files have been updated to follow a uniform standard for license headers.
+
+  Own Id: OTP-19575 Aux Id: [PR-9670]
+
+- For interoperability reasons, SSH ignore message with no length specified is treated as message with zero length specified - it will not cause decode error.
+
+  Own Id: OTP-19586 Aux Id: [PR-9214]
+
+- Documentation improvements.
+
+  Own Id: OTP-19596 Aux Id: [PR-9298]
+
+[PR-8805]: https://github.com/erlang/otp/pull/8805
+[PR-9277]: https://github.com/erlang/otp/pull/9277
+[PR-9149]: https://github.com/erlang/otp/pull/9149
+[PR-9670]: https://github.com/erlang/otp/pull/9670
+[PR-9214]: https://github.com/erlang/otp/pull/9214
+[PR-9298]: https://github.com/erlang/otp/pull/9298
+
 ## Ssh 5.2.11
 
 ### Fixed Bugs and Malfunctions
