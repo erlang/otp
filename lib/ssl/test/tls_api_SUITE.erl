@@ -640,10 +640,7 @@ tls_closed_in_active_once(Config) when is_list(Config) ->
     {ok, Socket} = ssl:connect(Hostname, Port, [{active, false} | ClientOpts]),
     Result = tls_closed_in_active_once_loop(Socket),
     ssl:close(Socket),
-    case Result of
-	ok -> ok;
-	_ -> ct:fail(Result)
-    end.
+    ok = Result.
 
 %%--------------------------------------------------------------------
 tls_monitor_listener() ->
