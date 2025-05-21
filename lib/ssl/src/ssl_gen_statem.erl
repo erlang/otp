@@ -675,10 +675,16 @@ downgrade(internal, #alert{description = ?CLOSE_NOTIFY},
 	  #state{static_env = #static_env{transport_cb = Transport,
                                           socket = Socket},
 		 connection_env = #connection_env{downgrade = {Pid, From}},
-                 protocol_buffers = #protocol_buffers{tls_record_buffer = TlsRecordBuffer}
+                 protocol_buffers = #protocol_buffers{tls_record_buffer = TlsRecordBuffer},
+                 protocol_specific = PSpec
                 } = State) ->
     tls_socket:setopts(Transport, Socket, [{active, false}, {packet, 0}, {mode, binary}]),
     Transport:controlling_process(Socket, Pid),
+
+    case maps:get(sel_info, PSpec, undefined) of
+        undefined -> ok;
+        SI -> _ = Transport:cancel(Socket, SI)
+    end,
     ReturnValue = case TlsRecordBuffer of
                       {undefined,{[Bin] = _Front, _Size, []}} ->
                           %% Buffered non TLS data returned to downgrade caller

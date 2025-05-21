@@ -530,6 +530,9 @@ handle_common(_StateName, info, {'EXIT', _Sup, Reason},
     end;
 handle_common(_StateName, info, {'EXIT', _Sup, shutdown}, StateData) ->
     {stop, shutdown, StateData};
+handle_common(_StateName, info, {'$socket', _, abort, Reason}, StateData) ->
+    ?SSL_LOG(info, "TLS sender received socket error", [{message, Reason}]),
+    {stop, shutdown, StateData};
 handle_common(StateName, info, Msg, StateData) ->
     ?SSL_LOG(info, "TLS sender received unexpected info", [{message, Msg}]),
     hibernate_after(StateName, StateData, []);
