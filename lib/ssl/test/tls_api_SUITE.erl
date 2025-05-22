@@ -1187,26 +1187,31 @@ emulated_options(Config) when is_list(Config) ->
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     Values = [{mode, list}, {packet, 0}, {header, 0},
-		      {active, true}],
+              {active, true},
+              {high_watermark, 10_000}, {low_watermark, 4096}],
+    %% High and low watermark is emulated on sockets
+
     %% Shall be the reverse order of Values!
-    Options = [active, header, packet, mode],
+    Options = [low_watermark, high_watermark, active, header, packet, mode],
 
-    NewValues = [{mode, binary}, {active, once}],
+    NewValues = [{mode, binary}, {active, once}, {high_watermark, 12_000}, {low_watermark, 6_000}],
     %% Shall be the reverse order of NewValues!
-    NewOptions = [active, mode],
+    NewOptions = [low_watermark, high_watermark, active, mode],
 
-    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
-					{from, self()},
-			   {mfa, {?MODULE, tls_socket_options_result,
-				  [Options, Values, NewOptions, NewValues]}},
-			   {options, ServerOpts}]),
+    Server = ssl_test_lib:start_server(
+               [{node, ServerNode}, {port, 0},
+                {from, self()},
+                {mfa, {?MODULE, tls_socket_options_result,
+                       [Options, Values, NewOptions, NewValues]}},
+                {options, [{high_watermark, 10_000}|ServerOpts]}]),
     Port = ssl_test_lib:inet_port(Server),
-    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
-					{host, Hostname},
-			   {from, self()},
-			   {mfa, {?MODULE, tls_socket_options_result,
-				  [Options, Values, NewOptions, NewValues]}},
-			   {options, ClientOpts}]),
+    Client = ssl_test_lib:start_client(
+               [{node, ClientNode}, {port, Port},
+                {host, Hostname},
+                {from, self()},
+                {mfa, {?MODULE, tls_socket_options_result,
+                       [Options, Values, NewOptions, NewValues]}},
+                {options, [{high_watermark, 10_000}|ClientOpts]}]),
 
     ssl_test_lib:check_result(Server, ok, Client, ok),
 
@@ -1218,6 +1223,7 @@ emulated_options(Config) when is_list(Config) ->
     {ok,[{mode, binary}]} = ssl:getopts(Listen, [mode]),
     {ok,[{recbuf, _}]} = ssl:getopts(Listen, [recbuf]),
     ssl:close(Listen).
+
 accept_pool() ->
     [{doc,"Test having an accept pool."}].
 accept_pool(Config) when is_list(Config) ->

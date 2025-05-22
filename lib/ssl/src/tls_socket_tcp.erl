@@ -51,8 +51,6 @@
          data_available/4
         ]).
 
--include("ssl_internal.hrl").
-
 %% -define(DBG_LOG(F,A), ct:log(default, 1, "~w:~w: " ++ F, [?MODULE, ?LINE|A], [esc_chars])).
 -define(DBG_LOG(F,A), ok).
 
@@ -63,7 +61,7 @@ cb_info() ->
 setopts(Socket, List) ->
     try
         Opts = check_opts(List),
-        [ok = setopt(Socket, Opt, Val) || Opt := Val <- Opts],
+        [ok = setopt(Socket, Opt, Val) || Opt := Val <- Opts, Opt =/= tcp_module],
         ok
     catch _:Err ->
             Err
@@ -282,7 +280,7 @@ setopt(Socket, active, N) ->
 setopt(Socket, {_,_}=Opt, Val) ->
     ok = socket:setopt(Socket, Opt, Val);
 setopt(_Socket, _Opt, _Val) ->
-    ?DBG_LOG("setopt: Ignore: ~p ~p", [_Opt, _Val]),
+    ?DBG_LOG("setopt: Ignore: ~p ~p~n~p", [_Opt, _Val, process_info(self(), current_stacktrace)]),
     ok.
 
 connect_1([IP|IPs], Port, Opts, Timeout, _Err) ->
@@ -342,7 +340,7 @@ check_opts(Opts0) ->
     Def = #{
             tcp_module => inet_tcp
            },
-    ?DBG_LOG("Opts: ~p~n", [Opts0]),
+    ?DBG_LOG("Opts: ~p~n~p~n", [Opts0, process_info(self(), current_stacktrace)]),
     lists:foldr(fun check_opts_1/2, Def, Opts0).
 
 

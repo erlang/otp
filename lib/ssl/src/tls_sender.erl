@@ -38,7 +38,6 @@
          send_post_handshake/2,
          send_alert/2,
          send_and_ack_alert/2,
-         setopts/2,
          renegotiate/1,
          peer_renegotiate/1,
          downgrade/2,
@@ -62,7 +61,7 @@
         {connection_pid,
          role,
          socket,
-         socket_options,
+         socket_opts_tab,
          transport_cb,
          negotiated_version,
          renegotiate_at,
@@ -88,8 +87,8 @@
          sent  = 0,    %% Windows only, sent and buffered data
          q_rev = [],   %% Q of remaining Encrypted data
          reply_to = undefined,
-         high  = 8192,
-         low   = 4096
+         high  = undefined,
+         low   = undefined
         }).
 
 -define(IS_ASYNC(Tag), Tag =:= select; Tag =:= completion).
@@ -152,12 +151,6 @@ send_alert(Pid, Alert) ->
 %%--------------------------------------------------------------------
 send_and_ack_alert(Pid, Alert) ->
     gen_statem:call(Pid, {ack_alert, Alert}, ?DEFAULT_TIMEOUT).
-%%--------------------------------------------------------------------
--spec setopts(pid(), [{packet, integer() | atom()}]) -> ok | {error, term()}.
-%%  Description: Send application data
-%%--------------------------------------------------------------------
-setopts(Pid, Opts) ->
-    call(Pid, {set_opts, Opts}).
 
 %%--------------------------------------------------------------------
 -spec renegotiate(pid()) -> {ok, WriteState::map()} | {error, closed}.
@@ -236,7 +229,7 @@ init({call, From}, {Pid, #{current_write := WriteState,
                            beast_mitigation := BeastMitigation,
                            role := Role,
                            socket := Socket,
-                           socket_options := SockOpts,
+                           socket_opts_tab := SockOpts,
                            erl_dist := IsErlDist,
                            transport_cb := Transport,
                            negotiated_version := Version,
@@ -257,17 +250,17 @@ init({call, From}, {Pid, #{current_write := WriteState,
         StateData0#data{connection_states = ConnectionStates,
                         bytes_sent = 0,
                         env = Env0#env{connection_pid = Pid,
-                                                role = Role,
-                                                socket = Socket,
-                                                socket_options = SockOpts,
-                                                dist_handle = IsErlDist,
-                                                transport_cb = Transport,
-                                                negotiated_version = Version,
-                                                renegotiate_at = RenegotiateAt,
-                                                key_update_at = KeyUpdateAt,
-                                                log_level = LogLevel,
-                                                hibernate_after = HibernateAfter,
-                                                keylog_fun = Fun}},
+                                       role = Role,
+                                       socket = Socket,
+                                       socket_opts_tab = SockOpts,
+                                       dist_handle = IsErlDist,
+                                       transport_cb = Transport,
+                                       negotiated_version = Version,
+                                       renegotiate_at = RenegotiateAt,
+                                       key_update_at = KeyUpdateAt,
+                                       log_level = LogLevel,
+                                       hibernate_after = HibernateAfter,
+                                       keylog_fun = Fun}},
     proc_lib:set_label({tls_sender, Role, {connection, Pid}}),
     put(log_level, LogLevel),
     put(tls_role, Role),
@@ -411,8 +404,6 @@ async_wait(_T, _Msg, _) ->
                   StateData :: term()) ->
                          gen_statem:event_handler_result(atom()).
 %%--------------------------------------------------------------------
-handshake({call, From}, {set_opts, Opts}, StateData) ->
-    handle_set_opts(handshake, From, Opts, StateData);
 handshake({call, _}, _, _) ->
     %% Postpone all calls to the connection state
     {keep_state_and_data, [postpone]};
@@ -495,18 +486,6 @@ code_change(_OldVsn, State, Data, _Extra) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
-handle_set_opts(StateName, From, Opts,
-                #data{env = #env{socket_options = SockOpts} = Env}
-                = StateData) ->
-    hibernate_after(StateName,
-                    StateData#data{
-                      env = Env#env{
-                              socket_options = set_opts(SockOpts, Opts)}},
-                    [{reply, From, ok}]).
-
-
-handle_common(StateName, {call, From}, {set_opts, Opts}, StateData) ->
-    handle_set_opts(StateName, From, Opts, StateData);
 handle_common(StateName, {call, From}, get_application_traffic_secret,
               #data{env = #env{num_key_updates = N}} = Data) ->
     CurrentWrite = maps:get(current_write, Data#data.connection_states),
@@ -808,9 +787,6 @@ key_update_at(?TLS_1_3, _, KeyUpdateAt) ->
 key_update_at(_, _, KeyUpdateAt) ->
     KeyUpdateAt.
 
-set_opts(SocketOptions, [{packet, N}]) ->
-    SocketOptions#socket_options{packet = N}.
-
 time_to_rekey(Version, _DataSz, _BytesSent, CS, #env{key_update_at = seq_num_wrap})
   when ?TLS_GTE(Version, ?TLS_1_3) ->
     #{current_write := #{sequence_number := Seq}} = CS,
@@ -853,7 +829,7 @@ call(FsmPid, Event) ->
 %% To avoid livelock, dist_data/2 will check for more bytes coming from
 %%  distribution channel, if amount of already collected bytes greater
 %%  or equal than the limit defined below.
--define(TLS_BUNDLE_SOFT_LIMIT, 16 * 1024 * 1024).
+-define(TLS_BUNDLE_SOFT_LIMIT, (16 * 1024 * 1024)).
 
 dist_data(DHandle) ->
     dist_data(DHandle, 0).

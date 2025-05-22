@@ -77,7 +77,7 @@ handle_options(Socket, Opts, Role, Host) ->
     handle_options(Transport, Socket, Opts, Role, Host).
 
 %% Handle all options in listen, connect and handshake
-handle_options(Transport, Socket, Opts0, Role, Host) ->
+handle_options(Transport0, Socket, Opts0, Role, Host) ->
     {UserSslOptsList, SockOpts0} = split_options(Opts0, ssl_options()),
     NeedValidate = not (Socket == undefined) andalso Role =:= server, %% handshake options
     Env = #{role => Role, host => Host,
@@ -87,9 +87,13 @@ handle_options(Transport, Socket, Opts0, Role, Host) ->
 
     %% Handle special options
     #{protocol := Protocol} = SslOpts,
+    CbInfo = handle_option_cb_info(Opts0, Protocol, Socket),
+    Transport = case Transport0 of
+                    undefined -> element(1, CbInfo);
+                    _Else -> Transport0
+                end,
     {Sock, Emulated} = emulated_options(Transport, Socket, Protocol, SockOpts0),
     ConnetionCb = connection_cb(Protocol),
-    CbInfo = handle_option_cb_info(Opts0, Protocol, Socket),
 
     {ok, #config{
             ssl = SslOpts,
@@ -1740,15 +1744,15 @@ tls_validate_version_gap(Versions) ->
             Versions
     end.
 
-emulated_options(undefined, undefined, Protocol, Opts) ->
+emulated_options(Transport, undefined, Protocol, Opts) ->
     case Protocol of
 	tls ->
-	    tls_socket:emulated_options(Opts);
+	    tls_socket:emulated_options(Transport, Opts);
 	dtls ->
 	    dtls_socket:emulated_options(Opts)
     end;
 emulated_options(Transport, Socket, Protocol, Opts) ->
-    EmulatedOptions = tls_socket:emulated_options(),
+    EmulatedOptions = tls_socket:emulated_options(Transport),
     {ok, Inherited} = case Socket of
                           {'$socket', _} ->
                               %% This can't be set on a socket socket,
@@ -1760,12 +1764,11 @@ emulated_options(Transport, Socket, Protocol, Opts) ->
     Get = fun(Key) ->
                   {Key, proplists:get_value(Key, Opts, proplists:get_value(Key, Inherited))}
           end,
-    {Inet, _} = emulated_options(undefined, undefined, Protocol, Opts),
+    {Inet, _} = emulated_options(Transport, undefined, Protocol, Opts),
     Emulated = [Get(Key) || Key <- EmulatedOptions],
     {Inet, Emulated}.
 
-
-handle_cipher_option(Value, Versions)  when is_list(Value) ->       
+handle_cipher_option(Value, Versions)  when is_list(Value) ->
     try binary_cipher_suites(Versions, Value) of
 	Suites ->
 	    Suites
