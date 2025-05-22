@@ -241,11 +241,14 @@ for name in "${CREATE_RELEASE[@]}"; do
         README=""
     fi
     if [ "${README}" != "" ]; then
-        BODY=", \"body\":${RM}"
+        BODY=", \"body\":${README}"
     else
         BODY=""
     fi
-    _curl_post "${REPO}/releases" -d '{"tag_name":"'"${name}"'", "name":"OTP '"${stripped_name}\"${BODY}}"
+    TMP=$(mktemp)
+    printf '{"tag_name":"'"%s"'", "name":"OTP '"%s\"%s}" "${name}" "${stripped_name}" "${BODY}" > "${TMP}"
+    _curl_post "${REPO}/releases" --data-binary "@${TMP}"
+    rm -f ${TMP}
 done
 
 for name_id in "${UPDATE_BODY[@]}"; do
@@ -266,7 +269,10 @@ for name_id in "${UPDATE_BODY[@]}"; do
         README=$(_json_escape "${README}")
     fi
     echo "Update body of ${name}"
-    _curl_patch "${REPO}/releases/${RELEASE_ID}" -d "{\"body\":${README}}"
+    TMP=$(mktemp)
+    printf "{\"body\":%s}" "${README}" > "${TMP}"
+    _curl_patch "${REPO}/releases/${RELEASE_ID}" --data-binary "@${TMP}"
+    rm -f ${TMP}
 done
 
 UPLOADED=false
@@ -288,11 +294,16 @@ _upload_artifacts() {
     UPLOAD_URL=$(echo "${RELEASE}" | jq -r ".upload_url" | sed 's/{.*//')
     _upload() {
         if [ -s downloads/${1} ]; then
-            echo "Upload ${1}"
-            UPLOADED=true
-            _curl_post -H "Content-Type: ${2}" \
-                       "${UPLOAD_URL}?name=${1}" \
-                       --data-binary "@downloads/${1}"
+            ARTIFACT_ID=$(echo "${RELEASE}" | jq -r '.assets.[] | select(.name == "'"${1}"'")')
+            if [ "${ARTIFACT_ID}" = "" ]; then
+                echo "Upload ${1}"
+                UPLOADED=true
+                _curl_post -H "Content-Type: ${2}" \
+                           "${UPLOAD_URL}?name=${1}" \
+                           --data-binary "@downloads/${1}"
+            else
+                echo "Skipped upload of ${1}, it already exists"
+            fi
         else
             ## See if we need to trigger any .exe to .zip convertions
             if echo "${RI[@]}" | grep "otp_${2}_${stripped_name}.zip" > /dev/null; then
