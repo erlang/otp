@@ -358,7 +358,7 @@ suppress({M,F,A}=MFA) ->
 	    ok;
 	true ->
 	    Args = [lists:concat(["element(",I,", Arg)"]) || I <- lists:seq(1, A)],
-	    emit(["    ",{call,M,F,Args},com,nl])
+	    emit(["    _ = ",{call,M,F,Args},com,nl])
     end.
 
 %%===============================================================================
