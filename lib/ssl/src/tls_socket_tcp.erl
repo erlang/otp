@@ -50,8 +50,6 @@
          data_available/4
         ]).
 
--include("ssl_internal.hrl").
-
 %% -define(DBG_LOG(F,A), ct:log(default, 1, "~w:~w: " ++ F, [?MODULE, ?LINE|A], [esc_chars])).
 -define(DBG_LOG(F,A), ok).
 

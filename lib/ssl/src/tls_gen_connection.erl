@@ -130,7 +130,7 @@ initialize_tls_sender(#state{static_env = #static_env{
                                              trackers = Trackers
                                             },
                              connection_env = #connection_env{negotiated_version = Version},
-                             socket_options = SockOpts,
+                             tab = Tab,
                              ssl_options = #{renegotiate_at := RenegotiateAt,
                                              key_update_at := KeyUpdateAt,
                                              log_level := LogLevel
@@ -148,7 +148,7 @@ initialize_tls_sender(#state{static_env = #static_env{
              beast_mitigation => maps:get(beast_mitigation, CS, disabled),
              role => Role,
              socket => Socket,
-             socket_options => SockOpts,
+             socket_opts_tab => Tab,
              erl_dist => maps:get(erl_dist, SSLOpts, false),
              trackers => Trackers,
              transport_cb => Transport,
