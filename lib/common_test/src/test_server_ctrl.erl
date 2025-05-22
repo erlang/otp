@@ -4051,7 +4051,7 @@ progress(skip, CaseNum, Mod, Func, GrName, Loc, Reason, T,
 		     fun() -> {?auto_skip_color,auto_skip,auto_skipped} end,
 		     fun() -> {?user_skip_color,skip,skipped} end),
     Time = if is_number(T) -> float(T); true -> 0.0 end,
-    print(major, "=result        ~w: ~tp", [ReportTag,Reason1]),
+    print(major, "=result        ~w: ~tkp", [ReportTag,Reason1]),
     print(major, "=elapsed       ~.6fs", [Time]),
     print(1, "*** SKIPPED ~ts ***",
 	  [get_info_str(Mod,Func, CaseNum, get(test_server_cases))]),
@@ -4085,7 +4085,7 @@ progress(skip, CaseNum, Mod, Func, GrName, Loc, Reason, T,
 progress(failed, CaseNum, Mod, Func, GrName, Loc, timetrap_timeout, T,
 	 Comment0, {St0,St1}) ->
     Time = if is_number(T) -> float(T); true -> 0.0 end,
-    print(major, "=result        failed: timeout, ~tp", [Loc]),
+    print(major, "=result        failed: timeout, ~tkp", [Loc]),
     print(major, "=elapsed       ~.6fs", [Time]),
     print(1, "*** FAILED ~ts ***",
 	  [get_info_str(Mod,Func, CaseNum, get(test_server_cases))]),
@@ -4113,7 +4113,7 @@ progress(failed, CaseNum, Mod, Func, GrName, Loc, timetrap_timeout, T,
 progress(failed, CaseNum, Mod, Func, GrName, Loc, {testcase_aborted,Reason}, T,
 	 Comment0, {St0,St1}) ->
     Time = if is_number(T) -> float(T); true -> 0.0 end,
-    print(major, "=result        failed: testcase_aborted, ~tp", [Loc]),
+    print(major, "=result        failed: testcase_aborted, ~tkp", [Loc]),
     print(major, "=elapsed       ~.6fs", [Time]),
     print(1, "*** FAILED ~ts ***",
 	  [get_info_str(Mod,Func, CaseNum, get(test_server_cases))]),
@@ -4144,7 +4144,7 @@ progress(failed, CaseNum, Mod, Func, GrName, Loc, {testcase_aborted,Reason}, T,
 progress(failed, CaseNum, Mod, Func, GrName, unknown, Reason, T,
 	 Comment0, {St0,St1}) ->
     Time = if is_number(T) -> float(T); true -> 0.0 end,
-    print(major, "=result        failed: ~tp, ~w", [Reason,unknown_location]),
+    print(major, "=result        failed: ~tkp, ~w", [Reason,unknown_location]),
     print(major, "=elapsed       ~.6fs", [Time]),
     print(1, "*** FAILED ~ts ***",
 	  [get_info_str(Mod,Func, CaseNum, get(test_server_cases))]),
@@ -4190,7 +4190,7 @@ progress(failed, CaseNum, Mod, Func, GrName, Loc, Reason, T,
 			 true -> {Loc,Loc}
 		       end,
     Time = if is_number(T) -> float(T); true -> 0.0 end,
-    print(major, "=result        failed: ~tp, ~tp", [Reason,LocMaj]),
+    print(major, "=result        failed: ~tkp, ~tp", [Reason,LocMaj]),
     print(major, "=elapsed       ~.6fs", [Time]),
     print(1, "*** FAILED ~ts ***",
 	  [get_info_str(Mod,Func, CaseNum, get(test_server_cases))]),
@@ -4351,7 +4351,7 @@ to_string(Term) when is_list(Term) ->
 	String     -> lists:flatten(String)
     end;
 to_string(Term) ->
-    lists:flatten(io_lib:format("~tp", [Term])).
+    lists:flatten(io_lib:format("~tkp", [Term])).
 
 get_last_loc(Loc) when is_tuple(Loc) ->
     Loc;
@@ -4441,7 +4441,7 @@ format_exception(Error) ->
 do_format_exception(Reason={Error,Stack}) ->
     StackFun = fun(_, _, _) -> false end,
     PF = fun(Term, I) ->
-		 io_lib:format("~." ++ integer_to_list(I) ++ "tp", [Term])
+		 io_lib:format("~." ++ integer_to_list(I) ++ "tkp", [Term])
 	 end,
     case catch erl_error:format_exception(1, error, Error, Stack, StackFun, PF, utf8) of
 	{'EXIT',_R} ->
