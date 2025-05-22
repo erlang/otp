@@ -92,7 +92,7 @@
                 "\"downloadLocation\"\\s*:\\s*\"https://github.com/(?<depName>[^/]+/[^/\"]+)\"[\\s\\S]*?\"versionInfo\"\\s*:\\s*\"(?<currentValue>[^\"]+)\""
             ],
             "datasourceTemplate": "github-tags",
-            "depNameTemplate": "{{{depName}}}"
+            "depNameTemplate": "{{depName}}"
         },
         {
             "customType": "regex",
