@@ -563,6 +563,20 @@ der_decode('Dss-Sig-Value', Der) ->
 	error:{badmatch, {error, _}} = Error ->
 	    erlang:error(Error)
     end;
+der_decode(Asn1ExtType, Der) when Asn1ExtType == 'SubjectAltName';
+                                  Asn1ExtType == 'IssuerAltName';
+                                  Asn1ExtType == 'ExtKeyUsage';
+                                  Asn1ExtType == 'InhibitAnyPolicy';
+                                  Asn1ExtType == 'FreshestCRL';
+                                  Asn1ExtType == 'AuthorityInfoAccess';
+                                  Asn1ExtType == 'DeltaCRLIndicator';
+                                  Asn1ExtType == 'CertificateIssuer';
+                                  Asn1ExtType == 'HoldInstructionCode';
+                                  Asn1ExtType == 'InvalidityDate' ->
+    Oid = pubkey_cert_records:ext_oid(Asn1ExtType),
+    [#'Extension'{extnValue = Value}]
+        = pubkey_cert_records:decode_extensions([#'Extension'{extnID = Oid, extnValue = Der}]),
+    Value;
 der_decode(Asn1Type, Der) when is_atom(Asn1Type), is_binary(Der) ->
     Asn1Module = get_asn1_module(Asn1Type),
     try
@@ -573,45 +587,46 @@ der_decode(Asn1Type, Der) when is_atom(Asn1Type), is_binary(Der) ->
 	    erlang:error(Error)
     end.
 
-get_asn1_module('BasicOCSPResponse') -> 'OCSP-2024-08';
-get_asn1_module('Nonce') -> 'OCSP-2024-08';
-get_asn1_module('OCSPResponse') -> 'OCSP-2024-08';
-get_asn1_module('ResponseData') -> 'OCSP-2024-08';
-get_asn1_module('Name') -> 'PKIX1Explicit-2009';
-get_asn1_module('Extensions') -> 'OTP-PKIX';
-
 get_asn1_module('AuthorityInfoAccessSyntax') -> 'PKIX1Implicit-2009';
 get_asn1_module('AuthorityKeyIdentifier') -> 'PKIX1Implicit-2009';
 get_asn1_module('BasicConstraints') -> 'PKIX1Implicit-2009';
 get_asn1_module('ExtKeyUsageSyntax') -> 'PKIX1Implicit-2009';
 get_asn1_module('KeyUsage') -> 'PKIX1Implicit-2009';
-get_asn1_module('RSAPublicKey') -> 'PKIXAlgs-2009';
-get_asn1_module('SubjectKeyIdentifier') -> 'CryptographicMessageSyntax-2009';
-
 get_asn1_module('Certificate') -> 'PKIX1Explicit-2009';
-get_asn1_module('CertificateList') -> 'PKIX1Explicit-2009';
-get_asn1_module('CertificationRequest') -> 'PKCS-10';
-get_asn1_module('ContentInfo') -> 'CryptographicMessageSyntax-2009';
-get_asn1_module('CurvePrivateKey') -> 'Safecurves-pkix-18';
-get_asn1_module('DHParameter') -> 'PKCS-3';
-get_asn1_module('ECPrivateKey') -> 'ECPrivateKey';
-get_asn1_module('ECParameters') -> 'PKIXAlgs-2009';
-get_asn1_module('DSA-Params') -> 'PKIXAlgs-2009';
-get_asn1_module('DSAPrivateKey') -> 'DSS';
-get_asn1_module('DSAPublicKey') -> 'PKIXAlgs-2009';
-get_asn1_module('ECDSA-Sig-Value') -> 'PKIXAlgs-2009';
-get_asn1_module('RSAPrivateKey') -> 'PKCS-1';
-get_asn1_module('RSASSA-PSS-params') -> 'PKIX1-PSS-OAEP-Algorithms-2009';
-get_asn1_module('SubjectPublicKeyInfo') -> 'PKIX1Explicit-2009';
-get_asn1_module('OTPTBSCertificate') -> 'OTP-PKIX';
-get_asn1_module('OTPCertificate') -> 'OTP-PKIX';
+get_asn1_module('SubjectAltName') -> 'PKIX1Implicit-2009';
 get_asn1_module('CRLDistributionPoints') -> 'PKIX1Implicit-2009';
 get_asn1_module('CRLReason') ->  'PKIX1Implicit-2009';
 get_asn1_module('CRLNumber') ->  'PKIX1Implicit-2009';
 get_asn1_module('FreshestCRL') ->  'PKIX1Implicit-2009';
 get_asn1_module('IssuingDistributionPoint') ->  'PKIX1Implicit-2009';
-get_asn1_module('GeneralNames') -> 'PKIX1Implicit-2009'.
-
+get_asn1_module('GeneralNames') -> 'PKIX1Implicit-2009';
+get_asn1_module('SubjectPublicKeyInfo') -> 'PKIX1Explicit-2009';
+get_asn1_module('CertificateList') -> 'PKIX1Explicit-2009';
+get_asn1_module('TBSCertList') -> 'PKIX1Explicit-2009';
+get_asn1_module('Name') -> 'PKIX1Explicit-2009';
+get_asn1_module('Validity') -> 'PKIX1Explicit-2009';
+get_asn1_module('RSAPublicKey') -> 'PKIXAlgs-2009';
+get_asn1_module('DSA-Params') -> 'PKIXAlgs-2009';
+get_asn1_module('BasicOCSPResponse') -> 'OCSP-2024-08';
+get_asn1_module('Nonce') -> 'OCSP-2024-08';
+get_asn1_module('OCSPResponse') -> 'OCSP-2024-08';
+get_asn1_module('ResponseData') -> 'OCSP-2024-08';
+get_asn1_module('SubjectKeyIdentifier') -> 'CryptographicMessageSyntax-2009';
+get_asn1_module('ContentInfo') -> 'CryptographicMessageSyntax-2009';
+get_asn1_module('CertificationRequest') -> 'PKCS-10';
+get_asn1_module('CertificationRequestInfo') -> 'PKCS-10';
+get_asn1_module('CurvePrivateKey') -> 'Safecurves-pkix-18';
+get_asn1_module('ECPrivateKey') -> 'ECPrivateKey';
+get_asn1_module('ECParameters') -> 'PKIXAlgs-2009';
+get_asn1_module('DSAPublicKey') -> 'PKIXAlgs-2009';
+get_asn1_module('ECDSA-Sig-Value') -> 'PKIXAlgs-2009';
+get_asn1_module('RSASSA-PSS-params') -> 'PKIX1-PSS-OAEP-Algorithms-2009';
+get_asn1_module('RSAPrivateKey') -> 'PKCS-1';
+get_asn1_module('DHParameter') -> 'PKCS-3';
+get_asn1_module('DSAPrivateKey') -> 'DSS';
+get_asn1_module('Extensions') -> 'OTP-PKIX';
+get_asn1_module('OTPTBSCertificate') -> 'OTP-PKIX';
+get_asn1_module('OTPCertificate') -> 'OTP-PKIX'.
 
 handle_pkcs_frame_error('PrivateKeyInfo', Der, _) ->
     try
@@ -800,6 +815,20 @@ der_encode('Dss-Sig-Value', Entity) ->
 	error:{badmatch, {error, _}} = Error ->
 	    erlang:error(Error)
     end;
+der_encode(Asn1ExtType, Value) when Asn1ExtType == 'SubjectAltName';
+                                    Asn1ExtType == 'IssuerAltName';
+                                    Asn1ExtType == 'ExtKeyUsage';
+                                    Asn1ExtType == 'InhibitAnyPolicy';
+                                    Asn1ExtType == 'FreshestCRL';
+                                    Asn1ExtType == 'AuthorityInfoAccess';
+                                    Asn1ExtType == 'DeltaCRLIndicator';
+                                    Asn1ExtType == 'CertificateIssuer';
+                                    Asn1ExtType == 'HoldInstructionCode';
+                                    Asn1ExtType == 'InvalidityDate' ->
+    Oid = pubkey_cert_records:ext_oid(Asn1ExtType),
+    [#'Extension'{extnValue = Encoded}] =
+         pubkey_cert_records:encode_extensions([#'Extension'{extnID = Oid, extnValue = Value}]),
+     Encoded;
 der_encode(Asn1Type, Entity0) when is_atom(Asn1Type) ->
     Asn1Module = get_asn1_module(Asn1Type),
     try
@@ -2753,7 +2782,7 @@ format_field(prime_field, Params0) ->
     {prime_field, Prime}.
 
 ec_key({PubKey, PrivateKey}, Params) ->
-    #'ECPrivateKey'{version = 1,
+    #'ECPrivateKey'{version = ecPrivkeyVer1,
 		    privateKey = PrivateKey,
 		    parameters = Params,
 		    publicKey = PubKey}.

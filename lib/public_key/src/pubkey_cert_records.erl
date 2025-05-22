@@ -27,8 +27,15 @@
 
 -include("public_key_internal.hrl").
 
--export([decode_cert/1, transform/2, supportedPublicKeyAlgorithms/1,
-	 supportedCurvesTypes/1, namedCurves/1]).
+-export([decode_cert/1,
+         transform/2,
+         supportedPublicKeyAlgorithms/1,
+	 supportedCurvesTypes/1,
+         namedCurves/1,
+         encode_extensions/1,
+         decode_extensions/1,
+         ext_oid/1
+        ]).
 
 %%====================================================================
 %% Internal application API
@@ -120,7 +127,7 @@ dec_transform(#'OTPTBSCertificate'{signature=Signature0,
     Issuer  = dec_transform(Issuer0),
     Subject = dec_transform(Subject0),
     Spki = decode_supportedPublicKey(Spki0),
-    Exts = decode_extensions(Exts0),
+    Exts = decode_extensions(Exts0, crl_later),
     TBS#'OTPTBSCertificate'{issuer=Issuer, subject=Subject,
                             signature=setelement(1, Signature, 'SignatureAlgorithm'),
 			    subjectPublicKeyInfo=Spki,extensions=Exts};
@@ -362,14 +369,48 @@ extension_id(?'id-ce-cRLReasons') -> 	          'CRLReason';
 extension_id(?'id-ce-certificateIssuer') -> 	  'CertificateIssuer';
 extension_id(?'id-ce-holdInstructionCode') -> 	  'HoldInstructionCode';
 extension_id(?'id-ce-invalidityDate') -> 	  'InvalidityDate';
+extension_id(?'id-ce-cRLDistributionPoints') ->   'CRLDistributionPoints';
 extension_id(_) ->
     undefined.
 
-decode_extensions(asn1_NOVALUE) ->
-    asn1_NOVALUE;
+ext_oid('AuthorityKeyIdentifier') ->     ?'id-ce-authorityKeyIdentifier';
+ext_oid('SubjectKeyIdentifier') ->       ?'id-ce-subjectKeyIdentifier';
+ext_oid('KeyUsage') ->                   ?'id-ce-keyUsage';
+ext_oid('PrivateKeyUsagePeriod') ->      ?'id-ce-privateKeyUsagePeriod';
+ext_oid('CertificatePolicies') ->        ?'id-ce-certificatePolicies';
+ext_oid('PolicyMappings') -> 	         ?'id-ce-policyMappings';
+ext_oid('SubjectAltName') -> 	         ?'id-ce-subjectAltName';
+ext_oid('IssuerAltName') -> 	         ?'id-ce-issuerAltName';
+ext_oid('SubjectDirectoryAttributes') -> ?'id-ce-subjectDirectoryAttributes';
+ext_oid('BasicConstraints') -> 	         ?'id-ce-basicConstraints';
+ext_oid('NameConstraints') -> 	         ?'id-ce-nameConstraints';
+ext_oid('PolicyConstraints') -> 	 ?'id-ce-policyConstraints';
+ext_oid('ExtKeyUsageSyntax') -> 	 ?'id-ce-extKeyUsage';
+ext_oid('InhibitAnyPolicy') -> 	         ?'id-ce-inhibitAnyPolicy';
+ext_oid('FreshestCRL') -> 	         ?'id-ce-freshestCRL';
+ext_oid('IssuingDistributionPoint') ->   ?'id-ce-issuingDistributionPoint';
+ext_oid('AuthorityInfoAccessSyntax') ->  ?'id-pe-authorityInfoAccess';
+ext_oid('SubjectInfoAccessSyntax') -> 	 ?'id-pe-subjectInfoAccess';
+ext_oid('CRLNumber') -> 	         ?'id-ce-cRLNumber';
+ext_oid('BaseCRLNumber') -> 	         ?'id-ce-deltaCRLIndicator';
+ext_oid('CRLReason') -> 	         ?'id-ce-cRLReasons';
+ext_oid('CertificateIssuer') -> 	 ?'id-ce-certificateIssuer';
+ext_oid('HoldInstructionCode') -> 	 ?'id-ce-holdInstructionCode';
+ext_oid('InvalidityDate') -> 	         ?'id-ce-invalidityDate';
+ext_oid('CRLDistributionPoints') -> 	 ?'id-ce-cRLDistributionPoints';
+ext_oid(_) ->
+    undefined.
 
 decode_extensions(Exts) ->
+    decode_extensions(Exts, crl_now).
+
+decode_extensions(asn1_NOVALUE, _) ->
+    asn1_NOVALUE;
+
+decode_extensions(Exts, WhenCRL) ->
     lists:map(fun(Ext = #'Extension'{extnID=Id, extnValue=Value0}) ->
+                      %% Some Extensions only has special decoding functions
+                      %% with other naming-convention
                       ExtId = extension_id(Id),
 		      case ExtId =/= undefined andalso
                           'PKIX1Implicit-2009':getdec_CertExtensions(Id)
@@ -386,12 +427,16 @@ decode_extensions(Exts) ->
                                       decode_otp_cert_polices(Ext, iolist_to_binary(Value0))
                               end;
 			  DecodeExt when is_function(DecodeExt, 3) ->
-                              %% Undocumented asn1 usage, but
-                              %% currently the only way to decode
-                              %% extensions.
-                              Value = DecodeExt('ExtnType', iolist_to_binary(Value0), dummy),
-                              Ext#'Extension'{extnValue=transform(Value,decode)}
-		      end
+                              case (ExtId == 'CRLDistributionPoints') andalso (WhenCRL == crl_later) of
+                                  true ->
+                                      %% Work around for certs that do not use CRL's but
+                                      %% wrongly decode the extension as NULL
+                                      Ext;
+                                  false ->
+                                      Value = DecodeExt('ExtnType', iolist_to_binary(Value0), dummy),
+                                      Ext#'Extension'{extnValue=transform(Value,decode)}
+                              end
+                      end
 	      end, Exts).
 
 decode_otp_cert_polices(Ext, Value) ->
@@ -417,17 +462,23 @@ encode_extensions(asn1_NOVALUE) ->
     asn1_NOVALUE;
 
 encode_extensions(Exts) ->
+    %% Some Extensions only has special decoding functions
+    %% with other naming-convention
     lists:map(fun(Ext = #'Extension'{extnID=Id, extnValue=Value0}) ->
-		      case extension_id(Id) =/= undefined andalso
+                      ExtId = extension_id(Id),
+		      case ExtId =/= undefined andalso
                           'PKIX1Implicit-2009':getenc_CertExtensions(Id)
                       of
 			  false ->
                               Ext;
 			  EncodeExt when is_function(EncodeExt, 3) ->
-                              %% Undocumented asn1 usage, but currently the only way
-                              %% to decode extensions.
-			      Value1 = pubkey_translation:encode(Value0),
-                              Value = element(1,EncodeExt('ExtnType', Value1, dummy)),
-			      Ext#'Extension'{extnValue= iolist_to_binary(Value)}
+                              case (ExtId == 'CRLDistributionPoints') andalso is_binary(Value0) of
+                                  true ->
+                                      Ext; %% Already encoded
+                                  false ->
+                                      Value1 = pubkey_translation:encode(Value0),
+                                      Value = element(1,EncodeExt('ExtnType', Value1, dummy)),
+                                      Ext#'Extension'{extnValue= iolist_to_binary(Value)}
+                              end
 		      end
 	      end, Exts).
