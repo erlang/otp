@@ -140,7 +140,7 @@ dtls_start_link(Role, Host, Port, Socket, {SslOpts, _, _} = Options, User, CbInf
 -spec init(list()) -> no_return().
 %% Description: Initialization
 %%--------------------------------------------------------------------
-init([Role, Sup | [Host, Port, _Socket, {TLSOpts, _, _}, _User, _CbInfo] = InitArgs]) ->
+init([Role, Sup, Host, Port, Socket, {TLSOpts, EmOpts, Trackers}, User, CbInfo]) ->
     process_flag(trap_exit, true),
 
     {ok, {_, Sender,_,_}} = supervisor:which_child(Sup, sender),
@@ -154,6 +154,11 @@ init([Role, Sup | [Host, Port, _Socket, {TLSOpts, _, _}, _User, _CbInfo] = InitA
 
     init_label(Role, Host, Port, TLSOpts),
     Tab = ets:new(tls_socket, []),
+
+    set_default_opts(Tab, EmOpts),
+
+    SocketOpts = tls_socket:emulated_socket_options(EmOpts, #socket_options{}),
+    InitArgs = [Host, Port, Socket, {TLSOpts, SocketOpts, Trackers}, User, CbInfo],
 
     case Role of
         ?CLIENT_ROLE ->
@@ -171,11 +176,15 @@ init([Role, Sup | [Host, Port, _Socket, {TLSOpts, _, _}, _User, _CbInfo] = InitA
                     tls_server_connection:init([Role, Sender, Tab|InitArgs])
             end
     end;
-init([Role | [Host, Port, _Socket, {DTLSOpts,_,_}, _User, _CbInfo] = InitArgs]) ->
+init([Role, Host, Port, Socket, {DTLSOpts,EmOpts,Trackers}, User, CbInfo]) ->
     process_flag(trap_exit, true),
 
     init_label(Role, Host, Port, DTLSOpts),
     Tab = ets:new(tls_socket, []),
+
+    SocketOpts = dtls_socket:emulated_socket_options(EmOpts, #socket_options{}),
+    Opts = {DTLSOpts, SocketOpts, Trackers},
+    InitArgs = [Host, Port, Socket, Opts, User, CbInfo],
 
     case Role of
         ?CLIENT_ROLE ->
@@ -678,7 +687,7 @@ downgrade(internal, #alert{description = ?CLOSE_NOTIFY},
                  protocol_buffers = #protocol_buffers{tls_record_buffer = TlsRecordBuffer},
                  protocol_specific = PSpec
                 } = State) ->
-    tls_socket:setopts(Transport, Socket, [{active, false}, {packet, 0}, {mode, binary}]),
+    tls_socket:setopts(Transport, Socket, tls_socket:internal_inet_values(Transport)),
     Transport:controlling_process(Socket, Pid),
 
     case maps:get(sel_info, PSpec, undefined) of
@@ -807,8 +816,9 @@ handle_call({get_opts, OptTags}, From, _,
             #state{static_env = #static_env{protocol_cb = Connection,
                                             socket = Socket,
                                             transport_cb = Transport},
+                   tab = Tab,
                    socket_options = SockOpts}) ->
-    OptsReply = get_socket_opts(Connection, Transport, Socket, OptTags, SockOpts, []),
+    OptsReply = get_socket_opts(Connection, Transport, Socket, Tab, OptTags, SockOpts, []),
     {keep_state_and_data, [{reply, From, OptsReply}]};
 handle_call({set_opts, Opts0}, From, StateName,
 	    #state{static_env =  #static_env{user_socket = UserSocket,
@@ -1969,37 +1979,51 @@ record_cb(tls) ->
 record_cb(dtls) ->
     dtls_record.
 
-get_socket_opts(_, _,_,[], _, Acc) ->
+get_socket_opts(_, _,_,_, [], _, Acc) ->
     {ok, Acc};
-get_socket_opts(Connection, Transport, Socket, [mode | Tags], SockOpts, Acc) ->
-    get_socket_opts(Connection, Transport, Socket, Tags, SockOpts,
+get_socket_opts(Connection, Transport, Socket, Tab, [mode | Tags], SockOpts, Acc) ->
+    get_socket_opts(Connection, Transport, Socket, Tab, Tags, SockOpts,
 		    [{mode, SockOpts#socket_options.mode} | Acc]);
-get_socket_opts(Connection, Transport, Socket, [packet | Tags], SockOpts, Acc) ->
+get_socket_opts(Connection, Transport, Socket, Tab, [packet | Tags], SockOpts, Acc) ->
     case SockOpts#socket_options.packet of
 	{Type, headers} ->
-	    get_socket_opts(Connection, Transport, Socket, Tags, SockOpts, [{packet, Type} | Acc]);
+	    get_socket_opts(Connection, Transport, Socket, Tab, Tags, SockOpts, [{packet, Type} | Acc]);
 	Type ->
-	    get_socket_opts(Connection, Transport, Socket, Tags, SockOpts, [{packet, Type} | Acc])
+	    get_socket_opts(Connection, Transport, Socket, Tab, Tags, SockOpts, [{packet, Type} | Acc])
     end;
-get_socket_opts(Connection, Transport, Socket, [header | Tags], SockOpts, Acc) ->
-    get_socket_opts(Connection, Transport, Socket, Tags, SockOpts,
+get_socket_opts(Connection, Transport, Socket, Tab, [header | Tags], SockOpts, Acc) ->
+    get_socket_opts(Connection, Transport, Socket, Tab, Tags, SockOpts,
 		    [{header, SockOpts#socket_options.header} | Acc]);
-get_socket_opts(Connection, Transport, Socket, [active | Tags], SockOpts, Acc) ->
-    get_socket_opts(Connection, Transport, Socket, Tags, SockOpts,
+get_socket_opts(Connection, Transport, Socket, Tab, [active | Tags], SockOpts, Acc) ->
+    get_socket_opts(Connection, Transport, Socket, Tab, Tags, SockOpts,
 		    [{active, SockOpts#socket_options.active} | Acc]);
-get_socket_opts(Connection, Transport, Socket, [packet_size | Tags], SockOpts, Acc) ->
-    get_socket_opts(Connection, Transport, Socket, Tags, SockOpts,
+get_socket_opts(Connection, Transport, Socket, Tab, [packet_size | Tags], SockOpts, Acc) ->
+    get_socket_opts(Connection, Transport, Socket, Tab, Tags, SockOpts,
 		    [{packet_size, SockOpts#socket_options.packet_size} | Acc]);
-get_socket_opts(Connection, Transport, Socket, [Tag | Tags], SockOpts, Acc) ->
+get_socket_opts(tls_gen_connection, tls_socket_tcp, Socket, Tab, [high_watermark | Tags], SockOpts, Acc) ->
+    Emulated = try ets:lookup_element(Tab, high_watermark, 2) of
+                   Val -> Val
+               catch _:_ -> 8196
+               end,
+    get_socket_opts(tls_gen_connection, tls_socket_tcp, Socket, Tab, Tags, SockOpts,
+		    [{high_watermark, Emulated} | Acc]);
+get_socket_opts(tls_gen_connection, tls_socket_tcp, Socket, Tab, [low_watermark | Tags], SockOpts, Acc) ->
+    Emulated = try ets:lookup_element(Tab, low_watermark, 2) of
+                   Val -> Val
+               catch _:_ -> 4096
+               end,
+    get_socket_opts(tls_gen_connection, tls_socket_tcp, Socket, Tab, Tags, SockOpts,
+		    [{low_watermark, Emulated} | Acc]);
+get_socket_opts(Connection, Transport, Socket, Tab, [Tag | Tags], SockOpts, Acc) ->
     case Connection:getopts(Transport, Socket, [Tag]) of
         {ok, [Opt]} ->
-            get_socket_opts(Connection, Transport, Socket, Tags, SockOpts, [Opt | Acc]);
+            get_socket_opts(Connection, Transport, Socket, Tab, Tags, SockOpts, [Opt | Acc]);
         {ok, []} ->
-            get_socket_opts(Connection, Transport, Socket, Tags, SockOpts, Acc);
+            get_socket_opts(Connection, Transport, Socket, Tab, Tags, SockOpts, Acc);
         {error, Reason} ->
             {error, {options, {socket_options, Tag, Reason}}}
     end;
-get_socket_opts(_,_, _,Opts, _,_) ->
+get_socket_opts(_, _, _, _, Opts, _, _) ->
     {error, {options, {socket_options, Opts, function_clause}}}.
 
 set_socket_opts(_,_,_, _Tab, [], SockOpts, []) ->
@@ -2073,6 +2097,25 @@ set_socket_opts(tls_gen_connection, Transport, Socket, Tab, [{packet, Packet}| O
     true = ets:insert(Tab, {{socket_options, packet}, Packet}),
     set_socket_opts(tls_gen_connection, Transport, Socket, Tab, Opts,
 		    SockOpts#socket_options{packet = Packet}, Other);
+
+set_socket_opts(tls_gen_connection, tls_socket_tcp, Socket, Tab,
+                [{high_watermark, Sz}=Opt|Opts], SockOpts, Other) ->
+    case is_integer(Sz) of
+        true ->
+            true = ets:insert(Tab, {high_watermark, Sz}),
+            set_socket_opts(tls_gen_connection, tls_socket_tcp, Socket, Tab, Opts, SockOpts, Other);
+        false ->
+            {{error,{options, {socket_options, Opt}}}, SockOpts}
+    end;
+set_socket_opts(tls_gen_connection, tls_socket_tcp, Socket, Tab,
+                [{low_watermark, Sz}=Opt|Opts], SockOpts, Other) ->
+    case is_integer(Sz) of
+        true ->
+            true = ets:insert(Tab, {low_watermark, Sz}),
+            set_socket_opts(tls_gen_connection, tls_socket_tcp, Socket, Tab, Opts, SockOpts, Other);
+        false ->
+            {{error,{options, {socket_options, Opt}}}, SockOpts}
+    end;
 set_socket_opts(_, _, _, _Tab, [{packet, _} = Opt| _], SockOpts, _) ->
     {{error, {options, {socket_options, Opt}}}, SockOpts};
 set_socket_opts(tls_gen_connection, Transport, Socket, Tab, [{header, Header}| Opts], SockOpts, Other)
@@ -2115,6 +2158,17 @@ ssl_options_list([{ciphers = Key, Value}|T], Acc) ->
 		     | Acc]);
 ssl_options_list([{Key, Value}|T], Acc) ->
     ssl_options_list(T, [{Key, Value} | Acc]).
+
+set_default_opts(Tab, EmOpts) ->
+    case proplists:get_value(high_watermark, EmOpts, undefined) of
+        undefined -> ok;
+        High ->
+            Low = proplists:get_value(low_watermark, EmOpts, undefined),
+            true = Low =/= undefined,  %% If High exists low exists
+            true = ets:insert(Tab, {high_watermark, High}),
+            true = ets:insert(Tab, {low_watermark, Low}),
+            ok
+    end.
 
 keylog_1_3(Info) ->
     {client_random, ClientRandomBin} = lists:keyfind(client_random, 1, Info),

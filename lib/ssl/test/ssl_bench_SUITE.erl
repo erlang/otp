@@ -125,6 +125,7 @@ init_per_testcase(Func, Conf)
        Func =:= setup_concurrent_13;
        Func =:= payload_13 ->
     try
+        ct:timetrap({minutes, 1}),
         TLSVersion = 'tlsv1.3',
         {supported, SSLVersions} =
             lists:keyfind(supported, 1, ssl:versions()),
@@ -138,6 +139,7 @@ init_per_testcase(Func, Conf)
             {failed, {Class,Reason,Stacktrace}}
     end;
 init_per_testcase(_Func, Conf) ->
+    ct:timetrap({minutes, 1}),
     Conf.
 
 end_per_testcase(_Func, _Conf) ->
