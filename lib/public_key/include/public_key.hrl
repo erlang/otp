@@ -74,6 +74,8 @@
          parameters = asn1_NOVALUE
         }).
 
+-define('id-pSpecified', {1,2,840,113549,1,1,9}).
+
 %%%
 %%% DSA
 %%%
@@ -96,13 +98,15 @@
         }).
 
 %%%
-%%% ECDSA and EDDSA
+%%% ECDSA, EDDSA, ECDH(E)
 %%%
 
 -define('id-Ed25519', {1,3,101,112}).
 -define('id-Ed448', {1,3,101,113}).
 
-%% Undocumented but used by test suite.
+-define('id-X25519', {1,3,101,110}).
+-define('id-X448', {1,3,101,111}).
+
 -define('sect571r1', {1,3,132,0,39}).
 -define('sect571k1', {1,3,132,0,38}).
 -define('sect409r1', {1,3,132,0,37}).
@@ -136,6 +140,21 @@
 -define('sect163k1', {1,3,132,0,1}).
 -define('secp256r1', {1,2,840,10045,3,1,7}).
 -define('secp192r1', {1,2,840,10045,3,1,1}).
+
+-define('brainpoolP160r1', {1,3,36,3,3,2,8,1,1,1}).
+-define('brainpoolP160t1', {1,3,36,3,3,2,8,1,1,2}).
+-define('brainpoolP192r1', {1,3,36,3,3,2,8,1,1,3}).
+-define('brainpoolP192t1', {1,3,36,3,3,2,8,1,1,4}).
+-define('brainpoolP224r1', {1,3,36,3,3,2,8,1,1,5}).
+-define('brainpoolP224t1', {1,3,36,3,3,2,8,1,1,6}).
+-define('brainpoolP256r1', {1,3,36,3,3,2,8,1,1,7}).
+-define('brainpoolP256t1', {1,3,36,3,3,2,8,1,1,8}).
+-define('brainpoolP320r1', {1,3,36,3,3,2,8,1,1,9}).
+-define('brainpoolP320t1', {1,3,36,3,3,2,8,1,1,10}).
+-define('brainpoolP384r1', {1,3,36,3,3,2,8,1,1,11}).
+-define('brainpoolP384t1', {1,3,36,3,3,2,8,1,1,12}).
+-define('brainpoolP512r1', {1,3,36,3,3,2,8,1,1,13}).
+-define('brainpoolP512t1', {1,3,36,3,3,2,8,1,1,14}).
 
 -record('ECPrivateKey',
         {
@@ -240,9 +259,6 @@
 -define('id-sha384', {2,16,840,1,101,3,4,2,2}).
 -define('id-sha512', {2,16,840,1,101,3,4,2,3}).
 
-
-
-
 -record('AttributeTypeAndValue',
         {
          type,
@@ -310,11 +326,13 @@
 -define('rSASSA-PSS-Default-Identifier', {'RSASSA-AlgorithmIdentifier',{1,2,840,113549,1,1,10},{'RSASSA-PSS-params',{'HashAlgorithm',{1,3,14,3,2,26},'NULL'},{'MaskGenAlgorithm',{1,2,840,113549,1,1,8},{'HashAlgorithm',{1,3,14,3,2,26},'NULL'}},20,1}}).
 -define('id-mgf1', {1,2,840,113549,1,1,8}).
 -define('id-ecPublicKey', {1,2,840,10045,2,1}).
+-define('ecdsa-with-SHA224', {1,2,840,10045,4,3,1}).
 -define('ecdsa-with-SHA256', {1,2,840,10045,4,3,2}).
 -define('ecdsa-with-SHA384', {1,2,840,10045,4,3,3}).
 -define('ecdsa-with-SHA512', {1,2,840,10045,4,3,4}).
 
 %% Legacy
+-define('ecdsa-with-SHA2', {1,2,840,10045,4,3}).
 -define('rsaEncryption', {1,2,840,113549,1,1,1}).
 -define('md2WithRSAEncryption', {1,2,840,113549,1,1,2}).
 -define('md5WithRSAEncryption', {1,2,840,113549,1,1,4}).
@@ -333,6 +351,7 @@
 -define('id-dsa-with-sha1', {1,2,840,10040,4,3}).
 -define('id-dsa-with-sha224', {2,16,840,1,101,3,4,3,1}).
 -define('id-dsa-with-sha256', {2,16,840,1,101,3,4,3,2}).
+-define('pkcs-9-at-extensionRequest', {1,2,840,113549,1,9,14}).
 
 %% Key exchange
 -define('dhpublicnumber', {1,2,840,10046,2,1}).
@@ -693,16 +712,7 @@
 -define('id-pkix-ocsp-nonce', {1,3,6,1,5,5,7,48,1,2}).
 -define('id-ad-ocsp', {1,3,6,1,5,5,7,48,1}).
 -define('id-pe-authorityInfoAccess', {1,3,6,1,5,5,7,1,1}).
-
-%%%
-%%% Undocumented but used by SSL.
-%%%
-
--define('id-X25519', {1,3,101,110}).
--define('id-X448', {1,3,101,111}).
--define('brainpoolP512r1', {1,3,36,3,3,2,8,1,1,13}).
--define('brainpoolP384r1', {1,3,36,3,3,2,8,1,1,11}).
--define('brainpoolP256r1', {1,3,36,3,3,2,8,1,1,7}).
+-define('id-pe-subjectInfoAccess', {1,3,6,1,5,5,7,1,11}).
 
 -record('PrivateKeyInfo',
         {   %% OneAsymmetricKey
