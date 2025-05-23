@@ -49,4 +49,27 @@ jobs:
         id: update-deps
         env:
             GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: .github/scripts/update-vendored-deps.sh '${{ github.event.pull_request.base.sha }}' '${{ github.event.pull_request.head.sha }}'
+        run: .github/scripts/renovate-vendored-deps.sh origin '${{ github.event.pull_request.base.sha }}' '${{ github.event.pull_request.head.sha }}' | tee vendor.log
+    
+      - name: Comment on PR with failure log
+        if: ${{ failure() }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ ! -f vendor.log ]; then
+            echo "vendor.log not found!"
+            exit 1
+          fi
+
+          echo "Posting failure log to PR..."
+
+          # Truncate log to last ~60k characters to stay under GitHub comment limits
+          LOG_CONTENT=$(tail -c 60000 vendor.log)
+
+          gh pr comment "$GITHUB_REF_NAME" --body "🚨 Vendor update failed. Log output:
+
+          \`\`\`text
+          $LOG_CONTENT
+          \`\`\`
+          
+          [🔗 View full GitHub Actions run log]($RUN_URL)"

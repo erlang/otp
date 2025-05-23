@@ -22,6 +22,11 @@
 
 GITHUB_TOKEN=${GITHUB_TOKEN:-$(cat ~/.githubtoken)}
 
+if [ -z "${GITHUB_TOKEN}"]; then
+    echo "You need to set ${GITHUB_TOKEN} to a valid github token"
+    exit 1
+fi
+
 ORIGIN_REPO="https://github.com/erlang/ryu"
 UPSTREAM_REPO="https://github.com/ulfjack/ryu"
 
@@ -70,7 +75,7 @@ cd .. ## back to ryu
 
 if [ "$(cat xcharconv_ryu.h.sha)" != "${STL_CHARCONV_SHA}" ]; then
 
-cat <<EOF
+    cat <<EOF
 #######################################################################
 
 https://github.com/microsoft/STL/blob/master/stl/inc/xcharconv_ryu.h has been
@@ -82,6 +87,8 @@ Once done, update xcharconv_ryu.h.sha with the new sha. i.e.
 echo "${STL_CHARCONV_SHA}" > ${ERL_TOP}/erts/emulator/ryu/xcharconv_ryu.h.sha
 
 EOF
+
+    exit 1
 
 fi
 

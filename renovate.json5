@@ -18,6 +18,19 @@
   limitations under the License.
 
   %CopyrightEnd%
+
+  Renovate is a github app that we use to keep various components updated.
+  The app is installed in the erlang/otp repo and schedules updates of
+  components. We use the [Forking Renovate](https://github.com/apps/forking-renovate)
+  App as it does not need write permissions to the otp repository.
+
+  There is a permanent issue with the status here: https://github.com/erlang/otp/issue/1234
+  You can view the status from renovates perspective here: https://developer.mend.io/github/erlang/otp
+
+  Renovate will open PRs to update:
+  * All github action versions
+  * All 3pps defined in vendor.info files.
+
 */
 {
     "extends": ["config:recommended"],
@@ -40,11 +53,13 @@
                 ".github/actions/*/*.yaml"
             ]
         },
+        // This is used to match out the current version from vendor.info
         {
-            // This is used to match out the current version from vendor.info
             "matchFileNames": ["**/vendor.info"],
             "extractVersion": "^\\s*\"versionInfo\"\\s*:\\s*\"(?<currentValue>[^\"]+)\""
         },
+
+        // The patterns below are used to match out the X.Y.Z version of the github tag
         {
             "matchPackageNames": ["facebook/zstd", "jquery/jquery", "Mottie/tablesorter"],
             "extractVersion": "^(?<version>v?.*)"
@@ -106,6 +121,6 @@
             "datasourceTemplate": "git-refs"
           }
     ],
-    "baseBranches": ["master", "maint", "maint-27", "maint-26", "maint-25"],
+    "baseBranches": ["master", "maint", "maint-28", "maint-27", "maint-26"],
     "schedule": ["after 2am on monday"]
 }

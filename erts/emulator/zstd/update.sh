@@ -22,6 +22,11 @@
 
 GITHUB_TOKEN=${GITHUB_TOKEN:-$(cat ~/.githubtoken)}
 
+if [ -z "${GITHUB_TOKEN}"]; then
+    echo "You need to set ${GITHUB_TOKEN} to a valid github token"
+    exit 1
+fi
+
 cd $ERL_TOP/erts/emulator/zstd
 
 set -eo pipefail

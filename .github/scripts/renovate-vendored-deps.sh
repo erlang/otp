@@ -22,10 +22,16 @@
 
 set -x
 
+if [ $# -ne 3 ]; then
+    echo "$(basename "$0") REMOTE BASE_REF HEAD_REF" >&2
+    exit 1
+fi
+
 export ERL_TOP=$(pwd)
 
-BASE="$1"
-HEAD="$2"
+REMOTE="$1"
+BASE="$2"
+HEAD="$3"
 
 # Find all vendor.info files modified in this PR
 MODIFIED_FILES=$(git diff --name-only ${BASE} ${HEAD} | grep 'vendor\.info$' || true)
@@ -79,6 +85,12 @@ if $SUCCESS && ! git diff --quiet "${HEAD}"; then
     else
         git commit -m "Update vendored dependencies per vendor.info"
     fi
-    echo "✅ Pushing $(git rev-parse HEAD) to $(git for-each-ref --format='%(push:short)' refs/heads/$(git symbolic-ref --short HEAD))"
-    git push
+    if [ "${REMOTE}" = "skip" ]; then
+        echo "✅ Pushing $(git rev-parse HEAD) to ${REMOTE}/$(git branch --show-current)"
+        git push "${REMOTE}" $(git branch --show-current)
+    fi
+fi
+
+if ! $SUCCESS; then
+    exit 1
 fi
