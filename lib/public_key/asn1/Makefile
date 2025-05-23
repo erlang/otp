@@ -59,7 +59,7 @@ ASN_MODULES = \
           ECPrivateKey \
           OCSP-2024-08 \
           OTP-PKIX \
-          PKCS-1 PKCS-3 PKCS-10 \
+          PKCS-1 PKCS-3 PKCS-10 PKCS-12 \
           PKIX-CommonTypes-2009 \
           PKIX-X400Address-2009 \
           PKIX1-PSS-OAEP-Algorithms-2009 \

@@ -52,7 +52,8 @@ MODULES = \
 	pubkey_pbe \
 	pubkey_ocsp \
 	pubkey_cert \
-	pubkey_policy_tree
+	pubkey_policy_tree \
+	pubkey_pkcs12
 
 HRL_FILES = $(INCLUDE)/public_key.hrl $(INCLUDE)/OTP-PUB-KEY.hrl
 

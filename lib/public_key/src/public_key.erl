@@ -87,7 +87,30 @@ macros described here and in the User's Guide:
          cacerts_get/0,
          cacerts_load/0,
          cacerts_load/1,
-         cacerts_clear/0
+         cacerts_clear/0,
+         % PKCS#12 functions
+         pkcs12_generate_key/1,
+         pkcs12_generate_rsa_key/0,
+         pkcs12_generate_rsa_key/1,
+         pkcs12_generate_rsa_key/2,
+         pkcs12_generate_ec_key/0,
+         pkcs12_generate_ec_key/1,
+         pkcs12_generate_eddsa_key/0,
+         pkcs12_generate_eddsa_key/1,
+         pkcs12_generate_cert_key_pair/1,
+         pkcs12_generate_cert_key_pair/2,
+         pkcs12_generate_self_signed_cert/2,
+         pkcs12_generate_self_signed_cert/3,
+         pkcs12_generate_ca_cert/2,
+         pkcs12_generate_ca_cert/3,
+         pkcs12_generate_end_entity_cert/3,
+         pkcs12_generate_end_entity_cert/4,
+         pkcs12_create_pfx/2,
+         pkcs12_create_pfx/3,
+         pkcs12_encode/2,
+         pkcs12_encode/3,
+         pkcs12_decode/2,
+         pkcs12_decode/3
 	]).
 %% Tracing
 -export([handle_trace/3]).
@@ -2979,3 +3002,119 @@ handle_trace(csp,
              {return_from, {?MODULE, pkix_ocsp_validate, 5}, Return},
              Stack) ->
     {io_lib:format("#2 OCSP validation result = ~p", [Return]), Stack}.
+
+%%====================================================================
+%% PKCS#12 API Functions - Delegate to pubkey_pkcs12 module
+%%====================================================================
+
+%% @doc Generate a private key with specified options
+-spec pkcs12_generate_key(map()) -> private_key().
+pkcs12_generate_key(Options) ->
+    pubkey_pkcs12:generate_key(Options).
+
+%% @doc Generate RSA key with default parameters (2048-bit, e=65537)
+-spec pkcs12_generate_rsa_key() -> #'RSAPrivateKey'{}.
+pkcs12_generate_rsa_key() ->
+    pubkey_pkcs12:generate_rsa_key().
+
+%% @doc Generate RSA key with specified size
+-spec pkcs12_generate_rsa_key(pos_integer()) -> #'RSAPrivateKey'{}.
+pkcs12_generate_rsa_key(Size) ->
+    pubkey_pkcs12:generate_rsa_key(Size).
+
+%% @doc Generate RSA key with specified size and public exponent
+-spec pkcs12_generate_rsa_key(pos_integer(), pos_integer()) -> #'RSAPrivateKey'{}.
+pkcs12_generate_rsa_key(Size, PubExp) ->
+    pubkey_pkcs12:generate_rsa_key(Size, PubExp).
+
+%% @doc Generate EC key with default curve (secp256r1)
+-spec pkcs12_generate_ec_key() -> #'ECPrivateKey'{}.
+pkcs12_generate_ec_key() ->
+    pubkey_pkcs12:generate_ec_key().
+
+%% @doc Generate EC key with specified curve
+-spec pkcs12_generate_ec_key(atom()) -> #'ECPrivateKey'{}.
+pkcs12_generate_ec_key(Curve) ->
+    pubkey_pkcs12:generate_ec_key(Curve).
+
+%% @doc Generate EdDSA key with default curve (ed25519)
+-spec pkcs12_generate_eddsa_key() -> #'ECPrivateKey'{}.
+pkcs12_generate_eddsa_key() ->
+    pubkey_pkcs12:generate_eddsa_key().
+
+%% @doc Generate EdDSA key with specified curve
+-spec pkcs12_generate_eddsa_key(atom()) -> #'ECPrivateKey'{}.
+pkcs12_generate_eddsa_key(Curve) ->
+    pubkey_pkcs12:generate_eddsa_key(Curve).
+
+%% @doc Generate a certificate and key pair with default options
+-spec pkcs12_generate_cert_key_pair(map()) -> #{cert => binary(), key => private_key()}.
+pkcs12_generate_cert_key_pair(CertOpts) ->
+    pubkey_pkcs12:generate_cert_key_pair(CertOpts).
+
+%% @doc Generate a certificate and key pair with specified options
+-spec pkcs12_generate_cert_key_pair(map(), map()) -> #{cert => binary(), key => private_key()}.
+pkcs12_generate_cert_key_pair(CertOpts, KeyOpts) ->
+    pubkey_pkcs12:generate_cert_key_pair(CertOpts, KeyOpts).
+
+%% @doc Generate self-signed certificate
+-spec pkcs12_generate_self_signed_cert(private_key(), map()) -> binary().
+pkcs12_generate_self_signed_cert(PrivKey, Opts) ->
+    pubkey_pkcs12:generate_self_signed_cert(PrivKey, Opts).
+
+%% @doc Generate self-signed certificate with extra options
+-spec pkcs12_generate_self_signed_cert(private_key(), map(), map()) -> binary().
+pkcs12_generate_self_signed_cert(PrivKey, Opts, ExtraOpts) ->
+    pubkey_pkcs12:generate_self_signed_cert(PrivKey, Opts, ExtraOpts).
+
+%% @doc Generate CA certificate
+-spec pkcs12_generate_ca_cert(private_key(), map()) -> binary().
+pkcs12_generate_ca_cert(PrivKey, Opts) ->
+    pubkey_pkcs12:generate_ca_cert(PrivKey, Opts).
+
+%% @doc Generate CA certificate with extra options
+-spec pkcs12_generate_ca_cert(private_key(), map(), map()) -> binary().
+pkcs12_generate_ca_cert(PrivKey, Opts, ExtraOpts) ->
+    pubkey_pkcs12:generate_ca_cert(PrivKey, Opts, ExtraOpts).
+
+%% @doc Generate end entity certificate signed by issuer
+-spec pkcs12_generate_end_entity_cert(private_key(), private_key(), map()) -> binary().
+pkcs12_generate_end_entity_cert(PrivKey, IssuerKey, Opts) ->
+    pubkey_pkcs12:generate_end_entity_cert(PrivKey, IssuerKey, Opts).
+
+%% @doc Generate end entity certificate with extra options
+-spec pkcs12_generate_end_entity_cert(private_key(), private_key(), map(), map()) -> binary().
+pkcs12_generate_end_entity_cert(PrivKey, IssuerKey, Opts, ExtraOpts) ->
+    pubkey_pkcs12:generate_end_entity_cert(PrivKey, IssuerKey, Opts, ExtraOpts).
+
+%% @doc Create PKCS#12 PFX structure with default options
+-spec pkcs12_create_pfx(binary(), private_key()) -> binary().
+pkcs12_create_pfx(Cert, Key) ->
+    pubkey_pkcs12:create_pfx(Cert, Key).
+
+%% @doc Create PKCS#12 PFX structure with specified options
+-spec pkcs12_create_pfx(binary(), private_key(), map()) -> binary().
+pkcs12_create_pfx(Cert, Key, Opts) ->
+    pubkey_pkcs12:create_pfx(Cert, Key, Opts).
+
+%% @doc Encode PKCS#12 data to DER format
+-spec pkcs12_encode(binary(), private_key()) -> binary().
+pkcs12_encode(Cert, Key) ->
+    pubkey_pkcs12:encode_pfx(Cert, Key).
+
+%% @doc Encode PKCS#12 data to DER format with options
+-spec pkcs12_encode(binary(), private_key(), map()) -> binary().
+pkcs12_encode(Cert, Key, Opts) ->
+    pubkey_pkcs12:encode_pfx(Cert, Key, Opts).
+
+%% @doc Decode PKCS#12 PFX from DER format
+-spec pkcs12_decode(binary(), string() | binary()) ->
+    #{cert => binary(), key => private_key(), chain => [binary()]}.
+pkcs12_decode(PfxDer, Password) ->
+    pubkey_pkcs12:decode_pfx(PfxDer, Password).
+
+%% @doc Decode PKCS#12 PFX from DER format with options
+-spec pkcs12_decode(binary(), string() | binary(), map()) ->
+    #{cert => binary(), key => private_key(), chain => [binary()]}.
+pkcs12_decode(PfxDer, Password, Opts) ->
+    pubkey_pkcs12:decode_pfx(PfxDer, Password, Opts).

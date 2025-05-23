@@ -1,0 +1,73 @@
+PKCS-12 {iso(1) member-body(2) us(840) rsadsi(113549) pkcs(1)
+                 pkcs-12(12) modules(0)  pkcs-12(1)}
+
+-- Simplified PKCS #12 ASN.1 definitions for OTP integration
+
+DEFINITIONS IMPLICIT TAGS ::=
+
+BEGIN
+
+-- No problematic imports - all definitions are self-contained
+
+-- Object identifiers
+rsadsi	OBJECT IDENTIFIER ::= {iso(1) member-body(2) us(840) rsadsi(113549)}
+pkcs    OBJECT IDENTIFIER ::= {rsadsi pkcs(1)}
+pkcs-12	OBJECT IDENTIFIER ::= {pkcs 12}
+
+-- Basic type definitions
+AlgorithmIdentifier ::= SEQUENCE {
+    algorithm     OBJECT IDENTIFIER,
+    parameters    ANY OPTIONAL
+}
+
+Attribute ::= SEQUENCE {
+    type          OBJECT IDENTIFIER,
+    values        SET OF ANY
+}
+
+DigestInfo ::= SEQUENCE {
+    digestAlgorithm   AlgorithmIdentifier,
+    digest            OCTET STRING
+}
+
+ContentInfo ::= SEQUENCE {
+    contentType     OBJECT IDENTIFIER,
+    content         [0] EXPLICIT ANY OPTIONAL
+}
+
+-- The PFX structure
+PFX ::= SEQUENCE {
+    version		INTEGER {v3(3)}(v3,...),
+    authSafe	ContentInfo,
+    macData    	MacData OPTIONAL
+}
+
+MacData ::= SEQUENCE {
+    mac 		DigestInfo,
+    macSalt	        OCTET STRING,
+    iterations	INTEGER DEFAULT 1
+}
+
+AuthenticatedSafe ::= SEQUENCE OF ContentInfo
+
+SafeContents ::= SEQUENCE OF SafeBag
+
+SafeBag ::= SEQUENCE {
+    bagId	      	OBJECT IDENTIFIER,
+    bagValue      	[0] EXPLICIT ANY,
+    bagAttributes 	SET OF Attribute OPTIONAL
+}
+
+-- Bag value structures
+KeyBag ::= SEQUENCE {
+    version         INTEGER,
+    algorithm       AlgorithmIdentifier,
+    privateKey      OCTET STRING
+}
+
+CertBag ::= SEQUENCE {
+    certId    OBJECT IDENTIFIER,
+    certValue [0] EXPLICIT ANY
+}
+
+END
