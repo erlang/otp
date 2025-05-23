@@ -13569,6 +13569,7 @@ static int tcp_sendv(tcp_descriptor* desc, ErlIOVec* ev)
             if (desc->send_timeout == 0) {
                 /* Shortcut to speed up polling of high water mark */
                 inet_reply_error_am(INETP(desc), am_timeout);
+                /* codechecker_intentional [core.StackAddrEscapeBase, core.StackAddrEscape] */
                 return 1;
             }
 	    DEBUGF(("tcp_sendv(%p): s=%d, sender forced busy\r\n",
