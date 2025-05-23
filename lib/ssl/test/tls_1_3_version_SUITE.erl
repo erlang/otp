@@ -612,6 +612,19 @@ keylog_on_alert(Config) when is_list(Config) ->
           end,
     alert_passive([{keep_secrets, {keylog_hs, Fun}} | ServerOpts], ClientOpts, recv,
                   ServerNode, Hostname),
+
+    %% This alert will be decryptes with application secrets
+    %% as client is already in connection
+    receive
+        {alert_info, #{items := SKeyLog1}} ->
+            case SKeyLog1 of
+                ["SERVER_TRAFFIC_SECRET_0"++_] ->
+                    ok;
+                S1Other ->
+                    ct:fail({server_received, S1Other})
+            end
+    end,
+
     receive
         {alert_info, #{items := SKeyLog}} ->
             case SKeyLog of
@@ -627,13 +640,12 @@ keylog_on_alert(Config) when is_list(Config) ->
     receive
         {alert_info, #{items := CKeyLog}} ->
             case CKeyLog of
-                ["CLIENT_HANDSHAKE_TRAFFIC_SECRET"++_,_,_|_] ->
+                ["CLIENT_HANDSHAKE_TRAFFIC_SECRET"++_,_,_,_|_] ->
                     ok;
-            COther ->
+                COther ->
                     ct:fail({client_received, COther})
             end
     end.
-
 %%--------------------------------------------------------------------
 %% Internal functions and callbacks -----------------------------------
 %%--------------------------------------------------------------------
