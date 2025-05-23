@@ -20,6 +20,8 @@
 ##
 ## %CopyrightEnd%
 
+set -e
+
 export MAKEFLAGS="-j$(getconf _NPROCESSORS_ONLN)"
 export ERL_TOP="$(pwd)"
 export ERLC_USE_SERVER=true
