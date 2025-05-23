@@ -73,6 +73,8 @@ SOURCES= \
 	eunit_tty.erl \
 	eunit_surefire.erl \
 
+ERL_FILES=$(PARSE_TRANSFORM) $(BEHAVIOUR_SOURCES) $(SOURCES)
+
 INCLUDE_FILES = eunit.hrl
 
 INTERNAL_HRL_FILES= eunit_internal.hrl
@@ -125,9 +127,6 @@ info:
 
 realclean: clean
 
-$(EBIN)/%.$(EMULATOR):%.erl
-	$(erlc_verbose)erlc -W $(ERL_COMPILE_FLAGS) -o$(EBIN) $<
-
 $(OBJECTS): $(PARSE_TRANSFORM_BIN)
 
 # ----------------------------------------------------
@@ -156,3 +155,8 @@ release_spec: opt
 
 release_docs_spec:
 
+# ----------------------------------------------------
+# Dependencies
+# ----------------------------------------------------
+EXTRA_DEP_DEPENDENCIES=$(PARSE_TRANSFORM_BIN)
+include $(ERL_TOP)/make/dep.mk

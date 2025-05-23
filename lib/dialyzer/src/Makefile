@@ -136,28 +136,10 @@ $(APP_TARGET): $(APP_SRC) ../vsn.mk
 $(APPUP_TARGET): $(APPUP_SRC) ../vsn.mk
 	$(vsn_verbose)sed -e 's;%VSN%;$(VSN);' $< > $@
 
-# ---------------------------------------------------------------------
-# dependencies -- I wish they were somehow automatically generated
-# ---------------------------------------------------------------------
-
-$(EBIN)/dialyzer.beam: dialyzer.hrl
-$(EBIN)/dialyzer_analysis_callgraph.beam: dialyzer.hrl
-$(EBIN)/dialyzer_callgraph.beam: dialyzer.hrl
-$(EBIN)/dialyzer_behaviours.beam: dialyzer.hrl
-$(EBIN)/dialyzer_cl.beam: dialyzer.hrl ../../kernel/include/file.hrl
-$(EBIN)/dialyzer_cl_parse.beam: dialyzer.hrl
-$(EBIN)/dialyzer_codeserver.beam: dialyzer.hrl
-$(EBIN)/dialyzer_contracts.beam: dialyzer.hrl
-$(EBIN)/dialyzer_dataflow.beam: dialyzer.hrl
-$(EBIN)/dialyzer_dep.beam: dialyzer.hrl
-$(EBIN)/dialyzer_options.beam: dialyzer.hrl
-$(EBIN)/dialyzer_plt.beam: dialyzer.hrl
-$(EBIN)/dialyzer_race_data_server.beam: dialyzer.hrl
-$(EBIN)/dialyzer_races.beam: dialyzer.hrl
-$(EBIN)/dialyzer_succ_typings.beam: dialyzer.hrl
-$(EBIN)/dialyzer_typesig.beam: dialyzer.hrl
-$(EBIN)/dialyzer_typegraph.beam: dialyzer.hrl
-$(EBIN)/dialyzer_utils.beam: dialyzer.hrl
+# ----------------------------------------------------
+# Dependencies
+# ----------------------------------------------------
+include $(ERL_TOP)/make/dep.mk
 
 # ----------------------------------------------------
 # Release Target
