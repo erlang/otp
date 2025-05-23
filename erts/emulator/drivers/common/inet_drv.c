@@ -13569,6 +13569,7 @@ static int tcp_sendv(tcp_descriptor* desc, ErlIOVec* ev)
             if (desc->send_timeout == 0) {
                 /* Shortcut to speed up polling of high water mark */
                 inet_reply_error_am(INETP(desc), am_timeout);
+                /* codechecker_intentional [core.StackAddrEscapeBase, core.StackAddrEscape] */
                 return 1;
             }
 	    DEBUGF(("tcp_sendv(%p): s=%d, sender forced busy\r\n",
@@ -14281,7 +14282,7 @@ static int packet_inet_init(void)
 #ifdef AF_UNSPEC
     disassoc_sa.sa_family = AF_UNSPEC;
 #endif /* #ifdef AF_UNSPEC */
-    disassoc_sa_size = disassoc_sa.sa_data - (char *)&disassoc_sa;
+    disassoc_sa_size = offsetof(struct sockaddr, sa_data);
 
     return 0;
 }

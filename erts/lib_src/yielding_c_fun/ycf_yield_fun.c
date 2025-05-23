@@ -912,7 +912,7 @@ void ast_add_yield_code_generated_define(ycf_node* source_out_tree/*Will be chan
      "static void* ycf_find_stack_bottom_conservative_helper(void) {\n"
      "  void* p = NULL;\n"
      "  volatile intptr_t tmp = (intptr_t)&p;\n"
-     "  /* codechecker_intentional [StackAddrEscapeBase] */\n"
+     "  /* codechecker_intentional [core.StackAddrEscapeBase, core.StackAddressEscape] */\n"
      "  return (void*)tmp;\n"
      "}\n"
      "static void* ycf_find_stack_bottom_conservative(void) {\n"

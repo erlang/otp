@@ -83,4 +83,14 @@ typedef signed   int   int32;
 #  define ASSERT(Cnd)
 #endif
 
+/* EI_UNDEF can be used to silence false warnings about
+ * "variable may be used uninitialized" while keeping the variable
+ * marked as undefined by valgrind.
+ */
+#ifdef VALGRIND
+#  define EI_UNDEF(V,I) do {} while(0)
+#else
+#  define EI_UNDEF(V,I) V = I
+#endif
+
 #endif /* _EIDEF_H */
