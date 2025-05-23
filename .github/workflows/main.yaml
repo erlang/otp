@@ -428,6 +428,8 @@ jobs:
 
   # this is a call to a workflow_call
   pr-vendor-vulnerability-analysis:
+    permissions:
+      security-events: write
     name: Vendor Vulnerability Scanning
     uses: ./.github/workflows/reusable-vendor-vulnerability-scanner.yml
     with:

@@ -1342,8 +1342,8 @@ osv_scan(#{version := Version, sarif := Sarif}) ->
                         [];
                     _ ->
                         NameVulnerabilities = lists:zip(osv_names(OSVQuery), OSVResults),
-                        lists:filtermap(fun ({Name, #{~"vulns" := Ids}}) ->
-                                                {true, {Name, [Id || #{~"id" := Id} <- Ids]}};
+                        lists:filtermap(fun ({NameVersion, #{~"vulns" := Ids}}) ->
+                                                {true, {NameVersion, [Id || #{~"id" := Id} <- Ids]}};
                                             (_) ->
                                                 false
                                         end, NameVulnerabilities)
@@ -1352,24 +1352,24 @@ osv_scan(#{version := Version, sarif := Sarif}) ->
                 {error, [URI, Error]}
         end,
     Vulns1 = ignore_vex_cves(Vulns),
-    ok = generate_sarif(Sarif, Vulns1),
+    ok = generate_sarif(Version, Sarif, Vulns1),
     FormattedVulns = format_vulnerabilities(Vulns1),
     report_vulnerabilities(FormattedVulns).
 
-generate_sarif(false, _Vulns) ->
+generate_sarif(_, false, _Vulns) ->
     io:format("[SARIF] No sarif file generated~n~n"),
     ok;
-generate_sarif(true, Vulns) ->
+generate_sarif(Branch, true, Vulns) ->
     SarifFilename = "results.sarif",
 
     {ok, Cwd} = file:get_cwd(),
     io:format("[SARIF] Generating Sarif: ~s~n", [Cwd ++ "/" ++ SarifFilename]),
     io:format("ok~n~n"),
 
-    Sarif = json:format(generate_sarif(Vulns)),
+    Sarif = json:format(generate_sarif(Branch, Vulns)),
     file:write_file(SarifFilename, Sarif).
 
-generate_sarif(Vulns) ->
+generate_sarif(Branch, Vulns) ->
     #{ ~"version" => ~"2.1.0",
          ~"$schema" => ~"https://raw.githubusercontent.com/oasis-tcs/sarif-spec/main/sarif-2.1/schema/sarif-schema-2.1.0.json",
          ~"runs" =>
@@ -1396,22 +1396,31 @@ generate_sarif(Vulns) ->
                          ~"ruleId" => ~"CVE-OTP-VENDOR",
                          ~"ruleIndex" => 0, % matches rule object that should apply
                          ~"level" => ~"warning",
-                         ~"message" => #{ ~"text" => error_to_text({Dependency, CVE}) },
+                         ~"message" => #{
+                                          ~"text" => error_to_text(Branch, Dependency, Version, CVE)
+                                        },
                          ~"locations" =>
                              [ #{ ~"physicalLocation" =>
                                       #{ ~"artifactLocation" =>
                                              #{ ~"uri" => Dependency }}}
-                             ]
-                        } || {Dependency, CVEs} <- Vulns, CVE <- CVEs],
+                             ],
+                         ~"partialFingerprints" =>
+                             #{ Branch => calculate_fingerprint(Branch, Dependency, Version, CVE)}
+                        } || {Dependency, Version, CVEs} <- Vulns, CVE <- CVEs],
                  ~"artifacts" =>
                      [ #{ ~"location" => #{ ~"uri" => Dependency},
                           ~"length" => -1
-                        } || {Dependency, _} <- Vulns]
+                        } || {Dependency, _, _} <- Vulns]
                 }]
        }.
 
-error_to_text({Dependency, Vuln}) ->
-    <<"Dependency ", Dependency/binary, " has ", Vuln/binary>>.
+error_to_text(Branch, Dependency, Version, Vuln) ->
+    <<"[", Branch/binary, "] Dependency ", Dependency/binary, " in commit/version ", Version/binary,
+      " has the following detected vulnerability: ", Vuln/binary>>.
+
+calculate_fingerprint(Branch, Dependency, Version, CVE) ->
+    Bin = crypto:hash(sha, <<Branch/binary, Dependency/binary, Version/binary, CVE/binary>>),
+    binary:encode_hex(Bin).
 
 %% TODO: fix by reading VEX files from erlang/vex or repo containing VEX files
 ignore_vex_cves(Vulns) ->
@@ -1419,16 +1428,16 @@ ignore_vex_cves(Vulns) ->
                         %% OTP cannot be vulnerable to wxwidgets because
                         %% we only take documentation.
                         Acc;
-                    ({Name, CVEs}, Acc) ->
+                    ({{Name, Version}, CVEs}, Acc) ->
                         case maps:get(Name, non_vulnerable_cves(), not_found) of
                             not_found ->
-                                [{Name, CVEs} | Acc];
+                                [{Name, Version, CVEs} | Acc];
                             NonCVEs ->
                                 case CVEs -- NonCVEs of
                                     [] ->
                                         Acc;
                                     Vs ->
-                                        [{Name, Vs} | Acc]
+                                        [{Name, Version, Vs} | Acc]
                                 end
                         end
                 end, [], Vulns).
@@ -1445,7 +1454,7 @@ non_vulnerable_cves() -> #{}.
 format_vulnerabilities({error, ErrorContext}) ->
     {error, ErrorContext};
 format_vulnerabilities(ExistingVulnerabilities) when is_list(ExistingVulnerabilities) ->
-    lists:map(fun ({N, Ids}) ->
+    lists:map(fun ({N, _, Ids}) ->
                       io_lib:format("- ~s: ~s~n", [N, lists:join(",", Ids)])
               end, ExistingVulnerabilities).
 
@@ -1458,11 +1467,14 @@ report_vulnerabilities(FormatVulns) ->
 
 osv_names(#{~"queries" := Packages}) ->
     lists:map(fun osv_names/1, Packages);
-osv_names(#{~"package" := #{~"name" := Name }}) ->
-    Name.
+osv_names(#{~"package" := #{~"name" := Name }, ~"commit" := Commit}) ->
+    {Name, Commit};
+osv_names(#{~"package" := #{~"name" := Name }, ~"version" := Version}) ->
+    {Name, Version}.
+
 
 generate_osv_query(Packages) ->
-    #{~"queries" => lists:foldl(fun generate_osv_query/2, [], Packages)}.
+    #{~"queries" => lists:usort(lists:foldl(fun generate_osv_query/2, [], Packages))}.
 generate_osv_query(#{~"versionInfo" := Vsn, ~"ecosystem" := Ecosystem, ~"name" := Name}, Acc) ->
     Package = #{~"package" => #{~"name" => Name, ~"ecosystem" => Ecosystem}, ~"version" => Vsn},
     [Package | Acc];
