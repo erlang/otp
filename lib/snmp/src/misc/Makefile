@@ -110,13 +110,23 @@ opt: $(TARGET_FILES)
 
 
 clean:
-	rm -f $(TARGET_FILES) 
+	rm -f $(TARGET_FILES)
+	rm -f snmp_pdus_basic.erl
+	rm -f snmp_pdus_basic.asn1db
 	rm -f core *~
 
 docs:
 
 info:
-	@echo "TARGET_FILES: $(TARGET_FILES)"
+	@echo ""
+	@echo "MODULES:           $(MODULES)"
+	@echo "HRLS:              $(HRLS)"
+	@echo ""
+	@echo "ASN1_SPECS:        $(ASN1_SPECS)"
+	@echo ""
+	@echo "TARGET_FILES:      $(TARGET_FILES)"
+	@echo ""
+	@echo "ERL_COMPILE_FLAGS: $(ERL_COMPILE_FLAGS)"
 	@echo ""
 
 
@@ -131,8 +141,6 @@ release_spec: opt
 	$(INSTALL_DATA) $(ERL_FILES) $(HRL_FILES) "$(RELSYSDIR)/src/misc"
 	$(INSTALL_DIR) "$(RELSYSDIR)/ebin"
 	$(INSTALL_DATA) $(TARGET_FILES) "$(RELSYSDIR)/ebin"
-# 	$(INSTALL_DIR) "$(RELSYSDIR)/include"
-# 	$(INSTALL_DATA) $(EXT_HRL_FILES) "$(RELSYSDIR)/include"
 
 release_docs_spec:
 
