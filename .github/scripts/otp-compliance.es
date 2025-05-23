@@ -231,7 +231,7 @@ cli() ->
 
                                      > .github/scripts/otp-compliance.es sbom osv-scan
                                      """,
-                                 arguments => [ versions_file(), sarif_option(), fail_option() ],
+                                 arguments => [ versions_file(), sarif_option(), fail_option(), gh_alerts() ],
                                  handler => fun osv_scan/1}
                          }},
              "explore" =>
@@ -351,6 +351,11 @@ fail_option() ->
 %% useful for pull requests since we do not want to
 %% add Github Security per found CVE on each PR.
 
+gh_alerts() ->
+    #{name => gh_alerts,
+      type => binary,
+      default => ~"undefined",
+      long => "-gh_alerts"}.
 
 ntia_checker() ->
     #{name => ntia_checker,
@@ -1329,7 +1334,10 @@ generate_vendor_purl(Package) ->
             [create_externalRef_purl(Description, <<Purl/binary, "@", Vsn/binary>>)]
     end.
 
-osv_scan(#{version := Version, sarif := Sarif, fail_if_cve := FailIfCVEFound}) ->
+osv_scan(#{version := Version,
+           sarif := Sarif,
+           fail_if_cve := FailIfCVEFound,
+           gh_alerts := Alerts0}) ->
     application:ensure_all_started([ssl, inets]),
     OSVQuery = vendor_by_version(Version),
 
@@ -1360,8 +1368,24 @@ osv_scan(#{version := Version, sarif := Sarif, fail_if_cve := FailIfCVEFound}) -
             {error, Error} ->
                 {error, [URI, Error]}
         end,
-    Vulns1 = ignore_vex_cves(Vulns),
-    ok = generate_sarif(Version, Sarif, Vulns1),
+    Alerts = case Alerts0 of
+                 ~"undefined" ->
+                     [];
+                 _ ->
+                     decode(Alerts0)
+             end,
+    Vulns1 = ignore_vex_cves(Version, Vulns, Alerts),
+
+    %% Vulnerabilities already open that do not needto be reported again
+    %% in text or make the build fail, but the SARIF file should continue
+    %% reporting until we mark as fixed.
+    io:format("Exiting known vulnerabilities already open:~n~s~n~n",
+              [format_vulnerabilities(Vulns -- Vulns1)]),
+
+    %% sarif should still contain issues with CVEs
+    ok = generate_sarif(Version, Sarif, Vulns),
+
+    %% vulnerability reporting can fail if new issues appear
     FormattedVulns = format_vulnerabilities(Vulns1),
     case FailIfCVEFound of
         false ->
@@ -1425,11 +1449,11 @@ generate_sarif(Branch, Vulns) ->
                              ],
                          ~"partialFingerprints" =>
                              #{ Branch => calculate_fingerprint(Branch, Dependency, Version, CVE)}
-                        } || {Dependency, Version, CVEs} <- Vulns, CVE <- CVEs],
+                        } || {{Dependency, Version}, CVEs} <- Vulns, CVE <- CVEs],
                  ~"artifacts" =>
                      [ #{ ~"location" => #{ ~"uri" => Dependency},
                           ~"length" => -1
-                        } || {Dependency, _, _} <- Vulns]
+                        } || {{Dependency, _}, _} <- Vulns]
                 }]
        }.
 
@@ -1441,22 +1465,47 @@ calculate_fingerprint(Branch, Dependency, Version, CVE) ->
     Bin = crypto:hash(sha, <<Branch/binary, Dependency/binary, Version/binary, CVE/binary>>),
     binary:encode_hex(Bin).
 
-%% TODO: fix by reading VEX files from erlang/vex or repo containing VEX files
-ignore_vex_cves(Vulns) ->
-    lists:foldl(fun ({{~"github.com/wxWidgets/wxWidgets", _Version}, _CVEs}, Acc) ->
+ignore_vex_cves(Branch, Vulns, Alerts) ->
+    Vulns1 = ignore_known_false_positives(Vulns),
+    ignore_dismiss_alerts(Branch, Alerts, Vulns1).
+
+ignore_dismiss_alerts(Branch, Alerts, Vulns) ->
+    FilterBranch = fun (Text) -> string:find(Text, ~"Dependency", trailing) end,
+    CVEsTexts =
+        lists:map(fun (#{ ~"most_recent_instance" := #{~"message" := #{ ~"text":= Text }}}) ->
+                          FilterBranch(Text)
+                  end, Alerts),
+
+    lists:foldl(
+      fun ({{Name, Version}, CVEs}, Acc) ->
+              L = lists:filter(
+                    fun(CVE) ->
+                            T = FilterBranch(error_to_text(Branch, Name, Version, CVE)),
+                            not lists:member(T, CVEsTexts)
+                    end, CVEs),
+              case L of
+                  [] ->
+                      Acc;
+                  _ ->
+                      [{{Name, Version}, L} | Acc]
+              end
+      end, [], Vulns).
+
+ignore_known_false_positives(Vulns) ->
+    lists:foldl(fun ({~"github.com/wxWidgets/wxWidgets", _CVEs}, Acc) ->
                         %% OTP cannot be vulnerable to wxwidgets because
                         %% we only take documentation.
                         Acc;
                     ({{Name, Version}, CVEs}, Acc) ->
                         case maps:get(Name, non_vulnerable_cves(), not_found) of
                             not_found ->
-                                [{Name, Version, CVEs} | Acc];
+                                [{{Name, Version}, CVEs} | Acc];
                             NonCVEs ->
                                 case CVEs -- NonCVEs of
                                     [] ->
                                         Acc;
                                     Vs ->
-                                        [{Name, Version, Vs} | Acc]
+                                        [{{Name, Version}, Vs} | Acc]
                                 end
                         end
                 end, [], Vulns).
@@ -1473,12 +1522,12 @@ non_vulnerable_cves() ->
 format_vulnerabilities({error, ErrorContext}) ->
     {error, ErrorContext};
 format_vulnerabilities(ExistingVulnerabilities) when is_list(ExistingVulnerabilities) ->
-    lists:map(fun ({N, _, Ids}) ->
+    lists:map(fun ({{N, _}, Ids}) ->
                       io_lib:format("- ~s: ~s~n", [N, lists:join(",", Ids)])
               end, ExistingVulnerabilities).
 
 report_vulnerabilities([]) ->
-    io:format("[OSV] No vulnerabilities found.~n");
+    io:format("[OSV] No new vulnerabilities reported.~n");
 report_vulnerabilities({error, [URI, Error]}) ->
     fail("[OSV] POST request to ~p errors: ~p", [URI, Error]);
 report_vulnerabilities(FormatVulns) ->
