@@ -780,17 +780,26 @@ handle_msg(#ssh_msg_channel_open_confirmation{recipient_channel = ChannelId,
 					      maximum_packet_size = PacketSz}, 
 	   #connection{channel_cache = Cache} = Connection0, _, _SSH) ->
     
-    #channel{remote_id = undefined} = Channel =
+    #channel{remote_id = undefined, user = U} = Channel =
 	ssh_client_channel:cache_lookup(Cache, ChannelId), 
     
-    ssh_client_channel:cache_update(Cache, Channel#channel{
-				     remote_id = RemoteId,
-				     recv_packet_size = max(32768, % rfc4254/5.2
-							    min(PacketSz, Channel#channel.recv_packet_size)
-							   ),
-				     send_window_size = WindowSz,
-				     send_packet_size = PacketSz}),
-    reply_msg(Channel, Connection0, {open, ChannelId});
+    if U /= undefined ->
+            ssh_client_channel:cache_update(Cache, Channel#channel{
+                                             remote_id = RemoteId,
+                                             recv_packet_size = max(32768, % rfc4254/5.2
+                                                                    min(PacketSz, Channel#channel.recv_packet_size)
+                                                                   ),
+                                             send_window_size = WindowSz,
+                                             send_packet_size = PacketSz}),
+            reply_msg(Channel, Connection0, {open, ChannelId});
+        true ->
+            %% There is no user process so nobody cares about the channel
+            %% close it and remove from the cache, reply from the peer will be
+            %% ignored
+            CloseMsg = channel_close_msg(RemoteId),
+            ssh_client_channel:cache_delete(Cache, ChannelId),
+            {[{connection_reply, CloseMsg}], Connection0}
+    end;
  
 handle_msg(#ssh_msg_channel_open_failure{recipient_channel = ChannelId,
 					 reason = Reason,
@@ -839,6 +848,10 @@ handle_msg(#ssh_msg_channel_close{recipient_channel = ChannelId},
 		{Replies, Connection};
 
 	    undefined ->
+                %% This may happen among other reasons
+                %% - we sent 'channel-close' %% and the peer failed to respond in time
+                %% - we tried to open a channel but the handler died prematurely
+                %%    and the channel entry was removed from the cache
 		{[], Connection0}
 	end;
 
@@ -1064,14 +1077,24 @@ handle_msg(#ssh_msg_channel_request{recipient_channel = ChannelId,
       ?DEC_BIN(Err, _ErrLen),
       ?DEC_BIN(Lang, _LangLen)>> = Data,
     case ssh_client_channel:cache_lookup(Cache, ChannelId) of
-        #channel{remote_id = RemoteId} = Channel ->
+        #channel{remote_id = RemoteId, sent_close = SentClose} = Channel ->
             {Reply, Connection} =  reply_msg(Channel, Connection0,
                                              {exit_signal, ChannelId,
                                               binary_to_list(SigName),
                                               binary_to_list(Err),
                                               binary_to_list(Lang)}),
-            ChannelCloseMsg = channel_close_msg(RemoteId),
-            {[{connection_reply, ChannelCloseMsg}|Reply], Connection};
+            %% Send 'channel-close' only if it has not been sent yet
+            %% by e.g. our side also closing the channel or going down
+            %% and(!) update the cache
+            %% so that the 'channel-close' is not sent twice
+            if not SentClose ->
+                    CloseMsg = channel_close_msg(RemoteId),
+                    ssh_client_channel:cache_update(Cache,
+                                            Channel#channel{sent_close = true}),
+                    {[{connection_reply, CloseMsg}|Reply], Connection};
+                true ->
+                    {Reply, Connection}
+            end;
         _ ->
             %% Channel already closed by peer
             {[], Connection0}
