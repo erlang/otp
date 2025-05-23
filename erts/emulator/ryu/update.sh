@@ -20,6 +20,13 @@
 #
 # %CopyrightEnd%
 
+GITHUB_TOKEN=${GITHUB_TOKEN:-$(cat ~/.githubtoken)}
+
+if [ -z "${GITHUB_TOKEN}"]; then
+    echo "You need to set ${GITHUB_TOKEN} to a valid github token"
+    exit 1
+fi
+
 ORIGIN_REPO="https://github.com/erlang/ryu"
 UPSTREAM_REPO="https://github.com/ulfjack/ryu"
 
@@ -55,19 +62,20 @@ fi
 cd .. ## back to ryu
 
 ## Fetch latest version of STL from github
-STL_VSN=$(curl -sL -H "Authorization: Bearer $(cat ~/.githubtoken)" -H "Accept: application/vnd.github+json"   -H "X-GitHub-Api-Version: 2022-11-28"   https://api.github.com/repos/microsoft/STL/releases/latest | jq ".tag_name" | sed 's/"//g')
+STL_VSN=$(curl -sL -H "Authorization: Bearer ${GITHUB_TOKEN}" -H "Accept: application/vnd.github+json" -H "X-GitHub-Api-Version: 2022-11-28"   https://api.github.com/repos/microsoft/STL/releases/latest | jq ".tag_name" | sed 's/"//g')
 
 git clone --filter=blob:none --no-checkout -b ${STL_VSN} https://github.com/microsoft/STL.git
 cd STL ## into STL
     git sparse-checkout init --cone
     git sparse-checkout set stl/inc/xcharconv_ryu.h
     git checkout HEAD -- stl/inc/xcharconv_ryu.h
-    STL_SHA=$(git log --format="%H" HEAD -1  -- stl/inc/xcharconv_ryu.h)
+    STL_CHARCONV_SHA=$(git log --format="%H" HEAD -1  -- stl/inc/xcharconv_ryu.h)
+    STL_SHA=$(git rev-parse HEAD)
 cd .. ## back to ryu
 
-if [ "$(cat xcharconv_ryu.h.sha)" != "${STL_SHA}" ]; then
+if [ "$(cat xcharconv_ryu.h.sha)" != "${STL_CHARCONV_SHA}" ]; then
 
-cat <<EOF
+    cat <<EOF
 #######################################################################
 
 https://github.com/microsoft/STL/blob/master/stl/inc/xcharconv_ryu.h has been
@@ -76,24 +84,28 @@ incorporate them into to_chars.h.
 
 Once done, update xcharconv_ryu.h.sha with the new sha. i.e.
 
-echo "${STL_SHA}" > ${ERL_TOP}/erts/emulator/ryu/xcharconv_ryu.h.sha
+echo "${STL_CHARCONV_SHA}" > ${ERL_TOP}/erts/emulator/ryu/xcharconv_ryu.h.sha
 
 EOF
+
+    exit 1
 
 fi
 
 ## Remove old files
 shopt -s extglob
-git rm -rf $(ls -d !(update.sh|vendor.info|ryu.mk|obj|README.ryu_update.md|ryu-copy|STL|xcharconv_ryu.h.sha))
+git rm -rf $(ls -d !(update.sh|vendor.info|ryu.mk|obj|README.ryu_update.md|ryu-copy|STL|xcharconv_ryu.h.sha*))
 shopt -u extglob
 
 cp -r ryu-copy/* .
 rm -rf ryu-copy STL
 
+set -x
+
 ## Update vendor info
 COMMENTS=$(cat vendor.info | grep "^//")
 NEW_VENDOR_INFO=$(cat vendor.info | grep -v "^//" | jq "map(if .ID == \"erts-ryu\" then .versionInfo = \"${SHA}\" | .sha = \"${SHA}\" else . end)")
-NEW_VENDOR_INFO=$(echo "${NEW_VENDOR_INFO}" | jq "map(if .ID == \"erts-ryu-to_chars\" then .versionInfo = \"${STL_VSN}\" | .sha = \"${STL_SHA}\" else . end)")
+NEW_VENDOR_INFO=$(echo "${NEW_VENDOR_INFO}" | jq "map(if .ID == \"ryu-to_chars\" then .versionInfo = \"${STL_VSN}\" | .sha = \"${STL_SHA}\" else . end)")
 
 cat <<EOF > vendor.info
 ${COMMENTS}
