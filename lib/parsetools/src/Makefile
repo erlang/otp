@@ -76,6 +76,8 @@ clean:
 
 docs:
 
+regenerate:
+	erlc +deterministic -o yeccparser.erl yeccgramm.yrl
 
 # ----------------------------------------------------
 # Special Build Targets
