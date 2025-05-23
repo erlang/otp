@@ -12712,7 +12712,11 @@ do_otp19469_dgram(#{family := Fam} = LSA) ->
 %% The client uses sendv+recv and the server recv+send.
 %% The point of that is to simplify. If there is an error, its only
 %% the client causing it.
+%%
+%% Do not run these if factor > 10
+%% Also, calculate number of sends based factor: F = 1 => 10, F = 10 => 5
 
+-define(OTP19482_FACTOR_LIMIT, 10).
 -define(OTP19482_CHUNK_8B,   <<"01234567">>).
 -define(OTP19482_CHUNK_256B,
 	iolist_to_binary(lists:duplicate(32, ?OTP19482_CHUNK_8B))).
@@ -12732,7 +12736,7 @@ otp19482_simple_single_small(Config) when is_list(Config) ->
     ?TT(?SECS(10 * which_factor(Config))),
     Cond = fun() ->
                    has_support_ipv4(),
-                   factor_limit(Config)
+                   otp19482_factor_limit(Config)
            end,
     Pre  = fun() ->
                    #{iov_max := IOVMax} = Info = socket:info(),
@@ -12743,7 +12747,8 @@ otp19482_simple_single_small(Config) when is_list(Config) ->
                       [Info, socket:which_sockets()]),
 
                    LSA = which_local_socket_addr(inet),
-                   #{iov_max => IOVMax,
+                   #{n       => do_otp19482_simple_single_num_sends(Config),
+                     iov_max => IOVMax,
                      lsa     => LSA,
                      chunk   => ?OTP19482_CHUNK_SMALL,
 		     verify  => fun(_) -> ok end}
@@ -12759,7 +12764,7 @@ otp19482_simple_single_medium(Config) when is_list(Config) ->
     ?TT(?SECS(10 * which_factor(Config))),
     Cond = fun() ->
                    has_support_ipv4(),
-                   factor_limit(Config)
+                   otp19482_factor_limit(Config)
            end,
     Pre  = fun() ->
                    #{iov_max := IOVMax} = Info = socket:info(),
@@ -12770,7 +12775,8 @@ otp19482_simple_single_medium(Config) when is_list(Config) ->
                       [Info, socket:which_sockets()]),
 
                    LSA = which_local_socket_addr(inet),
-                   #{iov_max => IOVMax,
+                   #{n       => do_otp19482_simple_single_num_sends(Config),
+                     iov_max => IOVMax,
                      lsa     => LSA,
                      chunk   => ?OTP19482_CHUNK_MEDIUM,
 		     verify  => fun(_) -> ok end}
@@ -12783,10 +12789,11 @@ otp19482_simple_single_medium(Config) when is_list(Config) ->
 
 
 otp19482_simple_single_mixed(Config) when is_list(Config) ->
-    ?TT(?SECS(10 * which_factor(Config))),
+    Factor = which_factor(Config),
+    ?TT(?SECS(10 * Factor)),
     Cond = fun() ->
                    has_support_ipv4(),
-                   factor_limit(Config)
+                   otp19482_factor_limit(Config)
            end,
     Pre  = fun() ->
                    #{iov_max := IOVMax} = Info = socket:info(),
@@ -12803,7 +12810,8 @@ otp19482_simple_single_mixed(Config) when is_list(Config) ->
 			     ?OTP19482_CHUNK_256B,
 			     ?OTP19482_CHUNK_8K,
 			     ?OTP19482_CHUNK_32K],
-                   #{iov_max => IOVMax,
+                   #{n       => do_otp19482_simple_single_num_sends(Config),
+                     iov_max => IOVMax,
                      lsa     => LSA,
                      chunk   => Chunks,
 		     verify  => fun(_) -> ok end}
@@ -12820,7 +12828,7 @@ otp19482_simple_single_mixed_long(Config) when is_list(Config) ->
     ?TT(?SECS(10 * Factor)),
     Cond = fun() ->
                    has_support_ipv4(),
-                   factor_limit(Config)
+                   otp19482_factor_limit(Config)
            end,
     Pre  = fun() ->
                    #{iov_max := IOVMax} = Info = socket:info(),
@@ -12842,7 +12850,8 @@ otp19482_simple_single_mixed_long(Config) when is_list(Config) ->
 				    [<<CLen:32>>, <<CChk:32>>, C]
 				end || C <- Chunks0]),
 		   Chunks2 = lists:flatten(lists:duplicate(100, Chunks1)),
-                   #{factor  => Factor,
+                   #{n       => do_otp19482_simple_single_num_sends(Config),
+                     factor  => Factor,
                      iov_max => IOVMax,
                      lsa     => LSA,
                      chunk   => Chunks2,
@@ -12884,7 +12893,27 @@ otp19482_update_buffers(S) ->
             ok = socket:setopt(S, socket, sndbuf, 250000)
     end.
 
-do_otp19482_simple_single(#{iov_max := IOVMax,
+
+otp19482_factor_limit(Config) when is_list(Config) ->
+    otp19482_factor_limit(which_factor(Config));
+otp19482_factor_limit(Factor)
+  when is_integer(Factor) andalso (Factor =< ?OTP19482_FACTOR_LIMIT) ->
+    ok;
+otp19482_factor_limit(_) ->
+    skip("slow machine").
+
+
+%% This should never be called for Factor > ?OTP19482_FACTOR_LIMIT.
+%% F = 1             => N = 10
+%% F = ?FACTOR_LIMIT => N = 5
+do_otp19482_simple_single_num_sends(Config) when is_list(Config) ->
+    do_otp19482_simple_single_num_sends(which_factor(Config));
+do_otp19482_simple_single_num_sends(Factor)
+  when (Factor =< ?OTP19482_FACTOR_LIMIT) ->
+    (95 - 5*Factor) div 9.
+    
+do_otp19482_simple_single(#{n       := N,
+                            iov_max := IOVMax,
 			    lsa     := LSA,
                             chunk   := ChunkOrChunks,
 			    verify  := Verify}) ->
@@ -12957,8 +12986,6 @@ do_otp19482_simple_single(#{iov_max := IOVMax,
                       {Parent, continue} ->
                           ?P("[client] continue")
                   end,
-
-		  N = 10,
 
                   otp19482_update_buffers(CSock),
 
