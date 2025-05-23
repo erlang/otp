@@ -231,7 +231,7 @@ cli() ->
 
                                      > .github/scripts/otp-compliance.es sbom osv-scan
                                      """,
-                                 arguments => [ versions_file(), sarif_option() ],
+                                 arguments => [ versions_file(), sarif_option(), fail_option() ],
                                  handler => fun osv_scan/1}
                          }},
              "explore" =>
@@ -342,6 +342,15 @@ sarif_option() ->
       type => boolean,
       default => true,
       long => "-sarif"}.
+
+fail_option() ->
+    #{name => fail_if_cve,
+      type => boolean,
+      default => false,
+      long => "-fail_if_cve"}.
+%% useful for pull requests since we do not want to
+%% add Github Security per found CVE on each PR.
+
 
 ntia_checker() ->
     #{name => ntia_checker,
@@ -1320,7 +1329,7 @@ generate_vendor_purl(Package) ->
             [create_externalRef_purl(Description, <<Purl/binary, "@", Vsn/binary>>)]
     end.
 
-osv_scan(#{version := Version, sarif := Sarif}) ->
+osv_scan(#{version := Version, sarif := Sarif, fail_if_cve := FailIfCVEFound}) ->
     application:ensure_all_started([ssl, inets]),
     OSVQuery = vendor_by_version(Version),
 
@@ -1354,7 +1363,17 @@ osv_scan(#{version := Version, sarif := Sarif}) ->
     Vulns1 = ignore_vex_cves(Vulns),
     ok = generate_sarif(Version, Sarif, Vulns1),
     FormattedVulns = format_vulnerabilities(Vulns1),
-    report_vulnerabilities(FormattedVulns).
+    case FailIfCVEFound of
+        false ->
+            report_vulnerabilities(FormattedVulns);
+        true ->
+            case Vulns1 of
+                [] ->
+                    report_vulnerabilities(FormattedVulns);
+                _ ->
+                    fail("[FAILURE]~n~s~n", [FormattedVulns])
+            end
+    end.
 
 generate_sarif(_, false, _Vulns) ->
     io:format("[SARIF] No sarif file generated~n~n"),
