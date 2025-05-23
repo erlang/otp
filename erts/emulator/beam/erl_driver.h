@@ -492,6 +492,15 @@ EXTERN char* erl_drv_cond_name(ErlDrvCond *cnd);
 EXTERN char* erl_drv_rwlock_name(ErlDrvRWLock *rwlck);
 EXTERN char* erl_drv_thread_name(ErlDrvTid tid);
 
+#if defined(__DARWIN__)
+EXTERN int erl_drv_stolen_main_thread_join(ErlDrvTid tid, void **respp);
+EXTERN int erl_drv_steal_main_thread(char *name,
+                                     ErlDrvTid *dtid,
+                                     void* (*func)(void*),
+                                     void* arg,
+                                     ErlDrvThreadOpts *opts);
+#endif
+
 /*
  * Misc.
  */
