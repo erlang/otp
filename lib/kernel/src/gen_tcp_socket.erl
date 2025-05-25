@@ -72,9 +72,9 @@
 -define(MODULE_socket(Server, Socket),
         {'$inet', ?MODULE, {Server, Socket}}).
 
-%% Standard length before data header for packet,1|2|4
--define(header(Packet, Size),
-        (Size):(Packet)/unit:8-integer-big-unsigned).
+-compile({inline, [header/3]}).
+header(Packet, Size, big)    -> <<Size:Packet/unit:8-integer-big-unsigned>>;
+header(Packet, Size, little) -> <<Size:Packet/unit:8-integer-little-unsigned>>.
 
 -define(badarg_exit(Error),
         case begin Error end of
@@ -520,16 +520,28 @@ accept(?MODULE_socket(ListenServer, ListenSocket), Timeout) ->
 send(?MODULE_socket(Server, Socket), Data) ->
     case socket:getopt(Socket, {otp,meta}) of
         {ok,
-         #{packet       := Packet,
+         #{packet       := PacketType,
            send_timeout := SendTimeout} = Meta} ->
+            {Packet, Endianness} =
+                case PacketType of
+                    1           -> {1, big};
+                    2           -> {2, big};
+                    3           -> {3, big};
+                    4           -> {4, big};
+                    {2, big}    -> {2, big};
+                    {2, little} -> {2, little};
+                    {3, big}    -> {3, big};
+                    {3, little} -> {3, little};
+                    {4, big}    -> {4, big};
+                    {4, little} -> {4, little};
+                    _           -> {other, undefined}
+                end,
             if
-                Packet =:= 1;
-                Packet =:= 2;
-                Packet =:= 4 ->
+                Packet =/= other ->
                     Data2       = iolist_to_binary(Data),
                     Size        = byte_size(Data2),
 		    %% ?DBG([{packet, Packet}, {data_size, Size}]),
-                    Header      = <<?header(Packet, Size)>>,
+                    Header      = header(Packet, Size, Endianness),
                     Header_Data = [Header, Data2],
                     Result      = socket_sendv(Socket,
                                                Header_Data, SendTimeout),
@@ -1350,7 +1362,13 @@ nopush_or_cork() ->
 -compile({inline, [is_packet_option_value/1]}).
 is_packet_option_value(Value) ->
     case Value of
-        0 -> true; 1 -> true; 2 -> true; 4 -> true;
+        0 -> true; 1 -> true; 2 -> true; 3 -> true; 4 -> true;
+        {2, big} -> true;
+        {2, little} -> true;
+        {3, big} -> true;
+        {3, little} -> true;
+        {4, big} -> true;
+        {4, little} -> true;
         raw -> true;
         sunrm -> true;
         asn1 -> true;
@@ -2541,7 +2559,14 @@ packet_header_length(PacketType) ->
         0       -> error(badarg, [PacketType]);
         1       -> 1;
         2       -> 2;
+        3       -> 3;
         4       -> 4;
+        {2, big}    -> 2;
+        {3, big}    -> 3;
+        {4, big}    -> 4;
+        {2, little} -> 2;
+        {3, little} -> 3;
+        {4, little} -> 4;
         cdr     -> 12;
         sunrm   -> 4;
         fcgi    -> 8;
