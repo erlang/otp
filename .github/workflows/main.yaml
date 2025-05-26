@@ -528,8 +528,8 @@ jobs:
       - name: Run html link check
         run: docker run -v $PWD/:/github otp "cd /github/docs && /github/scripts/otp_check_html_links.exs"
 
-  static:
-    name: Run static analysis
+  static-erlang:
+    name: Run static analysis on Erlang
     runs-on: ubuntu-latest
     needs: pack
     steps:
@@ -537,14 +537,91 @@ jobs:
       - uses: ./.github/actions/build-base-image
         with:
             BASE_BRANCH: ${{ env.BASE_BRANCH }}
-        ## Check formatting of cpp code
+        ## Check formatting of code (Elixir + C++)
       - name: Check format
         run: docker run otp "make format-check"
         ## Run dialyzer
       - name: Run dialyzer
         run: docker run -v $PWD/:/github otp '/github/scripts/run-dialyzer'
+
+  static-c:
+    name: Run static analysis on C/C++
+    runs-on: ubuntu-latest
+    needs: pack
+    if: needs.pack.outputs.build-c-code == 'true'
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # ratchet:actions/checkout@v4.2.2
+      - uses: ./.github/actions/build-base-image
+        with:
+            BASE_BRANCH: ${{ env.BASE_BRANCH }}
       - name: Check OSSF compiler flags
         uses: ./.github/actions/ossf-compiler-flags-scanner
+      - name: Run codechecker
+        run: |
+          export CLANG_VERSION=20
+
+          docker build -t otp_cc - <<EOF
+          FROM otp
+          USER root
+          RUN mkdir -p /etc/apt/keyrings && \
+              wget -qO /etc/apt/keyrings/llvm.asc https://apt.llvm.org/llvm-snapshot.gpg.key && \
+              echo "deb [signed-by=/etc/apt/keyrings/llvm.asc] http://apt.llvm.org/jammy/ llvm-toolchain-jammy-$CLANG_VERSION main" \
+                | tee /etc/apt/sources.list.d/llvm$CLANG_VERSION.list && \
+              apt-get update && apt-get install -y pip clang-$CLANG_VERSION clang-tidy-$CLANG_VERSION && \
+              update-alternatives \
+                --install /usr/bin/clang clang /usr/bin/clang-$CLANG_VERSION 81 \
+                --slave /usr/bin/clang++ clang++ /usr/bin/clang++-$CLANG_VERSION \
+                --slave /usr/bin/clang-tidy clang-tidy /usr/bin/clang-tidy-$CLANG_VERSION \
+                --slave /usr/bin/clang-format clang-format /usr/bin/clang-format-$CLANG_VERSION && \
+              rm -rf /var/lib/apt/lists/*
+          USER otptest
+          RUN pip install codechecker
+          RUN cd \$ERL_TOP && ./configure CC=clang CXX=clang++ --with-ssl-lib-subdir=lib/x86_64-linux-gnu
+          EOF
+
+          cat > SKIP_FILE <<EOF
+          -*erts/emulator/asmjit/*
+          -*debug/jit/asmjit/*
+          -*erts/emulator/pcre/*
+          -*erts/emulator/zstd/*
+          EOF
+
+          cat > TIDY_ARGS <<EOF
+          
+          EOF
+
+          mkdir cc_results
+          chmod 777 cc_results
+
+          WARNING_SPEC='--disable checker:clang-diagnostic-unused-parameter \
+                        --disable checker:bugprone-sizeof-expression \
+                        -i /github/SKIP_FILE \
+                        --analyzer-config clang-tidy:cc-verbatim-args-file=/github/TIDY_ARGS'
+          echo "${WARNING_SPEC}"
+
+          docker run --entrypoint="" -v $PWD/:/github otp_cc /bin/bash -c \
+            'cd $ERL_TOP/erts/emulator && $HOME/.local/bin/CodeChecker check '"${WARNING_SPEC}"' \
+             --analyzers clang-tidy clangsa -j 4 -b \
+             "make TARGET=$(${ERL_TOP}/erts/autoconf/config.guess) ERTS_SKIP_DEPEND=true debug && \
+              find $ERL_TOP/erts/emulator -name *.gch && \
+              find $ERL_TOP/erts/emulator -name *.gch -exec rm -f {} \\;" \
+             -o /github/cc_results/emulator; \
+             \
+             $HOME/.local/bin/CodeChecker check '"${WARNING_SPEC}"' \
+             --analyzers clang-tidy clangsa -j 4 -b \
+             "make VOID_EMULATOR=true TARGET=$(${ERL_TOP}/erts/autoconf/config.guess) ERTS_SKIP_DEPEND=true TYPE=debug" \
+             -o /github/cc_results/otp; \
+             \
+             $HOME/.local/bin/CodeChecker parse -i /github/SKIP_FILE --print-steps -e html \
+              -o /github/cc_results/html /github/cc_results/otp /github/cc_results/emulator || true'
+          
+          tree cc_results
+      - name: Upload Codechecker results
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # ratchet:actions/upload-artifact@v4.6.2
+        with:
+          name: codechecker-results
+          path: cc_results/html/*
 
   test:
     name: Test Erlang/OTP

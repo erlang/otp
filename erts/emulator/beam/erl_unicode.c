@@ -1168,13 +1168,12 @@ analyze_utf8(const byte *source, Uint size, const byte **err_pos, Uint *num_char
 	     Sint *num_latin1_chars, Uint max_chars)
 {
     int res = ERTS_UTF8_OK;
-    Uint latin1_count;
+    Uint latin1_count = 0;
     int is_latin1;
     Uint nchars = 0;
     *err_pos = source;
     if (num_latin1_chars) {
 	is_latin1 = 1;
-	latin1_count = 0;
     }
     while (size) {
 	if (((*source) & ((byte) 0x80)) == 0) {

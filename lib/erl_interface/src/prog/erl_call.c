@@ -1144,6 +1144,9 @@ static int rpc_print_node_stdout(ei_cnode* ec, int fd, char *mod,
     ei_term t;
     erlang_msg msg;
     char rex[MAXATOMLEN];
+#ifndef VALGRIND
+    index = -1;
+#endif
  
     if (ei_xrpc_to(ec, fd, mod, fun, inbuf, inbuflen, EI_RPC_FETCH_STDOUT) < 0) {
 	return ERL_ERROR;

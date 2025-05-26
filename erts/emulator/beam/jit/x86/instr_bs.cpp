@@ -335,6 +335,7 @@ void BeamModuleAssembler::emit_bs_get_integer2(const ArgLabel &Fail,
                                                const ArgRegister &Dst) {
     Uint size;
     Uint flags = Flags.get();
+    ERTS_UNDEF(size, 0);
 
     if (flags & BSF_NATIVE) {
         flags &= ~BSF_NATIVE;

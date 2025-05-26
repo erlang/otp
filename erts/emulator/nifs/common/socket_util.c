@@ -1653,6 +1653,9 @@ BOOLEAN_T esock_decode_in6_addr(ErlNifEnv*       env,
         int                 arity;
         size_t              n;
         struct in6_addr     sa;
+        #ifndef VALGRIND
+        sys_memzero(&sa, sizeof(sa));
+        #endif
 
         if (! GET_TUPLE(env, eAddr, &arity, &tuple))
             return FALSE;
