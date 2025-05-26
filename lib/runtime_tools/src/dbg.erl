@@ -2382,8 +2382,10 @@ dhandler_default_out() ->
     %% When user (human) sets up dbg over remsh, group_leader is on other node.
     %% In this case, pass printed info to the remote group_leader
     %% so the user (human) can see what's happening
-    {_Key, Ancestors} = process_info(self(), {dictionary, '$ancestors'}),
-    IsShell = (shell:whereis() == hd(Ancestors)),
+    IsShell = case process_info(self(), {dictionary, '$ancestors'}) of
+        {_Key, [Shell | _]} -> (shell:whereis() == Shell);
+        _ -> false
+    end,
     case IsShell andalso (node(group_leader()) /= node()) of
         true ->
             % This is an interactive shell AND group_leader is remote
