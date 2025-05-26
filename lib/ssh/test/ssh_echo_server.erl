@@ -29,7 +29,8 @@
 	  n,
 	  id,
 	  cm,
-	  dbg = false
+	  dbg = false,
+          parent
 	 }).
 -export([init/1, handle_msg/2, handle_ssh_msg/2, terminate/2]).
 
@@ -44,13 +45,19 @@ init([N]) ->
     {ok, #state{n = N}};
 init([N,Opts]) ->
     State = #state{n = N,
-		   dbg = proplists:get_value(dbg,Opts,false)
+		   dbg = proplists:get_value(dbg,Opts,false),
+                   parent = proplists:get_value(parent, Opts)
 		  },
     ?DBG(State, "init([~p])",[N]),
     {ok, State}.
 
 handle_msg({ssh_channel_up, ChannelId, ConnectionManager}, State) ->
     ?DBG(State, "ssh_channel_up Cid=~p ConnMngr=~p",[ChannelId,ConnectionManager]),
+    Pid = State#state.parent,
+    if Pid /= undefined ->
+            Pid ! {conn_peer, ConnectionManager};
+       true -> ok
+    end,
     {ok, State#state{id = ChannelId,
 		     cm = ConnectionManager}}.
 
