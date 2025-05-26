@@ -689,12 +689,14 @@ local_definitions_save_to_module_and_forget(Config) when is_list(Config) ->
       <<"-spec my_func(X) -> X.\n"
         "my_func(X) -> X.\n"
         "lf().">>),
+    file:write_file("MY_MODULE_RECORD.hrl", "-record(grej,{b})."),
     %% Save local definitions to a module
     U = unicode:characters_to_binary("😊"),
-    "ok.\nok.\nok.\nok.\nok.\nok.\n{ok,'MY_MODULE'}.\n" = t({
+    "ok.\nok.\n[grej].\nok.\nok.\nok.\nok.\n{ok,'MY_MODULE'}.\n" = t({
       <<"-type hej() :: integer().\n"
         "-record(svej, {a :: hej()}).\n"
-        "my_func(#svej{a=A}) -> A.\n"
+        "rr(\"MY_MODULE_RECORD.hrl\").\n"
+        "my_func(#svej{a=A}) -> #grej{b=A}.\n"
         "-spec not_implemented(X) -> X.\n"
         "-spec 'my_func",U/binary,"'(X) -> X.\n"
         "'my_func",U/binary,"'(#svej{a=A}) -> A.\n"
@@ -702,14 +704,16 @@ local_definitions_save_to_module_and_forget(Config) when is_list(Config) ->
     %% Read back the newly created module
     {ok,<<"-module('MY_MODULE').\n\n"
           "-export([my_func/1,'my_func",240,159,152,138,"'/1]).\n\n"
-          "-type hej() :: integer().\n"
-          "-record(svej,{a :: hej()}).\n"
+          "-type hej() :: integer().\n\n"
+          "-record(grej,{b}).\n\n"
+          "-record(svej,{a :: hej()}).\n\n"
           "my_func(#svej{a = A}) ->\n"
-          "    A.\n\n"
+          "    #grej{b = A}.\n\n"
           "-spec 'my_func",240,159,152,138,"'(X) -> X.\n"
           "'my_func",240,159,152,138,"'(#svej{a = A}) ->\n"
           "    A.\n">>} = file:read_file("MY_MODULE.erl"),
     file:delete("MY_MODULE.erl"),
+    file:delete("MY_MODULE_RECORD.erl"),
 
     %% Forget one locally defined type
     "ok.\nok.\nok.\n-type svej() :: integer().\n.\nok.\n" = t(
