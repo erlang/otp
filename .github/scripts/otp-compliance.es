@@ -1443,7 +1443,7 @@ calculate_fingerprint(Branch, Dependency, Version, CVE) ->
 
 %% TODO: fix by reading VEX files from erlang/vex or repo containing VEX files
 ignore_vex_cves(Vulns) ->
-    lists:foldl(fun ({~"github.com/wxWidgets/wxWidgets", _CVEs}, Acc) ->
+    lists:foldl(fun ({{~"github.com/wxWidgets/wxWidgets", _Version}, _CVEs}, Acc) ->
                         %% OTP cannot be vulnerable to wxwidgets because
                         %% we only take documentation.
                         Acc;
@@ -1461,13 +1461,13 @@ ignore_vex_cves(Vulns) ->
                         end
                 end, [], Vulns).
 
-non_vulnerable_cves() -> #{}.
-    %% #{ ~"github.com/madler/zlib" => [~"CVE-2023-45853"],
-    %%    ~"github.com/openssl/openssl" =>
-    %%        [~"CVE-2024-12797", ~"CVE-2023-6129", ~"CVE-2023-6237", ~"CVE-2024-0727",
-    %%         ~"CVE-2024-13176", ~"CVE-2024-2511", ~"CVE-2024-4603", ~"CVE-2024-4741",
-    %%         ~"CVE-2024-5535", ~"CVE-2024-6119", ~"CVE-2024-9143"],
-    %%    ~"github.com/PCRE2Project/pcre2" => [~"OSV-2025-300"]}.
+non_vulnerable_cves() ->
+    #{ ~"github.com/madler/zlib" => [~"CVE-2023-45853"],
+       ~"github.com/openssl/openssl" =>
+           [~"CVE-2024-12797", ~"CVE-2023-6129", ~"CVE-2023-6237", ~"CVE-2024-0727",
+            ~"CVE-2024-13176", ~"CVE-2024-2511", ~"CVE-2024-4603", ~"CVE-2024-4741",
+            ~"CVE-2024-5535", ~"CVE-2024-6119", ~"CVE-2024-9143"],
+       ~"github.com/PCRE2Project/pcre2" => [~"OSV-2025-300"]}.
 
 
 format_vulnerabilities({error, ErrorContext}) ->
