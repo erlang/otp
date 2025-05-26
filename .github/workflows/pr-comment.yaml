@@ -86,7 +86,7 @@ jobs:
           path: erlang.github.io
 
       - name: Publish CT Test Results
-        uses: EnricoMi/publish-unit-test-result-action@afb2984f4d89672b2f9d9c13ae23d53779671984 # ratchet:EnricoMi/publish-unit-test-result-action@v2.19.0
+        uses: EnricoMi/publish-unit-test-result-action@3a74b2957438d0b6e2e61d67b05318aa25c9e6c6 # ratchet:EnricoMi/publish-unit-test-result-action@v2.20.0
         if: steps.extract.outputs.HAS_TEST_ARTIFACTS == 'true'
         with:
           commit: ${{ github.event.workflow_run.head_sha }}
