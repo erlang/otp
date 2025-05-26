@@ -281,7 +281,7 @@ expr(#c_letrec{body=#c_var{}}=Letrec, effect, _Sub) ->
     %% This is named fun in an 'effect' context. Warn and ignore.
     add_warning(Letrec, {ignored,useless_building}),
     void();
-expr(#c_letrec{defs=Fs0,body=B0}=Letrec, Ctxt, Sub) ->
+expr(#c_letrec{defs=Fs0,body=B0}=Letrec0, Ctxt, Sub) ->
     Fs1 = map(fun ({Name,Fb}) ->
                       case Ctxt =:= effect andalso is_fun_effect_safe(Name, B0) of
                           true ->
@@ -291,7 +291,8 @@ expr(#c_letrec{defs=Fs0,body=B0}=Letrec, Ctxt, Sub) ->
                       end
 	      end, Fs0),
     B1 = body(B0, Ctxt, Sub),
-    Letrec#c_letrec{defs=Fs1,body=B1};
+    Letrec = Letrec0#c_letrec{defs=Fs1,body=B1},
+    opt_lc(Letrec);
 expr(#c_case{}=Case0, Ctxt, Sub) ->
     %% Ideally, the compiler should only emit warnings when there is
     %% a real mistake in the code being compiled. We use the follow
@@ -2080,6 +2081,181 @@ opt_bool_case_in_let_1([#c_var{name=V}], Arg,
 	    Let
     end;
 opt_bool_case_in_let_1(_, _, _, Let, _) -> Let.
+
+%%%
+%%% Optimize list generators in comprehensions when the input list
+%%% is known to contain a single element. This happens when
+%%% a value is computed once and used both in a filter and as an
+%%% element expression as in this example:
+%%%
+%%%     mine(L) ->
+%%%         [{E,H} || E <- L,
+%%%              H <- [erlang:phash2(E)],
+%%%              H rem 10 =:= 0].
+%%%
+%%% In Core Erlang, each generator becomes a letrec, which is
+%%% later lowered to a function in BEAM code. Consider this
+%%% comprehension:
+%%%
+%%%     [X || E <- L, X <- [E]].
+%%%
+%%% The Core Erlang code produced for the `X <- [E]` generator looks
+%%% like this:
+%%%
+%%%     letrec
+%%%         'lc$^1'/1 =
+%%%             fun (X) ->
+%%%                 case X of
+%%%                   <[X|Tail]> when 'true' ->
+%%%                       let <NewTail> = apply 'lc$^1'/1(Tail)
+%%%                       in [X|NewTail]
+%%%                   <[Head|Tail]> when 'true' ->
+%%%                       apply 'lc$^1'/1(Tail)
+%%%                   <[]> when 'true' ->
+%%%                       apply 'lc$^0'/1(PreviousTail) %% Outer
+%%%                 end
+%%%           in  apply 'lc$^1'/1([E|[]])
+%%%
+%%% The `PreviousTail` and `E` variables have been bound by the
+%%% `E <- L` generator.
+%%%
+%%% Since the X argument is a known singleton, recursion is
+%%% unnecessary. The recursive calls can be replaced with the body of
+%%% the final clause, which is known to be reached because `Tail` is
+%%% always [].
+%%%
+%%% Also, the second clause will always match, so we can drop the
+%%% third clause.
+%%%
+%%% That results in the following code:
+%%%
+%%%     let
+%%%         <NewFun> =
+%%%             fun (X) ->
+%%%                 case X of
+%%%                   <[X|Tail]> when 'true' ->
+%%%                       let <NewTail> = apply 'lc$^0'/1(PreviousTail)
+%%%                       in [X|NewTail]
+%%%                   <[Head|Tail]> when 'true' ->
+%%%                       apply 'lc$^0'/1(PreviousTail)
+%%%                 end
+%%%           in  apply NewFun([E|[]])
+%%%
+%%% The usual Core Erlang optimizations will be applied to simplify
+%%% it. First, the fun will be eliminated:
+%%%
+%%%         let <X> = [E|[]]
+%%%         in case X of
+%%%              <[X|Tail]> when 'true' ->
+%%%                  let <NewTail> = apply 'lc$^0'/1(PreviousTail)
+%%%                  in [X|NewTail]
+%%%              <[Head|Tail]> when 'true' ->
+%%%                  apply 'lc$^0'/1(PreviousTail)
+%%%            end
+%%%
+%%% Next, the outer let will be eliminated by substituting into the
+%%% case expression:
+%%%
+%%%         case [E|[]] of
+%%%           <[X|Tail]> when 'true' ->
+%%%               .
+%%%               .
+%%%               .
+%%%         end
+%%%
+%%% Since the first clause always matches, the remaining clauses can
+%%% be discarded and the case can be rewritten to a let:
+%%%
+%%%         let <X, Tail> = <E, []>
+%%%            in let <NewTail> = apply 'lc$^0'/1(PreviousTail)
+%%%                 in [X|NewTail]
+%%%
+%%% Finally, by eliminating the outermost let, we get:
+%%%
+%%%         let <NewTail> = apply 'lc$^0'/1(PreviousTail)
+%%%         in [E|NewTail]
+%%%
+opt_lc(Letrec) ->
+    maybe
+        #c_letrec{anno=Anno,defs=[{Name,Fun}],body=Body0} ?= Letrec,
+        true ?= lists:member(list_comprehension, Anno),
+        {ok,Body} ?= opt_lc_body(Body0, Name, Fun),
+        Body
+    else
+        _ ->
+            Letrec
+    end.
+
+opt_lc_body(Body0, Name, Fun) ->
+    try opt_lc_body_1(Body0, Name, Fun) of
+        Body ->
+            {ok,Body}
+    catch
+        throw:impossible ->
+            impossible
+    end.
+
+opt_lc_body_1(#c_let{body=Body0}=Let, Name, Fun) ->
+    Body = opt_lc_body_1(Body0, Name, Fun),
+    Let#c_let{body=Body};
+opt_lc_body_1(Apply, #c_var{name=Name}, Fun0) ->
+    maybe
+        %% Look for a letrec body that constructs a list
+        %% with a single element.
+        #c_apply{op=#c_var{name=Name},args=[Arg|_]} ?= Apply,
+        true ?= cerl:is_c_list(Arg) andalso cerl:list_length(Arg) =:= 1,
+
+        %% Now we know that the letrec body is suitable. Try to
+        %% rewrite the definition body.
+        Fun = opt_lc_definition(Fun0, Name),
+
+        %% Rewrite succeeded. Replace the letrec with a plain let.
+        FunNameVar = make_var([]),
+        #c_let{vars=[FunNameVar],arg=Fun,
+               body=Apply#c_apply{op=FunNameVar}}
+    else
+        _ ->
+            throw(impossible)
+    end.
+
+opt_lc_definition(#c_fun{body=Case}=Fun, Name) ->
+    maybe
+        %% Match the case used in a list comprehension generator.
+        #c_case{clauses=Cs0} ?= Case,
+        [#c_clause{pats=[#c_cons{tl=Tail}|_],body=C1Body0}=C1,
+         #c_clause{pats=[#c_cons{tl=Tail}|_],guard=#c_literal{val=true},
+                   body=#c_apply{op=#c_var{name=Name},
+                                 args=[Tail|_]}}=C2,
+         #c_clause{pats=[#c_literal{val=[]}|_],body=Iterate}|_] ?= Cs0,
+
+        %% Replace self-recursion with the body of the clause matching
+        %% the empty list.
+        C1Body = opt_lc_fun_body(C1Body0, Name, Iterate),
+
+        %% Build a fun to replace the letrec. We know that the second
+        %% clause will always match, so there is no need to include
+        %% more clauses.
+        %%
+        %% Note that the the first clause will usually match, except
+        %% when it has a non-true guard as in this comprehension:
+        %%
+        %%     [X || E <- L, is_list(E), X <- [E]]
+        %%
+        %% Therefore, it is necessary to include the second clause.
+        Cs = [C1#c_clause{body=C1Body},
+              C2#c_clause{body=Iterate}],
+        Fun#c_fun{body=Case#c_case{clauses=Cs}}
+    else
+        _ ->
+            throw(impossible)
+    end.
+
+opt_lc_fun_body(Core, Name, Iterate) ->
+    cerl_trees:map(fun(#c_apply{op=#c_var{name=Op}}) when Op =:= Name ->
+                           Iterate;
+                      (Other) ->
+                              Other
+                   end, Core).
 
 %% is_simple_case_arg(Expr) -> true|false
 %%  Determine whether the Expr is simple enough to be worth
