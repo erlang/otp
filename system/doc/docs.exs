@@ -37,6 +37,7 @@
     "getting_started/conc_prog.md": [],
     "getting_started/robustness.md": [],
     "getting_started/records_macros.md": [],
+    "getting_started/debugging.md": [],
     "reference_manual/reference_manual.md": [],
     "reference_manual/character_set.md": [],
     "reference_manual/data_types.md": [],
