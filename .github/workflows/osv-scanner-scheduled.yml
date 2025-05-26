@@ -60,16 +60,11 @@ jobs:
     permissions:
       actions: write
     steps:
-      # this is a call to a workflow_dispatch ref=master is important because
+      # this call to a workflow_dispatch ref=master is important because
       # using ref={{matrix.type}} would trigger the workflow
       # reusable-vendor-vulnerability-scanner.yml in that ref/branch. since
       # there is no such files in maint-25, maint-26, etc, the result would
       # ignore the vulnerability scanning for those branches.
-      #
-      # During manual testing, triggering this event before the pack job (in
-      # main.yml) is finished will result in an error, due to not being able to
-      # fetch from the cache. In the scheduled case (common case), there should
-      # be already a cache build and this is not an issue.
       #
       # we do not need to fail if there are CVEs in the weekly scheduled reporting,
       # thus, fail_if_cve can be false. if set to true, finding a CVE in scheduled scanning

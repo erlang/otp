@@ -1395,7 +1395,7 @@ generate_sarif(Branch, Vulns) ->
              [ #{
                  ~"tool" =>
                      #{ ~"driver" =>
-                            #{ ~"informationUri" => ~"https://github.com/erlang/otp/scripts/otp-compliance.es",
+                            #{ ~"informationUri" => ~"https://github.com/erlang/otp/blob/master/.github/scripts/otp-compliance.es",
                                ~"name" => ~"otp-compliance",
                                ~"rules" =>
                                    [ #{ ~"id" => ~"CVE-OTP-VENDOR",
