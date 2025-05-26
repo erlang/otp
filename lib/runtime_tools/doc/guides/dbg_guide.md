@@ -43,7 +43,7 @@ In this example, four trace events are generated:
   the `application_controller` process.
 
 The `dbg:c/4` function has a fourth argument for specifying the trace flags,
-(see [flags](`e:runtime_tools:dbg_guide.md#flags`)).
+(see [flags](#flags)).
 
 
 ## How-to Trace Systems
@@ -80,7 +80,7 @@ If you need a custom tracer other than the default, you can create a tracer usin
   * **`Type = file`**: `Data` is a filename where traces will be printed.
 
 Note that only one tracer using this method can be started at a time. You can
-use trace sessions to start multiple tracers (see [trace sessions](`e:runtime_tools:dbg_guide.md#trace_sessions`)).
+use trace sessions to start multiple tracers (see [trace sessions](#trace-sessions)).
 
 ### Tracing Processes and Ports ([`dbg:p/1,2`](`dbg:p/2`))
 
@@ -196,7 +196,7 @@ ok
 
 To trace function calls, you need to:
 
-1.  Enable the `**c**/**call**` flag for the process(es) that will make the
+1.  Enable the **`c`**/**`call`** flag for the process(es) that will make the
 calls (using `dbg:p/2`).
 2.  Set a *trace pattern* for the function(s) you want to trace using `dbg:tp/2`
 or `dbg:tpl/2`.
@@ -218,7 +218,7 @@ Note that if the `Module` is specified as `'_'`, the
 same holds for the `Function` in relation to `Arity`.
 
 `MatchSpec` defines what to trace and how, see
-[match specifications](`e:runtime_tools:dbg_guide.md#match_spec`).
+[match specifications](#match-specification).
 
   * For simple call tracing, you can insert the empty list `[]`.
   * The most common generic match specifications used can be found as built-in
@@ -256,7 +256,7 @@ events are traced. [`dbg:tpe(Event, MatchSpec)`](`dbg:tpe/2`) allows you to
 filter these events.
 
   * `Event`: `send` or `'receive'`.
-  * `MatchSpec`: A [match specifications](`e:runtime_tools:dbg_guide.md#match_spec`).
+  * `MatchSpec`: A [match specifications](#match-specification).
       * For `send`: Matches on `[Receiver, Msg]`.
       * For `'receive'`: Matches on `[Node, Sender, Msg]`.
 
@@ -286,8 +286,6 @@ To stop tracing specific functions, you clear their trace patterns.
   * **[`dbg:ctpl(ModuleOrMFA)`](`dbg:ctpl/1`):** Clears only *local* trace patterns (set by `tpl`).
   * **[`dbg:ctpg(ModuleOrMFA)`](`dbg:ctpg/1`):** Clears only *global* trace patterns (set by `tp`).
   * **[`dbg:ctpe(Event)`](`dbg:ctpe/1`):** Clears the match specification for `send` or `'receive'`, reverting to tracing all such events if the flag is set.
-
-[](){: #match_spec }
 
 ## Match Specifications
 
@@ -329,8 +327,6 @@ will be used to match the arguments for the call:
 The first match specification matches when a function having two
 arguments is called. The second matches when a function with more than
 6 arguments is called.
-
-[](){: #trace_sessions }
 
 ## Trace Sessions
 
@@ -397,9 +393,6 @@ ok
 ```
 
 
-
-[](){: #nodes }
-
 ## Trace on Remote Nodes
 
 The `dbg` server keeps a list of nodes where tracing should be
@@ -430,7 +423,7 @@ is started on the node (`Nodename`) and the node is added to the list of traced 
 
 > #### Note {: .info }
 >
-> This function is not equivalent to `dbg:n/1`. While `dbg:n/1` starts a process tracer
+> [`dbg:tracer(Nodename, Type, Data)`](`dbg:tracer/3`) is not equivalent to `dbg:n/1`. While `dbg:n/1` starts a process tracer
 > which redirects all trace information to a process tracer on the local node
 > (that is, the trace control node), `dbg:tracer/3` starts any type of tracer,
 > independent of the type of tracer on the trace control node.
@@ -443,7 +436,6 @@ is started on the node (`Nodename`) and the node is added to the list of traced 
   * **[`dbg:cn(Nodename)` (Clear Node)](`dbg:cn/1`):** Removes `Nodename` from the list. Tracing already active on that node continues but new global `tp/p` calls won't affect it.
   * **[`dbg:ln()` (List Nodes)](`dbg:ln/0`):** Shows the list of currently traced nodes.
 
-[](){: #trace_ports }
 ## Trace Ports for Lower Overhead
 
 For high-volume tracing, sending messages to an Erlang process can be too slow.
@@ -592,22 +584,20 @@ The pids will vary.
   * **[`dbg:stop_trace_client(Pid)`](`dbg:stop_trace_client/1`):** Shuts down
   the trace client `Pid`.
 
-[](){: #seq_trace }
-
 ## Sequential Tracing (`seq_trace`)
 
-The `dbg` module is primarily targeted towards tracing through the
+The `m:dbg` module is primarily targeted towards tracing through the
 `trace:process/4` function. It is sometimes desired to trace messages in a more
 delicate way, which can be done with the help of the `m:seq_trace` module.
 
 `m:seq_trace` implements sequential tracing (known in the AXE10 world, and
-sometimes called "forlopp tracing"). `dbg` can interpret messages generated from
-`seq_trace` and the same tracer function for both types of tracing can be used.
-The `seq_trace` messages can also be sent to a trace port for further analysis.
+sometimes called "forlopp tracing"). `m:dbg` can interpret messages generated from
+`m:seq_trace` and the same tracer function for both types of tracing can be used.
+The `m:seq_trace` messages can also be sent to a trace port for further analysis.
 
 As a match specification can turn on sequential tracing, the combination of
-`dbg` and `seq_trace` can be powerful. This brief example shows a session
-where sequential tracing is used to trace the `dbg` module and the trace itself:
+`m:dbg` and `m:seq_trace` can be powerful. This brief example shows a session
+where sequential tracing is used to trace the `m:dbg` module and the trace itself:
 
 ```erlang
 1> dbg:tracer().
@@ -632,13 +622,54 @@ ordinary tracer process (i. e. <0.31.0>) and sets the trace pattern
 for the function `dbg:get_tracer` to one that has the action of
 setting a sequential token. When the function is called by a traced
 process (all processes are traced in this case), the process gets
-"contaminated" by the token and `seq_trace` messages are sent both for
+"contaminated" by the token and `m:seq_trace` messages are sent both for
 the server request and the response. The `seq_trace:set_token([])`
-after the call clears the `seq_trace` token, which is why no messages
+after the call clears the `m:seq_trace` token, which is why no messages
 are sent when the answer propagates via the shell to the console
 port. Otherwise the output would have been more noisy.
 
-[](){: #deadlocks }
+## Avoiding Overloads
+
+Tracing can generate a significant amount of data, potentially
+overwhelming your system if not managed carefully. To prevent performance
+degradation or even crashes, consider these strategies:
+
+**Time-Limited Tracing**: One effective method is to automatically stop tracing
+after a set period.
+
+```erlang
+dbg:tracer(), dbg:p(all,[c]), dbg:tpl(lists,map,x), timer:sleep(1000), dbg:stop().
+```
+
+**Be Specific:**
+
+**Processes:** Instead of `dbg:p(all, Flags).`, try to pinpoint specific
+processes if you know which ones are relevant: `dbg:p(Pid, Flags)`. You can also
+trace newly spawned processes with `dbg:p(new, Flags).`.
+
+**Modules & Functions:** Rather than tracing all calls, narrow down to specific
+modules and functions with `dbg:tp/2` or `dbg:tpl/2`
+
+**Use Match Specifications:** For example, to only trace calls to
+`my_module:my_function/1` when the first argument is the atom error:
+
+```erlang
+dbg:tpl(my_module, my_function, dbg:fun2ms(fun([error])->true end)).
+```
+
+**Limit Trace Flags:** Only enable the flags essential for your debugging task
+(e.g., m for message passing, c for function calls).
+
+**Trace to File for High Volumes:** If you anticipate a large volume of trace
+data, tracing directly to the console can become a bottleneck. Consider tracing
+to a file instead, see [trace ports](#trace-ports-for-lower-overhead).
+
+```erlang
+dbg:tracer(port, {file, "trace_output.log"}),
+% ... your other dbg commands ...
+timer:sleep(5000),
+dbg:stop().
+```
 
 ## Avoiding Deadlocks
 
