@@ -61,7 +61,7 @@
          test_originator_Ericsson/1, test_versionInfo_not_empty/1, test_package_hasFiles/1,
          test_project_purl/1, test_packages_purl/1, test_download_location/1, 
          test_package_relations/1, test_has_extracted_licenses/1,
-         test_vendor_packages/1, test_erts/1%%,
+         test_vendor_packages/1, test_erts/1, test_download_vendor_location/1
          %% test_copyright_format/1, test_files_licenses/1,
         ]).
 
@@ -1925,6 +1925,7 @@ package_generator(Sbom) ->
              test_project_purl,
              test_packages_purl,
              test_download_location,
+             test_download_vendor_location,
              test_package_relations,
              test_has_extracted_licenses,
              test_vendor_packages],
@@ -1969,7 +1970,6 @@ test_minimum_apps(#{~"documentDescribes" := [ProjectName], ~"packages" := Packag
     true = lists:all(fun (#{~"SPDXID" := Id, ~"versionInfo" := Version}) ->
                               case lists:keyfind(Id, 1, AppNamesVersion) of
                                   {_, TableVersion} ->
-                                      io:format("Table ~p AppVersion ~p, ~p~n", [TableVersion, Version, Id]),
                                       TableVersion == Version;
                                   false ->
                                       true
@@ -2192,6 +2192,17 @@ test_versionInfo_not_empty(#{~"packages" := Packages}) ->
 
 test_download_location(#{~"packages" := Packages}) ->
     true = lists:all(fun (#{~"downloadLocation" := Loc}) -> Loc =/= ~"" end, Packages),
+    ok.
+
+%% vendor location should use https://github.com where possible due to integration with OSV.
+%% see generate_osv_query/1.
+test_download_vendor_location(#{~"packages" := Packages}) ->
+    %% update list below if new runtime dependencies without git repo appear.
+    KnownExcludedNames = [~"Autoconf", ~"tcl", ~"Unicode Character Database"],
+    true = lists:all(fun (#{~"downloadLocation" := Loc, ~"name" := Name}) ->
+                             lists:member(Name, KnownExcludedNames)
+                                 orelse string:prefix(Loc, ~"https://github.com") =/= nomatch
+                     end, Packages),
     ok.
 
 test_package_hasFiles(#{~"packages" := Packages}) ->
