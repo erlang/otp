@@ -532,6 +532,22 @@ emulated_options([{packet, Value} = Opt |Opts], Inet, Emulated) ->
 emulated_options([{packet_size, Value} = Opt | Opts], Inet, Emulated) ->
     validate_inet_option(packet_size, Value),
     emulated_options(Opts, Inet, [Opt | proplists:delete(packet_size, Emulated)]);
+emulated_options([{high_watermark, Value} = Opt | Opts], Inet, Emulated) ->
+    case lists:keymember(high_watermark, 1, Emulated) of
+        true ->
+            validate_inet_option(high_watermark, Value),
+            emulated_options(Opts, Inet, [Opt | proplists:delete(high_watermark, Emulated)]);
+        false ->
+            emulated_options(Opts, [Opt|Inet], Emulated)
+    end;
+emulated_options([{low_watermark, Value} = Opt | Opts], Inet, Emulated) ->
+    case lists:keymember(low_watermark, 1, Emulated) of
+        true ->
+            validate_inet_option(low_watermark, Value),
+            emulated_options(Opts, Inet, [Opt | proplists:delete(low_watermark, Emulated)]);
+        false ->
+            emulated_options(Opts, [Opt|Inet], Emulated)
+    end;
 emulated_options([Opt|Opts], Inet, Emulated) ->
     emulated_options(Opts, [Opt|Inet], Emulated);
 emulated_options([], Inet,Emulated) ->

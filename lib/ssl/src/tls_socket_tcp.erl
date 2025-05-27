@@ -336,7 +336,7 @@ check_opts(Opts0) ->
     Def = #{
             tcp_module => inet_tcp
            },
-    ?DBG_LOG("Opts: ~p~n", [Opts0]),
+    ?DBG_LOG("Opts: ~p~n~p~n", [Opts0, process_info(self(), current_stacktrace)]),
     lists:foldr(fun check_opts_1/2, Def, Opts0).
 
 
