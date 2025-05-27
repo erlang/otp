@@ -22,7 +22,7 @@
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2, borderline/1, atomic/1,
          bad_zip/1, unzip_from_binary/1, unzip_to_binary/1,
-         zip_to_binary/1,
+         zip_to_binary/1, sanitize_filenames/1,
          unzip_options/1, zip_options/1, list_dir_options/1, aliases/1,
          openzip_api/1, zip_api/1, open_leak/1, unzip_jar/1,
 	 unzip_traversal_exploit/1,
@@ -40,7 +40,8 @@ all() ->
      unzip_to_binary, zip_to_binary, unzip_options,
      zip_options, list_dir_options, aliases, openzip_api,
      zip_api, open_leak, unzip_jar, compress_control, foldl,
-     unzip_traversal_exploit,fd_leak,unicode,test_zip_dir].
+     unzip_traversal_exploit,fd_leak,unicode,test_zip_dir,
+     sanitize_filenames].
 
 groups() -> 
     [].
@@ -90,22 +91,27 @@ borderline_test(Size, TempDir) ->
     {ok, Archive} = zip:zip(Archive, [Name]),
     ok = file:delete(Name),
 
+    RelName = filename:join(tl(filename:split(Name))),
+
     %% Verify listing and extracting.
     {ok, [#zip_comment{comment = []},
-          #zip_file{name = Name,
+          #zip_file{name = RelName,
                     info = Info,
                     offset = 0,
                     comp_size = _}]} = zip:list_dir(Archive),
     Size = Info#file_info.size,
-    {ok, [Name]} = zip:extract(Archive, [verbose]),
+    TempRelName = filename:join(TempDir, RelName),
+    {ok, [TempRelName]} = zip:extract(Archive, [verbose, {cwd, TempDir}]),
 
-    %% Verify contents of extracted file.
-    {ok, Bin} = file:read_file(Name),
+    %% Verify that absolute file was not created
+    {error, enoent} = file:read_file(Name),
+
+    %% Verify that relative contents of extracted file.
+    {ok, Bin} = file:read_file(TempRelName),
     true = match_byte_list(X0, binary_to_list(Bin)),
 
-
     %% Verify that Unix zip can read it. (if we have a unix zip that is!)
-    zipinfo_match(Archive, Name),
+    zipinfo_match(Archive, RelName),
 
     ok.
 
@@ -1054,3 +1060,21 @@ run_command(Command, Args) ->
              end
      end)().
     
+sanitize_filenames(Config) ->
+    RootDir = proplists:get_value(priv_dir, Config),
+    TempDir = filename:join(RootDir, "borderline"),
+    ok = file:make_dir(TempDir),
+
+    %% Create a zip archive /tmp/absolute in it
+    %%   This file was created using the command below on Erlang/OTP 28.0
+    %%   1> rr(file), {ok, {_, Bin}} = zip:zip("absolute.zip", [{"/tmp/absolute",<<>>,#file_info{ type=regular, mtime={{1970,1,1},{0,0,0}}, size=0 }}], [memory]), rp(base64:encode(Bin)).
+    AbsZip = base64:decode(<<"UEsDBBQAAAAAAAAAIewAAAAAAAAAAAAAAAANAAAAL3RtcC9hYnNvbHV0ZVBLAQIUAxQAAAAAAAAAIewAAAAAAAAAAAAAAAANAAAAAAAAAAAAAACkAQAAAAAvdG1wL2Fic29sdXRlUEsFBgAAAAABAAEAOwAAACsAAAAAAA==">>),
+    Archive = filename:join(TempDir, "absolute.zip"),
+    ok = file:write_file(Archive, AbsZip),
+
+    TmpAbs = filename:join([TempDir, "tmp", "absolute"]),
+    {ok, [TmpAbs]} = zip:unzip(Archive, [verbose, {cwd, TempDir}]),
+    {error, enoent} = file:read_file("/tmp/absolute"),
+    {ok, <<>>} = file:read_file(TmpAbs),
+
+    ok.
