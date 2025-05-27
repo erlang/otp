@@ -415,12 +415,11 @@ xterm(data, Buf, Data = #state{ input = #input_state{
                     send_drv_reqs(Data#state.driver, [{redraw_prompt, Pbs, MultiLinePrompt, LineCont1},new_prompt]),
 
                     NewHistory =
-
                         if SaveHistory ->
                                 %% Save into history buffer if issued from shell process
                                 save_line_buffer(string:trim(FormattedLine, both)++"\n",
                                                  Data#state.line_history);
-                           true ->
+                           not SaveHistory ->
                                 Data#state.line_history
                         end,
 
@@ -761,7 +760,7 @@ do_setopts(Opts, Data) ->
             false ->
                 list
         end,
-    LineHistory = proplists:get_value(line_history, Opts, Data#state.line_history),
+    LineHistory = proplists:get_value(line_history, Opts, Data#state.save_history),
     Log = proplists:get_value(log, Opts, Data#state.log),
     {ok, Data#state{ expand_fun = ExpandFun, echo = Echo, read_type = ReadType,
                      save_history = LineHistory, log = Log }}.
