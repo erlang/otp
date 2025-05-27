@@ -119,3 +119,8 @@ release_spec: opt
 	$(INSTALL_DATA) $(CSS) "$(RELSYSDIR)/priv"
 
 release_docs_spec:
+
+# ----------------------------------------------------
+# Dependencies
+# ----------------------------------------------------
+include $(ERL_TOP)/make/dep.mk

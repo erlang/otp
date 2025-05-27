@@ -248,64 +248,7 @@ release_spec: opt
 release_docs_spec:
 
 
-# Include dependencies -- list below added by Kostis Sagonas
-$(EBIN)/application_controller.beam: application_master.hrl ../include/logger.hrl
-$(EBIN)/application_master.beam: application_master.hrl
-$(EBIN)/auth.beam: ../include/file.hrl
-$(EBIN)/code.beam: ../include/file.hrl
-$(EBIN)/code_server.beam: ../include/file.hrl
-$(EBIN)/disk_log.beam: disk_log.hrl
-$(EBIN)/disk_log_1.beam: disk_log.hrl ../include/file.hrl
-$(EBIN)/disk_log_server.beam: disk_log.hrl
-$(EBIN)/dist_util.beam: ../include/dist_util.hrl ../include/dist.hrl
-$(EBIN)/erl_boot_server.beam: inet_boot.hrl
-$(EBIN)/erl_epmd.beam: inet_int.hrl erl_epmd.hrl
-$(EBIN)/error_logger.beam: logger_internal.hrl ../include/logger.hrl
-$(EBIN)/file.beam: ../include/file.hrl file_int.hrl
-$(EBIN)/file_io_server.beam: ../include/file.hrl file_int.hrl
-$(EBIN)/gen_tcp.beam: inet_int.hrl
-$(EBIN)/gen_udp.beam: inet_int.hrl
-$(EBIN)/gen_sctp.beam: ../include/inet_sctp.hrl
-$(EBIN)/global.beam: ../../stdlib/include/ms_transform.hrl
-$(EBIN)/inet.beam: ../include/inet.hrl inet_int.hrl ../include/inet_sctp.hrl
-$(EBIN)/inet6_tcp.beam: inet_int.hrl
-$(EBIN)/inet6_tcp_dist.beam: ../include/net_address.hrl ../include/dist.hrl ../include/dist_util.hrl
-$(EBIN)/inet6_udp.beam: inet_int.hrl
-$(EBIN)/inet6_sctp.beam: inet_int.hrl
-$(EBIN)/inet_config.beam: inet_config.hrl ../include/inet.hrl
-$(EBIN)/inet_db.beam: ../include/inet.hrl inet_int.hrl inet_res.hrl inet_dns.hrl inet_config.hrl
-$(EBIN)/inet_dns.beam: inet_int.hrl inet_dns.hrl inet_dns_record_adts.hrl
-$(EBIN)/inet_dns_tsig.beam: inet_dns.hrl
-$(EBIN)/inet_gethost_native.beam: ../include/inet.hrl
-$(EBIN)/inet_hosts.beam: ../include/inet.hrl
-$(EBIN)/inet_parse.beam: ../include/file.hrl
-$(EBIN)/inet_res.beam: ../include/inet.hrl inet_res.hrl inet_dns.hrl inet_int.hrl
-$(EBIN)/inet_tcp.beam: inet_int.hrl
-$(EBIN)/inet_udp_dist.beam: ../include/net_address.hrl ../include/dist.hrl ../include/dist_util.hrl
-$(EBIN)/inet_udp.beam: inet_int.hrl
-$(EBIN)/inet_sctp.beam: inet_int.hrl ../include/inet_sctp.hrl
-$(EBIN)/local_udp.beam: inet_int.hrl
-$(EBIN)/local_tcp.beam: inet_int.hrl
-$(EBIN)/logger.beam: logger_internal.hrl ../include/logger.hrl
-$(EBIN)/logger_backend.beam: logger_internal.hrl ../include/logger.hrl
-$(EBIN)/logger_config.beam: logger_internal.hrl ../include/logger.hrl
-$(EBIN)/logger_disk_log_h.beam: $(EBIN)/logger_handler.beam logger_h_common.hrl logger_internal.hrl ../include/logger.hrl ../include/file.hrl
-$(EBIN)/logger_filters.beam: logger_internal.hrl ../include/logger.hrl
-$(EBIN)/logger_formatter.beam: logger_internal.hrl ../include/logger.hrl
-$(EBIN)/logger_olp.beam: logger_olp.hrl logger_internal.hrl
-$(EBIN)/logger_proxy.beam: logger_internal.hrl
-$(EBIN)/logger_server.beam: logger_internal.hrl ../include/logger.hrl
-$(EBIN)/logger_simple_h.beam: $(EBIN)/logger_handler.beam logger_internal.hrl ../include/logger.hrl
-$(EBIN)/logger_std_h.beam: $(EBIN)/logger_handler.beam logger_h_common.hrl logger_internal.hrl ../include/logger.hrl ../include/file.hrl
-$(EBIN)/logger_h_common.beam: logger_h_common.hrl logger_internal.hrl ../include/logger.hrl
-$(EBIN)/net_kernel.beam: ../include/net_address.hrl
-$(EBIN)/os.beam: ../include/file.hrl
-$(EBIN)/ram_file.beam: ../include/file.hrl
-$(EBIN)/wrap_log_reader.beam: disk_log.hrl ../include/file.hrl
-$(EBIN)/raw_file_io.beam: ../include/file.hrl file_int.hrl
-$(EBIN)/raw_file_io_compressed.beam: ../include/file.hrl file_int.hrl
-$(EBIN)/raw_file_io_inflate.beam: ../include/file.hrl file_int.hrl
-$(EBIN)/raw_file_io_deflate.beam: ../include/file.hrl file_int.hrl
-$(EBIN)/raw_file_io_delayed.beam: ../include/file.hrl file_int.hrl
-$(EBIN)/raw_file_io_list.beam: ../include/file.hrl file_int.hrl
-$(EBIN)/raw_file_io_raw.beam: ../include/file.hrl file_int.hrl
+# ----------------------------------------------------
+# Dependencies
+# ----------------------------------------------------
+include $(ERL_TOP)/make/dep.mk

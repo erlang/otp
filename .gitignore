@@ -17,6 +17,8 @@ autom4te.cache
 configure.result.*
 *.beam
 *.asn1db
+lib/*/src/deps/
+erts/preloaded/src/deps/
 
 !/bootstrap/lib/compiler/ebin/*.beam
 !/bootstrap/lib/kernel/ebin/*.beam
