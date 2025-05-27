@@ -492,8 +492,8 @@ continue_delete:
 
 noshortcuts:
 ; We delete both in HKCU and HKLM, we don't really know were they might be...
-  	DeleteRegKey /ifempty HKLM "SOFTWARE\Ericsson\Erlang\${ERTS_VERSION}"
-  	DeleteRegKey /ifempty HKCU "SOFTWARE\Ericsson\Erlang\${ERTS_VERSION}"
+  	DeleteRegKey /ifnosubkeys HKLM "SOFTWARE\Ericsson\Erlang\${ERTS_VERSION}"
+  	DeleteRegKey /ifnosubkeys HKCU "SOFTWARE\Ericsson\Erlang\${ERTS_VERSION}"
   	DeleteRegKey HKLM \
 		"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Erlang OTP"
   	DeleteRegKey HKCU \
