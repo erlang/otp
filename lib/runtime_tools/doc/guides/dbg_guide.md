@@ -239,7 +239,7 @@ Note that if the `Module` is specified as `'_'`, the
 same holds for the `Function` in relation to `Arity`.
 
 `MatchSpec` defines what to trace and how, see
-[match specifications](#match-specification).
+[match specifications](#match-specifications).
 
   * For simple call tracing, you can insert the empty list `[]`.
   * The most common generic match specifications used can be found as built-in
@@ -277,7 +277,7 @@ events are traced. [`dbg:tpe(Event, MatchSpec)`](`dbg:tpe/2`) allows you to
 filter these events.
 
   * `Event`: `send` or `'receive'`.
-  * `MatchSpec`: A [match specifications](#match-specification).
+  * `MatchSpec`: A [match specifications](#match-specifications).
       * For `send`: Matches on `[Receiver, Msg]`.
       * For `'receive'`: Matches on `[Node, Sender, Msg]`.
 
