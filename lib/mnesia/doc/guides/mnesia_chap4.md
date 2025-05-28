@@ -453,6 +453,8 @@ locks are acquired. The following functions are available:
   equivalent of `mnesia:match_object/1`.
 - [`mnesia:dirty_select(Tab, Pat)`](`mnesia:dirty_select/2`) is the dirty
   equivalent of `mnesia:select/2`.
+- [`mnesia:dirty_select_reverse(Tab, Pat)`](`mnesia:dirty_select_reverse/2`) is
+  the dirty equivalent of `mnesia:select_reverse/2`.
 - [`mnesia:dirty_index_match_object(Pat, Pos)`](`mnesia:dirty_index_match_object/2`)
   is the dirty equivalent of `mnesia:index_match_object/2`.
 - [`mnesia:dirty_index_read(Tab, SecondaryKey, Pos)`](`mnesia:dirty_index_read/3`)
@@ -577,6 +579,8 @@ operations, as listed here, can be passed on as arguments to the function
 - `mnesia:read/3` (`mnesia:read/1`, `mnesia:wread/1`)
 - [`mnesia:match_object/2`](`mnesia:match_object/3`) (`mnesia:match_object/1`)
 - [`mnesia:select/3`](`mnesia:select/2`) (`mnesia:select/2`)
+- [`mnesia:select_reverse/3`](`mnesia:select_reverse/2`)
+  (`mnesia:select_reverse/2`)
 - `mnesia:foldl/3` (`mnesia:foldl/4`, `mnesia:foldr/3`, `mnesia:foldr/4`)
 - `mnesia:all_keys/1`
 - `mnesia:index_match_object/4` (`mnesia:index_match_object/2`)
@@ -844,6 +848,11 @@ chunk of results. `Mnesia` uses `NObjects` as a recommendation only. Thus, more
 or less results than specified with `NObjects` can be returned in the result
 list, even the empty list can be returned even if there are more results to
 collect.
+
+There is also [`select_reverse/1,2,3,4`](`mnesia:select_reverse/2`), should you
+want to traverse from the end of the result set. This is only applicable to
+`ram_copies` or `disc_copies` tables of type `ordered_set`. For other table
+configurations, it behaves the same as [`mnesia:select/1,2,3,4`](`mnesia:select/2`).
 
 > #### Warning {: .warning }
 >
