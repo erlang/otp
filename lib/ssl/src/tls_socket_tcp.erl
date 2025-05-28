@@ -43,14 +43,12 @@
 %%         open/2,   dtls only
          close/1,
          shutdown/2,
-         send/2,
+         send/2, send_async/2,
 %%         send/4,
          recv/2, recv/3,
 
          data_available/4
         ]).
-
--include("ssl_internal.hrl").
 
 %% -define(DBG_LOG(F,A), ct:log(default, 1, "~w:~w: " ++ F, [?MODULE, ?LINE|A], [esc_chars])).
 -define(DBG_LOG(F,A), ok).
@@ -191,32 +189,55 @@ send(Socket, Data) ->
             Err
     end.
 
+send_async(Socket, Data) ->
+    ?DBG_LOG("~w send_async ~w ~w", [get(tls_role), Socket, iolist_size(Data)]),
+    case socket:sendv(Socket, erlang:iolist_to_iovec(Data), nowait) of
+        ok ->
+            ok;
+        {ok, Cont} ->
+            %%?DBG_LOG("~w send loop ~w", [get(tls_role), iolist_size(Cont)]),
+            send_async(Socket, Cont);
+        AsyncOrErr ->
+            %%?DBG_LOG("~w send ~w", [get(tls_role), AsyncOrErr]),
+            AsyncOrErr
+    end.
+
 %% Note: returns the reverse list of packets
-data_available(Socket, completion, {Handle, Res}, Activate) ->
-    data_available_result(Res, Socket, Handle, Activate, []);
+data_available(Socket, completion, {Handle, Res}, false = Activate) ->
+    data_available_result(Socket, Handle, Activate, Res, []);
+data_available(Socket, completion, {Handle, Res}, true = Activate) ->
+    case Res of
+        {error, _} ->
+            data_available_result(Socket, Handle, Activate, Res, []);
+        {ok, Data} ->
+            %% Try to keep a recv request in the loop
+            data_available_result(Socket, Handle, Activate, socket:recv(Socket, 0, Handle), Data)
+    end;
 data_available(Socket, select, Handle, Activate) ->
-    data_available_recv(Socket, Handle, Activate, []).
+    data_available_recv(Socket, Handle, Activate).
 
-data_available_recv(Socket, Handle, Activate, Acc) ->
-    data_available_result(socket:recv(Socket, 0, Handle), Socket, Handle, Activate, Acc).
+data_available_recv(Socket, Handle, false = Active) ->
+    ok = socket:setopt(Socket, {otp,select_read}, false),
+    data_available_result(Socket, Handle, Active, socket:recv(Socket, 0, Handle), []);
+data_available_recv(Socket, Handle, Activate) ->
+    data_available_result(Socket, Handle, Activate, socket:recv(Socket, 0, Handle), []).
 
-data_available_result(Res, Socket, __Handle, Activate, Acc) ->
+data_available_result(Socket, __Handle, Activate, Res, Acc) ->
     case Res of
         {ok, Data} ->
             case Activate of
-                true ->
-                    ?DBG_LOG("~w data", [get(tls_role)]),
+                true -> %% Activate is true, fake select message to trigger more reads
+                    ?DBG_LOG("~w data ~w", [get(tls_role), byte_size(Data)]),
                     self() ! {'$socket', Socket, select, nowait},
-                    [Data|Acc];
+                    append(Data, Acc);
                 false -> %% Activate is false, fake passive message
                     ?DBG_LOG("~w passive", [get(tls_role)]),
-                    ok = socket:setopt(Socket, {otp,select_read}, false),
                     self() ! {'$socket_passive', Socket},
-                    [Data|Acc]
+                    append(Data, Acc)
             end;
         {select_read, {{select_info, _, _Handle}, Data}} ->
-            ?DBG_LOG("~w wait_select ~p", [get(tls_role), _Handle]),
-            [Data|Acc];
+            ?DBG_LOG("~w wait_select ~p ~w", [get(tls_role), _Handle, byte_size(Data)]),
+            append(Data, Acc);
         {completion, {_, recv, _Handle}} ->
             %% Windows
             ?DBG_LOG("~w wait_select ~p", [get(tls_role), _Handle]),
@@ -226,11 +247,13 @@ data_available_result(Res, Socket, __Handle, Activate, Acc) ->
             ?DBG_LOG("~w wait_select ~p", [get(tls_role), _Handle]),
             Acc;
         {error, Reason} ->
-            ?SSL_LOG(debug, socket_error, [{error, Reason}]),
             ?DBG_LOG("~w error ~p", [get(tls_role), Reason]),
-            self() ! {'$socket_closed', Socket},
+            self() ! {'$socket', Socket, abort, {no_handle, Reason}},
             Acc
     end.
+
+append(Data, []) -> Data;
+append(Data2, Data1) -> [Data2, Data1].
 
 %% Helpers
 
@@ -313,7 +336,7 @@ check_opts(Opts0) ->
     Def = #{
             tcp_module => inet_tcp
            },
-    ?DBG_LOG("Opts: ~p~n", [Opts0]),
+    ?DBG_LOG("Opts: ~p~n~p~n", [Opts0, process_info(self(), current_stacktrace)]),
     lists:foldr(fun check_opts_1/2, Def, Opts0).
 
 
