@@ -278,6 +278,11 @@ record_test_in_body(Anno, Expr, Name, St0) ->
                         {atom,NAnno,is_record}},
             [Var,{atom,Anno,Name},{integer,Anno,length(Fs)+1}]}]}, St).
 
+expr_or_exprs(Es, St) when is_list(Es) ->
+    exprs(Es, St);
+expr_or_exprs(E, St) ->
+    expr(E, St).
+
 exprs([E0 | Es0], St0) ->
     {E,St1} = expr(E0, St0),
     {Es,St2} = exprs(Es0, St1),
@@ -304,7 +309,7 @@ expr({cons,Anno,H0,T0}, St0) ->
     {{cons,Anno,H,T},St2};
 expr({lc,Anno,E0,Qs0}, St0) ->
     {Qs1,St1} = lc_tq(Anno, Qs0, St0),
-    {E1,St2} = expr(E0, St1),
+    {E1,St2} = expr_or_exprs(E0, St1),
     {{lc,Anno,E1,Qs1},St2};
 expr({bc,Anno,E0,Qs0}, St0) ->
     {Qs1,St1} = lc_tq(Anno, Qs0, St0),
@@ -312,7 +317,7 @@ expr({bc,Anno,E0,Qs0}, St0) ->
     {{bc,Anno,E1,Qs1},St2};
 expr({mc,Anno,E0,Qs0}, St0) ->
     {Qs1,St1} = lc_tq(Anno, Qs0, St0),
-    {E1,St2} = expr(E0, St1),
+    {E1,St2} = expr_or_exprs(E0, St1),
     {{mc,Anno,E1,Qs1},St2};
 expr({tuple,Anno,Es0}, St0) ->
     {Es1,St1} = expr_list(Es0, St0),
