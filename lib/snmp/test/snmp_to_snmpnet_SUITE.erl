@@ -43,8 +43,10 @@
         ]).
 
 -include("snmp_test_lib.hrl").
+-include("snmp_to_snmpnet_SUITE_data/OTP-C64-MIB.hrl").
 -include_lib("common_test/include/ct.hrl").
 -include_lib("snmp/include/STANDARD-MIB.hrl").
+-include_lib("snmp/include/snmp_types.hrl").
 
 -define(AGENT_ENGINE_ID, "ErlangSnmpAgent").
 -define(MANAGER_ENGINE_ID, "ErlangSnmpManager").
@@ -54,7 +56,26 @@
 
 expected(?sysDescr_instance = Oid, get) ->
     OidStr = oid_str(Oid),
-    lists:flatten([OidStr | " = STRING: \"Erlang SNMP agent\""]).
+    lists:flatten([OidStr | " = STRING: \"Erlang SNMP agent\""]);
+expected(?otpC64Num1_instance = Oid, get) ->
+    OidStr = oid_str(Oid),
+    ?F("~s = Counter64: ~w", [OidStr, ?default_otpC64Num1]);
+expected(?otpC64Num2_instance = Oid, get) ->
+    OidStr = oid_str(Oid),
+    ?F("~s = Counter64: ~w", [OidStr, ?default_otpC64Num2]);
+expected(?otpC64Num3_instance = Oid, get) ->
+    OidStr = oid_str(Oid),
+    ?F("~s = Counter64: ~w", [OidStr, ?default_otpC64Num3]);
+expected(?otpC64Num4_instance = Oid, get) ->
+    OidStr = oid_str(Oid),
+    ?F("~s = Counter64: ~w", [OidStr, ?default_otpC64Num4]).
+
+oids() ->
+    [?sysDescr_instance,
+     ?otpC64Num1_instance,
+     ?otpC64Num2_instance,
+     ?otpC64Num3_instance,
+     ?otpC64Num4_instance].
 
 
 %%--------------------------------------------------------------------
@@ -147,11 +168,17 @@ init_per_suite(Config0) ->
 
                 Config2 when is_list(Config2) ->
                     snmp_test_sys_monitor:start(),
+
+                    MibDir    = ?LIB:lookup(data_dir, Config2),
+                    StdMibDir = join(code:lib_dir(snmp), "mibs"),
+                    
+                    Config3 = [{mib_dir,     MibDir},
+                               {std_mib_dir, StdMibDir} | Config2],
                     
                     ?IPRINT("init_per_suite -> end when"
-                            "~n      Config: ~p", [Config2]),
+                            "~n      Config: ~p", [Config3]),
 
-                    Config2
+                    Config3
             end
     end.
 
@@ -222,15 +249,19 @@ init_per_group(snmptrapd = Exec, Config) ->
     %% From Ubuntu package snmpd
     init_per_group_agent(Exec, Config);
 init_per_group(snmpd_mt, Config) ->
+    Port = mk_port_number(),
     %% From Ubuntu package snmp
     init_per_group_manager(
       snmpd,
-      [{manager_net_if_module, snmpm_net_if_mt} | Config]);
+      [{agentXPort, Port},
+       {manager_net_if_module, snmpm_net_if_mt} | Config]);
 init_per_group(snmpd = Exec, Config) ->
     %% From Ubuntu package snmp
+    Port = mk_port_number(),
     init_per_group_manager(
-      Exec,
-      [{manager_net_if_module, snmpm_net_if} | Config]);
+       Exec,
+       [{agentXPort, Port},
+        {manager_net_if_module, snmpm_net_if} | Config]);
 
 init_per_group(_, Config) ->
     Config.
@@ -283,7 +314,23 @@ end_per_group(_GroupName, Config) ->
 %% -----
 %%
 
+init_per_testcase(erlang_manager_netsnmp_get, Config) ->
+        case has_mib2c() of
+                true ->
+                        maybe
+                                {ok, Name} ?= run_mib2c(["OTP-C64-MIB:OTP-REG"], "otpC64MIB", Config),
+                                true ?= has_netsnmpconfig(),
+                                {ok, SubAgentName} ?= create_netsnmp_subagent(Name, Config),
+                                do_init_per_testcase([{subAgentName, SubAgentName},
+                                                      {manager_net_if_module, snmpm_net_if} | Config])
+                        end;
+                _ ->
+                {skip, "Required mib2c not found"}
+                end;
 init_per_testcase(_Case, Config) ->
+    do_init_per_testcase(Config).
+
+do_init_per_testcase(Config) ->
     ?IPRINT("init_per_testcase -> entry with"
             "~n   Config: ~p", [Config]),
 
@@ -343,7 +390,7 @@ find_executable(Exec, Config) ->
 find_sys_executable(_Exec, ExecStr, [], _Config) ->
     {skip, ExecStr ++ " not found"};
 find_sys_executable(Exec, ExecStr, [Dir | Dirs], Config) ->
-    case os:find_executable(filename:join(["/" | Dir] ++ [ExecStr])) of
+    case os:find_executable(join(["/" | Dir] ++ [ExecStr])) of
 	false ->
 	    find_sys_executable(Exec, ExecStr, Dirs, Config);
 	Path ->
@@ -351,9 +398,22 @@ find_sys_executable(Exec, ExecStr, [Dir | Dirs], Config) ->
     end.
 
 start_agent(Config) ->
-    ok = application:load(snmp),
-    ok = application:set_env(snmp, agent, agent_app_env(Config)),
-    ok = application:start(snmp).
+    Dir = ?config(mib_dir, Config),
+    ok  = application:load(snmp),
+    ok  = application:set_env(snmp, agent, agent_app_env(Config)),
+    ok  = application:start(snmp),
+    Mibs = ["OTP-C64-MIB"],
+    load_mibs(Dir, Mibs),
+    ok.
+
+load_mibs(Dir, Mibs) ->
+    lists:foreach(fun(Mib) -> load_mib(Dir, Mib) end, Mibs).
+
+load_mib(Dir, Mib) ->
+    _   = snmpa:unload_mib(snmp_master_agent, Mib),
+    ok  = snmpa:load_mib(snmp_master_agent, join(Dir, Mib)).
+    
+                           
 
 %% stop_agent(_Config) ->
 %%     case application:stop(snmp) of
@@ -400,29 +460,37 @@ erlang_agent_netsnmp_get() ->
 erlang_agent_netsnmp_get(Config) when is_list(Config) ->
     Transports = ?config(transports, Config),
     start_agent(Config),
-    Oid = ?sysDescr_instance,
-    Expected = expected(Oid, get),
+    Oids = oids(),
     try
         begin
-            [case snmpget(Oid, Transport, Config) of
-                 Expected ->
-                     ct:pal("Received expected", []),
-                     ok;
-                 "Timeout: " ++ Rest ->
-                     ct:pal("Received unexpected timeout: "
-                            "~n   ~s", [Rest]),
-                     throw({skip, Rest});
-                 Any ->
-                     ct:pal("Received unexpected response: "
-                            "~n   ~p", [Any]),
-                     exit({unexpected, Any})
-             end || Transport <- Transports],
+            [do_get(Oid, Transports, Config) || Oid <- Oids],
             ok
         end
     catch
         throw:{skip, _} = SKIP ->
             SKIP
     end.
+
+do_get(Oid, Transports, Config) ->
+    Expected = expected(Oid, get),
+    ct:pal("Try get ~p"
+           "~n   Expected: ~p", [Oid, Expected]),
+    Get = fun(Transport) ->
+                  case snmpget(Oid, Transport, Config) of
+                      Expected ->
+                          ct:pal("Received expected", []),
+                          ok;
+                      "Timeout: " ++ Rest ->
+                          ct:pal("Received unexpected timeout: "
+                                 "~n   ~s", [Rest]),
+                          throw({skip, Rest});
+                      Any ->
+                          ct:pal("Received unexpected response: "
+                                 "~n   ~p", [Any]),
+                          exit({unexpected, Any})
+                  end
+          end,
+    lists:foreach(Get, Transports).
 
 
 %%--------------------------------------------------------------------
@@ -434,10 +502,12 @@ erlang_manager_netsnmp_get(Config) when is_list(Config) ->
     SysDescr   = "Net-SNMP agent",
     TargetName = "Target Net-SNMP agent",
     Transports = ?config(transports, Config),
+    SubAgentName = ?config(subAgentName, Config),
     case start_snmpd(Community, SysDescr, Config) of
         {skip, _} = SKIP ->
             SKIP;
         ProgHandle ->
+            SubAgentHandle = start_netsnmp_subagent(SubAgentName, Config),
             start_manager(Config),
             snmp_manager_user:start_link(self(), test_user),
             [snmp_manager_user:register_agent(
@@ -450,17 +520,54 @@ erlang_manager_netsnmp_get(Config) when is_list(Config) ->
             Results =
                 [snmp_manager_user:sync_get2(
                    TargetName++domain_suffix(Domain),
-                   [?sysDescr_instance], [])
+                   oids(), [])
                  || {Domain, _} <- Transports],
             ct:pal("sync_get -> ~p", [Results]),
             snmp_manager_user:stop(),
             stop_program(ProgHandle),
-            [{ok,
-              {noError, 0,
-               [{varbind, ?sysDescr_instance, 'OCTET STRING', SysDescr,1}] },
-              _} = R || R <- Results],
+            stop_program(SubAgentHandle),
+            [verify_result(R) || R <- Results],
             ok
     end.
+
+verify_result({ok, {noError, 0, VBs}, _}) ->
+    verify_varbinds(VBs);
+verify_result(Result) ->
+    exit({invalid_result, Result}).
+
+verify_varbinds([] = _VBs) ->
+    ok;
+verify_varbinds([VB | VBs]) ->
+    verify_varbind(VB),
+    verify_varbinds(VBs).
+
+verify_varbind(#varbind{oid          = Oid,
+                        variabletype = Type,
+                        value        = Value}) ->
+    verify_oid(Oid, Type, Value).
+
+verify_oid(?sysDescr_instance = Oid, 'OCTET STRING', "Net-SNMP agent") ->
+    ct:pal("oid verification success for ~p", [Oid]),
+    ok;
+verify_oid(?otpC64Num1_instance = Oid, 'Counter64', ?default_otpC64Num1) ->
+    ct:pal("oid verification success for ~p", [Oid]),
+    ok;
+verify_oid(?otpC64Num2_instance = Oid, 'Counter64', ?default_otpC64Num2) ->
+    ct:pal("oid verification success for ~p", [Oid]),
+    ok;
+verify_oid(?otpC64Num3_instance = Oid, 'Counter64', ?default_otpC64Num3) ->
+    ct:pal("oid verification success for ~p", [Oid]),
+    ok;
+verify_oid(?otpC64Num4_instance = Oid, 'Counter64', ?default_otpC64Num4) ->
+    ct:pal("oid verification success for ~p", [Oid]),
+    ok;
+verify_oid(Oid, 'NULL', noSuchObject = Value) ->
+    %% This means we where unable to load the proper MIBs
+    ct:pal("oid verification failed for ~p => ~p => IGNORE", [Oid, Value]),
+    ok;
+verify_oid(Oid, Type, Value) ->
+    ct:pal("oid verification failed: ~p => ~p", [Oid, Value]),
+    exit({invalid_vb, Oid, Type, Value}).
 
 
 %%--------------------------------------------------------------------
@@ -472,7 +579,7 @@ erlang_agent_netsnmp_inform(Config) when is_list(Config) ->
     Mib = "TestTrapv2",
 
     start_agent(Config),
-    ok = snmpa:load_mib(snmp_master_agent, filename:join(DataDir, Mib)),
+    ok = snmpa:load_mib(snmp_master_agent, join(DataDir, Mib)),
 
     case start_snmptrapd(Mib, Config) of
         {skip, _} = SKIP ->
@@ -512,6 +619,7 @@ erlang_agent_netsnmp_inform_responses([Address | Addresses]) ->
 %%--------------------------------------------------------------------
 
 snmpget(Oid, Transport, Config) ->
+    ct:pal("Try get ~p on ~p~n", [Oid, Transport]),
     Versions = ?config(snmp_versions, Config),
 
     Args =
@@ -531,7 +639,7 @@ snmpget(Oid, Transport, Config) ->
 
 start_snmptrapd(Mibs, Config) ->
     DataDir = ?config(data_dir, Config),
-    MibDir = filename:join(code:lib_dir(snmp), "mibs"),
+    MibDir = join(code:lib_dir(snmp), "mibs"),
     Targets = ?config(targets, Config),
     SnmptrapdArgs =
 	["-f", "-Lo", "-C",
@@ -543,33 +651,135 @@ start_snmptrapd(Mibs, Config) ->
     start_program(snmptrapd, SnmptrapdArgs, StartCheckMP, Config).
 
 start_snmpd(Community, SysDescr, Config) ->
-    DataDir = ?config(data_dir, Config),
-    Targets = ?config(targets, Config),
+    DataDir    = ?config(data_dir, Config),
+    MibDir     = ?config(mib_dir, Config),
+    StdMibDir  = ?config(std_mib_dir, Config),
+    Targets    = ?config(targets, Config),
     Transports = ?config(transports, Config),
-    Port = mk_port_number(),
+    Port       = ?config(agentXPort, Config),
     CommunityArgs =
 	["--rocommunity"++domain_suffix(Domain)++"="
 	 ++Community++" "++inet_parse:ntoa(Ip)
 	 || {Domain, {Ip, _}} <- Targets],
 
+    Mibs    = "SNMPv2-SMI" ++
+        ":" ++ "OTP-REG" ++
+        ":" "OTP-C64-MIB",
+    MibDirs = StdMibDir ++ ":" ++ MibDir,
+
     SnmpdArgs =
         ["-f", "-r", %"-Dverbose",
-         "-c", filename:join(DataDir, "snmpd.conf"),
+         "-c", join(DataDir, "snmpd.conf"),
          "-C",
          "-Lo",
-	 "-m", ":",
+         "-m", Mibs,
+         "-M", MibDirs,
 	 "--sysDescr="++SysDescr,
 	 "--agentXSocket=tcp:localhost:"++integer_to_list(Port)]
 	++ CommunityArgs
 	++ [net_snmp_addr_str(Transports)],
     {ok, StartCheckMP} = re:compile("NET-SNMP version ", [anchored]),
     start_program(snmpd, SnmpdArgs, StartCheckMP, Config).
+has_mib2c() ->
+        mib2c_check("You didn't give mib2c a valid OID to start with.").
+
+mib2c_check(RE) ->
+    case re:run(os:cmd("mib2c"), RE, [{capture, first}]) of
+        nomatch ->
+            false;
+        {match, _} ->
+            true
+    end.
+
+has_netsnmpconfig() ->
+        netsnmpconfig_check("Usage:\n  net-snmp-config").
+netsnmpconfig_check(RE) ->
+        R = os:cmd("net-snmp-config --help"),
+        ct:pal("net-snmp-config -> ~p", [R]),
+        case re:run(R, RE, [{capture, first}]) of
+                nomatch ->
+                {skip, "No net-snmp-config available"};
+                {match, _} ->
+                true
+        end.
+run_mib2c(MibList, Anchor, Config) ->
+        StdMibDir = join(code:lib_dir(snmp), "mibs"),
+        MibDir    = ?LIB:lookup(data_dir, Config),
+        Cmd = lists:flatten(["env MIBDIRS=", StdMibDir, ":", MibDir,
+                             " MIBS=+", MibList,
+                             " mib2c -c mib2c.c64.conf -q -I ", MibDir, " ", Anchor]),
+        R = os:cmd(Cmd),
+        {ok, Cwd} = file:get_cwd(),
+        ct:pal("~p -> ~p", [Cmd, R]),
+        case file:list_dir(Cwd) of
+            {ok, Files} ->
+                %% Check that the generated files are present
+                AreGenerated =
+                lists:all(fun(Pattern) ->
+                        lists:any(fun(File) -> re:run(File, Pattern) =/= nomatch end, Files)
+                end, [Anchor ++ "\.c", Anchor ++ "\.h"]),
+                case AreGenerated of
+                    true ->
+                        {ok, Anchor};
+                    false ->
+                        {skip, lists:flatten(["Failed to generate ",Anchor, " with mib2c"])}
+                end;
+            {error, Reason} ->
+                {skip, lists:flatten(["Failed to list ",Cwd," after mib2c"])}
+        end.
+
+create_netsnmp_subagent(Name, Config) ->
+        AgentName = case lists:split(length(Name) - 3, Name) of
+                {Prefix, Mib} when Mib == "MIB" orelse Mib == "mib" ->
+                        Prefix ++ "_netsnmp_subagent";
+                _ ->
+                        Name ++ "_netsnmp_subagent"
+                end,
+        PrivDir = ?LIB:lookup(priv_dir, Config),
+        Cmd = ["net-snmp-config ",
+               "--compile-subagent ", AgentName, " ",
+               Name ++ ".c"],
+        R = os:cmd(Cmd),
+        {ok, Cwd} = file:get_cwd(),
+        ct:pal("net-snmp-config -> ~p", [R]),
+        case file:list_dir(Cwd) of
+            {ok, Files} ->
+                %% Check that the generated files are present
+                AreGenerated = lists:any(fun(File) -> re:run(File, AgentName) =/= nomatch end, Files),
+                case AreGenerated of
+                    true ->
+                        os:cmd("chmod +x " ++ AgentName),
+                        {ok, AgentName};
+                    false ->
+                        {skip, lists:flatten(["Failed to create subagent: ",AgentName])}
+                end;
+            {error, Reason} ->
+                {skip, lists:flatten(["Failed to list ",Cwd," after net-snmp-config"])}
+        end.
+
+start_netsnmp_subagent(Name, Config) ->
+        Port       = ?config(agentXPort, Config),
+        MibDir     = ?config(mib_dir, Config),
+        StdMibDir  = ?config(std_mib_dir, Config),
+        MibDirs = StdMibDir ++ ":" ++ MibDir,
+        {ok, Cwd} = file:get_cwd(),
+        Program = join(Cwd, Name),
+        AgentArgs = ["-f", "-C", "-M", MibDirs, "-x", "tcp:localhost:"++integer_to_list(Port)],
+        start_program(list_to_atom(Name), AgentArgs, none, [{list_to_atom(Name), Program} | Config]).
+%% Debug function: It simple makes printing the args string simple
+prep([]) ->
+    "";
+prep([Arg]) when is_list(Arg) ->
+    Arg;
+prep([Arg|Args]) ->
+    Arg ++ " " ++ prep(Args).
 
 start_program(Prog, Args, StartCheckMP, Config) ->
-    ct:pal("Starting program: ~w ~p", [Prog, Args]),
+    ct:pal("Starting program: ~w ~p:"
+           "~n~s", [Prog, Args, ?F("~w ~s", [Prog, prep(Args)])]),
     Path = ?config(Prog, Config),
     DataDir = ?config(data_dir, Config),
-    StartWrapper = filename:join(DataDir, "start_stop_wrapper"),
+    StartWrapper = join(DataDir, "start_stop_wrapper"),
     Parent = self(),
     %% process_flag(trap_exit, true),
     {Pid, Mon} =
@@ -742,6 +952,7 @@ agent_config(Dir, Transports, Targets, Versions) ->
 manager_config(Dir, Targets) ->
     EngineID = ?MANAGER_ENGINE_ID,
     MMS = ?DEFAULT_MAX_MESSAGE_SIZE,
+    ct:pal("Dir:~p~nTargets:~p",[Dir, Targets]),
     ok = snmp_config:write_manager_snmp_conf(Dir, Targets, MMS, EngineID).
 
 net_snmp_version([v3 | _]) ->
@@ -783,4 +994,9 @@ mk_port_number() ->
     {ok, PortNum} = inet:port(Socket),
     ok = gen_udp:close(Socket),
     PortNum.
+
+join(List) ->
+    filename:join(List).
+join(Dir, File) ->
+    filename:join(Dir, File).
 
