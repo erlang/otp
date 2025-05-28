@@ -44,19 +44,18 @@
 #include <stdlib.h>
 
 #if defined(__WIN32__) || defined(_WIN32) || defined(_WIN32_)
-#ifndef STATIC_ERLANG_DRIVER
-   /* Windows dynamic drivers, everything is different... */
-#define ERL_DRIVER_TYPES_ONLY
-#define WIN32_DYNAMIC_ERL_DRIVER
-#endif
+#  ifndef STATIC_ERLANG_DRIVER
+     /* Windows dynamic drivers, everything is different... */
+#    define ERL_DRIVER_TYPES_ONLY
+#    define WIN32_DYNAMIC_ERL_DRIVER
+#  endif
+#  define EXTERN extern
+#else
+#  define EXTERN ERL_NAPI_EXPORT extern
 #endif
 
-#ifndef EXTERN
-#  ifdef __cplusplus
-#    define EXTERN extern "C"
-#  else
-#    define EXTERN extern
-#  endif
+#ifdef __cplusplus
+extern "C" {
 #endif
 
 #define ERL_DRV_READ  ((int)ERL_NIF_SELECT_READ)
@@ -493,6 +492,15 @@ EXTERN char* erl_drv_cond_name(ErlDrvCond *cnd);
 EXTERN char* erl_drv_rwlock_name(ErlDrvRWLock *rwlck);
 EXTERN char* erl_drv_thread_name(ErlDrvTid tid);
 
+#if defined(__DARWIN__)
+EXTERN int erl_drv_stolen_main_thread_join(ErlDrvTid tid, void **respp);
+EXTERN int erl_drv_steal_main_thread(char *name,
+                                     ErlDrvTid *dtid,
+                                     void* (*func)(void*),
+                                     void* arg,
+                                     ErlDrvThreadOpts *opts);
+#endif
+
 /*
  * Misc.
  */
@@ -550,7 +558,7 @@ EXTERN ErlDrvTermData driver_mk_atom(char*);
 EXTERN ErlDrvTermData driver_mk_port(ErlDrvPort);
 EXTERN ErlDrvTermData driver_connected(ErlDrvPort);
 EXTERN ErlDrvTermData driver_caller(ErlDrvPort);
-extern const ErlDrvTermData driver_term_nil;
+EXTERN const ErlDrvTermData driver_term_nil;
 EXTERN ErlDrvTermData driver_mk_term_nil(void);
 EXTERN ErlDrvPort driver_create_port(ErlDrvPort creator_port, 
 				     ErlDrvTermData connected, /* pid */
@@ -636,7 +644,11 @@ EXTERN void erl_drv_set_os_pid(ErlDrvPort ix, ErlDrvSInt pid);
 #  include "erl_win_dyn_driver.h"
 #endif
 
+#ifdef __cplusplus
+} //extern "C"
 #endif
+
+#endif //__ERL_DRIVER_H__
 
 /* also in global.h, but driver's can't include global.h */
 void dtrace_drvport_str(ErlDrvPort port, char *port_buf);
