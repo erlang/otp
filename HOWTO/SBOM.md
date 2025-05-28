@@ -186,8 +186,9 @@ This file may be a list of JSON objects. For simplicity, we document the fields 
     "path": "./erts/emulator/asmjit",
     "exclude": ["./erts/emulator/asmjit/vendor.info"],
     "supplier": "Person: Petr Kobalicek",
-    "purl": "pkg:github/asmjit/asmjit"
-    "sha": "029075b84bf0161a761beb63e6eda519a29020db"
+    "purl": "pkg:github/asmjit/asmjit",
+    "sha": "029075b84bf0161a761beb63e6eda519a29020db",
+    "update": "./erts/emulator/asmjit/update.sh"
   }
 ]
 ```
@@ -216,6 +217,7 @@ Fields summary:
   - `Organization: <Organization name> (email)`, where `email` is optional.
   - `NOASSERTION`, where the person adding this information (you) could not reach a reasonable conclusion, the person adding this information made no attempt to determine this field, or this field was left with no information and no meaning should be implied by doing so.
 - `purl`: if the vendor has a specific `purl`, we choose this format. Otherwise, we follow the guidelines from the [PURL Specification](https://github.com/package-url/purl-spec/blob/main/PURL-TYPES.rst).
+- `update`: the path to a script to be used to update the dependency. This script is called by renovate when a new version of a dependency is found.
 
 To update the package, perform any modifications in a `vendor.info` package
 and re-run the source SBOM generation steps ([Erlang/OTP source SBOM]).
@@ -226,7 +228,12 @@ Follow the same steps as in [Update SPDX Vendor Packages].
 When running the SBOM generator, make sure to check that the new vendor dependency exists
 in its own package.
 
+The [`renovate.json5`](../renovate.json5) file also needs to be updated
+to make sure that the new vendored dependency gets updated as it should.
+
 ### Delete a Vendor Application
 
 Delete the code and any remaining `vendor.info` files. 
 Re-run the source SBOM generation steps ([Erlang/OTP source SBOM]). 
+
+Delete the proper sections in [`renovate.json5`](../renovate.json5).
