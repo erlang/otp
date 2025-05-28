@@ -1988,22 +1988,27 @@ BOOLEAN_T enet_get_adapters_addresses_args_family(ErlNifEnv*         env,
     DWORD        val;
 
     if (!GET_MAP_VAL(env, eargs, key, &eval)) {
+
         *fam = AF_UNSPEC; // Default
+
         return TRUE;
+
     } else {
+
         if (!IS_ATOM(env, eval))
             return FALSE;
 
-        if (COMPARE(eval, esock_atom_unspec))
+        if (IS_IDENTICAL(eval, esock_atom_unspec))
             val = AF_UNSPEC;
-        else if (COMPARE(eval, esock_atom_inet))
+        else if (IS_IDENTICAL(eval, esock_atom_inet))
             val = AF_INET;
-        else if (COMPARE(eval, esock_atom_inet6))
+        else if (IS_IDENTICAL(eval, esock_atom_inet6))
             val = AF_INET6;
         else
             return FALSE;
 
         *fam = val;
+
         return TRUE;
     }
 }
@@ -2099,19 +2104,39 @@ ERL_NIF_TERM enet_get_adapters_addresses(ErlNifEnv* env,
     IP_ADAPTER_ADDRESSES* ipAdAddrsP;
     ERL_NIF_TERM          eret, addrs, result;
 
+    NDBG2( dbg,
+           ("NET", "enet_get_adapters_addresses -> entry with"
+            "\r\n   family: %d"
+            "\r\n   flags:  %d"
+            "\r\n", family, flags) );
+
     ipAdAddrsP = (IP_ADAPTER_ADDRESSES*) MALLOC(ipAdAddrsSz);
     for (i = 17;  i;  i--) {
+        
+        NDBG2( dbg,
+               ("NET", "enet_get_adapters_addresses -> [%d] try get adapters"
+                "\r\n", i) );
+
         ret = GetAdaptersAddresses(family, flags, NULL,
                                    ipAdAddrsP, &ipAdAddrsSz);
         if (ret == NO_ERROR) {
             /* We are done! */
+            NDBG2( dbg,
+                   ("NET", "enet_get_adapters_addresses -> got adapters"
+                    "\r\n") );
             break;
         } else if (ret == ERROR_BUFFER_OVERFLOW) {
             /* Not large enough */
+            NDBG2( dbg,
+                   ("NET", "enet_get_adapters_addresses -> overflow - realloc"
+                    "\r\n") );
             ipAdAddrsP = REALLOC(ipAdAddrsP, ipAdAddrsSz);
             continue;
         } else {
             /* Failure */
+            NDBG2( dbg,
+                   ("NET", "enet_get_adapters_addresses -> error: %d"
+                    "\r\n", ret) );
             i = 0;
         }
         if (ret == NO_ERROR) break;
