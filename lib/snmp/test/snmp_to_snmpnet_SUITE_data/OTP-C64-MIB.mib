@@ -84,7 +84,7 @@ otpC64Num4 OBJECT-TYPE
     STATUS       current
     DESCRIPTION
         "This object shows nothing..."
-   DEFVAL { 9223372036854775809 }
+   DEFVAL { 0 }
     ::= { otpC64 4 }
 
 otpC64Numbers    OBJECT-GROUP
