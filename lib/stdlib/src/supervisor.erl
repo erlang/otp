@@ -478,6 +478,7 @@ see more details [above](`m:supervisor#sup_flags`).
 		dynamic_restarts = 0   :: non_neg_integer(),
 		auto_shutdown = never  :: auto_shutdown(),
 		hibernate_after = infinity :: timeout(),
+		hibernating = false    :: boolean(),
 		tag = make_ref()       :: reference(),
 	        module,
 	        args}).
@@ -1015,6 +1016,9 @@ do_start_child_i(M, F, A) ->
 -doc false.
 -spec handle_call(call(), term(), state()) -> {'reply', term(), state(), gen_server:action()}.
 
+handle_call(Msg, From, State=#state{hibernating = true}) ->
+    handle_call(Msg, From, wakeup(State));
+
 handle_call({start_child, EArgs}, _From, State) when ?is_simple(State) ->
     Child = get_dynamic_child(State),
     #child{mfargs = {M, F, A}} = Child,
@@ -1201,6 +1205,9 @@ count_child(#child{pid = Pid, child_type = supervisor},
 -spec handle_cast({try_again_restart, reference(), child_id() | {'restarting',pid()}}, state()) ->
 			 {'noreply', state(), gen_server:action()} | {stop, shutdown, state()}.
 
+handle_cast(Msg, State=#state{hibernating=true}) ->
+    handle_cast(Msg, wakeup(State));
+
 handle_cast({try_again_restart, Tag, TryAgainId}, #state{tag = Tag} = State) ->
     case find_child_and_args(TryAgainId, State) of
 	{ok, Child = #child{pid=?restarting(_)}} ->
@@ -1222,7 +1229,10 @@ handle_cast({try_again_restart, Tag, TryAgainId}, #state{tag = Tag} = State) ->
         {'noreply', state(), gen_server:action()} | {'stop', 'shutdown', state()}.
 
 handle_info({hibernate, Tag}, #state{tag = Tag} = State) ->
-    {noreply, State, hibernate};
+    {noreply, enter_hibernation(State), hibernate};
+
+handle_info(Msg, State=#state{hibernating=true}) ->
+    handle_info(Msg, wakeup(State));
 
 handle_info({'EXIT', Pid, Reason}, State) ->
     case restart_child(Pid, Reason, State) of
@@ -1278,6 +1288,14 @@ code_change(_, State, _) ->
 	Error ->
 	    Error
     end.
+
+enter_hibernation(State0) ->
+    State1 = purge_restarts(State0),
+    State1#state{hibernating=true}.
+
+wakeup(State0) ->
+    State1 = purge_restarts(State0),
+    State1#state{hibernating=false}.
 
 update_childspec(State, StartSpec) when ?is_simple(State) ->
     case check_startspec(StartSpec, State#state.auto_shutdown) of
@@ -2215,6 +2233,16 @@ can_restart(0, _, [_|_], Acc, NR) ->
     {false, NR, lists:reverse(Acc)};
 can_restart(N, Treshold, [Restart|Restarts], Acc, NR) ->
     can_restart(N - 1, Treshold, Restarts, [Restart|Acc], NR + 1).
+
+purge_restarts(State=#state{period=P, restarts=[R|_]}) ->
+    case erlang:monotonic_time(second) - P of
+	Treshold when R < Treshold ->
+	    State#state{restarts=[], nrestarts=0};
+	_ ->
+	    State
+    end;
+purge_restarts(State) ->
+    State.
 
 %%% ------------------------------------------------------
 %%% Error and progress reporting.
