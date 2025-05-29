@@ -40,7 +40,7 @@ some specific side effects on the remote node.
 > implementation also provides a more scalable implementation with better
 > performance than the original `rpc` implementation. However, since the
 > introduction of `erpc`, the `rpc` module implements large parts of its central
-> functionality using `erpc`, so the `rpc` module won't not suffer scalability
+> functionality using `erpc`, so the `rpc` module won't suffer scalability
 > wise and performance wise compared to `erpc`.
 
 > #### Note {: .info }
