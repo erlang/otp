@@ -135,6 +135,7 @@ or if bad arguments are specified.
 -export([start/0, start/1, start/2,
          start_link/0, start_link/1, start_link/2,
          start_monitor/0, start_monitor/1, start_monitor/2,
+	 start_as_child/0, start_as_child/1, start_as_child/2,
          stop/1, stop/3,
 	 notify/2, sync_notify/2,
 	 add_handler/3, add_sup_handler/3, delete_handler/3, swap_handler/3,
@@ -146,7 +147,7 @@ or if bad arguments are specified.
          reqids_add/3, reqids_to_list/1,
          wake_hib/5]).
 
--export([init_it/6,
+-export([init_it/7,
 	 system_continue/3,
 	 system_terminate/4,
 	 system_code_change/4,
@@ -549,14 +550,23 @@ Event manager name specification: `local`, `global`, or `via` registered.
 -type debug_flag() :: 'trace' | 'log' | 'statistics' | 'debug'
                     | {'logfile', string()}.
 
+-type option() ::
+	{'timeout', timeout()}
+      | {'debug', [debug_flag()]}
+      | {'spawn_opt', [proc_lib:start_spawn_option()]}
+      | {'hibernate_after', timeout()}.
+
 -doc """
 Options that can be used to configure an event handler
 when it is started.
 """.
--type options() :: [{'timeout', timeout()}
-                   | {'debug', [debug_flag()]}
-                   | {'spawn_opt', [proc_lib:start_spawn_option()]}
-                   | {'hibernate_after', timeout()}].
+-type options() :: [option()].
+
+-type start_as_child_option() ::
+        option()
+      | {'shutdown_priority', boolean()}.
+
+-type start_as_child_options() :: [start_as_child_option()].
 
 -doc """
 A reference used to locate an event manager.
@@ -575,6 +585,9 @@ The reference can be any of the following:
                    | {'via', atom(), term()} | pid().
 -type start_ret() :: {'ok', pid()} | {'error', term()}.
 -type start_mon_ret() :: {'ok', {pid(),reference()}} | {'error', term()}.
+-type start_as_child_ret() ::
+	{'child', pid(), map()}
+      | {'error', term()}.
 
 -doc "An opaque request identifier. See `send_request/3` for details.".
 -opaque request_id() :: gen:request_id().
@@ -811,16 +824,45 @@ start_monitor(Name, Options) when is_tuple(Name), is_list(Options) ->
 start_monitor(Name, Options) ->
     error(badarg, [Name, Options]).
 
+-spec start_as_child() -> start_as_child_ret().
+start_as_child() ->
+    gen:start(?MODULE, child, ?NO_CALLBACK, [], []).
+
+-spec start_as_child(EventMgrName :: emgr_name()) -> start_as_child_ret();
+		    (Options :: start_as_child_options()) -> start_as_child_ret().
+start_as_child(Name) when is_tuple(Name) ->
+    gen:start(?MODULE, child, Name, ?NO_CALLBACK, [], []);
+start_as_child(Options) when is_list(Options) ->
+    gen:start(?MODULE, child, ?NO_CALLBACK, [], Options);
+start_as_child(Arg) ->
+    erlang:error(badarg, [Arg]).
+
+-spec start_as_child(EventMgtName :: emgr_name(),
+		     Options :: start_as_child_options()) -> start_as_child_ret().
+start_as_child(Name, Options) when is_tuple(Name), is_list(Options) ->
+    gen:start(?MODULE, child, Name, ?NO_CALLBACK, [], Options);
+start_as_child(Name, Options) ->
+    erlang:error(badarg, [Name, Options]).
+
 %% -spec init_it(pid(), 'self' | pid(), emgr_name(), module(), [term()], [_]) ->
 -doc false.
-init_it(Starter, self, Name, Mod, Args, Options) ->
-    init_it(Starter, self(), Name, Mod, Args, Options);
-init_it(Starter, Parent, Name0, _, _, Options) ->
+init_it(Starter, self, LinkP, Name, Mod, Args, Options) ->
+    init_it(Starter, self(), LinkP, Name, Mod, Args, Options);
+init_it(Starter, Parent, LinkP, Name0, _, _, Options) ->
     process_flag(trap_exit, true),
     Name = gen:name(Name0),
     Debug = gen:debug_options(Name, Options),
-	HibernateAfterTimeout = gen:hibernate_after(Options),
-    proc_lib:init_ack(Starter, {ok, self()}),
+    HibernateAfterTimeout = gen:hibernate_after(Options),
+    InitAckReturn = case {LinkP, gen:shutdown_priority(Options)} of
+			{child, true} ->
+			    erlang:link(Parent, [priority]),
+			    {child, self(), #{priority_alias => alias([priority])}};
+			{child, false} ->
+			    {child, self(), #{}};
+			{_, _} ->
+			    {ok, self()}
+		    end,
+    proc_lib:init_ack(Starter, InitAckReturn),
     loop(Parent, Name, [], HibernateAfterTimeout, Debug, false).
 
 -doc """
