@@ -57,7 +57,7 @@
               request_id/0,
               request_id_collection/0]).
 
--type linkage()    :: 'monitor' | 'link' | 'nolink'.
+-type linkage()    :: 'child' | 'monitor' | 'link' | 'nolink'.
 -type emgr_name()  :: {'local', atom()}
                     | {'global', term()}
                     | {'via', Module :: module(), Name :: term()}.
