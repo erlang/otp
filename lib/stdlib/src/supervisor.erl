@@ -1027,6 +1027,10 @@ do_start_child(SupName, Child, Report) ->
 	    NChild = Child#child{pid = Pid},
 	    report_progress(NChild, SupName, Report),
 	    {ok, Pid, Extra};
+	{child, Pid, Data} when is_pid(Pid) ->
+	    NChild = Child#child{pid = Pid},
+	    report_progress(NChild, SupName, Report),
+	    {child, Pid, Data};
         Other ->
             Other
     end.
@@ -1037,6 +1041,8 @@ do_start_child_i(M, F, A) ->
 	    {ok, Pid};
 	{ok, Pid, Extra} when is_pid(Pid) ->
 	    {ok, Pid, Extra};
+	{child, Pid, #{} = Data} when is_pid(Pid) ->
+	    {child, Pid, Data};
 	ignore ->
 	    {ok, undefined};
 	{error, Error} ->
