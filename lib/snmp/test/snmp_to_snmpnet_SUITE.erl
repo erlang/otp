@@ -314,24 +314,33 @@ end_per_group(_GroupName, Config) ->
 %% -----
 %%
 
-init_per_testcase(erlang_manager_netsnmp_get, Config) ->
-        case has_mib2c() of
-                true ->
-                        maybe
-                                {ok, Name} ?= run_mib2c(["OTP-C64-MIB:OTP-REG"], "otpC64MIB", Config),
-                                true ?= has_netsnmpconfig(),
-                                {ok, SubAgentName} ?= create_netsnmp_subagent(Name, Config),
-                                do_init_per_testcase([{subAgentName, SubAgentName},
-                                                      {manager_net_if_module, snmpm_net_if} | Config])
-                        end;
-                _ ->
-                {skip, "Required mib2c not found"}
-                end;
-init_per_testcase(_Case, Config) ->
+init_per_testcase(erlang_manager_netsnmp_get = Case, Config) ->
+
+    ?IPRINT("init_per_testcase(~w) -> entry with"
+            "~n   Config:  ~p", [Case, Config]),
+
+    case has_mib2c() of
+        true ->
+            ?IPRINT("init_per_testcase(~w) -> has mib2c", [Case]),
+            maybe
+                {ok, Name} ?= run_mib2c(["OTP-C64-MIB:OTP-REG"], "otpC64MIB", Config),
+                true ?= has_netsnmpconfig(),                
+                ?IPRINT("init_per_testcase(~w) -> try create subagent with"
+                        "~n   Name: ~p", [Case, Name]),
+                {ok, SubAgentName} ?= create_netsnmp_subagent(Name, Config),
+                do_init_per_testcase([{subAgentName, SubAgentName},
+                                      {manager_net_if_module, snmpm_net_if} | Config])
+            end;
+        _ ->
+            {skip, "Required mib2c not found"}
+    end;
+init_per_testcase(Case, Config) ->
+    ?IPRINT("init_per_testcase(~w) -> entry with"
+            "~n   Config:  ~p", [Case, Config]),
     do_init_per_testcase(Config).
 
 do_init_per_testcase(Config) ->
-    ?IPRINT("init_per_testcase -> entry with"
+    ?IPRINT("do_init_per_testcase -> entry with"
             "~n   Config: ~p", [Config]),
 
     snmp_test_global_sys_monitor:reset_events(),
@@ -341,15 +350,15 @@ do_init_per_testcase(Config) ->
     application:unload(snmp),
     Config1 = [{watchdog, Dog} | Config],
 
-    ?IPRINT("init_per_testcase -> done when"
+    ?IPRINT("do_init_per_testcase -> done when"
             "~n   Config: ~p", [Config1]),
 
     Config1.
 
-end_per_testcase(_, Config) ->
+end_per_testcase(Case, Config) ->
 
-    ?IPRINT("end_per_testcase -> entry with"
-            "~n   Config:  ~p", [Config]),
+    ?IPRINT("end_per_testcase(~w) -> entry with"
+            "~n   Config:  ~p", [Case, Config]),
 
     ?IPRINT("system events during test: "
             "~n   ~p", [snmp_test_global_sys_monitor:events()]),
@@ -367,8 +376,8 @@ end_per_testcase(_, Config) ->
 	    ct:pal("application:unload(snmp) -> ~p", [E2])
     end,
 
-    ?IPRINT("end_per_testcase -> done with"
-            "~n   Config: ~p", [Config]),
+    ?IPRINT("end_per_testcase(~w) -> done with"
+            "~n   Config: ~p", [Case, Config]),
 
     Config.
 
