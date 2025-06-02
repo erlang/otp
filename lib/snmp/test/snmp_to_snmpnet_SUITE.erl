@@ -31,6 +31,7 @@
 -module(snmp_to_snmpnet_SUITE).
 
 -export([
+         netsnmp_init/1,
          suite/0, all/0, groups/0,
          init_per_suite/1,    end_per_suite/1,
          init_per_group/2,    end_per_group/2, 
@@ -183,16 +184,21 @@ init_per_suite(Config0) ->
     end.
 
 netsnmp_init(Config) ->
+    ?IPRINT("check if Net-SNMP is installed"),
     case has_netsnmp() of
         true ->
+            ?IPRINT("Net-SNMP installed - check version"),
             case proper_netsnmp_version() of
                 true ->
+                    ?IPRINT("Net-SNMP accaptable version"),
                     [{agent_port,   ?AGENT_PORT},
                      {manager_port, ?MANAGER_PORT} | Config];
                 false ->
+                    ?IPRINT("Net-SNMP buggy version"),
                     {skip, "Buggy NetSNMP"}
             end;
         false ->
+            ?IPRINT("Net-SNMP not installed"),
             {skip, "No NetSNMP"}
     end.
 
@@ -200,6 +206,7 @@ has_netsnmp() ->
     netsnmp_check("NET-SNMP").
 
 proper_netsnmp_version() ->
+    %% These are versions with ("known") issues
     not netsnmp_check("5.4|5.6.2.1").
 
 netsnmp_check(RE) ->
