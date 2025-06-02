@@ -71,7 +71,8 @@
 
 %% Test cases
 -export([
-         get_adapters_addresses/1
+         get_adapters_addresses/1,
+         get_if_entry/1
         ]).
 
 
@@ -103,7 +104,8 @@ groups() ->
 
 misc_cases() ->
     [
-     get_adapters_addresses
+     get_adapters_addresses,
+     get_if_entry
     ].
 
 
@@ -475,6 +477,63 @@ gaa_verify_addr(Addr, FilterFam) ->
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% There is no way we can test every possible combination of args,
+%% so we just test a new simple examples.
+
+get_if_entry(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
+    tc_try(?FUNCTION_NAME,
+	   fun() -> ok end,
+           fun() ->
+                   ok = do_get_if_entry()
+           end).
+
+do_get_if_entry() ->
+    %% Just ensure we get an entry for every if
+    ?P("try validate known interfaces"),
+    {ok, IfNames} = net:if_names(),
+    Idxs =
+	case [Idx || {Idx, _} <- IfNames] of
+	    [] ->
+		exit({skip, no_ifs});
+	    L ->
+		L
+	end,
+    ok = do_get_if_entry(Idxs),
+
+    %% Ask for an index that we know does not exit
+    ?P("try validate *not* known interface"),
+    [MaxIdx | _] = lists:reverse(lists:sort(Idxs)),
+    InvalidIdx = MaxIdx + 99,
+    case prim_net:get_if_entry(#{index => InvalidIdx}) of
+	{error, Reason} ->
+	    ?P("expected failure get if entry for index ~w:"
+	       "~n   ~p", [InvalidIdx, Reason]),
+	    ok;
+	{ok, Entry} ->
+	    ?P("unexpected success requesting non-existing if entry ~w:"
+	       "~n   ~p", [InvalidIdx, Entry]),
+	    exit(unexpected_success)
+    end.
+
+
+do_get_if_entry([]) ->
+    ok;
+do_get_if_entry([Idx|Idxs]) ->
+    case prim_net:get_if_entry(#{index => Idx}) of
+	{ok, Entry} ->
+	    ?P("expected success retreiving if entry ~w: "
+	       "~n   ~p", [Idx, Entry]),
+	    do_get_if_entry(Idxs);
+	{error, Reason} ->
+	    ?P("unexpected failure retreiving if entry ~w: "
+	       "~n   ~p", [Idx, Reason]),
+	    exit({unexpected_failure, Idx, Reason})
+    end.
+
+   
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% local_host() ->
 %%     try net_adm:localhost() of
@@ -528,8 +587,8 @@ skip(Reason) ->
 %%            For instance, the test case may only work in specific
 %%            conditions.
 %% FCFun:     The test case fun
-tc_try(Case, TCFun) ->
-    ?TC_TRY(Case, TCFun).
+%% tc_try(Case, TCFun) ->
+%%     ?TC_TRY(Case, TCFun).
 
 tc_try(Case, TCCondFun, TCFun) ->
     ?TC_TRY(Case, TCCondFun, TCFun).
