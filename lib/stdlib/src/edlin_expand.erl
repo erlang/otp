@@ -251,7 +251,7 @@ expand_map(_, [], _, _) ->
 expand_map(Word, Bs, Binding, Keys) ->
     case proplists:get_value(list_to_atom(Binding), Bs) of
         Map when is_map(Map) ->
-            K1 = sets:from_list(maps:keys(Map)),
+            K1 = sets:from_list([Key || Key <- maps:keys(Map), is_atom(Key)]),
             K2 = sets:subtract(K1, sets:from_list([list_to_atom(K) || K <- Keys])),
             match(Word, sets:to_list(K2), "=>");
         _ -> {no, [], []}
