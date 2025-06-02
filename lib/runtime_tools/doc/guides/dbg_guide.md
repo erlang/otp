@@ -19,7 +19,7 @@ limitations under the License.
 
 %CopyrightEnd%
 -->
-# Tracing in Erlang with [**dbg**](`m:dbg`)
+# Tracing in Erlang with **dbg**
 
 The [`dbg`](`m:dbg`) module in Erlang provides a text-based interface for tracing function calls, processes, ports, and messages. It simplifies the use of the underlying `trace:process/4`, `trace:port/4`, and `trace:function/4` BIFs (Built-In Functions). This guide will walk you through the basics of using `dbg` for your Erlang applications.
 
@@ -346,8 +346,8 @@ will be used to match the arguments for the call:
 ```
 
 The first match specification matches when a function having two
-arguments is called. The second matches when a function with more than
-6 arguments is called.
+arguments is called. The second matches when a function, taking one
+atom as an argument, is called.
 
 ## Trace Sessions
 
@@ -605,7 +605,7 @@ The pids will vary.
   * **[`dbg:stop_trace_client(Pid)`](`dbg:stop_trace_client/1`):** Shuts down
   the trace client `Pid`.
 
-## Sequential Tracing (`seq_trace`)
+## Sequential Tracing
 
 The `m:dbg` module is primarily targeted towards tracing through the
 `trace:process/4` function. It is sometimes desired to trace messages in a more
