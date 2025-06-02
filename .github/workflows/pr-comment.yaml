@@ -45,7 +45,7 @@ jobs:
       result: ${{ steps.pr-number.outputs.result }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # ratchet:actions/checkout@v4.2.2
-      - uses: erlef/setup-beam@5304e04ea2b355f03681464e683d92e3b2f18451 # ratchet:actions/checkout@v1.18.2
+      - uses: erlef/setup-beam@8aa8a857c6be0daae6e97272bb299d5b942675a4 # ratchet:actions/checkout@v1.19.0
         with:
             otp-version: '27'
       - name: Fetch PR number
@@ -113,7 +113,7 @@ jobs:
            fi
 
       - name: Publish CT Test Results
-        uses: EnricoMi/publish-unit-test-result-action@afb2984f4d89672b2f9d9c13ae23d53779671984 # ratchet:EnricoMi/publish-unit-test-result-action@v2.19.0
+        uses: EnricoMi/publish-unit-test-result-action@3a74b2957438d0b6e2e61d67b05318aa25c9e6c6 # ratchet:EnricoMi/publish-unit-test-result-action@v2.20.0
         if: steps.extract.outputs.HAS_TEST_ARTIFACTS == 'true'
         with:
           commit: ${{ github.event.workflow_run.head_sha }}
