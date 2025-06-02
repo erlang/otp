@@ -645,7 +645,12 @@ start_snmptrapd(Mibs, Config) ->
 	["-f", "-Lo", "-C",
 	 "-m", Mibs,
 	 "-M", MibDir++":"++DataDir,
-	 "--disableAuthorization=yes",
+         case os:type() of
+             {unix, sunos} ->
+                 "-a";
+             _ ->
+                 "--disableAuthorization=yes"
+         end,
 	 "--snmpTrapdAddr=" ++ net_snmp_addr_str(Targets)],
     {ok, StartCheckMP} = re:compile("NET-SNMP version ", [anchored]),
     start_program(snmptrapd, SnmptrapdArgs, StartCheckMP, Config).
@@ -724,7 +729,7 @@ run_mib2c(MibList, Anchor, Config) ->
                     false ->
                         {skip, lists:flatten(["Failed to generate ",Anchor, " with mib2c"])}
                 end;
-            {error, Reason} ->
+            {error, _Reason} ->
                 {skip, lists:flatten(["Failed to list ",Cwd," after mib2c"])}
         end.
 
@@ -735,7 +740,7 @@ create_netsnmp_subagent(Name, Config) ->
                 _ ->
                         Name ++ "_netsnmp_subagent"
                 end,
-        PrivDir = ?LIB:lookup(priv_dir, Config),
+        _PrivDir = ?LIB:lookup(priv_dir, Config),
         Cmd = ["net-snmp-config ",
                "--compile-subagent ", AgentName, " ",
                Name ++ ".c"],
@@ -753,7 +758,7 @@ create_netsnmp_subagent(Name, Config) ->
                     false ->
                         {skip, lists:flatten(["Failed to create subagent: ",AgentName])}
                 end;
-            {error, Reason} ->
+            {error, _Reason} ->
                 {skip, lists:flatten(["Failed to list ",Cwd," after net-snmp-config"])}
         end.
 
