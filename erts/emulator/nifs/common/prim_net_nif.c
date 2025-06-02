@@ -3227,36 +3227,44 @@ ERL_NIF_TERM enet_get_if_entry(ErlNifEnv* env,
     ifRow.dwIndex = index;
     ret = GetIfEntry(&ifRow);
 
-    NDBG2( dbg,
-           ("NET", "nif_get_if_entry -> get-if-entru result:"
-            "\r\n   %d\r\n", ret) );
-
     switch (ret) {
         /* Success */
     case NO_ERROR:
+        NDBG2( dbg, ("NET", "nif_get_if_entry -> success") );
         eifRow = enet_if_row_encode(env, dbg, &ifRow);
         result = esock_make_ok2(env, eifRow);
         break;
 
         /* Known errors */
     case ERROR_CAN_NOT_COMPLETE:
+        NDBG2( dbg, ("NET", "nif_get_if_entry -> error: can-not-complete") );
         result = esock_make_error(env, atom_can_not_complete);
         break;
     case ERROR_INVALID_DATA:
+        NDBG2( dbg, ("NET", "nif_get_if_entry -> error: invalid-data") );
         result = esock_make_error(env, atom_invalid_data);
         break;
     case ERROR_INVALID_PARAMETER:
+        NDBG2( dbg, ("NET", "nif_get_if_entry -> error: invalid-parameter") );
         result = esock_make_error(env, atom_invalid_parameter);
         break;
     case ERROR_NOT_FOUND:
+        NDBG2( dbg, ("NET", "nif_get_if_entry -> error: not-found") );
         result = esock_make_error(env, esock_atom_not_found);
         break;
+    case ERROR_FILE_NOT_FOUND:
+        NDBG2( dbg, ("NET", "nif_get_if_entry -> error: file-not-found") );
+        result = esock_make_error(env, esock_atom_file_not_found);
+        break;
     case ERROR_NOT_SUPPORTED:
+        NDBG2( dbg, ("NET", "nif_get_if_entry -> error: not-supported") );
         result = esock_make_error(env, atom_not_supported);
         break;
 
         /* Other errors */
     default:
+        NDBG2( dbg,
+               ("NET", "nif_get_if_entry -> error: %d\r\n", ret) );
         result = esock_make_error(env, MKI(env, ret));
         break;
     }
