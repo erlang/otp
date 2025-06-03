@@ -1546,15 +1546,8 @@ check_for_unicode(_,L) ->
 check_for_crlf({re_pattern,_,_,1,_},_) ->
     true;
 check_for_crlf({re_pattern,_,_,0,_},_) ->
-    false;
-check_for_crlf(_,L) ->
-    case lists:keysearch(newline,1,L) of
-	{value,{newline,any}} -> true;
-	{value,{newline,crlf}} -> true;
-	{value,{newline,anycrlf}} -> true;
-	_ -> false
-    end.
-    
+    false.
+
 % SelectReturn = false | all | stirpfirst | none 
 % ConvertReturn = index | list | binary
 % {capture, all} -> all (untouchded)
