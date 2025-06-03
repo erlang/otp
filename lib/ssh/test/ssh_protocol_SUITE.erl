@@ -92,7 +92,8 @@
          service_name_length_too_large/1,
          service_name_length_too_short/1,
          client_close_after_hello/1,
-         channel_close_timeout/1
+         channel_close_timeout/1,
+         extra_ssh_msg_service_request/1
         ]).
 
 -define(NEWLINE, <<"\r\n">>).
@@ -169,7 +170,8 @@ groups() ->
 			     bad_long_service_name,
 			     bad_very_long_service_name,
 			     empty_service_name,
-			     bad_service_name_then_correct
+			     bad_service_name_then_correct,
+                             extra_ssh_msg_service_request
 			    ]},
      {authentication, [], [client_handles_keyboard_interactive_0_pwds,
                            client_handles_banner_keyboard_interactive,
@@ -1452,6 +1454,44 @@ client_close_after_hello(Config0) ->
             {fail, no_handshakers}
     end.
 
+%%% Connect to an erlang server and pretend client sending extra
+%%% ssh_msg_service_request (Paramiko client behavior)
+extra_ssh_msg_service_request(Config) ->
+    %% Connect and negotiate keys
+    {ok,InitialState} = ssh_trpt_test_lib:exec(
+			  [{set_options, [print_ops, print_seqnums, print_messages]}]
+			 ),
+    {ok,AfterKexState} = connect_and_kex(Config, InitialState),
+    %% Do the authentcation
+    {User,Pwd} = server_user_password(Config),
+    UserAuthFlow =
+        fun(P) ->
+                [{send, #ssh_msg_service_request{name = "ssh-userauth"}},
+                 {match, #ssh_msg_service_accept{name = "ssh-userauth"}, receive_msg},
+                 {send, #ssh_msg_userauth_request{user = User,
+                                                  service = "ssh-connection",
+                                                  method = "password",
+                                                  data = <<?BOOLEAN(?FALSE),
+                                                           ?STRING(unicode:characters_to_binary(P))>>
+                                                 }}]
+        end,
+    {ok,EndState} =
+	ssh_trpt_test_lib:exec(
+          UserAuthFlow("WRONG") ++
+              [{match, #ssh_msg_userauth_failure{_='_'}, receive_msg}] ++
+              UserAuthFlow(Pwd) ++
+              [{match, #ssh_msg_userauth_success{_='_'}, receive_msg}],
+          AfterKexState),
+    %% Disconnect
+    {ok,_} =
+	ssh_trpt_test_lib:exec(
+	  [{send, #ssh_msg_disconnect{code = ?SSH_DISCONNECT_BY_APPLICATION,
+				      description = "End of the fun",
+				      language = ""
+				     }},
+	   close_socket
+	  ], EndState),
+    ok.
 
 %%%================================================================
 %%%==== Internal functions ========================================
