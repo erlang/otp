@@ -726,10 +726,16 @@ switch_cmd({r, Node}, Gr) when is_atom(Node)->
     switch_cmd({r, Node, shell}, Gr);
 switch_cmd({r,Node,Shell}, Gr0) when is_atom(Node), is_atom(Shell) ->
     case is_alive() of
-	true ->
-            Pid = group:start(self(), {Node,Shell,start,[]}, group_opts(Node)),
-            Gr = gr_add_cur(Gr0, Pid, {Node,Shell,start,[]}),
-            {retry, [], Gr};
+        true ->
+            case net_kernel:connect_node(Node) of
+                true ->
+                    Pid = group:start(self(), {Node,Shell,start,[]}, group_opts(Node)),
+                    Gr = gr_add_cur(Gr0, Pid, {Node,Shell,start,[]}),
+                    {retry, [], Gr};
+                false ->
+                    Bin = atom_to_binary(Node),
+                    {retry, [{put_chars,unicode,<<"Could not connect to node ", Bin/binary, "\n">>}]}
+            end;
         false ->
             {retry, [{put_chars,unicode,"Node is not alive\n"}]}
     end;
