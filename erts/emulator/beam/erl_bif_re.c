@@ -538,73 +538,83 @@ static pcre2_code *compile(const char* expr,
 }
 
 /*
- * Build Erlang term result from compilation
+ * Build Erlang term result from successful compilation
  */
-
-static Eterm 
-build_compile_result(Process *p, Eterm error_tag, pcre2_code *result,
-		     int errcode, PCRE2_SIZE errofset,
-		     int unicode, int with_ok, Eterm extra_err_tag)
+static Eterm
+build_compile_result(Process *p, pcre2_code *result, int unicode, bool with_ok)
 {
     Eterm *hp;
     Eterm ret;
-    if (!result) {
-	int elen, need;
-	PCRE2_UCHAR8 errstr[120];
+    size_t pattern_size;
+    uint32_t capture_count;
+    uint32_t newline;
+    int use_crlf;
+    Binary* magic_bin;
+    Eterm magic_ref;
+    struct regex_magic_indirect* indirect;
 
-	/* Return {error_tag, {Code, String, Offset}} */
-	if (pcre2_get_error_message(errcode, errstr, sizeof(errstr))
-            == PCRE2_ERROR_BADDATA) {
-            erts_snprintf((char*)errstr, sizeof(errstr), "Unknown error (%d)", errcode);
-        }
-	elen = sys_strlen((const char*)errstr);
-	need = 3 /* tuple of 2 */ +
-	    3 /* tuple of 2 */ + 
-	    (2 * elen) /* The error string list */ +
-	    ((extra_err_tag != NIL) ? 3 : 0);
-	hp = HAlloc(p, need);
-	ret = buf_to_intlist(&hp, (char *) errstr, elen, NIL);
-	ret = TUPLE2(hp, ret, make_small(errofset));
-	hp += 3;
-	if (extra_err_tag != NIL) {
-	    /* Return {error_tag, {extra_tag, 
-	       {Code, String, Offset}}} instead */
-	    ret =  TUPLE2(hp, extra_err_tag, ret);
-	    hp += 3;
-	}
-	ret = TUPLE2(hp, error_tag, ret);
-    } else {
-        size_t pattern_size;
-        uint32_t capture_count;
-        uint32_t newline;
-        int use_crlf;
-        Binary* magic_bin;
-        Eterm magic_ref;
-        struct regex_magic_indirect* indirect;
+    ASSERT(result);
 
-	pcre2_pattern_info(result, PCRE2_INFO_SIZE, &pattern_size);
-	pcre2_pattern_info(result, PCRE2_INFO_CAPTURECOUNT, &capture_count);
-	pcre2_pattern_info(result, PCRE2_INFO_NEWLINE, &newline);
-        use_crlf = (newline == PCRE2_NEWLINE_ANY ||
-		    newline == PCRE2_NEWLINE_CRLF ||
-		    newline == PCRE2_NEWLINE_ANYCRLF);
+    pcre2_pattern_info(result, PCRE2_INFO_SIZE, &pattern_size);
+    pcre2_pattern_info(result, PCRE2_INFO_CAPTURECOUNT, &capture_count);
+    pcre2_pattern_info(result, PCRE2_INFO_NEWLINE, &newline);
+    use_crlf = (newline == PCRE2_NEWLINE_ANY ||
+		newline == PCRE2_NEWLINE_CRLF ||
+		newline == PCRE2_NEWLINE_ANYCRLF);
 
-        magic_bin = erts_create_magic_binary(sizeof(struct regex_magic_indirect),
-                                             regex_code_destructor);
-        indirect = ERTS_MAGIC_BIN_DATA(magic_bin);
-        indirect->regex_code = result;
+    magic_bin = erts_create_magic_binary(sizeof(struct regex_magic_indirect),
+					 regex_code_destructor);
+    indirect = ERTS_MAGIC_BIN_DATA(magic_bin);
+    indirect->regex_code = result;
 
-        hp = HAlloc(p, ERTS_MAGIC_REF_THING_SIZE + 6 + (with_ok ? 3 : 0));
-        magic_ref = erts_mk_magic_ref(&hp, &MSO(p), magic_bin);
-	ret = TUPLE5(hp, am_re_pattern, make_small(capture_count),
-                     make_small(unicode), make_small(use_crlf), magic_ref);
-	if (with_ok) {
-	    hp += 6;
-	    ret = TUPLE2(hp,am_ok,ret);
-	}	    
+    hp = HAlloc(p, ERTS_MAGIC_REF_THING_SIZE + 6 + (with_ok ? 3 : 0));
+    magic_ref = erts_mk_magic_ref(&hp, &MSO(p), magic_bin);
+    ret = TUPLE5(hp, am_re_pattern, make_small(capture_count),
+		 make_small(unicode), make_small(use_crlf), magic_ref);
+    if (with_ok) {
+	hp += 6;
+	ret = TUPLE2(hp,am_ok,ret);
     }
     return ret;
 }
+
+/*
+ * Build Erlang term result from FAILED compilation
+ */
+static Eterm 
+build_compile_error(Process *p,
+		    int errcode, PCRE2_SIZE errofset,
+		    Eterm extra_err_tag)
+{
+    Eterm *hp;
+    Eterm ret;
+    int elen, need;
+    PCRE2_UCHAR8 errstr[120];
+
+    /* Return {error, {Code, String, Offset}} */
+    if (pcre2_get_error_message(errcode, errstr, sizeof(errstr))
+	== PCRE2_ERROR_BADDATA) {
+	erts_snprintf((char*)errstr, sizeof(errstr), "Unknown error (%d)", errcode);
+    }
+    elen = sys_strlen((const char*)errstr);
+    need = 3 /* tuple of 2 */ +
+	3 /* tuple of 2 */ +
+	(2 * elen) /* The error string list */ +
+	((extra_err_tag != NIL) ? 3 : 0);
+    hp = HAlloc(p, need);
+    ret = buf_to_intlist(&hp, (char *) errstr, elen, NIL);
+    ret = TUPLE2(hp, ret, make_small(errofset));
+    hp += 3;
+    if (extra_err_tag != NIL) {
+	/* Return {error, {extra_tag,
+	       {Code, String, Offset}}} instead */
+	ret =  TUPLE2(hp, extra_err_tag, ret);
+	hp += 3;
+    }
+    ret = TUPLE2(hp, am_error, ret);
+    return ret;
+}
+
 
 /*
  * Compile BIFs
@@ -682,8 +692,12 @@ re_compile(Process* p, Eterm arg1, Eterm arg2)
 
     result = compile((char*)expr, slen, &opts, the_precompile_ctx, &errcode, &errofset);
 
-    ret = build_compile_result(p, am_error, result, errcode,
-			       errofset, unicode, 1, NIL);
+    if (!result) {
+	ret = build_compile_error(p, errcode, errofset, NIL);
+    }
+    else {
+	ret = build_compile_result(p, result, unicode, true);
+    }
 
     if (tmp_expr) {
         erts_free(ERTS_ALC_T_RE_TMP_BUF, tmp_expr);
@@ -1284,11 +1298,8 @@ re_run(Process *p, Eterm arg1, Eterm arg2, Eterm arg3, int first)
 		/* Compilation error gives badarg except in the compile 
 		   function or if we have PARSE_FLAG_REPORT_ERRORS */
 		if (opts.flags &  PARSE_FLAG_REPORT_ERRORS) {
-		    res = build_compile_result(p, am_error, regex_code, errcode,
-					       errofset,
-					       (opts.flags &
-						PARSE_FLAG_UNICODE) ? 1 : 0, 
-					       1, am_compile);
+		    res = build_compile_error(p, errcode,
+					       errofset, am_compile);
 		    BIF_RET(res);
 		} else {
 		    BIF_ERROR(p,BADARG);
@@ -1296,12 +1307,11 @@ re_run(Process *p, Eterm arg1, Eterm arg2, Eterm arg3, int first)
 	    }
 	    if (opts.flags & PARSE_FLAG_GLOBAL) {
 		Eterm precompiled = 
-		    build_compile_result(p, am_error,
-					 regex_code, errcode,
-					 errofset,
+		    build_compile_result(p,
+					 regex_code,
 					 (opts.flags &
 					  PARSE_FLAG_UNICODE) ? 1 : 0,
-					 0, NIL);
+					 false);
 		Eterm *hp,r;
 		hp = HAlloc(p,4);
 		/* arg2 is in the tuple just to make exceptions right */
