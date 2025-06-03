@@ -72,7 +72,8 @@
 %% Test cases
 -export([
          get_adapters_addresses/1,
-         get_if_entry/1
+         get_if_entry/1,
+	 get_interface_info/1
         ]).
 
 
@@ -105,7 +106,8 @@ groups() ->
 misc_cases() ->
     [
      get_adapters_addresses,
-     get_if_entry
+     get_if_entry,
+     get_interface_info
     ].
 
 
@@ -532,6 +534,43 @@ do_get_if_entry([Idx|Idxs]) ->
     end.
 
    
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This function gives a list of IPv4 interfaces, so its very simple.
+%% We only have to ensure that the host actually supports IPv4.
+
+get_interface_info(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
+    tc_try(?FUNCTION_NAME,
+	   fun() -> ?HAS_SUPPORT_IPV4() end,
+           fun() ->
+                   ok = do_get_interface_info()
+           end).
+
+do_get_interface_info() ->
+    case prim_net:get_interface_info(#{debug => false}) of
+	{ok, IFs} ->
+	    gii_verify_result(IFs);
+	{error, Reason} ->
+	    exit(Reason)
+    end.
+
+
+gii_verify_result([]) ->
+    ok;
+gii_verify_result([IF | IFs]) ->
+    case IF of
+	#{index := Idx, name := Name} ->
+	    ?P("verified: "
+	       "~n   Index: ~p"
+	       "~n   Name:  ~p", [Idx, Name]),
+	    gii_verify_result(IFs);
+	_ ->
+	    ?P("unexpected interface info: "
+	       "~n   ~p", [IF]),
+	    exit(unpexpected_interface_info)
+    end.
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
