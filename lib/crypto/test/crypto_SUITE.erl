@@ -2242,7 +2242,7 @@ group_config(sha512_224 = Type, Config) ->
     Digests = rfc_4634_sha512_224_digests() ++ [long_sha512_224_digest()],
     [{hash, {Type, Msgs, Digests}} | Config];
 group_config(sha512_256 = Type, Config) ->
-    % https://csrc.nist.gov/csrc/media/projects/cryptographic-standards-and-guidelines/documents/examples/sha512_224.pdf
+    % https://csrc.nist.gov/csrc/media/projects/cryptographic-standards-and-guidelines/documents/examples/sha512_256.pdf
     Msgs =  [rfc_4634_test1(), rfc_4634_test2(), long_msg()],
     Digests = rfc_4634_sha512_256_digests() ++ [long_sha512_256_digest()],
     [{hash, {Type, Msgs, Digests}} | Config];
