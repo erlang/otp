@@ -441,7 +441,7 @@ server(info, {ReadHandle,{data,UTF8Binary}}, State = #state{ read = ReadHandle }
     end;
 server(info, {ReadHandle,eof}, State = #state{ read = ReadHandle }) ->
     State#state.current_group ! {self(), eof},
-    keep_state_and_data;
+    {keep_state, State#state{read = eof}};
 server(info,{ReadHandle,{signal,Signal}}, State = #state{ tty = TTYState, read = ReadHandle }) ->
     {keep_state, State#state{ tty = prim_tty:handle_signal(TTYState, Signal) }};
 
@@ -550,10 +550,25 @@ server(info,{'EXIT', Group, Reason}, State) -> % shell and group leader exit
                                               current_group = NewGroup,
                                               groups = Gr2 }};
                 _ -> % remote shell
-                    NewTTYState = io_requests(
-                                    Reqs ++ [{put_chars,unicode,<<"(^G to start new job) ***\n">>}],
-                                    State#state.tty),
-                    {keep_state, State#state{ tty = NewTTYState, groups = Gr1 }}
+                    %% If the readhandle has terminated, then we should quit
+                    case State#state.read =:= eof of
+                        true ->
+                            NewTTYState = io_requests(Reqs,
+                                        State#state.tty),
+                            _ = io_request({put_chars_sync,unicode,<<"Read EOF ***\n">>, none}, NewTTYState),
+                            WriterRef = State#state.write,
+                            receive
+                                {WriterRef, ok} -> ok
+                            after 100 ->
+                                ok
+                            end,
+                            erlang:halt(0, []);
+                        false ->
+                            NewTTYState = io_requests(
+                                            Reqs ++ [{put_chars,unicode,<<"(^G to start new job) ***\n">>}],
+                                            State#state.tty),
+                            {keep_state, State#state{ tty = NewTTYState, groups = Gr1 }}
+                    end
             end;
         _ ->  % not current, just remove it
             {keep_state, State#state{ groups = gr_del_pid(State#state.groups, Group) }}
