@@ -563,24 +563,24 @@ verify_varbind(#varbind{oid          = Oid,
     verify_oid(Oid, Type, Value).
 
 verify_oid(?sysDescr_instance = Oid, 'OCTET STRING', "Net-SNMP agent") ->
-    ct:pal("oid verification success for ~p", [Oid]),
+    ct:pal("oid verification success for ~p (sys description)", [Oid]),
     ok;
 verify_oid(?otpC64Num1_instance = Oid, 'Counter64', ?default_otpC64Num1) ->
-    ct:pal("oid verification success for ~p", [Oid]),
+    ct:pal("oid verification success for ~p (num 1)", [Oid]),
     ok;
 verify_oid(?otpC64Num2_instance = Oid, 'Counter64', ?default_otpC64Num2) ->
-    ct:pal("oid verification success for ~p", [Oid]),
+    ct:pal("oid verification success for ~p (num 2)", [Oid]),
     ok;
 verify_oid(?otpC64Num3_instance = Oid, 'Counter64', ?default_otpC64Num3) ->
-    ct:pal("oid verification success for ~p", [Oid]),
+    ct:pal("oid verification success for ~p (num 3)", [Oid]),
     ok;
 verify_oid(?otpC64Num4_instance = Oid, 'Counter64', ?default_otpC64Num4) ->
-    ct:pal("oid verification success for ~p", [Oid]),
+    ct:pal("oid verification success for ~p (num 4)", [Oid]),
     ok;
 verify_oid(Oid, 'NULL', noSuchObject = Value) ->
     %% This means we where unable to load the proper MIBs
     ct:pal("oid verification failed for ~p => ~p => IGNORE", [Oid, Value]),
-    ok;
+    exit({skip, {Oid, Value}});
 verify_oid(Oid, Type, Value) ->
     ct:pal("oid verification failed: ~p => ~p", [Oid, Value]),
     exit({invalid_vb, Oid, Type, Value}).
