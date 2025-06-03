@@ -28,7 +28,6 @@
 #include "eddsa.h"
 #include "engine.h"
 #include "rsa.h"
-#include <openssl/core_names.h>
 
 typedef struct PKeyCryptOptions {
     const EVP_MD *rsa_mgf1_md;
@@ -512,17 +511,17 @@ int get_pkey_from_octet_string(ErlNifEnv *env,
     switch (pkey_format) {
 #ifdef HAVE_ML_DSA
     case PKEY_PRIV_SEED:
-        key_type = OSSL_PKEY_PARAM_ML_DSA_SEED;
+        key_type = "seed"; // OSSL_PKEY_PARAM_ML_DSA_SEED
         selection = EVP_PKEY_KEYPAIR;
         break;
 #endif
     case PKEY_PRIV:
-        key_type = OSSL_PKEY_PARAM_PRIV_KEY;
+        key_type = "priv"; // OSSL_PKEY_PARAM_PRIV_KEY;
         selection = EVP_PKEY_KEYPAIR;
         break;
     default:
         ASSERT(pkey_format == PKEY_PUB);
-        key_type = OSSL_PKEY_PARAM_PUB_KEY;
+        key_type = "pub"; // OSSL_PKEY_PARAM_PUB_KEY;
         selection = EVP_PKEY_PUBLIC_KEY;
         break;
     }

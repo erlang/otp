@@ -24,7 +24,6 @@
 #include "evp.h"
 #include "bn.h"
 #include "pkey.h"
-#include <openssl/core_names.h>
 
 /* (Type, OthersPublicKey) -> {Secret, EncapSecret}
  */
