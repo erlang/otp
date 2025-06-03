@@ -475,6 +475,7 @@ static void make_adapter_index_map(ErlNifEnv*    env,
                                    ERL_NIF_TERM* emap);
 /* *** Get IP Address Table functions *** */
 static ERL_NIF_TERM enet_get_ip_address_table(ErlNifEnv* env,
+                                              BOOLEAN_T  sort,
                                               BOOLEAN_T  dbg);
 static ERL_NIF_TERM enet_get_ip_address_table_encode(ErlNifEnv*       env,
                                                      BOOLEAN_T        dbg,
@@ -3802,7 +3803,7 @@ ERL_NIF_TERM nif_get_ip_address_table(ErlNifEnv*         env,
     return enif_raise_exception(env, MKA(env, "notsup"));
 #else
     ERL_NIF_TERM result, eargs;
-    BOOLEAN_T    dbg;
+    BOOLEAN_T    dbg, sort;
 
     NDBG( ("NET", "nif_get_ip_address_table -> entry (%d)\r\n", argc) );
 
@@ -3812,9 +3813,11 @@ ERL_NIF_TERM nif_get_ip_address_table(ErlNifEnv*         env,
     }
     eargs = argv[0];
 
+    sort   = enet_get_ip_address_table_args_sort(env, eargs);
+
     dbg    = enet_get_ip_address_table_args_debug(env, eargs);
 
-    result = enet_get_ip_address_table(env, dbg);
+    result = enet_get_ip_address_table(env, sort, dbg);
 
     NDBG2( dbg,
            ("NET",
@@ -3839,7 +3842,24 @@ BOOLEAN_T enet_get_ip_address_table_args_debug(ErlNifEnv*         env,
 
 #if defined(__WIN32__)
 static
+BOOLEAN_T enet_get_ip_address_table_args_sort(ErlNifEnv*         env,
+                                              const ERL_NIF_TERM eargs)
+{
+    /*
+     * We need to do this here since the "proper" atom has not been
+     * created when this function is called.
+     */
+    ERL_NIF_TERM sort = MKA(env, "sort");
+    
+    return esock_get_bool_from_map(env, eargs, sort, FALSE);
+}
+#endif // __WIN32__
+
+
+#if defined(__WIN32__)
+static
 ERL_NIF_TERM enet_get_ip_address_table(ErlNifEnv* env,
+                                       BOOLEAN_T  sort,
                                        BOOLEAN_T  dbg)
 {
     int                i;
@@ -3854,11 +3874,12 @@ ERL_NIF_TERM enet_get_ip_address_table(ErlNifEnv* env,
     for (i = 17;  i;  i--) {
 
         NDBG2( dbg,
-               ("NET", "enet_get_ip_address_table -> try get table with: "
+               ("NET", "enet_get_ip_address_table -> [%d] try get table with: "
+                "\r\n   sort:    %s"
                 "\r\n   tabSize: %d"
-                "\r\n", tabSize) );
+                "\r\n", i, B2S(sort), tabSize) );
 
-        ret = GetIpAddrTable(ipAddrTabP, &tabSize, FALSE);
+        ret = GetIpAddrTable(ipAddrTabP, &tabSize, sort);
 
         NDBG2( dbg,
                ("NET", "enet_get_ip_address_table -> "
