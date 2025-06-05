@@ -632,7 +632,7 @@ static ERTS_INLINE void maybe_skip_fp(Eterm **sp) {
 }
 
 static Process*
-suspended_proc_lock(Eterm pid, ErtsProcLocks locks) {
+suspended_proc_lock(Process *c_p, Eterm pid, ErtsProcLocks locks) {
     erts_aint32_t state;
     erts_aint32_t fail_state = ERTS_PSFLG_FREE | ERTS_PSFLG_RUNNING;
     Process *rp = erts_proc_lookup_raw(pid);
@@ -650,7 +650,9 @@ suspended_proc_lock(Eterm pid, ErtsProcLocks locks) {
         return NULL;
     }
 
-    erts_proc_lock(rp, locks);
+    erts_proc_safelock(c_p, ERTS_PROC_LOCK_MAIN, ERTS_PROC_LOCK_MAIN,
+                       rp, 0, locks);
+
     state = erts_atomic32_read_nob(&rp -> state);
 
     if (!(state & ERTS_PSFLG_SUSPENDED)) {
@@ -776,7 +778,7 @@ erl_debugger_stack_frames_2(BIF_ALIST_2)
         BIF_ERROR(BIF_P, BADARG);
     }
 
-    rp = suspended_proc_lock(pid, ERTS_PROC_LOCK_MAIN);
+    rp = suspended_proc_lock(BIF_P, pid, ERTS_PROC_LOCK_MAIN);
     if (!rp) {
         BIF_RET(am_running);
     }
@@ -850,7 +852,7 @@ erl_debugger_stack_frames_2(BIF_ALIST_2)
 
     erts_proc_unlock(rp, ERTS_PROC_LOCK_MAIN);
 
-    return result;
+    BIF_RET(result);
 }
 
 BIF_RETTYPE
@@ -890,7 +892,7 @@ erl_debugger_peek_stack_frame_slot_4(BIF_ALIST_4)
         BIF_ERROR(BIF_P, BADARG);
     }
 
-    rp = suspended_proc_lock(pid, ERTS_PROC_LOCK_MAIN);
+    rp = suspended_proc_lock(BIF_P, pid, ERTS_PROC_LOCK_MAIN);
     if (!rp) {
         BIF_RET(am_running);
     }
@@ -937,7 +939,7 @@ erl_debugger_peek_stack_frame_slot_4(BIF_ALIST_4)
 
     erts_proc_unlock(rp, ERTS_PROC_LOCK_MAIN);
 
-    return result;
+    BIF_RET(result);
 }
 
 BIF_RETTYPE
@@ -956,7 +958,7 @@ erl_debugger_xregs_count_1(BIF_ALIST_1) {
         BIF_ERROR(BIF_P, BADARG);
     }
 
-    rp = suspended_proc_lock(pid, ERTS_PROC_LOCK_MAIN);
+    rp = suspended_proc_lock(BIF_P, pid, ERTS_PROC_LOCK_MAIN);
     if (!rp) {
         BIF_RET(am_running);
     }
@@ -964,7 +966,7 @@ erl_debugger_xregs_count_1(BIF_ALIST_1) {
     result = make_small(rp->arity);
     erts_proc_unlock(rp, ERTS_PROC_LOCK_MAIN);
 
-    return result;
+    BIF_RET(result);
 }
 
 BIF_RETTYPE
@@ -1003,7 +1005,7 @@ erl_debugger_peek_xreg_3(BIF_ALIST_3)
         BIF_ERROR(BIF_P, BADARG);
     }
 
-    rp = suspended_proc_lock(pid, ERTS_PROC_LOCK_MAIN);
+    rp = suspended_proc_lock(BIF_P, pid, ERTS_PROC_LOCK_MAIN);
     if (!rp) {
         BIF_RET(am_running);
     }
@@ -1016,5 +1018,6 @@ erl_debugger_peek_xreg_3(BIF_ALIST_3)
     }
 
     erts_proc_unlock(rp, ERTS_PROC_LOCK_MAIN);
-    return result;
+
+    BIF_RET(result);
 }
