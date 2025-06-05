@@ -25,11 +25,12 @@
 -export([do0a/0, do0b/2, different_sizes/2, ambiguous_inits/1,
          update_record0/0, fc/0, track_update_record/1,
          gh8124_a/0, gh8124_b/0, tuple_set_a/1, tuple_set_b/0,
-         failure_to_patch_list/0, erierl1208/0]).
+         failure_to_patch_list/0, erierl1208/0, gh_9903/0]).
 -record(r, {a=0,b=0,c=0,tot=0}).
 -record(r1, {a}).
 -record(r2, {b}).
 -record(r3, {c}).
+-record(r4, {a=0,b= <<>>}).
 
 do0a() ->
     Ls = ex:f(),
@@ -250,6 +251,20 @@ erierl1208_inner() ->
 erierl1208() ->
     R1 = #r1{a=A=#r2{b=B}} = erierl1208_inner(),
     R1#r1{a = A#r2{b= B#r3{c= <<"new value">>}}}.
+
+%% Check that the following code can't crash the compiler.
+gh_9903() ->
+    State = case lists:member(abc, []) of
+                true  -> #r4{a=1};
+                false -> #r4{}
+            end,
+    gh_9903_inner1(<<>>, State).
+
+gh_9903_inner1(<<B/binary>>, S) ->
+    gh_9903_inner2(B, size(B), S#r4{a=1}).
+
+gh_9903_inner2(<<B1/binary>>, _, #r4{b=B2}) ->
+    <<B2/binary, B1/binary>>.
 
 %% Example which provides a get_tuple_element instruction with a tuple
 %% typed as a tuple set.
