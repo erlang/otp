@@ -222,6 +222,29 @@ cli() ->
                                  arguments => [ sbom_option()],
                                  handler => fun sbom_vendor/1}
                          }},
+             "vex" =>
+                 #{
+                   help => """
+                           Create VEX statements
+                           Update CVEs and generate OpenVex Statements
+                           """,
+                   commands =>
+                       #{"init" =>
+                             #{ help =>
+                                    """
+                                    Initialise an openvex file.
+                                    """,
+                                arguments => [ input_option(~"make/openvex.table"), branch_option()],
+                                handler => fun init_openvex/1},
+                         "run" =>
+                         #{ help =>
+                                    """
+                                    Updates an openvex file.
+                                    """,
+                                arguments => [ input_option(~"make/openvex.table"), branch_option()],
+                                handler => fun run_openvex/1}
+                        }
+                  },
              "explore" =>
                  #{  help => """
                             Explore license data.
@@ -368,6 +391,12 @@ base_file(DefaultFile) ->
       default => DefaultFile,
       long => "-base-file"}.
 
+branch_option() ->
+    #{name => branch,
+      type => binary,
+      required => true,
+      short => $b,
+      long => "-branch"}.
 
 %%
 %% Commands
@@ -2005,3 +2034,103 @@ extracted_license_info() ->
 %%
 %% REUSE-IgnoreEnd
 %%
+
+%% input: file points to the list of items openvex.table
+%% branch: tell us which branch from openvex.table we take into account
+%%
+%% We take items from 'input.branch' and check that the openvex file
+%% contains those exact changes. if not, a new change is issued
+%%
+%% Documentation in HOWTO/SBOM.md
+%%
+
+vex_path(Branch) ->
+    <<"vex/", Branch/binary, ".openvex.json">>.
+
+init_openvex(#{input_file := File, branch := Branch}) ->
+    InitVex = vex_path(Branch),
+    VexStmts = case filelib:is_file(InitVex) of
+                   true -> % file exists
+                       maps:get(~"statements", decode(InitVex));
+                   false -> % create file
+                       Init = init_openvex_file(Branch),
+                       file:write_file(InitVex, json:format(Init)),
+                       maps:get(~"statements", Init)
+               end,
+    run_openvex1(VexStmts, File, Branch).
+
+run_openvex(#{input_file := File, branch := Branch}) ->
+    InitVex = vex_path(Branch),
+    VexStmts = maps:get(~"statements", decode(InitVex)),
+    run_openvex1(VexStmts, File, Branch).
+
+run_openvex1(VexStmts, VexTableFile, Branch) ->
+    InitVex = vex_path(Branch),
+    VexTable = decode(VexTableFile),
+    case maps:get(Branch, VexTable, error) of
+        error ->
+            fail("Could not find '~ts' in file '~ts'~n", [Branch, VexTableFile]);
+        CVEs ->
+            %% make the function idempotent, i.e., can be called consecutive times producing the same input
+            lists:foreach(fun (#{~"status" := Status}=M) ->
+                                  [{Purl, CVE}] = maps:to_list(maps:remove(~"status", M)),
+                                  ExistingEntry = lists:any(fun(#{~"vulnerability" := #{~"name" := VexCVE},
+                                                                  ~"products" := Products}) ->
+                                                                    VexIds = lists:map(fun(M0) -> maps:get(~"@id", M0) end, Products),
+                                                                    case CVE of
+                                                                        [_|_] ->
+                                                                            VexCVE =:= CVE andalso lists:member(Purl, VexIds);
+                                                                        _ ->
+                                                                            VexCVE =:= CVE andalso lists:member(Purl, VexIds)
+                                                                    end
+                                                            end, VexStmts),
+                                  case ExistingEntry of
+                                      true ->
+                                          ok;
+                                      false ->
+                                          OTPVersions = fetch_otp_purl_versions(Purl),
+                                          format_vexctl(InitVex, Purl, CVE, Status),
+                                          format_vexctl(InitVex, OTPVersions, CVE, Status)
+                                  end
+                          end, CVEs)
+    end.
+
+format_vexctl(_VexPath, [], _CVE, _) ->
+    ok;
+format_vexctl(VexPath, Versions, CVE, #{~"not_affected" := ~"vulnerable_code_not_present"}) ->
+    io:format("vexctl add --in-place ~ts --product='~ts' --vuln='~ts' --status='~ts' --justification='~ts'~n",
+              [VexPath, Versions, CVE, ~"not_affected", ~"vulnerable_code_not_present"]);
+format_vexctl(VexPath, Versions, CVE, #{~"affected" := Mitigation}) ->
+    io:format("vexctl add --in-place ~ts --product='~ts' --vuln='~ts' --status='~ts' --action-statement='~ts'~n",
+          [VexPath, Versions, CVE, ~"affected", Mitigation]);
+format_vexctl(VexPath, Versions, CVE, S) when S =:= ~"fixed";
+                                              S =:= ~"under_investigation";
+                                              S =:= ~"affected" ->
+    io:format("vexctl add --in-place ~ts --product ~ts --vuln ~ts --status ~ts~n",
+              [VexPath, Versions, CVE, S]).
+
+
+-spec fetch_otp_purl_versions(OTP :: binary()) -> OTPAppVersions :: binary().
+fetch_otp_purl_versions(<<"pkg:otp/", OTPApp/binary>>) ->
+    App = erlang:list_to_binary(string:replace(OTPApp, ~"@", ~"-")),
+    OTPVulnVersions = os:cmd("grep "++ erlang:binary_to_list(App) ++ " otp_versions.table | cut -d' ' -f1"),
+    Versions = lists:filter(fun (L) -> L=/= [] end, string:split(OTPVulnVersions, ~"\n", all)),
+    L = lists:map(fun (X) ->
+                          {_, Version} = string:take(string:trim(X, both), "OTP-"),
+                          "pkg:otp/erlang@"++Version
+                  end, Versions),
+    erlang:list_to_binary(lists:join(",", L));
+fetch_otp_purl_versions(_) ->
+    [].
+
+
+init_openvex_file(Branch) ->
+    Ts = calendar:system_time_to_rfc3339(erlang:system_time(microsecond), [{unit, microsecond}]),
+    #{
+      ~"@context"   => ~"https://openvex.dev/ns/v0.2.0",
+      ~"@id"        => <<"https://openvex.dev/docs/public/otp/vex-", Branch/binary>>,
+      ~"author"     => ~"vexctl",
+      ~"timestamp"  => erlang:list_to_binary(Ts),
+      ~"version"    => 1,
+      ~"statements" => []
+     }.

@@ -1,0 +1,325 @@
+{
+  "@context": "https://openvex.dev/ns/v0.2.0",
+  "@id": "https://openvex.dev/docs/public/otp/vex-otp-27",
+  "author": "vexctl",
+  "timestamp": "2025-06-10T15:11:03.07398+02:00",
+  "last_updated": "2025-06-10T15:11:03.428076207+02:00",
+  "version": 25,
+  "statements": [
+    {
+      "vulnerability": {
+        "name": "CVE-2023-45853"
+      },
+      "timestamp": "2025-06-10T15:11:03.093004442+02:00",
+      "products": [
+        {
+          "@id": "pkg:github/madler/zlib@04f42ceca40f73e2978b50e93806c2a18c1281fc"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_present"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2024-58249"
+      },
+      "timestamp": "2025-06-10T15:11:03.107748134+02:00",
+      "products": [
+        {
+          "@id": "pkg:github/wxWidgets/wxWidgets@dc585039bbd426829e3433002023a93f9bedd0c2"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_present"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2023-6129"
+      },
+      "timestamp": "2025-06-10T15:11:03.12168153+02:00",
+      "products": [
+        {
+          "@id": "pkg:github/openssl/openssl@01d5e2318405362b4de5e670c90d9b40a351d053"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_present"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2023-6237"
+      },
+      "timestamp": "2025-06-10T15:11:03.136242546+02:00",
+      "products": [
+        {
+          "@id": "pkg:github/openssl/openssl@01d5e2318405362b4de5e670c90d9b40a351d053"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_present"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2024-0727"
+      },
+      "timestamp": "2025-06-10T15:11:03.149978946+02:00",
+      "products": [
+        {
+          "@id": "pkg:github/openssl/openssl@01d5e2318405362b4de5e670c90d9b40a351d053"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_present"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2024-13176"
+      },
+      "timestamp": "2025-06-10T15:11:03.165195201+02:00",
+      "products": [
+        {
+          "@id": "pkg:github/openssl/openssl@01d5e2318405362b4de5e670c90d9b40a351d053"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_present"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2024-2511"
+      },
+      "timestamp": "2025-06-10T15:11:03.178897301+02:00",
+      "products": [
+        {
+          "@id": "pkg:github/openssl/openssl@01d5e2318405362b4de5e670c90d9b40a351d053"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_present"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2024-4603"
+      },
+      "timestamp": "2025-06-10T15:11:03.194110871+02:00",
+      "products": [
+        {
+          "@id": "pkg:github/openssl/openssl@01d5e2318405362b4de5e670c90d9b40a351d053"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_present"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2024-4741"
+      },
+      "timestamp": "2025-06-10T15:11:03.207890099+02:00",
+      "products": [
+        {
+          "@id": "pkg:github/openssl/openssl@01d5e2318405362b4de5e670c90d9b40a351d053"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_present"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2024-5535"
+      },
+      "timestamp": "2025-06-10T15:11:03.222409914+02:00",
+      "products": [
+        {
+          "@id": "pkg:github/openssl/openssl@01d5e2318405362b4de5e670c90d9b40a351d053"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_present"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2024-6119"
+      },
+      "timestamp": "2025-06-10T15:11:03.237112153+02:00",
+      "products": [
+        {
+          "@id": "pkg:github/openssl/openssl@01d5e2318405362b4de5e670c90d9b40a351d053"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_present"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2024-9143"
+      },
+      "timestamp": "2025-06-10T15:11:03.252217816+02:00",
+      "products": [
+        {
+          "@id": "pkg:github/openssl/openssl@01d5e2318405362b4de5e670c90d9b40a351d053"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_present"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2025-26618"
+      },
+      "timestamp": "2025-06-10T15:11:03.265933188+02:00",
+      "products": [
+        {
+          "@id": "pkg:otp/ssh@5.2.10"
+        }
+      ],
+      "status": "affected",
+      "action_statement": "Update to the next version",
+      "action_statement_timestamp": "2025-06-10T15:11:03.265933188+02:00"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2025-26618"
+      },
+      "timestamp": "2025-06-10T15:11:03.281197095+02:00",
+      "products": [
+        {
+          "@id": "pkg:otp/erlang@27.3.3"
+        }
+      ],
+      "status": "affected",
+      "action_statement": "Update to the next version",
+      "action_statement_timestamp": "2025-06-10T15:11:03.281197095+02:00"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2025-26618"
+      },
+      "timestamp": "2025-06-10T15:11:03.2948494+02:00",
+      "products": [
+        {
+          "@id": "pkg:otp/ssh@5.2.11"
+        }
+      ],
+      "status": "fixed"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2025-26618"
+      },
+      "timestamp": "2025-06-10T15:11:03.309843504+02:00",
+      "products": [
+        {
+          "@id": "pkg:otp/erlang@27.3.4"
+        }
+      ],
+      "status": "fixed"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2025-32433"
+      },
+      "timestamp": "2025-06-10T15:11:03.32480181+02:00",
+      "products": [
+        {
+          "@id": "pkg:otp/ssh@5.2.9"
+        }
+      ],
+      "status": "affected",
+      "action_statement": "A temporary workaround involves disabling the SSH server or to prevent access via firewall rules.",
+      "action_statement_timestamp": "2025-06-10T15:11:03.32480181+02:00"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2025-32433"
+      },
+      "timestamp": "2025-06-10T15:11:03.338688684+02:00",
+      "products": [
+        {
+          "@id": "pkg:otp/erlang@27.3.2"
+        },
+        {
+          "@id": "pkg:otp/erlang@27.3.1"
+        }
+      ],
+      "status": "affected",
+      "action_statement": "A temporary workaround involves disabling the SSH server or to prevent access via firewall rules.",
+      "action_statement_timestamp": "2025-06-10T15:11:03.338688684+02:00"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2025-32433"
+      },
+      "timestamp": "2025-06-10T15:11:03.354369934+02:00",
+      "products": [
+        {
+          "@id": "pkg:otp/ssh@5.2.10"
+        }
+      ],
+      "status": "fixed"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2025-32433"
+      },
+      "timestamp": "2025-06-10T15:11:03.368267816+02:00",
+      "products": [
+        {
+          "@id": "pkg:otp/erlang@27.3.3"
+        }
+      ],
+      "status": "fixed"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2025-46712"
+      },
+      "timestamp": "2025-06-10T15:11:03.384303023+02:00",
+      "products": [
+        {
+          "@id": "pkg:otp/ssh@5.2.10"
+        }
+      ],
+      "status": "affected",
+      "action_statement": "Update to the next version",
+      "action_statement_timestamp": "2025-06-10T15:11:03.384303023+02:00"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2025-46712"
+      },
+      "timestamp": "2025-06-10T15:11:03.398704586+02:00",
+      "products": [
+        {
+          "@id": "pkg:otp/erlang@27.3.3"
+        }
+      ],
+      "status": "affected",
+      "action_statement": "Update to the next version",
+      "action_statement_timestamp": "2025-06-10T15:11:03.398704586+02:00"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2025-46712"
+      },
+      "timestamp": "2025-06-10T15:11:03.414054343+02:00",
+      "products": [
+        {
+          "@id": "pkg:otp/ssh@5.2.11"
+        }
+      ],
+      "status": "fixed"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2025-46712"
+      },
+      "timestamp": "2025-06-10T15:11:03.428076631+02:00",
+      "products": [
+        {
+          "@id": "pkg:otp/erlang@27.3.4"
+        }
+      ],
+      "status": "fixed"
+    }
+  ]
+}
