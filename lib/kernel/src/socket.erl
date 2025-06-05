@@ -3610,6 +3610,10 @@ send_common_nowait_result(Handle, Op, Result) ->
     case Result of
         completion ->
             {completion, ?COMPLETION_INFO(Op, Handle)};
+        {completion, _} -> % Only sendv
+            {completion, ?COMPLETION_INFO(Op, Handle)};
+        {completion, Data, _} -> % Only sendv
+            {completion, {?COMPLETION_INFO(Op, Handle), Data}};
         {select, ContData} ->
             {select, ?SELECT_INFO({Op, ContData}, Handle)};
         {select, Data, ContData} ->
@@ -4391,6 +4395,7 @@ With the argument [`Cont`](`t:select_info/0`), equivalent to
           {'select', SelectInfo} |
           {'select', {SelectInfo, RestIOV}} |
           {'completion', CompletionInfo} |
+          {'completion', {CompletionInfo, RestIOV}} |
           {'error', Reason} |
           {'error', {Reason, RestIOV}}
               when
