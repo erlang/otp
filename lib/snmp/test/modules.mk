@@ -83,5 +83,8 @@ MIB_FILES = \
 	Test2.mib \
 	Test3.mib
 
+NETSNMP_MIB_FILES = \
+	OTP-C64-MIB.mib
+
 SPECS = snmp.spec
 
