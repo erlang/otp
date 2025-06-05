@@ -1,0 +1,75 @@
+## %CopyrightBegin%
+##
+## SPDX-License-Identifier: Apache-2.0
+##
+## Copyright Ericsson AB 2025. All Rights Reserved.
+##
+## Licensed under the Apache License, Version 2.0 (the "License");
+## you may not use this file except in compliance with the License.
+## You may obtain a copy of the License at
+##
+##     http://www.apache.org/licenses/LICENSE-2.0
+##
+## Unless required by applicable law or agreed to in writing, software
+## distributed under the License is distributed on an "AS IS" BASIS,
+## WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+## See the License for the specific language governing permissions and
+## limitations under the License.
+##
+## %CopyrightEnd%
+
+name: Update vendored dependencies
+
+on:
+  pull_request:
+    paths:
+      - '**/vendor.info'
+
+permissions:
+  contents: write   # Required to push commits
+  pull-requests: read
+
+jobs:
+  update-vendored-deps:
+    runs-on: ubuntu-latest
+    if: contains(github.event.pull_request.title, 'Update dependency') && github.actor == 'renovate[bot]'
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # ratchet:actions/checkout@v4.2.2
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Set up Git user
+        run: |
+          git config user.name "Erlang/OTP"
+          git config user.email "otp@erlang.org"
+          
+      - name: Find and process modified vendor.info files
+        id: update-deps
+        env:
+            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: .github/scripts/renovate-vendored-deps.sh origin '${{ github.event.pull_request.base.sha }}' '${{ github.event.pull_request.head.sha }}' | tee vendor.log
+    
+      - name: Comment on PR with failure log
+        if: ${{ failure() }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ ! -f vendor.log ]; then
+            echo "vendor.log not found!"
+            exit 1
+          fi
+
+          echo "Posting failure log to PR..."
+
+          # Truncate log to last ~60k characters to stay under GitHub comment limits
+          LOG_CONTENT=$(tail -c 60000 vendor.log)
+
+          gh pr comment "$GITHUB_REF_NAME" --body "🚨 Vendor update failed. Log output:
+
+          \`\`\`text
+          $LOG_CONTENT
+          \`\`\`
+          
+          [🔗 View full GitHub Actions run log]($RUN_URL)"
