@@ -257,6 +257,8 @@ groups() ->
                      {group, sha3_384},
                      {group, sha3_512},
                      {group, sha512},
+                     {group, sha512_224},
+                     {group, sha512_256},
                      {group, shake128},
                      {group, shake256},
                      {group, sha},
@@ -390,6 +392,8 @@ groups() ->
      {sha256,               [], [hash, hmac, hmac_update]},
      {sha384,               [], [hash, hmac, hmac_update]},
      {sha512,               [], [hash, hmac, hmac_update]},
+     {sha512_224,           [], [hash, hmac, hmac_update]},
+     {sha512_256,           [], [hash, hmac, hmac_update]},
      {sha3_224,             [], [hash, hmac, hmac_update]},
      {sha3_256,             [], [hash, hmac, hmac_update]},
      {sha3_384,             [], [hash, hmac, hmac_update]},
@@ -2232,6 +2236,16 @@ group_config(sha512 = Type, Config) ->
     Msgs =  [rfc_4634_test1(), rfc_4634_test2(), long_msg()],
     Digests = rfc_4634_sha512_digests() ++ [long_sha512_digest()],
     [{hash, {Type, Msgs, Digests}} | Config];
+group_config(sha512_224 = Type, Config) ->
+    % https://csrc.nist.gov/csrc/media/projects/cryptographic-standards-and-guidelines/documents/examples/sha512_224.pdf
+    Msgs =  [rfc_4634_test1(), rfc_4634_test2(), long_msg()],
+    Digests = rfc_4634_sha512_224_digests() ++ [long_sha512_224_digest()],
+    [{hash, {Type, Msgs, Digests}} | Config];
+group_config(sha512_256 = Type, Config) ->
+    % https://csrc.nist.gov/csrc/media/projects/cryptographic-standards-and-guidelines/documents/examples/sha512_256.pdf
+    Msgs =  [rfc_4634_test1(), rfc_4634_test2(), long_msg()],
+    Digests = rfc_4634_sha512_256_digests() ++ [long_sha512_256_digest()],
+    [{hash, {Type, Msgs, Digests}} | Config];
 group_config(sha3_224 = Type, Config) ->
     {Msgs,Digests} = sha3_test_vectors(Type),
     [{hash, {Type, Msgs, Digests}} | Config];
@@ -2407,6 +2421,16 @@ do_configure_mac(hmac, Type, _Config) ->
             Keys = rfc_4231_keys() ++ [long_hmac_key(sha512)],
             Data = rfc_4231_msgs() ++ [long_msg()],
             Hmac = rfc4231_hmac_sha512() ++ [long_hmac(sha512)],
+            zip3_special(hmac, Type, Keys, Data, Hmac);
+        sha512_224 ->
+            Keys = rfc_4231_keys() ++ [long_hmac_key(sha512_224)],
+            Data = rfc_4231_msgs() ++ [long_msg()],
+            Hmac = rfc4231_hmac_sha512_224() ++ [long_hmac(sha512_224)],
+            zip3_special(hmac, Type, Keys, Data, Hmac);
+        sha512_256 ->
+            Keys = rfc_4231_keys() ++ [long_hmac_key(sha512_256)],
+            Data = rfc_4231_msgs() ++ [long_msg()],
+            Hmac = rfc4231_hmac_sha512_256() ++ [long_hmac(sha512_256)],
             zip3_special(hmac, Type, Keys, Data, Hmac);
         sm3 ->
             Keys = sm3_keys(),
@@ -2911,6 +2935,16 @@ rfc_4634_sha512_digests() ->
 		"454D4423643CE80E2A9AC94FA54CA49F"),
      hexstr2bin("8E959B75DAE313DA8CF4F72814FC143F8F7779C6EB9F7FA17299AEADB6889018501D289E4900F7E4331B99DEC4B5433AC7D329EEB6DD26545E96E55B874BE909")].
 
+rfc_4634_sha512_224_digests() ->
+  [hexstr2bin("4634270F707B6A54DAAE7530460842E20E37ED265CEEE9A43E8924AA"),
+   hexstr2bin("23FEC5BB94D60B23308192640B0C453335D664734FE40E7268674AF9")
+  ].
+
+rfc_4634_sha512_256_digests() ->
+  [hexstr2bin("53048E2681941EF99B2E29B76B4C7DABE4C2D0C634FC6D46E0E2F13107E7AF23"),
+   hexstr2bin("3928E184FB8690F840DA3988121D31BE65CB9D3EF83EE6146FEAC861E19B563A")
+  ].
+
 long_msg() ->
     fun() -> lists:duplicate(1000000, $a) end.
 
@@ -2936,6 +2970,14 @@ long_sha384_digest() ->
 long_sha512_digest() ->
     hexstr2bin("e718483d0ce76964" "4e2e42c7bc15b463" "8e1f98b13b204428" "5632a803afa973eb"
 	       "de0ff244877ea60a" "4cb0432ce577c31b" "eb009c5c2c49aa2e" "4eadb217ad8cc09b").
+
+long_sha512_224_digest() ->
+    % test vector generated from openssl
+    hexstr2bin("37AB331D76F0D36DE422BD0EDEB22A28ACCD487B7A8453AE965DD287").
+
+long_sha512_256_digest() ->
+    % test vector generated from openssl
+    hexstr2bin("9a59a052930187a97038cae692f30708aa6491923ef5194394dc68d56c74fb21").
 
 ripemd160_msgs() ->
     [<<"">>,
@@ -3011,7 +3053,9 @@ cmac_inc(_) ->
 
 %% https://www.cosic.esat.kuleuven.be/nessie/testvectors/
 long_hmac_key(Type) when Type == sha384;
-			 Type == sha512 ->
+			 Type == sha512;
+                         Type == sha512_256;
+                         Type == sha512_224 ->
     hexstr2bin("00112233445566778899AABBCCDDEEFF"
 	       "0123456789ABCDEF0011223344556677"
 	       "8899AABBCCDDEEFF0123456789ABCDEF"
@@ -3036,7 +3080,18 @@ long_hmac(sha512) ->
     hexstr2bin("D116BF471AAE1264854F1906025E846A"
 	       "61618A965FCA30B695220EA2D6E547E3"
 	       "F3B5A4B54E6778928C26D5D3D810498E"
-	       "8DF86CB3CC1E9F66A00419B13B6B0C9A").
+	       "8DF86CB3CC1E9F66A00419B13B6B0C9A");
+
+long_hmac(sha512_256) ->
+  %% test vectors generated from openssl
+
+  hexstr2bin("a5c5701071e79b0e208f13d50b96fc90"
+             "4ceefd45b7a1e9e69afbdc805121f904");
+
+long_hmac(sha512_224) ->
+  %% test vectors generated from openssl
+  hexstr2bin("534d74563c873444d485569369c209ee"
+             "6734de4c8cb81d5eee148e2e").
 
 rfc_2202_hmac_md5() ->
     [
@@ -3104,8 +3159,8 @@ rfc4231_hmac_sha256() ->
 		"5a003f089d2739839dec58b964ec3843"),
      hexstr2bin("773ea91e36800e46854db8ebd09181a7"
 		"2959098b3ef8c122d9635514ced565fe"),
-    hexstr2bin("82558a389a443c0ea4cc819899f2083a"
-	       "85f0faa3e578f8077a2e3ff46729665b"),
+     hexstr2bin("82558a389a443c0ea4cc819899f2083a"
+	        "85f0faa3e578f8077a2e3ff46729665b"),
      hexstr2bin("a3b6167473100ee06e0c796c2955552b"),
      hexstr2bin("60e431591ee0b67f0d8a26aacbf5b77f"
 		"8e0bc6213728c5140546040f0ee37f54"),
@@ -3158,6 +3213,40 @@ rfc4231_hmac_sha512() ->
 		"debd71f8867289865df5a32d20cdc944"
 		"b6022cac3c4982b10d5eeb55c3e4de15"
 		"134676fb6de0446065c97440fa8c6a58")].
+
+rfc4231_hmac_sha512_256() ->
+    % test vectors generated from openssl
+    [hexstr2bin("9f9126c3d9c3c330d760425ca8a217e3"
+                "1feae31bfe70196ff81642b868402eab"),
+     hexstr2bin("6df7b24630d5ccb2ee335407081a8718"
+                "8c221489768fa2020513b2d593359456"),
+     hexstr2bin("229006391d66c8ecddf43ba5cf8f8353"
+                "0ef221a4e9401840d1bead5137c8a2ea"),
+     hexstr2bin("36d60c8aa1d0be856e10804cf836e821"
+                "e8733cbafeae87630589fd0b9b0a2f4c"),
+     hexstr2bin("337f526924766971bf72b82ad19c2c82"),
+     hexstr2bin("87123c45f7c537a404f8f47cdbedda1f"
+                "c9bec60eeb971982ce7ef10e774e6539"),
+     hexstr2bin("6ea83f8e7315072c0bdaa33b93a26fc1"
+                "659974637a9db8a887d06c05a7f35a66")].
+
+
+rfc4231_hmac_sha512_224() ->
+    % test vectors generated from openssl
+    [hexstr2bin("b244ba01307c0e7a8ccaad13b1067a4c"
+                "f6b961fe0c6a20bda3d92039"),
+     hexstr2bin("4a530b31a79ebcce36916546317c45f2"
+                "47d83241dfb818fd37254bde"),
+     hexstr2bin("db34ea525c2c216ee5a6ccb6608bea87"
+                "0bbef12fd9b96a5109e2b6fc"),
+     hexstr2bin("c2391863cda465c6828af06ac5d4b72d"
+                "0b792109952da530e11a0d26"),
+     hexstr2bin("1df8eae8baeedd4eddfb555ec0ba768f"),
+     hexstr2bin("29bef8ce88b54d4226c3c7718ea9e32a"
+                "ce2429026f089e38cea9aeda"),
+     hexstr2bin("82a9619b47af0cea73a8b9741355ce90"
+                "2d807ad87ee9078522a246e1")].
+
 
 %% HMAC-SM3 from GM/T 0042-2015 Appendix D.3
 %% https://github.com/openssl/openssl/pull/18714
