@@ -222,6 +222,22 @@ cli() ->
                                  arguments => [ sbom_option()],
                                  handler => fun sbom_vendor/1}
                          }},
+             "vex" =>
+                 #{
+                   help => """
+                           Create VEX statements
+                           Update CVEs and generate OpenVex Statements
+                           """,
+                   commands =>
+                       #{"init" =>
+                             #{ help =>
+                                    """
+                                    Initialise an openvex file.
+                                    """,
+                                arguments => [ input_option(~"openvex.table"), branch_option()],
+                                handler => fun init_openvex/1}
+                        }
+                  },
              "explore" =>
                  #{  help => """
                             Explore license data.
@@ -368,6 +384,11 @@ base_file(DefaultFile) ->
       default => DefaultFile,
       long => "-base-file"}.
 
+branch_option() ->
+    #{name => branch,
+      type => binary,
+      short => $b,
+      long => "-branch"}.
 
 %%
 %% Commands
@@ -2005,3 +2026,78 @@ extracted_license_info() ->
 %%
 %% REUSE-IgnoreEnd
 %%
+
+%% input: file points to the list of items openvex.table
+%% branch: tell us which file from .openvex/templates must be edited and
+%%         which branch from openvex.table we take into account
+%%
+%% We take items from 'input.branch' and check that the openvex file
+%% contains those exact changes. if not, a new change is issued in the
+%% .openvex/templates/branch.openvex.json
+%%
+%% the new change is issued by calling vexctl, and all of this happens inside
+%% a github action. that is, we only release vex files on patches and releases,
+%% but otherwise nothing happens.
+%%
+%% we prefer all changes to live in `master` instead of in each branch to have
+%% a complete overview in the table file. more importantly, some CVEs are an exact
+%% copy between OTP versions
+%%
+%% this command fills out the template file with CVEs that should be applied to products.
+%% after running this script, one can run the action vexctl
+%%     https://github.com/openvex/generate-vex/blob/main/action.yaml
+%% which performs
+%%     vexctl generate "${{ inputs.product }}" --file="${{ inputs.file }}" --templates="${{ inputs.templates-dir }}"
+%% where inputs.product must be each of the OTP applications with version of the branch.
+%% e.g.,
+%%     vexctl generate "pkg:otp/stdlib@3.11.2" \
+%%       --file="${{ inputs.file }}" --templates="${{ inputs.templates-dir }}"
+%%
+%% essentially, the templates simply contain the applications for which there are CVEs.
+%% when we call 'generate' the template pattern matches on the pkg and duplicates the information
+%% contained in the affected package for the input version.
+%%
+%% Steps:
+%% 0. all files start as:
+%% {
+%%   "@context": "https://openvex.dev/ns/v0.2.0",
+%%   "@id": "https://openvex.dev/docs/public/vex-maint-27",
+%%   "author": "vexctl (automated template)",
+%%   "timestamp": "2025-06-05T15:04:52.71106557+02:00",
+%%   "version": 1,
+%%   "statements": []
+%% }
+%% 1. ./.github/scripts/otp-compliance.es vex --input-file openvex.table -b maint-27 > o.sh
+%% 2. ./o.sh
+init_openvex(#{input_file := File, branch := Branch}) ->
+    TemplateVex = <<".openvex/", Branch/binary, ".openvex.json">>,
+    Init = init_openvex_file(Branch),
+    file:write_file(TemplateVex, json:format(Init)),
+
+    VexTable = decode(File),
+    case maps:get(Branch, VexTable, error) of
+        error ->
+            fail("Could not find '~ts' in file '~ts'~n", [Branch, File]);
+        CVEs ->
+            lists:foreach(fun (#{~"status" := #{~"not_affected" := ~"vulnerable_code_not_present"}}=M) ->
+                                  [{Purl, CVE}] = maps:to_list(maps:remove(~"status", M)),
+                                  %% io:format("vexctl add --in-place ~ts --product='~ts' --vuln='~ts' --status='~ts' --justification='~ts'~n",
+                                  io:format("vexctl add --in-place ~ts --product='~ts' --vuln='~ts' --status='~ts' --justification='~ts'~n",
+                                            [TemplateVex, Purl, CVE, ~"not_affected", ~"vulnerable_code_not_present"]);
+                              (#{~"status" := ~"fixed"}=M) ->
+                                  [{Purl, CVE}] = maps:to_list(maps:remove(~"status", M)),
+                                  io:format("vexctl add --in-place ~ts --product ~ts --vuln ~ts --status ~ts~n",
+                                            [TemplateVex, Purl, CVE, ~"fixed"])
+                          end, CVEs)
+    end,
+    ok.
+
+init_openvex_file(Branch) ->
+    #{
+      ~"@context"   => ~"https://openvex.dev/ns/v0.2.0",
+      ~"@id"        => <<"https://openvex.dev/docs/public/otp/vex-", Branch/binary>>,
+      ~"author"     => ~"vexctl",
+      ~"timestamp"  => erlang:list_to_binary(calendar:system_time_to_rfc3339(erlang:system_time(second))),
+      ~"version"    => 1,
+      ~"statements" => []
+     }.
