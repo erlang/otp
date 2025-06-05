@@ -2468,7 +2468,18 @@ remsh_basic(Config) when is_list(Config) ->
 %% Test that if we cannot connect to a node, we get a correct error
 remsh_error(_Config) ->
     "Could not connect to \"invalid_node\"\n" =
-        os:cmd(ct:get_progname() ++ " -remsh invalid_node").
+        os:cmd(ct:get_progname() ++ " -remsh invalid_node"),
+
+    RemNode = peer:random_name(remsh_error),
+
+    rtnode:run([
+        {putdata, "\^g"},
+        {expect, " --> $"},
+        {putline, "r invalid_node"},
+        {expect, "Could not connect to node invalid_node"},
+        {expect, "--> $"}], RemNode),
+
+    ok.
 
 quit_hosting_node() ->
     %% Command sequence for entering a shell on the hosting node.
