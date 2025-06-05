@@ -66,8 +66,6 @@
 
 -export([kill_attached/2, get_attached/1]).
 
--export([warn_duplicates/1]).
-
 -export([mark_process/0, mark_process/1, is_marked/1, is_marked/2,
          remaining_test_procs/0]).
 
@@ -897,24 +895,6 @@ kill_attached(TCPid,AttPid) ->
 	    ok
     end.
 	    
-
-%%%-----------------------------------------------------------------
-warn_duplicates(Suites) ->
-    Warn = 
-	fun(Mod) ->
-		case catch apply(Mod,sequences,[]) of
-		    {'EXIT',_} ->
-			ok;
-		    [] ->
-			ok;
-		    _ ->
-			io:format(?def_gl,
-				  "~nWARNING! Deprecated function: ~w:sequences/0.~n"
-				  "         Use group with sequence property instead.~n",[Mod])
-		end
-	end,
-    lists:foreach(Warn, Suites),
-    ok.
 
 %%%-----------------------------------------------------------------
 mark_process() ->
