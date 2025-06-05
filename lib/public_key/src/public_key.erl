@@ -573,45 +573,46 @@ der_decode(Asn1Type, Der) when is_atom(Asn1Type), is_binary(Der) ->
 	    erlang:error(Error)
     end.
 
-get_asn1_module('BasicOCSPResponse') -> 'OCSP-2024-08';
-get_asn1_module('Nonce') -> 'OCSP-2024-08';
-get_asn1_module('OCSPResponse') -> 'OCSP-2024-08';
-get_asn1_module('ResponseData') -> 'OCSP-2024-08';
-get_asn1_module('Name') -> 'PKIX1Explicit-2009';
-get_asn1_module('Extensions') -> 'OTP-PKIX';
-
 get_asn1_module('AuthorityInfoAccessSyntax') -> 'PKIX1Implicit-2009';
 get_asn1_module('AuthorityKeyIdentifier') -> 'PKIX1Implicit-2009';
 get_asn1_module('BasicConstraints') -> 'PKIX1Implicit-2009';
 get_asn1_module('ExtKeyUsageSyntax') -> 'PKIX1Implicit-2009';
 get_asn1_module('KeyUsage') -> 'PKIX1Implicit-2009';
-get_asn1_module('RSAPublicKey') -> 'PKIXAlgs-2009';
-get_asn1_module('SubjectKeyIdentifier') -> 'CryptographicMessageSyntax-2009';
-
 get_asn1_module('Certificate') -> 'PKIX1Explicit-2009';
-get_asn1_module('CertificateList') -> 'PKIX1Explicit-2009';
-get_asn1_module('CertificationRequest') -> 'PKCS-10';
-get_asn1_module('ContentInfo') -> 'CryptographicMessageSyntax-2009';
-get_asn1_module('CurvePrivateKey') -> 'Safecurves-pkix-18';
-get_asn1_module('DHParameter') -> 'PKCS-3';
-get_asn1_module('ECPrivateKey') -> 'ECPrivateKey';
-get_asn1_module('ECParameters') -> 'PKIXAlgs-2009';
-get_asn1_module('DSA-Params') -> 'PKIXAlgs-2009';
-get_asn1_module('DSAPrivateKey') -> 'DSS';
-get_asn1_module('DSAPublicKey') -> 'PKIXAlgs-2009';
-get_asn1_module('ECDSA-Sig-Value') -> 'PKIXAlgs-2009';
-get_asn1_module('RSAPrivateKey') -> 'PKCS-1';
-get_asn1_module('RSASSA-PSS-params') -> 'PKIX1-PSS-OAEP-Algorithms-2009';
-get_asn1_module('SubjectPublicKeyInfo') -> 'PKIX1Explicit-2009';
-get_asn1_module('OTPTBSCertificate') -> 'OTP-PKIX';
-get_asn1_module('OTPCertificate') -> 'OTP-PKIX';
+get_asn1_module('SubjectAltName') -> 'PKIX1Implicit-2009';
 get_asn1_module('CRLDistributionPoints') -> 'PKIX1Implicit-2009';
 get_asn1_module('CRLReason') ->  'PKIX1Implicit-2009';
 get_asn1_module('CRLNumber') ->  'PKIX1Implicit-2009';
 get_asn1_module('FreshestCRL') ->  'PKIX1Implicit-2009';
 get_asn1_module('IssuingDistributionPoint') ->  'PKIX1Implicit-2009';
-get_asn1_module('GeneralNames') -> 'PKIX1Implicit-2009'.
-
+get_asn1_module('GeneralNames') -> 'PKIX1Implicit-2009';
+get_asn1_module('SubjectPublicKeyInfo') -> 'PKIX1Explicit-2009';
+get_asn1_module('CertificateList') -> 'PKIX1Explicit-2009';
+get_asn1_module('TBSCertList') -> 'PKIX1Explicit-2009';
+get_asn1_module('Name') -> 'PKIX1Explicit-2009';
+get_asn1_module('Validity') -> 'PKIX1Explicit-2009';
+get_asn1_module('RSAPublicKey') -> 'PKIXAlgs-2009';
+get_asn1_module('DSA-Params') -> 'PKIXAlgs-2009';
+get_asn1_module('BasicOCSPResponse') -> 'OCSP-2024-08';
+get_asn1_module('Nonce') -> 'OCSP-2024-08';
+get_asn1_module('OCSPResponse') -> 'OCSP-2024-08';
+get_asn1_module('ResponseData') -> 'OCSP-2024-08';
+get_asn1_module('SubjectKeyIdentifier') -> 'CryptographicMessageSyntax-2009';
+get_asn1_module('ContentInfo') -> 'CryptographicMessageSyntax-2009';
+get_asn1_module('CertificationRequest') -> 'PKCS-10';
+get_asn1_module('CertificationRequestInfo') -> 'PKCS-10';
+get_asn1_module('CurvePrivateKey') -> 'Safecurves-pkix-18';
+get_asn1_module('ECPrivateKey') -> 'ECPrivateKey';
+get_asn1_module('ECParameters') -> 'PKIXAlgs-2009';
+get_asn1_module('DSAPublicKey') -> 'PKIXAlgs-2009';
+get_asn1_module('ECDSA-Sig-Value') -> 'PKIXAlgs-2009';
+get_asn1_module('RSASSA-PSS-params') -> 'PKIX1-PSS-OAEP-Algorithms-2009';
+get_asn1_module('RSAPrivateKey') -> 'PKCS-1';
+get_asn1_module('DHParameter') -> 'PKCS-3';
+get_asn1_module('DSAPrivateKey') -> 'DSS';
+get_asn1_module('Extensions') -> 'OTP-PKIX';
+get_asn1_module('OTPTBSCertificate') -> 'OTP-PKIX';
+get_asn1_module('OTPCertificate') -> 'OTP-PKIX'.
 
 handle_pkcs_frame_error('PrivateKeyInfo', Der, _) ->
     try
@@ -2753,7 +2754,7 @@ format_field(prime_field, Params0) ->
     {prime_field, Prime}.
 
 ec_key({PubKey, PrivateKey}, Params) ->
-    #'ECPrivateKey'{version = 1,
+    #'ECPrivateKey'{version = ecPrivkeyVer1,
 		    privateKey = PrivateKey,
 		    parameters = Params,
 		    publicKey = PubKey}.
