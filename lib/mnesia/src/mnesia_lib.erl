@@ -75,7 +75,10 @@
 	 db_put/3,
 	 db_select/2,	 
 	 db_select/3,
+	 db_select_rev/2,
+	 db_select_rev/3,
 	 db_select_init/4,
+	 db_select_rev_init/4,
 	 db_select_cont/3,
 	 db_slot/2,
 	 db_slot/3,
@@ -1194,6 +1197,21 @@ db_select(Storage, Tab, Pat) ->
 	db_fixtable(Storage, Tab, false)
     end.
 
+db_select_rev(Tab, Pat) ->
+    db_select_rev(val({Tab, storage_type}), Tab, Pat).
+
+db_select_rev(Storage, Tab, Pat) ->
+    db_fixtable(Storage, Tab, true),
+    try
+	case Storage of
+	    disc_only_copies -> dets:select(Tab, Pat);
+	    {ext, Alias, Mod} -> Mod:select_reverse(Alias, Tab, Pat);
+	    _ -> ets:select_reverse(Tab, Pat)
+	end
+    after
+	db_fixtable(Storage, Tab, false)
+    end.
+
 db_select_init({ext, Alias, Mod}, Tab, Pat, Limit) ->
     Mod:select(Alias, Tab, Pat, Limit);
 db_select_init(disc_only_copies, Tab, Pat, Limit) ->
@@ -1223,6 +1241,13 @@ db_fixtable(disc_only_copies, Tab, Bool) ->
     dets:safe_fixtable(Tab, Bool);
 db_fixtable({ext, Alias, Mod}, Tab, Bool) ->
     Mod:fixtable(Alias, Tab, Bool).
+
+db_select_rev_init({ext, Alias, Mod}, Tab, Pat, Limit) ->
+    Mod:select_reverse(Alias, Tab, Pat, Limit);
+db_select_rev_init(disc_only_copies, Tab, Pat, Limit) ->
+    dets:select(Tab, Pat, Limit);
+db_select_rev_init(_, Tab, Pat, Limit) ->
+    ets:select_reverse(Tab, Pat, Limit).
 
 db_erase(Tab, Key) ->
     db_erase(val({Tab, storage_type}), Tab, Key).
