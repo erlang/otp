@@ -62,6 +62,8 @@
 -define(HAS_SUPPORT_IPV6(),      ?LIB:has_support_ipv6()).
 -define(WHICH_LOCAL_ADDR(D),     ?LIB:which_local_addr((D))).
 
+-define(SZ(X),                   ?LIB:sz((X))).
+
 -define(UNIQ_NODE_NAME,
   list_to_atom(?MODULE_STRING ++ "__" ++
                atom_to_list(?FUNCTION_NAME) ++ "_" ++
