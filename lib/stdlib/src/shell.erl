@@ -1309,7 +1309,7 @@ local_func(lr, [], Bs, _Shell, _RT, FT, _Lf, _Ef) ->
 %% In theory, you may want to be able to load a module in to local table
 %% edit them, and then save it back to the file system.
 %% You may also want to be able to save a test module.
-local_func(save_module, [{string,_,PathToFile}], Bs, _Shell, _RT, FT, _Lf, _Ef) ->
+local_func(save_module, [{string,_,PathToFile}], Bs, _Shell, RT, FT, _Lf, _Ef) ->
     [_Path, FileName] = string:split("/"++PathToFile, "/", trailing),
     [Module, _] = string:split(FileName, ".", leading),
     Module1 = io_lib:fwrite("~tw",[list_to_atom(Module)]),
@@ -1318,7 +1318,7 @@ local_func(save_module, [{string,_,PathToFile}], Bs, _Shell, _RT, FT, _Lf, _Ef) 
         "-module("++Module1++").\n\n" ++
         "-export(["++lists:join(",",Exports)++"]).\n\n"++
         local_types(FT) ++
-        local_records(FT) ++
+        local_records(RT) ++
         local_functions(FT)
     ),
     Ret = case filelib:is_file(PathToFile) of
@@ -1544,9 +1544,8 @@ local_types(FT) ->
     lists:join($\n,
         [TypeDef||{{type_def, _},TypeDef} <- ets:tab2list(FT)]).
 %% Output local records
-local_records(FT) ->
-    lists:join($\n,
-        [RecDef||{{record_def, _},RecDef} <- ets:tab2list(FT)]).
+local_records(RT) ->
+        [list_to_binary(erl_pp:attribute(RecDef))||{ _,RecDef} <- ets:tab2list(RT)].
 write_and_compile_module(PathToFile, Output) ->
     case file:write_file(PathToFile, unicode:characters_to_binary(Output)) of
         ok -> c:c(PathToFile);
