@@ -959,6 +959,8 @@ merge_patches({tuple_element,IA,EA,_}, {tuple_elements,Es}) ->
     {tuple_elements,[{IA,EA}|Es]};
 merge_patches({tuple_elements,Es}, {tuple_element,IA,EA,_}) ->
     {tuple_elements,[{IA,EA}|Es]};
+merge_patches(Patch, {self,heap_tuple}) ->
+    Patch;
 merge_patches({self,heap_tuple}, Other) ->
     %% We're already patching this element in Other and as it will
     %% force the term onto the heap, we can ignore the new patch.
