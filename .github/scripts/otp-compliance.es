@@ -228,8 +228,15 @@ cli() ->
                            Create VEX statements
                            Update CVEs and generate OpenVex Statements
                            """,
-                   arguments => [ input_option(~"openvex.table"), branch_option()],
-                   handler => fun update_openvex/1
+                   commands =>
+                       #{"init" =>
+                             #{ help =>
+                                    """
+                                    Initialise an openvex file.
+                                    """,
+                                arguments => [ input_option(~"openvex.table"), branch_option()],
+                                handler => fun init_openvex/1}
+                        }
                   },
              "explore" =>
                  #{  help => """
@@ -2050,24 +2057,47 @@ extracted_license_info() ->
 %% when we call 'generate' the template pattern matches on the pkg and duplicates the information
 %% contained in the affected package for the input version.
 %%
-update_openvex(#{input_file := File, branch := Branch}) ->
-    TemplateVex = <<".openvex/templates/", Branch/binary, ".openvex.json">>,
+%% Steps:
+%% 0. all files start as:
+%% {
+%%   "@context": "https://openvex.dev/ns/v0.2.0",
+%%   "@id": "https://openvex.dev/docs/public/vex-maint-27",
+%%   "author": "vexctl (automated template)",
+%%   "timestamp": "2025-06-05T15:04:52.71106557+02:00",
+%%   "version": 1,
+%%   "statements": []
+%% }
+%% 1. ./.github/scripts/otp-compliance.es vex --input-file openvex.table -b maint-27 > o.sh
+%% 2. ./o.sh
+init_openvex(#{input_file := File, branch := Branch}) ->
+    TemplateVex = <<".openvex/", Branch/binary, ".openvex.json">>,
+    Init = init_openvex_file(Branch),
+    file:write_file(TemplateVex, json:format(Init)),
+
     VexTable = decode(File),
     case maps:get(Branch, VexTable, error) of
         error ->
             fail("Could not find '~ts' in file '~ts'~n", [Branch, File]);
-        _CVEs ->
-            %% #{~"statements" := Stmts}=OpenVex = decode(TemplateVex),
-            maps:foreach(fun (_BranchName, ListCVEs) ->
-                                 lists:foreach(fun (#{~"status" := #{~"not_affected" := ~"vulnerable_code_not_present"}}=M) ->
-                                                       [{Purl, CVE}] = maps:to_list(maps:remove(~"status", M)),
-                                                       io:format("vexctl add --in-place ~ts --product ~ts --vuln ~ts --status ~ts --justification ~ts~n",
-                                                                [TemplateVex, Purl, CVE, ~"not_affected", ~"vulnerable_code_not_present"]);
-                                                   (#{~"status" := ~"fixed"}=M) ->
-                                                       [{Purl, CVE}] = maps:to_list(maps:remove(~"status", M)),
-                                                       io:format("vexctl add --in-place ~ts --product ~ts --vuln ~ts --status ~ts~n",
-                                                                [TemplateVex, Purl, CVE, ~"fixed"])
-                                               end, ListCVEs)
-                         end, VexTable)
+        CVEs ->
+            lists:foreach(fun (#{~"status" := #{~"not_affected" := ~"vulnerable_code_not_present"}}=M) ->
+                                  [{Purl, CVE}] = maps:to_list(maps:remove(~"status", M)),
+                                  %% io:format("vexctl add --in-place ~ts --product='~ts' --vuln='~ts' --status='~ts' --justification='~ts'~n",
+                                  io:format("vexctl add --in-place ~ts --product='~ts' --vuln='~ts' --status='~ts' --justification='~ts'~n",
+                                            [TemplateVex, Purl, CVE, ~"not_affected", ~"vulnerable_code_not_present"]);
+                              (#{~"status" := ~"fixed"}=M) ->
+                                  [{Purl, CVE}] = maps:to_list(maps:remove(~"status", M)),
+                                  io:format("vexctl add --in-place ~ts --product ~ts --vuln ~ts --status ~ts~n",
+                                            [TemplateVex, Purl, CVE, ~"fixed"])
+                          end, CVEs)
     end,
     ok.
+
+init_openvex_file(Branch) ->
+    #{
+      ~"@context"   => ~"https://openvex.dev/ns/v0.2.0",
+      ~"@id"        => <<"https://openvex.dev/docs/public/otp/vex-", Branch/binary>>,
+      ~"author"     => ~"vexctl",
+      ~"timestamp"  => erlang:list_to_binary(calendar:system_time_to_rfc3339(erlang:system_time(second))),
+      ~"version"    => 1,
+      ~"statements" => []
+     }.
