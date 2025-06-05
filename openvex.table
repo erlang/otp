@@ -1,0 +1,155 @@
+{
+    "maint-28":
+      [
+          {
+              "pkg:github/openssl/openssl" : "CVE-2025-4575",
+              "status": {"not_affected": "vulnerable_code_not_present"}
+          },
+
+          {
+              "pkg:github/PCRE2Project/pcre2": "OSV-2025-300",
+              "status": {"not_affected": "vulnerable_code_not_present"}
+          },
+
+          {
+              "pkg:github/madler/zlib": "CVE-2023-45853",
+              "status": {"not_affected": "vulnerable_code_not_present"}
+          },
+
+          {
+              "pkg:github/wxWidgets/wxWidgets": "CVE-2024-58249",
+              "status": {"not_affected": "vulnerable_code_not_present"}
+          }
+      ],
+
+    "maint-27":
+      [
+          {
+              "pkg:github/madler/zlib": "CVE-2023-45853",
+              "status": {"not_affected": "vulnerable_code_not_present"}
+          },
+
+          {
+              "pkg:github/wxWidgets/wxWidgets": "CVE-2024-58249",
+              "status": {"not_affected": "vulnerable_code_not_present"}
+          },
+
+          {
+              "pkg:github/openssl/openssl": "CVE-2023-6129",
+              "status": {"not_affected": "vulnerable_code_not_present"}
+          },
+
+          {
+              "pkg:github/openssl/openssl": "CVE-2023-6237",
+              "status": {"not_affected": "vulnerable_code_not_present"}
+          },
+
+          {
+              "pkg:github/openssl/openssl": "CVE-2024-0727",
+              "status": {"not_affected": "vulnerable_code_not_present"}
+          },
+
+          {
+              "pkg:github/openssl/openssl": "CVE-2024-13176",
+              "status": {"not_affected": "vulnerable_code_not_present"}
+          },
+
+          {
+              "pkg:github/openssl/openssl": "CVE-2024-2511",
+              "status": {"not_affected": "vulnerable_code_not_present"}
+          },
+
+          {
+              "pkg:github/openssl/openssl": "CVE-2024-4603",
+              "status": {"not_affected": "vulnerable_code_not_present"}
+          },
+
+          {
+              "pkg:github/openssl/openssl": "CVE-2024-4741",
+              "status": {"not_affected": "vulnerable_code_not_present"}
+          },
+
+          {
+              "pkg:github/openssl/openssl": "CVE-2024-5535",
+              "status": {"not_affected": "vulnerable_code_not_present"}
+          },
+
+          {
+              "pkg:github/openssl/openssl": "CVE-2024-6119",
+              "status": {"not_affected": "vulnerable_code_not_present"}
+          },
+
+          {
+              "pkg:github/openssl/openssl": "CVE-2024-9143",
+              "status": {"not_affected": "vulnerable_code_not_present"}
+          }
+      ],
+
+    "maint-26" :
+        [
+            {
+                "pkg:github/madler/zlib": ["CVE-2023-45853"],
+                "status": {"not_affected": "vulnerable_code_not_present"}
+            },
+
+            {
+                "pkg:github/wxWidgets/wxWidgets": ["CVE-2024-58249"],
+                "status": {"not_affected": "vulnerable_code_not_present"}
+            },
+
+            {
+              "pkg:github/openssl/openssl": "CVE-2023-6129",
+              "status": {"not_affected": "vulnerable_code_not_present"}
+            },
+
+            {
+              "pkg:github/openssl/openssl": "CVE-2023-6237",
+              "status": {"not_affected": "vulnerable_code_not_present"}
+            },
+
+            {
+              "pkg:github/openssl/openssl": "CVE-2024-0727",
+              "status": {"not_affected": "vulnerable_code_not_present"}
+            },
+
+            {
+              "pkg:github/openssl/openssl": "CVE-2024-13176",
+              "status": {"not_affected": "vulnerable_code_not_present"}
+            },
+
+            {
+              "pkg:github/openssl/openssl": "CVE-2024-2511",
+              "status": {"not_affected": "vulnerable_code_not_present"}
+            },
+
+            {
+              "pkg:github/openssl/openssl": "CVE-2024-4603",
+              "status": {"not_affected": "vulnerable_code_not_present"}
+            },
+
+            {
+              "pkg:github/openssl/openssl": "CVE-2024-4741",
+              "status": {"not_affected": "vulnerable_code_not_present"}
+            },
+
+            {
+              "pkg:github/openssl/openssl": "CVE-2024-5535",
+              "status": {"not_affected": "vulnerable_code_not_present"}
+            },
+
+            {
+              "pkg:github/openssl/openssl": "CVE-2024-6119",
+              "status": {"not_affected": "vulnerable_code_not_present"}
+            },
+
+            {
+              "pkg:github/openssl/openssl": "CVE-2024-9143",
+              "status": {"not_affected": "vulnerable_code_not_present"}
+            },
+
+            {
+                "pkg:otp/ssh": ["CVE-2025-46712"],
+                "status": "fixed"
+            }
+        ]
+}

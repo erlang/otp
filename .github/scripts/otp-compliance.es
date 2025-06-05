@@ -222,6 +222,15 @@ cli() ->
                                  arguments => [ sbom_option()],
                                  handler => fun sbom_vendor/1}
                          }},
+             "vex" =>
+                 #{
+                   help => """
+                           Create VEX statements
+                           Update CVEs and generate OpenVex Statements
+                           """,
+                   arguments => [ input_option(~"openvex.table"), branch_option()],
+                   handler => fun update_openvex/1
+                  },
              "explore" =>
                  #{  help => """
                             Explore license data.
@@ -368,6 +377,11 @@ base_file(DefaultFile) ->
       default => DefaultFile,
       long => "-base-file"}.
 
+branch_option() ->
+    #{name => branch,
+      type => binary,
+      short => $b,
+      long => "-branch"}.
 
 %%
 %% Commands
@@ -2005,3 +2019,55 @@ extracted_license_info() ->
 %%
 %% REUSE-IgnoreEnd
 %%
+
+%% input: file points to the list of items openvex.table
+%% branch: tell us which file from .openvex/templates must be edited and
+%%         which branch from openvex.table we take into account
+%%
+%% We take items from 'input.branch' and check that the openvex file
+%% contains those exact changes. if not, a new change is issued in the
+%% .openvex/templates/branch.openvex.json
+%%
+%% the new change is issued by calling vexctl, and all of this happens inside
+%% a github action. that is, we only release vex files on patches and releases,
+%% but otherwise nothing happens.
+%%
+%% we prefer all changes to live in `master` instead of in each branch to have
+%% a complete overview in the table file. more importantly, some CVEs are an exact
+%% copy between OTP versions
+%%
+%% this command fills out the template file with CVEs that should be applied to products.
+%% after running this script, one can run the action vexctl
+%%     https://github.com/openvex/generate-vex/blob/main/action.yaml
+%% which performs
+%%     vexctl generate "${{ inputs.product }}" --file="${{ inputs.file }}" --templates="${{ inputs.templates-dir }}"
+%% where inputs.product must be each of the OTP applications with version of the branch.
+%% e.g.,
+%%     vexctl generate "pkg:otp/stdlib@3.11.2" \
+%%       --file="${{ inputs.file }}" --templates="${{ inputs.templates-dir }}"
+%%
+%% essentially, the templates simply contain the applications for which there are CVEs.
+%% when we call 'generate' the template pattern matches on the pkg and duplicates the information
+%% contained in the affected package for the input version.
+%%
+update_openvex(#{input_file := File, branch := Branch}) ->
+    TemplateVex = <<".openvex/templates/", Branch/binary, ".openvex.json">>,
+    VexTable = decode(File),
+    case maps:get(Branch, VexTable, error) of
+        error ->
+            fail("Could not find '~ts' in file '~ts'~n", [Branch, File]);
+        _CVEs ->
+            %% #{~"statements" := Stmts}=OpenVex = decode(TemplateVex),
+            maps:foreach(fun (_BranchName, ListCVEs) ->
+                                 lists:foreach(fun (#{~"status" := #{~"not_affected" := ~"vulnerable_code_not_present"}}=M) ->
+                                                       [{Purl, CVE}] = maps:to_list(maps:remove(~"status", M)),
+                                                       io:format("vexctl add --in-place ~ts --product ~ts --vuln ~ts --status ~ts --justification ~ts~n",
+                                                                [TemplateVex, Purl, CVE, ~"not_affected", ~"vulnerable_code_not_present"]);
+                                                   (#{~"status" := ~"fixed"}=M) ->
+                                                       [{Purl, CVE}] = maps:to_list(maps:remove(~"status", M)),
+                                                       io:format("vexctl add --in-place ~ts --product ~ts --vuln ~ts --status ~ts~n",
+                                                                [TemplateVex, Purl, CVE, ~"fixed"])
+                                               end, ListCVEs)
+                         end, VexTable)
+    end,
+    ok.
