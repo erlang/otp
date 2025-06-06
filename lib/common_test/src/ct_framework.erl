@@ -952,7 +952,7 @@ error_notification(Mod,Func,_Args,{Error,Loc}) ->
 		 {test_case_failed,Reason} ->
 		     case (catch io_lib:format("{test_case_failed,~ts}", [Reason])) of
 			 {'EXIT',_} ->
-			     io_lib:format("{test_case_failed,~tp}", [Reason]);
+			     io_lib:format("{test_case_failed,~tkp}", [Reason]);
 			 Result -> Result
 		     end;
 		 Other ->
