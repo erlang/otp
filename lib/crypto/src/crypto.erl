@@ -157,6 +157,7 @@ end
 -export([hash/2, hash_xof/3, hash_init/1, hash_update/2, hash_final/1, hash_final_xof/2]).
 -export([sign/4, sign/5, verify/5, verify/6]).
 -export([generate_key/2, generate_key/3, compute_key/4]).
+-export([encapsulate_key/2, decapsulate_key/3]).
 -export([exor/2, strong_rand_bytes/1, mod_pow/3]).
 -export([rand_seed/0, rand_seed_alg/1, rand_seed_alg/2]).
 -export([rand_seed_s/0, rand_seed_alg_s/1, rand_seed_alg_s/2]).
@@ -268,6 +269,7 @@ end
 
 -nifs([info_nif/0, info_lib/0, info_fips/0, enable_fips_mode_nif/1,
        hash_algorithms/0, pubkey_algorithms/0, cipher_algorithms/0,
+       kem_algorithms_nif/0,
        mac_algorithms/0, curve_algorithms/0, rsa_opts_algorithms/0,
        hash_info/1, hash_nif/2, hash_init_nif/1, hash_update_nif/2,
        hash_final_nif/1, hash_final_xof_nif/2, mac_nif/4, mac_init_nif/3, mac_update_nif/2,
@@ -277,6 +279,7 @@ end
        strong_rand_bytes_nif/1, strong_rand_range_nif/1, rand_uniform_nif/2,
        mod_exp_nif/4, do_exor/2, hash_equals_nif/2, pbkdf2_hmac_nif/5,
        pkey_sign_nif/5, pkey_verify_nif/6, pkey_crypt_nif/6,
+       encapsulate_key_nif/2, decapsulate_key_nif/3,
        rsa_generate_key_nif/2, dh_generate_key_nif/4, dh_compute_key_nif/3,
        evp_compute_key_nif/3, evp_generate_key_nif/2, privkey_to_pubkey_nif/2,
        srp_value_B_nif/5, srp_user_secret_nif/7, srp_host_secret_nif/5,
@@ -342,6 +345,10 @@ end
 -doc "Always `t:binary/0` when used as return value".
 -doc(#{group => <<"Keys">>}).
 -type key_integer() :: integer() | binary(). % Always binary() when used as return value
+
+-doc "Key encapsulation mechanisms.".
+-doc(#{group => <<"Key Encapsulation Mechanism">>}).
+-type kem() :: mlkem512 | mlkem768 | mlkem1024.
 
 %%% Keys
 -doc(#{group => <<"Public/Private Keys">>,equiv => rsa_params()}).
@@ -808,19 +815,22 @@ stop() ->
 -spec supports() -> [Support]
                         when Support :: {hashs,   Hashs}
                                       | {ciphers, Ciphers}
+                                      | {kems, KEMs}
                                       | {public_keys, PKs}
                                       | {macs,    Macs}
                                       | {curves,  Curves}
                                       | {rsa_opts, RSAopts},
                              Hashs :: [sha1() | sha2() | sha3() | sha3_xof() | blake2() | ripemd160 | sm3 | compatibility_only_hash()],
                              Ciphers :: [cipher()],
-                             PKs :: [rsa | dss | ecdsa | dh | ecdh | eddh | ec_gf2m],
+                             KEMs :: [kem()],
+                             PKs :: [rsa | dss | ecdsa | dh | ecdh | eddh | ec_gf2m | mldsa()],
                              Macs :: [hmac | cmac | poly1305],
                              Curves :: [ec_named_curve() | edwards_curve_dh() | edwards_curve_ed()],
                              RSAopts :: [rsa_sign_verify_opt() | rsa_opt()] .
 supports() ->
      [{hashs,       supports(hashs)},
-      {ciphers,     supports(ciphers)}
+      {ciphers,     supports(ciphers)},
+      {kems,        supports(kems)}
       | [{T,supports(T)} || T <- [public_keys,
                                   macs,
                                   curves,
@@ -840,18 +850,21 @@ algorithms.
 -spec supports(Type) -> Support
                         when Type :: hashs
 			           | ciphers
+                                   | kems
                                    | public_keys
                                    | macs
                                    | curves
                                    | rsa_opts,
 			     Support :: Hashs
                                       | Ciphers
+                                      | KEMs
                                       | PKs
                                       | Macs
                                       | Curves
                                       | RSAopts,
                              Hashs :: [sha1() | sha2() | sha3() | sha3_xof() | blake2() | ripemd160 | compatibility_only_hash()],
                              Ciphers :: [cipher()],
+                             KEMs :: [kem()],
                              PKs :: [rsa | dss | ecdsa | dh | ecdh | eddh | ec_gf2m],
                              Macs :: [hmac | cmac | poly1305],
                              Curves :: [ec_named_curve() | edwards_curve_dh() | edwards_curve_ed()],
@@ -863,6 +876,7 @@ algorithms.
 supports(hashs)       -> hash_algorithms();
 supports(public_keys) -> pubkey_algorithms();
 supports(ciphers)     -> add_cipher_aliases(cipher_algorithms());
+supports(kems)        -> kem_algorithms_nif();
 supports(macs)        -> mac_algorithms();
 supports(curves)      -> curve_algorithms();
 supports(rsa_opts)    -> rsa_opts_algorithms().
@@ -2424,7 +2438,10 @@ rand_seed_nif(_Seed) -> ?nif_stub.
 %%%================================================================
 -doc "Algorithms for sign and verify.".
 -doc(#{group => <<"Public Key Sign and Verify">>}).
--type pk_sign_verify_algs() :: rsa | dss | ecdsa | eddsa .
+-type pk_sign_verify_algs() :: rsa | dss | ecdsa | eddsa | mldsa().
+-type mldsa() :: mldsa44 | mldsa65 | mldsa87.
+-type mldsa_private() :: {seed | expandedkey, binary()}.
+-type mldsa_public() :: binary().
 
 -doc(#{group => <<"Public Key Sign and Verify">>,
        equiv => rsa_sign_verify_padding()}).
@@ -2470,6 +2487,7 @@ Options for sign and verify.
                            | dss_private()
                            | [ecdsa_private() | ecdsa_params()]
                            | [eddsa_private() | eddsa_params()]
+                           | mldsa_private()
                            | engine_key_ref(),
                       Signature :: binary() .
 
@@ -2503,6 +2521,7 @@ See also `public_key:sign/3`.
                            | dss_private()
                            | [ecdsa_private() | ecdsa_params()]
                            | [eddsa_private() | eddsa_params()]
+                           | mldsa_private()
                            | engine_key_ref(),
                       Options :: pk_sign_verify_opts(),
                       Signature :: binary() .
@@ -2534,6 +2553,7 @@ pkey_sign_nif(_Algorithm, _Type, _Digest, _Key, _Options) -> ?nif_stub.
                              | dss_public()
                              | [ecdsa_public() | ecdsa_params()]
                              | [eddsa_public() | eddsa_params()]
+                             | mldsa_public()
                              | engine_key_ref(),
                         Result :: boolean().
 
@@ -2567,6 +2587,7 @@ See also `public_key:verify/4`.
                              | dss_public()
                              | [ecdsa_public() | ecdsa_params()]
                              | [eddsa_public() | eddsa_params()]
+                             | mldsa_public()
                              | engine_key_ref(),
                         Options :: pk_sign_verify_opts(),
                         Result :: boolean().
@@ -2877,9 +2898,57 @@ generate_key(eddsa, Curve, PrivKey) when Curve == ed448 ;
     ?nif_call(evp_generate_key_nif(Curve, ensure_int_as_bin(PrivKey)),
               {2, 3},
               [eddsa, Curve, PrivKey]
-             ).
+             );
+generate_key(Type, [], PrivKey) ->
+    ?nif_call(evp_generate_key_nif(Type, PrivKey)).
+
 
 evp_generate_key_nif(_Curve, _PrivKey) -> ?nif_stub.
+
+
+-doc """
+Generate encapsulated shared secret from the other party's public key.
+
+Returns both a shared secret for encryption/decryption by local party and an
+encapsulated format of the same secret to be safely sent to the other
+party. With its private key, the other party can decapsulate the received secret
+(with `decapsulate_key/3` for example) to regenerate the same shared secret.
+
+Supported encapsulation methods can be obtained with
+[`supports(kems)`](`supports/1`).
+""".
+-doc(#{group => ~b"Key API",
+       since => ~b"OTP @OTP-19657@"}).
+-spec encapsulate_key(Type, OthersPublicKey) -> {Secret, EncapSecret}
+              when Type :: kem(),
+                   OthersPublicKey :: binary(),
+                   Secret :: binary(),
+                   EncapSecret :: binary().
+encapsulate_key(Type, OthersPublicKey) ->
+    encapsulate_key_nif(Type, OthersPublicKey).
+
+encapsulate_key_nif(_Type, _OthersPublicKey) -> ?nif_stub.
+
+
+-doc """
+Regenerate shared secret from encapsulated secret and private key.
+
+Returns a shared secret for encryption/decryption by local party.
+
+Supported encapsulation methods can be obtained with
+[`supports(kems)`](`supports/1`).
+""".
+-doc(#{group => ~b"Key API",
+       since => ~b"OTP @OTP-19657@"}).
+-spec decapsulate_key(Type, MyPrivKey, EncapSecret) -> Secret
+              when Type :: kem(),
+                   MyPrivKey :: binary(),
+                   EncapSecret :: binary(),
+                   Secret :: binary().
+decapsulate_key(Type, MyPrivKey, EncapSecret) ->
+    decapsulate_key_nif(Type, MyPrivKey, EncapSecret).
+
+decapsulate_key_nif(_Type, _MyPrivKey, _EncapSecret) -> ?nif_stub.
 
 
 -doc """
@@ -3822,6 +3891,7 @@ hash_equals_nif(_A, _B) -> ?nif_stub.
 hash_algorithms() -> ?nif_stub.
 pubkey_algorithms() -> ?nif_stub.
 cipher_algorithms() -> ?nif_stub.
+kem_algorithms_nif() -> ?nif_stub.
 mac_algorithms() -> ?nif_stub.
 curve_algorithms() -> ?nif_stub.
 rsa_opts_algorithms() -> ?nif_stub.

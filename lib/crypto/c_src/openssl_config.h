@@ -379,6 +379,14 @@
 #endif
 #endif
 
+#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(3,5,0)
+#  ifndef OPENSSL_NO_ML_KEM
+#    define HAVE_ML_KEM
+#  endif
+#  ifndef OPENSSL_NO_ML_DSA
+#    define HAVE_ML_DSA
+#  endif
+#endif
 
 #if defined(HAS_ENGINE_SUPPORT)
 # include <openssl/engine.h>
