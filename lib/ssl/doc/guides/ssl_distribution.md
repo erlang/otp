@@ -268,7 +268,6 @@ handling decoding errors and directly verifying signatures.
 
 For more details see `{verify_fun, Verify}` [in common_option_cert](`t:ssl:common_option_cert/0`)
 
-
 > #### Note {: .info }
 > The legacy command line format for `verify_fun` cannot be used
 > in a `-ssl_dist_optfile` file as described below in
