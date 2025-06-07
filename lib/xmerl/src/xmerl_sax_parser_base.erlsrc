@@ -187,6 +187,11 @@ handle_end_document({other, Error, State}) ->
 %% Description: Parsing an XML document
 %%              [1] document ::= prolog element Misc*
 %%----------------------------------------------------------------------
+parse_document(Rest, #xmerl_sax_parser_state{discard_ws_before_xml_document = true} = State) ->
+    {_WS, Rest1, State1} = whitespace(Rest, State, []),
+    {Rest2, State2} = parse_byte_order_mark(Rest1, State1),
+    {Rest3, State3} = parse_misc(Rest2, State2, true),
+    {ok, Rest3, State3};
 parse_document(Rest, State) when is_record(State, xmerl_sax_parser_state) ->
     {Rest1, State1} = parse_byte_order_mark(Rest, State),
     {Rest2, State2} = parse_misc(Rest1, State1, true),
@@ -336,8 +341,9 @@ parse_prolog(?STRING_REST("<?", Rest), State) ->
     case parse_pi(Rest, State) of
 	{Rest1, State1} ->
 	    parse_prolog(Rest1, State1);
-	{endDocument, Rest1, State1} ->
-	    parse_prolog(Rest1, State1)  
+	{endDocument, _Rest1, State1} ->
+            ?fatal_error(State1, "<?xml  ...?> not first in document")
+	    %% parse_prolog(Rest1, State1)  
     end;
 parse_prolog(?STRING_REST("<!", Rest), State) ->
     parse_prolog_1(Rest, State);

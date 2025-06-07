@@ -35,7 +35,6 @@
 -include("ssh_transport.hrl").
 -include("ssh_auth.hrl").
 -include("ssh_connect.hrl").
-
 -include("ssh_fsm.hrl").
 
 %%====================================================================
@@ -732,16 +731,6 @@ handle_event(internal, #ssh_msg_disconnect{description=Desc} = Msg, StateName, D
     disconnect_fun("Received disconnect: "++Desc, D),
     {stop_and_reply, {shutdown,Desc}, Actions, D};
 
-handle_event(internal, #ssh_msg_ignore{}, {_StateName, _Role, init},
-             #data{ssh_params = #ssh{kex_strict_negotiated = true,
-                                     send_sequence = SendSeq,
-                                     recv_sequence = RecvSeq}}) ->
-    ?DISCONNECT(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
-                io_lib:format("strict KEX violation: unexpected SSH_MSG_IGNORE "
-                              "send_sequence = ~p  recv_sequence = ~p",
-                              [SendSeq, RecvSeq])
-               );
-
 handle_event(internal, #ssh_msg_ignore{}, _StateName, _) ->
     keep_state_and_data;
 
@@ -1145,11 +1134,14 @@ handle_event(info, {Proto, Sock, NewData}, StateName,
     of
 	{packet_decrypted, DecryptedBytes, EncryptedDataRest, Ssh1} ->
 	    D1 = D0#data{ssh_params =
-			    Ssh1#ssh{recv_sequence = ssh_transport:next_seqnum(Ssh1#ssh.recv_sequence)},
-			decrypted_data_buffer = <<>>,
-                        undecrypted_packet_length = undefined,
-                        aead_data = <<>>,
-			encrypted_data_buffer = EncryptedDataRest},
+                             Ssh1#ssh{recv_sequence =
+                                          ssh_transport:next_seqnum(StateName,
+                                                                    Ssh1#ssh.recv_sequence,
+                                                                    SshParams)},
+                         decrypted_data_buffer = <<>>,
+                         undecrypted_packet_length = undefined,
+                         aead_data = <<>>,
+                         encrypted_data_buffer = EncryptedDataRest},
 	    try
 		ssh_message:decode(set_kex_overload_prefix(DecryptedBytes,D1))
 	    of

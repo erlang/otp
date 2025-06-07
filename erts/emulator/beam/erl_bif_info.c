@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1999-2024. All Rights Reserved.
+ * Copyright Ericsson AB 1999-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -3857,6 +3857,7 @@ fun_info_2(BIF_ALIST_2)
     case am_module:
         /* Unloaded funs must report their module even though we can't find
          * their full MFA. */
+        ASSERT(fe != NULL || mfa != NULL);
         val = (mfa != NULL) ? mfa->module : fe->module;
         hp = HAlloc(p, 3);
         break;

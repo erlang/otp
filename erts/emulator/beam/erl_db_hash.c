@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1998-2024. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -1645,6 +1645,7 @@ int db_erase_hash(DbTable *tbl, Eterm key, Eterm *ret)
 	bp = &b->next;
 	b = b->next;
     }
+    ERTS_UNDEF(nitems, -1);
     if (nitems_diff) {
         ADD_NITEMS(tb, lck_ctr, hval, nitems_diff);
         nitems = NITEMS_ESTIMATE(tb, lck_ctr, hval);
@@ -1710,6 +1711,7 @@ static int db_erase_object_hash(DbTable *tbl, Eterm object, Eterm *ret)
 	bp = &b->next;
 	b = b->next;
     }
+    ERTS_UNDEF(nitems, -1);
     if (nitems_diff) {
         ADD_NITEMS(tb, lck_ctr, hval, nitems_diff);
         nitems = NITEMS_ESTIMATE(tb, lck_ctr, hval);
@@ -2975,6 +2977,7 @@ static int db_take_hash(Process *p, DbTable *tbl, Eterm key, Eterm *ret)
             break;
         }
     }
+    ERTS_UNDEF(nitems, -1);
     if (nitems_diff) {
         ADD_NITEMS(tb, lck_ctr, hval, nitems_diff);
         nitems = NITEMS_ESTIMATE(tb, lck_ctr, hval);

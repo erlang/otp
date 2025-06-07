@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2002-2023. All Rights Reserved.
+ * Copyright Ericsson AB 2002-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -2907,6 +2907,7 @@ erts_allocator_options(void *proc)
     hpp = NULL;
     szp = &sz;
     sz = 0;
+    ERTS_UNDEF(hp, NULL);
 
  bld_term:
 

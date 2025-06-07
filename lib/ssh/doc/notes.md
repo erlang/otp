@@ -19,6 +19,14 @@ limitations under the License.
 -->
 # SSH Release Notes
 
+## Ssh 5.2.11
+
+### Fixed Bugs and Malfunctions
+
+- Fix KEX strict implementation according to draft-miller-sshm-strict-kex-01 document.
+
+  Own Id: OTP-19625 Aux Id: CVE-2025-46712
+
 ## Ssh 5.2.10
 
 ### Fixed Bugs and Malfunctions

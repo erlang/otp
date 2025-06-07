@@ -159,6 +159,8 @@ BIF_RETTYPE link_1(BIF_ALIST_1)
 	if (!prt)
 	    goto res_no_proc;
 
+        ERTS_UNDEF(ref, THE_NON_VALUE);
+
         lnk = erts_link_internal_tree_lookup_create(&ERTS_P_LINKS(BIF_P),
                                                     &created,
                                                     ERTS_LNK_TYPE_PORT,
@@ -1099,6 +1101,8 @@ BIF_RETTYPE unlink_1(BIF_ALIST_1)
             Eterm *refp = erts_port_synchronous_ops ? &ref : NULL;
             ErtsPortOpResult res = ERTS_PORT_OP_DROPPED;
 	    Port *prt;
+
+            ERTS_UNDEF(ref, THE_NON_VALUE);
 
 	    /* Send unlink signal */
 	    prt = erts_port_lookup(BIF_ARG_1, ERTS_PORT_SFLGS_DEAD);
