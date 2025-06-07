@@ -217,7 +217,7 @@ protocol.
 ## verify_fun Configuration Example
 
 The `verify_fun` option creates a reference to the implementing
-function since the configuratin is evaluated as an Erlang term. In
+function since the configuration is evaluated as an Erlang term. In
 an example file for use with `-ssl_dist_optfile`:
 
 
