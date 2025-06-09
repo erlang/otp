@@ -3,10 +3,14 @@
 set -eo pipefail
 
 BASE_BRANCH="$1"
+LATEST_ERLANG_VERSION="unknown"
 
 case "${BASE_BRANCH}" in
-    master|maint|maint-*)
-    ;;
+    maint-*)
+        LATEST_ERLANG_VERSION=${BASE_BRANCH#"maint-"}
+        ;;
+    master|maint)
+        ;;
     *)
         BASE_BRANCH="master"
         ;;
@@ -60,6 +64,7 @@ else
        --build-arg MAKEFLAGS=-j$(($(nproc) + 2)) \
        --build-arg USER=otptest --build-arg GROUP=uucp \
        --build-arg uid="$(id -u)" \
+       --build-arg LATEST_ERLANG_VERSION="${LATEST_ERLANG_VERSION}" \
        --build-arg BASE="${BASE}" .github/
 
     NEW_BASE_IMAGE_ID=$(docker images -q "${BASE_TAG}:latest")
