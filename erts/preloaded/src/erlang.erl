@@ -6503,7 +6503,7 @@ catch
 end
 ```
 
-Failure: `nocatch` if not caught by an exception handler.
+If `throw/1` is not evaluated within a catch, a `nocatch` run-time error occurs.
 
 See the guide about [errors and error handling](`e:system:errors.md`) for
 additional information.
