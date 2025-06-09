@@ -66,13 +66,19 @@ ENV OTP_STRICT_INSTALL=yes
 
 RUN mkdir /buildroot /tests /otp && chown ${USER}:${GROUP} /buildroot /tests /otp
 
+ARG LATEST_ERLANG_VERSION=unknown
+
 ## We install the latest version of the previous three releases in order to do
 ## backwards compatability testing of Erlang.
 RUN apt-get update && apt-get install -y git curl && \
     curl -L https://raw.githubusercontent.com/kerl/kerl/master/kerl > /usr/bin/kerl && \
     chmod +x /usr/bin/kerl && \
     kerl update releases && \
-    LATEST=$(kerl list releases | grep "\*$" | tail -1 | awk -F '.' '{print $1}') && \
+    if [ ${LATEST_ERLANG_VERSION} = "unknown" ]; then \
+        LATEST=$(kerl list releases | grep "\*$" | tail -1 | awk -F '.' '{print $1}'); \
+    else \
+        LATEST=${LATEST_ERLANG_VERSION}; \
+    fi && \
     for release in $(seq $(( LATEST - 2 )) $(( LATEST ))); do \
       VSN=$(kerl list releases | grep "^$release" | tail -1 | awk '{print $1}'); \
       if [ $release = $LATEST ]; then \
