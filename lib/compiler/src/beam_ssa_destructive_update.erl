@@ -951,6 +951,8 @@ merge_arg_patches([{Idx,_Lit,E1}|Patches], Acc) ->
 merge_arg_patches([], Acc) ->
     Acc.
 
+%% Merge two patches. The merging should be commutative since we do not
+%% normalize patch order before merging.
 merge_patches({tuple_element,I,E0,D0}, {tuple_element,I,E1,D1}) ->
     {tuple_element, I, merge_patches(E0, E1), max(D0,D1)};
 merge_patches({tuple_element,IA,EA,_}, {tuple_element,IB,EB,_}) ->
@@ -959,6 +961,10 @@ merge_patches({tuple_element,IA,EA,_}, {tuple_elements,Es}) ->
     {tuple_elements,[{IA,EA}|Es]};
 merge_patches({tuple_elements,Es}, {tuple_element,IA,EA,_}) ->
     {tuple_elements,[{IA,EA}|Es]};
+merge_patches(Patch, {self,heap_tuple}) ->
+    %% If we find anything more specific than a heap_tuple, the more
+    %% specific patch subsumes the heap_tuple
+    Patch;
 merge_patches({self,heap_tuple}, Other) ->
     %% We're already patching this element in Other and as it will
     %% force the term onto the heap, we can ignore the new patch.
