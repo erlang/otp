@@ -36,6 +36,8 @@ fields can change in future Erlang/OTP releases.
 """.
 -type mp() :: {re_pattern, _, _, _, _}.
 
+-type exported() :: {re_exported_pattern, _}.
+
 -type nl_spec() :: cr | crlf | lf | nul | anycrlf | any.
 
 -type compile_options() :: [compile_option()].
@@ -65,6 +67,13 @@ fields can change in future Erlang/OTP releases.
 -export([internal_run/4]).
 
 -export([version/0, compile/1, compile/2, run/2, run/3, inspect/2]).
+
+-export([import/1]).
+
+-spec import(exported()) -> {ok, mp()}.
+import(_) ->
+    erlang:nif_error(undef).
+
 
 -doc """
 The return of this function is a string with the PCRE version of the system that
