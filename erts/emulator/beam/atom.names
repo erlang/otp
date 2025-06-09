@@ -302,6 +302,7 @@ atom existing_processes
 atom existing_ports
 atom existing
 atom exiting
+atom export
 atom exports
 atom extended
 atom external
@@ -603,6 +604,7 @@ atom public
 atom queue_size
 atom raw
 atom re
+atom re_exported_pattern
 atom re_pattern
 atom re_run_trap
 atom read_concurrency
