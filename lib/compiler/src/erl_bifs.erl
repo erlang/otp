@@ -106,6 +106,7 @@ is_pure(erlang, hd, 1) -> true;
 is_pure(erlang, integer_to_binary, 1) -> true;
 is_pure(erlang, integer_to_list, 1) -> true;
 is_pure(erlang, is_atom, 1) -> true;
+is_pure(erlang, is_between, 3) -> true;
 is_pure(erlang, is_boolean, 1) -> true;
 is_pure(erlang, is_binary, 1) -> true;
 is_pure(erlang, is_bitstring, 1) -> true;

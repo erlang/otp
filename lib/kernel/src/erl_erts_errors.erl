@@ -477,6 +477,8 @@ format_erlang_error(is_function, [_,Arity], _) ->
          is_integer(Arity) -> range;
          true -> not_integer
      end];
+format_erlang_error(is_between, [_,_,_], _) ->
+    [not_integer];
 format_erlang_error(is_map_key, [_,_], _) ->
     [[],not_map];
 format_erlang_error(is_process_alive, [Arg], _) ->

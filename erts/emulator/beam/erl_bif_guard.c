@@ -334,6 +334,20 @@ BIF_RETTYPE size_1(BIF_ALIST_1)
     BIF_ERROR(BIF_P, BADARG);
 }
 
+BIF_RETTYPE is_between_3(BIF_ALIST_3)
+{
+    if(is_not_integer(BIF_ARG_2) ||
+       is_not_integer(BIF_ARG_3)) {
+        BIF_ERROR(BIF_P, BADARG);
+    }
+    if(is_not_integer(BIF_ARG_1)) {
+        BIF_RET(am_false);
+    }
+
+    BIF_RET((CMP_LE(BIF_ARG_2, BIF_ARG_1) && CMP_LE(BIF_ARG_1, BIF_ARG_3)) ?
+        am_true : am_false);
+}
+
 /**********************************************************************/
 /* returns the bitsize of a bitstring */
 

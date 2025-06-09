@@ -2347,6 +2347,19 @@ infer_types_1(#value{op={bif,is_reference},args=[Src]}, Val, Op, Vst) ->
     infer_type_test_bif(reference, Src, Val, Op, Vst);
 infer_types_1(#value{op={bif,is_tuple},args=[Src]}, Val, Op, Vst) ->
     infer_type_test_bif(#t_tuple{}, Src, Val, Op, Vst);
+infer_types_1(#value{op={bif,is_between},args=[Src,
+                                               {integer, Min},
+                                               {integer, Max}]}, Val, Op, Vst) ->
+    infer_type_test_bif(beam_types:make_integer(Min, Max), Src, Val, Op, Vst);
+infer_types_1(#value{op={bif,is_between},args=[Src, _, _]}, Val, Op, Vst) ->
+    %% Unknown bounds; we know it's an integer when 'true', but cannot draw
+    %% any conclusions when 'false'.
+    case Val of
+        {atom, Bool} when Op =:= eq_exact, Bool; Op =:= ne_exact, not Bool ->
+            update_type(fun meet/2, #t_integer{}, Src, Vst);
+        _ ->
+            Vst
+    end;
 infer_types_1(#value{op={bif,tuple_size}, args=[Tuple]},
               {integer,Arity}, Op, Vst) ->
     Type = #t_tuple{exact=true,size=Arity},

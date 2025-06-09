@@ -828,3 +828,8 @@ bif erl_debugger:stack_frames/2
 bif erl_debugger:peek_stack_frame_slot/4
 bif erl_debugger:xregs_count/1
 bif erl_debugger:peek_xreg/3
+
+#
+# New in 29.
+#
+ubif erlang:is_between/3

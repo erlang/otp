@@ -940,6 +940,7 @@ error_info(_Config) ->
          {is_builtin, [1, 2, a]},
          {is_function, [abc, bad_arity]},
          {is_function, [abc, -1]},
+         {is_between, [5, a, b]},
          {is_map_key, [key, not_map]},
          {is_process_alive, [abc]},
          {is_record, [not_tuple,42]},
