@@ -814,6 +814,7 @@ bif2 _Fail Bif S1 S2 Dst | never_fails(Bif) => nofail_bif2 S1 S2 Bif Dst
 
 bif1 Fail Bif S1 Dst    => i_bif1 S1 Fail Bif Dst
 bif2 Fail Bif S1 S2 Dst => i_bif2 S1 S2 Fail Bif Dst
+bif3 Fail Bif S1 S2 S3 Dst => i_bif3 S1 S2 S3 Fail Bif Dst
 
 nofail_bif2 S1=d S2 Bif Dst | is_eq_exact_bif(Bif) => bif_is_eq_exact S1 S2 Dst
 nofail_bif2 S1=d S2 Bif Dst | is_ne_exact_bif(Bif) => bif_is_ne_exact S1 S2 Dst

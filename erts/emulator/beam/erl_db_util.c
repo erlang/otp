@@ -589,6 +589,12 @@ static DMCGuardBif guard_tab[] =
 	DBIF_ALL
     },
     {
+	am_is_integer,
+	&is_integer_3,
+	3,
+	DBIF_ALL
+    },
+    {
 	am_is_list,
 	&is_list_1,
 	1,
