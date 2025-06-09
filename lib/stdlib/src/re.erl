@@ -30,11 +30,36 @@
 -doc """
 Opaque data type containing a compiled regular expression.
 
-`t:mp/0` is guaranteed to be a tuple() having the atom `re_pattern` as its first element, to
-allow for matching in guards. The arity of the tuple or the content of the other
-fields can change in future Erlang/OTP releases.
+A compiled regular expression of this type can only be executed on the node
+instance where it was compiled.
+
+> #### Change {: .info }
+>
+> Before Erlang/OTP 28, it was possible to abuse `mp()` and execute such terms
+> on nodes other than the one where they were compiled. This was unsafe, as it only
+> worked if the two nodes were sufficiently compatible (hardware and software), and
+> executing incompatible `mp()` terms could lead to unpleasant side effects.
+>
+> From Erlang/OTP 28 this unsafe abuse is no longer possible. Instead use the
+> possibility to safely [export](#EXPORT_OPT) and [import](`import/1`)
+> compiled regular expressions between nodes.
+
+Type `mp()` is guaranteed to be a tuple having the atom `re_pattern` as its
+first element to allow for matching in guards. The arity of the tuple or the
+content of the other fields can change in future Erlang/OTP releases.
 """.
 -type mp() :: {re_pattern, _, _, _, _}.
+
+-doc """
+Opaque data type containing an [exported](#EXPORT_OPT) compiled regular
+expression.
+
+Type `exported()` is guaranteed to be a tuple having the atom
+`re_exported_pattern` as its first element to allow for matching in guards. The
+arity of the tuple or the content of the other fields can change in future
+Erlang/OTP releases.
+""".
+-type exported() :: {re_exported_pattern, _, _, _, _}.
 
 -type nl_spec() :: cr | crlf | lf | nul | anycrlf | any.
 
@@ -66,6 +91,21 @@ fields can change in future Erlang/OTP releases.
 
 -export([version/0, compile/1, compile/2, run/2, run/3, inspect/2]).
 
+-export([import/1]).
+
+-doc """
+Imports a regular expression compiled with option [`export`](#EXPORT_OPT). The
+importing is cheap if the importing node is compatible enough to the exporting
+node. If incompatible, as a fallback the `import/1` function will re-compile the regular
+expression from its string format, which is included in
+[`exported()`](`t:exported/0`).
+""".
+-doc(#{since => <<"OTP @OTP-19730@">>}).
+-spec import(Exported :: exported()) -> mp().
+import(_) ->
+    erlang:nif_error(undef).
+
+
 -doc """
 The return of this function is a string with the PCRE version of the system that
 was used in the Erlang/OTP compilation.
@@ -81,9 +121,8 @@ version() ->
     erlang:nif_error(undef).
 
 -doc "The same as [`compile(Regexp,[])`](`compile/2`)".
--spec compile(Regexp) -> {ok, MP} | {error, ErrSpec} when
+-spec compile(Regexp) -> {ok, mp()} | {error, ErrSpec} when
       Regexp :: iodata(),
-      MP :: mp(),
       ErrSpec :: {ErrString :: string(), Position :: non_neg_integer()}.
 
 compile(_) ->
@@ -230,12 +269,20 @@ Options:
 - **`never_utf`** - Specifies that the (*UTF) and/or (*UTF8) "start-of-pattern
   items" are forbidden. This flag cannot be combined with option `unicode`.
   Useful if ISO Latin-1 patterns from an external source are to be compiled.
+
+- [](){: #EXPORT_OPT }**`export`** - Returns the compiled regular expression in
+  a format [`exported()`](`t:exported/0`) that can be imported into any node
+  instance. Normally, a compiled regex can only be executed by the node instance
+  that compiled it. With option `export` the returned term can be communicated
+  (in any way) to any node. The receiving node must import it by calling
+  `import/1` to get a compiled regular expression executable on that local node.
+
+  Option `export` and function `import/1` are supported since OTP @OTP-19730@.
 """.
--spec compile(Regexp, Options) -> {ok, MP} | {error, ErrSpec} when
+-spec compile(Regexp, Options) -> {ok, mp() | exported()} | {error, ErrSpec} when
       Regexp :: iodata() | unicode:charlist(),
       Options :: [Option],
-      Option :: compile_option(),
-      MP :: mp(),
+      Option :: compile_option() | export,
       ErrSpec :: {ErrString :: string(), Position :: non_neg_integer()}.
 
 compile(_, _) ->
@@ -257,8 +304,8 @@ Executes a regular expression matching, and returns `match/{match, Captured}` or
 
 The regular expression can be specified either as `t:iodata/0` in
 which case it is automatically compiled (as by [`compile/2`](`compile/2`)) and
-executed, or as a precompiled `t:mp/0` in which case it is executed against the
-subject directly.
+executed, or as a precompiled [`mp()`](`t:mp/0`) in which case it is executed
+against the subject directly.
 
 When compilation is involved, exception `badarg` is thrown if a compilation
 error occurs. Call [`compile/2`](`compile/2`) to get information about the
