@@ -316,7 +316,7 @@ test_register_and_unregister_debugger(_Config) ->
     undefined = erl_debugger:whereis(),
 
     Me = self(),
-    AnotherProc = erlang:spawn_link(fun() -> receive after infinity -> ok end end),
+    AnotherProc = spawn_link(fun() -> receive after infinity -> ok end end),
 
     {ok, Session1} = erl_debugger:register(Me),
     Me = erl_debugger:whereis(),
@@ -343,7 +343,10 @@ test_register_and_unregister_debugger(_Config) ->
 
 test_debugger_unregistered_when_dead(_Config) ->
     Me = self(),
-    {Debugger, MonRef} = erlang:spawn_monitor(fun() -> receive after infinity -> ok end end),
+    {Debugger, MonRef} =
+        spawn_monitor(fun() ->
+                              receive after infinity -> ok end
+                      end),
 
     {ok, _Session} = erl_debugger:register(Debugger),
     Debugger = erl_debugger:whereis(),
@@ -440,7 +443,7 @@ test_hitting_bp_stops_and_notifies_debugger_process(Config) ->
     [ok = erl_debugger:breakpoint(foo, Line, true) || Line <- [7, 10, 12, 18, 19]],
 
     TestCaseProcess = self(),
-    Pid = erlang:spawn(fun() -> foo:go(TestCaseProcess) end),
+    Pid = spawn_link(fun() -> foo:go(TestCaseProcess) end),
 
     {Pid, Resume1} = ?assertBreakpointHit(Session, {foo, go, 1}, 7),
     ?assertMailboxEmpty(),
@@ -487,7 +490,7 @@ test_bps_work_with_inlined_functions(Config) ->
 
     TestCaseProcess = self(),
     X0 = 42,
-    Pid = erlang:spawn(fun() -> inlined_funs:go(TestCaseProcess, X0) end),
+    Pid = spawn_link(fun() -> inlined_funs:go(TestCaseProcess, X0) end),
 
     {Pid, Resume1} = ?assertBreakpointHit(Session, {inlined_funs, go, 2}, Line),
     ?assertMailboxEmpty(),
@@ -515,18 +518,16 @@ test_bps_work_with_large_number_of_live_xregs(Config) ->
     TestCaseProcess = self(),
     N = 10,
 
-    Pid = erlang:spawn(fun() ->
-        Res = erlang:apply(many_live_xregs, many_args, [N, 0 | lists:seq(1, 98)]),
+    Pid = spawn_link(fun() ->
+        Res = apply(many_live_xregs, many_args, [N, 0 | lists:seq(1, 98)]),
         TestCaseProcess ! {result, self(), Res}
     end),
 
-    [
-        begin
-            {Pid, Resume} = ?assertBreakpointHit(Session, {many_live_xregs, many_args, 100}, Line),
-            ?assertMailboxEmpty(),
-            ok = Resume()
-        end
-        || _ <- lists:seq(0,N)
+    [begin
+         {Pid, Resume} = ?assertBreakpointHit(Session, {many_live_xregs, many_args, 100}, Line),
+         ?assertMailboxEmpty(),
+         ok = Resume()
+     end || _ <- lists:seq(0,N)
     ],
 
     ExpectedResult = (98 * (98+1) div 2) * N,
@@ -544,18 +545,16 @@ test_bps_work_with_a_huge_stack_depth_which_should_require_gc(Config) ->
     N = 100_000,
 
     TC = self(),
-    Pid = erlang:spawn(fun() ->
-        gc_test:go({max_recursion_depth, N}),
-        TC ! {done, self()}
-    end),
+    Pid = spawn_link(fun() ->
+                             gc_test:go({max_recursion_depth, N}),
+                             TC ! {done, self()}
+                     end),
 
-    [
-        begin
-            {Pid, Resume} = ?assertBreakpointHit(Session, {gc_test, go, 1}, Line),
-            ?assertMailboxEmpty(),
-            ok = Resume()
-        end
-        || _ <- lists:seq(1,N)
+    [begin
+         {Pid, Resume} = ?assertBreakpointHit(Session, {gc_test, go, 1}, Line),
+         ?assertMailboxEmpty(),
+         ok = Resume()
+     end || _ <- lists:seq(1, N)
     ],
 
     ?expectReceive({done, Pid}),
@@ -571,8 +570,8 @@ test_hitting_bp_avoids_blocking_debugger(Config) ->
 
     TestCaseProcess = self(),
 
-    % Sanity-check: the breakpoint is hit if called by another process
-    Pid = erlang:spawn(fun() -> ping:ping(TestCaseProcess) end),
+    %% Sanity-check: the breakpoint is hit if called by another process
+    Pid = spawn_link(fun() -> ping:ping(TestCaseProcess) end),
     {Pid, Resume1} = ?assertBreakpointHit(Session, {ping, ping, 1}, Line),
     ?assertMailboxEmpty(),
     ok = Resume1(),
@@ -650,7 +649,7 @@ test_breakpoints_3_agrees_with_breakpoints_1(Config) ->
 
 %% Stack-frames tests
 test_stack_frames_returns_running_if_not_suspended(_Config) ->
-    P = erlang:spawn_link(fun() -> receive _ -> ok end end),
+    P = spawn_link(fun() -> receive _ -> ok end end),
     running = erl_debugger:stack_frames(P, 1),
 
     true = erlang:suspend_process(P),
@@ -673,11 +672,11 @@ test_stack_frames_returns_frames(Config) ->
     compile_and_load_module(Config, Mod, [beam_debug_info]),
 
     %% To sync from Mod:base_level().
-    erlang:register(?MODULE, self()),
+    register(?MODULE, self()),
 
     %% Launch a process, sync at a known location and suspend it
     %% so we can inspect the stack.
-    P = erlang:spawn(Mod, three_levels, [42, 13]),
+    P = spawn_link(Mod, three_levels, [42, 13]),
     ?expectReceive({sync, P}),
     wait_for_process_status(P, waiting),
     erlang:suspend_process(P),
@@ -719,7 +718,7 @@ test_stack_frames_returns_y_regs_controlled_by_size(Config) ->
            {Var, {y, YRegNo}} <- SymMap
     },
 
-    P = erlang:spawn(Mod, args_as_yvars, [foo, [1,2,3,4,5], ~"hellooooooooo"]),
+    P = spawn_link(Mod, args_as_yvars, [foo, [1,2,3,4,5], ~"hellooooooooo"]),
     ?expectReceive({sync, P}),
     erlang:suspend_process(P),
 
@@ -770,9 +769,9 @@ test_stack_frames_returns_catch(Config) ->
     compile_and_load_module(Config, Mod, [beam_debug_info]),
 
     %% To sync from Mod:base_level().
-    erlang:register(?MODULE, self()),
+    register(?MODULE, self()),
 
-    P = erlang:spawn(Mod, call_with_catches, [42]),
+    P = spawn_link(Mod, call_with_catches, [42]),
     ?expectReceive({sync, P}),
     erlang:suspend_process(P),
 
@@ -809,7 +808,7 @@ test_stack_frames_returns_breakpoint_frame(Config) ->
     Line = 5,
     erl_debugger:breakpoint(Mod, Line, true),
 
-    P = erlang:spawn(Mod, three_levels, [42, 13]),
+    P = spawn_link(Mod, three_levels, [42, 13]),
 
     {P, _Resume} = ?assertBreakpointHit(Session, {Mod, three_levels, 2}, Line),
     erlang:suspend_process(P),
@@ -827,31 +826,39 @@ test_stack_frames_returns_breakpoint_frame(Config) ->
     ok.
 
 test_stack_frames_works_with_hibernate(Config) ->
-    %% NB. This testcase should cover all BIFs using beam_run_process internally,
-    %% e.g. when a process is suspended while starting to execute `erlang:apply(M, F, A)`.
+    %% NB. This testcase should cover all BIFs using beam_run_process
+    %% internally, e.g. when a process is suspended while starting to
+    %% execute `erlang:apply(M, F, A)`.
 
     erl_debugger:toggle_instrumentations(#{line_breakpoint => true}),
 
     Mod = call_stacks,
     compile_and_load_module(Config, Mod, [beam_debug_info]),
 
-                                                %% To sync from Mod:base_level().
-    erlang:register(?MODULE, self()),
+    %% To sync from Mod:base_level().
+    register(?MODULE, self()),
 
-    P = erlang:spawn(Mod, sync_and_hibernate, []),
-    ?expectReceive({sync, P}),
+    SubjectFun = fun Mod:sync_and_hibernate/0,
+    Test = fun test_stack_frames_works_with_hibernate/2,
+    test_both_creation_orders(Mod, SubjectFun, Test),
+
+    ok.
+
+test_stack_frames_works_with_hibernate(_Mod, P) ->
     erlang:suspend_process(P),
 
     Actual = erl_debugger:stack_frames(P, 0),
     ?assertMatch(
         [
-            {1, #{function := {erlang, hibernate, 3}, line := undefined}, #{slots := []}},
-            {0, '<terminate process normally>',  #{slots := []}}
+         {1, #{function := {erlang, hibernate, 3},
+               line := undefined},
+          #{slots := []}},
+         {0, '<terminate process normally>',  #{slots := []}}
         ],
-        Actual
-    ),
+       Actual
+      ),
 
-    erlang:exit(P, normal),
+    exit(P, normal),
     ok.
 
 %% Registers tests
@@ -862,38 +869,45 @@ test_peek_stack_frame_slot_works(Config) ->
     compile_and_load_module(Config, Mod, [beam_debug_info]),
 
     %% To sync from Mod:base_level().
-    erlang:register(?MODULE, self()),
+    register(?MODULE, self()),
 
-    P = erlang:spawn(fun () ->
-        catch Mod:args_as_yvars(foo, [1,2,3,4,5], ~"hellooooooooo")
-    end),
-    ?expectReceive({sync, P}),
+    Test = fun test_peek_stack_frame_slot_works/2,
+    SubjectFun =
+        fun() ->
+                catch Mod:args_as_yvars(foo, [1,2,3,4,5], ~"hellooooooooo")
+        end,
+    test_both_creation_orders(Mod, SubjectFun, Test),
 
+    ok.
+
+test_peek_stack_frame_slot_works(_Mod, P) ->
     %% While not suspended, return running.
     running = erl_debugger:peek_stack_frame_slot(P, 0, 0, 0),
 
     erlang:suspend_process(P),
-    MaxYRegSize = lists:max([
-        N
-        || {_FrameId, _Fun, #{slots := Slots}} <- erl_debugger:stack_frames(P, 0),
-        {too_large, N} <- Slots
-    ]),
+    MaxYRegSize =
+        lists:max([N || {_FrameId, _Fun, #{slots := Slots}} <-
+                            erl_debugger:stack_frames(P, 0),
+                        {too_large, N} <- Slots
+                  ]),
 
-    CheckItMatchesStackFrames = fun(MaxSize) ->
-        StackFrames = erl_debugger:stack_frames(P, MaxSize),
-        [
-            ?assertEqual(
-                SlotVal,
-                erl_debugger:peek_stack_frame_slot(P, FrameId, SlotNo, MaxSize),
-                #{frame => FrameId, slot => SlotNo, size => MaxSize}
-            )
-            || {FrameId, _, #{slots := Slots}} <- StackFrames,
-            {SlotNo, SlotVal} <- lists:enumerate(0, Slots)
-        ],
-        ok
-    end,
+    CheckItMatchesStackFrames =
+        fun(MaxSize) ->
+                StackFrames = erl_debugger:stack_frames(P, MaxSize),
+                [?assertEqual(
+                    SlotVal,
+                    erl_debugger:peek_stack_frame_slot(P, FrameId, 
+                                                       SlotNo, MaxSize),
+                    #{frame => FrameId, slot => SlotNo,
+                      size => MaxSize}) ||
+                    {FrameId, _, #{slots := Slots}} <- StackFrames,
+                    {SlotNo, SlotVal} <- lists:enumerate(0, Slots)
+                ],
+                ok
+        end,
 
-    [CheckItMatchesStackFrames(MaxSize) || MaxSize <- lists:seq(0, MaxYRegSize)],
+    [CheckItMatchesStackFrames(MaxSize) ||
+        MaxSize <- lists:seq(0, MaxYRegSize)],
     ok.
 
 test_peek_xreg_works(Config) ->
@@ -902,12 +916,15 @@ test_peek_xreg_works(Config) ->
     Mod = call_stacks,
     compile_and_load_module(Config, Mod, [beam_debug_info]),
 
-    %% To sync from Mod:base_level().
-    erlang:register(?MODULE, self()),
+    register(?MODULE, self()),
 
-    P = erlang:spawn(Mod, sync_and_hibernate, []),
-    ?expectReceive({sync, P}),
+    SubjectFun = fun Mod:sync_and_hibernate/0,
+    Test = fun test_peek_xreg_works/2,
+    test_both_creation_orders(Mod, SubjectFun, Test),
 
+    ok.
+
+test_peek_xreg_works(Mod, P) ->
     %% While the process is running, no results.
     running = erl_debugger:xregs_count(P),
     running = erl_debugger:peek_xreg(P, 0, 0),
@@ -915,19 +932,55 @@ test_peek_xreg_works(Config) ->
     %% Suspend the process, so we can inspect it.
     erlang:suspend_process(P),
 
-    %% We are paused in a call to erlang:hibernate/3, only X0,X1,X2 are live,
-    %% we test the arguments to the call.
+    %% We are paused in a call to erlang:hibernate/3 with only X0,X1,X2
+    %% live.  We test the arguments to the call.
     3 = erl_debugger:xregs_count(P),
     {value, Mod} = erl_debugger:peek_xreg(P, 0, 0),
     {value, three_levels} = erl_debugger:peek_xreg(P, 1, 0),
     {too_large, ListSize} = erl_debugger:peek_xreg(P, 2, 0),
 
-    %% The size control works.
+    %% Test that the size control works.
     {too_large, ListSize} = erl_debugger:peek_xreg(P, 2, ListSize - 1),
     {value, [10, 20]} = erl_debugger:peek_xreg(P, 2, ListSize),
     ok.
 
 %% Helpers
+
+test_both_creation_orders(Mod, SubjectFun, Test) ->
+    test_creation_order(subject_first, Mod, SubjectFun, Test),
+    test_creation_order(debugger_first, Mod, SubjectFun, Test),
+
+    ok.
+
+test_creation_order(Order, Mod, SubjectFun, Test) ->
+    DebuggerFun = fun() ->
+                          receive
+                              {go_ahead, Subject} ->
+                                  Test(Mod, Subject)
+                          end
+                  end,
+
+    %% Test creating the debugger and subject process in different
+    %% order to ensure that there are no lock order conflicts.
+    {{DebuggerPid, DebuggerRef}, Subject} =
+        case Order of
+            debugger_first ->
+                First = spawn_monitor(DebuggerFun),
+                Second = spawn_link(SubjectFun),
+                {First, Second};
+            subject_first ->
+                First = spawn_link(SubjectFun),
+                Second = spawn_monitor(DebuggerFun),
+                {Second, First}
+        end,
+
+    ?expectReceive({sync, Subject}),
+    DebuggerPid ! {go_ahead, Subject},
+
+    receive
+        {'DOWN', DebuggerRef, process, DebuggerPid, Reason} ->
+            Reason = normal
+    end.
 
 compile_and_load_module(Config, Mod, Opts) when is_atom(Mod), is_list(Opts) ->
     Data = proplists:get_value(data_dir, Config),
