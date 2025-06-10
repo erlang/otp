@@ -106,6 +106,9 @@ ERL_NIF_TERM hash_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     ERL_NIF_TERM         ret;
     unsigned             ret_size;
     unsigned char        *outp;
+#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(3,4,0)
+    EVP_MD_CTX *ctx = NULL;
+#endif
 
     if ((digp = get_digest_type(argv[0])) == NULL)
         return EXCP_BADARG_N(env, 0, "Bad digest type");
@@ -117,6 +120,42 @@ ERL_NIF_TERM hash_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     if (!enif_inspect_iolist_as_binary(env, argv[1], &data))
         return EXCP_BADARG_N(env, 1, "Not iolist");
 
+#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(3,4,0)
+    /* Set xoflen for SHAKE digests if needed */
+    if (digp->xof_default_length) {
+        int ok = 0;
+        ctx = EVP_MD_CTX_new();
+        if (!ctx)
+            return EXCP_ERROR(env, "Low-level call EVP_MD_CTX_new failed");
+        if (EVP_DigestInit(ctx, md) != 1) {
+            EVP_MD_CTX_free(ctx);
+            return EXCP_ERROR(env, "Low-level call EVP_DigestInit failed");
+        }
+        OSSL_PARAM params[2];
+        params[0] = OSSL_PARAM_construct_uint("xoflen", &digp->xof_default_length);
+        params[1] = OSSL_PARAM_construct_end();
+        if (!EVP_MD_CTX_set_params(ctx, params)) {
+            EVP_MD_CTX_free(ctx);
+            return EXCP_ERROR(env, "Can't set param xoflen");
+        }
+        ret_size = digp->xof_default_length;
+        if ((outp = enif_make_new_binary(env, ret_size, &ret)) == NULL) {
+            EVP_MD_CTX_free(ctx);
+            return EXCP_ERROR(env, "Can't allocate binary");
+        }
+        if (EVP_DigestUpdate(ctx, data.data, data.size) != 1) {
+            EVP_MD_CTX_free(ctx);
+            return EXCP_ERROR(env, "Low-level call EVP_DigestUpdate failed");
+        }
+        if (EVP_DigestFinalXOF(ctx, outp, ret_size) != 1) {
+            EVP_MD_CTX_free(ctx);
+            return EXCP_ERROR(env, "Low-level call EVP_DigestFinalXOF failed");
+        }
+        EVP_MD_CTX_free(ctx);
+        CONSUME_REDS(env, data);
+        return ret;
+    }
+#endif
 
     ret_size = (unsigned)EVP_MD_size(md);
     ASSERT(0 < ret_size && ret_size <= EVP_MAX_MD_SIZE);
