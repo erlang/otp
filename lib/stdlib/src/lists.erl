@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -987,14 +987,14 @@ keysort(I, L) when is_integer(I), I > 0 ->
 	    end
     end.
 
-keysort_1(I, X, EX, [Y | L], R) when X == Y ->
-    keysort_1(I, Y, EX, L, [X | R]);
 keysort_1(I, X, EX, [Y | L], R) ->
     case element(I, Y) of
-	EY when EX =< EY ->
+	EY when EX < EY ->
 	    keysplit_1(I, X, EX, Y, EY, L, R, []);
-	EY ->
-	    keysplit_2(I, X, EX, Y, EY, L, R, [])
+	EY when EX > EY ->
+	    keysplit_2(I, X, EX, Y, EY, L, [], [lists:reverse(R)]);
+        EY -> % EX == EY
+            keysort_1(I, Y, EY, L, [X | R])
     end;
 keysort_1(_I, X, _EX, [], R) ->
     lists:reverse(R, [X]).
