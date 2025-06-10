@@ -4141,6 +4141,14 @@ an [asynchronous call](#asynchronous-calls) like for `nowait`.
 See the note [Asynchronous Calls](#asynchronous-calls)
 at the start of this module reference manual page.
 
+[](){: #sendmsg-completion_status }
+
+The possible values for `CompletionStatus` in the completion message are:
+- **`ok`** - Complete success; The data was written in its entirety.
+- **`{ok, Written}`** - Partial success; Some but not all data was written,
+  but no error was reported. `Written` is the number of bytes that was written.
+- **`{error, Reason}`** - An error occured and no data was sent.
+
 After receiving a `select` message call [`sendmsg/3,4`](`sendmsg/3`)
 with `SelectInfo` as the `Cont` argument, to complete the operation.
 
