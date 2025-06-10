@@ -3242,6 +3242,13 @@ If the `Handle` argument is a `t:select_handle/0`,
 `t:completion_handle/0` *(since OTP 26.0)*, starts
 an [asynchronous call](#asynchronous-calls) like for `nowait`.
 
+[](){: #accept-completion_status }
+
+The possible values for `CompletionStatus` in the completion message are:
+- **`{ok, NewSocket}`** - Success; A connection has been accepted.
+- **`{error, Reason}`** - An error occured and no connection was
+  established.
+
 See the note [Asynchronous Calls](#asynchronous-calls)
 at the start of this module reference manual page.
 """.
