@@ -5850,6 +5850,12 @@ starts an [asynchronous call](#asynchronous-calls) like for `nowait`.
 
 See the note [Asynchronous Calls](#asynchronous-calls)
 at the start of this module reference manual page.
+
+[](){: #recvmsg-completion_status }
+
+The possible values for `CompletionStatus` in the completion message are:
+- **`{ok, Msg}`** - Success.
+- **`{error, Reason}`** - An error occured and no data was read.
 """.
 -spec recvmsg(Socket, BufSz, CtrlSz, Flags, Timeout :: 'infinity') ->
           {'ok', Msg} |
