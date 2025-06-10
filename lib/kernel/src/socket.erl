@@ -3047,6 +3047,14 @@ to complete the operation.
 
 If canceling the operation with `cancel/2` see the note above
 about [connection time-out](#connect-timeout).
+
+[](){: #connect-completion_status }
+
+The possible values for `CompletionStatus` in the completion message are:
+- **`ok`** - Complete success; A connection has been established.
+- **`{error, Reason}`** - An error occured and no connection was
+  established.
+
 """.
 -spec connect(Socket, SockAddr, Timeout :: 'infinity') ->
           'ok' |
@@ -4356,6 +4364,8 @@ an [asynchronous call](#asynchronous-calls) like for `nowait`.
 
 See the note [Asynchronous Calls](#asynchronous-calls)
 at the start of this module reference manual page.
+
+[](){: #sendv-completion_status }
 
 The possible values for `CompletionStatus` in the completion message are:
 - **`ok`** - Complete success; The I/O vector was written in its entirety.
