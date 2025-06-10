@@ -188,7 +188,7 @@ static Sint aligned_binary_size(Eterm binary)
     Uint size = bitstring_size(binary);
 
     if (TAIL_BITS(size) == 0 && size <= ERTS_SINT_MAX) {
-        return (Sint)size;
+        return (Sint)BYTE_SIZE(size);
     }
 
     return -1;
