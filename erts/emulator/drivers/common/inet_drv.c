@@ -14281,7 +14281,7 @@ static int packet_inet_init(void)
 #ifdef AF_UNSPEC
     disassoc_sa.sa_family = AF_UNSPEC;
 #endif /* #ifdef AF_UNSPEC */
-    disassoc_sa_size = disassoc_sa.sa_data - (char *)&disassoc_sa;
+    disassoc_sa_size = offsetof(struct sockaddr, sa_data);
 
     return 0;
 }

@@ -6339,7 +6339,7 @@ ERL_NIF_TERM nif_recvmsg(ErlNifEnv*         env,
     ssize_t          bufSz,   ctrlSz;
     int              flags;
     ERL_NIF_TERM     res;
-    BOOLEAN_T        a1ok, a2ok;
+    BOOLEAN_T        a1ok, a2ok = FALSE;
 
     ESOCK_ASSERT( argc == 5 );
 
@@ -12779,7 +12779,7 @@ int esock_select_cancel(ErlNifEnv*             env,
                                       ESockDescriptor* descP,   \
                                       ERL_NIF_TERM     sockRef) \
     {                                                        \
-        BOOLEAN_T          popped, activated;                \
+        BOOLEAN_T          popped, activated = FALSE;        \
         int                sres;                             \
         ERL_NIF_TERM       reason;                           \
         ESockRequestor*    reqP = &descP->R;                 \
