@@ -1589,6 +1589,12 @@ hash_xof(Type, DefaultLen, [Msg | RestMsg], [Digest | RestDigest], [Length | Res
                     ok;
                 Other2 ->
                     ct:fail({{crypto, hash_xof, [Type, Msg, Length]}, {expected, Digest}, {got, Other2}})
+            end,
+            case crypto:hash(Type, Msg) of
+                Digest ->
+                    ok;
+                Other3 ->
+                    ct:fail({{crypto, hash, [Type, Msg]}, {expected, Digest}, {got, Other3}})
             end;
         _ ->
             ok % No crypto:hash_init({Type,Length}) support yet
