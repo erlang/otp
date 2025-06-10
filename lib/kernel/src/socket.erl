@@ -5110,6 +5110,13 @@ an [asynchronous call](#asynchronous-calls) like for `nowait`.
 See the note [Asynchronous Calls](#asynchronous-calls)
 at the start of this module reference manual page.
 
+[](){: #recv-completion_status }
+
+The possible values for `CompletionStatus` in the completion message are:
+- **`{ok, Data}`** - Complete success; All requested data was read.
+- **`{more, Data}`** - Partial success; Some, but not all, data was read.
+- **`{error, Reason}`** - An error occured and no data was sent.
+
 On `select` systems, for a socket of type [`stream`](`t:type/0`),
 if `Length > 0` and there isn't enough data available, this function
 will return [`{select, {SelectInfo, Data}}`](`t:select_info/0`)
