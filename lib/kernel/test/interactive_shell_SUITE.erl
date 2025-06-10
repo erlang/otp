@@ -2432,6 +2432,17 @@ shell_history_toggle(_Config) ->
        {putdata, [$\^n]},  %% Down key
        {expect, ~s'> $'},
 
+       %% Test that io:setopts without line_history preserves it enabled
+       {putline, "io:setopts([])."},
+       {expect, "ok\r\n"},
+       {putline, ~s'io:get_line("> ").'},
+       {putline, ~s'hello again'},
+       {expect, ~s'\\Q"hello again\\n"\r\n\\E'},
+       {putdata, [$\^p]}, %% Up key
+       {expect, ~s'hello again'},
+       {putdata, [$\^n]},  %% Down key
+       {expect, ~s'> $'},
+
        %% Test that io:get_line does not save into history buffer when disabled
        {putline, "io:setopts([{line_history, false}])."},
        {putline, ~s'io:get_line("| ").'},
