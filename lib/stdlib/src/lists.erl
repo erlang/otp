@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -639,6 +639,8 @@ zipwith3(F, [X | Xs], [Y | Ys], [], {pad, {_, _, Z}} = How) ->
 %% sort(List) -> L
 %%  sorts the list L
 
+-ifdef(undefined).
+
 -spec sort(List1) -> List2 when
       List1 :: [T],
       List2 :: [T],
@@ -684,6 +686,65 @@ sort_1(X, [Y | L], R) when X < Y ->
 sort_1(X, [Y | L], R) ->
     split_2(X, Y, L, R, []);
 sort_1(X, [], R) ->
+    lists:reverse(R, [X]).
+
+-endif.
+
+-spec sort(List1) -> List2 when
+      List1 :: [T],
+      List2 :: [T],
+      T :: term().
+sort(L) when is_list(L) ->
+    case L of
+        [] -> L;
+        [_] -> L;
+        [X, Y | T] ->
+            if
+                X =< Y ->
+                    case T of
+                        [] -> [X, Y];
+                        [E] ->
+                            if
+                                Y =< E -> [X, Y, E];
+                                X =< E -> [X, E, Y];
+                                (E < X) -> [E, X, Y]
+                            end;
+                        [_|_] ->
+                            if
+                                X < Y ->
+                                    sort_split_asc(T, [], X, Y);
+                                (X == Y) ->
+                                    sort_split(T, Y, [X])
+                            end
+                    end;
+                X > Y ->
+                    case T of
+                        [] -> [Y, X];
+                        [E] ->
+                            if
+                                Y > E -> [E, Y, X];
+                                X > E -> [Y, E, X];
+                                (E >= X) -> [Y, X, E]
+                            end;
+                        [_|_] ->
+                             sort_split_desc(T, [], X, Y)
+                    end
+            end
+    end.
+
+sort_split([Y | L], X, R) ->
+    if
+        %% Ascending
+        X < Y ->
+            sort_split_asc(L, [[X | R]], Y);
+        %% Descending
+        Y < X ->
+            sort_split_desc(L, [lists:reverse(R, [X])], Y);
+        %% Equal at front
+        (X == Y) ->
+            sort_split(L, Y, [X | R])
+    end;
+sort_split([], X, R) ->
     lists:reverse(R, [X]).
 
 %% merge(List) -> L
@@ -1860,6 +1921,70 @@ join_prepend(Sep, [H|T]) -> [Sep,H|join_prepend(Sep,T)].
 %% sort/1
 
 %% Ascending.
+%% X, Y, Z are in sorted order
+-compile({inline, [sort_split_asc/3]}).
+sort_split_asc([E | L], Rs, X) ->
+    if
+        X =< E      ->  sort_split_asc(L, Rs, X, E);
+        (E < X)     ->  sort_split_asc(L, Rs, E, X)
+    end;
+sort_split_asc([], Rs, X) ->
+    rmergel([[X] | Rs], []).
+%%
+sort_split_asc([E | L], Rs, X, Y) ->
+    if
+        Y =< E      ->  sort_split_asc(L, Rs, X, Y, E, []);
+        X =< E      ->  sort_split_asc(L, Rs, X, E, Y, []);
+        (E < X)     ->  sort_split_asc(L, Rs, E, X, Y, [])
+    end;
+sort_split_asc([], Rs, X, Y) ->
+    rmergel([[Y, X] | Rs], []).
+%%
+sort_split_asc([E | L], Rs, X, Y, Z, R) ->
+    if
+        Z =< E      ->  sort_split_asc(L, Rs, Y, Z, E, [X | R]);
+        Y =< E      ->  sort_split_asc(L, Rs, Y, E, Z, [X | R]);
+        X =< E      ->  sort_split_asc(L, Rs, E, Y, Z, [X | R]);
+        (E < X)     ->  sort_split_asc(L, [[Z, Y, X | R] | Rs], E)
+    end;
+sort_split_asc([], Rs, X, Y, Z, R) ->
+    rmergel([[Z, Y, X | R] | Rs], []).
+
+%% Descending.
+%% X, Y, Z are in reverse sorted order
+-compile({inline, [sort_split_desc/3]}).
+sort_split_desc([E | L], Rs, X) ->
+    if
+        X > E       ->  sort_split_desc(L, Rs, X, E);
+        (E >= X)    ->  sort_split_desc(L, Rs, E, X)
+    end;
+sort_split_desc([], Rs, X) ->
+    mergel(lists:reverse(Rs, [[X]]), []).
+%%
+sort_split_desc([E | L], Rs, X, Y) ->
+    if
+        Y > E       ->  sort_split_desc(L, Rs, X, Y, E, []);
+        X > E       ->  sort_split_desc(L, Rs, X, E, Y, []);
+        (E >= X)    ->  sort_split_desc(L, Rs, E, X, Y, [])
+    end;
+sort_split_desc([], Rs, X, Y) ->
+    mergel(lists:reverse(Rs, [[Y, X]]), []).
+%%
+sort_split_desc([E | L], Rs, X, Y, Z, R) ->
+    if
+        Z > E       ->  sort_split_desc(L, Rs, Y, Z, E, [X | R]);
+        Y > E       ->  sort_split_desc(L, Rs, Y, E, Z, [X | R]);
+        X > E       ->  sort_split_desc(L, Rs, E, Y, Z, [X | R]);
+        (E >= X)    ->  sort_split_desc(L, [[Z, Y, X | R] | Rs], E)
+    end;
+sort_split_desc([], Rs, X, Y, Z, R) ->
+    mergel(lists:reverse(Rs, [[Z, Y, X | R]]), []).
+
+
+
+-ifdef(undefined).
+
+%% Ascending.
 split_1(X, Y, [Z | L], R, Rs) when Z >= Y ->
     split_1(Y, Z, L, [X | R], Rs);
 split_1(X, Y, [Z | L], R, Rs) when Z >= X ->
@@ -1904,6 +2029,9 @@ split_2_1(X, Y, [Z | L], R, Rs, S) ->
     split_2(Z, S, L, [], [[Y, X | R] | Rs]);
 split_2_1(X, Y, [], R, Rs, S) ->
     mergel([[S], [Y, X | R] | Rs], []).
+
+-endif.
+
 
 %% merge/1
 
