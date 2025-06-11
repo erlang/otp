@@ -128,7 +128,73 @@ the attribute `use_registry` (boolean) in the their `Opts` argument (which
 effects _that_ specific socket).
 
 
-## Example
+## Examples
+
+### Completion asynchronous sendv
+
+This is a simple example function that illustrates how to use
+socket:sendv/3 with asynchronous (nowait) on completion systems (Windows).
+
+```erlang
+completion_sendv(Sock, IOV) ->
+    case socket:sendv(Sock, IOV, nowait) of
+        ok -> % Complete success - We are done
+            ok;
+        {completion, {CompletionInfo, RestIOV0}} ->
+            %% Some of IOV was sent, but the rest, RestIOV0, was scheduled
+            case completion_sendv_await_result(Sock,
+                                               CompletionInfo, RestIOV0) of
+                ok -> % We done
+                    ok;
+                {ok, RestIOV} ->
+                    completion_sendv(Sock, RestIOV);
+                {error, Reason} ->
+                    {error, {Reason, RestIOV0}}
+            end;
+        {completion, CompletionInfo} ->
+            %% Nothing was sent, IOV was scheduled
+            case completion_sendv_await_result(Sock,
+                                               CompletionInfo, IOV) of
+                ok -> % We done
+                    ok;
+                {ok, RestIOV} ->
+                    completion_sendv(Sock, RestIOV);
+                {error, _} = ERROR ->
+                    ERROR
+            end;
+        {error, {_Reason, _RestIOV}} = ERROR ->
+            %% Some part of the I/O vector was sent before an error occured
+            ERROR;
+        {error, _} = ERROR ->
+            %% Note that 
+            ERROR
+    end.
+
+completion_sendv_await_result(Sock,
+                              {completion_info, _, Handle},
+                              IOV) ->
+  receive
+      {'$socket', Sock, abort, {Handle, Reason}} ->
+          ?P("unexpected abort: "
+             "~n   Reason: ~p", [Reason]),
+          {error, {abort, Reason}};
+
+      {'$socket', Sock, completion, {Handle, {ok, Written}}} ->
+          %% Partial send; calculate rest I/O vector
+          case socket:rest_iov(Written, IOV) of
+              [] -> % We are done
+                  ok;
+              RestIOV ->
+                  {ok, RestIOV}
+          end;
+
+      {'$socket', Sock, completion, {Handle, CompletionStatus}} ->
+          CompletionStatus
+
+  end.
+```
+
+### Echo server (and client)
 
 This example is intended to show how to create a simple (echo) server
 (and client), handling both 'select' and 'completion' (Unix and Windows).
