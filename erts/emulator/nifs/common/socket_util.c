@@ -2983,9 +2983,10 @@ ERL_NIF_TERM esock_self(ErlNifEnv* env)
  * esock_error_msg
  */
 
-#define MSG_FUNCS                            \
-    MSG_FUNC_DECL(info,    INFO)             \
-    MSG_FUNC_DECL(warning, WARNING)          \
+#define MSG_FUNCS                        \
+    MSG_FUNC_DECL(debug,   DEBUG)        \
+    MSG_FUNC_DECL(info,    INFO)         \
+    MSG_FUNC_DECL(warning, WARNING)      \
     MSG_FUNC_DECL(error,   ERROR)
 
 #define MSG_FUNC_DECL(FN, MC)                                  \
@@ -2999,12 +3000,12 @@ ERL_NIF_TERM esock_self(ErlNifEnv* env)
                                                                \
        if (esock_timestamp_str(stamp, sizeof(stamp))) {        \
           res = enif_snprintf(f, sizeof(f),                    \
-                              "=" #MC " MSG==== %s ===\r\n%s", \
+                              "=ESOCK " #MC " MSG==== %s ===\r\n%s", \
                               stamp, format);                  \
        } else {                                                \
           res = enif_snprintf(f,                               \
                               sizeof(f),                       \
-                              "=" #MC " MSG==== %s", format);  \
+                              "=ESOCK " #MC " MSG==== %s", format);  \
        }                                                       \
                                                                \
        if (res > 0) {                                          \
