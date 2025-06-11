@@ -421,7 +421,11 @@ ns_get_tick_time(Args, Timeout) ->
     case maps:get(tick_time, Args, ?NOTIFY_START_TICK_TIME) of
         %% Make sure Timeout and TickTime make sense
         TT when is_integer(TT) andalso (TT > 0) andalso (Timeout > TT) ->
-            TT
+            TT;
+        
+        %% If TickTime > Timeout, use infinity instead
+        _ ->
+            infinity
     end.
 
 
@@ -481,7 +485,6 @@ do_snmpm_start_verify(Parent, Ref, TickTime, EOL) ->
     end.
                 
 
-%% t(T0, T)  -> T - (t() - T0).
 t()       -> snmp_misc:now(ms).
 sleep(To) -> snmp_misc:sleep(To).
 
