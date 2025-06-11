@@ -284,7 +284,7 @@ server(Addr, Port) ->
          send/2, send/3, send/4,
          sendto/3, sendto/4, sendto/5,
          sendmsg/2, sendmsg/3, sendmsg/4,
-         sendv/2, sendv/3, sendv/4,
+         sendv/2, sendv/3, sendv/4, rest_iov/2,
 
          sendfile/2, sendfile/3, sendfile/4, sendfile/5,
 
@@ -3661,6 +3661,10 @@ send_common_nowait_result(Handle, Op, Result) ->
     case Result of
         completion ->
             {completion, ?COMPLETION_INFO(Op, Handle)};
+        {completion, _} -> % Only sendv
+            {completion, ?COMPLETION_INFO(Op, Handle)};
+        {completion, Data, _} -> % Only sendv
+            {completion, {?COMPLETION_INFO(Op, Handle), Data}};
         {select, ContData} ->
             {select, ?SELECT_INFO({Op, ContData}, Handle)};
         {select, Data, ContData} ->
@@ -4431,6 +4435,7 @@ With the argument [`Cont`](`t:select_info/0`), equivalent to
           {'select', SelectInfo} |
           {'select', {SelectInfo, RestIOV}} |
           {'completion', CompletionInfo} |
+          {'completion', {CompletionInfo, RestIOV}} |
           {'error', Reason} |
           {'error', {Reason, RestIOV}}
               when
@@ -4589,6 +4594,25 @@ sendv_deadline_cont(SockRef, IOV, _undefined, Deadline, HasWritten) ->
       SockRef, IOV, SelectHandle, Deadline, HasWritten,
       sendv, fun sendv_deadline_cont/5,
       prim_socket:sendv(SockRef, IOV, SelectHandle)).
+
+
+%% ===========================================================================
+%%
+%% rest_iov - Utility function for sendv usage
+%%
+
+-doc(#{since => "@OTP-19661@"}).
+-doc """
+Calculate the rest I/O vector after a partially successful sendv
+(CompletionStatus was {ok, Written}).
+""".
+-spec rest_iov(Written, IOV) -> RestIOV when
+      Written :: non_neg_integer(),
+      IOV     :: erlang:iovec(),
+      RestIOV :: erlang:iovec().
+      
+rest_iov(Written, IOV) ->
+    prim_socket:rest_iov(Written, IOV).
 
 
 %% ===========================================================================
