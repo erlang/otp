@@ -214,6 +214,65 @@ present any certificate.
 A node started in this way is fully functional, using TLS as the distribution
 protocol.
 
+## verify_fun Configuration Example
+
+The `verify_fun` option creates a reference to the implementing
+function since the configuration is evaluated as an Erlang term. In
+an example file for use with `-ssl_dist_optfile`:
+
+
+```erlang
+[{server,[{fail_if_no_peer_cert,true},
+          {certfile,"/home/me/ssl/cert.pem"},
+          {keyfile,"/home/me/ssl/privkey.pem"},
+          {cacertfile,"/home/me/ssl/ca_cert.pem"},
+          {verify,verify_peer},
+          {verify_fun,{fun mydist:verify/3,"any initial value"}}]},
+ {client,[{certfile,"/home/me/ssl/cert.pem"},
+          {keyfile,"/home/me/ssl/privkey.pem"},
+          {cacertfile,"/home/me/ssl/ca_cert.pem"},
+          {verify,verify_peer},
+          {verify_fun,{fun mydist:verify/3,"any initial value"}}]}].
+
+```
+
+`mydist:verify/3` will be called with:
+
+  * OtpCert, the other party's certificate [PKIX Certificates](`e:public_key:public_key_records.html#pkix-certificates`)
+  * SslStatus, OTP's verification outcome, such as `valid` or a tuple `{bad_cert, unknown_ca}`
+  * Init will be `"any initial value"`
+
+A pattern for `verify/3` will look like:
+
+```erlang
+verify(OtpCert, _SslStatus, Init) ->
+    IsOk = is_ok(OtpCert, Init),
+    NewInitValue = "some new value",
+    case IsOk of
+       true ->
+           {valid, NewInitValue};
+       false ->
+           {failure, NewInitValue}
+    end.
+```
+
+`verify_fun` can accept a `verify/4` function, which will receive:
+
+  * OtpCert, the other party's certificate [PKIX Certificates](`e:public_key:public_key_records.html#pkix-certificates`)
+  * DerCert, the other party's original [DER Encoded](`t:public_key:der_encoded/0`) certificate
+  * SslStatus, OTP's verification outcome, such as `valid` or a tuple `{bad_cert, unknown_ca}`
+  * Init will be `"any initial value"`
+
+The `verify/4` can use the DerCert for atypical workarounds such as
+handling decoding errors and directly verifying signatures.
+
+For more details see `{verify_fun, Verify}` [in common_option_cert](`t:ssl:common_option_cert/0`)
+
+
+> #### Note {: .info }
+> The legacy command line format for `verify_fun` cannot be used
+> in a `-ssl_dist_optfile` file as described below in
+> [Specifying TLS Options (Legacy)](#specifying-tls-options-legacy).
 
 ## Using TLS distribution over IPv6
 
