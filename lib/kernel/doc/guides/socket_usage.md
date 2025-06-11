@@ -134,6 +134,10 @@ effects _that_ specific socket).
 
 This is a simple example function that illustrates how to use
 socket:sendv/3 with asynchronous (nowait) on completion systems (Windows).
+Observer that this is not an illustration how to write a asynchronous
+sendv function. Its just an example of what kind of messages and results
+that can be expected. The example below basically (re-) implements:
+`socket:sendv(Sock, IOV, infinity)`.
 
 ```erlang
 completion_sendv(Sock, IOV) ->
@@ -192,6 +196,66 @@ completion_sendv_await_result(Sock,
           CompletionStatus
 
   end.
+```
+
+### Completion asynchronous recv
+
+This is a simple example function that illustrates how to use
+socket:recv/3 with asynchronous (nowait) on completion systems (Windows).
+Observer that this is not an illustration how to write a asynchronous
+read function. Its just an example of what kind of messages and results
+that can be expected. The example below basically (re-) implements:
+`socket:recv(Sock, Sz)`.
+
+```erlang
+completion_recv(Sock, Sz) when (Sz > 0) ->
+    completion_recv(Sock, Sz, []).
+
+completion_recv(_Sock, 0, [Bin] = _Acc) ->
+    {ok, Bin};
+completion_recv(_Sock, 0, Acc) ->
+    {ok, erlang:iolist_to_binary(lists:reverse(Acc))};
+completion_recv(Sock, Sz, Acc) ->
+    case socket:recv(Sock, Sz, nowait) of
+        {ok, Bin} when (byte_size(Bin) =:= Sz) ->
+            completion_recv(Sock, 0, [Bin|Acc]);
+        {ok, Bin} ->
+            completion_recv(Sock, Sz-byte_size(Bin), [Bin|Acc]);
+
+	{completion, CompletionInfo} ->
+            case completion_recv_await_result(Sock, CompletionInfo) of
+                {ok, Bin} ->
+                    completion_recv(Sock, Sz-byte_size(Bin), [Bin|Acc]);
+                {error, {_Reason, _Data}} = ERROR ->
+                    ERROR;
+                {error, _Reason} = ERROR ->
+                    ERROR
+	    end;
+
+	{error, {_Reason, _Data}} = ERROR ->
+	    ERROR;
+	{error, _Reason} = ERROR ->
+	    ERROR
+
+    end.
+
+completion_recv_await_result(Sock,
+                             {completion_info, _, Handle}) ->
+    receive
+	{'$socket', Sock, abort, {Handle, Reason}} ->
+	    {error, {abort, Reason}};
+
+	{'$socket', Sock, completion, {Handle, {ok, _Bin} = OK}} ->
+            %% We "should" be done
+	    OK;
+	{'$socket', Sock, completion, {Handle, {more, Bin}}} ->
+            %% There is more to read
+	    {ok, Bin};
+
+	{'$socket', Sock, completion, {Handle, CompletionStatus}} ->
+	    CompletionStatus
+
+    end.
 ```
 
 ### Echo server (and client)
