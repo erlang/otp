@@ -320,7 +320,15 @@ BOOLEAN_T esock_timestamp_str(char *buf, unsigned int len);
 extern
 BOOLEAN_T esock_format_timestamp(ErlNifTime timestamp, char *buf, unsigned int len);
 
+/*
+ * esock_debug_msg
+ * esock_info_msg
+ * esock_warning_msg
+ * esock_error_msg
+ */
+
 #define MSG_FUNCS                               \
+    MSG_FUNC_DEF(debug)                         \
     MSG_FUNC_DEF(info)                          \
     MSG_FUNC_DEF(warning)                       \
     MSG_FUNC_DEF(error)
