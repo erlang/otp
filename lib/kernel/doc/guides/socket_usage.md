@@ -134,7 +134,7 @@ effects _that_ specific socket).
 
 This is a simple example function that illustrates how to use
 socket:sendv/3 with asynchronous (nowait) on completion systems (Windows).\
-Observer that this is not an illustration how to write a asynchronous
+Observe that this is not an illustration how to write a asynchronous
 sendv function. Its just an example of what kind of messages and results
 that can be expected. The example below basically (re-) implements:
 `socket:sendv(Sock, IOV, infinity)`.
