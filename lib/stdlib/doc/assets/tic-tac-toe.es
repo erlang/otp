@@ -91,8 +91,6 @@ draw_state({_, Turn, _} = State) ->
 draw_marker(Pos, Turn) ->
     [set_position(Pos), "\e[C\e[C\e[C\n", Turn].
 
-handle_input({ok, Chars}, State) ->
-    handle_input({ok, Chars}, State);
 handle_input(eof, _State) ->
     stop;
 handle_input("\e[A" ++ Rest, {Pos, Turn, State}) ->
