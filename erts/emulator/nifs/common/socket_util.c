@@ -3054,6 +3054,7 @@ ERL_NIF_TERM esock_self(ErlNifEnv* env)
  * so we can se which process are executing the code.
  * But then I must change the API....something for later.
  *
+ * esock_debug_msg
  * esock_info_msg
  * esock_warning_msg
  * esock_error_msg
