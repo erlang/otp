@@ -133,7 +133,7 @@ effects _that_ specific socket).
 ### Completion asynchronous sendv
 
 This is a simple example function that illustrates how to use
-socket:sendv/3 with asynchronous (nowait) on completion systems (Windows).
+socket:sendv/3 with asynchronous (nowait) on completion systems (Windows).\
 Observer that this is not an illustration how to write a asynchronous
 sendv function. Its just an example of what kind of messages and results
 that can be expected. The example below basically (re-) implements:
@@ -201,7 +201,7 @@ completion_sendv_await_result(Sock,
 ### Completion asynchronous recv
 
 This is a simple example function that illustrates how to use
-socket:recv/3 with asynchronous (nowait) on completion systems (Windows).
+socket:recv/3 with asynchronous (nowait) on completion systems (Windows).\
 Observer that this is not an illustration how to write a asynchronous
 read function. Its just an example of what kind of messages and results
 that can be expected. The example below basically (re-) implements:
