@@ -102,7 +102,7 @@
 -record(editor, { port :: port(), file :: file:name(), requester :: pid() }).
 -record(state, { tty :: prim_tty:state() | undefined,
                  write :: reference() | undefined,
-                 read :: reference() | undefined,
+                 read :: reference() | eof | undefined,
                  shell_started = new :: new | old | false,
                  editor :: #editor{} | undefined,
                  user :: pid(),
@@ -555,7 +555,7 @@ server(info,{'EXIT', Group, Reason}, State) -> % shell and group leader exit
                         true ->
                             NewTTYState = io_requests(Reqs,
                                         State#state.tty),
-                            _ = io_request({put_chars_sync,unicode,<<"Read EOF ***\n">>, none}, NewTTYState),
+                            _ = io_request({put_chars_sync,unicode,<<"Read EOF ***\n">>, {self(), none}}, NewTTYState),
                             WriterRef = State#state.write,
                             receive
                                 {WriterRef, ok} -> ok
