@@ -104,7 +104,8 @@ The module `snmpm` contains interface functions to the SNMP manager.
 -export([format_reason/1, format_reason/2]).
 
 %% Application internal export
--export([start_link/3, snmpm_start_verify/2, snmpm_start_verify/3]).
+-export([start_link/3]).
+-export([snmpm_start_verify/4, do_snmpm_start_verify/4]).
 -export([target_name/1, target_name/2]).
 
 -export_type([
@@ -393,11 +394,35 @@ to this handler.
 This function is used in conjunction with the monitor function.
 """.
 -spec notify_started(Timeout) -> Pid when
-      Timeout :: pos_integer(),
-      Pid     :: pid().
+      Timeout :: non_neg_integer(),
+      Pid     :: pid();
+                    (Args) -> Pid when
+      Args :: map(),
+      Pid  :: pid().
 
-notify_started(To) when is_integer(To) andalso (To > 0) ->
-    spawn_link(?MODULE, snmpm_start_verify, [self(), To]).
+notify_started(Timeout)
+  when is_integer(Timeout) andalso (Timeout > 0) ->
+    notify_started(#{timeout => Timeout});    
+notify_started(#{timeout := Timeout} = Args)
+  when is_integer(Timeout) andalso (Timeout > 0) ->
+    EOL      = t() + Timeout,
+    Self     = self(),
+    Verbose  = ns_get_verbose(Args),
+    TickTime = ns_get_tick_time(Args, Timeout),
+    spawn_link(?MODULE, snmpm_start_verify, [Self, Verbose, TickTime, EOL]).
+
+ns_get_verbose(Args) ->
+    case maps:get(verbose, Args, false) of
+        V when is_boolean(V) ->
+            V
+    end.
+
+ns_get_tick_time(Args, Timeout) ->
+    case maps:get(tick_time, Args, ?NOTIFY_START_TICK_TIME) of
+        %% Make sure Timeout and TickTime make sense
+        TT when is_integer(TT) andalso (TT > 0) andalso (Timeout > TT) ->
+            TT
+    end.
 
 
 -doc """
@@ -411,42 +436,52 @@ cancel_notify_started(Pid) ->
     ok.
 
 -doc false.
-snmpm_start_verify(Parent, To) ->
-    ?d("starting", []),
-    snmpm_start_verify(Parent, monitor(), To).
+snmpm_start_verify(Parent, Verbose, TickTime, EOL) ->
+    put(verbose, Verbose),
+    maybe_inform("starting"),
+    do_snmpm_start_verify(Parent, monitor(), TickTime, EOL).
 
 -doc false.
-snmpm_start_verify(Parent, _Ref, To) when (To =< 0) ->
-    ?d("timeout", []),
-    unlink(Parent),
-    Parent ! {snmpm_start_timeout, self()};
-snmpm_start_verify(Parent, Ref, To) ->
-    T0 = t(),
-    receive
-	{cancel, Parent} ->
-	    ?d("cancel", []),
-	    demonitor(Ref),
-	    unlink(Parent),
-	    exit(normal);
-	{'EXIT', Parent, _} ->
-	    exit(normal);
-	{'DOWN', Ref, process, _Object, _Info} ->
-	    ?d("down", []),
-	    sleep(?NOTIFY_START_TICK_TIME),
-	    ?MODULE:snmpm_start_verify(Parent, monitor(), t(T0, To))
-    after ?NOTIFY_START_TICK_TIME ->
-	    ?d("down timeout", []),
-	    demonitor(Ref),
-	    case snmpm_server:is_started() of
-		true ->
-		    unlink(Parent),
-		    Parent ! {snmpm_started, self()};
-		_ ->
-		    ?MODULE:snmpm_start_verify(Parent, monitor(), t(T0, To))
-	    end
+do_snmpm_start_verify(Parent, Ref, TickTime, EOL) ->
+    case is_eol(EOL) of
+        true ->
+            maybe_inform("EOL - issue start-timeout"),
+            Parent ! {snmpm_start_timeout, self()},
+            unlink(Parent),
+            exit(normal);
+        false ->
+            receive
+                {cancel, Parent} ->
+                    maybe_inform("cancel"),
+                    demonitor(Ref),
+                    unlink(Parent),
+                    exit(normal);
+                {'EXIT', Parent, _} ->
+                    maybe_inform("parent death"),
+                    exit(normal);
+                {'DOWN', Ref, process, _Object, _Info} ->
+                    maybe_inform("down - not started"),
+                    sleep(TickTime),
+                    ?MODULE:do_snmpm_start_verify(Parent, monitor(),
+                                                  TickTime, EOL)
+            after TickTime ->
+                    maybe_inform("tick-timeout - check if started"),
+                    demonitor(Ref),
+                    case snmpm_server:is_started() of
+                        true ->
+                            maybe_inform("started"),
+                            unlink(Parent),
+                            Parent ! {snmpm_started, self()},
+                            exit(normal);
+                        _ ->
+                            ?MODULE:do_snmpm_start_verify(Parent, monitor(),
+                                                          TickTime, EOL)
+                    end
+            end
     end.
+                
 
-t(T0, T)  -> T - (t() - T0).
+%% t(T0, T)  -> T - (t() - T0).
 t()       -> snmp_misc:now(ms).
 sleep(To) -> snmp_misc:sleep(To).
 
@@ -2409,8 +2444,22 @@ ensure_engine_id(Config) ->
 	    [{engine_id, DefaultEngineId} | Config]
     end.
 
+is_eol(EOL) ->
+    TS = t(),
+    (TS > EOL).
 
+maybe_inform(F) ->
+    maybe_inform(F, []).
 
+maybe_inform(F, A) ->
+    maybe_inform(get(verbose), F, A).
+
+maybe_inform(true, F, A) ->
+    error_logger:info_msg("[snmpm start notifyer ~p] " ++ F, [self()|A]);
+maybe_inform(_, _, _) ->
+    ok.
+
+    
 %% p(F) ->
 %%     p(F, []).
 
