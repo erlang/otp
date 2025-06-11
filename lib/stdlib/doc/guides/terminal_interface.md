@@ -106,7 +106,7 @@ main(_Args) ->
 loop(Pos) ->
     io:put_chars(draw_selection(Pos)),
     %% Read at most 1024 characters from stdin.
-    {ok, Chars} = io:get_chars("", 1024),
+    Chars = io:get_chars("", 1024),
     case handle_input(Chars, Pos) of
         stop -> stop;
         NewPos ->
