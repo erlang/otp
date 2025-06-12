@@ -73,7 +73,8 @@
 -export([
          get_adapters_addresses/1,
          get_if_entry/1,
-	 get_interface_info/1
+	 get_interface_info/1,
+	 get_ip_address_table/1
         ]).
 
 
@@ -107,7 +108,8 @@ misc_cases() ->
     [
      get_adapters_addresses,
      get_if_entry,
-     get_interface_info
+     get_interface_info,
+     get_ip_address_table
     ].
 
 
@@ -580,6 +582,52 @@ gii_verify_result([IF | IFs]) ->
 	       "~n   ~p", [IF]),
 	    exit(unpexpected_interface_info)
     end.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This function retrieves the interface-to-IPv4 address mapping table.
+%% The only option is if we want the table sorted in ascending order by
+%% IPv4 address. 
+
+get_ip_address_table(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
+    tc_try(?FUNCTION_NAME,
+	   fun() -> ?HAS_SUPPORT_IPV4() end,
+	   fun() ->
+		   try
+		       ok = do_get_ip_addr_table()
+                   catch
+                       error:notsup = NOTSUP ->
+                           skip(NOTSUP)
+                   end
+	   end).
+
+do_get_ip_addr_table() ->
+    {ok, _} = prim_net:get_ip_address_table(#{}), % Default: sort = false
+    {ok, _} = prim_net:get_ip_address_table(#{sort => false}), % Default
+    {ok, Sorted} = prim_net:get_ip_address_table(#{sort => true}),
+    ok = giat_verify_result(Sorted),
+    {ok, _} = prim_net:get_ip_address_table(#{sort => tomat}), % Default
+    ok.
+
+
+giat_verify_result(Sorted) ->
+    giat_verify_result(Sorted, undefined).
+
+giat_verify_result([], _Addr0) ->
+    ?P("all entries verified"),
+    ok;
+giat_verify_result([#{index := Idx, addr := Addr} | Tab], undefined) ->
+    ?P("first entry: "
+       "~n   Index: ~p"
+       "~n   Addr:  ~p", [Idx, Addr]),
+    giat_verify_result(Tab, Addr);
+giat_verify_result([#{index := Idx, addr := Addr} | Tab], Addr0)
+  when (Addr > Addr0) ->
+    ?P("entry verified: "
+       "~n   Index: ~p"
+       "~n   Addr:  ~p (> ~p)", [Idx, Addr, Addr0]),
+    giat_verify_result(Tab, Addr).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
