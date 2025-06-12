@@ -65,6 +65,25 @@ opts() ->
                    OriginalBranch = cmd(Opts, "git branch --show-current"),
                    run(lists:foldl(fun parse_default/2, Opts#{ original_branch => OriginalBranch }, Arguments))
            end,
+       help => """
+            Use this script to update github actions versions by merging
+            renovate PRs to the respective branches. Running this script
+            will reset your master/maint/maint-X branches and requires
+            you to have the gh cli installed with a token allowing it
+            to do various things to github.
+
+            Typical usages:
+
+              ## Do a dry run, this will not push anything to github
+              ## event if it asks you to confirm sending things there.
+              .github/scripts/update-gh-actions.es --dry
+
+              ## Do a dry run with verbose logs
+              .github/scripts/update-gh-actions.es --dry --verbose
+
+              ## Do a run that updates things on github
+              .github/scripts/update-gh-actions.es
+            """,
        arguments => Arguments
      }.
 

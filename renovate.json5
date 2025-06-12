@@ -24,7 +24,7 @@
   components. We use the [Forking Renovate](https://github.com/apps/forking-renovate)
   App as it does not need write permissions to the otp repository.
 
-  There is a permanent issue with the status here: https://github.com/erlang/otp/issue/1234
+  There is a permanent issue with the status here: https://github.com/erlang/otp/issue/9908
   You can view the status from renovates perspective here: https://developer.mend.io/github/erlang/otp
 
   Renovate will open PRs to update:
