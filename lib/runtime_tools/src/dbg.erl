@@ -1004,7 +1004,7 @@ To start a similar tracer on a remote node, use `n/1`.
 """.
 -spec tracer() -> {ok, pid()} | {error, already_started}.
 tracer() ->
-    tracer(process, {fun dhandler/2,user}).
+    tracer(process, {fun dhandler/2, dhandler_default_out()}).
 
 -doc """
 tracer(Type, Data)
@@ -1451,13 +1451,13 @@ The pids will vary.
       Filename :: file:name_all(),
       WrapFilesSpec :: trace_wrap_files_spec().
 trace_client(file, Filename) ->
-    trace_client(file, Filename, {fun dhandler/2,user});
+    trace_client(file, Filename, {fun dhandler/2, dhandler_default_out()});
 trace_client(follow_file, Filename) ->
-    trace_client(follow_file, Filename, {fun dhandler/2,user});
+    trace_client(follow_file, Filename, {fun dhandler/2, dhandler_default_out()});
 trace_client(ip, Portno) when is_integer(Portno) ->
-    trace_client1(ip, {"localhost", Portno}, {fun dhandler/2,user});
+    trace_client1(ip, {"localhost", Portno}, {fun dhandler/2, dhandler_default_out()});
 trace_client(ip, {Host, Portno}) when is_integer(Portno) ->
-    trace_client1(ip, {Host, Portno}, {fun dhandler/2,user}).
+    trace_client1(ip, {Host, Portno}, {fun dhandler/2, dhandler_default_out()}).
 
 -type handler_spec() :: {HandlerFun :: fun((Event :: term(), Data :: term()) -> NewData :: term()),
                          InitialData :: term()}.
@@ -2151,6 +2151,25 @@ do_relay_1(RelP, Session) ->
             Modifier = modifier(user),
 	    io:format(user,"** relay got garbage: ~"++Modifier++"p~n", [Other]),
 	    do_relay_1(RelP, Session)
+    end.
+
+-doc false.
+dhandler_default_out() ->
+    %% When user (human) sets up dbg over remsh, group_leader is on other node.
+    %% In this case, pass printed info to the remote group_leader
+    %% so the user (human) can see what's happening
+    IsShell = case process_info(self(), {dictionary, '$ancestors'}) of
+        {_Key, [Shell | _]} -> (shell:whereis() == Shell);
+        _ -> false
+    end,
+    case IsShell andalso (node(group_leader()) /= node()) of
+        true ->
+            % This is an interactive shell AND group_leader is remote
+            % Assume this is remsh and use the remote group_leader
+            group_leader();
+        false ->
+            % On the same node or when not a shell use 'user' (process) as default output
+            user
     end.
 
 -doc false.
