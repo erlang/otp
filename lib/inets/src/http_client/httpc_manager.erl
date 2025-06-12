@@ -62,7 +62,8 @@
 	  cookie_db,     % cookie_db()
 	  session_db,    % ets() - Entry:  #session{}
 	  profile_name,  % atom()
-	  options = #options{}
+	  options = #options{},
+          awaiting      % queue() - Entry: #request{}
 	 }).
 
 -define(DELAY, 500).
@@ -83,6 +84,7 @@
 %%--------------------------------------------------------------------
 
 start_link(Profile, CookieDir, stand_alone) ->
+        ok, % added to force github cache renewal
     ProfileName = httpc:profile_name("stand_alone_", Profile), 
     Args        = [ProfileName, CookieDir], 
     Opts        = [], 
@@ -440,7 +442,8 @@ do_init(ProfileName, CookiesDir) ->
     State = #state{handler_db   = HandlerDbName, 
 		   cookie_db    = CookieDb, 
 		   session_db   = SessionDbName,
-		   profile_name = ProfileName}, 
+		   profile_name = ProfileName,
+                   awaiting     = queue:new()},
     {ok, State}.
 
 
@@ -557,7 +560,8 @@ handle_cast({set_options, Options}, State = #state{options = OldOptions}) ->
 		 port                  = get_port(Options, OldOptions),
 		 verbose               = get_verbose(Options, OldOptions),
 		 socket_opts           = get_socket_opts(Options, OldOptions),
-		 unix_socket           = get_unix_socket_opts(Options, OldOptions)
+		 unix_socket           = get_unix_socket_opts(Options, OldOptions),
+                 max_handlers_open     = get_max_handlers_open(Options, OldOptions)
 		}, 
     case {OldOptions#options.verbose, NewOptions#options.verbose} of
 	{Same, Same} ->
@@ -581,7 +585,8 @@ handle_cast({store_cookies, _},
 handle_cast({store_cookies, {Cookies, _}}, State) ->
     ok = do_store_cookies(Cookies, State),
     {noreply, State};
-
+handle_cast({await, Request}, #state{awaiting = Awaiting} = State) ->
+    {noreply, State#state{awaiting = queue:in(Request, Awaiting)}};
 handle_cast(Msg, #state{profile_name = ProfileName} = State) ->
     error_report(ProfileName, 
 		 "received unknown message"
@@ -594,11 +599,13 @@ handle_cast(Msg, #state{profile_name = ProfileName} = State) ->
 %%          {stop, Reason, State}            (terminate/2 is called)
 %% Description: Handling all non call/cast messages
 %%---------------------------------------------------------
+%%
 handle_info({'EXIT', _, _}, State) ->
     %% Handled in DOWN
     {noreply, State};
-handle_info({'DOWN', _, _, Pid, _}, State) ->
-    ets:match_delete(State#state.handler_db, {'_', Pid, '_'}),  
+handle_info({'DOWN', _, _, Pid, _}, State0) ->
+    ets:match_delete(State0#state.handler_db, {'_', Pid, '_'}),
+    State = start_enqueued_request(State0),
     {noreply, State};
 handle_info(Info, State) ->
     Report = io_lib:format("Unknown message in "
@@ -755,18 +762,19 @@ handle_request(Request0 = #request{socket_opts = SocketOpts},
 	(Request#request.headers)#http_request_h{connection
 						    = "close"},
     %% Reset socket_opts to avoid setopts failure.
-    start_handler(Request#request{headers = Headers, socket_opts = []}, State),
+    Msg = start_handler(Request#request{headers = Headers, socket_opts = []}, State),
     %% Do not change the state
-    {reply, {ok, Request#request.id}, State0};
+    {reply, Msg, State0};
 
 handle_request(Request, State = #state{options = Options}) ->
     NewRequest = handle_cookies(generate_request_id(Request), State),
     SessionType = session_type(Options),
-    case select_session(Request#request.method,
+    Message = case select_session(Request#request.method,
 			Request#request.address,
 			Request#request.scheme, SessionType, State) of
 	{ok, HandlerPid} ->
-	    pipeline_or_keep_alive(NewRequest, HandlerPid, State);
+	    pipeline_or_keep_alive(NewRequest, HandlerPid, State),
+        {ok, NewRequest#request.id};
 	no_connection ->
 	    start_handler(NewRequest, State);
 	{no_session,  OpenSessions} when OpenSessions
@@ -780,7 +788,7 @@ handle_request(Request, State = #state{options = Options}) ->
 							    = "close"},
 	    start_handler(NewRequest#request{headers = NewHeaders}, State)
     end,
-    {reply, {ok, NewRequest#request.id}, State}.
+    {reply, Message, State}.
 
 
 %% Convert Request options to State options
@@ -792,26 +800,53 @@ convert_options([{ip, Value}|T], Options) ->
     convert_options(T, Options#options{ip = Value});
 convert_options([{port, Value}|T], Options) ->
     convert_options(T, Options#options{port = Value});
+convert_options([{max_handlers_open, Value}|T], Options) ->
+    convert_options(T, Options#options{max_handlers_open = Value});
 convert_options([Option|T], Options = #options{socket_opts = SocketOpts}) ->
     convert_options(T, Options#options{socket_opts = SocketOpts ++ [Option]}).
 
-start_handler(#request{id   = Id, 
-		       from = From} = Request, 
-	      #state{profile_name = ProfileName, 
-		     handler_db   = HandlerDb, 
-		     options      = Options}) ->
-    {ok, Pid} =
-	case is_inets_manager() of
-	    true ->
-		httpc_handler_sup:start_child([whereis(httpc_handler_sup),
-					       Request, Options, ProfileName]);
-	    false ->
-		httpc_handler:start_link(self(), Request, Options, ProfileName)
-	end,
-    HandlerInfo = {Id, Pid, From}, 
-    ets:insert(HandlerDb, HandlerInfo), 
-    erlang:monitor(process, Pid).
+start_handler(#request{} = Request,
+              #state{handler_db   = HandlerDb,
+                     options      = Options} = State) ->
+    MaxHandlersOpen = Options#options.max_handlers_open,
+    case ets:info(HandlerDb, size) >= MaxHandlersOpen - 1
+        andalso MaxHandlersOpen =/= -1 of
+        true -> wait_for_handler_to_end_then_start(Request);
+        false -> do_start_handler(Request, State)
+    end.
 
+do_start_handler(#request{id   = Id,
+                          from = From} = Request,
+                 #state{profile_name = ProfileName,
+                        handler_db   = HandlerDb,
+                        options      = Options}) ->
+    {ok, Pid} =
+        case is_inets_manager() of
+            true ->
+                httpc_handler_sup:start_child([whereis(httpc_handler_sup),
+                                               Request, Options, ProfileName]);
+            false ->
+                httpc_handler:start_link(self(), Request, Options, ProfileName)
+        end,
+    HandlerInfo = {Id, Pid, From},
+    ets:insert(HandlerDb, HandlerInfo),
+    erlang:monitor(process, Pid),
+    {ok, Id}.
+
+wait_for_handler_to_end_then_start(#request{id = Id} = Request) ->
+    gen_server:cast(self(), {await, Request}),
+    {ok, {await, Id}}.
+
+start_enqueued_request(#state{awaiting = Awaiting} = State0)->
+    case queue:out(Awaiting) of
+        {{value, Request}, NewAwaiting} ->
+            State = State0#state{awaiting = NewAwaiting},
+            {ok, Id} = do_start_handler(Request, State#state{awaiting = NewAwaiting}),
+            Request#request.from ! {started, Id},
+            State;
+        {empty, _} ->
+            State0
+    end.
 
 select_session(Method, HostPort, Scheme, SessionType, 
 	       #state{options = #options{max_pipeline_length   = MaxPipe,
@@ -1003,7 +1038,9 @@ get_option(port, #options{port = Port}) ->
 get_option(socket_opts, #options{socket_opts = SocketOpts}) ->
     SocketOpts;
 get_option(unix_socket, #options{unix_socket = UnixSocket}) ->
-    UnixSocket.
+    UnixSocket;
+get_option(max_handlers_open, #options{max_handlers_open = MaxHandlersOpen}) ->
+    MaxHandlersOpen.
 
 
 get_proxy(Opts, #options{proxy = Default}) ->
@@ -1047,6 +1084,9 @@ get_socket_opts(Opts, #options{socket_opts = Default}) ->
 
 get_unix_socket_opts(Opts, #options{unix_socket = Default}) ->
     proplists:get_value(unix_socket, Opts, Default).
+
+get_max_handlers_open(Opts, #options{max_handlers_open = Default}) ->
+    proplists:get_value(max_handlers_open, Opts, Default).
 
 handle_verbose(debug) ->
     dbg:p(self(), [call]),
