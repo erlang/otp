@@ -487,7 +487,12 @@ get_if_entry(_Config) when is_list(_Config) ->
     tc_try(?FUNCTION_NAME,
 	   fun() -> ok end,
            fun() ->
-                   ok = do_get_if_entry()
+                   try
+                       ok = do_get_if_entry()
+                   catch
+                       error:notsup = NOTSUP ->
+                           skip(NOTSUP)
+                   end
            end).
 
 do_get_if_entry() ->
@@ -544,7 +549,12 @@ get_interface_info(_Config) when is_list(_Config) ->
     tc_try(?FUNCTION_NAME,
 	   fun() -> ?HAS_SUPPORT_IPV4() end,
            fun() ->
-                   ok = do_get_interface_info()
+                   try
+                       ok = do_get_interface_info()
+                   catch
+                       error:notsup = NOTSUP ->
+                           skip(NOTSUP)
+                   end
            end).
 
 do_get_interface_info() ->
@@ -570,38 +580,6 @@ gii_verify_result([IF | IFs]) ->
 	       "~n   ~p", [IF]),
 	    exit(unpexpected_interface_info)
     end.
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-%% local_host() ->
-%%     try net_adm:localhost() of
-%%         Host when is_list(Host) ->
-%% 	    %% Convert to shortname if long
-%% 	    case string:tokens(Host, [$.]) of
-%% 		[H|_] ->
-%% 		    list_to_atom(H)
-%% 	    end
-%%     catch
-%%         C:E:S ->
-%%             erlang:raise(C, E, S)
-%%     end.
-
-
-%% This gets the local address (not 127.0...)
-%% We should really implement this using the (new) net module,
-%% but until that gets the necessary functionality...
-%% which_local_addr(Domain) ->
-%%     ?LIB:which_local_addr(Domain).
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-%% monitored_by() ->
-%%     monitored_by(self()).
-%% monitored_by(Pid) ->	
-%%     {monitored_by, Refs} = erlang:process_info(Pid, monitored_by),
-%%     Refs.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
