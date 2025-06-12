@@ -203,27 +203,41 @@ fixed_accidental2(State) ->
           end).
 ```
 
-## list_to_atom/1
+## list_to_atom/1, binary_to_atom/1,2
 
 Atoms are not garbage-collected. Once an atom is created, it is never removed.
 The emulator terminates if the limit for the number of atoms (1,048,576 by
 default) is reached.
 
-Therefore, converting arbitrary input strings to atoms can be dangerous in a
+Therefore, converting arbitrary input strings (or binaries) to atoms can be dangerous in a
 system that runs continuously. If only certain well-defined atoms are allowed as
-input, [`list_to_existing_atom/1`](`erlang:list_to_existing_atom/1`) or
-[`binary_to_existing_atom/1`](`erlang:binary_to_existing_atom/1`) can be used
-to guard against a denial-of-service attack. (All atoms that are allowed must
+input, [`list_to_existing_atom/1`](`erlang:list_to_existing_atom/1`),
+[`binary_to_existing_atom/1`](`erlang:binary_to_existing_atom/1`), or
+[`binary_to_existing_atom/2`](`erlang:binary_to_existing_atom/2`) can be used
+to guard against a denial-of-service attack. All atoms that are allowed must
 have been created earlier, for example, by using all of them in a module
-and loading that module.)
+and loading that module.
 
-Using [`list_to_atom/1`](`list_to_atom/1`) to construct an atom that
+Using [`list_to_atom/1`](`list_to_atom/1`), [`binary_to_atom/1`](`binary_to_atom/1`), or
+[`binary_to_atom/2`](`binary_to_atom/2`) to construct an atom that
 is passed to [`apply/3`](`apply/3`) is quite expensive.
 
 **DO NOT**
 
 ```erlang
 apply(list_to_atom("some_prefix"++Var), foo, Args)
+```
+
+**DO NOT**
+
+```erlang
+apply(binary_to_atom(<<"some_prefix", Var/binary>>), foo, Args)
+```
+
+**DO NOT**
+
+```erlang
+apply(binary_to_atom(<<"some_prefix", Var/binary>>, utf8), foo, Args)
 ```
 
 ## length/1
