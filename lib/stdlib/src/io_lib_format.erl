@@ -138,7 +138,7 @@ build_bin(Cs, Options) ->
         NumOfLimited ->
             RemainingChars = sub(CharsLimit, Other),
             Res = build_limited_bin(Res1, P, NumOfLimited, RemainingChars, 0),
-            unicode:characters_to_binary(Res)
+            unicode:characters_to_binary(Res)  %% Res only contains utf-8 binary or ASCII
     end.
 
 %% Parse all control sequences in the format string.
