@@ -166,16 +166,17 @@ where parameters in the private key will be
 
 ```erlang
 #'ECPrivateKey'{
-   version,       % pos_integer()
+   version,       % pos_integer() |  ecPrivkeyVer1 (enumeration value, decode returns atom, encode accepts both)
    privateKey,    % binary()
-   parameters,    % {ecParameters, #'ECParameters'{}} |
+   parameters,    % {ecParameters, #'ECParameters'{}} | - Legacy
                   % {namedCurve, Oid::tuple()} |
                   % {implicitlyCA, 'NULL'}
    publicKey      % bitstring()
   }.
 
+%% Legacy no longer defined in current PKIX standard
 #'ECParameters'{
-   version,    % pos_integer()
+   version,    % pos_integer() | v1 (enumeration value)
    fieldID,    % #'FieldID'{}
    curve,      % #'Curve'{}
    base,       % binary()
