@@ -137,6 +137,15 @@ hello
 #{ a => b }
 ```
 
+## Matching of ...:
+
+```
+1> lists:seq(1,100).
+[1, 2, 3 | ...]
+2> #{ a => b }.
+#{ a => ... }
+```
+
 ## Edge cases:
 
 ```
@@ -192,7 +201,8 @@ module(#docs_v1{ docs = Docs, module_doc = MD }, Bindings) ->
         N ->
             error({N,errors})
     end.
-
+print_error({{Name,Arity},{Message,Line,Context}}) ->
+    io:format("~p/~p:~p: ~ts~n~ts~n", [Name,Arity,Line,Context,Message]);
 print_error({{Name,Arity},{Message,Context}}) ->
     io:format("~p/~p: ~ts~n~ts~n", [Name,Arity,Context,Message]).
 
@@ -346,16 +356,25 @@ parse(Cmd0, _Test, _Match) ->
     Cmd = lists:flatten(Cmd0),
     maybe
         {ok, T, _} ?= erl_scan:string(Cmd),
-        {ok, Ast} ?= inspect(erl_parse:parse_exprs(T)),
+        RewrittenToks = rewrite_tokens(T),
+        {ok, Ast} ?= inspect(erl_parse:parse_exprs(RewrittenToks)),
         Ast
     else
-        {error, {_Line,Mod,Reason}, _} ->
+        {error, {Line,Mod,Reason}, _} ->
             Message = Mod:format_error(Reason),
-            throw({error,{Message,Cmd}});
-        {error, {_Line,Mod,Reason}} ->
+            throw({error,{Message,Line,Cmd}});
+        {error, {Line,Mod,Reason}} ->
             Message = Mod:format_error(Reason),
-            throw({error,{Message,Cmd}})
+            throw({error,{Message,Line,Cmd}})
     end.
+
+%% We rewrite ... to _ to match shell syntax better
+rewrite_tokens([{'...', L} | T]) ->
+    rewrite_tokens([{var, L, '_'} | T]);
+rewrite_tokens([H | T]) ->
+    [H | rewrite_tokens(T)];
+rewrite_tokens([]) ->
+    [].
 
 format_exception(Class, Reason, [{M,F,A,Info0},Item|_]) ->
     Info = lists:keydelete(line, 1, Info0),
