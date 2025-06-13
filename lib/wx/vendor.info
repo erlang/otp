@@ -15,6 +15,7 @@
     "licenseDeclared": "LicenseRef-scancode-wxwindows-free-doc-3",
     "name": "wx",
     "versionInfo": "dc585039bbd426829e3433002023a93f9bedd0c2",
+    "sha": "dc585039bbd426829e3433002023a93f9bedd0c2",
     "path": "./lib/wx",
     "comments": "This only applies to the source code of Erlang files in 'src', and specifically to the documentation embedded in them",
     "supplier": "NOASSERTION",
