@@ -45,18 +45,18 @@ Let us start by drawing the board which will look like this:
 ```
 
 
-We will use the alternate screen buffer for our game so first we need to set that up:
+We will use the alternate screen buffer for our game so first we need to set
+that up using `m:io_ansi`:
 
 ```
 #!/usr/bin/env escript
 main(_Args) ->
     
-    io:put_chars("\e[?1049h"), %% Enable alternate screen buffer
-    io:put_chars("\e[?25l"), %% Hide the cursor
+    %% Enable alternate screen buffer and hide cursor
+    io_ansi:fwrite([alternate_screen, cursor_hide]),
     draw_board(),
     timer:sleep(5000),
-    io:put_chars("\e[?25h"), %% Show the cursor
-    io:put_chars("\e[?1049l"), %% Disable alternate screen buffer
+    io_ansi:fwrite([alternate_screen_off, cursor_show]),
     ok.
 ```
 
@@ -64,7 +64,8 @@ We then use the box drawing parts of Unicode to draw our board:
 
 ```
 draw_board() ->
-    io:put_chars("\e[5;0H"), %% Move cursor to top left
+    %% Place cursor at row 6 column 0
+    io_ansi:fwrite([{cursor, 6, 0}])
     io:put_chars(
       ["     ╔═══════╤═══════╤═══════╗\r\n",
        "     ║       │       │       ║\r\n",
@@ -87,7 +88,7 @@ shell from running in `cooked` to `raw` mode. This is done by calling
 [`shell:start_interactive({noshell, raw})`](`shell:start_interactive/1`).
 We can then use `io:get_chars/2` to read key strokes from the user. The key
 strokes will be returned as [ANSI escape codes](https://en.wikipedia.org/wiki/ANSI_escape_code), 
-so we will have need to handle the codes for up, down, left, right and enter.
+so we will use `io_ansi:scan/1` to interpret them.
 
 It could look something like this:
 
@@ -95,38 +96,41 @@ It could look something like this:
 main(_Args) ->
     ok = shell:start_interactive({noshell, raw}),
     
-    io:put_chars("\e[?1049h"), %% Enable alternate screen buffer
-    io:put_chars("\e[?25l"), %% Hide the cursor
-    draw_board(),
-    loop(0),
-    io:put_chars("\e[?25h"), %% Show the cursor
-    io:put_chars("\e[?1049l"), %% Disable alternate screen buffer
-    ok.
-
-loop(Pos) ->
-    io:put_chars(draw_selection(Pos)),
-    %% Read at most 1024 characters from stdin.
-    Chars = io:get_chars("", 1024),
-    case handle_input(Chars, Pos) of
-        stop -> stop;
-        NewPos ->
-            io:put_chars(clear_selection(Pos)),
-            loop(NewPos)
+    try
+        %% Enable alternate screen buffer, hide cursor and enable keypad_transmit_mode
+        io_ansi:fwrite([alternate_screen, cursor_hide, keypad_transmit_mode]),
+        draw_board(),
+        loop(0)
+    after ->
+        io_ansi:fwrite([alternate_screen_off, cursor_show, keypad_transmit_mode_off]),
     end.
 
-handle_input("\e[A" ++ Rest, Pos) ->
+loop(Pos) ->
+    io_ansi:fwrite(lists:flatten(draw_state(Pos))),
+    case io:get_chars("", 1024) of
+        eof -> stop;
+        Chars ->
+            case handle_input(io_ansi:scan(Chars), Pos) of
+                stop -> stop;
+                NewPos ->
+                    io_ansi:fwrite(clear_selection(Pos)),
+                    loop(NewPos)
+            end
+    end.
+
+handle_input([kcursor_up | Rest], {Pos, Turn, State}) ->
     %% Up key
     handle_input(Rest, max(0, Pos - 3));
-handle_input("\e[B" ++ Rest, Pos) ->
+handle_input([kcursor_down | Rest], {Pos, Turn, State}) ->
     %% Down key
     handle_input(Rest, min(8, Pos + 3));
-handle_input("\e[C" ++ Rest, Pos) ->
+handle_input([kcursor_forward | Rest], {Pos, Turn, State}) ->
     %% right key
     handle_input(Rest, min(8, Pos + 1));
-handle_input("\e[D" ++ Rest, Pos) ->
+handle_input([kcursor_backward | Rest], {Pos, Turn, State}) ->
     %% left key
     handle_input(Rest, max(0, Pos - 1));
-handle_input("q" ++ _, _State) ->
+handle_input([<<"q",_Rest/binary>> | _T], _State) ->
     stop;
 handle_input([_ | T], State) ->
     handle_input(T, State);
@@ -145,29 +149,28 @@ routines.
 ```
 %% Clear/draw the selection markers, making sure
 %% not to overwrite if a X or O exists.
-%%   \b = Move cursor left
-%%   \e[C = Move cursor right
-%%   \n = Move cursor down
 clear_selection(Pos) ->
     [set_position(Pos),
-     "       ","\b\b\b\b\b\b\b\n",
-     " \e[C\e[C\e[C\e[C\e[C ",
-     "\b\b\b\b\b\b\b\n","       "].
+     "       ",{cursor_backward, 7}, cursor_down,
+     " ",{cursor_forward,5}," ",
+     {cursor_backward, 7}, cursor_down,
+     "       "].
 
 draw_selection(Pos) ->
     [set_position(Pos),
-     "┌─────┐","\b\b\b\b\b\b\b\n",
-     "│\e[C\e[C\e[C\e[C\e[C│",
-     "\b\b\b\b\b\b\b\n","└─────┘"].
+     "┌─────┐",
+     {cursor_backward, 7}, cursor_down,
+     "│",{cursor_forward,5},"│",
+     {cursor_backward, 7}, cursor_down,
+     "└─────┘"].
 
 %% Set the cursor position to be at the top
 %% left of the field of the given position
 set_position(Pos) ->
     Row = 6 + (Pos div 3) * 4,
     Col = 7 + (Pos rem 3) * 8,
-    io_lib:format("\e[~p;~pH",[Row, Col]).
+    {cursor, Row + 1, Col - 1}.
 ```
-{: #monospace-font }
 
 Now we have a program where we can move the marker around the board.
 To complete the game we need to add some state so that we know which

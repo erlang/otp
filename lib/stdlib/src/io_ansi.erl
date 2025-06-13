@@ -1603,8 +1603,8 @@ Scan the string for virtial terminal sequences.
 The recognized VTSs will be converted into the corresponding `t:vts/0`.
 
 If you intend to parse arrow keys it is recommended that you first set the terminal in
-application mode by using `io_ansi:format(standard_out, [keypad_transmit_mode], [], [])`.
-This will make it easier for io_ansi to correctly detect arrow keys.
+application mode by using `keypad_transmit_mode/0`. This will make it easier for
+`m:io_ansi` to correctly detect arrow keys.
 
 Any unrecognized [control sequence introducers](https://en.wikipedia.org/wiki/ANSI_escape_code#Control_Sequence_Introducer_commands),
 will be placed in a tuple tagged with `csi`.
