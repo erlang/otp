@@ -23,6 +23,17 @@ limitations under the License.
 
 This document describes the changes made to the Kernel application.
 
+## Kernel 10.3.1
+
+### Fixed Bugs and Malfunctions
+
+- Fix bug where calling `io:setopts/1` in a shell without the `line_history` option would always disable `line_history`. This bug was introduced in Erlang/OTP 28.0.
+
+  Own Id: OTP-19645 Aux Id: [GH-9863], [PR-9870]
+
+[GH-9863]: https://github.com/erlang/otp/issues/9863
+[PR-9870]: https://github.com/erlang/otp/pull/9870
+
 ## Kernel 10.3
 
 ### Fixed Bugs and Malfunctions

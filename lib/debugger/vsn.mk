@@ -1,4 +1,4 @@
-DEBUGGER_VSN = 6.0
+DEBUGGER_VSN = 6.0.1
 
 # %CopyrightBegin%
 #

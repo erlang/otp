@@ -23,6 +23,27 @@ limitations under the License.
 
 This document describes the changes made to the ERTS application.
 
+## Erts 16.0.1
+
+### Fixed Bugs and Malfunctions
+
+- Fix Erlang to not crash when `t:io:standard_error/0` is a terminal but `t:io:standard_io/0` is not. This bug has existed since Erlang/OTP 28.0 and only effects Windows.
+
+  Own Id: OTP-19650 Aux Id: [GH-9872], [PR-9878]
+
+- In a debug build, the BIFs for the native debugger could cause a lock order violation diagnostic from the lock checker.
+
+  Own Id: OTP-19665 Aux Id: [PR-9926]
+
+- When building ERTS make sure correct `pcre2.h` file is included even if CFLAGS contains extra include paths.
+
+  Own Id: OTP-19675 Aux Id: [PR-9892]
+
+[GH-9872]: https://github.com/erlang/otp/issues/9872
+[PR-9878]: https://github.com/erlang/otp/pull/9878
+[PR-9926]: https://github.com/erlang/otp/pull/9926
+[PR-9892]: https://github.com/erlang/otp/pull/9892
+
 ## Erts 16.0
 
 ### Fixed Bugs and Malfunctions

@@ -23,6 +23,19 @@ limitations under the License.
 
 This document describes the changes made to the STDLIB application.
 
+## STDLIB 7.0.1
+
+### Fixed Bugs and Malfunctions
+
+- Properly strip the leading `/` and drive letter from filepaths when zipping and unzipping archives.
+  
+  Thanks to Wander Nauta for finding and responsibly disclosing this vulnerability to the Erlang/OTP project.
+
+  Own Id: OTP-19653 Aux Id: [CVE-2025-4748], [PR-9941]
+
+[CVE-2025-4748]: https://nvd.nist.gov/vuln/detail/2025-4748
+[PR-9941]: https://github.com/erlang/otp/pull/9941
+
 ## STDLIB 7.0
 
 ### Fixed Bugs and Malfunctions
