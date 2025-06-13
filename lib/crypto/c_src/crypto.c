@@ -104,6 +104,9 @@ static ErlNifFunc nif_funcs[] = {
     {"pkey_sign_nif", 5, pkey_sign_nif, 0},
     {"pkey_verify_nif", 6, pkey_verify_nif, 0},
     {"pkey_crypt_nif", 6, pkey_crypt_nif, 0},
+    {"encapsulate_key_nif", 2, encapsulate_key_nif, 0},
+    {"decapsulate_key_nif", 3, decapsulate_key_nif, 0},
+    {"kem_algorithms_nif", 0, kem_algorithms_nif, 0},
     {"rsa_generate_key_nif", 2, rsa_generate_key_nif, 0},
     {"dh_generate_key_nif", 4, dh_generate_key_nif, 0},
     {"dh_compute_key_nif", 3, dh_compute_key_nif, 0},
@@ -266,12 +269,14 @@ static int initialize(ErlNifEnv* env, ERL_NIF_TERM load_info)
         ret = __LINE__; goto done;
     }
     if (!(prov[prov_cnt++] = OSSL_PROVIDER_load(NULL, "base"))) {
-        ret = __LINE__; goto done;
+            ret = __LINE__; goto done;
     }
     if ((prov[prov_cnt] = OSSL_PROVIDER_load(NULL, "legacy"))) {
         /* Don't fail loading if the legacy provider is missing */
         prov_cnt++;
     }
+    prefetched_sign_algo_init();
+
 #endif
 
     if (!init_atoms(env)) {

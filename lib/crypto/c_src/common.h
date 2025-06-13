@@ -32,6 +32,7 @@
 #include <string.h>
 #include <limits.h>
 #include <stdint.h>
+#include <stdbool.h>
 
 #include <erl_nif.h>
 #include "openssl_config.h"

@@ -150,6 +150,19 @@ extern ERL_NIF_TERM atom_key_id;
 extern ERL_NIF_TERM atom_password;
 #endif
 
+#ifdef HAVE_ML_DSA
+extern ERL_NIF_TERM atom_mldsa44;
+extern ERL_NIF_TERM atom_mldsa65;
+extern ERL_NIF_TERM atom_mldsa87;
+extern ERL_NIF_TERM atom_seed;
+extern ERL_NIF_TERM atom_expandedkey;
+#endif
+#ifdef HAVE_ML_KEM
+extern ERL_NIF_TERM atom_mlkem512;
+extern ERL_NIF_TERM atom_mlkem768;
+extern ERL_NIF_TERM atom_mlkem1024;
+#endif
+
 int init_atoms(ErlNifEnv *env);
 
 #endif /* E_ATOMS_H__ */

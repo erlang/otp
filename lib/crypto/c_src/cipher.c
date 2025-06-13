@@ -22,6 +22,7 @@
 
 #include "cipher.h"
 #include "info.h"
+#include "evp.h"
 
 #define NOT_AEAD {{0,0,0}}
 #define AEAD_CTRL {{EVP_CTRL_AEAD_SET_IVLEN,EVP_CTRL_AEAD_GET_TAG,EVP_CTRL_AEAD_SET_TAG}}
