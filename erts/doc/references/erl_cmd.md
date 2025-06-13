@@ -1367,7 +1367,18 @@ behavior of earlier flags.
   >
   > This flag can be removed or changed at any time without prior notice.
 
-- **`+v`** - Verbose.
+- **`+v`** - Verbose logging. Only works if Erlang is compiled with debug enabled.
+  Can optionally take an additional character to specify the types of debugging
+  messages logged:
+
+  - **`+vs`** - `DEBUG_SYSTEM`, same as `+v`
+  - **`+vg`** - `DEBUG_PRIVATE_GC`
+  - **`+vM`** - `DEBUG_MEMORY`
+  - **`+va`** - `DEBUG_ALLOCATION`
+  - **`+vt`** - `DEBUG_THREADS`
+  - **`+vp`** - `DEBUG_PROCESSES`
+  - **`+vm`** - `DEBUG_MESSAGES`
+  - **`+vc`** - `DEBUG_SHCOPY`
 
 - **`+V`** - Makes the emulator print its version number.
 
