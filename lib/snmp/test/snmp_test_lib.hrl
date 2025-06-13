@@ -102,9 +102,10 @@
 
 %% - Node utility macros - 
 
--define(PING(N),            ?LIB:ping(N)).
--define(LNODES(),           ?LIB:local_nodes()).
--define(NODES(H),           ?LIB:nodes_on(H)).
+-define(START_NODE(N, U), ?LIB:start_node((N), (U))).
+-define(PING(N),          ?LIB:ping(N)).
+-define(LNODES(),         ?LIB:local_nodes()).
+-define(NODES(H),         ?LIB:nodes_on(H)).
 
 %% - Application and Crypto utility macros - 
 

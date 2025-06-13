@@ -23,6 +23,7 @@
 -module(snmp_test_lib).
 
 -include_lib("kernel/include/file.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 
 -export([tc_try/2, tc_try/3,
@@ -42,7 +43,7 @@
 -export([fail/3, skip/3]).
 -export([hours/1, minutes/1, seconds/1, sleep/1]).
 -export([flush_mqueue/0, mqueue/0, mqueue/1, trap_exit/0, trap_exit/1]).
--export([ping/1, local_nodes/0, nodes_on/1]).
+-export([start_node/2, ping/1, local_nodes/0, nodes_on/1]).
 -export([is_app_running/1,
 	 is_crypto_running/0, is_mnesia_running/0, is_snmp_running/0,
          ensure_not_running/3]).
@@ -3163,6 +3164,24 @@ trap_exit(Flag) ->
 %% Node utility functions
 %% 
 
+start_node(Name, Unlink) ->
+    Args = ["-s", "snmp_test_sys_monitor", "start", "-s", "global", "sync"],
+    case ?CT_PEER(#{name => Name, args => Args}) of
+        {ok, Peer, Node}  ->
+            %% Must unlink, otherwise peer will exit before test case
+            maybe_unlink(Unlink, Peer),
+            global:sync(),
+            {Peer, Node};
+        {error, Reason} ->
+            ?SKIP({failed_starting_node, Name, Reason})
+    end.
+
+maybe_unlink(true, Pid) ->
+    unlink(Pid);
+maybe_unlink(false, _) ->
+    ok.
+
+    
 ping(N) ->
     case net_adm:ping(N) of
  	pang ->
