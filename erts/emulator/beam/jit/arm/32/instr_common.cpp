@@ -593,6 +593,14 @@ void BeamGlobalAssembler::emit_arith_compare_shared() {
      *
      * This is done first as relative comparisons on atoms doesn't make much
      * sense. */
+
+    // We need to check if values are "boxed",
+    // that is if they are pointers to a header.
+    // If they are not boxed, we assume they are atoms and jump to atom_compare.
+    // First, we ORR the 2 registers to check if any of the 2 is not boxed both.
+    a.orr(TMP, ARG1, ARG2);
+    // Check if both are boxed, if this fails, jump to atom_compare.
+    emit_is_boxed(atom_compare, TMP);
     // TODO
 }
 
