@@ -432,20 +432,17 @@ process_certificate_request(#certificate_request_1_3{
 process_certificate(#certificate_1_3{
                        certificate_request_context = <<>>,
                        certificate_list = []},
-                    #state{ssl_options =
+                    #state{static_env = #static_env{role = server},
+                           ssl_options =
                                #{fail_if_no_peer_cert := false}} = State) ->
     {ok, {State, wait_finished}};
 process_certificate(#certificate_1_3{
                        certificate_request_context = <<>>,
                        certificate_list = []},
-                    #state{ssl_options =
+                    #state{static_env = #static_env{role = server = Role},
+                           ssl_options =
                                #{fail_if_no_peer_cert := true}} = State0) ->
-    %% At this point the client believes that the connection is up and starts using
-    %% its traffic secrets. In order to be able send an proper Alert to the client
-    %% the server should also change its connection state and use the traffic
-    %% secrets.
-    State1 = calculate_traffic_secrets(State0),
-    State = ssl_record:step_encryption_state(State1),
+    State = handle_alert_encryption_state(Role, State0),
     {error, {?ALERT_REC(?FATAL, ?CERTIFICATE_REQUIRED, certificate_required), State}};
 process_certificate(#certificate_1_3{certificate_list = CertEntries},
                     #state{ssl_options = SslOptions,
@@ -463,7 +460,7 @@ process_certificate(#certificate_1_3{certificate_list = CertEntries},
            CertEntries, CertDbHandle, CertDbRef, SslOptions, CRLDbHandle, Role,
            Host, StaplingState) of
         #alert{} = Alert ->
-            State = update_encryption_state(Role, State0),
+            State = handle_alert_encryption_state(Role, State0),
             {error, {Alert, State}};
         {PeerCert, PublicKeyInfo} ->
             State = store_peer_cert(State0, PeerCert, PublicKeyInfo),
@@ -803,15 +800,33 @@ build_content(Context, THash) ->
 
 
 %% Sets correct encryption state when sending Alerts in shared states that use different secrets.
-%% - If client: use handshake secrets.
 %% - If server: use traffic secrets as by this time the client's state machine
 %%              already stepped into the 'connection' state.
-update_encryption_state(server, State0) ->
+handle_alert_encryption_state(server, State0) ->
     State1 = calculate_traffic_secrets(State0),
-    ssl_record:step_encryption_state(State1);
-update_encryption_state(client, State) ->
+    #state{ssl_options = Options,
+           connection_states = ConnectionStates,
+           protocol_specific = PS} = State = ssl_record:step_encryption_state(State1),
+    KeylogFun = maps:get(keep_secrets, Options, undefined),
+    maybe_keylog(KeylogFun, PS, ConnectionStates),
+    State;
+%% - If client: use handshake secrets.
+handle_alert_encryption_state(client, State) ->
     State.
 
+maybe_keylog({Keylog, Fun}, ProtocolSpecific, ConnectionStates) when Keylog == keylog_hs;
+                                                                     Keylog == keylog ->
+    N = maps:get(num_key_updates, ProtocolSpecific, 0),
+    #{security_parameters := #security_parameters{client_random = ClientRandom,
+                                                  prf_algorithm = Prf,
+                                                  application_traffic_secret = TrafficSecret}}
+        = ssl_record:current_connection_state(ConnectionStates, write),
+    TrafficKeyLog = ssl_logger:keylog_traffic_1_3(server, ClientRandom,
+                                                  Prf, TrafficSecret, N),
+
+    ssl_logger:keylog(TrafficKeyLog, ClientRandom, Fun);
+maybe_keylog(_,_,_) ->
+    ok.
 
 validate_certificate_chain(CertEntries, CertDbHandle, CertDbRef,
                            SslOptions, CRLDbHandle, Role, Host, StaplingState) ->
