@@ -4561,7 +4561,7 @@ sendv_deadline_cont(SockRef, IOV, _, Deadline, HasWritten) ->
 %% rest_iov - Utility function for sendv usage
 %%
 
--doc(#{since => "@OTP-19661@"}).
+-doc(#{since => "OTP @OTP-19661@"}).
 -doc """
 Calculate the rest I/O vector after a partially successful sendv
 (CompletionStatus was {ok, Written}).
