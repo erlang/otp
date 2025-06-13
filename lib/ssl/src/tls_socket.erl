@@ -28,7 +28,7 @@
 -include("ssl_api.hrl").
 -include("ssl_record.hrl").
 
--export([send/3, 
+-export([send/3, send/4,
          listen/3, 
          accept/3, 
          socket/6,
@@ -43,13 +43,13 @@
          close/2,
          monitor_socket/1]).
 
--export([split_options/1, 
+-export([split_options/2,
          get_socket_opts/3]).
 
--export([emulated_options/0, 
-         emulated_options/1, 
+-export([emulated_options/1,
+         emulated_options/2,
          internal_inet_values/1,
-         default_inet_values/0,
+         default_inet_values/1,
 	 init/1, 
          start_link/3, 
          terminate/2, 
@@ -75,6 +75,13 @@
 %%% Internal API
 %%--------------------------------------------------------------------
 send(Transport, Socket, Data) ->
+    Transport:send(Socket, Data).
+
+send(tls_socket_tcp, _Socket, [], _Handle) ->
+    ok;
+send(tls_socket_tcp, Socket, Data, Handle) ->
+    tls_socket_tcp:send_async(Socket, Data, Handle);
+send(Transport, Socket, Data, _Handle) ->
     Transport:send(Socket, Data).
 
 listen(Transport, Port, #config{transport_info = {Transport, _, _, _, _}, 
@@ -167,20 +174,20 @@ socket([Receiver, Sender], Transport, Socket, ConnectionCb, Tab, Trackers) ->
 setopts(gen_tcp, Socket = #sslsocket{socket_handle = ListenSocket, 
                                      listener_config = #config{trackers = Trackers}}, Options) ->
     Tracker = proplists:get_value(option_tracker, Trackers),
-    {SockOpts, EmulatedOpts} = split_options(Options),
+    {SockOpts, EmulatedOpts} = split_options(gen_tcp, Options),
     ok = set_emulated_opts(Tracker, EmulatedOpts),
     check_active_n(EmulatedOpts, Socket),
     inet:setopts(ListenSocket, SockOpts);
-setopts(_, Socket = #sslsocket{socket_handle = ListenSocket, 
+setopts(Transport, Socket = #sslsocket{socket_handle = ListenSocket, 
                                listener_config = #config{transport_info = Info,
                                                          trackers = Trackers}}, Options) ->
     Transport = element(1, Info),
     Tracker = proplists:get_value(option_tracker, Trackers),
-    {SockOpts, EmulatedOpts} = split_options(Options),
+    {SockOpts, EmulatedOpts} = split_options(Transport, Options),
     ok = set_emulated_opts(Tracker, EmulatedOpts),
     check_active_n(EmulatedOpts, Socket),
     Transport:setopts(ListenSocket, SockOpts);
-%%% Following clauses will not be called for emulated options, they are  handled in the connection process
+%%% Following clauses will not be called for emulated options, they are handled in the connection process
 setopts(gen_tcp, Socket, Options) ->
     inet:setopts(Socket, Options);
 setopts(Transport, Socket, Options) ->
@@ -215,14 +222,14 @@ check_active_n(EmulatedOpts, Socket = #sslsocket{listener_config = #config{track
 getopts(gen_tcp,  #sslsocket{socket_handle = ListenSocket, 
                              listener_config = #config{trackers = Trackers}}, Options) ->
     Tracker = proplists:get_value(option_tracker, Trackers),
-    {SockOptNames, EmulatedOptNames} = split_options(Options),
+    {SockOptNames, EmulatedOptNames} = split_options(gen_tcp, Options),
     EmulatedOpts = get_emulated_opts(Tracker, EmulatedOptNames),
     SocketOpts = get_socket_opts(ListenSocket, SockOptNames, inet),
     {ok, EmulatedOpts ++ SocketOpts}; 
 getopts(Transport,  #sslsocket{socket_handle = ListenSocket, 
                                listener_config = #config{trackers = Trackers}}, Options) ->
     Tracker = proplists:get_value(option_tracker, Trackers),
-    {SockOptNames, EmulatedOptNames} = split_options(Options),
+    {SockOptNames, EmulatedOptNames} = split_options(Transport, Options),
     EmulatedOpts = get_emulated_opts(Tracker, EmulatedOptNames),
     SocketOpts = get_socket_opts(ListenSocket, SockOptNames, Transport),
     {ok, EmulatedOpts ++ SocketOpts}; 
@@ -262,19 +269,24 @@ monitor_socket({'$socket', _}=Socket) ->
 monitor_socket(InetSocket) ->
     inet:monitor(InetSocket).
 
-emulated_options() ->
+emulated_options(tls_socket_tcp) ->
+    [mode, packet, active, header, packet_size, high_watermark, low_watermark];
+emulated_options(_) ->
     [mode, packet, active, header, packet_size].
 
-emulated_options(Opts) ->
-    emulated_options(Opts, [], default_inet_values()).
+emulated_options(Transport, Opts) ->
+    emulated_options(Opts, [], default_inet_values(Transport)).
 
 internal_inet_values(tls_socket_tcp) ->
     [];
 internal_inet_values(_) ->
     [{packet_size,0}, {packet, 0}, {header, 0}, {active, false}, {mode,binary}].
 
-default_inet_values() ->
-    [{packet_size, 0}, {packet,0}, {header, 0}, {active, true}, {mode, list}].
+default_inet_values(gen_tcp) ->
+    [{packet_size, 0}, {packet,0}, {header, 0}, {active, true}, {mode, list}];
+default_inet_values(tls_socket_tcp) ->
+    [{packet_size, 0}, {packet,0}, {header, 0}, {active, true}, {mode, list},
+     {high_watermark, 8192}, {low_watermark, 4096}].
 
 inherit_tracker(ListenSocket, EmOpts, #{erl_dist := true} = SslOpts) ->
     ssl_listen_tracker_sup:start_child_dist([ListenSocket, EmOpts, SslOpts]);
@@ -422,10 +434,8 @@ call(Pid, Msg) ->
     gen_server:call(Pid, Msg, infinity).
 
 start_tls_server_connection(SslOpts, Port, Socket, EmOpts, Trackers, CbInfo) ->
-    try tls_gen_connection:start_fsm(Port, Socket,
-                                     {SslOpts,
-                                      emulated_socket_options(EmOpts, #socket_options{}), Trackers},
-                                     self(), CbInfo, infinity) of
+    Options = {SslOpts, EmOpts, Trackers},
+    try tls_gen_connection:start_fsm(Port, Socket, Options, self(), CbInfo, infinity) of
         Result ->
             Result
     catch
@@ -434,10 +444,8 @@ start_tls_server_connection(SslOpts, Port, Socket, EmOpts, Trackers, CbInfo) ->
     end.
 
 start_tls_client_connection(Host, Port, Socket, SslOpts, EmOpts, CbInfo, Timeout) ->
-    try tls_gen_connection:start_fsm(Host, Port, Socket,
-                                     {SslOpts,
-                                      emulated_socket_options(EmOpts, #socket_options{}), undefined},
-                                     self(), CbInfo, Timeout) of
+    Options = {SslOpts, EmOpts, undefined},
+    try tls_gen_connection:start_fsm(Host, Port, Socket, Options, self(), CbInfo, Timeout) of
         Result ->
             Result
     catch
@@ -445,8 +453,9 @@ start_tls_client_connection(Host, Port, Socket, SslOpts, EmOpts, CbInfo, Timeout
             {error, ssl_not_started}
     end.
 
-split_options(Opts) ->
-    split_options(Opts, emulated_options(), [], []).
+split_options(Transport, Opts) ->
+    split_options(Opts, emulated_options(Transport), [], []).
+
 split_options([], _, SocketOpts, EmuOpts) ->
     {SocketOpts, EmuOpts};
 split_options([{Name, _} = Opt | Opts], Emu, SocketOpts, EmuOpts) ->
@@ -525,6 +534,22 @@ emulated_options([{packet, Value} = Opt |Opts], Inet, Emulated) ->
 emulated_options([{packet_size, Value} = Opt | Opts], Inet, Emulated) ->
     validate_inet_option(packet_size, Value),
     emulated_options(Opts, Inet, [Opt | proplists:delete(packet_size, Emulated)]);
+emulated_options([{high_watermark, Value} = Opt | Opts], Inet, Emulated) ->
+    case lists:keymember(high_watermark, 1, Emulated) of
+        true ->
+            validate_inet_option(high_watermark, Value),
+            emulated_options(Opts, Inet, [Opt | proplists:delete(high_watermark, Emulated)]);
+        false ->
+            emulated_options(Opts, [Opt|Inet], Emulated)
+    end;
+emulated_options([{low_watermark, Value} = Opt | Opts], Inet, Emulated) ->
+    case lists:keymember(low_watermark, 1, Emulated) of
+        true ->
+            validate_inet_option(low_watermark, Value),
+            emulated_options(Opts, Inet, [Opt | proplists:delete(low_watermark, Emulated)]);
+        false ->
+            emulated_options(Opts, [Opt|Inet], Emulated)
+    end;
 emulated_options([Opt|Opts], Inet, Emulated) ->
     emulated_options(Opts, [Opt|Inet], Emulated);
 emulated_options([], Inet,Emulated) ->
