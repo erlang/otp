@@ -1,0 +1,102 @@
+-- %CopyrightBegin%
+--
+-- SPDX-License-Identifier: Apache-2.0
+--
+-- Copyright Ericsson AB 2025-2025. All Rights Reserved.
+--
+-- Licensed under the Apache License, Version 2.0 (the "License");
+-- you may not use this file except in compliance with the License.
+-- You may obtain a copy of the License at
+--
+--     http://www.apache.org/licenses/LICENSE-2.0
+--
+-- Unless required by applicable law or agreed to in writing, software
+-- distributed under the License is distributed on an "AS IS" BASIS,
+-- WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+-- See the License for the specific language governing permissions and
+-- limitations under the License.
+--
+-- %CopyrightEnd%
+
+--
+-- Test mib for Counter64 tests
+--
+
+OTP-C64-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+    otpExpr
+        FROM OTP-REG
+    MODULE-IDENTITY, Counter64
+        FROM SNMPv2-SMI
+    OBJECT-GROUP
+        FROM SNMPv2-CONF;
+
+
+otpC64MIB MODULE-IDENTITY
+    LAST-UPDATED "202410080000Z"
+    ORGANIZATION "Erlang/OTP"
+    CONTACT-INFO
+        "flipp@flopp.org"
+     DESCRIPTION
+         "Initial version of this MIB module."
+     ::= { otpExpr 42 }
+
+
+otpC64Objects     OBJECT IDENTIFIER ::= { otpC64MIB 1 }
+
+otpC64Conformance OBJECT IDENTIFIER ::= { otpC64MIB 2 }
+
+otpC64Groups      OBJECT IDENTIFIER ::= { otpC64Conformance 1}
+
+otpC64            OBJECT IDENTIFIER ::= { otpC64Objects 1 }
+
+otpC64Num1 OBJECT-TYPE
+    SYNTAX       Counter64
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "This object shows nothing..."
+   DEFVAL { 18446744073709551615 }
+    ::= { otpC64 1 }
+
+otpC64Num2 OBJECT-TYPE
+    SYNTAX       Counter64
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "This object shows nothing..."
+   DEFVAL { 9223372036854775807 }
+    ::= { otpC64 2 }
+
+otpC64Num3 OBJECT-TYPE
+    SYNTAX       Counter64
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "This object shows nothing..."
+   DEFVAL { 9223372036854775808 }
+    ::= { otpC64 3 }
+
+otpC64Num4 OBJECT-TYPE
+    SYNTAX       Counter64
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+        "This object shows nothing..."
+   DEFVAL { 0 }
+    ::= { otpC64 4 }
+
+otpC64Numbers    OBJECT-GROUP
+    OBJECTS {
+              otpC64Num1,
+              otpC64Num2,
+              otpC64Num3,
+              otpC64Num4
+            }
+    STATUS  current
+    DESCRIPTION
+            "The collection of fake counter objects."
+    ::= { otpC64Groups 1 }
+
+END

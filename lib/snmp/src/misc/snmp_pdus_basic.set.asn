@@ -1,10 +1,9 @@
-#-*-makefile-*-   ; force emacs to enter makefile-mode
-
+#
 # %CopyrightBegin%
 #
 # SPDX-License-Identifier: Apache-2.0
 #
-# Copyright Ericsson AB 2004-2025. All Rights Reserved.
+# Copyright Ericsson AB 2025-2025. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,22 +19,4 @@
 #
 # %CopyrightEnd%
 
-# The module 'snmp_pdus_basic' is generated from a hand crafted ASN.1 spec
-MODULES = \
-	snmp_pdus_basic \
-	snmp_conf       \
-	snmp_config     \
-	snmp_log        \
-	snmp_mini_mib   \
-	snmp_misc       \
-	snmp_note_store \
-	snmp_pdus       \
-	snmp_usm        \
-        snmp_verbosity
-
-HRLS = \
-	snmp_verbosity \
-	snmp_debug \
-	snmp_usm
-
-ASN1_SPECS = snmp_pdus_basic
+snmp_pdus_basic.asn
