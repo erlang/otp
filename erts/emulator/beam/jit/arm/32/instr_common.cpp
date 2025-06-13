@@ -587,8 +587,13 @@ void BeamModuleAssembler::emit_is_ne(const ArgLabel &Fail,
  * Result is returned in the flags.
  */
 void BeamGlobalAssembler::emit_arith_compare_shared() {
+    Label atom_compare = a.newLabel(), generic_compare = a.newLabel();
+
+    /* Are both floats?
+     *
+     * This is done first as relative comparisons on atoms doesn't make much
+     * sense. */
     // TODO
-    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_is_lt(const ArgLabel &Fail,
