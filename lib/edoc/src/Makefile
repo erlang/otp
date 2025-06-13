@@ -52,7 +52,7 @@ ERL_COMPILE_FLAGS += -pa $(XMERL) -I../include -I$(XMERL)/include +warn_unused_v
 
 include files.mk
 
-OBJECTS=$(SOURCES:%.erl=$(EBIN)/%.$(EMULATOR)) $(APP_TARGET) $(APPUP_TARGET)
+OBJECTS=$(ERL_FILES:%.erl=$(EBIN)/%.$(EMULATOR)) $(APP_TARGET) $(APPUP_TARGET)
 
 APP_FILE= edoc.app
 APP_SRC= $(APP_FILE).src
@@ -82,9 +82,6 @@ distclean: clean
 
 realclean: clean
 
-$(EBIN)/%.$(EMULATOR):%.erl
-	$(erlc_verbose)erlc -W $(ERL_COMPILE_FLAGS) -o$(EBIN) $<
-
 # ----------------------------------------------------
 # Special Build Targets
 # ----------------------------------------------------
@@ -104,7 +101,11 @@ release_spec: opt
 	$(INSTALL_DIR) "$(RELSYSDIR)/ebin"
 	$(INSTALL_DATA) $(OBJECTS) "$(RELSYSDIR)/ebin"
 	$(INSTALL_DIR) "$(RELSYSDIR)/src"
-	$(INSTALL_DATA) $(SOURCES) $(HRL_FILES) $(YRL_FILE) "$(RELSYSDIR)/src"
+	$(INSTALL_DATA) $(ERL_FILES) $(HRL_FILES) $(YRL_FILE) "$(RELSYSDIR)/src"
 
 release_docs_spec:
 
+# ----------------------------------------------------
+# Dependencies
+# ----------------------------------------------------
+include $(ERL_TOP)/make/dep.mk

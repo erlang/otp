@@ -102,3 +102,8 @@ release_spec: opt
 	$(INSTALL_DATA) $(TARGET_FILES) "$(RELSYSDIR)/ebin"
 
 release_docs_spec:
+
+# ----------------------------------------------------
+# Dependencies
+# ----------------------------------------------------
+include $(ERL_TOP)/make/dep.mk

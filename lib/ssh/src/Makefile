@@ -125,17 +125,6 @@ INTERNAL_HRL_FILES = \
 	ssh_transport.hrl \
 	ssh_xfer.hrl
 
-DEPDIR=$(ERL_TOP)/lib/ssh/src/deps
-DEP_FILE=$(DEPDIR)/ssh.d
-$(shell mkdir -p $(dir $(DEP_FILE)) >/dev/null)
-
-ifeq ($(TARGET), win32)
-  # Native path without C: ignore driveletter case
-  ERL_TOP_NATIVE = $(shell w32_path.sh -m $(ERL_TOP) | sed "s@[a-zA-Z]:@:@")
-else
-  ERL_TOP_NATIVE = $(ERL_TOP)
-endif
-
 # ----------------------------------------------------
 # FLAGS
 # ----------------------------------------------------
@@ -153,17 +142,7 @@ ERL_COMPILE_FLAGS += -I$(ERL_TOP)/lib/kernel/src \
 $(TARGET_FILES): $(BEHAVIOUR_TARGET_FILES_2)
 $(BEHAVIOUR_TARGET_FILES_2): $(BEHAVIOUR_TARGET_FILES_1)
 
-$(DEP_FILE): $(ERL_FILES)
-	@echo SED $(TARGET) $(ERL_TOP_NATIVE)
-	$(gen_verbose)erlc -M $(ERL_FILES) \
-	| perl -pe "s@ [a-zA-Z]?$(ERL_TOP_NATIVE)/(?:bootstrap/)?lib/([^/]+)@ ../../\1@g" 2> /dev/null \
-	| sed "s/\.$(EMULATOR)/\.$$\(EMULATOR\)/" \
-	| sed 's@^ssh_@$$(EBIN)/ssh_@' \
-	| sed 's@^sshc_@$$(EBIN)/sshc_@' \
-	| sed 's@^sshd_@$$(EBIN)/sshd_@' \
-	> $(DEP_FILE)
-
-$(TYPES): $(TARGET_FILES) $(APP_TARGET) $(APPUP_TARGET) $(DEP_FILE)
+$(TYPES): $(TARGET_FILES) $(APP_TARGET) $(APPUP_TARGET)
 
 clean:
 	rm -f $(TARGET_FILES) $(APP_TARGET) $(APPUP_TARGET) $(BEHAVIOUR_TARGET_FILES)
@@ -198,4 +177,4 @@ release_docs_spec:
 # ----------------------------------------------------
 # Dependencies
 # ----------------------------------------------------
--include $(DEP_FILE)
+include $(ERL_TOP)/make/dep.mk

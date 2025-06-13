@@ -55,13 +55,13 @@ ERL_COMPILE_FLAGS += -pa $(EBIN) -pa ./ -I$(INCLUDE)
 
 ERL_COMPILE_FLAGS += +warn_deprecated_catch +warn_unused_import -Werror # +warn_missing_spec +warn_untyped_record
 
-SOURCES=erl_syntax.erl erl_prettypr.erl erl_syntax_lib.erl	\
+ERL_FILES=erl_syntax.erl erl_prettypr.erl erl_syntax_lib.erl	\
 	erl_comment_scan.erl erl_recomment.erl epp_dodger.erl	\
 	prettypr.erl merl.erl merl_transform.erl
 
 INCLUDE_FILES = merl.hrl
 
-OBJECTS=$(SOURCES:%.erl=$(EBIN)/%.$(EMULATOR)) $(APP_TARGET) $(APPUP_TARGET)
+OBJECTS=$(ERL_FILES:%.erl=$(EBIN)/%.$(EMULATOR)) $(APP_TARGET) $(APPUP_TARGET)
 
 INCLUDE_DELIVERABLES = $(INCLUDE_FILES:%=$(INCLUDE)/%)
 
@@ -125,9 +125,14 @@ release_spec: opt
 	$(INSTALL_DIR) "$(RELSYSDIR)/ebin"
 	$(INSTALL_DATA) $(OBJECTS) "$(RELSYSDIR)/ebin"
 	$(INSTALL_DIR) "$(RELSYSDIR)/src"
-	$(INSTALL_DATA) $(SOURCES) "$(RELSYSDIR)/src"
+	$(INSTALL_DATA) $(ERL_FILES) "$(RELSYSDIR)/src"
 	$(INSTALL_DIR) "$(RELSYSDIR)/include"
 	$(INSTALL_DATA) $(INCLUDE_DELIVERABLES) "$(RELSYSDIR)/include"
 
 release_docs_spec:
 
+# ----------------------------------------------------
+# Dependencies
+# ----------------------------------------------------
+EXTRA_DEP_DEPENDENCIES=$(EBIN)/merl_transform.beam
+include $(ERL_TOP)/make/dep.mk
