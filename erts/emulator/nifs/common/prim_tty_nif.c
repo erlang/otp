@@ -899,34 +899,45 @@ static ERL_NIF_TERM tty_create_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
 
 #else
 
-    tty->ifd = GetStdHandle(STD_INPUT_HANDLE);
-    if (tty->ifd == INVALID_HANDLE_VALUE || tty->ifd == NULL) {
-        tty->ifd = CreateFile("nul", GENERIC_READ, 0,
-                              NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-    }
-
+    /* argv[0] can only be stdout or stderr */
     if (enif_is_identical(argv[0], atom_stdin))
         return enif_make_badarg(env);
+
+    /* If argv[0] is stdout we also enable stdin */
+    if (enif_is_identical(argv[0], atom_stdout)) {
+        tty->ifd = GetStdHandle(STD_INPUT_HANDLE);
+        /* if stdin is an invalid handle, we create a nul device for it */
+        if (tty->ifd == INVALID_HANDLE_VALUE || tty->ifd == NULL) {
+            tty->ifd = CreateFile("nul", GENERIC_READ, 0,
+                                  NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+        }
+    } else {
+        tty->ifd = INVALID_HANDLE_VALUE;
+    }
+
     tty->ofd = tty_get_handle(env, argv[0]);
+    /* if ofd is an invalid handle, we create a nul device for it */
     if (tty->ofd == INVALID_HANDLE_VALUE || tty->ofd == NULL) {
         tty->ofd = CreateFile("nul", GENERIC_WRITE, 0,
                               NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
     }
+
     if (GetConsoleMode(tty->ofd, &tty->dwOriginalOutMode))
     {
         tty->dwOutMode = ENABLE_VIRTUAL_TERMINAL_PROCESSING | tty->dwOriginalOutMode;
         if (!SetConsoleMode(tty->ofd, tty->dwOutMode)) {
             /* Failed to set any VT mode, can't do anything here. */
-            return make_errno_error(env, "SetConsoleMode");
+            return make_errno_error(env, "SetConsoleModeOut");
         }
         tty->tty = disabled;
     }
+
     if (GetConsoleMode(tty->ifd, &tty->dwOriginalInMode))
     {
         tty->dwInMode = ENABLE_VIRTUAL_TERMINAL_INPUT | tty->dwOriginalInMode;
         if (!SetConsoleMode(tty->ifd, tty->dwInMode)) {
             /* Failed to set any VT mode, can't do anything here. */
-            return make_errno_error(env, "SetConsoleMode");
+            return make_errno_error(env, "SetConsoleModeIn");
         }
     }
     
@@ -1012,10 +1023,10 @@ static ERL_NIF_TERM tty_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
         dwInMode &= ~(ENABLE_ECHO_INPUT | ENABLE_LINE_INPUT);
     }
 
-    if (!SetConsoleMode(tty->ifd, dwInMode))
+    if (tty->ifd != INVALID_HANDLE_VALUE && !SetConsoleMode(tty->ifd, dwInMode))
     {
         /* Failed to set disable echo or line input mode */
-        return make_errno_error(env, "SetConsoleMode");
+        return make_errno_error(env, "SetConsoleModeInitIn");
     }
 
     
