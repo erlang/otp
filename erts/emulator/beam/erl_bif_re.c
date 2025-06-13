@@ -36,7 +36,7 @@
 #define PCRE2_STATIC
 //#include "pcre.h"
 #define PCRE2_CODE_UNIT_WIDTH 8
-#include "pcre2.h"
+#include "../pcre/pcre2.h"
 
 #define LOOP_FACTOR 10
 
