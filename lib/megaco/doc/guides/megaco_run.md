@@ -83,7 +83,7 @@ handled automatically by the Megaco application but the user is free to override
 the default behaviour by the various configuration possibilities. See
 megaco:update_user_info/2 and megaco:update_conn_info/2 about the possibilities.
 
-When connections gets broken (that is explicitly by megaco:disconnect/2 or when
+When connection gets broken (that is explicitly by megaco:disconnect/2 or when
 its controlling process dies) a user callback function is invoked in order to
 allow the user to re-establish the connection. The internal state of kept
 messages, re-send timers etc. is not affected by this. A few re-sends will of
@@ -112,7 +112,29 @@ protocol engine which automatically sets up the connection and invokes
 UserMod:handle_connect/2 before it invokes UserMod:handle_trans_request/3 with
 the Service Change Request like this:
 
-![MGC Startup Call Flow](assets/MGC_startup_call_flow.gif "MGC Startup Call Flow")
+```mermaid
+---
+title: MGC Startup Call Flow
+---
+
+sequenceDiagram
+    participant network as network layer
+    participant transport
+    participant main
+    participant encoder
+    participant user
+
+    network ->> transport: receive bytes(1)
+    transport ->> main: megaco:receive_message/4
+    main ->> encoder: EncMod:decode_message/2
+    encoder ->> main: 
+    main ->> user: UserMod:handle_connect/3
+    user ->> main: 
+    main ->> encoder: EncMod:encode_message/2
+    encoder ->> main: 
+    main ->> transport: SendMod:send_message/2
+    transport ->> network: send bytes(2)
+```
 
 [](){: #mg_startup_call_flow }
 
@@ -132,13 +154,68 @@ Service Change Request, the following needs to be done:
 If the MG has been provisioned with the MID of the MGC it can be given as the
 RemoteMid parameter to megaco:connect/4 and the call flow will look like this:
 
-![MG Startup Call Flow](assets/MG_startup_call_flow.gif "MG Startup Call Flow")
+```mermaid
+---
+title: MG Startup Call Flow
+---
+
+sequenceDiagram
+    participant user
+    participant main
+    participant encoder
+    participant transport
+    participant network as network layer
+
+    user ->> main: megaco:connect/4
+    main ->> user: UserMod:handle_connect/2
+    user ->> main: 
+    main ->> user: (return of megaco:connect/4)
+    user ->> main: megaco:call/3
+    main ->> encoder: EncMod:encode_message/2
+    encoder ->> main: 
+    main ->> transport: SendMod:send_message/2
+    transport ->> network: send_bytes(1)
+    network ->> transport: receive bytes(2)
+    transport ->> main: megaco:receive_message/4
+    main ->> encoder: EncMode:decode_message/2
+    encoder ->> main: 
+    main ->> user: (return of megaco:call/3)
+```
 
 If the MG cannot be provisioned with the MID of the MGC, the MG can use the atom
 'preliminary_mid' as the RemoteMid parameter to megaco:connect/4 and the call
 flow will look like this:
 
-![MG Startup Call Flow (no MID)](assets/MG-startup_flow_noMID.gif "MG Startup Call Flow (no MID)")
+```mermaid
+---
+title: MG Startup Call Flow (preliminary_mid)
+---
+
+sequenceDiagram
+    participant user
+    participant main
+    participant encoder
+    participant transport
+    participant network as network layer
+
+    user ->> main: megaco:connect/4 (RemoteMid = preliminary_mid)
+    main ->> user: UserMod:handle_connect/2 (RemoteMid = preliminary_mid)
+    user ->> main: 
+    main ->> user: (return of megaco:connect/4)
+    user ->> main: megaco:call/3
+    main ->> encoder: EncMod:encode_message/2
+    encoder ->> main: 
+    main ->> transport: SendMod:send_message/2
+    transport ->> network: send_bytes(1)
+    network ->> transport: receive bytes(2)
+    transport ->> main: megaco:receive_message/4
+    main ->> encoder: EncMode:decode_message/2
+    encoder ->> main: 
+    main ->> user: (UserMod:handle_connect/2 (RemoteMid = actual_mid of MGC))
+    user ->> main: 
+    main ->> user: (return of megaco:call/3)
+```
+
 
 [](){: #config_megaco }
 
@@ -256,7 +333,7 @@ check this. Instead, it is up to the user to configure this properly.
   which function is used to issue the original request. When issuing the request
   using the [megaco:cast](`megaco:cast/3`) function, the segments are delivered
   to the user via the [handle_trans_reply](`c:megaco_user:handle_trans_reply/5`) callback
-  function one at a time, as they arrive. But this obviously doe not work for
+  function one at a time, as they arrive. But this obviously does not work for
   the [megaco:call](`megaco:call/3`) function. In this case, the segments are
   accumulated and then delivered all at once as the function returns.
 
