@@ -26,8 +26,9 @@
 	 init_per_testcase/2,end_per_testcase/2,
 	 basic/1,deeply_nested/1,no_generator/1,
 	 empty_generator/1,no_export/1,shadow/1,
-	 effect/1]).
+	 effect/1,singleton_generator/1]).
 
+-include_lib("stdlib/include/assert.hrl").
 -include_lib("common_test/include/ct.hrl").
 
 suite() ->
@@ -45,7 +46,8 @@ groups() ->
        empty_generator,
        no_export,
        shadow,
-       effect
+       effect,
+       singleton_generator
       ]}].
 
 init_per_suite(Config) ->
@@ -285,6 +287,71 @@ do_effect(Lc, L) ->
     F = fun(V) -> put(?MODULE, [V|get(?MODULE)]) end,
     ok = Lc(F, L),
     lists:reverse(erase(?MODULE)).
+
+singleton_generator(_Config) ->
+    Seq = lists:seq(1, 100),
+    Mixed = [<<I:32>> || I <- Seq] ++ Seq,
+    Bin = << <<E:16>> || E <- Seq >>,
+
+    ?assertEqual(singleton_generator_1a(Seq), singleton_generator_1b(Seq)),
+    ?assertEqual(singleton_generator_2a(Seq), singleton_generator_2b(Seq)),
+    ?assertEqual(singleton_generator_3a(Seq), singleton_generator_3b(Seq)),
+    ?assertEqual(singleton_generator_4a(Seq), singleton_generator_4b(Seq)),
+
+    ?assertEqual(singleton_generator_5a(Mixed),
+                 singleton_generator_5b(Mixed)),
+
+    ?assertEqual(singleton_generator_bin_1a(Bin),
+                 singleton_generator_bin_1b(Bin)),
+
+    ok.
+
+singleton_generator_1a(L) ->
+    [{H,E} || E <- L,
+              H <- [erlang:phash2(E)],
+              H rem 10 =:= 0].
+
+singleton_generator_1b(L) ->
+    [{erlang:phash2(E),E} ||
+        E <- L,
+        erlang:phash2(E) rem 10 =:= 0].
+
+singleton_generator_2a(L) ->
+    [true = B || E <- L,
+                 B <- [is_integer(E)]].
+
+singleton_generator_2b(L) ->
+    lists:duplicate(length(L), true).
+
+singleton_generator_3a(L) ->
+    [if
+         Sqr > 500 -> Sqr;
+         true -> 500
+     end || E <- L, Sqr <- [E*E]].
+
+singleton_generator_3b(L) ->
+    [if
+         E*E > 500 -> E*E;
+         true -> 500
+     end || E <- L].
+
+singleton_generator_4a(L) ->
+    [Res1 + Res2 || E <- L, EE <- L, Res1 <- [3*EE], Res2 <- [7*E]].
+
+singleton_generator_4b(L) ->
+    [7*E + 3*EE || E <- L, EE <- L].
+
+singleton_generator_5a(L) ->
+    [Sqr || E <- L, is_integer(E), Sqr <- [E*E], Sqr < 100].
+
+singleton_generator_5b(L) ->
+    [E*E || E <- L, is_integer(E), E*E < 100].
+
+singleton_generator_bin_1a(Bin) ->
+    << <<N:8>> || <<B:16>> <= Bin, N <- [B * 7], N < 256 >>.
+
+singleton_generator_bin_1b(Bin) ->
+    << <<(B*7):8>> || <<B:16>> <= Bin, B * 7 < 256 >>.
 
 id(I) -> I.
 

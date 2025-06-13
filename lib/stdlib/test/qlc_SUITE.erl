@@ -2337,13 +2337,20 @@ filter(Config) when is_list(Config) ->
           \"[]\" = qlc:info(Q),
           [] = qlc:e(Q)">>,
 
-       <<"%% match spec
+       {cres,<<"%% match spec
           [] = qlc:e(qlc:q([X || {X} <- [{1},{2}], 
                                  (false orelse (X/0 > 3))])),
           %% generated code
           {'EXIT', {badarith, _}} = 
             (catch qlc:e(qlc:q([X || {X} <- [{1}], 
+                                     begin (false orelse (X/0 > 3)) end]))),
+          {'EXIT', {badarith, _}} = 
+            (catch qlc:e(qlc:q([X || {X} <- [{1},{2}], 
                                      begin (false orelse (X/0 > 3)) end])))">>,
+        [], {warnings,
+             [{{7,60},
+               sys_core_fold,
+               {failed,{eval_failure,{erlang,'/',2},badarith}}}]}},
 
        <<"%% Partial evaluation in filter.
           etsc(fun(E) ->
@@ -4245,7 +4252,8 @@ skip_filters(Config) when is_list(Config) ->
                       {generate,_,{table,{ets,table,_}}},_,_,_,_],[]} = i(Q),
               {'EXIT', _} = (catch qlc:e(Q))
          end, [{1,1},{2,0}])">>,
-      <<"%% There are objects in the ETS table, but none passes the filter.
+      {cres,
+       <<"%% There are objects in the ETS table, but none passes the filter.
          %% F() would not be run if it did not \"invalidate\" the following
          %% guards. 
          etsc(fun(E) ->
@@ -4255,14 +4263,23 @@ skip_filters(Config) when is_list(Config) ->
                                        X =:= 17]),
                       {'EXIT', _} = (catch qlc:e(Q1))
               end, [{1},{2},{3}])">>,
-       <<"%% The last example works just like this one:
+       [], {warnings,
+           [{{5,55},
+             sys_core_fold,
+             {failed,{eval_failure,{erlang,'/',2},badarith}}}]}},
+       {cres,
+        <<"%% The last example works just like this one:
           etsc(fun(E) ->
                       F = fun() -> [foo || A <- [0], 1/A] end,
                       Q1 = qlc:q([X || {X} <- ets:table(E),
                                        F(),
                                        begin X =:= 17 end]),
                       {'EXIT', _} = (catch qlc:e(Q1))
-              end, [{1},{2},{3}])">>
+              end, [{1},{2},{3}])">>,
+        [], {warnings,
+             [{{3,55},
+               sys_core_fold,
+               {failed,{eval_failure,{erlang,'/',2},badarith}}}]}}
 
           ],
     run(Config, Ts),
@@ -4622,7 +4639,8 @@ join_filter(Config) when is_list(Config) ->
          X =:= Z]),
          {'EXIT', _} = (catch qlc:e(Q))">>,
 
-      <<"etsc(fun(E1) ->
+      {cres,
+       <<"etsc(fun(E1) ->
                    etsc(fun(E2) ->
                              F = fun() -> [foo || A <- [0], 1/A] end,
                              Q1 = qlc:q([X || {X} <- ets:table(E1),
@@ -4634,8 +4652,11 @@ join_filter(Config) when is_list(Config) ->
                               []} = i(Q1),
                              {'EXIT', _} = (catch qlc:e(Q1))
                         end, [{1},{2},{3}])
-              end, [{a},{b},{c}])">>
-
+              end, [{a},{b},{c}])">>,
+       [], {warnings,
+            [{{3,62},
+              sys_core_fold,
+              {failed,{eval_failure,{erlang,'/',2},badarith}}}]}}
     ],
     run(Config, Ts),
     ok.
@@ -6201,7 +6222,7 @@ otp_7238(Config) when is_list(Config) ->
         <<"nomatch_5() ->
                qlc:q([X || X = <<X>> <- [3]]).">>,
         [],
-        []},
+        {warnings,[{{2,38},sys_core_fold,{nomatch,no_clause}}]}},
 
        {nomatch_6,
         <<"nomatch_6() ->
@@ -6280,8 +6301,7 @@ otp_7238(Config) when is_list(Config) ->
                               1 > 0,
                               1 > X]).">>,
         [],
-        %% {warnings,[{{2,32},qlc,nomatch_pattern}]}},
-        []},
+        {warnings,[{{2,37},sys_core_fold,{nomatch,no_clause}}]}},
 
        %% Template warning.
        {nomatch_template1,
@@ -7849,7 +7869,9 @@ run(Config, Tests) ->
     run(Config, [], Tests).
 
 run(Config, Extra, Tests) ->
-    lists:foreach(fun(Body) -> run_test(Config, Extra, Body) end, Tests).
+    lists:foreach(fun(Body) ->
+                          io:format("~p\n", [Body]),
+                          run_test(Config, Extra, Body) end, Tests).
 
 run_test(Config, Extra, {cres, Body, ExpectedCompileReturn}) ->
     run_test(Config, Extra, {cres, Body, _Opts = [], ExpectedCompileReturn});
