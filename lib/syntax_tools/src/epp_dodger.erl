@@ -71,7 +71,7 @@
 -moduledoc """
 Bypassing the Erlang preprocessor.
 
-This module tokenises and parses most Erlang source code without expanding
+This module tokenizes and parses most Erlang source code without expanding
 preprocessor directives and macro applications, as long as these are
 syntactically "well-behaved". Because the normal parse trees of the `erl_parse`
 module cannot represent these things (normally, they are expanded by the Erlang
@@ -334,7 +334,7 @@ parse_form(Dev, L0, Parser, Options) ->
     NoFail = proplists:get_bool(no_fail, Options),
     Opt = #opt{clever = proplists:get_bool(clever, Options)},
 
-    %% This as the *potential* to read options for enabling/disabling
+    %% This has the *potential* to read options for enabling/disabling
     %% features for the parsing of the file.
     {ok, {_Ftrs, ResWordFun}} =
         erl_features:keyword_fun(Options, fun reserved_word/1),
@@ -358,7 +358,7 @@ parse_form(Dev, L0, Parser, Options) ->
                     {ok, F, L1}
             end;
         {error, _IoErr, _L1} = Err -> Err;
-        {error, _Reason} -> {eof, L0}; % This is probably encoding problem
+        {error, _Reason} -> {eof, L0}; % This is probably an encoding problem
         {eof, _L1} = Eof -> Eof
     end.
 
