@@ -195,7 +195,7 @@ Clients uses all files stored in the [USERDIR](`m:ssh_file#USERDIR`) directory.
 -export_type([pubkey_passphrase_client_options/0]).
 -doc """
 If the user's DSA, RSA or ECDSA key is protected by a passphrase, it can be
-supplied with thoose options.
+supplied with those options.
 
 Note that EdDSA passhrases (Curves 25519 and 448) are not implemented.
 """.
