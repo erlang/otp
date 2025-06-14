@@ -358,7 +358,7 @@ parse_form(Dev, L0, Parser, Options) ->
                     {ok, F, L1}
             end;
         {error, _IoErr, _L1} = Err -> Err;
-        {error, _Reason} -> {eof, L0}; % This is probably encoding problem
+        {error, _Reason} -> {eof, L0}; % This is probably an encoding problem
         {eof, _L1} = Eof -> Eof
     end.
 
