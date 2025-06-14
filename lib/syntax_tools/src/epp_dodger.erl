@@ -71,7 +71,7 @@
 -moduledoc """
 Bypassing the Erlang preprocessor.
 
-This module tokenises and parses most Erlang source code without expanding
+This module tokenizes and parses most Erlang source code without expanding
 preprocessor directives and macro applications, as long as these are
 syntactically "well-behaved". Because the normal parse trees of the `erl_parse`
 module cannot represent these things (normally, they are expanded by the Erlang
