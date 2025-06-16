@@ -23,6 +23,17 @@ limitations under the License.
 
 This document describes the changes made to the Debugger application.
 
+## Debugger 6.0.1
+
+### Fixed Bugs and Malfunctions
+
+- Restore deleted icon so that debugger does not crash on startup.
+
+  Own Id: OTP-19641 Aux Id: [GH-9858], [PR-9861]
+
+[GH-9858]: https://github.com/erlang/otp/issues/9858
+[PR-9861]: https://github.com/erlang/otp/pull/9861
+
 ## Debugger 6.0
 
 ### Fixed Bugs and Malfunctions
