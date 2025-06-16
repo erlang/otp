@@ -885,6 +885,12 @@ default(common) ->
            #{default => ?MAX_RND_PADDING_LEN,
              chk => fun(V) -> check_non_neg_integer(V) end,
              class => undoc_user_option
+            },
+
+       channel_close_timeout =>
+           #{default => 5 * 1000,
+             chk => fun(V) -> check_non_neg_integer(V) end,
+             class => undoc_user_option
             }
      }.
 

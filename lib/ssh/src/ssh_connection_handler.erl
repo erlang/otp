@@ -1085,12 +1085,22 @@ handle_event({call,From}, {recv_window, ChannelId}, StateName, D)
 
 handle_event({call,From}, {close, ChannelId}, StateName, D0)
   when ?CONNECTED(StateName) ->
+    %% Send 'channel-close' only if it has not been sent yet
+    %% e.g. when 'exit-signal' was received from the peer
+    %% and(!) we update the cache so that we remember what we've done
     case ssh_client_channel:cache_lookup(cache(D0), ChannelId) of
-	#channel{remote_id = Id} = Channel ->
+	#channel{remote_id = Id, sent_close = false} = Channel ->
 	    D1 = send_msg(ssh_connection:channel_close_msg(Id), D0),
-	    ssh_client_channel:cache_update(cache(D1), Channel#channel{sent_close = true}),
-	    {keep_state, D1, [cond_set_idle_timer(D1), {reply,From,ok}]};
-	undefined ->
+	    ssh_client_channel:cache_update(cache(D1),
+                                            Channel#channel{sent_close = true}),
+	    {keep_state, D1, [cond_set_idle_timer(D1),
+                              channel_close_timer(D1, Id),
+                              {reply,From,ok}]};
+	_ ->
+            %% Here we match a channel which has already sent 'channel-close'
+            %% AND possible cases of 'broken cache' i.e. when a channel
+            %% disappeared from the cache, but has not been properly shut down
+            %% The latter would be a bug, but hard to chase
 	    {keep_state_and_data, [{reply,From,ok}]}
     end;
 
@@ -1251,15 +1261,33 @@ handle_event(info, {timeout, {_, From} = Request}, _,
 %%% Handle that ssh channels user process goes down
 handle_event(info, {'DOWN', _Ref, process, ChannelPid, _Reason}, _, D) ->
     Cache = cache(D),
-    ssh_client_channel:cache_foldl(
-      fun(#channel{user=U,
-                   local_id=Id}, Acc) when U == ChannelPid ->
-              ssh_client_channel:cache_delete(Cache, Id),
-              Acc;
-         (_,Acc) ->
-              Acc
-      end, [], Cache),
-    {keep_state, D, cond_set_idle_timer(D)};
+    %% Here we first collect the list of channel id's  handled by the process
+    %% Do NOT remove them from the cache - they are not closed yet!
+    Channels = ssh_client_channel:cache_foldl(
+                 fun(#channel{user=U} = Channel, Acc) when U == ChannelPid ->
+                         [Channel | Acc];
+                    (_,Acc) ->
+                         Acc
+                 end, [], Cache),
+    %% Then for each channel where 'channel-close' has not been sent yet
+    %% we send 'channel-close' and(!) update the cache so that we remember
+    %% what we've done.
+    %% Also set user as 'undefined' as there is no such process anyway
+    {D2, NewTimers} = lists:foldl(
+                        fun(#channel{remote_id = Id, sent_close = false} = Channel,
+                            {D0, Timers}) when Id /= undefined ->
+                                D1 = send_msg(ssh_connection:channel_close_msg(Id), D0),
+                                ssh_client_channel:cache_update(cache(D1),
+                                                                Channel#channel{sent_close = true,
+                                                                                user = undefined}),
+                                ChannelTimer = channel_close_timer(D1, Id),
+                                {D1, [ChannelTimer | Timers]};
+                           (Channel, {D0, _} = Acc) ->
+                                ssh_client_channel:cache_update(cache(D0),
+                                                                Channel#channel{user = undefined}),
+                                Acc
+                        end, {D, []}, Channels),
+    {keep_state, D2, [cond_set_idle_timer(D2) | NewTimers]};
 
 handle_event({timeout,idle_time}, _Data,  _StateName, D) ->
     case ssh_client_channel:cache_info(num_entries, cache(D)) of
@@ -1271,6 +1299,16 @@ handle_event({timeout,idle_time}, _Data,  _StateName, D) ->
 
 handle_event({timeout,max_initial_idle_time}, _Data,  _StateName, _D) ->
     {stop, {shutdown, "Timeout"}};
+
+handle_event({timeout, {channel_close, ChannelId}}, _Data, _StateName, D) ->
+    Cache = cache(D),
+    case ssh_client_channel:cache_lookup(Cache, ChannelId) of
+        #channel{sent_close = true} ->
+            ssh_client_channel:cache_delete(Cache, ChannelId),
+            {keep_state, D, cond_set_idle_timer(D)};
+        _ ->
+            keep_state_and_data
+    end;
 
 %%% So that terminate will be run when supervisor is shutdown
 handle_event(info, {'EXIT', _Sup, Reason}, StateName, _D) ->
@@ -2043,6 +2081,10 @@ cond_set_idle_timer(D) ->
         0 -> {{timeout,idle_time}, ?GET_OPT(idle_time, (D#data.ssh_params)#ssh.opts), none};
         _ -> {{timeout,idle_time}, infinity, none}
     end.
+
+channel_close_timer(D, ChannelId) ->
+    {{timeout, {channel_close, ChannelId}},
+     ?GET_OPT(channel_close_timeout, (D#data.ssh_params)#ssh.opts), none}.
 
 %%%----------------------------------------------------------------
 start_channel_request_timer(_,_, infinity) ->
