@@ -285,7 +285,23 @@ get_command(Prompt, Eval, Bs, RT, FT, Ds) ->
                       io:scan_erl_exprs(group_leader(), Prompt, {1,1},
                                         [text,{reserved_word_fun,ResWordFun}])
                   of
-                      {ok,Toks,_EndPos} ->
+                      {ok,Toks0,_EndPos} ->
+                        %% local 'fun' fixer
+                        %% when we parse a 'fun' expression within a shell call or function definition
+                        %% we need to add a local prefix (if the 'fun' expression did not have a module specified)
+                        LocalFunFixer = fun F([{'fun',Anno}=A,{atom,_,Func}=B,{'/',_}=C,{integer,_,Arity}=D| Rest],Acc) ->
+                            case erl_internal:bif(Func, Arity) of
+                                true ->
+                                    F(Rest, [D,C,B,{':',A},{atom,Anno,'erlang'},A | Acc]);
+                                false ->
+                                    F(Rest, [D,C,B,{':',A},{atom,Anno,'shell_default'},A | Acc])
+                            end;
+                            F([H|Rest], Acc) ->
+                                F(Rest, [H | Acc]);
+                            F([], Acc) ->
+                                lists:reverse(Acc)
+                        end,
+                        Toks = LocalFunFixer(Toks0, []),
                           %% NOTE: we can handle function definitions, records and type declarations
                           %% but this cannot be handled by the function which only expects erl_parse:abstract_expressions()
                           %% for now just pattern match against those types and pass the string to shell local func.
