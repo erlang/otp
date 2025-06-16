@@ -26,6 +26,7 @@
 -include_lib("kernel/include/inet.hrl").
 -include("ssh.hrl").		% ?UINT32, ?BYTE, #ssh{} ...
 -include("ssh_transport.hrl").
+-include("ssh_connect.hrl").
 -include("ssh_auth.hrl").
 -include("ssh_test_lib.hrl").
 
@@ -85,7 +86,8 @@
          preferred_algorithms/1,
          service_name_length_too_large/1,
          service_name_length_too_short/1,
-         client_close_after_hello/1
+         client_close_after_hello/1,
+         channel_close_timeout/1
         ]).
 
 -define(NEWLINE, <<"\r\n">>).
@@ -124,7 +126,8 @@ all() ->
      {group,field_size_error},
      {group,ext_info},
      {group,preferred_algorithms},
-     {group,client_close_early}
+     {group,client_close_early},
+     {group,channel_close}
     ].
 
 groups() ->
@@ -171,8 +174,8 @@ groups() ->
                                  modify_rm,
                                  modify_combo
                                 ]},
-     {client_close_early, [], [client_close_after_hello
-                               ]}
+     {client_close_early, [], [client_close_after_hello]},
+     {channel_close, [], [channel_close_timeout]}
     ].
 
 
@@ -1508,6 +1511,84 @@ connect_and_kex(Config, InitialState) ->
       ],
       InitialState).
 
+channel_close_timeout(Config) ->
+    {User,_Pwd} = server_user_password(Config),
+    %% Create a listening socket as server socket:
+    {ok,InitialState} = ssh_trpt_test_lib:exec(listen),
+    HostPort = ssh_trpt_test_lib:server_host_port(InitialState),
+    %% Start a process handling one connection on the server side:
+    spawn_link(
+      fun() ->
+	      {ok,_} =
+		  ssh_trpt_test_lib:exec(
+		    [{set_options, [print_ops, print_messages]},
+		     {accept, [{system_dir, system_dir(Config)},
+			       {user_dir, user_dir(Config)},
+                               {idle_time, 50000}]},
+		     receive_hello,
+		     {send, hello},
+		     {send, ssh_msg_kexinit},
+		     {match, #ssh_msg_kexinit{_='_'}, receive_msg},
+		     {match, #ssh_msg_kexdh_init{_='_'}, receive_msg},
+		     {send, ssh_msg_kexdh_reply},
+		     {send, #ssh_msg_newkeys{}},
+		     {match,  #ssh_msg_newkeys{_='_'}, receive_msg},
+		     {match, #ssh_msg_service_request{name="ssh-userauth"}, receive_msg},
+		     {send, #ssh_msg_service_accept{name="ssh-userauth"}},
+		     {match, #ssh_msg_userauth_request{service="ssh-connection",
+						       method="none",
+						       user=User,
+						       _='_'}, receive_msg},
+		     {send, #ssh_msg_userauth_failure{authentications = "password",
+						      partial_success = false}},
+		     {match, #ssh_msg_userauth_request{service="ssh-connection",
+						       method="password",
+						       user=User,
+						       _='_'}, receive_msg},
+		     {send, #ssh_msg_userauth_success{}},
+                     {match, #ssh_msg_channel_open{channel_type="session",
+                                                   sender_channel=0,
+                                                   _='_'}, receive_msg},
+		     {send, #ssh_msg_channel_open_confirmation{recipient_channel= 0,
+                                                               sender_channel = 0,
+                                                               initial_window_size = 64*1024,
+                                                               maximum_packet_size = 32*1024
+                                                               }},
+                     {match, #ssh_msg_channel_open{channel_type="session",
+                                                   sender_channel=1,
+                                                   _='_'}, receive_msg},
+		     {send, #ssh_msg_channel_open_confirmation{recipient_channel= 1,
+                                                               sender_channel = 1,
+                                                               initial_window_size = 64*1024,
+                                                               maximum_packet_size = 32*1024}},
+                     {match, #ssh_msg_channel_close{recipient_channel = 0}, receive_msg},
+                     {match, disconnect(), receive_msg},
+		     print_state],
+		    InitialState)
+      end),
+    %% connect to it with a regular Erlang SSH client:
+    ChannelCloseTimeout = 3000,
+    {ok, ConnRef} = std_connect(HostPort, Config,
+				[{preferred_algorithms,[{kex,[?DEFAULT_KEX]},
+                                                        {cipher,?DEFAULT_CIPHERS}
+                                                       ]},
+                                 {channel_close_timeout, ChannelCloseTimeout},
+                                 {idle_time, 50000}
+                                ]
+			       ),
+    {ok,  Channel0} = ssh_connection:session_channel(ConnRef, 50000),
+    {ok, _Channel1} = ssh_connection:session_channel(ConnRef, 50000),
+    %% Close the channel from client side, the server does not reply with 'channel-close'
+    %% After the timeout, the client should drop the cache entry
+    _ = ssh_connection:close(ConnRef, Channel0),
+    receive
+    after ChannelCloseTimeout + 1000 ->
+        {channels, Channels} = ssh:connection_info(ConnRef, channels),
+        ct:log("Channel entries ~p", [Channels]),
+        %% Only one channel entry should be present, the other one should be dropped
+        1 = length(Channels),
+        ssh:close(ConnRef)
+    end.
 %%%----------------------------------------------------------------
 
 %%% For matching peer disconnection
