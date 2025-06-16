@@ -833,12 +833,12 @@ get_filename({Name, _}, Type) ->
 get_filename({Name, _, _}, Type) ->
     get_filename(Name, Type);
 get_filename(Name, regular) ->
-    Name;
+    sanitize_filename(Name);
 get_filename(Name, directory) ->
     %% Ensure trailing slash
     case lists:reverse(Name) of
-	[$/ | _Rev] -> Name;
-	Rev         -> lists:reverse([$/ | Rev])
+	[$/ | _Rev] -> sanitize_filename(Name);
+	Rev         -> sanitize_filename(lists:reverse([$/ | Rev]))
     end.
 
 add_cwd(_CWD, {_Name, _} = F) -> F;
@@ -1550,10 +1550,23 @@ check_dir_level([_Dir | Parts], Level) ->
 get_file_name_extra(FileNameLen, ExtraLen, B, GPFlag) ->
     try
         <<BFileName:FileNameLen/binary, BExtra:ExtraLen/binary>> = B,
-        {binary_to_chars(BFileName, GPFlag), BExtra}
+        {sanitize_filename(binary_to_chars(BFileName, GPFlag)), BExtra}
     catch
         _:_ ->
             throw(bad_file_header)
+    end.
+
+sanitize_filename(Filename) ->
+    case filename:pathtype(Filename) of
+        relative -> Filename;
+        _ ->
+            %% With absolute or volumerelative, we drop the prefix and rejoin
+            %% the path to create a relative path
+            Relative = filename:join(tl(filename:split(Filename))),
+            error_logger:format("Illegal absolute path: ~ts, converting to ~ts~n",
+                                [Filename, Relative]),
+            relative = filename:pathtype(Relative),
+            Relative
     end.
 
 %% get compressed or stored data
