@@ -154,6 +154,14 @@ This document describes the changes made to the asn1 application.
 [PR-8026]: https://github.com/erlang/otp/pull/8026
 [PR-8241]: https://github.com/erlang/otp/pull/8241
 
+## Asn1 5.2.2.1
+
+### Fixed Bugs and Malfunctions
+
+* The ASN.1 compiler could generate code that would cause Dialyzer with the `unmatched_returns` option to emit warnings.
+
+  Own Id: OTP-19638 Aux Id: GH-9841, PR-9846
+
 ## Asn1 5.2.2
 
 ### Fixed Bugs and Malfunctions

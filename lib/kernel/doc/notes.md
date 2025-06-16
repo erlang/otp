@@ -721,6 +721,14 @@ This document describes the changes made to the Kernel application.
 [#6724]: https://github.com/erlang/otp/issues/6724
 [PR-8396]: https://github.com/erlang/otp/pull/8396
 
+## Kernel 9.2.4.9
+
+### Fixed Bugs and Malfunctions
+
+* A remote shell can now exit by closing the input stream, without terminating the remote node.
+
+  Own Id: OTP-19667 Aux Id: PR-9912
+
 ## Kernel 9.2.4.8
 
 ### Fixed Bugs and Malfunctions
