@@ -62,6 +62,7 @@
          shell_standard_error_nlcr/1, shell_clear/1,
          shell_format/1, shell_help/1,
          remsh_basic/1, remsh_error/1, remsh_longnames/1, remsh_no_epmd/1,
+         remsh_dont_terminate_remote/1,
          remsh_expand_compatibility_25/1, remsh_expand_compatibility_later_version/1,
          external_editor/1, external_editor_visual/1,
          external_editor_unicode/1, shell_ignore_pager_commands/1]).
@@ -107,6 +108,7 @@ groups() ->
        remsh_error,
        remsh_longnames,
        remsh_no_epmd,
+       remsh_dont_terminate_remote,
        remsh_expand_compatibility_25,
        remsh_expand_compatibility_later_version]},
      {tty,[],
@@ -2614,7 +2616,18 @@ remsh_basic(Config) when is_list(Config) ->
 %% Test that if we cannot connect to a node, we get a correct error
 remsh_error(_Config) ->
     "Could not connect to \"invalid_node\"\n" =
-        os:cmd(ct:get_progname() ++ " -remsh invalid_node").
+        os:cmd(ct:get_progname() ++ " -remsh invalid_node"),
+
+    RemNode = peer:random_name(remsh_error),
+
+    rtnode:run([
+        {putdata, "\^g"},
+        {expect, " --> $"},
+        {putline, "r invalid_node"},
+        {expect, "Could not connect to node invalid_node"},
+        {expect, "--> $"}], RemNode),
+
+    ok.
 
 quit_hosting_node() ->
     %% Command sequence for entering a shell on the hosting node.
@@ -2625,6 +2638,31 @@ quit_hosting_node() ->
      {putline, "c"},
      {expect, ["Eshell"]},
      {expect, ["1> $"]}].
+
+remsh_dont_terminate_remote(Config) when is_list(Config) ->
+    {ok, Peer, TargetNode} = ?CT_PEER(),
+    TargetNodeStr = printed_atom(TargetNode),
+    [_Name,Host] = string:split(atom_to_list(node()), "@"),
+
+    %% Test that remsh works with explicit -sname.
+    HostNode = atom_to_list(?FUNCTION_NAME) ++ "_host",
+    %% Start a remote shell that will terminate because of an end of file
+    FullCmd = "erl -sname " ++ HostNode ++
+              " -remsh " ++ TargetNodeStr ++
+              " < /dev/null",
+    ct:log("~ts",[FullCmd]),
+    Output = os:cmd(FullCmd),
+    match = re:run(Output, "Shell process terminated! Read EOF", [{capture, none}]),
+
+    %% Start another remote shell, make sure the remote node has not terminated
+    rtnode:run([{putline, "node()."},
+                {expect, "\\Q" ++ TargetNodeStr ++ "\\E\r\n"}] ++
+               quit_hosting_node(),
+      HostNode, " ", "-remsh " ++ TargetNodeStr),
+
+    peer:stop(Peer),
+
+    ok.
 
 %% Test that -remsh works with long names.
 remsh_longnames(Config) when is_list(Config) ->

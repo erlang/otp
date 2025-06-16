@@ -350,8 +350,15 @@ server_loop(N0, Eval_0, Bs00, RT, FT, Ds00, History0, Results0) ->
                             [N]),
             server_loop(N0, Eval0, Bs0, RT, FT, Ds0, History0, Results0);
         eof ->
-            fwrite_severity(fatal, <<"Terminating erlang (~w)">>, [node()]),
-            halt()
+            RemoteShell = node() =/= node(group_leader()),
+            case RemoteShell of
+                true ->
+                    exit(Eval0, kill),
+                    terminated;
+                false ->
+                    fwrite_severity(fatal, <<"Terminating erlang (~w)">>, [node()]),
+                    halt()
+            end
     end.
 
 get_command(Prompt, Eval, Bs, RT, FT, Ds) ->
