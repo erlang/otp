@@ -63,6 +63,24 @@ This document describes the changes made to the SSL application.
 [PR-9511]: https://github.com/erlang/otp/pull/9511
 [PR-9670]: https://github.com/erlang/otp/pull/9670
 
+## SSL 11.2.12.1
+
+### Fixed Bugs and Malfunctions
+
+- hs_keylog callback properly handle alert in initial states, where encryption is not yet used.  Also add keylog callback invocation for corner-case where server alert is encrypted with application secrets as client is already in connection state.
+
+  Own Id: OTP-19635 Aux Id: ERIERL-1235, [PR-9849]
+
+[PR-9849]: https://github.com/erlang/otp/pull/9849
+
+### Improvements and New Features
+
+- The documentation for SSL option `verify_fun` has been improved.
+
+  Own Id: OTP-19676 Aux Id: [PR-9691]
+
+[PR-9691]: https://github.com/erlang/otp/pull/9691
+
 ## SSL 11.2.12
 
 ### Improvements and New Features

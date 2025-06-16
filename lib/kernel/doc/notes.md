@@ -198,6 +198,24 @@ This document describes the changes made to the Kernel application.
 [PR-9334]: https://github.com/erlang/otp/pull/9334
 [PR-9604]: https://github.com/erlang/otp/pull/9604
 
+## Kernel 10.2.7.1
+
+### Fixed Bugs and Malfunctions
+
+- A remote shell can now exit by closing the input stream, without terminating the remote node.
+
+  Own Id: OTP-19667 Aux Id: [PR-9912]
+
+[PR-9912]: https://github.com/erlang/otp/pull/9912
+
+### Improvements and New Features
+
+- Document default buffer sizes
+
+  Own Id: OTP-19640 Aux Id: [GH-9722]
+
+[GH-9722]: https://github.com/erlang/otp/issues/9722
+
 ## Kernel 10.2.7
 
 ### Fixed Bugs and Malfunctions
