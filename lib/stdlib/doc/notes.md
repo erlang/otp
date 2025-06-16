@@ -1251,6 +1251,22 @@ This document describes the changes made to the STDLIB application.
 [PR-8205]: https://github.com/erlang/otp/pull/8205
 [PR-8111]: https://github.com/erlang/otp/pull/8111
 
+## STDLIB 5.2.3.4
+
+### Fixed Bugs and Malfunctions
+
+* It's now possible to write `lists:map(fun is_atom/1, [])` or `lists:map(fun my_func/1, [])`, in the shell, instead of `lists:map(fun erlang:is_atom/1, [])` or `lists:map(fun shell_default:my_func/1, [])`.
+
+  Own Id: OTP-19649 Aux Id: GH-9771 PR-9898
+* Properly strip the leading `/` and drive letter from filepaths when zipping and unzipping archives.
+
+  Thanks to Wander Nauta for finding and responsibly disclosing this vulnerability to the Erlang/OTP project.
+
+  Own Id: OTP-19653 Aux Id: CVE-2025-4748 PR-9941
+* A remote shell can now exit by closing the input stream, without terminating the remote node.
+
+  Own Id: OTP-19667 Aux Id: PR-9912
+
 ## STDLIB 5.2.3.3
 
 ### Fixed Bugs and Malfunctions
