@@ -21,6 +21,16 @@ limitations under the License.
 -->
 # Public_Key Release Notes
 
+## Public_Key 1.18.1
+
+### Fixed Bugs and Malfunctions
+
+- Add back some ASN-1 macros and definitions that should be included in API.
+
+  Own Id: OTP-19644 Aux Id: [PR-9880]
+
+[PR-9880]: https://github.com/erlang/otp/pull/9880
+
 ## Public_Key 1.18
 
 ### Fixed Bugs and Malfunctions

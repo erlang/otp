@@ -1,4 +1,4 @@
-PUBLIC_KEY_VSN = 1.18
+PUBLIC_KEY_VSN = 1.18.1
 
 # %CopyrightBegin%
 #
