@@ -23,6 +23,15 @@ set -eo pipefail
 BASE_BRANCH="$1"
 
 case "${BASE_BRANCH}" in
+   OTP-*)
+        ## Calculate the base branch if this is a tag push
+        BASE_BRANCH="maint-$(echo $BASE_BRANCH | sed 's:OTP-\([^.]\+\).*:\1:g')"
+        ;;
+    *)
+        ;;
+esac
+
+case "${BASE_BRANCH}" in
     master|maint|maint-*)
     ;;
     *)
