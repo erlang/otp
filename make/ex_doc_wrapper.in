@@ -40,6 +40,16 @@ OUTPUT="$( { escript@EXEEXT@ "${EX_DOC}" "${ARGS[@]}"; } 2>&1 1>&3 | tee /dev/fd
 ## Close fd 3 and 4
 exec 3>&- 4>&-
 
+## If EX_DOC_WARNINGS_AS_ERRORS is not explicitly turned on
+## and any .app file is missing, we turn off warnings as errors
+if [ "${EX_DOC_WARNINGS_AS_ERRORS}" != "true" ]; then
+    for app in $ERL_TOP/lib/*/; do
+        if [ ! -f $app/ebin/*.app ]; then
+            EX_DOC_WARNINGS_AS_ERRORS=false
+        fi
+    done
+fi
+
 if [ "${EX_DOC_WARNINGS_AS_ERRORS}" != "false" ]; then
     if echo "${OUTPUT}" | grep "warning:" 1>/dev/null; then
         echo "ex_doc emitted warnings"
