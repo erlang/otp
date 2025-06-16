@@ -268,8 +268,4 @@
 
 -define('id-dsa-with-sha1', {1,2,840,10040,4,3}).
 
--define('ppBasis', {1,2,840,10045,1,2,3,3}).
--define('tpBasis', {1,2,840,10045,1,2,3,2}).
--define('gnBasis', {1,2,840,10045,1,2,3,1}).
-
 -endif. % -ifdef(public_key_internal).

@@ -599,7 +599,7 @@ specifications and RFC 5280 are as follows:
    version,       % atom(),
    subject,       % {rdnSequence, [#AttributeTypeAndValue'{}]} ,
    subjectPKInfo, % #'CertificationRequestInfo_subjectPKInfo'{},
-   attributes     % [#'AttributePKCS-10' {}]
+   attributes     % [#'Attribute' {}]
   }.
 
 #'CertificationRequestInfo_subjectPKInfo'{
@@ -617,7 +617,7 @@ specifications and RFC 5280 are as follows:
    parameters  % der_encoded()
   }.
 
-#'AttributePKCS-10'{
+#'Attribute'{
    type,   % oid(),
    values  % [der_encoded()]
   }.

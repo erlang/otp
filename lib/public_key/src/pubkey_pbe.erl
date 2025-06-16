@@ -168,8 +168,8 @@ do_pbdkdf1(Prev, Count, Acc, Hash) ->
 
 iv(#'PBES2-params_encryptionScheme'{algorithm = ?'rc2CBC',
 				    parameters =  ASN1IV}) ->
-    {ok, #'RC2-CBC-Parameter'{iv = IV}} 
-	= 'PKCS-FRAME':decode('RC2-CBC-Parameter', decode_handle_open_type_wrapper(ASN1IV)),
+    #'RC2-CBC-Parameter'{iv = IV}
+	= public_key:der_decode('RC2-CBC-Parameter', decode_handle_open_type_wrapper(ASN1IV)),
     iolist_to_binary(IV);
 iv(#'PBES2-params_encryptionScheme'{algorithm = _Algo,
 				    parameters = ASN1IV}) ->
@@ -195,29 +195,29 @@ do_xor_sum(Prf, PrfHash, PrfLen, Prev, Password, Count, Acc)->
     do_xor_sum(Prf, PrfHash, PrfLen, Result, Password, Count-1, crypto:exor(Acc, Result)).
 
 decrypt_parameters(?'id-PBES2', DekParams) ->
-    {ok, Params} = 'PKCS-FRAME':decode('PBES2-params', DekParams),
+    Params = public_key:der_decode('PBES2-params', DekParams),
     {cipher(Params#'PBES2-params'.encryptionScheme), Params};
 decrypt_parameters(?'pbeWithSHA1AndRC2-CBC', DekParams) ->
-    {ok, Params} = 'PKCS-FRAME':decode('PBEParameter', DekParams),
+    Params = public_key:der_decode('PBEParameter', DekParams),
     {"RC2-CBC", {Params, sha}};
 decrypt_parameters(?'pbeWithSHA1AndDES-CBC', DekParams) ->
-    {ok, Params} = 'PKCS-FRAME':decode('PBEParameter', DekParams),
+    Params = public_key:der_decode('PBEParameter', DekParams),
     {"DES-CBC", {Params, sha}};
 decrypt_parameters(?'pbeWithMD5AndRC2-CBC', DekParams) ->
-    {ok, Params} = 'PKCS-FRAME':decode('PBEParameter', DekParams),
+    Params = public_key:der_decode('PBEParameter', DekParams),
     {"RC2-CBC", {Params, md5}};
 decrypt_parameters(?'pbeWithMD5AndDES-CBC', DekParams) ->
-    {ok, Params} = 'PKCS-FRAME':decode('PBEParameter', DekParams),
+    Params = public_key:der_decode('PBEParameter', DekParams),
     {"DES-CBC", {Params, md5}}.
 
 encrypt_parameters(_Cipher, #'PBES2-params'{} = Params) ->
-    {ok, Der} ='PKCS-FRAME':encode('PBES2-params', Params),
+    Der = public_key:der_encode('PBES2-params', Params),
     #'EncryptedPrivateKeyInfo_encryptionAlgorithm'{
        algorithm = ?'id-PBES2', 
        parameters = encode_handle_open_type_wrapper(Der)};
 
 encrypt_parameters(Cipher, {#'PBEParameter'{} = Params, Hash}) ->
-    {ok, Der} ='PKCS-FRAME':encode('PBEParameter', Params),
+    Der = public_key:der_encode('PBEParameter', Params),
     #'EncryptedPrivateKeyInfo_encryptionAlgorithm'{
        algorithm = pbe1_oid(Cipher, Hash), 
        parameters = encode_handle_open_type_wrapper(Der)}.

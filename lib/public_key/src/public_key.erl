@@ -535,9 +535,9 @@ pem_entry_encode(Asn1Type, Entity, {{Cipher, Salt} = CipherInfo,
 %%
 %% Description: Decodes a public key asn1 der encoded entity.
 %%--------------------------------------------------------------------
-der_decode(Asn1Type, Der) when (((Asn1Type == 'PrivateKeyInfo')
-                                 orelse
-                                   (Asn1Type == 'EncryptedPrivateKeyInfo'))
+der_decode(Asn1Type, Der) when ((Asn1Type == 'PrivateKeyInfo')
+                                orelse
+                                  (Asn1Type == 'EncryptedPrivateKeyInfo')
                                 andalso is_binary(Der)) ->
     try
 	{ok, Decoded0} = 'PKCS-FRAME':decode(Asn1Type, Der),
@@ -546,6 +546,21 @@ der_decode(Asn1Type, Der) when (((Asn1Type == 'PrivateKeyInfo')
     catch
 	error:{badmatch, {error, _}} = Error ->
             handle_pkcs_frame_error(Asn1Type, Der, Error)
+    end;
+der_decode(Asn1Type, Der) when ((Asn1Type == 'PBES2-params')
+                                orelse
+                                  (Asn1Type == 'PBES2-params_encryptionScheme')
+                                orelse
+                                  (Asn1Type == 'PBEParameter')
+                                orelse
+                                  (Asn1Type == 'RC2-CBC-Parameter')
+                                andalso is_binary(Der)) ->
+    try
+	{ok, Decoded} = 'PKCS-FRAME':decode(Asn1Type, Der),
+        Decoded
+    catch
+	error:{badmatch, {error, _}} = Error ->
+            erlang:error(Error)
     end;
 der_decode('EcpkParameters', Der) ->
     try
@@ -587,6 +602,7 @@ der_decode(Asn1Type, Der) when is_atom(Asn1Type), is_binary(Der) ->
 	    erlang:error(Error)
     end.
 
+%% X509 RFC 5280
 get_asn1_module('AuthorityInfoAccessSyntax') -> 'PKIX1Implicit-2009';
 get_asn1_module('AuthorityKeyIdentifier') -> 'PKIX1Implicit-2009';
 get_asn1_module('BasicConstraints') -> 'PKIX1Implicit-2009';
@@ -607,26 +623,50 @@ get_asn1_module('Name') -> 'PKIX1Explicit-2009';
 get_asn1_module('Validity') -> 'PKIX1Explicit-2009';
 get_asn1_module('RSAPublicKey') -> 'PKIXAlgs-2009';
 get_asn1_module('DSA-Params') -> 'PKIXAlgs-2009';
-get_asn1_module('BasicOCSPResponse') -> 'OCSP-2024-08';
-get_asn1_module('Nonce') -> 'OCSP-2024-08';
-get_asn1_module('OCSPResponse') -> 'OCSP-2024-08';
-get_asn1_module('ResponseData') -> 'OCSP-2024-08';
-get_asn1_module('SubjectKeyIdentifier') -> 'CryptographicMessageSyntax-2009';
-get_asn1_module('ContentInfo') -> 'CryptographicMessageSyntax-2009';
-get_asn1_module('CertificationRequest') -> 'PKCS-10';
-get_asn1_module('CertificationRequestInfo') -> 'PKCS-10';
-get_asn1_module('CurvePrivateKey') -> 'Safecurves-pkix-18';
-get_asn1_module('ECPrivateKey') -> 'ECPrivateKey';
 get_asn1_module('ECParameters') -> 'PKIXAlgs-2009';
 get_asn1_module('DSAPublicKey') -> 'PKIXAlgs-2009';
 get_asn1_module('ECDSA-Sig-Value') -> 'PKIXAlgs-2009';
 get_asn1_module('RSASSA-PSS-params') -> 'PKIX1-PSS-OAEP-Algorithms-2009';
+get_asn1_module('Extensions') -> 'OTP-PKIX';
+get_asn1_module('OTPTBSCertificate') -> 'OTP-PKIX';
+get_asn1_module('OTPCertificate') -> 'OTP-PKIX';
+%% Private keys
 get_asn1_module('RSAPrivateKey') -> 'PKCS-1';
 get_asn1_module('DHParameter') -> 'PKCS-3';
 get_asn1_module('DSAPrivateKey') -> 'DSS';
-get_asn1_module('Extensions') -> 'OTP-PKIX';
-get_asn1_module('OTPTBSCertificate') -> 'OTP-PKIX';
-get_asn1_module('OTPCertificate') -> 'OTP-PKIX'.
+get_asn1_module('CurvePrivateKey') -> 'Safecurves-pkix-18';
+get_asn1_module('ECPrivateKey') -> 'ECPrivateKey';
+%% Certification Request Syntax Specification RFC 2986
+get_asn1_module('CertificationRequest') -> 'PKCS-10';
+get_asn1_module('CertificationRequestInfo') -> 'PKCS-10';
+get_asn1_module('Attribute') -> 'PKCS-10';
+%% CryptographicMessageSyntax RFC 5652
+get_asn1_module('ContentInfo') -> 'CryptographicMessageSyntax-2009';
+get_asn1_module('SignedData') -> 'CryptographicMessageSyntax-2009';
+get_asn1_module('EncapsulatedContentInfo') -> 'CryptographicMessageSyntax-2009';
+get_asn1_module('SignerInfo') -> 'CryptographicMessageSyntax-2009';
+get_asn1_module('EnvelopedData') -> 'CryptographicMessageSyntax-2009';
+get_asn1_module('OriginatorInfo') -> 'CryptographicMessageSyntax-2009';
+get_asn1_module('OriginatorPublicKey') -> 'CryptographicMessageSyntax-2009';
+get_asn1_module('EncryptedContentInfo') -> 'CryptographicMessageSyntax-2009';
+get_asn1_module('RecipientInfo') -> 'CryptographicMessageSyntax-2009';
+get_asn1_module('KeyTransRecipientInfo') -> 'CryptographicMessageSyntax-2009';
+get_asn1_module('KeyIdentifier') -> 'CryptographicMessageSyntax-2009';
+get_asn1_module('RecipientKeyIdentifier') -> 'CryptographicMessageSyntax-2009';
+get_asn1_module('SubjectKeyIdentifier') -> 'CryptographicMessageSyntax-2009';
+get_asn1_module('KeyAgreeRecipientInfo') -> 'CryptographicMessageSyntax-2009';
+get_asn1_module('KEKRecipientInfo') -> 'CryptographicMessageSyntax-2009';
+get_asn1_module('PasswordRecipientInfo') -> 'CryptographicMessageSyntax-2009';
+get_asn1_module('OtherRecipientInfo') -> 'CryptographicMessageSyntax-2009';
+get_asn1_module('DigestedData') -> 'CryptographicMessageSyntax-2009';
+get_asn1_module('EncryptedData') -> 'CryptographicMessageSyntax-2009';
+get_asn1_module('AuthenticatedData') -> 'CryptographicMessageSyntax-2009';
+get_asn1_module('IssuerAndSerialNumber') -> 'CryptographicMessageSyntax-2009';
+%% OCSP  RFC 6960
+get_asn1_module('BasicOCSPResponse') -> 'OCSP-2024-08';
+get_asn1_module('Nonce') -> 'OCSP-2024-08';
+get_asn1_module('OCSPResponse') -> 'OCSP-2024-08';
+get_asn1_module('ResponseData') -> 'OCSP-2024-08'.
 
 handle_pkcs_frame_error('PrivateKeyInfo', Der, _) ->
     try
@@ -793,6 +833,17 @@ der_encode(Asn1Type, Entity0) when (Asn1Type == 'PrivateKeyInfo') orelse
                                    (Asn1Type == 'EncryptedPrivateKeyInfo') ->
     try
         Entity = pubkey_translation:encode(Entity0),
+        {ok, Encoded} = 'PKCS-FRAME':encode(Asn1Type, Entity),
+        Encoded
+    catch
+	error:{badmatch, {error, _}} = Error ->
+            erlang:error(Error)
+    end;
+der_encode(Asn1Type, Entity) when (Asn1Type == 'PBES2-params') orelse
+                                   (Asn1Type == 'PBES2-params_encryptionScheme') orelse
+                                   (Asn1Type == 'PBEParameter') orelse
+                                   (Asn1Type == 'RC2-CBC-Parameter') ->
+    try
         {ok, Encoded} = 'PKCS-FRAME':encode(Asn1Type, Entity),
         Encoded
     catch
