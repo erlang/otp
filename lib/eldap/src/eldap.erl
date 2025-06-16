@@ -775,7 +775,7 @@ Create a filter where at least one of the `Filter` must be true.
 Negate a filter.
 """.
 -doc(#{since => <<"OTP R15B01">>}).
--spec 'not'(Filter) -> filter() when Filter :: {filter()}.
+-spec 'not'(Filter) -> filter() when Filter :: filter().
 'not'(Filter)        when is_tuple(Filter)       -> {'not',Filter}.
 
 %%%
