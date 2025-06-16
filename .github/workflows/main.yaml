@@ -397,25 +397,55 @@ jobs:
               for FLAVOR in ${FLAVORS}; do
                 echo "::group::{TYPE=$TYPE FLAVOR=$FLAVOR}"
                 docker run otp \
-                  "if [ ${TYPE} = \"valgrind\" ]; then sudo apt-get install -y valgrind bc; fi && \
-                   make TYPE=$TYPE FLAVOR=$FLAVOR && \
-                   cerl -$TYPE -emu_flavor $FLAVOR -noshell -s init stop"
+                  "set -xe;
+
+                   if [ '${TYPE}' = 'valgrind' ]; then sudo apt-get install -y valgrind bc; fi;
+
+                   echo 'Setup start flags';
+                   if [ '$TYPE' != 'opt' ]; then EMU_TYPE='-emu_type $TYPE'; fi;
+                   if [ '$FLAVOR' = 'jit' ]; then
+                      EMU_FLAVOR='smp'
+                   else
+                      EMU_FLAVOR='$FLAVOR'
+                   fi;
+
+                   echo 'Build type and flavor and test starting in source tree';
+                   TYPE=$TYPE FLAVOR=$FLAVOR ./otp_build boot -a;
+                   cerl -$TYPE -emu_flavor \$EMU_FLAVOR -noshell -s init stop;
+
+                   echo 'Install and test installation';
+                   sudo make install TYPE=$TYPE FLAVOR=$FLAVOR;
+                   if [ $TYPE != 'valgrind' ] && [ $TYPE != 'asan' ]; then
+                       erl \$EMU_TYPE -emu_flavor \$EMU_FLAVOR -noshell -s init stop;
+                   fi
+
+                   echo 'Release and test release'
+                   ./otp_build release -a \$(pwd)/test_release/;
+                   (cd \$(pwd)/test_release/ && ./Install -minimal \$(pwd));
+                   TYPE=$TYPE FLAVOR=$FLAVOR ./otp_build release -a \$(pwd)/test_release;
+                   if [ $TYPE != 'valgrind' ] && [ $TYPE != 'asan' ]; then
+                       test_release/bin/erl \$EMU_TYPE -emu_flavor \$EMU_FLAVOR -noshell -s init stop;
+                   fi"
                 echo "::endgroup::"
               done
             done
       - name: Build Erlang/OTP JIT Win32 ABI
         if: ${{ matrix.flavor == 'jit' }}
         run: >
-            docker run otp './configure CFLAGS="$CFLAGS -DERTS_JIT_ABI_WIN32=1" &&
-                 make && make TYPE=debug &&
+            docker run otp \
+                'set -xe;
+                 ./configure CFLAGS="$CFLAGS -DERTS_JIT_ABI_WIN32=1";
+                 make && make TYPE=debug;
                  cerl -noshell -s init stop && cerl -debug -noshell -s init stop'
 
       - name: Build Erlang/OTP with LTTNG
         if: ${{ matrix.flavor == 'jit' }}
         run: >
-            docker run otp 'sudo apt-get install -y lttng-tools &&
-                 ./configure --enable-dynamic-trace=lttng &&
-                 make && make TYPE=debug &&
+            docker run otp \
+                'set -xe;
+                 sudo apt-get install -y lttng-tools;
+                 ./configure --enable-dynamic-trace=lttng;
+                 make && make TYPE=debug;
                  cerl -noshell -s init stop && cerl -debug -noshell -s init stop'
 
       - name: Start Erlang with various start options

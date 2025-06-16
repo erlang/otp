@@ -680,10 +680,9 @@ as before, but the build process will take a much longer time.
 #### How to Build a Debug Enabled Erlang RunTime System ####
 
 After completing all the normal building steps described above a debug
-enabled runtime system can be built. To do this you have to change
-directory to `$ERL_TOP/erts/emulator` and execute:
+enabled runtime system can be built. To do this you execute:
 
-    $ (cd $ERL_TOP/erts/emulator && make debug)
+    $ make TYPE=debug
 
 This will produce a `beam.debug.smp` executable. The
 file are installed along side with the normal (opt) version `beam.smp`.
@@ -691,6 +690,10 @@ file are installed along side with the normal (opt) version `beam.smp`.
 To start the debug enabled runtime system execute:
 
     $ $ERL_TOP/bin/cerl -debug
+
+or
+
+    $ $ERL_TOP/bin/erl -emu_type debug
 
 The debug enabled runtime system features lock violation checking,
 assert checking and various sanity checks to help a developer ensure
@@ -700,12 +703,15 @@ using appropriate configure options.
 There are other types of runtime systems that can be built as well
 using the similar steps just described.
 
-    $ (cd $ERL_TOP/erts/emulator && make $TYPE)
+    $ make TYPE=$TYPE
 
 where `$TYPE` is `opt`, `gcov`, `gprof`, `debug`, `valgrind`, `asan` or `lcnt`.
 These different beam types are useful for debugging and profiling
 purposes.
 
+You can also release and install the special builds using make release like this:
+
+    $ make release TYPE=$TYPE
 
 ### Installing ###
 
