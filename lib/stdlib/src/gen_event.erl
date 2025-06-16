@@ -903,7 +903,7 @@ notify(M, Event) -> send(M, {notify, Event}).
 -doc """
 Send a synchronous event notification to an event manager.
 
-The event is sent to `EventMgrRef` that callsr calls
+The event is sent to `EventMgrRef` that calls
 [`Module:handle_event/2`](`c:handle_event/2`) for each installed
 event handler to handle the event. This function will return `ok`
 after the event has been handled by all event handlers.
