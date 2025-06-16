@@ -21,6 +21,17 @@ limitations under the License.
 
 This document describes the changes made to the asn1 application.
 
+## Asn1 5.3.4.1
+
+### Fixed Bugs and Malfunctions
+
+- The ASN.1 compiler could generate code that would cause Dialyzer with the `unmatched_returns` option to emit warnings.
+
+  Own Id: OTP-19638 Aux Id: [GH-9841], [PR-9846]
+
+[GH-9841]: https://github.com/erlang/otp/issues/9841
+[PR-9846]: https://github.com/erlang/otp/pull/9846
+
 ## Asn1 5.3.4
 
 ### Fixed Bugs and Malfunctions
