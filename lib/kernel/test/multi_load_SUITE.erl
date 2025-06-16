@@ -192,16 +192,21 @@ spawn_hanging_on_load(Mod) ->
 				 fun(_) ->
 					 hanging_on_load_module(Mod)
 				 end),
-    spawn_link(fun() ->
-		       {error,on_load_failure} =
-			   code:load_binary(Mod, Name, Bin)
-	       end).
+    register(spawn_hanging_on_load, self()),
+    Pid = spawn_link(fun() ->
+                             {error,on_load_failure} =
+                                 code:load_binary(Mod, Name, Bin)
+                     end),
+    receive hanging_on_load -> ok end,
+    unregister(spawn_hanging_on_load),
+    Pid.
 
 hanging_on_load_module(Mod) ->
     ?Q(["-module('@Mod@').\n",
 	"-on_load(hang/0).\n",
 	"hang() ->\n"
 	"  register(hanging_on_load, self()),\n"
+        "  spawn_hanging_on_load ! hanging_on_load,\n"
 	"  receive _ -> unload end.\n"]).
 
 ensure_modules_loaded(Config) ->
