@@ -575,9 +575,9 @@ client_cert_fail_alert_passive(Config) when is_list(Config) ->
                   {certfile, NewClientCertFile} | proplists:delete(certfile, ClientOpts0)],
     ServerOpts = [{verify, verify_peer}, {fail_if_no_peer_cert, true}| ServerOpts0],
     alert_passive(ServerOpts, ClientOpts, recv,
-                  ServerNode, Hostname),
+                  ServerNode, Hostname, unknown_ca),
     alert_passive(ServerOpts, ClientOpts, setopts,
-                  ServerNode, Hostname).
+                  ServerNode, Hostname, unknown_ca).
 
 tls13_client_tls11_server() ->
     [{doc,"Test that a TLS 1.3 client gets old server alert from TLS 1.0 server."}].
@@ -609,7 +609,34 @@ keylog_on_alert(Config) when is_list(Config) ->
                   Me ! {alert_info, AlertInfo}
           end,
     alert_passive([{keep_secrets, {keylog_hs, Fun}} | ServerOpts], ClientOpts, recv,
-                  ServerNode, Hostname),
+                  ServerNode, Hostname, unknown_ca),
+
+    receive_server_keylog_for_client_cert_alert(),
+
+    alert_passive(ServerOpts, [{keep_secrets, {keylog_hs, Fun}} | ClientOpts], recv,
+                  ServerNode, Hostname, unknown_ca),
+
+    receive_client_keylog_for_client_cert_alert(),
+
+    ClientNoCert = proplists:delete(keyfile, proplists:delete(certfile, ClientOpts0)),
+    alert_passive([{keep_secrets, {keylog_hs, Fun}} | ServerOpts], [{active, false} | ClientNoCert], recv,
+                  ServerNode, Hostname, certificate_required),
+
+    receive_server_keylog_for_client_cert_alert().
+
+receive_server_keylog_for_client_cert_alert() ->
+    %% This alert will be decrypted with application secrets
+    %% as client is already in connection
+    receive
+        {alert_info, #{items := SKeyLog1}} ->
+            case SKeyLog1 of
+                ["SERVER_TRAFFIC_SECRET_0"++_] ->
+                    ok;
+                S1Other ->
+                    ct:fail({server_received, S1Other})
+            end
+    end,
+
     receive
         {alert_info, #{items := SKeyLog}} ->
             case SKeyLog of
@@ -618,20 +645,18 @@ keylog_on_alert(Config) when is_list(Config) ->
                 SOther ->
                     ct:fail({server_received, SOther})
             end
-    end,
+    end.
 
-    alert_passive(ServerOpts, [{keep_secrets, {keylog_hs, Fun}} | ClientOpts], recv,
-                  ServerNode, Hostname),
+receive_client_keylog_for_client_cert_alert() ->
     receive
         {alert_info, #{items := CKeyLog}} ->
             case CKeyLog of
-                ["CLIENT_HANDSHAKE_TRAFFIC_SECRET"++_,_,_|_] ->
+                ["CLIENT_HANDSHAKE_TRAFFIC_SECRET"++_,_,_,_|_] ->
                     ok;
-            COther ->
+                COther ->
                     ct:fail({client_received, COther})
             end
     end.
-
 %%--------------------------------------------------------------------
 %% Internal functions and callbacks -----------------------------------
 %%--------------------------------------------------------------------
@@ -663,7 +688,7 @@ check_session_id(Socket, Expected) ->
     end.
 
 alert_passive(ServerOpts, ClientOpts, Function,
-              ServerNode, Hostname) ->
+              ServerNode, Hostname, AlertAtom) ->
     Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
                                         {from, self()},
                                         {mfa, {ssl_test_lib, no_result, []}},
@@ -673,7 +698,7 @@ alert_passive(ServerOpts, ClientOpts, Function,
     ct:sleep(500),
     case Function of
         recv ->
-            {error, {tls_alert, {unknown_ca,_}}} = ssl:recv(Socket, 0);
+            {error, {tls_alert, {AlertAtom,_}}} = ssl:recv(Socket, 0);
         setopts ->
             {error, {tls_alert, {unknown_ca,_}}} = ssl:setopts(Socket, [{active, once}])
     end.
