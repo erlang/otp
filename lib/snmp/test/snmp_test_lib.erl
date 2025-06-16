@@ -3173,7 +3173,7 @@ start_node(Name, Unlink) ->
             global:sync(),
             {Peer, Node};
         {error, Reason} ->
-            ?SKIP({failed_starting_node, Name, Reason})
+            throw({skip, {failed_starting_node, Name, Reason}})
     end.
 
 maybe_unlink(true, Pid) ->
