@@ -31,6 +31,39 @@
   </header>
   <p>This document describes the changes made to the STDLIB application.</p>
 
+<section><title>STDLIB 5.2.3.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> It's now possible to write <c>lists:map(fun
+	    is_atom/1, [])</c> or <c>lists:map(fun my_func/1,
+	    [])</c>, in the shell, instead of <c>lists:map(fun
+	    erlang:is_atom/1, [])</c> or <c>lists:map(fun
+	    shell_default:my_func/1, [])</c>. </p>
+          <p>
+	    Own Id: OTP-19649 Aux Id: GH-9771 PR-9898 </p>
+        </item>
+        <item>
+	    <p>Properly strip the leading <c>/</c> and drive letter
+	    from filepaths when zipping and unzipping archives.</p>
+	    <p>Thanks to Wander Nauta for finding and responsibly
+	    disclosing this vulnerability to the Erlang/OTP
+	    project.</p>
+          <p>
+	    Own Id: OTP-19653 Aux Id: CVE-2025-4748 PR-9941 </p>
+        </item>
+        <item>
+	    <p> A remote shell can now exit by closing the input
+	    stream, without terminating the remote node. </p>
+          <p>
+	    Own Id: OTP-19667 Aux Id: PR-9912 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>STDLIB 5.2.3.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

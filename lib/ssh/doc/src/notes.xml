@@ -30,6 +30,30 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 5.1.4.10</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Various channel closing robustness improvements. Avoid
+	    crashes when channel handling process closes channel and
+	    immediately exits. Avoid breaking the protocol by sending
+	    duplicated channel-close messages. Cleanup channels which
+	    timeout during closing procedure.</p>
+          <p>
+	    Own Id: OTP-19634 Aux Id: GH-9102, PR-9103 </p>
+        </item>
+        <item>
+	    <p>Improved interoperability with clients acting as
+	    Paramiko.</p>
+          <p>
+	    Own Id: OTP-19637 Aux Id: GH-6463, PR-9838 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 5.1.4.9</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

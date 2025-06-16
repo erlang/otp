@@ -1,1 +1,1 @@
-KERNEL_VSN = 9.2.4.8
+KERNEL_VSN = 9.2.4.9

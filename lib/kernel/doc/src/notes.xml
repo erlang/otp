@@ -31,6 +31,21 @@
   </header>
   <p>This document describes the changes made to the Kernel application.</p>
 
+<section><title>Kernel 9.2.4.9</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> A remote shell can now exit by closing the input
+	    stream, without terminating the remote node. </p>
+          <p>
+	    Own Id: OTP-19667 Aux Id: PR-9912 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Kernel 9.2.4.8</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

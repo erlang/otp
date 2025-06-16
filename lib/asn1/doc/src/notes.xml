@@ -32,6 +32,22 @@
   <p>This document describes the changes made to the asn1 application.</p>
 
 
+<section><title>Asn1 5.2.2.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>The ASN.1 compiler could generate code that would
+	    cause Dialyzer with the <c>unmatched_returns</c> option
+	    to emit warnings.</p>
+          <p>
+	    Own Id: OTP-19638 Aux Id: GH-9841, PR-9846 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Asn1 5.2.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
