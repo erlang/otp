@@ -3870,6 +3870,22 @@ static ERL_NIF_TERM msa_find_y_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
     return ok_bin;
 }
 
+static ERL_NIF_TERM dist_ctrl_put_data_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    ERL_NIF_TERM dist_handle;
+    ErlNifBinary bin;
+    int result;
+
+    if (argc != 2 || !enif_inspect_binary(env, argv[1], &bin)) {
+        return enif_make_badarg(env);
+    }
+
+    dist_handle = argv[0];
+
+    result = enif_dist_ctrl_put_data(env, dist_handle, &bin);
+    return enif_make_int(env, result);
+}
+
 static ErlNifFunc nif_funcs[] =
 {
     {"lib_version", 0, lib_version},
@@ -3986,7 +4002,8 @@ static ErlNifFunc nif_funcs[] =
     {"is_pid_undefined_nif", 1, is_pid_undefined_nif},
     {"compare_pids_nif", 2, compare_pids_nif},
     {"term_type_nif", 1, term_type_nif},
-    {"msa_find_y_nif", 1, msa_find_y_nif}
+    {"msa_find_y_nif", 1, msa_find_y_nif},
+    {"dist_ctrl_put_data_nif", 2, dist_ctrl_put_data_nif},
 };
 
 ERL_NIF_INIT(nif_SUITE,nif_funcs,load,NULL,upgrade,unload)
