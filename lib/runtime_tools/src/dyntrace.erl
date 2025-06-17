@@ -157,9 +157,13 @@ on_load() ->
     Status = case erlang:load_nif(Lib, 0) of
                  ok -> ok;
                  {error, {load_failed, _}}=Error1 ->
-                     ArchLibDir = 
-                         filename:join([PrivDir, "lib", 
-                                        erlang:system_info(system_architecture)]),
+                     Arch = case os:type() of
+                                {win32, _} -> win32;
+                                _ ->
+                                    erlang:system_info(system_architecture)
+                            end,
+                     ArchLibDir =
+                         filename:join([PrivDir, "lib", Arch]),
                      Candidate =
                          filelib:wildcard(
                            filename:join([ArchLibDir,LibName ++ "*" ]),

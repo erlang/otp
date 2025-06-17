@@ -91,10 +91,13 @@ open_port(Name, Opts) ->
 	true ->
 	    erlang:open_port({spawn, "\""++ReleasedPath++"\""}, Opts);
 	false ->
-	    %% Use os_mon*/priv/bin/Arch/Name
-	    ArchPath =
-		filename:join(
-		  [PrivDir,"bin",erlang:system_info(system_architecture),Name]),
+            %% Use os_mon*/priv/bin/Arch/Name
+            Arch = case os:type() of
+                       {win32, _} -> win32;
+                       _ ->
+                           erlang:system_info(system_architecture)
+                   end,
+            ArchPath = filename:join([PrivDir,"bin",Arch,Name]),
 	    erlang:open_port({spawn, "\""++ArchPath++"\""}, Opts)
     end.
 

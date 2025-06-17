@@ -325,7 +325,12 @@ nif_stub_error(Line) ->
 init_nif() ->
   Base = "erl_gl",
   Priv = code:priv_dir(wx),
-  SrcTree = filename:join(Priv,erlang:system_info(system_architecture)),
+  Arch = case os:type() of
+             {win32, _} -> win32;
+             _ ->
+                 erlang:system_info(system_architecture)
+         end,
+  SrcTree = filename:join(Priv,Arch),
   NifFile = case filelib:is_dir(SrcTree) of
                 true -> filename:absname(filename:join(SrcTree, Base));
                 false -> filename:absname(filename:join(Priv, Base))
