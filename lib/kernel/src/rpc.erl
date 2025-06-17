@@ -31,17 +31,20 @@ some specific side effects on the remote node.
 
 > #### Note {: .info }
 >
-> `rpc:call/4` and friends makes it quite hard to distinguish between successful
-> results, raised exceptions, and other errors. This cannot be changed due to
-> compatibility reasons. As of OTP 23, a new module `m:erpc` was introduced in
-> order to provide an API that makes it possible to distinguish between the
-> different results. The `erpc` module provides a subset (however, the central
-> subset) of the functionality available in the `rpc` module. The `erpc`
-> implementation also provides a more scalable implementation with better
-> performance than the original `rpc` implementation. However, since the
-> introduction of `erpc`, the `rpc` module implements large parts of its central
-> functionality using `erpc`, so the `rpc` module won't not suffer scalability
-> wise and performance wise compared to `erpc`.
+ `rpc:call/4` and related functions make it difficult to distinguish
+> between successful results, raised exceptions, and other errors. This
+> behavior cannot be changed for compatibility reasons.
+>
+> The `m:erpc` module was introduced in Erlang/OTP 23 to provide an API
+> that allows clear distinction between these different outcomes. The
+> `m:erpc` module offers the core subset of the functionality provided by
+> the `m:rpc` module. It also features a more scalable and
+> higher-performance implementation compared to the original `m:rpc` module.
+>
+> Since the introduction of `m:erpc`, the `m:rpc` module has been
+> updated to use `m:erpc` internally for most of its core
+> functionality. As a result, the `m:rpc` module does not fall short in
+> scalability or performance compared to `m:erpc`.
 
 > #### Note {: .info }
 >
