@@ -13,7 +13,7 @@
   "homepage": "https://github.com/nst/JSONTestSuite",
   "licenseDeclared": "MIT",
   "name": "json-test-suite",
-  "versionInfo": "984defc2deaa653cb73cd29f4144a720ec9efe7c",
+  "versionInfo": "1ef36fa01286573e846ac449e8683f8833c5b26a",
   "path": "./lib/stdlib/test/json_SUITE_data",
   "supplier": "Person: Nicolas Seriot",
   "purl": "pkg:github/nst/JSONTestSuite"
