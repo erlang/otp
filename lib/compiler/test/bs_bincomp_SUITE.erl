@@ -151,7 +151,8 @@ mixed(Config) when is_list(Config) ->
     %% OTP-16899: Nested binary comprehensions would fail to load.
     <<0,1,0,2,0,3,99>> = mixed_nested([1,2,3]),
 
-    <<1>> = cs_default(<< <<X>> || L <- [[1]], X <- L >>),
+    <<1>> = cs(<< <<X>> || L <- [[1]], X <- L >>),
+    <<1,2>> = cs_default(<< <<X>> || L <- [[1,2]], X <- L >>),
 
     %% The compiler would crash in v3_kernel.
     <<42:32,75:32,253:32,(42 bsl 8 bor 75):32>> =
