@@ -1379,6 +1379,8 @@ behavior of earlier flags.
   - **`+vp`** - `DEBUG_PROCESSES`
   - **`+vm`** - `DEBUG_MESSAGES`
   - **`+vc`** - `DEBUG_SHCOPY`
+  
+  This is erts debugging functionality and can change at any time without prior notice.
 
 - **`+V`** - Makes the emulator print its version number.
 
