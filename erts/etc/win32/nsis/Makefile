@@ -1,7 +1,9 @@
 # 
 # %CopyrightBegin%
+#
+# SPDX-License-Identifier: Apache-2.0
 # 
-# Copyright Ericsson AB 2003-2023. All Rights Reserved.
+# Copyright Ericsson AB 2003-2025. All Rights Reserved.
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -54,6 +56,9 @@ WTARGET_DIR=$(shell (w32_path.sh -d "$(TARGET_DIR)"))
 ifeq ($(CONFIG_SUBTYPE),win64)
   WINTYPE=win64
   REDIST_TARGET=vcredist_x64.exe
+else ifeq ($(CONFIG_SUBTYPE),arm64)
+  WINTYPE=arm64
+  REDIST_TARGET=vcredist_arm64.exe
 else
   WINTYPE=win32
   REDIST_TARGET=vcredist_x86.exe

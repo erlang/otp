@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2015-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2015-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -169,7 +171,7 @@ relying on them will produce the same pseudo random sequences as before.
 > less than 0.5 had got smaller intervals decreasing as the generated value
 > approached 0.0 although still uniformly distributed for sufficiently large
 > subranges. The new algorithms produces uniformly distributed floats
-> on the form `N * 2.0^(-53)` hence they are equally spaced.
+> of the form `N * 2.0^(-53)` hence they are equally spaced.
 
 [](){: #generator-state }
 #### Generator State
@@ -391,13 +393,10 @@ the generator's range:
   (IEEE 745 Double, that has got a 53-bit mantissa) in the range
   `0..1`, that is `0.0 =< V < 1.0` is to generate a 53-bit number `X`
   and then use `V = X * (1.0/((1 bsl 53)))` as your value.
-  This will create a value on the form N*2^-53 with equal probability
+  This will create a value of the form N*2^-53 with equal probability
   for every possible N for the range.
 """.
--moduledoc(#{since => "OTP 18.0",
-             titles =>
-                 [{function,<<"Plug-in framework API">>},
-                  {function,<<"Niche algorithms API">>}]}).
+-moduledoc(#{since => "OTP 18.0"}).
 
 -export([seed_s/1, seed_s/2, seed/1, seed/2,
 	 export_seed/0, export_seed_s/1,
@@ -638,7 +637,7 @@ Export the seed value.
 Returns the random number state in an external format.
 To be used with `seed/1`.
 """.
--doc(#{title => <<"Plug-in framework API">>,since => <<"OTP 18.0">>}).
+-doc(#{group => <<"Plug-in framework API">>,since => <<"OTP 18.0">>}).
 -spec export_seed() -> 'undefined' | export_state().
 export_seed() ->
     case get(?SEED_DICT) of
@@ -652,7 +651,7 @@ Export the seed value.
 Returns the random number generator state in an external format.
 To be used with `seed/1`.
 """.
--doc(#{title => <<"Plug-in framework API">>,since => <<"OTP 18.0">>}).
+-doc(#{group => <<"Plug-in framework API">>,since => <<"OTP 18.0">>}).
 -spec export_seed_s(State :: state()) -> export_state().
 export_seed_s({#{type:=Alg}, AlgState}) -> {Alg, AlgState}.
 
@@ -673,7 +672,7 @@ The argument `default` is an alias for the
 [_default algorithm_](#default-algorithm)
 that has been implemented *(Since OTP 24.0)*.
 """.
--doc(#{title => <<"Plug-in framework API">>,since => <<"OTP 18.0">>}).
+-doc(#{group => <<"Plug-in framework API">>,since => <<"OTP 18.0">>}).
 -spec seed(Alg_or_State :: term()) -> state().
 seed(Alg_or_State) ->
     seed_put(seed_s(Alg_or_State)).
@@ -691,7 +690,7 @@ generation with reasonably unpredictable time dependent data.
 With the argument `State`, re-creates the state and returns it.
 See also `export_seed/0`.
 """.
--doc(#{title => <<"Plug-in framework API">>,since => <<"OTP 18.0">>}).
+-doc(#{group => <<"Plug-in framework API">>,since => <<"OTP 18.0">>}).
 -spec seed_s(Alg | State) -> state() when
       Alg   :: builtin_alg() | 'default',
       State :: state() | export_state().
@@ -721,7 +720,7 @@ but also stores the generated state in the process dictionary.
 [_default algorithm_](#default-algorithm)
 that has been implemented *(Since OTP 24.0)*.
 """.
--doc(#{title => <<"Plug-in framework API">>,since => <<"OTP 18.0">>}).
+-doc(#{group => <<"Plug-in framework API">>,since => <<"OTP 18.0">>}).
 -spec seed(Alg :: term(), Seed :: term()) -> state().
 seed(Alg, Seed) ->
     seed_put(seed_s(Alg, Seed)).
@@ -735,7 +734,7 @@ from the specified `t:seed/0` integers.
 `Alg = default` is an alias for the [_default algorithm_](#default-algorithm)
 that has been implemented *since OTP 24.0*.
 """.
--doc(#{title => <<"Plug-in framework API">>,since => <<"OTP 18.0">>}).
+-doc(#{group => <<"Plug-in framework API">>,since => <<"OTP 18.0">>}).
 -spec seed_s(Alg, Seed) -> state() when
       Alg  :: builtin_alg() | 'default',
       Seed :: seed().
@@ -758,7 +757,7 @@ using the state in the process dictionary.
 Like `uniform_s/1` but operates on the state stored in
 the process dictionary.  Returns the generated number `X`.
 """.
--doc(#{title => <<"Plug-in framework API">>,since => <<"OTP 18.0">>}).
+-doc(#{group => <<"Plug-in framework API">>,since => <<"OTP 18.0">>}).
 -spec uniform() -> X :: float().
 uniform() ->
     {X, State} = uniform_s(seed_get()),
@@ -776,7 +775,7 @@ using the state in the process dictionary.
 Like `uniform_s/2` but operates on the state stored in
 the process dictionary.  Returns the generated number `X`.
 """.
--doc(#{title => <<"Plug-in framework API">>,since => <<"OTP 18.0">>}).
+-doc(#{group => <<"Plug-in framework API">>,since => <<"OTP 18.0">>}).
 -spec uniform(N :: pos_integer()) -> X :: pos_integer().
 uniform(N) ->
     {X, State} = uniform_s(N, seed_get()),
@@ -794,7 +793,7 @@ From the specified `State`, generates a random number `X ::` `t:float/0`,
 uniformly distributed in the value range `0.0 =< X < 1.0`.
 Returns the number `X` and the updated `NewState`.
 
-The generated numbers are on the form `N * 2.0^(-53)`, that is;
+The generated numbers are of the form `N * 2.0^(-53)`, that is;
 equally spaced in the interval.
 
 > #### Warning {: .warning }
@@ -814,13 +813,13 @@ equally spaced in the interval.
 >     end.
 > ```
 """.
--doc(#{title => <<"Plug-in framework API">>,since => <<"OTP 18.0">>}).
+-doc(#{group => <<"Plug-in framework API">>,since => <<"OTP 18.0">>}).
 -spec uniform_s(State :: state()) -> {X :: float(), NewState :: state()}.
 uniform_s(State = {#{uniform:=Uniform}, _}) ->
     Uniform(State);
 uniform_s({#{bits:=Bits, next:=Next} = AlgHandler, R0}) ->
     {V, R1} = Next(R0),
-    %% Produce floats on the form N * 2^(-53)
+    %% Produce floats of the form N * 2^(-53)
     {(V bsr (Bits - 53)) * ?TWO_POW_MINUS53, {AlgHandler, R1}};
 uniform_s({#{max:=Max, next:=Next} = AlgHandler, R0}) ->
     {V, R1} = Next(R0),
@@ -839,7 +838,7 @@ From the specified `State`, generates a random number `X ::` `t:integer/0`,
 uniformly distributed in the specified range `1 =< X =< N`.
 Returns the number `X` and the updated `NewState`.
 """.
--doc(#{title => <<"Plug-in framework API">>,since => <<"OTP 18.0">>}).
+-doc(#{group => <<"Plug-in framework API">>,since => <<"OTP 18.0">>}).
 -spec uniform_s(N :: pos_integer(), State :: state()) ->
                        {X :: pos_integer(), NewState :: state()}.
 uniform_s(N, State = {#{uniform_n:=UniformN}, _})
@@ -875,7 +874,7 @@ the process dictionary.  Returns the generated number `X`.
 
 See `uniform_real_s/1`.
 """.
--doc(#{title => <<"Plug-in framework API">>,since => <<"OTP 21.0">>}).
+-doc(#{group => <<"Plug-in framework API">>,since => <<"OTP 21.0">>}).
 -spec uniform_real() -> X :: float().
 uniform_real() ->
     {X, Seed} = uniform_real_s(seed_get()),
@@ -953,7 +952,7 @@ Having to generate extra random bits for occasional small numbers
 costs a little performance. This function is about 20% slower
 than the regular `uniform_s/1`
 """.
--doc(#{title => <<"Plug-in framework API">>,since => <<"OTP 21.0">>}).
+-doc(#{group => <<"Plug-in framework API">>,since => <<"OTP 21.0">>}).
 -spec uniform_real_s(State :: state()) -> {X :: float(), NewState :: state()}.
 uniform_real_s({#{bits:=Bits, next:=Next} = AlgHandler, R0}) ->
     %% Generate a 56 bit number without using the weak low bits.
@@ -1110,7 +1109,7 @@ using the state in the process dictionary.
 Like `bytes_s/2` but operates on the state stored in
 the process dictionary.  Returns the generated [`Bytes`](`t:binary/0`).
 """.
--doc(#{title => <<"Plug-in framework API">>,since => <<"OTP 24.0">>}).
+-doc(#{group => <<"Plug-in framework API">>,since => <<"OTP 24.0">>}).
 -spec bytes(N :: non_neg_integer()) -> Bytes :: binary().
 bytes(N) ->
     {Bytes, State} = bytes_s(N, seed_get()),
@@ -1131,7 +1130,7 @@ The selected algorithm is used to generate as many random numbers
 as required to compose the `t:binary/0`.  Returns the generated
 [`Bytes`](`t:binary/0`) and a [`NewState`](`t:state/0`).
 """.
--doc(#{title => <<"Plug-in framework API">>,since => <<"OTP 24.0">>}).
+-doc(#{group => <<"Plug-in framework API">>,since => <<"OTP 24.0">>}).
 -spec bytes_s(N :: non_neg_integer(), State :: state()) ->
                      {Bytes :: binary(), NewState :: state()}.
 bytes_s(N, {#{bits:=Bits, next:=Next} = AlgHandler, R})
@@ -1210,7 +1209,7 @@ random number sequences from one start state.
 This function raises a `not_implemented` error exception if there is
 no jump function implemented for the [`State`](`t:state/0`)'s algorithm.
 """.
--doc(#{title => <<"Plug-in framework API">>,since => <<"OTP 20.0">>}).
+-doc(#{group => <<"Plug-in framework API">>,since => <<"OTP 20.0">>}).
 -spec jump(State :: state()) -> NewState :: state().
 jump(State = {#{jump:=Jump}, _}) ->
     Jump(State);
@@ -1229,7 +1228,7 @@ Jump the generator state forward.
 Like `jump/1` but operates on the state stored in
 the process dictionary.  Returns the [`NewState`](`t:state/0`).
 """.
--doc(#{title => <<"Plug-in framework API">>,since => <<"OTP 20.0">>}).
+-doc(#{group => <<"Plug-in framework API">>,since => <<"OTP 20.0">>}).
 -spec jump() -> NewState :: state().
 jump() ->
     seed_put(jump(seed_get())).
@@ -1243,7 +1242,7 @@ Generate a random number with standard normal distribution.
 Like `normal_s/1` but operates on the state stored in
 the process dictionary.  Returns the generated number `X`.
 """.
--doc(#{title => <<"Plug-in framework API">>,since => <<"OTP 18.0">>}).
+-doc(#{group => <<"Plug-in framework API">>,since => <<"OTP 18.0">>}).
 -spec normal() -> X :: float().
 normal() ->
     {X, Seed} = normal_s(seed_get()),
@@ -1259,7 +1258,7 @@ Generate a random number with specified normal distribution 𝒩 *(μ, σ²)*.
 Like `normal_s/3` but operates on the state stored in
 the process dictionary.  Returns the generated number `X`.
 """.
--doc(#{title => <<"Plug-in framework API">>,since => <<"OTP 20.0">>}).
+-doc(#{group => <<"Plug-in framework API">>,since => <<"OTP 20.0">>}).
 -spec normal(Mean :: number(), Variance :: number()) -> X :: float().
 normal(Mean, Variance) ->
     Mean + (math:sqrt(Variance) * normal()).
@@ -1278,7 +1277,7 @@ and variance `1.0`.
 Returns the generated number [`X`](`t:float/0`)
 and the [`NewState`](`t:state/0`).
 """.
--doc(#{title => <<"Plug-in framework API">>,since => <<"OTP 18.0">>}).
+-doc(#{group => <<"Plug-in framework API">>,since => <<"OTP 18.0">>}).
 -spec normal_s(State :: state()) -> {X :: float(), NewState :: state()}.
 normal_s(State0) ->
     {Sign, R, State} = get_52(State0),
@@ -1306,7 +1305,7 @@ where `Variance >= 0.0`.
 
 Returns [`X`](`t:float/0`) and the [`NewState`](`t:state/0`).
 """.
--doc(#{title => <<"Plug-in framework API">>,since => <<"OTP 20.0">>}).
+-doc(#{group => <<"Plug-in framework API">>,since => <<"OTP 20.0">>}).
 -spec normal_s(Mean, Variance, State) -> {X :: float(), NewState :: state()}
               when
       Mean     :: number(),
@@ -1530,14 +1529,14 @@ with a specific [`Seed`](`t:seed/0`).
 > nor in generating floating point numbers.  It is easy to accidentally
 > mess up the statistical properties of this generator or to loose
 > the performance advantage when doing either.
-> See the recepies at the start of this
+> See the recipes at the start of this
 > [Niche algorithms API](#niche-algorithms-api) description.
 >
 > Note also the caveat about weak low bits that this generator suffers from.
 >
 > The generator is exported in this form primarily for performance reasons.
 """.
--doc(#{title => <<"Niche algorithms API">>,since => <<"OTP 25.0">>}).
+-doc(#{group => <<"Niche algorithms API">>,since => <<"OTP 25.0">>}).
 -spec exsp_next(AlgState :: exsplus_state()) ->
                        {X :: uint58(), NewAlgState :: exsplus_state()}.
 exsp_next([S1|S0]) ->
@@ -1636,7 +1635,7 @@ See the description of jump functions at the top of this module description.
 See `exsp_next/1` about why this internal implementation function
 has been exposed.
 """.
--doc(#{title => <<"Niche algorithms API">>,since => <<"OTP 25.0">>}).
+-doc(#{group => <<"Niche algorithms API">>,since => <<"OTP 25.0">>}).
 -spec exsp_jump(AlgState :: exsplus_state()) ->
           NewAlgState :: exsplus_state().
 exsp_jump(S) ->
@@ -1761,8 +1760,7 @@ exs1024_jump({L, RL}, AS, JL, J, N, TN) ->
     {_, NS} = exs1024_next({L, RL}),
     case ?MASK(1, J) of
         1 ->
-            AS2 = lists:zipwith(fun(X, Y) -> X bxor Y end,
-                        AS, L ++ lists:reverse(RL)),
+            AS2 = [X bxor Y || X <- AS && Y <- L ++ lists:reverse(RL)],
             exs1024_jump(NS, AS2, JL, J bsr 1, N-1, TN-1);
         0 ->
             exs1024_jump(NS, AS, JL, J bsr 1, N-1, TN-1)
@@ -2232,7 +2230,7 @@ The low bits of the base generator are surprisingly good, so the lowest
 weaknesses that lie in the high bits of the 32-bit MWC "digit".
 It is recommended to use `rem` on the the generator state, or bit mask
 extracting the lowest bits to produce numbers in a range 16 bits or less.
-See the recepies at the start of this
+See the recipes at the start of this
 [Niche algorithms API](#niche-algorithms-api) description.
 
 On a typical 64 bit Erlang VM this generator executes in below 8% (1/13)
@@ -2252,7 +2250,7 @@ is 60% of the time for the default algorithm generating a `t:float/0`.
 > it passes strict PRNG tests.  The generator is much faster than
 > `exsp_next/1` but with a bit lower quality and much shorter period.
 """.
--doc(#{title => <<"Niche algorithms API">>,since => <<"OTP 25.0">>}).
+-doc(#{group => <<"Niche algorithms API">>,since => <<"OTP 25.0">>}).
 -spec mwc59(CX0 :: mwc59_state()) -> CX1 :: mwc59_state().
 mwc59(CX) when is_integer(CX), 1 =< CX, CX < ?MWC59_P ->
     C = CX bsr ?MWC59_B,
@@ -2287,7 +2285,7 @@ in the xorshift making the low 16 good quality, but in the range
 16..31 bits there are weaker bits that should not become high bits
 of the generated values.
 
-Therefore it is in general safer to shift out low bits. See the recepies
+Therefore it is in general safer to shift out low bits. See the recipes
 at the start of this [Niche algorithms API](#niche-algorithms-api)
 description.
 
@@ -2295,7 +2293,7 @@ For a non power of 2 range less than about 16 bits (to not get
 too much bias and to avoid bignums) truncated multiplication can be used,
 that is: `(Range*V) bsr 32`, which is much faster than using `rem`.
 """.
--doc(#{title => <<"Niche algorithms API">>,since => <<"OTP 25.0">>}).
+-doc(#{group => <<"Niche algorithms API">>,since => <<"OTP 25.0">>}).
 -spec mwc59_value32(CX :: mwc59_state()) -> V :: 0..?MASK(32).
 mwc59_value32(CX1) when is_integer(CX1), 1 =< CX1, CX1 < ?MWC59_P ->
     CX = ?MASK(32, CX1),
@@ -2312,7 +2310,7 @@ base generator enough that all 59 bits are of very good quality.
 Be careful to not accidentaly create a bignum when handling the value `V`.
 
 It is in general general better to use the high bits from this scrambler than
-the low. See the recepies at the start of this
+the low. See the recipes at the start of this
 [Niche algorithms API](#niche-algorithms-api) description.
 
 For a non power of 2 range less than about 29 bits (to not get
@@ -2322,7 +2320,7 @@ the range is 30 bits, we use 29 bits from the generator,
 adding up to 59 bits, which is not a bignum (on a 64-bit VM ):
 `(1000000000 * (V bsr (59-29))) bsr 29`.
 """.
--doc(#{title => <<"Niche algorithms API">>,since => <<"OTP 25.0">>}).
+-doc(#{group => <<"Niche algorithms API">>,since => <<"OTP 25.0">>}).
 -spec mwc59_value(CX :: mwc59_state()) -> V :: 0..?MASK(59).
 mwc59_value(CX) when is_integer(CX), 1 =< CX, CX < ?MWC59_P ->
     CX2 = CX bxor ?BSL(59, CX, ?MWC59_XS1),
@@ -2337,7 +2335,7 @@ in the range `0.0 =< V < 1.0` like for example `uniform_s/1`.
 The generator state is scrambled as with
 [`mwc59_value/1`](`mwc59_value/1`) before converted to a `t:float/0`.
 """.
--doc(#{title => <<"Niche algorithms API">>,since => <<"OTP 25.0">>}).
+-doc(#{group => <<"Niche algorithms API">>,since => <<"OTP 25.0">>}).
 -spec mwc59_float(CX :: mwc59_state()) -> V :: float().
 mwc59_float(CX1) when is_integer(CX1), 1 =< CX1, CX1 < ?MWC59_P ->
     CX = ?MASK(53, CX1),
@@ -2351,7 +2349,7 @@ Create a [MWC59 generator state](`t:mwc59_state/0`).
 Like `mwc59_seed/1` but it hashes the default seed value
 of [`seed_s(atom())`](`seed_s/1`).
 """.
--doc(#{title => <<"Niche algorithms API">>,since => <<"OTP 25.0">>}).
+-doc(#{group => <<"Niche algorithms API">>,since => <<"OTP 25.0">>}).
 -spec mwc59_seed() -> CX :: mwc59_state().
 mwc59_seed() ->
     {A1, A2, A3} = default_seed(),
@@ -2367,7 +2365,7 @@ Returns a generator state [`CX`](`t:mwc59_state/0`).
 The 58-bit seed value `S` is hashed to create the generator state,
 to avoid that similar seeds create similar sequences.
 """.
--doc(#{title => <<"Niche algorithms API">>,since => <<"OTP 25.0">>}).
+-doc(#{group => <<"Niche algorithms API">>,since => <<"OTP 25.0">>}).
 -spec mwc59_seed(S :: 0..?MASK(58)) -> CX :: mwc59_state().
 mwc59_seed(S) when is_integer(S), 0 =< S, S =< ?MASK(58) ->
     hash58(S) + 1.
@@ -2474,7 +2472,7 @@ This generator is used internally in the `rand` module for seeding other
 generators since it is of a quite different breed which reduces
 the probability for creating an accidentally bad seed.
 """.
--doc(#{title => <<"Niche algorithms API">>,since => <<"OTP 25.0">>}).
+-doc(#{group => <<"Niche algorithms API">>,since => <<"OTP 25.0">>}).
 -spec splitmix64_next(AlgState :: integer()) ->
                              {X :: uint64(), NewAlgState :: splitmix64_state()}.
 splitmix64_next(X_0) ->

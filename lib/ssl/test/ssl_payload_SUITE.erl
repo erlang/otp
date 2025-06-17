@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -113,15 +115,17 @@ all() ->
      {group, 'tlsv1.3'},
      {group, 'tlsv1.2'},
      {group, 'tlsv1.1'},
-     {group, 'tlsv1'}    
+     {group, 'tlsv1'},
+     {group, transport_socket}
     ].
 
 groups() ->
     [
-     {'tlsv1.3', [], payload_tests()},
-     {'tlsv1.2', [], payload_tests()},
-     {'tlsv1.1', [], payload_tests()},
-     {'tlsv1', [], payload_tests()}
+     {'tlsv1.3', [parallel], payload_tests()},
+     {'tlsv1.2', [parallel], payload_tests()},
+     {'tlsv1.1', [parallel], payload_tests()},
+     {'tlsv1', [parallel], payload_tests()},
+     {transport_socket, [parallel], payload_tests()}
     ].
 
 payload_tests() ->
@@ -152,8 +156,8 @@ payload_tests() ->
      client_active_once_server_close].
 
 init_per_suite(Config) ->
-    catch crypto:stop(),
-    try crypto:start() of
+    catch application:stop(crypto),
+    try application:start(crypto) of
 	ok ->
 	    ssl_test_lib:clean_start(),
             ssl_test_lib:make_rsa_cert(Config)
@@ -169,7 +173,7 @@ init_per_group(GroupName, Config) ->
     ssl_test_lib:init_per_group(GroupName, Config). 
 
 end_per_group(GroupName, Config) ->
-  ssl_test_lib:end_per_group(GroupName, Config).
+    ssl_test_lib:end_per_group(GroupName, Config).
 
 
 init_per_testcase(TestCase, Config)

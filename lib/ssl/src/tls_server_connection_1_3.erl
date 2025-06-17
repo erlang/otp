@@ -1,6 +1,8 @@
 %%
 %% %CopyrightBegin%
 %%
+%% SPDX-License-Identifier: Apache-2.0
+%%
 %% Copyright Ericsson AB 2022-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
@@ -105,10 +107,13 @@
 callback_mode() ->
     [state_functions, state_enter].
 
-init([?SERVER_ROLE, Sender, Host, Port, Socket, Options,  User, CbInfo]) ->
+init([?SERVER_ROLE, Sender, Tab, Host, Port, Socket, Options,  User, CbInfo]) ->
     State0 = #state{protocol_specific = Map} =
-        tls_gen_connection_1_3:initial_state(?SERVER_ROLE, Sender,
+        tls_gen_connection_1_3:initial_state(?SERVER_ROLE, Sender, Tab,
                                              Host, Port, Socket, Options, User, CbInfo),
+    #state{static_env = #static_env{user_socket = UserSocket}} = State0,
+    User ! {self(), user_socket, UserSocket},
+    put(tls_role, server),
     try
 	State = ssl_gen_statem:init_ssl_config(State0#state.ssl_options, ?SERVER_ROLE, State0),
         tls_gen_connection:initialize_tls_sender(State),
@@ -165,7 +170,7 @@ user_hello({call, From}, cancel, State) ->
 user_hello({call, From}, {handshake_continue, NewOptions, Timeout},
            #state{handshake_env = #handshake_env{continue_status = {pause, ClientVersions}},
                   ssl_options = Options0} = State0) ->
-    try ssl:update_options(NewOptions, ?SERVER_ROLE, Options0) of
+    try ssl_config:update_options(NewOptions, ?SERVER_ROLE, Options0) of
         Options = #{versions := Versions} ->
             State1 = ssl_gen_statem:ssl_config(Options, ?SERVER_ROLE, State0),
             #state{handshake_env = HsEnv0} = State1,
@@ -362,6 +367,8 @@ wait_eoed(Type, Msg, State) ->
                  term(), #state{}) ->
           gen_statem:state_function_result().
 %%--------------------------------------------------------------------
+connection(info, Msg, State) ->
+    tls_gen_connection:gen_info(Msg, connection, State);
 connection(Type, Msg, State) ->
     tls_gen_connection_1_3:connection(Type, Msg, State).
 

@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2013-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -31,11 +33,13 @@
 -include("ssl_handshake.hrl").
 -include("ssl_srp.hrl").
 -include("ssl_cipher.hrl").
+-include("ssl_api.hrl").
 -include("ssl_alert.hrl").
 -include_lib("public_key/include/public_key.hrl").
 
 -record(static_env, {
                      role                  :: client | server,
+                     user_socket           :: #sslsocket{},
                      transport_cb          :: atom(),   % callback module
                      protocol_cb           :: tls_gen_connection | dtls_gen_connection,
                      data_tag              :: atom(),   % ex tcp.
@@ -126,6 +130,7 @@
               }).
 
 -record(state, {
+                tab                   :: ets:table(),
                 static_env            :: #static_env{},
                 connection_env        :: #connection_env{} | ssl_gen_statem:secret_printout(),
                 ssl_options           :: ssl_options(),

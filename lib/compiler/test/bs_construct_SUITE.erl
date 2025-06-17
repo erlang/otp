@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
 %% 
-%% Copyright Ericsson AB 2004-2023. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2025. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -72,14 +74,6 @@ end_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
 
 verify_highest_opcode(_Config) ->
     case ?MODULE of
-        bs_construct_r24_SUITE ->
-            {ok,Beam} = file:read_file(code:which(?MODULE)),
-            case test_lib:highest_opcode(Beam) of
-                Highest when Highest =< 176 ->
-                    ok;
-                TooHigh ->
-                    ct:fail({too_high_opcode,TooHigh})
-            end;
         bs_construct_r25_SUITE ->
             {ok,Beam} = file:read_file(code:which(?MODULE)),
             case test_lib:highest_opcode(Beam) of

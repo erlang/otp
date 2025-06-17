@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1997-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,7 +25,7 @@
 	 interesting/1,scope_return/1,random_ref_comp/1,random_ref_sr_comp/1,
 	 random_ref_fla_comp/1,parts/1, bin_to_list/1, list_to_bin/1,
 	 copy/1, referenced/1,guard/1,encode_decode/1,badargs/1,longest_common_trap/1,
-         check_no_invalid_read_bug/1,error_info/1, hex_encoding/1]).
+         check_no_invalid_read_bug/1,error_info/1, hex_encoding/1, join/1, doctests/1]).
 
 -export([random_number/1, make_unaligned/1]).
 
@@ -38,7 +40,7 @@ all() ->
      random_ref_comp, parts, bin_to_list, list_to_bin, copy,
      referenced, guard, encode_decode, badargs,
      longest_common_trap, check_no_invalid_read_bug,
-     error_info, hex_encoding].
+     error_info, hex_encoding, join, doctests].
 
 
 -define(MASK_ERROR(EXPR),mask_error((catch (EXPR)))).
@@ -260,6 +262,13 @@ badargs(Config) when is_list(Config) ->
     badarg = ?MASK_ERROR(binary:encode_hex([])),
     badarg = ?MASK_ERROR(binary:encode_hex(#{})),
     badarg = ?MASK_ERROR(binary:encode_hex(foo)),
+
+    badarg = ?MASK_ERROR(binary:join(<<"">>, ",")),
+    badarg = ?MASK_ERROR(binary:join([""], <<",">>)),
+    badarg = ?MASK_ERROR(binary:join([123], <<",">>)),
+    badarg = ?MASK_ERROR(binary:join(123, <<",">>)),
+    badarg = ?MASK_ERROR(binary:join(#{}, <<",">>)),
+    badarg = ?MASK_ERROR(binary:join(foo, <<",">>)),
     ok.
 
 %% Whitebox test to force special trap conditions in
@@ -1454,6 +1463,12 @@ error_info(_Config) ->
          {last,[<<1:1>>]},
          {last,[<<>>]},
 
+         {join,[no_list,<<>>]},
+         {join,[[a|b],<<>>]},
+         {join,[[a],<<>>]},
+         {join,[[],<<1:7>>]},
+         {join,[[],bad_separator]},
+
          {list_to_bin,[<<1,2,3>>]},
          {list_to_bin,[{1,2,3}]},
 
@@ -1580,6 +1595,14 @@ do_hex_roundtrip(Bytes) ->
         <<>> ->
             ok
     end.
+
+join(Config) when is_list(Config) ->
+    ~"a, b, c" = binary:join([~"a", ~"b", ~"c"], ~", "),
+    ~"a" = binary:join([~"a"], ~", "),
+    ~"" = binary:join([], ~", ").
+
+doctests(_Config) ->
+    shell_docs:test(binary, []).
 
 %%%
 %%% Utilities.

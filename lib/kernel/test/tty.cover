@@ -1,3 +1,10 @@
 %% -*- erlang -*-
-{incl_mods,[prim_tty, user_drv, group, shell, edlin, edlin_expand, io_lib]}.
+{incl_mods,[prim_tty, prim_tty_sighandler, user_drv, group, shell, edlin, edlin_expand, io_lib]}.
 
+%CopyrightBegin%
+
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2025. All Rights Reserved.
+
+%CopyrightEnd%

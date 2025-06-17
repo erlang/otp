@@ -1,7 +1,9 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2000-2022. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 2000-2025. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -66,7 +68,11 @@ APPUP_TARGET = $(EBIN)/$(APPUP_FILE)
 # ----------------------------------------------------
 # FLAGS
 # ----------------------------------------------------
-ERL_COMPILE_FLAGS += -pa $(ERL_TOP)/lib/et/ebin -I../include -Werror
+ERL_COMPILE_FLAGS += -pa $(ERL_TOP)/lib/et/ebin \
+		     -pa $(ERL_TOP)/lib/wx/ebin \
+		     -I../include \
+		     -I $(ERL_TOP)/lib \
+		     -Werror
 
 # ----------------------------------------------------
 # Special Build Targets

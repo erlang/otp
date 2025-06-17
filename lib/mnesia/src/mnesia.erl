@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -4158,7 +4160,7 @@ create_table(Arg) ->
 -doc """
 Create a table.
 
-Creates a Mnesia table called `Name` according to argument `TabDef`. This list
+Creates a Mnesia table called `Name` according to argument `Opts`. This list
 must be a list of `{Item, Value}` tuples, where the following values are
 allowed:
 

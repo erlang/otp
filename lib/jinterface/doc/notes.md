@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2025. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -20,6 +22,21 @@ limitations under the License.
 # Jinterface Release Notes
 
 This document describes the changes made to the Jinterface application.
+
+## Jinterface 1.15
+
+### Improvements and New Features
+
+- The `.class` files of jinterface are now part of the prebuilt archive using Java 8.
+
+  Own Id: OTP-19308 Aux Id: [PR-8960]
+
+- The license and copyright header has changed format to include an `SPDX-License-Identifier`. At the same time, most files have been updated to follow a uniform standard for license headers.
+
+  Own Id: OTP-19575 Aux Id: [PR-9670]
+
+[PR-8960]: https://github.com/erlang/otp/pull/8960
+[PR-9670]: https://github.com/erlang/otp/pull/9670
 
 ## Jinterface 1.14.1
 

@@ -1,6 +1,8 @@
 %%
 %% %CopyrightBegin%
 %%
+%% SPDX-License-Identifier: Apache-2.0
+%%
 %% Copyright Ericsson AB 1997-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,6 +22,8 @@
 
 -module(inet_db).
 -moduledoc false.
+
+-compile(nowarn_deprecated_catch).
 
 %% Store info about ip addresses, names, aliases host files resolver
 %% options.

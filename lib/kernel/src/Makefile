@@ -1,7 +1,9 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1996-2024. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 1996-2025. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -68,6 +70,7 @@ MODULES = \
 	erl_boot_server \
 	erl_compile_server \
 	erl_ddll \
+	erl_debugger \
 	erl_distribution \
 	erl_erts_errors \
 	erl_epmd \
@@ -146,6 +149,7 @@ MODULES = \
 	user_drv \
 	user_sup \
 	prim_tty \
+	prim_tty_sighandler \
 	raw_file_io \
 	raw_file_io_compressed \
 	raw_file_io_inflate \
@@ -185,7 +189,7 @@ APPUP_TARGET= $(EBIN)/$(APPUP_FILE)
 # FLAGS
 # ----------------------------------------------------
 
-ERL_COMPILE_FLAGS += -Werror
+ERL_COMPILE_FLAGS += -Werror +warn_deprecated_catch
 ERL_COMPILE_FLAGS += -I../include
 
 

@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1998-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -26,6 +28,8 @@ To implement your own epmd module please see
 [ERTS User's Guide: How to Implement an Alternative Node Discovery for Erlang Distribution](`e:erts:alt_disco.md`)
 """.
 -moduledoc(#{since => "OTP R14B"}).
+
+-compile(nowarn_deprecated_catch).
 
 -behaviour(gen_server).
 

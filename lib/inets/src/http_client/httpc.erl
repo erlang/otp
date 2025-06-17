@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2009-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -332,7 +334,7 @@ Options details:
 - **`body_format`** - Defines if the body is to be delivered as a string or
   binary. This option is only valid for the synchronous request.
 
-  Default is `string`.
+  Default is `string`. Asynchronous requests always use `binary`.
 
 - **`full_result`** - Defines if a "full result" is to be returned to the caller
   (that is, the body, the headers, and the entire status line) or not (the body

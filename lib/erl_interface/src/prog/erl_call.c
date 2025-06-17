@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
+ *
+ * SPDX-License-Identifier: Apache-2.0
  * 
- * Copyright Ericsson AB 1996-2023. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2025. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -78,6 +80,27 @@
 #include <fcntl.h>
 #include <signal.h>
 
+/* In VC++, noreturn is a declspec that has to be before the types,
+ * but in GNUC it is an attribute to be placed between return type
+ * and function name, hence __decl_noreturn <types> __noreturn <function name>
+ *
+ * at some platforms (e.g. Android) __noreturn is defined at sys/cdef.h
+ */
+#if __GNUC__
+#  define __decl_noreturn
+#  ifndef __noreturn
+#     define __noreturn __attribute__((noreturn))
+#  endif
+#else
+#  if defined(__WIN32__) && defined(_MSC_VER)
+#    define __noreturn
+#    define __decl_noreturn __declspec(noreturn)
+#  else
+#    define __noreturn
+#    define __decl_noreturn
+#  endif
+#endif
+
 #include "ei.h"
 #include "ei_resolve.h"
 
@@ -125,9 +148,9 @@ struct call_flags {
 /* start an erlang system */
 int erl_start_sys(ei_cnode *ec, char *alive, Erl_IpAddr addr, int flags,
 		  char *erl, char *add_args[]);
-static void usage_arg(const char *progname, const char *switchname);
-static void usage_error(const char *progname, const char *switchname);
-static void usage(const char *progname);
+__decl_noreturn static void __noreturn usage_arg(const char *progname, const char *switchname);
+__decl_noreturn static void __noreturn usage_error(const char *progname, const char *switchname);
+__decl_noreturn static void __noreturn usage(const char *progname);
 static int get_module(char **mbuf, char **mname);
 static int do_connect(ei_cnode *ec, char *nodename, struct call_flags *flags);
 static int read_stdin(char **buf);
@@ -140,7 +163,9 @@ static char* ei_chk_strdup(char *s);
 static int rpc_print_node_stdout(ei_cnode* ec, int fd, char *mod,
                                  char *fun, const char* inbuf,
                                  int inbuflen, ei_x_buff* x);
-static void exit_free_flags_fields(int exit_status, struct call_flags* flags);
+__decl_noreturn static void __noreturn exit_free_flags_fields(
+                int exit_status,
+                struct call_flags* flags);
 
 /* Converts the given hostname to a shortname, if required. */
 static void format_node_hostname(const struct call_flags *flags,
@@ -1032,19 +1057,19 @@ static void usage_noexit(const char *progname) {
   fprintf(stderr,"         -x  use specified erl start script, default is erl\n");
 }
 
-static void usage_arg(const char *progname, const char *switchname) {
+__decl_noreturn static void __noreturn usage_arg(const char *progname, const char *switchname) {
   fprintf(stderr, "Missing argument(s) for \'%s\'.\n", switchname);
   usage_noexit(progname);
   exit(1);
 }
 
-static void usage_error(const char *progname, const char *switchname) {
+__decl_noreturn static void __noreturn usage_error(const char *progname, const char *switchname) {
   fprintf(stderr, "Illegal argument \'%s\'.\n", switchname);
   usage_noexit(progname);
   exit(1);
 }
 
-static void usage(const char *progname) {
+void __noreturn usage(const char *progname) {
   usage_noexit(progname);
   exit(0);
 }
@@ -1119,6 +1144,9 @@ static int rpc_print_node_stdout(ei_cnode* ec, int fd, char *mod,
     ei_term t;
     erlang_msg msg;
     char rex[MAXATOMLEN];
+#ifndef VALGRIND
+    index = -1;
+#endif
  
     if (ei_xrpc_to(ec, fd, mod, fun, inbuf, inbuflen, EI_RPC_FETCH_STDOUT) < 0) {
 	return ERL_ERROR;
@@ -1181,7 +1209,8 @@ ebadmsg:
 }
 
 
-void exit_free_flags_fields(int exit_status, struct call_flags* flags) {
+__decl_noreturn static void __noreturn
+exit_free_flags_fields(int exit_status, struct call_flags* flags) {
     if (flags->script != NULL) {
         free(flags->script);
     }

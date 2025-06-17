@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2024. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 1996-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -143,24 +145,21 @@ Uint size_object_x(Eterm obj, erts_literal_area_t *litopt)
 		    }
 		    obj = *++ptr;
 		    break;
-		case FUN_REF_SUBTAG:
-                    sum += ERL_FUN_REF_SIZE;
-                    goto pop_next;
                 case FUN_SUBTAG:
                     {
                         const ErlFunThing* funp = (ErlFunThing*)fun_val(obj);
 
                         ASSERT(ERL_FUN_SIZE == (1 + thing_arityval(hdr)));
-                        sum += ERL_FUN_SIZE + fun_env_size(funp);
+                        sum += ERL_FUN_SIZE + fun_num_free(funp);
 
-                        for (int i = 1; i < fun_env_size(funp); i++) {
+                        for (int i = 1; i < fun_num_free(funp); i++) {
                             obj = funp->env[i];
                             if (!IS_CONST(obj)) {
                                 ESTACK_PUSH(s, obj);
                             }
                         }
 
-                        if (fun_env_size(funp) > 0) {
+                        if (fun_num_free(funp) > 0) {
                             obj = funp->env[0];
                             break;
                         }
@@ -396,16 +395,13 @@ Uint size_shared(Eterm obj)
 		}
 		goto pop_next;
 	    }
-            case FUN_REF_SUBTAG:
-                sum += ERL_FUN_REF_SIZE;
-                goto pop_next;
             case FUN_SUBTAG: {
                 const ErlFunThing* funp = (ErlFunThing *) ptr;
 
                 ASSERT(ERL_FUN_SIZE == (1 + thing_arityval(hdr)));
-                sum += ERL_FUN_SIZE + fun_env_size(funp);
+                sum += ERL_FUN_SIZE + fun_num_free(funp);
 
-                for (int i = 0; i < fun_env_size(funp); i++) {
+                for (int i = 0; i < fun_num_free(funp); i++) {
                     obj = funp->env[i];
                     if (!IS_CONST(obj)) {
                         EQUEUE_PUT(s, obj);
@@ -561,7 +557,7 @@ cleanup:
             case FUN_SUBTAG: {
                 const ErlFunThing *funp = (ErlFunThing *) ptr;
 
-                for (int i = 0; i < fun_env_size(funp); i++) {
+                for (int i = 0; i < fun_num_free(funp); i++) {
                     obj = funp->env[i];
                     if (!IS_CONST(obj)) {
                         EQUEUE_PUT_UNCHECKED(s, obj);
@@ -846,33 +842,6 @@ Eterm copy_struct_x(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap,
                     }
                 }
                 break;
-            case FUN_REF_SUBTAG:
-                {
-                    const FunRef *src_ref = (const FunRef *)objp;
-                    FunRef *dst_ref;
-
-                    hbot -= ERL_FUN_REF_SIZE;
-                    dst_ref = (FunRef *)hbot;
-
-                    dst_ref->thing_word = HEADER_FUN_REF;
-                    dst_ref->entry = src_ref->entry;
-
-                    dst_ref->next = off_heap->first;
-                    off_heap->first = (struct erl_off_heap_header*)dst_ref;
-
-                    /* All fun entries are NULL during module loading, before
-                     * the code is finalized.
-                     *
-                     * Strictly speaking it would be nice to crash when we see
-                     * this outside of loading, but it's too complicated to
-                     * keep track of whether we are. */
-                    if (dst_ref->entry != NULL) {
-                        erts_refc_inc(&(dst_ref->entry)->refc, 2);
-                    }
-
-                    *argp = make_boxed((Eterm*)dst_ref);
-                }
-                break;
             case FUN_SUBTAG:
                 {
                     const ErlFunThing *src_fun = (const ErlFunThing *)objp;
@@ -880,12 +849,12 @@ Eterm copy_struct_x(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap,
 
                     *dst_fun = *src_fun;
 
-                    for (int i = 0; i < fun_env_size(dst_fun); i++) {
+                    for (int i = 0; i < fun_num_free(dst_fun); i++) {
                         dst_fun->env[i] = src_fun->env[i];
                     }
 
                     ASSERT(&htop[ERL_FUN_SIZE] == &dst_fun->env[0]);
-                    htop = &dst_fun->env[fun_env_size(dst_fun)];
+                    htop = &dst_fun->env[fun_num_free(dst_fun)];
                     *argp = make_fun(dst_fun);
                 }
                 break;
@@ -931,6 +900,7 @@ Eterm copy_struct_x(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap,
 		    case MAP_HEADER_TAG_HAMT_HEAD_BITMAP :
 		    case MAP_HEADER_TAG_HAMT_HEAD_ARRAY :
 			*htop++ = *objp++;
+                        ERTS_FALLTHROUGH();
 		    case MAP_HEADER_TAG_HAMT_NODE_BITMAP :
 			i = 1 + hashmap_bitcount(MAP_HEADER_VAL(hdr));
 			while (i--)  { *htop++ = *objp++; }
@@ -1263,9 +1233,9 @@ Uint copy_shared_calculate(Eterm obj, erts_shcopy_t *info)
                 const ErlFunThing* funp = (ErlFunThing *) ptr;
 
                 ASSERT(ERL_FUN_SIZE == (1 + thing_arityval(hdr)));
-                sum += ERL_FUN_SIZE + fun_env_size(funp);
+                sum += ERL_FUN_SIZE + fun_num_free(funp);
 
-                for (int i = 0; i < fun_env_size(funp); i++) {
+                for (int i = 0; i < fun_num_free(funp); i++) {
                     obj = funp->env[i];
                     if (!IS_CONST(obj)) {
                         EQUEUE_PUT(s, obj);
@@ -1584,22 +1554,6 @@ Uint copy_shared_perform_x(Eterm obj, Uint size, erts_shcopy_t *info,
 		}
 		goto cleanup_next;
 	    }
-            case FUN_REF_SUBTAG:
-                {
-                    const FunRef *src_ref = (const FunRef *)ptr;
-                    FunRef *dst_ref = (FunRef *)hp;
-
-                    dst_ref->thing_word = HEADER_FUN_REF;
-                    dst_ref->entry = src_ref->entry;
-
-                    dst_ref->next = off_heap->first;
-                    off_heap->first = (struct erl_off_heap_header*)dst_ref;
-                    erts_refc_inc(&(dst_ref->entry)->refc, 2);
-
-                    *resp = make_boxed((Eterm*)dst_ref);
-                    hp += ERL_FUN_REF_SIZE;
-                }
-                goto cleanup_next;
             case FUN_SUBTAG: {
                 const ErlFunThing *src_fun = (const ErlFunThing *)ptr;
                 ErlFunThing *dst_fun = (ErlFunThing *)hp;
@@ -1610,7 +1564,7 @@ Uint copy_shared_perform_x(Eterm obj, Uint size, erts_shcopy_t *info,
                  * restore it. */
                 dst_fun->thing_word = hdr;
 
-                for (int i = 0; i < fun_env_size(dst_fun); i++) {
+                for (int i = 0; i < fun_num_free(dst_fun); i++) {
                     obj = src_fun->env[i];
 
                     if (!IS_CONST(obj)) {
@@ -1622,7 +1576,7 @@ Uint copy_shared_perform_x(Eterm obj, Uint size, erts_shcopy_t *info,
                 }
 
                 ASSERT(&hp[ERL_FUN_SIZE] == &dst_fun->env[0]);
-                hp = &dst_fun->env[fun_env_size(dst_fun)];
+                hp = &dst_fun->env[fun_num_free(dst_fun)];
                 *resp = make_fun(dst_fun);
 
                 goto cleanup_next;
@@ -1650,6 +1604,7 @@ Uint copy_shared_perform_x(Eterm obj, Uint size, erts_shcopy_t *info,
                     case MAP_HEADER_TAG_HAMT_HEAD_BITMAP :
                     case MAP_HEADER_TAG_HAMT_HEAD_ARRAY :
 			*hp++ = *++ptr; /* total map size */
+                        ERTS_FALLTHROUGH();
                     case MAP_HEADER_TAG_HAMT_NODE_BITMAP : {
                          Uint n = hashmap_bitcount(MAP_HEADER_VAL(hdr));
                          while (n--)  {
@@ -1805,7 +1760,7 @@ Uint copy_shared_perform_x(Eterm obj, Uint size, erts_shcopy_t *info,
                             const ErlFunThing* funp = (ErlFunThing *) hscan;
                             ASSERT(ERL_FUN_SIZE == (1 + thing_arityval(*hscan)));
                             hscan += ERL_FUN_SIZE;
-                            remaining = fun_env_size(funp);
+                            remaining = fun_num_free(funp);
                             break;
 			}
 			case MAP_SUBTAG:
@@ -2005,12 +1960,6 @@ Eterm* copy_shallow_x(Eterm *ERTS_RESTRICT ptr, Uint sz, Eterm **hpp,
                     ERTS_BR_OVERHEAD(off_heap, br);
                     goto off_heap_common;
                 }
-            case FUN_REF_SUBTAG:
-                {
-                    FunRef *refp = (FunRef *) (tp-1);
-                    erts_refc_inc(&(refp->entry)->refc, 2);
-                    goto off_heap_common;
-                }
 	    case EXTERNAL_PID_SUBTAG:
 	    case EXTERNAL_PORT_SUBTAG:
 	    case EXTERNAL_REF_SUBTAG:
@@ -2042,7 +1991,7 @@ Eterm* copy_shallow_x(Eterm *ERTS_RESTRICT ptr, Uint sz, Eterm **hpp,
 		    erts_refc_inc(&mreft->mb->intern.refc, 2);
 		    goto off_heap_common;
 		}
-		/* Fall through... */
+		ERTS_FALLTHROUGH();
 	    }
 	    default:
 		{
@@ -2156,11 +2105,11 @@ move_one_frag(Eterm** hpp, ErlHeapFragment* frag, ErlOffHeap* off_heap, int lite
                 if (!is_magic_ref_thing(hdr)) {
                     break;
                 }
+                ERTS_FALLTHROUGH();
             case BIN_REF_SUBTAG:
             case EXTERNAL_PID_SUBTAG:
             case EXTERNAL_PORT_SUBTAG:
             case EXTERNAL_REF_SUBTAG:
-            case FUN_REF_SUBTAG:
                 hdr->next = off_heap->first;
                 off_heap->first = hdr;
                 break;

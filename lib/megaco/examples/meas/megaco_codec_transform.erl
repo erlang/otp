@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
 %% 
-%% Copyright Ericsson AB 2002-2024. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2025. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -153,6 +155,11 @@ structure:
                   erlang/<message-files>
 ```
 """.
+
+-spec export_messages(MessagePackage) -> ok | {error, Reason} when
+      MessagePackage :: atom(),
+      Reason         :: term().
+
 export_messages(MessagePackage) when is_atom(MessagePackage) ->
     case messages(MessagePackage) of
 	TMsgs when is_list(TMsgs) ->

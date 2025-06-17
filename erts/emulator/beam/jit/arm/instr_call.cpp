@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2020-2024. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2020-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,7 +38,7 @@ void BeamGlobalAssembler::emit_dispatch_return() {
 void BeamModuleAssembler::emit_dispatch_return() {
 #ifdef JIT_HARD_DEBUG
     /* Validate return address and {x,0} */
-    emit_validate(ArgVal(ArgVal::Word, 1));
+    emit_validate(ArgVal(ArgVal::Type::Word, 1));
 #endif
 
     if (erts_alcu_enable_code_atags) {
@@ -127,7 +129,7 @@ void BeamGlobalAssembler::emit_dispatch_save_calls_export() {
 
     a.mov(ARG2, ARG1);
     a.mov(ARG1, c_p);
-    runtime_call<2>(save_calls);
+    runtime_call<void (*)(Process *, const Export *), save_calls>();
 
     emit_leave_runtime();
     emit_leave_runtime_frame();
@@ -223,7 +225,8 @@ arm::Mem BeamModuleAssembler::emit_variable_apply(bool includeI) {
     mov_imm(ARG4, 0);
 
     comment("apply()");
-    runtime_call<4>(apply);
+    runtime_call<const Export *(*)(Process *, Eterm *, ErtsCodePtr, Uint),
+                 apply>();
 
     /* Any number of X registers can be live at this point. */
     emit_leave_runtime<Update::eReductions | Update::eHeapAlloc |
@@ -276,7 +279,8 @@ arm::Mem BeamModuleAssembler::emit_fixed_apply(const ArgWord &Arity,
 
     mov_imm(ARG5, 0);
 
-    runtime_call<5>(fixed_apply);
+    runtime_call<const Export *(*)(Process *, Eterm *, Uint, ErtsCodePtr, Uint),
+                 fixed_apply>();
 
     /* We will need to reload all X registers in case there has been
      * an error. */

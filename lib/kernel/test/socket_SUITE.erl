@@ -1,5 +1,7 @@
 %%
 %% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
 %% 
 %% Copyright Ericsson AB 2018-2025. All Rights Reserved.
 %% 
@@ -61,9 +63,10 @@
 %% T = fun(G, TC) -> ct:run_test([{suite, socket_SUITE}, {group, G}, {testcase, TC}]) end.
 %% T = fun(S, G, TC) -> ct:run_test([{suite, S}, {group, G}, {testcase, TC}]) end.
 %%
-%% Some (Microsoft-) official info about AF_UNIX
+%% Some official info about AF_UNIX
 %% https://devblogs.microsoft.com/commandline/windowswsl-interop-with-af_unix/
-%%
+
+
 
 -module(socket_SUITE).
 
@@ -170,7 +173,8 @@
          otp19482_simple_single_mixed/1,
          otp19482_simple_single_mixed_long/1,
          otp19482_simple_multi_small/1,
-         otp19482_simple_multi_medium/1
+         otp19482_simple_multi_medium/1,
+	 otp19482_async_simple_single_mixed/1
         ]).
 
 
@@ -422,9 +426,9 @@ otp19482_cases() ->
      otp19482_simple_single_mixed,
      otp19482_simple_single_mixed_long,
      otp19482_simple_multi_small,
-     otp19482_simple_multi_medium
+     otp19482_simple_multi_medium,
+     otp19482_async_simple_single_mixed
     ].
-
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -576,14 +580,7 @@ format_ioctl(Key, Sup, Prefix, Max) ->
 init_per_testcase(_TC, Config) ->
     io:format("init_per_testcase(~w) -> entry with"
               "~n   Config: ~p"
-              "~n   links:  ~p"
-              "~n", [_TC, Config, links()]),
-    %% case quiet_mode(Config) of
-    %%     default ->
-    %%         ?LOGGER:start();
-    %%     Quiet ->
-    %%         ?LOGGER:start(Quiet)
-    %% end,
+              "~n", [_TC, Config]),
     Config.
 
 end_per_testcase(_TC, Config) ->
@@ -4030,13 +4027,7 @@ monitor_open_and_close_multi_socks_and_mon(Config) when is_list(Config) ->
     ?TT(?SECS(30)),
     tc_try(?FUNCTION_NAME,
            fun() ->
-                   FactorKey = kernel_factor,
-                   case lists:keysearch(FactorKey, 1, Config) of
-                       {value, {FactorKey, Factor}} when (Factor > 15) ->
-                           skip("Very slow machine");
-                       _ ->
-                           ok
-                   end
+                   factor_limit(Config)
            end,
            fun() ->
 		   InitState = #{domain   => inet,
@@ -10234,8 +10225,7 @@ do_ioctl_nread(_) ->
     i("Give it some time to arrive"),
     ?SLEEP(?SECS(1)),
     
-    i("Verify that the correct amount of data (atleast ~p) is available", 
-      [DataSz]),
+    i("Verify that the correct amount of data (atleast ~p) is available", [DataSz]),
     case socket:ioctl(S1, nread) of
         {ok, DataSize} when (DataSize >= DataSz) ->
             i("Success: "
@@ -11195,6 +11185,7 @@ do_ioctl_tcp_info(#{domain := Domain,
 
 
 
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%                                                                     %%
@@ -12098,7 +12089,7 @@ do_otp18635(_) ->
 
     %% ok = socket:setopt(LSock, otp, debug, true),
 
-    %% show handle returned from nowait accept
+                                                % show handle returned from nowait accept
     ?P("try accept with timeout = nowait - expect select when"
        "~n   (gen socket) info: ~p"
        "~n   Sockets:           ~p",
@@ -12365,9 +12356,6 @@ do_otp19063(_) ->
         {'DOWN', MRef, process, Connector, _} ->
             ?P("connector terminated"),
             ok
-    after 1000 ->
-	    ?P("connector did not die in time - kill it"),
-	    exit(Connector, kill)
     end,
     _ = socket:close(ASock1),
     _ = socket:close(LSock1),
@@ -12653,10 +12641,8 @@ do_otp19469_stream(#{family := Fam} = LSA) ->
     _ = socket:setopt(S3, otp, debug, true),
     case os:type() of
         {unix, _} ->
-            %% This is a OTP 27 behaviour.
-            %% Not in 26 and not in 28 (I think)
-            {error, timeout} = socket:recv(S3, 2*DataSz, ?SECS(5)),
-            {ok, Data}       = socket:recv(S3, 0);
+            %% As of 28 we are back to this behaviour
+            {error, {timeout, Data}} = socket:recv(S3, 2*DataSz, ?SECS(5));
         {win32, _} ->
             {error, {timeout, Data}} = socket:recv(S3, 2*DataSz, ?SECS(5))
     end,
@@ -12745,10 +12731,10 @@ do_otp19469_dgram(#{family := Fam} = LSA) ->
 -define(OTP19482_CHUNK_MEDIUM, ?OTP19482_CHUNK_8K).
 
 otp19482_simple_single_small(Config) when is_list(Config) ->
-    ?TT(?SECS(10)),
-    
+    ?TT(?SECS(10 * which_factor(Config))),
     Cond = fun() ->
-                   has_support_ipv4()
+                   has_support_ipv4(),
+                   factor_limit(Config)
            end,
     Pre  = fun() ->
                    #{iov_max := IOVMax} = Info = socket:info(),
@@ -12772,9 +12758,10 @@ otp19482_simple_single_small(Config) when is_list(Config) ->
 
 
 otp19482_simple_single_medium(Config) when is_list(Config) ->
-    ?TT(?SECS(10)),
+    ?TT(?SECS(10 * which_factor(Config))),
     Cond = fun() ->
-                   has_support_ipv4()
+                   has_support_ipv4(),
+                   factor_limit(Config)
            end,
     Pre  = fun() ->
                    #{iov_max := IOVMax} = Info = socket:info(),
@@ -12798,9 +12785,10 @@ otp19482_simple_single_medium(Config) when is_list(Config) ->
 
 
 otp19482_simple_single_mixed(Config) when is_list(Config) ->
-    ?TT(?SECS(10)),
+    ?TT(?SECS(10 * which_factor(Config))),
     Cond = fun() ->
-                   has_support_ipv4()
+                   has_support_ipv4(),
+                   factor_limit(Config)
            end,
     Pre  = fun() ->
                    #{iov_max := IOVMax} = Info = socket:info(),
@@ -12830,9 +12818,11 @@ otp19482_simple_single_mixed(Config) when is_list(Config) ->
 
 
 otp19482_simple_single_mixed_long(Config) when is_list(Config) ->
-    ?TT(?SECS(10)),
+    Factor = which_factor(Config),
+    ?TT(?SECS(10 * Factor)),
     Cond = fun() ->
-                   has_support_ipv4()
+                   has_support_ipv4(),
+                   factor_limit(Config)
            end,
     Pre  = fun() ->
                    #{iov_max := IOVMax} = Info = socket:info(),
@@ -12854,7 +12844,8 @@ otp19482_simple_single_mixed_long(Config) when is_list(Config) ->
 				    [<<CLen:32>>, <<CChk:32>>, C]
 				end || C <- Chunks0]),
 		   Chunks2 = lists:flatten(lists:duplicate(100, Chunks1)),
-                   #{iov_max => IOVMax,
+                   #{factor  => Factor,
+                     iov_max => IOVMax,
                      lsa     => LSA,
                      chunk   => Chunks2,
 		     verify  => fun(Data) -> otp19482_verify_data(Data) end}
@@ -12877,12 +12868,6 @@ otp19482_verify_data(N, <<Sz:32, CHKSUM:32, Chunk:Sz/binary, Rest/binary>>) ->
 	CHKSUM ->
 	    otp19482_verify_data(N+1, Rest);
 	BadCHKSUM ->
-	    %% ?P("~w -> bad checksum for chunk ~w: "
-	    %%    "~n   Sz:                ~w"
-	    %%    "~n   Expected CheckSum: ~w"
-	    %%    "~n   CheckSum:          ~w"
-	    %%    "~n   size of Rest:      ~w",
-	    %%    [?FUNCTION_NAME, N, Sz, CHKSUM, BadCHKSUM, byte_size(Rest)]),
 	    ct:fail({bad_checksum, CHKSUM, BadCHKSUM})
     end;
 otp19482_verify_data(N, BadData) ->
@@ -12892,13 +12877,19 @@ otp19482_verify_data(N, BadData) ->
 
 
 otp19482_update_buffers(S) ->
+    otp19482_update_buffers(S, 250000).
+
+otp19482_update_buffers(_S, default) ->
+    ok;
+otp19482_update_buffers(S, Base) ->
     case os:type() of
         {unix, netbsd} ->
-            ok = socket:setopt(S, socket, rcvbuf, 200000),
-            ok = socket:setopt(S, socket, sndbuf, 200000);
+	    Sz = (Base * 20) div 25,
+            ok = socket:setopt(S, socket, rcvbuf, Sz),
+            ok = socket:setopt(S, socket, sndbuf, Sz);
         _ ->
-            ok = socket:setopt(S, socket, rcvbuf, 250000),
-            ok = socket:setopt(S, socket, sndbuf, 250000)
+            ok = socket:setopt(S, socket, rcvbuf, Base),
+            ok = socket:setopt(S, socket, sndbuf, Base)
     end.
 
 do_otp19482_simple_single(#{iov_max := IOVMax,
@@ -12911,17 +12902,18 @@ do_otp19482_simple_single(#{iov_max := IOVMax,
 
     Parent = self(),
 
-    IOV = if
-	      is_list(ChunkOrChunks) andalso (length(ChunkOrChunks) > IOVMax) ->
-		  ChunkOrChunks;
-	      is_list(ChunkOrChunks) ->
-		  lists:flatten(
-		    lists:duplicate(
-			  ((IOVMax+10) div length(ChunkOrChunks)) + 1,
-		      ChunkOrChunks));
-	      is_binary(ChunkOrChunks) ->
-		  lists:duplicate(IOVMax + 10, ChunkOrChunks)
-	  end,
+    IOV =
+	if
+	    is_list(ChunkOrChunks) andalso (length(ChunkOrChunks) > IOVMax) ->
+		ChunkOrChunks;
+	    is_list(ChunkOrChunks) ->
+		lists:flatten(
+		  lists:duplicate(
+			    ((IOVMax+10) div length(ChunkOrChunks)) + 1,
+		    ChunkOrChunks));
+	    is_binary(ChunkOrChunks) ->
+		lists:duplicate(IOVMax + 10, ChunkOrChunks)
+	end,
 
     ?P("~w -> try create (listen) socket", [?FUNCTION_NAME]),
     {ok, LSock} = socket:open(inet, stream),
@@ -13075,8 +13067,9 @@ otp19482_simple_single_client_exchange(_Sock, _Verify, _IOV, 0) ->
     ?P("[client] done"),
     ok;
 otp19482_simple_single_client_exchange(Sock, Verify, IOV, N) ->
-    Sz = iolist_size(IOV),
-    ?P("[client] try sendv ~w (~w bytes)", [N, Sz]),
+    Sz  = iolist_size(IOV),
+    Len = length(IOV),
+    ?P("[client] try sendv IOV ~w (~w bytes, length ~w)", [N, Sz, Len]),
     %% ok = socket:setopt(Sock, otp, debug, true),
     case socket:sendv(Sock, IOV) of
 	ok ->
@@ -13110,10 +13103,26 @@ otp19482_simple_single_client_exchange(Sock, Verify, IOV, N) ->
 	    end;
 
         %% We are overloaded this machine...
+	{error, {econnreset = Reason, RestIOV}} ->
+	    ?P("[client] sendv ~w failed with rest-iov: "
+	       "~n   Reason:          ~p"
+	       "~n   length(RestIOV): ~w"
+	       "~n   size(RestIOV):   ~w",
+               [N, Reason, length(RestIOV), iolist_size(RestIOV)]),
+	    ?SKIPE({Reason, N, Sz, iolist_size(RestIOV), length(RestIOV)});
 	{error, econnreset = Reason} ->
 	    ?P("[client] sendv ~w failed: "
 	       "~n   Reason: ~p", [N, Reason]),
-	    ?SKIPE({Reason, N});
+	    ?SKIPE({Reason, N, Sz});
+
+	{error, {Reason, RestIOV}} when is_list(RestIOV)->
+	    ?P("[client] sendv ~w failed with rest-iov: "
+	       "~n   Reason:          ~p"
+	       "~n   length(RestIOV): ~w"
+	       "~n   size(RestIOV):   ~w",
+               [N, Reason, length(RestIOV), iolist_size(RestIOV)]),
+	    ?FAIL({unexpected_sendv_result, N, Reason,
+                   Sz, iolist_size(RestIOV), length(RestIOV)});
 
 	{error, Reason} ->
 	    ?P("[client] sendv ~w failed: "
@@ -13151,6 +13160,10 @@ otp19482_simple_single_server_exchange(Sock, Verify, Sz, N) ->
 		       "~n   Reason: ~p", [N, Reason]),
 		    ?FAIL({unexpected_send_result, Reason})
 	    end;
+	{error, {closed, Data}} ->
+	    ?P("[server,~w] socket closed with ~w of data",
+               [N, byte_size(Data)]),
+	    ok;
 	{error, closed} ->
 	    ?P("[server,~w] socket closed", [N]),
 	    ok;
@@ -13162,6 +13175,11 @@ otp19482_simple_single_server_exchange(Sock, Verify, Sz, N) ->
 	       [N, Sz, byte_size(BadData), socket:info(Sock)]),
 	    (catch Verify(BadData)),
 	    ?FAIL({unexpected_recv_result, timeout});
+	{error, {Reason, Data}} ->
+	    ?P("[server,~w] receive failed with data: "
+               "~n   sz(Data): ~p"
+	       "~n   Reason:   ~p", [N, byte_size(Data), Reason]),
+	    ?FAIL({unexpected_recv_result, Reason, byte_size(Data)});
 	{error, Reason} ->
 	    ?P("[server,~w] receive failed: "
 	       "~n   Reason: ~p", [N, Reason]),
@@ -13177,9 +13195,10 @@ otp19482_simple_single_server_exchange(Sock, Verify, Sz, N) ->
 %% 1024*8 bytes, medium).
 
 otp19482_simple_multi_small(Config) when is_list(Config) ->
-    ?TT(?SECS(20)),
+    ?TT(?SECS(20 * which_factor(Config))),
     Cond = fun() ->
-                   has_support_ipv4()
+                   has_support_ipv4(),
+                   factor_limit(Config)
            end,
     Pre  = fun() ->
                    process_flag(trap_exit, true),
@@ -13202,9 +13221,10 @@ otp19482_simple_multi_small(Config) when is_list(Config) ->
     ?TC_TRY(?FUNCTION_NAME, Cond, Pre, TC, Post).
 
 otp19482_simple_multi_medium(Config) when is_list(Config) ->
-    ?TT(?SECS(20)),
+    ?TT(?SECS(20 * which_factor(Config))),
     Cond = fun() ->
-                   has_support_ipv4()
+                   has_support_ipv4(),
+                   factor_limit(Config)
            end,
     Pre  = fun() ->
                    process_flag(trap_exit, true),
@@ -13525,10 +13545,19 @@ otp19482_simple_multi_handler_init(Parent, ID, Num) ->
 otp19482_simple_multi_handler_loop(_Parent, ID, Sock, 0, Acc) ->
     %% Received all data, now send it back
     ?P("H[~w] -> entry when all data received - try send it back", [ID]),
-    ok = socket:sendv(Sock, lists:reverse(Acc)),
-    ?P("H[~w] -> data sent", [ID]),
-    _ = socket:shutdown(Sock, read_write),
-    exit(normal);
+    case otp19482_send(Sock, lists:reverse(Acc)) of
+        ok ->
+            ?P("H[~w] -> data sent", [ID]),
+            _ = socket:shutdown(Sock, read_write),
+            exit(normal);
+        {error, {send_limit, Remaining} = Reason} ->
+           ?P("H[~w] -> send failed: ~p", [ID, Remaining]),
+            exit({skip, Reason});
+        {error, Reason} ->
+            ?P("H[~w] -> send failed: "
+               "~n   ~p", [ID, Reason]),
+            ?FAIL(Reason)
+    end;
 otp19482_simple_multi_handler_loop(Parent, ID, Sock, Num, Acc) ->
     ?P("H[~w] -> entry when Num = ~w", [ID, Num]),
     case socket:recv(Sock, Num) of
@@ -13537,6 +13566,13 @@ otp19482_simple_multi_handler_loop(Parent, ID, Sock, Num, Acc) ->
             otp19482_simple_multi_handler_loop(Parent, ID, Sock,
                                                Num - byte_size(Data),
                                                [Data|Acc]);
+        
+        {error, {Reason, Data}} ->
+            ?P("H[~w] -> receive (with data) failure: "
+               "~n   sz(Data): ~w (~w)"
+               "~n   Reason:   ~p", [byte_size(Data), Num, Reason]),
+            exit({recv_failed});
+
         {error, Reason} ->
             ?P("H[~w] -> receive failure: "
                "~n   Reason: ~p", [Reason]),
@@ -13593,7 +13629,17 @@ otp19482_simple_multi_client_init(Parent, ID, LSA, Port, IOV) ->
     ?P("C[~w] -> try send message: "
        "~n   IOV Length: ~w"
        "~n   IOV size:   ~w", [ID, length(IOV), iolist_size(IOV)]),
-    ok = socket:sendv(Sock, IOV),
+    case otp19482_send(Sock, IOV) of
+        ok ->
+            ok;
+        {error, {send_limit, Remaining} = Reason} ->
+            ?P("C[~w] -> send failed: ~p bytes remaining", [ID, Remaining]),
+            ?SKIPE(Reason);
+        {error, Reason} ->
+            ?P("C[~w] -> send faild: "
+               "~n   ~p", [ID, Reason]),
+            ?FAIL(Reason)
+    end,
 
     %% _ = socket:setopt(Sock, otp, debug, false),
 
@@ -13643,6 +13689,566 @@ otp19482_simple_multi_client_recv_loop(Sock, ID, Num) ->
             ?FAIL({recv_failure, Reason})
     end.
 
+otp19482_send(Sock, IOV) ->
+    otp19482_send(Sock, IOV, 0, 10).
+    
+otp19482_send(_Sock, IOV, N, Limit) when (N > Limit) ->
+    ?P("~w -> send limit (~w) reached with ~w bytes still unsent",
+       [?FUNCTION_NAME, Limit, iolist_size(IOV)]),    
+    {error, {send_limit, iolist_size(IOV)}};
+otp19482_send(Sock, IOV, N, Limit) ->
+    ?P("~w(~w) -> try send ~w bytes",
+       [?FUNCTION_NAME, N, iolist_size(IOV)]),
+    case socket:sendv(Sock, IOV) of
+        ok ->
+            ok;
+        {error, enobufs = Reason} ->
+            ?P("~w(~w) -> ~p - sleep some and then try again",
+               [?FUNCTION_NAME, N, Reason]),
+            ?SLEEP(?SECS(1)),
+            otp19482_send(Sock, IOV, N+1, Limit);
+        {error, {enobufs = Reason, RestIOV}} when is_list(RestIOV) ->
+            ?P("~w(~w) -> ~p with ~w bytes in RestIOV - "
+               "sleep some and then try again",
+               [?FUNCTION_NAME, N, Reason, iolist_size(RestIOV)]),
+            ?SLEEP(?SECS(1)),
+            otp19482_send(Sock, RestIOV, N+1, Limit);
+        {error, {Reason, RestIOV}} when is_list(RestIOV) ->
+            ?P("~w(~w) -> ~p with ~w bytes in RestIOV - give up",
+               [?FUNCTION_NAME, N, Reason, iolist_size(RestIOV)]),
+            {error, Reason};
+        {error, Reason} ->
+            ?P("~w(~w) -> ~p with ~w bytes remaining in IOV - give up",
+               [?FUNCTION_NAME, N, Reason, iolist_size(IOV)]),
+            {error, Reason}
+    end.
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+otp19482_async_simple_single_mixed(Config) when is_list(Config) ->
+    ?TT(?SECS(10 * which_factor(Config))),
+    Cond = fun() ->
+                   has_support_ipv4(),
+                   factor_limit(Config)
+           end,
+    Pre  = fun() ->
+                   #{iov_max := IOVMax} = Info = socket:info(),
+
+                   ?P("socket info"
+                      "~n   (socket) info: ~p"
+                      "~n   Sockets:       ~p",
+                      [Info, socket:which_sockets()]),
+
+                   LSA = which_local_socket_addr(inet),
+		   Chunks0 = [?OTP19482_CHUNK_8B,
+			      ?OTP19482_CHUNK_256K,
+			      ?OTP19482_CHUNK_1K,
+			      ?OTP19482_CHUNK_256B,
+			      ?OTP19482_CHUNK_8K,
+			      ?OTP19482_CHUNK_32K],
+		   Chunks1 = lists:flatten(
+			       [begin
+				    CLen = byte_size(C),
+				    CChk = erlang:crc32(C),
+				    [<<CLen:32>>, <<CChk:32>>, C]
+				end || C <- Chunks0]),
+		   Chunks2 = lists:flatten(lists:duplicate(100, Chunks1)),
+                   #{iov_max => IOVMax,
+                     lsa     => LSA,
+                     chunk   => Chunks2,
+		     verify  => fun(Data) -> otp19482_verify_data(Data) end}
+           end,
+    TC   = fun(S) ->
+                   do_otp19482_async_simple_single(S)
+           end,
+    Post = fun(_) -> ok end,
+    ?TC_TRY(?FUNCTION_NAME, Cond, Pre, TC, Post).
+
+
+do_otp19482_async_simple_single(#{iov_max := IOVMax,
+				  lsa     := LSA,
+				  chunk   := ChunkOrChunks,
+				  verify  := Verify}) ->
+
+    BufferSz = default,
+
+    ?P("~w -> entry with"
+       "~n   IOVMax: ~p", [?FUNCTION_NAME, IOVMax]),
+
+    Parent = self(),
+
+    IOV =
+	if
+	    is_list(ChunkOrChunks) andalso (length(ChunkOrChunks) > IOVMax) ->
+		%% Just to be on the safe side, make sure its a flat list
+		%% (it should already be a flat list, but ...)
+		lists:flatten(ChunkOrChunks);
+	    is_list(ChunkOrChunks) ->
+		lists:flatten(
+		  lists:duplicate(
+			      ((IOVMax+10) div length(ChunkOrChunks)) + 1,
+		    ChunkOrChunks));
+	    is_binary(ChunkOrChunks) ->
+		lists:duplicate(IOVMax + 10, ChunkOrChunks)
+	end,
+
+    
+    %% IOV = erlang:iolist_to_iovec(IOV0),
+
+    %% ?P("~w -> "
+    %%    "~n   I/O Vec (0): Sz: ~w, Length: ~w"
+    %%    "~n   I/O Vec (1): Sz: ~w, Length: ~w",
+    %%    [?FUNCTION_NAME,
+    %% 	erlang:iolist_size(IOV0), length(IOV0),
+    %% 	erlang:iolist_size(IOV),  length(IOV)]),
+
+    ?P("~w -> try create (listen) socket", [?FUNCTION_NAME]),
+    {ok, LSock} = socket:open(inet, stream),
+
+    ?P("~w -> bind (listen) socket to: "
+       "~n   ~p", [?FUNCTION_NAME, LSA]),
+    ok = socket:bind(LSock, LSA#{port => 0}),
+
+    ?P("~w -> make it listen socket", [?FUNCTION_NAME]),
+    ok = socket:listen(LSock),
+
+    otp19482_update_buffers(LSock, BufferSz),
+
+    ?P("~w -> get sockname for listen socket", [?FUNCTION_NAME]),
+    {ok, SSA} = socket:sockname(LSock),
+
+    ?P("~w -> try accept with timeout = nowait - expect select or completion",
+       [?FUNCTION_NAME]),
+    Handle = case socket:accept(LSock, nowait) of
+                 {select, {select_info, _, SHandle}} ->
+                     SHandle;
+                 {completion, {completion_info, _, CHandle}} ->
+                     CHandle;
+                 {error, Reason} ->
+                     exit({skip, {unexpected_accept_failure, Reason}})
+             end,
+
+    ?SLEEP(?SECS(1)),
+
+    %% spawn a client to connect
+    ?P("~w -> spawn client", [?FUNCTION_NAME]),
+
+    {Client, MRef} =
+        spawn_monitor(
+          fun() ->
+		  put(sname, "client"),
+                  ?P("[client] try create socket"),
+                  {ok, CSock} = socket:open(inet, stream),
+
+                  ?P("[client] bind socket to: "
+                     "~n   ~p", [LSA]),
+                  ok = socket:bind(CSock, LSA#{port => 0}),
+
+		  ?P("[client] try connect to: "
+                     "~n   (server) ~p", [SSA]),
+                  ok = socket:connect(CSock, SSA),
+
+                  ?P("[client] connected - await continue command"),
+                  receive
+                      {Parent, continue} ->
+                          ?P("[client] continue")
+                  end,
+
+		  N = 10,
+
+                  otp19482_update_buffers(CSock, BufferSz),
+
+                  ?P("[client] exchange message(s): "
+                     "~n   N:            ~p"
+                     "~n   IOV Length:   ~p"
+                     "~n   IOV tot size: ~p"
+                     "~n   info(CSock):  ~p"
+                     "~n   Recv Buf Sz:  ~p"
+                     "~n   Send Buf Sz:  ~p",
+		     [N, length(IOV), iolist_size(IOV),
+		      socket:info(CSock),
+		      socket:getopt(CSock, socket, rcvbuf),
+		      socket:getopt(CSock, socket, sndbuf)]),
+		  ok = otp19482_async_simple_single_client_exchange(CSock,
+								    Verify,
+								    IOV, N),
+
+                  ?P("[client] socket shutdown (read-write)"),
+                  ok = socket:shutdown(CSock, read_write),
+
+                  ?P("[client] messages exchanged - await termination command"),
+                  receive
+                      {Parent, terminate} ->
+                          CInfo = #{counters := #{write_tries := WT}} =
+                              socket:info(CSock),
+                          ?P("[client] received terminate command when:"
+                             "~n   Socket info: ~p", [CInfo]),
+			  %% Each send should require atleast 2 tries...
+                          if
+                              (WT > 2*N) ->
+                                  ?P("write tries validated"),
+                                  ok;
+                              true ->
+                                  ?FAIL({unexpected_write_tries, WT})
+                          end,
+
+                          ?P("[client] close socket"),
+                          (catch socket:close(CSock)),
+                          ?P("[client] terminate"),
+                          exit(normal)
+                  end
+          end),
+
+    ?P("wait for a select|completion message"),
+    ASock =
+        receive
+            {'$socket', LSock, select, Handle} ->
+                ?P("received expected select message"
+                   "~n   Handle: ~p", [Handle]),
+                {ok, SelectASock} = socket:accept(LSock, Handle),
+                ?P("Accepted Socket: "
+                   "~n   ~p", [SelectASock]),
+                SelectASock;
+            {'$socket', LSock, completion, {Handle, {ok, CompletionASock}}} ->
+                ?P("received expected completion message"
+                   "~n   Accepted Socket: ~p", [CompletionASock]),
+                CompletionASock
+
+        after 5000 ->
+                ?P("unexpected timeout"),
+                ?FAIL(accept_timeout)
+        end,
+
+    ?P("command client to continue - send when"
+       "~n   Recv buf sz of ASock: ~p"
+       "~n   Send buf sz of ASock: ~p",
+       [socket:getopt(ASock, socket, rcvbuf),
+	socket:getopt(ASock, socket, sndbuf)]),
+    Client ! {self(), continue},
+
+
+    ?P("try recv"),
+    ok = otp19482_async_simple_single_server_exchange(ASock, Verify,
+						      iolist_size(IOV)),
+
+    AInfo = socket:info(ASock),
+    ?P("Accepted socket info: "
+       "~n   ~p", [AInfo]),
+
+    ?P("cleanup"),
+    Client ! {self(), terminate},
+    receive
+        {'DOWN', MRef, process, Client, _} ->
+            ?P("client terminated"),
+            ok
+    end,
+    socket:close(LSock),
+    socket:close(ASock),
+
+    ?SLEEP(?SECS(1)),
+
+    ?P("done"),
+
+    ok.
+
+otp19482_async_simple_single_client_exchange(_Sock, _Verify, _IOV, 0) ->
+    ?P("[client] done"),
+    ok;
+otp19482_async_simple_single_client_exchange(Sock, Verify, IOV, N) ->
+    Sz  = iolist_size(IOV),
+    Len = length(IOV),
+    ?P("[client] try sendv IOV ~w (~w bytes, length ~w)", [N, Sz, Len]),
+    case otp19482_async_sendv(Sock, IOV) of
+	ok ->
+	    ?P("[client] sent - try recv ~w (~w bytes) when"
+	       "~n   info(Sock):  ~p"
+	       "~n   Recv buf sz: ~p"
+	       "~n   Send buf sz: ~p",
+	       [N, Sz,
+		socket:info(Sock),
+		socket:getopt(Sock, socket, rcvbuf),
+		socket:getopt(Sock, socket, sndbuf)]),
+	    %% case socket:recv(Sock, Sz) of
+	    case otp19482_async_recv(Sock, Sz) of
+		{ok, Data} when (byte_size(Data) =:= Sz) ->
+		    ?P("[client] recv ~w ok when"
+		       "~n   info(Sock): ~p"
+		       "~n   Recv buf sz: ~p"
+		       "~n   Send buf sz: ~p",
+		       [N,
+			socket:info(Sock),
+			socket:getopt(Sock, socket, rcvbuf),
+			socket:getopt(Sock, socket, sndbuf)]),
+		    Verify(Data),
+		    ?P("[client] received data verified"),
+		    otp19482_simple_single_client_exchange(Sock, Verify,
+							   IOV, N-1);
+		{ok, BadData} ->
+		    ?P("[client][~w] recv bad data: "
+		       "~n   Expected: ~w bytes"
+		       "~n   Received: ~w bytes"
+		       "~nwhen"
+		       "~n   Socket Info: ~p",
+		       [N,
+			Sz, byte_size(BadData),
+			socket:info(Sock)]),
+		    ?FAIL({unexpected_data, Sz, byte_size(BadData), N});
+		{error, Reason} ->
+		    ?P("[client] receive ~w failed: "
+		       "~n   Reason: ~p", [N, Reason]),
+		    ?FAIL({unexpected_recv_result, Reason, N})
+	    end;
+
+        %% We are overloaded this machine...
+	{error, econnreset = Reason} ->
+	    ?P("[client] sendv ~w failed: "
+	       "~n   Reason: ~p", [N, Reason]),
+	    ?SKIPE({Reason, N, Sz});
+
+	{error, Reason} ->
+	    ?P("[client] sendv ~w failed: "
+	       "~n   Reason: ~p", [N, Reason]),
+	    ?FAIL({unexpected_sendv_result, Reason, N})
+    end.
+
+-define(SELECT_INFO(Tag, SelectHandle),
+        {select_info, Tag, SelectHandle}).
+
+-define(COMPLETION_INFO(Tag, CompletionHandle),
+        {completion_info, Tag, CompletionHandle}).
+
+%% The way this function (socket:sendv/3) is used, it is
+%% equivalent to socket:sendv/2. But the idea is to test
+%% out the exported async (nowait) behaviour.
+otp19482_async_sendv(Sock, IOV) ->
+    otp19482_async_sendv(Sock, IOV, undefined).
+
+otp19482_async_sendv(Sock, IOV, Cont) ->
+    case otp19482_sendv(Sock, IOV, Cont) of
+	ok ->
+	    ?P("~w -> ok", [?FUNCTION_NAME]),
+	    ok;
+	{ok, RestIOV} ->
+	    ?P("~w -> ok with rest: "
+	       "~n   RestIOV length: ~w"
+	       "~n   RestIOV size:   ~w",
+	       [?FUNCTION_NAME, length(RestIOV), iolist_size(RestIOV)]),
+	    otp19482_async_sendv(Sock, RestIOV, Cont);
+	{select, {SelectInfo, RestIOV}} ->
+	    ?P("~w -> select with rest: "
+	       "~n   RestIOV length: ~w"
+	       "~n   RestIOV size:   ~w",
+	       [?FUNCTION_NAME, length(RestIOV), iolist_size(RestIOV)]),
+	    otp19482_async_sendv_await_select(Sock, SelectInfo),
+	    otp19482_async_sendv(Sock, RestIOV, SelectInfo);
+	{select, SelectInfo} ->
+	    ?P("~w -> select", [?FUNCTION_NAME]),
+	    otp19482_async_sendv_await_select(Sock, SelectInfo),
+	    otp19482_async_sendv(Sock, IOV, SelectInfo);
+
+	{completion, {CompletionInfo, RestIOV}} ->
+	    ?P("~w -> completion with rest: "
+	       "~n   RestIOV length: ~w"
+	       "~n   RestIOV size:   ~w",
+	       [?FUNCTION_NAME, length(RestIOV), iolist_size(RestIOV)]),
+	    case otp19482_async_sendv_await_completion(Sock,
+						       CompletionInfo,
+						       RestIOV) of
+		ok -> % We are done
+		    ok;
+		{ok, RestIOV2} ->
+		    ?P("~w -> still a rest: "
+		       "~n   RestIOV length: ~w"
+		       "~n   RestIOV size:   ~w",
+		       [?FUNCTION_NAME,
+			length(RestIOV2), iolist_size(RestIOV2)]),
+		    otp19482_async_sendv(Sock, RestIOV2, undefined)
+	    end;
+	{completion, CompletionInfo} ->
+	    ?P("~w -> completion", [?FUNCTION_NAME]),
+	    case otp19482_async_sendv_await_completion(Sock,
+						       CompletionInfo,
+						       IOV) of
+		ok -> % We are done
+		    ok;
+		{ok, RestIOV} ->
+		    ?P("~w -> still a rest: "
+		       "~n   RestIOV length: ~w"
+		       "~n   RestIOV size:   ~w",
+		       [?FUNCTION_NAME,
+			length(RestIOV), iolist_size(RestIOV)]),
+		    otp19482_async_sendv(Sock, RestIOV, undefined)
+	    end;
+
+	{error, {Reason, RestIOV}} ->
+	    ?P("~w -> send failed with rest: "
+	       "~n   RestIOV length: ~w"
+	       "~n   RestIOV size:   ~w"
+	       "~n   Reason:         ~p",
+	       [?FUNCTION_NAME, length(RestIOV), iolist_size(RestIOV), Reason]),
+	    {error, Reason};
+	{errro, Reason} = ERROR ->
+	    ?P("~w -> send failed with rest: "
+	       "~n   Reason: ~p", [?FUNCTION_NAME, Reason]),
+	    ERROR
+    end.
+					   
+otp19482_async_sendv_await_select(Sock,
+				  ?SELECT_INFO(_, Handle)) ->
+    receive
+	{'$socket', Sock, abort, {Handle, Reason}} ->
+	    ?P("unexpected abort: "
+	       "~n   Reason: ~p", [Reason]),
+	    exit({abort, Reason});
+	{'$socket', Sock, select, Handle} ->
+	    ok
+    end.
+
+otp19482_async_sendv_await_completion(Sock,
+				      ?COMPLETION_INFO(_, Handle),
+				      IOV) ->
+    receive
+	{'$socket', Sock, abort, {Handle, Reason}} ->
+	    ?P("unexpected abort: "
+	       "~n   Reason: ~p", [Reason]),
+	    exit({abort, Reason});
+
+	{'$socket', Sock, completion, {Handle, {ok, Written}}} ->
+	    %% Partial send; calculate rest I/O vector
+	    case socket:rest_iov(Written, IOV) of
+		[] -> % We are done
+		    ok;
+		RestIOV ->
+		    {ok, RestIOV}
+	    end;
+
+	{'$socket', Sock, completion, {Handle, CompletionStatus}} ->
+	    CompletionStatus
+
+    end.
+
+otp19482_async_simple_single_server_exchange(Sock, Verify, Sz) ->
+    otp19482_simple_single_server_exchange(Sock, Verify, Sz).
+
+
+%% The way this function (socket:recv/3) is used, it is
+%% equivalent to socket:recv/2. But the idea is to test
+%% out the exported async (nowait) behaviour.
+otp19482_async_recv(Sock, Sz) when is_integer(Sz) andalso (Sz > 0) ->
+    otp19482_async_recv(Sock, Sz, undefined, []).
+
+otp19482_async_recv(_Sock, 0, _Cont, [Bin] = _Acc) ->
+    {ok, Bin};
+otp19482_async_recv(_Sock, 0, _Cont, Acc) ->
+    {ok, erlang:iolist_to_binary(lists:reverse(Acc))};
+otp19482_async_recv(Sock, Sz, Cont, Acc) ->
+    ?P("~w -> try read ~w bytes", [?FUNCTION_NAME, Sz]),
+    case otp19482_recv(Sock, Sz, Cont) of
+	{ok, Bin} when (byte_size(Bin) =:= Sz) ->
+	    ?P("~w -> read done with: "
+	       "~n   Data size: ~w", [?FUNCTION_NAME, byte_size(Bin)]),
+	    otp19482_async_recv(Sock, 0,
+				undefined, [Bin|Acc]);
+	{ok, Bin} ->
+	    ?P("~w -> read with: "
+	       "~n   Data size: ~w", [?FUNCTION_NAME, byte_size(Bin)]),
+	    otp19482_async_recv(Sock, Sz-byte_size(Bin),
+				undefined, [Bin|Acc]);
+
+	{select, {SelectInfo, Data}} ->
+	    ?P("~w -> select with data: "
+	       "~n   Data size: ~w", [?FUNCTION_NAME, byte_size(Data)]),
+	    otp19482_async_recv_await_select(Sock, SelectInfo),
+	    otp19482_async_recv(Sock, Sz-byte_size(Data),
+				SelectInfo, [Data|Acc]);
+	{select, SelectInfo} ->
+	    ?P("~w -> select", [?FUNCTION_NAME]),
+	    otp19482_async_recv_await_select(Sock, SelectInfo),
+	    otp19482_async_recv(Sock, Sz,
+				SelectInfo, Acc);
+
+	{completion, CompletionInfo} ->
+	    ?P("~w -> completion", [?FUNCTION_NAME]),
+	    case otp19482_async_recv_await_completion(Sock, CompletionInfo) of
+		{ok, Bin} ->
+		    otp19482_async_recv(Sock, Sz-byte_size(Bin),
+					undefined, [Bin|Acc]);
+		{error, {Reason, Data}} ->
+		    ?P("~w -> completion error with rest: "
+		       "~n   Rest size: ~w"
+		       "~n   Reason:    ~p",
+		       [?FUNCTION_NAME, byte_size(Data), Reason]),
+		    {error, Reason};
+		{error, Reason} = ERROR ->
+		    ?P("~w -> completion error: "
+		       "~n   Reason:    ~p",
+		       [?FUNCTION_NAME, Reason]),
+		    ERROR
+	    end;
+	
+	{error, {Reason, Data}} ->
+	    ?P("~w -> read error with rest: "
+	       "~n   Rest size: ~w"
+	       "~n   Reason:    ~p", [?FUNCTION_NAME, byte_size(Data), Reason]),
+	    {error, Reason};
+	{error, Reason} = ERROR ->
+	    ?P("~w -> read error: "
+	       "~n   Reason:    ~p", [?FUNCTION_NAME, Reason]),
+	    ERROR
+
+    end.
+
+otp19482_async_recv_await_select(Sock,
+				 ?SELECT_INFO(_, Handle)) ->
+    receive
+	{'$socket', Sock, abort, {Handle, Reason}} ->
+	    ?P("unexpected abort: "
+	       "~n   Reason: ~p", [Reason]),
+	    exit({abort, Reason});
+	{'$socket', Sock, select, Handle} ->
+	    ?P("~w -> received select message", [?FUNCTION_NAME]),
+	    ok
+    end.
+
+otp19482_async_recv_await_completion(Sock,
+				     ?COMPLETION_INFO(_, Handle)) ->
+    receive
+	{'$socket', Sock, abort, {Handle, Reason}} ->
+	    ?P("unexpected abort: "
+	       "~n   Reason: ~p", [Reason]),
+	    exit({abort, Reason});
+
+	{'$socket', Sock, completion, {Handle, {ok, Bin} = OK}} ->
+	    ?P("~w -> received completion ok-message: "
+	       "~n   Data size: ~w", [?FUNCTION_NAME, byte_size(Bin)]),
+	    OK;
+	%% The function calling this one, does the iteration...
+	{'$socket', Sock, completion, {Handle, {more, Bin}}} ->
+	    ?P("~w -> received completion more-message: "
+	       "~n   Data size: ~w", [?FUNCTION_NAME, byte_size(Bin)]),
+	    {ok, Bin};
+
+	{'$socket', Sock, completion, {Handle, CompletionStatus}} ->
+	    ?P("~w -> received completion message", [?FUNCTION_NAME]),
+	    CompletionStatus
+
+    end.
+
+    
+
+otp19482_sendv(Sock, IOV, undefined = _Cont) ->
+    socket:sendv(Sock, IOV, nowait);
+otp19482_sendv(Sock, IOV, Cont) ->
+    socket:sendv(Sock, IOV, Cont).
+
+%% 'continuation' is only used on select-systems,
+%% and for recv it's actually the select-handle (instead of the select-info)
+otp19482_recv(Sock, Sz, undefined = _Cont) ->
+    socket:recv(Sock, Sz, nowait);
+otp19482_recv(Sock, Sz, ?SELECT_INFO(_, Handle) = _Cont) ->
+    socket:recv(Sock, Sz, Handle).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -13971,18 +14577,26 @@ skip(Reason) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-formated_timestamp() ->
-    format_timestamp(os:timestamp()).
+factor_limit(Config) ->
+    factor_limit(Config, 15).
 
-format_timestamp({_N1, _N2, _N3} = TS) ->
-    {_Date, Time}   = calendar:now_to_local_time(TS),
-    %% {YYYY,MM,DD}   = Date,
-    {Hour,Min,Sec} = Time,
-    %% FormatTS = 
-    %%     io_lib:format("~.4w-~.2.0w-~.2.0w ~.2.0w:~.2.0w:~.2.0w.~w",
-    %%                   [YYYY, MM, DD, Hour, Min, Sec, N3]),  
-    FormatTS = io_lib:format("~.2.0w:~.2.0w:~.2.0w", [Hour, Min, Sec]),  
-    lists:flatten(FormatTS).
+factor_limit(Config, Limit) ->
+    case which_factor(Config) of
+	Factor when (Factor > Limit) ->
+	    skip("Very slow machine");
+	_ ->
+	    ok
+    end.
+
+
+which_factor(Config) ->
+    FactorKey = kernel_factor,
+    case lists:keysearch(FactorKey, 1, Config) of
+	{value, {FactorKey, Factor}} ->
+	    Factor;
+	_ -> % This should never happen...but just in case...
+	    10
+    end.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -14042,36 +14656,11 @@ start_node(Name, Timeout) when is_integer(Timeout) andalso (Timeout > 0) ->
             
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%% mq() ->
-%%     mq(self()).
-
-%% mq(Pid) when is_pid(Pid) ->
-%%     pi(Pid, messages).
-
-
-links() ->
-    links(self()).
-
-links(Pid) when is_pid(Pid) ->
-    pi(Pid, links).
-
-
-pi(Pid, Key) when is_pid(Pid) ->
-    {Key, Value} = process_info(Pid, Key),
-    Value.
-
-
-             
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-f(F, A) ->
-    lists:flatten(io_lib:format(F, A)).
-
 i(F) ->
     i(F, []).
 
 i(F, A) ->
-    FStr = f("[~s] ~p " ++ F, [formated_timestamp(), self()|A]),
+    FStr = ?F("[~s] " ++ F, [?FTS()|A]),
     io:format(user, FStr ++ "~n", []),
     io:format(FStr, []).
 

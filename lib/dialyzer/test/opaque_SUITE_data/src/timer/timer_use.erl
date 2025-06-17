@@ -14,7 +14,8 @@
 wrong() ->
   case timer:kill_after(42, self()) of
     gazonk -> weird;
-    {ok, 42} -> weirder;
+    {ok, 42} -> odd;
+    {ok, {_,_}} -> weirder;
     {Tag, gazonk} when Tag =/= error -> weirdest;
     {error, _} -> error
   end.

@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2019-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2019-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -423,7 +425,7 @@ mul_gen_pairs() ->
 
     %% Generate pairs of numbers whose product is small.
     SmallPairs = [{N, MaxSmall div N} ||
-                     N <- [1,2,3,4,5,8,16,17,32,63,64,1111,22222]],
+                     N <- [1,2,3,4,5,6,7,8,9,16,17,32,63,64,1111,22222]],
     Pairs1 = [{N,M-1} || {N,M} <- SmallPairs] ++ SmallPairs ++ Pairs0,
 
     %% Add prime factors of 2^59 - 1 (MAX_SMALL for 64-bit architecture
@@ -595,6 +597,17 @@ gen_mul_add_function({Name,{A,B,C}}) ->
            Res = id(Z + X * Y),
            Res = id(Z + Y * X),
            Res;
+        '@Name@'(int_vii_plus_z, X, fixed, fixed)
+          when is_integer(X), -_@APlusOne@ < X, X < _@APlusOne@ ->
+           Y = _@B@,
+           Z = _@C@,
+           Res = id(X * Y + Z),
+           Res = id(Y * X + Z),
+           Res = id(Z + X * Y),
+           Res = id(Z + Y * X),
+           Res = '@Name@'(any_vvi_plus_z, X, id(Y), fixed),
+           Res = '@Name@'(any_vvv_minus_z, X, id(Y), id(-Z)),
+           Res;
         '@Name@'(any_vvv_plus_z, X, Y, Z) ->
            Res = id(X * Y + Z),
            Res = id(Y * X + Z),
@@ -656,6 +669,7 @@ test_mul_add([{Name,{A,B,C}}|T], Mod) ->
         Res0 = A * B + C,
         Res0 = F(any_vii_plus_z, A, fixed, fixed),
         Res0 = F(pos_int_vvv_plus_z, A, B, C),
+        Res0 = F(int_vii_plus_z, A, fixed, fixed),
         ok = F({guard_plus_z,Res0}, A, B, C),
         ok = F({guard_plus_z,Res0}, -A, -B, C),
 

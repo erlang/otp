@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -67,6 +69,8 @@ in the Erlang Reference Manual.
 > [Using SSL for Erlang Distribution](`e:ssl:ssl_distribution.md`) User's Guide
 > for details on how to setup a secure distributed node.
 """.
+
+-compile(nowarn_deprecated_catch).
 
 -behaviour(gen_server).
 
@@ -205,13 +209,13 @@ in the Erlang Reference Manual.
 -record(tick,
         {ticker     :: pid(),                 %% ticker
          time       :: pos_integer(),         %% net tick time (ms)
-         intensity  :: 4..1000                %% ticks until timout
+         intensity  :: 4..1000                %% ticks until timeout
         }).
 
 -record(tick_change,
         {ticker     :: pid(),                 %% ticker
          time       :: pos_integer(),         %% net tick time (ms)
-         intensity  :: 4..1000,               %% ticks until timout
+         intensity  :: 4..1000,               %% ticks until timeout
          how        :: 'longer' | 'shorter'   %% What type of change
         }).
 
@@ -248,13 +252,26 @@ that list will be rejected.
 Subsequent calls to [`allow/1`](`allow/1`) will add the specified nodes to the
 list of allowed nodes. It is not possible to remove nodes from the list.
 
-Returns `error` if any element in `Nodes` is not an atom.
+Disallowing an already connected node will not cause it to be disconnected. It
+will, however, prevent any future reconnection attempts.
+
+Passing `Nodes` as an empty list has never any affect at all.
+
+Returns `error` if any element in `Nodes` is not an atom, and `ignored` if the
+local node is not alive.
 """.
--spec allow(Nodes) -> ok | error when
+-spec allow(Nodes) -> ok | error | ignored when
       Nodes :: [node()].
 allow(Nodes) ->                request({allow, Nodes}).
 
--doc false.
+-doc """
+Returns a list of nodes that are explicitly allowed to connect to the node by calling
+[`allow/1`](`allow/1`). If empty list is returned, it means that any node using the
+same cookie will be able to connect.
+""".
+-doc(#{since => <<"OTP 28.0">>}).
+-spec allowed() -> {ok, Nodes} | ignored when
+      Nodes :: [node()].
 allowed() ->                   request(allowed).
 
 -doc false.
@@ -1193,8 +1210,8 @@ handle_call({spawn_opt,M,F,A,O,L,Gleader},{From,Tag},State) when is_pid(From) ->
 handle_call({allow, Nodes}, From, State) ->
     case all_atoms(Nodes) of
 	true ->
-	    Allowed = State#state.allowed,
-            async_reply({reply,ok,State#state{allowed = Allowed ++ Nodes}},
+	    Allowed = lists:uniq(State#state.allowed ++ Nodes),
+            async_reply({reply,ok,State#state{allowed = Allowed}},
                         From);
 	false ->
 	    async_reply({reply,error,State}, From)

@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2017-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2017-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -154,7 +156,7 @@ init_per_suite(Config) ->
 
         {_,OS, Res} ->
             ct:log("crypto:info_lib() -> ~p\nos:type() -> ~p", [Res,OS]),
-            try crypto:start() of
+            try application:start(crypto) of
                 ok ->
                     Config;
                 {error,{already_started,crypto}} ->

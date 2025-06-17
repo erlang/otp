@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -444,9 +446,9 @@ handle_call({profile_start, Rootset, Pattern, {M,F,A}, Opts}, From, #state{fd = 
 		    trace_opts = Topts,
 		    pattern    = Pattern
 		}};
-	false ->
+	{false, FailedPid} ->
 	    exit(Pid, eprof_kill),
-	    {reply, error, #state{ fd = Fd}}
+	    {reply, {error, {set_process_trace_failed, FailedPid}}, #state{ fd = Fd}}
     end;
 
 handle_call({profile_start, Rootset, Pattern, undefined, Opts}, From, #state{ fd = Fd } = S) ->
@@ -468,8 +470,8 @@ handle_call({profile_start, Rootset, Pattern, undefined, Opts}, From, #state{ fd
 		    trace_opts = Topts,
 		    pattern    = Pattern
 		}};
-	false ->
-	    {reply, error, #state{ fd = Fd }}
+	{false, FailedPid} ->
+	    {reply, {error, {set_process_trace_failed, FailedPid}}, #state{ fd = Fd }}
     end;
 
 handle_call(profile_stop, _From, #state{ profiling = false } = S) ->
@@ -635,7 +637,7 @@ set_process_trace(Flag, [Pid|Pids], Options) when is_pid(Pid) ->
 	set_process_trace(Flag, Pids, Options)
     catch
 	_:_ ->
-	    false
+	    {false, Pid}
     end;
 set_process_trace(Flag, [Name|Pids], Options) when is_atom(Name) ->
     case whereis(Name) of

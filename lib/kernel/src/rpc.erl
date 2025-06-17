@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -64,6 +66,8 @@ some specific side effects on the remote node.
 -define(TAB_NAME, rex_nodes_observer).
 
 -behaviour(gen_server).
+
+-compile(nowarn_deprecated_catch).
 
 -export([start/0, start_link/0, stop/0,
 	 call/4, call/5,
@@ -591,8 +595,8 @@ rpc_check(X) -> X.
 
 
 %% This is a real handy function to be used when interacting with
-%% a server called Name at node Node, It is assumed that the server
-%% Receives messages on the form {From, Request} and replies on the
+%% a server called Name at node Node. It is assumed that the server
+%% receives messages of the form {From, Request} and replies are of the
 %% form From ! {ReplyWrapper, Node, Reply}.
 %% This function makes such a server call and ensures that that
 %% The entire call is packed into an atomic transaction which 
@@ -903,7 +907,7 @@ rpcmulticallify([_N|Ns], [{Class, Reason}|Rlts], Ok, Err) ->
 %% that failed during the timespan of the call.
 %% This function assumes that if we send a request to a server 
 %% called Name, the server will reply with a reply
-%% on the form {Name, Node, Reply}, otherwise this function will
+%% of the form {Name, Node, Reply}, otherwise this function will
 %% hang forever. 
 %% It also assumes that the server receives messages on the form
 %% {From, Msg} and then replies as From ! {Name, node(), Reply}.

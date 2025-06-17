@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2020-2023. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2020-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -266,7 +268,7 @@ bool BeamModuleAssembler::emit_optimized_two_way_select(bool destructive,
     uint64_t y = value2.as<ArgImmed>().get();
     uint64_t combined = x | y;
     uint64_t diff = x ^ y;
-    ArgVal val(ArgVal::Immediate, combined);
+    ArgVal val(ArgVal::Type::Immediate, combined);
 
     if ((diff & (diff - 1)) != 0)
         return false;

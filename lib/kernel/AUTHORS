@@ -40,3 +40,11 @@ Serge Aleynikov <saleyn (at) gmail (dot) com>
 	in e.g prim_inet.erl and also inet_drv.c in the emulator. Their
 	included edoc documentation was manually extracted and reworked
 	into gen_sctp.xml. They continue to provide patches.
+
+# %CopyrightBegin%
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 1996-2025. All Rights Reserved.
+#
+# %CopyrightEnd%

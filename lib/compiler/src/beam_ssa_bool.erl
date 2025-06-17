@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2019-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2019-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -213,7 +215,7 @@ pre_opt(Blocks, Count) ->
     Sub = maps:remove(uses, Sub1),
 
     %% Now do the actual optimizations.
-    Reached = sets:from_list([hd(Top)], [{version, 2}]),
+    Reached = sets:from_list([hd(Top)]),
     pre_opt(Top, Sub, Reached, Count, Blocks).
 
 -spec get_phi_info(Ls, Blocks, Sub0) -> Sub when
@@ -319,13 +321,13 @@ pre_opt([L|Ls], Sub0, Reached0, Count0, Blocks) ->
                     Blk = Blk0#b_blk{is=Is++[Test],last=Br},
                     Successors = beam_ssa:successors(Blk),
                     Reached = sets:union(Reached0,
-                                              sets:from_list(Successors, [{version, 2}])),
+                                              sets:from_list(Successors)),
                     pre_opt(Ls, Sub, Reached, Count, Blocks#{L:=Blk});
                 Last ->
                     Blk = Blk0#b_blk{is=Is,last=Last},
                     Successors = beam_ssa:successors(Blk),
                     Reached = sets:union(Reached0,
-                                              sets:from_list(Successors, [{version, 2}])),
+                                              sets:from_list(Successors)),
                     pre_opt(Ls, Sub, Reached, Count0, Blocks#{L:=Blk})
             end
     end;
@@ -333,7 +335,7 @@ pre_opt([], _, _, Count, Blocks) ->
     {Blocks,Count}.
 
 pre_opt_is([#b_set{op=phi,dst=Dst,args=Args0}=I0|Is], Reached, Sub0, Acc) ->
-    Args1 = [{Val,From} || {Val,From} <- Args0,
+    Args1 = [{Val,From} || {Val,From} <:- Args0,
                            sets:is_element(From, Reached)],
     Args = sub_args(Args1, Sub0),
     case all_same(Args) of
@@ -674,7 +676,7 @@ bool_opt_rewrite(Bool, From, Br, Blocks0, St0) ->
     %% because the map of definitions in St#st.defs would not be updated
     %% to include the newly optimized blocks.
     DomBlk0 = map_get(Dom, Blocks1),
-    Blocks2 = maps:without([L || {L,#b_blk{}} <- Bs], Blocks1),
+    Blocks2 = maps:without([L || {L,#b_blk{}} <:- Bs], Blocks1),
 
     %% Convert the optimized digraph back to SSA code.
     Blocks3 = digraph_to_ssa([Root], G, Blocks2),
@@ -739,7 +741,7 @@ collect_phi_args(Args, Anno) ->
                 [] ->
                     %% This phi node only contains literal values.
                     %% Force the inclusion of referenced blocks.
-                    Ls = [{block,L} || {_,L} <- Args],
+                    Ls = [{block,L} || {_,L} <:- Args],
                     {[],Ls}
             end;
         false ->
@@ -788,7 +790,7 @@ split_dom_block_is([], PreAcc) ->
 
 collect_digraph_blocks(FirstL, LastL, #b_br{succ=Succ,fail=Fail}, Blocks) ->
     Ws = gb_sets:singleton(FirstL),
-    Seen = sets:from_list([Succ,Fail], [{version, 2}]),
+    Seen = sets:from_list([Succ,Fail]),
     collect_digraph_blocks(Ws, LastL, Blocks, Seen, []).
 
 collect_digraph_blocks(Ws0, LastL, Blocks, Seen0, Acc0) ->
@@ -874,7 +876,7 @@ build_digraph_is([#b_set{op=phi,args=Args0}=I0|Is], Last, Vtx, Map, G, St) ->
     Args = [{V,case Map of
                    #{L:=Other} -> Other;
                    #{} -> not_possible()
-               end} || {V,L} <- Args0],
+               end} || {V,L} <:- Args0],
     I = I0#b_set{args=Args},
     build_digraph_is_1(I, Is, Last, Vtx, Map, G, St);
 build_digraph_is([#b_set{}=I|Is], Last, Vtx, Map, G, St) ->
@@ -1582,7 +1584,7 @@ join_inits_1([], VarMap) ->
 %%%
 
 digraph_to_ssa(Ls, G, Blocks0) ->
-    Seen = sets:new([{version, 2}]),
+    Seen = sets:new(),
     {Blocks,_} = digraph_to_ssa(Ls, G, Blocks0, Seen),
     Blocks.
 
@@ -1632,7 +1634,7 @@ digraph_to_ssa_blk(From, G, Blocks, Acc0) ->
         {external,Sub} ->
             #b_blk{is=Is0} = Blk = map_get(From, Blocks),
             Is = [I#b_set{args=sub_args(Args0, Sub)} ||
-                     #b_set{args=Args0}=I <- Is0],
+                     #b_set{args=Args0}=I <:- Is0],
             {Blk#b_blk{is=Is},[]}
     end.
 
@@ -1704,7 +1706,7 @@ del_out_edges(V, G) ->
 covered(From, To, G) ->
     Seen0 = #{},
     {yes,Seen} = covered_1(From, To, G, Seen0),
-    [V || {V,reached} <- maps:to_list(Seen)].
+    [V || V := reached <- Seen].
 
 covered_1(To, To, _G, Seen) ->
     {yes,Seen};

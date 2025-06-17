@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2024-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -56,7 +58,8 @@
     property_integer_roundtrip/1,
     property_float_roundtrip/1,
     property_object_roundtrip/1,
-    property_escape_all/1
+    property_escape_all/1,
+    error_info/1
 ]).
 
 
@@ -75,7 +78,8 @@ all() ->
         {group, format},
         test_json_test_suite,
         {group, properties},
-        counterexamples
+        counterexamples,
+        error_info
     ].
 
 groups() ->
@@ -1041,6 +1045,11 @@ test_file(yes, File, Data) ->
     ?assertEqual(Parsed, decode(iolist_to_binary(json:format(Parsed))), File);
 test_file(no, File, Data) ->
     ?assertError(_, decode(Data), File).
+
+error_info(_) ->
+    L = [{decode, [~'["valid string", not_valid'], [allow_rename, unexplained]}],
+    error_info_lib:test_error_info(json, L,  [allow_nyi]).
+
 
 %%
 %% Property tests

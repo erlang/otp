@@ -1,6 +1,8 @@
 %%
 %% %CopyrightBegin%
 %%
+%% SPDX-License-Identifier: Apache-2.0
+%%
 %% Copyright Ericsson AB 2004-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
@@ -178,7 +180,11 @@ default_algorithms1(kex) ->
 
 default_algorithms1(cipher) ->
     supported_algorithms(cipher, same(['AEAD_AES_128_GCM',
-				       'AEAD_AES_256_GCM'
+				       'AEAD_AES_256_GCM',
+                                       'aes256-cbc',
+                                       'aes192-cbc',
+                                       'aes128-cbc',
+                                       '3des-cbc'
                                       ]));
 default_algorithms1(mac) ->
     supported_algorithms(mac, same(['AEAD_AES_128_GCM',

@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1997-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -153,6 +155,8 @@ follows:
 
 [`erl_driver(4)`](`e:erts:erl_driver.md`), [`driver_entry(4)`](`e:erts:driver_entry.md`)
 """.
+
+-compile(nowarn_deprecated_catch).
 
 -export([load_driver/2, load/2, 
 	 unload_driver/1, unload/1, reload/2, reload_driver/2, 

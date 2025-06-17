@@ -1,7 +1,16 @@
 %% =====================================================================
-%% Licensed under the Apache License, Version 2.0 (the "License"); you may
-%% not use this file except in compliance with the License. You may obtain
-%% a copy of the License at <http://www.apache.org/licenses/LICENSE-2.0>
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+%%
+%% Copyright 1997-2006 Richard Carlsson
+%% Copyright Ericsson AB 2009-2025. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
 %%
 %% Unless required by applicable law or agreed to in writing, software
 %% distributed under the License is distributed on an "AS IS" BASIS,
@@ -19,7 +28,8 @@
 %% above, a recipient may use your version of this file under the terms of
 %% either the Apache License or the LGPL.
 %%
-%% @copyright 1997-2006 Richard Carlsson
+%% %CopyrightEnd%
+%%
 %% @author Richard Carlsson <carlsson.richard@gmail.com>
 %% @end
 %% =====================================================================
@@ -59,6 +69,8 @@ single atom, such as `none`, by a list constructor `[X | Y]`, or by the empty
 list `[]`. This can be relied on when writing functions that operate on syntax
 trees.
 """.
+
+-compile(nowarn_deprecated_catch).
 
 -export([type/1,
 	 is_leaf/1,
@@ -269,6 +281,15 @@ trees.
 	 named_fun_expr_clauses/1,
 	 named_fun_expr_name/1,
 	 nil/0,
+         strict_binary_generator/2,
+         strict_binary_generator_body/1,
+         strict_binary_generator_pattern/1,
+         strict_generator/2,
+         strict_generator_body/1,
+         strict_generator_pattern/1,
+         strict_map_generator/2,
+         strict_map_generator_body/1,
+         strict_map_generator_pattern/1,
 	 operator/1,
 	 operator_literal/1,
 	 operator_name/1,
@@ -351,6 +372,8 @@ trees.
 	 variable_literal/1,
 	 warning_marker/1,
 	 warning_marker_info/1,
+	 zip_generator/1,
+	 zip_generator_body/1,
 
 	 tree/1,
 	 tree/2,
@@ -458,6 +481,7 @@ trees.
                    | erl_parse:form_info()
                    | erl_parse:af_binelement(term())
                    | erl_parse:af_generator()
+                   | erl_parse:af_zip_generator()
                    | erl_parse:af_remote_function().
 
 %% The representation built by the Erlang standard library parser
@@ -549,6 +573,7 @@ reason `badarg`. Node types currently defined by this module are:
 * `user_type_application`
 * `variable`
 * `warning_marker`
+* `zip_generator`
 
 The user may (for special purposes) create additional nodes with other type
 tags, using the `tree/2` function.
@@ -573,7 +598,7 @@ _See also: _`annotated_type/2`, `application/3`, `arity_qualifier/2`, `atom/1`,
 `size_qualifier/2`, `string/1`, `text/1`, `tree/2`, `try_expr/3`, `tuple/1`,
 `tuple_type/0`, `tuple_type/1`, `type_application/2`, `type_union/1`,
 `typed_record_field/2`, `underscore/0`, `user_type_application/2`, `variable/1`,
-`warning_marker/1`.
+`warning_marker/1`,`zip_generator/1`.
 """.
 -spec type(syntaxTree()) -> atom().
 
@@ -621,8 +646,12 @@ type(Node) ->
 	{cons, _, _, _} -> list;
 	{function, _, _, _, _} -> function;
 	{b_generate, _, _, _} -> binary_generator;
+	{b_generate_strict, _, _, _} -> strict_binary_generator;
 	{generate, _, _, _} -> generator;
+	{generate_strict, _, _, _} -> strict_generator;
 	{m_generate, _, _, _} -> map_generator;
+	{m_generate_strict, _, _, _} -> strict_map_generator;
+	{zip,_,_} -> zip_generator;
 	{lc, _, _, _} -> list_comp;
 	{bc, _, _, _} -> binary_comp;
 	{mc, _, _, _} -> map_comp;
@@ -813,18 +842,14 @@ _See also: _`copy_pos/2`, `get_pos/1`.
 
 set_pos(Node, Pos) ->
     case Node of
-        #tree{attr = Attr} ->
-            Node#tree{attr = Attr#attr{pos = Pos}};
-        #wrapper{attr = Attr, tree = {error, {_, Module, Reason}}} ->
-            Node#wrapper{attr = Attr#attr{pos = Pos}, tree = {error, {Pos, Module, Reason}}};
-        #wrapper{attr = Attr, tree = {warning, {_, Module, Reason}}} ->
-            Node#wrapper{attr = Attr#attr{pos = Pos}, tree = {warning, {Pos, Module, Reason}}};
-        #wrapper{attr = Attr, tree = Tree} ->
-            Node#wrapper{attr = Attr#attr{pos = Pos}, tree = setelement(2, Tree, Pos)};
-        _ ->
-            %% We then assume we have an `erl_parse' node, and create a
-            %% wrapper around it to make things more uniform.
-            set_pos(wrap(Node), Pos)
+	#tree{attr = Attr} ->
+	    Node#tree{attr = Attr#attr{pos = Pos}};
+	#wrapper{attr = Attr} ->
+	    Node#wrapper{attr = Attr#attr{pos = Pos}};
+	_ ->
+	    %% We then assume we have an `erl_parse' node, and create a
+	    %% wrapper around it to make things more uniform.
+	    set_pos(wrap(Node), Pos)
     end.
 
 
@@ -2290,22 +2315,39 @@ list(Elements, Tail) when Elements =/= [] ->
 revert_list(Node) ->
     Pos = get_pos(Node),
     Prefix = list_prefix(Node),
-    Suffix = case list_suffix(Node) of
+    Suffix =
+        case list_suffix(Node) of
 	    none ->
-            LastPos = get_pos(lists:last(Prefix)),
-            LastLocation = case erl_anno:end_location(LastPos) of
-                undefined -> erl_anno:location(LastPos);
-                Location -> Location
-            end,
-            revert_nil(set_pos(nil(), erl_anno:set_location(LastLocation, Pos)));
+                %% there is no explicit `| Tail]` part, just a plain list
+                %% `[X1,...XN]`, so we must invent a nil node
+                case erl_anno:end_location(Pos) of
+                    undefined ->
+                        LastPos = get_pos(lists:last(Prefix)),
+                        case erl_anno:end_location(LastPos) of
+                            undefined ->
+                                %% use a zero location rather than a wrong one
+                                {nil, erl_anno:new(0)};
+                            EndLoc ->
+                                %% if the last element has an end location,
+                                %% we take that as both start and end
+                                {nil, erl_anno:set_end_location(EndLoc, erl_anno:new(EndLoc))}
+                        end;
+                    EndLoc ->
+                        %% if the whole list node has an end location, we
+                        %% take that as both start and end of the nil
+                        {nil, erl_anno:set_end_location(EndLoc, erl_anno:new(EndLoc))}
+                end;
 	    Suffix1 ->
-            Suffix1
+                Suffix1
 	end,
-    lists:foldr(fun (Head, Tail) ->
-        HeadPos = get_pos(Head),
-        HeadLocation = erl_anno:location(HeadPos),
-        {cons, erl_anno:set_location(HeadLocation, Pos), Head, Tail}
-    end, Suffix, Prefix).
+    F = fun (Head, Tail) ->
+                %% the nested conses get the location from the list
+                %% elements, but other annotations must not be copied
+                HeadLoc = erl_anno:location(get_pos(Head)),
+                {cons, erl_anno:new(HeadLoc), Head, Tail}
+        end,
+    %% the outermost cons gets the full annotations of the list
+    setelement(2, lists:foldr(F, Suffix, Prefix), Pos).
 
 
 -doc """
@@ -2480,7 +2522,7 @@ is_list_skeleton(Node) ->
 -doc """
 Returns `true` if `Node` represents a proper list, and `false` otherwise.
 
-A proper list is a list skeleton either on the form "`[]`" or "`[E1,
+A proper list is a list skeleton either of the form "`[]`" or "`[E1,
 ..., En]`", or "`[... | Tail]`" where recursively `Tail` also
 represents a proper list.
 
@@ -2650,7 +2692,7 @@ compact_list(Node) ->
 					  copy_attrs(Node,
 						     Node1));
 			_ ->
-			    Node 
+			    Node
 		    end
 	    end;
 	_ ->
@@ -3172,7 +3214,7 @@ revert_attribute(Node) ->
 
 revert_attribute_1(module, [M], Pos, Node) ->
     case revert_module_name(M) of
-	{ok, A} -> 
+	{ok, A} ->
 	    {attribute, Pos, module, A};
 	error -> Node
     end;
@@ -3189,7 +3231,7 @@ revert_attribute_1(module, [M, List], Pos, Node) ->
 		 Node
 	 end,
     case revert_module_name(M) of
-	{ok, A} -> 
+	{ok, A} ->
 	    {attribute, Pos, module, {A, Vs}};
 	error -> Node
     end;
@@ -3444,7 +3486,7 @@ module_qualifier_body(Node) ->
 
 
 %% Don't use the name 'function' for this record, to avoid confusion with
-%% the tuples on the form {function,Name,Arity} used by erl_parse.
+%% the tuples of the form {function,Name,Arity} used by erl_parse.
 %%
 %% (There's no real point in precomputing and storing the arity,
 %% and passing it as a constructor argument makes it possible to
@@ -5838,6 +5880,68 @@ generator_body(Node) ->
 
 %% =====================================================================
 
+-record(strict_generator, {pattern :: syntaxTree(), body :: syntaxTree()}).
+
+-doc """
+Creates an abstract strict list generator.
+
+The result represents "`*Pattern*<:- *Body*`".
+
+_See also: _`binary_comp/2`, `strict_generator_body/1`,
+`strict_generator_pattern/1`, `list_comp/2`.
+""".
+-spec strict_generator(syntaxTree(), syntaxTree()) -> syntaxTree().
+
+%% `erl_parse' representation:
+%%
+%% {generate_strict, Pos, Pattern, Body}
+%%
+%%	Pattern = Body = erl_parse()
+
+strict_generator(Pattern, Body) ->
+    tree(strict_generator, #strict_generator{pattern = Pattern, body = Body}).
+
+revert_strict_generator(Node) ->
+    Pos = get_pos(Node),
+    Pattern = strict_generator_pattern(Node),
+    Body = strict_generator_body(Node),
+    {generate_strict, Pos, Pattern, Body}.
+
+
+-doc """
+Returns the pattern subtree of a `generator` node.
+
+_See also: _`strict_generator/2`.
+""".
+-spec strict_generator_pattern(syntaxTree()) -> syntaxTree().
+
+strict_generator_pattern(Node) ->
+    case unwrap(Node) of
+	{generate_strict, _, Pattern, _} ->
+	    Pattern;
+	Node1 ->
+	    (data(Node1))#strict_generator.pattern
+    end.
+
+
+-doc """
+Returns the body subtree of a `generator` node.
+
+_See also: _`strict_generator/2`.
+""".
+-spec strict_generator_body(syntaxTree()) -> syntaxTree().
+
+strict_generator_body(Node) ->
+    case unwrap(Node) of
+	{generate_strict, _, _, Body} ->
+	    Body;
+	Node1 ->
+	    (data(Node1))#strict_generator.body
+    end.
+
+
+%% =====================================================================
+
 -record(binary_generator, {pattern :: syntaxTree(), body :: syntaxTree()}).
 
 -doc """
@@ -5895,6 +5999,68 @@ binary_generator_body(Node) ->
 	    Body;
 	Node1 ->
 	    (data(Node1))#binary_generator.body
+    end.
+
+
+%% =====================================================================
+
+-record(strict_binary_generator, {pattern :: syntaxTree(), body :: syntaxTree()}).
+
+-doc """
+Creates an abstract strict binary_generator.
+
+The result represents "`*Pattern*<:- *Body*`".
+
+_See also: _`binary_comp/2`, `strict_binary_generator_body/1`,
+`strict_binary_generator_pattern/1`, `list_comp/2`.
+""".
+-spec strict_binary_generator(syntaxTree(), syntaxTree()) -> syntaxTree().
+
+%% `erl_parse' representation:
+%%
+%% {b_generate_strict, Pos, Pattern, Body}
+%%
+%%	Pattern = Body = erl_parse()
+
+strict_binary_generator(Pattern, Body) ->
+    tree(strict_binary_generator, #strict_binary_generator{pattern = Pattern, body = Body}).
+
+revert_strict_binary_generator(Node) ->
+    Pos = get_pos(Node),
+    Pattern = strict_binary_generator_pattern(Node),
+    Body = strict_binary_generator_body(Node),
+    {b_generate_strict, Pos, Pattern, Body}.
+
+
+-doc """
+Returns the pattern subtree of a `generator` node.
+
+_See also: _`strict_binary_generator/2`.
+""".
+-spec strict_binary_generator_pattern(syntaxTree()) -> syntaxTree().
+
+strict_binary_generator_pattern(Node) ->
+    case unwrap(Node) of
+	{b_generate_strict, _, Pattern, _} ->
+	    Pattern;
+	Node1 ->
+	    (data(Node1))#strict_binary_generator.pattern
+    end.
+
+
+-doc """
+Returns the body subtree of a `generator` node.
+
+_See also: _`strict_binary_generator/2`.
+""".
+-spec strict_binary_generator_body(syntaxTree()) -> syntaxTree().
+
+strict_binary_generator_body(Node) ->
+    case unwrap(Node) of
+	{b_generate_strict, _, _, Body} ->
+	    Body;
+	Node1 ->
+	    (data(Node1))#strict_binary_generator.body
     end.
 
 
@@ -5959,6 +6125,110 @@ map_generator_body(Node) ->
 	    (data(Node1))#map_generator.body
     end.
 
+
+%% =====================================================================
+
+-record(strict_map_generator, {pattern :: syntaxTree(), body :: syntaxTree()}).
+
+-doc """
+Creates an abstract strict map_generator. The result represents
+"`*Pattern*<- *Body*`".
+
+_See also: _`list_comp/2`, `map_comp/2`,
+`strict_map_generator_body/1`,
+`strict_map_generator_pattern/1`.
+""".
+-spec strict_map_generator(syntaxTree(), syntaxTree()) -> syntaxTree().
+
+%% `erl_parse' representation:
+%%
+%% {m_generate_strict, Pos, Pattern, Body}
+%%
+%%	Pattern = Body = erl_parse()
+
+strict_map_generator(Pattern, Body) ->
+    tree(strict_map_generator, #strict_map_generator{pattern = Pattern, body = Body}).
+
+revert_strict_map_generator(Node) ->
+    Pos = get_pos(Node),
+    Pattern = strict_map_generator_pattern(Node),
+    Body = strict_map_generator_body(Node),
+    {m_generate_strict, Pos, Pattern, Body}.
+
+
+-doc """
+Returns the pattern subtree of a `generator` node.
+
+_See also: _`strict_map_generator/2`.
+""".
+-spec strict_map_generator_pattern(syntaxTree()) -> syntaxTree().
+
+strict_map_generator_pattern(Node) ->
+    case unwrap(Node) of
+	{m_generate_strict, _, Pattern, _} ->
+	    Pattern;
+	Node1 ->
+	    (data(Node1))#strict_map_generator.pattern
+    end.
+
+
+-doc """
+Returns the body subtree of a `generator` node.
+
+_See also: _`strict_map_generator/2`.
+""".
+-spec strict_map_generator_body(syntaxTree()) -> syntaxTree().
+
+strict_map_generator_body(Node) ->
+    case unwrap(Node) of
+	{m_generate_strict, _, _, Body} ->
+	    Body;
+	Node1 ->
+	    (data(Node1))#strict_map_generator.body
+    end.
+
+
+-record(zip_generator, {body :: [syntaxTree()]}).
+
+-doc """
+Creates an abstract zip_generator.
+
+The result represents `G1 && ... Gn`, where each `G` is a generator.
+
+_See also: _`binary_comp/2`, `list_comp/2`, `map_comp/2`, `map_generator_body/1`,
+`map_generator_pattern/1`.
+""".
+-spec zip_generator([syntaxTree()]) -> syntaxTree().
+
+%% `erl_parse' representation:
+%%
+%% {zip, Pos, Body}
+%%
+%%	Body = erl_parse()
+
+zip_generator(Body) ->
+    tree(zip_generator, #zip_generator{body = Body}).
+
+revert_zip_generator(Node) ->
+    Pos = get_pos(Node),
+    Body = zip_generator_body(Node),
+    {zip, Pos, Body}.
+
+
+-doc """
+Returns the body subtree of a `zip_generator` node.
+
+_See also: _`zip_generator/1`.
+""".
+-spec zip_generator_body(syntaxTree()) -> syntaxTree().
+
+zip_generator_body(Node) ->
+    case unwrap(Node) of
+	{zip, _, Body} ->
+	    Body;
+	Node1 ->
+	    (data(Node1))#zip_generator.body
+    end.
 
 %% =====================================================================
 
@@ -7221,7 +7491,9 @@ _See also: _[//stdlib/erl_parse](`m:erl_parse`), `revert_forms/1`.
 -spec revert(syntaxTree()) -> syntaxTree().
 
 revert(Node) ->
-    case is_leaf(Node) of
+    case Node of
+	#tree{} ->
+	    case is_leaf(Node) of
 		true ->
 		    revert_root(Node);
 		false ->
@@ -7235,6 +7507,18 @@ revert(Node) ->
 		    %% parts, and revert the node itself.
 		    Node1 = update_tree(Node, Gs),
 		    revert_root(Node1)
+	    end;
+	#wrapper{tree = Node1, attr = Attr} ->
+	    %% Just remove the wrapper. The wrapped `erl_parse' nodes never
+	    %% contain abstract syntax tree nodes as subtrees. Carry over
+	    %% the position information, unless it is a warning/error marker
+            case Node1 of
+                {error, _} -> Node1;
+                {warning, _} -> Node1;
+                _ -> setelement(2, Node1, Attr#attr.pos)
+            end;
+        _ ->
+            Node
     end.
 
 %% Note: The concept of "compatible root node" is not strictly defined.
@@ -7337,6 +7621,12 @@ revert_root(Node) ->
 	    revert_named_fun_expr(Node);
 	nil ->
 	    revert_nil(Node);
+	strict_binary_generator ->
+	    revert_strict_binary_generator(Node);
+	strict_generator ->
+	    revert_strict_generator(Node);
+	strict_map_generator ->
+	    revert_strict_map_generator(Node);
 	parentheses ->
 	    revert_parentheses(Node);
 	prefix_expr ->
@@ -7373,6 +7663,8 @@ revert_root(Node) ->
 	    revert_variable(Node);
 	warning_marker ->
 	    revert_warning_marker(Node);
+	zip_generator ->
+	    revert_zip_generator(Node);
 	_ ->
 	    %% Non-revertible new-form node
 	    Node
@@ -7423,10 +7715,10 @@ revert_forms_1([T | Ts]) ->
 	    revert_forms_1(Ts);
 	_ ->
 	    T1 = revert(T),
-	    case is_tree(T1) of
-		true ->
+	    case T1 of
+		#tree{} ->
 		    throw({error, T1});
-		false ->
+		_ ->
 		    [T1 | revert_forms_1(Ts)]
 	    end
     end;
@@ -7528,7 +7820,7 @@ subtrees(T) ->
 			     Ts]
 		    end;
 	        binary_generator ->
-		    [[binary_generator_pattern(T)], 
+		    [[binary_generator_pattern(T)],
                      [binary_generator_body(T)]];
                 bitstring_type ->
                     [[bitstring_type_m(T)],
@@ -7655,6 +7947,15 @@ subtrees(T) ->
 		named_fun_expr ->
 			[[named_fun_expr_name(T)],
 			 named_fun_expr_clauses(T)];
+                strict_binary_generator ->
+                    [[strict_binary_generator_pattern(T)],
+                     [strict_binary_generator_body(T)]];
+                strict_generator ->
+                    [[strict_generator_pattern(T)],
+                     [strict_generator_body(T)]];
+                strict_map_generator ->
+                    [[strict_map_generator_pattern(T)],
+                     [strict_map_generator_body(T)]];
 		parentheses ->
 		    [[parentheses_body(T)]];
 		prefix_expr ->
@@ -7721,7 +8022,9 @@ subtrees(T) ->
                      [typed_record_field_type(T)]];
                 user_type_application ->
                     [[user_type_application_name(T)],
-                     user_type_application_arguments(T)]
+                     user_type_application_arguments(T)];
+		zip_generator ->
+		    [zip_generator_body(T)]
 	    end
     end.
 
@@ -7816,6 +8119,9 @@ make_tree(maybe_expr, [Body, [Else]]) -> maybe_expr(Body, Else);
 make_tree(maybe_match_expr, [[P], [E]]) -> maybe_match_expr(P, E);
 make_tree(named_fun_expr, [[N], C]) -> named_fun_expr(N, C);
 make_tree(module_qualifier, [[M], [N]]) -> module_qualifier(M, N);
+make_tree(strict_binary_generator, [[P], [E]]) -> strict_binary_generator(P, E);
+make_tree(strict_generator, [[P], [E]]) -> strict_generator(P, E);
+make_tree(strict_map_generator, [[P], [E]]) -> strict_map_generator(P, E);
 make_tree(parentheses, [[E]]) -> parentheses(E);
 make_tree(prefix_expr, [[F], [A]]) -> prefix_expr(F, A);
 make_tree(receive_expr, [C]) -> receive_expr(C);
@@ -7837,7 +8143,8 @@ make_tree(tuple_type, [Es]) -> tuple_type(Es);
 make_tree(type_application, [[N], Ts]) -> type_application(N, Ts);
 make_tree(type_union, [Es]) -> type_union(Es);
 make_tree(typed_record_field, [[F],[T]]) -> typed_record_field(F, T);
-make_tree(user_type_application, [[N], Ts]) -> user_type_application(N, Ts).
+make_tree(user_type_application, [[N], Ts]) -> user_type_application(N, Ts);
+make_tree(zip_generator, [Ts]) -> zip_generator(Ts).
 
 
 -doc """

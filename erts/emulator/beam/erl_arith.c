@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1999-2023. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 1999-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -370,7 +372,7 @@ erts_mixed_plus(Process* p, Eterm arg1, Eterm arg2)
 	case (_TAG_HEADER_POS_BIG >> _TAG_PRIMARY_SIZE):
 	case (_TAG_HEADER_NEG_BIG >> _TAG_PRIMARY_SIZE):
 	    switch (arg2 & _TAG_PRIMARY_MASK) {
-	    case (_TAG_IMMED1_SMALL >> _TAG_PRIMARY_SIZE):
+	    case TAG_PRIMARY_IMMED1:
 		switch ((arg2 & _TAG_IMMED1_MASK) >> _TAG_PRIMARY_SIZE) {
 		case (_TAG_IMMED1_SMALL >> _TAG_PRIMARY_SIZE):
 		    if (arg2 == SMALL_ZERO) {
@@ -408,7 +410,9 @@ erts_mixed_plus(Process* p, Eterm arg1, Eterm arg2)
 		default:
 		    goto badarith;
 		}
-	    }
+            default:
+                goto badarith;
+        }
 	case (_TAG_HEADER_FLOAT >> _TAG_PRIMARY_SIZE):
 	    switch (arg2 & _TAG_PRIMARY_MASK) {
 	    case TAG_PRIMARY_IMMED1:
@@ -576,7 +580,7 @@ erts_mixed_minus(Process* p, Eterm arg1, Eterm arg2)
 	case (_TAG_HEADER_POS_BIG >> _TAG_PRIMARY_SIZE):
 	case (_TAG_HEADER_NEG_BIG >> _TAG_PRIMARY_SIZE):
 	    switch (arg2 & _TAG_PRIMARY_MASK) {
-	    case (_TAG_IMMED1_SMALL >> _TAG_PRIMARY_SIZE):
+	    case TAG_PRIMARY_IMMED1:
 		switch ((arg2 & _TAG_IMMED1_MASK) >> _TAG_PRIMARY_SIZE) {
 		case (_TAG_IMMED1_SMALL >> _TAG_PRIMARY_SIZE):
 		    if (arg2 == SMALL_ZERO) {
@@ -615,6 +619,8 @@ erts_mixed_minus(Process* p, Eterm arg1, Eterm arg2)
 		default:
 		    goto badarith;
 		}
+            default:
+                    goto badarith;
 	    }
 	case (_TAG_HEADER_FLOAT >> _TAG_PRIMARY_SIZE):
 	    switch (arg2 & _TAG_PRIMARY_MASK) {
@@ -744,17 +750,19 @@ erts_mixed_times(Process* p, Eterm arg1, Eterm arg2)
 		default:
 		    goto badarith;
 		}
-	    }
-	default:
+            default:
+	        goto badarith;
+        }
+        default:
 	    goto badarith;
-	}
+    }
     case TAG_PRIMARY_BOXED:
 	hdr = *boxed_val(arg1);
 	switch ((hdr & _TAG_HEADER_MASK) >> _TAG_PRIMARY_SIZE) {
 	case (_TAG_HEADER_POS_BIG >> _TAG_PRIMARY_SIZE):
 	case (_TAG_HEADER_NEG_BIG >> _TAG_PRIMARY_SIZE):
 	    switch (arg2 & _TAG_PRIMARY_MASK) {
-	    case (_TAG_IMMED1_SMALL >> _TAG_PRIMARY_SIZE):
+	    case TAG_PRIMARY_IMMED1:
 		switch ((arg2 & _TAG_IMMED1_MASK) >> _TAG_PRIMARY_SIZE) {
 		case (_TAG_IMMED1_SMALL >> _TAG_PRIMARY_SIZE):
 		    if (arg2 == SMALL_ZERO)
@@ -810,7 +818,9 @@ erts_mixed_times(Process* p, Eterm arg1, Eterm arg2)
 		default:
 		    goto badarith;
 		}
-	    }
+            default:
+                goto badarith;
+	}
 	case (_TAG_HEADER_FLOAT >> _TAG_PRIMARY_SIZE):
 	    switch (arg2 & _TAG_PRIMARY_MASK) {
 	    case TAG_PRIMARY_IMMED1:
@@ -998,7 +1008,7 @@ erts_mixed_div(Process* p, Eterm arg1, Eterm arg2)
 	case (_TAG_HEADER_POS_BIG >> _TAG_PRIMARY_SIZE):
 	case (_TAG_HEADER_NEG_BIG >> _TAG_PRIMARY_SIZE):
 	    switch (arg2 & _TAG_PRIMARY_MASK) {
-	    case (_TAG_IMMED1_SMALL >> _TAG_PRIMARY_SIZE):
+	    case TAG_PRIMARY_IMMED1:
 		switch ((arg2 & _TAG_IMMED1_MASK) >> _TAG_PRIMARY_SIZE) {
 		case (_TAG_IMMED1_SMALL >> _TAG_PRIMARY_SIZE):
 		    if (big_to_double(arg1, &f1.fd) < 0) {
@@ -1028,7 +1038,9 @@ erts_mixed_div(Process* p, Eterm arg1, Eterm arg2)
 		default:
 		    goto badarith;
 		}
-	    }
+            default:
+                goto badarith;
+	}
 	case (_TAG_HEADER_FLOAT >> _TAG_PRIMARY_SIZE):
 	    switch (arg2 & _TAG_PRIMARY_MASK) {
 	    case TAG_PRIMARY_IMMED1:

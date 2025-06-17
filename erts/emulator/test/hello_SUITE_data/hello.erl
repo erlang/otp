@@ -1,6 +1,8 @@
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2021. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1690,7 +1692,7 @@ test_hibernate() ->
 maximum_hibernate_heap_size(Term) ->
     %% When hibernating, a few extra words will be allocated to hold the
     %% continuation pointer as well as scratch space for the interpreter/jit.
-    erts_debug:flat_size(Term) + 8.
+    erts_debug:flat_size(Term) + 12.
 
 hibernate_wake_up(0, _, _) -> ok;
 hibernate_wake_up(N, MaxHeapSz, Child) ->

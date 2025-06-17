@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2024. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 1996-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -1248,7 +1250,7 @@ send_badsig(Port *prt) {
     ERTS_LC_ASSERT(erts_get_scheduler_id());
     ASSERT(is_internal_pid(connected));
     erts_proc_sig_send_exit(&prt->common, prt->common.id, connected,
-                            am_badsig, NIL, 0);
+                            am_badsig, NIL, 0, 0);
 } /* send_badsig */
 
 static void
@@ -3198,6 +3200,7 @@ static int flush_linebuf(LineBufContext *bp)
 	    resize_linebuf(bp->b);
 	LINEBUF_DATA(*bp)[((*bp->b)->ovlen)++] = '\r';
 	++bp->retlen; /* fall through instead of switching state... */
+        ERTS_FALLTHROUGH();
     case LINEBUF_MAIN:
     case LINEBUF_FULL:
 	(*bp->b)->ovlen = 0;
@@ -3902,7 +3905,9 @@ erts_deliver_port_exit(Port *prt, Eterm from, Eterm reason, int send_closed,
 
    if (state & ERTS_PORT_SFLG_DISTRIBUTION) {
        DistEntry *dep = (DistEntry*) erts_prtsd_get(prt, ERTS_PRTSD_DIST_ENTRY);
-       ASSERT(dep);
+
+       ERTS_ASSUME(dep);
+
        erts_do_net_exits(dep, modified_reason);
        erts_deref_dist_entry(dep);
        erts_prtsd_set(prt, ERTS_PRTSD_DIST_ENTRY, NULL);
@@ -4277,7 +4282,9 @@ erts_port_control(Process* c_p,
 	return ERTS_PORT_OP_BADARG;
 
     try_call = !(sched_flags & ERTS_PTS_FLGS_FORCE_SCHEDULE_OP);
+
     binp = NULL;
+    ERTS_UNDEF(br, NULL);       /* Suppress warning. */
 
     if (is_bitstring(data)) {
         ERTS_DECLARE_DUMMY(Eterm br_flags);
@@ -5022,7 +5029,7 @@ static int prt_one_monitor(ErtsMonitor *mon, void *vprtd, Sint reds)
 {
     ErtsMonitorData *mdp = erts_monitor_to_data(mon);
     prt_one_lnk_data *prtd = (prt_one_lnk_data *) vprtd;
-    if (mon->type == ERTS_MON_TYPE_RESOURCE && erts_monitor_is_target(mon))
+    if (ERTS_ML_GET_TYPE(mon) == ERTS_MON_TYPE_RESOURCE && erts_monitor_is_target(mon))
         erts_print(prtd->to, prtd->arg, "(%p,%T)", mon->other.ptr, mdp->ref);
     else
         erts_print(prtd->to, prtd->arg, "(%T,%T)", mon->other.item, mdp->ref);
@@ -5430,10 +5437,13 @@ erts_stale_drv_select(Eterm port,
     switch (mode) {
     case ERL_DRV_READ | ERL_DRV_WRITE:
 	type = "Input/Output";
+        break;
     case ERL_DRV_WRITE:
 	type = "Output";
+        break;
     case ERL_DRV_READ:
 	type = "Input";
+        break;
     default:
         type = "";
     }
@@ -6339,7 +6349,11 @@ int driver_output_binary(ErlDrvPort ix, char* hbuf, ErlDrvSizeT hlen,
     if (state & ERTS_PORT_SFLG_DISTRIBUTION) {
         DistEntry* dep = (DistEntry*) erts_prtsd_get(prt, ERTS_PRTSD_DIST_ENTRY);
         Uint32 conn_id = (Uint32)(UWord) erts_prtsd_get(prt, ERTS_PRTSD_CONN_ID);
+
+        ERTS_ASSUME(dep);
+
         erts_atomic64_inc_nob(&dep->in);
+
 	return erts_net_message(prt,
 				dep,
                                 conn_id,
@@ -6384,7 +6398,11 @@ int driver_output2(ErlDrvPort ix, char* hbuf, ErlDrvSizeT hlen,
     if (state & ERTS_PORT_SFLG_DISTRIBUTION) {
         DistEntry *dep = (DistEntry*) erts_prtsd_get(prt, ERTS_PRTSD_DIST_ENTRY);
         Uint32 conn_id = (Uint32)(UWord) erts_prtsd_get(prt, ERTS_PRTSD_CONN_ID);
+
+        ERTS_ASSUME(dep);
+
         erts_atomic64_inc_nob(&dep->in);
+
 	if (len == 0)
 	    return erts_net_message(prt,
 				    dep,

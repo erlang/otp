@@ -20,8 +20,8 @@
 
 ASMJIT_BEGIN_NAMESPACE
 
-// CallConv - Init & Reset
-// =======================
+// CallConv - Initialization & Reset
+// =================================
 
 ASMJIT_FAVOR_SIZE Error CallConv::init(CallConvId ccId, const Environment& environment) noexcept {
   reset();
@@ -75,7 +75,7 @@ ASMJIT_FAVOR_SIZE Error FuncDetail::init(const FuncSignature& signature, const E
 
 #if !defined(ASMJIT_NO_AARCH64)
   if (environment.isFamilyAArch64())
-    return a64::FuncInternal::initFuncDetail(*this, signature, registerSize);
+    return a64::FuncInternal::initFuncDetail(*this, signature);
 #endif
 
   // We should never bubble here as if `cc.init()` succeeded then there has to be an implementation for the current

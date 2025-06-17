@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2001-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -171,6 +173,8 @@ The possible values of `Reason` returned when an error occurs are:
 - `{premature_eof, FileName}` \- End-of-file was encountered inside some binary
   term.
 """.
+
+-compile(nowarn_deprecated_catch).
 
 %% Avoid warning for local function error/2 clashing with autoimported BIF.
 -compile({no_auto_import,[error/2]}).

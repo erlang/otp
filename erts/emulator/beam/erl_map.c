@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2014-2024. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2014-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -1656,7 +1658,7 @@ recurse:
                 sp->abm = 0xffff;
                 break;
             }
-            case HAMT_SUBTAG_HEAD_BITMAP: sp->srcA++;
+            case HAMT_SUBTAG_HEAD_BITMAP: sp->srcA++; ERTS_FALLTHROUGH();
             case HAMT_SUBTAG_NODE_BITMAP: {
                 ASSERT(ctx->lvl < HAMT_MAX_LEVEL);
                 sp->abm = MAP_HEADER_VAL(hdrA);
@@ -1693,7 +1695,7 @@ recurse:
                 sp->bbm = 0xffff;
                 break;
             }
-            case HAMT_SUBTAG_HEAD_BITMAP: sp->srcB++;
+            case HAMT_SUBTAG_HEAD_BITMAP: sp->srcB++; ERTS_FALLTHROUGH();
             case HAMT_SUBTAG_NODE_BITMAP: {
                 ASSERT(ctx->lvl < HAMT_MAX_LEVEL);
                 sp->bbm = MAP_HEADER_VAL(hdrB);
@@ -2329,6 +2331,7 @@ Uint hashmap_node_size(Eterm hdr, Eterm **nodep)
 	break;
     case HAMT_SUBTAG_HEAD_BITMAP:
         if (nodep) ++*nodep;
+        ERTS_FALLTHROUGH();
     case HAMT_SUBTAG_NODE_BITMAP:
         sz = hashmap_bitcount(MAP_HEADER_VAL(hdr));
         ASSERT(sz < 17);
@@ -2711,6 +2714,7 @@ Eterm erts_hashmap_insert_up(Eterm *hp, Eterm key, Eterm value,
 		/* subnodes, fake it */
 		fake = node;
 		node  = make_boxed(&fake);
+                ERTS_FALLTHROUGH();
 	    case TAG_PRIMARY_BOXED:
 		ptr = boxed_val(node);
 		hdr = *ptr;
@@ -3442,6 +3446,7 @@ BIF_RETTYPE erts_internal_map_hashmap_children_1(BIF_ALIST_1) {
                 BIF_ERROR(BIF_P, BADARG);
             case HAMT_SUBTAG_HEAD_BITMAP:
                 ptr++;
+                ERTS_FALLTHROUGH();
             case HAMT_SUBTAG_NODE_BITMAP:
                 ptr++;
                 sz = hashmap_bitcount(MAP_HEADER_VAL(hdr));

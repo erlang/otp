@@ -1,4 +1,10 @@
-%% ``Licensed under the Apache License, Version 2.0 (the "License");
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+%%
+%% Copyright Ericsson AB 1999-2025. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
 %%
@@ -10,16 +16,24 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 %%
-%% The Initial Developer of the Original Code is Ericsson Utvecklings AB.
-%% Portions created by Ericsson are Copyright 1999, Ericsson Utvecklings
-%% AB. All Rights Reserved.''
+%% Alternatively, you may use this file under the terms of the GNU Lesser
+%% General Public License (the "LGPL") as published by the Free Software
+%% Foundation; either version 2.1, or (at your option) any later version.
+%% If you wish to allow use of your version of this file only under the
+%% terms of the LGPL, you should delete the provisions above and replace
+%% them with the notice and other provisions required by the LGPL; see
+%% <http://www.gnu.org/licenses/>. If you do not delete the provisions
+%% above, a recipient may use your version of this file under the terms of
+%% either the Apache License or the LGPL.
+%%
+%% %CopyrightEnd%
 
 -module(syntax_tools_SUITE).
 
 -include_lib("common_test/include/ct.hrl").
 
 %% Test server specific exports
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1,
 	 init_per_group/2,end_per_group/2]).
 
 %% Test cases
@@ -33,7 +47,7 @@
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
-all() -> 
+all() ->
     [app_test,appup_test,smoke_test,revert,revert_map,revert_map_type,
      revert_preserve_pos_changes,
      wrapped_subtrees,
@@ -42,7 +56,7 @@ all() ->
      t_comment_scan,t_prettypr,test_named_fun_bind_ann,
      test_maybe_expr_ann].
 
-groups() -> 
+groups() ->
     [].
 
 init_per_suite(Config) ->
@@ -93,7 +107,7 @@ print_error_markers(F, File) ->
 	_ ->
 	    ok
     end.
-    
+
 
 %% Read with erl_parse, wrap and revert with erl_syntax and check for equality.
 revert(Config) when is_list(Config) ->
@@ -334,9 +348,20 @@ t_erl_parse_type(Config) when is_list(Config) ->
 		     {"#{ a:=1, b:=2 }", map_expr,false},
 		     {"M#{ a=>1, b=>2 }", map_expr,false},
 		     {"[V||V <- Vs]", list_comp,false},
+		     {"[V||V <:- Vs]", list_comp,false},
 		     {"[catch V||V <- Vs]", list_comp,false},
 		     {"<< <<B>> || <<B>> <= Bs>>", binary_comp,false},
+		     {"<< <<B>> || <<B>> <:= Bs>>", binary_comp,false},
 		     {"<< (catch <<B>>) || <<B>> <= Bs>>", binary_comp,false},
+		     {"#{K => V || {K,V} <- KVs}", map_comp,false},
+		     {"#{K => V || {K,V} <:- KVs}", map_comp,false},
+		     {"#{K => (catch V) || {K,V} <- KVs}", map_comp,false},
+                     {"[V+W||V <- Vs && W <- Ws]", list_comp,false},
+                     {"[catch V+W||V <- Vs && W <- Ws]", list_comp,false},
+                     {"<< <<B>> || <<B>> <= Bs>>", binary_comp,false},
+                     {"<< (catch <<B>>) || <<B>> <= Bs>>", binary_comp,false},
+                     {"<< <<B:8,C:8>> || <<B>> <= Bs && <<C>> <= Cs>>", binary_comp,false},
+		     {"<< (catch <<B:8,C:8>>) || <<B>> <= Bs && <<C>> <= Cs>>", binary_comp,false},
 		     {"#state{ a = A, b = B}", record_expr,false},
 		     {"#state{}", record_expr,false},
 		     {"#s{ a = #def{ a=A }, b = B}", record_expr,false},
@@ -455,7 +480,17 @@ test_maybe_expr_ann(Config) when is_list(Config) ->
     [Env4, Bound4, Free4] = erl_syntax:get_ann(ElseAnn),
     {'env',[]} = Env4,
     {'bound',[]} = Bound4,
-    {'free',[]} = Free4.
+    {'free',[]} = Free4,
+
+    %% Test that it also works when there is no else clause
+    MaybeNoElse = erl_syntax:maybe_expr([MaybeMatch1, MaybeMatch2, Match1]),
+    MaybeNoElseAnn = erl_syntax_lib:annotate_bindings(MaybeNoElse, []),
+    [Env, Bound, Free] = erl_syntax:get_ann(MaybeNoElseAnn),
+    [MaybeMatchAnn1, MaybeMatchAnn2, MatchAnn1] = erl_syntax:maybe_expr_body(MaybeNoElseAnn),
+    NoElseAnn = erl_syntax:maybe_expr_else(MaybeNoElseAnn),
+    [] = erl_syntax:get_ann(NoElseAnn),
+
+    ok.
 
 test_files(Config) ->
     DataDir = ?config(data_dir, Config),

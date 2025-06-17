@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2000-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -228,7 +230,7 @@ call_to_size_1(Config) when is_list(Config) ->
     not_recommended_calls(Config, Apps, {erlang,size,1}).
 
 call_to_now_0(Config) when is_list(Config) ->
-    %% Forbid the use of erlang:now/1 in all applications except et.
+    %% Forbid the use of erlang:now/0 in all applications except et.
     Apps = all_otp_applications(Config) -- [et],
     not_recommended_calls(Config, Apps, {erlang,now,0}).
 

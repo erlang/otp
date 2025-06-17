@@ -1,6 +1,8 @@
 %%
 %% %CopyrightBegin%
 %%
+%% SPDX-License-Identifier: Apache-2.0
+%%
 %% Copyright Ericsson AB 2011-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
@@ -400,7 +402,7 @@ spawn_memory_lambda(Config) when is_list(Config) ->
     receive {'DOWN', MRef, process, Pid, _} -> ok end,
     1 = erlang_trace(self(), false, [all]),
     %% 16-elements list translates into 34-words for spawn, and 4 more words for apply itself
-    {call_memory, [{Pid, 1, 38}]} = erlang_trace_info({erlang, apply, 2}, call_memory).
+    {call_memory, [{Pid, 1, 37}]} = erlang_trace_info({erlang, apply, 2}, call_memory).
 
 spawn_memory_internal(Array) ->
     Array.

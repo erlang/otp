@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2001-2023. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2001-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -1570,7 +1572,6 @@ insert_offheap(ErlOffHeap *oh, int type, Eterm id)
             }
 	    break;
 	case BIN_REF_SUBTAG:
-	case FUN_REF_SUBTAG:
 	    break; /* No need to */
 	default:
 	    ASSERT(is_external_header(u.hdr->thing_word));
@@ -1599,7 +1600,7 @@ static void insert_monitor_data(ErtsMonitor *mon, int type, Eterm id)
     ErtsMonitorData *mdp = erts_monitor_to_data(mon);
     if ((mdp->origin.flags & (ERTS_ML_FLG_DBG_VISITED
                               | ERTS_ML_FLG_EXTENDED)) == ERTS_ML_FLG_EXTENDED) {
-        if (mon->type != ERTS_MON_TYPE_NODE) {
+        if (ERTS_ML_GET_TYPE(mon) != ERTS_MON_TYPE_NODE) {
             ErtsMonitorDataExtended *mdep = (ErtsMonitorDataExtended *) mdp;
             ASSERT(mon->flags & ERTS_ML_FLG_EXTENDED);
             if (mdep->uptr.ohhp) {
@@ -2176,7 +2177,7 @@ setup_reference_table(void)
     }
 
     /* Insert all ets tables */
-    erts_db_foreach_table(insert_ets_table, NULL, 0);
+    erts_db_foreach_table(insert_ets_table, NULL, false);
     erts_db_foreach_thr_prgr_offheap(insert_ets_offheap_thr_prgr, NULL);
 
     /* Insert all bif timers */

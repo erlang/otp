@@ -1,6 +1,8 @@
 %%
 %% %CopyrightBegin%
 %%
+%% SPDX-License-Identifier: Apache-2.0
+%%
 %% Copyright Ericsson AB 1996-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
@@ -115,6 +117,8 @@ network problem.
 `m:global_group`, `m:net_kernel`
 """.
 -behaviour(gen_server).
+
+-compile(nowarn_deprecated_catch).
 
 %% Global provides global registration of process names. The names are
 %% dynamically kept up to date with the entire network. Global can

@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2023-2023. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2023-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -72,11 +74,14 @@ const int etp_lock_check = 0;
 #endif
 const int etp_endianness = ERTS_ENDIANNESS;
 const Eterm etp_ref_header = ERTS_REF_THING_HEADER;
+const Eterm etp_pid_ref_header = ERTS_PID_REF_THING_HEADER;
 #ifdef ERTS_MAGIC_REF_THING_HEADER
 const Eterm etp_magic_ref_header = ERTS_MAGIC_REF_THING_HEADER;
 #else
 const Eterm etp_magic_ref_header = ERTS_REF_THING_HEADER;
 #endif
+const int etp_ref_numbers = ERTS_REF_NUMBERS;
+const int etp_pid_ref_numbers = ERTS_PID_REF_NUMBERS;
 const Eterm etp_the_non_value = THE_NON_VALUE;
 #ifdef TAG_LITERAL_PTR
 const Eterm etp_ptr_mask = (~(Eterm)7);
@@ -98,7 +103,6 @@ const Eterm etp_pos_big_subtag = POS_BIG_SUBTAG;
 const Eterm etp_neg_big_subtag = NEG_BIG_SUBTAG;
 const Eterm etp_ref_subtag = REF_SUBTAG;
 const Eterm etp_fun_subtag = FUN_SUBTAG;
-const Eterm etp_fun_ref_subtag = FUN_REF_SUBTAG;
 const Eterm etp_float_subtag = FLOAT_SUBTAG;
 const Eterm etp_bitstring_tag_mask = _BITSTRING_TAG_MASK;
 const Eterm etp_heap_bits_subtag = HEAP_BITS_SUBTAG;

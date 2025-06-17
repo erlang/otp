@@ -2,6 +2,8 @@
      * Generated automatically by makefixed().
      */
 
+    /* SPDX-License-Identifier: Zlib */
+
     /* WARNING: this file should *not* be used by applications.
        It is part of the implementation of this library and is
        subject to change. Applications should only use zlib.h.

@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1997-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -243,6 +245,8 @@ way, option `send_timeout` comes in handy.
 """.
 
 
+-compile(nowarn_deprecated_catch).
+
 -export([connect/2, connect/3, connect/4,
          listen/2,
          accept/1, accept/2,
@@ -288,7 +292,7 @@ way, option `send_timeout` comes in handy.
         {reuseaddr,       boolean()} |
         {reuseport,       boolean()} |
         {reuseport_lb,    boolean()} |
-        {send_timeout,    non_neg_integer() | infinity} |
+        {send_timeout,    timeout()} |
         {send_timeout_close, boolean()} |
         {show_econnreset, boolean()} |
         {sndbuf,          non_neg_integer()} |
@@ -780,7 +784,7 @@ on the socket until that buffered data has been written to the OS
 protocol stack.  If any errors are encountered, the socket is closed
 and `{error, closed}` is returned by the next `recv/2` or `send/2` call.
 
-Option `{exit_on_close, false}` is useful if the peer performs a shurdown
+Option `{exit_on_close, false}` is useful if the peer performs a shutdown
 of its write side.  Then the socket stays open for writing after
 receive has indicated that the socket was closed.
 

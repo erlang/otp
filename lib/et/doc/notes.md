@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2025. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -25,6 +27,16 @@ incompatibilities as well as all enhancements and bugfixes for every release of
 `Event Tracer (ET)`. Each release of `Event Tracer (ET) `thus constitutes one
 section in this document. The title of each section is the version number of
 `Event Tracer (ET)`.
+
+## ET 1.7.2
+
+### Improvements and New Features
+
+- The license and copyright header has changed format to include an `SPDX-License-Identifier`. At the same time, most files have been updated to follow a uniform standard for license headers.
+
+  Own Id: OTP-19575 Aux Id: [PR-9670]
+
+[PR-9670]: https://github.com/erlang/otp/pull/9670
 
 ## ET 1.7.1
 

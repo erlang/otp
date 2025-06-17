@@ -1,5 +1,7 @@
 %%
 %% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
 %% 
 %% Copyright Ericsson AB 1999-2025. All Rights Reserved.
 %% 
@@ -26,15 +28,15 @@
 	 not_used/1, in_guard/1,
 	 mem_leak/1, coerce_to_float/1, bjorn/1, append_empty_is_same/1,
 	 huge_float_field/1, system_limit/1, badarg/1,
-	 copy_writable_binary/1, kostis/1, dynamic/1, bs_add/1,
+	 copy_writable_binary/1, kostis/1, dynamic/1,
 	 otp_7422/1, zero_width/1, bad_append/1, bs_append_overflow/1,
          bs_append_offheap/1,
          reductions/1, fp16/1, zero_init/1, error_info/1, little/1,
-         heap_binary_unit/1,
-         otp_24_code_gh_8238/1,
+         heap_binary_unit/1, floats/1,
          many_segments/1]).
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("stdlib/include/assert.hrl").
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -44,11 +46,10 @@ all() ->
     [test1, test2, test3, test4, test5, testf, not_used,
      in_guard, mem_leak, coerce_to_float, bjorn, append_empty_is_same,
      huge_float_field, system_limit, badarg,
-     copy_writable_binary, kostis, dynamic, bs_add, otp_7422, zero_width,
+     copy_writable_binary, kostis, dynamic, otp_7422, zero_width,
      bad_append, bs_append_overflow, bs_append_offheap,
      reductions, fp16, zero_init,
-     error_info, little, heap_binary_unit,
-     otp_24_code_gh_8238,
+     error_info, little, heap_binary_unit, floats,
      many_segments].
 
 init_per_suite(Config) ->
@@ -861,75 +862,6 @@ dynamic_little(Bef, N, Int, Lpad, Rpad) ->
     <<LpadMasked:Bef/little,MaskedInt:N/little,RpadMasked:Rbits/little>> = id(Bin),
     ok.
 
-%% Test that the bs_add/5 instruction handles big numbers correctly.
-bs_add(Config) when is_list(Config) ->
-    Mod = list_to_atom(atom_to_list(?MODULE) ++ "_" ++
-                           atom_to_list(?FUNCTION_NAME)),
-    N = 2000,
-    Code = [{module, Mod},
-	    {exports, [{bs_add,2}]},
-	    {labels, 2},
-
-	    %% bs_add(Number, -SmallestBig) -> Number + N
-	    {function, bs_add, 2, 2},
-	    {label,1},
-	    {func_info,{atom,Mod},{atom,bs_add},2},
-
-	    {label,2},
-	    {move,{x,0},{x,2}}] ++
-	lists:duplicate(N-1, {bs_add,{f,0},[{x,2},{integer,1},1],{x,2}}) ++
-	[{gc_bif,abs,{f,0},3,[{x,1}],{x,4}},	%Force GC, ignore result.
-	 {gc_bif,'+',{f,0},3,[{x,2},{integer,1}],{x,0}}, %Safe result in {x,0}
-	 return],
-
-    %% Write assembly file and assemble it.
-    PrivDir = proplists:get_value(priv_dir, Config),
-    RootName = filename:join(PrivDir, atom_to_list(Mod)),
-    AsmFile = RootName ++ ".S",
-    {ok,Fd} = file:open(AsmFile, [write]),
-    [io:format(Fd, "~p. \n", [T]) || T <- Code],
-    ok = file:close(Fd),
-    {ok,Mod} = compile:file(AsmFile, [from_asm,report,{outdir,PrivDir}]),
-    LoadRc = code:load_abs(RootName),
-    {module,_Module} = LoadRc,
-
-    %% Find smallest positive bignum.
-    SmallestBig = smallest_big(),
-    io:format("~p\n", [SmallestBig]),
-    DoTest = fun() ->
-		     exit(Mod:bs_add(SmallestBig, -SmallestBig))
-	     end,
-    {Pid,Mref} = spawn_monitor(DoTest),
-    receive
-	{'DOWN',Mref,process,Pid,Res} -> ok
-    end,
-
-    case erlang:system_info(wordsize) of
-        8 ->
-            %% bignum-sized binaries must system_limit on 64-bit platforms
-            {system_limit, _} = Res;
-        4 ->
-            Res = SmallestBig + N
-    end,
-
-    %% Clean up.
-    ok = file:delete(AsmFile),
-    ok = file:delete(code:which(Mod)),
-    _ = code:delete(Mod),
-    _ = code:purge(Mod),
-
-    ok.
-
-
-smallest_big() ->
-    smallest_big_1(1 bsl 24).
-
-smallest_big_1(N) ->
-    case erts_debug:flat_size(N) of
-	0 -> smallest_big_1(N+N);
-	_  -> N
-    end.
-
 otp_7422(Config) when is_list(Config) ->
     otp_7422_int(0),
     otp_7422_bin(0).
@@ -961,14 +893,55 @@ zero_width(Config) when is_list(Config) ->
     Z = id(0),
     Small = id(42),
     Big = id(1 bsl 128),
+
     <<>> = <<Small:Z>>,
     <<>> = <<Small:0>>,
     <<>> = <<Big:Z>>,
     <<>> = <<Big:0>>,
+
+    append_zero_width(<<>>),
+    append_zero_width(<<1:1>>),
+    append_zero_width(<<-1:9>>),
+    append_zero_width(<<"abc">>),
+
+    Bin = id(<<"abc">>),
+    append_zero_width(id(<<Bin/binary, "def">>)),
+    append_zero_width(id(<<Bin/binary, 1:1>>)),
+    append_zero_width(id(<<Bin/binary, -1:9>>)),
     
     {'EXIT',{badarg,_}} = (catch <<not_a_number:0>>),
     {'EXIT',{badarg,_}} = (catch <<(id(not_a_number)):Z>>),
     {'EXIT',{badarg,_}} = (catch <<(id(not_a_number)):0>>),
+
+    ok.
+
+append_zero_width(Base) ->
+    Z = id(0),
+    Small = id(42),
+    Big = id(1 bsl 128),
+    Float = id(42.0),
+    EmptyBin = id(<<>>),
+    Bin = id(~"xyz"),
+
+    Base = id(<<Base/bitstring, Small:Z/big-integer>>),
+    Base = id(<<Base/bitstring, Small:0/big-integer>>),
+    Base = id(<<Base/bitstring, Small:Z/little-integer>>),
+    Base = id(<<Base/bitstring, Small:0/little-integer>>),
+
+    Base = id(<<Base/bitstring, Big:Z/big-integer>>),
+    Base = id(<<Base/bitstring, Big:0/big-integer>>),
+    Base = id(<<Base/bitstring, Big:Z/little-integer>>),
+    Base = id(<<Base/bitstring, Big:0/little-integer>>),
+
+    ?assertError(badarg, <<Base/bitstring, Float:Z/big-float>>),
+    ?assertError(badarg, <<Base/bitstring, Float:Z/little-float>>),
+    ?assertError(badarg, <<Base/bitstring, Float:0/big-float>>),
+    ?assertError(badarg, <<Base/bitstring, Float:0/little-float>>),
+
+    Base = id(<<Base/bitstring, EmptyBin:Z/binary>>),
+    Base = id(<<Base/bitstring, EmptyBin:0/binary>>),
+    Base = id(<<Base/bitstring, Bin:Z/binary>>),
+    Base = id(<<Base/bitstring, Bin:0/binary>>),
 
     ok.
 
@@ -1148,6 +1121,8 @@ fp16(_Config) ->
     ?FP16(16#3c01, 1.00097656),
     %% rounding of 1/3 to nearest
     ?FP16(16#3555, 0.33325195),
+    %% infinity
+    ?FP16(16#7c00, 1000000000),
     %% others
     ?FP16(16#4000, 2),
     ?FP16(16#4000, 2.0),
@@ -1403,16 +1378,6 @@ do_zero_init_1(Size, LPad, RPad) ->
         end()).
 
 error_info(_Config) ->
-    case ?MODULE of
-        bs_construct_r24_SUITE ->
-            %% Error information is not implemented for old bit syntax
-            %% instructions.
-            ok;
-        _ ->
-            error_info()
-    end.
-
-error_info() ->
     Atom = id(some_atom),
     NegSize = id(-1),
     HugeNegSize = id(-1 bsl 64),
@@ -1720,20 +1685,253 @@ heap_binary_unit_2(Variant, Rest) ->
             {error2, Bin2}
     end.
 
-otp_24_code_gh_8238(Config) ->
-    case ?MODULE of
-        bs_construct_SUITE ->
-            %% GH-8238. Code compiled with Erlang/OTP 24 would crash
-            %% when run on OTP-26.2.3.
-            DataDir = proplists:get_value(data_dir, Config),
-            Asm = filename:join(DataDir, atom_to_list(?FUNCTION_NAME) ++ ".S"),
-            {ok,Mod,Beam} = compile:file(Asm, [binary,from_asm,report]),
-            {module,Mod} = code:load_binary(Mod, "", Beam),
-            Mod:Mod(),
-            ok;
-        _ ->
-            {skip,"Enough to run once"}
-    end.
+floats(_Config) ->
+    _ = rand:uniform(),				%Seed generator
+    io:format("Seed: ~p", [rand:export_seed()]),
+
+    %% Random floats.
+    _ = [do_float(rand:uniform() * math:pow(10.0, rand:uniform(20))) ||
+            _ <- lists:seq(1, 20)],
+
+    %% Random floats with powers of 10 near the upper limit representable
+    %% as a 64-bit float.
+    _ = [do_float(rand:uniform() * math:pow(10.0, 300 + rand:uniform(7))) ||
+            _ <- lists:seq(1, 10)],
+
+    %% Random small integers.
+    _ = [do_float(rand:uniform(1_000_000)) || _ <- lists:seq(1, 10)],
+
+    %% Random big integers.
+    _ = [do_float(rand:uniform(1_000_000) bsl 64) || _ <- lists:seq(1, 10)],
+
+    do_float(-0.0),
+    do_float(+0.0),
+
+    ok.
+
+do_float(F) ->
+    do_float(F, 0).
+
+do_float(_F, 32) ->
+    ok;
+do_float(F, N) ->
+    Pad = rand:uniform(1 bsl N) - 1,
+    true = is_integer(Pad),
+
+    do_float_be_16(F, N, Pad),
+    do_float_be_32(F, N, Pad),
+    do_float_be_64(F, N, Pad),
+
+    do_float_le_16(F, N, Pad),
+    do_float_le_32(F, N, Pad),
+    do_float_le_64(F, N, Pad),
+
+    do_float(F, N + 1).
+
+do_float_be_16(F, N, Pad) ->
+    FloatBin = id(<<F:16/big-float>>),
+    Bin = id(<<Pad:N, F:16/big-float>>),
+    Bin = id(<<Pad:N, (id(F)):16/big-float>>),
+    Bin = <<Pad:N, F:(id(16))/big-float>>,
+    Bin = <<Pad:N, (id(F)):(id(16))/big-float>>,
+    <<Pad:N, FloatBin/binary>> = Bin,
+
+    if
+        is_float(F) ->
+            %% Construct float segment of a known float.
+            FloatBin = id(<<F:16/big-float>>),
+            Bin = <<Pad:N, F:(id(16))/big-float>>,
+            Bin = case N of
+                      15 -> <<Pad:N, F:16/big-float>>;
+                      21 -> <<Pad:N, F:16/big-float>>;
+                      _ -> <<Pad:N, F:16/big-float>>
+                  end;
+        is_integer(F) ->
+            %% Construct float segment of a known integer.
+            FloatBin = id(<<F:16/big-float>>),
+            Bin = <<Pad:N, F:(id(16))/big-float>>,
+            Bin = case N of
+                      1 -> <<Pad:N, F:16/big-float>>;
+                      19 -> <<Pad:N, F:16/big-float>>;
+                      _ -> <<Pad:N, F:16/big-float>>
+                  end;
+        true ->
+            ok
+    end,
+
+    ok.
+
+do_float_be_32(F, N, Pad) ->
+    FloatBin = id(<<F:32/big-float>>),
+    Bin = id(<<Pad:N, F:32/big-float>>),
+    Bin = id(<<Pad:N, (id(F)):32/big-float>>),
+    Bin = <<Pad:N, F:(id(32))/big-float>>,
+    Bin = <<Pad:N, (id(F)):(id(32))/big-float>>,
+    <<Pad:N, FloatBin/binary>> = Bin,
+
+    if
+        is_float(F) ->
+            %% Construct float segment of a known float.
+            FloatBin = id(<<F:32/big-float>>),
+            Bin = <<Pad:N, F:(id(32))/big-float>>,
+            Bin = case N of
+                      1 -> <<Pad:N, F:32/big-float>>;
+                      6 -> <<Pad:N, F:32/big-float>>;
+                      _ -> <<Pad:N, F:32/big-float>>
+                  end;
+        is_integer(F) ->
+            %% Construct float segment of a known integer.
+            FloatBin = id(<<F:32/big-float>>),
+            Bin = <<Pad:N, F:(id(32))/big-float>>,
+            Bin = case N of
+                      8 -> <<Pad:N, F:32/big-float>>;
+                      12 -> <<Pad:N, F:32/big-float>>;
+                      _ -> <<Pad:N, F:32/big-float>>
+                  end;
+        true ->
+            ok
+    end,
+
+    ok.
+
+do_float_be_64(F, N, Pad) ->
+    FloatBin = id(<<F:64/big-float>>),
+    Bin = id(<<Pad:N, F:64/big-float>>),
+    Bin = id(<<Pad:N, (id(F)):64/big-float>>),
+    Bin = <<Pad:N, F:(id(64))/big-float>>,
+    Bin = <<Pad:N, (id(F)):(id(64))/big-float>>,
+    <<Pad:N, FloatBin/binary>> = Bin,
+
+    if
+        is_float(F) ->
+            %% Construct float segment of a known float.
+            FloatBin = id(<<F:64/big-float>>),
+            Bin = <<Pad:N, F:(id(64))/big-float>>,
+            Bin = case N of
+                      7 -> <<Pad:N, F:64/big-float>>;
+                      13 -> <<Pad:N, F:64/big-float>>;
+                      _ -> <<Pad:N, F:64/big-float>>
+                  end,
+
+            %% Match out the original float.
+            <<Pad:N, F:64/big-float>> = Bin;
+        is_integer(F) ->
+            %% Construct float segment of a known integer.
+            FloatBin = id(<<F:64/big-float>>),
+            Bin = <<Pad:N, F:(id(64))/big-float>>,
+            Bin = case N of
+                      7 -> <<Pad:N, F:64/big-float>>;
+                      13 -> <<Pad:N, F:64/big-float>>;
+                      _ -> <<Pad:N, F:64/big-float>>
+                  end;
+        true ->
+            ok
+    end,
+
+    ok.
+
+do_float_le_16(F, N, Pad) ->
+    FloatBin = id(<<F:16/little-float>>),
+    Bin = id(<<Pad:N, F:16/little-float>>),
+    Bin = id(<<Pad:N, (id(F)):16/little-float>>),
+    Bin = <<Pad:N, F:(id(16))/little-float>>,
+    Bin = <<Pad:N, (id(F)):(id(16))/little-float>>,
+    <<Pad:N, FloatBin/binary>> = Bin,
+
+    if
+        is_float(F) ->
+            %% Construct float segment of a known float.
+            FloatBin = id(<<F:16/little-float>>),
+            Bin = <<Pad:N, F:(id(16))/little-float>>,
+            Bin = case N of
+                      11 -> <<Pad:N, F:16/little-float>>;
+                      27 -> <<Pad:N, F:16/little-float>>;
+                      _ -> <<Pad:N, F:16/little-float>>
+                  end;
+        is_integer(F) ->
+            %% Construct float segment of a known integer.
+            FloatBin = id(<<F:16/little-float>>),
+            Bin = <<Pad:N, F:(id(16))/little-float>>,
+            Bin = case N of
+                      7 -> <<Pad:N, F:16/little-float>>;
+                      13 -> <<Pad:N, F:16/little-float>>;
+                      _ -> <<Pad:N, F:16/little-float>>
+                  end;
+        true ->
+            ok
+    end,
+
+    ok.
+
+do_float_le_32(F, N, Pad) ->
+    FloatBin = id(<<F:32/little-float>>),
+    Bin = id(<<Pad:N, F:32/little-float>>),
+    Bin = id(<<Pad:N, (id(F)):32/little-float>>),
+    Bin = <<Pad:N, F:(id(32))/little-float>>,
+    Bin = <<Pad:N, (id(F)):(id(32))/little-float>>,
+    <<Pad:N, FloatBin/binary>> = Bin,
+
+    if
+        is_float(F) ->
+            %% Construct float segment of a known float.
+            FloatBin = id(<<F:32/little-float>>),
+            Bin = <<Pad:N, F:(id(32))/little-float>>,
+            Bin = case N of
+                      9 -> <<Pad:N, F:32/little-float>>;
+                      29 -> <<Pad:N, F:32/little-float>>;
+                      _ -> <<Pad:N, F:32/little-float>>
+                  end;
+       is_integer(F) ->
+            %% Construct float segment of a known integer.
+            FloatBin = id(<<F:32/little-float>>),
+            Bin = <<Pad:N, F:(id(32))/little-float>>,
+            Bin = case N of
+                      7 -> <<Pad:N, F:32/little-float>>;
+                      13 -> <<Pad:N, F:32/little-float>>;
+                      _ -> <<Pad:N, F:32/little-float>>
+                  end;
+        true ->
+            ok
+    end,
+
+    ok.
+
+do_float_le_64(F, N, Pad) ->
+    FloatBin = id(<<F:64/little-float>>),
+    Bin = id(<<Pad:N, F:64/little-float>>),
+    Bin = id(<<Pad:N, (id(F)):64/little-float>>),
+    Bin = <<Pad:N, F:(id(64))/little-float>>,
+    Bin = <<Pad:N, (id(F)):(id(64))/little-float>>,
+    <<Pad:N, FloatBin/binary>> = Bin,
+
+    if
+        is_float(F) ->
+            %% Construct float segment of a known float.
+            FloatBin = id(<<F:64/little-float>>),
+            Bin = <<Pad:N, F:(id(64))/little-float>>,
+            Bin = case N of
+                      9 -> <<Pad:N, F:64/little-float>>;
+                      29 -> <<Pad:N, F:64/little-float>>;
+                      _ -> <<Pad:N, F:64/little-float>>
+                  end,
+
+            %% Match out the original float.
+            <<Pad:N, F:64/little-float>> = Bin;
+        is_integer(F) ->
+            %% Construct float segment of a known integer.
+            FloatBin = id(<<F:64/little-float>>),
+            Bin = <<Pad:N, F:(id(64))/little-float>>,
+            Bin = case N of
+                      7 -> <<Pad:N, F:64/little-float>>;
+                      13 -> <<Pad:N, F:64/little-float>>;
+                      _ -> <<Pad:N, F:64/little-float>>
+                  end;
+        true ->
+            ok
+    end,
+
+    ok.
+
 
 %% GH-8815: Binary construction with "too many" segments failed to JIT on ARM.
 many_segments(_Config) ->

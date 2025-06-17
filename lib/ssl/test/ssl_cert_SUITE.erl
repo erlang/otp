@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2019-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2019-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,7 +27,7 @@
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("public_key/include/public_key.hrl").
--include("ssl_record.hrl").
+-include_lib("ssl/src/ssl_record.hrl").
 
 %% Common test
 -export([all/0,
@@ -169,20 +171,20 @@ groups() ->
      {'tlsv1', [], ssl_protocol_groups()},
      {'dtlsv1.2', [], tls_1_2_protocol_groups()},
      {'dtlsv1', [], ssl_protocol_groups()},
-     {rsa, [], all_version_tests() ++ rsa_tests() ++ pre_tls_1_3_rsa_tests() ++ [client_auth_seelfsigned_peer]},
-     {ecdsa, [], all_version_tests()},
-     {dsa, [], all_version_tests()},
-     {rsa_1_3, [], all_version_tests() ++ rsa_tests() ++
+     {rsa, [parallel], all_version_tests() ++ rsa_tests() ++ pre_tls_1_3_rsa_tests() ++ [client_auth_seelfsigned_peer]},
+     {ecdsa, [parallel], all_version_tests()},
+     {dsa, [parallel], all_version_tests()},
+     {rsa_1_3, [parallel], all_version_tests() ++ rsa_tests() ++
           tls_1_3_tests() ++ tls_1_3_rsa_tests() ++ [client_auth_seelfsigned_peer, basic_rsa_1024]},
-     {rsa_pss_rsae, [], all_version_tests() ++ tls_1_2_rsa_tests()},
-     {rsa_pss_rsae_1_3, [], all_version_tests() ++ rsa_tests() ++ tls_1_3_tests() ++ tls_1_3_rsa_tests()},
-     {rsa_pss_pss, [], all_version_tests()},
-     {rsa_pss_pss_1_3, [], all_version_tests() ++ rsa_tests() ++ tls_1_3_tests() ++ tls_1_3_rsa_tests()},
-     {ecdsa_1_3, [], all_version_tests() ++ tls_1_3_tests() ++
+     {rsa_pss_rsae, [parallel], all_version_tests() ++ tls_1_2_rsa_tests()},
+     {rsa_pss_rsae_1_3, [parallel], all_version_tests() ++ rsa_tests() ++ tls_1_3_tests() ++ tls_1_3_rsa_tests()},
+     {rsa_pss_pss, [parallel], all_version_tests()},
+     {rsa_pss_pss_1_3, [parallel], all_version_tests() ++ rsa_tests() ++ tls_1_3_tests() ++ tls_1_3_rsa_tests()},
+     {ecdsa_1_3, [parallel], all_version_tests() ++ tls_1_3_tests() ++
           [signature_algorithms_bad_curve_secp256r1,
            signature_algorithms_bad_curve_secp384r1,
            signature_algorithms_bad_curve_secp521r1]},
-     {eddsa_1_3, [], all_version_tests() ++ tls_1_3_tests()}
+     {eddsa_1_3, [parallel], all_version_tests() ++ tls_1_3_tests()}
     ].
 
 ssl_protocol_groups() ->
@@ -280,8 +282,8 @@ all_version_tests() ->
     ].
 
 init_per_suite(Config) ->
-    catch crypto:stop(),
-    try crypto:start() of
+    catch application:stop(crypto),
+    try application:start(crypto) of
 	ok ->
             Config
     catch _:_ ->
@@ -310,15 +312,15 @@ do_init_per_group(Group, Config0) when Group == rsa;
                                        Group == rsa_1_3 ->
     Config1 = ssl_test_lib:make_rsa_cert(Config0),
     Config = ssl_test_lib:make_rsa_1024_cert(Config1),
-    COpts = proplists:get_value(client_rsa_verify_opts, Config),
-    SOpts = proplists:get_value(server_rsa_opts, Config),
+    COpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    SOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
     Version = proplists:get_value(version, Config),
     [{cert_key_alg, rsa},
      {extra_client, ssl_test_lib:sig_algs(rsa, Version)},
      {extra_server, ssl_test_lib:sig_algs(rsa, Version)} |
      lists:delete(cert_key_alg,
-                  [{client_cert_opts, COpts},
-                   {server_cert_opts, SOpts} |
+                  [{client_cert_opts, fun() -> COpts end},
+                   {server_cert_opts, fun() -> SOpts end} |
                    lists:delete(server_cert_opts,
                                 lists:delete(client_cert_opts, Config))])];
 do_init_per_group(Alg, Config) when Alg == rsa_pss_rsae;
@@ -337,8 +339,8 @@ do_init_per_group(Alg, Config) when Alg == rsa_pss_rsae;
              {extra_client, ssl_test_lib:sig_algs(Alg, Version)},
              {extra_server, ssl_test_lib:sig_algs(Alg, Version)} |
              lists:delete(cert_key_alg,
-                          [{client_cert_opts, COpts},
-                           {server_cert_opts, SOpts} |
+                          [{client_cert_opts, fun() -> COpts end},
+                           {server_cert_opts, fun() -> SOpts end} |
                            lists:delete(server_cert_opts,
                                         lists:delete(client_cert_opts, Config))])];
         false ->
@@ -358,8 +360,8 @@ do_init_per_group(Alg, Config) when Alg == rsa_pss_rsae_1_3;
               server_config := SOpts} = ssl_test_lib:make_rsa_pss_pem(rsa_alg(Alg), [], Config, ""),
             [{cert_key_alg, rsa_alg(Alg)} |
              lists:delete(cert_key_alg,
-                          [{client_cert_opts, COpts},
-                           {server_cert_opts, SOpts} |
+                          [{client_cert_opts, fun() -> COpts end},
+                           {server_cert_opts, fun() -> SOpts end} |
                            lists:delete(server_cert_opts,
                                         lists:delete(client_cert_opts, Config))])];
         false ->
@@ -372,12 +374,12 @@ do_init_per_group(Group, Config0) when Group == ecdsa;
     case lists:member(ecdsa, PKAlg) andalso (lists:member(ecdh, PKAlg) orelse lists:member(dh, PKAlg)) of
         true ->
             Config = ssl_test_lib:make_ecdsa_cert(Config0),
-            COpts = proplists:get_value(client_ecdsa_verify_opts, Config),
-            SOpts = proplists:get_value(server_ecdsa_opts, Config),
+            COpts = ssl_test_lib:ssl_options(client_ecdsa_verify_opts, Config),
+            SOpts = ssl_test_lib:ssl_options(server_ecdsa_opts, Config),
             [{cert_key_alg, ecdsa} |
              lists:delete(cert_key_alg,
-                          [{client_cert_opts, COpts},
-                           {server_cert_opts, SOpts} |
+                          [{client_cert_opts, fun() -> COpts end},
+                           {server_cert_opts, fun() -> SOpts end} |
                            lists:delete(server_cert_opts,
                                         lists:delete(client_cert_opts, Config))]
                          )];
@@ -401,8 +403,8 @@ do_init_per_group(eddsa_1_3, Config0) ->
 
             [{cert_key_alg, eddsa} |
              lists:delete(cert_key_alg,
-                          [{client_cert_opts, COpts},
-                           {server_cert_opts, SOpts} |
+                          [{client_cert_opts, fun() -> COpts end},
+                           {server_cert_opts, fun() -> SOpts end} |
                            lists:delete(server_cert_opts,
                                         lists:delete(client_cert_opts, Config0))]
                          )];
@@ -415,8 +417,8 @@ do_init_per_group(dsa = Alg, Config0) ->
     case lists:member(dss, PKAlg) andalso lists:member(dh, PKAlg) of
         true ->
             Config = ssl_test_lib:make_dsa_cert(Config0),
-            COpts = proplists:get_value(client_dsa_opts, Config),
-            SOpts = proplists:get_value(server_dsa_opts, Config),
+            COpts = ssl_test_lib:ssl_options(client_dsa_opts, Config),
+            SOpts = ssl_test_lib:ssl_options(server_dsa_opts, Config),
             ShaDSA = case Version of
                          {3, 3} ->
                              [{signature_algs, [{sha, dsa}]}];
@@ -429,8 +431,8 @@ do_init_per_group(dsa = Alg, Config0) ->
              {extra_server, ssl_test_lib:sig_algs(Alg, Version) ++
                   [{ciphers, ssl_test_lib:dsa_suites(Version)}] ++ ShaDSA} |
              lists:delete(cert_key_alg,
-                          [{client_cert_opts, COpts},
-                           {server_cert_opts, SOpts} |
+                          [{client_cert_opts, fun() -> COpts end},
+                           {server_cert_opts, fun() -> SOpts end} |
                            lists:delete(server_cert_opts,
                                         lists:delete(client_cert_opts, Config))])];
         false ->
@@ -462,12 +464,12 @@ init_ecdsa_opts(Config0, Curve) ->
     case lists:member(ecdsa, PKAlg) andalso (lists:member(ecdh, PKAlg) orelse lists:member(dh, PKAlg)) of
         true ->
             Config = ssl_test_lib:make_rsa_ecdsa_cert(Config0, Curve),
-            COpts = proplists:get_value(client_ecdsa_verify_opts, Config),
-            SOpts = proplists:get_value(server_ecdsa_opts, Config),
+            COpts = ssl_test_lib:ssl_options(client_ecdsa_verify_opts, Config),
+            SOpts = ssl_test_lib:ssl_options(server_ecdsa_opts, Config),
             [{cert_key_alg, ecdsa} |
              lists:delete(cert_key_alg,
-                          [{client_cert_opts, ssl_test_lib:sig_algs(ecdsa, Version) ++ COpts},
-                           {server_cert_opts, ssl_test_lib:sig_algs(ecdsa, Version) ++ SOpts} |
+                          [{client_cert_opts, fun() -> ssl_test_lib:sig_algs(ecdsa, Version) ++ COpts end},
+                           {server_cert_opts, fun() -> ssl_test_lib:sig_algs(ecdsa, Version) ++ SOpts end} |
                            lists:delete(server_cert_opts,
                                         lists:delete(client_cert_opts, Config))]
                          )];

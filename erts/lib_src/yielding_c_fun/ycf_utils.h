@@ -1,7 +1,10 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB and Kjell Winblad 2019. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Kjell Winblad 2019. All Rights Reserved.
+ * Copyright Ericsson AB 2019-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,7 +32,6 @@
 #include <stdbool.h>
 
 
-void ycf_enable_gc(void);
 void ycf_enable_memory_tracking(void);
 void* ycf_malloc(size_t size);
 void ycf_malloc_log(char* log_file, char* log_entry_id);

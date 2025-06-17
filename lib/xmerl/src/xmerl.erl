@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2003-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -166,6 +168,11 @@ export(Content, Callbacks, RootAttrs) when is_list(Callbacks) ->
 
 
 -doc(#{equiv => export_simple(Content, Callback, [])}).
+-spec export_simple(Content, Callback) ->
+          ExportedFormat :: term() when
+      Content        :: [Element],
+      Element        :: simple_element(),
+      Callback       :: callback().
 export_simple(Content, Callback) ->
     export_simple(Content, Callback, []).
 

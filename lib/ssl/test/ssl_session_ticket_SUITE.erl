@@ -1,5 +1,8 @@
+%% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2022. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2019-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -14,7 +17,6 @@
 %% limitations under the License.
 %%
 %% %CopyrightEnd%
-%%
 
 -module(ssl_session_ticket_SUITE).
 
@@ -83,7 +85,7 @@
          stateless_multiple_servers/1]).
 
 -include("ssl_test_lib.hrl").
--include("tls_handshake.hrl").
+-include_lib("ssl/src/tls_handshake.hrl").
 -include_lib("common_test/include/ct.hrl").
 
 -define(SLEEP, 500).
@@ -144,8 +146,8 @@ mixed_tests() ->
     ].
 
 init_per_suite(Config0) ->
-    catch crypto:stop(),
-    try crypto:start() of
+    catch application:stop(crypto),
+    try application:start(crypto) of
 	ok ->
 	    ssl_test_lib:clean_start(),
             ssl_test_lib:make_rsa_cert(Config0)
@@ -570,10 +572,12 @@ hello_retry_request(Config) when is_list(Config) ->
     %% Configure session tickets
     ClientOpts = [{session_tickets, auto},
                   {versions, ['tlsv1.2','tlsv1.3']},
-                  {supported_groups,[secp256r1, x25519]}|ClientOpts0],
+                  {supported_groups,[secp256r1, x25519]}|
+                  proplists:delete(versions, ClientOpts0)],
     ServerOpts = [{session_tickets, ServerTicketMode},
                   {versions, ['tlsv1.2','tlsv1.3']},
-                  {supported_groups, [x448, x25519]}|ServerOpts0],
+                  {supported_groups, [x448, x25519]}|
+                  proplists:delete(versions, ServerOpts0)],
 
     Server0 =
 	ssl_test_lib:start_server([{node, ServerNode}, {port, 0},

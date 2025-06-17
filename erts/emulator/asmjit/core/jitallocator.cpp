@@ -448,7 +448,7 @@ static inline JitAllocatorPrivateImpl* JitAllocatorImpl_new(const JitAllocator::
   // Setup pool count to [1..3].
   size_t poolCount = 1;
   if (Support::test(options, JitAllocatorOptions::kUseMultiplePools))
-    poolCount = kJitAllocatorMultiPoolCount;;
+    poolCount = kJitAllocatorMultiPoolCount;
 
   // Setup block size [64kB..256MB].
   if (blockSize < 64 * 1024 || blockSize > 256 * 1024 * 1024 || !Support::isPowerOf2(blockSize))
@@ -744,26 +744,28 @@ void JitAllocator::reset(ResetPolicy resetPolicy) noexcept {
     JitAllocatorPool& pool = impl->pools[poolId];
     JitAllocatorBlock* block = pool.blocks.first();
 
-    JitAllocatorBlock* blockToKeep = nullptr;
-    if (resetPolicy != ResetPolicy::kHard && uint32_t(impl->options & JitAllocatorOptions::kImmediateRelease) == 0) {
-      blockToKeep = block;
-      block = block->next();
-    }
-
-    while (block) {
-      JitAllocatorBlock* next = block->next();
-      JitAllocatorImpl_deleteBlock(impl, block);
-      block = next;
-    }
-
     pool.reset();
 
-    if (blockToKeep) {
-      blockToKeep->_listNodes[0] = nullptr;
-      blockToKeep->_listNodes[1] = nullptr;
-      JitAllocatorImpl_wipeOutBlock(impl, blockToKeep);
-      JitAllocatorImpl_insertBlock(impl, blockToKeep);
-      pool.emptyBlockCount = 1;
+    if (block) {
+      JitAllocatorBlock* blockToKeep = nullptr;
+      if (resetPolicy != ResetPolicy::kHard && uint32_t(impl->options & JitAllocatorOptions::kImmediateRelease) == 0) {
+        blockToKeep = block;
+        block = block->next();
+      }
+
+      while (block) {
+        JitAllocatorBlock* next = block->next();
+        JitAllocatorImpl_deleteBlock(impl, block);
+        block = next;
+      }
+
+      if (blockToKeep) {
+        blockToKeep->_listNodes[0] = nullptr;
+        blockToKeep->_listNodes[1] = nullptr;
+        JitAllocatorImpl_wipeOutBlock(impl, blockToKeep);
+        JitAllocatorImpl_insertBlock(impl, blockToKeep);
+        pool.emptyBlockCount = 1;
+      }
     }
   }
 }
@@ -1387,6 +1389,11 @@ static void BitVectorRangeIterator_testRandom(Random& rnd, size_t count) noexcep
   }
 }
 
+static void test_jit_allocator_reset_empty() noexcept {
+  JitAllocator allocator;
+  allocator.reset(ResetPolicy::kSoft);
+}
+
 static void test_jit_allocator_alloc_release() noexcept {
   size_t kCount = BrokenAPI::hasArg("--quick") ? 20000 : 100000;
 
@@ -1399,11 +1406,12 @@ static void test_jit_allocator_alloc_release() noexcept {
 
   using Opt = JitAllocatorOptions;
 
+  VirtMem::HardenedRuntimeInfo hri = VirtMem::hardenedRuntimeInfo();
+
   TestParams testParams[] = {
     { "Default"                                    , Opt::kNone, 0, 0 },
     { "16MB blocks"                                , Opt::kNone, 16 * 1024 * 1024, 0 },
     { "256B granularity"                           , Opt::kNone, 0, 256 },
-    { "kUseDualMapping"                            , Opt::kUseDualMapping , 0, 0 },
     { "kUseMultiplePools"                          , Opt::kUseMultiplePools, 0, 0 },
     { "kFillUnusedMemory"                          , Opt::kFillUnusedMemory, 0, 0 },
     { "kImmediateRelease"                          , Opt::kImmediateRelease, 0, 0 },
@@ -1411,6 +1419,7 @@ static void test_jit_allocator_alloc_release() noexcept {
     { "kUseLargePages"                             , Opt::kUseLargePages, 0, 0 },
     { "kUseLargePages | kFillUnusedMemory"         , Opt::kUseLargePages | Opt::kFillUnusedMemory, 0, 0 },
     { "kUseLargePages | kAlignBlockSizeToLargePage", Opt::kUseLargePages | Opt::kAlignBlockSizeToLargePage, 0, 0 },
+    { "kUseDualMapping"                            , Opt::kUseDualMapping , 0, 0 },
     { "kUseDualMapping | kFillUnusedMemory"        , Opt::kUseDualMapping | Opt::kFillUnusedMemory, 0, 0 }
   };
 
@@ -1427,6 +1436,12 @@ static void test_jit_allocator_alloc_release() noexcept {
   }
 
   for (uint32_t testId = 0; testId < ASMJIT_ARRAY_SIZE(testParams); testId++) {
+    // Don't try to allocate dual-mapping if dual mapping is not possible - it would fail the test.
+    if (Support::test(testParams[testId].options, JitAllocatorOptions::kUseDualMapping) &&
+        !Support::test(hri.flags, VirtMem::HardenedRuntimeFlags::kDualMapping)) {
+      continue;
+    }
+
     INFO("JitAllocator(%s)", testParams[testId].name);
 
     JitAllocator::CreateParams params {};
@@ -1545,6 +1560,7 @@ static void test_jit_allocator_query() noexcept {
 }
 
 UNIT(jit_allocator) {
+  test_jit_allocator_reset_empty();
   test_jit_allocator_alloc_release();
   test_jit_allocator_query();
 }

@@ -1,6 +1,8 @@
 %%
 %% %CopyrightBegin%
 %%
+%% SPDX-License-Identifier: Apache-2.0
+%%
 %% Copyright Ericsson AB 2018-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
@@ -25,8 +27,6 @@
 
 -include("ssl_internal.hrl").
 -include("ssl_alert.hrl").
--include("ssl_handshake.hrl").
--include("ssl_api.hrl").
 -include("ssl_record.hrl").
 -include("tls_handshake_1_3.hrl").
 
@@ -43,7 +43,6 @@
          peer_renegotiate/1,
          downgrade/2,
          update_connection_state/3,
-         dist_tls_socket/1,
          dist_handshake_complete/3]).
 
 %% gen_statem callbacks
@@ -63,8 +62,6 @@
          role,
          socket,
          socket_options,
-         erl_dist,
-         trackers,
          transport_cb,
          negotiated_version,
          renegotiate_at,
@@ -193,12 +190,6 @@ downgrade(Pid, Timeout) ->
 %%--------------------------------------------------------------------
 dist_handshake_complete(ConnectionPid, Node, DHandle) ->
     gen_statem:call(ConnectionPid, {dist_handshake_complete, Node, DHandle}).
-%%--------------------------------------------------------------------
--spec dist_tls_socket(pid()) -> {ok, #sslsocket{}}. 
-%%  Description: To enable distribution startup to get a proper "#sslsocket{}" 
-%%--------------------------------------------------------------------
-dist_tls_socket(Pid) ->
-    gen_statem:call(Pid, dist_get_tls_socket).
 
 %%%===================================================================
 %%% gen_statem callbacks
@@ -233,7 +224,6 @@ init({call, From}, {Pid, #{current_write := WriteState,
                            socket := Socket,
                            socket_options := SockOpts,
                            erl_dist := IsErlDist,
-                           trackers := Trackers,
                            transport_cb := Transport,
                            negotiated_version := Version,
                            renegotiate_at := RenegotiateAt,
@@ -256,8 +246,7 @@ init({call, From}, {Pid, #{current_write := WriteState,
                                                 role = Role,
                                                 socket = Socket,
                                                 socket_options = SockOpts,
-                                                erl_dist = IsErlDist,
-                                                trackers = Trackers,
+                                                dist_handle = IsErlDist,
                                                 transport_cb = Transport,
                                                 negotiated_version = Version,
                                                 renegotiate_at = RenegotiateAt,
@@ -266,6 +255,8 @@ init({call, From}, {Pid, #{current_write := WriteState,
                                                 hibernate_after = HibernateAfter,
                                                 keylog_fun = Fun}},
     proc_lib:set_label({tls_sender, Role, {connection, Pid}}),
+    put(log_level, LogLevel),
+    put(tls_role, Role),
     {next_state, handshake, StateData, [{reply, From, ok}]};
 init(info = Type, Msg, StateData) ->
     handle_common(init, Type, Msg, StateData);
@@ -279,15 +270,8 @@ init(_, _, _) ->
            StateData :: term()) ->
                   gen_statem:event_handler_result(atom()).
 %%--------------------------------------------------------------------
-connection({call, From}, {application_data, AppData}, 
-           #data{env = #env{socket_options = #socket_options{packet = Packet}}} =
-               StateData) ->
-    case encode_packet(Packet, AppData) of
-        {error, _} = Error ->
-            {next_state, connection, StateData, [{reply, From, Error}]};
-        Data ->
-            send_application_data(Data, From, connection, StateData)
-    end;
+connection({call, From}, {application_data, Data}, StateData) ->
+    send_application_data(Data, From, connection, StateData);
 connection({call, From}, {post_handshake_data, HSData}, StateData) ->
     send_post_handshake_data(HSData, From, connection, StateData);
 connection({call, From}, {ack_alert, #alert{} = Alert}, StateData0) ->
@@ -302,33 +286,21 @@ connection({call, From}, downgrade, #data{connection_states =
     {next_state, death_row, StateData, [{reply,From, {ok, Write}}]};
 connection({call, From}, {set_opts, Opts}, StateData) ->
     handle_set_opts(connection, From, Opts, StateData);
-connection({call, From}, dist_get_tls_socket, 
-           #data{env = #env{transport_cb = Transport,
-                                  socket = Socket,
-                                  connection_pid = Pid,
-                                  trackers = Trackers}} = StateData) ->
-    TLSSocket = tls_gen_connection:socket([Pid, self()], Transport, Socket, Trackers),
-    hibernate_after(connection, StateData, [{reply, From, {ok, TLSSocket}}]);
 connection({call, From}, {dist_handshake_complete, _Node, DHandle},
-           #data{env = #env{connection_pid = Pid} = Env} = StateData) ->
+           #data{env = #env{connection_pid = Pid} = Env} = StateData0) ->
     false = erlang:dist_ctrl_set_opt(DHandle, get_size, true),
     ok = erlang:dist_ctrl_input_handler(DHandle, Pid),
     ok = ssl_gen_statem:dist_handshake_complete(Pid, DHandle),
     %% From now on we execute on normal priority
     process_flag(priority, normal),
 
+    StateData = StateData0#data{env = Env#env{dist_handle = DHandle}},
     case dist_data(DHandle) of
         [] ->
-            hibernate_after(connection,
-                            StateData#data{
-                              env = Env#env{dist_handle = DHandle}},
-                            [{reply,From,ok}]);
+            hibernate_after(connection, StateData, [{reply,From,ok}]);
         Data ->
-            {keep_state,
-             StateData#data{env = Env#env{dist_handle = DHandle}},
-             [{reply,From,ok},
-              {next_event, internal,
-               {application_packets, {self(),undefined}, Data}}]}
+            {keep_state, StateData,
+             [{reply,From,ok}, {next_event, internal, {application_packets, dist_data, Data}}]}
     end;
 connection({call, From}, get_application_traffic_secret, #data{env = #env{num_key_updates = N}} = Data) ->
     CurrentWrite = maps:get(current_write, Data#data.connection_states),
@@ -348,19 +320,15 @@ connection(cast, {new_write, WritesState, Version},
            #data{connection_states = ConnectionStates, env = Env} = StateData) ->
     hibernate_after(connection,
                     StateData#data{connection_states =
-                                       ConnectionStates#{current_write => WritesState},
+                                       ConnectionStates#{current_write => maps:remove(aead_handle, WritesState)},
                                    env =
                                        Env#env{negotiated_version = Version}}, []);
 %%
 connection(info, dist_data,
            #data{env = #env{dist_handle = DHandle}} = StateData) ->
       case dist_data(DHandle) of
-          [] ->
-              hibernate_after(connection, StateData, []);
-          Data ->
-              {keep_state_and_data,
-               [{next_event, internal,
-                 {application_packets, {self(),undefined}, Data}}]}
+          [] -> hibernate_after(connection, StateData, []);
+          Data -> send_application_data(Data, dist_data, connection, StateData)
       end;
 connection(info, tick, StateData) ->  
     consume_ticks(),
@@ -394,12 +362,13 @@ handshake({call, _}, _, _) ->
     {keep_state_and_data, [postpone]};
 handshake(internal, {application_packets,_,_}, _) ->
     {keep_state_and_data, [postpone]};
-handshake(cast, {new_write, WriteState, Version},
+handshake(cast, {new_write, WriteState0, Version},
           #data{connection_states = ConnectionStates0,
                 env = #env{key_update_at = KeyUpdateAt0,
                                  role = Role,
                                  num_key_updates = N,
                                  keylog_fun = Fun} = Env} = StateData) ->
+    WriteState = maps:remove(aead_handle, WriteState0),
     ConnectionStates = ConnectionStates0#{current_write => WriteState},
     KeyUpdateAt = key_update_at(Version, WriteState, KeyUpdateAt0),
      case Version of
@@ -468,101 +437,89 @@ handle_set_opts(StateName, From, Opts,
                 = StateData) ->
     hibernate_after(StateName,
                     StateData#data{
-                      env =
-                          Env#env{
-                            socket_options = set_opts(SockOpts, Opts)}},
+                      env = Env#env{
+                                 socket_options = set_opts(SockOpts, Opts)}},
                     [{reply, From, ok}]).
 
-handle_common(StateName, {call, From}, {set_opts, Opts},
-  #data{env = #env{socket_options = SockOpts} = Env} = StateData) ->
-    hibernate_after(StateName,
-                    StateData#data{
-                      env =
-                          Env#env{
-                            socket_options = set_opts(SockOpts, Opts)}},
-     [{reply, From, ok}]);
-handle_common(_StateName, info, {'EXIT', _Sup, shutdown = Reason},
-              #data{env = #env{erl_dist = true}} = StateData) ->
-    %% When the connection is on its way down operations
-    %% begin to fail. We wait to receive possible exit signals
-    %% for one of our links to the other involved distribution parties,
-    %% in which case we want to use their exit reason
-    %% for the connection teardown.
-    death_row_shutdown(Reason, StateData);
-handle_common(_StateName, info, {'EXIT', _Dist, Reason},
-              #data{env = #env{erl_dist = true}} = StateData) ->
-    {stop, {shutdown, Reason}, StateData};
+handle_common(StateName, {call, From}, {set_opts, Opts}, StateData) ->
+    handle_set_opts(StateName, From, Opts, StateData);
+handle_common(_StateName, info, {'EXIT', _Sup, Reason},
+              #data{env = #env{dist_handle = DistHandle}} = StateData)
+  when DistHandle =/= undefined ->
+    case Reason of
+        shutdown ->
+            %% When the connection is on its way down operations
+            %% begin to fail. We wait to receive possible exit signals
+            %% for one of our links to the other involved distribution parties,
+            %% in which case we want to use their exit reason
+            %% for the connection teardown.
+            death_row_shutdown(Reason, StateData);
+        _ ->
+            {stop, {shutdown, Reason}, StateData}
+    end;
 handle_common(_StateName, info, {'EXIT', _Sup, shutdown}, StateData) ->
     {stop, shutdown, StateData};
-handle_common(StateName, info, Msg,
-              #data{env = #env{log_level = Level}} = StateData) ->
-    ssl_logger:log(info, Level, #{event => "TLS sender received unexpected info",
-                                  reason => [{message, Msg}]}, ?LOCATION),
+handle_common(StateName, info, Msg, StateData) ->
+    ?SSL_LOG(info, "TLS sender received unexpected info", [{message, Msg}]),
     hibernate_after(StateName, StateData, []);
-handle_common(StateName, Type, Msg,
-              #data{env = #env{log_level = Level}} = StateData) ->
-    ssl_logger:log(error, Level, #{event => "TLS sender received unexpected event",
-                                   reason => [{type, Type}, {message, Msg}]}, ?LOCATION),
+handle_common(StateName, Type, Msg, StateData) ->
+    ?SSL_LOG(error, "TLS sender received unexpected event",
+             [{type, Type}, {message, Msg}]),
     hibernate_after(StateName, StateData, []).
 
 send_tls_alert(#alert{} = Alert,
                #data{env = #env{negotiated_version = Version,
                                       socket = Socket,
-                                      transport_cb = Transport,
-                                      log_level = LogLevel},
+                                      transport_cb = Transport},
                      connection_states = ConnectionStates0} = StateData0) ->
     {BinMsg, ConnectionStates} =
 	tls_record:encode_alert_record(Alert, Version, ConnectionStates0),
     tls_socket:send(Transport, Socket, BinMsg),
-    ssl_logger:debug(LogLevel, outbound, 'record', BinMsg),
+    ssl_logger:debug(get(log_level), outbound, 'record', BinMsg),
     StateData0#data{connection_states = ConnectionStates}.
 
 send_application_data(Data, From, StateName,
-                      #data{env = #env{connection_pid = Pid,
-                                             socket = Socket,
-                                             dist_handle = DistHandle,
-                                             negotiated_version = Version,
-                                             transport_cb = Transport,
-                                             renegotiate_at = RenegotiateAt,
-                                             key_update_at = KeyUpdateAt,
-                                             log_level = LogLevel},
-                            bytes_sent = BytesSent,
-                            connection_states = ConnectionStates0} = StateData0) ->
+                      #data{env = #env{socket = Socket,
+                                       negotiated_version = Version,
+                                       transport_cb = Transport} = Opts,
+                            bytes_sent = BytesSent0,
+                            connection_states = ConnStates0} = StateData0) ->
     DataSz = iolist_size(Data),
-    case time_to_rekey(Version, DataSz, ConnectionStates0, RenegotiateAt, KeyUpdateAt, BytesSent) of
-        key_update ->
+    case time_to_rekey(Version, DataSz, BytesSent0, ConnStates0, Opts) of
+        {true, KeyUpdateAt} ->
             KeyUpdate = tls_handshake_1_3:key_update(update_requested),
-            {keep_state_and_data, [{next_event, internal, {post_handshake_data, From, KeyUpdate}},
-                                   {next_event, internal, {application_packets, From, Data}}]};
-	renegotiate ->
-	    tls_dtls_gen_connection:internal_renegotiation(Pid, ConnectionStates0),
-            {next_state, handshake, StateData0, 
+            case DataSz > KeyUpdateAt of
+                false ->
+                    {keep_state_and_data, [{next_event, internal, {post_handshake_data, From, KeyUpdate}},
+                                           {next_event, internal, {application_packets, From, Data}}]};
+                true ->
+                    %% Prevent infinite loop of key updates
+                    {Chunk, Rest} = split_binary(iolist_to_binary(Data), KeyUpdateAt),
+                    {keep_state_and_data, [{next_event, internal, {post_handshake_data, From, KeyUpdate}},
+                                           {next_event, internal, {application_packets, From, [Chunk]}},
+                                           {next_event, internal, {application_packets, From, [Rest]}}]}
+            end;
+	{renegotiate, _} ->
+            #env{connection_pid = Pid} = Opts,
+	    tls_dtls_gen_connection:internal_renegotiation(Pid, ConnStates0),
+            {next_state, handshake, StateData0,
              [{next_event, internal, {application_packets, From, Data}}]};
-        chunk_and_key_update ->
-            KeyUpdate = tls_handshake_1_3:key_update(update_requested),
-            %% Prevent infinite loop of key updates
-            {Chunk, Rest} = split_binary(iolist_to_binary(Data), KeyUpdateAt),
-            {keep_state_and_data, [{next_event, internal, {post_handshake_data, From, KeyUpdate}},
-                                   {next_event, internal, {application_packets, From, [Chunk]}},
-                                   {next_event, internal, {application_packets, From, [Rest]}}]};
-	false ->
-	    {Msgs, ConnectionStates} = tls_record:encode_data(Data, Version, ConnectionStates0),
+	{false, BytesSent} ->
+	    {Msgs, ConnStates} = tls_record:encode_data(Data, Version, ConnStates0),
 	    case tls_socket:send(Transport, Socket, Msgs) of
-                ok when DistHandle =/=  undefined ->
-                    ssl_logger:debug(LogLevel, outbound, 'record', Msgs),
-                    StateData1 = update_bytes_sent(Version, ConnectionStates, StateData0, DataSz),
-                    hibernate_after(StateName, StateData1, []);
-                Reason when DistHandle =/= undefined ->
-                    StateData = StateData0#data{connection_states = ConnectionStates},
+                ok when From =:= dist_data ->
+                    StateData = StateData0#data{bytes_sent = BytesSent, connection_states = ConnStates},
+                    hibernate_after(StateName, StateData, []);
+                Reason when From =:= dist_data ->
+                    StateData = StateData0#data{connection_states = ConnStates},
                     death_row_shutdown(Reason, StateData);
                 ok ->
-                    ssl_logger:debug(LogLevel, outbound, 'record', Msgs),
-                    StateData = update_bytes_sent(Version, ConnectionStates, StateData0, DataSz),
                     gen_statem:reply(From, ok),
+                    StateData = StateData0#data{bytes_sent = BytesSent, connection_states = ConnStates},
                     hibernate_after(StateName, StateData, []);
                 Result ->
                     gen_statem:reply(From, Result),
-                    StateData = StateData0#data{connection_states = ConnectionStates},
+                    StateData = StateData0#data{connection_states = ConnStates},
                     hibernate_after(StateName, StateData, [])
             end
     end.
@@ -570,22 +527,21 @@ send_application_data(Data, From, StateName,
 %% TLS 1.3 Post Handshake Data
 send_post_handshake_data(Handshake, From, StateName,
                          #data{env = #env{socket = Socket,
-                                                dist_handle = DistHandle,
-                                                negotiated_version = Version,
-                                                transport_cb = Transport,
-                                                log_level = LogLevel},
-                               connection_states = ConnectionStates0} = StateData0) ->
+                                          negotiated_version = Version,
+                                          transport_cb = Transport},
+                               connection_states = ConnStates0} = StateData0) ->
     BinHandshake = tls_handshake:encode_handshake(Handshake, Version),
-    {Encoded, ConnectionStates} =
-        tls_record:encode_handshake(BinHandshake, Version, ConnectionStates0),
+    {Encoded, ConnStates} =
+        tls_record:encode_handshake(BinHandshake, Version, ConnStates0),
+    LogLevel = get(log_level),
     ssl_logger:debug(LogLevel, outbound, 'handshake', Handshake),
-    StateData1 = StateData0#data{connection_states = ConnectionStates},
+    StateData1 = StateData0#data{connection_states = ConnStates},
     case tls_socket:send(Transport, Socket, Encoded) of
-        ok when DistHandle =/=  undefined ->
+        ok when From == dist_data ->
             ssl_logger:debug(LogLevel, outbound, 'record', Encoded),
             StateData = maybe_update_cipher_key(StateData1, Handshake),
             {next_state, StateName, StateData, []};
-        Reason when DistHandle =/= undefined ->
+        Reason when From == dist_data ->
             death_row_shutdown(Reason, StateData1);
         ok ->
             ssl_logger:debug(LogLevel, outbound, 'record', Encoded),
@@ -618,15 +574,6 @@ maybe_traffic_keylog_1_3(Fun, Role, ConnectionStates, N) when is_function(Fun) -
 maybe_traffic_keylog_1_3(_,_,_,_) ->
     ok.
 
-update_bytes_sent(Version, CS, StateData, _) when ?TLS_LT(Version, ?TLS_1_3) ->
-    StateData#data{connection_states = CS};
-%% Count bytes sent in TLS 1.3 for AES-GCM
-update_bytes_sent(_, CS, #data{env = #env{key_update_at = seq_num_wrap}} = StateData, _) ->
-    StateData#data{connection_states = CS};  %% Chacha20-Poly1305
-update_bytes_sent(_, CS, #data{bytes_sent = Sent} = StateData, DataSz) ->
-    StateData#data{connection_states = CS,
-                   bytes_sent = Sent + DataSz}.  %% AES-GCM
-
 %% For AES-GCM, up to 2^24.5 full-size records (about 24 million) may be
 %% encrypted on a given connection while keeping a safety margin of
 %% approximately 2^-57 for Authenticated Encryption (AE) security.  For
@@ -641,56 +588,32 @@ key_update_at(?TLS_1_3, _, KeyUpdateAt) ->
 key_update_at(_, _, KeyUpdateAt) ->
     KeyUpdateAt.
 
--compile({inline, encode_packet/2}).
-encode_packet(Packet, Data) ->
-    Len = iolist_size(Data),
-    case Packet of
-        1 when Len < (1 bsl 8) ->  [<<Len:8>>|Data];
-        2 when Len < (1 bsl 16) -> [<<Len:16>>|Data];
-        4 when Len < (1 bsl 32) -> [<<Len:32>>|Data];
-        N when N =:= 1; N =:= 2; N =:= 4 ->
-            {error,
-             {badarg, {packet_to_large, Len, (1 bsl (Packet bsl 3)) - 1}}};
-        _ ->
-            Data
-    end.
-
 set_opts(SocketOptions, [{packet, N}]) ->
     SocketOptions#socket_options{packet = N}.
 
-time_to_rekey(Version, _DataSz,
-              #{current_write := #{sequence_number := ?MAX_SEQUENCE_NUMBER}},
-              _, _, _) when ?TLS_GTE(Version, ?TLS_1_3) ->
-    key_update;
-time_to_rekey(Version, _DataSz, _, _, seq_num_wrap, _) when ?TLS_GTE(Version, ?TLS_1_3) ->
-    false;
-time_to_rekey(Version, DataSize, _, _, KeyUpdateAt, BytesSent) when ?TLS_GTE(Version, ?TLS_1_3) ->
-    case (BytesSent + DataSize) > KeyUpdateAt of
+time_to_rekey(Version, _DataSz, _BytesSent, CS, #env{key_update_at = seq_num_wrap})
+  when ?TLS_GTE(Version, ?TLS_1_3) ->
+    #{current_write := #{sequence_number := Seq}} = CS,
+    {Seq >= ?MAX_SEQUENCE_NUMBER, 0};
+time_to_rekey(Version, DataSize, BytesSent0, _, #env{key_update_at = KeyUpdateAt})
+  when ?TLS_GTE(Version, ?TLS_1_3) ->
+    BytesSent = BytesSent0 + DataSize,
+    case BytesSent > KeyUpdateAt of
         true ->
-            %% Handle special case that causes an invite loop of key updates.
-            case DataSize > KeyUpdateAt of
-                true ->
-                    chunk_and_key_update;
-                false ->
-                    key_update
-                end;
+            {true, KeyUpdateAt};
         false ->
-            false
+            {false, BytesSent}
     end;
-time_to_rekey(_, _Data,
-              #{current_write := #{sequence_number := Num}},
-              RenegotiateAt, _, _) ->
-    
+time_to_rekey(_, DataSz, BytesSent, CS, #env{renegotiate_at = Max}) ->
+    #{current_write := #{sequence_number := Seq}} = CS,
     %% We could do test:
     %% is_time_to_renegotiate((erlang:byte_size(_Data) div
     %% ?MAX_PLAIN_TEXT_LENGTH) + 1, RenegotiateAt), but we chose to
     %% have a some what lower renegotiateAt and a much cheaper test
-    is_time_to_renegotiate(Num, RenegotiateAt).
-
-is_time_to_renegotiate(N, M) when N < M->
-    false;
-is_time_to_renegotiate(_,_) ->
-    renegotiate.
+    case Seq >= Max of
+        true  -> {renegotiate, 0};
+        false -> {false, DataSz+BytesSent}
+    end.
 
 call(FsmPid, Event) ->
     try gen_statem:call(FsmPid, Event)
@@ -761,10 +684,9 @@ hibernate_after(StateName, State, Actions) ->
 %%%#
 handle_trace(kdt,
              {call, {?MODULE, time_to_rekey,
-                     [_Version, Data, Map, _RenegotiateAt,
-                      KeyUpdateAt, BytesSent]}}, Stack) ->
+                     [_Version, DataSize, BytesSent, Map, #env{key_update_at = KeyUpdateAt}]}},
+             Stack) ->
     #{current_write := #{sequence_number := Sn}} = Map,
-    DataSize = iolist_size(Data),
     {io_lib:format("~w) (BytesSent:~w + DataSize:~w) > KeyUpdateAt:~w",
                    [Sn, BytesSent, DataSize, KeyUpdateAt]), Stack};
 handle_trace(kdt,

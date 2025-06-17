@@ -1,6 +1,8 @@
 /*
  * %CopyrightBegin%
  *
+ * SPDX-License-Identifier: Apache-2.0
+ *
  * Copyright Ericsson AB 1996-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -886,6 +888,16 @@ int main(int argc, char **argv)
 		      add_Eargs(argv[i+1]);
 		      i++;
 		      break;
+                  case 'D':
+                      if (argv[i][2] != 'i') {
+                          goto the_default;
+                      }
+                      NEXT_ARG_CHECK();
+                      argv[i][0] = '-';
+                      add_Eargs(argv[i]);
+                      add_Eargs(argv[i+1]);
+                      i++;
+                      break;
 		  case 'I':
                       if (argv[i][2] == 'O' && (argv[i][3] == 't' || argv[i][3] == 'p')) {
                           if (argv[i][4] != '\0')
@@ -1279,7 +1291,6 @@ usage_aux(void)
 	  "[+C MODE] [+dcg DECENTRALIZED_COUNTER_GROUPS_LIMIT] [+h HEAP_SIZE_OPTION] "
           "[+J[Pperf|Msingle] JIT_OPTION] "
 	  "[+M<SUBSWITCH> <ARGUMENT>] [+P MAX_PROCS] [+Q MAX_PORTS] "
-	  "[+R COMPAT_REL] "
 	  "[+r] [+rg READER_GROUPS_LIMIT] [+s<SUBSWITCH> SCHEDULER_OPTION] "
 	  "[+S NO_SCHEDULERS:NO_SCHEDULERS_ONLINE] "
 	  "[+SP PERCENTAGE_SCHEDULERS:PERCENTAGE_SCHEDULERS_ONLINE] "

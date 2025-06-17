@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1997-2024. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1997-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(inet_udp).
@@ -32,7 +34,6 @@
 -define(FAMILY, inet).
 -define(PROTO,  udp).
 -define(TYPE,   dgram).
--define(RECBUF, (8*1024)).
 
 
 %% inet_udp port lookup
@@ -51,9 +52,7 @@ open(Port) -> open(Port, []).
 
 -spec open(_, _) -> {ok, port()} | {error, atom()}.
 open(Port, Opts) ->
-    case inet:udp_options(
-	   [{port,Port}, {recbuf, ?RECBUF} | Opts], 
-	   ?MODULE) of
+    case inet:udp_options([{port,Port} | Opts], ?MODULE) of
 	{error, Reason} -> exit(Reason);
 	{ok,
 	 #udp_opts{
@@ -119,6 +118,7 @@ controlling_process(Socket, NewOwner) ->
 %%
 %% Create a port/socket from a file descriptor 
 %%
+-define(RECBUF, 9216). %% Just to be on the safe side...
 fdopen(Fd, Opts) ->
     inet:fdopen(
       Fd, optuniquify([{recbuf, ?RECBUF} | Opts]),

@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2020-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2020-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -377,9 +379,16 @@ format_erlang_error(element, [Index, Tuple], _) ->
      end,
      must_be_tuple(Tuple)];
 format_erlang_error(exit, [_,_], _) ->
-    [not_pid];
+    [bad_destination];
+format_erlang_error(exit, [_,_,Options], Cause) ->
+    case Cause of
+        badopt ->
+            [[],[],must_be_list(Options, bad_option)];
+        _ ->
+            [bad_destination]
+    end;
 format_erlang_error(exit_signal, [_,_], _) ->
-    [not_pid];
+    [bad_destination];
 format_erlang_error(external_size, [_Term,Options], _) ->
     [[],must_be_option_list(Options)];
 format_erlang_error(float, [_], _) ->
@@ -481,7 +490,19 @@ format_erlang_error(length, [_], _) ->
 format_erlang_error(link, [Pid], _) ->
     if
         is_pid(Pid) -> [dead_process];
-        true -> [not_pid]
+        is_port(Pid) -> [dead_port];
+        true -> [not_pid_or_port]
+    end;
+format_erlang_error(link, [Pid,Options], Cause) ->
+    case Cause of
+        badopt ->
+            [[],must_be_list(Options, bad_option)];
+        _ ->
+            if
+                is_pid(Pid) -> [dead_process];
+                is_port(Pid) -> [dead_port];
+                true -> [not_pid_or_port]
+            end
     end;
 format_erlang_error(list_to_atom, [List], _) ->
     [must_be_list(List, not_string)];
@@ -733,6 +754,8 @@ format_erlang_error(process_display, [Pid,_], Cause) ->
         _ ->
             [must_be_local_pid(Pid, dead_process)]
     end;
+format_erlang_error(processes_next, [_], _Cause) ->
+    [~"invalid processes iterator"];
 format_erlang_error(process_flag, [_,_], Cause) ->
     case Cause of
         badopt ->
@@ -1032,13 +1055,6 @@ format_erlang_error(term_to_iovec, [_,Options], _) ->
     [[],must_be_option_list(Options)];
 format_erlang_error(time_offset, [_], _) ->
     [bad_time_unit];
-format_erlang_error(trace, [_Session,PidOrPort,How,Options], Cause) ->
-    case Cause of
-        session ->
-            [bad_session];
-        _ ->
-            [[] | format_erlang_error(trace, [PidOrPort,How,Options], Cause)]
-    end;
 format_erlang_error(trace, [PidOrPort,How,Options], Cause) ->
     PidOrPortError =
         if
@@ -1060,13 +1076,6 @@ format_erlang_error(trace, [PidOrPort,How,Options], Cause) ->
                 _ ->
                     [PidOrPortError, HowError, []]
             end
-    end;
-format_erlang_error(trace_pattern, [_Session,MFA,MatchSpec,Options], Cause) ->
-    case Cause of
-        session ->
-            [bad_session];
-        _ ->
-            [[] | format_erlang_error(trace_pattern, [MFA,MatchSpec,Options], Cause)]
     end;
 format_erlang_error(trace_pattern=F, [_,_]=Args, Cause) ->
     [Err1,Err2|_] = format_erlang_error(F, Args ++ [[]], Cause),
@@ -1093,13 +1102,6 @@ format_erlang_error(tuple_size, [_], _) ->
     [not_tuple];
 format_erlang_error(tl, [_], _) ->
     [not_cons];
-format_erlang_error(trace_info, [_Session,Tracee,Item], Cause) ->
-    case Cause of
-        session ->
-            [bad_session];
-        _ ->
-            [[] | format_erlang_error(trace_info, [Tracee,Item], Cause)]
-    end;
 format_erlang_error(trace_info, [Tracee,_], Cause) ->
     case Cause of
         badopt ->
@@ -1114,27 +1116,6 @@ format_erlang_error(trace_info, [Tracee,_], Cause) ->
         none ->
             [[],<<"invalid trace item">>]
     end;
-format_erlang_error(trace_session_create, [Name,Tracer,Options], _) ->
-    NameError = if
-                    is_atom(Name) -> [];
-                    true -> not_atom
-                end,
-    TracerError = case Tracer of
-                      _ when is_pid(Tracer), node(Tracer) =:= node() -> [];
-                      _ when is_port(Tracer), node(Tracer) =:= node() -> [];
-                      {Mod,_} when is_atom(Mod) -> [];
-                      _ -> bad_tracer
-                  end,
-    OptError = case Options of
-                   [] -> [];
-                   [_|_] -> bad_option;
-                   _ -> not_list
-               end,
-    [NameError, TracerError, OptError];
-format_erlang_error(trace_session_destroy, [_Session], _) ->
-    [bad_session];
-format_erlang_error(trace_session_info, [_PidPortFuncEvent], _) ->
-    [<<"not a valid tracee specification">>];
 format_erlang_error(trunc, [_], _) ->
     [not_number];
 format_erlang_error(tuple_to_list, [_], _) ->
@@ -1532,14 +1513,10 @@ expand_error(bad_option) ->
     <<"invalid option in list">>;
 expand_error(bad_path) ->
     <<"not a valid path name">>;
-expand_error(bad_session) ->
-    <<"invalid trace session">>;
 expand_error(bad_status) ->
     <<"invalid status">>;
 expand_error(bad_time_unit) ->
     <<"invalid time unit">>;
-expand_error(bad_tracer) ->
-    <<"invalid tracer">>;
 expand_error(bad_unicode) ->
     <<"invalid UTF8 encoding">>;
 expand_error(bad_universaltime) ->
@@ -1548,6 +1525,8 @@ expand_error(beyond_end_time) ->
     <<"exceeds the maximum supported time value">>;
 expand_error(dead_process) ->
     <<"the pid does not refer to an existing process">>;
+expand_error(dead_port) ->
+    <<"the port identifier does not refer to an existing port">>;
 expand_error({not_encodable,Type}) ->
     [<<"not a textual representation of ">>,Type];
 expand_error(non_existing_atom) ->
@@ -1588,6 +1567,8 @@ expand_error(not_pid) ->
     <<"not a pid">>;
 expand_error(not_port) ->
     <<"not a port">>;
+expand_error(not_pid_or_port) ->
+    <<"not a pid or a port">>;
 expand_error(not_ref) ->
     <<"not a reference">>;
 expand_error(not_string) ->

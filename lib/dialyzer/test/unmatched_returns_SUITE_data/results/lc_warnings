@@ -1,5 +1,4 @@
 
-lc_warnings.erl:32:5: Expression produces a value of type [opaque_atom_adt:opaque_atom()], but this value is unmatched
 lc_warnings.erl:43:5: Expression produces a value of type [array:array(_)], but this value is unmatched
 lc_warnings.erl:65:5: Expression produces a value of type [lc_warnings:opaque_tuple()], but this value is unmatched
 lc_warnings.erl:7:5: Expression produces a value of type ['ok' | {'error',atom()}], but this value is unmatched

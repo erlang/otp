@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2002-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2002-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -101,6 +103,25 @@
 -define(last_link, "last_link").
 -define(last_test, "last_test").
 -define(html_ext, ".html").
+-define(cover_html_stylesheet,
+        "<style>\n"
+        "  @media (prefers-color-scheme: dark) {\n"
+	"    body {"
+        "       filter: invert(100%) hue-rotate(180deg) brightness(105%) contrast(95%);\n"
+	"       /* Workaround for Microsoft Edge, set the background color so it knows\n"
+	"          which original color to rotate from, otherwise the background stays white. */\n"
+	"       background-color: #000000;\n"
+        "    }\n"
+	"    /* Match light theme with links on all browsers */\n"
+	"    a:link {\n"
+	"      color: #2B507D;\n"
+	"    }\n"
+	"    a:visited, a:active {\n"
+	"      /* Match light theme */\n"
+	"      color: #85ABD5;\n"
+	"    }\n"
+	"  }"
+        "</style>\n").
 -define(now, os:timestamp()).
 
 -define(void_fun, fun() -> ok end).
@@ -4030,7 +4051,7 @@ progress(skip, CaseNum, Mod, Func, GrName, Loc, Reason, T,
 		     fun() -> {?auto_skip_color,auto_skip,auto_skipped} end,
 		     fun() -> {?user_skip_color,skip,skipped} end),
     Time = if is_number(T) -> float(T); true -> 0.0 end,
-    print(major, "=result        ~w: ~tp", [ReportTag,Reason1]),
+    print(major, "=result        ~w: ~tkp", [ReportTag,Reason1]),
     print(major, "=elapsed       ~.6fs", [Time]),
     print(1, "*** SKIPPED ~ts ***",
 	  [get_info_str(Mod,Func, CaseNum, get(test_server_cases))]),
@@ -4064,7 +4085,7 @@ progress(skip, CaseNum, Mod, Func, GrName, Loc, Reason, T,
 progress(failed, CaseNum, Mod, Func, GrName, Loc, timetrap_timeout, T,
 	 Comment0, {St0,St1}) ->
     Time = if is_number(T) -> float(T); true -> 0.0 end,
-    print(major, "=result        failed: timeout, ~tp", [Loc]),
+    print(major, "=result        failed: timeout, ~tkp", [Loc]),
     print(major, "=elapsed       ~.6fs", [Time]),
     print(1, "*** FAILED ~ts ***",
 	  [get_info_str(Mod,Func, CaseNum, get(test_server_cases))]),
@@ -4092,7 +4113,7 @@ progress(failed, CaseNum, Mod, Func, GrName, Loc, timetrap_timeout, T,
 progress(failed, CaseNum, Mod, Func, GrName, Loc, {testcase_aborted,Reason}, T,
 	 Comment0, {St0,St1}) ->
     Time = if is_number(T) -> float(T); true -> 0.0 end,
-    print(major, "=result        failed: testcase_aborted, ~tp", [Loc]),
+    print(major, "=result        failed: testcase_aborted, ~tkp", [Loc]),
     print(major, "=elapsed       ~.6fs", [Time]),
     print(1, "*** FAILED ~ts ***",
 	  [get_info_str(Mod,Func, CaseNum, get(test_server_cases))]),
@@ -4123,7 +4144,7 @@ progress(failed, CaseNum, Mod, Func, GrName, Loc, {testcase_aborted,Reason}, T,
 progress(failed, CaseNum, Mod, Func, GrName, unknown, Reason, T,
 	 Comment0, {St0,St1}) ->
     Time = if is_number(T) -> float(T); true -> 0.0 end,
-    print(major, "=result        failed: ~tp, ~w", [Reason,unknown_location]),
+    print(major, "=result        failed: ~tkp, ~w", [Reason,unknown_location]),
     print(major, "=elapsed       ~.6fs", [Time]),
     print(1, "*** FAILED ~ts ***",
 	  [get_info_str(Mod,Func, CaseNum, get(test_server_cases))]),
@@ -4169,7 +4190,7 @@ progress(failed, CaseNum, Mod, Func, GrName, Loc, Reason, T,
 			 true -> {Loc,Loc}
 		       end,
     Time = if is_number(T) -> float(T); true -> 0.0 end,
-    print(major, "=result        failed: ~tp, ~tp", [Reason,LocMaj]),
+    print(major, "=result        failed: ~tkp, ~tp", [Reason,LocMaj]),
     print(major, "=elapsed       ~.6fs", [Time]),
     print(1, "*** FAILED ~ts ***",
 	  [get_info_str(Mod,Func, CaseNum, get(test_server_cases))]),
@@ -4330,7 +4351,7 @@ to_string(Term) when is_list(Term) ->
 	String     -> lists:flatten(String)
     end;
 to_string(Term) ->
-    lists:flatten(io_lib:format("~tp", [Term])).
+    lists:flatten(io_lib:format("~tkp", [Term])).
 
 get_last_loc(Loc) when is_tuple(Loc) ->
     Loc;
@@ -4420,7 +4441,7 @@ format_exception(Error) ->
 do_format_exception(Reason={Error,Stack}) ->
     StackFun = fun(_, _, _) -> false end,
     PF = fun(Term, I) ->
-		 io_lib:format("~." ++ integer_to_list(I) ++ "tp", [Term])
+		 io_lib:format("~." ++ integer_to_list(I) ++ "tkp", [Term])
 	 end,
     case catch erl_error:format_exception(1, error, Error, Stack, StackFun, PF, utf8) of
 	{'EXIT',_R} ->
@@ -5607,7 +5628,8 @@ analyse_modules(_Dir, [], _DetailsFun, Acc) ->
 
 %% Support functions for writing the cover logs (both cross and normal)
 write_coverlog_header(CoverLog) ->
-    case catch io:put_chars(CoverLog,html_header("Coverage results")) of
+    Style = [?cover_html_stylesheet],
+    case catch io:put_chars(CoverLog,html_header("Coverage results", Style)) of
 	{'EXIT',Reason} ->
 	    io:format("\n\nERROR: Could not write normal heading in coverlog.\n"
 		      "CoverLog: ~tw\n"
@@ -5657,7 +5679,8 @@ pc(Cov,NotCov) ->
 
 
 write_not_covered(CoverOut,M,Lines) ->
-    io:put_chars(CoverOut,html_header("Coverage results for "++atom_to_list(M))),
+    Style = [?cover_html_stylesheet],
+    io:put_chars(CoverOut,html_header("Coverage results for "++atom_to_list(M), Style)),
     io:fwrite(CoverOut,
 	      "The following lines in module ~w are not covered:\n"
 	      "<table border=3 cellpadding=5>\n"
@@ -5734,12 +5757,12 @@ html_header(Title) ->
      "<body bgcolor=\"white\" text=\"black\" "
      "link=\"blue\" vlink=\"purple\" alink=\"red\">\n"].
 
-html_header(Title, Meta) ->
+html_header(Title, Extra) ->
     ["<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 3.2 Final//EN\">\n"
      "<!-- autogenerated by '", atom_to_list(?MODULE), "'. -->\n"
      "<html>\n"
      "<head>\n"
-     "<title>", Title, "</title>\n"] ++ Meta ++ ["</head>\n"].
+     "<title>", Title, "</title>\n"] ++ Extra ++ ["</head>\n"].
 
 open_html_file(File) ->
     open_utf8_file(File).

@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2013-2024. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2013-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -182,10 +184,10 @@ void hard_dbg_remove_mseg(void* seg, UWord sz);
 
 #endif /* HAVE_ERTS_MMAP */
 
-/* Marks the given memory region as permanently inaccessible.
- *
+/* Changes the permissions of the given memory region. 
+ * Assumes proper page alignment.
  * Returns 0 on success, and -1 on error. */
-int erts_mem_guard(void *p, UWord size);
+int erts_mem_guard(void *p, UWord size, int readable, int writable);
 
 /* Marks the given memory region as unused without freeing it, letting the OS
  * reclaim its physical memory with the promise that we'll get it back (without

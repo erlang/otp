@@ -1,6 +1,8 @@
 /*
  * %CopyrightBegin%
  *
+ * SPDX-License-Identifier: Apache-2.0
+ *
  * Copyright Ericsson AB 2020-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -126,7 +128,8 @@ void BeamGlobalAssembler::emit_garbage_collect() {
     a.mov(ARG1, c_p);
     load_x_reg_array(ARG3);
     a.mov(ARG5d, FCALLS);
-    runtime_call<5>(erts_garbage_collect_nobump);
+    runtime_call<int (*)(Process *, Uint, Eterm *, int, int),
+                 erts_garbage_collect_nobump>();
     a.sub(FCALLS, RETd);
 
     emit_leave_runtime<Update::eStack | Update::eHeap>();
@@ -221,7 +224,10 @@ void BeamGlobalAssembler::emit_export_trampoline() {
         /* ARG2 set above */
         load_x_reg_array(ARG3);
         mov_imm(ARG4, am_undefined_function);
-        runtime_call<4>(call_error_handler);
+        runtime_call<
+                const Export
+                        *(*)(Process *, const ErtsCodeMFA *, Eterm *, Eterm),
+                call_error_handler>();
 
         emit_leave_runtime<Update::eReductions | Update::eHeapAlloc>();
         emit_leave_frame();
@@ -301,7 +307,11 @@ void BeamGlobalAssembler::emit_process_exit() {
     mov_imm(ARG2, 0);
     mov_imm(ARG4, 0);
     load_x_reg_array(ARG3);
-    runtime_call<4>(handle_error);
+    runtime_call<ErtsCodePtr (*)(Process *,
+                                 ErtsCodePtr,
+                                 Eterm *,
+                                 const ErtsCodeMFA *),
+                 handle_error>();
 
     emit_leave_runtime<Update::eHeapAlloc | Update::eReductions>();
 
@@ -354,7 +364,11 @@ void BeamGlobalAssembler::emit_raise_exception_shared() {
     /* ARG2 and ARG4 must be set prior to jumping here! */
     a.mov(ARG1, c_p);
     load_x_reg_array(ARG3);
-    runtime_call<4>(handle_error);
+    runtime_call<ErtsCodePtr (*)(Process *,
+                                 ErtsCodePtr,
+                                 Eterm *,
+                                 const ErtsCodeMFA *),
+                 handle_error>();
 
     emit_leave_runtime<Update::eHeapAlloc>();
 
@@ -375,7 +389,8 @@ void BeamModuleAssembler::emit_proc_lc_unrequire(void) {
     a.mov(ARG1, c_p);
     a.mov(ARG2, imm(ERTS_PROC_LOCK_MAIN));
     a.mov(TMP_MEM1q, RET);
-    runtime_call<2>(erts_proc_lc_unrequire_lock);
+    runtime_call<void (*)(Process *, ErtsProcLocks),
+                 erts_proc_lc_unrequire_lock>();
     a.mov(RET, TMP_MEM1q);
 #endif
 }
@@ -387,7 +402,8 @@ void BeamModuleAssembler::emit_proc_lc_require(void) {
     a.mov(ARG1, c_p);
     a.mov(ARG2, imm(ERTS_PROC_LOCK_MAIN));
     a.mov(TMP_MEM1q, RET);
-    runtime_call<4>(erts_proc_lc_require_lock);
+    runtime_call<void (*)(Process *, ErtsProcLocks, const char *, unsigned int),
+                 erts_proc_lc_require_lock>();
     a.mov(RET, TMP_MEM1q);
 #endif
 }

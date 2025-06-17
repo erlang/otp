@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2008-2024. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -431,7 +433,7 @@ groups() ->
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
     application:stop(crypto),
-    try crypto:start() of
+    try application:start(crypto) of
 	ok ->
 	    application:start(asn1),
 	    crypto_support_check(Config)
@@ -1501,10 +1503,8 @@ run({Chap, Test, Result, CertsBody}, TA) ->
 	    ?error(" ~p ~p~n  Expected ~p got ~p ~n", [Chap, Test, Result, _OK]),
 	    fail
     catch Type:Reason:Stack ->
-            Str1 = lists:flatten(io_lib:format("Crash ~p:~p in ~p~n",[Type,Reason,Stack])),
-	    Str2 = lists:flatten(io_lib:format("   ~p ~p Expected ~p ~n", [Chap, Test, Result])),
-            erlang:display(Str1),
-            erlang:display(Str2),
+            io:format("Crash ~p:~p in ~p~n",[Type,Reason,Stack]),
+	    io:format("   ~p ~p Expected ~p ~n", [Chap, Test, Result]),
             exit(crash)
     end;
 

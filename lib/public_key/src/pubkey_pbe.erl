@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2011-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,12 +24,19 @@
 -module(pubkey_pbe).
 -moduledoc false.
 
--include("public_key.hrl").
+-include("PKCS-FRAME.hrl").
+-include("PKCS-1.hrl").
+-include("CMSAesRsaesOaep-2009.hrl").
 
 -export([encode/4, decode/4, decrypt_parameters/1, encrypt_parameters/1]). 
 -export([pbdkdf1/4, pbdkdf2/7]).
 
 -define(ASN1_OCTET_STR_TAG, 4).
+
+-record('EncryptedPrivateKeyInfo_encryptionAlgorithm',
+        {algorithm,
+         parameters
+        }).
 
 %%====================================================================
 %% Internal application API
@@ -106,18 +115,17 @@ pbdkdf2(Password, Salt, Count, DerivedKeyLen, Prf, PrfHash, PrfOutputLen)->
     blocks(NumBlocks, NumLastBlockOctets, 1, Password, Salt, 
 	   Count, Prf, PrfHash, PrfOutputLen, <<>>).
 %%--------------------------------------------------------------------
--spec decrypt_parameters(#'EncryptedPrivateKeyInfo_encryptionAlgorithm'{}) -> 
-				{Cipher::string(), #'PBES2-params'{}}.
-%%
+-spec decrypt_parameters(#'EncryptedPrivateKeyInfo_encryptionAlgorithm'{}) ->
+          {Cipher::string(), #'PBES2-params'{}}.
+
 %% Description: Performs ANS1-decoding of encryption parameters.
 %%--------------------------------------------------------------------
 decrypt_parameters(#'EncryptedPrivateKeyInfo_encryptionAlgorithm'{
 		      algorithm = Oid, parameters = Param}) ->
-     decrypt_parameters(Oid, decode_handle_open_type_wrapper(Param)).
-    
+    decrypt_parameters(Oid, decode_handle_open_type_wrapper(Param)).
 %%--------------------------------------------------------------------
 -spec encrypt_parameters({Cipher::string(), Params::term()}) -> 
-			#'EncryptedPrivateKeyInfo_encryptionAlgorithm'{}.
+          #'EncryptedPrivateKeyInfo_encryptionAlgorithm'{}.
 %%
 %% Description: Performs ANS1-decoding of encryption parameters.
 %%--------------------------------------------------------------------

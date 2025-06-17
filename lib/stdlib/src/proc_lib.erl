@@ -1,6 +1,8 @@
 %%
 %% %CopyrightBegin%
 %%
+%% SPDX-License-Identifier: Apache-2.0
+%%
 %% Copyright Ericsson AB 1996-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
@@ -59,6 +61,8 @@ processes that terminate as a result of this process terminating.
 
 `m:logger`
 """.
+
+-compile(nowarn_deprecated_catch).
 
 %% This module is used to set some initial information
 %% in each created process. 
@@ -1575,13 +1579,15 @@ about system messages, see `m:sys` and section
 stop(Process, Reason, Timeout) ->
     Mref = erlang:monitor(process, Process),
     T0 = erlang:monotonic_time(millisecond),
+
+    StopTimeout = fun(infinity) -> infinity;
+                     (T1) -> T1 - (((erlang:monotonic_time(microsecond) + 999) div 1000) - T0)
+                end,
+
     RemainingTimeout = try
 	sys:terminate(Process, Reason, Timeout)
     of
-	ok when Timeout =:= infinity ->
-	    infinity;
-	ok ->
-	    Timeout - (((erlang:monotonic_time(microsecond) + 999) div 1000) - T0)
+	ok -> StopTimeout(Timeout)
     catch
 	exit:{noproc, {sys, terminate, _}} ->
 	    demonitor(Mref, [flush]),
@@ -1589,6 +1595,8 @@ stop(Process, Reason, Timeout) ->
 	exit:{timeout, {sys, terminate, _}} ->
 	    demonitor(Mref, [flush]),
 	    exit(timeout);
+        exit:{Reason, {sys, terminate, _}} ->
+            StopTimeout(Timeout);
 	exit:Reason1 ->
 	    demonitor(Mref, [flush]),
 	    exit(Reason1)

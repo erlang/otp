@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2019-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2019-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -203,7 +205,7 @@ will_succeed(Mod, Func, Args) ->
 
 max_tuple_size(#t_union{tuple_set=[_|_]=Set}=Union) ->
     Union = meet(Union, #t_tuple{}),            %Assertion.
-    Arities = [Arity || {{Arity, _Tag}, _Record} <- Set],
+    Arities = [Arity || {{Arity, _Tag}, _Record} <:- Set],
     lists:max(Arities);
 max_tuple_size(#t_tuple{exact=true,size=Size}) ->
     Size;

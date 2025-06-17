@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -2810,7 +2812,7 @@ v2err_to_v1err(_Error) ->             genErr.
 %% transforms a (hopefully correct) return value ((perhaps) from a 
 %% mib-function) to a typed and guaranteed correct return value.
 %% An incorrect return value is transformed to {error, genErr}.
-%% A correct return value is on the form: 
+%% A correct return value is of the form:
 %% {error, <error-msg>} | {value, <variable-type>, <value>}
 %%-----------------------------------------------------------------
 make_value_a_correct_value({value, Val}, Asn1, Mfa)

@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2004-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -31,7 +33,7 @@
 	 progex_lc/1, progex_funs/1,
 	 otp_5990/1, otp_6166/1, otp_6554/1,
 	 otp_7184/1, otp_7232/1, otp_8393/1, otp_10302/1, otp_13719/1,
-         otp_14285/1, otp_14296/1, typed_records/1, types/1]).
+         otp_14285/1, otp_14296/1, typed_records/1, types/1, funs/1]).
 
 -export([ start_restricted_from_shell/1,
 	  start_restricted_on_command_line/1,restricted_local/1]).
@@ -189,11 +191,11 @@ comm_err(<<"ugly().">>),
 comm_err(<<"1 - 2.">>),
 %% Make sure we test all local shell functions in a restricted shell.
 LocalFuncs = shell:local_func(),
-[] = lists:subtract(LocalFuncs, [v,h,b,f,fl,ff,lf,lr,lt,rd,rf,rl,rp,rr,tf,save_module,history,results,catch_exception]),
+[] = lists:subtract(LocalFuncs, [v,h,b,f,fd,fl,ff,lf,lr,lt,rd,rf,rl,rp,rr,tf,save_module,history,results,catch_exception]),
 
 LocalFuncs2 = [
     <<"A = 1.\nv(1).">>, <<"h().">>, <<"b().">>, <<"f().">>, <<"f(A).">>,
-    <<"fl()">>, <<"ff()">>, <<"ff(my_func,1)">>, <<"lf()">>, <<"lr()">>, <<"lt()">>,
+    <<"fl()">>, <<"fd(a, fun(X)->X end,\"a(X)->X.\")">>, <<"ff()">>, <<"ff(my_func,1)">>, <<"lf()">>, <<"lr()">>, <<"lt()">>,
     <<"rd(foo,{bar}).">>, <<"rf().">>, <<"rf(foo).">>, <<"rl().">>, <<"rl(foo).">>, <<"rp([hej]).">>,
     <<"rr(shell).">>, <<"rr(shell, shell_state).">>, <<"rr(shell,shell_state,[]).">>, <<"tf()">>, <<"tf(hej)">>, 
     <<"save_module(\"src/my_module.erl\")">>, <<"history(20).">>, <<"results(20).">>, <<"catch_exception(0).">>],
@@ -351,6 +353,16 @@ forget(Config) when is_list(Config) ->
     "exception error: no function clause matching call to f/1" =
         comm_err(<<"f(a).">>),
     ok.
+funs(Config) when is_list(Config) ->
+    [[2,3,4]] = scan(<<"lists:map(fun ceil/1, [1.1, 2.1, 3.1]).">>),
+    rtnode:run(
+        [{putline, "add_one(X)-> X + 1."},
+        {expect, "ok"},
+        {putline, "lists:map(fun add_one/1, [1, 2, 3])."},
+        {expect, "[2,3,4]"}
+        ],[],"", ["[\"init:stop().\"]"]),
+    receive after 1000 -> ok end,
+    ok.
 
 %% type definition support
 types(Config) when is_list(Config) ->
@@ -389,12 +401,12 @@ shell_attribute_test(Config) ->
       "-kernel","shell_history_drop","[\"init:stop().\"]"]),
     receive after 1000 -> ok end,
     rtnode:run(
-        [{putline, "-record(hej, {a = 0 :: integer()})."},
+        [{putline, "-record(hej, {a = \"\", b = 0 :: integer()})."},
          {expect, "ok"},
          {putline, "rl()."},
-         {expect, "\\Q-record(hej,{a = 0 :: integer()}).\\E"},
-         {putline, "#hej{a=1}."},
-         {expect, "\\Q#hej{a = 1}\\E"}
+         {expect, "\\Q-record(hej,{a = \"\", b = 0 :: integer()}).\\E"},
+         {putline, "#hej{a = \"hej\", b=1}."},
+         {expect, "\\Q#hej{a = \"hej\", b=1}\\E"}
         ],[],"", ["-kernel","shell_history","enabled",
         "-kernel","shell_history_path","\"" ++ Path ++ "\"",
         "-kernel","shell_history_drop","[\"init:stop().\"]"]),
@@ -689,12 +701,14 @@ local_definitions_save_to_module_and_forget(Config) when is_list(Config) ->
       <<"-spec my_func(X) -> X.\n"
         "my_func(X) -> X.\n"
         "lf().">>),
+    file:write_file("MY_MODULE_RECORD.hrl", "-record(grej,{b})."),
     %% Save local definitions to a module
     U = unicode:characters_to_binary("😊"),
-    "ok.\nok.\nok.\nok.\nok.\nok.\n{ok,'MY_MODULE'}.\n" = t({
+    "ok.\nok.\n[grej].\nok.\nok.\nok.\nok.\n{ok,'MY_MODULE'}.\n" = t({
       <<"-type hej() :: integer().\n"
         "-record(svej, {a :: hej()}).\n"
-        "my_func(#svej{a=A}) -> A.\n"
+        "rr(\"MY_MODULE_RECORD.hrl\").\n"
+        "my_func(#svej{a=A}) -> #grej{b=A}.\n"
         "-spec not_implemented(X) -> X.\n"
         "-spec 'my_func",U/binary,"'(X) -> X.\n"
         "'my_func",U/binary,"'(#svej{a=A}) -> A.\n"
@@ -702,14 +716,16 @@ local_definitions_save_to_module_and_forget(Config) when is_list(Config) ->
     %% Read back the newly created module
     {ok,<<"-module('MY_MODULE').\n\n"
           "-export([my_func/1,'my_func",240,159,152,138,"'/1]).\n\n"
-          "-type hej() :: integer().\n"
-          "-record(svej,{a :: hej()}).\n"
+          "-type hej() :: integer().\n\n"
+          "-record(grej,{b}).\n\n"
+          "-record(svej,{a :: hej()}).\n\n"
           "my_func(#svej{a = A}) ->\n"
-          "    A.\n\n"
+          "    #grej{b = A}.\n\n"
           "-spec 'my_func",240,159,152,138,"'(X) -> X.\n"
           "'my_func",240,159,152,138,"'(#svej{a = A}) ->\n"
           "    A.\n">>} = file:read_file("MY_MODULE.erl"),
     file:delete("MY_MODULE.erl"),
+    file:delete("MY_MODULE_RECORD.erl"),
 
     %% Forget one locally defined type
     "ok.\nok.\nok.\n-type svej() :: integer().\n.\nok.\n" = t(
@@ -2617,7 +2633,7 @@ otp_6554(Config) when is_list(Config) ->
         "lists:reverse(" ++ _ =
         comm_err(<<"F=fun() -> hello end, lists:reverse(F).">>),
     "exception error: no function clause matching "
-        "lists:reverse(34) (lists.erl, line " ++ _ =
+        "lists:reverse(34) (lists.erl:" ++ _ =
         comm_err(<<"lists:reverse(34).">>),
     "exception error: function_clause" =
         comm_err(<<"erlang:error(function_clause, 4).">>),

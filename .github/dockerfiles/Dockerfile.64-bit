@@ -1,3 +1,23 @@
+## %CopyrightBegin%
+##
+## SPDX-License-Identifier: Apache-2.0
+##
+## Copyright Ericsson AB 2020-2025. All Rights Reserved.
+##
+## Licensed under the Apache License, Version 2.0 (the "License");
+## you may not use this file except in compliance with the License.
+## You may obtain a copy of the License at
+##
+##     http://www.apache.org/licenses/LICENSE-2.0
+##
+## Unless required by applicable law or agreed to in writing, software
+## distributed under the License is distributed on an "AS IS" BASIS,
+## WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+## See the License for the specific language governing permissions and
+## limitations under the License.
+##
+## %CopyrightEnd%
+
 ARG BASE=ghcr.io/erlang/otp/ubuntu-base
 FROM $BASE
 
@@ -13,11 +33,28 @@ RUN cd /buildroot && tar -xzf ./otp.tar.gz
 WORKDIR /buildroot/otp/
 
 ENV CFLAGS="-O2 -g -Werror -DwxSTC_DISABLE_MACRO_DEPRECATIONS=1"
+ENV CFLAGS="${CFLAGS} -Wall -Wformat -Wformat=2 -Wno-conversion -Wimplicit-fallthrough \
+    -Werror=format-security -Wtrampolines -fsanitize=signed-integer-overflow"
+ENV CXXFLAGS="-Wno-maybe-uninitialized"
+## OpenSSF recommended CFLAGS, skipped are:
+##  -Wconversion -Wextra -Wsign-conversion - As we have way too many of these warnings
+##  -fstrict-flex-arrays=3 -Wbidi-chars=any - As gcc 11 does not support it
+##  -mbranch-protection=standard - Only on arm
+##  -Werror=implicit -Wincompatible-pointer-types -Wint-conversion - As these do not work on c++ code
+ENV SKIPPED_OSSF_CFLAGS="-Wconversion -mbranch-protection=standard \
+    -Wextra  -Werror=implicit -Werror=incompatible-pointer-types -Werror=int-conversion \
+    -Wsign-conversion"
+ENV LDFLAGS=""
+## OpenSSF recommended LDFLAGS, skipped are:
+## -Wl,-z,nodlopen - as opening drivers/nifs needs this
+## -fPIE - not needed with gcc 11
+## -fPIC -shared - only needed for .so files
+ENV SKIPPED_OSSF_LDFLAGS="-Wl,-z,nodlopen -fPIE -fPIC -shared"
 
 ## Configure (if not cached), check that no application are disabled and then make
 RUN if [ ! -f Makefile ]; then \
       touch README.md && \
-      ./configure --prefix="/Erlang ∅⊤℞" && \
+      ./configure --prefix="/Erlang ∅⊤℞" --enable-pie && \
       if cat lib/*/CONF_INFO || cat lib/*/SKIP || cat lib/SKIP-APPLICATIONS; then exit 1; fi && \
       find . -type f -newer README.md | xargs tar --transform 's:^./:otp/:' -cf ../otp_cache.tar; \
     fi && \
@@ -26,10 +63,12 @@ RUN if [ ! -f Makefile ]; then \
 
 ## Disable -Werror as testcases do not compile with it on
 ENV CFLAGS="-O2 -g"
+ENV LDFLAGS=""
+ENV CXXFLAGS=""
 
 ## Update init.sh with correct env vars
-RUN echo "export MAKEFLAGS=$MAKEFLAGS" > /buildroot/env.sh && \
-    echo "export ERLC_USE_SERVER=$ERLC_USE_SERVER" >> /buildroot/env.sh && \
-    echo "export ERL_TOP=\"$ERL_TOP\"" >> /buildroot/env.sh && \
-    echo "export PATH=\"$PATH\"" >> /buildroot/env.sh && \
-    echo "export ERL_LIBS=\"$ERL_LIBS\"" >> /buildroot/env.sh
+RUN echo "export MAKEFLAGS=$MAKEFLAGS" >> /home/otptest/.profile && \
+    echo "export ERLC_USE_SERVER=$ERLC_USE_SERVER" >> /home/otptest/.profile && \
+    echo "export ERL_TOP=\"$ERL_TOP\"" >> /home/otptest/.profile && \
+    echo "export PATH=\"$PATH\"" >> /home/otptest/.profile && \
+    echo "export ERL_LIBS=\"$ERL_LIBS\"" >> /home/otptest/.profile

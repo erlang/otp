@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2011-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -66,7 +68,7 @@ groups() ->
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
     application:stop(crypto),
-    try crypto:start() of
+    try application:start(crypto) of
 	ok ->
 	    Config
     catch _:_ ->

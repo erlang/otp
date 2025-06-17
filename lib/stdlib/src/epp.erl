@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -63,6 +65,8 @@ Module:format_error(ErrorDescriptor)
 
 `m:erl_parse`
 """.
+
+-compile(nowarn_deprecated_catch).
 
 %% An Erlang code preprocessor.
 
@@ -2172,6 +2176,8 @@ token_src({char,_,C}) ->
     io_lib:write_char(C);
 token_src({string, _, X}) ->
     io_lib:write_string(X);
+token_src({atom, _, X}) ->
+    io_lib:write_atom(X);
 token_src({_, _, X}) ->
     io_lib:format("~w", [X]).
 

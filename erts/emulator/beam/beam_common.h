@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2023. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 1996-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -250,11 +252,11 @@ do {						\
 ErtsCodeMFA *ubif2mfa(void* uf);
 ErtsCodePtr handle_error(Process* c_p, ErtsCodePtr pc,
                          Eterm* reg, const ErtsCodeMFA* bif_mfa);
-Export* call_error_handler(Process* p, const ErtsCodeMFA* mfa,
+const Export *call_error_handler(Process* p, const ErtsCodeMFA* mfa,
                            Eterm* reg, Eterm func);
-Export* fixed_apply(Process* p, Eterm* reg, Uint arity,
+const Export *fixed_apply(Process* p, Eterm* reg, Uint arity,
                     ErtsCodePtr I, Uint offs);
-Export* apply(Process* p, Eterm* reg, ErtsCodePtr I, Uint offs);
+const Export *apply(Process* p, Eterm* reg, ErtsCodePtr I, Uint offs);
 ErtsCodePtr call_fun(Process* p, int arity, Eterm* reg, Eterm args);
 ErtsCodePtr apply_fun(Process* p, Eterm fun, Eterm args, Eterm* reg);
 int is_function2(Eterm Term, Uint arity);
@@ -285,6 +287,7 @@ extern ErtsCodePtr beam_bif_export_trap;
 extern ErtsCodePtr beam_export_trampoline;
 extern ErtsCodePtr beam_continue_exit;
 extern ErtsCodePtr beam_unloaded_fun;
+extern ErtsCodePtr beam_i_line_breakpoint_cleanup;
 
 extern ErtsCodePtr beam_return_to_trace;   /* OpCode(i_return_to_trace) */
 extern ErtsCodePtr beam_return_trace;      /* OpCode(i_return_trace) */
@@ -296,11 +299,13 @@ extern ErtsCodePtr beam_call_trace_return; /* OpCode(i_call_trace_return) */
  * @param[in] frame The frame to inspect. Must point at a CP.
  * @param[out] return_address The return address of \p frame */
 ERTS_GLB_INLINE
-const Eterm *erts_inspect_frame(Eterm *frame, ErtsCodePtr *return_address);
+const Eterm *erts_inspect_frame(const Eterm *frame,
+                                ErtsCodePtr *return_address);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 ERTS_GLB_INLINE
-const Eterm *erts_inspect_frame(Eterm *frame, ErtsCodePtr *return_address) {
+const Eterm *erts_inspect_frame(const Eterm *frame,
+                                ErtsCodePtr *return_address) {
     ASSERT(is_CP(frame[0]));
 
     if (ERTS_LIKELY(erts_frame_layout == ERTS_FRAME_LAYOUT_RA)) {

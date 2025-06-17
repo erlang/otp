@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1997-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -48,6 +50,8 @@ For more information about raw filenames, see the `m:file` module.
 > invalid. The implementation will also change in the future and reject such
 > filenames.
 """.
+
+-compile(nowarn_deprecated_catch).
 
 %% File utilities.
 -export([wildcard/1, wildcard/2, is_dir/1, is_file/1, is_regular/1]).
@@ -997,7 +1001,7 @@ safe_relative_path(Path, "") ->
 safe_relative_path(Path, Cwd) ->
     srp_path(filename:split(Path),
              Cwd,
-             sets:new([{version, 2}]),
+             sets:new(),
              []).
 
 srp_path([], _Cwd, _Seen, []) ->
@@ -1017,7 +1021,7 @@ srp_path([<<"..">>|_Segs], _Cwd, _Seen, []) ->
 srp_path([<<"..">>|Segs], Cwd, Seen, [_|_]=Acc) ->
     srp_path(Segs, Cwd, Seen, lists:droplast(Acc));
 srp_path([clear|Segs], Cwd, _Seen, Acc) ->
-    srp_path(Segs, Cwd, sets:new([{version, 2}]), Acc);
+    srp_path(Segs, Cwd, sets:new(), Acc);
 srp_path([Seg|_]=Segs, Cwd, Seen, Acc) ->
     case filename:pathtype(Seg) of
         relative ->

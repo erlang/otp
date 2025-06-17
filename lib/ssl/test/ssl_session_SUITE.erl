@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2007-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,8 +26,8 @@
 -behaviour(ct_suite).
 
 -include("ssl_test_lib.hrl").
--include("tls_handshake.hrl").
--include("ssl_record.hrl").
+-include_lib("ssl/src/tls_handshake.hrl").
+-include_lib("ssl/src/ssl_record.hrl").
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("public_key/include/public_key.hrl").
@@ -105,8 +107,8 @@ tls_session_tests() ->
        [session_table_stable_size_on_tcp_close].
 
 init_per_suite(Config0) ->
-    catch crypto:stop(),
-    try crypto:start() of
+    catch application:stop(crypto),
+    try application:start(crypto) of
 	ok ->
 	    ssl_test_lib:clean_start(),
             Config = ssl_test_lib:make_rsa_cert(Config0),
@@ -472,7 +474,7 @@ no_reuses_session_server_restart_new_cert() ->
 no_reuses_session_server_restart_new_cert(Config) when is_list(Config) ->
     ClientOpts = ssl_test_lib:ssl_options(client_rsa_der_opts, Config),
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_der_verify_opts, Config),
-    POpts = proplists:get_value(protocol_opts, Config, []),
+    POpts = proplists:get_value(group_opts, Config, []),
 
     #{client_config := NewCOpts,
       server_config := NewSOpts} = ssl_test_lib:make_cert_chains_der(rsa,
@@ -530,7 +532,7 @@ no_reuses_session_server_restart_new_cert_file() ->
 no_reuses_session_server_restart_new_cert_file(Config) when is_list(Config) ->
     ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
-    POpts = proplists:get_value(protocol_opts, Config, []),
+    POpts = proplists:get_value(group_opts, Config, []),
 
     #{client_config := NewCOpts,
       server_config := NewSOpts} = ssl_test_lib:make_cert_chains_pem(rsa,

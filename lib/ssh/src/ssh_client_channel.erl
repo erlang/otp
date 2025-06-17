@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -335,7 +337,7 @@ The user is responsible for any initialization of the process and must call
 `init/1`.
 """.
 -doc(#{since => <<"OTP 21.0">>}).
--spec enter_loop(State) -> _  when State :: term().
+-spec enter_loop(State) -> no_return() when State :: term().
 enter_loop(State) ->
     gen_server:enter_loop(?MODULE, [], State).
 

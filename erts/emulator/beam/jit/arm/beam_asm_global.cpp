@@ -1,6 +1,8 @@
 /*
  * %CopyrightBegin%
  *
+ * SPDX-License-Identifier: Apache-2.0
+ *
  * Copyright Ericsson AB 2020-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -74,9 +76,10 @@ BeamGlobalAssembler::BeamGlobalAssembler(JitAllocator *allocator)
             stop = (ErtsCodePtr)((char *)getBaseAddress() + code.codeSize());
         }
 
-        ranges.push_back({.start = start,
-                          .stop = stop,
-                          .name = code.labelEntry(labels[val.first])->name()});
+        ranges.push_back(AsmRange{start,
+                                  stop,
+                                  code.labelEntry(labels[val.first])->name(),
+                                  {}});
     }
 
     (void)beamasm_metadata_insert("global",
@@ -116,7 +119,8 @@ void BeamGlobalAssembler::emit_garbage_collect() {
     load_x_reg_array(ARG3);
     /* ARG4 (live registers) is already loaded. */
     a.mov(ARG5.w(), FCALLS);
-    runtime_call<5>(erts_garbage_collect_nobump);
+    runtime_call<int (*)(Process *, Uint, Eterm *, int, int),
+                 erts_garbage_collect_nobump>();
     a.sub(FCALLS, FCALLS, ARG1.w());
 
     emit_leave_runtime<Update::eStack | Update::eHeap | Update::eXRegs>();
@@ -210,7 +214,10 @@ void BeamGlobalAssembler::emit_export_trampoline() {
         /* ARG2 set above */
         load_x_reg_array(ARG3);
         mov_imm(ARG4, am_undefined_function);
-        runtime_call<4>(call_error_handler);
+        runtime_call<
+                const Export
+                        *(*)(Process *, const ErtsCodeMFA *, Eterm *, Eterm),
+                call_error_handler>();
 
         /* If there is no error_handler, any number of X registers
          * can be live. */
@@ -265,7 +272,11 @@ void BeamGlobalAssembler::emit_process_exit() {
     mov_imm(ARG2, 0);
     mov_imm(ARG4, 0);
     load_x_reg_array(ARG3);
-    runtime_call<4>(handle_error);
+    runtime_call<ErtsCodePtr (*)(Process *,
+                                 ErtsCodePtr,
+                                 Eterm *,
+                                 const ErtsCodeMFA *),
+                 handle_error>();
 
     emit_leave_runtime<Update::eHeapAlloc | Update::eReductions>();
 
@@ -306,7 +317,11 @@ void BeamGlobalAssembler::emit_raise_exception_shared() {
     /* ARG2 and ARG4 must be set prior to jumping here! */
     a.mov(ARG1, c_p);
     load_x_reg_array(ARG3);
-    runtime_call<4>(handle_error);
+    runtime_call<ErtsCodePtr (*)(Process *,
+                                 ErtsCodePtr,
+                                 Eterm *,
+                                 const ErtsCodeMFA *),
+                 handle_error>();
 
     emit_leave_runtime<Update::eHeapAlloc | Update::eXRegs>();
 
@@ -326,7 +341,8 @@ void BeamModuleAssembler::emit_proc_lc_unrequire(void) {
 #ifdef ERTS_ENABLE_LOCK_CHECK
     a.mov(ARG1, c_p);
     mov_imm(ARG2, ERTS_PROC_LOCK_MAIN);
-    runtime_call<2>(erts_proc_lc_unrequire_lock);
+    runtime_call<void (*)(Process *, ErtsProcLocks),
+                 erts_proc_lc_unrequire_lock>();
 #endif
 }
 
@@ -334,7 +350,8 @@ void BeamModuleAssembler::emit_proc_lc_require(void) {
 #ifdef ERTS_ENABLE_LOCK_CHECK
     a.mov(ARG1, c_p);
     mov_imm(ARG2, ERTS_PROC_LOCK_MAIN);
-    runtime_call<4>(erts_proc_lc_require_lock);
+    runtime_call<void (*)(Process *, ErtsProcLocks, const char *, unsigned int),
+                 erts_proc_lc_require_lock>();
 #endif
 }
 

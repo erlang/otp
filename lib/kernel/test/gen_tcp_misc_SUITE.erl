@@ -1,6 +1,8 @@
 %%
 %% %CopyrightBegin%
 %%
+%% SPDX-License-Identifier: Apache-2.0
+%%
 %% Copyright Ericsson AB 1998-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
@@ -29,15 +31,17 @@
 %%
 %% (cd /mnt/c/$LOCAL_TESTS/26/kernel_test/ && $ERL_TOP/bin/win32/erl.exe -sname kernel-26-tester -pa c:$LOCAL_TESTS/26/test_server)
 %% application:set_env(kernel, test_inet_backends, true).
+%%
 %% S = fun() -> ts:run(kernel, gen_tcp_misc_SUITE, [batch]) end.
 %% S = fun(SUITE) -> ts:run(kernel, SUITE, [batch]) end.
-%% S = fun() -> ct:run_test([{suite, gen_tcp_misc_SUITE}]) end.
-%% S = fun(SUITE) -> ct:run_test([{suite, SUITE}]) end.
 %% G = fun(GROUP) -> ts:run(kernel, gen_tcp_misc_SUITE, {group, GROUP}, [batch]) end.
 %% G = fun(SUITE, GROUP) -> ts:run(kernel, SUITE, {group, GROUP}, [batch]) end.
+%% T = fun(TC) -> ts:run(kernel, gen_tcp_misc_SUITE, TC, [batch]) end.
+%%
+%% S = fun() -> ct:run_test([{suite, gen_tcp_misc_SUITE}]) end.
+%% S = fun(SUITE) -> ct:run_test([{suite, SUITE}]) end.
 %% G = fun(GROUP) -> ct:run_test([{suite, gen_tcp_misc_SUITE}, {group, GROUP}]) end.
 %% G = fun(SUITE, GROUP) -> ct:run_test([{suite, SUITE}, {group, GROUP}]) end.
-%% T = fun(TC) -> ts:run(kernel, gen_tcp_misc_SUITE, TC, [batch]) end.
 %% T = fun(TC) -> ct:run_test([{suite, gen_tcp_misc_SUITE}, {testcase, TC}]) end.
 %% T = fun(TC) -> ct:run_test([{suite, gen_tcp_misc_SUITE}, {group, inet_backend_socket}, {testcase, TC}]) end.
 %% T = fun(S, TC) -> ct:run_test([{suite, S}, {testcase, TC}]) end.
@@ -49,7 +53,7 @@
 
 -module(gen_tcp_misc_SUITE).
 
--include_lib("common_test/include/ct.hrl").
+-include_lib("stdlib/include/assert.hrl").
 -include("kernel_test_lib.hrl").
 
 -export([
@@ -104,12 +108,14 @@
 	 socket_monitor2/1,
 	 socket_monitor2_manys/1,
 	 socket_monitor2_manyc/1,
+         t_kernel_options/1, do_kernel_options_remote/2,
 	 otp_17492/1,
 	 otp_18357/1,
          otp_18883/1,
 	 otp_18707/1,
          otp_19560_inet/1, otp_19560_inet6/1,
-         send_block_unblock/1
+         send_block_unblock/1,
+         prim_inet_recv_marker/1
 	]).
 
 %% Internal exports.
@@ -187,7 +193,7 @@ groups() ->
      {inet_backend_socket,    [], inet_backend_socket_cases()},
 
      {tickets,                [], ticket_cases()},
-     
+
      {ctrl_proc,              [], ctrl_proc_cases()},
      {close,                  [], close_cases()},
      {active,                 [], active_cases()},
@@ -207,7 +213,7 @@ inet_backend_default_cases() ->
     all_std_cases().
 
 inet_backend_inet_cases() ->
-    all_std_cases().
+    [prim_inet_recv_marker] ++ all_std_cases().
 
 inet_backend_socket_cases() ->
     all_std_cases().
@@ -239,7 +245,8 @@ all_std_cases() ->
      {group, socket_monitor},
      otp_17492,
      otp_18707,
-     send_block_unblock
+     send_block_unblock,
+     t_kernel_options
     ].
 
 ticket_cases() ->
@@ -2053,16 +2060,16 @@ do_show_econnreset_active(Config, Addr) ->
     {ok, S1} = gen_tcp:accept(L1),
     ok = gen_tcp:close(L1),
     ok = inet:setopts(Client1, [{linger, {true, 0}}]),
-    %% ?P("enable server socket debug"),
-    %% _ = inet:setopts(S1, [{debug, true}]),
-    ?P("close the client socket"),
+    %% ok = inet:setopts(S1, [{debug, true}]),
+    ?P("close client(1) socket"),
     ok = gen_tcp:close(Client1),
-    ?P("await server side econnreset (tcp-) error message"),
+    ?P("await accepted socket econnreset tcp-error message"),
     receive
 	{tcp_error, S1, econnreset} ->
+	    ?P("received accepted socket expected tcp-error message (econnreset)"),
 	    receive
 		{tcp_closed, S1} ->
-                    ?P("done"),
+                    ?P("received accepted socket tcp-closed message - done"),
 		    ok;
 		Other1 ->
                     ?P("UNEXPECTED (expected closed):"
@@ -2072,14 +2079,9 @@ do_show_econnreset_active(Config, Addr) ->
                     ?P("UNEXPECTED timeout (expected closed)"),
                     ct:fail({timeout, {server, no_tcp_closed}})
 	    end;
-
-	{tcp_closed, S1} ->
-            ?P("Received unexpected 'closed' message"),
-	    ct:fail({unexpected, on, econnreset, closed});
-	    
 	Other2 ->
-	    ?P("Received unexpected message:"
-	       "~n   ~p", [Other2]),
+            ?P("UNEXPECTED (expected error:econnreset):"
+               "~n   ~p", [Other2]),
 	    ct:fail({unexpected, on, econnreset, Other2})
     after 1000 ->
             ?P("UNEXPECTED timeout (expected error:econnreset)"),
@@ -8981,8 +8983,8 @@ sm_await_down(Pid, Mon, ExpRes) ->
 	    ok;
 	{'DOWN', Mon, process, Pid, UnexpRes} ->
 	    ?P("received unexpected process down message from ~p: "
-	       "~n   ~p, Expected:"
-               "~n   ~p", [Pid, UnexpRes, ExpRes]),
+	       "~n   ~p"
+	       "~n   Expected: ~p", [Pid, UnexpRes, ExpRes]),
 	    ct:fail({unexpected_down, UnexpRes, ExpRes})
     end.
 
@@ -9520,18 +9522,14 @@ otp_18357(Config) when is_list(Config) ->
 
 do_otp_18357(#{name := Name, addr := Addr}) ->
     ?P("try create listen socket"),
-    {ok, L}      = gen_tcp:listen(0, [{ifaddr, Addr}]),
+    {ok, L}      = gen_tcp:listen(0,
+                                  [{inet_backend, socket},
+                                   {debug,        true},
+                                   {ifaddr,       Addr}]),
     {ok, PortNo} = inet:port(L),
 
-    %% Need this for the error handling
-    OS = case os:type() of
-             {unix, darwin = Flavor} ->
-                 Flavor;
-             _ ->
-                 other % We do not really care...
-         end,
-
     ?P("try connect (with bind-to-device)"),
+    OS = which_os(),
     C = case gen_tcp:connect(Addr, PortNo,
                              [{inet_backend,   socket},
                               {debug,          true},
@@ -9651,7 +9649,6 @@ do_otp_18707(_Config) ->
     ?P("done"),
     ok.
 
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% This is the most basic of tests.
@@ -9704,13 +9701,35 @@ do_otp_19560(Family) ->
        "~n   Listen SockAddr:  ~p"
        "~n   Connect SockAddr: ~p"
        "~n   Accept SockAddr:  ~p", [LSA, CSA, ASA]),
-    
+
     ?P("cleanup"),
     (catch gen_tcp:close(A)),
     (catch gen_tcp:close(C)),
     (catch gen_tcp:close(L)),
 
     ?P("done"),
+    ok.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Disassemble prim_inet.beam and make that sure each function has
+%% the correct number of recv markers.
+prim_inet_recv_marker(_Config) ->
+    [PrimInet | _] = filelib:wildcard(
+        filename:join([code:lib_dir(erts),"**","prim_inet.beam"])),
+
+    {beam_file, prim_inet, _Exports, _Vsn, _Attr, Functions} =
+        beam_disasm:file(PrimInet),
+    RecvMarkerCnt =
+        [{Name,Arity,length([C || {recv_marker_use,_} = C <- Code])}
+            || {function, Name, Arity, _, Code} <- Functions],
+    RecvMarkers =
+        [{Name, Arity} || {Name,Arity,Cnt} <- RecvMarkerCnt, Cnt =/= 0],
+
+    ?assert(lists:member({send,4}, RecvMarkers)),
+    ?assert(lists:member({do_sendto,4}, RecvMarkers)),
+
     ok.
 
 
@@ -9825,6 +9844,113 @@ payload(N, Bin) ->
     C = rand:uniform($z - $0 + 1) + $0,
     payload(N - 1, <<Bin/binary, C>>).
 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% This is the most basic of tests.
+
+%% Create a new node with kernel option(s) 'inet_default_listen_options'
+%% and 'inet_default_connect_options' set then rpc call a function which
+%% creates socket(s) and reads back their values of that socket (buffer
+%% and recbuf).
+%%
+t_kernel_options(Config) when is_list(Config) ->
+    ?TC_TRY(?FUNCTION_NAME,
+            fun() -> ok end,
+            fun() -> case ?WHICH_LOCAL_ADDR(inet) of
+                         {ok, Addr} ->
+                             Addr;
+                         {error, Reason} ->
+                             throw({skip, Reason})
+                     end
+            end,
+            fun(Addr) ->
+                    do_kernel_options(Config, Addr)
+            end,
+            fun(_) ->
+                    ok
+            end).
+
+do_kernel_options(Config, Addr) ->
+    LBSz   = 12345,
+    LRBSz  = 54321,
+    CBSz   = 23456,
+    CRBSz  = 65432,
+    KOpts = ?F("-kernel inet_default_listen_options "
+               "\"[{buffer,~w},{recbuf,~w}]\" "
+               "-kernel inet_default_connect_options "
+               "\"[{buffer,~w},{recbuf,~w}]\"",
+               [LBSz, LRBSz, CBSz, CRBSz]),
+    ?P("try start node"),
+    case ?START_NODE(?UNIQ_NODE_NAME, KOpts) of
+        {ok, Node} ->
+            LExpected = [{buffer, LBSz}, {recbuf, LRBSz}],
+            CExpected = [{buffer, CBSz}, {recbuf, CRBSz}],
+            %% Listen, Connect, Accept
+            Expected = {LExpected, CExpected, LExpected},
+            ?P("node ~p started - try get (tcp) buffer options", [Node]),
+            case rpc:call(Node,
+                          ?MODULE,
+                          do_kernel_options_remote,
+                          [Config, Addr]) of
+                {
+                 [{buffer, LBSz}, {recbuf, RB1}], % Listen
+                 [{buffer, CBSz}, {recbuf, RB2}], % Connect
+                 [{buffer, LBSz}, {recbuf, RB3}]  % Accept
+                }
+                  when (RB1 >= LRBSz) andalso
+                       (RB2 >= CRBSz) andalso
+                       (RB3 >= LRBSz) -> 
+                    ?P("options (buffers) verified:"
+                       "~n   listen:  ~p (>= ~p)"
+                       "~n   connect: ~p (>= ~p)"
+                       "~n   accept:  ~p (>= ~p)",
+                       [RB1, LRBSz, RB2, CRBSz, RB3, LRBSz]),
+                    (catch ?STOP_NODE(Node)),
+                    ok;
+                Actual ->
+                    ?P("unexpected:"
+                       "~n   Expected: ~p"
+                       "~n   Actual:   ~p", [Expected, Actual]),
+                    (catch ?STOP_NODE(Node)),
+                    exit({unexpected, Expected, Actual})
+            end;
+        {error, Reason} ->
+            ?P("failed start node: ~p", [Reason]),
+            error
+    end.
+
+do_kernel_options_remote(Config, Addr) ->
+    LS = case ?LISTEN(Config, 0, [{ip, Addr}]) of
+             {ok, S1} ->
+                 S1;
+             {error, _} = ERROR1 ->
+                 exit({listen, ERROR1})
+         end,
+    {LAddr, LPort} = case inet:sockname(LS) of
+                         {ok, {A, P}} ->
+                             {A, P};
+                                                  {error, _} = SN_ERROR ->
+                             exit({sockname, SN_ERROR})
+                     end,
+    CS = case ?CONNECT(Config, LAddr, LPort, [{ip, Addr}]) of
+             {ok, S2} ->
+                 S2;
+             {error, _} = ERROR2 ->
+                 exit({connect, ERROR2})
+         end,
+    AS = case gen_tcp:accept(LS) of
+             {ok, S3} ->
+                 S3;
+             {error, _} = ERROR3 ->
+                 exit({accept, ERROR3})
+         end,
+    {ok, LBuffs} = inet:getopts(LS, [buffer, recbuf]),
+    {ok, CBuffs} = inet:getopts(CS, [buffer, recbuf]),
+    {ok, ABuffs} = inet:getopts(AS, [buffer, recbuf]),
+    {LBuffs, CBuffs, ABuffs}.
+
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 is_windows() ->
@@ -9906,6 +10032,19 @@ skip(Reason) ->
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% This is a simplified os:type()
+which_os() ->
+    %% Need this for the error handling
+    case os:type() of
+        {unix, Flavor} ->
+            Flavor;
+        {win32, nt} ->
+            windows;
+        _ ->
+            other % We do not really care...
+    end.
+
 
 messages() ->
     pi(messages).

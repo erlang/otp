@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -53,8 +55,6 @@
          rsa_priv_pkcs8/1,
          ec_pem/0,
          ec_pem/1,
-         ec_pem2/0,
-         ec_pem2/1,
          ec_priv_pkcs8/0,
          ec_priv_pkcs8/1,
          eddsa_priv_pkcs8/0,
@@ -119,6 +119,8 @@
          pkix_iso_rsa_oid/1,
          pkix_iso_dsa_oid/0,
          pkix_iso_dsa_oid/1,
+         pkix_rsa_md2_oid/0,
+         pkix_rsa_md2_oid/1,
          pkix_dsa_sha2_oid/0,
          pkix_dsa_sha2_oid/1,
          pkix_crl/0,
@@ -138,13 +140,21 @@
          short_cert_issuer_hash/1,
          short_crl_issuer_hash/0,
          short_crl_issuer_hash/1,
-         gen_ec_param_prime_field/0,
-         gen_ec_param_prime_field/1,
-         gen_ec_param_char_2_field/0,
-         gen_ec_param_char_2_field/1,
          cacerts_load/0, cacerts_load/1,
          ocsp_extensions/0, ocsp_extensions/1
         ]).
+
+%% Explicit parameters for EC are currently not implemented.
+%%-define('EXPLICIT_EC_PARAMS', true).
+
+-ifdef('EXPLICIT_EC_PARAMS').
+-export([ec_pem2/0,
+         ec_pem2/1,
+         gen_ec_param_prime_field/0,
+         gen_ec_param_prime_field/1,
+         gen_ec_param_char_2_field/0,
+         gen_ec_param_char_2_field/1]).
+-endif.
 
 -export([list_cacerts/0]).  % debug exports
 
@@ -178,6 +188,7 @@ all() ->
      pkix_path_validation_bad_date,
      pkix_iso_rsa_oid, 
      pkix_iso_dsa_oid, 
+     pkix_rsa_md2_oid,
      pkix_dsa_sha2_oid,
      pkix_crl, 
      pkix_hash_type,
@@ -194,25 +205,37 @@ all() ->
      short_crl_issuer_hash,
      cacerts_load,
      ocsp_extensions,
-     pkix_ocsp_validate
+     pkix_ocsp_validate | maybe_more()
     ].
 
 groups() -> 
     [{pem_decode_encode, [], [dsa_pem, rsa_pem, rsa_pss_pss_pem, 
                               rsa_pss_default_pem, ec_pem,
 			      encrypted_pem_pwdstring, encrypted_pem_pwdfun,
-			      dh_pem, cert_pem, pkcs7_pem, pkcs10_pem, ec_pem2,
+			      dh_pem, cert_pem, pkcs7_pem, pkcs10_pem,
 			      rsa_priv_pkcs8, dsa_priv_pkcs8, ec_priv_pkcs8,
 			      eddsa_priv_pkcs8, eddsa_priv_rfc5958,
-			      ec_pem_encode_generated, gen_ec_param_prime_field,
-			      gen_ec_param_char_2_field]},
+                              ec_pem_encode_generated]},
      {sign_verify, [], [rsa_sign_verify, rsa_pss_sign_verify, dsa_sign_verify,
-                        eddsa_sign_verify_24_compat, custom_sign_fun_verify]}
+                        eddsa_sign_verify_24_compat, custom_sign_fun_verify]},
+     {explicit_ec_params,
+      [ec_pem2,
+       gen_ec_param_char_2_field,
+       gen_ec_param_prime_field
+      ]}
     ].
+
+
+-ifdef('EXPLICIT_EC_PARAMS').
+maybe_more() -> [{group, explicit_ec_params}].
+-else.
+maybe_more() -> [].
+-endif.
+
 %%-------------------------------------------------------------------
 init_per_suite(Config) ->
     application:stop(crypto),
-    try crypto:start() of
+    try application:start(crypto) of
         ok ->
             application:start(asn1),
             Config
@@ -436,7 +459,8 @@ ec_pem(Config) when is_list(Config) ->
     true = check_entry_type(ECPrivKey#'ECPrivateKey'.parameters, 'EcpkParameters'),
     ECPemNoEndNewLines = strip_superfluous_newlines(ECPrivPem),
     ECPemNoEndNewLines = strip_superfluous_newlines(public_key:pem_encode([Entry1, Entry2])).
-    
+
+-ifdef('EXPLICIT_EC_PARAMS').
 ec_pem2() ->
     [{doc, "EC key w/explicit params PEM-file decode/encode"}].
 ec_pem2(Config) when is_list(Config) ->
@@ -455,6 +479,7 @@ ec_pem2(Config) when is_list(Config) ->
     true = check_entry_type(ECPrivKey#'ECPrivateKey'.parameters, 'EcpkParameters'),
     ECPemNoEndNewLines = strip_superfluous_newlines(ECPrivPem),
     ECPemNoEndNewLines = strip_superfluous_newlines(public_key:pem_encode([Entry1, Entry2])).
+-endif.
 
 ec_priv_pkcs8() ->
     [{doc, "EC PKCS8 private key decode/encode"}].
@@ -1368,6 +1393,18 @@ pkix_iso_dsa_oid(Config) when is_list(Config) ->
     {_, dsa} = public_key:pkix_sign_types(SigAlg#'SignatureAlgorithm'.algorithm).
 
 %%--------------------------------------------------------------------
+
+pkix_rsa_md2_oid() ->
+ [{doc, "Test support for MD2 signed RSA certs." "oid 1.2.840.113549.1.1.2"}].
+pkix_rsa_md2_oid(Config) when is_list(Config) ->
+    Datadir = proplists:get_value(data_dir, Config),
+    {ok, PemCert} = file:read_file(filename:join(Datadir, "rsa_md2.pem")),
+    [{_, Cert, _}] = public_key:pem_decode(PemCert),
+    OTPCert = public_key:pkix_decode_cert(Cert, otp),
+    SigAlg = OTPCert#'OTPCertificate'.signatureAlgorithm,
+    {md2, rsa} = public_key:pkix_sign_types(SigAlg#'SignatureAlgorithm'.algorithm).
+
+%%--------------------------------------------------------------------
 pkix_dsa_sha2_oid() ->
  [{doc, "Test support dsa_sha2 oid"}].
 pkix_dsa_sha2_oid(Config) when is_list(Config) ->
@@ -1383,7 +1420,7 @@ pkix_crl(Config) when is_list(Config) ->
     Datadir = proplists:get_value(data_dir, Config),
     {ok, PemCRL} = file:read_file(filename:join(Datadir, "idp_crl.pem")),
     [{_, CRL, _}] = public_key:pem_decode(PemCRL),
-    
+
     {ok, IDPPemCert} = file:read_file(filename:join(Datadir, "idp_cert.pem")),
     [{_, IDPCert, _}] = public_key:pem_decode(IDPPemCert),
 
@@ -1396,7 +1433,6 @@ pkix_crl(Config) when is_list(Config) ->
 
     {rdnSequence,_} = public_key:pkix_crl_issuer(CRL),
     {rdnSequence,_} = public_key:pkix_crl_issuer(ERLCRL),
-    
     true = public_key:pkix_crl_verify(CRL, SignCert),
     true = public_key:pkix_crl_verify(ERLCRL, OTPSignCert),
 
@@ -1568,6 +1604,7 @@ short_crl_issuer_hash(Config) when is_list(Config) ->
 
     CrlIssuerHash = public_key:short_name_hash(Issuer).
 
+-ifdef('EXPLICIT_EC_PARAMS').
 %%--------------------------------------------------------------------
 gen_ec_param_prime_field() ->
     [{doc, "Generate key with EC prime_field parameters"}].
@@ -1581,18 +1618,24 @@ gen_ec_param_char_2_field() ->
 gen_ec_param_char_2_field(Config) when is_list(Config) ->
     Datadir = proplists:get_value(data_dir, Config),
     do_gen_ec_param(filename:join(Datadir, "ec_key_param1.pem")).
+-endif.
 
 %%--------------------------------------------------------------------
 ocsp_extensions() ->
     [{doc, "Check OCSP extensions"}].
 ocsp_extensions(_Config) ->
     Nonce = <<4,8,66,243,220,236,16,118,51,215>>,
-    ExpectedExtentions =
+    ExpectedExtensions =
         [{'Extension',
           ?'id-pkix-ocsp-nonce',
           asn1_DEFAULT,
-          <<4,8,66,243,220,236,16,118,51,215>>}],
-    ExpectedExtentions = public_key:ocsp_extensions(Nonce).
+          Nonce}],
+    ExpectedExtensions = public_key:ocsp_extensions(Nonce),
+    Encoded = public_key:der_encode('Extensions', ExpectedExtensions),
+    [#'Extension'{extnID=?'id-pkix-ocsp-nonce',
+                  critical=false,
+                  extnValue=Nonce}] = public_key:der_decode('Extensions', Encoded),
+    ok.
 
 pkix_ocsp_validate() ->
     [{doc, "Check OCSP extensions"}].
@@ -1728,7 +1771,10 @@ cacerts_load(Config) ->
     false = public_key:cacerts_clear(),
 
     %% Reload from file
-    ok = public_key:cacerts_load(filename:join(Datadir, "cacerts.pem")),
+    {ok, Bin} = file:read_file(filename:join(Datadir, "cacerts.pem")),
+    ok = file:write_file("cacerts_with_key.pem", [Bin, priv_key()]),
+
+    ok = public_key:cacerts_load("cacerts_with_key.pem"),
     [_TestCert1, _TestCert2] = public_key:cacerts_get(),
 
     %% Reload default OS certs
@@ -1777,20 +1823,22 @@ cert_info([]) ->
 
 
 subject(S) ->
-    string:lowercase(subject(public_key:pkix_normalize_name(S), "unknown")).
+    unicode:characters_to_list(
+      string:lowercase(
+        subject(public_key:pkix_normalize_name(S), "unknown"))).
 
 subject({rdnSequence, Seq}, Def) ->
     subject(Seq, Def);
 subject([[{'AttributeTypeAndValue', ?'id-at-commonName', Name0}]|_], _Def) ->
     case Name0 of
         {printableString, Name} -> Name;
-        {utf8String, Name} -> unicode:characters_to_list(Name);
+        {utf8String, Name} -> Name;
         Name -> Name
     end;
 subject([[{'AttributeTypeAndValue', ?'id-at-organizationName', Name0}]|Rest], _Def) ->
     Name = case Name0 of
                {printableString, Name1} -> Name1;
-               {utf8String, Name1} -> unicode:characters_to_list(Name1);
+               {utf8String, Name1} -> Name1;
                Name1 -> Name1
            end,
     subject(Rest, Name);
@@ -1805,6 +1853,39 @@ list_cacerts() ->
     IO = fun(C, N) -> io:format("~.3w:~0p~n", [N,C]), N+1 end,
     lists:foldl(IO, 0, lists:sort(cert_info(Certs))),
     ok.
+
+priv_key() ->
+    ~"""
+-----BEGIN PRIVATE KEY-----
+MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCyuMx6KYPg5lYp
+igiML9VAu22Iil2mugAylYOHeZAgodMmKNY0t63EIR24ncKTRT0CE0PcKf58w4ka
+UN0fu7su+rtvY8J2BKcNOTya6v03b8tdcs+ABCI3XgW2MURfsihVsF6AEfoVZiB6
+IxTraAx9P8uPS+htGVC2h8KvNDRs4g/O69B6Xuzybu77CbEOR6n8ckLfBNbxZPdR
+hspTv3x8FazEel4rfYvzcsPe/aUzu0WmwCgZsk6DfyO0QtpX1fuEfcN8hrk2NvYj
+dQPzF1hlMizFVMo/vw1svEtEHbCxxeXcL+zjkU8qrUAcORiqWuB0V1ihjYK2Oolv
+j3lA9subAgMBAAECggEAN+0UL3YmSo5JkB4dpqChPuxnzj5eJ/o0bZ/T1OT5cPyy
+slI9FaoUujcSsd7MMIGOIcQdjBuoAyq9EHsVdwSsAnt7g9PX2k6CZ+TtTh0St/JH
+1SpEPG8Otfy6FNU97CQ38viJ2dHGTEP1DcNEnJWmstrvvBuo09sEItpA1cqkTR26
+cSxsxPwBxYo0vJiNn7eMfKZVgW6kb2vdNTd1ybtKaDBF+fSyhYqj0c0CjZtOWP+Y
+r1c73rZKF8g7TyNMbRsgnFoTDPobkFlVL0THE4cUIFfBdl1zvNnGfiSD7X553NJk
+2oV/c/bIo9wQqWTmWHd1TjsSJ3VkF4KRZ5ukKw8HwQKBgQDjCAwibHY/aRC6WSon
+pv9fdVUx40nJ+bW+yjX6OfgMwNBP+rnLPclcbFiBAQGSXDwt52wgh7LM/FyorNcw
+fdbJ2/PJbfmWOqku5eqBMzqvaVWWn8sDyVvPl+ENppDw25//VjNdWzgBwwsLqa5M
+VDWpbPL3KtIIPOuZBtSUKBJywwKBgQDJhrnB6NmQaDauYX69x0lWTyef/aBQWX86
+gym6kLP2GrT7l9ZJzO8jVsIglM+8G0eMM5IBNGYn0xoNr7U35vwTp+gBdWVvJdW1
+9N2q8NFuBYzF56LqIoiMeZf08I5ntzyyyF3NlFq+KuhnApNjwyx7nS6/zZ6GC/l+
+lmePx7aGSQKBgBMKAbqBTglTTkvSXm6k2pWuyU49uVpuzocJfi1V3y9ynAWZCSu6
+KsDNdT6cTv1vLrzKw46W0q/OGhcrJ4CxjOmwwGkMB/pJQRblwRzEpw8+ziarj+Lp
+aAGowv7aER2hzXEkUXpqw++h47M+r5dHGJj0wgtoU+TM9xUGNZ2XHrTxAoGAKOjo
+nKygPehp8UxpZi0mfhbjfF8IREdmxIIL3ouxfKw/QTO5lJG9mfbqwaJz6UPAan2t
+jgENG9iG2XBp4UdKtNLJDkK+rKmJkL58oU7xtNv7j9FOCSmpfprQdjC/N97Cu6hh
+InKTWTdspjynnwDn7tAhxV4AaEXWCBSQQWfRbcECgYEAkBd9KJD2Ypedp/2dtJHC
+jDr1ePl71oDwe8vEwN/DujwyaJXJL6gdEbOhPIp/D65L+JayPN1C2lHxDF/zIAKz
+j1exw1nyGDYNeBhQXyk+uKGkEN53Rrb+wYnfK74ItBBdf/5XotYTGH24wB2GLwdO
+bAMOCtAd2sl//30zzUVW1dc=
+-----END PRIVATE KEY-----
+""".
+
 
 
 %%--------------------------------------------------------------------

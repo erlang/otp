@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2001-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -41,7 +43,8 @@
 	 check_qlc_hrl/1,andalso_semi/1,t_tuple_size/1,binary_part/1,
 	 bad_constants/1,bad_guards/1,
          guard_in_catch/1,beam_bool_SUITE/1,
-         repeated_type_tests/1,use_after_branch/1]).
+         repeated_type_tests/1,use_after_branch/1,
+         body_in_guard/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -60,7 +63,7 @@ groups() ->
        basic_andalso_orelse,traverse_dcd,
        check_qlc_hrl,andalso_semi,t_tuple_size,binary_part,
        bad_constants,bad_guards,guard_in_catch,beam_bool_SUITE,
-       repeated_type_tests,use_after_branch]},
+       repeated_type_tests,use_after_branch,body_in_guard]},
      {slow,[],[literal_type_tests,generated_combinations]}].
 
 init_per_suite(Config) ->
@@ -3346,6 +3349,18 @@ use_after_branch_1(A) ->
     case Boolean of
         true -> {id(Boolean), gurka};
         false -> {id(Boolean), gaffel}
+    end.
+
+%% GH-8733: Benign bug where {succeeded,body} was emitted in a guard context,
+%% crashing the compiler when +no_bool_opt was specified.
+body_in_guard(_Config) ->
+    Pid = self(),
+    Mon = monitor(process, Pid),
+    receive
+        {'DOWN', Mon, process, Pid, _} ->
+            ok
+    after 0 ->
+        demonitor(Mon)
     end.
 
 %% Call this function to turn off constant propagation.

@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
 %% 
-%% Copyright Ericsson AB 2021-2023. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -32,8 +34,7 @@
 -behaviour(supervisor).
 
 %% API
--export([start_link/0]).
--export([start_child/3]).
+-export([start_link/2]).
 
 %% Supervisor callback
 -export([init/1]).
@@ -41,24 +42,19 @@
 %%%=========================================================================
 %%%  API
 %%%=========================================================================
-start_link() ->
-    supervisor:start_link(?MODULE, []).
+start_link(SenderArgs, ReciverArgs) ->
+    supervisor:start_link(?MODULE, [SenderArgs, ReciverArgs]).
 
-start_child(Sup, sender, Args) ->
-    supervisor:start_child(Sup, sender(Args));
-start_child(Sup, receiver, Args) ->
-    supervisor:start_child(Sup, receiver(Args)).
-    
 %%%=========================================================================
 %%%  Supervisor callback
 %%%=========================================================================
-init(_) ->
+init([SenderArgs, ReciverArgs]) ->
     SupFlags = #{strategy      => one_for_all,
                  auto_shutdown => any_significant,
                  intensity     =>    0,
                  period        => 3600
                 },
-    ChildSpecs = [],
+    ChildSpecs = [sender(SenderArgs), receiver(ReciverArgs)],
     {ok, {SupFlags, ChildSpecs}}.
 
 sender(Args) ->
@@ -74,7 +70,7 @@ receiver(Args) ->
       restart     => temporary,
       type        => worker,
       significant => true,
-      start       => {ssl_gen_statem, start_link, Args},
+      start       => {ssl_gen_statem, tls_start_link, Args},
       modules     => [ssl_gen_statem,
                       tls_client_connection,
                       tls_server_connection,

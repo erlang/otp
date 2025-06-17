@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1589,9 +1591,10 @@ preloaded() ->
 
 erts_binary_filter() ->
     Cmds = ["typer", "dialyzer", "ct_run", "yielding_c_fun", "erlc"],
+    Extensions = [".exe", ".pdb"],
     case os:type() of
         {unix,_} -> Cmds;
-        {win32,_} -> [ [Cmd, ".exe"] || Cmd <- Cmds]
+        {win32,_} -> [ [Cmd, Ext] || Cmd <- Cmds, Ext <- Extensions]
     end.
 
 %%______________________________________________________________________
@@ -1896,9 +1899,16 @@ add_appl(Name, Vsn, App, Tar, Variables, Flags, Var) ->
 		    ok
 	    end,
 	    BinDir = filename:join(ToDir, "ebin"),
-	    add_to_tar(Tar,
-		       filename:join(AppDir, Name ++ ".app"),
-		       filename:join(BinDir, Name ++ ".app")),
+	    AppBase = filename:join(AppDir, Name),
+	    BinBase = filename:join(BinDir, Name),
+	    add_to_tar(Tar, AppBase ++ ".app", BinBase ++ ".app"),
+	    AppUp = AppBase ++ ".appup",
+	    case filelib:is_regular(AppUp) of
+		true ->
+		    add_to_tar(Tar, AppUp, BinBase ++ ".appup");
+		false ->
+		    ok
+	    end,
 	    add_modules(map(fun(Mod) -> to_list(Mod) end,
 			    App#application.modules),
 			Tar,

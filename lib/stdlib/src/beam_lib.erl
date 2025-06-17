@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2000-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -39,6 +41,7 @@ follows:
 - `indexed_imports ("ImpT")`
 - `labeled_exports ("ExpT")`
 - `labeled_locals ("LocT")`
+- `literals ("LitT")`
 - `locals ("LocT")`
 - `documentation ("Docs")`
 
@@ -147,6 +150,8 @@ providing one key for module `t` and another key for all other modules:
 """.
 -behaviour(gen_server).
 
+-compile(nowarn_deprecated_catch).
+
 -include_lib("kernel/include/eep48.hrl").
 
 %% Avoid warning for local function error/1 clashing with autoimported BIF.
@@ -231,12 +236,14 @@ computed from the `debug_info` chunk.
 """.
 -type chunkid()   :: nonempty_string(). % approximation of the strings below
 %% "Abst" | "Dbgi" | "Attr" | "CInf" | "ExpT" | "ImpT" | "LocT" | "Atom" | "AtU8" | "Docs"
+%% "LitT"
 -type chunkname() :: 'abstract_code' | 'debug_info'
                    | 'attributes' | 'compile_info'
                    | 'exports' | 'labeled_exports'
                    | 'imports' | 'indexed_imports'
                    | 'locals' | 'labeled_locals'
-                   | 'atoms' | 'documentation'.
+                   | 'atoms' | 'documentation'
+                   | 'literals'.
 -type chunkref()  :: chunkname() | chunkid().
 
 -type attrib_entry()   :: {Attribute :: atom(), [AttributeValue :: term()]}.
@@ -245,6 +252,8 @@ computed from the `debug_info` chunk.
 
 -doc "[EEP-48 documentation format](`e:kernel:eep48_chapter.md#the-docs-format`)".
 -type docs() :: #docs_v1{}.
+
+-type literals() :: {index(), term()}.
 
 -doc """
 The list of attributes is sorted on `Attribute` (in `t:attrib_entry/0`) and each
@@ -263,7 +272,8 @@ order as in the file. The lists of functions are also sorted.
                    | {'locals', [{atom(), arity()}]}
                    | {'labeled_locals', [labeled_entry()]}
                    | {'atoms', [{integer(), atom()}]}
-                   | {'documentation', docs()}.
+                   | {'documentation', docs()}
+                   | {'literals', literals()}.
 
 %% Error reasons
 -type info_rsn()  :: {'chunk_too_big', file:filename(),
@@ -977,8 +987,7 @@ scan_beam(FD, Pos, What, Mod, Data) ->
 get_atom_data(Cs, Id, FD, Size, Pos, Pos2, Data, Encoding) ->
     NewCs = del_chunk(Id, Cs),
     {NFD, Chunk} = get_chunk(Id, Pos, Size, FD),
-    <<_Num:32, Chunk2/binary>> = Chunk,
-    {Module, _} = extract_atom(Chunk2, Encoding),
+    Module = extract_module(Chunk, Encoding),
     C = case Cs of
 	    info -> 
 		{Id, Pos, Size};
@@ -1124,6 +1133,14 @@ chunk_to_data(atoms=Id, _Chunk, _File, Cs, AtomTable0, _Mod) ->
     AtomTable = ensure_atoms(AtomTable0, Cs),
     Atoms = ets:tab2list(AtomTable),
     {AtomTable, {Id, lists:sort(Atoms)}};
+chunk_to_data(literals=Id, Chunk, File, _Cs, AtomTable, _Mod) ->
+    try extract_literals(Chunk) of
+        Literals ->
+            {AtomTable, {Id, Literals}}
+    catch
+        _:_ ->
+            error({invalid_chunk, File, chunk_name_to_id(Id, File)})
+    end;
 chunk_to_data(ChunkName, Chunk, File,
 	      Cs, AtomTable, _Mod) when is_atom(ChunkName) ->
     case catch symbols(Chunk, AtomTable, Cs, ChunkName) of
@@ -1147,6 +1164,7 @@ chunk_name_to_id(abstract_code, _)   -> "Abst";
 chunk_name_to_id(debug_info, _)      -> "Dbgi";
 chunk_name_to_id(compile_info, _)    -> "CInf";
 chunk_name_to_id(documentation, _)   -> "Docs";
+chunk_name_to_id(literals, _)        -> "LitT";
 chunk_name_to_id(Other, File) -> 
     error({unknown_chunk, File, Other}).
 
@@ -1202,6 +1220,15 @@ ensure_atoms({empty, AT}, Cs) ->
 ensure_atoms(AT, _Cs) ->
     AT.
 
+extract_module(<<Num:32/signed-integer, B/binary>>, utf8) when Num < 0 ->
+    {Module, _} = extract_long_atom(B),
+    Module;
+extract_module(<<_Num:32/signed-integer, B/binary>>, Encoding) ->
+    {Module, _} = extract_atom(B, Encoding),
+    Module.
+
+extract_atoms(<<Num:32/signed-integer, B/binary>>, AT, utf8) when Num < 0 ->
+    extract_long_atoms(B, 1, AT);
 extract_atoms(<<_Num:32, B/binary>>, AT, Encoding) ->
     extract_atoms(B, 1, AT, Encoding).
 
@@ -1215,6 +1242,47 @@ extract_atoms(B, I, AT, Encoding) ->
 extract_atom(<<Len, B/binary>>, Encoding) ->
     <<SB:Len/binary, Tail/binary>> = B,
     {binary_to_atom(SB, Encoding), Tail}.
+
+extract_long_atoms(<<>>, _I, _AT) ->
+    true;
+extract_long_atoms(B, I, AT) ->
+    {Atom, B1} = extract_long_atom(B),
+    true = ets:insert(AT, {I, Atom}),
+    extract_long_atoms(B1, I+1, AT).
+
+extract_long_atom(B0) ->
+    {Len, B} = decode_arg_val(B0),
+    <<SB:Len/binary, Tail/binary>> = B,
+    {binary_to_atom(SB, utf8), Tail}.
+
+%% Extract the value from variable-sized tagged argument. Only support
+%% values from 0 through 2047, which is sufficient to handle the
+%% length of atoms in the atom table.
+decode_arg_val(<<N:4,0:1, _Tag:3, Code/binary>>) ->
+    {N, Code};
+decode_arg_val(<<High:3,0:1,1:1, _Tag:3, Low, Code0/binary>>) ->
+    N = (High bsl 8) bor Low,
+    {N, Code0}.
+
+extract_literals(Chunk0) ->
+    Literals0 =
+        case Chunk0 of
+            <<0:32, Chunk/binary>> ->
+                %% Literals are not compressed in Erlang/OTP 28 and
+                %% later.
+                Chunk;
+            <<OriginalSize:32, Chunk1/binary>> ->
+                %% Literals are compressed in Erlang/OTP 27 and
+                %% earlier.
+                Chunk = zlib:uncompress(Chunk1),
+                OriginalSize = byte_size(Chunk), %Sanity check.
+                Chunk
+        end,
+    <<NumLiterals:32, Literals1/binary>> = Literals0,
+    Literals = [binary_to_term(Term) ||
+                   <<N:32, Term:N/binary>> <:= Literals1],
+    NumLiterals = length(Literals),             %Sanity check.
+    lists:enumerate(0, Literals).
 
 %%% Utils.
 
@@ -1376,7 +1444,7 @@ anno_from_forms(Forms0) ->
     [erl_parse:anno_from_term(Form) || Form <- Forms].
 
 start_crypto() ->
-    case crypto:start() of
+    case application:start(crypto) of
 	{error, {already_started, _}} ->
 	    ok;
 	ok ->

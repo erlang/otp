@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2005-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -44,7 +46,7 @@
          test_length/1,
          fixed_apply_badarg/1,
          external_fun_apply3/1,
-         node_1/1]).
+         node_1/1,doctests/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -62,7 +64,7 @@ all() ->
      is_process_alive, is_process_alive_signal_from,
      process_info_blast, os_env_case_sensitivity,
      verify_middle_queue_save, test_length,fixed_apply_badarg,
-     external_fun_apply3, node_1].
+     external_fun_apply3, node_1, doctests].
 
 init_per_testcase(guard_bifs_in_erl_bif_types, Config) when is_list(Config) ->
     skip_missing_erl_bif_types(Config);
@@ -199,18 +201,17 @@ shadow_comments(_Config) ->
     List1 = [MFA || {M,_,_}=MFA <- List0, M =/= erlang],
     List = List1 ++ ErlangList,
     HasTypes = [MFA || {M,F,A}=MFA <- List,
-		       erl_bif_types:is_known(M, F, A)],
-    Path = get_code_path(),
-    BifRel = sofs:relation(HasTypes, [{m,f,a}]),
-    BifModules = sofs:to_external(sofs:projection(1, BifRel)),
-    AbstrByModule = [extract_abstract(Mod, Path) || Mod <- BifModules],
+                       erl_bif_types:is_known(M, F, A)],
+    BifModules = bif_modules(HasTypes),
+    AbstrByModule = [extract_abstract(Mod) || Mod <- BifModules],
     Specs0 = [extract_specs(Mod, Abstr) ||
 		 {Mod,Abstr} <- AbstrByModule],
     Specs = lists:append(Specs0),
     SpecFuns0 = [F || {F,_} <- Specs],
     SpecFuns = sofs:relation(SpecFuns0, [{m,f,a}]),
+    BifRel = sofs:relation(HasTypes, [{m,f,a}]),
     HasTypesAndSpecs = sofs:intersection(BifRel, SpecFuns),
-    Commented0 = lists:append([extract_comments(Mod, Path) ||
+    Commented0 = lists:append([extract_comments(Mod) ||
 				  Mod <- BifModules]),
     Commented = sofs:relation(Commented0, [{m,f,a}]),
     {NoComments0,_,NoBifSpecs0} =
@@ -246,9 +247,18 @@ shadow_comments(_Config) ->
 	    ct:fail(erl_bif_types)
     end.
 
-extract_comments(Mod, Path) ->
-    Beam = which(Mod, Path),
-    SrcDir = filename:join(filename:dirname(filename:dirname(Beam)), "src"),
+extract_comments(Mod) ->
+    Beam = which(Mod),
+    AppDir = filename:dirname(filename:dirname(Beam)),
+    SrcDir = case code:root_dir() =:= filename:dirname(AppDir) of
+                 true ->
+                     %% Running in an uninstalled system.
+                     filename:join(AppDir, "preloaded/src");
+                 false ->
+                     %% Running in an installed system.
+                     filename:join(AppDir, "src")
+             end,
+    io:format("~p\n", [SrcDir]),
     Src = filename:join(SrcDir, atom_to_list(Mod) ++ ".erl"),
     {ok,Bin} = file:read_file(Src),
     Lines0 = binary:split(Bin, <<"\n">>, [global]),
@@ -267,13 +277,12 @@ specs(_) ->
     List0 = erlang:system_info(snifs),
 
     %% Ignore all operators.
-    List = [MFA || MFA <- List0, not is_operator(MFA)],
+    List1 = [MFA || MFA <- List0, not is_operator(MFA)],
 
     %% Extract specs from the abstract code for all BIFs.
-    Path = get_code_path(),
-    BifRel = sofs:relation(List, [{m,f,a}]),
-    BifModules = sofs:to_external(sofs:projection(1, BifRel)),
-    AbstrByModule = [extract_abstract(Mod, Path) || Mod <- BifModules],
+    BifModules = bif_modules(List1),
+    List = [MFA || {M,_,_}=MFA <- List1, lists:member(M, BifModules)],
+    AbstrByModule = [extract_abstract(Mod) || Mod <- BifModules],
     Specs0 = [extract_specs(Mod, Abstr) ||
 		 {Mod,Abstr} <- AbstrByModule],
     Specs = lists:append(Specs0),
@@ -312,10 +321,8 @@ make_mfa(M, {M,_,_}=MFA) -> MFA.
 
 improper_bif_stubs(_) ->
     Bifs = erlang:system_info(snifs),
-    Path = get_code_path(),
-    BifRel = sofs:relation(Bifs, [{m,f,a}]),
-    BifModules = sofs:to_external(sofs:projection(1, BifRel)),
-    AbstrByModule = [extract_abstract(Mod, Path) || Mod <- BifModules],
+    BifModules = bif_modules(Bifs),
+    AbstrByModule = [extract_abstract(Mod) || Mod <- BifModules],
     Funcs0 = [extract_functions(Mod, Abstr) ||
 		 {Mod,Abstr} <- AbstrByModule],
     Funcs = lists:append(Funcs0),
@@ -657,6 +664,12 @@ t_atom_to_binary(Config) when is_list(Config) ->
     <<>> = atom_to_binary('', unicode),
     <<127>> = atom_to_binary('\177', utf8),
     <<"abcdef">> = atom_to_binary(abcdef, utf8),
+    <<"qwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwe">> = 
+        atom_to_binary(qwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwe, utf8),
+    <<"qwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwer">> = 
+        atom_to_binary(qwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwer, utf8),
+    <<"qwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwerq">> = 
+        atom_to_binary(qwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwerqwerq, utf8),
     HalfLongBin = atom_to_binary(HalfLongAtom, utf8),
     HalfLongBin = atom_to_binary(HalfLongAtom),
     LongAtomBin = atom_to_binary(LongAtom, utf8),
@@ -1764,6 +1777,9 @@ node_error(E0) ->
             ok
     end.
 
+doctests(_Config) ->
+    shell_docs:test(erlang, []).
+
 %% helpers
 
 wait_until(Fun) ->
@@ -1786,34 +1802,26 @@ busy_wait_go() ->
 
 id(I) -> I.
 
-%% Get code path, including the path for the erts application.
-get_code_path() ->
-    Erts = filename:join([code:root_dir(),"erts","preloaded","ebin"]),
-    case filelib:is_dir(Erts) of
-	true->
-	    [Erts|code:get_path()];
-	_ ->
-	    code:get_path()
-    end.
+bif_modules(MFAs) ->
+    BifRel = sofs:relation(MFAs, [{m,f,a}]),
+    sofs:to_external(sofs:projection(1, BifRel)).
 
-which(Mod, Path) ->
-    which_1(atom_to_list(Mod) ++ ".beam", Path).
-
-which_1(Base, [D|Ds]) ->
-    Path = filename:join(D, Base),
-    case filelib:is_regular(Path) of
-	true -> Path;
-	false -> which_1(Base, Ds)
-    end.
 print_mfa({M,F,A}) ->
     io:format("~p:~p/~p", [M,F,A]).
 
-extract_abstract(Mod, Path) ->
-    Beam = which(Mod, Path),
+which(Mod) ->
+    case code:which(Mod) of
+        preloaded ->
+            filename:join([code:lib_dir(erts), "ebin", atom_to_list(Mod) ++ ".beam"]);
+        Beam when is_list(Beam) ->
+            Beam
+    end.
+
+extract_abstract(Mod) ->
+    Beam = which(Mod),
     {ok,{Mod,[{abstract_code,{raw_abstract_v1,Abstr}}]}} =
 	beam_lib:chunks(Beam, [abstract_code]),
     {Mod,Abstr}.
-
 
 tok_loop() ->
     tok_loop(hej).

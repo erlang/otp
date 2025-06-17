@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1998-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -75,6 +77,8 @@
          t_simple_link_local_sockaddr_in_send_recv/1,
          t_simple_local_sockaddr_in6_send_recv/1,
          t_simple_link_local_sockaddr_in6_send_recv/1,
+
+         t_kernel_options/1, do_kernel_options_remote/1,
 
          otp_18323_opts_processing/1,
          otp_18323_open/1,
@@ -154,6 +158,7 @@ all_cases() ->
      {group, socket_monitor},
      otp_17492,
      {group, sockaddr},
+     t_kernel_options,
      {group, tickets}
     ].
 
@@ -409,15 +414,43 @@ end_per_testcase(_Case, Config) ->
 
 %% Tests core functionality.
 send_to_closed(Config) when is_list(Config) ->
-    ?TC_TRY(?FUNCTION_NAME, fun() -> do_send_to_closed(Config) end).
+    Pre  = fun() ->
+                   Sock = case ?OPEN(Config, 0) of
+                              {ok, S} ->
+                                  S;
+                              {error, OReason} ->
+                                  ?P("~w:pre -> Failed create socket: "
+                                     "~n   Reason: ~p",
+                                     [?FUNCTION_NAME, OReason]),
+                                  ?SKIPT(?F("Failed open socket: ~w",
+                                            [OReason]))
+                          end,
+                   case ?LIB:which_local_addr(inet) of
+                       {ok, Addr} ->
+                           #{socket     => Sock,
+                             local_addr => Addr};
+                       {error, LReason} ->
+                           ?P("Failed get local address: "
+                              "~n   Reason: ~p", [LReason]),
+                           (catch gen_udp:close(Sock)),
+                           ?SKIPT(?F("Failed get local address: ~w", [LReason]))
+                   end
+           end,
+    TC   = fun(State) -> do_send_to_closed(State) end,
+    Post = fun(#{socket := Socket}) ->
+                   (catch gen_udp:close(Socket))
+           end,
+    ?TC_TRY(?FUNCTION_NAME, Pre, TC, Post).
 
-do_send_to_closed(Config) ->
-    {ok, Sock} = ?OPEN(Config, 0),
-    {ok, Addr} = ?LIB:which_local_addr(inet),
+do_send_to_closed(#{socket := Sock, local_addr := Addr}) ->
+    ?P("~w -> first send to (closed port): "
+       "~n   ~p, ~p", [?FUNCTION_NAME, Addr, ?CLOSED_PORT]),
     ok = gen_udp:send(Sock, Addr, ?CLOSED_PORT, "foo"),
     timer:sleep(2),
+    ?P("~w -> second send to (closed port): "
+       "~n   ~p, ~p", [?FUNCTION_NAME, Addr, ?CLOSED_PORT]),
     ok = gen_udp:send(Sock, Addr, ?CLOSED_PORT, "foo"),
-    ok = gen_udp:close(Sock),
+    ?P("~w -> done", [?FUNCTION_NAME]),
     ok.
 
 
@@ -460,13 +493,18 @@ buffer_size(Config) when is_list(Config) ->
     TC   = fun() -> do_buffer_size(Config) end,
     ?TC_TRY(?FUNCTION_NAME, Cond, TC).
 
+%% Note that as of OTP 28, the default buffer size has increased to 9K (for UDP)
+%% Up from 8K
+-define(BF_NUM_K(N), (N*1024)).
+%%-define(BF_8K,       ?BF_NUM_K(8)).
+-define(BF_9K,       ?BF_NUM_K(9)).
 do_buffer_size(Config) when is_list(Config) ->
     {ok, Addr} = ?LIB:which_local_addr(inet),
     ClientIP = Addr,
     ServerIP = Addr,
     Len = 256,
     Bin = list_to_binary(lists:seq(0, Len-1)),
-    M = 8192 div Len,
+    M = (?BF_9K) div Len,
     SAFE = 3,
     LONG = 1,
     Spec0 =
@@ -488,17 +526,30 @@ do_buffer_size(Config) when is_list(Config) ->
 	 end || {Tag,Val} <- Spec0],
     %%
     {ok, ClientSocket} = ?OPEN(Config, 0, [binary, {ip, ClientIP}]),
+    ?P("buffer_size[client] -> socket created"),
     {ok, ClientPort}   = inet:port(ClientSocket),
     Client = self(),
-    ?P("Client: {~p, ~p}, ~p", [ClientIP, ClientPort, ClientSocket]),
+    ?P("Client: {~p, ~p}, ~p: "
+       "~n   Socket Info: ~p"
+       "~n   Socket Opts: ~p",
+       [ClientIP, ClientPort, ClientSocket,
+        inet:info(ClientSocket),
+        inet:getopts(ClientSocket, [buffer, recbuf, sndbuf])]),
     Server =
 	spawn_link(
 	  fun () ->
                   ?P("buffer_size[server] -> starting"),
 		  {ok, ServerSocket} =
                       ?OPEN(Config, 0, [binary, {ip, ServerIP}]),
+                  ?P("buffer_size[server] -> socket created"),
 		  {ok, ServerPort}   =
                       inet:port(ServerSocket),
+                  ?P("buffer_size[server] -> {~p, ~p}, ~p: "
+                     "~n   Socket Info: ~p"
+                     "~n   Socket Bufs: ~s",
+                     [ServerIP, ServerPort, ServerSocket,
+                      inet:info(ServerSocket),
+                      sock_bufs_str(ServerSocket)]),
 		  Client ! {self(),port,ServerPort},
 		  buffer_size_server(Client, ClientIP, ClientPort, 
 				     ServerSocket, 1, Spec),
@@ -521,29 +572,38 @@ buffer_size_client(_, _, _, _, _, []) ->
     ok;
 buffer_size_client(Server, IP, Port, 
 		   Socket, Cnt, [Opts|T]) when is_list(Opts) ->
-    ?P("buffer_size_client(~w) -> entry with"
-       "~n   Opts: ~p", [Cnt, Opts]),
+    ?P("~w(~w) -> entry with"
+       "~n   Opts: ~p"
+       "~nwhen"
+       "~n   Sock Info: ~p"
+       "~n   Sock Bufs: ~s",
+       [?FUNCTION_NAME, Cnt, Opts, inet:info(Socket), sock_bufs_str(Socket)]),
     ok = inet:setopts(Socket, Opts),
     GOpts = [K || {K, _} <- Opts],
-    ?P("buffer_size_client(~w) -> options after set: "
-       "~n   ~p", [Cnt, inet:getopts(Socket, GOpts)]),
+    ?P("~w(~w) -> options after set: "
+       "~n   ~p", [?FUNCTION_NAME, Cnt, inet:getopts(Socket, GOpts)]),
     Server ! {self(),setopts,Cnt},
     receive {Server,setopts,Cnt} -> ok end,
     buffer_size_client(Server, IP, Port, Socket, Cnt+1, T);
 buffer_size_client(Server, IP, Port, 
 		   Socket, Cnt, [{B,Replies}|T]=Opts) when is_binary(B) ->
-    ?P("buffer_size_client(~w) -> entry with"
+    ?P("~w(~w) -> entry with"
        "~n   send size:   ~w"
        "~n   expecting:   ~p"
        "~nwhen"
-       "~n   Socket Info: ~p",
-       [Cnt, byte_size(B), Replies, inet:info(Socket)]),
+       "~n   Socket Info: ~p"
+       "~n   Socket Bufs: ~s",
+       [?FUNCTION_NAME,
+        Cnt, byte_size(B), Replies, inet:info(Socket), sock_bufs_str(Socket)]),
     case gen_udp:send(Socket, IP, Port, <<Cnt,B/binary>>) of
 	ok ->
 	    receive
 		{Server, Cnt, Reply} ->
-                    ?P("buffer_size_client(~w) -> "
-                       "~n   Reply: ~p", [Cnt, Reply]),
+                    ?P("~w(~w) -> received"
+                       "~n   Reply: ~p"
+                       "~nwhen"
+                       "~n   Replies: ~p", [?FUNCTION_NAME, Cnt,
+                                            Reply, Replies]),
 		    Tag =
                         case Reply of
                             %% {completion_status, #{info := Tag0}}
@@ -590,28 +650,31 @@ buffer_size_server(_, _, _, _, _, []) ->
     ok;
 buffer_size_server(Client, IP, Port, 
 		   Socket, Cnt, [Opts|T]) when is_list(Opts) ->
-    ?P("buffer_size_server(~w) -> entry when await client setopts", [Cnt]),
+    ?P("~w(~w) -> entry when await client setopts", [?FUNCTION_NAME, Cnt]),
     receive {Client, setopts, Cnt} -> ok end,
-    ?P("buffer_size_server(~w) -> setopts with "
+    ?P("~w(~w) -> setopts with "
        "~n   Opts:        ~p"
        "~nwhen"
-       "~n   Socket info: ~p", [Cnt, Opts, inet:info(Socket)]),
+       "~n   Socket info: ~p", [?FUNCTION_NAME, Cnt, Opts, inet:info(Socket)]),
     ok = inet:setopts(Socket, Opts),
     GOpts = [K || {K, _} <- Opts],
-    ?P("buffer_size_server(~w) -> options after set: "
+    ?P("~w(~w) -> options after set: "
        "~n                ~p"
        "~nwhen"
        "~n   Socket info: ~p",
-       [Cnt, inet:getopts(Socket, GOpts), inet:info(Socket)]),
+       [?FUNCTION_NAME, Cnt, inet:getopts(Socket, GOpts), inet:info(Socket)]),
     Client ! {self(), setopts, Cnt},
     buffer_size_server(Client, IP, Port, Socket, Cnt+1, T);
 buffer_size_server(Client, IP, Port, 
 		   Socket, Cnt, [{B,_}|T]) when is_binary(B) ->
-    ?P("buffer_size_server(~w) -> entry when"
+    ?P("~w(~w) -> entry when"
        "~n   expect ~w bytes of data"
        "~nwhen"
        "~n   Socket info: ~p"
-       "~n   MQ:          ~p", [Cnt, byte_size(B), inet:info(Socket), mq()]),
+       "~n   Socket Bufs: ~s"
+       "~n   MQ:          ~p",
+       [?FUNCTION_NAME, Cnt,
+        byte_size(B), inet:info(Socket), sock_bufs_str(Socket), mq()]),
     Reply = case buffer_size_server_recv(Socket, IP, Port, Cnt) of
                 D when is_binary(D) ->
                     SizeD = byte_size(D),
@@ -620,10 +683,13 @@ buffer_size_server(Client, IP, Port,
                        "~n   Socket Info: ~p", [Cnt, SizeD, inet:info(Socket)]),
                     case B of
                         D ->
+                            ?P("~w(~w) -> correct", [?FUNCTION_NAME, Cnt]),
                             correct;
                         <<D:SizeD/binary,_/binary>> ->
+                            ?P("~w(~w) -> trucated", [?FUNCTION_NAME, Cnt]),
                             truncated;
                         _ ->
+                            ?P("~w(~w) -> unexpected", [?FUNCTION_NAME, Cnt]),
                             {unexpected,D}
                     end;
                 Error ->
@@ -634,63 +700,80 @@ buffer_size_server(Client, IP, Port,
                        [Cnt, Error, inet:info(Socket)]),
                     Error
             end,
-    ?P("buffer_size_server(~w) -> send reply '~p' when"
-       "~n   Socket Info: ~p", [Cnt, Reply, inet:info(Socket)]),
+    ?P("~w(~w) -> send reply '~p' when"
+       "~n   Socket Info: ~p"
+       "~n   Socket Bufs: ~s",
+       [?FUNCTION_NAME, Cnt,
+        Reply, inet:info(Socket), sock_bufs_str(Socket)]),
     Client ! {self(), Cnt, Reply},
     ?SLEEP(?SECS(1)),
     buffer_size_server(Client, IP, Port, Socket, Cnt+1, T).
 
 buffer_size_server_recv(Socket, IP, Port, Cnt) ->
-    ?P("buffer_size_server(~w) -> await data: "
+    ?P("~w(~w) -> await data: "
        "~n   Socket:      ~p"
        "~n   IP:          ~p"
        "~n   Port:        ~p"
        "~nwhen"
-       "~n   Socket Info: ~p", [Cnt, Socket, IP, Port, inet:info(Socket)]),
+       "~n   Socket Info: ~p"
+       "~n   Socket Bufs: ~s",
+       [?FUNCTION_NAME, Cnt,
+        Socket, IP, Port, inet:info(Socket), sock_bufs_str(Socket)]),
     receive
 	{udp, Socket, IP, Port, <<Cnt, B/binary>>} ->
-            ?P("buffer_size_server(~w) -> received ~w bytes",
-               [Cnt, byte_size(B)]),
+            ?P("~w(~w) -> received ~w bytes",
+               [?FUNCTION_NAME, Cnt, byte_size(B)]),
 	    B;
 	{udp, Socket, IP, Port, <<_B/binary>>} ->
-            ?P("buffer_size_server(~w) -> received unexpected ~w bytes",
-               [Cnt, byte_size(_B)]),
+            ?P("~w(~w) -> received unexpected ~w bytes",
+               [?FUNCTION_NAME, Cnt, byte_size(_B)]),
 	    buffer_size_server_recv(Socket, IP, Port, Cnt);
 
 	{udp, Socket, IP, Port, _CRAP} ->
-            ?P("buffer_size_server(~w) -> received unexpected crap", [Cnt]),
+            ?P("~w(~w) -> received unexpected crap", [?FUNCTION_NAME, Cnt]),
 	    buffer_size_server_recv(Socket, IP, Port, Cnt);
 
 	{udp, XSocket, XIP, XPort, _CRAP} ->
-            ?P("buffer_size_server(~w) -> received unexpected udp message: "
+            ?P("~w(~w) -> received unexpected udp message: "
                "~n   XSocket: ~p"
                "~n   Socket:  ~p"
                "~n   XIP:     ~p"
                "~n   IP:      ~p"
                "~n   XPort:   ~p"
                "~n   Port:    ~p",
-               [Cnt, XSocket, Socket, XIP, IP, XPort, Port]),
+               [?FUNCTION_NAME, Cnt, XSocket, Socket, XIP, IP, XPort, Port]),
 	    buffer_size_server_recv(Socket, IP, Port, Cnt);
 
 	{udp_closed, Socket} ->
-            ?P("buffer_size_server(~w) -> received unexpected 'closed'", [Cnt]),
+            ?P("~w(~w) -> received unexpected 'closed'", [?FUNCTION_NAME, Cnt]),
 	    closed;
 
 	{udp_error, Socket, Error} ->
-            ?P("buffer_size_server(~w) -> error: "
-               "~n   ~p", [Cnt, Error]),
+            ?P("~w(~w) -> error: "
+               "~n   ~p", [?FUNCTION_NAME, Cnt, Error]),
             ok = inet:setopts(Socket, [{active, true}]),
 	    Error
 
     after 5000 ->
-            ?P("buffer_size_server(~w) -> timeout: "
+            ?P("~w(~w) -> timeout: "
                "~n   Socket:       ~p"
                "~n   Socket Info:  ~p"
+               "~n   Socket Bufs:  ~s"
                "~n   Process Info: ~p",
-               [Cnt,
-                Socket, inet:info(Socket), erlang:process_info(self())]),
+               [?FUNCTION_NAME, Cnt,
+                Socket, inet:info(Socket), sock_bufs_str(Socket),
+                erlang:process_info(self())]),
 	    {timeout, mq()}
     end.
+
+sock_bufs_str(S) ->
+    case inet:getopts(S, [buffer, recbuf, sndbuf]) of
+        {ok, Bufs} ->
+            ?F("~p", [Bufs]);
+        _ ->
+            "-"
+    end.
+
 
 
 %%-------------------------------------------------------------
@@ -1099,7 +1182,14 @@ do_open_fd(Config) when is_list(Config) ->
                "~n   ~p", [inet:info(Socket)]),
             (catch gen_udp:close(Socket)),
             (catch gen_udp:close(S1)),
-            ct:fail(unexpected_succes)
+            case ((OS =:= darwin) andalso ?IS_SOCKET_BACKEND(Config)) of
+                true ->
+                    %% This should not work, but on (some) Darwin
+                    %% machines it does...
+                    skip(unexpected_success);
+                _ ->
+                    ct:fail(unexpected_success)
+            end
     end,
 
     ?P("try open second socket with FD = ~w "
@@ -2807,8 +2897,8 @@ t_simple_local_sockaddr_in6_send_recv(Config) when is_list(Config) ->
                         case ?LIB:which_local_addr(Domain) of
                             {ok, LA} ->
                                 LA;
-                        {error, _} ->
-                            skip("No local address")
+                            {error, _} ->
+                                skip("No local address")
                     end,
                     SockAddr = #{family   => Domain,
                                  addr     => LocalAddr,
@@ -2829,6 +2919,8 @@ t_simple_link_local_sockaddr_in6_send_recv(Config) when is_list(Config) ->
                     LinkLocalAddr =
                         case ?LIB:which_link_local_addr(Domain) of
                             {ok, LLA} ->
+                                ?P("found link local address: "
+                                   "~n   ~p", [LLA]),
                                 LLA;
                             {error, _} ->
                                 skip("No link local address")
@@ -2851,8 +2943,8 @@ t_simple_link_local_sockaddr_in6_send_recv(Config) when is_list(Config) ->
                     case net:getifaddrs(Filter) of
                         {ok, [#{addr := #{scope_id := ScopeID}}=H|T]} ->
                             ?P("found link-local candidate(s): "
-                               "~n   Candidate:       ~p"
-                               "~n   Rest Candidate:  ~p", [H, T]),
+                               "~n   Candidate:      ~p"
+                               "~n   Rest Candidate: ~p", [H, T]),
                             SockAddr = #{family   => Domain,
                                          addr     => LinkLocalAddr,
                                          port     => 0,
@@ -3200,6 +3292,71 @@ do_simple_sockaddr_send_recv(#{family := _Fam} = SockAddr, _) ->
     ok.
 
     
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% This is the most basic of tests.
+
+%% Create a new node with kernel option 'inet_default_udp_options' set
+%% then rpc call a function which creates a socket and reads back the
+%% values of that socket (buffer and recbuf).
+%%
+t_kernel_options(Config) when is_list(Config) ->
+    ?TC_TRY(?FUNCTION_NAME,
+            fun() -> ok end,
+            fun() ->
+                    do_kernel_options(Config)
+            end).
+
+
+do_kernel_options(Config) ->
+    BSz   = 12345,
+    RBSz  = 54321,
+    KOpts = ?F("-kernel inet_default_udp_options "
+               "\"[{buffer,~w},{recbuf,~w}]\"", [BSz, RBSz]),
+    ?P("try start node"),
+    case ?START_NODE(?UNIQ_NODE_NAME, KOpts) of
+        {ok, Node} ->
+            Expected = [{buffer, BSz}, {recbuf, RBSz}],
+            ?P("node ~p started - try get (udp) buffer options", [Node]),
+            case rpc:call(Node, ?MODULE, do_kernel_options_remote, [Config]) of
+                {ok, Expected} ->
+                    ?P("options verified"),
+                    (catch ?STOP_NODE(Node)),
+                    ok;
+                {ok, [{buffer, ActualBSz},
+                      {recbuf, ActualRBSz}] = Actual} 
+                  when (ActualBSz =:= BSz) andalso
+                       (ActualRBSz >= RBSz) ->
+                    ?P("options verified: "
+                       "~n   Expected: ~p"
+                       "~n   Actual:   ~p", [Expected, Actual]),
+                    ok;
+                {ok, Actual} ->
+                    ?P("unexpected success:"
+                       "~n   Expected: ~p"
+                       "~n   Actual:   ~p", [Expected, Actual]),
+                    (catch ?STOP_NODE(Node)),
+                    exit({unexpected_success, Expected, Actual});
+                {error, Reason} ->
+                    ?P("unexpected failure:"
+                       "~n   ~p", [Reason]),
+                    (catch ?STOP_NODE(Node)),
+                    exit({unexpected_failure, Reason})
+            end;
+        {error, Reason} ->
+            ?P("failed start node: ~p", [Reason]),
+            error
+    end.
+
+do_kernel_options_remote(Config) ->
+    case ?OPEN(Config, 0, []) of
+        {ok, S} ->
+            inet:getopts(S, [buffer, recbuf]);
+        {error, _} = ERROR ->
+            ERROR
+    end.
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 

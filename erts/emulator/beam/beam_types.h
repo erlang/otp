@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2021-2024. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2021-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,7 +24,7 @@
  * @description Basic type representation for BEAM instruction operands.
  * @file beam_types.h
  * 
- * While the compiler is good eliminating redundant type tests and simplifying
+ * While the compiler is good at eliminating redundant type tests and simplifying
  * instructions, we're limited by the available instructions and it's not
  * always worthwhile to add new variants.
  * 

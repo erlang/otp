@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2020-2023. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2020-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -98,7 +100,7 @@ void BeamGlobalAssembler::emit_dispatch_save_calls_export() {
 
     a.mov(ARG1, c_p);
     a.mov(ARG2, RET);
-    runtime_call<2>(save_calls);
+    runtime_call<void (*)(Process *, const Export *), save_calls>();
 
     emit_leave_runtime();
 
@@ -157,7 +159,8 @@ x86::Mem BeamModuleAssembler::emit_variable_apply(bool includeI) {
 
     mov_imm(ARG4, 0);
 
-    runtime_call<4>(apply);
+    runtime_call<const Export *(*)(Process *, Eterm *, ErtsCodePtr, Uint),
+                 apply>();
 
     emit_leave_runtime<Update::eReductions | Update::eHeapAlloc>();
 
@@ -208,8 +211,8 @@ x86::Mem BeamModuleAssembler::emit_fixed_apply(const ArgWord &Arity,
 
     mov_imm(ARG5, 0);
 
-    runtime_call<5>(fixed_apply);
-
+    runtime_call<const Export *(*)(Process *, Eterm *, Uint, ErtsCodePtr, Uint),
+                 fixed_apply>();
     emit_leave_runtime<Update::eReductions | Update::eHeapAlloc>();
 
     a.test(RET, RET);

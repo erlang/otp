@@ -2,7 +2,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -31,6 +33,7 @@ pat_expr pat_expr_max map_pat_expr record_pat_expr
 pat_argument_list pat_exprs
 list tail
 list_comprehension lc_expr lc_exprs
+zc_exprs
 map_comprehension
 binary_comprehension
 tuple
@@ -79,7 +82,7 @@ ssa_check_when_clauses.
 Terminals
 char integer float atom sigil_prefix string sigil_suffix var
 
-'(' ')' ',' '->' '{' '}' '[' ']' '|' '||' '<-' ';' ':' '#' '.'
+'(' ')' ',' '->' '{' '}' '[' ']' '|' '||' '<-' '<:-' ';' ':' '#' '.' '&&'
 'after' 'begin' 'case' 'try' 'catch' 'end' 'fun' 'if' 'of' 'receive' 'when'
 'maybe' 'else'
 'andalso' 'orelse'
@@ -87,7 +90,7 @@ char integer float atom sigil_prefix string sigil_suffix var
 '*' '/' 'div' 'rem' 'band' 'and'
 '+' '-' 'bor' 'bxor' 'bsl' 'bsr' 'or' 'xor'
 '++' '--'
-'==' '/=' '=<' '<' '>=' '>' '=:=' '=/=' '<=' '=>' ':='
+'==' '/=' '=<' '<' '>=' '>' '=:=' '=/=' '<=' '<:=' '=>' ':='
 '<<' '>>'
 '!' '=' '::' '..' '...'
 '?='
@@ -362,11 +365,19 @@ binary_comprehension -> '<<' expr_max '||' lc_exprs '>>' :
 	{bc,?anno('$1'),'$2','$4'}.
 lc_exprs -> lc_expr : ['$1'].
 lc_exprs -> lc_expr ',' lc_exprs : ['$1'|'$3'].
+lc_exprs -> zc_exprs : [{zip, ?anno(hd('$1')), '$1'}].
+lc_exprs -> zc_exprs ',' lc_exprs : [{zip, ?anno('$2'), '$1'}|'$3'].
+
+zc_exprs -> lc_expr '&&' lc_expr : ['$1','$3'].
+zc_exprs -> lc_expr '&&' zc_exprs : ['$1'|'$3'].
 
 lc_expr -> expr : '$1'.
 lc_expr -> map_field_exact '<-' expr : {m_generate,?anno('$2'),'$1','$3'}.
+lc_expr -> map_field_exact '<:-' expr : {m_generate_strict,?anno('$2'),'$1','$3'}.
 lc_expr -> expr '<-' expr : {generate,?anno('$2'),'$1','$3'}.
+lc_expr -> expr '<:-' expr : {generate_strict,?anno('$2'),'$1','$3'}.
 lc_expr -> binary '<=' expr : {b_generate,?anno('$2'),'$1','$3'}.
+lc_expr -> binary '<:=' expr : {b_generate_strict,?anno('$2'),'$1','$3'}.
 
 tuple -> '{' '}' : {tuple,?anno('$1'),[]}.
 tuple -> '{' exprs '}' : {tuple,?anno('$1'),'$2'}.
@@ -769,6 +780,8 @@ This function is usually called implicitly when an ErrorInfo structure is
 processed (see section [Error Information](#module-error-information)).
 """).
 
+-compile(nowarn_deprecated_catch).
+
 -export([parse_form/1,parse_exprs/1,parse_term/1]).
 -export([normalise/1,abstract/1,tokens/1,tokens/2]).
 -export([abstract/2]).
@@ -782,7 +795,7 @@ processed (see section [Error Information](#module-error-information)).
 -export_type([abstract_clause/0, abstract_expr/0, abstract_form/0,
               abstract_type/0, form_info/0, error_info/0]).
 %% The following types are exported because they are used by syntax_tools
--export_type([af_binelement/1, af_generator/0, af_remote_function/0]).
+-export_type([af_binelement/1, af_generator/0, af_zip_generator/0, af_remote_function/0]).
 %% The following type is used by PropEr
 -export_type([af_field_decl/0]).
 
@@ -847,7 +860,7 @@ processed (see section [Error Information](#module-error-information)).
 -type af_type_decl() :: {'attribute', anno(), type_attr(),
                          {type_name(), abstract_type(), [af_variable()]}}.
 
--type type_attr() :: 'opaque' | 'type'.
+-type type_attr() :: 'nominal' | 'opaque' | 'type'.
 
 -type af_function_spec() :: {'attribute', anno(), spec_attr(),
                              {{function_name(), arity()},
@@ -933,10 +946,16 @@ processed (see section [Error Information](#module-error-information)).
 
 -type af_qualifier() :: af_generator() | af_filter().
 
--doc "Abstract representation of a generator or a bitstring generator.".
+-doc "Abstract representation of a list, bitstring or map generator.".
 -type af_generator() :: {'generate', anno(), af_pattern(), abstract_expr()}
+                      | {'generate_strict', anno(), af_pattern(), abstract_expr()}
                       | {'m_generate', anno(), af_assoc_exact(af_pattern()), abstract_expr()}
-                      | {'b_generate', anno(), af_pattern(), abstract_expr()}.
+                      | {'m_generate_strict', anno(), af_assoc_exact(af_pattern()), abstract_expr()}
+                      | {'b_generate', anno(), af_pattern(), abstract_expr()}
+                      | {'b_generate_strict', anno(), af_pattern(), abstract_expr()}
+                      | af_zip_generator().
+
+-type af_zip_generator() :: [af_generator(), ...].
 
 -type af_filter() :: abstract_expr().
 
@@ -1360,14 +1379,14 @@ parse_term(Tokens) ->
     end.
 
 -type attributes() :: 'export' | 'file' | 'import' | 'module'
-		    | 'opaque' | 'record' | 'type'.
+		    | 'nominal' | 'opaque' | 'record' | 'type'.
 
 build_typed_attribute({atom,Aa,record},
 		      {typed_record, {atom,_An,RecordName}, RecTuple}) ->
     {attribute,Aa,record,{RecordName,record_tuple(RecTuple)}};
 build_typed_attribute({atom,Aa,Attr},
                       {type_def, {call,_,{atom,_,TypeName},Args}, Type})
-  when Attr =:= 'type' ; Attr =:= 'opaque' ->
+  when Attr =:= 'type' ; Attr =:= 'opaque' ; Attr =:= 'nominal'->
     lists:foreach(fun({var, A, '_'}) -> ret_err(A, "bad type variable");
                      (_)             -> ok
                   end, Args),
@@ -1380,6 +1399,7 @@ build_typed_attribute({atom,Aa,Attr}=Abstr,_) ->
     case Attr of
         record -> error_bad_decl(Abstr, record);
         type   -> error_bad_decl(Abstr, type);
+        nominal -> error_bad_decl(Abstr, nominal);
 	opaque -> error_bad_decl(Abstr, opaque);
         _      -> ret_err(Aa, "bad attribute")
     end.
@@ -2231,6 +2251,11 @@ modify_anno1({attribute,A,opaque,{TypeName,TypeDef,Args}}, Ac, Mf) ->
     {TypeDef1,Ac2} = modify_anno1(TypeDef, Ac1, Mf),
     {Args1,Ac3} = modify_anno1(Args, Ac2, Mf),
     {{attribute,A1,opaque,{TypeName,TypeDef1,Args1}},Ac3};
+modify_anno1({attribute,A,nominal,{TypeName,TypeDef,Args}}, Ac, Mf) ->
+    {A1,Ac1} = Mf(A, Ac),
+    {TypeDef1,Ac2} = modify_anno1(TypeDef, Ac1, Mf),
+    {Args1,Ac3} = modify_anno1(Args, Ac2, Mf),
+    {{attribute,A1,nominal,{TypeName,TypeDef1,Args1}},Ac3};
 modify_anno1({attribute,A,Attr,Val}, Ac, Mf) ->
     {A1,Ac1} = Mf(A, Ac),
     {{attribute,A1,Attr,Val},Ac1};

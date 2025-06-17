@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2024. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 1996-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -403,7 +405,7 @@ int erts_fit_in_bits_uint(Uint value)
 }
 
 int
-erts_print(fmtfn_t to, void *arg, char *format, ...)
+erts_print(fmtfn_t to, void *arg, const char *format, ...)
 {
     int res;
     va_list arg_list;
@@ -1207,26 +1209,16 @@ tailrecur_ne:
              * a module literal area), we'll add a conservative implementation
              * to cover direct equality checks of non-term heap objects.
              *
-             * Note that we only need this to handle `eq(FunRef, FunRef)` and
-             * the like: we do not visit the FunRef or BinRef of any term we
-             * see while testing equality, so we should never land here under
-             * under normal circumstances. */
+             * Note that we only need this to handle `eq(BinRef, BinRef)` and
+             * the like: we do not visit the BinRef of any term we see while
+             * testing equality, so we should never land here under normal
+             * normal circumstances. */
             case BIN_REF_SUBTAG:
                 if (is_bin_ref(b)) {
                     BinRef *r1 = (BinRef*)boxed_val(a);
                     BinRef *r2 = (BinRef*)boxed_val(b);
 
                     if (r1->val == r2->val) {
-                        goto pop_next;
-                    }
-                }
-                break; /* not equal */
-            case FUN_REF_SUBTAG:
-                if (is_fun_ref(b)) {
-                    FunRef *r1 = (FunRef*)boxed_val(a);
-                    FunRef *r2 = (FunRef*)boxed_val(b);
-
-                    if (r1->entry == r2->entry) {
                         goto pop_next;
                     }
                 }
@@ -1460,6 +1452,7 @@ tailrecur_ne:
                         if (aa[0] != bb[0])
                             goto not_equal;
 			aa++; bb++;
+                        ERTS_FALLTHROUGH();
 		    case HAMT_SUBTAG_NODE_BITMAP:
 			sz = hashmap_bitcount(MAP_HEADER_VAL(hdr));
 			ASSERT(sz > 0 && sz < 17);
@@ -1534,6 +1527,7 @@ Sint compare_flatmap_atom_keys(const Eterm* a_keys,
     Eterm a, b;
     int ai, bi;
     Sint res;
+    ERTS_UNDEF(res, 0);
 
     ASSERT(n_atoms > 0);
     ASSERT(is_atom(a_keys[0]) && is_atom(b_keys[0]));
@@ -1813,7 +1807,8 @@ tailrecur_ne:
 		goto mixed_types;
 	    }
 	}
-	}
+    }
+    ERTS_ASSERT(0 && "unreachable");
     case TAG_PRIMARY_LIST:
 	if (is_not_list(b)) {
 	    a_tag = LIST_DEF;
@@ -2068,8 +2063,8 @@ tailrecur_ne:
                     ErlFunThing* f2 = (ErlFunThing *) fun_val(b);
 
                     if (is_local_fun(f1) && is_local_fun(f2)) {
-                        ErlFunEntry* fe1 = f1->entry.fun;
-                        ErlFunEntry* fe2 = f2->entry.fun;
+                        const ErlFunEntry *fe1 = f1->entry.fun;
+                        const ErlFunEntry *fe2 = f2->entry.fun;
 
                         Sint diff;
 
@@ -2103,8 +2098,8 @@ tailrecur_ne:
                         bb = f2->env;
                         goto term_array;
                     } else if (is_external_fun(f1) && is_external_fun(f2)) {
-                        Export* a_exp = f1->entry.exp;
-                        Export* b_exp = f2->entry.exp;
+                        const Export *a_exp = f1->entry.exp;
+                        const Export *b_exp = f2->entry.exp;
 
                         if ((j = erts_cmp_atoms(a_exp->info.mfa.module,
                                                 b_exp->info.mfa.module)) != 0) {

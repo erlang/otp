@@ -1,0 +1,22 @@
+// %CopyrightBegin%
+//
+// SPDX-License-Identifier: Apache-2.0
+//
+// Copyright Ericsson AB 2025. All Rights Reserved.
+//
+// %CopyrightEnd%
+[
+  {
+  "ID": "erts-tcl",
+  "description": "Modification of tclPosixStr.c from TCL",
+  "copyrightText": "Copyright (c) 1991-1994 The Regents of the University of California.\nCopyright (c) 1994-1996 Sun Microsystems, Inc.",
+  "downloadLocation": "https://www.tcl-lang.org/software/tcltk/",
+  "homepage": "https://www.tcl.tk/",
+  "licenseDeclared": "TCL",
+  "name": "tcl",
+  "versionInfo": "7.6",
+  "path": ["./erts/emulator/beam/erl_posix_str.c"],
+  "supplier": "Organization: Tcl Core Team",
+  "purl": "pkg:generic/tcl"
+  }
+]

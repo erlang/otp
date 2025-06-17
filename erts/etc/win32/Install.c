@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2003-2023. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2003-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -231,30 +233,6 @@ int wmain(int argc, wchar_t **argv)
 	exit(1);
     }
 
-    /* OBS!!! If the format of the init file is changed, do not forget
-       to update release_handler:write_ini_file(...) */
-    ini_file = create_init_file();
-    ini_section = create_init_section("erlang");
-    add_init_section(ini_file,ini_section);
-    WideCharToMultiByte(CP_UTF8,0,erts_dir,-1,tmp_utf8,MAX_PATH*4,NULL,NULL);
-    add_init_entry(ini_section,"Bindir",tmp_utf8);
-    add_init_entry(ini_section,"Progname","erl");
-    WideCharToMultiByte(CP_UTF8,0,root,-1,tmp_utf8,MAX_PATH*4,NULL,NULL);
-    add_init_entry(ini_section,"Rootdir",tmp_utf8);
-    swprintf(fromname,MAX_PATH,L"%s\\erl.ini",erts_dir);
-    swprintf(toname,MAX_PATH,L"%s\\erl.ini",bin_dir);
-    if (store_init_file(ini_file,fromname) != 0) {
-	fprintf(stderr,"Could not create file %S\n",
-		fromname);
-	fprintf(stderr,"Cannot continue installation, bailing out.\n");
-	exit(1);
-    }
-    if (!CopyFileW(fromname,toname,FALSE)) {
-	fprintf(stderr,"Could not copy file %S to %S\n",
-		 fromname,toname);
-	fprintf(stderr,"Cannot continue installation, bailing out.\n");
-	exit(1);
-    }
     if (!silent) {
 	printf("Erlang %s installed successfully\n", erts_version);
     }

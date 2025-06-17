@@ -147,8 +147,10 @@ struct EmitterExplicitT {
   //! \name Native Registers
   //! \{
 
-  //! Returns either GPD or GPQ register of the given `id` depending on the emitter's architecture.
+  //! Returns either 32-bit or 64-bit GP register of the given `id` depending on the emitter's architecture.
   inline Gp gpz(uint32_t id) const noexcept { return Gp(_emitter()->_gpSignature, id); }
+  //! Clones the given `reg` to either 32-bit or 64-bit GP register depending on the emitter's architecture.
+  inline Gp gpz(const Gp& reg) const noexcept { return Gp(_emitter()->_gpSignature, reg.id()); }
 
   inline Gp zax() const noexcept { return Gp(_emitter()->_gpSignature, Gp::kIdAx); }
   inline Gp zcx() const noexcept { return Gp(_emitter()->_gpSignature, Gp::kIdCx); }
@@ -2827,7 +2829,7 @@ public:
   ASMJIT_INST_3x(vpand, Vpand, Vec, Vec, Mem)                          // AVX+
   ASMJIT_INST_3x(vpandd, Vpandd, Vec, Vec, Vec)                        //      AVX512_F{kz|b32}
   ASMJIT_INST_3x(vpandd, Vpandd, Vec, Vec, Mem)                        //      AVX512_F{kz|b32}
-  ASMJIT_INST_3x(vpandn, Vpandn, Vec, Vec, Vec)                        // AV+
+  ASMJIT_INST_3x(vpandn, Vpandn, Vec, Vec, Vec)                        // AVX+
   ASMJIT_INST_3x(vpandn, Vpandn, Vec, Vec, Mem)                        // AVX+
   ASMJIT_INST_3x(vpandnd, Vpandnd, Vec, Vec, Vec)                      //      AVX512_F{kz|b32}
   ASMJIT_INST_3x(vpandnd, Vpandnd, Vec, Vec, Mem)                      //      AVX512_F{kz|b32}
@@ -3186,7 +3188,7 @@ public:
   ASMJIT_INST_2x(vpopcntq, Vpopcntq, Vec, Mem)                         //      AVX512_VPOPCNTDQ{kz|b64}
   ASMJIT_INST_2x(vpopcntw, Vpopcntw, Vec, Vec)                         //      AVX512_BITALG{kz|b32}
   ASMJIT_INST_2x(vpopcntw, Vpopcntw, Vec, Mem)                         //      AVX512_BITALG{kz|b32}
-  ASMJIT_INST_3x(vpor, Vpor, Vec, Vec, Vec)                            // AV+
+  ASMJIT_INST_3x(vpor, Vpor, Vec, Vec, Vec)                            // AVX+
   ASMJIT_INST_3x(vpor, Vpor, Vec, Vec, Mem)                            // AVX+
   ASMJIT_INST_3x(vpord, Vpord, Vec, Vec, Vec)                          //      AVX512_F{kz|b32}
   ASMJIT_INST_3x(vpord, Vpord, Vec, Vec, Mem)                          //      AVX512_F{kz|b32}

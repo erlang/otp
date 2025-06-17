@@ -30,3 +30,11 @@ and probably others...
 Open source contributors:
 Richard Carlsson and Sven-Olof Nyström: gb_trees and gb_sets
 Richard Carlsson (several modules)
+
+# %CopyrightBegin%
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 1996-2025. All Rights Reserved.
+#
+# %CopyrightEnd%

@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2025. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -164,7 +166,7 @@ is to be preferred since the extra type information can be used by tools to
 produce documentation or find discrepancies.
 
 Read more about behaviours and callback modules in
-[OTP Design Principles](`e:system:spec_proc.md#behaviours`).
+[OTP Design Principles](`e:system:design_principles.md#behaviours`).
 
 ### Record Definitions
 

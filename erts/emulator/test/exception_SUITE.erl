@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1997-2024. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1997-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -693,6 +695,8 @@ error_info(_Config) ->
     {NewAtom,NewAtomExt} = non_existing_atom(),
     Eons = 1 bsl 50,
 
+    Pid = spawn_link(fun () -> receive after infinity -> ok end end),
+
     %% We'll need an incorrect memory type for erlang:memory/1. We want to test an
     %% incorrect atom if our own allocators are enabled, but if they are disabled,
     %% we'll make do with a term that is obviously incorrect.
@@ -875,6 +879,8 @@ error_info(_Config) ->
 
          {exit, [a, b]},
          {exit_signal, [a, b]},
+         {exit, [Pid, bye, [blipp]]},
+         {exit, [garbage, bye, [priority]]},
 
          {external_size, [a], [no_fail]},
          {external_size, [abc, xyz]},
@@ -941,6 +947,10 @@ error_info(_Config) ->
          {length, [abc]},
          {link, [42]},
          {link, [DeadProcess]},
+         {link, [42, priority]},
+         {link, [DeadProcess, priority]},
+         {link, [Pid, [blipp]]},
+         {link, [Pid, blapp]},
          {list_to_atom, [42]},
          {list_to_atom, [lists:duplicate(1024, $a)]},
          {list_to_binary, [42]},
@@ -1107,6 +1117,10 @@ error_info(_Config) ->
          {process_display, [ExternalPid, backtrace]},
          {process_display, [ExternalPid, whatever]},
          {process_display, [DeadProcess, backtrace]},
+
+         {processes_next, [{a, []}]},
+         {processes_next, [{-1, []}]},
+         {processes_next, [a]},
 
          {process_flag, [trap_exit, some_value]},
          {process_flag, [bad_flag, some_value]},

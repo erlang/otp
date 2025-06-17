@@ -1,5 +1,12 @@
 %% -*- erlang-indent-level: 2 -*-
 %%
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright 2004-2010 held by the authors. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -11,6 +18,8 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
+%%
+%% %CopyrightEnd%
 
 %%%-------------------------------------------------------------------
 %%% File    : dialyzer_typesig.erl
@@ -182,7 +191,7 @@ analyze_scc(SCC, NextLabel, CallGraph, CServer, Plt, PropTypes, Solvers0) ->
   Solvers = solvers(Solvers0),
   State1 = new_state(SCC, NextLabel, CallGraph, CServer, Plt, PropTypes,
                      Solvers),
-  DefSet = add_def_list(maps:values(State1#state.name_map), sets:new([{version, 2}])),
+  DefSet = add_def_list(maps:values(State1#state.name_map), sets:new()),
   State2 = traverse_scc(SCC, CServer, DefSet, State1),
   State3 = state__finalize(State2),
   Funs = state__scc(State3),
@@ -437,6 +446,8 @@ traverse(Tree, DefinedVars, State) ->
         remove_message ->
           {State, t_any()};
         nif_start ->
+          {State, t_any()};
+        debug_line ->
           {State, t_any()};
         executable_line ->
           {State, t_any()};
@@ -818,13 +829,13 @@ get_plt_constr(MFA, Dst, ArgVars, State) ->
 			 end, ArgVars), GenArgs};
 	  {value, {PltRetType, PltArgTypes}} ->
 	    %% Need to combine the contract with the success typing.
-	    {?mk_fun_var(
-		fun(Map) ->
-		    ArgTypes = lookup_type_list(ArgVars, Map),
+            {?mk_fun_var(
+                fun(Map) ->
+                    ArgTypes = lookup_type_list(ArgVars, Map),
                     CRet = get_contract_return(C, ArgTypes),
-		    t_inf(CRet, PltRetType)
-		end, ArgVars),
-	     [t_inf(X, Y) || {X, Y} <- lists:zip(GenArgs, PltArgTypes)]}
+                    t_inf(CRet, PltRetType)
+                end, ArgVars),
+             [t_inf(X, Y) || X <- GenArgs && Y <- PltArgTypes]}
 	end,
       state__store_conj_lists([Dst|ArgVars], sub, [RetType|ArgCs], State)
   end.
@@ -2267,8 +2278,7 @@ solve_subtype(Type, Inf, Map) ->
 %% Similar to enter_type/3 over a list, but refines known types rather than
 %% replaces them.
 refine_bindings([{Key, Val} | Tail], Map, U0) ->
-  ?debug("Unifying ~ts :: ~ts\n",
-         [format_type(t_var(Key)), format_type(Val)]),
+  ?debug("Unifying ~p :: ~ts\n", [Key, format_type(Val)]),
   %% It's important to keep opaque types whose internal structure is any(),
   %% hence the equality check on t_any() rather than t_is_any/1.
   case t_is_equal(Val, t_any()) of
@@ -2641,8 +2651,7 @@ state__store_funs(Vars0, Funs0, #state{fun_map = Map} = State) ->
   debug_make_name_map(Vars0, Funs0),
   Vars = mk_var_list(Vars0),
   Funs = mk_var_list(Funs0),
-  NewMap = lists:foldl(fun({Var, Fun}, MP) -> maps:put(Fun, Var, MP) end,
-		       Map, lists:zip(Vars, Funs)),
+  NewMap = maps:merge(Map, #{Fun => Var || Var <- Vars && Fun <- Funs}),
   State#state{fun_map = NewMap}.
 
 state__get_rec_var(Fun, #state{fun_map = Map}) ->
@@ -3168,7 +3177,7 @@ pp_constrs_scc(SCC, State) ->
   [pp_constrs(Fun, state__get_cs(Fun, State), State) || Fun <- SCC].
 
 pp_constrs(Fun, Cs, State) ->
-  io:format("Constraints for fun: ~tw", [debug_lookup_name(Fun)]),
+  io:format("Constraints for fun: ~tw~n", [debug_lookup_name(Fun)]),
   MaxDepth = pp_constraints(Cs, State),
   io:format("Depth: ~w\n", [MaxDepth]).
 

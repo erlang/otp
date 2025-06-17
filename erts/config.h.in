@@ -441,6 +441,9 @@
 /* Define if x86/x86_64 out of order instructions should be synchronized */
 #undef ETHR_X86_OUT_OF_ORDER
 
+/* Define to 1 if _Float16 can be converted from/to double. */
+#undef FLOAT16_IS_CONVERTIBLE
+
 /* Define to 1 if you have the <arpa/nameser.h> header file. */
 #undef HAVE_ARPA_NAMESER_H
 
@@ -473,6 +476,10 @@
 
 /* Define to 1 if you have the <curses.h> header file. */
 #undef HAVE_CURSES_H
+
+/* Define to 1 if you have the declaration of 'daylight', and to 0 if you
+   don't. */
+#undef HAVE_DECL_DAYLIGHT
 
 /* Define to 1 if you have the declaration of 'getrlimit', and to 0 if you
    don't. */
@@ -674,6 +681,10 @@
 /* define if compiler support _Pragma('GCC diagnostic ignored
    '-Waddress-of-packed-member'') */
 #undef HAVE_GCC_DIAG_IGNORE_WADDRESS_OF_PACKED_MEMBER
+
+/* define if compiler support _Pragma('GCC diagnostic ignored
+   '-Wformat-nonliteral'') */
+#undef HAVE_GCC_DIAG_IGNORE_WFORMAT_NONLITERAL
 
 /* Define to 1 if you have a good `getaddrinfo' function. */
 #undef HAVE_GETADDRINFO

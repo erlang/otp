@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2023. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 1996-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -1777,20 +1779,6 @@ erts_make_integer_fact(Uint x, ErtsHeapFactory *hf)
 	return uint_to_big(x, hp);
     }
 }
-/*
- * As erts_make_integer, but from a whole UWord.
- */
-Eterm
-erts_make_integer_from_uword(UWord x, Process *p)
-{
-    Eterm* hp;
-    if (IS_USMALL(0,x))
-	return make_small(x);
-    else {
-	hp = HAlloc(p, BIG_UWORD_HEAP_SIZE(x));
-	return uword_to_big(x,hp);
-    }
-}
 
 /*
 ** convert Uint to bigint
@@ -2345,6 +2333,7 @@ term_to_Uint(Eterm term, Uint *up)
 	    return 0;
 	}
 	while (xl-- > 0) {
+            ASSERT(n < 64);
 	    uval |= ((Uint)(*xr++)) << n;
 	    n += D_EXP;
 	}
@@ -2497,6 +2486,7 @@ int term_to_Sint(Eterm term, Sint *sp)
 	    return 0;
 	}
 	while (xl-- > 0) {
+            ASSERT(n < 64);
 	    uval |= ((Uint)(*xr++)) << n;
 	    n += D_EXP;
 	}
@@ -2898,14 +2888,6 @@ Eterm big_plus_small(Eterm x, Uint y, Eterm *r)
     else
 	return big_norm(r, D_add(BIG_V(xp),BIG_SIZE(xp), (ErtsDigit) y, 
 				 BIG_V(r)), (short) BIG_SIGN(xp));
-}
-
-Eterm big_times_small(Eterm x, Uint y, Eterm *r)
-{
-    Eterm* xp = big_val(x);
-
-    return big_norm(r, D_mul(BIG_V(xp),BIG_SIZE(xp), (ErtsDigit) y, 
-			     BIG_V(r)), (short) BIG_SIGN(xp));
 }
 
 /*

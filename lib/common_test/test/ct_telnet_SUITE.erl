@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2020. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2009-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -236,7 +238,7 @@ events_to_check(faulty_regexp,_Config) ->
      {?eh,tc_done,
       {ct_telnet_faulty_regexp_SUITE,expect_pattern,
        {failed,
-        {error,{{bad_pattern,"invalid(pattern",{"missing )",15}},
+        {error,{{bad_pattern,"invalid(pattern",{"missing closing parenthesis",15}},
                 {ct_telnet,expect,3}}}}}},
      {?eh,tc_done,
       {ct_telnet_faulty_regexp_SUITE,expect_pattern_no_string,
@@ -246,7 +248,7 @@ events_to_check(faulty_regexp,_Config) ->
      {?eh,tc_done,
       {ct_telnet_faulty_regexp_SUITE,expect_tag_pattern,
        {failed,
-        {error,{{bad_pattern,{tag,"invalid(pattern"},{"missing )",15}},
+        {error,{{bad_pattern,{tag,"invalid(pattern"},{"missing closing parenthesis",15}},
                 {ct_telnet,expect,3}}}}}},
      {?eh,tc_done,
       {ct_telnet_faulty_regexp_SUITE,expect_tag_pattern_no_string,

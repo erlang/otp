@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2005-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -61,6 +63,7 @@
 -export([coverage_id/1,coverage_external_ignore/2]).
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("stdlib/include/assert.hrl").
 -include_lib("syntax_tools/include/merl.hrl").
 
 
@@ -2751,6 +2754,13 @@ bs_match(_Config) ->
 
     {0,<<1,2,3>>} = do_bs_match_gh_8280(),
 
+    not_empty = do_bs_match_gh_9304(id(<<0,0:32>>)),
+    empty = do_bs_match_gh_9304(id(<<>>)),
+    ?assertError({case_clause,_}, do_bs_match_gh_9304(id(<<0:1>>))),
+    ?assertError({case_clause,_}, do_bs_match_gh_9304(id(<<0>>))),
+    ?assertError({case_clause,_}, do_bs_match_gh_9304(id(<<0,0:64>>))),
+    ?assertError({case_clause,_}, do_bs_match_gh_9304(id(<<1,0:32>>))),
+
     ok.
 
 do_bs_match_1(_, X) ->
@@ -2830,6 +2840,19 @@ do_bs_match_gh_8280() ->
     B = <<1, 2, 3>>,
     <<A, B:(byte_size(B))/binary>> = id(<<0, 1, 2, 3>>),
     {A, B}.
+
+do_bs_match_gh_9304(Data) ->
+    <<Rest/bits>> = Data,
+    {_, Bits} = do_bs_match_gh_9304_1(Rest),
+    case Rest of
+        %% The compiler emitted a bs_match instruction without any
+        %% ensure command.
+        <<0, _:Bits>> -> not_empty;
+        <<>> -> empty
+    end.
+
+do_bs_match_gh_9304_1(Data) ->
+    id({dummy, 32}).
 
 %% GH-6348/OTP-18297: Allow aliases for binaries.
 -record(ba_foo, {a,b,c}).

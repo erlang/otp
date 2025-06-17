@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2025. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -144,13 +146,13 @@ module and then go into greater details. For example:
 
 There are three reserved metadata keys for `-moduledoc`:
 
-- `since` - Shows in which version of the application the module was added.
+- `since => unicode:chardata()` - Shows in which version of the application the module was added.
   If this is added, all functions, types, and callbacks within will also receive
   the same `since` value unless specified in the metadata of the function, type
   or callback.
-- `deprecated` - Shows a text in the documentation explaining that it is
+- `deprecated => unicode:chardata()` - Shows a text in the documentation explaining that it is
   deprecated and what to use instead.
-- `format` - The format to use for all documentation in this module. The
+- `format => unicode:chardata()` - The format to use for all documentation in this module. The
   default is `text/markdown`. It should be written using the
   [mime type](https://developer.mozilla.org/en-US/docs/Web/HTTP/Basics_of_HTTP/MIME_types)
   of the format.
@@ -206,6 +208,9 @@ There are four reserved metadata keys for `-doc`:
   explaining that it is deprecated and what to use instead. The compiler will
   automatically insert this key if there is a `-deprecated` attribute marking a
   function as deprecated.
+- `group => unicode:chardata()` - A group that the function, type or callback belongs to.
+  It allows tooling, such as shell autocompletion and documentation generators, to list all
+  entries within the same group together, often using the group name as an indicator.
 - `equiv => unicode:chardata() | F/A | F(...)` - Notes that this function is equivalent to
   another function in this module. The equivalence can be described using either
   `Func/Arity`, `Func(Args)` or a [unicode string](`t:unicode:chardata/0`). For example:

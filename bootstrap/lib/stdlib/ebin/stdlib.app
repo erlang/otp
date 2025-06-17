@@ -2,7 +2,9 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,7 +22,7 @@
 %%
 {application, stdlib,
  [{description, "ERTS  CXC 138 10"},
-  {vsn, "5.0.2"},
+  {vsn, "6.2"},
   {modules, [argparse,
 	     array,
 	     base64,
@@ -37,6 +39,7 @@
 	     digraph,
 	     digraph_utils,
 	     edlin,
+	     edlin_key,
 	     edlin_context,
 	     edlin_expand,
 	     edlin_type_suggestion,
@@ -77,6 +80,7 @@
 	     io_lib_format,
 	     io_lib_fread,
 	     io_lib_pretty,
+             json,
 	     lists,
 	     log_mf_h,
 	     maps,
@@ -99,6 +103,8 @@
 	     shell,
 	     shell_default,
 	     shell_docs,
+	     shell_docs_markdown,
+	     shell_docs_test,
 	     slave,
 	     sofs,
 	     string,
@@ -115,6 +121,6 @@
                dets]},
   {applications, [kernel]},
   {env, []},
-  {runtime_dependencies, ["sasl-3.0","kernel-9.0","erts-13.1","crypto-4.5",
-			  "compiler-5.0"]}
+  {runtime_dependencies, ["sasl-3.0","kernel-10.0","erts-15.0","crypto-4.5",
+			  "compiler-5.0", "syntax_tools-3.2.1"]}
 ]}.

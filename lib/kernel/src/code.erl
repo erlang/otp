@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -343,6 +345,8 @@ common reasons.
 - **`sticky_directory`** - The object code resides in a sticky directory.
 """.
 
+-compile(nowarn_deprecated_catch).
+
 -include_lib("kernel/include/logger.hrl").
 -include("eep48.hrl").
 
@@ -401,7 +405,8 @@ common reasons.
          module_status/0,
          module_status/1,
          modified_modules/0,
-         get_mode/0]).
+         get_mode/0,
+         get_debug_info/1]).
 
 -removed({rehash,0,"the code path cache feature has been removed"}).
 -removed({is_module_native,1,"HiPE has been removed"}).
@@ -415,7 +420,19 @@ common reasons.
 
 -export_type([coverage_mode/0]).
 -type coverage_mode() :: 'none' | 'function' | 'function_counters' |
-                         'line_coverage' | 'line_counters'.
+                         'line' | 'line_counters'.
+
+-export_type([debug_line/0, debug_frame/0, debug_name/0, debug_source/0,
+              debug_value/0, debug_info/0]).
+
+-nominal debug_line() :: pos_integer().
+-nominal debug_frame() :: non_neg_integer() | 'entry' | 'none'.
+-nominal debug_name() :: binary() | 1..255.
+-nominal debug_source() :: {'x',non_neg_integer()}
+                         | {'y',non_neg_integer()}
+                         | {value, _}.
+-nominal debug_value() :: {debug_name(), debug_source()}.
+-nominal debug_info() :: [{debug_line(), {debug_frame(), [debug_value()]}}].
 
 -export([coverage_support/0,
          get_coverage/2,
@@ -536,6 +553,7 @@ load_file(Mod) when is_atom(Mod) ->
         {Mod,Binary,File} -> load_module(Mod, File, Binary, false)
     end.
 
+-dialyzer({no_opaque_union, [ensure_loaded/1]}).
 -doc """
 Tries to load a module in the same way as `load_file/1`, unless the module is
 already loaded.
@@ -566,7 +584,9 @@ ensure_loaded(Mod) when is_atom(Mod) ->
                                     call({load_error, Mod, Ref}),
                                     Error;
                                 Prepared ->
-                                    call({load_ok, Prepared, Mod, File, Ref})
+                                    Res = call({load_ok, Prepared, Mod, File, Ref}),
+                                    erlang:garbage_collect(),
+                                    Res
                             end
                     end;
                 embedded ->
@@ -574,6 +594,7 @@ ensure_loaded(Mod) when is_atom(Mod) ->
             end
     end.
 
+-dialyzer({no_opaque_union, [ensure_prepare_loading/3]}).
 ensure_prepare_loading(Mod, missing, File) ->
     case erl_prim_loader:read_file(File) of
         {ok, Binary} -> erlang:prepare_loading(Mod, Binary);
@@ -1752,7 +1773,8 @@ file containing object code for `Module` and returns the absolute filename.
 which(Module) when is_atom(Module) ->
     case is_loaded(Module) of
 	false ->
-            which(Module, get_path());
+            File = atom_to_list(Module) ++ objfile_extension(),
+            where_is_file(File);
 	{file, File} ->
 	    File
     end.
@@ -1774,8 +1796,7 @@ locate application resource files.
       Filename :: file:filename(),
       Absname :: file:filename().
 where_is_file(File) when is_list(File) ->
-    Path = get_path(),
-    where_is_file(Path, File).
+    call({where_is_file, File}).
 
 %% To avoid unnecessary work when looking at many modules, this also
 %% accepts pairs of directories and pre-fetched contents in the path
@@ -1847,6 +1868,13 @@ get_doc(Mod, #{sources:=[Source|Sources]}=Options) ->
                 {error, _} -> {error, missing};
                 ErtsDir ->
                     GetDoc(filename:join([ErtsDir, "ebin", atom_to_list(Mod) ++ ".beam"]))
+            end;
+        cover_compiled ->
+            case which(Mod, get_path()) of
+                non_existing ->
+                    {error, missing};
+                Fn when is_list(Fn) ->
+                    GetDoc(Fn)
             end;
         Error when is_atom(Error) ->
             {error, Error};
@@ -2321,4 +2349,11 @@ _See also:_ [Native Coverage Support](#module-native-coverage-support)
 -spec coverage_support() -> Supported when
       Supported :: boolean().
 coverage_support() ->
+    erlang:nif_error(undefined).
+
+-doc(#{since => <<"OTP 28.0">>}).
+-spec get_debug_info(Module) -> DebugInfo when
+      Module :: module(),
+      DebugInfo :: debug_info().
+get_debug_info(_Module) ->
     erlang:nif_error(undefined).

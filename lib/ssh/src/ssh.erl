@@ -1,6 +1,8 @@
 %%
 %% %CopyrightBegin%
 %%
+%% SPDX-License-Identifier: Apache-2.0
+%%
 %% Copyright Ericsson AB 2004-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
@@ -131,11 +133,6 @@ The directory could be changed with the option
   - `id_rsa` and `id_rsa.pub`
   - `id_ecdsa` and `id_ecdsa.pub`
 """.
--moduledoc(#{titles =>
-                 [{type,<<"Client Options">>},
-                  {type,<<"Daemon Options">>},
-                  {type,<<"Common Options">>},
-                  {type,<<"Other data types">>}]}).
 
 -include("ssh.hrl").
 -include("ssh_connect.hrl").
@@ -167,15 +164,19 @@ The directory could be changed with the option
          
 
 %%% Internal export
--export([is_host/2]).
+-export([is_host/2, update_lsocket/3]).
 
 -behaviour(ssh_dbg).
--export([ssh_dbg_trace_points/0, ssh_dbg_flags/1, ssh_dbg_on/1, ssh_dbg_off/1, ssh_dbg_format/2, ssh_dbg_format/3]).
+-export([ssh_dbg_trace_points/0, ssh_dbg_flags/1, ssh_dbg_on/1, ssh_dbg_off/1,
+         ssh_dbg_format/2, ssh_dbg_format/3]).
 
 %%% "Deprecated" types export:
 -export_type([ssh_daemon_ref/0, ssh_connection_ref/0, ssh_channel_id/0]).
+-doc(#{group => <<"Deprecated">>}).
 -opaque ssh_daemon_ref()     :: daemon_ref().
+-doc(#{group => <<"Deprecated">>}).
 -opaque ssh_connection_ref() :: connection_ref().
+-doc(#{group => <<"Deprecated">>}).
 -opaque ssh_channel_id()     :: channel_id().
 
 
@@ -208,7 +209,6 @@ Opaque data type representing a daemon.
 
 Returned by the functions [`daemon/1,2,3`](`daemon/1`).
 """.
--doc(#{title => <<"Other data types">>}).
 -opaque daemon_ref()         :: pid() .
 -doc """
 Opaque data type representing a channel inside a connection.
@@ -216,7 +216,6 @@ Opaque data type representing a channel inside a connection.
 Returned by the functions
 [ssh_connection:session_channel/2,4](`ssh_connection:session_channel/2`).
 """.
--doc(#{title => <<"Other data types">>}).
 -opaque channel_id()     :: non_neg_integer().
 -doc """
 Opaque data type representing a connection between a client and a server
@@ -225,7 +224,6 @@ Opaque data type representing a connection between a client and a server
 Returned by the functions [`connect/2,3,4`](`connect/3`) and
 [`ssh_sftp:start_channel/2,3`](`ssh_sftp:start_channel/2`).
 """.
--doc(#{title => <<"Other data types">>}).
 -type connection_ref()       :: pid().  % should be -opaque, but that gives problems
 
 %%--------------------------------------------------------------------
@@ -427,13 +425,9 @@ close(ConnectionRef) ->
 %%--------------------------------------------------------------------
 %% Description: Retrieves information about a connection.
 %%---------------------------------------------------------------------
--doc(#{title => <<"Other data types">>}).
 -type version() :: {protocol_version(), software_version()}.
--doc(#{title => <<"Other data types">>}).
 -type protocol_version() :: {Major::pos_integer(), Minor::non_neg_integer()}.
--doc(#{title => <<"Other data types">>}).
 -type software_version() :: string().
--doc(#{title => <<"Other data types">>}).
 -type conn_info_algs() :: [{kex, kex_alg()}
                            | {hkey, pubkey_alg()}
                            | {encrypt, cipher_alg()}
@@ -445,16 +439,15 @@ close(ConnectionRef) ->
                            | {send_ext_info, boolean()}
                            | {recv_ext_info, boolean()}
                           ].
+-type conn_info_channels() :: [proplists:proplist()].
+
 -doc """
 Return values from the `connection_info/1` and `connection_info/2` functions.
 
-In the `option` info tuple are only the options included that differs from the
-default values.
+> #### Note {: .info }
+>
+> Note that `options` info tuple contains only items with nondefault values.
 """.
--doc(#{title => <<"Other data types">>}).
--type conn_info_channels() :: [proplists:proplist()].
-
--doc(#{title => <<"Other data types">>}).
 -type connection_info_tuple() ::
         {client_version, version()}
       | {server_version, version()}
@@ -552,12 +545,9 @@ daemon(Socket, UserOptions) ->
                 {error,SockError} ->
                     {error,SockError}
             end;
-
         {error,OptionError} ->
             {error,OptionError}
     end.
-
-
 
 -doc """
 daemon(HostAddress, Port, Options)
@@ -589,74 +579,60 @@ The rules for handling the two address passing options are:
   is set to the value of the 'ip'-option
 """.
 -spec daemon(any | inet:ip_address(), inet:port_number(), daemon_options()) -> {ok,daemon_ref()} | {error,term()}
-           ;(socket, open_socket(), daemon_options()) -> {ok,daemon_ref()} | {error,term()}
-            .
+           ;(socket, open_socket(), daemon_options()) -> {ok,daemon_ref()} | {error,term()}.
 
-daemon(Host0, Port0, UserOptions0) when 0 =< Port0, Port0 =< 65535,
-                                        Host0 == any ; Host0 == loopback ; is_tuple(Host0) ->
-    try
-        {Host1, UserOptions} = handle_daemon_args(Host0, UserOptions0),
-        #{} = Options0 = ssh_options:handle_options(server, UserOptions),
-        %% We need to open the listen socket here before start of the system supervisor. That
-        %% is because Port0 might be 0, or if an FD is provided in the Options0, in which case
-        %% the real listening port will be known only after the gen_tcp:listen call.
-        maybe_open_listen_socket(Host1, Port0, Options0)
-    of
-        {Host, Port, ListenSocket, Options1} ->
-            try
-                %% Now Host,Port is what to use for the supervisor to register its name,
-                %% and ListenSocket, if provided,  is for listening on connections. But
-                %% it is still owned by self()...
+daemon(Host0, Port0, UserOptions0)
+  when 0 =< Port0, Port0 =< 65535, Host0 == any ;
+       Host0 == loopback ; is_tuple(Host0) ->
+    {Host1, UserOptions} = handle_daemon_args(Host0, UserOptions0),
+    case ssh_options:handle_options(server, UserOptions) of
+        #{} = Options0 ->
+            case ssh_lsocket:get_lsocket(Host1, Port0, Options0) of
+                {ok, {LSocketProvider, LSocket}} ->
+                    {Host, Port, Options1} =
+                        update_lsocket(LSocket, LSocketProvider, Options0),
+                    try
+                        %% Host,Port is what to use for the system
+                        %% supervisor to register its name (see
+                        %% #address record); LSocket is owned by
+                        %% LSocketProvider process.  Ownership will be
+                        %% transferred once ssh_acceptor_sup is
+                        %% started.
 
-                %% throws error:Error if no usable hostkey is found
-                ssh_connection_handler:available_hkey_algorithms(server, Options1),
-                ssh_system_sup:start_system(#address{address = Host,
-                                                     port = Port,
-                                                     profile = ?GET_OPT(profile,Options1)},
-                                            Options1)
-            of
-                {ok,DaemonRef} when ListenSocket == undefined ->
-                    {ok,DaemonRef};
-                {ok,DaemonRef} ->
-                    receive
-                        {request_control, ListenSocket, ReqPid} ->
-                            ok = controlling_process(ListenSocket, ReqPid, Options1),
-                            ReqPid ! {its_yours,ListenSocket}
-                    end,
-                    {ok,DaemonRef};
-                {error, {already_started, _}} ->
-                    close_listen_socket(ListenSocket, Options1),
-                    {error, eaddrinuse};
-                {error, Error} ->
-                    close_listen_socket(ListenSocket, Options1),
-                    {error, Error}
-            catch
-                error:{shutdown,Err} ->
-                    close_listen_socket(ListenSocket, Options1),
-                    {error,Err};
-                exit:{noproc, _} ->
-                    close_listen_socket(ListenSocket, Options1),
-                    {error, ssh_not_started};
-                error:Error ->
-                    close_listen_socket(ListenSocket, Options1),
-                    error(Error);
-                exit:Exit ->
-                    close_listen_socket(ListenSocket, Options1),
-                    exit(Exit)
-            end
-    catch
-        throw:bad_fd ->
-            {error,bad_fd};
-        throw:bad_socket ->
-            {error,bad_socket};
-        error:{badmatch,{error,Error}} ->
-            {error,Error};
-        error:Error ->
-            {error,Error};
-        _C:_E ->
-            {error,{cannot_start_daemon,_C,_E}}
+                        %% throws error:Error if no usable hostkey is found
+                        ssh_connection_handler:available_hkey_algorithms(server, Options1),
+                        ssh_system_sup:start_system(#address{address = Host,
+                                                             port = Port,
+                                                             profile = ?GET_OPT(profile,Options1)},
+                                                    Options1)
+                    of
+                        {ok, DaemonRef} ->
+                            {ok, DaemonRef};
+                        {error, {already_started, _}} -> % ssh_system_sup with #address already register
+                            close_listen_socket(LSocket, Options1),
+                            {error, eaddrinuse};
+                        {error, Error} ->
+                            close_listen_socket(LSocket, Options1),
+                            {error, Error}
+                    catch
+                        error:{shutdown, Err} -> % no suitable host key
+                            close_listen_socket(LSocket, Options1),
+                            {error, Err};
+                        exit:{noproc, _} -> % ssh application not started
+                            close_listen_socket(LSocket, Options1),
+                            {error, ssh_not_started};
+                        error:Error ->
+                            close_listen_socket(LSocket, Options1),
+                            {error, Error};
+                        _C:_E ->
+                            {error,{cannot_start_daemon,_C,_E}}
+                    end;
+                {error, {_, LSocketError}} ->
+                    {error, LSocketError}
+            end;
+        OptionError = {error, _} ->
+            OptionError
     end;
-
 daemon(_, _, _) ->
     {error, badarg}.
 
@@ -683,9 +659,9 @@ chapters [Configuration in SSH](configurations.md) and
 
 daemon_replace_options(DaemonRef, NewUserOptions) ->
     case ssh_system_sup:get_acceptor_options(DaemonRef) of
-        {ok, Os0} ->
-            Os1 = ssh_options:merge_options(server, NewUserOptions, Os0),
-            ssh_system_sup:replace_acceptor_options(DaemonRef, Os1);
+        {ok, Options0} ->
+            Options = ssh_options:merge_options(server, NewUserOptions, Options0),
+            ssh_system_sup:restart_acceptor(DaemonRef, Options);
         {error, _Reason} = Error ->
             Error
     end.
@@ -694,10 +670,10 @@ daemon_replace_options(DaemonRef, NewUserOptions) ->
 -doc """
 Return values from the `daemon_info/1` and `daemon_info/2` functions.
 
-In the `option` info tuple are only the options included that differs from the
-default values.
+> #### Note {: .info }
+>
+> Note that `options` info tuple contains only items with nondefault values.
 """.
--doc(#{title => <<"Other data types">>}).
 -type daemon_info_tuple() ::
         {port, inet:port_number()}
       | {ip, inet:ip_address()}
@@ -1241,13 +1217,11 @@ fp_fmt(b64, Bin) ->
 %%--------------------------------------------------------------------
 %% The handle_daemon_args/2 function basically only sets the ip-option in Opts
 %% so that it is correctly set when opening the listening socket.
-
 handle_daemon_args(any, Opts) ->
     case proplists:get_value(ip, Opts) of
         undefined -> {any, Opts};
         IP -> {IP, Opts}
     end;
-
 handle_daemon_args(IPaddr, Opts) when is_tuple(IPaddr) ; IPaddr == loopback ->
     case proplists:get_value(ip, Opts) of
         undefined -> {IPaddr, [{ip,IPaddr}|Opts]};
@@ -1255,7 +1229,6 @@ handle_daemon_args(IPaddr, Opts) when is_tuple(IPaddr) ; IPaddr == loopback ->
         IP -> {IPaddr, [{ip,IPaddr}|Opts--[{ip,IP}]]} %% Backward compatibility
     end.
 
-%%%----------------------------------------------------------------
 valid_socket_to_use(Socket, {tcp,_,_}) ->
     %% Is this tcp-socket a valid socket?
     try {is_tcp_socket(Socket),
@@ -1279,29 +1252,6 @@ is_tcp_socket(Socket) ->
         _ -> false
     end.
 
-%%%----------------------------------------------------------------
-maybe_open_listen_socket(Host, Port, Options) ->
-    Opened =
-        case ?GET_SOCKET_OPT(fd, Options) of
-            undefined when Port == 0 ->
-                ssh_acceptor:listen(0, Options);
-            Fd when is_integer(Fd) ->
-                %% Do gen_tcp:listen with the option {fd,Fd}:
-                ssh_acceptor:listen(0, Options);
-            undefined ->
-                open_later
-        end,
-    case Opened of
-        {ok,LSock} ->
-            {ok,{LHost,LPort}} = inet:sockname(LSock),
-            {LHost, LPort, LSock, ?PUT_INTERNAL_OPT({lsocket,{LSock,self()}}, Options)};
-        open_later ->
-            {Host, Port, undefined, Options};
-        Others ->
-            Others
-    end.
-
-%%%----------------------------------------------------------------
 close_listen_socket(ListenSocket, Options) ->
     try
         {_, Callback, _} = ?GET_OPT(transport, Options),
@@ -1310,22 +1260,16 @@ close_listen_socket(ListenSocket, Options) ->
         _C:_E -> ok
     end.
 
-controlling_process(ListenSocket, ReqPid, Options) ->
-    {_, Callback, _} = ?GET_OPT(transport, Options),
-    Callback:controlling_process(ListenSocket, ReqPid).
-
 transport_connect(Host, Port, SocketOpts, Options) ->
     {_, Callback, _} = ?GET_OPT(transport, Options),
     Callback:connect(Host, Port, SocketOpts, ?GET_OPT(connect_timeout,Options)).
-    
-%%%----------------------------------------------------------------
+
 -doc false.
 is_host(X, Opts) ->
     try is_host1(mangle_connect_address(X, Opts))
     catch
         _:_ -> false
     end.
-            
 
 is_host1(L) when is_list(L) -> true; %% "string()"
 is_host1(T) when tuple_size(T)==4 -> lists:all(fun(I) -> 0=<I andalso I=<255 end,
@@ -1334,7 +1278,6 @@ is_host1(T) when tuple_size(T)==16 -> lists:all(fun(I) -> 0=<I andalso I=<65535 
                                                 tuple_to_list(T));
 is_host1(loopback) -> true.
 
-%%%----------------------------------------------------------------
 mangle_connect_address(A,  #{socket_options := SockOpts}) ->
     mangle_connect_address(A, SockOpts);
 mangle_connect_address(A, SockOpts) ->
@@ -1355,7 +1298,6 @@ mangle_connect_address1(A, _) ->
         _ -> A
     end.
 
-%%%----------------------------------------------------------------
 mangle_tunnel_address(any) -> <<"">>;
 mangle_tunnel_address(loopback) -> <<"localhost">>;
 mangle_tunnel_address({0,0,0,0}) -> <<"">>;
@@ -1367,7 +1309,12 @@ mangle_tunnel_address(X) when is_list(X) -> case catch inet:parse_address(X) of
                                      {ok, {0,0,0,0,0,0,0,0}} -> <<"">>;
                                      _ -> list_to_binary(X)
                                  end.
-
+-doc false.
+update_lsocket(LSocket, LSocketProvider, Options0) ->
+    {ok, {LHost, LPort}} = inet:sockname(LSocket),
+    Options = ?PUT_INTERNAL_OPT({lsocket,
+                                 {LSocket, LHost, LPort, LSocketProvider}}, Options0),
+    {LHost, LPort, Options}.
 
 %%%################################################################
 %%%#
@@ -1375,37 +1322,46 @@ mangle_tunnel_address(X) when is_list(X) -> case catch inet:parse_address(X) of
 %%%#
 
 -doc false.
-ssh_dbg_trace_points() -> [tcp].
+ssh_dbg_trace_points() -> [tcp, connections].
 
 -doc false.
-ssh_dbg_flags(tcp) -> [c].
+ssh_dbg_flags(tcp) -> [c];
+ssh_dbg_flags(connections) -> [c].
 
 -doc false.
-ssh_dbg_on(tcp) -> dbg:tpl(?MODULE, controlling_process, 3, x),
-                   dbg:tpl(?MODULE, transport_connect, 4, x),
-                   dbg:tpl(?MODULE, close_listen_socket, 2, x).
-                   
--doc false.
-ssh_dbg_off(tcp) ->dbg:ctpl(?MODULE, controlling_process, 3),
-                   dbg:ctpl(?MODULE, transport_connect, 4),
-                   dbg:ctpl(?MODULE, close_listen_socket, 2).
+ssh_dbg_on(tcp) ->
+    dbg:tpl(?MODULE, transport_connect, 4, x),
+    dbg:tpl(?MODULE, close_listen_socket, 2, x);
+ssh_dbg_on(connections) ->
+    dbg:tpl(?MODULE, update_lsocket, 3, x).
 
 -doc false.
-ssh_dbg_format(tcp, {call, {?MODULE,controlling_process, [ListenSocket, ReqPid, _Opts]}}) ->
-    ["TCP socket transferred to\n",
-     io_lib:format("Sock: ~p~n"
-                   "ToPid: ~p~n", [ListenSocket, ReqPid])
-    ];
-ssh_dbg_format(tcp, {return_from, {?MODULE,controlling_process,3}, _Result}) ->
-    skip;
+ssh_dbg_off(tcp) ->
+    dbg:ctpl(?MODULE, transport_connect, 4),
+    dbg:ctpl(?MODULE, close_listen_socket, 2);
+ssh_dbg_off(connections) ->
+    dbg:ctpl(?MODULE, update_lsocket, 3).
 
+-doc false.
 ssh_dbg_format(tcp, {call, {?MODULE,close_listen_socket, [ListenSocket, _Opts]}}) ->
     ["TCP socket listening closed\n",
      io_lib:format("Sock: ~p~n", [ListenSocket])
     ];
 ssh_dbg_format(tcp, {return_from, {?MODULE,close_listen_socket,2}, _Result}) ->
-    skip.
+    skip;
+ssh_dbg_format(Tracepoint , Event = {call, {?MODULE, Function, Args}}) ->
+    [io_lib:format("~w:~w/~w> ~s", [?MODULE, Function, length(Args)] ++
+                       ssh_dbg_comment(Tracepoint, Event))];
+ssh_dbg_format(Tracepoint, Event = {return_from, {?MODULE,Function,Arity}, Ret}) ->
+    [io_lib:format("~w:~w/~w returned ~W> ~s", [?MODULE, Function, Arity, Ret, 3] ++
+                  ssh_dbg_comment(Tracepoint, Event))].
 
+ssh_dbg_comment(connections, {call, {?MODULE, update_lsocket, [LSocket, LSocketProvider, _]}}) ->
+    [io_lib:format("LSocket = ~p, LSocketProvider = ~p", [LSocket, LSocketProvider])];
+ssh_dbg_comment(connections, {return_from, {?MODULE, update_lsocket,3}, {LHost, LPort, _}}) ->
+    [io_lib:format("LHost = ~p, LPort = ~p", [LHost, LPort])];
+ssh_dbg_comment(_, _) ->
+    [""].
 
 -doc false.
 ssh_dbg_format(tcp, {call, {?MODULE,transport_connect, [Host,Port,SockOpts,_Opts]}}, Stack) ->

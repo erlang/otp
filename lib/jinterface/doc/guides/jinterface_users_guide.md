@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2025. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -256,12 +258,12 @@ while (true) {
   try {
     o = mbox.receive();
     if (o instanceof OtpErlangTuple) {
-      msg = (OtpErlangTuple)o;
-      from = (OtpErlangPid)(msg.elementAt(0));
-      mbox.send(from,msg.elementAt(1));
-  }
-  catch (Exception e) {
-    System.out.println("" + e);
+      msg = (OtpErlangTuple) o;
+      from = (OtpErlangPid) (msg.elementAt(0));
+      mbox.send(from, msg.elementAt(1));
+    }
+  } catch (Exception e) {
+      System.out.println("" + e);
   }
 }
 ```

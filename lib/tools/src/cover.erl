@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2001-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1143,7 +1145,10 @@ call(Request) ->
     Ref = erlang:monitor(process,?SERVER),
     receive {'DOWN', Ref, _Type, _Object, noproc} -> 
 	    erlang:demonitor(Ref),
-            {ok,_} = start(),
+            case start() of
+                {ok,_} -> ok;
+                {error,{already_started,_}} -> ok
+            end,
 	    call(Request)
     after 0 ->
 	    ?SERVER ! {self(),Request},

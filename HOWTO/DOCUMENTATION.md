@@ -1,3 +1,26 @@
+<!--
+%%
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2023-2025. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%%
+%% %CopyrightEnd%
+-->
+
 # Documentation in Erlang/OTP
 
 This HOWTO describes how documentation of the Erlang/OTP project works. If you
@@ -85,28 +108,23 @@ However, [ex_doc] is still used to generate HTML docs for the `edoc` application
 #### Grouping
 
 It is possible to create groups of types and/or functions within a module using
-documentation metadata. To do that you need to do two things:
-
-1. Add the key `titles` to the `moduledoc` metadata with a list containing which
-  groups you want.
-2. Add the key `title` to each type and/or function you want to be listed within
-  that group.
+documentation metadata. To do that you need to add the key `group` to each type
+and/or function you want to be listed within that group.
 
 Example:
 
 ```erlang
 -module(test).
 -moduledoc "A test module".
--moduledoc(#{ titles => [{function, <<"Obsolete API">>}, {type, <<"Obsolete API">>}] }).
 
 -export([old_function/0]).
 
 -doc "An old type".
--doc(#{ title => <<"Obsolete API">> }).
+-doc(#{group => <<"Obsolete API">> }).
 -type old_type() :: term().
 
 -doc "An old function".
--doc(#{ title => <<"Obsolete API">> }).
+-doc(#{group => <<"Obsolete API">> }).
 old_function() -> very_old.
 ```
 
@@ -267,23 +285,41 @@ code fragment:”
 
 For code examples with several steps and for long examples:
 - Ensure that it is obvious for the reader what belongs to the example.
-- Use either a subheading `#### Example` or use a separate paragraph
-  with the text `*Example*:`.
+- Use a subheading `## Examples`.
 
-*Example*:
+All examples should be tested if possible using [`shell_docs:test/2`](../lib/stdlib/src/shell_docs.erl).
+See [lists_SUITE:doctests/1](../lib/stdlib/test/lists_SUITE.erl) for an example
+on how to do that.
+
+##### Examples
 
 ````markdown
-The compiler gives a warning for some code fragments.
-
-*Example*:
+The compiler gives a warning for some code fragments:
 
 ```erlang
-> erlc test.erl
+1> erlc test.erl
 test.erl:3:6: Warning: variable 'Data' is unused
 %    3| main(Data) ->
 %     |      ^
 ```
 
+````
+
+````markdown
+Searches the list of tuples `TupleList` for a tuple whose `N`th element compares
+equal to `Key`.
+
+Returns `Tuple` if such a tuple is found; otherwise, returns `false`.
+
+## Examples
+
+```erlang
+1> lists:keyfind(b, 1, [{a,10}, {b,20}, {c,30}]).
+{b,20}
+2> lists:keyfind(unknown, 1, [{a,10}, {b,20}, {c,30}]).
+false
+```
+""".
 ````
 
 #### Headings
@@ -441,9 +477,9 @@ Get information about a thing.
 ```
 
 As the actual version is generally not yet certain at the time when a
-change gets merged, the an internal ticket number (for example
-`OTP-12345`) to use as a placeholder in the respective `since` tags,
-such as `-doc #{since => ~"OTP OTP-12345"}.`.  When your new
+change gets merged, an internal ticket number (for example
+`OTP-12345`) is used as a placeholder in the respective `since` tags,
+such as `-doc #{since => ~"OTP @OTP-12345@"}.`.  When your new
 functions are released with an Erlang/OTP release, this placeholder
 will get replaced with the actual OTP version, leading to something
 like "OTP 26.0".

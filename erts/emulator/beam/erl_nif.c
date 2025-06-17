@@ -1,6 +1,8 @@
 /*
  * %CopyrightBegin%
  *
+ * SPDX-License-Identifier: Apache-2.0
+ *
  * Copyright Ericsson AB 2009-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -424,10 +426,10 @@ int
 erts_call_dirty_nif(ErtsSchedulerData *esdp,
                     Process *c_p,
                     ErtsCodePtr I,
-                    Eterm *reg)
+                    const Eterm *reg)
 {
     int exiting;
-    ERL_NIF_TERM *argv = (ERL_NIF_TERM *) reg;
+    const ERL_NIF_TERM *argv = (const ERL_NIF_TERM *) reg;
     ErtsNativeFunc *nep = ERTS_I_BEAM_OP_TO_NFUNC(I);
     const ErtsCodeMFA *codemfa = erts_code_to_codemfa(I);
     NativeFunPtr dirty_nif = (NativeFunPtr) nep->trampoline.dfunc;
@@ -810,20 +812,27 @@ error:
 /** @brief Create a message with the content of process independent \c msg_env.
  *  Invalidates \c msg_env.
  */
-ErtsMessage* erts_create_message_from_nif_env(ErlNifEnv* msg_env)
+ErtsMessage* erts_create_message_from_nif_env(ErlNifEnv* msg_env, Uint extra)
 {
     struct enif_msg_environment_t* menv = (struct enif_msg_environment_t*)msg_env;
     ErtsMessage* mp;
+    ErlHeapFragment *heap_frag;
 
     flush_env(msg_env);
-    mp = erts_alloc_message(0, NULL);
-    mp->data.heap_frag = menv->env.heap_frag;
-    ASSERT(mp->data.heap_frag == MBUF(&menv->phony_proc));
-    if (mp->data.heap_frag != NULL) {
+    mp = erts_alloc_message(extra, NULL);
+    if (extra) {
+        mp->hfrag.next = menv->env.heap_frag;
+        heap_frag = mp->hfrag.next;
+    } else {
+        mp->data.heap_frag = menv->env.heap_frag;
+        heap_frag = mp->data.heap_frag;
+    }
+    ASSERT(heap_frag == MBUF(&menv->phony_proc));
+    if (heap_frag != NULL) {
         /* Move all offheap's from phony proc to the first fragment.
            Quick and dirty... */
-        ASSERT(!is_offheap(&mp->data.heap_frag->off_heap));
-        mp->data.heap_frag->off_heap = MSO(&menv->phony_proc);
+        ASSERT(!is_offheap(&heap_frag->off_heap));
+        heap_frag->off_heap = MSO(&menv->phony_proc);
         clear_offheap(&MSO(&menv->phony_proc));
         menv->env.heap_frag = NULL;
         MBUF(&menv->phony_proc) = NULL;
@@ -944,7 +953,7 @@ int enif_send(ErlNifEnv* env, const ErlNifPid* to_pid,
             }
 #endif
         }
-        mp = erts_create_message_from_nif_env(msg_env);
+        mp = erts_create_message_from_nif_env(msg_env, 0);
         ERL_MESSAGE_TOKEN(mp) = token;
     } else {
         erts_literal_area_t litarea;
@@ -1352,7 +1361,7 @@ int enif_inspect_binary(ErlNifEnv* env, Eterm bin_term, ErlNifBinary* bin)
                 env->tmp_obj_list = tmp_obj;
 
                 bin->data = (byte*)&tmp_obj[1];
-                erts_copy_bits(base, offset, 1, bin->data, 0, 1, size);
+                erts_copy_bits_fwd(base, offset, bin->data, 0, size);
             } else {
                 bin->data = &base[BYTE_OFFSET(offset)];
             }
@@ -1799,9 +1808,9 @@ int enif_get_atom(ErlNifEnv* env, Eterm atom, char* buf, unsigned len,
             return 0;
         }
         if (ap->latin1_chars == ap->len) {
-            sys_memcpy(buf, ap->name, ap->len);
+            sys_memcpy(buf, erts_atom_get_name(ap), ap->len);
         } else {
-            int dlen = erts_utf8_to_latin1((byte*)buf, ap->name, ap->len);
+            int dlen = erts_utf8_to_latin1((byte*)buf, erts_atom_get_name(ap), ap->len);
             ASSERT(dlen == ap->latin1_chars); (void)dlen;
         }
         buf[ap->latin1_chars] = '\0';
@@ -1810,7 +1819,7 @@ int enif_get_atom(ErlNifEnv* env, Eterm atom, char* buf, unsigned len,
         if (ap->len >= len) {
             return 0;
         }
-        sys_memcpy(buf, ap->name, ap->len);
+        sys_memcpy(buf, erts_atom_get_name(ap), ap->len);
         buf[ap->len] = '\0';
         return ap->len + 1;
     }
@@ -2707,10 +2716,10 @@ ErlNifResourceType* open_resource_type(ErlNifEnv* env,
 	ort->type = type;
         sys_memzero(&ort->new_callbacks, sizeof(ErlNifResourceTypeInit));
         switch (init_members) {
-        case 4: ort->new_callbacks.dyncall = init->dyncall;
-        case 3: ort->new_callbacks.down = init->down;
-        case 2: ort->new_callbacks.stop = init->stop;
-        case 1: ort->new_callbacks.dtor = init->dtor;
+        case 4: ort->new_callbacks.dyncall = init->dyncall; ERTS_FALLTHROUGH();
+        case 3: ort->new_callbacks.down = init->down; ERTS_FALLTHROUGH();
+        case 2: ort->new_callbacks.stop = init->stop; ERTS_FALLTHROUGH();
+        case 1: ort->new_callbacks.dtor = init->dtor; ERTS_FALLTHROUGH();
         case 0:
             break;
         default:
@@ -3031,7 +3040,7 @@ void erts_fire_nif_monitor(ErtsMonitor *tmon)
     Uint mrefc, brefc;
     int active, is_dying;
 
-    ASSERT(tmon->type == ERTS_MON_TYPE_RESOURCE);
+    ASSERT(ERTS_ML_GET_TYPE(tmon) == ERTS_MON_TYPE_RESOURCE);
     ASSERT(erts_monitor_is_target(tmon));
 
     resource = tmon->other.ptr;
@@ -4481,8 +4490,8 @@ void erts_print_nif_taints(fmtfn_t to, void* to_arg)
 
     t = (struct tainted_module_t*) erts_atomic_read_nob(&first_taint);
     for ( ; t; t = t->next) {
-	const Atom* atom = atom_tab(atom_val(t->module_atom));
-	erts_cbprintf(to,to_arg,"%s%.*s", delim, atom->len, atom->name);
+	Atom* atom = atom_tab(atom_val(t->module_atom));
+	erts_cbprintf(to,to_arg,"%s%.*s", delim, atom->len, erts_atom_get_name(atom));
 	delim = ",";
     }
     erts_cbprintf(to,to_arg,"\n");
@@ -5365,14 +5374,14 @@ erts_nif_sched_init(ErtsSchedulerData *esdp)
     }
 }
 
-int erts_nif_get_funcs(struct erl_module_nif* mod,
+int erts_nif_get_funcs(const struct erl_module_nif* mod,
                        ErlNifFunc **funcs)
 {
     *funcs = mod->entry.funcs;
     return mod->entry.num_of_funcs;
 }
 
-Module *erts_nif_get_module(struct erl_module_nif *nif_mod) {
+Module *erts_nif_get_module(const struct erl_module_nif *nif_mod) {
     return nif_mod->mod;
 }
 
@@ -5707,6 +5716,7 @@ static void dbg_assert_in_env(ErlNifEnv* env, Eterm term,
 {
     Uint saved_used_size;
     Eterm* real_htop;
+    ERTS_UNDEF(saved_used_size, 0);
 
     if (is_immed(term)
         || (is_non_value(term) && env->exception_thrown)

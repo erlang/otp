@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1998-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -92,7 +94,7 @@ store_module(Mod, File, Binary, Db) ->
     erase(vcount),
     erase(funs),
     erase(fun_count),
-    
+
     NewBinary = store_mod_line_no(Mod, Db, binary_to_list(Src)),
     dbg_idb:insert(Db, mod_bin, NewBinary),
     dbg_idb:insert(Db, mod_raw, <<Src/binary,0:8>>). %% Add eos
@@ -117,7 +119,7 @@ init_calltype_imports([_|T], Ctype) ->
     init_calltype_imports(T, Ctype);
 init_calltype_imports([], Ctype) -> Ctype.
 
-%% Adjust line numbers using the file/2 attribute. 
+%% Adjust line numbers using the file/2 attribute.
 %% Also take the absolute value of line numbers.
 %% This simple fix will make the marker point at the correct line
 %% (assuming the file attributes are correct) in the source; it will
@@ -676,7 +678,7 @@ expr({map_field_assoc,L,K0,V0}, _Lc, St) ->
     V = expr(V0, false, St),
     {map_field_assoc,L,K,V}.
 
-consify([A|As]) -> 
+consify([A|As]) ->
     {cons,0,A,consify(As)};
 consify([]) -> {value,0,[]}.
 
@@ -694,17 +696,41 @@ expr_comprehension({Tag,Anno,E0,Gs0}, St) ->
     Gs = [case G of
               ({generate,L,P0,Qs}) ->
                   {generator,{generate,L,pattern(P0, St),expr(Qs, false, St)}};
+              ({generate_strict,L,P0,Qs}) ->
+                  {generator,{generate_strict,L,pattern(P0, St),expr(Qs, false, St)}};
               ({b_generate,L,P0,Qs}) -> %R12.
                   {generator,{b_generate,L,pattern(P0, St),expr(Qs, false, St)}};
+              ({b_generate_strict,L,P0,Qs}) -> %R12.
+                  {generator,{b_generate_strict,L,pattern(P0, St),expr(Qs, false, St)}};
               ({m_generate,L,P0,Qs}) -> %OTP 26
                   {generator,{m_generate,L,mc_pattern(P0, St),expr(Qs, false, St)}};
+              ({m_generate_strict,L,P0,Qs}) -> %OTP 26
+                  {generator,{m_generate_strict,L,mc_pattern(P0, St),expr(Qs, false, St)}};
+              ({zip,L,Gens}) ->
+                  expr_comprehension({zip,L,Gens}, St);
               (Expr) ->
                   case is_guard_test(Expr, St) of
                       true -> {guard,guard([[Expr]], St)};
                       false -> expr(Expr, false, St)
                   end
           end || G <- Gs0],
-    {Tag,ln(Anno),expr(E0, false, St),Gs}.
+    {Tag,ln(Anno),expr(E0, false, St),Gs};
+expr_comprehension({zip,Anno,Gens}, St) ->
+    Gs = [case G of
+              ({generate,L,P0,Qs}) ->
+                  {generator,{generate,L,pattern(P0, St),expr(Qs, false, St)}};
+              ({generate_strict,L,P0,Qs}) ->
+                  {generator,{generate_strict,L,pattern(P0, St),expr(Qs, false, St)}};
+              ({b_generate,L,P0,Qs}) -> %R12.
+                  {generator,{b_generate,L,pattern(P0, St),expr(Qs, false, St)}};
+              ({b_generate_strict,L,P0,Qs}) -> %R12.
+                  {generator,{b_generate_strict,L,pattern(P0, St),expr(Qs, false, St)}};
+              ({m_generate,L,P0,Qs}) -> %OTP 26
+                  {generator,{m_generate,L,mc_pattern(P0, St),expr(Qs, false, St)}};
+              ({m_generate_strict,L,P0,Qs}) -> %OTP 26
+                  {generator,{m_generate_strict,L,mc_pattern(P0, St),expr(Qs, false, St)}}
+          end || G <- Gens],
+    {zip,ln(Anno),Gs}.
 
 mc_pattern({map_field_exact,L,KeyP0,ValP0}, St) ->
     KeyP1 = pattern(KeyP0, St),

@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2020-2024. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2020-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -496,12 +498,12 @@ void BeamModuleAssembler::emit_i_jump_on_val(const ArgSource &Src,
     a.bind(data);
     if (embedInText) {
         for (const ArgVal &arg : args) {
-            ASSERT(arg.getType() == ArgVal::Label);
+            ASSERT(arg.getType() == ArgVal::Type::Label);
             a.embedLabel(rawLabels[arg.as<ArgLabel>().get()]);
         }
     }
 
-    if (Fail.getType() == ArgVal::Immediate) {
+    if (Fail.getType() == ArgVal::Type::Immediate) {
         a.bind(fail);
     }
 }

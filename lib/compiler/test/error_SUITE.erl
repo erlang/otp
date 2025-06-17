@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1998-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -64,8 +66,8 @@ bif_clashes(Config) when is_list(Config) ->
                erlang:length(X).
              ">>,
            [return_warnings],
-	   {error,
-	    [{{4,18}, erl_lint,{call_to_redefined_old_bif,{length,1}}}], []} }],
+	   {warning,
+	    [{{4,18}, erl_lint,{call_to_redefined_bif,{length,1}}}]} }],
     [] = run(Config, Ts),
     Ts1 = [{bif_clashes2,
            <<"
@@ -75,8 +77,8 @@ bif_clashes(Config) when is_list(Config) ->
                  length([a,b,c]).
              ">>,
            [return_warnings],
-	    {error,
-	     [{{3,16}, erl_lint,{redefine_old_bif_import,{length,1}}}], []} }],
+	    {warning,
+	     [{{3,16}, erl_lint,{redefine_bif_import,{length,1}}}]} }],
     [] = run(Config, Ts1),
     Ts00 = [{bif_clashes3,
            <<"
@@ -177,7 +179,7 @@ bif_clashes(Config) when is_list(Config) ->
 %% Tests that a head mismatch is reported on the correct line (OTP-2125).
 head_mismatch_line(Config) when is_list(Config) ->
     [E|_] = get_compilation_errors(Config, "head_mismatch_line"),
-    {{26,1}, Mod, Reason} = E,
+    {{28,1}, Mod, Reason} = E,
     ("head mismatch: previous function foo/1 is distinct from bar/1. "
      "Is the semicolon in foo/1 unwanted?") = lists:flatten(Reason),
     Mod:format_error(Reason),
@@ -187,7 +189,7 @@ head_mismatch_line(Config) when is_list(Config) ->
 %% https://github.com/erlang/otp/pull/7383#issuecomment-1586564294
 head_mismatch_same_function_name(Config) when is_list(Config) ->
     [E|_] = get_compilation_errors(Config, "head_mismatch_same_function_name"),
-    {{25,1}, Mod, Reason} = E,
+    {{27,1}, Mod, Reason} = E,
     ("head mismatch: function foo with arities 1 and 2 is regarded as "
      "two distinct functions. Is the number of arguments incorrect "
      "or is the semicolon in foo/1 unwanted?") = lists:flatten(Reason),

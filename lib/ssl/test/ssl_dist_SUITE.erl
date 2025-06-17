@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2007-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -135,7 +137,7 @@ all() ->
 
 init_per_suite(Config0) ->
     _ = end_per_suite(Config0),
-    try crypto:start() of
+    try application:start(crypto) of
 	ok ->
 	    %% Currently no ct function available for is_cover!
 	    case test_server:is_cover() of

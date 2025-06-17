@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -41,25 +43,7 @@ macros described here and in the User's Guide:
 ```
 """.
 
--moduledoc(#{titles =>
-                 [{type, <<"Common">>},
-                  {type,<<"Keys">>},
-                  {type,<<"PEM files">>},
-                  {type,<<"Certificates">>},
-                  {type,<<"Certificate Revocation">>},
-                  {type,<<"Test Data">>},
-                  {function,<<"PEM API">>},
-                  {function,<<"Key API">>},
-                  {function,<<"Sign/Verify API">>},
-                  {function,<<"Certificate API">>},
-                  {function,<<"Certificate Revocation API">>},
-                  {function,<<"ASN.1 Encoding API">>},
-                  {function,<<"Test Data API">>},
-                  {function,<<"Legacy RSA Encryption API">>}
-                 ]}).
-
--feature(maybe_expr,enable).
--include("public_key.hrl").
+-include("public_key_internal.hrl").
 
 -export([pem_decode/1, pem_encode/1, 
 	 der_decode/2, der_encode/2,
@@ -168,14 +152,14 @@ macros described here and in the User's Guide:
                                        {crypto, public_decrypt, 4}
                                       ]}).
 
--doc(#{title => <<"Keys">>}).
+-doc(#{group => <<"Keys">>}).
 -doc "Supported public keys".
 -type public_key()           ::  rsa_public_key() |
                                  rsa_pss_public_key() |
                                  dsa_public_key() |
                                  ecdsa_public_key() |
                                  eddsa_public_key() .
--doc(#{title => <<"Keys">>}).
+-doc(#{group => <<"Keys">>}).
 -doc "Supported private keys".
 -type private_key()          ::  rsa_private_key() |
                                  rsa_pss_private_key() |
@@ -184,72 +168,72 @@ macros described here and in the User's Guide:
                                  eddsa_private_key() |
                                  #{algorithm := eddsa | rsa_pss_pss | ecdsa | rsa | dsa,
                                    sign_fun => fun()} .
--doc(#{title => <<"Keys">>}).
+-doc(#{group => <<"Keys">>}).
 -doc """
 Can be provided together with a custom private key, that specifies a key fun, to
 provide additional options understood by the fun.
 """.
 -type custom_key_opts()      :: [term()].
 
--doc(#{title => <<"Keys">>}).
+-doc(#{group => <<"Keys">>}).
 -doc "ASN.1 defined public key format for plain RSA algorithm.".
 -type rsa_public_key()       ::  #'RSAPublicKey'{}.
 
--doc(#{title => <<"Keys">>}).
+-doc(#{group => <<"Keys">>}).
 -doc "ASN.1 defined private key format plain RSA algorithm or customization fun.".
 -type rsa_private_key()      ::  #'RSAPrivateKey'{} | #{algorithm := rsa,
                                                         encrypt_fun => fun()}.
--doc(#{title => <<"Keys">>}).
+-doc(#{group => <<"Keys">>}).
 -doc "ASN.1 defined public key format for the RSSASSA-PSS algorithm.".
 -type rsa_pss_public_key()   ::  {rsa_public_key(), #'RSASSA-PSS-params'{}}.
 
--doc(#{title => <<"Keys">>}).
+-doc(#{group => <<"Keys">>}).
 -doc "ASN.1 defined private key format the RSSASSA-PSS algorithm or customization fun.".
 -type rsa_pss_private_key()  ::  { #'RSAPrivateKey'{}, #'RSASSA-PSS-params'{}}.
 
--doc(#{title => <<"Keys">>}).
+-doc(#{group => <<"Keys">>}).
 -doc "ASN.1 defined private key format for the DSA algorithm.".
 -type dsa_private_key()      ::  #'DSAPrivateKey'{}.
 
--doc(#{title => <<"Keys">>}).
+-doc(#{group => <<"Keys">>}).
 -doc "ASN.1 defined public key format for the DSA algorithm.".
 -type dsa_public_key()       :: {dss_public_key(), #'Dss-Parms'{}}.
 
--doc(#{title => <<"Keys">>}).
+-doc(#{group => <<"Keys">>}).
 -doc "ASN.1 defined public key format for the DSS algorithm (part of DSA key).".
 -type dss_public_key()       :: pos_integer().
 
--doc(#{title => <<"Keys">>}).
+-doc(#{group => <<"Keys">>}).
 -doc "ASN.1 defined public key format for the ECDSA algorithm.".
 -type ecdsa_public_key()        :: {#'ECPoint'{},{namedCurve, oid()} | #'ECParameters'{}}.
 
--doc(#{title => <<"Keys">>}).
+-doc(#{group => <<"Keys">>}).
 -doc "ASN.1 defined private key format for the ECDSA algorithm.".
 -type ecdsa_private_key()       :: #'ECPrivateKey'{}.
 
--doc(#{title => <<"Keys">>}).
+-doc(#{group => <<"Keys">>}).
 -doc """
 ASN.1 defined public key format for the EDDSA algorithm, possible oids: ?'id-Ed25519' | ?'id-Ed448'
 """.
 -type eddsa_public_key()        :: {#'ECPoint'{}, {namedCurve, oid()}}.
 
--doc(#{title => <<"Keys">>}).
+-doc(#{group => <<"Keys">>}).
 -doc """
 ASN.1 defined private key format for the EDDSA algorithm, possible oids: ?'id-Ed25519' | ?'id-Ed448'
 """.
 -type eddsa_private_key()       :: #'ECPrivateKey'{parameters :: {namedCurve, oid()}}.
 
--doc(#{title => <<"Keys">>}).
+-doc(#{group => <<"Keys">>}).
 -doc "ASN.1 defined parameters for public key algorithms.".
 -type key_params()    :: 'NULL' | #'RSASSA-PSS-params'{} |  {namedCurve, oid()} | #'ECParameters'{} | #'Dss-Parms'{}.
 
--doc(#{title => <<"Common">>}).
+-doc(#{group => <<"Common">>}).
 -doc """
 ASN.1 DER encoded entity.
 """.
 -type der_encoded()          :: binary().
 
--doc(#{title => <<"PEM files">>}).
+-doc(#{group => <<"PEM files">>}).
 -doc """
 ASN.1 type that can be found in PEM files that can be decode by the public_key application.
 """.
@@ -259,7 +243,7 @@ ASN.1 type that can be found in PEM files that can be decode by the public_key a
 				 'CertificationRequest' | 'ContentInfo' | 'CertificateList' |
 				 'ECPrivateKey' | 'OneAsymmetricKey'| 'EcpkParameters'.
 
--doc(#{title => <<"PEM files">>}).
+-doc(#{group => <<"PEM files">>}).
 -doc """
 Possible `Ciphers` are "RC2-CBC" | "DES-CBC" | "DES-EDE3-CBC" `Salt` could be generated with
 [`crypto:strong_rand_bytes(8)`](`crypto:strong_rand_bytes/1`).
@@ -271,38 +255,38 @@ Possible `Ciphers` are "RC2-CBC" | "DES-CBC" | "DES-EDE3-CBC" `Salt` could be ge
                                 | #'PBES2-params'{}}
 				}.
 
--doc(#{title => <<"Common">>}).
+-doc(#{group => <<"Common">>}).
 -doc "ASN.1 type present in the Public Key applications ASN.1 specifications.".
 -type asn1_type()            :: atom(). %% see "OTP-PUB-KEY.hrl
 
--doc(#{title => <<"Common">>}).
+-doc(#{group => <<"Common">>}).
 -doc "Hash function used to create a message digest".
 -type digest_type()          ::  crypto:sha2() | crypto:sha1() | md5 | none.
 
--doc(#{title => <<"Certificate Revocation">>}).
+-doc(#{group => <<"Certificate Revocation">>}).
 -doc """
 The reason that a certifcate has been revoked as define by RFC 5280.
 """.
 -type crl_reason()           ::  unspecified | keyCompromise | cACompromise | affiliationChanged | superseded
 			       | cessationOfOperation | certificateHold | privilegeWithdrawn |  aACompromise.
 
--doc(#{title => <<"Common">>}).
+-doc(#{group => <<"Common">>}).
 -doc "Object identifier, a tuple of integers as generated by the `ASN.1` compiler.".
 -type oid()                  :: tuple().
 
--doc(#{title => <<"Certificates">>}).
+-doc(#{group => <<"Certificates">>}).
 -doc """
 A certificate is identified by its serial-number and Issuer Name.
 """.
 -type cert_id()              :: {SerialNr::integer(), issuer_name()} .
 
--doc(#{title => <<"Certificates">>}).
+-doc(#{group => <<"Certificates">>}).
 -doc """
 The value of the issuer part of a certificate.
 """.
 -type issuer_name()          :: {rdnSequence,[[#'AttributeTypeAndValue'{}]]} .
 
--doc(#{title => <<"Certificates">>}).
+-doc(#{group => <<"Certificates">>}).
 -doc """
 The reason that a certifcate gets rejected by the certificate path validation.
 """.
@@ -313,7 +297,7 @@ The reason that a certifcate gets rejected by the certificate path validation.
                                 {revoked, crl_reason()} | invalid_validity_dates |
                                 {revocation_status_undetermined, term()} | atom().
 
--doc(#{title => <<"Certificates">>}).
+-doc(#{group => <<"Certificates">>}).
 -doc """
 A record that can be used to provide the certificate on both the DER encoded and the OTP decode format.
 
@@ -321,18 +305,18 @@ Such a construct can be useful to avoid conversions and problems that can arise 
 """.
 -type combined_cert()        :: #cert{}.
 
--doc(#{title => <<"Certificates">>}).
+-doc(#{group => <<"Certificates">>}).
 -doc "An encoded or decode certificate.".
 -type cert()                 :: der_encoded() | #'OTPCertificate'{}.
 
--doc(#{title => <<"Certificates">>}).
+-doc(#{group => <<"Certificates">>}).
 -doc "Certificate policy information.".
 -type policy_node() ::
         #{valid_policy := oid(),
           qualifier_set := [#'UserNotice'{}| {uri, string()}],
           expected_policy_set := [oid()]}.
 
--doc(#{title => <<"Certificates">>}).
+-doc(#{group => <<"Certificates">>}).
 -doc """
 Information a certificates public key.
 
@@ -340,7 +324,7 @@ Possible oids: ?'rsaEncryption' | ?'id-RSASSA-PSS' | ?'id-ecPublicKey' | ?'id-Ed
 """.
 -type public_key_info()      :: {oid(),  rsa_public_key() | #'ECPoint'{} | dss_public_key(),  key_params()}.
 
--doc(#{title => <<"Test Data">>}).
+-doc(#{group => <<"Test Data">>}).
 -doc """
 Options to customize generated test certificates
 """.
@@ -349,7 +333,7 @@ Options to customize generated test certificates
                      {validity, {From::erlang:timestamp(), To::erlang:timestamp()}} |
                      {extensions, [#'Extension'{}]}.
 
--doc(#{title => <<"Test Data">>}).
+-doc(#{group => <<"Test Data">>}).
 -doc """
 Certificate customize options for diffrent parts of the certificate test chain.
 """.
@@ -357,7 +341,7 @@ Certificate customize options for diffrent parts of the certificate test chain.
                          peer :=  [cert_opt()]
                         }.
 
--doc(#{title => <<"Test Data">>}).
+-doc(#{group => <<"Test Data">>}).
 -doc """
 Configuration options for the generated certificate test chain.
 """.
@@ -381,7 +365,7 @@ Configuration options for the generated certificate test chain.
 %%====================================================================
 %%--------------------------------------------------------------------
 
--doc(#{title => <<"PEM API">>}).
+-doc(#{group => <<"PEM API">>}).
 -doc """
 Decodes PEM binary data and returns entries as ASN.1 DER encoded entities.
 
@@ -397,7 +381,7 @@ pem_decode(PemBin) when is_binary(PemBin) ->
 
 
 %%--------------------------------------------------------------------
--doc(#{title => <<"PEM API">>,
+-doc(#{group => <<"PEM API">>,
       since => <<"OTP R14B">>}).
 -doc "Creates a PEM binary.".
 -spec pem_encode([pem_entry()]) -> binary().
@@ -406,30 +390,31 @@ pem_encode(PemEntries) when is_list(PemEntries) ->
     iolist_to_binary(pubkey_pem:encode(PemEntries)).
 
 %%--------------------------------------------------------------------
--doc(#{title => <<"PEM API">>,
+-doc(#{group => <<"PEM API">>,
        equiv => pem_entry_decode(PemEntry, ""),
        since => <<"OTP R14B">>}).
 -spec pem_entry_decode(PemEntry) -> term() when PemEntry :: pem_entry() .
 
 pem_entry_decode({'SubjectPublicKeyInfo', Der, _}) ->
-    {_, {'AlgorithmIdentifier', AlgId, Params}, Key0}
-        = der_decode('SubjectPublicKeyInfo', Der),
+    {_, {'AlgorithmIdentifier', AlgId, Params0}, Key0} =
+        der_decode('SubjectPublicKeyInfo', Der),
+
     KeyType = pubkey_cert_records:supportedPublicKeyAlgorithms(AlgId),
     case KeyType of
         'RSAPublicKey' ->
             der_decode(KeyType, Key0);
         'DSAPublicKey' ->
-            {params, DssParams} = der_decode('DSAParams', Params),
-            {der_decode(KeyType, Key0), DssParams};
+            {params, Params} = Params0,
+            {der_decode(KeyType, Key0), Params};
         'ECPoint' ->
-            ECCParams = ec_decode_params(AlgId, Params),
+            ECCParams = ec_decode_params(AlgId, Params0),
             {#'ECPoint'{point = Key0}, ECCParams}
     end;
 pem_entry_decode({Asn1Type, Der, not_encrypted}) when is_atom(Asn1Type),
 						      is_binary(Der) ->
     der_decode(Asn1Type, Der).
 
--doc(#{title => <<"PEM API">>,
+-doc(#{group => <<"PEM API">>,
        since => <<"OTP R14B">>}).
 -doc """
 Decodes a PEM entry. [`pem_decode/1`](`pem_decode/1`) returns a list of PEM
@@ -467,7 +452,7 @@ pem_entry_decode({Asn1Type, CryptDer, {Cipher, Salt}} = PemEntry,
     do_pem_entry_decode(PemEntry, Password).
 
 %%--------------------------------------------------------------------
--doc(#{title => <<"PEM API">>,
+-doc(#{group => <<"PEM API">>,
        since => <<"OTP R14B">>,
        equiv => pem_entry_encode/3}).
 -spec pem_entry_encode(Asn1Type, Entity) -> pem_entry() when Asn1Type :: pki_asn1_type(),
@@ -479,33 +464,30 @@ pem_entry_encode('SubjectPublicKeyInfo', Entity=#'RSAPublicKey'{}) ->
                                                           parameters =?DER_NULL}, KeyDer),
     pem_entry_encode('SubjectPublicKeyInfo', Spki);
 pem_entry_encode('SubjectPublicKeyInfo',
-                 {DsaInt, Params=#'Dss-Parms'{}}) when is_integer(DsaInt) ->
+                 {DsaInt, Params0=#'Dss-Parms'{}}) when is_integer(DsaInt) ->
+    #'Dss-Parms'{p=P, q=Q, g=G} = Params0,
+    Params = #'DSA-Params'{p=P, q=Q, g=G},
     KeyDer = der_encode('DSAPublicKey', DsaInt),
-    ParamDer = der_encode('DSAParams', {params, Params}),
-    Spki = subject_public_key_info(#'AlgorithmIdentifier'{algorithm =?'id-dsa',
-                                                          parameters = ParamDer},
-                                   KeyDer),
+    AlgId = #'SubjectPublicKeyInfo_algorithm'{algorithm=?'id-dsa',
+                                              parameters=Params},
+    Spki = subject_public_key_info(AlgId, KeyDer),
     pem_entry_encode('SubjectPublicKeyInfo', Spki);
 pem_entry_encode('SubjectPublicKeyInfo',
-		 {#'ECPoint'{point = Key}, {namedCurve, ?'id-Ed25519' = ID}}) when is_binary(Key)->
-    Spki = subject_public_key_info(#'AlgorithmIdentifier'{algorithm = ID}, Key),
-    pem_entry_encode('SubjectPublicKeyInfo', Spki);
-pem_entry_encode('SubjectPublicKeyInfo',
-		 {#'ECPoint'{point = Key}, {namedCurve, ?'id-Ed448' = ID}}) when is_binary(Key)->
+		 {#'ECPoint'{point = Key}, {namedCurve, ID}})
+  when is_binary(Key), ID =:= ?'id-Ed448' orelse ID =:= ?'id-Ed25519' ->
     Spki = subject_public_key_info(#'AlgorithmIdentifier'{algorithm = ID}, Key),
     pem_entry_encode('SubjectPublicKeyInfo', Spki);
 pem_entry_encode('SubjectPublicKeyInfo',
 		 {#'ECPoint'{point = Key}, ECParam}) when is_binary(Key)->
-    Params = der_encode('EcpkParameters',ECParam),
     Spki = subject_public_key_info(#'AlgorithmIdentifier'{algorithm =?'id-ecPublicKey',
-                                                          parameters = Params},
+                                                         parameters = ECParam},
                                    Key),
     pem_entry_encode('SubjectPublicKeyInfo', Spki);
 pem_entry_encode(Asn1Type, Entity)  when is_atom(Asn1Type) ->
     Der = der_encode(Asn1Type, Entity),
     {Asn1Type, Der, not_encrypted}.
 
--doc(#{title => <<"PEM API">>,
+-doc(#{group => <<"PEM API">>,
        since => <<"OTP R14B">>}).
 -doc """
 Creates a PEM entry that can be feed to [`pem_encode/1`](`pem_encode/1`).
@@ -543,7 +525,7 @@ pem_entry_encode(Asn1Type, Entity, {{Cipher, Salt} = CipherInfo,
     do_pem_entry_encode(Asn1Type, Entity, CipherInfo, Password).
     
 %%--------------------------------------------------------------------
--doc(#{title => <<"ASN.1 Encoding API">>,
+-doc(#{group => <<"ASN.1 Encoding API">>,
        since => <<"OTP R14B">>}).
 -doc "Decodes a public-key ASN.1 DER encoded entity.".
 
@@ -558,25 +540,98 @@ der_decode(Asn1Type, Der) when (((Asn1Type == 'PrivateKeyInfo')
                                    (Asn1Type == 'EncryptedPrivateKeyInfo'))
                                 andalso is_binary(Der)) ->
     try
-	{ok, Decoded} = 'PKCS-FRAME':decode(Asn1Type, Der),
+	{ok, Decoded0} = 'PKCS-FRAME':decode(Asn1Type, Der),
+        Decoded = pubkey_translation:decode(Decoded0),
 	der_priv_key_decode(Decoded)
     catch
 	error:{badmatch, {error, _}} = Error ->
             handle_pkcs_frame_error(Asn1Type, Der, Error)
     end;
-
+der_decode('EcpkParameters', Der) ->
+    try
+	{ok, Decoded} = 'PKIXAlgs-2009':decode('ECParameters', Der),
+        pubkey_translation:decode(Decoded)
+    catch
+	error:{badmatch, {error, _}} = Error ->
+	    erlang:error(Error)
+    end;
+der_decode('Dss-Sig-Value', Der) ->
+    try
+	{ok, Decoded} = 'PKIXAlgs-2009':decode('DSA-Sig-Value', Der),
+        pubkey_translation:decode(Decoded)
+    catch
+	error:{badmatch, {error, _}} = Error ->
+	    erlang:error(Error)
+    end;
+der_decode(Asn1ExtType, Der) when Asn1ExtType == 'SubjectAltName';
+                                  Asn1ExtType == 'IssuerAltName';
+                                  Asn1ExtType == 'ExtKeyUsage';
+                                  Asn1ExtType == 'InhibitAnyPolicy';
+                                  Asn1ExtType == 'FreshestCRL';
+                                  Asn1ExtType == 'AuthorityInfoAccess';
+                                  Asn1ExtType == 'DeltaCRLIndicator';
+                                  Asn1ExtType == 'CertificateIssuer';
+                                  Asn1ExtType == 'HoldInstructionCode';
+                                  Asn1ExtType == 'InvalidityDate' ->
+    Oid = pubkey_cert_records:ext_oid(Asn1ExtType),
+    [#'Extension'{extnValue = Value}]
+        = pubkey_cert_records:decode_extensions([#'Extension'{extnID = Oid, extnValue = Der}]),
+    Value;
 der_decode(Asn1Type, Der) when is_atom(Asn1Type), is_binary(Der) ->
-    try 
-	{ok, Decoded} = 'OTP-PUB-KEY':decode(Asn1Type, Der),
-	Decoded
-    catch	    
+    Asn1Module = get_asn1_module(Asn1Type),
+    try
+	{ok, Decoded} = Asn1Module:decode(Asn1Type, Der),
+        pubkey_translation:decode(Decoded)
+    catch
 	error:{badmatch, {error, _}} = Error ->
 	    erlang:error(Error)
     end.
 
+get_asn1_module('AuthorityInfoAccessSyntax') -> 'PKIX1Implicit-2009';
+get_asn1_module('AuthorityKeyIdentifier') -> 'PKIX1Implicit-2009';
+get_asn1_module('BasicConstraints') -> 'PKIX1Implicit-2009';
+get_asn1_module('ExtKeyUsageSyntax') -> 'PKIX1Implicit-2009';
+get_asn1_module('KeyUsage') -> 'PKIX1Implicit-2009';
+get_asn1_module('Certificate') -> 'PKIX1Explicit-2009';
+get_asn1_module('SubjectAltName') -> 'PKIX1Implicit-2009';
+get_asn1_module('CRLDistributionPoints') -> 'PKIX1Implicit-2009';
+get_asn1_module('CRLReason') ->  'PKIX1Implicit-2009';
+get_asn1_module('CRLNumber') ->  'PKIX1Implicit-2009';
+get_asn1_module('FreshestCRL') ->  'PKIX1Implicit-2009';
+get_asn1_module('IssuingDistributionPoint') ->  'PKIX1Implicit-2009';
+get_asn1_module('GeneralNames') -> 'PKIX1Implicit-2009';
+get_asn1_module('SubjectPublicKeyInfo') -> 'PKIX1Explicit-2009';
+get_asn1_module('CertificateList') -> 'PKIX1Explicit-2009';
+get_asn1_module('TBSCertList') -> 'PKIX1Explicit-2009';
+get_asn1_module('Name') -> 'PKIX1Explicit-2009';
+get_asn1_module('Validity') -> 'PKIX1Explicit-2009';
+get_asn1_module('RSAPublicKey') -> 'PKIXAlgs-2009';
+get_asn1_module('DSA-Params') -> 'PKIXAlgs-2009';
+get_asn1_module('BasicOCSPResponse') -> 'OCSP-2024-08';
+get_asn1_module('Nonce') -> 'OCSP-2024-08';
+get_asn1_module('OCSPResponse') -> 'OCSP-2024-08';
+get_asn1_module('ResponseData') -> 'OCSP-2024-08';
+get_asn1_module('SubjectKeyIdentifier') -> 'CryptographicMessageSyntax-2009';
+get_asn1_module('ContentInfo') -> 'CryptographicMessageSyntax-2009';
+get_asn1_module('CertificationRequest') -> 'PKCS-10';
+get_asn1_module('CertificationRequestInfo') -> 'PKCS-10';
+get_asn1_module('CurvePrivateKey') -> 'Safecurves-pkix-18';
+get_asn1_module('ECPrivateKey') -> 'ECPrivateKey';
+get_asn1_module('ECParameters') -> 'PKIXAlgs-2009';
+get_asn1_module('DSAPublicKey') -> 'PKIXAlgs-2009';
+get_asn1_module('ECDSA-Sig-Value') -> 'PKIXAlgs-2009';
+get_asn1_module('RSASSA-PSS-params') -> 'PKIX1-PSS-OAEP-Algorithms-2009';
+get_asn1_module('RSAPrivateKey') -> 'PKCS-1';
+get_asn1_module('DHParameter') -> 'PKCS-3';
+get_asn1_module('DSAPrivateKey') -> 'DSS';
+get_asn1_module('Extensions') -> 'OTP-PKIX';
+get_asn1_module('OTPTBSCertificate') -> 'OTP-PKIX';
+get_asn1_module('OTPCertificate') -> 'OTP-PKIX'.
+
 handle_pkcs_frame_error('PrivateKeyInfo', Der, _) ->
     try
-	{ok, Decoded} = 'PKCS-FRAME':decode('OneAsymmetricKey', Der),
+	{ok, Decoded0} = 'PKCS-FRAME':decode('OneAsymmetricKey', Der),
+        Decoded = pubkey_translation:decode(Decoded0),
 	der_priv_key_decode(Decoded)
     catch
 	error:{badmatch, {error, _}} = Error ->
@@ -585,22 +640,58 @@ handle_pkcs_frame_error('PrivateKeyInfo', Der, _) ->
 handle_pkcs_frame_error(_, _, Error) ->
     erlang:error(Error).
 
+%% The type for a DSA private key is not defined in any of our ASN.1 modules.
+%% However, we KNOW that it has the same type as the public key (an INTEGER).
+-define(dsa_private_key_type, 'DSAPublicKey').
+
+%% NOTE: No longer defined in modern ASN.1 specs.
 der_priv_key_decode(#'PrivateKeyInfo'{version = v1,
-                                      privateKeyAlgorithm =
-                                          #'PrivateKeyInfo_privateKeyAlgorithm'{algorithm = ?'id-ecPublicKey',
-                                                                                parameters = {asn1_OPENTYPE, Parameters}},
-                                      privateKey = PrivKey}) ->
+                                        privateKeyAlgorithm =
+                                            #'PrivateKeyAlgorithmIdentifier'{algorithm = ?'id-ecPublicKey',
+                                                                             parameters = {asn1_OPENTYPE, Parameters}},
+                                        privateKey = PrivKey}) ->
     EcPrivKey = der_decode('ECPrivateKey', PrivKey),
     EcPrivKey#'ECPrivateKey'{parameters = der_decode('EcpkParameters', Parameters)};
 der_priv_key_decode(#'PrivateKeyInfo'{version = v1,
-                                      privateKeyAlgorithm =#'PrivateKeyInfo_privateKeyAlgorithm'{algorithm = CurveOId},
-                                      privateKey = CurvePrivKey}) when
+                                        privateKeyAlgorithm =
+                                            #'PrivateKeyAlgorithmIdentifier'{algorithm = CurveOId},
+                                        privateKey = CurvePrivKey}) when
       CurveOId == ?'id-Ed25519'orelse
       CurveOId == ?'id-Ed448' ->
     PrivKey = der_decode('CurvePrivateKey', CurvePrivKey),
     #'ECPrivateKey'{version = 1, parameters = {namedCurve, CurveOId}, privateKey = PrivKey};
+der_priv_key_decode(#'PrivateKeyInfo'{version = v1,
+                                        privateKeyAlgorithm =
+                                            #'PrivateKeyAlgorithmIdentifier'{algorithm = ?'rsaEncryption'},
+                                        privateKey = PrivKey}) ->
+    der_decode('RSAPrivateKey', PrivKey);
+der_priv_key_decode(#'PrivateKeyInfo'{version = v1,
+                                        privateKeyAlgorithm =
+                                            #'PrivateKeyAlgorithmIdentifier'{algorithm = ?'id-RSASSA-PSS',
+                                                                             parameters = {asn1_OPENTYPE, Parameters}},
+                                        privateKey = PrivKey}) ->
+    Key = der_decode('RSAPrivateKey', PrivKey),
+    Params = der_decode('RSASSA-PSS-params', Parameters),
+    {Key, Params};
+der_priv_key_decode(#'PrivateKeyInfo'{version = v1,
+                                        privateKeyAlgorithm =
+                                            #'PrivateKeyAlgorithmIdentifier'{algorithm = ?'id-RSASSA-PSS',
+                                                                             parameters = asn1_NOVALUE},
+                                        privateKey = PrivKey}) ->
+    Key = der_decode('RSAPrivateKey', PrivKey),
+    #'RSASSA-AlgorithmIdentifier'{parameters = Params} = ?'rSASSA-PSS-Default-Identifier',
+    {Key, Params};
+der_priv_key_decode(#'PrivateKeyInfo'{version = v1,
+                                        privateKeyAlgorithm =
+                                            #'PrivateKeyAlgorithmIdentifier'{algorithm = ?'id-dsa',
+                                                                             parameters =
+                                                                                 {asn1_OPENTYPE, Parameters}},
+                                        privateKey = PrivKey}) ->
+    {ok, #'DSA-Params'{p=P, q=Q, g=G}} = 'PKIXAlgs-2009':decode('DSA-Params', Parameters),
+    X = der_decode(?dsa_private_key_type, PrivKey),
+    #'DSAPrivateKey'{version=1, p=P, q=Q, g=G, x=X};
 der_priv_key_decode(#'OneAsymmetricKey'{
-                       privateKeyAlgorithm = #'OneAsymmetricKey_privateKeyAlgorithm'{algorithm = CurveOId},
+                       privateKeyAlgorithm = #'PrivateKeyAlgorithmIdentifier'{algorithm = CurveOId},
                        privateKey = CurvePrivKey,
                        attributes = Attr,
                        publicKey = PubKey}) when
@@ -610,41 +701,11 @@ der_priv_key_decode(#'OneAsymmetricKey'{
     #'ECPrivateKey'{version = 2, parameters = {namedCurve, CurveOId}, privateKey = PrivKey,
                     attributes = Attr,
                     publicKey = PubKey};
-der_priv_key_decode(#'PrivateKeyInfo'{version = v1,
-                                      privateKeyAlgorithm =
-                                          #'PrivateKeyInfo_privateKeyAlgorithm'{algorithm = ?'rsaEncryption'},
-                                      privateKey = PrivKey}) ->
-    der_decode('RSAPrivateKey', PrivKey);
-der_priv_key_decode(#'PrivateKeyInfo'{version = v1,
-                                      privateKeyAlgorithm =
-                                          #'PrivateKeyInfo_privateKeyAlgorithm'{algorithm = ?'id-RSASSA-PSS',
-                                                                                parameters = {asn1_OPENTYPE, Parameters}},
-                                      privateKey = PrivKey}) ->
-    Key = der_decode('RSAPrivateKey', PrivKey),
-    Params = der_decode('RSASSA-PSS-params', Parameters),
-    {Key, Params};
-der_priv_key_decode(#'PrivateKeyInfo'{version = v1,
-                                      privateKeyAlgorithm =
-                                          #'PrivateKeyInfo_privateKeyAlgorithm'{algorithm = ?'id-RSASSA-PSS',
-                                                                                parameters = asn1_NOVALUE},
-                                      privateKey = PrivKey}) ->
-    Key = der_decode('RSAPrivateKey', PrivKey),
-    #'RSASSA-AlgorithmIdentifier'{parameters = Params} = ?'rSASSA-PSS-Default-Identifier',
-    {Key, Params};
-der_priv_key_decode(#'PrivateKeyInfo'{version = v1,
-                                      privateKeyAlgorithm =
-                                          #'PrivateKeyInfo_privateKeyAlgorithm'{algorithm = ?'id-dsa',
-                                                                                parameters =
-                                                                                    {asn1_OPENTYPE, Parameters}},
-                                      privateKey = PrivKey}) ->
-    {params, #'Dss-Parms'{p=P, q=Q, g=G}} = der_decode('DSAParams', Parameters),
-    X = der_decode('Prime-p', PrivKey),
-    #'DSAPrivateKey'{p=P, q=Q, g=G, x=X};
 der_priv_key_decode(PKCS8Key) ->
     PKCS8Key.
 
 %%--------------------------------------------------------------------
--doc(#{title => <<"ASN.1 Encoding API">>,
+-doc(#{group => <<"ASN.1 Encoding API">>,
         since => <<"OTP R14B">>}).
 -doc "Encodes a public-key entity with ASN.1 DER encoding.".
 -spec der_encode(Asn1Type, Entity) -> Der when Asn1Type :: asn1_type(),
@@ -652,24 +713,24 @@ der_priv_key_decode(PKCS8Key) ->
                                                Der :: binary() .
 %%--------------------------------------------------------------------
 der_encode('PrivateKeyInfo', #'DSAPrivateKey'{p=P, q=Q, g=G, x=X}) ->
-    Params = der_encode('Dss-Parms', #'Dss-Parms'{p=P, q=Q, g=G}),
-    Alg =  #'PrivateKeyInfo_privateKeyAlgorithm'{algorithm = ?'id-dsa',
-                                                 parameters =
-                                                     {asn1_OPENTYPE, Params}},
-    Key = der_encode('Prime-p', X),
-    der_encode('PrivateKeyInfo',
-               #'PrivateKeyInfo'{version = v1,
-                                 privateKeyAlgorithm = Alg,
-                                 privateKey = Key});
+    Params = der_encode('DSA-Params', #'DSA-Params'{p=P, q=Q, g=G}),
+    Alg =  #'PrivateKeyAlgorithmIdentifier'{algorithm = ?'id-dsa',
+                                            parameters =
+                                                {asn1_OPENTYPE, Params}},
+    Key = der_encode(?dsa_private_key_type, X),
+    der_encode('OneAsymmetricKey',
+               #'OneAsymmetricKey'{version = 0,
+                                   privateKeyAlgorithm = Alg,
+                                   privateKey = Key});
 der_encode('PrivateKeyInfo', #'RSAPrivateKey'{} = PrivKey) ->
     Parms = ?DER_NULL,
-    Alg = #'PrivateKeyInfo_privateKeyAlgorithm'{algorithm = ?'rsaEncryption',
-                                                parameters = {asn1_OPENTYPE, Parms}},
+    Alg = #'PrivateKeyAlgorithmIdentifier'{algorithm = ?'rsaEncryption',
+                                           parameters = {asn1_OPENTYPE, Parms}},
     Key = der_encode('RSAPrivateKey', PrivKey),
-    der_encode('PrivateKeyInfo',
-               #'PrivateKeyInfo'{version = v1,
-                                 privateKeyAlgorithm = Alg,
-                                 privateKey = Key});
+    der_encode('OneAsymmetricKey',
+               #'OneAsymmetricKey'{version = 0,
+                                   privateKeyAlgorithm = Alg,
+                                   privateKey = Key});
 der_encode('PrivateKeyInfo', {#'RSAPrivateKey'{} = PrivKey, Parameters}) ->
     #'RSASSA-AlgorithmIdentifier'{parameters = DefaultParams} = ?'rSASSA-PSS-Default-Identifier',
     Params = case Parameters of
@@ -678,30 +739,30 @@ der_encode('PrivateKeyInfo', {#'RSAPrivateKey'{} = PrivKey, Parameters}) ->
                  _ ->
                      {asn1_OPENTYPE, der_encode('RSASSA-PSS-params', Parameters)}
              end,
-    Alg = #'PrivateKeyInfo_privateKeyAlgorithm'{algorithm = ?'id-RSASSA-PSS',
+    Alg = #'PrivateKeyAlgorithmIdentifier'{algorithm = ?'id-RSASSA-PSS',
                                                 parameters = Params},
     Key = der_encode('RSAPrivateKey', PrivKey),
-    der_encode('PrivateKeyInfo', #'PrivateKeyInfo'{version = v1,
-                                                   privateKeyAlgorithm = Alg,
-                                                   privateKey = Key});
+    der_encode('OneAsymmetricKey', #'OneAsymmetricKey'{version = 0,
+                                                       privateKeyAlgorithm = Alg,
+                                                       privateKey = Key});
 der_encode('PrivateKeyInfo', #'ECPrivateKey'{parameters = {namedCurve, CurveOId},
                                              privateKey = Key}) when
       CurveOId == ?'id-Ed25519' orelse
       CurveOId == ?'id-Ed448' ->
     CurvePrivKey = der_encode('CurvePrivateKey', Key),
-    Alg = #'PrivateKeyInfo_privateKeyAlgorithm'{algorithm = CurveOId},
-    der_encode('PrivateKeyInfo', #'PrivateKeyInfo'{version = v1,
-                                                   privateKeyAlgorithm = Alg,
-                                                   privateKey = CurvePrivKey});
+    Alg = #'PrivateKeyAlgorithmIdentifier'{algorithm = CurveOId},
+    der_encode('OneAsymmetricKey', #'OneAsymmetricKey'{version = 0,
+                                                       privateKeyAlgorithm = Alg,
+                                                       privateKey = CurvePrivKey});
 der_encode('PrivateKeyInfo', #'ECPrivateKey'{parameters = Parameters} = PrivKey) ->
     Params = der_encode('EcpkParameters', Parameters),
-    Alg = #'PrivateKeyInfo_privateKeyAlgorithm'{algorithm = ?'id-ecPublicKey',
+    Alg = #'PrivateKeyAlgorithmIdentifier'{algorithm = ?'id-ecPublicKey',
                                                 parameters = {asn1_OPENTYPE, Params}},
     Key = der_encode('ECPrivateKey', PrivKey#'ECPrivateKey'{parameters = asn1_NOVALUE}),
-    der_encode('PrivateKeyInfo',
-               #'PrivateKeyInfo'{version = v1,
-                                 privateKeyAlgorithm = Alg,
-                                 privateKey = Key});
+    der_encode('OneAsymmetricKey',
+               #'OneAsymmetricKey'{version = 0,
+                                   privateKeyAlgorithm = Alg,
+                                   privateKey = Key});
 der_encode('OneAsymmetricKey', #'ECPrivateKey'{parameters = {namedCurve, CurveOId},
                                                privateKey = Key,
                                                attributes = Attr,
@@ -709,7 +770,7 @@ der_encode('OneAsymmetricKey', #'ECPrivateKey'{parameters = {namedCurve, CurveOI
       CurveOId == ?'id-Ed25519' orelse
       CurveOId == ?'id-Ed448' ->
     CurvePrivKey = der_encode('CurvePrivateKey', Key),
-    Alg = #'OneAsymmetricKey_privateKeyAlgorithm'{algorithm = CurveOId},
+    Alg = #'PrivateKeyAlgorithmIdentifier'{algorithm = CurveOId},
     der_encode('OneAsymmetricKey',
                #'OneAsymmetricKey'{version = 1,
                                    privateKeyAlgorithm = Alg,
@@ -720,35 +781,68 @@ der_encode('OneAsymmetricKey', #'ECPrivateKey'{parameters = {namedCurve, CurveOI
                                                privateKey = Key,
                                                attributes = Attr,
                                                publicKey = PubKey}) ->
-    Alg = #'OneAsymmetricKey_privateKeyAlgorithm'{algorithm = CurveOId},
+    Alg = #'PrivateKeyAlgorithmIdentifier'{algorithm = CurveOId},
     der_encode('OneAsymmetricKey',
                #'OneAsymmetricKey'{version = 1,
                                    privateKeyAlgorithm = Alg,
                                    privateKey = Key,
                                    attributes = Attr,
                                    publicKey = PubKey});
-der_encode(Asn1Type, Entity) when (Asn1Type == 'PrivateKeyInfo') orelse
-                                  (Asn1Type == 'OneAsymmetricKey') orelse
-				  (Asn1Type == 'EncryptedPrivateKeyInfo') ->
-     try
-         {ok, Encoded} = 'PKCS-FRAME':encode(Asn1Type, Entity),
-         Encoded
-     catch
+der_encode(Asn1Type, Entity0) when (Asn1Type == 'PrivateKeyInfo') orelse
+                                   (Asn1Type == 'OneAsymmetricKey') orelse
+                                   (Asn1Type == 'EncryptedPrivateKeyInfo') ->
+    try
+        Entity = pubkey_translation:encode(Entity0),
+        {ok, Encoded} = 'PKCS-FRAME':encode(Asn1Type, Entity),
+        Encoded
+    catch
 	error:{badmatch, {error, _}} = Error ->
-             erlang:error(Error)
-     end;
-der_encode(Asn1Type, Entity) when is_atom(Asn1Type) ->
-    try 
-	{ok, Encoded} = 'OTP-PUB-KEY':encode(Asn1Type, Entity),
+            erlang:error(Error)
+    end;
+der_encode('EcpkParameters', {namedCurve,_}=Entity) ->
+    try
+	{ok, Encoded} = 'PKIXAlgs-2009':encode('ECParameters', Entity),
 	Encoded
-    catch	    
+    catch
+	error:{badmatch, {error, _}} = Error ->
+	    erlang:error(Error)
+    end;
+der_encode('Dss-Sig-Value', Entity) ->
+    try
+	{ok, Encoded} = 'PKIXAlgs-2009':encode('DSA-Sig-Value', Entity),
+	Encoded
+    catch
+	error:{badmatch, {error, _}} = Error ->
+	    erlang:error(Error)
+    end;
+der_encode(Asn1ExtType, Value) when Asn1ExtType == 'SubjectAltName';
+                                    Asn1ExtType == 'IssuerAltName';
+                                    Asn1ExtType == 'ExtKeyUsage';
+                                    Asn1ExtType == 'InhibitAnyPolicy';
+                                    Asn1ExtType == 'FreshestCRL';
+                                    Asn1ExtType == 'AuthorityInfoAccess';
+                                    Asn1ExtType == 'DeltaCRLIndicator';
+                                    Asn1ExtType == 'CertificateIssuer';
+                                    Asn1ExtType == 'HoldInstructionCode';
+                                    Asn1ExtType == 'InvalidityDate' ->
+    Oid = pubkey_cert_records:ext_oid(Asn1ExtType),
+    [#'Extension'{extnValue = Encoded}] =
+         pubkey_cert_records:encode_extensions([#'Extension'{extnID = Oid, extnValue = Value}]),
+     Encoded;
+der_encode(Asn1Type, Entity0) when is_atom(Asn1Type) ->
+    Asn1Module = get_asn1_module(Asn1Type),
+    try
+        Entity = pubkey_translation:encode(Entity0),
+	{ok, Encoded} = Asn1Module:encode(Asn1Type, Entity),
+	Encoded
+    catch
 	error:{badmatch, {error, _}} = Error ->
 	    erlang:error(Error)
     end.
 
 
 %%--------------------------------------------------------------------
--doc(#{title => <<"Certificate API">>}).
+-doc(#{group => <<"Certificate API">>}).
 -doc """
 Decodes an ASN.1 DER-encoded PKIX certificate.
 
@@ -779,7 +873,7 @@ pkix_decode_cert(DerCert, otp) when is_binary(DerCert) ->
     end.
 
 %%--------------------------------------------------------------------
--doc(#{title => <<"Certificate API">>,
+-doc(#{group => <<"Certificate API">>,
        since => <<"OTP R14B">>}).
 -doc """
 DER encodes a PKIX x509 certificate or part of such a certificate.
@@ -808,14 +902,23 @@ the plain format this function directly calls
 %%--------------------------------------------------------------------
 pkix_encode(Asn1Type, Term, plain) when is_atom(Asn1Type) ->
     der_encode(Asn1Type, Term);
-
-pkix_encode(Asn1Type, Term0, otp) when is_atom(Asn1Type) ->
+pkix_encode(Type, Term0, otp)
+  when Type =:= 'OTPCertificate'; Type =:= 'OTPTBSCertificate';
+       Type =:= 'OTPSubjectPublicKeyInfo' ->
     Term = pubkey_cert_records:transform(Term0, encode),
-    der_encode(Asn1Type, Term).
+    try
+	{ok, Encoded} = 'OTP-PKIX':encode(Type, Term),
+	Encoded
+    catch
+	error:{badmatch, {error, _}} = Error ->
+	    erlang:error(Error)
+    end;
+pkix_encode(Type, Term, otp) ->
+    pkix_encode(Type, Term, plain).
 
 %%--------------------------------------------------------------------
 -doc(#{equiv => decrypt_private(CipherText, Key, []),
-       title => <<"Legacy RSA Encryption API">>,
+       group => <<"Legacy RSA Encryption API">>,
        since => <<"OTP R14B">>}).
 -spec decrypt_private(CipherText, Key) ->
                              PlainText when CipherText :: binary(),
@@ -824,7 +927,7 @@ pkix_encode(Asn1Type, Term0, otp) when is_atom(Asn1Type) ->
 decrypt_private(CipherText, Key) ->
     decrypt_private(CipherText, Key, []).
 
--doc(#{title => <<"Legacy RSA Encryption API">>,
+-doc(#{group => <<"Legacy RSA Encryption API">>,
        since => <<"OTP R14B">>}).
 -doc """
 Public-key decryption using the private key. See also `crypto:private_decrypt/4`
@@ -849,7 +952,7 @@ decrypt_private(CipherText,
 %% Description: Public key decryption using the public key.
 %%--------------------------------------------------------------------
 -doc(#{equiv => decrypt_public(CipherText, Key, []),
-       title => <<"Legacy RSA Encryption API">>,
+       group => <<"Legacy RSA Encryption API">>,
        since => <<"OTP R14B">>}).
 -spec decrypt_public(CipherText, Key) ->
 			    PlainText
@@ -859,7 +962,7 @@ decrypt_private(CipherText,
 decrypt_public(CipherText, Key) ->
     decrypt_public(CipherText, Key, []).
 
--doc(#{title => <<"Legacy RSA Encryption API">>,
+-doc(#{group => <<"Legacy RSA Encryption API">>,
        since => <<"OTP R14B">>}).
 -doc """
 Public-key decryption using the public key. See also `crypto:public_decrypt/4`
@@ -884,7 +987,7 @@ decrypt_public(CipherText, #'RSAPublicKey'{modulus = N, publicExponent = E},
 %% Description: Public key encryption using the public key.
 %%--------------------------------------------------------------------
 -doc(#{equiv => encrypt_public(PlainText, Key, []),
-       title => <<"Legacy RSA Encryption API">>,
+       group => <<"Legacy RSA Encryption API">>,
        since => <<"OTP R14B">>}).
 -spec encrypt_public(PlainText, Key) ->
 			     CipherText
@@ -894,7 +997,7 @@ decrypt_public(CipherText, #'RSAPublicKey'{modulus = N, publicExponent = E},
 encrypt_public(PlainText, Key) ->
     encrypt_public(PlainText, Key, []).
 
--doc(#{title => <<"Legacy RSA Encryption API">>,
+-doc(#{group => <<"Legacy RSA Encryption API">>,
        since => <<"OTP 21.1">>}).
 -doc """
 Public-key encryption using the public key. See also `crypto:public_encrypt/4`.
@@ -915,7 +1018,7 @@ encrypt_public(PlainText, #'RSAPublicKey'{modulus=N,publicExponent=E},
 
 %%--------------------------------------------------------------------
 -doc(#{equiv => encrypt_private(PlainText, Key, []),
-       title => <<"Legacy RSA Encryption API">>,
+       group => <<"Legacy RSA Encryption API">>,
        since => <<"OTP R14B">>}).
 -spec encrypt_private(PlainText, Key) ->
 			     CipherText
@@ -925,7 +1028,7 @@ encrypt_public(PlainText, #'RSAPublicKey'{modulus=N,publicExponent=E},
 encrypt_private(PlainText, Key) ->
     encrypt_private(PlainText, Key, []).
 
--doc(#{title => <<"Legacy RSA Encryption API">>,
+-doc(#{group => <<"Legacy RSA Encryption API">>,
        since => <<"OTP 21.1">>}).
 -doc """
 Public-key encryption using the private key.
@@ -990,7 +1093,7 @@ may be regenerated like this:
 	$> cd ..; make
 ```
 """.
--doc(#{title => <<"Key API">>,
+-doc(#{group => <<"Key API">>,
        since => <<"OTP 18.2">>}).
 -spec dh_gex_group(MinSize, SuggestedSize, MaxSize, Groups) ->
                           {ok,{Size,Group}} | {error,term()}
@@ -1012,7 +1115,7 @@ dh_gex_group(Min, N, Max, Groups) ->
 Generates a new key pair. Note that except for Diffie-Hellman the public key is
 included in the private key structure. See also `crypto:generate_key/2`
 """.
--doc(#{title => <<"Key API">>,
+-doc(#{group => <<"Key API">>,
        since => <<"OTP R16B01">>}).
 -spec generate_key(DHparams | ECparams | RSAparams) ->
                           DHkeys | ECkey | RSAkey
@@ -1073,7 +1176,7 @@ generate_key({rsa, ModulusSize, PublicExponent}) ->
 %%--------------------------------------------------------------------
 %% Description: Compute shared secret
 %%--------------------------------------------------------------------
--doc(#{title => <<"Key API">>,
+-doc(#{group => <<"Key API">>,
        since => <<"OTP R16B01">>}).
 -doc "Computes shared secret.".
 -spec compute_key(OthersECDHkey, MyECDHkey) -> 
@@ -1092,7 +1195,7 @@ compute_key(#'ECPoint'{point = Point}, #'ECPrivateKey'{privateKey = PrivKey,
     ECCurve = ec_curve_spec(Param),
     crypto:compute_key(ecdh, Point, PrivKey, ECCurve).
 
--doc(#{title => <<"Key API">>,
+-doc(#{group => <<"Key API">>,
        since => <<"OTP R16B01">>}).
 -doc "Computes shared secret.".
 
@@ -1106,7 +1209,7 @@ compute_key(PubKey, PrivKey, #'DHParameter'{prime = P, base = G}) ->
     crypto:compute_key(dh, PubKey, PrivKey, [P, G]).
 
 %%--------------------------------------------------------------------
--doc(#{title => <<"Certificate API">>,
+-doc(#{group => <<"Certificate API">>,
        since => <<"OTP R16B01">>}).
 -doc """
 Translates signature algorithm OID to Erlang digest and signature types.
@@ -1133,15 +1236,15 @@ pkix_sign_types(?sha384WithRSAEncryption) ->
     {sha384, rsa};
 pkix_sign_types(?sha512WithRSAEncryption) ->
     {sha512, rsa};
+pkix_sign_types(?md2WithRSAEncryption) ->
+    {md2, rsa};
 pkix_sign_types(?md5WithRSAEncryption) ->
     {md5, rsa};
-pkix_sign_types(?'id-dsa-with-sha1') ->
+pkix_sign_types(?'dsa-with-sha1') ->
     {sha, dsa};
-pkix_sign_types(?'id-dsaWithSHA1') ->
-    {sha, dsa};
-pkix_sign_types(?'id-dsa-with-sha224') ->
+pkix_sign_types(?'dsa-with-sha224') ->
     {sha224, dsa};
-pkix_sign_types(?'id-dsa-with-sha256') ->
+pkix_sign_types(?'dsa-with-sha256') ->
     {sha256, dsa};
 pkix_sign_types(?'ecdsa-with-SHA1') ->
     {sha, ecdsa};
@@ -1157,7 +1260,7 @@ pkix_sign_types(?'id-Ed448') ->
     {none, eddsa}.
 
 %%--------------------------------------------------------------------
--doc(#{title => <<"Certificate API">>,
+-doc(#{group => <<"Certificate API">>,
        since => <<"OTP 23.0">>}).
 -doc "Translates OID to Erlang digest type".
 -spec pkix_hash_type(HashOid::oid()) -> DigestType:: md5 | crypto:sha1() | crypto:sha2().
@@ -1177,7 +1280,7 @@ pkix_hash_type('id-md5') ->
 
 %%--------------------------------------------------------------------
 -doc(#{equiv => sign(Msg, DigestType, Key, []),
-       title => <<"Sign/Verify API">>}).
+       group => <<"Sign/Verify API">>}).
 
 -spec sign(Msg, DigestType, Key) ->
                   Signature when Msg ::  binary() | {digest,binary()},
@@ -1196,7 +1299,7 @@ standard key, be a map specifing a key algorithm and a fun that should handle
 the signing. This may be used for customized signing with for instance hardware
 security modules (HSM) or trusted platform modules (TPM).
 """.
--doc(#{title => <<"Sign/Verify API">>,
+-doc(#{group => <<"Sign/Verify API">>,
        since => <<"OTP 20.1">>}).
 -spec sign(Msg, DigestType, Key, Options) ->
                   Signature when Msg ::  binary() | {digest,binary()},
@@ -1219,7 +1322,7 @@ sign(DigestOrPlainText, DigestType, Key, Options) ->
 
 %%--------------------------------------------------------------------
 -doc(#{equiv => verify(Msg, DigestType, Signature, Key, []),
-       title => <<"Sign/Verify API">>,
+       group => <<"Sign/Verify API">>,
        since => <<"OTP R14B">>}).
 -spec verify(Msg, DigestType, Signature, Key) ->
                     boolean() when Msg :: binary() | {digest, binary()},
@@ -1230,7 +1333,7 @@ sign(DigestOrPlainText, DigestType, Key, Options) ->
 verify(DigestOrPlainText, DigestType, Signature, Key) ->
     verify(DigestOrPlainText, DigestType, Signature, Key, []).
 
--doc(#{title => <<"Sign/Verify API">>,
+-doc(#{group => <<"Sign/Verify API">>,
        since => <<"OTP 20.1">>}).
 -doc """
 Verifies a digital signature.
@@ -1261,7 +1364,7 @@ verify(_,_,_,_,_) ->
     false.
 
 %%--------------------------------------------------------------------
--doc(#{title => <<"Certificate Revocation API">>,
+-doc(#{group => <<"Certificate Revocation API">>,
        since => <<"OTP 17.5">>}).
 -doc """
 Creates a distribution point for CRLs issued by the same issuer as `Cert`. Can
@@ -1273,12 +1376,9 @@ be used as input to `pkix_crls_validate/3`
 %%--------------------------------------------------------------------
 pkix_dist_point(OtpCert) when is_binary(OtpCert) ->
     pkix_dist_point(pkix_decode_cert(OtpCert, otp));
-pkix_dist_point(OtpCert) ->
-    Issuer = public_key:pkix_normalize_name(
-	       pubkey_cert_records:transform(
-		 OtpCert#'OTPCertificate'.tbsCertificate#'OTPTBSCertificate'.issuer, encode)),
-    
-    TBSCert = OtpCert#'OTPCertificate'.tbsCertificate,
+pkix_dist_point(#'OTPCertificate'{tbsCertificate = TBSCert}) ->
+    Issuer = pkix_normalize_name(TBSCert#'OTPTBSCertificate'.issuer),
+
     Extensions = pubkey_cert:extensions_list(TBSCert#'OTPTBSCertificate'.extensions),
     AltNames = case pubkey_cert:select_extension(?'id-ce-issuerAltName', Extensions) of 
 		   undefined ->
@@ -1292,7 +1392,7 @@ pkix_dist_point(OtpCert) ->
 			 distributionPoint =  Point}.	
 %%--------------------------------------------------------------------
 -doc "Extracts distribution points from the certificates extensions.".
--doc(#{title => <<"Certificate Revocation API">>,
+-doc(#{group => <<"Certificate Revocation API">>,
        since => <<"OTP 17.5">>}).
 -spec pkix_dist_points(Cert) -> DistPoints when Cert :: cert(),
                                                 DistPoints :: [ #'DistributionPoint'{} ].
@@ -1315,7 +1415,7 @@ Point of the CRL, as described in RFC 5280.
 If the CRL doesn't have an Issuing
 Distribution Point extension, the distribution point always matches.
 """.
--doc(#{title => <<"Certificate Revocation API">>,
+-doc(#{group => <<"Certificate Revocation API">>,
        since => <<"OTP 19.0">>}).
 -spec pkix_match_dist_point(CRL, DistPoint) ->
                                    boolean()
@@ -1329,9 +1429,8 @@ pkix_match_dist_point(#'CertificateList'{},
     %% No distribution point name specified - that's considered a match.
     true;
 pkix_match_dist_point(#'CertificateList'{
-			 tbsCertList =
-			     #'TBSCertList'{
-				crlExtensions = Extensions}},
+			 toBeSigned = #'TBSCertList'{
+                                         crlExtensions = Extensions}},
 		      #'DistributionPoint'{
 			 distributionPoint = {fullName, DPs}}) ->
     case pubkey_cert:select_extension(?'id-ce-issuingDistributionPoint', Extensions) of
@@ -1350,15 +1449,15 @@ pkix_match_dist_point(#'CertificateList'{
 
 %%--------------------------------------------------------------------
 -doc "Signs an 'OTPTBSCertificate'. Returns the corresponding DER-encoded certificate.".
--doc(#{title => <<"Sign/Verify API">>,
+-doc(#{group => <<"Sign/Verify API">>,
        since => <<"OTP R14B">>}).
--spec pkix_sign(Cert, Key) -> Der when Cert :: #'OTPTBSCertificate'{}, 
+-spec pkix_sign(Cert, Key) -> Der when Cert :: #'OTPTBSCertificate'{},
                                        Key :: private_key(),
                                        Der :: der_encoded().
 %%--------------------------------------------------------------------
-pkix_sign(#'OTPTBSCertificate'{signature = 
-				   #'SignatureAlgorithm'{} 
-			       = SigAlg} = TBSCert, Key) ->
+pkix_sign(#'OTPTBSCertificate'{signature =
+				   #'SignatureAlgorithm'{} = SigAlg} = TBSCert, Key) ->
+
     Msg = pkix_encode('OTPTBSCertificate', TBSCert, otp),
     {DigestType, _, Opts} = pubkey_cert:x509_pkix_sign_types(SigAlg),
     Signature = sign(Msg, DigestType, format_pkix_sign_key(Key), Opts),
@@ -1370,13 +1469,13 @@ pkix_sign(#'OTPTBSCertificate'{signature =
 
 %%--------------------------------------------------------------------
 -doc "Verifies PKIX x.509 certificate signature.".
--doc(#{title => <<"Sign/Verify API">>,
+-doc(#{group => <<"Sign/Verify API">>,
        since => <<"OTP R14B">>}).
 -spec pkix_verify(Cert, Key) -> boolean() when Cert :: der_encoded(),
                                                Key :: public_key() .
 
 %%--------------------------------------------------------------------
-pkix_verify(DerCert, {Key, #'Dss-Parms'{}} = DSAKey) 
+pkix_verify(DerCert, {Key, #'Dss-Parms'{}} = DSAKey)
   when is_binary(DerCert), is_integer(Key) ->
     {DigestType, PlainText, Signature} = pubkey_cert:verify_data(DerCert),
     verify(PlainText, DigestType, Signature, DSAKey);
@@ -1409,7 +1508,7 @@ pkix_verify(DerCert, Key = {#'ECPoint'{}, _}) when is_binary(DerCert) ->
 
 %%--------------------------------------------------------------------
 -doc "Verify that `Cert` is the `CRL` signer.".
--doc(#{title => <<"Certificate Revocation API">>,
+-doc(#{group => <<"Certificate Revocation API">>,
        since => <<"OTP 17.5">>}).
 -spec pkix_crl_verify(CRL, Cert) -> boolean()
                                         when CRL  :: der_encoded() | #'CertificateList'{},
@@ -1420,41 +1519,41 @@ pkix_crl_verify(CRL, Cert) when is_binary(CRL) ->
 pkix_crl_verify(CRL, Cert) when is_binary(Cert) ->
     pkix_crl_verify(CRL, pkix_decode_cert(Cert, otp));
 pkix_crl_verify(#'CertificateList'{} = CRL, #'OTPCertificate'{} = Cert) ->
-    TBSCert = Cert#'OTPCertificate'.tbsCertificate, 
+    TBSCert = Cert#'OTPCertificate'.tbsCertificate,
     PublicKeyInfo = TBSCert#'OTPTBSCertificate'.subjectPublicKeyInfo,
     PublicKey = PublicKeyInfo#'OTPSubjectPublicKeyInfo'.subjectPublicKey,
     AlgInfo = PublicKeyInfo#'OTPSubjectPublicKeyInfo'.algorithm,
     PublicKeyParams = AlgInfo#'PublicKeyAlgorithm'.parameters,
-    pubkey_crl:verify_crl_signature(CRL, 
-				    der_encode('CertificateList', CRL), 
-				    PublicKey, PublicKeyParams).
+    pubkey_crl:verify_crl_signature(CRL,
+                                    der_encode('CertificateList', CRL),
+                                    PublicKey, PublicKeyParams).
 
 %%--------------------------------------------------------------------
 -doc "Checks if `IssuerCert` issued `Cert`.".
--doc(#{title => <<"Certificate API">>,
+-doc(#{group => <<"Certificate API">>,
        since => <<"OTP R14B">>}).
 -spec pkix_is_issuer(CertorCRL, IssuerCert) ->
           boolean() when CertorCRL :: cert() | #'CertificateList'{},
                          IssuerCert :: cert().
 %%--------------------------------------------------------------------
-pkix_is_issuer(Cert, IssuerCert)  when is_binary(Cert) ->
+pkix_is_issuer(Cert, IssuerCert) when is_binary(Cert) ->
     OtpCert = pkix_decode_cert(Cert, otp),
     pkix_is_issuer(OtpCert, IssuerCert);
 pkix_is_issuer(Cert, IssuerCert) when is_binary(IssuerCert) ->
     OtpIssuerCert = pkix_decode_cert(IssuerCert, otp),
     pkix_is_issuer(Cert, OtpIssuerCert);
-pkix_is_issuer(#'OTPCertificate'{tbsCertificate = TBSCert}, 
+pkix_is_issuer(#'OTPCertificate'{tbsCertificate = TBSCert},
 	       #'OTPCertificate'{tbsCertificate = Candidate}) ->
     pubkey_cert:is_issuer(TBSCert#'OTPTBSCertificate'.issuer,
 			  Candidate#'OTPTBSCertificate'.subject);
-pkix_is_issuer(#'CertificateList'{tbsCertList = TBSCRL},
+pkix_is_issuer(#'CertificateList'{toBeSigned = TBSCRL},
 	       #'OTPCertificate'{tbsCertificate = Candidate}) ->
     pubkey_cert:is_issuer(Candidate#'OTPTBSCertificate'.subject,
 			  pubkey_cert_records:transform(TBSCRL#'TBSCertList'.issuer, decode)).
 
 %%--------------------------------------------------------------------
 -doc "Checks if a certificate is self-signed.".
--doc(#{title => <<"Certificate API">>,
+-doc(#{group => <<"Certificate API">>,
        since => <<"OTP R14B">>}).
 -spec pkix_is_self_signed(Cert) -> boolean() when Cert::cert().
 %%--------------------------------------------------------------------
@@ -1466,7 +1565,7 @@ pkix_is_self_signed(Cert) when is_binary(Cert) ->
   
 %%--------------------------------------------------------------------
 -doc "Checks if a certificate is a fixed Diffie-Hellman certificate.".
--doc(#{title => <<"Certificate API">>,
+-doc(#{group => <<"Certificate API">>,
        since => <<"OTP R14B">>}).
 -spec pkix_is_fixed_dh_cert(Cert) -> boolean() when Cert::cert().
 %%--------------------------------------------------------------------
@@ -1478,7 +1577,7 @@ pkix_is_fixed_dh_cert(Cert) when is_binary(Cert) ->
 
 %%--------------------------------------------------------------------
 -doc "Returns the x509 certificate issuer id, if it can be determined.".
--doc(#{title => <<"Certificate API">>,
+-doc(#{group => <<"Certificate API">>,
        since => <<"OTP R14B">>}).
 -spec pkix_issuer_id(Cert, IssuedBy) ->
 			    {ok, ID::cert_id()} | {error, Reason}
@@ -1496,7 +1595,7 @@ pkix_issuer_id(Cert, Signed) when is_binary(Cert) ->
 
 %%--------------------------------------------------------------------
 -doc "Returns the X509 certificate subject id.".
--doc(#{title => <<"Certificate API">>,
+-doc(#{group => <<"Certificate API">>,
        since => <<"OTP 23.1">>}).
 -spec pkix_subject_id(Cert) -> ID
               when Cert::cert(),
@@ -1511,7 +1610,7 @@ pkix_subject_id(Cert) when is_binary(Cert) ->
 
 %%--------------------------------------------------------------------
 -doc "Returns the issuer of the `CRL`.".
--doc(#{title => <<"Certificate Revocation API">>,
+-doc(#{group => <<"Certificate Revocation API">>,
        since => <<"OTP 17.5">>}).
 -spec pkix_crl_issuer(CRL) -> Issuer
                when CRL :: der_encoded() | #'CertificateList'{},
@@ -1521,10 +1620,10 @@ pkix_crl_issuer(CRL) when is_binary(CRL) ->
     pkix_crl_issuer(der_decode('CertificateList', CRL));
 pkix_crl_issuer(#'CertificateList'{} = CRL) ->
     pubkey_cert_records:transform(
-      CRL#'CertificateList'.tbsCertList#'TBSCertList'.issuer, decode).
+      CRL#'CertificateList'.toBeSigned#'TBSCertList'.issuer, decode).
 
 %%--------------------------------------------------------------------
--doc(#{title => <<"Certificate API">>,
+-doc(#{group => <<"Certificate API">>,
        since => <<"OTP R14B">>}).
 -doc """
 Normalizes an issuer name so that it can be easily compared to another issuer
@@ -1543,7 +1642,7 @@ pkix_normalize_name(Issuer) ->
     pubkey_cert:normalize_general_name(Issuer).
 
 %%-------------------------------------------------------------------- 
--doc(#{title => <<"Certificate API">>,
+-doc(#{group => <<"Certificate API">>,
        since => <<"OTP R16B">>}).
 -doc """
 Performs a basic path validation according to
@@ -1713,7 +1812,7 @@ pkix_path_validation(PathErr, [Cert0 | Chain], Options0) when is_atom(PathErr)->
 	    {error, Reason}
     end.
 %--------------------------------------------------------------------
--doc(#{title => <<"Certificate Revocation API">>,
+-doc(#{group => <<"Certificate Revocation API">>,
        since => <<"OTP R16B">>}).
 -doc """
 Performs CRL validation. It is intended to be called from the verify fun of
@@ -1787,7 +1886,7 @@ pkix_crls_validate(OtpCert, DPAndCRLs0, Options) ->
 %--------------------------------------------------------------------
 %% Description: Validates a hostname to RFC 6125
 %%--------------------------------------------------------------------
--doc(#{title => <<"Certificate API">>,
+-doc(#{group => <<"Certificate API">>,
        equiv => pkix_verify_hostname(Cert, ReferenceIDs, []),
        since => <<"OTP 19.3">>}).
 -spec pkix_verify_hostname(Cert, ReferenceIDs) -> boolean()
@@ -1797,7 +1896,7 @@ pkix_crls_validate(OtpCert, DPAndCRLs0, Options) ->
 pkix_verify_hostname(Cert, ReferenceIDs) ->
     pkix_verify_hostname(Cert, ReferenceIDs, []).
 
--doc(#{title => <<"Certificate API">>,
+-doc(#{group => <<"Certificate API">>,
        since => <<"OTP 19.3">>}).
 -doc """
 This function checks that the _Presented Identifier_ (e.g hostname) in a peer
@@ -1913,7 +2012,7 @@ pkix_verify_hostname(Cert = #'OTPCertificate'{tbsCertificate = TbsCert}, Referen
 			],
 		    %% Example of PresentedCNs:  [{cn,"www.ericsson.se"}]
 		    %% match ReferenceIDs to PresentedCNs
-		    verify_hostname_match_loop(verify_hostname_fqnds(ReferenceIDs, FqdnFun),
+		    verify_hostname_match_loop(verify_hostname_fqdns(ReferenceIDs, FqdnFun),
 					       PresentedCNs,
 					       MatchFun, FailCB, Cert);
 		
@@ -1927,7 +2026,7 @@ pkix_verify_hostname(Cert = #'OTPCertificate'{tbsCertificate = TbsCert}, Referen
 		false ->
 		    %% Try to extract DNS-IDs from URIs etc
 		    DNS_ReferenceIDs =
-			[{dns_id,X} || X <- verify_hostname_fqnds(ReferenceIDs, FqdnFun)],
+			[{dns_id,X} || X <- verify_hostname_fqdns(ReferenceIDs, FqdnFun)],
 		    verify_hostname_match_loop(DNS_ReferenceIDs, PresentedIDs,
 					       MatchFun, FailCB, Cert);
 		true ->
@@ -1951,7 +2050,7 @@ rules for the protocol in the argument.
 > the hostname match the default match function used by ssl application will be
 > sufficient.
 """.
--doc(#{title => <<"Certificate API">>,
+-doc(#{group => <<"Certificate API">>,
        since => <<"OTP 21.0">>}).
 -spec pkix_verify_hostname_match_fun(Protocol) ->  Result when
       Protocol :: https,
@@ -1996,7 +2095,7 @@ of a CRL or a certificate, respectively. This hash is used by the `c_rehash`
 tool to maintain a directory of symlinks to CRL files, in order to facilitate
 looking up a CRL by its issuer name.
 """.
--doc(#{title => <<"Certificate Revocation API">>,
+-doc(#{group => <<"Certificate Revocation API">>,
        since => <<"OTP 19.0">>}).
 -spec short_name_hash(Name) -> string() when Name :: issuer_name() .
 
@@ -2085,7 +2184,7 @@ chains:
 > This function is provided for testing purposes only.
 """.
 
--doc(#{title => <<"Test Data API">>,
+-doc(#{group => <<"Test Data API">>,
        since => <<"OTP 20.1">>}).
 -spec pkix_test_data(ChainConf) -> TestConf when
       ChainConf :: #{server_chain:= chain_opts(),
@@ -2112,7 +2211,7 @@ Generates a root certificate that can be used in multiple calls to
 `pkix_test_data/1` when you want the same root certificate for several generated
 certificates.
 """.
--doc(#{title => <<"Test Data API">>,
+-doc(#{group => <<"Test Data API">>,
        since => <<"OTP 20.2">>}).
 -spec pkix_test_root_cert(Name, Options) ->
                                  RootCertAndKey
@@ -2154,7 +2253,7 @@ Available options:
 > by the client. In such cases {missing, ocsp_nonce} will be returned
 > in Details list.
 """.
--doc(#{title => <<"Certificate Revocation API">>,
+-doc(#{group => <<"Certificate Revocation API">>,
        since => <<"OTP 27.0">>}).
 -spec pkix_ocsp_validate(Cert, IssuerCert, OcspRespDer, NonceExt, Options) ->
           {ok, Details} | {error, {bad_cert, Reason}}
@@ -2213,7 +2312,7 @@ ocsp_extensions(Nonce) ->
              erlang:is_record(Extn, 'Extension')].
 
 %%--------------------------------------------------------------------
--doc(#{title => <<"Certificate API">>,
+-doc(#{group => <<"Certificate API">>,
        since => <<"OTP 25.0">>}).
 -doc """
 Returns the trusted CA certificates if any are loaded, otherwise uses
@@ -2227,7 +2326,7 @@ cacerts_get() ->
     pubkey_os_cacerts:get().
 
 %%--------------------------------------------------------------------
--doc(#{title => <<"Certificate API">>,
+-doc(#{group => <<"Certificate API">>,
        since => <<"OTP 25.0">>}).
 -doc """
 Loads the OS supplied trusted CA certificates.
@@ -2251,7 +2350,7 @@ cacerts_load() ->
 
 
 %%--------------------------------------------------------------------
--doc(#{title => <<"Certificate API">>,
+-doc(#{group => <<"Certificate API">>,
        since => <<"OTP 25.0">>}).
 -doc "Loads the trusted CA certificates from a file.".
 -spec cacerts_load(File::file:filename_all()) -> ok | {error, Reason::term()}.
@@ -2260,7 +2359,7 @@ cacerts_load(File) ->
     pubkey_os_cacerts:load([File]).
 
 %%--------------------------------------------------------------------
--doc(#{title => <<"Certificate API">>,
+-doc(#{group => <<"Certificate API">>,
        since => <<"OTP 25.0">>}).
 -doc "Clears any loaded CA certificates, returns true if any was loaded.".
 -spec cacerts_clear() -> boolean().
@@ -2274,8 +2373,8 @@ cacerts_clear() ->
 ec_decode_params(AlgId, _) when AlgId == ?'id-Ed25519';
                                 AlgId == ?'id-Ed448' ->
     {namedCurve, AlgId};
-ec_decode_params(_, Params) ->
-    der_decode('EcpkParameters', Params).
+ec_decode_params(_AlgId, {namedCurve,_}=Entity) ->
+    Entity.
 
 default_options([]) ->
     [{rsa_padding, rsa_pkcs1_padding}];
@@ -2354,7 +2453,7 @@ format_verify_key(#'ECPrivateKey'{parameters = Param, publicKey = {_, Point}}) -
 format_verify_key(#'ECPrivateKey'{parameters = Param, publicKey = Point}) ->
     format_verify_key({#'ECPoint'{point = Point}, Param});
 format_verify_key(#'DSAPrivateKey'{y=Y, p=P, q=Q, g=G}) ->
-    format_verify_key({Y, #'Dss-Parms'{p=P, q=Q, g=G}});
+    format_verify_key({Y, #'DSA-Params'{p=P, q=Q, g=G}});
 format_verify_key(_) ->
     badarg.
 
@@ -2602,8 +2701,8 @@ combine(CRL, DeltaCRLs) ->
 	    Delta;
 	[_,_|_] ->
 	    Fun =
-		fun({_, #'CertificateList'{tbsCertList = FirstTBSCRL}} = CRL1,
-		    {_, #'CertificateList'{tbsCertList = SecondTBSCRL}} = CRL2) ->
+		fun({_, #'CertificateList'{toBeSigned = FirstTBSCRL}} = CRL1,
+		    {_, #'CertificateList'{toBeSigned = SecondTBSCRL}} = CRL2) ->
 			Time1 = pubkey_cert:time_str_2_gregorian_sec(
 				  FirstTBSCRL#'TBSCertList'.thisUpdate),
 			Time2 = pubkey_cert:time_str_2_gregorian_sec(
@@ -2678,53 +2777,28 @@ ec_curve_type(x448) ->
 ec_curve_type(_) ->
     ecdh.
 
-format_field(characteristic_two_field = Type, Params0) ->
-    #'Characteristic-two'{
-       m = M,
-       basis = BasisOid,
-       parameters = Params} = der_decode('Characteristic-two', Params0),
-    {Type, M, field_param_decode(BasisOid, Params)};
 format_field(prime_field, Params0) ->
     Prime = der_decode('Prime-p', Params0),
     {prime_field, Prime}.
 
-field_param_decode(?'ppBasis', Params) ->
-    #'Pentanomial'{k1 = K1, k2 = K2, k3 = K3} =
-        der_decode('Pentanomial', Params),
-    {ppbasis, K1, K2, K3};
-field_param_decode(?'tpBasis', Params) ->
-    K = der_decode('Trinomial', Params),
-    {tpbasis, K};
-field_param_decode(?'gnBasis', _) ->
-    onbasis.
-        
 ec_key({PubKey, PrivateKey}, Params) ->
-    #'ECPrivateKey'{version = 1,
+    #'ECPrivateKey'{version = ecPrivkeyVer1,
 		    privateKey = PrivateKey,
 		    parameters = Params,
 		    publicKey = PubKey}.
 
 encode_name_for_short_hash({rdnSequence, Attributes0}) ->
     Attributes = lists:map(fun normalise_attribute/1, Attributes0),
-    {Encoded, _} = 'OTP-PUB-KEY':'enc_RDNSequence'(Attributes, []),
+    {Encoded, _} = 'OTP-PKIX':enc_HashRDNSequence(Attributes, []),
     Encoded.
 
-%% Normalise attribute for "short hash".  If the attribute value
-%% hasn't been decoded yet, decode it so we can normalise it.
+%% Normalise attribute for "short hash". We can't use the encoding
+%% function for the actual type of the attribute, since some of them
+%% don't allow utf8Strings, which is the required encoding when
+%% creating the hash.
 normalise_attribute([#'AttributeTypeAndValue'{
-                        type = _Type,
-                        value = Binary} = ATV]) when is_binary(Binary) ->
-    case pubkey_cert_records:transform(ATV, decode) of
-	#'AttributeTypeAndValue'{value = Binary} ->
-	    %% Cannot decode attribute; return original.
-	    [ATV];
-	DecodedATV = #'AttributeTypeAndValue'{} ->
-	    %% The new value will either be String or {Encoding,String}.
-	    normalise_attribute([DecodedATV])
-    end;
-normalise_attribute([#'AttributeTypeAndValue'{
-                        type = _Type,
-                        value = {Encoding, String}} = ATV])
+                        type = Type,
+                        value = {Encoding, String}}])
   when
       Encoding =:= utf8String;
       Encoding =:= printableString;
@@ -2733,23 +2807,19 @@ normalise_attribute([#'AttributeTypeAndValue'{
     %% These string types all give us something that the unicode
     %% module understands.
     NewValue = normalise_attribute_value(String),
-    [ATV#'AttributeTypeAndValue'{value = NewValue}];
+    [#'HashSingleAttribute'{type = Type, value = NewValue}];
 normalise_attribute([#'AttributeTypeAndValue'{
-                        type = _Type,
-                        value = String} = ATV]) when is_list(String) ->
+                        type = Type,
+                        value = String}]) when is_list(String) ->
     %% A string returned by pubkey_cert_records:transform/2, for
     %% certain attributes that commonly have incorrect value types.
     NewValue = normalise_attribute_value(String),
-    [ATV#'AttributeTypeAndValue'{value = NewValue}].
+    [#'HashSingleAttribute'{type = Type, value = NewValue}].
 
 normalise_attribute_value(String) ->
     Converted = unicode:characters_to_binary(String),
     NormalisedString = normalise_string(Converted),
-    %% We can't use the encoding function for the actual type of the
-    %% attribute, since some of them don't allow utf8Strings, which is
-    %% the required encoding when creating the hash.
-    {NewBinary, _} = 'OTP-PUB-KEY':'enc_X520CommonName'({utf8String, NormalisedString}, []),
-    NewBinary.
+    unicode:characters_to_list(NormalisedString).
 
 normalise_string(String) ->
     %% Normalise attribute values as required for "short hashes", as
@@ -2785,7 +2855,7 @@ verify_hostname_extract_fqdn_default({uri_id,URI}) ->
     Host.
 
 
-verify_hostname_fqnds(L, FqdnFun) ->
+verify_hostname_fqdns(L, FqdnFun) ->
     [E || E0 <- L,
 	  E <- [try case FqdnFun(E0) of
 			default -> verify_hostname_extract_fqdn_default(E0);
@@ -2912,7 +2982,7 @@ format_details(Details) ->
     Details.
 
 subject_public_key_info(Alg, PubKey) ->
-    #'OTPSubjectPublicKeyInfo'{algorithm = Alg, subjectPublicKey = PubKey}.
+    #'SubjectPublicKeyInfo'{algorithm = Alg, subjectPublicKey = PubKey}.
 
 %%%################################################################
 %%%#

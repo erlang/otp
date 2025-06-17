@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2005-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,6 +21,9 @@
 %%
 -module(edlin_type_suggestion).
 -moduledoc false.
+
+-compile(nowarn_deprecated_catch).
+
 -include_lib("kernel/include/eep48.hrl").
 -export([type_tree/4, get_arity/3, get_atoms/3, get_types/3, get_types/4, get_function_type/4, print_type/3]).
 
@@ -39,17 +44,17 @@ type_tree(Mod, FunType, Nestings, FT) ->
     %% a new result should be calculated. Preferably only types that depend on the table
     %% would be invalidated, but it may turn advanced.
     %% TODO look this over to make sure we don't do unnecessary work,
-    case get({type_traverser, Mod, FunType, Nestings}) of
+    case get({?MODULE, type_traverser, Mod, FunType, Nestings}) of
         undefined -> Res = type_traverser_cache(Mod, FunType, #{}, length(Nestings)+1, FT),
-                     put({type_traverser, Mod, FunType, Nestings}, Res),
+                     put({?MODULE, type_traverser, Mod, FunType, Nestings}, Res),
                      Res;
         Res -> Res
     end.
 type_traverser_cache(Mod, T, Visited, Level, FT) ->
-    case get({Mod, T, Level}) of
+    case get({?MODULE, type_traverser_intermediate_result, Mod, T, Level}) of
         undefined ->
             Res  = type_traverser(Mod, T, Visited, Level, FT),
-            put({Mod, T, Level}, Res),
+            put({?MODULE, type_traverser_intermediate_result, Mod, T, Level}, Res),
             Res;
         Res -> Res
     end.
@@ -123,13 +128,13 @@ type_traverser(_, {remote_type,_,[{_,_,Mod},{_,_,Name}, Params]}=T, Visited, Lev
 type_traverser(Mod, {user_type,_,Name,Params}=T, Visited, 1=Level, FT) ->
     case maps:is_key(strip_anno(T), Visited) of
         false ->
-            case get({strip_anno(T), 1}) of
+            case get({?MODULE, type_traverser_intermediate_result, strip_anno(T), 1}) of
                 undefined ->
                     Res = case lookup_type(Mod, Name, length(Params), FT) of
                               hidden -> {type, Mod, Name, [type_traverser(Mod, P, Visited#{ strip_anno(T) => true }, Level, FT) || P <- Params]};
                               Type -> {user_type, Mod, Name, [type_traverser(Mod, P, Visited#{ strip_anno(T) => true }, Level, FT) || P <- Params], type_traverser(Mod, Type, Visited#{ strip_anno(T) => true }, Level, FT)}
                           end,
-                    put({strip_anno(T), 1}, Res),
+                    put({?MODULE, type_traverser_intermediate_result, strip_anno(T), 1}, Res),
                     Res;
                 Res -> Res
             end;
@@ -138,13 +143,13 @@ type_traverser(Mod, {user_type,_,Name,Params}=T, Visited, 1=Level, FT) ->
 type_traverser(_, {remote_type,_,[{_,_,Mod},{_,_,Name}, Params]}=T, Visited, 1=Level, FT) ->
     case maps:is_key(strip_anno(T), Visited) of
         false ->
-            case get({strip_anno(T), 1}) of
+            case get({?MODULE, type_traverser_intermediate_result, strip_anno(T), 1}) of
                 undefined ->
                     Res = case lookup_type(Mod, Name, length(Params), FT) of
                               hidden -> {type, Mod, Name, [type_traverser(Mod, P, Visited#{ strip_anno(T) => true }, Level, FT) || P <- Params]};
                               Type -> {user_type, Mod, Name, [type_traverser(Mod, P, Visited#{ strip_anno(T) => true }, Level, FT) || P <- Params], type_traverser(Mod, Type, Visited#{ strip_anno(T) => true }, Level, FT)}
                           end,
-                    put({strip_anno(T), 1}, Res),
+                    put({?MODULE, type_traverser_intermediate_result, strip_anno(T), 1}, Res),
                     Res;
                 Res -> Res
             end;
@@ -153,13 +158,13 @@ type_traverser(_, {remote_type,_,[{_,_,Mod},{_,_,Name}, Params]}=T, Visited, 1=L
 type_traverser(Mod, {user_type,_,Name,Params}=T, Visited, Level, FT) ->
     case maps:is_key(strip_anno(T), Visited) of
         false ->
-            case get({strip_anno(T), Level}) of
+            case get({?MODULE, type_traverser_intermediate_result, strip_anno(T), Level}) of
                 undefined ->
                     Res = case lookup_type(Mod, Name, length(Params), FT) of
                               hidden -> {type, Mod, Name, [type_traverser(Mod, P, Visited#{ strip_anno(T) => true }, Level, FT) || P <- Params]};
                               Type -> type_traverser(Mod, Type, Visited#{ strip_anno(T) => true }, Level, FT)
                           end,
-                    put({strip_anno(T), Level}, Res),
+                    put({?MODULE, type_traverser_intermediate_result, strip_anno(T), Level}, Res),
                     Res;
                 Res -> Res
             end;
@@ -168,13 +173,13 @@ type_traverser(Mod, {user_type,_,Name,Params}=T, Visited, Level, FT) ->
 type_traverser(_, {remote_type, _, [{_,_,Mod},{_,_,Name}, Params]}=T, Visited, Level, FT) ->
     case maps:is_key(strip_anno(T), Visited) of
         false ->
-            case get({strip_anno(T), Level}) of
+            case get({?MODULE, type_traverser_intermediate_result, strip_anno(T), Level}) of
                 undefined ->
                     Res = case lookup_type(Mod, Name, length(Params), FT) of
                               hidden -> {type, Mod, Name, [type_traverser(Mod, P, Visited#{ strip_anno(T) => true }, Level, FT) || P <- Params]};
                               Type -> type_traverser(Mod, Type, Visited#{ strip_anno(T) => true }, Level, FT)
                           end,
-                    put({strip_anno(T), Level}, Res),
+                    put({?MODULE, type_traverser_intermediate_result, strip_anno(T), Level}, Res),
                     Res;
                 Res -> Res
             end;
@@ -193,13 +198,13 @@ type_traverser(_, {type, _, term, _}, _, _, _) ->
 type_traverser(_, {type, _, Name, Params}=T, Visited, Level, FT) ->
     case maps:is_key(strip_anno(T), Visited) of
         false ->
-            case get({strip_anno(T), 1}) of
+            case get({?MODULE, type_traverser_intermediate_result, strip_anno(T), 1}) of
                 undefined ->
                     Res = case lookup_type(erlang, Name, length(Params), FT) of
                               hidden -> {type, Name, [type_traverser(erlang, P, Visited#{ strip_anno(T) => true }, Level, FT) || P <- Params]};
                               Type -> type_traverser(erlang, Type, Visited#{ strip_anno(T) => true}, Level, FT)
                           end,
-                    put({strip_anno(T), 1}, Res),
+                    put({?MODULE, type_traverser_intermediate_result, strip_anno(T), 1}, Res),
                     Res;
                 Res -> Res
             end;
@@ -220,11 +225,29 @@ simplified_type(file, name_all, 0) -> {type, erlang, string, []};
 simplified_type(file, name, 0) -> {type, erlang, string, []};
 simplified_type(_Module, _TypeName, _Arity) -> none.
 
+code_get_doc_cache(Mod) ->
+    case get({?MODULE, module_debug_info_doc, Mod}) of
+        undefined ->
+            case code:get_doc(Mod, #{sources => [debug_info]}) of
+                {ok, #docs_v1{ docs = Docs }} ->
+                    put({?MODULE, module_debug_info_doc, Mod}, Docs),
+                    Docs;
+                _ -> put({?MODULE, module_debug_info_doc, Mod}, none),
+                    none
+            end;
+        Docs -> Docs
+    end.
+
 lookup_type(Mod, Type, Arity, FT) ->
     case simplified_type(Mod, Type, Arity) of
         none ->
-            case code:get_doc(Mod, #{sources => [debug_info]}) of
-                {ok, #docs_v1{ docs = Docs } } ->
+            case code_get_doc_cache(Mod) of
+                none ->
+                    case [TypeAST || {{type, Type2}, {attribute,_,type,{_,TypeAST,_}}} <- FT, Type2 =:= Type] of
+                        [] -> hidden; %% can be an opaque type or missing type
+                        [SingleTypeAST] -> SingleTypeAST
+                    end;
+                Docs ->
                     FnFunctions =
                         lists:filter(fun({{type, T, A},_Anno,_Sig,_Doc,_Meta}) ->
                                              T =:= Type andalso A =:= Arity;
@@ -238,18 +261,17 @@ lookup_type(Mod, Type, Arity, FT) ->
                                 [SingleTypeAST] -> SingleTypeAST
                             end;
                         [{_,_,_,_,#{signature := [{attribute,_,type,{_,TypeAST,_}}]}}] -> TypeAST
-                    end;
-                _ ->
-                    case [TypeAST || {{type, Type2}, {attribute,_,type,{_,TypeAST,_}}} <- FT, Type2 =:= Type] of
-                        [] -> hidden; %% can be an opaque type or missing type
-                        [SingleTypeAST] -> SingleTypeAST
                     end
             end;
         T -> T
     end.
 get_function_type(Mod, Fun, Arity, FT) ->
-    case code:get_doc(Mod, #{sources => [debug_info]}) of
-        {ok, #docs_v1{ docs = Docs } } ->
+    case code_get_doc_cache(Mod) of
+        none when Mod =:= shell_default ->
+            lists:flatten([FunTypes || {{function_type, {shell_default, F, A}},{attribute,_,spec,{_,FunTypes}}} <- FT,
+                                        F =:= Fun, A =:= Arity]);
+        none -> [];
+        Docs ->
             R = lists:flatten([FunTypes ||
                               {{function, F, A},_Anno,_Sig,_Doc, #{ signature := [{attribute,_,spec,{_,FunTypes}}]}} <- Docs,
                               F =:= Fun, A =:= Arity]),
@@ -258,12 +280,8 @@ get_function_type(Mod, Fun, Arity, FT) ->
                     lists:flatten([FunTypes ||
                                       {{function_type, {shell_default, F, A}},{attribute,_,spec,{_,FunTypes}}} <- FT,
                                       F =:= Fun, A =:= Arity]);
-                _ -> R                                      
-            end;
-        _ when Mod =:= shell_default ->
-            lists:flatten([FunTypes || {{function_type, {shell_default, F, A}},{attribute,_,spec,{_,FunTypes}}} <- FT,
-                                        F =:= Fun, A =:= Arity]);
-        _ -> []
+                _ -> R
+            end
     end.
 get_arity(Constraints, Type, Nestings) ->
     case get_arity1(Type, Constraints, Nestings) of

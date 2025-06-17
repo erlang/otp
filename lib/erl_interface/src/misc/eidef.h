@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
+ *
+ * SPDX-License-Identifier: Apache-2.0
  * 
- * Copyright Ericsson AB 2002-2021. All Rights Reserved.
+ * Copyright Ericsson AB 2002-2025. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -58,6 +60,16 @@ typedef int socklen_t;
 #  define HAVE_ISFINITE
 #endif
 
+/* Taken from https://best.openssf.org/Compiler-Hardening-Guides/Compiler-Options-Hardening-Guide-for-C-and-C++.html#warn-about-implicit-fallthrough-in-switch-statements */
+#ifdef __has_attribute
+#  if __has_attribute(__fallthrough__)
+#    define EI_FALLTHROUGH()                    __attribute__((__fallthrough__))
+#  endif
+#endif
+#ifndef EI_FALLTHROUGH
+# define EI_FALLTHROUGH()                    do {} while (0)  /* fallthrough */
+#endif
+
 typedef unsigned char  uint8;	/* FIXME use configure */
 typedef unsigned short uint16;
 typedef unsigned int   uint32;
@@ -69,6 +81,16 @@ typedef signed   int   int32;
 #  define ASSERT(Cnd) ((void) ((Cnd) ? 1 : abort()))
 #else
 #  define ASSERT(Cnd)
+#endif
+
+/* EI_UNDEF can be used to silence false warnings about
+ * "variable may be used uninitialized" while keeping the variable
+ * marked as undefined by valgrind.
+ */
+#ifdef VALGRIND
+#  define EI_UNDEF(V,I) do {} while(0)
+#else
+#  define EI_UNDEF(V,I) V = I
 #endif
 
 #endif /* _EIDEF_H */

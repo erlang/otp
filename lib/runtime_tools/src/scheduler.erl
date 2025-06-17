@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2018-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2018-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -243,10 +245,8 @@ enabled during the entire interval between the two samples.
       Sample1 :: sched_sample(),
       Sample2 :: sched_sample().
 utilization({Stats, Ts0}, {Stats, Ts1}) ->
-    Diffs = lists:map(fun({{Tag, I, A0, T0}, {Tag, I, A1, T1}}) ->
-                              {Tag, I, (A1 - A0), (T1 - T0)}
-                      end,
-                      lists:zip(Ts0,Ts1)),
+    Diffs = [{Tag, I, (A1 - A0), (T1 - T0)} ||
+                {Tag, I, A0, T0} <- Ts0 && {Tag, I, A1, T1} <- Ts1],
 
     {Lst0, {A, T, N}} = lists:foldl(fun({Tag, I, Adiff, Tdiff}, {Lst, Acc}) ->
                                             R = safe_div(Adiff, Tdiff),

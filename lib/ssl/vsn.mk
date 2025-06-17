@@ -1,1 +1,9 @@
-SSL_VSN = 11.2.12
+SSL_VSN = 11.3.1
+
+# %CopyrightBegin%
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 1996-2025. All Rights Reserved.
+#
+# %CopyrightEnd%

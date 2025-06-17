@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1996-2024. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(disksup).
@@ -170,7 +172,7 @@ get_disk_info(Path) ->
 -doc """
 Returns the time interval, in milliseconds, for the periodic disk space check.
 """.
--spec get_check_interval() -> Milliseconds :: integer().
+-spec get_check_interval() -> Milliseconds :: timer:time().
 get_check_interval() ->
     os_mon:call(disksup, get_check_interval, infinity).
 
@@ -442,7 +444,7 @@ run_df(Path, {unix, linux}, Port) ->
 run_df(Path, {unix, posix}, Port) ->
     my_cmd("df -k -P " ++ Path, Port);
 run_df(Path, {unix, dragonfly}, Port) ->
-    my_cmd("/bin/df -k -t ufs,hammer " ++ Path, Port);
+    my_cmd("/bin/df -k -t ufs,hammer,hammer2 " ++ Path, Port);
 run_df(Path, {unix, freebsd}, Port) ->
     my_cmd("/bin/df -k -l " ++ Path, Port);
 run_df(Path, {unix, openbsd}, Port) ->

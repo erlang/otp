@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2011-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -291,7 +293,7 @@ code_change(_, _, State) ->
 
 create_menus(Parent, #opts{sys_hidden=Sys, unread_hidden=UnR, type=Type}) ->
     MenuEntries = [{"View",
-		    [#create_menu{id = ?ID_TABLE_INFO, text = "Table information\tCtrl-I"},
+		    [#create_menu{id = ?ID_TABLE_INFO, text = "Table information\tCtrl+I"},
 		     separator,
 		     #create_menu{id = ?ID_ETS, text = "&Ets Tables",
 				  type=radio, check=Type==ets},
@@ -303,7 +305,7 @@ create_menus(Parent, #opts{sys_hidden=Sys, unread_hidden=UnR, type=Type}) ->
 		     #create_menu{id = ?ID_SYSTEM_TABLES, text = "View &System Tables",
 				  type=check, check=not Sys},
 		     separator,
-		     #create_menu{id = ?ID_REFRESH, text = "Refresh\tCtrl-R"},
+		     #create_menu{id = ?ID_REFRESH, text = "Refresh\tCtrl+R"},
 		     #create_menu{id = ?ID_REFRESH_INTERVAL, text = "Refresh Interval..."}
 		    ]}],
     observer_wx:create_menus(Parent, MenuEntries).

@@ -1,7 +1,10 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB and Kjell Winblad 2019. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Kjell Winblad 2019. All Rights Reserved.
+ * Copyright Ericsson AB 2019-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,18 +31,12 @@
 #include <stdio.h>
 
 #include "ycf_utils.h"
-#include "lib/simple_c_gc/simple_c_gc.h"
 #include <stdint.h>
 
-bool ycf_use_gc = false;
 bool ycf_track_memory = false;
 
 size_t ycf_memory_usage = 0;
 size_t ycf_max_memory_usage = 0;
-
-void ycf_enable_gc(){
-  ycf_use_gc = true;
-}
 
 void ycf_enable_memory_tracking(){
   ycf_track_memory = true;
@@ -82,13 +79,8 @@ void* ycf_raw_malloc(size_t size) {
 }
 
 void* ycf_malloc(size_t size) {
-  if (ycf_use_gc) {
-    return scgc_new(size);
-  } else {
-    return ycf_raw_malloc(size);
-  }
+  return ycf_raw_malloc(size);
 }
-
 
 void ycf_free(void* to_free) {
   if (ycf_track_memory) {

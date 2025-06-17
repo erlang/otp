@@ -1,3 +1,26 @@
+<!--
+%%
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2013-2025. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%%
+%% %CopyrightEnd%
+-->
+
 Building and Installing Erlang/OTP
 ==================================
 
@@ -428,6 +451,10 @@ Some of the available `configure` options are:
     option which will enable `configure` to continue without support for
     timestamps after mid-January 2038. This is typically only an issue on 32-bit
     platforms.
+*   `--disable-security-hardening-flags` - Disable all security hardening
+    flags when compiling Erlang/OTP. This can be useful in some scenarios
+    when the flags either causes Erlang/OTP not to build, or unacceptable
+    performance degradations.
 
 If you or your system has special requirements please read the `Makefile` for
 additional configuration information.
@@ -598,7 +625,7 @@ On Linux, a static library is built as follows:
     $ make && sudo make install
     $ export PATH=/usr/local/bin:$PATH
 
-On macOs, a static library compatible with macOS 13 (Ventura) and later is built
+On macOS, a static library compatible with macOS 13 (Ventura) and later is built
 as follows:
 
     $ ./configure --prefix=/usr/local --with-macosx-version-min=13.0 --disable-shared

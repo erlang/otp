@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2003-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -35,15 +37,15 @@ A typical (compress) usage is as follows:
 Z = zlib:open(),
 ok = zlib:deflateInit(Z,default),
 
-Compress = fun(end_of_data, _Cont) -> [];
-              (Data, Cont) ->
-                 [zlib:deflate(Z, Data)|Cont(Read(),Cont)]
+Compress = fun F(end_of_data) ->
+                 zlib:deflate(Z, [], finish);
+               F(Data) ->
+                 [zlib:deflate(Z, Data)|F(Read())]
            end,
-Compressed = Compress(Read(),Compress),
-Last = zlib:deflate(Z, [], finish),
+Compressed = Compress(Read()),
 ok = zlib:deflateEnd(Z),
 zlib:close(Z),
-list_to_binary([Compressed|Last])
+list_to_binary(Compressed)
 ```
 
 In all functions errors, `{'EXIT',{Reason,Backtrace}}`, can be thrown, where

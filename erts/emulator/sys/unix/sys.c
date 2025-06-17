@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2024. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 1996-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -682,11 +684,13 @@ static RETSIGTYPE suspend_signal(int signum)
   SIGUSR1    Term     User-defined signal 1
   SIGUSR2    Term     User-defined signal 2
  !SIGCHLD    Ign      Child stopped or terminated
- !SIGCONT    Cont     Continue if stopped
+  SIGCONT    Cont     Continue if stopped
   SIGSTOP    Stop     Stop process
   SIGTSTP    Stop     Stop typed at terminal
  !SIGTTIN    Stop     Terminal input for background process
  !SIGTTOU    Stop     Terminal output for background process
+  SIGWINCH   Ign      Window size change
+  SIGINFO    Ign      Status request from keyboard
 */
 
 
@@ -707,6 +711,11 @@ signalterm_to_signum(Eterm signal)
     case am_sigchld: return SIGCHLD;
     case am_sigstop: return SIGSTOP;
     case am_sigtstp: return SIGTSTP;
+    case am_sigcont: return SIGCONT;
+    case am_sigwinch: return SIGWINCH;
+#ifdef SIGINFO
+    case am_siginfo: return SIGINFO;
+#endif /* defined(SIGINFO) */
     default:         return 0;
     }
 }
@@ -728,6 +737,11 @@ signum_to_signalterm(int signum)
     case SIGCHLD: return am_sigchld;
     case SIGSTOP: return am_sigstop;
     case SIGTSTP: return am_sigtstp;   /* ^z */
+    case SIGCONT: return am_sigcont;
+    case SIGWINCH: return am_sigwinch;
+#ifdef SIGINFO
+    case SIGINFO: return am_siginfo;  /* ^t */
+#endif /* defined(SIGINFO) */
     default:      return am_error;
     }
 }
@@ -759,12 +773,12 @@ void erts_set_ignore_break(void) {
      * typing certain key combinations at the
      * controlling terminal...
      */
-    sys_signal(SIGINT,  SIG_IGN);       /* Ctrl-C */
-    sys_signal(SIGQUIT, SIG_IGN);       /* Ctrl-\ */
-    sys_signal(SIGTSTP, SIG_IGN);       /* Ctrl-Z */
+    sys_signal(SIGINT,  SIG_IGN);       /* Ctrl+C */
+    sys_signal(SIGQUIT, SIG_IGN);       /* Ctrl+\ */
+    sys_signal(SIGTSTP, SIG_IGN);       /* Ctrl+Z */
 }
 
-/* Don't use ctrl-c for break handler but let it be 
+/* Don't use Ctrl+C for break handler but let it be
    used by the shell instead (see user_drv.erl) */
 void erts_replace_intr(void) {
   struct termios mode;
@@ -772,11 +786,11 @@ void erts_replace_intr(void) {
   if (isatty(0)) {
     tcgetattr(0, &mode);
 
-    /* here's an example of how to replace ctrl-c with ctrl-u */
+    /* here's an example of how to replace Ctrl+C with Ctrl+U */
     /* mode.c_cc[VKILL] = 0;
        mode.c_cc[VINTR] = CKILL; */
 
-    mode.c_cc[VINTR] = 0;	/* disable ctrl-c */
+    mode.c_cc[VINTR] = 0;	/* disable Ctrl+C */
     tcsetattr(0, TCSANOW, &mode);
     replace_intr = 1;
   }

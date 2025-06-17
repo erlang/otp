@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2023. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 1996-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -114,9 +116,11 @@ typedef struct {
     } cache[ERTS_ATOM_CACHE_SIZE];
 } ErtsAtomCacheMap;
 
+#define ERTS_MAX_INTERNAL_ATOM_CACHE_ENTRIES 255
+
 typedef struct {
     Uint32 size;
-    Eterm atom[ERTS_ATOM_CACHE_SIZE];
+    Eterm atom[ERTS_MAX_INTERNAL_ATOM_CACHE_ENTRIES];
 } ErtsAtomTranslationTable;
 
 /*
@@ -142,14 +146,23 @@ struct erl_dist_external_data {
 };
 
 typedef struct erl_dist_external {
+    ErtsDistExternalData *data;
+    Uint32 flags;
+
+    Uint32 connection_id;
     Sint heap_size;
     DistEntry *dep;
-    Uint32 flags;
-    Uint32 connection_id;
-    ErtsDistExternalData *data;
     struct ErtsMonLnkDist__ *mld;   /* copied from DistEntry.mld */
     ErtsAtomTranslationTable attab;
 } ErtsDistExternal;
+
+/* This fake one is used to impersonate ErtsDistExternal for dec_term()
+ * just for the flags without a large unused ErtsAtomTranslationTable.
+ */
+typedef struct {
+    ErtsDistExternalData *data;
+    Uint32 flags;
+} ErtsDistExternalFake;
 
 typedef struct {
     byte *extp;

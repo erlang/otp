@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1997-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -36,7 +38,8 @@
 	 init_per_group/2,end_per_group/2, 
 	 normal/1, error/1, cmp/1, cmp_literals/1, strip/1, strip_add_chunks/1, otp_6711/1,
          building/1, md5/1, encrypted_abstr/1, encrypted_abstr_file/1,
-         missing_debug_info_backend/1]).
+         missing_debug_info_backend/1, literals/1
+        ]).
 -export([test_makedep_abstract_code/1]).
 
 -export([init_per_testcase/2, end_per_testcase/2]).
@@ -48,7 +51,8 @@ suite() ->
 all() -> 
     [error, normal, cmp, cmp_literals, strip, strip_add_chunks, otp_6711,
      building, md5, encrypted_abstr, encrypted_abstr_file,
-     missing_debug_info_backend, test_makedep_abstract_code
+     missing_debug_info_backend, test_makedep_abstract_code,
+     literals
     ].
 
 groups() -> 
@@ -94,6 +98,7 @@ normal(Conf) when is_list(Conf) ->
     P0 = pps(),
 
     do_normal(Source, PrivDir, BeamFile, []),
+    do_normal(Source, PrivDir, BeamFile, [r27]),
 
     {ok,_} = compile:file(Source, [{outdir,PrivDir}, no_debug_info]),
     {ok, {simple, [{debug_info, {debug_info_v1, erl_abstract_code, {none, _}}}]}} =
@@ -118,7 +123,7 @@ do_normal(Source, PrivDir, BeamFile, Opts) ->
     do_normal(BeamFile, Opts),
     do_normal(Binary, Opts).
 
-do_normal(BeamFile, Opts) ->
+do_normal(BeamFile, _Opts) ->
     Imports = {imports, [{erlang, get_module_info, 1},
 			 {erlang, get_module_info, 2},
 			 {lists, member, 2}]},
@@ -151,10 +156,8 @@ do_normal(BeamFile, Opts) ->
     %% Test reading optional chunks.
     All = ["Atom", "Code", "StrT", "ImpT", "ExpT", "FunT", "LitT", "AtU8"],
     {ok,{simple,Chunks}} = beam_lib:chunks(BeamFile, All, [allow_missing_chunks]),
-    case {verify_simple(Chunks),Opts} of
-	{{missing_chunk, AtomBin}, []} when is_binary(AtomBin) -> ok;
-	{{AtomBin, missing_chunk}, [no_utf8_atoms]} when is_binary(AtomBin) -> ok
-    end,
+    {missing_chunk, AtomBin} = verify_simple(Chunks),
+    true = is_binary(AtomBin),
 
     %% 'allow_missing_chunks' should work for named chunks too.
     {ok, {simple, StrippedBeam}} = beam_lib:strip(BeamFile),
@@ -654,7 +657,7 @@ encrypted_abstr_1(Conf) ->
     do_encrypted_abstr(BeamFile, Key),
     do_encrypted_abstr(Binary, Key),
 
-    ok = crypto:stop(),			%To get rid of extra ets tables.
+    ok = application:stop(crypto),			%To get rid of extra ets tables.
     file:delete(BeamFile),
     file:delete(Source),
     NoOfTables = erlang:system_info(ets_count),
@@ -780,7 +783,7 @@ encrypted_abstr_file_1(Conf) ->
     do_encrypted_abstr_file(Binary, Key),
     ok = file:set_cwd(OldCwd),
 
-    ok = crypto:stop(),			%To get rid of extra ets tables.
+    ok = application:stop(crypto),			%To get rid of extra ets tables.
     file:delete(filename:join(PrivDir, ".erlang.crypt")),
     file:delete(BeamFile),
     file:delete(Source),
@@ -872,6 +875,29 @@ missing_debug_info_backend(Conf) ->
     %% beam_lib should not crash, but return an error.
     verify(missing_backend, beam_lib:chunks(BeamFile, [abstract_code])),
     file:delete(BeamFile),
+
+    ok.
+
+literals(Conf) ->
+    do_literals(Conf, []),
+    do_literals(Conf, [r27]),
+
+    ok.
+
+do_literals(Conf, Options) ->
+    PrivDir = ?privdir,
+    Simple = filename:join(PrivDir, "simple"),
+    Source = Simple ++ ".erl",
+    BeamFile = Simple ++ ".beam",
+    simple_file(Source, simple, literals),
+
+    {ok,simple} = compile:file(Source, [{outdir,PrivDir},report|Options]),
+
+    {ok, {simple, [{literals,[{0,{literal,tuple}}]}]}} =
+	beam_lib:chunks(BeamFile, [literals]),
+
+    ok = file:delete(Source),
+    ok = file:delete(BeamFile),
 
     ok.
 
@@ -980,6 +1006,12 @@ simple_file(File, Module, lines) ->
 			"t(A) ->\n"
 			"    A+1.\n"]),
     ok = file:write_file(File, B);
+simple_file(File, Module, literals) ->
+    B = list_to_binary(["-module(", atom_to_list(Module), "). "
+			"-export([t/0]). "
+			"t() -> "
+			"    {literal, tuple}. "]),
+    ok = file:write_file(File, B);
 simple_file(File, Module, F) ->
     B = list_to_binary(["-module(", atom_to_list(Module), "). "
 			"-export([t/0]). "
@@ -991,7 +1023,7 @@ simple_file(File, Module, F) ->
     ok = file:write_file(File, B).
 
 run_if_crypto_works(Test) ->
-    try	begin crypto:start(), crypto:stop(), ok end of
+    try	begin application:start(crypto), application:stop(crypto), ok end of
 	ok ->
 	    Test()
     catch

@@ -1,9 +1,11 @@
 #!/usr/bin/env perl 
 #
 # %CopyrightBegin%
-# 
-# Copyright Ericsson AB 1999-2023. All Rights Reserved.
-# 
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 1999-2025. All Rights Reserved.
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -15,7 +17,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# 
+#
 # %CopyrightEnd%
 #
 use strict;
@@ -49,7 +51,21 @@ while (@ARGV) {
 	$mode = 1;
 	next;
     }
-    if ( $d =~ /^.*\.a$/ ) {
+    if ( $d =~ /^(.*\.a)(:[A-Za-z_][A-Za-z0-9_]*)+$/ ) {
+        # Only implemented for NIFs
+        if ($mode != 2) {
+            next;
+        }
+
+        my @nifs = split(/:/, $2);
+        shift(@nifs);
+
+        foreach my $nif_symbol ( @nifs ) {
+            push(@static_nifs, $nif_symbol)
+        }
+        next;
+    }
+    elsif ( $d =~ /\.a$/ ) {
 	$d = basename $d;
 	$d =~ s/\.a$//;	# strip .a
 	$d =~ s/\.gprof$//;	# strip .gprof

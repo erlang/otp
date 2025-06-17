@@ -1,6 +1,8 @@
 %%
 %% %CopyrightBegin%
 %%
+%% SPDX-License-Identifier: Apache-2.0
+%%
 %% Copyright Ericsson AB 2009-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
@@ -318,19 +320,45 @@ setopts_getopts(Config) when is_list(Config) ->
        {expect, "true"}
       ],[],"",["-oldshell"]),
 
-    %% Test that terminal options when used in non-terminal
-    %% are returned as they should
+    %% Test that terminal options when used in non-terminal are returned as they should
+    %% both when run as an os:cmd and when run directly as a port.
     Erl = ct:get_progname(),
-    Str = os:cmd(Erl ++ " -noshell -eval \"io:format(~s'~p.',[io:getopts()])\" -s init stop"),
+    CmdStr = os:cmd(Erl ++ " -noshell -eval \"io:format(~s'~p.',[io:getopts()])\" -s init stop"),
     maybe
-        {ok, T, _} ?= erl_scan:string(Str),
+        {ok, T, _} ?= erl_scan:string(CmdStr),
         {ok, Opts} ?= erl_parse:parse_term(T),
         ?assertEqual(false, proplists:get_value(terminal,Opts)),
-        ?assertEqual(false, proplists:get_value(stdin,Opts)),
+        case os:type() of
+            {win32, nt} ->
+                %% On Windows stdin will be a tty
+                ?assertEqual(true, proplists:get_value(stdin,Opts));
+            _ ->
+                ?assertEqual(false, proplists:get_value(stdin,Opts))
+        end,
         ?assertEqual(false, proplists:get_value(stdout,Opts)),
         ?assertEqual(false, proplists:get_value(stderr,Opts))
     else
-        _ -> ct:fail({failed_to_parse, Str})
+        _ -> ct:fail({failed_to_parse, CmdStr})
+    end,
+
+    Port = erlang:open_port({spawn, Erl ++ " -noshell -eval \"io:format(~s'~p.',[io:getopts()])\" -s init stop"},
+            [exit_status]),
+    PortStr = (fun F() ->
+        receive
+            {Port,{data,D}} -> D ++ F();
+            {Port,{exit_status,0}} -> []
+        end
+    end)(),
+
+    maybe
+        {ok, PortT, _} ?= erl_scan:string(PortStr),
+        {ok, PortOpts} ?= erl_parse:parse_term(PortT),
+        ?assertEqual(false, proplists:get_value(terminal,PortOpts)),
+        ?assertEqual(false, proplists:get_value(stdin,PortOpts)),
+        ?assertEqual(false, proplists:get_value(stdout,PortOpts)),
+        ?assertEqual(proplists:get_value(stderr, io:getopts()), proplists:get_value(stderr,PortOpts))
+    else
+        _ -> ct:fail({failed_to_parse, PortStr})
     end,
     ok.
 
@@ -1497,6 +1525,7 @@ logging_gl(Config) when is_list(Config) ->
                                  end),
                       register(?MODULE, Device),
                       ok = logger:add_handler(default, logger_std_h, #{ filter_default => stop, config => #{ type => {device, Device} }}),
+                      logger:set_primary_config(level, all),
                       ok = io:setopts(user, [{log,output}])
               end},
        {putline, "io:format(user,\"abc\n\",[])."},
@@ -1528,7 +1557,6 @@ logging_gl(Config) when is_list(Config) ->
       ["-pz",filename:dirname(code:which(?MODULE)),
        "-oldshell",
        "-connect_all","false",
-       "-kernel","logger_level","all",
        "-kernel","logger","[{handler, default, undefined}]",
        "-kernel","shell_history","disabled",
        "-kernel","prevent_overlapping_partitions","false"]),

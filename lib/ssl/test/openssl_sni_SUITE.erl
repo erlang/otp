@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2019-2022. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2019-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -74,18 +76,18 @@ all() ->
 groups() ->
      case ssl_test_lib:openssl_sane_dtls() of 
          true ->
-             [{'tlsv1.3', [], sni_tests()},
-              {'tlsv1.2', [], sni_tests()},
-              {'tlsv1.1', [], sni_tests()},
-              {'tlsv1', [], sni_tests()},
-              {'dtlsv1.2', [], sni_tests()},
-              {'dtlsv1', [], sni_tests()}
+             [{'tlsv1.3', [parallel], sni_tests()},
+              {'tlsv1.2', [parallel], sni_tests()},
+              {'tlsv1.1', [parallel], sni_tests()},
+              {'tlsv1', [parallel], sni_tests()},
+              {'dtlsv1.2', [parallel], sni_tests()},
+              {'dtlsv1', [parallel], sni_tests()}
              ];
         false ->
-             [{'tlsv1.3', [], sni_tests()},
-              {'tlsv1.2', [], sni_tests()},
-              {'tlsv1.1', [], sni_tests()},
-              {'tlsv1', [], sni_tests()}
+             [{'tlsv1.3', [parallel], sni_tests()},
+              {'tlsv1.2', [parallel], sni_tests()},
+              {'tlsv1.1', [parallel], sni_tests()},
+              {'tlsv1', [parallel], sni_tests()}
              ]
      end.
  

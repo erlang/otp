@@ -1,6 +1,8 @@
 /*
  * %CopyrightBegin%
  *
+ * SPDX-License-Identifier: Apache-2.0
+ *
  * Copyright Ericsson AB 2018-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -866,6 +868,7 @@ const int esock_ioctl_flags_length = NUM(esock_ioctl_flags);
 #define ESOCK_OPT_OTP_FD           1008
 #define ESOCK_OPT_OTP_META         1009
 #define ESOCK_OPT_OTP_USE_REGISTRY 1010
+#define ESOCK_OPT_OTP_SELECT_READ  1011
 /**/
 #define ESOCK_OPT_OTP_DOMAIN       1999 // INTERNAL AND ONLY GET
 #if 0
@@ -1228,6 +1231,7 @@ static ERL_NIF_TERM esock_setopt_otp(ErlNifEnv*       env,
 /* *** esock_setopt_otp_debug        ***
  * *** esock_setopt_otp_iow          ***
  * *** esock_setopt_otp_ctrl_proc    ***
+ * *** esock_setopt_otp_select_read  ***
  * *** esock_setopt_otp_rcvbuf       ***
  * *** esock_setopt_otp_rcvctrlbuf   ***
  * *** esock_setopt_otp_sndctrlbuf   ***
@@ -1238,6 +1242,7 @@ static ERL_NIF_TERM esock_setopt_otp(ErlNifEnv*       env,
     ESOCK_SETOPT_OTP_FUNC_DEF(debug);           \
     ESOCK_SETOPT_OTP_FUNC_DEF(iow);             \
     ESOCK_SETOPT_OTP_FUNC_DEF(ctrl_proc);       \
+    ESOCK_SETOPT_OTP_FUNC_DEF(select_read);     \
     ESOCK_SETOPT_OTP_FUNC_DEF(rcvbuf);          \
     ESOCK_SETOPT_OTP_FUNC_DEF(rcvctrlbuf);      \
     ESOCK_SETOPT_OTP_FUNC_DEF(sndctrlbuf);      \
@@ -1256,6 +1261,7 @@ static ERL_NIF_TERM esock_getopt_otp(ErlNifEnv*       env,
 /* *** esock_getopt_otp_debug        ***
  * *** esock_getopt_otp_iow          ***
  * *** esock_getopt_otp_ctrl_proc    ***
+ * *** esock_getopt_otp_select_read  ***
  * *** esock_getopt_otp_rcvbuf       ***
  * *** esock_getopt_otp_rcvctrlbuf   ***
  * *** esock_getopt_otp_sndctrlbuf   ***
@@ -1271,6 +1277,7 @@ static ERL_NIF_TERM esock_getopt_otp(ErlNifEnv*       env,
     ESOCK_GETOPT_OTP_FUNC_DEF(debug);           \
     ESOCK_GETOPT_OTP_FUNC_DEF(iow);             \
     ESOCK_GETOPT_OTP_FUNC_DEF(ctrl_proc);       \
+    ESOCK_GETOPT_OTP_FUNC_DEF(select_read);     \
     ESOCK_GETOPT_OTP_FUNC_DEF(rcvbuf);          \
     ESOCK_GETOPT_OTP_FUNC_DEF(rcvctrlbuf);      \
     ESOCK_GETOPT_OTP_FUNC_DEF(sndctrlbuf);      \
@@ -5081,8 +5088,7 @@ ERL_NIF_TERM esock_supports_options(ErlNifEnv* env)
         }
         levels =
             MKC(env,
-                MKT2(env,
-                     esock_encode_level(env, levelP->level), options),
+                MKT3(env, *levelP->nameP, MKI(env, levelP->level), options),
                 levels);
     }
 
@@ -6119,8 +6125,8 @@ ERL_NIF_TERM nif_recv(ErlNifEnv*         env,
                       const ERL_NIF_TERM argv[])
 {
     ESockDescriptor* descP;
-    ERL_NIF_TERM     sockRef, recvRef, elen, eflags;
-    ErlNifUInt64     len64;
+    ERL_NIF_TERM     sockRef, recvRef;
+    ErlNifUInt64     elen;
     ssize_t          len; /* ssize_t due to the return type of recv() */
     int              flags;
     ERL_NIF_TERM     res;
@@ -6129,8 +6135,6 @@ ERL_NIF_TERM nif_recv(ErlNifEnv*         env,
     ESOCK_ASSERT( argc == 4 );
 
     sockRef = argv[0]; // We need this in case we send abort (to the caller)
-    elen    = argv[1];
-    eflags  = argv[2];
     recvRef = argv[3];
 
     if (! ESOCK_GET_RESOURCE(env, sockRef, (void**) &descP)) {
@@ -6141,48 +6145,20 @@ ERL_NIF_TERM nif_recv(ErlNifEnv*         env,
         (COMPARE(recvRef, esock_atom_zero) != 0)) {
         return enif_make_badarg(env);
     }
-    if ((! (a1ok = GET_UINT64(env, elen, &len64))) ||
-        (! GET_INT(env, eflags, &flags))) {
-        if ((! IS_INTEGER(env, elen)) ||
-            (! IS_INTEGER(env, eflags))) {
-
+    if ((! (a1ok = GET_UINT64(env, argv[1], &elen))) ||
+        (! GET_INT(env, argv[2], &flags))) {
+        if ((! IS_INTEGER(env, argv[1])) ||
+            (! IS_INTEGER(env, argv[2])))
             return enif_make_badarg(env);
 
-        }
-
-        if (! a1ok) {
-
-            SSDBG( descP,
-                   ("SOCKET", "nif_recv(%T), {%d,0x%X} -> "
-                    "invalid (format) length: %T"
-                    "\r\n",
-                    sockRef, descP->sock, descP->readState, elen) );
-
-            return esock_make_error_integer_range(env, elen);
-        }
-
-        SSDBG( descP,
-               ("SOCKET", "nif_recv(%T), {%d,0x%X} -> invalid flags: %T"
-                "\r\n",
-                sockRef, descP->sock, descP->readState, eflags) );
-
-        return esock_make_error_integer_range(env, eflags);
+        if (! a1ok)
+            return esock_make_error_integer_range(env, argv[1]);
+        return
+            esock_make_error_integer_range(env, argv[2]);
     }
-
-    len = (ssize_t) len64;
-    if (len64 != (ErlNifUInt64) len) {
-
-        SSDBG( descP,
-               ("SOCKET", "nif_recv(%T), {%d,0x%X} -> "
-                "invalid (range) length:"
-                "\r\n   (e) length:    %T"
-                "\r\n   (raw) length:  %ld"
-                "\r\n   (cast) length: %ld"
-                "\r\n",
-                sockRef, descP->sock, descP->readState, elen, len64, len) );
-
-        return esock_make_error_integer_range(env, len64);
-    }
+    len = (ssize_t) elen;
+    if (elen != (ErlNifUInt64) len)
+        return esock_make_error_integer_range(env, elen);
 
     MLOCK(descP->readMtx);
 
@@ -6363,7 +6339,7 @@ ERL_NIF_TERM nif_recvmsg(ErlNifEnv*         env,
     ssize_t          bufSz,   ctrlSz;
     int              flags;
     ERL_NIF_TERM     res;
-    BOOLEAN_T        a1ok, a2ok;
+    BOOLEAN_T        a1ok, a2ok = FALSE;
 
     ESOCK_ASSERT( argc == 5 );
 
@@ -6809,6 +6785,12 @@ ERL_NIF_TERM esock_setopt_otp(ErlNifEnv*       env,
         MUNLOCK(descP->readMtx);
         break;
 
+    case ESOCK_OPT_OTP_SELECT_READ:
+        MLOCK(descP->readMtx);
+        result = esock_setopt_otp_select_read(env, descP, eVal);
+        MUNLOCK(descP->readMtx);
+        break;
+
     case ESOCK_OPT_OTP_RCVBUF:
         MLOCK(descP->readMtx);
         result = esock_setopt_otp_rcvbuf(env, descP, eVal);
@@ -6910,6 +6892,34 @@ ERL_NIF_TERM esock_setopt_otp_iow(ErlNifEnv*       env,
 
     SSDBG( descP,
            ("SOCKET", "esock_setopt_otp_iow {%d} -> ok"
+            "\r\n   eVal: %T"
+            "\r\n", descP->sock, eVal) );
+
+    return esock_atom_ok;
+}
+
+
+
+/* esock_setopt_otp_select_read - Handle the OTP (level) select_read option
+ */
+
+static
+ERL_NIF_TERM esock_setopt_otp_select_read(ErlNifEnv*       env,
+                                          ESockDescriptor* descP,
+                                          ERL_NIF_TERM     eVal)
+{
+    if (! IS_OPEN(descP->readState)) {
+        SSDBG( descP,
+               ("SOCKET", "esock_setopt_otp_iow {%d} -> closed\r\n",
+                descP->sock) );
+        return esock_make_error_closed(env);
+    }
+
+    if (! esock_decode_bool(eVal, &descP->selectRead))
+      return esock_make_invalid(env, esock_atom_value);
+
+    SSDBG( descP,
+           ("SOCKET", "esock_setopt_otp_select_read {%d} -> ok"
             "\r\n   eVal: %T"
             "\r\n", descP->sock, eVal) );
 
@@ -8572,6 +8582,12 @@ ERL_NIF_TERM esock_getopt_otp(ErlNifEnv*       env,
         MUNLOCK(descP->readMtx);
         break;
 
+    case ESOCK_OPT_OTP_SELECT_READ:
+        MLOCK(descP->readMtx);
+        result = esock_getopt_otp_select_read(env, descP);
+        MUNLOCK(descP->readMtx);
+        break;
+
     case ESOCK_OPT_OTP_RCVBUF:
         MLOCK(descP->readMtx);
         result = esock_getopt_otp_rcvbuf(env, descP);
@@ -8698,6 +8714,34 @@ ERL_NIF_TERM esock_getopt_otp_iow(ErlNifEnv*       env,
 
     SSDBG( descP,
            ("SOCKET", "esock_getopt_otp_iow {%d} ->"
+            "\r\n   eVal: %T"
+            "\r\n", descP->sock, eVal) );
+
+    return esock_make_ok2(env, eVal);
+}
+
+
+
+/* esock_getopt_otp_select_read - Handle the OTP (level) select_read option
+ */
+
+static
+ERL_NIF_TERM esock_getopt_otp_select_read(ErlNifEnv*       env,
+                                          ESockDescriptor* descP)
+{
+    ERL_NIF_TERM eVal;
+
+    if (! IS_OPEN(descP->readState)) {
+        SSDBG( descP,
+               ("SOCKET", "esock_getopt_otp_select_read {%d} -> done closed\r\n",
+                descP->sock) );
+        return esock_make_error_closed(env);
+    }
+
+    eVal = esock_encode_bool(descP->selectRead);
+
+    SSDBG( descP,
+           ("SOCKET", "esock_getopt_otp_select_read {%d} ->"
             "\r\n   eVal: %T"
             "\r\n", descP->sock, eVal) );
 
@@ -10382,7 +10426,7 @@ ERL_NIF_TERM esock_peername(ErlNifEnv*       env,
  *
  * Description:
  * Returns whatever info the ioctl returns for the specific (get) request.
- * WHEN SET IS IMPLEMENTED, WE NEED ANOTHER ARGUMENT!!
+ * WHEN SET IS IMPLEMENTED, WE NED ANOTHER ARGUMENT!!
  *
  * Arguments:
  * Socket (ref) - Points to the socket descriptor.
@@ -11966,13 +12010,10 @@ ESockDescriptor* esock_alloc_descriptor(SOCKET sock)
     /* Not used on Windows - see header for more info */
     esock_requestor_init(&descP->currentReader);
     descP->currentReaderP = NULL; // currentReader not used
+    descP->buf.data = NULL;
 #endif
     descP->readersQ.first = NULL;
     descP->readersQ.last  = NULL;
-
-    descP->readBuf.size   = 0;
-    descP->readBuf.data   = NULL;
-    descP->readResult     = 0;
 
     descP->readPkgCnt     = 0;
     descP->readPkgMax     = 0;
@@ -12014,6 +12055,7 @@ ESockDescriptor* esock_alloc_descriptor(SOCKET sock)
     descP->wCtrlSz          = ESOCK_SEND_CTRL_BUFFER_SIZE_DEFAULT;
     descP->iow              = FALSE;
     descP->dbg              = ESOCK_DEBUG_DEFAULT;      // Overwritten by caller
+    descP->selectRead       = FALSE;
     descP->useReg           = ESOCK_USE_SOCKET_REGISTRY;// Overwritten by caller
     descP->meta.env         = esock_alloc_env("esock_alloc_descriptor - "
                                               "meta-env");
@@ -12737,7 +12779,7 @@ int esock_select_cancel(ErlNifEnv*             env,
                                       ESockDescriptor* descP,   \
                                       ERL_NIF_TERM     sockRef) \
     {                                                        \
-        BOOLEAN_T          popped, activated;                \
+        BOOLEAN_T          popped, activated = FALSE;        \
         int                sres;                             \
         ERL_NIF_TERM       reason;                           \
         ESockRequestor*    reqP = &descP->R;                 \

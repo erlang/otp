@@ -1,6 +1,8 @@
 <!--
 %CopyrightBegin%
 
+SPDX-License-Identifier: Apache-2.0
+
 Copyright Ericsson AB 2023-2025. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,6 +22,82 @@ limitations under the License.
 # SSL Release Notes
 
 This document describes the changes made to the SSL application.
+
+## SSL 11.3.1
+
+### Fixed Bugs and Malfunctions
+
+- hs_keylog callback properly handle alert in initial states, where encryption is not yet used.  Also add keylog callback invocation for corner-case where server alert is encrypted with application secrets as client is already in connection state.
+
+  Own Id: OTP-19635 Aux Id: ERIERL-1235, [PR-9849]
+
+[PR-9849]: https://github.com/erlang/otp/pull/9849
+
+### Improvements and New Features
+
+- The documentation for SSL option `verify_fun` has been improved.
+
+  Own Id: OTP-19676 Aux Id: [PR-9691]
+
+[PR-9691]: https://github.com/erlang/otp/pull/9691
+
+## SSL 11.3
+
+### Improvements and New Features
+
+- Refactoring, minor optimizations and improved log printouts.
+
+  Own Id: OTP-19367 Aux Id: [PR-9019]
+
+- `supervisor:which_child/2` is now used to make start-up code for TLS-connections simpler and more straight forward, and to increase stability and maintainability of the ssl application.
+
+  Own Id: OTP-19406 Aux Id: [PR-9231]
+
+- The data handling for tls-v1.3 has been optimized.
+
+  Own Id: OTP-19430 Aux Id: [PR-9305]
+
+- Added experimental socket support.
+
+  Own Id: OTP-19463 Aux Id: [PR-9398]
+
+- Improve code health by removing dead code.
+
+  Own Id: OTP-19531 Aux Id: [PR-9563]
+
+- A test module for TLS distribution over `socket` has been implemented.
+
+  Own Id: OTP-19539 Aux Id: [PR-9511]
+
+- The license and copyright header has changed format to include an `SPDX-License-Identifier`. At the same time, most files have been updated to follow a uniform standard for license headers.
+
+  Own Id: OTP-19575 Aux Id: [PR-9670]
+
+[PR-9019]: https://github.com/erlang/otp/pull/9019
+[PR-9231]: https://github.com/erlang/otp/pull/9231
+[PR-9305]: https://github.com/erlang/otp/pull/9305
+[PR-9398]: https://github.com/erlang/otp/pull/9398
+[PR-9563]: https://github.com/erlang/otp/pull/9563
+[PR-9511]: https://github.com/erlang/otp/pull/9511
+[PR-9670]: https://github.com/erlang/otp/pull/9670
+
+## SSL 11.2.12.1
+
+### Fixed Bugs and Malfunctions
+
+- hs_keylog callback properly handle alert in initial states, where encryption is not yet used.  Also add keylog callback invocation for corner-case where server alert is encrypted with application secrets as client is already in connection state.
+
+  Own Id: OTP-19635 Aux Id: ERIERL-1235, [PR-9849]
+
+[PR-9849]: https://github.com/erlang/otp/pull/9849
+
+### Improvements and New Features
+
+- The documentation for SSL option `verify_fun` has been improved.
+
+  Own Id: OTP-19676 Aux Id: [PR-9691]
+
+[PR-9691]: https://github.com/erlang/otp/pull/9691
 
 ## SSL 11.2.12
 
@@ -343,6 +421,14 @@ This document describes the changes made to the SSL application.
 [PR-8026]: https://github.com/erlang/otp/pull/8026
 [PR-8250]: https://github.com/erlang/otp/pull/8250
 [PR-8255]: https://github.com/erlang/otp/pull/8255
+
+## SSL 11.1.4.8
+
+### Fixed Bugs and Malfunctions
+
+* Correct handling of unassigned signature algorithms to properly ignore them instead of failing the handshake.
+
+  Own Id: OTP-19529 Aux Id: GH-9483, PR-9486
 
 ## SSL 11.1.4.7
 

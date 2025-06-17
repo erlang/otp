@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2025. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -213,7 +215,7 @@ The following functions are mandatory:
   may not be the process registered as `net_kernel`) and is in this document
   identified as `Kernel`. When a connection has been accepted by the acceptor
   process, it needs to inform `Kernel` about the accepted connection. This is
-  done by passing a message on the form:
+  done by passing a message of the form:
 
   ```erlang
   Kernel ! {accept, AcceptorPid, DistController, Family, Proto}
@@ -423,7 +425,7 @@ The following `#hs_data{}` record fields need to be set unless otherwise stated:
 - **`f_recv`{: #hs_data_f_recv }** - A fun with the following signature:
 
   ```erlang
-  fun (DistCtrlr, Length) -> {ok, Packet} | {error, Reason}
+  fun (DistCtrlr, Length, Timeout) -> {ok, Packet} | {error, Reason}
   ```
 
   where `DistCtrlr` is the identifier of the distribution controller. If

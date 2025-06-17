@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2004-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -31,6 +33,7 @@
 -include("inets_test_lib.hrl").
 -include("http_internal.hrl").
 -include("httpc_internal.hrl").
+% -include("../../ssl/src/ssl_api.hrl").
 %% Note: This directive should only be used in test suites.
 -compile([export_all, nowarn_export_all]).
 
@@ -45,7 +48,6 @@
 %% (maximum length supported by erlang)
 -define(UNIX_SOCKET, "/tmp/inets_httpc_SUITE.sock").
 
--record(sslsocket, {fd = nil, pid = nil}).
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
@@ -251,8 +253,8 @@ init_per_group(misc = Group, Config) ->
     [{httpc_options, [{ipfamily, Inet}]} | Config];
 init_per_group(Group, Config0) when Group =:= sim_https; Group =:= https;
                                     Group =:= sim_mixed ->
-    catch crypto:stop(),
-    try crypto:start() of
+    catch application:stop(crypto),
+    try application:start(crypto) of
         ok ->
             start_apps(Group),
             HttpcOptions = [{keep_alive_timeout, 50000}, {max_keep_alive_length, 5}],
@@ -3035,29 +3037,29 @@ get_stat(S, Opt) ->
             E
     end.
 
-getstat(#sslsocket{} = S, Opts) ->
+getstat(S, Opts) when element(1, S) =:= sslsocket ->
     ssl:getstat(S, Opts);
 getstat(S, Opts) ->
     inet:getstat(S, Opts).
 
-url_start(#sslsocket{}) ->
+url_start(S)  when element(1, S) =:= sslsocket ->
     {ok,Host} = inet:gethostname(),
     ?TLS_URL_START ++ Host ++ ":";
 url_start(_) ->
     {ok,Host} = inet:gethostname(),
     ?URL_START ++ Host ++ ":".
 
-send(#sslsocket{} = S, Msg) ->
+send(S, Msg) when element(1, S) =:= sslsocket ->
     ssl:send(S, Msg);
 send(S, Msg) ->
     gen_tcp:send(S, Msg).
 
-close(#sslsocket{} = S) ->
+close(S) when element(1, S) =:= sslsocket ->
     ssl:close(S);
 close(S) ->
     gen_tcp:close(S).
 
-sockname(#sslsocket{}= S) ->
+sockname(S) when element(1, S) == sslsocket ->
     ssl:sockname(S);
 sockname(S) ->
     inet:sockname(S).

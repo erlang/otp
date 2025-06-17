@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
+ *
+ * SPDX-License-Identifier: Apache-2.0
  * 
- * Copyright Ericsson AB 1996-2021. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2025. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -488,6 +490,21 @@ int main(int argc, char **argv)
   return 0;
 } /* main() */
 
+/* Broken out in order to do GCC diagnostic ignore here */
+#ifdef HAVE_GCC_DIAG_IGNORE_WFORMAT_NONLITERAL
+_Pragma("GCC diagnostic push");
+_Pragma("GCC diagnostic ignored \"-Wformat-nonliteral\"");
+#endif
+static int dynamic_strftime(
+    char *__restrict__ log_alive_buffer,
+    const char *__restrict__ log_alive_format,
+    const struct tm *__restrict__ tmptr) {
+    return strftime(log_alive_buffer, ALIVE_BUFFSIZ, log_alive_format, tmptr);
+}
+#ifdef HAVE_GCC_DIAG_IGNORE_WFORMAT_NONLITERAL
+_Pragma("GCC diagnostic pop");
+#endif
+
 /* pass_on()
  * Is the work loop of the logger. Selects on the pipe to the to_erl
  * program erlang. If input arrives from to_erl it is passed on to
@@ -584,8 +601,7 @@ static void pass_on(pid_t childpid)
 		} else {
 		    tmptr = localtime(&now);
 		}
-		if (!strftime(log_alive_buffer, ALIVE_BUFFSIZ, log_alive_format,
-			      tmptr)) {
+		if (!dynamic_strftime(log_alive_buffer, log_alive_format, tmptr)) {
 		    strn_cpy(log_alive_buffer, sizeof(log_alive_buffer),
 			     "(could not format time in 256 positions "
 			     "with current format string.)");
@@ -711,8 +727,8 @@ static void pass_on(pid_t childpid)
 #endif
 		    }
 		}
-
-		if (!got_some && wfd && buf[0] == '\014') {
+    if (!got_some && wfd && buf[0] == '\033' &&
+         buf[1] == 'l') {
 		    char wbuf[30];
 		    int wlen = sn_printf(wbuf,sizeof(wbuf),"[run_erl v%u-%u]\n",
 					 RUN_ERL_HI_VER, RUN_ERL_LO_VER);
@@ -858,8 +874,7 @@ static int open_log(int log_num, int flags)
   } else {
       tmptr = localtime(&now);
   }
-  if (!strftime(log_buffer, ALIVE_BUFFSIZ, log_alive_format,
-		tmptr)) {
+  if (!dynamic_strftime(log_buffer, log_alive_format, tmptr)) {
       strn_cpy(log_buffer, sizeof(log_buffer),
 	      "(could not format time in 256 positions "
 	      "with current format string.)");

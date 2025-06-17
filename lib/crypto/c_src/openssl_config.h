@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2010-2024. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2010-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -195,6 +197,16 @@
     && !defined(OPENSSL_NO_SM4)
 # define HAVE_SM4_GCM
 # define HAVE_SM4_CCM
+#endif
+
+#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,1,1)	\
+    && !defined(OPENSSL_NO_SHA512) && defined(NID_sha512_224)
+# define HAVE_SHA512_224
+#endif
+
+#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,1,1)	\
+    && !defined(OPENSSL_NO_SHA512) && defined(NID_sha512_256)
+# define HAVE_SHA512_256
 #endif
 
 // SHA3:

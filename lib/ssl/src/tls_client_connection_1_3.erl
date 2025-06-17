@@ -1,6 +1,8 @@
 %%
 %% %CopyrightBegin%
 %%
+%% SPDX-License-Identifier: Apache-2.0
+%%
 %% Copyright Ericsson AB 2022-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
@@ -113,11 +115,14 @@
 callback_mode() ->
     [state_functions, state_enter].
 
-init([?CLIENT_ROLE, Sender, Host, Port, Socket, Options,  User, CbInfo]) ->
+init([?CLIENT_ROLE, Sender, Tab, Host, Port, Socket, Options,  User, CbInfo]) ->
     State0 = #state{protocol_specific = Map} =
-        tls_gen_connection_1_3:initial_state(?CLIENT_ROLE, Sender,
+        tls_gen_connection_1_3:initial_state(?CLIENT_ROLE, Sender, Tab,
                                              Host, Port, Socket,
                                              Options, User, CbInfo),
+    #state{static_env = #static_env{user_socket = UserSocket}} = State0,
+    User ! {self(), user_socket, UserSocket},
+    put(tls_role, client),
     try
 	State = ssl_gen_statem:init_ssl_config(State0#state.ssl_options,
                                           ?CLIENT_ROLE, State0),
@@ -175,7 +180,7 @@ user_hello({call, From}, cancel, State) ->
 user_hello({call, From}, {handshake_continue, NewOptions, Timeout},
            #state{handshake_env =  #handshake_env{continue_status = pause} = HSEnv,
                   ssl_options = Options0} = State0) ->
-    try ssl:update_options(NewOptions, ?CLIENT_ROLE, Options0) of
+    try ssl_config:update_options(NewOptions, ?CLIENT_ROLE, Options0) of
         Options ->
             State = ssl_gen_statem:ssl_config(Options, ?CLIENT_ROLE, State0),
             {next_state, wait_sh, State#state{recv = State#state.recv#recv{from = From},
@@ -481,6 +486,8 @@ wait_finished(Type, Msg, State) ->
                  term(), #state{}) ->
           gen_statem:state_function_result().
 %%--------------------------------------------------------------------
+connection(info, Msg, State) ->
+    tls_gen_connection:gen_info(Msg, connection, State);
 connection(Type, Msg, State) ->
     tls_gen_connection_1_3:connection(Type, Msg, State).
 
@@ -898,19 +905,10 @@ maybe_check_early_data_indication(_, State) ->
     ssl_record:step_encryption_state_write(State).
 
 signal_user_early_data(#state{
-                          connection_env =
-                              #connection_env{
-                                 user_application = {_, User}},
-                          static_env =
-                              #static_env{
-                                 socket = Socket,
-                                 protocol_cb = Connection,
-                                 transport_cb = Transport,
-                                 trackers = Trackers}} = State,
+                          connection_env = #connection_env{user_application = {_, User}},
+                          static_env = #static_env{user_socket = UserSocket}},
                        Result) ->
-    CPids = Connection:pids(State),
-    SslSocket = Connection:socket(CPids, Transport, Socket, Trackers),
-    User ! {ssl, SslSocket, {early_data, Result}}.
+    User ! {ssl, UserSocket, {early_data, Result}}.
 
 maybe_max_fragment_length(Extensions, State) ->
     ServerMaxFragEnum = maps:get(max_frag_enum, Extensions, undefined),

@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2005-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -203,8 +205,8 @@ normalise_test(function, 1)  -> is_function;
 normalise_test(integer, 1)   -> is_integer;
 normalise_test(list, 1)      -> is_list;
 normalise_test(number, 1)    -> is_number;
-normalise_test(pid, 1)       -> is_pid; 
-normalise_test(port, 1)      -> is_port; 
+normalise_test(pid, 1)       -> is_pid;
+normalise_test(port, 1)      -> is_port;
 normalise_test(record, 2)    -> is_record;
 normalise_test(reference, 1) -> is_reference;
 normalise_test(tuple, 1)     -> is_tuple;
@@ -366,14 +368,34 @@ expr({'receive',Anno,Cs0,To0,ToEs0}, St0) ->
     {Cs,St3} = clauses(Cs0, St2),
     {{'receive',Anno,Cs,To,ToEs},St3};
 expr({'fun',Anno,{function,F,A}}=Fun0, St0) ->
-    case erl_internal:bif(F, A) of
-        true ->
-	    {As,St1} = new_vars(A, Anno, St0),
-	    Cs = [{clause,Anno,As,[],[{call,Anno,{atom,Anno,F},As}]}],
-	    Fun = {'fun',Anno,{clauses,Cs}},
-	    expr(Fun,  St1);
-	false ->
-	    {Fun0,St0}
+    FA = {F,A},
+    case St0#exprec.calltype of
+	#{FA := local} ->
+	    {Fun0,St0};
+	#{FA := {imported,M}} ->
+            %% refers to another module, so keep it symbolic; do not create
+            %% a local fun which is subject to dynamic code replacement
+	    MAtom = {atom,Anno,M},
+	    FAtom = {atom,Anno,F},
+            AInt = {integer,Anno,A},
+            {{'fun',Anno,{function,MAtom,FAtom,AInt}},St0};
+	_ ->
+            case erl_internal:bif(F, A) of
+                true ->
+                    %% auto-imported from the 'erlang' module;
+                    %% handle like other imports above
+                    MAtom = {atom,Anno,erlang},
+                    FAtom = {atom,Anno,F},
+                    AInt = {integer,Anno,A},
+                    {{'fun',Anno,{function,MAtom,FAtom,AInt}},St0};
+                false ->
+                    %% a generated function like module_info/0/1 or a
+                    %% pseudo function; create a local fun wrapper
+                    {As,St1} = new_vars(A, Anno, St0),
+                    Cs = [{clause,Anno,As,[],[{call,Anno,{atom,Anno,F},As}]}],
+                    Fun = {'fun',Anno,{clauses,Cs}},
+                    expr(Fun,  St1)
+            end
     end;
 expr({'fun',_,{function,_M,_F,_A}}=Fun, St) ->
     {Fun,St};
@@ -478,6 +500,8 @@ expr({op,Anno,Op,L0,R0}, St0) ->
     {{op,Anno,Op,L,R},St2};
 expr({executable_line,_,_}=E, St) ->
     {E, St};
+expr({debug_line,_,_}=E, St) ->
+    {E, St};
 expr({ssa_check_when,_,_,_,_,_}=E, St) ->
     {E, St}.
 
@@ -505,7 +529,7 @@ strict_record_access(E0, St0) ->
     St1 = St0#exprec{strict_ra = [], checked_ra = NC},
     expr(E1, St1).
 
-%% Make it look nice (?) when compiled with the 'E' flag 
+%% Make it look nice (?) when compiled with the 'E' flag
 %% ('and'/2 is left recursive).
 conj([], _E) ->
     empty;
@@ -545,11 +569,21 @@ lc_tq(Anno, [{generate,AnnoG,P0,G0} | Qs0], St0) ->
     {P1,St2} = pattern(P0, St1),
     {Qs1,St3} = lc_tq(Anno, Qs0, St2),
     {[{generate,AnnoG,P1,G1} | Qs1],St3};
+lc_tq(Anno, [{generate_strict,AnnoG,P0,G0} | Qs0], St0) ->
+    {G1,St1} = expr(G0, St0),
+    {P1,St2} = pattern(P0, St1),
+    {Qs1,St3} = lc_tq(Anno, Qs0, St2),
+    {[{generate_strict,AnnoG,P1,G1} | Qs1],St3};
 lc_tq(Anno, [{b_generate,AnnoG,P0,G0} | Qs0], St0) ->
     {G1,St1} = expr(G0, St0),
     {P1,St2} = pattern(P0, St1),
     {Qs1,St3} = lc_tq(Anno, Qs0, St2),
     {[{b_generate,AnnoG,P1,G1} | Qs1],St3};
+lc_tq(Anno, [{b_generate_strict,AnnoG,P0,G0} | Qs0], St0) ->
+    {G1,St1} = expr(G0, St0),
+    {P1,St2} = pattern(P0, St1),
+    {Qs1,St3} = lc_tq(Anno, Qs0, St2),
+    {[{b_generate_strict,AnnoG,P1,G1} | Qs1],St3};
 lc_tq(Anno, [{m_generate,AnnoG,P0,G0} | Qs0], St0) ->
     {G1,St1} = expr(G0, St0),
     {map_field_exact,AnnoMFE,KeyP0,ValP0} = P0,
@@ -558,6 +592,18 @@ lc_tq(Anno, [{m_generate,AnnoG,P0,G0} | Qs0], St0) ->
     {Qs1,St4} = lc_tq(Anno, Qs0, St3),
     P1 = {map_field_exact,AnnoMFE,KeyP1,ValP1},
     {[{m_generate,AnnoG,P1,G1} | Qs1],St4};
+lc_tq(Anno, [{m_generate_strict,AnnoG,P0,G0} | Qs0], St0) ->
+    {G1,St1} = expr(G0, St0),
+    {map_field_exact,AnnoMFE,KeyP0,ValP0} = P0,
+    {KeyP1,St2} = pattern(KeyP0, St1),
+    {ValP1,St3} = pattern(ValP0, St2),
+    {Qs1,St4} = lc_tq(Anno, Qs0, St3),
+    P1 = {map_field_exact,AnnoMFE,KeyP1,ValP1},
+    {[{m_generate_strict,AnnoG,P1,G1} | Qs1],St4};
+lc_tq(Anno, [{zip,AnnoG,G0} | Qs0], St0) ->
+    {G1,St1} = lc_tq(Anno, G0, St0),
+    {Qs1,St2} = lc_tq(Anno, Qs0, St1),
+    {[{zip,AnnoG,G1}|Qs1],St2};
 lc_tq(Anno, [F0 | Qs0], #exprec{calltype=Calltype,raw_records=Records}=St0) ->
     %% Allow record/2 and expand out as guard test.
     IsOverriden = fun(FA) ->
@@ -785,7 +831,7 @@ record_upd_fs([{record_field,Anno,{atom,_AnnoA,F},_Val} | Fs], Us, St0) ->
 record_upd_fs([], _, St) -> {[],[],St}.
 
 %% record_setel(Record, RecordName, [RecDefField], [Update])
-%%  Build a nested chain of setelement calls to build the 
+%%  Build a nested chain of setelement calls to build the
 %%  updated record tuple.
 
 record_setel(R, Name, Fs, Us0) ->

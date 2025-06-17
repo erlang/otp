@@ -1,6 +1,8 @@
 %%
 %% %CopyrightBegin%
 %%
+%% SPDX-License-Identifier: Apache-2.0
+%%
 %% Copyright Ericsson AB 2006-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
@@ -25,7 +27,7 @@
 
 -export([borderline/1, atomic/1,
          bad_zip/1, unzip_from_binary/1, unzip_to_binary/1,
-         zip_to_binary/1,
+         zip_to_binary/1, sanitize_filenames/1,
          unzip_options/1, zip_options/1, list_dir_options/1, aliases/1,
          zip_api/1, open_leak/1, unzip_jar/1,
 	 unzip_traversal_exploit/1,
@@ -35,7 +37,7 @@
          zip64_central_headers/0, unzip64_central_headers/0,
          zip64_central_headers/1, unzip64_central_headers/1,
          zip64_central_directory/1,
-         basic_timestamp/1, extended_timestamp/1,
+         basic_timestamp/1, extended_timestamp/1, capped_timestamp/1,
          uid_gid/1]).
 
 -export([zip/5, unzip/3]).
@@ -97,7 +99,8 @@ un_z64(Mode) ->
     end.
 
 zip_testcases() ->
-    [mode, basic_timestamp, extended_timestamp, uid_gid].
+    [mode, basic_timestamp, extended_timestamp,
+     capped_timestamp, uid_gid, sanitize_filenames].
 
 zip64_testcases() ->
     [unzip64_central_headers,
@@ -231,22 +234,27 @@ borderline_test(Size, TempDir) ->
     {ok, Archive} = zip:zip(Archive, [Name]),
     ok = file:delete(Name),
 
+    RelName = filename:join(tl(filename:split(Name))),
+
     %% Verify listing and extracting.
     {ok, [#zip_comment{comment = []},
-          #zip_file{name = Name,
+          #zip_file{name = RelName,
                     info = Info,
                     offset = 0,
                     comp_size = _}]} = zip:list_dir(Archive),
     Size = Info#file_info.size,
-    {ok, [Name]} = zip:extract(Archive, [verbose]),
+    TempRelName = filename:join(TempDir, RelName),
+    {ok, [TempRelName]} = zip:extract(Archive, [verbose, {cwd, TempDir}]),
 
-    %% Verify contents of extracted file.
-    {ok, Bin} = file:read_file(Name),
+    %% Verify that absolute file was not created
+    {error, enoent} = file:read_file(Name),
+
+    %% Verify that relative contents of extracted file.
+    {ok, Bin} = file:read_file(TempRelName),
     true = match_byte_list(X0, binary_to_list(Bin)),
 
-
     %% Verify that Unix zip can read it. (if we have a unix zip that is!)
-    zipinfo_match(Archive, Name),
+    zipinfo_match(Archive, RelName),
 
     ok.
 
@@ -1558,6 +1566,39 @@ extended_timestamp(Config) ->
 
     ok.
 
+% checks that the timestamps in the zip file are wrapped if > 59
+capped_timestamp(Config) ->
+
+    DataDir = get_value(data_dir, Config),
+    Archive = filename:join(DataDir, "bad_seconds.zip"),
+    PrivDir =  get_value(pdir, Config),
+    ExtractDir = filename:join(PrivDir, "extract"),
+
+    {ok, [#zip_comment{},
+          #zip_file{ info = ZipFI = #file_info{ mtime = ZMtime }} ]} =
+        zip:list_dir(Archive),
+
+    ct:log("in zip : ~p",[ZipFI]),
+
+    %% zipinfo shows something different from what unzip
+    ct:log("zipinfo:~n~ts",[os:cmd("zipinfo -v "++Archive)]),
+
+    % and not {{2024, 12, 31}, {23, 59, 60}}
+    ?assertEqual({{2025, 1, 1}, {0, 0, 0}}, ZMtime),
+
+    ok = file:make_dir(ExtractDir),
+    ?assertMatch(
+       {ok, ["testfile.txt"]},
+       unzip(Config, Archive, [{cwd,ExtractDir}])),
+
+    {ok, UnzipFI } =
+        file:read_file_info(filename:join(ExtractDir, "testfile.txt"),[raw]),
+
+    ct:log("extract: ~p",[UnzipFI]),
+    UnzipMode = un_z64(get_value(unzip, Config)),
+    assert_timestamp(UnzipMode, UnzipFI, ZMtime),
+    ok.
+
 assert_timestamp(unemzip, _FI, _ZMtime) ->
     %% emzip does not support timestamps
     ok;
@@ -1616,6 +1657,50 @@ uid_gid(Config) ->
             %% emzip does not support uid_gid
             ok
     end,
+
+    ok.
+
+sanitize_filenames(Config) ->
+    RootDir = get_value(pdir, Config),
+    TempDir = filename:join(RootDir, "sanitize_filenames"),
+    ok = file:make_dir(TempDir),
+
+    %% Check that /tmp/absolute does not exist
+    {error, enoent} = file:read_file("/tmp/absolute"),
+
+    %% Create a zip archive /tmp/absolute in it
+    %%   This file was created using the command below on Erlang/OTP 28.0
+    %%   1> rr(file), {ok, {_, Bin}} = zip:zip("absolute.zip", [{"/tmp/absolute",<<>>,#file_info{ type=regular, mtime={{2000,1,1},{0,0,0}}, size=0 }}], [memory]), rp(base64:encode(Bin)).
+    AbsZip = base64:decode(<<"UEsDBAoAAAAAAAAAISgAAAAAAAAAAAAAAAANAAkAL3RtcC9hYnNvbHV0ZVVUBQABcDVtOFBLAQI9AwoAAAAAAAAAISgAAAAAAAAAAAAAAAANAAkAAAAAAAAAAACkAQAAAAAvdG1wL2Fic29sdXRlVVQFAAFwNW04UEsFBgAAAAABAAEARAAAADQAAAAAAA==">>),
+    AbsArchive = filename:join(TempDir, "absolute.zip"),
+    ok = file:write_file(AbsArchive, AbsZip),
+
+    {ok, ["tmp/absolute"]} = unzip(Config, AbsArchive, [verbose, {cwd, TempDir}]),
+
+    zipinfo_match(AbsArchive, "/tmp/absolute"),
+
+    case un_z64(get_value(unzip, Config)) =/= unemzip of
+        true ->
+            {error, enoent} = file:read_file("/tmp/absolute"),
+            {ok, <<>>} = file:read_file(filename:join([TempDir, "tmp", "absolute"]));
+        false ->
+            ok
+    end,
+
+    RelArchive = filename:join(TempDir, "relative.zip"),
+    Relative = filename:join(TempDir, "relative"),
+    ok = file:write_file(Relative, <<>>),
+    ?assertMatch({ok, RelArchive},zip(Config, RelArchive, "", [Relative], [{cwd, TempDir}])),
+
+    SanitizedRelative = filename:join(tl(filename:split(Relative))),
+    case un_z64(get_value(unzip, Config)) =:= unemzip of
+        true ->
+            {ok, [SanitizedRelative]} = unzip(Config, RelArchive, [{cwd, TempDir}]);
+        false ->
+            ok
+    end,
+
+    zipinfo_match(RelArchive, SanitizedRelative),
 
     ok.
 

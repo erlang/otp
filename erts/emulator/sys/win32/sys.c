@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2024. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 1996-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -1482,9 +1484,11 @@ static int escape_and_quote(wchar_t *str, wchar_t *new, BOOL *quoted) {
  *	executable name.
  *
  * Results:
- *	The return value is FALSE if there was a problem creating the child process.  
- *      Otherwise, the return value is 0 and *phPid is
- *	filled with the process id of the child process.
+ *	The return value is FALSE if there was a problem creating the child process.
+ *
+ *      When successful, the return value is nonzero, *phPid is filled with the
+ *      process handle of the child process, and *pdwID is filled with its
+ *      process ID.
  * 
  * Side effects:
  *	A process is created.
@@ -1503,12 +1507,12 @@ create_child_process
  HANDLE hStdout, /* The standard output handle for child. */ 
  HANDLE hStderr, /* The standard error handle for child. */
  LPHANDLE phPid, /* Pointer to variable to received Process handle. */
- LPDWORD pdwID,   /* Pointer to variable to received Process ID */
+ LPDWORD pdwID,  /* Pointer to variable to received Process ID */
  BOOL hide,      /* Hide the window unconditionally. */
  LPVOID env,     /* Environment for the child */
- wchar_t *wd,      /* Working dir for the child */
+ wchar_t *wd,    /* Working dir for the child */
  unsigned st,    /* Flags for spawn, tells us how to interpret origcmd */
- wchar_t **argv,     /* Argument vector if given. */
+ wchar_t **argv, /* Argument vector if given. */
  int *errno_return /* Place to put an errno in case of failure */
  )
 {

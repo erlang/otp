@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2007-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -102,10 +104,6 @@ replace_labels_1([{bs_create_bin,{f,Lbl},Alloc,Live,Unit,Dst,{list,List}}|Is], A
   when Lbl =/= 0 ->
     replace_labels_1(Is, [{bs_create_bin,{f,label(Lbl, D, Fb)},
                            Alloc,Live,Unit,Dst,{list,List}}|Acc], D, Fb);
-replace_labels_1([{bs_init,{f,Lbl},Info,Live,Ss,Dst}|Is], Acc, D, Fb) when Lbl =/= 0 ->
-    replace_labels_1(Is, [{bs_init,{f,label(Lbl, D, Fb)},Info,Live,Ss,Dst}|Acc], D, Fb);
-replace_labels_1([{bs_put,{f,Lbl},Info,Ss}|Is], Acc, D, Fb) when Lbl =/= 0 ->
-    replace_labels_1(Is, [{bs_put,{f,label(Lbl, D, Fb)},Info,Ss}|Acc], D, Fb);
 replace_labels_1([{put_map=I,{f,Lbl},Op,Src,Dst,Live,List}|Is], Acc, D, Fb)
   when Lbl =/= 0 ->
     replace_labels_1(Is, [{I,{f,label(Lbl, D, Fb)},Op,Src,Dst,Live,List}|Acc], D, Fb);

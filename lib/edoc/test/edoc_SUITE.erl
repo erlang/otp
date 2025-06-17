@@ -1,4 +1,10 @@
-%% ``Licensed under the Apache License, Version 2.0 (the "License");
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+%%
+%% Copyright Ericsson AB 2001-2025. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
 %%
@@ -9,11 +15,19 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
-%% The Initial Developer of the Original Code is Ericsson Utvecklings AB.
-%% Portions created by Ericsson are Copyright 1999, Ericsson Utvecklings
-%% AB. All Rights Reserved.''
-%% 
+%%
+%% Alternatively, you may use this file under the terms of the GNU Lesser
+%% General Public License (the "LGPL") as published by the Free Software
+%% Foundation; either version 2.1, or (at your option) any later version.
+%% If you wish to allow use of your version of this file only under the
+%% terms of the LGPL, you should delete the provisions above and replace
+%% them with the notice and other provisions required by the LGPL; see
+%% <http://www.gnu.org/licenses/>. If you do not delete the provisions
+%% above, a recipient may use your version of this file under the terms of
+%% either the Apache License or the LGPL.
+%%
+%% %CopyrightEnd%
+
 -module(edoc_SUITE).
 
 -include_lib("common_test/include/ct.hrl").
@@ -25,13 +39,13 @@
 %% Test cases
 -export([app/1,appup/1,build_std/1,build_map_module/1,otp_12008/1,
          build_app/1, otp_14285/1, infer_module_app_test/1,
-         module_with_feature/1, module_with_maybe/1]).
+         module_with_feature/1, module_with_maybe/1, module_with_nominal/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() ->
     [app,appup,build_std,build_map_module,otp_12008, build_app, otp_14285,
-     infer_module_app_test, module_with_feature].
+     infer_module_app_test, module_with_feature, module_with_nominal].
 
 groups() -> 
     [].
@@ -167,6 +181,16 @@ module_with_maybe(Config) ->
     DataDir = ?config(data_dir, Config),
     PrivDir = ?config(priv_dir, Config),
     Source = filename:join(DataDir, "module_with_maybe.erl"),
+    DodgerOpts = [{dir, PrivDir}],
+    ok = edoc:files([Source], DodgerOpts),
+    PreprocessOpts = [{preprocess, true}, {dir, PrivDir}],
+    ok = edoc:files([Source], PreprocessOpts),
+    ok.
+
+module_with_nominal(Config) ->
+    DataDir = ?config(data_dir, Config),
+    PrivDir = ?config(priv_dir, Config),
+    Source = filename:join(DataDir, "module_with_nominal.erl"),
     DodgerOpts = [{dir, PrivDir}],
     ok = edoc:files([Source], DodgerOpts),
     PreprocessOpts = [{preprocess, true}, {dir, PrivDir}],

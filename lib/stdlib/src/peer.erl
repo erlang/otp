@@ -1,5 +1,10 @@
 %%
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
 %% Copyright WhatsApp Inc. and its affiliates. All rights reserved.
+%% Copyright Ericsson AB 2011-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -12,6 +17,8 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
+%%
+%% %CopyrightEnd%
 %%
 
 %% @doc
@@ -51,6 +58,8 @@
 -moduledoc({file, "../doc/src/peer.md"}).
 -moduledoc(#{since => "OTP 25.0"}).
 -endif.
+
+-compile(nowarn_deprecated_catch).
 
 %% API
 -export([

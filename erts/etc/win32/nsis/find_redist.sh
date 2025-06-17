@@ -1,8 +1,10 @@
 #! /bin/sh
 # 
 # %CopyrightBegin%
+#
+# SPDX-License-Identifier: Apache-2.0
 # 
-# Copyright Ericsson AB 2007-2021. All Rights Reserved.
+# Copyright Ericsson AB 2007-2025. All Rights Reserved.
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -85,13 +87,19 @@ add_path_element()
 if [ "$1" = "win64" ]; then
     AMD64DIR=true
     VCREDIST=vcredist_x64
+    VCREDIST2=vcredist.x64
     COMPONENTS="cl amd64 bin vc"
 elif [ "$1" = "win32" ]; then
     AMD64DIR=false
     VCREDIST=vcredist_x86
+    VCREDIST2=vcredist.x86
     COMPONENTS="cl bin vc"
+elif [ "$1" = "arm64" ]; then
+    AMD64DIR=false
+    VCREDIST=vcredist_arm64
+    VCREDIST2=vcredist.arm64
 else
-    echo "TARGET argument should win32 or win64"
+    echo "TARGET argument should win32, win64 or arm64"
     exit 2
 fi
 
@@ -101,11 +109,16 @@ if [ x"$VCToolsRedistDir" != x"" ]; then
 	echo "$File"
 	exit 0
     fi
+    File="$VCToolsRedistDir/$VCREDIST2.exe"
+    if [ -r "$File" ]; then
+	echo "$File"
+	exit 0
+    fi
 fi
 
 CLPATH=`lookup_prog_in_path cl`
 if [ -z "$CLPATH" ]; then 
-    echo "Can not locate cl.exe and vcredist_x86/x64.exe - OK if using mingw" >&2
+    echo "Can not locate cl.exe and vcredist_x86/x64/arm64.exe - OK if using mingw" >&2
     exit 1
 fi
 

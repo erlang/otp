@@ -1,6 +1,8 @@
 %
 %% %CopyrightBegin%
 %%
+%% SPDX-License-Identifier: Apache-2.0
+%%
 %% Copyright Ericsson AB 2007-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
@@ -44,6 +46,7 @@
          cipher/5, 
          aead_encrypt/6, 
          aead_decrypt/6,
+         aead_type/2,
 	 suites/1, 
          all_suites/1,
          crypto_support_filters/0,

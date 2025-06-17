@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2015-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2015-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -48,6 +50,7 @@
 
 -define(SSHC_SUP(Pid), {sshc_sup, Pid, supervisor, [supervisor]}).
 -define(SSHD_SUP(Pid), {sshd_sup, Pid, supervisor, [supervisor]}).
+-define(LSOCKET_SUP(Pid), {ssh_lsocket_sup, Pid, supervisor, [ssh_lsocket_sup]}).
 -define(SYSTEM_SUP(Pid,Address),
         {{ssh_system_sup, Address}, Pid, supervisor,[ssh_system_sup]}).
 -define(CONNECTION_SUP(Pid), {_,Pid, supervisor,[ssh_connection_sup]}).
@@ -116,7 +119,8 @@ default_tree(Config) when is_list(Config) ->
     {value, ?SSHC_SUP(_)} = lists:keysearch(sshc_sup, 1, TopSupChildren),
     {value, ?SSHD_SUP(_)} = lists:keysearch(sshd_sup, 1, TopSupChildren),
     ?wait_match([], supervisor:which_children(sshc_sup)),
-    ?wait_match([], supervisor:which_children(sshd_sup)).
+    ?wait_match([?LSOCKET_SUP(_)],
+                supervisor:which_children(sshd_sup)).
 
 %%-------------------------------------------------------------------------
 sshc_subtree(Config) when is_list(Config) ->
@@ -160,14 +164,15 @@ sshd_subtree(Config) when is_list(Config) ->
     ct:log("Expect HostIP=~p, Port=~p, Daemon=~p",[HostIP,Port,Daemon]),
     ?wait_match([?SYSTEM_SUP(Daemon, #address{address=ListenIP,
                                               port=Port,
-                                              profile=?DEFAULT_PROFILE})],
+                                              profile=?DEFAULT_PROFILE}),
+                 ?LSOCKET_SUP(_)],
 		supervisor:which_children(sshd_sup),
 		[ListenIP,Daemon]),
     true = ssh_test_lib:match_ip(HostIP, ListenIP),
     check_sshd_system_tree(Daemon, HostIP, Port, Config),
     ssh:stop_daemon(HostIP, Port),
     ct:sleep(?WAIT_FOR_SHUTDOWN),
-    ?wait_match([], supervisor:which_children(sshd_sup)).
+    ?wait_match([?LSOCKET_SUP(_)], supervisor:which_children(sshd_sup)).
 
 %%-------------------------------------------------------------------------
 sshd_subtree_profile(Config) when is_list(Config) ->
@@ -181,14 +186,15 @@ sshd_subtree_profile(Config) when is_list(Config) ->
     ct:log("Expect HostIP=~p, Port=~p, Profile=~p, Daemon=~p",[HostIP,Port,Profile,Daemon]),
     ?wait_match([?SYSTEM_SUP(Daemon, #address{address=ListenIP,
                                               port=Port,
-                                              profile=Profile})],
+                                              profile=Profile}),
+                ?LSOCKET_SUP(_)],
 		supervisor:which_children(sshd_sup),
 		[ListenIP,Daemon]),
     true = ssh_test_lib:match_ip(HostIP, ListenIP),
     check_sshd_system_tree(Daemon, HostIP, Port, Config),
     ssh:stop_daemon(HostIP, Port, Profile),
     ct:sleep(?WAIT_FOR_SHUTDOWN),
-    ?wait_match([], supervisor:which_children(sshd_sup)).
+    ?wait_match([?LSOCKET_SUP(_)], supervisor:which_children(sshd_sup)).
 
 %%-------------------------------------------------------------------------
 killed_acceptor_restarts(Config) ->

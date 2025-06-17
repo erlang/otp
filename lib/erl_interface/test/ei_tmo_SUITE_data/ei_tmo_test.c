@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2003-2020. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2003-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -224,9 +226,9 @@ int decode_request(char **nodename_p, char **cookie_p, char **peername_p,
             DEBUGF(("Failure at line %d\n",__LINE__));
             goto cleanup;
         }
-        if (strcmp(socket_impl,"default") == 0)
+        if (my_strcmp(socket_impl,"default") == 0)
             *use_ussi_p = 0;
-        else if (strcmp(socket_impl,"ussi") == 0)
+        else if (my_strcmp(socket_impl,"ussi") == 0)
             *use_ussi_p = 1;
         else {
             DEBUGF(("Unkown socket_impl '%s' at %d\n",socket_impl,__LINE__));

@@ -1,6 +1,8 @@
 /*
  * %CopyrightBegin%
  *
+ * SPDX-License-Identifier: Apache-2.0
+ *
  * Copyright Ericsson AB 2022-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -339,8 +341,7 @@ typedef struct {
     int          iov_max;
 
     /* XXX
-     * Should be locked but too awkward for no gain
-     * since it is not used yet.
+     * Should be locked but too awkward for no gain since it is not used yet
      */
     BOOLEAN_T    iow; // Where do we send this? Subscription?
 
@@ -453,11 +454,9 @@ typedef struct {
      */
     ESockRequestor     currentReader;
     ESockRequestor*    currentReaderP; // NULL or &currentReader
+    ErlNifBinary       buf;
 #endif
     ESockRequestQueue  readersQ;
-
-    ErlNifBinary       readBuf;
-    ssize_t            readResult;
 
     ESockCounter       readPkgCnt;
     ESockCounter       readPkgMax;
@@ -522,6 +521,7 @@ typedef struct {
     SOCKET             sock;
     SOCKET             origFD; // A 'socket' created from this FD
     BOOLEAN_T          closeOnClose; // Have we dup'ed or not
+    BOOLEAN_T          selectRead; // Try to have read select active
     /* +++ The dbg flag for SSDBG +++ */
     BOOLEAN_T          dbg;
     BOOLEAN_T          useReg;

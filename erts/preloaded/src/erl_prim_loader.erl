@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -483,6 +485,7 @@ loop(St0, Parent, Paths) ->
 		    ok;
 		{Resp,#state{}=St1} ->
 		    Pid ! {self(),Resp},
+                    erlang:garbage_collect(),
                     loop(St1, Parent, Paths);
 		{_,State2,_} ->
                     exit({bad_state,Req,State2})
@@ -691,18 +694,20 @@ efile_gm_recv(N, Ref, Succ, Fail) ->
     end.
 
 efile_gm_spawn(ParentRef, Ms, Process, Paths) ->
-    efile_gm_spawn_1(0, Ms, ParentRef, Process, Paths).
+    S = erlang:system_info(schedulers_online),
+    MaxN = min(S + (S bsr 1), 32),
+    efile_gm_spawn_1(0, MaxN, Ms, ParentRef, Process, Paths).
 
-efile_gm_spawn_1(N, Ms, ParentRef, Process, Paths) when N >= 32 ->
+efile_gm_spawn_1(N, MaxN, Ms, ParentRef, Process, Paths) when N > MaxN ->
     receive
 	{'DOWN',_,process,_,_} ->
-	    efile_gm_spawn_1(N-1, Ms, ParentRef, Process, Paths)
+	    efile_gm_spawn_1(N-1, MaxN, Ms, ParentRef, Process, Paths)
     end;
-efile_gm_spawn_1(N, [M|Ms], ParentRef, Process, Paths) ->
+efile_gm_spawn_1(N, MaxN, [M|Ms], ParentRef, Process, Paths) ->
     Get = fun() -> efile_gm_get(Paths, M, ParentRef, Process) end,
     _ = spawn_monitor(Get),
-    efile_gm_spawn_1(N+1, Ms, ParentRef, Process, Paths);
-efile_gm_spawn_1(_, [], _, _, _) ->
+    efile_gm_spawn_1(N+1, MaxN, Ms, ParentRef, Process, Paths);
+efile_gm_spawn_1(_, _, [], _, _, _) ->
     ok.
 
 efile_gm_get(Paths, Mod, ParentRef, Process) ->

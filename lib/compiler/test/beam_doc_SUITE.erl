@@ -1,13 +1,33 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2023-2025. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%%
+%% %CopyrightEnd%
 
 -module(beam_doc_SUITE).
 -export([all/0, groups/0, init_per_group/2, end_per_group/2, singleton_moduledoc/1, singleton_doc/1,
          docmodule_with_doc_attributes/1, hide_moduledoc/1, docformat/1,
-         singleton_docformat/1, singleton_meta/1, slogan/1,
+         singleton_docformat/1, singleton_meta/1, source_path/1, behaviours/1, slogan/1,
          types_and_opaques/1, callback/1, hide_moduledoc2/1,
          private_types/1, export_all/1, equiv/1, spec/1, deprecated/1, warn_missing_doc/1,
          doc_with_file/1, doc_with_file_error/1, all_string_formats/1,
          docs_from_ast/1, spec_switch_order/1, user_defined_type/1, skip_doc/1,
-         no_doc_attributes/1]).
+         no_doc_attributes/1, converted_metadata/1, converted_metadata_warnings/1,
+         cover_compiled/1]).
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/eep48.hrl").
@@ -16,7 +36,9 @@
 -define(get_name(), atom_to_list(?FUNCTION_NAME)).
 
 all() ->
-    [{group, documentation_generation_tests}, doc_with_file].
+    [{group, documentation_generation_tests},
+     doc_with_file,
+     cover_compiled].
 
 groups() ->
     [{documentation_generation_tests, [parallel], documentation_generation_tests()}].
@@ -36,6 +58,8 @@ documentation_generation_tests() ->
      docformat,
      singleton_docformat,
      singleton_meta,
+     source_path,
+     behaviours,
      slogan,
      types_and_opaques,
      callback,
@@ -51,7 +75,9 @@ documentation_generation_tests() ->
      docs_from_ast,
      user_defined_type,
      skip_doc,
-     no_doc_attributes
+     no_doc_attributes,
+     converted_metadata,
+     converted_metadata_warnings
     ].
 
 singleton_moduledoc(Conf) ->
@@ -125,38 +151,55 @@ hide_moduledoc2(Conf) ->
 docformat(Conf) ->
     {ok, ModName} = default_compile_file(Conf, "docformat"),
     ModuleDoc = #{<<"en">> => <<"Moduledoc test module">>},
-    Meta = #{format => "text/asciidoc",
-             deprecated => "Use something else",
-             otp_doc_vsn => {1,0,0},
-             since => "1.0"},
     Doc = #{<<"en">> => <<"Doc test module">>},
     {ok, {docs_v1, _,_, <<"text/asciidoc">>, ModuleDoc, Meta,
           [{{function, main,_},_, _, Doc, _}]}} = code:get_doc(ModName),
+    #{format := ~"text/asciidoc", deprecated := ~"Use something else", otp_doc_vsn := {1,0,0}, since := ~"1.0"} = Meta,
     ok.
 
 singleton_docformat(Conf) ->
     {ok, ModName} = default_compile_file(Conf, "singleton_docformat"),
     ModuleDoc = #{<<"en">> => <<"Moduledoc test module">>},
-    Meta = #{format => <<"text/asciidoc">>,
-             deprecated => ~"Use something else",
-             otp_doc_vsn => {1,0,0},
-             since => ~"1.0"},
     Doc = #{<<"en">> => <<"Doc test module\n\nMore info here">>},
-    FunMeta = #{ authors => [<<"Beep Bop">>], equiv => <<"main/3">>, since => ~"1.0" },
     {ok, {docs_v1, _,erlang, <<"text/asciidoc">>, ModuleDoc, Meta,
           [{{function, main,0},_, [<<"main()">>], Doc, FunMeta}]}} = code:get_doc(ModName),
+    #{format := <<"text/asciidoc">>,
+      deprecated := ~"Use something else",
+      otp_doc_vsn := {1,0,0},
+      since := ~"1.0"} = Meta,
+    #{authors := [<<"Beep Bop">>], equiv := <<"main/3">>, since := ~"1.0"} = FunMeta,
     ok.
 
 singleton_meta(Conf) ->
     ModuleName = ?get_name(),
     {ok, ModName} = default_compile_file(Conf, ModuleName),
-    Meta = #{ authors => [<<"Beep Bop">>], equiv => <<"main/3">>, since => ~"1.0" },
     DocMain1 = #{<<"en">> => <<"Returns always ok.">>},
-    {ok, {docs_v1, _,erlang, <<"text/markdown">>, none, #{ since := ~"1.0" },
+    Meta = #{authors => [<<"Beep Bop">>], equiv => <<"main/3">>, since => ~"1.0", source_anno => {9, 1}},
+    {ok, {docs_v1, _,erlang, <<"text/markdown">>, none, #{ since := ~"1.0", source_anno := {1, 2} },
           [{{function, main1,0},_, [<<"main1()">>], DocMain1, #{equiv := <<"main(_)">>,
-                                                                since := ~"1.1"}},
+                                                                since := ~"1.1",
+                                                                source_anno := {19, 1}}},
            {{function, main,0},_, [<<"main()">>], none, Meta}]}}
         = code:get_doc(ModName),
+    ok.
+
+source_path(Conf) ->
+    ModuleName = ?get_name(),
+    % Includes absolute source path by default
+    FilePath = filename:absname(data_file_path(Conf, ModuleName)),
+    {ok, ModName} = default_compile_file(Conf, ModuleName),
+    {ok, {docs_v1, _, _, _, _, Meta1, _}} = code:get_doc(ModName),
+    #{source_path := FilePath} = Meta1,
+    % Excludes source path when deterministic
+    {ok, ModName} = default_compile_file(Conf, ModuleName, [deterministic]),
+    {ok, {docs_v1, _, _, _, _, Meta2, _}} = code:get_doc(ModName),
+    false = is_map_key(source_path, Meta2),
+    ok.
+
+behaviours(Conf) ->
+    ModuleName = ?get_name(),
+    {ok, ModName} = default_compile_file(Conf, ModuleName),
+    {ok, {docs_v1, _, _, _, _, #{behaviours := [gen_event, gen_server]}, _}} = code:get_doc(ModName),
     ok.
 
 slogan(Conf) ->
@@ -189,8 +232,6 @@ types_and_opaques(Conf) ->
     OpaqueDoc = #{<<"en">> =>
                       <<"Represents the name of a person that cannot be named.">>},
     MaybeOpaqueDoc = #{<<"en">> => <<"mmaybe(X) ::= nothing | X.\n\nRepresents a maybe type.">>},
-    MaybeMeta = #{ authors => "Someone else", exported => true },
-    NaturalNumberMeta = #{since => "1.0", equiv => <<"non_neg_integer/0">>, exported => true},
 
     {ok, {docs_v1, _,_, _, none, _,
           [%% Type Definitions
@@ -202,7 +243,7 @@ types_and_opaques(Conf) ->
            UsesPublic, Ignore, MapFun, PrivateEncoding, Foo
           ]}} = code:get_doc(ModName),
 
-    {{type,public,0},{125,2},[<<"public()">>],none,#{exported := true}} = Public,
+    {{type,public,0},{125,2},[<<"public()">>],none,#{exported := true, source_anno := {125, 2}}} = Public,
     {{type,intermediate,0},{124,2},[<<"intermediate()">>],none,#{exported := false}} = Intermediate,
     {{type,hidden_nowarn_type,0},{120,2},[<<"hidden_nowarn_type()">>],hidden,#{exported := false}} = HiddenNoWarnType,
     {{type,hidden_type,0},{117,2},[<<"hidden_type()">>],hidden,#{exported := false}} = HiddenType,
@@ -222,12 +263,12 @@ types_and_opaques(Conf) ->
     {{type,hidden,0},_,[<<"hidden()">>],hidden,#{exported := true}} = Hidden,
     {{type,hidden_false,0},_,[<<"hidden_false()">>],hidden,
      #{exported := true, authors := "Someone else"}} = HiddenFalse,
-    {{type, mmaybe,1},_,[<<"mmaybe(X)">>], MaybeOpaqueDoc, MaybeMeta} = MMaybe,
+    {{type, mmaybe,1},_,[<<"mmaybe(X)">>], MaybeOpaqueDoc, #{authors := "Someone else", exported := true}} = MMaybe,
     {{type, unnamed,0},{30,2},[<<"unnamed()">>], OpaqueDoc,
      #{equiv := <<"non_neg_integer()">>, exported := true}} = Unnamed,
     {{type, param,1},_,[<<"param(X)">>], GenericsDoc,
      #{equiv := <<"madeup()">>, exported := true}} = Param,
-    {{type, natural_number,0},_,[<<"natural_number()">>], none, NaturalNumberMeta} = NatNumber,
+    {{type, natural_number,0},_,[<<"natural_number()">>], none, #{since := ~"1.0", equiv := <<"non_neg_integer/0">>, exported := true}} = NatNumber,
     {{type, name,1},_,[<<"name(_)">>], TypeDoc, #{exported := true}} = Name,
     {{type, hidden_included_type, 0}, _, _, hidden, #{exported := false }} = HiddenIncludedType,
 
@@ -267,7 +308,7 @@ callback(Conf) ->
     FunctionDoc = #{<<"en">> => <<"all_ok()\n\nCalls all_ok/0">>},
     ChangeOrder = #{<<"en">> => <<"Test changing order">>},
     {ok, {docs_v1, _,_, _, none, _,
-          [{{callback,nowarn,1},{39,2},[<<"nowarn(Arg)">>],hidden,#{}},
+          [{{callback,nowarn,1},{39,2},[<<"nowarn(Arg)">>],hidden,#{source_anno := {41, 2}}},
            {{callback,warn,0},{36,2},[<<"warn()">>],hidden,#{}},
            {{callback,bounded,1},_,[<<"bounded(X)">>],none,#{}},
            {{callback,multi,1},_,[<<"multi(Argument)">>],
@@ -621,6 +662,81 @@ docs_from_ast(_Conf) ->
     check_no_doc_attributes(BeamCodeWSource),
     ok.
 
+%% Test that EEP-48 standardized metadata keys are converted from chardata to binary
+converted_metadata(Config) ->
+    ModuleName = ?get_name(),
+    {ok, ModName, []} = default_compile_file(Config, ModuleName, [return_warnings, report]),
+
+    {ok, {docs_v1, _ModuleAnno,_, _, _, DocMetadata,
+          [Test]}} = code:get_doc(ModName),
+    ?assertMatch(#{ format := ~"custom" }, DocMetadata),
+    ?assertMatch(#{ since := ~"1.0" }, DocMetadata),
+    ?assertMatch(#{ deprecated := ~"yes" }, DocMetadata),
+    ?assertMatch(#{ authors := [~"me",~"myself",~"I"] }, DocMetadata),
+    {{function,test,0}, _, [_], none,TestMetadata} = Test,
+    ?assertMatch(#{ since := ~"1.0" }, TestMetadata),
+    ?assertMatch(#{ deprecated := ~"yes" }, TestMetadata),
+    ?assertMatch(#{ equiv := ~"other" }, TestMetadata),
+    ?assertMatch(#{ group := ~"collection" }, TestMetadata),
+
+    ok.
+
+converted_metadata_warnings(Config) ->
+    ModuleName = ?get_name(),
+    {ok, ModName, Ws} = default_compile_file(Config, ModuleName, [return_warnings, report]),
+
+    {ok, {docs_v1, _ModuleAnno,_, _, _, DocMetadata,
+          [Test]}} = code:get_doc(ModName),
+    ?assertMatch(#{ format := custom }, DocMetadata),
+    ?assertMatch(#{ since := 1.0 }, DocMetadata),
+    ?assertMatch(#{ deprecated := yes }, DocMetadata),
+    ?assertMatch(#{ authors := [me,[myself],{'I'}] }, DocMetadata),
+
+    {{function,test,0}, _, [_], none,TestMetadata} = Test,
+    ?assertMatch(#{ since := 1.0 }, TestMetadata),
+    ?assertMatch(#{ deprecated := yes }, TestMetadata),
+    ?assertMatch(#{ equiv := other }, TestMetadata),
+    ?assertMatch(#{ group := collection }, TestMetadata),
+
+    [{_File,
+        [Authors, ModDocDeprecated, Format, ModDocSince,
+         DocDeprecated, Equiv, Group, DocSinse]}] = Ws,
+
+    ModDocAnno = {3,2},
+    ?assertMatch({ModDocAnno, beam_doc, {invalid_metadata, authors}}, Authors),
+    ?assertMatch({ModDocAnno, beam_doc, {invalid_metadata, deprecated}}, ModDocDeprecated),
+    ?assertMatch({ModDocAnno, beam_doc, {invalid_metadata, format}}, Format),
+    ?assertMatch({ModDocAnno, beam_doc, {invalid_metadata, since}}, ModDocSince),
+
+    DocAnno = {9,2},
+    ?assertMatch({DocAnno, beam_doc, {invalid_metadata, deprecated}}, DocDeprecated),
+    ?assertMatch({DocAnno, beam_doc, {invalid_metadata, equiv}}, Equiv),
+    ?assertMatch({DocAnno, beam_doc, {invalid_metadata, group}}, Group),
+    ?assertMatch({DocAnno, beam_doc, {invalid_metadata, since}}, DocSinse),
+
+    ok.
+
+cover_compiled(Config) ->
+    case test_server:is_cover() of
+        true ->
+            {skip, "Cover is running"};
+        false ->
+            try
+                DataDir = proplists:get_value(data_dir, Config),
+                ok = file:set_cwd(DataDir),
+
+                ModuleName = ?get_name(),
+                {ok, ModName} = default_compile_file(Config, ModuleName),
+                {ok, cover_compiled} = cover:compile(ModuleName),
+
+                {ok, #docs_v1{}} = code:get_doc(ModName),
+
+                ok
+            after
+                cover:stop()
+            end
+    end.
+
 scan_and_parse(Code) ->
     {ok, Toks, _} = erl_scan:string(Code),
     parse(Toks).
@@ -632,8 +748,7 @@ parse(Toks) ->
     [F | parse(Rest)].
 
 compile_file(Conf, ModuleName, ExtraOpts) ->
-    ErlModName = ModuleName ++ ".erl",
-    Filename = filename:join(proplists:get_value(data_dir, Conf), ErlModName),
+    Filename = data_file_path(Conf, ModuleName),
     io:format("Compiling: ~ts~n~p~n",[Filename, ExtraOpts]),
     case compile:file(Filename, ExtraOpts) of
         Res when element(1, Res) =:= ok ->
@@ -648,6 +763,10 @@ compile_file(Conf, ModuleName, ExtraOpts) ->
         Else ->
             Else
     end.
+
+data_file_path(Conf, ModuleName) ->
+    ErlModName = ModuleName ++ ".erl",
+    filename:join(proplists:get_value(data_dir, Conf), ErlModName).
 
 default_compile_file(Conf, ModuleName) ->
   default_compile_file(Conf, ModuleName, []).

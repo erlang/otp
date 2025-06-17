@@ -1,7 +1,9 @@
 %% -*- erlang -*-
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2020-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+%%
+%% Copyright Ericsson AB 2024-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -15,6 +17,16 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 %%
+%% Alternatively, you may use this file under the terms of the GNU Lesser
+%% General Public License (the "LGPL") as published by the Free Software
+%% Foundation; either version 2.1, or (at your option) any later version.
+%% If you wish to allow use of your version of this file only under the
+%% terms of the LGPL, you should delete the provisions above and replace
+%% them with the notice and other provisions required by the LGPL; see
+%% <http://www.gnu.org/licenses/>. If you do not delete the provisions
+%% above, a recipient may use your version of this file under the terms of
+%% either the Apache License or the LGPL.
+%%
 %% %CopyrightEnd%
 
 %% @doc This module can convert application/html+erlang style documentation to markdown.
@@ -26,6 +38,8 @@
 -feature(maybe_expr, enable).
 
 -include_lib("kernel/include/eep48.hrl").
+
+-compile(nowarn_deprecated_catch).
 
 -export([convert_html/2, convert_xml/2, convert_html/3, convert_xml/3]).
 
@@ -52,7 +66,7 @@ convert_html(Application, Html) when is_atom(Application) ->
 convert_xml(Application, Binary) when is_atom(Application) ->
     convert_xml(Application, '', Binary).
 %% @hidden
-convert_xml(Application, Module, Binary) when is_atom(Application), is_atom(Module) ->
+convert_xml(Application, Module, Binary) when is_atom(Application), is_atom(Module), is_binary(Binary) ->
     put(application, atom_to_binary(Application)),
     case xmerl_sax_parser:stream(iolist_to_binary(["<section>",Binary,"</section>"]),
                                   [{event_fun, fun event/3},

@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2025. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -138,7 +140,7 @@ This requires that the source code is structured as applications
 according to the OTP design principles.
 
 For more information about `.rel` files, see
-[OTP Design Principles](`e:system:release_handling.md`) and the
+[Release Handling](`e:system:release_handling.md`) and the
 [rel](`e:sasl:rel.md`) page in SASL.
 
 To generate the binary boot script file `Name.boot` the boot script file
@@ -195,16 +197,16 @@ querying the search path.
 
 The following file types are defined in Erlang/OTP:
 
-| _File Type_               | _File Name/Extension_ | _Documented in_                                     |
-| ------------------------- | --------------------- | --------------------------------------------------- |
-| Module                    | `.erl`                | [Erlang Reference Manual](`e:system:modules.md`)    |
-| Include file              | `.hrl`                | [Erlang Reference Manual](`e:system:modules.md`)    |
-| Release resource file     | `.rel`                | [rel](`e:sasl:rel.md`) in SASL                      |
-| Application resource file | `.app`                | [app](`e:kernel:app.md`) in Kernel                  |
-| Boot script               | `.script`             | [script](`e:sasl:script.md`) in SASL                |
-| Binary boot script        | `.boot`               | -                                                   |
-| Configuration file        | `.config`             | [config](`e:kernel:config.md`) in Kernel            |
-| Application upgrade file  | `.appup`              | [appup](`e:sasl:appup.md`) in SASL                  |
-| Release upgrade file      | `relup`               | [relup](`e:sasl:relup.md`) in SASL                  |
+| File Type                 | File Name/Extension | Documented in                                    |
+| ------------------------- | ------------------- | ------------------------------------------------ |
+| Module                    | `.erl`              | [Erlang Reference Manual](`e:system:modules.md`) |
+| Include file              | `.hrl`              | [Erlang Reference Manual](`e:system:modules.md`) |
+| Release resource file     | `.rel`              | [rel](`e:sasl:rel.md`) in SASL                   |
+| Application resource file | `.app`              | [app](`e:kernel:app.md`) in Kernel               |
+| Boot script               | `.script`           | [script](`e:sasl:script.md`) in SASL             |
+| Binary boot script        | `.boot`             | -                                                |
+| Configuration file        | `.config`           | [config](`e:kernel:config.md`) in Kernel         |
+| Application upgrade file  | `.appup`            | [appup](`e:sasl:appup.md`) in SASL               |
+| Release upgrade file      | `relup`             | [relup](`e:sasl:relup.md`) in SASL               |
 
 _Table: File Types_

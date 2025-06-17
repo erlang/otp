@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2021-2023. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2021-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -42,7 +44,8 @@ void BeamGlobalAssembler::emit_unloaded_fun() {
     load_x_reg_array(ARG2);
     a.lsr(ARG3, ARG3, imm(FUN_HEADER_ARITY_OFFS));
     /* ARG4 has already been set. */
-    runtime_call<4>(beam_jit_handle_unloaded_fun);
+    runtime_call<const Export *(*)(Process *, Eterm *, int, Eterm),
+                 beam_jit_handle_unloaded_fun>();
 
     emit_leave_runtime<Update::eHeapAlloc | Update::eXRegs |
                        Update::eReductions | Update::eCodeIndex>();
@@ -98,7 +101,8 @@ void BeamGlobalAssembler::emit_handle_call_fun_error() {
         a.mov(ARG1, c_p);
         load_x_reg_array(ARG2);
         a.lsr(ARG3, ARG3, imm(FUN_HEADER_ARITY_OFFS));
-        runtime_call<3>(beam_jit_build_argument_list);
+        runtime_call<Eterm (*)(Process *, const Eterm *, int),
+                     beam_jit_build_argument_list>();
 
         emit_leave_runtime<Update::eHeapAlloc | Update::eXRegs>();
 
@@ -207,7 +211,7 @@ void BeamModuleAssembler::emit_i_make_fun3(const ArgLambda &Lambda,
                                            const Span<ArgVal> &env) {
     Uint i = 0;
 
-    ASSERT((NumFree.get() + 1) == env.size() &&
+    ASSERT(NumFree.get() == env.size() &&
            (NumFree.get() + Arity.get()) < MAX_ARG);
 
     mov_arg(TMP2, Lambda);
@@ -378,7 +382,7 @@ a64::Gp BeamModuleAssembler::emit_call_fun(bool skip_box_test,
         a.ldp(TMP2, ARG1, arm::Mem(TMP2));
 
         /* Combined fun type and arity test. */
-        a.cmp(ARG3, TMP2, a64::uxth(0));
+        a.cmp(ARG3, TMP2.r32(), a64::uxth(0));
         a.b_ne(next);
     }
 

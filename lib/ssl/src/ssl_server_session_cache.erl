@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2020-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2020-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -258,4 +260,4 @@ monitor_listener(ssl_unknown_listener) ->
     %% global process.
     undefined;
 monitor_listener(Listen) ->
-    inet:monitor(Listen).
+    tls_socket:monitor_socket(Listen).

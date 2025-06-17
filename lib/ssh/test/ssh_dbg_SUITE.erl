@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2018-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2018-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -192,7 +194,7 @@ dbg_connections(Config) ->
                                                           end},
 					     {failfun, fun ssh_test_lib:failfun/2}]),
     
-    ?DBG_RECEIVE("Starting LISTENER on ", Ref, _, Pid),
+    ?DBG_RECEIVE("ssh_acceptor:acceptor_init/4> Starting LISTENER on ", Ref, _, Pid),
 
     C = ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
 					  {user_dir, UserDir},
@@ -435,7 +437,7 @@ dbg_channels(Config) ->
                                              },
 					     {failfun, fun ssh_test_lib:failfun/2}]),
     
-    ?DBG_RECEIVE("Starting LISTENER on ", Ref, _, Pid),
+    ?DBG_RECEIVE("ssh_acceptor:acceptor_init/4> Starting LISTENER on ", Ref, _, Pid),
 
     C = ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
                                           {user_dir, UserDir},

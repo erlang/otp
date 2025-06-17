@@ -1,6 +1,8 @@
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2022. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1997-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -158,6 +160,12 @@ op_check([set,Result,{{atom,_,bif},{atom,_,Op}}|PArgs], PAnno,
     ?DP("trying bif ~p:~n  res: ~p <-> ~p~n  args: ~p <-> ~p~n  i: ~p~n",
         [Op, Result, Dst, PArgs, AArgs, _I]),
     Env = op_check_call(Op, Result, Dst, PArgs, AArgs, Env0),
+    check_annos(PAnno, AAnno, Env);
+op_check([set,Result,{{atom,_,succeeded},{atom,_,Kind}}|PArgs], PAnno,
+         #b_set{dst=Dst,args=AArgs,op={succeeded,Kind},anno=AAnno}=_I, Env0) ->
+    ?DP("trying succeed ~p:~n  res: ~p <-> ~p~n  args: ~p <-> ~p~n  i: ~p~n",
+        [Kind, Result, Dst, PArgs, AArgs, _I]),
+    Env = op_check_call(dont_care, Result, Dst, PArgs, AArgs, Env0),
     check_annos(PAnno, AAnno, Env);
 op_check([none,{atom,_,ret}|PArgs], PAnno,
          #b_ret{arg=AArg,anno=AAnno}=_I, Env) ->
@@ -340,7 +348,7 @@ build_map_key({list,_,Elems}, Env) ->
 build_map_key({tuple,_,Elems}, Env) ->
     list_to_tuple([build_map_key(E, Env) || E <- Elems]);
 build_map_key({map,_,Elems}, Env) ->
-    #{build_map_key(K, Env) => build_map_key(V, Env) || {K,V} <- Elems};
+    #{build_map_key(K, Env) => build_map_key(V, Env) || {K,V} <:- Elems};
 build_map_key({var,_,V}, Env) ->
     map_get(V, Env);
 build_map_key(_Key, _Env) ->

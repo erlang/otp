@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2025. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -59,8 +61,8 @@ flowchart TD
     API ---> ML[Module Level <hr> Global Level <hr> Global Filters]
     API -.Update configuration.-> DB
     ML -.-> DB
-    ML ---> HL1[Hander Level <hr> Handler Filter]
-    ML ---> HL2[Hander Level <hr> Handler Filter]
+    ML ---> HL1[Handler Level <hr> Handler Filter]
+    ML ---> HL2[Handler Level <hr> Handler Filter]
     HL1 ---> HC1[Handler Callback]
     HL2 ---> HC2[Handler Callback]
     HL1 -.-> DB
@@ -106,7 +108,7 @@ The handlers are called in sequence, and the order is not defined.
 ## Logger API
 
 The API for logging consists of a set of [macros](`m:logger#module-macros`), and a set
-of functions on the form `logger:Level/1,2,3`, which are all shortcuts for
+of functions of the form `logger:Level/1,2,3`, which are all shortcuts for
 [`logger:log(Level,Arg1[,Arg2[,Arg3]])`](`logger:log/2`).
 
 The macros are defined in `logger.hrl`, which is included in a module with the
@@ -568,24 +570,21 @@ The following Kernel configuration parameters apply to Logger:
     `default`, then this entry modifies the default handler, equivalent to
     calling
 
-    ```text
-    		logger:remove_handler(default)
-
+    ```erlang
+    logger:remove_handler(default)
     ```
 
     followed by
 
     ```erlang
-    		logger:add_handler(default, Module, HandlerConfig)
-
+    logger:add_handler(default, Module, HandlerConfig)
     ```
 
     For all other values of `HandlerId`, this entry adds a new handler,
     equivalent to calling
 
     ```erlang
-    		logger:add_handler(HandlerId, Module, HandlerConfig)
-
+    logger:add_handler(HandlerId, Module, HandlerConfig)
     ```
 
     Multiple entries of this type are allowed.
@@ -599,8 +598,7 @@ The following Kernel configuration parameters apply to Logger:
     Equivalent to calling
 
     ```erlang
-    		logger:add_primary_filter(FilterId, {FilterFun, FilterConfig})
-
+    logger:add_primary_filter(FilterId, {FilterFun, FilterConfig})
     ```
 
     for each `Filter`.
@@ -614,7 +612,7 @@ The following Kernel configuration parameters apply to Logger:
     modules. Equivalent to calling
 
     ```erlang
-    		logger:set_module_level(Module, Level)
+    logger:set_module_level(Module, Level)
     ```
 
     for each `Module`.
@@ -624,9 +622,8 @@ The following Kernel configuration parameters apply to Logger:
   - **`{proxy, ProxyConfig}`** - Sets the proxy configuration, equivalent to
     calling
 
-    ```text
-    		logger:set_proxy_config(ProxyConfig)
-
+    ```erlang
+    logger:set_proxy_config(ProxyConfig)
     ```
 
     Only one entry of this type is allowed.
@@ -737,9 +734,8 @@ ways:
   originating from within OTP, except the former so called "SASL reports", look
   the same as before.
 
-- **[](){: #sasl_reports } SASL Reports**  
-  By SASL reports we mean supervisor reports, crash reports and progress
-  reports.
+- **[](){: #sasl_reports } SASL Reports** - By SASL reports we mean supervisor
+  reports, crash reports and progress reports.
 
   Prior to Erlang/OTP 21.0, these reports were only logged when the SASL
   application was running, and they were printed through SASL's own event
@@ -777,11 +773,11 @@ ways:
   See section [SASL User's Guide](`e:sasl:error_logging.md`) for more
   information about the old SASL error logging functionality.
 
-- **[](){: #legacy_event_handlers } Legacy Event Handlers**  
-  To use event handlers written for `error_logger`, just add your event handler
+- **[](){: #legacy_event_handlers } Legacy Event Handlers** - To use event
+  handlers written for `error_logger`, just add your event handler
   with
 
-  ```text
+  ```erlang
   error_logger:add_report_handler/1,2.
   ```
 
@@ -825,7 +821,7 @@ level `notice` or more severe, are logged to the terminal via the default
 handler. To also log info events, you can either change the primary log level to
 `info`:
 
-```text
+```erlang
 1> logger:set_primary_config(level, info).
 ok
 ```
@@ -973,10 +969,23 @@ do_log(Fd, LogEvent, #{formatter := {FModule, FConfig}}) ->
 
 ## Protecting the Handler from Overload
 
-The default handlers, `m:logger_std_h` and `m:logger_disk_log_h`, feature an
-overload protection mechanism, which makes it possible for the handlers to
-survive, and stay responsive, during periods of high load (when huge numbers of
-incoming log requests must be handled). The mechanism works as follows:
+The default handlers, `m:logger_std_h` and `m:logger_disk_log_h`, feature
+multiple overload protection mechanisms, which make it possible for the
+handlers to survive, and stay responsive, during periods of high load
+(when huge numbers of incoming log requests must be handled).
+
+The mechanisms are as follows:
+* [**message queue length**](#message-queue-length): the handler process tracks
+its message queue length and takes actions depending on its size, from turning
+on a sync mode to dropping messages.
+* [**limit the number of logs emitted**](#controlling-bursts-of-log-requests):
+the handlers will handle a maximum number of log events per time unit,
+defaulting to 500 per second.
+* [**terminate an overloaded handler**](#terminating-an-overloaded-handler):
+a handler can be terminated and restarted automatically if it exceeds message
+queue length or memory thresholds - this is disabled by default.
+
+These mechanisms are described in more detail in the following sections.
 
 ### Message Queue Length
 
@@ -1013,6 +1022,8 @@ actions, exist:
   message queue is reduced to a level below the threshold, synchronous or
   asynchronous mode is resumed. Notice that when the handler activates or
   deactivates drop mode, information about it is printed in the log.
+  The emitted log message is on the `:notice` level and looks like this:
+  `Handler :default switched from :sync to :drop mode`
 
   Defaults to `200` messages.
 
@@ -1025,6 +1036,8 @@ actions, exist:
   make sure that no new events are received during the operation. Notice that
   after the flush operation is performed, the handler prints information in the
   log about how many events have been deleted.
+  The emitted log message is on the `:notice` level and looks like this:
+  `Handler :default flushed 1070 log events`
 
   Defaults to `1000` messages.
 
@@ -1081,6 +1094,10 @@ period of time - can potentially cause problems, such as:
 - Log files grow very large, very quickly.
 - Circular logs wrap too quickly so that important data is overwritten.
 - Write buffers grow large, which slows down file sync operations.
+
+Note that these examples apply to file-based logging. If you're logging to
+the console the protections discussed below should be safe to disable or
+tweak, as long as your system can handle the load of them.
 
 For this reason, both built-in handlers offer the possibility to specify the
 maximum number of events to be handled within a certain time frame. With this

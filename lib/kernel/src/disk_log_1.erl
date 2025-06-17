@@ -1,6 +1,8 @@
 %%
 %% %CopyrightBegin%
 %%
+%% SPDX-License-Identifier: Apache-2.0
+%%
 %% Copyright Ericsson AB 1997-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
@@ -19,6 +21,8 @@
 %%
 -module(disk_log_1).
 -moduledoc false.
+
+-compile(nowarn_deprecated_catch).
 
 %% Efficient file based log - implementation part
 

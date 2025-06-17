@@ -1,7 +1,16 @@
 %% ---------------------------------------------------------------------
-%% Licensed under the Apache License, Version 2.0 (the "License"); you may
-%% not use this file except in compliance with the License. You may obtain
-%% a copy of the License at <http://www.apache.org/licenses/LICENSE-2.0>
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+%%
+%% Copyright 2012-2015 Richard Carlsson
+%% Copyright Ericsson AB 2015-2025. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
 %%
 %% Unless required by applicable law or agreed to in writing, software
 %% distributed under the License is distributed on an "AS IS" BASIS,
@@ -19,8 +28,9 @@
 %% above, a recipient may use your version of this file under the terms of
 %% either the Apache License or the LGPL.
 %%
+%% %CopyrightEnd%
+%%
 %% @author Richard Carlsson <carlsson.richard@gmail.com>
-%% @copyright 2012-2015 Richard Carlsson
 
 -module(merl_transform).
 -moduledoc """
@@ -281,6 +291,7 @@ is_erlang_var([C|_]) when C >= $A, C =< $Z ; C >= $À, C =< $Þ, C /= $× ->
 is_erlang_var(_) ->
     false.
 
+-dialyzer({no_opaque_union, [get_location/1]}).
 get_location(T) ->
     Pos = erl_syntax:get_pos(T),
     case erl_anno:is_anno(Pos) of

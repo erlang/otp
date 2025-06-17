@@ -1,6 +1,8 @@
 /*
  * %CopyrightBegin%
  *
+ * SPDX-License-Identifier: Apache-2.0
+ *
  * Copyright Ericsson AB 2023-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -975,7 +977,6 @@ static ERL_NIF_TERM esaio_completion_recv_partial_part(ErlNifEnv*       env,
                                                        ESockDescriptor* descP,
                                                        ErlNifEnv*       opEnv,
                                                        ESAIOOpDataRecv* opDataP,
-                                                       DWORD            toRead,
                                                        ssize_t          read,
                                                        DWORD            flags);
 static void esaio_completion_recv_not_active(ESockDescriptor* descP);
@@ -3220,11 +3221,11 @@ BOOLEAN_T verify_sendmsg_iovec_tail(ErlNifEnv*       env,
             break;
     }
 
-    ESOCK_PRINTF("verify_sendmsg_iovec_tail(%d) -> "
-                 "\r\n   Number of bins in tail: %lu"
-                 "\r\n   data in tail:           %lu"
-                 "\r\n",
-                 descP->sock, binCount, dataInTail);
+    esock_debug_msg("verify_sendmsg_iovec_tail(%d) -> "
+                    "\r\n   Number of bins in tail: %lu"
+                    "\r\n   data in tail:           %lu"
+                    "\r\n",
+                    descP->sock, binCount, dataInTail);
 
 #else
     for (;;) {
@@ -4325,7 +4326,7 @@ ERL_NIF_TERM recv_check_result(ErlNifEnv*       env,
 
 /* *** recv_check_ok ***
  *
- * A successful recv.
+ * A successful recv. We *know* that in this case the buffer is filled!
  */
 
 static
@@ -4396,12 +4397,6 @@ ERL_NIF_TERM recv_check_ok(ErlNifEnv*       env,
                  *
                  * This transfers "ownership" of the *allocated* binary to an
                  * erlang term (no need for an explicit free).
-                 */
-
-                /*
-                 * result = recv_check_ok_maybe_done(env, descP, read,
-                 *                                   &opP->data.recv.buf,
-                 *                                   sockRef, recvRef);
                  */
 
                 data = MKBIN(env, &opP->data.recv.buf);
@@ -4487,6 +4482,7 @@ ERL_NIF_TERM recv_check_ok(ErlNifEnv*       env,
                 
                 eres = recv_check_pending(env, descP, opP, caller,
                                           sockRef, recvRef);
+
             } else {
 
                 /* But we are not allowed to wait! => cancel */
@@ -4513,8 +4509,7 @@ ERL_NIF_TERM recv_check_ok(ErlNifEnv*       env,
 
                 } else {
 
-                    // Will trigger {error, timeout}
-                    eres = esock_atom_timeout;
+                    eres = esock_atom_timeout; // Will trigger {error, timeout}
 
                 }
             }
@@ -4622,7 +4617,7 @@ ERL_NIF_TERM recv_check_failure(ErlNifEnv*       env,
                                 int              saveErrno,
                                 ERL_NIF_TERM     sockRef)
 {
-    ERL_NIF_TERM reason = ENO2T(env, saveErrno);
+    ERL_NIF_TERM reason = MKA(env, erl_errno_id(saveErrno));
 
     SSDBG( descP,
            ("WIN-ESAIO", "recv_check_failure(%T) {%d} -> error: %d (%T)\r\n",
@@ -4796,13 +4791,7 @@ ERL_NIF_TERM recvfrom_check_result(ErlNifEnv*       env,
 
                 } else {
 
-                    /*
-                     * Operation successfully canceled!
-                     *
-                     * Returning 'timeout' will trigger {error, timeout}
-                     */
-
-                    eres = esock_atom_timeout;
+                    eres = esock_atom_timeout; // Will trigger {error, timeout}
 
                 }
 
@@ -8117,7 +8106,7 @@ void esaio_completion_send_completed(ErlNifEnv*       env,
                          env, descP, &reqP->mon) == 0);
 
     /* Success, but we need to check how much we actually sent.
-     * Also the 'flags' (which we currentöy ignore)
+     * Also the 'flags' (which we currently ignore)
      *
      * CompletionStatus = ok | {ok, Written}
      * CompletionInfo   = {ConnRef, CompletionStatus}
@@ -8145,18 +8134,20 @@ void esaio_completion_send_completed(ErlNifEnv*       env,
              * that is; size (length) of I/O vector > IOV_MAX.
              * This is *only* possible for *sendv*!
              * sendmsg also has the data in an I/O vector, but is only
-             * supported for DGRAM, where *all* of the I/O vector must
+             * supported for DGRAM, where *all* of the I/O vector *must*
              * fit in one message.
              */
 
             if (dataInTail) {
 
                 /*
-                ESOCK_PRINTF("esaio_completion_send_completed(%d) -> "
-                             "partial with data in tail: "
+                ESOCK_PRINTF("%s(%d,%d,%d,%d) -> partial with data in tail: "
                              "\r\n   Written: %lu"
                              "\r\n",
-                             descP->sock, written);
+                             __FUNCTION__, __LINE__,
+                             descP->sock,
+                             descP->writePkgCnt, descP->writeByteCnt,
+                             written);
                 */
 
                 completionStatus = esaio_completion_send_partial(env,
@@ -8165,6 +8156,16 @@ void esaio_completion_send_completed(ErlNifEnv*       env,
                                                                  written);
 
             } else {
+
+                /*
+                ESOCK_PRINTF("%s(%d,%d,%d,%d) -> done"
+                             "\r\n   Written: %lu"
+                             "\r\n",
+                             __FUNCTION__, __LINE__,
+                             descP->sock,
+                             descP->writePkgCnt, descP->writeByteCnt,
+                             written);
+                */
 
                 completionStatus = esaio_completion_send_done(env,
                                                               descP, sockRef,
@@ -8179,11 +8180,13 @@ void esaio_completion_send_completed(ErlNifEnv*       env,
              */
 
             /*
-            ESOCK_PRINTF("esaio_completion_send_completed(%d) -> partial: "
-                         "\r\n   To Write: %lu"
-                         "\r\n   Written:  %lu"
+            ESOCK_PRINTF("%s(%d,%d,%d,%d) -> partial: "
+                         "\r\n   Written: %lu (%lu)"
                          "\r\n",
-                         descP->sock, toWrite, written);
+                         __FUNCTION__, __LINE__,
+                         descP->sock,
+                         descP->writePkgCnt, descP->writeByteCnt,
+                         written, toWrite);
             */
 
             completionStatus = esaio_completion_send_partial(env,
@@ -8352,7 +8355,7 @@ void esaio_completion_send_fail(ErlNifEnv*       env,
  *
  *     CompletionInfo:   {CompletionHandle, CompletionStatus}
  *     CompletionHandle: reference()
- *     Result:           ok | {ok, Written} | {error, Reason}
+ *     CompletionStatus: ok | {ok, Written} | {error, Reason}
  *
  * Note that the normal result is 'ok', but if the attempt was to send
  * an I/O vector with length > IOV_MAX, then the vector will be cut
@@ -9623,15 +9626,13 @@ void esaio_completion_recv_failure(ErlNifEnv*       env,
                       esock_atom_completion_status,
                       ENO2T(env, error));
 
-        /* Inform (send abort) the user waiting for the reply */
+        /* Inform the user waiting for a reply */
         esock_send_abort_msg(env, descP, opDataP->sockRef,
                              &req, reason);
         esaio_completion_recv_fail(env, descP, error, FALSE);
 
     } else {
-
         esaio_completion_recv_fail(env, descP, error, TRUE);
-
     }
 
     FREE_BIN( &opDataP->buf );
@@ -9715,17 +9716,6 @@ void esaio_completion_recv_completed(ErlNifEnv*       env,
                                                opEnv, opDataP,
                                                flags);
 
-            } else if (descP->type != SOCK_STREAM) {
-
-                /* Only used a part of the buffer => needs splitting!
-                 * Since this is *not* a STREAM socket (most likely a DGRAM),
-                 * we are done!
-                 */
-
-                completionStatus =
-                    esaio_completion_recv_partial(env, descP,
-                                                  opEnv, opDataP,
-                                                  reqP, read, flags);
             } else {
 
                 /* Only used a part of the buffer =>
@@ -9763,8 +9753,9 @@ void esaio_completion_recv_completed(ErlNifEnv*       env,
     SSDBG( descP,
            ("WIN-ESAIO",
             "esaio_completion_recv_completed -> "
-            "send completion message to %T"
-            "\r\n", MKPID(env, opCaller)) );
+            "send completion message to %T with"
+            "\r\n   CompletionInfo: %T"
+            "\r\n", MKPID(env, opCaller), completionInfo) );
 
     /* Send a 'send' completion message */
     esaio_send_completion_msg(env,                 // Send env
@@ -9777,8 +9768,7 @@ void esaio_completion_recv_completed(ErlNifEnv*       env,
     /* *** Finalize *** */
 
     SSDBG( descP,
-           ("WIN-ESAIO",
-            "esaio_completion_recv_completed -> finalize\r\n") );
+           ("WIN-ESAIO", "esaio_completion_recv_completed -> finalize\r\n") );
 
     /* Request cleanup (demonitor already done above) */
     esock_clear_env("esaio_completion_recv_completed -> req cleanup",
@@ -9914,8 +9904,7 @@ ERL_NIF_TERM esaio_completion_recv_partial(ErlNifEnv*       env,
 
         res = esaio_completion_recv_partial_part(env, descP,
                                                  opEnv, opDataP,
-                                                 toRead, read,
-                                                 flags);
+                                                 read, flags);
     }
 
     SSDBG( descP,
@@ -9974,6 +9963,19 @@ ERL_NIF_TERM esaio_completion_recv_partial_done(ErlNifEnv*       env,
  *
  * A successful but only partial recv, which only partly fulfilled
  * the required read.
+ * We do *not* want to risk ending up in a "never ending" read loop
+ * here (by trying to read more data (and yet again getting partial)).
+ * [worst case, we could up with all our worker threads busy trying
+ * to read more data, and no one ready to respond to new requests].
+ * So we simply return what we got to the user and let the user
+ * decide what to do.
+ *
+ * What shall we send? {ok, Bin} | {more, Bin}
+ * Presumably the user knows how much to expect, so is therefor
+ * able to check:
+ *
+ *           "Expected > byte_size(Bin)"   -> read again
+ *           "Expected =:= byte_size(Bin)" -> done
  */
 
 static
@@ -9981,7 +9983,6 @@ ERL_NIF_TERM esaio_completion_recv_partial_part(ErlNifEnv*       env,
                                                 ESockDescriptor* descP,
                                                 ErlNifEnv*       opEnv,
                                                 ESAIOOpDataRecv* opDataP,
-                                                DWORD            toRead,
                                                 ssize_t          read,
                                                 DWORD            flags)
 {
@@ -11905,7 +11906,7 @@ ERL_NIF_TERM send_check_result(ErlNifEnv*       env,
          *
          * Note that for any sendv where lengtb of the I/O vector is >
          * IOV_MAX, this is a problem. And since IOV_MAX for Windows
-         * is low it can be as low as 16), this is almost certain to
+         * is low (it can be as low as 16), this is almost certain to
          * happen.
          *
          * Note that for the other send operations this is much more unlikely,
@@ -11923,6 +11924,14 @@ ERL_NIF_TERM send_check_result(ErlNifEnv*       env,
              */
 
             *cleanup = FALSE;
+
+            /*
+            ESOCK_PRINTF("%s(%d,%d,%d,%d) -> done (%lu)"
+                         "\r\n",
+                         __FUNCTION__, __LINE__,
+                         descP->sock,
+                         descP->writePkgCnt, descP->writeByteCnt, dataSize);
+            */
 
             res = send_check_ok(env, descP, dataSize, sockRef);
 
@@ -11942,6 +11951,14 @@ ERL_NIF_TERM send_check_result(ErlNifEnv*       env,
             ESOCK_CNT_INC(env, descP, sockRef,
                           esock_atom_write_byte, &descP->writeByteCnt,
                           dataSize);
+
+            /*
+            ESOCK_PRINTF("%s(%d,%d,%d,%d) -> partial (%lu)"
+                         "\r\n",
+                         __FUNCTION__, __LINE__,
+                         descP->sock,
+                         descP->writePkgCnt, descP->writeByteCnt, dataSize);
+            */
 
             res = MKT2(env, esock_atom_iov, MKUI64(env, dataSize));
         }
@@ -12004,7 +12021,7 @@ ERL_NIF_TERM send_check_ok(ErlNifEnv*       env,
                   esock_atom_write_byte, &descP->writeByteCnt, written);
 
     /* We *can* have partial success when using sendv (type = STREAM).
-     * Then its possible to send in an I/O vector with a length > IOV_MAX.
+     * Then its possible to send an I/O vector with a length > IOV_MAX.
      * In which case we can only send a part of the I/O Vector (we
      * will return with '{iov, Written}' and the prim_socket
      * sendv function will call again with the remaining vector,
@@ -12031,7 +12048,7 @@ ERL_NIF_TERM send_check_ok(ErlNifEnv*       env,
 
 /* *** send_check_pending ***
  *
- * The send operation was scheduled, that is, its now in the handls
+ * The send operation was scheduled, that is, its now in the hands
  * of the I/O Completion Port framework.
  */
 static

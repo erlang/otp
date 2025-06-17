@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2025. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -20,6 +22,51 @@ limitations under the License.
 # Eldap Release Notes
 
 This document describes the changes made to the Eldap application.
+
+## Eldap 1.2.16
+
+### Fixed Bugs and Malfunctions
+
+- With this change eldap's 'not' function will have specs fixed.
+
+  Own Id: OTP-19658 Aux Id: [PR-9859]
+
+[PR-9859]: https://github.com/erlang/otp/pull/9859
+
+## Eldap 1.2.15
+
+### Fixed Bugs and Malfunctions
+
+- Enhance specs of timeout for improving documentation and dialyzer analysis.
+
+  Own Id: OTP-19604 Aux Id: [PR-9574]
+
+[PR-9574]: https://github.com/erlang/otp/pull/9574
+
+### Improvements and New Features
+
+- Fixed licenses in files and added ORT curations to the following apps: otp, eldap, erl_interface, eunit, parsetools, stdlib, syntax_tools, and ERTS.
+
+  Own Id: OTP-19478 Aux Id: [PR-9376], [PR-9402], [PR-9819]
+
+- The license and copyright header has changed format to include an `SPDX-License-Identifier`. At the same time, most files have been updated to follow a uniform standard for license headers.
+
+  Own Id: OTP-19575 Aux Id: [PR-9670]
+
+[PR-9376]: https://github.com/erlang/otp/pull/9376
+[PR-9402]: https://github.com/erlang/otp/pull/9402
+[PR-9819]: https://github.com/erlang/otp/pull/9819
+[PR-9670]: https://github.com/erlang/otp/pull/9670
+
+## Eldap 1.2.14.1
+
+### Fixed Bugs and Malfunctions
+
+- With this change eldap's 'not' function will have specs fixed.
+
+  Own Id: OTP-19658 Aux Id: [PR-9859]
+
+[PR-9859]: https://github.com/erlang/otp/pull/9859
 
 ## Eldap 1.2.14
 

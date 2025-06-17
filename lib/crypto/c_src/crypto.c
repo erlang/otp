@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2010-2024. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2010-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -118,6 +120,8 @@ static ErlNifFunc nif_funcs[] = {
     {"rand_seed_nif", 1, rand_seed_nif, 0},
 
     {"aead_cipher_nif", 7, aead_cipher_nif, 0},
+    {"aead_cipher_nif", 4, aead_cipher_nif, 0},
+    {"aead_cipher_init_nif", 4, aead_cipher_init_nif, 0},
 
     {"engine_by_id_nif", 1, engine_by_id_nif, 0},
     {"engine_init_nif", 1, engine_init_nif, 0},
@@ -137,6 +141,9 @@ static ErlNifFunc nif_funcs[] = {
 };
 
 #ifdef HAS_3_0_API
+# ifdef FIPS_SUPPORT
+OSSL_PROVIDER *fips_provider;
+# endif
 OSSL_PROVIDER *prov[MAX_NUM_PROVIDERS];
 int prov_cnt;
 #endif
@@ -224,6 +231,10 @@ static int initialize(ErlNifEnv* env, ERL_NIF_TERM load_info)
     if (!init_cipher_ctx(env, &rt_buf)) {
         ret = __LINE__; goto done;
     }
+    if (!init_aead_cipher_ctx(env, &rt_buf)) {
+        ret = __LINE__; goto done;
+    }
+
     if (!init_engine_ctx(env, &rt_buf)) {
         ret = __LINE__; goto done;
     }
@@ -249,9 +260,7 @@ static int initialize(ErlNifEnv* env, ERL_NIF_TERM load_info)
 #ifdef HAS_3_0_API
     prov_cnt = 0;
 # ifdef FIPS_SUPPORT
-    if ((prov[prov_cnt] = OSSL_PROVIDER_load(NULL, "fips"))) {
-        prov_cnt++;
-    }
+    fips_provider = OSSL_PROVIDER_load(NULL, "fips");
 # endif
     if (!(prov[prov_cnt++] = OSSL_PROVIDER_load(NULL, "default"))) {
         ret = __LINE__; goto done;
@@ -386,6 +395,12 @@ static void unload(ErlNifEnv* env, void* priv_data)
         destroy_engine_mutex(env);
 
 #ifdef HAS_3_0_API
+        fini_mac_types();
+# ifdef FIPS_SUPPORT
+        if (fips_provider) {
+            OSSL_PROVIDER_unload(fips_provider);
+        }
+# endif
         while (prov_cnt > 0) {
             OSSL_PROVIDER_unload(prov[--prov_cnt]);
         }

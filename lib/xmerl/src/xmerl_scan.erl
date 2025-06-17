@@ -1,6 +1,8 @@
 %%
 %% %CopyrightBegin%
 %%
+%% SPDX-License-Identifier: Apache-2.0
+%%
 %% Copyright Ericsson AB 2003-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
@@ -340,7 +342,7 @@ file(F) ->
 
 -doc "Parse a file containing an XML document".
 -spec file(Filename :: string(), option_list()) ->
-          {document(), Rest} | {error, Reason} when
+          {dynamic(), Rest} | {error, Reason} when
       Rest   :: string(),
       Reason :: term().
 file(F, Options) ->
@@ -383,7 +385,7 @@ string(Str) ->
 
 -doc "Parse a string containing an XML document".
 -spec string(Text :: string(), option_list()) ->
-          {document(), Rest} when
+          {dynamic(), Rest} when
       Rest :: string().
 string(Str, Options) ->
      {Res, Tail, S=#xmerl_scanner{close_fun = Close}} =

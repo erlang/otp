@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -656,6 +658,12 @@ value are listed.
   Default is to emit warnings for every use of a callback known by the compiler to
   be deprecated.
 
+- **`warn_deprecated_catch`** - Enables warnings for use of old style catch
+  expressions of the form `catch Expr` instead of the modern `try ... catch
+  ... end`. You may enable this compiler option on the project level and
+  add `-compile(nowarn_deprecated_catch).` to individual files which still
+  contain old catches in order to prevent new uses from getting added.
+
 - **`nowarn_removed`** - Turns off warnings for calls to functions that have
   been removed. Default is to emit warnings for every call to a function known
   by the compiler to have been recently removed from Erlang/OTP.
@@ -735,6 +743,37 @@ value are listed.
   emitted when a built-in type is locally redefined. Use this option to turn off
   this kind of warning for the types in `Types`, where `Types` is a tuple
   `{TypeName,Arity}` or a list of such tuples.
+
+- **`nowarn_behaviours`** - By default, warnings are emitted for issues
+  with behaviours. Use this option to turn off all warnings of this kind.
+
+- **`nowarn_conflicting_behaviours`** - By default, warnings are emitted when
+  a module opts in to multiple behaviours that share the names of one or more
+  callback functions. Use this option to turn off this kind of warning.
+
+- **`nowarn_undefined_behaviour_func`** - By default, a warning is
+  emitted when a module that uses a behaviour does not export a
+  mandatory callback function required by that behaviour. Use this
+  option to turn off this kind of warning.
+
+- **`nowarn_undefined_behaviour`** - By default, a warning is emitted
+  when a module attempts to us an unknown behaviour. Use this option
+  to turn off this kind of warning.
+
+- **`nowarn_undefined_behaviour_callbacks`** - By default, a warning
+  is emitted when `behaviour_info(callbacks)` in the behaviour module
+  returns `undefined` instead of a list of callback functions. Use this
+  option to turn off this kind of warning.
+
+- **`nowarn_ill_defined_behaviour_callbacks`** - By default, a warning
+  is emitted when `behaviour_info(callbacks)` in the behaviour module
+  returns a badly formed list of functions. Use this option to turn
+  off this kind of warning.
+
+- **`nowarn_ill_defined_optional_callbacks`** - By default, a warning
+  is emitted when `behaviour_info(optional_callbacks)` in the
+  behaviour module returns a badly formed list of functions. Use this
+  option to turn off this kind of warning.
 
 Other kinds of warnings are _opportunistic warnings_. They are generated when
 the compiler happens to notice potential issues during optimization and code
@@ -1036,14 +1075,16 @@ expand_opt(report, Os) ->
     [report_errors,report_warnings|Os];
 expand_opt(return, Os) ->
     [return_errors,return_warnings|Os];
-expand_opt(r24, Os) ->
-    expand_opt(no_type_opt, [no_badrecord, no_bs_create_bin, no_ssa_opt_ranges |
-                             expand_opt(r25, Os)]);
 expand_opt(r25, Os) ->
     [no_ssa_opt_update_tuple, no_bs_match, no_min_max_bifs |
      expand_opt(r26, Os)];
 expand_opt(r26, Os) ->
-    [no_bsm_opt | Os];
+    [no_bsm_opt | expand_opt(r27, Os)];
+expand_opt(r27, Os) ->
+    [no_long_atoms, compressed_literals | Os];
+expand_opt(beam_debug_info, Os) ->
+    [beam_debug_info, no_copt, no_bsm_opt, no_bool_opt,
+     no_share_opt, no_recv_opt, no_ssa_opt, no_throw_opt | Os];
 expand_opt({debug_info_key,_}=O, Os) ->
     [encrypt_debug_info,O|Os];
 expand_opt(no_type_opt=O, Os) ->
@@ -1280,9 +1321,9 @@ print_pass_times(File, Times) ->
 
 print_subpass_times(Times0, Name) ->
     Fam0 = rel2fam(Times0),
-    Fam1 = [{W,lists:sum(Times)} || {W,Times} <- Fam0],
+    Fam1 = [{W,lists:sum(Times)} || {W,Times} <:- Fam0],
     Fam = reverse(lists:keysort(2, Fam1)),
-    Total = case lists:sum([T || {_,T} <- Fam]) of
+    Total = case lists:sum([T || {_,T} <:- Fam]) of
                 0 -> 1;
                 Total0 -> Total0
             end,
@@ -1368,7 +1409,7 @@ werror(#compile{options=Opts,warnings=Ws}) ->
 
 %% messages_per_file([{File,[Message]}]) -> [{File,[Message]}]
 messages_per_file(Ms) ->
-    T = lists:sort([{File,M} || {File,Messages} <- Ms, M <- Messages]),
+    T = lists:sort([{File,M} || {File,Messages} <:- Ms, M <- Messages]),
     PrioMs = [erl_scan, epp, erl_parse],
     {Prio0, Rest} =
         lists:mapfoldl(fun(M, A) ->
@@ -1382,7 +1423,7 @@ messages_per_file(Ms) ->
 
 mpf(Ms) ->
     [{File,[M || {F,M} <- Ms, F =:= File]} ||
-	File <- lists:usort([F || {F,_} <- Ms])].
+	File <- lists:usort([F || {F,_} <:- Ms])].
 
 %% passes(forms|file, [Option]) -> {Extension,[{Name,PassFun}]}
 %%  Figure out the extension of the input file and which passes
@@ -1640,7 +1681,9 @@ abstr_passes(AbstrStatus) ->
 
          {delay,[{iff,debug_info,?pass(save_abstract_code)}]},
 
-         {delay,[{iff,line_coverage,{pass,sys_coverage}}]},
+         {delay,[{iff,line_coverage,{pass,sys_coverage}},
+                 {iff,beam_debug_info,?pass(beam_debug_info)}]},
+         {iff,'dcover',{src_listing,"cover"}},
 
          ?pass(expand_records),
          {iff,'dexp',{listing,"expand"}},
@@ -1659,6 +1702,7 @@ core_passes(CoreStatus) ->
     case CoreStatus of
         non_verified_core ->
             [?pass(core_lint_module),
+             ?pass(core_compile_directives),
              {unless,no_core_prepare,{pass,sys_core_prepare}},
              {iff,dprep,{listing,"prepare"}}];
         verified_core ->
@@ -1905,6 +1949,8 @@ do_parse_module(DefEncoding, #compile{ifile=File,options=Opts,dir=Dir}=St) ->
 -define(META_USED_FEATURES, enabled_features).
 -define(META_CHUNK_NAME, <<"Meta">>).
 
+metadata_add_features([], St) ->
+    St;
 metadata_add_features(Ftrs, #compile{options = CompOpts,
                                      extra_chunks = Extra} = St) ->
     MetaData =
@@ -2322,9 +2368,18 @@ legalize_vars(Code0, St) ->
                end, Code0),
     {ok,Code,St}.
 
-compile_directives(Forms, #compile{options=Opts0}=St0) ->
-    Opts1 = expand_opts(flatten([C || {attribute,_,compile,C} <- Forms])),
-    Opts = Opts1 ++ Opts0,
+compile_directives(Forms, St) ->
+    Opts = [C || {attribute,_,compile,C} <- Forms],
+    compile_directives_1(Opts, Forms, St).
+
+core_compile_directives(Core, St) ->
+    Attrs = [{cerl:concrete(Name),cerl:concrete(Value)} ||
+                {Name,Value} <:- cerl:module_attrs(Core)],
+    Opts = [C || {compile,C} <- Attrs],
+    compile_directives_1(Opts, Core, St).
+
+compile_directives_1(Opts1, Forms, #compile{options=Opts0}=St0) ->
+    Opts = expand_opts(flatten(Opts1)) ++ Opts0,
     St1 = St0#compile{options=Opts},
     case any_obsolete_option(Opts) of
         {yes,Opt} ->
@@ -2348,6 +2403,9 @@ is_obsolete(r20) -> true;
 is_obsolete(r21) -> true;
 is_obsolete(r22) -> true;
 is_obsolete(r23) -> true;
+is_obsolete(r24) -> true;
+is_obsolete(no_badrecord) -> true;
+is_obsolete(no_bs_create_bin) -> true;
 is_obsolete(no_bsm3) -> true;
 is_obsolete(no_get_hd_tl) -> true;
 is_obsolete(no_put_tuple2) -> true;
@@ -2422,10 +2480,8 @@ beam_docs(Code, #compile{dir = Dir, options = Options,
     SourceName = deterministic_filename(St),
     case beam_doc:main(Dir, SourceName, Code, Options) of
         {ok, Docs, Ws} ->
-            MetaDocs = [{?META_DOC_CHUNK,
-                         term_to_binary(
-                           Docs,
-                           ensure_deterministic(Options, []))} | ExtraChunks],
+            Binary = term_to_binary(Docs, [deterministic, compressed]),
+            MetaDocs = [{?META_DOC_CHUNK, Binary} | ExtraChunks],
             {ok, Code, St#compile{extra_chunks = MetaDocs,
                                   warnings = St#compile.warnings ++ Ws}};
         {error, no_docs} ->
@@ -2464,6 +2520,10 @@ debug_info(#compile{module=Module,ofile=OFile}=St) ->
 	false ->
 	    {ok,DebugInfo,Opts2}
     end.
+
+beam_debug_info(Code0, #compile{}=St) ->
+    {ok,Code} = sys_coverage:beam_debug_info(Code0),
+    {ok,Code,St}.
 
 debug_info_chunk(#compile{mod_options=ModOpts0,
                           options=CompOpts,
@@ -2525,7 +2585,7 @@ keep_compile_option(Option, _Deterministic) ->
     effects_code_generation(Option).
 
 start_crypto() ->
-    try crypto:start() of
+    try application:start(crypto) of
 	{error,{already_started,crypto}} -> ok;
 	ok -> ok
     catch
@@ -2575,7 +2635,7 @@ beam_asm(Code0, #compile{ifile=File,extra_chunks=ExtraChunks,options=CompilerOpt
 
 beam_strip_types(Beam0, #compile{}=St) ->
     {ok,_Module,Chunks0} = beam_lib:all_chunks(Beam0),
-    Chunks = [{Tag,Contents} || {Tag,Contents} <- Chunks0,
+    Chunks = [{Tag,Contents} || {Tag,Contents} <:- Chunks0,
                                 Tag =/= "Type"],
     {ok,Beam} = beam_lib:build_module(Chunks),
     {ok,Beam,St}.
@@ -2787,7 +2847,34 @@ do_src_listing(Lf, Fs) ->
     foreach(fun (F) -> io:put_chars(Lf, [erl_pp:form(F, Opts),"\n"]) end,
 	    Fs).
 
-listing(Ext, Code, St0) ->
+listing(Ext, Code0, St0) ->
+    Code = maybe
+               %% Ensure that a pretty-printed Core Erlang module
+               %% compiled with the `beam_debug_info` option can be
+               %% compiled.
+               true ?= cerl:is_c_module(Code0),
+               true ?= lists:member(beam_debug_info, St0#compile.options),
+
+               %% First check whether the `beam_debug_info` option is
+               %% already present.
+               Attrs0 = cerl:module_attrs(Code0),
+               Opts0 = [{cerl:concrete(Name),cerl:concrete(Value)} ||
+                           {Name,Value} <:- Attrs0],
+               Opts = [Opt || {compile,Opts} <- Opts0,
+                              Opt <- lists:flatten([Opts])],
+               false ?= lists:member(beam_debug_info, Opts),
+
+               %% Add a `-compile(beam_debug_info)` attribute.
+               Compile = {cerl:abstract(compile),
+                          cerl:abstract(beam_debug_info)},
+               Attrs = [Compile|Attrs0],
+               cerl:update_c_module(Code0, cerl:module_name(Code0),
+                                    cerl:module_exports(Code0),
+                                    Attrs, cerl:module_defs(Code0))
+           else
+               _ ->
+                   Code0
+           end,
     St = St0#compile{encoding = none},
     listing(fun(Lf, Fs) -> beam_listing:module(Lf, Fs) end, Ext, Code, St).
 
@@ -2834,7 +2921,7 @@ output_encoding(F, #compile{encoding = Encoding}) ->
 diffable(Code0, St) ->
     {Mod,Exp,Attr,Fs0,NumLabels} = Code0,
     EntryLabels = #{Entry => {Name,Arity} ||
-                      {function,Name,Arity,Entry,_} <- Fs0},
+                      {function,Name,Arity,Entry,_} <:- Fs0},
     Fs = [diffable_fix_function(F, EntryLabels) || F <- Fs0],
     Code = {Mod,Exp,Attr,Fs,NumLabels},
     {ok,Code,St}.

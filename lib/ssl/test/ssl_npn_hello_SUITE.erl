@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -60,8 +62,8 @@ all() ->
      create_server_hello_with_no_advertised_protocols_test].
 
 init_per_suite(Config) ->
-    catch crypto:stop(),
-    try crypto:start() of
+    catch application:stop(crypto),
+    try application:start(crypto) of
 	ok ->
 	    Config
     catch _:_ ->
@@ -169,4 +171,4 @@ create_connection_states() ->
      }.
 
 default_options_map() ->
-    ssl:update_options([{verify, verify_none}], client, #{}).
+    ssl_config:update_options([{verify, verify_none}], client, #{}).

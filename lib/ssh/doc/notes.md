@@ -1,6 +1,8 @@
 <!--
 %CopyrightBegin%
 
+SPDX-License-Identifier: Apache-2.0
+
 Copyright Ericsson AB 2023-2025. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -19,13 +21,100 @@ limitations under the License.
 -->
 # SSH Release Notes
 
+## Ssh 5.3.1
+
+### Fixed Bugs and Malfunctions
+
+- Various channel closing robustness improvements. Avoid crashes when channel handling process closes channel and immediately exits. Avoid breaking the protocol by sending duplicated channel-close messages. Cleanup channels which timeout during closing procedure.
+
+  Own Id: OTP-19634 Aux Id: [GH-9102], [PR-9103]
+
+- Improved interoperability with clients acting as Paramiko.
+
+  Own Id: OTP-19637 Aux Id: [GH-6463], [PR-9838]
+
+[GH-9102]: https://github.com/erlang/otp/issues/9102
+[PR-9103]: https://github.com/erlang/otp/pull/9103
+[GH-6463]: https://github.com/erlang/otp/issues/6463
+[PR-9838]: https://github.com/erlang/otp/pull/9838
+
+## Ssh 5.3
+
+### Fixed Bugs and Malfunctions
+
+- The implementation of the ssh server-side supervision tree has been improved.
+
+  Own Id: OTP-19324 Aux Id: [PR-8968], [GH-8223]
+
+- SSH daemon accepts fun as tcpip_tunnel_in option. This provides more control over TCP connection tunnel handle by server.
+
+  Own Id: OTP-19566 Aux Id: [PR-9571]
+
+[PR-8968]: https://github.com/erlang/otp/pull/8968
+[GH-8223]: https://github.com/erlang/otp/issues/8223
+[PR-9571]: https://github.com/erlang/otp/pull/9571
+
+### Improvements and New Features
+
+- The [`Erlang SSH daemon`](using_ssh.md#running-an-erlang-ssh-daemon) now uses the same backend to handle multiline functionality as the Erlang shell.
+
+  Own Id: OTP-19226 Aux Id: [PR-8805]
+
+- CBC algorithms are not offered by default. See Configuring algorithms in SSH if you wish to enable them.
+
+  *** POTENTIAL INCOMPATIBILITY ***
+
+  Own Id: OTP-19420 Aux Id: [PR-9277]
+
+- Daemon can be configured (bannerfun option) to send banner message at the beginning of user authentication.
+
+  Own Id: OTP-19535 Aux Id: [PR-9149]
+
+- The license and copyright header has changed format to include an `SPDX-License-Identifier`. At the same time, most files have been updated to follow a uniform standard for license headers.
+
+  Own Id: OTP-19575 Aux Id: [PR-9670]
+
+- For interoperability reasons, SSH ignore message with no length specified is treated as message with zero length specified - it will not cause decode error.
+
+  Own Id: OTP-19586 Aux Id: [PR-9214]
+
+- Documentation improvements.
+
+  Own Id: OTP-19596 Aux Id: [PR-9298]
+
+[PR-8805]: https://github.com/erlang/otp/pull/8805
+[PR-9277]: https://github.com/erlang/otp/pull/9277
+[PR-9149]: https://github.com/erlang/otp/pull/9149
+[PR-9670]: https://github.com/erlang/otp/pull/9670
+[PR-9214]: https://github.com/erlang/otp/pull/9214
+[PR-9298]: https://github.com/erlang/otp/pull/9298
+
+## Ssh 5.2.11.1
+
+### Fixed Bugs and Malfunctions
+
+- Various channel closing robustness improvements. Avoid crashes when channel handling process closes channel and immediately exits. Avoid breaking the protocol by sending duplicated channel-close messages. Cleanup channels which timeout during closing procedure.
+
+  Own Id: OTP-19634 Aux Id: [GH-9102], [PR-9103]
+
+- Improved interoperability with clients acting as Paramiko.
+
+  Own Id: OTP-19637 Aux Id: [GH-6463], [PR-9838]
+
+[GH-9102]: https://github.com/erlang/otp/issues/9102
+[PR-9103]: https://github.com/erlang/otp/pull/9103
+[GH-6463]: https://github.com/erlang/otp/issues/6463
+[PR-9838]: https://github.com/erlang/otp/pull/9838
+
 ## Ssh 5.2.11
 
 ### Fixed Bugs and Malfunctions
 
 - Fix KEX strict implementation according to draft-miller-sshm-strict-kex-01 document.
 
-  Own Id: OTP-19625 Aux Id: CVE-2025-46712
+  Thanks to Fabian Bäumer, Marcel Maehren, Marcus Brinkmann, and Jörg Schwenk from the Ruhr University Bochum for finding and responsibly disclosing this vulnerability to the Erlang/OTP project.
+
+  Own Id: OTP-19625 Aux Id: [CVE-2025-46712](https://nvd.nist.gov/vuln/detail/CVE-2025-46712)
 
 ## Ssh 5.2.10
 
@@ -39,7 +128,7 @@ limitations under the License.
   
   Thanks to Fabian Bäumer, Marcel Maehren, Marcus Brinkmann, Nurullah Erinola, Jörg Schwenk (Ruhr University Bochum).
 
-  Own Id: OTP-19595 Aux Id: CVE-2025-32433
+  Own Id: OTP-19595 Aux Id: [CVE-2025-32433](https://nvd.nist.gov/vuln/detail/CVE-2025-32433)
 
 [PR-9679]: https://github.com/erlang/otp/pull/9679
 
@@ -203,6 +292,51 @@ limitations under the License.
 
 [PR-7845]: https://github.com/erlang/otp/pull/7845
 [PR-8026]: https://github.com/erlang/otp/pull/8026
+
+## Ssh 5.1.4.10
+
+### Fixed Bugs and Malfunctions
+
+* Various channel closing robustness improvements. Avoid crashes when channel handling process closes channel and immediately exits. Avoid breaking the protocol by sending duplicated channel-close messages. Cleanup channels which timeout during closing procedure.
+
+  Own Id: OTP-19634 Aux Id: GH-9102, PR-9103
+* Improved interoperability with clients acting as Paramiko.
+
+  Own Id: OTP-19637 Aux Id: GH-6463, PR-9838
+
+## Ssh 5.1.4.9
+
+### Fixed Bugs and Malfunctions
+
+* Fix KEX strict implementation according to draft-miller-sshm-strict-kex-01 document.
+
+  Thanks to Fabian Bäumer, Marcel Maehren, Marcus Brinkmann, and Jörg Schwenk from the Ruhr University Bochum for finding and responsibly disclosing this vulnerability to the Erlang/OTP project.
+
+  Own Id: OTP-19625 Aux Id: [CVE-2025-46712](https://nvd.nist.gov/vuln/detail/CVE-2025-46712)
+
+## Ssh 5.1.4.8
+
+### Fixed Bugs and Malfunctions
+
+* Reception of wrong Unicode does not cause unnecessary processing. US-ASCII fields are not decoded as Unicode.
+
+  Own Id: OTP-19582 Aux Id: PR-9679
+* SSH daemon disconnects upon receiving connection protocol message for unauthenticated used.
+
+  Thanks to Fabian Bäumer, Marcel Maehren, Marcus Brinkmann, Nurullah Erinola, Jörg Schwenk (Ruhr University Bochum).
+
+  Own Id: OTP-19595 Aux Id: [CVE-2025-32433](https://nvd.nist.gov/vuln/detail/CVE-2025-32433)
+
+## Ssh 5.1.4.7
+
+### Fixed Bugs and Malfunctions
+
+* Reception of malicious KEX init message does not result with ssh daemon excessive memory usage.
+
+  Own Id: OTP-19543 Aux Id: CVE-2025-30211
+* Call to ssh:daemon_replace_options does not crash when argument is not a valid daemon ref.
+
+  Own Id: OTP-19559 Aux Id: GH-9554, PR-9545
 
 ## Ssh 5.1.4.6
 
@@ -386,6 +520,40 @@ limitations under the License.
   \*** POTENTIAL INCOMPATIBILITY \***
 
   Own Id: OTP-18490 Aux Id: OTP-18471, GH-6339, PR-6843
+
+## Ssh 4.15.3.13
+
+### Fixed Bugs and Malfunctions
+
+* Fix KEX strict implementation according to draft-miller-sshm-strict-kex-01 document.
+
+  Thanks to Fabian Bäumer, Marcel Maehren, Marcus Brinkmann, and Jörg Schwenk from the Ruhr University Bochum for finding and responsibly disclosing this vulnerability to the Erlang/OTP project.
+
+  Own Id: OTP-19625 Aux Id: [CVE-2025-46712](https://nvd.nist.gov/vuln/detail/CVE-2025-46712)
+
+## Ssh 4.15.3.12
+
+### Fixed Bugs and Malfunctions
+
+* Reception of wrong Unicode does not cause unnecessary processing. US-ASCII fields are not decoded as Unicode.
+
+  Own Id: OTP-19582 Aux Id: PR-9679
+* SSH daemon disconnects upon receiving connection protocol message for unauthenticated used.
+
+  Thanks to Fabian Bäumer, Marcel Maehren, Marcus Brinkmann, Nurullah Erinola, Jörg Schwenk (Ruhr University Bochum).
+
+  Own Id: OTP-19595 Aux Id: [CVE-2025-32433](https://nvd.nist.gov/vuln/detail/CVE-2025-32433)
+
+## Ssh 4.15.3.11
+
+### Fixed Bugs and Malfunctions
+
+* Reception of malicious KEX init message does not result with ssh daemon excessive memory usage.
+
+  Own Id: OTP-19543 Aux Id: CVE-2025-30211
+* Call to ssh:daemon_replace_options does not crash when argument is not a valid daemon ref.
+
+  Own Id: OTP-19559 Aux Id: GH-9554, PR-9545
 
 ## Ssh 4.15.3.10
 

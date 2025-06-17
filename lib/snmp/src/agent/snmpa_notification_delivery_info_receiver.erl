@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
 %% 
-%% Copyright Ericsson AB 2008-2024. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -39,7 +41,7 @@ following functions:
 The semantics of them and their exact signatures are explained below.
 
 Legacy notification delivery information receiver modules used a target argument
-on the form `{IpAddr, PortNumber}` instead of `{Domain, Addr}`, and if the SNMP
+of the form `{IpAddr, PortNumber}` instead of `{Domain, Addr}`, and if the SNMP
 Agent is run without changing the configuration to use transport domains the
 notification delivery information receiver will still get the old arguments and
 work as before.

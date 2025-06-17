@@ -1,6 +1,15 @@
-%% Licensed under the Apache License, Version 2.0 (the "License"); you may
-%% not use this file except in compliance with the License. You may obtain
-%% a copy of the License at <http://www.apache.org/licenses/LICENSE-2.0>
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+%%
+%% Copyright 2006 Richard Carlsson
+%% Copyright Ericsson AB 2009-2025. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
 %%
 %% Unless required by applicable law or agreed to in writing, software
 %% distributed under the License is distributed on an "AS IS" BASIS,
@@ -18,8 +27,9 @@
 %% above, a recipient may use your version of this file under the terms of
 %% either the Apache License or the LGPL.
 %%
+%% %CopyrightEnd%
+%%
 %% @author Richard Carlsson <carlsson.richard@gmail.com>
-%% @copyright 2006 Richard Carlsson
 %% @private
 %% @see eunit
 %% @doc Event serializing and multiplexing process, to be used as the
@@ -89,6 +99,17 @@ expect(Id, ParentId, GroupMinSize, St0) ->
 	    %% cast no cancel event (since the item might not exist)
 	    {true, St1};
 	{cancel, exact, Msg, St1} ->
+            %% We got a cancel before begin. If we're running in
+            %% parallel we might still have a begin message in the
+            %% message queue since the cancel message might have been
+            %% picked up by wait_1/5 for an different test case. So
+            %% flush the queue to avoid silently ignoring the cancel.
+            receive
+                {status, Id, {progress, 'begin', _}} = M ->
+                    cast(M, St1)
+            after 0 ->
+                ok
+            end,
 	    cast_cancel(Id, Msg, St1),
 	    {false, St1};
 	{ok, Msg, St1} ->

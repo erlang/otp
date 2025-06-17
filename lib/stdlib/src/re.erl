@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,6 +25,8 @@
 
 -export_type([mp/0, compile_options/0, options/0]).
 
+-compile(nowarn_deprecated_catch).
+
 -doc """
 Opaque data type containing a compiled regular expression.
 
@@ -32,7 +36,7 @@ fields can change in future Erlang/OTP releases.
 """.
 -type mp() :: {re_pattern, _, _, _, _}.
 
--type nl_spec() :: cr | crlf | lf | anycrlf | any.
+-type nl_spec() :: cr | crlf | lf | nul | anycrlf | any.
 
 -type compile_options() :: [compile_option()].
 -type compile_option() :: unicode | anchored | caseless | dollar_endonly
@@ -48,8 +52,7 @@ fields can change in future Erlang/OTP releases.
                   {offset, non_neg_integer()} |
                   {match_limit, non_neg_integer()} |
                   {match_limit_recursion, non_neg_integer()} |
-                  {newline, NLSpec :: nl_spec()} |
-                  bsr_anycrlf | bsr_unicode | {capture, ValueSpec :: capture()} |
+                  {capture, ValueSpec :: capture()} |
                   {capture, ValueSpec :: capture(), Type :: index | list | binary} |
                   compile_option().
 -type capture() :: all | all_but_first | all_names | first | none |
@@ -193,6 +196,8 @@ Options:
   - **`lf`** - Newline is indicated by a single character LF (ASCII 10), the
     default.
 
+  - **`nul`** - Newline is indicated by a single character NUL (ASCII 0).
+
   - **`crlf`** - Newline is indicated by the two-character CRLF (ASCII 13
     followed by ASCII 10) sequence.
 
@@ -214,7 +219,7 @@ Options:
   the start optimization of PCRE would skip the subject up to "A" and never
   realize that the (*COMMIT) instruction is to have made the matching fail. This
   option is only relevant if you use "start-of-pattern items", as discussed in
-  section [PCRE Regular Expression Details](`m:re#module-pcre-regular-expression-details`).
+  section [PCRE Regular Expression Details](`m:re#module-pcre2-regular-expression-details`).
 
 - **`ucp`** - Specifies that Unicode character properties are to be used when
   resolving \\B, \\b, \\D, \\d, \\S, \\s, \\W and \\w. Without this flag, only
@@ -267,7 +272,6 @@ contain the following options:
 - `global`
 - `{match_limit, integer() >= 0}`
 - `{match_limit_recursion, integer() >= 0}`
-- `{newline, NLSpec}`
 - `notbol`
 - `notempty`
 - `notempty_atstart`
@@ -277,8 +281,16 @@ contain the following options:
 
 Otherwise all options valid for function [`compile/2`](`compile/2`) are also
 allowed. Options allowed both for compilation and execution of a match, namely
-`anchored` and `{newline, NLSpec}`, affect both the compilation and execution if
+`anchored`, affect both the compilation and execution if
 present together with a non-precompiled regular expression.
+
+> #### Change {: .info }
+>
+> As from Erlang/OTP 28, options `{newline, _}`, `bsr_anycrlf` and `bsr_unicode`
+> can only be used to control the *compilation* of a regular expression. They
+> will no longer be accepted by `run/3`, `replace/4` and `split/3` if the
+> regular expression was previously compiled and the options do not comply with
+> what was given at compile time.
 
 If the regular expression was previously compiled with option `unicode`,
 `Subject` is to be provided as a valid Unicode `charlist()`, otherwise any
@@ -427,7 +439,7 @@ The following options are relevant for execution:
     occurs before that (each recursive call is also a call, but not conversely).
     Both limits can however be changed, either by setting limits directly in the
     regular expression string (see section
-    [PCRE Regular Eexpression Details](`m:re#module-pcre-regular-expression-details`)) or by
+    [PCRE Regular Expression Details](`m:re#module-pcre2-regular-expression-details`)) or by
     specifying options to [`run/3`](`run/3`).
 
   It is important to understand that what is referred to as "recursion" when
@@ -502,31 +514,6 @@ The following options are relevant for execution:
 - **`{offset, integer() >= 0}`** - Start matching at the offset (position)
   specified in the subject string. The offset is zero-based, so that the default
   is `{offset,0}` (all of the subject string).
-
-- **`{newline, NLSpec}`** - Overrides the default definition of a newline in the
-  subject string, which is LF (ASCII 10) in Erlang.
-
-  - **`cr`** - Newline is indicated by a single character CR (ASCII 13).
-
-  - **`lf`** - Newline is indicated by a single character LF (ASCII 10), the
-    default.
-
-  - **`crlf`** - Newline is indicated by the two-character CRLF (ASCII 13
-    followed by ASCII 10) sequence.
-
-  - **`anycrlf`** - Any of the three preceding sequences is be recognized.
-
-  - **`any`** - Any of the newline sequences above, and the Unicode sequences VT
-    (vertical tab, U+000B), FF (formfeed, U+000C), NEL (next line, U+0085), LS
-    (line separator, U+2028), and PS (paragraph separator, U+2029).
-
-- **`bsr_anycrlf`** - Specifies specifically that \\R is to match only the CR
-  LF, or CRLF sequences, not the Unicode-specific newline characters. (Overrides
-  the compilation option.)
-
-- **`bsr_unicode`** - Specifies specifically that \\R is to match all the
-  Unicode newline characters (including CRLF, and so on, the default).
-  (Overrides the compilation option.)
 
 - **`{capture, ValueSpec}`/`{capture, ValueSpec, Type}`** - Specifies which
   captured substrings are returned and in what format. By default,
@@ -795,8 +782,7 @@ run(_, _, _) ->
               | {offset, non_neg_integer()} |
 		{match_limit, non_neg_integer()} |
 		{match_limit_recursion, non_neg_integer()} |
-                {newline, NLSpec :: nl_spec()} |
-                bsr_anycrlf | bsr_unicode | {capture, ValueSpec} |
+                {capture, ValueSpec} |
                 {capture, ValueSpec, Type} | CompileOpt,
       Type :: index | list | binary,
       ValueSpec :: all | all_but_first | all_names | first | none | ValueList,
@@ -1060,10 +1046,10 @@ Summary of options not previously described for function [`run/3`](`run/3`):
       RE :: mp() | iodata() | unicode:charlist(),
       Options :: [ Option ],
       Option :: anchored | notbol | noteol | notempty | notempty_atstart
-              | {offset, non_neg_integer()} | {newline, nl_spec()}
+              | {offset, non_neg_integer()}
               | {match_limit, non_neg_integer()} 
               | {match_limit_recursion, non_neg_integer()}
-              | bsr_anycrlf | bsr_unicode | {return, ReturnType}
+              | {return, ReturnType}
               | {parts, NumParts} | group | trim | CompileOpt,
       NumParts :: non_neg_integer() | infinity,
       ReturnType :: iodata | list | binary,
@@ -1081,6 +1067,8 @@ split(Subject,RE,Options) ->
     case compile_split(RE,NewOpt) of
 	{error,_Err} ->
 	    throw(badre);
+	{_PreCompiled, _NumSub, _RunOpt} when FlatSubject =:= <<>> ->
+	    [];
 	{PreCompiled, NumSub, RunOpt} ->
 	    %% OK, lets run
 	    case re:run(FlatSubject,PreCompiled,RunOpt ++ [global]) of
@@ -1338,13 +1326,12 @@ As with [`run/3`](`run/3`), compilation errors raise the `badarg` exception.
       Options :: [Option],
       Option :: anchored | global | notbol | noteol | notempty 
 	      | notempty_atstart
-              | {offset, non_neg_integer()} | {newline, NLSpec} | bsr_anycrlf
+              | {offset, non_neg_integer()}
               | {match_limit, non_neg_integer()} 
               | {match_limit_recursion, non_neg_integer()}
-              | bsr_unicode | {return, ReturnType} | CompileOpt,
+              | {return, ReturnType} | CompileOpt,
       ReturnType :: iodata | list | binary,
-      CompileOpt :: compile_option(),
-      NLSpec :: cr | crlf | lf | anycrlf | any.
+      CompileOpt :: compile_option().
 
 replace(Subject,RE,Replacement,Options) ->
     try
@@ -1817,42 +1804,50 @@ loopexec(_,_,X,Y,_,_,_,_) when X > Y ->
     {match,[]};
 loopexec(Subject,RE,X,Y,Unicode,CRLF,Options, First) ->
     case re:internal_run(Subject,RE,[{offset,X}]++Options,First) of
-	{error, Err} ->
-	    throw({error,Err});
-	nomatch ->
-	    {match,[]};
-	{match,[{A,B}|More]} ->
-	    {match,Rest} = 
-		case B>0 of
-		    true ->
-			loopexec(Subject,RE,A+B,Y,Unicode,CRLF,Options,false);
-		    false ->
-			{match,M} = 
-			    case re:internal_run(Subject,RE,[{offset,X},notempty_atstart,
-                                                             anchored]++Options,false) of
-				nomatch ->
-				    {match,[]};
-				{match,Other} ->
-				    {match,Other}
-			    end,
-			NewA = case M of 
-				   [{_,NStep}|_] when NStep > 0 ->
-				       A+NStep;
-				   _ ->
-				       forward(Subject,A,1,Unicode,CRLF)
-			       end,
-			{match,MM} = loopexec(Subject,RE,NewA,Y,
-					      Unicode,CRLF,Options,false),
-			case M of 
-			    [] ->
-				{match,MM};
-			    _ ->
-				{match,[M | MM]}
-			end
-		end,
-	    {match,[[{A,B}|More] | Rest]}
+        {error, Err} ->
+            throw({error,Err});
+        nomatch ->
+            {match,[]};
+        {match,[{A,B}|_]=Matches} ->
+            {match,Rest} =
+                case B>0 of
+                    true ->
+                        loopexec(Subject,RE,A+B,Y,Unicode,CRLF,Options,false);
+                    false ->
+                        {match,M} =
+                            case re:internal_run(Subject,RE,[{offset,X},notempty_atstart,
+                                                                        anchored]++Options,false) of
+                             nomatch ->
+                                 {match,[]};
+                            {match,Matches} ->
+                                 {match, []}; %% dont add duplicates
+                             {match,Other} ->
+                                 {match,Other}
+                             end,
+                         NewA = case M of
+                             [{_,NStep}|_] when NStep > 0 ->
+                                 A+NStep;
+                             _ when X =:= A+B orelse A =:= Y ->
+                                 forward(Subject, A, 1, Unicode, CRLF);
+                             _ ->
+                                 forward(Subject,A,0,Unicode,CRLF)
+                             end,
+                         {match,MM} = loopexec(Subject,RE,NewA,Y,
+                                     Unicode,CRLF,Options,false),
+                         case M of
+                             [] ->
+                             {match,MM};
+                             _ ->
+                             {match,[M | MM]}
+                         end
+                 end,
+            Rest1 = case Rest of
+                [Matches|More] -> More;
+                _ -> Rest
+            end,
+            {match,[Matches | Rest1]}
     end.
-    
+
 forward(_Chal,A,0,_,_) ->
     A;
 forward(Chal,A,N,U,true) ->

@@ -1,8 +1,10 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 2005-2024. All Rights Reserved.
- * 
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2005-2025. All Rights Reserved.
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -14,7 +16,7 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 
@@ -104,6 +106,10 @@ static void clock_gettime_times_raw(ErtsMonotonicTime *, ErtsSystemTime *);
 #endif
 
 #endif /* defined(__linux__) && defined(OS_MONOTONIC_TIME_USING_CLOCK_GETTIME) */
+
+#if !HAVE_DECL_DAYLIGHT
+int sys_daylight = -1;
+#endif
 
 #ifdef ERTS_MACH_CLOCKS
 #  define ERTS_SYS_TIME_INTERNAL_STATE_READ_ONLY__
@@ -195,6 +201,30 @@ sys_init_time(ErtsSysInitTimeResult *init_resp)
 #endif
 #if defined(ERTS_MACH_CLOCKS)
     mach_clocks_init();
+#endif
+#if !HAVE_DECL_DAYLIGHT
+    /* If the system does not have the daylight variable,
+       we create it by looping through the current year
+       in the current timezone and check if isdst ever
+       changes. */
+    time_t the_clock = time(NULL);
+    struct tm *tm, tmbuf;
+    tm = sys_localtime_r(&the_clock, &tmbuf);
+    tm->tm_hour = 0;
+    tm->tm_min = 0;
+    tm->tm_sec = 0;
+    tm->tm_mday = 1;
+    sys_daylight = 0;
+    for (int i = 0; i < 12; i++) {
+        struct tm *local_tm, local_tmbuf;
+        tm->tm_mon = i;
+        the_clock = mktime(tm);
+        local_tm = sys_localtime_r(&the_clock, &local_tmbuf);
+        if (local_tm->tm_isdst) {
+            sys_daylight = 1;
+            break;
+        }
+    }
 #endif
 #if !defined(ERTS_HAVE_OS_MONOTONIC_TIME_SUPPORT)
 

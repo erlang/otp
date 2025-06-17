@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2020-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2020-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -81,6 +83,18 @@ format_code_error(get_coverage_mode, [Module]) ->
                        end
                end]
       end);
+format_code_error(get_debug_info, [Module]) ->
+    [if
+         not is_atom(Module) ->
+             not_atom;
+         true ->
+             case erlang:module_loaded(Module) of
+                 false ->
+                     module_not_loaded;
+                 true ->
+                     ~"this runtime system does not support the native debug API"
+             end
+     end];
 format_code_error(reset_coverage, [Module]) ->
     coverage(
       fun () ->
@@ -233,7 +247,7 @@ format_trace_error(info, [_Session,Tracee,_Item], Cause) ->
                     [[], <<"not a valid tracee specification">>]
             end;
         none ->
-            [[], <<"invalid trace item">>]
+            [[], [], <<"invalid trace item">>]
     end;
 format_trace_error(session_create, [Name,Tracer,Options], _) ->
     NameError = if

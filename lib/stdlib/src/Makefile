@@ -1,7 +1,9 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1996-2024. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 1996-2025. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -122,6 +124,7 @@ MODULES= \
 	shell_default \
 	shell_docs \
 	shell_docs_markdown \
+	shell_docs_test \
 	slave \
 	sofs \
 	string \
@@ -133,7 +136,8 @@ MODULES= \
 	unicode_util \
 	uri_string \
 	win32reg \
-	zip
+	zip \
+	zstd
 
 HRL_FILES= \
 	../include/assert.hrl \
@@ -171,7 +175,7 @@ endif
 # FLAGS
 # ----------------------------------------------------
 
-ERL_COMPILE_FLAGS += -Werror
+ERL_COMPILE_FLAGS += -Werror  +warn_deprecated_catch
 ERL_COMPILE_FLAGS += -I../include -I../../kernel/include
 
 ifeq ($(ERL_DETERMINISTIC),yes)

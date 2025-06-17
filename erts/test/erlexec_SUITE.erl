@@ -1,6 +1,8 @@
 %%
 %% %CopyrightBegin%
 %%
+%% SPDX-License-Identifier: Apache-2.0
+%%
 %% Copyright Ericsson AB 2007-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
@@ -32,7 +34,7 @@
 
 -export([args_file/1, evil_args_file/1, missing_args_file/1, env/1, args_file_env/1,
          otp_7461/1, otp_7461_remote/1, argument_separation/1, argument_with_option/1,
-         zdbbl_dist_buf_busy_limit/1, long_path_env/1]).
+         zdbbl_dist_buf_busy_limit/1, long_path_env/1, argument_too_large/1]).
 
 -include_lib("stdlib/include/assert.hrl").
 
@@ -43,7 +45,7 @@ suite() ->
 all() ->
     [args_file, evil_args_file, missing_args_file, env, args_file_env,
      otp_7461, argument_separation, argument_with_option, zdbbl_dist_buf_busy_limit,
-     long_path_env].
+     long_path_env, argument_too_large].
 
 init_per_suite(Config) ->
     [{suite_erl_flags, save_env()} | Config].
@@ -493,7 +495,6 @@ long_path_env(Config) when is_list(Config) ->
 
     CmdArgs = " " ++ Rest ++ ~S' -noshell -eval "io:format(\"~ts\", [os:getenv(\"PATH\")]),erlang:halt()"',
 
-
     %% Test that erlexec does not crash with long path segments in various positions
     RelCmd = PNameWExt ++ CmdArgs,
 
@@ -540,6 +541,19 @@ pathsep() ->
 path_var_join(Paths) ->
     lists:concat(lists:join(pathsep(), Paths)).
 
+
+%% https://github.com/erlang/otp/issues/9668
+argument_too_large(_Config) ->
+    {ok,[[PName]]} = init:get_argument(progname),
+    GtInt32 = "4294975488",
+    BadArg = fun(Flag, Arg) ->
+                Cmd = os:cmd(PName ++ " "++Flag++" "++GtInt32++" -s init stop"),
+                ?assertMatch({match,_}, re:run(Cmd, "bad "++Arg++" "++GtInt32))
+             end,
+    Args = [{"+t", "atom table size"},
+            {"+P", "number of processes"},
+            {"+Q", "number of ports"}],
+    [BadArg(Flag, Arg) || {Flag, Arg} <- Args].
 
 %%
 %% Utils

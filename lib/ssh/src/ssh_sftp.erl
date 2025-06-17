@@ -1,6 +1,8 @@
 %%
 %% %CopyrightBegin%
 %%
+%% SPDX-License-Identifier: Apache-2.0
+%%
 %% Copyright Ericsson AB 2005-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
@@ -29,8 +31,6 @@ SFTP client.
 This module implements an SSH FTP (SFTP) client. SFTP is a secure, encrypted
 file transfer service available for SSH.
 """.
--moduledoc(#{titles =>
-                 [{type,<<"Crypto open_tar">>}]}).
 
 -behaviour(ssh_client_channel).
 
@@ -101,6 +101,9 @@ file transfer service available for SSH.
 -define(XF(S), S#state.xf).
 -define(REQID(S), S#state.req_id).
 
+-doc """
+Specifies available SFTP options.
+""".
 -type sftp_option() :: {timeout, timeout()}
                      | {sftp_vsn, pos_integer()}
                      | {window_size, pos_integer()}
@@ -124,36 +127,43 @@ exit-signal. If that information is empty, the reason is the exit signal name.
 
 The `t:tuple/0` reason are other errors like for example `{exit_status,1}`.
 """.
--doc(#{}).
 -type reason() :: atom() | string() | tuple() .
 
 %%====================================================================
 %% API
 %%====================================================================
-
-
-%%%================================================================
-%%%
-
-%%%----------------------------------------------------------------
-%%% start_channel/1
--doc(#{equiv => start_channel/3}).
+-doc(#{equiv => start_channel/2}).
 -spec start_channel(ssh:open_socket() | ssh:connection_ref() | ssh:host()) ->
           {ok, pid()} | {ok, pid(), ssh:connection_ref()} | {error, reason()}.
 start_channel(Dest) ->
     start_channel(Dest, []).
- 
-%%%----------------------------------------------------------------
-%%% start_channel/2
+
 %%% -spec:s are as if Dialyzer handled signatures for separate
 %%% function clauses.
--doc(#{equiv => start_channel/3}).
+-doc """
+Starts new ssh channel for communicating with the SFTP server.
+
+Starts an ssh channel when first argument is a connection reference.
+
+Equivalent to [start_channel(Host, 22, UserOptions)](`start_channel/3`) when
+first argument is recognized as network host.
+
+Otherwise, first argument is treated as a network socket which will be used for
+establishing new SSH connection. New connection reference will be used for
+starting an SSH channel.
+
+The returned `pid` for this process is to be used as input to all other API
+functions in this module.
+
+See also (`start_channel/3`).
+
+""".
 -spec start_channel(ssh:open_socket(), [ssh:client_option() | sftp_option()]) ->
           {ok, pid(), ssh:connection_ref()} | {error,reason()};
                    (ssh:connection_ref(), [ssh:client_option() | sftp_option()]) ->
           {ok, pid()}  | {ok, pid(), ssh:connection_ref()} | {error, reason()};
                    (ssh:host(), [ssh:client_option() | sftp_option()]) ->
-          {ok, pid(), ssh:connection_ref()} | {error, reason()} .
+          {ok, pid(), ssh:connection_ref()} | {error, reason()}.
 start_channel(Cm, UserOptions0) when is_pid(Cm) ->
     UserOptions = legacy_timeout(UserOptions0),
     Timeout = proplists:get_value(timeout, UserOptions, infinity),
@@ -201,14 +211,10 @@ start_channel(Dest, UserOptions0) ->
             end
     end.
 
-%%%----------------------------------------------------------------
-%%% start_channel/3
 -doc """
-start_channel(Host, Port, Options) ->
+Starts new ssh connection and channel for communicating with the SFTP server.
 
-If no connection reference is provided, a connection is set up, and the new
-connection is returned. An SSH channel process is started to handle the
-communication with the SFTP server. The returned `pid` for this process is to be
+The returned `pid` for this process is to be
 used as input to all other API functions in this module.
 
 Options:
@@ -309,10 +315,10 @@ open(Pid, File, Mode, FileOpTimeout) ->
     call(Pid, {open, false, File, Mode}, FileOpTimeout).
 
 
--doc(#{title => <<"Crypto open_tar">>}).
+-doc(#{group => <<"Crypto open_tar">>}).
 -type tar_crypto_spec() :: encrypt_spec() | decrypt_spec() .
 
--doc(#{title => <<"Crypto open_tar">>}).
+-doc(#{group => <<"Crypto open_tar">>}).
 -type encrypt_spec() :: {init_fun(), crypto_fun(), final_fun()} .
 -doc """
 Specifies the encryption or decryption applied to tar files when using
@@ -325,14 +331,14 @@ For code examples see Section
 [Example with encryption](using_ssh.md#example-with-encryption) in the ssh Users
 Guide.
 """.
--doc(#{title => <<"Crypto open_tar">>}).
+-doc(#{group => <<"Crypto open_tar">>}).
 -type decrypt_spec() :: {init_fun(), crypto_fun()} .
 
--doc(#{title => <<"Crypto open_tar">>}).
+-doc(#{group => <<"Crypto open_tar">>}).
 -type init_fun() :: fun(() -> {ok,crypto_state()})
                   | fun(() -> {ok,crypto_state(),chunk_size()}) .
 
--doc(#{title => <<"Crypto open_tar">>}).
+-doc(#{group => <<"Crypto open_tar">>}).
 -type crypto_fun() :: fun((TextIn::binary(), crypto_state()) -> crypto_result()) .
 -doc """
 The initial `t:crypto_state/0` returned from the `t:init_fun/0` is folded into
@@ -344,7 +350,7 @@ next call of the `t:crypto_fun/0`.
 If the `t:crypto_fun/0` reurns a `t:chunk_size/0`, that value is as block size
 for further blocks in calls to `t:crypto_fun/0`.
 """.
--doc(#{title => <<"Crypto open_tar">>}).
+-doc(#{group => <<"Crypto open_tar">>}).
 -type crypto_result() :: {ok,TextOut::binary(),crypto_state()}
                        | {ok,TextOut::binary(),crypto_state(),chunk_size()} .
 
@@ -354,10 +360,10 @@ If doing encryption, the `t:final_fun/0` in the
 The `t:final_fun/0` is responsible for padding (if needed) and encryption of
 that last piece.
 """.
--doc(#{title => <<"Crypto open_tar">>}).
+-doc(#{group => <<"Crypto open_tar">>}).
 -type final_fun() :: fun((FinalTextIn::binary(),crypto_state()) -> {ok,FinalTextOut::binary()}) .
 
--doc(#{title => <<"Crypto open_tar">>}).
+-doc(#{group => <<"Crypto open_tar">>}).
 -type chunk_size() :: undefined | pos_integer().
 -doc """
 The `t:init_fun/0` in the [tar_crypto_spec](`t:tar_crypto_spec/0`) is applied
@@ -374,7 +380,7 @@ stream crypto, whereas a fixed `t:chunk_size/0` is intended for block crypto. A
 `t:chunk_size/0` can be changed in the return from the `t:crypto_fun/0`. The
 value can be changed between `t:pos_integer/0` and `undefined`.
 """.
--doc(#{title => <<"Crypto open_tar">>}).
+-doc(#{group => <<"Crypto open_tar">>}).
 -type crypto_state() :: any() .
 
 

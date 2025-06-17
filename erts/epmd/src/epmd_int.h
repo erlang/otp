@@ -2,7 +2,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1998-2021. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 1998-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -95,6 +97,21 @@
 #define ASSERT(Cnd) do { if (!(Cnd)) { abort(); } } while(0)
 #else
 #define ASSERT(Cnd)
+#endif
+
+#if __GNUC__
+#  define __decl_noreturn
+#  ifndef __noreturn
+#     define __noreturn __attribute__((noreturn))
+#  endif
+#else
+#  if defined(__WIN32__) && defined(_MSC_VER)
+#    define __noreturn
+#    define __decl_noreturn __declspec(noreturn)
+#  else
+#    define __noreturn
+#    define __decl_noreturn
+#  endif
 #endif
 
 #if defined(HAVE_IN6) && defined(AF_INET6) && defined(HAVE_INET_PTON)
@@ -343,7 +360,7 @@ void dbg_perror(EpmdVars*,const char*,...);
 void kill_epmd(EpmdVars*);
 void epmd_call(EpmdVars*,int);
 void run(EpmdVars*);
-void epmd_cleanup_exit(EpmdVars*, int);
+__decl_noreturn void __noreturn epmd_cleanup_exit(EpmdVars*, int);
 int epmd_conn_close(EpmdVars*,Connection*);
 void stop_cli(EpmdVars *g, char *name);
 

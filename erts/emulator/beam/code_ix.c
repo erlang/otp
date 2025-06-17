@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2012-2024. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2012-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -119,14 +121,25 @@ void erts_end_staging_code_ix(void)
 
 void erts_commit_staging_code_ix(void)
 {
+    /* We need these locks as we are about to make the next code index
+     * active. */
+    extern void export_staged_write_lock(void);
+    extern void export_staged_write_unlock(void);
+    extern void fun_staged_write_lock(void);
+    extern void fun_staged_write_unlock(void);
     ErtsCodeIndex ix;
-    /* We need to this lock as we are now making the staging export table active */
-    export_staging_lock();
-    ix = erts_staging_code_ix();
-    erts_atomic32_set_nob(&the_active_code_index, ix);
-    ix = (ix + 1) % ERTS_NUM_CODE_IX;
-    erts_atomic32_set_nob(&the_staging_code_index, ix);
-    export_staging_unlock();
+
+    export_staged_write_lock();
+    fun_staged_write_lock();
+    {
+        ix = erts_staging_code_ix();
+        erts_atomic32_set_nob(&the_active_code_index, ix);
+        ix = (ix + 1) % ERTS_NUM_CODE_IX;
+        erts_atomic32_set_nob(&the_staging_code_index, ix);
+    }
+    fun_staged_write_unlock();
+    export_staged_write_unlock();
+
     erts_tracer_nif_clear();
     CIX_TRACE("activate");
 }

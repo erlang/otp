@@ -1,3 +1,10 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
 [;1m  hibernate(Module, Function, Args)[0m
 
@@ -5,7 +12,7 @@
   allocation has been reduced as much as possible. This is useful if
   the process does not expect to receive any messages soon.
 
-  The process is awaken when a message is sent to it, and control
+  The process is awakened when a message is sent to it, and control
   resumes in [;;4mModule:Function[0m with the arguments specified by [;;4mArgs[0m
   with the call stack emptied, meaning that the process terminates
   when that function returns. Thus [;;4merlang:hibernate/3[0m never

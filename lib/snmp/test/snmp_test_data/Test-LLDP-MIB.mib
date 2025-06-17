@@ -1,3 +1,12 @@
+-- %CopyrightBegin%
+--
+-- SPDX-License-Identifier: NOASSERTION
+--
+-- Copyright (C) IEEE (2005).  All Rights Reserved.
+-- Copyright Ericsson AB 2017-2025. All Rights Reserved.
+--
+-- %CopyrightEnd%
+
 Test-LLDP-MIB DEFINITIONS ::= BEGIN
 
 IMPORTS

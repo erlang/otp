@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -223,7 +225,9 @@ erl_copyright() ->
     StartYear = start_year(get(current_class)),
     {CurrentYear,_,_}   = erlang:date(),
     w("%%~n",[]),
-    w("%% %CopyrightBegin%~n",[]),
+    w("%% %CopyrightBegin%
+    w("%%
+    w("%% SPDX-License-Identifier: Apache-2.0~n",[]),
     w("%%~n",[]),
     w("%% Copyright Ericsson AB ~p-~p. All Rights Reserved.~n",
       [StartYear, CurrentYear]),
@@ -245,7 +249,9 @@ erl_copyright() ->
 c_copyright() ->
     {CurrentYear,_,_}   = erlang:date(),
     w("/*~n",[]),
-    w(" * %CopyrightBegin%~n",[]),
+    w(" * %CopyrightBegin%
+    w(" *
+    w(" * SPDX-License-Identifier: Apache-2.0~n",[]),
     w(" *~n",[]),
     w(" * Copyright Ericsson AB 2008-~p. All Rights Reserved.~n",[CurrentYear]),
     w(" *~n",[]),

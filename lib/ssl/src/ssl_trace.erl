@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2022-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2022-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -422,7 +424,7 @@ trace_profiles() ->
       [{ssl,
         [{listen,2}, {connect,3}, {handshake,2}, {close, 1}]},
        {ssl_gen_statem,
-        [{connect, 8}, {close, 2}, {terminate_alert, 1}]},
+        [{close, 2}, {terminate_alert, 1}]},
        {tls_client_connection,
         [{initial_hello, 3}]},
        {tls_server_connection,
@@ -432,7 +434,7 @@ trace_profiles() ->
        {dtls_server_connection,
         [{initial_hello, 3}]},
        {tls_gen_connection,
-        [{start_connection_tree, 5}, {socket_control, 6}]}
+        [{start_connection_tree, 3}]}
       ]},
      {csp, %% OCSP
       fun(M, F, A) -> dbg:tpl(M, F, A, x) end,
@@ -452,7 +454,7 @@ trace_profiles() ->
                       {is_responder_cert, 2}, {find_single_response, 3},
                       {status, 2}, {match_single_response, 4},
                       {designated_for_ocsp_signing, 1}]},
-       {ssl, [{opt_stapling, 3}]},
+       {ssl_config, [{opt_stapling, 3}]},
        {ssl_certificate, [{verify_cert_extensions, 5}]},
        {ssl_test_lib, [{init_openssl_server, 3}, {openssl_server_loop, 3}]},
        {tls_client_connection, [{wait_stapling, 3}]},
@@ -488,7 +490,7 @@ trace_profiles() ->
       fun(M, F, A) -> dbg:tpl(M, F, A, x) end,
       fun(M, F, A) -> dbg:ctpl(M, F, A) end,
       [{tls_gen_connection_1_3, [{handle_key_update, 2}]},
-       {tls_sender, [{init, 3}, {time_to_rekey, 6},
+       {tls_sender, [{init, 3}, {time_to_rekey, 5},
                      {send_post_handshake_data, 4}]},
        {tls_v1, [{update_traffic_secret, 2}]}]},
      {rle, %% role
