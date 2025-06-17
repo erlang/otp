@@ -14,7 +14,7 @@
     "homepage": "https://github.com/wxWidgets/wxWidgets",
     "licenseDeclared": "LicenseRef-scancode-wxwindows-free-doc-3",
     "name": "wx",
-    "versionInfo": "dc585039bbd426829e3433002023a93f9bedd0c2",
+    "versionInfo": "18da5b8269706472f6c0fa09dcbae605a477da19",
     "path": "./lib/wx",
     "comments": "This only applies to the source code of Erlang files in 'src', and specifically to the documentation embedded in them",
     "supplier": "NOASSERTION",
