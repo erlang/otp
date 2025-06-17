@@ -137,7 +137,7 @@ This is a simple example function that illustrates how to use
 Observe that this is not an illustration how to write a asynchronous
 sendv function. Its just an example of what kind of messages and results
 that can be expected. The example below basically (re-) implements:
-`socket:sendv(Sock, IOV, infinity)`.
+[`socket:sendv(Sock, IOV, infinity)`](`socket:sendv/3`).
 
 ```erlang
 completion_sendv(Sock, IOV) ->
