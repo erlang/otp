@@ -326,7 +326,12 @@ testCompactBitString(Config, Rule, Opts) ->
     testCompactBitString:otp_4869(Rule).
 
 testPrimStrings(Config) ->
-    test(Config, fun testPrimStrings/3, [ber,{ber,[der]},per,uper]).
+    test(Config, fun testPrimStrings/3, [ber,{ber,[der]},per,uper,jer]).
+testPrimStrings(Config, jer=Rule, Opts) ->
+    Files = ["PrimStrings", "BitStr"],
+    asn1_test_lib:compile_all(Files, Config, [Rule|Opts]),
+    testPrimStrings_cases(Rule, Opts),
+    testPrimStrings:more_strings(Rule);
 testPrimStrings(Config, Rule, Opts) ->
     LegacyOpts = [legacy_erlang_types|Opts],
     Files = ["PrimStrings", "BitStr"],
@@ -345,11 +350,16 @@ testPrimStrings_cases(Rule, Opts) ->
     testPrimStrings:octet_string(Rule),
     testPrimStrings:numeric_string(Rule),
     testPrimStrings:other_strings(Rule),
-    testPrimStrings:universal_string(Rule),
-    testPrimStrings:bmp_string(Rule),
-    testPrimStrings:times(Rule),
-    testPrimStrings:utf8_string(Rule),
-    testPrimStrings:fragmented(Rule).
+    case Rule of
+        jer ->
+            ok;
+        _ ->
+            testPrimStrings:universal_string(Rule),
+            testPrimStrings:bmp_string(Rule),
+            testPrimStrings:times(Rule),
+            testPrimStrings:utf8_string(Rule),
+            testPrimStrings:fragmented(Rule)
+    end.
 
 testExternal(Config) -> test(Config, fun testExternal/3).
 testExternal(Config, Rule, Opts) ->

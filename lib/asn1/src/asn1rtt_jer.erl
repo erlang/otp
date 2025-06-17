@@ -298,6 +298,9 @@ decode_jer(bit_string,#{<<"value">> := Str, <<"length">> := Length}) ->
     json2bitstring(binary_to_list(Str),Length);
 decode_jer({bit_string,FixedLength},Str) when is_binary(Str) ->
     json2bitstring(binary_to_list(Str),FixedLength);
+decode_jer({bit_string, {_, _}},
+          #{<<"value">> := Str, <<"length">> := Length}) ->
+    json2bitstring(binary_to_list(Str), Length);
 decode_jer({{bit_string_nnl,NNL},{_,_}},#{<<"value">> := Str, <<"length">> := Length}) ->
     BitStr = json2bitstring(binary_to_list(Str),Length),
     jer_bitstr2names(BitStr,NNL);
