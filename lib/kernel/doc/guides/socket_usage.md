@@ -205,7 +205,7 @@ This is a simple example function that illustrates how to use
 Observe that this is not an illustration how to write a asynchronous
 read function. Its just an example of what kind of messages and results
 that can be expected. The example below basically (re-) implements:
-`socket:recv(Sock, Sz)`.
+[`socket:recv(Sock, Sz)`](`socket:recv/2`).
 
 ```erlang
 completion_recv(Sock, Sz) when (Sz > 0) ->
