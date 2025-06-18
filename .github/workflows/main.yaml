@@ -455,7 +455,7 @@ jobs:
         with:
           name: otp_prebuilt
       - name: Build on FreeBSD
-        uses: vmactions/freebsd-vm@c3ae29a132c8ef1924775414107a97cac042aad5 # ratchet:vmactions/freebsd-vm@v1
+        uses: vmactions/freebsd-vm@966989c456d41351f095a421f60e71342d3bce41 # v1
         with:
             usesh: true
             copyback: false
@@ -948,7 +948,7 @@ jobs:
 
       - name: Attest Distribution Assets with SBoM
         id: attest-sbom
-        uses: actions/attest-sbom@115c3be05ff3974bcbd596578934b3f9ce39bf68 # ratchet:actions/attest-sbom@v2
+        uses: actions/attest-sbom@bd218ad0dbcb3e146bd073d1d9c6d78e08aa8a0b # v2
         with:
           subject-path: |
             artifacts/*.tar.gz
@@ -976,7 +976,7 @@ jobs:
           path: "attestations/*.sigstore"
 
       - name: Upload pre-built and doc tar archives
-        uses: softprops/action-gh-release@da05d552573ad5aba039eaac05058a918a7bf631 # ratchet:softprops/action-gh-release@v2.2.2
+        uses: softprops/action-gh-release@72f2c25fcb47643c292f7107632f7a47c1df5cd8 # v2.3.2
         with:
           name: OTP ${{ steps.tag.outputs.vsn }}
           files: |
