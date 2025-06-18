@@ -2200,10 +2200,10 @@ otp_10302(Suite) when is_list(Suite) ->
     "<<\"äppl\"/utf8...>>" = pretty(<<"äpple"/utf8>>, 2),
     "<<\"apel\">>" = pretty(<<"apel">>, 2),
     "<<\"apel\"...>>" = pretty(<<"apelsin">>, 2),
-    "<<\"äppl\">>" = fmt("~tp", [<<"äppl">>]),
-    "<<\"äppl\"...>>" = fmt("~tP", [<<"äpple">>, 2]),
-    "<<0,0,0,0,0,0,1,0>>" = fmt("~p", [<<256:64/unsigned-integer>>]),
-    "<<0,0,0,0,0,0,1,0>>" = fmt("~tp", [<<256:64/unsigned-integer>>]),
+    "═Ω <<\"äppl\">>" = fmt("═Ω ~tp", [<<"äppl">>]),
+    "═Ω <<\"äppl\"...>>" = fmt("═Ω ~tP", [<<"äpple">>, 2]),
+    "═Ω <<0,0,0,0,0,0,1,0>>" = fmt("═Ω ~p", [<<256:64/unsigned-integer>>]),
+    "═Ω <<0,0,0,0,0,0,1,0>>" = fmt("═Ω ~tp", [<<256:64/unsigned-integer>>]),
 
     Chars = lists:seq(0, 512), % just a few...
     [] = [C || C <- Chars, S <- io_lib:write_char_as_latin1(C),
