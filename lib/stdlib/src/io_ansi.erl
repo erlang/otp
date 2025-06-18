@@ -275,7 +275,7 @@ tigetnum(TermInfoCap) ->
     prim_tty:tigetnum(TermInfoCap).
 
 -doc """
-Returns the true if the terminfo capability is available, otherwise false.
+Returns true if the terminfo capability is available, otherwise false.
 
 The names of the terminal capabilities can be found in the [terminfo](https://man7.org/linux/man-pages/man5/terminfo.5.html)
 documentation, or by calling `tinfo/0`. `tigetflag/1` will use the terminfo
@@ -1664,7 +1664,7 @@ lookup_vts(Data) ->
 format(Format) ->
     format(Format, []).
 
--doc #{ equiv => format(Format, [], []) }.
+-doc #{ equiv => format(Format, Data, []) }.
 -spec format(format(), Data :: [term()]) -> unicode:unicode_binary().
 format(Format, Data) ->
     format(Format, Data, []).
