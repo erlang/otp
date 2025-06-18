@@ -121,6 +121,6 @@
             "datasourceTemplate": "git-refs"
           }
     ],
-    "baseBranches": ["master", "maint", "maint-28", "maint-27", "maint-26"],
+    "baseBranches": ["master","maint","maint-28","maint-27","maint-26"],
     "schedule": ["after 2am on monday"]
 }
