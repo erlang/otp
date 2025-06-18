@@ -72,11 +72,13 @@ docs: $(DOC_TARGETS)
 
 chunks:
 
+DOC_VSN=$(shell if ! grep -q rc0 "$(ERL_TOP)/OTP_VERSION"; then echo "$(VSN)"; else echo "$(VSN)-rc0"; fi)
+
 HTML_DEPS?=$(wildcard $(APP_EBIN_DIR)/*.beam) $(wildcard *.md) $(wildcard */*.md) $(wildcard assets/*)
 
 $(HTMLDIR)/index.html: $(HTML_DEPS) docs.exs $(ERL_TOP)/make/ex_doc.exs
 	$(gen_verbose)EX_DOC_WARNINGS_AS_ERRORS=$(EX_DOC_WARNINGS_AS_ERRORS) ERL_FLAGS="-pz $(ERL_TOP)/erts/ebin" \
-	  $(ERL_TOP)/make/ex_doc_wrapper $(EX_DOC_FORMATS) --homepage-url "$(INDEX_DIR)/index.html" "$(APPLICATION)" $(VSN) $(APP_EBIN_DIR) -o "$(HTMLDIR)" -c $(ERL_TOP)/make/ex_doc.exs
+	  $(ERL_TOP)/make/ex_doc_wrapper $(EX_DOC_FORMATS) --homepage-url "$(INDEX_DIR)/index.html" "$(APPLICATION)" $(DOC_VSN) $(APP_EBIN_DIR) -o "$(HTMLDIR)" -c $(ERL_TOP)/make/ex_doc.exs
 
 html: $(HTMLDIR)/index.html
 
