@@ -372,6 +372,11 @@ strip(0, _Tail) ->
 
 %% OBJECT IDENTIFIER
 -doc false.
+%% dec_value(<<6:8/integer, _/binary>> = Bytes) ->
+%%     {Value, Rest} = dec_OID(Bytes),
+%%     {{'OBJECT IDENTIFIER', Value}, Rest};
+%% dec_value(<<5:8/integer, 0:8/integer, T/binary>>) ->
+%%     {{'NULL', 'NULL'}, T};
 dec_value([6 | Bytes]) ->
     {Value, Rest} = dec_oid_notag(Bytes),
     {{'OBJECT IDENTIFIER', Value}, Rest};
@@ -379,21 +384,37 @@ dec_value([5,0 | T]) ->
     {{'NULL', 'NULL'}, T};
 
 %% INTEGER
+%% dec_value(<<2:8/integer, _/binary>> = Bytes) ->
+%%     {Value, Rest} = dec_INTEGER(Bytes),
+%%     {{'INTEGER', Value}, Rest};
 dec_value([2 | Bytes]) ->
     {Value, Rest} = dec_integer_notag(Bytes),
     {{'INTEGER', Value}, Rest};
 
 %% OCTET STRING
+%% dec_value(<<4:8/integer, _/binary>> = Bytes) ->
+%%     {Value, Rest} = dec_OctetString(Bytes),
+%%     {{'OCTET STRING', Value}, Rest};
 dec_value([4 | Bytes]) ->
     {Value, Rest} = dec_oct_str_notag(Bytes),
     {{'OCTET STRING', Value}, Rest};
 
 %% IpAddress
+%% dec_value(<<64:8/integer, _/binary>> = Bytes) -> 
+%%     {Value, Rest} = dec_IpAddress(Bytes),
+%%     {{'IpAddress', Value}, Rest};
 dec_value([64 | Bytes]) -> 
     {Value, Rest} = dec_oct_str_notag(Bytes),
     {{'IpAddress', Value}, Rest};
 
 %% Counter32
+%% dec_value(<<65:8/integer, _/binary>> = Bytes) ->
+%%     case dec_Counter32(Bytes) of
+%%         {Value, Rest} when (Value >= 0) andalso (Value =< 4294967295) ->
+%%             {{'Counter32', Value}, Rest};
+%%         {BadValue, _} ->
+%%             exit({error, {bad_counter32, BadValue}})	
+%%     end;
 dec_value([65 | Bytes]) ->
     %% Counter32 is an unsigned 32 but is actually encoded as 
     %% a signed integer 32 (INTEGER).
@@ -412,6 +433,13 @@ dec_value([65 | Bytes]) ->
     {{'Counter32', Value2}, Rest};
 
 %% Unsigned32
+%% dec_value(<<66:8/integer, _/binary>> = Bytes) ->
+%%     case dec_Unsigned32(Bytes) of
+%%         {Value, Rest} when (Value >= 0) andalso (Value =< 4294967295) ->
+%%             {{'Unsigned32', Value}, Rest};
+%%         {BadValue, _} ->
+%%             exit({error, {bad_unsigned32, BadValue}})	
+%%     end;
 dec_value([66 | Bytes]) ->
     {Value, Rest} = dec_integer_notag(Bytes),
     Value2 = 
@@ -426,6 +454,13 @@ dec_value([66 | Bytes]) ->
     {{'Unsigned32', Value2}, Rest};
 
 %% TimeTicks
+%% dec_value(<<67:8/integer, _/binary>> = Bytes) ->
+%%     case dec_TimeTicks(Bytes) of
+%%         {Value, Rest} when (Value >= 0) andalso (Value =< 4294967295) ->
+%%             {{'TimeTicks', Value}, Rest};
+%%         {BadValue, _} ->
+%%             exit({error, {bad_timeticks, BadValue}})	
+%%     end;
 dec_value([67 | Bytes]) ->
     {Value, Rest} = dec_integer_notag(Bytes),
     Value2 = 
@@ -440,24 +475,30 @@ dec_value([67 | Bytes]) ->
     {{'TimeTicks', Value2}, Rest};
 
 %% Opaque
+%% dec_value(<<68:8/integer, _/binary>> = Bytes) ->
+%%     {Value, Rest} = dec_Opaque(Bytes),
+%%     {{'Opaque', Value}, Rest};
 dec_value([68 | Bytes]) ->
     {Value, Rest} = dec_oct_str_notag(Bytes),
     {{'Opaque', Value}, Rest};
 
 %% Counter64
+%% dec_value(<<70:8/integer, _/binary>> = Bytes) ->
+%%     case dec_Counter64(Bytes) of
+%%         {Value, Rest} when (Value >= 0) andalso
+%%                            (Value =< 18446744073709551615) ->
+%%             {{'Counter64', Value}, Rest};
+%%         {BadValue, _} ->
+%%             exit({error, {bad_counter64, BadValue}})	
+%%     end;
 dec_value([70 | Bytes]) ->
-    %% Counter64 is an unsigned 64 but is actually encoded as 
-    %% a signed integer 64.
-    {Value, Rest} = dec_integer_notag(Bytes),
-    Value2 = 
-    	if
-    	    (Value >= 0) andalso (Value < 16#8000000000000000) ->
-    		Value;
-    	    (Value < 0) ->
-    		16#ffffffffffffffff + Value + 1;
-    	    true ->
-    		exit({error, {bad_counter64, Value}})	end,
-    {{'Counter64', Value2}, Rest};
+    case dec_Counter64(Bytes) of
+        {Value, Rest} when (Value >= 0) andalso
+                           (Value =< 18446744073709551615) ->
+            {{'Counter64', Value}, Rest};
+        {Value, _} when is_integer(Value) ->
+            exit({error, {bad_counter64, Value}})
+    end;
 
 dec_value([128,0|T]) ->
     {{'NULL', noSuchObject}, T};
@@ -467,6 +508,73 @@ dec_value([130,0|T]) ->
     {{'NULL', endOfMibView}, T}.
 
 
+%%----------------------------------------------------------------------
+%% Wrapper functions for encode / decode of "basic" types.
+%%
+%% These are functions that wrap the generated the encode / decode
+%% functions for the "basic" type(s) (from the SNMPv2-SMI mib).
+%% The major reason for the wrap is that all the generated functions
+%% operate on binaries, not lists. So until such time as we rewrite
+%% this codec (to use binaries), we are stuck with these wrappers.
+%%----------------------------------------------------------------------
+
+%% --- Counter64 ---
+
+%% Counter64 is an integer, with a (*valid*) length that only uses one
+%% byte (Length < 127)...
+%% We have already stripped away the SNMP tag for Counter64 (70: see below)
+%%
+%% Counter64 is an IMPLICIT INTEGER: That is using *another* tag then
+%% INTEGER: 70 instead of 2. The tag has already been removed by the
+%% caller.
+%%
+dec_Counter64([CounterLen | Rest0]) ->
+    %% This crappola is because we currently uses lists (instead of binary)
+    {CounterList, Rest1} = lists:split(CounterLen, Rest0),
+    CounterBin0 = list_to_binary(CounterList),
+    %% Create a binary that our basic (generated) module can work with
+    CounterBin = <<70:8/integer, CounterLen:8/integer, CounterBin0/binary>>,
+    case snmp_pdus_basic:decode('Counter64', CounterBin) of
+        {ok, Value} ->
+            {Value, Rest1};
+        {error, _} = ERROR ->
+            exit(ERROR)
+    end;
+%% Future proofing...
+dec_Counter64(<<CounterLen:8/integer,
+                CounterBin0:CounterLen/binary,
+                Rest/binary>>) ->
+    %% Create a binary that our basic (generated) module can work with
+    %% Tag (integer) = Fake-tag to "trick" ASN.1, Length, Value
+    CounterBin = <<70:8/integer,
+                   CounterLen:8/integer,
+                   CounterBin0:CounterLen/binary>>,
+    case snmp_pdus_basic:decode('Counter64', CounterBin) of
+        {ok, Value} ->
+            {Value, Rest};
+        {error, _} = ERROR ->
+            exit(ERROR)
+    end.    
+
+
+%% We have already done the value range check:
+%%
+%%        0 =< Value =< 18446744073709551615
+%%
+%% IMPLICIT INTEGER = We use another tag then INTEGER: 70 instead of 2.
+%%
+enc_Counter64(Value) ->
+    case snmp_pdus_basic:encode('Counter64', Value) of
+        
+        {ok, <<70:8/integer, Rest/binary>>} ->
+            %% Rest contains both length and the actual value
+            %% We currently uses lists instead of binary...
+            binary_to_list(Rest);
+        {error, _} = ERROR ->
+            exit(ERROR)
+    end.
+
+    
 %%----------------------------------------------------------------------
 %% Purpose: Uses the beginning length bytes to return the actual data.
 %% If data has the wrong length, the program is exited.
@@ -875,20 +983,14 @@ enc_value('TimeTicks', Val) ->
 	    exit({error, {bad_timeticks, Val}}) 
     end;
 enc_value('Counter64', Val) ->
-    Val2 = 
-	if
-	    Val > 16#ffffffffffffffff ->
-		exit({error, {bad_counter64, Val}});
-	    Val >= 16#8000000000000000 ->
-		(Val band 16#7fffffffffffffff) - 16#8000000000000000;
-	    Val >= 0 ->
-		Val;
-	    true ->
-		exit({error, {bad_counter64, Val}}) 
-	end,
-    Bytes2 = enc_integer_notag(Val2),
-    Len2 = elength(length(Bytes2)),
-    lists:append([70 | Len2],Bytes2).
+    if
+        is_integer(Val) andalso (Val > 18446744073709551615) ->
+            exit({error, {bad_counter64, Val}});
+        is_integer(Val) andalso (Val >= 0) ->
+            [70 | enc_Counter64(Val)];
+        true ->
+            exit({error, {bad_counter64, Val}})
+    end.
 
 
 %%----------------------------------------------------------------------

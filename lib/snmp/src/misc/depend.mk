@@ -60,4 +60,15 @@ $(EBIN)/snmp_usm.$(EMULATOR): \
 $(EBIN)/snmp_verbosity.$(EMULATOR): \
 	snmp_verbosity.erl
 
+# Rules for generated "stuff"
+
+$(EBIN)/snmp_pdus_basic.$(EMULATOR): \
+	snmp_pdus_basic.erl
+
+# ASN1_OPTS += +abs
+snmp_pdus_basic.erl: \
+	snmp_pdus_basic.set.asn \
+	snmp_pdus_basic.asn
+	$(V_colon)@echo "snmp_pdus_basec:"
+	$(asn_verbose)$(ERLC) -bber +noobj $(ASN1_OPTS) snmp_pdus_basic.set.asn
 
