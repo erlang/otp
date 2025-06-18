@@ -65,17 +65,33 @@ runs:
         run: .github/scripts/build-base-image.sh "${{ inputs.BASE_BRANCH }}" "${{ inputs.TYPE }}"
 
       - name: Cache pre-built src
+        id: cache-src
         if: inputs.BUILD_IMAGE == 'true'
         uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # ratchet:actions/cache@v4.2.3
         with:
             path: otp_src.tar.gz
             key: prebuilt-src-${{ github.ref_name }}-${{ github.sha }}
+
+      - name: Download pre-built src
+        if: inputs.BUILD_IMAGE == 'true' && steps.cache-src.outputs.cache-hit != 'true'
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # ratchet:actions/download-artifact@v4
+        with:
+          name: otp_prebuilt
+
       - name: Cache pre-built binaries
-        if: inputs.BUILD_IMAGE == 'true'
+        id: cache-binary
+        if: inputs.BUILD_IMAGE == 'true' && steps.cache-src.outputs.cache-hit == 'true'
         uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # ratchet:actions/cache@v4.2.3
         with:
             path: otp_cache.tar.gz
             key: prebuilt-cache-${{ inputs.TYPE }}-${{ github.ref_name }}-${{ github.sha }}
+
+      - name: Download pre-built binaries
+        if: inputs.BUILD_IMAGE == 'true' && steps.cache-binary.outputs.cache-hit != 'true'
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # ratchet:actions/download-artifact@v4
+        with:
+          name: otp_prebuilt
+
       - name: Build image
         if: inputs.BUILD_IMAGE == 'true'
         shell: bash -eo pipefail {0}
