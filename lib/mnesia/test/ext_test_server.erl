@@ -394,18 +394,6 @@ handle_call({select, Alias, Tab, Ms, Limit}, _From, State) ->
     Res = ?TRY(select(Alias, Tab, Ms, Limit, State, forward)),
     {reply, Res, State};
 
-handle_call({select_reverse, '$end_of_table' = End}, _From, State) ->
-    ?DBG({select_reverse, End}),
-    {reply, End, State};
-handle_call({select_reverse, C}, _From, State) when element(1, C) == dets_cont ->
-    ?DBG({select_reverse, {ext_disc_only_copies, C}}),
-    Res = ?TRY(dets:select(C)),
-    {reply, Res, State};
-handle_call({select_reverse, C}, _From, State) ->
-    ?DBG({select_reverse, {ext_ram_copies, C}}),
-    Res = ?TRY(ets:select_reverse(C)),
-    {reply, Res, State};
-
 handle_call({select_reverse, Alias, Tab, Ms}, _From, State) ->
     ?DBG({select_reverse, Alias, tab_to_list(Tab), Ms}),
     Res = ?TRY(select(Alias, Tab, Ms, State, reverse)),
