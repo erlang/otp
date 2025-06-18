@@ -3166,7 +3166,11 @@ trap_exit(Flag) ->
 
 start_node(Name, Unlink) ->
     Args = ["-s", "snmp_test_sys_monitor", "start", "-s", "global", "sync"],
-    case ?CT_PEER(#{name => Name, args => Args}) of
+    %% Note that the 'verbose' option may not exist..
+    %% It it does not exist, this "should" do nothing...
+    case ?CT_PEER(#{name    => Name,
+                    args    => Args,
+                    verbose => true}) of
         {ok, Peer, Node}  ->
             %% Must unlink, otherwise peer will exit before test case
             maybe_unlink(Unlink, Peer),
