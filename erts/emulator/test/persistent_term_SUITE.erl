@@ -1017,7 +1017,8 @@ error_info(_Config) ->
     L = [{erase, [{?MODULE,my_key}], [no_fail]},
          {get, [{?MODULE,certainly_not_existing}]},
          {get, [{?MODULE,certainly_not_existing}, default], [no_fail]},
-         {put, 2}                               %Can't fail.
+         {put, 2},                               %Can't fail.
+         {put_new, [{?MODULE,new_key}, default], [no_fail]}
         ],
     do_error_info(L).
 
