@@ -998,7 +998,9 @@ do_boot ()
     fi
 
     # Build it (including bootstrap if not cross compiling)
-    $MAKE MAKE="$MAKE" BOOTSTRAP_ROOT=$BOOTSTRAP_ROOT TARGET=$TARGET all || exit 1
+    $MAKE MAKE="$MAKE" BOOTSTRAP_ROOT=$BOOTSTRAP_ROOT TARGET=$TARGET \
+        TYPE="$TYPE" FLAVOR="$FLAVOR" \
+        all || exit 1
 }
 
 do_boot_emu ()
@@ -1007,7 +1009,9 @@ do_boot_emu ()
     if [ X`$MAKE is_cross_configured` = Xyes ]; then
 	TARGET=`$MAKE target_configured`
     fi
-    $MAKE MAKE="$MAKE" BOOTSTRAP_ROOT=$BOOTSTRAP_ROOT TARGET=$TARGET emulator || exit 1
+    $MAKE MAKE="$MAKE" BOOTSTRAP_ROOT=$BOOTSTRAP_ROOT TARGET=$TARGET \
+        TYPE="$TYPE" FLAVOR="$FLAVOR" \
+        emulator || exit 1
 }
 
 do_release ()
@@ -1017,6 +1021,7 @@ do_release ()
 	TARGET=`$MAKE target_configured`
     fi
     $MAKE MAKE="$MAKE" BOOTSTRAP_ROOT=$BOOTSTRAP_ROOT TARGET=$TARGET \
+        TYPE="$TYPE" FLAVOR="$FLAVOR" \
 	RELEASE_ROOT=$1 OTP_STRICT_INSTALL=$OTP_STRICT_INSTALL \
 	release || exit 1
 }
@@ -1433,7 +1438,7 @@ else
 fi
 export OTP_SMALL_BUILD OTP_TINY_BUILD
 
-TYPE=
+TYPE=$TYPE
 case "$1" in
  	all)
  		do_configure; 
