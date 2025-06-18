@@ -72,7 +72,11 @@ docs: $(DOC_TARGETS)
 
 chunks:
 
+ifneq ($(VSN), $(shell cat "$(ERL_TOP)/OTP_VERSION"))
 DOC_VSN=$(shell if ! grep -q rc0 "$(ERL_TOP)/OTP_VERSION"; then echo "$(VSN)"; else echo "$(VSN)-rc0"; fi)
+else
+DOC_VSN=$(VSN)
+endif
 
 HTML_DEPS?=$(wildcard $(APP_EBIN_DIR)/*.beam) $(wildcard *.md) $(wildcard */*.md) $(wildcard assets/*)
 
