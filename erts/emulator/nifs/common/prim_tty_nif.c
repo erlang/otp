@@ -895,6 +895,7 @@ static ERL_NIF_TERM tty_create_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
     if (tcgetattr(tty->ofd, &tty->tty_rmode) >= 0) {
         tty->tty = disabled;
     }
+    tty->tty_smode = tty->tty_rmode;
 #endif
 
 #else
@@ -981,34 +982,37 @@ static ERL_NIF_TERM tty_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
 
 #ifndef __WIN32__
 
-    /* Restore the original mode, that is canonical echo mode */
-    tty->tty_smode = tty->tty_rmode;
+    if (tty->tty == enabled || sys_memcmp(&tty->tty_smode, &tty->tty_rmode, sizeof(tty->tty_rmode)) != 0) {
 
-    if (tty->tty == enabled) {
+        /* Restore the original mode, that is canonical echo mode */
+        tty->tty_smode = tty->tty_rmode;
 
-        /* Default characteristics for all usage including termcap output. */
-        tty->tty_smode.c_iflag &= ~ISTRIP;
+        if (tty->tty == enabled) {
 
-        /* erts_fprintf(stderr,"canon %T\r\n", canon); */
-        /* Turn canonical (line mode) off. */
-        tty->tty_smode.c_iflag &= ~ICRNL;
-        tty->tty_smode.c_lflag &= ~ICANON;
-        tty->tty_smode.c_oflag &= ~OPOST;
+            /* Default characteristics for all usage including termcap output. */
+            tty->tty_smode.c_iflag &= ~ISTRIP;
 
-        tty->tty_smode.c_cc[VMIN] = 1;
-        tty->tty_smode.c_cc[VTIME] = 0;
-#ifdef VDSUSP
-        tty->tty_smode.c_cc[VDSUSP] = 0;
-#endif
+            /* erts_fprintf(stderr,"canon %T\r\n", canon); */
+            /* Turn canonical (line mode) off. */
+            tty->tty_smode.c_iflag &= ~ICRNL;
+            tty->tty_smode.c_lflag &= ~ICANON;
+            tty->tty_smode.c_oflag &= ~OPOST;
 
-        /* Turn echo off. */
-        /* erts_fprintf(stderr,"echo %T\r\n", echo); */
-        tty->tty_smode.c_lflag &= ~ECHO;
+            tty->tty_smode.c_cc[VMIN] = 1;
+            tty->tty_smode.c_cc[VTIME] = 0;
+    #ifdef VDSUSP
+            tty->tty_smode.c_cc[VDSUSP] = 0;
+    #endif
 
-    }
+            /* Turn echo off. */
+            /* erts_fprintf(stderr,"echo %T\r\n", echo); */
+            tty->tty_smode.c_lflag &= ~ECHO;
 
-    if (tcsetattr(tty->ofd, TCSANOW, &tty->tty_smode) < 0) {
-        return make_errno_error(env, "tcsetattr");
+        }
+
+        if (tcsetattr(tty->ofd, TCSANOW, &tty->tty_smode) < 0) {
+            return make_errno_error(env, "tcsetattr");
+        }
     }
 
 #else
