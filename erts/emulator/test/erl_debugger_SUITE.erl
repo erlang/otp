@@ -714,7 +714,7 @@ test_stack_frames_returns_y_regs_controlled_by_size(Config) ->
     %% returning Y-registers in the right order.
     YRegMap = #{
         YRegNo => Var
-        || {L, {_, SymMap}} <- code:get_debug_info(Mod),
+        || {L, #{vars := SymMap}} <- code:get_debug_info(Mod),
            L == Line,
            {Var, {y, YRegNo}} <- SymMap
     },
