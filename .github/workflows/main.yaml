@@ -266,7 +266,7 @@ jobs:
     env:
       WXWIDGETS_VERSION: 3.2.6
     name: Build Erlang/OTP (Windows)
-    runs-on: windows-2022
+    runs-on: windows-2025
     needs: pack
     if: needs.pack.outputs.c-code-changes
     steps:
