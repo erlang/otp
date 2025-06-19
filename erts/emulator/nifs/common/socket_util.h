@@ -88,6 +88,13 @@ BOOLEAN_T esock_get_bool_from_map(ErlNifEnv*   env,
                                   BOOLEAN_T    def);
 
 extern
+BOOLEAN_T esock_get_string_from_map(ErlNifEnv*         env,
+                                    ERL_NIF_TERM       map,
+                                    ERL_NIF_TERM       key,
+                                    ErlNifCharEncoding encoding,
+                                    char**             str);
+
+extern
 BOOLEAN_T esock_decode_iov(ErlNifEnv*    env,
                            ERL_NIF_TERM  eIOV,
                            ErlNifBinary* bufs,

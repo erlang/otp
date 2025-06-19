@@ -352,6 +352,7 @@ static ERL_NIF_TERM enet_getaddrinfo(ErlNifEnv* env,
 
 #if defined(HAVE_GETIFADDRS) || defined(__PASE__)
 static ERL_NIF_TERM enet_getifaddrs(ErlNifEnv* env,
+                                    BOOLEAN_T  dbg,
                                     char*      netns);
 #endif
 
@@ -533,8 +534,10 @@ static void net_down(ErlNifEnv*           env,
 */
 
 static ERL_NIF_TERM enet_getifaddrs(ErlNifEnv* env,
+                                    BOOLEAN_T  dbg,
                                     char*      netns);
 static ERL_NIF_TERM enet_getifaddrs_process(ErlNifEnv*      env,
+                                            BOOLEAN_T       dbg,
                                             struct ifaddrs* ifap);
 static unsigned int enet_getifaddrs_length(struct ifaddrs* ifap);
 static void encode_ifaddrs(ErlNifEnv*      env,
@@ -555,6 +558,8 @@ static void make_ifaddrs(ErlNifEnv*    env,
                          ERL_NIF_TERM  ifu_value,
                          ERL_NIF_TERM  data,
                          ERL_NIF_TERM* ifAddrs);
+static BOOLEAN_T enet_getifaddrs_debug(ErlNifEnv*   env,
+                                       ERL_NIF_TERM map);
 #ifdef HAVE_SETNS
 static BOOLEAN_T enet_getifaddrs_netns(ErlNifEnv*   env,
                                        ERL_NIF_TERM map,
@@ -837,22 +842,29 @@ static ErlNifResourceTypeInit netInit = {
  * nif_info
  *
  * Description:
- * This is currently just a placeholder...
+ * Provide miscellaneous information about the net nif.
  */
 static
 ERL_NIF_TERM nif_info(ErlNifEnv*         env,
                       int                argc,
                       const ERL_NIF_TERM argv[])
 {
-    ERL_NIF_TERM info, tmp;
+    BOOLEAN_T    dbg     = data.debug;
+#ifdef HAVE_NETNS
+    BOOLEAN_T    netns   = TRUE;
+#else
+    BOOLEAN_T    netns   = FALSE;
+#endif
+    ERL_NIF_TERM vals[]  = {BOOL2ATOM(dbg), BOOL2ATOM(netns)};
+    ERL_NIF_TERM keys[]  = {atom_debug, enif_make_atom(env, "netns")};
+    unsigned int numVals = NUM(vals);
+    unsigned int numKeys = NUM(keys);
+    ERL_NIF_TERM info;
 
-    NDBG( ("NET", "info -> entry\r\n") );
+    ESOCK_ASSERT( numKeys == numVals );
+    ESOCK_ASSERT( MKMA(env, keys, vals, numKeys, &info) );
 
-    tmp  = enif_make_new_map(env);
-    if (!enif_make_map_put(env, tmp, atom_debug, BOOL2ATOM(data.debug), &info))
-        info = tmp;
-
-    NDBG( ("NET", "info -> done: %T\r\n", info) );
+    NDBG( ("NET", "info -> done\r\n") );
 
     return info;
 }
@@ -1360,7 +1372,9 @@ ERL_NIF_TERM enet_getaddrinfo(ErlNifEnv* env,
  *
  * Arguments:
  * Extra - A way to pass 'extra' arguments.
- *         Currently only used for netns (name space).
+ *         Currently only used for:
+ *            * debug (for this call only)
+ *            * netns (name space).
  */
 
 static
@@ -1371,9 +1385,8 @@ ERL_NIF_TERM nif_getifaddrs(ErlNifEnv*         env,
 #if defined(__WIN32__)
     return enif_raise_exception(env, MKA(env, "notsup"));
 #elif defined(HAVE_GETIFADDRS) || defined(__PASE__)
-#ifdef HAVE_SETNS
     ERL_NIF_TERM extra;
-#endif
+    BOOLEAN_T    dbg;
     char*        netns;
     ERL_NIF_TERM result;
 
@@ -1383,26 +1396,23 @@ ERL_NIF_TERM nif_getifaddrs(ErlNifEnv*         env,
         !IS_MAP(env,  argv[0])) {
         return enif_make_badarg(env);
     }
-#ifdef HAVE_SETNS
     extra = argv[0];
-#endif
 
+    dbg = enet_getifaddrs_debug(env, extra);
 
 #ifdef HAVE_SETNS
     /* We *currently* only support one extra option: netns */
     if (!enet_getifaddrs_netns(env, extra, &netns)) {
-        NDBG( ("NET", "nif_getifaddrs -> namespace: %s\r\n", netns) );
+        NDBG2( dbg, ("NET", "nif_getifaddrs -> namespace: %s\r\n", netns) );
         return enif_make_badarg(env);
     }
 #else
     netns = NULL;
 #endif
 
-    result = enet_getifaddrs(env, netns);
+    result = enet_getifaddrs(env, dbg, netns);
 
-    NDBG( ("NET",
-           "nif_getifaddrs -> done when result: "
-           "\r\n   %T\r\n", result) );
+    NDBG2( dbg, ("NET", "nif_getifaddrs -> done\r\n") );
 
     return result;
 #else // HAVE_GETIFADDRS
@@ -1411,68 +1421,38 @@ ERL_NIF_TERM nif_getifaddrs(ErlNifEnv*         env,
 }
 
 
+static
+BOOLEAN_T enet_getifaddrs_debug(ErlNifEnv* env, ERL_NIF_TERM map)
+{
+    ERL_NIF_TERM key = enif_make_atom(env, "debug");
+
+    return esock_get_bool_from_map(env, map, key, FALSE);
+
+}
+
+
 #if defined(HAVE_GETIFADDRS) || defined(__PASE__)
 #ifdef HAVE_SETNS
 /* enet_getifaddrs_netns - extract the netns field from the 'extra' map
  *
- * Note that the 'extra' map *may* contain other options, but here we
+ * Note that the 'extra' map may contain other options, but here we
  * only care about 'netns'.
  */
 static
 BOOLEAN_T enet_getifaddrs_netns(ErlNifEnv* env, ERL_NIF_TERM map, char** netns)
 {
-    size_t       sz;
-    ERL_NIF_TERM key;
-    ERL_NIF_TERM value;
-    unsigned int len;
-    char*        buf;
-    int          written;
+    ERL_NIF_TERM       key      = enif_make_atom(env, "netns");
+    ErlNifCharEncoding encoding = ERL_NIF_LATIN1;
 
-    /* Note that its acceptable that the extra map is empty */
-    if (!enif_get_map_size(env, map, &sz) ||
-        (sz != 1)) {
-        *netns = NULL;
-        return TRUE;
-    }
+    return esock_get_string_from_map(env, map, key, encoding, netns);
 
-    /* Regardless of the content of the 'extra' map, we only care about 'netns' */
-    key = enif_make_atom(env, "netns");
-    if (!GET_MAP_VAL(env, map, key, &value)) {
-        *netns = NULL;
-        return TRUE;
-    }
-
-    /* So far so good. The value should be a string, check. */
-    if (!enif_is_list(env, value)) {
-        *netns = NULL; // Just in case...
-        return FALSE;
-    }
-
-    if (!enif_get_list_length(env, value, &len)) {
-        *netns = NULL; // Just in case...
-        return FALSE;
-    }
-
-    if ((buf = MALLOC(len+1)) == NULL) {
-        *netns = NULL; // Just in case...
-        return FALSE;
-    }
-
-    written = enif_get_string(env, value, buf, len+1, ERL_NIF_LATIN1);
-    if (written == (len+1)) {
-        *netns = buf;
-        return TRUE;
-    } else {
-        *netns = NULL; // Just in case...
-        return FALSE;
-    }
 }
 #endif
 
 
 
 static
-ERL_NIF_TERM enet_getifaddrs(ErlNifEnv* env, char* netns)
+ERL_NIF_TERM enet_getifaddrs(ErlNifEnv* env, BOOLEAN_T dbg, char* netns)
 {
     ERL_NIF_TERM    result;
     struct ifaddrs* ifap;
@@ -1481,9 +1461,10 @@ ERL_NIF_TERM enet_getifaddrs(ErlNifEnv* env, char* netns)
     int             current_ns = 0;
 #endif
 
-    NDBG( ("NET", "enet_getifaddrs -> entry with"
-           "\r\n   netns: %s"
-           "\r\n", ((netns == NULL) ? "NULL" : netns)) );
+    NDBG2( dbg,
+           ("NET", "enet_getifaddrs -> entry with"
+            "\r\n   netns: %s"
+            "\r\n", ((netns == NULL) ? "NULL" : netns)) );
 
 #ifdef HAVE_SETNS
     if ((netns != NULL) &&
@@ -1496,7 +1477,7 @@ ERL_NIF_TERM enet_getifaddrs(ErlNifEnv* env, char* netns)
 #else
     if (0 == getifaddrs(&ifap)) {
 #endif
-        result = enet_getifaddrs_process(env, ifap);
+        result = enet_getifaddrs_process(env, dbg, ifap);
 #ifdef __PASE__
         Qp2freeifaddrs(ifap);
 #else
@@ -1505,7 +1486,8 @@ ERL_NIF_TERM enet_getifaddrs(ErlNifEnv* env, char* netns)
     } else {
         save_errno = get_errno();
 
-        NDBG( ("NET", "enet_getifaddrs -> failed get addrs: %d", save_errno) );
+        NDBG2( dbg,
+               ("NET", "enet_getifaddrs -> failed get addrs: %d", save_errno) );
 
         result = esock_make_error_errno(env, save_errno);
     }
@@ -1520,21 +1502,21 @@ ERL_NIF_TERM enet_getifaddrs(ErlNifEnv* env, char* netns)
         FREE(netns);
 #endif
 
-    NDBG( ("NET", "enet_getifaddrs -> done when"
-           "\r\n   result: %T"
-           "\r\n", result) );
+    NDBG2( dbg, ("NET", "enet_getifaddrs -> done\r\n") );
 
     return result;
 }
 
 
 static
-ERL_NIF_TERM enet_getifaddrs_process(ErlNifEnv* env, struct ifaddrs* ifap)
+ERL_NIF_TERM enet_getifaddrs_process(ErlNifEnv*      env,
+                                     BOOLEAN_T       dbg,
+                                     struct ifaddrs* ifap)
 {
     ERL_NIF_TERM result;
     unsigned int len = ((ifap == NULL) ? 0 : enet_getifaddrs_length(ifap));
 
-    NDBG( ("NET", "enet_getifaddrs_process -> len: %d\r\n", len) );
+    NDBG2( dbg, ("NET", "enet_getifaddrs_process -> len: %d\r\n", len) );
 
     if (len > 0) {
       ERL_NIF_TERM*   array = MALLOC(len * sizeof(ERL_NIF_TERM));
@@ -1544,23 +1526,26 @@ ERL_NIF_TERM enet_getifaddrs_process(ErlNifEnv* env, struct ifaddrs* ifap)
         while (i < len) {
             ERL_NIF_TERM entry;
 
-            NDBG( ("NET",
-                   "enet_getifaddrs_process -> encode entry %d\r\n", i) );
+            NDBG2( dbg,
+                   ("NET",
+                    "enet_getifaddrs_process -> encode entry %d\r\n", i) );
 
             encode_ifaddrs(env, p, &entry);
 
-            NDBG( ("NET", "enet_getifaddrs_process -> new entry (%d):"
-                   "\r\n   %T"
-                   "\r\n", i, entry) );
+            NDBG2( dbg,
+                   ("NET", "enet_getifaddrs_process -> new entry (%d):"
+                    "\r\n   %T"
+                    "\r\n", i, entry) );
 
             array[i] = entry;
             p = p->ifa_next;
             i++;
         }
 
-        NDBG( ("NET",
-               "enet_getifaddrs_process -> all (%d) entries processed\r\n",
-               len) );
+        NDBG2( dbg,
+               ("NET",
+                "enet_getifaddrs_process -> all (%d) entries processed\r\n",
+                len) );
 
         result = esock_make_ok2(env, MKLA(env, array, len));
         FREE(array);        
@@ -1569,8 +1554,7 @@ ERL_NIF_TERM enet_getifaddrs_process(ErlNifEnv* env, struct ifaddrs* ifap)
         result = esock_make_ok2(env, MKEL(env));
     }
 
-    NDBG( ("NET", "enet_getifaddrs_process -> result: "
-           "\r\n   %T\r\n", result) );
+    NDBG2( dbg, ("NET", "enet_getifaddrs_process -> done\r\n") );
 
     return result;
 }
