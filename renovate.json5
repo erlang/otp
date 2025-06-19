@@ -41,7 +41,7 @@
     "assignees": ["garazdawi", "kikofernandez"],
     // config:recommended ignores files in "*test*" which we do not want
     // and for now we ignore any dockerfile dependencies
-    "ignorePaths": [".github/dockerfiles/"],
+    "ignorePaths": [".github/dockerfiles/", "lib/wx/"],
     "packageRules": [
         {
             "matchManagers": ["github-actions"],
