@@ -182,7 +182,12 @@ priv_dir(Driver0, Silent) ->
 	{ok, _} ->
 	    {Priv, Priv};
 	{error, _} ->
-	    SrcPriv = filename:join(Priv, erlang:system_info(system_architecture)),
+            Arch = case os:type() of
+                       {win32, _} -> win32;
+                       _ ->
+                           erlang:system_info(system_architecture)
+                   end,
+            SrcPriv = filename:join(Priv, Arch),
 	    case file:read_file_info(filename:join(SrcPriv, Driver)) of
 		{ok, _} ->
 		    {Priv, SrcPriv};
