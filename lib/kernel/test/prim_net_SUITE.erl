@@ -486,29 +486,31 @@ gaa_verify_addr(Addr, FilterFam) ->
 
 get_if_entry(_Config) when is_list(_Config) ->
     ?TT(?SECS(10)),
-    tc_try(?FUNCTION_NAME,
-	   fun() -> ok end,
-           fun() ->
+    Cond = fun() -> ok end,
+    Pre  = fun() ->
+                   case net:if_names() of
+                       {ok, IfNames} ->
+                           #{idxs => IfNames};
+                       {error, enotsup = NOTSUP} ->
+                           skip(NOTSUP);
+                       {error, Reason} ->
+                           exit({pre, if_names, Reason})
+                   end
+           end,
+    TC   = fun(#{idxs := Idxs}) ->
                    try
-                       ok = do_get_if_entry()
+                       ok = do_get_if_entry(Idxs)
                    catch
                        error:notsup = NOTSUP ->
                            skip(NOTSUP)
                    end
-           end).
+           end,
+    Post = fun(_) -> ok end,
+    tc_try(?FUNCTION_NAME, Cond, Pre, TC, Post).
 
-do_get_if_entry() ->
-    %% Just ensure we get an entry for every if
-    ?P("try validate known interfaces"),
-    {ok, IfNames} = net:if_names(),
-    Idxs =
-	case [Idx || {Idx, _} <- IfNames] of
-	    [] ->
-		exit({skip, no_ifs});
-	    L ->
-		L
-	end,
-    ok = do_get_if_entry(Idxs),
+do_get_if_entry(Idxs) ->
+    ?P("try validate known interface(s)"),
+    ok = do_get_if_entry2(Idxs),
 
     %% Ask for an index that we know does not exit
     ?P("try validate *not* known interface"),
@@ -523,17 +525,19 @@ do_get_if_entry() ->
 	    ?P("unexpected success requesting non-existing if entry ~w:"
 	       "~n   ~p", [InvalidIdx, Entry]),
 	    exit(unexpected_success)
-    end.
+    end,
+    ?P("done"),
+    ok.
 
 
-do_get_if_entry([]) ->
+do_get_if_entry2([]) ->
     ok;
-do_get_if_entry([Idx|Idxs]) ->
+do_get_if_entry2([Idx|Idxs]) ->
     case prim_net:get_if_entry(#{index => Idx}) of
 	{ok, Entry} ->
-	    ?P("expected success retreiving if entry ~w: "
+	    ?P("expected success retreiving of entry ~w: "
 	       "~n   ~p", [Idx, Entry]),
-	    do_get_if_entry(Idxs);
+	    do_get_if_entry2(Idxs);
 	{error, Reason} ->
 	    ?P("unexpected failure retreiving if entry ~w: "
 	       "~n   ~p", [Idx, Reason]),
@@ -655,9 +659,12 @@ skip(Reason) ->
 %% tc_try(Case, TCFun) ->
 %%     ?TC_TRY(Case, TCFun).
 
-tc_try(Case, TCCondFun, TCFun) ->
-    ?TC_TRY(Case, TCCondFun, TCFun).
-   
+tc_try(Case, Cond, TC) ->
+    ?TC_TRY(Case, Cond, TC).
+
+tc_try(Case, Cond, Pre, TC, Post) ->
+    ?TC_TRY(Case, Cond, Pre, TC, Post).
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
