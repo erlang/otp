@@ -75,7 +75,8 @@
          get_if_entry/1,
 	 get_interface_info/1,
 	 get_ip_address_table/1,
-         if_name2index/1
+         if_name2index/1,
+         if_index2name/1
         ]).
 
 
@@ -112,7 +113,8 @@ misc_cases() ->
      get_interface_info,
      get_ip_address_table,
 
-     if_name2index
+     if_name2index,
+     if_index2name
     ].
 
 
@@ -671,6 +673,74 @@ do_if_name2index() ->
     {error, einval} = prim_net:if_name2index(['flipp-flopp']),
     {error, enxio}  = prim_net:if_name2index([1,2,3,4]),
     {error, einval} = prim_net:if_name2index("flipp-" ++ [555] ++ "-flopp"),
+    ok.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Make sure we can handle any argument
+
+if_index2name(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
+    Cond = fun() -> ok end,
+    Pre  = fun() ->
+                   %% Enable trap'ing exits
+                   Old = process_flag(trap_exit, true),
+                   case prim_net:if_names() of
+                       {ok, Idxs} ->
+                           #{trap_exit => Old,
+                             idxs      => Idxs};
+                       {error, enotsup = NOTSUP} ->
+                           skip(NOTSUP)
+                   end
+           end,
+    TC   = 
+	   fun(State) ->
+		   try
+		       ok = do_if_index2name(State)
+                   catch
+                       error:notsup = NOTSUP ->
+                           skip(NOTSUP)
+                   end
+	   end,
+    Post = fun(#{trap_exit := Old} = _State) ->
+                   %% Restore previous trap'ing exit value
+                   process_flag(trap_exit, Old)
+           end,
+    tc_try(?FUNCTION_NAME, Cond, Pre, TC, Post).
+	   
+
+do_if_index2name(#{idxs := [{Idx, If}|_] = Idxs}) ->
+    %% First, pick something that we know exist:
+    case prim_net:if_index2name(Idx) of
+        {ok, If} ->
+            ok;
+        %% We only need to "check" this once
+        {error, enotsup = NOTSUP} ->
+            skip(NOTSUP)
+    end,
+    %% We make no assumption on the order of the indexes...
+    [{MaxIdx, _}|_] = lists:reverse(lists:keysort(1, Idxs)),
+    BadIdx = MaxIdx+1,
+    {error, enxio} = prim_net:if_index2name(BadIdx),
+    try prim_net:if_index2name(-1) of
+        {ok, AnyIf} ->
+            ?P("Unexpected success: "
+               "~n   If: ~p", [AnyIf]),
+            ct:fail({unexpected_success, AnyIf});
+        {error, AnyReason} ->
+            ?P("Unexpected failure: "
+               "~n   Reason: ~p", [AnyReason]),
+            ct:fail({unexpected_failure, AnyReason})
+    catch
+        error:badarg ->
+            ok;
+        C:E:S ->
+            ?P("Unexpected catch: "
+               "~n   Class: ~p"
+               "~n   Error: ~p"
+               "~n   Stack: ~p", [C, E, S]),
+            ct:fail({unexpected_catch, {C, E, S}})
+    end,
     ok.
 
 
