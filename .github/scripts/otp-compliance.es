@@ -991,8 +991,15 @@ remove_duplicate_packages(VendorPackages, #{~"packages" := Packages}=Spdx) ->
                             case lists:search(fun (#{~"SPDXID" := Id}) -> VendorId == Id end, Packages) of
                                 {value, P} ->
                                     Packages1 = Apc -- [P],
-                                    Comment = maps:get(~"comment", P, ~""),
-                                    Acc#{~"app" := [P#{~"comment" => <<Comment/binary, " vendor package">>} | Packages1]};
+                                    Comment = maps:get(~"comment", P, <<>>),
+                                    Comment1 =
+                                        case Comment of
+                                            <<>> ->
+                                                ~"vendor package";
+                                            _ ->
+                                                <<Comment/binary, " vendor package">>
+                                        end,
+                                    Acc#{~"app" := [P#{~"comment" => Comment1} | Packages1]};
                                 _ ->
                                     Acc#{~"vendor" := [Vendor | Vcc]}
                             end
