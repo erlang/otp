@@ -1323,9 +1323,12 @@ trace_port(ip, {Portno, Qsiz}) when is_integer(Portno), is_integer(Qsiz) ->
 		ok ->
 		    ok;
 		_ ->
-		    Dir2 = filename:join(
-			     Dir1, 
-			     erlang:system_info(system_architecture)),
+                    Arch = case os:type() of
+                                {win32, _} -> win32;
+                                _ ->
+                                    erlang:system_info(system_architecture)
+                            end,
+		    Dir2 = filename:join(Dir1, Arch),
 		    catch erl_ddll:load_driver(Dir2, Driver)
 	    end,
 	    L = lists:flatten(
@@ -1361,9 +1364,12 @@ trace_port1(file, Filename, Options) ->
 		ok ->
 		    ok;
 		_ ->
-		    Dir2 = filename:join(
-			     Dir1, 
-			     erlang:system_info(system_architecture)),
+                    Arch = case os:type() of
+                                {win32, _} -> win32;
+                                _ ->
+                                    erlang:system_info(system_architecture)
+                            end,
+		    Dir2 = filename:join(Dir1, Arch),
 		    catch erl_ddll:load_driver(Dir2, Driver)
 	    end,
 	    if 	element(1, Options) == wrap ->

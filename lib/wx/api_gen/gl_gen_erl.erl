@@ -105,7 +105,12 @@ gl_api(Fs, _GluNifs) ->
     w("init_nif() ->~n", []),
     w("  Base = \"erl_gl\",\n"
       "  Priv = code:priv_dir(wx),\n"
-      "  SrcTree = filename:join(Priv,erlang:system_info(system_architecture)),\n"
+      "  Arch = case os:type() of\n"
+      "             {win32, _} -> win32;\n"
+      "             _ ->\n"
+      "                 erlang:system_info(system_architecture)\n"
+      "         end,\n"
+      "  SrcTree = filename:join(Priv,Arch),\n"
       "  NifFile = case filelib:is_dir(SrcTree) of\n"
       "                true -> filename:absname(filename:join(SrcTree, Base));\n"
       "                false -> filename:absname(filename:join(Priv, Base))\n"
