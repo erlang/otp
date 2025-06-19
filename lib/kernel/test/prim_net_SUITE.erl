@@ -74,7 +74,8 @@
          get_adapters_addresses/1,
          get_if_entry/1,
 	 get_interface_info/1,
-	 get_ip_address_table/1
+	 get_ip_address_table/1,
+         if_name2index/1
         ]).
 
 
@@ -109,7 +110,9 @@ misc_cases() ->
      get_adapters_addresses,
      get_if_entry,
      get_interface_info,
-     get_ip_address_table
+     get_ip_address_table,
+
+     if_name2index
     ].
 
 
@@ -632,6 +635,43 @@ giat_verify_result([#{index := Idx, addr := Addr} | Tab], Addr0)
        "~n   Index: ~p"
        "~n   Addr:  ~p (> ~p)", [Idx, Addr, Addr0]),
     giat_verify_result(Tab, Addr).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Make sure we can handle any argument
+
+if_name2index(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
+    tc_try(?FUNCTION_NAME,
+	   fun() -> ok end,
+	   fun() ->
+		   try
+		       ok = do_if_name2index()
+                   catch
+                       error:notsup = NOTSUP ->
+                           skip(NOTSUP)
+                   end
+	   end).
+
+do_if_name2index() ->
+    %% First, pick something that we know exist:
+    case prim_net:if_names() of
+        {ok, [{Idx,If}|_]} ->
+            {ok, Idx} = prim_net:if_name2index(If),
+            ok;
+        {error, Reason} ->
+            %% This should not really fail...
+            ?P("Failed to get a success name to try: "
+               "~n   Reason: ~p", [Reason]),
+            ok
+    end,
+    {error, einval} = prim_net:if_name2index("flipp-flopp-on-concrete"),
+    {error, enxio}  = prim_net:if_name2index("flipp-flopp"),
+    {error, einval} = prim_net:if_name2index(["flipp-flopp"]),
+    {error, einval} = prim_net:if_name2index(['flipp-flopp']),
+    {error, enxio}  = prim_net:if_name2index([1,2,3,4]),
+    {error, einval} = prim_net:if_name2index("flipp-" ++ [555] ++ "-flopp"),
+    ok.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
