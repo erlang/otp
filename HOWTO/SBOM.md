@@ -29,7 +29,7 @@ different use cases, and some examples include checking license compliance,
 dependencies for vulnerabilities using databases such as
 [CVE](https://www.cve.org/) and [OSV](https://osv.dev/), among others.
 
-Erlang/OTP has multiple third-party dependencies. Some are vendored into the 
+Erlang/OTP has multiple third-party dependencies. Some are vendored into the
 source code of Erlang/OTP:
 - pcre (`erts/emulator/pcre`)
 - zlib (`erts/emulator/zlib`)
@@ -38,8 +38,11 @@ source code of Erlang/OTP:
 - zstd (`erts/emulator/zstd`)
 - others
 
-The Erlang/OTP project provides source SBOMs starting with OTP-28. Below we detail
+The Erlang/OTP project provides source SBOMs starting with OTP 28. Below we detail
 the steps necessary to run yourself the generation of the Erlang/OTP source SBOM.
+
+For information about the structure of the source SBOM, please follow
+[Software Bill-of-Materials (SBOM)](`e:system:sbom.md`)).
 
 ## Source Software Bill-of-Materials
 
@@ -51,12 +54,21 @@ how to generate yourself an Erlang/OTP source SBOM.
 The simplest way to generate a source SBOM for Erlang/OTP is to use [oss-review-toolkit]() (ORT)
 with the configuration files found in this repo (`.ort/config/config.yml` and `.ort.yml`).
 
-- `.ort/config/config.yml` contains configuration information towards ORT, e.g., 
+- `.ort/config/config.yml` contains configuration information towards ORT, e.g.,
   configuration of the scanner to use, advisor, etc.
 - `.ort.yml` contains configuration information for this specific project, e.g.,
   which files to exclude from scanner, curation of licenses, etc.
 
 To run ORT locally, we detail the steps running ORT from source and from Docker.
+
+**Tip**
+In cases where one needs to test the `.github/scripts/otp-compliance.es` script,
+it is useful to download `scan-result.json` from any pull request in Erlang/OTP.
+This file can be found in `Save ORT Scanner cache` step inside the `Create SBOM` Github task.
+The scanning phase may take 2 h to run locally.
+By downloading a recent scan, one can run generation of the SPDX report immediately,
+and test the results running `.github/scripts/otp-compliance.es sbom otp-info --sbom-file ort/cli/bom.spdx.json --input-file ort/cli/scan-result.json`.
+
 
 #### Steps From Source
 
@@ -66,18 +78,18 @@ To run ORT locally, we detail the steps running ORT from source and from Docker.
    ```bash
    ./gradlew cli:run --args="-c .ort/config/config.yml analyze -i . -o . -f JSON --repository-configuration-file=.ort.yml"
    ```
-   
+
 3. Run the ORT scanner (`scancode` is needed):
 
    ```
    ./gradlew cli:run --args="-c .ort/config/config.yml scan -o . -f JSON -i analyzer-result.json"
    ```
-   
+
 4. Generate ORT SPDX report
    ```
    ./gradlew cli:run --args="report -i cli/scan-result.json -o . -f SpdxDocument -O SpdxDocument=outputFileFormats=JSON"
    ```
-   
+
 5. From the Erlang/OTP repo, run the following escript to fix some known issues from the generated SPDX:
 
    ```bash
@@ -87,26 +99,26 @@ To run ORT locally, we detail the steps running ORT from source and from Docker.
 #### Steps From Docker
 
 1. Run the ORT analyzer (some paths may need tweaking depending on where you are) and choose an appropriate version, in this example `51.0.0`:
-   
+
    ```bash
    docker run -v $(PWD):/sbom ghcr.io/oss-review-toolkit/ort:51.0.0 -c .ort/config/config.yml analyze -i . -o . -f JSON --repository-configuration-file=.ort.yml
    ```
-   
+
 2. Run the ORT scanner:
-   
+
    ```bash
    docker run -v $(PWD):/sbom ghcr.io/oss-review-toolkit/ort:51.0.0 -c .ort/config/config.yml scan -o . -f JSON -i analyzer-result.json
    ```
-   
+
 3. Generate ORT SPDX report
 
    ```bash
    docker run -v $(PWD):/sbom ghcr.io/oss-review-toolkit/ort:51.0.0 report -i cli/scan-result.json -o . -f SpdxDocument -O SpdxDocument=outputFileFormats=JSON
    ```
-   
+
 4. From the Erlang/OTP repo, run the following escript to fix some known issues from the generated SPDX,
    and to separate Erlang/OTP applications into their own SPDX Packages:
-   
+
    ```bash
    .github/scripts/otp-compliance.es sbom otp-info --sbom-file ort/cli/bom.spdx.json --input-file ort/cli/scan-result.json
    ```
@@ -140,7 +152,7 @@ some dependencies cannot be known beforehand.
 The escript `otp-compliance.es` detects Erlang/OTP applications using a simple
 heuristic. Anything that contains an `.app.src` will be place in its own SPDX
 Package. To detect the correct version for each Erlang application, you must ensure that
-`application:get_all_key(AppName)` can run without issues. 
+`application:get_all_key(AppName)` can run without issues.
 
 For example, one cannot expect `wx` application to work if the system was not
 build with the required dependencies.
@@ -162,11 +174,11 @@ up the new application, but these files will not be part of their own SPDX Packa
 Delete the code and any remaining `.app.src` files. Make sure that the application was
 not part of a dependency in other `.app.src` files.
 
-Re-run the source SBOM generation steps ([Erlang/OTP source SBOM]). 
+Re-run the source SBOM generation steps ([Erlang/OTP source SBOM]).
 
 ### Update SPDX Vendor Packages
 
-Vendor packages are identified by a JSON `vendor.info` file that contains fields to identify the vendor dependency. 
+Vendor packages are identified by a JSON `vendor.info` file that contains fields to identify the vendor dependency.
 
 Each `vendor.info` file will implicitly generate a [SPDX](https://spdx.dev/) Package (within the source SBOM) to separate vendor libraries from Erlang/OTP applications.
 
@@ -195,8 +207,8 @@ This file may be a list of JSON objects. For simplicity, we document the fields 
 ```
 
 Fields summary:
-- `ID`: represents the `id` of the third party using the following format: `<SPDX-TOP-LEVEL-PACKAGE>-<VENDOR-ID>`. 
-        In the SPDX generation, `SPDX-TOP-LEVEL-PACKAGE` indicates the SPDX Package under which this vendor is a part of. For example, we write `erts-asmjit` for the vendor library `asmjit` that is a part of the `erts` SPDX Package. 
+- `ID`: represents the `id` of the third party using the following format: `<SPDX-TOP-LEVEL-PACKAGE>-<VENDOR-ID>`.
+        In the SPDX generation, `SPDX-TOP-LEVEL-PACKAGE` indicates the SPDX Package under which this vendor is a part of. For example, we write `erts-asmjit` for the vendor library `asmjit` that is a part of the `erts` SPDX Package.
         Top-level packages are:
         - `erts`
         - All Erlang apps, e.g., `stdlib`, `ssl`, `common_test`, etc.
@@ -237,8 +249,8 @@ to make sure that the new vendored dependency gets updated as it should.
 
 ### Delete a Vendor Application
 
-Delete the code and any remaining `vendor.info` files. 
-Re-run the source SBOM generation steps ([Erlang/OTP source SBOM]). 
+Delete the code and any remaining `vendor.info` files.
+Re-run the source SBOM generation steps ([Erlang/OTP source SBOM]).
 
 Delete the proper sections in [`renovate.json5`](../renovate.json5).
 
@@ -273,7 +285,7 @@ Alternatively, install [Go from source or binaries](https://go.dev/doc/install).
 **Automatic**
 
 ```
-go install github.com/openvex/vexctl@latest 
+go install github.com/openvex/vexctl@latest
 ```
 
 **From source**
@@ -377,7 +389,7 @@ One has to execute the output commands to introduce changes.
 **Code Generation**
 
 Erlang/OTP creates releases (e.g., OTP-28) and also divides apps in different versions, which means that one can declare
-vulnerabilities in multiple ways. 
+vulnerabilities in multiple ways.
 
 Example, should we mention that the `ssh` app in OTP-23 is vulnerable or that `ssh-4.10.1` which released in OTP-23 is vulnerable, or both?
 To help us produce accurate results, Erlang/OTP favours to write the exact application version in which a bug was introduced or detected,
@@ -413,7 +425,7 @@ vexctl add --in-place vex/otp-23.openvex.json --product='pkg:otp/erlang@23.3.4.1
 ```
 
 The first command in the script has figured out the exact OTP versions that are vulnerable from the range of affected and fixed exact versions,
-as well as created the range of `ssh` applications that are affected by the vulnerability. 
+as well as created the range of `ssh` applications that are affected by the vulnerability.
 
 The second command simply states which OTP application versions are fixed.
 
@@ -493,7 +505,7 @@ Lets assume there is `FIKA-2026-BROD` detected in `zlib`. We can issue an `under
 ```
 
 Execute the command below to update the OpenVEX statements.
-              
+
 ```bash
 .github/scripts/otp-compliance.es vex run --input-file make/openvex.table -b otp-29 | bash
 ```
@@ -546,7 +558,7 @@ To update the OpenVEX statements, run:
 .github/scripts/otp-compliance.es vex run --input-file make/openvex.table -b otp-29 | bash
 ```
 
-It produces a new entry in the openvex statements for OTP-29 stating that OTP-29 is not vulnerable to the CVE `FIKA-2026-BROD`. 
+It produces a new entry in the openvex statements for OTP-29 stating that OTP-29 is not vulnerable to the CVE `FIKA-2026-BROD`.
 
 
 #### Add `affected`
@@ -588,7 +600,7 @@ One can write then in `make/openvex.table`:
 where the version affected is written as part of the package url `pkg:github/madler/zlib@04f42ceca40f73e2978b50e93806c2a18c1281fc`.
 
 Execute the command below to update the OpenVEX statements.
-              
+
 ```bash
 .github/scripts/otp-compliance.es vex run --input-file make/openvex.table -b otp-29 | bash
 ```
@@ -663,7 +675,7 @@ OTP creates an emergency patch to fix this vendor dependency, and states that th
 
 
 Execute the command below to update the OpenVEX statements.
-              
+
 ```bash
 .github/scripts/otp-compliance.es vex run --input-file make/openvex.table -b otp-29 | bash
 ```
