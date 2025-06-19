@@ -1798,6 +1798,7 @@ trace_info_pid(Process* p, ErtsTraceSession* session, Eterm pid_spec, Eterm key)
 static int function_is_traced(Process *p,
                               ErtsTraceSession *session,
                               const ErtsCodeMFA *mfa,
+                              int want,
 			      Binary    **ms,              /* out */
 			      Binary    **ms_meta,         /* out */
 			      ErtsTracer *tracer_pid_meta, /* out */
@@ -1806,43 +1807,52 @@ static int function_is_traced(Process *p,
                               Eterm      *call_memory)     /* out */
 {
     const ErtsCodeInfo *ci;
-    const Export *ep;
-    Export e;
 
     /* First look for an export entry */
-    e.info.mfa = *mfa;
-    if ((ep = export_get(&e)) != NULL) {
-	if (erts_is_export_trampoline_active(ep, erts_active_code_ix()) &&
-	    ! BeamIsOpCode(ep->trampoline.common.op, op_call_error_handler)) {
+    if (want & FUNC_TRACE_GLOBAL_TRACE) {
+        const Export *ep;
+        Export e;
 
-	    ASSERT(BeamIsOpCode(ep->trampoline.common.op, op_i_generic_breakpoint));
+        e.info.mfa = *mfa;
+        if ((ep = export_get(&e)) != NULL) {
+            if (erts_is_export_trampoline_active(ep, erts_active_code_ix()) &&
+                ! BeamIsOpCode(ep->trampoline.common.op, op_call_error_handler)) {
 
-	    if (erts_is_trace_break(session, &ep->info, ms, 0)) {
-		return FUNC_TRACE_GLOBAL_TRACE;
-	    }
+                ASSERT(BeamIsOpCode(ep->trampoline.common.op, op_i_generic_breakpoint));
 
-            ASSERT(!erts_is_trace_break(session, &ep->info, ms, 1));
-            ASSERT(!erts_is_mtrace_break(session, &ep->info, ms_meta, tracer_pid_meta));
-            ASSERT(!erts_is_call_break(p, session, 1, &ep->info, call_time));
-            ASSERT(!erts_is_call_break(p, session, 0, &ep->info, call_memory));
-	}
+                if (erts_is_trace_break(session, &ep->info, ms, 0)) {
+                    return FUNC_TRACE_GLOBAL_TRACE;
+                }
+
+                ASSERT(!erts_is_trace_break(session, &ep->info, ms, 1));
+                ASSERT(!erts_is_mtrace_break(session, &ep->info, ms_meta, tracer_pid_meta));
+                ASSERT(!erts_is_call_break(p, session, 1, &ep->info, call_time));
+                ASSERT(!erts_is_call_break(p, session, 0, &ep->info, call_memory));
+            }
+        }
     }
     
     /* OK, now look for breakpoint tracing */
     if ((ci = erts_find_local_func(mfa)) != NULL) {
-	int r = 0;
-        if (erts_is_trace_break(session, ci, ms, 1))
-            r |= FUNC_TRACE_LOCAL_TRACE;
-        if (erts_is_mtrace_break(session, ci, ms_meta, tracer_pid_meta))
-            r |= FUNC_TRACE_META_TRACE;
-        if (erts_is_count_break(session, ci, count))
-            r |= FUNC_TRACE_COUNT_TRACE;
-        if (erts_is_call_break(p, session, 1, ci, call_time))
-            r |= FUNC_TRACE_TIME_TRACE;
-        if (erts_is_call_break(p, session, 0, ci, call_memory))
-            r |= FUNC_TRACE_MEMORY_TRACE;
+	int got = 0;
+
+        if ((want & FUNC_TRACE_LOCAL_TRACE) && erts_is_trace_break(session, ci, ms, 1)) {
+            got |= FUNC_TRACE_LOCAL_TRACE;
+        }
+        if ((want & FUNC_TRACE_META_TRACE) && erts_is_mtrace_break(session, ci, ms_meta, tracer_pid_meta)) {
+            got |= FUNC_TRACE_META_TRACE;
+        }
+        if ((want & FUNC_TRACE_COUNT_TRACE) && erts_is_count_break(session, ci, count)) {
+            got |= FUNC_TRACE_COUNT_TRACE;
+        }
+        if ((want & FUNC_TRACE_TIME_TRACE) && erts_is_call_break(p, session, 1, ci, call_time)) {
+            got |= FUNC_TRACE_TIME_TRACE;
+        }
+        if ((want & FUNC_TRACE_MEMORY_TRACE) && erts_is_call_break(p, session, 0, ci, call_memory)) {
+            got |= FUNC_TRACE_MEMORY_TRACE;
+        }
 	
-	return r ? r : FUNC_TRACE_UNTRACED;
+	return got ? got : FUNC_TRACE_UNTRACED;
     } 
     return FUNC_TRACE_NOEXIST;
 }
@@ -1912,14 +1922,14 @@ trace_info_func(Process* p, ErtsTraceSession* session,
     Eterm* hp;
     ErtsCodeMFA mfa;
     Binary *ms = NULL, *ms_meta = NULL;
-    Uint count = 0;
+    Uint call_count = 0;
     Eterm traced = am_false;
     Eterm match_spec = am_false;
     Eterm retval = am_false;
     ErtsTracer meta = erts_tracer_nil;
     Eterm call_time = NIL;
     Eterm call_memory = NIL;
-    int r;
+    int want, got;
 
     ASSERT(session);
 
@@ -1927,22 +1937,50 @@ trace_info_func(Process* p, ErtsTraceSession* session,
         goto error;
     }
 
-    if (key == am_call_time || key == am_call_memory || key == am_all) {
+    switch (key) {
+    case am_traced:
+    case am_match_spec:
+        want = FUNC_TRACE_GLOBAL_TRACE | FUNC_TRACE_LOCAL_TRACE;
+        break;
+    case am_meta:
+    case am_meta_match_spec:
+        want = FUNC_TRACE_META_TRACE;
+        break;
+    case am_call_count:
+        want = FUNC_TRACE_COUNT_TRACE;
+        break;
+    case am_call_time:
+        want = FUNC_TRACE_TIME_TRACE;
+        break;
+    case am_call_memory:
+        want = FUNC_TRACE_MEMORY_TRACE;
+        break;
+    case am_all:
+        want = FUNC_TRACE_GLOBAL_TRACE | FUNC_TRACE_LOCAL_TRACE
+            | FUNC_TRACE_META_TRACE | FUNC_TRACE_COUNT_TRACE
+            | FUNC_TRACE_TIME_TRACE | FUNC_TRACE_MEMORY_TRACE;
+        break;
+    default:
+        goto error;
+    }
+
+
+    if (want & (FUNC_TRACE_TIME_TRACE | FUNC_TRACE_MEMORY_TRACE)) {
         erts_proc_unlock(p, ERTS_PROC_LOCK_MAIN);
         erts_thr_progress_block();
         erts_proc_lock(p, ERTS_PROC_LOCK_MAIN);
     }
     erts_mtx_lock(&erts_dirty_bp_ix_mtx);
 
-    r = function_is_traced(p, session, &mfa, &ms, &ms_meta, &meta, &count,
-                           &call_time, &call_memory);
+    got = function_is_traced(p, session, &mfa, want, &ms, &ms_meta, &meta,
+                           &call_count, &call_time, &call_memory);
 
     erts_mtx_unlock(&erts_dirty_bp_ix_mtx);
-    if ( (key == am_call_time) || (key == am_call_memory) || (key == am_all)) {
-	erts_thr_progress_unblock();
+    if (want & (FUNC_TRACE_TIME_TRACE | FUNC_TRACE_MEMORY_TRACE)) {
+        erts_thr_progress_unblock();
     }
 
-    switch (r) {
+    switch (got) {
     case FUNC_TRACE_NOEXIST:
 	hp = HAlloc(p, 3);
 	return TUPLE2(hp, key, am_undefined);
@@ -1954,7 +1992,7 @@ trace_info_func(Process* p, ErtsTraceSession* session,
 	match_spec = NIL; /* Fix up later if it's asked for*/
 	break;
     default:
-	if (r & FUNC_TRACE_LOCAL_TRACE) {
+	if (got & FUNC_TRACE_LOCAL_TRACE) {
 	    traced = am_local;
 	    match_spec = NIL; /* Fix up later if it's asked for*/
 	}
@@ -1979,7 +2017,7 @@ trace_info_func(Process* p, ErtsTraceSession* session,
             retval = NIL;
 	break;
     case am_meta_match_spec:
-	if (r & FUNC_TRACE_META_TRACE) {
+	if (got & FUNC_TRACE_META_TRACE) {
 	    if (ms_meta) {
 		retval = MatchSetGetSource(ms_meta);
 		retval = copy_object(retval, p);
@@ -1989,23 +2027,23 @@ trace_info_func(Process* p, ErtsTraceSession* session,
 	}
 	break;
     case am_call_count:
-	if (r & FUNC_TRACE_COUNT_TRACE) {
-	    retval = erts_make_integer(count, p);
+	if (got & FUNC_TRACE_COUNT_TRACE) {
+	    retval = erts_make_integer(call_count, p);
 	}
 	break;
     case am_call_time:
-	if (r & FUNC_TRACE_TIME_TRACE) {
+	if (got & FUNC_TRACE_TIME_TRACE) {
 	    retval = call_time;
 	}
 	break;
     case am_call_memory:
-	if (r & FUNC_TRACE_MEMORY_TRACE) {
+	if (got & FUNC_TRACE_MEMORY_TRACE) {
 	    retval = call_memory;
 	}
 	break;
     case am_all: {
         Eterm match_spec_meta = am_false;
-        Eterm call_count = am_false;
+        Eterm call_count_term = am_false;
         Eterm t, m;
 	
         /* ToDo: Rewrite this to loop and reuse the above cases */
@@ -2014,20 +2052,20 @@ trace_info_func(Process* p, ErtsTraceSession* session,
 	    match_spec = MatchSetGetSource(ms);
 	    match_spec = copy_object(match_spec, p);
 	}
-	if (r & FUNC_TRACE_META_TRACE) {
+	if (got & FUNC_TRACE_META_TRACE) {
 	    if (ms_meta) {
 		match_spec_meta = MatchSetGetSource(ms_meta);
 		match_spec_meta = copy_object(match_spec_meta, p);
 	    } else
 		match_spec_meta = NIL;
 	}
-	if (r & FUNC_TRACE_COUNT_TRACE) {
-            call_count = erts_make_integer(count, p);
+	if (got & FUNC_TRACE_COUNT_TRACE) {
+            call_count_term = erts_make_integer(call_count, p);
 	}
-	if (!(r & FUNC_TRACE_TIME_TRACE)) {
+	if (!(got & FUNC_TRACE_TIME_TRACE)) {
             call_time = am_false;
 	}
-        if (!(r & FUNC_TRACE_MEMORY_TRACE)) {
+        if (!(got & FUNC_TRACE_MEMORY_TRACE)) {
             call_memory = am_false;
 	}
 
@@ -2035,7 +2073,7 @@ trace_info_func(Process* p, ErtsTraceSession* session,
 
 	hp = HAlloc(p, (3+2)*7);
 	retval = NIL;
-	t = TUPLE2(hp, am_call_count, call_count); hp += 3;
+	t = TUPLE2(hp, am_call_count, call_count_term); hp += 3;
 	retval = CONS(hp, t, retval); hp += 2;
 	t = TUPLE2(hp, am_call_time, call_time); hp += 3;
         retval = CONS(hp, t, retval); hp += 2;
