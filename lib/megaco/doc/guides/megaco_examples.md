@@ -43,7 +43,7 @@ The MGC, with its four listeners, may be started with:
       megaco_simple_mgc:start().
 ```
 
-or simply 'gmake mgc'.
+or simply 'make mgc'.
 
 The -s megaco_filter option to erl implies, the event tracing mechanism to be
 enabled and an interactive sequence chart tool to be started. This may be quite

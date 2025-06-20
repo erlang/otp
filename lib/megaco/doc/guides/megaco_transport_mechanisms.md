@@ -29,7 +29,7 @@ of which are mandatory while others are only optional:
 - `send_message` \- Send a message. _Mandatory_
 - `block` \- Block the transport. _Optional_
 
-  This function is usefull for flow control.
+  This function is useful for flow control.
 
 - `unblock` \- Unblock the transport. _Optional_
 
