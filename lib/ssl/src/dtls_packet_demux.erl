@@ -351,7 +351,10 @@ setup_new_connection(User, From, Client, Msg, #state{dtls_processes = Processes,
                                                      session_id_tracker = Tracker,
 						     emulated_options = EmOpts} = State) ->
     ConnArgs = [server, "localhost", Port, {self(), {Client, Socket}},
-		{DTLSOpts, EmOpts, [{session_id_tracker, Tracker}]}, User, dtls_socket:default_cb_info()],
+		{DTLSOpts,
+                 emulated_opts_list(EmOpts, [mode, active], []),
+                 [{session_id_tracker, Tracker}]},
+                User, dtls_socket:default_cb_info()],
     case dtls_connection_sup:start_child(ConnArgs) of
 	{ok, Pid} ->
 	    erlang:monitor(process, Pid),

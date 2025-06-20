@@ -640,10 +640,7 @@ tls_closed_in_active_once(Config) when is_list(Config) ->
     {ok, Socket} = ssl:connect(Hostname, Port, [{active, false} | ClientOpts]),
     Result = tls_closed_in_active_once_loop(Socket),
     ssl:close(Socket),
-    case Result of
-	ok -> ok;
-	_ -> ct:fail(Result)
-    end.
+    ok = Result.
 
 %%--------------------------------------------------------------------
 tls_monitor_listener() ->
@@ -1065,6 +1062,7 @@ tls_server_handshake_timeout(Config) ->
     process_flag(trap_exit, true),
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
     {_, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    check_connection_processes(0),
     Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
 					{from, self()},
 					{timeout, 5000},
@@ -1078,11 +1076,7 @@ tls_server_handshake_timeout(Config) ->
 	{tcp_closed, CSocket} ->
 	    ssl_test_lib:check_result(Server, {error, timeout}),
 	    receive
-		{'EXIT', Server, _} ->
-		    %% Make sure supervisor had time to react on process exit
-		    %% Could we come up with a better solution to this?
-		    ct:sleep(500),
-		    [] = supervisor:which_children(tls_connection_sup)
+		{'EXIT', Server, _} -> check_connection_processes(0)
 	    end
     end.
 
@@ -1156,9 +1150,7 @@ transport_close_in_inital_hello(Config) when is_list(Config) ->
                            end),
 
 
-    Sup = (whereis(tls_connection_sup)),
-
-    check_connection_processes(Sup, 2),
+    check_connection_processes(2),
 
     Acceptor ! die,
 
@@ -1169,11 +1161,11 @@ transport_close_in_inital_hello(Config) when is_list(Config) ->
     receive
         {'EXIT', Connector, _} ->
             ok
-     end,
-    check_connection_processes(Sup, 0).
+    end,
+    check_connection_processes(0).
 
-check_connection_processes(Sup, N) ->
-    check_connection_processes(Sup, N, 5).
+check_connection_processes(N) ->
+    check_connection_processes(whereis(tls_connection_sup), N, 5).
 
 check_connection_processes(Sup, N, 0) ->
     N = count_children(supervisors, Sup);
@@ -1195,26 +1187,31 @@ emulated_options(Config) when is_list(Config) ->
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     Values = [{mode, list}, {packet, 0}, {header, 0},
-		      {active, true}],
+              {active, true},
+              {high_watermark, 10_000}, {low_watermark, 4096}],
+    %% High and low watermark is emulated on sockets
+
     %% Shall be the reverse order of Values!
-    Options = [active, header, packet, mode],
+    Options = [low_watermark, high_watermark, active, header, packet, mode],
 
-    NewValues = [{mode, binary}, {active, once}],
+    NewValues = [{mode, binary}, {active, once}, {high_watermark, 12_000}, {low_watermark, 6_000}],
     %% Shall be the reverse order of NewValues!
-    NewOptions = [active, mode],
+    NewOptions = [low_watermark, high_watermark, active, mode],
 
-    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
-					{from, self()},
-			   {mfa, {?MODULE, tls_socket_options_result,
-				  [Options, Values, NewOptions, NewValues]}},
-			   {options, ServerOpts}]),
+    Server = ssl_test_lib:start_server(
+               [{node, ServerNode}, {port, 0},
+                {from, self()},
+                {mfa, {?MODULE, tls_socket_options_result,
+                       [Options, Values, NewOptions, NewValues]}},
+                {options, [{high_watermark, 10_000}|ServerOpts]}]),
     Port = ssl_test_lib:inet_port(Server),
-    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
-					{host, Hostname},
-			   {from, self()},
-			   {mfa, {?MODULE, tls_socket_options_result,
-				  [Options, Values, NewOptions, NewValues]}},
-			   {options, ClientOpts}]),
+    Client = ssl_test_lib:start_client(
+               [{node, ClientNode}, {port, Port},
+                {host, Hostname},
+                {from, self()},
+                {mfa, {?MODULE, tls_socket_options_result,
+                       [Options, Values, NewOptions, NewValues]}},
+                {options, [{high_watermark, 10_000}|ClientOpts]}]),
 
     ssl_test_lib:check_result(Server, ok, Client, ok),
 
@@ -1226,6 +1223,7 @@ emulated_options(Config) when is_list(Config) ->
     {ok,[{mode, binary}]} = ssl:getopts(Listen, [mode]),
     {ok,[{recbuf, _}]} = ssl:getopts(Listen, [recbuf]),
     ssl:close(Listen).
+
 accept_pool() ->
     [{doc,"Test having an accept pool."}].
 accept_pool(Config) when is_list(Config) ->
