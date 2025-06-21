@@ -84,20 +84,24 @@ post_end_per_suite(Suite,Config,Return,State) ->
 
 pre_init_per_group(Suite,Group,Config,State) ->
     (Suite==skip_group_SUITE andalso Group==test_group_3)
+        orelse (Suite==seq_SUITE andalso Group==seq1)
         orelse ?fail({Suite,Group}),
     empty_cth:pre_init_per_group(Suite,Group,Config,State).
 
 post_init_per_group(Suite,Group,Config,Return,State) ->
     (Suite==skip_group_SUITE andalso Group==test_group_3)
+        orelse (Suite==seq_SUITE andalso Group==seq1)
         orelse ?fail({Suite,Group}),
     empty_cth:post_init_per_group(Suite,Group,Config,Return,State).
 
 pre_end_per_group(Suite,Group,Config,State) ->
-    ?fail({Suite,Group}),
+    (Suite==seq_SUITE andalso Group==seq1)
+        orelse ?fail({Suite,Group}),
     empty_cth:pre_end_per_group(Suite,Group,Config,State).
 
 post_end_per_group(Suite,Group,Config,Return,State) ->
-    ?fail({Suite,Group}),
+    (Suite==seq_SUITE andalso Group==seq1)
+        orelse ?fail({Suite,Group}),
     empty_cth:post_end_per_group(Suite,Group,Config,Return,State).
 
 pre_init_per_testcase(Suite,TC,Config,State) ->
@@ -143,7 +147,7 @@ post_end_per_testcase(Suite,TC,Config,Return,State) ->
     empty_cth:post_end_per_testcase(Suite,TC,Config,Return,State).
 
 on_tc_fail(Suite,TC,Reason,State) ->
-    (Suite==seq_SUITE andalso TC==test_case_1)
+    (Suite==seq_SUITE andalso TC=={test_case_1,seq1})
         orelse (Suite==config_clash_SUITE andalso TC==test_case_1)
         orelse ?fail({Suite,TC}),
     empty_cth:on_tc_fail(Suite,TC,Reason,State).
@@ -173,7 +177,7 @@ on_tc_skip(skip_case_SUITE=Suite,TC,Reason,State)
        TC==fail_auto_skip ->
     empty_cth:on_tc_skip(Suite,TC,Reason,State);
 on_tc_skip(Suite,TC,Reason,State)
-  when (Suite==seq_SUITE andalso TC==test_case_2)
+  when (Suite==seq_SUITE andalso TC=={test_case_2,seq1})
        orelse (Suite==repeat_SUITE andalso TC==test_case_2) ->
     empty_cth:on_tc_skip(Suite,TC,Reason,State);
 on_tc_skip(Suite,TC,Reason,State) ->
