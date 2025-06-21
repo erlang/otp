@@ -49,7 +49,8 @@
 	 insert/3, update_counter/4,
 	 lookup/3,
 	 delete/3, match_delete/3,
-	 select/1, select/3, select/4, repair_continuation/2
+	 select/1, select/3, select/4,
+	 select_reverse/3, select_reverse/4, repair_continuation/2
 	]).
 
 semantics(ext_ram_copies, storage) -> ram_copies;
@@ -245,6 +246,14 @@ select(Alias, Tab, Ms) ->
     call({?FUNCTION_NAME, Alias, Tab, Ms}).
 
 select(Alias, Tab, Ms, Limit) ->
+    ?DBG({Alias, ext_test_server:tab_to_list(Tab), Ms, Limit}),
+    call({?FUNCTION_NAME, Alias, Tab, Ms, Limit}).
+
+select_reverse(Alias, Tab, Ms) ->
+    ?DBG({Alias, ext_test_server:tab_to_list(Tab), Ms}),
+    call({?FUNCTION_NAME, Alias, Tab, Ms}).
+
+select_reverse(Alias, Tab, Ms, Limit) ->
     ?DBG({Alias, ext_test_server:tab_to_list(Tab), Ms, Limit}),
     call({?FUNCTION_NAME, Alias, Tab, Ms, Limit}).
 
