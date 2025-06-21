@@ -77,8 +77,8 @@ compressed when serialized. It must follow the type specification below:
 
 where in the root tuple we have:
 
-- **`Anno`** - annotation (line, column, file) of the definition itself (see
-  `m:erl_anno`)
+- **`Anno`** - annotation (line, column, file) of the module documentation
+  (see `m:erl_anno`)
 
 - **`BeamLanguage`** - an atom representing the language, for example: `erlang`,
   `elixir`, `lfe`, `alpaca`, and so on
@@ -107,7 +107,7 @@ For each entry in Docs, we have:
   `callback`. Other languages will add their own. For instance, Elixir and LFE
   might add `macro`.
 
-- **`Anno`** - annotation (line, column, file) of the module documentation
+- **`Anno`** - annotation (line, column, file) of the documentation entry
   (see `m:erl_anno`).
 
 - **`Signature`** - the signature of the entity. It is is a list of binaries.
