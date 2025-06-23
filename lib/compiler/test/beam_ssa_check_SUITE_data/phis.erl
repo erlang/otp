@@ -29,7 +29,7 @@
 
 -module(phis).
 
--export([filter_forms/1]).
+-export([filter_forms/1, gh9987/1]).
 
 -record(filter, {file = undefined :: file:filename() | 'undefined',
 		 line = 0         :: integer()}).
@@ -55,3 +55,57 @@ filter_forms([{A1, A2} | Fs], S) ->
     end;
 filter_forms([], _) ->
     [].
+
+gh9987(Diffs) ->
+    result1(Diffs, <<>>, <<>>),
+    result2(Diffs, <<>>, <<>>).
+
+result1([], _, _) -> ok;
+result1([Diff|Diffs], TextDelete, TextInsert) ->
+%ssa% (_,_,_) when pre_ssa_opt ->
+%ssa% Phi1 = phi({_,A}, {_,B}, {<<>>,C}, {_,D}),
+%ssa% Phi2 = phi({_,A}, {_,B}, {<<>>,C}, {_,D}).
+    {Op, Text, Count_insert, Count_delete} = Diff,
+    {TextDelete1, TextInsert1} = case Op of
+        insert ->
+            {TextDelete,<<TextInsert/bitstring,Text/bitstring>>};
+        delete ->
+            {<<TextDelete/bitstring,Text/bitstring>>,TextInsert};
+        equal ->
+            case Count_delete > 0 andalso Count_insert > 0 of
+                true ->
+                    id(TextInsert),
+                    id(TextDelete);
+                false ->
+                    ok
+            end,
+        {<<>>, <<>>}
+    end,
+    result1(Diffs, TextDelete1, TextInsert1).
+
+result2([], _, _) -> ok;
+result2([Diff|Diffs], TextDelete, TextInsert) ->
+%ssa% (_,_,_) when post_ssa_opt ->
+%ssa% V1 = bs_init_writable(_),
+%ssa% V2 = bs_init_writable(_),
+%ssa% Phi1 = phi({_,A}, {_,B}, {V2,C}),
+%ssa% Phi2 = phi({_,A}, {_,B}, {V1,C}).
+    {Op, Text, Count_insert, Count_delete} = Diff,
+    {TextDelete1, TextInsert1} = case Op of
+        insert ->
+            {TextDelete,<<TextInsert/bitstring,Text/bitstring>>};
+        delete ->
+            {<<TextDelete/bitstring,Text/bitstring>>,TextInsert};
+        equal ->
+            case Count_delete > 0 andalso Count_insert > 0 of
+                true ->
+                    id(TextInsert),
+                    id(TextDelete);
+                false ->
+                    ok
+            end,
+        {<<>>, <<>>}
+    end,
+    result2(Diffs, TextDelete1, TextInsert1).
+
+id(X) -> X.

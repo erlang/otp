@@ -40,7 +40,8 @@
          ret_annotation_checks/1,
          sanity_checks/1,
          tuple_inplace_checks/1,
-         non_throwing_bifs/1]).
+         non_throwing_bifs/1,
+         phis_checks/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -58,7 +59,8 @@ groups() ->
        ret_annotation_checks,
        sanity_checks,
        tuple_inplace_checks,
-       non_throwing_bifs]},
+       non_throwing_bifs,
+       phis_checks]},
      {post_ssa_opt_dynamic,test_lib:parallel(),
       [bs_size_unit_checks]}].
 
@@ -132,9 +134,20 @@ sanity_checks(Config) when is_list(Config) ->
 non_throwing_bifs(Config) when is_list(Config) ->
     run_post_ssa_opt(non_throwing_bifs, Config).
 
+phis_checks(Config) when is_list(Config) ->
+    run_pre_ssa_opt(phis, Config),
+    run_post_ssa_opt(phis, Config).
+
 dynamic_workdir(Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
     filename:join(PrivDir, "dynamic").
+
+run_pre_ssa_opt(Module, Config) ->
+    File = atom_to_list(Module) ++ ".erl",
+
+    DataDir = proplists:get_value(data_dir, Config),
+    Source = filename:join(DataDir, File),
+    run_checks(Source, pre_ssa_opt, Config).
 
 run_post_ssa_opt(Module, Config) ->
     File = atom_to_list(Module) ++ ".erl",

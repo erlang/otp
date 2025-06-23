@@ -822,9 +822,19 @@ patch_f([{Lbl,Blk=#b_blk{is=Is0,last=Last0}}|Rest],
     patch_f(Rest, Cnt, PD, Acc, BlockAdditions++BlockAdditions0);
 patch_f([], Cnt, _PD, Acc, BlockAdditions) ->
     ?DP("BlockAdditions: ~p~n", [BlockAdditions]),
-    Linear = insert_block_additions(Acc, maps:from_list(BlockAdditions), []),
+    Merged = merge_block_additions(BlockAdditions, #{}),
+    Linear = insert_block_additions(Acc, Merged, []),
     ?DP("SSA-result:~n~p~n", [Linear]),
     {Linear, Cnt}.
+
+merge_block_additions([{Lbl, Extra} | Rest], Acc) ->
+    Is = case Acc of
+             #{ Lbl := Is0 } -> Extra ++ Is0;
+             #{} -> Extra
+         end,
+    merge_block_additions(Rest, Acc#{ Lbl => Is });
+merge_block_additions([], Acc) ->
+    Acc.
 
 patch_is([I0=#b_set{dst=Dst}|Rest], PD0, Cnt0, Acc, BlockAdditions0)
   when is_map_key(Dst, PD0) ->
