@@ -3166,8 +3166,8 @@ trap_exit(Flag) ->
 
 start_node(Name, Unlink) ->
     Args = ["-s", "snmp_test_sys_monitor", "start", "-s", "global", "sync"],
-    %% Note that the 'verbose' option may not exist..
-    %% It it does not exist, this "should" do nothing...
+    %% Note that the 'verbose' option may not exist...
+    %% If it does not exist, this (verbose => true) "should" do nothing...
     case ?CT_PEER(#{name    => Name,
                     args    => Args,
                     verbose => true}) of
