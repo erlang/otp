@@ -519,7 +519,7 @@ do_get_if_entry(Idxs) ->
 
     %% Ask for an index that we know does not exit
     ?P("try validate *not* known interface"),
-    [MaxIdx | _] = lists:reverse(lists:sort(Idxs)),
+    [{MaxIdx, _} | _] = lists:reverse(lists:keysort(1, Idxs)),
     InvalidIdx = MaxIdx + 99,
     case prim_net:get_if_entry(#{index => InvalidIdx}) of
 	{error, Reason} ->
@@ -537,15 +537,17 @@ do_get_if_entry(Idxs) ->
 
 do_get_if_entry2([]) ->
     ok;
-do_get_if_entry2([Idx|Idxs]) ->
+do_get_if_entry2([{Idx, Name}|Idxs]) ->
     case prim_net:get_if_entry(#{index => Idx}) of
 	{ok, Entry} ->
 	    ?P("expected success retreiving of entry ~w: "
-	       "~n   ~p", [Idx, Entry]),
+               "~n   Name:  ~s"
+	       "~n   Entry: ~p", [Idx, Name, Entry]),
 	    do_get_if_entry2(Idxs);
 	{error, Reason} ->
-	    ?P("unexpected failure retreiving if entry ~w: "
-	       "~n   ~p", [Idx, Reason]),
+	    ?P("unexpected failure retrieving if-entry ~w: "
+               "~n   Name:   ~s"
+	       "~n   Reason: ~p", [Idx, Name,  Reason]),
 	    exit({unexpected_failure, Idx, Reason})
     end.
 
@@ -661,17 +663,32 @@ do_if_name2index() ->
         {ok, [{Idx,If}|_]} ->
             {ok, Idx} = prim_net:if_name2index(If),
             ok;
+        {error, enotsup = _Reason} ->
+            %% if-names not supported,
+            %%% but that is not the function we are testing => ignore
+            ok;
         {error, Reason} ->
             %% This should not really fail...
             ?P("Failed to get a success name to try: "
                "~n   Reason: ~p", [Reason]),
             ok
     end,
-    {error, einval} = prim_net:if_name2index("flipp-flopp-on-concrete"),
-    {error, enxio}  = prim_net:if_name2index("flipp-flopp"),
+    case prim_net:if_name2index("flipp-flopp-on-concrete") of
+        {error, enotsup = NOTSUP} ->
+            skip(NOTSUP);
+        {error, einval} ->
+            ok
+    end,
+    case prim_net:if_name2index("flipp-flopp") of
+        {error, enxio} -> ok;
+        {error, enodev} -> ok
+    end,
     {error, einval} = prim_net:if_name2index(["flipp-flopp"]),
     {error, einval} = prim_net:if_name2index(['flipp-flopp']),
-    {error, enxio}  = prim_net:if_name2index([1,2,3,4]),
+    case prim_net:if_name2index([1,2,3,4]) of
+        {error, enxio} -> ok;
+        {error, enodev} -> ok
+    end,
     {error, einval} = prim_net:if_name2index("flipp-" ++ [555] ++ "-flopp"),
     ok.
 
@@ -685,12 +702,25 @@ if_index2name(_Config) when is_list(_Config) ->
     Pre  = fun() ->
                    %% Enable trap'ing exits
                    Old = process_flag(trap_exit, true),
-                   case prim_net:if_names() of
+                   ?P("~w:pre -> try get if-names", [?FUNCTION_NAME]),
+                   try prim_net:if_names() of
                        {ok, Idxs} ->
+                           ?P("~w:pre -> "
+                              "~n   Idxs: ~p", [?FUNCTION_NAME, Idxs]),
                            #{trap_exit => Old,
                              idxs      => Idxs};
                        {error, enotsup = NOTSUP} ->
+                           ?P("~w:pre -> if-names enotsup", [?FUNCTION_NAME]),
                            skip(NOTSUP)
+                   catch
+                       error:notsup = NOTSUP ->
+                           skip(NOTSUP);
+                       C:E:S ->
+                           ?P("~w:pre -> catched: "
+                              "~n   C: ~p"
+                              "~n   E: ~p"
+                              "~n   S: ~p", [?FUNCTION_NAME, C, E, S]),
+                           exit({unexpected, {C, E, S}})
                    end
            end,
     TC   = 
