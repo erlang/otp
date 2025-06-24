@@ -192,7 +192,10 @@ supportedPublicKeyAlgorithms(?'id-RSASSA-PSS') -> 'RSAPublicKey';
 supportedPublicKeyAlgorithms(?'id-Ed25519') -> 'ECPoint';
 supportedPublicKeyAlgorithms(?'id-Ed448') -> 'ECPoint';
 supportedPublicKeyAlgorithms(?'id-X25519') -> 'ECPoint';
-supportedPublicKeyAlgorithms(?'id-X448') -> 'ECPoint'.
+supportedPublicKeyAlgorithms(?'id-X448') -> 'ECPoint';
+supportedPublicKeyAlgorithms(?'id-ml-dsa-44') -> 'ML-DSAPublicKey';
+supportedPublicKeyAlgorithms(?'id-ml-dsa-65') -> 'ML-DSAPublicKey';
+supportedPublicKeyAlgorithms(?'id-ml-dsa-87') -> 'ML-DSAPublicKey'.
 
 supportedCurvesTypes(?'characteristic-two-field') -> characteristic_two_field;
 supportedCurvesTypes(?'prime-field') -> prime_field;
@@ -306,7 +309,6 @@ namedCurves(brainpoolP512t1) -> ?'brainpoolP512t1'.
 %%--------------------------------------------------------------------
 
 %%% SubjectPublicKey
-
 decode_supportedPublicKey(#'SubjectPublicKeyInfo'{algorithm=PA,
                                                   subjectPublicKey=SPK0}) ->
     #'SubjectPublicKeyInfo_algorithm'{algorithm=Algo,parameters=Params0} = PA,
@@ -314,6 +316,9 @@ decode_supportedPublicKey(#'SubjectPublicKeyInfo'{algorithm=PA,
     SPK = case Type of
               'ECPoint' ->
                   #'ECPoint'{point = SPK0};
+              'ML-DSAPublicKey' ->
+                  #'ML-DSAPublicKey'{algorithm = oid_to_ml_dsa_algo(Algo),
+                                     key = SPK0};
               _ ->
                   public_key:der_decode(Type, SPK0)
           end,
@@ -332,6 +337,9 @@ encode_supportedPublicKey(#'OTPSubjectPublicKeyInfo'{
     SPK = case Type of
               'ECPoint' ->
                   SPK0#'ECPoint'.point;
+                'ML-DSAPublicKey' ->
+                  #'ML-DSAPublicKey'{key = SPK1} = SPK0,
+                   SPK1;
               _ ->
                   public_key:der_encode(Type, SPK0)
           end,
@@ -482,3 +490,10 @@ encode_extensions(Exts) ->
                               end
 		      end
 	      end, Exts).
+
+oid_to_ml_dsa_algo(?'id-ml-dsa-44') ->
+    mldsa44;
+oid_to_ml_dsa_algo(?'id-ml-dsa-65') ->
+    mldsa65;
+oid_to_ml_dsa_algo(?'id-ml-dsa-87') ->
+    mldsa87.

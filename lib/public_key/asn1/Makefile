@@ -57,6 +57,7 @@ ASN_MODULES = \
           CMSAesRsaesOaep-2009 \
           DSS \
           ECPrivateKey \
+	  X509-ML-DSA-2025 \
           OCSP-2024-08 \
           OTP-PKIX \
           PKCS-1 PKCS-3 PKCS-10 \
