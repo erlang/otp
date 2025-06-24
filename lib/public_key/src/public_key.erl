@@ -138,6 +138,8 @@ macros described here and in the User's Guide:
               ecdsa_private_key/0,
               eddsa_public_key/0,
               eddsa_private_key/0,
+              mldsa_public_key/0,
+              mldsa_private_key/0,
               custom_key_opts/0,
               public_key_info/0,
               %% Internal exports beneath do not document
@@ -158,15 +160,17 @@ macros described here and in the User's Guide:
                                  rsa_pss_public_key() |
                                  dsa_public_key() |
                                  ecdsa_public_key() |
-                                 eddsa_public_key() .
--doc(#{group => <<"Keys">>}).
+                                 eddsa_public_key() |
+                                 mldsa_private_key().
+-doc(#{title => <<"Keys">>}).
 -doc "Supported private keys".
 -type private_key()          ::  rsa_private_key() |
                                  rsa_pss_private_key() |
                                  dsa_private_key() |
                                  ecdsa_private_key() |
                                  eddsa_private_key() |
-                                 #{algorithm := eddsa | rsa_pss_pss | ecdsa | rsa | dsa,
+                                 mldsa_private_key() |
+                                 #{algorithm := mldsa | eddsa | rsa_pss_pss | ecdsa | rsa | dsa,
                                    sign_fun => fun()} .
 -doc(#{group => <<"Keys">>}).
 -doc """
@@ -207,7 +211,13 @@ provide additional options understood by the fun.
 -doc "ASN.1 defined public key format for the ECDSA algorithm.".
 -type ecdsa_public_key()        :: {#'ECPoint'{},{namedCurve, oid()} | #'ECParameters'{}}.
 
--doc(#{group => <<"Keys">>}).
+-doc(#{title => <<"Keys">>}).
+-doc """
+ML-DSA public key
+""".
+-type mldsa_public_key()       :: #'ML-DSAPublicKey'{}.
+
+-doc(#{title => <<"Keys">>}).
 -doc "ASN.1 defined private key format for the ECDSA algorithm.".
 -type ecdsa_private_key()       :: #'ECPrivateKey'{}.
 
@@ -223,7 +233,13 @@ ASN.1 defined private key format for the EDDSA algorithm, possible oids: ?'id-Ed
 """.
 -type eddsa_private_key()       :: #'ECPrivateKey'{parameters :: {namedCurve, oid()}}.
 
--doc(#{group => <<"Keys">>}).
+-doc(#{title => <<"Keys">>}).
+-doc """
+ML-DSA private key
+""".
+-type mldsa_private_key()       :: #'ML-DSAPrivateKey'{}.
+
+-doc(#{title => <<"Keys">>}).
 -doc "ASN.1 defined parameters for public key algorithms.".
 -type key_params()    :: 'NULL' | #'RSASSA-PSS-params'{} |  {namedCurve, oid()} | #'ECParameters'{} | #'Dss-Parms'{}.
 
@@ -257,7 +273,7 @@ Possible `Ciphers` are "RC2-CBC" | "DES-CBC" | "DES-EDE3-CBC" `Salt` could be ge
 
 -doc(#{group => <<"Common">>}).
 -doc "ASN.1 type present in the Public Key applications ASN.1 specifications.".
--type asn1_type()            :: atom(). %% see "OTP-PUB-KEY.hrl
+-type asn1_type()            :: atom().
 
 -doc(#{group => <<"Common">>}).
 -doc "Hash function used to create a message digest".
@@ -408,7 +424,9 @@ pem_entry_decode({'SubjectPublicKeyInfo', Der, _}) ->
             {der_decode(KeyType, Key0), Params};
         'ECPoint' ->
             ECCParams = ec_decode_params(AlgId, Params0),
-            {#'ECPoint'{point = Key0}, ECCParams}
+            {#'ECPoint'{point = Key0}, ECCParams};
+        'ML-DSAPublicKey' ->
+            mldsa_pub_key(AlgId, Key0)
     end;
 pem_entry_decode({Asn1Type, Der, not_encrypted}) when is_atom(Asn1Type),
 						      is_binary(Der) ->
@@ -481,6 +499,11 @@ pem_entry_encode('SubjectPublicKeyInfo',
 		 {#'ECPoint'{point = Key}, ECParam}) when is_binary(Key)->
     Spki = subject_public_key_info(#'AlgorithmIdentifier'{algorithm =?'id-ecPublicKey',
                                                          parameters = ECParam},
+                                   Key),
+    pem_entry_encode('SubjectPublicKeyInfo', Spki);
+pem_entry_encode('SubjectPublicKeyInfo',
+		 #'ML-DSAPublicKey'{algorithm = Algorithm, key = Key}) ->
+    Spki = subject_public_key_info(#'AlgorithmIdentifier'{algorithm = mldsa_algo_to_oid(Algorithm)},
                                    Key),
     pem_entry_encode('SubjectPublicKeyInfo', Spki);
 pem_entry_encode(Asn1Type, Entity)  when is_atom(Asn1Type) ->
@@ -646,6 +669,9 @@ get_asn1_module('DHParameter') -> 'PKCS-3';
 get_asn1_module('DSAPrivateKey') -> 'DSS';
 get_asn1_module('CurvePrivateKey') -> 'Safecurves-pkix-18';
 get_asn1_module('ECPrivateKey') -> 'ECPrivateKey';
+get_asn1_module('ML-DSA-44-PrivateKey') -> 'X509-ML-DSA-2025';
+get_asn1_module('ML-DSA-65-PrivateKey') -> 'X509-ML-DSA-2025';
+get_asn1_module('ML-DSA-87-PrivateKey') -> 'X509-ML-DSA-2025';
 %% Certification Request Syntax Specification RFC 2986
 get_asn1_module('CertificationRequest') -> 'PKCS-10';
 get_asn1_module('CertificationRequestInfo') -> 'PKCS-10';
@@ -741,6 +767,13 @@ der_priv_key_decode(#'PrivateKeyInfo'{version = v1,
     {ok, #'DSA-Params'{p=P, q=Q, g=G}} = 'PKIXAlgs-2009':decode('DSA-Params', Parameters),
     X = der_decode(?dsa_private_key_type, PrivKey),
     #'DSAPrivateKey'{version=1, p=P, q=Q, g=G, x=X};
+der_priv_key_decode(#'PrivateKeyInfo'{version = v1,
+                                      privateKeyAlgorithm =
+                                          #'PrivateKeyAlgorithmIdentifier'{algorithm = Alg},
+                                      privateKey = PrivKey}) when Alg == ?'id-ml-dsa-44';
+                                                                  Alg == ?'id-ml-dsa-65';
+                                                                  Alg == ?'id-ml-dsa-87' ->
+    mldsa_priv_key_dec(Alg, PrivKey);
 der_priv_key_decode(#'OneAsymmetricKey'{
                        privateKeyAlgorithm = #'PrivateKeyAlgorithmIdentifier'{algorithm = CurveOId},
                        privateKey = CurvePrivKey,
@@ -752,6 +785,36 @@ der_priv_key_decode(#'OneAsymmetricKey'{
     #'ECPrivateKey'{version = 2, parameters = {namedCurve, CurveOId}, privateKey = PrivKey,
                     attributes = Attr,
                     publicKey = PubKey};
+der_priv_key_decode(#'OneAsymmetricKey'{version = v1,
+                                        privateKeyAlgorithm =
+                                            #'PrivateKeyAlgorithmIdentifier'{algorithm = ?'rsaEncryption'},
+                                        privateKey = PrivKey}) ->
+    der_decode('RSAPrivateKey', PrivKey);
+der_priv_key_decode(#'OneAsymmetricKey'{version = v1,
+                                        privateKeyAlgorithm =
+                                            #'PrivateKeyAlgorithmIdentifier'{algorithm = ?'id-RSASSA-PSS',
+                                                                             parameters = {asn1_OPENTYPE, Parameters}},
+                                        privateKey = PrivKey}) ->
+    Key = der_decode('RSAPrivateKey', PrivKey),
+    Params = der_decode('RSASSA-PSS-params', Parameters),
+    {Key, Params};
+der_priv_key_decode(#'OneAsymmetricKey'{version = v1,
+                                        privateKeyAlgorithm =
+                                            #'PrivateKeyAlgorithmIdentifier'{algorithm = ?'id-RSASSA-PSS',
+                                                                             parameters = asn1_NOVALUE},
+                                        privateKey = PrivKey}) ->
+    Key = der_decode('RSAPrivateKey', PrivKey),
+    #'RSASSA-AlgorithmIdentifier'{parameters = Params} = ?'rSASSA-PSS-Default-Identifier',
+    {Key, Params};
+der_priv_key_decode(#'OneAsymmetricKey'{version = v1,
+                                        privateKeyAlgorithm =
+                                            #'PrivateKeyAlgorithmIdentifier'{algorithm = ?'id-dsa',
+                                                                             parameters =
+                                                                                 {asn1_OPENTYPE, Parameters}},
+                                        privateKey = PrivKey}) ->
+    {ok, #'DSA-Params'{p=P, q=Q, g=G}} = 'PKIXAlgs-2009':decode('DSA-Params', Parameters),
+    X = der_decode(?dsa_private_key_type, PrivKey),
+    #'DSAPrivateKey'{version=1, p=P, q=Q, g=G, x=X};
 der_priv_key_decode(PKCS8Key) ->
     PKCS8Key.
 
@@ -814,6 +877,13 @@ der_encode('PrivateKeyInfo', #'ECPrivateKey'{parameters = Parameters} = PrivKey)
                #'OneAsymmetricKey'{version = 0,
                                    privateKeyAlgorithm = Alg,
                                    privateKey = Key});
+der_encode('PrivateKeyInfo', #'ML-DSAPrivateKey'{algorithm = Algorithm} = Key) ->
+    Alg = #'PrivateKeyAlgorithmIdentifier'{algorithm = mldsa_algo_to_oid(Algorithm)},
+    PrivKey = mldsa_priv_key_enc(Key),
+    der_encode('OneAsymmetricKey',
+               #'OneAsymmetricKey'{version = v1,
+                                   privateKeyAlgorithm = Alg,
+                                   privateKey = PrivKey});
 der_encode('OneAsymmetricKey', #'ECPrivateKey'{parameters = {namedCurve, CurveOId},
                                                privateKey = Key,
                                                attributes = Attr,
@@ -909,7 +979,6 @@ der_encode(Asn1Type, Entity0) when is_atom(Asn1Type) ->
 	error:{badmatch, {error, _}} = Error ->
 	    erlang:error(Error)
     end.
-
 
 %%--------------------------------------------------------------------
 -doc(#{group => <<"Certificate API">>}).
@@ -1327,7 +1396,13 @@ pkix_sign_types(?'ecdsa-with-SHA512') ->
 pkix_sign_types(?'id-Ed25519') ->
     {none, eddsa};
 pkix_sign_types(?'id-Ed448') ->
-    {none, eddsa}.
+    {none, eddsa};
+pkix_sign_types(?'id-ml-dsa-44') ->
+    {none, mldsa44};
+pkix_sign_types(?'id-ml-dsa-65') ->
+    {none, mldsa65};
+pkix_sign_types(?'id-ml-dsa-87') ->
+    {none, mldsa87}.
 
 %%--------------------------------------------------------------------
 -doc(#{group => <<"Certificate API">>,
@@ -1574,8 +1649,10 @@ pkix_verify(DerCert, Key = {#'ECPoint'{}, _}) when is_binary(DerCert) ->
             false;
         {DigestType, PlainText, Signature} ->
             verify(PlainText, DigestType, Signature, Key)
-    end.
-
+    end;
+pkix_verify(DerCert, #'ML-DSAPublicKey'{} = Key) ->
+    {DigestType, PlainText, Signature} = pubkey_cert:verify_data(DerCert),
+    verify(PlainText, DigestType, Signature, Key).
 %%--------------------------------------------------------------------
 -doc "Verify that `Cert` is the `CRL` signer.".
 -doc(#{group => <<"Certificate Revocation API">>,
@@ -2497,6 +2574,10 @@ format_sign_key(#'ECPrivateKey'{privateKey = PrivKey, parameters = {namedCurve, 
 format_sign_key(#'ECPrivateKey'{privateKey = PrivKey, parameters = Param}) ->
     ECCurve = ec_curve_spec(Param),
     {ecdsa, [PrivKey, ECCurve]};
+format_sign_key(#'ML-DSAPrivateKey'{algorithm = Algo, seed = Key}) when Key =/= undefined ->
+    {Algo, {seed, Key}};
+format_sign_key(#'ML-DSAPrivateKey'{algorithm = Algo, expandedkey = Key}) when Key =/= undefined ->
+    {Algo, {expandedkey, Key}};
 format_sign_key({ed_pri, Curve, _Pub, Priv}) ->
     {eddsa, [Priv,Curve]};
 format_sign_key(_) ->
@@ -2515,6 +2596,10 @@ format_verify_key({Key,  #'Dss-Parms'{p = P, q = Q, g = G}}) ->
     {dss, [P, Q, G, Key]};
 format_verify_key({ed_pub, Curve, Key}) ->
     {eddsa, [Key,Curve]};
+format_verify_key(#'ML-DSAPublicKey'{algorithm = Algo, key = Key}) ->
+    {Algo, Key};
+format_verify_key({#'ML-DSAPublicKey'{algorithm = Algo, key = Key},_}) ->
+    {Algo, Key};
 %% Convert private keys to public keys
 format_verify_key(#'RSAPrivateKey'{modulus = Mod, publicExponent = Exp}) ->
     format_verify_key(#'RSAPublicKey'{modulus = Mod, publicExponent = Exp});
@@ -2856,6 +2941,64 @@ ec_key({PubKey, PrivateKey}, Params) ->
 		    privateKey = PrivateKey,
 		    parameters = Params,
 		    publicKey = PubKey}.
+
+mldsa_pub_key(?'id-ml-dsa-44', PubKey) ->
+    #'ML-DSAPublicKey'{algorithm = mldsa44,
+                       key = PubKey};
+mldsa_pub_key(?'id-ml-dsa-65', PubKey) ->
+    #'ML-DSAPublicKey'{algorithm = mldsa65,
+                        key = PubKey};
+mldsa_pub_key(?'id-ml-dsa-87', PubKey) ->
+    #'ML-DSAPublicKey'{algorithm = mldsa87,
+                       key = PubKey}.
+
+mldsa_priv_key_dec(?'id-ml-dsa-44', DERKey) ->
+    mldsa_priv_key_dec('ML-DSA-44-PrivateKey', DERKey,  #'ML-DSAPrivateKey'{algorithm = mldsa44});
+mldsa_priv_key_dec(?'id-ml-dsa-65', DERKey) ->
+    mldsa_priv_key_dec('ML-DSA-65-PrivateKey', DERKey,  #'ML-DSAPrivateKey'{algorithm = mldsa65});
+mldsa_priv_key_dec(?'id-ml-dsa-87', DERKey) ->
+    mldsa_priv_key_dec('ML-DSA-87-PrivateKey', DERKey,  #'ML-DSAPrivateKey'{algorithm = mldsa87}).
+
+mldsa_priv_key_dec(Type, DERKey, PrivKey) ->
+    case der_decode(Type, DERKey) of
+        {seed, Seed} ->
+            PrivKey#'ML-DSAPrivateKey'{seed = Seed};
+        {expandedkey, ExpandedKey} ->
+            PrivKey#'ML-DSAPrivateKey'{expandedkey = ExpandedKey};
+        {both, {_, Seed, ExpandedKey}} ->
+            PrivKey#'ML-DSAPrivateKey'{seed = Seed,
+                                       expandedkey = ExpandedKey}
+    end.
+
+
+mldsa_priv_key_enc(#'ML-DSAPrivateKey'{algorithm = Alg,
+                                       seed = Seed,
+                                       expandedkey = <<>>}) ->
+    der_encode(mldsa_algo_to_type(Alg), {seed, Seed});
+mldsa_priv_key_enc(#'ML-DSAPrivateKey'{algorithm = Alg,
+                                       seed = <<>>,
+                                       expandedkey = ExpandedKey}) ->
+    der_encode(mldsa_algo_to_type(Alg), {expandedkey, ExpandedKey});
+mldsa_priv_key_enc(#'ML-DSAPrivateKey'{algorithm = Alg,
+                                       seed = Seed,
+                                       expandedkey = ExpandedKey}) ->
+    Type = mldsa_algo_to_type(Alg),
+    der_encode(Type, {both, {Type, Seed, ExpandedKey}}).
+
+mldsa_algo_to_oid(mldsa44) ->
+    ?'id-ml-dsa-44';
+mldsa_algo_to_oid(mldsa65) ->
+    ?'id-ml-dsa-65';
+mldsa_algo_to_oid(mldsa87) ->
+    ?'id-ml-dsa-87'.
+
+mldsa_algo_to_type(mldsa44) ->
+    'ML-DSA-44-PrivateKey';
+mldsa_algo_to_type(mldsa65) ->
+    'ML-DSA-65-PrivateKey';
+mldsa_algo_to_type(mldsa87) ->
+    'ML-DSA-87-PrivateKey'.
+
 
 encode_name_for_short_hash({rdnSequence, Attributes0}) ->
     Attributes = lists:map(fun normalise_attribute/1, Attributes0),
