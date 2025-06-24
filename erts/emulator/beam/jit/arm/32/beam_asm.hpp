@@ -102,14 +102,10 @@ protected:
     const a32::Gp ARG3 = a32::r2;
     const a32::Gp ARG4 = a32::r3;
 
+    const a32::Gp TMP = a32::r12;
+
     const a32::Gp VAR = a32::r6;
 
-#ifdef ERTS_MSACC_EXTENDED_STATES
-    const arm::Mem erts_msacc_cache = getSchedulerRegRef(
-            offsetof(ErtsSchedulerRegisters, aux_regs.d.erts_msacc_cache));
-#endif
-
-    static const int num_register_backed_fregs = 8;
     constexpr arm::Mem getSchedulerRegRef(int offset) const {
         ASSERT((offset & (sizeof(Eterm) - 1)) == 0);
         return arm::Mem(scheduler_registers, offset);
@@ -273,10 +269,14 @@ protected:
     }
 
     a32::Gp emit_ptr_val(a32::Gp Dst, a32::Gp Src) {
-        a32::Gp r;
+#if !defined(TAG_LITERAL_PTR)
+        return Src;
+#else
         // TODO
+        // TAG_LITERAL_PTR is undefined in ARCH_32 and may be not needed
         ASSERT(false);
-        return r;
+        return Dst;
+#endif
     }
 
     void emit_untag_ptr(a32::Gp Dst, a32::Gp Src) {
@@ -325,8 +325,28 @@ protected:
 
     template<typename T>
     void mov_imm(a32::Gp to, T value) {
-        // TODO
-        ASSERT(false);
+        static_assert(std::is_integral<T>::value || std::is_pointer<T>::value);
+        uint32_t value32;
+        if constexpr (std::is_pointer<T>::value) {
+            auto uintptr = reinterpret_cast<uintptr_t>(value);
+            value32 = static_cast<uint32_t>(uintptr);
+        } else {
+            value32 = static_cast<uint32_t>(value);
+        }
+        if (value32 == 0) {
+            a.eor(to, to, to);
+        } else if (value32 <= 255) {
+            a.mov(to, imm(value32));
+        } else if (value32 <= UINT16_MAX) {
+            a.movw(to, imm(value32));
+        } else {
+            // move the lower 16 bits
+            uint16_t lower16 = value32;
+            a.movw(to, imm(lower16));
+            // move the upper 16 bits
+            uint16_t upper16 = (value32 >> 16);
+            a.movt(to, imm(upper16));
+        }
     }
 
     void mov_imm(a32::Gp to, std::nullptr_t value) {
