@@ -492,12 +492,14 @@ continue_delete:
 
 noshortcuts:
 ; We delete both in HKCU and HKLM, we don't really know were they might be...
-  	DeleteRegKey /ifnosubkeys HKLM "SOFTWARE\Ericsson\Erlang\${ERTS_VERSION}"
-  	DeleteRegKey /ifnosubkeys HKCU "SOFTWARE\Ericsson\Erlang\${ERTS_VERSION}"
-  	DeleteRegKey HKLM \
-		"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Erlang OTP"
-  	DeleteRegKey HKCU \
-		"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Erlang OTP"
+	DeleteRegKey /ifnosubkeys HKCU "SOFTWARE\Ericsson\Erlang\${ERTS_VERSION}"
+
+	DeleteRegKey /ifnosubkeys HKLM "SOFTWARE\Ericsson\Erlang\${ERTS_VERSION}"
+	DeleteRegKey /ifnosubkeys HKLM "SOFTWARE\Ericsson\Erlang"
+	DeleteRegKey /ifnosubkeys HKLM "SOFTWARE\Ericsson"
+
+	DeleteRegKey HKLM "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Erlang OTP"
+	DeleteRegKey HKCU "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Erlang OTP"
 
 
 ; Now remove shell/file associations we'we made...
