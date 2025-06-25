@@ -210,7 +210,7 @@ post_args(Pattern, Args, _Env) ->
 post_phi_args([{'...',_}], _, Env) ->
     Env;
 post_phi_args([{tuple,_,[PVar,PLbl]}|PArgs], [{AVar,ALbl}|AArgs], Env0) ->
-    Env = env_post(PVar, AVar, env_post(PLbl, ALbl, Env0)),
+    Env = env_post(PVar, AVar, env_post(PLbl, #b_literal{val=ALbl}, Env0)),
     post_phi_args(PArgs, AArgs, Env);
 post_phi_args([], [], Env) ->
     Env.
