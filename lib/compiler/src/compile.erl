@@ -1738,7 +1738,8 @@ kernel_passes() ->
      {iff,dssa,{listing,"ssa"}},
      {iff,ssalint,{pass,beam_ssa_lint}},
      {delay,
-      [{unless,no_bool_opt,{pass,beam_ssa_bool}},
+      [make_ssa_check_pass(pre_ssa_opt),
+       {unless,no_bool_opt,{pass,beam_ssa_bool}},
        {iff,dbool,{listing,"bool"}},
        {unless,no_bool_opt,{iff,ssalint,{pass,beam_ssa_lint}}},
 
