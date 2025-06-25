@@ -1303,7 +1303,7 @@ handle_psk(UserOpts, #{versions := Versions} = Opts) ->
             PSK1 = unicode:characters_to_binary(PSK0),
             PSKSize = byte_size(PSK1),
             assert_version_dep(psk_identity, Versions, ['tlsv1','tlsv1.1','tlsv1.2']),
-            option_error(not (0 < PSKSize andalso PSKSize < 65536),
+            option_error(not (0 =< PSKSize andalso PSKSize < 65536),
                          psk_identity, {psk_identity, PSK0}),
             PSK1;
         {_, PSK0} ->
