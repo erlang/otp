@@ -3205,6 +3205,8 @@ options_identity(_Config) ->  %% psk_identity  srp_identity and user_lookup_fun
         [], client),
     ?OK(#{psk_identity := <<"foobar">>, srp_identity := undefined, user_lookup_fun := undefined},
         [{psk_identity, "foobar"}], server),
+    ?OK(#{psk_identity := <<"">>, srp_identity := undefined, user_lookup_fun := undefined},
+        [{psk_identity, ""}], server),
     ?OK(#{psk_identity := undefined, srp_identity := {<<"user">>, <<"pwd">>}, user_lookup_fun := undefined},
         [{srp_identity, {"user", "pwd"}}], client),
     ?OK(#{psk_identity := undefined, srp_identity := undefined, user_lookup_fun := {_, args}},
