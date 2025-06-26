@@ -994,7 +994,7 @@ do_puts_iter(0, _, _) -> ok;
 do_puts_iter(NrOfPuts, ValuePrefix, PutFun) ->
     Key = {?MODULE, NrOfPuts},
     Value = {ValuePrefix, NrOfPuts},
-    %% erts_debug:set_internal_state(reds_left, rand:uniform(250)),
+    erts_debug:set_internal_state(reds_left, rand:uniform(250)),
     erlang:apply(persistent_term, PutFun, [Key, Value]),
     Value = persistent_term:get(Key),
     do_puts_iter(NrOfPuts - 1, ValuePrefix, PutFun).

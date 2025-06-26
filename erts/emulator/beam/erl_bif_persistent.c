@@ -347,7 +347,7 @@ BIF_RETTYPE persistent_term_put_new_2(BIF_ALIST_2)
             BIF_ERROR(BIF_P, BADARG);
         }
         case SEIZE_UPDATE: {
-            ERTS_BIF_YIELD2(BIF_TRAP_EXPORT(BIF_persistent_term_put_2),
+            ERTS_BIF_YIELD2(BIF_TRAP_EXPORT(BIF_persistent_term_put_new_2),
                     BIF_P, BIF_ARG_1, BIF_ARG_2);
         }
        default: {
