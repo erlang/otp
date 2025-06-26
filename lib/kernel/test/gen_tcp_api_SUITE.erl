@@ -50,7 +50,9 @@
          t_simple_local_sockaddr_in_send_recv/1,
          t_simple_link_local_sockaddr_in_send_recv/1,
          t_simple_local_sockaddr_in6_send_recv/1,
-         t_simple_link_local_sockaddr_in6_send_recv/1
+         t_simple_link_local_sockaddr_in6_send_recv/1,
+
+         t_module_listen/1
 	]).
 
 -export([getsockfd/0, closesockfd/1]).
@@ -96,6 +98,7 @@ groups() ->
      {t_misc,               [], t_misc_cases()},
      {sockaddr,             [], sockaddr_cases()},
      {t_local,              [], t_local_cases()},
+     {t_module,             [], t_module_cases()},
      {s_misc,               [], s_misc_cases()}
     ].
 
@@ -173,7 +176,13 @@ t_local_cases() ->
 
 s_misc_cases() ->
     [
-     s_accept_with_explicit_socket_backend
+     s_accept_with_explicit_socket_backend,
+     {group, t_module}
+    ].
+
+t_module_cases() ->
+    [
+     t_module_listen
     ].
 
 init_per_suite(Config0) ->
@@ -1614,6 +1623,127 @@ do_s_accept_with_explicit_socket_backend(Addr) ->
     ?P("done"),
     ok.
 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+t_module_listen(Config) ->
+    Cond = fun() ->
+		   ok
+	   end,
+    Pre  = fun() ->
+                   S0 = #{debug  => false,
+                          config => Config},
+		   S1 = case ?WHICH_LOCAL_ADDR(inet) of
+                            {ok, Addr4} ->
+                                S0#{inet => Addr4};
+                            {error, _Reason4} ->
+                                S0
+                        end,
+                   S2 = case ?WHICH_LOCAL_ADDR(inet6) of
+                            {ok, Addr6} ->
+                                S1#{inet6 => Addr6};
+                            {error, _Reason6} ->
+                                S1
+                        end,
+                   %% Verify that at least one of the domains
+                   %% (inet and inet6) exist.
+                   case (maps:get(inet, S2, undefined) =/= undefined) orelse
+                       (maps:get(inet6, S2, undefined) =/= undefined) of
+                       true ->
+                           S2;
+                       false ->
+                           skip(no_available_domains)
+                   end
+	   end,
+    TC   = fun(State) -> do_t_module_listen(State) end,
+    Post = fun(_) -> ok end,
+    ?TC_TRY(?FUNCTION_NAME,
+	    Cond, Pre, TC, Post).
+
+do_t_module_listen(State) ->
+    do_t_module_listen_inet(State),
+    do_t_module_listen_inet6(State),
+    ok.
+
+do_t_module_listen_inet(#{inet   := Addr,
+                          debug  := Debug, 
+                          config := Config} = _State) ->
+    ?P("*** begin IPv4 checks ***"),
+    do_t_module_listen(test_inet_tcp, inet, Addr, Debug, Config);
+do_t_module_listen_inet(_) ->
+    ?P("*** no IPv4 address ***"),
+    ok.
+
+do_t_module_listen_inet6(#{inet6  := Addr,
+                           debug  := Debug,
+                           config := Config} = _State) ->
+    ?P("*** begin IPv6 checks *** "),
+    do_t_module_listen(test_inet6_tcp, inet6, Addr, Debug, Config);
+do_t_module_listen_inet6(_) ->
+    ?P("*** no IPv6 address ***"),
+    ok.
+
+do_t_module_listen(Mod, Fam, Addr, Debug, Config) ->
+    ?P("create listen socket with module (~w)", [Mod]),
+    do_t_module_listen2(Config, Mod,
+                        [{tcp_module, Mod}], Debug, error),
+    ?P("create listen socket with module (~w) and (~w) domain", [Mod, Fam]),
+    do_t_module_listen2(Config, Mod,
+                        [{tcp_module, Mod}, Fam], Debug, error),
+    ?P("create listen socket with (~w) domain and module (~w)", [Fam, Mod]),
+    do_t_module_listen2(Config, Mod,
+                        [Fam, {tcp_module, Mod}], Debug, error),
+    ?P("create listen socket with module (~w) and ip-option", [Mod]),
+    do_t_module_listen2(Config, Mod,
+                        [{tcp_module, Mod}, {ip, Addr}], Debug, error),
+    ?P("create listen socket with ip-option and module (~w)", [Mod]),
+    do_t_module_listen2(Config, Mod,
+                        [{ip, Addr}, {tcp_module, Mod}], Debug, error),
+    ?P("create listen socket with (inet) domain wo module (~w)", [Mod]),
+    do_t_module_listen2(Config, Mod,
+                        [inet], Debug, success),
+    ?P("create listen socket with ip-option wo module (~w)", [Mod]),
+    do_t_module_listen2(Config, Mod,
+                        [{ip, Addr}], Debug, success),
+    ok.
+    
+do_t_module_listen2(Config, Module, Opts, Debug, FailureAction) ->
+    case ?LISTEN(Config, 0, Opts ++ [{debug, Debug}]) of
+        {ok, LSock} ->
+            ?P("listen socket created: "
+               "~n   ~p"
+               "~n   wait for notification", [LSock]),
+            do_t_module_await_notification(Module, listen, 2, FailureAction),
+            ?P("close listen socket"),
+            _ = gen_tcp:close(LSock),
+            ok;
+        {error, Reason} ->
+            ?P("failed create listen socket: "
+               "~n   ~p", [Reason]),
+            exit({listen, Reason})
+    end.
+
+do_t_module_await_notification(Module, Func, Arity, FailureAction) ->
+    receive
+        {Module, Func, Arity, _} ->
+            ?P("received expected notification: "
+               "~n   ~w:~w/~w", [Module, Func, Arity]),
+            ok;
+        {Module, OtherFunc, OtherArity, _} ->
+            ?P("received unexpected notification: "
+               "~n   ~w:~w/~w", [Module, OtherFunc, OtherArity]),
+            do_t_module_await_notification(Module, Func, Arity, FailureAction)
+
+    after 5000 ->
+            case FailureAction of
+                error ->
+                    exit({notification_timeout, {Func, Arity}});
+                success ->
+                    ok
+            end
+    end.
+            
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %%% Utilities
 

@@ -2918,7 +2918,8 @@ net_getifaddrs(LinkLocal, Domain) ->
                           "~n   Addr:   ~p"
                           "~nwhen"
                           "~n   Domain: ~p",
-                          [_Name, Flags, Family, Addr, Domain]),
+                          [?FUNCTION_NAME,
+                           _Name, Flags, Family, Addr, Domain]),
                      lists:member(up, Flags) andalso
                          lists:member(running, Flags) andalso
                          (not lists:member(loopback, Flags)) andalso
@@ -2933,23 +2934,34 @@ accept_address(LinkLocal, {A, B, _, _} = _Addr)
   when (A =:= 169) andalso (B =:= 254) ->
     %% This *is* a link local address:
     %% Will be accepted only if we *are* looking for a link local address
+    ?DBG("~w -> link local address when LinkLocal: ~p",
+         [?FUNCTION_NAME, LinkLocal]),
     LinkLocal;
 accept_address(LinkLocal, {A, _, _, _, _, _, _, _} = _Addr)
   when (A =:= 16#fe80) ->
     %% This *is* a link local address:
     %% Will be accepted only if we *are* looking for a link local address
+    ?DBG("~w -> link local address when LinkLocal: ~p",
+         [?FUNCTION_NAME, LinkLocal]),
     LinkLocal;
 accept_address(LinkLocal, Addr)
   when is_tuple(Addr) andalso (tuple_size(Addr) =:= 4) ->
     %% This is *not* a link local address:
     %% Will be accepted only if we are *not* looking for a link local address
+    ?DBG("~w -> non link local address when LinkLocal: ~p",
+         [?FUNCTION_NAME, LinkLocal]),
     not LinkLocal;
 accept_address(LinkLocal, Addr)
   when is_tuple(Addr) andalso (tuple_size(Addr) =:= 8) ->
     %% This is *not* a link local address:
     %% Will be accepted only if we are *not* looking for a link local address
+    ?DBG("~w -> non link local address when LinkLocal: ~p",
+         [?FUNCTION_NAME, LinkLocal]),
     not LinkLocal;
 accept_address(_LinkLocal, _Addr) ->
+    ?DBG("~w -> not accepted when: "
+         "~n   Addr:      ~p"
+         "~n   LinkLocal: ~p", [?FUNCTION_NAME, _Addr, _LinkLocal]),
     false.
 
 
