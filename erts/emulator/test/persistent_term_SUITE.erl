@@ -997,7 +997,7 @@ do_puts_iter(NrOfPuts, ValuePrefix, PutFun) ->
     %% erts_debug:set_internal_state(reds_left, rand:uniform(250)),
     erlang:apply(persistent_term, PutFun, [Key, Value]),
     Value = persistent_term:get(Key),
-    do_puts(NrOfPuts - 1, ValuePrefix).
+    do_puts_iter(NrOfPuts - 1, ValuePrefix, PutFun).
 
 do_erases(0) -> ok;
 do_erases(NrOfErases) ->
