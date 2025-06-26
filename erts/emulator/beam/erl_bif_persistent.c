@@ -796,19 +796,16 @@ static ErtsPersistentTermPutCommonResult put_common
                                             new_size,
                                             ERTS_PERSISTENT_TERM_CPY_NO_REHASH,
                                             PUT_NEW2_TRAP_LOCATION_NEW_KEY);
-                ctx->entry_index = lookup(ctx->hash_table,
-                                          ctx->key,
-                                          &old_bucket);
             } else {
                 TRAPPING_COPY_TABLE_PUT(ctx->hash_table,
                                         ctx->hash_table,
                                         new_size,
                                         ERTS_PERSISTENT_TERM_CPY_NO_REHASH,
                                         PUT2_TRAP_LOCATION_NEW_KEY);
-                ctx->entry_index = lookup(ctx->hash_table,
-                                          ctx->key,
-                                          &old_bucket);
                 }
+            ctx->entry_index = lookup(ctx->hash_table,
+                                      ctx->key,
+                                      &old_bucket);
         }
         ctx->hash_table->num_entries++;
     } else {
