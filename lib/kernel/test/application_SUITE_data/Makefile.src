@@ -3,7 +3,7 @@ EFLAGS=+debug_info
 all: app_start_error.@EMULATOR@ trans_abnormal_sup.@EMULATOR@ \
      trans_normal_sup.@EMULATOR@ transient.@EMULATOR@ \
      group_leader_sup.@EMULATOR@ group_leader.@EMULATOR@ \
-     deadlock/deadlock.@EMULATOR@
+     deadlock/deadlock.@EMULATOR@ slow/slow.@EMULATOR@
 
 app_start_error.@EMULATOR@: app_start_error.erl
 	erlc $(EFLAGS) app_start_error.erl
@@ -25,3 +25,6 @@ group_leader_sup.@EMULATOR@: group_leader_sup.erl
 
 deadlock/deadlock.@EMULATOR@: deadlock/deadlock.erl
 	erlc $(EFLAGS) -o deadlock deadlock/deadlock.erl
+
+slow/slow.@EMULATOR@: slow/slow.erl
+	erlc $(EFLAGS) -o slow slow/slow.erl
