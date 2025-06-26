@@ -256,7 +256,7 @@ Store the value `Value` as a persistent term and associate it with the key
 `Key` if the key `Key` doesn't already exist.
 
 If the value `Value` is equal to the value previously stored for the key,
-[`put/2`](`put/2`) will do nothing and return quickly.
+[`put_new/2`](`put_new/2`) will do nothing and return quickly.
 
 If there existed a previous persistent term associated with key `Key`, the
 function fails with a `badarg` exception.
