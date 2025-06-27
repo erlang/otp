@@ -30,6 +30,7 @@
 %%% The standard behaviour should export init_it/6.
 %%%-----------------------------------------------------------------
 -export([start/5, start/6, debug_options/2, hibernate_after/1,
+	 shutdown_priority/1,
 	 name/1, unregister_name/1, get_proc_name/1, get_parent/0,
 	 call/3, call/4, reply/2,
          send_request/3, send_request/5,
@@ -39,7 +40,7 @@
          reqids_add/3, reqids_to_list/1,
          stop/1, stop/3]).
 
--export([init_it/6, init_it/7]).
+-export([init_it/7, init_it/8]).
 
 -export([format_status_header/2, format_status/4]).
 
@@ -56,7 +57,7 @@
               request_id/0,
               request_id_collection/0]).
 
--type linkage()    :: 'monitor' | 'link' | 'nolink'.
+-type linkage()    :: 'child' | 'monitor' | 'link' | 'nolink'.
 -type emgr_name()  :: {'local', atom()}
                     | {'global', term()}
                     | {'via', Module :: module(), Name :: term()}.
@@ -126,40 +127,52 @@ start(GenMod, LinkP, Mod, Args, Options) ->
 do_spawn(GenMod, link, Mod, Args, Options) ->
     Time = timeout(Options),
     proc_lib:start_link(?MODULE, init_it,
-			[GenMod, self(), self(), Mod, Args, Options], 
+			[GenMod, self(), self(), link, Mod, Args, Options], 
 			Time,
 			spawn_opts(Options));
 do_spawn(GenMod, monitor, Mod, Args, Options) ->
     Time = timeout(Options),
     Ret = proc_lib:start_monitor(?MODULE, init_it,
-                                 [GenMod, self(), self(), Mod, Args, Options], 
+                                 [GenMod, self(), self(), monitor, Mod, Args, Options], 
                                  Time,
                                  spawn_opts(Options)),
     monitor_return(Ret);
-do_spawn(GenMod, _, Mod, Args, Options) ->
+do_spawn(GenMod, child, Mod, Args, Options) ->
+    Time = timeout(Options),
+    proc_lib:start_link(?MODULE, init_it,
+			[GenMod, self(), self(), child, Mod, Args, Options], 
+			Time,
+			spawn_opts(Options));
+do_spawn(GenMod, LinkP, Mod, Args, Options) ->
     Time = timeout(Options),
     proc_lib:start(?MODULE, init_it,
-		   [GenMod, self(), 'self', Mod, Args, Options],
+		   [GenMod, self(), 'self', LinkP, Mod, Args, Options],
 		   Time,
 		   spawn_opts(Options)).
 
 do_spawn(GenMod, link, Name, Mod, Args, Options) ->
     Time = timeout(Options),
     proc_lib:start_link(?MODULE, init_it,
-			[GenMod, self(), self(), Name, Mod, Args, Options],
+			[GenMod, self(), self(), link, Name, Mod, Args, Options],
 			Time,
 			spawn_opts(Options));
 do_spawn(GenMod, monitor, Name, Mod, Args, Options) ->
     Time = timeout(Options),
     Ret = proc_lib:start_monitor(?MODULE, init_it,
-                                 [GenMod, self(), self(), Name, Mod, Args, Options],
+                                 [GenMod, self(), self(), monitor, Name, Mod, Args, Options],
                                  Time,
                                  spawn_opts(Options)),
     monitor_return(Ret);
-do_spawn(GenMod, _, Name, Mod, Args, Options) ->
+do_spawn(GenMod, child, Name, Mod, Args, Options) ->
+    Time = timeout(Options),
+    proc_lib:start_link(?MODULE, init_it,
+			[GenMod, self(), self(), child, Name, Mod, Args, Options],
+			Time,
+			spawn_opts(Options));
+do_spawn(GenMod, LinkP, Name, Mod, Args, Options) ->
     Time = timeout(Options),
     proc_lib:start(?MODULE, init_it,
-		   [GenMod, self(), 'self', Name, Mod, Args, Options],
+		   [GenMod, self(), 'self', LinkP, Name, Mod, Args, Options],
 		   Time,
 		   spawn_opts(Options)).
 
@@ -190,20 +203,20 @@ monitor_return({Error, Mon}) when is_reference(Mon) ->
 %% Finally an acknowledge is sent to Parent and the main
 %% loop is entered.
 %%-----------------------------------------------------------------
-init_it(GenMod, Starter, Parent, Mod, Args, Options) ->
-    init_it2(GenMod, Starter, Parent, self(), Mod, Args, Options).
+init_it(GenMod, Starter, Parent, LinkP, Mod, Args, Options) ->
+    init_it2(GenMod, Starter, Parent, LinkP, self(), Mod, Args, Options).
 
-init_it(GenMod, Starter, Parent, Name, Mod, Args, Options) ->
+init_it(GenMod, Starter, Parent, LinkP, Name, Mod, Args, Options) ->
     case register_name(Name) of
 	true ->
-	    init_it2(GenMod, Starter, Parent, Name, Mod, Args, Options);
+	    init_it2(GenMod, Starter, Parent, LinkP, Name, Mod, Args, Options);
 	{false, Pid} ->
 	    proc_lib:init_fail(
               Starter, {error, {already_started, Pid}}, {exit, normal})
     end.
 
-init_it2(GenMod, Starter, Parent, Name, Mod, Args, Options) ->
-    GenMod:init_it(Starter, Parent, Name, Mod, Args, Options).
+init_it2(GenMod, Starter, Parent, LinkP, Name, Mod, Args, Options) ->
+    GenMod:init_it(Starter, Parent, LinkP, Name, Mod, Args, Options).
 
 %%-----------------------------------------------------------------
 %% Makes a synchronous call to a generic process.
@@ -738,6 +751,14 @@ hibernate_after(Options) ->
 		false ->
 			infinity
 	end.
+
+shutdown_priority(Options) ->
+    case lists:keyfind(shutdown_priority, 1, Options) of
+	{_, ShutdownPriority} when is_boolean(ShutdownPriority) ->
+	    ShutdownPriority;
+	false ->
+	    false
+    end.
 
 debug_options(Name, Opts) ->
     case lists:keyfind(debug, 1, Opts) of
