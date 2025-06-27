@@ -1,3 +1,4 @@
+
 %%
 %% %CopyrightBegin%
 %%
@@ -26,6 +27,8 @@
 %%%
 %%% RSA PKCS-1 & PSS-OAEP
 %%%
+
+-define('pkcs-1', {1,2,840,113549,1,1}).
 
 -record('RSAPublicKey',
         {
@@ -68,16 +71,20 @@
          parameters = asn1_NOVALUE
         }).
 
--record('RSAES-OAEP-params', {
-  hashAlgorithm = asn1_DEFAULT,
-  maskGenAlgorithm = asn1_DEFAULT,
-  pSourceAlgorithm = asn1_DEFAULT
-}).
+-define('id-RSAES-OAEP', {1,2,840,113549,1,1,7}).
 
--record('RSAES-AlgorithmIdentifier', {
-  algorithm,
-  parameters = asn1_NOVALUE
-}).
+-record('RSAES-OAEP-params',
+        {
+         hashAlgorithm = asn1_DEFAULT,
+         maskGenAlgorithm = asn1_DEFAULT,
+         pSourceAlgorithm = asn1_DEFAULT
+        }).
+
+-record('RSAES-AlgorithmIdentifier',
+        {
+         algorithm,
+         parameters = asn1_NOVALUE
+        }).
 
 
 -record('HashAlgorithm',
@@ -92,7 +99,17 @@
          parameters = asn1_NOVALUE
         }).
 
+-record('PSourceAlgorithm',
+        {
+         algorithm,
+         parameters = asn1_NOVALUE
+        }).
+
 -define('id-pSpecified', {1,2,840,113549,1,1,9}).
+-define('pSpecifiedEmpty', {'PSourceAlgorithm',{1,2,840,113549,1,1,9},<<>>}).
+-define('emptyString', <<>>).
+-define('nullOctetString', <<>>).
+-define('nullParameters', 'NULL').
 
 %%%
 %%% DSA
@@ -115,9 +132,32 @@
          g          % pos_integer()
         }).
 
+-record('DomainParameters',
+        {
+         p,
+         g,
+         q,
+         j = asn1_NOVALUE,
+         validationParms = asn1_NOVALUE
+        }).
+
+-record('ValidationParams',
+        {
+         seed,
+         pgenCounter
+        }).
+
+
+-record('Dss-Sig-Value',
+        {
+         r,
+         s
+        }).
+
 %%%
 %%% ECDSA, EDDSA, ECDH(E)
 %%%
+-define('id-edwards-curve-algs', {1,3,101}).
 
 -define('id-Ed25519', {1,3,101,112}).
 -define('id-Ed448', {1,3,101,113}).
@@ -125,27 +165,33 @@
 -define('id-X25519', {1,3,101,110}).
 -define('id-X448', {1,3,101,111}).
 
--define('sect571r1', {1,3,132,0,39}).
--define('sect571k1', {1,3,132,0,38}).
--define('sect409r1', {1,3,132,0,37}).
--define('sect409k1', {1,3,132,0,36}).
--define('secp521r1', {1,3,132,0,35}).
--define('secp384r1', {1,3,132,0,34}).
+%% ECC
+-define('secp192r1', {1,2,840,10045,3,1,1}).
+-define('sect163k1', {1,3,132,0,1}).
+-define('sect163r2', {1,3,132,0,15}).
 -define('secp224r1', {1,3,132,0,33}).
+-define('sect233k1', {1,3,132,0,26}).
+-define('sect233r1', {1,3,132,0,27}).
+-define('secp256r1', {1,2,840,10045,3,1,7}).
+-define('sect283k1', {1,3,132,0,16}).
+-define('sect283r1', {1,3,132,0,17}).
+-define('secp384r1', {1,3,132,0,34}).
+-define('sect409k1', {1,3,132,0,36}).
+-define('sect409r1', {1,3,132,0,37}).
+-define('secp521r1', {1,3,132,0,35}).
+-define('sect571k1', {1,3,132,0,38}).
+-define('sect571r1', {1,3,132,0,39}).
+
+%% Legacy
 -define('secp224k1', {1,3,132,0,32}).
 -define('secp192k1', {1,3,132,0,31}).
 -define('secp160r2', {1,3,132,0,30}).
 -define('secp128r2', {1,3,132,0,29}).
 -define('secp128r1', {1,3,132,0,28}).
--define('sect233r1', {1,3,132,0,27}).
--define('sect233k1', {1,3,132,0,26}).
 -define('sect193r2', {1,3,132,0,25}).
 -define('sect193r1', {1,3,132,0,24}).
 -define('sect131r2', {1,3,132,0,23}).
 -define('sect131r1', {1,3,132,0,22}).
--define('sect283r1', {1,3,132,0,17}).
--define('sect283k1', {1,3,132,0,16}).
--define('sect163r2', {1,3,132,0,15}).
 -define('secp256k1', {1,3,132,0,10}).
 -define('secp160k1', {1,3,132,0,9}).
 -define('secp160r1', {1,3,132,0,8}).
@@ -155,9 +201,11 @@
 -define('sect113r1', {1,3,132,0,4}).
 -define('sect239k1', {1,3,132,0,3}).
 -define('sect163r1', {1,3,132,0,2}).
--define('sect163k1', {1,3,132,0,1}).
--define('secp256r1', {1,2,840,10045,3,1,7}).
--define('secp192r1', {1,2,840,10045,3,1,1}).
+
+%% Brainpool
+-define('ellipticCurveRFC5639', {1,3,36,3,3,2,8,1}).
+-define('versionOne', {1,3,36,3,3,2,8,1,1}).
+-define('ecStdCurvesAndGeneration', {1,3,36,3,3,2,8}).
 
 -define('brainpoolP160r1', {1,3,36,3,3,2,8,1,1,1}).
 -define('brainpoolP160t1', {1,3,36,3,3,2,8,1,1,2}).
@@ -212,10 +260,16 @@
          point
         }).
 
+-record('ECDSA-Sig-Value',
+        {
+         r,
+         s
+        }).
+
 %%%
 %%% PKIX Certificates
 %%%
-
+%% plain certificate format
 -record('Certificate',
         {
          tbsCertificate,
@@ -237,13 +291,13 @@
          extensions = asn1_NOVALUE
         }).
 
-%% plain certificate format
--record('TBSCertificate_signature', {
-  algorithm,
-  parameters = asn1_NOVALUE
-}).
+-record('TBSCertificate_signature',
+        {
+         algorithm,
+         parameters = asn1_NOVALUE
+        }).
 
-
+-define('id-at', {2,5,4}).
 -define('id-at-name', {2,5,4,41}).
 -define('id-at-surname', {2,5,4,4}).
 -define('id-at-givenName', {2,5,4,42}).
@@ -291,6 +345,7 @@
          value
         }).
 
+%% PKIX Common Type
 -record('Extension',
         {
          extnID,
@@ -298,10 +353,28 @@
          extnValue
         }).
 
+-record('AttributeSet',
+        {
+         type,
+         values
+        }).
+
+-record('SingleAttribute',
+        {
+         type,
+         value
+        }).
+
+-record('SecurityCategory',
+        {
+         type,
+         value
+        }).
+
 %%%
 %%% Standard Certificate Extensions
 %%%
-
+-define('id-ce', {2,5,29}).
 -define('id-ce-targetInformation', {2,5,29,55}).
 -define('id-ce-invalidityDate', {2,5,29,24}).
 -define('id-ce-holdInstructionCode', {2,5,29,23}).
@@ -337,11 +410,23 @@
 -define('anyExtendedKeyUsage', {2,5,29,37,0}).
 -define('anyPolicy', {2,5,29,32,0}).
 
+-define('id-pkix', {1,3,6,1,5,5,7}).
+
+-define('id-kp', {1,3,6,1,5,5,7,3}).
 -define('id-kp-timeStamping', {1,3,6,1,5,5,7,3,8}).
 -define('id-kp-emailProtection', {1,3,6,1,5,5,7,3,4}).
 -define('id-kp-codeSigning', {1,3,6,1,5,5,7,3,3}).
 -define('id-kp-clientAuth', {1,3,6,1,5,5,7,3,2}).
 -define('id-kp-serverAuth', {1,3,6,1,5,5,7,3,1}).
+
+-define('id-qt', {1,3,6,1,5,5,7,2}).
+-define('id-qt-cps', {1,3,6,1,5,5,7,2,1}).
+-define('id-qt-unotice', {1,3,6,1,5,5,7,2,2}).
+
+-define('holdInstruction', {2,2,840,10040,2}).
+-define('id-holdinstruction-none', {2,2,840,10040,2,1}).
+-define('id-holdinstruction-callissuer', {2,2,840,10040,2,2}).
+-define('id-holdinstruction-reject', {2,2,840,10040,2,3}).
 
 -record('AuthorityKeyIdentifier',
         {
@@ -384,6 +469,18 @@
         {
          issuerDomainPolicy,
          subjectDomainPolicy
+        }).
+
+-record('EDIPartyName',
+        {
+         nameAssigner = asn1_NOVALUE,
+         partyName
+        }).
+
+-record('SubjectDirectoryAttributes_SEQOF',
+        {
+         type,
+         values
         }).
 
 -record('BasicConstraints',
@@ -476,12 +573,21 @@
         }).
 
 %% Hash functions
+-record('DigestAlgorithm',
+        {
+         algorithm,
+         parameters = asn1_NOVALUE
+        }).
 
--define('id-sha1', {1,3,14,3,2,26}).
 -define('id-sha224', {2,16,840,1,101,3,4,2,4}).
 -define('id-sha256', {2,16,840,1,101,3,4,2,1}).
 -define('id-sha384', {2,16,840,1,101,3,4,2,2}).
 -define('id-sha512', {2,16,840,1,101,3,4,2,3}).
+
+%% Legacy hash functions
+-define('id-sha1', {1,3,14,3,2,26}).
+-define('id-md2', {1,2,840,113549,2,2}).
+-define('id-md5', {1,2,840,113549,2,5}).
 
 %%%
 %%% Public-key algorithms
@@ -495,7 +601,15 @@
          {'RSASSA-PSS-params',{'HashAlgorithm',{1,3,14,3,2,26},'NULL'},
           {'MaskGenAlgorithm',{1,2,840,113549,1,1,8},
            {'HashAlgorithm',{1,3,14,3,2,26},'NULL'}},20,1}}).
+-define('rSAES-OAEP-Default-Identifier', {'RSAES-AlgorithmIdentifier',{1,2,840,113549,1,1,7},
+                                          {'RSAES-OAEP-params',{'Externalvaluereference',354,'PKCS-1',sha1},
+                                           {'Externalvaluereference',355,'PKCS-1',mgf1SHA1},
+                                           {'Externalvaluereference',356,'PKCS-1',pSpecifiedEmpty}}}).
 -define('id-mgf1', {1,2,840,113549,1,1,8}).
+-define('sha1Identifier', {'HashAlgorithm',{1,3,14,3,2,26},'NULL'}).
+-define('sha1', {'HashAlgorithm',{1,3,14,3,2,26},'NULL'}).
+-define('mgf1SHA1', {'MaskGenAlgorithm',{1,2,840,113549,1,1,8},
+                     {'Externalvaluereference',283,'PKIX1-PSS-OAEP-Algorithms-2009',sha1Identifier}}).
 -define('id-ecPublicKey', {1,2,840,10045,2,1}).
 -define('ecdsa-with-SHA224', {1,2,840,10045,4,3,1}).
 -define('ecdsa-with-SHA256', {1,2,840,10045,4,3,2}).
@@ -523,23 +637,11 @@
 -define('id-dsa-with-sha224', {2,16,840,1,101,3,4,3,1}).
 -define('id-dsa-with-sha256', {2,16,840,1,101,3,4,3,2}).
 
-%% Undocumented but used by SSH.
--record('ECDSA-Sig-Value',
-        {
-         r,
-         s
-        }).
-
--record('Dss-Sig-Value',
-        {
-         r,
-         s
-        }).
-
-
 %% Key exchange
 -define('dhpublicnumber', {1,2,840,10046,2,1}).
 -define('id-keyExchangeAlgorithm', {2,16,840,1,101,2,1,1,22}).
+-define('pkcs-3', {1,2,840,113549,1,3}).
+-define('dhKeyAgreement', {1,2,840,113549,1,3,1}).
 
 -record('DHParameter',
         {
@@ -584,22 +686,24 @@
          crlExtensions = asn1_NOVALUE
         }).
 
--record('TBSCertList_signature', {
-  algorithm,
-  parameters = asn1_NOVALUE
-}).
+-record('TBSCertList_signature',
+        {
+         algorithm,
+         parameters = asn1_NOVALUE
+        }).
 
--record('CertificateList_algorithmIdentifier', {
-  algorithm,
-  parameters = asn1_NOVALUE
-}).
+-record('CertificateList_algorithmIdentifier',
+        {
+         algorithm,
+         parameters = asn1_NOVALUE
+        }).
 
 -record('TBSCertList_revokedCertificates_SEQOF',
         {
          userCertificate,
          revocationDate,
          crlEntryExtensions = asn1_NOVALUE
-        }).
+       }).
 
 %%%
 %%% CRL Extensions
@@ -646,16 +750,17 @@
          parameters = asn1_NOVALUE
         }).
 
+
+-record('CertificationRequestInfo_attributes_SETOF',
+        {
+         type,
+         values
+        }).
+
 -record('CertificationRequest_signatureAlgorithm',
         {
          algorithm,
          parameters = asn1_NOVALUE
-        }).
-
--record('AttributePKCS-10',
-        {
-         type,
-         values
         }).
 
 %%%
@@ -689,16 +794,37 @@
          requestExtensions = asn1_NOVALUE
         }).
 
+-record('TBSRequest_requestExtensions_SEQOF',
+        {
+         extnID,
+         critical = asn1_DEFAULT,
+         extnValue
+        }).
+
 -record('Signature',
         {
          signatureAlgorithm,
          signature,
          certs = asn1_NOVALUE
         }).
+
+-record('Signature_signatureAlgorithm',
+        {
+         algorithm,
+         parameters = asn1_NOVALUE
+        }).
+
 -record('Request',
         {
          reqCert,
          singleRequestExtensions = asn1_NOVALUE
+        }).
+
+-record('Request_singleRequestExtensions_SEQOF',
+        {
+         extnID,
+         critical = asn1_DEFAULT,
+         extnValue
         }).
 
 -record('CertID',
@@ -707,6 +833,12 @@
          issuerNameHash,
          issuerKeyHash,
          serialNumber
+        }).
+
+-record('CertID_hashAlgorithm',
+        {
+         algorithm,
+         parameters = asn1_NOVALUE
         }).
 
 -record('OCSPResponse',
@@ -738,6 +870,19 @@
          responseExtensions = asn1_NOVALUE
         }).
 
+-record('BasicOCSPResponse_signatureAlgorithm',
+        {
+         algorithm,
+         parameters = asn1_NOVALUE
+        }).
+
+-record('ResponseData_responseExtensions_SEQOF',
+        {
+         extnID,
+         critical = asn1_DEFAULT,
+         extnValue
+        }).
+
 -record('SingleResponse',
         {
          certID,
@@ -745,6 +890,13 @@
          thisUpdate,
          nextUpdate = asn1_NOVALUE,
          singleExtensions = asn1_NOVALUE
+        }).
+
+-record('SingleResponse_singleExtensions_SEQOF',
+        {
+         extnID,
+         critical = asn1_DEFAULT,
+         extnValue
         }).
 
 -record('RevokedInfo',
@@ -771,6 +923,19 @@
          sigIdentifier,
          certIdentifier = asn1_NOVALUE
         }).
+
+-record('PreferredSignatureAlgorithm_sigIdentifier',
+        {
+         algorithm,
+         parameters = asn1_NOVALUE
+        }).
+
+-record('PreferredSignatureAlgorithm_certIdentifier',
+        {
+         algorithm,
+         parameters = asn1_NOVALUE
+        }).
+
 
 %%%
 %%% PKCS-8
@@ -818,18 +983,34 @@
 %%% Password based encryption
 %%%
 
+-define('pkcs-5', {1,2,840,113549,1,5}).
+
+-define('pbeWithSHA1AndRC2-CBC', {1,2,840,113549,1,5,11}).
+-define('pbeWithSHA1AndDES-CBC', {1,2,840,113549,1,5,10}).
+-define('pbeWithMD5AndRC2-CBC', {1,2,840,113549,1,5,6}).
+-define('pbeWithMD5AndDES-CBC', {1,2,840,113549,1,5,3}).
+-define('pbeWithMD2AndRC2-CBC', {1,2,840,113549,1,5,4}).
+-define('pbeWithMD2AndDES-CBC', {1,2,840,113549,1,5,1}).
+
 -define('id-PBES2', {1,2,840,113549,1,5,13}).
 -define('id-PBKDF2', {1,2,840,113549,1,5,12}).
+-define('defaultPBKDF2', {'PBKDF2-PRFsAlgorithmIdentifier',{1,3,6,1,5,5,8,1,2},'NULL'}).
 
 -define('id-hmacWithSHA224', {1,2,840,113549,2,8}).
 -define('id-hmacWithSHA256', {1,2,840,113549,2,9}).
 -define('id-hmacWithSHA384', {1,2,840,113549,2,10}).
 -define('id-hmacWithSHA512', {1,2,840,113549,2,11}).
 
+-define('aes', {2,16,840,1,101,3,4,1}).
+-define('id-aes256-wrap', {2,16,840,1,101,3,4,1,45}).
+-define('id-aes192-wrap', {2,16,840,1,101,3,4,1,25}).
+-define('id-aes128-wrap', {2,16,840,1,101,3,4,1,5}).
 -define('id-aes128-CBC', {2,16,840,1,101,3,4,1,2}).
 -define('id-aes192-CBC', {2,16,840,1,101,3,4,1,22}).
 -define('id-aes256-CBC', {2,16,840,1,101,3,4,1,42}).
 -define('rc2CBC', {1,2,840,113549,3,2}).
+-define('des-EDE3-CBC', {1,2,840,113549,3,7}).
+-define('desCBC', {1,3,14,3,2,7}).
 
 -record('RC2-CBC-Parameter',
         {
@@ -895,6 +1076,8 @@
 -define('id-messageDigest', {1,2,840,113549,1,9,4}).
 -define('id-signingTime', {1,2,840,113549,1,9,5}).
 -define('id-countersignature', {1,2,840,113549,1,9,6}).
+-define('des-ede3-cbc', {1,2,840,113549,3,7}).
+-define('rc2-cbc', {1,2,840,113549,3,2}).
 
 %% Legacy names for backwards compatibility
 -define('encryptedData', {1,2,840,113549,1,7,6}).
@@ -1082,10 +1265,12 @@
          %% with extensions
          unprotectedAttrs = asn1_NOVALUE
         }).
--record('EncryptedData_unprotectedAttrs_SETOF', {
-  attrType,
-  attrValues
-}).
+
+-record('EncryptedData_unprotectedAttrs_SETOF',
+        {
+         attrType,
+         attrValues
+        }).
 
 -record('AuthenticatedData',
         {
@@ -1187,4 +1372,104 @@
         }).
 
 
+%% X400 addresses
+-record('ORAddress',
+        {
+         'built-in-standard-attributes',
+         'built-in-domain-defined-attributes' = asn1_NOVALUE,
+         'extension-attributes' = asn1_NOVALUE
+        }).
+
+-record('BuiltInStandardAttributes',
+        {
+         'country-name' = asn1_NOVALUE,
+         'administration-domain-name' = asn1_NOVALUE,
+         'network-address' = asn1_NOVALUE,
+         'terminal-identifier' = asn1_NOVALUE,
+         'private-domain-name' = asn1_NOVALUE,
+         'organization-name' = asn1_NOVALUE,
+         'numeric-user-identifier' = asn1_NOVALUE,
+         'personal-name' = asn1_NOVALUE,
+         'organizational-unit-names' = asn1_NOVALUE
+        }).
+
+-record('PersonalName',
+        {
+         surname,
+         'given-name' = asn1_NOVALUE,
+         initials = asn1_NOVALUE,
+         'generation-qualifier' = asn1_NOVALUE
+        }).
+
+-record('BuiltInDomainDefinedAttribute',
+        {
+         type,
+         value
+        }).
+
+-record('ExtensionAttribute',
+        {
+         'extension-attribute-type',
+         'extension-attribute-value'
+        }).
+
+-record('PDSParameter',
+        {
+         'printable-string' = asn1_NOVALUE,
+         'teletex-string' = asn1_NOVALUE
+        }).
+
+-record('PresentationAddress',
+        {
+         pSelector = asn1_NOVALUE,
+         sSelector = asn1_NOVALUE,
+         tSelector = asn1_NOVALUE,
+         nAddresses
+        }).
+
+-record('TeletexDomainDefinedAttribute',
+        {
+         type,
+         value
+        }).
+
+-define('ubMax', 32768).
+-define('ub-match', 128).
+-define('ub-common-name-length', 64).
+-define('ub-country-name-alpha-length', 2).
+-define('ub-country-name-numeric-length', 3).
+-define('ub-domain-defined-attributes', 4).
+-define('ub-domain-defined-attribute-type-length', 8).
+-define('ub-domain-defined-attribute-value-length', 128).
+-define('ub-domain-name-length', 16).
+-define('ub-extension-attributes', 256).
+-define('ub-e163-4-number-length', 15).
+-define('ub-e163-4-sub-address-length', 40).
+-define('ub-generation-qualifier-length', 3).
+-define('ub-given-name-length', 16).
+-define('ub-initials-length', 5).
+-define('ub-integer-options', 256).
+-define('ub-numeric-user-id-length', 32).
+-define('ub-organization-name-length', 64).
+-define('ub-organizational-unit-name-length', 32).
+-define('ub-organizational-units', 4).
+-define('ub-pds-name-length', 16).
+-define('ub-pds-parameter-length', 30).
+-define('ub-pds-physical-address-lines', 6).
+-define('ub-postal-code-length', 16).
+-define('ub-surname-length', 40).
+-define('ub-terminal-id-length', 24).
+-define('ub-unformatted-address-length', 180).
+-define('ub-x121-address-length', 16).
+
+-define('ub-state-name', 128).
+-define('ub-organization-name', 64).
+-define('ub-organizational-unit-name', 64).
+-define('ub-title', 64).
+-define('ub-serial-number', 64).
+-define('ub-pseudonym', 128).
+-define('ub-emailaddress-length', 255).
+-define('ub-locality-name', 128).
+-define('ub-common-name', 64).
+-define('ub-name', 32768).
 -endif. % -ifdef(public_key).

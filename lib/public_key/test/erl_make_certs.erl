@@ -173,7 +173,7 @@ encode_key(Key = #'DSAPrivateKey'{}) ->
     {ok, Der} = 'DSS':encode('DSAPrivateKey', Key),
     {'DSAPrivateKey', Der, not_encrypted};
 encode_key(Key = #'ECPrivateKey'{}) ->
-    {ok, Der} = 'OTP-PUB-KEY':encode('ECPrivateKey', Key),
+    {ok, Der} = 'ECPrivateKey':encode('ECPrivateKey', Key),
     {'ECPrivateKey', Der, not_encrypted}.
 
 make_tbs(SubjectKey, Opts) ->    
