@@ -151,6 +151,20 @@ ERL_NIF_TERM atom_key_id;
 ERL_NIF_TERM atom_password;
 #endif
 
+#ifdef HAVE_ML_DSA
+ERL_NIF_TERM atom_mldsa44;
+ERL_NIF_TERM atom_mldsa65;
+ERL_NIF_TERM atom_mldsa87;
+ERL_NIF_TERM atom_seed;
+ERL_NIF_TERM atom_expandedkey;
+#endif
+
+#ifdef HAVE_ML_KEM
+ERL_NIF_TERM atom_mlkem512;
+ERL_NIF_TERM atom_mlkem768;
+ERL_NIF_TERM atom_mlkem1024;
+#endif
+
 int init_atoms(ErlNifEnv *env) {
     atom_true  = enif_make_atom(env,"true");
     atom_false = enif_make_atom(env,"false");
@@ -274,5 +288,17 @@ int init_atoms(ErlNifEnv *env) {
     atom_password = enif_make_atom(env,"password");
 #endif
 
+#ifdef HAVE_ML_DSA
+    atom_mldsa44 = enif_make_atom(env,"mldsa44");
+    atom_mldsa65 = enif_make_atom(env,"mldsa65");
+    atom_mldsa87 = enif_make_atom(env,"mldsa87");
+    atom_seed = enif_make_atom(env,"seed");
+    atom_expandedkey = enif_make_atom(env,"expandedkey");
+#endif
+#ifdef HAVE_ML_KEM
+    atom_mlkem512  = enif_make_atom(env,"mlkem512");
+    atom_mlkem768  = enif_make_atom(env,"mlkem768");
+    atom_mlkem1024 = enif_make_atom(env,"mlkem1024");
+#endif
     return 1;
 }
