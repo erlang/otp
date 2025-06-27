@@ -440,7 +440,7 @@ client_restarts(Config) ->
     Msgs = lists:sort(flush()),
 
     ReConnect =  %% Whitebox re-connect test
-        fun(#sslsocket{connection_cb = dtls_gen_connection = ConnectionCb,
+        fun(#sslsocket{connection_cb = dtls_gen_connection,
                        connection_handler = Pid} = Socket, ssl) ->
                 ?CT_LOG("Client Socket: ~p ~n", [Socket]),
                 {ok, IntSocket} = gen_statem:call(Pid, {downgrade, self()}),
@@ -450,7 +450,7 @@ client_restarts(Config) ->
                 {ok, #config{transport_info = CbInfo,
                              ssl = SslOpts0}} =
                     ssl_config:handle_options(ClientOpts, client, Address),
-                SslOpts = {SslOpts0, #socket_options{}, undefined},
+                SslOpts = {SslOpts0, [], undefined},
 
                 ct:sleep(250),
                 ?CT_LOG("Client second connect: ~p ~p~n", [Socket, CbInfo]),
@@ -525,7 +525,7 @@ client_restarts_multiple_acceptors(Config) ->
     Msgs = lists:sort(flush()),
 
     ReConnect =  %% Whitebox re-connect test
-        fun(#sslsocket{connection_cb = dtls_gen_connection = ConnectionCb,
+        fun(#sslsocket{connection_cb = dtls_gen_connection,
                        connection_handler = Pid} = Socket, ssl) ->
                 ?CT_LOG("Client Socket: ~p ~n", [Socket]),
                 {ok, IntSocket} = gen_statem:call(Pid, {downgrade, self()}),
@@ -534,7 +534,7 @@ client_restarts_multiple_acceptors(Config) ->
                 {ok, #config{transport_info = CbInfo,
                              ssl = SslOpts0}} =
                     ssl_config:handle_options(ClientOpts, client, Address),
-                SslOpts = {SslOpts0, #socket_options{}, undefined},
+                SslOpts = {SslOpts0, [], undefined},
                 ct:sleep(250),
                 ?CT_LOG("Client second connect: ~p ~p~n", [Socket, CbInfo]),
                 {ok, NewSocket} = dtls_gen_connection:start_fsm(client, Address, CPort, IntSocket,
