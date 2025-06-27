@@ -38,7 +38,6 @@
          send_post_handshake/2,
          send_alert/2,
          send_and_ack_alert/2,
-         setopts/2,
          renegotiate/1,
          peer_renegotiate/1,
          downgrade/2,
@@ -52,6 +51,7 @@
          code_change/4]).
 -export([init/3,
          connection/3,
+         async_wait/3,
          handshake/3,
          death_row/3]).
 %% Tracing
@@ -61,7 +61,7 @@
         {connection_pid,
          role,
          socket,
-         socket_options,
+         socket_opts_tab,
          transport_cb,
          negotiated_version,
          renegotiate_at,
@@ -77,8 +77,21 @@
         {
          env = #env{},
          connection_states = #{},
-         bytes_sent     %% TLS 1.3
+         bytes_sent,     %% TLS 1.3
+         buff = undefined %% Async socket
         }).
+
+-record(async,
+        {
+         size  = 0,
+         sent  = 0,    %% Windows only, sent and buffered data
+         q_rev = [],   %% Q of remaining Encrypted data
+         reply_to = undefined,
+         high  = undefined,
+         low   = undefined
+        }).
+
+-define(IS_ASYNC(Tag), Tag =:= select; Tag =:= completion).
 
 %%%===================================================================
 %%% API
@@ -138,12 +151,6 @@ send_alert(Pid, Alert) ->
 %%--------------------------------------------------------------------
 send_and_ack_alert(Pid, Alert) ->
     gen_statem:call(Pid, {ack_alert, Alert}, ?DEFAULT_TIMEOUT).
-%%--------------------------------------------------------------------
--spec setopts(pid(), [{packet, integer() | atom()}]) -> ok | {error, term()}.
-%%  Description: Send application data
-%%--------------------------------------------------------------------
-setopts(Pid, Opts) ->
-    call(Pid, {set_opts, Opts}).
 
 %%--------------------------------------------------------------------
 -spec renegotiate(pid()) -> {ok, WriteState::map()} | {error, closed}.
@@ -222,7 +229,7 @@ init({call, From}, {Pid, #{current_write := WriteState,
                            beast_mitigation := BeastMitigation,
                            role := Role,
                            socket := Socket,
-                           socket_options := SockOpts,
+                           socket_opts_tab := SockOpts,
                            erl_dist := IsErlDist,
                            transport_cb := Transport,
                            negotiated_version := Version,
@@ -243,17 +250,17 @@ init({call, From}, {Pid, #{current_write := WriteState,
         StateData0#data{connection_states = ConnectionStates,
                         bytes_sent = 0,
                         env = Env0#env{connection_pid = Pid,
-                                                role = Role,
-                                                socket = Socket,
-                                                socket_options = SockOpts,
-                                                dist_handle = IsErlDist,
-                                                transport_cb = Transport,
-                                                negotiated_version = Version,
-                                                renegotiate_at = RenegotiateAt,
-                                                key_update_at = KeyUpdateAt,
-                                                log_level = LogLevel,
-                                                hibernate_after = HibernateAfter,
-                                                keylog_fun = Fun}},
+                                       role = Role,
+                                       socket = Socket,
+                                       socket_opts_tab = SockOpts,
+                                       dist_handle = IsErlDist,
+                                       transport_cb = Transport,
+                                       negotiated_version = Version,
+                                       renegotiate_at = RenegotiateAt,
+                                       key_update_at = KeyUpdateAt,
+                                       log_level = LogLevel,
+                                       hibernate_after = HibernateAfter,
+                                       keylog_fun = Fun}},
     proc_lib:set_label({tls_sender, Role, {connection, Pid}}),
     put(log_level, LogLevel),
     put(tls_role, Role),
@@ -272,20 +279,32 @@ init(_, _, _) ->
 %%--------------------------------------------------------------------
 connection({call, From}, {application_data, Data}, StateData) ->
     send_application_data(Data, From, connection, StateData);
-connection({call, From}, {post_handshake_data, HSData}, StateData) ->
-    send_post_handshake_data(HSData, From, connection, StateData);
-connection({call, From}, {ack_alert, #alert{} = Alert}, StateData0) ->
-    StateData = send_tls_alert(Alert, StateData0),
-    {next_state, connection, StateData,
-     [{reply,From,ok}]};
+connection({call, From}, {post_handshake_data, HSData}, #data{buff = Buff} = StateData) ->
+    case Buff of
+        undefined ->
+            send_post_handshake_data(HSData, From, connection, StateData);
+        Async ->
+            {next_state, async_wait, StateData#data{buff = Async#async{low = 0}}, [postpone]}
+    end;
+connection({call, From}, {ack_alert, #alert{} = Alert}, #data{buff = Buff} = StateData0) ->
+    case Buff of
+        undefined ->
+            StateData = send_tls_alert(Alert, StateData0),
+            {next_state, connection, StateData, [{reply,From,ok}]};
+        Async ->
+            {next_state, async_wait, StateData0#data{buff = Async#async{low = 0}}, [postpone]}
+    end;
 connection({call, From}, renegotiate,
-           #data{connection_states = #{current_write := Write}} = StateData) ->
-    {next_state, handshake, StateData, [{reply, From, {ok, Write}}]};
+           #data{connection_states = #{current_write := Write}, buff = Buff} = StateData) ->
+    case Buff of
+        undefined ->
+            {next_state, handshake, StateData, [{reply, From, {ok, Write}}]};
+        Async ->
+            {next_state, async_wait, StateData#data{buff = Async#async{low = 0}}, [postpone]}
+    end;
 connection({call, From}, downgrade, #data{connection_states =
                                               #{current_write := Write}} = StateData) ->
     {next_state, death_row, StateData, [{reply,From, {ok, Write}}]};
-connection({call, From}, {set_opts, Opts}, StateData) ->
-    handle_set_opts(connection, From, Opts, StateData);
 connection({call, From}, {dist_handshake_complete, _Node, DHandle},
            #data{env = #env{connection_pid = Pid} = Env} = StateData0) ->
     false = erlang:dist_ctrl_set_opt(DHandle, get_size, true),
@@ -293,7 +312,6 @@ connection({call, From}, {dist_handshake_complete, _Node, DHandle},
     ok = ssl_gen_statem:dist_handshake_complete(Pid, DHandle),
     %% From now on we execute on normal priority
     process_flag(priority, normal),
-
     StateData = StateData0#data{env = Env#env{dist_handle = DHandle}},
     case dist_data(DHandle) of
         [] ->
@@ -302,27 +320,31 @@ connection({call, From}, {dist_handshake_complete, _Node, DHandle},
             {keep_state, StateData,
              [{reply,From,ok}, {next_event, internal, {application_packets, dist_data, Data}}]}
     end;
-connection({call, From}, get_application_traffic_secret, #data{env = #env{num_key_updates = N}} = Data) ->
-    CurrentWrite = maps:get(current_write, Data#data.connection_states),
-    SecurityParams = maps:get(security_parameters, CurrentWrite),
-    ApplicationTrafficSecret =
-        SecurityParams#security_parameters.application_traffic_secret,
-    hibernate_after(connection, Data,
-                    [{reply, From, {ok, ApplicationTrafficSecret, N}}]);
+
 connection(internal, {application_packets, From, Data}, StateData) ->
     send_application_data(Data, From, connection, StateData);
-connection(internal, {post_handshake_data, From, HSData}, StateData) ->
-    send_post_handshake_data(HSData, From, connection, StateData);
-connection(cast, #alert{} = Alert, StateData0) ->
-    StateData = send_tls_alert(Alert, StateData0),
-    {next_state, connection, StateData};
-connection(cast, {new_write, WritesState, Version}, 
+connection(internal, {post_handshake_data, From, HSData}, #data{buff = Buff} = StateData) ->
+     case Buff of
+         undefined ->
+             send_post_handshake_data(HSData, From, connection, StateData);
+         Async ->
+             {next_state, async_wait, StateData#data{buff = Async#async{low = 0}}, [postpone]}
+     end;
+
+connection(cast, #alert{} = Alert,  #data{buff = Buff} = StateData0) ->
+     case Buff of
+         undefined ->
+             StateData = send_tls_alert(Alert, StateData0),
+             {next_state, connection, StateData};
+         Async ->
+             {next_state, async_wait, StateData0#data{buff = Async#async{low = 0}}, [postpone]}
+     end;
+connection(cast, {new_write, WritesState, Version},
            #data{connection_states = ConnectionStates, env = Env} = StateData) ->
+    CW = maps:remove(aead_handle, WritesState),
     hibernate_after(connection,
-                    StateData#data{connection_states =
-                                       ConnectionStates#{current_write => maps:remove(aead_handle, WritesState)},
-                                   env =
-                                       Env#env{negotiated_version = Version}}, []);
+                    StateData#data{connection_states = ConnectionStates#{current_write => CW},
+                                   env = Env#env{negotiated_version = Version}}, []);
 %%
 connection(info, dist_data,
            #data{env = #env{dist_handle = DHandle}} = StateData) ->
@@ -330,11 +352,23 @@ connection(info, dist_data,
           [] -> hibernate_after(connection, StateData, []);
           Data -> send_application_data(Data, dist_data, connection, StateData)
       end;
-connection(info, tick, StateData) ->  
+connection(info, {'$socket', Socket, select, Handle},
+           #data{env = #env{transport_cb = Transport}} = StateData) ->
+    do_async_send(Transport, Socket, Handle, connection, ok, StateData);
+connection(info, {'$socket', Socket, completion, {Handle, Status}},
+           #data{env = #env{transport_cb = Transport}} = StateData) ->
+    do_async_send(Transport, Socket, Handle, connection, Status, StateData);
+connection(info, tick, #data{buff = Buff} = StateData) ->
+    %% Send distribution tick, if nothing is in the queue
     consume_ticks(),
-    Data = [<<0:32>>], % encode_packet(4, <<>>)
-    From = {self(), undefined},
-    send_application_data(Data, From, connection, StateData);
+    case Buff of
+        undefined ->
+            Data = [<<0:32>>], % encode_packet(4, <<>>)
+            From = {self(), undefined},
+            send_application_data(Data, From, connection, StateData);
+        _ -> %% No need to send tick, have outgoing data in buffer
+            {keep_state_and_data, []}
+    end;
 connection(info, {send, From, Ref, Data}, _StateData) -> 
     %% This is for testing only!
     %%
@@ -349,14 +383,27 @@ connection(timeout, hibernate, _StateData) ->
 connection(Type, Msg, StateData) ->
     handle_common(connection, Type, Msg, StateData).
 
+async_wait(info, {'$socket', Socket, select, Handle},
+           #data{env = #env{transport_cb = Transport}} = StateData) ->
+    do_async_send(Transport, Socket, Handle, connection, ok, StateData);
+async_wait(info, {'$socket', Socket, completion, {Handle, Status}},
+           #data{env = #env{transport_cb = Transport}} = StateData) ->
+    do_async_send(Transport, Socket, Handle, connection, Status, StateData);
+async_wait(info, tick, _StateData) ->
+    consume_ticks(),
+    %% No need to send tick, have outgoing data in buffer
+    {keep_state_and_data, []};
+async_wait(Type, {'EXIT', _, _} = Msg, StateData) ->
+    handle_common(?FUNCTION_NAME, Type, Msg, StateData);
+async_wait(_T, _Msg, _) ->
+    {keep_state_and_data, [postpone]}.
+
 %%--------------------------------------------------------------------
 -spec handshake(gen_statem:event_type(),
                   Msg :: term(),
                   StateData :: term()) ->
                          gen_statem:event_handler_result(atom()).
 %%--------------------------------------------------------------------
-handshake({call, From}, {set_opts, Opts}, StateData) ->
-    handle_set_opts(handshake, From, Opts, StateData);
 handshake({call, _}, _, _) ->
     %% Postpone all calls to the connection state
     {keep_state_and_data, [postpone]};
@@ -371,13 +418,13 @@ handshake(cast, {new_write, WriteState0, Version},
     WriteState = maps:remove(aead_handle, WriteState0),
     ConnectionStates = ConnectionStates0#{current_write => WriteState},
     KeyUpdateAt = key_update_at(Version, WriteState, KeyUpdateAt0),
-     case Version of
-         ?TLS_1_3 ->
-             maybe_traffic_keylog_1_3(Fun, Role, ConnectionStates, N);
-          _ ->
-             ok
-     end,
-    {next_state, connection, 
+    case Version of
+        ?TLS_1_3 ->
+            maybe_traffic_keylog_1_3(Fun, Role, ConnectionStates, N);
+        _ ->
+            ok
+    end,
+    {next_state, connection,
      StateData#data{connection_states = ConnectionStates,
                     env = Env#env{negotiated_version = Version,
                                            key_update_at = KeyUpdateAt}}};
@@ -401,6 +448,13 @@ handshake(Type, Msg, StateData) ->
 %%--------------------------------------------------------------------
 death_row(state_timeout, Reason, _StateData) ->
     {stop, {shutdown, Reason}};
+death_row(info, {'$socket', Socket, select, Handle},
+          #data{env = #env{transport_cb = Transport}} = StateData) ->
+    do_async_send(Transport, Socket, Handle, death_row, ok, StateData);
+death_row(info, {'$socket', Socket, completion, {Handle, Status}},
+          #data{env = #env{transport_cb = Transport}} = StateData) ->
+    do_async_send(Transport, Socket, Handle, death_row, Status, StateData);
+
 death_row(info = Type, Msg, StateData) ->
     handle_common(death_row, Type, Msg, StateData);
 death_row(_Type, _Msg, _StateData) ->
@@ -432,17 +486,13 @@ code_change(_OldVsn, State, Data, _Extra) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
-handle_set_opts(StateName, From, Opts,
-                #data{env = #env{socket_options = SockOpts} = Env}
-                = StateData) ->
-    hibernate_after(StateName,
-                    StateData#data{
-                      env = Env#env{
-                                 socket_options = set_opts(SockOpts, Opts)}},
-                    [{reply, From, ok}]).
+handle_common(StateName, {call, From}, get_application_traffic_secret,
+              #data{env = #env{num_key_updates = N}} = Data) ->
+    CurrentWrite = maps:get(current_write, Data#data.connection_states),
+    SecurityParams = maps:get(security_parameters, CurrentWrite),
+    ApplicationTrafficSecret = SecurityParams#security_parameters.application_traffic_secret,
+    hibernate_after(StateName, Data, [{reply, From, {ok, ApplicationTrafficSecret, N}}]);
 
-handle_common(StateName, {call, From}, {set_opts, Opts}, StateData) ->
-    handle_set_opts(StateName, From, Opts, StateData);
 handle_common(_StateName, info, {'EXIT', _Sup, Reason},
               #data{env = #env{dist_handle = DistHandle}} = StateData)
   when DistHandle =/= undefined ->
@@ -458,6 +508,9 @@ handle_common(_StateName, info, {'EXIT', _Sup, Reason},
             {stop, {shutdown, Reason}, StateData}
     end;
 handle_common(_StateName, info, {'EXIT', _Sup, shutdown}, StateData) ->
+    {stop, shutdown, StateData};
+handle_common(_StateName, info, {'$socket', _, abort, Reason}, StateData) ->
+    ?SSL_LOG(info, "TLS sender received socket error", [{message, Reason}]),
     {stop, shutdown, StateData};
 handle_common(StateName, info, Msg, StateData) ->
     ?SSL_LOG(info, "TLS sender received unexpected info", [{message, Msg}]),
@@ -506,23 +559,167 @@ send_application_data(Data, From, StateName,
              [{next_event, internal, {application_packets, From, Data}}]};
 	{false, BytesSent} ->
 	    {Msgs, ConnStates} = tls_record:encode_data(Data, Version, ConnStates0),
-	    case tls_socket:send(Transport, Socket, Msgs) of
-                ok when From =:= dist_data ->
-                    StateData = StateData0#data{bytes_sent = BytesSent, connection_states = ConnStates},
+            case send_or_buffer(Transport, Socket, Msgs, From,
+                                StateData0#data{bytes_sent = BytesSent,
+                                                connection_states = ConnStates})
+            of
+                {ok, StateData} ->
                     hibernate_after(StateName, StateData, []);
-                Reason when From =:= dist_data ->
-                    StateData = StateData0#data{connection_states = ConnStates},
-                    death_row_shutdown(Reason, StateData);
-                ok ->
-                    gen_statem:reply(From, ok),
-                    StateData = StateData0#data{bytes_sent = BytesSent, connection_states = ConnStates},
-                    hibernate_after(StateName, StateData, []);
-                Result ->
-                    gen_statem:reply(From, Result),
-                    StateData = StateData0#data{connection_states = ConnStates},
-                    hibernate_after(StateName, StateData, [])
+                {block, StateData} ->
+                    hibernate_after(async_wait, StateData, []);
+                {error, _} = Error when From =:= dist_data ->
+                    death_row_shutdown(Error, StateData0#data{connection_states = ConnStates});
+                {error, _} ->
+                    hibernate_after(StateName, StateData0#data{connection_states = ConnStates}, [])
             end
     end.
+
+%% Nothing buffered, send Msgs
+send_or_buffer(Transport, Socket, Msgs, From, #data{buff = undefined} = StateData0) ->
+    case tls_socket:send(Transport, Socket, Msgs, nowait) of
+        ok ->
+            send_reply(From, ok),
+            {ok, StateData0};
+        {error, _Err} = Error ->
+            send_reply(From, Error),
+            Error;
+        {Tag, {_SelectInfo, RestData}} when ?IS_ASYNC(Tag) ->
+            BuffSz = iolist_size(RestData),
+            #async{high = High} = Async0 = new_async(StateData0),
+            Sent = sent_data(Tag, BuffSz),
+            Async = Async0#async{q_rev = [RestData], size = BuffSz, sent = Sent},
+            case BuffSz < High of
+                true ->
+                    send_reply(From, ok),
+                    {ok, StateData0#data{buff = Async}};
+                false ->
+                    {block, StateData0#data{buff = Async#async{reply_to = From}}}
+            end;
+        {Tag, _SelInfo} when ?IS_ASYNC(Tag) ->
+            BuffSz = iolist_size(Msgs),
+            #async{high = High} = Async0 = new_async(StateData0),
+            Sent = sent_data(Tag, BuffSz),
+            Async = Async0#async{q_rev = [Msgs], size = BuffSz, sent = Sent},
+            case BuffSz < High of
+                true ->
+                    send_reply(From, ok),
+                    {ok, StateData0#data{buff = Async}};
+                false ->
+                    {block, StateData0#data{buff = Async#async{reply_to = From}}}
+            end
+    end;
+%% Buffer exists, push more data to buffer
+send_or_buffer(_Transport, _Socket, Msgs, From, #data{buff = Async0} = StateData) ->
+    #async{high = High, size = Sz0, q_rev = Q} = Async0,
+    Sz = Sz0 + iolist_size(Msgs),
+    Async = Async0#async{size = Sz, q_rev = [Msgs|Q]},
+    case Sz < High of
+        true ->
+            send_reply(From, ok),
+            {ok, StateData#data{buff = Async}};
+        false ->
+            {block, StateData#data{buff = Async#async{reply_to = From}}}
+    end.
+
+do_async_send(_Transport, _Socket, _Handle, Nextstate, {error, Err} = Error,
+              #data{buff = #async{reply_to = From}} = StateData) ->
+    send_reply(From, Error),
+    log_error(Err),  %% What TODO here
+    {next_state, Nextstate, StateData#data{buff = undefined}};
+do_async_send(Transport, Socket, Handle, Nextstate, Result,
+              #data{buff = #async{reply_to = From} = Async0} = StateData) ->
+    MsgQ = prepare_iovec(Result, Async0),
+    case tls_socket:send(Transport, Socket, MsgQ, Handle) of
+        ok ->
+            send_reply(From, ok),
+            {next_state, Nextstate, StateData#data{buff = undefined}};
+        {error, Err} = Error ->
+            send_reply(From, Error),
+            log_error(Err),
+            case StateData#data.env#env.dist_handle of
+                false ->
+                    {next_state, Nextstate, StateData#data{buff = undefined}};
+                _Handle ->
+                    death_row_shutdown(Error, StateData#data{buff = undefined})
+            end;
+        {Tag, {_SelectInfo, RestData}} when ?IS_ASYNC(Tag) ->
+            Sz = iolist_size(RestData),
+            Sent  = sent_data(Tag, Sz),
+            Async = Async0#async{size = Sz, q_rev = [RestData], sent = Sent},
+            case Sz < Async#async.low of
+                true ->
+                    send_reply(From, ok),
+                    {next_state, Nextstate, StateData#data{buff = Async#async{reply_to = undefined}}};
+                false ->
+                    {keep_state, StateData#data{buff = Async}}
+            end;
+        {select, _SelectInfo} ->
+            {keep_state_and_data, []};
+        {completion, _} ->
+            BuffSz = iolist_size(MsgQ),
+            #async{high = High} = Async1 = new_async(StateData),
+            Sent  = sent_data(completion, BuffSz),
+            Async = Async1#async{q_rev = [MsgQ], size = BuffSz, sent = Sent},
+            case BuffSz < High of
+                true ->
+                    send_reply(From, ok),
+                    {next_state, Nextstate, StateData#data{buff = Async}};
+                false ->
+                    {keep_state, StateData#data{buff = Async#async{reply_to = From}}}
+            end
+    end.
+
+send_reply(dist_data, _Msg) -> ok;
+send_reply(undefined, _Msg) -> ok;
+send_reply(From, Msg) -> gen_statem:reply(From, Msg).
+
+sent_data(completion, Sz) -> Sz;
+sent_data(_, _) -> 0.
+
+prepare_iovec(ok, #async{q_rev = RevMsgQ, sent = 0}) ->
+    lists:reverse(RevMsgQ);
+prepare_iovec(ok, #async{q_rev = RevMsgQ, sent = Written}) ->
+    strip_bytes(Written, lists:reverse(RevMsgQ));
+prepare_iovec({ok, Written}, #async{q_rev = RevMsgQ}) when is_integer(Written) ->
+    %% Windows, Strip Written bytes
+    strip_bytes(Written, lists:reverse(RevMsgQ)).
+
+strip_bytes(0, RevMsQ) ->
+    RevMsQ;
+strip_bytes(N, [Bin|Rest]) when is_binary(Bin) ->
+    Sz = byte_size(Bin),
+    case N < Sz of
+        true ->
+            <<_:N/binary, Remain/binary>> = Bin,
+            [Remain|Rest];
+        false ->
+            strip_bytes(N-Sz, Rest)
+    end;
+strip_bytes(N, [Deep|Rest]) when is_list(Deep) ->
+    Sz = iolist_size(Deep),
+    case N < Sz of
+        true ->
+            [strip_bytes(N, Deep)|Rest];
+        false ->
+            strip_bytes(N-Sz, Rest)
+    end;
+strip_bytes(_, []) ->
+    [].
+
+new_async(#data{env = #env{socket_opts_tab = Tab}}) ->
+    Read = fun(Key, Def) ->
+                   try ets:lookup_element(Tab, Key, 2)
+                   catch _:_ -> Def
+                   end
+           end,
+    #async{high = Read(high_watermark, 8192), low = Read(low_watermark, 4096)}.
+
+log_error(Atom) when is_atom(Atom) ->
+    ?SSL_LOG(notice, "ssl send socket error", Atom);
+log_error({invalid, _} = Reason) ->
+    ?SSL_LOG(notice, "ssl send socket error", Reason);
+log_error({Reason, _Bytes}) ->
+    ?SSL_LOG(notice, "ssl send socket error", Reason).
 
 %% TLS 1.3 Post Handshake Data
 send_post_handshake_data(Handshake, From, StateName,
@@ -565,9 +762,11 @@ maybe_update_cipher_key(StateData, _) ->
     StateData.
 
 maybe_traffic_keylog_1_3(Fun, Role, ConnectionStates, N) when is_function(Fun) ->
-    #{security_parameters := #security_parameters{client_random = ClientRandom,
-                                                  prf_algorithm = Prf,
-                                                  application_traffic_secret = TrafficSecret}}
+    #{security_parameters :=
+          #security_parameters{
+             client_random = ClientRandom,
+             prf_algorithm = Prf,
+             application_traffic_secret = TrafficSecret}}
         = ssl_record:current_connection_state(ConnectionStates, write),
     KeyLog =  ssl_logger:keylog_traffic_1_3(Role, ClientRandom, Prf, TrafficSecret, N),
     ssl_logger:keylog(KeyLog, ClientRandom, Fun);
@@ -587,9 +786,6 @@ key_update_at(?TLS_1_3, _, KeyUpdateAt) ->
     KeyUpdateAt;
 key_update_at(_, _, KeyUpdateAt) ->
     KeyUpdateAt.
-
-set_opts(SocketOptions, [{packet, N}]) ->
-    SocketOptions#socket_options{packet = N}.
 
 time_to_rekey(Version, _DataSz, _BytesSent, CS, #env{key_update_at = seq_num_wrap})
   when ?TLS_GTE(Version, ?TLS_1_3) ->
@@ -633,7 +829,7 @@ call(FsmPid, Event) ->
 %% To avoid livelock, dist_data/2 will check for more bytes coming from
 %%  distribution channel, if amount of already collected bytes greater
 %%  or equal than the limit defined below.
--define(TLS_BUNDLE_SOFT_LIMIT, 16 * 1024 * 1024).
+-define(TLS_BUNDLE_SOFT_LIMIT, (16 * 1024 * 1024)).
 
 dist_data(DHandle) ->
     dist_data(DHandle, 0).

@@ -130,7 +130,7 @@ initialize_tls_sender(#state{static_env = #static_env{
                                              trackers = Trackers
                                             },
                              connection_env = #connection_env{negotiated_version = Version},
-                             socket_options = SockOpts,
+                             tab = Tab,
                              ssl_options = #{renegotiate_at := RenegotiateAt,
                                              key_update_at := KeyUpdateAt,
                                              log_level := LogLevel
@@ -148,7 +148,7 @@ initialize_tls_sender(#state{static_env = #static_env{
              beast_mitigation => maps:get(beast_mitigation, CS, disabled),
              role => Role,
              socket => Socket,
-             socket_options => SockOpts,
+             socket_opts_tab => Tab,
              erl_dist => maps:get(erl_dist, SSLOpts, false),
              trackers => Trackers,
              transport_cb => Transport,
@@ -269,8 +269,8 @@ handle_info({Protocol, Socket, Type, Handle}, StateName,
                    protocol_specific = #{socket_active := N}=PS}
             = State0)
   when Type =:= select; Type =:= completion ->
-    Data = Transport:data_available(Socket, Type, Handle, N > 0),
-    State1 = State0#state{protocol_specific = PS#{socket_active := N-1}},
+    {Data, SelInfo} = Transport:data_available(Socket, Type, Handle, N > 0),
+    State1 = State0#state{protocol_specific = PS#{socket_active := N-1, sel_info => SelInfo}},
     case next_tls_record(Data, StateName, State1) of
 	{Record, State} ->
 	    next_event(StateName, Record, State);
@@ -306,10 +306,11 @@ handle_info({CloseTag, Socket}, StateName,
                                    role = Role,
                                    host = Host,
                                    port = Port,
-                                   socket = Socket, 
+                                   socket = Socket,
                                    close_tag = CloseTag},
                    handshake_env = #handshake_env{renegotiation = Type},
-                   session = Session} = State) when  StateName =/= connection ->
+                   session = Session} = State)
+  when StateName =/= connection ->
     ssl_gen_statem:maybe_invalidate_session(Type, Role, Host, Port, Session),
     Alert = ?ALERT_REC(?FATAL, ?CLOSE_NOTIFY, transport_closed),
     ssl_gen_statem:handle_normal_shutdown(Alert#alert{role = Role}, StateName, State),
@@ -363,12 +364,20 @@ handle_info({ssl_tls, Port, Type, {Major, Minor}, Data}, StateName,
                    ssl_options = #{ktls := true}} = State0) ->
     Len = byte_size(Data),
     handle_info({Protocol, Port, <<Type, Major, Minor, Len:16, Data/binary>>}, StateName, State0);
+handle_info({ErrorTag, Socket, abort, {_Handle, closed}}, StateName,
+            #state{static_env = #static_env{
+                                   socket = Socket,
+                                   error_tag = ErrorTag,
+                                   close_tag = CloseTag
+                                  }
+                  } = State)  ->
+    handle_info({CloseTag, Socket}, StateName, State);
 handle_info(Msg, StateName, State) ->
     ssl_gen_statem:handle_info(Msg, StateName, State).
 
 %%====================================================================
 %% State transition handling
-%%====================================================================	     
+%%====================================================================
 
 next_event(connection,  #ssl_tls{} = Record, State) ->
     handle_protocol_record(Record, connection, State);
@@ -755,9 +764,9 @@ do_activate_socket(#{active_n := N} = PS,
 next_record(State, CipherTexts, ConnectionStates, PBuffers, Check) ->
     next_record(State, CipherTexts, ConnectionStates, Check, PBuffers, false, []).
 %%
-next_record(#state{connection_env = #connection_env{negotiated_version = ?TLS_1_3 = Vsn}} = State,
+next_record(#state{connection_env = #connection_env{negotiated_version = ?TLS_1_3}} = State,
             [CT|CipherTexts], ConnectionStates0, Check, PBuffers0, IsEarlyData, Acc) ->
-    case tls_record:decode_cipher_text(Vsn, CT, ConnectionStates0, Check) of
+    case tls_record_1_3:decode_cipher_text(CT, ConnectionStates0) of
         {Record0 = #ssl_tls{type = ?APPLICATION_DATA, fragment = Fragment0}, ConnectionStates} ->
             case CipherTexts of
                 [] ->

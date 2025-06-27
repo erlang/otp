@@ -42,6 +42,7 @@
 
 -export([emulated_options/0,
          emulated_options/1,
+         emulated_socket_options/2,
          internal_inet_values/0,
          default_inet_values/0,
          default_cb_info/0]).
@@ -61,9 +62,8 @@ listen(Port, #config{inet_ssl = SockOpts,
             dtls_packet_demux:new_owner(Listener, self()),
             dtls_packet_demux:set_all_opts(
               Listener, {Options,
-                          emulated_socket_options(EmOpts,
-                                                  #socket_options{}),
-                          SslOpts}),
+                         emulated_socket_options(EmOpts, #socket_options{}),
+                         SslOpts}),
             dtls_listener_sup:register_listener({self(), Listener},
                                                 IP, Port),
             {ok, create_dtls_socket(Config, Listener, Port)};
@@ -92,10 +92,8 @@ connect(Host, Port, #config{transport_info = CbInfo,
     case Transport:open(0, SocketOpts ++ internal_inet_values()) of
 	{ok, Socket} ->
 	    dtls_gen_connection:start_fsm(client, Host, Port, {{Host, Port}, Socket},
-                                          {SslOpts,
-                                           emulated_socket_options(EmOpts, #socket_options{}), undefined},
-                                          self(), CbInfo, Timeout);
-	{error, _} = Error->	
+                                          {SslOpts, EmOpts, undefined}, self(), CbInfo, Timeout);
+	{error, _} = Error->
 	    Error
     end.
 
@@ -152,7 +150,7 @@ socket([Pid], Transport, Socket, ConnectionCb, Tab) when Tab =/= undefined ->
 
 setopts(_, Socket = #sslsocket{socket_handle = {ListenPid, _},
                                listener_config = #config{}}, Options) ->
-    SplitOpts = {_, EmOpts} = tls_socket:split_options(Options),
+    SplitOpts = {_, EmOpts} = tls_socket:split_options(gen_udp, Options),
     check_active_n(EmOpts, Socket),
     dtls_packet_demux:set_sock_opts(ListenPid, SplitOpts);
 %%% Following clauses will not be called for emulated options, they are  handled in the connection process
@@ -189,7 +187,7 @@ check_active_n(EmulatedOpts, Socket = #sslsocket{socket_handle = {ListenPid, _},
     end.
 
 getopts(_, #sslsocket{socket_handle = {ListenPid, _}, listener_config =#config{}}, Options) ->
-    SplitOpts = tls_socket:split_options(Options),
+    SplitOpts = tls_socket:split_options(gen_udp, Options),
     dtls_packet_demux:get_sock_opts(ListenPid, SplitOpts);
 %%% Following clauses will not be called for emulated options, they are  handled in the connection process
 getopts(gen_udp, {_,{{_, _},Socket}}, Options) ->

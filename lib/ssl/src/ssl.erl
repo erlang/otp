@@ -3832,6 +3832,8 @@ add_filter(Filter, Filters) ->
     [Filter | Filters].
 
 -compile({inline, encode_packet/2}).
+encode_packet(0, Data) ->
+    Data;
 encode_packet(Packet, Data) ->
     Len = iolist_size(Data),
     case Packet of
