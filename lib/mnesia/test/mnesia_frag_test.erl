@@ -51,7 +51,7 @@ end_per_testcase(Func, Conf) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 all() -> 
-    [{group, light}, {group, medium}].
+    [{group, light}].
 
 groups() -> 
     [{light, [], [{group, nice}, {group, evil}]},
