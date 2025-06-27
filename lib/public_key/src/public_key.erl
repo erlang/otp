@@ -161,7 +161,7 @@ macros described here and in the User's Guide:
                                  dsa_public_key() |
                                  ecdsa_public_key() |
                                  eddsa_public_key() |
-                                 mldsa_private_key().
+                                 mldsa_public_key().
 -doc(#{title => <<"Keys">>}).
 -doc "Supported private keys".
 -type private_key()          ::  rsa_private_key() |
@@ -362,7 +362,7 @@ Certificate customize options for diffrent parts of the certificate test chain.
 Configuration options for the generated certificate test chain.
 """.
 -type conf_opt()    :: {cert, der_encoded()} |
-                       {key,  private_key()} |
+                       {key,  private_key() | {both, public_key(), private_key()}} |
                        {cacerts, [der_encoded()]}.
 
 -doc false.
@@ -503,7 +503,7 @@ pem_entry_encode('SubjectPublicKeyInfo',
     pem_entry_encode('SubjectPublicKeyInfo', Spki);
 pem_entry_encode('SubjectPublicKeyInfo',
 		 #'ML-DSAPublicKey'{algorithm = Algorithm, key = Key}) ->
-    Spki = subject_public_key_info(#'AlgorithmIdentifier'{algorithm = mldsa_algo_to_oid(Algorithm)},
+    Spki = subject_public_key_info(#'AlgorithmIdentifier'{algorithm = pubkey_cert:mldsa_algo_to_oid(Algorithm)},
                                    Key),
     pem_entry_encode('SubjectPublicKeyInfo', Spki);
 pem_entry_encode(Asn1Type, Entity)  when is_atom(Asn1Type) ->
@@ -878,7 +878,7 @@ der_encode('PrivateKeyInfo', #'ECPrivateKey'{parameters = Parameters} = PrivKey)
                                    privateKeyAlgorithm = Alg,
                                    privateKey = Key});
 der_encode('PrivateKeyInfo', #'ML-DSAPrivateKey'{algorithm = Algorithm} = Key) ->
-    Alg = #'PrivateKeyAlgorithmIdentifier'{algorithm = mldsa_algo_to_oid(Algorithm)},
+    Alg = #'PrivateKeyAlgorithmIdentifier'{algorithm = pubkey_cert:mldsa_algo_to_oid(Algorithm)},
     PrivKey = mldsa_priv_key_enc(Key),
     der_encode('OneAsymmetricKey',
                #'OneAsymmetricKey'{version = v1,
@@ -2985,20 +2985,12 @@ mldsa_priv_key_enc(#'ML-DSAPrivateKey'{algorithm = Alg,
     Type = mldsa_algo_to_type(Alg),
     der_encode(Type, {both, {Type, Seed, ExpandedKey}}).
 
-mldsa_algo_to_oid(mldsa44) ->
-    ?'id-ml-dsa-44';
-mldsa_algo_to_oid(mldsa65) ->
-    ?'id-ml-dsa-65';
-mldsa_algo_to_oid(mldsa87) ->
-    ?'id-ml-dsa-87'.
-
 mldsa_algo_to_type(mldsa44) ->
     'ML-DSA-44-PrivateKey';
 mldsa_algo_to_type(mldsa65) ->
     'ML-DSA-65-PrivateKey';
 mldsa_algo_to_type(mldsa87) ->
     'ML-DSA-87-PrivateKey'.
-
 
 encode_name_for_short_hash({rdnSequence, Attributes0}) ->
     Attributes = lists:map(fun normalise_attribute/1, Attributes0),
