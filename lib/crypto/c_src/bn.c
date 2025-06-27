@@ -198,7 +198,7 @@ ERL_NIF_TERM bn2term(ErlNifEnv* env, size_t size, const BIGNUM *bn)
 
 #ifdef HAS_3_0_API
 
-int get_ossl_octet_string_param_from_bin(ErlNifEnv* env, char* key, ERL_NIF_TERM bin, OSSL_PARAM *dest)
+int get_ossl_octet_string_param_from_bin(ErlNifEnv* env, const char* key, ERL_NIF_TERM bin, OSSL_PARAM *dest)
 {
     ErlNifBinary tmp;
 
