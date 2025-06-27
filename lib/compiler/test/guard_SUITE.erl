@@ -26,6 +26,7 @@
 -compile([nowarn_obsolete_guard]).
 
 -include_lib("syntax_tools/include/merl.hrl").
+-include_lib("stdlib/include/assert.hrl").
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2,
@@ -44,7 +45,7 @@
 	 bad_constants/1,bad_guards/1,
          guard_in_catch/1,beam_bool_SUITE/1,
          repeated_type_tests/1,use_after_branch/1,
-         body_in_guard/1]).
+         body_in_guard/1,is_between_guard/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -63,12 +64,13 @@ groups() ->
        basic_andalso_orelse,traverse_dcd,
        check_qlc_hrl,andalso_semi,t_tuple_size,binary_part,
        bad_constants,bad_guards,guard_in_catch,beam_bool_SUITE,
-       repeated_type_tests,use_after_branch,body_in_guard]},
+       repeated_type_tests,use_after_branch,body_in_guard,
+       is_between_guard]},
      {slow,[],[literal_type_tests,generated_combinations]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
-    Config.
+    id(Config).
 
 end_per_suite(_Config) ->
     ok.
@@ -232,6 +234,26 @@ basic_not(Config) when is_list(Config) ->
     check(fun() -> if not (True =:= true) -> ok; true -> error end end, error),
     check(fun() -> if not (False =:= true) -> ok; true -> error end end, ok),
     check(fun() -> if not (Glurf =:= true) -> ok; true -> error end end, ok),
+
+    check(fun() -> if
+                       not is_between(7, Glurf, Glurf) -> ok;
+                       true -> error
+                   end
+          end, error),
+
+    check(fun() -> if
+                       not is_between(10, C, D) -> ok;
+                       true -> error
+                   end
+          end, ok),
+
+    check(fun() ->
+                  X = id(20),
+                  if
+                       not is_between(X, 1, 10) -> ok;
+                       true -> error
+                   end
+          end, ok),
 
     ok.
 
@@ -783,6 +805,24 @@ more_or_guards(Config) when is_list(Config) ->
 		      element(19, ATuple) -> ok;
 		      true -> error end
 	  end, error),
+
+    check(fun() ->
+                  Lower = id(a),
+                  Upper = id(b),
+                  if
+                      true or is_between(1, Lower, Upper) -> ok;
+                      true -> error
+                  end
+          end, error),
+
+    check(fun() ->
+                  Lower = id(1),
+                  Upper = id(10),
+                  if
+                      false or is_between(1, Lower, Upper) -> ok;
+                      true -> error
+                  end
+          end, ok),
     ok.
 
 complex_or_guards(Config) when is_list(Config) ->
@@ -1561,7 +1601,8 @@ is_digit(N) ->
     Bool = is_digit_8(N),
     Bool = is_digit_9(42, N),
     Bool = is_digit_10(N, 0),
-    Bool = is_digit_11(N, 0).
+    Bool = is_digit_11(N, 0),
+    Bool = is_digit_12(N).
 
 is_digit_1(X) when 16#0660 =< X, X =< 16#0669 -> true;
 is_digit_1(X) when 16#0030 =< X, X =< 16#0039 -> true;
@@ -1622,6 +1663,12 @@ is_digit_11(X, _) when 16#0030 =< X, X =< 16#0039 -> true;
 is_digit_11(X, _) when 16#06F0 =< X, X =< 16#06F9 -> true;
 is_digit_11(_, _) -> false.
 
+is_digit_12(X) when is_between(X, 16#0030, 16#0039);
+                    is_between(X, 16#06F0,  16#06F9);
+                    is_between(X, 16#0660, 16#0669) -> true;
+is_digit_12(16#0670) -> false;
+is_digit_12(_) -> false.
+
 rel_op_combinations_2(0, _) ->
     ok;
 rel_op_combinations_2(N, Range) ->
@@ -1642,7 +1689,8 @@ broken_range(N) ->
     Bool = broken_range_10(N),
     Bool = broken_range_11(N),
     Bool = broken_range_12(N),
-    Bool = broken_range_13(N).
+    Bool = broken_range_13(N),
+    Bool = broken_range_14(N).
 
 broken_range_1(X) when X >= 10, X =< 20, X =/= 13 -> true;
 broken_range_1(X) when X >= 3, X =< 5 -> true;
@@ -1706,6 +1754,10 @@ broken_range_12(_) -> false.
 broken_range_13(X) when X >= 10, X =< 20, 13 =/= X -> true;
 broken_range_13(X) when X >= 3, X =< 5 -> true;
 broken_range_13(_) -> false.
+
+broken_range_14(X) when is_between(X, 10, 20), 13 =/= X -> true;
+broken_range_14(X) when is_between(X, 3, 5) -> true;
+broken_range_14(_) -> false.
 
 rel_op_combinations_3(0, _) ->
     ok;
@@ -3362,6 +3414,48 @@ body_in_guard(_Config) ->
     after 0 ->
         demonitor(Mon)
     end.
+
+is_between_guard(_Config) ->
+    Lower = id(1),
+    Upper = id(10),
+    _ = [begin
+             Expected = Lower =< X andalso X =< Upper,
+             Expected = is_between_guard_1(X, Lower, Upper),
+             false = is_between_guard_1(float(X), Lower, Upper)
+         end || X <- lists:seq(-7, 17)],
+
+    ?assertError(badarg, is_between_guard_1(2, 1.5, 10)),
+    ?assertError(badarg, is_between_guard_1(2, true, 10)),
+    ?assertError(badarg, is_between_guard_1(2, 10, b)),
+
+    false = is_between_guard_2(id(0)),
+    true = is_between_guard_2(id(1)),
+    true = is_between_guard_2(id(32)),
+    true = is_between_guard_2(id(1024)),
+    false = is_between_guard_2(id(1025)),
+
+    true = is_between_guard_3(id(0)),
+    false = is_between_guard_3(id(1)),
+    false = is_between_guard_3(id(32)),
+    false = is_between_guard_3(id(1024)),
+    true = is_between_guard_3(id(1025)),
+
+    ok.
+
+is_between_guard_1(X, LB, UB) when is_between(X, LB, UB) ->
+    true = is_between(X, LB, UB);
+is_between_guard_1(X, LB, UB) ->
+    is_between(X, LB, UB).
+
+is_between_guard_2(X) when is_between(X, 1, 1024) ->
+    true = is_between(X, 1, 1024);
+is_between_guard_2(X) ->
+    is_between(X, 1, 1024).
+
+is_between_guard_3(X) when not is_between(X, 1, 1024) ->
+    true = not is_between(X, 1, 1024);
+is_between_guard_3(X) ->
+    not is_between(X, 1, 1024).
 
 %% Call this function to turn off constant propagation.
 id(I) -> I.
