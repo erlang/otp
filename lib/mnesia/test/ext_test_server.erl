@@ -123,28 +123,37 @@ receive_data(Data, Alias, Tab, Sender, {Name, Sender} = MnesiaState, State) ->
     ?DBG({Data, Alias, tab_to_list(Tab), State}),
     receive_data(Data, Alias, Tab, Sender, {Name, Tab, Sender}, State).
 
-select(Alias, Tab, Ms, State) ->
-    Res = select(Alias, Tab, Ms, 100000, State),
-    select_1(Alias, Res).
+select(Alias, Tab, Ms, State, Dir) ->
+    Res = select(Alias, Tab, Ms, 100000, State, Dir),
+    select_1(Alias, Res, Dir).
 
-select_1(_Alias, '$end_of_table') -> [];
-select_1(ext_ram_copies, {Acc, C}) ->
+select_1(_Alias, '$end_of_table', _Dir) -> [];
+select_1(ext_ram_copies, {Acc, C}, forward) ->
     case ets:select(C) of
         '$end_of_table' -> Acc;
         {New, Cont} ->
-            select_1(ext_ram_copies, {New ++ Acc, Cont})
+            select_1(ext_ram_copies, {New ++ Acc, Cont}, forward)
     end;
-select_1(ext_disc_only_copies, {Acc, C}) ->
+select_1(ext_ram_copies, {Acc, C}, reverse) ->
+    case ets:select_reverse(C) of
+        '$end_of_table' -> Acc;
+        {New, Cont} ->
+            select_1(ext_ram_copies, {New ++ Acc, Cont}, reverse)
+    end;
+select_1(ext_disc_only_copies, {Acc, C}, Dir) ->
     case dets:select(C) of
         '$end_of_table' -> Acc;
         {New, Cont} ->
-            select_1(ext_disc_only_copies, {New ++ Acc, Cont})
+            select_1(ext_disc_only_copies, {New ++ Acc, Cont}, Dir)
     end.
 
-select(ext_ram_copies, Tab, Ms, Limit, State) when is_integer(Limit); Limit =:= infinity ->
+select(ext_ram_copies, Tab, Ms, Limit, State, forward) when is_integer(Limit); Limit =:= infinity ->
     ?DBG({ext_ram_copies, tab_to_list(Tab), Ms, Limit}),
     ets:select(tab_to_tid(Tab, State), Ms, Limit);
-select(ext_disc_only_copies, Tab, Ms, Limit, State) when is_integer(Limit); Limit =:= infinity ->
+select(ext_ram_copies, Tab, Ms, Limit, State, reverse) when is_integer(Limit); Limit =:= infinity ->
+    ?DBG({ext_ram_copies, tab_to_list(Tab), Ms, Limit}),
+    ets:select_reverse(tab_to_tid(Tab, State), Ms, Limit);
+select(ext_disc_only_copies, Tab, Ms, Limit, State, _Dir) when is_integer(Limit); Limit =:= infinity ->
     ?DBG({ext_disc_only_copies, tab_to_list(Tab), Ms, Limit}),
     dets:select(tab_to_tid(Tab, State), Ms, Limit).
 
@@ -377,12 +386,22 @@ handle_call({select, C}, _From, State) ->
 
 handle_call({select, Alias, Tab, Ms}, _From, State) ->
     ?DBG({select, Alias, tab_to_list(Tab), Ms}),
-    Res = ?TRY(select(Alias, Tab, Ms, State)),
+    Res = ?TRY(select(Alias, Tab, Ms, State, forward)),
     {reply, Res, State};
 
 handle_call({select, Alias, Tab, Ms, Limit}, _From, State) ->
     ?DBG({select, Alias, tab_to_list(Tab), Ms, Limit}),
-    Res = ?TRY(select(Alias, Tab, Ms, Limit, State)),
+    Res = ?TRY(select(Alias, Tab, Ms, Limit, State, forward)),
+    {reply, Res, State};
+
+handle_call({select_reverse, Alias, Tab, Ms}, _From, State) ->
+    ?DBG({select_reverse, Alias, tab_to_list(Tab), Ms}),
+    Res = ?TRY(select(Alias, Tab, Ms, State, reverse)),
+    {reply, Res, State};
+
+handle_call({select_reverse, Alias, Tab, Ms, Limit}, _From, State) ->
+    ?DBG({select_reverse, Alias, tab_to_list(Tab), Ms, Limit}),
+    Res = ?TRY(select(Alias, Tab, Ms, Limit, State, reverse)),
     {reply, Res, State};
 
 handle_call({repair_continuation, '$end_of_table' = Cont, _Ms}, _From, State) ->
@@ -392,8 +411,8 @@ handle_call({repair_continuation, Cont, Ms}, _From, State) when element(1, Cont)
     ?DBG({repair_continuation, ext_disc_only_copies, Cont, Ms}),
     Res = ?TRY(dets:repair_continuation(Cont, Ms)),
     {reply, Res, State};
-handle_call({repair_continuation, ext_ram_copies, Cont, Ms}, _From, State) ->
-    ?DBG({repair_continuation, Cont, Ms}),
+handle_call({repair_continuation, Cont, Ms}, _From, State) ->
+    ?DBG({repair_continuation, ext_ram_copies, Cont, Ms}),
     Res = ?TRY(ets:repair_continuation(Cont, Ms)),
     {reply, Res, State}.
 

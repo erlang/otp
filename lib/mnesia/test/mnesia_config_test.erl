@@ -211,6 +211,9 @@ do_access(Kind, Tab, RecName, Attr, Nodes) ->
 
     Twos = [{RecName, 2, 20}, {RecName, 2, 21}, {RecName, 2, 22}],
     ?match(Twos, lists:sort(mnesia:read(Tab, 2, read))),
+
+    TwosPat = [{{RecName, 2, '_'}, [], ['$_']}],
+    ?match(Twos, lists:sort(mnesia:select_reverse(Tab, TwosPat, read))),
     
     ?match(ok, mnesia:delete_object(Tab, {RecName, 2, 21}, sticky_write)),
 
