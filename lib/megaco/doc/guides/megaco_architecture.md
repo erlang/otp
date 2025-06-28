@@ -37,7 +37,22 @@ They both operate at a different level (call control) from Megaco in a
 decomposed network, and are therefor not aware of whether or not Megaco is being
 used underneath.
 
-![Network architecture](assets/megaco_sys_arch.gif "Network architecture")
+```mermaid
+---
+title: Network architecture
+---
+
+flowchart LR
+  telco_network("PSTN<br />ATM<br />etc.") <--SS7 etc.--> signal_gw[Signaling Gateway]
+  signal_gw <--Sigtran--> mgc[Call Agent<br /><br /><br />Media Gateway Controller]
+  telco_network <--Trunks--> trunk_gw[Trunking<br />Media Gateway]
+  mgc --Megaco/H.248--> trunk_gw
+  mgc --Megaco/H.248--> lines_gw[Lines<br />Media Gateway]
+  lines_gw --> phone1[📞 phone 1]
+  lines_gw --> phone2[📞 phone 2]
+  lines_gw --> phone3[📞 ...]
+  mgc --Megaco/H.248--> ip_phone_gw[IP Phone Media Gateway]
+```
 
 Megaco and peer protocols are complementary in nature and entirely compatible
 within the same system. At a system level, Megaco allows for
@@ -107,7 +122,27 @@ nodes and the replies are automatically forwarded back to the originating node.
 Here a system configuration with an MG and MGC residing in one Erlang node each
 is outlined:
 
-![Single node config](assets/single_node_config.gif "Single node config")
+```mermaid
+---
+title: Single node config
+---
+
+flowchart LR
+  subgraph MG
+    mg_user[MG User]
+    enc_dec1[enc/dec] <--> proto_engine1[Protocol Engine]
+    transport1[Transport Layer]
+  end
+  subgraph MGC
+    mgc_user[MGC User]
+    proto_engine2[Protocol Engine]
+    enc_dec2[enc/dec] <--> proto_engine2
+    transport2[Transport Layer]
+  end
+  mg_user <-.-> mgc_user
+  transport1 <--> transport2
+  transport1 <-.-> transport2
+```
 
 ## Distributed config
 
@@ -124,15 +159,97 @@ Timers and re-send of messages will be handled on locally on one node, that is
 node(1), in order to avoid unnecessary transfer of data between the Erlang
 nodes.
 
-![Distributes node config](assets/distr_node_config.gif "Distributes node config")
+```mermaid
+---
+title: Distributed config
+---
+
+flowchart
+  subgraph MG
+    mg_user[MG User]
+    enc_dec[enc/dec] <--> proto_engine3[Protocol Engine]
+    transport3[Transport Layer]
+  end
+  subgraph Conceptual MGC
+    subgraph node 1
+      mgc_user[MGC User]
+      proto_engine1[Protocol Engine]
+      enc <--> proto_engine1
+    end
+    subgraph node 2
+      proto_engine2[Protocol Engine]
+      dec <--> proto_engine2
+      transport2[Transport Layer]
+    end
+    proto_engine1 <--> proto_engine2
+  end
+  mg_user <-.-> mgc_user
+  transport3 <--> transport2
+  transport3 <-.-> transport2
+```
 
 ## Message round-trip call flow
 
 The typical round-trip of a message can be viewed as follows. Firstly we view
 the call flow on the originating side:
 
-![Message Call Flow (originating side)](assets/call_flow.gif "Message Call Flow (originating side)")
+```mermaid
+---
+title: Message Call Flow (originating side)
+---
+
+sequenceDiagram
+    participant user
+    participant main
+    participant encoder
+    participant transport
+    participant network as transport layer
+
+    user ->> main: megaco:cast/3
+    main ->> encoder: EncMod:encode_message/2
+    encoder ->> main: 
+    main ->> transport: SendMod:send_message/2
+    transport ->> network: send bytes(1)
+    network ->> transport: receive bytes(2)
+    transport ->> main: megaco:receive_message/4
+    main ->> encoder: EncMod:decode_message/4
+    encoder ->> main: 
+    note over main, encoder: (ack requested)
+    main ->> encoder: EncMod:encode_message
+    encoder ->> main: 
+    main ->> transport: SendMod:send_message/2
+    transport ->> network: send bytes(3)
+    encoder ->> user: UserMod:handle_trans_reply/4
+```
 
 Then we continue with the call flow on the destination side:
 
-![Message Call Flow (destination side)](assets/call_flow_cont.gif "Message Call Flow (destination side)")
+```mermaid
+---
+title: Message Call Flow (destination side)
+---
+
+sequenceDiagram
+    participant network as transport layer
+    participant transport
+    participant main
+    participant encoder
+    participant user
+
+    network ->> transport: receive bytes(1)
+    transport ->> main: megaco:receive_message/2
+    main ->> encoder: EncMod:decode_message/2
+    encoder ->> main: 
+    main ->> user: UserMod:handle_trans_request/3
+    user ->> main: 
+    main ->> encoder: EncMod:encode_message/2
+    encoder ->> main: 
+    main ->> transport: SendMod:send_message/2
+    transport ->> network: send bytes(2)
+    network ->> transport: receive bytes(3)
+    transport ->> main: megaco:receive_message/4
+    main ->> encoder: EncMod:decode_message/2
+    encoder ->> main: 
+    main ->> user: UserMod:handle_trans_ack/4
+    user ->> main: 
+```
