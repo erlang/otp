@@ -1278,7 +1278,14 @@ Experimental options that should not to be used in products.
 	  available_host_keys,
 	  pwdfun_user_state,
 	  authenticated = false,
-	  userauth_banner_sent = false
+	  userauth_banner_sent = false,
+          %% Keep-alive
+          alive_interval = infinity           :: non_neg_integer() | infinity,
+          alive_count = 0                     :: non_neg_integer(),
+          alive_started = false               :: boolean(),
+          last_alive_at = 0                   :: non_neg_integer(),
+          awaiting_keepalive_response = false :: boolean(),
+          alive_sent_probes = 0               :: non_neg_integer()
 	 }).
 
 -record(alg,
