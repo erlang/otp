@@ -1,0 +1,1 @@
+# ERL-1240 - Undefined bit type

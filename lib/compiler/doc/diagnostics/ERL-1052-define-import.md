@@ -1,0 +1,1 @@
+# ERL-1052 - Defining imported function

@@ -1,0 +1,1 @@
+# ERL-1039 - Multiple on_load attribute

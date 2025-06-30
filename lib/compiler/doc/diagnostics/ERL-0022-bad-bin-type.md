@@ -1,0 +1,1 @@
+# ERL-0022 - Bad binary type

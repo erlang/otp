@@ -1,0 +1,1 @@
+# ERL-1247 - Typed literal string

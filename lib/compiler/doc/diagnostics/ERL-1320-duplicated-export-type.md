@@ -1,0 +1,1 @@
+# ERL-1320 - Type already exported

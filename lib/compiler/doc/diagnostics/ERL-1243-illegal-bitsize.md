@@ -1,0 +1,1 @@
+# ERL-1243 - Illegal bit size

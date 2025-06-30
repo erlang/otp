@@ -1,0 +1,1 @@
+# ERL-1248 - Illegal size of unit for UTF

@@ -1,0 +1,1 @@
+# ERL-1311 - Opaque not exported

@@ -1,0 +1,1 @@
+# ERL-1006 - Bad module name

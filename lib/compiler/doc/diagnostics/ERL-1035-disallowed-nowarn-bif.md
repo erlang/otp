@@ -1,0 +1,1 @@
+# ERL-1035 - Disallowed nowarn_bif_clash

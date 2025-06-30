@@ -1,0 +1,1 @@
+# ERL-1058 - Illegal zip generator

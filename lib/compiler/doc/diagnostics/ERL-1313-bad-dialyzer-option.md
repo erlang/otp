@@ -1,0 +1,1 @@
+# ERL-1313 - Bad Dialyzer warning option

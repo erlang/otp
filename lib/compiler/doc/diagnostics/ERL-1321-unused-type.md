@@ -1,0 +1,1 @@
+# ERL-1321 - Unused type

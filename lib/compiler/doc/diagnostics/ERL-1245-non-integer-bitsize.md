@@ -1,0 +1,1 @@
+# ERL-1245 - Non-integer bit size

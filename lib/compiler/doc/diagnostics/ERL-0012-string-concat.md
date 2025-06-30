@@ -1,0 +1,1 @@
+# ERL-0012 - Illegal string concatenation

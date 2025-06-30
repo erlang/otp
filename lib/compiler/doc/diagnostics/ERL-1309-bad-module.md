@@ -1,0 +1,1 @@
+# ERL-1309 - Spec from another module

@@ -1,0 +1,1 @@
+# ERL-1077 - Inlined NIF

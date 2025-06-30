@@ -1,0 +1,1 @@
+# ERL-1026 - Badly formed deprecated attribute

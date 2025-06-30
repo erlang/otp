@@ -1,0 +1,1 @@
+# ERL-1204 - Stacktrace variable bounded

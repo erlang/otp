@@ -1,0 +1,1 @@
+# ERL-1242 - Illegal bit unit size

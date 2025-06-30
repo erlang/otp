@@ -1,0 +1,1 @@
+# ERL-1055 - Duplicated doc attribute

@@ -1,0 +1,1 @@
+# ERL-1246 - Illegal unsized binary

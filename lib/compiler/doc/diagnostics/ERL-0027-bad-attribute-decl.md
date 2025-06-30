@@ -1,0 +1,1 @@
+# ERL-0027 - Bad attribute declaration

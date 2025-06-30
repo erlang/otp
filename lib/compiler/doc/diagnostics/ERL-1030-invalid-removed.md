@@ -1,0 +1,1 @@
+# ERL-1030 - Badly formed removed attribute

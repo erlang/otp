@@ -1,0 +1,1 @@
+# ERL-1300 - Undefined type

@@ -1,0 +1,1 @@
+# ERL-1328 - Deprecated catch

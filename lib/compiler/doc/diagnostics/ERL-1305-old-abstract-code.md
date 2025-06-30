@@ -1,0 +1,1 @@
+# ERL-1305 - Old abstract field
