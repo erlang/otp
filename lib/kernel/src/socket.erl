@@ -3404,6 +3404,8 @@ accept_deadline(LSockRef, Deadline) ->
 
 accept_result(LSockRef, AccRef, Result) ->
     case Result of
+        select_sent ->
+            {error, {invalid, Result}};
         {ok, SockRef} ->
             Socket = ?socket(SockRef),
             {ok, Socket};
