@@ -587,21 +587,9 @@ void BeamModuleAssembler::emit_is_ne(const ArgLabel &Fail,
  * Result is returned in the flags.
  */
 void BeamGlobalAssembler::emit_arith_compare_shared() {
-    Label atom_compare = a.newLabel(), generic_compare = a.newLabel();
-
-    /* Are both floats?
-     *
-     * This is done first as relative comparisons on atoms doesn't make much
-     * sense. */
-
-    // We need to check if values are "boxed",
-    // that is if they are pointers to a header.
-    // If they are not boxed, we assume they are atoms and jump to atom_compare.
-    // First, we ORR the 2 registers to check if any of the 2 is not boxed both.
-    a.orr(TMP, ARG1, ARG2);
-    // Check if both are boxed, if this fails, jump to atom_compare.
-    emit_is_boxed(atom_compare, TMP);
-    // TODO
+    // We directly call erts_cmp_compound here instead of
+    // trying to use faster alternatives.
+    emit_enter_runtime_frame();
 }
 
 void BeamModuleAssembler::emit_is_lt(const ArgLabel &Fail,
