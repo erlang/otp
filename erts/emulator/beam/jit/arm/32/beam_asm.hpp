@@ -259,8 +259,17 @@ protected:
     }
 
     void emit_is_boxed(Label Fail, a32::Gp Src) {
-        // TODO
-        ASSERT(false);
+        const int bitNumber = 0;
+        ERTS_CT_ASSERT(_TAG_PRIMARY_MASK - TAG_PRIMARY_BOXED ==
+                       (1 << bitNumber));
+        // TST performs a AND operation, sets the Z flag to:
+        // if isZeroBit(result)
+        //     Z = 1
+        // else
+        //     Z = 0
+        a.tst(Src, imm(1 << bitNumber));
+        // Branch if Z == 0
+        a.b_ne(Fail);
     }
 
     void emit_is_not_boxed(Label Fail, a32::Gp Src) {
