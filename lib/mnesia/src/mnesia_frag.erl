@@ -36,9 +36,8 @@
 	 lock/4,
 	 write/5, delete/5, delete_object/5,
 	 read/5, match_object/5, all_keys/4,
-	 select/5,select/6,select_cont/3,
-	 select_cont/4, select_reverse/5,
-	 select_reverse/6,
+	 select/5, select/6, select_cont/3,
+	 select_reverse/5, select_reverse/6,
 	 index_match_object/6, index_read/6,
 	 foldl/6, foldr/6, table_info/4,
 	 first/3, next/4, prev/4, last/3,
@@ -342,8 +341,6 @@ init_select(Tid,Opaque,Tab,Pat,Limit,LockKind) ->
 	    Res = mnesia:fun_select(Tid,Opaque,FTab,Pat,LockKind,FTab,InitFun,Limit,Node,Type),
 	    frag_sel_cont(Res, NameNodes, {Pat,LockKind,Limit})
     end.
-
-select_cont(Tid,Ts,Cont,_Dir) -> select_cont(Tid,Ts,Cont).
 
 select_cont(_Tid,_,{frag_cont, '$end_of_table', [],_}) -> '$end_of_table';
 select_cont(Tid,Ts,{frag_cont, '$end_of_table', [{Tab,Node,Type}|Rest],Args}) ->
