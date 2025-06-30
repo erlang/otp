@@ -134,6 +134,12 @@ loop(ID, [#{desc := Desc,
             ?SEV_IPRINT("command ~w skip: "
                         "~n   ~p", [ID, Reason]),
             exit({skip, Reason});
+        {error, Reason} when (Reason =:= enetdown) ->
+            %% ENETDOWN:
+            %% The local network interface used to reach the destination is down
+            %% This could be temporary, but no point in waiting, just give up.
+            wprint("command ~w failed: ~w => SKIP", [ID, Reason]),
+            exit({skip, Reason});
         {error, Reason} ->
             ?SEV_EPRINT("command ~w failed: "
                         "~n   ~p", [ID, Reason]),
@@ -599,6 +605,13 @@ await(ExpPid, Name, Announcement, Slogan, OtherPids)
             iprint("Unexpected SKIP from ~w (~p): "
                    "~n   ~p", [Name, Pid, SkipReason]),
             ?LIB:skip(SkipReason);
+        {'DOWN', _, process, Pid, Reason}
+          when (Pid =:= ExpPid) andalso
+               (Reason =:= enetdown) ->
+            %% This should really have been caught earlier, but...
+            wprint("Unexpected DOWN (~w) from ~w (~p): SKIP",
+                   [Reason, Name, Pid]),
+            ?LIB:skip(Reason);
         {'DOWN', _, process, Pid, Reason} when (Pid =:= ExpPid) ->
             eprint("Unexpected DOWN from ~w (~p): "
                    "~n   ~p", [Name, Pid, Reason]),
@@ -678,6 +691,9 @@ f(F, A) ->
 
 iprint(F, A) ->
     print("", F, A).
+
+wprint(F, A) ->
+    print("<WARNING> ", F, A).
 
 eprint(F, A) ->
     print("<ERROR> ", F, A).
