@@ -272,7 +272,7 @@ For incoming messages:
 
 - Dynamic version detection
 
-  Set the protocol version in the megaco_receive_handle to `dynamic` (this is
+  Set the protocol version in the `megaco_receive_handle` to `dynamic` (this is
   the default).  
   This works for those codecs that support partial decode of the version,
   currently _text_, and ber_bin (`megaco_binary_encoder` and
@@ -282,9 +282,9 @@ For incoming messages:
 
 - Explicit version
 
-  Explicitly set the actual protocol version in the megaco_receive_handle.  
+  Explicitly set the actual protocol version in the `megaco_receive_handle`.
   Start with version 1. When the initial service change has been performed and
-  version 2 has been negotiated, upgrade the megaco_receive_handle of the
+  version 2 has been negotiated, upgrade the `megaco_receive_handle` of the
   transport process (control_pid) to version 2. See
   [megaco_tcp](`megaco_tcp:upgrade_receive_handle/2`) and
   [megaco_udp](`megaco_udp:upgrade_receive_handle/2`).  

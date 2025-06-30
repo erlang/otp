@@ -74,12 +74,12 @@ following chapters:
 Refer to the following documentation for more information about Megaco/H.248 and
 about the Erlang/OTP development system:
 
-- [version 1, RFC 3525](https://www.erlang.org/doc/standard/rfc3525.txt)
+- [version 1, RFC 3525](https://www.rfc-editor.org/rfc/rfc3525.txt)
 - [old version 1, RFC 3015](http://www.ietf.org/rfc/rfc3015.txt)
 - [Version 2 Corrigendum 1](https://web.archive.org/web/20100704020645/http://www.erlang.org/project/megaco/standard/H.248.1-Corr1-200403.doc)
 - [version 2, draft-ietf-megaco-h248v2-04](https://web.archive.org/web/20100620185420/http://erlang.org/project/megaco/standard/draft-ietf-megaco-h248v2-04.txt)
-- [H.248.1 version 3](http://www.itu.int/)
-- the ASN.1 application User's Guide
-- the Megaco application Reference Manual
+- [H.248.1 version 3](https://www.itu.int/rec/T-REC-H.248.1/en)
+- [ASN.1 application User's Guide](https://www.erlang.org/doc/apps/asn1/asn1_introduction.html)
+- [Megaco API reference](https://www.erlang.org/doc/apps/megaco/api-reference.html)
 - Concurrent Programming in Erlang, 2nd Edition (1996), Prentice-Hall, ISBN
   0-13-508301-X.
