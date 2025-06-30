@@ -426,19 +426,20 @@ handle_op(?SSH_FXP_SYMLINK, ReqId,
     State1 = State0#state{file_state = FS1},
     send_status(Status, ReqId, State1).
 
-new_handle([], H) ->
-    H;
-new_handle([{N, _,_} | Rest], H) when N =< H ->
-    new_handle(Rest, N+1);
-new_handle([_ | Rest], H) ->
-    new_handle(Rest, H).
+new_handle(Handles, Init) ->
+    Ids = [N || {N, _, _} <- Handles],
+    case Ids of
+        [] ->
+            Init;
+        _ ->
+            lists:max(Ids) + 1
+    end.
 
 add_handle(State, XF, ReqId, Type, DirFileTuple) ->
     Handles = State#state.handles,
     Handle = new_handle(Handles, 0),
     ssh_xfer:xf_send_handle(XF, ReqId, integer_to_list(Handle)),
     %% OBS: If you change handles-tuple also change new_handle!
-    %% Is this this the best way to implement new handle?
     State#state{handles = [{Handle, Type, DirFileTuple} | Handles]}.
     
 get_handle(Handles, BinHandle) ->

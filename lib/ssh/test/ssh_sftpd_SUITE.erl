@@ -733,20 +733,23 @@ root_with_cwd(Config) when is_list(Config) ->
     ok = file:write_file(FilePath ++ "2", <<>>),
     {Cm, Channel} = proplists:get_value(sftp, Config),
     ReqId0 = 0,
-    {ok, <<?SSH_FXP_HANDLE, ?UINT32(ReqId0), _Handle0/binary>>, _} =
+    {ok, <<?SSH_FXP_HANDLE, ?UINT32(ReqId0), Handle0/binary>>, _} =
 	open_file(FileName ++ "0", Cm, Channel, ReqId0,
 		  ?ACE4_READ_DATA  bor ?ACE4_READ_ATTRIBUTES,
 		  ?SSH_FXF_OPEN_EXISTING),
     ReqId1 = 1,
-    {ok, <<?SSH_FXP_HANDLE, ?UINT32(ReqId1), _Handle1/binary>>, _} =
+    {ok, <<?SSH_FXP_HANDLE, ?UINT32(ReqId1), Handle1/binary>>, _} =
 	open_file("./" ++ FileName ++ "1", Cm, Channel, ReqId1,
 		  ?ACE4_READ_DATA  bor ?ACE4_READ_ATTRIBUTES,
 		  ?SSH_FXF_OPEN_EXISTING),
+    true = Handle0 /= Handle1,
     ReqId2 = 2,
-    {ok, <<?SSH_FXP_HANDLE, ?UINT32(ReqId2), _Handle2/binary>>, _} =
+    {ok, <<?SSH_FXP_HANDLE, ?UINT32(ReqId2), Handle2/binary>>, _} =
 	open_file("/home/" ++ FileName ++ "2", Cm, Channel, ReqId2,
 		  ?ACE4_READ_DATA  bor ?ACE4_READ_ATTRIBUTES,
-		  ?SSH_FXF_OPEN_EXISTING).
+		  ?SSH_FXF_OPEN_EXISTING),
+    true = Handle2 /= Handle1 andalso Handle2 /= Handle0,
+    ok.
 
 %%--------------------------------------------------------------------
 relative_path(Config) when is_list(Config) ->
