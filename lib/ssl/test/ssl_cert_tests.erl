@@ -71,7 +71,7 @@
          hello_retry_client_auth_empty_cert_rejected/1
          ]).
 
--export([test_ciphers/2, openssl_ciphers/0]).
+-export([test_ciphers/2, openssl_ciphers/0, mldsa_keys/1]).
 
 %%--------------------------------------------------------------------
 %% Test Cases --------------------------------------------------------
@@ -520,11 +520,27 @@ test_ciphers(Kex, Version) ->
                          lists:member(ssl_cipher_format:suite_map_to_openssl_str(C), OpenSSLCiphers)
                  end, Ciphers).
 
-
-
 openssl_ciphers() ->
     Str = os:cmd("openssl ciphers"),
     string:split(string:strip(Str, right, $\n), ":", all).
+
+
+mldsa_keys(DataDir) ->
+    PrivFile1 = filename:join([DataDir, "mldsa-44.pem"]),
+    PrivFile2 = filename:join([DataDir, "mldsa-65.pem"]),
+    PrivFile3 = filename:join([DataDir, "mldsa-87.pem"]),
+    PubFile1 = filename:join([DataDir, "mldsa-44-pub.pem"]),
+    PubFile2 = filename:join([DataDir, "mldsa-65-pub.pem"]),
+    PubFile3 = filename:join([DataDir, "mldsa-87-pub.pem"]),
+    [mldsa_key_spec(PubFile1, PrivFile1),
+     mldsa_key_spec(PubFile2, PrivFile2),
+     mldsa_key_spec(PubFile3, PrivFile3)].
+
+mldsa_key_spec(PubFile, PrivFile) ->
+    [PubPemEntry] = ssl_test_lib:pem_to_der(PubFile),
+    [PrivPemEntry] = ssl_test_lib:pem_to_der(PrivFile),
+    {key, {both, public_key:pem_entry_decode(PubPemEntry),
+           public_key:pem_entry_decode(PrivPemEntry)}}.
 
 %%--------------------------------------------------------------------
 %% Internal functions  -----------------------------------------------
@@ -575,4 +591,6 @@ alg_key(#'ECPrivateKey'{parameters = {namedCurve, CurveOId}}) when CurveOId == ?
                                                                    CurveOId == ?'id-Ed448' ->
     eddsa;
 alg_key(#'ECPrivateKey'{}) ->
-    ecdsa.
+    ecdsa;
+alg_key(#'ML-DSAPrivateKey'{}) ->
+    mldsa.
