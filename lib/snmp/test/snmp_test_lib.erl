@@ -1043,7 +1043,10 @@ fail(Reason, Mod, Line) ->
 skip(Reason, Module, Line) ->
     String = lists:flatten(io_lib:format("Skipping ~p(~p): ~p~n", 
 					 [Module, Line, Reason])),
-    exit({skip, String}).
+    skip(String).
+
+skip(Reason) ->
+    exit({skip, Reason}).
     
 
 %% This function prints various host info, which might be useful
@@ -3164,17 +3167,25 @@ trap_exit(Flag) ->
 %% Node utility functions
 %% 
 
+%% This hinges on an updated peer verbose start
+%% -define(VERBOSE_PEER_START, true).
+
+-ifdef(VERBOSE_PEER_START).
+-define(MAYBE_VERBOSE_START(SO), (SO)#{verbose => true}).
 -define(START_OPTIONS(SO), (SO)#{connection => standard_io}).
-%% -define(START_OPTIONS(SO), SO).
+-else.
+-define(MAYBE_VERBOSE_START(SO), SO).
+-define(START_OPTIONS(SO), SO).
+-endif.
 
 start_node(Name, Unlink) ->
     Args = ["-s", "snmp_test_sys_monitor", "start", "-s", "global", "sync"],
     %% Note that the 'verbose' option may not exist...
     %% If it does not exist, this (verbose => true) "should" do nothing...
-    BaseStartOptions = #{name    => Name,
-                         args    => Args,
-                         verbose => true},
-    StartOptions = ?START_OPTIONS(BaseStartOptions),
+    BaseStartOptions = #{name => Name,
+                         args => Args},
+    StartOptions0    = ?MAYBE_VERBOSE_START(BaseStartOptions),
+    StartOptions     = ?START_OPTIONS(StartOptions0),
     case ?CT_PEER(StartOptions) of
         {ok, Peer, Node}  ->
             %% Must unlink, otherwise peer will exit before test case
@@ -3182,7 +3193,8 @@ start_node(Name, Unlink) ->
             global:sync(),
             {Peer, Node};
         {error, Reason} ->
-            throw({skip, {failed_starting_node, Name, Reason}})
+            %%% throw({skip, {failed_starting_node, Name, Reason}})
+            skip({failed_starting_node, Name, Reason})
     end.
 
 maybe_unlink(true, Pid) ->
