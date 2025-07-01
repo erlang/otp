@@ -127,6 +127,8 @@
          hello_retry_request/1,
          custom_groups/0,
          custom_groups/1,
+         mlkem_groups/0,
+         mlkem_groups/1,
          hello_retry_client_auth/0,
          hello_retry_client_auth/1,
          hello_retry_client_auth_empty_cert_accepted/0,
@@ -180,7 +182,7 @@ groups() ->
      {rsa_pss_rsae_1_3, [parallel], all_version_tests() ++ rsa_tests() ++ tls_1_3_tests() ++ tls_1_3_rsa_tests()},
      {rsa_pss_pss, [parallel], all_version_tests()},
      {rsa_pss_pss_1_3, [parallel], all_version_tests() ++ rsa_tests() ++ tls_1_3_tests() ++ tls_1_3_rsa_tests()},
-     {ecdsa_1_3, [parallel], all_version_tests() ++ tls_1_3_tests() ++ partial_chain_with_ecdsa()
+     {ecdsa_1_3, [parallel], all_version_tests() ++ tls_1_3_tests() ++ partial_chain_with_ecdsa() ++
           [signature_algorithms_bad_curve_secp256r1,
            signature_algorithms_bad_curve_secp384r1,
            signature_algorithms_bad_curve_secp521r1]},
@@ -213,6 +215,7 @@ tls_1_3_tests() ->
     [
      hello_retry_request,
      custom_groups,
+     mlkem_groups,
      client_auth_no_suitable_chain,
      cert_auth_in_first_ca,
      hello_retry_client_auth,
@@ -488,13 +491,8 @@ end_per_group(GroupName, Config) ->
   ssl_test_lib:end_per_group(GroupName, Config).
 
 
-init_per_group(mlkem_groups, Config) ->
-    case  [] =/= crypto:supports(kems) of
-        true ->
-            Config;
-        false ->
-            {skip, "Missing support for mlkem in OpenSSL"}
-    end;
+init_per_testcase(mlkem_groups, Config) ->
+   ssl_cert_tests:support_kems(Config);
 init_per_testcase(signature_algorithms_bad_curve_secp256r1, Config) ->
     init_ecdsa_opts(Config, secp256r1);
 init_per_testcase(signature_algorithms_bad_curve_secp384r1, Config) ->
@@ -1362,6 +1360,26 @@ custom_groups(Config) ->
                   {supported_groups, [x448, secp256r1, secp384r1]}|ServerOpts0],
     ClientOpts1 = [{versions, ['tlsv1.2','tlsv1.3']}|ClientOpts0],
     ClientOpts = [{supported_groups,[secp384r1, secp256r1, x25519]}|ClientOpts1],
+    ssl_test_lib:basic_test(ClientOpts, ServerOpts, Config).
+
+%%--------------------------------------------------------------------
+mlkem_groups() ->
+    [{doc,"Test that ssl server can select a common group for key-exchange"}].
+
+mlkem_groups(Config) ->
+    ClientOpts0 = ssl_test_lib:ssl_options(client_cert_opts, Config),
+    ServerOpts0 = ssl_test_lib:ssl_options(server_cert_opts, Config),
+
+    mlkem_kex(mlkem512, ClientOpts0, ServerOpts0, Config),
+    mlkem_kex(mlkem768, ClientOpts0, ServerOpts0, Config),
+    mlkem_kex(mlkem1024, ClientOpts0, ServerOpts0, Config).
+
+mlkem_kex(MLKem, ClientOpts0, ServerOpts0, Config) ->
+    %% Set versions
+    ServerOpts = [{versions, ['tlsv1.3']},
+                  {supported_groups, [MLKem]}|ServerOpts0],
+    ClientOpts1 = [{versions, ['tlsv1.2','tlsv1.3']}|ClientOpts0],
+    ClientOpts = [{supported_groups,[ MLKem, secp384r1, secp256r1, x25519]}|ClientOpts1],
     ssl_test_lib:basic_test(ClientOpts, ServerOpts, Config).
 
 %%--------------------------------------------------------------------

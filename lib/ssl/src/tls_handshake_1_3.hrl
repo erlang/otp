@@ -180,6 +180,11 @@
 -define(BRAINPOOLP384R1TLS13, 16#0020).
 -define(BRAINPOOLP512R1TLS13, 16#0021).
 
+%% ML-KEM
+-define(MLKEM512, 16#0200).
+-define(MLKEM768, 16#0201).
+-define(MLKEM1024, 16#0202).
+
 %% RFC 8446 Finite Field Groups (DHE)
 -define(FFDHE2048, 16#0100).
 -define(FFDHE3072, 16#0101).

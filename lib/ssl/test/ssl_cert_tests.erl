@@ -26,6 +26,8 @@
 -include("ssl_test_lib.hrl").
 -include_lib("public_key/include/public_key.hrl").
 
+-export([support_kems/1]).
+
 %% Test cases
 -export([no_auth/0,
          no_auth/1,
@@ -63,6 +65,8 @@
          hello_retry_request/1,
          custom_groups/0,
          custom_groups/1,
+         mlkem_groups/0,
+         mlkem_groups/1,
          hello_retry_client_auth/0,
          hello_retry_client_auth/1,
          hello_retry_client_auth_empty_cert_accepted/0,
@@ -72,6 +76,14 @@
          ]).
 
 -export([test_ciphers/2, openssl_ciphers/0, mldsa_keys/1]).
+
+support_kems(Config) ->
+       case  [] =/= crypto:supports(kems) of
+        true ->
+            Config;
+        false ->
+            {skip, "Missing support for mlkem in OpenSSL"}
+    end.
 
 %%--------------------------------------------------------------------
 %% Test Cases --------------------------------------------------------
@@ -405,6 +417,25 @@ custom_groups(Config) ->
     ssl_test_lib:basic_test(ClientOpts, ServerOpts, Config).
 
 %%--------------------------------------------------------------------
+mlkem_groups() ->
+    [{doc,"Test that ssl server can select a common mlkem group for key-exchange"}].
+
+mlkem_groups(Config) ->
+    test_mlkem(Config, mlkem512),
+    test_mlkem(Config, mlkem768),
+    test_mlkem(Config, mlkem1024).
+
+test_mlkem(Config, MLKemGroup) ->
+    ClientOpts0 = ssl_test_lib:ssl_options(client_cert_opts, Config),
+    ServerOpts0 = ssl_test_lib:ssl_options(server_cert_opts, Config),
+
+    {ServerOpts, ClientOpts} = group_config_mlkem(Config,
+                                                  [{versions, ['tlsv1.3']} | ServerOpts0],
+                                                  [{versions, ['tlsv1.3']} | ClientOpts0], MLKemGroup),
+
+    ssl_test_lib:basic_test(ClientOpts, ServerOpts, Config).
+
+%%--------------------------------------------------------------------
 %% Triggers a Server Alert as ssl client does not have a certificate with a
 %% signature algorithm supported by the server (signature_algorithms_cert extension
 %% of CertificateRequest does not contain the algorithm of the client certificate).
@@ -565,6 +596,24 @@ group_config(Config, ServerOpts, ClientOpts) ->
                 {[{supported_groups, [x448, x25519]} | ServerOpts],
                  [{groups,"P-256:X25519"} | ClientOpts]}
         end.
+
+
+group_config_mlkem(Config, ServerOpts, ClientOpts, Group) ->
+        case proplists:get_value(client_type, Config) of
+            erlang ->
+                {[{groups, openssl_mlkem(Group)} | ServerOpts],
+                 [{supported_groups, [Group]} | ClientOpts]};
+            openssl ->
+                {[{supported_groups, [Group]} | ServerOpts],
+                 [{groups, openssl_mlkem(Group)} | ClientOpts]}
+        end.
+
+openssl_mlkem(mlkem512) ->
+    "MLKEM512";
+openssl_mlkem(mlkem768) ->
+    "MLKEM768";
+openssl_mlkem(mlkem1024) ->
+    "MLKEM1024".
 
 choose_custom_key(#'RSAPrivateKey'{} = Key, Version)
   when (Version == 'dtlsv1') or (Version == 'tlsv1') or (Version == 'tlsv1.1') ->
