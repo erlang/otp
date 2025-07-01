@@ -314,6 +314,8 @@ JAVADOC-GENERATED
 /lib/snmp/priv/mibs/[A-Z]*.bin
 /lib/snmp/test/snmp_test_data/[A-Z]*.bin
 /lib/snmp/test/snmp_test_data/[A-Z]*.hrl
+/lib/snmp/test/snmp_to_snmpnet_SUITE_data/[A-Z]*.bin
+/lib/snmp/test/snmp_to_snmpnet_SUITE_data/[A-Z]*.hrl
 /lib/snmp/doc/intex.html
 
 # system

@@ -119,6 +119,7 @@
              snmp_mini_mib,
              snmp_misc,
              snmp_note_store,
+             snmp_pdus_basic, % Generated from ASN.1 spec
              snmp_pdus,
              snmp_usm,
 	     snmp_verbosity
@@ -144,5 +145,6 @@
   {applications, [kernel, stdlib]},
   {mod, {snmp_app, []}},
   {runtime_dependencies,
-   ["stdlib-5.0","runtime_tools-1.8.14","mnesia-4.12",
+   ["asn1-5.4",
+    "stdlib-5.0","runtime_tools-1.8.14","mnesia-4.12",
     "kernel-8.0","erts-12.0","crypto-4.6"]}]}.
