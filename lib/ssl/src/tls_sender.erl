@@ -461,7 +461,10 @@ death_row(_Type, _Msg, _StateData) ->
     %% Waste all other events
     keep_state_and_data.
 
-%% State entry function that starts shutdown state_timeout
+%% State entry function that starts shutdown state_timeout if
+%% distribution otherwise shuts down the sender
+death_row_shutdown(Reason, #data{env = #env{dist_handle = false}} = StateData) ->
+    {stop, {shutdown, Reason}, StateData};
 death_row_shutdown(Reason, StateData) ->
     {next_state, death_row, StateData, [{state_timeout, 5000, Reason}]}.
 
@@ -567,10 +570,8 @@ send_application_data(Data, From, StateName,
                     hibernate_after(StateName, StateData, []);
                 {block, StateData} ->
                     hibernate_after(async_wait, StateData, []);
-                {error, _} = Error when From =:= dist_data ->
-                    death_row_shutdown(Error, StateData0#data{connection_states = ConnStates});
-                {error, _} ->
-                    hibernate_after(StateName, StateData0#data{connection_states = ConnStates}, [])
+                {error, _} = Error ->
+                    death_row_shutdown(Error, StateData0#data{connection_states = ConnStates})
             end
     end.
 
@@ -621,11 +622,11 @@ send_or_buffer(_Transport, _Socket, Msgs, From, #data{buff = Async0} = StateData
             {block, StateData#data{buff = Async#async{reply_to = From}}}
     end.
 
-do_async_send(_Transport, _Socket, _Handle, Nextstate, {error, Err} = Error,
+do_async_send(_Transport, _Socket, _Handle, _Nextstate, {error, Err} = Error,
               #data{buff = #async{reply_to = From}} = StateData) ->
     send_reply(From, Error),
-    log_error(Err),  %% What TODO here
-    {next_state, Nextstate, StateData#data{buff = undefined}};
+    log_error(Err),
+    death_row_shutdown(Error, StateData#data{buff = undefined});
 do_async_send(Transport, Socket, Handle, Nextstate, Result,
               #data{buff = #async{reply_to = From} = Async0} = StateData) ->
     MsgQ = prepare_iovec(Result, Async0),
@@ -636,12 +637,7 @@ do_async_send(Transport, Socket, Handle, Nextstate, Result,
         {error, Err} = Error ->
             send_reply(From, Error),
             log_error(Err),
-            case StateData#data.env#env.dist_handle of
-                false ->
-                    {next_state, Nextstate, StateData#data{buff = undefined}};
-                _Handle ->
-                    death_row_shutdown(Error, StateData#data{buff = undefined})
-            end;
+            death_row_shutdown(Error, StateData#data{buff = undefined});
         {Tag, {_SelectInfo, RestData}} when ?IS_ASYNC(Tag) ->
             Sz = iolist_size(RestData),
             Sent  = sent_data(Tag, Sz),
@@ -738,14 +734,12 @@ send_post_handshake_data(Handshake, From, StateName,
             ssl_logger:debug(LogLevel, outbound, 'record', Encoded),
             StateData = maybe_update_cipher_key(StateData1, Handshake),
             {next_state, StateName, StateData, []};
-        Reason when From == dist_data ->
-            death_row_shutdown(Reason, StateData1);
         ok ->
             ssl_logger:debug(LogLevel, outbound, 'record', Encoded),
             StateData = maybe_update_cipher_key(StateData1, Handshake),
             {next_state, StateName, StateData,  [{reply, From, ok}]};
-        Result ->
-            {next_state, StateName, StateData1,  [{reply, From, Result}]}
+        {error, Reason} ->
+            death_row_shutdown(Reason, StateData1)
     end.
 
 maybe_update_cipher_key(#data{connection_states = ConnectionStates0,
