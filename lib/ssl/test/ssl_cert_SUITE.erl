@@ -147,7 +147,7 @@
          legacy_server_certificate_authorities_disabled/1,
          cert_auth_in_first_ca/0,
          cert_auth_in_first_ca/1
-         ]).
+        ]).
 
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
@@ -172,7 +172,7 @@ groups() ->
      {'dtlsv1.2', [], tls_1_2_protocol_groups()},
      {'dtlsv1', [], ssl_protocol_groups()},
      {rsa, [parallel], all_version_tests() ++ rsa_tests() ++ pre_tls_1_3_rsa_tests() ++ [client_auth_seelfsigned_peer]},
-     {ecdsa, [parallel], all_version_tests()},
+     {ecdsa, [parallel], all_version_tests() ++ partial_chain_with_ecdsa()},
      {dsa, [parallel], all_version_tests()},
      {rsa_1_3, [parallel], all_version_tests() ++ rsa_tests() ++
           tls_1_3_tests() ++ tls_1_3_rsa_tests() ++ [client_auth_seelfsigned_peer, basic_rsa_1024]},
@@ -180,11 +180,12 @@ groups() ->
      {rsa_pss_rsae_1_3, [parallel], all_version_tests() ++ rsa_tests() ++ tls_1_3_tests() ++ tls_1_3_rsa_tests()},
      {rsa_pss_pss, [parallel], all_version_tests()},
      {rsa_pss_pss_1_3, [parallel], all_version_tests() ++ rsa_tests() ++ tls_1_3_tests() ++ tls_1_3_rsa_tests()},
-     {ecdsa_1_3, [parallel], all_version_tests() ++ tls_1_3_tests() ++
+     {ecdsa_1_3, [parallel], all_version_tests() ++ tls_1_3_tests() ++ partial_chain_with_ecdsa()
           [signature_algorithms_bad_curve_secp256r1,
            signature_algorithms_bad_curve_secp384r1,
            signature_algorithms_bad_curve_secp521r1]},
-     {eddsa_1_3, [parallel], all_version_tests() ++ tls_1_3_tests()}
+     {eddsa_1_3, [parallel], all_version_tests() ++ tls_1_3_tests()},
+     {mldsa, [parallel], all_version_tests() ++ tls_1_3_tests()}
     ].
 
 ssl_protocol_groups() ->
@@ -204,7 +205,8 @@ tls_1_3_protocol_groups() ->
      {group, ecdsa_1_3},
      {group, eddsa_1_3},
      {group, rsa_pss_rsae_1_3},
-     {group, rsa_pss_pss_1_3}
+     {group, rsa_pss_pss_1_3},
+     {group, mldsa}
     ].
 
 tls_1_3_tests() ->
@@ -251,9 +253,6 @@ all_version_tests() ->
      client_auth_custom_key,
      client_auth_empty_cert_accepted,
      client_auth_empty_cert_rejected,
-     client_auth_use_partial_chain,
-     client_auth_do_not_use_partial_chain,
-     client_auth_partial_chain_fun_fail,
      client_auth_sni,
      missing_root_cert_no_auth,
      missing_root_cert_auth,
@@ -280,6 +279,13 @@ all_version_tests() ->
      no_auth_key_identifier_ext,
      no_auth_key_identifier_ext_keyEncipherment
     ].
+
+partial_chain_with_ecdsa() ->
+    %% Consept of partial chain is not dependent
+    %% of cert type, introp test it with ecdsa.
+    [client_auth_use_partial_chain,
+     client_auth_do_not_use_partial_chain,
+     client_auth_partial_chain_fun_fail].
 
 init_per_suite(Config) ->
     catch application:stop(crypto),
@@ -308,6 +314,43 @@ init_per_group(GroupName, Config) ->
             do_init_per_group(GroupName, Config)
     end.
 
+do_init_per_group(Group, Config) when Group == mldsa ->
+    PKAlgs = crypto:supports(public_keys),
+    case lists:member(mldsa44, PKAlgs)
+        andalso lists:member(mldsa65, PKAlgs)
+        andalso lists:member(mldsa87, PKAlgs) of
+        true ->
+            DataDir = proplists:get_value(data_dir, Config),
+            PrivDir = proplists:get_value(priv_dir, Config),
+            [Keys1, Keys2, Keys3] = ssl_cert_tests:mldsa_keys(DataDir),
+            Conf = #{server_chain =>
+                         #{root => [Keys3],
+                           intermediates => [[Keys2]],
+                           peer =>  [Keys1]},
+                     client_chain => #{root => [Keys1],
+                                       intermediates => [[Keys2]],
+                                       peer =>  [Keys3]
+                                      }},
+            GenCertData =
+                public_key:pkix_test_data(Conf),
+            Version = proplists:get_value(version, Config),
+            ClientFileBase = filename:join(PrivDir, "mldsa"),
+            ServerFileBase = filename:join(PrivDir, "mldsa"),
+            [{server_config, ServerConf},
+             {client_config, ClientConf}] =
+                x509_test:gen_pem_config_files(GenCertData, ClientFileBase, ServerFileBase),
+            [{cert_key_alg, {mldsa, [[Keys1], [Keys2], [Keys3]]}},
+             {cert_key_alg, mldsa},
+             {extra_client, ssl_test_lib:sig_algs(mldsa, Version)},
+             {extra_server, ssl_test_lib:sig_algs(mldsa, Version)} |
+             lists:delete(cert_key_alg,
+                          [{client_cert_opts, fun() -> ClientConf end},
+                           {server_cert_opts, fun() -> ServerConf end} |
+                           lists:delete(server_cert_opts,
+                                        lists:delete(client_cert_opts, Config))])];
+        false ->
+            {skip, "Missing ML-DSA crypto support"}
+    end;
 do_init_per_group(Group, Config0) when Group == rsa;
                                        Group == rsa_1_3 ->
     Config1 = ssl_test_lib:make_rsa_cert(Config0),
@@ -444,6 +487,14 @@ do_init_per_group(_Group, Config) ->
 end_per_group(GroupName, Config) ->
   ssl_test_lib:end_per_group(GroupName, Config).
 
+
+init_per_group(mlkem_groups, Config) ->
+    case  [] =/= crypto:supports(kems) of
+        true ->
+            Config;
+        false ->
+            {skip, "Missing support for mlkem in OpenSSL"}
+    end;
 init_per_testcase(signature_algorithms_bad_curve_secp256r1, Config) ->
     init_ecdsa_opts(Config, secp256r1);
 init_per_testcase(signature_algorithms_bad_curve_secp384r1, Config) ->

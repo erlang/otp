@@ -406,7 +406,7 @@ init_per_group_openssl(GroupName, Config0) ->
 		true ->
 		    [{version, GroupName}|init_protocol_version(GroupName, Config)];
 		false ->
-		    {skip, "Missing openssl support"}
+		    {skip, "Missing OpenSSL support for" ++ atom_to_list(GroupName)}
 	    end;
         CryptoSupport ->
             ssl:start(),
@@ -477,6 +477,8 @@ sig_algs(Alg, {254,_} = Version) ->
 sig_algs(Alg, Version) ->
     do_sig_algs(Alg, Version).
 
+do_sig_algs(mldsa, Version) when ?TLS_GTE(Version, ?TLS_1_3) ->
+    [{signature_algs, [mldsa44, mldsa65, mldsa87]}];
 do_sig_algs(rsa_pss_pss, _) ->
     [{signature_algs, [rsa_pss_pss_sha512,
                        rsa_pss_pss_sha384,
@@ -1820,7 +1822,9 @@ chain_spec(_Role, dsa, _) ->
     Digest = {digest, appropriate_sha(crypto:supports())},
     [[Digest, {key, hardcode_dsa_key(1)}],
      [Digest, {key, hardcode_dsa_key(2)}],
-     [Digest, {key, hardcode_dsa_key(3)}]].
+     [Digest, {key, hardcode_dsa_key(3)}]];
+chain_spec(_, {mldsa, Keys} , _) ->
+    Keys.
 
 merge_chain_spec([], [], Acc)->
     lists:reverse(Acc);

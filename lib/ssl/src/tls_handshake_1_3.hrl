@@ -155,10 +155,15 @@
 -define(ED25519, 16#0807).
 -define(ED448, 16#0808).
 
-%% RSASSA-PSS algorithms with public key OID RSASSA-PSS 
+%% RSASSA-PSS algorithms with public key OID RSASSA-PSS
 -define(RSA_PSS_PSS_SHA256, 16#0809).
 -define(RSA_PSS_PSS_SHA384, 16#080a).
 -define(RSA_PSS_PSS_SHA512, 16#080b).
+
+%% ML-DSA signature algorithms
+-define(MLDSA44, 16#0904).
+-define(MLDSA65, 16#0905).
+-define(MLDSA87, 16#0906).
 
 %% Legacy algorithms
 -define(RSA_PKCS1_SHA1, 16#201).

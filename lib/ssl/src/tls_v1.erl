@@ -961,7 +961,13 @@ signature_schemes(Version, [_|_] =SignatureSchemes) when is_tuple(Version)
     Curves = proplists:get_value(curves, CryptoSupports),
     RSAPSSSupported = lists:member(rsa_pkcs1_pss_padding,
                                    proplists:get_value(rsa_opts, CryptoSupports)),
-    Fun = fun (Scheme, Acc) when is_atom(Scheme) ->
+    Fun = fun(mldsa44 = Scheme, Acc)->
+                  [Scheme | Acc];
+             (mldsa65 = Scheme, Acc)->
+                  [Scheme | Acc];
+             (mldsa87 = Scheme, Acc)->
+                  [Scheme | Acc];
+              (Scheme, Acc) when is_atom(Scheme) ->
                   {Hash, Sign0, Curve} =
                       ssl_cipher:scheme_to_components(Scheme),
                   Sign = case Sign0 of
@@ -1029,7 +1035,10 @@ default_signature_schemes(Version) ->
                rsa_pss_pss_sha256,
                rsa_pss_rsae_sha512,
                rsa_pss_rsae_sha384,
-               rsa_pss_rsae_sha256
+               rsa_pss_rsae_sha256,
+               mldsa44,
+               mldsa65,
+               mldsa87
               ],
     signature_schemes(Version, Default).
 
