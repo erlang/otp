@@ -42,17 +42,28 @@ SNMP_ROOT = ..
 
 ERL_FILES = $(MODULES:%=%.erl)
 
-SNMP_TEST_DATA = snmp_test_data
+SNMP_TEST_DATA    = snmp_test_data
+NETSNMP_TEST_DATA = snmp_to_snmpnet_SUITE_data
 
-SNMP_MIB_DIR = $(SNMP_TEST_DATA)
+SNMP_MIB_DIR    = $(SNMP_TEST_DATA)
+NETSNMP_MIB_DIR = $(NETSNMP_TEST_DATA)
 
-SNMP_BIN_TARGET_DIR = $(SNMP_TEST_DATA)
+SNMP_BIN_TARGET_DIR    = $(SNMP_TEST_DATA)
+NETSNMP_BIN_TARGET_DIR = $(NETSNMP_TEST_DATA)
 
-MIB_SOURCE  = $(MIB_FILES:%.mib=$(SNMP_MIB_DIR)/%.mib)
+SNMP_MIB_SOURCES    = $(MIB_FILES:%.mib=$(SNMP_MIB_DIR)/%.mib)
+NETSNMP_MIB_SOURCES = $(NETSNMP_MIB_FILES:%.mib=$(NETSNMP_MIB_DIR)/%.mib)
 
-MIB_TARGETS = \
+SNMP_MIB_TARGETS = \
 	$(MIB_FILES:%.mib=$(SNMP_BIN_TARGET_DIR)/%.bin) \
 	$(MIB_FILES:%.mib=$(SNMP_BIN_TARGET_DIR)/%.hrl)
+NETSNMP_MIB_TARGETS = \
+	$(NETSNMP_MIB_FILES:%.mib=$(NETSNMP_BIN_TARGET_DIR)/%.bin) \
+	$(NETSNMP_MIB_FILES:%.mib=$(NETSNMP_BIN_TARGET_DIR)/%.hrl)
+MIB_TARGETS = \
+	$(SNMP_MIB_TARGETS) \
+	$(NETSNMP_MIB_TARGETS)
+
 ERL_TARGETS = $(MODULES:%=$(EBIN)/%.$(EMULATOR))
 
 TEST_SERVER_TARGETS = $(TEST_SERVER_MODULES:%=$(EBIN)/%.$(EMULATOR))
@@ -175,6 +186,12 @@ $(SNMP_BIN_TARGET_DIR)/%.bin: $(SNMP_MIB_DIR)/%.mib
 $(SNMP_BIN_TARGET_DIR)/%.hrl: $(SNMP_BIN_TARGET_DIR)/%.bin
 	$(ERLC) $(ERL_SNMP_FLAGS) -o $(SNMP_BIN_TARGET_DIR) $<
 
+$(NETSNMP_BIN_TARGET_DIR)/%.hrl: $(NETSNMP_BIN_TARGET_DIR)/%.bin
+	$(ERLC) $(ERL_SNMP_FLAGS) -o $(NETSNMP_BIN_TARGET_DIR) $<
+
+$(NETSNMP_BIN_TARGET_DIR)/%.bin: $(NETSNMP_MIB_DIR)/%.mib
+	$(ERLC) $(ERL_SNMP_FLAGS) -o $(NETSNMP_MIB_DIR) $<
+
 
 # ----------------------------------------------------
 # Targets
@@ -244,26 +261,34 @@ release_docs_spec:
 
 
 info:
-	@echo "SNMP_DEBUG        = $(SNMP_DEBUG)"
-	@echo "SNMP_FLAGS        = $(SNMP_FLAGS)"
+	@echo "SNMP_DEBUG             = $(SNMP_DEBUG)"
+	@echo "SNMP_FLAGS             = $(SNMP_FLAGS)"
 	@echo ""
-	@echo "SNMP_MIB_DIR      = $(SNMP_MIB_DIR)"
-	@echo "MIB_SOURCE        = $(MIB_SOURCE)"
-	@echo "MIB_TARGETS       = $(MIB_TARGETS)"
-	@echo "SNMP_MIB_FLAGS    = $(SNMP_MIB_FLAGS)"
+	@echo "SNMP_MIB_DIR           = $(SNMP_MIB_DIR)"
+	@echo "NETSNMP_MIB_DIR        = $(NETSNMP_MIB_DIR)"
 	@echo ""
-	@echo "ERL_COMPILE_FLAGS = $(ERL_COMPILE_FLAGS)"
+	@echo "SNMP_BIN_TARGET_DIR    = $(SNMP_BIN_TARGET_DIR)"
+	@echo "NETSNMP_BIN_TARGET_DIR = $(NETSNMP_BIN_TARGET_DIR)"
 	@echo ""
-	@echo "RELSYSDIR         = "$(RELSYSDIR)""
+	@echo "SNMP_MIB_SOURCES    = $(SNMP_MIB_SOURCES)"
+	@echo "NETSNMP_MIB_SOURCES = $(NETSNMP_MIB_SOURCES)"
 	@echo ""
-	@echo "SOURCE            = $(SOURCE)"
+	@echo "MIB_TARGETS         = $(MIB_TARGETS)"
 	@echo ""
-	@echo "TARGET_FILES      = $(TARGET_FILES)"
+	@echo "SNMP_MIB_FLAGS      = $(SNMP_MIB_FLAGS)"
 	@echo ""
-	@echo "EMAKEFILE         = $(EMAKEFILE)"
-	@echo "MAKE_EMAKE        = $(MAKE_EMAKE)"
-	@echo "BUILDTARGET       = $(BUILDTARGET)"
-	@echo "RELTEST_FILES     = $(RELTEST_FILES)"
+	@echo "ERL_COMPILE_FLAGS   = $(ERL_COMPILE_FLAGS)"
+	@echo ""
+	@echo "RELSYSDIR           = "$(RELSYSDIR)""
+	@echo ""
+	@echo "SOURCE              = $(SOURCE)"
+	@echo ""
+	@echo "TARGET_FILES        = $(TARGET_FILES)"
+	@echo ""
+	@echo "EMAKEFILE           = $(EMAKEFILE)"
+	@echo "MAKE_EMAKE          = $(MAKE_EMAKE)"
+	@echo "BUILDTARGET         = $(BUILDTARGET)"
+	@echo "RELTEST_FILES       = $(RELTEST_FILES)"
 	@echo ""
 
 
