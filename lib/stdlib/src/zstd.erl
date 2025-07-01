@@ -128,7 +128,7 @@ the closest valid value.
   either the context is closed or it is replaced by another dictionary.
 
   To reset the context to not use any dictionary use the empty dictionary, that is `<<>>`.
-* `pedgedSrcSize` - When using `stream/2` to do streaming compression, the decompressed
+* `pledgedSrcSize` - When using `stream/2` to do streaming compression, the decompressed
   size is not known when the header of the Zstandard frame is emitted. Setting this
   parameter on the context lets the compressor know the expected size of the data to
   compress. If the size is not correct when `finish/2` is called an exception will be
@@ -167,7 +167,7 @@ The Zstandard documentation contains more details about each parameter.
           strategy => strategy(),
           targetCBlockSize => non_neg_integer(),
 
-          %% LDM (Long distance mathching parameter)
+          %% LDM (Long distance matching parameter)
           enableLongDistanceMatching => boolean(),
           ldmHashLog => non_neg_integer(),
           ldmMinMatch => non_neg_integer(),
