@@ -49,12 +49,6 @@
          client_auth_empty_cert_rejected/1,
          client_auth_partial_chain/0,
          client_auth_partial_chain/1,
-         client_auth_use_partial_chain/0,
-         client_auth_use_partial_chain/1,
-         client_auth_do_not_use_partial_chain/0,
-         client_auth_do_not_use_partial_chain/1,
-         client_auth_partial_chain_fun_fail/0,
-         client_auth_partial_chain_fun_fail/1,
          missing_root_cert_no_auth/0,
          missing_root_cert_no_auth/1,
          unsupported_sign_algo_client_auth/0,
@@ -99,10 +93,11 @@ groups() ->
       %% unsupported_sign_algo_cert_client_auth]},
      {rsa_pss_rsae, [parallel], all_version_tests() ++ tls_1_3_tests()},
      {rsa_pss_pss, [parallel], all_version_tests() ++ tls_1_3_tests()},
-     {ecdsa_1_3, [parallel], all_version_tests() ++ tls_1_3_tests()}
+     {ecdsa_1_3, [parallel], all_version_tests() ++ tls_1_3_tests()},
      %% Enable test later when we have OpenSSL version that
      %% is able to read EDDSA private key files
      %%{eddsa_1_3, [], all_version_tests() ++ tls_1_3_tests()}
+     {mldsa, [parallel], all_version_tests() ++ tls_1_3_tests()}
     ].
 
 protocol_groups() ->
@@ -131,8 +126,9 @@ tls_1_3_protocol_groups() ->
     [{group, rsa_1_3},
      {group, rsa_pss_rsae},
      {group, rsa_pss_pss},
-     {group, ecdsa_1_3}
+     {group, ecdsa_1_3},
      %%{group, eddsa_1_3}
+     {group, mldsa}
     ].
 
 tls_1_3_tests() ->
@@ -286,7 +282,6 @@ init_per_group(ecdsa_1_3 = Group, Config0) ->
         false ->
             {skip, "Missing EC crypto support"}
     end;
-
 init_per_group(eddsa_1_3, Config0) ->
     PKAlg = crypto:supports(public_keys),
     PrivDir = proplists:get_value(priv_dir, Config0),
@@ -311,6 +306,43 @@ init_per_group(eddsa_1_3, Config0) ->
                          )];
         false ->
             {skip, "Missing EC crypto support"}
+    end;
+init_per_group(Group, Config) when Group == mldsa ->
+    PKAlgs = crypto:supports(public_keys),
+    case lists:member(mldsa44, PKAlgs)
+        andalso lists:member(mldsa65, PKAlgs)
+        andalso lists:member(mldsa87, PKAlgs) of
+        true ->
+            DataDir = proplists:get_value(data_dir, Config),
+            PrivDir = proplists:get_value(priv_dir, Config),
+            [Keys1, Keys2, Keys3] = ssl_cert_tests:mldsa_keys(DataDir),
+            Conf = #{server_chain =>
+                         #{root => [Keys3],
+                           intermediates => [[Keys2]],
+                           peer =>  [Keys1]},
+                     client_chain => #{root => [Keys1],
+                               intermediates => [[Keys2]],
+                               peer =>  [Keys3]
+                                      }},
+            GenCertData =
+                public_key:pkix_test_data(Conf),
+            Version = proplists:get_value(version, Config),
+            ClientFileBase = filename:join(PrivDir, "mldsa"),
+            ServerFileBase = filename:join(PrivDir, "mldsa"),
+            [{server_config, ServerConf},
+             {client_config, ClientConf}] =
+                x509_test:gen_pem_config_files(GenCertData, ClientFileBase, ServerFileBase),
+            [{cert_key_alg, {mldsa, [[Keys1], [Keys2], [Keys3]]}},
+             {cert_key_alg, mldsa},
+             {extra_client, ssl_test_lib:sig_algs(mldsa, Version)},
+             {extra_server, ssl_test_lib:sig_algs(mldsa, Version)} |
+             lists:delete(cert_key_alg,
+                          [{client_cert_opts, fun() -> ClientConf end},
+                           {server_cert_opts, fun() -> ServerConf end} |
+                           lists:delete(server_cert_opts,
+                                        lists:delete(client_cert_opts, Config))])];
+        false ->
+            {skip, "Missing ML-DSA crypto support"}
     end;
 init_per_group(dsa = Group, Config0) ->
     PKAlg = crypto:supports(public_keys),
@@ -363,6 +395,13 @@ init_per_group(GroupName, Config) ->
 end_per_group(GroupName, Config) ->
     ssl_test_lib:end_per_group(GroupName, Config).
 
+init_per_testcase(mlkem_groups, Config) ->
+    case  [] =/= crypto:supports(kems) of
+        true ->
+            Config;
+        false ->
+            {skip, "Missing support for mlkem in OpenSSL"}
+    end;
 init_per_testcase(_TestCase, Config) ->
     ssl_test_lib:ct_log_supported_protocol_versions(Config),
     ct:timetrap({seconds, 30}),
@@ -400,23 +439,6 @@ client_auth_partial_chain() ->
     ssl_cert_tests:client_auth_partial_chain().
 client_auth_partial_chain(Config) when is_list(Config) ->
     ssl_cert_tests:client_auth_partial_chain(Config).
-
-%%--------------------------------------------------------------------
-client_auth_use_partial_chain() ->
-    ssl_cert_tests:client_auth_use_partial_chain().
-client_auth_use_partial_chain(Config) when is_list(Config) ->
-    ssl_cert_tests:client_auth_use_partial_chain(Config).
-%%--------------------------------------------------------------------
-client_auth_do_not_use_partial_chain() ->
-   ssl_cert_tests:client_auth_do_not_use_partial_chain().
-client_auth_do_not_use_partial_chain(Config) when is_list(Config) ->
-    ssl_cert_tests:client_auth_do_not_use_partial_chain(Config).
-
-%%--------------------------------------------------------------------
-client_auth_partial_chain_fun_fail() ->
-   ssl_cert_tests:client_auth_partial_chain_fun_fail().
-client_auth_partial_chain_fun_fail(Config) when is_list(Config) ->
-    ssl_cert_tests:client_auth_partial_chain_fun_fail(Config).
 
 %%--------------------------------------------------------------------
 missing_root_cert_no_auth() ->

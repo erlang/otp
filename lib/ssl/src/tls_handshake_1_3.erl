@@ -1535,6 +1535,9 @@ select_sign_algo(PublicKeyAlgo, RSAKeySize, [CertSignAlg|CertSignAlgs], OwnSignA
           orelse (PublicKeyAlgo =:= rsa_pss_pss andalso S =:= rsa_pss_pss)
           orelse (PublicKeyAlgo =:= ecdsa andalso S =:= ecdsa)
           orelse (PublicKeyAlgo =:= eddsa andalso S =:= eddsa)
+          orelse (PublicKeyAlgo =:= mldsa44 andalso S =:= mldsa44)
+          orelse (PublicKeyAlgo =:= mldsa65 andalso S =:= mldsa65)
+          orelse (PublicKeyAlgo =:= mldsa87 andalso S =:= mldsa87)
          )
         andalso
         lists:member(CertSignAlg, OwnSignAlgs) of
@@ -1642,6 +1645,12 @@ public_key_algo(?'id-Ed25519') ->
     eddsa;
 public_key_algo(?'id-Ed448') ->
     eddsa;
+public_key_algo(?'id-ml-dsa-44') ->
+    mldsa44;
+public_key_algo(?'id-ml-dsa-65') ->
+    mldsa65;
+public_key_algo(?'id-ml-dsa-87') ->
+    mldsa87;
 public_key_algo(?'id-dsa') ->
     dsa.
 
