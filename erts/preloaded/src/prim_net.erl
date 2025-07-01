@@ -109,7 +109,8 @@
 -type interface_info_args() :: #{debug => boolean()}.
 -type if_entry_args() :: #{index := non_neg_integer(),
                            debug => boolean()}.
--type ip_address_table_args() :: #{debug => boolean()}.
+-type ip_address_table_args() :: #{sort  => boolean(),
+				   debug => boolean()}.
 
 -type if_type()       :: other | ethernet_csmacd | iso88025_tokenring |
                          fddi | ppp | software_loopback | atm | ieee80211 |
