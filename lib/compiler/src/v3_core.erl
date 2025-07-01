@@ -2126,14 +2126,17 @@ replace_vars(#c_cons{hd=H,tl=T}, Vars) ->
     H1 = replace_vars(H, Vars),
     no_vars(#c_cons{hd=H1,tl=T1});
 replace_vars(#c_tuple{es=Es0}, Vars) ->
-    Es1 = replace_list_vars(Es0, Vars),
+    Es1 = replace_list_vars(tuple, Es0, Vars),
     no_vars(#c_tuple{es=Es1});
 replace_vars(#imap{es=Es0}=M, Vars) ->
-    Es1 = replace_list_vars(Es0, Vars),
+    Es1 = replace_list_vars(map, Es0, Vars),
     no_vars(M#imap{es=Es1});
 replace_vars(#imappair{val=V}=M, Vars) ->
     V1 = replace_vars(V, Vars),
-    no_vars(M#imappair{val=V1});
+    case no_vars(M#imappair{val=V1}) of
+        #c_var{name='_'} -> [];
+        Pat -> Pat
+    end;
 replace_vars(#c_var{name='_'}=V, _) ->
     V;
 replace_vars(#c_var{name=Var}=V, Vars) ->
@@ -2143,7 +2146,9 @@ replace_vars(#c_var{name=Var}=V, Vars) ->
     end;
 replace_vars(V, _) -> V.
 
-replace_list_vars(Es, Vars) ->
+replace_list_vars(map, Es, Vars) ->
+    [replace_vars(E, Vars) || E <- Es, replace_vars(E, Vars) =/= []];
+replace_list_vars(tuple, Es, Vars) ->
     [replace_vars(E, Vars) || E <- Es].
 
 %% If the pattern contains no named variables, collapse it to '_'.
