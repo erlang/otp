@@ -1245,6 +1245,10 @@ generate_key_exchange(x25519) ->
     crypto:generate_key(ecdh, x25519);
 generate_key_exchange(x448) ->
     crypto:generate_key(ecdh, x448);
+generate_key_exchange(MLKem) when MLKem == mlkem512;
+                                  MLKem == mlkem768;
+                                  MLKem == mlkem1024 ->
+    crypto:generate_key(MLKem, []);
 generate_key_exchange(FFDHE) ->
     public_key:generate_key(ssl_dh_groups:dh_params(FFDHE)).
 
