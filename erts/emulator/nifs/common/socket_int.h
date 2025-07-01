@@ -349,6 +349,7 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(family);                   \
     GLOBAL_ATOM_DEF(fastroute);                \
     GLOBAL_ATOM_DEF(fast_retrans);             \
+    GLOBAL_ATOM_DEF(file_not_found);           \
     GLOBAL_ATOM_DEF(fin_wait_1);               \
     GLOBAL_ATOM_DEF(fin_wait_2);               \
     GLOBAL_ATOM_DEF(flags);                    \

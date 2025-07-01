@@ -236,6 +236,65 @@ BOOLEAN_T esock_get_bool_from_map(ErlNifEnv*   env,
 }
 
 
+/* *** esock_get_string_from_map ***
+ *
+ * Simple utility function used to extract a string value from a map.
+ * If the map does not contain the map value, the string is set to NULL
+ * and TRUE is returned (its acceptible to not provide a value).
+ * If it fails to extract the value (for whatever reason) the string
+ * is set to NULL and FALSE is returned.
+ */
+
+extern
+BOOLEAN_T esock_get_string_from_map(ErlNifEnv*         env,
+                                    ERL_NIF_TERM       map,
+                                    ERL_NIF_TERM       key,
+                                    ErlNifCharEncoding encoding,
+                                    char**             str)
+{
+    ERL_NIF_TERM eval;
+    unsigned int len;
+    char*        buf;
+    int          written;
+
+    /* Try extract the string in erlang form from the map */
+    if (!GET_MAP_VAL(env, map, key, &eval)) {
+        *str = NULL;
+        return TRUE;
+    }
+
+    /* Check if its a list */
+    if (!enif_is_list(env, eval)) {
+        *str = NULL;
+        return FALSE;
+    }
+
+    /* Get the string length */
+    if (!enif_get_string_length(env, eval, &len, encoding)) {
+        *str = NULL;
+        return FALSE;
+    }
+
+    /* Allocate the string */
+    if ((buf = MALLOC(len+1)) == NULL) {
+        *str = NULL;
+        return FALSE;
+    }
+
+    /* And finally copy it out */
+    written = enif_get_string(env, eval, buf, len+1, encoding);
+    if (written == (len+1)) {
+        *str = buf;
+        return TRUE;
+    } else {
+        FREE( buf );
+        *str = NULL;
+        return FALSE;
+    }
+
+}
+
+
 /* +++ esock_encode_iov +++
  *
  * Encode an IO Vector. In erlang we represented this as a list of binaries.

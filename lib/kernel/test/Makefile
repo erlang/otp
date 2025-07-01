@@ -117,6 +117,7 @@ MODULES= \
 	logger_stress_SUITE \
 	logger_test_lib \
 	net_SUITE \
+	prim_net_SUITE \
 	os_SUITE \
 	pg_SUITE \
 	rtnode \
