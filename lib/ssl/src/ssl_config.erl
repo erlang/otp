@@ -1379,7 +1379,13 @@ handle_user_lookup(UserOpts, #{versions := Versions} = Opts) ->
 opt_supported_groups(UserOpts, #{versions := TlsVsns} = Opts, _Env) ->
     SG = case get_opt_list(supported_groups,  undefined, UserOpts, Opts) of
              {default, undefined} ->
-                 handle_supported_groups_option(ssl:groups(default));
+                 try assert_version_dep(supported_groups, TlsVsns, ['tlsv1.3']) of
+                     true ->
+                         handle_supported_groups_option(ssl:groups(default))
+                 catch
+                     throw:_ ->
+                         undefined
+                 end;
              {new, SG0} ->
                  assert_version_dep(supported_groups, TlsVsns, ['tlsv1.3']),
                  handle_supported_groups_option(SG0);
@@ -1674,17 +1680,20 @@ assert_version_dep(Option, Vsns, AllowedVsn) ->
 
 assert_version_dep(false, _, _, _) -> true;
 assert_version_dep(true, Option, SSLVsns, AllowedVsn) ->
-    case is_dtls_configured(SSLVsns) of
-        true -> %% TODO: Check option dependency for DTLS
-            true;
-        false ->
-            APIVsns = lists:map(fun tls_record:protocol_version/1, SSLVsns),
-            Set1 = sets:from_list(APIVsns),
-            Set2 = sets:from_list(AllowedVsn),
-            case sets:size(sets:intersection(Set1, Set2)) > 0 of
-                true -> ok;
-                false -> option_incompatible([Option, {versions, APIVsns}])
-            end
+    TLSVsns =
+        case is_dtls_configured(SSLVsns) of
+            true ->
+                %% Translate to corresponding TLS versions
+                [ssl:tls_version(V) || V <- SSLVsns];
+            false ->
+                SSLVsns
+        end,
+    APIVsns = lists:map(fun tls_record:protocol_version/1, TLSVsns),
+    Set1 = sets:from_list(APIVsns),
+    Set2 = sets:from_list(AllowedVsn),
+    case sets:size(sets:intersection(Set1, Set2)) > 0 of
+        true -> true;
+        false -> option_incompatible([Option, {versions, APIVsns}])
     end.
 
 warn_override(new, UserOpts, NewOpt, OldOpts, LogLevel) ->
