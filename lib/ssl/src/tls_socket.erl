@@ -140,11 +140,14 @@ connect(Address, Port,
 	    {error, Reason}
     catch
 	exit:{function_clause, _} ->
-	    {error, {options, {cb_info, CbInfo}}};
-	exit:badarg ->
-	    {error, {options, {socket_options, UserOpts}}};
-	exit:{badarg, _} ->
-	    {error, {options, {socket_options, UserOpts}}}
+            ConStr = lists:flatten(io_lib:format("~p:connect(~p, ~p, ~p, ~p)", [Transport,Host, Port, UserOpts, Timeout])),
+	    {error, {badarg, ConStr}};
+        exit:badarg ->
+            ConStr = lists:flatten(io_lib:format("~p:connect(~p, ~p, ~p, ~p)", [Transport,Host, Port, UserOpts, Timeout])),
+	    {error, {badarg, ConStr}};
+	exit:{badarg, Reason} ->
+            ConStr = lists:flatten(io_lib:format("~p:connect(~p, ~p, ~p, ~p)", [Transport,Host, Port, UserOpts, Timeout])),
+	    {error, {badarg, Reason, ConStr}}
     end.
 
 socket(Pids, Transport, Socket, ConnectionCb, Trackers) ->
