@@ -125,14 +125,14 @@ upgrade(Socket, #config{transport_info = {Transport,_,_,_,_}= CbInfo,
 	    {error, Error}
     end.
 
-connect(Address, Port,
+connect(Host, Port,
 	#config{transport_info = CbInfo, inet_user = UserOpts, ssl = SslOpts,
 		emulated = EmOpts, inet_ssl = SocketOpts, connection_cb = ConnetionCb},
 	Timeout) ->
     {Transport, _, _, _, _} = CbInfo,
-    try Transport:connect(Address, Port,  SocketOpts, Timeout) of
+    try Transport:connect(Host, Port,  SocketOpts, Timeout) of
 	{ok, Socket} ->
-	    ssl_gen_statem:connect(ConnetionCb, Address, Port, Socket,
+	    ssl_gen_statem:connect(ConnetionCb, Host, Port, Socket,
 				   {SslOpts, 
 				    emulated_socket_options(EmOpts, #socket_options{}), undefined},
 				   self(), CbInfo, Timeout);
@@ -140,11 +140,11 @@ connect(Address, Port,
 	    {error, Reason}
     catch
 	exit:{function_clause, _} ->
-	    {error, {options, {cb_info, CbInfo}}};
-	exit:badarg ->
-	    {error, {options, {socket_options, UserOpts}}};
-	exit:{badarg, _} ->
-	    {error, {options, {socket_options, UserOpts}}}
+	    {error, {badarg, connect_error(Transport, Host, Port, UserOpts, Timeout)}};
+        exit:badarg ->
+	    {error, {badarg, connect_error(Transport, Host, Port, UserOpts, Timeout)}};
+	exit:{badarg, Reason} ->
+	    {error, {badarg, connect_error(Transport, Host, Port, UserOpts, Timeout), Reason}}
     end.
 
 socket(Pids, Transport, Socket, ConnectionCb, Trackers) ->
@@ -515,3 +515,6 @@ validate_inet_option(active, Value)
 validate_inet_option(_, _) ->
     ok.
 
+connect_error(Transport, Host, Port, UserOpts, Timeout) ->
+    lists:flatten(io_lib:format("~p:connect(~p, ~p, ~p, ~p)",
+                                [Transport, Host, Port, UserOpts, Timeout])).
