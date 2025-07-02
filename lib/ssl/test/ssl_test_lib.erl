@@ -2412,7 +2412,6 @@ start_client(openssl, Port, ClientOpts, Config) ->
     Args0 =  case Groups0 of
                 undefined ->
                      ["s_client",
-                      "-verify", "2",
                       "-connect", hostname_format(HostName) ++ ":" ++ integer_to_list(Port),
                       cipher_flag(Version),
                       ciphers(Ciphers, Version),
@@ -2428,7 +2427,6 @@ start_client(openssl, Port, ClientOpts, Config) ->
                          Debug;
                  Group ->
                      ["s_client",
-                      "-verify", "2",
                       "-connect", hostname_format(HostName) ++ ":" ++ integer_to_list(Port),
                       cipher_flag(Version),
                       ciphers(Ciphers, Version),
