@@ -168,6 +168,12 @@ connect(
               Socket,
               inet_epmd_dist:merge_options(
                 ConnectOptions, [{nodelay, true}], [])),
+        BindAddress =
+            #{ family => Family,
+               addr => any,
+               port => proplists:get_value(port, ConnectOptions, 0)},
+        ok ?=
+            socket:bind(Socket, BindAddress),
         ConnectAddress =
             #{ family => Family,
                addr => Ip,
