@@ -609,6 +609,7 @@ get_asn1_module('BasicConstraints') -> 'PKIX1Implicit-2009';
 get_asn1_module('ExtKeyUsageSyntax') -> 'PKIX1Implicit-2009';
 get_asn1_module('KeyUsage') -> 'PKIX1Implicit-2009';
 get_asn1_module('Certificate') -> 'PKIX1Explicit-2009';
+get_asn1_module('TBSCertificate') -> 'PKIX1Explicit-2009';
 get_asn1_module('SubjectAltName') -> 'PKIX1Implicit-2009';
 get_asn1_module('CRLDistributionPoints') -> 'PKIX1Implicit-2009';
 get_asn1_module('CRLReason') ->  'PKIX1Implicit-2009';
