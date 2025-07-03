@@ -1198,7 +1198,7 @@ bytes_r(N, AlgHandler, Next, R0, Bytes, _GoodBytes, GoodBits, _Shift) ->
 Jump the generator state forward.
 
 Performs an algorithm specific [`State`](`t:state/0`) jump calculation
-that is equvalent to a large number of state iterations.
+that is equivalent to a large number of state iterations.
 See this module's [algorithms list](#algorithms).
 
 Returns the [`NewState`](`t:state/0`).
@@ -1623,7 +1623,7 @@ exsplus_jump({AlgHandler, S}) ->
 Jump the generator state forward.
 
 Performs a [`State`](`t:state/0`) jump calculation
-that is equvalent to a 2^64 state iterations.
+that is equivalent to a 2^64 state iterations.
 
 Returns the [`NewState`](`t:state/0`).
 

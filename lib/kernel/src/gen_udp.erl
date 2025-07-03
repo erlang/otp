@@ -476,7 +476,7 @@ send(S, Host, Port, Packet) when is_port(S) ->
 -doc """
 Send a packet to the specified destination, with ancillary data.
 
-Equvalent to [`send(Socket, Host, Port, Packet)`](`send/4`)
+Equivalent to [`send(Socket, Host, Port, Packet)`](`send/4`)
 regarding `Host` and `Port` and also equivalent to
 [`send(Socket, Destination, AncData, Packet)`](#send-4-AncData)
 regarding the ancillary data: `AncData`.
