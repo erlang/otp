@@ -32,6 +32,7 @@ limitations under the License.
          write/5, delete/5, delete_object/5,
          read/5, match_object/5, all_keys/4,
          select/5, select/6, select_cont/3,
+         select_reverse/5, select_reverse/6,
          index_match_object/6, index_read/6,
          foldl/6, foldr/6, table_info/4,
          first/3, next/4, prev/4, last/3,
@@ -81,6 +82,12 @@ select(ActivityId, Opaque, Tab, MatchSpec, LockKind) ->
 
 select(ActivityId, Opaque, Tab, MatchSpec, Limit, LockKind) ->
     init_select(ActivityId, Opaque, Tab, MatchSpec, Limit, LockKind).
+
+select_reverse(ActivityId, Opaque, Tab, MatchSpec, LockKind) ->
+    select(ActivityId, Opaque, Tab, MatchSpec, LockKind).
+
+select_reverse(ActivityId, Opaque, Tab, MatchSpec, Limit, LockKind) ->
+    select(ActivityId, Opaque, Tab, MatchSpec, Limit, LockKind).
 
 select_cont(_Tid,_,{frag_cont, '$end_of_table', [],_}) -> '$end_of_table';
 select_cont(Tid,Ts,{frag_cont, '$end_of_table', [{Tab,Node,Type}|Rest],Args}) ->
