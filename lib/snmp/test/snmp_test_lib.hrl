@@ -98,6 +98,8 @@
                         catch _:_:_ ->
                                 {not_running, __P__}
                         end).
+-define(PI(K),          ?PI(self(), K)).
+-define(PI(P, K),       ?LIB:pi((P), (K))).
 
 
 %% - Node utility macros - 
