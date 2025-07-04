@@ -899,6 +899,12 @@ default(common) ->
            #{default => 5 * 1000,
              chk => fun(V) -> check_non_neg_integer(V) end,
              class => undoc_user_option
+            },
+
+       custom_debug_mode =>
+           #{default => false,
+             chk => fun(V) -> erlang:is_boolean(V) end,
+             class => user_option
             }
      }.
 

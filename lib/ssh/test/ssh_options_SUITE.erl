@@ -92,7 +92,8 @@
          daemon_replace_options_algs/1,
          daemon_replace_options_algs_connect/1,
          daemon_replace_options_algs_conf_file/1,
-         daemon_replace_options_not_found/1
+         daemon_replace_options_not_found/1,
+         custom_debug_mode_option/1
 	]).
 
 %%% Common test callbacks
@@ -165,6 +166,7 @@ all() ->
      daemon_replace_options_algs_connect,
      daemon_replace_options_algs_conf_file,
      daemon_replace_options_not_found,
+     custom_debug_mode_option,
      {group, hardening_tests}
     ].
 
@@ -2165,4 +2167,26 @@ test_not_connect(Config, Host, Port, Opts) ->
     catch
         error:{badmatch, {error,_}} -> ok
     end.
+
+%%--------------------------------------------------------------------
+custom_debug_mode_option(_Config) ->
+    %% Test the new custom_debug_mode option parsing and validation
+    
+    %% Test with default value (should parse correctly)
+    DefaultOpts = ssh_options:handle_options(client, []),
+    false = ssh_options:get_value(user_options, custom_debug_mode, DefaultOpts, ?MODULE, ?LINE),
+    
+    %% Test with explicit true value  
+    TrueOpts = ssh_options:handle_options(client, [{custom_debug_mode, true}]),
+    true = ssh_options:get_value(user_options, custom_debug_mode, TrueOpts, ?MODULE, ?LINE),
+    
+    %% Test with explicit false value
+    FalseOpts = ssh_options:handle_options(client, [{custom_debug_mode, false}]),
+    false = ssh_options:get_value(user_options, custom_debug_mode, FalseOpts, ?MODULE, ?LINE),
+    
+    %% Test with server options too
+    ServerOpts = ssh_options:handle_options(server, [{custom_debug_mode, true}]),
+    true = ssh_options:get_value(user_options, custom_debug_mode, ServerOpts, ?MODULE, ?LINE),
+    
+    ok.
 
