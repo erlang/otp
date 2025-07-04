@@ -31,7 +31,7 @@
          open/3,
          is_socket_backend/1,
          inet_backend_opts/1,
-         explicit_inet_backend/0,
+         explicit_inet_backend/0, explicit_inet_backend/1,
          test_inet_backends/0,
          which_inet_backend/1,
          config_inet_backend/2]).
@@ -2665,6 +2665,15 @@ explicit_inet_backend() ->
             end;
         _ ->
             false
+    end.
+
+explicit_inet_backend(Config) ->
+    Key = inet_backend,
+    case lists:keysearch(Key, 1, Config) of
+        {value, {Key, Backend}} ->
+            Backend;
+        false ->
+            undefined
     end.
 
 

@@ -52,11 +52,12 @@
 -define(OPEN(C, P),              ?LIB:open(C, P, [])).
 -define(OPEN(C, P, O),           ?LIB:open(C, P, O)).
 
--define(INET_BACKEND_OPTS(C),    ?LIB:inet_backend_opts(C)).
--define(EXPLICIT_INET_BACKEND(), ?LIB:explicit_inet_backend()).
--define(TEST_INET_BACKENDS(),    ?LIB:test_inet_backends()).
--define(WHICH_INET_BACKEND(C),   ?LIB:which_inet_backend(C)).
--define(IS_SOCKET_BACKEND(C),    ?LIB:is_socket_backend(C)).
+-define(INET_BACKEND_OPTS(C),     ?LIB:inet_backend_opts(C)).
+-define(EXPLICIT_INET_BACKEND(),  ?LIB:explicit_inet_backend()).
+-define(EXPLICIT_INET_BACKEND(C), ?LIB:explicit_inet_backend(C)).
+-define(TEST_INET_BACKENDS(),     ?LIB:test_inet_backends()).
+-define(WHICH_INET_BACKEND(C),    ?LIB:which_inet_backend(C)).
+-define(IS_SOCKET_BACKEND(C),     ?LIB:is_socket_backend(C)).
 
 -define(ENSURE_NOT_DOG_SLOW(C, L), ?LIB:ensure_not_dog_slow((C), (L))).
 
