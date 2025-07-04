@@ -135,6 +135,8 @@ Uint32 verbose;             /* See erl_debug.h for information about verbose */
 
 int erts_atom_table_size = ATOM_LIMIT;	/* Maximum number of atoms */
 
+int erts_export_table_size = EXPORT_LIMIT;	/* Maximum number of exports */
+
 int erts_pd_initial_size = 8;  /* must be power of 2 */
 
 int erts_modified_timing_level;
@@ -691,6 +693,10 @@ __decl_noreturn void __noreturn  erts_usage(void)
     erts_fprintf(stderr, "-t size        set the maximum number of atoms the emulator can handle;\n");
     erts_fprintf(stderr, "               valid range is [%d-%d]\n",
 		 MIN_ATOM_TABLE_SIZE, MAX_ATOM_TABLE_SIZE);
+    erts_fprintf(stderr, "\n");
+
+    erts_fprintf(stderr, "-E number      set export index limit; valid range is [%d-%d]\n",
+		 EXPORT_INITIAL_SIZE, EXPORT_MAX_SIZE);
     erts_fprintf(stderr, "\n");
 
     erts_fprintf(stderr, "-T number      set modified timing level; valid range is [0-%d]\n",
@@ -2216,6 +2222,22 @@ erl_start(int argc, char **argv)
 		     erts_atom_table_size));
 	    break;
         }
+
+    case 'E': {
+        long val;
+        arg = get_arg(argv[i]+2, argv[i+1], &i);
+        errno = 0;
+        val = strtol(arg, NULL, 10);
+        if (errno != 0 || val < EXPORT_INITIAL_SIZE || val > EXPORT_MAX_SIZE) {
+            erts_fprintf(stderr, "bad export table size %s\n", arg);
+            erts_usage();
+        }
+        erts_export_table_size = val;
+        VERBOSE(DEBUG_SYSTEM,
+                ("setting maximum number of exports to %d\n",
+                 erts_export_table_size));
+        break;
+    }
 
 	case 'T' :
 	    arg = get_arg(argv[i]+2, argv[i+1], &i);
