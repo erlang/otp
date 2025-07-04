@@ -335,9 +335,10 @@ Function `parse_address/1` can be useful:
 	element(1, Record) =:= element(1, RS),
 	tuple_size(Record) =:= element(2, RS)).
 
-%% Two kinds of debug macros (depnds on what you need to debug)
+%% Two kinds of debug macros (depends on what you need to debug)
 %% -define(DBG(T), erlang:display({{self(), ?MODULE, ?LINE, ?FUNCTION_NAME}, T})).
-%% -define(DBG(F, A), io:format("~w(~w) -> " ++ F ++ "~n", [?FUNCTION_NAME, ?LINE | A])).
+%% -define(DBG(F, A),
+%%         io:format("~w(~w) -> " ++ F ++ "~n", [?FUNCTION_NAME, ?LINE | A])).
 %% -define(DBG(F),    ?DBG(F, [])).
 -define(DBG(F, A),    ok).
 
@@ -3196,6 +3197,7 @@ listen_options() ->
 
 -doc false.
 listen_options(Opts, Mod) ->
+    %% ?DBG({opts, Opts}, {mod, Mod}),
     BaseOpts =
 	case application:get_env(kernel, inet_default_listen_options) of
 	    {ok,List} when is_list(List) ->
@@ -3208,18 +3210,22 @@ listen_options(Opts, Mod) ->
 	    _ ->
 		#listen_opts{ opts = [{active,true}]}
 	end,
+    %% ?DBG({base_opts, BaseOpts}),
     case list_opt(Opts, BaseOpts, listen_options()) of
 	{ok, R} ->
 	    {ok, R#listen_opts {
 		   opts = lists:reverse(R#listen_opts.opts),
 		   ifaddr = Mod:translate_ip(R#listen_opts.ifaddr)
 		  }};
-	Error -> Error
+	Error ->
+            %% ?DBG([{error, Error}]),
+            Error
     end.
 
 list_opt([{raw,A,B,C}|Opts], #listen_opts{} = R, As) ->
     list_opt([{raw,{A,B,C}}|Opts], R, As);
 list_opt([Opt | Opts], #listen_opts{ifaddr = IfAddr} = R, As) ->
+    %% ?DBG([{opt, Opt}, {r, R}, {as, As}]),
     case Opt of
 	{ifaddr, Addr} when is_map(Addr) ->
             list_opt(Opts, R#listen_opts{ ifaddr = ensure_sockaddr(Addr) }, As);
@@ -3633,11 +3639,24 @@ translate_ip(any,      inet6) -> {0,0,0,0,0,0,0,0};
 translate_ip(loopback, inet6) -> {0,0,0,0,0,0,0,1};
 translate_ip(IP, _)           -> IP.  % undefined goes here
 
+
+
+-spec mod(Opts, ModuleTag, Address, DomainDefaults) -> {module(), RestOpts} when
+      Opts           :: list(),
+      ModuleTag      :: atom(), % tcp_module | udp_module | ...
+      Address        :: undefined |
+                        {term(), inet:ip_address() | socket:sockaddr()},
+      DomainDefaults :: #{inet  => module(),
+                          inet6 => module(),
+                          local => module()},
+      RestOpts       :: list(). % Opts but with the module/family option removed
+
 mod(Opts, Tag, Address, Map) ->
     mod(Opts, Tag, Address, Map, undefined, []).
 %%
-mod([{Tag, M}|Opts], Tag, Address, Map, Mod, Acc) ->
-    mod(Opts, Tag, Address, Map, Mod, Acc, M);
+mod([{Tag, M}|Opts], Tag, Address, Map, _Mod, Acc) ->
+    %% If 'module' (Tag) is specified it allways takes precedence
+    mod(Opts, Tag, Address, Map, M, Acc);
 mod([{T, _} = Opt|Opts], Tag, _Address, Map, Mod, Acc)
   when T =:= ip; T =:= ifaddr->
     mod(Opts, Tag, Opt, Map, Mod, [Opt|Acc]);
