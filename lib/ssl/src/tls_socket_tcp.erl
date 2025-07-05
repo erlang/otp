@@ -151,15 +151,17 @@ accept(Socket, Timeout) ->
       Reason  :: timeout | inet:posix().
 
 connect(Address, Port, Opts0, Timeout) ->
-    Opts1 = check_opts(Opts0),
+    {OutPort, Opts1} = get_port(Opts0),
+    Opts2 = check_opts(Opts1),
+    {Mod, Opts} = inet:tcp_module(maps:to_list(Opts2), Address),
+    BindAddr = #{addr => get_addr(Opts, any, Mod), port => OutPort},
     case inet:is_ip_address(Address) of
         true ->
-            connect_1(Address, Port, Opts1, Timeout, {error,einval});
+            connect_1([Address], Port, BindAddr, Opts, Timeout, {error,einval});
         false ->
-            {Mod, Opts} = inet:tcp_module(maps:to_list(Opts1), Address),
             case Mod:getaddrs(Address, Timeout) of
                 {ok, IPs} ->
-                    connect_1(IPs, Port, Opts, Timeout, {error,einval});
+                    connect_1(IPs, Port, BindAddr, Opts, Timeout, {error,einval});
                 Error ->
                     Error
             end
@@ -283,20 +285,20 @@ setopt(_Socket, _Opt, _Val) ->
     ?DBG_LOG("setopt: Ignore: ~p ~p~n~p", [_Opt, _Val, process_info(self(), current_stacktrace)]),
     ok.
 
-connect_1([IP|IPs], Port, Opts, Timeout, _Err) ->
+connect_1([IP|IPs], Port, BindAddr, Opts, Timeout, _Err) ->
     Family = which_family(IP),
     SockAddr = #{family => Family, addr => IP, port => Port},
     {ok, Socket} = socket:open(Family, stream, tcp),
-    ok = socket:bind(Socket, SockAddr#{port => 0}),
+    ok = socket:bind(Socket, BindAddr#{family => Family}),
     [ok = socket:setopt(Socket, Opt, Val) || {{_,_}=Opt, Val} <- Opts],
     case socket:connect(Socket, SockAddr, Timeout) of
         ok ->
             {ok, Socket};
         Err ->
             socket:close(Socket),
-            connect_1(IPs, Port, Opts, Timeout, Err)
+            connect_1(IPs, Port, BindAddr, Opts, Timeout, Err)
     end;
-connect_1([], _Port, _Opts, _Timeout, Err) ->
+connect_1([], _Port, _BA, _Opts, _Timeout, Err) ->
     Err.
 
 socket_open(Fd, Domain, Type, Protocol) when Fd < 0 ->
@@ -314,6 +316,14 @@ get_addr([_|Rest], Prev, Mod) ->
     get_addr(Rest, Prev, Mod);
 get_addr([], Addr, Mod) ->
     Mod:translate_ip(Addr).
+
+get_port(Opts0) ->
+    case lists:keytake(port, 1, Opts0) of
+        {value, {port, Out}, Opts} ->
+            {Out, Opts};
+        false ->
+            {0, Opts0}
+    end.
 
 bind_addr(Domain, undefined, Port) ->
     #{family => Domain,
