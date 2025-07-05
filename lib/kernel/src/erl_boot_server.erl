@@ -61,9 +61,11 @@ and `m:erl_prim_loader` in ERTS.
 -behaviour(gen_server).
 
 %% API functions.
--export([start/1, start_link/1, add_slave/1, delete_slave/1,
-	 add_subnet/2, delete_subnet/2,
-	 which_slaves/0]).
+-export([start/1, start/2,
+         start_link/1, start_link/2,
+         add_slave/1, delete_slave/1,
+         add_subnet/2, delete_subnet/2,
+         which_slaves/0]).
 
 %% Exports for testing (don't remove; tests suites depend on them).
 -export([would_be_booted/1]).
@@ -90,40 +92,85 @@ and `m:erl_prim_loader` in ERTS.
 -define(single_addr_mask, {255, 255, 255, 255}).
 
 -doc """
-Starts the boot server. `Slaves` is a list of IP addresses for hosts, which are
-allowed to use this server as a boot server.
+The same as [`start(Slaves, #{})`](`start/2`).
 """.
 -spec start(Slaves) -> {'ok', Pid} | {'error', Reason} when
       Slaves :: [Host],
       Host :: inet:ip_address() | inet:hostname(),
       Pid :: pid(),
-      Reason :: {'badarg', Slaves}.
+      Reason :: any().
 
 start(Slaves) ->
-    case check_arg(Slaves) of
-	{ok, AL} ->
-	    gen_server:start({local,boot_server}, erl_boot_server, AL, []);
-	_ ->
-	    {error, {badarg, Slaves}}
+    start(Slaves, #{}).
+
+-doc """
+Starts the boot server. `Slaves` is a list of IP addresses for hosts, which are
+allowed to use this server as a boot server. `Options` is a map with
+configuration options.
+
+The boot server listening port can be configured with `listen_port`.
+If an empty map is provided, or `listen_port` is zero, then an ephemeral port
+is used.
+""".
+-spec start(Slaves, Options) -> {'ok', Pid} | {'error', Reason} when
+      Slaves :: [Host],
+      Host :: inet:ip_address() | inet:hostname(),
+      Options :: #{listen_port => inet:port_number()},
+      Pid :: pid(),
+      Reason :: any().
+
+start(Slaves, Options) ->
+    case start_args(Slaves, Options) of
+        {ok, StartArgs} ->
+            gen_server:start({local,boot_server}, erl_boot_server, StartArgs, []);
+        {error, _} = Error ->
+            Error
     end.
 
 -doc """
-Starts the boot server and links to the caller. This function is used to start
-the server if it is included in a supervision tree.
+The same as [`start_link(Slaves, #{})`](`start_link/2`).
 """.
 -spec start_link(Slaves) -> {'ok', Pid} | {'error', Reason} when
       Slaves :: [Host],
       Host :: inet:ip_address() | inet:hostname(),
       Pid :: pid(),
-      Reason :: {'badarg', Slaves}.
+      Reason :: any().
 
 start_link(Slaves) ->
+    start_link(Slaves, #{}).
+
+-doc """
+The same as [`start(Slaves, Options)`](`start/2`), but it also links to the
+caller.
+""".
+-spec start_link(Slaves, Options) -> {'ok', Pid} | {'error', Reason} when
+      Slaves :: [Host],
+      Host :: inet:ip_address() | inet:hostname(),
+      Options :: #{listen_port => inet:port_number()},
+      Pid :: pid(),
+      Reason :: any().
+
+start_link(Slaves, Options) ->
+    case start_args(Slaves, Options) of
+        {ok, StartArgs} ->
+            gen_server:start_link({local,boot_server}, erl_boot_server, StartArgs, []);
+        {error, _} = Error ->
+            Error
+    end.
+
+start_args(Slaves, Options) ->
     case check_arg(Slaves) of
-	{ok, AL} ->
-	    gen_server:start_link({local,boot_server},
-				  erl_boot_server, AL, []);
-	_ ->
-	    {error, {badarg, Slaves}}
+        {ok, Arg} ->
+            case check_options(Options) of
+                true ->
+                    NewOptions = with_default_options(Options),
+                    ListenPort = maps:get(listen_port, NewOptions),
+                    {ok, #{slaves => Arg, listen_port => ListenPort}};
+                false ->
+                    {error, {badarg, Options}}
+            end;
+        _ ->
+            {error, {badarg, Slaves}}
     end.
 
 check_arg(Slaves) ->
@@ -140,6 +187,18 @@ check_arg([], Result) ->
     {ok, Result};
 check_arg(_, _Result) ->
     error.
+
+check_options(Options) when is_map(Options) ->
+    lists:all(fun valid_option/1, maps:to_list(Options));
+check_options(_) ->
+    false.
+
+valid_option({listen_port, Port}) when is_integer(Port) -> true;
+valid_option({_, _}) -> false.
+
+with_default_options(Options) ->
+    DefaultOptions = #{listen_port => 0},
+    maps:merge(DefaultOptions, Options).
 
 -doc "Adds a `Slave` node to the list of allowed slave hosts.".
 -spec add_slave(Slave) -> 'ok' | {'error', Reason} when
@@ -228,11 +287,14 @@ member_address(_, []) ->
 %% ------------------------------------------------------------
 
 -doc false.
--spec init([atom()]) -> {'ok', state()}.
+-spec init(#{slaves      := list(),
+             listen_port := inet:port_number()})
+          -> {'ok', state()}.
 
-init(Slaves) ->
+init(#{slaves      := Slaves,
+       listen_port := ListenPort}) ->
     {ok, U} = gen_udp:open(?EBOOT_PORT, []),
-    {ok, L} = gen_tcp:listen(0, [binary,{packet,4}]),
+    {ok, L} = gen_tcp:listen(ListenPort, [binary,{packet,4}]),
     {ok, Port} = inet:port(L),
     {ok, UPort} = inet:port(U),
     Ref = make_ref(),
