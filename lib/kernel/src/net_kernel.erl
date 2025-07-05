@@ -127,7 +127,7 @@
 -define(LISTEN_ID, #listen.listen).
 -define(ACCEPT_ID, #listen.accept).
 
--type connection_state() :: pending | up | up_pending.
+-type connection_state() :: check_pending | pending | up | up_pending.
 -type connection_type() :: normal | hidden.
 
 -include("net_address.hrl").
@@ -665,7 +665,7 @@ do_auto_connect_2(Node, ConnId, From, State, ConnLookup) ->
                                            ets:lookup(sys_dist, Node)}),
                     {reply, false, State};
                 _ ->
-                    case setup(Node, ConnId, normal, From, State) of
+                    case setup_check(Node, ConnId, normal, From, State) of
                         {ok, SetupPid} ->
                             Owners = State#state.conn_owners,
                             {noreply,State#state{conn_owners=Owners#{SetupPid => Node}}};
@@ -680,7 +680,8 @@ do_auto_connect_2(Node, ConnId, From, State, ConnLookup) ->
 do_explicit_connect([#connection{conn_id = ConnId, state = up}], _, _, ConnId, _From, State) ->
     {reply, true, State};
 do_explicit_connect([#connection{conn_id = ConnId}=Conn], _, _, ConnId, From, State)
-  when Conn#connection.state =:= pending;
+  when Conn#connection.state =:= check_pending;
+       Conn#connection.state =:= pending;
        Conn#connection.state =:= up_pending ->
     Waiting = Conn#connection.waiting,
     ets:insert(sys_dist, Conn#connection{waiting = [From|Waiting]}),
@@ -689,7 +690,7 @@ do_explicit_connect([#barred_connection{}], Type, Node, ConnId, From , State) ->
     %% Barred connection only affects auto_connect, ignore it.
     do_explicit_connect([], Type, Node, ConnId, From , State);
 do_explicit_connect(_ConnLookup, Type, Node, ConnId, From , State) ->
-    case setup(Node,ConnId,Type,From,State) of
+    case setup_check(Node,ConnId,Type,From,State) of
         {ok, SetupPid} ->
             Owners = State#state.conn_owners,
             {noreply,State#state{conn_owners=Owners#{SetupPid => Node}}};
@@ -1062,7 +1063,8 @@ handle_info({AcceptPid, {accept_pending,MyNode,NodeOrHost,Type}}, State0) ->
     {NameType, Node, Creation,
      ConnLookup, State} = ensure_node_name(NodeOrHost, State0),
     case ConnLookup of
-	[#connection{state=pending}=Conn] ->
+	[#connection{state=Pending}=Conn] when Pending == pending;
+                                               Pending == check_pending ->
 	    if
 		MyNode > Node ->
 		    AcceptPid ! {self(),{accept_pending,nok_pending}},
@@ -1222,6 +1224,12 @@ handle_info(transition_period_end,
     {noreply,State#state{tick = #tick{ticker = Tckr,
                                       time = T,
                                       intensity = I}}};
+
+handle_info({setup_check, Node, Pid, Timer, Res}, State) ->
+    {noreply, setup(Node, Pid, Timer, Res, State)};
+
+handle_info({setup_check_timeout, Node, Pid}, State) ->
+    {noreply, setup_check_timeout(Node, Pid, State)};
 
 handle_info(X, State) ->
     error_msg("Net kernel got ~tw~n",[X]),
@@ -1411,7 +1419,8 @@ delete_ctrlr(Ctrlr, #state{dist_ctrlrs = DCs} = State) ->
 
 nodedown(Conn, Exited, Node, Reason, Type, State) ->
     case Conn#connection.state of
-	pending ->
+	Pending when Pending == pending;
+                     Pending == check_pending ->
 	    pending_nodedown(Conn, Exited, Node, Type, State);
 	up ->
 	    up_nodedown(Conn, Exited, Node, Reason, Type, State);
@@ -1802,41 +1811,58 @@ spawn_func(_,{From,Tag},M,F,A,Gleader) ->
 %% Set up connection to a new node.
 %% -----------------------------------------------------------
 
-setup(Node, ConnId, Type, From, State) ->
-    case setup_check(Node, State) of
-		{ok, L} ->
-		    Mod = L#listen.module,
-		    LAddr = L#listen.address,
-		    MyNode = State#state.node,
-		    Pid = Mod:setup(Node,
-				    Type,
-				    MyNode,
-				    State#state.type,
-				    State#state.connecttime),
+setup(Node, CheckPid, CheckTimer, CheckRes, State) ->
+    ok = erlang:cancel_timer(CheckTimer, [{async, true}, {info, false}]),
+    case ets:lookup(sys_dist, Node) of
+        [#connection{owner = CheckPid, state = check_pending} = Conn] ->
+            case CheckRes of
+                {ok, #listen{} = L} ->
+                    Mod = L#listen.module,
+                    LAddr = L#listen.address,
+                    MyNode = State#state.node,
+                    %% We intentionally allow for a full connecttime in
+                    %% Mod:setup() since the check was successful. The
+                    %% setup timer is reset in other places as well...
+                    SetupPid = Mod:setup(Node,
+                                         Conn#connection.type,
+                                         MyNode,
+                                         State#state.type,
+                                         State#state.connecttime),
                     verbose(
-                      {setup,Node,Type,MyNode,State#state.type,Pid},
+                      {setup,Node,Conn#connection.type,
+                       MyNode,State#state.type,SetupPid},
                       2, State),
-		    Addr = LAddr#net_address {
-					      address = undefined,
-					      host = undefined },
-                    Waiting = case From of
-                                  noreply -> [];
-                                  _ -> [From]
-                              end,
-		    ets:insert(sys_dist, #connection{node = Node,
-                                                     conn_id = ConnId,
-						     state = pending,
-						     owner = Pid,
-						     waiting = Waiting,
-						     address = Addr,
-						     type = normal,
-                                                     remote_name_type = static}),
-		    {ok, Pid};
-		Error ->
-		    Error
+                    Addr = LAddr#net_address{address = undefined,
+                                             host = undefined},
+                    ets:insert(sys_dist, Conn#connection{state = pending,
+                                                         owner = SetupPid,
+                                                         address = Addr,
+                                                         type = normal}),
+                    State2 = delete_owner(CheckPid, State),
+                    Owners = State#state.conn_owners,
+                    State2#state{conn_owners = Owners#{SetupPid => Node}};
+                _CheckError ->
+                    ?connect_failure(Node, {setup_call, failed, _CheckError}),
+                    pending_nodedown(Conn, CheckPid, Node,
+                                     Conn#connection.type, State)
+            end;
+        _ ->
+            State
     end.
 
-setup_check(Node, State) ->
+setup_check_timeout(Node, CheckPid, State) ->
+    case ets:lookup(sys_dist, Node) of
+        [#connection{owner = CheckPid, state = check_pending} = Conn] ->
+            unlink(CheckPid),
+            exit(CheckPid, kill),
+            ?connect_failure(Node, {setup_call, failed, setup_check_timeout}),
+            pending_nodedown(Conn, CheckPid, Node,
+                             Conn#connection.type, State);
+        _ ->
+            State
+    end.
+
+setup_check(Node, ConnId, Type, From, State) ->
     Allowed = State#state.allowed,
     case lists:member(Node, Allowed) of
 	false when Allowed =/= [] ->
@@ -1844,10 +1870,34 @@ setup_check(Node, State) ->
 		      "disallowed node ~w ** ~n", [Node]),
 	    {error, bad_node};
        _ ->
-            case select_mod(Node, State#state.listen) of
-                {ok, _L}=OK -> OK;
-                Error -> Error
-            end
+            NetKernel = self(),
+            TimeoutTime = State#state.connecttime,
+            Listen = State#state.listen,
+            SelMod = fun () ->
+                             TimeoutMsg = {setup_check_timeout, Node, self()},
+                             Tmr = erlang:send_after(TimeoutTime,
+                                                     NetKernel,
+                                                     TimeoutMsg),
+                             Res = select_mod(Node, Listen),
+                             NetKernel ! {setup_check, Node, self(), Tmr, Res},
+                             %% Unlink net_kernel, we don't want to produce
+                             %% unnecessary 'EXIT' messages for net_kernel to
+                             %% handle...
+                             unlink(NetKernel)
+                     end,
+            Pid = spawn_link(SelMod),
+            Waiting = case From of
+                          noreply -> [];
+                          _ -> [From]
+                      end,
+            ets:insert(sys_dist, #connection{node = Node,
+                                             conn_id = ConnId,
+                                             state = check_pending,
+                                             owner = Pid,
+                                             waiting = Waiting,
+                                             type = Type,
+                                             remote_name_type = static}),
+            {ok, Pid}
     end.
 
 %%
