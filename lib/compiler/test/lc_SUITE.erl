@@ -26,7 +26,7 @@
 	 init_per_testcase/2,end_per_testcase/2,
 	 basic/1,deeply_nested/1,no_generator/1,
 	 empty_generator/1,no_export/1,shadow/1,
-	 effect/1]).
+	 effect/1,gh10020/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -45,7 +45,8 @@ groups() ->
        empty_generator,
        no_export,
        shadow,
-       effect
+       effect,
+       gh10020
       ]}].
 
 init_per_suite(Config) ->
@@ -285,6 +286,13 @@ do_effect(Lc, L) ->
     F = fun(V) -> put(?MODULE, [V|get(?MODULE)]) end,
     ok = Lc(F, L),
     lists:reverse(erase(?MODULE)).
+
+gh10020(Config) when is_list(Config) ->
+    L = lists:seq(1, 10),
+    do_gh10020(L).
+
+do_gh10020(L) ->
+    [] = [Rec || {_, Rec} <- L, is_record(L, L)].
 
 id(I) -> I.
 
