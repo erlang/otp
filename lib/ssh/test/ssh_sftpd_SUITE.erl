@@ -60,6 +60,7 @@
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/file.hrl").
+-include_lib("stdlib/include/assert.hrl").
 -include("ssh_xfer.hrl").
 -include("ssh.hrl").
 -include("ssh_test_lib.hrl").
@@ -728,25 +729,33 @@ root_with_cwd(Config) when is_list(Config) ->
     FileName = "root_with_cwd.txt",
     FilePath = filename:join(CWD, FileName),
     ok = filelib:ensure_dir(FilePath),
-    ok = file:write_file(FilePath ++ "0", <<>>),
-    ok = file:write_file(FilePath ++ "1", <<>>),
-    ok = file:write_file(FilePath ++ "2", <<>>),
     {Cm, Channel} = proplists:get_value(sftp, Config),
-    ReqId0 = 0,
-    {ok, <<?SSH_FXP_HANDLE, ?UINT32(ReqId0), _Handle0/binary>>, _} =
-	open_file(FileName ++ "0", Cm, Channel, ReqId0,
-		  ?ACE4_READ_DATA  bor ?ACE4_READ_ATTRIBUTES,
-		  ?SSH_FXF_OPEN_EXISTING),
-    ReqId1 = 1,
-    {ok, <<?SSH_FXP_HANDLE, ?UINT32(ReqId1), _Handle1/binary>>, _} =
-	open_file("./" ++ FileName ++ "1", Cm, Channel, ReqId1,
-		  ?ACE4_READ_DATA  bor ?ACE4_READ_ATTRIBUTES,
-		  ?SSH_FXF_OPEN_EXISTING),
-    ReqId2 = 2,
-    {ok, <<?SSH_FXP_HANDLE, ?UINT32(ReqId2), _Handle2/binary>>, _} =
-	open_file("/home/" ++ FileName ++ "2", Cm, Channel, ReqId2,
-		  ?ACE4_READ_DATA  bor ?ACE4_READ_ATTRIBUTES,
-		  ?SSH_FXF_OPEN_EXISTING).
+
+    %% repeat procedure to make sure uniq file handles are generated
+    FileHandles =
+        [begin
+             ReqIdStr = integer_to_list(ReqId),
+             ok = file:write_file(FilePath ++ ReqIdStr, <<>>),
+             {ok, <<?SSH_FXP_HANDLE, ?UINT32(ReqId), Handle/binary>>, _} =
+                 open_file(FileName ++ ReqIdStr, Cm, Channel, ReqId,
+                           ?ACE4_READ_DATA  bor ?ACE4_READ_ATTRIBUTES,
+                           ?SSH_FXF_OPEN_EXISTING),
+             Handle
+         end ||
+            ReqId <- lists:seq(0,2)],
+    ?assertEqual(length(FileHandles),
+                 length(lists:uniq(FileHandles))),
+    %% create a gap in file handles
+    [_, MiddleHandle, _] = FileHandles,
+    close(MiddleHandle, 3, Cm, Channel),
+
+    %% check that gap in file handles is is re-used
+    GapReqId = 4,
+    {ok, <<?SSH_FXP_HANDLE, ?UINT32(GapReqId), MiddleHandle/binary>>, _} =
+        open_file(FileName ++ integer_to_list(1), Cm, Channel, GapReqId,
+                  ?ACE4_READ_DATA  bor ?ACE4_READ_ATTRIBUTES,
+                  ?SSH_FXF_OPEN_EXISTING),
+    ok.
 
 %%--------------------------------------------------------------------
 relative_path(Config) when is_list(Config) ->
