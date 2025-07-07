@@ -27,7 +27,7 @@
          basic/1,mixed_zlc/1,zmc/1,filter_guard/1,
          filter_pattern/1,cartesian/1,nomatch/1,bad_generators/1,
          strict_list/1,strict_binary/1,
-         cover/1,strict_pat/1]).
+         cover/1,strict_pat/1,gh10002/1]).
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("stdlib/include/assert.hrl").
@@ -52,7 +52,8 @@ groups() ->
        strict_list,
        strict_binary,
        cover,
-       strict_pat
+       strict_pat,
+       gh10002
       ]}].
 
 init_per_suite(Config) ->
@@ -526,6 +527,14 @@ strict_pat_5(G1, G2, G3) ->
     Res = [{Key,Y} || Key <- G1, #{Key := Y} <- G2 && Y <:- G3],
     Res = [{Key,Y} || Key <- G1, Y <:- G3 && #{Key := Y} <- G2],
     Res.
+
+gh10002(Config) when is_list(Config) ->
+    [] = [X || X <:- [] && #{key1 := X, key2 := _} <- [] ],
+    [1] = [X || X <:- [1] && #{key1 := X, key2 := _} <- [#{key1=>1,key2=>1}]],
+    [] = [X || X <:- [1] && #{key1 := X, key2 := _} <- [#{key1=>1}]],
+    ?assertError({bad_generators,{[1],[#{key1:=0}]}},
+                [X || X <:- [1] && #{key1 := X, key2 := _} <- [#{key1=>0}]]),
+    ok.
 
 -file("bad_zlc.erl", 1).
 bad_generators(L1,L2) ->                        %Line 2
