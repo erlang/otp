@@ -297,6 +297,8 @@ are checked, and finally, the default value is chosen.
 	 read/1, read/2, wread/1, read/3, read/5,
 	 match_object/1, match_object/3, match_object/5,
 	 select/1,select/2,select/3,select/4,select/5,select/6,
+	 select_reverse/1,select_reverse/2,select_reverse/3,select_reverse/4,
+	 select_reverse/5,select_reverse/6,
 	 all_keys/1, all_keys/4,
 	 index_match_object/2, index_match_object/4, index_match_object/6,
 	 index_read/3, index_read/6,
@@ -315,6 +317,7 @@ are checked, and finally, the default value is chosen.
 	 %% Dirty access regardless of activities - Read
 	 dirty_read/1, dirty_read/2,
 	 dirty_select/2,
+	 dirty_select_reverse/2,
 	 dirty_match_object/1, dirty_match_object/2, dirty_all_keys/1,
 	 dirty_index_match_object/2, dirty_index_match_object/3,
 	 dirty_index_read/3, dirty_slot/2,
@@ -374,7 +377,8 @@ are checked, and finally, the default value is chosen.
 	 %% Module internal callback functions
 	 raw_table_info/2,                      % Not for public use
 	 remote_dirty_match_object/2,           % Not for public use
-	 remote_dirty_select/2                  % Not for public use
+	 remote_dirty_select/2,                 % Not for public use
+	 remote_dirty_select_reverse/2          % Not for public use
 	]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -2443,6 +2447,165 @@ select(Cont) ->
 	    abort(no_transaction)
     end.
 
+% select_reverse
+-doc(#{equiv => select_reverse(Tab, MatchSpec, read)}).
+-doc(#{since => <<"OTP @OTP-19611@">>}).
+-spec select_reverse(Tab, MatchSpec) -> [Match] when
+      Tab::table(), MatchSpec::ets:match_spec(), Match::term().
+select_reverse(Tab, Pat) ->
+    select_reverse(Tab, Pat, read).
+-doc(#{since => <<"OTP @OTP-19611@">>}).
+-doc """
+Works like `select/3`, but for table type `ordered_set`, traversing is done
+starting at the last object in Erlang term order, and moves to the first. For
+all other table types, the return value is identical to that of `select/3`.
+
+See `select/3` for more information.
+""".
+-spec select_reverse(Tab, Spec, LockKind) -> [Match] when
+      Tab::table(), Spec::ets:match_spec(),
+      Match::term(),LockKind::lock_kind().
+select_reverse(Tab, Pat, LockKind)
+  when is_atom(Tab), Tab /= schema, is_list(Pat) ->
+    case get(mnesia_activity_state) of
+	{?DEFAULT_ACCESS, Tid, Ts} ->
+	    select_reverse(Tid, Ts, Tab, Pat, LockKind);
+	{Mod, Tid, Ts} ->
+	    Mod:select_reverse(Tid, Ts, Tab, Pat, LockKind);
+	_ ->
+	    abort(no_transaction)
+    end;
+select_reverse(Tab, Pat, _Lock) ->
+    abort({badarg, Tab, Pat}).
+
+-doc false.
+select_reverse(Tid, Ts, Tab, Spec, LockKind) ->
+    SelectFun = fun(FixedSpec) -> dirty_select_reverse(Tab, FixedSpec) end,
+    fun_select_reverse(Tid, Ts, Tab, Spec, LockKind, Tab, SelectFun).
+
+-doc false.
+fun_select_reverse(Tid, Ts, Tab, Spec, LockKind, TabPat, SelectFun) ->
+    case element(1, Tid) of
+	ets ->
+	    mnesia_lib:db_select_rev(ram_copies, Tab, Spec);
+	tid ->
+	    select_lock(Tid,Ts,LockKind,Spec,Tab),
+	    Store = Ts#tidstore.store,
+	    Written = ?ets_match_object(Store, {{TabPat, '_'}, '_', '_'}),
+	    case Written of
+		[] ->
+		    %% Nothing changed in the table during this transaction,
+		    %% Simple case get results from [d]ets
+		    SelectFun(Spec);
+		_ ->
+		    %% Hard (slow case) records added or deleted earlier
+		    %% in the transaction, have to cope with that.
+		    Type = val({Tab, setorbag}),
+		    FixedSpec = get_record_pattern(Spec),
+		    TabRecs = SelectFun(FixedSpec),
+		    FixedRes = add_match(Written, TabRecs, Type),
+		    CMS = ets:match_spec_compile(Spec),
+		    ets:match_spec_run(FixedRes, CMS)
+	    end;
+	_Protocol ->
+	    SelectFun(Spec)
+    end.
+
+%% Breakable Select Reverse
+-doc(#{since => <<"OTP @OTP-19611@">>}).
+-doc """
+Select the objects in `Tab` against `MatchSpec` in reverse order.
+
+Matches the objects in table `Tab` using a `match_spec` as described in the
+[ERTS](`e:erts:index.html`) User's Guide, and returns a chunk of terms and a
+continuation. The wanted number of returned terms is specified by argument
+`NObjects`. The lock argument can be `read` or `write`. The continuation is to
+be used as argument to `mnesia:select_reverse/1`, if more or all answers are needed.
+
+Notice that for best performance, `select_reverse` is to be used before any modifying
+operations are done on that table in the same transaction. That is, do not use
+`mnesia:write` or `mnesia:delete` before a `mnesia:select_reverse`. For efficiency,
+`NObjects` is a recommendation only and the result can contain anything from an
+empty list to all available results.
+""".
+-spec select_reverse(Tab, Spec, N, LockKind) -> {[Match], Cont} | '$end_of_table' when
+      Tab::table(), Spec::ets:match_spec(),
+      Match::term(), N::non_neg_integer(),
+      LockKind::lock_kind(),
+      Cont::select_continuation().
+select_reverse(Tab, Pat, NObjects, LockKind)
+  when is_atom(Tab), Tab /= schema, is_list(Pat), is_integer(NObjects) ->
+    case get(mnesia_activity_state) of
+	{?DEFAULT_ACCESS, Tid, Ts} ->
+	    select_reverse(Tid, Ts, Tab, Pat, NObjects, LockKind);
+	{Mod, Tid, Ts} ->
+	    Mod:select_reverse(Tid, Ts, Tab, Pat, NObjects, LockKind);
+	_ ->
+	    abort(no_transaction)
+    end;
+select_reverse(Tab, Pat, NObjects, _Lock) ->
+    abort({badarg, Tab, Pat, NObjects}).
+
+-doc false.
+select_reverse(Tid, Ts, Tab, Spec, NObjects, LockKind) ->
+    Where = val({Tab,where_to_read}),
+    Type = mnesia_lib:storage_type_at_node(Where,Tab),
+    InitFun = fun(FixedSpec) -> dirty_sel_init(Where,Tab,FixedSpec,NObjects,Type,reverse) end,
+    fun_select_reverse(Tid,Ts,Tab,Spec,LockKind,Tab,InitFun,NObjects,Where,Type).
+
+-doc false.
+fun_select_reverse(Tid, Ts, Tab, Spec, LockKind, TabPat, Init, NObjects, Node, Storage) ->
+    Def = #mnesia_select{tid=Tid,node=Node,storage=Storage,tab=Tab,orig=Spec},
+    case element(1, Tid) of
+	ets ->
+	    select_state(mnesia_lib:db_select_rev_init(ram_copies,Tab,Spec,NObjects),Def);
+	tid ->
+	    select_lock(Tid,Ts,LockKind,Spec,Tab),
+	    Store = Ts#tidstore.store,
+	    do_fixtable(Tab, Store),
+
+	    Written0 = ?ets_match_object(Store, {{TabPat, '_'}, '_', '_'}),
+	    case Written0 of
+		[] ->
+		    %% Nothing changed in the table during this transaction,
+		    %% Simple case get results from [d]ets
+		    select_state(Init(Spec),Def);
+		_ ->
+		    %% Hard (slow case) records added or deleted earlier
+		    %% in the transaction, have to cope with that.
+		    Type = val({Tab, setorbag}),
+		    Written =
+			if Type == ordered_set -> %% Sort stable, in descending order
+				lists:sort(fun(A, B) -> element(1, A) > element(1, B) end, Written0);
+			   true ->
+				Written0
+			end,
+		    FixedSpec = get_record_pattern(Spec),
+		    CMS = ets:match_spec_compile(Spec),
+		    trans_select(Init(FixedSpec),
+				 Def#mnesia_select{written=Written,spec=CMS,type=Type, orig=FixedSpec})
+	    end;
+	_Protocol ->
+	    select_state(Init(Spec),Def)
+    end.
+
+-doc(#{since => <<"OTP @OTP-19611@">>}).
+-doc """
+Continue selecting objects.
+
+Selects more objects with the match specification initiated by
+`mnesia:select_reverse/4`.
+
+Notice that any modifying operations, that is, `mnesia:write` or
+`mnesia:delete`, that are done between the `mnesia:select_reverse/4` and
+`mnesia:select_reverse/1` calls are not visible in the result.
+""".
+-spec select_reverse(Cont) -> {[Match], Cont} | '$end_of_table' when
+      Match::term(),
+      Cont::select_continuation().
+select_reverse(Cont) ->
+    select(Cont).
+
 -doc false.
 select_cont(_Tid,_Ts,'$end_of_table') ->
     '$end_of_table';
@@ -2450,11 +2613,13 @@ select_cont(Tid,_Ts,State=#mnesia_select{tid=Tid,cont=Cont, orig=Ms})
   when element(1,Tid) == ets ->
     case Cont of
 	'$end_of_table' -> '$end_of_table';
-	_ -> select_state(mnesia_lib:db_select_cont(ram_copies,Cont,Ms),State)
+	_ ->
+	    Result = mnesia_lib:db_select_cont(ram_copies,Cont,Ms),
+	    select_state(Result,State)
     end;
 select_cont(Tid,_,State=#mnesia_select{tid=Tid,written=[]}) ->
     select_state(dirty_sel_cont(State),State);
-select_cont(Tid,_Ts,State=#mnesia_select{tid=Tid})  ->
+select_cont(Tid,_Ts,State=#mnesia_select{tid=Tid}) ->
     trans_select(dirty_sel_cont(State), State);
 select_cont(Tid2,_,#mnesia_select{tid=_Tid1})
   when element(1,Tid2) == tid ->  % Mismatching tids
@@ -2883,9 +3048,62 @@ remote_dirty_select(Tab, [{HeadPat,_, _}] = Spec, [Pos | Tail])
 remote_dirty_select(Tab, Spec, _) ->
     mnesia_lib:db_select(Tab, Spec).
 
+-doc(#{since => <<"OTP @OTP-19611@">>}).
+-doc """
+Dirty equivalent to `mnesia:select_reverse/2`.
+""".
+-spec dirty_select_reverse(Tab, Spec) -> [Match] when
+      Tab::table(), Spec::ets:match_spec(), Match::term().
+dirty_select_reverse(Tab, Spec) when is_atom(Tab), Tab /= schema, is_list(Spec) ->
+    dirty_rpc(Tab, ?MODULE, remote_dirty_select_reverse, [Tab, Spec]);
+dirty_select_reverse(Tab, Spec) ->
+    abort({bad_type, Tab, Spec}).
+
+-doc false.
+remote_dirty_select_reverse(Tab, Spec) ->
+    case Spec of
+	[{HeadPat, _, _}] when is_tuple(HeadPat), tuple_size(HeadPat) > 2 ->
+	    Key = element(2, HeadPat),
+	    case has_var(Key) of
+		false ->
+		    mnesia_lib:db_select_rev(Tab, Spec);
+		true  ->
+		    PosList = regular_indexes(Tab),
+		    remote_dirty_select_reverse(Tab, Spec, PosList)
+	    end;
+	_ ->
+	    mnesia_lib:db_select_rev(Tab, Spec)
+    end.
+
+remote_dirty_select_reverse(Tab, [{HeadPat,_, _}] = Spec, [Pos | Tail])
+  when is_tuple(HeadPat), tuple_size(HeadPat) > 2, Pos =< tuple_size(HeadPat) ->
+    Key = element(Pos, HeadPat),
+    case has_var(Key) of
+	false ->
+	    Recs = mnesia_index:dirty_select(Tab, HeadPat, Pos),
+	    %% Returns the records without applying the match spec
+	    %% The actual filtering is handled by the caller
+	    CMS = ets:match_spec_compile(Spec),
+	    case val({Tab, setorbag}) of
+		ordered_set ->
+		    DescFun = fun(A, B) -> A > B end,
+		    ets:match_spec_run(lists:sort(DescFun, Recs), CMS);
+		_ ->
+		    ets:match_spec_run(Recs, CMS)
+	    end;
+	true  ->
+	    remote_dirty_select_reverse(Tab, Spec, Tail)
+    end;
+remote_dirty_select_reverse(Tab, Spec, _) ->
+    mnesia_lib:db_select_rev(Tab, Spec).
+
 -doc false.
 dirty_sel_init(Node,Tab,Spec,NObjects,Type) ->
-    do_dirty_rpc(Tab,Node,mnesia_lib,db_select_init,[Type,Tab,Spec,NObjects]).
+    dirty_sel_init(Node,Tab,Spec,NObjects,Type,forward).
+dirty_sel_init(Node,Tab,Spec,NObjects,Type,forward) ->
+    do_dirty_rpc(Tab,Node,mnesia_lib,db_select_init,[Type,Tab,Spec,NObjects]);
+dirty_sel_init(Node,Tab,Spec,NObjects,Type,reverse) ->
+    do_dirty_rpc(Tab,Node,mnesia_lib,db_select_rev_init,[Type,Tab,Spec,NObjects]).
 
 dirty_sel_cont(#mnesia_select{cont='$end_of_table'}) -> '$end_of_table';
 dirty_sel_cont(#mnesia_select{node=Node,tab=Tab,storage=Type,cont=Cont,orig=Ms}) ->
