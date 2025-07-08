@@ -183,6 +183,7 @@ groups() ->
 
      {all,                  [], all_cases()},
      {start_and_stop_tests, [], start_and_stop_tests_cases()},
+     {notify,               [], notify_cases()},
      {misc_tests,           [], misc_tests_cases()},
      {usm_priv_aes_tests,   [], usm_priv_aes_tests_cases()},
      {user_tests,           [], user_tests_cases()},
@@ -238,6 +239,11 @@ start_and_stop_tests_cases() ->
      simple_start_and_stop3, 
      simple_start_and_monitor_crash1,
      simple_start_and_monitor_crash2, 
+     {group, notify}
+    ].
+
+notify_cases() ->
+    [
      notify_started01,
      notify_started02
     ].
@@ -1247,48 +1253,68 @@ do_notify_started01(Config) ->
 	    {config,     [{verbosity, log}, {dir, ConfDir}, {db_dir, DbDir}]}],
 
     ?IPRINT("[tc] request start notification (1)"),
-    Pid1 = snmpm:notify_started(10000),
+    NotifyPid1 = snmpm:notify_started(#{verbose   => true,
+                                        tick_time => 1000,
+                                        timeout   => 10000}),
     receive
-	{snmpm_start_timeout, Pid1} ->
-	    ?IPRINT("[tc] received expected start timeout"),
+	{snmpm_start_timeout, NotifyPid1} ->
+	    ?IPRINT("[tc] received expected start timeout (~p)", [NotifyPid1]),
 	    ok;
 	Any1 ->
-	    ?FAIL({unexpected_message, Any1})
+            ?EPRINT("received unexpected message (1): "
+                    "~n   ~p"
+                    "~n   Notify Process (~p) Info: ~p",
+                    [Any1,
+                     NotifyPid1, (catch erlang:process_info(NotifyPid1))]),
+	    ?FAIL({unexpected_message, 1, Any1})
     after 15000 ->
-	    ?FAIL({unexpected_timeout, Pid1})
+            ?EPRINT("unexpected timeout: "
+                    "~n   Notify Process (~p) Info: ~p",
+                    [NotifyPid1, (catch erlang:process_info(NotifyPid1))]),
+	    ?FAIL({unexpected_timeout, 1, NotifyPid1})
     end,
 
     ?IPRINT("[tc] request start notification (2)"),
-    Pid2 = snmpm:notify_started(10000),
+    NotifyPid2 = snmpm:notify_started(#{verbose   => true,
+                                        tick_time => 1000,
+                                        timeout   => ?NS_TIMEOUT}),
 
     ?IPRINT("[tc] start the snmpm starter"),
-    StarterPid = snmpm_starter(Opts, 5000),
+    {StarterPid, _StarterMRef} = snmpm_starter(Opts, 5000),
 
-    ?IPRINT("[tc] await the start notification"),
+    ?IPRINT("[tc] await the start notification: "
+            "~n   Notify Process:  ~p"
+            "~n   Starter Process: ~p", [NotifyPid2, StarterPid]),
     Ref = 
 	receive
-	    {snmpm_started, Pid2} ->
+	    {snmpm_started, NotifyPid2} ->
 		?IPRINT("[tc] received start notification message -> "
                         "create the monitor"),
 		snmpm:monitor();
-            {snmpm_start_timeout, StarterPid} ->
-                ?EPRINT("[tc] Start Timeout: "
-                        "~n   Starter Process (~p) Info: ~p",
-                        [StarterPid, (catch erlang:process_info(StarterPid))]),
+            {snmpm_start_timeout, NotifyPid2} ->
+                ?EPRINT("[tc] received unexpected start timeout when"
+                        "~n   Starter Process (~p) info: ~s",
+                        [StarterPid,
+                         format_process_info(StarterPid, "      ")]),
+                exit(StarterPid, kill),
                 ?FAIL(start_timeout);
 	    Any2 ->
                 ?EPRINT("[tc] Unexpected Message: "
-                        "~n   Notify Process Info:  ~p"
-                        "~n   Starter Process info: ~p",
-                        [(catch erlang:process_info(Pid2)),
-                         (catch erlang:process_info(StarterPid))]),
+                        "~n   ~p"
+                        "~n   Notify Process (~p) Info:  ~s"
+                        "~n   Starter Process (~p) info: ~s",
+                        [Any2,
+                         NotifyPid2,
+                         format_process_info(NotifyPid2, "      "),
+                         StarterPid,
+                         format_process_info(StarterPid, "      ")]),
 		?FAIL({unexpected_message, Any2})
 	after 15000 ->
                 ?EPRINT("[tc] Unexpected Start Timeout: "
-                        "~n   Notify Process Info:  ~p"
-                        "~n   Starter Process info: ~p",
-                        [(catch erlang:process_info(Pid2)),
-                         (catch erlang:process_info(StarterPid))]),
+                        "~n   Notify Process (~p) Info:  ~p"
+                        "~n   Starter Process (~p) info: ~p",
+                        [NotifyPid2, (catch erlang:process_info(NotifyPid2)),
+                         StarterPid, (catch erlang:process_info(StarterPid))]),
 		?FAIL(unexpected_start_timeout)
 	end,
 
@@ -1319,10 +1345,51 @@ do_notify_started01(Config) ->
     ?IPRINT("[tc] end"),
     ok.
 
+format_process_info(P, Indent) when is_pid(P) andalso is_list(Indent) ->
+    try
+        begin
+            CurrentFunction   = pi(P, current_function),
+            CurrentStackTrace = pi(P, current_stacktrace),
+            Reductions        = pi(P, reductions),
+            Memory            = pi(P, memory),
+            HeapSize          = pi(P, heap_size),
+            MaxHeapSize       = pi(P, max_heap_size),
+            TotHeapSize       = pi(P, total_heap_size),
+            Status            = pi(P, status),
+            ?F("~n"
+               "~sCurrent Function:   ~p~n"
+               "~sCurrent StackTrace: ~p~n"
+               "~sReductions:         ~p~n"
+               "~sMemory:             ~p~n"
+               "~sHeapSize:           ~p~n"
+               "~sMax Heap Size:      ~p~n"
+               "~sTotal Heap Size:    ~p~n"
+               "~sStatus:             ~p~n",
+               [Indent, CurrentFunction,
+                Indent, CurrentStackTrace,
+                Indent, Reductions,
+                Indent, Memory,
+                Indent, HeapSize,
+                Indent, MaxHeapSize,
+                Indent, TotHeapSize,
+                Indent, Status])
+        end
+    catch
+        _:_:_ ->
+            "-"
+    end.
 
+pi(Pid, Key) ->
+    case ?PI(Pid, Key) of
+        undefined ->
+            throw(no_process);
+        Value ->
+            Value
+    end.
+    
 snmpm_starter(Opts, To) ->
     Parent = self(),
-    spawn(
+    spawn_monitor(
       fun() ->
               ?IPRINT("[snmpm-starter] wait ~w msec", [To]),
 	      ?SLEEP(To),
@@ -1473,7 +1540,10 @@ ns02_client(Parent, N) when is_pid(Parent) ->
     put(tname, ns02_client),
     ?IPRINT("starting"),
     ns02_client_loop(Parent, 
-                     dummy, snmpm:notify_started(?NS_TIMEOUT),
+                     dummy,
+                     snmpm:notify_started(#{verbose   => true,
+                                            tick_time => 1000,
+                                            timeout   => ?NS_TIMEOUT}),
                      snmp_misc:now(ms), undefined,
                      N).
 
@@ -1514,7 +1584,10 @@ ns02_client_loop(Parent, Ref, Pid, Begin, End, N) ->
                     "~n   Obj:    ~p"
                     "~n   Reason: ~p", [N, Obj, Reason]),
 	    ns02_client_loop(Parent,
-                             dummy, snmpm:notify_started(?NS_TIMEOUT),
+                             dummy,
+                             snmpm:notify_started(#{verbose   => true,
+                                                    tick_time => 1000,
+                                                    timeout   => ?NS_TIMEOUT}),
                              Begin, snmp_misc:now(ms),
                              N-1)
     end.
