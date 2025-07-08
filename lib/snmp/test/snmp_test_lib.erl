@@ -41,7 +41,7 @@
 	 replace_config/3, set_config/3, get_config/2, get_config/3]).
 -export([fail/3, skip/3]).
 -export([hours/1, minutes/1, seconds/1, sleep/1]).
--export([flush_mqueue/0, mqueue/0, mqueue/1, trap_exit/0, trap_exit/1]).
+-export([pi/2, flush_mqueue/0, mqueue/0, mqueue/1, trap_exit/0, trap_exit/1]).
 -export([ping/1, local_nodes/0, nodes_on/1]).
 -export([is_app_running/1,
 	 is_crypto_running/0, is_mnesia_running/0, is_snmp_running/0,
