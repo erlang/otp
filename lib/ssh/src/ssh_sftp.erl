@@ -778,10 +778,14 @@ read_file(Pid, Name) ->
 read_file(Pid, Name, FileOpTimeout) ->
     case open(Pid, Name, [read, binary], FileOpTimeout) of
 	{ok, Handle} ->
-	    {ok,{_WindowSz,PacketSz}} = recv_window(Pid, FileOpTimeout),
-	    Res = read_file_loop(Pid, Handle, PacketSz, FileOpTimeout, []),
-	    close(Pid, Handle),
-	    Res;
+            case recv_window(Pid, FileOpTimeout) of
+                {ok,{_WindowSz,PacketSz}} ->
+                    Res = read_file_loop(Pid, Handle, PacketSz, FileOpTimeout, []),
+                    close(Pid, Handle),
+                    Res;
+                Error ->
+                    Error
+            end;
 	Error ->
 	    Error
     end.
@@ -815,11 +819,15 @@ write_file(Pid, Name, List, FileOpTimeout) when is_list(List) ->
 write_file(Pid, Name, Bin, FileOpTimeout) ->
     case open(Pid, Name, [write, binary], FileOpTimeout) of
 	{ok, Handle} ->
-	    {ok,{_Window,Packet}} = send_window(Pid, FileOpTimeout),
-	    Res = write_file_loop(Pid, Handle, 0, Bin, byte_size(Bin), Packet,
-				  FileOpTimeout),
-	    close(Pid, Handle, FileOpTimeout),
-	    Res;
+            case send_window(Pid, FileOpTimeout) of
+                {ok,{_Window,Packet}} ->
+                    Res = write_file_loop(Pid, Handle, 0, Bin, byte_size(Bin), Packet,
+                                          FileOpTimeout),
+                    close(Pid, Handle, FileOpTimeout),
+                    Res;
+                Error ->
+                    Error
+            end;
 	Error ->
 	    Error
     end.
@@ -1634,8 +1642,12 @@ to_bin(Data) when is_binary(Data) -> Data.
 
 
 read_repeat(Pid, Handle, Len, FileOpTimeout) ->
-    {ok,{_WindowSz,PacketSz}} = recv_window(Pid, FileOpTimeout),
-    read_rpt(Pid, Handle, Len, PacketSz, FileOpTimeout, <<>>).
+    case recv_window(Pid, FileOpTimeout) of
+        {ok,{_WindowSz,PacketSz}} ->
+            read_rpt(Pid, Handle, Len, PacketSz, FileOpTimeout, <<>>);
+        Error ->
+            Error
+    end.
 
 read_rpt(Pid, Handle, WantedLen, PacketSz, FileOpTimeout, Acc) when WantedLen > 0 ->
     case read(Pid, Handle, min(WantedLen,PacketSz), FileOpTimeout) of
@@ -1653,8 +1665,12 @@ read_rpt(_Pid, _Handle, WantedLen, _PacketSz, _FileOpTimeout, Acc) when WantedLe
 write_to_remote_tar(_Pid, _SftpHandle, <<>>, _FileOpTimeout) ->
     ok;
 write_to_remote_tar(Pid, SftpHandle, Bin, FileOpTimeout) ->
-    {ok,{_Window,Packet}} = send_window(Pid, FileOpTimeout),
-    write_file_loop(Pid, SftpHandle, 0, Bin, byte_size(Bin), Packet, FileOpTimeout).
+    case send_window(Pid, FileOpTimeout) of
+        {ok,{_Window,Packet}} ->
+            write_file_loop(Pid, SftpHandle, 0, Bin, byte_size(Bin), Packet, FileOpTimeout);
+        Error ->
+            Error
+    end.
 
 position_buf(Pid, SftpHandle, BufHandle, Pos, FileOpTimeout) ->
     {ok,#bufinf{mode = Mode,
@@ -1691,18 +1707,26 @@ position_buf(Pid, SftpHandle, BufHandle, Pos, FileOpTimeout) ->
       end.
 
 read_buf(Pid, SftpHandle, BufHandle, WantedLen, FileOpTimeout) ->
-    {ok,{_Window,Packet}} = send_window(Pid, FileOpTimeout),
-    {ok,B0}  = call(Pid, {get_bufinf,BufHandle}, FileOpTimeout),
-    case do_the_read_buf(Pid, SftpHandle, WantedLen, Packet, FileOpTimeout, B0) of
-	{ok,ResultBin,B} ->
-	    call(Pid, {put_bufinf,BufHandle,B}, FileOpTimeout),
-	    {ok,ResultBin};
-	{error,Error} ->
-	    {error,Error};
-	{eof,B} ->
-	    call(Pid, {put_bufinf,BufHandle,B}, FileOpTimeout),
-	    eof
-      end.
+    case send_window(Pid, FileOpTimeout) of
+        {ok,{_Window,Packet}} ->
+            case call(Pid, {get_bufinf,BufHandle}, FileOpTimeout) of
+                {ok,B0} ->
+                    case do_the_read_buf(Pid, SftpHandle, WantedLen, Packet, FileOpTimeout, B0) of
+                        {ok,ResultBin,B} ->
+                            call(Pid, {put_bufinf,BufHandle,B}, FileOpTimeout),
+                            {ok,ResultBin};
+                        {error,Error} ->
+                            {error,Error};
+                        {eof,B} ->
+                            call(Pid, {put_bufinf,BufHandle,B}, FileOpTimeout),
+                            eof
+                    end;
+                Error ->
+                    Error
+            end;
+        Error ->
+            Error
+    end.
 
 do_the_read_buf(_Pid, _SftpHandle, WantedLen, _Packet, _FileOpTimeout,
 		B=#bufinf{plain_text_buf=PlainBuf0,
@@ -1754,15 +1778,23 @@ do_the_read_buf(Pid, SftpHandle, WantedLen, Packet, FileOpTimeout, B=#bufinf{enc
 
 
 write_buf(Pid, SftpHandle, BufHandle, PlainBin, FileOpTimeout) ->
-    {ok,{_Window,Packet}} = send_window(Pid, FileOpTimeout),
-    {ok,B0=#bufinf{plain_text_buf=PTB}}  = call(Pid, {get_bufinf,BufHandle}, FileOpTimeout),
-    case do_the_write_buf(Pid, SftpHandle, Packet, FileOpTimeout,
-			  B0#bufinf{plain_text_buf = <<PTB/binary,PlainBin/binary>>}) of
-	{ok, B} ->
-	    call(Pid, {put_bufinf,BufHandle,B}, FileOpTimeout),
-	    ok;
-	{error,Error} ->
-	    {error,Error}
+    case send_window(Pid, FileOpTimeout) of
+        {ok,{_Window,Packet}} ->
+            case call(Pid, {get_bufinf,BufHandle}, FileOpTimeout) of
+                {ok,B0=#bufinf{plain_text_buf=PTB}} ->
+                    case do_the_write_buf(Pid, SftpHandle, Packet, FileOpTimeout,
+                                          B0#bufinf{plain_text_buf = <<PTB/binary,PlainBin/binary>>}) of
+                        {ok, B} ->
+                            call(Pid, {put_bufinf,BufHandle,B}, FileOpTimeout),
+                            ok;
+                        {error,Error} ->
+                            {error,Error}
+                    end;
+                Error ->
+                    Error
+            end;
+        Error ->
+            Error
     end.
 
 do_the_write_buf(Pid, SftpHandle, Packet, FileOpTimeout,
