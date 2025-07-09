@@ -462,7 +462,7 @@ do_handle_client_hello(#client_hello{cipher_suites = ClientCiphers,
         {Group, ClientPubKey} = select_client_public_key(Groups, ClientShares),
 
         %% Generate server_share
-        KeyShare = ssl_cipher:generate_server_share(Group),
+        KeyShare = generate_server_share(Group, ClientPubKey),
 
         State2 = case maps:get(max_frag_enum, Extensions, undefined) of
                       MaxFragEnum when is_record(MaxFragEnum, max_frag_enum) ->
@@ -762,6 +762,25 @@ default_or_fallback({fallback, _}, #session{} = Default) ->
     Default;
 default_or_fallback(Default, _) ->
     Default.
+
+is_mlkem(Group) when Group == mlkem512;
+                     Group == mlkem768;
+                     Group == mlkem1024 ->
+    true;
+is_mlkem(_) ->
+    false.
+
+generate_server_share(Group, OtherPubKey) ->
+    case is_mlkem(Group) of
+        true ->
+            {Secret, CipherText} = crypto:encapsulate_key(Group, OtherPubKey),
+            #key_share_server_hello{server_share = #key_share_entry{
+                                                      group = Group,
+                                                      key_exchange = {CipherText, Secret}
+                                                     }};
+        false ->
+            ssl_cipher:generate_server_share(Group)
+    end.
 
 select_server_private_key(#key_share_server_hello{server_share = ServerShare}) ->
     select_private_key(ServerShare).

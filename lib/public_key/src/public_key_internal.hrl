@@ -34,6 +34,7 @@
 
 -include("OTP-PKIX.hrl").
 -include("PKCS-1.hrl").
+-include("X509-ML-DSA-2025.hrl").
 
 %%  Bug in ASN.1 compiler  (hardcode the correct value)
 -undef('rSASSA-PSS-Default-Identifier').
@@ -133,6 +134,19 @@
 -define(aACompromise, 10).
 
 -define('anyPolicy', {2,5,29,32,0}).
+
+-record('ML-DSAPrivateKey',
+        {
+         algorithm :: mldsa44 | mldsa65 | mldsa87,
+         seed = <<>> :: binary(),
+         expandedkey = <<>> :: binary()
+        }).
+
+-record('ML-DSAPublicKey',
+        {
+         algorithm :: mldsa44 | mldsa65 | mldsa87,
+         key  :: binary()
+        }).
 
 -record('ECParameters',
         {
