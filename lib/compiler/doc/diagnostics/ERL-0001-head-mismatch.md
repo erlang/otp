@@ -11,8 +11,8 @@ boo(1) -> 2.
 
 ```
 $ erlc foo.erl
-foo.erl:4:1: error: head mismatch: previous function foo/1 is distinct from bar/1. [ERL-0001]
-%    4| bar(1) -> 2.
+foo.erl:4:1: error: head mismatch: previous function foo/1 is distinct from boo/1. [ERL-0001]
+%    4| boo(1) -> 2.
 %     | ^
 % help: call `erlc -explain ERL-0001` to see a detailed explanation
 % help: Is the semicolon in foo/1 unwanted?
