@@ -23,6 +23,7 @@
 -module(snmp_test_lib).
 
 -include_lib("kernel/include/file.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 
 -export([tc_try/2, tc_try/3,
@@ -42,7 +43,7 @@
 -export([fail/3, skip/3]).
 -export([hours/1, minutes/1, seconds/1, sleep/1]).
 -export([pi/2, flush_mqueue/0, mqueue/0, mqueue/1, trap_exit/0, trap_exit/1]).
--export([ping/1, local_nodes/0, nodes_on/1]).
+-export([start_node/2, ping/1, local_nodes/0, nodes_on/1]).
 -export([is_app_running/1,
 	 is_crypto_running/0, is_mnesia_running/0, is_snmp_running/0,
          ensure_not_running/3]).
@@ -1042,7 +1043,10 @@ fail(Reason, Mod, Line) ->
 skip(Reason, Module, Line) ->
     String = lists:flatten(io_lib:format("Skipping ~p(~p): ~p~n", 
 					 [Module, Line, Reason])),
-    exit({skip, String}).
+    skip(String).
+
+skip(Reason) ->
+    exit({skip, Reason}).
     
 
 %% This function prints various host info, which might be useful
@@ -3163,6 +3167,42 @@ trap_exit(Flag) ->
 %% Node utility functions
 %% 
 
+%% This hinges on an updated peer verbose start
+%% -define(VERBOSE_PEER_START, true).
+
+-ifdef(VERBOSE_PEER_START).
+-define(MAYBE_VERBOSE_START(SO), (SO)#{verbose => true}).
+-define(START_OPTIONS(SO), (SO)#{connection => standard_io}).
+-else.
+-define(MAYBE_VERBOSE_START(SO), SO).
+-define(START_OPTIONS(SO), SO).
+-endif.
+
+start_node(Name, Unlink) ->
+    Args = ["-s", "snmp_test_sys_monitor", "start", "-s", "global", "sync"],
+    %% Note that the 'verbose' option may not exist...
+    %% If it does not exist, this (verbose => true) "should" do nothing...
+    BaseStartOptions = #{name => Name,
+                         args => Args},
+    StartOptions0    = ?MAYBE_VERBOSE_START(BaseStartOptions),
+    StartOptions     = ?START_OPTIONS(StartOptions0),
+    case ?CT_PEER(StartOptions) of
+        {ok, Peer, Node}  ->
+            %% Must unlink, otherwise peer will exit before test case
+            maybe_unlink(Unlink, Peer),
+            global:sync(),
+            {Peer, Node};
+        {error, Reason} ->
+            %%% throw({skip, {failed_starting_node, Name, Reason}})
+            skip({failed_starting_node, Name, Reason})
+    end.
+
+maybe_unlink(true, Pid) ->
+    unlink(Pid);
+maybe_unlink(false, _) ->
+    ok.
+
+    
 ping(N) ->
     case net_adm:ping(N) of
  	pang ->

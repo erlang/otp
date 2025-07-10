@@ -753,7 +753,7 @@ init_per_group(GroupName, Config0) ->
             "~n      Nodes:     ~p",
             [?FUNCTION_NAME, GroupName, Config0, nodes()]),
 
-    case init_per_group2(GroupName, Config0) of
+    try init_per_group2(GroupName, Config0) of
         Config1 when is_list(Config1) ->
 
             ?IPRINT("~w(~w) -> done when"
@@ -769,6 +769,15 @@ init_per_group(GroupName, Config0) ->
                     "~n      Skip Reason: ~p"
                     "~n      Nodes:       ~p",
                     [?FUNCTION_NAME, GroupName, SkipReason, nodes()]),
+
+            SKIP
+    catch
+        Class:{skip, SkipReason} = SKIP ->
+
+            ?IPRINT("~w(~w) -> done when SKIP (~w)"
+                    "~n      Skip Reason: ~p"
+                    "~n      Nodes:       ~p",
+                    [?FUNCTION_NAME, GroupName, Class, SkipReason, nodes()]),
 
             SKIP
     end.
