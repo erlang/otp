@@ -155,11 +155,11 @@ connect(Host, Port,
 	    {error, Reason}
     catch
 	exit:{function_clause, _} ->
-	    {error, {options, {cb_info, CbInfo}}};
-	exit:badarg ->
-	    {error, {options, {socket_options, UserOpts}}};
-	exit:{badarg, _} ->
-	    {error, {options, {socket_options, UserOpts}}}
+	    {error, {badarg, connect_error(Transport, Host, Port, UserOpts, Timeout)}};
+        exit:badarg ->
+	    {error, {badarg, connect_error(Transport, Host, Port, UserOpts, Timeout)}};
+	exit:{badarg, Reason} ->
+	    {error, {badarg, connect_error(Transport, Host, Port, UserOpts, Timeout), Reason}}
     end.
 
 socket([Receiver, Sender], Transport, Socket, ConnectionCb, Tab, Trackers) ->
@@ -576,3 +576,6 @@ validate_inet_option(active, Value)
 validate_inet_option(_, _) ->
     ok.
 
+connect_error(Transport, Host, Port, UserOpts, Timeout) ->
+    lists:flatten(io_lib:format("~p:connect(~p, ~p, ~p, ~p)",
+                                [Transport, Host, Port, UserOpts, Timeout])).
