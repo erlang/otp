@@ -58,6 +58,7 @@
         ?LIB:non_pc_tc_maybe_skip(Config, Condition, ?MODULE, ?LINE)).
 
 -define(SKIP(Reason),        ?LIB:skip(Reason, ?MODULE, ?LINE)).
+-define(SKIPT(Reason),       throw({skip, Reason})).
 -define(FAIL(Reason),        ?LIB:fail(Reason, ?MODULE, ?LINE)).
 -define(HAS_SUPPORT_IPV6(),  ?LIB:has_support_ipv6()).
 
@@ -104,9 +105,10 @@
 
 %% - Node utility macros - 
 
--define(PING(N),            ?LIB:ping(N)).
--define(LNODES(),           ?LIB:local_nodes()).
--define(NODES(H),           ?LIB:nodes_on(H)).
+-define(START_NODE(N, U), ?LIB:start_node((N), (U))).
+-define(PING(N),          ?LIB:ping(N)).
+-define(LNODES(),         ?LIB:local_nodes()).
+-define(NODES(H),         ?LIB:nodes_on(H)).
 
 %% - Application and Crypto utility macros - 
 

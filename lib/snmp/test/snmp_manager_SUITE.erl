@@ -6263,11 +6263,9 @@ agent_info(Node) ->
 %% -- Misc node operation wrapper functions --
 
 start_node(Case) ->
-    Args = ["-s", "snmp_test_sys_monitor", "start", "-s", "global", "sync"],
     Name = peer:random_name(lists:concat([?MODULE, "-", Case])),
-    {ok, Peer, Node}  = ?CT_PEER(#{name => Name, args => Args}),
-    global:sync(),
-    {Peer, Node}.
+    ?START_NODE(Name, false).
+
 
 %% -- Misc config wrapper functions --
 
