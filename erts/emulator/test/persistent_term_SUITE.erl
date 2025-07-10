@@ -32,6 +32,7 @@
          off_heap_values/1,keys/1,collisions/1,
          init_restart/1, put_erase_trapping/1,
          killed_while_trapping_put/1,
+         killed_while_trapping_put_new/1,
          killed_while_trapping_erase/1,
          error_info/1,
 	 whole_message/1,
@@ -91,10 +92,18 @@ basic(_Config) ->
     seq(3, Seq, Chk),                                %Same values.
     _ = [begin
              Key = {?MODULE,{key,I}},
+
              true = persistent_term:erase(Key),
              false = persistent_term:erase(Key),
+
              {'EXIT',{badarg,_}} = (catch persistent_term:get(Key)),
-             {not_present,Key} = persistent_term:get(Key, {not_present,Key})
+             {not_present,Key} = persistent_term:get(Key, {not_present,Key}),
+
+             ok = persistent_term:put_new(Key, {value, I}),
+             ok = persistent_term:put_new(Key, {value, I}),
+             {'EXIT',{badarg,_}} = (catch persistent_term:put_new(Key, {new_value, I})),
+             {value, I} = persistent_term:get(Key),
+             true = persistent_term:erase(Key)
          end || I <- Seq],
     [] = [P || {{?MODULE,_},_}=P <- pget(Chk)],
     chk(Chk).
@@ -937,6 +946,21 @@ killed_while_trapping_put(_Config) ->
       10),
     ok.
 
+killed_while_trapping_put_new(_Config) ->
+    repeat(
+      fun() ->
+              NrOfPutsInChild = 10000,
+              Pid =
+                  spawn(fun() ->
+                                do_put_news(NrOfPutsInChild, my_value)
+                        end),
+              timer:sleep(1),
+              erlang:exit(Pid, kill),
+              do_erases(NrOfPutsInChild)
+      end,
+      10),
+    ok.
+
 killed_while_trapping_erase(_Config) ->
     repeat(
       fun() ->
@@ -960,14 +984,20 @@ put_erase_trapping(_Config) ->
     do_erases(NrOfItems),
     ok.
 
-do_puts(0, _) -> ok;
 do_puts(NrOfPuts, ValuePrefix) ->
+    do_puts_iter(NrOfPuts, ValuePrefix, put).
+
+do_put_news(NrOfPuts, ValuePrefix) ->
+    do_puts_iter(NrOfPuts, ValuePrefix, put_new).
+
+do_puts_iter(0, _, _) -> ok;
+do_puts_iter(NrOfPuts, ValuePrefix, PutFun) ->
     Key = {?MODULE, NrOfPuts},
     Value = {ValuePrefix, NrOfPuts},
     erts_debug:set_internal_state(reds_left, rand:uniform(250)),
-    persistent_term:put(Key, Value),
+    erlang:apply(persistent_term, PutFun, [Key, Value]),
     Value = persistent_term:get(Key),
-    do_puts(NrOfPuts - 1, ValuePrefix).
+    do_puts_iter(NrOfPuts - 1, ValuePrefix, PutFun).
 
 do_erases(0) -> ok;
 do_erases(NrOfErases) ->
@@ -987,7 +1017,8 @@ error_info(_Config) ->
     L = [{erase, [{?MODULE,my_key}], [no_fail]},
          {get, [{?MODULE,certainly_not_existing}]},
          {get, [{?MODULE,certainly_not_existing}, default], [no_fail]},
-         {put, 2}                               %Can't fail.
+         {put, 2},                               %Can't fail.
+         {put_new, [{?MODULE,new_key}, default], [no_fail]}
         ],
     do_error_info(L).
 
