@@ -2,7 +2,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1998-2021. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 1998-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,6 +30,15 @@
 #ifdef __WIN32__
 #define NO_SYSCONF
 #define NO_DAEMON
+
+/*
+ * Increase FD_SETSIZE from 64 to 1024 by defining it before including
+ * <winsock2.h>.
+ *
+ * https://learn.microsoft.com/en-us/windows/win32/winsock/maximum-number-of-sockets-supported-2
+ */
+#define FD_SETSIZE 1024
+
 #endif
 
 /* ************************************************************************ */
