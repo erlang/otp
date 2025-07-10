@@ -1,0 +1,1 @@
+# ERL-0006 - Bad attribute
