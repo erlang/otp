@@ -368,6 +368,8 @@ format_re_error(inspect, [CompiledRE, Item], _) ->
         true ->
             [ReError]
     end;
+format_re_error(import, [_], _) ->
+    [~"not an exported regular expression"];
 format_re_error(replace, [Subject, RE, Replacement], _) ->
     [must_be_iodata(Subject),
      must_be_regexp(RE),
