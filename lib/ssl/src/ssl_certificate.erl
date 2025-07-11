@@ -186,18 +186,24 @@ certificate_chain(#cert{} = Cert, CertDbHandle, CertsDbRef, Candidates, Type) ->
 %% Description: Return list of DER encoded certificates.
 %%--------------------------------------------------------------------
 file_to_certificats(File, DbHandle) ->
-    {ok, List} = ssl_manager:cache_pem_file(File, DbHandle),
-    [Bin || {'Certificate', Bin, not_encrypted} <- List].
-
+    case ssl_manager:cache_pem_file(File, DbHandle) of
+        {ok, List} ->
+            [Bin || {'Certificate', Bin, not_encrypted} <- List];
+        _ ->
+            [] % If file no longer exists return empty content
+    end.
 %%--------------------------------------------------------------------
 -spec file_to_crls(binary(), term()) -> [public_key:der_encoded()].
 %%
 %% Description: Return list of DER encoded certificates.
 %%--------------------------------------------------------------------
 file_to_crls(File, DbHandle) ->
-    {ok, List} = ssl_manager:cache_pem_file(File, DbHandle),
-    [Bin || {'CertificateList', Bin, not_encrypted} <- List].
-
+    case ssl_manager:cache_pem_file(File, DbHandle) of
+        {ok, List} ->
+            [Bin || {'CertificateList', Bin, not_encrypted} <- List];
+        _ ->
+            [] % If file no longer exists return empty content
+    end.
 %%--------------------------------------------------------------------
 -spec validate(term(), {extension, #'Extension'{}} | {bad_cert, atom()} | valid | valid_peer,
 	       term(), logger:level() | none | all) -> {valid, term()} | {fail, tuple()} | {unknown, term()}.
