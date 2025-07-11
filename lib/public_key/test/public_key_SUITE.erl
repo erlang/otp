@@ -107,6 +107,8 @@
          pkix_ext_key_usage/1,
          pkix_ext_key_usage_any/0,
          pkix_ext_key_usage_any/1,
+         pkix_extensionreq/0,
+         pkix_extensionreq/1,
          pkix_path_validation_bad_date/0,
          pkix_path_validation_bad_date/1,
          pkix_verify_hostname_cn/1,
@@ -204,6 +206,7 @@ all() ->
      pkix_test_data_all_default,
      pkix_test_data,
      pkix_is_issuer,
+     pkix_extensionreq,
      short_cert_issuer_hash, 
      short_crl_issuer_hash,
      cacerts_load,
@@ -1599,6 +1602,18 @@ pkix_is_issuer(Config) when is_list(Config) ->
               [{'AttributeTypeAndValue',{2,5,4,11},{utf8String,<<"INTERMEDIATE">>}}],
               [{'AttributeTypeAndValue',{2,5,4,3},{utf8String,<<"INTERMEDIATE">>}}]]},
     true = pubkey_cert:is_issuer(Upper, Lower).
+
+%%--------------------------------------------------------------------
+pkix_extensionreq() ->
+    [{doc, "Basic test that asn1 for EnrollmentMessageSyntax is supported"}].
+
+pkix_extensionreq(Config) when is_list(Config) ->
+    Expected = <<48,0>>,
+    Expected = public_key:der_encode('ExtensionReq', []),
+    [] = public_key:der_decode('ExtensionReq', Expected),
+    %% Backwards compatibility
+    Expected = public_key:der_encode('ExtensionRequest', []),
+    [] = public_key:der_decode('ExtensionRequest', Expected).
 
 %%--------------------------------------------------------------------
 short_cert_issuer_hash() ->
