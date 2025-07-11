@@ -65,6 +65,14 @@
 	    If supplied, the number of filenames returned to the SFTP client per <c>READDIR</c>
 	    request is limited to at most the given value.</p>
 	  </item>
+          <tag><c>max_path</c></tag>
+	  <item>
+	    <p>The default value is <c>4096</c>. Positive integer
+	    value represents the maximum path length which cannot be
+	    exceeded in data provided by the SFTP client. (Note:
+	    limitations might be also enforced by underlying operating
+	    system)</p>
+	  </item>
 	  <tag><c>root</c></tag>
 	  <item>
 	    <p>Sets the SFTP root directory. Then the user cannot see any files
