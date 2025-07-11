@@ -2205,7 +2205,7 @@ display_string(String) ->
 -doc false.
 -spec display_string(Device, P1) -> true when
       Device :: stdin | stdout | stderr,
-      P1 :: string().
+      P1 :: string() | binary().
 display_string(_Stream,_P1) ->
     erlang:nif_error(undefined).
 
