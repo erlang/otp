@@ -10456,11 +10456,9 @@ the new process, atomically. Otherwise works like `spawn/3`.
 """.
 -doc #{ category => processes }.
 -spec spawn_link(Fun) -> pid() when
-      Fun :: function().
-spawn_link(F) when erlang:is_function(F) ->
+      Fun :: fun(() -> term()).
+spawn_link(F) when erlang:is_function(F, 0) ->
     erlang:spawn_link(erlang, apply, [F, []]);
-spawn_link({M,F}=MF) when erlang:is_atom(M), erlang:is_atom(F) ->
-    erlang:spawn_link(erlang, apply, [MF, []]);
 spawn_link(F) ->
     badarg_with_info([F]).
 
@@ -10474,13 +10472,11 @@ process. Otherwise works like `spawn/3`.
 -doc #{ category => processes }.
 -spec spawn_link(Node, Fun) -> pid() when
       Node :: node(),
-      Fun :: function().
+      Fun :: fun(() -> term()).
 spawn_link(N, F) when N =:= erlang:node() ->
     spawn_link(F);
-spawn_link(N, F) when erlang:is_function(F) ->
+spawn_link(N, F) when erlang:is_function(F, 0) ->
     spawn_link(N, erlang, apply, [F, []]);
-spawn_link(N, {M,F}=MF) when erlang:is_atom(M), erlang:is_atom(F) ->
-    spawn_link(N, erlang, apply, [MF, []]);
 spawn_link(N, F) ->
     badarg_with_info([N, F]).
 
