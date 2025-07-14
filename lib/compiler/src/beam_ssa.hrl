@@ -27,7 +27,7 @@
                    body :: [beam_ssa:b_function()]}).
 -record(b_function, {anno=#{} :: beam_ssa:anno(),
                      args :: [beam_ssa:b_var()],
-                     bs :: #{beam_ssa:label():=beam_ssa:b_blk()},
+                     bs :: #{beam_ssa:label()=>beam_ssa:b_blk()},
                      cnt :: beam_ssa:label()}).
 
 -record(b_blk, {anno=#{} :: beam_ssa:anno(),
