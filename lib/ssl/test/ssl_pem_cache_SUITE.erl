@@ -69,8 +69,11 @@
          alternative_path_noabspath/1,
          alternative_path_symlink_relative/0,
          alternative_path_symlink_relative/1,
-         check_cert/3
+         cache_file_does_not_exist/0,
+         cache_file_does_not_exist/1
         ]).
+
+-export([check_cert/3]).
 
 -define(CLEANUP_INTERVAL, 5000).
 -define(BIG_CLEANUP_INTERVAL, 600000).
@@ -93,7 +96,8 @@ all() ->
      alternative_path_noabspath,
      alternative_path_hardlink,
      alternative_path_symlink,
-     alternative_path_symlink_relative].
+     alternative_path_symlink_relative,
+     cache_file_does_not_exist].
 
 groups() -> [].
 
@@ -430,6 +434,18 @@ alternative_path_symlink_relative(Config) when is_list(Config) ->
                  connected2 => [7, 9, 3, 3], connected3 => [8, 12, 4, 4],
                  disconnected => [8, 0, 0, 0]},
     alternative_path_helper(Config, fun make_symlink_noabspath/1, Expected).
+
+cache_file_does_not_exist() ->
+    [{doc, "White box test, that a none existing file will provide an empty content. "
+      "This will have the effect that the ssl manager process "
+      "will not crash but previous content will be invalidated."}].
+
+cache_file_does_not_exist(Config) when is_list(Config)->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    Id = ets:new(dummy_test, []),
+    NonExistingFile = filename:join(PrivDir, "foo.pem"),
+    [] = ssl_certificate:file_to_certificats(NonExistingFile, Id),
+    [] = ssl_certificate:file_to_crls(NonExistingFile, Id).
 
 %%--------------------------------------------------------------------
 %% Internal functions

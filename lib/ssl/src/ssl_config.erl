@@ -60,7 +60,7 @@ init(SslOpts, Role) ->
     init_manager_name(maps:get(erl_dist, SslOpts, false)),
     #{pem_cache := PemCache} = Config = init_cacerts(SslOpts, Role),
     DHParams = init_diffie_hellman(PemCache, SslOpts, Role),
-    CertKeyAlts = init_certs_keys(SslOpts, Role, PemCache),
+    CertKeyAlts = init_certs_keys(SslOpts, PemCache),
     {ok, Config#{cert_key_alts => CertKeyAlts, dh_params => DHParams}}.
 
 new_emulated([], EmOpts) ->
@@ -143,23 +143,16 @@ get_internal_active_n(false) ->
     application_int(internal_active_n, ?INTERNAL_ACTIVE_N).
 
 %%====================================================================
-%% Internal functions 
-%%====================================================================	     
-
-%%====================================================================
 %% Certificate and  Key configuration
 %%====================================================================
-init_certs_keys(#{certs_keys := CertsKeys} = Opts, Role, PemCache) ->
-    Pairs = lists:map(fun(CertKey) -> 
-                              init_cert_key_pair(CertKey, Role, PemCache) 
-                      end, CertsKeys),
+init_certs_keys(#{certs_keys := CertsKeys} = Opts, PemCache) ->
+    Pairs = lists:map(fun(CertKey) -> init_cert_key_pair(CertKey, PemCache) end, CertsKeys),
     CertKeyGroups = group_pairs(Pairs),
     prioritize_groups(CertKeyGroups, Opts).
 
-init_cert_key_pair(CertKey, Role, PemCache) ->
-    Certs = init_certificates(CertKey, PemCache, Role),
-    PrivateKey = init_private_key(maps:get(key, CertKey, undefined), 
-                                  CertKey, PemCache),
+init_cert_key_pair(CertKey, PemCache) ->
+    Certs = init_certificates(CertKey, PemCache),
+    PrivateKey = init_private_key(maps:get(key, CertKey, undefined), CertKey, PemCache),
     #{private_key => PrivateKey, certs => Certs}.
 
 group_pairs([#{certs := []}]) ->
@@ -304,26 +297,25 @@ init_cacerts(#{cacerts := CaCerts, crl_cache := CRLCache} = Opts, Role) ->
 	end,
     Config.
 
-init_certificates(CertKey, PemCache, Role) ->
+init_certificates(CertKey, PemCache) ->
     case maps:get(cert, CertKey, undefined) of
         undefined ->
-            init_certificate_file(maps:get(certfile, CertKey, <<>>), PemCache, Role);
+            init_certificate_file(maps:get(certfile, CertKey, <<>>), PemCache);
         Bin when is_binary(Bin) ->
             [Bin];
         Certs when is_list(Certs) ->
             Certs
     end.
 
-init_certificate_file(<<>>, _PemCache, _Role) ->
+init_certificate_file(<<>>, _PemCache) ->
     [];
-init_certificate_file(CertFile, PemCache, Role) ->
-    try %% OwnCert | [OwnCert | Chain]
-        ssl_certificate:file_to_certificats(CertFile, PemCache)
-    catch
-        _Error:_Reason when Role =:= client ->
-            [];
-        _Error:Reason ->
-            file_error(CertFile, {certfile, Reason})
+init_certificate_file(CertFile, PemCache) ->
+    case ssl_certificate:file_to_certificats(CertFile, PemCache) of
+        [] ->
+            Reason = cert_file_error(CertFile),
+            file_error(CertFile, Reason);
+        Certs ->
+            Certs
     end.
 
 init_private_key(#{algorithm := _, sign_fun := _SignFun} = Key, _, _) ->
@@ -2039,6 +2031,21 @@ ciphers_for_version([AtomVersion | _], CurrentSuites, Record) ->
         false ->
             [Suite || Suite <- CurrentSuites, lists:member(Suite, Suites)]
     end.
+
+cert_file_error(CertFile) ->
+    %% ssl_certificate:file_to_certificats
+    %% ignores file errors to be efficient
+    %% and works correctly for most executed
+    %% code paths.
+    Reason =
+        case file:read_file_info(CertFile) of
+            {error, _} = Error ->
+                Error;
+            _ ->
+                %% A file existed but included no certs
+                no_certs
+        end,
+ {options, {certfile, binary_to_list(CertFile), Reason}}.
 
 %%%--------------------------------------------------------------
 %%% Tracing
