@@ -955,7 +955,7 @@ processed (see section [Error Information](#module-error-information)).
                       | {'b_generate_strict', anno(), af_pattern(), abstract_expr()}
                       | af_zip_generator().
 
--type af_zip_generator() :: [af_generator(), ...].
+-type af_zip_generator() :: {'zip', anno(), [af_generator(), ...]}.
 
 -type af_filter() :: abstract_expr().
 
