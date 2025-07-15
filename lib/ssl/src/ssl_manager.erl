@@ -68,7 +68,8 @@
 	  session_cache_client_max   :: integer(),
           session_client_invalidator :: undefined | pid(),
           options                    :: list(),
-          client_session_order       :: gb_trees:tree()
+          client_session_order       :: gb_trees:tree(),
+          max_crl_db_entries         :: pos_integer()
 	 }).
 
 -define(GEN_UNIQUE_ID_MAX_TRIES, 10).
@@ -268,7 +269,8 @@ init([ManagerName, PemCacheName, Opts]) ->
 		session_cache_client_max = ClientSessMax,
 		session_client_invalidator = undefined,
                 options = Opts,
-                client_session_order = gb_trees:empty()
+                client_session_order = gb_trees:empty(),
+                max_crl_db_entries = ssl_config:get_max_crl_cache()
 	       }}.
 
 %%--------------------------------------------------------------------
@@ -307,8 +309,9 @@ handle_call({{connection_init, Trustedcerts, Role, {CRLCb, UserCRLDb}}, Pid}, _F
     end;
 
 handle_call({{insert_crls, Path, CRLs}, _}, _From,   
-	    #state{certificate_db = Db} = State) ->
-    ssl_pkix_db:add_crls(Db, Path, CRLs),
+	    #state{certificate_db = Db,
+                   max_crl_db_entries = Max} = State) ->
+    ssl_pkix_db:add_crls(Db, Path, CRLs, Max),
     {reply, ok, State};
 
 handle_call({{delete_crls, CRLsOrPath}, _}, _From,   
@@ -345,8 +348,8 @@ handle_cast({invalidate_session, Host, Port,
 		   session_cache_client_cb = CacheCb} = State) ->
     invalidate_session(Cache, CacheCb, {{Host, Port}, ID}, Session, State);
 handle_cast({insert_crls, Path, CRLs},   
-	    #state{certificate_db = Db} = State) ->
-    ssl_pkix_db:add_crls(Db, Path, CRLs),
+	    #state{certificate_db = Db, max_crl_db_entries = Max} = State) ->
+    ssl_pkix_db:add_crls(Db, Path, CRLs, Max),
     {noreply, State};
 
 handle_cast({delete_crls, CRLsOrPath},   
