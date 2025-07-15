@@ -81,7 +81,8 @@ handle_options(Transport0, Socket, Opts0, Role, Host) ->
     {UserSslOptsList, SockOpts0} = split_options(Opts0, ssl_options()),
     NeedValidate = not (Socket == undefined) andalso Role =:= server, %% handshake options
     Env = #{role => Role, host => Host,
-            validate_certs_or_anon_ciphers => NeedValidate
+            validate_certs_or_anon_ciphers => NeedValidate,
+            validate_pems => (Socket == undefined) andalso Role =:= server
            },
     SslOpts = process_options(UserSslOptsList, #{}, Env),
 
@@ -387,7 +388,7 @@ file_error(File, Throw) ->
 	    throw({options, {Opt, binary_to_list(File), Error}});
 	{Opt, {badmatch, Error}} ->
 	    throw({options, {Opt, binary_to_list(File), Error}});
-	_ ->
+ 	_ ->
 	    throw(Throw)
     end.
 
@@ -542,6 +543,7 @@ process_options(UserSslOpts, SslOpts0, Env) ->
     SslOpts17 = opt_handshake(UserSslOptsMap, SslOpts16, Env),
     SslOpts18 = opt_use_srtp(UserSslOptsMap, SslOpts17, Env),
     SslOpts = opt_process(UserSslOptsMap, SslOpts18, Env),
+    validate_present_pem_files(SslOpts, Env),
     validate_server_cert_opts(SslOpts, Env),
     SslOpts.
 
@@ -2046,6 +2048,139 @@ cert_file_error(CertFile) ->
                 no_certs
         end,
  {options, {certfile, binary_to_list(CertFile), Reason}}.
+
+validate_present_pem_files(Options, #{validate_pems := true}) ->
+    PemCacheName = case maps:get(erl_dist, Options, false) of
+                       false ->
+                           ssl_pem_cache:name(normal);
+                       true ->
+                           ssl_pem_cache:name(dist)
+                   end,
+    validate_cert_keys_pems(Options, PemCacheName),
+    validate_cacerts_pem(Options, PemCacheName),
+    validate_dh_pem(Options, PemCacheName); %% Will only be present prior to TLS-1.3
+validate_present_pem_files(_, _) ->
+    true.
+
+validate_cert_keys_pems(#{certs_keys := CertKeys}, PemCacheName) ->
+    ValidatePems =
+        fun(CertKey)->
+                case handle_cert_file(CertKey, PemCacheName) of
+                    {error, Reason} ->
+                        #{certfile := CertFile} = CertKey,
+                        option_error(certfile, {binary_to_list(CertFile), Reason});
+                    ok ->
+                        case handle_key_file(CertKey, PemCacheName) of
+                            ok ->
+                                true;
+                            {error, Reason} ->                                
+                                #{keyfile := KeyFile} = CertKey,
+                                option_error(keyfile, {binary_to_list(KeyFile), Reason})
+                        end
+                end
+        end,
+    lists:all(ValidatePems, CertKeys);
+validate_cert_keys_pems(_, _) ->
+    %% Needs validation when called from listen, to
+    %% provide early failure.
+    true. 
+
+validate_cacerts_pem(#{cacertfile := Cacertfile}, PemCacheName) ->
+    case do_handle_cert_file(Cacertfile, PemCacheName) of
+        {error, Reason} ->
+            option_error(cacertfile, {binary_to_list(Cacertfile), Reason});
+        ok ->
+            true
+    end;
+validate_cacerts_pem(_, _) ->
+    true.
+
+validate_dh_pem(#{dhfile := DHFile}, PemCacheName) ->
+    case handle_dh_file(DHFile, PemCacheName) of
+        ok ->
+            true;
+        {error, Reason} ->
+            option_error(dhfile, Reason)
+    end;       
+validate_dh_pem(_, _) ->
+    true.
+
+
+handle_cert_file(#{certfile := File}, PemCacheName) ->
+    do_handle_cert_file(File, PemCacheName);
+handle_cert_file(_,_) ->
+    ok.
+
+do_handle_cert_file(File, PemCacheName) ->
+    case file:read_file(File) of
+        {ok, Pem} ->         
+            Entries = public_key:pem_decode(Pem),
+            case lists:keyfind('Certificate', 1, Entries) of
+                false ->
+                    {error, no_certs};
+                _ ->
+                    ssl_pem_cache:insert(PemCacheName, File, Entries),
+                    ok
+            end;
+        {error, _} = Error->
+            Error
+    end.
+
+handle_key_file(#{keyfile := File} = CertKey, PemCacheName) ->
+    case file:read_file(File) of
+        {ok, Pem} ->
+            case public_key:pem_decode(Pem) of
+                [KeyEntry] ->
+                    Password = maps:get(password, CertKey, ""),
+                    try public_key:pem_entry_decode(KeyEntry, Password) of
+                        Key ->
+                            handle_key(PemCacheName, File, Key, [KeyEntry])
+                    catch _:_ ->
+                            {error, wrong_password}
+                    end;
+                Unexpected ->
+                    {error, {unexpected_content, Unexpected}}
+            end;
+        {error, _} =  Error ->
+            Error
+    end;
+handle_key_file(_,_) ->
+    ok.
+
+handle_key(PemCacheName, File, Key, Content) ->
+    case check_key(Key) of
+        ok ->
+            ssl_pem_cache:insert(PemCacheName, File, Content),
+            ok;
+         Error ->
+            Error
+    end.
+
+check_key(#'RSAPrivateKey'{}) ->
+    ok;
+check_key({#'RSAPrivateKey'{}, #'RSASSA-PSS-params'{}}) ->
+    ok;
+check_key(#'DSAPrivateKey'{}) ->
+    ok;
+check_key(#'ECPrivateKey'{}) ->
+    ok;
+check_key(NotKey) ->
+    {error, {unexpected_content, NotKey}}.
+
+handle_dh_file(DHFile, PemCacheName) ->
+    case file:read_file(DHFile) of
+        {ok, Pem} ->
+            [{'DHParameter', Der, _}] = Entries = public_key:pem_decode(Pem),
+            try public_key:der_decode('DHParameter', Der) of
+                #'DHParameter'{} ->
+                    ssl_pem_cache:insert(PemCacheName, DHFile, Entries),
+                    ok
+            catch error:{badmatch, Error} ->
+                    Error
+            end;
+        {error, _} = Error->
+            Error
+    end.
 
 %%%--------------------------------------------------------------
 %%% Tracing

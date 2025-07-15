@@ -2293,8 +2293,8 @@ listen(Port, Options0)
 	{ok, Config} = ssl_config:handle_options(Options0, server, undefined),
         do_listen(Port, Config, Config#config.connection_cb)
     catch
-	Error = {error, _} ->
-	    Error
+	throw:Error ->
+            Error
     end.
 
 %%--------------------------------------------------------------------
