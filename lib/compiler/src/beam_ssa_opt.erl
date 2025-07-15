@@ -2002,8 +2002,7 @@ bsm_skip([], _) -> [].
 
 bsm_skip_is([I0|Is], Extracted) ->
     case I0 of
-        #b_set{anno=Anno0,
-               op=bs_match,
+        #b_set{op=bs_match,
                dst=Ctx,
                args=[#b_literal{val=T}=Type,PrevCtx|Args0]}
           when T =/= float, T =/= string, T =/= skip ->
@@ -2014,9 +2013,7 @@ bsm_skip_is([I0|Is], Extracted) ->
                         I0;
                     false ->
                         %% The value is never extracted.
-                        Args = [#b_literal{val=skip},PrevCtx,Type|Args0],
-                        Anno = maps:remove(arg_types, Anno0),
-                        I0#b_set{anno=Anno,args=Args}
+                        I0#b_set{args=[#b_literal{val=skip},PrevCtx,Type|Args0]}
                 end,
             [I|Is];
         #b_set{} ->
@@ -2117,7 +2114,7 @@ ssa_opt_bsm_shortcut({#opt_st{ssa=Linear0}=St, FuncDb}) ->
             {St, FuncDb};
         _ ->
             Linear1 = bsm_shortcut(Linear0, Positions),
-            Linear = bsm_tail(Linear1, #{}),
+            Linear = bsm_tail(Linear1, #{ 0 => any }),
             ssa_opt_live({St#opt_st{ssa=Linear}, FuncDb})
     end.
 
@@ -2200,86 +2197,106 @@ bsm_shortcut([], _PosMap) -> [].
 %%     m1(<<_, Rest/binary>>) -> m1(Rest);
 %%     m1(<<>>) -> ok.
 %%
-%% The second clause of `m1/1` does not need to check for an empty
-%% binary.
+%% The second clause of `m1/1` does not need to check for an empty bitstring.
+%%
+%% This is done by keeping track of which blocks are reachable solely because
+%% of `bs_match` instructions that can only fail because the end has been
+%% reached, and then eliminating the related `bs_match` and `bs_test_tail`
+%% instructions in those blocks.
 
-bsm_tail([{L,#b_blk{is=Is0,last=Last0}=Blk0}|Bs], Map0) ->
-    {Is,Last,Map} = bsm_tail_is(Is0, Last0, L, Map0, []),
-    Blk = Blk0#b_blk{is=Is,last=Last},
-    [{L,Blk}|bsm_tail(Bs, Map)];
-bsm_tail([], _Map) ->
+bsm_tail([{L, #b_blk{is=Is0}=Blk0} | Bs], Tags0) when is_map_key(L, Tags0) ->
+    {Blk, Tags} = bsm_tail_is_1(Is0, Blk0, L, Tags0),
+    [{L, Blk} | bsm_tail(Bs, Tags)];
+bsm_tail([_ | Bs], Tags) ->
+    bsm_tail(Bs, Tags);
+bsm_tail([], _Tags) ->
     [].
 
-bsm_tail_is([#b_set{op=bs_start_match,anno=Anno,dst=Dst}=I|Is], Last, L, Map0, Acc) ->
-    case Anno of
-        #{arg_types := #{1 := Type}} ->
-            case beam_types:get_bs_matchable_unit(Type) of
-                error ->
-                    bsm_tail_is(Is, Last, L, Map0, [I|Acc]);
-                Unit when is_integer(Unit) ->
-                    Map = Map0#{Dst => Unit},
-                    bsm_tail_is(Is, Last, L, Map, [I|Acc])
-            end;
-        #{} ->
-            bsm_tail_is(Is, Last, L, Map0, [I|Acc])
+bsm_tail_is_1([#b_set{op=bs_match,anno=Anno,dst=Dst,args=[_, Ctx | _]=Args},
+               #b_set{op={succeeded,guard},dst=SuccDst,args=[Dst]}],
+              #b_blk{last=#b_br{bool=SuccDst,succ=Succ,fail=Fail}=Last}=Blk0,
+              L, Tags) ->
+    case {Tags, bsm_tail_match_tag(Args, Anno)} of
+        {#{ L := Ctx }, Ctx} ->
+            %% This block can only be reached through matches that fail because
+            %% the context is empty, and the current match will likewise only
+            %% fail because the context is empty, so we KNOW that this cannot
+            %% succeed.
+            %%
+            %% Kill the instruction and propagate the condition.
+            Blk = Blk0#b_blk{last=beam_ssa:normalize(Last#b_br{succ=Fail})},
+            {Blk, bsm_tail_update_target(Fail, Fail, Ctx, Tags)};
+        {#{ L := _ }, Tag} ->
+            %% `any` or different context. Mark the fail block with whether
+            %% it's reachable solely because the context is empty.
+            {Blk0, bsm_tail_update_target(Succ, Fail, Tag, Tags)}
     end;
-bsm_tail_is([#b_set{op=bs_match,dst=Dst,args=Args},
-             #b_set{op={succeeded,guard},dst=SuccDst,args=[Dst]}|_]=Is,
-            #b_br{bool=SuccDst,fail=Fail}=Last,
-            _L, Map0, Acc) ->
-    case bsm_tail_num_matched(Args, Map0) of
-        unknown ->
-            %% Unknown number of bits or the match operation will fail
-            %% to match certain values.
-            Map = Map0#{Fail => unknown},
-            {reverse(Acc, Is),Last,Map};
-        Bits when is_integer(Bits) ->
-            case Map0 of
-                #{Fail := Bits} ->
-                    {reverse(Acc, Is),Last,Map0};
-                #{Fail := _} ->
-                    Map = Map0#{Fail => unknown},
-                    {reverse(Acc, Is),Last,Map};
-                #{} ->
-                    Map = Map0#{Fail => Bits},
-                    {reverse(Acc, Is),Last,Map}
-            end
+bsm_tail_is_1([#b_set{op=bs_test_tail,args=[Ctx,#b_literal{val=Size}],dst=Dst}],
+              #b_blk{last=#b_br{bool=Dst,succ=Succ,fail=Fail}=Last0}=Blk0,
+              L, Tags) ->
+    true = is_integer(Size) andalso Size >= 0,  %Assertion.
+    case Tags of
+        #{ L := Ctx } ->
+            %% This block can only be reached through matches that fail because
+            %% the end of the context has been reached.
+            %%
+            %% Kill the instruction and propagate the condition.
+            Next = case Size of
+                       0 -> Succ;
+                       _ -> Fail
+                   end,
+            Last = beam_ssa:normalize(Last0#b_br{succ=Next,fail=Next}),
+            Blk = Blk0#b_blk{last=Last},
+            {Blk, bsm_tail_update_target(Next, Next, Ctx, Tags)};
+        #{ L := _ } ->
+            %% `any` or different context. We cannot optimize this, but it's
+            %% safe to mark the success block as only being reachable when the
+            %% context is empty.
+            Tag = case Size of
+                      0 -> Ctx;
+                      _ -> any
+                  end,
+            {Blk0, bsm_tail_update_target(Fail, Succ, Tag, Tags)}
     end;
-bsm_tail_is([#b_set{op=bs_test_tail,args=[_,#b_literal{val=0}],dst=Dst}]=Is,
-            #b_br{bool=Dst,succ=Succ}=Last0, L, Map0, Acc) ->
-    case Map0 of
-        #{L := Bits} when is_integer(Bits) ->
-            %% The `bs_match` instruction targeting this block on failure
-            %% will only fail when the end of the binary has been reached.
-            %% There is no need for the test.
-            Last = beam_ssa:normalize(Last0#b_br{fail=Succ}),
-            {reverse(Acc, Is),Last,Map0};
-        #{} ->
-            {reverse(Acc, Is),Last0,Map0}
-    end;
-bsm_tail_is([#b_set{}=I|Is], Last, L, Map, Acc) ->
-    bsm_tail_is(Is, Last, L, Map, [I|Acc]);
-bsm_tail_is([], Last, _L, Map0, Acc) ->
-    Map = foldl(fun(F, A) ->
-                        A#{F => unknown}
-                end, Map0, beam_ssa:successors(#b_blk{is=[],last=Last})),
-    {reverse(Acc),Last,Map}.
+bsm_tail_is_1([#b_set{} | Is], Blk, L, Tags) ->
+    bsm_tail_is_1(Is, Blk, L, Tags);
+bsm_tail_is_1([], Blk, _L, Tags0) ->
+    Tags = foldl(fun(Lbl, Acc) ->
+                         Acc#{ Lbl => any }
+                 end, Tags0, beam_ssa:successors(Blk)),
+    {Blk, Tags}.
 
-bsm_tail_num_matched([#b_literal{val=skip},Ctx,Type,Flags,Size,Unit], Map) ->
-    bsm_tail_num_matched([Type,Ctx,Flags,Size,Unit], Map);
-bsm_tail_num_matched([#b_literal{val=Type},Ctx,#b_literal{},
-                      #b_literal{val=Size},#b_literal{val=Unit}], Map)
+bsm_tail_match_tag([#b_literal{val=skip}, Ctx, Type | Rest], Anno) ->
+    bsm_tail_match_tag([Type, Ctx | Rest], Anno);
+bsm_tail_match_tag([#b_literal{val=Type},
+                    #b_var{}=Ctx,
+                    #b_literal{},
+                    #b_literal{val=Size},
+                    #b_literal{val=Unit}],
+                   Anno)
   when (Type =:= integer orelse Type =:= binary),
        is_integer(Size), is_integer(Unit) ->
     Bits = Size * Unit,
-    case Map of
-        #{Ctx := Bits} when is_integer(Bits) ->
-            Bits;
+    case Anno of
+        #{ arg_types := #{ 1 := CtxType } } ->
+            case beam_types:get_bs_matchable_unit(CtxType) of
+                Bits -> Ctx;
+                _ -> any
+            end;
         #{} ->
-            unknown
+            any
     end;
-bsm_tail_num_matched(_Args, _Map) ->
-    unknown.
+bsm_tail_match_tag(_Args, _Anno) ->
+    any.
+
+bsm_tail_update_target(Succ, Fail, Tag, Tags) when Succ =/= Fail ->
+    bsm_tail_update_target(Fail, Fail, Tag, Tags#{ Succ => any });
+bsm_tail_update_target(Same, Same, Tag, Tags) ->
+    case Tags of
+        #{ Same := Tag } -> Tags;
+        #{ Same := _ } -> Tags#{ Same => any };
+        #{} -> Tags#{ Same => Tag }
+    end.
 
 %%%
 %%% Optimize binary construction.
