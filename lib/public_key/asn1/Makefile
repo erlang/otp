@@ -66,6 +66,8 @@ ASN_MODULES = \
           PKIX1Explicit-2009 \
           PKIX1Implicit-2009 \
           PKIXAlgs-2009 \
+	  PKIXCRMF-2009 \
+          EnrollmentMessageSyntax-2009 \
           PKIXAttributeCertificate-2009 \
 	  RFC5639 \
           Safecurves-pkix-18 \
