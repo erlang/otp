@@ -2693,16 +2693,20 @@ options_dh(Config) -> %% dh dhfile
     DataDir = proplists:get_value(data_dir, Config),
     DHFile = filename:join(DataDir, "dHParam.pem"),
     BinFile = list_to_binary(DHFile),
+    {ok, DHPem} = file:read_file(DHFile),
+    [{_, DH, _}] = public_key:pem_decode(DHPem),
     ?OK(#{}, [], server, [dh, dhfile]),
-    ?OK(#{dh := <<>>}, [{dh, <<>>}], server, [dhfile]),
+    ?OK(#{dh := DH}, [{dh, DH}], server, [dhfile]),
     ?OK(#{dhfile := BinFile}, [{dhfile, DHFile}], server, [dh]),
-    ?OK(#{dh := <<>>}, [{dh, <<>>}, {dhfile, DHFile}], server, [dhfile]),
-
-    %% Should be an error
-    ?OK(#{dhfile := BinFile},  %% Not available in 1.3
-        [{dhfile, DHFile}, {versions, ['tlsv1.3']}], server, [dh]),
+    ?OK(#{dh := DH}, [{dh, DH}, {dhfile, DHFile}], server, [dhfile]),
 
     %% Error
+    ?ERR({options, incompatible,
+          [dh_file,{versions,['tlsv1.3']}]},
+         [{dhfile, DHFile}, {versions, ['tlsv1.3']}], server),
+    ?ERR({options, incompatible,
+          [dh, {versions,['tlsv1.3']}]},
+          [{dh, <<>>}, {versions, ['tlsv1.3']}], server),
     ?ERR({dh, not_a_bin}, [{dh, not_a_bin}], server),
     ?ERR({dhfile, not_a_filename}, [{dhfile, not_a_filename}], server),
     ?ERR({option, server_only, dhfile}, [{dhfile, "file"}], client),

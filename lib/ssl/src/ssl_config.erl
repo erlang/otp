@@ -1212,14 +1212,20 @@ opt_server(UserOpts, #{versions := Versions, log_level := LogLevel} = Opts, #{ro
 
     Opts1 = case get_opt(dh, undefined, UserOpts, Opts) of
                 {Where, DH} when is_binary(DH) ->
+                    assert_version_dep(dh,
+                                       Versions, ['tlsv1.2', 'tlsv1.1', 'tlsv1']),
                     warn_override(Where, UserOpts, dh, [dhfile], LogLevel),
                     Opts#{dh => DH};
                 {new, DH} ->
                     option_error(dh, DH);
                 {_, undefined} ->
                     case get_opt_file(dhfile, unbound, UserOpts, Opts) of
-                        {default, unbound} -> Opts;
-                        {_, DHFile} -> Opts#{dhfile => DHFile}
+                        {default, unbound} ->
+                            Opts;
+                        {_, DHFile} ->
+                            assert_version_dep(dh_file,
+                                               Versions, ['tlsv1.2', 'tlsv1.1', 'tlsv1']),
+                            Opts#{dhfile => DHFile}
                     end
             end,
 
