@@ -443,23 +443,29 @@ handle_op(?SSH_FXP_SYMLINK, ReqId,
     State1 = State0#state{file_state = FS1},
     send_status(Status, ReqId, State1).
 
-new_handle([], H) ->
-    H;
-new_handle([{N, _,_} | Rest], H) when N =< H ->
-    new_handle(Rest, N+1);
-new_handle([_ | Rest], H) ->
-    new_handle(Rest, H).
+new_handle_id([]) -> 0;
+new_handle_id([{_, _, _} | _] = Handles) ->
+    {HandleIds, _, _} = lists:unzip3(Handles),
+    new_handle_id(lists:sort(HandleIds));
+new_handle_id(HandleIds) ->
+    find_gap(HandleIds).
+
+find_gap([Id]) -> % no gap found
+    Id + 1;
+find_gap([Id1, Id2 | _]) when Id2 - Id1 > 1 -> % gap found
+    Id1 + 1;
+find_gap([_, Id | Rest]) ->
+    find_gap([Id | Rest]).
 
 add_handle(State, XF, ReqId, Type, DirFileTuple) ->
     Handles = State#state.handles,
-    Handle = new_handle(Handles, 0),
-    ssh_xfer:xf_send_handle(XF, ReqId, integer_to_list(Handle)),
-    %% OBS: If you change handles-tuple also change new_handle!
-    %% Is this this the best way to implement new handle?
-    State#state{handles = [{Handle, Type, DirFileTuple} | Handles]}.
+    HandleId = new_handle_id(Handles),
+    ssh_xfer:xf_send_handle(XF, ReqId, integer_to_list(HandleId)),
+    %% OBS: If you change handles-tuple also change new_handle_id!
+    State#state{handles = [{HandleId, Type, DirFileTuple} | Handles]}.
     
 get_handle(Handles, BinHandle) ->
-    case (catch list_to_integer(binary_to_list(BinHandle))) of
+    case (catch binary_to_integer(BinHandle)) of
 	I when is_integer(I) ->
 	    case lists:keysearch(I, 1, Handles) of
 		{value, T} -> T;
