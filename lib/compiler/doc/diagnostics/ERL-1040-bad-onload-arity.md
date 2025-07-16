@@ -1,0 +1,1 @@
+# ERL-1040 - Bad on_load arity

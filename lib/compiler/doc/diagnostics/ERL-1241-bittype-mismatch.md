@@ -1,0 +1,1 @@
+# ERL-1241 - Bit type mismatch

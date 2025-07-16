@@ -1,0 +1,1 @@
+# ERL-1126 - Untyped record field
