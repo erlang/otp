@@ -72,11 +72,8 @@
           max_crl_db_entries         :: pos_integer()
 	 }).
 
--define(GEN_UNIQUE_ID_MAX_TRIES, 10).
 -define(SESSION_VALIDATION_INTERVAL, 60000).
--define(CLEAN_SESSION_DB, 60000).
 -define(CLEAN_CERT_DB, 500).
--define(DEFAULT_MAX_SESSION_CACHE, 1000).
 -define(LOAD_MITIGATION, 10).
 
 %%====================================================================
