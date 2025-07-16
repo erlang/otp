@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2023. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2025. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -39,8 +39,8 @@
 	 sublist_2/1, sublist_3/1, sublist_2_e/1, sublist_3_e/1,
 	 flatten_1/1, flatten_2/1, flatten_1_e/1, flatten_2_e/1,
 	 dropwhile/1, takewhile/1,
-	 sort_1/1, sort_stable/1, merge/1, rmerge/1, sort_rand/1,
-	 usort_1/1, usort_stable/1, umerge/1, rumerge/1,usort_rand/1,
+	 sort_1/1, sort_2/1, sort_stable/1, merge/1, rmerge/1, sort_rand/1,
+	 usort_1/1, usort_2/1, usort_stable/1, umerge/1, rumerge/1,usort_rand/1,
 	 keymerge/1, rkeymerge/1,
 	 keysort_1/1, keysort_i/1, keysort_stable/1,
 	 keysort_rand/1, keysort_error/1,
@@ -103,13 +103,13 @@ all() ->
 groups() -> 
     [{append, [parallel], [append_1, append_2]},
      {usort, [parallel],
-      [umerge, rumerge, usort_1, usort_rand, usort_stable]},
+      [umerge, rumerge, usort_1, usort_2, usort_rand, usort_stable]},
      {keysort, [parallel],
       [keymerge, rkeymerge, keysort_1, keysort_rand,
        keysort_i, keysort_stable, keysort_error]},
      {key, [parallel], [keymember, keysearch_keyfind, keystore,
 			keytake, keyreplace]},
-     {sort,[parallel],[merge, rmerge, sort_1, sort_rand]},
+     {sort,[parallel],[merge, rmerge, sort_1, sort_2, sort_rand]},
      {ukeysort, [parallel],
       [ukeymerge, rukeymerge, ukeysort_1, ukeysort_rand,
        ukeysort_i, ukeysort_stable, ukeysort_error]},
@@ -623,20 +623,32 @@ rmerge(Config) when is_list(Config) ->
     ok.
 
 sort_1(Config) when is_list(Config) ->
-    [] = lists:sort([]),
-    [a] = lists:sort([a]),
-    [a,a] = lists:sort([a,a]),
-    [a,b] = lists:sort([a,b]),
-    [a,b] = lists:sort([b,a]),
-    [1,1] = lists:sort([1,1]),
-    [1,1,2,3] = lists:sort([1,1,3,2]),
-    [1,2,3,3] = lists:sort([3,3,1,2]),
-    [1,1,1,1] = lists:sort([1,1,1,1]),
-    [1,1,1,2,2,2,3,3,3] = lists:sort([3,3,3,2,2,2,1,1,1]),
-    [1,1,1,2,2,2,3,3,3] = lists:sort([1,1,1,2,2,2,3,3,3]),
+    sort(fun lists:sort/1).
 
-    lists:foreach(fun check/1, perms([1,2,3])),
-    lists:foreach(fun check/1, perms([1,2,3,4,5,6,7,8])),
+sort_2(Config) when is_list(Config) ->
+    sort(fun (L) -> lists:sort(fun erlang:'=<'/2, L) end).
+
+sort(ListsSort) when is_function(ListsSort, 1) ->
+    [] = ListsSort([]),
+    [a] = ListsSort([a]),
+    [a,a] = ListsSort([a,a]),
+    [a,b] = ListsSort([a,b]),
+    [a,b] = ListsSort([b,a]),
+    [1,1] = ListsSort([1,1]),
+    [1,1,2,3] = ListsSort([1,1,3,2]),
+    [1,2,3,3] = ListsSort([3,3,1,2]),
+    [1,1,1,1] = ListsSort([1,1,1,1]),
+    [0,+0.0,-0.0,1,2,3] = ListsSort([0,+0.0,-0.0,3,2,1]),
+    [-3,-2,-1,0,+0.0,-0.0] = ListsSort([0,+0.0,-0.0,-1,-2,-3]),
+    [1,1,1,2,2,2,3,3,3] = ListsSort([3,3,3,2,2,2,1,1,1]),
+    [1,1,1,2,2,2,3,3,3] = ListsSort([1,1,1,2,2,2,3,3,3]),
+
+    [test_stable_sort(ListsSort, StableList, Xs) ||
+        {StableList, Xs} <- stable_lists_spec()],
+
+    Check = fun (L) -> check(ListsSort, L) end,
+    lists:foreach(Check, perms([1,2,3])),
+    lists:foreach(Check, perms([1,2,3,4,5,6,7,8])),
     ok.
 
 %% sort/1 on big randomized lists
@@ -662,11 +674,58 @@ sort_stable(Config) when is_list(Config) ->
     end,
     ok.
 
-check([]) ->
+stable_lists_spec() ->
+    %% [{SortedList, KeysThatHaveEquals}]
+    [{[0.0, 0], [0]},
+     {[+0.0, -0.0, 0], [0]},
+     {[1, 2, 2.0, 2.0], [2]},
+     {[-1, 0, +0.0, 0.0, 1], [0]},
+     {[-1, 0, +0.0, 0.0, 1, 2], [0]},
+     {[-2, -1, 0, -0.0, +0.0, 1, 2], [0]},
+     {[-1, 0, -0.0, +0.0, 1, 2.0, 2.0, 2], [0,2]}].
+
+%% Test that all permutations of StableList that have
+%% the elements specified by Xs in the same order as StableList,
+%% are sorted to StableList
+%%
+test_stable_sort(ListsSort, StableList, Xs) ->
+    StableElements =
+        [{X, lists_eq(X, StableList)} || X <- Xs],
+    [begin
+         {StableList, _, _} =
+             {ListsSort(Unsorted), StableList, Unsorted}
+     end ||
+        Unsorted <- perms(StableList),
+        elements_are_stable(Unsorted, StableElements)],
+    ok.
+
+%% Check that Unsorted elements equal to X matches Ys,
+%% for all {X,Ys}
+%%
+elements_are_stable(Unsorted, [{X, Ys} | StableElements]) ->
+    lists_eq(X, Unsorted) =:= Ys andalso
+        elements_are_stable(Unsorted, StableElements);
+elements_are_stable(_Unsorted, []) -> true.
+
+%% Filter elements that compare equal to X
+%%
+lists_eq(X, [Y | L]) ->
+    if
+        X == Y ->
+            [Y | lists_eq(X, L)];
+        (X /= Y) ->
+            lists_eq(X, L)
+    end;
+lists_eq(_X, []) -> [].
+
+
+check(L) -> check(fun lists:sort/1, L).
+%%
+check(_ListsSort, []) ->
     ok;
-check(L) ->
-    S = lists:sort(L),
-    case {length(L) == length(S), check(hd(S), tl(S))} of
+check(ListsSort, L) ->
+    S = ListsSort(L),
+    case {length(L) == length(S), check_order(hd(S), tl(S))} of
 	{true,ok} ->
 	    ok;
 	_ ->
@@ -674,11 +733,11 @@ check(L) ->
 	    erlang:error(check)
     end.
 
-check(_A, []) ->
+check_order(_A, []) ->
     ok;
-check(A, [B | L]) when A =< B ->
-    check(B, L);
-check(_A, _L) ->
+check_order(A, [B | L]) when A =< B ->
+    check_order(B, L);
+check_order(_A, _L) ->
     no.
 
 %% The check that sort/1 is stable is no longer used.
@@ -699,23 +758,33 @@ expl_pid([], L) ->
 
 
 usort_1(Conf) when is_list(Conf) ->
-    [] = lists:usort([]),
-    [1] = lists:usort([1]),
-    [1] = lists:usort([1,1]),
-    [1] = lists:usort([1,1,1,1,1]),
-    [1,2] = lists:usort([1,2]),
-    [1,2] = lists:usort([1,2,1]),
-    [1,2] = lists:usort([1,2,2]),
-    [1,2,3] = lists:usort([1,3,2]),
-    [1,3] = lists:usort([3,1,3]),
-    [0,1,3] = lists:usort([3,1,0]),
-    [1,2,3] = lists:usort([3,1,2]),
-    [1,2] = lists:usort([2,1,1]),
-    [1,2] = lists:usort([2,1]),
-    [0,3,4,8,9] = lists:usort([3,8,9,0,9,4]),
+    usort(fun lists:usort/1).
 
-    lists:foreach(fun ucheck/1, perms([1,2,3])),
-    lists:foreach(fun ucheck/1, perms([1,2,3,4,5,6,2,1])),
+usort_2(Conf) when is_list(Conf) ->
+    usort(fun (L) -> lists:usort(fun erlang:'=<'/2, L) end).
+
+usort(ListsUSort) when is_function(ListsUSort, 1) ->
+    [] = ListsUSort([]),
+    [1] = ListsUSort([1]),
+    [1] = ListsUSort([1,1]),
+    [1] = ListsUSort([1,1,1,1,1]),
+    [1,2] = ListsUSort([1,2]),
+    [1,2] = ListsUSort([1,2,1]),
+    [1,2] = ListsUSort([1,2,2]),
+    [1,2,3] = ListsUSort([1,3,2]),
+    [1,3] = ListsUSort([3,1,3]),
+    [0,1,3] = ListsUSort([3,1,0]),
+    [1,2,3] = ListsUSort([3,1,2]),
+    [1,2] = ListsUSort([2,1,1]),
+    [1,2] = ListsUSort([2,1]),
+    [0,3,4,8,9] = ListsUSort([3,8,9,0,9,4]),
+
+    [test_stable_usort(ListsUSort, StableList, Xs) ||
+        {StableList, Xs} <- stable_lists_spec()],
+
+    UCheck = fun (L) -> ucheck(ListsUSort, L) end,
+    lists:foreach(UCheck, perms([1,2,3])),
+    lists:foreach(UCheck, perms([1,2,3,4,5,6,2,1])),
 
     ok.
 
@@ -956,11 +1025,36 @@ usort_stable(Config) when is_list(Config) ->
     end,
     ok.
 
-ucheck([]) ->
+test_stable_usort(ListsUSort, StableList, Xs) ->
+    StableUList = ulist(StableList),
+    StableElements =
+        [{X, lists_eq(X, StableList)} || X <- Xs],
+    [begin
+         {StableUList, _, _} =
+             {ListsUSort(Unsorted), StableUList, Unsorted}
+     end ||
+        Unsorted <- perms(StableList),
+        elements_are_stable(Unsorted, StableElements)],
+    ok.
+
+%% Make a sort/1:ed list usort/1:ed
+ulist([]) -> [];
+ulist([X | L]) -> ulist(X, L).
+%%
+ulist(X, [Y | L]) ->
+    if  X == Y    ->      ulist(X, L);
+        (X =/= Y) -> [X | ulist(Y, L)]
+    end;
+ulist(X, []) -> [X].
+
+
+ucheck(L) -> ucheck(fun lists:usort/1, L).
+%%
+ucheck(_ListsUSort, []) ->
     ok;
-ucheck(L) ->
-    S = lists:usort(L),
-    case ucheck(hd(S), tl(S)) of
+ucheck(ListsUSort, L) ->
+    S = ListsUSort(L),
+    case ucheck_order(hd(S), tl(S)) of
 	ok ->
 	    ok;
 	_ ->
@@ -968,11 +1062,11 @@ ucheck(L) ->
 	    erlang:error(ucheck)
     end.
 
-ucheck(_A, []) ->
+ucheck_order(_A, []) ->
     ok;
-ucheck(A, [B | L]) when A < B ->
-    ucheck(B, L);
-ucheck(_A, _L) ->
+ucheck_order(A, [B | L]) when A < B ->
+    ucheck_order( B, L);
+ucheck_order(_A, _L) ->
     no.
 
 %% Check that usort/1 is stable and correct relative ukeysort/2.
@@ -1103,6 +1197,9 @@ keysort_1(Config) when is_list(Config) ->
     L4 = [{a,1},{a,1},{b,2},{b,2},{c,3},{d,4},{e,5},{f,6}],
     lists:foreach(SFun(L4), perms(L4)),
 
+    [test_stable_keysort(StableList, Xs) ||
+        {StableList, Xs} <- stable_lists_spec()],
+
     ok.
 
 %% keysort should be stable
@@ -1116,6 +1213,57 @@ keysort_stable(Config) when is_list(Config) ->
 		       [{1,a},{1,b},{1,a},{1,a}],
 		       [{1,a},{1,b},{1,a},{1,a}]),
     ok.
+
+%% Create two variants of tuple lists with keys from StableKeys.
+%% The variants are {Key}, and {Key,N++}.
+%%
+%% Test that all permutations of the stable list that have
+%% the elements specified by Ks in the same order as the stable list,
+%% are sorted to the stable list
+%%
+test_stable_keysort(StableKeys, Ks) ->
+    StableList_1 = [{K} || K <- StableKeys],
+    StableElements_1 =
+        [{K, lists_keyeq(1, K, StableList_1)} || K <- Ks],
+    [begin
+         {StableList_1, _, _} =
+             {lists:keysort(1, Unsorted), StableList_1, Unsorted}
+     end ||
+        Unsorted <- perms(StableList_1),
+        elements_are_keystable(1, Unsorted, StableElements_1)],
+    %%
+    StableList_2 = lists:enumerate(StableKeys),
+    StableElements_2 =
+        [{K, lists_keyeq(2, K, StableList_2)} || K <- Ks],
+    %%
+    [begin
+         {StableList_2, _, _} =
+             {lists:keysort(2, Unsorted), StableList_2, Unsorted}
+     end ||
+        Unsorted <- perms(StableList_2),
+        elements_are_keystable(2, Unsorted, StableElements_2)],
+    ok.
+
+
+%% Check that Unsorted elements with key comparing equal to K matches Ys,
+%% for all {K,Ys}
+%%
+elements_are_keystable(I, Unsorted, [{K, Ys} | StableElements]) ->
+    lists_keyeq(I, K, Unsorted) =:= Ys andalso
+        elements_are_keystable(I, Unsorted, StableElements);
+elements_are_keystable(_I, _Unsorted, []) -> true.
+
+%% Filter elements with key that compare equal to K
+%%
+lists_keyeq(I, K, [Y | L]) ->
+    if
+        K == element(I, Y) ->
+            [Y | lists_keyeq(I, K, L)];
+        true ->
+            lists_keyeq(I, K, L)
+    end;
+lists_keyeq(_I, _X, []) -> [].
+
 
 %% keysort should exit when given bad arguments
 keysort_error(Config) when is_list(Config) ->
@@ -1370,6 +1518,9 @@ ukeysort_1(Config) when is_list(Config) ->
     lists:foreach(SFun(M2s), perms(M2L)),
     M3 = [{1,a},{2,b},{3,c}],
     lists:foreach(SFun(M3), perms(M3)),
+
+    [test_stable_ukeysort(StableList, Xs) ||
+        {StableList, Xs} <- stable_lists_spec()],
 
     ok.
 
@@ -1871,6 +2022,41 @@ check_stab(L, U, S, US, SS) ->
 	    io:format("~s:  ~w~n", [SS, SP]),
 	    erlang:error(unstable)
     end.
+
+test_stable_ukeysort(StableKeys, Ks) ->
+    StableList_1 = [{K} || K <- StableKeys],
+    StableUList_1 = ukeylist(1, StableList_1),
+    StableElements_1 =
+        [{K, lists_keyeq(1, K, StableList_1)} || K <- Ks],
+    [begin
+         {StableUList_1, _, _} =
+             {lists:ukeysort(1, Unsorted), StableUList_1, Unsorted}
+     end ||
+        Unsorted <- perms(StableList_1),
+        elements_are_keystable(1, Unsorted, StableElements_1)],
+    %%
+    StableList_2 = lists:enumerate(StableKeys),
+    StableUList_2 = ukeylist(2, StableList_2),
+    StableElements_2 =
+        [{K, lists_keyeq(2, K, StableList_2)} || K <- Ks],
+    %%
+    [begin
+         {StableUList_2, _, _} =
+             {lists:ukeysort(2, Unsorted), StableUList_2, Unsorted}
+     end ||
+        Unsorted <- perms(StableList_2),
+        elements_are_keystable(2, Unsorted, StableElements_2)],
+    ok.
+
+ukeylist(_I, []) -> [];
+ukeylist(I, [X | L]) -> ukeylist(I, X, element(I, X), L).
+%%
+ukeylist(I, X, EX, [Y | L]) ->
+    EY = element(I, Y),
+    if  EX == EY    ->      ukeylist(I, X, EX, L);
+        (EX =/= EY) -> [X | ukeylist(I, Y, EY, L)]
+    end;
+ukeylist(_I, X, _EX, []) -> [X].
 
 %%%------------------------------------------------------------
 %%% Generate lists of given length, containing 3-tuples with

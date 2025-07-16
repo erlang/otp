@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -682,7 +682,7 @@ sort_1(X, [Y | L], R) when X == Y ->
 sort_1(X, [Y | L], R) when X < Y ->
     split_1(X, Y, L, R, []);
 sort_1(X, [Y | L], R) ->
-    split_2(X, Y, L, R, []);
+    split_2(X, Y, L, [], [lists:reverse(R, [])]);
 sort_1(X, [], R) ->
     lists:reverse(R, [X]).
 
@@ -987,14 +987,14 @@ keysort(I, L) when is_integer(I), I > 0 ->
 	    end
     end.
 
-keysort_1(I, X, EX, [Y | L], R) when X == Y ->
-    keysort_1(I, Y, EX, L, [X | R]);
 keysort_1(I, X, EX, [Y | L], R) ->
     case element(I, Y) of
-	EY when EX =< EY ->
+	EY when EX < EY ->
 	    keysplit_1(I, X, EX, Y, EY, L, R, []);
-	EY ->
-	    keysplit_2(I, X, EX, Y, EY, L, R, [])
+	EY when EX > EY ->
+	    keysplit_2(I, X, EX, Y, EY, L, [], [lists:reverse(R)]);
+        EY -> % EX == EY
+            keysort_1(I, Y, EY, L, [X | R])
     end;
 keysort_1(_I, X, _EX, [], R) ->
     lists:reverse(R, [X]).
@@ -1875,7 +1875,7 @@ split_1_1(X, Y, [Z | L], R, Rs, S) when Z >= Y ->
     split_1_1(Y, Z, L, [X | R], Rs, S);
 split_1_1(X, Y, [Z | L], R, Rs, S) when Z >= X ->
     split_1_1(Z, Y, L, [X | R], Rs, S);
-split_1_1(X, Y, [Z | L], R, Rs, S) when S =< Z ->
+split_1_1(X, Y, [Z | L], R, Rs, S) when Z >= S ->
     split_1(S, Z, L, [], [[Y, X | R] | Rs]);
 split_1_1(X, Y, [Z | L], R, Rs, S) ->
     split_1(Z, S, L, [], [[Y, X | R] | Rs]);
@@ -1883,27 +1883,27 @@ split_1_1(X, Y, [], R, Rs, S) ->
     rmergel([[S], [Y, X | R] | Rs], []).
 
 %% Descending.
-split_2(X, Y, [Z | L], R, Rs) when Z =< Y ->
+split_2(X, Y, [Z | L], R, Rs) when Y > Z ->
     split_2(Y, Z, L, [X | R], Rs);
-split_2(X, Y, [Z | L], R, Rs) when Z =< X ->
+split_2(X, Y, [Z | L], R, Rs) when X > Z ->
     split_2(Z, Y, L, [X | R], Rs);
 split_2(X, Y, [Z | L], [], Rs) ->
     split_2(X, Y, L, [Z], Rs);
 split_2(X, Y, [Z | L], R, Rs) ->
     split_2_1(X, Y, L, R, Rs, Z);
 split_2(X, Y, [], R, Rs) ->
-    mergel([[Y, X | R] | Rs], []).
+    mergel(lists:reverse(Rs, [[Y, X | R]]), []).
 
-split_2_1(X, Y, [Z | L], R, Rs, S) when Z =< Y ->
+split_2_1(X, Y, [Z | L], R, Rs, S) when Y > Z ->
     split_2_1(Y, Z, L, [X | R], Rs, S);
-split_2_1(X, Y, [Z | L], R, Rs, S) when Z =< X ->
+split_2_1(X, Y, [Z | L], R, Rs, S) when X > Z ->
     split_2_1(Z, Y, L, [X | R], Rs, S);
 split_2_1(X, Y, [Z | L], R, Rs, S) when S > Z ->
     split_2(S, Z, L, [], [[Y, X | R] | Rs]);
 split_2_1(X, Y, [Z | L], R, Rs, S) ->
     split_2(Z, S, L, [], [[Y, X | R] | Rs]);
 split_2_1(X, Y, [], R, Rs, S) ->
-    mergel([[S], [Y, X | R] | Rs], []).
+    mergel(lists:reverse(Rs, [[Y, X | R], [S]]), []).
 
 %% merge/1
 
