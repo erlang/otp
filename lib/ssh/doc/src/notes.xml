@@ -30,6 +30,26 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 5.1.4.11</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fix file handle id generation.</p>
+          <p>
+	    Own Id: OTP-19691 Aux Id: PR-10003 </p>
+        </item>
+        <item>
+	    <p>Fixes a badmatch error, when SFTP operation cannot be
+	    processed due to channel closed in parallel.</p>
+          <p>
+	    Own Id: OTP-19707 Aux Id: GH-9655, PR-10035, PR-10036 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 5.1.4.10</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

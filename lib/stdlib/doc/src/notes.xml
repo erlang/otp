@@ -31,6 +31,28 @@
   </header>
   <p>This document describes the changes made to the STDLIB application.</p>
 
+<section><title>STDLIB 5.2.3.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> A set of small bugs in sort stability for
+	    `lists:sort/1` and `lists:keysort/1` has been fixed. The
+	    bug happened for only some, seemingly random, element
+	    sequences. Most sorts were stable. </p><p> Sort stability
+	    for `lists:sort/1` is only possible to observe when
+	    sorting lists with floating point and integer numbers of
+	    the same value. </p><p> For `lists:keysort/1` the list
+	    had to start with two tuples where the keys or the whole
+	    tuples compared equal. </p>
+          <p>
+	    Own Id: OTP-19673 Aux Id: ERIERL-1240 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>STDLIB 5.2.3.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

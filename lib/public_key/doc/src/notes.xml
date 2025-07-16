@@ -35,6 +35,23 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Public_Key 1.15.1.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Handle certificates that are signed with RSASSA-PSS
+	    but the PSS params are specified in the
+	    'SignatureAlgorithm' of the signed cert and not in the
+	    signer's 'SubjectPublicKeyInfo'. </p>
+          <p>
+	    Own Id: OTP-19699 Aux Id: GH-9632, PR-10023 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Public_Key 1.15.1.5</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

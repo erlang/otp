@@ -27,6 +27,21 @@
   </header>
   <p>This document describes the changes made to the SSL application.</p>
 
+<section><title>SSL 11.1.4.9</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Improve error message for bad arguments to underlying
+	    connect.</p>
+          <p>
+	    Own Id: OTP-19697 Aux Id: GH-10007, PR-10016 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SSL 11.1.4.8</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

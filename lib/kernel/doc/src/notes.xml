@@ -31,6 +31,23 @@
   </header>
   <p>This document describes the changes made to the Kernel application.</p>
 
+<section><title>Kernel 9.2.4.10</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p><c>net_kernel</c> could be blocked for a very long
+	    time when selecting distribution module for a connection
+	    if the DNS service was slow. This prevented any new
+	    connections to be set up during that time.</p>
+          <p>
+	    Own Id: OTP-19702 Aux Id: ERIERL-1241, PR-10029 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Kernel 9.2.4.9</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

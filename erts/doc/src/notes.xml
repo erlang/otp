@@ -31,6 +31,32 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 14.2.5.11</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fix windows uninstall command.</p>
+          <p>
+	    Own Id: OTP-19683 Aux Id: PR-9887, GH-9992, GH-9884 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>The maximum amount of connections for <c>epmd</c> on
+	    Windows platforms has been increased from 64 to 1024.</p>
+          <p>
+	    Own Id: OTP-19710 Aux Id: PR-10039 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 14.2.5.10</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
