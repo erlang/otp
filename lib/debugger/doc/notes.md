@@ -23,6 +23,17 @@ limitations under the License.
 
 This document describes the changes made to the Debugger application.
 
+## Debugger 6.0.2
+
+### Fixed Bugs and Malfunctions
+
+- Fixed debugger priv dir, which was removed and caused crashes when the icons could not be found.
+
+  Own Id: OTP-19687 Aux Id: [PR-9994], [GH-9858]
+
+[PR-9994]: https://github.com/erlang/otp/pull/9994
+[GH-9858]: https://github.com/erlang/otp/issues/9858
+
 ## Debugger 6.0.1
 
 ### Fixed Bugs and Malfunctions

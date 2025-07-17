@@ -21,6 +21,30 @@ limitations under the License.
 -->
 # Public_Key Release Notes
 
+## Public_Key 1.18.2
+
+### Fixed Bugs and Malfunctions
+
+- Adjustments in include file to retain compatibility with supported ASN-1 standards, although not all record and macros are explicitly documented.
+
+  Own Id: OTP-19678 Aux Id: [PR-10008], [PR-9955], [GH-10001]
+
+- Handle certificates that are signed with RSASSA-PSS but the PSS params are specified in the 'SignatureAlgorithm' of the signed cert and not in the signer's 'SubjectPublicKeyInfo'.
+
+  Own Id: OTP-19699 Aux Id: [GH-9632], [PR-10023]
+
+- Add modern ASN-1 specs to be able to retain support for ExtensionRequest from legacy PKCS-9 spec.
+
+  Own Id: OTP-19703 Aux Id: [GH-10028], [PR-10031]
+
+[PR-10008]: https://github.com/erlang/otp/pull/10008
+[PR-9955]: https://github.com/erlang/otp/pull/9955
+[GH-10001]: https://github.com/erlang/otp/issues/10001
+[GH-9632]: https://github.com/erlang/otp/issues/9632
+[PR-10023]: https://github.com/erlang/otp/pull/10023
+[GH-10028]: https://github.com/erlang/otp/issues/10028
+[PR-10031]: https://github.com/erlang/otp/pull/10031
+
 ## Public_Key 1.18.1
 
 ### Fixed Bugs and Malfunctions
