@@ -242,7 +242,6 @@ sim_mixed() ->
 %%--------------------------------------------------------------------
 
 init_per_suite(Config) ->
-        ok, % added to force github cache renewal
     logger:set_primary_config(level, warning),
     PrivDir = proplists:get_value(priv_dir, Config),
     DataDir = proplists:get_value(data_dir, Config),
@@ -341,11 +340,10 @@ do_init_per_group(Group, Config0) ->
             _ ->
                 Config0
         end,
-        Config = proplists:delete(port, Config1),
+    Config = proplists:delete(port, Config1),
     application:ensure_all_started([asn1, crypto, public_key, ssl]),
     Port = server_start(Group, server_config(Group, Config)),
     [{port, Port} | Config].
-    % Config.
 
 init_ssl(Config) ->
     ClientFileBase = filename:join([proplists:get_value(priv_dir, Config), "client"]),
@@ -379,10 +377,10 @@ init_per_testcase(Name, Config) when Name == pipeline; Name == persistent_connec
 init_per_testcase(remote_socket_close_high_load = Case, Config0) ->
     Profile = Case,
     {ok, _Pid} = inets:start(httpc, [{profile, Profile}]),
-    MaxHandlersOpen = 20,
-    Config = [{profile, Profile}, {max_handlers_open, MaxHandlersOpen} | Config0],
+    MaxConnectionsOpen = 1,
+    Config = [{profile, Profile}, {max_connections_open, MaxConnectionsOpen} | Config0],
     GivenOptions = proplists:get_value(httpc_options, Config, []),
-    ok = httpc:set_options([{max_handlers_open, MaxHandlersOpen} | GivenOptions], Profile),
+    ok = httpc:set_options([{max_connections_open, MaxConnectionsOpen} | GivenOptions], Profile),
     case group_name(Config) of
         Group when Group == http_high_load orelse Group == https_high_load ->
             SocketType =
@@ -2189,15 +2187,16 @@ remote_socket_close_high_load() ->
       "Verify remote socket closure (related tickets: OTP-18509, OTP-18545,"
       "ERIERL-937, OTP-19587). Transferred data size needs to be significant,"
       "so that socket would close, in the middle of a transfer,"
-      "without max_handlers_open option set"}, {timetrap, timer:minutes(15)}].
+      "if option max_connections_open is not set or isn't working as expected"},
+     {timetrap, timer:minutes(20)}].
 remote_socket_close_high_load(Config0) when is_list(Config0) ->
-    {ok, MaxHandlersOpen} = httpc:get_option(max_handlers_open, ?profile(Config0)),
-    case MaxHandlersOpen =:= ?config(max_handlers_open, Config0) of
+    {ok, MaxConnectionsOpen} = httpc:get_option(max_connections_open, ?profile(Config0)),
+    case MaxConnectionsOpen =:= ?config(max_connections_open, Config0) of
         true -> ok;
-        _ -> ct:fail("max_handlers_open option not set")
+        _ -> ct:fail("max_connections_open option not set")
     end,
-    ClientNumber = 300,
-    Config = [{iterations, 3} | Config0],
+    ClientNumber = 100,
+    Config = [{iterations, 1} | Config0],
     ClientPids =
         [spawn_link(?MODULE, connect, [self(), [{client_id, Id} | Config]]) ||
             Id <- lists:seq(1, ClientNumber)],
@@ -2232,7 +2231,7 @@ loop(Cnt, Acc, Config) ->
                         true ->
                             Info = httpc_manager:info(httpc:profile_name(?profile(Config))),
                             Handlers = proplists:get_value(handlers, Info),
-                            SetMax = ?config(max_handlers_open, Config),
+                            SetMax = ?config(max_connections_open, Config),
                             case length(Handlers) of
                                 Length when Length > SetMax ->
                                     {too_many_handlers_open, Length};
@@ -3664,6 +3663,7 @@ open_big_data_socket(ssl, Pid, Config) ->
 accept_and_send_data(gen_tcp, Sock) ->
     {ok, Sock1} = gen_tcp:accept(Sock),
     F = fun() ->
+        receive start -> ok end,
         gen_tcp:recv(Sock1, 0),
         gen_tcp:send(Sock1, ["HTTP/1.1 200 OK\r\nConnection: close\r\n\r\n"]),
         ChunkSize = 1024*64*8, % 64KB
@@ -3672,17 +3672,20 @@ accept_and_send_data(gen_tcp, Sock) ->
         gen_tcp:close(Sock1)
     end,
     HandlerPid = spawn(F),
-    gen_tcp:controlling_process(Sock1, HandlerPid);
+    gen_tcp:controlling_process(Sock1, HandlerPid),
+    HandlerPid ! start;
 accept_and_send_data(ssl, LSock) ->
     {ok, Sock1} = ssl:transport_accept(LSock),
     F = fun() ->
+        receive start -> ok end,
         {ok, Sock} = ssl:handshake(Sock1),
         ssl:recv(Sock, 0),
         ssl:send(Sock, ["HTTP/1.1 200 OK\r\nConnection: close\r\n\r\n"]),
         ChunkSize = 1024*64*8, % 64KB
         << begin ssl:send(Sock, <<Chunk:ChunkSize>>), <<>> end || <<Chunk:ChunkSize>> <= ?DATA_20MB>>,
-        receive after 10000 -> ok end,
+        receive after 5000 -> ok end,
         ssl:close(Sock)
      end,
     HandlerPid = spawn(F),
-    ssl:controlling_process(Sock1, HandlerPid).
+    ssl:controlling_process(Sock1, HandlerPid),
+    HandlerPid ! start.

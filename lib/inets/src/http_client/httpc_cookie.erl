@@ -62,7 +62,6 @@
 %%--------------------------------------------------------------------
 
 open_db(_, only_session_cookies, SessionDbName) ->
-        ok, % added to force github cache renewal
     ?hcrt("open (session cookies only) db", 
 	  [{session_db_name, SessionDbName}]),
     SessionDb = ets:new(SessionDbName, 

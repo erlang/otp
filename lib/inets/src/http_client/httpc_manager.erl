@@ -63,7 +63,7 @@
 	  session_db,    % ets() - Entry:  #session{}
 	  profile_name,  % atom()
 	  options = #options{},
-          awaiting      % queue() - Entry: #request{}
+          awaiting       % queue() - Entry: #request{}
 	 }).
 
 -define(DELAY, 500).
@@ -84,7 +84,6 @@
 %%--------------------------------------------------------------------
 
 start_link(Profile, CookieDir, stand_alone) ->
-        ok, % added to force github cache renewal
     ProfileName = httpc:profile_name("stand_alone_", Profile), 
     Args        = [ProfileName, CookieDir], 
     Opts        = [], 
@@ -561,7 +560,7 @@ handle_cast({set_options, Options}, State = #state{options = OldOptions}) ->
 		 verbose               = get_verbose(Options, OldOptions),
 		 socket_opts           = get_socket_opts(Options, OldOptions),
 		 unix_socket           = get_unix_socket_opts(Options, OldOptions),
-                 max_handlers_open     = get_max_handlers_open(Options, OldOptions)
+                 max_connections_open  = get_max_connections_open(Options, OldOptions)
 		}, 
     case {OldOptions#options.verbose, NewOptions#options.verbose} of
 	{Same, Same} ->
@@ -585,8 +584,10 @@ handle_cast({store_cookies, _},
 handle_cast({store_cookies, {Cookies, _}}, State) ->
     ok = do_store_cookies(Cookies, State),
     {noreply, State};
+
 handle_cast({await, Request}, #state{awaiting = Awaiting} = State) ->
     {noreply, State#state{awaiting = queue:in(Request, Awaiting)}};
+
 handle_cast(Msg, #state{profile_name = ProfileName} = State) ->
     error_report(ProfileName, 
 		 "received unknown message"
@@ -599,14 +600,16 @@ handle_cast(Msg, #state{profile_name = ProfileName} = State) ->
 %%          {stop, Reason, State}            (terminate/2 is called)
 %% Description: Handling all non call/cast messages
 %%---------------------------------------------------------
-%%
+
 handle_info({'EXIT', _, _}, State) ->
     %% Handled in DOWN
     {noreply, State};
+
 handle_info({'DOWN', _, _, Pid, _}, State0) ->
     ets:match_delete(State0#state.handler_db, {'_', Pid, '_'}),
     State = start_enqueued_request(State0),
     {noreply, State};
+
 handle_info(Info, State) ->
     Report = io_lib:format("Unknown message in "
 			   "httpc_manager:handle_info ~p~n", [Info]),
@@ -762,19 +765,18 @@ handle_request(Request0 = #request{socket_opts = SocketOpts},
 	(Request#request.headers)#http_request_h{connection
 						    = "close"},
     %% Reset socket_opts to avoid setopts failure.
-    Msg = start_handler(Request#request{headers = Headers, socket_opts = []}, State),
+    start_handler(Request#request{headers = Headers, socket_opts = []}, State),
     %% Do not change the state
-    {reply, Msg, State0};
+    {reply, {ok, Request#request.id}, State0};
 
 handle_request(Request, State = #state{options = Options}) ->
     NewRequest = handle_cookies(generate_request_id(Request), State),
     SessionType = session_type(Options),
-    Message = case select_session(Request#request.method,
+    case select_session(Request#request.method,
 			Request#request.address,
 			Request#request.scheme, SessionType, State) of
 	{ok, HandlerPid} ->
-	    pipeline_or_keep_alive(NewRequest, HandlerPid, State),
-        {ok, NewRequest#request.id};
+	    pipeline_or_keep_alive(NewRequest, HandlerPid, State);
 	no_connection ->
 	    start_handler(NewRequest, State);
 	{no_session,  OpenSessions} when OpenSessions
@@ -788,7 +790,7 @@ handle_request(Request, State = #state{options = Options}) ->
 							    = "close"},
 	    start_handler(NewRequest#request{headers = NewHeaders}, State)
     end,
-    {reply, Message, State}.
+    {reply, {ok, NewRequest#request.id}, State}.
 
 
 %% Convert Request options to State options
@@ -800,17 +802,20 @@ convert_options([{ip, Value}|T], Options) ->
     convert_options(T, Options#options{ip = Value});
 convert_options([{port, Value}|T], Options) ->
     convert_options(T, Options#options{port = Value});
-convert_options([{max_handlers_open, Value}|T], Options) ->
-    convert_options(T, Options#options{max_handlers_open = Value});
+convert_options([{max_connections_open, Value}|T], Options) ->
+    convert_options(T, Options#options{max_connections_open = Value});
 convert_options([Option|T], Options = #options{socket_opts = SocketOpts}) ->
     convert_options(T, Options#options{socket_opts = SocketOpts ++ [Option]}).
 
 start_handler(#request{} = Request,
+              #state{options = #options{max_connections_open = infinity}} = State) ->
+    do_start_handler(Request, State);
+start_handler(#request{} = Request,
               #state{handler_db   = HandlerDb,
-                     options      = Options} = State) ->
-    MaxHandlersOpen = Options#options.max_handlers_open,
-    case ets:info(HandlerDb, size) >= MaxHandlersOpen - 1
-        andalso MaxHandlersOpen =/= -1 of
+                     options      = #options{max_connections_open =
+                                                 MaxConnectionsOpen}} = State) ->
+    ReachedLimit = ets:info(HandlerDb, size) >= MaxConnectionsOpen,
+    case ReachedLimit of
         true -> wait_for_handler_to_end_then_start(Request);
         false -> do_start_handler(Request, State)
     end.
@@ -830,22 +835,27 @@ do_start_handler(#request{id   = Id,
         end,
     HandlerInfo = {Id, Pid, From},
     ets:insert(HandlerDb, HandlerInfo),
-    erlang:monitor(process, Pid),
-    {ok, Id}.
+    erlang:monitor(process, Pid).
 
-wait_for_handler_to_end_then_start(#request{id = Id} = Request) ->
-    gen_server:cast(self(), {await, Request}),
-    {ok, {await, Id}}.
+wait_for_handler_to_end_then_start(#request{} = Request) ->
+    gen_server:cast(self(), {await, Request}).
 
-start_enqueued_request(#state{awaiting = Awaiting} = State0)->
-    case queue:out(Awaiting) of
-        {{value, Request}, NewAwaiting} ->
-            State = State0#state{awaiting = NewAwaiting},
-            {ok, Id} = do_start_handler(Request, State#state{awaiting = NewAwaiting}),
-            Request#request.from ! {started, Id},
-            State;
-        {empty, _} ->
-            State0
+start_enqueued_request(#state{awaiting = Awaiting,
+                              handler_db = HandlerDb,
+                              options = #options{max_connections_open = MaxConnectionsOpen}}
+                       = State0) ->
+    ReachedLimit = ets:info(HandlerDb, size) >= MaxConnectionsOpen,
+    case ReachedLimit of
+        true -> State0;
+        false ->
+            case queue:out(Awaiting) of
+                {{value, Request}, NewAwaiting} ->
+                    State = State0#state{awaiting = NewAwaiting},
+                    do_start_handler(Request, State),
+                    State;
+                {empty, _} ->
+                    State0
+            end
     end.
 
 select_session(Method, HostPort, Scheme, SessionType, 
@@ -1039,8 +1049,8 @@ get_option(socket_opts, #options{socket_opts = SocketOpts}) ->
     SocketOpts;
 get_option(unix_socket, #options{unix_socket = UnixSocket}) ->
     UnixSocket;
-get_option(max_handlers_open, #options{max_handlers_open = MaxHandlersOpen}) ->
-    MaxHandlersOpen.
+get_option(max_connections_open, #options{max_connections_open = MaxConnectionsOpen}) ->
+    MaxConnectionsOpen.
 
 
 get_proxy(Opts, #options{proxy = Default}) ->
@@ -1085,8 +1095,8 @@ get_socket_opts(Opts, #options{socket_opts = Default}) ->
 get_unix_socket_opts(Opts, #options{unix_socket = Default}) ->
     proplists:get_value(unix_socket, Opts, Default).
 
-get_max_handlers_open(Opts, #options{max_handlers_open = Default}) ->
-    proplists:get_value(max_handlers_open, Opts, Default).
+get_max_connections_open(Opts, #options{max_connections_open = Default}) ->
+    proplists:get_value(max_connections_open, Opts, Default).
 
 handle_verbose(debug) ->
     dbg:p(self(), [call]),
