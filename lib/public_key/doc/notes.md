@@ -222,6 +222,14 @@ limitations under the License.
 [PR-8026]: https://github.com/erlang/otp/pull/8026
 [PR-8233]: https://github.com/erlang/otp/pull/8233
 
+## Public_Key 1.15.1.6
+
+### Fixed Bugs and Malfunctions
+
+* Handle certificates that are signed with RSASSA-PSS but the PSS params are specified in the 'SignatureAlgorithm' of the signed cert and not in the signer's 'SubjectPublicKeyInfo'.
+
+  Own Id: OTP-19699 Aux Id: GH-9632, PR-10023
+
 ## Public_Key 1.15.1.5
 
 ### Fixed Bugs and Malfunctions

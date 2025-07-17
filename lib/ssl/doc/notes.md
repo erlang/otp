@@ -422,6 +422,14 @@ This document describes the changes made to the SSL application.
 [PR-8250]: https://github.com/erlang/otp/pull/8250
 [PR-8255]: https://github.com/erlang/otp/pull/8255
 
+## SSL 11.1.4.9
+
+### Fixed Bugs and Malfunctions
+
+* Improve error message for bad arguments to underlying connect.
+
+  Own Id: OTP-19697 Aux Id: GH-10007, PR-10016
+
 ## SSL 11.1.4.8
 
 ### Fixed Bugs and Malfunctions

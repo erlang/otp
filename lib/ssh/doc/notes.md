@@ -293,6 +293,17 @@ limitations under the License.
 [PR-7845]: https://github.com/erlang/otp/pull/7845
 [PR-8026]: https://github.com/erlang/otp/pull/8026
 
+## Ssh 5.1.4.11
+
+### Fixed Bugs and Malfunctions
+
+* Fix file handle id generation.
+
+  Own Id: OTP-19691 Aux Id: PR-10003
+* Fixes a badmatch error, when SFTP operation cannot be processed due to channel closed in parallel.
+
+  Own Id: OTP-19707 Aux Id: GH-9655, PR-10035, PR-10036
+
 ## Ssh 5.1.4.10
 
 ### Fixed Bugs and Malfunctions

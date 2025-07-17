@@ -1251,6 +1251,18 @@ This document describes the changes made to the STDLIB application.
 [PR-8205]: https://github.com/erlang/otp/pull/8205
 [PR-8111]: https://github.com/erlang/otp/pull/8111
 
+## STDLIB 5.2.3.5
+
+### Fixed Bugs and Malfunctions
+
+* A set of small bugs in sort stability for \`lists:sort/1\` and \`lists:keysort/1\` has been fixed. The bug happened for only some, seemingly random, element sequences. Most sorts were stable.
+
+  Sort stability for \`lists:sort/1\` is only possible to observe when sorting lists with floating point and integer numbers of the same value.
+
+  For \`lists:keysort/1\` the list had to start with two tuples where the keys or the whole tuples compared equal.
+
+  Own Id: OTP-19673 Aux Id: ERIERL-1240
+
 ## STDLIB 5.2.3.4
 
 ### Fixed Bugs and Malfunctions
