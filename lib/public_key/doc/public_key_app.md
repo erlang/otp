@@ -45,10 +45,8 @@ that reads files.
 - Supports
   [PKCS-3 ](https://web.archive.org/web/20170417091930/https://www.emc.com/emc-plus/rsa-labs/standards-initiatives/pkcs-3-diffie-hellman-key-agreement-standar.htm)\-
   Diffie-Hellman Key Agreement Standard
-- Supports [PKCS-5](http://www.ietf.org/rfc/rfc2898.txt) \- Password-Based
-  Cryptography Standard
-- Supports [AES ](http://www.ietf.org/rfc/fc3565.txt)\- Use of the Advanced
-  Encryption Standard (AES) Algorithm in Cryptographic Message Syntax (CMS)
+- Supports Cryptographic Message Syntax (CMS) (http://www.ietf.org/rfc/rfc5652.txt) including Password-Based Encryption with original [PKCS-5](http://www.ietf.org/rfc/rfc2898.txt) support,
+  but currently excluding offical support for most of section 10-12 (if proven useful, especially Attribute Certificates v2, it might be added later).
 - Supports [PKCS-8](http://www.ietf.org/rfc/rfc5208.txt) \- Private-Key
   Information Syntax Standard
 - Supports [PKCS-10](http://www.ietf.org/rfc/rfc5967.txt) \- Certification

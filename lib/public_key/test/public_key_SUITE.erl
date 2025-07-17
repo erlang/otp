@@ -527,14 +527,14 @@ eddsa_pub() ->
 eddsa_pub(Config) when is_list(Config) ->
     Datadir = proplists:get_value(data_dir, Config),
     {ok, EDDSAPubPem} = file:read_file(filename:join(Datadir, "public_eddsa.pem")),
-    [{'SubjectPublicKeyInfo', _, not_encrypted} = Key] = PemEntry =
+    [{'SubjectPublicKeyInfo', _, not_encrypted}] = PemEntry =
         public_key:pem_decode(EDDSAPubPem),
     EDDSAPubKey = public_key:pem_entry_decode(PemEntry),
     true = check_entry_type(EDDSAPubKey, 'ECPoint'),
     {_, {namedCurve, ?'id-Ed25519'}} = EDDSAPubKey,
-    PrivEntry0 = public_key:pem_entry_encode('SubjectPublicKeyInfo', EDDSAPubKey),
+    PubEntry = public_key:pem_entry_encode('SubjectPublicKeyInfo', EDDSAPubKey),
     ECPemNoEndNewLines = strip_superfluous_newlines(EDDSAPubPem),
-    ECPemNoEndNewLines = strip_superfluous_newlines(public_key:pem_encode([PemEntry])).
+    ECPemNoEndNewLines = strip_superfluous_newlines(public_key:pem_encode([PubEntry])).
 
 eddsa_sign_verify_24_compat(_Config) ->
     Key =
