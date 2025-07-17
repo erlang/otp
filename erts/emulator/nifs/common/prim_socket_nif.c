@@ -2073,6 +2073,7 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(family);                          \
     GLOBAL_ATOM_DECL(fastroute);                       \
     GLOBAL_ATOM_DECL(fast_retrans);                    \
+    GLOBAL_ATOM_DECL(file_not_found);                  \
     GLOBAL_ATOM_DECL(fin_wait_1);                      \
     GLOBAL_ATOM_DECL(fin_wait_2);                      \
     GLOBAL_ATOM_DECL(flags);                           \
