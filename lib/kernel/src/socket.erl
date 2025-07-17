@@ -3633,6 +3633,10 @@ send_common_nowait_result(Handle, Op, Result) ->
     case Result of
         completion ->
             {completion, ?COMPLETION_INFO(Op, Handle)};
+        {completion, _} -> % Only sendv
+            {completion, ?COMPLETION_INFO(Op, Handle)};
+        {completion, Data, _} -> % Only sendv
+            {completion, {?COMPLETION_INFO(Op, Handle), Data}};
         {select, ContData} ->
             {select, ?SELECT_INFO({Op, ContData}, Handle)};
         {select, Data, ContData} ->
@@ -4440,6 +4444,7 @@ With the argument [`Cont`](`t:select_info/0`), equivalent to
           {'select', SelectInfo} |
           {'select', {SelectInfo, RestIOV}} |
           {'completion', CompletionInfo} |
+          {'completion', {CompletionInfo, RestIOV}} |
           {'error', Reason} |
           {'error', {Reason, RestIOV}}
               when
@@ -4605,7 +4610,7 @@ sendv_deadline_cont(SockRef, IOV, _, Deadline, HasWritten) ->
 %% rest_iov - Utility function for sendv usage
 %%
 
--doc(#{since => "@OTP-19661@"}).
+-doc(#{since => "OTP @OTP-19661@"}).
 -doc """
 Calculate the rest I/O vector after a partially successful sendv
 (CompletionStatus was {ok, Written}).
@@ -4617,7 +4622,6 @@ Calculate the rest I/O vector after a partially successful sendv
 
 rest_iov(Written, IOV) ->
     prim_socket:rest_iov(Written, IOV).
-
 
 
 %% ===========================================================================
