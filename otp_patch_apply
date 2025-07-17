@@ -422,13 +422,13 @@ for app in $applications; do
 	    erts_vsn=`grep '^VSN' erts/vsn.mk | sed "s|^VSN.*=[^0-9]*\([0-9].*\)$|\1|g"`
 	    update_rel=true;;
 	kernel)
-	    kernel_vsn=`sed "s|^KERNEL_VSN[^=]*=[^0-9]*\([0-9].*\)$|\1|g" lib/kernel/vsn.mk`
+	    kernel_vsn=`grep '^KERNEL_VSN' lib/kernel/vsn.mk | sed "s|^KERNEL_VSN[^=]*=[^0-9]*\([0-9].*\)$|\1|g"`
 	    update_rel=true;;
 	stdlib)
-	    stdlib_vsn=`sed "s|^STDLIB_VSN[^=]*=[^0-9]*\([0-9].*\)$|\1|g" lib/stdlib/vsn.mk`
+	    stdlib_vsn=`grep '^STDLIB_VSN' lib/stdlib/vsn.mk | sed "s|^STDLIB_VSN[^=]*=[^0-9]*\([0-9].*\)$|\1|g"`
 	    update_rel=true;;
 	sasl)
-	    sasl_vsn=`sed "s|^SASL_VSN[^=]*=[^0-9]*\([0-9].*\)$|\1|g" lib/sasl/vsn.mk`
+	    sasl_vsn=`grep '^SASL_VSN' lib/sasl/vsn.mk | sed "s|^SASL_VSN[^=]*=[^0-9]*\([0-9].*\)$|\1|g"`
 	    update_rel=true;;
 	*)
 	    ;;
