@@ -2536,6 +2536,8 @@ empty_matches(Config) when is_list(Config) ->
     {'EXIT',{function_clause,[_|_]}} = catch em_4(<<0:1>>, <<>>),
     {'EXIT',{function_clause,[_|_]}} = catch em_4(<<0:1>>, <<0:1>>),
 
+    ok = em_5(),
+
     ok.
 
 em_1(Bytes) ->
@@ -2562,6 +2564,75 @@ em_3_1(I) -> I.
 %% GH-6426/OTP-xxxxx
 em_4(<<X:0, _:X>>, <<Y:0, _:Y>>) ->
     ok.
+
+%% GH-10047
+
+em_5() ->
+    A = id(<<1>>),
+    Empty = id(<<>>),
+    <<Zero>> = id(<<0>>),
+
+    true = is_bitstring(A),
+    true = is_bitstring(Empty),
+
+    <<1,128>> = em_5_1(A),
+    <<0>> = em_5_1(id(Empty)),
+
+    true = is_binary(A),
+    true = is_binary(Empty),
+
+    ok = em_5_coverage_1(A),
+    ok = em_5_coverage_1(Empty),
+
+    ok = em_5_coverage_2(A),
+    ok = em_5_coverage_2(Empty),
+
+    ok = em_5_coverage_3(A),
+    ok = em_5_coverage_3(Empty),
+
+    ok = em_5_coverage_4(A, Zero),
+    ok = em_5_coverage_4(Empty, Zero),
+
+    ok.
+
+em_5_1(<<Chunk:7/bits>>) ->
+    <<Chunk:7/bits, 0:1>>;
+em_5_1(<<Chunk:1/bits>>) ->
+    <<Chunk:1/bits, 0:7>>;
+em_5_1(<<>>) ->
+    <<0:8>>;
+em_5_1(<<Chunk:7/bits, Rest/bits>>) ->
+    <<Chunk:7/bits, 1:1, (em_5_1(Rest))/bits>>.
+
+%% Improves coverage.
+em_5_coverage_1(<<_:8/bits, Rest/binary>>) ->
+    em_5_coverage_1(Rest);
+em_5_coverage_1(<<_:8/integer, _/binary>>) ->
+    unreachable;
+em_5_coverage_1(<<>>) ->
+    ok.
+
+em_5_coverage_2(<<_:8/bits, Rest/binary>>) ->
+    em_5_coverage_2(Rest);
+em_5_coverage_2(<<_:8/integer, _/binary>>) ->
+    unreachable;
+em_5_coverage_2(<<>>) ->
+    ok.
+
+em_5_coverage_3(<<_:8/bits, Rest/binary>>) ->
+    em_5_coverage_3(Rest);
+em_5_coverage_3(<<_>>) ->
+    unreachable;
+em_5_coverage_3(<<>>) ->
+    ok.
+
+em_5_coverage_4(<<_:8/bits, Rest/binary>>, TailBits) ->
+    em_5_coverage_4(Rest, TailBits);
+em_5_coverage_4(Rest, TailBits) ->
+    case Rest of
+        <<_:TailBits/bits>> -> ok;
+        <<>> -> error
+    end.
 
 %% beam_trim would sometimes crash when bs_start_match4 had {atom,resume} as
 %% its fail label.
