@@ -23,6 +23,16 @@ limitations under the License.
 
 This document describes the changes made to the Wx application.
 
+## Wx 2.5.1
+
+### Fixed Bugs and Malfunctions
+
+- Don't include `gl.beam` in pre-built source tar file, since it depends on local configure results.
+
+  Own Id: OTP-19700 Aux Id: [PR-10024]
+
+[PR-10024]: https://github.com/erlang/otp/pull/10024
+
 ## Wx 2.5
 
 ### Improvements and New Features
