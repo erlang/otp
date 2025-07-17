@@ -47,7 +47,6 @@
 send(SendAddr, #session{socket = Socket, socket_type = SocketType}, 
      #request{socket_opts = SocketOpts} = Request) 
   when is_list(SocketOpts) -> 
-        ok, % added to force github cache renewal
     case http_transport:setopts(SocketType, Socket, SocketOpts) of
 	ok ->
 	    send(SendAddr, Socket, SocketType, 
