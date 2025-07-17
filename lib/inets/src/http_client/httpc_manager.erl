@@ -63,7 +63,7 @@
 	  session_db,    % ets() - Entry:  #session{}
 	  profile_name,  % atom()
 	  options = #options{},
-          awaiting      % queue() - Entry: #request{}
+          awaiting       % queue() - Entry: #request{}
 	 }).
 
 -define(DELAY, 500).
@@ -561,7 +561,7 @@ handle_cast({set_options, Options}, State = #state{options = OldOptions}) ->
 		 verbose               = get_verbose(Options, OldOptions),
 		 socket_opts           = get_socket_opts(Options, OldOptions),
 		 unix_socket           = get_unix_socket_opts(Options, OldOptions),
-                 max_handlers_open     = get_max_handlers_open(Options, OldOptions)
+                 max_connections_open  = get_max_connections_open(Options, OldOptions)
 		}, 
     case {OldOptions#options.verbose, NewOptions#options.verbose} of
 	{Same, Same} ->
@@ -599,7 +599,7 @@ handle_cast(Msg, #state{profile_name = ProfileName} = State) ->
 %%          {stop, Reason, State}            (terminate/2 is called)
 %% Description: Handling all non call/cast messages
 %%---------------------------------------------------------
-%%
+
 handle_info({'EXIT', _, _}, State) ->
     %% Handled in DOWN
     {noreply, State};
@@ -800,17 +800,20 @@ convert_options([{ip, Value}|T], Options) ->
     convert_options(T, Options#options{ip = Value});
 convert_options([{port, Value}|T], Options) ->
     convert_options(T, Options#options{port = Value});
-convert_options([{max_handlers_open, Value}|T], Options) ->
-    convert_options(T, Options#options{max_handlers_open = Value});
+convert_options([{max_connections_open, Value}|T], Options) ->
+    convert_options(T, Options#options{max_connections_open = Value});
 convert_options([Option|T], Options = #options{socket_opts = SocketOpts}) ->
     convert_options(T, Options#options{socket_opts = SocketOpts ++ [Option]}).
 
 start_handler(#request{} = Request,
+              #state{options = #options{max_connections_open = infinity}} = State) ->
+    do_start_handler(Request, State);
+start_handler(#request{} = Request,
               #state{handler_db   = HandlerDb,
-                     options      = Options} = State) ->
-    MaxHandlersOpen = Options#options.max_handlers_open,
-    case ets:info(HandlerDb, size) >= MaxHandlersOpen - 1
-        andalso MaxHandlersOpen =/= -1 of
+                     options      = #options{max_connections_open =
+                                                 MaxConnectionsOpen}} = State) ->
+    ReachedLimit = ets:info(HandlerDb, size) >= MaxConnectionsOpen - 1,
+    case ReachedLimit of
         true -> wait_for_handler_to_end_then_start(Request);
         false -> do_start_handler(Request, State)
     end.
@@ -830,19 +833,16 @@ do_start_handler(#request{id   = Id,
         end,
     HandlerInfo = {Id, Pid, From},
     ets:insert(HandlerDb, HandlerInfo),
-    erlang:monitor(process, Pid),
-    {ok, Id}.
+    erlang:monitor(process, Pid).
 
-wait_for_handler_to_end_then_start(#request{id = Id} = Request) ->
-    gen_server:cast(self(), {await, Request}),
-    {ok, {await, Id}}.
+wait_for_handler_to_end_then_start(#request{} = Request) ->
+    gen_server:cast(self(), {await, Request}).
 
 start_enqueued_request(#state{awaiting = Awaiting} = State0)->
     case queue:out(Awaiting) of
         {{value, Request}, NewAwaiting} ->
             State = State0#state{awaiting = NewAwaiting},
-            {ok, Id} = do_start_handler(Request, State#state{awaiting = NewAwaiting}),
-            Request#request.from ! {started, Id},
+            do_start_handler(Request, State),
             State;
         {empty, _} ->
             State0
@@ -1039,8 +1039,8 @@ get_option(socket_opts, #options{socket_opts = SocketOpts}) ->
     SocketOpts;
 get_option(unix_socket, #options{unix_socket = UnixSocket}) ->
     UnixSocket;
-get_option(max_handlers_open, #options{max_handlers_open = MaxHandlersOpen}) ->
-    MaxHandlersOpen.
+get_option(max_connections_open, #options{max_connections_open = MaxConnectionsOpen}) ->
+    MaxConnectionsOpen.
 
 
 get_proxy(Opts, #options{proxy = Default}) ->
@@ -1085,8 +1085,8 @@ get_socket_opts(Opts, #options{socket_opts = Default}) ->
 get_unix_socket_opts(Opts, #options{unix_socket = Default}) ->
     proplists:get_value(unix_socket, Opts, Default).
 
-get_max_handlers_open(Opts, #options{max_handlers_open = Default}) ->
-    proplists:get_value(max_handlers_open, Opts, Default).
+get_max_connections_open(Opts, #options{max_connections_open = Default}) ->
+    proplists:get_value(max_connections_open, Opts, Default).
 
 handle_verbose(debug) ->
     dbg:p(self(), [call]),

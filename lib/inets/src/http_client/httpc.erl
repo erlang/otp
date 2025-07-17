@@ -556,8 +556,8 @@ cancel_request(RequestId, Profile)
       Options :: [Option],
       Option :: {proxy, {Proxy, NoProxy}}
               | {https_proxy, {Proxy, NoProxy}}
+              | {max_connections_open, MaxConnectionsOpen}
               | {max_sessions, MaxSessions}
-              | {max_handlers_open, MaxHandlersOpen}
               | {max_keep_alive_length, MaxKeepAlive}
               | {keep_alive_timeout, KeepAliveTimeout}
               | {max_pipeline_length, MaxPipeline}
@@ -573,7 +573,7 @@ cancel_request(RequestId, Profile)
       Port :: non_neg_integer(),
       NoProxy :: [DomainDesc | HostName | IpAddressDesc],
       MaxSessions :: integer(),
-      MaxHandlersOpen :: integer(),
+      MaxConnectionsOpen :: integer(),
       MaxKeepAlive :: integer(),
       KeepAliveTimeout :: integer(),
       MaxPipeline :: integer(),
@@ -606,8 +606,8 @@ Sets options to be used for subsequent requests.
   `{undefined, []}`, that is, no proxy is configured and `https_proxy` defaults
   to the value of `proxy`.
 
-- **`MaxHandlersOpen`** - `MaxHandlersOpen` Maximum number of handlers that can be
-  opened at the same time. Default is `-1` which means that it's not limited.
+- **`MaxConnectionsOpen`** - `MaxConnectionsOpen` Maximum number of handlers that can be
+  opened at the same time. Default is `infinity` which means that it's not limited.
 
 - **`MaxSessions`** - `MaxSessions` Maximum number of persistent connections to
   a host. Default is `2`.
@@ -681,7 +681,7 @@ Sets options to be used for subsequent requests.
       Options :: [Option],
       Option :: {proxy, {Proxy, NoProxy}}
               | {https_proxy, {Proxy, NoProxy}}
-              | {max_handlers_open, MaxHandlersOpen}
+              | {max_connections_open, MaxConnectionsOpen}
               | {max_sessions, MaxSessions}
               | {max_keep_alive_length, MaxKeepAlive}
               | {keep_alive_timeout, KeepAliveTimeout}
@@ -699,7 +699,7 @@ Sets options to be used for subsequent requests.
       Proxy :: {HostName, Port},
       Port :: non_neg_integer(),
       NoProxy :: [DomainDesc | HostName | IpAddressDesc],
-      MaxHandlersOpen :: integer(),
+      MaxConnectionsOpen :: integer() | infinity,
       MaxSessions :: integer(),
       MaxKeepAlive :: integer(),
       KeepAliveTimeout :: integer(),
@@ -721,8 +721,8 @@ set_options(Options, Profile) when is_atom(Profile) orelse is_pid(Profile) ->
             {ok, IpFamily} = get_option(ipfamily, Profile),
             {ok, UnixSock} = get_option(unix_socket, Profile),
             {ok, MaxSessions} = get_option(max_sessions, Profile),
-            {ok, MaxHandlersOpen} = get_option(max_handlers_open, Profile),
-            case validate_options(Options, IpFamily, UnixSock, MaxSessions, MaxHandlersOpen) of
+            {ok, MaxConnectionsOpen} = get_option(max_connections_open, Profile),
+            case validate_options(Options, IpFamily, UnixSock, MaxSessions, MaxConnectionsOpen) of
                 {ok, Opts} ->
                     httpc_manager:set_options(Opts, profile_name(Profile));
                 Error ->
@@ -754,7 +754,7 @@ get_options() ->
 -doc(#{since => <<"OTP R15B01">>}).
 -spec get_options(OptionItems) -> {ok, Values} | {error, Reason} when
       OptionItems :: all | [OptionItem],
-      OptionItem :: proxy | https_proxy | max_sessions | max_handlers_open | keep_alive_timeout
+      OptionItem :: proxy | https_proxy | max_sessions | max_connections_open | keep_alive_timeout
                   | max_keep_alive_length | pipeline_timeout | max_pipeline_length | cookies
                   | ipfamily | ip | port | socket_opts | verbose | unix_socket,
       Values :: [{OptionItem, term()}],
@@ -769,7 +769,7 @@ get_options(Options) ->
 -doc(#{since => <<"OTP R15B01">>}).
 -spec get_options(OptionItems, Profile) -> {ok, Values} | {error, Reason} when
       OptionItems :: all | [OptionItem],
-      OptionItem :: proxy | https_proxy | max_sessions | max_handlers_open | keep_alive_timeout
+      OptionItem :: proxy | https_proxy | max_sessions | max_connections_open | keep_alive_timeout
                   | max_keep_alive_length | pipeline_timeout | max_pipeline_length | cookies
                   | ipfamily | ip | port | socket_opts | verbose | unix_socket,
       Values :: [{OptionItem, term()}],
@@ -1646,15 +1646,15 @@ validate_ipfamily_unix_socket(IpFamily, UnixSocket) ->
     validate_ipfamily(IpFamily),
     validate_unix_socket(UnixSocket).
 
-validate_max_sessions_max_handlers_open(MaxSessions, MaxHandlersOpen)
-  when MaxSessions > MaxHandlersOpen andalso MaxHandlersOpen =/= -1 ->
-    throw({error, {max_sessions_over_max_handlers, MaxSessions, MaxHandlersOpen}});
-validate_max_sessions_max_handlers_open(_, _) ->
+validate_max_sessions_max_connections_open(MaxSessions, MaxConnectionsOpen)
+  when is_integer(MaxConnectionsOpen) andalso MaxSessions > MaxConnectionsOpen ->
+    throw({error, {max_sessions_over_max_handlers, MaxSessions, MaxConnectionsOpen}});
+validate_max_sessions_max_connections_open(_, _) ->
     ok.
 
-validate_options(Options0, CurrIpFamily, CurrUnixSock, MaxSessions, MaxHandlersOpen) ->
+validate_options(Options0, CurrIpFamily, CurrUnixSock, MaxSessions, MaxConnectionsOpen) ->
     try
-        validate_max_sessions_max_handlers_open(MaxSessions, MaxHandlersOpen),
+        validate_max_sessions_max_connections_open(MaxSessions, MaxConnectionsOpen),
         validate_ipfamily_unix_socket(Options0, CurrIpFamily, CurrUnixSock),
         validate_options(Options0, [])
     catch
@@ -1677,8 +1677,8 @@ validate_options([{max_sessions, Value} = Opt| Tail], Acc) ->
     validate_max_sessions(Value),
     validate_options(Tail, [Opt | Acc]);
 
-validate_options([{max_handlers_open, Value} = Opt| Tail], Acc) ->
-    validate_max_handlers_open(Value),
+validate_options([{max_connections_open, Value} = Opt| Tail], Acc) ->
+    validate_max_connections_open(Value),
     validate_options(Tail, [Opt | Acc]);
 
 validate_options([{keep_alive_timeout, Value} = Opt| Tail], Acc) ->
@@ -1756,10 +1756,12 @@ validate_max_sessions(Value) when is_integer(Value) andalso (Value >= 0) ->
 validate_max_sessions(BadValue) ->
     bad_option(max_sessions, BadValue).
 
-validate_max_handlers_open(Value) when is_integer(Value) andalso (Value >= 0) ->
+validate_max_connections_open(Value) when
+    (is_integer(Value) andalso (Value > 0)) orelse
+    Value =:= infinity ->
     Value;
-validate_max_handlers_open(BadValue) ->
-    bad_option(max_handlers_open, BadValue).
+validate_max_connections_open(BadValue) ->
+    bad_option(max_connections_open, BadValue).
 
 validate_keep_alive_timeout(Value) when is_integer(Value) andalso (Value >= 0) ->
     Value;
