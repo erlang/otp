@@ -128,7 +128,137 @@ the attribute `use_registry` (boolean) in the their `Opts` argument (which
 effects _that_ specific socket).
 
 
-## Example
+## Examples
+
+### Completion asynchronous sendv
+
+This is a simple example function that illustrates how to use
+`socket:sendv/3` with asynchronous (nowait) on completion systems (Windows).\
+Observe that this is not an illustration how to write a asynchronous
+sendv function. Its just an example of what kind of messages and results
+that can be expected. The example below basically (re-) implements:
+[`socket:sendv(Sock, IOV, infinity)`](`socket:sendv/3`).
+
+```erlang
+completion_sendv(Sock, IOV) ->
+    case socket:sendv(Sock, IOV, nowait) of
+        ok -> % Complete success - We are done
+            ok;
+        {completion, {CompletionInfo, RestIOV0}} ->
+            %% Some of IOV was sent, but the rest, RestIOV0, was scheduled
+            case completion_sendv_await_result(Sock,
+                                               CompletionInfo, RestIOV0) of
+                ok -> % We done
+                    ok;
+                {ok, RestIOV} ->
+                    completion_sendv(Sock, RestIOV);
+                {error, Reason} ->
+                    {error, {Reason, RestIOV0}}
+            end;
+        {completion, CompletionInfo} ->
+            %% Nothing was sent, IOV was scheduled
+            case completion_sendv_await_result(Sock,
+                                               CompletionInfo, IOV) of
+                ok -> % We done
+                    ok;
+                {ok, RestIOV} ->
+                    completion_sendv(Sock, RestIOV);
+                {error, _} = ERROR ->
+                    ERROR
+            end;
+        {error, {_Reason, _RestIOV}} = ERROR ->
+            %% Some part of the I/O vector was sent before an error occured
+            ERROR;
+        {error, _} = ERROR ->
+            %% Note that 
+            ERROR
+    end.
+
+completion_sendv_await_result(Sock,
+                              {completion_info, _, Handle},
+                              IOV) ->
+  receive
+      {'$socket', Sock, abort, {Handle, Reason}} ->
+          ?P("unexpected abort: "
+             "~n   Reason: ~p", [Reason]),
+          {error, {abort, Reason}};
+
+      {'$socket', Sock, completion, {Handle, {ok, Written}}} ->
+          %% Partial send; calculate rest I/O vector
+          case socket:rest_iov(Written, IOV) of
+              [] -> % We are done
+                  ok;
+              RestIOV ->
+                  {ok, RestIOV}
+          end;
+
+      {'$socket', Sock, completion, {Handle, CompletionStatus}} ->
+          CompletionStatus
+
+  end.
+```
+
+### Completion asynchronous recv
+
+This is a simple example function that illustrates how to use
+`socket:recv/3` with asynchronous (nowait) on completion systems (Windows).
+Observe that this is not an illustration how to write a asynchronous
+read function. Its just an example of what kind of messages and results
+that can be expected. The example below basically (re-) implements:
+[`socket:recv(Sock, Sz)`](`socket:recv/2`).
+
+```erlang
+completion_recv(Sock, Sz) when (Sz > 0) ->
+    completion_recv(Sock, Sz, []).
+
+completion_recv(_Sock, 0, [Bin] = _Acc) ->
+    {ok, Bin};
+completion_recv(_Sock, 0, Acc) ->
+    {ok, erlang:iolist_to_binary(lists:reverse(Acc))};
+completion_recv(Sock, Sz, Acc) ->
+    case socket:recv(Sock, Sz, nowait) of
+        {ok, Bin} when (byte_size(Bin) =:= Sz) ->
+            completion_recv(Sock, 0, [Bin|Acc]);
+        {ok, Bin} ->
+            completion_recv(Sock, Sz-byte_size(Bin), [Bin|Acc]);
+
+	{completion, CompletionInfo} ->
+            case completion_recv_await_result(Sock, CompletionInfo) of
+                {ok, Bin} ->
+                    completion_recv(Sock, Sz-byte_size(Bin), [Bin|Acc]);
+                {error, {_Reason, _Data}} = ERROR ->
+                    ERROR;
+                {error, _Reason} = ERROR ->
+                    ERROR
+	    end;
+
+	{error, {_Reason, _Data}} = ERROR ->
+	    ERROR;
+	{error, _Reason} = ERROR ->
+	    ERROR
+
+    end.
+
+completion_recv_await_result(Sock,
+                             {completion_info, _, Handle}) ->
+    receive
+	{'$socket', Sock, abort, {Handle, Reason}} ->
+	    {error, {abort, Reason}};
+
+	{'$socket', Sock, completion, {Handle, {ok, _Bin} = OK}} ->
+            %% We "should" be done
+	    OK;
+	{'$socket', Sock, completion, {Handle, {more, Bin}}} ->
+            %% There is more to read
+	    {ok, Bin};
+
+	{'$socket', Sock, completion, {Handle, CompletionStatus}} ->
+	    CompletionStatus
+
+    end.
+```
+
+### Echo server (and client)
 
 This example is intended to show how to create a simple (echo) server
 (and client), handling both 'select' and 'completion' (Unix and Windows).
