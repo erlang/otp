@@ -21,6 +21,18 @@ limitations under the License.
 
 This document describes the changes made to the STDLIB application.
 
+## STDLIB 6.2.2.2
+
+### Fixed Bugs and Malfunctions
+
+- A set of small bugs in sort stability for \`lists:sort/1\` and \`lists:keysort/1\` has been fixed. The bug happened for only some, seemingly random, element sequences. Most sorts were stable.
+  
+  Sort stability for \`lists:sort/1\` is only possible to observe when sorting lists with floating point and integer numbers of the same value.
+  
+  For \`lists:keysort/1\` the list had to start with two tuples where the keys or the whole tuples compared equal.
+
+  Own Id: OTP-19673 Aux Id: ERIERL-1240
+
 ## STDLIB 6.2.2.1
 
 ### Fixed Bugs and Malfunctions

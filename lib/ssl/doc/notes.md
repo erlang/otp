@@ -21,6 +21,25 @@ limitations under the License.
 
 This document describes the changes made to the SSL application.
 
+## SSL 11.2.12.2
+
+### Fixed Bugs and Malfunctions
+
+- Improve error message for bad arguments to underlying connect.
+
+  Own Id: OTP-19697 Aux Id: [GH-10007], [PR-10016]
+
+[GH-10007]: https://github.com/erlang/otp/issues/10007
+[PR-10016]: https://github.com/erlang/otp/pull/10016
+
+### Improvements and New Features
+
+- Allow the PSK identity to be the empty string in TLS-1.2 for compatibility reasons. It is allowed according to the spec although providing a proper value makes more sense.
+
+  Own Id: OTP-19688 Aux Id: [PR-9843]
+
+[PR-9843]: https://github.com/erlang/otp/pull/9843
+
 ## SSL 11.2.12.1
 
 ### Fixed Bugs and Malfunctions

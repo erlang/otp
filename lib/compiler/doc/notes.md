@@ -21,6 +21,17 @@ limitations under the License.
 
 This document describes the changes made to the Compiler application.
 
+## Compiler 8.6.1.1
+
+### Fixed Bugs and Malfunctions
+
+- Fixed a bug that could cause empty bitstring matches to always succeed, even when they should not.
+
+  Own Id: OTP-19711 Aux Id: [GH-10047], [PR-10048]
+
+[GH-10047]: https://github.com/erlang/otp/issues/10047
+[PR-10048]: https://github.com/erlang/otp/pull/10048
+
 ## Compiler 8.6.1
 
 ### Fixed Bugs and Malfunctions

@@ -19,6 +19,17 @@ limitations under the License.
 -->
 # Public_Key Release Notes
 
+## Public_Key 1.17.1.1
+
+### Fixed Bugs and Malfunctions
+
+- Handle certificates that are signed with RSASSA-PSS but the PSS params are specified in the 'SignatureAlgorithm' of the signed cert and not in the signer's 'SubjectPublicKeyInfo'.
+
+  Own Id: OTP-19699 Aux Id: [GH-9632], [PR-10023]
+
+[GH-9632]: https://github.com/erlang/otp/issues/9632
+[PR-10023]: https://github.com/erlang/otp/pull/10023
+
 ## Public_Key 1.17.1
 
 ### Fixed Bugs and Malfunctions
