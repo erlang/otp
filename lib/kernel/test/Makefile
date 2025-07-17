@@ -71,6 +71,7 @@ MODULES= \
 	appinc2top \
 	appinc2A \
 	appinc2B \
+	block_select_dist \
 	code_SUITE \
 	code_b_test \
 	code_coverage_SUITE \
