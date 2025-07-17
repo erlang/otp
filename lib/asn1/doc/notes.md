@@ -61,6 +61,16 @@ This document describes the changes made to the asn1 application.
 [PR-9670]: https://github.com/erlang/otp/pull/9670
 [PR-9774]: https://github.com/erlang/otp/pull/9774
 
+## Asn1 5.3.4.2
+
+### Fixed Bugs and Malfunctions
+
+- Decoding a constrained BIT STRING using JER was broken.
+
+  Own Id: OTP-19681 Aux Id: [PR-9949]
+
+[PR-9949]: https://github.com/erlang/otp/pull/9949
+
 ## Asn1 5.3.4.1
 
 ### Fixed Bugs and Malfunctions

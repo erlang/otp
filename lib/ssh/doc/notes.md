@@ -89,6 +89,23 @@ limitations under the License.
 [PR-9214]: https://github.com/erlang/otp/pull/9214
 [PR-9298]: https://github.com/erlang/otp/pull/9298
 
+## Ssh 5.2.11.2
+
+### Fixed Bugs and Malfunctions
+
+- Fix file handle id generation.
+
+  Own Id: OTP-19691 Aux Id: [PR-10003]
+
+- Fixes a badmatch error, when SFTP operation cannot be processed due to channel closed in parallel.
+
+  Own Id: OTP-19707 Aux Id: [GH-9655], [PR-10035], [PR-10036]
+
+[PR-10003]: https://github.com/erlang/otp/pull/10003
+[GH-9655]: https://github.com/erlang/otp/issues/9655
+[PR-10035]: https://github.com/erlang/otp/pull/10035
+[PR-10036]: https://github.com/erlang/otp/pull/10036
+
 ## Ssh 5.2.11.1
 
 ### Fixed Bugs and Malfunctions
