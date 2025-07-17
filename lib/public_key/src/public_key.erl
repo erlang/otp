@@ -578,6 +578,13 @@ der_decode('Dss-Sig-Value', Der) ->
 	error:{badmatch, {error, _}} = Error ->
 	    erlang:error(Error)
     end;
+%% Backwards compatibility
+der_decode('ExtensionRequest', Value) ->
+    der_decode('ExtensionReq', Value);
+%% Backwards compatibility
+der_decode('AttributeTypeAndValue', Der) ->
+    {ok, Decoded} = 'PKIX1Explicit-2009':decode('SingleAttribute', Der),
+    pubkey_cert_records:transform(Decoded, decode);
 der_decode(Asn1ExtType, Der) when Asn1ExtType == 'SubjectAltName';
                                   Asn1ExtType == 'IssuerAltName';
                                   Asn1ExtType == 'ExtKeyUsage';
@@ -622,6 +629,8 @@ get_asn1_module('CertificateList') -> 'PKIX1Explicit-2009';
 get_asn1_module('TBSCertList') -> 'PKIX1Explicit-2009';
 get_asn1_module('Name') -> 'PKIX1Explicit-2009';
 get_asn1_module('Validity') -> 'PKIX1Explicit-2009';
+get_asn1_module('X520CommonName') -> 'PKIX1Explicit-2009';
+get_asn1_module('ExtensionReq') -> 'EnrollmentMessageSyntax-2009';
 get_asn1_module('RSAPublicKey') -> 'PKIXAlgs-2009';
 get_asn1_module('DSA-Params') -> 'PKIXAlgs-2009';
 get_asn1_module('ECParameters') -> 'PKIXAlgs-2009';
@@ -867,6 +876,14 @@ der_encode('Dss-Sig-Value', Entity) ->
 	error:{badmatch, {error, _}} = Error ->
 	    erlang:error(Error)
     end;
+%% Backwards compatibility
+der_encode('ExtensionRequest', Value) ->
+    der_encode('ExtensionReq', Value);
+%% Backwards compatibility
+der_encode('AttributeTypeAndValue', Value) ->
+    Term = pubkey_cert_records:transform(Value, encode),
+    {ok, Encoded} = 'PKIX1Explicit-2009':encode('SingleAttribute', Term),
+    Encoded;
 der_encode(Asn1ExtType, Value) when Asn1ExtType == 'SubjectAltName';
                                     Asn1ExtType == 'IssuerAltName';
                                     Asn1ExtType == 'ExtKeyUsage';

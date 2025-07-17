@@ -650,9 +650,8 @@
          privateValueLength = asn1_NOVALUE
         }).
 
-%% PKCS-9
+%% From PKCS-9 (now part of CertificateEnrollmentMessageSyntax)
 -define('pkcs-9-at-extensionRequest', {1,2,840,113549,1,9,14}).
-
 
 %%% CRL and CRL Extensions Profile
 %%%
