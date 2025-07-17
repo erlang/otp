@@ -43,6 +43,7 @@
 -export([good_hosts/1,
          lookup/3]).
 -export([
+         sz/1,
          os_cmd/1, os_cmd/2,
          mq/0, mq/1,
          ts/0, ts/1
@@ -2582,6 +2583,14 @@ timetrap_scale_factor() ->
         N ->
             N
     end.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+sz(B) when is_binary(B) ->
+    byte_size(B);
+sz(L) when is_list(L) ->
+    iolist_size(L).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
