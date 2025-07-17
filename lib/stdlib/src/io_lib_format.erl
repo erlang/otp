@@ -130,11 +130,11 @@ build_bin(Cs, Options) ->
     {P, S, W, Other} = count_small(Res1),
     case P + S + W of
         0 ->
-            iolist_to_binary(Res1);
+            unicode:characters_to_binary(Res1);
         NumOfLimited ->
             RemainingChars = sub(CharsLimit, Other),
             Res = build_limited_bin(Res1, P, NumOfLimited, RemainingChars, 0),
-            iolist_to_binary(Res)  %% Res only contains utf-8 binary or ASCII
+            unicode:characters_to_binary(Res)
     end.
 
 %% Parse all control sequences in the format string.
