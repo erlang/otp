@@ -453,6 +453,15 @@ verify_signature(Version, {digest, Digest}, _HashAlgo, Signature, {?rsaEncryptio
 	Digest -> true;
 	_   -> false
     end;
+verify_signature(?TLS_1_3, Msg, {_, mldsa44}, Signature,
+                 {?'id-ml-dsa-44', #'ML-DSAPublicKey'{algorithm = mldsa44} = PubKey, _}) ->
+    public_key:verify(Msg, none, Signature, PubKey);
+verify_signature(?TLS_1_3, Msg, {_, mldsa65}, Signature,
+                 {?'id-ml-dsa-65', #'ML-DSAPublicKey'{algorithm = mldsa65} = PubKey, _}) ->
+    public_key:verify(Msg, none, Signature, PubKey);
+verify_signature(?TLS_1_3, Msg, {_, mldsa87}, Signature,
+                 {?'id-ml-dsa-87', #'ML-DSAPublicKey'{algorithm = mldsa87} = PubKey,_}) ->
+    public_key:verify(Msg, none, Signature, PubKey);
 verify_signature(?TLS_1_3, Msg, {_, eddsa}, Signature, {?'id-Ed25519', PubKey, PubKeyParams}) ->
     public_key:verify(Msg, none, Signature, {PubKey, PubKeyParams});
 verify_signature(?TLS_1_3, Msg, {_, eddsa}, Signature, {?'id-Ed448', PubKey, PubKeyParams}) ->
@@ -2191,8 +2200,15 @@ digitally_signed(Version, Msg, HashAlgo, PrivateKey, SignAlgo) ->
 	    throw(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, bad_key(PrivateKey)))
     end.
 
+do_digitally_signed(Version, Msg, HashAlgo, #'ML-DSAPrivateKey'{}= Key,
+                    SignAlgo) when ?TLS_GTE(Version, ?TLS_1_3) andalso
+                                   (SignAlgo == mldsa44 orelse
+                                    SignAlgo == mldsa65 orelse
+                                    SignAlgo == mldsa87) ->
+    public_key:sign(Msg, HashAlgo, Key);
 do_digitally_signed(Version, Msg, HashAlgo, {#'RSAPrivateKey'{} = Key,
-                                             #'RSASSA-PSS-params'{}}, SignAlgo) when ?TLS_GTE(Version, ?TLS_1_2) ->
+                                             #'RSASSA-PSS-params'{}},
+                    SignAlgo) when ?TLS_GTE(Version, ?TLS_1_2) ->
     Options = signature_options(SignAlgo, HashAlgo),
     public_key:sign(Msg, HashAlgo, Key, Options);
 do_digitally_signed(Version, {digest, Digest}, _HashAlgo, #'RSAPrivateKey'{} = Key, rsa)
@@ -2254,6 +2270,8 @@ bad_key(#'RSAPrivateKey'{}) ->
     unacceptable_rsa_key;
 bad_key(#'ECPrivateKey'{}) ->
     unacceptable_ecdsa_key;
+bad_key(#'ML-DSAPrivateKey'{}) ->
+    unacceptable_mldsa_key;
 bad_key(#{algorithm := rsa}) ->
     unacceptable_rsa_key;
 bad_key(#{algorithm := rsa_pss_pss}) ->

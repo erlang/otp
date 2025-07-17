@@ -160,6 +160,7 @@ group_pairs([#{certs := []}]) ->
       ecdsa => [],
       rsa_pss_pss => [],
       rsa => [],
+      mldsa => [],
       dsa => []
      };
 group_pairs(Pairs) ->
@@ -167,6 +168,7 @@ group_pairs(Pairs) ->
                          ecdsa => [],
                          rsa_pss_pss => [],
                          rsa => [],
+                         mldsa => [],
                          dsa => []
                         }).
 
@@ -183,6 +185,8 @@ group_pairs([#{private_key := {#'RSAPrivateKey'{}, #'RSASSA-PSS-params'{}}} = Pa
     group_pairs(Rest, Group#{rsa_pss_pss => [Pair | RSAPSS]});
 group_pairs([#{private_key := #'RSAPrivateKey'{}} = Pair | Rest], #{rsa := RSA} = Group) ->
     group_pairs(Rest, Group#{rsa => [Pair | RSA]});
+group_pairs([#{private_key := #'ML-DSAPrivateKey'{}} = Pair | Rest], #{mldsa := MLDSA} = Group) ->
+    group_pairs(Rest, Group#{mldsa => [Pair | MLDSA]});
 group_pairs([#{private_key := #'DSAPrivateKey'{}} = Pair | Rest], #{dsa := DSA} = Group) ->
     group_pairs(Rest, Group#{dsa => [Pair | DSA]});
 group_pairs([#{private_key := #{algorithm := dss, engine := _}} = Pair | Rest], Group) ->
@@ -201,14 +205,15 @@ prioritize_groups(#{eddsa := EDDSA,
                     ecdsa := ECDSA,
                     rsa_pss_pss := RSAPSS,
                     rsa := RSA,
+                    mldsa := MLDSA,
                     dsa := DSA} = CertKeyGroups, Opts) ->
     EC = ecdsa_support(Opts),
     CertKeyGroups#{eddsa => prio_eddsa(EDDSA),
                    ecdsa => prio_ecdsa(ECDSA, EC),
                    rsa_pss_pss => prio_rsa_pss(RSAPSS),
                    rsa => prio_rsa(RSA),
+                   mldsa => prio_mldsa(MLDSA),
                    dsa => prio_dsa(DSA)}.
-
 prio_eddsa(EDDSA) ->
     %% Engine not supported yet
     SignFunPairs = [Pair || Pair = #{private_key := #{sign_fun := _}} <- EDDSA],
@@ -264,6 +269,12 @@ prio_rsa(RSA) ->
             end,
     lists:sort(Order, RSA).
 
+prio_mldsa(MLDSA) ->
+    %% Engine not supported yet
+    SignFunPairs = [Pair || Pair = #{private_key := #{sign_fun := _}} <- MLDSA],
+    SignFunPairs
+        ++ lists:keysort(#'ML-DSAPrivateKey'.algorithm, MLDSA -- SignFunPairs).
+
 prio_dsa(DSA) ->
     Order = fun(#{key := #'DSAPrivateKey'{q = N}},
                 #{key := #'DSAPrivateKey'{q = M}}) when M > N ->
@@ -274,6 +285,49 @@ prio_dsa(DSA) ->
                     false
     end,
     lists:sort(Order, DSA).
+
+%% If Key is provided as raw DER and not a PEM file
+private_key(#'PrivateKeyInfo'{privateKeyAlgorithm =
+				 #'PrivateKeyInfo_privateKeyAlgorithm'{algorithm = ?'rsaEncryption'},
+			     privateKey = Key}) ->
+    public_key:der_decode('RSAPrivateKey', iolist_to_binary(Key));
+
+private_key(#'PrivateKeyInfo'{privateKeyAlgorithm =
+				 #'PrivateKeyInfo_privateKeyAlgorithm'{algorithm = ?'id-dsa'},
+			     privateKey = Key}) ->
+    public_key:der_decode('DSAPrivateKey', iolist_to_binary(Key));
+private_key(#'PrivateKeyInfo'{privateKeyAlgorithm =
+                                  #'PrivateKeyInfo_privateKeyAlgorithm'{algorithm = ?'id-ml-dsa-44'},
+                              privateKey = DerKey}) ->
+    mldsa_priv_key_dec('ML-DSA-44-PrivateKey', DerKey,  #'ML-DSAPrivateKey'{algorithm = mldsa44});
+private_key(#'PrivateKeyInfo'{privateKeyAlgorithm =
+                                  #'PrivateKeyInfo_privateKeyAlgorithm'{algorithm = ?'id-ml-dsa-65'},
+                              privateKey = DerKey}) ->
+   mldsa_priv_key_dec('ML-DSA-65-PrivateKey', DerKey,  #'ML-DSAPrivateKey'{algorithm = mldsa65});
+private_key(#'PrivateKeyInfo'{privateKeyAlgorithm =
+                                  #'PrivateKeyInfo_privateKeyAlgorithm'{algorithm = ?'id-ml-dsa-87'},
+                              privateKey = DerKey}) ->
+    mldsa_priv_key_dec('ML-DSA-87-PrivateKey', DerKey,  #'ML-DSAPrivateKey'{algorithm = mldsa87});
+private_key(#'PrivateKeyInfo'{privateKeyAlgorithm = 
+                                  #'PrivateKeyInfo_privateKeyAlgorithm'{algorithm = ?'id-ecPublicKey',
+                                                                        parameters =  {asn1_OPENTYPE, Parameters}},
+                              privateKey = Key}) ->
+    ECKey = public_key:der_decode('ECPrivateKey',  iolist_to_binary(Key)),
+    ECParameters = public_key:der_decode('EcpkParameters', Parameters),
+    ECKey#'ECPrivateKey'{parameters = ECParameters};
+private_key(Key) ->
+    Key.
+
+mldsa_priv_key_dec(Type, DERKey, PrivKey) ->
+    case public_key:der_decode(Type, DERKey) of
+        {seed, Seed} ->
+            PrivKey#'ML-DSAPrivateKey'{seed = Seed};
+        {expandedkey, ExpandedKey} ->
+            PrivKey#'ML-DSAPrivateKey'{expandedkey = ExpandedKey};
+        {both, {_, Seed, ExpandedKey}} ->
+            PrivKey#'ML-DSAPrivateKey'{seed = Seed,
+                                       expandedkey = ExpandedKey}
+    end.
 
 init_manager_name(false) ->
     put(ssl_manager, ssl_manager:name(normal)),
@@ -342,31 +396,12 @@ init_private_key(undefined, CertKey, DbHandle) ->
                                               PKey =:= 'ECPrivateKey' orelse
                                               PKey =:= 'PrivateKeyInfo'
                              ],
-                private_key(public_key:pem_entry_decode(PemEntry, Password))
+                public_key:pem_entry_decode(PemEntry, Password)
             catch
                 _:Reason ->
                     file_error(KeyFile, {keyfile, Reason})
             end
     end.
-
-private_key(#'PrivateKeyInfo'{privateKeyAlgorithm =
-				 #'PrivateKeyInfo_privateKeyAlgorithm'{algorithm = ?'rsaEncryption'},
-			     privateKey = Key}) ->
-    public_key:der_decode('RSAPrivateKey', iolist_to_binary(Key));
-
-private_key(#'PrivateKeyInfo'{privateKeyAlgorithm =
-				 #'PrivateKeyInfo_privateKeyAlgorithm'{algorithm = ?'id-dsa'},
-			     privateKey = Key}) ->
-    public_key:der_decode('DSAPrivateKey', iolist_to_binary(Key));
-private_key(#'PrivateKeyInfo'{privateKeyAlgorithm = 
-                                  #'PrivateKeyInfo_privateKeyAlgorithm'{algorithm = ?'id-ecPublicKey',
-                                                                        parameters =  {asn1_OPENTYPE, Parameters}},
-                              privateKey = Key}) ->
-    ECKey = public_key:der_decode('ECPrivateKey',  iolist_to_binary(Key)),
-    ECParameters = public_key:der_decode('EcpkParameters', Parameters),
-    ECKey#'ECPrivateKey'{parameters = ECParameters};
-private_key(Key) ->
-    Key.
 
 ecdsa_support(#{versions := [?TLS_1_3]}) ->
     [secp521r1,
@@ -1336,7 +1371,13 @@ handle_user_lookup(UserOpts, #{versions := Versions} = Opts) ->
 opt_supported_groups(UserOpts, #{versions := TlsVsns} = Opts, _Env) ->
     SG = case get_opt_list(supported_groups,  undefined, UserOpts, Opts) of
              {default, undefined} ->
-                 handle_supported_groups_option(ssl:groups(default));
+                 try assert_version_dep(supported_groups, TlsVsns, ['tlsv1.3']) of
+                     true ->
+                         handle_supported_groups_option(ssl:groups(default))
+                 catch
+                     throw:_ ->
+                         undefined
+                 end;
              {new, SG0} ->
                  assert_version_dep(supported_groups, TlsVsns, ['tlsv1.3']),
                  handle_supported_groups_option(SG0);
@@ -1631,17 +1672,20 @@ assert_version_dep(Option, Vsns, AllowedVsn) ->
 
 assert_version_dep(false, _, _, _) -> true;
 assert_version_dep(true, Option, SSLVsns, AllowedVsn) ->
-    case is_dtls_configured(SSLVsns) of
-        true -> %% TODO: Check option dependency for DTLS
-            true;
-        false ->
-            APIVsns = lists:map(fun tls_record:protocol_version/1, SSLVsns),
-            Set1 = sets:from_list(APIVsns),
-            Set2 = sets:from_list(AllowedVsn),
-            case sets:size(sets:intersection(Set1, Set2)) > 0 of
-                true -> ok;
-                false -> option_incompatible([Option, {versions, APIVsns}])
-            end
+    TLSVsns =
+        case is_dtls_configured(SSLVsns) of
+            true ->
+                %% Translate to corresponding TLS versions
+                [ssl:tls_version(V) || V <- SSLVsns];
+            false ->
+                SSLVsns
+        end,
+    APIVsns = lists:map(fun tls_record:protocol_version/1, TLSVsns),
+    Set1 = sets:from_list(APIVsns),
+    Set2 = sets:from_list(AllowedVsn),
+    case sets:size(sets:intersection(Set1, Set2)) > 0 of
+        true -> true;
+        false -> option_incompatible([Option, {versions, APIVsns}])
     end.
 
 warn_override(new, UserOpts, NewOpt, OldOpts, LogLevel) ->

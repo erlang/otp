@@ -63,6 +63,10 @@
          eddsa_priv_rfc5958/1,
          eddsa_pub/0,
          eddsa_pub/1,
+         mldsa_priv_pkcs8/0,
+         mldsa_priv_pkcs8/1,
+         mldsa_pub_pem/0,
+         mldsa_pub_pem/1,
          eddsa_sign_verify_24_compat/1,
          init_ec_pem_encode_generated/1,
          ec_pem_encode_generated/0,
@@ -87,8 +91,12 @@
          rsa_sign_verify/1,
          rsa_pss_sign_verify/0,
          rsa_pss_sign_verify/1,
+         mldsa_verify/0,
+         mldsa_verify/1,
+         mldsa_sign/0,
+         mldsa_sign/1,
          dsa_sign_verify/0,
-         dsa_sign_verify/1,
+         dsa_sign_verify/1,         
          custom_sign_fun_verify/0,
          custom_sign_fun_verify/1,
          pkix/0,
@@ -220,9 +228,10 @@ groups() ->
 			      encrypted_pem_pwdstring, encrypted_pem_pwdfun,
 			      dh_pem, cert_pem, pkcs7_pem, pkcs10_pem,
 			      rsa_priv_pkcs8, dsa_priv_pkcs8, ec_priv_pkcs8,
-			      eddsa_priv_pkcs8, eddsa_priv_rfc5958,
-                              ec_pem_encode_generated]},
-     {sign_verify, [], [rsa_sign_verify, rsa_pss_sign_verify, dsa_sign_verify,
+			      eddsa_priv_pkcs8, eddsa_priv_rfc5958, mldsa_pub_pem,
+                              mldsa_priv_pkcs8]},
+     {sign_verify, [], [rsa_sign_verify, rsa_pss_sign_verify, mldsa_verify,
+                        mldsa_sign, dsa_sign_verify,
                         eddsa_sign_verify_24_compat, custom_sign_fun_verify]},
      {explicit_ec_params,
       [ec_pem2,
@@ -230,7 +239,6 @@ groups() ->
        gen_ec_param_prime_field
       ]}
     ].
-
 
 -ifdef('EXPLICIT_EC_PARAMS').
 maybe_more() -> [{group, explicit_ec_params}].
@@ -295,7 +303,18 @@ init_per_testcase(eddsa_sign_verify_24_compat, Config) ->
         false ->
             {skip, eddsa_not_supported_by_crypto}
     end;
-
+init_per_testcase(TestCase, Config) when TestCase == mldsa_sign;
+                                         TestCase == mldsa_verify ->
+    PkAlgs = crypto:supports(public_keys),
+    case lists:member(mldsa44, PkAlgs) andalso
+        lists:member(mldsa65, PkAlgs) andalso
+        lists:member(mldsa87, PkAlgs)
+    of
+        true ->
+            Config;
+        false ->
+            {skip, mldsa_not_supported_by_crypto}
+    end;
 init_per_testcase(TestCase, Config) ->
     case TestCase of
         ec_pem_encode_generated ->
@@ -538,9 +557,45 @@ eddsa_pub(Config) when is_list(Config) ->
     EDDSAPubKey = public_key:pem_entry_decode(PemEntry),
     true = check_entry_type(EDDSAPubKey, 'ECPoint'),
     {_, {namedCurve, ?'id-Ed25519'}} = EDDSAPubKey,
-    PubEntry = public_key:pem_entry_encode('SubjectPublicKeyInfo', EDDSAPubKey),
+    PemEntry0 = public_key:pem_entry_encode('SubjectPublicKeyInfo', EDDSAPubKey),
     ECPemNoEndNewLines = strip_superfluous_newlines(EDDSAPubPem),
-    ECPemNoEndNewLines = strip_superfluous_newlines(public_key:pem_encode([PubEntry])).
+    ECPemNoEndNewLines = strip_superfluous_newlines(public_key:pem_encode([PemEntry0])).
+
+mldsa_pub_pem() ->
+    [{doc, "ML-DSA public_key decode/encode"}].
+mldsa_pub_pem(Config) when is_list(Config) ->
+    ml_dsa_pub("mldsa-44-pub.pem", ?'id-ml-dsa-44', Config),
+    ml_dsa_pub("mldsa-65-pub.pem", ?'id-ml-dsa-65', Config),
+    ml_dsa_pub("mldsa-87-pub.pem", ?'id-ml-dsa-87', Config).
+
+ml_dsa_pub(File, AlgOid, Config) ->
+    Datadir = proplists:get_value(data_dir, Config),
+    {ok, MLDSAPubPem} = file:read_file(filename:join(Datadir, File)),
+     [{'SubjectPublicKeyInfo', _, _} = PubEntry0] =
+        public_key:pem_decode(MLDSAPubPem),
+    MLDSAPubKey = #'ML-DSAPublicKey'{} = public_key:pem_entry_decode(PubEntry0),
+    true = check_entry_type(MLDSAPubKey, AlgOid),
+    PubEntry0 = public_key:pem_entry_encode('SubjectPublicKeyInfo', MLDSAPubKey),
+
+    MLDSAPemNoEndNewLines = strip_licence(strip_superfluous_newlines(MLDSAPubPem)),
+    MLDSAPemNoEndNewLines = strip_superfluous_newlines(public_key:pem_encode([PubEntry0])).
+
+mldsa_priv_pkcs8() ->
+    [{doc, "ML-DSA PKCS8 private key decode/encode"}].
+mldsa_priv_pkcs8(Config) when is_list(Config) ->
+    ml_dsa_priv("mldsa-44.pem", ?'id-ml-dsa-44', Config),
+    ml_dsa_priv("mldsa-65.pem", ?'id-ml-dsa-65', Config),
+    ml_dsa_priv("mldsa-87.pem", ?'id-ml-dsa-87', Config).
+
+ml_dsa_priv(File, AlgOid, Config) ->
+    Datadir = proplists:get_value(data_dir, Config),
+    {ok, MLDSAPrivPem} = file:read_file(filename:join(Datadir, File)),
+    [{'PrivateKeyInfo', _, not_encrypted} = PKCS8Key] = public_key:pem_decode(MLDSAPrivPem),
+    MLDSAKey = #'ML-DSAPrivateKey'{} = public_key:pem_entry_decode(PKCS8Key),
+    true = check_entry_type(MLDSAKey, AlgOid),
+    PrivEntry0 = public_key:pem_entry_encode('PrivateKeyInfo', MLDSAKey),
+    MLDSAPemNoEndNewLines = strip_licence(strip_superfluous_newlines(MLDSAPrivPem)),
+    MLDSAPemNoEndNewLines = strip_superfluous_newlines(public_key:pem_encode([PrivEntry0])).
 
 eddsa_sign_verify_24_compat(_Config) ->
     Key =
@@ -785,9 +840,38 @@ rsa_pss_sign_verify(Config) when is_list(Config) ->
     {#'RSAPrivateKey'{modulus=Mod, publicExponent=Exp}, Parms} = {hardcode_rsa_key(1), pss_params(sha256)},
            
     true = public_key:pkix_verify(Cert, {#'RSAPublicKey'{modulus=Mod, publicExponent=Exp}, Parms}).
-    
-%%--------------------------------------------------------------------
 
+%%--------------------------------------------------------------------
+mldsa_verify() ->
+    [{doc, "Checks that we can verify ml-dsa signatures."}].
+mldsa_verify(Config) when is_list(Config) ->
+    Datadir = proplists:get_value(data_dir, Config),
+    {ok, MLDSAPubPem} = file:read_file(filename:join(Datadir, "mldsa-44-pub.pem")),
+    [{'SubjectPublicKeyInfo', _, _} = PubEntry0] =
+        public_key:pem_decode(MLDSAPubPem),
+    {ok, MLDSACertPem} = file:read_file(filename:join(Datadir, "mldsa-44-cert.pem")),
+    [{_, Cert, _}] = public_key:pem_decode(MLDSACertPem),
+    MLDSAPubKey = #'ML-DSAPublicKey'{} = public_key:pem_entry_decode(PubEntry0),
+    true = public_key:pkix_verify(Cert, MLDSAPubKey).
+
+%%--------------------------------------------------------------------
+mldsa_sign() ->
+    [{doc, "Checks that we can sign and verify ml-dsa signatures."}].
+mldsa_sign(Config) when is_list(Config) ->
+    Datadir = proplists:get_value(data_dir, Config),
+    Msg = list_to_binary(lists:duplicate(5, "Foo bar 100")),
+    {ok, MLDSAPubPem} = file:read_file(filename:join(Datadir, "mldsa-44-pub.pem")),
+    [{'SubjectPublicKeyInfo', _, _} = PubEntry0] =
+        public_key:pem_decode(MLDSAPubPem),
+    MLDSAPubKey = #'ML-DSAPublicKey'{} = public_key:pem_entry_decode(PubEntry0),
+    {ok, MLDSAPrivPem} = file:read_file(filename:join(Datadir, "mldsa-44.pem")),
+    [{'PrivateKeyInfo', _, _} = PubEntry1] =
+        public_key:pem_decode(MLDSAPrivPem),
+    MLDSAPrivKey = #'ML-DSAPrivateKey'{} = public_key:pem_entry_decode(PubEntry1),
+    Signature = public_key:sign(Msg, none, MLDSAPrivKey),
+    public_key:verify(Msg, none, Signature, MLDSAPubKey).
+
+%%--------------------------------------------------------------------
 dsa_sign_verify() ->
     [{doc, "Checks that we can sign and verify dsa signatures."}].
 dsa_sign_verify(Config) when is_list(Config) ->
@@ -1901,7 +1985,7 @@ list_cacerts() ->
     ok.
 
 priv_key() ->
-    ~"""
+"""
 -----BEGIN PRIVATE KEY-----
 MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCyuMx6KYPg5lYp
 igiML9VAu22Iil2mugAylYOHeZAgodMmKNY0t63EIR24ncKTRT0CE0PcKf58w4ka
@@ -1931,8 +2015,6 @@ j1exw1nyGDYNeBhQXyk+uKGkEN53Rrb+wYnfK74ItBBdf/5XotYTGH24wB2GLwdO
 bAMOCtAd2sl//30zzUVW1dc=
 -----END PRIVATE KEY-----
 """.
-
-
 
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
@@ -1989,6 +2071,18 @@ check_entry_type({namedCurve, _}, 'EcpkParameters') ->
     true;
 check_entry_type({ecParameters, #'ECParameters'{}}, 'EcpkParameters') ->
     true;
+check_entry_type(#'ML-DSAPublicKey'{algorithm = mldsa44}, ?'id-ml-dsa-44') ->
+    true;
+check_entry_type(#'ML-DSAPublicKey'{algorithm = mldsa65}, ?'id-ml-dsa-65') ->
+    true;
+check_entry_type(#'ML-DSAPublicKey'{algorithm = mldsa87}, ?'id-ml-dsa-87') ->
+    true;
+check_entry_type(#'ML-DSAPrivateKey'{algorithm = mldsa44}, ?'id-ml-dsa-44') ->
+    true;
+check_entry_type(#'ML-DSAPrivateKey'{algorithm = mldsa65}, ?'id-ml-dsa-65') ->
+    true;
+check_entry_type(#'ML-DSAPrivateKey'{algorithm = mldsa87}, ?'id-ml-dsa-87') ->
+    true;
 check_entry_type(_,_) ->
     false.
 
@@ -2001,8 +2095,22 @@ check_encapsulated_header([ _ | Rest]) ->
 check_encapsulated_header([]) ->
     false.
 
-strip_superfluous_newlines(Bin) ->
+strip_licence("-----" ++ _ = PEM) ->
+    PEM;
+strip_licence("//" ++ Rest0) ->
+    Rest = skip_until_nl(Rest0),
+    strip_licence(Rest).
+
+skip_until_nl([$\n| Rest]) ->
+    Rest;
+skip_until_nl([_| Rest]) ->
+    skip_until_nl(Rest).
+
+strip_superfluous_newlines(Bin) when is_binary(Bin) ->
     Str = string:strip(binary_to_list(Bin), right, 10),
+    re:replace(Str,"\n\n","\n", [{return,list}, global]);
+strip_superfluous_newlines(Str0) ->
+    Str = string:strip(Str0, right, 10),
     re:replace(Str,"\n\n","\n", [{return,list}, global]).
 
 do_gen_ec_param(File) ->    

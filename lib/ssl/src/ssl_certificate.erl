@@ -361,7 +361,7 @@ available_cert_key_pairs(CertKeyGroups) ->
 %% Create the prioritized list of cert key pairs that
 %% are availble for use in the negotiated version
 available_cert_key_pairs(CertKeyGroups, ?TLS_1_3) ->
-    RevAlgos = [rsa, rsa_pss_pss, ecdsa, eddsa],
+    RevAlgos = [mldsa, rsa, rsa_pss_pss, ecdsa, eddsa],
     cert_key_group_to_list(RevAlgos, CertKeyGroups, []);
 available_cert_key_pairs(CertKeyGroups, ?TLS_1_2) ->
      RevAlgos = [dsa, rsa, rsa_pss_pss, ecdsa],
@@ -566,7 +566,9 @@ public_key(#'OTPSubjectPublicKeyInfo'{algorithm = #'PublicKeyAlgorithm'{algorith
 public_key(#'OTPSubjectPublicKeyInfo'{algorithm = #'PublicKeyAlgorithm'{algorithm = ?'id-dsa',
 									parameters = {params, Params}},
 				      subjectPublicKey = Key}) ->
-    {Key, Params}.
+    {Key, Params};
+public_key(#'OTPSubjectPublicKeyInfo'{subjectPublicKey = Key}) ->
+    Key.
 
 other_issuer(#cert{otp=OtpCert}=Cert, CertDbHandle, CertDbRef) ->
     case public_key:pkix_issuer_id(OtpCert, other) of

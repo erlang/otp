@@ -155,10 +155,15 @@
 -define(ED25519, 16#0807).
 -define(ED448, 16#0808).
 
-%% RSASSA-PSS algorithms with public key OID RSASSA-PSS 
+%% RSASSA-PSS algorithms with public key OID RSASSA-PSS
 -define(RSA_PSS_PSS_SHA256, 16#0809).
 -define(RSA_PSS_PSS_SHA384, 16#080a).
 -define(RSA_PSS_PSS_SHA512, 16#080b).
+
+%% ML-DSA signature algorithms
+-define(MLDSA44, 16#0904).
+-define(MLDSA65, 16#0905).
+-define(MLDSA87, 16#0906).
 
 %% Legacy algorithms
 -define(RSA_PKCS1_SHA1, 16#201).
@@ -174,6 +179,11 @@
 -define(BRAINPOOLP256R1TLS13, 16#001F).
 -define(BRAINPOOLP384R1TLS13, 16#0020).
 -define(BRAINPOOLP512R1TLS13, 16#0021).
+
+%% ML-KEM
+-define(MLKEM512, 16#0200).
+-define(MLKEM768, 16#0201).
+-define(MLKEM1024, 16#0202).
 
 %% RFC 8446 Finite Field Groups (DHE)
 -define(FFDHE2048, 16#0100).
