@@ -39,7 +39,7 @@
 	 table_waste/1, net_setuptime/1,
 	 inet_dist_options_options/1,
          net_ticker_spawn_options/1,
-
+         blocking_dist_select/1,
 	 monitor_nodes_nodedown_reason/1,
 	 monitor_nodes_complex_nodedown_reason/1,
 	 monitor_nodes_node_type/1,
@@ -108,6 +108,7 @@ all() ->
      hidden_node, setopts,
      table_waste, net_setuptime, inet_dist_options_options,
      net_ticker_spawn_options,
+     blocking_dist_select,
      {group, monitor_nodes},
      erl_uds_dist_smoke_test,
      erl_1424, net_kernel_start,
@@ -1282,7 +1283,102 @@ get_net_ticker_fullsweep_option(Node) ->
     {garbage_collection, GCOpts} = erlang:process_info(Ticker, garbage_collection),
     proplists:get_value(fullsweep_after, GCOpts).
 
+blocking_dist_select(Config) when is_list(Config) ->
+    [NN1, NN2] = get_numbered_nodenames(2, node),
+    {ok, N1} = start_node("", NN1,
+                          "-proto_dist block_select "
+                          "-connect_all false "
+                          "-kernel net_setuptime 3"),
+    {ok, N2} = start_node("", NN2,
+                          "-connect_all false"
+                          "-kernel net_setuptime 3"),
 
+    _ = erpc:call(N1, erlang, disconnect_node, [N2]),
+    false = lists:member(N2, erpc:call(N1, erlang, nodes, [])),
+    pong = erpc:call(N1, net_adm, ping, [N2]),
+    true = lists:member(N2, erpc:call(N1, erlang, nodes, [])),
+    _ = erpc:call(N1, erlang, disconnect_node, [N2]),
+    false = lists:member(N2, erpc:call(N1, erlang, nodes, [])),
+
+    ok = erpc:call(N1, block_select_dist, block_select, []),
+
+    Self = self(),
+    Connecting = make_ref(),
+
+    {P1, M1} = spawn_monitor(N1,
+                             fun () ->
+                                     Self ! Connecting,
+                                     exit({connect_result,
+                                           net_kernel:connect_node(N2)})
+                             end),
+    receive Connecting -> ok end,
+    receive after 500 -> ok end,
+
+    receive
+        {'DOWN', M1, process, P1, DR1} ->
+            ct:fail({unexpected, DR1})
+    after
+        0 ->
+            ok
+    end,
+
+    false = lists:member(N2, erpc:call(N1, erlang, nodes, [])),
+
+    %% net_kernel on N1 should not be blocked while its connection
+    %% attempt is blocked...
+    NsI = erpc:call(N1, net_kernel, get_state, [], 1000),
+
+    ct:log("N1 state:~n ~p~n", [NsI]),
+
+    receive
+        {'DOWN', M1, process, P1, DR2} ->
+            ct:fail({unexpected, DR2})
+    after
+        0 ->
+            ok
+    end,
+
+    %% An indefinately blocked connection attempt should time out...
+    receive
+        {'DOWN', M1, process, P1, DR3} ->
+            {connect_result, false} = DR3
+    end,
+
+    {P2, M2} = spawn_monitor(N1,
+                             fun () ->
+                                     Self ! Connecting,
+                                     exit({connect_result,
+                                           net_kernel:connect_node(N2)})
+                             end),
+    receive Connecting -> ok end,
+    receive after 500 -> ok end,
+
+    receive
+        {'DOWN', M2, process, P2, DR4} ->
+            ct:fail({unexpected, DR4})
+    after
+        0 ->
+            ok
+    end,
+
+    false = lists:member(N2, erpc:call(N1, erlang, nodes, [])),
+
+    %% We should be able to connect from the other side...
+    pong = erpc:call(N2, net_adm, ping, [N1], 1000),
+
+    receive
+        {'DOWN', M2, process, P2, DR5} ->
+            {connect_result, true} = DR5
+    end,
+
+    true = lists:member(N2, erpc:call(N1, erlang, nodes, [])),
+
+    ok = erpc:call(N1, block_select_dist, unblock_select, []),
+
+    stop_node(N1),
+    stop_node(N2),
+
+    ok.
 
 %%
 %% Testcase:
