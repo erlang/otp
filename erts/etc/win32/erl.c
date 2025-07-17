@@ -186,7 +186,7 @@ static wchar_t *find_erlexec_dir2(wchar_t *install_dir)
     wchar_t *p;
 
     if (length+3 >= MAX_PATH) {
-	error("Cannot find erlexec.exe");
+	error("Cannot find erlexec.dll");
     }
 
     wcscpy(wildcard, install_dir);
@@ -227,6 +227,10 @@ static wchar_t *find_erlexec_dir(wchar_t *erlpath)
     wchar_t *dir =_wcsdup(erlpath);
     wchar_t *p;
     wchar_t *p2;
+
+    wchar_t *long_dir;
+    DWORD size; //Includes null terminator
+    DWORD length; //Does not include null terminator
     
     /* Chop of base name*/
     for (p = dir+wcslen(dir)-1 ;p >= dir && *p != L'\\'; --p)
@@ -234,26 +238,37 @@ static wchar_t *find_erlexec_dir(wchar_t *erlpath)
     *p =L'\0';
     p--;
 
+    size = GetLongPathNameW(dir, NULL, 0);
+    if(size == 0) {
+        error("Cannot find erlexec.dll");
+    }
+    long_dir = (wchar_t *) malloc(size * sizeof(wchar_t));
+    length = GetLongPathNameW(dir, long_dir, size);
+    if(length == 0) {
+        error("Cannot find erlexec.dll");
+    }
+    p = long_dir + length - 1;
+
     /* Check if dir path is like ...\install_dir\erts-vsn\bin */
-    for (;p >= dir && *p != L'\\'; --p)
+    for (;p >= long_dir && *p != L'\\'; --p)
         ;
     p--;
-    for (p2 = p;p2 >= dir && *p2 != '\\'; --p2)
+    for (p2 = p;p2 >= long_dir && *p2 != '\\'; --p2)
         ;
     p2++;
     if (wcsncmp(p2, L"erts-", wcslen(L"erts-")) == 0) {
-	p = _wcsdup(dir);
 	free(dir);
-	return p;
+	return long_dir;
     }
 
     /* Assume that dir path is like ...\install_dir\bin */
     *++p =L'\0'; /* chop off bin dir */
 
-    p = find_erlexec_dir2(dir);
+    p = find_erlexec_dir2(long_dir);
     free(dir);
+    free(long_dir);
     if (p == NULL) {
-	error("Cannot find erlexec.exe");
+	error("Cannot find erlexec.dll");
     } else {
 	return p;
     }
