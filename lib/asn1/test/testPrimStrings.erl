@@ -102,6 +102,8 @@ bit_string(Rules, Opts) ->
 	{ber,[]} ->
 	    %% XXX
 	    ok;
+        {jer,[]} ->
+            ok;
 	{_,_} ->
 	    %% DER, PER, UPER
 	    consistent_def_enc('BsDef1',
@@ -236,6 +238,7 @@ bit_string(Rules, Opts) ->
 
     case Rules of
 	ber -> ok;
+        jer -> ok;
 	_ -> per_bs_strings()
     end.
 
