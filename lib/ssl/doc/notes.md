@@ -23,6 +23,17 @@ limitations under the License.
 
 This document describes the changes made to the SSL application.
 
+## SSL 11.3.2
+
+### Fixed Bugs and Malfunctions
+
+- Improve error message for bad arguments to underlying connect.
+
+  Own Id: OTP-19697 Aux Id: [GH-10007], [PR-10016]
+
+[GH-10007]: https://github.com/erlang/otp/issues/10007
+[PR-10016]: https://github.com/erlang/otp/pull/10016
+
 ## SSL 11.3.1
 
 ### Fixed Bugs and Malfunctions

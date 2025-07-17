@@ -23,6 +23,35 @@ limitations under the License.
 
 This document describes the changes made to the ERTS application.
 
+## Erts 16.0.2
+
+### Fixed Bugs and Malfunctions
+
+- prim_net nif used incorrect encoding for family resulting in non-functional address selection.
+
+  Own Id: OTP-19674
+
+- Fix windows uninstall command.
+
+  Own Id: OTP-19683 Aux Id: [PR-9887], [GH-9992], [GH-9884]
+
+- With this change erlang will start if it receives short (ms-dos compatible) path to executable.
+
+  Own Id: OTP-19690 Aux Id: [PR-9996]
+
+[PR-9887]: https://github.com/erlang/otp/pull/9887
+[GH-9992]: https://github.com/erlang/otp/issues/9992
+[GH-9884]: https://github.com/erlang/otp/issues/9884
+[PR-9996]: https://github.com/erlang/otp/pull/9996
+
+### Improvements and New Features
+
+- The maximum amount of connections for `epmd` on Windows platforms has been increased from 64 to 1024.
+
+  Own Id: OTP-19710 Aux Id: [PR-10039]
+
+[PR-10039]: https://github.com/erlang/otp/pull/10039
+
 ## Erts 16.0.1
 
 ### Fixed Bugs and Malfunctions
