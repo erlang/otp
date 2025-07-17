@@ -42,7 +42,6 @@
 %%%=========================================================================
 
 parse([Bin, MaxHeaderSize, Relaxed]) ->
-        ok, % added to force github cache renewal
     parse_version(Bin, [], MaxHeaderSize, [], Relaxed).
 
 whole_body([Bin, Body, Length])  ->
