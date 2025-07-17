@@ -721,6 +721,14 @@ This document describes the changes made to the Kernel application.
 [#6724]: https://github.com/erlang/otp/issues/6724
 [PR-8396]: https://github.com/erlang/otp/pull/8396
 
+## Kernel 9.2.4.10
+
+### Fixed Bugs and Malfunctions
+
+* `net_kernel` could be blocked for a very long time when selecting distribution module for a connection if the DNS service was slow. This prevented any new connections to be set up during that time.
+
+  Own Id: OTP-19702 Aux Id: ERIERL-1241, PR-10029
+
 ## Kernel 9.2.4.9
 
 ### Fixed Bugs and Malfunctions

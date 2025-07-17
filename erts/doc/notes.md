@@ -1078,6 +1078,20 @@ This document describes the changes made to the ERTS application.
 [PR-7809]: https://github.com/erlang/otp/pull/7809
 [PR-7977]: https://github.com/erlang/otp/pull/7977
 
+## Erts 14.2.5.11
+
+### Fixed Bugs and Malfunctions
+
+* Fix windows uninstall command.
+
+  Own Id: OTP-19683 Aux Id: PR-9887, GH-9992, GH-9884
+
+### Improvements and New Features
+
+* The maximum amount of connections for `epmd` on Windows platforms has been increased from 64 to 1024.
+
+  Own Id: OTP-19710 Aux Id: PR-10039
+
 ## Erts 14.2.5.10
 
 ### Fixed Bugs and Malfunctions
