@@ -258,9 +258,10 @@ validate_names(Cert, Permit, Exclude, Last, UserState, VerifyFun) ->
 %% working_public_key_algorithm, the working_public_key, and
 %% the working_public_key_parameters in path_validation_state.
 %%--------------------------------------------------------------------
-validate_signature(Cert, DerCert, Key, KeyParams,
+validate_signature(Cert, DerCert, Key, KeyParams0,
 		   UserState, VerifyFun) ->
     OtpCert = otp_cert(Cert),
+    KeyParams = key_params(OtpCert#'OTPCertificate'.tbsCertificate, KeyParams0),
     case verify_signature(OtpCert, DerCert, Key, KeyParams) of
 	true ->
 	    UserState;
@@ -2194,3 +2195,16 @@ otp_cert(#'OTPCertificate'{} = Cert) ->
     Cert;
 otp_cert(#cert{otp = OtpCert}) ->
     OtpCert.
+
+key_params(#'OTPTBSCertificate'{signature =
+                                    #'SignatureAlgorithm'{algorithm =
+                                                              ?'id-RSASSA-PSS',
+                                                          parameters = KeyParams}},
+           KeyParams0) when KeyParams0 == asn1_NOVALUE;
+                            KeyParams0 == 'NULL' ->
+    %% Sometimes parameters may be missing in issuer's
+    %% "SubjectPublicKeyInfo" but included in the certs
+    %% "SignatureAlgorithm" for RSA PSS signatures.
+    KeyParams;
+key_params(_, KeyParams) ->
+    KeyParams.
