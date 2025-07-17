@@ -284,7 +284,7 @@ server(Addr, Port) ->
          send/2, send/3, send/4,
          sendto/3, sendto/4, sendto/5,
          sendmsg/2, sendmsg/3, sendmsg/4,
-         sendv/2, sendv/3, sendv/4,
+         sendv/2, sendv/3, sendv/4, rest_iov/2,
 
          sendfile/2, sendfile/3, sendfile/4, sendfile/5,
 
@@ -3098,6 +3098,14 @@ to complete the operation.
 
 If cancelling the operation with `cancel/2` see the note above
 about [connection time-out](#connect-timeout).
+
+[](){: #connect-completion_status }
+
+The possible values for `CompletionStatus` in the completion message are:
+- **`ok`** - Complete success; A connection has been established.
+- **`{error, Reason}`** - An error occured and no connection was
+  established.
+
 """.
 -spec connect(Socket, SockAddr, Timeout :: 'infinity') ->
           'ok' |
@@ -3284,6 +3292,13 @@ If the `Handle` argument is a `t:select_handle/0`,
 *(since OTP 24.0)*, or on _Windows_, the equivalent
 `t:completion_handle/0` *(since OTP 26.0)*, starts
 an [asynchronous call](#asynchronous-calls) like for `nowait`.
+
+[](){: #accept-completion_status }
+
+The possible values for `CompletionStatus` in the completion message are:
+- **`{ok, NewSocket}`** - Success; A connection has been accepted.
+- **`{error, Reason}`** - An error occured and no connection was
+  established.
 
 See the note [Asynchronous Calls](#asynchronous-calls)
 at the start of this module reference manual page.
@@ -3519,6 +3534,14 @@ an [asynchronous call](#asynchronous-calls) like for `nowait`.
 
 See the note [Asynchronous Calls](#asynchronous-calls)
 at the start of this module reference manual page.
+
+[](){: #send-completion_status }
+
+The possible values for `CompletionStatus` in the completion message are:
+- **`ok`** - Complete success; The data was written in its entirety.
+- **`{ok, Written}`** - Partial success; Some but not all data was written,
+  but no error was reported. `Written` is the number of bytes that was written.
+- **`{error, Reason}`** - An error occured and no data was sent.
 
 [](){: #send-cont }
 
@@ -3921,6 +3944,14 @@ an [asynchronous call](#asynchronous-calls) like for `nowait`.
 See the note [Asynchronous Calls](#asynchronous-calls)
 at the start of this module reference manual page.
 
+[](){: #sendto-completion_status }
+
+The possible values for `CompletionStatus` in the completion message are:
+- **`ok`** - Complete success; The data was written in its entirety.
+- **`{ok, Written}`** - Partial success; Some but not all data was written,
+  but no error was reported. `Written` is the number of bytes that was written.
+- **`{error, Reason}`** - An error occured and no data was sent.
+
 After receiving a [`select` message](#async-messages);
 call [`sendto/3,4`](`sendto/3`) with `SelectInfo` as the `Cont` argument,
 to complete the operation.
@@ -4148,6 +4179,14 @@ an [asynchronous call](#asynchronous-calls) like for `nowait`.
 
 See the note [Asynchronous Calls](#asynchronous-calls)
 at the start of this module reference manual page.
+
+[](){: #sendmsg-completion_status }
+
+The possible values for `CompletionStatus` in the completion message are:
+- **`ok`** - Complete success; The data was written in its entirety.
+- **`{ok, Written}`** - Partial success; Some but not all data was written,
+  but no error was reported. `Written` is the number of bytes that was written.
+- **`{error, Reason}`** - An error occured and no data was sent.
 
 After receiving a [`select` message](#async-messages);
 call [`sendmsg/3,4`](`sendmsg/3`) with `SelectInfo` as the `Cont` argument,
@@ -4397,6 +4436,16 @@ an [asynchronous call](#asynchronous-calls) like for `nowait`.
 See the note [Asynchronous Calls](#asynchronous-calls)
 at the start of this module reference manual page.
 
+[](){: #sendv-completion_status }
+
+The possible values for `CompletionStatus` in the completion message are:
+- **`ok`** - Complete success; The I/O vector was written in its entirety.
+- **`{ok, Written}`** - Partial success; Some but not all data was written,
+  but no error was reported. `Written` is the number of bytes that was written.
+  [`rest_iov(Written, IOV)`](`rest_iov/2`) can be used to calculate the rest
+  I/O vector (from the original IOV).
+- **`{error, Reason}`** - An error occured and no data was sent.
+
 [](){: #sendv-cont }
 
 With the argument [`Cont`](`t:select_info/0`), equivalent to
@@ -4589,6 +4638,26 @@ sendv_deadline_cont(SockRef, IOV, _undefined, Deadline, HasWritten) ->
       SockRef, IOV, SelectHandle, Deadline, HasWritten,
       sendv, fun sendv_deadline_cont/5,
       prim_socket:sendv(SockRef, IOV, SelectHandle)).
+
+
+%% ===========================================================================
+%%
+%% rest_iov - Utility function for sendv usage
+%%
+
+-doc(#{since => "@OTP-19661@"}).
+-doc """
+Calculate the rest I/O vector after a partially successful sendv
+(CompletionStatus was {ok, Written}).
+""".
+-spec rest_iov(Written, IOV) -> RestIOV when
+      Written :: non_neg_integer(),
+      IOV     :: erlang:iovec(),
+      RestIOV :: erlang:iovec().
+
+rest_iov(Written, IOV) ->
+    prim_socket:rest_iov(Written, IOV).
+
 
 
 %% ===========================================================================
@@ -5063,6 +5132,13 @@ an [asynchronous call](#asynchronous-calls) like for `nowait`.
 See the note [Asynchronous Calls](#asynchronous-calls)
 at the start of this module reference manual page.
 
+[](){: #recv-completion_status }
+
+The possible values for `CompletionStatus` in the completion message are:
+- **`{ok, Data}`** - Complete success; All requested data was read.
+- **`{more, Data}`** - Partial success; Some, but not all, data was read.
+- **`{error, Reason}`** - An error occured and no data was read.
+
 On `select` systems, for a socket of type [`stream`](`t:type/0`),
 if `Length > 0` and there is some but not enough data available,
 this function will return [`{select, {SelectInfo, Data}}`](`t:select_info/0`)
@@ -5526,6 +5602,12 @@ starts an [asynchronous call](#asynchronous-calls) like for `nowait`.
 
 See the note [Asynchronous Calls](#asynchronous-calls)
 at the start of this module reference manual page.
+
+[](){: #recvfrom-completion_status }
+
+The possible values for `CompletionStatus` in the completion message are:
+- **`{ok, {Source, Data}}`** - Success.
+- **`{error, Reason}`** - An error occured and no data was read.
 """.
 -spec recvfrom(Socket, BufSz, Flags, Timeout :: 'infinity') ->
           {'ok', {Source, Data}} |
@@ -5783,6 +5865,12 @@ starts an [asynchronous call](#asynchronous-calls) like for `nowait`.
 
 See the note [Asynchronous Calls](#asynchronous-calls)
 at the start of this module reference manual page.
+
+[](){: #recvmsg-completion_status }
+
+The possible values for `CompletionStatus` in the completion message are:
+- **`{ok, Msg}`** - Success.
+- **`{error, Reason}`** - An error occured and no data was read.
 """.
 -spec recvmsg(Socket, BufSz, CtrlSz, Flags, Timeout :: 'infinity') ->
           {'ok', Msg} |
