@@ -925,11 +925,13 @@ vi({test,bs_skip_bits2,{f,Fail},[Ctx,Size0,Unit,_Flags]}, Vst) ->
              end,
 
     validate_bs_skip(Fail, Ctx, Stride, Vst);
-vi({test,bs_test_tail2,{f,Fail},[Ctx,_Size]}, Vst) ->
+vi({test,bs_test_tail2,{f,Fail},[Ctx0,_Size]}, Vst) ->
+    Ctx = unpack_typed_arg(Ctx0, Vst),
     assert_no_exception(Fail),
     assert_type(#t_bs_context{}, Ctx, Vst),
     branch(Fail, Vst);
-vi({test,bs_test_unit,{f,Fail},[Ctx,Unit]}, Vst) ->
+vi({test,bs_test_unit,{f,Fail},[Ctx0,Unit]}, Vst) ->
+    Ctx = unpack_typed_arg(Ctx0, Vst),
     assert_type(#t_bs_context{}, Ctx, Vst),
 
     Type = #t_bs_context{tail_unit=Unit},
@@ -1752,7 +1754,8 @@ validate_bs_get_1(Fail, Ctx, Live, Vst, SuccFun) ->
 validate_bs_skip(Fail, Ctx, Stride, Vst) ->
     validate_bs_skip(Fail, Ctx, Stride, no_live, Vst).
 
-validate_bs_skip(Fail, Ctx, Stride, Live, Vst) ->
+validate_bs_skip(Fail, Ctx0, Stride, Live, Vst) ->
+    Ctx = unpack_typed_arg(Ctx0, Vst),
     assert_no_exception(Fail),
 
     assert_type(#t_bs_context{}, Ctx, Vst),
