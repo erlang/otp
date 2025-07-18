@@ -1270,9 +1270,19 @@ ERTS_GLB_INLINE size_t sys_strlen(const char *s)
                             ((byte*)(s))[3] = (byte)(i)         & 0xff;} \
                         while (0)
 
+#define put_little_int32(i, s) do {((byte*)(s))[3] = (byte)((i) >> 24) & 0xff;  \
+                                   ((byte*)(s))[2] = (byte)((i) >> 16) & 0xff;  \
+                                   ((byte*)(s))[1] = (byte)((i) >> 8)  & 0xff;  \
+                                   ((byte*)(s))[0] = (byte)(i)         & 0xff;} \
+                               while (0)
+
 #define get_int24(s) ((((byte*) (s))[0] << 16) | \
                       (((byte*) (s))[1] << 8)  | \
                       (((byte*) (s))[2]))
+
+#define get_little_int24(s) ((((byte*) (s))[2] << 16) | \
+                             (((byte*) (s))[1] << 8)  | \
+                             (((byte*) (s))[0]))
 
 
 #define put_int24(i, s) do {((byte*)(s))[0] = (byte)((i) >> 16) & 0xff;  \
@@ -1280,13 +1290,25 @@ ERTS_GLB_INLINE size_t sys_strlen(const char *s)
                             ((byte*)(s))[2] = (byte)(i)         & 0xff;} \
                         while (0)
 
+#define put_little_int24(i, s) do {((byte*)(s))[2] = (byte)((i) >> 16) & 0xff;  \
+                                   ((byte*)(s))[1] = (byte)((i) >> 8)  & 0xff;  \
+                                   ((byte*)(s))[0] = (byte)(i)         & 0xff;} \
+                               while (0)
+
 #define get_int16(s) ((((byte*)  (s))[0] << 8) | \
                       (((byte*)  (s))[1]))
+
+#define get_little_int16(s) ((((byte*)  (s))[1] << 8) | \
+                             (((byte*)  (s))[0]))
 
 
 #define put_int16(i, s) do {((byte*)(s))[0] = (byte)((i) >> 8) & 0xff;  \
                             ((byte*)(s))[1] = (byte)(i)        & 0xff;} \
                         while (0)
+
+#define put_little_int16(i, s) do {((byte*)(s))[1] = (byte)((i) >> 8) & 0xff;  \
+                                   ((byte*)(s))[0] = (byte)(i)        & 0xff;} \
+                               while (0)
 
 #define get_int8(s) ((((byte*)  (s))[0] ))
 
