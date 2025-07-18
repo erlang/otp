@@ -115,7 +115,7 @@ getstat(PacketSocket, Opts) ->
 %%%===================================================================
 
 init([Owner, Port0, TransportInfo, EmOpts, DTLSOptions, Socket]) ->
-    InternalActiveN = get_internal_active_n(),
+    InternalActiveN = ssl_config:get_internal_active_n(),
     erlang:monitor(process, Owner),
     {ok, SessionIdHandle} = session_id_tracker(Socket, DTLSOptions),
     proc_lib:set_label({dtls_server_packet_demultiplexer, Port0}),
@@ -430,12 +430,4 @@ emulated_opts_list(Opts, [active | Rest], Acc) ->
 %% reuse_sessions = true.
 session_id_tracker(Listener,_) ->
     dtls_server_session_cache_sup:start_child(Listener).
-
-get_internal_active_n() ->
-    case application:get_env(ssl, internal_active_n) of
-        {ok, N} when is_integer(N) ->
-            N;
-        _  ->
-            ?INTERNAL_ACTIVE_N
-    end.
 

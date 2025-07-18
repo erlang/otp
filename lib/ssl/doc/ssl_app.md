@@ -65,6 +65,53 @@ The environment parameters can be set on the command line, for example:
   might be configurable, by the SSL application. This option can be overridden
   by the version option to `ssl:connect/2,3` and `ssl:listen/2`.
 
+ - **`max_crl_cache = pos_integer() <optional>`** - Sets the
+  maximum number of entries  allowed in the default crl store. Defaults to 150. Size limit
+  is enforced by emptying cache when limit is reached.
+
+- **`ssl_pem_cache_clean = pos_integer() <optional>`** - Number of milliseconds
+  between PEM cache validations. Defaults to 2 minutes.
+
+  Note: The cache can be reloaded by calling `ssl:clear_pem_cache/0`.
+
+- **`bypass_pem_cache = boolean() <optional>`** - Introduced in ssl-8.0.2.
+  Disables the PEM-cache. Can be used as a workaround for the PEM-cache
+  bottleneck before ssl-8.1.1. Defaults to false.
+
+- **`internal_active_n = integer() <optional>`** - For TLS connections this
+  value is used to handle the internal socket. As the implementation was changed
+  from an active once to an active N behavior (N = 100), for performance
+  reasons, this option exist for possible tweaking or restoring of the old
+  behavior (internal_active_n = 1) in unforeseen scenarios. The option will not
+  affect erlang distribution over TLS that will always run in active N mode.
+  Added in ssl-9.1 (OTP-21.2).
+
+- **`server_session_tickets_amount = integer() <optional>`** - Number of session
+  tickets sent by the server. It must be greater than 0. Defaults to 3.
+
+- **`server_session_ticket_lifetime = integer() <optional>`** - Lifetime of
+  session tickets sent by the server. Servers must not use any value greater
+  than 604800 seconds (7 days). Expired tickets are automatically removed.
+  Defaults to 7200 seconds (2 hours).
+
+- **`server_session_ticket_store_size = integer() <optional>`** - Sets the
+  maximum size of the server session ticket store (stateful tickets). Defaults
+  to 1000. Size limit is enforced by dropping old tickets.
+
+- **`server_session_ticket_max_early_data = integer() <optional>`** - Sets the
+  maximum size of the early data that the server accepts and also configures its
+  NewSessionTicket messages to include this same size limit in their
+  early_data_indication extension. Defaults to 16384. Size limit is enforced by
+  both client and server.
+
+- **`client_session_ticket_lifetime = integer() <optional>`** - Lifetime of
+  session tickets in the client ticket store. Expired tickets are automatically
+  removed. Defaults to 7200 seconds (2 hours).
+
+- **`client_session_ticket_store_size = integer() <optional>`** - Sets the
+  maximum size of the client session ticket store. Defaults to 1000. Size limit
+  is enforced by dropping old tickets.
+
 - **`session_lifetime = integer() <optional>`** - Maximum lifetime of the
   session data in seconds. Defaults to 24 hours which is the maximum recommended
   lifetime by [RFC 5246](http://www.ietf.org/rfc/5246rfc.txt). However sessions
@@ -108,53 +155,10 @@ The environment parameters can be set on the command line, for example:
   entries will be invalidated regardless of their remaining lifetime. Defaults
   to 1000. Recommended ssl-8.2.1 or later for this option to work as intended.
 
-- **`ssl_pem_cache_clean = integer() <optional>`** - Number of milliseconds
-  between PEM cache validations. Defaults to 2 minutes.
-
-  Note: The cache can be reloaded by calling `ssl:clear_pem_cache/0`.
-
-- **`bypass_pem_cache = boolean() <optional>`** - Introduced in ssl-8.0.2.
-  Disables the PEM-cache. Can be used as a workaround for the PEM-cache
-  bottleneck before ssl-8.1.1. Defaults to false.
-
-- **`alert_timeout = integer() <optional>`** - Number of milliseconds between
+- **`alert_timeout = pos_integer() <optional>`** - Number of milliseconds between
   sending of a fatal alert and closing the connection. Waiting a little while
   improves the peers chances to properly receiving the alert so it may shutdown
   gracefully. Defaults to 5000 milliseconds.
-
-- **`internal_active_n = integer() <optional>`** - For TLS connections this
-  value is used to handle the internal socket. As the implementation was changed
-  from an active once to an active N behavior (N = 100), for performance
-  reasons, this option exist for possible tweaking or restoring of the old
-  behavior (internal_active_n = 1) in unforeseen scenarios. The option will not
-  affect erlang distribution over TLS that will always run in active N mode.
-  Added in ssl-9.1 (OTP-21.2).
-
-- **`server_session_tickets_amount = integer() <optional>`** - Number of session
-  tickets sent by the server. It must be greater than 0. Defaults to 3.
-
-- **`server_session_ticket_lifetime = integer() <optional>`** - Lifetime of
-  session tickets sent by the server. Servers must not use any value greater
-  than 604800 seconds (7 days). Expired tickets are automatically removed.
-  Defaults to 7200 seconds (2 hours).
-
-- **`server_session_ticket_store_size = integer() <optional>`** - Sets the
-  maximum size of the server session ticket store (stateful tickets). Defaults
-  to 1000. Size limit is enforced by dropping old tickets.
-
-- **`server_session_ticket_max_early_data = integer() <optional>`** - Sets the
-  maximum size of the early data that the server accepts and also configures its
-  NewSessionTicket messages to include this same size limit in their
-  early_data_indication extension. Defaults to 16384. Size limit is enforced by
-  both client and server.
-
-- **`client_session_ticket_lifetime = integer() <optional>`** - Lifetime of
-  session tickets in the client ticket store. Expired tickets are automatically
-  removed. Defaults to 7200 seconds (2 hours).
-
-- **`client_session_ticket_store_size = integer() <optional>`** - Sets the
-  maximum size of the client session ticket store. Defaults to 1000. Size limit
-  is enforced by dropping old tickets.
 
 ## Error Logger and Event Handlers
 
