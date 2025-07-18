@@ -78,8 +78,6 @@
          active_n/1,
          dh_params/0,
          dh_params/1,
-         invalid_dhfile/0,
-         invalid_dhfile/1,
          hibernate_client/0,
          hibernate_client/1,
          hibernate_server/0,
@@ -108,10 +106,6 @@
          controlling_process_transport_accept_socket/1,
          close_with_timeout/0,
          close_with_timeout/1,
-         close_in_error_state/0,
-         close_in_error_state/1,
-         call_in_error_state/0,
-         call_in_error_state/1,
          close_transport_accept/0,
          close_transport_accept/1,
          abuse_transport_accept_socket/0,
@@ -136,12 +130,6 @@
          new_options_in_handshake/1,
          max_handshake_size/0,
          max_handshake_size/1,
-         invalid_certfile/0,
-         invalid_certfile/1,
-         invalid_cacertfile/0,
-         invalid_cacertfile/1,
-         invalid_keyfile/0,
-         invalid_keyfile/1,
          options_not_proplist/0,
          options_not_proplist/1,
          options_whitebox/0, options_whitebox/1,
@@ -208,7 +196,8 @@
          exporter_master_secret_consumed/0,
          exporter_master_secret_consumed/1,
          legacy_prf/0,
-         legacy_prf/1
+         legacy_prf/1,
+         listen_pem_file_failure/1
         ]).
 
 %% Apply export
@@ -235,7 +224,6 @@
          check_peercert/2,
          %%TODO Keep?
          run_error_server/1,
-         run_error_server_close/1,
          run_client_error/1
         ]).
 
@@ -300,10 +288,6 @@ pre_1_2() ->
 
 simple_api_tests() ->
     [
-     invalid_keyfile,
-     invalid_certfile,
-     invalid_cacertfile,
-     invalid_dhfile,
      options_not_proplist,
      options_whitebox,
      format_error,
@@ -336,8 +320,6 @@ gen_api_tests() ->
      controller_dies,
      controlling_process_transport_accept_socket,
      close_with_timeout,
-     close_in_error_state,
-     call_in_error_state,
      close_transport_accept,
      ipv6,
      der_input,
@@ -348,7 +330,8 @@ gen_api_tests() ->
      check_random_nonce,
      cipher_listing,
      export_key_materials,
-     legacy_prf
+     legacy_prf,
+     listen_pem_file_failure
     ].
 
 handshake_paus_tests() ->
@@ -846,48 +829,6 @@ dh_params(Config) when is_list(Config) ->
     
     ssl_test_lib:check_result(Server, ok, Client, ok),
     
-    ssl_test_lib:close(Server),
-    ssl_test_lib:close(Client).
-
-
-%%--------------------------------------------------------------------
-invalid_dhfile() ->
-    [{doc,"Test to check invalid DH-params file in server."}].
-invalid_dhfile(Config) when is_list(Config) ->
-    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
-    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
-    DataDir = proplists:get_value(data_dir, Config),
-    DHParamFile = filename:join(DataDir, "dHParam-invalid.pem"),
-
-    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-
-    Server = ssl_test_lib:start_server_error([{node, ServerNode}, {port, 0},
-                                              {from, self()},
-                                              {mfa, {ssl_test_lib,
-                                                     send_recv_result_active,
-                                                     []}},
-                                               {options, [{dhfile, DHParamFile}
-                                                          | ServerOpts]}]),
-    Port = ssl_test_lib:inet_port(Server),
-    Client = ssl_test_lib:start_client_error([{node, ClientNode}, {port, Port},
-                                              {host, Hostname}, {from, self()},
-                                              {mfa, {ssl_test_lib,
-                                                     send_recv_result_active,
-                                                     []}},
-                                              {options, [{ciphers,
-                                                          [{dhe_rsa,
-                                                            aes_256_cbc, sha}]}
-                                                         | ClientOpts]}]),
-
-    %% assert server error
-    [{Server, {error, {options, {dhfile, DHParamFile,
-                                 {error, {asn1,
-                                          {{invalid_value, 0}, _Stack}}}}}}}] =
-        ssl_test_lib:get_result([Server]),
-
-    %% assert client error
-    ssl_test_lib:check_result(Client, {error, closed}),
-
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
 
@@ -1860,44 +1801,6 @@ close_with_timeout(Config) when is_list(Config) ->
     ssl_test_lib:check_result(Server, ok, Client, ok).
 
 %%--------------------------------------------------------------------
-close_in_error_state() ->
-    [{doc,"Special case of closing socket in error state"}].
-close_in_error_state(Config) when is_list(Config) ->
-    ServerOpts0 = ssl_test_lib:ssl_options(server_rsa_opts, Config),
-    ServerOpts = [{cacertfile, "foo.pem"} | proplists:delete(cacertfile, ServerOpts0)],
-    ClientOpts = ssl_test_lib:ssl_options(client_opts, Config),
-
-    _ = spawn(?MODULE, run_error_server_close, [[self() | ServerOpts]]),
-    receive
-        {_Pid, Port} ->
-            spawn_link(?MODULE, run_client_error, [[Port, [{verify, verify_none} | ClientOpts]]])
-    end,
-    receive
-        ok ->
-            ok;
-        Other ->
-            ct:fail(Other)
-    end.
-
-%%--------------------------------------------------------------------
-call_in_error_state() ->
-    [{doc,"Special case of call error handling"}].
-call_in_error_state(Config) when is_list(Config) ->
-    ServerOpts0 = ssl_test_lib:ssl_options(server_rsa_opts, Config),
-    ClientOpts = ssl_test_lib:ssl_options(client_opts, Config),
-    ServerOpts = [{cacertfile, "foo.pem"} | proplists:delete(cacertfile, ServerOpts0)],
-    Pid = spawn(?MODULE, run_error_server, [[self() | ServerOpts]]),
-    receive
-        {Pid, Port} ->
-            spawn_link(?MODULE, run_client_error, [[Port, [{verify, verify_none} | ClientOpts]]])
-    end,
-    receive
-        {error, closed} ->
-            ok;
-        Other ->
-            ct:fail(Other)
-    end.
-%%--------------------------------------------------------------------
 close_transport_accept() ->
     [{doc,"Tests closing ssl socket when waiting on ssl:transport_accept/1"}].
 
@@ -1940,34 +1843,6 @@ abuse_transport_accept_socket(Config) when is_list(Config) ->
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
 
-%%--------------------------------------------------------------------
-
-invalid_keyfile() ->
-    [{doc,"Test what happens with an invalid key file"}].
-invalid_keyfile(Config) when is_list(Config) -> 
-    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
-    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
-    BadKeyFile = filename:join([proplists:get_value(priv_dir, Config), 
-			      "badkey.pem"]),
-    BadOpts = [{keyfile, BadKeyFile}| proplists:delete(keyfile, ServerOpts)],
-    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-
-    Server = 
-	ssl_test_lib:start_server_error([{node, ServerNode}, {port, 0}, 
-					 {from, self()},
-			    {options, BadOpts}]),
-
-    Port = ssl_test_lib:inet_port(Server),
-
-    Client =
-	ssl_test_lib:start_client_error([{node, ClientNode}, 
-			    {port, Port}, {host, Hostname},
-			    {from, self()},  {options, ClientOpts}]),
-
-    File = proplists:get_value(keyfile,BadOpts),    
-    ssl_test_lib:check_result(Server,
-                              {error,{options, {keyfile, File, {error,enoent}}}}, Client,
-                              {error, closed}).
 
 %%--------------------------------------------------------------------
 honor_server_cipher_order_tls12() ->
@@ -2183,91 +2058,6 @@ der_input(Config) when is_list(Config) ->
     %% Using only DER input should not increase file indexed DB 
     Size = ets:info(CADb, size),
 
-    ok.
-
-%%--------------------------------------------------------------------
-invalid_certfile() ->
-    [{doc,"Test what happens with an invalid cert file"}].
-
-invalid_certfile(Config) when is_list(Config) -> 
-    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
-    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
-    BadCertFile = filename:join([proplists:get_value(priv_dir, Config), 
-                                 "badcert.pem"]),
-    ServerBadOpts = [{certfile, BadCertFile}| proplists:delete(certfile, ServerOpts)],
-    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-
-
-    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-    
-    Server = 
-	ssl_test_lib:start_server_error([{node, ServerNode}, {port, 0}, 
-					 {from, self()},
-					 {options, ServerBadOpts}]),
-
-    Port = ssl_test_lib:inet_port(Server),
-
-    Client =
-	ssl_test_lib:start_client_error([{node, ClientNode}, 
-					 {port, Port}, {host, Hostname},
-					 {from, self()}, 
-					 {options, ClientOpts}]),
-    File = proplists:get_value(certfile, ServerBadOpts),
-    ssl_test_lib:check_result(Server, {error,{options, {certfile, File, {error,enoent}}}}, 
-			      Client, {error, closed}).
-    
-
-%%--------------------------------------------------------------------
-invalid_cacertfile() ->
-    [{doc,"Test what happens with an invalid cacert file"}].
-
-invalid_cacertfile(Config) when is_list(Config) ->
-    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
-    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
-    BadCACertFile = filename:join([proplists:get_value(priv_dir, Config), 
-                                 "badcacert.pem"]),
-    ServerBadOpts = [{cacertfile, BadCACertFile}| proplists:delete(cacertfile, ServerOpts)],
-    
-    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-
-    Server0  = 
-	ssl_test_lib:start_server_error([{node, ServerNode}, 
-					 {port, 0}, {from, self()},
-					 {options, ServerBadOpts}]),
-
-    Port0 = ssl_test_lib:inet_port(Server0),
-    
-
-    Client0 =
-	ssl_test_lib:start_client_error([{node, ClientNode}, 
-					 {port, Port0}, {host, Hostname},
-					 {from, self()}, 
-					 {options, ClientOpts}]),
-
-    File0 = proplists:get_value(cacertfile, ServerBadOpts),
-    
-    ssl_test_lib:check_result(Server0, {error, {options, {cacertfile, File0,{error,enoent}}}},
-			      Client0, {error, closed}),
-    
-    File = File0 ++ "do_not_exit.pem",
-    ServerBadOpts1 = [{cacertfile, File}|proplists:delete(cacertfile, ServerBadOpts)],
-            
-    Server1  = 
-	ssl_test_lib:start_server_error([{node, ServerNode}, 
-					 {port, 0}, {from, self()},
-					 {options, ServerBadOpts1}]),
-
-    Port1 = ssl_test_lib:inet_port(Server1),
-    
-    Client1 =
-	ssl_test_lib:start_client_error([{node, ClientNode}, 
-					 {port, Port1}, {host, Hostname},
-					 {from, self()}, 
-					 {options, ClientOpts}]),
-
-
-    ssl_test_lib:check_result(Server1, {error, {options, {cacertfile, File,{error,enoent}}}},
-			      Client1, {error, closed}),
     ok.
 
 %%--------------------------------------------------------------------
@@ -2899,17 +2689,24 @@ options_hostname_check(_Config) ->
     ?ERR({customize_hostname_check, _}, [{customize_hostname_check, {match_fun, pb_fun}}], client),
     ok.
 
-options_dh(_Config) -> %% dh dhfile
+options_dh(Config) -> %% dh dhfile
+    DataDir = proplists:get_value(data_dir, Config),
+    DHFile = filename:join(DataDir, "dHParam.pem"),
+    BinFile = list_to_binary(DHFile),
+    {ok, DHPem} = file:read_file(DHFile),
+    [{_, DH, _}] = public_key:pem_decode(DHPem),
     ?OK(#{}, [], server, [dh, dhfile]),
-    ?OK(#{dh := <<>>}, [{dh, <<>>}], server, [dhfile]),
-    ?OK(#{dhfile := <<"/tmp/foo">>}, [{dhfile, <<"/tmp/foo">>}], server, [dh]),
-    ?OK(#{dh := <<>>}, [{dh, <<>>}, {dhfile, <<"/tmp/foo">>}], server, [dhfile]),
-
-    %% Should be an error
-    ?OK(#{dhfile := <<"/tmp/foo">>},  %% Not available in 1.3
-        [{dhfile, <<"/tmp/foo">>}, {versions, ['tlsv1.3']}], server, [dh]),
+    ?OK(#{dh := DH}, [{dh, DH}], server, [dhfile]),
+    ?OK(#{dhfile := BinFile}, [{dhfile, DHFile}], server, [dh]),
+    ?OK(#{dh := DH}, [{dh, DH}, {dhfile, DHFile}], server, [dhfile]),
 
     %% Error
+    ?ERR({options, incompatible,
+          [dh_file,{versions,['tlsv1.3']}]},
+         [{dhfile, DHFile}, {versions, ['tlsv1.3']}], server),
+    ?ERR({options, incompatible,
+          [dh, {versions,['tlsv1.3']}]},
+          [{dh, <<>>}, {versions, ['tlsv1.3']}], server),
     ?ERR({dh, not_a_bin}, [{dh, not_a_bin}], server),
     ?ERR({dhfile, not_a_filename}, [{dhfile, not_a_filename}], server),
     ?ERR({option, server_only, dhfile}, [{dhfile, "file"}], client),
@@ -4039,6 +3836,43 @@ legacy_prf(Config) when is_list(Config) ->
             true = ExportKeyMaterials1 =/= ExportKeyMaterials2
     end.
 
+%%--------------------------------------------------------------------
+
+listen_pem_file_failure(Config) when is_list(Config) ->
+    Version = ssl_test_lib:protocol_version(Config, atom),
+    DataDir = proplists:get_value(data_dir, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
+    Cert = filename:join(DataDir, "cert.pem"),
+    NoCert = filename:join(DataDir, "nocert.pem"),
+    Key = filename:join(DataDir, "enc_key.pem"),
+    NoKey = filename:join(DataDir, "nokey.pem"),
+    BadDH = filename:join(DataDir, "dHParam-invalid.pem"),
+    BaseOpts = [{versions, [Version]}, {protocol, tls_or_dtls(Version)}],
+    NoCACerts = filename:join(DataDir, "nocacerts.pem"),
+    {error, {options, {keyfile, {Key, wrong_password}}}} =
+        ssl:listen(0, [{certfile, Cert}, {keyfile, Key}] ++ BaseOpts),
+    {error, {options, {certfile, {Key, no_certs}}}} =
+        ssl:listen(0, [{certfile, Key}, {keyfile, Key}] ++ BaseOpts),
+    {error, {options, {certfile, {NoCert, enoent}}}} =
+        ssl:listen(0, [{certfile, NoCert}, {keyfile, Key}] ++ BaseOpts),
+    {error, {options, {keyfile, {NoKey, enoent}}}} =
+        ssl:listen(0, [{certfile, Cert}, {keyfile, NoKey}] ++ BaseOpts),
+    {error, {options, {keyfile, {Cert, {unexpected_content, _}}}}} =
+        ssl:listen(0, [{certfile, Cert}, {keyfile, Cert}] ++ BaseOpts),
+    {error, {options, {cacertfile, {NoCACerts, enoent}}}} =
+        ssl:listen(0, [{cacertfile, NoCACerts}, lists:keydelete(cacertfile, 1, ServerOpts)] ++ BaseOpts),
+    %% all atom version except for tlsv1.3 version, inclding dtlsv1.2 will compare less than
+    case Version < 'tlsv1.3' of
+        true ->
+            {error,
+             {options,
+              {dhfile,_ }}} =
+                ssl:listen(0, ServerOpts ++ BaseOpts ++ [{dhfile, BadDH}]);
+        _ ->
+            ok
+    end.
+%%--------------------------------------------------------------------
+%% Internal functions
 %%--------------------------------------------------------------------
 
 establish_connection(Id, ServerNode, ServerOpts, ClientNode, ClientOpts, Hostname) ->
