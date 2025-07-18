@@ -586,7 +586,9 @@ default(server) ->
 
       connectfun =>
           #{default => fun(_,_,_) -> void end,
-            chk => fun(V) -> check_function3(V) end,
+            chk => fun(V) -> check_function3(V) orelse
+                                 check_function4(V) %% Adds ssh connection info
+                   end,
             class => user_option
            },
 
@@ -788,7 +790,8 @@ default(common) ->
 
        disconnectfun =>
            #{default => fun(_) -> void end,
-             chk => fun(V) -> check_function1(V) end,
+             chk => fun(V) -> check_function1(V) orelse
+                                  check_function2(V) end,
              class => user_option
             },
 
