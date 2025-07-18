@@ -36,6 +36,8 @@ fields can change in future Erlang/OTP releases.
 """.
 -type mp() :: {re_pattern, _, _, _, _}.
 
+-type exported() :: {re_exported_pattern, _}.
+
 -type nl_spec() :: cr | crlf | lf | nul | anycrlf | any.
 
 -type compile_options() :: [compile_option()].
@@ -65,6 +67,13 @@ fields can change in future Erlang/OTP releases.
 -export([internal_run/4]).
 
 -export([version/0, compile/1, compile/2, run/2, run/3, inspect/2]).
+
+-export([import/1]).
+
+-spec import(exported()) -> {ok, mp()}.
+import(_) ->
+    erlang:nif_error(undef).
+
 
 -doc """
 The return of this function is a string with the PCRE version of the system that
@@ -1546,15 +1555,8 @@ check_for_unicode(_,L) ->
 check_for_crlf({re_pattern,_,_,1,_},_) ->
     true;
 check_for_crlf({re_pattern,_,_,0,_},_) ->
-    false;
-check_for_crlf(_,L) ->
-    case lists:keysearch(newline,1,L) of
-	{value,{newline,any}} -> true;
-	{value,{newline,crlf}} -> true;
-	{value,{newline,anycrlf}} -> true;
-	_ -> false
-    end.
-    
+    false.
+
 % SelectReturn = false | all | stirpfirst | none 
 % ConvertReturn = index | list | binary
 % {capture, all} -> all (untouchded)

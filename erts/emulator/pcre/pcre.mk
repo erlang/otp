@@ -37,6 +37,7 @@ pcre2_newline.o \
 pcre2_ord2utf.o \
 pcre2_pattern_info.o \
 pcre2_script_run.o \
+pcre2_serialize.o \
 pcre2_string_utils.o \
 pcre2_study.o \
 pcre2_substring.o \
@@ -131,6 +132,9 @@ $(PCRE_OBJDIR)/pcre2_pattern_info.o: $(PCRE_DIR)/pcre2_pattern_info.c \
  $(PCRE_DIR)/pcre2_internal.h $(PCRE_DIR)/local_config.h $(PCRE_DIR)/pcre2.h $(PCRE_DIR)/pcre2_ucp.h $(PCRE_DIR)/pcre2_intmodedep.h \
  $(PCRE_DIR)/pcre2_util.h
 $(PCRE_OBJDIR)/pcre2_script_run.o: $(PCRE_DIR)/pcre2_script_run.c \
+ $(PCRE_DIR)/pcre2_internal.h $(PCRE_DIR)/local_config.h $(PCRE_DIR)/pcre2.h $(PCRE_DIR)/pcre2_ucp.h $(PCRE_DIR)/pcre2_intmodedep.h \
+ $(PCRE_DIR)/pcre2_util.h
+$(PCRE_OBJDIR)/pcre2_serialize.o: $(PCRE_DIR)/pcre2_serialize.c \
  $(PCRE_DIR)/pcre2_internal.h $(PCRE_DIR)/local_config.h $(PCRE_DIR)/pcre2.h $(PCRE_DIR)/pcre2_ucp.h $(PCRE_DIR)/pcre2_intmodedep.h \
  $(PCRE_DIR)/pcre2_util.h
 $(PCRE_OBJDIR)/pcre2_string_utils.o: $(PCRE_DIR)/pcre2_string_utils.c \
