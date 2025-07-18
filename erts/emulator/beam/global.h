@@ -831,6 +831,7 @@ typedef struct {
     Eterm* back;
     int possibly_empty;
     Eterm* end;
+    Eterm* default_equeue;
     ErtsAlcType_t alloc_type;
 } ErtsEQueue;
 
@@ -848,12 +849,13 @@ void erl_grow_equeue(ErtsEQueue*, Eterm* def_queue);
         EQUE_DEF_QUEUE(q), /* back */			\
         1,                 /* possibly_empty */		\
         EQUE_DEF_QUEUE(q) + DEF_EQUEUE_SIZE, /* end */	\
+        EQUE_DEF_QUEUE(q), /* default_equeue */		\
         ERTS_ALC_T_ESTACK  /* alloc_type */		\
     }
 
 #define DESTROY_EQUEUE(q)				\
 do {							\
-    if (q.start != EQUE_DEF_QUEUE(q)) {			\
+    if (q.start != q.default_equeue) {			\
       erts_free(q.alloc_type, q.start);			\
     }							\
 } while(0)
@@ -870,7 +872,7 @@ do {							\
 #define EQUEUE_PUT(q, x)				\
 do {							\
     if (q.back == q.front && !q.possibly_empty) {	\
-        erl_grow_equeue(&q, EQUE_DEF_QUEUE(q));		\
+        erl_grow_equeue(&q, q.default_equeue);		\
     }							\
     EQUEUE_PUT_UNCHECKED(q, x);				\
 } while(0)
