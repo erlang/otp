@@ -215,8 +215,12 @@ protected:
     }
 
     void emit_enter_runtime_frame() {
-        // TODO
-        ASSERT(false);
+        // We save the current frame pointer first
+        // and then the content of theLink Register on the stack
+        a.push(a32::GpList({a32::fp, a32::lr}));
+        // We modify the frame pointer register to point
+        // where we just stored the current frame pointer value
+        a.add(a32::fp, a32::sp, imm(4));
     }
 
     void emit_leave_runtime_frame() {
