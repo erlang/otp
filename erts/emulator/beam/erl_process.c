@@ -339,6 +339,7 @@ static erts_atomic32_t function_calls;
 static erts_atomic32_t doing_sys_schedule;
 #endif
 static erts_atomic32_t no_empty_run_queues;
+static erts_atomic32_t no_waiting_scheds;
 long erts_runq_supervision_interval = 0;
 static ethr_event runq_supervision_event;
 static erts_tid_t runq_supervisor_tid;
@@ -2934,6 +2935,7 @@ sched_waiting(Uint no, ErtsRunQueue *rq)
     ERTS_LC_ASSERT(erts_lc_runq_is_locked(rq));
     (void) ERTS_RUNQ_FLGS_SET(rq, (ERTS_RUNQ_FLG_OUT_OF_WORK
 				   | ERTS_RUNQ_FLG_HALFTIME_OUT_OF_WORK));
+    erts_atomic32_inc_nob(&no_waiting_scheds);
     rq->waiting++;
     rq->woken = 0;
     if (!ERTS_RUNQ_IX_IS_DIRTY(rq->ix) && erts_system_profile_flags.scheduler)
@@ -2944,6 +2946,7 @@ static ERTS_INLINE void
 sched_active(Uint no, ErtsRunQueue *rq)
 {
     ERTS_LC_ASSERT(erts_lc_runq_is_locked(rq));
+    erts_atomic32_dec_nob(&no_waiting_scheds);
     rq->waiting--;
     if (!ERTS_RUNQ_IX_IS_DIRTY(rq->ix) && erts_system_profile_flags.scheduler)
 	profile_scheduler(make_small(no), am_active);
@@ -5626,11 +5629,9 @@ wakeup_other_check(ErtsRunQueue *rq, Uint32 flags)
 		    if (rq->waiting) {
 			wake_dirty_scheduler(rq);
 		    }
-		} else
-		{
-		    int empty_rqs =
-			erts_atomic32_read_acqb(&no_empty_run_queues);
-		    if (empty_rqs != 0)
+		}
+                else {
+		    if (erts_atomic32_read_nob(&no_waiting_scheds))
 			wake_scheduler_on_empty_runq(rq);
 		    rq->wakeup_other = 0;
 		}
@@ -6128,6 +6129,7 @@ erts_init_scheduling(int no_schedulers, int no_schedulers_online, int no_poll_th
     erts_atomic32_init_nob(&function_calls, 0);
 #endif
     erts_atomic32_init_nob(&no_empty_run_queues, 0);
+    erts_atomic32_init_nob(&no_waiting_scheds, 0);
 
     erts_no_run_queues = n;
 
@@ -9822,7 +9824,6 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
     continue_check_activities_to_run:
 	flags = ERTS_RUNQ_FLGS_GET_NOB(rq);
     continue_check_activities_to_run_known_flags:
-	ASSERT(!is_normal_sched || (flags & ERTS_RUNQ_FLG_NONEMPTY));
 
 	if (!is_normal_sched) {
 	    if (erts_atomic32_read_acqb(&esdp->ssi->flags)
