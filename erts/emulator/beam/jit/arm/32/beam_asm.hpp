@@ -79,11 +79,10 @@ protected:
      * the aux_regs field to be addressed with an 8-bit displacement. */
     const a32::Gp scheduler_registers = a32::r4;
 
-    const a32::Gp E = a32::r7;
-
-    const a32::Gp c_p = a32::r8;
-    const a32::Gp FCALLS = a32::r9;
-    const a32::Gp HTOP = a32::r10;
+    const a32::Gp E = a32::r7; // Erlang Stack pointer
+    const a32::Gp c_p = a32::r8; // Current Process pointer
+    const a32::Gp FCALLS = a32::r9; // Function call counter (reductions)
+    const a32::Gp HTOP = a32::r10; // Erlang Heap pointer
 
     /* Local copy of the active code index.
      *
@@ -246,7 +245,7 @@ protected:
             a.str(FCALLS, arm::Mem(c_p, offsetof(Process, fcalls)));
         }
         // We do not have any X register cached in machine registers
-        // so nothiung else needs to be saved.
+        // so nothing else needs to be saved.
     }
 
     template<int Spec = 0>
