@@ -590,6 +590,7 @@ void BeamGlobalAssembler::emit_arith_compare_shared() {
     // We directly call erts_cmp_compound here instead of
     // trying to use faster alternatives.
     emit_enter_runtime_frame();
+    emit_enter_runtime();
 }
 
 void BeamModuleAssembler::emit_is_lt(const ArgLabel &Fail,

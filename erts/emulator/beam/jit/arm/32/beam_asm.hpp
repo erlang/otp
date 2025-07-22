@@ -228,22 +228,25 @@ protected:
         ASSERT(false);
     }
 
-    /* We keep the first six X registers in machine registers. Some of those
-     * registers are callee-saved and some are caller-saved.
-     *
-     * We ignore the ones above `live` to reduce the save/restore traffic on
-     * these registers. It's enough for this figure to be at least as high as
-     * the number of actually live registers, and we default to all six
-     * registers when we don't know the exact number.
-     *
-     * Furthermore, we only save the callee-save registers when told to sync
-     * all registers with the `Update::eXRegs` flag, as this is very rarely
-     * needed. */
-
+    /*
+     * We save the Erlang Stack, Erlang Heap and FCALLS registers in the
+     * C structure of the current process (c_p)
+    */
     template<int Spec = 0>
     void emit_enter_runtime() {
-        // TODO
-        ASSERT(false);
+        ERTS_CT_ASSERT((Spec & (Update::eReductions | Update::eStack |
+                                Update::eHeap | Update::eXRegs)) == Spec);
+        if (Spec & Update::eStack) {
+            a.str(E, arm::Mem(c_p, offsetof(Process, stop)));
+        }
+        if (Spec & Update::eHeap) {
+            a.str(HTOP, arm::Mem(c_p, offsetof(Process, htop)));
+        }
+        if (Spec & Update::eReductions) {
+            a.str(FCALLS, arm::Mem(c_p, offsetof(Process, fcalls)));
+        }
+        // We do not have any X register cached in machine registers
+        // so nothiung else needs to be saved.
     }
 
     template<int Spec = 0>
