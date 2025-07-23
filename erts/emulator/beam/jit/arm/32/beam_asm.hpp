@@ -277,8 +277,27 @@ protected:
 
     template<int Spec = 0>
     void emit_leave_runtime() {
-        // TODO
-        ASSERT(false);
+        ERTS_CT_ASSERT(
+            (Spec & (Update::eReductions | Update::eStack | Update::eHeap |
+                     Update::eXRegs | Update::eCodeIndex)) == Spec);
+        if (Spec & Update::eStack) {
+            a.ldr(E, arm::Mem(c_p, offsetof(Process, stop)));
+        }
+        if (Spec & Update::eHeap) {
+            a.ldr(HTOP, arm::Mem(c_p, offsetof(Process, htop)));
+        }
+        if (Spec & Update::eReductions) {
+            a.ldr(FCALLS, arm::Mem(c_p, offsetof(Process, fcalls)));
+        }
+
+        if (Spec & Update::eCodeIndex) {
+            /* Updates the local copy of the active code index, retaining
+             * save_calls if active. */
+            mov_imm(TMP, &the_active_code_index);
+            a.ldr(TMP, arm::Mem(TMP));
+            a.cmp(active_code_ix, imm(ERTS_SAVE_CALLS_CODE_IX));
+            a.mov_ne(active_code_ix, TMP);
+        }
     }
 
     void emit_is_cons(Label Fail, a32::Gp Src) {
