@@ -162,7 +162,8 @@ protected:
     template<int expected_arity, typename T>
     void runtime_call(T(*func)) {
         static_assert(expected_arity == function_arity<T>());
-        ASSERT(false);
+        mov_imm(TMP, func);
+        a.bx(TMP);
     }
 
     constexpr arm::Mem getArgRef(const ArgRegister &arg) const {
