@@ -91,6 +91,10 @@ MODULES= \
 	prim_file_SUITE \
 	ram_file_SUITE \
 	gen_tcp_api_SUITE \
+	test_inet_tcp \
+	test_inet6_tcp \
+	test_inet_udp \
+	test_inet6_udp \
 	gen_tcp_dist \
 	gen_tcp_echo_SUITE \
 	gen_tcp_misc_SUITE \
