@@ -775,6 +775,12 @@ static DMCGuardBif guard_tab[] =
 	DBIF_ALL
     },
     {
+	am_is_between,
+	&is_between_3,
+	3,
+	DBIF_ALL
+    },
+    {
 	am_tl,
 	&tl_1,
 	1,
