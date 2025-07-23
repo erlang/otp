@@ -32,6 +32,8 @@
 -define(DEFAULT_MAX_SESSION_CACHE, 1000).
 -define(TWO_HOURS, 7200).
 -define(SEVEN_DAYS, 604800). 
+-define(DEFAULT_MAX_CRL_CACHE, 150).
+-define(INTERNAL_ACTIVE_N, 100).
 
 %% Connection parameter configuration
 -export([init/2,
@@ -44,6 +46,7 @@
 %% Application configuration
 -export([pre_1_3_session_opts/1,
          get_max_early_data_size/0,
+         get_max_crl_cache/0,
          get_ticket_lifetime/0,
          get_ticket_store_size/0,
          get_internal_active_n/0,
@@ -142,6 +145,14 @@ get_internal_active_n(true) ->
     erlang:system_time() rem ?INTERNAL_ACTIVE_N + 1;
 get_internal_active_n(false) ->
     application_int(internal_active_n, ?INTERNAL_ACTIVE_N).
+
+get_max_crl_cache() ->
+    case application:get_env(ssl, max_crl_cache) of
+	{ok, Size} when is_integer(Size) ->
+	    Size;
+	_  ->
+	    ?DEFAULT_MAX_CRL_CACHE
+    end.
 
 %%====================================================================
 %% Certificate and  Key configuration
@@ -276,6 +287,9 @@ prio_dsa(DSA) ->
     end,
     lists:sort(Order, DSA).
 
+%%====================================================================
+%% Internal functions 
+%%====================================================================	     
 init_manager_name(false) ->
     put(ssl_manager, ssl_manager:name(normal)),
     put(ssl_pem_cache, ssl_pem_cache:name(normal));

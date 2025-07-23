@@ -32,14 +32,27 @@
 -include_lib("kernel/include/file.hrl").
 -include_lib("kernel/include/logger.hrl").
 
--export([create/1, create_pem_cache/1, 
-	 add_crls/3, remove_crls/2, remove/1, add_trusted_certs/3, 
+-export([create/1,
+         create_pem_cache/1,
+	 add_crls/4,
+         remove_crls/2,
+         remove/1,
+         add_trusted_certs/3,
          refresh_trusted_certs/2,
          refresh_trusted_certs/3,
 	 extract_trusted_certs/1,
-	 remove_trusted_certs/2, insert/3, remove/2, clear/1, db_size/1,
-	 ref_count/3, lookup_trusted_cert/4, foldl/3, select_certentries_by_ref/2,
-	 select_certs_by_ref/2, decode_pem_file/1, lookup/2]).
+	 remove_trusted_certs/2,
+         insert/3,
+         remove/2,
+         clear/1,
+         db_size/1,
+	 ref_count/3,
+         lookup_trusted_cert/4,
+         foldl/3,
+         select_certentries_by_ref/2,
+	 select_certs_by_ref/2,
+         decode_pem_file/1,
+         lookup/2]).
 
 %%====================================================================
 %% Internal application API
@@ -363,6 +376,15 @@ new_trusted_cert_entry(File, [CertsDb, RefsDb, _ | _]) ->
             {ok, Ref};
         Error ->
             Error
+    end.
+
+add_crls([_,_,_, {Cache, _} | _]= DB, Path, CRLs, MaxSize) ->
+    case ets:info(Cache, size) + length(CRLs) > MaxSize of
+        true ->
+            ets:delete_all_objects(Cache),
+            add_crls(DB, Path, CRLs);
+        false ->
+            add_crls(DB, Path, CRLs)
     end.
 
 add_crls([_,_,_, {_, Mapping} | _], ?NO_DIST_POINT, CRLs) ->
