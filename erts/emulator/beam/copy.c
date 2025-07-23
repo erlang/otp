@@ -1013,6 +1013,7 @@ do {								\
         EQUE_DEF_QUEUE(q), /* back */			\
         1,                 /* possibly_empty */		\
         EQUE_DEF_QUEUE(q) + DEF_EQUEUE_SIZE, /* end */	\
+        EQUE_DEF_QUEUE(q), /* default */		\
         ERTS_ALC_T_ESTACK  /* alloc_type */		\
     }
 
@@ -1024,6 +1025,7 @@ do {								\
         info->queue_start,      /* back */		\
         1,                      /* possibly_empty */	\
         info->queue_end,        /* end */		\
+        info->queue_default,    /* default */		\
         info->queue_alloc_type  /* alloc_type */	\
     }
 
