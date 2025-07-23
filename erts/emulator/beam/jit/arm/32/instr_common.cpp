@@ -591,6 +591,11 @@ void BeamGlobalAssembler::emit_arith_compare_shared() {
     // trying to use faster alternatives.
     emit_enter_runtime_frame();
     emit_enter_runtime();
+
+    comment("erts_cmp_compound(X, Y, 0, 0);");
+    mov_imm(ARG3, 0);
+    mov_imm(ARG4, 0);
+    runtime_call<4>(erts_cmp_compound);
 }
 
 void BeamModuleAssembler::emit_is_lt(const ArgLabel &Fail,

@@ -149,6 +149,22 @@ protected:
 #endif
     }
 
+    void runtime_call(a32::Gp func, unsigned args) {
+        ASSERT(false);
+    }
+
+    template<typename T>
+    struct function_arity;
+    template<typename T, typename... Args>
+    struct function_arity<T(Args...)>
+            : std::integral_constant<int, sizeof...(Args)> {};
+
+    template<int expected_arity, typename T>
+    void runtime_call(T(*func)) {
+        static_assert(expected_arity == function_arity<T>());
+        ASSERT(false);
+    }
+
     constexpr arm::Mem getArgRef(const ArgRegister &arg) const {
         if (arg.isXRegister()) {
             return getXRef(arg.as<ArgXRegister>().get());
@@ -933,9 +949,7 @@ protected:
 
     template<int expected_arity, typename T>
     void runtime_call(T(*func)) {
-        static_assert(expected_arity == function_arity<T>());
-
-        a.bl(resolve_fragment((void (*)())func, disp128MB));
+        ASSERT(false);
     }
 
     bool isRegisterBacked(const ArgVal &arg) {
