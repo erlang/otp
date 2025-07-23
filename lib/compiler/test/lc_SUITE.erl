@@ -26,7 +26,7 @@
 	 init_per_testcase/2,end_per_testcase/2,
 	 basic/1,deeply_nested/1,no_generator/1,
 	 empty_generator/1,no_export/1,shadow/1,
-	 effect/1,singleton_generator/1]).
+	 effect/1,singleton_generator/1,gh10020/1]).
 
 -include_lib("stdlib/include/assert.hrl").
 -include_lib("common_test/include/ct.hrl").
@@ -47,7 +47,8 @@ groups() ->
        no_export,
        shadow,
        effect,
-       singleton_generator
+       singleton_generator,
+       gh10020
       ]}].
 
 init_per_suite(Config) ->
@@ -352,6 +353,13 @@ singleton_generator_bin_1a(Bin) ->
 
 singleton_generator_bin_1b(Bin) ->
     << <<(B*7):8>> || <<B:16>> <= Bin, B * 7 < 256 >>.
+
+gh10020(Config) when is_list(Config) ->
+    L = lists:seq(1, 10),
+    do_gh10020(L).
+
+do_gh10020(L) ->
+    [] = [Rec || {_, Rec} <- L, is_record(L, L)].
 
 id(I) -> I.
 
