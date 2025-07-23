@@ -27,3 +27,4 @@ include $(ERL_TOP)/make/run_make.mk
 
 include $(ERL_TOP)/make/app_targets.mk
 
+.NOTPARALLEL:

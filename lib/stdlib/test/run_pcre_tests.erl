@@ -1433,18 +1433,44 @@ ranstring() ->
 re_compile(RE, Options) ->
     inc_counter(re_compile),
     put(re_compile_opts, Options),
-    re:compile(RE, Options).
+    case re:compile(RE, Options) of
+        {ok, Local} ->
+            {ok, Exported} = re:compile(RE, [export|Options]),
+            {ok, {Local, Exported}};
+        Error ->
+            Error = re:compile(RE, [export | Options])
+    end.
 
+
+re_run(Subj, {Local, Exported}, Opts) ->
+    Res = re_run(Subj, Local, Opts),
+    Imported1 = re:import(Exported),
+    Res = re_run(Subj, Imported1, Opts),
+    Imported2 = re:import(bump_exported_version(Exported)),
+    Res = re_run(Subj, Imported2, Opts);
 re_run(Subj, RE, Opts) ->
     %%io:format("re:run(~p, ~p, ~p)\n", [Subj, RE, Opts]),
     inc_counter(re_run),
     put(re_run_opts, Opts),
     re:run(Subj, RE, Opts).
 
+re_replace(Subj, {Local, Exported}, Repl, Opts) ->
+    Res = re_replace(Subj, Local, Repl, Opts),
+    Imported = re:import(Exported),
+    Res = re_replace(Subj, Imported, Repl, Opts);
 re_replace(Subj, RE, Repl, Opts) ->
     inc_counter(re_replace),
     put(re_run_opts, Opts),
     re:replace(Subj, RE, Repl, Opts).
+
+bump_exported_version(Exported1) ->
+    {re_exported_pattern, Hdr1, RE, Opts, Enc1} = Exported1,
+    <<Magic:32, Maj:16, Min:16/little, EncRest/binary>> = Enc1,
+    Enc2 = <<Magic:32, Maj:16, (Min+1):16/little, EncRest/binary>>,
+    <<"re-PCRE2", _CRC1:32, HdrRest/binary>> = Hdr1,
+    CRC2 = erlang:crc32(Enc2),
+    Hdr2 = <<"re-PCRE2", CRC2:32, HdrRest/binary>>,
+    {re_exported_pattern, Hdr2, RE, Opts, Enc2}.
 
 used_options() ->
     RunOpts = get(re_run_opts),
