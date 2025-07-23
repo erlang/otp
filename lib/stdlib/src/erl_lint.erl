@@ -2582,13 +2582,21 @@ is_guard_test(Expression, Forms, IsOverridden) ->
 %% is_guard_test2(Expression, RecordDefs :: dict:dict()) -> boolean().
 is_guard_test2({call,Anno,{atom,Ar,record},[E,A]}, Info) ->
     is_gexpr({call,Anno,{atom,Ar,is_record},[E,A]}, Info);
+is_guard_test2({call,Anno,{remote,_Ar,{atom,_Am,erlang},
+                           {atom,Af,is_record}},[E,A]}, Info) ->
+    is_guard_test2({call,Anno,{atom,Af,is_record},[E,A]}, Info);
 is_guard_test2({call,_Anno,{atom,_Aa,Test},As}=Call, {_,IsOverridden}=Info) ->
     A = length(As),
     not IsOverridden({Test,A}) andalso
-	case erl_internal:type_test(Test, A) of
-	    true -> is_gexpr_list(As, Info);
-	    false -> is_gexpr(Call, Info)
-	end;
+        case erl_internal:type_test(Test, A) of
+            true when Test =:= is_record, A =:= 2 ->
+                case As of
+                    [_,{atom,_,_}] -> is_gexpr_list(As, Info);
+                    _ -> false
+                end;
+            true -> is_gexpr_list(As, Info);
+            false -> is_gexpr(Call, Info)
+        end;
 is_guard_test2(G, Info) ->
     %%Everything else is a guard expression.
     is_gexpr(G, Info).
