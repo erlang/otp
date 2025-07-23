@@ -240,8 +240,9 @@ protected:
     }
 
     void emit_leave_runtime_frame() {
-        // TODO
-        ASSERT(false);
+        // Restore the frame pointer and the return address
+        // This also updates the stack pointer
+        a.pop(a32::GpList({a32::fp, a32::pc}));
     }
 
     /*
