@@ -211,6 +211,8 @@ void BeamGlobalAssembler::emit_bif_nif_epilogue(void) {
     }
 
     a.bx(a32::lr);
+
+    emit_nyi("emit_bif_nif_epilogue");
 }
 
 /* Used by call_bif, dispatch_bif, and export_trampoline.

@@ -463,6 +463,25 @@ protected:
         // TODO
         ASSERT(false);
     }
+
+    /*
+     * FOR DEVELOPMENT ONLY
+     * NYI: Not Yet Implemented
+     * This fun was not present in the global assembler,
+     * but to speedup development we can use this to skip
+     * global funcitons implementation and focus on the module assembler.
+     */
+    static void i_emit_nyi(char *msg) {
+        erts_exit(ERTS_ERROR_EXIT, "NYI: %s\n", msg);
+    }
+
+    void emit_nyi(const char *msg) {
+        // skipping any preparation for the runtime call
+        mov_imm(ARG1, msg);
+        runtime_call<1>(i_emit_nyi);
+        /* Never returns */
+    }
+
 };
 
 #include "beam_asm_global.hpp"
