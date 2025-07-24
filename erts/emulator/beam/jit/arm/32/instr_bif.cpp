@@ -210,6 +210,7 @@ void BeamGlobalAssembler::emit_bif_nif_epilogue(void) {
         a.str(a32::lr, arm::Mem(c_p, offsetof(Process, i)));
     }
 
+    a.bx(a32::lr);
 }
 
 /* Used by call_bif, dispatch_bif, and export_trampoline.
