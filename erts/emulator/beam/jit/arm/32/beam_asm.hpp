@@ -226,8 +226,7 @@ protected:
     }
 
     void emit_leave_erlang_frame() {
-        // TODO
-        ASSERT(false);
+        a.ldr(a32::lr, arm::Mem(E).post(4));
     }
 
     void emit_enter_runtime_frame() {

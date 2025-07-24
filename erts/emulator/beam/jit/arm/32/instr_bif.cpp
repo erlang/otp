@@ -203,6 +203,8 @@ void BeamGlobalAssembler::emit_bif_nif_epilogue(void) {
     comment("Do return and dispatch to it");
     a.str(ARG1, getXRef(0));
 
+    emit_leave_erlang_frame();
+
 }
 
 /* Used by call_bif, dispatch_bif, and export_trampoline.
