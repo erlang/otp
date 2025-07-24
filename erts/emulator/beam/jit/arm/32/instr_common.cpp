@@ -599,6 +599,10 @@ void BeamGlobalAssembler::emit_arith_compare_shared() {
 
     emit_leave_runtime();
     emit_leave_runtime_frame();
+
+    a.tst(ARG1, ARG1);
+
+    a.bx(a32::lr);
 }
 
 void BeamModuleAssembler::emit_is_lt(const ArgLabel &Fail,
