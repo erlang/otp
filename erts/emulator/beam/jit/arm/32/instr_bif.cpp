@@ -199,6 +199,10 @@ void BeamGlobalAssembler::emit_bif_nif_epilogue(void) {
                        Update::eReductions | Update::eCodeIndex>();
 
     emit_branch_if_not_value(ARG1, check_trap);
+
+    comment("Do return and dispatch to it");
+    a.str(ARG1, getXRef(0));
+
 }
 
 /* Used by call_bif, dispatch_bif, and export_trampoline.
