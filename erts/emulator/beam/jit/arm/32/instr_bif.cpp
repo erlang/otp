@@ -205,6 +205,11 @@ void BeamGlobalAssembler::emit_bif_nif_epilogue(void) {
 
     emit_leave_erlang_frame();
 
+    if (erts_alcu_enable_code_atags) {
+        /* See emit_i_test_yield. */
+        a.str(a32::lr, arm::Mem(c_p, offsetof(Process, i)));
+    }
+
 }
 
 /* Used by call_bif, dispatch_bif, and export_trampoline.
