@@ -188,6 +188,10 @@ void BeamModuleAssembler::emit_nif_start() {
 void BeamGlobalAssembler::emit_bif_nif_epilogue(void) {
     Label check_trap = a.newLabel(), trap = a.newLabel(), error = a.newLabel();
 
+#ifdef ERTS_MSACC_EXTENDED_STATES
+    // Skipping msacc profiling for now
+    emit_nyi("emit_bif_nif_epilogue");
+#endif
 }
 
 /* Used by call_bif, dispatch_bif, and export_trampoline.
