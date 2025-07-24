@@ -192,6 +192,13 @@ void BeamGlobalAssembler::emit_bif_nif_epilogue(void) {
     // Skipping msacc profiling for now
     emit_nyi("emit_bif_nif_epilogue");
 #endif
+
+    /* Another process may have loaded new code and somehow notified us through
+     * this call, so we must update the active code index. */
+    emit_leave_runtime<Update::eStack | Update::eHeap | Update::eXRegs |
+                       Update::eReductions | Update::eCodeIndex>();
+
+    emit_branch_if_not_value(ARG1, check_trap);
 }
 
 /* Used by call_bif, dispatch_bif, and export_trampoline.
