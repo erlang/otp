@@ -186,8 +186,8 @@ void BeamModuleAssembler::emit_nif_start() {
 }
 
 void BeamGlobalAssembler::emit_bif_nif_epilogue(void) {
-    // TODO
-    ASSERT(false);
+    Label check_trap = a.newLabel(), trap = a.newLabel(), error = a.newLabel();
+
 }
 
 /* Used by call_bif, dispatch_bif, and export_trampoline.
