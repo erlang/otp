@@ -650,6 +650,13 @@ reg_s_single_open_and_close_and_count() ->
             _ ->
                 false
         end,
+    SupportsVSOCK =
+        case (catch has_support_vsock()) of
+            ok ->
+                true;
+            _ ->
+                false
+        end,
     InitSockInfos =
         [
          {inet, stream, tcp},
@@ -728,6 +735,15 @@ reg_s_single_open_and_close_and_count() ->
                         ?P("test open sctp socket: failed"),
                         []
                 end;
+            false ->
+                []
+        end ++
+        case SupportsVSOCK of
+            true ->
+                [
+                 {vsock, stream, default},
+                 {vsock, dgram, default}
+                ];
             false ->
                 []
         end,
@@ -14528,6 +14544,14 @@ has_support_sctp() ->
                 false ->
                     skip("Not supported")
             end
+    end.
+
+has_support_vsock() ->
+    case socket:is_supported(vsock) of
+        true ->
+            ok;
+        false ->
+            skip("Not supported")
     end.
 
 

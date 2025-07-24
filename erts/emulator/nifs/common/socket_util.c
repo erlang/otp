@@ -129,6 +129,12 @@ static void make_sockaddr_in6(ErlNifEnv*    env,
 static void make_sockaddr_un(ErlNifEnv*    env,
                              ERL_NIF_TERM  path,
                              ERL_NIF_TERM* sa);
+#ifdef HAS_AF_VSOCK
+static void make_sockaddr_vm(ErlNifEnv*    env,
+                             ERL_NIF_TERM  port,
+                             ERL_NIF_TERM  cid,
+                             ERL_NIF_TERM* sa);
+#endif
 #if defined(HAVE_NETPACKET_PACKET_H)
 static void make_sockaddr_ll(ErlNifEnv*    env,
                              ERL_NIF_TERM  proto,
@@ -444,6 +450,7 @@ BOOLEAN_T esock_decode_iov(ErlNifEnv*    env,
  *    inet  - sockaddr_in4: port, addr
  *    inet6 - sockaddr_in6: port, addr, flowinfo, scope_id
  *    unspec - sockaddr:    addr
+ *    vsock  - sockaddr_vm: port, cid
  *    (int)  - sockaddr:     addr
  */
 
@@ -498,6 +505,12 @@ BOOLEAN_T esock_decode_sockaddr(ErlNifEnv*    env,
     case AF_UNSPEC:
         return esock_decode_sockaddr_native(env, eSockAddr, sockAddrP,
                                             AF_UNSPEC, addrLenP);
+#endif
+
+#ifdef HAS_AF_VSOCK
+    case AF_VSOCK:
+        return esock_decode_sockaddr_vm(env, eSockAddr,
+                                        &sockAddrP->vm, addrLenP);
 #endif
 
     default:
@@ -593,6 +606,13 @@ void esock_encode_sockaddr(ErlNifEnv*    env,
                                    &sockAddrP->sa, len,
                                    esock_atom_unspec,
                                    eSockAddr);
+      break;
+#endif
+
+#ifdef HAS_AF_VSOCK
+  case AF_VSOCK:
+      len = SALEN(addrLen, sizeof(struct sockaddr_vm));
+      esock_encode_sockaddr_vm(env, &sockAddrP->vm, len, eSockAddr);
       break;
 #endif
 
@@ -1303,6 +1323,132 @@ void esock_encode_sockaddr_un(ErlNifEnv*          env,
 }
 #endif
 
+/* +++ esock_decode_sockaddr_vm +++
+ *
+ * Decode a VSock Domain socket address - sockaddr_vm. In erlang its
+ * represented as a map, which has a specific set of attributes
+ * (beside the mandatory family attribute, which is "inherited" from
+ * the "sockaddr" type):
+ *
+ *    port     :: vsock_port_number()  (integer)
+ *    cid      :: vsock_context_id()   (integer)
+ *
+ * The erlang module ensures that this value exist, so there
+ * is no need for any elaborate error handling here.
+ */
+
+#ifdef HAS_AF_VSOCK
+extern
+BOOLEAN_T esock_decode_sockaddr_vm(ErlNifEnv*          env,
+                                   ERL_NIF_TERM        eSockAddr,
+                                   struct sockaddr_vm* sockAddrP,
+                                   SOCKLEN_T*          addrLen)
+{
+    ERL_NIF_TERM ePort, eCid;
+    unsigned int port, cid;
+
+    UDBG( ("SUTIL", "esock_decode_sockaddr_vm -> entry\r\n") );
+
+    sys_memzero((char*) sockAddrP, sizeof(struct sockaddr_vm));
+    sockAddrP->svm_family = AF_VSOCK;
+
+    /* *** Extract (e) port from map *** */
+    if (! GET_MAP_VAL(env, eSockAddr, esock_atom_port, &ePort))
+        return FALSE;
+
+    if (IS_ATOM(env, ePort)) {
+        /* This can only be: 'any' */
+        if (COMPARE(esock_atom_any, ePort) == 0) {
+            port = VMADDR_PORT_ANY;
+        } else {
+            return FALSE;
+        }
+    } else {
+        /* Decode port as an unsigned integer */
+        if (! GET_UINT(env, ePort, &port))
+            return FALSE;
+    }
+
+    UDBG( ("SUTIL", "esock_decode_sockaddr_vm -> port: %d\r\n", port) );
+    sockAddrP->svm_port = port;
+
+    /* *** Extract (e) cid from map *** */
+    if (! GET_MAP_VAL(env, eSockAddr, esock_atom_cid, &eCid))
+        return FALSE;
+
+    if (IS_ATOM(env, eCid)) {
+        /* This can be one of: 'any' | 'local' | 'host' | 'hypervisor' */
+        if (COMPARE(esock_atom_any, eCid) == 0) {
+            cid = VMADDR_CID_ANY;
+        } else if (COMPARE(esock_atom_hypervisor, eCid) == 0) {
+            cid = VMADDR_CID_HYPERVISOR;
+#if HAVE_DECL_VMADDR_CID_LOCAL
+        } else if (COMPARE(esock_atom_local, eCid) == 0) {
+            cid = VMADDR_CID_LOCAL;
+#endif
+        } else if (COMPARE(esock_atom_host, eCid) == 0) {
+            cid = VMADDR_CID_HOST;
+        } else {
+            return FALSE;
+        }
+    } else {
+        /* Decode cid as an unsigned integer */
+        if (! GET_UINT(env, eCid, &cid))
+            return FALSE;
+    }
+
+    UDBG( ("SUTIL", "esock_decode_sockaddr_vm -> cid: %d\r\n", cid) );
+    sockAddrP->svm_cid = cid;
+
+    *addrLen = sizeof(struct sockaddr_vm);
+
+    UDBG( ("SUTIL", "esock_decode_sockaddr_vm -> done\r\n") );
+
+    return TRUE;
+}
+#endif
+
+
+
+/* +++ esock_encode_sockaddr_vm +++
+ *
+ * Encode a VSock socket address - sockaddr_vm. In erlang its represented as
+ * a map, which has a specific set of attributes (beside the mandatory family
+ * attribute, which is "inherited" from the "sockaddr" type):
+ *
+ *    port     :: vsock_port_number()  (integer)
+ *    cid      :: vsock_context_id()   (integer)
+ *
+ */
+
+#ifdef HAS_AF_VSOCK
+extern
+void esock_encode_sockaddr_vm(ErlNifEnv*          env,
+                              struct sockaddr_vm* sockAddrP,
+                              SOCKLEN_T           addrLen,
+                              ERL_NIF_TERM*       eSockAddr)
+{
+    ERL_NIF_TERM ePort, eCid;
+
+    UDBG( ("SUTIL", "esock_encode_sockaddr_vm -> entry\r\n") );
+
+    if (addrLen >= sizeof(struct sockaddr_vm)) {
+
+        /* Encode (e) port as an unsigned integer */
+        ePort = MKUI(env, sockAddrP->svm_port);
+
+        /* Encode (e) cid as an unsigned integer */
+        eCid = MKUI(env, sockAddrP->svm_cid);
+
+        /* And finally construct the sockaddr_vm record */
+        make_sockaddr_vm(env, ePort, eCid, eSockAddr);
+
+    } else {
+        esock_encode_sockaddr_native(env, (struct sockaddr *)sockAddrP,
+                                     addrLen, esock_atom_vsock, eSockAddr);
+    }
+}
+#endif
 
 
 /* +++ esock_encode_sockaddr_ll +++
@@ -1866,6 +2012,7 @@ BOOLEAN_T esock_decode_timeval(ErlNifEnv*      env,
  *    inet   => AF_INET
  *    inet6  => AF_INET6
  *    local  => AF_LOCAL
+ *    vsock => AF_VSOCK
  *    unspec => AF_UNSPEC
  *
  * Return -1:
@@ -1897,6 +2044,11 @@ int esock_decode_domain(ErlNifEnv*   env,
         *domain = AF_UNSPEC;
 #endif
 
+#ifdef HAS_AF_VSOCK
+    } else if (COMPARE(esock_atom_vsock, eDomain) == 0) {
+        *domain = AF_VSOCK;
+#endif
+
     } else {
         int d;
 
@@ -1920,6 +2072,7 @@ int esock_decode_domain(ErlNifEnv*   env,
  *    AF_INET    => inet
  *    AF_INET6   => inet6
  *    AF_LOCAL   => local
+ *    AF_VSOCK   => vsock
  *    AF_UNSPEC  => unspec
  *
  */
@@ -1948,6 +2101,12 @@ void esock_encode_domain(ErlNifEnv*    env,
 #ifdef AF_UNSPEC
     case AF_UNSPEC:
         *eDomain = esock_atom_unspec;
+        break;
+#endif
+
+#ifdef HAS_AF_VSOCK
+    case AF_VSOCK:
+        *eDomain = esock_atom_vsock;
         break;
 #endif
 
@@ -3373,6 +3532,26 @@ void make_sockaddr_dl(ErlNifEnv*    env,
 }
 #endif
 
+/* Construct the VSock socket address */
+#ifdef HAS_AF_VSOCK
+static
+void make_sockaddr_vm(ErlNifEnv*    env,
+                      ERL_NIF_TERM  port,
+                      ERL_NIF_TERM  cid,
+                      ERL_NIF_TERM* sa)
+{
+    ERL_NIF_TERM keys[]  = {esock_atom_family,
+                            esock_atom_port,
+                            esock_atom_cid};
+    ERL_NIF_TERM vals[]  = {esock_atom_vsock,
+                            port,
+                            cid};
+    size_t       numKeys = NUM(keys);
+
+    ESOCK_ASSERT( numKeys == NUM(vals) );
+    ESOCK_ASSERT( MKMA(env, keys, vals, numKeys, sa) );
+}
+#endif
 
 extern
 ERL_NIF_TERM esock_make_new_binary(ErlNifEnv *env, void *buf, size_t size)
