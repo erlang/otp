@@ -33,7 +33,7 @@
 #include "erl_global_literals.h"
 
 #define EXPORT_INITIAL_SIZE   4000
-#define EXPORT_LIMIT          (512*1024)
+#define EXPORT_LIMIT          (512*1024*10)
 
 #ifdef DEBUG
 #  define IF_DEBUG(x) x
