@@ -30,7 +30,7 @@ extern "C"
  * Clobbers d30 and d31. */
 void BeamGlobalAssembler::emit_check_float_error() {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_check_float_error");
 }
 
 void BeamModuleAssembler::emit_float_instr(uint32_t instId,
@@ -58,7 +58,7 @@ void BeamModuleAssembler::emit_fstore(const ArgFRegister &Src,
 /* ARG1 = source term */
 void BeamGlobalAssembler::emit_fconv_shared() {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_fconv_shared");
 }
 
 void BeamModuleAssembler::emit_fconv(const ArgSource &Src,

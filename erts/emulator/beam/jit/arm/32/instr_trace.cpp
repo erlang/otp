@@ -32,7 +32,7 @@ extern "C"
  * ARG1 = export entry */
 void BeamGlobalAssembler::emit_generic_bp_global() {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_generic_bp_global");
 }
 
 /* This function is called from the module header, which is in turn called from
@@ -42,7 +42,7 @@ void BeamGlobalAssembler::emit_generic_bp_global() {
  * See beam_asm.h for more details */
 void BeamGlobalAssembler::emit_generic_bp_local() {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_generic_bp_local");
 }
 
 /* This function is called from the module header which is called from the
@@ -51,7 +51,7 @@ void BeamGlobalAssembler::emit_generic_bp_local() {
  * The only place that we can come to here is from generic_bp_local */
 void BeamGlobalAssembler::emit_debug_bp() {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_generic_bp_global");
 }
 
 static void return_trace(Process *c_p,

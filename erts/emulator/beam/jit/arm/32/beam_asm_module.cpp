@@ -100,7 +100,7 @@ void BeamModuleAssembler::emit_i_nif_padding() {
 
 void BeamGlobalAssembler::emit_i_breakpoint_trampoline_shared() {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_i_breakpoint_trampoline_shared");
 }
 
 void BeamModuleAssembler::emit_i_breakpoint_trampoline() {
@@ -113,8 +113,10 @@ static void i_emit_nyi(char *msg) {
 }
 
 void BeamModuleAssembler::emit_nyi(const char *msg) {
-    // TODO
-    ASSERT(false);
+    // skipping any preparation for the runtime call
+    mov_imm(ARG1, msg);
+    runtime_call<1>(i_emit_nyi);
+    /* Never returns */
 }
 
 void BeamModuleAssembler::emit_nyi() {
@@ -156,7 +158,7 @@ bool BeamModuleAssembler::emit(unsigned specific_op, const Span<ArgVal> &args) {
 
 void BeamGlobalAssembler::emit_i_func_info_shared() {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_i_func_info_shared");
 }
 
 void BeamModuleAssembler::emit_i_func_info(const ArgWord &Label,

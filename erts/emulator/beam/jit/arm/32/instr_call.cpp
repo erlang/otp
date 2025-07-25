@@ -27,7 +27,7 @@ extern "C"
 
 void BeamGlobalAssembler::emit_dispatch_return() {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_dispatch_return");
 }
 
 void BeamModuleAssembler::emit_dispatch_return() {
@@ -76,7 +76,7 @@ void BeamModuleAssembler::emit_i_call_only(const ArgLabel &CallTarget) {
  * be preserved since this runs between caller and callee. */
 void BeamGlobalAssembler::emit_dispatch_save_calls_export() {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_dispatch_save_calls_export");
 }
 
 void BeamModuleAssembler::emit_i_call_ext(const ArgExport &Exp) {

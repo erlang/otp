@@ -38,7 +38,7 @@ extern "C"
  * Result in ARG3. Clobbers TMP1. */
 void BeamGlobalAssembler::emit_internal_hash_helper() {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_internal_hash_helper");
 }
 
 /* ARG1 = untagged hash map root
@@ -49,7 +49,7 @@ void BeamGlobalAssembler::emit_internal_hash_helper() {
  * Result is returned in RET. ZF is set on success. */
 void BeamGlobalAssembler::emit_hashmap_get_element() {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_hashmap_get_element");
 }
 
 /* ARG1 = untagged flat map
@@ -59,12 +59,12 @@ void BeamGlobalAssembler::emit_hashmap_get_element() {
  * Result is returned in ARG1. ZF is set on success. */
 void BeamGlobalAssembler::emit_flatmap_get_element() {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_flatmap_get_element");
 }
 
 void BeamGlobalAssembler::emit_new_map_shared() {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_new_map_shared");
 }
 
 void BeamModuleAssembler::emit_new_map(const ArgRegister &Dst,
@@ -90,7 +90,7 @@ void BeamModuleAssembler::emit_i_new_small_map_lit(const ArgRegister &Dst,
  * Result is returned in RET. ZF is set on success. */
 void BeamGlobalAssembler::emit_i_get_map_element_shared() {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_i_get_map_element_shared");
 }
 
 void BeamModuleAssembler::emit_i_get_map_element(const ArgLabel &Fail,
@@ -116,7 +116,7 @@ void BeamModuleAssembler::emit_i_get_map_elements(const ArgLabel &Fail,
  * Result is returned in RET. ZF is set on success. */
 void BeamGlobalAssembler::emit_i_get_map_element_hash_shared() {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_i_get_map_element_hash_shared");
 }
 
 void BeamModuleAssembler::emit_i_get_map_element_hash(const ArgLabel &Fail,
@@ -131,7 +131,7 @@ void BeamModuleAssembler::emit_i_get_map_element_hash(const ArgLabel &Fail,
 /* ARG3 = live registers, ARG4 = update vector size, ARG5 = update vector. */
 void BeamGlobalAssembler::emit_update_map_assoc_shared() {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_update_map_assoc_shared");
 }
 
 /* ARG2 = key
@@ -140,7 +140,7 @@ void BeamGlobalAssembler::emit_update_map_assoc_shared() {
  */
 void BeamGlobalAssembler::emit_update_map_single_assoc_shared() {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_update_map_single_assoc_shared");
 }
 
 void BeamModuleAssembler::emit_update_map_assoc(const ArgSource &Src,
@@ -157,7 +157,7 @@ void BeamModuleAssembler::emit_update_map_assoc(const ArgSource &Src,
  * Result is returned in RET, error is indicated by ZF. */
 void BeamGlobalAssembler::emit_update_map_exact_guard_shared() {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_update_map_exact_guard_shared");
 }
 
 /* ARG3 = live registers, ARG4 = update vector size, ARG5 = update vector.
@@ -165,7 +165,7 @@ void BeamGlobalAssembler::emit_update_map_exact_guard_shared() {
  * Does not return on error. */
 void BeamGlobalAssembler::emit_update_map_exact_body_shared() {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_update_map_exact_body_shared");
 }
 
 /* ARG2 = key
@@ -175,7 +175,7 @@ void BeamGlobalAssembler::emit_update_map_exact_body_shared() {
  * Does not return on error. */
 void BeamGlobalAssembler::emit_update_map_single_exact_body_shared() {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_update_map_single_exact_body_shared");
 }
 
 void BeamModuleAssembler::emit_update_map_exact(const ArgSource &Src,

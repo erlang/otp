@@ -31,7 +31,7 @@
  *        can't use LR (x30) for this because tail calls point elsewhere. */
 void BeamGlobalAssembler::emit_unloaded_fun() {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_unloaded_fun");
 }
 
 /* Handles errors for `call_fun`. Assumes that we're running on the Erlang
@@ -43,7 +43,7 @@ void BeamGlobalAssembler::emit_unloaded_fun() {
  *        can't use LR (x30) for this because tail calls point elsewhere. */
 void BeamGlobalAssembler::emit_handle_call_fun_error() {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_handle_call_fun_error");
 }
 
 /* Handles save_calls for local funs, which is a side-effect of our calling
@@ -53,7 +53,7 @@ void BeamGlobalAssembler::emit_handle_call_fun_error() {
  * will land here. */
 void BeamGlobalAssembler::emit_dispatch_save_calls_fun() {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_dispatch_save_calls_fun");
 }
 
 /* `call_fun` instructions land here to set up their environment before jumping

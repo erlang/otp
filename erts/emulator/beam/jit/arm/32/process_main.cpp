@@ -57,7 +57,7 @@ void BeamGlobalAssembler::emit_process_main() {
             getSchedulerRegRef(offsetof(ErtsSchedulerRegisters, start_time));
 
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_process_main");
 
     a.bind(do_schedule_local);
     a.bind(context_switch_local);

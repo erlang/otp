@@ -66,7 +66,7 @@ int erts_lc_proc_sig_receive_helper(Process *c_p,
 
 void BeamGlobalAssembler::emit_i_loop_rec_shared() {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_i_loop_rec_shared");
 }
 
 void BeamModuleAssembler::emit_i_loop_rec(const ArgLabel &Wait) {

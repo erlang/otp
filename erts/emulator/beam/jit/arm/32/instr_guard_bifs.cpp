@@ -49,7 +49,7 @@ using namespace asmjit;
 /* Raise a badarg exception for the given MFA. */
 void BeamGlobalAssembler::emit_raise_badarg(const ErtsCodeMFA *mfa) {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_raise_badarg");
 }
 
 /* ================================================================
@@ -62,12 +62,12 @@ void BeamGlobalAssembler::emit_raise_badarg(const ErtsCodeMFA *mfa) {
 
 void BeamGlobalAssembler::emit_bif_is_eq_exact_shared() {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_bif_is_eq_exact_shared");
 }
 
 void BeamGlobalAssembler::emit_bif_is_ne_exact_shared() {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_bif_is_ne_exact_shared");
 }
 
 void BeamModuleAssembler::emit_cond_to_bool(arm::CondCode cc,
@@ -127,7 +127,7 @@ void BeamModuleAssembler::emit_bif_is_lt(const ArgSource &LHS,
 
 void BeamGlobalAssembler::emit_handle_and_error() {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_handle_and_error");
 }
 
 void BeamModuleAssembler::emit_bif_and(const ArgLabel &Fail,
@@ -144,12 +144,12 @@ void BeamModuleAssembler::emit_bif_and(const ArgLabel &Fail,
  */
 void BeamGlobalAssembler::emit_bif_bit_size_helper(Label error) {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_bif_bit_size_helper");
 }
 
 void BeamGlobalAssembler::emit_bif_bit_size_body() {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_bif_bit_size_body");
 }
 
 void BeamModuleAssembler::emit_bif_bit_size(const ArgLabel &Fail,
@@ -166,7 +166,7 @@ void BeamModuleAssembler::emit_bif_bit_size(const ArgLabel &Fail,
 
 void BeamGlobalAssembler::emit_bif_byte_size_body() {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_bif_byte_size_body");
 }
 
 void BeamModuleAssembler::emit_bif_byte_size(const ArgLabel &Fail,
@@ -189,22 +189,22 @@ void BeamModuleAssembler::emit_bif_byte_size(const ArgLabel &Fail,
  */
 void BeamGlobalAssembler::emit_bif_element_helper(Label fail) {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_bif_element_helper");
 }
 
 void BeamGlobalAssembler::emit_bif_element_body_shared() {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_bif_element_body_shared");
 }
 
 void BeamGlobalAssembler::emit_bif_element_guard_shared() {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_bif_element_guard_shared");
 }
 
 void BeamGlobalAssembler::emit_handle_element_error_shared() {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_handle_element_error_shared");
 }
 
 void BeamModuleAssembler::emit_bif_element(const ArgLabel &Fail,
@@ -222,7 +222,7 @@ void BeamModuleAssembler::emit_bif_element(const ArgLabel &Fail,
 
 void BeamGlobalAssembler::emit_handle_hd_error() {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_handle_hd_error");
 }
 
 void BeamModuleAssembler::emit_bif_hd(const ArgSource &Src,
@@ -242,7 +242,7 @@ void BeamModuleAssembler::emit_bif_is_map_key(const ArgWord &Bif,
                                               const ArgSource &Src,
                                               const ArgRegister &Dst) {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_handle_map_get_badmap");
 }
 
 /* ================================================================
@@ -252,12 +252,12 @@ void BeamModuleAssembler::emit_bif_is_map_key(const ArgWord &Bif,
 
 void BeamGlobalAssembler::emit_handle_map_get_badmap() {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_handle_map_get_badmap");
 }
 
 void BeamGlobalAssembler::emit_handle_map_get_badkey() {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_handle_map_get_badkey");
 }
 
 void BeamModuleAssembler::emit_bif_map_get(const ArgLabel &Fail,
@@ -275,7 +275,7 @@ void BeamModuleAssembler::emit_bif_map_get(const ArgLabel &Fail,
 
 void BeamGlobalAssembler::emit_handle_map_size_error() {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_handle_map_size_error");
 }
 
 void BeamModuleAssembler::emit_bif_map_size(const ArgLabel &Fail,
@@ -320,7 +320,7 @@ void BeamModuleAssembler::emit_bif_min(const ArgSource &LHS,
 
 void BeamGlobalAssembler::emit_handle_node_error() {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_handle_node_error");
 }
 
 void BeamModuleAssembler::emit_bif_node(const ArgLabel &Fail,
@@ -337,7 +337,7 @@ void BeamModuleAssembler::emit_bif_node(const ArgLabel &Fail,
 
 void BeamGlobalAssembler::emit_handle_not_error() {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_handle_not_error");
 }
 
 void BeamModuleAssembler::emit_bif_not(const ArgLabel &Fail,
@@ -354,7 +354,7 @@ void BeamModuleAssembler::emit_bif_not(const ArgLabel &Fail,
 
 void BeamGlobalAssembler::emit_handle_or_error() {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_handle_or_error");
 }
 
 void BeamModuleAssembler::emit_bif_or(const ArgLabel &Fail,
@@ -372,7 +372,7 @@ void BeamModuleAssembler::emit_bif_or(const ArgLabel &Fail,
 
 void BeamGlobalAssembler::emit_handle_tl_error() {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_handle_tl_error");
 }
 
 void BeamModuleAssembler::emit_bif_tl(const ArgSource &Src,
@@ -388,17 +388,17 @@ void BeamModuleAssembler::emit_bif_tl(const ArgSource &Src,
 
 void BeamGlobalAssembler::emit_bif_tuple_size_helper(Label fail) {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_bif_tuple_size_helper");
 }
 
 void BeamGlobalAssembler::emit_bif_tuple_size_body() {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_bif_tuple_size_body");
 }
 
 void BeamGlobalAssembler::emit_bif_tuple_size_guard() {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_bif_tuple_size_guard");
 }
 
 void BeamModuleAssembler::emit_bif_tuple_size(const ArgLabel &Fail,

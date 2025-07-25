@@ -751,27 +751,27 @@ protected:
 
     void emit_is_cons(Label Fail, a32::Gp Src) {
         // TODO
-        ASSERT(false);
+        emit_nyi("emit_is_cons");
     }
 
     void emit_is_not_cons(Label Fail, a32::Gp Src) {
         // TODO
-        ASSERT(false);
+        emit_nyi("emit_is_not_cons");
     }
 
     void emit_is_list(Label Fail, a32::Gp Src) {
         // TODO
-        ASSERT(false);
+        emit_nyi("emit_is_list");
     }
 
     void emit_is_boxed(Label Fail, a32::Gp Src) {
         // TODO
-        ASSERT(false);
+        emit_nyi("emit_is_boxed");
     }
 
     void emit_is_boxed(Label Fail, const ArgVal &Arg, a32::Gp Src) {
         // TODO
-        ASSERT(false);
+        emit_nyi("emit_is_boxed");
     }
 
     /* Copies `count` words from the address at `from`, to the address at `to`.

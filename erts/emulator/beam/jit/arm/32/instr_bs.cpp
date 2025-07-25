@@ -52,7 +52,7 @@ void BeamModuleAssembler::emit_i_bs_init_heap(const ArgWord &Size,
 /* Set the error reason when a size check has failed. */
 void BeamGlobalAssembler::emit_bs_size_check_shared() {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_bs_size_check_shared");
 }
 
 void BeamModuleAssembler::emit_i_bs_init_fail_heap(const ArgSource &Size,
@@ -230,7 +230,7 @@ void BeamModuleAssembler::emit_i_bs_get_binary_all2(const ArgRegister &Ctx,
 
 void BeamGlobalAssembler::emit_bs_get_tail_shared() {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_bs_get_tail_shared");
 }
 
 void BeamModuleAssembler::emit_bs_get_tail(const ArgRegister &Ctx,
@@ -305,7 +305,7 @@ void BeamModuleAssembler::emit_i_bs_put_utf8(const ArgLabel &Fail,
  */
 void BeamGlobalAssembler::emit_bs_get_utf8_short_shared() {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_bs_get_utf8_short_shared");
 }
 
 /*
@@ -319,7 +319,7 @@ void BeamGlobalAssembler::emit_bs_get_utf8_short_shared() {
  */
 void BeamGlobalAssembler::emit_bs_get_utf8_shared() {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_bs_get_utf8_shared");
 }
 
 void BeamModuleAssembler::emit_bs_get_utf8(const ArgRegister &Ctx,
@@ -411,7 +411,7 @@ void BeamModuleAssembler::emit_bs_test_unit(const ArgLabel &Fail,
  * Error is indicated through cond_ne() */
 void BeamGlobalAssembler::emit_bs_add_guard_shared() {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_bs_add_guard_shared");
 }
 
 /* ARG2 = current `Size`,
@@ -419,7 +419,7 @@ void BeamGlobalAssembler::emit_bs_add_guard_shared() {
  * ARG4 = element `Unit` */
 void BeamGlobalAssembler::emit_bs_add_body_shared() {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_bs_add_body_shared");
 }
 
 void BeamModuleAssembler::emit_bs_add(const ArgLabel &Fail,
@@ -458,7 +458,7 @@ void BeamModuleAssembler::emit_bs_init_writable() {
 
 void BeamGlobalAssembler::emit_bs_create_bin_error_shared() {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_bs_create_bin_error_shared");
 }
 
 /*
@@ -466,7 +466,7 @@ void BeamGlobalAssembler::emit_bs_create_bin_error_shared() {
  */
 void BeamGlobalAssembler::emit_get_sint64_shared() {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_get_sint64_shared");
 }
 
 struct BscSegment {
@@ -554,7 +554,7 @@ void BeamModuleAssembler::set_zero(Sint effectiveSize) {
  */
 void BeamGlobalAssembler::emit_construct_utf8_shared() {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_bs_init_bits_shared");
 }
 
 void BeamModuleAssembler::emit_construct_utf8(const ArgVal &Src,
@@ -573,7 +573,7 @@ void BeamModuleAssembler::emit_construct_utf8(const ArgVal &Src,
  */
 void BeamGlobalAssembler::emit_store_unaligned() {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_store_unaligned");
 }
 
 /*
@@ -588,7 +588,7 @@ void BeamGlobalAssembler::emit_store_unaligned() {
 
 void BeamGlobalAssembler::emit_bs_init_bits_shared() {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_bs_get_utf8_short_shared");
 }
 
 void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,

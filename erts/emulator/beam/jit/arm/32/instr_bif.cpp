@@ -40,7 +40,7 @@ void BeamModuleAssembler::ubif_comment(const ArgWord &Bif) {
  * Result is returned in ARG1 (will be THE_NON_VALUE if the BIF call failed). */
 void BeamGlobalAssembler::emit_i_bif_guard_shared() {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_i_bif_guard_shared");
 }
 
 /* ARG2 = argument vector, ARG4 (!) = bif function pointer
@@ -48,7 +48,7 @@ void BeamGlobalAssembler::emit_i_bif_guard_shared() {
  * Result is returned in RET. */
 void BeamGlobalAssembler::emit_i_bif_body_shared() {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_i_bif_body_shared");
 }
 
 void BeamModuleAssembler::emit_i_bif1(const ArgSource &Src1,
@@ -117,7 +117,7 @@ void BeamModuleAssembler::emit_i_length_setup(const ArgLabel &Fail,
  * Result is returned in RET. */
 void BeamGlobalAssembler::emit_i_length_common(Label fail, int state_size) {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_i_length_common");
 }
 
 /* ARG2 = live registers, ARG3 = entry address
@@ -125,7 +125,7 @@ void BeamGlobalAssembler::emit_i_length_common(Label fail, int state_size) {
  * Result is returned in RET. */
 void BeamGlobalAssembler::emit_i_length_body_shared() {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_i_length_body_shared");
 }
 
 /* ARG2 = live registers, ARG3 = entry address
@@ -133,7 +133,7 @@ void BeamGlobalAssembler::emit_i_length_body_shared() {
  * Result is returned in ARG. Error is indicated by THE_NON_VALUE. */
 void BeamGlobalAssembler::emit_i_length_guard_shared() {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_i_length_guard_shared");
 }
 
 void BeamModuleAssembler::emit_i_length(const ArgLabel &Fail,
@@ -166,7 +166,7 @@ static Eterm debug_call_light_bif(Process *c_p,
  */
 void BeamGlobalAssembler::emit_call_light_bif_shared() {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_call_light_bif_shared");
 }
 
 void BeamModuleAssembler::emit_call_light_bif(const ArgWord &Bif,
@@ -226,12 +226,12 @@ void BeamGlobalAssembler::emit_bif_nif_epilogue(void) {
  * ARG4 = function to be called */
 void BeamGlobalAssembler::emit_call_bif_shared(void) {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_call_bif_shared");
 }
 
 void BeamGlobalAssembler::emit_dispatch_bif(void) {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_dispatch_bif");
 }
 
 /* This is only used for opcode compatibility with the interpreter, it's never
@@ -250,7 +250,7 @@ void BeamModuleAssembler::emit_call_bif_mfa(const ArgAtom &M,
 
 void BeamGlobalAssembler::emit_call_nif_early() {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_call_nif_shared");
 }
 
 /* Used by call_nif, call_nif_early, and dispatch_nif.
@@ -262,17 +262,17 @@ void BeamGlobalAssembler::emit_call_nif_early() {
  * ARG3 = current I, just past the end of an ErtsCodeInfo. */
 void BeamGlobalAssembler::emit_call_nif_shared(void) {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_call_nif_shared");
 }
 
 void BeamGlobalAssembler::emit_dispatch_nif(void) {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_dispatch_nif");
 }
 
 void BeamGlobalAssembler::emit_call_nif_yield_helper() {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_call_nif_yield_helper");
 }
 
 /* WARNING: This stub is memcpy'd, so all code herein must be explicitly

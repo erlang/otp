@@ -538,7 +538,7 @@ void BeamModuleAssembler::emit_i_test_arity(const ArgLabel &Fail,
  */
 void BeamGlobalAssembler::emit_is_eq_exact_list_shared() {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_is_eq_exact_list_shared");
 }
 
 /*
@@ -549,7 +549,7 @@ void BeamGlobalAssembler::emit_is_eq_exact_list_shared() {
  */
 void BeamGlobalAssembler::emit_is_eq_exact_shallow_boxed_shared() {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_is_eq_exact_shallow_boxed_shared");
 }
 
 void BeamModuleAssembler::emit_is_eq_exact(const ArgLabel &Fail,
@@ -628,7 +628,7 @@ void BeamModuleAssembler::emit_is_ge(const ArgLabel &Fail,
  */
 void BeamGlobalAssembler::emit_is_in_range_shared() {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_is_in_range_shared");
 }
 
 /*
@@ -652,7 +652,7 @@ void BeamModuleAssembler::emit_is_in_range(ArgLabel const &Small,
  */
 void BeamGlobalAssembler::emit_is_ge_lt_shared() {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_is_ge_lt_shared");
 }
 
 /*
@@ -746,7 +746,7 @@ void BeamModuleAssembler::emit_catch(const ArgYRegister &Y,
 
 void BeamGlobalAssembler::emit_catch_end_shared() {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_catch_end_shared");
 }
 
 void BeamModuleAssembler::emit_catch_end(const ArgYRegister &CatchTag) {
@@ -784,7 +784,7 @@ void BeamModuleAssembler::emit_try_case_end(const ArgSource &Src) {
 
 void BeamGlobalAssembler::emit_raise_shared() {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_raise_shared");
 }
 
 void BeamModuleAssembler::emit_raise(const ArgSource &Trace,
@@ -812,7 +812,7 @@ void BeamModuleAssembler::emit_raw_raise() {
 /* ARG3 = current_label */
 void BeamGlobalAssembler::emit_i_test_yield_shared() {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_i_test_yield_shared");
 }
 
 void BeamModuleAssembler::emit_i_test_yield() {
