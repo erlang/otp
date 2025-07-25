@@ -126,7 +126,7 @@ loop(State) ->
 
         {nodedown = Event, Node} ->
             State2 = process_event(State, Node, Event),
-            loop(State2);            
+            loop(State2);
 
         _ ->
             loop(State)
@@ -149,6 +149,11 @@ process_event(State, Node, {TS, starting}) ->
     end,
     State;
 
+process_event(State, Node, {TS, started}) ->
+    FTS = format_timestamp(TS),
+    info_msg("System Monitor started on node ~p at ~s", [Node, FTS]),
+    State;
+
 process_event(State, Node, {TS, stopping}) ->
     FTS = format_timestamp(TS),
     info_msg("System Monitor stopping on node ~p at ~s", [Node, FTS]),
@@ -158,6 +163,11 @@ process_event(State, Node, {TS, stopping}) ->
         true ->
             ok
     end,
+    State;
+
+process_event(State, Node, {TS, ping}) ->
+    FTS = format_timestamp(TS),
+    info_msg("System Monitor on node ~p was pinged at ~s", [Node, FTS]),
     State;
 
 process_event(State, Node, {TS, already_started}) ->

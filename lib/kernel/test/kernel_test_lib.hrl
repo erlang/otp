@@ -52,6 +52,7 @@
 -define(OPEN(C, P),              ?LIB:open(C, P, [])).
 -define(OPEN(C, P, O),           ?LIB:open(C, P, O)).
 
+-define(TTEST_CONDITION(),       ?LIB:ttest_condition()).
 -define(INET_BACKEND_OPTS(C),    ?LIB:inet_backend_opts(C)).
 -define(EXPLICIT_INET_BACKEND(), ?LIB:explicit_inet_backend()).
 -define(TEST_INET_BACKENDS(),    ?LIB:test_inet_backends()).
