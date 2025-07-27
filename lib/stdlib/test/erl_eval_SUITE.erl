@@ -63,7 +63,8 @@
          binary_and_map_aliases/1,
          eep58/1,
          strict_generators/1,
-         binary_skip/1]).
+         binary_skip/1,
+         trailing_comma/1]).
 
 %%
 %% Define to run outside of test server
@@ -106,7 +107,7 @@ all() ->
      funs, custom_stacktrace, try_catch, eval_expr_5, zero_width,
      eep37, eep43, otp_15035, otp_16439, otp_14708, otp_16545, otp_16865,
      eep49, binary_and_map_aliases, eep58, strict_generators, binary_skip,
-     zlc, zbc, zmc].
+     trailing_comma, zlc, zbc, zmc].
 
 groups() ->
     [].
@@ -2329,6 +2330,70 @@ binary_skip(Config) when is_list(Config) ->
     check(fun() -> [a || <<0:64/float>> <= <<0:64, 1:64, 0:64, 0:64>> ] end,
 	  "begin [a || <<0:64/float>> <= <<0:64, 1:64, 0:64, 0:64>> ] end.",
 	  [a,a,a]),
+    ok.
+
+%% Test trailing comma support in lists, maps, tuples, and records.
+trailing_comma(Config) when is_list(Config) ->
+    %% List with trailing comma
+    check(fun() -> [1, 2, 3,] end,
+          "[1, 2, 3,].",
+          [1, 2, 3]),
+    check(fun() -> [a,] end,
+          "[a,].",
+          [a]),
+    check(fun() -> [] end,
+          "[].",
+          []),
+    
+    %% Map with trailing comma
+    check(fun() -> #{a => 1, b => 2,} end,
+          "#{a => 1, b => 2,}.",
+          #{a => 1, b => 2}),
+    check(fun() -> #{x => y,} end,
+          "#{x => y,}.",
+          #{x => y}),
+    check(fun() -> #{} end,
+          "#{}.",
+          #{}),
+    
+    %% Tuple with trailing comma
+    check(fun() -> {1, 2, 3,} end,
+          "{1, 2, 3,}.",
+          {1, 2, 3}),
+    check(fun() -> {single,} end,
+          "{single,}.",
+          {single}),
+    check(fun() -> {} end,
+          "{}.",
+          {}),
+    
+    %% Nested structures with trailing comma
+    check(fun() -> [#{a => 1,}, {2, 3,},] end,
+          "[#{a => 1,}, {2, 3,},].",
+          [#{a => 1}, {2, 3}]),
+    check(fun() -> #{list => [1, 2,], tuple => {a, b,},} end,
+          "#{list => [1, 2,], tuple => {a, b,},}.",
+          #{list => [1, 2], tuple => {a, b}}),
+    
+    %% Function calls with trailing comma
+    check(fun() -> lists:append([1, 2,], [3, 4,]) end,
+          "lists:append([1, 2,], [3, 4,]).",
+          [1, 2, 3, 4]),
+    
+    %% Pattern matching with trailing comma
+    check(fun() -> 
+              [H,] = [42,],
+              H
+          end,
+          "begin [H,] = [42,], H end.",
+          42),
+    check(fun() ->
+              #{a := V,} = #{a => 100,},
+              V
+          end,
+          "begin #{a := V,} = #{a => 100,}, V end.",
+          100),
+    
     ok.
 
 %% Check the string in different contexts: as is; in fun; from compiled code.
