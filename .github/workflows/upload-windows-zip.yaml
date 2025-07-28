@@ -36,7 +36,7 @@ permissions:
 
 jobs:
   upload-windows-zip:
-    runs-on: windows-2022
+    runs-on: windows-2025
     ## Needed to upload assets to releases
     permissions:
         contents: write
