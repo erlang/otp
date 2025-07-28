@@ -62,7 +62,10 @@ endif # asan
 endif # debug
 endif # gcov
 
-ZSTD_CFLAGS+=-MMD -MP
+ZSTD_CFLAGS += -MMD -MP
+
+# Set VISIBLE's to empty to NOT export any symbols for dynamic linking
+ZSTD_CFLAGS += -DZSTDLIB_VISIBLE= -DZSTDERRORLIB_VISIBLE=
 
 ifeq ($(TARGET), win32)
 $(ZSTD_LIBRARY): $(ZSTD_OBJS)
