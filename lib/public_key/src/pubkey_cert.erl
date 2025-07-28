@@ -47,7 +47,8 @@
          match_name/3,
 	 extensions_list/1,
          cert_auth_key_id/1,
-         time_str_2_gregorian_sec/1
+         time_str_2_gregorian_sec/1,
+         mldsa_algo_to_oid/1
         ]).
 
 %% Generate test data
@@ -674,11 +675,11 @@ x509_pkix_sign_types(#'SignatureAlgorithm'{algorithm = Alg}) ->
 %% Description: Generate a self-signed root cert
 %%%%--------------------------------------------------------------------
 root_cert(Name, Opts) ->
-    PrivKey = gen_key(proplists:get_value(key, Opts, default_key_gen())),
+    {SPubkeyInfo, PrivKey} = key_info(Opts),
+
     TBS = cert_template(),
     Issuer = subject("root", Name),
     SignatureId =  sign_algorithm(PrivKey, Opts),
-    SPI = public_key(PrivKey, SignatureId),
 
     OTPTBS =
         TBS#'OTPTBSCertificate'{
@@ -686,7 +687,7 @@ root_cert(Name, Opts) ->
           issuer = Issuer,
           validity = validity(Opts),
           subject = Issuer,
-          subjectPublicKeyInfo = SPI,
+          subjectPublicKeyInfo = SPubkeyInfo,
           extensions = extensions(undefined, ca, Opts)
          },
     #{cert => public_key:pkix_sign(OTPTBS, PrivKey),
@@ -1998,7 +1999,17 @@ sign_algorithm(#'ECPrivateKey'{parameters = {namedCurve, EDCurve}}, _Opts)
 sign_algorithm(#'ECPrivateKey'{parameters = Parms}, Opts) ->
     Type = ecdsa_digest_oid(proplists:get_value(digest, Opts, sha1)),
     #'SignatureAlgorithm'{algorithm  = Type,
-                          parameters = Parms}.
+                          parameters = Parms};
+sign_algorithm(#'ML-DSAPrivateKey'{algorithm = Algo}, _) ->
+    #'SignatureAlgorithm'{algorithm  = mldsa_algo_to_oid(Algo),
+                          parameters = asn1_NOVALUE}.
+
+mldsa_algo_to_oid(mldsa44) ->
+    ?'id-ml-dsa-44';
+mldsa_algo_to_oid(mldsa65) ->
+    ?'id-ml-dsa-65';
+mldsa_algo_to_oid(mldsa87) ->
+    ?'id-ml-dsa-87'.
 
 rsa_sign_algo(#'RSAPrivateKey'{}, ?'id-RSASSA-PSS' = Type,  #'RSASSA-PSS-params'{} = Params) ->
     #'SignatureAlgorithm'{algorithm  = Type,
@@ -2042,29 +2053,29 @@ cert_chain(Role, Root, RootKey, Opts) ->
     cert_chain(Role, Root, RootKey, Opts, 0, []).
 
 cert_chain(Role, IssuerCert, IssuerKey, [PeerOpts], _, Acc) ->
-    Key = gen_key(proplists:get_value(key, PeerOpts, default_key_gen())),
+    {SPubKeyInfo, PrivKey} = key_info(PeerOpts),
     Cert = cert(Role, public_key:pkix_decode_cert(IssuerCert, otp),
-                IssuerKey, Key, "admin", " Peer cert", PeerOpts, peer),
-    [{Cert, encode_key(Key)}, {IssuerCert, encode_key(IssuerKey)} | Acc];
+                IssuerKey, SPubKeyInfo, PrivKey, "admin", " Peer cert", PeerOpts, peer),
+    [{Cert, encode_key(PrivKey)}, {IssuerCert, encode_key(IssuerKey)} | Acc];
 cert_chain(Role, IssuerCert, IssuerKey, [CAOpts | Rest], N, Acc) ->
-    Key = gen_key(proplists:get_value(key, CAOpts, default_key_gen())),
-    Cert = cert(Role, public_key:pkix_decode_cert(IssuerCert, otp), IssuerKey, Key, "webadmin",
+    {SPubKeyInfo, PrivKey} = key_info(CAOpts),
+    Cert = cert(Role, public_key:pkix_decode_cert(IssuerCert, otp), IssuerKey, SPubKeyInfo, PrivKey, "webadmin",
                 " Intermediate CA " ++ integer_to_list(N), CAOpts, ca),
-    cert_chain(Role, Cert, Key, Rest, N+1, [{IssuerCert, encode_key(IssuerKey)} | Acc]).
+    cert_chain(Role, Cert, PrivKey, Rest, N+1, [{IssuerCert, encode_key(IssuerKey)} | Acc]).
 
 cert(Role, #'OTPCertificate'{tbsCertificate = #'OTPTBSCertificate'{subject = Issuer}},
-     PrivKey, Key, Contact, Name, Opts, Type) ->
+     IssuerKey, SPubKeyInfo, _PrivKey, Contact, Name, Opts, Type) ->
     TBS = cert_template(),
-    SignAlgoId = sign_algorithm(PrivKey, Opts),
+    SignAlgoId = sign_algorithm(IssuerKey, Opts),
     OTPTBS = TBS#'OTPTBSCertificate'{
                signature = SignAlgoId,
                issuer =  Issuer,
                validity = validity(Opts),
                subject = subject(Contact, atom_to_list(Role) ++ Name),
-               subjectPublicKeyInfo = public_key(Key, SignAlgoId),
+               subjectPublicKeyInfo = SPubKeyInfo,
                extensions = extensions(Role, Type, Opts)
               },
-    public_key:pkix_sign(OTPTBS, PrivKey).
+    public_key:pkix_sign(OTPTBS, IssuerKey).
 
 ca_config(Root, CAsKeys) ->
     [Root | [CA || {CA, _}  <- CAsKeys]].
@@ -2078,6 +2089,10 @@ default_key_gen() ->
             {namedCurve, Oid}
     end.
 
+public_key({pub, PubKey}, #'SignatureAlgorithm'{algorithm = SignAlgoId}) ->
+    Algo = #'PublicKeyAlgorithm'{algorithm = SignAlgoId, parameters=asn1_NOVALUE},
+    #'OTPSubjectPublicKeyInfo'{algorithm = Algo,
+                               subjectPublicKey = PubKey};
 public_key(#'RSAPrivateKey'{modulus=N, publicExponent=E},
            #'SignatureAlgorithm'{algorithm  = ?rsaEncryption,
                                  parameters = #'RSASSA-PSS-params'{} = Params}) ->
@@ -2164,6 +2179,22 @@ add_default_extensions(Defaults0, Exts) ->
                                end, Defaults0),
     Exts ++ Defaults.
 
+key_info(Opts) ->
+    case proplists:get_value(key, Opts, default_key_gen()) of
+        {both, PubKey0, PrivKey0} ->
+            SignatureId = sign_algorithm(PrivKey0, Opts),
+            SPubKey = public_key({pub, PubKey0}, SignatureId),
+            {SPubKey, PrivKey0};
+        KeyInfo ->
+            PrivKeyGen = gen_key(KeyInfo),
+            SignatureIdGen = sign_algorithm(PrivKeyGen, Opts),
+            SPubKeyGen = public_key(PrivKeyGen, SignatureIdGen),
+            {SPubKeyGen, PrivKeyGen}
+    end.
+
+encode_key(#'ML-DSAPrivateKey'{} = Key) ->
+    {Asn1Type, DER, _} = public_key:pem_entry_encode('PrivateKeyInfo', Key),
+    {Asn1Type, DER};
 encode_key({#'RSAPrivateKey'{}, #'RSASSA-PSS-params'{}} = Key) ->
     {Asn1Type, DER, _} = public_key:pem_entry_encode('PrivateKeyInfo', Key),
     {Asn1Type, DER};
