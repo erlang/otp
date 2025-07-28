@@ -1,0 +1,1 @@
+# ERL-1312 - Bad Dialyzer attribute

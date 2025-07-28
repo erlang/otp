@@ -1,0 +1,1 @@
+# ERL-1303 - Bad export_type
