@@ -27,7 +27,7 @@ jobs:
           token: ${{ steps.generate_token.outputs.token }}
 
       - name: Run GitHub Actions Version Updater
-        uses: saadmk11/github-actions-version-updater@64be81ba69383f81f2be476703ea6570c4c8686e # ratchet:saadmk11/github-actions-version-updater@v0.8.1
+        uses: saadmk11/github-actions-version-updater@d8781caf11d11168579c8e5e94f62b068038f442 # v0.9.0
         with:
           token: ${{ steps.generate_token.outputs.token }}
           pull_request_branch: "github/actions-update"
