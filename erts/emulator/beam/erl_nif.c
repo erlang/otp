@@ -5348,7 +5348,10 @@ void erl_nif_init(void)
     resource_type_list.name = THE_NON_VALUE;
 
     nif_call_table_init();
+    extern erts_rwmtx_t erts_driver_list_lock;
+    erts_rwmtx_rwlock(&erts_driver_list_lock);
     static_nifs_init();
+    erts_rwmtx_rwunlock(&erts_driver_list_lock);
 
     erts_atomic_init_nob(&halt_tse, (erts_aint_t) NULL);
     erts_mtx_init(&on_halt_mtx, "on_halt", NIL,
