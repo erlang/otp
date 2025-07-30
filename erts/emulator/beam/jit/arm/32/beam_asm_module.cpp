@@ -330,8 +330,6 @@ void BeamModuleAssembler::emit_call_error_handler() {
 const Label &BeamModuleAssembler::resolve_label(const Label &target,
                                                 enum Displacement disp,
                                                 const char *labelName) {
-    // TODO
-    emit_nyi("resolve_label");
     ssize_t currOffset = a.offset();
 
     ssize_t minOffset = currOffset - disp;
@@ -394,8 +392,6 @@ const Label &BeamModuleAssembler::resolve_label(const Label &target,
 
 const Label &BeamModuleAssembler::resolve_fragment(void (*fragment)(),
                                                    enum Displacement disp) {
-    // TODO
-    emit_nyi("resolve_fragment");
     auto it = _dispatchTable.find(fragment);
 
     if (it == _dispatchTable.end()) {
@@ -411,23 +407,24 @@ void BeamModuleAssembler::emit_i_flush_stubs() {
 }
 
 void BeamModuleAssembler::check_pending_stubs() {
-    // TODO
-    emit_nyi("check_pending_stubs");
     size_t currOffset = a.offset();
 
     /* We shouldn't let too much space pass between checks. */
-    ASSERT((last_stub_check_offset + dispMin) >= currOffset);
-
-    if ((last_stub_check_offset + STUB_CHECK_INTERVAL) < currOffset) {
+    if (last_stub_check_offset + STUB_CHECK_INTERVAL < currOffset ||
+        (is_unreachable() &&
+         last_stub_check_offset + STUB_CHECK_INTERVAL_UNREACHABLE <
+                 currOffset)) {
         last_stub_check_offset = currOffset;
 
         flush_pending_stubs(STUB_CHECK_INTERVAL * 2);
     }
+
+    if (is_unreachable()) {
+        flush_pending_labels();
+    }
 }
 
 void BeamModuleAssembler::flush_pending_stubs(size_t range) {
-    // TODO
-    emit_nyi("flush_pending_stubs");
     ssize_t effective_offset = a.offset() + range;
     Label next;
 
@@ -481,6 +478,21 @@ void BeamModuleAssembler::flush_pending_stubs(size_t range) {
     if (next.isValid()) {
         comment("End stub section");
         a.bind(next);
+    }
+}
+
+void BeamModuleAssembler::flush_pending_labels() {
+    if (!_pending_labels.empty()) {
+        a.align(AlignMode::kCode, 4);
+    }
+
+    while (!_pending_labels.empty()) {
+        const EmbeddedLabel &embedded_label = _pending_labels.top();
+
+        a.bind(embedded_label.anchor);
+        a.embedLabel(embedded_label.label, 8);
+
+        _pending_labels.pop();
     }
 }
 
