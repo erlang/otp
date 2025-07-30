@@ -992,7 +992,9 @@ protected:
 
     template<int expected_arity, typename T>
     void runtime_call(T(*func)) {
-        ASSERT(false);
+        static_assert(expected_arity == function_arity<T>());
+
+        a.b(resolve_fragment((void (*)())func, disp128MB));
     }
 
     bool isRegisterBacked(const ArgVal &arg) {
