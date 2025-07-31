@@ -37,7 +37,7 @@
     "homepage": "https://github.com/microsoft/STL",
     "licenseDeclared": "Apache-2.0 WITH LLVM-exception AND BSL-1.0",
     "name": "STL",
-    "versionInfo": "vs-2022-17.13",
+    "versionInfo": "vs-2022-17.14",
     "path": [
       "./erts/emulator/ryu/to_chars.h"
     ],
