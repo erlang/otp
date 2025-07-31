@@ -79,6 +79,7 @@
          t_simple_link_local_sockaddr_in6_send_recv/1,
 
          t_kernel_options/1, do_kernel_options_remote/1,
+         t_module_open/1,
 
          otp_18323_opts_processing/1,
          otp_18323_open/1,
@@ -103,11 +104,13 @@ all() ->
             [
              {group, inet_backend_default},
              {group, inet_backend_inet},
-             {group, inet_backend_socket}
+             {group, inet_backend_socket},
+             {group, s_misc}
             ];
         _ ->
             [
-             {group, inet_backend_default}
+             {group, inet_backend_default},
+             {group, s_misc}
             ]
     end.
 
@@ -125,7 +128,9 @@ groups() ->
      {sockaddr,               [], sockaddr_cases()},
      {tickets,                [], tickets_cases()},
      {otp18323,               [], otp18323_cases()},
-     {otp19332,               [], otp19332_cases()}
+     {otp19332,               [], otp19332_cases()},
+     {s_misc,                 [], s_misc_cases()},
+     {t_module,               [], t_module_cases()}
     ].
 
 inet_backend_default_cases() ->
@@ -214,6 +219,18 @@ otp19332_cases() ->
     [
      otp_19332
     ].
+
+s_misc_cases() ->
+    [
+     {group, t_module}
+    ].
+
+t_module_cases() ->
+    [
+     t_module_open
+    ].
+
+
 
 init_per_suite(Config0) ->
 
@@ -3583,6 +3600,138 @@ do_otp_19357_open_with_ipv6_option(#{local_addr := Addr}) ->
     ?P("done"),
     ok.
 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+t_module_open(Config) ->
+    Cond = fun() ->
+		   ok
+	   end,
+    Pre  = fun() ->
+                   S0 = #{debug  => false,
+                          config => Config},
+		   S1 = case ?WHICH_LOCAL_ADDR(inet) of
+                            {ok, Addr4} ->
+                                ?P("pre -> found IPv4 local address:"
+                                   "~n   ~p", [Addr4]),
+                                S0#{inet => Addr4};
+                            {error, _Reason4} ->
+                                S0
+                        end,
+                   S2 = case ?WHICH_LOCAL_ADDR(inet6) of
+                            {ok, Addr6} ->
+                                ?P("pre -> found IPv6 local address:"
+                                   "~n   ~p", [Addr6]),
+                                S1#{inet6 => Addr6};
+                            {error, _Reason6} ->
+                                S1
+                        end,
+                   %% Verify that at least one of the domains
+                   %% (inet and inet6) exist.
+                   case (maps:get(inet, S2, undefined) =/= undefined) orelse
+                       (maps:get(inet6, S2, undefined) =/= undefined) of
+                       true ->
+                           S2;
+                       false ->
+                           skip(no_available_domains)
+                   end
+	   end,
+    TC   = fun(State) -> do_t_module_open(State) end,
+    Post = fun(_) -> ok end,
+    ?TC_TRY(?FUNCTION_NAME,
+	    Cond, Pre, TC, Post).
+
+do_t_module_open(State) ->
+    do_t_module_open_inet(State),
+    do_t_module_open_inet6(State),
+    ok.
+
+do_t_module_open_inet(#{inet   := Addr,
+                          debug  := Debug, 
+                          config := _Config} = _State) ->
+    ?P("*** begin IPv4 checks ***"),
+    do_t_module_open(test_inet_udp, inet, Addr, Debug);
+do_t_module_open_inet(_) ->
+    ?P("*** no IPv4 address ***"),
+    ok.
+
+do_t_module_open_inet6(#{inet6  := Addr,
+                           debug  := Debug,
+                           config := _Config} = _State) ->
+    ?P("*** begin IPv6 checks *** "),
+    do_t_module_open(test_inet6_udp, inet6, Addr, Debug);
+do_t_module_open_inet6(_) ->
+    ?P("*** no IPv6 address ***"),
+    ok.
+
+do_t_module_open(Mod, Fam, Addr, Debug) ->
+    ?P("create socket with module (~w)", [Mod]),
+    do_t_module_open2(Mod,
+                      [{udp_module, Mod}], Debug, error),
+
+    ?P("create socket with module (~w) and (~w) domain", [Mod, Fam]),
+    do_t_module_open2(Mod,
+                      [{udp_module, Mod}, Fam], Debug, error),
+
+    ?P("create socket with (~w) domain and module (~w)", [Fam, Mod]),
+    do_t_module_open2(Mod,
+                      [Fam, {udp_module, Mod}], Debug, error),
+
+    ?P("create socket with module (~w) and ip-option", [Mod]),
+    do_t_module_open2(Mod,
+                      [{udp_module, Mod}, {ip, Addr}], Debug, error),
+
+    ?P("create socket with ip-option and module (~w)", [Mod]),
+    do_t_module_open2(Mod,
+                      [{ip, Addr}, {udp_module, Mod}], Debug, error),
+
+    ?P("create socket with (~w) domain wo module (~w)", [Fam, Mod]),
+    do_t_module_open2(Mod,
+                      [Fam], Debug, success),
+
+    ?P("create socket with ip-option wo module (~w)", [Mod]),
+    do_t_module_open2(Mod,
+                      [{ip, Addr}], Debug, success),
+
+    ?P("done"),
+    ok.
+    
+do_t_module_open2(Module, Opts, Debug, FailureAction) ->
+    case gen_udp:open(0, Opts ++ [{debug, Debug}]) of
+        {ok, Sock} ->
+            ?P("socket created: "
+               "~n   ~p"
+               "~n   wait for notification", [Sock]),
+            do_t_module_await_notification(Module, open, 2, FailureAction),
+            ?P("close socket"),
+            _ = gen_udp:close(Sock),
+            ok;
+        {error, Reason} ->
+            ?P("failed create socket: "
+               "~n   ~p", [Reason]),
+            exit({listen, Reason})
+    end.
+
+do_t_module_await_notification(Module, Func, Arity, FailureAction) ->
+    receive
+        {Module, Func, Arity, _} ->
+            ?P("received expected notification: "
+               "~n   ~w:~w/~w", [Module, Func, Arity]),
+            ok;
+        {Module, OtherFunc, OtherArity, _} ->
+            ?P("received unexpected notification: "
+               "~n   ~w:~w/~w", [Module, OtherFunc, OtherArity]),
+            do_t_module_await_notification(Module, Func, Arity, FailureAction)
+
+    after 5000 ->
+            case FailureAction of
+                error ->
+                    exit({notification_timeout, {Func, Arity}});
+                success ->
+                    ok
+            end
+    end.
+            
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
