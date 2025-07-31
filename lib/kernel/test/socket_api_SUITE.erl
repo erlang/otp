@@ -289,29 +289,10 @@
 -define(KLIB,       kernel_test_lib).
 -define(LOGGER,     socket_test_logger).
 
--define(BASIC_REQ,  <<"hejsan">>).
--define(BASIC_REP,  <<"hoppsan">>).
+-define(BASIC_REQ, <<"hejsan">>).
+-define(BASIC_REP, <<"hoppsan">>).
 
-%% -define(DATA,       <<"HOPPSAN">>). % Temporary
 -define(FAIL(R),    exit(R)).
-
-%% -define(SLEEP(T),   receive after T -> ok end).
-
-%% -define(MINS(M),    timer:minutes(M)).
-%% -define(SECS(S),    timer:seconds(S)).
-
-%% -define(TT(T),      ct:timetrap(T)).
-
-%% -define(F(F, A),    ?SLIB:f(F, A)).
-%% -define(P(F),       ?SLIB:print(F)).
-%% -define(P(F, A),    ?SLIB:print(F, A)).
-
-%% -define(WINDOWS, {win32,nt}).
-
-%% -define(START_NODE(NamePre),
-%%         ?START_NODE(NamePre, 5000)).
-%% -define(START_NODE(NamePre, Timeout),
-%%         start_node(?CT_PEER_NAME(NamePre), Timeout)).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -2285,6 +2266,15 @@ api_b_send_and_recv_conn(InitState) ->
                            case Recv(Sock) of
                                {ok, ?BASIC_REQ} ->
                                    ok;
+                               {ok, BadReq} ->
+                                   ?SEV_EPRINT(
+                                      "received unexpected request: "
+                                      "~n   Got:      (~w bytes) ~p"
+                                      "~n   Expected: (~w bytes) ~p",
+                                      [byte_size(BadReq), BadReq,
+                                       byte_size(?BASIC_REQ), ?BASIC_REQ]),
+                                   (catch socket:close(Sock)),
+                                   ?FAIL({unexpected_request, BadReq});
                                {error, _} = ERROR ->
                                    ERROR
                            end
