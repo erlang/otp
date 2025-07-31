@@ -8173,13 +8173,13 @@ otp16649(N, Config) ->
                   length(AgentRawTransports), length(TIs)})
     end,
 
-    ?IPRINT("validate transports"),
+    ?IPRINT("validate agent transports"),
     otp16649_validate_transports(AgentRawTransports, TIs),
 
-    ?IPRINT("which req-responder port-no"),
+    ?IPRINT("which agent req-responder port-no"),
     AgentReqPortNo = otp16649_which_req_port_no(TIs),
 
-    ?IPRINT("which trap-sender port-no"),
+    ?IPRINT("which agent trap-sender port-no"),
     AgentTrapPortNo = otp16649_which_trap_port_no(TIs),
 
     ?IPRINT("(mgr) register user"),
@@ -8191,13 +8191,15 @@ otp16649(N, Config) ->
     TrapTarget = TargetBase ++ "trap",
 
     ok = otp16649_mgr_reg_agent(ManagerNode,
-                                      ?config(ipfamily, Config),
-                                      ?config(tdomain, Config),
-                                      ReqTarget, AgentReqPortNo),
+                                ?config(ipfamily, Config),
+                                ?config(ip,       Config),
+                                ?config(tdomain,  Config),
+                                ReqTarget, AgentReqPortNo),
     ok = otp16649_mgr_reg_agent(ManagerNode,
-                                      ?config(ipfamily, Config),
-                                      ?config(tdomain, Config),
-                                      TrapTarget, AgentTrapPortNo),
+                                ?config(ipfamily, Config),
+                                ?config(ip,       Config),
+                                ?config(tdomain,  Config),
+                                TrapTarget, AgentTrapPortNo),
 
     ?IPRINT("(mgr) simple (sync) get request"),
     Oids     = [?sysObjectID_instance, ?sysDescr_instance, ?sysUpTime_instance],
@@ -8299,7 +8301,7 @@ otp16649_init(N, AgentPreTransports, Config) ->
     Host              = snmp_test_lib:hostname(), 
     Ip                = ?config(ip, Config),
     %% We should really "extract" the address from the hostnames,
-    %% but because on some OSes (Ubuntu) adds 12.7.0.1.1 to its hosts file,
+    %% but because on some OSes (Ubuntu) adds 127.0.1.1 to its hosts file,
     %% this does not work. We want a "proper" address.
     %% Also, since both nodes (agent and manager) are both started locally,
     %% we can use 'Ip' for both!
@@ -8525,15 +8527,15 @@ otp16649_mgr_reg_user(Node) ->
     rpc:call(Node, snmpm, register_user,
              [otp16649, snmp_otp16649_user, self()]).
 
-otp16649_mgr_reg_agent(Node, IPFam, TDomain, Target, PortNo) ->
+otp16649_mgr_reg_agent(Node, IPFam, IP, TDomain, Target, PortNo) ->
     ?IPRINT("otp16649_mgr_reg_agent -> entry with"
             "~n      Node:    ~p"
             "~n      IPFam:   ~p"
+            "~n      IP:      ~p"
             "~n      TDomain: ~p"
             "~n      Target:  ~p"
             "~n      PortNo:  ~p",
-            [Node, IPFam, TDomain, Target, PortNo]),
-    Localhost = ?LOCALHOST(IPFam),
+            [Node, IPFam, IP, TDomain, Target, PortNo]),
     Version   = v1,
     EngineId  = "agentEngine",
     ?IPRINT("otp16649_mgr_reg_agent -> register agent:"
@@ -8543,8 +8545,8 @@ otp16649_mgr_reg_agent(Node, IPFam, TDomain, Target, PortNo) ->
             "~n      Version:  ~p"
             "~n      TDomain:  ~p"
             "~n      EngineId: ~p",
-            [Target, Localhost, PortNo, Version, TDomain, EngineId]),    
-    Config     = [{address,   Localhost},
+            [Target, IP, PortNo, Version, TDomain, EngineId]),    
+    Config     = [{address,   IP},
                   {port,      PortNo},
                   {version,   Version},
                   {tdomain,   TDomain},
