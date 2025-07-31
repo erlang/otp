@@ -24,6 +24,7 @@
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/file.hrl").
+-include("kernel_test_lib.hrl").
 
 -export([all/0, init_per_suite/1, end_per_suite/1, init_per_testcase/2, end_per_testcase/2]).
 
@@ -366,43 +367,61 @@ t_sendfile_recvduring(Config) ->
     ok = sendfile_send({127,0,0,1}, Send, 0).
 
 t_sendfile_closeduring(Config) ->
+    ?P("~w -> begin", [?FUNCTION_NAME]),
     Filename = proplists:get_value(big_file, Config),
     SendfileOpts = proplists:get_value(sendfile_opts, Config, []),
 
-    Send = fun(Sock,SFServPid) ->
+    Send = fun(Sock, SFServPid) ->
+                   ?P("send -> entry with"
+                      "~n   Sock:      ~p"
+                      "~n   SFServPid: ~p", [Sock, SFServPid]),
 		   spawn_link(fun() ->
+                                      ?P("send[stopper] -> sleep"),
                                       timer:sleep(1),
+                                      ?P("send[stopper] -> send stop (to ~p)",
+                                         [SFServPid]),
 				      SFServPid ! stop
 			      end),
 		   case erlang:system_info(thread_pool_size) of
 		       0 ->
+                           ?P("send -> [0] try sendfile"),
 			   {error, closed} = sendfile(Filename, Sock,
 						      SendfileOpts);
 		       _Else ->
+                           ?P("send -> [~w] try sendfile", [_Else]),
 			   %% This can return how much has been sent or
 			   %% {error,closed} depending on OS.
 			   %% How much is sent impossible to know as
 			   %%  the socket was closed mid sendfile
 			   case sendfile(Filename, Sock, SendfileOpts) of
 			       {error, closed} ->
+                                   ?P("send -> closed"),
 				   ok;
                                {error, {closed, Size}}
                                  when is_integer(Size) ->
+                                   ?P("send -> closed (~w)", [Size]),
                                    ok;
                                {error, {epipe, Size}}
                                  when is_integer(Size) ->
+                                   ?P("send -> epipe (~w)", [Size]),
                                    ok;
 			       {ok, Size}  when is_integer(Size) ->
+                                   ?P("send -> ok (~w)", [Size]),
 				   ok
 			   end
 		   end,
 		   -1
 	   end,
 
+    ?P("~w -> try send with active = false", [?FUNCTION_NAME]),
     ok = sendfile_send({127,0,0,1}, Send, 0, [{active,false}]),
+    ?P("~w -> flush", [?FUNCTION_NAME]),
     [] = flush(),
+    ?P("~w -> try send with active = try", [?FUNCTION_NAME]),
     ok = sendfile_send({127,0,0,1}, Send, 0, [{active,true}]),
+    ?P("~w -> flush", [?FUNCTION_NAME]),
     [] = flush(),
+    ?P("~w -> done", [?FUNCTION_NAME]),
     ok.
 
 flush() ->
@@ -485,35 +504,50 @@ sendfile_send(Host, Send, Orig) ->
     sendfile_send(Host, Send, Orig, [{active,false}]).
 
 sendfile_send(Host, Send, Orig, SockOpts) ->
-
+    ?P("~w -> create sendfile-server", [?FUNCTION_NAME]),
     SFServer = spawn_link(?MODULE, sendfile_server, [self(), Orig]),
     receive
 	{server, Port} ->
+            ?P("~w -> received port (~p) from sendfile-server",
+               [?FUNCTION_NAME, Port]),
             Opts = [binary,{packet,0}|SockOpts],
-            io:format("connect with opts = ~p\n", [Opts]),
+            ?P("~w -> connect with opts = ~p", [?FUNCTION_NAME, Opts]),
 	    {ok, Sock} = gen_tcp:connect(Host, Port, Opts),
 	    Data = if is_function(Send, 1) ->
+                           ?P("~w -> send(1)", [?FUNCTION_NAME]),
 			   Send(Sock);
 		      is_function(Send, 2) ->
+                           ?P("~w -> send(2)", [?FUNCTION_NAME]),
 			   Send(Sock, SFServer)
 		   end,
+            ?P("~w -> close socket", [?FUNCTION_NAME]),
 	    ok = gen_tcp:close(Sock),
+            ?P("~w -> await data", [?FUNCTION_NAME]),
 	    receive
 		{ok, Bin} ->
+                    ?P("~w -> received data - validate", [?FUNCTION_NAME]),
 		    Data = Bin,
+                    ?P("~w -> data validated", [?FUNCTION_NAME]),
 		    ok
 	    end
     end.
 
 sendfile_server(ClientPid, Orig) ->
+    ?P("~w -> create listen socket", [?FUNCTION_NAME]),
     {ok, LSock} = gen_tcp:listen(0, [binary, {packet, 0},
 				     {active, true},
 				     {reuseaddr, true}]),
+    ?P("~w -> which port", [?FUNCTION_NAME]),
     {ok, Port} = inet:port(LSock),
+    ?P("~w -> send back port", [?FUNCTION_NAME]),
     ClientPid ! {server, Port},
+    ?P("~w -> accept connection", [?FUNCTION_NAME]),
     {ok, Sock} = gen_tcp:accept(LSock),
+    ?P("~w -> recv data", [?FUNCTION_NAME]),
     {ok, Bin} = sendfile_do_recv(Sock, Orig),
+    ?P("~w -> send data (acknowledgement)", [?FUNCTION_NAME]),
     ClientPid ! {ok, Bin},
+    ?P("~w -> send 1", [?FUNCTION_NAME]),
     gen_tcp:send(Sock, <<1>>).
 
 -define(SENDFILE_TIMEOUT, 10000).
@@ -524,7 +558,9 @@ sendfile_do_recv(Sock, Bs) ->
 		 end,
     receive
 	stop when Bs /= 0,is_integer(Bs) ->
+            ?P("~w -> received stop - close socket", [?FUNCTION_NAME]),
 	    gen_tcp:close(Sock),
+            ?P("~w -> done (-1)", [?FUNCTION_NAME]),
 	    {ok, -1};
 	{tcp, Sock, B} ->
 	    case binary:match(B,<<1>>) of
@@ -555,13 +591,25 @@ sendfile_file_info(File) ->
     {ok, Data} = file:read_file(File),
     {Size, Data}.
 
-sendfile(Filename,Sock,Opts) ->
+sendfile(Filename, Sock, Opts) ->
+    ?P("~w -> open"
+       "~n   ~p", [?FUNCTION_NAME, Filename]),
     case file:open(Filename, [read, raw, binary]) of
 	{error, Reason} ->
+            ?P("~w -> file open error: "
+               "~n   ~p", [?FUNCTION_NAME, Reason]),
 	    {error, Reason};
 	{ok, Fd} ->
-            try file:sendfile(Fd, Sock, 0, 0, Opts)
+            ?P("~w -> file open - try send it", [?FUNCTION_NAME]),
+            try
+                begin
+                    SendRes = file:sendfile(Fd, Sock, 0, 0, Opts),
+                    ?P("~w -> send result:"
+                       "~n   ~p", [?FUNCTION_NAME, SendRes]),
+                    SendRes
+                end
             after
+                ?P("~w(after) -> close file", [?FUNCTION_NAME]),
                 _ = file:close(Fd)
             end
     end.
