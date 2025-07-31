@@ -271,23 +271,50 @@ end_per_suite(Config0) ->
     Config1.
 
 init_per_group(inet_backend_default = _GroupName, Config) ->
-    [{socket_create_opts, []} | Config];
+    ?P("~w(~w) -> check explicit inet-backend when"
+       "~n   Config: ~p", [?FUNCTION_NAME, _GroupName, Config]),
+    case ?EXPLICIT_INET_BACKEND(Config) of
+        undefined ->
+            [{socket_create_opts, []} | Config];
+        inet ->
+            {skip, "explicit inet-backend = inet"};
+        socket ->
+            {skip, "explicit inet-backend = socket"}
+    end;
 init_per_group(inet_backend_inet = _GroupName, Config) ->
-    case ?EXPLICIT_INET_BACKEND() of
-        true ->
-            %% The environment trumps us,
-            %% so only the default group should be run!
-            {skip, "explicit inet backend"};
-        false ->
-            [{socket_create_opts, [{inet_backend, inet}]} | Config]
+    ?P("~w(~w) -> check explicit inet-backend when"
+       "~n   Config: ~p", [?FUNCTION_NAME, _GroupName, Config]),
+    case ?EXPLICIT_INET_BACKEND(Config) of
+        undefined ->
+            case ?EXPLICIT_INET_BACKEND() of
+                true ->
+                    %% The environment trumps us,
+                    %% so only the default group should be run!
+                    {skip, "explicit inet backend"};
+                false ->
+                    [{socket_create_opts, [{inet_backend, inet}]} | Config]
+            end;
+        inet ->
+            [{socket_create_opts, [{inet_backend, inet}]} | Config];
+        socket ->
+            {skip, "explicit inet-backend = socket"}
     end;
 init_per_group(inet_backend_socket = _GroupName, Config) ->
-    case ?EXPLICIT_INET_BACKEND() of
-        true ->
-            %% The environment trumps us,
-            %% so only the default group should be run!
-            {skip, "explicit inet backend"};
-        false ->
+    ?P("~w(~w) -> check explicit inet-backend when"
+       "~n   Config: ~p", [?FUNCTION_NAME, _GroupName, Config]),
+    case ?EXPLICIT_INET_BACKEND(Config) of
+        undefined ->
+            case ?EXPLICIT_INET_BACKEND() of
+                true ->
+                    %% The environment trumps us,
+                    %% so only the default group should be run!
+                    {skip, "explicit inet backend"};
+                false ->
+                    [{socket_create_opts, [{inet_backend, socket}]} | Config]
+            end;
+        inet ->
+            {skip, "explicit inet-backend = inet"};
+        socket ->
             [{socket_create_opts, [{inet_backend, socket}]} | Config]
     end;
 init_per_group(local, Config) -> 
@@ -917,6 +944,7 @@ do_bad_address(Config) when is_list(Config) ->
 
 %% OTP-6249 UDP option for number of packet reads.
 read_packets(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
     Cond = fun() ->
 		   case ?IS_SOCKET_BACKEND(Config) of
 		       true ->
@@ -1044,31 +1072,80 @@ read_packets_test(Config, R, RA, RP, Msgs, Node) ->
 	  [link,{priority,high}]),
     receive
 	{Sender, {sockname, {SA, SP}}} ->
+            ?P("~w -> got socket info from sender", [?FUNCTION_NAME]),
 	    erlang:trace(R, true,
 			 [running_ports,'send',{tracer,Tracer}]),
 	    erlang:yield(),
+            ?P("~w -> release sender (~p)", [?FUNCTION_NAME, Sender]),
 	    Sender ! {Receiver,go},
-	    read_packets_recv(Msgs),
+            ?P("~w -> receive", [?FUNCTION_NAME]),
+	    read_packets_recv(Sender, Msgs),
+            ?P("~w -> turn off trace", [?FUNCTION_NAME]),
 	    erlang:trace(R, false, [all]),
+            ?P("~w -> get trace (from tracer ~p)", [?FUNCTION_NAME, Tracer]),
 	    Tracer ! {Receiver,get_trace},
 	    receive
 		{Tracer,{trace,Trace}} ->
+                    ?P("~w -> got trace - verify", [?FUNCTION_NAME]),
 		    {read_packets_verify(R, SA, SP, Trace), Trace}
 	    end
     end.
 
-read_packets_send(_S, _RA, _RP, 0) ->
-    ok;
 read_packets_send(S, RA, RP, Msgs) ->
-    ok = gen_udp:send(S, RA, RP, "UDP FLOOOOOOD"),
-    read_packets_send(S, RA, RP, Msgs - 1).
+    LastWouldBlock = never,
+    NoWouldBlock   = 0,
+    read_packets_send(S, RA, RP, Msgs, LastWouldBlock, NoWouldBlock).
 
-read_packets_recv(0) ->
+read_packets_send(S, _RA, _RP, 0, _LastWouldBlock, NoWouldBlock) ->
+    ?P("~w -> done when"
+       "~n   NumberOf WouldBlock: ~w"
+       "~n   info(Sock):          ~p",
+       [?FUNCTION_NAME, NoWouldBlock, inet:info(S)]),
     ok;
-read_packets_recv(N) ->
+read_packets_send(S, RA, RP, Msgs, LastWouldBlock, NoWouldBlock) ->
+    case gen_udp:send(S, RA, RP, "UDP FLOOOOOOD") of
+        ok ->
+            read_packets_send(S, RA, RP, Msgs - 1,
+                              LastWouldBlock, NoWouldBlock);
+        {error, eagain = Reason} when (Msgs =/= LastWouldBlock) ->
+            ?P("~w -> ~w: sleep when"
+               "~n   Msgs:       ~w"
+               "~n   info(Sock): ~p",
+               [?FUNCTION_NAME, Reason, Msgs, inet:info(S)]),
+            receive after 1000 -> ok end,
+            ?P("~w -> try again", [?FUNCTION_NAME]),
+            read_packets_send(S, RA, RP, Msgs, Msgs, NoWouldBlock + 1);
+        {error, eagain = Reason} ->
+            ?P("~w -> send failure: "
+               "~n   Reason:              ~p"
+               "~n   Msgs:                ~p"
+               "~n   NumberOf WouldBlock: ~p"
+               "~n   info(Sock):          ~p",
+               [?FUNCTION_NAME,
+                Reason, Msgs, NoWouldBlock+1, (catch inet:info(S))]),
+            exit({send_failed, Reason, Msgs, NoWouldBlock+1});
+        {error, Reason} ->
+            ?P("~w -> send failure: "
+               "~n   Reason:              ~p"
+               "~n   Msgs:                ~p"
+               "~n   NumberOf WouldBlock: ~p"
+               "~n   info(Sock):          ~p",
+               [?FUNCTION_NAME,
+                Reason, Msgs, NoWouldBlock, (catch inet:info(S))]),
+            exit({send_failed, Reason, Msgs, NoWouldBlock})
+    end.
+
+read_packets_recv(_Sender, 0) ->
+    ?P("~w -> done", [?FUNCTION_NAME]),
+    ok;
+read_packets_recv(Sender, N) ->
     receive
+        {'EXIT', Sender, Reason} when Reason =/= normal ->
+            ?P("received unexpected exit from sender: "
+               "~n   ~p", [Reason]),
+            exit({skip, {sender, Reason}});
 	_ ->
-	    read_packets_recv(N - 1)
+	    read_packets_recv(Sender, N - 1)
     after 5000 ->
 	    timeout
     end.
