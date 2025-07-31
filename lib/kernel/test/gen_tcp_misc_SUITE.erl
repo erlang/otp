@@ -8751,6 +8751,8 @@ exchange(Config, #{lsock    := LSock,
                                  [Reason]),
                               exit({skip, Reason})
                       end,
+                  ?P("~w(client) -> connected:"
+                     "~n      Socket:   ~p"
                      "~n      PeerName: ~p"
                      "~n      SockName: ~p",
                      [?FUNCTION_NAME,
@@ -8772,11 +8774,13 @@ exchange(Config, #{lsock    := LSock,
                         [AReason, socket:info(LSock)]),
                      exit({accept, AReason})
              end,
-    ?P("~w -> accepted: ~p"
+    ?P("~w -> accepted: "
+       "~n      Socket:   ~p"
        "~n      PeerName: ~p"
        "~n      SockName: ~p",
        [?FUNCTION_NAME,
-        Socket, oki(inet:peername(Socket)), oki(inet:sockname(Socket))]),
+        Socket,
+        oki(inet:peername(Socket)), oki(inet:sockname(Socket))]),
     %% sending process
     put(role, accepted),
     send_recv_loop(ClientRcv,
