@@ -269,6 +269,7 @@ module_passes(Opts) ->
 %% are repeated as required.
 repeated_passes(Opts) ->
     Ps = [?PASS(ssa_opt_live),
+          ?PASS(ssa_opt_is_between),
           ?PASS(ssa_opt_ne),
           ?PASS(ssa_opt_bs_create_bin),
           ?PASS(ssa_opt_dead),
@@ -550,7 +551,8 @@ merge_tuple_update_1([], Tuple) ->
 %%%
 
 ssa_opt_split_blocks({#opt_st{ssa=Blocks0,cnt=Count0}=St, FuncDb}) ->
-    P = fun(#b_set{op={bif,element}}) -> true;
+    P = fun(#b_set{op={bif,is_between}}) -> true;
+           (#b_set{op={bif,element}}) -> true;
            (#b_set{op=call}) -> true;
            (#b_set{op=bs_init_writable}) -> true;
            (#b_set{op=make_fun}) -> true;
@@ -559,6 +561,49 @@ ssa_opt_split_blocks({#opt_st{ssa=Blocks0,cnt=Count0}=St, FuncDb}) ->
     RPO = beam_ssa:rpo(Blocks0),
     {Blocks,Count} = beam_ssa:split_blocks_before(RPO, P, Blocks0, Count0),
     {St#opt_st{ssa=Blocks,cnt=Count}, FuncDb}.
+
+
+ssa_opt_is_between({#opt_st{ssa=Blocks0,cnt=Count0}=St, FuncDb}) ->
+    {Blocks1, Count1} = ssa_opt_is_between_1(Blocks0, Count0),
+    {St#opt_st{ssa=Blocks1,cnt=Count1}, FuncDb}.
+
+ssa_opt_is_between_1([{L,#b_blk{}=B}=Blk0|Ls0], Count0) ->
+    case B of
+        #b_blk{is=[#b_set{op={bif,is_between},dst=Bool1,
+                        args=[_,#b_literal{val=Min},
+                                #b_literal{val=Max}]}],
+                last=#b_br{bool=Bool1}}=Blk when is_integer(Min),
+                                                is_integer(Max),
+                                                Min =< Max ->
+            {Blk1, Count1} = is_between_rewrite(Count0, L, Blk),
+            {Ls1, Count2} = ssa_opt_is_between_1(Ls0, Count1),
+            {Blk1++Ls1, Count2};
+        #b_blk{} ->
+            {Ls1, Count1} = ssa_opt_is_between_1(Ls0, Count0),
+            {[Blk0|Ls1], Count1}
+    end;
+ssa_opt_is_between_1([], Count0) ->
+    {[], Count0}.
+
+is_between_rewrite(Count0, L, Blk0) ->
+    LowerL = Count0,
+    UpperL = Count0 + 1,
+    LowerBool = #b_var{name=Count0},
+    UpperBool = #b_var{name=Count0 + 1},
+    Count = Count0 + 2,
+    #b_blk{is=[#b_set{dst=Bool1,args=[Term,LB,UB]}|_],
+           last=#b_br{fail=Fail}=Br0} = Blk0,
+    Blk1 = Blk0#b_blk{is=[#b_set{op={bif,is_integer},dst=Bool1,
+                                 args=[Term]}],
+                      last=#b_br{bool=Bool1,succ=LowerL,fail=Fail}},
+    BlkLower = #b_blk{is=[#b_set{op={bif,'=<'},dst=LowerBool,
+                                 args=[LB,Term]}],
+                      last=#b_br{bool=LowerBool,succ=UpperL,fail=Fail}},
+    BlkUpper = #b_blk{is=[#b_set{op={bif,'=<'},dst=UpperBool,
+                                 args=[Term,UB]}],
+                      last=Br0#b_br{bool=UpperBool}},
+    Blocks = [{L, Blk1}, {LowerL, BlkLower}, {UpperL, BlkUpper}],
+    {Blocks, Count}.
 
 %%%
 %%% Coalesce phi nodes.
