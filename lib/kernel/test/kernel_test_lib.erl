@@ -29,6 +29,7 @@
 	 listen/3,
          connect/4, connect/5,
          open/3,
+         ttest_condition/0,
          is_socket_backend/1,
          inet_backend_opts/1,
          explicit_inet_backend/0, explicit_inet_backend/1,
@@ -2562,6 +2563,9 @@ start_node(Name, Args, Opts) ->
         " -pa " ++ Pa ++ 
         " -s " ++ atom_to_list(kernel_test_sys_monitor) ++ " start" ++ 
         " -s global sync",
+    print("~w -> try start node ~p with"
+          "~n   Args: ~p"
+          "~n   Opts: ~p", [?FUNCTION_NAME, Name, A, Opts]),
     case test_server:start_node(Name, peer, [{args, A}|Opts]) of
         {ok, _Node} = OK ->
             global:sync(),
@@ -2628,15 +2632,19 @@ socket_type(Config) ->
 
 listen(Config, Port, Opts) ->
     InetBackendOpts = inet_backend_opts(Config),
-    gen_tcp:listen(Port, InetBackendOpts ++ Opts).
+    gen_tcp:listen(Port,
+                   InetBackendOpts ++ Opts).
 
 connect(Config, Host, Port, Opts) ->
     InetBackendOpts = inet_backend_opts(Config),
-    gen_tcp:connect(Host, Port, InetBackendOpts ++ Opts).
+    gen_tcp:connect(Host, Port,
+                    InetBackendOpts ++ Opts).
 
 connect(Config, Host, Port, Opts, Timeout) ->
     InetBackendOpts = inet_backend_opts(Config),
-    gen_tcp:connect(Host, Port, InetBackendOpts ++ Opts, Timeout).
+    gen_tcp:connect(Host, Port,
+                    InetBackendOpts ++ Opts,
+                    Timeout).
 
 
 %% gen_udp wrappers
@@ -2647,7 +2655,12 @@ open(Config, Port, Opts) ->
 
 
 inet_backend_opts(Config) when is_list(Config) ->
+    inet_backend_opts(Config, any).
+
+inet_backend_opts(Config, Proto) when is_list(Config) ->
     case lists:keyfind(socket_create_opts, 1, Config) of
+        {_, [{inet_backend, socket}] = InetBackendOpts} when (Proto =:= tcp) ->
+            InetBackendOpts ++ [{erb, 10}];
         {_, InetBackendOpts} ->
             InetBackendOpts;
         false ->
@@ -2662,6 +2675,24 @@ is_socket_backend(Config) when is_list(Config) ->
             false
     end.
 
+
+%% ESOCK_TTEST_CONDITION
+
+ttest_condition() ->
+    case application:get_all_env(kernel) of
+        Env when is_list(Env) ->
+            case lists:keyfind(esock_ttest_condition, 1, Env) of
+                {_, infinity = Factor} ->
+                    Factor;
+                {_, Factor} when is_integer(Factor) andalso (Factor > 0) ->
+                    Factor;
+                _ ->
+                    undefined
+            end;
+        _ ->
+            undefined
+    end.
+    
 
 explicit_inet_backend() ->
     case application:get_all_env(kernel) of

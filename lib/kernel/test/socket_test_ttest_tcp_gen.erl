@@ -38,7 +38,8 @@
 	 recv/2, recv/3,
 	 send/2,
 	 shutdown/2,
-	 sockname/1
+	 sockname/1,
+         info/1
 	]).
 
 
@@ -137,6 +138,10 @@ shutdown(Sock, How) ->
 
 sockname(Sock) ->
     inet:sockname(Sock).
+
+
+info(Sock) ->
+    inet:info(Sock).
 
 
 %% ==========================================================================
