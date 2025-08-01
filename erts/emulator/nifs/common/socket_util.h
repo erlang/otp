@@ -166,6 +166,19 @@ void esock_encode_sockaddr_un(ErlNifEnv*          env,
                               ERL_NIF_TERM*       eSockAddr);
 #endif
 
+#ifdef HAS_AF_VSOCK
+extern
+BOOLEAN_T esock_decode_sockaddr_vm(ErlNifEnv*          env,
+                                   ERL_NIF_TERM        eSockAddr,
+                                   struct sockaddr_vm* sockAddrP,
+                                   SOCKLEN_T*          addrLen);
+extern
+void esock_encode_sockaddr_vm(ErlNifEnv*          env,
+                              struct sockaddr_vm* sockAddrP,
+                              SOCKLEN_T           addrLen,
+                              ERL_NIF_TERM*       eSockAddr);
+#endif
+
 #ifdef HAVE_NETPACKET_PACKET_H
 extern
 void esock_encode_sockaddr_ll(ErlNifEnv*          env,
