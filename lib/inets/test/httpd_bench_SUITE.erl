@@ -227,7 +227,7 @@ setup(_Config, _LocalNode) ->
 		   RemHost
 	   end,
     Node = list_to_atom("inets_perf_server@" ++ Host),
-    SlaveArgs = case init:get_argument(pa) of
+    PeerArgs = case init:get_argument(pa) of
 	       {ok, PaPaths} ->
 		   lists:append([" -pa " ++ P || [P] <- PaPaths]);
 	       _ -> []
@@ -240,7 +240,13 @@ setup(_Config, _LocalNode) ->
     case net_adm:ping(Node) of
 	pong -> ok;
 	pang ->
-	    {ok, Node} = slave:start(Host, inets_perf_server, SlaveArgs, no_link, Prog)
+            {ok, Node} = peer:start(#{
+                host => Host,
+                name => inets_perf_server,
+                args => PeerArgs,
+                peer_down => continue,
+                exec => Prog
+            })
     end,
     Path = code:get_path(),
     true = rpc:call(Node, code, set_path, [Path]),

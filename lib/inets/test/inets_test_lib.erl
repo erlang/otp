@@ -139,7 +139,7 @@ start_node(Name) ->
               end,
     A = Args ++ " -pa " ++ Pa,
     Opts = [{cleanup,false}, {args, A}],
-    case (catch test_server:start_node(Name, slave, Opts)) of
+    case (catch test_server:start_node(Name, peer, Opts)) of
         {ok, Node} ->
             Node;
         Else ->
