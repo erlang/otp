@@ -1080,7 +1080,7 @@ actions([Dir | As], _, S)
 actions([Msg | As], send = Dir, S)
   when is_record(Msg, diameter_packet);
        is_binary(Msg) ->
-    actions(As, Dir, send(Msg, S));
+    send(Msg, actions(As, Dir, S));
 
 actions([Msg | As], recv = Dir, #transport{parent = Pid} = S)
   when is_record(Msg, diameter_packet);
