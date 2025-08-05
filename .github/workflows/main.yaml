@@ -771,7 +771,7 @@ jobs:
           docker build -t otp - <<EOF
           FROM otp
           RUN echo 'export PATH="\$HOME/.local/bin:\$PATH"' >> /home/otptest/.profile
-          RUN sudo apt-get install -y pip && \
+          RUN sudo apt-get install -y libicu-dev pip && \
               pip install click==8.1.7 scancode-toolkit==${SCANCODE_VERSION} reuse && \
               pip install -U ntia-conformance-checker
           EOF
