@@ -91,7 +91,7 @@ sequenceDiagram
 
     Note over client: Get the Distribution Port of Another Node
     client ->> EPMD: EPMD_PORT2_REQ
-    EPMD -->> client: PORT2_RESP
+    EPMD -->> client: EPMD_PORT2_RESP
 
     Note over client: Get All Registered Names from EPMD
     client ->> EPMD: NAMES_REQ
@@ -224,7 +224,7 @@ sequenceDiagram
     participant EPMD
     
     client ->> EPMD: EPMD_PORT2_REQ
-    EPMD -->> client: PORT2_RESP
+    EPMD -->> client: EPMD_PORT2_RESP
 ```
 
 
@@ -240,7 +240,7 @@ where N = `Length` \- 1.
 | ----- | -------- |
 | `119` | `Result` |
 
-_Table: PORT2_RESP (119) Response Indicating Error, Result > 0_
+_Table: EPMD_PORT2_RESP (119) Response Indicating Error, Result > 0_
 
 or
 
@@ -248,7 +248,7 @@ or
 | ----- | -------- | -------- | ---------- | ---------- | ---------------- | --------------- | ------ | ---------- | ------ | -------- |
 | `119` | `Result` | `PortNo` | `NodeType` | `Protocol` | `HighestVersion` | `LowestVersion` | `Nlen` | `NodeName` | `Elen` | >`Extra` |
 
-_Table: PORT2_RESP, Result = 0_
+_Table: EPMD_PORT2_RESP, Result = 0_
 
 If `Result` > 0, the packet only consists of `[119, Result]`.
 

@@ -891,20 +891,20 @@ static void do_request(EpmdVars *g, int fd, Connection *s, char *buf, int bsize)
 		offset += node->extralen;
 		if (!reply(g, fd, wbuf, offset))
 		  {
-		    dbg_tty_printf(g,1,"** failed to send PORT2_RESP (ok) for \"%s\"",name);
+		    dbg_tty_printf(g,1,"** failed to send EPMD_PORT2_RESP (ok) for \"%s\"",name);
 		    return;
 		  }
-		dbg_tty_printf(g,1,"** sent PORT2_RESP (ok) for \"%s\"",name);
+		dbg_tty_printf(g,1,"** sent EPMD_PORT2_RESP (ok) for \"%s\"",name);
 		return;
 	    }
 	}
 	wbuf[1] = 1; /* error */
 	if (!reply(g, fd, wbuf, 2))
 	  {
-	    dbg_tty_printf(g,1,"** failed to send PORT2_RESP (error) for \"%s\"",name);
+	    dbg_tty_printf(g,1,"** failed to send EPMD_PORT2_RESP (error) for \"%s\"",name);
 	    return;
 	  }
-	dbg_tty_printf(g,1,"** sent PORT2_RESP (error) for \"%s\"",name);
+	dbg_tty_printf(g,1,"** sent EPMD_PORT2_RESP (error) for \"%s\"",name);
 	return;
       }
       break;
