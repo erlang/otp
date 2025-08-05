@@ -98,7 +98,7 @@ sequenceDiagram
     EPMD -->> client: NAMES_RESP
 
     Note over EPMD: Dump all Data from EPMD
-    client ->> EPMD: DUMP_REQ
+    client ->> EPMD: EPMD_DUMP_REQ
     EPMD -->> client: DUMP_RESP
 
     Note over EPMD: Kill EPMD
@@ -307,7 +307,7 @@ sequenceDiagram
     participant client as Client (or Node)
     participant EPMD
     
-    client ->> EPMD: DUMP_REQ
+    client ->> EPMD: EPMD_DUMP_REQ
     EPMD -->> client: DUMP_RESP
 ```
 
@@ -316,9 +316,9 @@ sequenceDiagram
 | ----- |
 | `100` |
 
-_Table: DUMP_REQ_
+_Table: EPMD_DUMP_REQ_
 
-The response for a `DUMP_REQ` is as follows:
+The response for a `EPMD_DUMP_REQ` is as follows:
 
 | 4            |             |
 | ------------ | ----------- |

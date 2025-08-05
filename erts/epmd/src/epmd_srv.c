@@ -950,9 +950,9 @@ static void do_request(EpmdVars *g, int fd, Connection *s, char *buf, int bsize)
       break;
 
     case EPMD_DUMP_REQ:
-      dbg_printf(g,1,"** got DUMP_REQ");
+      dbg_printf(g,1,"** got EPMD_DUMP_REQ");
       if (!s->local_peer) {
-	   dbg_printf(g,0,"DUMP_REQ from non local address");
+	   dbg_printf(g,0,"EPMD_DUMP_REQ from non local address");
 	   return;
       }
       {
