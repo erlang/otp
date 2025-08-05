@@ -21,6 +21,7 @@
  */
 
 #include "beam_asm.hpp"
+#include "beam_jit_bs.hpp"
 #include <numeric>
 
 extern "C"
@@ -1175,101 +1176,6 @@ void BeamGlobalAssembler::emit_get_sint64_shared() {
     }
 }
 
-struct BscSegment {
-    BscSegment()
-            : type(am_false), unit(1), flags(0), src(ArgNil()), size(ArgNil()),
-              error_info(0), effectiveSize(-1), action(action::DIRECT) {
-    }
-
-    Eterm type;
-    Uint unit;
-    Uint flags;
-    ArgVal src;
-    ArgVal size;
-
-    Uint error_info;
-    Sint effectiveSize;
-
-    /* Here are sub actions for storing integer segments.
-     *
-     * We use the ACCUMULATE_FIRST and ACCUMULATE actions to shift the
-     * values of segments with known, small sizes (no more than 64 bits)
-     * into an accumulator register.
-     *
-     * When no more segments can be accumulated, the STORE action is
-     * used to store the value of the accumulator into the binary.
-     *
-     * The DIRECT action is used when it is not possible to use the
-     * accumulator (for unknown or too large sizes).
-     */
-    enum class action { DIRECT, ACCUMULATE_FIRST, ACCUMULATE, STORE } action;
-};
-
-static std::vector<BscSegment> bs_combine_segments(
-        const std::vector<BscSegment> segments) {
-    std::vector<BscSegment> segs;
-
-    for (auto seg : segments) {
-        switch (seg.type) {
-        case am_integer: {
-            if (!(0 < seg.effectiveSize && seg.effectiveSize <= 64)) {
-                /* Unknown or too large size. Handle using the default
-                 * DIRECT action. */
-                segs.push_back(seg);
-                continue;
-            }
-
-            if (seg.flags & BSF_LITTLE || segs.size() == 0 ||
-                segs.back().action == BscSegment::action::DIRECT) {
-                /* There are no previous compatible ACCUMULATE / STORE
-                 * actions. Create the first ones. */
-                seg.action = BscSegment::action::ACCUMULATE_FIRST;
-                segs.push_back(seg);
-                seg.action = BscSegment::action::STORE;
-                segs.push_back(seg);
-                continue;
-            }
-
-            auto prev = segs.back();
-            if (prev.flags & BSF_LITTLE) {
-                /* Little-endian segments cannot be combined with other
-                 * segments. Create new ACCUMULATE_FIRST / STORE actions. */
-                seg.action = BscSegment::action::ACCUMULATE_FIRST;
-                segs.push_back(seg);
-                seg.action = BscSegment::action::STORE;
-                segs.push_back(seg);
-                continue;
-            }
-
-            /* The current segment is compatible with the previous
-             * segment. Try combining them. */
-            if (prev.effectiveSize + seg.effectiveSize <= 64) {
-                /* The combined values of the segments fits in the
-                 * accumulator. Insert an ACCUMULATE action for the
-                 * current segment before the pre-existing STORE
-                 * action. */
-                segs.pop_back();
-                prev.effectiveSize += seg.effectiveSize;
-                seg.action = BscSegment::action::ACCUMULATE;
-                segs.push_back(seg);
-                segs.push_back(prev);
-            } else {
-                /* The size exceeds 64 bits. Can't combine. */
-                seg.action = BscSegment::action::ACCUMULATE_FIRST;
-                segs.push_back(seg);
-                seg.action = BscSegment::action::STORE;
-                segs.push_back(seg);
-            }
-            break;
-        }
-        default:
-            segs.push_back(seg);
-            break;
-        }
-    }
-    return segs;
-}
-
 /*
  * In:
  *    bin_offset = if valid, register to store the lower 32 bits
@@ -1759,7 +1665,6 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
                                                const ArgRegister &Dst,
                                                const Span<ArgVal> &args) {
     Uint num_bits = 0;
-    std::size_t n = args.size();
     std::vector<BscSegment> segments;
     Label error; /* Intentionally uninitialized */
     ArgWord Live = Live0;
@@ -1768,49 +1673,9 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
     bool need_error_handler = false;
     bool runtime_entered = false;
 
-    /*
-     * Collect information about each segment and calculate sizes of
-     * fixed segments.
-     */
-    for (std::size_t i = 0; i < n; i += 6) {
-        BscSegment seg;
-        JitBSCOp bsc_op;
-        Uint bsc_segment;
+    segments = beam_jit_bsc_init(args);
 
-        seg.type = args[i].as<ArgImmed>().get();
-        bsc_segment = args[i + 1].as<ArgWord>().get();
-        seg.unit = args[i + 2].as<ArgWord>().get();
-        seg.flags = args[i + 3].as<ArgWord>().get();
-        seg.src = args[i + 4];
-        seg.size = args[i + 5];
-
-        switch (seg.type) {
-        case am_float:
-            bsc_op = BSC_OP_FLOAT;
-            break;
-        case am_integer:
-            bsc_op = BSC_OP_INTEGER;
-            break;
-        case am_utf8:
-            bsc_op = BSC_OP_UTF8;
-            break;
-        case am_utf16:
-            bsc_op = BSC_OP_UTF16;
-            break;
-        case am_utf32:
-            bsc_op = BSC_OP_UTF32;
-            break;
-        default:
-            bsc_op = BSC_OP_BITSTRING;
-            break;
-        }
-
-        /*
-         * Save segment number and operation for use in extended
-         * error information.
-         */
-        seg.error_info = beam_jit_set_bsc_segment_op(bsc_segment, bsc_op);
-
+    for (auto &seg : segments) {
         /*
          * Test whether we can omit the code for the error handler.
          */
@@ -1888,8 +1753,6 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
             sizeReg = active_code_ix;
             need_error_handler = true;
         }
-
-        segments.insert(segments.end(), seg);
     }
 
     /*
@@ -2211,7 +2074,7 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
         }
     }
 
-    segments = bs_combine_segments(segments);
+    segments = beam_jit_bsc_combine_segments(segments);
 
     /* Allocate the binary. */
     if (segments[0].type == am_append) {
@@ -2830,33 +2693,6 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
  * Here follows the bs_match instruction and friends.
  */
 
-struct BsmSegment {
-    BsmSegment()
-            : action(action::TEST_HEAP), live(ArgNil()), size(0), unit(1),
-              flags(0), dst(ArgXRegister(0)){};
-
-    enum class action {
-        TEST_HEAP,
-        ENSURE_AT_LEAST,
-        ENSURE_EXACTLY,
-        READ,
-        EXTRACT_BITSTRING,
-        EXTRACT_INTEGER,
-        READ_INTEGER,
-        GET_INTEGER,
-        GET_BITSTRING,
-        SKIP,
-        DROP,
-        GET_TAIL,
-        EQ
-    } action;
-    ArgVal live;
-    Uint size;
-    Uint unit;
-    Uint flags;
-    ArgRegister dst;
-};
-
 void BeamModuleAssembler::emit_read_bits(Uint bits,
                                          const x86::Gp bin_base,
                                          const x86::Gp bin_offset,
@@ -3292,197 +3128,6 @@ void BeamModuleAssembler::emit_extract_bitstring(const x86::Gp bitdata,
     }
 }
 
-static std::vector<BsmSegment> opt_bsm_segments(
-        const std::vector<BsmSegment> segments,
-        const ArgWord &Need,
-        const ArgWord &Live) {
-    std::vector<BsmSegment> segs;
-
-    Uint heap_need = Need.get();
-
-    /*
-     * First calculate the total number of heap words needed for
-     * bignums and binaries.
-     */
-    for (auto seg : segments) {
-        switch (seg.action) {
-        case BsmSegment::action::GET_INTEGER:
-            if (seg.size >= SMALL_BITS) {
-                heap_need += BIG_NEED_FOR_BITS(seg.size);
-            }
-            break;
-        case BsmSegment::action::GET_BITSTRING:
-            heap_need += erts_extracted_bitstring_size(seg.size);
-            break;
-        case BsmSegment::action::GET_TAIL:
-            heap_need += BUILD_SUB_BITSTRING_HEAP_NEED;
-            break;
-        default:
-            break;
-        }
-    }
-
-    int read_action_pos = -1;
-    int seg_index = 0;
-    int count = segments.size();
-
-    for (int i = 0; i < count; i++) {
-        auto seg = segments[i];
-        if (heap_need != 0 && seg.live.isWord()) {
-            BsmSegment s = seg;
-
-            read_action_pos = -1;
-            s.action = BsmSegment::action::TEST_HEAP;
-            s.size = heap_need;
-            segs.push_back(s);
-            heap_need = 0;
-            seg_index++;
-        }
-
-        switch (seg.action) {
-        case BsmSegment::action::GET_INTEGER:
-        case BsmSegment::action::GET_BITSTRING: {
-            bool is_common_size;
-            switch (seg.size) {
-            case 8:
-            case 16:
-            case 32:
-                is_common_size = true;
-                break;
-            default:
-                is_common_size = false;
-                break;
-            }
-
-            if (seg.size > 64) {
-                read_action_pos = -1;
-            } else if ((seg.flags & BSF_LITTLE) != 0 && is_common_size) {
-                seg.action = BsmSegment::action::READ_INTEGER;
-                read_action_pos = -1;
-            } else if (read_action_pos < 0 &&
-                       seg.action == BsmSegment::action::GET_INTEGER &&
-                       is_common_size && i + 1 == count) {
-                seg.action = BsmSegment::action::READ_INTEGER;
-                read_action_pos = -1;
-            } else {
-                if ((seg.flags & BSF_LITTLE) != 0 || read_action_pos < 0 ||
-                    seg.size + segs.at(read_action_pos).size > 64) {
-                    BsmSegment s;
-
-                    /* Create a new READ action. */
-                    read_action_pos = seg_index;
-                    s.action = BsmSegment::action::READ;
-                    s.size = seg.size;
-                    segs.push_back(s);
-                    seg_index++;
-                } else {
-                    /* Reuse previous READ action. */
-                    segs.at(read_action_pos).size += seg.size;
-                }
-                switch (seg.action) {
-                case BsmSegment::action::GET_INTEGER:
-                    seg.action = BsmSegment::action::EXTRACT_INTEGER;
-                    break;
-                case BsmSegment::action::GET_BITSTRING:
-                    seg.action = BsmSegment::action::EXTRACT_BITSTRING;
-                    break;
-                default:
-                    break;
-                }
-            }
-            segs.push_back(seg);
-            break;
-        }
-        case BsmSegment::action::EQ: {
-            if (read_action_pos < 0 ||
-                seg.size + segs.at(read_action_pos).size > 64) {
-                BsmSegment s;
-
-                /* Create a new READ action. */
-                read_action_pos = seg_index;
-                s.action = BsmSegment::action::READ;
-                s.size = seg.size;
-                segs.push_back(s);
-                seg_index++;
-            } else {
-                /* Reuse previous READ action. */
-                segs.at(read_action_pos).size += seg.size;
-            }
-            auto &prev = segs.back();
-            if (prev.action == BsmSegment::action::EQ &&
-                prev.size + seg.size <= 64) {
-                /* Coalesce with the previous EQ instruction. */
-                prev.size += seg.size;
-                prev.unit = prev.unit << seg.size | seg.unit;
-                seg_index--;
-            } else {
-                segs.push_back(seg);
-            }
-            break;
-        }
-        case BsmSegment::action::SKIP:
-            if (read_action_pos >= 0 &&
-                seg.size + segs.at(read_action_pos).size <= 64) {
-                segs.at(read_action_pos).size += seg.size;
-                seg.action = BsmSegment::action::DROP;
-            } else {
-                read_action_pos = -1;
-            }
-            segs.push_back(seg);
-            break;
-        default:
-            read_action_pos = -1;
-            segs.push_back(seg);
-            break;
-        }
-        seg_index++;
-    }
-
-    /* Handle a trailing test_heap instruction (for the
-     * i_bs_match_test_heap instruction). */
-    if (heap_need) {
-        BsmSegment seg;
-
-        seg.action = BsmSegment::action::TEST_HEAP;
-        seg.size = heap_need;
-        seg.live = Live;
-        segs.push_back(seg);
-    }
-    return segs;
-}
-
-UWord BeamModuleAssembler::bs_get_flags(const ArgVal &val) {
-    if (val.isNil()) {
-        return 0;
-    } else if (val.isLiteral()) {
-        Eterm term = beamfile_get_literal(beam, val.as<ArgLiteral>().get());
-        UWord flags = 0;
-
-        while (is_list(term)) {
-            Eterm *consp = list_val(term);
-            Eterm elem = CAR(consp);
-            switch (elem) {
-            case am_little:
-            case am_native:
-                flags |= BSF_LITTLE;
-                break;
-            case am_signed:
-                flags |= BSF_SIGNED;
-                break;
-            }
-            term = CDR(consp);
-        }
-        ASSERT(is_nil(term));
-        return flags;
-    } else if (val.isWord()) {
-        /* Originates from bs_get_integer2 instruction. */
-        return val.as<ArgWord>().get();
-    } else {
-        ASSERT(0); /* Should not happen. */
-        return 0;
-    }
-}
-
 void BeamModuleAssembler::emit_i_bs_match(ArgLabel const &Fail,
                                           ArgRegister const &Ctx,
                                           Span<ArgVal> const &List) {
@@ -3501,79 +3146,8 @@ void BeamModuleAssembler::emit_i_bs_match_test_heap(ArgLabel const &Fail,
 
     std::vector<BsmSegment> segments;
 
-    auto current = List.begin();
-    auto end = List.begin() + List.size();
-
-    while (current < end) {
-        auto cmd = current++->as<ArgImmed>().get();
-        BsmSegment seg;
-
-        switch (cmd) {
-        case am_ensure_at_least: {
-            seg.action = BsmSegment::action::ENSURE_AT_LEAST;
-            seg.size = current[0].as<ArgWord>().get();
-            seg.unit = current[1].as<ArgWord>().get();
-            current += 2;
-            break;
-        }
-        case am_ensure_exactly: {
-            seg.action = BsmSegment::action::ENSURE_EXACTLY;
-            seg.size = current[0].as<ArgWord>().get();
-            current += 1;
-            break;
-        }
-        case am_binary:
-        case am_integer: {
-            auto size = current[2].as<ArgWord>().get();
-            auto unit = current[3].as<ArgWord>().get();
-
-            switch (cmd) {
-            case am_integer:
-                seg.action = BsmSegment::action::GET_INTEGER;
-                break;
-            case am_binary:
-                seg.action = BsmSegment::action::GET_BITSTRING;
-                break;
-            }
-
-            seg.live = current[0];
-            seg.size = size * unit;
-            seg.unit = unit;
-            seg.flags = bs_get_flags(current[1]);
-            seg.dst = current[4].as<ArgRegister>();
-            current += 5;
-            break;
-        }
-        case am_get_tail: {
-            seg.action = BsmSegment::action::GET_TAIL;
-            seg.live = current[0].as<ArgWord>();
-            seg.dst = current[2].as<ArgRegister>();
-            current += 3;
-            break;
-        }
-        case am_skip: {
-            seg.action = BsmSegment::action::SKIP;
-            seg.size = current[0].as<ArgWord>().get();
-            seg.flags = 0;
-            current += 1;
-            break;
-        }
-        case am_Eq: {
-            seg.action = BsmSegment::action::EQ;
-            seg.live = current[0];
-            seg.size = current[1].as<ArgWord>().get();
-            seg.unit = current[2].as<ArgWord>().get();
-            current += 3;
-            break;
-        }
-        default:
-            abort();
-            break;
-        }
-        segments.push_back(seg);
-    }
-
-    segments = opt_bsm_segments(segments, Need, Live);
+    segments = beam_jit_bsm_init(beam, List);
+    segments = beam_jit_opt_bsm_segments(segments, Need, Live);
 
     /* Constraints:
      *
