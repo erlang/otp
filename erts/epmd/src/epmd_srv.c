@@ -832,12 +832,12 @@ static void do_request(EpmdVars *g, int fd, Connection *s, char *buf, int bsize)
 	if (!reply(g, fd, wbuf, replylen))
 	  {
             node_unreg(g, name);
-	    dbg_tty_printf(g,1,"** failed to send ALIVE2_RESP for \"%s\"",
+	    dbg_tty_printf(g,1,"** failed to send EPMD_ALIVE2_RESP for \"%s\"",
 			   name);
 	    return;
 	  }
 
-	dbg_tty_printf(g,1,"** sent ALIVE2_RESP for \"%s\"",name);
+	dbg_tty_printf(g,1,"** sent EPMD_ALIVE2_RESP for \"%s\"",name);
 	s->keep = EPMD_TRUE;		/* Don't close on inactivity */
       }
       break;

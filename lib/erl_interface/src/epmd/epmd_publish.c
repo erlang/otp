@@ -127,7 +127,7 @@ static int ei_epmd_r4_publish (int port, const char *alive, unsigned ms)
     return -1;
   }
 
-  EI_TRACE_CONN0("ei_epmd_r4_publish","<- ALIVE2_RESP");
+  EI_TRACE_CONN0("ei_epmd_r4_publish","<- EPMD_ALIVE2_RESP");
 
   if (((res=get8(s)) != 0)) {           /* 0 == success */
       EI_TRACE_ERR1("ei_epmd_r4_publish"," result=%d (fail)",res);
