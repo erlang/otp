@@ -21,7 +21,7 @@
 %%
 
 -define(EPMD_ALIVE2_REQ, $x).
--define(EPMD_PORT_PLEASE2_REQ, $z).
+-define(EPMD_PORT2_REQ, $z).
 -define(EPMD_ALIVE2_RESP, $y).
 -define(EPMD_PORT2_RESP, $w).
 -define(EPMD_NAMES, $n).
