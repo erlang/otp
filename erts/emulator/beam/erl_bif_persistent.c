@@ -113,8 +113,7 @@ typedef struct {
 } ErtsPersistentTermCpyTableCtx;
 
 typedef enum {
-    PUT2_TRAP_LOCATION_NEW_KEY,
-    PUT_NEW2_TRAP_LOCATION_NEW_KEY
+    PUT_COMMON_TRAP_LOCATION_NEW_KEY,
 } ErtsPersistentTermPut2TrapLocation;
 
 typedef struct {
@@ -183,6 +182,8 @@ static int cleanup_trap_data(Binary *bp);
  * Traps
  */
 
+static Export persistent_term_put_common_export;
+static BIF_RETTYPE persistent_term_put_common_trap(BIF_ALIST_3);
 static Export persistent_term_get_all_export;
 static BIF_RETTYPE persistent_term_get_all_trap(BIF_ALIST_2);
 static Export persistent_term_info_export;
@@ -264,6 +265,10 @@ void erts_init_bif_persistent_term(void)
      * Initialize export entry for traps
      */
 
+
+    erts_init_trap_export(&persistent_term_put_common_export,
+			  am_persistent_term, am_put_common_trap, 3,
+			  &persistent_term_put_common_trap);
     erts_init_trap_export(&persistent_term_get_all_export,
 			  am_persistent_term, am_get_all_trap, 2,
 			  &persistent_term_get_all_trap);
@@ -325,8 +330,8 @@ BIF_RETTYPE persistent_term_put_2(BIF_ALIST_2)
             BIF_RET(am_ok);
         }
         case SEIZE_UPDATE: {
-            ERTS_BIF_YIELD2(BIF_TRAP_EXPORT(BIF_persistent_term_put_2),
-                    BIF_P, BIF_ARG_1, BIF_ARG_2);
+            ERTS_BIF_YIELD3(&persistent_term_put_common_export,
+                    BIF_P, BIF_ARG_1, BIF_ARG_2, false);
         }
        default: {
             ERTS_BIF_YIELD_RETURN(BIF_P, am_ok);
@@ -347,8 +352,8 @@ BIF_RETTYPE persistent_term_put_new_2(BIF_ALIST_2)
             BIF_ERROR(BIF_P, BADARG);
         }
         case SEIZE_UPDATE: {
-            ERTS_BIF_YIELD2(BIF_TRAP_EXPORT(BIF_persistent_term_put_new_2),
-                    BIF_P, BIF_ARG_1, BIF_ARG_2);
+            ERTS_BIF_YIELD3(&persistent_term_put_common_export,
+                    BIF_P, BIF_ARG_1, BIF_ARG_2, true);
         }
        default: {
             ERTS_BIF_YIELD_RETURN(BIF_P, am_ok);
@@ -712,6 +717,30 @@ static void do_update(ErtsPersistentTermPutContext* ctx)
     erts_schedule_thr_prgr_later_op(table_updater, ctx->hash_table, &thr_prog_op);
 }
 
+static BIF_RETTYPE
+persistent_term_put_common_trap(BIF_ALIST_3)
+{
+    ErtsPersistentTermPutCommonResult result;
+    result = put_common(BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
+
+    switch (result) {
+        case QUICK_UPDATE: {
+            BIF_RET(am_ok);
+        }
+        case BAD_KEY: {
+            BIF_ERROR(BIF_P, BADARG);
+        }
+        case SEIZE_UPDATE: {
+            ERTS_BIF_YIELD3(&persistent_term_put_common_export,
+                    BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
+        }
+       default: {
+           ERTS_BIF_YIELD_RETURN(BIF_P, am_ok);
+        }
+    }
+
+}
+
 static ErtsPersistentTermPutCommonResult put_common
 (Process* c_p, Eterm key, Eterm term, bool new)
 {
@@ -721,15 +750,11 @@ static ErtsPersistentTermPutCommonResult put_common
     Eterm old_bucket;
     long iterations_until_trap;
     long max_iterations;
-#define PUT_TRAP_CODE                                            \
-    BIF_TRAP2(BIF_TRAP_EXPORT(BIF_persistent_term_put_2), c_p, state_mref, term)
-#define TRAPPING_COPY_TABLE_PUT(TABLE_DEST, OLD_TABLE, NEW_SIZE, COPY_TYPE, LOC_NAME) \
-    TRAPPING_COPY_TABLE(TABLE_DEST, OLD_TABLE, NEW_SIZE, COPY_TYPE, LOC_NAME, PUT_TRAP_CODE, c_p)
+#define PUT_COMMON_TRAP_CODE                                            \
+    BIF_TRAP3(&persistent_term_put_common_export, c_p, state_mref, term, new)
 
-#define PUT_NEW_TRAP_CODE                                                   \
-    BIF_TRAP2(BIF_TRAP_EXPORT(BIF_persistent_term_put_new_2), c_p, state_mref, term)
-#define TRAPPING_COPY_TABLE_PUT_NEW(TABLE_DEST, OLD_TABLE, NEW_SIZE, COPY_TYPE, LOC_NAME) \
-    TRAPPING_COPY_TABLE(TABLE_DEST, OLD_TABLE, NEW_SIZE, COPY_TYPE, LOC_NAME, PUT_NEW_TRAP_CODE, c_p)
+#define TRAPPING_COPY_TABLE_PUT_COMMON(TABLE_DEST, OLD_TABLE, NEW_SIZE, COPY_TYPE, LOC_NAME) \
+    TRAPPING_COPY_TABLE(TABLE_DEST, OLD_TABLE, NEW_SIZE, COPY_TYPE, LOC_NAME, PUT_COMMON_TRAP_CODE, c_p)
 
 #ifdef DEBUG
         (void)ITERATIONS_PER_RED;
@@ -749,13 +774,8 @@ static ErtsPersistentTermPutCommonResult put_common
         ctx = ERTS_MAGIC_BIN_DATA(state_bin);
         ASSERT(c_p->flags & F_DISABLE_GC);
         erts_set_gc_state(c_p, 1);
-        if (new) {
-            ASSERT(ctx->trap_location == PUT_NEW2_TRAP_LOCATION_NEW_KEY);
-            goto L_PUT_NEW2_TRAP_LOCATION_NEW_KEY;
-        } else {
-            ASSERT(ctx->trap_location == PUT2_TRAP_LOCATION_NEW_KEY);
-            goto L_PUT2_TRAP_LOCATION_NEW_KEY;
-        }
+        ASSERT(ctx->trap_location == PUT_COMMON_TRAP_LOCATION_NEW_KEY);
+        goto L_PUT_COMMON_TRAP_LOCATION_NEW_KEY;
     } else {
         /* Save state in magic bin in case trapping is necessary */
         Eterm* hp;
@@ -790,19 +810,11 @@ static ErtsPersistentTermPutCommonResult put_common
     if (is_nil(old_bucket)) {
         if (MUST_GROW(ctx->hash_table)) {
             Uint new_size = ctx->hash_table->allocated * 2;
-            if (new) {
-                TRAPPING_COPY_TABLE_PUT_NEW(ctx->hash_table,
-                                            ctx->hash_table,
-                                            new_size,
-                                            ERTS_PERSISTENT_TERM_CPY_NO_REHASH,
-                                            PUT_NEW2_TRAP_LOCATION_NEW_KEY);
-            } else {
-                TRAPPING_COPY_TABLE_PUT(ctx->hash_table,
+            TRAPPING_COPY_TABLE_PUT_COMMON(ctx->hash_table,
                                         ctx->hash_table,
                                         new_size,
                                         ERTS_PERSISTENT_TERM_CPY_NO_REHASH,
-                                        PUT2_TRAP_LOCATION_NEW_KEY);
-                }
+                                        PUT_COMMON_TRAP_LOCATION_NEW_KEY);
             ctx->entry_index = lookup(ctx->hash_table,
                                       ctx->key,
                                       &old_bucket);
