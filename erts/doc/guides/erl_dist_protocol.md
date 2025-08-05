@@ -94,7 +94,7 @@ sequenceDiagram
     EPMD -->> client: EPMD_PORT2_RESP
 
     Note over client: Get All Registered Names from EPMD
-    client ->> EPMD: NAMES_REQ
+    client ->> EPMD: EPMD_NAMES_REQ
     EPMD -->> client: NAMES_RESP
 
     Note over EPMD: Dump all Data from EPMD
@@ -268,7 +268,7 @@ sequenceDiagram
     participant client as Client (or Node)
     participant EPMD
     
-    client ->> EPMD: NAMES_REQ
+    client ->> EPMD: EPMD_NAMES_REQ
     EPMD -->> client: NAMES_RESP
 ```
 
@@ -276,9 +276,9 @@ sequenceDiagram
 | ----- |
 | `110` |
 
-_Table: NAMES_REQ (110)_
+_Table: EPMD_NAMES_REQ (110)_
 
-The response for a `NAMES_REQ` is as follows:
+The response for a `EPMD_NAMES_REQ` is as follows:
 
 | 4            |             |
 | ------------ | ----------- |

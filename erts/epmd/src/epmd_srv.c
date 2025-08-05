@@ -910,7 +910,7 @@ static void do_request(EpmdVars *g, int fd, Connection *s, char *buf, int bsize)
       break;
 
     case EPMD_NAMES_REQ:
-      dbg_printf(g,1,"** got NAMES_REQ");
+      dbg_printf(g,1,"** got EPMD_NAMES_REQ");
       {
 	Node *node;
 
