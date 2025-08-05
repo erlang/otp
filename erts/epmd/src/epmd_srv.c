@@ -1037,19 +1037,19 @@ static void do_request(EpmdVars *g, int fd, Connection *s, char *buf, int bsize)
       epmd_cleanup_exit(g,0);			/* Normal exit */
 
     case EPMD_STOP_REQ:
-      dbg_printf(g,1,"** got STOP_REQ");
+      dbg_printf(g,1,"** got EPMD_STOP_REQ");
       if (!s->local_peer) {
-	   dbg_printf(g,0,"STOP_REQ from non local address");
+	   dbg_printf(g,0,"EPMD_STOP_REQ from non local address");
 	   return;
       }
       if (!g->brutal_kill) {
-	  dbg_printf(g,0,"Disallowed STOP_REQ, no relaxed_command_check");
+	  dbg_printf(g,0,"Disallowed EPMD_STOP_REQ, no relaxed_command_check");
 	  return;
       }
 
       if (bsize <= 1 )
 	{
-	  dbg_printf(g,0,"packet too small for request STOP_REQ (%d)",bsize);
+	  dbg_printf(g,0,"packet too small for request EPMD_STOP_REQ (%d)",bsize);
 	  return;
 	}
 

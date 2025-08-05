@@ -65,7 +65,7 @@ The EPMD Protocol supports various tasks:
 - Getting all Registered Names
 - Dumping all Data from EPMD
 - Killing EPMD
-- `STOP_REQ` (Not Used)
+- `EPMD_STOP_REQ` (Not Used)
 
 The requests served by the EPMD for these tasks are summarized in the following figure.
 
@@ -105,8 +105,8 @@ sequenceDiagram
     client ->> EPMD: EPMD_KILL_REQ
     EPMD -->> client: KILL_RESP
 
-    Note over EPMD: STOP_REQ (Not Used)
-    client ->> EPMD: STOP_REQ
+    Note over EPMD: EPMD_STOP_REQ (Not Used)
+    client ->> EPMD: EPMD_STOP_REQ
     EPMD -->> client: STOP_OK_RESP
     EPMD -->> client: STOP_NOTOK_RESP
 ```
@@ -375,17 +375,17 @@ _Table: KILL_RESP_
 
 where `OKString` is "OK".
 
-### STOP_REQ (Not Used)
+### EPMD_STOP_REQ (Not Used)
 
 ```mermaid
 ---
-title: STOP_REQ (Not Used)
+title: EPMD_STOP_REQ (Not Used)
 ---
 sequenceDiagram
     participant client as Client (or Node)
     participant EPMD
     
-    client ->> EPMD: STOP_REQ
+    client ->> EPMD: EPMD_STOP_REQ
     EPMD -->> client: STOP_OK_RESP
     EPMD -->> client: STOP_NOTOK_RESP
 ```
@@ -394,11 +394,11 @@ sequenceDiagram
 | ----- | ---------- |
 | `115` | `NodeName` |
 
-_Table: STOP_REQ_
+_Table: EPMD_STOP_REQ_
 
 where n = `Length` \- 1.
 
-The response for a `STOP_REQ` is as follows:
+The response for a `EPMD_STOP_REQ` is as follows:
 
 | 7          |
 | ---------- |
