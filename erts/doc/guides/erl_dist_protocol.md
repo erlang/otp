@@ -81,7 +81,7 @@ sequenceDiagram
     Note over EPMD: Register a Node in EPMD
     client ->> EPMD: EPMD_ALIVE2_REQ
     alt
-        EPMD -->> client: ALIVE2_X_RESP
+        EPMD -->> client: EPMD_ALIVE2_X_RESP
     else
         EPMD -->> client: EPMD_ALIVE2_RESP
     end
@@ -124,7 +124,7 @@ _Table: Request Format_
 
 When a distributed node is started it registers itself in the EPMD. The message
 `EPMD_ALIVE2_REQ` described below is sent from the node to the EPMD. The response
-from the EPMD is `ALIVE2_X_RESP` (or `EPMD_ALIVE2_RESP`):
+from the EPMD is `EPMD_ALIVE2_X_RESP` (or `EPMD_ALIVE2_RESP`):
 
 ```mermaid
 ---
@@ -136,7 +136,7 @@ sequenceDiagram
 
     client ->> EPMD: EPMD_ALIVE2_REQ
     alt
-        EPMD -->> client: ALIVE2_X_RESP
+        EPMD -->> client: EPMD_ALIVE2_X_RESP
     else
         EPMD -->> client: EPMD_ALIVE2_RESP
     end
@@ -174,15 +174,15 @@ The connection created to the EPMD must be kept as long as the node is a
 distributed node. When the connection is closed, the node is automatically
 unregistered from the EPMD.
 
-The response message is either `ALIVE2_X_RESP` or `EPMD_ALIVE2_RESP` depending on
+The response message is either `EPMD_ALIVE2_X_RESP` or `EPMD_ALIVE2_RESP` depending on
 distribution version. If both the node and EPMD support distribution version 6
-then the response is `ALIVE2_X_RESP` otherwise it is the older `EPMD_ALIVE2_RESP`:
+then the response is `EPMD_ALIVE2_X_RESP` otherwise it is the older `EPMD_ALIVE2_RESP`:
 
 | 1     | 1        | 4          |
 | ----- | -------- | ---------- |
 | `118` | `Result` | `Creation` |
 
-_Table: ALIVE2_X_RESP (118) with 32 bit creation_
+_Table: EPMD_ALIVE2_X_RESP (118) with 32 bit creation_
 
 | 1     | 1        | 2          |
 | ----- | -------- | ---------- |
