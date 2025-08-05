@@ -65,7 +65,7 @@ The EPMD Protocol supports various tasks:
 - Getting all Registered Names
 - Dumping all Data from EPMD
 - Killing EPMD
-- `STOP_REQ` (Not Used)
+- `EPMD_STOP_REQ` (Not Used)
 
 The requests served by the EPMD for these tasks are summarized in the following figure.
 
@@ -79,11 +79,11 @@ sequenceDiagram
     participant EPMD
 
     Note over EPMD: Register a Node in EPMD
-    client ->> EPMD: ALIVE2_REQ
+    client ->> EPMD: EPMD_ALIVE2_REQ
     alt
-        EPMD -->> client: ALIVE2_X_RESP
+        EPMD -->> client: EPMD_ALIVE2_X_RESP
     else
-        EPMD -->> client: ALIVE2_RESP
+        EPMD -->> client: EPMD_ALIVE2_RESP
     end
 
     Note over EPMD: Unregister a Node in EPMD
@@ -91,22 +91,22 @@ sequenceDiagram
 
     Note over client: Get the Distribution Port of Another Node
     client ->> EPMD: EPMD_PORT2_REQ
-    EPMD -->> client: PORT2_RESP
+    EPMD -->> client: EPMD_PORT2_RESP
 
     Note over client: Get All Registered Names from EPMD
-    client ->> EPMD: NAMES_REQ
+    client ->> EPMD: EPMD_NAMES_REQ
     EPMD -->> client: NAMES_RESP
 
     Note over EPMD: Dump all Data from EPMD
-    client ->> EPMD: DUMP_REQ
+    client ->> EPMD: EPMD_DUMP_REQ
     EPMD -->> client: DUMP_RESP
 
     Note over EPMD: Kill EPMD
-    client ->> EPMD: KILL_REQ
+    client ->> EPMD: EPMD_KILL_REQ
     EPMD -->> client: KILL_RESP
 
-    Note over EPMD: STOP_REQ (Not Used)
-    client ->> EPMD: STOP_REQ
+    Note over EPMD: EPMD_STOP_REQ (Not Used)
+    client ->> EPMD: EPMD_STOP_REQ
     EPMD -->> client: STOP_OK_RESP
     EPMD -->> client: STOP_NOTOK_RESP
 ```
@@ -123,8 +123,8 @@ _Table: Request Format_
 ### Register a Node in EPMD
 
 When a distributed node is started it registers itself in the EPMD. The message
-`ALIVE2_REQ` described below is sent from the node to the EPMD. The response
-from the EPMD is `ALIVE2_X_RESP` (or `ALIVE2_RESP`):
+`EPMD_ALIVE2_REQ` described below is sent from the node to the EPMD. The response
+from the EPMD is `EPMD_ALIVE2_X_RESP` (or `EPMD_ALIVE2_RESP`):
 
 ```mermaid
 ---
@@ -134,11 +134,11 @@ sequenceDiagram
     participant client as Client (or Node)
     participant EPMD
 
-    client ->> EPMD: ALIVE2_REQ
+    client ->> EPMD: EPMD_ALIVE2_REQ
     alt
-        EPMD -->> client: ALIVE2_X_RESP
+        EPMD -->> client: EPMD_ALIVE2_X_RESP
     else
-        EPMD -->> client: ALIVE2_RESP
+        EPMD -->> client: EPMD_ALIVE2_RESP
     end
 ```
 
@@ -146,7 +146,7 @@ sequenceDiagram
 | ----- | -------- | ---------- | ---------- | ---------------- | --------------- | ------ | ---------- | ------ | ------- |
 | `120` | `PortNo` | `NodeType` | `Protocol` | `HighestVersion` | `LowestVersion` | `Nlen` | `NodeName` | `Elen` | `Extra` |
 
-_Table: ALIVE2_REQ (120)_
+_Table: EPMD_ALIVE2_REQ (120)_
 
 - **`PortNo`** - The port number on which the node accept connection requests.
 
@@ -174,21 +174,21 @@ The connection created to the EPMD must be kept as long as the node is a
 distributed node. When the connection is closed, the node is automatically
 unregistered from the EPMD.
 
-The response message is either `ALIVE2_X_RESP` or `ALIVE2_RESP` depending on
+The response message is either `EPMD_ALIVE2_X_RESP` or `EPMD_ALIVE2_RESP` depending on
 distribution version. If both the node and EPMD support distribution version 6
-then the response is `ALIVE2_X_RESP` otherwise it is the older `ALIVE2_RESP`:
+then the response is `EPMD_ALIVE2_X_RESP` otherwise it is the older `EPMD_ALIVE2_RESP`:
 
 | 1     | 1        | 4          |
 | ----- | -------- | ---------- |
 | `118` | `Result` | `Creation` |
 
-_Table: ALIVE2_X_RESP (118) with 32 bit creation_
+_Table: EPMD_ALIVE2_X_RESP (118) with 32 bit creation_
 
 | 1     | 1        | 2          |
 | ----- | -------- | ---------- |
 | `121` | `Result` | `Creation` |
 
-_Table: ALIVE2_RESP (121) with 16-bit creation_
+_Table: EPMD_ALIVE2_RESP (121) with 16-bit creation_
 
 Result = 0 -> ok, result > 0 -> error.
 
@@ -224,7 +224,7 @@ sequenceDiagram
     participant EPMD
     
     client ->> EPMD: EPMD_PORT2_REQ
-    EPMD -->> client: PORT2_RESP
+    EPMD -->> client: EPMD_PORT2_RESP
 ```
 
 
@@ -240,7 +240,7 @@ where N = `Length` \- 1.
 | ----- | -------- |
 | `119` | `Result` |
 
-_Table: PORT2_RESP (119) Response Indicating Error, Result > 0_
+_Table: EPMD_PORT2_RESP (119) Response Indicating Error, Result > 0_
 
 or
 
@@ -248,7 +248,7 @@ or
 | ----- | -------- | -------- | ---------- | ---------- | ---------------- | --------------- | ------ | ---------- | ------ | -------- |
 | `119` | `Result` | `PortNo` | `NodeType` | `Protocol` | `HighestVersion` | `LowestVersion` | `Nlen` | `NodeName` | `Elen` | >`Extra` |
 
-_Table: PORT2_RESP, Result = 0_
+_Table: EPMD_PORT2_RESP, Result = 0_
 
 If `Result` > 0, the packet only consists of `[119, Result]`.
 
@@ -268,7 +268,7 @@ sequenceDiagram
     participant client as Client (or Node)
     participant EPMD
     
-    client ->> EPMD: NAMES_REQ
+    client ->> EPMD: EPMD_NAMES_REQ
     EPMD -->> client: NAMES_RESP
 ```
 
@@ -276,9 +276,9 @@ sequenceDiagram
 | ----- |
 | `110` |
 
-_Table: NAMES_REQ (110)_
+_Table: EPMD_NAMES_REQ (110)_
 
-The response for a `NAMES_REQ` is as follows:
+The response for a `EPMD_NAMES_REQ` is as follows:
 
 | 4            |             |
 | ------------ | ----------- |
@@ -307,7 +307,7 @@ sequenceDiagram
     participant client as Client (or Node)
     participant EPMD
     
-    client ->> EPMD: DUMP_REQ
+    client ->> EPMD: EPMD_DUMP_REQ
     EPMD -->> client: DUMP_RESP
 ```
 
@@ -316,9 +316,9 @@ sequenceDiagram
 | ----- |
 | `100` |
 
-_Table: DUMP_REQ_
+_Table: EPMD_DUMP_REQ_
 
-The response for a `DUMP_REQ` is as follows:
+The response for a `EPMD_DUMP_REQ` is as follows:
 
 | 4            |             |
 | ------------ | ----------- |
@@ -355,7 +355,7 @@ sequenceDiagram
     participant client as Client (or Node)
     participant EPMD
     
-    client ->> EPMD: KILL_REQ
+    client ->> EPMD: EPMD_KILL_REQ
     EPMD -->> client: KILL_RESP
 ```
 
@@ -363,9 +363,9 @@ sequenceDiagram
 | ----- |
 | `107` |
 
-_Table: KILL_REQ_
+_Table: EPMD_KILL_REQ_
 
-The response for a `KILL_REQ` is as follows:
+The response for a `EPMD_KILL_REQ` is as follows:
 
 | 2          |
 | ---------- |
@@ -375,17 +375,17 @@ _Table: KILL_RESP_
 
 where `OKString` is "OK".
 
-### STOP_REQ (Not Used)
+### EPMD_STOP_REQ (Not Used)
 
 ```mermaid
 ---
-title: STOP_REQ (Not Used)
+title: EPMD_STOP_REQ (Not Used)
 ---
 sequenceDiagram
     participant client as Client (or Node)
     participant EPMD
     
-    client ->> EPMD: STOP_REQ
+    client ->> EPMD: EPMD_STOP_REQ
     EPMD -->> client: STOP_OK_RESP
     EPMD -->> client: STOP_NOTOK_RESP
 ```
@@ -394,11 +394,11 @@ sequenceDiagram
 | ----- | ---------- |
 | `115` | `NodeName` |
 
-_Table: STOP_REQ_
+_Table: EPMD_STOP_REQ_
 
 where n = `Length` \- 1.
 
-The response for a `STOP_REQ` is as follows:
+The response for a `EPMD_STOP_REQ` is as follows:
 
 | 7          |
 | ---------- |
