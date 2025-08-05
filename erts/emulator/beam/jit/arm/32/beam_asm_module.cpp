@@ -165,8 +165,6 @@ void BeamModuleAssembler::emit_i_func_info(const ArgWord &Label,
                                            const ArgAtom &Module,
                                            const ArgAtom &Function,
                                            const ArgWord &Arity) {
-    // TODO
-    emit_nyi("emit_i_func_info");
     ErtsCodeInfo info = {};
 
     /* `op_i_func_info_IaaI` is used in various places in the emulator, so this
@@ -196,10 +194,12 @@ void BeamModuleAssembler::emit_i_func_info(const ArgWord &Label,
     } else {
         a.udf(0xF1F0);
     }
-
     ERTS_CT_ASSERT(ERTS_ASM_BP_FLAG_NONE == 0);
-    a.embedUInt32(0);
-
+    /*
+      On Arm32 we do not need to add padding space here.
+      The metadata struct inside ErtsCodeInfo is 4 bytes long (UInt).
+      The BL instruction is already 4 bytes.
+    */
     ASSERT(a.offset() % sizeof(UWord) == 0);
     a.embed(&info.gen_bp, sizeof(info.gen_bp));
     a.embed(&info.mfa, sizeof(info.mfa));
