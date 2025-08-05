@@ -90,7 +90,7 @@ sequenceDiagram
     client ->> EPMD: ALIVE_CLOSE_REQ
 
     Note over client: Get the Distribution Port of Another Node
-    client ->> EPMD: PORT_PLEASE2_REQ
+    client ->> EPMD: EPMD_PORT2_REQ
     EPMD -->> client: PORT2_RESP
 
     Note over client: Get All Registered Names from EPMD
@@ -212,7 +212,7 @@ sequenceDiagram
 ### Get the Distribution Port of Another Node
 
 When one node wants to connect to another node it starts with a
-`PORT_PLEASE2_REQ` request to the EPMD on the host where the node resides to get
+`EPMD_PORT2_REQ` request to the EPMD on the host where the node resides to get
 the distribution port that the node listens to:
 
 ```mermaid
@@ -223,7 +223,7 @@ sequenceDiagram
     participant client as Client (or Node)
     participant EPMD
     
-    client ->> EPMD: PORT_PLEASE2_REQ
+    client ->> EPMD: EPMD_PORT2_REQ
     EPMD -->> client: PORT2_RESP
 ```
 
@@ -232,7 +232,7 @@ sequenceDiagram
 | ----- | ---------- |
 | `122` | `NodeName` |
 
-_Table: PORT_PLEASE2_REQ (122)_
+_Table: EPMD_PORT2_REQ (122)_
 
 where N = `Length` \- 1.
 
