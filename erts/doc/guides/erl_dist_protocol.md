@@ -102,7 +102,7 @@ sequenceDiagram
     EPMD -->> client: DUMP_RESP
 
     Note over EPMD: Kill EPMD
-    client ->> EPMD: KILL_REQ
+    client ->> EPMD: EPMD_KILL_REQ
     EPMD -->> client: KILL_RESP
 
     Note over EPMD: STOP_REQ (Not Used)
@@ -355,7 +355,7 @@ sequenceDiagram
     participant client as Client (or Node)
     participant EPMD
     
-    client ->> EPMD: KILL_REQ
+    client ->> EPMD: EPMD_KILL_REQ
     EPMD -->> client: KILL_RESP
 ```
 
@@ -363,9 +363,9 @@ sequenceDiagram
 | ----- |
 | `107` |
 
-_Table: KILL_REQ_
+_Table: EPMD_KILL_REQ_
 
-The response for a `KILL_REQ` is as follows:
+The response for a `EPMD_KILL_REQ` is as follows:
 
 | 2          |
 | ---------- |

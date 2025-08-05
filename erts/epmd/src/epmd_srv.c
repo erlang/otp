@@ -1017,23 +1017,23 @@ static void do_request(EpmdVars *g, int fd, Connection *s, char *buf, int bsize)
 
     case EPMD_KILL_REQ:
       if (!s->local_peer) {
-	   dbg_printf(g,0,"KILL_REQ from non local address");
+	   dbg_printf(g,0,"EPMD_KILL_REQ from non local address");
 	   return;
       }
-      dbg_printf(g,1,"** got KILL_REQ");
+      dbg_printf(g,1,"** got EPMD_KILL_REQ");
 
       if (!g->brutal_kill && (g->nodes.reg != NULL)) {
-	  dbg_printf(g,0,"Disallowed KILL_REQ, live nodes");
+	  dbg_printf(g,0,"Disallowed EPMD_KILL_REQ, live nodes");
 	  if (!reply(g, fd,"NO",2))
-	      dbg_printf(g,0,"failed to send reply to KILL_REQ");
+	      dbg_printf(g,0,"failed to send reply to EPMD_KILL_REQ");
 	  return;
       }
 
       if (!reply(g, fd,"OK",2))
-	dbg_printf(g,0,"failed to send reply to KILL_REQ");
+	dbg_printf(g,0,"failed to send reply to EPMD_KILL_REQ");
       dbg_tty_printf(g,1,"epmd killed");
       conn_close_fd(g,fd);	/* We never return to caller so close here */
-      dbg_printf(g,0,"got KILL_REQ - terminates normal");
+      dbg_printf(g,0,"got EPMD_KILL_REQ - terminates normal");
       epmd_cleanup_exit(g,0);			/* Normal exit */
 
     case EPMD_STOP_REQ:
