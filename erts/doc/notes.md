@@ -18273,7 +18273,7 @@ This document describes the changes made to the ERTS application.
   Own Id: OTP-8345
 
 - EPMD now correctly handles the extra data field which can be given in the
-  ALIVE2_REQ request and retrieved in the PORT2_RESP response. (Thanks to Klas
+  EPMD_ALIVE2_REQ request and retrieved in the PORT2_RESP response. (Thanks to Klas
   Johansson.)
 
   Own Id: OTP-8361

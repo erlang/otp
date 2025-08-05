@@ -99,7 +99,7 @@ static int ei_epmd_r4_publish (int port, const char *alive, unsigned ms)
   }
 
   EI_TRACE_CONN6("ei_epmd_r4_publish",
-		 "-> ALIVE2_REQ alive=%s port=%d ntype=%d "
+		 "-> EPMD_ALIVE2_REQ alive=%s port=%d ntype=%d "
 		 "proto=%d dist-high=%d dist-low=%d",
 		 alive,port,'H',EI_MYPROTO,EI_DIST_HIGH,EI_DIST_LOW);
 

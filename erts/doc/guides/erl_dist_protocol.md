@@ -79,7 +79,7 @@ sequenceDiagram
     participant EPMD
 
     Note over EPMD: Register a Node in EPMD
-    client ->> EPMD: ALIVE2_REQ
+    client ->> EPMD: EPMD_ALIVE2_REQ
     alt
         EPMD -->> client: ALIVE2_X_RESP
     else
@@ -123,7 +123,7 @@ _Table: Request Format_
 ### Register a Node in EPMD
 
 When a distributed node is started it registers itself in the EPMD. The message
-`ALIVE2_REQ` described below is sent from the node to the EPMD. The response
+`EPMD_ALIVE2_REQ` described below is sent from the node to the EPMD. The response
 from the EPMD is `ALIVE2_X_RESP` (or `ALIVE2_RESP`):
 
 ```mermaid
@@ -134,7 +134,7 @@ sequenceDiagram
     participant client as Client (or Node)
     participant EPMD
 
-    client ->> EPMD: ALIVE2_REQ
+    client ->> EPMD: EPMD_ALIVE2_REQ
     alt
         EPMD -->> client: ALIVE2_X_RESP
     else
@@ -146,7 +146,7 @@ sequenceDiagram
 | ----- | -------- | ---------- | ---------- | ---------------- | --------------- | ------ | ---------- | ------ | ------- |
 | `120` | `PortNo` | `NodeType` | `Protocol` | `HighestVersion` | `LowestVersion` | `Nlen` | `NodeName` | `Elen` | `Extra` |
 
-_Table: ALIVE2_REQ (120)_
+_Table: EPMD_ALIVE2_REQ (120)_
 
 - **`PortNo`** - The port number on which the node accept connection requests.
 
