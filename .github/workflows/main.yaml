@@ -288,7 +288,9 @@ jobs:
           distribution: Ubuntu-18.04
 
       - name: Install WSL dependencies
-        run: apt update && apt install -y make autoconf unzip nsis
+        run: |
+          apt update && apt install -y make autoconf unzip
+          winget install -e --id NSIS.NSIS
 
       - name: Install openssl
         shell: cmd
