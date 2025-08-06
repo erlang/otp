@@ -279,7 +279,7 @@ jobs:
     env:
       WXWIDGETS_VERSION: 3.2.6
     name: Build Erlang/OTP (Windows)
-    runs-on: windows-2022
+    runs-on: windows-2025
     needs: pack
     if: needs.pack.outputs.build-c-code == 'true'
     steps:
@@ -288,7 +288,7 @@ jobs:
           distribution: Ubuntu-18.04
 
       - name: Install WSL dependencies
-        run: apt update && apt install -y make autoconf unzip
+        run: apt update && apt install -y make autoconf unzip nsis
 
       - name: Install openssl
         shell: cmd
