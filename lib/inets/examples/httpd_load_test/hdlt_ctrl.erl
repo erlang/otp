@@ -51,8 +51,9 @@
 -define(SSH_CONNECT_TIMEOUT,        5000).
 -define(NODE_START_TIMEOUT,         5000).
 -define(LOCAL_PROXY_START_TIMEOUT,  ?NODE_START_TIMEOUT * 4).
--define(DEFAULT_DEBUGS, 
-	[{ctrl, info}, {slave, silence}, {proxy, silence}, {client, silence}]).
+-define(DEBUGS_OPTION_KEYS,   [ctrl, proxy, follower, client]).
+-define(DEBUGS_OPTION_VALUES, [silence, info, log, debug]).
+-define(DEFAULT_DEBUGS,       lists:zip(?DEBUGS_OPTION_KEYS, ?DEBUGS_OPTION_VALUES)).
 -define(DEFAULT_WORK_SIM,           10000).
 -define(DEFAULT_DATA_SIZE_START,    500).
 -define(DEFAULT_DATA_SIZE_END,      1500).
@@ -331,11 +332,11 @@ create_server_content(Sftp, ServerRoot, SocketType, CertFile) ->
     {ok, ServerModBin} = file:read_file(LocalServerMod),
     ok = ssh_sftp:write_file(Sftp, RemoteServerMod, ServerModBin),
 
-    LocalSlaveMod = local_slave_module(), 
-    ?DEBUG("copy slave module ~s", [LocalSlaveMod]), 
-    RemoteSlaveMod = remote_slave_module(EBIN), 
-    {ok, SlaveModBin} = file:read_file(LocalSlaveMod),
-    ok = ssh_sftp:write_file(Sftp, RemoteSlaveMod, SlaveModBin),
+    LocalFollowerMod = local_follower_module(),
+    ?DEBUG("copy follower module ~s", [LocalFollowerMod]),
+    RemoteFollowerMod = remote_follower_module(EBIN),
+    {ok, FollowerModBin} = file:read_file(LocalFollowerMod),
+    ok = ssh_sftp:write_file(Sftp, RemoteFollowerMod, FollowerModBin),
 
     LocalLoggerMod = local_logger_module(), 
     ?DEBUG("copy logger module ~s", [LocalLoggerMod]), 
@@ -445,11 +446,11 @@ create_client_content(Sftp, WorkDir, SocketType, CertFile) ->
     {ok, ClientModBin} = file:read_file(LocalClientMod),
     ok = ssh_sftp:write_file(Sftp, RemoteClientMod, ClientModBin),
 
-    LocalSlaveMod = local_slave_module(), 
-    ?DEBUG("copy slave module ~s", [LocalSlaveMod]), 
-    RemoteSlaveMod = remote_slave_module(EBIN), 
-    {ok, SlaveModBin} = file:read_file(LocalSlaveMod),
-    ok = ssh_sftp:write_file(Sftp, RemoteSlaveMod, SlaveModBin),
+    LocalFollowerMod = local_follower_module(),
+    ?DEBUG("copy follower module ~s", [LocalFollowerMod]),
+    RemoteFollowerMod = remote_follower_module(EBIN),
+    {ok, FollowerModBin} = file:read_file(LocalFollowerMod),
+    ok = ssh_sftp:write_file(Sftp, RemoteFollowerMod, FollowerModBin),
 
     LocalLoggerMod = local_logger_module(), 
     ?DEBUG("copy logger module ~s", [LocalLoggerMod]), 
@@ -494,21 +495,21 @@ client_module() ->
     module(?CLIENT_MOD).
 
 
-remote_slave_module(Path) ->
-    Mod = slave_module(), 
+remote_follower_module(Path) ->
+    Mod = follower_module(),
     filename:join(Path, Mod).
 
-local_slave_module() ->
-    Mod = slave_module(), 
+local_follower_module() ->
+    Mod = follower_module(),
     case code:where_is_file(Mod) of
 	Path when is_list(Path) ->
 	    Path;
 	_ ->
-	    exit({slave_module_not_found, Mod})
+            exit({follower_module_not_found, Mod})
     end.
 
-slave_module() ->
-    module(hdlt_slave).
+follower_module() ->
+    module(hdlt_follower_node).
 
 
 remote_logger_module(Path) ->
@@ -617,8 +618,8 @@ start_node(Host, NodeName, ErlPath, Paths, Args, Module, Debugs) ->
 			ProxyDebug),
 
     ?DEBUG("start_node -> local proxy started - now start node", []),
-    SlaveDebug = proplists:get_value(slave, Debugs, silence), 
-    Node = proxy_start_node(Proxy, SlaveDebug),
+    FollowerDebug = proplists:get_value(follower, Debugs, silence),
+    Node = proxy_start_node(Proxy, FollowerDebug),
 
     ?DEBUG("start_node -> sync global", []),
     global:sync(),
@@ -725,9 +726,8 @@ proxy_loop(#proxy{mode      = started,
     receive
 	{proxy_request, Ref, From, {start_node, Debug}} ->
 	    ?LOG("[starting] received start_node order", []),
-	    case hdlt_slave:start_link(Host, NodeName, 
-				       ErlPath, Paths, Args, 
-				       Debug) of
+            case hdlt_follower_node:start_link(Host, NodeName,
+                ErlPath, Paths, Args, Debug) of
 		{ok, Node} ->
 		    ?DEBUG("[starting] node ~p started - now monitor", [Node]),
 		    erlang:monitor_node(Node, true),
@@ -1242,13 +1242,13 @@ verify_debugs([{Tag, Debug}|Debugs]) ->
     verify_debugs(Debugs).
 
 verify_debug(Tag, Debug) ->
-    case lists:member(Tag, [ctrl, proxy, slave, client]) of
+    case lists:member(Tag, ?DEBUGS_OPTION_KEYS) of
 	true ->
 	    ok;
 	false ->
 	    exit({bad_debug_tag, Tag})
     end,
-    case lists:member(Debug, [silence, info, log, debug]) of
+    case lists:member(Debug, ?DEBUGS_OPTION_VALUES) of
 	true ->
 	    ok;
 	false ->

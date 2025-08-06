@@ -39,7 +39,7 @@ MODULES = \
 	hdlt_logger \
 	hdlt_random_html \
 	hdlt_server \
-	hdlt_slave
+	hdlt_follower_node
 
 INTERNAL_HRL_FILES = \
         hdlt_logger.hrl

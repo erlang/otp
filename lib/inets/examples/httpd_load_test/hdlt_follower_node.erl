@@ -19,13 +19,13 @@
 %%
 %% %CopyrightEnd%
 %%
--module(hdlt_slave).
+-module(hdlt_follower_node).
 
 
 -export([start_link/4, start_link/5, start_link/6, stop/1]).
 
 %% Internal exports 
--export([wait_for_slave/9, slave_start/1, wait_for_master_to_die/3]).
+-export([wait_for_follower_node/9, follower_node_start/1, wait_for_master_to_die/3]).
 
 -include("hdlt_logger.hrl").
 
@@ -37,15 +37,15 @@
 %% ***********************************************************************
 %% start_link/4,5 --
 %%
-%% The start/4,5 functions are used to start a slave Erlang node.
+%% The start/4,5 functions are used to start a follower Erlang node.
 %% The node on which the start/N functions are used is called the
 %% master in the description below.
 %%
-%% If hostname is the same for the master and the slave,
+%% If hostname is the same for the master and the follower,
 %% the Erlang node will simply be spawned.  The only requirement for
 %% this to work is that the 'erl' program can be found in PATH.
 %%
-%% If the master and slave are on different hosts, start/N uses
+%% If the master and follower are on different hosts, start/N uses
 %% the 'ssh' program to spawn an Erlang node on the other host.
 %% Alternative, if the master was started as
 %% 'erl -sname xxx -rsh my_rsh...', then 'my_rsh' will be used instead
@@ -59,9 +59,9 @@
 %% 2. The hosts must be configured to allow 'ssh' access without
 %%    prompts for password.
 %%
-%% The slave node will have its filer and user server redirected
-%% to the master.  When the master node dies, the slave node will
-%% terminate.  For the start_link functions, the slave node will
+%% The follower node will have its filer and user server redirected
+%% to the master.  When the master node dies, the follower node will
+%% terminate.  For the start_link functions, the follower node will
 %% terminate also if the process which called start_link terminates.
 %%
 %% Returns: {ok, Name@Host} |
@@ -93,37 +93,38 @@ stop(Node) ->
     ok.
 
 
-%% Starts a new slave node.
+%% Starts a new follower node.
 
 start_it(Host, Name, Node, ErlPath, Paths, Args, DebugLevel) ->
     Prog = filename:join([ErlPath, "erl"]), 
-    spawn(?MODULE, wait_for_slave, [self(), Host, Name, Node, Paths, Args, self(), Prog, DebugLevel]),
+    spawn(?MODULE, wait_for_follower_node,
+         [self(), Host, Name, Node, Paths, Args, self(), Prog, DebugLevel]),
     receive
 	{result, Result} -> Result
     end.
 
-%% Waits for the slave to start.
+%% Waits for the follower node to start.
 
-wait_for_slave(Parent, Host, Name, Node, Paths, Args, 
-	       LinkTo, Prog, DebugLevel) ->
-    ?SET_NAME("HDLT SLAVE STARTER"), 
+wait_for_follower_node(Parent, Host, Name, Node, Paths, Args,
+                       LinkTo, Prog, DebugLevel) ->
+    ?SET_NAME("HDLT FOLLOWER STARTER"),
     ?SET_LEVEL(DebugLevel),
     ?DEBUG("begin", []),
     Waiter = register_unique_name(0),
     case (catch mk_cmd(Host, Name, Paths, Args, Waiter, Prog)) of
 	{ok, Cmd} ->
   	    ?DEBUG("command generated: ~n~s", [Cmd]),
-	    case (catch ssh_slave_start(Host, Cmd)) of
+            case (catch ssh_follower_start(Host, Cmd)) of
 		{ok, Conn, _Chan} ->
  		    ?DEBUG("ssh channel created", []),
 		    receive
-			{SlavePid, slave_started} ->
- 			    ?DEBUG("slave started: ~p", [SlavePid]),
+                        {FollowerPid, follower_started} ->
+                            ?DEBUG("follower started: ~p", [FollowerPid]),
 			    unregister(Waiter),
-			    slave_started(Parent, LinkTo, SlavePid, Conn, 
-					  DebugLevel)
+                            follower_started(Parent, LinkTo, FollowerPid, Conn,
+                                             DebugLevel)
 		    after 32000 ->
-			    ?INFO("slave node failed to report in on time", 
+                            ?INFO("follower node failed to report in on time",
 				  []),
 			    %% If it seems that the node was partially started,
 			    %% try to kill it.
@@ -149,8 +150,8 @@ wait_for_slave(Parent, Host, Name, Node, Paths, Args,
     end.
 
 
-ssh_slave_start(Host, ErlCmd) ->
-    ?DEBUG("ssh_slave_start -> try connect to ~p", [Host]),
+ssh_follower_start(Host, ErlCmd) ->
+    ?DEBUG("ssh_follower_start -> try connect to ~p", [Host]),
     Connection = 
 	case (catch ssh:connect(Host, ?SSH_PORT, 
 				[{silently_accept_hosts, true}])) of
@@ -195,41 +196,41 @@ clean_ssh_msg() ->
     end.
     
 
-slave_started(ReplyTo, Master, Slave, Conn, Level) 
-  when is_pid(Master) andalso is_pid(Slave) ->
+follower_started(ReplyTo, Master, Follower, Conn, Level)
+  when is_pid(Master) andalso is_pid(Follower) ->
     process_flag(trap_exit, true),
     SName = lists:flatten(
-	      io_lib:format("HDLT SLAVE CTRL[~p,~p]", 
-			    [self(), node(Slave)])), 
+              io_lib:format("HDLT FOLLOWER CTRL[~p,~p]",
+                            [self(), node(Follower)])),
     ?SET_NAME(SName),
     ?SET_LEVEL(Level), 
     ?LOG("initiating", []),
-    MasterRef = erlang:monitor(process, Master),
-    SlaveRef  = erlang:monitor(process, Slave),
-    ReplyTo ! {result, {ok, node(Slave)}},
-    slave_running(Master, MasterRef, Slave, SlaveRef, Conn).
+    MasterRef   = erlang:monitor(process, Master),
+    FollowerRef = erlang:monitor(process, Follower),
+    ReplyTo ! {result, {ok, node(Follower)}},
+    follower_running(Master, MasterRef, Follower, FollowerRef, Conn).
 
 
-%% The slave node will be killed if the master process terminates, 
-%% The master process will not be killed if the slave node terminates.
+%% The follower node will be killed if the master process terminates,
+%% The master process will not be killed if the follower node terminates.
 
-slave_running(Master, MasterRef, Slave, SlaveRef, Conn) ->
+follower_running(Master, MasterRef, Follower, FollowerRef, Conn) ->
     ?DEBUG("await message", []),
     receive
 	{'DOWN', MasterRef, process, _Object, _Info} ->
 	    ?LOG("received DOWN from master", []),
-	    erlang:demonitor(SlaveRef, [flush]),
-	    Slave ! {nodedown, node()},
+            erlang:demonitor(FollowerRef, [flush]),
+            Follower ! {nodedown, node()},
 	    ssh:close(Conn);
 
-	{'DOWN', SlaveRef, process, Object, _Info} ->
-	    ?LOG("received DOWN from slave (~p)", [Object]),
+        {'DOWN', FollowerRef, process, Object, _Info} ->
+            ?LOG("received DOWN from follower (~p)", [Object]),
 	    erlang:demonitor(MasterRef, [flush]),
 	    ssh:close(Conn);
 
 	Other ->
 	    ?DEBUG("received unknown: ~n~p", [Other]),
-	    slave_running(Master, MasterRef, Slave, SlaveRef, Conn)
+            follower_running(Master, MasterRef, Follower, FollowerRef, Conn)
 
     end.
 
@@ -254,29 +255,29 @@ mk_cmd(Host, Name, Paths, Args, Waiter, Prog) ->
 			 " -detached -nopinput ", 
 			 Args, " ", 
 			 " -sname ", Name, "@", Host,
-			 " -s ", ?MODULE, " slave_start ", node(),
+                         " -s ", ?MODULE, " follower_node_start ", node(),
 			 " ", Waiter,
 			 " ", PaPaths]))}.
 
 
-%% This function will be invoked on the slave, using the -s option of erl.
+%% This function will be invoked on the follower, using the -s option of erl.
 %% It will wait for the master node to terminate.
 
-slave_start([Master, Waiter]) ->
+follower_node_start([Master, Waiter]) ->
     spawn(?MODULE, wait_for_master_to_die, [Master, Waiter, silence]);
-slave_start([Master, Waiter, Level]) ->
+follower_node_start([Master, Waiter, Level]) ->
     spawn(?MODULE, wait_for_master_to_die, [Master, Waiter, Level]).
-	
+
 
 wait_for_master_to_die(Master, Waiter, Level) ->
     process_flag(trap_exit, true),
     SName = lists:flatten(
-	      io_lib:format("HDLT-SLAVE MASTER MONITOR[~p,~p,~p]", 
+              io_lib:format("HDLT-FOLLOWER MASTER MONITOR[~p,~p,~p]",
 			    [self(), node(), Master])), 
     ?SET_NAME(SName),
     ?SET_LEVEL(Level), 
     erlang:monitor_node(Master, true),
-    {Waiter, Master} ! {self(), slave_started},
+    {Waiter, Master} ! {self(), follower_started},
     wloop(Master).
 
 wloop(Master) ->
