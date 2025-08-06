@@ -86,9 +86,80 @@ std::vector<BscSegment> beam_jit_bsc_init(const Span<ArgVal> &args) {
     return segments;
 }
 
+static void push_group(std::vector<BscSegment> &segs,
+                       std::vector<BscSegment> &group) {
+    BscSegment seg;
+
+    if (group.empty()) {
+        return;
+    }
+
+    if ((group.back().flags & BSF_LITTLE) != 0) {
+        std::reverse(group.begin(), group.end());
+    }
+
+    Sint groupSize = 0;
+    for (size_t i = 0; i < group.size(); i++) {
+        seg = group[i];
+        groupSize += seg.effectiveSize;
+        if (i == 0) {
+            seg.action = BscSegment::action::ACCUMULATE_FIRST;
+        } else {
+            seg.action = BscSegment::action::ACCUMULATE;
+        }
+        segs.push_back(seg);
+    }
+
+    seg.type = am_integer;
+    seg.action = BscSegment::action::STORE;
+    seg.effectiveSize = groupSize;
+    segs.push_back(seg);
+
+    group.clear();
+}
+
+/*
+ * Combine small segments into a group so that the values for the
+ * segments can be combined into an accumulator register and then
+ * written to memory. Here is an example in Erlang illustrating the
+ * idea. Consider this binary construction example:
+ *
+ *     <<A:16/big, B:32/big, C:16/big>>
+ *
+ * This can be rewritten as follows:
+ *
+ *     Acc0 = A,
+ *     Acc1 = (Acc0 bsl 32) bor B,
+ *     Acc = (Acc1 bsl 16) bor C,
+ *     <<Acc:64/big>>
+ *
+ * Translated to native code, this is faster because the accumulating
+ * is done in a CPU register, and then the result is written to memory.
+ * For big-endian segments, this rewrite works even if sizes are not
+ * byte-sized. For example:
+ *
+ *     <<A:6, B:6, C:6, D:6>>
+ *
+ * Little-endian segments can be optimized in a similar way. Consider:
+ *
+ *     <<A:16/little, B:32/little, C:16/little>>
+ *
+ * This can be rewritten like so:
+ *
+ *     Acc0 = C,
+ *     Acc1 = (Acc0 bsl 32) bor B,
+ *     Acc = (Acc1 bsl 16) bor A,
+ *     <<Acc:64/little>>
+ *
+ * However, for little-endian segments, this rewriting will only work
+ * if all segment sizes but the last one are byte-sized.
+ */
+
 std::vector<BscSegment> beam_jit_bsc_combine_segments(
         const std::vector<BscSegment> segments) {
     std::vector<BscSegment> segs;
+    std::vector<BscSegment> group;
+    Sint combinedSize = 0;
 
     for (auto seg : segments) {
         switch (seg.type) {
@@ -96,58 +167,60 @@ std::vector<BscSegment> beam_jit_bsc_combine_segments(
             if (!(0 < seg.effectiveSize && seg.effectiveSize <= 64)) {
                 /* Unknown or too large size. Handle using the default
                  * DIRECT action. */
+                push_group(segs, group);
                 segs.push_back(seg);
                 continue;
             }
 
-            if (seg.flags & BSF_LITTLE || segs.size() == 0 ||
-                segs.back().action == BscSegment::action::DIRECT) {
-                /* There are no previous compatible ACCUMULATE / STORE
-                 * actions. Create the first ones. */
-                seg.action = BscSegment::action::ACCUMULATE_FIRST;
-                segs.push_back(seg);
-                seg.action = BscSegment::action::STORE;
-                segs.push_back(seg);
+            /* The current segment has a known size not exceeding 64
+             * bits. Try to add it to the current group. */
+
+            if (group.empty()) {
+                group.push_back(seg);
+                combinedSize = seg.effectiveSize;
                 continue;
             }
 
-            auto prev = segs.back();
-            if (prev.flags & BSF_LITTLE) {
-                /* Little-endian segments cannot be combined with other
-                 * segments. Create new ACCUMULATE_FIRST / STORE actions. */
-                seg.action = BscSegment::action::ACCUMULATE_FIRST;
-                segs.push_back(seg);
-                seg.action = BscSegment::action::STORE;
-                segs.push_back(seg);
+            /* There is already at least one segment in the group.
+             * Append the current segment to the group only if it is
+             * compatible and will fit. */
+
+            auto &prev = group.back();
+            bool sameEndian =
+                    (seg.flags & BSF_LITTLE) == (prev.flags & BSF_LITTLE);
+
+            /* Big-endian segments can always be grouped (if the size
+             * does not exceed 64 bits). Little-endian segments can
+             * only be grouped if all but the last segment are
+             * byte-sized. */
+            bool suitableSizes =
+                    ((seg.flags & BSF_LITTLE) == 0 || combinedSize % 8 == 0);
+
+            if (sameEndian && combinedSize + seg.effectiveSize <= 64 &&
+                suitableSizes) {
+                combinedSize += seg.effectiveSize;
+                group.push_back(seg);
                 continue;
             }
 
-            /* The current segment is compatible with the previous
-             * segment. Try combining them. */
-            if (prev.effectiveSize + seg.effectiveSize <= 64) {
-                /* The combined values of the segments fit in the
-                 * accumulator. Insert an ACCUMULATE action for the
-                 * current segment before the pre-existing STORE
-                 * action. */
-                segs.pop_back();
-                prev.effectiveSize += seg.effectiveSize;
-                seg.action = BscSegment::action::ACCUMULATE;
-                segs.push_back(seg);
-                segs.push_back(prev);
-            } else {
-                /* The size exceeds 64 bits. Can't combine. */
-                seg.action = BscSegment::action::ACCUMULATE_FIRST;
-                segs.push_back(seg);
-                seg.action = BscSegment::action::STORE;
-                segs.push_back(seg);
-            }
+            /*
+             * Not possible to fit anything more into the group.
+             * Flush the group and start a new group.
+             */
+            push_group(segs, group);
+
+            group.push_back(seg);
+            combinedSize = seg.effectiveSize;
             break;
         }
         default:
+            push_group(segs, group);
             segs.push_back(seg);
             break;
         }
     }
+
+    push_group(segs, group);
 
     /* Calculate bit offsets for each ACCUMULATE segment. */
 
