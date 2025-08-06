@@ -758,8 +758,10 @@ ESOCK_PRELOAD_BEAM = \
 	$(ERL_TOP)/erts/preloaded/ebin/prim_socket.beam \
 	$(ERL_TOP)/erts/preloaded/ebin/prim_net.beam
 
-PRELOAD_BEAM = $(ERL_TOP)/erts/preloaded/ebin/hello.beam \
-        $(ERL_TOP)/erts/preloaded/ebin/erts_code_purger.beam \
+ifeq ($(JIT_ARCH_BITS), 32)
+PRELOAD_BEAM = $(ERL_TOP)/erts/preloaded/ebin/hello.beam
+else
+PRELOAD_BEAM = $(ERL_TOP)/erts/preloaded/ebin/erts_code_purger.beam \
 		$(ERL_TOP)/erts/preloaded/ebin/erl_init.beam \
 		$(ERL_TOP)/erts/preloaded/ebin/init.beam \
 		$(ERL_TOP)/erts/preloaded/ebin/prim_buffer.beam \
@@ -779,6 +781,7 @@ PRELOAD_BEAM = $(ERL_TOP)/erts/preloaded/ebin/hello.beam \
 		$(ERL_TOP)/erts/preloaded/ebin/atomics.beam \
 		$(ERL_TOP)/erts/preloaded/ebin/counters.beam \
 		$(ERL_TOP)/erts/preloaded/ebin/persistent_term.beam
+endif
 
 ifeq ($(TARGET),win32)
 # On windows the preloaded objects are in a resource object.

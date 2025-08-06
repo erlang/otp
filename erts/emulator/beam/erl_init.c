@@ -393,7 +393,12 @@ erl_first_process_otp(char* mod_name, int argc, char** argv)
     args = CONS(hp, boot_mod, args);
 
     ERTS_SET_DEFAULT_SPAWN_OPTS(&so);
+#if defined(__arm__) && defined(BEAMASM)
+    // ARM32 with JIT enabled just for development
+    res = erl_spawn_system_process(&parent, am_hello, am_start, args, &so);
+#else
     res = erl_spawn_system_process(&parent, am_erl_init, am_start, args, &so);
+#endif
     ASSERT(is_internal_pid(res));
 
     erts_proc_unlock(&parent, ERTS_PROC_LOCK_MAIN);
@@ -2487,6 +2492,7 @@ erl_start(int argc, char **argv)
     erts_init_process_id = erl_first_process_otp(init, boot_argc, boot_argv);
     ASSERT(erts_init_process_id != ERTS_INVALID_PID);
 
+#if !defined(__arm__) && !defined(BEAMASM)
     {
 	/*
 	 * System processes that are *always* alive. If they terminate
@@ -2553,7 +2559,7 @@ erl_start(int argc, char **argv)
         erts_proc_inc_refc(erts_trace_cleaner);
 
     }
-
+#endif
     erts_start_schedulers();
 
 #ifdef ERTS_ENABLE_LOCK_COUNT

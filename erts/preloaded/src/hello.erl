@@ -29,7 +29,7 @@
 %-define(RUN_ESTONE, true).
 %
 -module(hello).
-%-export([start/0, start/2]).
+-export([start/2]).
 %-export([start/0, start/2, hello/1, undefined_function/3, id/1]).
 %
 %%% Internal exports.
@@ -71,9 +71,10 @@
 %%%
 %%%    res = erl_spawn_system_process(&parent, am_hello, am_start, args, &so);
 %%%
-%start(_BootMod, BootArgs) ->
-%    hello(BootArgs),
-%    halt(42, []).
+start(_BootMod, _BootArgs) ->
+    %hello(BootArgs),
+    1 = 2,
+    halt(42, []).
 %
 %%% Entry from test suite.
 %hello(BootArgs) ->
