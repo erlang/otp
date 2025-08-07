@@ -45,7 +45,7 @@ jobs:
       - name: Compile Erlang
         run: |
           export PATH="/mnt/c/Program\ Files\ (x86)/NSIS/bin:$PATH"
-          FOO=`ls /mnt/c/Program\ Files\ (x86)/NSIS/bin`
+          FOO=`ls /mnt/c/Program\ Files\ \(x86\)/NSIS/bin`
           echo $FOO
           echo "---->"
           FOO=`makensis.exe -version`
