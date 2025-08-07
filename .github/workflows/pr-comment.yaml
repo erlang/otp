@@ -17,7 +17,7 @@ permissions:
 
 jobs:
   pr-number:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-24.04
     if: github.repository == 'erlang/otp'
     permissions:
       issues: read
@@ -53,7 +53,7 @@ jobs:
                    pr_number: ${{ needs.pr-number.outputs.result }} });
 
   finished-tests:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-24.04
     needs: pr-number
     ## Limit concurrency so that only one job deploys to erlang.github.io
     concurrency: erlang.github.io-deploy
