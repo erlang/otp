@@ -39,7 +39,8 @@ jobs:
         shell: cmd
         run: |
           choco install nsis --version 3.11.0
-          C:\Program Files (x86)\NSIS\bin\makensis.exe -version
+          set PATH=%PATH%;C:\Program Files (x86)\NSIS\bin\
+          makensis.exe -version
 
       - name: Compile Erlang
         run: |
