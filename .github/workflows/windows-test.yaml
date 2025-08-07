@@ -1,0 +1,47 @@
+name: Windows Quick Test
+
+on:
+  push:
+
+## We cancel any multiple runs from PRs, while runs from tags/branches are allowed
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: true
+
+env:
+    ## Equivalent to github.event_name == 'pull_request' ? github.base_ref : github.ref_name
+    BASE_BRANCH: ${{ github.event_name == 'pull_request' && github.base_ref || github.ref_name }}
+    OTP_SBOM_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || github.sha }}
+    ## 'true' if all steps should be built and all tests run
+    FULL_BUILD_AND_CHECK: ${{ github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'full-build-and-check') || github.event_name == 'scheduled' }}
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  build-windows:
+    defaults:
+      run:
+        shell: wsl-bash {0}
+    name: Build Erlang/OTP in Windows env
+    runs-on: windows-2025
+    steps:
+      - uses: Vampire/setup-wsl@3b46b44374d5d0ae94654c45d114a3ed7a0e07a8 # ratchet:Vampire/setup-wsl@v5.0.1
+        with:
+          distribution: Ubuntu-18.04
+
+      - name: Install WSL dependencies
+        run: |
+          apt update && apt install -y make autoconf unzip
+
+      - name: Install NSIS
+        shell: cmd
+        run: |
+          choco install nsis --version 3.11.0
+          echo "Version: $(makensis.exe -version)"
+
+      - name: Compile Erlang
+        run: |
+          export PATH="/mnt/c/Program\ Files\ (x86)/NSIS/Bin:$PATH"
+          echo "Version: $(makensis.exe -version)"
