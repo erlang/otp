@@ -351,6 +351,7 @@ jobs:
 
       - name: Compile Erlang
         run: |
+          export PATH="/mnt/c/Program\ Files\ (x86)/NSIS/Bin:$PATH"
           mkdir -p /mnt/c/opt/local64/pgm/
           cp -R wxWidgets /mnt/c/opt/local64/pgm/wxWidgets-${{ env.WXWIDGETS_VERSION }}
           tar -xzf ./otp_src.tar.gz
