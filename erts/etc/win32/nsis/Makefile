@@ -79,7 +79,7 @@ OTP_VERSION_LONG=$(shell $(ERL_TOP)/bootstrap/bin/escript.exe vsn_number.escript
 YEAR=$(shell date +%Y)
 
 release_spec:
-	@NSIS_VER=`makensis -version`; \
+	@NSIS_VER=`makensis.exe -version`; \
 	case $$NSIS_VER in \
 	v2.* | v3.0 | v3.01) \
 	  echo "Unsupported NSIS version: $$NSIS_VER";\
