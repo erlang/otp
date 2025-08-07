@@ -48,4 +48,4 @@ jobs:
           FOO=`ls /mnt/c/Program\ Files\ \(x86\)/NSIS/bin`
           echo $FOO
           echo $PATH
-          PATH=/mnt/c/Program\ Files\ \(x86\)/NSIS/bin:$PATH makensis.exe -version
+          makensis.exe -version
