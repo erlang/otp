@@ -351,11 +351,11 @@ jobs:
 
       - name: Compile Erlang
         run: |
-          export PATH="/mnt/c/Program\ Files\ (x86)/NSIS/Bin:$PATH"
           mkdir -p /mnt/c/opt/local64/pgm/
           cp -R wxWidgets /mnt/c/opt/local64/pgm/wxWidgets-${{ env.WXWIDGETS_VERSION }}
           tar -xzf ./otp_src.tar.gz
           cd otp
+          export PATH="/mnt/c/Program\ Files\ \(x86\)/NSIS/bin:$PATH"
           export ERL_TOP=`pwd`
           export MAKEFLAGS=-j$(($(nproc) + 2))
           export ERLC_USE_SERVER=true
