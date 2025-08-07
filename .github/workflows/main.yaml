@@ -290,7 +290,11 @@ jobs:
       - name: Install WSL dependencies
         run: |
           apt update && apt install -y make autoconf unzip
-          winget install -e --id NSIS.NSIS
+
+      - name: Install NSIS
+        shell: cmd
+        run: |
+          choco install nsis --version 3.11.0
 
       - name: Install openssl
         shell: cmd
