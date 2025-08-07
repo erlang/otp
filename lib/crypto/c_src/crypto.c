@@ -394,17 +394,16 @@ static void unload(ErlNifEnv* env, void* priv_data)
         destroy_curve_mutex();
         destroy_engine_mutex(env);
 
-#ifdef HAS_3_0_API
-        fini_mac_types();
-# ifdef FIPS_SUPPORT
-        if (fips_provider) {
-            OSSL_PROVIDER_unload(fips_provider);
-        }
-# endif
-        while (prov_cnt > 0) {
-            OSSL_PROVIDER_unload(prov[--prov_cnt]);
-        }
-#endif
+        /*
+         * We do not do any OpenSSL cleanup here as we are not sure the lib
+         * will actually be unloaded. For example
+         * + With  musl libc, dlclose() is a no-op.
+         * + On MacOS with statically linked OpenSSL crypto.so has been seen to
+         *   be locked in place after OSSL_provider_load() has been called.
+         *
+         * So, we rely on OpenSSL doing automatic cleanup with its own "atexit"
+         * handler if the lib is actually unloaded.
+         */
     }
 }
 
