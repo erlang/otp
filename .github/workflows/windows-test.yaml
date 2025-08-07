@@ -39,9 +39,14 @@ jobs:
         shell: cmd
         run: |
           choco install nsis --version 3.11.0
-          echo "Version: $(makensis.exe -version)"
+          FOO=`makensis.exe -version`
+          echo $FOO
 
       - name: Compile Erlang
         run: |
           export PATH="/mnt/c/Program\ Files\ (x86)/NSIS/Bin:$PATH"
-          echo "Version: $(makensis.exe -version)"
+          FOO=`makensis.exe -version`
+          echo $FOO
+          echo "---->"
+          FOO=`ls /mnt/c/Program\ Files\ (x86)/NSIS/Bin`
+          echo $FOO
