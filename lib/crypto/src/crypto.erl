@@ -2793,7 +2793,7 @@ pkey_crypt_nif(_Algorithm, _In, _Key, _Options, _IsPrivate, _IsEncrypt) -> ?nif_
        since => <<"OTP R16B01">>}).
 -spec generate_key(Type, Params)
                  -> {PublicKey, PrivKeyOut}
-                        when Type :: dh | ecdh | eddh | eddsa | rsa | mlkem512 | mlkem768 | mlkem1024| srp,
+                        when Type :: dh | ecdh | eddh | eddsa | rsa | mldsa() | mlkem512 | mlkem768 | mlkem1024| srp,
                              PublicKey :: dh_public() | ecdh_public() | rsa_public() | srp_public(),
                              PrivKeyOut :: dh_private() | ecdh_private() | rsa_private() | {srp_public(),srp_private()},
                              Params :: dh_params() | ecdh_params() | eddsa_params() | rsa_params() | srp_gen_params() | []
@@ -2825,7 +2825,7 @@ Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
        since => <<"OTP R16B01">>}).
 -spec generate_key(Type, Params, PrivKeyIn)
                  -> {PublicKey, PrivKeyOut}
-                        when Type :: dh | ecdh | eddh | eddsa | rsa | mlkem512 | mlkem768 | mlkem1024 | srp,
+                        when Type :: dh | ecdh | eddh | eddsa | rsa | mldsa() | mlkem512 | mlkem768 | mlkem1024 | srp,
                              PublicKey :: dh_public() | ecdh_public() | rsa_public() | srp_public(),
                              PrivKeyIn :: undefined | dh_private() | ecdh_private() | rsa_private() | {srp_public(),srp_private()},
                              PrivKeyOut :: dh_private() | ecdh_private() | rsa_private() | {srp_public(),srp_private()},
