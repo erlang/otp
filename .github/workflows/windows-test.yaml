@@ -39,8 +39,7 @@ jobs:
         shell: cmd
         run: |
           choco install nsis --version 3.11.0
-          FOO=`makensis.exe -version`
-          echo $FOO
+          makensis.exe -version
 
       - name: Compile Erlang
         run: |
