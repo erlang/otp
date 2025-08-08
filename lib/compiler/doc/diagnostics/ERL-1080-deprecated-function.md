@@ -1,0 +1,1 @@
+# ERL-1080 - Deprecated function

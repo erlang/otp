@@ -1,0 +1,1 @@
+# ERL-1304 - Bad type syntax

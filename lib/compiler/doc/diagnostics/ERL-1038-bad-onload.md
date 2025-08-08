@@ -1,0 +1,1 @@
+# ERL-1038 - Badly formed on_load attribute
