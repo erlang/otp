@@ -27,6 +27,11 @@ jobs:
     name: Build Erlang/OTP in Windows env
     runs-on: windows-2025
     steps:
+      - name: Branch name
+        run: |
+          echo "{{ github.event.pull_request.head.ref }}"
+          echo "{{ github.head_ref }}"
+
       - uses: Vampire/setup-wsl@3b46b44374d5d0ae94654c45d114a3ed7a0e07a8 # ratchet:Vampire/setup-wsl@v5.0.1
         with:
           distribution: Ubuntu-18.04
