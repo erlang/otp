@@ -158,7 +158,17 @@ The available configuration options are as follows:
 - **\{port, Port\}** - [](){: #port } Default is `0` which aliases to `21` or
   `990` when used with [`{tls_sec_method,ftps}`](`open/2`)).
 
-- **\{mode, Mode\}** - [](){: #mode } Default is `passive`.
+- **\{mode, Mode\}** - [](){: #mode } Options are `active` or `passive`.
+
+  Default is `passive`.
+
+- **\{ftp_extension, boolean()\}** - [](){: #ftp_extension } If mode is `passive` then
+   with IPv4 PASV is used. With IPv6, Extended Passive mode (EPSV) is used. If
+   `ftp_extension` is set to `true` then EPSV is also used with IPv4. This helps with
+   reaching FTP servers behind NAT, which often advertise a wrong IP address when
+   using PASV.
+
+   Default is `false`.
 
 - **\{verbose, Verbose\}** - [](){: #verbose } Determines if the FTP
   communication is to be verbose or not.
@@ -295,7 +305,8 @@ The available configuration options are as follows:
                     | {tls, TLSOptions :: [ssl:tls_option()]} | {tls_sec_method, TLSSecMethod :: ftps | ftpes}
                     | {tls_ctrl_session_reuse, TLSSessionReuse :: boolean() } | {timeout, Timeout :: timeout()}
                     | {dtimeout, DTimeout :: timeout()} | {progress, Progress} | {sock_ctrl, SocketCtrls}
-                    | {sock_data_act, [SocketControl]} | {sock_data_pass, [SocketControl]},
+                    | {sock_data_act, [SocketControl]} | {sock_data_pass, [SocketControl]}
+                    | {ftp_extension, boolean()},
       SocketCtrls :: [SocketControl],
       IpFamily :: inet | inet6 | inet6fb4,
       Mode :: active | passive,
