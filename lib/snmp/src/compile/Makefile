@@ -83,8 +83,7 @@ ERL_COMPILE_FLAGS += -I../../include \
                      -Dversion=\"$(VSN)$(PRE_VSN)\" \
                      +'{parse_transform,sys_pre_attributes}' \
                      +'{attribute,insert,app_vsn,$(APP_VSN)}' \
-                     -I$(ERL_TOP)/lib/stdlib \
-                     +nowarn_missing_spec_documented
+                     -I$(ERL_TOP)/lib/stdlib
 
 YRL_FLAGS = -o .
 
