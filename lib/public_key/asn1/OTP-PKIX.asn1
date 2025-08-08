@@ -42,8 +42,12 @@ IMPORTS
        at-x520OrganizationName, at-x520OrganizationalUnitName, at-x520Title,
        at-x520dnQualifier, at-x520SerialNumber, at-x520Pseudonym,
        at-domainComponent, at-emailAddress,
-       id-at-countryName, id-emailAddress,
-       ub-emailaddress-length,
+       id-at-name, id-at-surname, id-at-givenName, id-at-initials, id-at-generationQualifier,
+       id-at-commonName, id-at-localityName, id-at-stateOrProvinceName, id-at-organizationName,
+       id-at-organizationalUnitName, id-at-title, id-at-countryName, id-at-serialNumber,
+       id-at-pseudonym, id-emailAddress,
+       ub-name, ub-common-name, ub-locality-name, ub-state-name, ub-organization-name,
+       ub-organizational-unit-name, ub-title, ub-serial-number, ub-pseudonym, ub-emailaddress-length,
        Validity, Version, SubjectPublicKeyInfo,
        UniqueIdentifier,
        id-qt-unotice, id-qt-cps
@@ -137,32 +141,89 @@ OTPRelativeDistinguishedName  ::=
       SET SIZE (1 .. MAX) OF SingleAttribute { {OTPSupportedAttributes} }
 
 OTPSupportedAttributes ATTRIBUTE ::= {
-    at-name | at-surname | at-givenName | at-initials |
-    at-generationQualifier | at-x520CommonName |
-    at-x520LocalityName | at-x520StateOrProvinceName |
-    at-x520OrganizationName | at-x520OrganizationalUnitName |
-    at-x520Title | at-x520dnQualifier | otp-at-x520countryName |
-    at-x520SerialNumber | at-x520Pseudonym | at-domainComponent |
+    otp-at-name | otp-at-surname | otp-at-givenName | otp-at-initials |
+    otp-at-generationQualifier | otp-at-x520CommonName |
+    otp-at-x520LocalityName | otp-at-x520StateOrProvinceName |
+    otp-at-x520OrganizationName | otp-at-x520OrganizationalUnitName |
+    otp-at-x520Title | at-x520dnQualifier | otp-at-x520countryName |
+    otp-at-x520SerialNumber | otp-at-x520Pseudonym | at-domainComponent |
     otp-at-emailAddress, ... }
+
+OTPDirectoryString{INTEGER:maxSize} ::= CHOICE {
+    teletexString    TeletexString(SIZE (0..maxSize)),
+    printableString  PrintableString(SIZE (0..maxSize)),
+    bmpString        BMPString(SIZE (0..maxSize)),
+    universalString  UniversalString(SIZE (0..maxSize)),
+    -- Note: The tag was spelled as `uTF8String` in the
+    -- RFC for unknown reason. That breaks backward
+    -- for public_key.
+    utf8String       UTF8String(SIZE (0..maxSize))
+}
+
+OTP-X520name ::= OTPDirectoryString { ub-name }
+
+otp-at-name ATTRIBUTE ::= {
+    TYPE OTP-X520name IDENTIFIED BY id-at-name }
+
+otp-at-surname ATTRIBUTE ::= {
+    TYPE OTP-X520name IDENTIFIED BY id-at-surname }
+
+otp-at-givenName ATTRIBUTE ::= {
+    TYPE OTP-X520name IDENTIFIED BY id-at-givenName }
+
+otp-at-initials ATTRIBUTE ::= {
+    TYPE OTP-X520name IDENTIFIED BY id-at-initials }
+
+otp-at-generationQualifier ATTRIBUTE ::= {
+    TYPE OTP-X520name IDENTIFIED BY id-at-generationQualifier }
+
+otp-at-x520LocalityName ATTRIBUTE ::= {
+    TYPE OTP-X520localityName IDENTIFIED BY id-at-localityName }
+OTP-X520localityName ::= OTPDirectoryString { ub-locality-name }
+
+otp-at-x520StateOrProvinceName ATTRIBUTE ::= {
+    TYPE OTP-X520stateOrProvinceName IDENTIFIED BY id-at-stateOrProvinceName }
+OTP-X520stateOrProvinceName ::= OTPDirectoryString { ub-state-name }
+
+otp-at-x520CommonName ATTRIBUTE ::= {
+    TYPE OTP-X520commonName IDENTIFIED BY id-at-commonName }
+OTP-X520commonName ::= OTPDirectoryString { ub-common-name }
+
+otp-at-x520OrganizationName ATTRIBUTE ::= {
+    TYPE OTP-X520organizationName IDENTIFIED BY id-at-organizationName }
+OTP-X520organizationName ::= OTPDirectoryString { ub-organization-name }
+
+otp-at-x520OrganizationalUnitName ATTRIBUTE ::= {
+    TYPE OTP-X520organizationalUnitName IDENTIFIED BY id-at-organizationalUnitName }
+OTP-X520organizationalUnitName ::= OTPDirectoryString { ub-organizational-unit-name }
+
+otp-at-x520Title ATTRIBUTE ::= {
+    TYPE OTP-X520title IDENTIFIED BY id-at-title }
+OTP-X520title ::= OTPDirectoryString { ub-title }
 
 otp-at-x520countryName ATTRIBUTE ::= {
     TYPE OTP-X520countryName IDENTIFIED BY id-at-countryName }
+-- We accept utf8String encoding of the US-ASCII
+-- country name code and the mix up with other country code systems
+-- that uses three characters instead of two.
+OTP-X520countryName ::= CHOICE {
+    correct PrintableString (SIZE(0) | SIZE (2..3)), -- Correct size is 2.
+    wrong   UTF8String      (SIZE(0) | SIZE (2..3))
+}
+
+otp-at-x520SerialNumber ATTRIBUTE ::= {
+    TYPE OTP-X520serialNumber IDENTIFIED BY id-at-serialNumber }
+OTP-X520serialNumber ::= OTPDirectoryString { ub-serial-number }
+
+otp-at-x520Pseudonym ATTRIBUTE ::= {
+    TYPE OTP-X520pseudonym IDENTIFIED BY id-at-pseudonym }
+OTP-X520pseudonym ::= OTPDirectoryString { ub-pseudonym }
 
 otp-at-emailAddress ATTRIBUTE ::= {
     TYPE OTP-emailAddress IDENTIFIED BY id-emailAddress }
-
- -- We accept utf8String encoding of the US-ASCII
- -- country name code and the mix up with other country code systems
- -- that uses three characters instead of two.
-
-OTP-X520countryName ::= CHOICE {
-    correct           PrintableString (SIZE (2..3)), -- Correct size is 2.
-    wrong             UTF8String      (SIZE (2..3))
-}
-
 OTP-emailAddress ::= CHOICE {
-    correct IA5String (SIZE (1..ub-emailaddress-length)),
-    wrong UTF8String
+    correct IA5String (SIZE (0..ub-emailaddress-length)),
+    wrong   UTF8String
 }
 
 -- We use this variation of SingleAttribute/AttributeTypeAndValue
