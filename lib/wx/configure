@@ -3183,6 +3183,13 @@ if test "X $CFLAGS " != "X$no_werror_CFLAGS"; then
    WERRORFLAGS=-Werror
 fi
 
+case $host_os in #(
+  darwin*) :
+    enable_security_hardening_flags=no ;; #(
+  *) :
+     ;;
+esac
+
 ## Delete previous failed configure results
 if test -f ./CONF_INFO; then
    rm ./CONF_INFO

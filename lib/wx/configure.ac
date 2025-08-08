@@ -30,6 +30,11 @@ AC_PREREQ([2.71])
 
 ERL_PUSH_WERROR
 
+dnl Force disable security hardening flags on macOS (Darwin)
+AS_CASE([$host_os],
+    [darwin*], [enable_security_hardening_flags=no],
+    [])
+
 ## Delete previous failed configure results
 if test -f ./CONF_INFO; then
    rm ./CONF_INFO
