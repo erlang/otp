@@ -430,22 +430,9 @@ init_max_early_data_size(server) ->
 internal_active_n(#{ktls := true}, Socket) ->
     inet:setopts(Socket, [{packet, ssl_tls}]),
     1;
-internal_active_n(#{erl_dist := true}, _) ->
-    %% Start with a random number between 1 and ?INTERNAL_ACTIVE_N
-    %% In most cases distribution connections are established all at
-    %%  the same time, and flow control engages with ?INTERNAL_ACTIVE_N for
-    %%  all connections. Which creates a wave of "passive" messages, leading
-    %%  to significant bump of memory & scheduler utilisation. Starting with
-    %%  a random number between 1 and ?INTERNAL_ACTIVE_N helps to spread the
-    %%  spike.
-    erlang:system_time() rem ?INTERNAL_ACTIVE_N + 1;
-internal_active_n(_,_) ->
-    case application:get_env(ssl, internal_active_n) of
-        {ok, N} when is_integer(N) ->
-            N;
-        _  ->
-            ?INTERNAL_ACTIVE_N
-    end.
+internal_active_n(Options, _) ->
+    Boolean = maps:get(erl_dist, Options, false),
+    ssl_config:get_internal_active_n(Boolean).
 
 exporter_secrets(ExporterMasterSecret, Labels, PRFAlgorithm) ->
     DeriveSecret =
