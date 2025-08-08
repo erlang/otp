@@ -295,6 +295,8 @@ jobs:
         shell: cmd
         run: |
           choco install nsis --version 3.11.0
+          set PATH=%PATH%;C:\Program Files (x86)\NSIS\bin\
+          makensis.exe -version
 
       - name: Install openssl
         shell: cmd
