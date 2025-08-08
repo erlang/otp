@@ -525,7 +525,7 @@ get_port(Node, EpmdAddress, Timeout) ->
 	{ok, Socket} ->
 	    Name = to_string(Node),
 	    Len = 1+length(Name),
-	    Msg = [?int16(Len),?EPMD_PORT_PLEASE2_REQ,Name],
+	    Msg = [?int16(Len),?EPMD_PORT2_REQ,Name],
 	    case gen_tcp:send(Socket, Msg) of
 		ok ->
 		    wait_for_port_reply(Socket, []);
