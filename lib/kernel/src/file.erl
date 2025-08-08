@@ -880,7 +880,7 @@ read_link(Name) ->
 -doc """
 Returns `{ok, Filename}` if `Name` refers to a symbolic link or
 `{error, Reason}` otherwise. On platforms that do not support symbolic links,
-the return value is `{error,enotsup}`.
+the return value is `{error, enotsup}`.
 
 Notice that `Filename` can be either a list or a binary.
 
