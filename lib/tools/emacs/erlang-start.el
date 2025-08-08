@@ -1,4 +1,4 @@
-;;; erlang-start.el --- Load this file to initialize the Erlang package.
+;;; erlang-start.el --- Load this file to initialize the Erlang package. -*- lexical-binding: t; -*-
 
 ;; %CopyrightBegin%
 ;;
