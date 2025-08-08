@@ -288,8 +288,7 @@ jobs:
           distribution: Ubuntu-18.04
 
       - name: Install WSL dependencies
-        run: |
-          apt update && apt install -y make autoconf unzip
+        run: apt update && apt install -y make autoconf unzip
 
       - name: Install NSIS
         shell: cmd

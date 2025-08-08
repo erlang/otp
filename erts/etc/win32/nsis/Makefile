@@ -25,7 +25,7 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 include $(ERL_TOP)/erts/vsn.mk
 
 VERSION_HEADER = erlang.nsh
-MAKENSIS = makensis
+MAKENSIS = makensis.exe
 MAKENSISFLAGS = /V2
 CUSTOM_MODERN=custom_modern.exe
 
