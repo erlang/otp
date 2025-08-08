@@ -509,7 +509,8 @@ connection(#hs_data{other_node = Node,
 		ok ->
                     case HSData#hs_data.f_handshake_complete of
                         undefined -> ok;
-                        HsComplete -> HsComplete(Socket, Node, DHandle)
+                        HsComplete when is_function(HsComplete, 3) -> HsComplete(Socket, Node, DHandle);
+                        HsComplete when is_function(HsComplete, 4) -> HsComplete(Socket, Node, DHandle, HSData)
                     end,
 		    con_loop(#state{kernel = HSData#hs_data.kernel_pid,
                                     node = Node,
