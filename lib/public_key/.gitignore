@@ -17,6 +17,8 @@ src/CryptographicMessageSyntaxAlgorithms-2009.erl
 src/CryptographicMessageSyntaxAlgorithms-2009.hrl
 src/DSS.erl
 src/DSS.hrl
+src/EnrollmentMessageSyntax-2009.erl
+src/EnrollmentMessageSyntax-2009.hrl
 src/ECPrivateKey.erl
 src/ECPrivateKey.hrl
 src/OCSP-2024-08.erl
@@ -43,6 +45,8 @@ src/PKIXAlgs-2009.erl
 src/PKIXAlgs-2009.hrl
 src/PKIXAttributeCertificate-2009.erl
 src/PKIXAttributeCertificate-2009.hrl
+src/PKIXCRMF-2009.erl
+src/PKIXCRMF-2009.hrl
 src/RFC5639.erl
 src/RFC5639.hrl
 src/Safecurves-pkix-18.erl
