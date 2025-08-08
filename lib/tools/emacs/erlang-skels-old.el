@@ -1,4 +1,4 @@
-;;;    -*- Emacs-Lisp -*- 
+;;; erlang-skels-old.el   -*- lexical-binding: t; -*-
 
 ;; %CopyrightBegin%
 ;;
