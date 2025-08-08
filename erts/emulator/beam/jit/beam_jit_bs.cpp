@@ -432,16 +432,13 @@ std::vector<BsmSegment> beam_jit_opt_bsm_segments(
 
             if (seg.size > 64) {
                 read_action_pos = -1;
-            } else if ((seg.flags & BSF_LITTLE) != 0 && is_common_size) {
-                seg.action = BsmSegment::action::READ_INTEGER;
-                read_action_pos = -1;
             } else if (read_action_pos < 0 &&
                        seg.action == BsmSegment::action::GET_INTEGER &&
                        is_common_size && i + 1 == count) {
                 seg.action = BsmSegment::action::READ_INTEGER;
                 read_action_pos = -1;
             } else {
-                if ((seg.flags & BSF_LITTLE) != 0 || read_action_pos < 0 ||
+                if (read_action_pos < 0 ||
                     seg.size + segs.at(read_action_pos).size > 64) {
                     BsmSegment s;
 
