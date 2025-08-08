@@ -15,6 +15,7 @@
               'CryptographicMessageSyntaxAlgorithms-2009',
               'DSS',
               'ECPrivateKey',
+              'X509-ML-DSA-2025',
               'OCSP-2024-08',
               'OTP-PKIX',
               'PKCS-1',
@@ -49,7 +50,6 @@
    {registered, []},
    {env, []},
    {runtime_dependencies, ["stdlib-4.0","kernel-8.0","erts-13.0",
-                           "crypto-5.0","asn1-5.0"]}
+                           "crypto-@OTP-19657@","asn1-5.0"]}
   ]
 }.
-

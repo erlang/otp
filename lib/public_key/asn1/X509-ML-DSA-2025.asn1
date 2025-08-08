@@ -1,0 +1,183 @@
+-- %CopyrightBegin%
+--
+-- SPDX-License-Identifier: BSD-3-Clause
+--
+-- Copyright (c) 2010 IETF Trust and the persons identified as the document authors.  All rights reserved.
+-- Copyright Ericsson AB 2025. All Rights Reserved.
+--
+-- Redistribution and use in source and binary forms, with or without
+-- modification, are permitted provided that the following conditions are met:
+--
+-- 1. Redistributions of source code must retain the above copyright notice,
+--    this list of conditions and the following disclaimer.
+--
+-- 2. Redistributions in binary form must reproduce the above copyright notice,
+--    this list of conditions and the following disclaimer in the documentation
+--    and/or other materials provided with the distribution.
+--
+-- 3. Neither the name of the copyright holder nor the names of its contributors
+--    may be used to endorse or promote products derived from this software
+--    without specific prior written permission.
+--
+-- THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS “AS IS”
+-- AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+-- IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+-- ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+-- LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+-- CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+-- SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+-- INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+-- CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+-- ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+-- POSSIBILITY OF SUCH DAMAGE.
+--
+-- %CopyrightEnd%
+
+X509-ML-DSA-2025
+   { iso(1) identified-organization(3) dod(6)
+     internet(1) security(5) mechanisms(5) pkix(7) id-mod(0)
+     id-mod-x509-ml-dsa-2025(10) } -- id-mod-x509-ml-dsa-2025(TBD1)
+
+   DEFINITIONS IMPLICIT TAGS ::= BEGIN
+
+   EXPORTS ALL;
+
+   IMPORTS
+
+    PUBLIC-KEY, SIGNATURE-ALGORITHM
+      FROM AlgorithmInformation-2009  -- [RFC 5912]
+        { iso(1) identified-organization(3) dod(6) internet(1)
+          security(5) mechanisms(5) pkix(7) id-mod(0)
+          id-mod-algorithmInformation-02(58) } ;
+
+   --
+   -- ML-DSA Identifiers
+   --
+
+   nistAlgorithms OBJECT IDENTIFIER ::= { joint-iso-itu-t(2)
+     country(16) us(840) organization(1) gov(101) csor(3)
+     nistAlgorithms(4) }
+
+   sigAlgs OBJECT IDENTIFIER ::= { nistAlgorithms 3 }
+
+   id-ml-dsa-44 OBJECT IDENTIFIER ::= { sigAlgs 17 }
+
+   id-ml-dsa-65 OBJECT IDENTIFIER ::= { sigAlgs 18 }
+
+   id-ml-dsa-87 OBJECT IDENTIFIER ::= { sigAlgs 19 }
+
+   --
+   -- Public Key Algorithms
+   --
+
+   PublicKeys PUBLIC-KEY ::= {
+     -- This expands PublicKeys from [RFC 5912]
+     pk-ml-dsa-44 |
+     pk-ml-dsa-65 |
+     pk-ml-dsa-87,
+     ...
+   }
+
+   --
+   -- ML-DSA Public Keys
+   --
+
+   pk-ml-dsa-44 PUBLIC-KEY ::= {
+     IDENTIFIER id-ml-dsa-44
+     -- KEY no ASN.1 wrapping; 1312 octets --
+     PARAMS ARE absent
+     CERT-KEY-USAGE { digitalSignature, nonRepudiation,
+                      keyCertSign, cRLSign }
+
+
+     PRIVATE-KEY ML-DSA-44-PrivateKey
+     }
+
+   ML-DSA-44-PrivateKey ::= CHOICE {
+     seed [0] OCTET STRING (SIZE (32)),
+     expandedKey OCTET STRING (SIZE (2560)),
+     both SEQUENCE {
+         seed OCTET STRING (SIZE (32)),
+         expandedKey OCTET STRING (SIZE (2560))
+         }
+     }
+
+   pk-ml-dsa-65 PUBLIC-KEY ::= {
+     IDENTIFIER id-ml-dsa-65
+     -- KEY no ASN.1 wrapping; 1952 octets --
+     PARAMS ARE absent
+     CERT-KEY-USAGE { digitalSignature, nonRepudiation,
+                      keyCertSign, cRLSign }
+     PRIVATE-KEY ML-DSA-65-PrivateKey
+     }
+
+   ML-DSA-65-PrivateKey ::= CHOICE {
+     seed [0] OCTET STRING (SIZE (32)),
+     expandedKey OCTET STRING (SIZE (4032)),
+     both SEQUENCE {
+         seed OCTET STRING (SIZE (32)),
+         expandedKey OCTET STRING (SIZE (4032))
+         }
+     }
+
+   pk-ml-dsa-87 PUBLIC-KEY ::= {
+     IDENTIFIER id-ml-dsa-87
+     -- KEY no ASN.1 wrapping; 2592 octets --
+     PARAMS ARE absent
+     CERT-KEY-USAGE { digitalSignature, nonRepudiation,
+                       keyCertSign, cRLSign }
+     PRIVATE-KEY ML-DSA-87-PrivateKey
+     }
+
+   ML-DSA-87-PrivateKey ::= CHOICE {
+     seed [0] OCTET STRING (SIZE (32)),
+     expandedKey OCTET STRING (SIZE (4896)),
+     both SEQUENCE {
+         seed OCTET STRING (SIZE (32)),
+         expandedKey OCTET STRING (SIZE (4896))
+         }
+     }
+
+   ML-DSA-44-PublicKey ::= OCTET STRING (SIZE (1312))
+
+   ML-DSA-65-PublicKey ::= OCTET STRING (SIZE (1952))
+
+   ML-DSA-87-PublicKey ::= OCTET STRING (SIZE (2602))
+
+   --
+   -- Signature Algorithms
+   --
+
+   SignatureAlgorithms SIGNATURE-ALGORITHM ::= {
+     -- This expands SignatureAlgorithms from [RFC 5912]
+     sa-ml-dsa-44 |
+     sa-ml-dsa-65 |
+     sa-ml-dsa-87,
+     ... }
+
+   --
+   -- ML-DSA Signature Algorithm Identifiers
+   --
+
+   sa-ml-dsa-44 SIGNATURE-ALGORITHM ::= {
+     IDENTIFIER id-ml-dsa-44
+     PARAMS ARE absent
+     PUBLIC-KEYS { pk-ml-dsa-44 }
+     SMIME-CAPS { IDENTIFIED BY id-ml-dsa-44 }
+     }
+
+   sa-ml-dsa-65 SIGNATURE-ALGORITHM ::= {
+     IDENTIFIER id-ml-dsa-65
+     PARAMS ARE absent
+     PUBLIC-KEYS { pk-ml-dsa-65 }
+     SMIME-CAPS { IDENTIFIED BY id-ml-dsa-65 }
+     }
+
+   sa-ml-dsa-87 SIGNATURE-ALGORITHM ::= {
+     IDENTIFIER id-ml-dsa-87
+     PARAMS ARE absent
+     PUBLIC-KEYS { pk-ml-dsa-87 }
+     SMIME-CAPS { IDENTIFIED BY id-ml-dsa-87 }
+     }
+
+   END
