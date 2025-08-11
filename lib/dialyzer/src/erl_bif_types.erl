@@ -2337,6 +2337,8 @@ arg_types(erlang, tuple_size, 1) ->
   [t_tuple()];
 arg_types(erlang, tuple_to_list, 1) ->
   [t_tuple()];
+arg_types(erlang, is_between, 3) ->
+  [t_any(),t_integer(), t_integer()];
 
 %%------- lists ---------------------------------------------------------------
 arg_types(lists, all, 2) ->
