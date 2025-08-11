@@ -44,7 +44,7 @@ jobs:
       # Only need to read contents
       contents: read
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # ratchet:actions/checkout@v4.2.2
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
       - name: Create initial pre-release tar
         run: .github/scripts/init-pre-release.sh otp_src.tar.gz
       - uses: ./.github/actions/build-base-image
