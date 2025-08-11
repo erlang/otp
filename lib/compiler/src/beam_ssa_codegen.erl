@@ -1177,6 +1177,27 @@ cg_block([#cg_set{op=bs_create_bin,dst=Dst0,args=Args0,anno=Anno}=I,
                end,
     Is = [Line,{bs_create_bin,Fail,Alloc,Live,Unit,Dst,{list,Args}}],
     {Is++TypeInfo,St};
+cg_block([#cg_set{op=bs_create_bin,
+                  anno=#{append_string_to_writable := true}=Anno,
+                  dst=Dst0,args=Args0}=I|Is0],
+         Context, St0) ->
+    %% This instruction originates from a literal patched by the
+    %% beam_ssa_destructive_update pass.
+    {Is1,St} = cg_block(Is0, Context, St0),
+    Args1 = typed_args(Args0, Anno, St0),
+    Fail = {f,0},
+    Line = line(Anno),
+    Alloc = map_get(alloc, Anno),
+    Live = get_live(I),
+    Dst = beam_arg(Dst0, St0),
+    Args = bs_args(Args1),
+    Unit = 256,
+    TypeInfo = [{'%',{var_info,Dst,
+                      [{type,#t_bitstring{size_unit=Unit,
+                                          appendable=true}}]}}],
+    Is2 = [Line,{bs_create_bin,Fail,Alloc,Live,Unit,Dst,{list,Args}}],
+    Is = Is2 ++ TypeInfo ++ Is1,
+    {Is,St};
 cg_block([#cg_set{op=bs_start_match,
                   dst=Ctx0,
                   args=[#b_literal{val=new},Bin0]}=I,
