@@ -38,7 +38,7 @@ source code of Erlang/OTP:
 - zstd (`erts/emulator/zstd`)
 - others
 
-The Erlang/OTP project provides source SBOMs starting with OTP-28. Below we detail
+The Erlang/OTP project provides source SBOMs starting with OTP 28. Below we detail
 structure of the source SBOM and the steps necessary to run yourself the generation of the Erlang/OTP source SBOM.
 
 ## Source SBOM Structure And General Understanding
