@@ -98,15 +98,21 @@ The source SBOM can be seen as a tree data structure.
   },
   ```
 
-- All Erlang/OTP application SPDX packages are named with the prefix `SPDXRef-otp-<appname>`. Erlang/OTP SPDX packages contain two leaves: the documentation (prefixed as `SPDXRef-otp-<appname>-documentation`) and the tests (prefixed as `SPDXRef-otp-<appname>-test`). We use `wx` as a running example to explain the package structure in the SPDX SBOM, where Erlang/OTP applications :
-  - the `wx` application exists in the SBOM as `SPDXRef-otp-wx` and contains (as leaves) the packages `SPDXRef-otp-wx-documentation` and `SPDXRef-otp-wx-test`,
+- All Erlang/OTP application SPDX packages are named with the prefix
+  `SPDXRef-otp-<appname>`. `<appname>` represents the name of an Erlang
+  application, where the value is the name of the Erlang application with the
+  underscores `_` dropped, e.g., `common_test` becomes `commontest`.
+  
+- Application packages have at least two sub packages. One for tests and one for docs.   
+
+  The documentation and the tests packages add a suffix to the `SPDXRef-otp-<appname>`, namely `documentation` and `test`.
+  We use `wx` as a running example to explain the package structure in the SPDX SBOM, where Erlang/OTP applications:
   - `SPDXRef-otp-wx-documentation` contains all documentation about `wx`, and
   - `SPDXRef-otp-wx-test` contains all tests about `wx`, and `SPDXRef-otp-wx` contains the source code of the `wx` application.
 
   ```json
   {
       "SPDXID": "SPDXRef-otp-wx",                                   <------- WX PACKAGE
-      "comment": " vendor package",                                 <------- IDENTIFIES VENDOR PACKAGES
       "downloadLocation": "https://github.com/erlang/otp/releases",
       "externalRefs": [ ... ],
       "filesAnalyzed": true,
@@ -136,7 +142,19 @@ The source SBOM can be seen as a tree data structure.
   }
   ```
 
-- To remove non-needed applications from your SBOM, remove the first level packages (Erlang/OTP applications) that are not needed, including all of their transitive dependencies (other packages reachable from them), as well as all files reachable from these packages. For example, to remove the application `wx`, one must remove the package `SPDXRef-otp-wx`, `SPDXRef-otp-wx-documentation`, and `SPDXRef-otp-wx-test`, and all the files that they reference (including also [relationship items](https://spdx.github.io/spdx-spec/v2.3/relationships-between-SPDX-elements/)). In most ocassions, you may want to remove first level Erlang/OTP applications and keep first level vendor dependencies (identified by comment "vendor dependency" in the SPDX package). The reason for keeping first level vendor dependencies is that those include Erlang/OTP building scripts.
+- Application packages have the following fields:
+  - `name` which represents the Erlang/OTP application name, e.g., `common_test`, `erts`, etc,
+    and/or the application name with the suffix `documentation` or `test`, e.g., `common_test-test` and `common_test-documentation`.
+  - `copyrightText` includes the copyright of all the files under the given package.
+  - `downloadLocation` specifies where the package can be downloaded from.
+  - `versionInfo` specifies the version of the application, which in case of documentation or test
+     packages, it refers to the top-level application. For example, the `wx` package has `versionInfo` equals to `2.5.1` and its corresponding `wx-documentation` and `wx-test` packages will have the same `versionInfo`, as this is the version of the package.
+  - `licenseInfoFromFiles` contains the list of licenses found in the files that belong to the given package.
+  - for other clarications, please check the SPDX 2.2 standard.
+
+- The application package, application test package, and the application documentation package may all in turn contain one or more vendor packages. An example of this is the package `SPDXRef-otp-erts` who contains other packages, such as `SPDXRef-otp-erts-asmjit`.
+
+- To remove non-needed applications from your SBOM, remove the first level packages (Erlang/OTP applications) that are not needed, including all of their transitive dependencies (other packages reachable from them), as well as all files reachable from these packages. For example, to remove the application `wx`, one must remove the package `SPDXRef-otp-wx`, `SPDXRef-otp-wx-documentation`, and `SPDXRef-otp-wx-test`, and all the files that they reference (including also [relationship items](https://spdx.github.io/spdx-spec/v2.3/relationships-between-SPDX-elements/)). In most ocassions, you may want to remove first level Erlang/OTP applications and keep first level vendor dependencies (identified by comment "vendor package" in the SPDX package). The reason for keeping first level vendor dependencies is that those include Erlang/OTP building scripts.
 
   Below we show how the `wx` packages are linked between them and against the root package, `"SPDXRef-Project-OTP"`.
   In this particular case, `wx` does not have any more relationships. But Erlang/OTP applications have dependencies
