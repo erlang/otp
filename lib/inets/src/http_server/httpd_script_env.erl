@@ -44,6 +44,8 @@
 %%
 %% Description: Creates a list of cgi/esi environment variables and
 %% there values.
+%%
+%% Note: "PROXY" header/variable is skipped because of CVE-2016-1000107
 %%--------------------------------------------------------------------------
 create_env(ScriptType, ModData, ScriptElements) ->
     create_basic_elements(ScriptType, ModData) 
@@ -152,7 +154,7 @@ create_http_header_elements(ScriptType, [{Name, Value} | Headers], Acc, OtherAcc
   when is_list(Value) ->
     try http_env_element(ScriptType, Name, Value) of
         skipped ->
-            create_http_header_elements(ScriptType, Headers, Acc, [OtherAcc]);
+            create_http_header_elements(ScriptType, Headers, Acc, OtherAcc);
         Element ->
             create_http_header_elements(ScriptType, Headers, [Element | Acc],
                                        OtherAcc)
