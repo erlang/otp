@@ -653,6 +653,7 @@ get_asn1_module('Attribute') -> 'PKCS-10';
 %% CryptographicMessageSyntax RFC 5652
 get_asn1_module('ContentInfo') -> 'CryptographicMessageSyntax-2009';
 get_asn1_module('SignedData') -> 'CryptographicMessageSyntax-2009';
+get_asn1_module('SignedAttributes') -> 'CryptographicMessageSyntax-2009';
 get_asn1_module('EncapsulatedContentInfo') -> 'CryptographicMessageSyntax-2009';
 get_asn1_module('SignerInfo') -> 'CryptographicMessageSyntax-2009';
 get_asn1_module('EnvelopedData') -> 'CryptographicMessageSyntax-2009';
