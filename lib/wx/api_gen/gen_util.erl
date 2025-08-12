@@ -221,13 +221,19 @@ halt(Reason) ->
 	    gen_util:halt(Reason)
     end.
 
+erl_gl_copyright() ->
+    erl_copyright_template("Apache-2.0 AND SGI-B-2.0").
+
 erl_copyright() ->
+    erl_copyright("Apache-2.0").
+
+erl_copyright_template(License) ->
     StartYear = start_year(get(current_class)),
     {CurrentYear,_,_}   = erlang:date(),
     w("%%~n",[]),
     w("%% %CopyrightBegin%
     w("%%
-    w("%% SPDX-License-Identifier: Apache-2.0~n",[]),
+    w("%% SPDX-License-Identifier: ~n",[License]),
     w("%%~n",[]),
     w("%% Copyright Ericsson AB ~p-~p. All Rights Reserved.~n",
       [StartYear, CurrentYear]),
