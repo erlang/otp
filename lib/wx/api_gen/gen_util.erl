@@ -227,6 +227,9 @@ erl_gl_copyright() ->
 erl_copyright() ->
     erl_copyright("Apache-2.0").
 
+erl_wx_copyright() ->
+    erl_copyright("Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3").
+
 erl_copyright_template(License) ->
     StartYear = start_year(get(current_class)),
     {CurrentYear,_,_}   = erlang:date(),
