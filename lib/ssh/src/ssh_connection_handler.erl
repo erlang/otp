@@ -2187,13 +2187,11 @@ update_inet_buffers(Socket) ->
 %%%----------------------------------------------------------------
 %%% Keep-alive
 
-%% @doc Reset the last_alive timer on #data{ssh_params=#ssh{}} record
-%% @private
+%% Reset the last_alive timer on #data{ssh_params=#ssh{}} record
 reset_alive(D = #data{ssh_params = Ssh}) ->
     D#data{ssh_params = reset_alive_ssh_params(Ssh)}.
 
-%% @doc Update #data.ssh_params last_alive on an incoming SSH message
-%% @private
+%% Update #data.ssh_params last_alive on an incoming SSH message
 reset_alive_ssh_params(SSH = #ssh{alive_interval = AliveInterval})
   when is_integer(AliveInterval) ->
     Now = erlang:monotonic_time(milli_seconds),
@@ -2202,7 +2200,7 @@ reset_alive_ssh_params(SSH = #ssh{alive_interval = AliveInterval})
 reset_alive_ssh_params(SSH) ->
     SSH.
 
-%% @doc Returns a pair of {TriggerFlag, Actions} where trigger flag indicates that
+%% Returns a pair of {TriggerFlag, Actions} where trigger flag indicates that
 %% the timeout has been triggered already and it is time to disconnect, and
 %% Actions may contain a new timeout action to check for the timeout again.
 get_next_alive_timeout(#ssh{alive_interval = AliveInterval,
@@ -2227,7 +2225,6 @@ triggered_alive(StateName, D0 = #data{},
     Details = "Alive timeout triggered",
     {Shutdown, D} = ?send_disconnect(?SSH_DISCONNECT_CONNECTION_LOST, Details, StateName, D0),
     {stop, Shutdown, D};
-
 triggered_alive(_StateName, Data, _Ssh = #ssh{alive_sent_probes = SentProbes}, Actions) ->
     Data1 = send_msg(?KEEP_ALIVE_REQUEST, Data),
     Ssh = Data1#data.ssh_params,
@@ -2237,6 +2234,11 @@ triggered_alive(_StateName, Data, _Ssh = #ssh{alive_sent_probes = SentProbes}, A
                    last_alive_at = Now},
     {keep_state, Data1#data{ssh_params = Ssh1}, Actions}.
 
+%% Keep-alive messages can't be sent during renegotiation, but since this
+%% feature acts as a keep-alive and a timeout, an equivalent timeout is
+%% established for the renegotiation procedure if alive is enabled.
+%% For simplicity the timeout value is derived from alive_interval and
+%% alive_count.
 renegotiation_alive_timeout(#ssh{alive_interval = infinity}) ->
     infinity;
 renegotiation_alive_timeout(#ssh{alive_interval = Interval, alive_count = Count}) ->
