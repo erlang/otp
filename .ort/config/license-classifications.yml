@@ -114,3 +114,6 @@ categorizations:
 - id: "LicenseRef-scancode-w3c-docs-19990405"
   categories:
   - "review"
+- id: "SGI-B-2.0"
+  categories:
+  - "review"
