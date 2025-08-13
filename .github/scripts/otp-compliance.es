@@ -1365,6 +1365,7 @@ generate_vendor_purl(Package) ->
 osv_scan(#{version := Version,
            fail_if_cve := FailIfCVEFound}) ->
     application:ensure_all_started([ssl, inets]),
+    _ = valid_scan_branches(Version),
     OSVQuery = vendor_by_version(Version),
 
     io:format("[OSV] Information sent~n~s~n", [json:format(OSVQuery)]),
@@ -1389,19 +1390,6 @@ osv_scan(#{version := Version,
     %% Result Vulns1 are vulnerabilities not yet covered in OpenVex statements
     Vulns1 = ignore_vex_cves(Version, Vulns),
 
-    %% Exising Vex vulnerabilities that are dealt with in Vulns
-    VexKnownVulns = Vulns -- Vulns1,
-
-    %% OpenVex declared vulnerabilities that exist in Vulns
-    case VexKnownVulns of
-        [] ->
-            %% All Vulns are new and not documented in Vex statements
-            ok;
-        _ ->
-            io:format("Exiting known vulnerabilities already declared in OpenVex files:~n~s~n~n",
-                      [format_vulnerabilities(VexKnownVulns)])
-    end,
-
     %% vulnerability reporting can fail if new issues appear
     FormattedVulns = format_vulnerabilities(Vulns1),
     case FailIfCVEFound of
@@ -1417,6 +1405,8 @@ osv_scan(#{version := Version,
                         [Vulnerability] Contact OTP team.
                         The following CVEs must be checked in OpenVex statements for ~s:
                         ~s
+                        Please follow instructions from:
+                          https://github.com/erlang/otp/blob/master/HOWTO/SBOM.md#vex
                         """,
                     fail(Failure, [Version, FormattedVulns])
             end
@@ -1425,6 +1415,12 @@ osv_scan(#{version := Version,
 ignore_vex_cves(Branch, Vulns) ->
     OpenVex = get_otp_openvex_file(Branch),
     OpenVex1 = format_vex_statements(OpenVex),
+    case OpenVex1 of
+        [] ->
+            [];
+        _ when is_list(OpenVex1) ->
+            io:format("Ignoring vulnerabilities already present in OpenVex file.~n~n")
+    end,
     lists:foldl(fun({Purl, CVEs}, Acc) ->
                         CVEsMatches = proplists:get_all_values(Purl, OpenVex1),
                         case CVEs -- lists:flatten(CVEsMatches) of
@@ -1458,18 +1454,19 @@ get_otp_openvex_file(Branch) ->
     io:format("Checking OpenVex statements in '~s' from~n'~s'...~n", [OpenVexPath, GithubURI]),
 
     ValidURI = "curl -I -Lj --silent " ++ GithubURI ++ " | head -n1 | cut -d' ' -f2",
-    case os:cmd(ValidURI) of
+    case string:trim(os:cmd(ValidURI)) of
         "200" ->
             io:format("OpenVex file found.~n~n"),
             Command = "curl -LJ " ++ GithubURI ++ " --output " ++ OpenVexStr,
             os:cmd(Command),
             decode(OpenVexStr);
-        _ ->
-            io:format("No OpenVex file found.~n~n"),
+        E ->
+            io:format("[~p] No OpenVex file found.~n~n", [E]),
             #{}
     end.
 
 fetch_openvex_filename(Branch) ->
+    _ = valid_scan_branches(Branch),
     Version = case Branch of
                   ~"master" ->
                       %% Master corresponds to possible patched versions of OTP_VERSION-1.
@@ -1480,6 +1477,16 @@ fetch_openvex_filename(Branch) ->
                       <<"otp-", Vers/binary>>
               end,
     vex_path(Version).
+
+valid_scan_branches(Branch) ->
+    case Branch of
+        ~"master" ->
+            ok;
+        <<"maint-", _Vers/binary>> ->
+            ok;
+        _ ->
+            fail("[ERROR] Valid branch names are `master` or `maint-XX`.~n'~s' is neither of them", [Branch])
+    end.
 
 format_vulnerabilities({error, ErrorContext}) ->
     {error, ErrorContext};
@@ -2386,7 +2393,8 @@ calculate_statements(VexStmts, VexTableFile, Branch, VexPath) ->
     VexTable = decode(VexTableFile),
     case maps:get(Branch, VexTable, error) of
         error ->
-            fail("Could not find '~ts' in file '~ts'~n", [Branch, VexTableFile]);
+            fail("Could not find '~ts' in file '~ts'.~nDid you forget to add an entry with name '~ts' into 'openvex.table'?",
+                 [Branch, VexTableFile, Branch]);
         CVEs ->
             calculate_statements_from_cves(VexStmts, CVEs, Branch, VexPath)
     end.

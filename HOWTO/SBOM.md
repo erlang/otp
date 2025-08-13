@@ -246,15 +246,15 @@ Delete the proper sections in [`renovate.json5`](../renovate.json5).
 
 VEX files allow to communicate which vulnerabilities are false positives and which ones are actual vulnerabilities. VEX files are important to explicitly state that some vendor dependencies are (not) vulnerabilities in your software.
 
-Erlang/OTP has chosen to communicate VEX information using the OpenVex implementation.
+Erlang/OTP has chosen to communicate VEX information using the OpenVEX implementation.
 
 ### HOW-TO
 
 Erlang/OTP will maintain VEX files for the latests three releases.
 Because of this, Erlang/OTP will always contain the latest information in the `master` branch.
-Any OpenVex file in other branches is considered outdated.
+Any OpenVEX file in other branches is considered outdated.
 
-The OpenVex files are located in `vex/otp-26.openvex.json`, `vex/otp-27.openvex.json`, and `vex/otp-28.openvex.json` (e.g.). These files are generated from the `make/openvex.table` and the script `.github/scripts/otp-compliance.es`.
+The OpenVEX files are located in `vex/otp-26.openvex.json`, `vex/otp-27.openvex.json`, and `vex/otp-28.openvex.json` (e.g.). These files are generated from the `make/openvex.table` and the script `.github/scripts/otp-compliance.es`.
 
 - `make/openvex.table` contains all known CVEs on a per release basis, with top-level objects for `otp-XX` branches, where each `otp-XX` object has as value a list of dependencies with their CVE and the status.
 
@@ -276,7 +276,7 @@ The OpenVex files are located in `vex/otp-26.openvex.json`, `vex/otp-27.openvex.
       ]
   ```
 
-The `status` corresponds to the possible status from the [OpenVex specification](https://github.com/openvex/spec/blob/main/OPENVEX-SPEC.md).
+The `status` corresponds to the possible status from the [OpenVEX specification](https://github.com/openvex/spec/blob/main/OPENVEX-SPEC.md).
 In case of `not_affected`, a reason must be provided (similar to the [specification](https://github.com/openvex/spec/blob/main/OPENVEX-SPEC.md)).
 **The `make/openvex.table` is considered to be an append-only structure, where one should not do modifications to existing data nor removal**.
 Changes should be done via `.github/scripts/otp-compliance.es` applied on the `openvex.table`. The main reason is to use
@@ -285,7 +285,7 @@ must express range versions for a vulnerability.
 
 ### Further Format Details of openvex.table
 
-The file `openvex.table` is a subset of fields of the OpenVex specification.
+The file `openvex.table` is a subset of fields of the OpenVEX specification.
 The format is a JSON object that contains OTP VEX statements. A top-level valid field is the
 OTP version key (e.g., `otp-29`), followed by a list of objects. Each JSON object can have the following structure.
 
@@ -360,7 +360,7 @@ instead of writing the vendor library and its sha1 vulnerability.
 
 This will only be needed once, but if you need to initialize and provide existing known CVEs, you can use `.github/scripts/otp-compliance.es`.
 
-The first time that we generate OpenVex statements we call `.github/scripts/otp-compliance.es vex init --input-file make/openvex.table -b maint-28`. This init script outputs instructions to execute in the shell, which invokes commands from `vexctl` ([Installation steps here](https://github.com/openvex/vexctl)). You can run and execute the scripts as follows, `.github/scripts/otp-compliance.es vex init --input-file make/openvex.table -b maint-28 | bash` (if you use bash).
+The first time that we generate OpenVEX statements we call `.github/scripts/otp-compliance.es vex init --input-file make/openvex.table -b otp-28`. This init script outputs instructions to execute in the shell, which invokes commands from `vexctl` ([Installation steps here](https://github.com/openvex/vexctl)). You can run and execute the scripts as follows, `.github/scripts/otp-compliance.es vex init --input-file make/openvex.table -b otp-28 | bash` (if you use bash).
 
 The script is idempotent, meaning that running consecutive times the script will not change its input, modulo the time field.
 Because of this, you run this command only for a new OTP release, and for coming CVEs you use `.github/scripts/otp-compliance.es vex run ...`.
@@ -372,14 +372,14 @@ To release VEX files for a new release, OTP-29, add the name branch to `make/ope
 
 ```
 {
-    "maint-29": []
+    "otp-29": []
 }
 ```
 
 Execute the script to create the VEX statements for OTP-29:
 
 ```bash
-.github/scripts/otp-compliance.es vex init --input-file make/openvex.table -b maint-29
+.github/scripts/otp-compliance.es vex init --input-file make/openvex.table -b otp-29
 ```
 
 There are no known vulnerabilities, so this VEX statement can be published as is.
@@ -393,13 +393,13 @@ If it is trivial to know whether we are affected, one could skip this step and a
 To update or insert VEX statements for OTP-29, update the `make/openvex.table` and run:
 
 ```bash
-.github/scripts/otp-compliance.es vex run --input-file make/openvex.table -b maint-29
+.github/scripts/otp-compliance.es vex run --input-file make/openvex.table -b otp-29
 ```
 
 The script will output commands to run (similar to a dry-run). One piped to `bash` they are executed.
 
 ```
-.github/scripts/otp-compliance.es vex run --input-file make/openvex.table -b maint-29 | bash
+.github/scripts/otp-compliance.es vex run --input-file make/openvex.table -b otp-29 | bash
 ```
 
 Add and commit the changes.
@@ -410,7 +410,7 @@ Add and commit the changes.
 
 ```
 {
-    "maint-29": []
+    "otp-29": []
 }
 ```
 
@@ -419,7 +419,7 @@ Lets assume there is `FIKA-2026-BROD` detected in `zlib`. We can issue an `under
 
 ```json
 {
-    "maint-29": [
+    "otp-29": [
           {
               "pkg:github/madler/zlib@04f42ceca40f73e2978b50e93806c2a18c1281fc": "FIKA-2026-BROD",
               "status": "under_investigation"
@@ -431,15 +431,15 @@ Lets assume there is `FIKA-2026-BROD` detected in `zlib`. We can issue an `under
 Execute the command below to update the OpenVEX statements.
               
 ```bash
-.github/scripts/otp-compliance.es vex run --input-file make/openvex.table -b maint-29 | bash
+.github/scripts/otp-compliance.es vex run --input-file make/openvex.table -b otp-29 | bash
 ```
 
-Erlang/OTP should not issue an `under_investigation` unless if it known that it will take some days to understand if Erlang/OTP is vulnerable to a vendor dependency.
+Erlang/OTP should not issue an `under_investigation` unless it is known that it will take some days to understand if Erlang/OTP is vulnerable to a vendor dependency.
 
 #### Add `not_affected`
 
 If the vulnerability under investigation is a false positive, one can convey this information using OpenVEX statements.
-To do this, one has too add a reason for why the vulnerability does not apply. These justifications can be found in the [OpenVEX spec](https://github.com/openvex/spec/blob/main/OPENVEX-SPEC.md#status-justifications).
+To do this, one adds a reason for why the vulnerability does not apply. These justifications can be found in the [OpenVEX spec](https://github.com/openvex/spec/blob/main/OPENVEX-SPEC.md#status-justifications).
 
 **Example**
 
@@ -447,7 +447,7 @@ OTP was investigating the CVE `FIKA-2026-BROD` and found themselves not affected
 
 ```json
 {
-    "maint-29": [
+    "otp-29": [
           {
               "pkg:github/madler/zlib@04f42ceca40f73e2978b50e93806c2a18c1281fc": "FIKA-2026-BROD",
               "status": "under_investigation"
@@ -456,12 +456,12 @@ OTP was investigating the CVE `FIKA-2026-BROD` and found themselves not affected
 }
 ```
 
-One can update the `make/openvex.table` with the reason of code no present, meaning, the component is included
+One can update the `make/openvex.table` with the reason of "code not present", meaning, the component is included
 in OTP but the vulnerable code is not present.
 
 ```json
 {
-    "maint-29": [
+    "otp-29": [
           {
               "pkg:github/madler/zlib@04f42ceca40f73e2978b50e93806c2a18c1281fc": "FIKA-2026-BROD",
               "status": "under_investigation"
@@ -474,10 +474,10 @@ in OTP but the vulnerable code is not present.
 }
 ```
 
-To update the OpenVex statements, run:
+To update the OpenVEX statements, run:
 
 ```bash
-.github/scripts/otp-compliance.es vex run --input-file make/openvex.table -b maint-29 | bash
+.github/scripts/otp-compliance.es vex run --input-file make/openvex.table -b otp-29 | bash
 ```
 
 It produces a new entry in the openvex statements for OTP-29 stating that OTP-29 is not vulnerable to the CVE `FIKA-2026-BROD`. 
@@ -493,7 +493,7 @@ OTP was investigating the CVE `FIKA-2026-BROD` and found themselves affected.
 
 ```json
 {
-    "maint-29": [
+    "otp-29": [
           {
               "pkg:github/madler/zlib@04f42ceca40f73e2978b50e93806c2a18c1281fc": "FIKA-2026-BROD",
               "status": "under_investigation"
@@ -506,7 +506,7 @@ One can write then in `make/openvex.table`:
 
 ```json
 {
-    "maint-29": [
+    "otp-29": [
           {
               "pkg:github/madler/zlib@04f42ceca40f73e2978b50e93806c2a18c1281fc": "FIKA-2026-BROD",
               "status": "under_investigation"
@@ -524,7 +524,7 @@ where the version affected is written as part of the package url `pkg:github/mad
 Execute the command below to update the OpenVEX statements.
               
 ```bash
-.github/scripts/otp-compliance.es vex run --input-file make/openvex.table -b maint-29 | bash
+.github/scripts/otp-compliance.es vex run --input-file make/openvex.table -b otp-29 | bash
 ```
 
 It produces a new entry in the openvex statements for OTP-29.
@@ -532,11 +532,11 @@ One can run multiple times the same statement without introducing each time the 
 (the script makes the operation idempotent).
 
 In some cases, it may be useful to provide additional information to mitigate the vulnerability.
-To specy this, write the `status` value as an object with free text.
+To specify this, write the `status` value as an object with free text.
 
 ```json
 {
-    "maint-29": [
+    "otp-29": [
           {
               "pkg:github/madler/zlib@04f42ceca40f73e2978b50e93806c2a18c1281fc": "FIKA-2026-BROD",
               "status": "under_investigation"
@@ -550,7 +550,7 @@ To specy this, write the `status` value as an object with free text.
 ```
  and run the `otp-compliance` script as stated above.
 
-#### Fixed
+#### Add `fixed`
 
 One can specify that the CVE is fixed in a specific version using the `fixed` keyword in the `make/openvex.table` statements.
 
@@ -560,7 +560,7 @@ OTP was affected the CVE `FIKA-2026-BROD`, reported in `make/openvex.table`.
 
 ```json
 {
-    "maint-29": [
+    "otp-29": [
           {
               "pkg:github/madler/zlib@04f42ceca40f73e2978b50e93806c2a18c1281fc": "FIKA-2026-BROD",
               "status": "under_investigation"
@@ -578,7 +578,7 @@ OTP creates an emergency patch to fix this vendor dependency, and states that th
 
 ```json
 {
-    "maint-29": [
+    "otp-29": [
           {
               "pkg:github/madler/zlib@04f42ceca40f73e2978b50e93806c2a18c1281fc": "FIKA-2026-BROD",
               "status": "under_investigation"
@@ -599,13 +599,13 @@ OTP creates an emergency patch to fix this vendor dependency, and states that th
 Execute the command below to update the OpenVEX statements.
               
 ```bash
-.github/scripts/otp-compliance.es vex run --input-file make/openvex.table -b maint-29 | bash
+.github/scripts/otp-compliance.es vex run --input-file make/openvex.table -b otp-29 | bash
 ```
 
 Alternatively, one can write the affected and fixed versions in a single object for OTP applications.
 
 ```json
-    "maint-29": [
+    "otp-29": [
           {
               "pkg:otp/erts@10.3.4": "FIKA-2026-BROD",
               "status": "under_investigation"
@@ -624,7 +624,7 @@ been at the sha-1 commit hash level.
 
 ```json
 {
-    "maint-29": [
+    "otp-29": [
           {
               "pkg:github/madler/zlib@04f42ceca40f73e2978b50e93806c2a18c1281fc": "FIKA-2026-BROD",
               "status": "under_investigation"
@@ -632,7 +632,7 @@ been at the sha-1 commit hash level.
           {
               "pkg:github/madler/zlib@04f42ceca40f73e2978b50e93806c2a18c1281fc": "FIKA-2026-BROD",
               "status": { "affected": "Mitigation message, update to the next release",
-                          "fixed": ["pkg:github/madler/zlib@04f42ceca40f73e2978b50e93806c2a18c1281fc"]}
+                          "fixed": ["pkg:github/madler/zlib@04f42thiscommitfixesthecve"]}
           }
     ]
 }
