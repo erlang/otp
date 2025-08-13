@@ -630,7 +630,7 @@ decode_z_tagged(Tag,B,Bs,Literals,Types) when (B band 16#08) =:= 0 ->
 	2 -> % fr
 	    decode_fr(Bs);
 	3 -> % allocation list
-	    decode_alloc_list(Bs, Literals);
+	    decode_alloc_list(Bs);
 	4 -> % literal
 	    {{u,LitIndex},RestBs} = decode_arg(Bs),
 	    case gb_trees:get(LitIndex, Literals) of
@@ -666,13 +666,13 @@ decode_fr(Bs) ->
     {{u,Fr},RestBs} = decode_arg(Bs),
     {{fr,Fr},RestBs}.
 
-decode_alloc_list(Bs, Literals) ->
+decode_alloc_list(Bs) ->
     {{u,N},RestBs} = decode_arg(Bs),
-    decode_alloc_list_1(N, Literals, RestBs, []).
+    decode_alloc_list_1(N, RestBs, []).
 
-decode_alloc_list_1(0, _Literals, RestBs, Acc) ->
+decode_alloc_list_1(0, RestBs, Acc) ->
     {{u,{alloc,lists:reverse(Acc)}},RestBs};
-decode_alloc_list_1(N, Literals, Bs0, Acc) ->
+decode_alloc_list_1(N, Bs0, Acc) ->
     {{u,Type},Bs1} = decode_arg(Bs0),
     {{u,Val},Bs} = decode_arg(Bs1),
     Res = case Type of
@@ -680,7 +680,7 @@ decode_alloc_list_1(N, Literals, Bs0, Acc) ->
 	      1 -> {floats,Val};
               2 -> {funs,Val}
 	  end,
-    decode_alloc_list_1(N-1, Literals, Bs, [Res|Acc]).
+    decode_alloc_list_1(N-1, Bs, [Res|Acc]).
 
 %%-----------------------------------------------------------------------
 %% take N bytes from a stream, return {Taken_bytes, Remaining_bytes}
