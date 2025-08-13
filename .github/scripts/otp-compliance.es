@@ -229,7 +229,7 @@ cli() ->
 
                                      Example:
 
-                                     > .github/scripts/otp-compliance.es sbom osv-scan
+                                     > .github/scripts/otp-compliance.es sbom osv-scan --version maint-28
                                      """,
                                  arguments => [ versions_file(), fail_option() ],
                                  handler => fun osv_scan/1}
@@ -1379,31 +1379,27 @@ osv_scan(#{version := Version,
         case Result of
             {ok,{{_, 200,_}, _Headers, Body}} ->
                 #{~"results" := OSVResults} = json:decode(erlang:list_to_binary(Body)),
-                Vulnerabilities = lists:filter(fun (#{~"vulns" := _Ids}) -> true; (_) -> false end, OSVResults),
-                case Vulnerabilities of
-                    [] ->
-                        [];
-                    _ ->
-                        NameVulnerabilities = lists:zip(osv_names(OSVQuery), OSVResults),
-                        lists:filtermap(fun ({NameVersion, #{~"vulns" := Ids}}) ->
-                                                {true, {NameVersion, [Id || #{~"id" := Id} <- Ids]}};
-                                            (_) ->
-                                                false
-                                        end, NameVulnerabilities)
-                end;
+                [{NameVersion, [Id || #{~"id" := Id} <- Ids]} ||
+                    NameVersion <- osv_names(OSVQuery) && #{~"vulns" := Ids} <- OSVResults];
             {error, Error} ->
                 {error, [URI, Error]}
         end,
 
+    %% Substract from Vulns the OpenVex statements that dealt with them
+    %% Result Vulns1 are vulnerabilities not yet covered in OpenVex statements
     Vulns1 = ignore_vex_cves(Version, Vulns),
 
-    %% Vulnerabilities already declared in OpenVex statement can be ignore
-    case Vulns -- Vulns1 of
+    %% Exising Vex vulnerabilities that are dealt with in Vulns
+    VexKnownVulns = Vulns -- Vulns1,
+
+    %% OpenVex declared vulnerabilities that exist in Vulns
+    case VexKnownVulns of
         [] ->
+            %% All Vulns are new and not documented in Vex statements
             ok;
         _ ->
-            io:format("Exiting known vulnerabilities already open:~n~s~n~n",
-                      [format_vulnerabilities(Vulns -- Vulns1)])
+            io:format("Exiting known vulnerabilities already declared in OpenVex files:~n~s~n~n",
+                      [format_vulnerabilities(VexKnownVulns)])
     end,
 
     %% vulnerability reporting can fail if new issues appear
@@ -1464,12 +1460,12 @@ get_otp_openvex_file(Branch) ->
     ValidURI = "curl -I -Lj --silent " ++ GithubURI ++ " | head -n1 | cut -d' ' -f2",
     case os:cmd(ValidURI) of
         "200" ->
-            io:format("File found.~n~n"),
+            io:format("OpenVex file found.~n~n"),
             Command = "curl -LJ " ++ GithubURI ++ " --output " ++ OpenVexStr,
             os:cmd(Command),
             decode(OpenVexStr);
         _ ->
-            io:format("No file found.~n~n"),
+            io:format("No OpenVex file found.~n~n"),
             #{}
     end.
 
