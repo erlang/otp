@@ -96,11 +96,6 @@
 -define(call_disconnectfun_and_log_cond(LogMsg, DetailedText, StateName, D),
         call_disconnectfun_and_log_cond(LogMsg, DetailedText, ?MODULE, ?LINE, StateName, D)).
 
--define(KEEP_ALIVE_REQUEST,
-    {ssh_msg_global_request,"keepalive@example.com", true,<<>>}).
--define(KEEP_ALIVE_RESPONSE_F, {ssh_msg_request_failure}).
--define(KEEP_ALIVE_RESPONSE_S, {ssh_msg_request_success}).
-
 %%====================================================================
 %% Start / stop
 %%====================================================================
@@ -762,9 +757,12 @@ handle_event(internal, #ssh_msg_debug{} = Msg, _StateName, D) ->
     debug_fun(Msg, D),
     keep_state_and_data;
 
-handle_event(_, {conn_msg, Msg}, _, D = #data{ssh_params = Ssh})
-  when Ssh#ssh.awaiting_keepalive_response,
-       (Msg =:= ?KEEP_ALIVE_RESPONSE_F orelse Msg =:= ?KEEP_ALIVE_RESPONSE_S) ->
+handle_event(internal, {conn_msg, #ssh_msg_request_failure{}}, _, D = #data{ssh_params = Ssh})
+  when Ssh#ssh.awaiting_keepalive_response ->
+    {keep_state, D#data{ssh_params = Ssh#ssh{awaiting_keepalive_response = false}}};
+
+handle_event(internal, {conn_msg, #ssh_msg_request_success{}}, _, D = #data{ssh_params = Ssh})
+  when Ssh#ssh.awaiting_keepalive_response ->
     {keep_state, D#data{ssh_params = Ssh#ssh{awaiting_keepalive_response = false}}};
 
 handle_event(internal, {conn_msg,Msg}, StateName, #data{connection_state = Connection0,
@@ -2188,17 +2186,14 @@ update_inet_buffers(Socket) ->
 %%% Keep-alive
 
 %% Reset the last_alive timer on #data{ssh_params=#ssh{}} record
-reset_alive(D = #data{ssh_params = Ssh}) ->
-    D#data{ssh_params = reset_alive_ssh_params(Ssh)}.
-
-%% Update #data.ssh_params last_alive on an incoming SSH message
-reset_alive_ssh_params(SSH = #ssh{alive_interval = AliveInterval})
-  when is_integer(AliveInterval) ->
-    Now = erlang:monotonic_time(milli_seconds),
-    SSH#ssh{alive_sent_probes = 0,
-            last_alive_at     = Now};
-reset_alive_ssh_params(SSH) ->
-    SSH.
+reset_alive(D = #data{ssh_params = Ssh0}) ->
+    case Ssh0 of
+        #ssh{alive_interval = AliveInterval} when is_integer(AliveInterval) ->
+            Now = erlang:monotonic_time(milli_seconds),
+            Ssh = Ssh0#ssh{alive_sent_probes = 0, last_alive_at = Now},
+            D#data{ssh_params = Ssh};
+        _ -> D
+    end.
 
 %% Returns a pair of {TriggerFlag, Actions} where trigger flag indicates that
 %% the timeout has been triggered already and it is time to disconnect, and
@@ -2226,7 +2221,8 @@ triggered_alive(StateName, D0 = #data{},
     {Shutdown, D} = ?send_disconnect(?SSH_DISCONNECT_CONNECTION_LOST, Details, StateName, D0),
     {stop, Shutdown, D};
 triggered_alive(_StateName, Data, _Ssh = #ssh{alive_sent_probes = SentProbes}, Actions) ->
-    Data1 = send_msg(?KEEP_ALIVE_REQUEST, Data),
+    Data1 = send_msg({ssh_msg_global_request,"keepalive@erlang.org", true,<<>>},
+                     Data),
     Ssh = Data1#data.ssh_params,
     Now = erlang:monotonic_time(milli_seconds),
     Ssh1 = Ssh#ssh{alive_sent_probes = SentProbes + 1,

@@ -861,7 +861,7 @@ default(common) ->
             },
 
       alive_params =>
-          #{default => {0, infinity},
+          #{default => {3, infinity},
             chk => fun({AliveCount, AliveIntervalSeconds}) ->
                         check_pos_integer(AliveCount) andalso
                                check_timeout(AliveIntervalSeconds)
