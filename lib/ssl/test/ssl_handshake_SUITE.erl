@@ -93,7 +93,7 @@ init_per_testcase(TC, Config0) when
 	    case is_supported(sha512) of
 		true ->
 		    ssl_test_lib:clean_start(),
-		    %% make rsa certs using oppenssl
+		    %% make rsa certs using openssl
 		    {ok, _} = make_certs:all(proplists:get_value(data_dir, Config0),
 					     proplists:get_value(priv_dir, Config0)),
 		    Config = ssl_test_lib:cert_options(Config0),

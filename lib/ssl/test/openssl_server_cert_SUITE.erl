@@ -159,229 +159,34 @@ end_per_suite(Config) ->
 init_per_group(openssl_server, Config0) ->
     Config = proplists:delete(server_type, proplists:delete(client_type, Config0)),
     [{client_type, erlang}, {server_type, openssl} | Config];
-init_per_group(rsa = Group, Config0) ->
-    Config = ssl_test_lib:make_rsa_cert(Config0),
-    COpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
-    SOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
-    %% Make sure _rsa* suite is chosen by ssl_test_lib:start_server
-    Version = ssl_test_lib:protocol_version(Config),
-    Ciphers = ssl_cert_tests:test_ciphers(fun(dhe_rsa) ->
-                                                  true;
-                                             (ecdhe_rsa) ->
-                                                  true;
-                                             (_) ->
-                                                  false
-                                          end, Version),
-    case Ciphers of
-        [_|_] ->
-            [{cert_key_alg, rsa} |
-             lists:delete(cert_key_alg,
-                          [{client_cert_opts, fun() -> [{ciphers, Ciphers} | COpts] end},
-                           {server_cert_opts, fun() -> SOpts end} |
-                           lists:delete(server_cert_opts,
-                                        lists:delete(client_cert_opts, Config))])];
-        [] ->
-            {skip, {no_sup, Group, Version}}
-    end;
-init_per_group(rsa_1_3 = Group, Config0) ->
-    Config = ssl_test_lib:make_rsa_cert(Config0),
-    COpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
-    SOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
-    %% Make sure _rsa* suite is chosen by ssl_test_lib:start_server
-    Version = ssl_test_lib:protocol_version(Config),
-    Ciphers = ssl_cert_tests:test_ciphers(undefined, Version),
-    case Ciphers of
-        [_|_] ->
-            [{cert_key_alg, rsa} |
-             lists:delete(cert_key_alg,
-                          [{client_cert_opts, fun() -> [{ciphers, Ciphers} | COpts] end},
-                           {server_cert_opts, fun() -> SOpts end} |
-                           lists:delete(server_cert_opts,
-                                        lists:delete(client_cert_opts, Config))])];
-        [] ->
-            {skip, {no_sup, Group, Version}}
-    end;
+init_per_group(openssl_client, Config) ->
+    [{client_type, openssl}, {server_type, erlang} | Config];
+
+init_per_group(Group, Config) when Group == rsa;
+                                    Group == rsa_1_3 ->
+    ssl_cert_tests:rsa_config(Config);
 init_per_group(Alg, Config) when Alg == rsa_pss_rsae;
                                  Alg == rsa_pss_pss ->
-    Supports = crypto:supports(),
-    RSAOpts = ssl_test_lib:ssl_options(rsa_opts, Supports),
-
-    case lists:member(rsa_pkcs1_pss_padding, RSAOpts)
-        andalso lists:member(rsa_pss_saltlen, RSAOpts)
-        andalso lists:member(rsa_mgf1_md, RSAOpts)
-        andalso ssl_test_lib:is_sane_oppenssl_pss(Alg)
-    of
+    case ssl_test_lib:is_sane_openssl_pss(Alg) of
         true ->
-            #{client_config := COpts,
-              server_config := SOpts} = ssl_test_lib:make_rsa_pss_pem(Alg, [], Config, ""),
-            [{cert_key_alg, Alg} |
-             lists:delete(cert_key_alg,
-                          [{client_cert_opts, fun() -> COpts end},
-                           {server_cert_opts, fun() -> SOpts end} |
-                           lists:delete(server_cert_opts,
-                                        lists:delete(client_cert_opts, Config))])];
+            ssl_cert_tests:rsa_pss_config(Alg, Config);
         false ->
-            {skip, "Missing crypto or OpenSSL support"}
+            {skip, "Missing RSA PSS support in OpenSSL stack."}
     end;
-init_per_group(ecdsa = Group, Config0) ->
-    PKAlg = crypto:supports(public_keys),
-    case lists:member(ecdsa, PKAlg) andalso (lists:member(ecdh, PKAlg) orelse
-                                                lists:member(dh, PKAlg))
-        andalso (ssl_test_lib:openssl_ecdsa_suites() =/= [])
-    of
+init_per_group(Group, Config0) when Group == ecdsa;
+                                    Group == ecdsa_1_3 ->
+    case ssl_test_lib:openssl_ecdsa_suites() =/= [] of
         true ->
-            Config = ssl_test_lib:make_ecdsa_cert(Config0),
-            COpts = ssl_test_lib:ssl_options(client_ecdsa_opts, Config),
-            SOpts = ssl_test_lib:ssl_options(server_ecdsa_opts, Config),
-            %% Make sure ecdh* suite is chosen by ssl_test_lib:start_server
-            Version = ssl_test_lib:protocol_version(Config),
-            Ciphers =  ssl_cert_tests:test_ciphers(fun(ecdh_ecdsa) ->
-                                                           true;
-                                                      (ecdhe_ecdsa) ->
-                                                           true;
-                                                      (_) ->
-                                                           false
-                                                   end, Version),
-            case Ciphers of
-                [_|_] ->
-                    [{cert_key_alg, ecdsa} |
-                     lists:delete(cert_key_alg,
-                                  [{client_cert_opts, fun() -> [{ciphers, Ciphers} | COpts] end},
-                                   {server_cert_opts, fun() -> SOpts end} |
-                                   lists:delete(server_cert_opts,
-                                                lists:delete(client_cert_opts, Config))]
-                                 )];
-                        [] ->
-                    {skip, {no_sup, Group, Version}}
-            end;
+            ssl_cert_tests:ecdsa_config(Config0);
         false ->
-            {skip, "Missing EC crypto support"}
-    end;
-init_per_group(ecdsa_1_3 = Group, Config0) ->
-    PKAlg = crypto:supports(public_keys),
-    case lists:member(ecdsa, PKAlg) andalso (lists:member(ecdh, PKAlg) orelse
-                                             lists:member(dh, PKAlg))
-        andalso (ssl_test_lib:openssl_ecdsa_suites() =/= [])
-    of
-        true ->
-            Config = ssl_test_lib:make_ecdsa_cert(Config0),
-            COpts = ssl_test_lib:ssl_options(client_ecdsa_opts, Config),
-            SOpts = ssl_test_lib:ssl_options(server_ecdsa_opts, Config),
-            %% Make sure ecdh* suite is chosen by ssl_test_lib:start_server
-            Version = ssl_test_lib:protocol_version(Config),
-            Ciphers =  ssl_cert_tests:test_ciphers(undefined, Version),
-            case Ciphers of
-                [_|_] ->
-                    [{cert_key_alg, ecdsa} |
-                     lists:delete(cert_key_alg,
-                                  [{client_cert_opts, fun() -> [{ciphers, Ciphers} | COpts] end},
-                                   {server_cert_opts, fun() -> SOpts end} |
-                                   lists:delete(server_cert_opts,
-                                                lists:delete(client_cert_opts, Config))]
-                                 )];
-                        [] ->
-                    {skip, {no_sup, Group, Version}}
-            end;
-        false ->
-            {skip, "Missing EC crypto support"}
+            {skip, "No ECDSA OpenSSL support"}
     end;
 init_per_group(eddsa_1_3, Config0) ->
-    PKAlg = crypto:supports(public_keys),
-    PrivDir = proplists:get_value(priv_dir, Config0),
-    case lists:member(eddsa, PKAlg) andalso (lists:member(ecdh, PKAlg)) of
-        true ->
-            Conf = public_key:pkix_test_data(#{server_chain => #{root => ssl_test_lib:eddsa_conf(),
-                                                                 intermediates => [ssl_test_lib:eddsa_conf()],
-                                                                 peer =>  ssl_test_lib:eddsa_conf()},
-                                               client_chain => #{root => ssl_test_lib:eddsa_conf(),
-                                                                 intermediates => [ssl_test_lib:eddsa_conf()],
-                                                                 peer =>  ssl_test_lib:eddsa_conf()}}),
-            [{server_config, SOpts},
-             {client_config, COpts}] = x509_test:gen_pem_config_files(Conf, filename:join(PrivDir, "client_eddsa"),
-                                                                      filename:join(PrivDir, "server_eddsa")),
-
-            [{cert_key_alg, eddsa} |
-             lists:delete(cert_key_alg,
-                          [{client_cert_opts, fun() -> COpts end},
-                           {server_cert_opts, fun() -> SOpts end} |
-                           lists:delete(server_cert_opts,
-                                        lists:delete(client_cert_opts, Config0))]
-                         )];
-        false ->
-            {skip, "Missing EC crypto support"}
-    end;
+    ssl_cert_tests:eddsa_config(Config0);
 init_per_group(Group, Config) when Group == mldsa ->
-    PKAlgs = crypto:supports(public_keys),
-    case lists:member(mldsa44, PKAlgs)
-        andalso lists:member(mldsa65, PKAlgs)
-        andalso lists:member(mldsa87, PKAlgs) of
-        true ->
-            DataDir = proplists:get_value(data_dir, Config),
-            PrivDir = proplists:get_value(priv_dir, Config),
-            [Keys1, Keys2, Keys3] = ssl_cert_tests:mldsa_keys(DataDir),
-            Conf = #{server_chain =>
-                         #{root => [Keys3],
-                           intermediates => [[Keys2]],
-                           peer =>  [Keys1]},
-                     client_chain => #{root => [Keys1],
-                               intermediates => [[Keys2]],
-                               peer =>  [Keys3]
-                                      }},
-            GenCertData =
-                public_key:pkix_test_data(Conf),
-            Version = proplists:get_value(version, Config),
-            ClientFileBase = filename:join(PrivDir, "mldsa"),
-            ServerFileBase = filename:join(PrivDir, "mldsa"),
-            [{server_config, ServerConf},
-             {client_config, ClientConf}] =
-                x509_test:gen_pem_config_files(GenCertData, ClientFileBase, ServerFileBase),
-            [{cert_key_alg, {mldsa, [[Keys1], [Keys2], [Keys3]]}},
-             {cert_key_alg, mldsa},
-             {extra_client, ssl_test_lib:sig_algs(mldsa, Version)},
-             {extra_server, ssl_test_lib:sig_algs(mldsa, Version)} |
-             lists:delete(cert_key_alg,
-                          [{client_cert_opts, fun() -> ClientConf end},
-                           {server_cert_opts, fun() -> ServerConf end} |
-                           lists:delete(server_cert_opts,
-                                        lists:delete(client_cert_opts, Config))])];
-        false ->
-            {skip, "Missing ML-DSA crypto support"}
-    end;
-init_per_group(dsa = Group, Config0) ->
-    PKAlg = crypto:supports(public_keys),
-    case lists:member(dss, PKAlg) andalso lists:member(dh, PKAlg) andalso
-        (ssl_test_lib:openssl_dsa_suites() =/= [])
-        andalso (ssl_test_lib:check_sane_openssl_dsa(Config0))
-    of
-        true ->
-            Config = ssl_test_lib:make_dsa_cert(Config0),
-            COpts = ssl_test_lib:ssl_options(client_dsa_opts, Config),
-            SOpts = ssl_test_lib:ssl_options(server_dsa_opts, Config),
-            %% Make sure dhe_dss* suite is chosen by ssl_test_lib:start_server
-            Version = ssl_test_lib:protocol_version(Config),
-            Ciphers =  ssl_cert_tests:test_ciphers(fun(dh_dss) ->
-                                                           true;
-                                                      (dhe_dss) ->
-                                                           true;
-                                                      (_) ->
-                                                           false
-                                                   end, Version),
-            case Ciphers of
-                [_|_] ->
-                    [{cert_key_alg, dsa} |
-                     lists:delete(cert_key_alg,
-                                  [{client_cert_opts, fun() -> [{ciphers, Ciphers} | COpts]  ++
-                                                                   ssl_test_lib:sig_algs(dsa, Version)
-                                                      end},
-                                   {server_cert_opts, fun() -> SOpts end} |
-                                   lists:delete(server_cert_opts,
-                                                lists:delete(client_cert_opts, Config))])];
-                [] ->
-                    {skip, {no_sup, Group, Version}}
-            end;
-        false ->
-            {skip, "Missing DSS crypto support"}
-    end;
+    ssl_cert_tests:mldsa_config(Config);
+init_per_group(dsa, Config) ->
+    ssl_cert_tests:openssl_dsa_config(Config);
 init_per_group(GroupName, Config) ->
     case ssl_test_lib:is_protocol_version(GroupName) of
         true  ->

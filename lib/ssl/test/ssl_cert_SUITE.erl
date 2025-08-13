@@ -186,7 +186,7 @@ groups() ->
           [signature_algorithms_bad_curve_secp256r1,
            signature_algorithms_bad_curve_secp384r1,
            signature_algorithms_bad_curve_secp521r1]},
-     {eddsa_1_3, [parallel], all_version_tests() ++ tls_1_3_tests()},
+     {eddsa, [parallel], all_version_tests() ++ tls_1_3_tests()},
      {mldsa, [parallel], all_version_tests() ++ tls_1_3_tests()}
     ].
 
@@ -205,7 +205,7 @@ tls_1_2_protocol_groups() ->
 tls_1_3_protocol_groups() ->
     [{group, rsa_1_3},
      {group, ecdsa_1_3},
-     {group, eddsa_1_3},
+     {group, eddsa},
      {group, rsa_pss_rsae_1_3},
      {group, rsa_pss_pss_1_3},
      {group, mldsa}
@@ -284,7 +284,7 @@ all_version_tests() ->
     ].
 
 partial_chain_with_ecdsa() ->
-    %% Consept of partial chain is not dependent
+    %% Concept of partial chain is not dependent
     %% of cert type, introp test it with ecdsa.
     [client_auth_use_partial_chain,
      client_auth_do_not_use_partial_chain,
@@ -317,179 +317,31 @@ init_per_group(GroupName, Config) ->
             do_init_per_group(GroupName, Config)
     end.
 
+do_init_per_group(openssl_client, Config) ->
+    [{client_type, openssl}, {server_type, erlang} | Config];
 do_init_per_group(Group, Config) when Group == mldsa ->
-    PKAlgs = crypto:supports(public_keys),
-    case lists:member(mldsa44, PKAlgs)
-        andalso lists:member(mldsa65, PKAlgs)
-        andalso lists:member(mldsa87, PKAlgs) of
-        true ->
-            DataDir = proplists:get_value(data_dir, Config),
-            PrivDir = proplists:get_value(priv_dir, Config),
-            [Keys1, Keys2, Keys3] = ssl_cert_tests:mldsa_keys(DataDir),
-            Conf = #{server_chain =>
-                         #{root => [Keys3],
-                           intermediates => [[Keys2]],
-                           peer =>  [Keys1]},
-                     client_chain => #{root => [Keys1],
-                                       intermediates => [[Keys2]],
-                                       peer =>  [Keys3]
-                                      }},
-            GenCertData =
-                public_key:pkix_test_data(Conf),
-            Version = proplists:get_value(version, Config),
-            ClientFileBase = filename:join(PrivDir, "mldsa"),
-            ServerFileBase = filename:join(PrivDir, "mldsa"),
-            [{server_config, ServerConf},
-             {client_config, ClientConf}] =
-                x509_test:gen_pem_config_files(GenCertData, ClientFileBase, ServerFileBase),
-            [{cert_key_alg, {mldsa, [[Keys1], [Keys2], [Keys3]]}},
-             {cert_key_alg, mldsa},
-             {extra_client, ssl_test_lib:sig_algs(mldsa, Version)},
-             {extra_server, ssl_test_lib:sig_algs(mldsa, Version)} |
-             lists:delete(cert_key_alg,
-                          [{client_cert_opts, fun() -> ClientConf end},
-                           {server_cert_opts, fun() -> ServerConf end} |
-                           lists:delete(server_cert_opts,
-                                        lists:delete(client_cert_opts, Config))])];
-        false ->
-            {skip, "Missing ML-DSA crypto support"}
-    end;
-do_init_per_group(Group, Config0) when Group == rsa;
-                                       Group == rsa_1_3 ->
-    Config1 = ssl_test_lib:make_rsa_cert(Config0),
-    Config = ssl_test_lib:make_rsa_1024_cert(Config1),
-    COpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
-    SOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
-    Version = proplists:get_value(version, Config),
-    [{cert_key_alg, rsa},
-     {extra_client, ssl_test_lib:sig_algs(rsa, Version)},
-     {extra_server, ssl_test_lib:sig_algs(rsa, Version)} |
-     lists:delete(cert_key_alg,
-                  [{client_cert_opts, fun() -> COpts end},
-                   {server_cert_opts, fun() -> SOpts end} |
-                   lists:delete(server_cert_opts,
-                                lists:delete(client_cert_opts, Config))])];
+    ssl_cert_tests:mldsa_config(Config);
+do_init_per_group(Group, Config) when Group == rsa;
+                                      Group == rsa_1_3 ->
+    ssl_cert_tests:rsa_config(Config);
 do_init_per_group(Alg, Config) when Alg == rsa_pss_rsae;
                                     Alg == rsa_pss_pss ->
-    Supports = crypto:supports(),
-    RSAOpts = proplists:get_value(rsa_opts, Supports),
-    Version = ssl_test_lib:n_version(proplists:get_value(version, Config)),
-
-    case lists:member(rsa_pkcs1_pss_padding, RSAOpts)
-        andalso lists:member(rsa_pss_saltlen, RSAOpts)
-        andalso lists:member(rsa_mgf1_md, RSAOpts) of
-        true ->
-            #{client_config := COpts,
-              server_config := SOpts} = ssl_test_lib:make_rsa_pss_pem(rsa_alg(Alg), [], Config, ""),
-            [{cert_key_alg, Alg},
-             {extra_client, ssl_test_lib:sig_algs(Alg, Version)},
-             {extra_server, ssl_test_lib:sig_algs(Alg, Version)} |
-             lists:delete(cert_key_alg,
-                          [{client_cert_opts, fun() -> COpts end},
-                           {server_cert_opts, fun() -> SOpts end} |
-                           lists:delete(server_cert_opts,
-                                        lists:delete(client_cert_opts, Config))])];
-        false ->
-            {skip, "Missing EC crypto support"}
-    end;
+    ssl_cert_tests:rsa_pss_config(Alg, Config);
 do_init_per_group(Alg, Config) when Alg == rsa_pss_rsae_1_3;
                                     Alg == rsa_pss_pss_1_3 ->
-
-    Supports = crypto:supports(),
-    RSAOpts = proplists:get_value(rsa_opts, Supports),
-    
-    case lists:member(rsa_pkcs1_pss_padding, RSAOpts) 
-        andalso lists:member(rsa_pss_saltlen, RSAOpts) 
-        andalso lists:member(rsa_mgf1_md, RSAOpts) of
-        true ->
-            #{client_config := COpts,
-              server_config := SOpts} = ssl_test_lib:make_rsa_pss_pem(rsa_alg(Alg), [], Config, ""),
-            [{cert_key_alg, rsa_alg(Alg)} |
-             lists:delete(cert_key_alg,
-                          [{client_cert_opts, fun() -> COpts end},
-                           {server_cert_opts, fun() -> SOpts end} |
-                           lists:delete(server_cert_opts,
-                                        lists:delete(client_cert_opts, Config))])];
-        false ->
-            {skip, "Missing EC crypto support"}
-    end;
-do_init_per_group(Group, Config0) when Group == ecdsa;
-                                       Group == ecdsa_1_3 ->
-
-    PKAlg = crypto:supports(public_keys),
-    case lists:member(ecdsa, PKAlg) andalso (lists:member(ecdh, PKAlg) orelse lists:member(dh, PKAlg)) of
-        true ->
-            Config = ssl_test_lib:make_ecdsa_cert(Config0),
-            COpts = ssl_test_lib:ssl_options(client_ecdsa_verify_opts, Config),
-            SOpts = ssl_test_lib:ssl_options(server_ecdsa_opts, Config),
-            [{cert_key_alg, ecdsa} |
-             lists:delete(cert_key_alg,
-                          [{client_cert_opts, fun() -> COpts end},
-                           {server_cert_opts, fun() -> SOpts end} |
-                           lists:delete(server_cert_opts,
-                                        lists:delete(client_cert_opts, Config))]
-                         )];
-        false ->
-            {skip, "Missing EC crypto support"}
-    end;
-do_init_per_group(eddsa_1_3, Config0) ->
-    PKAlg = crypto:supports(public_keys),
-    PrivDir = proplists:get_value(priv_dir, Config0),
-    case lists:member(eddsa, PKAlg) andalso (lists:member(ecdh, PKAlg)) of
-        true ->
-            Conf = public_key:pkix_test_data(#{server_chain => #{root => ssl_test_lib:eddsa_conf(),
-                                                                 intermediates => [ssl_test_lib:eddsa_conf()],
-                                                                 peer =>  ssl_test_lib:eddsa_conf()},
-                                               client_chain => #{root => ssl_test_lib:eddsa_conf(),
-                                                                 intermediates => [ssl_test_lib:eddsa_conf()],
-                                                                 peer =>  ssl_test_lib:eddsa_conf()}}),
-            [{server_config, SOpts},
-             {client_config, COpts}] = x509_test:gen_pem_config_files(Conf, filename:join(PrivDir, "client_eddsa"),
-                                                                      filename:join(PrivDir, "server_eddsa")),
-
-            [{cert_key_alg, eddsa} |
-             lists:delete(cert_key_alg,
-                          [{client_cert_opts, fun() -> COpts end},
-                           {server_cert_opts, fun() -> SOpts end} |
-                           lists:delete(server_cert_opts,
-                                        lists:delete(client_cert_opts, Config0))]
-                         )];
-        false ->
-            {skip, "Missing EC crypto support"}
-    end;
-do_init_per_group(dsa = Alg, Config0) ->
-    PKAlg = crypto:supports(public_keys),
-    Version = ssl_test_lib:n_version(proplists:get_value(version, Config0)),
-    case lists:member(dss, PKAlg) andalso lists:member(dh, PKAlg) of
-        true ->
-            Config = ssl_test_lib:make_dsa_cert(Config0),
-            COpts = ssl_test_lib:ssl_options(client_dsa_opts, Config),
-            SOpts = ssl_test_lib:ssl_options(server_dsa_opts, Config),
-            ShaDSA = case Version of
-                         {3, 3} ->
-                             [{signature_algs, [{sha, dsa}]}];
-                         _  ->
-                             []
-                     end,
-            [{cert_key_alg, dsa},
-             {extra_client, ssl_test_lib:sig_algs(Alg, Version) ++
-                  [{ciphers, ssl_test_lib:dsa_suites(Version)}] ++ ShaDSA},
-             {extra_server, ssl_test_lib:sig_algs(Alg, Version) ++
-                  [{ciphers, ssl_test_lib:dsa_suites(Version)}] ++ ShaDSA} |
-             lists:delete(cert_key_alg,
-                          [{client_cert_opts, fun() -> COpts end},
-                           {server_cert_opts, fun() -> SOpts end} |
-                           lists:delete(server_cert_opts,
-                                        lists:delete(client_cert_opts, Config))])];
-        false ->
-            {skip, "Missing DSS crypto support"}
-    end;
+    ssl_cert_tests:rsa_pss_config(rsa_alg(Alg), Config);
+do_init_per_group(Group, Config) when Group == ecdsa;
+                                      Group == ecdsa_1_3 ->
+    ssl_cert_tests:ecdsa_config(Config);
+do_init_per_group(eddsa, Config0) ->
+    ssl_cert_tests:eddsa_config(Config0);
+do_init_per_group(dsa, Config) ->
+    ssl_cert_tests:dsa_config(Config);
 do_init_per_group(_Group, Config) ->
     Config.
 
 end_per_group(GroupName, Config) ->
   ssl_test_lib:end_per_group(GroupName, Config).
-
 
 init_per_testcase(mlkem_groups, Config) ->
    ssl_cert_tests:support_kems(Config);
@@ -1599,6 +1451,8 @@ rsa_alg(rsa_pss_rsae_1_3) ->
     rsa_pss_rsae;
 rsa_alg(rsa_pss_pss_1_3) ->
     rsa_pss_pss;
+rsa_alg(rsa_1_3) ->
+    rsa;
 rsa_alg(Atom) ->
     Atom.
 

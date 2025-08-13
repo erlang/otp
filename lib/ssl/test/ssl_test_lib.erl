@@ -211,9 +211,9 @@
          kill_openssl/0,
          openssl_allows_server_renegotiate/1,
          openssl_maxfraglen_support/0,
-         is_sane_oppenssl_pss/1,
+         is_sane_openssl_pss/1,
          consume_port_exit/1,
-         is_sane_oppenssl_client/0,
+         is_sane_openssl_client/0,
          openssl_sane_dtls_session_reuse/0,
          sufficient_crypto_support/1,
          openssl_sane_dtls_alpn/0,
@@ -406,7 +406,7 @@ init_per_group_openssl(GroupName, Config0) ->
 		true ->
 		    [{version, GroupName}|init_protocol_version(GroupName, Config)];
 		false ->
-		    {skip, "Missing OpenSSL support for" ++ atom_to_list(GroupName)}
+		    {skip, "Missing OpenSSL support for " ++ atom_to_list(GroupName)}
 	    end;
         CryptoSupport ->
             ssl:start(),
@@ -3340,7 +3340,7 @@ is_ipv6_supported() ->
     end.
 
 
-is_sane_oppenssl_client() ->
+is_sane_openssl_client() ->
     [{_,_, Bin}]  = crypto:info_lib(), 
     case binary_to_list(Bin) of
 	"OpenSSL 0.9" ++ _ -> 
@@ -3349,7 +3349,7 @@ is_sane_oppenssl_client() ->
 	    true
     end.
 
-is_sane_oppenssl_pss(rsa_pss_pss) ->
+is_sane_openssl_pss(rsa_pss_pss) ->
     case portable_cmd("openssl",["version"]) of
         "OpenSSL 3" ++ _ ->
             true;
@@ -3358,7 +3358,7 @@ is_sane_oppenssl_pss(rsa_pss_pss) ->
         _ ->
             false
     end;
-is_sane_oppenssl_pss(rsa_pss_rsae) ->
+is_sane_openssl_pss(rsa_pss_rsae) ->
     case portable_cmd("openssl",["version"]) of
         "OpenSSL 3" ++ _ ->
             true;
