@@ -111,6 +111,28 @@
 -define('nullOctetString', <<>>).
 -define('nullParameters', 'NULL').
 
+
+%%%
+%%% ML-DSA
+%%%
+-record('ML-DSAPrivateKey',
+        {
+         algorithm :: mldsa44 | mldsa65 | mldsa87,
+         seed = <<>>   :: binary(),
+         expandedkey = <<>> :: binary()
+        }).
+
+-record('ML-DSAPublicKey',
+        {
+         algorithm :: mldsa44 | mldsa65 | mldsa87,
+         key  :: binary()
+        }).
+
+-define('id-ml-dsa-44', {2,16,840,1,101,3,4,3,17}).
+-define('id-ml-dsa-65', {2,16,840,1,101,3,4,3,18}).
+-define('id-ml-dsa-87', {2,16,840,1,101,3,4,3,19}).
+
+
 %%%
 %%% DSA
 %%%

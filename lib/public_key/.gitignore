@@ -21,6 +21,8 @@ src/EnrollmentMessageSyntax-2009.erl
 src/EnrollmentMessageSyntax-2009.hrl
 src/ECPrivateKey.erl
 src/ECPrivateKey.hrl
+src/X509-ML-DSA-2025.erl
+src/X509-ML-DSA-2025.hrl
 src/OCSP-2024-08.erl
 src/OCSP-2024-08.hrl
 src/OTP-PKIX.erl
