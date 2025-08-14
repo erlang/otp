@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% SPDX-License-Identifier: Apache-2.0
+%% SPDX-License-Identifier: Apache-2.0 AND SGI-B-2.0
 %%
 %% Copyright Ericsson AB 2008-2025. All Rights Reserved.
 %%
