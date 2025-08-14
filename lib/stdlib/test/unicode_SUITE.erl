@@ -38,6 +38,7 @@
 	 ex_binaries_errors_utf32_big/1,
          normalize/1,
          huge_illegal_code_points/1,
+         bin_is_7bit/1,
          error_info/1
         ]).
 
@@ -53,6 +54,7 @@ all() ->
      normalize,
      {group,binaries_errors},
      huge_illegal_code_points,
+     bin_is_7bit,
      error_info].
 
 groups() -> 
@@ -1409,6 +1411,20 @@ make_unaligned(Bin0) when is_binary(Bin0) ->
     Sz = byte_size(Bin0),
     <<0:3,Bin:Sz/binary,31:5>> = id(Bin1),
     Bin.
+
+bin_is_7bit(_Config) ->
+    %% This BIF is undocumented, but the unicode module uses it to
+    %% avoid unnecessary conversion work.
+    true = do_bin_is_7bit(~""),
+    true = do_bin_is_7bit(~"abc"),
+    false = do_bin_is_7bit(~"björn"),
+    false = unicode:bin_is_7bit(<<0:7>>),
+    ok.
+
+do_bin_is_7bit(Bin) ->
+    Res = unicode:bin_is_7bit(Bin),
+    Res = unicode:bin_is_7bit(make_unaligned(Bin)),
+    Res.
 
 error_info(_Config) ->
     L = [{characters_to_binary, [abc]},
