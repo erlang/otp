@@ -211,9 +211,9 @@
          kill_openssl/0,
          openssl_allows_server_renegotiate/1,
          openssl_maxfraglen_support/0,
-         is_sane_oppenssl_pss/1,
+         is_sane_openssl_pss/1,
          consume_port_exit/1,
-         is_sane_oppenssl_client/0,
+         is_sane_openssl_client/0,
          openssl_sane_dtls_session_reuse/0,
          sufficient_crypto_support/1,
          openssl_sane_dtls_alpn/0,
@@ -406,7 +406,7 @@ init_per_group_openssl(GroupName, Config0) ->
 		true ->
 		    [{version, GroupName}|init_protocol_version(GroupName, Config)];
 		false ->
-		    {skip, "Missing openssl support"}
+		    {skip, "Missing OpenSSL support for " ++ atom_to_list(GroupName)}
 	    end;
         CryptoSupport ->
             ssl:start(),
@@ -477,6 +477,8 @@ sig_algs(Alg, {254,_} = Version) ->
 sig_algs(Alg, Version) ->
     do_sig_algs(Alg, Version).
 
+do_sig_algs(mldsa, Version) when ?TLS_GTE(Version, ?TLS_1_3) ->
+    [{signature_algs, [mldsa44, mldsa65, mldsa87]}];
 do_sig_algs(rsa_pss_pss, _) ->
     [{signature_algs, [rsa_pss_pss_sha512,
                        rsa_pss_pss_sha384,
@@ -1820,7 +1822,9 @@ chain_spec(_Role, dsa, _) ->
     Digest = {digest, appropriate_sha(crypto:supports())},
     [[Digest, {key, hardcode_dsa_key(1)}],
      [Digest, {key, hardcode_dsa_key(2)}],
-     [Digest, {key, hardcode_dsa_key(3)}]].
+     [Digest, {key, hardcode_dsa_key(3)}]];
+chain_spec(_, {mldsa, Keys} , _) ->
+    Keys.
 
 merge_chain_spec([], [], Acc)->
     lists:reverse(Acc);
@@ -2408,7 +2412,6 @@ start_client(openssl, Port, ClientOpts, Config) ->
     Args0 =  case Groups0 of
                 undefined ->
                      ["s_client",
-                      "-verify", "2",
                       "-connect", hostname_format(HostName) ++ ":" ++ integer_to_list(Port),
                       cipher_flag(Version),
                       ciphers(Ciphers, Version),
@@ -2424,7 +2427,6 @@ start_client(openssl, Port, ClientOpts, Config) ->
                          Debug;
                  Group ->
                      ["s_client",
-                      "-verify", "2",
                       "-connect", hostname_format(HostName) ++ ":" ++ integer_to_list(Port),
                       cipher_flag(Version),
                       ciphers(Ciphers, Version),
@@ -3338,7 +3340,7 @@ is_ipv6_supported() ->
     end.
 
 
-is_sane_oppenssl_client() ->
+is_sane_openssl_client() ->
     [{_,_, Bin}]  = crypto:info_lib(), 
     case binary_to_list(Bin) of
 	"OpenSSL 0.9" ++ _ -> 
@@ -3347,7 +3349,7 @@ is_sane_oppenssl_client() ->
 	    true
     end.
 
-is_sane_oppenssl_pss(rsa_pss_pss) ->
+is_sane_openssl_pss(rsa_pss_pss) ->
     case portable_cmd("openssl",["version"]) of
         "OpenSSL 3" ++ _ ->
             true;
@@ -3356,7 +3358,7 @@ is_sane_oppenssl_pss(rsa_pss_pss) ->
         _ ->
             false
     end;
-is_sane_oppenssl_pss(rsa_pss_rsae) ->
+is_sane_openssl_pss(rsa_pss_rsae) ->
     case portable_cmd("openssl",["version"]) of
         "OpenSSL 3" ++ _ ->
             true;
