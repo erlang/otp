@@ -34,8 +34,8 @@
 
 -import(lists, [foldl/3,foldr/3,reverse/1, keysearch/3, map/2, filter/2, max/1]).
 -import(gen_util, [lowercase/1, lowercase_all/1, uppercase/1, uppercase_all/1,
-		   open_write/1, open_write/2, close/0, erl_copyright/0, w/2,
-		   args/3, args/4, strip_name/2]).
+                   open_write/1, open_write/2, close/0, erl_gl_copyright/0, erl_copyright/0,
+                   w/2, args/3, args/4, strip_name/2]).
 
 
 -define(HTTP_TOP, "https://www.khronos.org/registry/OpenGL-Refpages/").
@@ -43,7 +43,7 @@
 
 gl_defines(Defs) ->
     open_write("../include/gl.hrl"),
-    erl_copyright(),
+    erl_gl_copyright(),
     w("~n%% OPENGL DEFINITIONS~n~n", []),
     w("%% This file is generated DO NOT EDIT~n~n", []),
     [gen_define(Def) || Def=#def{} <- Defs],
@@ -52,7 +52,7 @@ gl_defines(Defs) ->
 
 glu_defines(Defs) ->
     open_write("../include/glu.hrl"),
-    erl_copyright(),
+    erl_gl_copyright(),
     w("~n%% GLU DEFINITIONS~n~n", []),
     w("%% This file is generated DO NOT EDIT~n~n", []),
     [gen_define(Def) || Def=#def{} <- Defs],
@@ -72,7 +72,7 @@ gen_define(#def{name="GLEXT_64_TYPES"++_, val=undefined, type=undefined}) ->
 
 gl_api(Fs, _GluNifs) ->
     open_write("../src/gen/gl.erl", [{encoding,utf8}]),
-    erl_copyright(),
+    erl_gl_copyright(),
     w("~n%% OPENGL API~n~n", []),
     w("%% This file is generated DO NOT EDIT~n~n", []),
     w("%% @doc  Standard OpenGL api.~n", []),
@@ -143,7 +143,7 @@ gl_api(Fs, _GluNifs) ->
 
 glu_api(Fs) ->
     open_write("../src/gen/glu.erl", [{encoding,utf8}]),
-    erl_copyright(),
+    erl_gl_copyright(),
     w("~n%% OPENGL UTILITY API~n~n", []),
     w("%% This file is generated DO NOT EDIT~n~n", []),
     w("%% @doc  A part of the standard OpenGL Utility api.~n", []),

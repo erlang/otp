@@ -41,7 +41,7 @@
 
 -import(lists, [foldl/3,reverse/1, filter/2]).
 -import(gen_util, [lowercase/1, lowercase_all/1, uppercase/1,
-		   open_write/1, close/0, erl_copyright/0, w/2,
+		   open_write/1, close/0, erl_wx_copyright/0, erl_copyright/0, w/2,
 		   args/3, args/4]).
 
 gen(Defs) ->
@@ -73,7 +73,7 @@ gen_class(Class) ->
 
 gen_static(Files) ->
     open_write("../src/gen/wx_misc.erl"),
-    erl_copyright(),
+    erl_wx_copyright(),
     w("", []),
     w("%% This file is generated DO NOT EDIT~n~n", []),
     w("%% @doc See external documentation: "
@@ -116,7 +116,7 @@ gen_class1(C=#class{name=Name,parent=Parent,methods=Ms,options=Opts}) ->
     lists:member("ignore", Opts) andalso throw(skipped),
     open_write("../src/gen/"++Name++".erl"),
     put(current_class, Name),
-    erl_copyright(),
+    erl_wx_copyright(),
     w("", []),
     w("%% This file is generated DO NOT EDIT~n~n", []),
 
