@@ -43,7 +43,8 @@
          lcnt_control/1, lcnt_control/2, lcnt_collect/0, lcnt_clear/0,
          lc_graph/0, lc_graph_to_dot/2,
          lc_graph_merge/0, lc_graph_merge/1, lc_graph_merge/2,
-         alloc_blocks_size/1]).
+         alloc_blocks_size/1,
+         unaligned_bitstring/2]).
 
 %% Reroutes calls to the given MFA to error_handler:breakpoint/3
 %%
@@ -230,6 +231,14 @@ dirty_io(_, _) ->
       Term3 :: term().
 
 dirty(_, _, _) ->
+    erlang:nif_error(undef).
+
+-spec unaligned_bitstring(Bin0, Offset) -> Bin1 when
+      Bin0 :: bitstring(),
+      Offset :: 1..7,
+      Bin1 :: bitstring().
+
+unaligned_bitstring(_, _) ->
     erlang:nif_error(undef).
 
 %%% End of BIFs

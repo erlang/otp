@@ -1278,25 +1278,15 @@ get_map(Size) ->
 
 
 %% Copied from binary_SUITE
-make_unaligned_sub_binary(Bin0) when is_binary(Bin0) ->
-    Bin1 = <<0:3,Bin0/binary,31:5>>,
-    Sz = size(Bin0),
-    <<0:3,Bin:Sz/binary,31:5>> = id(Bin1),
-    Bin.
+make_unaligned_sub_binary(Bin) when is_binary(Bin) ->
+    erts_debug:unaligned_bitstring(Bin, 3).
 
-%% This functions is written very carefully so that the bitstrings
-%% created are released as quickly as possible. If they are not released
-%% then the memory consumption going through the roof and systems will need
-%% lots of memory.
+%% This function is written very carefully so that the bitstrings
+%% created are released as quickly as possible. If they are not released,
+%% the memory consumption will go through the roof.
 make_unaligned_sub_bitstring(Bin0) ->
-    Sz = erlang:bit_size(Bin0),
-    Bin1 = <<0:3,Bin0/bitstring,31:5>>,
-    make_unaligned_sub_bitstring2(Sz, Bin1).
-
-make_unaligned_sub_bitstring2(Sz, Bin1) ->
-    %% Make sure to release Bin0 if possible
+    Bin = erts_debug:unaligned_bitstring(Bin0, 3),
     erlang:garbage_collect(),
-    <<0:3,Bin:Sz/bitstring,31:5>> = id(Bin1),
     Bin.
 
 make_random_bin(Size) ->

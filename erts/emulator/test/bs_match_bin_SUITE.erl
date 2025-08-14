@@ -348,10 +348,7 @@ rand_seed() ->
     io:format("\n*** rand:export_seed() = ~w\n\n", [rand:export_seed()]),
     ok.
 
-make_unaligned_sub_binary(Bin0) ->
-    Bin1 = <<0:3,Bin0/binary,31:5>>,
-    Sz = size(Bin0),
-    <<0:3,Bin:Sz/binary,31:5>> = id(Bin1),
-    Bin.
+make_unaligned_sub_binary(Bin) ->
+    erts_debug:unaligned_bitstring(Bin, 3).
 
 id(I) -> I.

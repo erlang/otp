@@ -1404,11 +1404,8 @@ list_to_x_bsyntax({utf32,little},L,Enc) ->
     list_to_utf32_little_bsyntax(L,Enc).
 
 
-make_unaligned(Bin0) when is_binary(Bin0) ->
-    Bin1 = <<0:3,Bin0/binary,31:5>>,
-    Sz = byte_size(Bin0),
-    <<0:3,Bin:Sz/binary,31:5>> = id(Bin1),
-    Bin.
+make_unaligned(Bin) when is_binary(Bin) ->
+    erts_debug:unaligned_bitstring(Bin, 3).
 
 error_info(_Config) ->
     L = [{characters_to_binary, [abc]},
