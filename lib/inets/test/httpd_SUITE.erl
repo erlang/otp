@@ -44,7 +44,8 @@
 %% Seconds before successful auths timeout.
 -define(AUTH_TIMEOUT,5).
 -define(URL_START, "http://").
-
+-define(URL_START_HTTPS, "https://").
+-define(SSL_NO_VERIFY, {ssl, [{verify, verify_none}]}).
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
@@ -135,13 +136,14 @@ groups() ->
      {security, [], [security_1_1, security_1_0]},
      {logging, [], [disk_log_internal, disk_log_exists,
              disk_log_bad_size, disk_log_bad_file]},
-     {http_1_1, [], [esi_propagate, esi_atom_leak, {group, http_1_1_parallel}] ++ load()},
+     {http_1_1, [], [esi_propagate, esi_atom_leak, {group, http_1_1_parallel},
+                     cgi_bin_env] ++ load()},
      {http_1_1_parallel, [parallel],
       [host, chunked, expect, cgi, cgi_chunked_encoding_test,
        trace, range, if_modified_since, mod_esi_chunk_timeout,
        esi_put, esi_patch, esi_post, esi_headers]
       ++ http_head() ++ http_get()},
-     {http_1_0, [], [{group, http_1_0_parallel} | load()]},
+     {http_1_0, [], [cgi_bin_env, {group, http_1_0_parallel} | load()]},
      {http_1_0_parallel, [parallel], [host, cgi, trace] ++ http_head() ++ http_get()},
      {http_rel_path_script_alias, [], [cgi]},
      {esi, [], [erl_script_timeout_default,
@@ -1293,6 +1295,42 @@ alias(Config) when is_list(Config) ->
     [Test301(T) || T <- TestURIs301],
     ok.
 
+cgi_bin_env() ->
+[{doc, "Test whether HTTP_PROXY header is not applied to an environment
+that runs the cgi script"}].
+cgi_bin_env(Config) ->
+    Proto = case proplists:get_value(type, Config, undefined) =:= ssl of
+                true -> https;
+                _ -> http
+            end,
+    Cgi = case os:type() of
+        {win32, _} ->
+            "printenv.bat";
+        _ ->
+            "printenv.sh"
+    end,
+    HttpOpts = case Proto of
+                   https -> [?SSL_NO_VERIFY];
+                   _ -> []
+               end,
+    RandomString = base64:encode(crypto:strong_rand_bytes(9)),
+    Endpoint = "/cgi-bin/" ++ Cgi,
+    Env = os:env(),
+    HttpProxyEnv = proplists:get_value("HTTP_PROXY", Env, undefined),
+    Url = url(Proto, Endpoint, Config),
+    {ok, {_Status, _Headers, Body}} = httpc:request(get, {Url, [{"PROXY", RandomString},
+                                                                {"proxy", RandomString}]},
+                                                    HttpOpts, []),
+    HttpEnv = re:split(Body, "\n"),
+    BinSize = size(<<"HTTP_PROXY">>) * 8,
+    EnvProp = [{binary_to_list(Key), binary_to_list(Val)} ||
+                  <<Key:BinSize/bitstring, "=", Val/bitstring>> <- HttpEnv,
+                  Key =:= <<"HTTP_PROXY">>],
+    RespHttpProxyEnv = proplists:get_value("HTTP_PROXY", EnvProp, undefined),
+    case HttpProxyEnv of
+        undefined -> ?assertEqual([], EnvProp);
+        _ -> ?assertEqual(HttpProxyEnv, RespHttpProxyEnv)
+    end.
 %%-------------------------------------------------------------------------
 actions() ->
     [{doc, "Test mod_actions"}].
@@ -1985,10 +2023,15 @@ tls_alert(Config) when is_list(Config) ->
 %%--------------------------------------------------------------------
 %% Internal functions -----------------------------------
 %%--------------------------------------------------------------------
+url(https, End, Config) ->
+    ?URL_START_HTTPS ++ url(End, Config);
 url(http, End, Config) ->
+    ?URL_START ++ url(End, Config).
+
+url(End, Config) ->
     Port = proplists:get_value(port, Config),
     {ok,Host} = inet:gethostname(),
-    ?URL_START ++ Host ++ ":" ++ integer_to_list(Port) ++ End.
+    Host ++ ":" ++ integer_to_list(Port) ++ End.
 
 http_get_url(Port0, HeaderDelay, ChunkDelay, BadChunkDelay) ->
     {ok, Host} = inet:gethostname(),
