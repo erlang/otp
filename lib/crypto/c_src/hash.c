@@ -117,6 +117,36 @@ ERL_NIF_TERM hash_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     if (!enif_inspect_iolist_as_binary(env, argv[1], &data))
         return EXCP_BADARG_N(env, 1, "Not iolist");
 
+#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(3,4,0)
+    /* Set xoflen for SHAKE digests if needed */
+    if (digp->xof_default_length) {
+        EVP_MD_CTX *ctx = EVP_MD_CTX_new();
+        OSSL_PARAM params[2];
+
+        if (!ctx) {
+            return EXCP_ERROR(env, "EVP_MD_CTX_new failed");
+        }
+        params[0] = OSSL_PARAM_construct_uint("xoflen", &digp->xof_default_length);
+        params[1] = OSSL_PARAM_construct_end();
+        if (EVP_DigestInit_ex2(ctx, md, params) != 1) {
+            assign_goto(ret, done, EXCP_ERROR(env, "EVP_DigestInit failed"));
+        }
+        ret_size = digp->xof_default_length;
+        if ((outp = enif_make_new_binary(env, ret_size, &ret)) == NULL) {
+            assign_goto(ret, done, EXCP_ERROR(env, "Can't allocate binary"));
+        }
+        if (EVP_DigestUpdate(ctx, data.data, data.size) != 1) {
+            assign_goto(ret, done, EXCP_ERROR(env, "EVP_DigestUpdate failed"));
+        }
+        if (EVP_DigestFinalXOF(ctx, outp, ret_size) != 1) {
+            assign_goto(ret, done, EXCP_ERROR(env, "EVP_DigestFinalXOF failed"));
+        }
+        CONSUME_REDS(env, data);
+    done:
+        EVP_MD_CTX_free(ctx);
+        return ret;
+    }
+#endif
 
     ret_size = (unsigned)EVP_MD_size(md);
     ASSERT(0 < ret_size && ret_size <= EVP_MAX_MD_SIZE);
