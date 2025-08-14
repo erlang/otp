@@ -887,15 +887,25 @@ static BIF_RETTYPE characters_to_utf8_trap(BIF_ALIST_4)
 
 BIF_RETTYPE unicode_bin_is_7bit_1(BIF_ALIST_1)
 {
-    Sint need;
-    if(!is_bitstring(BIF_ARG_1)) {
-	BIF_RET(am_false);
+    const byte *temp_alloc = NULL, *bytes;
+    Uint size;
+    Eterm ret;
+
+    bytes = erts_get_aligned_binary_bytes(BIF_ARG_1, &size, &temp_alloc);
+    if (bytes == NULL) {
+        BIF_RET(am_false);
     }
-    need = latin1_binary_need(BIF_ARG_1);
-    if(need >= 0 && aligned_binary_size(BIF_ARG_1) == need) {
-	BIF_RET(am_true);
+
+    ret = am_true;
+    for (Uint i = 0; i < size; i++) {
+        if (bytes[i] & ((byte) 0x80)) {
+            ret = am_false;
+            break;
+        }
     }
-    BIF_RET(am_false);
+
+    erts_free_aligned_binary_bytes(temp_alloc);
+    BIF_RET(ret);
 }
 
 static int is_valid_utf8(Eterm orig_bin)
