@@ -264,9 +264,9 @@ static const struct in6_addr in6addr_loopback =
 #define MAX_LISTEN_SOCKETS 16
 
 /*
- * Largest request: ALIVE2_REQ
+ * Largest request: EPMD_ALIVE2_REQ
  *  2 + 13 + 2*MAXSYMLEN
- * Largest response: PORT2_RESP
+ * Largest response: EPMD_PORT2_RESP
  *  2 + 14 + 2*MAXSYMLEN
  *
  * That is, 3*MAXSYMLEN should be large enough
