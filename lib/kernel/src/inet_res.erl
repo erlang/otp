@@ -344,7 +344,8 @@ resolve(Name, Class, Type, Opts, Timeout) ->
     case nsdname(Name) of
 	{ok, Nm} ->
 	    Timer = inet:start_timer(Timeout),
-	    Res = res_query(Nm, Class, Type, Opts, Timer),
+	    Options = make_options(Opts),
+	    Res = res_query(Nm, Class, Type, Options, Timer),
 	    _ = inet:stop_timer(Timer),
 	    Res;
 	{error, _} = Error ->
@@ -642,7 +643,8 @@ gethostbyaddr_tm(IP, Opts, Timer) ->
                     Result;
                 {error, nxdomain} ->
                     %% Do a resolver lookup
-                    case res_query(Name, in, ?S_PTR, Opts, Timer) of
+                    Options = make_options(Opts),
+                    case res_query(Name, in, ?S_PTR, Options, Timer) of
                         {ok, Rec} ->
                             %% Process and cache DNS Record
                             inet_db:res_gethostbyaddr(Name, IP, Rec);
@@ -843,7 +845,8 @@ getbyname_tm(Name, Type, Opts, Timer) when is_list(Name) ->
                             {ok, HEnt};
 			_ ->
                             %% Do a resolver lookup
-                            res_getbyname(Name, Type, Opts, Timer)
+                            Options = make_options(Opts),
+                            res_getbyname(Name, Type, Options, Timer)
 		    end
 	    end;
 	false ->
@@ -894,24 +897,24 @@ type_p(Type) ->
 %% * For Name = "foo.bar"   try "foo.bar.dom1", "foo.bar.dom2", "foo.bar"
 %% That is to try Name as it is as a last resort if it is not absolute.
 %%
-res_getbyname(Name, Type, Opts, Timer) ->
+res_getbyname(Name, Type, Options, Timer) ->
     {EmbeddedDots, TrailingDot} = inet_parse:dots(Name),
     if
         TrailingDot ->
-	    res_getby_query(lists:droplast(Name), Type, Opts, Timer);
+	    res_getby_query(lists:droplast(Name), Type, Options, Timer);
 	EmbeddedDots =:= 0 ->
 	    res_getby_search(Name, inet_db:get_searchlist(),
-			     nxdomain, Type, Opts, Timer);
+			     nxdomain, Type, Options, Timer);
 	true ->
-	    case res_getby_query(Name, Type, Opts, Timer) of
+	    case res_getby_query(Name, Type, Options, Timer) of
 		{error,_Reason}=Error ->
 		    res_getby_search(Name, inet_db:get_searchlist(),
-				     Error, Type, Opts, Timer);
+				     Error, Type, Options, Timer);
 		Other -> Other
 	    end
     end.
 
-res_getby_search(Name, [Dom | Ds], _Reason, Type, Opts, Timer) ->
+res_getby_search(Name, [Dom | Ds], _Reason, Type, Options, Timer) ->
     QueryName =
         %% Join Name and Dom with a single dot.
         %% Allow Dom to be "." or "", but not to lead with ".".
@@ -925,17 +928,17 @@ res_getby_search(Name, [Dom | Ds], _Reason, Type, Opts, Timer) ->
             true ->
                 erlang:error({if_clause, Name, Dom})
         end,
-    case res_getby_query(QueryName, Type, Opts, Timer,
-			 inet_db:res_option(nameservers)) of
+    NSs = Options#options.nameservers,
+    case res_getby_query(QueryName, Type, Options, Timer, NSs) of
 	{ok, HEnt}         -> {ok, HEnt};
 	{error, NewReason} ->
-	    res_getby_search(Name, Ds, NewReason, Type, Opts, Timer)
+	    res_getby_search(Name, Ds, NewReason, Type, Options, Timer)
     end;
 res_getby_search(_Name, [], Reason, _, _, _) ->
     {error, Reason}.
 
-res_getby_query(Name, Type, Opts, Timer) ->
-    case res_query(Name, in, Type, Opts, Timer) of
+res_getby_query(Name, Type, Options, Timer) ->
+    case res_query(Name, in, Type, Options, Timer) of
 	{ok, Rec} ->
             %% Process and cache DNS Record
 	    inet_db:res_hostent_by_domain(Name, Type, Rec);
@@ -944,8 +947,8 @@ res_getby_query(Name, Type, Opts, Timer) ->
 	Error -> Error
     end.
 
-res_getby_query(Name, Type, Opts, Timer, NSs) ->
-    case res_query(Name, in, Type, Opts, Timer, NSs) of
+res_getby_query(Name, Type, Options, Timer, NSs) ->
+    case res_query(Name, in, Type, Options, Timer, NSs) of
 	{ok, Rec} ->
             %% Process and cache DNS Record
 	    inet_db:res_hostent_by_domain(Name, Type, Rec);
@@ -964,10 +967,9 @@ res_getby_query(Name, Type, Opts, Timer, NSs) ->
 
 
 %% Query first nameservers list then alt_nameservers list
-res_query(Name, Class, Type, Opts, Timer) ->
-    #q{options=#options{nameservers=NSs}}=Q =
-	make_query(Name, Class, Type, Opts),
-    case do_query(Q, NSs, Timer) of
+res_query(Name, Class, Type, Options, Timer) ->
+    Q = make_query(Name, Class, Type, Options),
+    case do_query(Q, Options#options.nameservers, Timer) of
 	{error,nxdomain}=Error ->
 	    res_query_alt(Q, Error, Timer);
 	{error,{nxdomain,_}}=Error ->
@@ -978,8 +980,8 @@ res_query(Name, Class, Type, Opts, Timer) ->
     end.
 
 %% Query just the argument nameservers list
-res_query(Name, Class, Type, Opts, Timer, NSs) ->
-    Q = make_query(Name, Class, Type, Opts),
+res_query(Name, Class, Type, Options, Timer, NSs) ->
+    Q = make_query(Name, Class, Type, Options),
     do_query(Q, NSs, Timer).
 
 res_query_alt(#q{options=#options{alt_nameservers=NSs}}=Q, Reply, Timer) ->
@@ -989,8 +991,7 @@ res_query_alt(#q{options=#options{alt_nameservers=NSs}}=Q, Reply, Timer) ->
 	    do_query(Q, NSs, Timer)
     end.
 
-make_query(Dname, Class, Type, Opts) ->
-    Options = make_options(Opts),
+make_query(Dname, Class, Type, Options) ->
     case Options#options.edns of
 	false ->
 	    #q{options=Options,
