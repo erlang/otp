@@ -1679,7 +1679,9 @@ int enif_inspect_binary(
 ```
 
 Initializes the structure pointed to by `bin` with information about binary term
-`bin_term`.
+`bin_term`. The data pointed to by `bin` is transient and does not need to be
+released unless it has been later reallocated with [`enif_realloc_binary`
+](erl_nif.md#enif_realloc_binary).
 
 Returns `true` on success, or `false` if `bin_term` is not a binary.
 
@@ -1694,7 +1696,8 @@ int enif_inspect_iolist_as_binary(
 
 Initializes the structure pointed to by `bin` with a continuous buffer with the
 same byte content as `iolist`. As with `inspect_binary`, the data pointed to by
-`bin` is transient and does not need to be released.
+`bin` is transient and does not need to be released unless it has been later
+reallocated with [`enif_realloc_binary` ](erl_nif.md#enif_realloc_binary).
 
 Returns `true` on success, or `false` if `iolist` is not an iolist.
 
