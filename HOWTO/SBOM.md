@@ -248,6 +248,50 @@ VEX files allow to communicate which vulnerabilities are false positives and whi
 
 Erlang/OTP has chosen to communicate VEX information using the OpenVEX implementation.
 
+### Dependencies
+
+Install `vexctl`, which is written in Go.
+
+#### Installing Go
+
+An easy way to install go on Ubuntu is to type the following:
+
+```bash
+sudo snap install go --classic
+```
+
+and add to your PATH the `snap` apps (e.g., to your `.bashrc`),
+
+```bash
+export PATH=$PATH:/snap/bin
+```
+
+Alternatively, install [Go from source or binaries](https://go.dev/doc/install).
+
+#### Installing vexctl
+
+**Automatic**
+
+```
+go install github.com/openvex/vexctl@latest 
+```
+
+**From source**
+
+Download and install `vextctl` as follows
+
+```bash
+git clone https://github.com/openvex/vexctl.git
+cd vexctl
+make
+```
+
+Add to your path the binary,
+
+```bash
+export PATH=$PATH:<your-path-to-vexctl>/vexctl/
+```
+
 ### HOW-TO
 
 Erlang/OTP will maintain VEX files for the latests three releases.
@@ -283,6 +327,11 @@ Changes should be done via `.github/scripts/otp-compliance.es` applied on the `o
 `openvex.table` as a simple source of truth without boilerplate, since VEX statements can be long due to the way in which one
 must express range versions for a vulnerability.
 
+In the example above, `pkg:github/openssl/openssl@636dfadc70ce26f2473870570bfd9ec352806b1d` corresponds to
+the package URL for the OpenSSL version with commit `636dfadc70ce26f2473870570bfd9ec352806b1d`, which corresponds
+to the version of OpenSSL used in OTP-X. Starting from OTP 28, this information can be found in the corresponding
+`vendor.info` file for OpenSSL (e.g., `/erts/emulator/openssl/vendor.info` in the `sha` field).
+
 ### Further Format Details of openvex.table
 
 The file `openvex.table` is a subset of fields of the OpenVEX specification.
@@ -299,13 +348,16 @@ OTP version key (e.g., `otp-29`), followed by a list of objects. Each JSON objec
 
 **Example**
 
+Assume the following ficticious case, where we want to report `CVE-2023-48795` on OTP 23.
+
 ```json
 {
   "otp-23": [
     {
-      "pkg:otp/ssl@10.2.1": "CVE-2025-26618",
-      "status": { "affected": "Update to the next version",
-                  "fixed": ["pkg:otp/ssl@10.3.1.1", "pkg:otp/ssl@10.2.4.2"]}
+      "pkg:otp/ssh@4.10.1": "CVE-2023-48795",
+      "status":
+          { "affected": "Mitigation: If strict KEX availability cannot be ensured on both connection sides, affected encryption modes(CHACHA and CBC) can be disabled with standard ssh configuration. This will provide protection against vulnerability, but at a cost of affecting interoperability"
+          }
     },
     {
       "pkg:github/madler/zlib@04f42ceca40f73e2978b50e93806c2a18c1281fc": "FIKA-2026-BROD",
@@ -327,11 +379,26 @@ One has execute the output commands introduce changes.
 Erlang/OTP creates releases (e.g., OTP-28) and also divides apps in different versions, which means that one can declare
 vulnerabilities in multiple ways. 
 
-Example, do we mention that the `ssl` app in OTP-23 is vulnerable or that `ssl-10.2.1` which released in OTP-23 is vulnerable, or both.
+Example, should we mention that the `ssh` app in OTP-23 is vulnerable or that `ssh-4.10.1` which released in OTP-23 is vulnerable, or both?
 To help us produce accurate results, Erlang/OTP favours to write the exact application version in which a bug was introduced or detected,
 and the exact app version in which the app was fixed, within its OTP release.
 
-For example, executing the script
+For example, if we place in `openvex.table`:
+
+```json
+{
+  "otp-23": [
+    {
+      "pkg:otp/ssh@4.10.1": "CVE-2023-48795",
+      "status": { "affected": "Mitigation: If strict KEX availability cannot be ensured on both connection sides, affected encryption modes(CHACHA and CBC) can be disabled with standard ssh configuration. This will provide protection against vulnerability, but at a cost of affecting interoperability",
+                  "fixed": ["pkg:otp/ssh@4.11.1.6"]
+                }
+    }
+  ]
+}
+```
+
+and execute the script
 
 ```bash
 .github/scripts/otp-compliance.es vex run -b otp-23 | bash
@@ -340,11 +407,9 @@ For example, executing the script
 Generates the following VEX commands
 
 ```bash
-vexctl add --in-place vex/otp-23.openvex.json --product='pkg:otp/erlang@23.2.2,pkg:otp/erlang@23.2.3,pkg:otp/erlang@23.2.4,pkg:otp/erlang@23.2.5,pkg:otp/erlang@23.2.6,pkg:otp/erlang@23.2.7,pkg:otp/erlang@23.2.7.1,pkg:otp/erlang@23.3,pkg:otp/erlang@23.3.1,pkg:otp/erlang@23.3.2,pkg:otp/erlang@23.3.3,pkg:otp/erlang@23.3.4,pkg:otp/erlang@23.3.4.1,pkg:otp/ssl@10.2.1,pkg:otp/ssl@10.2.2,pkg:otp/ssl@10.2.3,pkg:otp/ssl@10.2.4,pkg:otp/ssl@10.2.4.1,pkg:otp/ssl@10.3,pkg:otp/ssl@10.3.1' --vuln='CVE-2025-26618' --status='affected' --action-statement='Update to the next version'
+vexctl add --in-place vex/otp-23.openvex.json --product='pkg:otp/erlang@23.1,pkg:otp/erlang@23.1.1,pkg:otp/erlang@23.1.2,pkg:otp/erlang@23.1.3,pkg:otp/erlang@23.1.4,pkg:otp/erlang@23.1.5,pkg:otp/erlang@23.2,pkg:otp/erlang@23.2.1,pkg:otp/erlang@23.2.2,pkg:otp/erlang@23.2.3,pkg:otp/erlang@23.2.4,pkg:otp/erlang@23.2.5,pkg:otp/erlang@23.2.6,pkg:otp/erlang@23.2.7,pkg:otp/erlang@23.3,pkg:otp/erlang@23.3.1,pkg:otp/erlang@23.3.2,pkg:otp/erlang@23.3.3,pkg:otp/erlang@23.3.4,pkg:otp/erlang@23.3.4.1,pkg:otp/erlang@23.3.4.2,pkg:otp/erlang@23.3.4.3,pkg:otp/erlang@23.3.4.4,pkg:otp/erlang@23.3.4.5,pkg:otp/erlang@23.3.4.6,pkg:otp/erlang@23.3.4.7,pkg:otp/erlang@23.3.4.8,pkg:otp/erlang@23.3.4.9,pkg:otp/erlang@23.3.4.10,pkg:otp/erlang@23.3.4.11,pkg:otp/erlang@23.3.4.12,pkg:otp/erlang@23.3.4.13,pkg:otp/erlang@23.3.4.14,pkg:otp/ssh@4.10.1,pkg:otp/ssh@4.10.2,pkg:otp/ssh@4.10.3,pkg:otp/ssh@4.10.4,pkg:otp/ssh@4.10.5,pkg:otp/ssh@4.10.6,pkg:otp/ssh@4.10.7,pkg:otp/ssh@4.10.8,pkg:otp/ssh@4.11,pkg:otp/ssh@4.11.1,pkg:otp/ssh@4.11.1.1,pkg:otp/ssh@4.11.1.2,pkg:otp/ssh@4.11.1.3,pkg:otp/ssh@4.11.1.4,pkg:otp/ssh@4.11.1.5' --vuln='CVE-2023-48795' --status='affected' --action-statement='Mitigation: If strict KEX availability cannot be ensured on both connection sides, affected encryption modes(CHACHA and CBC) can be disabled with standard ssh configuration. This will provide protection against vulnerability, but at a cost of affecting interoperability'
 
-vexctl add --in-place vex/otp-23.openvex.json --product='pkg:otp/erlang@23.3.4.4,pkg:otp/erlang@23.3.4.3,pkg:otp/erlang@23.3.4.2,pkg:otp/erlang@23.2.7.3,pkg:otp/erlang@23.2.7.2,pkg:otp/ssl@10.3.1.1,pkg:otp/ssl@10.2.4.2' --vuln='CVE-2025-26618' --status='fixed'
-
-vexctl add --in-place vex/otp-23.openvex.json --product='pkg:github/madler/zlib@04f42ceca40f73e2978b50e93806c2a18c1281fc' --vuln='FIKA-2026-BROD' --status='affected' --action-statement='Mitigation message, update to the next release'
+vexctl add --in-place vex/otp-23.openvex.json --product='pkg:otp/erlang@23.3.4.19,pkg:otp/erlang@23.3.4.18,pkg:otp/erlang@23.3.4.17,pkg:otp/erlang@23.3.4.16,pkg:otp/erlang@23.3.4.15,pkg:otp/ssh@4.11.1.6' --vuln='CVE-2023-48795' --status='fixed'
 ```
 
 The first command in the script has figured out the exact OTP versions that are vulnerable from the range of affected and fixed exact versions,
@@ -352,9 +417,8 @@ as well as created the range of `ssl` applications that are affected by the vuln
 
 The second command simply states which OTP application versions are fixed.
 
-The third statement shows that we cannot infer the range commits for vendor libraries (because these are stated as sha1 commit hashes), so
-we can just be quite literal about how we are affected. Another way to write the zlib issue could be to refer to `erts` and the CVE,
-instead of writing the vendor library and its sha1 vulnerability.
+Below we continue with how to initialise and use the tool to report various states,
+and show examples for Erlang/OTP applications and third party application on which Erlang/OTP builds upon.
 
 #### Init
 
@@ -388,7 +452,7 @@ There are no known vulnerabilities, so this VEX statement can be published as is
 #### Add `under_investigation`
 
 For vendor CVEs, it may make sense to communicate with the ecosystem that a CVE for vendor X is under investigation.
-If it is trivial to know whether we are affected, one could skip this step and add directly the `fixed`, or `vulnerable` statements.
+If it is trivial to know whether we are affected, one could skip reporting `under_investigation` and add directly the `fixed`, or `vulnerable` statements.
 
 To update or insert VEX statements for OTP-29, update the `make/openvex.table` and run:
 
@@ -396,7 +460,7 @@ To update or insert VEX statements for OTP-29, update the `make/openvex.table` a
 .github/scripts/otp-compliance.es vex run --input-file make/openvex.table -b otp-29
 ```
 
-The script will output commands to run (similar to a dry-run). One piped to `bash` they are executed.
+The script will output commands to run (similar to a dry-run). Once piped to `bash`, they are executed.
 
 ```
 .github/scripts/otp-compliance.es vex run --input-file make/openvex.table -b otp-29 | bash
@@ -414,7 +478,7 @@ Add and commit the changes.
 }
 ```
 
-Lets assume there is `FIKA-2026-BROD` detected in `zlib`. We can issue an `under_investigation` statement update the `make/openvex.table`
+Lets assume there is `FIKA-2026-BROD` detected in `zlib`. We can issue an `under_investigation` statement updating the `make/openvex.table`
 
 
 ```json
@@ -457,7 +521,8 @@ OTP was investigating the CVE `FIKA-2026-BROD` and found themselves not affected
 ```
 
 One can update the `make/openvex.table` with the reason of "code not present", meaning, the component is included
-in OTP but the vulnerable code is not present.
+in OTP but the vulnerable code is not present. It is important to note that any statement written in the table
+should not be updated, the table is append only.
 
 ```json
 {
