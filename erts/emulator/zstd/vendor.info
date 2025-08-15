@@ -15,6 +15,7 @@
     "licenseDeclared": "BSD-3-Clause OR GPL-2.0-only",
     "name": "zstd",
     "versionInfo": "v1.5.7",
+    "sha": "f8745da6ff1ad1e7bab384bd1f9d742439278e99",
     "path": "./erts/emulator/zstd",
     "exclude": ["./erts/emulator/zstd/vendor.info",
                 "./erts/emulator/zstd/update.sh",
