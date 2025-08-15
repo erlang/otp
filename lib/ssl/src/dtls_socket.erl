@@ -215,7 +215,9 @@ peername(gen_udp, {Client, _Socket}) ->
     {ok, Client};
 peername(Transport, Socket) ->
     Transport:peername(Socket).
-sockname(gen_udp, {_, {_,Socket}}) ->
+sockname(gen_udp, {Listener, {_Client, Socket}}) when is_pid(Listener) ->
+    inet:sockname(Socket);
+sockname(gen_udp, {_Client, Socket}) ->
     inet:sockname(Socket);
 sockname(gen_udp, Socket) ->
     inet:sockname(Socket);
