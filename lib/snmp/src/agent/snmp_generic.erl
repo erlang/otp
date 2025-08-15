@@ -342,6 +342,14 @@ values. This means that this function must be called from within a transaction
 (`mnesia:transaction/1`).
 
 """.
+-spec table_set_elements(NameDb, RowIndex, Columns) -> Result when
+    NameDb :: snmpa:name_db(),
+    RowIndex :: snmp:row_index(),
+    Columns :: [{Column, Value}],
+    Column :: column(),
+    Value :: term(),
+    Result :: boolean().
+
 table_set_elements({Name, mnesia}, RowIndex, Cols) ->
     snmp_generic_mnesia:table_set_elements(Name, RowIndex, Cols);
 table_set_elements(NameDb, RowIndex, Cols) -> % ret true
@@ -354,6 +362,12 @@ Finds the indices of the next row in the table. `RestOid` does not have to
 specify an existing row.
 
 """.
+-spec table_next(NameDb, RestOid) -> Result when
+    NameDb :: snmpa:name_db(),
+    RestOid :: [integer()],
+    Result :: RowIndex | endOfTable,
+    RowIndex :: snmp:row_index().
+
 table_next({Name, mnesia}, RestOid) ->
     snmp_generic_mnesia:table_next(Name, RestOid);
 table_next(NameDb, RestOid) ->              % ret RRestOid | endOfTable
@@ -1021,6 +1035,11 @@ collect_length(N, [El | Rest], Rts) ->
 -doc """
 Checks if a row in a table exists.
 """.
+-spec table_row_exists(NameDb, RowIndex) -> Result when
+    NameDb :: snmpa:name_db(),
+    RowIndex :: snmp:row_index(),
+    Result :: boolean().
+
 table_row_exists(NameDb, RowIndex) ->
     case table_get_element(NameDb, RowIndex, 1) of
 	undefined -> false;
