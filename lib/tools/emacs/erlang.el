@@ -24,7 +24,7 @@
 ;; Author:   Anders Lindgren
 ;; Keywords: erlang, languages, processes
 ;; Date:     2011-12-11
-;; Version:  2.8.4
+;; Version:  2.8.6
 ;; Package-Requires: ((emacs "24.3"))
 
 ;; Lars Thorsén's modifications of 2000-06-07 included.
@@ -81,6 +81,7 @@
 (require 'comint)
 (require 'tempo)
 (require 'cl-lib)
+(require 'advice)
 
 ;;; `caddr' is builtin since Emacs 26.
 (eval-and-compile
@@ -93,7 +94,7 @@
   "The Erlang programming language."
   :group 'languages)
 
-(defconst erlang-version "2.8.5"
+(defconst erlang-version "2.8.6"
   "The version number of Erlang mode.")
 
 (defcustom erlang-root-dir nil
@@ -577,6 +578,10 @@ matches REGEXP specifies FUNCTION to use to compute the compilation
 command. The FUNCTION will be called with two arguments: module name and
 default compilation options, like output directory. The FUNCTION
 is expected to return a string.")
+
+(defvar erlang-compilation-parsing-end nil
+  "The position after last compilation command")
+
 
 (defvar erlang-leex-compile-opts '()
   "Options to pass to leex when compiling xrl files.
@@ -1265,7 +1270,7 @@ This must be placed in front of `erlang-font-lock-keywords-vars'.")
   "Font lock keyword highlighting Erlang variables.
 Must be preceded by `erlang-font-lock-keywords-macros' to work properly.")
 
-(defvar erlang-font-lock-descr-string
+(defmacro erlang-font-lock-descr-string ()
   "Font-lock keywords used by Erlang Mode.
 
 There exists three levels of Font Lock keywords for Erlang:
@@ -1289,7 +1294,7 @@ Example:
           erlang-font-lock-keywords-keywords
           )
   ;; DocStringOrig: erlang-font-lock-keywords
-  erlang-font-lock-descr-string)
+  (erlang-font-lock-descr-string))
 
 (defvar erlang-font-lock-keywords-2
   (append erlang-font-lock-keywords-1
@@ -1300,7 +1305,7 @@ Example:
           erlang-font-lock-keywords-guards
           )
   ;; DocStringCopy: erlang-font-lock-keywords
-  erlang-font-lock-descr-string)
+  (erlang-font-lock-descr-string))
 
 (defvar erlang-font-lock-keywords-3
   (append erlang-font-lock-keywords-2
@@ -1311,7 +1316,7 @@ Example:
           erlang-font-lock-keywords-predefined-types
           )
   ;; DocStringCopy: erlang-font-lock-keywords
-  erlang-font-lock-descr-string)
+  (erlang-font-lock-descr-string))
 
 (defvar erlang-font-lock-keywords-4
   (append erlang-font-lock-keywords-3
@@ -1322,11 +1327,11 @@ Example:
           erlang-font-lock-keywords-lc
           )
   ;; DocStringCopy: erlang-font-lock-keywords
-  erlang-font-lock-descr-string)
+  (erlang-font-lock-descr-string))
 
 (defvar erlang-font-lock-keywords erlang-font-lock-keywords-4
   ;; DocStringCopy: erlang-font-lock-keywords
-  erlang-font-lock-descr-string)
+  (erlang-font-lock-descr-string))
 
 (defvar erlang-font-lock-syntax-table nil
   "Syntax table used by Font Lock mode.
@@ -2394,9 +2399,6 @@ buffer more accurate."
              function-name
              module-name)))
 
-;; Should the defadvice be at the top level, the package `advice' would
-;; be required.  Now it is only required when this functionality
-;; is used.  (Emacs 19 specific.)
 (defun erlang-man-patch-notify ()
   "Patch the function `Man-notify-when-ready' to search for function.
 The variable `erlang-man-function-name' is assumed to be bound to
@@ -2404,23 +2406,17 @@ the function name, or to nil.
 
 The reason for patching a function is that under Emacs 19, the man
 command is executed asynchronously."
-  (condition-case nil
-      (require 'advice)
-    ;; This should never happened since this is only called when
-    ;; running under Emacs 19.
-    (error (error (concat "This command needs the package `advice', "
-                          "please upgrade your Emacs."))))
   (require 'man)
-  (defadvice Man-notify-when-ready
-      (after erlang-Man-notify-when-ready activate)
-    "Set point at the documentation of the function name in
+  (if (fboundp 'advice-add)
+    (advice-add 'Man-notify-when-ready :after
+      #'erlang-man-function-name-advice)))
+
+(defun erlang-man-function-name-advice (arg)
+  "Set point at the documentation of the function name in
 `erlang-man-function-name' when the man page is displayed."
-    (if erlang-man-function-name
-        (erlang-man-repeated-search-for-function (ad-get-arg 0)
-                                                 erlang-man-function-name)
-      (setq erlang-man-function-name nil))))
-
-
+  (if erlang-man-function-name
+    (erlang-man-repeated-search-for-function arg erlang-man-function-name)
+    (setq erlang-man-function-name nil)))
 
 
 (defun erlang-man-find-function (buf func &optional module-name)
@@ -5121,19 +5117,11 @@ for a tag on the form `module:tag'."
 ;;; completion-table' containing all normal tags plus tags on the form
 ;;; `module:tag' and `module:'.
 
-(if (fboundp 'advice-add)
-    ;; Emacs 24.4+
-    (progn
-      (require 'etags)
-      (advice-add 'etags-tags-completion-table :around
-                  #'erlang-etags-tags-completion-table-advice))
-  ;; Emacs 23.1-24.3
-  (defadvice etags-tags-completion-table (around
-                                          erlang-replace-tags-table
-                                          activate)
-    (if erlang-replace-etags-tags-completion-table
-        (setq ad-return-value (erlang-etags-tags-completion-table))
-      ad-do-it)))
+(progn
+  (require 'etags)
+  (if (fboundp 'advice-add)
+    (advice-add 'etags-tags-completion-table :around
+      #'erlang-etags-tags-completion-table-advice)))
 
 (defun erlang-etags-tags-completion-table-advice (oldfun)
   (if erlang-replace-etags-tags-completion-table
@@ -6129,7 +6117,7 @@ Return the position after the newly inserted command."
                       (not (eq (point) (point-max))))
           (delete-char 1)
           (or (bolp)
-              (backward-delete-char 1))))))
+            (delete-char -1))))))
 
 
 ;; Basically `comint-strip-ctrl-m', with a few extra checks.
@@ -6183,9 +6171,9 @@ There exists two workarounds for this bug:
     (sit-for 0)
     (inferior-erlang-wait-prompt)
     (with-current-buffer inferior-erlang-buffer
-      (when (and (boundp 'compilation-error-list) (boundp 'compilation-parsing-end))
-        (setq compilation-error-list nil)
-        (set-marker compilation-parsing-end end)))
+      (set-marker erlang-compilation-parsing-end end)
+      (when (boundp 'compilation-error-list)
+        (setq compilation-error-list nil)))
     (setq next-error-last-buffer inferior-erlang-buffer)))
 
 (defun inferior-erlang-prepare-for-input (&optional no-display)
@@ -6408,9 +6396,12 @@ The default is to go to the directory of the current buffer."
         (match-string 0))))
 
 (defconst erlang-unload-hook
-  (list (lambda ()
-          (ad-unadvise 'Man-notify-when-ready)
-          (ad-unadvise 'set-visited-file-name))))
+  (if (fboundp 'advice-remove)
+    (list (lambda ()
+            (advice-remove 'Man-notify-when-ready
+              #'erlang-man-function-name-advice)
+            (advice-remove 'etags-tags-completion-table
+              #'erlang-etags-tags-completion-table-advice)))))
 
 ;; The end...
 

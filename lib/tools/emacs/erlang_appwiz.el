@@ -1,4 +1,4 @@
-;;;    -*- Emacs-Lisp -*- 
+;;; erlang_appwiz.el -*- lexical-binding: t; coding: utf-8-unix -*-
 
 ;; %CopyrightBegin%
 ;;
@@ -468,7 +468,7 @@ is an expression which is evaluated every time the menu is displayed.
 Should the expression evaluate to nil the menu item is ghosted.
 
 Example:
-    '((\"Func1\" function-one)
+    \='((\"Func1\" function-one)
       (\"SubItem\" 
        ((\"Yellow\" function-yellow)
         (\"Blue\" function-blue)))
@@ -939,6 +939,8 @@ Please see the function `tempo-define-template'.")
 ;;
 
 (add-hook 'erlang-load-hook 'my-erlang-load-mods)
+
+(defvar erlang-atom-regexp)
 
 (defun fixed-erlang-add-quotes-if-needed (str)
   "Return STR, possibly with quotes."

@@ -223,28 +223,34 @@ concatenated to form an erlang file to test on.")
     erlang))
 
 
+
 (ert-deftest erlang-test-parse-id ()
-  (cl-loop for id-string in '("fun/10"
-                              "qualified-function module:fun/10"
-                              "record reko"
-                              "macro _SYMBOL"
-                              "macro MACRO/10"
-                              "module modula"
-                              "macro"
-                              nil)
-           for id-list in '((nil nil "fun" 10)
-                            (qualified-function "module" "fun" 10)
-                            (record nil "reko" nil)
-                            (macro nil "_SYMBOL" nil)
-                            (macro nil "MACRO" 10)
-                            (module nil "modula" nil)
-                            (nil nil "macro" nil)
-                            nil)
-           for id-list2 = (erlang-id-to-list id-string)
-           do (should (equal id-list id-list2))
-           for id-string2 = (erlang-id-to-string id-list)
-           do (should (equal id-string id-string2))
-           collect id-list2))
+  ;; Put it in a lambda to make it work on new (and old) versions
+  ;; (with-suppressed-warnings ((ignored-return-value nreverse))
+  ;; don't exist on emacs 26.
+  (let ((dotest (lambda ()
+                  (cl-loop for id-string in '("fun/10"
+                                              "qualified-function module:fun/10"
+                                              "record reko"
+                                              "macro _SYMBOL"
+                                              "macro MACRO/10"
+                                              "module modula"
+                                              "macro"
+                                              nil)
+                           for id-list in '((nil nil "fun" 10)
+                                            (qualified-function "module" "fun" 10)
+                                            (record nil "reko" nil)
+                                            (macro nil "_SYMBOL" nil)
+                                            (macro nil "MACRO" 10)
+                                            (module nil "modula" nil)
+                                            (nil nil "macro" nil)
+                                            nil)
+                           for id-list2 = (erlang-id-to-list id-string)
+                           do (should (equal id-list id-list2))
+                           for id-string2 = (erlang-id-to-string id-list)
+                           do (should (equal id-string id-string2))
+                           collect id-list2))))
+    (funcall dotest)))
 
 
 (provide 'erlang-test)
