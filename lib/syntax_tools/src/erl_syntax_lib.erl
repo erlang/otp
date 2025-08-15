@@ -768,10 +768,18 @@ vann_binary_comp_body(Ts, Env) ->
 vann_zip_generator_body_join() ->
     fun (T, {Env, Bound, Free}) ->
             {T1, Bound1, Free1} = case erl_syntax:type(T) of
-                                      binary_generator ->
-                                          vann_binary_generator(T, Env);
                                       generator ->
-                                          vann_generator(T, Env)
+                                          vann_generator(T, Env);
+                                      strict_generator ->
+                                          vann_strict_generator(T, Env);
+                                      binary_generator ->
+                                          vann_binary_generator(T,Env);
+                                      strict_binary_generator ->
+                                          vann_strict_binary_generator(T,Env);
+                                      map_generator ->
+                                          vann_map_generator(T,Env);
+                                      strict_map_generator ->
+                                          vann_strict_map_generator(T,Env)
                                   end,
             Env1 = ordsets:union(Env, Bound1),
             {T1, {Env1, ordsets:union(Bound, Bound1),
