@@ -31,7 +31,7 @@
 	 init_per_testcase/2,end_per_testcase/2,
 	 init_per_suite/1,end_per_suite/1,
          errors/1,record_test/1,eval_once/1,
-         nested_in_guard/1]).
+         nested_in_guard/1, gh10057/1]).
 
 -export([debug/0]).
 
@@ -53,7 +53,7 @@ end_per_group(_GroupName, Config) ->
 
 
 cases() -> 
-    [errors, record_test, eval_once, nested_in_guard].
+    [errors, record_test, eval_once, nested_in_guard, gh10057].
 
 init_per_testcase(_Case, Config) ->
     test_lib:interpret(?MODULE),
@@ -321,6 +321,14 @@ do_nested_in_guard(F) ->
         true ->
             not_ok
     end.
+
+gh10057(_Config) ->
+    N = #foo{b = #bar{c = '$expecting_key'}},
+    do_gh10057(N, ss),
+    ok.
+
+do_gh10057(#foo{b = #bar{c = '$expecting_key'} = B} = N, Key) ->
+    N#foo{a = {map, Key},b = B#bar{c = Key}}.
 
 id(I) ->
     I.
