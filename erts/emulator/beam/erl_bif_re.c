@@ -32,6 +32,7 @@
 #include "erl_binary.h"
 #include "erl_iolist.h"
 #include "big.h"
+#include "zlib.h"
 #define ERLANG_INTEGRATION 1
 #define PCRE2_STATIC
 //#include "pcre.h"
@@ -48,10 +49,14 @@ static Export *urun_trap_exportp = NULL;
 static Export *ucompile_trap_exportp = NULL;
 
 static pcre2_general_context* the_general_ctx;
+static pcre2_general_context* the_binary_general_ctx;
+static pcre2_general_context* the_precomp_general_ctx;
+
 static pcre2_compile_context* the_tmp_compile_ctx;
 static pcre2_compile_context* the_precompile_ctx;
 
-static BIF_RETTYPE re_run(Process *p, Eterm arg1, Eterm arg2, Eterm arg3, int first);
+static BIF_RETTYPE re_compile(Process* p, Eterm re_arg, Eterm opts_arg, bool is_import);
+static BIF_RETTYPE re_run(Process *p, Eterm arg1, Eterm arg2, Eterm arg3, bool first);
 
 static void *our_pcre2_malloc(size_t size, void* null)
 {
@@ -64,6 +69,32 @@ static void our_pcre2_free(void *ptr, void* null)
 {
     /* Allocations made during initialization are never freed. */
     erts_free(ERTS_ALC_T_RE_SHORTLIVED, ptr);
+}
+
+erts_tsd_key_t the_binary_malloc_tsd_key;
+
+static void *our_pcre2_binary_malloc(size_t size, void* null)
+{
+    if (erts_initialized) {
+        Binary* bin = erts_bin_nrml_alloc(size);
+
+        /* Use TSD to "return" Binary back to caller.
+         * We assume only one malloc call per pcre2_serialize_encode()
+         */
+        ASSERT(erts_tsd_get(the_binary_malloc_tsd_key) == NULL);
+        erts_tsd_set(the_binary_malloc_tsd_key, bin);
+
+        return &(bin->orig_bytes);
+    }
+    else {
+        /* Allocation of the_binary_general_ctx itself, which is never freed. */
+        return erts_alloc(ERTS_ALC_T_RE_INIT, size);
+    }
+}
+
+static void our_pcre2_binary_free(void *ptr, void* null)
+{
+    ASSERT(!"Dead code. Exported binary should be deallocated by GC.");
 }
 
 /*
@@ -171,16 +202,19 @@ void erts_init_bif_re(void)
     the_tmp_compile_ctx = pcre2_compile_context_create(the_general_ctx);
     pcre2_set_compile_recursion_guard(the_tmp_compile_ctx, stack_guard, NULL);
 
-    {
-        pcre2_general_context *precomp_gen_ctx =
-            pcre2_general_context_create(our_pcre2_precompile_malloc,
-                                         our_pcre2_precompile_free,
-                                         NULL);
-        the_precompile_ctx = pcre2_compile_context_create(precomp_gen_ctx);
-        pcre2_set_compile_recursion_guard(the_precompile_ctx, stack_guard,
-                                          NULL);
-        pcre2_general_context_free(precomp_gen_ctx);
-    }
+    the_precomp_general_ctx =
+        pcre2_general_context_create(our_pcre2_precompile_malloc,
+                                     our_pcre2_precompile_free,
+                                     NULL);
+    the_precompile_ctx = pcre2_compile_context_create(the_precomp_general_ctx);
+    pcre2_set_compile_recursion_guard(the_precompile_ctx, stack_guard,
+                                      NULL);
+
+    the_binary_general_ctx =
+        pcre2_general_context_create(our_pcre2_binary_malloc,
+                                     our_pcre2_binary_free,
+                                     NULL);
+    erts_tsd_key_create(&the_binary_malloc_tsd_key, "re_binary_malloc");
 
     max_loop_limit = CONTEXT_REDS * LOOP_FACTOR;
     erts_init_trap_export(&re_match_trap_export, am_erlang, am_re_run_trap, 3,
@@ -293,6 +327,7 @@ static Eterm make_signed_integer(int x, Process *p)
 #define PARSE_FLAG_REPORT_ERRORS 64
 #define PARSE_FLAG_MATCH_LIMIT 128
 #define PARSE_FLAG_MATCH_LIMIT_RECURSION 256
+#define PARSE_FLAG_EXPORT 512
 
 #define CAPSPEC_VALUES 0
 #define CAPSPEC_TYPE 1
@@ -493,6 +528,9 @@ static bool parse_options(Eterm listp, struct parsed_options* po)
 		case am_bsr_unicode: 
                     po->bsr = PCRE2_BSR_UNICODE;
 		    break;
+                case am_export:
+                    po->flags |= (PARSE_FLAG_EXPORT | PARSE_FLAG_UNIQUE_COMPILE_OPT);
+                    break;
 		default:
 		    return false;
 		}
@@ -538,73 +576,257 @@ static pcre2_code *compile(const char* expr,
 }
 
 /*
- * Build Erlang term result from compilation
+ * Build Erlang term result from successful compilation
  */
-
-static Eterm 
-build_compile_result(Process *p, Eterm error_tag, pcre2_code *result,
-		     int errcode, PCRE2_SIZE errofset,
-		     int unicode, int with_ok, Eterm extra_err_tag)
+static Eterm
+build_compile_result(Process *p, pcre2_code *result, byte unicode, bool with_ok)
 {
     Eterm *hp;
     Eterm ret;
-    if (!result) {
-	int elen, need;
-	PCRE2_UCHAR8 errstr[120];
+    size_t pattern_size;
+    uint32_t capture_count;
+    uint32_t newline;
+    int use_crlf;
+    Binary* magic_bin;
+    Eterm magic_ref;
+    struct regex_magic_indirect* indirect;
 
-	/* Return {error_tag, {Code, String, Offset}} */
-	if (pcre2_get_error_message(errcode, errstr, sizeof(errstr))
-            == PCRE2_ERROR_BADDATA) {
-            erts_snprintf((char*)errstr, sizeof(errstr), "Unknown error (%d)", errcode);
-        }
-	elen = sys_strlen((const char*)errstr);
-	need = 3 /* tuple of 2 */ +
-	    3 /* tuple of 2 */ + 
-	    (2 * elen) /* The error string list */ +
-	    ((extra_err_tag != NIL) ? 3 : 0);
-	hp = HAlloc(p, need);
-	ret = buf_to_intlist(&hp, (char *) errstr, elen, NIL);
-	ret = TUPLE2(hp, ret, make_small(errofset));
-	hp += 3;
-	if (extra_err_tag != NIL) {
-	    /* Return {error_tag, {extra_tag, 
-	       {Code, String, Offset}}} instead */
-	    ret =  TUPLE2(hp, extra_err_tag, ret);
-	    hp += 3;
-	}
-	ret = TUPLE2(hp, error_tag, ret);
-    } else {
-        size_t pattern_size;
-        uint32_t capture_count;
-        uint32_t newline;
-        int use_crlf;
-        Binary* magic_bin;
-        Eterm magic_ref;
-        struct regex_magic_indirect* indirect;
+    ASSERT(result);
 
-	pcre2_pattern_info(result, PCRE2_INFO_SIZE, &pattern_size);
-	pcre2_pattern_info(result, PCRE2_INFO_CAPTURECOUNT, &capture_count);
-	pcre2_pattern_info(result, PCRE2_INFO_NEWLINE, &newline);
-        use_crlf = (newline == PCRE2_NEWLINE_ANY ||
-		    newline == PCRE2_NEWLINE_CRLF ||
-		    newline == PCRE2_NEWLINE_ANYCRLF);
+    pcre2_pattern_info(result, PCRE2_INFO_SIZE, &pattern_size);
+    pcre2_pattern_info(result, PCRE2_INFO_CAPTURECOUNT, &capture_count);
+    pcre2_pattern_info(result, PCRE2_INFO_NEWLINE, &newline);
+    use_crlf = (newline == PCRE2_NEWLINE_ANY ||
+		newline == PCRE2_NEWLINE_CRLF ||
+		newline == PCRE2_NEWLINE_ANYCRLF);
 
-        magic_bin = erts_create_magic_binary(sizeof(struct regex_magic_indirect),
-                                             regex_code_destructor);
-        indirect = ERTS_MAGIC_BIN_DATA(magic_bin);
-        indirect->regex_code = result;
+    magic_bin = erts_create_magic_binary(sizeof(struct regex_magic_indirect),
+					 regex_code_destructor);
+    indirect = ERTS_MAGIC_BIN_DATA(magic_bin);
+    indirect->regex_code = result;
 
-        hp = HAlloc(p, ERTS_MAGIC_REF_THING_SIZE + 6 + (with_ok ? 3 : 0));
-        magic_ref = erts_mk_magic_ref(&hp, &MSO(p), magic_bin);
-	ret = TUPLE5(hp, am_re_pattern, make_small(capture_count),
-                     make_small(unicode), make_small(use_crlf), magic_ref);
-	if (with_ok) {
-	    hp += 6;
-	    ret = TUPLE2(hp,am_ok,ret);
-	}	    
+    hp = HAlloc(p, ERTS_MAGIC_REF_THING_SIZE + 6 + (with_ok ? 3 : 0));
+    magic_ref = erts_mk_magic_ref(&hp, &MSO(p), magic_bin);
+    ret = TUPLE5(hp, am_re_pattern, make_small(capture_count),
+		 make_small(unicode), make_small(use_crlf), magic_ref);
+    if (with_ok) {
+	hp += 6;
+	ret = TUPLE2(hp,am_ok,ret);
     }
     return ret;
 }
+
+#define EXPORTED_HDR_TITLE_SZ 8
+#define EXPORTED_HDR_CHECKSUM_SZ 4
+#define EXPORTED_HDR_ENCODE_VER_SZ 1
+#define EXPORTED_HDR_UNICODE_SZ 1
+
+#define EXPORTED_HDR_TITLE_OFFS 0
+#define EXPORTED_HDR_CHECKSUM_OFFS    (EXPORTED_HDR_TITLE_OFFS + EXPORTED_HDR_TITLE_SZ)
+#define EXPORTED_HDR_ENCODE_VER_OFFS  (EXPORTED_HDR_CHECKSUM_OFFS + EXPORTED_HDR_CHECKSUM_SZ)
+#define EXPORTED_HDR_UNICODE_OFFS     (EXPORTED_HDR_ENCODE_VER_OFFS + EXPORTED_HDR_ENCODE_VER_SZ)
+#define EXPORTED_HDR_SZ               (EXPORTED_HDR_UNICODE_OFFS + EXPORTED_HDR_UNICODE_SZ)
+
+/*
+ * Bump this version if for some reason the encoded binary format need to change
+ * while the PCRE version is the same. That is, if we want to force fallback to
+ * compilation without even looking at the exported stuff.
+ */
+#define EXPORTED_ENCODE_VERSION 1
+
+static uint32_t
+calc_checksum(const byte* encoded, Uint encoded_sz)
+{
+    return crc32(0, encoded, encoded_sz);
+}
+
+/*
+ * Build Erlang binary exported result from successful compilation
+ */
+static Eterm
+build_compile_export(Process *p, const pcre2_code *result, byte unicode,
+                     Eterm regex_bin, Eterm opts)
+{
+    Eterm *hp, *hp_end;
+    Uint hsz;
+    Eterm ret, encode_bin_term, hdr_bin_term;
+    uint8_t* serialized_bytes;
+    PCRE2_SIZE serialized_size;
+    Binary* bin;
+    int32_t encode_res;
+    byte *hdr;
+    uint32_t chksum;
+
+    ASSERT(result);
+
+#ifdef DEBUG
+    erts_tsd_set(the_binary_malloc_tsd_key, NULL);
+#endif
+    encode_res = pcre2_serialize_encode_8(&result, 1,
+                                          &serialized_bytes, &serialized_size,
+                                          the_binary_general_ctx);
+    ASSERT(encode_res == 1); (void)encode_res;
+
+    bin = erts_tsd_get(the_binary_malloc_tsd_key);
+    ASSERT(bin);
+    ASSERT((char*)serialized_bytes >= bin->orig_bytes);
+    ASSERT((char*)serialized_bytes + serialized_size <= bin->orig_bytes + bin->orig_size);
+
+    hsz = 3 + 6 + ERL_REFC_BITS_SIZE;
+    hp = HAlloc(p, hsz);
+    hp_end = hp + hsz;
+
+    encode_bin_term = erts_wrap_refc_bitstring(&MSO(p).first,
+                                               &MSO(p).overhead,
+                                               &hp,
+                                               bin,
+                                               serialized_bytes,
+                                               0,
+                                               NBITS(serialized_size));
+
+    hdr_bin_term = erts_new_binary(p, EXPORTED_HDR_SZ, &hdr);
+
+    sys_memcpy(hdr + EXPORTED_HDR_TITLE_OFFS, "re-PCRE2", EXPORTED_HDR_TITLE_SZ);
+    put_int8(EXPORTED_ENCODE_VERSION, hdr + EXPORTED_HDR_ENCODE_VER_OFFS);
+    put_int8(unicode, hdr + EXPORTED_HDR_UNICODE_OFFS);
+
+    chksum = calc_checksum(serialized_bytes, serialized_size);
+    put_int32(chksum, hdr + EXPORTED_HDR_CHECKSUM_OFFS);
+
+    ret = TUPLE5(hp, am_re_exported_pattern, hdr_bin_term, regex_bin, opts, encode_bin_term);
+    hp += 6;
+    ret = TUPLE2(hp, am_ok, ret);
+    hp += 3;
+    ASSERT(hp == hp_end); (void)hp_end;
+
+    return ret;
+}
+
+BIF_RETTYPE
+re_import_1(BIF_ALIST_1)
+{
+    Eterm* tpl;
+    pcre2_code *regex_code;
+    int32_t decode_ret;
+    uint32_t chksum;
+    const byte* hdr;
+    Uint hdr_sz;
+    const byte *hdr_tmp_alloc = NULL;
+    const byte *encoded_tmp_alloc = NULL;
+    byte enc_ver;
+    byte unicode;
+
+    // {re_exported_pattern, HeaderBin, OrigBin, OrigOpts, EncodedBin}
+
+    if (!is_tuple_arity(BIF_ARG_1, 5)) {
+        goto badarg;
+    }
+    tpl = tuple_val(BIF_ARG_1);
+    if (tpl[1] != am_re_exported_pattern) {
+        goto badarg;
+    }
+
+    hdr = erts_get_aligned_binary_bytes(tpl[2], &hdr_sz, &hdr_tmp_alloc);
+    if (!hdr || hdr_sz < EXPORTED_HDR_SZ
+        || sys_memcmp(hdr, "re-PCRE2", EXPORTED_HDR_TITLE_SZ) != 0) {
+        goto badarg;
+    }
+    enc_ver = get_int8(hdr + EXPORTED_HDR_ENCODE_VER_OFFS);
+    if (enc_ver == EXPORTED_ENCODE_VERSION) {
+        const byte *encoded;
+        Uint encoded_sz;
+
+        if (hdr_sz != EXPORTED_HDR_SZ) {
+            goto badarg;
+        }
+
+        encoded = erts_get_aligned_binary_bytes(tpl[5], &encoded_sz,
+                                                &encoded_tmp_alloc);
+        if (!encoded) {
+            goto badarg;
+        }
+
+        chksum = get_uint32(hdr + EXPORTED_HDR_CHECKSUM_OFFS);
+        if (chksum != calc_checksum(encoded, encoded_sz)) {
+            goto badarg;
+        }
+        unicode = get_int8(hdr + EXPORTED_HDR_UNICODE_OFFS);
+
+        decode_ret = pcre2_serialize_decode_8(&regex_code, 1,
+                                              encoded,
+                                              the_precomp_general_ctx);
+    }
+    else {
+        /*
+         * Incorrect export encode format.
+         * Don't even look at tpl[5] and instead act as if the decode failed
+         * and fallback to compile regex below.
+         */
+        decode_ret = PCRE2_ERROR_BADMODE;
+    }
+
+    erts_free_aligned_binary_bytes(hdr_tmp_alloc);
+    hdr_tmp_alloc = NULL;
+    erts_free_aligned_binary_bytes(encoded_tmp_alloc);
+    encoded_tmp_alloc = NULL;
+
+    switch (decode_ret) {
+    case 1: // Ok
+        return build_compile_result(BIF_P, regex_code, unicode, false);
+
+    case PCRE2_ERROR_BADMODE:
+    case PCRE2_ERROR_BADMAGIC:
+        // Wrong architecture or PCRE version, try compile orig regex.
+        if (is_bitstring(tpl[3])) {
+            return re_compile(BIF_P, tpl[3], tpl[4], true);
+        }
+    }
+    ASSERT(decode_ret < 0);
+
+badarg:
+    erts_free_aligned_binary_bytes(hdr_tmp_alloc);
+    erts_free_aligned_binary_bytes(encoded_tmp_alloc);
+    BIF_ERROR(BIF_P, BADARG);
+}
+
+
+/*
+ * Build Erlang term result from FAILED compilation
+ */
+static Eterm 
+build_compile_error(Process *p,
+		    int errcode, PCRE2_SIZE errofset,
+		    Eterm extra_err_tag)
+{
+    Eterm *hp;
+    Eterm ret;
+    int elen, need;
+    PCRE2_UCHAR8 errstr[120];
+
+    /* Return {error, {Code, String, Offset}} */
+    if (pcre2_get_error_message(errcode, errstr, sizeof(errstr))
+	== PCRE2_ERROR_BADDATA) {
+	erts_snprintf((char*)errstr, sizeof(errstr), "Unknown error (%d)", errcode);
+    }
+    elen = sys_strlen((const char*)errstr);
+    need = 3 /* tuple of 2 */ +
+	3 /* tuple of 2 */ +
+	(2 * elen) /* The error string list */ +
+	((extra_err_tag != NIL) ? 3 : 0);
+    hp = HAlloc(p, need);
+    ret = buf_to_intlist(&hp, (char *) errstr, elen, NIL);
+    ret = TUPLE2(hp, ret, make_small(errofset));
+    hp += 3;
+    if (extra_err_tag != NIL) {
+	/* Return {error, {extra_tag,
+	       {Code, String, Offset}}} instead */
+	ret =  TUPLE2(hp, extra_err_tag, ret);
+	hp += 3;
+    }
+    ret = TUPLE2(hp, am_error, ret);
+    return ret;
+}
+
 
 /*
  * Compile BIFs
@@ -619,12 +841,16 @@ re_version_0(BIF_ALIST_0)
     BIF_RET(erts_new_binary_from_data(BIF_P, version_size, version));
 }
 
-static bool get_iolist_as_bytes(Eterm iolist,
+static bool get_iolist_as_bytes(Process* p,
+                                Eterm iolist,
                                 byte **bytes_p,
                                 ErlDrvSizeT *slen_p,
-                                byte** tmp_buf_p)
+                                byte** tmp_buf_p,
+                                Eterm* resbin_p)
 {
     int buffres;
+
+    ASSERT(tmp_buf_p || resbin_p);
 
     if (is_bitstring(iolist)) {
         Uint bit_offs, bit_sz;
@@ -633,7 +859,9 @@ static bool get_iolist_as_bytes(Eterm iolist,
         if (!BIT_OFFSET(bit_offs) && !TAIL_BITS(bit_sz)) {
             *bytes_p += BYTE_OFFSET(bit_offs);
             *slen_p = BYTE_SIZE(bit_sz);
-            *tmp_buf_p = NULL;
+            if (resbin_p) {
+                *resbin_p = iolist;
+            }
             return true;
         }
     }
@@ -641,26 +869,35 @@ static bool get_iolist_as_bytes(Eterm iolist,
     if (erts_iolist_size(iolist, slen_p)) {
         return false;
     }
-    *bytes_p = *tmp_buf_p = erts_alloc(ERTS_ALC_T_RE_TMP_BUF, *slen_p);
-    buffres = erts_iolist_to_buf(iolist, (char*)*bytes_p, *slen_p);
+    if (resbin_p) {
+        *resbin_p = erts_new_binary(p, *slen_p, bytes_p);
+    }
+    else {
+        *bytes_p = *tmp_buf_p = erts_alloc(ERTS_ALC_T_RE_TMP_BUF, *slen_p);
+    }
+
+    buffres = erts_iolist_to_buf(iolist, (char *)*bytes_p, *slen_p);
     ASSERT(buffres >= 0); (void)buffres;
     return true;
 }
 
 static BIF_RETTYPE
-re_compile(Process* p, Eterm arg1, Eterm arg2)
+re_compile(Process* p, Eterm re_arg, Eterm opts_arg, bool is_import)
 {
     ErlDrvSizeT slen;
     byte *expr;
-    byte *tmp_expr;
+    byte *tmp_expr = NULL;
     pcre2_code *result;
     int errcode = 0;
     PCRE2_SIZE errofset = 0;
     Eterm ret;
-    int unicode = 0;
+    byte unicode = 0;
+    bool is_export;
     struct parsed_options opts;
+    Eterm regex_bin;
+    Eterm* regex_bin_p;
 
-    if (!parse_options(arg2, &opts)) {
+    if (!parse_options(opts_arg, &opts)) {
     opt_error:
         p->fvalue = am_badopt;
 	BIF_ERROR(p, BADARG | EXF_HAS_EXT_INFO);
@@ -671,19 +908,37 @@ re_compile(Process* p, Eterm arg1, Eterm arg2)
     }
 
     unicode = (opts.flags & PARSE_FLAG_UNICODE) ? 1 : 0;
+    is_export = !is_import && opts.flags & PARSE_FLAG_EXPORT;
 
-    if (unicode && !is_bitstring(arg1)) {
-        BIF_TRAP2(ucompile_trap_exportp, p, arg1, arg2);
+    if (unicode && !is_bitstring(re_arg)) {
+        BIF_TRAP2(ucompile_trap_exportp, p, re_arg, opts_arg);
     }
 
-    if (!get_iolist_as_bytes(arg1, &expr, &slen, &tmp_expr)) {
+    regex_bin_p = is_export ? &regex_bin : NULL;
+
+    if (!get_iolist_as_bytes(p, re_arg, &expr, &slen, &tmp_expr, regex_bin_p)) {
         BIF_ERROR(p,BADARG);
     }
 
-    result = compile((char*)expr, slen, &opts, the_precompile_ctx, &errcode, &errofset);
+    result = compile((char*)expr, slen, &opts,
+                     (is_export ? the_tmp_compile_ctx : the_precompile_ctx),
+                     &errcode, &errofset);
 
-    ret = build_compile_result(p, am_error, result, errcode,
-			       errofset, unicode, 1, NIL);
+    if (!result) {
+        if (is_import) {
+            ERTS_BIF_PREP_ERROR(ret, p, BADARG);
+        }
+        else {
+            ret = build_compile_error(p, errcode, errofset, NIL);
+        }
+    }
+    else if (is_export) {
+        ret = build_compile_export(p, result, unicode, regex_bin, opts_arg);
+        pcre2_code_free(result);
+    }
+    else {
+        ret = build_compile_result(p, result, unicode, !is_import);
+    }
 
     if (tmp_expr) {
         erts_free(ERTS_ALC_T_RE_TMP_BUF, tmp_expr);
@@ -694,13 +949,13 @@ re_compile(Process* p, Eterm arg1, Eterm arg2)
 BIF_RETTYPE
 re_compile_2(BIF_ALIST_2)
 {
-    return re_compile(BIF_P, BIF_ARG_1, BIF_ARG_2);
+    return re_compile(BIF_P, BIF_ARG_1, BIF_ARG_2, false);
 }
 
 BIF_RETTYPE
 re_compile_1(BIF_ALIST_1)
 {
-    return re_compile(BIF_P, BIF_ARG_1, NIL);
+    return re_compile(BIF_P, BIF_ARG_1, NIL, false);
 }
 
 /*
@@ -1220,7 +1475,7 @@ build_capture(Eterm capture_spec[CAPSPEC_SIZE], pcre2_code  *code)
  * The actual re:run/2,3 BIFs
  */
 static BIF_RETTYPE
-re_run(Process *p, Eterm arg1, Eterm arg2, Eterm arg3, int first)
+re_run(Process *p, Eterm arg1, Eterm arg2, Eterm arg3, bool first)
 {
     RestartContext restart;
     pcre2_code  *regex_code;
@@ -1235,7 +1490,7 @@ re_run(Process *p, Eterm arg1, Eterm arg2, Eterm arg3, int first)
     const Sint32 reds_initial = ERTS_BIF_REDS_LEFT(p);
     Sint32 reds_consumed;
 
-    if (!parse_options(arg3, &opts)) {
+    if (!parse_options(arg3, &opts) || (opts.flags & PARSE_FLAG_EXPORT)) {
         p->fvalue = am_badopt;
 	BIF_ERROR(p, BADARG | EXF_HAS_EXT_INFO);
     }
@@ -1258,7 +1513,7 @@ re_run(Process *p, Eterm arg1, Eterm arg2, Eterm arg3, int first)
 	    /* Compile from textual regex */
 	    ErlDrvSizeT slen;
 	    byte *expr;
-            byte *tmp_expr;
+            byte *tmp_expr = NULL;
 
 	    int errcode = 0;
 	    PCRE2_SIZE errofset = 0;
@@ -1270,7 +1525,7 @@ re_run(Process *p, Eterm arg1, Eterm arg2, Eterm arg3, int first)
 		BIF_TRAP3(urun_trap_exportp, p, arg1, arg2, arg3);
 	    }
 	    
-            if (!get_iolist_as_bytes(arg2, &expr, &slen, &tmp_expr)) {
+            if (!get_iolist_as_bytes(p, arg2, &expr, &slen, &tmp_expr, NULL)) {
                 BIF_ERROR(p,BADARG);
             }
 
@@ -1284,11 +1539,8 @@ re_run(Process *p, Eterm arg1, Eterm arg2, Eterm arg3, int first)
 		/* Compilation error gives badarg except in the compile 
 		   function or if we have PARSE_FLAG_REPORT_ERRORS */
 		if (opts.flags &  PARSE_FLAG_REPORT_ERRORS) {
-		    res = build_compile_result(p, am_error, regex_code, errcode,
-					       errofset,
-					       (opts.flags &
-						PARSE_FLAG_UNICODE) ? 1 : 0, 
-					       1, am_compile);
+		    res = build_compile_error(p, errcode,
+					       errofset, am_compile);
 		    BIF_RET(res);
 		} else {
 		    BIF_ERROR(p,BADARG);
@@ -1296,12 +1548,11 @@ re_run(Process *p, Eterm arg1, Eterm arg2, Eterm arg3, int first)
 	    }
 	    if (opts.flags & PARSE_FLAG_GLOBAL) {
 		Eterm precompiled = 
-		    build_compile_result(p, am_error,
-					 regex_code, errcode,
-					 errofset,
+		    build_compile_result(p,
+					 regex_code,
 					 (opts.flags &
 					  PARSE_FLAG_UNICODE) ? 1 : 0,
-					 0, NIL);
+					 false);
 		Eterm *hp,r;
 		hp = HAlloc(p,4);
 		/* arg2 is in the tuple just to make exceptions right */
@@ -1546,11 +1797,11 @@ handle_iodata:
 BIF_RETTYPE
 re_internal_run_4(BIF_ALIST_4)
 {
-    int first;
+    bool first;
     if (BIF_ARG_4 == am_false)
-        first = 0;
+        first = false;
     else if (BIF_ARG_4 == am_true)
-        first = !0;
+        first = true;
     else
         BIF_ERROR(BIF_P,BADARG);
     return re_run(BIF_P,BIF_ARG_1, BIF_ARG_2, BIF_ARG_3, first);
@@ -1559,13 +1810,13 @@ re_internal_run_4(BIF_ALIST_4)
 BIF_RETTYPE
 re_run_3(BIF_ALIST_3)
 {
-    return re_run(BIF_P,BIF_ARG_1, BIF_ARG_2, BIF_ARG_3, !0);
+    return re_run(BIF_P,BIF_ARG_1, BIF_ARG_2, BIF_ARG_3, true);
 }
 
 BIF_RETTYPE
 re_run_2(BIF_ALIST_2) 
 {
-    return re_run(BIF_P,BIF_ARG_1, BIF_ARG_2, NIL, !0);
+    return re_run(BIF_P,BIF_ARG_1, BIF_ARG_2, NIL, true);
 }
 
 /*
