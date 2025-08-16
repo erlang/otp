@@ -459,11 +459,8 @@ int_to_utf8(I, 4) ->
     B1 = (I bsr 18),
     <<1:1,1:1,1:1,1:1,0:1,B1:3,1:1,0:1,B2:6,1:1,0:1,B3:6,1:1,0:1,B4:6>>.
 
-make_unaligned(Bin0) when is_binary(Bin0) ->
-    Bin1 = <<0:3,Bin0/binary,31:5>>,
-    Sz = byte_size(Bin0),
-    <<0:3,Bin:Sz/binary,31:5>> = id(Bin1),
-    Bin.
+make_unaligned(Bin) ->
+    erts_debug:unaligned_bitstring(Bin, 3).
 
 fail_check({'EXIT',{badarg,_}}, Str, Vars) ->
     try	evaluate(Str, Vars) of

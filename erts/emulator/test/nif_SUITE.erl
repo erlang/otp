@@ -4467,10 +4467,8 @@ nif_ioq_payload(refcbin) ->
 nif_ioq_payload(Else) ->
     Else.
 
-make_unaligned_binary(Bin0) ->
-    Size = byte_size(Bin0),
-    <<0:3,Bin:Size/binary,31:5>> = id(<<0:3,Bin0/binary,31:5>>),
-    Bin.
+make_unaligned_binary(Bin) ->
+    erts_debug:unaligned_bitstring(Bin, 3).
 
 pid(Config) ->
     ensure_lib_loaded(Config),
