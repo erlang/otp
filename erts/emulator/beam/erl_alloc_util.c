@@ -7028,6 +7028,10 @@ erts_alcu_init(AlcUInit_t *init)
 #endif
     allow_sys_alloc_carriers = init->sac;
 
+#if defined(HAVE_MADVISE) && defined(MADV_FREE)
+    erts_madvise_discard_advice = (init->madtn ? MADV_DONTNEED : MADV_FREE);
+#endif
+
 #ifdef DEBUG
     carrier_alignment = sizeof(Unit_t);
 #endif

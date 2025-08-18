@@ -42,6 +42,7 @@ typedef struct {
     UWord ycs;
     UWord mmc;
     int   sac;
+    int   madtn;
 } AlcUInit_t;
 
 typedef struct {
@@ -102,7 +103,8 @@ typedef struct {
 #define ERTS_DEFAULT_ALCU_INIT {                                           \
     .ycs = 1024*1024,		/* (bytes):    sys_alloc carrier size    */\
     .mmc = ~((UWord) 0),	/* (amount):   max mseg carriers         */\
-    .sac = 1			/* (bool):     sys_alloc carriers        */\
+    .sac = 1,			/* (bool):     sys_alloc carriers        */\
+    .madtn = 0                  /* (bool) => erts_madvise_discard_advice */\
 }
 
 #define ERTS_DEFAULT_ALLCTR_INIT {                                         \
@@ -143,7 +145,8 @@ typedef struct {
 #define ERTS_DEFAULT_ALCU_INIT {                                           \
     .ycs = 128*1024,    /* (bytes):         sys_alloc carrier size       */\
     .mmc = 1024,        /* (amount):        max mseg carriers            */\
-    .sac = 1		/* (bool):          sys_alloc carriers           */\
+    .sac = 1,		/* (bool):          sys_alloc carriers           */\
+    .madtn = 0          /* (bool) =>        erts_madvise_discard_advice  */\
 }
 
 #define ERTS_DEFAULT_ALLCTR_INIT {                                         \
