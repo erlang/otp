@@ -473,7 +473,7 @@ identifier is effected.
   Besides passing carrier pool name as value to the parameter, you can also pass
   `:`. By passing `:` instead of carrier pool name, the allocator will use the
   carrier pool associated with itself. By passing the command line argument
-  "`+Mucg :`", all allocators that have an associated carrier pool will use the
+  "`+Mucp :`", all allocators that have an associated carrier pool will use the
   carrier pool associated with themselves.
 
   The association between carrier pool and allocator is very loose. The
