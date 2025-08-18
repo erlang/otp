@@ -2835,6 +2835,16 @@ infer_type({bif,is_reference}, [#b_var{}=Arg], _Ts, _Ds) ->
 infer_type({bif,is_tuple}, [#b_var{}=Arg], _Ts, _Ds) ->
     T = {Arg, #t_tuple{}},
     {[T], [T]};
+infer_type({bif,is_between}, [#b_var{}=Arg,
+                              #b_literal{val=Min},
+                              #b_literal{val=Max}], _Ts, _Ds) when Min =< Max ->
+    T = {Arg, beam_types:make_integer(Min, Max)},
+    {[T], [T]};
+infer_type({bif,is_between}, [#b_var{}=Arg, _, _], _Ts, _Ds) ->
+    %% We cannot subtract the type when the bounds are unknown: `Arg` may still
+    %% be an integer if it is not in the tested range.
+    T = {Arg, #t_integer{}},
+    {[T], []};
 infer_type({bif,'and'}, [#b_var{}=LHS,#b_var{}=RHS], Ts, Ds) ->
     %% When this BIF yields true, we know that both `LHS` and `RHS` are 'true'
     %% and should infer accordingly, lest we break later optimizations that
