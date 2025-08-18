@@ -897,8 +897,8 @@ handle_new_keys(#ssh_msg_newkeys{}, Ssh0) ->
     end. 
 
 %%%----------------------------------------------------------------
-kex_strict_alg(client) -> [?kex_strict_c];
-kex_strict_alg(server) -> [?kex_strict_s].
+kex_strict_alg(client) -> [?kex_strict_c, ?kex_strict_c_pre];
+kex_strict_alg(server) -> [?kex_strict_s, ?kex_strict_s_pre].
 
 %%%----------------------------------------------------------------
 kex_ext_info(Role, Opts) ->
@@ -1101,10 +1101,14 @@ select_algorithm(Role, Client, Server,
                     case Role of
                         server ->
                             lists:member(?kex_strict_c,
-                                         Client#ssh_msg_kexinit.kex_algorithms);
+                                         Client#ssh_msg_kexinit.kex_algorithms) orelse
+                                lists:member(?kex_strict_c_pre,
+                                             Client#ssh_msg_kexinit.kex_algorithms);
                         client ->
                             lists:member(?kex_strict_s,
-                                         Server#ssh_msg_kexinit.kex_algorithms)
+                                         Server#ssh_msg_kexinit.kex_algorithms) orelse
+                                lists:member(?kex_strict_s_pre,
+                                             Server#ssh_msg_kexinit.kex_algorithms)
                     end,
                 case Result of
                     true ->
