@@ -100,9 +100,9 @@ typedef struct {
 #ifndef SMALL_MEMORY
 
 #define ERTS_DEFAULT_ALCU_INIT {                                           \
-    1024*1024,		/* (bytes)  ycs:    sys_alloc carrier size       */\
-    ~((UWord) 0),	/* (amount) mmc:    max mseg carriers            */\
-    1			/* (bool)   sac:    sys_alloc carriers           */\
+    .ycs = 1024*1024,		/* (bytes):    sys_alloc carrier size    */\
+    .mmc = ~((UWord) 0),	/* (amount):   max mseg carriers         */\
+    .sac = 1			/* (bool):     sys_alloc carriers        */\
 }
 
 #define ERTS_DEFAULT_ALLCTR_INIT {                                         \
@@ -141,9 +141,9 @@ typedef struct {
 #else /* if SMALL_MEMORY */
 
 #define ERTS_DEFAULT_ALCU_INIT {                                           \
-    128*1024,		/* (bytes)  ycs:    sys_alloc carrier size       */\
-    1024,      		/* (amount) mmc:    max mseg carriers            */\
-    1			/* (bool)   sac:    sys_alloc carriers           */\
+    .ycs = 128*1024,    /* (bytes):         sys_alloc carrier size       */\
+    .mmc = 1024,        /* (amount):        max mseg carriers            */\
+    .sac = 1		/* (bool):          sys_alloc carriers           */\
 }
 
 #define ERTS_DEFAULT_ALLCTR_INIT {                                         \
