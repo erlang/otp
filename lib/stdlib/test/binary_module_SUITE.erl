@@ -1408,16 +1408,11 @@ mask_error({'EXIT',{Err,_}}) ->
 mask_error(Else) ->
     Else.
 
-make_unaligned(Bin0) when is_binary(Bin0) ->
-    Bin1 = <<0:3,Bin0/binary,31:5>>,
-    Sz = byte_size(Bin0),
-    <<0:3,Bin:Sz/binary,31:5>> = id(Bin1),
-    Bin.
-make_unaligned2(Bin0) when is_binary(Bin0) ->
-    Bin1 = <<31:5,Bin0/binary,0:3>>,
-    Sz = byte_size(Bin0),
-    <<31:5,Bin:Sz/binary,0:3>> = id(Bin1),
-    Bin.
+make_unaligned(Bin) when is_binary(Bin) ->
+    erts_debug:unaligned_bitstring(Bin, 3).
+
+make_unaligned2(Bin) when is_binary(Bin) ->
+    erts_debug:unaligned_bitstring(Bin, 5).
 
 check_no_invalid_read_bug(Config) when is_list(Config) ->
     check_no_invalid_read_bug(24);

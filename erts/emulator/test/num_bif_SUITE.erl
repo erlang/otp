@@ -556,7 +556,7 @@ t_integer_to_string(Config) when is_list(Config) ->
 
     %% Bignums.
     BigBin = id(list_to_binary(lists:duplicate(2000, id($1)))),
-    Big    = erlang:binary_to_integer(BigBin),
+    Big    = bin_to_int(BigBin),
     BigBin = erlang:integer_to_binary(Big),
 
     %% Invalid types
@@ -607,9 +607,9 @@ t_string_to_integer(Config) when is_list(Config) ->
     _ = rand:uniform(),				%Seed generator
     io:format("Seed: ~p", [rand:export_seed()]),
 
-    0 = erlang:binary_to_integer(id(<<"00">>)),
-    0 = erlang:binary_to_integer(id(<<"-0">>)),
-    0 = erlang:binary_to_integer(id(<<"+0">>)),
+    0 = bin_to_int(id(<<"00">>)),
+    0 = bin_to_int(id(<<"-0">>)),
+    0 = bin_to_int(id(<<"+0">>)),
 
     test_sti(0),
     test_sti(1),
@@ -636,12 +636,12 @@ t_string_to_integer(Config) when is_list(Config) ->
     Str = <<"10">>,
     UnalignStr = <<0:3, (id(Str))/binary, 0:5>>,
     <<_:3, SomeStr:2/binary, _:5>> = id(UnalignStr),
-    10 = binary_to_integer(SomeStr),
+    10 = bin_to_int(SomeStr),
 
     %% Invalid types
     lists:foreach(fun(Value) ->
 			  {'EXIT', {badarg, _}} =
-			      (catch binary_to_integer(Value)),
+			      (catch bin_to_int(Value)),
 			  {'EXIT', {badarg, _}} =
 			      (catch list_to_integer(Value))
 		  end,[atom,1.2,0.0,[$1,[$2]]]),
@@ -649,7 +649,7 @@ t_string_to_integer(Config) when is_list(Config) ->
     %% Default base error cases
     lists:foreach(fun(Value) ->
 			  {'EXIT', {badarg, _}} =
-			      (catch binary_to_integer(list_to_binary(Value))),
+			      (catch bin_to_int(list_to_binary(Value))),
 			  {'EXIT', {badarg, _}} =
 			      (catch list_to_integer(Value))
 		  end,["1.0"," 1"," -1","","+"]),
@@ -762,8 +762,8 @@ test_sti(Num, Base) ->
         Base =:= 10 ->
             Num = list_to_integer(NumList),
             Neg = list_to_integer(NegNumList),
-            Num = binary_to_integer(iolist_to_binary(NumList)),
-            Neg = binary_to_integer(iolist_to_binary(NegNumList));
+            Num = bin_to_int(iolist_to_binary(NumList)),
+            Neg = bin_to_int(iolist_to_binary(NegNumList));
         true ->
             ok
     end,
@@ -778,3 +778,23 @@ id(X) -> X.
 %% Use the printing library to convert to list.
 int2list(Int, Base) when is_integer(Base), 2 =< Base, Base =< 36 ->
     lists:flatten(io_lib:format("~."++integer_to_list(Base)++"B",[Int])).
+
+bin_to_int(Bin) ->
+    Unaligned = erts_debug:unaligned_bitstring(Bin, 3),
+    try binary_to_integer(Bin) of
+        Int ->
+            Int = binary_to_integer(Unaligned),
+            Int
+    catch
+        C:E ->
+            try binary_to_integer(Unaligned) of
+                _ ->
+                    exit(should_fail)
+            catch
+                OtherC:OtherE when C =/= OtherC; E =/= OtherE ->
+                    exit(exceptions_different)
+            end
+    end.
+
+make_unaligned_sub_binary(Bin) ->
+    erts_debug:unaligned_bitstring(Bin, 3).
