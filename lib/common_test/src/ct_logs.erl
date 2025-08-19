@@ -553,7 +553,12 @@ tc_print(Category,Importance,Format,Args,Opts) ->
                     undefined -> atom_to_list(Category);
                     Hd        -> Hd
                 end,
-            Str = lists:flatten([get_header(Heading),Format,"\n\n"]),
+            Parts =
+                case Heading of
+                    "" -> [Format, "\n"];
+                    _ -> [get_header(Heading),Format,"\n\n"]
+                end,
+            Str = lists:flatten(Parts),
             try
                 io:format(?def_gl, Str, Args)
             catch
