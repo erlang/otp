@@ -43,7 +43,7 @@
          t_abstract_type/1,t_erl_parse_type/1,t_type/1,
          t_epp_dodger/1,t_epp_dodger_clever/1,
          t_comment_scan/1,t_prettypr/1,test_named_fun_bind_ann/1,
-         test_maybe_expr_ann/1]).
+         test_maybe_expr_ann/1,test_zip_ann/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -54,7 +54,7 @@ all() ->
      t_abstract_type,t_erl_parse_type,t_type,
      t_epp_dodger,t_epp_dodger_clever,
      t_comment_scan,t_prettypr,test_named_fun_bind_ann,
-     test_maybe_expr_ann].
+     test_maybe_expr_ann,test_zip_ann].
 
 groups() ->
     [].
@@ -490,6 +490,19 @@ test_maybe_expr_ann(Config) when is_list(Config) ->
     NoElseAnn = erl_syntax:maybe_expr_else(MaybeNoElseAnn),
     [] = erl_syntax:get_ann(NoElseAnn),
 
+    ok.
+
+test_zip_ann(Config) when is_list(Config) ->
+    Expr = {lc,1,
+            {tuple,1,[{var,1,'A'},{var,1,'B'}]},
+            [{zip,1,
+                [{generate,1,{var,1,'A'},{var,1,'X'}},
+                    {generate_strict,1,{var,1,'B'},{var,1,'Y'}}]}]},
+    ZipAnn = erl_syntax_lib:annotate_bindings(Expr, []),
+    [Env, Bound, Free] = erl_syntax:get_ann(ZipAnn),
+    {'env',[]} = Env,
+    {'bound',[]} = Bound,
+    {'free',['X','Y']} = Free,
     ok.
 
 test_files(Config) ->
