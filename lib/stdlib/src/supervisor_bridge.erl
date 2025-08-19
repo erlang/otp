@@ -82,7 +82,7 @@ It is to be the opposite of [`Module:init/1`](`c:init/1`) and stop the subsystem
 and do any necessary cleaning up. The return value is ignored.
 
 `Reason` is `shutdown` if the supervisor bridge is terminated by its supervisor.
-If the supervisor bridge terminates because a a linked process (apart from the
+If the supervisor bridge terminates because a linked process (apart from the
 main process of the subsystem) has terminated with reason `Term`, then `Reason`
 becomes `Term`.
 
