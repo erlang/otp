@@ -3853,7 +3853,10 @@ void erts_validate_stack(Process *p, Eterm *frame_ptr, Eterm *stack_top) {
     ASSERT((next_fp != NULL) ^ (stack_top == stack_bottom));
 
     /* If the GC happens when we are about to execute a trace we
-       need to skip the trace instructions */
+       need to skip the trace instructions.
+       Note: It's not safe in general to assume p->i is up-to-date in GC.
+       However the return trace intructions do update p->i after returning.
+       */
     if (BeamIsReturnTrace(p->i)) {
         /* Skip MFA and tracer. */
         ASSERT_MFA((ErtsCodeMFA*)cp_val(scanner[0]));
