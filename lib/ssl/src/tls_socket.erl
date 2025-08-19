@@ -282,11 +282,11 @@ internal_inet_values(tls_socket_tcp) ->
 internal_inet_values(_) ->
     [{packet_size,0}, {packet, 0}, {header, 0}, {active, false}, {mode,binary}].
 
-default_inet_values(gen_tcp) ->
-    [{packet_size, 0}, {packet,0}, {header, 0}, {active, true}, {mode, list}];
 default_inet_values(tls_socket_tcp) ->
     [{packet_size, 0}, {packet,0}, {header, 0}, {active, true}, {mode, list},
-     {high_watermark, 8192}, {low_watermark, 4096}].
+     {high_watermark, 8192}, {low_watermark, 4096}];
+default_inet_values(_) ->
+    [{packet_size, 0}, {packet,0}, {header, 0}, {active, true}, {mode, list}].
 
 inherit_tracker(ListenSocket, EmOpts, #{erl_dist := true} = SslOpts) ->
     ssl_listen_tracker_sup:start_child_dist([ListenSocket, EmOpts, SslOpts]);
