@@ -561,14 +561,19 @@ vann_match_expr(Tree, Env) ->
     {ann_bindings(Tree1, Env, Bound, Free), Bound, Free}.
 
 vann_maybe_expr(Tree, Env) ->
+    Bound = [],
     Body = erl_syntax:maybe_expr_body(Tree),
     {B1, {_, Free1}} = vann_body(Body, Env),
-    Else = erl_syntax:maybe_expr_else(Tree),
-    {Else1, _, Free2} = vann_else_expr(Else, Env),
-    Free = ordsets:union(Free1, Free2),
-    Tree1 = rewrite(Tree, erl_syntax:maybe_expr(B1, Else1)),
-    Bound = [],
-    {ann_bindings(Tree1, Env, Bound, Free), Bound, Free}.
+    case erl_syntax:maybe_expr_else(Tree) of
+        none ->
+            Tree1 = rewrite(Tree, erl_syntax:maybe_expr(B1)),
+            {ann_bindings(Tree1, Env, Bound, Free1), Bound, Free1};
+        Else ->
+            {Else1, _, Free2} = vann_else_expr(Else, Env),
+            Free = ordsets:union(Free1, Free2),
+            Tree1 = rewrite(Tree, erl_syntax:maybe_expr(B1, Else1)),
+            {ann_bindings(Tree1, Env, Bound, Free), Bound, Free}
+    end.
 
 vann_maybe_match_expr(Tree, Env) ->
     E = erl_syntax:maybe_match_expr_body(Tree),

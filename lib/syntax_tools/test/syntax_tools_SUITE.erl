@@ -455,7 +455,17 @@ test_maybe_expr_ann(Config) when is_list(Config) ->
     [Env4, Bound4, Free4] = erl_syntax:get_ann(ElseAnn),
     {'env',[]} = Env4,
     {'bound',[]} = Bound4,
-    {'free',[]} = Free4.
+    {'free',[]} = Free4,
+
+    %% Test that it also works when there is no else clause
+    MaybeNoElse = erl_syntax:maybe_expr([MaybeMatch1, MaybeMatch2, Match1]),
+    MaybeNoElseAnn = erl_syntax_lib:annotate_bindings(MaybeNoElse, []),
+    [Env, Bound, Free] = erl_syntax:get_ann(MaybeNoElseAnn),
+    [MaybeMatchAnn1, MaybeMatchAnn2, MatchAnn1] = erl_syntax:maybe_expr_body(MaybeNoElseAnn),
+    NoElseAnn = erl_syntax:maybe_expr_else(MaybeNoElseAnn),
+    [] = erl_syntax:get_ann(NoElseAnn),
+
+    ok.
 
 test_files(Config) ->
     DataDir = ?config(data_dir, Config),
