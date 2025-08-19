@@ -22,6 +22,7 @@
 -module(gen_tcp_echo_SUITE).
 
 -include_lib("common_test/include/ct.hrl").
+-include("kernel_test_lib.hrl").
 
 %%-compile(export_all).
 
@@ -41,12 +42,17 @@ suite() ->
      {timetrap, {minutes,1}}].
 
 all() ->
-    case kernel_test_lib:test_inet_backends() of
+    case ?TEST_INET_BACKENDS() of
         true ->
-            [{group, inet_backend_inet},
-             {group, inet_backend_socket}];
-        false ->
-            [{group, inet_backend_default}]
+            [
+             {group, inet_backend_default},
+             {group, inet_backend_inet},
+             {group, inet_backend_socket}
+            ];
+        _ ->
+            [
+             {group, inet_backend_default}
+            ]
     end.
 
 groups() ->
@@ -74,28 +80,68 @@ end_per_suite(_Config) ->
     ok.
 
 
+init_per_group(inet_backend_default = _GroupName, Config) ->
+    ?P("~w(~w) -> check explicit inet-backend when"
+       "~n   Config: ~p", [?FUNCTION_NAME, _GroupName, Config]),
+    case ?EXPLICIT_INET_BACKEND(Config) of
+        undefined ->
+            [{socket_create_opts, []} | Config];
+        inet ->
+            {skip, "explicit inet-backend = inet"};
+        socket ->
+            {skip, "explicit inet-backend = socket"}
+    end;
+init_per_group(inet_backend_inet = _GroupName, Config) ->
+    ?P("~w(~w) -> check explicit inet-backend when"
+       "~n   Config: ~p", [?FUNCTION_NAME, _GroupName, Config]),
+    case ?EXPLICIT_INET_BACKEND(Config) of
+        undefined ->
+            case ?EXPLICIT_INET_BACKEND() of
+                true ->
+                    %% The environment trumps us,
+                    %% so only the default group should be run!
+                    {skip, "explicit inet backend"};
+                false ->
+                    [{socket_create_opts, [{inet_backend, inet}]} | Config]
+            end;
+        inet ->
+            [{socket_create_opts, [{inet_backend, inet}]} | Config];
+        socket ->
+            {skip, "explicit inet-backend = socket"}
+    end;
+init_per_group(inet_backend_socket = _GroupName, Config) ->
+    ?P("~w(~w) -> check explicit inet-backend when"
+       "~n   Config: ~p", [?FUNCTION_NAME, _GroupName, Config]),
+    case ?EXPLICIT_INET_BACKEND(Config) of
+        undefined ->
+            case ?EXPLICIT_INET_BACKEND() of
+                true ->
+                    %% The environment trumps us,
+                    %% so only the default group should be run!
+                    {skip, "explicit inet backend"};
+                false ->
+                    [{socket_create_opts, [{inet_backend, socket}]} | Config]
+            end;
+        inet ->
+            {skip, "explicit inet-backend = inet"};
+        socket ->
+            [{socket_create_opts, [{inet_backend, socket}]} | Config]
+    end;
 init_per_group(Name, Config) ->
     case Name of
-        inet_backend_default ->
-            kernel_test_lib:config_inet_backend(Config, default);
-        inet_backend_socket ->
-            init_per_group_inet_backend(socket, Config);
-        inet_backend_inet ->
-            init_per_group_inet_backend(inet, Config);
-        %%
-        no_read_ahead   -> [{read_ahead, false} | Config];
-        delay_send      -> [{delay_send, true}  | Config];
+        no_read_ahead -> [{read_ahead, false} | Config];
+        delay_send    -> [{delay_send, true}  | Config];
         _ -> Config
     end.
 
-init_per_group_inet_backend(Backend, Config) ->
-    case kernel_test_lib:explicit_inet_backend() of
-        true ->
-            %% Contradicting kernel variables - skip group
-            {skip, "explicit inet backend"};
-        false ->
-            kernel_test_lib:config_inet_backend(Config, Backend)
-    end.
+%% init_per_group_inet_backend(Backend, Config) ->
+%%     case kernel_test_lib:explicit_inet_backend() of
+%%         true ->
+%%             %% Contradicting kernel variables - skip group
+%%             {skip, "explicit inet backend"};
+%%         false ->
+%%             kernel_test_lib:config_inet_backend(Config, Backend)
+%%     end.
 
 end_per_group(Name, Config) ->
     case Name of

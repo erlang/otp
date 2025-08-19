@@ -118,6 +118,7 @@
                           erl_dist_handle = undefined :: erlang:dist_handle() | 'undefined',
                           cert_key_alts  = undefined ::  #{eddsa => list(),
                                                            ecdsa => list(),
+                                                           mldsa => list(),
                                                            rsa_pss_pss => list(),
                                                            rsa => list(),
                                                            dsa => list()

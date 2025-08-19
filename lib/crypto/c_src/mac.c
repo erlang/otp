@@ -136,20 +136,6 @@ void init_mac_types(ErlNifEnv* env)
     p->name.atom = atom_false;  /* end marker */
 }
 
-void fini_mac_types(void)
-{
-#if defined(HAS_3_0_API)
-    struct mac_type_t* p = mac_types;
-
-    for (p = mac_types; p->name.str; p++) {
-        EVP_MAC_free(p->evp_mac);
-        p->evp_mac = NULL;
-    }
-#endif
-}
-
-
-
 ERL_NIF_TERM mac_types_as_list(ErlNifEnv* env)
 {
     struct mac_type_t* p;
@@ -158,7 +144,7 @@ ERL_NIF_TERM mac_types_as_list(ErlNifEnv* env)
     hd = enif_make_list(env, 0);
     prev = atom_undefined;
 
-    for (p = mac_types; (p->name.atom & (p->name.atom != atom_false)); p++) {
+    for (p = mac_types; p->name.atom != atom_false; p++) {
         if (prev == p->name.atom)
             continue;
 

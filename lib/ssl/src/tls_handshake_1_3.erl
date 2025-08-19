@@ -915,8 +915,9 @@ handle_secrets(State0) ->
     State3 =  State2#state{protocol_specific = PS#{exporter_master_secret => ExporterSecret}},
     forget_master_secret(State3).
 
-calculate_handshake_secrets(PublicKey, PrivateKey, SelectedGroup, PSK,
+calculate_handshake_secrets(PublicKey, PrivateKeyOrSecret, SelectedGroup, PSK,
                               #state{connection_states = ConnectionStates,
+                                     static_env = #static_env{role = Role},
                                      handshake_env =
                                          #handshake_env{
                                             tls_handshake_history = HHistory}} = State0) ->
@@ -926,8 +927,15 @@ calculate_handshake_secrets(PublicKey, PrivateKey, SelectedGroup, PSK,
                          cipher_suite = CipherSuite} = SecParamsR,
     EarlySecret = tls_v1:key_schedule(early_secret, HKDFAlgo , {psk, PSK}),
 
-    IKM = calculate_shared_secret(PublicKey, PrivateKey, SelectedGroup),
-    HandshakeSecret = tls_v1:key_schedule(handshake_secret, HKDFAlgo, IKM, EarlySecret),
+    HandshakeSecret =
+        case is_mlkem(SelectedGroup) of
+            true ->
+                IKM = mlkem_calculate_shared_secret(Role, SelectedGroup, PublicKey, PrivateKeyOrSecret),
+                tls_v1:key_schedule(handshake_secret, HKDFAlgo, IKM, EarlySecret);
+            false ->
+                IKM = calculate_shared_secret(PublicKey, PrivateKeyOrSecret, SelectedGroup),
+                tls_v1:key_schedule(handshake_secret, HKDFAlgo, IKM, EarlySecret)
+        end,
 
     %% Calculate [sender]_handshake_traffic_secret
     {Messages, _} =  HHistory,
@@ -1155,6 +1163,10 @@ calculate_shared_secret(OthersKey, MyKey = #'ECPrivateKey'{}, _Group)
     Point = #'ECPoint'{point = OthersKey},
     public_key:compute_key(Point, MyKey).
 
+mlkem_calculate_shared_secret(client, Group, CipherText, PrivKey) ->
+    crypto:decapsulate_key(Group, PrivKey, CipherText);
+mlkem_calculate_shared_secret(server, _, _, Secret) ->
+    Secret.
 
 maybe_calculate_resumption_master_secret(#state{ssl_options = #{session_tickets := disabled}} = State) ->
     State;
@@ -1535,6 +1547,9 @@ select_sign_algo(PublicKeyAlgo, RSAKeySize, [CertSignAlg|CertSignAlgs], OwnSignA
           orelse (PublicKeyAlgo =:= rsa_pss_pss andalso S =:= rsa_pss_pss)
           orelse (PublicKeyAlgo =:= ecdsa andalso S =:= ecdsa)
           orelse (PublicKeyAlgo =:= eddsa andalso S =:= eddsa)
+          orelse (PublicKeyAlgo =:= mldsa44 andalso S =:= mldsa44)
+          orelse (PublicKeyAlgo =:= mldsa65 andalso S =:= mldsa65)
+          orelse (PublicKeyAlgo =:= mldsa87 andalso S =:= mldsa87)
          )
         andalso
         lists:member(CertSignAlg, OwnSignAlgs) of
@@ -1642,6 +1657,12 @@ public_key_algo(?'id-Ed25519') ->
     eddsa;
 public_key_algo(?'id-Ed448') ->
     eddsa;
+public_key_algo(?'id-ml-dsa-44') ->
+    mldsa44;
+public_key_algo(?'id-ml-dsa-65') ->
+    mldsa65;
+public_key_algo(?'id-ml-dsa-87') ->
+    mldsa87;
 public_key_algo(?'id-dsa') ->
     dsa.
 
@@ -2023,3 +2044,10 @@ plausible_missing_chain([_] = EncodedChain, undefined, SignAlg, Key, Session0) -
                     };
 plausible_missing_chain(_,Plausible,_,_,_) ->
     Plausible.
+
+is_mlkem(Group) when Group == mlkem512;
+                     Group == mlkem768;
+                     Group == mlkem1024 ->
+    true;
+is_mlkem(_) ->
+    false.

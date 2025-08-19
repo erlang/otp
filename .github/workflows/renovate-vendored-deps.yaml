@@ -32,10 +32,11 @@ permissions:
 jobs:
   update-vendored-deps:
     runs-on: ubuntu-latest
-    if: contains(github.event.pull_request.title, 'Update dependency') && github.actor == 'renovate[bot]'
+    if: contains(github.event.pull_request.title, 'Update dependency') && github.actor == 'renovate-bot'
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # ratchet:actions/checkout@v4.2.2
         with:
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
           ref: ${{ github.event.pull_request.head.ref }}
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}

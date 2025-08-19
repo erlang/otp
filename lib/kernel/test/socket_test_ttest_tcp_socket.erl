@@ -39,7 +39,8 @@
 	 recv/2, recv/3,
 	 send/2,
 	 shutdown/2,
-	 sockname/1
+	 sockname/1,
+         info/1
 	]).
 
 
@@ -385,6 +386,10 @@ sockname(#{sock := Sock}) ->
 	{error, _} = ERROR ->
 	    ERROR
     end.
+
+
+info(#{sock := Sock}) ->
+    socket:info(Sock).
 
 
 %% ==========================================================================

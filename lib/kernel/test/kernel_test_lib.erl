@@ -29,9 +29,10 @@
 	 listen/3,
          connect/4, connect/5,
          open/3,
+         ttest_condition/0,
          is_socket_backend/1,
          inet_backend_opts/1,
-         explicit_inet_backend/0,
+         explicit_inet_backend/0, explicit_inet_backend/1,
          test_inet_backends/0,
          which_inet_backend/1,
          config_inet_backend/2]).
@@ -2562,6 +2563,9 @@ start_node(Name, Args, Opts) ->
         " -pa " ++ Pa ++ 
         " -s " ++ atom_to_list(kernel_test_sys_monitor) ++ " start" ++ 
         " -s global sync",
+    print("~w -> try start node ~p with"
+          "~n   Args: ~p"
+          "~n   Opts: ~p", [?FUNCTION_NAME, Name, A, Opts]),
     case test_server:start_node(Name, peer, [{args, A}|Opts]) of
         {ok, _Node} = OK ->
             global:sync(),
@@ -2628,15 +2632,19 @@ socket_type(Config) ->
 
 listen(Config, Port, Opts) ->
     InetBackendOpts = inet_backend_opts(Config),
-    gen_tcp:listen(Port, InetBackendOpts ++ Opts).
+    gen_tcp:listen(Port,
+                   InetBackendOpts ++ Opts).
 
 connect(Config, Host, Port, Opts) ->
     InetBackendOpts = inet_backend_opts(Config),
-    gen_tcp:connect(Host, Port, InetBackendOpts ++ Opts).
+    gen_tcp:connect(Host, Port,
+                    InetBackendOpts ++ Opts).
 
 connect(Config, Host, Port, Opts, Timeout) ->
     InetBackendOpts = inet_backend_opts(Config),
-    gen_tcp:connect(Host, Port, InetBackendOpts ++ Opts, Timeout).
+    gen_tcp:connect(Host, Port,
+                    InetBackendOpts ++ Opts,
+                    Timeout).
 
 
 %% gen_udp wrappers
@@ -2647,7 +2655,12 @@ open(Config, Port, Opts) ->
 
 
 inet_backend_opts(Config) when is_list(Config) ->
+    inet_backend_opts(Config, any).
+
+inet_backend_opts(Config, Proto) when is_list(Config) ->
     case lists:keyfind(socket_create_opts, 1, Config) of
+        {_, [{inet_backend, socket}] = InetBackendOpts} when (Proto =:= tcp) ->
+            InetBackendOpts ++ [{erb, 10}];
         {_, InetBackendOpts} ->
             InetBackendOpts;
         false ->
@@ -2663,6 +2676,24 @@ is_socket_backend(Config) when is_list(Config) ->
     end.
 
 
+%% ESOCK_TTEST_CONDITION
+
+ttest_condition() ->
+    case application:get_all_env(kernel) of
+        Env when is_list(Env) ->
+            case lists:keyfind(esock_ttest_condition, 1, Env) of
+                {_, infinity = Factor} ->
+                    Factor;
+                {_, Factor} when is_integer(Factor) andalso (Factor > 0) ->
+                    Factor;
+                _ ->
+                    undefined
+            end;
+        _ ->
+            undefined
+    end.
+    
+
 explicit_inet_backend() ->
     case application:get_all_env(kernel) of
         Env when is_list(Env) ->
@@ -2674,6 +2705,15 @@ explicit_inet_backend() ->
             end;
         _ ->
             false
+    end.
+
+explicit_inet_backend(Config) ->
+    Key = inet_backend,
+    case lists:keysearch(Key, 1, Config) of
+        {value, {Key, Backend}} ->
+            Backend;
+        false ->
+            undefined
     end.
 
 
@@ -2927,7 +2967,8 @@ net_getifaddrs(LinkLocal, Domain) ->
                           "~n   Addr:   ~p"
                           "~nwhen"
                           "~n   Domain: ~p",
-                          [_Name, Flags, Family, Addr, Domain]),
+                          [?FUNCTION_NAME,
+                           _Name, Flags, Family, Addr, Domain]),
                      lists:member(up, Flags) andalso
                          lists:member(running, Flags) andalso
                          (not lists:member(loopback, Flags)) andalso
@@ -2942,23 +2983,34 @@ accept_address(LinkLocal, {A, B, _, _} = _Addr)
   when (A =:= 169) andalso (B =:= 254) ->
     %% This *is* a link local address:
     %% Will be accepted only if we *are* looking for a link local address
+    ?DBG("~w -> link local address when LinkLocal: ~p",
+         [?FUNCTION_NAME, LinkLocal]),
     LinkLocal;
 accept_address(LinkLocal, {A, _, _, _, _, _, _, _} = _Addr)
   when (A =:= 16#fe80) ->
     %% This *is* a link local address:
     %% Will be accepted only if we *are* looking for a link local address
+    ?DBG("~w -> link local address when LinkLocal: ~p",
+         [?FUNCTION_NAME, LinkLocal]),
     LinkLocal;
 accept_address(LinkLocal, Addr)
   when is_tuple(Addr) andalso (tuple_size(Addr) =:= 4) ->
     %% This is *not* a link local address:
     %% Will be accepted only if we are *not* looking for a link local address
+    ?DBG("~w -> non link local address when LinkLocal: ~p",
+         [?FUNCTION_NAME, LinkLocal]),
     not LinkLocal;
 accept_address(LinkLocal, Addr)
   when is_tuple(Addr) andalso (tuple_size(Addr) =:= 8) ->
     %% This is *not* a link local address:
     %% Will be accepted only if we are *not* looking for a link local address
+    ?DBG("~w -> non link local address when LinkLocal: ~p",
+         [?FUNCTION_NAME, LinkLocal]),
     not LinkLocal;
 accept_address(_LinkLocal, _Addr) ->
+    ?DBG("~w -> not accepted when: "
+         "~n   Addr:      ~p"
+         "~n   LinkLocal: ~p", [?FUNCTION_NAME, _Addr, _LinkLocal]),
     false.
 
 

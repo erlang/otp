@@ -961,7 +961,13 @@ signature_schemes(Version, [_|_] =SignatureSchemes) when is_tuple(Version)
     Curves = proplists:get_value(curves, CryptoSupports),
     RSAPSSSupported = lists:member(rsa_pkcs1_pss_padding,
                                    proplists:get_value(rsa_opts, CryptoSupports)),
-    Fun = fun (Scheme, Acc) when is_atom(Scheme) ->
+    Fun = fun(mldsa44 = Scheme, Acc)->
+                  [Scheme | Acc];
+             (mldsa65 = Scheme, Acc)->
+                  [Scheme | Acc];
+             (mldsa87 = Scheme, Acc)->
+                  [Scheme | Acc];
+              (Scheme, Acc) when is_atom(Scheme) ->
                   {Hash, Sign0, Curve} =
                       ssl_cipher:scheme_to_components(Scheme),
                   Sign = case Sign0 of
@@ -1029,7 +1035,10 @@ default_signature_schemes(Version) ->
                rsa_pss_pss_sha256,
                rsa_pss_rsae_sha512,
                rsa_pss_rsae_sha384,
-               rsa_pss_rsae_sha256
+               rsa_pss_rsae_sha256,
+               mldsa44,
+               mldsa65,
+               mldsa87
               ],
     signature_schemes(Version, Default).
 
@@ -1218,6 +1227,9 @@ groups(all) ->
      brainpoolP256r1tls13,
      brainpoolP384r1tls13,
      brainpoolP512r1tls13,
+     mlkem512,
+     mlkem768,
+     mlkem1024,
      ffdhe2048,
      ffdhe3072,
      ffdhe4096,
@@ -1231,7 +1243,10 @@ groups(default) ->
      secp256r1,
      brainpoolP512r1tls13,
      brainpoolP384r1tls13,
-     brainpoolP256r1tls13
+     brainpoolP256r1tls13,
+     mlkem512,
+     mlkem768,
+     mlkem1024
     ];
 groups(TLSGroups) when is_list(TLSGroups) ->
     CryptoGroups = crypto_supported_groups(),
@@ -1242,7 +1257,7 @@ default_groups() ->
     groups(TLSGroups).
 
 crypto_supported_groups() ->
-    crypto:supports(curves) ++
+    crypto:supports(curves) ++ crypto:supports(kems) ++
         [ffdhe2048,ffdhe3072,ffdhe4096,ffdhe6144,ffdhe8192].
 
 group_to_enum(secp256r1) -> ?SECP256R1;
@@ -1253,6 +1268,9 @@ group_to_enum(x448)      -> ?X448;
 group_to_enum(brainpoolP256r1tls13) -> ?BRAINPOOLP256R1TLS13;
 group_to_enum(brainpoolP384r1tls13) -> ?BRAINPOOLP384R1TLS13;
 group_to_enum(brainpoolP512r1tls13) -> ?BRAINPOOLP512R1TLS13;
+group_to_enum(mlkem512)  -> ?MLKEM512;
+group_to_enum(mlkem768)  -> ?MLKEM768;
+group_to_enum(mlkem1024) -> ?MLKEM1024;
 group_to_enum(ffdhe2048) -> ?FFDHE2048;
 group_to_enum(ffdhe3072) -> ?FFDHE3072;
 group_to_enum(ffdhe4096) -> ?FFDHE4096;
@@ -1267,6 +1285,9 @@ enum_to_group(?X448) -> x448;
 enum_to_group(?BRAINPOOLP256R1TLS13) -> brainpoolP256r1tls13;
 enum_to_group(?BRAINPOOLP384R1TLS13) -> brainpoolP384r1tls13;
 enum_to_group(?BRAINPOOLP512R1TLS13) -> brainpoolP512r1tls13;
+enum_to_group(?MLKEM512)  -> mlkem512;
+enum_to_group(?MLKEM768)  -> mlkem768;
+enum_to_group(?MLKEM1024) -> mlkem1024;
 enum_to_group(?FFDHE2048) -> ffdhe2048;
 enum_to_group(?FFDHE3072) -> ffdhe3072;
 enum_to_group(?FFDHE4096) -> ffdhe4096;

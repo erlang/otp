@@ -23,6 +23,7 @@
 -module(kernel_test_sys_monitor).
 
 -export([start/0, stop/0,
+         ping/0, ping/1,
          init/1]).
 
 -define(NAME, ?MODULE).
@@ -48,6 +49,27 @@ stop() ->
     end.
 
 
+ping(Node) when is_atom(Node) andalso (Node =/= node()) ->
+    case rpc:call(Node, ?MODULE, ping, []) of
+        {badrpc, nodedown} ->
+            pang;
+        Reply ->
+            Reply
+    end.
+
+ping() ->
+    case whereis(?NAME) of
+        Pid when is_pid(Pid) ->
+            Pid ! {?MODULE, self(), ping},
+            receive
+                {?MODULE, Pid, Reply} ->
+                    Reply
+            end;
+        _ ->
+            pang
+    end.
+        
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -55,7 +77,8 @@ init(Parent) ->
     process_flag(priority, high),
     try register(?NAME, self()) of
         true ->
-            global:sync(),
+            await_synced(),
+            ?GSM:log({?GSM:timestamp(), starting}),
             MonSettings = [
                            busy_port,
                            busy_dist_port,
@@ -64,8 +87,8 @@ init(Parent) ->
                            {large_heap, 8*1024*1024} % 8 MB
                           ],
             erlang:system_monitor(self(), MonSettings),
-            ?GSM:log({?GSM:timestamp(), starting}),
             proc_lib:init_ack(Parent, {ok, self()}),
+            ?GSM:log({?GSM:timestamp(), started}),
             loop(#{parent => Parent})
     catch
         _:_:_ ->
@@ -74,6 +97,17 @@ init(Parent) ->
             exit(normal)
     end.
     
+
+await_synced() ->
+    case global:whereis_name(?GSM) of
+        Pid when is_pid(Pid) ->
+            ok;
+        undefined ->
+            global:sync(),
+            receive after 1000 -> ok end,
+            await_synced()
+    end.
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -87,6 +121,11 @@ loop(State) ->
             ?GSM:log({?GSM:timestamp(), stopping}),
             From ! {?MODULE, self(), stop},
             exit(normal);
+
+        {?MODULE, From, ping} ->
+            ?GSM:log({?GSM:timestamp(), ping}),
+            From ! {?MODULE, self(), pong},
+            loop(State);
 
         _ ->
             loop(State)

@@ -79,6 +79,7 @@
          t_simple_link_local_sockaddr_in6_send_recv/1,
 
          t_kernel_options/1, do_kernel_options_remote/1,
+         t_module_open/1,
 
          otp_18323_opts_processing/1,
          otp_18323_open/1,
@@ -103,11 +104,13 @@ all() ->
             [
              {group, inet_backend_default},
              {group, inet_backend_inet},
-             {group, inet_backend_socket}
+             {group, inet_backend_socket},
+             {group, s_misc}
             ];
         _ ->
             [
-             {group, inet_backend_default}
+             {group, inet_backend_default},
+             {group, s_misc}
             ]
     end.
 
@@ -125,7 +128,9 @@ groups() ->
      {sockaddr,               [], sockaddr_cases()},
      {tickets,                [], tickets_cases()},
      {otp18323,               [], otp18323_cases()},
-     {otp19332,               [], otp19332_cases()}
+     {otp19332,               [], otp19332_cases()},
+     {s_misc,                 [], s_misc_cases()},
+     {t_module,               [], t_module_cases()}
     ].
 
 inet_backend_default_cases() ->
@@ -215,6 +220,18 @@ otp19332_cases() ->
      otp_19332
     ].
 
+s_misc_cases() ->
+    [
+     {group, t_module}
+    ].
+
+t_module_cases() ->
+    [
+     t_module_open
+    ].
+
+
+
 init_per_suite(Config0) ->
 
     ?P("init_per_suite -> entry with"
@@ -271,23 +288,50 @@ end_per_suite(Config0) ->
     Config1.
 
 init_per_group(inet_backend_default = _GroupName, Config) ->
-    [{socket_create_opts, []} | Config];
+    ?P("~w(~w) -> check explicit inet-backend when"
+       "~n   Config: ~p", [?FUNCTION_NAME, _GroupName, Config]),
+    case ?EXPLICIT_INET_BACKEND(Config) of
+        undefined ->
+            [{socket_create_opts, []} | Config];
+        inet ->
+            {skip, "explicit inet-backend = inet"};
+        socket ->
+            {skip, "explicit inet-backend = socket"}
+    end;
 init_per_group(inet_backend_inet = _GroupName, Config) ->
-    case ?EXPLICIT_INET_BACKEND() of
-        true ->
-            %% The environment trumps us,
-            %% so only the default group should be run!
-            {skip, "explicit inet backend"};
-        false ->
-            [{socket_create_opts, [{inet_backend, inet}]} | Config]
+    ?P("~w(~w) -> check explicit inet-backend when"
+       "~n   Config: ~p", [?FUNCTION_NAME, _GroupName, Config]),
+    case ?EXPLICIT_INET_BACKEND(Config) of
+        undefined ->
+            case ?EXPLICIT_INET_BACKEND() of
+                true ->
+                    %% The environment trumps us,
+                    %% so only the default group should be run!
+                    {skip, "explicit inet backend"};
+                false ->
+                    [{socket_create_opts, [{inet_backend, inet}]} | Config]
+            end;
+        inet ->
+            [{socket_create_opts, [{inet_backend, inet}]} | Config];
+        socket ->
+            {skip, "explicit inet-backend = socket"}
     end;
 init_per_group(inet_backend_socket = _GroupName, Config) ->
-    case ?EXPLICIT_INET_BACKEND() of
-        true ->
-            %% The environment trumps us,
-            %% so only the default group should be run!
-            {skip, "explicit inet backend"};
-        false ->
+    ?P("~w(~w) -> check explicit inet-backend when"
+       "~n   Config: ~p", [?FUNCTION_NAME, _GroupName, Config]),
+    case ?EXPLICIT_INET_BACKEND(Config) of
+        undefined ->
+            case ?EXPLICIT_INET_BACKEND() of
+                true ->
+                    %% The environment trumps us,
+                    %% so only the default group should be run!
+                    {skip, "explicit inet backend"};
+                false ->
+                    [{socket_create_opts, [{inet_backend, socket}]} | Config]
+            end;
+        inet ->
+            {skip, "explicit inet-backend = inet"};
+        socket ->
             [{socket_create_opts, [{inet_backend, socket}]} | Config]
     end;
 init_per_group(local, Config) -> 
@@ -917,6 +961,7 @@ do_bad_address(Config) when is_list(Config) ->
 
 %% OTP-6249 UDP option for number of packet reads.
 read_packets(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
     Cond = fun() ->
 		   case ?IS_SOCKET_BACKEND(Config) of
 		       true ->
@@ -1044,31 +1089,80 @@ read_packets_test(Config, R, RA, RP, Msgs, Node) ->
 	  [link,{priority,high}]),
     receive
 	{Sender, {sockname, {SA, SP}}} ->
+            ?P("~w -> got socket info from sender", [?FUNCTION_NAME]),
 	    erlang:trace(R, true,
 			 [running_ports,'send',{tracer,Tracer}]),
 	    erlang:yield(),
+            ?P("~w -> release sender (~p)", [?FUNCTION_NAME, Sender]),
 	    Sender ! {Receiver,go},
-	    read_packets_recv(Msgs),
+            ?P("~w -> receive", [?FUNCTION_NAME]),
+	    read_packets_recv(Sender, Msgs),
+            ?P("~w -> turn off trace", [?FUNCTION_NAME]),
 	    erlang:trace(R, false, [all]),
+            ?P("~w -> get trace (from tracer ~p)", [?FUNCTION_NAME, Tracer]),
 	    Tracer ! {Receiver,get_trace},
 	    receive
 		{Tracer,{trace,Trace}} ->
+                    ?P("~w -> got trace - verify", [?FUNCTION_NAME]),
 		    {read_packets_verify(R, SA, SP, Trace), Trace}
 	    end
     end.
 
-read_packets_send(_S, _RA, _RP, 0) ->
-    ok;
 read_packets_send(S, RA, RP, Msgs) ->
-    ok = gen_udp:send(S, RA, RP, "UDP FLOOOOOOD"),
-    read_packets_send(S, RA, RP, Msgs - 1).
+    LastWouldBlock = never,
+    NoWouldBlock   = 0,
+    read_packets_send(S, RA, RP, Msgs, LastWouldBlock, NoWouldBlock).
 
-read_packets_recv(0) ->
+read_packets_send(S, _RA, _RP, 0, _LastWouldBlock, NoWouldBlock) ->
+    ?P("~w -> done when"
+       "~n   NumberOf WouldBlock: ~w"
+       "~n   info(Sock):          ~p",
+       [?FUNCTION_NAME, NoWouldBlock, inet:info(S)]),
     ok;
-read_packets_recv(N) ->
+read_packets_send(S, RA, RP, Msgs, LastWouldBlock, NoWouldBlock) ->
+    case gen_udp:send(S, RA, RP, "UDP FLOOOOOOD") of
+        ok ->
+            read_packets_send(S, RA, RP, Msgs - 1,
+                              LastWouldBlock, NoWouldBlock);
+        {error, eagain = Reason} when (Msgs =/= LastWouldBlock) ->
+            ?P("~w -> ~w: sleep when"
+               "~n   Msgs:       ~w"
+               "~n   info(Sock): ~p",
+               [?FUNCTION_NAME, Reason, Msgs, inet:info(S)]),
+            receive after 1000 -> ok end,
+            ?P("~w -> try again", [?FUNCTION_NAME]),
+            read_packets_send(S, RA, RP, Msgs, Msgs, NoWouldBlock + 1);
+        {error, eagain = Reason} ->
+            ?P("~w -> send failure: "
+               "~n   Reason:              ~p"
+               "~n   Msgs:                ~p"
+               "~n   NumberOf WouldBlock: ~p"
+               "~n   info(Sock):          ~p",
+               [?FUNCTION_NAME,
+                Reason, Msgs, NoWouldBlock+1, (catch inet:info(S))]),
+            exit({send_failed, Reason, Msgs, NoWouldBlock+1});
+        {error, Reason} ->
+            ?P("~w -> send failure: "
+               "~n   Reason:              ~p"
+               "~n   Msgs:                ~p"
+               "~n   NumberOf WouldBlock: ~p"
+               "~n   info(Sock):          ~p",
+               [?FUNCTION_NAME,
+                Reason, Msgs, NoWouldBlock, (catch inet:info(S))]),
+            exit({send_failed, Reason, Msgs, NoWouldBlock})
+    end.
+
+read_packets_recv(_Sender, 0) ->
+    ?P("~w -> done", [?FUNCTION_NAME]),
+    ok;
+read_packets_recv(Sender, N) ->
     receive
+        {'EXIT', Sender, Reason} when Reason =/= normal ->
+            ?P("received unexpected exit from sender: "
+               "~n   ~p", [Reason]),
+            exit({skip, {sender, Reason}});
 	_ ->
-	    read_packets_recv(N - 1)
+	    read_packets_recv(Sender, N - 1)
     after 5000 ->
 	    timeout
     end.
@@ -3583,6 +3677,138 @@ do_otp_19357_open_with_ipv6_option(#{local_addr := Addr}) ->
     ?P("done"),
     ok.
 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+t_module_open(Config) ->
+    Cond = fun() ->
+		   ok
+	   end,
+    Pre  = fun() ->
+                   S0 = #{debug  => false,
+                          config => Config},
+		   S1 = case ?WHICH_LOCAL_ADDR(inet) of
+                            {ok, Addr4} ->
+                                ?P("pre -> found IPv4 local address:"
+                                   "~n   ~p", [Addr4]),
+                                S0#{inet => Addr4};
+                            {error, _Reason4} ->
+                                S0
+                        end,
+                   S2 = case ?WHICH_LOCAL_ADDR(inet6) of
+                            {ok, Addr6} ->
+                                ?P("pre -> found IPv6 local address:"
+                                   "~n   ~p", [Addr6]),
+                                S1#{inet6 => Addr6};
+                            {error, _Reason6} ->
+                                S1
+                        end,
+                   %% Verify that at least one of the domains
+                   %% (inet and inet6) exist.
+                   case (maps:get(inet, S2, undefined) =/= undefined) orelse
+                       (maps:get(inet6, S2, undefined) =/= undefined) of
+                       true ->
+                           S2;
+                       false ->
+                           skip(no_available_domains)
+                   end
+	   end,
+    TC   = fun(State) -> do_t_module_open(State) end,
+    Post = fun(_) -> ok end,
+    ?TC_TRY(?FUNCTION_NAME,
+	    Cond, Pre, TC, Post).
+
+do_t_module_open(State) ->
+    do_t_module_open_inet(State),
+    do_t_module_open_inet6(State),
+    ok.
+
+do_t_module_open_inet(#{inet   := Addr,
+                          debug  := Debug, 
+                          config := _Config} = _State) ->
+    ?P("*** begin IPv4 checks ***"),
+    do_t_module_open(test_inet_udp, inet, Addr, Debug);
+do_t_module_open_inet(_) ->
+    ?P("*** no IPv4 address ***"),
+    ok.
+
+do_t_module_open_inet6(#{inet6  := Addr,
+                           debug  := Debug,
+                           config := _Config} = _State) ->
+    ?P("*** begin IPv6 checks *** "),
+    do_t_module_open(test_inet6_udp, inet6, Addr, Debug);
+do_t_module_open_inet6(_) ->
+    ?P("*** no IPv6 address ***"),
+    ok.
+
+do_t_module_open(Mod, Fam, Addr, Debug) ->
+    ?P("create socket with module (~w)", [Mod]),
+    do_t_module_open2(Mod,
+                      [{udp_module, Mod}], Debug, error),
+
+    ?P("create socket with module (~w) and (~w) domain", [Mod, Fam]),
+    do_t_module_open2(Mod,
+                      [{udp_module, Mod}, Fam], Debug, error),
+
+    ?P("create socket with (~w) domain and module (~w)", [Fam, Mod]),
+    do_t_module_open2(Mod,
+                      [Fam, {udp_module, Mod}], Debug, error),
+
+    ?P("create socket with module (~w) and ip-option", [Mod]),
+    do_t_module_open2(Mod,
+                      [{udp_module, Mod}, {ip, Addr}], Debug, error),
+
+    ?P("create socket with ip-option and module (~w)", [Mod]),
+    do_t_module_open2(Mod,
+                      [{ip, Addr}, {udp_module, Mod}], Debug, error),
+
+    ?P("create socket with (~w) domain wo module (~w)", [Fam, Mod]),
+    do_t_module_open2(Mod,
+                      [Fam], Debug, success),
+
+    ?P("create socket with ip-option wo module (~w)", [Mod]),
+    do_t_module_open2(Mod,
+                      [{ip, Addr}], Debug, success),
+
+    ?P("done"),
+    ok.
+    
+do_t_module_open2(Module, Opts, Debug, FailureAction) ->
+    case gen_udp:open(0, Opts ++ [{debug, Debug}]) of
+        {ok, Sock} ->
+            ?P("socket created: "
+               "~n   ~p"
+               "~n   wait for notification", [Sock]),
+            do_t_module_await_notification(Module, open, 2, FailureAction),
+            ?P("close socket"),
+            _ = gen_udp:close(Sock),
+            ok;
+        {error, Reason} ->
+            ?P("failed create socket: "
+               "~n   ~p", [Reason]),
+            exit({listen, Reason})
+    end.
+
+do_t_module_await_notification(Module, Func, Arity, FailureAction) ->
+    receive
+        {Module, Func, Arity, _} ->
+            ?P("received expected notification: "
+               "~n   ~w:~w/~w", [Module, Func, Arity]),
+            ok;
+        {Module, OtherFunc, OtherArity, _} ->
+            ?P("received unexpected notification: "
+               "~n   ~w:~w/~w", [Module, OtherFunc, OtherArity]),
+            do_t_module_await_notification(Module, Func, Arity, FailureAction)
+
+    after 5000 ->
+            case FailureAction of
+                error ->
+                    exit({notification_timeout, {Func, Arity}});
+                success ->
+                    ok
+            end
+    end.
+            
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 

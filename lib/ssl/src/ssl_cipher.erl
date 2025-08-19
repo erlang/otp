@@ -598,6 +598,10 @@ signature_scheme(rsa_pss_pss_sha384) -> ?RSA_PSS_PSS_SHA384;
 signature_scheme(rsa_pss_pss_sha512) -> ?RSA_PSS_PSS_SHA512;
 signature_scheme(rsa_pkcs1_sha1) -> ?RSA_PKCS1_SHA1;
 signature_scheme(ecdsa_sha1) -> ?ECDSA_SHA1;
+signature_scheme(mldsa44) -> ?MLDSA44;
+signature_scheme(mldsa65) -> ?MLDSA65;
+signature_scheme(mldsa87) -> ?MLDSA87;
+
 %% New algorithms on legacy format
 signature_scheme({sha512, rsa_pss_pss}) ->
     ?RSA_PSS_PSS_SHA512;
@@ -636,6 +640,10 @@ signature_scheme(?RSA_PSS_PSS_SHA384) -> rsa_pss_pss_sha384;
 signature_scheme(?RSA_PSS_PSS_SHA512) -> rsa_pss_pss_sha512;
 signature_scheme(?RSA_PKCS1_SHA1) -> rsa_pkcs1_sha1;
 signature_scheme(?ECDSA_SHA1) -> ecdsa_sha1;
+signature_scheme(?MLDSA44) -> mldsa44;
+signature_scheme(?MLDSA65) -> mldsa65;
+signature_scheme(?MLDSA87) -> mldsa87;
+
 %% Handling legacy signature algorithms for logging purposes. These algorithms
 %% cannot be used in TLS 1.3 handshakes.
 signature_scheme(SignAlgo) when is_integer(SignAlgo) ->
@@ -664,6 +672,11 @@ signature_schemes_1_2(SigAlgs) ->
                                       %% present in "supported groups" (eccs)
                                       {Hash, ecdsa = Sign, _} ->
                                           [{Hash, Sign} | Acc];
+                                      %% TLS-1.3 only
+                                      {none, MLDSA, undefined} when MLDSA == mldsa44;
+                                                                    MLDSA == mldsa65;
+                                                                    MLDSA == mldsa87 ->
+                                          Acc;
                                       {Hash, Sign, undefined} ->
                                           [{Hash, format_sign(Sign)} | Acc];
                                       {_, _, _} ->
@@ -698,6 +711,9 @@ scheme_to_components(rsa_pss_pss_sha384) -> {sha384, rsa_pss_pss, undefined};
 scheme_to_components(rsa_pss_pss_sha512) -> {sha512, rsa_pss_pss, undefined};
 scheme_to_components(rsa_pkcs1_sha1) -> {sha, rsa_pkcs1, undefined};
 scheme_to_components(ecdsa_sha1) -> {sha, ecdsa, undefined};
+scheme_to_components(mldsa44) -> {none, mldsa44, undefined};
+scheme_to_components(mldsa65) -> {none, mldsa65, undefined};
+scheme_to_components(mldsa87) -> {none, mldsa87, undefined};
 %% Handling legacy signature algorithms
 scheme_to_components({Hash,Sign}) -> {Hash, Sign, undefined}.
 
@@ -870,6 +886,12 @@ signature_algorithm_to_scheme(#'SignatureAlgorithm'{algorithm = ?'id-RSASSA-PSS'
         sha512 ->
             rsa_pss_pss_sha512
     end;
+signature_algorithm_to_scheme(#'SignatureAlgorithm'{algorithm = ?'id-ml-dsa-44'}) ->
+    mldsa44;
+signature_algorithm_to_scheme(#'SignatureAlgorithm'{algorithm = ?'id-ml-dsa-65'}) ->
+    mldsa65;
+signature_algorithm_to_scheme(#'SignatureAlgorithm'{algorithm = ?'id-ml-dsa-87'}) ->
+    mldsa87;
 signature_algorithm_to_scheme(#'SignatureAlgorithm'{algorithm = ?sha256WithRSAEncryption}) ->
     rsa_pkcs1_sha256;
 signature_algorithm_to_scheme(#'SignatureAlgorithm'{algorithm = ?sha384WithRSAEncryption}) ->
@@ -1223,6 +1245,10 @@ generate_key_exchange(x25519) ->
     crypto:generate_key(ecdh, x25519);
 generate_key_exchange(x448) ->
     crypto:generate_key(ecdh, x448);
+generate_key_exchange(MLKem) when MLKem == mlkem512;
+                                  MLKem == mlkem768;
+                                  MLKem == mlkem1024 ->
+    crypto:generate_key(MLKem, []);
 generate_key_exchange(FFDHE) ->
     public_key:generate_key(ssl_dh_groups:dh_params(FFDHE)).
 

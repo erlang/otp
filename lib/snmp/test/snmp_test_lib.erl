@@ -450,32 +450,119 @@ localhost(Family) ->
 
 which_addr(_Family, []) ->
     fail(no_valid_addr, ?MODULE, ?LINE);
-which_addr(Family, [{"lo", _} | IfList]) ->
+which_addr(Family, [{"lo" ++ _ = Name, _} | IfList]) ->
+    iprint("reject interface ~s", [Name]),
     which_addr(Family, IfList);
-which_addr(Family, [{"tun" ++ _, _} | IfList]) ->
+which_addr(Family, [{"tun" ++ _ = Name, _} | IfList]) ->
+    iprint("reject interface ~s", [Name]),
     which_addr(Family, IfList);
-which_addr(Family, [{"docker" ++ _, _} | IfList]) ->
+which_addr(Family, [{"docker" ++ _ = Name, _} | IfList]) ->
+    iprint("reject interface ~s", [Name]),
     which_addr(Family, IfList);
-which_addr(Family, [{"br-" ++ _, _} | IfList]) ->
+which_addr(Family, [{"br-" ++ _ = Name, _} | IfList]) ->
+    iprint("reject interface ~s", [Name]),
     which_addr(Family, IfList);
-which_addr(Family, [{_Name, IfOpts} | IfList]) ->
+which_addr(Family, [{"ap" ++ _ = Name, _} | IfList]) ->
+    iprint("reject interface ~s", [Name]),
+    which_addr(Family, IfList);
+which_addr(Family, [{"anpi" ++ _ = Name, _} | IfList]) ->
+    iprint("reject interface ~s", [Name]),
+    which_addr(Family, IfList);
+which_addr(Family, [{"vmenet" ++ _ = Name, _} | IfList]) ->
+    iprint("reject interface ~s", [Name]),
+    which_addr(Family, IfList);
+which_addr(Family, [{"vtun" ++ _ = Name, _} | IfList]) ->
+    iprint("reject interface ~s", [Name]),
+    which_addr(Family, IfList);
+which_addr(Family, [{"bridge" ++ _ = Name, _} | IfList]) ->
+    iprint("reject interface ~s", [Name]),
+    which_addr(Family, IfList);
+which_addr(Family, [{"llw" ++ _ = Name, _} | IfList]) ->
+    iprint("reject interface ~s", [Name]),
+    which_addr(Family, IfList);
+which_addr(Family, [{"awdl" ++ _ = Name, _} | IfList]) ->
+    iprint("reject interface ~s", [Name]),
+    which_addr(Family, IfList);
+which_addr(Family, [{"p2p" ++ _ = Name, _} | IfList]) ->
+    iprint("reject interface ~s", [Name]),
+    which_addr(Family, IfList);
+which_addr(Family, [{"stf" ++ _ = Name, _} | IfList]) ->
+    iprint("reject interface ~s", [Name]),
+    which_addr(Family, IfList);
+which_addr(Family, [{"XHCZ" ++ _ = Name, _} | IfList]) ->
+    iprint("reject interface ~s", [Name]),
+    which_addr(Family, IfList);
+which_addr(Family, [{Name, IfOpts} | IfList]) ->
     case which_addr2(Family, IfOpts) of
         {ok, Addr} ->
+            iprint("interface ~s accepted: "
+                   "~n   ~p", [Name, Addr]),
             Addr;
-        {error, _} ->
+        {error, no_address} ->
+            iprint("reject interface ~s:"
+                   "~n   No valid address", [Name]),
+            which_addr(Family, IfList);
+        {error, not_running_or_loopback} ->
+            iprint("reject interface ~s:"
+                   "~n   Not running or loopback", [Name]),
             which_addr(Family, IfList)
     end.
 
-which_addr2(_Family, []) ->
-    {error, not_found};
-which_addr2(Family, [{addr, Addr}|_]) 
-  when (Family =:= inet) andalso (tuple_size(Addr) =:= 4) ->
+which_addr2(Fam, IfOpts) ->
+    case if_is_running_and_not_loopback(IfOpts) of
+        true ->
+            try which_addr3(Fam, IfOpts)
+            catch
+                throw:E ->
+                    E
+            end;
+        false ->
+            {error, not_running_or_loopback}
+    end.
+
+if_is_running_and_not_loopback(If) ->
+    lists:keymember(flags, 1, If) andalso
+        begin
+            {value, {flags, Flags}} = lists:keysearch(flags, 1, If),
+            (not lists:member(loopback, Flags)) andalso
+                lists:member(running, Flags)
+        end.
+
+which_addr3(inet = _Fam, IfOpts) ->
+    Addr = which_addr4(
+             addr,  IfOpts,
+             fun({A, _, _, _}) when (A =:= 127) -> false;
+                ({A, B, _, _}) when (A =:= 169) andalso 
+                                    (B =:= 254) -> false;
+                ({_, _, _, _}) -> true;
+                (_) -> false
+             end),
     {ok, Addr};
-which_addr2(Family, [{addr, Addr}|_]) 
-  when (Family =:= inet6) andalso (tuple_size(Addr) =:= 8) ->
-    {ok, Addr};
-which_addr2(Family, [_|IfOpts]) ->
-    which_addr2(Family, IfOpts).
+which_addr3(inet6 = _Fam, IfOpts) ->
+    Addr = which_addr4(
+             addr,  IfOpts,
+             fun({A, _, _, _, _, _, _, _}) 
+                   when (A =:= 0) -> false;
+                ({A, _, _, _, _, _, _, _})
+                   when (A =:= 16#fe80) -> false;
+                ({_, _, _, _, _, _, _, _}) -> true;
+                (_) -> false
+             end),
+    {ok, Addr}.
+
+which_addr4(_Key, [], _) ->
+    throw({error, no_address});
+which_addr4(Key, [{Key, Val}|IfOpts], Check) ->
+    case Check(Val) of
+        true ->
+            %% iprint("~w -> address validated: "
+            %%.       "~n   ~p", [?FUNCTION_NAME, Val]),    
+            Val;
+        false ->
+            which_addr4(Key, IfOpts, Check)
+    end;
+which_addr4(Key, [_|IFO], Check) ->
+    which_addr4(Key, IFO, Check).
 
 
 sz(L) when is_list(L) ->

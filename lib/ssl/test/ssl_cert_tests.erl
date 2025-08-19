@@ -26,6 +26,16 @@
 -include("ssl_test_lib.hrl").
 -include_lib("public_key/include/public_key.hrl").
 
+-export([support_kems/1,
+         mldsa_config/1,
+         rsa_config/1,
+         rsa_pss_config/2,
+         dsa_config/1,
+         openssl_dsa_config/1,
+         eddsa_config/1,
+         ecdsa_config/1,
+         openssl_eddsa_config/1]).
+
 %% Test cases
 -export([no_auth/0,
          no_auth/1,
@@ -63,6 +73,8 @@
          hello_retry_request/1,
          custom_groups/0,
          custom_groups/1,
+         mlkem_groups/0,
+         mlkem_groups/1,
          hello_retry_client_auth/0,
          hello_retry_client_auth/1,
          hello_retry_client_auth_empty_cert_accepted/0,
@@ -72,6 +84,234 @@
          ]).
 
 -export([test_ciphers/2, openssl_ciphers/0]).
+
+support_kems(Config) ->
+       case  [] =/= crypto:supports(kems) of
+        true ->
+            Config;
+        false ->
+            {skip, "Missing support for mlkem in OpenSSL"}
+    end.
+
+mldsa_config(Config) ->
+    PKAlgs = crypto:supports(public_keys),
+    case lists:member(mldsa44, PKAlgs)
+        andalso lists:member(mldsa65, PKAlgs)
+        andalso lists:member(mldsa87, PKAlgs) of
+        true ->
+            DataDir = proplists:get_value(data_dir, Config),
+            PrivDir = proplists:get_value(priv_dir, Config),
+            [Keys1, Keys2, Keys3] = mldsa_keys(DataDir),
+            Conf = #{server_chain =>
+                         #{root => [Keys3],
+                           intermediates => [[Keys2]],
+                           peer =>  [Keys1]},
+                     client_chain => #{root => [Keys1],
+                                       intermediates => [[Keys2]],
+                                       peer =>  [Keys3]
+                                      }},
+            GenCertData =
+                public_key:pkix_test_data(Conf),
+            Version = proplists:get_value(version, Config),
+            ClientFileBase = filename:join(PrivDir, "mldsa"),
+            ServerFileBase = filename:join(PrivDir, "mldsa"),
+            [{server_config, ServerConf},
+             {client_config, ClientConf}] =
+                x509_test:gen_pem_config_files(GenCertData, ClientFileBase, ServerFileBase),
+            [{cert_key_alg, {mldsa, [[Keys1], [Keys2], [Keys3]]}},
+             {cert_key_alg, mldsa},
+             {extra_client, ssl_test_lib:sig_algs(mldsa, Version)},
+             {extra_server, ssl_test_lib:sig_algs(mldsa, Version)} |
+             lists:delete(cert_key_alg,
+                          [{client_cert_opts, fun() -> ClientConf end},
+                           {server_cert_opts, fun() -> ServerConf end} |
+                           lists:delete(server_cert_opts,
+                                        lists:delete(client_cert_opts, Config))])];
+        false ->
+            {skip, "Missing ML-DSA crypto support"}
+    end.
+
+rsa_config(Config0) ->
+   Config1 = ssl_test_lib:make_rsa_cert(Config0),
+    Config = ssl_test_lib:make_rsa_1024_cert(Config1),
+    COpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    SOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    Version = proplists:get_value(version, Config),
+    [{cert_key_alg, rsa},
+     {extra_client, ssl_test_lib:sig_algs(rsa, Version)},
+     {extra_server, ssl_test_lib:sig_algs(rsa, Version)} |
+     lists:delete(cert_key_alg,
+                  [{client_cert_opts, fun() -> COpts end},
+                   {server_cert_opts, fun() -> SOpts end} |
+                   lists:delete(server_cert_opts,
+                                lists:delete(client_cert_opts, Config))])].
+rsa_pss_config(Alg, Config) ->
+    Supports = crypto:supports(),
+    RSAOpts = proplists:get_value(rsa_opts, Supports),
+    Version = ssl_test_lib:n_version(proplists:get_value(version, Config)),
+    
+    case lists:member(rsa_pkcs1_pss_padding, RSAOpts)
+        andalso lists:member(rsa_pss_saltlen, RSAOpts)
+        andalso lists:member(rsa_mgf1_md, RSAOpts) of
+        true ->
+            #{client_config := COpts,
+              server_config := SOpts} = ssl_test_lib:make_rsa_pss_pem(Alg, [], Config, ""),
+            [{cert_key_alg, Alg},
+             {extra_client, ssl_test_lib:sig_algs(Alg, Version)},
+             {extra_server, ssl_test_lib:sig_algs(Alg, Version)} |
+             lists:delete(cert_key_alg,
+                          [{client_cert_opts, fun() -> COpts end},
+                           {server_cert_opts, fun() -> SOpts end} |
+                           lists:delete(server_cert_opts,
+                                        lists:delete(client_cert_opts, Config))])];
+        false ->
+            {skip, "Missing RSA-PSS crypto support"}
+    end.
+
+dsa_config(Config0) ->
+    PKAlg = crypto:supports(public_keys),
+    Version = ssl_test_lib:n_version(proplists:get_value(version, Config0)),
+    case lists:member(dss, PKAlg) andalso lists:member(dh, PKAlg) of
+        true ->
+            Config = ssl_test_lib:make_dsa_cert(Config0),
+            COpts = ssl_test_lib:ssl_options(client_dsa_opts, Config),
+            SOpts = ssl_test_lib:ssl_options(server_dsa_opts, Config),
+            ShaDSA = case Version of
+                         {3, 3} ->
+                             [{signature_algs, [{sha, dsa}]}];
+                         _  ->
+                             []
+                     end,
+            [{cert_key_alg, dsa},
+             {extra_client, ssl_test_lib:sig_algs(dsa, Version) ++
+                  [{ciphers, ssl_test_lib:dsa_suites(Version)}] ++ ShaDSA},
+             {extra_server, ssl_test_lib:sig_algs(dsa, Version) ++
+                  [{ciphers, ssl_test_lib:dsa_suites(Version)}] ++ ShaDSA} |
+             lists:delete(cert_key_alg,
+                          [{client_cert_opts, fun() -> COpts end},
+                           {server_cert_opts, fun() -> SOpts end} |
+                           lists:delete(server_cert_opts,
+                                        lists:delete(client_cert_opts, Config))])];
+        false ->
+            {skip, "Missing DSS crypto support"}
+    end.
+
+openssl_dsa_config(Config0) ->
+    PKAlg = crypto:supports(public_keys),
+    NVersion = ssl_test_lib:n_version(proplists:get_value(version, Config0)),
+    SigAlgs = ssl_test_lib:sig_algs(dsa, NVersion),
+    case lists:member(dss, PKAlg) andalso lists:member(dh, PKAlg)
+        andalso (ssl_test_lib:openssl_dsa_suites() =/= [])
+        andalso (ssl_test_lib:check_sane_openssl_dsa(Config0))
+    of
+        true ->
+            Config = ssl_test_lib:make_dsa_cert(Config0),
+            COpts = SigAlgs ++ ssl_test_lib:ssl_options(client_dsa_opts, Config),
+            SOpts = SigAlgs ++ ssl_test_lib:ssl_options(server_dsa_opts, Config),
+            %% Make sure dhe_dss* suite is chosen by ssl_test_lib:start_server
+            Version = ssl_test_lib:protocol_version(Config),
+            Ciphers =  ssl_cert_tests:test_ciphers(fun(dh_dss) ->
+                                                           true;
+                                                      (dhe_dss) ->
+                                                           true;
+                                                      (_) ->
+                                                           false
+                                                   end, Version),
+            case Ciphers of
+                [_|_] ->
+                    [{cert_key_alg, dsa} |
+                     lists:delete(cert_key_alg,
+                                  [{client_cert_opts, fun() -> [{ciphers, Ciphers} | COpts] end},
+                                   {server_cert_opts, fun() -> [{ciphers, Ciphers} | SOpts] end} |
+                                   lists:delete(server_cert_opts,
+                                                lists:delete(client_cert_opts, Config))])];
+                [] ->
+                    {skip, {no_sup, dsa_suites, Version}}
+            end;
+        false ->
+            {skip, "Missing DSS crypto support"}
+    end.
+
+eddsa_config(Config0) ->
+    PKAlg = crypto:supports(public_keys),
+    PrivDir = proplists:get_value(priv_dir, Config0),
+    case lists:member(eddsa, PKAlg) andalso (lists:member(ecdh, PKAlg)) of
+        true ->
+            Conf = public_key:pkix_test_data(#{server_chain => #{root => ssl_test_lib:eddsa_conf(),
+                                                                 intermediates => [ssl_test_lib:eddsa_conf()],
+                                                                 peer =>  ssl_test_lib:eddsa_conf()},
+                                               client_chain => #{root => ssl_test_lib:eddsa_conf(),
+                                                                 intermediates => [ssl_test_lib:eddsa_conf()],
+                                                                 peer =>  ssl_test_lib:eddsa_conf()}}),
+            [{server_config, SOpts},
+             {client_config, COpts}] = x509_test:gen_pem_config_files(Conf, filename:join(PrivDir, "client_eddsa"),
+                                                                      filename:join(PrivDir, "server_eddsa")),
+
+            [{cert_key_alg, eddsa} |
+             lists:delete(cert_key_alg,
+                          [{client_cert_opts, fun() -> COpts end},
+                           {server_cert_opts, fun() -> SOpts end} |
+                           lists:delete(server_cert_opts,
+                                        lists:delete(client_cert_opts, Config0))]
+                         )];
+        false ->
+            {skip, "Missing EDDSA crypto support"}
+    end.
+
+ecdsa_config(Config0) ->
+    Config = ssl_test_lib:make_ecdsa_cert(Config0),
+    COpts = ssl_test_lib:ssl_options(client_ecdsa_verify_opts, Config),
+    SOpts = ssl_test_lib:ssl_options(server_ecdsa_opts, Config),
+    %% Make sure ecdh* suite is chosen by ssl_test_lib:start_server
+    Version = ssl_test_lib:protocol_version(Config),
+    Ciphers =  ssl_cert_tests:test_ciphers(fun(ecdh_ecdsa) ->
+                                                   true;
+                                              (ecdhe_ecdsa) ->
+                                                   true;
+                                              (_) ->
+                                                   false
+                                           end, Version),
+    case Ciphers of
+        [_|_] ->
+            [{cert_key_alg, ecdsa} |
+             lists:delete(cert_key_alg,
+                          [{client_cert_opts, fun() -> [{ciphers, Ciphers} | COpts] end},
+                           {server_cert_opts, fun() -> SOpts end} |
+                           lists:delete(server_cert_opts,
+                                        lists:delete(client_cert_opts, Config))]
+                         )];
+        [] ->
+            {skip, "Missing EC crypto support"}
+    end.
+openssl_eddsa_config(Config0)->
+    PKAlg = crypto:supports(public_keys),
+    PrivDir = proplists:get_value(priv_dir, Config0),
+    case lists:member(eddsa, PKAlg) andalso
+        (lists:member(ecdh, PKAlg) andalso
+         lists:member(ecdsa, PKAlg)) of
+        true ->
+            Conf = public_key:pkix_test_data(#{server_chain => #{root => ssl_test_lib:eddsa_conf(),
+                                                                 intermediates => [ssl_test_lib:eddsa_conf()],
+                                                                 peer =>  ssl_test_lib:eddsa_conf()},
+                                               %% OpenSSL does currently not support EDDSA private key files
+                                               client_chain => #{root => ssl_test_lib:ecdsa_conf(),
+                                                                 intermediates => [ssl_test_lib:ecdsa_conf()],
+                                                                 peer =>  ssl_test_lib:ecdsa_conf()}}),
+            [{server_config, SOpts},
+             {client_config, COpts}] = x509_test:gen_pem_config_files(Conf, filename:join(PrivDir,
+                                                                                          "client_ecdsa_missing_eddsa"),
+                                                                      filename:join(PrivDir, "server_eddsa")),
+
+            [{cert_key_alg, eddsa} |
+             lists:delete(cert_key_alg,
+                          [{client_cert_opts, fun() -> COpts end},
+                           {server_cert_opts, fun() -> SOpts end} |
+                           lists:delete(server_cert_opts,
+                                        lists:delete(client_cert_opts, Config0))]
+                         )];
+        false ->
+            {skip, "Missing EDDSA/ECDSA OpenSSL stack support"}
+    end.
 
 %%--------------------------------------------------------------------
 %% Test Cases --------------------------------------------------------
@@ -405,6 +645,25 @@ custom_groups(Config) ->
     ssl_test_lib:basic_test(ClientOpts, ServerOpts, Config).
 
 %%--------------------------------------------------------------------
+mlkem_groups() ->
+    [{doc,"Test that ssl server can select a common mlkem group for key-exchange"}].
+
+mlkem_groups(Config) ->
+    test_mlkem(Config, mlkem512),
+    test_mlkem(Config, mlkem768),
+    test_mlkem(Config, mlkem1024).
+
+test_mlkem(Config, MLKemGroup) ->
+    ClientOpts0 = ssl_test_lib:ssl_options(client_cert_opts, Config),
+    ServerOpts0 = ssl_test_lib:ssl_options(server_cert_opts, Config),
+
+    {ServerOpts, ClientOpts} = group_config_mlkem(Config,
+                                                  [{versions, ['tlsv1.3']} | ServerOpts0],
+                                                  [{versions, ['tlsv1.3']} | ClientOpts0], MLKemGroup),
+
+    ssl_test_lib:basic_test(ClientOpts, ServerOpts, Config).
+
+%%--------------------------------------------------------------------
 %% Triggers a Server Alert as ssl client does not have a certificate with a
 %% signature algorithm supported by the server (signature_algorithms_cert extension
 %% of CertificateRequest does not contain the algorithm of the client certificate).
@@ -489,6 +748,9 @@ hello_retry_client_auth_empty_cert_rejected(Config) ->
        
     ssl_test_lib:basic_alert(ClientOpts, ServerOpts, Config, certificate_required).
 
+%%--------------------------------------------------------------------
+%% Utility functions  -----------------------------------------------
+%%--------------------------------------------------------------------
 test_ciphers(_, 'tlsv1.3' = Version) ->
     Ciphers = ssl:cipher_suites(default, Version),
     ?CT_LOG("Version ~p Testing  ~p~n", [Version, Ciphers]),
@@ -520,8 +782,6 @@ test_ciphers(Kex, Version) ->
                          lists:member(ssl_cipher_format:suite_map_to_openssl_str(C), OpenSSLCiphers)
                  end, Ciphers).
 
-
-
 openssl_ciphers() ->
     Str = os:cmd("openssl ciphers"),
     string:split(string:strip(Str, right, $\n), ":", all).
@@ -529,6 +789,22 @@ openssl_ciphers() ->
 %%--------------------------------------------------------------------
 %% Internal functions  -----------------------------------------------
 %%--------------------------------------------------------------------
+mldsa_keys(DataDir) ->
+    PrivFile1 = filename:join([DataDir, "mldsa-44.pem"]),
+    PrivFile2 = filename:join([DataDir, "mldsa-65.pem"]),
+    PrivFile3 = filename:join([DataDir, "mldsa-87.pem"]),
+    PubFile1 = filename:join([DataDir, "mldsa-44-pub.pem"]),
+    PubFile2 = filename:join([DataDir, "mldsa-65-pub.pem"]),
+    PubFile3 = filename:join([DataDir, "mldsa-87-pub.pem"]),
+    [mldsa_key_spec(PubFile1, PrivFile1),
+     mldsa_key_spec(PubFile2, PrivFile2),
+     mldsa_key_spec(PubFile3, PrivFile3)].
+
+mldsa_key_spec(PubFile, PrivFile) ->
+    [PubPemEntry] = ssl_test_lib:pem_to_der(PubFile),
+    [PrivPemEntry] = ssl_test_lib:pem_to_der(PrivFile),
+    {key, {both, public_key:pem_entry_decode(PubPemEntry),
+           public_key:pem_entry_decode(PrivPemEntry)}}.
 
 group_config_custom(Config, ServerOpts, ClientOpts) ->
         case proplists:get_value(client_type, Config) of
@@ -549,6 +825,24 @@ group_config(Config, ServerOpts, ClientOpts) ->
                 {[{supported_groups, [x448, x25519]} | ServerOpts],
                  [{groups,"P-256:X25519"} | ClientOpts]}
         end.
+
+
+group_config_mlkem(Config, ServerOpts, ClientOpts, Group) ->
+        case proplists:get_value(client_type, Config) of
+            erlang ->
+                {[{groups, openssl_mlkem(Group)} | ServerOpts],
+                 [{supported_groups, [Group]} | ClientOpts]};
+            openssl ->
+                {[{supported_groups, [Group]} | ServerOpts],
+                 [{groups, openssl_mlkem(Group)} | ClientOpts]}
+        end.
+
+openssl_mlkem(mlkem512) ->
+    "MLKEM512";
+openssl_mlkem(mlkem768) ->
+    "MLKEM768";
+openssl_mlkem(mlkem1024) ->
+    "MLKEM1024".
 
 choose_custom_key(#'RSAPrivateKey'{} = Key, Version)
   when (Version == 'dtlsv1') or (Version == 'tlsv1') or (Version == 'tlsv1.1') ->
@@ -575,4 +869,6 @@ alg_key(#'ECPrivateKey'{parameters = {namedCurve, CurveOId}}) when CurveOId == ?
                                                                    CurveOId == ?'id-Ed448' ->
     eddsa;
 alg_key(#'ECPrivateKey'{}) ->
-    ecdsa.
+    ecdsa;
+alg_key(#'ML-DSAPrivateKey'{}) ->
+    mldsa.

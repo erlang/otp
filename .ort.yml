@@ -79,13 +79,6 @@ curations:
         # END OF LICENSE FILES
         #
 
-      - path: "lib/wx/src/gen/**/wx*.erl"
-        reason: "INCORRECT"
-        comment: >-
-          Documentation was taken from wxWidgets, source code is Apache-2.0
-        detected_license: "Apache-2.0"
-        concluded_license: "Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3"
-
       - path: "lib/compiler/test/beam_ssa_check_SUITE_data/phis.erl"
         reason: "INCORRECT"
         comment: >-

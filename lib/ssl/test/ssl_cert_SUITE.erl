@@ -127,6 +127,8 @@
          hello_retry_request/1,
          custom_groups/0,
          custom_groups/1,
+         mlkem_groups/0,
+         mlkem_groups/1,
          hello_retry_client_auth/0,
          hello_retry_client_auth/1,
          hello_retry_client_auth_empty_cert_accepted/0,
@@ -147,7 +149,7 @@
          legacy_server_certificate_authorities_disabled/1,
          cert_auth_in_first_ca/0,
          cert_auth_in_first_ca/1
-         ]).
+        ]).
 
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
@@ -172,7 +174,7 @@ groups() ->
      {'dtlsv1.2', [], tls_1_2_protocol_groups()},
      {'dtlsv1', [], ssl_protocol_groups()},
      {rsa, [parallel], all_version_tests() ++ rsa_tests() ++ pre_tls_1_3_rsa_tests() ++ [client_auth_seelfsigned_peer]},
-     {ecdsa, [parallel], all_version_tests()},
+     {ecdsa, [parallel], all_version_tests() ++ partial_chain_with_ecdsa()},
      {dsa, [parallel], all_version_tests()},
      {rsa_1_3, [parallel], all_version_tests() ++ rsa_tests() ++
           tls_1_3_tests() ++ tls_1_3_rsa_tests() ++ [client_auth_seelfsigned_peer, basic_rsa_1024]},
@@ -180,11 +182,12 @@ groups() ->
      {rsa_pss_rsae_1_3, [parallel], all_version_tests() ++ rsa_tests() ++ tls_1_3_tests() ++ tls_1_3_rsa_tests()},
      {rsa_pss_pss, [parallel], all_version_tests()},
      {rsa_pss_pss_1_3, [parallel], all_version_tests() ++ rsa_tests() ++ tls_1_3_tests() ++ tls_1_3_rsa_tests()},
-     {ecdsa_1_3, [parallel], all_version_tests() ++ tls_1_3_tests() ++
+     {ecdsa_1_3, [parallel], all_version_tests() ++ tls_1_3_tests() ++ partial_chain_with_ecdsa() ++
           [signature_algorithms_bad_curve_secp256r1,
            signature_algorithms_bad_curve_secp384r1,
            signature_algorithms_bad_curve_secp521r1]},
-     {eddsa_1_3, [parallel], all_version_tests() ++ tls_1_3_tests()}
+     {eddsa, [parallel], all_version_tests() ++ tls_1_3_tests()},
+     {mldsa, [parallel], all_version_tests() ++ tls_1_3_tests()}
     ].
 
 ssl_protocol_groups() ->
@@ -202,15 +205,17 @@ tls_1_2_protocol_groups() ->
 tls_1_3_protocol_groups() ->
     [{group, rsa_1_3},
      {group, ecdsa_1_3},
-     {group, eddsa_1_3},
+     {group, eddsa},
      {group, rsa_pss_rsae_1_3},
-     {group, rsa_pss_pss_1_3}
+     {group, rsa_pss_pss_1_3},
+     {group, mldsa}
     ].
 
 tls_1_3_tests() ->
     [
      hello_retry_request,
      custom_groups,
+     mlkem_groups,
      client_auth_no_suitable_chain,
      cert_auth_in_first_ca,
      hello_retry_client_auth,
@@ -251,9 +256,6 @@ all_version_tests() ->
      client_auth_custom_key,
      client_auth_empty_cert_accepted,
      client_auth_empty_cert_rejected,
-     client_auth_use_partial_chain,
-     client_auth_do_not_use_partial_chain,
-     client_auth_partial_chain_fun_fail,
      client_auth_sni,
      missing_root_cert_no_auth,
      missing_root_cert_auth,
@@ -280,6 +282,13 @@ all_version_tests() ->
      no_auth_key_identifier_ext,
      no_auth_key_identifier_ext_keyEncipherment
     ].
+
+partial_chain_with_ecdsa() ->
+    %% Concept of partial chain is not dependent
+    %% of cert type, introp test it with ecdsa.
+    [client_auth_use_partial_chain,
+     client_auth_do_not_use_partial_chain,
+     client_auth_partial_chain_fun_fail].
 
 init_per_suite(Config) ->
     catch application:stop(crypto),
@@ -308,142 +317,34 @@ init_per_group(GroupName, Config) ->
             do_init_per_group(GroupName, Config)
     end.
 
-do_init_per_group(Group, Config0) when Group == rsa;
-                                       Group == rsa_1_3 ->
-    Config1 = ssl_test_lib:make_rsa_cert(Config0),
-    Config = ssl_test_lib:make_rsa_1024_cert(Config1),
-    COpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
-    SOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
-    Version = proplists:get_value(version, Config),
-    [{cert_key_alg, rsa},
-     {extra_client, ssl_test_lib:sig_algs(rsa, Version)},
-     {extra_server, ssl_test_lib:sig_algs(rsa, Version)} |
-     lists:delete(cert_key_alg,
-                  [{client_cert_opts, fun() -> COpts end},
-                   {server_cert_opts, fun() -> SOpts end} |
-                   lists:delete(server_cert_opts,
-                                lists:delete(client_cert_opts, Config))])];
+do_init_per_group(openssl_client, Config) ->
+    [{client_type, openssl}, {server_type, erlang} | Config];
+do_init_per_group(Group, Config) when Group == mldsa ->
+    ssl_cert_tests:mldsa_config(Config);
+do_init_per_group(Group, Config) when Group == rsa;
+                                      Group == rsa_1_3 ->
+    ssl_cert_tests:rsa_config(Config);
 do_init_per_group(Alg, Config) when Alg == rsa_pss_rsae;
                                     Alg == rsa_pss_pss ->
-    Supports = crypto:supports(),
-    RSAOpts = proplists:get_value(rsa_opts, Supports),
-    Version = ssl_test_lib:n_version(proplists:get_value(version, Config)),
-
-    case lists:member(rsa_pkcs1_pss_padding, RSAOpts)
-        andalso lists:member(rsa_pss_saltlen, RSAOpts)
-        andalso lists:member(rsa_mgf1_md, RSAOpts) of
-        true ->
-            #{client_config := COpts,
-              server_config := SOpts} = ssl_test_lib:make_rsa_pss_pem(rsa_alg(Alg), [], Config, ""),
-            [{cert_key_alg, Alg},
-             {extra_client, ssl_test_lib:sig_algs(Alg, Version)},
-             {extra_server, ssl_test_lib:sig_algs(Alg, Version)} |
-             lists:delete(cert_key_alg,
-                          [{client_cert_opts, fun() -> COpts end},
-                           {server_cert_opts, fun() -> SOpts end} |
-                           lists:delete(server_cert_opts,
-                                        lists:delete(client_cert_opts, Config))])];
-        false ->
-            {skip, "Missing EC crypto support"}
-    end;
+    ssl_cert_tests:rsa_pss_config(Alg, Config);
 do_init_per_group(Alg, Config) when Alg == rsa_pss_rsae_1_3;
                                     Alg == rsa_pss_pss_1_3 ->
-
-    Supports = crypto:supports(),
-    RSAOpts = proplists:get_value(rsa_opts, Supports),
-    
-    case lists:member(rsa_pkcs1_pss_padding, RSAOpts) 
-        andalso lists:member(rsa_pss_saltlen, RSAOpts) 
-        andalso lists:member(rsa_mgf1_md, RSAOpts) of
-        true ->
-            #{client_config := COpts,
-              server_config := SOpts} = ssl_test_lib:make_rsa_pss_pem(rsa_alg(Alg), [], Config, ""),
-            [{cert_key_alg, rsa_alg(Alg)} |
-             lists:delete(cert_key_alg,
-                          [{client_cert_opts, fun() -> COpts end},
-                           {server_cert_opts, fun() -> SOpts end} |
-                           lists:delete(server_cert_opts,
-                                        lists:delete(client_cert_opts, Config))])];
-        false ->
-            {skip, "Missing EC crypto support"}
-    end;
-do_init_per_group(Group, Config0) when Group == ecdsa;
-                                       Group == ecdsa_1_3 ->
-
-    PKAlg = crypto:supports(public_keys),
-    case lists:member(ecdsa, PKAlg) andalso (lists:member(ecdh, PKAlg) orelse lists:member(dh, PKAlg)) of
-        true ->
-            Config = ssl_test_lib:make_ecdsa_cert(Config0),
-            COpts = ssl_test_lib:ssl_options(client_ecdsa_verify_opts, Config),
-            SOpts = ssl_test_lib:ssl_options(server_ecdsa_opts, Config),
-            [{cert_key_alg, ecdsa} |
-             lists:delete(cert_key_alg,
-                          [{client_cert_opts, fun() -> COpts end},
-                           {server_cert_opts, fun() -> SOpts end} |
-                           lists:delete(server_cert_opts,
-                                        lists:delete(client_cert_opts, Config))]
-                         )];
-        false ->
-            {skip, "Missing EC crypto support"}
-    end;
-do_init_per_group(eddsa_1_3, Config0) ->
-    PKAlg = crypto:supports(public_keys),
-    PrivDir = proplists:get_value(priv_dir, Config0),
-    case lists:member(eddsa, PKAlg) andalso (lists:member(ecdh, PKAlg)) of
-        true ->
-            Conf = public_key:pkix_test_data(#{server_chain => #{root => ssl_test_lib:eddsa_conf(),
-                                                                 intermediates => [ssl_test_lib:eddsa_conf()],
-                                                                 peer =>  ssl_test_lib:eddsa_conf()},
-                                               client_chain => #{root => ssl_test_lib:eddsa_conf(),
-                                                                 intermediates => [ssl_test_lib:eddsa_conf()],
-                                                                 peer =>  ssl_test_lib:eddsa_conf()}}),
-            [{server_config, SOpts},
-             {client_config, COpts}] = x509_test:gen_pem_config_files(Conf, filename:join(PrivDir, "client_eddsa"),
-                                                                      filename:join(PrivDir, "server_eddsa")),
-
-            [{cert_key_alg, eddsa} |
-             lists:delete(cert_key_alg,
-                          [{client_cert_opts, fun() -> COpts end},
-                           {server_cert_opts, fun() -> SOpts end} |
-                           lists:delete(server_cert_opts,
-                                        lists:delete(client_cert_opts, Config0))]
-                         )];
-        false ->
-            {skip, "Missing EC crypto support"}
-    end;
-do_init_per_group(dsa = Alg, Config0) ->
-    PKAlg = crypto:supports(public_keys),
-    Version = ssl_test_lib:n_version(proplists:get_value(version, Config0)),
-    case lists:member(dss, PKAlg) andalso lists:member(dh, PKAlg) of
-        true ->
-            Config = ssl_test_lib:make_dsa_cert(Config0),
-            COpts = ssl_test_lib:ssl_options(client_dsa_opts, Config),
-            SOpts = ssl_test_lib:ssl_options(server_dsa_opts, Config),
-            ShaDSA = case Version of
-                         {3, 3} ->
-                             [{signature_algs, [{sha, dsa}]}];
-                         _  ->
-                             []
-                     end,
-            [{cert_key_alg, dsa},
-             {extra_client, ssl_test_lib:sig_algs(Alg, Version) ++
-                  [{ciphers, ssl_test_lib:dsa_suites(Version)}] ++ ShaDSA},
-             {extra_server, ssl_test_lib:sig_algs(Alg, Version) ++
-                  [{ciphers, ssl_test_lib:dsa_suites(Version)}] ++ ShaDSA} |
-             lists:delete(cert_key_alg,
-                          [{client_cert_opts, fun() -> COpts end},
-                           {server_cert_opts, fun() -> SOpts end} |
-                           lists:delete(server_cert_opts,
-                                        lists:delete(client_cert_opts, Config))])];
-        false ->
-            {skip, "Missing DSS crypto support"}
-    end;
+    ssl_cert_tests:rsa_pss_config(rsa_alg(Alg), Config);
+do_init_per_group(Group, Config) when Group == ecdsa;
+                                      Group == ecdsa_1_3 ->
+    ssl_cert_tests:ecdsa_config(Config);
+do_init_per_group(eddsa, Config0) ->
+    ssl_cert_tests:eddsa_config(Config0);
+do_init_per_group(dsa, Config) ->
+    ssl_cert_tests:dsa_config(Config);
 do_init_per_group(_Group, Config) ->
     Config.
 
 end_per_group(GroupName, Config) ->
   ssl_test_lib:end_per_group(GroupName, Config).
 
+init_per_testcase(mlkem_groups, Config) ->
+   ssl_cert_tests:support_kems(Config);
 init_per_testcase(signature_algorithms_bad_curve_secp256r1, Config) ->
     init_ecdsa_opts(Config, secp256r1);
 init_per_testcase(signature_algorithms_bad_curve_secp384r1, Config) ->
@@ -1314,6 +1215,26 @@ custom_groups(Config) ->
     ssl_test_lib:basic_test(ClientOpts, ServerOpts, Config).
 
 %%--------------------------------------------------------------------
+mlkem_groups() ->
+    [{doc,"Test that ssl server can select a common group for key-exchange"}].
+
+mlkem_groups(Config) ->
+    ClientOpts0 = ssl_test_lib:ssl_options(client_cert_opts, Config),
+    ServerOpts0 = ssl_test_lib:ssl_options(server_cert_opts, Config),
+
+    mlkem_kex(mlkem512, ClientOpts0, ServerOpts0, Config),
+    mlkem_kex(mlkem768, ClientOpts0, ServerOpts0, Config),
+    mlkem_kex(mlkem1024, ClientOpts0, ServerOpts0, Config).
+
+mlkem_kex(MLKem, ClientOpts0, ServerOpts0, Config) ->
+    %% Set versions
+    ServerOpts = [{versions, ['tlsv1.3']},
+                  {supported_groups, [MLKem]}|ServerOpts0],
+    ClientOpts1 = [{versions, ['tlsv1.2','tlsv1.3']}|ClientOpts0],
+    ClientOpts = [{supported_groups,[ MLKem, secp384r1, secp256r1, x25519]}|ClientOpts1],
+    ssl_test_lib:basic_test(ClientOpts, ServerOpts, Config).
+
+%%--------------------------------------------------------------------
 %% Triggers a Server Alert as ssl client does not have a certificate with a
 %% signature algorithm supported by the server (signature_algorithms_cert extension
 %% of CertificateRequest does not contain the algorithm of the client certificate).
@@ -1530,6 +1451,8 @@ rsa_alg(rsa_pss_rsae_1_3) ->
     rsa_pss_rsae;
 rsa_alg(rsa_pss_pss_1_3) ->
     rsa_pss_pss;
+rsa_alg(rsa_1_3) ->
+    rsa;
 rsa_alg(Atom) ->
     Atom.
 
