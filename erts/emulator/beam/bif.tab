@@ -833,3 +833,4 @@ bif erl_debugger:peek_xreg/3
 # New in 28.1.
 #
 bif erts_debug:unaligned_bitstring/2
+bif re:import/1

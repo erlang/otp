@@ -35,8 +35,11 @@
 	 match_limit/1,sub_binaries/1,copt/1,global_unicode_validation/1,
          yield_on_subject_validation/1, bad_utf8_subject/1,
          error_info/1, subject_is_sub_binary/1, pattern_is_sub_binary/1,
+         import/1,
 
          last_test/1]).
+
+-export([id/1]).
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/file.hrl").
@@ -58,6 +61,7 @@ all() ->
      match_limit, sub_binaries, re_version, global_unicode_validation,
      yield_on_subject_validation, bad_utf8_subject,
      error_info, subject_is_sub_binary, pattern_is_sub_binary,
+     import,
 
      last_test].
 
@@ -594,6 +598,7 @@ error_handling(_Config) ->
     {error, {compile, {_,_}}} = re:run("apa","(p",[report_errors,global]),
     %% Badly formed options
     {'EXIT',{badarg,_}} = (catch re:run(<<"apa">>,RE,["global"])),
+    {'EXIT',{badarg,_}} = (catch re:run(<<"apa">>,RE,[export])),
     {'EXIT',{badarg,_}} = (catch re:run(<<"apa">>,RE,[{offset,-1}])),
     {'EXIT',{badarg,_}} = (catch re:run(<<"apa">>,RE,[{offset,ett}])),
     {'EXIT',{badarg,_}} = (catch re:run(<<"apa">>,RE,[{captore,[1,2],binary}])),
@@ -1067,6 +1072,7 @@ error_info(_Config) ->
     BadRegexp = {re_pattern,0,0,0,<<"xyz">>},
     BadErr = "neither an iodata term",
     {ok,GoodRegexp} = re:compile(".*"),
+    {ok, Exported} = re:compile(".*", [export]),
     InvalidRegexp = <<"(.*))">>,
     InvalidErr = "could not parse regular expression\n.*unmatched closing parenthesis.*",
 
@@ -1084,6 +1090,12 @@ error_info(_Config) ->
          {inspect,[GoodRegexp, bad_inspect_item]},
 
          {internal_run, 4},                     %Internal.
+
+         {import, [17]},
+         {import, [{re_exported_pattern}]},
+         {import, [setelement(1,Exported,error)]},
+         {import, [setelement(2,Exported,error)]},
+         {import, [setelement(5,Exported,error)]},
 
          {replace, [{a,b}, {x,y}, {z,z}],[{1,".*"},{2,".*"},{3,".*"}]},
          {replace, [{a,b}, BadRegexp, {z,z}],[{1,".*"},{2,BadErr},{3,".*"}]},
@@ -1132,13 +1144,13 @@ pattern_is_sub_binary(Config) when is_list(Config) ->
     match = re:run(Subject, RE, [{capture, none}]),
     nomatch = re:run(Subject, Bin, [{capture, none}]),
     %% Unaligned sub binary - will result in a copy operation
-    <<0:1, RE2/binary>> = Bin2 = <<0:1, "^((:|(0?|([1-9a-f][0-9a-f]{0,3}))):)((0?|([1-9a-f][0-9a-f]{0,3})):){0,6}(:|(0?|([1-9a-f][0-9a-f]{0,3})))$">>,
+    RE2 = unalign_bin(<<"^((:|(0?|([1-9a-f][0-9a-f]{0,3}))):)((0?|([1-9a-f][0-9a-f]{0,3})):){0,6}(:|(0?|([1-9a-f][0-9a-f]{0,3})))$">>),
     {ok,REC2} = re:compile(RE2),
     match = re:run(Subject, REC2, [{capture, none}]),
     match = re:run(Subject, RE2, [{capture, none}]),
     ok = try
-        _ = re:run(Subject, Bin2, [{capture, none}])
-    catch error:badarg ->
+             re:run(Subject, <<0:1,RE2>>, [{capture, none}])
+         catch error:badarg ->
         %% *** argument 2: neither an iodata term nor a compiled regular expression
         ok
     end.
@@ -1153,15 +1165,88 @@ subject_is_sub_binary(Config) when is_list(Config) ->
     match = re:run(Subject, RE, [{capture, none}]),
     nomatch = re:run(Bin, RE, [{capture, none}]),
     %% Unaligned subject sub binary
-    <<0:1, Subject2/binary>> = Bin2 = <<0:1,"::1">>,
+    Subject2 = unalign_bin(Subject),
     match = re:run(Subject2, REC, [{capture, none}]),
     match = re:run(Subject2, RE, [{capture, none}]),
     ok = try
-        _ = re:run(Bin2, RE, [{capture, none}])
+        _ = re:run(<<0:1, Subject>>, RE, [{capture, none}])
     catch error:badarg ->
         %% *** argument 1: not an iodata term
         ok
     end.
+
+import(Config) when is_list(Config) ->
+    RE = <<"exported">>,
+
+    {ok, Exported1} = re:compile(RE, [export]),
+    import_do(Exported1, fun re:import/1),
+    import_do(Exported1, fun(E) -> re:import(unalign_exported(E)) end),
+
+    {ok, Exported2} = re:compile(binary_to_list(RE), [export]),
+    import_do(Exported2, fun re:import/1),
+    import_do(Exported2, fun(E) -> re:import(unalign_exported(E)) end),
+    ok.
+
+import_do(Exported, ImportFun) ->
+    match = re:run("exported", ImportFun(Exported), [{capture,none}]),
+
+    %% Make an exported tuple with fake fallback to verify if it was used or not.
+    Fake1 = setelement(3, Exported, <<"fallback">>),
+    match = re:run("exported", ImportFun(Fake1), [{capture,none}]),
+
+    Fake2 = bump_exported_pcre_version(Fake1),
+    match = re:run("fallback", ImportFun(Fake2), [{capture,none}]),
+
+    Fake3 = swap_exported_endianness(Fake1),
+    match = re:run("fallback", ImportFun(Fake3), [{capture,none}]),
+
+    Fake4 = bump_encode_version(Fake1),
+    match = re:run("fallback", ImportFun(Fake4), [{capture,none}]),
+
+    badarg = try ImportFun(setelement(3, Fake4, ~"(broken fallback"))
+             catch error:badarg -> badarg end,
+    badarg = try ImportFun(trash_encoding(Exported))
+             catch error:badarg -> badarg end,
+    ok.
+
+unalign_exported(Exported) ->
+    {re_exported_pattern, Hdr, RE, Opts, Enc} = Exported,
+    {re_exported_pattern, unalign_bin(Hdr), unalign_bin(RE), Opts, unalign_bin(Enc)}.
+
+unalign_bin(Bin) ->
+    erts_debug:unaligned_bitstring(Bin, 3).
+
+bump_exported_pcre_version(Exported) ->
+    {re_exported_pattern, Hdr, RE, Opts, Enc1} = Exported,
+    <<Magic:32, Maj:16, Min:16/little, EncRest/binary>> = Enc1,
+    Enc2 = <<Magic:32, Maj:16, (Min+1):16/little, EncRest/binary>>,
+    build_exported(Hdr, RE, Opts, Enc2).
+
+bump_encode_version(Exported) ->
+    {re_exported_pattern, Hdr1, RE, Opts, Enc} = Exported,
+    <<Title:8/binary, CRC:32, EncVer, Unicode>> = Hdr1,
+    Hdr2 = <<Title:8/binary, CRC:32, (EncVer+1), Unicode>>,
+    build_exported(Hdr2, RE, Opts, Enc).
+
+swap_exported_endianness(Exported) ->
+    {re_exported_pattern, Hdr, RE, Opts, Enc1} = Exported,
+    <<Magic:32/big, EncRest/binary>> = Enc1,
+    Enc2 = <<Magic:32/little, EncRest/binary>>,
+    build_exported(Hdr, RE, Opts, Enc2).
+
+trash_encoding(Exported) ->
+    {re_exported_pattern, Hdr, RE, Opts, Enc1} = Exported,
+    <<Magic:32, Maj:16, Min:16, Byte, EncRest/binary>> = Enc1,
+    Enc2 = <<Magic:32, Maj:16, Min:16, (Byte+1), EncRest/binary>>,
+    {re_exported_pattern, Hdr, RE, Opts, Enc2}.
+
+build_exported(Hdr1, RE, Opts, Enc) ->
+    <<Title:8/binary, _CRC1:32, HdrRest/binary>> = Hdr1,
+    CRC2 = erlang:crc32(Enc),
+    Hdr2 = <<Title/binary, CRC2:32, HdrRest/binary>>,
+    {re_exported_pattern, Hdr2, RE, Opts, Enc}.
+
+
 
 last_test(Config) when is_list(Config) ->
     erts_debug:set_internal_state(available_internal_state, true),
@@ -1198,3 +1283,5 @@ check_yield_coverage([Tuple | Tail], Err0) ->
                 Err0
         end,
     check_yield_coverage(Tail, Err1).
+
+id(X) -> X.
