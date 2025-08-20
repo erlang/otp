@@ -57,6 +57,7 @@ Specifies a channel process to handle an SFTP subsystem.
 	  file_handler,			% atom() - callback module 
 	  file_state,                   % state for the file callback module
 	  max_files,                    % integer >= 0 max no files sent during READDIR
+	  max_handles,                  % integer > 0  - max number of file handles
 	  options,			% from the subsystem declaration
 	  handles			% list of open handles
 	  %% handle is either {<int>, directory, {Path, unread|eof}} or
@@ -86,6 +87,13 @@ Options:
   limit. If supplied, the number of filenames returned to the SFTP client per
   `READDIR` request is limited to at most the given value.
 
+- **`max_handles`** - The default value is `1000`. Positive integer
+  value represents the maximum number of file handles allowed for a
+  connection.
+
+  (Note: separate limitation might be also enforced by underlying
+  operating system)
+
 - **`root`** - Sets the SFTP root directory. Then the user cannot see any files
   above this root. If, for example, the root directory is set to `/tmp`, then
   the user sees this directory as `/`. If the user then writes `cd /etc`, the
@@ -98,6 +106,7 @@ Options:
       Options :: [ {cwd, string()} |
                    {file_handler, CbMod | {CbMod, FileState}} |
                    {max_files, integer()} |
+                   {max_handles, integer()} |
                    {root, string()} |
                    {sftpd_vsn, integer()}
                  ],
@@ -149,8 +158,12 @@ init(Options) ->
 		{Root0, State0}
 	end,
     MaxLength = proplists:get_value(max_files, Options, 0),
+    MaxHandles = proplists:get_value(max_handles, Options, 1000),
     Vsn = proplists:get_value(sftpd_vsn, Options, 5),
-    {ok,  State#state{cwd = CWD, root = Root, max_files = MaxLength,
+    {ok,  State#state{cwd = CWD,
+                      root = Root,
+                      max_files = MaxLength,
+                      max_handles = MaxHandles,
 		      options = Options,
 		      handles = [], pending = <<>>,
 		      xf = #ssh_xfer{vsn = Vsn, ext = []}}}.
@@ -282,14 +295,16 @@ handle_op(?SSH_FXP_REALPATH, ReqId,
     end;
 handle_op(?SSH_FXP_OPENDIR, ReqId,
 	 <<?UINT32(RLen), RPath:RLen/binary>>,
-	  State0 = #state{xf = #ssh_xfer{vsn = Vsn}, 
-			  file_handler = FileMod, file_state = FS0}) ->
+	  State0 = #state{xf = #ssh_xfer{vsn = Vsn},
+			  file_handler = FileMod, file_state = FS0,
+                          max_handles = MaxHandles}) ->
     RelPath = unicode:characters_to_list(RPath),
     AbsPath = relate_file_name(RelPath, State0),
     
     XF = State0#state.xf,
     {IsDir, FS1} = FileMod:is_dir(AbsPath, FS0),
     State1 = State0#state{file_state = FS1},
+    HandlesCnt = length(State0#state.handles),
     case IsDir of
 	false when Vsn > 5 ->
 	    ssh_xfer:xf_send_status(XF, ReqId, ?SSH_FX_NOT_A_DIRECTORY,
@@ -299,8 +314,12 @@ handle_op(?SSH_FXP_OPENDIR, ReqId,
 	    ssh_xfer:xf_send_status(XF, ReqId, ?SSH_FX_FAILURE,
 				    "Not a directory"),
 	    State1;
-	true ->
-	    add_handle(State1, XF, ReqId, directory, {RelPath,unread})
+	true when HandlesCnt < MaxHandles ->
+	    add_handle(State1, XF, ReqId, directory, {RelPath,unread});
+        true ->
+	    ssh_xfer:xf_send_status(XF, ReqId, ?SSH_FX_FAILURE,
+				    "max_handles limit reached"),
+	    State1
     end;
 handle_op(?SSH_FXP_READDIR, ReqId,
 	  <<?UINT32(HLen), BinHandle:HLen/binary>>,
@@ -751,7 +770,9 @@ open(Vsn, ReqId, Data, State) when Vsn >= 4 ->
     do_open(ReqId, State, Path, Flags).
 
 do_open(ReqId, State0, Path, Flags) ->
-    #state{file_handler = FileMod, file_state = FS0, xf = #ssh_xfer{vsn = Vsn}} = State0,
+    #state{file_handler = FileMod, file_state = FS0, xf = #ssh_xfer{vsn = Vsn},
+           max_handles = MaxHandles} = State0,
+    HandlesCnt = length(State0#state.handles),
     AbsPath = relate_file_name(Path, State0),
     {IsDir, _FS1} = FileMod:is_dir(AbsPath, FS0),
     case IsDir of 
@@ -763,7 +784,7 @@ do_open(ReqId, State0, Path, Flags) ->
 	    ssh_xfer:xf_send_status(State0#state.xf, ReqId,
 				    ?SSH_FX_FAILURE, "File is a directory"),
 	    State0;
-	false ->
+	false when HandlesCnt < MaxHandles ->
 	    OpenFlags = [binary | Flags],
 	    {Res, FS1} = FileMod:open(AbsPath, OpenFlags, FS0),
 	    State1 = State0#state{file_state = FS1},
@@ -774,7 +795,11 @@ do_open(ReqId, State0, Path, Flags) ->
 		    ssh_xfer:xf_send_status(State1#state.xf, ReqId,
 					    ssh_xfer:encode_erlang_status(Error)),
 		    State1
-	    end
+	    end;
+        false ->
+	    ssh_xfer:xf_send_status(State0#state.xf, ReqId,
+				    ?SSH_FX_FAILURE, "max_handles limit reached"),
+	    State0
     end.
 
 %% resolve all symlinks in a path
