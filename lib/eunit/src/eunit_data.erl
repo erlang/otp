@@ -400,11 +400,13 @@ parse({node, N, A, T1}=T, Options) when is_atom(N) ->
 %% 			       end,
 %% 			   ?debugVal({started, StartedNet}),
 			   {Name, Host} = eunit_lib:split_node(N),
-                           {ok, Node} = peer:start_link(#{
-                               host => Host,
-                               name => Name,
-                               args => parse_peer_args(A)
-                           }),
+                           {ok, Node} = case peer:start_link(#{
+                               host => atom_to_list(Host),
+                               name => Name, args => parse_peer_args(A)}) of
+                                {ok, Pid} -> {ok, Pid};
+                                {ok, Pid, _Node} -> {ok, Pid};
+                                {error, Rsn} -> throw({peer_start, Rsn})
+                            end,
 			   {Node, StartedNet}
 		   end,
 		   fun ({Node, StopNet}) ->
