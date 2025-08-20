@@ -28,7 +28,8 @@
 -export([get_state/0, get_function/2]).
 -export([start_restricted/1, stop_restricted/0]).
 -export([local_func/0, local_func/1, local_allowed/3, non_local_allowed/3]).
--export([catch_exception/1, prompt_func/1, multiline_prompt_func/1, strings/1]).
+-export([catch_exception/1, prompt_func/1, multiline_prompt_func/1]).
+-export([strings/1, hints/1]).
 -export([format_shell_func/1, erl_pp_format_func/1]).
 -export([start_interactive/0, start_interactive/1]).
 -export([read_and_add_records/5]).
@@ -43,6 +44,7 @@
 -define(DEF_CATCH_EXCEPTION, false).
 -define(DEF_PROMPT_FUNC, default).
 -define(DEF_STRINGS, true).
+-define(DEF_HINTS, true).
 
 -define(RECORDS, shell_records).
 
@@ -790,7 +792,10 @@ shell_cmd(Es, Eval, Bs, RT, FT, Ds, W) ->
     shell_rep(Eval, Bs, RT, FT, Ds).
 
 shell_rep(Ev, Bs0, RT, FT, Ds0) ->
-    shell_rep(Ev, Bs0, RT, FT, Ds0, 5000).
+    case application:get_env(stdlib, shell_hints, true) =/= false of
+      true  -> shell_rep(Ev, Bs0, RT, FT, Ds0, 5000);
+      false -> shell_rep(Ev, Bs0, RT, FT, Ds0, infinity)
+    end.
 shell_rep(Ev, Bs0, RT, FT, Ds0, Timeout) ->
     receive
         {shell_rep,Ev,{value,V,Bs,Ds}} ->
@@ -2167,6 +2172,21 @@ using the string syntax.
 
 strings(Strings) ->
     set_env(stdlib, shell_strings, Strings, ?DEF_STRINGS).
+
+-doc """
+Sets printing of shell hints. The previous value of the flag is returned.
+
+The flag can also be set by the STDLIB application variable `shell_hints`.
+Defaults to `true`, which means that hints will be printed by default. Value
+`false` means that no hints are printed in the shell.
+""".
+-doc(#{since => <<"OTP R28.1">>}).
+-spec hints(Hints) -> OldHints when
+      Hints :: boolean(),
+      OldHints :: boolean().
+
+hints(Hints) ->
+    set_env(stdlib, shell_hints, Hints, ?DEF_HINTS).
 
 -doc """
 Equivalent to `prompt_width/2` with `Encoding` set to the encoding used by
