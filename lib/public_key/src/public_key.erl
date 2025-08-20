@@ -465,7 +465,7 @@ pem_entry_decode({Asn1Type, CryptDer, {Cipher, Salt}} = PemEntry,
 				is_binary(CryptDer) andalso
 				is_list(Cipher) andalso
 				is_binary(Salt) andalso
-				((erlang:byte_size(Salt) == 8) or (erlang:byte_size(Salt) == 16)) andalso
+				((erlang:byte_size(Salt) == 8) orelse (erlang:byte_size(Salt) == 16)) andalso
 				is_list(Password) ->
     do_pem_entry_decode(PemEntry, Password).
 
@@ -543,7 +543,7 @@ pem_entry_encode(Asn1Type, Entity, {{Cipher, Salt} = CipherInfo,
 						    is_list(Password) andalso
 						    is_list(Cipher) andalso
 						    is_binary(Salt) andalso
-						    ((erlang:byte_size(Salt) == 8) or
+						    ((erlang:byte_size(Salt) == 8) orelse
 						     (erlang:byte_size(Salt) == 16)) ->
     do_pem_entry_encode(Asn1Type, Entity, CipherInfo, Password).
     
@@ -1733,7 +1733,7 @@ pkix_is_fixed_dh_cert(Cert) when is_binary(Cert) ->
                                      Reason :: term() .
 
 %%--------------------------------------------------------------------
-pkix_issuer_id(#'OTPCertificate'{} = OtpCert, Signed) when (Signed == self) or 
+pkix_issuer_id(#'OTPCertificate'{} = OtpCert, Signed) when (Signed == self) orelse 
 							   (Signed == other) ->
     pubkey_cert:issuer_id(OtpCert, Signed);
 pkix_issuer_id(Cert, Signed) when is_binary(Cert) -> 
