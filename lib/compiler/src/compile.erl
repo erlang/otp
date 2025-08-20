@@ -1075,9 +1075,6 @@ expand_opt(report, Os) ->
     [report_errors,report_warnings|Os];
 expand_opt(return, Os) ->
     [return_errors,return_warnings|Os];
-expand_opt(r25, Os) ->
-    [no_ssa_opt_update_tuple, no_bs_match, no_min_max_bifs |
-     expand_opt(r26, Os)];
 expand_opt(r26, Os) ->
     [no_bsm_opt | expand_opt(r27, Os)];
 expand_opt(r27, Os) ->
@@ -2405,16 +2402,19 @@ is_obsolete(r21) -> true;
 is_obsolete(r22) -> true;
 is_obsolete(r23) -> true;
 is_obsolete(r24) -> true;
+is_obsolete(r25) -> true;
 is_obsolete(no_badrecord) -> true;
 is_obsolete(no_bs_create_bin) -> true;
+is_obsolete(no_bs_match) -> true;
 is_obsolete(no_bsm3) -> true;
 is_obsolete(no_get_hd_tl) -> true;
-is_obsolete(no_put_tuple2) -> true;
-is_obsolete(no_utf8_atoms) -> true;
-is_obsolete(no_swap) -> true;
 is_obsolete(no_init_yregs) -> true;
-is_obsolete(no_shared_fun_wrappers) -> true;
 is_obsolete(no_make_fun3) -> true;
+is_obsolete(no_min_max_bifs) -> true;
+is_obsolete(no_put_tuple2) -> true;
+is_obsolete(no_shared_fun_wrappers) -> true;
+is_obsolete(no_swap) -> true;
+is_obsolete(no_utf8_atoms) -> true;
 is_obsolete(_) -> false.
 
 core(Forms, #compile{options=Opts}=St) ->

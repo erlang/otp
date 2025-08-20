@@ -22,12 +22,7 @@
 
 -module(erts_test_utils).
 
-%% Prior to OTP 26, maybe_expr used to require runtime support. As it's now
-%% enabled by default, all modules are tagged with the feature even when they
-%% don't use it. Therefore, we explicitly disable it until OTP 25 is out of
-%% support.
--feature(maybe_expr, disable).
--compile(r25).
+-compile(r26).
 
 %%
 %% THIS MODULE IS ALSO USED BY *OTHER* APPLICATIONS TEST CODE

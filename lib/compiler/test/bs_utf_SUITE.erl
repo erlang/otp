@@ -24,7 +24,6 @@
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1,
 	 init_per_group/2,end_per_group/2,
-         verify_highest_opcode/1,
 	 utf8_roundtrip/1,unused_utf_char/1,utf16_roundtrip/1,
 	 utf32_roundtrip/1,guard/1,extreme_tripping/1,
 	 literals/1,coverage/1]).
@@ -34,8 +33,7 @@
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() ->
-    [verify_highest_opcode,
-     utf8_roundtrip, unused_utf_char, utf16_roundtrip,
+    [utf8_roundtrip, unused_utf_char, utf16_roundtrip,
      utf32_roundtrip, guard, extreme_tripping, literals,
      coverage].
 
@@ -54,20 +52,6 @@ init_per_group(_GroupName, Config) ->
 
 end_per_group(_GroupName, Config) ->
     Config.
-
-verify_highest_opcode(_Config) ->
-    case ?MODULE of
-        bs_construct_r25_SUITE ->
-            {ok,Beam} = file:read_file(code:which(?MODULE)),
-            case test_lib:highest_opcode(Beam) of
-                Highest when Highest =< 180 ->
-                    ok;
-                TooHigh ->
-                    ct:fail({too_high_opcode,TooHigh})
-            end;
-        _ ->
-            ok
-    end.
 
 utf8_roundtrip(Config) when is_list(Config) ->
     [utf8_roundtrip_1(P) || P <- utf_data()],
