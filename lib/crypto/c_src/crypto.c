@@ -102,6 +102,7 @@ static ErlNifFunc nif_funcs[] = {
     
     {"pbkdf2_hmac_nif", 5, pbkdf2_hmac_nif, 0},
     {"pkey_sign_nif", 5, pkey_sign_nif, 0},
+    {"pkey_sign_heavy_nif", 5, pkey_sign_heavy_nif, ERL_NIF_DIRTY_JOB_CPU_BOUND},
     {"pkey_verify_nif", 6, pkey_verify_nif, 0},
     {"pkey_crypt_nif", 6, pkey_crypt_nif, 0},
     {"encapsulate_key_nif", 2, encapsulate_key_nif, 0},
@@ -275,9 +276,8 @@ static int initialize(ErlNifEnv* env, ERL_NIF_TERM load_info)
         /* Don't fail loading if the legacy provider is missing */
         prov_cnt++;
     }
-    prefetched_sign_algo_init();
-
 #endif
+    prefetched_sign_algo_init(env);
 
     if (!init_atoms(env)) {
         ret = __LINE__; goto done;

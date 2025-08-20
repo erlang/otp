@@ -389,12 +389,19 @@
 #endif
 #endif
 
+#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(3,4,0)
+#  define HAS_PREFETCH_SIGN_INIT
+#endif
+
 #if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(3,5,0)
 #  ifndef OPENSSL_NO_ML_KEM
 #    define HAVE_ML_KEM
 #  endif
 #  ifndef OPENSSL_NO_ML_DSA
 #    define HAVE_ML_DSA
+#  endif
+#  ifndef OPENSSL_NO_SLH_DSA
+#    define HAVE_SLH_DSA
 #  endif
 #endif
 
