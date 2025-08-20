@@ -769,10 +769,9 @@ handle_msg(Msg, Connection, server, Ssh = #ssh{authenticated = false}) ->
     %% respond by disconnecting, preferably with a proper disconnect message
     %% sent to ease troubleshooting.
     MsgFun = fun(M) ->
-                     MaxLogItemLen = ?GET_OPT(max_log_item_len, Ssh#ssh.opts),
                      io_lib:format("Connection terminated. Unexpected message for unauthenticated user."
                                    " Message:  ~w", [M],
-                                   [{chars_limit, MaxLogItemLen}])
+                                   [{chars_limit, ssh_lib:max_log_len(Ssh)}])
              end,
     ?LOG_DEBUG(MsgFun, [Msg]),
     {disconnect, {?SSH_DISCONNECT_PROTOCOL_ERROR, "Connection refused"}, handle_stop(Connection)};

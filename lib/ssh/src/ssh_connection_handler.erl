@@ -1173,12 +1173,21 @@ handle_event(info, {Proto, Sock, NewData}, StateName,
                                       {next_event, internal, Msg}
 				    ]}
 	    catch
-		C:E:ST  ->
-                    MaxLogItemLen = ?GET_OPT(max_log_item_len,SshParams#ssh.opts),
+		Class:Reason0:Stacktrace  ->
+                    Reason = ssh_lib:trim_reason(Reason0),
+                    MsgFun =
+                        fun(debug) ->
+                                io_lib:format("Bad packet: Decrypted, but can't decode~n~p:~p~n~p",
+                                              [Class,Reason,Stacktrace],
+                                              [{chars_limit, ssh_lib:max_log_len(SshParams)}]);
+                           (_) ->
+                                io_lib:format("Bad packet: Decrypted, but can't decode ~p:~p",
+                                              [Class, Reason],
+                                              [{chars_limit, ssh_lib:max_log_len(SshParams)}])
+                        end,
                     {Shutdown, D} =
                         ?send_disconnect(?SSH_DISCONNECT_PROTOCOL_ERROR,
-                                         io_lib:format("Bad packet: Decrypted, but can't decode~n~p:~p~n~p",
-                                                       [C,E,ST], [{chars_limit, MaxLogItemLen}]),
+                                         ?SELECT_MSG(MsgFun),
                                          StateName, D1),
                     {stop, Shutdown, D}
 	    end;
@@ -1208,12 +1217,20 @@ handle_event(info, {Proto, Sock, NewData}, StateName,
                                  StateName, D0),
             {stop, Shutdown, D}
     catch
-	C:E:ST ->
-            MaxLogItemLen = ?GET_OPT(max_log_item_len,SshParams#ssh.opts),
+	Class:Reason0:Stacktrace ->
+            MsgFun =
+                fun(debug) ->
+                        io_lib:format("Bad packet: Couldn't decrypt~n~p:~p~n~p",
+                                      [Class,Reason0,Stacktrace],
+                                      [{chars_limit, ssh_lib:max_log_len(SshParams)}]);
+                   (_) ->
+                        Reason = ssh_lib:trim_reason(Reason0),
+                        io_lib:format("Bad packet: Couldn't decrypt~n~p:~p",
+                                      [Class,Reason],
+                                      [{chars_limit, ssh_lib:max_log_len(SshParams)}])
+                end,
             {Shutdown, D} =
-                ?send_disconnect(?SSH_DISCONNECT_PROTOCOL_ERROR,
-                                 io_lib:format("Bad packet: Couldn't decrypt~n~p:~p~n~p",
-                                               [C,E,ST], [{chars_limit, MaxLogItemLen}]),
+                ?send_disconnect(?SSH_DISCONNECT_PROTOCOL_ERROR, ?SELECT_MSG(MsgFun),
                                  StateName, D0),
             {stop, Shutdown, D}
     end;
