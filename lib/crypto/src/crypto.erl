@@ -279,6 +279,7 @@ end
        strong_rand_bytes_nif/1, strong_rand_range_nif/1, rand_uniform_nif/2,
        mod_exp_nif/4, do_exor/2, hash_equals_nif/2, pbkdf2_hmac_nif/5,
        pkey_sign_nif/5, pkey_verify_nif/6, pkey_crypt_nif/6,
+       pkey_sign_heavy_nif/5,
        encapsulate_key_nif/2, decapsulate_key_nif/3,
        rsa_generate_key_nif/2, dh_generate_key_nif/4, dh_compute_key_nif/3,
        evp_compute_key_nif/3, evp_generate_key_nif/2, privkey_to_pubkey_nif/2,
@@ -823,7 +824,7 @@ stop() ->
                              Hashs :: [sha1() | sha2() | sha3() | sha3_xof() | blake2() | ripemd160 | sm3 | compatibility_only_hash()],
                              Ciphers :: [cipher()],
                              KEMs :: [kem()],
-                             PKs :: [rsa | dss | ecdsa | dh | ecdh | eddh | ec_gf2m | mldsa()],
+                             PKs :: [rsa | dss | ecdsa | dh | ecdh | eddh | ec_gf2m | mldsa() | slh_dsa()],
                              Macs :: [hmac | cmac | poly1305],
                              Curves :: [ec_named_curve() | edwards_curve_dh() | edwards_curve_ed()],
                              RSAopts :: [rsa_sign_verify_opt() | rsa_opt()] .
@@ -2438,10 +2439,13 @@ rand_seed_nif(_Seed) -> ?nif_stub.
 %%%================================================================
 -doc "Algorithms for sign and verify.".
 -doc(#{group => <<"Public Key Sign and Verify">>}).
--type pk_sign_verify_algs() :: rsa | dss | ecdsa | eddsa | mldsa().
+-type pk_sign_verify_algs() :: rsa | dss | ecdsa | eddsa | mldsa() | slh_dsa().
 -type mldsa() :: mldsa44 | mldsa65 | mldsa87.
 -type mldsa_private() :: {seed | expandedkey, binary()}.
 -type mldsa_public() :: binary().
+-type slh_dsa() :: slh_dsa_shake_256s | slh_dsa_shake_256f | slh_dsa_sha2_256s | slh_dsa_sha2_256f.
+-type slh_dsa_private() :: binary().
+-type slh_dsa_public() :: binary().
 
 -doc(#{group => <<"Public Key Sign and Verify">>,
        equiv => rsa_sign_verify_padding()}).
@@ -2488,6 +2492,7 @@ Options for sign and verify.
                            | [ecdsa_private() | ecdsa_params()]
                            | [eddsa_private() | eddsa_params()]
                            | mldsa_private()
+                           | slh_dsa_private()
                            | engine_key_ref(),
                       Signature :: binary() .
 
@@ -2522,17 +2527,35 @@ See also `public_key:sign/3`.
                            | [ecdsa_private() | ecdsa_params()]
                            | [eddsa_private() | eddsa_params()]
                            | mldsa_private()
+                           | slh_dsa_private()
                            | engine_key_ref(),
                       Options :: pk_sign_verify_opts(),
                       Signature :: binary() .
 
-sign(Algorithm0, Type0, Data, Key, Options) ->
+sign(Algorithm0, Type0, Data, Key0, Options) ->
     {Algorithm, Type} = sign_verify_compatibility(Algorithm0, Type0, Data),
-    ?nif_call(pkey_sign_nif(Algorithm, Type, Data, format_pkey(Algorithm, Key), Options),
-              {1, 2, 3, 4, 5},
-              [Algorithm0, Type0, Data, Key, Options]).
+    Key = format_pkey(Algorithm, Key0),
+    case is_heavy(Algorithm) of
+        false ->
+            ?nif_call(pkey_sign_nif(Algorithm, Type, Data, Key, Options),
+                      {1, 2, 3, 4, 5},
+                      [Algorithm0, Type0, Data, Key0, Options]);
+        true ->
+            ?nif_call(pkey_sign_heavy_nif(Algorithm, Type, Data, Key, Options),
+                      {1, 2, 3, 4, 5},
+                      [Algorithm0, Type0, Data, Key0, Options])
+    end.
+
 
 pkey_sign_nif(_Algorithm, _Type, _Digest, _Key, _Options) -> ?nif_stub.
+
+pkey_sign_heavy_nif(_Algorithm, _Type, _Digest, _Key, _Options) -> ?nif_stub.
+
+is_heavy(slh_dsa_shake_256s) -> true;
+is_heavy(slh_dsa_shake_256f) -> true;
+is_heavy(slh_dsa_sha2_256s) -> true;
+is_heavy(slh_dsa_sha2_256f) -> true;
+is_heavy(_) -> false.
 
 %%%----------------------------------------------------------------
 %%% Verify
@@ -2554,6 +2577,7 @@ pkey_sign_nif(_Algorithm, _Type, _Digest, _Key, _Options) -> ?nif_stub.
                              | [ecdsa_public() | ecdsa_params()]
                              | [eddsa_public() | eddsa_params()]
                              | mldsa_public()
+                             | slh_dsa_public()
                              | engine_key_ref(),
                         Result :: boolean().
 
@@ -2588,6 +2612,7 @@ See also `public_key:verify/4`.
                              | [ecdsa_public() | ecdsa_params()]
                              | [eddsa_public() | eddsa_params()]
                              | mldsa_public()
+                             | slh_dsa_public()
                              | engine_key_ref(),
                         Options :: pk_sign_verify_opts(),
                         Result :: boolean().
@@ -2793,11 +2818,10 @@ pkey_crypt_nif(_Algorithm, _In, _Key, _Options, _IsPrivate, _IsEncrypt) -> ?nif_
        since => <<"OTP R16B01">>}).
 -spec generate_key(Type, Params)
                  -> {PublicKey, PrivKeyOut}
-                        when Type :: dh | ecdh | eddh | eddsa | rsa | mldsa() | mlkem512 | mlkem768 | mlkem1024| srp,
+                        when Type :: dh | ecdh | eddh | eddsa | rsa | mldsa() | mlkem512 | mlkem768 | mlkem1024 | slh_dsa() | srp,
                              PublicKey :: dh_public() | ecdh_public() | rsa_public() | srp_public(),
                              PrivKeyOut :: dh_private() | ecdh_private() | rsa_private() | {srp_public(),srp_private()},
-                             Params :: dh_params() | ecdh_params() | eddsa_params() | rsa_params() | srp_gen_params() | []
-                                       .
+                             Params :: dh_params() | ecdh_params() | eddsa_params() | rsa_params() | srp_gen_params() | [].
 generate_key(Type, Params) ->
     generate_key(Type, Params, undefined).
 
@@ -2825,7 +2849,7 @@ Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
        since => <<"OTP R16B01">>}).
 -spec generate_key(Type, Params, PrivKeyIn)
                  -> {PublicKey, PrivKeyOut}
-                        when Type :: dh | ecdh | eddh | eddsa | rsa | mldsa() | mlkem512 | mlkem768 | mlkem1024 | srp,
+                        when Type :: dh | ecdh | eddh | eddsa | rsa | mldsa() | mlkem512 | mlkem768 | mlkem1024 | srp | slh_dsa(),
                              PublicKey :: dh_public() | ecdh_public() | rsa_public() | srp_public(),
                              PrivKeyIn :: undefined | dh_private() | ecdh_private() | rsa_private() | {srp_public(),srp_private()},
                              PrivKeyOut :: dh_private() | ecdh_private() | rsa_private() | {srp_public(),srp_private()},
