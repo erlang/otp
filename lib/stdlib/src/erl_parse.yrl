@@ -325,6 +325,7 @@ list -> '[' expr tail : {cons,?anno('$1'),'$2','$3'}.
 tail -> ']' : {nil,?anno('$1')}.
 tail -> '|' expr ']' : '$2'.
 tail -> ',' expr tail : {cons,first_anno('$2'),'$2','$3'}.
+tail -> ',' ']' : {nil,?anno('$2')}.
 
 
 binary -> '<<' '>>' : {bin,?anno('$1'),[]}.
@@ -394,6 +395,7 @@ map_tuple -> '{' map_fields '}' : '$2'.
 
 map_fields -> map_field : ['$1'].
 map_fields -> map_field ',' map_fields : ['$1' | '$3'].
+map_fields -> map_field ',' : ['$1'].
 
 map_field -> map_field_assoc : '$1'.
 map_field -> map_field_exact : '$1'.
@@ -429,6 +431,7 @@ record_tuple -> '{' record_fields '}' : '$2'.
 
 record_fields -> record_field : ['$1'].
 record_fields -> record_field ',' record_fields : ['$1' | '$3'].
+record_fields -> record_field ',' : ['$1'].
 
 record_field -> var '=' expr : {record_field,?anno('$1'),'$1','$3'}.
 record_field -> atom '=' expr : {record_field,?anno('$1'),'$1','$3'}.
@@ -545,6 +548,7 @@ pat_argument_list -> '(' pat_exprs ')' : {'$2',?anno('$1')}.
 
 exprs -> expr : ['$1'].
 exprs -> expr ',' exprs : ['$1' | '$3'].
+exprs -> expr ',' : ['$1'].
 
 clause_body_exprs -> ssa_check_when_clauses exprs : '$1' ++ '$2'.
 clause_body_exprs -> exprs : '$1'.
