@@ -18,8 +18,8 @@
 
 /emulator/test/Emakefile
 /emulator/test/*.beam
+/emulator/test/*_stripped_types_SUITE.erl
 /emulator/test/*_no_opt_SUITE.erl
-/emulator/test/*_r25_SUITE.erl
 
 /emulator/pcre/pcre2_match_loop_break_cases.inc
 /emulator/beam/erl_db_insert_list.ycf.h

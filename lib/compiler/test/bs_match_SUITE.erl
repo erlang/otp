@@ -29,7 +29,7 @@
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2,
 	 init_per_testcase/2,end_per_testcase/2,
-         verify_highest_opcode/1, expand_and_squeeze/1,
+         expand_and_squeeze/1,
 	 size_shadow/1,int_float/1,otp_5269/1,null_fields/1,wiger/1,
 	 bin_tail/1,save_restore/1,
 	 partitioned_bs_match/1,function_clause/1,
@@ -76,8 +76,7 @@ all() ->
 
 groups() -> 
     [{p,test_lib:parallel(),
-      [verify_highest_opcode,
-       size_shadow,int_float,otp_5269,null_fields,wiger,
+      [size_shadow,int_float,otp_5269,null_fields,wiger,
        bin_tail,save_restore,expand_and_squeeze,
        partitioned_bs_match,function_clause,unit,
        shared_sub_bins,bin_and_float,dec_subidentifiers,
@@ -124,24 +123,6 @@ init_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
 
 end_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
     ok.
-
-verify_highest_opcode(_Config) ->
-    case ?MODULE of
-        bs_match_r25_SUITE ->
-            {ok,Beam} = file:read_file(code:which(?MODULE)),
-            case test_lib:highest_opcode(Beam) of
-                Highest when Highest =< 180 ->
-                    ok;
-                TooHigh ->
-                    ct:fail({too_high_opcode_for_21,TooHigh})
-            end,
-
-            %% Cover min/max for OTP 25.
-            10 = max(0, min(10, id(42))),
-            ok;
-        _ ->
-            ok
-    end.
 
 size_shadow(Config) when is_list(Config) ->
     %% Originally OTP-5270.
