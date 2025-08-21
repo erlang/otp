@@ -203,7 +203,7 @@ report_verbose(Format, Args, S) ->
     end.
 
 is_warning(S) ->
-    lists:member(report_warnings, S#state.options) or is_verbose(S).
+    lists:member(report_warnings, S#state.options) orelse is_verbose(S).
 
 is_verbose(S) ->
     lists:member(verbose, S#state.options).

@@ -549,7 +549,7 @@ encode_PropertyParm(SDP) ->
 
 -doc false.
 get_sdp_record_from_PropertyGroup(Type, PG) 
-  when is_atom(Type) and is_list(PG) ->
+  when is_atom(Type) andalso is_list(PG) ->
     F = fun(R) -> not is_pg_record(Type, R) end,
     lists:filter(F, PG).
 
@@ -885,7 +885,7 @@ encode_conn_data_conn_addr(ip4, CA)
   when is_record(CA, megaco_sdp_c_conn_addr) ->
     encode_conn_data_conn_addr(CA);
 encode_conn_data_conn_addr(AT, CA) 
-  when is_list(AT) and is_record(CA, megaco_sdp_c_conn_addr) ->
+  when is_list(AT) andalso is_record(CA, megaco_sdp_c_conn_addr) ->
     case tolower(AT) of
 	"ip4" ->
 	    encode_conn_data_conn_addr(CA);
@@ -1087,7 +1087,7 @@ encode_rtimes_list_of_offsets(BadLoo) ->
 	    
 %% ===== Time Zones =====
 %% 
-decode_pp_tzones(Value) when is_list(Value) and (length(Value) > 0) ->
+decode_pp_tzones(Value) when is_list(Value) andalso (length(Value) > 0) ->
     ?d("decode_pp_ztimes -> entry with"
        "~n   Value: ~p", [Value]),
     LOA = decode_tzones_list_of_adjustments(string:tokens(Value, " \t"), []),
@@ -1184,7 +1184,7 @@ encode_pp_encryption_keys(uri = _Method, EncryptionKey)
     #'PropertyParm'{name  = "k", 
 		    value = ["uri:" ++ EncryptionKey]};
 encode_pp_encryption_keys(Method, EncryptionKey) 
-  when is_list(Method) and is_list(EncryptionKey) ->
+  when is_list(Method) andalso is_list(EncryptionKey) ->
     ?d("encode_pp_encryption_keys -> entry with"
        "~n   Method:        ~p"
        "~n   EncryptionKey: ~p", [Method, EncryptionKey]),
@@ -1201,7 +1201,7 @@ decode_pp_attribute(Value) ->
        "~n   Value: ~p", [Value]),
     First = string:chr(Value, $:),
     if 
-	(First > 0) and (First < length(Value)) ->
+	(First > 0) andalso (First < length(Value)) ->
 	    ?d("decode_pp_attribute -> value attribute", []),
 	    Attr      = string:substr(Value, 1, First -1),
 	    AttrValue = string:substr(Value, First + 1),
@@ -1328,7 +1328,7 @@ decode_pp_attribute_value("fmtp", AttrValue) ->
     FMTP = AttrValue, 
     First = string:chr(FMTP, $ ),
     if 
-	(First > 0) and (First < length(FMTP)) ->
+	(First > 0) andalso (First < length(FMTP)) ->
 	    ?d("decode_pp_attribute_value -> valid fmtp with params", []),
 	    Format = string:substr(FMTP, 1, First - 1),
 	    Params = string:substr(FMTP, First + 1),
@@ -1549,7 +1549,7 @@ encode_pp_attribute(Attr, undefined) when is_list(Attr) ->
        "~n   Attr: ~p", [Attr]),
     #'PropertyParm'{name  = "a", 
 		    value = [Attr]};
-encode_pp_attribute(Attr, Value) when is_list(Attr) and is_list(Value) ->
+encode_pp_attribute(Attr, Value) when is_list(Attr) andalso is_list(Value) ->
     ?d("encode_pp_attribute_rtpmap -> entry with"
        "~n   Attr:  ~p"
        "~n   Value: ~p", [Attr, Value]),

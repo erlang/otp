@@ -283,13 +283,13 @@ pseudo_output_length(?'id-hmacWithSHA512') ->
 
 derived_key_length(_, Len) when is_integer(Len) ->
     Len;
-derived_key_length(Cipher,_) when (Cipher == ?'desCBC') or 
+derived_key_length(Cipher,_) when (Cipher == ?'desCBC') orelse 
 				  (Cipher == "DES-CBC") ->
     8;
-derived_key_length(Cipher,_) when (Cipher == ?'rc2CBC') or 
+derived_key_length(Cipher,_) when (Cipher == ?'rc2CBC') orelse 
 				  (Cipher == "RC2-CBC") ->
     16;
-derived_key_length(Cipher,_) when (Cipher == ?'des-EDE3-CBC') or 
+derived_key_length(Cipher,_) when (Cipher == ?'des-EDE3-CBC') orelse 
 				  (Cipher == "DES-EDE3-CBC") ->
     24;
 

@@ -1648,7 +1648,7 @@ element E in `Set` that does not belong to the [domain](`m:sofs#domain`) of
 extension(R, S, E) when ?IS_SET(R), ?IS_SET(S) ->
     case {?TYPE(R), ?TYPE(S), is_sofs_set(E)} of
 	{T=?BINREL(DT, RT), ST, true} ->
-	    case match_types(DT, ST) and match_types(RT, type(E)) of
+	    case match_types(DT, ST) andalso match_types(RT, type(E)) of
 		false ->
 		    erlang:error(type_mismatch);
 		true ->
@@ -2377,7 +2377,7 @@ and `Relation2` on coordinates `I` and `J`.
       J :: pos_integer()).
 join(R1, I1, R2, I2)
   when ?IS_SET(R1), ?IS_SET(R2), is_integer(I1), is_integer(I2) ->
-    case test_rel(R1, I1, lte) and test_rel(R2, I2, lte) of
+    case test_rel(R1, I1, lte) andalso test_rel(R2, I2, lte) of
         false -> erlang:error(badarg);
         true when ?TYPE(R1) =:= ?ANYTYPE -> R1;
         true when ?TYPE(R2) =:= ?ANYTYPE -> R2;
@@ -2385,7 +2385,7 @@ join(R1, I1, R2, I2)
 	    L1 = ?LIST(raise_element(R1, I1)),
 	    L2 = ?LIST(raise_element(R2, I2)),
 	    T = relprod1(L1, L2),
-	    F = case (I1 =:= 1) and (I2 =:= 1)  of
+	    F = case (I1 =:= 1) andalso (I2 =:= 1)  of
 		    true ->
 			fun({X,Y}) -> join_element(X, Y) end;
 		    false ->
@@ -3033,7 +3033,7 @@ ordset_of_sets(_, _L, _T) ->
 
 %% Inlined.
 rel(Ts, [Type]) ->
-    case is_type(Type) and atoms_only(Type, 1) of
+    case is_type(Type) andalso atoms_only(Type, 1) of
         true ->
             rel(Ts, tuple_size(Type), Type);
         false ->
@@ -3517,7 +3517,7 @@ relprod_n(RL, R, EmptyR, IsR) ->
         Error = {error, _Reason} ->
             Error;
         DType ->
-            Empty = any(fun is_empty_set/1, RL) or EmptyR,
+            Empty = any(fun is_empty_set/1, RL) orelse EmptyR,
             RType = range_type(RL, []),
             Type = ?BINREL(DType, RType),
             Prod =

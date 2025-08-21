@@ -1096,7 +1096,7 @@ do_get_bulk(MibView, NonRepeaters, MaxRepetitions,
  		{error, Idx, Reason} ->
 		    ?LIB:user_err("failed encoding varbind ~w:~n~p", [Idx, Reason]),
                     {genErr, Idx, []};
-                {SizeLeft, Res} when is_integer(SizeLeft) and is_list(Res) ->
+                {SizeLeft, Res} when is_integer(SizeLeft) andalso is_list(Res) ->
  		    ?vtrace("do_get_bulk -> encoded: "
 			    "~n   SizeLeft: ~p"
 			    "~n   Res:      ~w", [SizeLeft, Res]),

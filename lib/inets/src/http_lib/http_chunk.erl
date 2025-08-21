@@ -237,7 +237,7 @@ decode_data(ChunkSize, TotalChunk,
 	    NewBody = <<BodySoFar/binary, Data/binary>>,
 	    {?MODULE, decode_size, [<<>>, [], 0, {MaxBodySize, NewBody, AccLength, MaxHeaderSize}]};
 	<<Data:ChunkSize/binary, ?CR, ?LF, Rest/binary>> 
-	when (AccLength < MaxBodySize) or (MaxBodySize == nolimit)  ->
+	when (AccLength < MaxBodySize) orelse (MaxBodySize == nolimit)  ->
 	    decode_size(Rest, [], 0,
 			{MaxBodySize, <<BodySoFar/binary, Data/binary>>,
 			 AccLength, MaxHeaderSize});

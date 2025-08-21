@@ -783,7 +783,7 @@ Returns the path type, which is one of the following:
       Path :: file:name_all().
 pathtype(Atom) when is_atom(Atom) ->
     pathtype(atom_to_list(Atom));
-pathtype(Name) when is_list(Name) or is_binary(Name) ->
+pathtype(Name) when is_list(Name) orelse is_binary(Name) ->
     case os:type() of
 	{win32, _} ->
 	    win32_pathtype(Name);

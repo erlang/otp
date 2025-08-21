@@ -91,15 +91,15 @@ encode_trans_request(CD, TR) when is_record(TR, 'TransactionRequest') ->
 encode_trans_reply(#conn_data{segment_send     = SegSend, 
 			      max_pdu_size     = Max,
 			      protocol_version = V} = CD, Reply) 
-  when (SegSend == infinity) or (is_integer(SegSend) and (SegSend > 0)) and 
-       is_integer(V) and (V >= 3) and 
-       is_integer(Max) and (Max >= ?MSG_HDR_SZ) ->
+  when (SegSend == infinity) orelse (is_integer(SegSend) andalso (SegSend > 0)) andalso 
+       is_integer(V) andalso (V >= 3) andalso 
+       is_integer(Max) andalso (Max >= ?MSG_HDR_SZ) ->
     (catch encode_segmented_trans_reply(CD, Reply));
 encode_trans_reply(CD, TR) when is_record(TR, megaco_transaction_reply) ->
     ?report_debug(CD, "encode trans reply", [TR]),
     Trans = {transactionReply, transform_transaction_reply(CD, TR)},
     encode_transaction(CD, Trans);
-encode_trans_reply(CD, TR) when is_tuple(TR) and 
+encode_trans_reply(CD, TR) when is_tuple(TR) andalso 
 				(element(1, TR) == 'TransactionReply') ->
     ?report_debug(CD, "encode trans reply", [TR]),
     Trans = {transactionReply, TR},
@@ -355,7 +355,7 @@ do_send_message(ConnData, SendFunc, Bin, Extra) ->
 %%%-----------------------------------------------------------------
 
 transform_transaction_reply(#conn_data{protocol_version = V}, TR) 
-  when is_integer(V) and (V >= 3) ->
+  when is_integer(V) andalso (V >= 3) ->
     #megaco_transaction_reply{transactionId        = TransId, 
 			      immAckRequired       = IAR, 
 			      transactionResult    = TransRes,

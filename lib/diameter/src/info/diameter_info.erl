@@ -211,7 +211,7 @@ format(Local, Remote, SFun, CFun)
 %%% ----------------------------------------------------------
 
 format(Tables, SFun)
-  when is_list(Tables), (is_function(SFun, 2) or is_function(SFun, 3)) ->
+  when is_list(Tables), (is_function(SFun, 2) orelse is_function(SFun, 3)) ->
     format(Tables, SFun, fun tab2list/1);
 
 format(Tables, CFun)

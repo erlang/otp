@@ -222,7 +222,7 @@ validate_docs({Tag,Attr,Content},Path) ->
             ok
     end,
     %% Test that there are no block tags within a pre, h*
-    case lists:member(pre,Path) or
+    case lists:member(pre,Path) orelse
         lists:any(fun(H) -> lists:member(H,Path) end, [h1,h2,h3,h4,h5,h6]) of
         true when ?IS_BLOCK(Tag) ->
             throw({cannot_put_block_tag_within_pre,Tag,Path});

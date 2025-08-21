@@ -831,7 +831,7 @@ logger_loop(State) ->
 		end,
 	    if Importance >= (100-VLvl) ->
 		    CtLogFd = State#logger_state.ct_log_fd,
-		    DoEscChars = State#logger_state.tc_esc_chars and EscChars,
+		    DoEscChars = State#logger_state.tc_esc_chars andalso EscChars,
 		    case get_groupleader(Pid, GL, State) of
 			{tc_log,TCGL,TCGLs} ->
 			    case erlang:is_process_alive(TCGL) of
@@ -1503,8 +1503,8 @@ make_one_index_entry1(SuiteName, Link, Label, Success, Fail, UserSkip, AutoSkip,
 		 integer_to_list(NotBuilt),"</a></td>\n"]
 	end,
     FailStr =
-	if (Fail > 0) or (NotBuilt > 0) or
-	   ((Success+Fail+UserSkip+AutoSkip) == 0) ->  
+	if (Fail > 0) orelse (NotBuilt > 0) orelse
+	   ((Success+Fail+UserSkip+AutoSkip) == 0) ->
 		["<font color=\"red\">",
 		 integer_to_list(Fail),"</font>"];
 	   true ->
@@ -2288,7 +2288,7 @@ runentry(Dir, undefined, _) ->
 runentry(Dir, Totals={Node,Label,Logs,
 		      {TotSucc,TotFail,UserSkip,AutoSkip,NotBuilt}}, Index) ->
     TotFailStr =
-	if (TotFail > 0) or (NotBuilt > 0) or
+	if (TotFail > 0) orelse (NotBuilt > 0) orelse
 	   ((TotSucc+TotFail+UserSkip+AutoSkip) == 0) ->
 		["<font color=\"red\">",
 		 integer_to_list(TotFail),"</font>"];

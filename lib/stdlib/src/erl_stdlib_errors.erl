@@ -553,7 +553,7 @@ check_io_format([Fmt, Args], Cause) ->
     case is_io_format(Fmt) of
         false ->
             [invalid_format, must_be_list(Args)] ++
-                case (is_pid(Fmt) or is_atom(Fmt)) and is_io_format(Args) of
+                case (is_pid(Fmt) orelse is_atom(Fmt)) andalso is_io_format(Args) of
                     true ->
                         %% The user seems to have called io:format(Dev,"string").
                         [{general,missing_argument_list}];

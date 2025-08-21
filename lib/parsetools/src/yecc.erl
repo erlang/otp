@@ -1487,7 +1487,7 @@ check_expected(St0) ->
           end,
     NStates = NStates0 + 1,
     if
-        (not Done) or (ExpStates =:= []) or (NStates =:= ExpStates) ->
+        (not Done) orelse (ExpStates =:= []) orelse (NStates =:= ExpStates) ->
             St1;
         true ->
             add_warning(none, {n_states, ExpStates, NStates}, St1)

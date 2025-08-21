@@ -731,7 +731,7 @@ find_maxline(LC) ->
                     true ->
                         L = erl_anno:line(A),
                         case
-                            is_integer(L) and (L > get('$erl_eval_max_line'))
+                            is_integer(L) andalso (L > get('$erl_eval_max_line'))
                         of
                             true -> put('$erl_eval_max_line', L);
                             false -> ok

@@ -957,7 +957,7 @@ dat2str({{Y,M,D},{H,Min,S}}) ->
 
 
 timestamp_filter({Local,Universal},Start,Stop) ->
-    tsf_ge(Local,Universal,Start) and tsf_le(Local,Universal,Stop);
+    tsf_ge(Local,Universal,Start) andalso tsf_le(Local,Universal,Stop);
 timestamp_filter(_,_Start,_Stop) -> 
     true.
 

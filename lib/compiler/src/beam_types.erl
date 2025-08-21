@@ -842,7 +842,7 @@ glb(#t_atom{elements=any}, #t_atom{elements=[_|_]}=T) ->
     T;
 glb(#t_bitstring{size_unit=U1,appendable=A1},
     #t_bitstring{size_unit=U2,appendable=A2}) ->
-    #t_bitstring{size_unit=U1 * U2 div gcd(U1, U2),appendable=A1 or A2};
+    #t_bitstring{size_unit=U1 * U2 div gcd(U1, U2),appendable=A1 orelse A2};
 glb(#t_bitstring{size_unit=UnitA,appendable=Appendable}=T,
     #t_bs_matchable{tail_unit=UnitB}) ->
     Unit = UnitA * UnitB div gcd(UnitA, UnitB),
@@ -973,7 +973,7 @@ glb_tuples(#t_tuple{size=Sz1,exact=Ex1}, #t_tuple{size=Sz2,exact=Ex2})
 glb_tuples(#t_tuple{size=Sz1,exact=Ex1,elements=Es1},
            #t_tuple{size=Sz2,exact=Ex2,elements=Es2}) ->
     Size = max(Sz1, Sz2),
-    Exact = Ex1 or Ex2,
+    Exact = Ex1 orelse Ex2,
     case glb_elements(Es1, Es2) of
         none ->
             none;
@@ -1038,7 +1038,7 @@ lub(#t_atom{elements=any}=T, #t_atom{elements=[_|_]}) -> T;
 lub(#t_atom{elements=[_|_]}, #t_atom{elements=any}=T) -> T;
 lub(#t_bitstring{size_unit=U1,appendable=A1},
     #t_bitstring{size_unit=U2,appendable=A2}) ->
-    #t_bitstring{size_unit=gcd(U1, U2),appendable=A1 and A2};
+    #t_bitstring{size_unit=gcd(U1, U2),appendable=A1 andalso A2};
 lub(#t_bitstring{size_unit=U1}, #t_bs_context{tail_unit=U2}) ->
     #t_bs_matchable{tail_unit=gcd(U1, U2)};
 lub(#t_bitstring{size_unit=UnitA}, #t_bs_matchable{tail_unit=UnitB}) ->
@@ -1108,7 +1108,7 @@ lub(#t_map{super_key=SKeyA,super_value=SValueA},
     #t_map{super_key=SKey,super_value=SValue};
 lub(#t_tuple{size=Sz,exact=ExactA,elements=EsA},
     #t_tuple{size=Sz,exact=ExactB,elements=EsB}) ->
-    Exact = ExactA and ExactB,
+    Exact = ExactA andalso ExactB,
     Es = lub_tuple_elements(Sz, EsA, EsB),
     #t_tuple{size=Sz,exact=Exact,elements=Es};
 lub(#t_tuple{size=SzA,elements=EsA}, #t_tuple{size=SzB,elements=EsB}) ->

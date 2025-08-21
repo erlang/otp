@@ -1585,7 +1585,7 @@ analyze_type_name(Node) ->
             N = erl_syntax:arity_qualifier_body(Node),
 
             case ((erl_syntax:type(A) =:= integer)
-                  and (erl_syntax:type(N) =:= atom))
+                  andalso (erl_syntax:type(N) =:= atom))
             of
                 true ->
                     append_arity(erl_syntax:integer_value(A),
@@ -1837,7 +1837,7 @@ analyze_file_attribute(Node) ->
             case erl_syntax:attribute_arguments(Node) of
                 [F, N] ->
                     case (erl_syntax:type(F) =:= string)
-                        and (erl_syntax:type(N) =:= integer) of
+                        andalso (erl_syntax:type(N) =:= integer) of
                         true ->
                             {erl_syntax:string_value(F),
                              erl_syntax:integer_value(N)};

@@ -3113,14 +3113,14 @@ An explicit match specification is here used to traverse the table:
 
 ```erlang
 9> true = ets:insert(Table = ets:new(t, []), [{1,a},{2,b},{3,c},{4,d}]),
-MS = ets:fun2ms(fun({X,Y}) when (X > 1) or (X < 5) -> {Y} end),
+MS = ets:fun2ms(fun({X,Y}) when (X > 1) orelse (X < 5) -> {Y} end),
 QH1 = ets:table(Table, [{traverse, {select, MS}}]).
 ```
 
 An example with an implicit match specification:
 
 ```erlang
-10> QH2 = qlc:q([{Y} || {X,Y} <- ets:table(Table), (X > 1) or (X < 5)]).
+10> QH2 = qlc:q([{Y} || {X,Y} <- ets:table(Table), (X > 1) orelse (X < 5)]).
 ```
 
 The latter example is equivalent to the former, which can be verified using

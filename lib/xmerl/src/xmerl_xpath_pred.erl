@@ -179,9 +179,9 @@ comp_expr('!=', E1, E2, C) ->
     ?boolean(compare_eq_format(N1,N2,C) /= compare_eq_format(N2,N1,C)).
 
 bool_expr('or', E1, E2, C) ->
-    ?boolean(mk_boolean(C, E1) or mk_boolean(C, E2));
+    ?boolean(mk_boolean(C, E1) orelse mk_boolean(C, E2));
 bool_expr('and', E1, E2, C) ->
-    ?boolean(mk_boolean(C, E1) and mk_boolean(C, E2)).
+    ?boolean(mk_boolean(C, E1) andalso mk_boolean(C, E2)).
 
 %% According to chapter 3.4 in XML Path Language ver 1.0 the format of
 %% the compared objects are depending on the type of the other

@@ -1190,7 +1190,7 @@ teln_expect(Name,Pid,Data,Pattern0,Prx,Opts) ->
     end.
 
 convert_pattern(Pattern0,Seq)
-  when Pattern0==[] orelse (is_list(Pattern0) and not is_integer(hd(Pattern0))) ->
+  when Pattern0==[] orelse (is_list(Pattern0) andalso not is_integer(hd(Pattern0))) ->
     Pattern =
         case Seq of
             true -> Pattern0;
