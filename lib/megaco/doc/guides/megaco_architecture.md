@@ -42,8 +42,16 @@ used underneath.
 title: Network architecture
 ---
 
-flowchart LR
-  telco_network("PSTN<br />ATM<br />etc.") <--SS7 etc.--> signal_gw[Signaling Gateway]
+flowchart TB
+  %% Pad text (first/longest line) in node, with non-breaking spaces.
+  %% This is done to force the node circle to be big enough, to fit it's text inside the circle.
+  telco_network(("&nbsp;&nbsp;&nbsp;PSTN&nbsp;&nbsp;&nbsp;<br />ATM<br />etc.")) <--SS7 etc.--> signal_gw[Signaling Gateway]
+
+  %% Alt: box with rounded left & right corners, the narrow text makes the node eliptic,
+  %% slightly taller than wide
+  %% telco_network(["PSTN<br />ATM<br />etc."]) <--SS7 etc.--> signal_gw[Signaling Gateway]
+
+
   signal_gw <--Sigtran--> mgc[Call Agent<br /><br /><br />Media Gateway Controller]
   telco_network <--Trunks--> trunk_gw[Trunking<br />Media Gateway]
   mgc --Megaco/H.248--> trunk_gw
@@ -52,6 +60,23 @@ flowchart LR
   lines_gw --> phone2[📞 phone 2]
   lines_gw --> phone3[📞 ...]
   mgc --Megaco/H.248--> ip_phone_gw[IP Phone Media Gateway]
+
+  %% Note: edges are numbered by the order they are introduced
+  %% SS7
+  linkStyle 0 stroke-width:5px;
+  %% Sigtran
+  linkStyle 1 stroke-width:3px;
+  %% Trunks
+  linkStyle 2 stroke-width:5px;
+  %% Megaco
+  linkStyle 3 stroke-width:3px;
+  linkStyle 4 stroke-width:3px;
+  %% phone
+  linkStyle 5 stroke-width:1px;
+  linkStyle 6 stroke-width:1px;
+  linkStyle 7 stroke-width:1px;
+  %% Megaco
+  linkStyle 8 stroke-width:3px;
 ```
 
 Megaco and peer protocols are complementary in nature and entirely compatible

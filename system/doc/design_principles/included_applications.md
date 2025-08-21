@@ -42,33 +42,45 @@ _primary application_.
 ---
 title: Primary Application and Included Applications
 ---
+%% Note: bold Markdown text is used to highlight the two main keywords
+
 flowchart TD
-    prim_app((Primary Application))
+    %% row 1
+    prim_app(("`**Primary Application**`"))
 
-    subgraph Included Applications
-        app1((App))
-        app2((App))
-        app3((App))
-        app4((App))
-        app5((App))
+    %% row 2
+    app1((App))
+    app2((App))
+    app3((App))
+    app4((App))
+    app5((App))
+    %% make a node that acts as a label
+    label["`**Included Applications**`"]
 
-        subgraph Included Applications
-            app11((App))
-        end
-        subgraph Included Applications
-            app31((App))
-            app32((App))
-        end
-    end
+    %% row 3
+    app11((App))
+    app31((App))
+    app32((App))
 
-    prim_app --- app1 --- app11
-    prim_app --- app2
-    prim_app --- app3
-    prim_app --- app4
-    prim_app --- app5
+    %% rows are filled in order ("app1 ... app5, label" and so on)
+    prim_app --> app1 --> app11
+    prim_app --> app2
+    prim_app --> app3
+    prim_app --> app4
+    prim_app --> app5
 
-    app3 --- app31
-    app3 --- app32
+    %% use an invisible edge, this ensures that `label` is part of
+    %% the diagram layout, i.e. that it gets placed on the row below prim_app,
+    %% but still looks unconnected
+    prim_app ~~~ label
+
+    app3 --> app31
+    app3 --> app32
+
+    %% Style `label` - remove outline to make it less box/node like.
+    %% The fill color is kept, as `label` will otherwise (visually) look like it's
+    %% far away from the "apps" nodes in row 2.
+    style label stroke-width:0px
 ```
 
 The application controller automatically loads any included applications when

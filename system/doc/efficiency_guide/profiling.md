@@ -175,11 +175,15 @@ module basis. `cprof` has a low performance degradation effect (compared with
 
 ### Tool Summary
 
-| Tool    | Results                             | Size of Result | Effects on Program Execution Time | Records Number of Calls | Records Execution Time | Records Called by | Records Garbage Collection |
-| ------- | ----------------------------------- | -------------- | --------------------------------- | ----------------------- | ---------------------- | ----------------- | -------------------------- |
-| `fprof` | Per process to screen/file          | Large          | Significant slowdown              | Yes                     | Total and own          | Yes               | Yes                        |
-| `eprof` | Per process/function to screen/file | Medium         | Small slowdown                    | Yes                     | Only total             | No                | No                         |
-| `cprof` | Per module to caller                | Small          | Small slowdown                    | Yes                     | No                     | No                | No                         |
+|                                       | fprof                      | eporf                               | cprof                |
+| ------------------------------------- | -------------------------- | ----------------------------------- | -------------------- |
+| **Results**                           | Per process to screen/file | Per process/function to screen/file | Per module to caller |
+| **Size of Result**                    | Large                      | Medium                              | Small                |
+| **Effects on Program Execution Time** | Significant slowdown       | Small slowdown                      | Small slowdown       |
+| **Records Number of Calls**           | Yes                        | Yes                                 | Yes                  |
+| **Records Execution Time**            | Total and own              | Only total                          | No                   |
+| **Records Called by**                 | Yes                        | No                                  | No                   |
+| **Records Garbage Collection**        | Yes                        | No                                  | No                   |
 
 _Table: Tool Summary_
 
