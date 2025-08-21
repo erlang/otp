@@ -35,7 +35,8 @@
 
 %% Testcases
 -export([
-         replay_window/0, replay_window/1,
+         replay_window/0,
+         replay_window/1,
          dtls_listen_owner_dies/0,
          dtls_listen_owner_dies/1,
          dtls_listen_close/0,
@@ -56,8 +57,11 @@
          dtls_listen_two_sockets_5/1,
          dtls_listen_two_sockets_6/0,
          dtls_listen_two_sockets_6/1,
-         client_restarts/0, client_restarts/1,
-         client_restarts_multiple_acceptors/1
+         client_restarts/0,
+         client_restarts/1,
+         client_restarts_multiple_acceptors/1,
+         sockname/0,
+         sockname/1
         ]).
 
 -include("ssl_test_lib.hrl").
@@ -93,7 +97,8 @@ api_tests() ->
      dtls_listen_two_sockets_5,
      dtls_listen_two_sockets_6,
      client_restarts,
-     client_restarts_multiple_acceptors
+     client_restarts_multiple_acceptors,
+     sockname
     ].
 
 init_per_suite(Config0) ->
@@ -567,6 +572,38 @@ client_restarts_multiple_acceptors(Config) ->
     ssl_test_lib:close(Server2),
     ssl_test_lib:close(Client0),
     ok.
+
+sockname() ->
+    [{doc,"Test API function sockname/1"}].
+sockname(Config) when is_list(Config) ->
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+					{from, self()},
+			   {mfa, {ssl, sockname, []}},
+			   {options, ServerOpts}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+					{host, Hostname},
+                                        {from, self()},
+                                        {mfa, {ssl, sockname, []}},
+                                        {options, [{port, 0} | ClientOpts]}]),
+
+    ClientPort = ssl_test_lib:inet_port(Client),
+
+    NoBind = {0,0,0,0}, %% Normal UDP socket will not have an IP-address bound to it
+
+    ServerMsg = {ok, {NoBind, Port}},
+    ClientMsg = {ok, {NoBind, ClientPort}},
+
+    ?CT_LOG("Client ~p  Server ~p ~n", [Client, Server]),
+
+    ssl_test_lib:check_result(Server, ServerMsg, Client, ClientMsg),
+
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
+
 
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
