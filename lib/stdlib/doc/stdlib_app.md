@@ -126,6 +126,9 @@ For more information about configuration parameters, see the
 - **`shell_strings = boolean()`{: #shell_strings }** - Can be used to determine
   how the Erlang shell outputs lists of integers.
 
+- **`shell_hints = boolean()`{: #shell_hints}** - Can be used to enable/disable
+  printing of helpful hints in the shell.
+
 ## See Also
 
 [`app(4)`](`e:kernel:app.md`), `m:application`, `m:shell`
