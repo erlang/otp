@@ -1541,11 +1541,14 @@ tsig_client(Config) when is_list(Config) ->
 
     true = PktR =/= [],
 
-    {_TS,Response} = lists:foldl(fun(P, {T0,R0}) ->
-        {ok,R} = inet_dns:decode(P),
-        {ok,T} = inet_dns_tsig:verify(P, R, T0),
-        {T,R0 ++ [R]}
-    end, {TS1,[]}, PktR),
+    {_TS,Response} =
+        lists:foldl(
+          fun(P, {T0,R0}) ->
+                  {ok,R} = inet_dns:decode(P),
+                  {{ok,T},_} = % Make arguments show in badmatch exception
+                      {inet_dns_tsig:verify(P, R, T0), {P, R, T0}},
+                      {T,R0 ++ [R]}
+          end, {TS1,[]}, PktR),
 
     % not necessary for the test, but helpful to those using this
     % to understand how to validate TCP responses, we need to check
@@ -1658,7 +1661,8 @@ tsig_server(Domain, TS0, Sock) ->
     ok = gen_tcp:shutdown(Sock, read),
 
     {ok,Request} = inet_dns:decode(Pkt),
-    {ok,TS1} = inet_dns_tsig:verify(Pkt, Request, TS0),
+    {{ok,TS1}, _} = % Make arguments show in badmatch exception
+        {inet_dns_tsig:verify(Pkt, Request, TS0), {Pkt, Request, TS0}},
 
     % actual implementations would here now consider if the additional
     % checks described in the WARNING at the top of inet_dns_tsig.erl
