@@ -62,7 +62,8 @@ opt(Linear0) ->
     Blocks0 = maps:from_list(Linear0),
     St0 = #st{bs=Blocks0,us=Used,skippable=Skippable},
     St = shortcut_opt(St0),
-    #st{bs=Blocks} = combine_eqs(St#st{us=#{}}),
+    #st{bs=Blocks1} = combine_eqs(St#st{us=#{}}),
+    Blocks = shortcut_failed_succeeded(Blocks1),
     opt_redundant_tests(Blocks).
 
 %%%
@@ -859,6 +860,83 @@ eval_type_test_1({is_tagged_tuple,Sz,Tag}, Arg) ->
     end;
 eval_type_test_1(Test, Arg) ->
     erlang:Test(Arg).
+
+%%%
+%%% Shortcut repeated failed `succeeded:guard` tests. Consider this
+%%% code:
+%%%
+%%%     0:
+%%%       V1 = bs_start_match `new`, V0
+%%%       B1 = succeeded:guard V1
+%%%       br B1, ^Succ1, ^29
+%%%          .
+%%%          .
+%%%          .
+%%%     29:
+%%%       V2 = bs_start_match `new`, V0
+%%%       B2 = succeeded:guard _V2
+%%%       br B2, ^Succ2, ^36
+%%%
+%%% If the `bs_start_match` instruction in block 0 fails, the
+%%% `bs_start_match` instruction in block 29 will also fail.
+%%% Therefore, the `br` instruction can be modified to have use
+%%% the same failure label as in block 29:
+%%%
+%%%     0:
+%%%       V1 = bs_start_match `new`, V0
+%%%       B1 = succeeded:guard V1
+%%%       br B1, ^Succ1, ^36
+%%%          .
+%%%          .
+%%%          .
+%%%     29:
+%%%       V2 = bs_start_match `new`, V0
+%%%       B2 = succeeded:guard _V2
+%%%       br B2, ^Succ2, ^36
+%%%
+%%% If the only reference to block 29 was from block 0, block 29 will
+%%% be removed, and if block Succ2 was only referenced from block 29
+%%% block Succ2 would also be removed, and so on. For some functions
+%%% with complex binary matching, that could result in many blocks
+%%% being removed. One example of such a function is
+%%% `ssl_gen_statem:read_application_dist_data/5`.
+%%%
+%%% The same idea works for any instruction that precedes
+%%% `succeeded:guard`.
+%%%
+
+shortcut_failed_succeeded(Blocks) ->
+    Ls = reverse(beam_ssa:rpo(Blocks)),
+    shortcut_failed_succeeded(Ls, #{}, Blocks).
+
+shortcut_failed_succeeded([L|Ls], FailMap0, Blocks0) ->
+    Blk0 = map_get(L, Blocks0),
+    case Blk0 of
+        #b_blk{is=[#b_set{op=Op,dst=Result,args=Args},
+                   #b_set{op={succeeded,guard},dst=Bool,args=[Result]}],
+               last=#b_br{bool=Bool,fail=Fail0}=Br}
+          when Op =/= get_map_element ->
+            %% We don't do this optimization for `get_map_element`
+            %% because that would prevent multiple `get_map_element`
+            %% instructions to be combined into a single
+            %% `get_map_elements` BEAM instruction.
+            Instr = {Op,Args},
+            case FailMap0 of
+                #{Fail0 := {Instr,Fail}} ->
+                    %% The code at label Fail0 will always transfer
+                    %% control to label Fail.
+                    Blk = Blk0#b_blk{last=Br#b_br{fail=Fail}},
+                    Blocks = Blocks0#{L := Blk},
+                    FailMap = FailMap0#{L => {Instr,Fail}},
+                    shortcut_failed_succeeded(Ls, FailMap, Blocks);
+                #{} ->
+                    FailMap = FailMap0#{L => {Instr,Fail0}},
+                    shortcut_failed_succeeded(Ls, FailMap, Blocks0)
+            end;
+        #b_blk{} ->
+            shortcut_failed_succeeded(Ls, FailMap0, Blocks0)
+    end;
+shortcut_failed_succeeded([], _FailMap, Blocks) -> Blocks.
 
 %%%
 %%% Combine bif:'=:=', is_boolean/1 tests, and switch instructions
