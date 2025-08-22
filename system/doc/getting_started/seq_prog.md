@@ -357,7 +357,7 @@ Compile and test:
 {ok,tut3}
 15> tut3:convert_length({inch, 5}).
 {centimeter,12.7}
-16> tut3:convert_length(tut3:convert_length({inch, 5})).
+16> tut3:convert_length({centimeter, tut3:convert_length({inch, 5})}).
 {inch,5.0}
 ```
 
