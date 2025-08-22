@@ -128,6 +128,7 @@
          sc_rc_recv_response_tcp4/1,
          sc_rc_recv_response_tcp6/1,
          sc_rc_recv_response_tcpL/1,
+         sc_rc_recv_response_tcpV/1,
          sc_rc_recvmsg_response_tcp4/1,
          sc_rc_recvmsg_response_tcp6/1,
          sc_rc_recvmsg_response_tcpL/1,
@@ -328,6 +329,7 @@ sc_rc_cases() ->
      sc_rc_recv_response_tcp4,
      sc_rc_recv_response_tcp6,
      sc_rc_recv_response_tcpL,
+     sc_rc_recv_response_tcpV,
 
      sc_rc_recvmsg_response_tcp4,
      sc_rc_recvmsg_response_tcp6,
@@ -8076,6 +8078,24 @@ sc_rc_recv_response_tcpL(_Config) when is_list(_Config) ->
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to test what happens when a socket is
+%% remotely closed while the process is calling the recv function.
+%% Socket is AF_VSOCK (stream) socket.
+
+sc_rc_recv_response_tcpV(_Config) when is_list(_Config) ->
+    ?TT(?SECS(30)),
+    tc_try(?FUNCTION_NAME,
+           fun() -> has_support_vsock() end,
+           fun() ->
+                   Recv      = fun(Sock) -> socket:recv(Sock) end,
+                   InitState = #{domain   => vsock,
+                                 protocol => default,
+                                 recv     => Recv},
+                   ok = sc_rc_receive_response_tcp(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 sc_rc_receive_response_tcp(InitState) ->
     %% Each connection are handled by handler processes.
@@ -8919,12 +8939,7 @@ sc_rc_tcp_client_await_continue(Parent, Slogan) ->
 
 sc_rc_tcp_client_connect(Sock, ServerSA) ->
     i("sc_rc_tcp_client_connect -> entry"),
-    case socket:connect(Sock, ServerSA) of
-        ok ->
-            ok;
-        {error, Reason} ->
-            exit({connect, Reason})
-    end.
+    sock_connect(Sock, ServerSA).
 
 sc_rc_tcp_client_close(Sock, Path) ->
     i("sc_rc_tcp_client_close -> entry"),
@@ -14388,17 +14403,17 @@ sock_bind(Sock, LSA) ->
             ?FAIL({bind, C, E, S})
     end.
 
-%% sock_connect(Sock, SockAddr) ->
-%%     try socket:connect(Sock, SockAddr) of
-%%         ok ->
-%%             ok;
-%%         {error, Reason} ->
-%%             ?FAIL({connect, Reason})
-%%     catch
-%%         C:E:S ->
-%%             ?FAIL({connect, C, E, S})
-%%     end.
-    
+sock_connect(Sock, SockAddr) ->
+    try socket:connect(Sock, SockAddr) of
+        ok ->
+            ok;
+        {error, Reason} ->
+            ?FAIL({connect, Reason, {Sock,SockAddr}})
+    catch
+        C:E:S ->
+            erlang:raise(C, {E,{Sock,SockAddr}}, S)
+    end.
+
 sock_port(S) ->
     case socket:sockname(S) of
         {ok, #{port := Port}} -> Port;
@@ -14456,6 +14471,11 @@ mk_unique_path() ->
 which_local_socket_addr(local = Domain) ->
     #{family => Domain,
       path   => mk_unique_path()};
+
+which_local_socket_addr(vsock = Domain) ->
+    #{family => Domain,
+      cid => local,
+      port => any};
 
 %% This gets the local socket address (not 127.0...)
 %% We should really implement this using the (new) net module,
