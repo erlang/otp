@@ -1,4 +1,4 @@
-;;;    -*- Emacs-Lisp -*- 
+;;; erlang-flymake.el   -*-  lexical-binding: t; -*-
 ;;;
 ;;; %CopyrightBegin%
 ;;;
@@ -43,6 +43,8 @@
 ;; This code is inspired by http://www.emacswiki.org/emacs/FlymakeErlang.
 
 (require 'flymake)
+(require 'flymake-proc nil 'noerror)
+
 (eval-when-compile
   (require 'cl-lib))
 
@@ -73,8 +75,7 @@ check on newline and when there are no changes)."
   ;; There doesn't seem to be a way of disabling this; set to the
   ;; largest int available as a workaround (most-positive-fixnum
   ;; equates to 8.5 years on my machine, so it ought to be enough ;-) )
-  (setq flymake-no-changes-timeout most-positive-fixnum)
-  (setq flymake-start-syntax-check-on-newline nil))
+  (setq flymake-no-changes-timeout most-positive-fixnum))
 
 
 (defun erlang-flymake-get-code-path-dirs ()
