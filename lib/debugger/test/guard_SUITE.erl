@@ -33,7 +33,6 @@
 	 or_guard/1,more_or_guards/1,
 	 complex_or_guards/1,and_guard/1,
 	 xor_guard/1,more_xor_guards/1,
-	 old_guard_tests/1,
 	 build_in_guard/1,gbif/1,
 	 t_is_boolean/1,is_function_2/1,
 	 tricky/1,rel_ops/1,
@@ -69,7 +68,7 @@ cases() ->
      complex_not, semicolon, complex_semicolon, comma,
      or_guard, more_or_guards, complex_or_guards, and_guard,
      xor_guard, more_xor_guards, build_in_guard,
-     old_guard_tests, gbif, t_is_boolean, is_function_2,
+     gbif, t_is_boolean, is_function_2,
      tricky, rel_ops, basic_andalso_orelse, traverse_dcd,
      check_qlc_hrl, andalso_semi, t_tuple_size, binary_part,
      bad_constants].
@@ -90,7 +89,7 @@ end_per_suite(Config) when is_list(Config) ->
     ok.
 
 %% Test that a bad arithmetic operation in a guard works correctly.
-bad_arith(Config) when list(Config) ->
+bad_arith(Config) when is_list(Config) ->
     5 = bad_arith1(2, 3),
     10 = bad_arith1(1, infinity),
     10 = bad_arith1(infinity, 1),
@@ -110,7 +109,7 @@ bad_div(_A, _B) ->
     42.
 
 %% Test that bad arguments to element/2 are handled correctly.
-bad_tuple(Config) when list(Config) ->
+bad_tuple(Config) when is_list(Config) ->
     error = bad_tuple1(a),
     error = bad_tuple1({a, b}),
     x = bad_tuple1({x, b}),
@@ -122,7 +121,7 @@ bad_tuple1(T) when element(3, T) == y -> y;
 bad_tuple1(_) -> error.
 
 %% .
-test_heap_guards(Config) when list(Config) ->
+test_heap_guards(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     Tuple = {a, tuple, is, built, here, xxx},
     List = [a, list, is, built, here],
@@ -201,7 +200,7 @@ dummy(_) ->
     ok.
 
 %% Test all guard bifs with nasty (but legal arguments).
-guard_bifs(Config) when list(Config) ->
+guard_bifs(Config) when is_list(Config) ->
     Big = -237849247829874297658726487367328971246284736473821617265433,
     Float = 387924.874,
 
@@ -328,7 +327,7 @@ guard_bif('node/1', X, Y) when node(X) == Y ->
     {'node/1', X, Y}.
 
 %% Test the type tests.
-type_tests(Config) when list(Config) ->
+type_tests(Config) when is_list(Config) ->
     Types = all_types(),
     Tests = type_test_desc(),
     put(errors, 0),
@@ -369,7 +368,7 @@ type_tests(Test, [Type|T], Allowed) ->
 		    ok;
 		{'EXIT',Other} ->
 		    ct:fail({unexpected_error_reason,Other});
-		tuple when function(Value) ->
+		tuple when is_function(Value) ->
 		    io:format("Standard violation: Test ~p(~p) should fail",
 			      [Test, Value]),
 		    put(violations, get(violations) + 1);
@@ -410,31 +409,31 @@ type_test_desc() ->
      {reference, [ref]},
      {function, [function]}].
 
-type_test(integer, X) when integer(X) ->
+type_test(integer, X) when is_integer(X) ->
     integer;
-type_test(float, X) when float(X) ->
+type_test(float, X) when is_float(X) ->
     float;
-type_test(number, X) when number(X) ->
+type_test(number, X) when is_number(X) ->
     number;
-type_test(atom, X) when atom(X) ->
+type_test(atom, X) when is_atom(X) ->
     atom;
-type_test(list, X) when list(X) ->
+type_test(list, X) when is_list(X) ->
     list;
 type_test(nonempty_list, [_]) ->
     nonempty_list;
 type_test(nil, []) ->
     nil;
-type_test(tuple, X) when tuple(X) ->
+type_test(tuple, X) when is_tuple(X) ->
     tuple;
-type_test(pid, X) when pid(X) ->
+type_test(pid, X) when is_pid(X) ->
     pid;
-type_test(reference, X) when reference(X) ->
+type_test(reference, X) when is_reference(X) ->
     reference;
-type_test(port, X) when port(X) ->
+type_test(port, X) when is_port(X) ->
     port;
-type_test(binary, X) when binary(X) ->
+type_test(binary, X) when is_binary(X) ->
     binary;
-type_test(function, X) when function(X) ->
+type_test(function, X) when is_function(X) ->
     function.
 
 make_port() ->
@@ -458,8 +457,8 @@ const_cond(Config) when is_list(Config) ->
 const_cond(T, Sz) ->
     case T of
 	_X when false -> never;
-	_X when tuple(T), eq == eq, size(T) == Sz -> ok;
-	_X when tuple(T), eq == leq, size(T) =< Sz -> ok;
+	_X when is_tuple(T), eq == eq, size(T) == Sz -> ok;
+	_X when is_tuple(T), eq == leq, size(T) =< Sz -> ok;
 	_X -> error
     end.
 
@@ -1184,37 +1183,6 @@ build_in_guard(Config) when is_list(Config) ->
     if
 	B =:= <<1,SubBin/binary,3.5/float>> -> ok
     end.
-
-old_guard_tests(Config) when list(Config) ->
-    %% Check that all the old guard tests are still recognized.
-    list = og(Config),
-    atom = og(an_atom),
-    binary = og(<<1,2>>),
-    float = og(3.14),
-    integer = og(43),
-    a_function = og(fun() -> ok end),
-    pid = og(self()),
-    reference = og(make_ref()),
-    tuple = og({}),
-
-    number = on(45.333),
-    number = on(-19),
-    ok.
-
-og(V) when atom(V) -> atom;
-og(V) when binary(V) -> binary;
-og(V) when float(V) -> float;
-og(V) when integer(V) -> integer;
-og(V) when function(V) -> a_function;
-og(V) when list(V) -> list;
-og(V) when pid(V) -> pid;
-og(V) when port(V) -> port;
-og(V) when reference(V) -> reference;
-og(V) when tuple(V) -> tuple;
-og(_) -> what.
-
-on(V) when number(V) -> number;
-on(_) -> not_number.
 
 gbif(Config) when is_list(Config) ->
     error = gbif_1(1, {false,true}),
