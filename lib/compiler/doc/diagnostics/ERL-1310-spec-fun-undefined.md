@@ -1,0 +1,1 @@
+# ERL-1310 - Spec for undefined function

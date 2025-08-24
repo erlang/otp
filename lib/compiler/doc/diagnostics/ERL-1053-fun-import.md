@@ -1,0 +1,1 @@
+# ERL-1053 - Creating fun from imported
