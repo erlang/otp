@@ -23,6 +23,7 @@
 
 
 -module(sys_core_bsm).
+-compile(warn_missing_spec_all).
 -moduledoc false.
 -export([module/2]).
 
@@ -33,6 +34,7 @@
 module(#c_module{defs=Ds}=Mod, _Opts) ->
     {ok,Mod#c_module{defs=function(Ds)}}.
 
+-spec function([{cerl:c_var(), cerl:cerl()}]) -> [{cerl:c_var(), cerl:cerl()}].
 function([{#c_var{name={F,Arity}}=Name,B0}|Fs]) ->
     try cerl_trees:map(fun bsm_reorder/1, B0) of
         B -> [{Name,B} | function(Fs)]
@@ -46,6 +48,7 @@ function([]) ->
 
 %%% Reorder bit syntax matching to facilitate optimization in further passes.
 
+-spec bsm_reorder(cerl:cerl()) -> cerl:cerl().
 bsm_reorder(#c_case{arg=#c_var{}=V}=Case) ->
     bsm_reorder_1([V], Case);
 bsm_reorder(#c_case{arg=#c_values{es=Es}}=Case) ->
@@ -53,6 +56,7 @@ bsm_reorder(#c_case{arg=#c_values{es=Es}}=Case) ->
 bsm_reorder(Core) ->
     Core.
 
+-spec bsm_reorder_1([cerl:cerl()], cerl:c_case()) -> cerl:cerl().
 bsm_reorder_1(Vs0, #c_case{clauses=Cs0}=Case) ->
     case bsm_leftmost(Cs0) of
         Pos when Pos > 0, Pos =/= none ->
@@ -64,6 +68,7 @@ bsm_reorder_1(Vs0, #c_case{clauses=Cs0}=Case) ->
             Case
     end.
 
+-spec move_from_col(integer(), [cerl:cerl()]) -> [cerl:cerl()].
 move_from_col(Pos, L) ->
     {First,[Col|Rest]} = lists:split(Pos - 1, L),
     [Col|First] ++ Rest.
@@ -72,15 +77,18 @@ move_from_col(Pos, L) ->
 %%  Find the leftmost argument that matches a nonempty binary.
 %%  Return either 'none' or the argument number (1-N).
 
+-spec bsm_leftmost([cerl:c_clause()]) -> integer() | none.
 bsm_leftmost(Cs) ->
     bsm_leftmost_1(Cs, none).
 
+-spec bsm_leftmost_1([cerl:c_clause()], integer() | none) -> integer() | none.
 bsm_leftmost_1([_|_], 1) ->
     1;
 bsm_leftmost_1([#c_clause{pats=Ps}|Cs], Pos) ->
     bsm_leftmost_2(Ps, Cs, 1, Pos);
 bsm_leftmost_1([], Pos) -> Pos.
 
+-spec bsm_leftmost_2([cerl:cerl()], [cerl:c_clause()], integer(), integer() | none) -> integer() | none.
 bsm_leftmost_2(_, Cs, Pos, Pos) ->
     bsm_leftmost_1(Cs, Pos);
 bsm_leftmost_2([#c_binary{segments=[_|_]}|_], Cs, N, _) ->
