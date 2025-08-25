@@ -1,0 +1,140 @@
+{
+  "@context": "https://openvex.dev/ns/v0.2.0",
+  "@id": "https://openvex.dev/docs/public/otp/vex-otp-28",
+  "author": "vexctl",
+  "timestamp": "2025-08-21T10:55:45.714759+02:00",
+  "last_updated": "2025-08-21T10:55:46.021839073+02:00",
+  "version": 8,
+  "statements": [
+    {
+      "vulnerability": {
+        "name": "OSV-2025-300"
+      },
+      "timestamp": "2025-08-21T10:55:45.929417984+02:00",
+      "products": [
+        {
+          "@id": "pkg:github/otp/erlang@OTP-28.0"
+        },
+        {
+          "@id": "pkg:otp/erts@16.0"
+        },
+        {
+          "@id": "pkg:github/otp/erlang@OTP-28.0.1"
+        },
+        {
+          "@id": "pkg:otp/erts@16.0.1"
+        },
+        {
+          "@id": "pkg:github/otp/erlang@OTP-28.0.2"
+        },
+        {
+          "@id": "pkg:otp/erts@16.0.2"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_present"
+    },
+    {
+      "vulnerability": {
+        "name": "OSV-2025-300"
+      },
+      "timestamp": "2025-08-21T10:55:45.944352157+02:00",
+      "products": [
+        {
+          "@id": "pkg:github/PCRE2Project/pcre2@2dce7761b1831fd3f82a9c2bd5476259d945da4d"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_present"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2023-45853"
+      },
+      "timestamp": "2025-08-21T10:55:45.958540114+02:00",
+      "products": [
+        {
+          "@id": "pkg:github/madler/zlib@1a8db63788c34a50e39e273d39b7e1033208aea2"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_present"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2025-4748"
+      },
+      "timestamp": "2025-08-21T10:55:45.97513015+02:00",
+      "products": [
+        {
+          "@id": "pkg:github/otp/erlang@OTP-28.0"
+        },
+        {
+          "@id": "pkg:otp/stdlib@7.0"
+        }
+      ],
+      "status": "affected",
+      "action_statement": "Mitigation: Update to pkg:otp/stdlib@7.0.1",
+      "action_statement_timestamp": "2025-08-21T10:55:45.97513015+02:00"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2025-4748"
+      },
+      "timestamp": "2025-08-21T10:55:45.990630892+02:00",
+      "products": [
+        {
+          "@id": "pkg:github/otp/erlang@OTP-28.0.1"
+        },
+        {
+          "@id": "pkg:otp/stdlib@7.0.1"
+        }
+      ],
+      "status": "fixed"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2025-4575"
+      },
+      "timestamp": "2025-08-21T10:55:46.006302174+02:00",
+      "products": [
+        {
+          "@id": "pkg:github/otp/erlang@OTP-28.0"
+        },
+        {
+          "@id": "pkg:github/otp/erlang@OTP-28.0.1"
+        },
+        {
+          "@id": "pkg:github/otp/erlang@OTP-28.0.2"
+        },
+        {
+          "@id": "pkg:otp/erl_interface@5.6"
+        },
+        {
+          "@id": "pkg:otp/erts@16.0"
+        },
+        {
+          "@id": "pkg:otp/erts@16.0.1"
+        },
+        {
+          "@id": "pkg:otp/erts@16.0.2"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_present"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2025-4575"
+      },
+      "timestamp": "2025-08-21T10:55:46.021839572+02:00",
+      "products": [
+        {
+          "@id": "pkg:github/openssl/openssl@01d5e2318405362b4de5e670c90d9b40a351d053"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_present"
+    }
+  ]
+}
