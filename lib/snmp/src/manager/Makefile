@@ -95,8 +95,7 @@ ERL_COMPILE_FLAGS += -I../../include \
                      +'{parse_transform,sys_pre_attributes}' \
                      +'{attribute,insert,app_vsn,$(APP_VSN)}' \
                      -I$(ERL_TOP)/lib/stdlib \
-                     $(SNMP_FLAGS) \
-                     +nowarn_missing_spec_documented
+                     $(SNMP_FLAGS)
 
 
 # ----------------------------------------------------
