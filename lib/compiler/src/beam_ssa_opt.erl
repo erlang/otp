@@ -3303,7 +3303,7 @@ unfold_literals([], _, _, Blocks) ->
     Blocks.
 
 unfold_update_succ([S|Ss], Safe, SafeMap0) ->
-    F = fun(Prev) -> Prev and Safe end,
+    F = fun(Prev) -> Prev andalso Safe end,
     SafeMap = maps:update_with(S, F, Safe, SafeMap0),
     unfold_update_succ(Ss, Safe, SafeMap);
 unfold_update_succ([], _, SafeMap) ->
