@@ -44,7 +44,7 @@ all() ->
     [app_test, appup_test, eunit_test, eunit_exact_test, primitive_test,
      fixture_test, surefire_utf8_test, surefire_latin_test, surefire_c0_test,
      surefire_ensure_dir_test, stacktrace_at_timeout_test,
-     scale_timeouts_s, report_failed_setup_inparallel_test,
+     scale_timeouts_test, report_failed_setup_inparallel_test,
      parse_commandline_test].
 
 groups() ->
@@ -281,9 +281,8 @@ parse_commandline_test(_Config) ->
     lists:foreach(
         fun({Input, Expect}) ->
             Output = eunit_data:parse_command_line(Input, []),
-            ct:pal("Sample: ~0p expected: ~0p actual: ~0p~n",
-                [Input, Expect, Output]),
-            ?assertEqual(Expect, Output)
+            ?assertEqual(Expect, Output, lists:flatten(io_lib:format(
+                "Input=~0p expected=~0p output=~0p", [Input, Expect, Output])))
         end,
         [
             %% Basic splitting and whitespace handling
