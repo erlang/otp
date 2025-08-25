@@ -93,6 +93,16 @@ WXERL_CAN_BUILD_DRIVER=true
 
 ERL_OSSF_FLAGS
 
+case $host_os in
+    darwin*)
+        dnl For Darwin (MacOS) disable one hardening option which causes problems
+        dnl with C++ catch, as it is necessary for the module to operate correctly
+        CFLAGS=`echo "$CFLAGS" | sed 's/-mbranch-protection=standard/ /g'`
+        ;;
+    *)
+	    ;;
+esac
+
 LM_WINDOWS_ENVIRONMENT
 
 USER_CFLAGS=$CFLAGS
