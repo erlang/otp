@@ -163,7 +163,7 @@ do_start_all([Node | Nodes], Acc, Cookie) when is_atom(Node) ->
 	[Name, Host] ->
 	    Arg = lists:concat(["-setcookie ", Cookie]),
 	    ?d("    ~s", [left(Node)]),
-            case peer:start(#{host => Host, name => Name, args => Arg, peer_down => crash}) of
+            case peer:start_link(#{host => Host, name => Name, args => Arg}) of
 		{ok, Node} ->
 		    load_modules(Node),
 		    rpc:call(Node, ?MODULE, bind_schedulers, []),
