@@ -164,7 +164,10 @@ void BeamModuleAssembler::emit_return_trace() {
     emit_leave_runtime<Update::eHeapAlloc>(1);
 
     emit_deallocate(ArgVal(ArgVal::Type::Word, BEAM_RETURN_TRACE_FRAME_SZ));
-    emit_return();
+
+    /* Return and set c_p->i to avoid calls to BeamIsReturnTrace(c_p->i)
+       to assume there is still a trace frame on the stack. */
+    emit_return_do(true);
 }
 
 void BeamModuleAssembler::emit_i_call_trace_return() {
@@ -189,7 +192,10 @@ void BeamModuleAssembler::emit_i_call_trace_return() {
 
     emit_deallocate(
             ArgVal(ArgVal::Type::Word, BEAM_RETURN_CALL_ACC_TRACE_FRAME_SZ));
-    emit_return();
+
+    /* Return and set c_p->i to avoid calls to BeamIsReturnCallAccTrace(c_p->i)
+       to assume there is still a trace frame on the stack. */
+    emit_return_do(true);
 }
 
 void BeamModuleAssembler::emit_i_return_to_trace() {
@@ -207,7 +213,10 @@ void BeamModuleAssembler::emit_i_return_to_trace() {
     emit_leave_runtime<Update::eHeapAlloc>(1);
 
     emit_deallocate(ArgVal(ArgVal::Type::Word, BEAM_RETURN_TO_TRACE_FRAME_SZ));
-    emit_return();
+
+    /* Return and set c_p->i to avoid calls to BeamIsReturnToTrace(c_p->i)
+       to assume there is still a trace frame on the stack. */
+    emit_return_do(true);
 }
 
 void BeamModuleAssembler::emit_i_hibernate() {

@@ -1101,6 +1101,27 @@ do_session_breakpoint(Process *c_p, ErtsCodeInfo *info, Eterm *reg,
     return bp_flags;
 }
 
+#ifdef DEBUG
+void assert_return_trace_frame(const Eterm *frame)
+{
+    ASSERT_MFA((ErtsCodeMFA*)cp_val(frame[0]));
+    ASSERT(IS_TRACER_VALID(frame[1]));
+    ASSERT(erts_is_trace_session_weak_id(frame[2]));
+}
+
+void assert_return_to_trace_frame(const Eterm *frame)
+{
+    ASSERT(erts_is_trace_session_weak_id(frame[0]));
+}
+
+void assert_return_call_acc_trace_frame(const Eterm *frame)
+{
+    ASSERT(is_CP(frame[0]) || is_nil(frame[0])); // prev_info
+    ASSERT((unsigned_val(frame[1]) & ~ERTS_BPF_ALL) == 0); // bp_flags
+    ASSERT(erts_is_trace_session_weak_id(frame[2]));
+}
+#endif
+
 static ErtsTracer
 do_call_trace(Process* c_p, ErtsCodeInfo* info, Eterm* reg,
 	      int local, Binary* ms,
