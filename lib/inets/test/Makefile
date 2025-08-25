@@ -128,7 +128,6 @@ MODULES =                 		\
 	httpc_cookie_SUITE		\
 	httpc_proxy_SUITE		\
 	httpd_SUITE       		\
-	httpd_bench_SUITE               \
 	http_test_lib    		\
 	httpd_basic_SUITE		\
 	httpd_serve_SUITE       	\
@@ -156,7 +155,7 @@ SOURCE = $(ERL_FILES) $(HRL_FILES)
 
 TARGET_FILES = $(MODULES:%=$(EBIN)/%.$(EMULATOR))
 
-INETS_SPECS = inets.spec inets_bench.spec
+INETS_SPECS = inets.spec
 COVER_FILE = inets.cover
 INETS_FILES = inets.config $(INETS_SPECS)
 
@@ -167,7 +166,7 @@ INETS_FILES = inets.config $(INETS_SPECS)
 
 
 INETS_DATADIRS = inets_SUITE_data inets_socketwrap_SUITE_data
-HTTPD_DATADIRS = httpd_test_data httpd_SUITE_data httpd_basic_SUITE_data httpd_bench_SUITE_data httpd_serve_SUITE_data
+HTTPD_DATADIRS = httpd_test_data httpd_SUITE_data httpd_basic_SUITE_data httpd_serve_SUITE_data
 
 HTTPC_DATADIRS = httpc_SUITE_data httpc_proxy_SUITE_data
 
