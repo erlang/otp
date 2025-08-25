@@ -81,6 +81,10 @@ The `mib_to_hrl` generator can be invoked from the OS command line by using the
 command `erlc`. `erlc` recognizes the extension `.bin`, and invokes this
 function for files with that extension.
 """.
+-spec mib_to_hrl(MibName) -> Result when
+    MibName :: string(),
+    Result :: ok | {error, Reason},
+    Reason :: term().
 mib_to_hrl(MibName) ->
     snmpc_mib_to_hrl:convert(MibName).
 
