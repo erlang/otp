@@ -963,11 +963,13 @@ tests, with optional teardown afterwards. The arguments are described in
 detail below.
 </dd>
 <dt>`{node, Node::atom(), Tests | Instantiator}'</dt>
-<dt>`{node, Node::atom(), Args::string(), Tests | Instantiator}'</dt>
+<dt>`{node, Node::atom(), Args::string()|[string()], Tests | Instantiator}'</dt>
 <dd>`node' is like `setup', but with a built-in behaviour: it starts a
-slave node for the duration of the tests. The atom `Node' should have
+follower node for the duration of the tests. The atom `Node' should have
 the format `nodename@full.machine.name', and `Args' are the optional
-arguments to the new node; see `slave:start_link/3' for details.
+arguments to the new node; see `peer:start_link/1' for details. For compatibility
+reasons `Args' can be either a string or a list of strings, and if a single
+string is passed, it will be parsed into a list with `argparse' module.
 </dd>
 <dt>`{foreach, Where, Setup, Cleanup, [Tests | Instantiator]}'</dt>
 <dt>`{foreach, Setup, Cleanup, [Tests | Instantiator]}'</dt>
