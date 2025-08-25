@@ -6182,6 +6182,14 @@ fi
 
 
 
+case $host_os in
+    darwin*)
+                        CFLAGS=`echo "$CFLAGS" | sed 's/-mbranch-protection=standard/ /g'`
+        ;;
+    *)
+	    ;;
+esac
+
 
 
 if test "X$windows_environment_" != "Xchecked"; then
