@@ -39,7 +39,7 @@
 	 
 	 args_to_config/1, verify_config/2,
 	 start/0, start/1,
-	 stop_slave_nodes/1,
+	 stop_follower_nodes/1,
 	 bind_schedulers/0
         ]).
 
@@ -71,10 +71,10 @@ run() ->
 
 run(Args) ->
     C = args_to_config(Args),
-    SlaveNodes = start_all(C),
+    FollowerNodes = start_all(C),
     bench_populate:start(C),
     Result = bench_generate:start(C),
-    stop_slave_nodes(SlaveNodes),
+    stop_follower_nodes(FollowerNodes),
     Result.
 
 %% Start Mnesia on the local node
@@ -139,7 +139,7 @@ start_all(Args) ->
     erlang:set_cookie(node(), C#config.cookie),
     ?d("Starting Erlang nodes...~n", []),
     ?d("~n", []),
-   SlaveNodes = do_start_all(Nodes, [], C#config.cookie),
+    FollowerNodes = do_start_all(Nodes, [], C#config.cookie),
     Extra = [{extra_db_nodes, Nodes}],
     ?d("~n", []),
     ?d("Starting Mnesia...", []),
@@ -148,7 +148,7 @@ start_all(Args) ->
 	    case [R || R <- Replies, R /= ok] of
 		[] ->
 		    io:format(" ok~n", []),
-		    SlaveNodes;
+                    FollowerNodes;
 		Bad ->
 		    io:format(" FAILED: ~p~n", [Bad]),
 		    exit({mnesia_start, Bad})
@@ -163,7 +163,7 @@ do_start_all([Node | Nodes], Acc, Cookie) when is_atom(Node) ->
 	[Name, Host] ->
 	    Arg = lists:concat(["-setcookie ", Cookie]),
 	    ?d("    ~s", [left(Node)]),
-	    case slave:start_link(Host, Name, Arg) of
+            case peer:start(#{host => Host, name => Name, args => Arg, peer_down => crash}) of
 		{ok, Node} ->
 		    load_modules(Node),
 		    rpc:call(Node, ?MODULE, bind_schedulers, []),
@@ -175,14 +175,14 @@ do_start_all([Node | Nodes], Acc, Cookie) when is_atom(Node) ->
 		    do_start_all(Nodes, Acc, Cookie);
 		{error, Reason} ->
 		    io:format(" FAILED:~p~n", [Reason]),
-		    stop_slave_nodes(Acc),
-		    exit({slave_start_failed, Reason})
+		    stop_follower_nodes(Acc),
+                    exit({follower_start_failed, Reason})
 	    end;
 	_ ->
 	    ?d("    ~s FAILED: "
 	       "Not valid as node name. Must be 'name@host'.~n",
 	       [left(Node)]),
-	    stop_slave_nodes(Acc),
+	    stop_follower_nodes(Acc),
 	    exit({bad_node_name, Node})
     end;
 do_start_all([], StartedNodes, _Cookie) ->
@@ -200,20 +200,20 @@ load_modules(Node) ->
 	end,
     lists:foreach(Fun, [bench, bench_generate, bench_populate, bench_trans]).
 
-stop_slave_nodes([]) ->
+stop_follower_nodes([]) ->
     ok;
-stop_slave_nodes(Nodes) ->
+stop_follower_nodes(Nodes) ->
     ?d("~n", []),
     ?d("Stopping Erlang nodes...~n", []),
     ?d("~n", []),
-    do_stop_slave_nodes(Nodes).
+    do_stop_follower_nodes(Nodes).
 
-do_stop_slave_nodes([Node | Nodes]) ->
+do_stop_follower_nodes([Node | Nodes]) ->
     ?d("    ~s", [left(Node)]),
-    Res = slave:stop(Node),
+    Res = peer:stop(Node),
     io:format(" ~p~n", [Res]),
-    do_stop_slave_nodes(Nodes);
-do_stop_slave_nodes([]) ->
+    do_stop_follower_nodes(Nodes);
+do_stop_follower_nodes([]) ->
     ok.
 	    
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

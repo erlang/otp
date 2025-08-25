@@ -85,10 +85,10 @@ the invocation of
 
 is equivalent with:
 
-   SlaveNodes = bench:start_all(Args).
+   Followers = bench:start_all(Args).
    bench:populate(Args).
    bench:generate(Args).
-   bench:stop_slave_nodes(SlaveNodes).
+   bench:stop_follower_nodes(Followers).
 
 In case you cannot get the automatic start of remote Erlang nodes to
 work (implied by bench:start_all/1) , you may need to manually start
@@ -202,7 +202,7 @@ always_try_nearest_node
   (fragmented) tables were distributed over all nodes. In
   such a system the transactions should be evenly distributed
   over all nodes. When this option is set to true it is possible
-  to make fair measurements of master/slave configurations, when
+  to make fair measurements of master/follower configurations, when
   all transactions are performed on on one node. Default is false.
 
 cookie

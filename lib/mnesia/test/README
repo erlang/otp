@@ -66,7 +66,7 @@ in the debugger. This demands a little bit of preparations:
   - Start the necessary number of nodes (normally 3).
     This may either be done by running the mt script or
     by starting the main node and then invoke mt:start_nodes()
-    to start the extra nodes with slave.
+    to start the extra nodes with `peer`.
 
   - Ensure that the nodes are connected. The easiest way to do
     this is by invoking mt:ping().
