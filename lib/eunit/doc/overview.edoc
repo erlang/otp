@@ -985,13 +985,16 @@ tests, with optional teardown afterwards. The arguments are described in
 detail below.
 </dd>
 <dt>`{node, Node::atom(), Tests | Instantiator}'</dt>
-<dt>`{node, Node::atom(), Args::string()|[string()], Tests | Instantiator}'</dt>
+<dt>`{node, Node::atom(), Args::[string()] | string(), Tests | Instantiator}'</dt>
 <dd>`node' is like `setup', but with a built-in behaviour: it starts a
-follower node for the duration of the tests. The atom `Node' should have
+peer node for the duration of the tests. The atom `Node' should have
 the format `nodename@full.machine.name', and `Args' are the optional
-arguments to the new node; see `peer:start_link/1' for details. For compatibility
-reasons `Args' can be either a string or a list of strings, and if a single
-string is passed, it will be parsed into a list with `argparse' module.
+arguments to the new node; see `peer:start_link/1' for details. To remain compatible
+with pre-existing user tests, `Args' accepts both a list of strings and a string
+If a string is passed, it is parsed into a list of arguments, treating
+single- and double-quoted text as single arguments and removing the quotes.
+If you wish a quote character to remain a part of the parsed argument list,
+escape it with a backslash "\". Unbalanced quotes also become a part of the output.
 </dd>
 <dt>`{foreach, Where, Setup, Cleanup, [Tests | Instantiator]}'</dt>
 <dt>`{foreach, Setup, Cleanup, [Tests | Instantiator]}'</dt>

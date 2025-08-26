@@ -1009,13 +1009,16 @@ The following representations specify fixture handling for test sets:
 
 - **`{node, Node::atom(), Tests | Instantiator}`**
 
-- **`{node, Node::atom(), Args::string()|[string()], Tests | Instantiator}`** - `node` is
-  like `setup`, but with a built-in behaviour: it starts a follower node for the
+- **`{node, Node::atom(), Args::[string()] | string(), Tests | Instantiator}`** - `node` is
+  like `setup`, but with a built-in behaviour: it starts a peer node for the
   duration of the tests. The atom `Node` should have the format
   `nodename@full.machine.name`, and `Args` are the optional arguments to the new
-  node; see `peer:start_link/1` for details. For compatibility
-  reasons `Args` can be either a string or a list of strings, and if a single
-  string is passed, it will be parsed into a list with `argparse` module.
+  node; see `peer:start_link/1` for details. To remain compatible
+  with pre-existing user tests, `Args` accepts both a list of strings and a string
+  If a string is passed, it is parsed into a list of arguments, treating
+  single- and double-quoted text as single arguments and removing the quotes.
+  If you wish a quote character to remain a part of the parsed argument list,
+  escape it with a backslash "\". Unbalanced quotes also become a part of the output.
 
 - **`{foreach, Where, Setup, Cleanup, [Tests | Instantiator]}`**
 

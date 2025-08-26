@@ -248,13 +248,11 @@ parse_command_line(Input, Acc) when is_list(Input) ->
 -spec parse_peer_args(string() | [string()]) -> [string()].
 parse_peer_args([]) -> [];
 parse_peer_args(Args) when is_list(Args) -> % can be string or list of strings
-    IsCodepoint = fun(CP) -> is_integer(CP) andalso 0 =< CP andalso CP < 16#110000 end,
-    IsString = fun(S) -> lists:all(IsCodepoint, S) end,
-    case IsString(Args) of
+    case io_lib:printable_unicode_list(Args) of
         true ->
             parse_command_line(Args, []);
         false ->
-            case lists:all(IsString, Args) of % each element of Args is a string
+            case lists:all(fun io_lib:printable_unicode_list/1, Args) of % each element of Args is a string
                 true -> Args; % no modification, it is already a list
                 false -> erlang:throw({badarg, Args})
             end
