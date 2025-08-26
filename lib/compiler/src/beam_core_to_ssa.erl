@@ -150,7 +150,6 @@ get_anno(#cg_select{anno=Anno}) -> Anno.
                funs=[],                         %Fun functions
                free=#{},                        %Free variables
                ws=[]   :: [warning()],          %Warnings.
-               no_min_max_bifs=false :: boolean(),
                beam_debug_info=false :: boolean()
               }).
 
@@ -160,10 +159,8 @@ get_anno(#cg_select{anno=Anno}) -> Anno.
 module(#c_module{name=#c_literal{val=Mod},exports=Es,attrs=As,defs=Fs}, Options) ->
     Kas = attributes(As),
     Kes = map(fun (#c_var{name={_,_}=Fname}) -> Fname end, Es),
-    NoMinMaxBifs = proplists:get_bool(no_min_max_bifs, Options),
     DebugInfo = proplists:get_bool(beam_debug_info, Options),
     St0 = #kern{module=Mod,
-                no_min_max_bifs=NoMinMaxBifs,
                 beam_debug_info=DebugInfo},
     {Kfs,St} = mapfoldl(fun function/2, St0, Fs),
     Body = Kfs ++ St#kern.funs,
@@ -363,7 +360,7 @@ expr(#c_case{arg=Ca,clauses=Ccs}, Sub, St0) ->
 expr(#c_apply{anno=A,op=Cop,args=Cargs}, Sub, St) ->
     c_apply(A, Cop, Cargs, Sub, St);
 expr(#c_call{anno=A,module=M0,name=F0,args=Cargs}, Sub, St0) ->
-    case call_type(M0, F0, Cargs, St0) of
+    case call_type(M0, F0, Cargs) of
         bif ->
             #c_literal{val=Name} = F0,
             {Args,Ap,St} = atomic_list(Cargs, Sub, St0),
@@ -1027,25 +1024,20 @@ make_vars(Vs) -> [#b_var{name=V} || V <- Vs].
 
 %% call_type(Mod, Name, [Arg], State) -> bif | call | is_record | error.
 
-call_type(#c_literal{val=M}, #c_literal{val=F}, As, St) when is_atom(M), is_atom(F) ->
+call_type(#c_literal{val=M}, #c_literal{val=F}, As) when is_atom(M), is_atom(F) ->
     case is_guard_bif(M, F, As) of
         false ->
             call;
         true ->
-            %% The guard BIFs min/2 and max/2 were introduced in
-            %% Erlang/OTP 26. If we are compiling for an earlier
-            %% version, we must translate them as call instructions.
-            case {M,F,St#kern.no_min_max_bifs} of
-                {erlang,min,true} -> call;
-                {erlang,max,true} -> call;
-                {erlang,is_record,_} when length(As) =:= 3 -> is_record;
-                {erlang,_,_} -> bif
+            case {M,F} of
+                {erlang,is_record} when length(As) =:= 3 -> is_record;
+                {erlang,_} -> bif
             end
     end;
-call_type(#c_var{}, #c_literal{val=A}, _, _) when is_atom(A) -> call;
-call_type(#c_literal{val=A}, #c_var{}, _, _) when is_atom(A) -> call;
-call_type(#c_var{}, #c_var{}, _, _) -> call;
-call_type(_, _, _, _) -> error.
+call_type(#c_var{}, #c_literal{val=A}, _) when is_atom(A) -> call;
+call_type(#c_literal{val=A}, #c_var{}, _) when is_atom(A) -> call;
+call_type(#c_var{}, #c_var{}, _) -> call;
+call_type(_, _, _) -> error.
 
 %% is_guard_bif(Mod, Name, Args) -> true | false.
 %%  Test whether this function is a guard BIF.

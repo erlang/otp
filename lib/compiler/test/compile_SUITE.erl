@@ -1717,12 +1717,6 @@ bc_options(Config) ->
 
     L = [{177, small_float, []},
 
-         {177, small, [no_ssa_opt_record,
-                       no_ssa_opt_float,
-                       no_line_info,
-                       no_type_opt,
-                       no_bs_match]},
-
          {177, funs, [no_ssa_opt_record,
                       no_ssa_opt_float,
                       no_line_info,
@@ -1736,13 +1730,15 @@ bc_options(Config) ->
                      no_line_info,
                      no_type_opt]},
 
-         {178, small, [r25]},
-         {178, big, [r25]},
          {178, funs, []},
          {178, big, []},
 
          {182, small, [r26]},
          {182, small, []},
+         {182, small, [no_ssa_opt_record,
+                       no_ssa_opt_float,
+                       no_line_info,
+                       no_type_opt]},
 
          {183, small, [line_coverage]},
 
