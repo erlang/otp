@@ -643,6 +643,14 @@ default(server) ->
             class => user_option
            },
 
+      max_auth_tries =>
+          #{default => 6,
+            chk => fun(V) ->
+                           check_pos_integer(V) orelse V =:= infinity
+                   end,
+            class => user_option
+           },
+
 %%%%% Undocumented
       infofun =>
           #{default => fun(_,_,_) -> void end,

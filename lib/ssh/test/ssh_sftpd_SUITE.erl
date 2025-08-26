@@ -150,6 +150,7 @@ init_per_suite(Config) ->
        end).
 
 end_per_suite(Config) ->
+    ssh_test_lib:clean_all_user_host_keys(Config),
     UserDir = filename:join(proplists:get_value(priv_dir, Config), nopubkey),
     file:del_dir(UserDir),
     ssh:stop().

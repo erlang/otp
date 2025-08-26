@@ -486,11 +486,18 @@ init_ssh_record(Role, Socket, PeerAddr, Opts) ->
 	    S0#ssh{s_vsn = Vsn,
 		   s_version = Version,
 		   userauth_methods = string:tokens(AuthMethods, ","),
-		   kb_tries_left = 3,
+                   auth_tries_left = get_max_auth_tries(Opts),
 		   peer = {undefined, PeerAddr},
                    local = LocalName
 		  }
     end.
+
+get_max_auth_tries(Opts) ->
+    case ?GET_OPT(max_auth_tries, Opts) of
+        infinity -> infinity;
+        N when is_integer(N) -> N
+    end.
+
 
 handshake(ConnPid, server, Ref, Timeout) ->
     receive
