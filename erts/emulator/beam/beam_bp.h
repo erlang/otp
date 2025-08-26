@@ -39,18 +39,18 @@ typedef struct {
     Eterm pid;
     Sint  count;
     BpDataAccumulator accumulator;
-} bp_data_trace_item_t;
+} bp_data_trace_bucket_t;
 
 typedef struct {
     Uint n;
     Uint used;
-    bp_data_trace_item_t *item;
+    bp_data_trace_bucket_t buckets[];
 } bp_trace_hash_t;
 
-typedef struct bp_data_time {     /* Call time, Memory trace */
-    Uint n;
+typedef struct {     /* Call time, Memory trace */
+    Uint nthreads;
     erts_refc_t refc;
-    bp_trace_hash_t hash[1];
+    bp_trace_hash_t* threads[];
 } BpDataCallTrace;
 
 typedef struct process_breakpoint_trace_t {

@@ -158,11 +158,15 @@ static Uint do_session_breakpoint(Process *c_p, ErtsCodeInfo *info, Eterm *reg,
 	(pi0)->accumulator  += (pi1)->accumulator;      \
     } while(0)
 
-static void bp_hash_init(bp_trace_hash_t *hash, Uint n);
-static void bp_hash_rehash(bp_trace_hash_t *hash, Uint n);
-static ERTS_INLINE bp_data_trace_item_t * bp_hash_get(bp_trace_hash_t *hash, bp_data_trace_item_t *sitem);
-static ERTS_INLINE bp_data_trace_item_t * bp_hash_put(bp_trace_hash_t *hash, bp_data_trace_item_t *sitem);
-static void bp_hash_delete(bp_trace_hash_t *hash);
+static bp_trace_hash_t *bp_hash_alloc(Uint n);
+static bp_trace_hash_t *bp_hash_rehash(bp_trace_hash_t *hash, Uint n);
+static ERTS_INLINE bp_data_trace_bucket_t * bp_hash_get(bp_trace_hash_t *hash,
+                                                        const bp_data_trace_bucket_t *sitem);
+static ERTS_INLINE void bp_hash_put(bp_trace_hash_t**,
+                                    const bp_data_trace_bucket_t *sitem);
+static void bp_hash_accum(bp_trace_hash_t **hash_p,
+                          const bp_data_trace_bucket_t* sitem);
+static void bp_hash_dealloc(bp_trace_hash_t *hash);
 
 /* *************************************************************************
 ** External interfaces
@@ -1225,10 +1229,9 @@ erts_trace_call_acc(Process* c_p,
                     const ErtsCodeInfo *info, BpDataAccumulator accum,
                     int psd_ix, BpDataCallTrace* bdt)
 {
-    bp_data_trace_item_t sitem, *item = NULL;
-    bp_trace_hash_t *h = NULL;
+    bp_data_trace_bucket_t sitem;
     BpDataCallTrace *pbdt = NULL;
-    Uint32 six = acquire_bp_sched_ix(c_p);
+    const Uint32 six = acquire_bp_sched_ix(c_p);
     const ErtsCodeInfo* prev_info;
 
     ASSERT(c_p);
@@ -1256,17 +1259,7 @@ erts_trace_call_acc(Process* c_p,
 
 	/* if null then the breakpoint was removed */
 	if (pbdt) {
-	    h = &(pbdt->hash[six]);
-
-	    ASSERT(h);
-	    ASSERT(h->item);
-
-	    item = bp_hash_get(h, &sitem);
-	    if (!item) {
-		item = bp_hash_put(h, &sitem);
-	    } else {
-		BP_ACCUMULATE(item, &sitem);
-	    }
+            bp_hash_accum(&(pbdt->threads[six]), &sitem);
 	}
     }
     /*else caller is not call_time traced */
@@ -1277,18 +1270,7 @@ erts_trace_call_acc(Process* c_p,
     sitem.accumulator = 0;
 
     /* this breakpoint */
-    ASSERT(bdt);
-    h = &(bdt->hash[six]);
-
-    ASSERT(h);
-    ASSERT(h->item);
-
-    item = bp_hash_get(h, &sitem);
-    if (!item) {
-	item = bp_hash_put(h, &sitem);
-    } else {
-	BP_ACCUMULATE(item, &sitem);
-    }
+    bp_hash_accum(&(bdt->threads[six]), &sitem);
 
     prev_info = pbt->ci;
     pbt->ci = info;
@@ -1303,8 +1285,7 @@ static void
 call_trace_add(Process *p, BpDataCallTrace *pbdt, Uint32 six,
                BpDataAccumulator accum, BpDataAccumulator prev_accum)
 {
-    bp_data_trace_item_t sitem, *item = NULL;
-    bp_trace_hash_t *h = NULL;
+    bp_data_trace_bucket_t sitem;
 
     sitem.accumulator = accum - prev_accum;
     sitem.pid   = p->common.id;
@@ -1312,18 +1293,7 @@ call_trace_add(Process *p, BpDataCallTrace *pbdt, Uint32 six,
 
     /* beware, the trace_pattern might have been removed */
     if (pbdt) {
-
-        h = &(pbdt->hash[six]);
-
-        ASSERT(h);
-        ASSERT(h->item);
-
-        item = bp_hash_get(h, &sitem);
-        if (!item) {
-            item = bp_hash_put(h, &sitem);
-        } else {
-            BP_ACCUMULATE(item, &sitem);
-        }
+        bp_hash_accum(&(pbdt->threads[six]), &sitem);
     }
 }
 
@@ -1446,8 +1416,8 @@ int erts_is_call_break(Process *p, ErtsTraceSession *session, int is_time,
                        const ErtsCodeInfo *ci, Eterm *retval)
 {
     Uint i, ix;
-    bp_trace_hash_t hash;
-    bp_data_trace_item_t *item = NULL;
+    bp_trace_hash_t* tot_hash;
+    bp_data_trace_bucket_t *item = NULL;
     BpDataCallTrace *bdt = is_time ? get_time_break(session, ci)
                                    : get_memory_break(session, ci);
 
@@ -1456,36 +1426,30 @@ int erts_is_call_break(Process *p, ErtsTraceSession *session, int is_time,
 
     ASSERT(retval);
     /* collect all hashes to one hash */
-    bp_hash_init(&hash, 64);
-    /* foreach threadspecific hash */
-    for (i = 0; i < bdt->n; i++) {
-        bp_data_trace_item_t *sitem;
+    tot_hash = bp_hash_alloc(64);
 
+    /* foreach threadspecific hash */
+    for (i = 0; i < bdt->nthreads; i++) {
         /* foreach hash bucket not NIL*/
-        for(ix = 0; ix < bdt->hash[i].n; ix++) {
-            item = &(bdt->hash[i].item[ix]);
+        for(ix = 0; ix < bdt->threads[i]->n; ix++) {
+            item = &(bdt->threads[i]->buckets[ix]);
             if (item->pid != NIL) {
-                sitem = bp_hash_get(&hash, item);
-                if (sitem) {
-                    BP_ACCUMULATE(sitem, item);
-                } else {
-                    bp_hash_put(&hash, item);
-                }
+                bp_hash_accum(&tot_hash, item);
             }
         }
     }
     /* *retval should be NIL or term from previous bif in export entry */
 
-    if (hash.used > 0) {
+    if (tot_hash->used > 0) {
         Uint size;
         Eterm *hp, *hp_end, t;
 
-        size = hash.used * (is_time ? (2+5) : (2+4+ERTS_MAX_SINT64_HEAP_SIZE));
+        size = tot_hash->used * (is_time ? (2+5) : (2+4+ERTS_MAX_SINT64_HEAP_SIZE));
         hp   = HAlloc(p, size);
         hp_end = hp + size;
 
-        for(ix = 0; ix < hash.n; ix++) {
-            item = &(hash.item[ix]);
+        for(ix = 0; ix < tot_hash->n; ix++) {
+            item = &(tot_hash->buckets[ix]);
             if (item->pid != NIL) {
                 if (is_time) {
                     BpDataAccumulator sec, usec;
@@ -1511,7 +1475,7 @@ int erts_is_call_break(Process *p, ErtsTraceSession *session, int is_time,
         ASSERT(hp <= hp_end);
         HRelease(p, hp_end, hp);
     }
-    bp_hash_delete(&hash);
+    bp_hash_dealloc(tot_hash);
     return 1;
 }
 
@@ -1668,76 +1632,64 @@ erts_find_local_func(const ErtsCodeMFA *mfa) {
     return NULL;
 }
 
-static void bp_hash_init(bp_trace_hash_t *hash, Uint n) {
-    Uint size = sizeof(bp_data_trace_item_t)*n;
-    Uint i;
+static bp_trace_hash_t *bp_hash_alloc(Uint n)
+{
+    Uint size = sizeof(bp_trace_hash_t) + sizeof(bp_data_trace_bucket_t[n]);
+    bp_trace_hash_t *hash = (bp_trace_hash_t*) Alloc(size);
 
+    sys_memzero(hash, size);
     hash->n    = n;
     hash->used = 0;
 
-    hash->item = (bp_data_trace_item_t *)Alloc(size);
-    sys_memzero(hash->item, size);
-
-    for(i = 0; i < n; ++i) {
-	hash->item[i].pid = NIL;
+    for(Uint i = 0; i < n; ++i) {
+	hash->buckets[i].pid = NIL;
     }
+    return hash;
 }
 
-static void bp_hash_rehash(bp_trace_hash_t *hash, Uint n) {
-    bp_data_trace_item_t *item = NULL;
-    Uint size = sizeof(bp_data_trace_item_t)*n;
-    Uint ix;
-    Uint hval;
+static bp_trace_hash_t *bp_hash_rehash(bp_trace_hash_t *hash, Uint n)
+{
+    bp_trace_hash_t* ERTS_RESTRICT dst;
 
     ASSERT(n > 0);
-
-    item = (bp_data_trace_item_t *)Alloc(size);
-    sys_memzero(item, size);
-
-    for( ix = 0; ix < n; ++ix) {
-	item[ix].pid = NIL;
-    }
-
+    dst = bp_hash_alloc(n);
 
     /* rehash, old hash -> new hash */
 
-    for( ix = 0; ix < hash->n; ix++) {
-	if (hash->item[ix].pid != NIL) {
+    for(Uint ix = 0; ix < hash->n; ix++) {
+	if (hash->buckets[ix].pid != NIL) {
+            Uint hval = ((hash->buckets[ix].pid) >> 4) % n; /* new n */
 
-	    hval = ((hash->item[ix].pid) >> 4) % n; /* new n */
-
-	    while (item[hval].pid != NIL) {
+            while (dst->buckets[hval].pid != NIL) {
 		hval = (hval + 1) % n;
 	    }
-	    item[hval].pid     = hash->item[ix].pid;
-	    item[hval].count   = hash->item[ix].count;
-	    item[hval].accumulator = hash->item[ix].accumulator;
+            dst->buckets[hval] = hash->buckets[ix];
 	}
     }
-
-    Free(hash->item);
-    hash->n = n;
-    hash->item = item;
+    dst->used = hash->used;
+    Free(hash);
+    return dst;
 }
-static ERTS_INLINE bp_data_trace_item_t * bp_hash_get(bp_trace_hash_t *hash, bp_data_trace_item_t *sitem) {
+static ERTS_INLINE
+bp_data_trace_bucket_t * bp_hash_get(bp_trace_hash_t *hash,
+                                     const bp_data_trace_bucket_t *sitem) {
     Eterm pid = sitem->pid;
     Uint hval = (pid >> 4) % hash->n;
-    bp_data_trace_item_t *item = NULL;
 
-    item = hash->item;
-
-    while (item[hval].pid != pid) {
-	if (item[hval].pid == NIL) return NULL;
+    while (hash->buckets[hval].pid != pid) {
+	if (hash->buckets[hval].pid == NIL) return NULL;
 	hval = (hval + 1) % hash->n;
     }
 
-    return &(item[hval]);
+    return &(hash->buckets[hval]);
 }
 
-static ERTS_INLINE bp_data_trace_item_t * bp_hash_put(bp_trace_hash_t *hash, bp_data_trace_item_t* sitem) {
+static ERTS_INLINE void bp_hash_put(bp_trace_hash_t **hash_p,
+                                    const bp_data_trace_bucket_t* sitem)
+{
+    bp_trace_hash_t *hash = *hash_p;
     Uint hval;
     float r = 0.0;
-    bp_data_trace_item_t *item;
 
     /* make sure that the hash is not saturated */
     /* if saturated, rehash it */
@@ -1745,32 +1697,35 @@ static ERTS_INLINE bp_data_trace_item_t * bp_hash_put(bp_trace_hash_t *hash, bp_
     r = hash->used / (float) hash->n;
 
     if (r > 0.7f) {
-	bp_hash_rehash(hash, hash->n * 2);
+	hash = bp_hash_rehash(hash, hash->n * 2);
+        *hash_p = hash;
     }
     /* Do hval after rehash */
     hval = (sitem->pid >> 4) % hash->n;
 
-    /* find free slot */
-    item = hash->item;
-
-    while (item[hval].pid != NIL) {
+    while (hash->buckets[hval].pid != NIL) {
 	hval = (hval + 1) % hash->n;
     }
-    item = &(hash->item[hval]);
 
-    item->pid     = sitem->pid;
-    item->accumulator = sitem->accumulator;
-    item->count   = sitem->count;
+    hash->buckets[hval] = *sitem;
     hash->used++;
-
-    return item;
 }
 
-static void bp_hash_delete(bp_trace_hash_t *hash) {
-    hash->n = 0;
-    hash->used = 0;
-    Free(hash->item);
-    hash->item = NULL;
+static void bp_hash_accum(bp_trace_hash_t **hash_p,
+                          const bp_data_trace_bucket_t* sitem)
+{
+    bp_data_trace_bucket_t *item;
+
+    item = bp_hash_get(*hash_p, sitem);
+    if (!item) {
+        bp_hash_put(hash_p, sitem);
+    } else {
+        BP_ACCUMULATE(item, sitem);
+    }
+}
+
+static void bp_hash_dealloc(bp_trace_hash_t *hash) {
+    Free(hash);
 }
 
 static void bp_hash_reset(BpDataCallTrace** bdt_p) {
@@ -1780,8 +1735,7 @@ static void bp_hash_reset(BpDataCallTrace** bdt_p) {
 
 void erts_schedule_time_break(Process *p, Uint schedule) {
     process_breakpoint_trace_t *pbt = NULL;
-    bp_data_trace_item_t sitem, *item = NULL;
-    bp_trace_hash_t *h = NULL;
+    bp_data_trace_bucket_t sitem;
     BpDataCallTrace *pbdt = NULL;
     Uint32 six = acquire_bp_sched_ix(p);
 
@@ -1804,17 +1758,7 @@ void erts_schedule_time_break(Process *p, Uint schedule) {
                     sitem.pid   = p->common.id;
                     sitem.count = 0;
                     
-                    h = &(pbdt->hash[six]);
-                    
-                    ASSERT(h);
-                    ASSERT(h->item);
-                    
-                    item = bp_hash_get(h, &sitem);
-                    if (!item) {
-                        item = bp_hash_put(h, &sitem);
-                    } else {
-                        BP_ACCUMULATE(item, &sitem);
-                    }
+                    bp_hash_accum(&(pbdt->threads[six]), &sitem);
                 }
             }
         }
@@ -2159,12 +2103,12 @@ bp_count_unref(BpCount* bcp)
 static BpDataCallTrace* bp_calltrace_alloc(void)
 {
     const Uint n = erts_no_schedulers + 1;
-    BpDataCallTrace *bdt = Alloc(offsetof(BpDataCallTrace,hash) +
-                                 sizeof(bp_trace_hash_t)*n);
-    bdt->n = n;
+    BpDataCallTrace *bdt = Alloc(sizeof(BpDataCallTrace) +
+                                 sizeof(bp_trace_hash_t[n]));
+    bdt->nthreads = n;
     erts_refc_init(&bdt->refc, 1);
     for (Uint i = 0; i < n; i++) {
-        bp_hash_init(&(bdt->hash[i]), 32);
+        bdt->threads[i] = bp_hash_alloc(32);
     }
     return bdt;
 }
@@ -2173,10 +2117,8 @@ static void
 bp_calltrace_unref(BpDataCallTrace* bdt)
 {
     if (erts_refc_dectest(&bdt->refc, 0) <= 0) {
-	Uint i = 0;
-
-	for (i = 0; i < bdt->n; ++i) {
-	    bp_hash_delete(&(bdt->hash[i]));
+	for (Uint i = 0; i < bdt->nthreads; ++i) {
+	    bp_hash_dealloc(bdt->threads[i]);
 	}
 	Free(bdt);
     }
