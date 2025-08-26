@@ -101,7 +101,8 @@
          pwdfun_lockout_ets/1,
          max_auth_request_size_large_enough/1,
          max_auth_request_size_too_small/1,
-         max_auth_request_size_invalid_option/1
+         max_auth_request_size_invalid_option/1,
+         max_auth_tries_option/1
 	]).
 
 %%% Common test callbacks
@@ -177,7 +178,8 @@ all() ->
      daemon_replace_options_algs_conf_file,
      daemon_replace_options_not_found,
      {group, hardening_tests},
-     {group, max_auth_request_size}
+     {group, max_auth_request_size},
+     {group, max_auth_tries}
     ].
 
 groups() ->
@@ -199,7 +201,8 @@ groups() ->
                         system_dir_option]},
      {max_auth_request_size, [], [max_auth_request_size_large_enough,
                                   max_auth_request_size_too_small,
-                                  max_auth_request_size_invalid_option]}
+                                  max_auth_request_size_invalid_option]},
+     {max_auth_tries, [], [max_auth_tries_option]}
     ].
 
 
@@ -207,7 +210,8 @@ groups() ->
 init_per_suite(Config) ->
     ?CHECK_CRYPTO(Config).
 
-end_per_suite(_Config) ->
+end_per_suite(Config) ->
+    ssh_test_lib:clean_all_user_host_keys(Config),
     ssh:stop().
 
 %%--------------------------------------------------------------------
@@ -2290,6 +2294,20 @@ pwdfun_lockout_ets(Config) ->
     ?CT_LOG("Account lockout verified", []),
     ets:delete(Tab),
     ssh:stop_daemon(Pid).
+
+%%--------------------------------------------------------------------
+max_auth_tries_option(Config) ->
+    %% Valid values accepted
+    #{max_auth_tries := 3} = ssh_options:handle_options(server, [{max_auth_tries, 3}]),
+    #{max_auth_tries := 1} = ssh_options:handle_options(server, [{max_auth_tries, 1}]),
+    %% infinity disables the limit
+    #{max_auth_tries := infinity} = ssh_options:handle_options(server, [{max_auth_tries, infinity}]),
+    %% Default value is 6
+    #{max_auth_tries := 6} = ssh_options:handle_options(server, []),
+    %% Bad values rejected
+    {error, {eoptions, _}} = ssh_options:handle_options(server, [{max_auth_tries, 0}]),
+    {error, {eoptions, _}} = ssh_options:handle_options(server, [{max_auth_tries, -1}]),
+    {error, {eoptions, _}} = ssh_options:handle_options(server, [{max_auth_tries, foo}]).
 
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
