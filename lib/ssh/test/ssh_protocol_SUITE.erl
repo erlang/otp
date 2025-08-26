@@ -1321,7 +1321,7 @@ modify_append(Config) ->
     Ciphers = filter_supported(cipher, ?CIPHERS),
     {ok,_} =
         chk_pref_algs(Config,
-                      [?DEFAULT_KEX, ?EXTRA_KEX, list_to_atom(?kex_strict_s)],
+                      [?DEFAULT_KEX, ?EXTRA_KEX, list_to_atom(?kex_strict_s), list_to_atom(?kex_strict_s_pre)],
                       Ciphers,
                       [{preferred_algorithms, [{kex,[?DEFAULT_KEX]},
                                                {cipher,Ciphers}
@@ -1335,7 +1335,7 @@ modify_prepend(Config) ->
     Ciphers = filter_supported(cipher, ?CIPHERS),
     {ok,_} =
         chk_pref_algs(Config,
-                      [?EXTRA_KEX, ?DEFAULT_KEX, list_to_atom(?kex_strict_s)],
+                      [?EXTRA_KEX, ?DEFAULT_KEX, list_to_atom(?kex_strict_s), list_to_atom(?kex_strict_s_pre)],
                       Ciphers,
                       [{preferred_algorithms, [{kex,[?DEFAULT_KEX]},
                                                {cipher,Ciphers}
@@ -1349,7 +1349,7 @@ modify_rm(Config) ->
     Ciphers = filter_supported(cipher, ?CIPHERS),
     {ok,_} =
         chk_pref_algs(Config,
-                      [?DEFAULT_KEX, list_to_atom(?kex_strict_s)],
+                      [?DEFAULT_KEX, list_to_atom(?kex_strict_s), list_to_atom(?kex_strict_s_pre)],
                       tl(Ciphers),
                       [{preferred_algorithms, [{kex,[?DEFAULT_KEX,?EXTRA_KEX]},
                                                {cipher,Ciphers}
@@ -1368,7 +1368,7 @@ modify_combo(Config) ->
     LastC = lists:last(Ciphers),
     {ok,_} =
         chk_pref_algs(Config,
-                      [?DEFAULT_KEX, list_to_atom(?kex_strict_s)],
+                      [?DEFAULT_KEX, list_to_atom(?kex_strict_s), list_to_atom(?kex_strict_s_pre)],
                       [LastC] ++ (tl(Ciphers)--[LastC]) ++ [hd(Ciphers)],
                       [{preferred_algorithms, [{kex,[?DEFAULT_KEX,?EXTRA_KEX]},
                                                {cipher,Ciphers}
