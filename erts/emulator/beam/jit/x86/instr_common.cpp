@@ -1115,6 +1115,11 @@ void BeamModuleAssembler::emit_update_record_in_place(
 void BeamModuleAssembler::emit_set_tuple_element(const ArgSource &Element,
                                                  const ArgRegister &Tuple,
                                                  const ArgWord &Offset) {
+    /* TODO: As of Erlang/OTP 29, this instruction is no longer
+     * emitted by the compiler. It can be removed when the runtime
+     * system no longer supports loading code compiled by Erlang/OTP
+     * 28 or earlier. */
+
     mov_arg(ARG1, Tuple);
 
     x86::Gp boxed_ptr = emit_ptr_val(ARG1, ARG1);

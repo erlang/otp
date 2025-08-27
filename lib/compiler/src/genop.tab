@@ -327,6 +327,9 @@ BEAM_FORMAT_NUMBER=0
 ## @spec set_tuple_element NewElement Tuple Position
 ## @doc  Update the element at position Position of the tuple Tuple
 ##       with the new element NewElement.
+##
+##       TODO: As of Erlang/OTP 29, this instruction is no longer emitted
+##       by the compiler.
 67: set_tuple_element/3
 
 #
