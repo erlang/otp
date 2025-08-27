@@ -41,6 +41,7 @@
          destroy/1,
          negative/1,
          error_info/1,
+         timem_basic/1,
          end_of_list/1]).
 
 -include_lib("common_test/include/ct.hrl").
@@ -78,6 +79,7 @@ all() ->
      destroy,
      negative,
      error_info,
+     timem_basic,
      end_of_list].
 
 init_per_suite(Config) ->
@@ -1805,6 +1807,62 @@ error_info(_Config) ->
         peer:stop(Peer)
     end.
 
+
+%% Some basic testing of call_time and call_memory
+timem_basic(_Config) ->
+    Tracer = spawn(fun F() -> receive M -> io:format("~p~n",[M]), F() end end),
+    Session = trace:session_create(my_session, Tracer, []),
+
+    Pid = self(),
+    1 = trace:process(Session, Pid, true, [call]),
+    1 = trace:function(Session, {lists,seq,2}, [], [call_time]),
+    {call_time, []} =  trace:info(Session, {lists,seq,2}, call_time),
+    {call_memory, false} = trace:info(Session, {lists,seq,2}, call_memory),
+
+
+    lists:seq(1,10),
+    {call_time, [{Pid, 1, 0, T1}]}=CT1 =  trace:info(Session, {lists,seq,2}, call_time),
+    {call_memory, false}=CMF =  trace:info(Session, {lists,seq,2}, call_memory),
+    CT1 =  trace:info(Session, {lists,seq,2}, call_time),
+    CMF =  trace:info(Session, {lists,seq,2}, call_memory),
+
+    lists:seq(1,10),
+    {call_time, [{Pid, 2, 0, T2}]}=CT2 = trace:info(Session, {lists,seq,2}, call_time),
+    true = (T2 >= T1),
+    CMF = trace:info(Session, {lists,seq,2}, call_memory),
+    CT2 = trace:info(Session, {lists,seq,2}, call_time),
+
+    1 = trace:function(Session, {lists,seq,2}, [], [call_memory]),
+    CT2 = trace:info(Session, {lists,seq,2}, call_time),
+    {call_memory, []} = trace:info(Session, {lists,seq,2}, call_memory),
+
+    lists:seq(1,10),
+    {call_time, [{Pid, 3, 0, T3}]}=CT3 = trace:info(Session, {lists,seq,2}, call_time),
+    true = (T3 >= T2),
+    {call_memory, [{Pid, 1, M1}]}=CM1 = trace:info(Session, {lists,seq,2}, call_memory),
+    CT3 = trace:info(Session, {lists,seq,2}, call_time),
+    CM1 = trace:info(Session, {lists,seq,2}, call_memory),
+
+    lists:seq(1,10),
+    {call_time, [{Pid, 4, 0, T4}]}=CT4 = trace:info(Session, {lists,seq,2}, call_time),
+    true = (T4 >= T3),
+    {call_memory, [{Pid, 2, M2}]}=CM2 = trace:info(Session, {lists,seq,2}, call_memory),
+    true = (M2 > M1),
+    CT4 = trace:info(Session, {lists,seq,2}, call_time),
+    CM2 = trace:info(Session, {lists,seq,2}, call_memory),
+
+    %% Turn off call_time
+    1 = trace:function(Session, {lists,seq,2}, false, [call_time]),
+    {call_time, false} = trace:info(Session, {lists,seq,2}, call_time),
+    CM2 = trace:info(Session, {lists,seq,2}, call_memory),
+
+    lists:seq(1,10),
+    {call_time, false} = trace:info(Session, {lists,seq,2}, call_time),
+    {call_memory, [{Pid, 3, M3}]} = trace:info(Session, {lists,seq,2}, call_memory),
+    true = (M3 > M2),
+
+    true = trace:session_destroy(Session),
+    ok.
 
 wait_bp_finish() ->
     wait_thread_progress(5).
