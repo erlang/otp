@@ -1374,7 +1374,8 @@ protected:
     void emit_tuple_assertion(const ArgSource &Src, a64::Gp tuple_reg);
 #endif
 
-    void emit_dispatch_return();
+    void emit_return_do(bool set_I);
+    void emit_dispatch_return(bool set_I);
 
 #include "beamasm_protos.h"
 

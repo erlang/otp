@@ -41,6 +41,10 @@ void BeamGlobalAssembler::emit_dispatch_return() {
 }
 
 void BeamModuleAssembler::emit_return() {
+    emit_return_do(false);
+}
+
+void BeamModuleAssembler::emit_return_do(bool set_I) {
 #ifdef JIT_HARD_DEBUG
     /* Validate return address and {x,0} */
     emit_validate(ArgWord(1));
@@ -53,7 +57,7 @@ void BeamModuleAssembler::emit_return() {
     a.mov(getCPRef(), imm(NIL));
 #endif
 
-    if (erts_alcu_enable_code_atags) {
+    if (erts_alcu_enable_code_atags || set_I) {
         /* See emit_i_test_yield. */
 #if defined(NATIVE_ERLANG_STACK)
         a.mov(ARG3, x86::qword_ptr(E));
