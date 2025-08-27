@@ -1430,6 +1430,9 @@ int erts_is_call_break(Process *p, ErtsTraceSession *session, int is_time,
 
     /* foreach threadspecific hash */
     for (i = 0; i < bdt->nthreads; i++) {
+        if (!bdt->threads[i]) {
+            continue;
+        }
         /* foreach hash bucket not NIL*/
         for(ix = 0; ix < bdt->threads[i]->n; ix++) {
             item = &(bdt->threads[i]->buckets[ix]);
@@ -1715,6 +1718,10 @@ static void bp_hash_accum(bp_trace_hash_t **hash_p,
                           const bp_data_trace_bucket_t* sitem)
 {
     bp_data_trace_bucket_t *item;
+
+    if (*hash_p == NULL) {
+        *hash_p = bp_hash_alloc(32);
+    }
 
     item = bp_hash_get(*hash_p, sitem);
     if (!item) {
@@ -2108,7 +2115,7 @@ static BpDataCallTrace* bp_calltrace_alloc(void)
     bdt->nthreads = n;
     erts_refc_init(&bdt->refc, 1);
     for (Uint i = 0; i < n; i++) {
-        bdt->threads[i] = bp_hash_alloc(32);
+        bdt->threads[i] = NULL;  // allocate on demand
     }
     return bdt;
 }
@@ -2118,7 +2125,9 @@ bp_calltrace_unref(BpDataCallTrace* bdt)
 {
     if (erts_refc_dectest(&bdt->refc, 0) <= 0) {
 	for (Uint i = 0; i < bdt->nthreads; ++i) {
-	    bp_hash_dealloc(bdt->threads[i]);
+            if (bdt->threads[i]) {
+                bp_hash_dealloc(bdt->threads[i]);
+            }
 	}
 	Free(bdt);
     }
