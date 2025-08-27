@@ -236,19 +236,29 @@ atom `rsa` is present in the list returned by
 > The exact set of options and there syntax _may_ be changed without prior
 > notice.
 
-| **Option**                                                                                                            | **sign/verify**   | **public encrypt** **private decrypt** | **private encrypt** **public decrypt** |
-| --------------------------------------------------------------------------------------------------------------------- | ----------------- | -------------------------------------- | -------------------------------------- |
-| \{rsa_padding,rsa_x931_padding\}                                                                                      | x                 |                                        | x                                      |
-| \{rsa_padding,rsa_pkcs1_padding\}                                                                                     | x                 | x                                      | x                                      |
-| \{rsa_padding,rsa_pkcs1_pss_padding\} \{rsa_pss_saltlen, -2..\} \{rsa_mgf1_md, atom()\}                               | x (2) x (2) x (2) |                                        |                                        |
-| \{rsa_padding,rsa_pkcs1_oaep_padding\} \{rsa_mgf1_md, atom()\} \{rsa_oaep_label, binary()\}\} \{rsa_oaep_md, atom()\} |                   | x (2) x (2) x (3) x (3)                |                                        |
-| \{rsa_padding,rsa_no_padding\}                                                                                        | x (1)             |                                        |                                        |
+| Option                                 | sign/verify | public encrypt      | private encrypt     |
+| -------------------------------------- | ----------- | ------------------- | ------------------- |
+|                                        |             | **private decrypt** | **public decrypt**  |
+| \{rsa_padding,rsa_x931_padding\}       | x           |                     | x                   |
+|                                        |             |                     |                     |
+| \{rsa_padding,rsa_pkcs1_padding\}      | x           | x                   | x                   |
+|                                        |             |                     |                     |
+| \{rsa_padding,rsa_pkcs1_pss_padding\}  | x (2)       |                     |                     |
+| \{rsa_pss_saltlen, -2..\}              | x (2)       |                     |                     |
+| \{rsa_mgf1_md, atom()\}                | x (2)       |                     |                     |
+|                                        |             |                     |                     |
+| \{rsa_padding,rsa_pkcs1_oaep_padding\} |             | x (2)               |                     |
+| \{rsa_mgf1_md, atom()\}                |             | x (2)               |                     |
+| \{rsa_oaep_label, binary()\}\}         |             | x (3)               |                     |
+| \{rsa_oaep_md, atom()\}                |             | x (3)               |                     |
+|                                        |             |                     |                     |
+| \{rsa_padding,rsa_no_padding\}         | x (1)       |                     |                     |
 
 Notes:
 
-1. (1) OpenSSL ≤ 1.0.0
-1. (2) OpenSSL ≥ 1.0.1
-1. (3) OpenSSL ≥ 1.1.0
+1. OpenSSL ≤ 1.0.0
+1. OpenSSL ≥ 1.0.1
+1. OpenSSL ≥ 1.1.0
 
 ### DSS
 

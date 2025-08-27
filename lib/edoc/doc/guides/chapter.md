@@ -830,27 +830,51 @@ have higher precedence than union types; e.g.,
 "`(atom()) -> atom() | integer()`" is parsed as
 `((atom()) -> atom()) | integer()`, not as `(atom()) -> (atom() | integer())`.
 
-| `Spec`          | ::= | `FunType "where"? DefList?           | FunctionName FunType "where"? DefList?`        |
-| --------------- | --- | ------------------------------------ | ---------------------------------------------- | ------------------ | -------------------------------- | -------------------- | ------- | ------------------ | ---------- | ------------------- | ------------------------ | ------- | ----------------- | --------------------------- | ----------------- | ------- | ---------------------------- | ------------------------------------------- | ------------------------------------------------------------- |
-| `FunctionName`  | ::= | `Atom`                               |
-| `FunType`       | ::= | `"(" UnionTypes? ")" "->" UnionType` |
-| `UnionTypes`    | ::= | `UnionType                           | UnionType "," UnionTypes`                      |
-| `UnionType`     | ::= | `UnionList                           | Name "::" UnionList`                           |
-| `Name`          | ::= | `Variable`                           |
-| `UnionList`     | ::= | `Type                                | Type "+" UnionList                             | Type "             | " UnionList`                     |
-| `Type`          | ::= | `TypeVariable                        | Atom                                           | Integer            | Float                            | Integer ".." Integer | FunType | "fun(" FunType ")" | "fun(...)" | "{" UnionTypes? "}" | "#" Atom "{" Fields? "}" | "[" "]" | "[" UnionType "]" | "[" UnionType "," "..." "]" | "(" UnionType ")" | BinType | TypeName "(" UnionTypes? ")" | ModuleName ":" TypeName "(" UnionTypes? ")" | "//" AppName "/" ModuleName ":" TypeName "(" UnionTypes? ")"` |
-| `Fields`        | ::= | `Field                               | Fields "," Fields`                             |
-| `Field`         | ::= | `Atom "=" UnionList`                 |
-| `BinType`       | ::= | `"<<>>"                              | "<<" BaseType ">>"                             | "<<" UnitType ">>" | "<<" BaseType "," UnitType ">>"` |
-| `BaseType`      | ::= | `"_" ":" Integer`                    |
-| `UnitType`      | ::= | `"_" ":" "_" "*" Integer`            |
-| `TypeVariable`  | ::= | `Variable`                           |
-| `TypeName`      | ::= | `Atom`                               |
-| `ModuleName`    | ::= | `Atom                                | ModuleName "." Atom`                           |
-| `AppName`       | ::= | `Atom`                               |
-| `DefList`       | ::= | `Def                                 | DefList Def                                    | DefList "," Def`   |
-| `Def`           | ::= | `TypeVariable "=" UnionList          | TypeName "(" TypeVariables? ")" "=" UnionType` |
-| `TypeVariables` | ::= | `TypeVariable                        | TypeVariable "," TypeVariables`                |
+|                 |     |                                                                         |
+| --------------- | --- | ----------------------------------------------------------------------- |
+| `Spec`          | ::= | `FunType "where"? DefList?` \|                                          |
+|                 |     | `FunctionName FunType "where"? DefList?`                                |
+| `FunctionName`  | ::= | `Atom`                                                                  |
+| `FunType`       | ::= | `"(" UnionTypes? ")" "->" UnionType`                                    |
+| `UnionTypes`    | ::= | `UnionType` \| `UnionType "," UnionTypes`                               |
+| `UnionType`     | ::= | `UnionList` \| `Name "::" UnionList`                                    |
+| `Name`          | ::= | `Variable`                                                              |
+| `UnionList`     | ::= | `Type` \| `Type "+" UnionList` \| `Type "\|" UnionList`                 |
+| `Type`          | ::= | `TypeVariable` \|                                                       |
+|                 |     | `Atom` \|                                                               |
+|                 |     | `Integer` \|                                                            |
+|                 |     | `Float` \|                                                              |
+|                 |     | `Integer ".." Integer` \|                                               |
+|                 |     | `FunType` \|                                                            |
+|                 |     | `"fun(" FunType ")"` \|                                                 |
+|                 |     | `"fun(...)"` \|                                                         |
+|                 |     | `"{" UnionTypes? "}"` \|                                                |
+|                 |     | `"#" Atom "{" Fields? "}"` \|                                           |
+|                 |     | `"[" "]"` \|                                                            |
+|                 |     | `"[" UnionType "]"` \|                                                  |
+|                 |     | `"[" UnionType "," "..." "]"` \|                                        |
+|                 |     | `"(" UnionType ")"` \|                                                  |
+|                 |     | `BinType` \|                                                            |
+|                 |     | `TypeName "(" UnionTypes? ")"` \|                                       |
+|                 |     | `ModuleName ":" TypeName "(" UnionTypes? ")"` \|                        |
+|                 |     | `"//" AppName "/" ModuleName ":" TypeName "(" UnionTypes? ")"`          |
+| `Fields`        | ::= | `Field` \| `Fields "," Fields`                                          |
+| `Field`         | ::= | `Atom "=" UnionList`                                                    |
+| `BinType`       | ::= | `"<<>>"` \|                                                             |
+|                 |     | `"<<" BaseType ">>"` \|                                                 |
+|                 |     | `"<<" UnitType ">>"` \|                                                 |
+|                 |     | `"<<" BaseType "," UnitType ">>"`                                       |
+| `BaseType`      | ::= | `"_" ":" Integer`                                                       |
+| `UnitType`      | ::= | `"_" ":" "_" "*" Integer`                                               |
+| `TypeVariable`  | ::= | `Variable`                                                              |
+| `TypeName`      | ::= | `Atom`                                                                  |
+| `ModuleName`    | ::= | `Atom` \| `ModuleName "." Atom`                                         |
+| `AppName`       | ::= | `Atom`                                                                  |
+| `DefList`       | ::= | `Def` \| `DefList Def` \| `DefList "," Def`                             |
+| `Def`           | ::= | `TypeVariable "=" UnionList` \|                                         |
+|                 |     | `TypeName "(" TypeVariables? ")" "=" UnionType`                         |
+| `TypeVariables` | ::= | `TypeVariable` \|                                                       |
+|                 |     | `TypeVariable "," TypeVariables`                                        |
 
 _Table: specification syntax grammar_
 
@@ -944,8 +968,11 @@ used unless there is a type alias with the same name.
 The following grammar (see above for auxiliary definitions) describes the form
 of the definitions that may follow a `@type` tag:
 
-| `Typedef` | ::= | `TypeName "(" TypeVariables? ")" DefList? | TypeName "(" TypeVariables? ")" "=" UnionList DefList?` |
-| --------- | --- | ----------------------------------------- | ------------------------------------------------------- |
+|           |     |                                                          |
+| --------- | --- | -------------------------------------------------------- |
+| `Typedef` | ::= | `TypeName "(" TypeVariables? ")" DefList?` \|            |
+|           |     | `TypeName "(" TypeVariables? ")" "=" UnionList DefList?` |
+
 
 _Table: type definition grammar_
 
