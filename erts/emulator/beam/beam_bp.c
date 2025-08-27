@@ -112,9 +112,9 @@ const ErtsCodeInfo* erts_trace_call_acc(Process* c_p,
                                         ErtsTraceSession*,
                                         process_breakpoint_trace_t *pbt,
                                         const ErtsCodeInfo *ci,
-                                        BpDataAccumulator accum,
+                                        BpTimemAccumulator accum,
                                         int psd_ix,
-                                        BpDataCallTrace* bdt);
+                                        BpTimemTrace* bdt);
 
 static ErtsTracer do_call_trace(Process* c_p, ErtsCodeInfo *info, Eterm* reg,
                                 int local, Binary* ms,
@@ -123,6 +123,8 @@ static ErtsTracer do_call_trace(Process* c_p, ErtsCodeInfo *info, Eterm* reg,
                                 ErtsTracer tracer);
 static void set_break(BpFunctions* f, Binary *match_spec, Uint break_flags,
 		      enum erts_break_op count_op, ErtsTracer tracer);
+static GenericBp* get_bp_session(ErtsTraceSession*, const ErtsCodeInfo *ci,
+                                 int is_staging);
 static void set_function_break(ErtsCodeInfo *ci,
 			       Binary *match_spec,
 			       Uint break_flags,
@@ -134,15 +136,15 @@ static void clear_function_break(const ErtsCodeInfo *ci, Uint break_flags);
 static void clear_all_sessions_function_break(const ErtsCodeInfo *ci);
 static void clear_function_break_session(GenericBp*, Uint break_flags);
 
-static BpDataCallTrace* get_time_break(ErtsTraceSession*, const ErtsCodeInfo *ci);
-static BpDataCallTrace* get_memory_break(ErtsTraceSession*, const ErtsCodeInfo *ci);
+static BpTimemTrace* get_time_break(ErtsTraceSession*, const ErtsCodeInfo *ci);
+static BpTimemTrace* get_memory_break(ErtsTraceSession*, const ErtsCodeInfo *ci);
 static GenericBpData* check_break(ErtsTraceSession *session,
                                   const ErtsCodeInfo *ci, Uint break_flags);
 
 static void bp_meta_unref(BpMetaTracer *bmt);
 static void bp_count_unref(BpCount *bcp);
-static BpDataCallTrace* bp_calltrace_alloc(void);
-static void bp_calltrace_unref(BpDataCallTrace *bdt);
+static BpTimemTrace* bp_calltrace_alloc(void);
+static void bp_calltrace_unref(BpTimemTrace *bdt);
 static void consolidate_bp_data(struct erl_module_instance *mi,
                                 ErtsCodeInfo *ci, int local);
 static void consolidate_bp_data_session(GenericBp* g);
@@ -151,22 +153,19 @@ static void uninstall_breakpoint(ErtsCodeInfo *ci_rw,
 static Uint do_session_breakpoint(Process *c_p, ErtsCodeInfo *info, Eterm *reg,
                                   GenericBp* g);
 
-/* bp_hash */
-#define BP_ACCUMULATE(pi0, pi1)                         \
-    do {                                                \
-	(pi0)->count   += (pi1)->count;                 \
-	(pi0)->accumulator  += (pi1)->accumulator;      \
-    } while(0)
+static bp_pid_timem_hash_t *bp_hash_alloc(Uint n);
+static bp_pid_timem_hash_t *bp_hash_rehash(bp_pid_timem_hash_t *hash, Uint n);
+static ERTS_INLINE bp_pid_timem_bucket_t * bp_hash_get(bp_pid_timem_hash_t *hash,
+                                                        const bp_pid_timem_bucket_t *sitem);
+static ERTS_INLINE void bp_hash_put(bp_pid_timem_hash_t**,
+                                    const bp_pid_timem_bucket_t *sitem);
+static void bp_hash_accum(bp_pid_timem_hash_t **hash_p,
+                          const bp_pid_timem_bucket_t* sitem);
+static void bp_hash_dealloc(bp_pid_timem_hash_t *hash);
+static void bp_hash_reset(BpTimemTrace**);
 
-static bp_trace_hash_t *bp_hash_alloc(Uint n);
-static bp_trace_hash_t *bp_hash_rehash(bp_trace_hash_t *hash, Uint n);
-static ERTS_INLINE bp_data_trace_bucket_t * bp_hash_get(bp_trace_hash_t *hash,
-                                                        const bp_data_trace_bucket_t *sitem);
-static ERTS_INLINE void bp_hash_put(bp_trace_hash_t**,
-                                    const bp_data_trace_bucket_t *sitem);
-static void bp_hash_accum(bp_trace_hash_t **hash_p,
-                          const bp_data_trace_bucket_t* sitem);
-static void bp_hash_dealloc(bp_trace_hash_t *hash);
+static void collect_timem_info(BpTimemTrace* bdt,
+                                bp_pid_timem_hash_t **tot_hash_p);
 
 /* *************************************************************************
 ** External interfaces
@@ -1034,7 +1033,7 @@ do_session_breakpoint(Process *c_p, ErtsCodeInfo *info, Eterm *reg,
         Eterm* E;
 
         if (bp_flags & ERTS_BPF_TIME_TRACE_ACTIVE) {
-            BpDataAccumulator time = get_mtime(c_p);
+            BpTimemAccumulator time = get_mtime(c_p);
 
             for (pbt = ERTS_PROC_GET_CALL_TIME(c_p); pbt; pbt = pbt->next)
                 if (pbt->session == g->session)
@@ -1045,7 +1044,7 @@ do_session_breakpoint(Process *c_p, ErtsCodeInfo *info, Eterm *reg,
         }
 
         if (bp_flags & ERTS_BPF_MEM_TRACE_ACTIVE) {
-            BpDataAccumulator allocated;
+            BpTimemAccumulator allocated;
 
             for (pbt = ERTS_PROC_GET_CALL_MEMORY(c_p); pbt; pbt = pbt->next)
                 if (pbt->session == g->session)
@@ -1224,11 +1223,11 @@ const ErtsCodeInfo*
 erts_trace_call_acc(Process* c_p,
                     ErtsTraceSession *session,
                     process_breakpoint_trace_t *pbt,
-                    const ErtsCodeInfo *info, BpDataAccumulator accum,
-                    int psd_ix, BpDataCallTrace* bdt)
+                    const ErtsCodeInfo *info, BpTimemAccumulator accum,
+                    int psd_ix, BpTimemTrace* bdt)
 {
-    bp_data_trace_bucket_t sitem;
-    BpDataCallTrace *pbdt = NULL;
+    bp_pid_timem_bucket_t sitem;
+    BpTimemTrace *pbdt = NULL;
     const Uint32 six = acquire_bp_sched_ix(c_p);
     const ErtsCodeInfo* prev_info;
 
@@ -1280,10 +1279,10 @@ erts_trace_call_acc(Process* c_p,
 
 
 static void
-call_trace_add(Process *p, BpDataCallTrace *pbdt, Uint32 six,
-               BpDataAccumulator accum, BpDataAccumulator prev_accum)
+call_trace_add(Process *p, BpTimemTrace *pbdt, Uint32 six,
+               BpTimemAccumulator accum, BpTimemAccumulator prev_accum)
 {
-    bp_data_trace_bucket_t sitem;
+    bp_pid_timem_bucket_t sitem;
 
     sitem.accumulator = accum - prev_accum;
     sitem.pid   = p->common.id;
@@ -1300,7 +1299,7 @@ erts_call_trace_return(Process *p, const ErtsCodeInfo *prev_info,
                        Eterm bp_flags_term, Eterm session_weak_id)
 {
     process_breakpoint_trace_t *pbt = NULL;
-    BpDataCallTrace *pbdt;
+    BpTimemTrace *pbdt;
     Uint32 six;
     const Uint bp_flags = unsigned_val(bp_flags_term);
     ErtsTracerRef* ref;
@@ -1410,50 +1409,228 @@ erts_is_count_break(ErtsTraceSession *session, const ErtsCodeInfo *ci,
     return 0;
 }
 
-int erts_is_call_break(Process *p, ErtsTraceSession *session, int is_time,
-                       const ErtsCodeInfo *ci, Eterm *retval)
+
+bool erts_is_time_break(ErtsTraceSession *session, const ErtsCodeInfo *ci)
 {
-    Uint i, ix;
-    bp_trace_hash_t* tot_hash;
-    bp_data_trace_bucket_t *item = NULL;
-    BpDataCallTrace *bdt = is_time ? get_time_break(session, ci)
-                                   : get_memory_break(session, ci);
+    return get_time_break(session, ci);
+}
 
-    if (!bdt)
-        return 0;
+bool erts_is_memory_break(ErtsTraceSession *session, const ErtsCodeInfo *ci)
+{
+    return get_memory_break(session, ci);
+}
 
-    ASSERT(retval);
-    /* collect all hashes to one hash */
-    tot_hash = bp_hash_alloc(64);
+/*
+ * Trap state for THE process doing trace:info
+ * to collect call_time and/or call_memory lists.
+*/
+typedef struct {
+    Uint break_flags;
+    GenericBp *g;
+    bp_pid_timem_hash_t* time_tot_hash;
+    bp_pid_timem_hash_t* mem_tot_hash;
+} FinishTimemInfo;
+
+static FinishTimemInfo finish_timem_info;
+
+bool erts_prepare_timem_trace_info(Process *p,
+                                   ErtsTraceSession *session,
+                                   bool want_call_time,
+                                   bool want_call_memory,
+                                   const ErtsCodeInfo *ci)
+{
+    GenericBp* g = get_bp_session(session, ci, 0);
+    GenericBpData* bp;
+    Uint break_flags;
+
+#ifndef BEAMASM
+    ASSERT(BeamIsOpCode(ci->u.op, op_i_func_info_IaaI));
+#endif
+
+    if (!g) {
+        return false;
+    }
+    bp = &g->data[erts_staging_bp_ix()];
+
+    ASSERT((bp->flags & ~ERTS_BPF_ALL) == 0);
+    ASSERT(!finish_timem_info.time_tot_hash);
+    ASSERT(!finish_timem_info.mem_tot_hash);
+    ASSERT(!finish_timem_info.break_flags);
+    ASSERT(!finish_timem_info.g);
+
+    /*
+     * Paused call_time/memory counters can be collected right here
+     * while active ones need to be scheduled.
+     */
+
+    break_flags = 0;
+    if (want_call_time) {
+        const Uint time_flags = bp->flags & (ERTS_BPF_TIME_TRACE |
+                                             ERTS_BPF_TIME_TRACE_ACTIVE);
+        if (time_flags == ERTS_BPF_TIME_TRACE) {
+            collect_timem_info(bp->time, &finish_timem_info.time_tot_hash);
+        }
+        break_flags |= time_flags;
+    }
+    if (want_call_memory) {
+        const Uint mem_flags = bp->flags & (ERTS_BPF_MEM_TRACE |
+                                            ERTS_BPF_MEM_TRACE_ACTIVE);
+        if (mem_flags == ERTS_BPF_MEM_TRACE) {
+            collect_timem_info(bp->memory, &finish_timem_info.mem_tot_hash);
+        }
+        break_flags |= mem_flags;
+    }
+
+    finish_timem_info.break_flags = break_flags;
+
+    if (!(break_flags & (ERTS_BPF_TIME_TRACE_ACTIVE |
+                         ERTS_BPF_MEM_TRACE_ACTIVE))) {
+        /* No active call_time or call_memory, no need for scheduling */
+        return false;
+    }
+
+    /*
+     * Ok, we must do some scheduling to safely collect active call_time/memory
+     * info from the thread specific hash tables.
+     * The strategy is:
+     * 1. Allocate temporary zeroed hashes for any traced calls that may happen
+     *    during the call to trace:info.
+     * 2. Thread progress
+     * 3. Switch bp index to make the temp hashes active.
+     * 4. Thread progress.
+     * 5. Collect stats from the real hashes that are now unused and stable.
+     * 6. Switch back bp index to make the real hashes active again.
+     * 7. Thread progress.
+     * 8. Consolidate by collecting stats from the temp hashes into the
+     *    active generation.
+     * 9. Deallocate the temp hashes and make the two halves of the breakpoint
+     *    identical again using the same real hashes.
+     */
+    if (break_flags & ERTS_BPF_TIME_TRACE_ACTIVE) {
+        ASSERT(bp->time);
+        bp_hash_reset(&bp->time);
+        ASSERT(finish_timem_info.time_tot_hash == NULL);
+    }
+    if (break_flags & ERTS_BPF_MEM_TRACE_ACTIVE) {
+        ASSERT(bp->memory);
+        bp_hash_reset(&bp->memory);
+        ASSERT(finish_timem_info.mem_tot_hash == NULL);
+    }
+
+    finish_timem_info.g = g;
+
+    return true; // Prepared to trap
+}
+
+void erts_timem_info_collect(void)
+{
+    FinishTimemInfo *fin = &finish_timem_info;
+    GenericBpData *bp = &fin->g->data[erts_staging_bp_ix()];
+
+    ERTS_LC_ASSERT(erts_has_code_mod_permission());
+
+    /* Collect all thread hashes into temporary result hashes */
+
+    if (fin->break_flags & ERTS_BPF_TIME_TRACE_ACTIVE) {
+        ASSERT(fin->time_tot_hash == NULL);
+        collect_timem_info(bp->time, &fin->time_tot_hash);
+    }
+
+    if (fin->break_flags & ERTS_BPF_MEM_TRACE_ACTIVE) {
+        ASSERT(fin->mem_tot_hash == NULL);
+        collect_timem_info(bp->memory, &fin->mem_tot_hash);
+    }
+}
+
+static void collect_timem_info(BpTimemTrace* bdt,
+                               bp_pid_timem_hash_t **tot_hash_p)
+{
+    ASSERT(bdt);
 
     /* foreach threadspecific hash */
-    for (i = 0; i < bdt->nthreads; i++) {
+    for (Uint i = 0; i < bdt->nthreads; i++) {
         if (!bdt->threads[i]) {
             continue;
         }
         /* foreach hash bucket not NIL*/
-        for(ix = 0; ix < bdt->threads[i]->n; ix++) {
+        for(Uint ix = 0; ix < bdt->threads[i]->n; ix++) {
+            bp_pid_timem_bucket_t *item;
+
             item = &(bdt->threads[i]->buckets[ix]);
             if (item->pid != NIL) {
-                bp_hash_accum(&tot_hash, item);
+                bp_hash_accum(tot_hash_p, item);
             }
         }
     }
-    /* *retval should be NIL or term from previous bif in export entry */
+}
 
-    if (tot_hash->used > 0) {
-        Uint size;
-        Eterm *hp, *hp_end, t;
+void erts_timem_info_consolidate()
+{
+    FinishTimemInfo *fin = &finish_timem_info;
+    GenericBpData *staging = &fin->g->data[erts_staging_bp_ix()];
+    GenericBpData *active = &fin->g->data[erts_active_bp_ix()];
+    const Uint dirty_ix = erts_no_schedulers;
 
-        size = tot_hash->used * (is_time ? (2+5) : (2+4+ERTS_MAX_SINT64_HEAP_SIZE));
-        hp   = HAlloc(p, size);
-        hp_end = hp + size;
+    ERTS_LC_ASSERT(erts_has_code_mod_permission());
+    ASSERT(staging->flags == active->flags);
+    ASSERT(staging->flags & (ERTS_BPF_TIME_TRACE_ACTIVE | ERTS_BPF_MEM_TRACE_ACTIVE));
 
-        for(ix = 0; ix < tot_hash->n; ix++) {
-            item = &(tot_hash->buckets[ix]);
-            if (item->pid != NIL) {
-                if (is_time) {
-                    BpDataAccumulator sec, usec;
+    /*
+     * We consolidate by collecting any stats from temporary hashes,
+     * delete them and make the two breakpoint halves identical again.
+     *
+     * We collect stats into the active hashes for dirty schedulers. This is
+     * safe as the dirty hashes are lock proctected. An alternative solution
+     * could be to have dedicated consolidation hash tables to avoid
+     * the locking here.
+     */
+
+    erts_mtx_lock(&erts_dirty_bp_ix_mtx);
+
+    if (fin->break_flags & ERTS_BPF_TIME_TRACE_ACTIVE) {
+        ASSERT(staging->flags & ERTS_BPF_TIME_TRACE_ACTIVE);
+        collect_timem_info(staging->time, &(active->time->threads[dirty_ix]));
+
+        bp_calltrace_unref(staging->time);
+        staging->time = active->time;
+        erts_refc_inc(&staging->time->refc, 2);
+    }
+    if (fin->break_flags & ERTS_BPF_MEM_TRACE_ACTIVE) {
+        ASSERT(staging->flags & ERTS_BPF_MEM_TRACE_ACTIVE);
+        collect_timem_info(staging->memory, &(active->memory->threads[dirty_ix]));
+
+        bp_calltrace_unref(staging->memory);
+        staging->memory = active->memory;
+        erts_refc_inc(&staging->memory->refc, 2);
+    }
+
+    erts_mtx_unlock(&erts_dirty_bp_ix_mtx);
+}
+
+void erts_build_timem_info(Process* p,
+                           Eterm *call_time,
+                           Eterm *call_memory)
+{
+    ERTS_LC_ASSERT(erts_has_code_mod_permission());
+
+    /* Build call_time list of {Pid, CallCount, Sec, USec} */
+    if (finish_timem_info.break_flags & ERTS_BPF_TIME_TRACE) {
+        bp_pid_timem_hash_t* time_tot_hash = finish_timem_info.time_tot_hash;
+        Eterm list = NIL;
+
+        if (time_tot_hash && time_tot_hash->used > 0) {
+            Uint size;
+            Eterm *hp, *hp_end;
+
+            size = time_tot_hash->used * (2+5);
+            hp   = HAlloc(p, size);
+            hp_end = hp + size;
+
+            for(Uint ix = 0; ix < time_tot_hash->n; ix++) {
+                bp_pid_timem_bucket_t *item = &(time_tot_hash->buckets[ix]);
+                if (item->pid != NIL) {
+                    BpTimemAccumulator sec, usec;
+                    Eterm t;
                     usec = ERTS_MONOTONIC_TO_USEC(item->accumulator);
                     sec = usec / 1000000;
                     usec = usec - sec*1000000;
@@ -1462,23 +1639,66 @@ int erts_is_call_break(Process *p, ErtsTraceSession *session, int is_time,
                                make_small((Uint) sec),
                                make_small((Uint) usec));
                     hp += 5;
+                    list = CONS(hp, t, list);
+                    hp += 2;
                 }
-                else {
-                    Eterm words = erts_bld_sint64(&hp, NULL, item->accumulator);
-                    t = TUPLE3(hp, item->pid,
-                               make_small(item->count),
-                               words);
-                    hp += 4;
-                }
-                *retval = CONS(hp, t, *retval); hp += 2;
             }
+            ASSERT(hp <= hp_end);
+            HRelease(p, hp_end, hp);
         }
-        ASSERT(hp <= hp_end);
-        HRelease(p, hp_end, hp);
+        *call_time = list;
     }
-    bp_hash_dealloc(tot_hash);
-    return 1;
+
+    /* Build call_memory list of {Pid, CallCount, Words} */
+    if (finish_timem_info.break_flags & ERTS_BPF_MEM_TRACE) {
+        bp_pid_timem_hash_t* mem_tot_hash = finish_timem_info.mem_tot_hash;
+        Eterm list = NIL;
+
+        if (mem_tot_hash && mem_tot_hash->used > 0) {
+            Uint size;
+            Eterm *hp, *hp_end;
+
+            size = mem_tot_hash->used * (2+4+ERTS_MAX_SINT64_HEAP_SIZE);
+            hp   = HAlloc(p, size);
+            hp_end = hp + size;
+
+            for(Uint ix = 0; ix < mem_tot_hash->n; ix++) {
+                bp_pid_timem_bucket_t *item = &(mem_tot_hash->buckets[ix]);
+                if (item->pid != NIL) {
+                    Eterm words = erts_bld_sint64(&hp, NULL, item->accumulator);
+                    Eterm t = TUPLE3(hp, item->pid,
+                                     make_small(item->count),
+                                     words);
+                    hp += 4;
+                    list = CONS(hp, t, list);
+                    hp += 2;
+                }
+            }
+            ASSERT(hp <= hp_end);
+            HRelease(p, hp_end, hp);
+        }
+        *call_memory = list;
+    }
 }
+
+void erts_free_timem_info(void)
+{
+    FinishTimemInfo *fin = &finish_timem_info;
+
+    ERTS_LC_ASSERT(erts_has_code_mod_permission());
+
+    if (fin->time_tot_hash) {
+        bp_hash_dealloc(fin->time_tot_hash);
+        fin->time_tot_hash = NULL;
+    }
+    if (fin->mem_tot_hash) {
+        bp_hash_dealloc(fin->mem_tot_hash);
+        fin->mem_tot_hash = NULL;
+    }
+    fin->break_flags = 0;
+    fin->g = NULL;
+}
+
 
 void erts_install_line_breakpoint(struct erl_module_instance *mi, ErtsCodePtr cp_exec) {
     ErtsCodePtr cp_rw;
@@ -1633,12 +1853,13 @@ erts_find_local_func(const ErtsCodeMFA *mfa) {
     return NULL;
 }
 
-static bp_trace_hash_t *bp_hash_alloc(Uint n)
+static bp_pid_timem_hash_t *bp_hash_alloc(Uint n)
 {
-    Uint size = sizeof(bp_trace_hash_t) + sizeof(bp_data_trace_bucket_t[n]);
-    bp_trace_hash_t *hash = (bp_trace_hash_t*) Alloc(size);
+    bp_pid_timem_hash_t *hash;
+    const Uint size = sizeof(*hash) + n * sizeof(hash->buckets[0]);
 
-    sys_memzero(hash, size);
+    hash = Alloc(size);
+
     hash->n    = n;
     hash->used = 0;
 
@@ -1648,9 +1869,9 @@ static bp_trace_hash_t *bp_hash_alloc(Uint n)
     return hash;
 }
 
-static bp_trace_hash_t *bp_hash_rehash(bp_trace_hash_t *hash, Uint n)
+static bp_pid_timem_hash_t *bp_hash_rehash(bp_pid_timem_hash_t *hash, Uint n)
 {
-    bp_trace_hash_t* ERTS_RESTRICT dst;
+    bp_pid_timem_hash_t* ERTS_RESTRICT dst;
 
     ASSERT(n > 0);
     dst = bp_hash_alloc(n);
@@ -1672,8 +1893,8 @@ static bp_trace_hash_t *bp_hash_rehash(bp_trace_hash_t *hash, Uint n)
     return dst;
 }
 static ERTS_INLINE
-bp_data_trace_bucket_t * bp_hash_get(bp_trace_hash_t *hash,
-                                     const bp_data_trace_bucket_t *sitem) {
+bp_pid_timem_bucket_t * bp_hash_get(bp_pid_timem_hash_t *hash,
+                                     const bp_pid_timem_bucket_t *sitem) {
     Eterm pid = sitem->pid;
     Uint hval = (pid >> 4) % hash->n;
 
@@ -1685,10 +1906,10 @@ bp_data_trace_bucket_t * bp_hash_get(bp_trace_hash_t *hash,
     return &(hash->buckets[hval]);
 }
 
-static ERTS_INLINE void bp_hash_put(bp_trace_hash_t **hash_p,
-                                    const bp_data_trace_bucket_t* sitem)
+static ERTS_INLINE void bp_hash_put(bp_pid_timem_hash_t **hash_p,
+                                    const bp_pid_timem_bucket_t* sitem)
 {
-    bp_trace_hash_t *hash = *hash_p;
+    bp_pid_timem_hash_t *hash = *hash_p;
     Uint hval;
     float r = 0.0;
 
@@ -1712,10 +1933,10 @@ static ERTS_INLINE void bp_hash_put(bp_trace_hash_t **hash_p,
     hash->used++;
 }
 
-static void bp_hash_accum(bp_trace_hash_t **hash_p,
-                          const bp_data_trace_bucket_t* sitem)
+static void bp_hash_accum(bp_pid_timem_hash_t **hash_p,
+                          const bp_pid_timem_bucket_t* sitem)
 {
-    bp_data_trace_bucket_t *item;
+    bp_pid_timem_bucket_t *item;
 
     if (*hash_p == NULL) {
         *hash_p = bp_hash_alloc(32);
@@ -1725,23 +1946,24 @@ static void bp_hash_accum(bp_trace_hash_t **hash_p,
     if (!item) {
         bp_hash_put(hash_p, sitem);
     } else {
-        BP_ACCUMULATE(item, sitem);
+        item->count += sitem->count;
+	item->accumulator += sitem->accumulator;
     }
 }
 
-static void bp_hash_dealloc(bp_trace_hash_t *hash) {
+static void bp_hash_dealloc(bp_pid_timem_hash_t *hash) {
     Free(hash);
 }
 
-static void bp_hash_reset(BpDataCallTrace** bdt_p) {
+static void bp_hash_reset(BpTimemTrace** bdt_p) {
     bp_calltrace_unref(*bdt_p);
     *bdt_p = bp_calltrace_alloc();
 }
 
 void erts_schedule_time_break(Process *p, Uint schedule) {
     process_breakpoint_trace_t *pbt = NULL;
-    bp_data_trace_bucket_t sitem;
-    BpDataCallTrace *pbdt = NULL;
+    bp_pid_timem_bucket_t sitem;
+    BpTimemTrace *pbdt = NULL;
     Uint32 six = acquire_bp_sched_ix(p);
 
     ASSERT(p);
@@ -2000,7 +2222,7 @@ set_function_break(ErtsCodeInfo *ci,
 	erts_atomic_init_nob(&bcp->acount, 0);
 	bp->count = bcp;
     } else if (break_flags & (ERTS_BPF_TIME_TRACE | ERTS_BPF_MEM_TRACE)) {
-	BpDataCallTrace* bdt;
+	BpTimemTrace* bdt;
 
 	ASSERT((break_flags & bp->flags & ERTS_BPF_TIME_TRACE) == 0);
         ASSERT((break_flags & bp->flags & ERTS_BPF_MEM_TRACE) == 0);
@@ -2105,11 +2327,10 @@ bp_count_unref(BpCount* bcp)
     }
 }
 
-static BpDataCallTrace* bp_calltrace_alloc(void)
+static BpTimemTrace* bp_calltrace_alloc(void)
 {
     const Uint n = erts_no_schedulers + 1;
-    BpDataCallTrace *bdt = Alloc(sizeof(BpDataCallTrace) +
-                                 sizeof(bp_trace_hash_t[n]));
+    BpTimemTrace *bdt = Alloc(sizeof(*bdt) + n * sizeof(bdt->threads[0]));
     bdt->nthreads = n;
     erts_refc_init(&bdt->refc, 1);
     for (Uint i = 0; i < n; i++) {
@@ -2119,7 +2340,7 @@ static BpDataCallTrace* bp_calltrace_alloc(void)
 }
 
 static void
-bp_calltrace_unref(BpDataCallTrace* bdt)
+bp_calltrace_unref(BpTimemTrace* bdt)
 {
     if (erts_refc_dectest(&bdt->refc, 0) <= 0) {
 	for (Uint i = 0; i < bdt->nthreads; ++i) {
@@ -2131,14 +2352,14 @@ bp_calltrace_unref(BpDataCallTrace* bdt)
     }
 }
 
-static BpDataCallTrace*
+static BpTimemTrace*
 get_time_break(ErtsTraceSession *session, const ErtsCodeInfo *ci)
 {
     GenericBpData* bp = check_break(session, ci, ERTS_BPF_TIME_TRACE);
     return bp ? bp->time : 0;
 }
 
-static BpDataCallTrace*
+static BpTimemTrace*
 get_memory_break(ErtsTraceSession *session, const ErtsCodeInfo *ci)
 {
     GenericBpData* bp = check_break(session, ci, ERTS_BPF_MEM_TRACE);

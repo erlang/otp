@@ -37,6 +37,8 @@
 
 -export([seq/3, seq_r/3]).
 -export([loaded/1, a_function/1, a_called_function/1, dec/1, nif_dec/1, dead_tracer/1,
+         trace_info_noblock/1,
+         trace_info_killed/1,
         return_stop/1,reset/1,catch_crash/1]).
 
 -define(US_ERROR, 10000).
@@ -91,6 +93,8 @@ testcases() ->
      apply_bif_bug,
      combo, bif, nif, called_function, dead_tracer, return_stop,
      reset,
+     trace_info_noblock,
+     trace_info_killed,
      catch_crash].
 
 init_per_suite(Config) ->
@@ -992,3 +996,243 @@ abb_worker(Papa) ->
 
 abb_foo(M,F,Args) ->
     apply(M,F,Args).
+
+%% Test non-blocking trace:info for call_time and call_memory
+%% and make sure it keeps correct count while traced processes are running.
+trace_info_noblock(_Config) ->
+    NScheds = erlang:system_info(schedulers_online),
+    NWorkers = (NScheds * 3) div 2,
+    Tester = self(),
+
+    WorkerPids = [spawn_opt(fun() -> tinb_worker(Tester) end,
+                            [link, {scheduler, (I rem NScheds)+1}])
+                  || I <- lists:seq(1,NWorkers)],
+
+    tinb_run(WorkerPids, call_time),
+    tinb_run(WorkerPids, call_memory),
+    tinb_run_both(WorkerPids, call_time, call_memory),
+    tinb_run_both(WorkerPids, call_memory, call_time),
+    ok.
+
+tinb_run(WorkerPids, TraceType) ->
+    [erlang_trace(Pid, true, [call]) || Pid <- WorkerPids],
+    1 = erlang_trace_pattern({?MODULE,tinb_foo,0}, true, [TraceType]),
+
+    [Pid ! start || Pid <- WorkerPids],
+
+    timer:sleep(10),
+    CP_1 = tinb_get_checkpoints(WorkerPids),
+    TI_2 = timem_unify(erlang_trace_info({?MODULE, tinb_foo,0}, TraceType)),
+    CP_3 = tinb_get_checkpoints(WorkerPids),
+
+    tinb_verify_call_count(CP_1, TI_2, CP_3),
+
+    TI_4 = timem_unify(erlang_trace_info({?MODULE, tinb_foo,0}, TraceType)),
+    CP_5 = tinb_get_checkpoints(WorkerPids),
+
+    tinb_verify_call_count(CP_3, TI_4, CP_5),
+
+    %% Pause trace and see that we get the same counters
+    %% if we do repeated calls.
+    1 = erlang_trace_pattern({?MODULE,tinb_foo,0}, pause, [TraceType]),
+
+    TI_6a = timem_unify(erlang_trace_info({?MODULE, tinb_foo,0}, TraceType)),
+    CP_7 = tinb_get_checkpoints(WorkerPids),
+    TI_6b = timem_unify(erlang_trace_info({?MODULE, tinb_foo,0}, TraceType)),
+
+    {TI_6a,TI_6a} = {TI_6a, TI_6b},
+
+    tinb_verify_call_count(CP_5, TI_6a, CP_7),
+
+    %% Restart
+    tinb_stop(WorkerPids),
+    1 = erlang_trace_pattern({?MODULE,tinb_foo,0}, restart, [TraceType]),
+    [Pid ! start || Pid <- WorkerPids],
+
+    CP_8 = tinb_get_checkpoints(WorkerPids),
+    TI_9 = timem_unify(erlang_trace_info({?MODULE, tinb_foo,0}, TraceType)),
+    CP_10 = tinb_get_checkpoints(WorkerPids),
+
+    tinb_verify_call_count(CP_8, TI_9, CP_10),
+
+    %% Turn off call trace and see that we get the same counters
+    %% if we do repeated calls.
+    [erlang_trace(Pid, false, [call]) || Pid <- WorkerPids],
+
+    TI_11a = timem_unify(erlang_trace_info({?MODULE, tinb_foo,0}, TraceType)),
+    CP_12 = tinb_get_checkpoints(WorkerPids),
+    TI_11b = timem_unify(erlang_trace_info({?MODULE, tinb_foo,0}, TraceType)),
+
+    {TI_11a,TI_11a} = {TI_11a, TI_11b},
+
+    tinb_verify_call_count(CP_10, TI_11a, CP_12),
+
+    erlang_trace_pattern({?MODULE,tinb_foo,0}, false, [TraceType]),
+
+    tinb_stop(WorkerPids),
+
+    ok.
+
+tinb_run_both(WorkerPids, TypeA, TypeB) ->
+    [erlang_trace(Pid, true, [call]) || Pid <- WorkerPids],
+    1 = erlang_trace_pattern({?MODULE,tinb_foo,0}, true, [TypeA, TypeB]),
+
+    [Pid ! start || Pid <- WorkerPids],
+
+    timer:sleep(10),
+    CP_1 = tinb_get_checkpoints(WorkerPids),
+    {all, TI_2} = erlang_trace_info({?MODULE, tinb_foo,0}, all),
+    CP_3 = tinb_get_checkpoints(WorkerPids),
+
+    {value,TI_A2_u} = lists:keysearch(TypeA, 1, TI_2),
+    {value,TI_B2_u} = lists:keysearch(TypeB, 1, TI_2),
+
+    TI_A2 = timem_unify(TI_A2_u),
+    TI_B2 = timem_unify(TI_B2_u),
+    {TI_A2, TI_A2} = {TI_A2, TI_B2},
+
+    tinb_verify_call_count(CP_1, TI_A2, CP_3),
+
+    %% Pause one of them and see that we get sane counters
+    1 = erlang_trace_pattern({?MODULE,tinb_foo,0}, pause, [TypeA]),
+
+    {all, TI_4} = erlang_trace_info({?MODULE, tinb_foo,0}, all),
+    CP_5 = tinb_get_checkpoints(WorkerPids),
+
+    {value,TI_A4_u} = lists:keysearch(TypeA, 1, TI_4),
+    {value,TI_B4_u} = lists:keysearch(TypeB, 1, TI_4),
+
+    TI_A4 = timem_unify(TI_A4_u),
+    TI_B4 = timem_unify(TI_B4_u),
+
+    tinb_verify_call_count2(CP_3, TI_A4, TI_B4, CP_5),
+
+    [erlang_trace(Pid, false, [call]) || Pid <- WorkerPids],
+    tinb_stop(WorkerPids),
+    erlang_trace_pattern({?MODULE,tinb_foo,0}, false, [TypeA, TypeB]),
+    ok.
+
+tinb_verify_call_count([], [], []) ->
+    ok;
+tinb_verify_call_count([{Pid, C1} | T1], [{Pid, C2} | T2], [{Pid, C3} | T3]) ->
+    io:format("~p: ~p +~p +~p\n", [Pid,C1,C2-C1,C3-C2]),
+    true = (C1 =< C2),
+    true = (C2 =< C3),
+    tinb_verify_call_count(T1, T2, T3);
+tinb_verify_call_count([{Pid, _} | _]=L1, ListWithoutPid, [{Pid, _} | _]=L3) ->
+    tinb_verify_call_count(L1, [{Pid, 0} | ListWithoutPid], L3).
+
+tinb_verify_call_count2([], [], [], []) ->
+    ok;
+tinb_verify_call_count2([{Pid, C1} | T1], [{Pid, C2} | T2], [{Pid, C3} | T3], [{Pid, C4} | T4]) ->
+    io:format("~p: ~p +~p +~p +~p\n", [Pid,C1,C2-C1,C3-C2,C4-C3]),
+    true = (C1 =< C2),
+    true = (C2 =< C3),
+    true = (C3 =< C4),
+    tinb_verify_call_count2(T1, T2, T3, T4);
+tinb_verify_call_count2([{Pid, _} | _]=L1, [{Pid, _} | _]=L2, ListWithoutPid, [{Pid, _} | _]=L4) ->
+    tinb_verify_call_count2(L1, L2, [{Pid, 0} | ListWithoutPid], L4);
+tinb_verify_call_count2([{Pid, _} | _]=L1, ListWithoutPid, L3, [{Pid, _} | _]=L4) ->
+    tinb_verify_call_count2(L1, [{Pid, 0} | ListWithoutPid], L3, L4).
+
+
+tinb_worker(Tester) ->
+    start = receive M -> M end,
+    tinb_worker(0, Tester).
+
+tinb_worker(Cnt, Tester) ->
+    receive
+        checkpoint ->
+            Tester ! {self(), Cnt},
+            tinb_worker(Cnt, Tester);
+        stop ->
+            Tester ! {self(), stopped},
+            tinb_worker(Tester)
+    after 0 ->
+            ok = tinb_foo(),
+            tinb_worker(Cnt+1, Tester)
+    end.
+
+tinb_get_checkpoints(Pids) ->
+    [P ! checkpoint || P <- Pids],
+    lists:sort([receive {_P, _}=M -> M end || _ <- Pids]).
+
+tinb_stop(Pids) ->
+    [P ! stop || P <- Pids],
+    [receive {_, stopped} -> ok end || _ <- Pids],
+    ok.
+
+tinb_foo() ->
+    ok.
+
+timem_unify({call_time, List}) ->
+    lists:sort([{Pid,Cnt} || {Pid,Cnt,_S,_US} <- List]);
+timem_unify({call_memory, List}) ->
+    lists:sort([{Pid,Cnt} || {Pid,Cnt,_Mem} <- List]).
+
+
+%% Kill process doing trapping call to trace:info(MFA, call_time|call_memory)
+%% to provoke any kind of leakage.
+trace_info_killed(_Config) ->
+    Sched1 = 1,
+    {Tester, Mon} = spawn_opt(fun() -> tik_tester(Sched1) end,
+                              [link, monitor, {scheduler, Sched1}]),
+    {'DOWN', Mon, process, Tester, normal} = receive_any(),
+    ok.
+
+tik_tester(MySched) ->
+    tik_tester_run(MySched, call_time),
+    tik_tester_run(MySched, call_memory),
+    ok.
+
+tik_tester_run(MySched, TraceType) ->
+    %%NScheds = erlang:system_info(schedulers_online),
+    %%OtherSched = (MySched rem NScheds) + 1,
+
+    Tester = self(),
+    MFA = {?MODULE, tik_foo, 0},
+    1 = erlang_trace_pattern(MFA, true, [local, TraceType]),
+
+    {Victim, MRef} = spawn_opt(fun() ->
+                                       Tester ! {self(), ready},
+                                       "go1" = receive_any(),
+                                       tik_foo(),
+                                       "go2" = receive_any(),
+                                       erlang_trace_info(MFA, TraceType),
+                                       "never reached"
+                               end,
+                               [monitor, {scheduler, MySched}]),
+
+    {Victim, ready} = receive_any(),
+
+    %% Trace our victim so we can kill it during trapping
+    1 = erlang_trace(Victim, true, [call]),
+    TraceInfoBIFs = [{erlang, trace_info, 2},
+                     {erts_internal, trace_info, 3}],
+    [begin
+         true = erlang:is_builtin(M,F,A),
+         1 = erlang_trace_pattern(BIF, true, [local])
+     end
+     || {M,F,A}=BIF <- TraceInfoBIFs],
+
+    Victim ! "go1",
+    {trace, Victim, call, {?MODULE, tik_foo, []}} = receive_any(),
+    Victim ! "go2",
+    {trace, Victim, call, {_, trace_info, _}} = receive_any(),
+    erlang:exit(Victim, abort),
+    {'DOWN', MRef, process, Victim, abort} = receive_any(),
+
+    %% Verify trace:info still works ok
+    Result = erlang_trace_info(MFA, TraceType),
+    [{Victim, 1}] = timem_unify(Result),
+
+    %% Cleanup
+    [1 = erlang_trace_pattern(BIF, false, [local]) || BIF <- TraceInfoBIFs],
+    1 = erlang_trace_pattern(MFA, false, [TraceType]),
+    ok.
+
+tik_foo() ->
+    ok.
+
+receive_any() ->
+    receive M -> M end.
