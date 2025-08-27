@@ -453,6 +453,7 @@ scanner, see [`{compiler_internal,term()}`](`m:erl_scan#compiler_interal`).
 		  {'location',StartLocation :: erl_anno:location()} |
                   {'reserved_word_fun', Fun :: fun((atom()) -> boolean())} |
                   {'features', [Feature :: atom()]} |
+                  {'deterministic', boolean()} |
 		  'extra' |
                   {'compiler_internal', [term()]}],
       Form :: erl_parse:abstract_form()
