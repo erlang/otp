@@ -39,7 +39,7 @@
 	 
 	 args_to_config/1, verify_config/2,
 	 start/0, start/1,
-	 stop_follower_nodes/1,
+	 stop_peer_nodes/1,
 	 bind_schedulers/0
         ]).
 
@@ -71,10 +71,10 @@ run() ->
 
 run(Args) ->
     C = args_to_config(Args),
-    FollowerNodes = start_all(C),
+    PeerNodes = start_all(C),
     bench_populate:start(C),
     Result = bench_generate:start(C),
-    stop_follower_nodes(FollowerNodes),
+    stop_peer_nodes(PeerNodes),
     Result.
 
 %% Start Mnesia on the local node
@@ -139,7 +139,7 @@ start_all(Args) ->
     erlang:set_cookie(node(), C#config.cookie),
     ?d("Starting Erlang nodes...~n", []),
     ?d("~n", []),
-    FollowerNodes = do_start_all(Nodes, [], C#config.cookie),
+    PeerNodes = do_start_all(Nodes, [], C#config.cookie),
     Extra = [{extra_db_nodes, Nodes}],
     ?d("~n", []),
     ?d("Starting Mnesia...", []),
@@ -148,7 +148,7 @@ start_all(Args) ->
 	    case [R || R <- Replies, R /= ok] of
 		[] ->
 		    io:format(" ok~n", []),
-                    FollowerNodes;
+                    PeerNodes;
 		Bad ->
 		    io:format(" FAILED: ~p~n", [Bad]),
 		    exit({mnesia_start, Bad})
@@ -175,14 +175,14 @@ do_start_all([Node | Nodes], Acc, Cookie) when is_atom(Node) ->
 		    do_start_all(Nodes, Acc, Cookie);
 		{error, Reason} ->
 		    io:format(" FAILED:~p~n", [Reason]),
-		    stop_follower_nodes(Acc),
-                    exit({follower_start_failed, Reason})
+		    stop_peer_nodes(Acc),
+                    exit({peer_node_start_failed, Reason})
 	    end;
 	_ ->
 	    ?d("    ~s FAILED: "
 	       "Not valid as node name. Must be 'name@host'.~n",
 	       [left(Node)]),
-	    stop_follower_nodes(Acc),
+	    stop_peer_nodes(Acc),
 	    exit({bad_node_name, Node})
     end;
 do_start_all([], StartedNodes, _Cookie) ->
@@ -200,20 +200,20 @@ load_modules(Node) ->
 	end,
     lists:foreach(Fun, [bench, bench_generate, bench_populate, bench_trans]).
 
-stop_follower_nodes([]) ->
+stop_peer_nodes([]) ->
     ok;
-stop_follower_nodes(Nodes) ->
+stop_peer_nodes(Nodes) ->
     ?d("~n", []),
     ?d("Stopping Erlang nodes...~n", []),
     ?d("~n", []),
-    do_stop_follower_nodes(Nodes).
+    do_stop_peer_nodes(Nodes).
 
-do_stop_follower_nodes([Node | Nodes]) ->
+do_stop_peer_nodes([Node | Nodes]) ->
     ?d("    ~s", [left(Node)]),
     Res = peer:stop(Node),
     io:format(" ~p~n", [Res]),
-    do_stop_follower_nodes(Nodes);
-do_stop_follower_nodes([]) ->
+    do_stop_peer_nodes(Nodes);
+do_stop_peer_nodes([]) ->
     ok.
 	    
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
