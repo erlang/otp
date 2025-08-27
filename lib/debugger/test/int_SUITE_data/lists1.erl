@@ -79,7 +79,7 @@ nth(N, [_|T]) when N > 1 ->
 nthtail(1, [H|T]) -> T;
 nthtail(N, [H|T]) when N > 1 ->
     nthtail(N - 1, T);
-nthtail(0, L) when list(L) -> L.
+nthtail(0, L) when is_list(L) -> L.
 
 %% prefix(Prefix, List) -> (true | false)
 
@@ -107,7 +107,7 @@ last([E|Es]) ->
 %%  returns the sequence Min..Max
 %%  Min <= Max and Min and Max must be integers
 
-seq(Min, Max) when integer(Min), integer(Max), Min =< Max ->
+seq(Min, Max) when is_integer(Min), is_integer(Max), Min =< Max ->
     seq(Min, Max, 1, []).
 
 seq(Min, Max, Incr) ->
@@ -125,7 +125,7 @@ sum([], Sum)    -> Sum.
 %% duplicate(N, X) -> [X,X,X,.....,X]  (N times)
 %%   return N copies of X
 
-duplicate(N, X) when integer(N), N >= 0 -> duplicate(N, X, []).
+duplicate(N, X) when is_integer(N), N >= 0 -> duplicate(N, X, []).
 
 duplicate(0, _, L) -> L;
 duplicate(N, X, L) -> duplicate(N-1, X, [X|L]).
@@ -199,10 +199,10 @@ merge([], [], L) ->
 concat(List) ->
     flatmap(fun thing_to_list/1, List).
 
-thing_to_list(X) when integer(X) -> integer_to_list(X);
-thing_to_list(X) when float(X)	 -> float_to_list(X);
-thing_to_list(X) when atom(X)	 -> atom_to_list(X);
-thing_to_list(X) when list(X)	 -> X.		%Assumed to be a string
+thing_to_list(X) when is_integer(X) -> integer_to_list(X);
+thing_to_list(X) when is_float(X)	 -> float_to_list(X);
+thing_to_list(X) when is_atom(X)	 -> atom_to_list(X);
+thing_to_list(X) when is_list(X)	 -> X.  % Assumed to be a string
 
 %% flatten(List)
 %% flatten(List, Tail)
@@ -214,7 +214,7 @@ flatten(List) ->
 flatten(List, Tail) ->
     flatten(List, [], Tail).
 
-flatten([H|T], Cont, Tail) when list(H) ->
+flatten([H|T], Cont, Tail) when is_list(H) ->
     flatten(H, [T|Cont], Tail);
 flatten([H|T], Cont, Tail) ->
     [H|flatten(T, Cont, Tail)];
@@ -234,7 +234,7 @@ flat_length(List) -> flatlength(List).
 flatlength(List) ->
     flatlength(List, 0).
 
-flatlength([H|T], L) when list(H) ->
+flatlength([H|T], L) when is_list(H) ->
     flatlength(H, flatlength(T, L));
 flatlength([H|T], L) ->
     flatlength(T, L + 1);
