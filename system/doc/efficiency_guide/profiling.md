@@ -175,7 +175,7 @@ module basis. `cprof` has a low performance degradation effect (compared with
 
 ### Tool Summary
 
-|                                       | fprof                      | eporf                               | cprof                |
+|                                       | fprof                      | eprof                               | cprof                |
 | ------------------------------------- | -------------------------- | ----------------------------------- | -------------------- |
 | **Results**                           | Per process to screen/file | Per process/function to screen/file | Per module to caller |
 | **Size of Result**                    | Large                      | Medium                              | Small                |
