@@ -1164,10 +1164,12 @@ find_fc_errors([#b_function{bs=Blocks}|Fs], Acc0) ->
 find_fc_errors([], Acc) ->
     Acc.
 
-%%% expand_update_tuple(St0) -> St
-%%%
-%%%   Expands the update_tuple psuedo-instruction into its actual instructions.
-%%%
+%%% Expands the `update_tuple` pseudo-instruction into `setelement/3`
+%%% calls. Provided that the ssa_opt_deoptimize_update_tuple sub-pass
+%%% in beam_ssa_opt has completely broken apart all `update_tuple`
+%%% instructions, this should result in the same number of
+%%% `setelement/3`calls as in the original source code.
+
 expand_update_tuple(#st{ssa=Blocks0,cnt=Count0}=St) ->
     Linear0 = beam_ssa:linearize(Blocks0),
     {Linear, Count} = expand_update_tuple_1(Linear0, Count0, []),
@@ -1179,9 +1181,9 @@ expand_update_tuple_1([{L, #b_blk{is=Is0}=B0} | Bs], Count0, Acc0) ->
         {Is, Count} ->
             expand_update_tuple_1(Bs, Count, [{L, B0#b_blk{is=Is}} | Acc0]);
         {Is, NextIs, Count1} ->
-            %% There are `set_tuple_element` instructions that we must put into
-            %% a new block to avoid separating the `setelement` instruction from
-            %% its `succeeded` instruction.
+            %% There are `setelement/3` calls that we must put into a
+            %% new block to avoid separating the first `setelement/3`
+            %% instruction from its `succeeded` instruction.
             #b_blk{last=Br} = B0,
             #b_br{succ=Succ} = Br,
             NextL = Count1,
@@ -1193,14 +1195,14 @@ expand_update_tuple_1([{L, #b_blk{is=Is0}=B0} | Bs], Count0, Acc0) ->
             expand_update_tuple_1(Bs, Count, Acc)
     end;
 expand_update_tuple_1([], Count, Acc) ->
-    {Acc, Count}.
+    {reverse(Acc), Count}.
 
 expand_update_tuple_is([#b_set{op=update_tuple, args=[Src | Args]}=I0 | Is],
-                        Count0, Acc) ->
+                       Count0, Acc) ->
     {SetElement, Sets, Count} = expand_update_tuple_list(Args, I0, Src, Count0),
     case {Sets, Is} of
-        {[_ | _], [#b_set{op=succeeded}]} ->
-            {reverse(Acc, [SetElement | Is]), reverse(Sets), Count};
+        {[_ | _], [#b_set{op=succeeded}=I]} ->
+            {reverse(Acc, [SetElement, I]), reverse(Sets), Count};
         {_, _} ->
             expand_update_tuple_is(Is, Count, Sets ++ [SetElement | Acc])
     end;
@@ -1209,36 +1211,32 @@ expand_update_tuple_is([I | Is], Count, Acc) ->
 expand_update_tuple_is([], Count, Acc) ->
     {reverse(Acc), Count}.
 
-%% Expands an update_tuple list into setelement/3 + set_tuple_element.
+%% Expands an update_tuple list into a chain of `setelement/3` instructions.
 %%
 %% Note that it returns the instructions in reverse order.
 expand_update_tuple_list(Args, I0, Src, Count0) ->
-    [Index, Value | Rest] = sort_update_tuple(Args, []),
+    SortedUpdates = sort_update_tuple(Args, []),
+    expand_update_tuple_list_1(SortedUpdates, Src, I0, Count0, []).
 
-    %% set_tuple_element is destructive, so we have to start off with a
-    %% setelement/3 call to give them something to work on.
-    I = I0#b_set{op=call,
-                 args=[#b_remote{mod=#b_literal{val=erlang},
-                       name=#b_literal{val=setelement},
-                       arity=3},
-                 Index, Src, Value]},
-    {Sets, Count} = expand_update_tuple_list_1(Rest, I#b_set.dst, Count0, []),
-    {I, Sets, Count}.
-
-expand_update_tuple_list_1([], _Src, Count, Acc) ->
-    {Acc, Count};
-expand_update_tuple_list_1([Index0, Value | Updates], Src, Count0, Acc) ->
-    %% Change to the 0-based indexing used by `set_tuple_element`.
-    Index = #b_literal{val=(Index0#b_literal.val - 1)},
+expand_update_tuple_list_1([Index, Value | Updates], Src, I0, Count0, Acc) ->
     {Dst, Count} = new_var(Count0),
-    SetOp = #b_set{op=set_tuple_element,
-                   dst=Dst,
-                   args=[Value, Src, Index]},
-    expand_update_tuple_list_1(Updates, Src, Count, [SetOp | Acc]).
+    I = I0#b_set{op=call,
+                  dst=Dst,
+                  args=[#b_remote{mod=#b_literal{val=erlang},
+                                  name=#b_literal{val=setelement},
+                                  arity=3},
+                        Index, Src, Value]},
+    expand_update_tuple_list_1(Updates, Dst, I0, Count, [I | Acc]);
+expand_update_tuple_list_1([], _Src, #b_set{dst=Dst}, Count, [I0|Acc]) ->
+    I1 = I0#b_set{dst=Dst},
+    Is0 = [I1|Acc],
+    I = last(Is0),
+    Is = lists:droplast(Is0),
+    {I, Is, Count}.
 
-%% Sorts updates so that the highest index comes first, letting us use
-%% set_tuple_element for all subsequent operations as we know their indexes
-%% will be valid.
+%% Sorts updates so that the highest index comes first letting us use
+%% `setelement/3` calls not followed by `succeeded` for all
+%% subsequent operations as we know that their indices will be valid.
 sort_update_tuple([_Index, _Value]=Args, []) ->
     Args;
 sort_update_tuple([#b_literal{}=Index, Value | Updates], Acc) ->

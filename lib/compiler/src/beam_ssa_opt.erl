@@ -298,7 +298,8 @@ early_epilogue_passes(Opts) ->
     Ps = [?PASS(ssa_opt_type_finish),
           ?PASS(ssa_opt_float),
           ?PASS(ssa_opt_sw),
-          ?PASS(ssa_opt_no_reuse)],
+          ?PASS(ssa_opt_no_reuse),
+          ?PASS(ssa_opt_deoptimize_update_tuple)],
     passes_1(Ps, Opts).
 
 late_epilogue_passes(Opts) ->
@@ -3829,6 +3830,79 @@ cannot_reuse([V|Values], New) ->
     sets:is_element(V, New) orelse cannot_reuse(Values, New);
 cannot_reuse([], _New) ->
     false.
+
+
+%%%
+%%% Undo the merging of `update_tuple` instructions performed by the
+%%% beam_ssa_update_tuple sub-pass. The beam_ssa_pre_codegen pass will soon
+%%% convert each `update_tuple` pseudo-instruction back into a setelement/3
+%%% call. To minimize the number of such calls, each `update_tuple`
+%%% instruction should ideally update only a single element of the tuple.
+%%%
+
+ssa_opt_deoptimize_update_tuple({#opt_st{ssa=Linear0}=St, FuncDb})
+  when is_list(Linear0) ->
+    Linear = deoptimize_update_tuple(Linear0),
+    {St#opt_st{ssa=Linear}, FuncDb}.
+
+deoptimize_update_tuple(Linear) ->
+    Map = #{0 => #{}},
+    deoptimize_update_tuple(Linear, Map).
+
+deoptimize_update_tuple([{L,Blk0}|Bs], Map0) ->
+    Data0 = maps:get(L, Map0, #{}),
+    #b_blk{is=Is0} = Blk0,
+    {Is,Data} = deoptimize_update_tuple_is(Is0, Data0, []),
+    Blk = if
+              Is =:= Is0 -> Blk0;
+              true -> Blk0#b_blk{is=Is}
+          end,
+    Successors = beam_ssa:successors(Blk),
+    Map = dut_update_successors(Successors, Data, Map0),
+    [{L,Blk}|deoptimize_update_tuple(Bs, Map)];
+deoptimize_update_tuple([], _) ->
+    [].
+
+dut_update_successors([L|Ls], Data0, Map) ->
+    case Map of
+        #{L := Data1} ->
+            Data = maps:intersect(Data1, Data0),
+            dut_update_successors(Ls, Data0, Map#{L := Data});
+        #{} ->
+            dut_update_successors(Ls, Data0, Map#{L => Data0})
+    end;
+dut_update_successors([], _, Map) ->
+    Map.
+
+deoptimize_update_tuple_is([#b_set{op=update_tuple,dst=Dst,
+                                   args=Args0}=I0|Is], Data0, Acc) ->
+    [Src|Args1] = Args0,
+    Args = dut_simplify(Src, Args1, Data0),
+    I = I0#b_set{args=Args},
+    Data = Data0#{Dst => {Src,Args1}},
+    deoptimize_update_tuple_is(Is, Data, [I|Acc]);
+deoptimize_update_tuple_is([I|Is], Data, Acc) ->
+    deoptimize_update_tuple_is(Is, Data, [I|Acc]);
+deoptimize_update_tuple_is([], Data, Acc) ->
+    {reverse(Acc),Data}.
+
+dut_simplify(Src, Args0, Data) ->
+    L0 = [{V,dut_simplify_1(Args0, As)} || V := {S,As} <:- Data, S =:= Src],
+    L1 = [{length(As),[V|As]} || {V,As} <:- L0, As =/= none],
+    case sort(L1) of
+        [] ->
+            [Src|Args0];
+        [{_,Args}|_] ->
+            Args
+    end.
+
+dut_simplify_1([P,V|Args], [P,V|As]) ->
+    dut_simplify_1(Args, As);
+dut_simplify_1([_|_]=Args, []) ->
+    Args;
+dut_simplify_1(_, _) ->
+    none.
+
 
 %%%
 %%% Common utilities.

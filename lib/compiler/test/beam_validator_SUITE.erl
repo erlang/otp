@@ -31,7 +31,7 @@
 	 overwrite_catchtag/1,overwrite_trytag/1,accessing_tags/1,bad_catch_try/1,
 	 cons_guard/1,
 	 freg_range/1,freg_uninit/1,
-	 bad_bin_match/1,bad_dsetel/1,
+	 bad_bin_match/1,
 	 state_after_fault_in_catch/1,no_exception_in_catch/1,
 	 undef_label/1,illegal_instruction/1,failing_gc_guard_bif/1,
 	 map_field_lists/1,cover_bin_opt/1,
@@ -70,7 +70,7 @@ groups() ->
        dead_code,
        overwrite_catchtag,overwrite_trytag,accessing_tags,
        bad_catch_try,cons_guard,freg_range,freg_uninit,
-       bad_bin_match,bad_dsetel,
+       bad_bin_match,
        state_after_fault_in_catch,no_exception_in_catch,
        undef_label,illegal_instruction,failing_gc_guard_bif,
        map_field_lists,cover_bin_opt,val_dsetel,
@@ -297,14 +297,6 @@ freg_uninit(Config) when is_list(Config) ->
 bad_bin_match(Config) when is_list(Config) ->
     [{{t,t,1},{return,5,{match_context,{x,0}}}}] =
 	do_val(bad_bin_match, Config),
-    ok.
-
-bad_dsetel(Config) when is_list(Config) ->
-    Errors = do_val(bad_dsetel, Config),
-    [{{t,t,1},
-      {{set_tuple_element,{x,1},{x,0},1},
-       17,
-       illegal_context_for_set_tuple_element}}] = Errors,
     ok.
 
 state_after_fault_in_catch(Config) when is_list(Config) ->
