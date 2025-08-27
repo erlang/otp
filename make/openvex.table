@@ -73,7 +73,7 @@
                 }
     },
     {
-      "pkg:otp/ssh@5.1.4.7": "CVE-2025-32433",
+      "pkg:otp/ssh@5.0": "CVE-2025-32433",
       "status": { "affected": "A temporary workaround involves disabling the SSH server or to prevent access via firewall rules.",
                   "fixed": ["pkg:otp/ssh@5.1.4.8"]
                 }
@@ -97,7 +97,7 @@
                 }
     },
     {
-      "pkg:otp/ssl@11.1": "CVE-2025-53846",
+      "pkg:otp/ssl@11.1": "CVE-2024-53846",
       "status": { "affected": "Update to ssl@11.1.4.6",
                   "fixed": ["pkg:otp/ssl@11.1.4.6"]
                 }
@@ -171,7 +171,7 @@
                 }
     },
     {
-      "pkg:otp/ssh@5.2.9": "CVE-2025-32433",
+      "pkg:otp/ssh@5.2": "CVE-2025-32433",
       "status": { "affected": "A temporary workaround involves disabling the SSH server or to prevent access via firewall rules.",
                   "fixed": ["pkg:otp/ssh@5.2.10"]
                 }
@@ -195,7 +195,7 @@
                 }
     },
     {
-      "pkg:otp/ssl@11.2": "CVE-2025-53846",
+      "pkg:otp/ssl@11.2": "CVE-2024-53846",
       "status": { "affected": "Update to ssl@11.2.5",
                   "fixed": ["pkg:otp/ssl@11.2.5"]
                 }
