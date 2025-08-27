@@ -1,4 +1,4 @@
-;;;    -*- Emacs-Lisp -*- 
+;;; erlang-skels.el   -*- lexical-binding: t; -*-
 
 ;; %CopyrightBegin%
 ;;
@@ -23,6 +23,10 @@
 ;;;
 ;;; Purpose: Provide Erlang code skeletons.
 ;;; See 'erlang-skel-file' variable.
+
+;; (eval-when-compile
+;;   (let ((erlang-skels-loading-for-compilation t))
+;;     (load "erlang")))
 
 (defvar erlang-tempo-tags nil
   "Tempo tags for erlang mode")
@@ -1956,6 +1960,16 @@ Please see the function `tempo-define-template'.")
 
 ;; This code is based on the package `tempo' which is part of modern
 ;; Emacsen.  (GNU Emacs 19.25 (?) and XEmacs 19.14.)
+
+(declare-function erlang-menu-init "erlang")
+(declare-function erlang-menu-add-above "erlang")
+(declare-function erlang-beginning-of-function "erlang")
+(declare-function erlang-get-function-name "erlang")
+(declare-function erlang-get-function-arguments "erlang")
+
+;; Forward declarations
+(defvar erlang-menu-items)
+(defvar erlang-menu-skel-items)
 
 (defun erlang-skel-init ()
   "Generate the skeleton functions and menu items.
