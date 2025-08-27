@@ -222,6 +222,17 @@ handle_data(Type, ChannelId, Data0, State = #state{pending = Pending}) ->
             handle_data(Type, ChannelId, Data, State#state{pending = <<>>})
     end.
 
+%% From draft-ietf-secsh-filexfer-02 "The file handle strings MUST NOT be longer than 256 bytes."
+handle_op(Request, ReqId, <<?UINT32(HLen), _/binary>>, State = #state{xf = XF})
+  when (Request == ?SSH_FXP_CLOSE orelse
+        Request == ?SSH_FXP_FSETSTAT orelse
+        Request == ?SSH_FXP_FSTAT orelse
+        Request == ?SSH_FXP_READ orelse
+        Request == ?SSH_FXP_READDIR orelse
+        Request == ?SSH_FXP_WRITE),
+       HLen > 256 ->
+    ssh_xfer:xf_send_status(XF, ReqId, ?SSH_FX_INVALID_HANDLE, "Invalid handle"),
+    State;
 handle_op(?SSH_FXP_INIT, Version, B, State) when is_binary(B) ->
     XF = State#state.xf,
     Vsn = lists:min([XF#ssh_xfer.vsn, Version]),
