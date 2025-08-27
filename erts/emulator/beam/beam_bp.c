@@ -175,7 +175,6 @@ static void bp_hash_dealloc(bp_trace_hash_t *hash);
 void 
 erts_bp_init(void) {
     erts_atomic32_init_nob(&erts_active_bp_index, 0);
-    erts_atomic32_init_nob(&erts_staging_bp_index, 1);
     erts_mtx_init(&erts_dirty_bp_ix_mtx, "dirty_break_point_index", NIL,
         ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_DEBUG);
 }
@@ -510,11 +509,10 @@ consolidate_bp_data_session(GenericBp* g)
 void
 erts_commit_staged_bp(void)
 {
-    ErtsBpIndex staging = erts_staging_bp_ix();
-    ErtsBpIndex active = erts_active_bp_ix();
+    const ErtsBpIndex new_active = erts_active_bp_ix() ^ 1;
 
-    erts_atomic32_set_nob(&erts_active_bp_index, staging);
-    erts_atomic32_set_nob(&erts_staging_bp_index, active);
+    ASSERT(new_active < 2);
+    erts_atomic32_set_nob(&erts_active_bp_index, new_active);
 }
 
 void

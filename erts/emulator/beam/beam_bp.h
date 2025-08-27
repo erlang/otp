@@ -223,7 +223,7 @@ ERTS_GLB_INLINE ErtsBpIndex erts_active_bp_ix(void)
 
 ERTS_GLB_INLINE ErtsBpIndex erts_staging_bp_ix(void)
 {
-    return erts_atomic32_read_nob(&erts_staging_bp_index);
+    return erts_atomic32_read_nob(&erts_active_bp_index) ^ 1;
 }
 
 ERTS_GLB_INLINE
