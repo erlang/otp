@@ -221,6 +221,7 @@ ERL_NIF_API_FUNC_DECL(ErlNifTermType,enif_term_type,(ErlNifEnv* env, ERL_NIF_TER
 ERL_NIF_API_FUNC_DECL(ErlNifResourceType*,enif_init_resource_type,(ErlNifEnv*, const char* name_str, const ErlNifResourceTypeInit*, ErlNifResourceFlags flags, ErlNifResourceFlags* tried));
 ERL_NIF_API_FUNC_DECL(int,enif_dynamic_resource_call,(ErlNifEnv*, ERL_NIF_TERM mod, ERL_NIF_TERM name, ERL_NIF_TERM rsrc, void* call_data));
 
+ERL_NIF_API_FUNC_DECL(int, enif_dist_ctrl_put_data, (ErlNifEnv *env, ERL_NIF_TERM dist_handle, ErlNifBinary *bin));
 ERL_NIF_API_FUNC_DECL(int, enif_get_string_length, (ErlNifEnv *env, ERL_NIF_TERM list, unsigned *len, ErlNifCharEncoding encoding));
 ERL_NIF_API_FUNC_DECL(int, enif_make_new_atom, (ErlNifEnv *env, const char *name, ERL_NIF_TERM *atom, ErlNifCharEncoding encoding));
 ERL_NIF_API_FUNC_DECL(int, enif_make_new_atom_len, (ErlNifEnv *env, const char *name, size_t len, ERL_NIF_TERM *atom, ErlNifCharEncoding encoding));
@@ -415,6 +416,7 @@ ERL_NIF_API_FUNC_DECL(int, enif_set_option, (ErlNifEnv *env, ErlNifOption opt, .
 #  define enif_term_type ERL_NIF_API_FUNC_MACRO(enif_term_type)
 #  define enif_init_resource_type ERL_NIF_API_FUNC_MACRO(enif_init_resource_type)
 #  define enif_dynamic_resource_call ERL_NIF_API_FUNC_MACRO(enif_dynamic_resource_call)
+#  define enif_dist_ctrl_put_data ERL_NIF_API_FUNC_MACRO(enif_dist_ctrl_put_data)
 #  define enif_get_string_length ERL_NIF_API_FUNC_MACRO(enif_get_string_length)
 #  define enif_make_new_atom ERL_NIF_API_FUNC_MACRO(enif_make_new_atom)
 #  define enif_make_new_atom_len ERL_NIF_API_FUNC_MACRO(enif_make_new_atom_len)
