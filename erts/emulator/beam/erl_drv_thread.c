@@ -733,14 +733,6 @@ erl_drv_thread_join(ErlDrvTid tid, void **respp)
 extern int erts_darwin_main_thread_pipe[2];
 extern int erts_darwin_main_thread_result_pipe[2];
 
-int erl_drv_stolen_main_thread_join(ErlDrvTid tid, void **respp);
-int erl_drv_steal_main_thread(char *name,
-			      ErlDrvTid *dtid,
-			      void* (*func)(void*),
-			      void* arg,
-			      ErlDrvThreadOpts *opts);
-
-
 int
 erl_drv_stolen_main_thread_join(ErlDrvTid tid, void **respp)
 {
