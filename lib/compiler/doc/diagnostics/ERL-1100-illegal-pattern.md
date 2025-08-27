@@ -1,0 +1,1 @@
+# ERL-1100 - Illegal pattern
