@@ -713,8 +713,8 @@ set_options(Options, Profile) when is_atom(Profile) orelse is_pid(Profile) ->
                                        max_sessions, max_connections_open], Profile),
         IpFamily = proplists:get_value(ipfamily, CurrOpts),
         UnixSock = proplists:get_value(unix_socket, CurrOpts),
-        MaxSessions = get_option(max_sessions, CurrOpts),
-        MaxConnectionsOpen = get_option(max_connections_open, CurrOpts),
+        MaxSessions = proplists:get_value(max_sessions, CurrOpts),
+        MaxConnectionsOpen = proplists:get_value(max_connections_open, CurrOpts),
             
         {ok, Opts} ?= validate_options(Options, IpFamily, UnixSock, MaxSessions, MaxConnectionsOpen),
         try
@@ -1666,7 +1666,7 @@ validate_options([{max_sessions, Value} = Opt| Tail], Acc) ->
     validate_max_sessions(Value),
     validate_options(Tail, [Opt | Acc]);
 
-validate_options([{max_connections_open, Value} = Opt| Tail], Acc) ->
+validate_options([{max_connections_open, Value} = Opt | Tail], Acc) ->
     validate_max_connections_open(Value),
     validate_options(Tail, [Opt | Acc]);
 
@@ -1745,9 +1745,9 @@ validate_max_sessions(Value) when is_integer(Value) andalso (Value >= 0) ->
 validate_max_sessions(BadValue) ->
     bad_option(max_sessions, BadValue).
 
-validate_max_connections_open(Value) when
-    (is_integer(Value) andalso (Value > 0)) orelse
-    Value =:= infinity ->
+validate_max_connections_open(Value)
+  when (is_integer(Value) andalso (Value > 0)) orelse
+       Value =:= infinity ->
     Value;
 validate_max_connections_open(BadValue) ->
     bad_option(max_connections_open, BadValue).
