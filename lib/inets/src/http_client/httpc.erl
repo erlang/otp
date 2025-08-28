@@ -1665,7 +1665,7 @@ validate_options([{max_sessions, Value} = Opt| Tail], Acc) ->
     validate_max_sessions(Value),
     validate_options(Tail, [Opt | Acc]);
 
-validate_options([{max_connections_open, Value} = Opt| Tail], Acc) ->
+validate_options([{max_connections_open, Value} = Opt | Tail], Acc) ->
     validate_max_connections_open(Value),
     validate_options(Tail, [Opt | Acc]);
 
@@ -1744,9 +1744,9 @@ validate_max_sessions(Value) when is_integer(Value) andalso (Value >= 0) ->
 validate_max_sessions(BadValue) ->
     bad_option(max_sessions, BadValue).
 
-validate_max_connections_open(Value) when
-    (is_integer(Value) andalso (Value > 0)) orelse
-    Value =:= infinity ->
+validate_max_connections_open(Value)
+  when (is_integer(Value) andalso (Value > 0)) orelse
+       Value =:= infinity ->
     Value;
 validate_max_connections_open(BadValue) ->
     bad_option(max_connections_open, BadValue).
