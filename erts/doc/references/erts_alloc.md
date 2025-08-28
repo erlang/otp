@@ -413,6 +413,9 @@ identifier is effected.
   used. The value chosen depends on the allocator type and can be changed
   between ERTS versions.
 
+  On Unix flag [`+Mumadtn`](erts_alloc.md#Mumadtn) may also be set to pass
+  `MADV_DONTNEED` instead of `MADV_FREE` as argument to `madvise()`.
+
   See also [`acul`](erts_alloc.md#M_acul).
 
 - **`+M<S>as bf|aobf|aoff|aoffcbf|aoffcaobf|ageffcaoff|ageffcbf|ageffcaobf|gf|af`{:
@@ -473,7 +476,7 @@ identifier is effected.
   Besides passing carrier pool name as value to the parameter, you can also pass
   `:`. By passing `:` instead of carrier pool name, the allocator will use the
   carrier pool associated with itself. By passing the command line argument
-  "`+Mucg :`", all allocators that have an associated carrier pool will use the
+  "`+Mucp :`", all allocators that have an associated carrier pool will use the
   carrier pool associated with themselves.
 
   The association between carrier pool and allocator is very loose. The
@@ -580,6 +583,11 @@ All allocators based on `alloc_util` are effected.
 - **`+Musac <bool>`{: #Musac }** - Allow `sys_alloc` carriers. Defaults to
   `true`. If set to `false`, `sys_alloc` carriers are never created by
   allocators using the `alloc_util` framework.
+
+- **`+Mumadtn <bool>`{: #Mumadtn }** - Control how to mark memory as re-usable
+  on Unix when [`+M<S>acful`](erts_alloc.md#M_acful) is set. Default is `false`
+  which means `MADV_FREE` is passed to `madvise()`. If set to `true`,
+  `MADV_DONTNEED` is passed instead.
 
 ### Special Flag for literal_alloc
 

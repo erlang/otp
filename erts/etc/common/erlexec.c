@@ -100,6 +100,7 @@ static char *plusM_au_alloc_switches[] = {
 /* +M other arguments */
 static char *plusM_other_switches[] = {
     "ea",
+    "umadtn",
     "ummc",
     "uycs",
     "usac",

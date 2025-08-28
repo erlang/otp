@@ -34,6 +34,13 @@
 #include <sys/mman.h>
 #endif
 
+#if defined(HAVE_MADVISE) && defined(MADV_FREE)
+/* Note that we don't default to MADV_DONTNEED since it promises that
+ * the given region will be zeroed on access, which turned out to be
+ * too much of a performance hit. */
+int erts_madvise_discard_advice = MADV_FREE;
+#endif
+
 int erts_mem_guard(void *p, UWord size, int readable, int writable) {
 
 #if defined(WIN32)
