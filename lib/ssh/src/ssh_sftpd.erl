@@ -58,7 +58,7 @@ Specifies a channel process to handle an SFTP subsystem.
 	  pending,                      % binary() 
 	  file_handler,			% atom() - callback module 
 	  file_state,                   % state for the file callback module
-	  max_files,                    % integer >= 0 max no files sent during READDIR
+	  max_files,                    % integer >= 0 or infinity - max no files sent during READDIR
 	  options,			% from the subsystem declaration
 	  handles			% list of open handles
 	  %% handle is either {<int>, directory, {Path, unread|eof}} or
@@ -84,9 +84,11 @@ Options:
   `m:filelib` APIs to access the standard OTP file server. This option can be
   used to plug in other file servers.
 
-- **`max_files`** - The default value is `0`, which means that there is no upper
-  limit. If supplied, the number of filenames returned to the SFTP client per
-  `READDIR` request is limited to at most the given value.
+- **`max_files`** - The default value is `infinity`, which means that
+  there is no upper limit. If supplied, the number of filenames
+  returned to the SFTP client per `READDIR` request is limited to at
+  most the given value. Note that `0` is equivalent to `infinity` and
+  kept for backward compatibility.
 
 - **`root`** - Sets the SFTP root directory. Then the user cannot see any files
   above this root. If, for example, the root directory is set to `/tmp`, then
@@ -99,7 +101,7 @@ Options:
 -spec subsystem_spec(Options) -> Spec when
       Options :: [ {cwd, string()} |
                    {file_handler, CbMod | {CbMod, FileState}} |
-                   {max_files, integer()} |
+                   {max_files, integer() | infinity} |
                    {root, string()} |
                    {sftpd_vsn, integer()}
                  ],
@@ -150,9 +152,9 @@ init(Options) ->
 	    {{error, _}, State0} ->
 		{Root0, State0}
 	end,
-    MaxLength = proplists:get_value(max_files, Options, 0),
+    MaxFiles = proplists:get_value(max_files, Options, infinity),
     Vsn = proplists:get_value(sftpd_vsn, Options, 5),
-    {ok,  State#state{cwd = CWD, root = Root, max_files = MaxLength,
+    {ok,  State#state{cwd = CWD, root = Root, max_files = MaxFiles,
 		      options = Options,
 		      handles = [], pending = <<>>,
 		      xf = #ssh_xfer{vsn = Vsn, ext = []}}}.
@@ -515,12 +517,12 @@ get_handle(Handles, BinHandle) ->
     end.
 
 %%% read_dir/5: read directory, send names, and return new state
-read_dir(State0 = #state{file_handler = FileMod, max_files = MaxLength, file_state = FS0},
+read_dir(State0 = #state{file_handler = FileMod, max_files = MaxFiles, file_state = FS0},
 	 XF = #ssh_xfer{cm = _CM, channel = _Channel, vsn = Vsn}, ReqId, Handle, RelPath, {cache, Files}) ->
     AbsPath = relate_file_name(RelPath, State0),
     if
-	length(Files) > MaxLength ->
-	    {ToSend, NewCache} = lists:split(MaxLength, Files),
+	length(Files) > MaxFiles ->
+	    {ToSend, NewCache} = lists:split(MaxFiles, Files),
 	    {NamesAndAttrs, FS1} = get_attrs(AbsPath, ToSend, FileMod, FS0, Vsn),
 	    ssh_xfer:xf_send_names(XF, ReqId, NamesAndAttrs),
 	    Handles = lists:keyreplace(Handle, 1,
@@ -535,12 +537,14 @@ read_dir(State0 = #state{file_handler = FileMod, max_files = MaxLength, file_sta
 				       {Handle, directory, {RelPath,eof}}),
 	    State0#state{handles = Handles, file_state = FS1}
     end;
-read_dir(State0 = #state{file_handler = FileMod, max_files = MaxLength, file_state = FS0},
+read_dir(State0 = #state{file_handler = FileMod, max_files = MaxFiles, file_state = FS0},
 	 XF = #ssh_xfer{cm = _CM, channel = _Channel, vsn = Vsn}, ReqId, Handle, RelPath, _Status) ->
     AbsPath = relate_file_name(RelPath, State0),
     {Res, FS1} = FileMod:list_dir(AbsPath, FS0),
     case Res of
-	{ok, Files} when MaxLength == 0 orelse MaxLength > length(Files) ->
+        %% when MaxFiles is set to infinity 2nd condition below is
+        %% always true so it behaves as for 0
+	{ok, Files} when MaxFiles == 0 orelse length(Files) < MaxFiles ->
 	    {NamesAndAttrs, FS2} = get_attrs(AbsPath, Files, FileMod, FS1, Vsn),
 	    ssh_xfer:xf_send_names(XF, ReqId, NamesAndAttrs),
 	    Handles = lists:keyreplace(Handle, 1,
@@ -548,7 +552,7 @@ read_dir(State0 = #state{file_handler = FileMod, max_files = MaxLength, file_sta
 				       {Handle, directory, {RelPath,eof}}),
 	    State0#state{handles = Handles, file_state = FS2};
 	{ok, Files} ->
-	    {ToSend, Cache} = lists:split(MaxLength, Files),
+	    {ToSend, Cache} = lists:split(MaxFiles, Files),
 	    {NamesAndAttrs, FS2} = get_attrs(AbsPath, ToSend, FileMod, FS1, Vsn),
 	    ssh_xfer:xf_send_names(XF, ReqId, NamesAndAttrs),
 	    Handles = lists:keyreplace(Handle, 1,
