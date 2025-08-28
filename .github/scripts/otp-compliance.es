@@ -1505,22 +1505,33 @@ get_otp_openvex_file(Branch) ->
 
 fetch_openvex_filename(Branch) ->
     _ = valid_scan_branches(Branch),
-    Version = case Branch of
-                  ~"master" ->
-                      %% Master corresponds to possible patched versions of OTP_VERSION-1.
-                      VersionNumber = erlang:list_to_integer(string:trim(os:cmd("cat OTP_VERSION | cut -d. -f1"))),
-                      BinVersionNumber = erlang:integer_to_binary(VersionNumber-1),
-                      <<"otp-", BinVersionNumber/binary>>;
-                  <<"maint-", Vers/binary>> ->
-                      <<"otp-", Vers/binary>>
-              end,
+    Version = maint_to_otp_conversion(Branch),
     vex_path(Version).
+fetch_openvex_filename(Branch, VexPath) ->
+    _ = valid_scan_branches(Branch),
+    Version = maint_to_otp_conversion(Branch),
+    vex_path(VexPath, Version).
+
+maint_to_otp_conversion(Branch) ->
+    case Branch of
+        ~"master" ->
+            %% Master corresponds to possible patched versions of OTP_VERSION-1.
+            VersionNumber = erlang:list_to_integer(string:trim(os:cmd("cat OTP_VERSION | cut -d. -f1"))),
+            BinVersionNumber = erlang:integer_to_binary(VersionNumber-1),
+            <<"otp-", BinVersionNumber/binary>>;
+        <<"maint-", Vers/binary>> ->
+            <<"otp-", Vers/binary>>;
+        <<"otp-", _Vers/binary>>=OTP ->
+            OTP
+    end.
 
 valid_scan_branches(Branch) ->
     case Branch of
         ~"master" ->
             ok;
         <<"maint-", _Vers/binary>> ->
+            ok;
+        <<"otp-", _Vers/binary>> ->
             ok;
         _ ->
             fail("[ERROR] Valid branch names are `master` or `maint-XX`.~n'~s' is neither of them", [Branch])
@@ -2401,8 +2412,9 @@ run_openvex1(VexStmts, VexTableFile, Branch, VexPath) ->
     lists:foreach(fun (St) -> io:format("~ts", [St]) end, Statements).
 
 verify_openvex(#{branch := Branch, vex_path := VexPath}) ->
-    OpenVEX = read_openvex(VexPath, Branch),
-    Advisory = download_advisory_from_branch(Branch),
+    UpdatedBranch = maint_to_otp_conversion(Branch),
+    OpenVEX = read_openvex(VexPath, UpdatedBranch),
+    Advisory = download_advisory_from_branch(UpdatedBranch),
     case verify_advisory_against_openvex(OpenVEX, Advisory) of
         [] ->
             ok;
@@ -2411,7 +2423,7 @@ verify_openvex(#{branch := Branch, vex_path := VexPath}) ->
     end.
 
 read_openvex(VexPath, Branch) ->
-    InitVex = vex_path(VexPath, Branch),
+    InitVex = fetch_openvex_filename(Branch, VexPath),
     case filelib:is_file(InitVex) of
         true -> % file exists
             decode(InitVex);
