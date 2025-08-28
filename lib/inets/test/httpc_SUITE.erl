@@ -290,13 +290,27 @@ init_per_group(Group, Config0) when Group == http_ipv6;
         false ->
             {skip, "Host does not support IPv6"}
      end;
-init_per_group(http_high_load, Config0) ->
-    Config0;
-init_per_group(https_high_load, Config0) ->
-    start_apps(https_high_load),
-    application:ensure_all_started([asn1, crypto, public_key, ssl]),
-    Config = init_ssl(Config0),
-    Config;
+init_per_group(Group, Config0) when
+      Group =:= http_high_load orelse
+      Group =:= https_high_load ->
+    Config = case Group of
+                 https_high_load ->
+                     start_apps(https_high_load),
+                     application:ensure_all_started([asn1, crypto, public_key, ssl]),
+                     Config1 = init_ssl(Config0),
+                     [{socket_type, ssl} | Config1];
+                 _ -> [{socket_type, gen_tcp} | Config0]
+             end,
+    SocketType = proplists:get_value(socket_type, Config),
+    Self = self(),
+    SslConfig = proplists:get_value(ssl_conf, Config, []),
+    ServerConfig = proplists:get_value(server_config, SslConfig, []),
+    ListenerPid = spawn(fun() -> open_big_data_socket(SocketType, Self, ServerConfig) end),
+    ListenPort = receive
+                     {started_listen, Port} -> Port
+                 end,
+    FinalConfig = proplists:delete(port, Config),
+    [{port, ListenPort}, {listener, ListenerPid} | FinalConfig];
 init_per_group(Group, Config0) ->
     start_apps(Group),
     Config = proplists:delete(port, Config0),
@@ -359,30 +373,27 @@ init_per_testcase(Name, Config) when Name == pipeline; Name == persistent_connec
     [{profile, Name} | Config];
 init_per_testcase(remote_socket_close_high_load = Case, Config0) ->
     Profile = Case,
-    {ok, _Pid} = inets:start(httpc, [{profile, Profile}]),
-    MaxConnectionsOpen = 1,
+    {ok, _} = inets:start(httpc, [{profile, Profile}]),
+    application:start(os_mon),
+    MemData = memsup:get_system_memory_data(),
+    application:stop(os_mon),
+    FreeMem = proplists:get_value(free_memory, MemData),
+    MemoryProfile = tprof:profile(?MODULE, request, [[{client_id, 0} | Config0]],
+                                  #{report => return, type => call_memory}),
+    {_CallResult, {call_memory, CallMemory}} = MemoryProfile,
+    WordsPerOneConnection = lists:foldl(fun(Element, Words) ->
+                                                {_Module, _Fun, _Arity, [{_Pid, _Count, UsedWords}]} = Element,
+                                                Words + UsedWords
+                                        end, 0, CallMemory),
+    MEMORY_FOR_ONE_CONNECTION = WordsPerOneConnection * erlang:system_info(wordsize),
+    %% To find an optimal point between execution speed of testcase and test stability
+    %% across different machines we try to use about 80% of free resources available
+    %% on the system
+    MaxConnectionsOpen = trunc((FreeMem div MEMORY_FOR_ONE_CONNECTION) * 0.8),
     Config = [{profile, Profile}, {max_connections_open, MaxConnectionsOpen} | Config0],
     GivenOptions = proplists:get_value(httpc_options, Config, []),
     ok = httpc:set_options([{max_connections_open, MaxConnectionsOpen} | GivenOptions], Profile),
-    case group_name(Config) of
-        Group when Group == http_high_load orelse Group == https_high_load ->
-            SocketType =
-                case group_name(Config) of
-                    https_high_load -> ssl;
-                    _ -> gen_tcp
-                end,
-            Self = self(),
-            SslConfig = proplists:get_value(ssl_conf, Config, []),
-            ServerConfig = proplists:get_value(server_config, SslConfig, []),
-            ListenerPid = spawn(fun() -> open_big_data_socket(SocketType, Self, ServerConfig) end),
-            ListenPort = receive
-                             {started_listen, Port} -> Port
-                         end,
-            Config1 = proplists:delete(port, Config),
-            [{port, ListenPort}, {listener, ListenerPid} | Config1];
-        _ ->
-            Config
-    end;
+    Config;
 init_per_testcase(Case, Config) ->
     {ok, _Pid} = inets:start(httpc, [{profile, Case}]),
     GivenOptions = proplists:get_value(httpc_options, Config, []),
@@ -2129,8 +2140,9 @@ remote_socket_close_high_load(Config0) when is_list(Config0) ->
         true -> ok;
         _ -> ct:fail("max_connections_open option not set")
     end,
-    ClientNumber = 100,
+    ClientNumber = 300,
     Config = [{iterations, 1} | Config0],
+    ct:log("Executing a memory heavy test. This may take a while"),
     ClientPids =
         [spawn_link(?MODULE, connect, [self(), [{client_id, Id} | Config]]) ||
             Id <- lists:seq(1, ClientNumber)],
