@@ -97,12 +97,10 @@ void BeamGlobalAssembler::emit_process_main() {
      *
      * The *next* instruction pointer is provided in ARG3, and must be preceded
      * by an ErtsCodeMFA.
-     *
-     * The X registers are expected to be in CPU registers.
      */
     a.bind(labels[context_switch]);
     {
-        emit_enter_runtime<Update::eStack | Update::eHeap | Update::eXRegs>();
+        emit_enter_runtime<Update::eStack | Update::eHeap>();
 
         a.b(context_switch_local);
     }
@@ -112,12 +110,10 @@ void BeamGlobalAssembler::emit_process_main() {
      * The next instruction pointer is provided in ARG3, which does not need to
      * point past an ErtsCodeMFA as the process structure has already been
      * updated.
-     *
-     * The X registers are expected to be in CPU registers.
      */
     a.bind(labels[context_switch_simplified]);
     {
-        emit_enter_runtime<Update::eStack | Update::eHeap | Update::eXRegs>();
+        emit_enter_runtime<Update::eStack | Update::eHeap>();
 
         a.b(context_switch_simplified_local);
     }
@@ -125,12 +121,10 @@ void BeamGlobalAssembler::emit_process_main() {
     /* `ga->get_do_schedule()`
      *
      * `c_p->i` must be set prior to jumping here.
-     *
-     * The X registers are expected to be in CPU registers.
      */
     a.bind(labels[do_schedule]);
     {
-        emit_enter_runtime<Update::eStack | Update::eHeap | Update::eXRegs>();
+        emit_enter_runtime<Update::eStack | Update::eHeap>();
 
         a.b(do_schedule_local);
     }
