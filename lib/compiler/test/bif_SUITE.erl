@@ -30,7 +30,8 @@
          cover_trim/1,
          head_tail/1,
          min_max/1,
-         non_throwing/1]).
+         non_throwing/1,
+         setelement/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]}].
@@ -47,7 +48,8 @@ groups() ->
        cover_trim,
        head_tail,
        min_max,
-       non_throwing
+       non_throwing,
+       setelement
       ]}].
 
 init_per_suite(Config) ->
@@ -358,6 +360,30 @@ thing_to_existing_atom(Bin0) ->
         true ->
             Res
     end.
+
+setelement(Config) ->
+    do_setelement(Config, []),
+    do_setelement(Config, [no_ssa_opt_deoptimize_update_tuple]),
+    ok.
+
+do_setelement(Config, ExtraOpts) ->
+    DataDir = test_lib:get_data_dir(Config),
+
+    Mod = test_setelement,
+
+    File = filename:join(DataDir, atom_to_list(Mod)) ++ ".erl",
+
+    io:format("Extra options: ~p\n", [ExtraOpts]),
+
+    {ok,Mod,Code} = compile:file(File, [report,binary|ExtraOpts]),
+    {module,Mod} = code:load_binary(Mod, "", Code),
+
+    ok = Mod:Mod(),
+
+    true = code:delete(Mod),
+    false = code:purge(Mod),
+
+    ok.
 
 %%%
 %%% Common utilities.
