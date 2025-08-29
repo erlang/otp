@@ -985,13 +985,14 @@ regardless of the outcome (success, failures, timeouts, etc.).
 
 To make the descriptions simpler, we first list some definitions:
 
-| `Setup`        | `() -> (R::any())`              |
-| -------------- | ------------------------------- | ---------------------------------------------- | ---------------------- |
-| `SetupX`       | `(X::any()) -> (R::any())`      |
-| `Cleanup`      | `(R::any()) -> any()`           |
-| `CleanupX`     | `(X::any(), R::any()) -> any()` |
-| `Instantiator` | `((R::any()) -> Tests)          | {with, [AbstractTestFun::((any()) -> any())]}` |
-| `Where`        | `local                          | spawn                                          | {spawn, Node::atom()}` |
+|                |                                                                            |
+| -------------- | -------------------------------------------------------------------------- |
+| `Setup`        | `() -> (R::any())`                                                         |
+| `SetupX`       | `(X::any()) -> (R::any())`                                                 |
+| `Cleanup`      | `(R::any()) -> any()`                                                      |
+| `CleanupX`     | `(X::any(), R::any()) -> any()`                                            |
+| `Instantiator` | `((R::any()) -> Tests)` \| `{with, [AbstractTestFun::((any()) -> any())]}` |
+| `Where`        | `local` \| `spawn` \| `{spawn, Node::atom()}`                              |
 
 (these are explained in more detail further below.)
 
