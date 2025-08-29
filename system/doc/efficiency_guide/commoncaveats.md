@@ -274,38 +274,44 @@ list.
 
 [`setelement/3`](`erlang:setelement/3`) copies the tuple it modifies. Therefore,
 updating a tuple in a loop using [`setelement/3`](`setelement/3`) creates a new
-copy of the tuple every time.
+copy of the tuple on each iteration.
 
-There is one exception to the rule that the tuple is copied. If the compiler
-clearly can see that destructively updating the tuple would give the same result
-as if the tuple was copied, the call to [`setelement/3`](`setelement/3`) is
-replaced with a special destructive `setelement` instruction. In the following
-code sequence, the first [`setelement/3`](`setelement/3`) call copies the tuple
-and modifies the ninth element:
+### Compiler optimizations of setelement/3
+
+Under certain conditions, the compiler can coalesce multiple calls to
+[`setelement/3`](`setelement/3`) into a single operation, avoiding
+the cost of copying the tuple for each call.
+
+For example:
 
 ```erlang
 multiple_setelement(T0) when tuple_size(T0) =:= 9 ->
-    T1 = setelement(9, T0, bar),
+    T1 = setelement(5, T0, new_value),
     T2 = setelement(7, T1, foobar),
-    setelement(5, T2, new_value).
+    setelement(9, T2, bar).
 ```
 
-The two following [`setelement/3`](`setelement/3`) calls modify the tuple in
-place.
+The compiler will replace the three `setelement/3` calls with code that
+copies the tuple once and updates the elements at positions 5, 7, and 9.
 
-For the optimization to be applied, _all_ the following conditions must be true:
+Starting with Erlang/OTP 26, the following conditions must be met for
+[`setelement/3`](`setelement/3`) calls to be coalesced into a single
+operation:
 
-- The tuple argument must be known to be a tuple of a known size.
-- The indices must be integer literals, not variables or expressions.
-- The indices must be given in descending order.
-- There must be no calls to another function in between the calls to
+- The tuple argument must be known at compile time to be a tuple of a
+  specific size.
+
+- The element indices must be integer literals, not variables or expressions.
+
+- There must be no intervening expressions between the calls to
   [`setelement/3`](`setelement/3`).
-- The tuple returned from one [`setelement/3`](`setelement/3`) call must only be
-  used in the subsequent call to [`setelement/3`](`setelement/3`).
 
-If the code cannot be structured as in the `multiple_setelement/1` example, the
-best way to modify multiple elements in a large tuple is to convert the tuple to
-a list, modify the list, and convert it back to a tuple.
+- The tuple returned from one [`setelement/3`](`setelement/3`) call must be
+  used only in the subsequent [`setelement/3`](`setelement/3`) call.
+
+Before Erlang/OTP 26, an additional condition was that
+[`setelement/3`](`setelement/3`) calls had to be made in descending
+order of indices.
 
 ## size/1
 
