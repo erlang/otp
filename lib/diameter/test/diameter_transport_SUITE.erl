@@ -47,6 +47,9 @@
          reconnect/1,
          init/2]).
 
+-export([message_client/4,
+         message_server/4]).
+
 -include_lib("kernel/include/inet_sctp.hrl").
 -include("diameter.hrl").
 
@@ -86,6 +89,8 @@
 %% Messages from gen_sctp.
 -define(SCTP(Sock, Data), {sctp, Sock, _, _, Data}).
 
+-define(A, list_to_atom).
+-define(L, atom_to_list).
 
 -define(TL(F),    ?TL(F, [])).
 -define(TL(F, A), ?LOG("DTRANSPS", F, A)).
@@ -125,7 +130,7 @@ run() ->
     try
         ?RUN([[fun run/1, {P,F}]
               || P <- [sctp || ?HAVE_SCTP()] ++ [tcp],
-                 F <- [connect, accept, reconnect]])
+                 F <- [connect, accept, reconnect, callback]])
     after
         diameter:stop()
     end.
@@ -153,6 +158,14 @@ run({Prot, connect}) ->
         "~n   Prot: ~p", [Prot]),
     Res = connect(Prot),
     ?TL("run(connect) -> done when"
+        "~n   Res: ~p", [Res]),
+    Res;
+
+run({Prot, callback}) ->
+    ?TL("run(callback) -> entry with"
+        "~n   Prot: ~p", [Prot]),
+    Res = callback(Prot),
+    ?TL("run(callback) -> done when"
         "~n   Res: ~p", [Res]),
     Res.
 
@@ -313,6 +326,102 @@ reconnect(Prot) ->
         "~n   Res: ~p", [Res]),
     ok.
 
+%% ===========================================================================
+%% callback/1
+%%
+%% Check that when message callback is updated after message sending,
+%% the ack is reported using the new callback.
+
+callback(Prot) ->
+    ?TL("callback -> entry with"
+        "~n   Prot: ~p", [Prot]),
+
+    ServerSvcName = {callback, listen, make_ref()},
+    ?TL("callback -> register service ~p", [ServerSvcName]),
+    ok = ?DEL_REG(ServerSvcName),
+    ?TL("callback -> start service ~p", [ServerSvcName]),
+    ok = start_service(ServerSvcName),
+    ?TL("callback -> listen when"
+        "~n   ServerSvcName: ~p", [ServerSvcName]),
+    ServerProtOpts = [Prot, {message_cb, {?MODULE, message_server, [self(), 0]}}],
+    LRef = ?LISTEN(ServerSvcName, ServerProtOpts, []),
+    ?TL("callback -> wait"),
+    [_] = diameter_reg:wait({?A("diameter_" ++ ?L(Prot)), listener, {LRef, '_'}}),
+
+    ClientSvcName = {callback, connect, make_ref()},
+    ?TL("callback -> register service ~p", [ClientSvcName]),
+    ok = ?DEL_REG(ClientSvcName),
+    ?TL("callback -> start service ~p", [ClientSvcName]),
+    ok = start_service(ClientSvcName),
+    ?TL("callback -> connect when"
+        "~n   ClientSvcName: ~p"
+        "~n   LRef:       ~p", [ClientSvcName, LRef]),
+    ClientProtOpts = [Prot, {message_cb, {?MODULE, message_client, [self(), 0]}}],
+    CRef = ?CONNECT(ClientSvcName, ClientProtOpts, LRef, [{connect_timer, 2000}]),
+    ?TL("callback -> CRef: ~p", [CRef]),
+
+    [{'Origin-Host', OH}, {'Origin-Realm', OR}] =
+        diameter:service_info(ServerSvcName, ['Origin-Host', 'Origin-Realm']),
+    Msg = ['ACR', {'Session-Id', "invalid"},
+                  {'Origin-Host', OH},
+                  {'Origin-Realm', OR},
+                  {'Destination-Realm', OR},
+                  {'Accounting-Record-Type', 1},
+                  {'Accounting-Record-Number', 0}],
+
+    diameter:call(ClientSvcName, diameter_gen_base_rfc6733, Msg, []),
+    ok = verify_message_callbacks([]).
+
+verify_message_callbacks(States) ->
+    receive
+        {Type, N} when Type == client; Type == server ->
+            ?TL("verify_message_callbacks -> received"
+                "~n   Type: ~p"
+                "~n   N:    ~p", [Type, N]),
+            case lists:member({Type, N}, States) of
+                true ->
+                    {error, "State already received previously"};
+                false ->
+                    verify_message_callbacks([{Type, N} | States])
+            end
+    after 1000 ->
+        case length(States) of
+            0 ->
+                {error, "No message callbacks received"};
+            _ ->
+                ok
+        end
+    end.
+
+message_client(ack, Msg, Parent, N) ->
+    ?TL("message_client(ack) -> entry with"
+        "~n   Dir: ack"
+        "~n   Msg: ~p"
+        "~n   N: ~p", [Msg, N]),
+    Parent ! {client, N},
+    [{?MODULE, ?FUNCTION_NAME, [Parent, N + 1]}];
+message_client(Dir, Msg, Parent, N) ->
+    ?TL("message_client -> entry with"
+        "~n   Dir: ~p"
+        "~n   Msg: ~p"
+        "~n   N: ~p", [Dir, Msg, N]),
+    Parent ! {client, N},
+    [Msg, {?MODULE, ?FUNCTION_NAME, [Parent, N + 1]}].
+
+message_server(ack, Msg, Parent, N) ->
+    ?TL("message_server(ack) -> entry with"
+        "~n   Dir: ack"
+        "~n   Msg: ~p"
+        "~n   N: ~p", [Msg, N]),
+    Parent ! {server, N},
+    [{?MODULE, ?FUNCTION_NAME, [Parent, N + 1]}];
+message_server(Dir, Msg, Parent, N) ->
+    ?TL("message_server -> entry with"
+        "~n   Dir: ~p"
+        "~n   Msg: ~p"
+        "~n   N: ~p", [Dir, Msg, N]),
+    Parent ! {server, N},
+    [Msg, {?MODULE, ?FUNCTION_NAME, [Parent, N + 1]}].
 
 start_service(SvcName) ->
     OH = diameter_util:unique_string(),
