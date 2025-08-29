@@ -51,10 +51,20 @@ void BeamGlobalAssembler::emit_process_main() {
           context_switch_simplified_local = a.newLabel(),
           do_schedule_local = a.newLabel(), schedule_next = a.newLabel();
 
-    const arm::Mem start_time_i =
-            getSchedulerRegRef(offsetof(ErtsSchedulerRegisters, start_time_i));
-    const arm::Mem start_time =
-            getSchedulerRegRef(offsetof(ErtsSchedulerRegisters, start_time));
+    /* The offset of start_time_i in ErtsSchedulerRegisters cannot stay
+     * in the 12 bit immediate accepted by the STR instruction.
+     *
+     * We use ARG4 to point to start_time_i so then we can use a relative offset
+     * to point to start_time.
+     */
+    const Uint start_t_i_offset = offsetof(ErtsSchedulerRegisters, start_time_i);
+    const Uint start_t_offset = offsetof(ErtsSchedulerRegisters, start_time);
+    // start_time precedes start_time_i in the struct
+    const Uint relative_start_t_offset = start_t_offset - start_t_i_offset;
+    a.mov(ARG4, scheduler_registers);
+    a.add(ARG4, ARG4, imm(start_t_i_offset));
+    const arm::Mem start_time_i = arm::Mem(ARG4);
+    const arm::Mem start_time = arm::Mem(ARG4, relative_start_t_offset);
 
     // Scheduling loop initialization
     mov_imm(TMP, 0);
