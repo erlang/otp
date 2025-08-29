@@ -92,8 +92,32 @@ void BeamGlobalAssembler::emit_process_main() {
 
     {
         Label schedule = a.newLabel(), skip_long_schedule = a.newLabel();
-        //TODO
-        emit_nyi("schedule_next");
+
+        /* ARG3 contains reds_used at this point */
+
+        //Jump to schedule if start_time is 0
+        a.ldr(TMP, start_time);
+        a.tst(TMP, TMP);
+        a.b_eq(schedule);
+        // Call check_monitor_long_schedule, a performance monitoring function
+        // that detects when Erlang processes run for too long without yielding.
+        {
+            a.mov(ARG1, c_p);
+            a.ldr(ARG2, start_time);
+
+            /* Spill reds_used in start_time slot */
+            a.str(ARG3, start_time);
+
+            a.ldr(ARG3, start_time_i);
+            runtime_call<3>(check_monitor_long_schedule);
+
+            /* Restore reds_used */
+            a.ldr(ARG3, start_time);
+        }
+
+        a.bind(schedule);
+        // TODO
+        emit_nyi("schedule");
     }
 
     /* Processes may jump to the exported entry points below, executing on the
