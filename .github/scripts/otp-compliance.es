@@ -3037,13 +3037,23 @@ test_openvex_branched_otp_tree() ->
     {VexPath,  Branch, VexStmts} = setup_openvex_test(),
     CVEs = fixup_openvex_branched_otp_tree(),
     Result = calculate_statements_from_cves(VexStmts, CVEs, Branch, VexPath),
-    Expected = [~"vexctl add --in-place otp-23.openvex.json --product='pkg:github/erlang/otp@OTP-23.2.2,pkg:github/erlang/otp@OTP-23.2.3,pkg:github/erlang/otp@OTP-23.2.4,pkg:github/erlang/otp@OTP-23.2.5,pkg:github/erlang/otp@OTP-23.2.6,pkg:github/erlang/otp@OTP-23.2.7,pkg:github/erlang/otp@OTP-23.2.7.1,pkg:github/erlang/otp@OTP-23.3,pkg:github/erlang/otp@OTP-23.3.1,pkg:github/erlang/otp@OTP-23.3.2,pkg:github/erlang/otp@OTP-23.3.3,pkg:github/erlang/otp@OTP-23.3.4,pkg:github/erlang/otp@OTP-23.3.4.1,pkg:otp/ssl@10.2.1,pkg:otp/ssl@10.2.2,pkg:otp/ssl@10.2.3,pkg:otp/ssl@10.2.4,pkg:otp/ssl@10.2.4.1,pkg:otp/ssl@10.3,pkg:otp/ssl@10.3.1' --vuln='CVE-2025-26618' --status='affected' --action-statement='Update to the next version'\n",
-                ~"vexctl add --in-place otp-23.openvex.json --product='pkg:github/erlang/otp@OTP-23.3.4.4,pkg:github/erlang/otp@OTP-23.3.4.3,pkg:github/erlang/otp@OTP-23.3.4.2,pkg:github/erlang/otp@OTP-23.2.7.3,pkg:github/erlang/otp@OTP-23.2.7.2,pkg:otp/ssl@10.3.1.1,pkg:otp/ssl@10.2.4.2' --vuln='CVE-2025-26618' --status='fixed'\n",
-                ~"vexctl add --in-place otp-23.openvex.json --product='pkg:github/madler/zlib@04f42ceca40f73e2978b50e93806c2a18c1281fc' --vuln='FIKA-2026-BROD' --status='affected' --action-statement='Mitigation message, update to the next release'\n",
-                ~"vexctl add --in-place otp-23.openvex.json --product='pkg:github/erlang/otp@OTP-26.0,pkg:otp/erts@14.0,pkg:github/erlang/otp@OTP-26.0.1,pkg:otp/erts@14.0.1,pkg:github/erlang/otp@OTP-26.0.2,pkg:otp/erts@14.0.2,pkg:github/erlang/otp@OTP-26.1,pkg:github/erlang/otp@OTP-26.1.1,pkg:otp/erts@14.1,pkg:github/erlang/otp@OTP-26.1.2,pkg:otp/erts@14.1.1,pkg:github/erlang/otp@OTP-26.2,pkg:otp/erts@14.2,pkg:github/erlang/otp@OTP-26.2.1,pkg:otp/erts@14.2.1,pkg:github/erlang/otp@OTP-26.2.2,pkg:otp/erts@14.2.2,pkg:github/erlang/otp@OTP-26.2.3,pkg:otp/erts@14.2.3,pkg:github/erlang/otp@OTP-26.2.4,pkg:otp/erts@14.2.4,pkg:github/erlang/otp@OTP-26.2.5,pkg:otp/erts@14.2.5,pkg:github/erlang/otp@OTP-26.2.5.1,pkg:otp/erts@14.2.5.1,pkg:github/erlang/otp@OTP-26.2.5.2,pkg:otp/erts@14.2.5.2,pkg:github/erlang/otp@OTP-26.2.5.3,pkg:otp/erts@14.2.5.3,pkg:github/erlang/otp@OTP-26.2.5.4,pkg:github/erlang/otp@OTP-26.2.5.5,pkg:otp/erts@14.2.5.4,pkg:github/erlang/otp@OTP-26.2.5.6,pkg:otp/erts@14.2.5.5,pkg:github/erlang/otp@OTP-26.2.5.7,pkg:otp/erts@14.2.5.6,pkg:github/erlang/otp@OTP-26.2.5.8,pkg:otp/erts@14.2.5.7,pkg:github/erlang/otp@OTP-26.2.5.9,pkg:otp/erts@14.2.5.8,pkg:github/erlang/otp@OTP-26.2.5.10,pkg:github/erlang/otp@OTP-26.2.5.11,pkg:otp/erts@14.2.5.9,pkg:github/erlang/otp@OTP-26.2.5.12,pkg:github/erlang/otp@OTP-26.2.5.13,pkg:otp/erts@14.2.5.10,pkg:github/erlang/otp@OTP-26.2.5.14,pkg:otp/erts@14.2.5.11' --vuln='CVE-2024-9143' --status='not_affected' --justification='vulnerable_code_not_present'\n",
-                ~"vexctl add --in-place otp-23.openvex.json --product='pkg:github/openssl/openssl@0foobar' --vuln='CVE-2024-9143' --status='not_affected' --justification='vulnerable_code_not_present'\n",
+    Expected = [~"vexctl add --in-place otp-23.openvex.json --product='pkg:github/erlang/otp@OTP-23.0,pkg:github/erlang/otp@OTP-23.0.1,pkg:github/erlang/otp@OTP-23.0.2,pkg:github/erlang/otp@OTP-23.0.3,pkg:github/erlang/otp@OTP-23.0.4,pkg:otp/ssl@10.0,pkg:github/erlang/otp@OTP-23.1,pkg:github/erlang/otp@OTP-23.1.1,pkg:github/erlang/otp@OTP-23.1.2,pkg:github/erlang/otp@OTP-23.1.3,pkg:github/erlang/otp@OTP-23.1.4,pkg:github/erlang/otp@OTP-23.1.4.1,pkg:github/erlang/otp@OTP-23.1.5,pkg:otp/ssl@10.1,pkg:github/erlang/otp@OTP-23.2,pkg:github/erlang/otp@OTP-23.2.1,pkg:otp/ssl@10.2,pkg:github/erlang/otp@OTP-23.2.2,pkg:github/erlang/otp@OTP-23.2.3,pkg:otp/ssl@10.2.1,pkg:github/erlang/otp@OTP-23.2.4,pkg:otp/ssl@10.2.2,pkg:github/erlang/otp@OTP-23.2.5,pkg:github/erlang/otp@OTP-23.2.6,pkg:otp/ssl@10.2.3,pkg:github/erlang/otp@OTP-23.2.7,pkg:otp/ssl@10.2.4,pkg:github/erlang/otp@OTP-23.2.7.1,pkg:otp/ssl@10.2.4.1,pkg:github/erlang/otp@OTP-23.2.7.2,pkg:github/erlang/otp@OTP-23.2.7.3,pkg:otp/ssl@10.2.4.2,pkg:github/erlang/otp@OTP-23.2.7.4,pkg:otp/ssl@10.2.4.3,pkg:github/erlang/otp@OTP-23.2.7.5,pkg:otp/ssl@10.2.4.4,pkg:github/erlang/otp@OTP-23.3,pkg:github/erlang/otp@OTP-23.3.1,pkg:otp/ssl@10.3,pkg:github/erlang/otp@OTP-23.3.2,pkg:github/erlang/otp@OTP-23.3.3,pkg:github/erlang/otp@OTP-23.3.4,pkg:github/erlang/otp@OTP-23.3.4.1,pkg:otp/ssl@10.3.1,pkg:github/erlang/otp@OTP-23.3.4.2,pkg:github/erlang/otp@OTP-23.3.4.3,pkg:github/erlang/otp@OTP-23.3.4.4,pkg:otp/ssl@10.3.1.1,pkg:github/erlang/otp@OTP-23.3.4.5,pkg:github/erlang/otp@OTP-23.3.4.6,pkg:github/erlang/otp@OTP-23.3.4.7,pkg:github/erlang/otp@OTP-23.3.4.8,pkg:github/erlang/otp@OTP-23.3.4.9,pkg:github/erlang/otp@OTP-23.3.4.10,pkg:github/erlang/otp@OTP-23.3.4.11,pkg:github/erlang/otp@OTP-23.3.4.12,pkg:github/erlang/otp@OTP-23.3.4.13,pkg:github/erlang/otp@OTP-23.3.4.14,pkg:otp/ssl@10.3.1.2,pkg:github/erlang/otp@OTP-23.3.4.15,pkg:otp/ssl@10.3.1.3,pkg:github/erlang/otp@OTP-23.3.4.16,pkg:otp/ssl@10.3.1.4,pkg:github/erlang/otp@OTP-23.3.4.17,pkg:github/erlang/otp@OTP-23.3.4.18,pkg:github/erlang/otp@OTP-23.3.4.19,pkg:github/erlang/otp@OTP-23.3.4.20,pkg:otp/ssl@10.3.1.5' --vuln='F00' --status='under_investigation'\n",
+
                 ~"vexctl add --in-place otp-23.openvex.json --product='pkg:github/erlang/otp@OTP-26.0,pkg:otp/erts@14.0,pkg:github/erlang/otp@OTP-26.0.1,pkg:otp/erts@14.0.1,pkg:github/erlang/otp@OTP-26.0.2,pkg:otp/erts@14.0.2,pkg:github/erlang/otp@OTP-26.1,pkg:github/erlang/otp@OTP-26.1.1,pkg:otp/erts@14.1,pkg:github/erlang/otp@OTP-26.1.2,pkg:otp/erts@14.1.1,pkg:github/erlang/otp@OTP-26.2,pkg:otp/erts@14.2,pkg:github/erlang/otp@OTP-26.2.1,pkg:otp/erts@14.2.1,pkg:github/erlang/otp@OTP-26.2.2,pkg:otp/erts@14.2.2,pkg:github/erlang/otp@OTP-26.2.3,pkg:otp/erts@14.2.3,pkg:github/erlang/otp@OTP-26.2.4,pkg:otp/erts@14.2.4,pkg:github/erlang/otp@OTP-26.2.5,pkg:otp/erts@14.2.5,pkg:github/erlang/otp@OTP-26.2.5.1,pkg:otp/erts@14.2.5.1,pkg:github/erlang/otp@OTP-26.2.5.2,pkg:otp/erts@14.2.5.2,pkg:github/erlang/otp@OTP-26.2.5.3,pkg:otp/erts@14.2.5.3,pkg:github/erlang/otp@OTP-26.2.5.4,pkg:github/erlang/otp@OTP-26.2.5.5,pkg:otp/erts@14.2.5.4,pkg:github/erlang/otp@OTP-26.2.5.6,pkg:otp/erts@14.2.5.5,pkg:github/erlang/otp@OTP-26.2.5.7,pkg:otp/erts@14.2.5.6,pkg:github/erlang/otp@OTP-26.2.5.8,pkg:otp/erts@14.2.5.7,pkg:github/erlang/otp@OTP-26.2.5.9,pkg:otp/erts@14.2.5.8,pkg:github/erlang/otp@OTP-26.2.5.10,pkg:github/erlang/otp@OTP-26.2.5.11,pkg:otp/erts@14.2.5.9,pkg:github/erlang/otp@OTP-26.2.5.12,pkg:github/erlang/otp@OTP-26.2.5.13,pkg:otp/erts@14.2.5.10,pkg:github/erlang/otp@OTP-26.2.5.14,pkg:otp/erts@14.2.5.11' --vuln='CVE-2024-4444' --status='not_affected' --justification='vulnerable_code_not_present'\n",
-                ~"vexctl add --in-place otp-23.openvex.json --product='pkg:github/openssl/openssl@0foobar' --vuln='CVE-2024-4444' --status='not_affected' --justification='vulnerable_code_not_present'\n"
+
+                ~"vexctl add --in-place otp-23.openvex.json --product='pkg:github/openssl/openssl@0foobar' --vuln='CVE-2024-4444' --status='not_affected' --justification='vulnerable_code_not_present'\n",
+
+                ~"vexctl add --in-place otp-23.openvex.json --product='pkg:github/erlang/otp@OTP-26.0,pkg:otp/erts@14.0,pkg:github/erlang/otp@OTP-26.0.1,pkg:otp/erts@14.0.1,pkg:github/erlang/otp@OTP-26.0.2,pkg:otp/erts@14.0.2,pkg:github/erlang/otp@OTP-26.1,pkg:github/erlang/otp@OTP-26.1.1,pkg:otp/erts@14.1,pkg:github/erlang/otp@OTP-26.1.2,pkg:otp/erts@14.1.1,pkg:github/erlang/otp@OTP-26.2,pkg:otp/erts@14.2,pkg:github/erlang/otp@OTP-26.2.1,pkg:otp/erts@14.2.1,pkg:github/erlang/otp@OTP-26.2.2,pkg:otp/erts@14.2.2,pkg:github/erlang/otp@OTP-26.2.3,pkg:otp/erts@14.2.3,pkg:github/erlang/otp@OTP-26.2.4,pkg:otp/erts@14.2.4,pkg:github/erlang/otp@OTP-26.2.5,pkg:otp/erts@14.2.5,pkg:github/erlang/otp@OTP-26.2.5.1,pkg:otp/erts@14.2.5.1,pkg:github/erlang/otp@OTP-26.2.5.2,pkg:otp/erts@14.2.5.2,pkg:github/erlang/otp@OTP-26.2.5.3,pkg:otp/erts@14.2.5.3,pkg:github/erlang/otp@OTP-26.2.5.4,pkg:github/erlang/otp@OTP-26.2.5.5,pkg:otp/erts@14.2.5.4,pkg:github/erlang/otp@OTP-26.2.5.6,pkg:otp/erts@14.2.5.5,pkg:github/erlang/otp@OTP-26.2.5.7,pkg:otp/erts@14.2.5.6,pkg:github/erlang/otp@OTP-26.2.5.8,pkg:otp/erts@14.2.5.7,pkg:github/erlang/otp@OTP-26.2.5.9,pkg:otp/erts@14.2.5.8,pkg:github/erlang/otp@OTP-26.2.5.10,pkg:github/erlang/otp@OTP-26.2.5.11,pkg:otp/erts@14.2.5.9,pkg:github/erlang/otp@OTP-26.2.5.12,pkg:github/erlang/otp@OTP-26.2.5.13,pkg:otp/erts@14.2.5.10,pkg:github/erlang/otp@OTP-26.2.5.14,pkg:otp/erts@14.2.5.11' --vuln='CVE-2024-9143' --status='not_affected' --justification='vulnerable_code_not_present'\n",
+
+                ~"vexctl add --in-place otp-23.openvex.json --product='pkg:github/openssl/openssl@0foobar' --vuln='CVE-2024-9143' --status='not_affected' --justification='vulnerable_code_not_present'\n",
+
+                ~"vexctl add --in-place otp-23.openvex.json --product='pkg:github/madler/zlib@04f42ceca40f73e2978b50e93806c2a18c1281fc' --vuln='FIKA-2026-BROD' --status='affected' --action-statement='Mitigation message, update to the next release'\n",
+
+                ~"vexctl add --in-place otp-23.openvex.json --product='pkg:github/PCRE2Project/pcre2@2dce7761b1831fd3f82a9c2bd5476259d945da4d' --vuln='CVE-2025-58050' --status='affected'\n",
+
+                ~"vexctl add --in-place otp-23.openvex.json --product='pkg:github/erlang/otp@OTP-23.2.2,pkg:github/erlang/otp@OTP-23.2.3,pkg:github/erlang/otp@OTP-23.2.4,pkg:github/erlang/otp@OTP-23.2.5,pkg:github/erlang/otp@OTP-23.2.6,pkg:github/erlang/otp@OTP-23.2.7,pkg:github/erlang/otp@OTP-23.2.7.1,pkg:github/erlang/otp@OTP-23.3,pkg:github/erlang/otp@OTP-23.3.1,pkg:github/erlang/otp@OTP-23.3.2,pkg:github/erlang/otp@OTP-23.3.3,pkg:github/erlang/otp@OTP-23.3.4,pkg:github/erlang/otp@OTP-23.3.4.1,pkg:otp/ssl@10.2.1,pkg:otp/ssl@10.2.2,pkg:otp/ssl@10.2.3,pkg:otp/ssl@10.2.4,pkg:otp/ssl@10.2.4.1,pkg:otp/ssl@10.3,pkg:otp/ssl@10.3.1' --vuln='CVE-2025-26618' --status='affected' --action-statement='Update to the next version'\n",
+
+                ~"vexctl add --in-place otp-23.openvex.json --product='pkg:github/erlang/otp@OTP-23.3.4.4,pkg:github/erlang/otp@OTP-23.3.4.3,pkg:github/erlang/otp@OTP-23.3.4.2,pkg:github/erlang/otp@OTP-23.2.7.3,pkg:github/erlang/otp@OTP-23.2.7.2,pkg:otp/ssl@10.3.1.1,pkg:otp/ssl@10.2.4.2' --vuln='CVE-2025-26618' --status='fixed'\n"
                ],
     TestFun = fun (R) -> lists:member(erlang:list_to_binary(R), Expected) end,
     true = lists:all(TestFun, Result),
@@ -3072,6 +3082,7 @@ fixup_openvex_branched_otp_tree() ->
 [ #{ ~"pkg:otp/ssl@10.2.1" => ~"CVE-2025-26618",
      ~"status" => #{ ~"affected" => ~"Update to the next version",
                      ~"fixed" => [~"pkg:otp/ssl@10.3.1.1", ~"pkg:otp/ssl@10.2.4.2"]} },
+
   #{ ~"pkg:github/madler/zlib@04f42ceca40f73e2978b50e93806c2a18c1281fc" => ~"FIKA-2026-BROD",
      ~"status" => #{ ~"affected" => ~"Mitigation message, update to the next release"}},
 
@@ -3081,9 +3092,16 @@ fixup_openvex_branched_otp_tree() ->
 
   #{ ~"pkg:github/openssl/openssl@0foobar" => ~"CVE-2024-4444",
      ~"status" => #{ ~"not_affected" => ~"vulnerable_code_not_present",
-                     ~"apps" => [~"pkg:otp/erts@14.2.5.10"]}}
+                     ~"apps" => [~"pkg:otp/erts@14.2.5.10"]}},
+
+  #{~"pkg:github/PCRE2Project/pcre2@2dce7761b1831fd3f82a9c2bd5476259d945da4d" => ~"CVE-2025-58050",
+    ~"status" => ~"affected"},
+
+  #{ ~"pkg:otp/ssl@10.2.1" => ~"F00",
+     ~"status" => ~"under_investigation" }
 
 ].
+
 
 fixup_openvex_branched_otp_tree_stmts() ->
     [#{ ~"vulnerability"=>
@@ -3221,5 +3239,21 @@ fixup_openvex_branched_otp_tree_stmts() ->
              #{ ~"@id" => ~"pkg:github/openssl/openssl@0foobar" }
             ],
         ~"status" => ~"not_affected",
-        ~"justification" => ~"vulnerable_code_not_present" }
+        ~"justification" => ~"vulnerable_code_not_present" },
+
+     #{ ~"vulnerability"=> #{"name"=> ~"F00"},
+        ~"products"=>
+            [
+             #{~"@id"=> ~"pkg:github/erlang/otp@OTP-23.2.2"},
+             #{~"@id"=> ~"pkg:otp/ssl@10.2.1"}
+            ],
+        ~"status"=> ~"under_investigation"
+      },
+     #{ ~"vulnerability"=> #{"name"=> ~"CVE-2025-58050"},
+        ~"products"=>
+            [
+             #{~"@id"=> ~"pkg:github/PCRE2Project/pcre2@2dce7761b1831fd3f82a9c2bd5476259d945da4d"}
+            ],
+        ~"status"=> ~"affected"
+      }
     ].
