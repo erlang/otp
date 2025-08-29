@@ -56,6 +56,17 @@ void BeamGlobalAssembler::emit_process_main() {
     const arm::Mem start_time =
             getSchedulerRegRef(offsetof(ErtsSchedulerRegisters, start_time));
 
+    // Scheduling loop initialization
+    mov_imm(TMP, 0);
+    a.str(TMP, start_time_i);
+    a.str(TMP, start_time);
+
+    mov_imm(c_p, 0);
+    mov_imm(FCALLS, 0);
+    mov_imm(ARG3, 0); /* Set reds_used for erts_schedule call */
+
+    a.b(schedule_next);
+
     // TODO
     emit_nyi("emit_process_main");
 
