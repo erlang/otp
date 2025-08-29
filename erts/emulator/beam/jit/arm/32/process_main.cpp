@@ -78,16 +78,24 @@ void BeamGlobalAssembler::emit_process_main() {
         a.b(schedule_next);
     }
 
-    // TODO
-    emit_nyi("emit_process_main");
-
-    a.bind(do_schedule_local);
     a.bind(context_switch_local);
     comment("Context switch, unknown arity/MFA");
+    //TODO
+    emit_nyi("context_switch_local");
     a.bind(context_switch_simplified_local);
     comment("Context switch, known arity and MFA");
+    //TODO
+    emit_nyi("context_switch_simplified_local");
+
     a.bind(schedule_next);
     comment("schedule_next");
+
+    {
+        Label schedule = a.newLabel(), skip_long_schedule = a.newLabel();
+        //TODO
+        emit_nyi("schedule_next");
+    }
+
     /* Processes may jump to the exported entry points below, executing on the
      * Erlang stack when entering. These are separate from the `_local` labels
      * above as we don't want to worry about which stack we're on when the
