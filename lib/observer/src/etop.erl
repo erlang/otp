@@ -328,7 +328,14 @@ stop(Reader, Opts) ->
             etop_tr:stop_tracer(Opts),
             %% Stop reader process so it doesn't crash on deleted accumulator table
             %% when our process dies.
-            exit(Pid, stop);
+            case is_process_alive(Pid) of
+                true ->
+                    exit(Pid, stop),
+                    receive {'EXIT', Pid, stop} -> ok
+                    after 1000 -> ok
+                    end;
+                false -> ok
+            end;
         _ ->
             ok
     end,
