@@ -2689,26 +2689,35 @@ calculate_statements(VexStmts, VexTableFile, Branch, VexPath) ->
             calculate_statements_from_cves(VexStmts, CVEs, Branch, VexPath)
     end.
 
+exists_cve_in_openvex(VexStmts, CVE, Purl) ->
+    lists:any(fun (#{~"vulnerability" := #{~"name" := VexCVE}}) when VexCVE =/= CVE ->
+                      false;
+                  (#{~"products" := Products}) ->
+                      VexIds = lists:map(fun(M0) -> maps:get(~"@id", M0) end, Products),
+                      lists:member(Purl, VexIds)
+              end, VexStmts).
+
+fetch_openvex_status(M) when is_map(M) ->
+    FixedStatus = maps:is_key(~"fixed", M),
+    AffectedStatus = maps:is_key(~"affected", M),
+    {FixedStatus, AffectedStatus};
+fetch_openvex_status(_) ->
+    {false, false}.
+
 calculate_statements_from_cves(VexStmts, CVEs, Branch, VexPath) ->
     %% make the function idempotent, i.e., can be called consecutive times producing the same input
     Filter = fun (Stmts) -> lists:filter(fun ([]) -> false; (_) -> true end, Stmts) end,
     Filter(lists:flatmap(
              fun (#{~"status" := Status}=M) ->
                      [{Purl, CVE}] = maps:to_list(maps:remove(~"status", M)),
-                     ExistingEntry = lists:any(fun (#{~"vulnerability" := #{~"name" := VexCVE}}) when VexCVE =/= CVE ->
-                                                       false;
-                                                   (#{~"products" := Products}) ->
-                                                       VexIds = lists:map(fun(M0) -> maps:get(~"@id", M0) end, Products),
-                                                       lists:member(Purl, VexIds)
-                                               end, VexStmts),
+                     ExistingEntry = exists_cve_in_openvex(VexStmts, CVE, Purl),
                      case ExistingEntry of
                          true ->
                              %% entry exists, ignore to make operation idempotent
                              [];
                          false ->
                              InitVex = vex_path(VexPath, Branch),
-                             FixedStatus = maps:is_key(~"fixed", Status),
-                             AffectedStatus = maps:is_key(~"affected", Status),
+                             {FixedStatus, AffectedStatus} = fetch_openvex_status(Status),
                              case Purl of
                                  <<?ErlangPURL, _/binary>> ->
                                      case {FixedStatus, AffectedStatus} of
@@ -2727,50 +2736,57 @@ calculate_statements_from_cves(VexStmts, CVEs, Branch, VexPath) ->
                                                      L when is_list(L) ->
                                                          L
                                                  end;
-                                             false ->
+                                             _ ->
                                                  %% not affected and we return all Erlang intermediate
                                                  %% versions and all intermediate apps
                                                  all
                                          end,
                                      {OTPVersionsAffected, OTPVersionsFixed} = fetch_otp_purl_versions(Purl, FixedRange),
                                      format_vexctl(InitVex, OTPVersionsAffected, OTPVersionsFixed, CVE, Status);
-                                 _ ->
-                                     AppsR = case maps:get(~"apps", Status, <<>>) of
-                                                 <<>> ->
-                                                     [];
-                                                 Apps ->
-                                                     case {FixedStatus, AffectedStatus} of
-                                                         {true, true} ->
-                                                             %% this case is not accepted as input, e.g.
-                                                             %% the following is rejected
-                                                             %% {"pkg:github/madler/zlib@04f42ceca40f73e2978b50e93806c2a18c1281fc": "FIKA-2026-BROD",
-                                                             %%  "status": { "affected": "Mitigation message, update to the next release",
-                                                             %%              "fixed": ["pkg:github/madler/zlib@04f42thiscommitfixesthecve"],
-                                                             %%              "apps": ["pkg:otp/erts@14.2.5.10"]} }
-                                                             %% the current syntax from above has no way to understand when in erts this was fixed.
-                                                             %%
-                                                             %% If this case arises, write the CVE for zlib and then for OTP.
-                                                             fail("Case containing 'affected', 'fixed', and 'apps' (all three) not supported.", []);
-                                                         _ ->
-                                                             {OTPVersionsAffected, OTPVersionsFixed} =
-                                                                 lists:foldl(fun (App, {Af, Fx}) ->
-                                                                                     {Affected, Fixed} = fetch_otp_purl_versions(App, all),
-                                                                                     {merge_otp_version_binaries(Affected, Af),
-                                                                                      merge_otp_version_binaries(Fixed, Fx)}
-                                                                             end, {<<>>, <<>>}, Apps),
-                                                             format_vexctl(InitVex, OTPVersionsAffected, OTPVersionsFixed, CVE, Status)
-                                                     end
-                                             end,
-                                     % handle vendor dependencies. we lack sha-1 information to create
-                                     % a range of commits. if one wants to provide specific vendor information,
-                                     % e.g., false positive for openssl, one can do that manually using vexctl.
-                                     % if one wants to mention that erts-10.9.4 is not vulnerable to CVE-XXX
-                                     % in openssl, that's possible and goes via first case, pkg:otp/erts@10.9.4.
-                                     FixedRange = maps:get(~"fixed", Status, <<>>),
-                                     AppsR ++ format_vexctl(InitVex, Purl, FixedRange, CVE, Status)
+                                 _ -> % vendor
+                                     io:format("foo~n"),
+                                     create_vendor_statements(Status, FixedStatus, AffectedStatus, InitVex, CVE, Purl)
                              end
                      end
              end, CVEs)).
+
+create_vendor_statements(#{~"apps" := _}, true=_FixedStatus, true=_AffectedStatus, _, _, _) ->
+    %% this case is not accepted as input, e.g.
+    %% the following is rejected
+    %% {"pkg:github/madler/zlib@04f42ceca40f73e2978b50e93806c2a18c1281fc": "FIKA-2026-BROD",
+    %%  "status": { "affected": "Mitigation message, update to the next release",
+    %%              "fixed": ["pkg:github/madler/zlib@04f42thiscommitfixesthecve"],
+    %%              "apps": ["pkg:otp/erts@14.2.5.10"]} }
+    %% the current syntax from above has no way to understand when in erts this was fixed.
+    %%
+    %% If this case arises, write the CVE for zlib and then for OTP.
+    fail("Case containing 'affected', 'fixed', and 'apps' (all three) not supported.", []);
+create_vendor_statements(#{~"apps" := Apps}=Status, _FixedStatus, _AffectedStatus, InitVex, CVE, Purl) ->
+    {OTPVersionsAffected, OTPVersionsFixed} =
+        lists:foldl(fun (App, {Af, Fx}) ->
+                            {Affected, Fixed} = fetch_otp_purl_versions(App, all),
+                            {merge_otp_version_binaries(Affected, Af),
+                             merge_otp_version_binaries(Fixed, Fx)}
+                    end, {<<>>, <<>>}, Apps),
+    AppsR = format_vexctl(InitVex, OTPVersionsAffected, OTPVersionsFixed, CVE, Status),
+    %% handle vendor dependencies. we lack sha-1 information to create
+    %% a range of commits. if one wants to provide specific vendor information,
+    %% e.g., false positive for openssl, one can do that manually using vexctl.
+    %% if one wants to mention that erts-10.9.4 is not vulnerable to CVE-XXX
+    %% in openssl, that's possible and goes via first case, pkg:otp/erts@10.9.4.
+    FixedRange = maps:get(~"fixed", Status, <<>>),
+    AppsR ++ format_vexctl(InitVex, Purl, FixedRange, CVE, Status);
+create_vendor_statements(Status, _, _, InitVex, CVE, Purl) when is_map(Status) ->
+    %% handle vendor dependencies. we lack sha-1 information to create
+    %% a range of commits. if one wants to provide specific vendor information,
+    %% e.g., false positive for openssl, one can do that manually using vexctl.
+    %% if one wants to mention that erts-10.9.4 is not vulnerable to CVE-XXX
+    %% in openssl, that's possible and goes via first case, pkg:otp/erts@10.9.4.
+    FixedRange = maps:get(~"fixed", Status, <<>>),
+    format_vexctl(InitVex, Purl, FixedRange, CVE, Status);
+create_vendor_statements(Status, _, _, InitVex, CVE, Purl) when is_binary(Status) ->
+    NotFixed = <<>>,
+    format_vexctl(InitVex, Purl, NotFixed, CVE, Status).
 
 format_vexctl(InitVex, Affected, Fixed, CVE, Status) ->
     [
