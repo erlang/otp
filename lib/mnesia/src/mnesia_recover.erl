@@ -220,15 +220,15 @@ note_decision(Tid, Outcome) ->
     ?ets_insert(Tab, #transient_decision{tid = Tid, outcome = Outcome}).
 
 note_up(Node, _Date, _Time) ->
-    ?ets_delete(mnesia_decision, Node).
+    ?ets_delete(mnesia_decision, {node, Node}).
     
 note_down(Node, Date, Time) ->
-    ?ets_insert(mnesia_decision, {mnesia_down, Node, Date, Time}).
+    ?ets_insert(mnesia_decision, {mnesia_down, {node, Node}, Date, Time}).
     
 note_master_nodes(Tab, []) ->
-    ?ets_delete(mnesia_decision, Tab);
+    ?ets_delete(mnesia_decision, {tab, Tab});
 note_master_nodes(Tab, Nodes) when is_list(Nodes) ->
-    Master = {master_nodes, Tab, Nodes},
+    Master = {master_nodes, {tab, Tab}, Nodes},
     ?ets_insert(mnesia_decision, Master).
 
 note_outcome(D) when D#decision.disc_nodes == [] ->
@@ -292,12 +292,12 @@ get_mnesia_downs() ->
     Tab = mnesia_decision,
     Pat = {mnesia_down, '_', '_', '_'},
     Downs = ?ets_match_object(Tab, Pat),
-    [Node || {mnesia_down, Node, _Date, _Time} <- Downs].
+    [Node || {mnesia_down, {node, Node}, _Date, _Time} <- Downs].
 
 %% Check if we have got a mnesia_down from Node
 has_mnesia_down(Node) ->
-    case ?ets_lookup(mnesia_decision, Node) of
-	[{mnesia_down, Node, _Date, _Time}] ->
+    case ?ets_lookup(mnesia_decision, {node, Node}) of
+	[{mnesia_down, {node, Node}, _Date, _Time}] ->
 	    true;
 	[] ->
 	    false
@@ -377,10 +377,10 @@ get_master_node_info() ->
 
 get_master_node_tables() ->
     Masters = get_master_node_info(),
-    [Tab || {master_nodes, Tab, _Nodes} <- Masters].
+    [Tab || {master_nodes, {tab, Tab}, _Nodes} <- Masters].
 
 get_master_nodes(Tab) ->
-    try ?ets_lookup_element(mnesia_decision, Tab, 3)
+    try ?ets_lookup_element(mnesia_decision, {tab, Tab}, 3)
     catch error:_ -> []
     end.
 
@@ -529,7 +529,15 @@ confirm_decision_log_dump() ->
 dump_decision_tab() ->
     Tab = mnesia_decision,
     All = mnesia_lib:db_match_object(ram_copies,Tab, '_'),
-    mnesia_log:save_decision_tab({decision_list, All}).
+    Converted = lists:map(fun convert_decision_to_disk_format/1, All),
+    mnesia_log:save_decision_tab({decision_list, Converted}).
+
+convert_decision_to_disk_format({mnesia_down, {node, Node}, Date, Time}) ->
+    {mnesia_down, Node, Date, Time};
+convert_decision_to_disk_format({master_nodes, {tab, Tab}, Nodes}) ->
+    {master_nodes, Tab, Nodes};
+convert_decision_to_disk_format(Decision) ->
+    Decision.
 
 note_log_decisions([What | Tail], InitBy) ->
     note_log_decision(What, InitBy),
