@@ -194,34 +194,34 @@ predefined aliases for the type unions also shown in the table.
 
 [](){: #builtin_types }
 
-| Built-in type             | Defined as                                                                  |
-| ------------------------- | --------------------------------------------------------------------------- |
-| `t:term/0`                | `t:any/0`                                                                   |
-| `t:binary/0`              | `<<_:_*8>>`                                                                 |
-| `t:nonempty_binary/0`     | `<<_:8, _:_*8>>`                                                            |
-| `t:bitstring/0`           | `<<_:_*1>>`                                                                 |
-| `t:nonempty_bitstring/0`  | `<<_:1, _:_*1>>`                                                            |
-| `t:boolean/0`             | `'false'` \| `'true'`                                                       |
-| `t:byte/0`                | `0..255`                                                                    |
-| `t:char/0`                | `0..16#10ffff`                                                              |
-| `t:nil/0`                 | `[]`                                                                        |
-| `t:number/0`              | `t:integer/0` \| `t:float/0`                                                |
-| `t:list/0`                | `[any()]`                                                                   |
-| `t:maybe_improper_list/0` | [`maybe_improper_list(any(), any())`](`t:maybe_improper_list/2`)            |
-| `t:nonempty_list/0`       | [`nonempty_list(any())`](`t:nonempty_list/1`)                               |
-| `t:string/0`              | `[char()]`                                                                  |
-| `t:nonempty_string/0`     | `[char(),...]`                                                              |
-| `t:iodata/0`              | `iolist()` \| `binary()`                                                    |
-| `t:iolist/0`              | `maybe_improper_list(byte()` \| `binary()` \| `iolist(), binary()` \| `[])` |
-| `t:map/0`                 | `#{any() => any()}`                                                         |
-| `t:function/0`            | `fun()`                                                                     |
-| `t:module/0`              | `t:atom/0`                                                                  |
-| `t:mfa/0`                 | `{module(),atom(),arity()}`                                                 |
-| `t:arity/0`               | `0..255`                                                                    |
-| `t:identifier/0`          | `pid()` \| `port()` \| `reference()`                                        |
-| `node/0`                  | `t:atom/0`                                                                  |
-| `t:timeout/0`             | `'infinity'` \| `non_neg_integer()`                                         |
-| `t:no_return/0`           | `t:none/0`                                                                  |
+| Built-in type             | Defined as                                                                                         |
+| ------------------------- | -------------------------------------------------------------------------------------------------- |
+| `t:term/0`                | `t:any/0`                                                                                          |
+| `t:binary/0`              | `<<_:_*8>>`                                                                                        |
+| `t:nonempty_binary/0`     | `<<_:8, _:_*8>>`                                                                                   |
+| `t:bitstring/0`           | `<<_:_*1>>`                                                                                        |
+| `t:nonempty_bitstring/0`  | `<<_:1, _:_*1>>`                                                                                   |
+| `t:boolean/0`             | `'false'` \| `'true'`                                                                              |
+| `t:byte/0`                | `0..255`                                                                                           |
+| `t:char/0`                | `0..16#10ffff`                                                                                     |
+| `t:nil/0`                 | `[]`                                                                                               |
+| `t:number/0`              | `t:integer/0` \| `t:float/0`                                                                       |
+| `t:list/0`                | `[any()]`                                                                                          |
+| `t:maybe_improper_list/0` | [`maybe_improper_list(any(), any())`](`t:maybe_improper_list/2`)                                   |
+| `t:nonempty_list/0`       | [`nonempty_list(any())`](`t:nonempty_list/1`)                                                      |
+| `t:string/0`              | `[char()]`                                                                                         |
+| `t:nonempty_string/0`     | `[char(), ...]`                                                                                    |
+| `t:iodata/0`              | `iolist()` \| `binary()`                                                                           |
+| `t:iolist/0`              | [`maybe_improper_list(byte() \| binary() \| iolist(), binary() \| [])`](`t:maybe_improper_list/2`) |
+| `t:map/0`                 | `#{any() => any()}`                                                                                |
+| `t:function/0`            | `fun()`                                                                                            |
+| `t:module/0`              | `t:atom/0`                                                                                         |
+| `t:mfa/0`                 | `{module(),atom(),arity()}`                                                                        |
+| `t:arity/0`               | `0..255`                                                                                           |
+| `t:identifier/0`          | `pid()` \| `port()` \| `reference()`                                                               |
+| `node/0`                  | `t:atom/0`                                                                                         |
+| `t:timeout/0`             | `'infinity'` \| `non_neg_integer()`                                                                |
+| `t:no_return/0`           | `t:none/0`                                                                                         |
 
 _Table: Built-in types, predefined aliases_
 

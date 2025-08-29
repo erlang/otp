@@ -2313,10 +2313,10 @@ expressions in guards.
 | [`max(A, B)`](`max/2`)                   |
 | [`min(A, B)`](`min/2`)                   |
 | `node/0`                                 |
-| `node(Pid` \| `Ref` \| `Port)`           |
+| [`node(Pid \| Ref \| Port)`](`node/1`)   |
 | [`round(Number)`](`round/1`)             |
 | `self/0`                                 |
-| `size(Tuple` \| `Bitstring)`             |
+| [`size(Tuple \| Bitstring)`](`size/1`)   |
 | [`tl(List)`](`tl/1`)                     |
 | [`trunc(Number)`](`trunc/1`)             |
 | [`tuple_size(Tuple)`](`tuple_size/1`)    |
