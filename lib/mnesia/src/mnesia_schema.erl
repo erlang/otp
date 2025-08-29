@@ -3480,7 +3480,7 @@ do_make_merge_schema(Node, NeedsConv, RemoteCs = #cstruct{name = schema}) ->
     Masters = mnesia_recover:get_master_nodes(schema),
     HasRemoteMaster = lists:member(Node, Masters),
     HasLocalMaster = lists:member(node(), Masters),
-    Force = HasLocalMaster or HasRemoteMaster,
+    Force = HasLocalMaster orelse HasRemoteMaster,
     %% What is the storage types opinions?
     StCsLocal   = mnesia_lib:cs_to_storage_type(node(), Cs),
     StRcsLocal  = mnesia_lib:cs_to_storage_type(node(), RemoteCs),
@@ -3560,7 +3560,7 @@ do_make_merge_schema(Node, NeedsConv, RemoteCs = #cstruct{}) ->
     Masters = mnesia_recover:get_master_nodes(schema),
     HasRemoteMaster = lists:member(Node, Masters),
     HasLocalMaster = lists:member(node(), Masters),
-    Force = HasLocalMaster or HasRemoteMaster,
+    Force = HasLocalMaster orelse HasRemoteMaster,
     case ?catch_val({Tab, cstruct}) of
 	{'EXIT', _} ->
 	    %% A completely new table, created while Node was down
@@ -3765,7 +3765,7 @@ verify_merge(RemoteCs) ->
 
 announce_im_running([N | Ns], SchemaCs) ->
     {L1, L2} = mnesia_recover:connect_nodes([N]),
-    case lists:member(N, L1) or lists:member(N, L2) of
+    case lists:member(N, L1) orelse lists:member(N, L2) of
 	true ->
 	    mnesia_lib:add({current, db_nodes}, N),
 	    mnesia_controller:add_active_replica(schema, N, SchemaCs);

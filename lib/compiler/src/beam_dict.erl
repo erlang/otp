@@ -222,7 +222,7 @@ line([{location,Name,Line}|_], #asm{lines=Lines,num_lines=N,
   when is_atom(Instr) ->
     {FnameIndex,Dict1} = fname(Name, Dict0),
     Key = {FnameIndex,Line},
-    ExecLine = ExecLine0 or (Instr =:= executable_line),
+    ExecLine = ExecLine0 orelse (Instr =:= executable_line),
     case Lines of
         #{Key := Index} ->
             {Index,Dict1#asm{num_lines=N+1,exec_line=ExecLine}};
