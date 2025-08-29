@@ -128,6 +128,12 @@ void BeamGlobalAssembler::emit_process_main() {
         a.bind(schedule);
         // TODO
         emit_nyi("schedule");
+
+        a.bind(skip_long_schedule);
+        comment("skip_long_schedule");
+        //TODO
+        emit_nyi("skip_long_schedule");
+
     }
 
     /* Processes may jump to the exported entry points below, executing on the
