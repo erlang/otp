@@ -65,7 +65,18 @@ void BeamGlobalAssembler::emit_process_main() {
     mov_imm(FCALLS, 0);
     mov_imm(ARG3, 0); /* Set reds_used for erts_schedule call */
 
+    // Start scheduling loop
     a.b(schedule_next);
+
+    // We will jump here when a process is exiting to register
+    // how many reductions were used
+    a.bind(do_schedule_local);
+    {
+        /* Figure out reds_used. def_arg_reg[5] = REDS_IN */
+        a.ldr(TMP, arm::Mem(c_p, offsetof(Process, def_arg_reg[5])));
+        a.sub(ARG3, TMP, FCALLS);
+        a.b(schedule_next);
+    }
 
     // TODO
     emit_nyi("emit_process_main");
