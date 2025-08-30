@@ -1508,6 +1508,21 @@ update(Config) when is_list(Config) ->
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Tests for TSIG
 
+%% erlang-questions Message-ID 20081120202532.GG229@h216-235-12-168.host.egate.net
+-define(DNS_PP(R),
+dns_pp(R, N) ->
+	N = record_info(size, R) - 1,
+	record_info(fields, R)).
+dns_pp(R) ->
+	io_lib_pretty:print(R, fun dns_pp/2).
+?DNS_PP(dns_rec);
+?DNS_PP(dns_header);
+?DNS_PP(dns_query);
+?DNS_PP(dns_rr);
+?DNS_PP(dns_rr_opt);
+?DNS_PP(dns_rr_tsig);
+dns_pp(_RN, _N) -> no.
+
 % note for implementors reading this, the usage of
 % inet_dns_tsig.erl is identical except you do not need
 % to inspect the reponse for the presence of a TSIG RR
@@ -1523,6 +1538,7 @@ tsig_client(Config) when is_list(Config) ->
     Key = {"testkey","ded5ada3-07f2-42b9-84bf-82d30f6795ee"},
     TS0 = inet_dns_tsig:init([{key,Key}]),
     {ok,PktS,TS1} = inet_dns_tsig:sign(Pkt, TS0),
+    ?P("Request: ~s", [dns_pp(element(2, inet_dns:decode(PktS)))]),
 
     SockOpts = [binary,{active,false},{nodelay,true},{packet,2}],
     {ok,Sock} = gen_tcp:connect(NSIP, NSPort, SockOpts),
@@ -1543,6 +1559,8 @@ tsig_client(Config) when is_list(Config) ->
 
     {_TS,Response} = lists:foldl(fun(P, {T0,R0}) ->
         {ok,R} = inet_dns:decode(P),
+        ?P("Response: ~s", [dns_pp(R)]),
+        R#dns_rec.header#dns_header.rcode == ?NOERROR orelse throw("response rcode"),
         {ok,T} = inet_dns_tsig:verify(P, R, T0),
         {T,R0 ++ [R]}
     end, {TS1,[]}, PktR),
@@ -1658,6 +1676,7 @@ tsig_server(Domain, TS0, Sock) ->
     ok = gen_tcp:shutdown(Sock, read),
 
     {ok,Request} = inet_dns:decode(Pkt),
+    ?P("Request: ~s", [dns_pp(Request)]),
     {ok,TS1} = inet_dns_tsig:verify(Pkt, Request, TS0),
 
     % actual implementations would here now consider if the additional
@@ -1692,6 +1711,7 @@ tsig_server(Domain, TS0, Sock) ->
                   X <- lists:seq(20, 29) ] ++ [SOA],
     PktR3 = inet_dns:encode(PktR0#dns_rec{ anlist = AnList3 }),
     {ok,PktR3S,_TS} = inet_dns_tsig:sign(PktR3, TS3),
+    ?P("Response: ~s", [dns_pp(element(2, inet_dns:decode(PktR3S)))]),
     ok = gen_tcp:send(Sock, PktR3S).
 
 
