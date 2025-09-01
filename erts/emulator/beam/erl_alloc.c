@@ -1825,6 +1825,10 @@ handle_args(int *argc, char **argv, erts_alc_hndl_args_init_t *init)
 			init->alloc_util.sac
 			    = get_bool_value(argv[i]+6, argv, &i);
 		    }
+                    else if (has_prefix("madtn", argv[i]+3)) {
+                        init->alloc_util.madtn
+                            = get_bool_value(argv[i]+8, argv, &i);
+                    }
 		    else {
 			int a;
 			int start = i;

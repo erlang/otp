@@ -156,7 +156,6 @@ Eterm erts_mmap_info_options(ErtsMemMapper*,
                              char *prefix, fmtfn_t *print_to_p, void *print_to_arg,
                              Uint **hpp, Uint *szp);
 
-
 #ifdef ERTS_WANT_MEM_MAPPERS
 #  include "erl_alloc_types.h"
 
@@ -194,6 +193,10 @@ int erts_mem_guard(void *p, UWord size, int readable, int writable);
  * its contents) the next time it's accessed. */
 ERTS_GLB_INLINE void erts_mem_discard(void *p, UWord size);
 
+#if defined(HAVE_MADVISE) && defined(MADV_FREE)
+extern int erts_madvise_discard_advice; // MADV_FREE or MADV_DONTNEED
+#endif
+
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
 #ifdef VALGRIND
@@ -220,11 +223,8 @@ ERTS_GLB_INLINE void erts_mem_discard(void *p, UWord size);
     #include <sys/mman.h>
 
     ERTS_GLB_INLINE void erts_mem_discard(void *ptr, UWord size) {
-        /* Note that we don't fall back to MADV_DONTNEED since it promises that
-         * the given region will be zeroed on access, which turned out to be
-         * too much of a performance hit. */
     #ifdef MADV_FREE
-        madvise(ptr, size, MADV_FREE);
+        madvise(ptr, size, erts_madvise_discard_advice);
     #else
         (void)ptr;
         (void)size;
