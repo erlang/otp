@@ -137,9 +137,11 @@ stop() ->
     case whereis(etop_server) of
         undefined -> not_started;
         Pid when is_pid(Pid) ->
-            Result = etop_server ! stop,
+            MonRef = monitor(process, Pid),
+            Pid ! stop,
             stop_etop_input_server(),
-            Result
+            receive {'DOWN', MonRef, process, Pid, _} -> ok end,
+            stop
     end.
 
 -doc """
@@ -328,7 +330,13 @@ stop(Reader, Opts) ->
             etop_tr:stop_tracer(Opts),
             %% Stop reader process so it doesn't crash on deleted accumulator table
             %% when our process dies.
-            exit(Pid, stop);
+            case is_process_alive(Pid) of
+                true ->
+                    MonRef = monitor(process, Pid),
+                    exit(Pid, stop),
+                    receive {'DOWN', MonRef, process, Pid, _} -> ok end;
+                false -> ok
+            end;
         _ ->
             ok
     end,
