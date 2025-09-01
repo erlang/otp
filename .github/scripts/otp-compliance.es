@@ -2430,7 +2430,7 @@ read_openvex(VexPath, Branch) ->
     case filelib:is_file(InitVex) of
         true -> % file exists
             decode(InitVex);
-        false -> % create file
+        false ->
             throw(file_not_found)
     end.
 
@@ -2441,10 +2441,24 @@ create_advisory(Advisories) ->
 generate_gh_link(Part) ->
     "\"/repos/erlang/otp/security-advisories?" ++ Part ++ "\"".
 
+%% GH default options
+-define(GH_ADVISORIES_OPTIONS, "state=published&direction=desc&per_page=100&sort=updated").
+
+%% Advisories to download from last X years.
+-define(GH_ADVISORIES_FROM_LAST_X_YEARS, 5).
+
 download_advisory_from_branch(Branch) ->
-    Cmd = generate_gh_link("state=published&direction=desc&per_page=100&sort=updated"),
+    Opts = ?GH_ADVISORIES_OPTIONS,
+    Cmd = generate_gh_link(Opts),
     paginate_years(Branch, Cmd).
 
+%%
+%% Download GH Advisories for erlang/otp using
+%% gh_advisories_options(). Download pages of information
+%% until there are no more pages of advisories information
+%% to download. Considers only information updated in the last
+%% 5 years.
+%%
 paginate_years(Branch, Cmd) when is_binary(Cmd) ->
     paginate_years(Branch, erlang:binary_to_list(Cmd));
 paginate_years(Branch, Cmd) when is_list(Cmd) ->
@@ -2457,11 +2471,15 @@ paginate_years(Branch, Cmd) when is_list(Cmd) ->
     Body0 = extract_http_gh_body(RawHTTP),
     {{LowRangeYear, _Month, _Day}, _} = calendar:local_time(),
 
-    %% Get the latest 5 years of CVEs
-    case get_more_gh_pages(LowRangeYear - 5, Branch, Body0) of
+    %% Get the latest 5 years of CVEs. information is sorted
+    case process_gh_page(LowRangeYear - ?GH_ADVISORIES_FROM_LAST_X_YEARS, Branch, Body0) of
         [] ->
+            %% there was nothing useful based on the dates (sorted)
+            %% so we do not need to continue pulling pages.
             [];
         [_|_]=Body1 ->
+            %% there were CVE under the last ?GH_ADVISORIES_FROM_LAST_X_YEARS years.
+            %% extract link to continue pulling GH pages
             case extract_http_gh_link(RawHTTP) of
                 [NextQuery] ->
                     Body1 ++ paginate_years(Branch, NextQuery);
@@ -2470,7 +2488,7 @@ paginate_years(Branch, Cmd) when is_list(Cmd) ->
             end
     end.
 
-get_more_gh_pages(Year, Branch, Body) ->
+process_gh_page(Year, Branch, Body) ->
     lists:foldl(fun (Vuln0, Acc0) ->
                         Vuln1 = filter_gh_cve_by({year, Year}, Vuln0),
                         [filter_gh_cve_by({otp, Branch}, Vuln1) | Acc0]
@@ -2499,7 +2517,10 @@ filter_gh_cve_by({otp, <<"otp-", Version/binary>>},
     %% of having one vulnerable_version_range in the form <<">= 3.0">>.
     %%
     CVE#{ ~"vulnerabilities" :=
-              lists:foldl(fun (#{~"package" := #{~"name" := ~"OTP"}}, Acc) -> Acc;
+              lists:foldl(fun (#{~"package" := #{~"name" := ~"OTP"}}, Acc) ->
+                                  %% ignore OTP release versions. We can generate these ones from
+                                  %% the app specific version.
+                                  Acc;
                               (#{~"package" := #{~"name" := AppName},
                                  ~"vulnerable_version_range" := VulnerableVersion,
                                  ~"patched_versions" := AppVersions}=Pkg, Acc) when is_binary(AppVersions) ->
@@ -2535,7 +2556,9 @@ get_otp_app_version_from_gh_vulnerability(BranchVersion, VulnerableVersion, Name
 parse_vulnerable_version_range_gh(BranchVersion, <<">=", Version/binary>>, Name) ->
     case length(binary:split(Version, ~",", [global, trim_all])) of
         X when X > 1 ->
-            throw(not_valid_patch);
+            %% this reported vulnerability does not follow a previous format
+            %% and we cannot validate it.
+            throw(not_valid_cve_report);
         X when X == 1 ->
             AppVersion = string:trim(Version),
             OTPVersion = fetch_otp_major_version_from_table(<<Name/binary, "-", AppVersion/binary>>),
@@ -2578,15 +2601,15 @@ extract_http_gh_link(RawHTTP) when is_list(RawHTTP) ->
 
 verify_advisory_against_openvex(OpenVEX, Advisory) ->
     AdvInfo = extract_advisory_info(Advisory),
-    %% io:format("GH Advisory:~n~p~n~n", [AdvInfo]),  %% enable to debug
-
     AdvVEX = extract_openvex_info(OpenVEX),
-    %% io:format("OpenVEX:~n~p~n~n", [AdvVEX]),  %% enable to debug
 
     %% checks that AdvVex is part of OpenVEX
     %% returns a list of missing OpenVEX statements into some branch.
     vex_set_inclusion(AdvInfo, AdvVEX).
 
+%%
+%% Extracts information from GH Advisories
+%%
 -spec extract_advisory_info(Advisories :: [map()]) -> [cve()].
 extract_advisory_info(Advisories) when is_list(Advisories) ->
     lists:foldl(
@@ -2610,9 +2633,14 @@ create_cve(CVEId, AppName, PatchedVersions, AffectedVersions) ->
       'affectedVersions' => PatchedVersions,
       'fixedVersions' => AffectedVersions}.
 
+%%
+%% Extract information from OpenVEX statements
+%%
 -spec extract_openvex_info(OpenVEX :: map()) -> [cve()].
 extract_openvex_info(#{~"statements" := Statements}) ->
-    lists:foldl(fun (#{~"status" := ~"not_affected"}, Acc) -> Acc;
+    lists:foldl(fun (#{~"status" := Status}, Acc) when Status =:= ~"not_affected";
+                                                       Status =:= ~"under_investigation" ->
+                        Acc;
                     (#{~"status" := Status}=Vuln, Acc) when Status =:= ~"affected";
                                                             Status =:= ~"fixed" ->
                         CVEId = openvex_vuln_name(Vuln),
@@ -2621,9 +2649,8 @@ extract_openvex_info(#{~"statements" := Statements}) ->
                             [] ->
                                 Acc;
                             [{AppName, Versions}] ->
-                                Found = lists:search(fun (#{'CVE' := CVE0,'appName' := AppName0})
-                                                         when CVE0 == CVEId, AppName0 == AppName -> true;
-                                                         (_) -> false
+                                Found = lists:search(fun (#{'CVE' := CVE0,'appName' := AppName0}) ->
+                                                          CVE0 == CVEId andalso AppName0 == AppName
                                                      end, Acc),
                                 case Status of
                                     ~"affected" ->
