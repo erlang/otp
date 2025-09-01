@@ -58,6 +58,7 @@ jobs:
       fail-fast: false
     permissions:
       actions: write
+      issues: write
     steps:
       # this call to a workflow_dispatch ref=master is important because
       # using ref={{matrix.type}} would trigger the workflow

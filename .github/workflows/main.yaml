@@ -473,6 +473,7 @@ jobs:
     if: ${{ needs.modified-vendor-files.outputs.vendor-files != 0 && github.event_name == 'pull_request'}}
     permissions:
       security-events: read
+      issues: write
     name: Vendor Vulnerability Scanning
     uses: ./.github/workflows/reusable-vendor-vulnerability-scanner.yml
     with:

@@ -69,6 +69,9 @@
 -export([test_openvex_branched_otp_tree/0,
          test_openvex_branched_otp_tree_idempotent/0]).
 
+%%
+%% SBOM SPDX MACROS
+%%
 -define(default_classified_result, "scan-result-classified.json").
 -define(default_scan_result, "scan-result.json").
 -define(diff_classified_result, "scan-result-diff.json").
@@ -86,8 +89,30 @@
                               ~"referenceCategory" => ~"PACKAGE-MANAGER",
                               ~"referenceLocator" => ~"pkg:github/erlang/otp",
                               ~"referenceType" => ~"purl"}).
+%%
+%%
+
+%%
+%% VEX MACROS
+%%
 -define(VexPath, ~"vex/").
 -define(ErlangPURL, "pkg:github/erlang/otp").
+
+-define(FOUND_VENDOR_VULNERABILITY_TITLE, "Vendor vulnerability found").
+-define(FOUND_VENDOR_VULNERABILITY, lists:append(string:replace(?FOUND_VENDOR_VULNERABILITY_TITLE, " ", "+", all))).
+
+%% GH default options
+-define(GH_ADVISORIES_OPTIONS, "state=published&direction=desc&per_page=100&sort=updated").
+
+%% Advisories to download from last X years.
+-define(GH_ADVISORIES_FROM_LAST_X_YEARS, 5).
+
+%% Sets end point account to fetch information from GH
+%% used by `gh` command-line tool.
+%% change to your fork for testing, e.g., `kikofernandez/otp`
+-define(GH_ACCOUNT, "erlang/otp").
+%%
+%%
 
 %% Add more relations if necessary.
 -type spdx_relations() :: #{ 'DOCUMENTATION_OF' => [],
@@ -1426,15 +1451,43 @@ osv_scan(#{version := Version,
                 _ ->
                     Failure =
                         """
-                        [Vulnerability] Contact OTP team.
+                        **Vulnerability Detected**
+
                         The following CVEs must be checked in OpenVex statements for ~s:
                         ~s
-                        Please follow instructions from:
+
+                        Please follow instructions on how to do this from:
                           https://github.com/erlang/otp/blob/master/HOWTO/SBOM.md#vex
                         """,
+                    create_or_update_gh_issue(Version, Failure, FormattedVulns),
                     fail(Failure, [Version, FormattedVulns])
             end
     end.
+
+create_or_update_gh_issue(Version, BodyText, Vulns) ->
+    VersionS = erlang:binary_to_list(Version),
+    Cmd = "gh api -H \"Accept: application/vnd.github+json\" -H \"X-GitHub-Api-Version: 2022-11-28\" ",
+    SearchCmd =
+        io_lib:format("/search/issues?q=repo:~s+in:title+~s+~s+is:issue+is:open",
+                      [?GH_ACCOUNT, VersionS, ?FOUND_VENDOR_VULNERABILITY]),
+
+    io:format("Query GH API~n~s~n~n", [Cmd ++ SearchCmd]),
+    RawResponse = cmd(Cmd ++ SearchCmd),
+    Bin = unicode:characters_to_binary(RawResponse),
+    #{~"total_count" := Count} = json:decode(Bin),
+    FormattedBody = io_lib:format(BodyText, [Version, Vulns]),
+    case Count of
+        0 ->
+            create_gh_issue(VersionS, ?FOUND_VENDOR_VULNERABILITY_TITLE, FormattedBody);
+        _ ->
+            ok
+    end.
+
+create_gh_issue(Version, Title, BodyText) ->
+    Create = io_lib:format("gh issue create -t \"[~s] ~s\" -b \"~s\" -R ~s", [Version, Title, BodyText, ?GH_ACCOUNT]),
+    io:format("GH Create Ticket with title '[~s] ~s'", [Version, Title]),
+    _ = cmd(Create),
+    ok.
 
 ignore_vex_cves(Branch, Vulns) ->
     OpenVex = get_otp_openvex_file(Branch),
@@ -1487,7 +1540,7 @@ format_vex_statements(OpenVex) ->
 get_otp_openvex_file(Branch) ->
     OpenVexPath = fetch_openvex_filename(Branch),
     OpenVexStr = erlang:binary_to_list(OpenVexPath),
-    GithubURI = "https://raw.githubusercontent.com/erlang/otp/refs/heads/master/" ++ OpenVexStr,
+    GithubURI = "https://raw.githubusercontent.com/" ++ ?GH_ACCOUNT ++ "/refs/heads/master/" ++ OpenVexStr,
 
     io:format("Checking OpenVex statements in '~s' from~n'~s'...~n", [OpenVexPath, GithubURI]),
 
@@ -2441,12 +2494,6 @@ create_advisory(Advisories) ->
 generate_gh_link(Part) ->
     "\"/repos/erlang/otp/security-advisories?" ++ Part ++ "\"".
 
-%% GH default options
--define(GH_ADVISORIES_OPTIONS, "state=published&direction=desc&per_page=100&sort=updated").
-
-%% Advisories to download from last X years.
--define(GH_ADVISORIES_FROM_LAST_X_YEARS, 5).
-
 download_advisory_from_branch(Branch) ->
     Opts = ?GH_ADVISORIES_OPTIONS,
     Cmd = generate_gh_link(Opts),
@@ -2465,7 +2512,7 @@ paginate_years(Branch, Cmd) when is_list(Cmd) ->
     Cmd0 = "gh api -i -H \"Accept: application/vnd.github+json\" -H \"X-GitHub-Api-Version: 2022-11-28\" ",
     Cmd1 = Cmd0 ++ Cmd,
     io:format("~p~n", [Cmd1]),
-    AdvisoryStr = os:cmd(Cmd1, #{ exception_on_failure => true }),
+    AdvisoryStr = cmd(Cmd1),
     UnicodeBin = unicode:characters_to_binary(AdvisoryStr),
     RawHTTP = string:split(UnicodeBin, "\n", all),
     Body0 = extract_http_gh_body(RawHTTP),
