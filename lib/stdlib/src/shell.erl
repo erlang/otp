@@ -792,7 +792,7 @@ shell_cmd(Es, Eval, Bs, RT, FT, Ds, W) ->
     shell_rep(Eval, Bs, RT, FT, Ds).
 
 shell_rep(Ev, Bs0, RT, FT, Ds0) ->
-    case application:get_env(stdlib, shell_hints, true) =/= false of
+    case application:get_env(stdlib, shell_hints, ?DEF_HINTS) =/= false of
       true  -> shell_rep(Ev, Bs0, RT, FT, Ds0, 5000);
       false -> shell_rep(Ev, Bs0, RT, FT, Ds0, infinity)
     end.
@@ -2180,7 +2180,7 @@ The flag can also be set by the STDLIB application variable `shell_hints`.
 Defaults to `true`, which means that hints will be printed by default. Value
 `false` means that no hints are printed in the shell.
 """.
--doc(#{since => <<"OTP R28.1">>}).
+-doc(#{since => <<"OTP @OTP-19759@">>}).
 -spec hints(Hints) -> OldHints when
       Hints :: boolean(),
       OldHints :: boolean().
