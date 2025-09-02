@@ -141,6 +141,14 @@ protected:
         return arm::Mem(Src, -TAG_PRIMARY_LIST + sizeof(Eterm));
     }
 
+    /* Loads the X register array into `to`. Remember to sync the registers in
+     * `emit_enter_runtime`. */
+    void load_x_reg_array(a64::Gp to) {
+        int offset = offsetof(ErtsSchedulerRegisters, x_reg_array.d);
+
+        lea(to, getSchedulerRegRef(offset));
+    }
+
     void emit_assert_redzone_unused() {
         ASSERT(false);
 #ifdef JIT_HARD_DEBUG
