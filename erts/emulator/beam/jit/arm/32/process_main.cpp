@@ -52,9 +52,7 @@ void BeamGlobalAssembler::emit_process_main() {
           do_schedule_local = a.newLabel(), schedule_next = a.newLabel();
 
     /* Be kind to debuggers and `perf` by setting up a proper stack frame. */
-    a.push(a32::GpList({a32::fp, a32::lr}));
-    // We also update the frame pointer,
-    a.add(a32::fp, a32::sp);
+    emit_enter_runtime_frame();
 
     /* The offset of start_time_i in ErtsSchedulerRegisters cannot stay
      * in the 12 bit immediate accepted by the STR instruction.

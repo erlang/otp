@@ -143,7 +143,7 @@ protected:
 
     /* Loads the X register array into `to`. Remember to sync the registers in
      * `emit_enter_runtime`. */
-    void load_x_reg_array(a64::Gp to) {
+    void load_x_reg_array(a32::Gp to) {
         int offset = offsetof(ErtsSchedulerRegisters, x_reg_array.d);
 
         lea(to, getSchedulerRegRef(offset));
@@ -241,8 +241,7 @@ protected:
         // We save the current frame pointer first
         // and then the content of theLink Register on the stack
         a.push(a32::GpList({a32::fp, a32::lr}));
-        // We modify the frame pointer register to point
-        // where we just stored the current frame pointer value
+        // We also update the frame pointer
         a.mov(a32::fp, a32::sp);
     }
 
@@ -432,9 +431,26 @@ protected:
         ASSERT(false);
     }
 
-    void add(a32::Gp to, a32::Gp src, int64_t val) {
-        // TODO
-        ASSERT(false);
+    void add(a32::Gp to, a32::Gp src, int32_t val) {
+        if (val < 0) {
+            sub(to, src, -val);
+        } else if (val == 0 && to != src) {
+            a.mov(to, src);
+        } else if (val < (1 << 24)) {
+            if (val & 0xFFF) {                  // add the lower 12 bits
+                a.add(to, src, imm(val & 0xFFF));
+                src = to;
+            }
+
+            if (val & 0xFFF000) {               // add the upper 12 bits
+                a.add(to, src, imm(val & 0xFFF000));
+            }
+        } else {
+            a32::Gp tmp = follow_size(TMP, to);
+
+            mov_imm(tmp, val);
+            a.add(to, src, tmp);
+        }
     }
 
     void subs(a32::Gp to, a32::Gp src, int64_t val) {
@@ -468,8 +484,14 @@ protected:
      * arm::Mem class.
      */
     void lea(a32::Gp to, arm::Mem mem) {
-        // TODO
-        ASSERT(false);
+        int32_t offset = mem.offset();
+
+        ASSERT(mem.hasBaseReg() && !mem.hasIndex());
+        if (offset == 0) {
+            a.mov(to, a32::Gp(mem.baseId()));
+        } else {
+            add(to, a32::Gp(mem.baseId()), offset);
+        }
     }
 
     /*
