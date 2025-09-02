@@ -13246,7 +13246,7 @@ do_otp19482_simple_multi(#{iov_max := IOVMax,
       Clients),
 
     ?P("~w -> await client success", [?FUNCTION_NAME]),
-    case do_otp19482_simple_multi_await_client_success(Clients) of
+    case do_otp19482_simple_multi_await_client_completion(Clients) of
         {_, []} ->
             ?P("~w -> all clients successful - terminate clients",
                [?FUNCTION_NAME]),
@@ -13286,22 +13286,30 @@ do_otp19482_simple_multi(#{iov_max := IOVMax,
     end.
 
 
-do_otp19482_simple_multi_await_client_success(Clients) ->
-    do_otp19482_simple_multi_await_client_success(Clients, [], []).
+do_otp19482_simple_multi_await_client_completion(Clients) ->
+    do_otp19482_simple_multi_await_client_completion(Clients, [], []).
 
-do_otp19482_simple_multi_await_client_success([], Success, Failure) ->
+do_otp19482_simple_multi_await_client_completion([], Success, Failure) ->
     ?P("~w -> done when: "
        "~n   Success: ~p"
        "~n   Failure: ~p", [?FUNCTION_NAME, Success, Failure]),
     {Success, Failure};
-do_otp19482_simple_multi_await_client_success(Clients, Success, Failure) ->
+do_otp19482_simple_multi_await_client_completion(Clients, Success, Failure) ->
     receive
         {Pid, done} ->
             Clients2 = lists:delete(Pid, Clients),
-            ?P("~w -> -> client ~p done (~w)", [?FUNCTION_NAME, Pid, length(Clients)]),
-            do_otp19482_simple_multi_await_client_success(Clients2,
-							  [Pid|Success],
-							  Failure);
+            ?P("~w -> -> client ~p done (~w)", [?FUNCTION_NAME,
+                                                Pid, length(Clients)]),
+            do_otp19482_simple_multi_await_client_completion(Clients2,
+                                                             [Pid|Success],
+                                                             Failure);
+
+        {'EXIT', _Pid, {timetrap_timeout, _, _}} ->
+            ?P("~w -> -> timetrap timeout when"
+               "~n   Remaining clients: ~w)", [?FUNCTION_NAME,
+                                               length(Clients)]),
+            exit(timetrap_timeout);
+
         {'EXIT', Pid, Reason} ->
             ?P("~w -> received unexpected exit: "
                "~n   Pid:    ~p"
@@ -13310,19 +13318,22 @@ do_otp19482_simple_multi_await_client_success(Clients, Success, Failure) ->
                "~n   Clients: ~p"
                "~n   length(Success): ~p"
                "~n   length(Failure): ~p",
-	       [?FUNCTION_NAME, Pid, Reason, Clients, length(Success), length(Failure)]),
+	       [?FUNCTION_NAME,
+                Pid, Reason, Clients, length(Success), length(Failure)]),
             case lists:delete(Pid, Clients) of
                 Clients ->
-                    ?P("~w -> ~p not a client", [?FUNCTION_NAME, Pid]),
-                    do_otp19482_simple_multi_await_client_success(Clients,
-								  Success,
-								  Failure);
+                    ?P("~w -> ~p was not a client", [?FUNCTION_NAME, Pid]),
+                    do_otp19482_simple_multi_await_client_completion(Clients,
+                                                                     Success,
+                                                                     Failure);
                 Clients2 ->
-                    ?P("~w -> ~p a client", [?FUNCTION_NAME, Pid]),
-                    do_otp19482_simple_multi_await_client_success(Clients2,
-								  Success,
-								  [Pid|Failure])
+                    ?P("~w -> ~p was a client", [?FUNCTION_NAME, Pid]),
+                    do_otp19482_simple_multi_await_client_completion(
+                      Clients2,
+                      Success,
+                      [Pid|Failure])
             end
+            
     end.
 
 do_otp19482_simple_multi_collect_procs(undefined, []) ->
@@ -13412,13 +13423,21 @@ otp19482_simple_multi_acceptor_init(Parent, LSA, Num) ->
             ok
     end,
 
-    otp19482_simple_multi_acceptor_loop(Parent, LSock, undefined, 1, Num).
+    State = #{parent  => Parent,
+              lsock   => LSock,
+              ref     => undefined,
+              next_id => 1,
+              data_sz => Num},
+    otp19482_simple_multi_acceptor_loop(State).
 
 
 -define(SELECT_RES(Tag,Ref),     {select,     {select_info, (Tag), (Ref)}}).
 -define(COMPLETION_RES(Tag,Ref), {completion, {completion_info, (Tag), (Ref)}}).
 
-otp19482_simple_multi_acceptor_loop(Parent, LSock, undefined = Ref0, ID, Num) ->
+otp19482_simple_multi_acceptor_loop(#{lsock   := LSock,
+                                      ref     := undefined,
+                                      next_id := ID,
+                                      data_sz := Num} = State) ->
     ?P("A(undefined,~w) -> try accept", [ID]),
     case socket:accept(LSock, nowait) of
         {ok, ASock} ->
@@ -13428,16 +13447,21 @@ otp19482_simple_multi_acceptor_loop(Parent, LSock, undefined = Ref0, ID, Num) ->
             ?P("A(undefined,~w) -> handler ~p started", [ID, Handler]),
             ok = otp19482_simple_multi_transfer_ownership(ASock, Handler),
             Handler ! {self(), continue, ASock},
-            otp19482_simple_multi_acceptor_loop(Parent, LSock, Ref0, ID+1, Num);
+            NewState = State#{next_id => ID+1,
+                              Handler => ID,
+                              ID      => Handler},
+            otp19482_simple_multi_acceptor_loop(NewState);
 
         ?SELECT_RES(accept, Ref) ->
             ?P("A(undefined,~w) -> select: "
                "~n   Ref: ~p", [ID, Ref]),
-            otp19482_simple_multi_acceptor_loop(Parent, LSock, Ref, ID, Num);
+            NewState = State#{ref => Ref},
+            otp19482_simple_multi_acceptor_loop(NewState);
         ?COMPLETION_RES(accept, Ref) ->
             ?P("A(undefined,~w) -> completion: "
                "~n   Ref: ~p", [ID, Ref]),
-            otp19482_simple_multi_acceptor_loop(Parent, LSock, Ref, ID, Num);
+            NewState = State#{ref => Ref},
+            otp19482_simple_multi_acceptor_loop(NewState);
 
         {error, Reason} ->
             ?P("A(undefined,~w) -> failure: "
@@ -13446,57 +13470,93 @@ otp19482_simple_multi_acceptor_loop(Parent, LSock, undefined = Ref0, ID, Num) ->
 
     end;
 
-otp19482_simple_multi_acceptor_loop(Parent, LSock, Ref, ID, Num) ->
-    ?P("A(~p,~w) -> await socket (accept) messages", [Ref, ID]),
+otp19482_simple_multi_acceptor_loop(#{parent  := Parent,
+                                      lsock   := LSock,
+                                      ref     := Ref,
+                                      next_id := NextID,
+                                      data_sz := Num} = State) ->
+    ?P("A(~p,~w) -> await socket (accept) messages", [Ref, NextID]),
     receive
         {'$socket', LSock, select, Ref} ->
             ?P("A(~p,~w) -> select message received - try accept again",
-               [Ref, ID]),
+               [Ref, NextID]),
             case socket:accept(LSock, Ref) of
                 {ok, ASock} ->
                     ?P("A(~p,~w) -> accepted: "
-                       "~n   ASock: ~p", [Ref, ID, ASock]),
-                    Handler = otp19482_simple_multi_handler_start(ID, Num),
-                    ?P("A(~p,~w) -> handler ~p started", [Ref, ID, Handler]),
+                       "~n   ASock: ~p", [Ref, NextID, ASock]),
+                    Handler = otp19482_simple_multi_handler_start(NextID, Num),
+                    ?P("A(~p,~w) -> handler ~p started",
+                       [Ref, NextID, Handler]),
                     ok = otp19482_simple_multi_transfer_ownership(ASock,
                                                                   Handler),
                     Handler ! {self(), continue, ASock},
-                    otp19482_simple_multi_acceptor_loop(Parent,
-                                                        LSock, undefined, ID+1,
-							Num);
+                    NewState = State#{next_id => NextID+1,
+                                      ref     => undefined,
+                                      Handler => NextID,
+                                      NextID  => Handler},
+                    otp19482_simple_multi_acceptor_loop(NewState);
+
                 ?SELECT_RES(accept, NewRef) ->
                     ?P("A(~p,~w) -> select: "
-                       "~n   NewRef: ~p", [Ref, ID, NewRef]),
-                    otp19482_simple_multi_acceptor_loop(Parent,
-                                                        LSock, NewRef, ID,
-                                                        Num);
+                       "~n   NewRef: ~p", [Ref, NextID, NewRef]),
+                    otp19482_simple_multi_acceptor_loop(State);
 
                 {error, Reason} ->
                     ?P("A(~p,~w) -> failure: "
-                       "~n   Reason: ~p", [Ref, ID, Reason]),
+                       "~n   Reason: ~p", [Ref, NextID, Reason]),
                     exit({accept_fail, Reason})
             end;
 
         {'$socket', LSock, completion, {Ref, {ok, ASock}}} ->
             ?P("A(~p,~w) -> completion message received - with success:"
-               "~n   ASock: ~p", [Ref, ID, ASock]),
-            Handler = otp19482_simple_multi_handler_start(ID, Num),
-            ?P("A(~p,~w) -> handler ~p started", [Ref, ID, Handler]),
+               "~n   ASock: ~p", [Ref, NextID, ASock]),
+            Handler = otp19482_simple_multi_handler_start(NextID, Num),
+            ?P("A(~p,~w) -> handler ~p started", [Ref, NextID, Handler]),
             ok = otp19482_simple_multi_transfer_ownership(ASock, Handler),
             Handler ! {self(), continue, ASock},
-            otp19482_simple_multi_acceptor_loop(Parent,
-						LSock, undefined, ID+1,
-                                                Num);
+            NewState = State#{next_id => NextID+1,
+                              ref     => undefined,
+                              Handler => NextID,
+                              NextID  => Handler},
+            otp19482_simple_multi_acceptor_loop(NewState);
 
 	{'$socket', LSock, completion, {Ref, ERROR}} ->
 	     ?P("A(~p,~w) -> completion message received - with error:"
-               "~n   ERROR: ~p", [Ref, ID, ERROR]),
+                "~n   ERROR: ~p", [Ref, NextID, ERROR]),
             exit(ERROR);
 
         {Parent, terminate} ->
-            ?P("A(~p,~w) -> terminate", [Ref, ID]),
+            ?P("A(~p,~w) -> terminate", [Ref, NextID]),
             _ = socket:close(LSock),
-            exit(normal)
+            exit(normal);
+
+        {'EXIT', Pid, normal} ->
+            case maps:get(Pid, State, undefined) of
+                undefined ->
+                    ?P("A(~p,~w) -> unknown process ~p terminated normally",
+                       [Ref, NextID, Pid]),
+                    otp19482_simple_multi_acceptor_loop(State);
+                ID when is_integer(ID) ->
+                    ?P("A(~p,~w) -> handler ~p (~w) terminated normally",
+                       [Ref, NextID, Pid, ID]),
+                    NewState = maps:remove(ID, maps:remove(Pid, State)),
+                    otp19482_simple_multi_acceptor_loop(NewState)
+            end;
+
+        {'EXIT', Pid, Reason} ->
+            case maps:get(Pid, State, undefined) of
+                undefined ->
+                    ?P("A(~p,~w) -> unknown process ~p terminated: "
+                       "~n   ~p",
+                       [Ref, NextID, Pid, Reason]),
+                    otp19482_simple_multi_acceptor_loop(State);
+                ID when is_integer(ID) ->
+                    ?P("A(~p,~w) -> handler ~p (~w) terminated: "
+                       "~n   ~p",
+                       [Ref, NextID, Pid, ID, Reason]),
+                    exit({handler_faiulure, Pid, ID, Reason})
+            end
+                    
     end.
 
 otp19482_simple_multi_transfer_ownership(Sock, Pid) ->
@@ -13665,6 +13725,12 @@ otp19482_simple_multi_client_recv_loop(Sock, ID, Num) ->
                [ID, byte_size(Data)]),
             otp19482_simple_multi_client_recv_loop(Sock,
                                                    ID, Num - byte_size(Data));
+
+        {error, {Reason, RestData}} when is_binary(RestData) ->
+            ?P("C[~w] recv-loop -> receive failure:"
+               "~n   Reason:       ~p"
+               "~n   sz(RestData): ~w", [ID, Reason, byte_size(RestData)]),
+            ?FAIL({recv_failure, Reason});
         {error, Reason} ->
             ?P("C[~w] recv-loop -> receive failure:"
                "~n   Reason: ~p", [ID, Reason]),
