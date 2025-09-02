@@ -197,6 +197,13 @@ only_simulated() ->
      redirect_relative_uri,
      port_in_host_header,
      redirect_port_in_host_header,
+     te_header_undefined_no_connection,
+     te_header_empty_string_adds_connection,
+     te_header_whitespace_adds_connection,
+     te_header_trailers_adds_connection,
+     te_header_with_existing_connection,
+     te_header_with_connection_close,
+     te_header_already_in_connection,
      relaxed,
      multipart_chunks,
      get_space,
@@ -275,8 +282,18 @@ init_per_group(http_unix_socket = Group, Config0) ->
             lists:append([{dummy_server_pid, Pid}, {port, Port}, {httpc_options, HttpcOpts}],
                          Config)
     end;
-init_per_group(Group, Config0) when Group == http_ipv6;
-                                    Group == sim_http_ipv6 ->
+init_per_group(sim_http_ipv6 = Group, Config0) ->
+    case is_ipv6_supported() of
+        true ->
+            start_apps(Group),
+            Config = proplists:delete(port, Config0),
+            Port = server_start(Group, server_config(Group, Config)),
+            [{port, Port}, {httpc_options, [{ipfamily, inet6}]} | Config];
+        false ->
+            {skip, "Host does not support IPv6"}
+    end;
+
+init_per_group(http_ipv6 = Group, Config0) ->
     case is_ipv6_supported() of
         true ->
             start_apps(Group),
@@ -285,7 +302,7 @@ init_per_group(Group, Config0) when Group == http_ipv6;
             [{port, Port}, {request_opts, [{socket_opts, [{ipfamily, inet6}]}]} | Config];
         false ->
             {skip, "Host does not support IPv6"}
-     end;
+    end;
 init_per_group(Group, Config0) ->
     start_apps(Group),
     Config = proplists:delete(port, Config0),
@@ -1690,6 +1707,55 @@ redirect_port_in_host_header(Config) when is_list(Config) ->
     inets_test_lib:check_body(Body).
 
 %%-------------------------------------------------------------------------
+te_header_undefined_no_connection(Config) when is_list(Config) ->
+    Request = {url(group_name(Config), "/te_header_undefined_no_connection.html", Config), []},
+    {ok, {{_, 200, _}, _, Body}} = httpc:request(get, Request, [?SSL_NO_VERIFY],
+                                                 [], ?profile(Config)),
+    inets_test_lib:check_body(Body).
+
+%%-------------------------------------------------------------------------
+te_header_empty_string_adds_connection(Config) when is_list(Config) ->
+    Request = {url(group_name(Config), "/te_header_empty_string_adds_connection.html", Config), [{"te", ""}]},
+    {ok, {{_, 200, _}, _, Body}} = httpc:request(get, Request, [?SSL_NO_VERIFY],
+                                                 [], ?profile(Config)),
+    inets_test_lib:check_body(Body).
+
+%%-------------------------------------------------------------------------
+te_header_whitespace_adds_connection(Config) when is_list(Config) ->
+    Request = {url(group_name(Config), "/te_header_whitespace_adds_connection.html", Config), [{"te", " "}]},
+    {ok, {{_, 200, _}, _, Body}} = httpc:request(get, Request, [?SSL_NO_VERIFY],
+                                                 [], ?profile(Config)),
+    inets_test_lib:check_body(Body).
+
+%%-------------------------------------------------------------------------
+te_header_trailers_adds_connection(Config) when is_list(Config) ->
+    Request = {url(group_name(Config), "/te_header_trailers_adds_connection.html", Config), [{"te", "trailers"}]},
+    {ok, {{_, 200, _}, _, Body}} = httpc:request(get, Request, [?SSL_NO_VERIFY],
+                                                 [], ?profile(Config)),
+    inets_test_lib:check_body(Body).
+
+%%-------------------------------------------------------------------------
+te_header_with_existing_connection(Config) when is_list(Config) ->
+    Request = {url(group_name(Config), "/te_header_with_existing_connection.html", Config), [{"te", "trailers"}, {"connection", "keep-alive"}]},
+    {ok, {{_, 200, _}, _, Body}} = httpc:request(get, Request, [?SSL_NO_VERIFY],
+                                                 [], ?profile(Config)),
+    inets_test_lib:check_body(Body).
+
+%%-------------------------------------------------------------------------
+te_header_with_connection_close(Config) when is_list(Config) ->
+    Request = {url(group_name(Config), "/te_header_with_connection_close.html", Config), [{"te", "trailers"}, {"connection", "close"}]},
+    {ok, {{_, 200, _}, _, Body}} = httpc:request(get, Request, [?SSL_NO_VERIFY],
+                                                 [], ?profile(Config)),
+    inets_test_lib:check_body(Body).
+
+%%-------------------------------------------------------------------------
+te_header_already_in_connection(Config) when is_list(Config) ->
+    Request = {url(group_name(Config), "/te_header_already_in_connection.html", Config), [{"te", "trailers"}, {"connection", "keep-alive, TE"}]},
+    {ok, {{_, 200, _}, _, Body}} = httpc:request(get, Request, [?SSL_NO_VERIFY],
+                                                 [], ?profile(Config)),
+    inets_test_lib:check_body(Body).
+
+%%-------------------------------------------------------------------------
 multipart_chunks(Config) when is_list(Config) ->
     Request = {url(group_name(Config), "/multipart_chunks.html", Config), []},
     RequestOpts = proplists:get_value(request_opts, Config, []),
@@ -2582,6 +2648,22 @@ content_length([{"content-length", Value}|_]) ->
 content_length([_Head | Tail]) ->
    content_length(Tail).
 
+header_matches(Headers, HeaderName, ExpectedValue) ->
+    MatchingHeaders = [Value || {Name, Value} <- Headers, Name =:= HeaderName],
+    case {MatchingHeaders, ExpectedValue} of
+        {[], undefined} ->
+            true;
+        {[], _} ->
+            io_lib:format("Expected ~s: \"~ts\" but header not found", [HeaderName, ExpectedValue]);
+        {[ActualValue], ActualValue} ->
+            true;
+        {[ActualValue], _} ->
+            io_lib:format("Expected ~s: \"~ts\" but got: \"~ts\"", [HeaderName, ExpectedValue, ActualValue]);
+        {Multiple, _} ->
+            io_lib:format("Expected single ~s header but found ~p instances: ~p",
+                         [HeaderName, length(Multiple), Multiple])
+    end.
+
 handle_uri("GET","/dummy.html?foo=bar",_,_,_,_) ->
     "HTTP/1.0 200 OK\r\n\r\nTEST";
 
@@ -2628,6 +2710,125 @@ handle_uri(_,"/redirect_ensure_host_header_with_port.html",Port,_,Socket,_) ->
     "HTTP/1.1 302 Found \r\n" ++
 	"Location:" ++ NewUri ++  "\r\n" ++
 	"Content-Length:0\r\n\r\n";
+
+handle_uri(_,"/te_header_undefined_no_connection.html",_,Headers,_,_) ->
+    case {header_matches(Headers, "te", undefined),
+          header_matches(Headers, "connection", "keep-alive")} of
+        {true, true} ->
+            B = "<HTML><BODY>TE header undefined - Connection not modified</BODY></HTML>",
+            Len = integer_to_list(length(B)),
+            "HTTP/1.1 200 OK\r\n" ++
+                "Content-Length:" ++ Len ++ "\r\n\r\n" ++ B;
+        {TEResult, ConnResult} ->
+            Errors = [Error || Error <- [TEResult, ConnResult], Error =/= true],
+            ErrorMsg = string:join([lists:flatten(E) || E <- Errors], "; "),
+            B = "<HTML><BODY>ERROR: " ++ ErrorMsg ++ "</BODY></HTML>",
+            Len = integer_to_list(length(B)),
+            "HTTP/1.1 500 Internal Server Error\r\n" ++
+                "Content-Length:" ++ Len ++ "\r\n\r\n" ++ B
+    end;
+
+handle_uri(_,"/te_header_empty_string_adds_connection.html",_,Headers,_,_) ->
+    case {header_matches(Headers, "te", ""),
+          header_matches(Headers, "connection", "keep-alive, TE")} of
+        {true, true} ->
+            B = "<HTML><BODY>TE empty string - Connection header contains TE</BODY></HTML>",
+            Len = integer_to_list(length(B)),
+            "HTTP/1.1 200 OK\r\n" ++
+                "Content-Length:" ++ Len ++ "\r\n\r\n" ++ B;
+        {TEResult, ConnResult} ->
+            Errors = [Error || Error <- [TEResult, ConnResult], Error =/= true],
+            ErrorMsg = string:join([lists:flatten(E) || E <- Errors], "; "),
+            B = "<HTML><BODY>ERROR: " ++ ErrorMsg ++ "</BODY></HTML>",
+            Len = integer_to_list(length(B)),
+            "HTTP/1.1 500 Internal Server Error\r\n" ++
+                "Content-Length:" ++ Len ++ "\r\n\r\n" ++ B
+    end;
+
+handle_uri(_,"/te_header_whitespace_adds_connection.html",_,Headers,_,_) ->
+    case {header_matches(Headers, "te", ""),
+          header_matches(Headers, "connection", "keep-alive, TE")} of
+        {true, true} ->
+            B = "<HTML><BODY>TE whitespace - Connection header contains TE</BODY></HTML>",
+            Len = integer_to_list(length(B)),
+            "HTTP/1.1 200 OK\r\n" ++
+                "Content-Length:" ++ Len ++ "\r\n\r\n" ++ B;
+        {TEResult, ConnResult} ->
+            Errors = [Error || Error <- [TEResult, ConnResult], Error =/= true],
+            ErrorMsg = string:join([lists:flatten(E) || E <- Errors], "; "),
+            B = "<HTML><BODY>ERROR: " ++ ErrorMsg ++ "</BODY></HTML>",
+            Len = integer_to_list(length(B)),
+            "HTTP/1.1 500 Internal Server Error\r\n" ++
+                "Content-Length:" ++ Len ++ "\r\n\r\n" ++ B
+    end;
+
+handle_uri(_,"/te_header_trailers_adds_connection.html",_,Headers,_,_) ->
+    case {header_matches(Headers, "te", "trailers"),
+          header_matches(Headers, "connection", "keep-alive, TE")} of
+        {true, true} ->
+            B = "<HTML><BODY>TE trailers - Connection header contains TE</BODY></HTML>",
+            Len = integer_to_list(length(B)),
+            "HTTP/1.1 200 OK\r\n" ++
+                "Content-Length:" ++ Len ++ "\r\n\r\n" ++ B;
+        {TEResult, ConnResult} ->
+            Errors = [Error || Error <- [TEResult, ConnResult], Error =/= true],
+            ErrorMsg = string:join([lists:flatten(E) || E <- Errors], "; "),
+            B = "<HTML><BODY>ERROR: " ++ ErrorMsg ++ "</BODY></HTML>",
+            Len = integer_to_list(length(B)),
+            "HTTP/1.1 500 Internal Server Error\r\n" ++
+                "Content-Length:" ++ Len ++ "\r\n\r\n" ++ B
+    end;
+
+handle_uri(_,"/te_header_with_existing_connection.html",_,Headers,_,_) ->
+    case {header_matches(Headers, "te", "trailers"),
+          header_matches(Headers, "connection", "keep-alive, TE")} of
+        {true, true} ->
+            B = "<HTML><BODY>TE with existing Connection - both keep-alive and TE present</BODY></HTML>",
+            Len = integer_to_list(length(B)),
+            "HTTP/1.1 200 OK\r\n" ++
+                "Content-Length:" ++ Len ++ "\r\n\r\n" ++ B;
+        {TEResult, ConnResult} ->
+            Errors = [Error || Error <- [TEResult, ConnResult], Error =/= true],
+            ErrorMsg = string:join([lists:flatten(E) || E <- Errors], "; "),
+            B = "<HTML><BODY>ERROR: " ++ ErrorMsg ++ "</BODY></HTML>",
+            Len = integer_to_list(length(B)),
+            "HTTP/1.1 500 Internal Server Error\r\n" ++
+                "Content-Length:" ++ Len ++ "\r\n\r\n" ++ B
+    end;
+
+handle_uri(_,"/te_header_with_connection_close.html",_,Headers,_,_) ->
+    case {header_matches(Headers, "te", "trailers"),
+          header_matches(Headers, "connection", "close, TE")} of
+        {true, true} ->
+            B = "<HTML><BODY>TE with Connection close - both close and TE present</BODY></HTML>",
+            Len = integer_to_list(length(B)),
+            "HTTP/1.1 200 OK\r\n" ++
+                "Content-Length:" ++ Len ++ "\r\n\r\n" ++ B;
+        {TEResult, ConnResult} ->
+            Errors = [Error || Error <- [TEResult, ConnResult], Error =/= true],
+            ErrorMsg = string:join([lists:flatten(E) || E <- Errors], "; "),
+            B = "<HTML><BODY>ERROR: " ++ ErrorMsg ++ "</BODY></HTML>",
+            Len = integer_to_list(length(B)),
+            "HTTP/1.1 500 Internal Server Error\r\n" ++
+                "Content-Length:" ++ Len ++ "\r\n\r\n" ++ B
+    end;
+
+handle_uri(_,"/te_header_already_in_connection.html",_,Headers,_,_) ->
+    case {header_matches(Headers, "te", "trailers"),
+          header_matches(Headers, "connection", "keep-alive, TE")} of
+        {true, true} ->
+            B = "<HTML><BODY>TE already in Connection - TE not duplicated</BODY></HTML>",
+            Len = integer_to_list(length(B)),
+            "HTTP/1.1 200 OK\r\n" ++
+                "Content-Length:" ++ Len ++ "\r\n\r\n" ++ B;
+        {TEResult, ConnResult} ->
+            Errors = [Error || Error <- [TEResult, ConnResult], Error =/= true],
+            ErrorMsg = string:join([lists:flatten(E) || E <- Errors], "; "),
+            B = "<HTML><BODY>ERROR: " ++ ErrorMsg ++ "</BODY></HTML>",
+            Len = integer_to_list(length(B)),
+            "HTTP/1.1 500 Internal Server Error\r\n" ++
+                "Content-Length:" ++ Len ++ "\r\n\r\n" ++ B
+    end;
 
 handle_uri(_,"/300.html",Port,_,Socket,_) ->
     NewUri = url_start(Socket) ++
