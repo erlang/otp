@@ -393,7 +393,11 @@ expr(#c_primop{anno=A0,name=#c_literal{val=debug_line},
                args=Cargs}, Sub, St0) ->
     {Args,Ap,St1} = atomic_list(Cargs, Sub, St0),
     #b_set{anno=A1} = I0 = primop(debug_line, A0, Args),
-    {_,Alias} = Sub,
+    {_,Alias0} = Sub,
+    %% Get rid of of useless mapping of variables to funs (in letrecs
+    %% and named funs).
+    RmKeys = [K || K := [{_,_}] <- Alias0],
+    Alias = maps:without(RmKeys, Alias0),
     A = A1#{alias => Alias},
     I = I0#b_set{anno=A},
     St2 = St1#kern{beam_debug_info=true},
