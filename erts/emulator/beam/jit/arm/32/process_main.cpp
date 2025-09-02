@@ -179,8 +179,35 @@ void BeamGlobalAssembler::emit_process_main() {
         mov_imm(ARG2, ERTS_PSD_SAVED_CALLS_BUF);
         runtime_call<2>(erts_psd_get);
 
+        /* Read the active code index, overriding it with
+         * ERTS_SAVE_CALLS_CODE_IX when save_calls is enabled (ARG1 != 0). */
+        mov_imm(TMP, &the_active_code_index);
+        a.ldr(TMP, arm::Mem(TMP));
+        a.tst(ARG1, ARG1);
+        a.mov_eq(active_code_ix, TMP);
+        a.mov_ne(active_code_ix, imm(ERTS_SAVE_CALLS_CODE_IX));
 
-        emit_nyi("erlang_runtime_call<2>()");
+        /* Start executing the Erlang process. Note that reductions have
+         * already been set up above. */
+         emit_leave_runtime<Update::eStack | Update::eHeap>();
+
+        /* Check if we are just returning from a dirty nif/bif call and if so we
+         * need to do a bit of cleaning up before continuing.
+         *
+         * This relies on `op_call_nif_WWW` / `op_call_bif_W` being encoded as
+         * UDF(opcode) followed by UDF(0), which we will never emit. */
+        a.ldr(ARG1, arm::Mem(c_p, offsetof(Process, i)));
+        a.ldr(TMP, arm::Mem(ARG1));
+
+        ERTS_CT_ASSERT((op_call_nif_WWW & 0xFFFF0000) == 0);
+        a.cmp(TMP, imm(op_call_nif_WWW));
+        a.b_eq(labels[dispatch_nif]);
+
+        ERTS_CT_ASSERT((op_call_bif_W & 0xFFFF0000) == 0);
+        a.cmp(TMP, imm(op_call_bif_W));
+        a.b_eq(labels[dispatch_bif]);
+
+        a.bx(ARG1);
     }
 
     /* Processes may jump to the exported entry points below, executing on the
