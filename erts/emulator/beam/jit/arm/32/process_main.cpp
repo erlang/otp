@@ -51,6 +51,9 @@ void BeamGlobalAssembler::emit_process_main() {
           context_switch_simplified_local = a.newLabel(),
           do_schedule_local = a.newLabel(), schedule_next = a.newLabel();
 
+    /* Be kind to debuggers and `perf` by setting up a proper stack frame. */
+    a.push(a32::GpList({a32::fp, a32::lr}));
+
     /* The offset of start_time_i in ErtsSchedulerRegisters cannot stay
      * in the 12 bit immediate accepted by the STR instruction.
      *
@@ -126,8 +129,35 @@ void BeamGlobalAssembler::emit_process_main() {
         }
 
         a.bind(schedule);
-        // TODO
-        emit_nyi("schedule");
+        mov_imm(ARG1, 0);
+        a.mov(ARG2, c_p);
+#if defined(DEBUG) || defined(ERTS_ENABLE_LOCK_CHECK)
+        runtime_call<3>(erts_debug_schedule);
+#else
+        runtime_call<3>(erts_schedule);
+#endif
+        a.mov(c_p, ARG1);
+
+#ifdef ERTS_MSACC_EXTENDED_STATES
+        /* TODO */
+        emit_nyi("erts_msacc_cache check");
+#endif
+
+        mov_imm(TMP, 0);
+        a.str(TMP, start_time);
+        mov_imm(ARG1, &erts_system_monitor_long_schedule);
+        a.ldr(TMP, arm::Mem(ARG1));
+        a.tst(TMP, TMP);
+        a.b_eq(skip_long_schedule);
+
+        {
+            /* Enable long schedule test */
+            runtime_call<0>(erts_timestamp_millis);
+            a.str(ARG1, start_time);
+            a.ldr(TMP, arm::Mem(c_p, offsetof(Process, i)));
+            a.str(TMP, start_time_i);
+        }
+
 
         a.bind(skip_long_schedule);
         comment("skip_long_schedule");
