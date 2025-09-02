@@ -161,9 +161,26 @@ void BeamGlobalAssembler::emit_process_main() {
         a.bind(skip_long_schedule);
         comment("skip_long_schedule");
 
+        /* Copy arguments */
         a.mov(ARG1, c_p);
         load_x_reg_array(ARG2);
         runtime_call<2>(copy_in_registers);
+
+        /* Setup reduction counting */
+        a.ldr(FCALLS, arm::Mem(c_p, offsetof(Process, fcalls)));
+        a.str(FCALLS, arm::Mem(c_p, offsetof(Process, def_arg_reg[5])));
+
+#ifdef DEBUG
+        a.str(FCALLS, a32::Mem(c_p, offsetof(Process, debug_reds_in)));
+#endif
+
+        comment("check whether save calls is on");
+        a.mov(ARG1, c_p);
+        mov_imm(ARG2, ERTS_PSD_SAVED_CALLS_BUF);
+        runtime_call<2>(erts_psd_get);
+
+
+        emit_nyi("erlang_runtime_call<2>()");
     }
 
     /* Processes may jump to the exported entry points below, executing on the
