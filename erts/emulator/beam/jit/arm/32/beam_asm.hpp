@@ -163,7 +163,7 @@ protected:
     void runtime_call(T(*func)) {
         static_assert(expected_arity == function_arity<T>());
         mov_imm(TMP, func);
-        a.bx(TMP);
+        a.blx(TMP);
     }
 
     constexpr arm::Mem getArgRef(const ArgRegister &arg) const {
