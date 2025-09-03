@@ -291,7 +291,7 @@ transform_some_records(Tab1, _Tab2, Old) ->
     Filter = fun(Rec) when element(1, Rec) == Tab1 -> {true, Fun(Rec)};
 		(_) -> true
 	     end,
-    lists:sort(lists:zf(Filter, Old)).
+    lists:sort(lists:filtermap(Filter, Old)).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 

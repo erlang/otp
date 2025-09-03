@@ -985,7 +985,7 @@ get_final_mib(Name, Options) ->
     ?vdebug("get_final_mib -> resolve oid", []),
     %% FIXME: use list comprehension instead
     MibFs = lists:keysort(1,
-      lists:zf(fun({module, _Mod}) -> false;
+      lists:filtermap(fun({module, _Mod}) -> false;
                   (MF) -> {true, resolve_oid(MF,SortedMEs)}
                end, MibFuncs)),
     ?vtrace("get_final_mib -> "

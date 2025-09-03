@@ -109,7 +109,7 @@ get_path(RegPath) when is_list(RegPath) ->
 		    _          -> false
 		end
 	end,
-    flat(lists:zf(F, RegPath), []);
+    flat(lists:filtermap(F, RegPath), []);
 get_path(_) ->
     [].
 
@@ -160,7 +160,7 @@ add_dir(Name, [], true) -> %% root
 	_    -> []
     end;
 add_dir(Name, Dirs, _Root) ->
-    lists:zf(fun(D0) ->
+    lists:filtermap(fun(D0) ->
 		     D = filename:join(D0, Name),
 		     case dir_p(D) of
 			 true -> {true, D};
@@ -177,13 +177,12 @@ add_dirs(RegName, Dirs, Root) ->
     Fun = fun(Dir) ->
 		  regexp_match(RegName, Dir, Root)
 	  end,
-    flat(lists:zf(Fun, Dirs), []).
+    flat(lists:filtermap(Fun, Dirs), []).
 
 %%
 %% Keep all directories (names) matching RegName and
 %% create full directory names Dir ++ "/" ++ Name.
 %%
-%% Called from lists:zf.
 %% Returns: {true, [Dir]} | false
 %%
 regexp_match(RegName, D0, Root) ->
@@ -205,7 +204,7 @@ regexp_match(RegName, D0, Root) ->
 					 false
 				 end
 			 end,
-		    {true,lists:zf(FR, Files)};
+		    {true,lists:filtermap(FR, Files)};
 		_ ->
 		    false
 	    end;

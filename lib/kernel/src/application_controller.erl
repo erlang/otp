@@ -49,7 +49,7 @@
 %% Test exports, only to be used from the test suites
 -export([test_change_apps/2]).
 
--import(lists, [zf/2, map/2, foreach/2, foldl/3,
+-import(lists, [filtermap/2, map/2, foreach/2, foldl/3,
 		keyfind/3, keydelete/3, keyreplace/4]).
 
 -include("application_master.hrl").
@@ -889,7 +889,7 @@ handle_call({config_change, EnvBefore}, _From, S) ->
     {reply, R, S};
 
 handle_call(which_applications, _From, S) ->
-    Reply = zf(fun({Name, Id}) ->
+    Reply = filtermap(fun({Name, Id}) ->
 		       case Id of
 			   {distributed, _Node} ->
 			       false;

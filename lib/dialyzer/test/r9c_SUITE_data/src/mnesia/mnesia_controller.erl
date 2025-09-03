@@ -1,4 +1,11 @@
-%% ``Licensed under the Apache License, Version 2.0 (the "License");
+%%
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
 %%
@@ -10,11 +17,9 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 %%
-%% The Initial Developer of the Original Code is Ericsson Utvecklings AB.
-%% Portions created by Ericsson are Copyright 1999, Ericsson Utvecklings
-%% AB. All Rights Reserved.''
+%% %CopyrightEnd%
 %%
-%%     $Id: mnesia_controller.erl,v 1.3 2010/03/04 13:54:19 maria Exp $
+
 %% The mnesia_init process loads tables from local disc or from
 %% another nodes. It also coordinates updates of the info about
 %% where we can read and write tables.
@@ -28,11 +33,6 @@
 %% consistent replica and we have received mnesia_down from all
 %% other nodes holding the table. Then we let the mnesia_init
 %% process enter its normal working state.
-%%
-%% When we need to load a table we append a request to the load
-%% request queue. All other requests are regarded as high priority
-%% and are processed immediately (e.g. update table whereabouts).
-%% We processes the load request queue as a "background" job..
 
 -module(mnesia_controller).
 
@@ -1375,7 +1375,7 @@ initial_safe_loads() ->
 	    Downs = [],
 	    Tabs = val({schema, local_tables}) -- [schema],
 	    LastC = fun(T) -> last_consistent_replica(T, Downs) end,
-	    lists:zf(LastC, Tabs);
+	    lists:filtermap(LastC, Tabs);
 
 	disc_copies ->
 	    Downs = mnesia_recover:get_mnesia_downs(),
@@ -1383,7 +1383,7 @@ initial_safe_loads() ->
 
 	    Tabs = val({schema, local_tables}) -- [schema],
 	    LastC = fun(T) -> last_consistent_replica(T, Downs) end,
-	    lists:zf(LastC, Tabs)
+	    lists:filtermap(LastC, Tabs)
     end.
 
 last_consistent_replica(Tab, Downs) ->

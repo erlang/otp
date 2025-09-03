@@ -37,6 +37,11 @@
 #
 
 #
+# Added in OTP 29.
+#
+lists:zf/2 since=29
+
+#
 # Added in OTP 28.
 #
 crypto:start/0 since=28

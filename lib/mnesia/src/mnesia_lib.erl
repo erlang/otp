@@ -531,7 +531,7 @@ ensure_loaded(Appl) ->
 
 local_active_tables() ->
     Tabs = val({schema, local_tables}),
-    lists:zf(fun(Tab) -> active_here(Tab) end, Tabs).
+    lists:filtermap(fun(Tab) -> active_here(Tab) end, Tabs).
 
 active_tables() ->
     Tabs = val({schema, tables}),
@@ -541,7 +541,7 @@ active_tables() ->
 		    _ -> {true, Tab}
 		end
 	end,
-    lists:zf(F, Tabs).
+    lists:filtermap(F, Tabs).
 
 etype(X) when is_integer(X) -> integer;
 etype([]) -> nil;
@@ -715,7 +715,7 @@ mkcore(CrashInfo) ->
     term_to_binary(Core).
 
 procs() ->
-    Fun = fun(P) -> {P, (?CATCH(lists:zf(fun proc_info/1, process_info(P))))} end,
+    Fun = fun(P) -> {P, (?CATCH(lists:filtermap(fun proc_info/1, process_info(P))))} end,
     lists:map(Fun, processes()).
 
 proc_info({registered_name, Val}) -> {true, Val};
@@ -765,7 +765,7 @@ relatives() ->
 		       Pid -> {true, {Name, Pid, proc_dbg_info(Pid)}}
 		   end
 	   end,
-    lists:zf(Info, mnesia:ms()).
+    lists:filtermap(Info, mnesia:ms()).
 
 workers({workers, Loaders, Senders, Dumper}) ->
     Info = fun({Pid, {send_table, Tab, _Receiver, _St}}) ->
@@ -781,9 +781,9 @@ workers({workers, Loaders, Senders, Dumper}) ->
 		       Pid -> {true, {Name, Pid, proc_dbg_info(Pid)}}
 		   end
 	   end,
-    SInfo = lists:zf(Info, Senders),
-    Linfo = lists:zf(Info, Loaders),
-    [{senders, SInfo},{loader, Linfo}|lists:zf(Info, [{dumper, Dumper}])].
+    SInfo = lists:filtermap(Info, Senders),
+    Linfo = lists:filtermap(Info, Loaders),
+    [{senders, SInfo},{loader, Linfo}|lists:filtermap(Info, [{dumper, Dumper}])].
 
 locking_procs(LockList) when is_list(LockList) ->
     Tids = [element(3, Lock) || Lock <- LockList],
@@ -797,7 +797,7 @@ locking_procs(LockList) when is_list(LockList) ->
 			   false
 		   end
 	   end,
-    lists:zf(Info, UT).
+    lists:filtermap(Info, UT).
 
 proc_dbg_info(Pid) ->
     try
@@ -849,7 +849,7 @@ vcore() ->
     {ok, Cwd} = file:get_cwd(),
     case file:list_dir(Cwd) of
 	{ok, Files}->
-	    CoreFiles = lists:sort(lists:zf(Filter, Files)),
+	    CoreFiles = lists:sort(lists:filtermap(Filter, Files)),
 	    show("Mnesia core files: ~tp~n", [CoreFiles]),
 	    vcore(lists:last(CoreFiles));
 	Error ->

@@ -895,7 +895,7 @@ replace_frag_hash(Cs, FH) when is_record(FH, frag_state) ->
 			  true
 		  end
 	  end,
-    Props = lists:zf(Fun, Cs#cstruct.frag_properties),
+    Props = lists:filtermap(Fun, Cs#cstruct.frag_properties),
     Cs#cstruct{frag_properties = Props}.
 
 %% Adjust table info before split
