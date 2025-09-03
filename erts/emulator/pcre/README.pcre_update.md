@@ -63,55 +63,62 @@ git fetch upstream
 4. Checkout the branch:
 `git checkout ERLANG_INTEGRATION`
 
-5. Merge in the new pcre2 version:
-`git merge pcre2-10.45`
+5. Set versions for the rest of these instructions
+```
+FROM_VER=10.45
+TO_VER=10.46
+```
+
+6. Merge in the new pcre2 version:
+`git merge pcre2-$TO_VER`
 
 Jump to *what the diff means* below, for more details on merge conflicts.
 
-6. Fix all the conflicts. Once that is done review it all to verify that conflicts automatically resolved are sane.
+7. Fix all the conflicts. Once that is done review it all to verify that conflicts automatically resolved are sane.
 `gitk`
 
-7. Check if there are new loops in pcre2_match.c's match function, that are missing
+8. Check if there are new loops in pcre2_match.c's match function, that are missing
 comments /* LOOP_COUNT: Ok/COST/CHK */
 
-8. Check that it builds
+9. Check that it builds
+./autogen.sh
 mkdir build
 cd build
-../autogen.sh
 ../configure
 make
 
-9. Push the changes
+10. Push the changes
 `git push -u origin ERLANG_INTEGRATION`
 
 ## Updating OTP repo with pcre2 changes
 
 1. Check if there are new files we need to deal with:
 ```
-git worktree add ../pcre2-10.44 pcre2-10.44
-git worktree add ../pcre2-10.45 pcre2-10.45
-cd ../pcre2-10.44
+git worktree add ../pcre2-$FROM_VER pcre2-$FROM_VER
+git worktree add ../pcre2-$TO_VER pcre2-$TO_VER
+cd ../pcre2-$FROM_VER
+./autogen.sh
 mkdir build
 cd build
-../autogen.sh
 ../configure
 make
 
-cd ../pcre2-10.44
+cd ../../pcre2-$TO_VER
+./autogen.sh
 mkdir build
 cd build
-../autogen.sh
 ../configure
 make
-# go back to pcre folder
-cd ../pcre2
+
+# go back to main pcre2 repo
+cd ../../pcre2
 
 # list files
 
-ls pcre2-10.44/src > A
-ls pcre2-10.44/build/src >> A
-ls pcre2-10.45/src > B
-ls pcre2-10.45/build/src >> B
+ls ../pcre2-$FROM_VER/src > A
+ls ../pcre2-$FROM_VER/build/src >> A
+ls ../pcre2-$TO_VER/src > B
+ls ../pcre2-$TO_VER/build/src >> B
 
 # diff files
 diff A B
@@ -121,7 +128,7 @@ Note them somewhere, they are needed in the next step.
 2. Copy files from the src directory and the build directory
 cd src/
 cp `ls $ERL_TOP/erts/emulator/pcre` $ERL_TOP/erts/emulator/pcre
-cd build/src
+cd ../build/src
 cp `ls $ERL_TOP/erts/emulator/pcre` $ERL_TOP/erts/emulator/pcre
 
 Make sure everything builds in the OTP repo, if not add files from the diff in step 1 one at a time.
@@ -531,6 +538,11 @@ option that is just passed through to PCRE2 is pretty simple, at least
 "code wise".
  
 Now you are done. Run all test suites on all machines and you will be happy.
+
+## Update vendor.info
+
+Update the `versionInfo` field in file `erts/emulator/pcre/vendor.info` with the
+new PCRE2 version number.
 
 ## Final notes
 
