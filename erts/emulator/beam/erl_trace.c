@@ -3822,6 +3822,11 @@ void erts_change_proc_trace_session_flags(Process* p, ErtsTraceSession* session,
 }
 
 #ifdef DEBUG
+bool erts_is_trace_session_weak_id(Eterm term)
+{
+    return is_small(term) || term == am_default;
+}
+
 void erts_assert_tracer_refs(ErtsPTabElementCommon* t_p)
 {
     ErtsTracerRef *ref, *other;
