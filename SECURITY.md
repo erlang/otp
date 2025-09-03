@@ -15,10 +15,10 @@ For example, if the latest release is OTP-27, we will support with maintainance 
 
 | Version | Supported          |
 | ------- | ------------------ |
+| 28      | :white_check_mark: |
 | 27      | :white_check_mark: |
 | 26      | :white_check_mark: |
-| 25      | :white_check_mark: |
-| =< 24   | :x:               |
+| =< 25   | :x:               |
 
 <!--
 > %CopyrightBegin%
