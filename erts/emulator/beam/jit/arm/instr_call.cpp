@@ -35,13 +35,13 @@ void BeamGlobalAssembler::emit_dispatch_return() {
     a.b(labels[context_switch_simplified]);
 }
 
-void BeamModuleAssembler::emit_dispatch_return() {
+void BeamModuleAssembler::emit_dispatch_return(bool set_I) {
 #ifdef JIT_HARD_DEBUG
     /* Validate return address and {x,0} */
     emit_validate(ArgVal(ArgVal::Type::Word, 1));
 #endif
 
-    if (erts_alcu_enable_code_atags) {
+    if (erts_alcu_enable_code_atags || set_I) {
         /* See emit_i_test_yield. */
         a.str(a64::x30, arm::Mem(c_p, offsetof(Process, i)));
     }
@@ -57,13 +57,17 @@ void BeamModuleAssembler::emit_dispatch_return() {
 }
 
 void BeamModuleAssembler::emit_return() {
+    emit_return_do(false);
+}
+
+void BeamModuleAssembler::emit_return_do(bool set_I) {
     emit_leave_erlang_frame();
-    emit_dispatch_return();
+    emit_dispatch_return(set_I);
 }
 
 void BeamModuleAssembler::emit_move_deallocate_return() {
     a.ldp(XREG0, a64::x30, arm::Mem(E).post(16));
-    emit_dispatch_return();
+    emit_dispatch_return(false);
 }
 
 void BeamModuleAssembler::emit_i_call(const ArgLabel &CallTarget) {
