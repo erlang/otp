@@ -34,9 +34,10 @@
 
 -export(['#root#'/4,
 	 '#element#'/5,
-	 '#text#'/1]).
+	 '#text#'/1,
+	 '#comment#'/1]).
 
--import(xmerl_lib, [markup/3, empty_tag/2, export_text/1]).
+-import(xmerl_lib, [markup/3, empty_tag/2, export_text/1, export_comment/1]).
 
 -include("xmerl.hrl").
 -include("xmerl_internal.hrl").
@@ -50,6 +51,13 @@
 '#text#'(Text) ->
     export_text(Text).
 
+
+% The '#comment#' function is called for every comment element.
+
+'#comment#'(Text) ->
+    %% Returning a list allows is_char/1 to return true
+    %% when indenting the contents of an element.
+    [ export_comment(Text) ].
 
 %% The '#root#' tag is called when the entire structure has been
 %% exported. It does not appear in the structure itself.
