@@ -204,10 +204,6 @@ validate_0([{function, Name, Arity, Entry, Code} | Fs], Module, Level, Ft) ->
          hf=0,
          %% List of hot catch/try tags
          ct=[],
-         %% Previous instruction was setelement/3.
-         setelem=false,
-         %% put/1 instructions left.
-         puts_left=none,
          %% Current receive state:
          %%
          %%   * 'none'            - Not in a receive loop.
@@ -331,10 +327,9 @@ validate_branches(MFA, Vst) ->
             Vst
     end.
 
-validate_instrs([I|Is], MFA, Offset, Vst0) ->
+validate_instrs([I|Is], MFA, Offset, Vst) ->
     validate_instrs(Is, MFA, Offset+1,
                     try
-                        Vst = validate_mutation(I, Vst0),
                         vi(I, Vst)
                     catch Error ->
                         error({MFA, {I, Offset, Error}})
@@ -635,20 +630,6 @@ vi({put_tuple2,Dst,{list,Elements}}, Vst0) ->
                    end, {#{}, 1}, Elements),
     Type = #t_tuple{exact=true,size=Size,elements=Es},
     create_term(Type, put_tuple2, [], Dst, Vst);
-vi({set_tuple_element,Src,Tuple,N}, Vst) ->
-    %% This instruction never fails, though it may be invalid in some contexts;
-    %% see validate_mutation/2
-    I = N + 1,
-    assert_term(Src, Vst),
-    assert_type(#t_tuple{size=I}, Tuple, Vst),
-    %% Manually update the tuple type; we can't rely on the ordinary update
-    %% helpers as we must support overwriting (rather than just widening or
-    %% narrowing) known elements, and we can't use extract_term either since
-    %% the source tuple may be aliased.
-    TupleType0 = get_term_type(Tuple, Vst),
-    ArgType = get_term_type(Src, Vst),
-    TupleType = beam_types:update_tuple(TupleType0, [{I, ArgType}]),
-    override_type(TupleType, Tuple, Vst);
 vi({update_record,_Hint,Size,Src,Dst,{list,Ss}}, Vst) ->
     verify_update_record(Size, Src, Dst, Ss, Vst);
 
@@ -1841,35 +1822,6 @@ type_test(Fail, Type, Reg0, Vst) ->
            fun(SuccVst) ->
                    update_type(fun meet/2, Type, Reg, SuccVst)
            end).
-
-%%
-%% Special state handling for setelement/3 and set_tuple_element/3 instructions.
-%% A possibility for garbage collection must not occur between setelement/3 and
-%% set_tuple_element/3.
-%%
-%% Note that #vst.current will be 'none' if the instruction is unreachable.
-%%
-
-validate_mutation(I, Vst) ->
-    vm_1(I, Vst).
-
-vm_1({move,_,_}, Vst) ->
-    Vst;
-vm_1({swap,_,_}, Vst) ->
-    Vst;
-vm_1({call_ext,3,{extfunc,erlang,setelement,3}}, #vst{current=#st{}=St}=Vst) ->
-    Vst#vst{current=St#st{setelem=true}};
-vm_1({set_tuple_element,_,_,_}, #vst{current=#st{setelem=false}}) ->
-    error(illegal_context_for_set_tuple_element);
-vm_1({set_tuple_element,_,_,_}, #vst{current=#st{setelem=true}}=Vst) ->
-    Vst;
-vm_1({get_tuple_element,_,_,_}, Vst) ->
-    Vst;
-vm_1({line,_}, Vst) ->
-    Vst;
-vm_1(_, #vst{current=#st{setelem=true}=St}=Vst) ->
-    Vst#vst{current=St#st{setelem=false}};
-vm_1(_, Vst) -> Vst.
 
 kill_state(Vst) ->
     Vst#vst{current=none}.
