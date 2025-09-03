@@ -167,7 +167,7 @@ do_verify(Pkt,
                          arlist = ARList },
           TS0 = #tsig_state{ id = TSId })
               when QR == false, TSId == undefined ->
-    ARList == [] andalso throw({noauth,badsig}),
+    ARList == [] andalso throw({notauth,badsig}),
     #dns_rr_tsig{
         domain = Name,
         algname = AlgName,
