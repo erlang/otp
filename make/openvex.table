@@ -221,6 +221,10 @@
       "pkg:github/openssl/openssl@01d5e2318405362b4de5e670c90d9b40a351d053": "CVE-2025-4575",
       "status": { "not_affected": "vulnerable_code_not_present",
                         "apps": ["pkg:otp/erts@16.0", "pkg:otp/erl_interface@5.6"]}
+    },
+    {
+      "pkg:github/PCRE2Project/pcre2@2dce7761b1831fd3f82a9c2bd5476259d945da4d": "CVE-2025-58050",
+      "status": "under_investigation"
     }
   ]
 }
