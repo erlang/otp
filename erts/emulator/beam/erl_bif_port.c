@@ -220,7 +220,7 @@ BIF_RETTYPE erts_internal_port_command_3(BIF_ALIST_3)
 	    break;
 	case ERTS_PORT_OP_BUSY_SCHEDULED:
 	    ASSERT(!(flags & ERTS_PORT_SIG_FLG_FORCE));
-	    /* Fall through... */
+            ERTS_FALLTHROUGH();
 	case ERTS_PORT_OP_SCHEDULED:
 	    ASSERT(is_internal_ordinary_ref(ref));
 	    /* Signal order preserved by reply... */
