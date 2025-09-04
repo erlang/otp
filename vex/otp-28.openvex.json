@@ -3,8 +3,8 @@
   "@id": "https://openvex.dev/docs/public/otp/vex-otp-28",
   "author": "vexctl",
   "timestamp": "2025-08-21T10:55:45.714759+02:00",
-  "last_updated": "2025-08-21T10:55:46.021839073+02:00",
-  "version": 8,
+  "last_updated": "2025-09-04T09:25:22.570231325+02:00",
+  "version": 9,
   "statements": [
     {
       "vulnerability": {
@@ -135,6 +135,18 @@
       ],
       "status": "not_affected",
       "justification": "vulnerable_code_not_present"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2025-58050"
+      },
+      "timestamp": "2025-09-04T09:25:22.570231836+02:00",
+      "products": [
+        {
+          "@id": "pkg:github/PCRE2Project/pcre2@2dce7761b1831fd3f82a9c2bd5476259d945da4d"
+        }
+      ],
+      "status": "under_investigation"
     }
   ]
 }
