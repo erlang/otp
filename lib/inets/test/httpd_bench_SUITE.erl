@@ -241,9 +241,7 @@ setup(_Config, _LocalNode) ->
         peer_down => crash,
         exec => Prog
     },
-    ct:pal("about to start peer...", []),
     {ok, PeerPid, Node} = peer:start(PeerOpts),
-    ct:pal("started peer ~0p", [Node]),
     Path = code:get_path(),
     true = rpc:call(Node, code, set_path, [Path]),
     [ensure_started(Node, App) || App <- [asn1, crypto, public_key, ssl, inets]],
