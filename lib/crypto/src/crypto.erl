@@ -1772,6 +1772,13 @@ length is wanted, the `crypto_one_time_aead/6` form may be used.
 For decryption, set the `EncryptFlag` to `false` and put the tag to be checked
 in the argument `TagOrTagLength`.
 
+> #### Warning {: .warning }
+>
+> The length of the tag at decryption is not checked by the function. It is the
+> caller's responsibility to ensure that the length of the tag matches the
+> length of the tag used when the data was encrypted. Otherwise the decryption
+> may succeed if the given tag only matches the start of the proper tag.
+
 Additional Authentication Data (AAD) is plaintext data that will not be
 encrypted, but will be covered by authenticity protection. It should be provided
 through the `AAD` argument, but can be an empty binary as well (`<<>>`) if not
