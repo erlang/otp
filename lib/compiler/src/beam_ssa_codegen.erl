@@ -1159,7 +1159,15 @@ def_regs_is([#cg_set{op=catch_end,dst=Dst,args=[#b_var{}=Tag|_]}=I|Is], Regs, De
     Def2 = kill_regs(Def1, [Dst,Tag], Regs),
     Def = ordsets:add_element(Dst, Def2),
     def_regs_is(Is, Regs, Def, [I|Acc]);
-def_regs_is([#cg_set{anno=Anno0,op=debug_line}=I0|Is], Regs, Def, Acc) ->
+def_regs_is([#cg_set{anno=Anno0,op=debug_line}=I0|Is], Regs, Def0, Acc) ->
+    Alias = map_get(alias, Anno0),
+    %% Handle shadowing of variables. When a variable is defined both
+    %% directly and indirectly through aliases, use the indirect one
+    %% because it is presumably the most recent definition.
+    Vs = [#b_var{name=V} || _ := Vs <- Alias,
+                            V <- Vs,
+                            is_original_variable(V)],
+    Def = Def0 -- Vs,
     Anno = Anno0#{def_regs => Def},
     I = I0#cg_set{anno=Anno},
     def_regs_is(Is, Regs, Def, [I|Acc]);

@@ -3503,6 +3503,8 @@ upat_bin([], _, _, St) -> {[],[],[],[],St}.
 upat_element(#ibitstr{val=H0,size=Sz0}=Seg, Ks, Bs0, St0) ->
     {H1,Hg,Hv,[],St1} = upattern(H0, Ks, St0),
     Bs1 = case H0 of
+	      #c_var{name='_'} ->
+                  Bs0;
 	      #c_var{name=Hname} ->
 		  case H1 of
 		      #c_var{name=Hname} ->
@@ -3633,8 +3635,12 @@ ren_pat(P, Ks0, {_,_}=Subs0, St0) ->
 ren_pat_bin([#ibitstr{val=Val0,size=Sz0}=E|Es0], Ks, Isub0, Osub0, St0) ->
     Sz = ren_get_subst(Sz0, Isub0),
     {Val,{_,Osub1},St1} = ren_pat(Val0, Ks, {Isub0,Osub0}, St0),
-    Isub1 = case Val0 of
-                #c_var{} ->
+    Isub1 = case {Val0, Val} of
+                {#c_var{name='_'}, _} ->
+                    Isub0;
+                {#c_var{name=Name}, #c_var{name=Name}} ->
+                    Isub0;
+                {#c_var{}, _} ->
                     [#iset{var=Val0,arg=Val}|Isub0];
                 _ ->
                     Isub0
