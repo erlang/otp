@@ -69,6 +69,9 @@
 -export([test_openvex_branched_otp_tree/0,
          test_openvex_branched_otp_tree_idempotent/0]).
 
+%%
+%% SBOM SPDX MACROS
+%%
 -define(default_classified_result, "scan-result-classified.json").
 -define(default_scan_result, "scan-result.json").
 -define(diff_classified_result, "scan-result-diff.json").
@@ -86,8 +89,30 @@
                               ~"referenceCategory" => ~"PACKAGE-MANAGER",
                               ~"referenceLocator" => ~"pkg:github/erlang/otp",
                               ~"referenceType" => ~"purl"}).
+%%
+%%
+
+%%
+%% VEX MACROS
+%%
 -define(VexPath, ~"vex/").
 -define(ErlangPURL, "pkg:github/erlang/otp").
+
+-define(FOUND_VENDOR_VULNERABILITY_TITLE, "Vendor vulnerability found").
+-define(FOUND_VENDOR_VULNERABILITY, lists:append(string:replace(?FOUND_VENDOR_VULNERABILITY_TITLE, " ", "+", all))).
+
+%% GH default options
+-define(GH_ADVISORIES_OPTIONS, "state=published&direction=desc&per_page=100&sort=updated").
+
+%% Advisories to download from last X years.
+-define(GH_ADVISORIES_FROM_LAST_X_YEARS, 5).
+
+%% Sets end point account to fetch information from GH
+%% used by `gh` command-line tool.
+%% change to your fork for testing, e.g., `kikofernandez/otp`
+-define(GH_ACCOUNT, "erlang/otp").
+%%
+%%
 
 %% Add more relations if necessary.
 -type spdx_relations() :: #{ 'DOCUMENTATION_OF' => [],
@@ -129,6 +154,11 @@
                     optional_applications :: [atom()] }).
 
 -type app_info() :: #app_info{}.
+
+-type cve() :: #{ 'CVE' => binary(),
+                  'appName' => binary(),
+                  'affectedVersions' => [binary()],
+                  'fixedVersions' => [binary()]}.
 
 %%
 %% Commands
@@ -260,6 +290,17 @@ cli() ->
                                     """,
                                 arguments => [ input_option(~"make/openvex.table"), branch_option(), vex_path_option()],
                                 handler => fun run_openvex/1},
+
+                         "verify" =>
+                             #{ help =>
+                                    """
+                                    Download Github Advisories for erlang/otp.
+                                    Checks that those are present in OpenVEX statements.
+                                    Creates PR for any non-present Github Advisory.
+                                    """,
+                                arguments => [branch_option(), vex_path_option()],
+                                handler => fun verify_openvex/1
+                              },
 
                          "test" =>
                              #{handler => fun test_openvex/1}
@@ -1410,15 +1451,43 @@ osv_scan(#{version := Version,
                 _ ->
                     Failure =
                         """
-                        [Vulnerability] Contact OTP team.
+                        **Vulnerability Detected**
+
                         The following CVEs must be checked in OpenVex statements for ~s:
                         ~s
-                        Please follow instructions from:
+
+                        Please follow instructions on how to do this from:
                           https://github.com/erlang/otp/blob/master/HOWTO/SBOM.md#vex
                         """,
+                    create_or_update_gh_issue(Version, Failure, FormattedVulns),
                     fail(Failure, [Version, FormattedVulns])
             end
     end.
+
+create_or_update_gh_issue(Version, BodyText, Vulns) ->
+    VersionS = erlang:binary_to_list(Version),
+    Cmd = "gh api -H \"Accept: application/vnd.github+json\" -H \"X-GitHub-Api-Version: 2022-11-28\" ",
+    SearchCmd =
+        io_lib:format("/search/issues?q=repo:~s+in:title+~s+~s+is:issue+is:open",
+                      [?GH_ACCOUNT, VersionS, ?FOUND_VENDOR_VULNERABILITY]),
+
+    io:format("Query GH API~n~s~n~n", [Cmd ++ SearchCmd]),
+    RawResponse = cmd(Cmd ++ SearchCmd),
+    Bin = unicode:characters_to_binary(RawResponse),
+    #{~"total_count" := Count} = json:decode(Bin),
+    FormattedBody = io_lib:format(BodyText, [Version, Vulns]),
+    case Count of
+        0 ->
+            create_gh_issue(VersionS, ?FOUND_VENDOR_VULNERABILITY_TITLE, FormattedBody);
+        _ ->
+            ok
+    end.
+
+create_gh_issue(Version, Title, BodyText) ->
+    Create = io_lib:format("gh issue create -t \"[~s] ~s\" -b \"~s\" -R ~s", [Version, Title, BodyText, ?GH_ACCOUNT]),
+    io:format("GH Create Ticket with title '[~s] ~s'", [Version, Title]),
+    _ = cmd(Create),
+    ok.
 
 ignore_vex_cves(Branch, Vulns) ->
     OpenVex = get_otp_openvex_file(Branch),
@@ -1471,7 +1540,7 @@ format_vex_statements(OpenVex) ->
 get_otp_openvex_file(Branch) ->
     OpenVexPath = fetch_openvex_filename(Branch),
     OpenVexStr = erlang:binary_to_list(OpenVexPath),
-    GithubURI = "https://raw.githubusercontent.com/erlang/otp/refs/heads/master/" ++ OpenVexStr,
+    GithubURI = "https://raw.githubusercontent.com/" ++ ?GH_ACCOUNT ++ "/refs/heads/master/" ++ OpenVexStr,
 
     io:format("Checking OpenVex statements in '~s' from~n'~s'...~n", [OpenVexPath, GithubURI]),
 
@@ -1489,22 +1558,36 @@ get_otp_openvex_file(Branch) ->
 
 fetch_openvex_filename(Branch) ->
     _ = valid_scan_branches(Branch),
-    Version = case Branch of
-                  ~"master" ->
-                      %% Master corresponds to possible patched versions of OTP_VERSION-1.
-                      VersionNumber = erlang:list_to_integer(string:trim(os:cmd("cat OTP_VERSION | cut -d. -f1"))),
-                      BinVersionNumber = erlang:integer_to_binary(VersionNumber-1),
-                      <<"otp-", BinVersionNumber/binary>>;
-                  <<"maint-", Vers/binary>> ->
-                      <<"otp-", Vers/binary>>
-              end,
+    Version = maint_to_otp_conversion(Branch),
     vex_path(Version).
+fetch_openvex_filename(Branch, VexPath) ->
+    _ = valid_scan_branches(Branch),
+    Version = maint_to_otp_conversion(Branch),
+    vex_path(VexPath, Version).
+
+maint_to_otp_conversion(Branch) ->
+    case Branch of
+        ~"master" ->
+            %% Master corresponds to possible patched versions of OTP_VERSION-1.
+            VersionNumber = erlang:list_to_integer(string:trim(os:cmd("cat OTP_VERSION | cut -d. -f1"))),
+            BinVersionNumber = erlang:integer_to_binary(VersionNumber-1),
+            <<"otp-", BinVersionNumber/binary>>;
+        <<"maint-", Vers/binary>> ->
+            <<"otp-", Vers/binary>>;
+        <<"maint">> ->
+            BinVersionNumber = erlang:list_to_binary(string:trim(os:cmd("cat OTP_VERSION | cut -d. -f1"))),
+            <<"otp-", BinVersionNumber/binary>>;
+        <<"otp-", _Vers/binary>>=OTP ->
+            OTP
+    end.
 
 valid_scan_branches(Branch) ->
     case Branch of
         ~"master" ->
             ok;
         <<"maint-", _Vers/binary>> ->
+            ok;
+        <<"otp-", _Vers/binary>> ->
             ok;
         _ ->
             fail("[ERROR] Valid branch names are `master` or `maint-XX`.~n'~s' is neither of them", [Branch])
@@ -2384,6 +2467,295 @@ run_openvex1(VexStmts, VexTableFile, Branch, VexPath) ->
     Statements = calculate_statements(VexStmts, VexTableFile, Branch, VexPath),
     lists:foreach(fun (St) -> io:format("~ts", [St]) end, Statements).
 
+verify_openvex(#{branch := Branch, vex_path := VexPath}) ->
+    UpdatedBranch = maint_to_otp_conversion(Branch),
+    OpenVEX = read_openvex(VexPath, UpdatedBranch),
+    Advisory = download_advisory_from_branch(UpdatedBranch),
+    case verify_advisory_against_openvex(OpenVEX, Advisory) of
+        [] ->
+            ok;
+        MissingAdvisories when is_list(MissingAdvisories) ->
+            create_advisory(MissingAdvisories)
+    end.
+
+read_openvex(VexPath, Branch) ->
+    InitVex = fetch_openvex_filename(Branch, VexPath),
+    case filelib:is_file(InitVex) of
+        true -> % file exists
+            decode(InitVex);
+        false ->
+            throw(file_not_found)
+    end.
+
+create_advisory(Advisories) ->
+    io:format("Missing:~n~p~n~n", [Advisories]),
+    throw(no_advisory_created).
+
+generate_gh_link(Part) ->
+    "\"/repos/erlang/otp/security-advisories?" ++ Part ++ "\"".
+
+download_advisory_from_branch(Branch) ->
+    Opts = ?GH_ADVISORIES_OPTIONS,
+    Cmd = generate_gh_link(Opts),
+    paginate_years(Branch, Cmd).
+
+%%
+%% Download GH Advisories for erlang/otp using
+%% gh_advisories_options(). Download pages of information
+%% until there are no more pages of advisories information
+%% to download. Considers only information updated in the last
+%% 5 years.
+%%
+paginate_years(Branch, Cmd) when is_binary(Cmd) ->
+    paginate_years(Branch, erlang:binary_to_list(Cmd));
+paginate_years(Branch, Cmd) when is_list(Cmd) ->
+    Cmd0 = "gh api -i -H \"Accept: application/vnd.github+json\" -H \"X-GitHub-Api-Version: 2022-11-28\" ",
+    Cmd1 = Cmd0 ++ Cmd,
+    io:format("~p~n", [Cmd1]),
+    AdvisoryStr = cmd(Cmd1),
+    UnicodeBin = unicode:characters_to_binary(AdvisoryStr),
+    RawHTTP = string:split(UnicodeBin, "\n", all),
+    Body0 = extract_http_gh_body(RawHTTP),
+    {{LowRangeYear, _Month, _Day}, _} = calendar:local_time(),
+
+    %% Get the latest 5 years of CVEs. information is sorted
+    case process_gh_page(LowRangeYear - ?GH_ADVISORIES_FROM_LAST_X_YEARS, Branch, Body0) of
+        [] ->
+            %% there was nothing useful based on the dates (sorted)
+            %% so we do not need to continue pulling pages.
+            [];
+        [_|_]=Body1 ->
+            %% there were CVE under the last ?GH_ADVISORIES_FROM_LAST_X_YEARS years.
+            %% extract link to continue pulling GH pages
+            case extract_http_gh_link(RawHTTP) of
+                [NextQuery] ->
+                    Body1 ++ paginate_years(Branch, NextQuery);
+                [] ->
+                    Body1
+            end
+    end.
+
+process_gh_page(Year, Branch, Body) ->
+    lists:foldl(fun (Vuln0, Acc0) ->
+                        Vuln1 = filter_gh_cve_by({year, Year}, Vuln0),
+                        [filter_gh_cve_by({otp, Branch}, Vuln1) | Acc0]
+                end, [], Body).
+
+filter_gh_cve_by({year, Year},
+                 #{~"published_at" := <<Y1,Y2,Y3,Y4,_/binary>>}=Vuln) ->
+    YYYY = erlang:binary_to_integer(<<Y1,Y2,Y3,Y4>>),
+    case YYYY >= Year of
+        true ->
+            Vuln;
+        false ->
+            #{}
+    end;
+filter_gh_cve_by({otp, <<"otp-", Version/binary>>},
+                 #{~"vulnerabilities" := Vulns}=CVE) ->
+    %% Filters CVE based on version to scan.
+    %% Example: {otp, ~"otp-27"} will filter out vulnerabilities from Vulns
+    %% that affect OTP-25 applications. The algorithm updates the vulnerable_version_range
+    %% to point to the most precise version of the vulnerability. In some cases, OTP refers
+    %% to really old versions, so one must fetch the OTP-XX.0 version of the application
+    %% in question.
+    %%
+    %% this algorithm is not general enough to be able to deal with all possible
+    %% ways in which the CNA can report errors. and assumes the standard
+    %% of having one vulnerable_version_range in the form <<">= 3.0">>.
+    %%
+    CVE#{ ~"vulnerabilities" :=
+              lists:foldl(fun (#{~"package" := #{~"name" := ~"OTP"}}, Acc) ->
+                                  %% ignore OTP release versions. We can generate these ones from
+                                  %% the app specific version.
+                                  Acc;
+                              (#{~"package" := #{~"name" := AppName},
+                                 ~"vulnerable_version_range" := VulnerableVersion,
+                                 ~"patched_versions" := AppVersions}=Pkg, Acc) when is_binary(AppVersions) ->
+                                  AppVersions1 =
+                                      get_otp_app_version_from_gh_vulnerability(Version, VulnerableVersion, AppName, AppVersions),
+                                  [Pkg#{~"patched_versions" := A,
+                                        ~"vulnerable_version_range" := V} ||  {A, V} <- AppVersions1] ++ Acc
+                          end, [], Vulns)}.
+
+%% Input: <<"27">> and <<">= 3.2">> and <<"ssl">>, and <<"4.15.3, 5.1.5, 5.2.9">>
+%% Output: [{~"27.3.3", ~"4.15.3"}]
+-spec get_otp_app_version_from_gh_vulnerability(Branch, VulnerableVersion, Name, AppVersions) ->
+          [{AppVersion :: binary(), Vulnerable :: binary()}] when
+      Branch :: binary(),
+      VulnerableVersion :: binary(),
+      Name :: binary(),
+      AppVersions :: binary().
+get_otp_app_version_from_gh_vulnerability(BranchVersion, VulnerableVersion, Name, AppVersions) ->
+    VulnerableVersion1 = parse_vulnerable_version_range_gh(BranchVersion, VulnerableVersion, Name),
+    lists:uniq(
+      [{AppVersion, VulnerableVersion1} ||
+
+          %% split <<"4.15.3, 5.1.5, 5.2.9">> into multiple items
+          AppVersion <- split_gh_version_binaries_into_list(AppVersions),
+
+          %% fetch OTP versions attached to this item, e.g., 4.15.3 ==> ["26.2.5.6"]
+          OTPVersion <- fetch_otp_major_version_from_table(<<Name/binary, "-", AppVersion/binary>>),
+
+          %% if major version match, then accept them
+          BranchVersion == hd(binary:split(list_to_binary(OTPVersion), ~".", [global]))]).
+
+
+parse_vulnerable_version_range_gh(BranchVersion, <<">=", Version/binary>>, Name) ->
+    case length(binary:split(Version, ~",", [global, trim_all])) of
+        X when X > 1 ->
+            %% this reported vulnerability does not follow a previous format
+            %% and we cannot validate it.
+            throw(not_valid_cve_report);
+        X when X == 1 ->
+            AppVersion = string:trim(Version),
+            OTPVersion = fetch_otp_major_version_from_table(<<Name/binary, "-", AppVersion/binary>>),
+            OTPMajorVersion = hd(binary:split(list_to_binary(OTPVersion), ~".", [global])),
+            case BranchVersion == OTPMajorVersion of
+                true ->
+                    AppVersion;
+                false ->
+                    %% return first version from BranchVersion of the App.
+                    Vuln = fetch_app_from_table(binary_to_list(<<"OTP-", BranchVersion/binary, ".0">>), Name),
+                    [_, VulnVersion] = string:split(Vuln, ~"-"),
+                    list_to_binary(VulnVersion)
+            end
+    end.
+
+%% Input: <<"27.3.3, 26.2.5.11, 25.3.2.20">>
+%% Output: [~"27.3.3", ~"26.2.5.11", ~"25.3.2.20">>]
+-spec split_gh_version_binaries_into_list(binary()) -> [binary()].
+split_gh_version_binaries_into_list(Bin) ->
+    [string:trim(P) || P <- binary:split(Bin, ~",", [global, trim_all])].
+
+
+extract_http_gh_body(RawHTTP) when is_list(RawHTTP) ->
+    Body = lists:last(RawHTTP),
+    json:decode(Body).
+
+extract_http_gh_link(RawHTTP) when is_list(RawHTTP) ->
+    lists:filtermap(fun(<<"Link: ", _/binary>>=Link) ->
+                            Result = re:run(Link, "<([^>]+)>;\s*rel=\"next\"", [global, {capture, [1], list}]),
+                            case Result of
+                                {match, [[NextLink]]} ->
+                                    [_, LinkPart] = string:split(NextLink, ~"?"),
+                                    {true, generate_gh_link(LinkPart)};
+                                _ ->
+                                    false
+                            end;
+                       (_) ->
+                            false
+                    end, RawHTTP).
+
+verify_advisory_against_openvex(OpenVEX, Advisory) ->
+    AdvInfo = extract_advisory_info(Advisory),
+    AdvVEX = extract_openvex_info(OpenVEX),
+
+    %% checks that AdvVex is part of OpenVEX
+    %% returns a list of missing OpenVEX statements into some branch.
+    vex_set_inclusion(AdvInfo, AdvVEX).
+
+%%
+%% Extracts information from GH Advisories
+%%
+-spec extract_advisory_info(Advisories :: [map()]) -> [cve()].
+extract_advisory_info(Advisories) when is_list(Advisories) ->
+    lists:foldl(
+      fun (Advisory, Acc) ->
+              #{~"vulnerabilities" := Packages, ~"cve_id" := CVEId} = Advisory,
+              lists:map(fun (#{~"package" := #{~"name" := AppName},
+                               ~"patched_versions" := PatchedVersion,
+                               ~"vulnerable_version_range" := AffectedVersion}) ->
+                                create_cve(CVEId, AppName, [AffectedVersion], [PatchedVersion])
+                        end, Packages) ++ Acc
+      end, [], Advisories).
+
+-spec create_cve(CVEId, AppName, PatchedVersions, AffectedVersions) -> cve() when
+      CVEId :: binary(),
+      AppName :: binary(),
+      PatchedVersions :: [binary()],
+      AffectedVersions :: [binary()].
+create_cve(CVEId, AppName, PatchedVersions, AffectedVersions) ->
+    #{'CVE' => CVEId,
+      'appName' => AppName,
+      'affectedVersions' => PatchedVersions,
+      'fixedVersions' => AffectedVersions}.
+
+%%
+%% Extract information from OpenVEX statements
+%%
+-spec extract_openvex_info(OpenVEX :: map()) -> [cve()].
+extract_openvex_info(#{~"statements" := Statements}) ->
+    lists:foldl(fun (#{~"status" := Status}, Acc) when Status =:= ~"not_affected";
+                                                       Status =:= ~"under_investigation" ->
+                        Acc;
+                    (#{~"status" := Status}=Vuln, Acc) when Status =:= ~"affected";
+                                                            Status =:= ~"fixed" ->
+                        CVEId = openvex_vuln_name(Vuln),
+                        Products = openvex_vuln_products(Vuln),
+                        case openvex_filter_product(Products) of
+                            [] ->
+                                Acc;
+                            [{AppName, Versions}] ->
+                                Found = lists:search(fun (#{'CVE' := CVE0,'appName' := AppName0}) ->
+                                                          CVE0 == CVEId andalso AppName0 == AppName
+                                                     end, Acc),
+                                case Status of
+                                    ~"affected" ->
+                                        %% calculate < than using the format below
+                                        %% [<<"26">>, <<"1">>] < [<<"26">>, <<"1">>, <<"0">>].
+                                        VulnVersion = openvex_vuln_version(Versions, fun erlang:'=<'/2),
+                                        case Found of
+                                            false ->
+                                                [create_cve(CVEId, AppName, [VulnVersion], []) | Acc];
+                                            {value, #{'fixedVersions' := FixedVersions}=Item}  ->
+                                                [create_cve(CVEId, AppName, [VulnVersion], FixedVersions) | (Acc -- [Item])]
+                                        end;
+                                    ~"fixed" ->
+                                        VulnVersion = openvex_vuln_version(Versions, fun erlang:'>'/2),
+
+                                        case Found of
+                                            false ->
+                                                [create_cve(CVEId, AppName, [], [VulnVersion]) | Acc];
+                                            {value, #{'affectedVersions' := AffectedVersions}=Item}  ->
+                                                [create_cve(CVEId, AppName, AffectedVersions, [VulnVersion]) | (Acc -- [Item])]
+                                        end
+                                end
+                        end
+                end, [], Statements).
+
+openvex_vuln_name(#{~"vulnerability" := #{~"name" := Name}}) ->
+    Name.
+
+openvex_vuln_products(#{~"products" := Products}) ->
+    Products.
+
+openvex_vuln_version(Versions, Comparator) ->
+    lists:foldl(fun (X, <<>>) -> X;
+                    (X, Acc) ->
+                        case Comparator(X, Acc) of
+                            true ->
+                                X;
+                            false ->
+                                Acc
+                        end
+                end, <<>>, Versions).
+
+
+openvex_filter_product(Products) ->
+    lists:foldl(fun (#{~"@id" := <<"pkg:otp/", Pkg/binary>>}, Acc) ->
+                        [AppName, Version] = string:split(Pkg, ~"@"),
+                        case Acc of
+                            [] ->
+                                [{AppName, [Version]}];
+                            [{AppName, Versions}] ->
+                                [{AppName, [Version | Versions]}]
+                        end;
+                    (_, Acc) -> Acc
+                end, [], Products).
+
+vex_set_inclusion(AdvVEX, OpenVEX) ->
+    [VEX || VEX <- AdvVEX, not lists:member(VEX, OpenVEX)].
+
 calculate_statements(VexStmts, VexTableFile, Branch, VexPath) ->
     VexTable = decode(VexTableFile),
     case maps:get(Branch, VexTable, error) of
@@ -2394,97 +2766,107 @@ calculate_statements(VexStmts, VexTableFile, Branch, VexPath) ->
             calculate_statements_from_cves(VexStmts, CVEs, Branch, VexPath)
     end.
 
+exists_cve_in_openvex(VexStmts, CVE, Purl) ->
+    lists:any(fun (#{~"vulnerability" := #{~"name" := VexCVE}}) when VexCVE =/= CVE ->
+                      false;
+                  (#{~"products" := Products}) ->
+                      VexIds = lists:map(fun(M0) -> maps:get(~"@id", M0) end, Products),
+                      lists:member(Purl, VexIds)
+              end, VexStmts).
+
+fetch_openvex_status(M) when is_map(M) ->
+    FixedStatus = maps:is_key(~"fixed", M),
+    AffectedStatus = maps:is_key(~"affected", M),
+    {FixedStatus, AffectedStatus};
+fetch_openvex_status(_) ->
+    {false, false}.
+
 calculate_statements_from_cves(VexStmts, CVEs, Branch, VexPath) ->
     %% make the function idempotent, i.e., can be called consecutive times producing the same input
-    Filter = fun (Stmts) -> lists:filter(fun ([]) -> false; (_) -> true end, Stmts) end,
-    Filter(lists:flatmap(
-             fun (#{~"status" := Status}=M) ->
-                     [{Purl, CVE}] = maps:to_list(maps:remove(~"status", M)),
-                     ExistingEntry = lists:any(fun (#{~"vulnerability" := #{~"name" := VexCVE}}) when VexCVE =/= CVE ->
-                                                       false;
-                                                   (#{~"products" := Products}) ->
-                                                       VexIds = lists:map(fun(M0) -> maps:get(~"@id", M0) end, Products),
-                                                       lists:member(Purl, VexIds)
-                                               end, VexStmts),
-                     case ExistingEntry of
-                         true ->
-                             %% entry exists, ignore to make operation idempotent
-                             [];
-                         false ->
-                             InitVex = vex_path(VexPath, Branch),
-                             FixedStatus = maps:is_key(~"fixed", Status),
-                             AffectedStatus = maps:is_key(~"affected", Status),
-                             case Purl of
-                                 <<?ErlangPURL, _/binary>> ->
-                                     case {FixedStatus, AffectedStatus} of
-                                         {true, true} ->
-                                             throw("Erlang/OTP release versions, (e.g.) OTP-26.1 do not support fixed and affected status");
-                                         _ ->
-                                             [format_vexctl(InitVex, Purl, CVE, Status)]
-                                     end;
-                                 <<"pkg:otp/", _/binary>> -> % handle OTP Apps, pkg:otp/ssl@4.3.1
-                                     FixedRange =
-                                         case FixedStatus orelse AffectedStatus of
-                                             true ->
-                                                 case maps:get(~"fixed", Status, <<>>) of
-                                                     <<>> ->
-                                                         [];
-                                                     L when is_list(L) ->
-                                                         L
-                                                 end;
-                                             false ->
-                                                 %% not affected and we return all Erlang intermediate
-                                                 %% versions and all intermediate apps
-                                                 all
-                                         end,
-                                     {OTPVersionsAffected, OTPVersionsFixed} = fetch_otp_purl_versions(Purl, FixedRange),
-                                     format_vexctl(InitVex, OTPVersionsAffected, OTPVersionsFixed, CVE, Status);
-                                 _ ->
-                                     AppsR = case maps:get(~"apps", Status, <<>>) of
-                                                 <<>> ->
-                                                     [];
-                                                 Apps ->
-                                                     case {FixedStatus, AffectedStatus} of
-                                                         {true, true} ->
-                                                             %% this case is not accepted as input, e.g.
-                                                             %% the following is rejected
-                                                             %% {"pkg:github/madler/zlib@04f42ceca40f73e2978b50e93806c2a18c1281fc": "FIKA-2026-BROD",
-                                                             %%  "status": { "affected": "Mitigation message, update to the next release",
-                                                             %%              "fixed": ["pkg:github/madler/zlib@04f42thiscommitfixesthecve"],
-                                                             %%              "apps": ["pkg:otp/erts@14.2.5.10"]} }
-                                                             %% the current syntax from above has no way to understand when in erts this was fixed.
-                                                             %%
-                                                             %% If this case arises, write the CVE for zlib and then for OTP.
-                                                             fail("Case containing 'affected', 'fixed', and 'apps' (all three) not supported.", []);
-                                                         _ ->
-                                                             {OTPVersionsAffected, OTPVersionsFixed} =
-                                                                 lists:foldl(fun (App, {Af, Fx}) ->
-                                                                                     {Affected, Fixed} = fetch_otp_purl_versions(App, all),
-                                                                                     {merge_otp_version_binaries(Affected, Af),
-                                                                                      merge_otp_version_binaries(Fixed, Fx)}
-                                                                             end, {<<>>, <<>>}, Apps),
-                                                             format_vexctl(InitVex, OTPVersionsAffected, OTPVersionsFixed, CVE, Status)
-                                                     end
-                                             end,
-                                     % handle vendor dependencies. we lack sha-1 information to create
-                                     % a range of commits. if one wants to provide specific vendor information,
-                                     % e.g., false positive for openssl, one can do that manually using vexctl.
-                                     % if one wants to mention that erts-10.9.4 is not vulnerable to CVE-XXX
-                                     % in openssl, that's possible and goes via first case, pkg:otp/erts@10.9.4.
-                                     FixedRange = maps:get(~"fixed", Status, <<>>),
-                                     AppsR ++ format_vexctl(InitVex, Purl, FixedRange, CVE, Status)
-                             end
-                     end
-             end, CVEs)).
+    lists:foldl(
+      fun (#{~"status" := Status}=M, Acc) ->
+              [{Purl, CVE}] = maps:to_list(maps:remove(~"status", M)),
+              ExistingEntry = exists_cve_in_openvex(VexStmts, CVE, Purl),
+              case ExistingEntry of
+                  true -> %% entry exists, ignore to make operation idempotent
+                      Acc;
+                  false ->
+                      InitVex = vex_path(VexPath, Branch),
+                      {FixedStatus, AffectedStatus} = fetch_openvex_status(Status),
+                      case Purl of
+                          <<?ErlangPURL, _/binary>> ->
+                              case FixedStatus andalso AffectedStatus of
+                                  true ->
+                                      throw("Erlang/OTP release versions, (e.g.) OTP-26.1 do not support fixed and affected status");
+                                  false ->
+                                      [format_vexctl(InitVex, Purl, CVE, Status) | Acc]
+                              end;
+                          <<"pkg:otp/", _/binary>> -> % handle OTP Apps, pkg:otp/ssl@4.3.1
+                              FixedRange =
+                                  case FixedStatus orelse AffectedStatus of
+                                      true ->
+                                          maps:get(~"fixed", Status, []);
+                                      _ ->
+                                          %% not affected and we return all Erlang intermediate
+                                          %% versions and all intermediate apps
+                                          all
+                                  end,
+                              {OTPVersionsAffected, OTPVersionsFixed} = fetch_otp_purl_versions(Purl, FixedRange),
+                              R = format_vexctl(InitVex, OTPVersionsAffected, OTPVersionsFixed, CVE, Status),
+                              R ++ Acc;
+                          _ -> % vendor
+                              R = create_vendor_statements(FixedStatus andalso AffectedStatus, Status, InitVex, CVE, Purl),
+                              R ++ Acc
+                      end
+              end
+      end, [], CVEs).
+
+create_vendor_statements(true, #{~"apps" := _},  _, _, _) ->
+    %% this case is not accepted as input, e.g.
+    %% the following is rejected
+    %% {"pkg:github/madler/zlib@04f42ceca40f73e2978b50e93806c2a18c1281fc": "FIKA-2026-BROD",
+    %%  "status": { "affected": "Mitigation message, update to the next release",
+    %%              "fixed": ["pkg:github/madler/zlib@04f42thiscommitfixesthecve"],
+    %%              "apps": ["pkg:otp/erts@14.2.5.10"]} }
+    %% the current syntax from above has no way to understand when in erts this was fixed.
+    %%
+    %% If this case arises, write the CVE for zlib and then for OTP.
+    fail("Case containing 'affected', 'fixed', and 'apps' (all three) not supported.", []);
+create_vendor_statements(_, #{~"apps" := Apps}=Status, InitVex, CVE, Purl) ->
+    {OTPVersionsAffected, OTPVersionsFixed} =
+        lists:foldl(fun (App, {Af, Fx}) ->
+                            {Affected, Fixed} = fetch_otp_purl_versions(App, all),
+                            {merge_otp_version_binaries(Affected, Af),
+                             merge_otp_version_binaries(Fixed, Fx)}
+                    end, {<<>>, <<>>}, Apps),
+    AppsR = format_vexctl(InitVex, OTPVersionsAffected, OTPVersionsFixed, CVE, Status),
+    %% handle vendor dependencies. we lack sha-1 information to create
+    %% a range of commits. if one wants to provide specific vendor information,
+    %% e.g., false positive for openssl, one can do that manually using vexctl.
+    %% if one wants to mention that erts-10.9.4 is not vulnerable to CVE-XXX
+    %% in openssl, that's possible and goes via first case, pkg:otp/erts@10.9.4.
+    FixedRange = maps:get(~"fixed", Status, <<>>),
+    AppsR ++ format_vexctl(InitVex, Purl, FixedRange, CVE, Status);
+create_vendor_statements(_, Status, InitVex, CVE, Purl) when is_map(Status) ->
+    %% handle vendor dependencies. we lack sha-1 information to create
+    %% a range of commits. if one wants to provide specific vendor information,
+    %% e.g., false positive for openssl, one can do that manually using vexctl.
+    %% if one wants to mention that erts-10.9.4 is not vulnerable to CVE-XXX
+    %% in openssl, that's possible and goes via first case, pkg:otp/erts@10.9.4.
+    FixedRange = maps:get(~"fixed", Status, <<>>),
+    format_vexctl(InitVex, Purl, FixedRange, CVE, Status);
+create_vendor_statements(_, Status,InitVex, CVE, Purl) when is_binary(Status) ->
+    NotFixed = <<>>,
+    format_vexctl(InitVex, Purl, NotFixed, CVE, Status).
 
 format_vexctl(InitVex, Affected, Fixed, CVE, Status) ->
-    [
-      format_vexctl(InitVex, Affected, CVE, Status),
-      format_vexctl(InitVex, Fixed, CVE, ~"fixed")
-    ].
+    Format = fun (X) -> case X of [] -> []; _ -> [X] end end,
+    Format(format_vexctl(InitVex, Affected, CVE, Status)) ++
+    Format(format_vexctl(InitVex, Fixed, CVE, ~"fixed")).
+
 
 format_vexctl(_VexPath, <<>>, _CVE, _) ->
-    "";
+    [];
 format_vexctl(VexPath, Versions, CVE, #{~"not_affected" := ~"vulnerable_code_not_present"}) ->
     io_lib:format("vexctl add --in-place ~ts --product='~ts' --vuln='~ts' --status='~ts' --justification='~ts'~n",
               [VexPath, Versions, CVE, ~"not_affected", ~"vulnerable_code_not_present"]);
@@ -2669,7 +3051,9 @@ fetch_version_from_table(OTPApp) ->
     fetch_from_table(erlang:binary_to_list(App)).
 
 -spec fetch_otp_major_version_from_table(Major :: string()) -> [string()].
-fetch_otp_major_version_from_table(Major) ->
+fetch_otp_major_version_from_table(Major) when is_binary(Major)->
+    fetch_otp_major_version_from_table(binary_to_list(Major));
+fetch_otp_major_version_from_table(Major) when is_list(Major)->
     Ls = fetch_otp_from_version_table(Major),
     lists:map(fun ("OTP-"++Version) -> Version end, Ls).
 
@@ -2682,7 +3066,7 @@ fetch_otp_from_version_table(OTPVersion) ->
     lists:filter(fun (L) -> L=/= [] end, string:split(Vulns, ~"\n", all)).
 
 %% OTPVersion = "OTP-26.3.1"
-%% App = "ssl-XXXX"
+%% App = <<"ssl-XXXX">>
 fetch_app_from_table(OTPVersion, App0) ->
     App = lists:takewhile(fun (Char) -> Char =/= $@ end, erlang:binary_to_list(App0)),
     Version = os:cmd("grep '" ++ OTPVersion ++ " : ' otp_versions.table"),
@@ -2730,13 +3114,23 @@ test_openvex_branched_otp_tree() ->
     {VexPath,  Branch, VexStmts} = setup_openvex_test(),
     CVEs = fixup_openvex_branched_otp_tree(),
     Result = calculate_statements_from_cves(VexStmts, CVEs, Branch, VexPath),
-    Expected = [~"vexctl add --in-place otp-23.openvex.json --product='pkg:github/erlang/otp@OTP-23.2.2,pkg:github/erlang/otp@OTP-23.2.3,pkg:github/erlang/otp@OTP-23.2.4,pkg:github/erlang/otp@OTP-23.2.5,pkg:github/erlang/otp@OTP-23.2.6,pkg:github/erlang/otp@OTP-23.2.7,pkg:github/erlang/otp@OTP-23.2.7.1,pkg:github/erlang/otp@OTP-23.3,pkg:github/erlang/otp@OTP-23.3.1,pkg:github/erlang/otp@OTP-23.3.2,pkg:github/erlang/otp@OTP-23.3.3,pkg:github/erlang/otp@OTP-23.3.4,pkg:github/erlang/otp@OTP-23.3.4.1,pkg:otp/ssl@10.2.1,pkg:otp/ssl@10.2.2,pkg:otp/ssl@10.2.3,pkg:otp/ssl@10.2.4,pkg:otp/ssl@10.2.4.1,pkg:otp/ssl@10.3,pkg:otp/ssl@10.3.1' --vuln='CVE-2025-26618' --status='affected' --action-statement='Update to the next version'\n",
-                ~"vexctl add --in-place otp-23.openvex.json --product='pkg:github/erlang/otp@OTP-23.3.4.4,pkg:github/erlang/otp@OTP-23.3.4.3,pkg:github/erlang/otp@OTP-23.3.4.2,pkg:github/erlang/otp@OTP-23.2.7.3,pkg:github/erlang/otp@OTP-23.2.7.2,pkg:otp/ssl@10.3.1.1,pkg:otp/ssl@10.2.4.2' --vuln='CVE-2025-26618' --status='fixed'\n",
-                ~"vexctl add --in-place otp-23.openvex.json --product='pkg:github/madler/zlib@04f42ceca40f73e2978b50e93806c2a18c1281fc' --vuln='FIKA-2026-BROD' --status='affected' --action-statement='Mitigation message, update to the next release'\n",
-                ~"vexctl add --in-place otp-23.openvex.json --product='pkg:github/erlang/otp@OTP-26.0,pkg:otp/erts@14.0,pkg:github/erlang/otp@OTP-26.0.1,pkg:otp/erts@14.0.1,pkg:github/erlang/otp@OTP-26.0.2,pkg:otp/erts@14.0.2,pkg:github/erlang/otp@OTP-26.1,pkg:github/erlang/otp@OTP-26.1.1,pkg:otp/erts@14.1,pkg:github/erlang/otp@OTP-26.1.2,pkg:otp/erts@14.1.1,pkg:github/erlang/otp@OTP-26.2,pkg:otp/erts@14.2,pkg:github/erlang/otp@OTP-26.2.1,pkg:otp/erts@14.2.1,pkg:github/erlang/otp@OTP-26.2.2,pkg:otp/erts@14.2.2,pkg:github/erlang/otp@OTP-26.2.3,pkg:otp/erts@14.2.3,pkg:github/erlang/otp@OTP-26.2.4,pkg:otp/erts@14.2.4,pkg:github/erlang/otp@OTP-26.2.5,pkg:otp/erts@14.2.5,pkg:github/erlang/otp@OTP-26.2.5.1,pkg:otp/erts@14.2.5.1,pkg:github/erlang/otp@OTP-26.2.5.2,pkg:otp/erts@14.2.5.2,pkg:github/erlang/otp@OTP-26.2.5.3,pkg:otp/erts@14.2.5.3,pkg:github/erlang/otp@OTP-26.2.5.4,pkg:github/erlang/otp@OTP-26.2.5.5,pkg:otp/erts@14.2.5.4,pkg:github/erlang/otp@OTP-26.2.5.6,pkg:otp/erts@14.2.5.5,pkg:github/erlang/otp@OTP-26.2.5.7,pkg:otp/erts@14.2.5.6,pkg:github/erlang/otp@OTP-26.2.5.8,pkg:otp/erts@14.2.5.7,pkg:github/erlang/otp@OTP-26.2.5.9,pkg:otp/erts@14.2.5.8,pkg:github/erlang/otp@OTP-26.2.5.10,pkg:github/erlang/otp@OTP-26.2.5.11,pkg:otp/erts@14.2.5.9,pkg:github/erlang/otp@OTP-26.2.5.12,pkg:github/erlang/otp@OTP-26.2.5.13,pkg:otp/erts@14.2.5.10,pkg:github/erlang/otp@OTP-26.2.5.14,pkg:otp/erts@14.2.5.11' --vuln='CVE-2024-9143' --status='not_affected' --justification='vulnerable_code_not_present'\n",
-                ~"vexctl add --in-place otp-23.openvex.json --product='pkg:github/openssl/openssl@0foobar' --vuln='CVE-2024-9143' --status='not_affected' --justification='vulnerable_code_not_present'\n",
+    Expected = [~"vexctl add --in-place otp-23.openvex.json --product='pkg:github/erlang/otp@OTP-23.0,pkg:github/erlang/otp@OTP-23.0.1,pkg:github/erlang/otp@OTP-23.0.2,pkg:github/erlang/otp@OTP-23.0.3,pkg:github/erlang/otp@OTP-23.0.4,pkg:otp/ssl@10.0,pkg:github/erlang/otp@OTP-23.1,pkg:github/erlang/otp@OTP-23.1.1,pkg:github/erlang/otp@OTP-23.1.2,pkg:github/erlang/otp@OTP-23.1.3,pkg:github/erlang/otp@OTP-23.1.4,pkg:github/erlang/otp@OTP-23.1.4.1,pkg:github/erlang/otp@OTP-23.1.5,pkg:otp/ssl@10.1,pkg:github/erlang/otp@OTP-23.2,pkg:github/erlang/otp@OTP-23.2.1,pkg:otp/ssl@10.2,pkg:github/erlang/otp@OTP-23.2.2,pkg:github/erlang/otp@OTP-23.2.3,pkg:otp/ssl@10.2.1,pkg:github/erlang/otp@OTP-23.2.4,pkg:otp/ssl@10.2.2,pkg:github/erlang/otp@OTP-23.2.5,pkg:github/erlang/otp@OTP-23.2.6,pkg:otp/ssl@10.2.3,pkg:github/erlang/otp@OTP-23.2.7,pkg:otp/ssl@10.2.4,pkg:github/erlang/otp@OTP-23.2.7.1,pkg:otp/ssl@10.2.4.1,pkg:github/erlang/otp@OTP-23.2.7.2,pkg:github/erlang/otp@OTP-23.2.7.3,pkg:otp/ssl@10.2.4.2,pkg:github/erlang/otp@OTP-23.2.7.4,pkg:otp/ssl@10.2.4.3,pkg:github/erlang/otp@OTP-23.2.7.5,pkg:otp/ssl@10.2.4.4,pkg:github/erlang/otp@OTP-23.3,pkg:github/erlang/otp@OTP-23.3.1,pkg:otp/ssl@10.3,pkg:github/erlang/otp@OTP-23.3.2,pkg:github/erlang/otp@OTP-23.3.3,pkg:github/erlang/otp@OTP-23.3.4,pkg:github/erlang/otp@OTP-23.3.4.1,pkg:otp/ssl@10.3.1,pkg:github/erlang/otp@OTP-23.3.4.2,pkg:github/erlang/otp@OTP-23.3.4.3,pkg:github/erlang/otp@OTP-23.3.4.4,pkg:otp/ssl@10.3.1.1,pkg:github/erlang/otp@OTP-23.3.4.5,pkg:github/erlang/otp@OTP-23.3.4.6,pkg:github/erlang/otp@OTP-23.3.4.7,pkg:github/erlang/otp@OTP-23.3.4.8,pkg:github/erlang/otp@OTP-23.3.4.9,pkg:github/erlang/otp@OTP-23.3.4.10,pkg:github/erlang/otp@OTP-23.3.4.11,pkg:github/erlang/otp@OTP-23.3.4.12,pkg:github/erlang/otp@OTP-23.3.4.13,pkg:github/erlang/otp@OTP-23.3.4.14,pkg:otp/ssl@10.3.1.2,pkg:github/erlang/otp@OTP-23.3.4.15,pkg:otp/ssl@10.3.1.3,pkg:github/erlang/otp@OTP-23.3.4.16,pkg:otp/ssl@10.3.1.4,pkg:github/erlang/otp@OTP-23.3.4.17,pkg:github/erlang/otp@OTP-23.3.4.18,pkg:github/erlang/otp@OTP-23.3.4.19,pkg:github/erlang/otp@OTP-23.3.4.20,pkg:otp/ssl@10.3.1.5' --vuln='F00' --status='under_investigation'\n",
+
                 ~"vexctl add --in-place otp-23.openvex.json --product='pkg:github/erlang/otp@OTP-26.0,pkg:otp/erts@14.0,pkg:github/erlang/otp@OTP-26.0.1,pkg:otp/erts@14.0.1,pkg:github/erlang/otp@OTP-26.0.2,pkg:otp/erts@14.0.2,pkg:github/erlang/otp@OTP-26.1,pkg:github/erlang/otp@OTP-26.1.1,pkg:otp/erts@14.1,pkg:github/erlang/otp@OTP-26.1.2,pkg:otp/erts@14.1.1,pkg:github/erlang/otp@OTP-26.2,pkg:otp/erts@14.2,pkg:github/erlang/otp@OTP-26.2.1,pkg:otp/erts@14.2.1,pkg:github/erlang/otp@OTP-26.2.2,pkg:otp/erts@14.2.2,pkg:github/erlang/otp@OTP-26.2.3,pkg:otp/erts@14.2.3,pkg:github/erlang/otp@OTP-26.2.4,pkg:otp/erts@14.2.4,pkg:github/erlang/otp@OTP-26.2.5,pkg:otp/erts@14.2.5,pkg:github/erlang/otp@OTP-26.2.5.1,pkg:otp/erts@14.2.5.1,pkg:github/erlang/otp@OTP-26.2.5.2,pkg:otp/erts@14.2.5.2,pkg:github/erlang/otp@OTP-26.2.5.3,pkg:otp/erts@14.2.5.3,pkg:github/erlang/otp@OTP-26.2.5.4,pkg:github/erlang/otp@OTP-26.2.5.5,pkg:otp/erts@14.2.5.4,pkg:github/erlang/otp@OTP-26.2.5.6,pkg:otp/erts@14.2.5.5,pkg:github/erlang/otp@OTP-26.2.5.7,pkg:otp/erts@14.2.5.6,pkg:github/erlang/otp@OTP-26.2.5.8,pkg:otp/erts@14.2.5.7,pkg:github/erlang/otp@OTP-26.2.5.9,pkg:otp/erts@14.2.5.8,pkg:github/erlang/otp@OTP-26.2.5.10,pkg:github/erlang/otp@OTP-26.2.5.11,pkg:otp/erts@14.2.5.9,pkg:github/erlang/otp@OTP-26.2.5.12,pkg:github/erlang/otp@OTP-26.2.5.13,pkg:otp/erts@14.2.5.10,pkg:github/erlang/otp@OTP-26.2.5.14,pkg:otp/erts@14.2.5.11' --vuln='CVE-2024-4444' --status='not_affected' --justification='vulnerable_code_not_present'\n",
-                ~"vexctl add --in-place otp-23.openvex.json --product='pkg:github/openssl/openssl@0foobar' --vuln='CVE-2024-4444' --status='not_affected' --justification='vulnerable_code_not_present'\n"
+
+                ~"vexctl add --in-place otp-23.openvex.json --product='pkg:github/openssl/openssl@0foobar' --vuln='CVE-2024-4444' --status='not_affected' --justification='vulnerable_code_not_present'\n",
+
+                ~"vexctl add --in-place otp-23.openvex.json --product='pkg:github/erlang/otp@OTP-26.0,pkg:otp/erts@14.0,pkg:github/erlang/otp@OTP-26.0.1,pkg:otp/erts@14.0.1,pkg:github/erlang/otp@OTP-26.0.2,pkg:otp/erts@14.0.2,pkg:github/erlang/otp@OTP-26.1,pkg:github/erlang/otp@OTP-26.1.1,pkg:otp/erts@14.1,pkg:github/erlang/otp@OTP-26.1.2,pkg:otp/erts@14.1.1,pkg:github/erlang/otp@OTP-26.2,pkg:otp/erts@14.2,pkg:github/erlang/otp@OTP-26.2.1,pkg:otp/erts@14.2.1,pkg:github/erlang/otp@OTP-26.2.2,pkg:otp/erts@14.2.2,pkg:github/erlang/otp@OTP-26.2.3,pkg:otp/erts@14.2.3,pkg:github/erlang/otp@OTP-26.2.4,pkg:otp/erts@14.2.4,pkg:github/erlang/otp@OTP-26.2.5,pkg:otp/erts@14.2.5,pkg:github/erlang/otp@OTP-26.2.5.1,pkg:otp/erts@14.2.5.1,pkg:github/erlang/otp@OTP-26.2.5.2,pkg:otp/erts@14.2.5.2,pkg:github/erlang/otp@OTP-26.2.5.3,pkg:otp/erts@14.2.5.3,pkg:github/erlang/otp@OTP-26.2.5.4,pkg:github/erlang/otp@OTP-26.2.5.5,pkg:otp/erts@14.2.5.4,pkg:github/erlang/otp@OTP-26.2.5.6,pkg:otp/erts@14.2.5.5,pkg:github/erlang/otp@OTP-26.2.5.7,pkg:otp/erts@14.2.5.6,pkg:github/erlang/otp@OTP-26.2.5.8,pkg:otp/erts@14.2.5.7,pkg:github/erlang/otp@OTP-26.2.5.9,pkg:otp/erts@14.2.5.8,pkg:github/erlang/otp@OTP-26.2.5.10,pkg:github/erlang/otp@OTP-26.2.5.11,pkg:otp/erts@14.2.5.9,pkg:github/erlang/otp@OTP-26.2.5.12,pkg:github/erlang/otp@OTP-26.2.5.13,pkg:otp/erts@14.2.5.10,pkg:github/erlang/otp@OTP-26.2.5.14,pkg:otp/erts@14.2.5.11' --vuln='CVE-2024-9143' --status='not_affected' --justification='vulnerable_code_not_present'\n",
+
+                ~"vexctl add --in-place otp-23.openvex.json --product='pkg:github/openssl/openssl@0foobar' --vuln='CVE-2024-9143' --status='not_affected' --justification='vulnerable_code_not_present'\n",
+
+                ~"vexctl add --in-place otp-23.openvex.json --product='pkg:github/madler/zlib@04f42ceca40f73e2978b50e93806c2a18c1281fc' --vuln='FIKA-2026-BROD' --status='affected' --action-statement='Mitigation message, update to the next release'\n",
+
+                ~"vexctl add --in-place otp-23.openvex.json --product='pkg:github/PCRE2Project/pcre2@2dce7761b1831fd3f82a9c2bd5476259d945da4d' --vuln='CVE-2025-58050' --status='affected'\n",
+
+                ~"vexctl add --in-place otp-23.openvex.json --product='pkg:github/erlang/otp@OTP-23.2.2,pkg:github/erlang/otp@OTP-23.2.3,pkg:github/erlang/otp@OTP-23.2.4,pkg:github/erlang/otp@OTP-23.2.5,pkg:github/erlang/otp@OTP-23.2.6,pkg:github/erlang/otp@OTP-23.2.7,pkg:github/erlang/otp@OTP-23.2.7.1,pkg:github/erlang/otp@OTP-23.3,pkg:github/erlang/otp@OTP-23.3.1,pkg:github/erlang/otp@OTP-23.3.2,pkg:github/erlang/otp@OTP-23.3.3,pkg:github/erlang/otp@OTP-23.3.4,pkg:github/erlang/otp@OTP-23.3.4.1,pkg:otp/ssl@10.2.1,pkg:otp/ssl@10.2.2,pkg:otp/ssl@10.2.3,pkg:otp/ssl@10.2.4,pkg:otp/ssl@10.2.4.1,pkg:otp/ssl@10.3,pkg:otp/ssl@10.3.1' --vuln='CVE-2025-26618' --status='affected' --action-statement='Update to the next version'\n",
+
+                ~"vexctl add --in-place otp-23.openvex.json --product='pkg:github/erlang/otp@OTP-23.3.4.4,pkg:github/erlang/otp@OTP-23.3.4.3,pkg:github/erlang/otp@OTP-23.3.4.2,pkg:github/erlang/otp@OTP-23.2.7.3,pkg:github/erlang/otp@OTP-23.2.7.2,pkg:otp/ssl@10.3.1.1,pkg:otp/ssl@10.2.4.2' --vuln='CVE-2025-26618' --status='fixed'\n"
                ],
     TestFun = fun (R) -> lists:member(erlang:list_to_binary(R), Expected) end,
     true = lists:all(TestFun, Result),
@@ -2765,6 +3159,7 @@ fixup_openvex_branched_otp_tree() ->
 [ #{ ~"pkg:otp/ssl@10.2.1" => ~"CVE-2025-26618",
      ~"status" => #{ ~"affected" => ~"Update to the next version",
                      ~"fixed" => [~"pkg:otp/ssl@10.3.1.1", ~"pkg:otp/ssl@10.2.4.2"]} },
+
   #{ ~"pkg:github/madler/zlib@04f42ceca40f73e2978b50e93806c2a18c1281fc" => ~"FIKA-2026-BROD",
      ~"status" => #{ ~"affected" => ~"Mitigation message, update to the next release"}},
 
@@ -2774,9 +3169,16 @@ fixup_openvex_branched_otp_tree() ->
 
   #{ ~"pkg:github/openssl/openssl@0foobar" => ~"CVE-2024-4444",
      ~"status" => #{ ~"not_affected" => ~"vulnerable_code_not_present",
-                     ~"apps" => [~"pkg:otp/erts@14.2.5.10"]}}
+                     ~"apps" => [~"pkg:otp/erts@14.2.5.10"]}},
+
+  #{~"pkg:github/PCRE2Project/pcre2@2dce7761b1831fd3f82a9c2bd5476259d945da4d" => ~"CVE-2025-58050",
+    ~"status" => ~"affected"},
+
+  #{ ~"pkg:otp/ssl@10.2.1" => ~"F00",
+     ~"status" => ~"under_investigation" }
 
 ].
+
 
 fixup_openvex_branched_otp_tree_stmts() ->
     [#{ ~"vulnerability"=>
@@ -2914,5 +3316,21 @@ fixup_openvex_branched_otp_tree_stmts() ->
              #{ ~"@id" => ~"pkg:github/openssl/openssl@0foobar" }
             ],
         ~"status" => ~"not_affected",
-        ~"justification" => ~"vulnerable_code_not_present" }
+        ~"justification" => ~"vulnerable_code_not_present" },
+
+     #{ ~"vulnerability"=> #{"name"=> ~"F00"},
+        ~"products"=>
+            [
+             #{~"@id"=> ~"pkg:github/erlang/otp@OTP-23.2.2"},
+             #{~"@id"=> ~"pkg:otp/ssl@10.2.1"}
+            ],
+        ~"status"=> ~"under_investigation"
+      },
+     #{ ~"vulnerability"=> #{"name"=> ~"CVE-2025-58050"},
+        ~"products"=>
+            [
+             #{~"@id"=> ~"pkg:github/PCRE2Project/pcre2@2dce7761b1831fd3f82a9c2bd5476259d945da4d"}
+            ],
+        ~"status"=> ~"affected"
+      }
     ].
