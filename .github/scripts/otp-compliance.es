@@ -992,7 +992,14 @@ remove_duplicate_packages(VendorPackages, #{~"packages" := Packages}=Spdx) ->
                                 {value, P} ->
                                     Packages1 = Apc -- [P],
                                     Comment = maps:get(~"comment", P, ~""),
-                                    Acc#{~"app" := [P#{~"comment" => <<Comment/binary, " vendor package">>} | Packages1]};
+                                    Comment1 =
+                                        case Comment of
+                                            <<>> ->
+                                                ~"vendor package";
+                                            _ ->
+                                                <<Comment/binary, " vendor package">>
+                                        end,
+                                    Acc#{~"app" := [P#{~"comment" => Comment} | Packages1]};
                                 _ ->
                                     Acc#{~"vendor" := [Vendor | Vcc]}
                             end
