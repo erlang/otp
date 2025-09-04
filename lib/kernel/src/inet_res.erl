@@ -1456,8 +1456,8 @@ decode_answer(Answer, Q_Msg, Verbose) ->
 		?YXDOMAIN -> {error,{yxdomain,Msg}};
 		?YXRRSET  -> {error,{yxrrset,Msg}};
 		?NXRRSET  -> {error,{nxrrset,Msg}};
-		?NOTAUTH  -> {error,{noauth,Msg}};
-		?NOTZONE  -> {error,{nozone,Msg}};
+		?NOTAUTH  -> {error,{notauth,Msg}};
+		?NOTZONE  -> {error,{notzone,Msg}};
 		?BADVERS when not T -> {error,{badvers,Msg}};
 		?BADSIG   -> {error,{badsig,Msg}};
 		?BADKEY   -> {error,{badkey,Msg}};

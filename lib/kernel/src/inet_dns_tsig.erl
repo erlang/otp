@@ -167,7 +167,7 @@ do_verify(Pkt,
                          arlist = ARList },
           TS0 = #tsig_state{ id = TSId })
               when QR == false, TSId == undefined ->
-    ARList == [] andalso throw({noauth,badsig}),
+    ARList == [] andalso throw({notauth,badsig}),
     #dns_rr_tsig{
         domain = Name,
         algname = AlgName,
@@ -243,10 +243,10 @@ do_verify(Pkt, _Response, TS, TSigRR) ->
     ]),
     MACCalc = if
         element(1, TS#tsig_state.mac) == ?MODULE ->
-            mac(PktS, TS, Error, Now, OtherData);
+            mac(PktS, TS, Error, NowSigned, OtherData);
         %% RFC8945, section 5.3.1: TSIG on TCP Connections
         true ->
-            mac(TS, Error, Now, OtherData)
+            mac(TS, Error, NowSigned, OtherData)
     end,
     if
         %% RFC8945, section 5.2 - MUST check time after MAC
