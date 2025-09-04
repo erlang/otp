@@ -1742,7 +1742,14 @@ crypto_one_time(Cipher, Key, IV, Data, FlagOrOptions) ->
               {}).
 
 %%%----------------------------------------------------------------
--doc(#{equiv => crypto_one_time_aead/7}).
+-doc """
+Do a complete encrypt with an AEAD cipher of the full text
+with the default tag length.
+
+Equivalent to
+`crypto_one_time_aead(Cipher, Key, IV, InText, AAD, TagLength, true)`
+where `TagLength` is the default tag length for the given `Cipher`.
+""".
 -doc(#{group => <<"Cipher API">>,
        since => <<"OTP 22.0">>}).
 -spec crypto_one_time_aead(Cipher, Key, IV, InText, AAD, EncFlag::true) ->
