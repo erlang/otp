@@ -459,18 +459,23 @@ jobs:
   modified-vendor-files:
     name: Check if vendor files changed
     runs-on: ubuntu-latest
+    # this condition is necessary because github.base_ref only exists for pull_requests
+    if: ${{ github.event_name == 'pull_request' }}
     outputs:
       vendor-files: ${{ steps.vendor-files.outputs.MODIFIED_FILES != '0' }}
     steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # ratchet:actions/checkout@v4.2.2
+        with:
+          fetch-depth: 0
       - name: Get modified vendor files
         id: vendor-files
         run: |
-          echo "MODIFIED_FILES=$(git diff --name-only '${{ github.base_ref }}' 'HEAD' | grep 'vendor\.info$' | wc -l || 1)"
+          echo "MODIFIED_FILES=$(git diff --name-only origin/${{ github.base_ref }} HEAD | grep 'vendor\.info$' | wc -l || 1)" >> $GITHUB_OUTPUT
 
   # this is a call to a workflow_call
   pr-vendor-vulnerability-analysis:
     needs: modified-vendor-files
-    if: ${{ needs.modified-vendor-files.outputs.vendor-files != 0 && github.event_name == 'pull_request'}}
+    if: ${{ needs.modified-vendor-files.outputs.vendor-files == 'true' && github.event_name == 'pull_request'}}
     permissions:
       security-events: read
       issues: write
