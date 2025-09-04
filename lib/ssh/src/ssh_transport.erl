@@ -1144,14 +1144,9 @@ select_algorithm(Role, Client, Server,
 		   Server#ssh_msg_kexinit.languages_client_to_server),
     S_Lng = select(Client#ssh_msg_kexinit.languages_server_to_client,
 		   Server#ssh_msg_kexinit.languages_server_to_client),
-    HKey = select_all(Client#ssh_msg_kexinit.server_host_key_algorithms,
-		      Server#ssh_msg_kexinit.server_host_key_algorithms),
-    HK = case HKey of
-	     [] -> undefined;
-	     [HK0|_] -> HK0
-	 end,
-    %% Fixme verify Kex against HKey list and algorithms
-    
+    HKey = select(Client#ssh_msg_kexinit.server_host_key_algorithms,
+                  Server#ssh_msg_kexinit.server_host_key_algorithms),
+    %% FIXME verify Kex against HKey list and algorithms (see RFC4253 sec 7.1)
     Kex = select(Client#ssh_msg_kexinit.kex_algorithms,
 		 Server#ssh_msg_kexinit.kex_algorithms),
 
@@ -1171,7 +1166,7 @@ select_algorithm(Role, Client, Server,
         ?GET_OPT(recv_ext_info,Opts),
 
     {ok, #alg{kex = Kex,
-              hkey = HK,
+              hkey = HKey,
               encrypt = Encrypt,
               decrypt = Decrypt,
               send_mac = SendMac,
@@ -1323,38 +1318,27 @@ alg_final(rcv, SSH0) ->
     {ok,SSH3} = decompress_final(SSH2),
     SSH3.
 
-
-select_all(CL, SL) when length(CL) + length(SL) < ?MAX_NUM_ALGORITHMS ->
-    %% algorithms only used by client
-    %% NOTE: an algorithm occurring more than once in CL will still be present
-    %%       in CLonly. This is not a problem for nice clients.
-    CLonly = CL -- SL,
-
-    %% algorithms used by client and server (client pref)
-    lists:foldr(fun(ALG, Acc) -> 
-                      try [list_to_existing_atom(ALG) | Acc]
-                      catch
-                          %% If an malicious client uses the same non-existing algorithm twice,
-                          %% we will end up here
-                          _:_ -> Acc
-                      end
-              end, [], (CL -- CLonly));
-
-select_all(CL, SL) ->
-    Error = lists:concat(["Received too many algorithms (",length(CL),"+",length(SL)," >= ",?MAX_NUM_ALGORITHMS,")."]),
-    ?DISCONNECT(?SSH_DISCONNECT_PROTOCOL_ERROR,
-                Error).
-
-
 select([], []) ->
     none;
 select(CL, SL) ->
-    C = case select_all(CL,SL) of
-	    [] -> undefined;
-	    [ALG|_] -> ALG
-	end,
-    C.
-	    
+    select_first(CL, SL).
+
+select_first([ClientAlg | ClientRest], SL) ->
+    case lists:member(ClientAlg, SL) of
+        true ->
+            try list_to_existing_atom(ClientAlg) of
+                Alg when is_atom(Alg) ->
+                    Alg
+            catch
+                error:badarg ->
+                    select_first(ClientRest, SL)
+            end;
+        false ->
+            select_first(ClientRest, SL)
+    end;
+select_first([], _) ->
+    undefined.
+
 ssh_packet(#ssh_msg_kexinit{} = Msg, Ssh0) ->
     BinMsg = ssh_message:encode(Msg),
     Ssh = key_init(Ssh0#ssh.role, Ssh0, BinMsg),
