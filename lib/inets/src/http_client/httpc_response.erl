@@ -283,7 +283,7 @@ parse_headers(<<?CR,?LF,?CR,?LF,Body/binary>>, Header, Headers,
     HTTPHeaders = [lists:reverse(Header) | Headers],
     Length = lists:foldl(fun(H, Acc) -> length(H) + Acc end,
 			   0, HTTPHeaders),
-    case ((Length =< MaxHeaderSize) or (MaxHeaderSize == nolimit)) of
+    case ((Length =< MaxHeaderSize) orelse (MaxHeaderSize == nolimit)) of
  	true ->   
 	    ResponseHeaderRcord = 
 		http_response:headers(HTTPHeaders, #http_response_h{}),

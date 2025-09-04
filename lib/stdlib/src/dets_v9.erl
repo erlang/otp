@@ -1098,7 +1098,7 @@ fast_output2(Head, SizeT, Bases, SegAddr, SS, SegEnd) ->
     end.
 
 fast_output_end(Head, SizeT) ->
-    case ets:foldl(fun({_Sz,_Pos,Cnt,NoC}, Acc) -> (Cnt =:= NoC) and Acc end, 
+    case ets:foldl(fun({_Sz,_Pos,Cnt,NoC}, Acc) -> (Cnt =:= NoC) andalso Acc end, 
 		   true, SizeT) of
 	true -> {ok, Head};
 	false -> {error, invalid_objects_list}
@@ -1953,10 +1953,10 @@ hash_invars(H) ->
 
 -define(M8(X), (((X) band (?SEGSZP - 1)) =:= 0)).
 hash_invars(N, M, Next, Min, Max) ->
-        ?M8(N) and ?M8(M) and ?M8(Next) and ?M8(Min) and ?M8(Max)
-    and (0 =< N) and (N =< M) and (N =< 2*Next) and (M =< Next)
-    and (Next =< 2*M) and (0 =< Min) and (Min =< Next) and (Next =< Max) 
-    and (Min =< M).
+            ?M8(N) andalso ?M8(M) andalso ?M8(Next) andalso ?M8(Min) andalso ?M8(Max)
+    andalso (0 =< N) andalso (N =< M) andalso (N =< 2*Next) andalso (M =< Next)
+    andalso (Next =< 2*M) andalso (0 =< Min) andalso (Min =< Next) andalso (Next =< Max) 
+    andalso (Min =< M).
 
 seg_zero() ->
     <<0:(4*?SEGSZ)/unit:8>>.
@@ -2156,8 +2156,8 @@ updated(Head, Pos, OldSize, BSize, SlotPos, Bins, Ch, DeltaNoOs, DeltaNoKs) ->
 				%% (and collections) as were present
 				%% when chunking started (the table
 				%% must have been fixed).
-				(Overwrite0 =/= false) and 
-				(DeltaNoOs =:= 0) and (DeltaNoKs =:= 0);
+				(Overwrite0 =/= false) andalso 
+				(DeltaNoOs =:= 0) andalso (DeltaNoKs =:= 0);
 			    true ->
 				Overwrite0
 			end,

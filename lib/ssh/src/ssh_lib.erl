@@ -76,16 +76,16 @@ comp(X1, X2) ->
 
 %%% yes - very far from best implementation
 comp(<<B1,R1/binary>>, <<B2,R2/binary>>, Truth) ->
-    comp(R1, R2, Truth and (B1 == B2));
+    comp(R1, R2, Truth andalso (B1 == B2));
 comp(<<_,R1/binary>>, <<>>, Truth) ->
-    comp(R1, <<>>, Truth and false);
+    comp(R1, <<>>, Truth andalso false);
 comp(<<>>, <<>>, Truth) ->
     Truth;
 
 comp([H1|T1], [H2|T2], Truth) ->
-    comp(T1, T2, Truth and (H1 == H2));
+    comp(T1, T2, Truth andalso (H1 == H2));
 comp([_|T1], [], Truth) ->
-    comp(T1, [], Truth and false);
+    comp(T1, [], Truth andalso false);
 comp([], [], Truth) ->
     Truth;
 
