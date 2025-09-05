@@ -232,8 +232,7 @@ text_in_terminal(Config) when is_list(Config) ->
     Node = proplists:get_value(node, Config),
     Term = proplists:get_value(term, Config),
     ExpectedLineCount = 10 + proplists:get_value(lines, Config, 10) + 2,
-
-    EtopStartCmd = "spawn_link(etop, start, [[{node,"++atom_to_list(Node)++"},{output,text},{interval,1}]]).",
+    EtopStartCmd = io_lib:format("spawn_link(etop, start, [[{node,~w},{output,text},{interval,1}]]).", [Node]),
     shell_test_lib:send_tty(Term, EtopStartCmd),
     shell_test_lib:send_tty(Term, "Enter"),
 
@@ -321,16 +320,16 @@ text_to_file(Config) when is_list(Config) ->
     stop = erpc:call(Node, etop, stop, []),
 
     lists:foldl(fun({_Index, ?ERASE_ALL}, Acc) ->
-                        Acc;
-                   ({Index, Line}, Acc) ->
-                        Lines = lists:append(Acc, [Line]),
-                        case Index rem ExpectedLineCount of
-                            0 ->
-                                verify_etop_output(Config, Lines, cooked),
-                                [];
-                            _ ->
-                                Lines
-                        end
+                          Acc;
+                      ({Index, Line}, Acc) ->
+                          Lines = lists:append(Acc, [Line]),
+                          case Index rem ExpectedLineCount of
+                              0 ->
+                                  verify_etop_output(Config, Lines, cooked),
+                                  [];
+                              _ ->
+                                  Lines
+                          end
                 end, [], lists:enumerate(Content)),
     ok.
 
@@ -406,8 +405,8 @@ verify_dup_line(Char, Line) ->
     true = string:equal(ExpectedLine, Line).
 
 verify_node_and_time_line(Node, NodeAndTimeLine) ->
-    NodeString = atom_to_binary(Node),
     [NodeString | SplitLine] = string:split(string:trim(NodeAndTimeLine), " ", all),
+    Node = binary_to_atom(string:trim(NodeString, both, "'")),
 
     TimeLine = lists:last(SplitLine),
     [Hour, Minute, Second] = string:split(TimeLine, ":", all),
