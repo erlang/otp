@@ -1459,35 +1459,35 @@ osv_scan(#{version := Version,
                         Please follow instructions on how to do this from:
                           https://github.com/erlang/otp/blob/master/HOWTO/SBOM.md#vex
                         """,
-                    %% create_or_update_gh_issue(Version, Failure, FormattedVulns),
+                    create_or_update_gh_issue(Version, Failure, FormattedVulns),
                     fail(Failure, [Version, FormattedVulns])
             end
     end.
 
-%% create_or_update_gh_issue(Version, BodyText, Vulns) ->
-%%     VersionS = erlang:binary_to_list(Version),
-%%     Cmd = "gh api -H \"Accept: application/vnd.github+json\" -H \"X-GitHub-Api-Version: 2022-11-28\" ",
-%%     SearchCmd =
-%%         io_lib:format("/search/issues?q=repo:~s+in:title+~s+~s+is:issue+is:open",
-%%                       [?GH_ACCOUNT, VersionS, ?FOUND_VENDOR_VULNERABILITY]),
-%%
-%%     io:format("Query GH API~n~s~n~n", [Cmd ++ SearchCmd]),
-%%     RawResponse = cmd(Cmd ++ SearchCmd),
-%%     Bin = unicode:characters_to_binary(RawResponse),
-%%     #{~"total_count" := Count} = json:decode(Bin),
-%%     FormattedBody = io_lib:format(BodyText, [Version, Vulns]),
-%%     case Count of
-%%         0 ->
-%%             create_gh_issue(VersionS, ?FOUND_VENDOR_VULNERABILITY_TITLE, FormattedBody);
-%%         _ ->
-%%             ok
-%%     end.
+create_or_update_gh_issue(Version, BodyText, Vulns) ->
+    VersionS = erlang:binary_to_list(Version),
+    Cmd = "gh api -H \"Accept: application/vnd.github+json\" -H \"X-GitHub-Api-Version: 2022-11-28\" ",
+    SearchCmd =
+        io_lib:format("/search/issues?q=repo:~s+in:title+~s+~s+is:issue+is:open",
+                      [?GH_ACCOUNT, VersionS, ?FOUND_VENDOR_VULNERABILITY]),
 
-%% create_gh_issue(Version, Title, BodyText) ->
-%%     Create = io_lib:format("gh issue create -t \"[~s] ~s\" -b \"~s\" -R ~s", [Version, Title, BodyText, ?GH_ACCOUNT]),
-%%     io:format("GH Create Ticket with title '[~s] ~s'~n~p~n~n", [Version, Title, Create]),
-%%     _ = cmd(Create),
-%%     ok.
+    io:format("Query GH API~n~s~n~n", [Cmd ++ SearchCmd]),
+    RawResponse = cmd(Cmd ++ SearchCmd),
+    Bin = unicode:characters_to_binary(RawResponse),
+    #{~"total_count" := Count} = json:decode(Bin),
+    FormattedBody = io_lib:format(BodyText, [Version, Vulns]),
+    case Count of
+        0 ->
+            create_gh_issue(VersionS, ?FOUND_VENDOR_VULNERABILITY_TITLE, FormattedBody);
+        _ ->
+            ok
+    end.
+
+create_gh_issue(Version, Title, BodyText) ->
+    Create = io_lib:format("gh issue create -t \"[~s] ~s\" -b \"~s\" -R ~s", [Version, Title, BodyText, ?GH_ACCOUNT]),
+    io:format("GH Create Ticket with title '[~s] ~s'~n~s~n~n", [Version, Title, Create]),
+    _ = cmd(Create),
+    ok.
 
 ignore_vex_cves(Branch, Vulns) ->
     OpenVex = get_otp_openvex_file(Branch),
