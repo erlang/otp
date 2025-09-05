@@ -1808,7 +1808,7 @@ app_dirs2([Lib | Libs], Acc) ->
                                 false
                         end
                 end,
-            Files2 = lists:zf(Filter, Files),
+            Files2 = lists:filtermap(Filter, Files),
             app_dirs2(Libs, [Files2 | Acc]);
         {error, Reason} ->
 	    reltool_utils:throw_error("Illegal library ~tp: ~ts",

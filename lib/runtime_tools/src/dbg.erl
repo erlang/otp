@@ -2858,7 +2858,7 @@ wrap_presort(Filename, Tail) ->
     Dirname = filename:dirname(Filename),
     case file:list_dir(Dirname) of
 	{ok, Files} ->
-	    lists:zf(
+	    lists:filtermap(
 	      fun(N) ->
 		      case match_front(N, Name) of
 			  false ->

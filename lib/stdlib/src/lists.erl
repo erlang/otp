@@ -85,8 +85,9 @@ An example of a typical ordering function is less than or equal to: `=</2`.
          splitwith/2, takewhile/2, uniq/2,
          zipwith/3, zipwith/4, zipwith3/4, zipwith3/5]).
 
-%% Undocumented, but used within Erlang/OTP.
+%% Undocumented old name for filtermap
 -export([zf/2]).
+-deprecated([{zf,2,"use filtermap/2 instead"}]).
 
 %% Undocumented and unused merge functions for lists sorted in reverse
 %% order. They are exported so that the fundamental building blocks
@@ -2273,7 +2274,7 @@ rumerge([], []) ->
 %% foldl(Function, First, List)
 %% foldr(Function, Last, List)
 %% filter(Predicate, List)
-%% zf(Function, List)
+%% filtermap(Function, List)
 %% mapfoldl(Function, First, List)
 %% mapfoldr(Function, Last, List)
 %% foreach(Function, List)
@@ -2281,8 +2282,6 @@ rumerge([], []) ->
 %% dropwhile(Predicate, List)
 %% splitwith(Predicate, List)
 %%  for list programming. Function here is a 'fun'.
-%% 
-%%  The name zf is a joke!
 %%
 %%  N.B. Unless where the functions actually needs it only foreach/2/3,
 %%  which is meant to be used for its side effects, has a defined order
@@ -2617,6 +2616,7 @@ filtermap_1(F, [Hd|Tail]) ->
 filtermap_1(_F, []) ->
     [].
 
+%%  The name zf was a joke. Kept for backwards compatibility only.
 -doc false.
 -spec zf(fun((T) -> boolean() | {'true', X}), [T]) -> [(T | X)].
 
