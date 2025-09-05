@@ -78,6 +78,8 @@ obsolete(http_uri, encode, 1) ->
     {deprecated, "use uri_string:quote function instead"};
 obsolete(httpd, parse_query, 1) ->
     {deprecated, "use uri_string:dissect_query/1 instead"};
+obsolete(lists, zf, 2) ->
+    {deprecated, "use filtermap/2 instead"};
 obsolete(net, broadcast, 3) ->
     {deprecated, "use rpc:eval_everywhere/3 instead"};
 obsolete(net, call, 4) ->
