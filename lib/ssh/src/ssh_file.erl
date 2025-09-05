@@ -45,7 +45,7 @@ handler.
 Such another callback module could be used by setting the option
 [`key_cb`](`t:ssh:key_cb_common_option/0`) when starting a client or a server
 (with for example [ssh:connect](`ssh:connect/3`), [ssh:daemon](`ssh:daemon/2`)
-of [ssh:shell](`ssh:shell/1`) ).
+or [ssh:shell](`ssh:shell/1`) ).
 
 > #### Note {: .info }
 >
