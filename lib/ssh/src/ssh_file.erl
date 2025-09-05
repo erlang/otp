@@ -257,6 +257,8 @@ call that initiates an ssh connection.
 
 %%%---------------- SERVER API ------------------------------------
 -doc """
+Fetches the private key of the host.
+
 **Types and description**
 
 See the api description in
@@ -285,6 +287,8 @@ host_key(Algorithm, Opts) ->
 
 %%%................................................................
 -doc """
+Checks if the user key is authorized.
+
 **Types and description**
 
 See the api description in
@@ -321,6 +325,8 @@ is_auth_key(Key0, User, Opts) ->
 
 %%%---------------- CLIENT API ------------------------------------
 -doc """
+Fetches the users public key matching the Algorithm.
+
 **Types and description**
 
 See the api description in
@@ -356,6 +362,8 @@ user_key(Algorithm, Opts) ->
 %%%................................................................
 %%% New style (with port number)
 -doc """
+Checks if a host key is trusted.
+
 **Types and description**
 
 See the api description in
@@ -395,6 +403,8 @@ is_host_key(Key0, Hosts0, Port, Algorithm, Opts) ->
 
 %%%----------------------------------------------------------------
 -doc """
+Adds a host key to the set of trusted host keys.
+
 **Types and description**
 
 See the api description in
