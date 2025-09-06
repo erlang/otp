@@ -1327,12 +1327,8 @@ eval_script([{path,Path}|T], #es{path=false,pa=Pa,pz=Pz,
 eval_script([{path,_}|T], #es{}=Es) ->
     %% Ignore, use the command line -path flag.
     eval_script(T, Es);
-eval_script([{kernel_load_completed}|T], #es{load_mode=Mode}=Es0) ->
-    Es = case Mode of
-	     embedded -> Es0;
-	     _ -> Es0#es{prim_load=false}
-	 end,
-    eval_script(T, Es);
+eval_script([{kernel_load_completed}|T], #es{load_mode=Mode}=Es) ->
+    eval_script(T, Es#es{prim_load=(Mode == embedded)});
 eval_script([{primLoad,Mods}|T], #es{init=Init,prim_load=PrimLoad,debug=Deb}=Es)
   when is_list(Mods) ->
     case PrimLoad of
