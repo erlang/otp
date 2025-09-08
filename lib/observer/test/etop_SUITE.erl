@@ -232,8 +232,7 @@ text_in_terminal(Config) when is_list(Config) ->
     Node = proplists:get_value(node, Config),
     Term = proplists:get_value(term, Config),
     ExpectedLineCount = 10 + proplists:get_value(lines, Config, 10) + 2,
-
-    EtopStartCmd = "spawn_link(etop, start, [[{node,"++atom_to_list(Node)++"},{output,text},{interval,1}]]).",
+    EtopStartCmd = io_lib:format("spawn_link(etop, start, [[{node,~w},{output,text},{interval,1}]]).", [Node]),
     shell_test_lib:send_tty(Term, EtopStartCmd),
     shell_test_lib:send_tty(Term, "Enter"),
 
@@ -406,8 +405,8 @@ verify_dup_line(Char, Line) ->
     true = string:equal(ExpectedLine, Line).
 
 verify_node_and_time_line(Node, NodeAndTimeLine) ->
-    NodeString = atom_to_binary(Node),
     [NodeString | SplitLine] = string:split(string:trim(NodeAndTimeLine), " ", all),
+    Node = binary_to_atom(string:trim(NodeString, both, "'")),
 
     TimeLine = lists:last(SplitLine),
     [Hour, Minute, Second] = string:split(TimeLine, ":", all),
