@@ -716,6 +716,9 @@ re_import_1(BIF_ALIST_1)
     byte enc_ver;
     byte unicode;
 
+    ERTS_UNDEF(regex_code, NULL);
+    ERTS_UNDEF(unicode, 0);
+
     // {re_exported_pattern, HeaderBin, OrigBin, OrigOpts, EncodedBin}
 
     if (!is_tuple_arity(BIF_ARG_1, 5)) {
@@ -896,6 +899,8 @@ re_compile(Process* p, Eterm re_arg, Eterm opts_arg, bool is_import)
     struct parsed_options opts;
     Eterm regex_bin;
     Eterm* regex_bin_p;
+
+    ERTS_UNDEF(regex_bin, THE_NON_VALUE);
 
     if (!parse_options(opts_arg, &opts)) {
     opt_error:
