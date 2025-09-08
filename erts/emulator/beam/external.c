@@ -3021,6 +3021,8 @@ dec_atom(ErtsDistExternal *edep, const byte* ep, Eterm* objp, Uint32 flags)
     int n;
     ErtsAtomEncoding char_enc;
 
+    ASSERT(edep || !(flags & ERTS_DIST_EXT_ATOM_TRANS_TAB));
+
     switch (*ep++) {
     case ATOM_CACHE_REF:
 	if (!(flags & ERTS_DIST_EXT_ATOM_TRANS_TAB))
@@ -4434,6 +4436,7 @@ dec_term(ErtsDistExternal *edep,
 	    if (!(flags & ERTS_DIST_EXT_ATOM_TRANS_TAB)) {
 		goto error;
 	    }
+            ASSERT(edep);
 	    n = get_int8(ep);
 	    ep++;
 	    if (n >= edep->attab.size)
