@@ -737,9 +737,14 @@ re_import_1(BIF_ALIST_1)
         const byte *encoded;
         Uint encoded_sz;
 
-        if (hdr_sz != EXPORTED_HDR_SZ) {
+        /*
+         * Allow header to contain more unknow data that we ignore.
+         * Could be new optional features (such as checksum over fallback)
+         * that was added while being forward compatible.
+         */
+        /*if (hdr_sz != EXPORTED_HDR_SZ) {
             goto badarg;
-        }
+        }*/
 
         encoded = erts_get_aligned_binary_bytes(tpl[5], &encoded_sz,
                                                 &encoded_tmp_alloc);
