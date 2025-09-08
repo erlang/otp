@@ -149,6 +149,7 @@ init_per_suite(Config) ->
     try
         Node =/= nonode@nohost orelse
             throw({Skip,"Node not distributed"}),
+        verify_os_type(Skip),
         verify_node_src_addr(),
         {supported, SSLVersions} =
             lists:keyfind(supported, 1, ssl:versions()),
@@ -428,6 +429,14 @@ ktls_supported() ->
 
 %%%-------------------------------------------------------------------
 %%% CommonTest API helpers
+
+verify_os_type(Skipped) ->
+    case {os:type(), erlang:system_info(wordsize)} of
+        {{win32,_}, 4} ->
+            throw({Skipped,"32b Windows"});
+        _ ->
+            ok
+    end.
 
 verify_node_src_addr() ->
     Msg = "Hello, world!",
