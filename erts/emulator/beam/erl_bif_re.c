@@ -583,7 +583,6 @@ build_compile_result(Process *p, pcre2_code *result, byte unicode, bool with_ok)
 {
     Eterm *hp;
     Eterm ret;
-    size_t pattern_size;
     uint32_t capture_count;
     uint32_t newline;
     int use_crlf;
@@ -593,7 +592,6 @@ build_compile_result(Process *p, pcre2_code *result, byte unicode, bool with_ok)
 
     ASSERT(result);
 
-    pcre2_pattern_info(result, PCRE2_INFO_SIZE, &pattern_size);
     pcre2_pattern_info(result, PCRE2_INFO_CAPTURECOUNT, &capture_count);
     pcre2_pattern_info(result, PCRE2_INFO_NEWLINE, &newline);
     use_crlf = (newline == PCRE2_NEWLINE_ANY ||
