@@ -602,6 +602,16 @@ maybe_generate_client_shares(_) ->
 %%--------------------------------------------------------------------
 %% Internal functions
 %%--------------------------------------------------------------------
+generate_client_shares(Groups) ->
+    KeyShareEntry =
+        fun (Group) ->
+                #key_share_entry{group = Group,
+                                 key_exchange = tls_handshake_1_3:generate_kex_keys(Group)}
+        end,
+    ClientShares = lists:map(KeyShareEntry, Groups),
+    #key_share_client_hello{client_shares = ClientShares}.
+
+
 handle_exlusive_1_3_hello_or_hello_retry_request(ServerHello, State0) ->
     case do_handle_exlusive_1_3_hello_or_hello_retry_request(ServerHello,
                                                              State0) of
@@ -665,7 +675,7 @@ do_handle_exlusive_1_3_hello_or_hello_retry_request(
         %% replace the original "key_share" extension with one containing only a
         %% new KeyShareEntry for the group indicated in the selected_group field
         %% of the triggering HelloRetryRequest.
-        ClientKeyShare = ssl_cipher:generate_client_shares([SelectedGroup]),
+        ClientKeyShare = generate_client_shares([SelectedGroup]),
         TicketData =
             tls_handshake_1_3:get_ticket_data(self(), SessionTickets, UseTicket),
         OcspNonce = maps:get(ocsp_nonce, StaplingState, undefined),
@@ -864,10 +874,14 @@ server_share(#key_share_hello_retry_request{selected_group = Share}) ->
 client_private_key(Group, ClientShares) ->
     case lists:keysearch(Group, 2, ClientShares) of
         {value, #key_share_entry{key_exchange =
-                                     ClientPrivateKey = #'ECPrivateKey'{}}} ->
-            ClientPrivateKey;
-        {value, #key_share_entry{key_exchange = {_, ClientPrivateKey}}} ->
-                ClientPrivateKey;
+                                     PrivateKey = #'ECPrivateKey'{}}} ->
+            PrivateKey;
+        {value, #key_share_entry{key_exchange = {#'ECPrivateKey'{} = PrivateKey1, {_, PrivateKey2}}}} ->
+            {PrivateKey1, PrivateKey2};
+        {value, #key_share_entry{key_exchange = {{_, PrivateKey1}, {_, PrivateKey2}}}} ->
+            {PrivateKey1, PrivateKey2};
+        {value, #key_share_entry{key_exchange = {_, PrivateKey}}} ->
+            PrivateKey;
         false ->
             no_suitable_key
     end.

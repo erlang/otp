@@ -763,24 +763,39 @@ default_or_fallback({fallback, _}, #session{} = Default) ->
 default_or_fallback(Default, _) ->
     Default.
 
-is_mlkem(Group) when Group == mlkem512;
-                     Group == mlkem768;
-                     Group == mlkem1024 ->
-    true;
-is_mlkem(_) ->
-    false.
-
-generate_server_share(Group, OtherPubKey) ->
-    case is_mlkem(Group) of
-        true ->
-            {Secret, CipherText} = crypto:encapsulate_key(Group, OtherPubKey),
-            #key_share_server_hello{server_share = #key_share_entry{
-                                                      group = Group,
-                                                      key_exchange = {CipherText, Secret}
-                                                     }};
-        false ->
-            ssl_cipher:generate_server_share(Group)
-    end.
+generate_server_share(Group, OtherPubKey) when Group == mlkem512;
+                                               Group == mlkem768;
+                                               Group == mlkem1024 -> 
+    {Secret, CipherText} = crypto:encapsulate_key(Group, OtherPubKey),
+    #key_share_server_hello{server_share = #key_share_entry{
+                                              group = Group,
+                                              key_exchange = {CipherText, Secret}
+                                             }};
+generate_server_share(x25519mlkem768 = Group, {OtherPubKey, _}) ->
+    %% Note exception algorithm should be in reveres order of name due to legacy reason
+    {Curve, MlKem} = tls_handshake_1_3:hybrid_algs(Group),
+    {Secret, CipherText} = crypto:encapsulate_key(MlKem, OtherPubKey),
+    Keys = tls_handshake_1_3:generate_kex_keys(Curve),
+    #key_share_server_hello{server_share = #key_share_entry{
+                                              group = Group,
+                                              key_exchange = {{CipherText, Secret}, Keys}
+                                             }};
+generate_server_share(Group, {_, OtherPubKey}) when Group == secp256r1mlkem768;
+                                                    Group == secp384r1mlkem1024 ->
+    {Curve, MlKem} = tls_handshake_1_3:hybrid_algs(Group),
+    {Secret, CipherText} = crypto:encapsulate_key(MlKem, OtherPubKey),
+    Keys = tls_handshake_1_3:generate_kex_keys(Curve),
+    #key_share_server_hello{server_share = #key_share_entry{
+                                              group = Group,
+                                              key_exchange = {Keys, {CipherText, Secret}}
+                                             }};
+generate_server_share(Group, _) ->
+    Keys = tls_handshake_1_3:generate_kex_keys(Group),
+    #key_share_server_hello{
+       server_share = #key_share_entry{
+                         group = Group,
+                         key_exchange = Keys
+                        }}.
 
 select_server_private_key(#key_share_server_hello{server_share = ServerShare}) ->
     select_private_key(ServerShare).
@@ -788,6 +803,15 @@ select_server_private_key(#key_share_server_hello{server_share = ServerShare}) -
 select_private_key(#key_share_entry{
                    key_exchange = #'ECPrivateKey'{} = PrivateKey}) ->
     PrivateKey;
+select_private_key(#key_share_entry{
+                      key_exchange =
+                          {#'ECPrivateKey'{} = PrivateKey1, {_, PrivateKey2}}}) ->
+    {PrivateKey1, PrivateKey2};
+
+select_private_key(#key_share_entry{
+                      key_exchange =
+                          {{_, PrivateKey1}, {_, PrivateKey2}}}) ->
+    {PrivateKey1, PrivateKey2};
 select_private_key(#key_share_entry{
                       key_exchange =
                           {_, PrivateKey}}) ->

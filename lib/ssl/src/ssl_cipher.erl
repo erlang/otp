@@ -72,9 +72,7 @@
          bulk_cipher_algorithm/1]).
 
 %% RFC 8446 TLS 1.3
--export([generate_client_shares/1,
-         generate_server_share/1,
-         add_zero_padding/2,
+-export([add_zero_padding/2,
          encrypt_ticket/3,
          decrypt_ticket/3,
          encrypt_data/4,
@@ -1220,37 +1218,6 @@ filter_keyuse_suites(Use, KeyUse, CipherSuits, Suites) ->
 	    CipherSuits -- Suites
     end.
 
-generate_server_share(Group) ->
-    Key = generate_key_exchange(Group),
-    #key_share_server_hello{
-       server_share = #key_share_entry{
-                         group = Group,
-                         key_exchange = Key
-                        }}.
-
-generate_client_shares(Groups) ->
-    KeyShareEntry = fun (Group) ->
-                        #key_share_entry{group = Group, key_exchange = generate_key_exchange(Group)}
-                    end,
-    ClientShares = lists:map(KeyShareEntry, Groups),
-    #key_share_client_hello{client_shares = ClientShares}.
-
-generate_key_exchange(secp256r1) ->
-    public_key:generate_key({namedCurve, secp256r1});
-generate_key_exchange(secp384r1) ->
-    public_key:generate_key({namedCurve, secp384r1});
-generate_key_exchange(secp521r1) ->
-    public_key:generate_key({namedCurve, secp521r1});
-generate_key_exchange(x25519) ->
-    crypto:generate_key(ecdh, x25519);
-generate_key_exchange(x448) ->
-    crypto:generate_key(ecdh, x448);
-generate_key_exchange(MLKem) when MLKem == mlkem512;
-                                  MLKem == mlkem768;
-                                  MLKem == mlkem1024 ->
-    crypto:generate_key(MLKem, []);
-generate_key_exchange(FFDHE) ->
-    public_key:generate_key(ssl_dh_groups:dh_params(FFDHE)).
 
 
 %% TODO: Move this functionality to crypto!
