@@ -26,8 +26,8 @@
 -include_lib("kernel/include/file.hrl").
 
 -export([suite/0, all/0, groups/0, init_per_suite/1, end_per_suite/1, init_per_group/2, end_per_group/2,
-    init_per_testcase/2, end_per_testcase/2, wget_small/1, erl_dummy_small/1, httpc_small/1, wget_big/1,
-    erl_dummy_big/1, httpc_big/1]).
+         init_per_testcase/2, end_per_testcase/2, wget_small/1, erl_dummy_small/1, httpc_small/1, wget_big/1,
+         erl_dummy_big/1, httpc_big/1]).
 -export([httpc_client/1, httpd_lib_client/1, wget_client/1, wget/4]).
 -export([handle_http_msg/3]). % httpd_test_lib callback
 
@@ -110,7 +110,7 @@ init_per_group(Group, Config) when Group == http_dummy_keep_alive;
                       {http_headers, [{"connection", "keep-alive"}]},
                       {httpc_opts, [{keep_alive_timeout, 1500},
                                     {max_keep_alive_length, ?config(iter, Config)}]}
-                      | Config]);
+                     | Config]);
 %% Init non-keepalive servers group
 init_per_group(Group, Config)  when Group == http_dummy;
                                     Group == https_dummy;
@@ -126,7 +126,7 @@ init_per_group(Group, Config)  when Group == http_dummy;
                       {http_headers, [{"connection", "close"}]},
                       {http_opts,[{version, Version}]},
                       {httpc_opts, [{keep_alive_timeout, 0}, {max_keep_alive_length, 0}]}
-                      | Config]);
+                     | Config]);
 
 
 init_per_group(_, Config) ->
@@ -197,7 +197,7 @@ notify({TestPerSec, _MBps}, Config, Suffix) ->
                            data=[{value, TestPerSec},
                                  {suite, ?MODULE},
                                  {name, Name}]}),
-                         ok.
+    ok.
 %%--------------------------------------------------------------------
 %% Setup erlang nodes  ------------------------------------------------
 %%--------------------------------------------------------------------
@@ -231,11 +231,11 @@ create_test_peer_opts() ->
                P -> P
            end,
     PeerOpts = #{
-        name => inets_perf_server,
-        args => PeerArgs,
-        peer_down => crash,
-        exec => Prog
-    },
+                 name => inets_perf_server,
+                 args => PeerArgs,
+                 peer_down => crash,
+                 exec => Prog
+                },
     PeerOpts1 = case IsRemote of
                     true -> PeerOpts#{host => Host};
                     false -> PeerOpts % on localhost do not specify 'host' in peer:start
@@ -262,7 +262,7 @@ setup(_Config, _LocalNode) ->
     [{server_node, Node}, {server_host, Host}, {server_pid, PeerPid}].
 
 ensure_started(Node, App) ->
-     ok = rpc:call(Node, application, ensure_started, [App]).
+    ok = rpc:call(Node, application, ensure_started, [App]).
 
 restrict_schedulers(Type) ->
     %% We expect this to run on 8 core machine
@@ -285,15 +285,15 @@ cert_opts(Config) ->
     ServerCertFile = filename:join([PrivDir, "server-cert.pem"]),
     ServerKeyFile = filename:join([PrivDir, "server-key.pem"]),
     [
-        {server_verification_opts, [
-            {cacertfile, ServerCaCertFile},
-            {ciphers, ["ECDHE-RSA-AES256-GCM-SHA384", "TLS_AES_256_GCM_SHA384"]},
-            {certfile, ServerCertFile},
-            {keyfile, ServerKeyFile}
-        ]},
-        {client_verification_opts, [
-            {cacertfile, ServerCaCertFile}
-        ]}
+     {server_verification_opts, [
+                                 {cacertfile, ServerCaCertFile},
+                                 {ciphers, ["ECDHE-RSA-AES256-GCM-SHA384", "TLS_AES_256_GCM_SHA384"]},
+                                 {certfile, ServerCertFile},
+                                 {keyfile, ServerKeyFile}
+                                ]},
+     {client_verification_opts, [
+                                 {cacertfile, ServerCaCertFile}
+                                ]}
     ].
 
 %%--------------------------------------------------------------------
@@ -303,12 +303,12 @@ cert_opts(Config) ->
 run_test(Client, File, Config) ->
     Parent = self(),
     Pid = spawn(
-        fun() ->
-            receive
-                go ->
-                    Parent ! {self(), do_runs(Client, [{file, File} | Config])}
-            end
-        end),
+            fun() ->
+                    receive
+                        go ->
+                            Parent ! {self(), do_runs(Client, [{file, File} | Config])}
+                    end
+            end),
     Pid ! go,
     receive
         {Pid, #{req_s := Tps, bytes_s := Bps}} ->
@@ -317,11 +317,11 @@ run_test(Client, File, Config) ->
     end.
 
 -type client_impl() :: fun(({create_args, Config :: proplists:proplist()}) -> map())
-    | fun(({init, map()}) -> ok)
-    | fun(({run, map(), N :: integer()}) -> ok).
+                     | fun(({init, map()}) -> ok)
+                     | fun(({run, map(), N :: integer()}) -> ok).
 
 -spec do_runs(Client :: client_impl(), Config :: proplists:proplist()) ->
-    #{req_s => integer(), bytes_s => integer()}.
+          #{req_s => integer(), bytes_s => integer()}.
 do_runs(Client, Config) ->
     N = ?config(iter, Config),
     DataDir = ?config(data_dir, Config),
@@ -354,26 +354,26 @@ httpc_client({create_args, Config}) ->
                "https" -> % httpc would like to know more about certificates used in the test
                    AllCertOpts = proplists:get_value(client_verification_opts, cert_opts(Config)),
                    SSLOpts = [
-                       {verify, verify_peer}, % this is the default
-                       {cacertfile, proplists:get_value(cacertfile, AllCertOpts)}
-                   ],
+                              {verify, verify_peer}, % this is the default
+                              {cacertfile, proplists:get_value(cacertfile, AllCertOpts)}
+                             ],
                    [{ssl, SSLOpts}]
            end,
     #{protocol => Protocol, profile => Profile, url => URL, headers => Headers, http_opts => HTTPOpts};
 httpc_client({init, #{profile := Profile, url := URL, headers := Headers, http_opts := HTTPOpts}}) ->
     %% Make sure pipelining feature will kick in when appropriate.
     {ok, {{_ ,200, "OK"}, _,_}} = httpc:request(
-        get,{URL, Headers}, HTTPOpts,
-        [{body_format, binary}, {socket_opts, [{nodelay, true}]}],
-        Profile),
+                                    get,{URL, Headers}, HTTPOpts,
+                                    [{body_format, binary}, {socket_opts, [{nodelay, true}]}],
+                                    Profile),
     ct:sleep(1_000);
 httpc_client({run, _, 0}) ->
     ok;
 httpc_client({run, Args = #{profile := Profile, url := URL, headers := Headers, http_opts := HTTPOpts}, N}) ->
     {ok, {{_ ,200,"OK"}, _,_}} = httpc:request(
-        get,{URL, Headers}, HTTPOpts,
-        [{body_format, binary}, {socket_opts, [{nodelay, true}]}],
-        Profile),
+                                   get,{URL, Headers}, HTTPOpts,
+                                   [{body_format, binary}, {socket_opts, [{nodelay, true}]}],
+                                   Profile),
     httpc_client({run, Args, N-1}).
 
 %% Client handler based on httpd_test_lib
@@ -404,30 +404,30 @@ httpd_lib_client({create_args, Config}) ->
               end,
 
     Args = #{keepalive => KeepAlive, type => Type, version => Version,
-        request => Request, host => Host, port => Port, opts => Opts},
+             request => Request, host => Host, port => Port, opts => Opts},
     httpd_lib_client({run, Args, 1}), % warm-up run,
     Args;
 httpd_lib_client({init, #{type := Type, version := Version, request := Request, host := Host,
-                port := Port, opts := Opts}}) ->
+                          port := Port, opts := Opts}}) ->
     ok = httpd_test_lib:verify_request(Type, Host,
-        Port,
-        Opts, node(),
-        Request,
-        [{statuscode, 200}, {version, Version}],
-        infinity),
+                                       Port,
+                                       Opts, node(),
+                                       Request,
+                                       [{statuscode, 200}, {version, Version}],
+                                       infinity),
     ct:sleep(1_000);
 httpd_lib_client({run, _, 0}) ->
     ok;
 httpd_lib_client({run, #{keepalive := true, type := Type, version := Version, request := Request,
-                host := Host, port := Port, opts := Opts}, N}) ->
+                         host := Host, port := Port, opts := Opts}, N}) ->
     ok = httpd_test_lib:verify_request_N(Type, Host,
-        Port, Opts, node(), Request,
-        [{statuscode, 200}, {version, Version}], infinity, N);
+                                         Port, Opts, node(), Request,
+                                         [{statuscode, 200}, {version, Version}], infinity, N);
 httpd_lib_client({run, Args = #{keepalive := false, type := Type, version := Version, request := Request,
-                host := Host, port := Port, opts := Opts}, N}) ->
+                                host := Host, port := Port, opts := Opts}, N}) ->
     ok = httpd_test_lib:verify_request(Type, Host,
-        Port, Opts, node(), Request,
-        [{statuscode, 200}, {version, Version}], infinity),
+                                       Port, Opts, node(), Request,
+                                       [{statuscode, 200}, {version, Version}], infinity),
     httpd_lib_client({run, Args, N - 1}).
 
 %% Client handler for wget-based test cases
@@ -442,16 +442,16 @@ wget_client({create_args, Config}) ->
     Iter = ?config(iter, Config),
     FileName = filename:join(PrivDir, "wget_req"),
     ProtocolOpts = case Protocol of
-                    "http" -> [];
-                    "https" -> proplists:get_value(client_verification_opts, cert_opts(Config))
+                       "http" -> [];
+                       "https" -> proplists:get_value(client_verification_opts, cert_opts(Config))
                    end,
     wget_req_file(FileName,URL,Iter),
     #{keepalive => KeepAlive, filename => FileName, url => URL, protocol => Protocol,
-        protocol_opts => ProtocolOpts, iter => Iter};
+      protocol_opts => ProtocolOpts, iter => Iter};
 wget_client({init, _}) ->
     ok;
 wget_client({run, #{keepalive := KeepAlive, filename := WgetFile, protocol := Protocol,
-            protocol_opts := ProtocolOpts}, _N}) ->
+                    protocol_opts := ProtocolOpts}, _N}) ->
     process_flag(trap_exit, true),
     Cmd = wget_N(KeepAlive, WgetFile, Protocol, ProtocolOpts),
     %%ct:log("Wget cmd: ~p", [Cmd]),
@@ -479,8 +479,8 @@ start_web_server(Group, Config) when Group == https_inets;
     Opts = proplists:get_value(server_verification_opts, cert_opts(Config)),
     ReuseSessions = ?config(reuse_sessions, Config),
     SSLConfHttpd = [{socket_type,
-        {ssl, [{nodelay, true}, {reuse_sessions, ReuseSessions} | Opts]}
-    }],
+                     {ssl, [{nodelay, true}, {reuse_sessions, ReuseSessions} | Opts]}
+                    }],
     start_inets_server("https", SSLConfHttpd, Config);
 
 start_web_server(Group, Config)  when Group == http_nginx;
@@ -492,10 +492,10 @@ start_web_server(Group, Config)  when Group == http_nginx;
 
 start_web_server(Group, Config)  when Group == https_nginx;
                                       Group == https_nginx_keep_alive ->
-     case os:find_executable("nginx") of
+    case os:find_executable("nginx") of
         false -> {skip, "nginx not found"};
-         _ -> start_nginx("https",  cert_opts(Config) ++ Config)
-     end.
+        _ -> start_nginx("https",  cert_opts(Config) ++ Config)
+    end.
 
 start_inets_server(Protocol, ConfHttpd, Config) ->
     PrivDir = ?config(priv_dir, Config),
@@ -511,11 +511,11 @@ start_inets_server(Protocol, ConfHttpd, Config) ->
                     {document_root, DataDir},
                     {keep_alive, ?config(keep_alive, Config)},
                     {keep_alive_timeout, 360}
-                    | ConfHttpd]],
+                   | ConfHttpd]],
     {ok, Pid} = rpc:call(Node, inets, start, Conf),
     Port = proplists:get_value(port,  rpc:call(Node, httpd, info, [Pid])),
     F = fun(File) ->
-            lists:concat([Protocol, "://", Host, ":", Port, "/", File])
+                lists:concat([Protocol, "://", Host, ":", Port, "/", File])
         end,
     %% Return CT config (init_per_group result)
     [{httpd_pid, Pid}, {urlfun, F}, {protocol, Protocol}, {port, Port} | Config].
@@ -573,7 +573,7 @@ start_nginx(Protocol, Config) ->
     NginxPort =  open_port({spawn, Cmd}, [{cd, DataDir}, stderr_to_stdout]),
 
     F = fun(File) ->
-            lists:concat([Protocol,"://",Host,":",Port,"/",File])
+                lists:concat([Protocol,"://",Host,":",Port,"/",File])
         end,
 
     wait_for_nginx_up(Host, Port),
@@ -605,10 +605,10 @@ stop_web_server(Group, Config) when  Group == http_nginx;
     stop_nginx(Config).
 
 stop_dummy_server(Config) ->
-      case ?config(dummy_pid, Config) of
-          Pid when is_pid(Pid) -> exit(Pid, kill);
-          _ -> ok
-      end.
+    case ?config(dummy_pid, Config) of
+        Pid when is_pid(Pid) -> exit(Pid, kill);
+        _ -> ok
+    end.
 
 %%--------------------------------------------------------------------
 %% Misc  ------------------------------------------------
@@ -668,16 +668,16 @@ do_handle_request(CB, S, {gen, Data}, Opts, KeepAlive) ->
 
 send_file(CB, S, {gen, Data})  ->
     CB:send(S, Data);
-    %% ChunkSize = 64*1024,
-    %% case byte_size(Data) of
-    %% 	N when N > ChunkSize ->
-    %% 	    <<Chunk:N/binary, Rest/binary>> = Data,
-    %% 	    %%{Chunk, Rest} = lists:split(N, Data),
-    %% 	    CB:send(S, Chunk),
-    %% 	    send_file(CB, S, {gen, Rest});
-    %% 	_ ->
-    %% 	    CB:send(S, Data)
-    %% end;
+%% ChunkSize = 64*1024,
+%% case byte_size(Data) of
+%%      N when N > ChunkSize ->
+%%          <<Chunk:N/binary, Rest/binary>> = Data,
+%%          %%{Chunk, Rest} = lists:split(N, Data),
+%%          CB:send(S, Chunk),
+%%          send_file(CB, S, {gen, Rest});
+%%      _ ->
+%%          CB:send(S, Data)
+%% end;
 
 send_file(CB, S, FileDesc) ->
     case file:read(FileDesc, 64*1024) of
@@ -755,7 +755,7 @@ wget(KeepAlive, URL, "https", ProtocolOpts) ->
 wget_keep_alive(true)->
     "";
 wget_keep_alive(false) ->
-   "--no-http-keep-alive ".
+    "--no-http-keep-alive ".
 
 wget_cacert(ProtocolOpts) ->
     "--ca-certificate=" ++ proplists:get_value(cacertfile, ProtocolOpts) ++ " ".
@@ -766,10 +766,10 @@ wget_cacert(ProtocolOpts) ->
 nginx_conf(ConfFile, Config) ->
     Protocol = ?config(protocol, Config),
     ConfIodata = [
-        format_nginx_conf(nginx_global(Config), 0),
-        format_nginx_conf(nginx_events_section(Config), 0),
-        format_nginx_conf(nginx_httpserver_section(Protocol, Config), 0)
-    ],
+                  format_nginx_conf(nginx_global(Config), 0),
+                  format_nginx_conf(nginx_events_section(Config), 0),
+                  format_nginx_conf(nginx_httpserver_section(Protocol, Config), 0)
+                 ],
     ok = file:write_file(ConfFile, ConfIodata).
 
 %% Output keys or string values, terminated with semicolon and newline
@@ -778,8 +778,8 @@ format_nginx_conf(Directives, Indent) when is_list(Directives) ->
 format_nginx_conf({section, Name, SubDirectives}, Indent) ->
     IndentStr = [$\s || _ <- lists:seq(1, Indent)],
     [IndentStr, Name, " {\n",
-        format_nginx_conf(SubDirectives, Indent + 4),
-        IndentStr, "}\n"];
+     format_nginx_conf(SubDirectives, Indent + 4),
+     IndentStr, "}\n"];
 format_nginx_conf({Key, Value}, Indent) ->
     IndentStr = [$\s || _ <- lists:seq(1, Indent)],
     [IndentStr, Key, " ", Value, ";\n"].
@@ -788,29 +788,29 @@ format_nginx_conf({Key, Value}, Indent) ->
 nginx_global(Config) ->
     PrivDir = ?config(priv_dir, Config),
     [
-        {"pid", filename:join(PrivDir, "nginx.pid")},
-        {"error_log", filename:join(PrivDir, "nginx.pid")},
-        {"worker_processes", "1"}
+     {"pid", filename:join(PrivDir, "nginx.pid")},
+     {"error_log", filename:join(PrivDir, "nginx.pid")},
+     {"worker_processes", "1"}
     ].
 
 nginx_events_section(_Config) ->
     {section, "events", [
-        {"worker_connections", "1024"}
-    ]}.
+                         {"worker_connections", "1024"}
+                        ]}.
 
 nginx_httpserver_section("http", Config) ->
     PrivDir = ?config(priv_dir, Config),
     DataDir = ?config(data_dir, Config),
     Port = ?config(port, Config),
     {section, "http", nginx_defaults(PrivDir) ++ [
-        {section, "server", [
-            {"root", DataDir},
-            {"listen", integer_to_list(Port)},
-            {section, "location /", [
-                {"try_files", "$uri $uri/ /index.html"}
-            ]}
-        ]}
-    ]};
+                                                  {section, "server", [
+                                                                       {"root", DataDir},
+                                                                       {"listen", integer_to_list(Port)},
+                                                                       {section, "location /", [
+                                                                                                {"try_files", "$uri $uri/ /index.html"}
+                                                                                               ]}
+                                                                      ]}
+                                                 ]};
 nginx_httpserver_section("https", Config) ->
     PrivDir = ?config(priv_dir, Config),
     DataDir = ?config(data_dir, Config),
@@ -819,23 +819,23 @@ nginx_httpserver_section("https", Config) ->
     Ciphers = proplists:get_value(ciphers, SSLOpts),
     ReuseSession = ?config(reuse_sessions, Config),
     {section, "http", nginx_defaults(PrivDir) ++
-        [{section, "server", [
-            {"root", DataDir},
-            {"listen", integer_to_list(Port) ++ " ssl"},
-            {"ssl_certificate", ?config(certfile, SSLOpts)},
-            {"ssl_certificate_key", ?config(keyfile, SSLOpts)},
-            {"ssl_protocols", "TLSv1 TLSv1.1 TLSv1.2"},
-            %% Nginx sends this string to OpenSSL in its format described here:
-            %% https://docs.openssl.org/3.0/man1/openssl-ciphers/#cipher-list-format
-            %% Ciphers list separated by ":" is a valid format
-            {"ssl_ciphers", string:join(Ciphers, ":")},
-            {"ssl_prefer_server_ciphers", "on"},
-            {"ssl_session_cache", nginx_reuse_session(ReuseSession)},
-            {section, "location /", [
-                {"try_files", "$uri $uri/ /index.html"}
-            ]}
-        ]}
-    ]}.
+         [{section, "server", [
+                               {"root", DataDir},
+                               {"listen", integer_to_list(Port) ++ " ssl"},
+                               {"ssl_certificate", ?config(certfile, SSLOpts)},
+                               {"ssl_certificate_key", ?config(keyfile, SSLOpts)},
+                               {"ssl_protocols", "TLSv1 TLSv1.1 TLSv1.2"},
+                               %% Nginx sends this string to OpenSSL in its format described here:
+                               %% https://docs.openssl.org/3.0/man1/openssl-ciphers/#cipher-list-format
+                               %% Ciphers list separated by ":" is a valid format
+                               {"ssl_ciphers", string:join(Ciphers, ":")},
+                               {"ssl_prefer_server_ciphers", "on"},
+                               {"ssl_session_cache", nginx_reuse_session(ReuseSession)},
+                               {section, "location /", [
+                                                        {"try_files", "$uri $uri/ /index.html"}
+                                                       ]}
+                              ]}
+         ]}.
 
 %% Searches for a file in several directories, and returns the first found file path, or 'not_found'
 find_file(_, []) -> not_found;
@@ -853,23 +853,23 @@ nginx_defaults(PrivDir) ->
                     Filename -> Filename
                 end,
     [
-        %% Set temp and cache file options that will otherwise default to
-        %% restricted locations accessible only to root.
-        {"client_body_temp_path", filename:join(PrivDir, "client_body")},
-        {"fastcgi_temp_path", filename:join(PrivDir, "fastcgi_temp")},
-        {"proxy_temp_path", filename:join(PrivDir, "proxy_temp")},
-        {"scgi_temp_path", filename:join(PrivDir, "scgi_temp")},
-        {"uwsgi_temp_path", filename:join(PrivDir, "uwsgi_temp_path")},
-        {"access_log", filename:join(PrivDir, "access.log")},
-        {"error_log", filename:join(PrivDir, "error.log")},
-        %% Standard options
-        {"sendfile", "on"},
-        {"tcp_nopush", "on"},
-        {"tcp_nodelay", "on"},
-        {"keepalive_timeout", "360"},
-        {"types_hash_max_size", "2048"},
-        {"include", MimeTypes},
-        {"default_type", "application/octet-stream"}
+     %% Set temp and cache file options that will otherwise default to
+     %% restricted locations accessible only to root.
+     {"client_body_temp_path", filename:join(PrivDir, "client_body")},
+     {"fastcgi_temp_path", filename:join(PrivDir, "fastcgi_temp")},
+     {"proxy_temp_path", filename:join(PrivDir, "proxy_temp")},
+     {"scgi_temp_path", filename:join(PrivDir, "scgi_temp")},
+     {"uwsgi_temp_path", filename:join(PrivDir, "uwsgi_temp_path")},
+     {"access_log", filename:join(PrivDir, "access.log")},
+     {"error_log", filename:join(PrivDir, "error.log")},
+     %% Standard options
+     {"sendfile", "on"},
+     {"tcp_nopush", "on"},
+     {"tcp_nodelay", "on"},
+     {"keepalive_timeout", "360"},
+     {"types_hash_max_size", "2048"},
+     {"include", MimeTypes},
+     {"default_type", "application/octet-stream"}
     ].
 
 nginx_reuse_session(true) ->
