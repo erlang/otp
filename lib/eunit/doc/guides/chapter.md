@@ -1014,7 +1014,7 @@ The following representations specify fixture handling for test sets:
   duration of the tests. The atom `Node` should have the format
   `nodename@full.machine.name`, and `Args` are the optional arguments to the new
   node; see `peer:start_link/1` for details. To remain compatible
-  with pre-existing user tests, `Args` accepts both a list of strings and a string
+  with pre-existing user tests, `Args` accepts both a list of strings and a string.
   If a string is passed, it is parsed into a list of arguments, treating
   single- and double-quoted text as single arguments and removing the quotes.
   If you wish a quote character to remain a part of the parsed argument list,
