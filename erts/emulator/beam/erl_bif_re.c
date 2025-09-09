@@ -583,7 +583,6 @@ build_compile_result(Process *p, pcre2_code *result, byte unicode, bool with_ok)
 {
     Eterm *hp;
     Eterm ret;
-    size_t pattern_size;
     uint32_t capture_count;
     uint32_t newline;
     int use_crlf;
@@ -593,7 +592,6 @@ build_compile_result(Process *p, pcre2_code *result, byte unicode, bool with_ok)
 
     ASSERT(result);
 
-    pcre2_pattern_info(result, PCRE2_INFO_SIZE, &pattern_size);
     pcre2_pattern_info(result, PCRE2_INFO_CAPTURECOUNT, &capture_count);
     pcre2_pattern_info(result, PCRE2_INFO_NEWLINE, &newline);
     use_crlf = (newline == PCRE2_NEWLINE_ANY ||
@@ -716,6 +714,9 @@ re_import_1(BIF_ALIST_1)
     byte enc_ver;
     byte unicode;
 
+    ERTS_UNDEF(regex_code, NULL);
+    ERTS_UNDEF(unicode, 0);
+
     // {re_exported_pattern, HeaderBin, OrigBin, OrigOpts, EncodedBin}
 
     if (!is_tuple_arity(BIF_ARG_1, 5)) {
@@ -736,9 +737,14 @@ re_import_1(BIF_ALIST_1)
         const byte *encoded;
         Uint encoded_sz;
 
-        if (hdr_sz != EXPORTED_HDR_SZ) {
+        /*
+         * Allow header to contain more unknow data that we ignore.
+         * Could be new optional features (such as checksum over fallback)
+         * that was added while being forward compatible.
+         */
+        /*if (hdr_sz != EXPORTED_HDR_SZ) {
             goto badarg;
-        }
+        }*/
 
         encoded = erts_get_aligned_binary_bytes(tpl[5], &encoded_sz,
                                                 &encoded_tmp_alloc);
@@ -896,6 +902,8 @@ re_compile(Process* p, Eterm re_arg, Eterm opts_arg, bool is_import)
     struct parsed_options opts;
     Eterm regex_bin;
     Eterm* regex_bin_p;
+
+    ERTS_UNDEF(regex_bin, THE_NON_VALUE);
 
     if (!parse_options(opts_arg, &opts)) {
     opt_error:
