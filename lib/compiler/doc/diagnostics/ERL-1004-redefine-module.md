@@ -7,9 +7,6 @@
 -module(my_module).
 ```
 
-```
-
-```
 
 ## Explanation
 
