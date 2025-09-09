@@ -1,1 +1,0 @@
-# ERL-1082 - Deprecated callback

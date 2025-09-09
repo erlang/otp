@@ -1,1 +1,0 @@
-# ERL-1325 - Wrong spec arity

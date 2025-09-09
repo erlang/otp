@@ -1,1 +1,0 @@
-# ERL-1081 - Deprecated type

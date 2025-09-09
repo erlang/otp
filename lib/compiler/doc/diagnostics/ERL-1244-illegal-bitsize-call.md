@@ -1,1 +1,0 @@
-# ERL-1244 - Illegal call in bit size

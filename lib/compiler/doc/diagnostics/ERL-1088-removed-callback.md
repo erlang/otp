@@ -1,1 +1,0 @@
-# ERL-1088 - Callback is removed

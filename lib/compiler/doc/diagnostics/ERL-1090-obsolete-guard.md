@@ -1,1 +1,0 @@
-# ERL-1098 - Obsolete guard

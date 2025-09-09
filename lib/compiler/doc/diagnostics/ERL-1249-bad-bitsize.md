@@ -1,1 +1,0 @@
-# ERL-1249 - Bad bit size
