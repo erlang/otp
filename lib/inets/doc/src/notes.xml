@@ -33,7 +33,34 @@
     <file>notes.xml</file>
   </header>
   
-  <section><title>Inets 9.1.0.2</title>
+  <section><title>Inets 9.1.0.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fixed a bug where a request sent to httpd server which
+	    is using CGI script to generate a response, would pollute
+	    server's environment variable - <c>HTTP_PROXY</c> for
+	    that request. This bug is also known as httpoxy. More
+	    information: CVE-2016-1000107 </p>
+          <p>
+	    Own Id: OTP-19729 Aux Id: PR-6223, GH-3392 </p>
+        </item>
+        <item>
+	    <p>Fixed a RFC 2616 violation, where a http request, made
+	    by httpc, without providing any options, would be sent
+	    with an empty TE header, without also having a TE value
+	    in the connection header. Now the default request doesn't
+	    send a TE header at all.</p>
+          <p>
+	    Own Id: OTP-19760 Aux Id: PR-10120, GH-10065 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 9.1.0.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
