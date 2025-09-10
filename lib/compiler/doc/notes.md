@@ -341,6 +341,17 @@ This document describes the changes made to the Compiler application.
 [PR-9334]: https://github.com/erlang/otp/pull/9334
 [PR-9604]: https://github.com/erlang/otp/pull/9604
 
+## Compiler 8.6.1.2
+
+### Fixed Bugs and Malfunctions
+
+- In rare circumstances, the compiler could crash when compiling code using bit syntax construction.
+
+  Own Id: OTP-19722 Aux Id: [GH-10077], [PR-10090]
+
+[GH-10077]: https://github.com/erlang/otp/issues/10077
+[PR-10090]: https://github.com/erlang/otp/pull/10090
+
 ## Compiler 8.6.1.1
 
 ### Fixed Bugs and Malfunctions

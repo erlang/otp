@@ -91,6 +91,17 @@ This document describes the changes made to the Syntax_Tools application.
 [PR-9819]: https://github.com/erlang/otp/pull/9819
 [PR-9670]: https://github.com/erlang/otp/pull/9670
 
+## Syntax_Tools 3.2.2.1
+
+### Fixed Bugs and Malfunctions
+
+- Backport fix for annotating maybe to OTP-27
+
+  Own Id: OTP-19740 Aux Id: [GH-10103], [PR-10118]
+
+[GH-10103]: https://github.com/erlang/otp/issues/10103
+[PR-10118]: https://github.com/erlang/otp/pull/10118
+
 ## Syntax_Tools 3.2.2
 
 ### Fixed Bugs and Malfunctions
