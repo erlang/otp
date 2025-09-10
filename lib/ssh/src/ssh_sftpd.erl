@@ -53,6 +53,7 @@
 	  file_state,                   % state for the file callback module
 	  max_files,                    % integer >= 0 max no files sent during READDIR
 	  max_handles,                  % integer > 0  - max number of file handles
+	  max_path,                     % integer > 0 - max length of path
 	  options,			% from the subsystem declaration
 	  handles			% list of open handles
 	  %% handle is either {<int>, directory, {Path, unread|eof}} or
@@ -67,6 +68,7 @@
                    {file_handler, CbMod | {CbMod, FileState}} |
                    {max_files, integer()} |
                    {max_handles, integer()} |
+                   {max_path, integer()} |
                    {root, string()} |
                    {sftpd_vsn, integer()}
                  ],
@@ -118,11 +120,13 @@ init(Options) ->
 	end,
     MaxLength = proplists:get_value(max_files, Options, 0),
     MaxHandles = proplists:get_value(max_handles, Options, 1000),
+    MaxPath = proplists:get_value(max_path, Options, 4096),
     Vsn = proplists:get_value(sftpd_vsn, Options, 5),
     {ok,  State#state{cwd = CWD,
                       root = Root,
                       max_files = MaxLength,
                       max_handles = MaxHandles,
+                      max_path = MaxPath,
 		      options = Options,
 		      handles = [], pending = <<>>,
 		      xf = #ssh_xfer{vsn = Vsn, ext = []}}}.
@@ -238,6 +242,30 @@ handle_op(Request, ReqId, <<?UINT32(HLen), _/binary>>, State = #state{xf = XF})
         Request == ?SSH_FXP_WRITE),
        HLen > 256 ->
     ssh_xfer:xf_send_status(XF, ReqId, ?SSH_FX_INVALID_HANDLE, "Invalid handle"),
+    State;
+handle_op(Request, ReqId, <<?UINT32(PLen), _/binary>>,
+          State = #state{max_path = MaxPath, xf = XF})
+  when (Request == ?SSH_FXP_LSTAT orelse
+        Request == ?SSH_FXP_MKDIR orelse
+        Request == ?SSH_FXP_OPEN orelse
+        Request == ?SSH_FXP_OPENDIR orelse
+        Request == ?SSH_FXP_READLINK orelse
+        Request == ?SSH_FXP_REALPATH orelse
+        Request == ?SSH_FXP_REMOVE orelse
+        Request == ?SSH_FXP_RMDIR orelse
+        Request == ?SSH_FXP_SETSTAT orelse
+        Request == ?SSH_FXP_STAT),
+       PLen > MaxPath ->
+    ssh_xfer:xf_send_status(XF, ReqId, ?SSH_FX_NO_SUCH_PATH,
+                            "No such path"),
+    State;
+handle_op(Request, ReqId, <<?UINT32(PLen), _:PLen/binary, ?UINT32(PLen2), _/binary>>,
+          State = #state{max_path = MaxPath, xf = XF})
+  when (Request == ?SSH_FXP_RENAME orelse
+        Request == ?SSH_FXP_SYMLINK),
+       (PLen > MaxPath orelse PLen2 > MaxPath) ->
+    ssh_xfer:xf_send_status(XF, ReqId, ?SSH_FX_NO_SUCH_PATH,
+                            "No such path"),
     State;
 handle_op(?SSH_FXP_INIT, Version, B, State) when is_binary(B) ->
     XF = State#state.xf,
