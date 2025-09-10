@@ -45,6 +45,7 @@
          open_file_dir_v6/1,
          read_dir/1,
          read_file/1,
+         max_path/1,
          real_path/1,
          relative_path/1,
          relpath/1,
@@ -74,6 +75,7 @@
 -define(REG_ATTERS, <<0,0,0,0,1>>).
 -define(UNIX_EPOCH,  62167219200).
 -define(MAX_HANDLES, 10).
+-define(MAX_PATH, 200).
 -define(is_set(F, Bits), ((F) band (Bits)) == (F)).
 
 %%--------------------------------------------------------------------
@@ -87,6 +89,7 @@ all() ->
     [open_close_file, 
      open_close_dir, 
      read_file, 
+     max_path,
      read_dir,
      write_file, 
      rename_file, 
@@ -180,7 +183,9 @@ init_per_testcase(TestCase, Config) ->
 								  {sftpd_vsn, 6}])],
 			  ssh:daemon(0, [{subsystems, SubSystems}|Options]);
 		      _ ->
-			  SubSystems = [ssh_sftpd:subsystem_spec([{max_handles, ?MAX_HANDLES}])],
+			  SubSystems = [ssh_sftpd:subsystem_spec(
+                                          [{max_handles, ?MAX_HANDLES},
+                                           {max_path, ?MAX_PATH}])],
 			  ssh:daemon(0, [{subsystems, SubSystems}|Options])
 		  end,
 
@@ -336,6 +341,24 @@ read_file(Config) when is_list(Config) ->
     ct:log("Message: ~s", [Msg]),
     ok.
 
+%%--------------------------------------------------------------------
+max_path(Config) when is_list(Config) ->
+    PrivDir =  proplists:get_value(priv_dir, Config),
+    FileName = filename:join(PrivDir, "test.txt"),
+    {Cm, Channel} = proplists:get_value(sftp, Config),
+    %% verify max_path limit
+    LongFileName =
+        filename:join(PrivDir,
+                      "t" ++ lists:flatten(lists:duplicate(?MAX_PATH, "e")) ++ "st.txt"),
+    {ok, _} = file:copy(FileName, LongFileName),
+    ReqId1 = req_id(),
+    {ok, <<?SSH_FXP_STATUS, ?UINT32(ReqId1), ?UINT32(?SSH_FX_NO_SUCH_PATH),
+	  _/binary>>, _} =
+	open_file(LongFileName, Cm, Channel, ReqId1,
+		  ?ACE4_READ_DATA  bor ?ACE4_READ_ATTRIBUTES,
+		  ?SSH_FXF_OPEN_EXISTING).
+
+%%--------------------------------------------------------------------
 read_dir(Config) when is_list(Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
     {Cm, Channel} = proplists:get_value(sftp, Config),
@@ -399,35 +422,33 @@ rename_file(Config) when is_list(Config) ->
     PrivDir =  proplists:get_value(priv_dir, Config),
     FileName = filename:join(PrivDir, "test.txt"),
     NewFileName = filename:join(PrivDir, "test1.txt"),
-    ReqId = 0,
+    LongFileName =
+        filename:join(PrivDir,
+                      "t" ++ lists:flatten(lists:duplicate(?MAX_PATH, "e")) ++ "st.txt"),
     {Cm, Channel} = proplists:get_value(sftp, Config),
-
-    {ok, <<?SSH_FXP_STATUS, ?UINT32(ReqId),
-	  ?UINT32(?SSH_FX_OK), _/binary>>, _} =
-	rename(FileName, NewFileName, Cm, Channel, ReqId, 6, 0),
-
-    NewReqId = ReqId + 1,
-
-    {ok, <<?SSH_FXP_STATUS, ?UINT32(NewReqId),
-	  ?UINT32(?SSH_FX_OK), _/binary>>, _} =
-	rename(NewFileName, FileName, Cm, Channel, NewReqId, 6,
-	       ?SSH_FXP_RENAME_OVERWRITE),
-
-    NewReqId1 = NewReqId + 1,
-    file:copy(FileName, NewFileName),
-
-    %% No overwrite
-    {ok, <<?SSH_FXP_STATUS, ?UINT32(NewReqId1),
-	  ?UINT32(?SSH_FX_FILE_ALREADY_EXISTS), _/binary>>, _} =
-	rename(FileName, NewFileName, Cm, Channel, NewReqId1, 6,
-	       ?SSH_FXP_RENAME_NATIVE),
-
-    NewReqId2 = NewReqId1 + 1,
-
-    {ok, <<?SSH_FXP_STATUS, ?UINT32(NewReqId2),
-	  ?UINT32(?SSH_FX_OP_UNSUPPORTED), _/binary>>, _} =
-	rename(FileName, NewFileName, Cm, Channel, NewReqId2, 6,
-	       ?SSH_FXP_RENAME_ATOMIC).
+    Version = 6,
+    [begin
+         case Action of
+             {Code, AFile, BFile, Flags} ->
+                 ReqId = req_id(),
+                 ct:log("ReqId = ~p,~nCode = ~p,~nAFile = ~p,~nBFile = ~p,~nFlags = ~p",
+                        [ReqId, Code, AFile, BFile, Flags]),
+                 {ok, <<?SSH_FXP_STATUS, ?UINT32(ReqId), ?UINT32(Code), _/binary>>, _} =
+                     rename(AFile, BFile, Cm, Channel, ReqId, Version, Flags);
+             {file_copy, AFile, BFile} ->
+                 {ok, _} = file:copy(AFile, BFile)
+         end
+     end ||
+        Action <-
+            [{?SSH_FX_OK, FileName, NewFileName, 0},
+             {?SSH_FX_OK, NewFileName, FileName, ?SSH_FXP_RENAME_OVERWRITE},
+             {file_copy, FileName, NewFileName},
+             %% no overwrite
+             {?SSH_FX_FILE_ALREADY_EXISTS, FileName, NewFileName, ?SSH_FXP_RENAME_NATIVE},
+             {?SSH_FX_OP_UNSUPPORTED, FileName, NewFileName, ?SSH_FXP_RENAME_ATOMIC},
+             %% max_path
+             {?SSH_FX_NO_SUCH_PATH, FileName, LongFileName, 0}]],
+    ok.
 
 %%--------------------------------------------------------------------
 mk_rm_dir(Config) when is_list(Config) ->
