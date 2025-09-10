@@ -190,6 +190,17 @@ limitations under the License.
 [PR-8029]: https://github.com/erlang/otp/pull/8029
 [PR-8026]: https://github.com/erlang/otp/pull/8026
 
+## Inets 9.1.0.3
+
+### Fixed Bugs and Malfunctions
+
+* Fixed a bug where a request sent to httpd server which is using CGI script to generate a response, would pollute server's environment variable - `HTTP_PROXY` for that request. This bug is also known as httpoxy. More information: CVE-2016-1000107
+
+  Own Id: OTP-19729 Aux Id: PR-6223, GH-3392
+* Fixed a RFC 2616 violation, where a http request, made by httpc, without providing any options, would be sent with an empty TE header, without also having a TE value in the connection header. Now the default request doesn't send a TE header at all.
+
+  Own Id: OTP-19760 Aux Id: PR-10120, GH-10065
+
 ## Inets 9.1.0.2
 
 ### Fixed Bugs and Malfunctions
