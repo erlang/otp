@@ -906,6 +906,28 @@ patch_literal_term(<<>>, {self,init_writable}, Cnt0) ->
     {V,Cnt} = new_var(Cnt0),
     I = #b_set{op=bs_init_writable,dst=V,args=[#b_literal{val=256}]},
     {V,[I],Cnt};
+patch_literal_term(<<Bits/bits>>, {self,init_writable}, Cnt0) ->
+    {VWr,Cnt1} = new_var(Cnt0),
+    {VAppend,Cnt} = new_var(Cnt1),
+    I = #b_set{op=bs_init_writable,dst=VWr,args=[#b_literal{val=256}]},
+
+    %% Normally a `bs_create_bin` instruction must be followed by a
+    %% `succeeded` instruction and a `br` terminator. Currently,
+    %% without extensive refactoring, we are unable to generate such
+    %% instruction sequences here. Therefore, since we KNOW that this
+    %% instruction cannot be used in a guard and cannot fail, we can
+    %% cheat by omitting the `succeeded` instruction and instead
+    %% extend beam_ssa_codegen to handle this special case.
+    Segments = [#b_literal{val=private_append},
+                #b_literal{val=[1,{segment,1}]},VWr,
+                #b_literal{val=all},
+                #b_literal{val=binary},
+                #b_literal{val=[1,{segment,2}]},#b_literal{val=Bits},
+                #b_literal{val=all}],
+    Anno = #{append_string_to_writable => true,
+             arg_types => #{2 => #t_bitstring{size_unit=256,appendable=true}}},
+    Append = #b_set{op=bs_create_bin,anno=Anno,dst=VAppend,args=Segments},
+    {VAppend,[Append,I],Cnt};
 patch_literal_term(Lst, {hd,_,_}=E, Cnt0) ->
     patch_literal_list(Lst, E, Cnt0);
 patch_literal_term(Lit, [], Cnt) ->
