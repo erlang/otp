@@ -352,7 +352,7 @@ get_value(Key, List) ->
 print_interesting_events([], Cnt) ->
     {ok, Cnt};
 print_interesting_events([#{level := Level} = Event | Tail], Cnt)
-  when Level /= info, Level /= notice ->
+  when Level /= info, Level /= notice, Level /= debug ->
     ct:log("------------~nInteresting event found:~n~p~n==========~n", [Event]),
     print_interesting_events(Tail, Cnt + 1);
 print_interesting_events([_|Tail], Cnt) ->
@@ -1634,6 +1634,8 @@ gracefull_invalid_long_start_no_nl(Config) when is_list(Config) ->
     end.
 
 kex_error(Config) ->
+    #{level := Level} = logger:get_primary_config(),
+    ok = logger:set_primary_config(level, debug),
     PrivDir = proplists:get_value(priv_dir, Config),
     UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
     file:make_dir(UserDir),
@@ -1654,6 +1656,10 @@ kex_error(Config) ->
                                    ok % Other msg
                            end,
                            self()),
+    Cleanup = fun() ->
+                      ok = logger:remove_handler(kex_error),
+                      ok = logger:set_primary_config(level, Level)
+              end,
     try
         ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
                                           {user, "foo"},
@@ -1671,7 +1677,7 @@ kex_error(Config) ->
             %% ok
             receive
                 {Ref, ErrMsgTxt} ->
-                    ok = logger:remove_handler(kex_error),
+                    Cleanup(),
                     ct:log("ErrMsgTxt = ~n~s", [ErrMsgTxt]),
                     Lines = lists:map(fun string:trim/1, string:tokens(ErrMsgTxt, "\n")),
                     OK = (lists:all(fun(S) -> lists:member(S,Lines) end,
@@ -1689,12 +1695,12 @@ kex_error(Config) ->
                             ct:fail("unexpected error text msg", [])
                     end
             after 20000 ->
-                    ok = logger:remove_handler(kex_error),
+                    Cleanup(),
                     ct:fail("timeout", [])
             end;
 
         error:{badmatch,{error,_}} ->
-            ok = logger:remove_handler(kex_error),
+            Cleanup(),
             ct:fail("unexpected error msg", [])
     end.
 
