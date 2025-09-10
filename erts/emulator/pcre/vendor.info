@@ -14,13 +14,13 @@
     "homepage": "https://pcre2project.github.io/pcre2/",
     "licenseDeclared": "BSD-3-Clause",
     "name": "pcre2",
-    "versionInfo": "10.45",
+    "versionInfo": "10.46",
     "path": "./erts/emulator/pcre",
     "exclude": ["./erts/emulator/pcre/vendor.info",
                 "./erts/emulator/pcre/README.pcre_update.md",
                 "./erts/emulator/pcre/pcre.mk"],
     "sha": "2dce7761b1831fd3f82a9c2bd5476259d945da4d",
-    "supplier": "Person: Philip Hazel",
+    "supplier": "Person: Nicholas Wilson",
     "purl": "pkg:generic/pcre2"
   }
 ]
