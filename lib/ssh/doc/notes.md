@@ -21,6 +21,43 @@ limitations under the License.
 -->
 # SSH Release Notes
 
+## Ssh 5.3.3
+
+### Fixed Bugs and Malfunctions
+
+- Option max_handles can be configured for sshd running SFTP. The positive integer value limits amount of file handles opened for a connection (by default 4096 is used).
+
+  *** POTENTIAL INCOMPATIBILITY ***
+
+  Own Id: OTP-19701 Aux Id: [CVE-2025-48041], [PR-10157]
+
+- Avoid decoding KEX messages providing too many algorithms. This change does not introduce new limitation but assures it is enforced earlier in processing chain. Adjustments in error logging during handshake.
+
+  *** POTENTIAL INCOMPATIBILITY ***
+
+  Own Id: OTP-19741 Aux Id: [CVE-2025-48040], [PR-10162]
+
+- A new 'max_path' option is now available in the sshd configuration, allowing administrators to set the maximum allowable path length. By default, this value is set to 4096 characters.
+
+  *** POTENTIAL INCOMPATIBILITY ***
+
+  Own Id: OTP-19742 Aux Id: [CVE-2025-48039], [PR-10155]
+
+- Reject file handles exceeding size specified in RFCs (256 bytes).
+
+  *** POTENTIAL INCOMPATIBILITY ***
+
+  Own Id: OTP-19748 Aux Id: [CVE-2025-48038], [PR-10156]
+
+[CVE-2025-48041]: https://nvd.nist.gov/vuln/detail/2025-48041
+[PR-10157]: https://github.com/erlang/otp/pull/10157
+[CVE-2025-48040]: https://nvd.nist.gov/vuln/detail/2025-48040
+[PR-10162]: https://github.com/erlang/otp/pull/10162
+[CVE-2025-48039]: https://nvd.nist.gov/vuln/detail/2025-48039
+[PR-10155]: https://github.com/erlang/otp/pull/10155
+[CVE-2025-48038]: https://nvd.nist.gov/vuln/detail/2025-48038
+[PR-10156]: https://github.com/erlang/otp/pull/10156
+
 ## Ssh 5.3.2
 
 ### Fixed Bugs and Malfunctions
