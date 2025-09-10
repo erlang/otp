@@ -43,7 +43,7 @@
 
 -behaviour(ssh_dbg).
 -export([ssh_dbg_trace_points/0, ssh_dbg_flags/1, ssh_dbg_on/1, ssh_dbg_off/1, ssh_dbg_format/2]).
--define(ALG_NAME_LIMIT, 64).
+-define(ALG_NAME_LIMIT, 64). % RFC4251 sec6
 
 ucl(B) ->
     try unicode:characters_to_list(B) of
@@ -821,23 +821,33 @@ decode_kex_init(<<?BYTE(Bool)>>, Acc, 0) ->
     %% See rfc 4253 7.1
     X = 0,
     list_to_tuple(lists:reverse([X, erl_boolean(Bool) | Acc]));
-decode_kex_init(<<?DEC_BIN(Data,__0), Rest/binary>>, Acc, N) ->
+decode_kex_init(<<?DEC_BIN(Data,__0), Rest/binary>>, Acc, N) when
+      byte_size(Data) < ?MAX_NUM_ALGORITHMS * ?ALG_NAME_LIMIT ->
     BinParts = binary:split(Data, <<$,>>, [global]),
-    Process =
-        fun(<<>>, PAcc) ->
-                PAcc;
-           (Part, PAcc) ->
-                case byte_size(Part) > ?ALG_NAME_LIMIT of
-                    true ->
-                        ?LOG_DEBUG("Ignoring too long name", []),
+    AlgCount = length(BinParts),
+    case AlgCount =< ?MAX_NUM_ALGORITHMS of
+        true ->
+            Process =
+                fun(<<>>, PAcc) ->
                         PAcc;
-                    false ->
-                        Name = binary:bin_to_list(Part),
-                        [Name | PAcc]
-                end
-        end,
-    Names = lists:foldr(Process, [], BinParts),
-    decode_kex_init(Rest, [Names | Acc], N - 1).
+                   (Part, PAcc) ->
+                        case byte_size(Part) =< ?ALG_NAME_LIMIT of
+                            true ->
+                                Name = binary:bin_to_list(Part),
+                                [Name | PAcc];
+                            false ->
+                                ?LOG_DEBUG("Ignoring too long name", []),
+                                PAcc
+                        end
+                end,
+            Names = lists:foldr(Process, [], BinParts),
+            decode_kex_init(Rest, [Names | Acc], N - 1);
+        false ->
+            throw({error, {kexinit_error, N, {alg_count, AlgCount}}})
+    end;
+decode_kex_init(<<?DEC_BIN(Data,__0), _Rest/binary>>, _Acc, N) ->
+    throw({error, {kexinit, N, {string_size, byte_size(Data)}}}).
+
 
 
 %%%================================================================
