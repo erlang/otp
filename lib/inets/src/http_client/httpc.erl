@@ -113,6 +113,83 @@ The client can be stopped using [`inets:stop(httpc, Pid)`](`inets:stop/2`) or
 	 stop_service/1, 
 	 services/0, service_info/1]).
 
+-export_type([request/0, response/0]).
+-export_type([method/0, profile/0]).
+
+-doc #{"since" => <<"OTP-ADDME">>}.
+-type method() :: head | get | put | patch | post | trace | options | delete.
+
+-doc #{"since" => <<"OTP-ADDME">>}.
+-type profile() :: atom() | pid().
+
+-doc #{"since" => <<"OTP-ADDME">>}.
+-type header() :: {Field :: [byte()], Value :: binary() | iolist()}.
+
+-doc #{"since" => <<"OTP-ADDME">>}.
+-type request_body() :: iolist()
+                  | binary()
+                  | { fun((Accumulator::term()) ->
+                        eof | {ok, iolist(), Accumulator::term()}), Accumulator::term()}
+                  | { chunkify
+                    , fun((Accumulator::term()) ->
+                        eof | {ok, iolist(), Accumulator::term()})
+                    , Accumulator::term() }.
+
+-doc #{"since" => <<"OTP-ADDME">>}.
+-type http_option() :: {timeout, timeout()}
+                    | {connect_timeout, timeout()}
+                    | {ssl, [ssl:tls_option()]}
+                    | {autoredirect, boolean()}
+                    | {proxy_auth, {string(), string()}}
+                    | {version, uri_string:uri_string()}
+                    | {relaxed, boolean()}.
+
+
+-doc #{"since" => <<"OTP-ADDME">>}.
+-type receiver() :: pid()
+                    | fun((term()) -> term())
+                    | { ReceiverModule::atom()
+                      , ReceiverFunction::atom()
+                      , ReceiverArgs::list()}.
+
+-doc #{"since" => <<"OTP-ADDME">>}.
+-type request_option() :: {sync, boolean()}
+                       | {stream, none | self | {self, once} | file:name_all()}
+                       | {body_format, string | binary}
+                       | {full_result, boolean()}
+                       | {headers_as_is, boolean()}
+                       | {socket_opts, [term()]}
+                       | {receiver, receiver()}
+                       | {ipv6_host_with_brackets, boolean()}.
+
+-doc """
+Represents a HTTP request to be sent.
+""".
+-doc #{"since" => <<"OTP-ADDME">>}.
+% NOTE: Not named "request" to prevent name collision with existing type named `request`
+-type http_request() :: #{
+                         method := method(),
+                         uri := uri_string:uri_string(),
+                         headers => [header()],
+                         content_type => uri_string:uri_string(),
+                         body => request_body(),
+                         profile => profile(),
+                         http_options => [http_option()],
+                         options => [request_option()]
+                        }.
+
+-doc """
+Represents a HTTP response.
+""".
+-doc #{"since" => <<"OTP-ADDME">>}.
+-type response() :: #{
+                    status := non_neg_integer(),
+                    headers := [header()],
+                    http_version := uri_string:uri_string(),
+                    % XXX: why would this be uri_string, maybe some tempfile saving logic?
+                    body := uri_string:uri_string() | binary()
+                   }.
+
 
 -include_lib("inets/src/http_lib/http_internal.hrl").
 -include("httpc_internal.hrl").
@@ -159,11 +236,27 @@ profile_name(_Prefix, Profile) when is_pid(Profile) ->
       HttpBodyResult :: uri_string:uri_string() | binary(),
       HttpVersion :: uri_string:uri_string(),
       StatusCode :: non_neg_integer(),
-      HttpHeader :: { Field :: [byte()]
-                    , Value :: binary() | iolist()},
+      HttpHeader :: header(),
       RequestId :: any().
-request(Url) ->
-    request(Url, default_profile()).
+request(Url) when not is_map(Url) ->
+    request(Url, default_profile());
+
+%-doc(#{since => <<"OTP @ADDME">>}).
+%-spec request(http_request()) -> {ok, response()} | {error, term()}.
+request(Request) when is_map(Request) ->
+    Response = request(
+      maps:get(method, Request),
+      into_tuple_request(
+        maps:get(uri, Request),
+        maps:get(headers, Request, []),
+        maps:get(content_type, Request, undefined),
+        maps:get(body, Request, undefined)
+      ),
+      maps:get(http_options, Request, []),
+      maps:get(options, Request, []),
+      maps:get(profile, Request, default_profile()) 
+    ),
+    into_map_response(Response).
 
 -doc "Equivalent to [`httpc:request(get, {Url, []}, [], [])`](`request/4`).".
 -doc(#{since => <<"OTP R13B04">>}).
@@ -174,8 +267,7 @@ request(Url) ->
               | { StatusCode, HttpBodyResult}
               | RequestId
               | saved_to_file,
-      HttpHeader :: { Field :: [byte()]
-                    , Value :: binary() | iolist()},
+      HttpHeader :: header(),
       HttpBodyResult :: uri_string:uri_string() | binary(),
       StatusLine :: { HttpVersion
                     , StatusCode
@@ -195,45 +287,16 @@ request(Url, Profile) ->
 -doc(#{equiv => request/5}).
 -doc(#{since => <<"OTP R13B04">>}).
 -spec request(Method, Request, HttpOptions, Options) -> {ok, Result} | {error, term()} when
-      Method :: head | get | put | patch | post | trace | options | delete,
+      Method :: method(),
       Request :: { uri_string:uri_string()
                  , [HttpHeader] }
                | { uri_string:uri_string()
                  , [ HttpHeader ]
                  , ContentType::uri_string:uri_string()
                  , HttpBody},
-      HttpBody :: iolist()
-                | binary()
-                | { fun((Accumulator::term()) ->
-                      eof | {ok, iolist(), Accumulator::term()}), Accumulator::term()}
-                | { chunkify
-                  , fun((Accumulator::term()) ->
-                      eof | {ok, iolist(), Accumulator::term()})
-                  , Accumulator::term() },
-      HttpOptions :: [HttpOption],
-      HttpOption :: {timeout, timeout()}
-                  | {connect_timeout, timeout()}
-                  | {ssl, [ssl:tls_option()]}
-                  | {autoredirect, boolean()}
-                  | {proxy_auth, {string(), string()}}
-                  | {version, HttpVersion} | {relaxed, boolean()},
-      Options :: [OptionRequest],
-      OptionRequest :: {sync, boolean()}
-                        | {stream, StreamTo}
-                        | {body_format, BodyFormat}
-                        | {full_result, boolean()}
-                        | {headers_as_is, boolean()}
-                        | {socket_opts, [SocketOpt]}
-                        | {receiver, Receiver}
-                        | {ipv6_host_with_brackets, boolean()},
-      StreamTo :: none | self | {self, once} | file:name_all(),
-      SocketOpt :: term(),
-      BodyFormat  :: string | binary,
-      Receiver :: pid()
-                  | fun((term()) -> term())
-                  | { ReceiverModule::atom()
-                    , ReceiverFunction::atom()
-                    , ReceiverArgs::list()},
+      HttpBody :: request_body(),
+      HttpOptions :: [http_option()],
+      Options :: [request_option()],
       Result :: { StatusLine , [HttpHeader], HttpBodyResult}
               | { StatusCode, HttpBodyResult}
               | RequestId
@@ -243,8 +306,7 @@ request(Url, Profile) ->
                     , StatusCode
                     , string()},
       HttpVersion :: uri_string:uri_string(),
-      HttpHeader :: { Field :: [byte()]
-                    , Value :: binary() | iolist()},
+      HttpHeader :: header(),
       HttpBodyResult :: uri_string:uri_string() | binary(),
       RequestId :: any().
 request(Method, Request, HttpOptions, Options) ->
@@ -412,48 +474,18 @@ Options details:
 """.
 -doc(#{since => <<"OTP R13B04">>}).
 -spec request(Method, Request, HttpOptions, Options, Profile) -> {ok, Result} | {error, term()} when
-      Method :: head | get | put | patch | post | trace | options | delete,
+      Method :: method(),
       Request :: { uri_string:uri_string()
                  , [HttpHeader] }
                | { uri_string:uri_string()
                  , [ HttpHeader ]
                  , ContentType::uri_string:uri_string()
                  , HttpBody},
-      HttpBody :: iolist()
-                | binary()
-                | { fun((Accumulator::term()) ->
-                      eof | {ok, iolist(), Accumulator::term()}), Accumulator::term()}
-                | { chunkify
-                  , fun((Accumulator::term()) ->
-                      eof | {ok, iolist(), Accumulator::term()})
-                  , Accumulator::term() },
-      HttpHeader :: { Field :: [byte()]
-                    , Value :: binary() | iolist()},
-      HttpOptions :: [HttpOption],
-      HttpOption :: {timeout, timeout()}
-                  | {connect_timeout, timeout()}
-                  | {ssl, [ssl:tls_option()]}
-                  | {autoredirect, boolean()}
-                  | {proxy_auth, {string(), string()}}
-                  | {version, HttpVersion} | {relaxed, boolean()},
-      Options :: [OptionRequest],
-      OptionRequest :: {sync, boolean()}
-                     | {stream, StreamTo}
-                     | {body_format, BodyFormat}
-                     | {full_result, boolean()}
-                     | {headers_as_is, boolean()}
-                     | {socket_opts, [SocketOpt]}
-                     | {receiver, Receiver}
-                     | {ipv6_host_with_brackets, boolean()},
-      StreamTo :: none | self | {self, once} | file:name_all(),
-      BodyFormat  :: string | binary,
-      SocketOpt :: term(),
-      Receiver :: pid()
-                  | fun((term()) -> term())
-                  | { ReceiverModule::atom()
-                    , ReceiverFunction::atom()
-                    , ReceiverArgs::list()},
-      Profile :: atom() | pid(),
+      HttpBody :: request_body(),
+      HttpHeader :: header(),
+      HttpOptions :: [http_option()],
+      Options :: [request_option()],
+      Profile :: profile(),
       HttpVersion :: uri_string:uri_string(),
       Result :: {StatusLine
                 , [HttpHeader]
@@ -534,7 +566,7 @@ can already have been completed when the cancellation arrives.
 -doc(#{since => <<"OTP R13B04">>}).
 -spec cancel_request(RequestId, Profile) -> ok when
       RequestId :: any(),
-      Profile :: atom() | pid().
+      Profile :: profile().
 cancel_request(RequestId, Profile)
   when is_atom(Profile) orelse is_pid(Profile) ->
     httpc_manager:cancel_request(RequestId, profile_name(Profile)).
@@ -680,7 +712,7 @@ Sets options to be used for subsequent requests.
               | {socket_opts, [SocketOpt]}
               | {verbose, VerboseMode}
               | {unix_socket, UnixSocket},
-      Profile :: atom() | pid(),
+      Profile :: profile(),
       SocketOpt :: term(),
       Proxy :: {HostName, Port},
       Port :: non_neg_integer(),
@@ -756,7 +788,7 @@ get_options(Options) ->
                   | max_keep_alive_length | pipeline_timeout | max_pipeline_length | cookies
                   | ipfamily | ip | port | socket_opts | verbose | unix_socket,
       Values :: [{OptionItem, term()}],
-      Profile :: atom() | pid(),
+      Profile :: profile(),
       Reason :: term().
 get_options(all = _Options, Profile) ->
     get_options(get_options(), Profile);
@@ -821,7 +853,7 @@ ssl_verify_host_options(WildcardHostName) ->
 -doc(#{since => <<"OTP R14B02">>}).
 -spec store_cookies(SetCookieHeaders, Url) -> ok | {error, Reason} when
       SetCookieHeaders :: [HttpHeader],
-      HttpHeader       :: { Field :: [byte()], Value :: binary() | iolist()},
+      HttpHeader       :: header(),
       Url              :: term(),
       Reason           :: term().
 store_cookies(SetCookieHeaders, Url) ->
@@ -839,9 +871,9 @@ profile is specified, the default profile is used.
 -doc(#{since => <<"OTP R14B02">>}).
 -spec store_cookies(SetCookieHeaders, Url, Profile) -> ok | {error, Reason} when
       SetCookieHeaders :: [HttpHeader],
-      HttpHeader       :: { Field :: [byte()], Value :: binary() | iolist()},
+      HttpHeader       :: header(),
       Url              :: term(),
-      Profile          :: atom() | pid(),
+      Profile          :: profile(),
       Reason           :: term().
 store_cookies(SetCookieHeaders, Url, Profile) 
   when is_atom(Profile) orelse is_pid(Profile) ->
@@ -873,7 +905,7 @@ default_port(https) ->
 -doc(#{since => <<"OTP R13B04">>}).
 -spec cookie_header(Url) -> HttpHeader | {error, Reason} when
       Url        :: uri_string:uri_string(),
-      HttpHeader :: { Field :: [byte()], Value :: binary() | iolist()},
+      HttpHeader :: header(),
       Reason     :: term().
 cookie_header(Url) ->
     cookie_header(Url, default_profile()).
@@ -889,9 +921,9 @@ details, see argument `Options` of [request/4,5](`request/4`).
 -doc(#{since => <<"OTP R13B04">>}).
 -spec cookie_header(Url, ProfileOrOpts) -> HttpHeader | {error, Reason} when
       Url        :: uri_string:uri_string(),
-      HttpHeader :: { Field :: [byte()], Value :: binary() | iolist()},
+      HttpHeader :: header(),
       ProfileOrOpts :: Profile | Opts,
-      Profile    :: atom() | pid(),
+      Profile    :: profile(),
       Opts       :: [CookieHeaderOpt],
       CookieHeaderOpt :: {ipv6_host_with_brackets, boolean()},
       Reason     :: term().
@@ -916,8 +948,8 @@ details, see argument `Options` of [request/4,5](`request/4`).
 -doc(#{since => <<"OTP R15B">>}).
 -spec cookie_header(Url, Opts, Profile) -> HttpHeader | {error, Reason} when
       Url        :: uri_string:uri_string(),
-      HttpHeader :: { Field :: [byte()], Value :: binary() | iolist()},
-      Profile    :: atom() | pid(),
+      HttpHeader :: header(),
+      Profile    :: profile(),
       Opts       :: [CookieHeaderOpt],
       CookieHeaderOpt :: {ipv6_host_with_brackets, boolean()},
       Reason     :: term().
@@ -952,7 +984,7 @@ purposes. If no profile is specified, the default profile is used.
 """.
 -doc(#{since => <<"OTP R13B04">>}).
 -spec which_cookies(Profile) -> [CookieStores] when
-      Profile :: atom() | pid(),
+      Profile :: profile(),
       CookieStores :: {cookies, Cookies} | {session_cookies, Cookies},
       Cookies :: [term()].
 which_cookies(Profile) ->
@@ -996,7 +1028,7 @@ intended. If no profile is specified, the default profile is used.
 """.
 -doc(#{since => <<"OTP R15B02">>}).
 -spec which_sessions(Profile) -> SessionInfo when
-      Profile :: atom() | pid(),
+      Profile :: profile(),
       SessionInfo :: {GoodSession, BadSessions, NonSessions},
       GoodSession :: [Session],
       BadSessions :: [term()],
@@ -1036,7 +1068,7 @@ profile is specified, the default profile is used.
 -doc(#{since => <<"OTP R15B02">>}).
 -spec info(Profile) -> list() | {error, Reason} when
       Reason :: term(),
-      Profile :: atom() | pid().
+      Profile :: profile().
 info(Profile) ->
     try 
 	begin
@@ -1068,7 +1100,7 @@ is specified the default profile is used.
 """.
 -doc(#{since => <<"OTP R13B04">>}).
 -spec reset_cookies(Profile) -> Void when
-      Profile :: atom() | pid(),
+      Profile :: profile(),
       Void :: term().
 reset_cookies(Profile) ->
     try 
@@ -1321,23 +1353,7 @@ maybe_format_body(BinBody, Options) ->
 
 -spec headers_as_is(HeaderRequest, OptionsRequest) -> HeaderRequest when
       HeaderRequest :: [{list(), list() | binary()}] | [tuple()],
-      OptionsRequest :: [OptionRequest],
-      OptionRequest :: {sync, boolean()}
-                        | {stream, StreamTo}
-                        | {body_format, BodyFormat}
-                        | {full_result, boolean()}
-                        | {headers_as_is, boolean()}
-                        | {socket_opts, [SocketOpt]}
-                        | {receiver, Receiver}
-                        | {ipv6_host_with_brackets, boolean()},
-      BodyFormat  :: string | binary,
-      StreamTo :: none | self | {self, once} | file:name_all(),
-      SocketOpt :: term(),
-      Receiver :: pid()
-                  | fun((term()) -> term())
-                  | { ReceiverModule::atom()
-                    , ReceiverFunction::atom()
-                    , ReceiverArgs::list()}.
+      OptionsRequest :: [request_option()].
 %% This options is a workaround for http servers that do not follow the 
 %% http standard and have case sensitive header parsing. Should only be
 %% used if there is no other way to communicate with the server or for
@@ -1569,24 +1585,7 @@ request_options([{Key, DefaultVal, Verify} | Defaults], Options, Acc) ->
 	    request_options(Defaults, Options, [{Key, DefaultVal} | Acc])
     end.
 
--spec request_options_sanity_check([OptionRequest]) -> ok | no_return() when
-      OptionRequest :: {sync, boolean()}
-                     | {stream, StreamTo}
-                     | {body_format, BodyFormat}
-                     | {full_result, boolean()}
-                     | {headers_as_is, boolean()}
-                     | {socket_opts, [SocketOpt]}
-                     | {receiver, Receiver}
-                     | {ipv6_host_with_brackets, boolean()},
-      StreamTo :: none | self | {self, once} | file:name_all(),
-      BodyFormat  :: string | binary,
-      SocketOpt :: term(),
-      Receiver :: pid()
-                  | reference()
-                  | fun((term()) -> term())
-                  | { ReceiverModule::atom()
-                    , ReceiverFunction::atom()
-                    , ReceiverArgs::list()}.
+-spec request_options_sanity_check([request_option()]) -> ok | no_return().
 request_options_sanity_check(Opts) ->
     case proplists:get_value(sync, Opts) of
 	Sync when (Sync =:= true) ->
@@ -2012,3 +2011,16 @@ check_body_gen({chunkify, Fun, _}) when is_function(Fun, 1) ->
     ok;
 check_body_gen(Gen) ->
     {error, {bad_body_generator, Gen}}.
+
+into_tuple_request(URI, Headers, undefined, undefined) ->
+    {URI, Headers};
+into_tuple_request(URI, Headers, ContentType, Body) ->
+    {URI, Headers, ContentType, Body}.
+
+%% XXX: async responses?
+into_map_response({ok, {{HttpVersion, StatusCode, _}, Headers, Body}}) ->
+    {ok, #{status => StatusCode, headers => Headers, http_version => HttpVersion, body => Body}};
+into_map_response({ok, {{HttpVersion, StatusCode, _}, Body}}) ->
+    {ok, #{status => StatusCode, headers => [], http_version => HttpVersion, body => Body}};
+into_map_response({error, _Reason} = Reply) ->
+    Reply.
