@@ -152,6 +152,7 @@ Uint32 erts_sum_all_trace_flags(ErtsPTabElementCommon* t_p);
 void erts_change_proc_trace_session_flags(Process*, ErtsTraceSession*,
                                           Uint32 clear_flags, Uint32 set_flags);
 #ifdef DEBUG
+bool erts_is_trace_session_weak_id(Eterm);
 void erts_assert_tracer_refs(ErtsPTabElementCommon* t_p);
 # define ERTS_ASSERT_TRACER_REFS(TP) erts_assert_tracer_refs(TP)
 #else

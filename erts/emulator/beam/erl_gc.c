@@ -3839,7 +3839,7 @@ erts_max_heap_size(Eterm arg, Uint *max_heap_size, Uint *max_heap_flags)
     return 1;
 }
 
-#ifdef DEBUG
+#if defined(DEBUG) && defined(ERLANG_FRAME_POINTERS)
 void erts_validate_stack(Process *p, Eterm *frame_ptr, Eterm *stack_top) {
     Eterm *stack_bottom = HEAP_END(p);
     Eterm *next_fp = frame_ptr;
@@ -3853,20 +3853,24 @@ void erts_validate_stack(Process *p, Eterm *frame_ptr, Eterm *stack_top) {
     ASSERT((next_fp != NULL) ^ (stack_top == stack_bottom));
 
     /* If the GC happens when we are about to execute a trace we
-       need to skip the trace instructions */
+       need to skip the trace instructions.
+       Note: It's not safe in general to assume p->i is up-to-date in GC.
+       However the return trace intructions do update p->i after returning.
+       */
     if (BeamIsReturnTrace(p->i)) {
-        /* Skip MFA and tracer. */
-        ASSERT_MFA((ErtsCodeMFA*)cp_val(scanner[0]));
-        ASSERT(IS_TRACER_VALID(scanner[1]));
+        assert_return_trace_frame(scanner);
         scanner += BEAM_RETURN_TRACE_FRAME_SZ;
     } else if (BeamIsReturnCallAccTrace(p->i)) {
-        /* Skip prev_info. */
+        assert_return_call_acc_trace_frame(scanner);
         scanner += BEAM_RETURN_CALL_ACC_TRACE_FRAME_SZ;
     } else if (BeamIsReturnToTrace(p->i)) {
+        assert_return_to_trace_frame(scanner);
         scanner += BEAM_RETURN_TO_TRACE_FRAME_SZ;
     }
 
     while (next_fp) {
+        ErtsCodePtr cp;
+
         ASSERT(next_fp >= stack_top && next_fp <= stack_bottom);
 
         /* We may not skip any frames. */
@@ -3876,24 +3880,24 @@ void erts_validate_stack(Process *p, Eterm *frame_ptr, Eterm *stack_top) {
         }
 
         /* {Next frame, Return address} or vice versa */
-        ASSERT(is_CP(scanner[0]) && is_CP(scanner[1]));
         next_fp = (Eterm*)cp_val(scanner[0]);
+        cp = cp_val(scanner[1]);
+
+        scanner += CP_SIZE;
 
         /* Call tracing may store raw pointers on the stack. This is explicitly
          * handled in all routines that deal with the stack. */
-        if (BeamIsReturnTrace((ErtsCodePtr)scanner[1])) {
-            /* Skip MFA and tracer. */
-            ASSERT_MFA((ErtsCodeMFA*)cp_val(scanner[2]));
-            ASSERT(IS_TRACER_VALID(scanner[3]));
+        if (BeamIsReturnTrace(cp)) {
+            assert_return_trace_frame(scanner);
             scanner += BEAM_RETURN_TRACE_FRAME_SZ;
-        } else if (BeamIsReturnCallAccTrace((ErtsCodePtr)scanner[1])) {
-            /* Skip prev_info. */
+        } else if (BeamIsReturnCallAccTrace(cp)) {
+            assert_return_call_acc_trace_frame(scanner);
             scanner += BEAM_RETURN_CALL_ACC_TRACE_FRAME_SZ;
-        } else if (BeamIsReturnToTrace((ErtsCodePtr)scanner[1])) {
+        } else if (BeamIsReturnToTrace(cp)) {
+            assert_return_to_trace_frame(scanner);
             scanner += BEAM_RETURN_TO_TRACE_FRAME_SZ;
         }
 
-        scanner += CP_SIZE;
     }
 }
 #endif
