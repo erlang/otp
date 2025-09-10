@@ -29,7 +29,8 @@
 	 is_hostname/1,
 	 timestamp/0, timeout/2,
 	 html_encode/1,
-	 maybe_add_brackets/2
+	 maybe_add_brackets/2,
+	 connection_tokens/1
 	]).
 
 
@@ -212,6 +213,12 @@ maybe_add_brackets(Addr, true) when is_binary(Addr) ->
         false ->
             Addr
     end.
+
+connection_tokens(undefined) ->
+    [];
+connection_tokens(Connection) ->
+    ConnList = string:tokens(string:to_lower(Connection), ","),
+    [string:trim(Token) || Token <- ConnList].
 
 
 %%%========================================================================

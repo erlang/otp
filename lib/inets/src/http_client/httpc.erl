@@ -1949,13 +1949,24 @@ header_record([{Key, Val} | Rest], RequestHeaders, Host, Version) ->
 				   RequestHeaders#http_request_h.other]}, 
 		  Host, Version).
 
-validate_headers(RequestHeaders = #http_request_h{te = undefined}, Host, 
-		 "HTTP/1.1" = Version) ->
-    validate_headers(RequestHeaders#http_request_h{te = ""}, Host, 
-		     "HTTP/1.1" = Version);
 validate_headers(RequestHeaders = #http_request_h{host = undefined}, 
 		 Host, "HTTP/1.1" = Version) ->
     validate_headers(RequestHeaders#http_request_h{host = Host}, Host, Version);
+validate_headers(RequestHeaders = #http_request_h{te = TE, connection = Conn}, _, "HTTP/1.1") ->
+    case TE of
+        undefined ->
+            RequestHeaders;
+        _TEValue ->
+            NewConn = case Conn of
+                undefined -> "TE";
+                ExistingConn ->
+                    case lists:member("te", http_util:connection_tokens(ExistingConn)) of
+                        true -> ExistingConn;
+                        false -> ExistingConn ++ ", TE"
+                    end
+            end,
+            RequestHeaders#http_request_h{connection = NewConn}
+    end;
 validate_headers(RequestHeaders, _, _) ->
     RequestHeaders.
 
