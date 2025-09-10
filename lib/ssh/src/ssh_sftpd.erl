@@ -272,6 +272,17 @@ handle_data(Type, ChannelId, Data0, State = #state{pending = Pending}) ->
             handle_data(Type, ChannelId, Data, State#state{pending = <<>>})
     end.
 
+%% From draft-ietf-secsh-filexfer-02 "The file handle strings MUST NOT be longer than 256 bytes."
+handle_op(Request, ReqId, <<?UINT32(HLen), _/binary>>, State = #state{xf = XF})
+  when (Request == ?SSH_FXP_CLOSE orelse
+        Request == ?SSH_FXP_FSETSTAT orelse
+        Request == ?SSH_FXP_FSTAT orelse
+        Request == ?SSH_FXP_READ orelse
+        Request == ?SSH_FXP_READDIR orelse
+        Request == ?SSH_FXP_WRITE),
+       HLen > 256 ->
+    ssh_xfer:xf_send_status(XF, ReqId, ?SSH_FX_INVALID_HANDLE, "Invalid handle"),
+    State;
 handle_op(?SSH_FXP_INIT, Version, B, State) when is_binary(B) ->
     XF = State#state.xf,
     Vsn = lists:min([XF#ssh_xfer.vsn, Version]),
@@ -279,7 +290,7 @@ handle_op(?SSH_FXP_INIT, Version, B, State) when is_binary(B) ->
     ssh_xfer:xf_send_reply(XF1, ?SSH_FXP_VERSION, <<?UINT32(Vsn)>>),
     State#state{xf = XF1};
 handle_op(?SSH_FXP_REALPATH, ReqId,
-	  <<?UINT32(Rlen), RPath:Rlen/binary>>,
+	  <<?UINT32(RLen), RPath:RLen/binary>>,
 	  State0) ->
     RelPath = relate_file_name(RPath, State0, _Canonicalize=false),
     {Res, State} = resolve_symlinks(RelPath, State0),
@@ -454,14 +465,12 @@ handle_op(?SSH_FXP_RMDIR, ReqId, <<?UINT32(PLen), BPath:PLen/binary>>,
     send_status(Status, ReqId, State1);
 
 handle_op(?SSH_FXP_RENAME, ReqId,
-  	  Bin = <<?UINT32(PLen), _:PLen/binary, ?UINT32(PLen2),
-  		 _:PLen2/binary>>,
+  	  Bin = <<?UINT32(PLen), _:PLen/binary, ?UINT32(PLen2), _:PLen2/binary>>,
   	  State = #state{xf = #ssh_xfer{vsn = Vsn}}) when Vsn==3; Vsn==4  ->
     handle_op(?SSH_FXP_RENAME, ReqId, <<Bin/binary, 0:32>>, State);
 
 handle_op(?SSH_FXP_RENAME, ReqId,
-	  <<?UINT32(PLen), BPath:PLen/binary, ?UINT32(PLen2), 
-	   BPath2:PLen2/binary, ?UINT32(Flags)>>,
+	  <<?UINT32(PLen), BPath:PLen/binary, ?UINT32(PLen2), BPath2:PLen2/binary, ?UINT32(Flags)>>,
 	  State0 = #state{file_handler = FileMod, file_state = FS0}) ->
     Path = relate_file_name(BPath, State0),
     Path2 = relate_file_name(BPath2, State0),
