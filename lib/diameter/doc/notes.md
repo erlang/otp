@@ -23,6 +23,16 @@ limitations under the License.
 
 Releases are listed in reverse chronological order, most recent first.
 
+## diameter 2.5.1
+
+### Fixed Bugs and Malfunctions
+
+- With this change message_cb callback will be called with updated state for processing 'ack' after 'send'.
+
+  Own Id: OTP-19753 Aux Id: [PR-9815]
+
+[PR-9815]: https://github.com/erlang/otp/pull/9815
+
 ## diameter 2.5
 
 ### Fixed Bugs and Malfunctions

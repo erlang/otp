@@ -23,6 +23,16 @@ limitations under the License.
 
 This document describes the changes made to the STDLIB application.
 
+## STDLIB 7.0.3
+
+### Fixed Bugs and Malfunctions
+
+- Update PCRE2 from 10.45 to 10.46. Fixes potential buffer read overflow on regular expressions with `(*scs:)` and `(*ACCEPT)` syntax combined.
+
+  Own Id: OTP-19755 Aux Id: [CVE-2025-58050]
+
+[CVE-2025-58050]: https://nvd.nist.gov/vuln/detail/2025-58050
+
 ## STDLIB 7.0.2
 
 ### Fixed Bugs and Malfunctions

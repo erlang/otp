@@ -23,6 +23,21 @@ limitations under the License.
 
 This document describes the changes made to the ERTS application.
 
+## Erts 16.0.3
+
+### Fixed Bugs and Malfunctions
+
+- Update PCRE2 from 10.45 to 10.46. Fixes potential buffer read overflow on regular expressions with `(*scs:)` and `(*ACCEPT)` syntax combined.
+
+  Own Id: OTP-19755 Aux Id: [CVE-2025-58050]
+
+- Fixed bug that could cause crash in beam started with `erl -emu_type debug +JPperf true` with any type of tracing return from function.
+
+  Own Id: OTP-19761 Aux Id: [PR-19755]
+
+[CVE-2025-58050]: https://nvd.nist.gov/vuln/detail/2025-58050
+[PR-19755]: https://github.com/erlang/otp/pull/19755
+
 ## Erts 16.0.2
 
 ### Fixed Bugs and Malfunctions
