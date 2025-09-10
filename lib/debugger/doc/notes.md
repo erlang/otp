@@ -21,6 +21,17 @@ limitations under the License.
 
 This document describes the changes made to the Debugger application.
 
+## Debugger 5.5.0.1
+
+### Fixed Bugs and Malfunctions
+
+- Fix unbound error in interpreted modules
+
+  Own Id: OTP-19719 Aux Id: [GH-10057], [PR-10066]
+
+[GH-10057]: https://github.com/erlang/otp/issues/10057
+[PR-10066]: https://github.com/erlang/otp/pull/10066
+
 ## Debugger 5.5
 
 ### Fixed Bugs and Malfunctions
