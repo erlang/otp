@@ -38,7 +38,8 @@ cd wxWidgets
   --disable-shared \
   --prefix=$PWD/release \
   --with-cocoa \
-  --with-macosx-version-min=10.15 \
-  --disable-sys-libs
+  --with-macosx-version-min=10.15
+#  --disable-sys-libs
+
 make
 make install
