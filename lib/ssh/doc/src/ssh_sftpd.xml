@@ -65,6 +65,10 @@
 	    If supplied, the number of filenames returned to the SFTP client per <c>READDIR</c>
 	    request is limited to at most the given value.</p>
 	  </item>
+	  <tag><c>max_handles</c></tag>
+	  <item>
+            <p>The default value is <c>1000</c>. Positive integer value represents the maximum number of file handles allowed for a connection.</p>            
+	  </item>
 	  <tag><c>root</c></tag>
 	  <item>
 	    <p>Sets the SFTP root directory. Then the user cannot see any files
