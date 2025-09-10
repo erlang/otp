@@ -33,7 +33,9 @@
          format_time_ms/1,
          comp/2,
          set_label/1,
-         set_label/2
+         set_label/2,
+         trim_reason/1,
+         max_log_len/1
         ]).
 
 -include("ssh.hrl").
@@ -99,3 +101,17 @@ set_label(client, Details) ->
     proc_lib:set_label({sshc, Details});
 set_label(server, Details) ->
     proc_lib:set_label({sshd, Details}).
+
+%% We don't want to process badmatch details, potentially containing
+%% malicious data of unknown size
+trim_reason({badmatch, V}) when is_binary(V) ->
+    badmatch;
+trim_reason(E) ->
+    E.
+
+max_log_len(#ssh{opts = Opts}) ->
+    ?GET_OPT(max_log_item_len, Opts);
+max_log_len(Opts) when is_map(Opts) ->
+    ?GET_OPT(max_log_item_len, Opts).
+
+

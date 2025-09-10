@@ -410,8 +410,9 @@ handle_kexinit_msg(#ssh_msg_kexinit{} = CounterPart, #ssh_msg_kexinit{} = Own,
 	    key_exchange_first_msg(Algos#alg.kex, 
 				   Ssh#ssh{algorithms = Algos})
     catch
-        Class:Error ->
-            Msg = kexinit_error(Class, Error, client, Own, CounterPart),
+        Class:Reason0 ->
+            Reason = ssh_lib:trim_reason(Reason0),
+            Msg = kexinit_error(Class, Reason, client, Own, CounterPart, Ssh),
             ?DISCONNECT(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED, Msg)
         end;
 
@@ -427,31 +428,38 @@ handle_kexinit_msg(#ssh_msg_kexinit{} = CounterPart, #ssh_msg_kexinit{} = Own,
 	Algos ->
             {ok, Ssh#ssh{algorithms = Algos}}
     catch
-        Class:Error ->
-            Msg = kexinit_error(Class, Error, server, Own, CounterPart),
+        Class:Reason0 ->
+            Reason = ssh_lib:trim_reason(Reason0),
+            Msg = kexinit_error(Class, Reason, server, Own, CounterPart, Ssh),
             ?DISCONNECT(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED, Msg)
     end.
 
-kexinit_error(Class, Error, Role, Own, CounterPart) ->
+kexinit_error(Class, Error, Role, Own, CounterPart, Ssh) ->
     {Fmt,Args} =
         case {Class,Error} of
             {error, {badmatch,{false,Alg}}} ->
                 {Txt,W,C} = alg_info(Role, Alg),
-                {"No common ~s algorithm,~n"
-                 "  we have:~n    ~s~n"
-                 "  peer have:~n    ~s~n",
-                 [Txt,
-                  lists:join(", ", element(W,Own)),
-                  lists:join(", ", element(C,CounterPart))
-                 ]};
+                MsgFun =
+                    fun(debug) ->
+                            {"No common ~s algorithm,~n"
+                             "  we have:~n    ~s~n"
+                             "  peer have:~n    ~s~n",
+                             [Txt,
+                              lists:join(", ", element(W,Own)),
+                              lists:join(", ", element(C,CounterPart))]};
+                       (_) ->
+                            {"No common ~s algorithm", [Txt]}
+                    end,
+                ?SELECT_MSG(MsgFun);
             _ ->
                 {"Kexinit failed in ~p: ~p:~p", [Role,Class,Error]}
         end,
-    try io_lib:format(Fmt, Args) of
+    try io_lib:format(Fmt, Args, [{chars_limit, ssh_lib:max_log_len(Ssh)}]) of
         R -> R
     catch
         _:_ ->
-            io_lib:format("Kexinit failed in ~p: ~p:~p", [Role, Class, Error])
+            io_lib:format("Kexinit failed in ~p: ~p:~p", [Role, Class, Error],
+                          [{chars_limit, ssh_lib:max_log_len(Ssh)}])
     end.
 
 alg_info(client, Alg) ->
@@ -603,14 +611,19 @@ handle_kexdh_init(#ssh_msg_kexdh_init{e = E},
                                              session_id = sid(Ssh1, H)}};
                 {error,unsupported_sign_alg} ->
                     ?DISCONNECT(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
-                                io_lib:format("Unsupported algorithm ~p", [SignAlg])
-                               )
+                                io_lib:format("Unsupported algorithm ~p", [SignAlg],
+                                              [{chars_limit, ssh_lib:max_log_len(Opts)}]))
             end;
 	true ->
-            ?DISCONNECT(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
+            MsgFun =
+                fun(debug) ->
                         io_lib:format("Kexdh init failed, received 'e' out of bounds~n  E=~p~n  P=~p",
-                                      [E,P])
-                       )
+                                      [E,P], [{chars_limit, ssh_lib:max_log_len(Opts)}]);
+                   (_) ->
+                        io_lib:format("Kexdh init failed, received 'e' out of bounds", [],
+                                      [{chars_limit, ssh_lib:max_log_len(Opts)}] )
+                end,
+            ?DISCONNECT(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED, ?SELECT_MSG(MsgFun))
     end.
 
 handle_kexdh_reply(#ssh_msg_kexdh_reply{public_host_key = PeerPubHostKey,
@@ -631,14 +644,15 @@ handle_kexdh_reply(#ssh_msg_kexdh_reply{public_host_key = PeerPubHostKey,
                                                              session_id = sid(Ssh, H)})};
 		Error ->
                     ?DISCONNECT(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
-                                io_lib:format("Kexdh init failed. Verify host key: ~p",[Error])
+                                io_lib:format("Kexdh init failed. Verify host key: ~p",[Error],
+                                              [{chars_limit, ssh_lib:max_log_len(Ssh0)}])
                                )
 	    end;
 
 	true ->
             ?DISCONNECT(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
                         io_lib:format("Kexdh init failed, received 'f' out of bounds~n  F=~p~n  P=~p",
-                                      [F,P])
+                                      [F,P], [{chars_limit, ssh_lib:max_log_len(Ssh0)}])
                        )
     end.
 
@@ -664,7 +678,8 @@ handle_kex_dh_gex_request(#ssh_msg_kex_dh_gex_request{min = Min0,
 		    }};
 	{error,_} ->
             ?DISCONNECT(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
-                        io_lib:format("No possible diffie-hellman-group-exchange group found",[])
+                        io_lib:format("No possible diffie-hellman-group-exchange group found",[],
+                                      [{chars_limit, ssh_lib:max_log_len(Opts)}])
                        )
     end;
 
@@ -696,8 +711,8 @@ handle_kex_dh_gex_request(#ssh_msg_kex_dh_gex_request_old{n = NBits},
 		    }};
 	{error,_} ->
             ?DISCONNECT(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
-                        io_lib:format("No possible diffie-hellman-group-exchange group found",[])
-                       )
+                        io_lib:format("No possible diffie-hellman-group-exchange group found",[],
+                                      [{chars_limit, ssh_lib:max_log_len(Opts)}]))
     end;
 
 handle_kex_dh_gex_request(_, _) ->
@@ -723,7 +738,6 @@ handle_kex_dh_gex_group(#ssh_msg_kex_dh_gex_group{p = P, g = G}, Ssh0) ->
     {Public, Private} = generate_key(dh, [P,G,2*Sz]),
     {SshPacket, Ssh1} = 
 	ssh_packet(#ssh_msg_kex_dh_gex_init{e = Public}, Ssh0),	% Pub = G^Priv mod P (def)
-
     {ok, SshPacket, 
      Ssh1#ssh{keyex_key = {{Private, Public}, {G, P}}}}.
 
@@ -754,19 +768,22 @@ handle_kex_dh_gex_init(#ssh_msg_kex_dh_gex_init{e = E},
                                                    }};
                         {error,unsupported_sign_alg} ->
                             ?DISCONNECT(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
-                                        io_lib:format("Unsupported algorithm ~p", [SignAlg])
-                                       )
+                                        io_lib:format("Unsupported algorithm ~p", [SignAlg],
+                                                     [{chars_limit, ssh_lib:max_log_len(Opts)}]))
                     end;
 		true ->
                     ?DISCONNECT(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
-                                "Kexdh init failed, received 'k' out of bounds"
-                               )
+                                "Kexdh init failed, received 'k' out of bounds")
 	    end;
 	true ->
-            ?DISCONNECT(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
-                        io_lib:format("Kexdh gex init failed, received 'e' out of bounds~n  E=~p~n  P=~p",
-                                      [E,P])
-                       )
+            MsgFun =
+                fun(debug) ->
+                        io_lib:format("Kexdh gex init failed, received 'e' out of bounds~n"
+                                      "  E=~p~n  P=~p", [E,P]);
+                   (_) ->
+                        io_lib:format("Kexdh gex init failed, received 'e' out of bounds", [])
+                end,
+            ?DISCONNECT(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED, ?SELECT_MSG(MsgFun))
     end.
 
 handle_kex_dh_gex_reply(#ssh_msg_kex_dh_gex_reply{public_host_key = PeerPubHostKey, 
@@ -791,20 +808,18 @@ handle_kex_dh_gex_reply(#ssh_msg_kex_dh_gex_reply{public_host_key = PeerPubHostK
                                                                      session_id = sid(Ssh, H)})};
                         Error ->
                             ?DISCONNECT(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
-                                        io_lib:format("Kexdh gex reply failed. Verify host key: ~p",[Error])
-                                       )
+                                        io_lib:format("Kexdh gex reply failed. Verify host key: ~p",
+                                                      [Error], [{chars_limit, ssh_lib:max_log_len(Ssh0)}]))
 		    end;
 
 		true ->
                     ?DISCONNECT(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
-                                "Kexdh gex init failed, 'K' out of bounds"
-                               )
+                                "Kexdh gex init failed, 'K' out of bounds")
 	    end;
 	true ->
             ?DISCONNECT(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
                         io_lib:format("Kexdh gex init failed, received 'f' out of bounds~n  F=~p~n  P=~p",
-                                      [F,P])
-                       )
+                                      [F,P], [{chars_limit, ssh_lib:max_log_len(Ssh0)}]))
     end.
 
 %%%----------------------------------------------------------------
@@ -838,17 +853,25 @@ handle_kex_ecdh_init(#ssh_msg_kex_ecdh_init{q_c = PeerPublic},
                                              session_id = sid(Ssh1, H)}};
                 {error,unsupported_sign_alg} ->
                     ?DISCONNECT(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
-                                io_lib:format("Unsupported algorithm ~p", [SignAlg])
-                               )
+                                io_lib:format("Unsupported algorithm ~p", [SignAlg],
+                                             [{chars_limit, ssh_lib:max_log_len(Opts)}]))
             end
     catch
-        Class:Error ->
-            ?DISCONNECT(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
+        Class:Reason0 ->
+            Reason = ssh_lib:trim_reason(Reason0),
+            MsgFun =
+                fun(debug) ->
                         io_lib:format("ECDH compute key failed in server: ~p:~p~n"
                                       "Kex: ~p, Curve: ~p~n"
                                       "PeerPublic: ~p",
-                                      [Class,Error,Kex,Curve,PeerPublic])
-                       )
+                                      [Class,Reason,Kex,Curve,PeerPublic],
+                                      [{chars_limit, ssh_lib:max_log_len(Ssh0)}]);
+                   (_) ->
+                        io_lib:format("ECDH compute key failed in server: ~p:~p",
+                                      [Class,Reason],
+                                      [{chars_limit, ssh_lib:max_log_len(Ssh0)}])
+                end,
+            ?DISCONNECT(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED, ?SELECT_MSG(MsgFun))
     end.
 
 handle_kex_ecdh_reply(#ssh_msg_kex_ecdh_reply{public_host_key = PeerPubHostKey,
@@ -871,15 +894,14 @@ handle_kex_ecdh_reply(#ssh_msg_kex_ecdh_reply{public_host_key = PeerPubHostKey,
                                                              session_id = sid(Ssh, H)})};
 		Error ->
                     ?DISCONNECT(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
-                                io_lib:format("ECDH reply failed. Verify host key: ~p",[Error])
-                               )
+                                io_lib:format("ECDH reply failed. Verify host key: ~p",[Error],
+                                              [{chars_limit, ssh_lib:max_log_len(Ssh0)}]))
 	    end
     catch
         Class:Error ->
             ?DISCONNECT(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
                         io_lib:format("Peer ECDH public key seem invalid: ~p:~p",
-                                      [Class,Error])
-                       )
+                                      [Class,Error], [{chars_limit, ssh_lib:max_log_len(Ssh0)}]))
     end.
 
 
@@ -1133,14 +1155,9 @@ select_algorithm(Role, Client, Server,
 		   Server#ssh_msg_kexinit.languages_client_to_server),
     S_Lng = select(Client#ssh_msg_kexinit.languages_server_to_client,
 		   Server#ssh_msg_kexinit.languages_server_to_client),
-    HKey = select_all(Client#ssh_msg_kexinit.server_host_key_algorithms,
-		      Server#ssh_msg_kexinit.server_host_key_algorithms),
-    HK = case HKey of
-	     [] -> undefined;
-	     [HK0|_] -> HK0
-	 end,
-    %% Fixme verify Kex against HKey list and algorithms
-    
+    HKey = select(Client#ssh_msg_kexinit.server_host_key_algorithms,
+                  Server#ssh_msg_kexinit.server_host_key_algorithms),
+    %% FIXME verify Kex against HKey list and algorithms (see RFC4253 sec 7.1)
     Kex = select(Client#ssh_msg_kexinit.kex_algorithms,
 		 Server#ssh_msg_kexinit.kex_algorithms),
 
@@ -1160,7 +1177,7 @@ select_algorithm(Role, Client, Server,
         ?GET_OPT(recv_ext_info,Opts),
 
     {ok, #alg{kex = Kex,
-              hkey = HK,
+              hkey = HKey,
               encrypt = Encrypt,
               decrypt = Decrypt,
               send_mac = SendMac,
@@ -1312,38 +1329,27 @@ alg_final(rcv, SSH0) ->
     {ok,SSH3} = decompress_final(SSH2),
     SSH3.
 
-
-select_all(CL, SL) when length(CL) + length(SL) < ?MAX_NUM_ALGORITHMS ->
-    %% algorithms only used by client
-    %% NOTE: an algorithm occurring more than once in CL will still be present
-    %%       in CLonly. This is not a problem for nice clients.
-    CLonly = CL -- SL,
-
-    %% algorithms used by client and server (client pref)
-    lists:foldr(fun(ALG, Acc) -> 
-                      try [list_to_existing_atom(ALG) | Acc]
-                      catch
-                          %% If an malicious client uses the same non-existing algorithm twice,
-                          %% we will end up here
-                          _:_ -> Acc
-                      end
-              end, [], (CL -- CLonly));
-
-select_all(CL, SL) ->
-    Error = lists:concat(["Received too many algorithms (",length(CL),"+",length(SL)," >= ",?MAX_NUM_ALGORITHMS,")."]),
-    ?DISCONNECT(?SSH_DISCONNECT_PROTOCOL_ERROR,
-                Error).
-
-
 select([], []) ->
     none;
 select(CL, SL) ->
-    C = case select_all(CL,SL) of
-	    [] -> undefined;
-	    [ALG|_] -> ALG
-	end,
-    C.
-	    
+    select_first(CL, SL).
+
+select_first([ClientAlg | ClientRest], SL) ->
+    case lists:member(ClientAlg, SL) of
+        true ->
+            try list_to_existing_atom(ClientAlg) of
+                Alg when is_atom(Alg) ->
+                    Alg
+            catch
+                error:badarg ->
+                    select_first(ClientRest, SL)
+            end;
+        false ->
+            select_first(ClientRest, SL)
+    end;
+select_first([], _) ->
+    undefined.
+
 ssh_packet(#ssh_msg_kexinit{} = Msg, Ssh0) ->
     BinMsg = ssh_message:encode(Msg),
     Ssh = key_init(Ssh0#ssh.role, Ssh0, BinMsg),
