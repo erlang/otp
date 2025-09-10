@@ -186,10 +186,10 @@ is_idempotent(_) ->
 %%-------------------------------------------------------------------------
 is_client_closing(Headers) ->
     case Headers#http_request_h.connection of
-	"close" ->
-	    true;
-	 _ ->
-	    false
+	undefined ->
+	    false;
+	Connection ->
+	    lists:member("close", http_util:connection_tokens(Connection))
     end.
 
 %%%========================================================================
