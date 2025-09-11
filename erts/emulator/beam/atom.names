@@ -733,6 +733,7 @@ atom threads
 atom time_offset
 atom timeout
 atom timeout_value
+atom bif_timer_count
 atom Times='*'
 atom timestamp
 atom total
