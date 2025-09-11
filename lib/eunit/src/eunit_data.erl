@@ -499,8 +499,8 @@ group(#group{tests = T0, desc = Desc, options = Options, order = Order,
     case T1 of
 	#test{desc = Desc1, timeout = Timeout1}
 	when T2 =:= none, Spawn =:= undefined, Context =:= undefined,
-	     ((Desc =:= undefined) or (Desc1 =:= undefined)),
-	     ((Timeout =:= undefined) or (Timeout1 =:= undefined)) ->
+	     ((Desc =:= undefined) orelse (Desc1 =:= undefined)),
+	     ((Timeout =:= undefined) orelse (Timeout1 =:= undefined)) ->
 	    %% a single test within a non-spawn/setup group: put the
 	    %% information directly on the test; drop the order
 	    T1#test{desc = join_properties(Desc, Desc1),
@@ -517,11 +517,11 @@ group(#group{tests = T0, desc = Desc, options = Options, order = Order,
 	#group{desc = Desc1, order = Order1, context = Context1,
 	       spawn = Spawn1, timeout = Timeout1}
 	when T2 =:= none,
-	     ((Desc =:= undefined) or (Desc1 =:= undefined)),
-	     ((Order =:= undefined) or (Order1 =:= undefined)),
-	     ((Context =:= undefined) or (Context1 =:= undefined)),
-	     ((Spawn =:= undefined) or (Spawn1 =:= undefined)),
-	     ((Timeout =:= undefined) or (Timeout1 =:= undefined)) ->
+	     ((Desc =:= undefined) orelse (Desc1 =:= undefined)),
+	     ((Order =:= undefined) orelse (Order1 =:= undefined)),
+	     ((Context =:= undefined) orelse (Context1 =:= undefined)),
+	     ((Spawn =:= undefined) orelse (Spawn1 =:= undefined)),
+	     ((Timeout =:= undefined) orelse (Timeout1 =:= undefined)) ->
 	    %% two nested groups with non-conflicting properties
 	    group(T1#group{desc = join_properties(Desc, Desc1),
 			   order = join_properties(Order, Order1),

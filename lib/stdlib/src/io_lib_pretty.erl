@@ -357,7 +357,7 @@ pp_field({{field, Name, NameL, F},_,_, _}, Col0, Ll, M, TInd, Ind0, LD, W0) ->
 
 rec_indent(RInd, TInd, Col0, Ind0, W0) ->
     %% this uses TInd
-    Nl = (TInd > 0) and (RInd > TInd),
+    Nl = (TInd > 0) andalso (RInd > TInd),
     DCol = case Nl of
                true -> TInd;
                false -> RInd
@@ -978,7 +978,7 @@ print_length_tuple(Tuple, 1, _T, RF, Enc, Str, Ord) ->
     {"{...}", 5, 3, More};
 print_length_tuple(Tuple, D, T, RF, Enc, Str, Ord) ->
     L = print_length_tuple1(Tuple, 1, D, tsub(T, 2), RF, Enc, Str, Ord),
-    IsTagged = is_atom(element(1, Tuple)) and (tuple_size(Tuple) > 1),
+    IsTagged = is_atom(element(1, Tuple)) andalso (tuple_size(Tuple) > 1),
     {Len, Dots} = list_length(L, 2, 0),
     {{tuple,IsTagged,L}, Len, Dots, no_more}.
 
@@ -1494,7 +1494,7 @@ cind_field({{field, _Name, NameL, F},_Len,_,_}, Col0, Ll, M, Ind, LD, W0) ->
     Ll.
 
 cind_rec(RInd, Col0, Ll, M, Ind, W0) ->
-    Nl = (Ind > 0) and (RInd > Ind),
+    Nl = (Ind > 0) andalso (RInd > Ind),
     DCol = case Nl of
                true -> Ind;
                false -> RInd
