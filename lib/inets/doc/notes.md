@@ -21,6 +21,18 @@ limitations under the License.
 -->
 # Inets Release Notes
 
+## Inets 9.4.1
+
+### Fixed Bugs and Malfunctions
+
+- Fixed a bug where a request sent to httpd server which is using CGI script to generate a response, would pollute server's environment variable - `HTTP_PROXY` for that request. This bug is also known as httpoxy. More information: CVE-2016-1000107
+
+  Own Id: OTP-19729 Aux Id: [PR-6223], [GH-3392], [CVE-2016-1000107]
+
+[PR-6223]: https://github.com/erlang/otp/pull/6223
+[GH-3392]: https://github.com/erlang/otp/issues/3392
+[CVE-2016-1000107]: https://nvd.nist.gov/vuln/detail/2016-1000107
+
 ## Inets 9.4
 
 ### Fixed Bugs and Malfunctions
