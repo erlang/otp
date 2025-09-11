@@ -51,7 +51,9 @@ MODULES = \
 	diameter_tls_SUITE \
 	diameter_traffic_SUITE \
 	diameter_transport_SUITE \
-	diameter_watchdog_SUITE
+	diameter_watchdog_SUITE \
+	diameter_indirect_inherits_SUITE \
+	diameter_codegen_SUITE
 
 DATA = \
 	diameter_codec_SUITE_data/avps.dia \

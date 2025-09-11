@@ -65,6 +65,7 @@
 -define(CL(F),    ?CL(F, [])).
 -define(CL(F, A), ?LOG("DCOMP", F, A)).
 
+-define(INDIRECT_INHERITS, indirect_inherits).
 
 %% ===========================================================================
 
@@ -476,7 +477,7 @@ format(Config) ->
     run(format, Config).
 
 parse(File) ->
-    case diameter_make:codec(File, [parse, hrl, return]) of
+    case codec(File, [parse, hrl, return]) of
         {ok, [Dict, _]} ->
             {ok, Dict};
         {error, _} = E ->
@@ -525,7 +526,7 @@ generate({Mods, Bin, N, Mode, Dir}) ->
     B = modify(Bin, Mods ++ [{"@name .*", "@name dict" ++ ?L(N)}]),
     {ok, Dict} = parse(B),
     File = "dict" ++ integer_to_list(N),
-    {_, ok} = {Dict, diameter_make:codec(Dict,
+    {_, ok} = {Dict, codec(Dict,
                                          [{name, File},
                                           {prefix, "base"},
                                           {outdir, Dir},
@@ -543,7 +544,7 @@ generate(forms, File, _) ->
 
 generate(parse, File, Dict) ->
     {ok, [Dict]} = file:consult(File ++ ".D"),  %% assert
-    {ok, [F]} = diameter_make:codec(Dict, [forms, return]),
+    {ok, [F]} = codec(Dict, [forms, return]),
     {ok, _, _, _} = compile:forms(F, [return]);
 
 generate(hrl, _, _) ->
@@ -594,19 +595,19 @@ flatten2(_) ->
         "@avp_vendor_id 333 A1\n",
 
     {ok, [E1, F1]}
-        = diameter_make:codec(Dict1, [erl, forms, return]),
+        = codec(Dict1, [erl, forms, return]),
     ct:pal("~s", [E1]),
     diameter_test1 = M1 = load_forms(F1),
 
     {ok, [D2, E2, F2]}
-        = diameter_make:codec(Dict2, [parse, erl, forms, return]),
+        = codec(Dict2, [parse, erl, forms, return]),
     ct:pal("~s", [E2]),
     diameter_test2 = M2 = load_forms(F2),
 
     Flat = lists:flatten(diameter_make:format(diameter_make:flatten(D2))),
     ct:pal("~s", [Flat]),
     {ok, [E3, F3]}
-        = diameter_make:codec(Flat, [erl, forms, return,
+        = codec(Flat, [erl, forms, return,
                                      {name, "diameter_test3"}]),
     ct:pal("~s", [E3]),
     diameter_test3 = M3 = load_forms(F3),
@@ -659,3 +660,10 @@ norm({_,_} = T) ->
 
 dict() ->
     [0 | orddict:new()].
+
+codec(Dict, Opts0) ->
+    lists:foldl(fun(Opts, ignore) ->
+                        diameter_make:codec(Dict, Opts);
+                   (Opts, Acc) ->
+                        Acc = diameter_make:codec(Dict, Opts)
+                end, ignore, [Opts0, Opts0 ++ [?INDIRECT_INHERITS]]).
