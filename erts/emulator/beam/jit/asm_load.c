@@ -922,12 +922,14 @@ static const BeamDebugTab *finish_debug_table(LoaderState *stp,
 
     for (i = 0; i < item_count; i++) {
         Uint num_vars = debug->items[i].num_vars;
+        Uint num_calls_terms = debug->items[i].num_calls_terms;
 
         debug_tab_items[i].location_index = debug->items[i].location_index;
         debug_tab_items[i].frame_size = debug->items[i].frame_size;
         debug_tab_items[i].num_vars = num_vars;
+        debug_tab_items[i].num_calls_terms = num_calls_terms;
         debug_tab_items[i].first = debug_tab_terms;
-        debug_tab_terms += 2 * num_vars;
+        debug_tab_terms += 2 * num_vars + num_calls_terms;
     }
 
     return debug_tab_ro;
