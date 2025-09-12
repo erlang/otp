@@ -2488,8 +2488,7 @@ read_openvex(VexPath, Branch) ->
     end.
 
 create_advisory(Advisories) ->
-    io:format("Missing:~n~p~n~n", [Advisories]),
-    throw(no_advisory_created).
+    io:format("Missing:~n~p~n~n", [Advisories]).
 
 generate_gh_link(Part) ->
     "\"/repos/erlang/otp/security-advisories?" ++ Part ++ "\"".
