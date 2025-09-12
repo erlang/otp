@@ -1011,6 +1011,14 @@ Mnesia forwards calls to the following functions:
 - mnesia:index_match_object/4 (index_match_object/2)
 - mnesia:index_read/3
 - mnesia:table_info/2
+- mnesia:foldl/4 (foldl/3)
+- mnesia:foldr/4 (foldr/3)
+- mnesia:select/3 (select/2)
+- mnesia:select/4
+- mnesia:select/1
+- mnesia:select_reverse/3 (select_reverse/2)
+- mnesia:select_reverse/4
+- mnesia:clear_table/1
 
 to the corresponding:
 
@@ -1028,6 +1036,14 @@ to the corresponding:
 - AccessMod:index_match_object(ActivityId, Opaque, Tab, Pattern, Attr, LockKind)
 - AccessMod:index_read(ActivityId, Opaque, Tab, SecondaryKey, Attr, LockKind)
 - AccessMod:table_info(ActivityId, Opaque, Tab, InfoItem)
+- AccessMod:foldl(ActivityId, Opaque, Fun, Acc, Tab, LockKind)
+- AccessMod:foldr(ActivityId, Opaque, Fun, Acc, Tab, LockKind)
+- AccessMod:select(ActivityId, Opaque, Tab, Spec, LockKind)
+- AccessMod:select(ActivityId, Opaque, Tab, Spec, NObjects, LockKind)
+- AccessMod:select_cont(ActivityId, Opaque, Cont)
+- AccessMod:select_reverse(ActivityId, Opaque, Tab, Spec, LockKind)
+- AccessMod:select_reverse(ActivityId, Opaque, Tab, Spec, NObjects, LockKind)
+- AccessMod:clear_table(ActivityId, Opaque, Tab, Obj)
 
 `ActivityId` is a record that represents the identity of the enclosing Mnesia
 activity. The first field (obtained with
