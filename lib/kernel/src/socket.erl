@@ -2368,11 +2368,11 @@ fmt_sockaddr(#{family := Fam,
 	IP                -> inet_parse:ntoa(IP) ++ ":" ++ fmt_service(SockAddr)
     end;
 fmt_sockaddr(#{family := vsock, port := Port, cid := Cid}, _Proto) ->
-    Cid = case Cid of
+    CidStr = case Cid of
         16#ffffffff -> "-1";
         Cid         -> integer_to_list(Cid)
     end,
-    "vsock:" ++ Cid ++ ":" ++ integer_to_list(Port);
+    "vsock:" ++ CidStr ++ ":" ++ integer_to_list(Port);
 fmt_sockaddr(#{family := local,
 	       path   := Path}, _Proto) ->
     "local:" ++
