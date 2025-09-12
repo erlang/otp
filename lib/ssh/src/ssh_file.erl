@@ -176,7 +176,7 @@ Clients uses all files stored in the [USERDIR](`m:ssh_file#USERDIR`) directory.
 -include_lib("kernel/include/file.hrl").
 
 -include("ssh.hrl").
--include_lib("/home/ejakwit/src/tools/src/tools.hrl").
+
 %% experimental:
 -export([decode_ssh_file/4
         ]).
@@ -281,7 +281,6 @@ See the api description in
       Options :: ssh_server_key_api:daemon_key_cb_options(none()).
 
 host_key(Algorithm, Opts) ->
-    ?DBG(),
     read_ssh_key_file(system, private, Algorithm, Opts).
 
 %%%................................................................
@@ -311,7 +310,6 @@ files when reading them.
       Options :: ssh_server_key_api:daemon_key_cb_options(optimize_key_lookup()).
 
 is_auth_key(Key0, User, Opts) ->
-    ?DBG(),
     Dir = ssh_dir({remoteuser,User}, Opts),
     ok = assure_file_mode(Dir, user_read),
     KeyType = normalize_alg(
@@ -353,7 +351,6 @@ Note that EdDSA passhrases (Curves 25519 and 448) are not implemented.
       Options :: ssh_client_key_api:client_key_cb_options(none()).
 
 user_key(Algorithm, Opts) ->
-    ?DBG(),
     read_ssh_key_file(user, private, Algorithm, Opts).
 
 %%%................................................................
@@ -388,7 +385,6 @@ supported by `ssh_file`.
       Result :: boolean() | {error, term()} .
 
 is_host_key(Key0, Hosts0, Port, Algorithm, Opts) ->
-    ?DBG(),
     Dir = ssh_dir(user, Opts),
     File = filename:join(Dir, "known_hosts"),
     Hosts = [list_to_binary(H) || H <- normalize_hosts_list(Hosts0, Port)],
@@ -428,12 +424,10 @@ supported by `ssh_file`.
       Result :: ok | {error, term()}.
 
 add_host_key(Hosts0, Port, Key, Opts) ->
-    ?DBG(),
     File = file_name(user, "known_hosts", Opts),
     assure_file_mode(File, user_write),
     case file:open(File, [write,append]) of
 	{ok, Fd} ->
-            ?DBG(),
             KeyType = erlang:atom_to_binary(ssh_transport:public_algo(Key), latin1),
             EncKey = ssh_message:ssh2_pubkey_encode(Key),
             Hosts1 = normalize_hosts_list(Hosts0, Port),
@@ -443,10 +437,8 @@ add_host_key(Hosts0, Port, Key, Opts) ->
                                   "\n"]),
             Res = file:write(Fd, SshBin),
 	    file:close(Fd),
-            ?DBG(),
 	    Res;
 	{error,Error} ->
-            ?DBG(),
 	    {error,{add_host_key,Error}}
     end.
 
@@ -495,7 +487,6 @@ OpenSSH public key.
                                        Attrs :: {Key::string(), Value::string()} .
 
 decode(KeyBin, ssh2_pubkey) when is_binary(KeyBin) ->
-    ?DBG(),
     ssh_message:ssh2_pubkey_decode(KeyBin);
 
 decode(KeyBin, public_key) when is_binary(KeyBin) ->
@@ -511,14 +502,12 @@ decode(KeyBin, public_key) when is_binary(KeyBin) ->
             false ?= Matches(KeyBin, <<"\n----">>, rfc4716_key),
             openssh_key
         end,
-    ?DBG_TERM(Type),
     decode(KeyBin, Type);
 
 decode(KeyBin, Type) when is_binary(KeyBin) andalso 
                           (Type==rfc4716_key orelse
                            Type==openssh_key_v1 % Experimental
                           ) ->
-    ?DBG_TERM(Type),
     %% Ex: <<"---- BEGIN SSH2 PUBLIC KEY ----\n....">>     (rfc4716_key)
     %%     <<"-----BEGIN OPENSSH PRIVATE KEY-----\n....">> (openssh_key_v1)
     case decode_ssh_file(public, any, KeyBin, ignore) of
@@ -538,7 +527,6 @@ decode(KeyBin, Type) when is_binary(KeyBin) andalso
     end;
 
 decode(KeyBin0, openssh_key) when is_binary(KeyBin0) ->
-    ?DBG("openssh_key"),
     %% Ex: <<"ssh-rsa AAAAB12....3BC someone@example.com">>
     try
         [begin
@@ -555,7 +543,6 @@ decode(KeyBin0, openssh_key) when is_binary(KeyBin0) ->
     end;
 
 decode(Bin, known_hosts) when is_binary(Bin) ->
-    ?DBG("known_hosts"),
     [begin
          Attrs = 
              [
@@ -577,7 +564,6 @@ decode(Bin, known_hosts) when is_binary(Bin) ->
     ];
 
 decode(Bin, auth_keys) when is_binary(Bin) ->
-    ?DBG("auth_keys"),
     [begin
          Attrs = 
              [
@@ -612,7 +598,6 @@ decode(Bin, auth_keys) when is_binary(Bin) ->
     ];
 
 decode(_KeyBin, _Type) ->
-    ?DBG("error(badarg)"),
     error(badarg).
 
 %%%----------------------------------------------------------------
@@ -754,7 +739,6 @@ extract_public_key(#{engine:=_, key_id:=_, algorithm:=Alg} = M) ->
 %%%---------------- SERVER FUNCTIONS ------------------------------
 
 lookup_auth_keys(KeyType, Key, File, Opts) ->
-    ?DBG(),
     case get_kb_option(optimize, Opts, time) of
         time ->
             case file:read_file(File) of
@@ -782,11 +766,9 @@ lookup_auth_keys(KeyType, Key, File, Opts) ->
     end.
 
 
-find_key(KeyType, Key, [L = <<"#",_/binary>> | Lines]) ->
-    ?DBG("# comment clause = ~s", [L]),
+find_key(KeyType, Key, [<<"#",_/binary>> | Lines]) ->
     find_key(KeyType, Key, Lines);
 find_key(KeyType, Key, [Line | Lines]) ->
-    ?DBG(),
     try
         [E1,E2|Es] = binary:split(Line, <<" ">>, [global,trim_all]),
         [normalize_alg(E1), normalize_alg(E2) | Es] % KeyType is in first or second element
@@ -802,7 +784,6 @@ find_key(KeyType, Key, [Line | Lines]) ->
             find_key(KeyType, Key, Lines)
     end;
 find_key(_, _, _) ->
-    ?DBG(),
     false.
 
 
@@ -866,7 +847,6 @@ encode_key(Key) ->
 
 %%%--------------------------------
 read_test_loop(Fd, Test) ->
-    ?DBG(""),
     case io:get_line(Fd, '') of
 	eof ->
             file:close(Fd),
@@ -891,7 +871,6 @@ read_test_loop(Fd, Test) ->
 %%%--------------------------------
 
 lookup_host_keys(Hosts, KeyType, Key, File, Opts) ->
-    ?DBG(),
     case get_kb_option(optimize, Opts, time) of
         time ->
             case file:read_file(File) of
@@ -951,11 +930,9 @@ lookup_host_keys(Hosts, KeyType, Key, File, Opts) ->
 
 
 find_host_key(Hosts, KeyType, EncKey, [<<"#",_/binary>>|PatternLines]) ->
-    ?DBG("# comment clause"),
     %% skip comments
     find_host_key(Hosts, KeyType, EncKey, PatternLines);
 find_host_key(Hosts, KeyType, EncKey, [Line|PatternLines]) ->
-    ?DBG(),
     %% split the line into the separate parts:
     %%    option? pattern(,pattern)* keytype key comment?
     SplitLine = binary:split(Line, <<" ">>, [global,trim_all]),
@@ -966,7 +943,6 @@ find_host_key(Hosts, KeyType, EncKey, [Line|PatternLines]) ->
             find_host_key(Hosts, KeyType, EncKey, PatternLines)
     end;
 find_host_key(_, _, _, []) ->
-    ?DBG(),
     false.
 
 
@@ -1142,7 +1118,6 @@ get_kb_option(Key, Opts, Default) ->
 
 read_ssh_key_file(Role, PrivPub, Algorithm, Opts) ->
     File = file_name(Role, file_base_name(Role,Algorithm), Opts),
-    ?DBG_TERM(File),
     Password = %% Pwd for Host Keys is an undocumented option and should not be used
         proplists:get_value(identity_pass_phrase(Algorithm), Opts, ignore),
 
@@ -1180,11 +1155,11 @@ read_ssh_key_file(Role, PrivPub, Algorithm, Opts) ->
       Key :: public_key:private_key() | public_key:public_key() .
 
 decode_ssh_file(PrivPub, Algorithm, Pem, Password) ->
-    ?DBG("Pem = ~w~n", [Pem]),
     try decode_pem_keys(Pem, Password)
     of
         {ok, Keys} when Algorithm == any ->
             {ok, Keys};
+
         {ok, Keys0} ->
             case [{Key,Attrs} || {Key,Attrs} <- Keys0,
                                  ssh_transport:valid_key_sha_alg(PrivPub, Key, Algorithm)] of
@@ -1204,7 +1179,6 @@ decode_ssh_file(PrivPub, Algorithm, Pem, Password) ->
 
 
 decode_pem_keys(RawBin, Password) ->
-    ?DBG(),
     PemLines = split_in_nonempty_lines(
                  binary:replace(RawBin, [<<"\\\n">>,<<"\\\r\\\n">>],  <<"">>, [global])
                 ),
@@ -1214,11 +1188,9 @@ decode_pem_keys([], _, Acc) ->
 
 
 decode_pem_keys(PemLines, Password, Acc) ->
-    ?DBG(),
     %% Private Key
     try get_key_part(PemLines) of
         {'openssh-key-v1', Bin, Attrs, RestLines} ->
-            ?DBG("{'openssh-key-v1', Bin, Attrs, RestLines} -----BEGIN OPENSSH PRIVATE KEY-----"),
             %% -----BEGIN OPENSSH PRIVATE KEY-----
             %% Holds both public and private keys
             KeyPairs = openssh_key_v1_decode(Bin, Password),
@@ -1227,14 +1199,12 @@ decode_pem_keys(PemLines, Password, Acc) ->
             decode_pem_keys(RestLines, Password, Keys ++ Acc);
 
         {rfc4716, Bin, Attrs, RestLines} ->
-            ?DBG("{rfc4716, Bin, Attrs, RestLines} ---- BEGIN SSH2 PUBLIC KEY ----"),
             %% ---- BEGIN SSH2 PUBLIC KEY ----
             %% rfc4716 only defines public keys
             Key = ssh_message:ssh2_pubkey_decode(Bin),
             decode_pem_keys(RestLines, Password, [{Key,Attrs}|Acc]);
 
         {Type, Bin, Attrs, RestLines} ->
-            ?DBG("{Type, Bin, Attrs, RestLines} -----BEGIN (RSA|DSA|EC) PRIVATE KEY-----"),
             %% -----BEGIN (RSA|DSA|EC) PRIVATE KEY-----
             %% and possibly others
             case get_encrypt_hdrs(Attrs) of
@@ -1545,8 +1515,7 @@ split_in_lines(Bin) ->
     binary:split(Bin, [<<"\n">>,<<"\r\n">>], [global,trim_all]).
 
 skip_blank_lines_and_comments(Lines) ->
-    lists:filter(fun(Comment = <<"#",_/binary>>) ->
-                         ?DBG_TERM(Comment),
+    lists:filter(fun(<<"#",_/binary>>) ->
                          %% skip comments
                          false;
                     (L) ->
