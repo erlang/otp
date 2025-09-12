@@ -33,8 +33,6 @@
     exit(1); \
 }
 
-#define MAIN(argc, argv) int main(argc, argv)
-
 extern int errno;
 
 typedef struct {
@@ -70,10 +68,10 @@ typedef struct {
 PORT_TEST_DATA* port_data;
 
 static int packet_loop();
-static void reply();
-static void write_reply();
-static void ensure_buf_big_enough();
-static int readn();
+static void reply(char *buf, int size);
+static void write_reply(char *buf, int size);
+static void ensure_buf_big_enough(int size);
+static int readn(int fd, unsigned char* buf, int size);
 static void delay(unsigned ms);
 static void dump(unsigned char* buf, int sz, int max);
 static void replace_stdout(char* filename);
@@ -103,7 +101,7 @@ int err;
 }
 #endif
 
-MAIN(argc, argv)
+int main(argc, argv)
 int argc;
 char *argv[];
 {
