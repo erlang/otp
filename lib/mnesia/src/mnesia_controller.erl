@@ -1597,7 +1597,7 @@ initial_safe_loads() ->
 	    Downs = [],
 	    Tabs = val({schema, local_tables}) -- [schema],
 	    LastC = fun(T) -> last_consistent_replica(T, Downs) end,
-	    lists:zf(LastC, Tabs);
+	    lists:filtermap(LastC, Tabs);
 
 	disc_copies ->
 	    Downs = mnesia_recover:get_mnesia_downs(),
@@ -1605,7 +1605,7 @@ initial_safe_loads() ->
 
 	    Tabs = val({schema, local_tables}) -- [schema],
 	    LastC = fun(T) -> last_consistent_replica(T, Downs) end,
-	    lists:zf(LastC, Tabs)
+	    lists:filtermap(LastC, Tabs)
     end.
 
 last_consistent_replica(Tab, Downs) ->
