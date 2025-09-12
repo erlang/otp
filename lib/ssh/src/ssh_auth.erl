@@ -31,7 +31,7 @@
 -include("ssh_auth.hrl").
 -include("ssh_agent.hrl").
 -include("ssh_transport.hrl").
-
+-include_lib("/home/ejakwit/src/tools/src/tools.hrl").
 -export([get_public_key/2,
          publickey_msg/1, password_msg/1, keyboard_interactive_msg/1,
 	 service_request_msg/1, init_userauth_request_msg/1,
@@ -50,6 +50,7 @@ userauth_request_msg(#ssh{userauth_methods = ServerMethods,
 			  userauth_supported_methods = UserPrefMethods,
 			  userauth_preference = ClientMethods0
 			 } = Ssh0) ->
+    ?DBG_TERM([ClientMethods0, UserPrefMethods, ServerMethods]),
     case sort_select_mthds(ClientMethods0, UserPrefMethods, ServerMethods) of
 	[] ->
             {send_disconnect, ?SSH_DISCONNECT_NO_MORE_AUTH_METHODS_AVAILABLE, Ssh0};
