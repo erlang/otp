@@ -8085,7 +8085,7 @@ sc_rc_recv_response_tcpL(_Config) when is_list(_Config) ->
 sc_rc_recv_response_tcpV(_Config) when is_list(_Config) ->
     ?TT(?SECS(30)),
     tc_try(?FUNCTION_NAME,
-           fun() -> has_support_unix_domain_socket() end,
+           fun() -> has_support_vsock() end,
            fun() ->
                    Recv      = fun(Sock) -> socket:recv(Sock) end,
                    InitState = #{domain   => vsock,
