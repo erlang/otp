@@ -32,6 +32,7 @@
     "system_principles/versions.md": [],
     "system_principles/misc.md": [],
     "vulnerabilities/vulnerabilities.md": [],
+    "sbom/sbom.md": [],
     "embedded/embedded.md": [],
     "getting_started/getting_started.md": [],
     "getting_started/seq_prog.md": [],

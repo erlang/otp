@@ -1102,8 +1102,15 @@ remove_duplicate_packages(VendorPackages, #{~"packages" := Packages}=Spdx) ->
                             case lists:search(fun (#{~"SPDXID" := Id}) -> VendorId == Id end, Packages) of
                                 {value, P} ->
                                     Packages1 = Apc -- [P],
-                                    Comment = maps:get(~"comment", P, ~""),
-                                    Acc#{~"app" := [P#{~"comment" => <<Comment/binary, " vendor package">>} | Packages1]};
+                                    Comment = maps:get(~"comment", P, <<>>),
+                                    Comment1 =
+                                        case Comment of
+                                            <<>> ->
+                                                ~"vendor package";
+                                            _ ->
+                                                <<Comment/binary, " vendor package">>
+                                        end,
+                                    Acc#{~"app" := [P#{~"comment" => Comment1} | Packages1]};
                                 _ ->
                                     Acc#{~"vendor" := [Vendor | Vcc]}
                             end
@@ -2086,7 +2093,7 @@ root_vendor_packages() ->
 minimum_vendor_packages() ->
     %% self-contained
     root_vendor_packages() ++
-        [~"tcl", ~"STL", ~"json-test-suite", ~"openssl", ~"Autoconf", ~"wx", ~"jquery", ~"tablesorter"].
+        [~"tcl", ~"STL", ~"json-test-suite", ~"openssl", ~"Autoconf", ~"wx-doc-src", ~"jquery", ~"tablesorter"].
 
 test_copyright_not_empty(#{~"packages" := Packages}) ->
     true = lists:all(fun (#{~"copyrightText" := Copyright}) -> Copyright =/= ~"" end, Packages),

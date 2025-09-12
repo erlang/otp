@@ -7,4 +7,5 @@ reference_manual:Erlang Reference Manual
 efficiency_guide:Efficiency Guide
 tutorial:Interoperability Tutorial
 embedded:Embedded Systems User's Guide
+sbom:Software Bill Of Materials
 vulnerabilities:VEX Statements
