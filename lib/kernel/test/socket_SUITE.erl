@@ -112,6 +112,7 @@
          sc_lc_recv_response_tcp4/1,
          sc_lc_recv_response_tcp6/1,
          sc_lc_recv_response_tcpL/1,
+         sc_lc_recv_response_tcpV/1,
          sc_lc_recvfrom_response_udp4/1,
          sc_lc_recvfrom_response_udp6/1,
          sc_lc_recvfrom_response_udpL/1,
@@ -132,6 +133,7 @@
          sc_rc_recvmsg_response_tcp4/1,
          sc_rc_recvmsg_response_tcp6/1,
          sc_rc_recvmsg_response_tcpL/1,
+         sc_rc_recvmsg_response_tcpV/1,
 
          sc_rs_recv_send_shutdown_receive_tcp4/1,
          sc_rs_recv_send_shutdown_receive_tcp6/1,
@@ -306,6 +308,7 @@ sc_lc_cases() ->
      sc_lc_recv_response_tcp4,
      sc_lc_recv_response_tcp6,
      sc_lc_recv_response_tcpL,
+     sc_lc_recv_response_tcpV,
 
      sc_lc_recvfrom_response_udp4,
      sc_lc_recvfrom_response_udp6,
@@ -333,7 +336,8 @@ sc_rc_cases() ->
 
      sc_rc_recvmsg_response_tcp4,
      sc_rc_recvmsg_response_tcp6,
-     sc_rc_recvmsg_response_tcpL
+     sc_rc_recvmsg_response_tcpL,
+     sc_rc_recvmsg_response_tcpV
     ].
 
 %% These cases tests what happens when the socket is shutdown/closed remotely
@@ -6347,6 +6351,26 @@ sc_lc_recv_response_tcpL(_Config) when is_list(_Config) ->
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to test what happens when a socket is
+%% locally closed while the process is calling the recv function.
+%% Socket is VSOCK (stream) socket.
+
+sc_lc_recv_response_tcpL(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
+    tc_try(sc_lc_recv_response_tcpL,
+           fun() ->
+		   has_support_vsock()
+	   end,
+           fun() ->
+                   Recv      = fun(Sock) -> socket:recv(Sock) end,
+                   InitState = #{domain   => vsock,
+                                 protocol => default,
+                                 recv     => Recv},
+                   ok = sc_lc_receive_response_tcp(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 sc_lc_receive_response_tcp(InitState) ->
     %% This (acceptor) is the server that accepts connections.
@@ -9075,6 +9099,24 @@ sc_rc_recvmsg_response_tcpL(_Config) when is_list(_Config) ->
            fun() ->
                    Recv      = fun(Sock) -> socket:recvmsg(Sock) end,
                    InitState = #{domain   => local,
+                                 protocol => default,
+                                 recv     => Recv},
+                   ok = sc_rc_receive_response_tcp(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to test what happens when a socket is
+%% remotely closed while the process is calling the recvmsg function.
+%% Socket is Unix Domain (stream) socket.
+
+sc_rc_recvmsg_response_tcpV(_Config) when is_list(_Config) ->
+    ?TT(?SECS(30)),
+    tc_try(sc_rc_recvmsg_response_tcpV,
+           fun() -> has_support_vsock() end,
+           fun() ->
+                   Recv      = fun(Sock) -> socket:recvmsg(Sock) end,
+                   InitState = #{domain   => vsock,
                                  protocol => default,
                                  recv     => Recv},
                    ok = sc_rc_receive_response_tcp(InitState)
