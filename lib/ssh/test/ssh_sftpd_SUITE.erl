@@ -329,7 +329,7 @@ read_file(Config) when is_list(Config) ->
                        ?SSH_FXF_OPEN_EXISTING),
          R2 = req_id(),
          {ok, <<?SSH_FXP_DATA, ?UINT32(R2), ?UINT32(_Length), Data/binary>>, _} =
-             read_file(Handle, 100, 0, Cm, Channel, R2),
+             read_file(Handle, 1000, 0, Cm, Channel, R2),
          {ok, Data} = file:read_file(FileName)
      end || _I <- lists:seq(0, ?MAX_HANDLES-1)],
     ReqId = req_id(),
@@ -391,12 +391,12 @@ write_file(Config) when is_list(Config) ->
 
     NewReqId = 1,
     Data =  list_to_binary("Write file test"),
-
+    DataSize = byte_size(Data),
     {ok, <<?SSH_FXP_STATUS, ?UINT32(NewReqId), ?UINT32(?SSH_FX_OK),
 	  _/binary>>, _}
 	= write_file(Handle, Data, 0, Cm, Channel, NewReqId),
 
-    {ok, Data} = file:read_file(FileName).
+    {ok, <<Data:DataSize/binary, _/binary>>} = file:read_file(FileName).
 
 %%--------------------------------------------------------------------
 remove_file(Config) when is_list(Config) ->
