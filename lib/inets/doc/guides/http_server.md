@@ -364,7 +364,7 @@ the schema and the tables are already created.
 ```erlang
 -module(mnesia_test).
 -export([start/0,load_data/0]).
--include_lib("mod_auth.hrl").
+-include_lib("inets/include/mod_auth.hrl").
 
 first_start() ->
     mnesia:create_schema([node()]),
