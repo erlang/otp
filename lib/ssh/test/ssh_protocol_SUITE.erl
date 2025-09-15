@@ -585,7 +585,8 @@ do_gex_client_init(Config, {Min,N,Max}, {G,P}) ->
 	ssh_trpt_test_lib:exec(
 	  [{set_options, [print_ops, print_seqnums, print_messages]},
 	   {connect,
-	    ssh_test_lib:server_host(Config),ssh_test_lib:server_port(Config),
+	    ssh_test_lib:server_host(Config),
+            ssh_test_lib:server_port(Config),
 	    [{silently_accept_hosts, true},
 	     {user_dir, user_dir(Config)},
 	     {user_interaction, false},
