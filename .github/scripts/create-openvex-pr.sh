@@ -25,18 +25,20 @@ REPO=$1
 BRANCH_NAME=$2
 # Fetch PR data using gh CLI
 PR_STATUS=$(gh pr view "$BRANCH_NAME" --repo "$REPO" --json state -q ".state")
+FOUND_PR=$?
 
-if [ $? -ne 0 ]; then
-  echo "Failed to fetch PR #$BRANCH_NAME from $REPO"
-  exit 2
+if [ "$FOUND_PR" -ne 0 ]; then
+  echo "No PR with name #$BRANCH_NAME in $REPO exists."
+  echo "A new PR will be created"
 fi
 
 git config user.name "github-actions[bot]"
 git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
 # Check if PR is closed
-if [ "$PR_STATUS" = "CLOSED" ] || [ "$PR_STATUS" = "MERGED" ]; then
-  echo "✅ Pull request #$BRANCH_NAME is CLOSED or MERGED."
+if [ "$PR_STATUS" = "CLOSED" ] || [ "$PR_STATUS" = "MERGED" ] || [ "$FOUND_PR" -ne 0 ]; then
+  echo "Pull request #$BRANCH_NAME is CLOSED or MERGED."
+  echo "✅ A new pull request with name #$BRANCH_NAME will be created."
   git branch "$BRANCH_NAME" master
   git checkout "$BRANCH_NAME"
   git add make/openvex.table
