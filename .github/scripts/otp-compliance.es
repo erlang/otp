@@ -2539,7 +2539,8 @@ verify_openvex(#{create_pr := PR}) ->
           end, Branches),
     case PR of
         true ->
-            cmd(".github/scripts/create-openvex-pr.sh " ++ ?GH_ACCOUNT ++ " vex");
+            Result = cmd(".github/scripts/create-openvex-pr.sh " ++ ?GH_ACCOUNT ++ " vex"),
+            io:format("~s~n", [unicode:characters_to_binary(Result)]);
         false ->
             ok
     end.
