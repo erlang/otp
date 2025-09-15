@@ -480,7 +480,6 @@ demonitor(Process *c_p, Eterm ref, Eterm *multip)
    }
    case ERTS_ML_STATE_ALIAS_ONCE:
    case ERTS_ML_STATE_ALIAS_DEMONITOR:
-       /* fall through... */
    default:
        erts_monitor_tree_delete(&ERTS_P_MONITORS(c_p), mon);
        if (mon->flags & ERTS_ML_FLG_PRIO_ML)
@@ -641,8 +640,7 @@ flush_messages:
 	    BIF_TRAP3(flush_monitor_messages_trap, BIF_P,
 		      BIF_ARG_1, multi, res);
 	}
-        /* Fall through... */
-
+        ERTS_FALLTHROUGH();
     case am_true:
 	if (multi == am_true && flush)
 	    goto flush_messages;
@@ -1136,12 +1134,13 @@ BIF_RETTYPE erts_internal_spawn_request_4(BIF_ALIST_4)
 
 badarg:
     BIF_RET(am_badarg);
+
 system_limit:
     error = am_system_limit;
     goto send_error;
+
 badopt:
     error = am_badopt;
-    /* fall through... */
 send_error: {
         Eterm ref = erts_make_ref(BIF_P);
         if (!(so.flags & SPO_NO_EMSG))
@@ -2208,7 +2207,7 @@ BIF_RETTYPE process_flag_2(BIF_ALIST_2)
 	       BIF_RET(old_value);
            }
        }
-       /* Fall through and try process_flag_aux() ... */
+       /* Continue and try process_flag_aux() ... */
    }
 
    old_value = process_flag_aux(BIF_P, NULL, BIF_ARG_1, BIF_ARG_2);
@@ -2397,7 +2396,7 @@ static Sint remote_send(Process *p, DistEntry *dep,
             res = 0;
             break;
         }
-        /* Fall through... */
+        ERTS_FALLTHROUGH();
     case ERTS_DSIG_PREP_PENDING: {
 
         code = erts_dsig_send_msg(&ctx, to, full_to, msg, prio);
@@ -2571,7 +2570,7 @@ do_send(Process *p, Eterm to, Eterm msg, Eterm return_term, Eterm *refp,
 		    ret_val = SEND_YIELD_RETURN;
 		    break;
 		}
-		/* Fall through */
+		ERTS_FALLTHROUGH();
 	    case ERTS_PORT_OP_SCHEDULED:
 		if (is_not_nil(*refp)) {
 		    ASSERT(is_internal_ordinary_ref(*refp));
