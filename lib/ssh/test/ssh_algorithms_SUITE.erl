@@ -435,7 +435,6 @@ sshc_simple_exec_os_cmd(Config) ->
 %%--------------------------------------------------------------------
 %% Connect to the ssh server of the OS
 sshd_simple_exec(Config) ->
-    ssh_dbg:on([ssh_messages, authentication]),
     ClientPubKeyOpts =
         case proplists:get_value(tag_alg,Config) of
             {public_key,Alg} -> [{pref_public_key_algs,Alg}];
