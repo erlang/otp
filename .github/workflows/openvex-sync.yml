@@ -51,9 +51,13 @@ jobs:
         with:
           vexctl-release: '0.3.0'
 
+      - name: Authenticate gh
+        run: |
+          echo "${{ secrets.OPENVEX_TOKEN }}" | gh auth login --with-token
+
       - name: 'Open OpenVEX Pull Requests for newly released vulnerabilities'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          REPO: ${{ github.repository }}
         run: |
           .github/scripts/otp-compliance.es vex verify -p
+        # env:
+          # GH_TOKEN: ${{ secrets.OPENVEX_TOKEN }}
+          # REPO: ${{ github.repository }}
