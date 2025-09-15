@@ -593,11 +593,9 @@ maybe_resumption(_) ->
     ok.
 
 maybe_generate_client_shares(#{versions := [?TLS_1_3|_],
-                               supported_groups :=
-                                   #supported_groups{
-                                      supported_groups = [Group|_]}}) ->
-    %% Generate only key_share entry for the most preferred group
-    ssl_cipher:generate_client_shares([Group]);
+                               psk_groups := Groups}) ->
+    %% Default will be the list of only the most preferred supported group
+    generate_client_shares(Groups);
 maybe_generate_client_shares(_) ->
     undefined.
 
