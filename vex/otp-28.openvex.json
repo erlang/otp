@@ -62,38 +62,6 @@
     },
     {
       "vulnerability": {
-        "name": "CVE-2025-4748"
-      },
-      "timestamp": "2025-08-21T10:55:45.97513015+02:00",
-      "products": [
-        {
-          "@id": "pkg:github/otp/erlang@OTP-28.0"
-        },
-        {
-          "@id": "pkg:otp/stdlib@7.0"
-        }
-      ],
-      "status": "affected",
-      "action_statement": "Mitigation: Update to pkg:otp/stdlib@7.0.1",
-      "action_statement_timestamp": "2025-08-21T10:55:45.97513015+02:00"
-    },
-    {
-      "vulnerability": {
-        "name": "CVE-2025-4748"
-      },
-      "timestamp": "2025-08-21T10:55:45.990630892+02:00",
-      "products": [
-        {
-          "@id": "pkg:github/otp/erlang@OTP-28.0.1"
-        },
-        {
-          "@id": "pkg:otp/stdlib@7.0.1"
-        }
-      ],
-      "status": "fixed"
-    },
-    {
-      "vulnerability": {
         "name": "CVE-2025-4575"
       },
       "timestamp": "2025-08-21T10:55:46.006302174+02:00",

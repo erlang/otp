@@ -1,0 +1,59 @@
+## %CopyrightBegin%
+##
+## SPDX-License-Identifier: Apache-2.0
+##
+## Copyright Ericsson AB 2024-2025. All Rights Reserved.
+##
+## Licensed under the Apache License, Version 2.0 (the "License");
+## you may not use this file except in compliance with the License.
+## You may obtain a copy of the License at
+##
+##     http://www.apache.org/licenses/LICENSE-2.0
+##
+## Unless required by applicable law or agreed to in writing, software
+## distributed under the License is distributed on an "AS IS" BASIS,
+## WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+## See the License for the specific language governing permissions and
+## limitations under the License.
+##
+## %CopyrightEnd%
+
+## Periodically syncs OpenVEX files against Erlang OTP Securities,
+## creating an automatic PR with the missing published securities.
+name: OpenVEX Securities Syncing
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: 0 1 * * *
+
+permissions:
+  contents: read
+
+jobs:
+  run-scheduled-openvex-sync:
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: read
+      actions: write
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # ratchet:actions/checkout@v4.2.2
+        with:
+          ref: 'master' # '' = default branch
+
+      - uses: erlef/setup-beam@5304e04ea2b355f03681464e683d92e3b2f18451 # racket:actions/checkout@v1
+        with:
+          otp-version: '28'
+
+      - uses: openvex/setup-vexctl@e85ca48f3c8a376289f6476129d59cda82147e71 # ratchet:openvex/setup-vexctl@v0.1.1
+        with:
+          vexctl-release: '0.3.0'
+
+      - name: 'Open OpenVEX Pull Requests for newly released vulnerabilities'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          .github/scripts/otp-compliance.es vex verify -p
