@@ -2179,45 +2179,44 @@ do_handle_cert_file(File, PemCacheName) ->
 handle_key_file(#{keyfile := File} = CertKey, PemCacheName) ->
     case file:read_file(File) of
         {ok, Pem} ->
-            case public_key:pem_decode(Pem) of
+            Password = maps:get(password, CertKey, ""),
+            Decoded = [{Entry, try_pem_entry_decode(Entry, Password)} || Entry <- public_key:pem_decode(Pem)],
+            case [Entry || {Entry, {ok, DecodedEntry}} <- Decoded, is_key(DecodedEntry)] of
                 [KeyEntry] ->
-                    Password = maps:get(password, CertKey, ""),
-                    try public_key:pem_entry_decode(KeyEntry, Password) of
-                        Key ->
-                            handle_key(PemCacheName, File, Key, [KeyEntry])
-                    catch _:_ ->
+                    ok = ssl_pem_cache:insert(PemCacheName, File, [KeyEntry]),
+                    ok;
+                _ ->
+                    case [Entry || {Entry, error} <- Decoded] of
+                        [] ->
+                            Unexpected = [element(1, DecodedEntry) || {_, {ok, DecodedEntry}} <- Decoded],
+                            {error, {unexpected_content, Unexpected}};
+                        _  ->
                             {error, wrong_password}
-                    end;
-                Unexpected ->
-                    {error, {unexpected_content, Unexpected}}
-            end;
-        {error, _} =  Error ->
-            Error
+                    end
+            end
     end;
 handle_key_file(_,_) ->
     ok.
 
-handle_key(PemCacheName, File, Key, Content) ->
-    case check_key(Key) of
-        ok ->
-            ssl_pem_cache:insert(PemCacheName, File, Content),
-            ok;
-         Error ->
-            Error
+try_pem_entry_decode(Entry, Password) ->
+    try public_key:pem_entry_decode(Entry, Password) of
+        DecodedEntry -> {ok, DecodedEntry}
+    catch _:_ ->
+        error
     end.
 
-check_key(#'RSAPrivateKey'{}) ->
-    ok;
-check_key({#'RSAPrivateKey'{}, #'RSASSA-PSS-params'{}}) ->
-    ok;
-check_key(#'DSAPrivateKey'{}) ->
-    ok;
-check_key(#'ECPrivateKey'{}) ->
-    ok;
-check_key(#'ML-DSAPrivateKey'{}) ->
-    ok;
-check_key(NotKey) ->
-    {error, {unexpected_content, NotKey}}.
+is_key(#'RSAPrivateKey'{}) ->
+    true;
+is_key({#'RSAPrivateKey'{}, #'RSASSA-PSS-params'{}}) ->
+    true;
+is_key(#'DSAPrivateKey'{}) ->
+    true;
+is_key(#'ECPrivateKey'{}) ->
+    true;
+is_key(#'ML-DSAPrivateKey'{}) ->
+    true;
+is_key(_NotKey) ->
+    false.
 
 handle_dh_file(DHFile, PemCacheName) ->
     case file:read_file(DHFile) of
