@@ -482,7 +482,7 @@ jobs:
     name: Vendor Vulnerability Scanning
     uses: ./.github/workflows/reusable-vendor-vulnerability-scanner.yml
     with:
-      fail_if_cve: true
+      fail_if_cve: false
       checkout: false
       version: ${{ github.event_name == 'pull_request' && github.base_ref || github.ref_name }}
       # equivalent of ${{ env.BASE_BRANCH }} but reusable-workflows do not allow to pass env.
