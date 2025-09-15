@@ -23,6 +23,16 @@ limitations under the License.
 
 This document describes the changes made to the Observer application.
 
+## Observer 2.18.1
+
+### Fixed Bugs and Malfunctions
+
+- `etop` will now fully stop before returning from `etop:stop/0`.
+
+  Own Id: OTP-19754 Aux Id: [PR-9815]
+
+[PR-9815]: https://github.com/erlang/otp/pull/9815
+
 ## Observer 2.18
 
 ### Fixed Bugs and Malfunctions

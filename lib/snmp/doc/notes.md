@@ -21,6 +21,30 @@ limitations under the License.
 -->
 # SNMP Release Notes
 
+## SNMP 5.19.1
+
+### Fixed Bugs and Malfunctions
+
+- Using ASN.1 generated code for decode/encode of basic types, starting with Counter64.
+
+  Own Id: OTP-19619 Aux Id: [GH-5756], [PR-9869]
+
+[GH-5756]: https://github.com/erlang/otp/issues/5756
+[PR-9869]: https://github.com/erlang/otp/pull/9869
+
+### Improvements and New Features
+
+- Reworked the timer handling of the (SNMP) manager start notification feature.
+
+  Own Id: OTP-19696 Aux Id: [PR-10014]
+
+- Added missing specs to already documented functions.
+
+  Own Id: OTP-19723 Aux Id: [PR-10087]
+
+[PR-10014]: https://github.com/erlang/otp/pull/10014
+[PR-10087]: https://github.com/erlang/otp/pull/10087
+
 ## SNMP 5.19
 
 ### Improvements and New Features

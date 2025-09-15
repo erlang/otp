@@ -101,6 +101,6 @@
     {applications, [crypto, public_key, kernel, stdlib]},
     {env, []},
     {mod, {ssl_app, []}},
-    {runtime_dependencies, ["stdlib-7.0","public_key-@OTP-19552@","kernel-10.3",
-                            "erts-16.0","crypto-@OTP-19657@", "inets-5.10.7",
+    {runtime_dependencies, ["stdlib-7.0","public_key-1.18.3","kernel-10.3",
+                            "erts-16.0","crypto-5.7", "inets-5.10.7",
                             "runtime_tools-1.15.1"]}]}.

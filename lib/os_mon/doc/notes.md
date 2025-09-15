@@ -23,6 +23,16 @@ limitations under the License.
 
 This document describes the changes made to the OS_Mon application.
 
+## Os_Mon 2.11.1
+
+### Fixed Bugs and Malfunctions
+
+- NIFs and linked-in drivers are now loadable when running in an Erlang source tree on Windows.
+
+  Own Id: OTP-19686 Aux Id: [PR-9969]
+
+[PR-9969]: https://github.com/erlang/otp/pull/9969
+
 ## Os_Mon 2.11
 
 ### Fixed Bugs and Malfunctions

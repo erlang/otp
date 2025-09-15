@@ -23,6 +23,40 @@ limitations under the License.
 
 This document describes the changes made to the Compiler application.
 
+## Compiler 9.0.2
+
+### Fixed Bugs and Malfunctions
+
+- Fixed a compiler crash caused by patch order in destructive update.
+
+  Own Id: OTP-19660 Aux Id: [GH-9903], [PR-9909]
+
+- Fixed a compiler crash in `beam_ssa_pre_codegen` caused by wrong handling of multiple phi patches in the destructive update pass.
+
+  Own Id: OTP-19689 Aux Id: [GH-9987], [PR-9990]
+
+- Fixed a crash when a zip generator contains a map pattern.
+
+  Own Id: OTP-19693 Aux Id: [PR-10009], [GH-10002]
+
+- In rare circumstances, the compiler could crash when compiling code using bit syntax construction.
+
+  Own Id: OTP-19722 Aux Id: [GH-10077], [PR-10090]
+
+- A few minor bugs that could affect the `beam_debug_info` option were fixed.
+
+  Own Id: OTP-19758 Aux Id: [PR-10153]
+
+[GH-9903]: https://github.com/erlang/otp/issues/9903
+[PR-9909]: https://github.com/erlang/otp/pull/9909
+[GH-9987]: https://github.com/erlang/otp/issues/9987
+[PR-9990]: https://github.com/erlang/otp/pull/9990
+[PR-10009]: https://github.com/erlang/otp/pull/10009
+[GH-10002]: https://github.com/erlang/otp/issues/10002
+[GH-10077]: https://github.com/erlang/otp/issues/10077
+[PR-10090]: https://github.com/erlang/otp/pull/10090
+[PR-10153]: https://github.com/erlang/otp/pull/10153
+
 ## Compiler 9.0.1
 
 ### Fixed Bugs and Malfunctions

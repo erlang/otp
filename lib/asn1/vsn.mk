@@ -1,4 +1,4 @@
-ASN1_VSN = 5.4.1
+ASN1_VSN = 5.4.2
 
 # %CopyrightBegin%
 #

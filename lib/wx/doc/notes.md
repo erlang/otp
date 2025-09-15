@@ -23,6 +23,30 @@ limitations under the License.
 
 This document describes the changes made to the Wx application.
 
+## Wx 2.5.2
+
+### Fixed Bugs and Malfunctions
+
+- NIFs and linked-in drivers are now loadable when running in an Erlang source tree on Windows.
+
+  Own Id: OTP-19686 Aux Id: [PR-9969]
+
+- Now avoiding that wx crashes the VM when running on OTP28+ due to one of the new compiler hardening options.
+
+  Own Id: OTP-19724 Aux Id: [GH-9972], [PR-10084]
+
+[PR-9969]: https://github.com/erlang/otp/pull/9969
+[GH-9972]: https://github.com/erlang/otp/issues/9972
+[PR-10084]: https://github.com/erlang/otp/pull/10084
+
+### Improvements and New Features
+
+- `wx` was missing licenses that come from OpenGL documentation and wxWidgets documentation.
+
+  Own Id: OTP-19735 Aux Id: [PR-10094]
+
+[PR-10094]: https://github.com/erlang/otp/pull/10094
+
 ## Wx 2.5.1
 
 ### Fixed Bugs and Malfunctions

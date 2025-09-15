@@ -23,6 +23,47 @@ limitations under the License.
 
 This document describes the changes made to the STDLIB application.
 
+## STDLIB 7.1
+
+### Fixed Bugs and Malfunctions
+
+- The `save_module/1` command in the shell now saves both the locally defined records and the imported records using the `rr/1` command.
+
+  Own Id: OTP-19647 Aux Id: [GH-9816], [PR-9897]
+
+- It's now possible to write `lists:map(fun is_atom/1, [])` or `lists:map(fun my_func/1, [])` in the shell, instead of `lists:map(fun erlang:is_atom/1, [])` or `lists:map(fun shell_default:my_func/1, [])`.
+
+  Own Id: OTP-19649 Aux Id: [GH-9771], [PR-9898]
+
+- The shell no longer crashes when requesting to auto-complete map keys containing non-atoms.
+
+  Own Id: OTP-19659 Aux Id: [PR-9896]
+
+- A remote shell can now exit by closing the input stream, without terminating the remote node.
+
+  Own Id: OTP-19667 Aux Id: [PR-9912]
+
+- Fixed guard check for `is_record/2` in the linter.
+
+  Own Id: OTP-19704 Aux Id: [GH-10020], [PR-10034]
+
+[GH-9816]: https://github.com/erlang/otp/issues/9816
+[PR-9897]: https://github.com/erlang/otp/pull/9897
+[GH-9771]: https://github.com/erlang/otp/issues/9771
+[PR-9898]: https://github.com/erlang/otp/pull/9898
+[PR-9896]: https://github.com/erlang/otp/pull/9896
+[PR-9912]: https://github.com/erlang/otp/pull/9912
+[GH-10020]: https://github.com/erlang/otp/issues/10020
+[PR-10034]: https://github.com/erlang/otp/pull/10034
+
+### Improvements and New Features
+
+- Added a flag option `shell_hints` and function `shell:hints/1`. You can now disable the warning in the shell when a command is taking longer than 5 seconds.
+
+  Own Id: OTP-19759 Aux Id: [PR-10121]
+
+[PR-10121]: https://github.com/erlang/otp/pull/10121
+
 ## STDLIB 7.0.3
 
 ### Fixed Bugs and Malfunctions

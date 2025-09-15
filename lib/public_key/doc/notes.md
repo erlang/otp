@@ -21,6 +21,29 @@ limitations under the License.
 -->
 # Public_Key Release Notes
 
+## Public_Key 1.18.3
+
+### Fixed Bugs and Malfunctions
+
+- NIFs and linked-in drivers are now loadable when running in an Erlang source tree on Windows.
+
+  Own Id: OTP-19686 Aux Id: [PR-9969]
+
+- Added missing reference to `SignedAttributes` so that it now works with the `der_encode` and `der_decode` functions.
+
+  Own Id: OTP-19727 Aux Id: [PR-10091]
+
+[PR-9969]: https://github.com/erlang/otp/pull/9969
+[PR-10091]: https://github.com/erlang/otp/pull/10091
+
+### Improvements and New Features
+
+- Added support for quantum crypto signature algorithm ML-DSA (ssl and public_key) and key exchange algorithm ML-KEM (ssl).
+
+  Own Id: OTP-19552 Aux Id: [PR-10004]
+
+[PR-10004]: https://github.com/erlang/otp/pull/10004
+
 ## Public_Key 1.18.2
 
 ### Fixed Bugs and Malfunctions

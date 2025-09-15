@@ -21,6 +21,17 @@ limitations under the License.
 -->
 # Inets Release Notes
 
+## Inets 9.4.2
+
+### Fixed Bugs and Malfunctions
+
+- Fixed a RFC 2616 violation, where a http request, made by httpc, without providing any options, would be sent with an empty TE header, without also having a TE value in the connection header. Now the default request doesn't send a TE header at all.
+
+  Own Id: OTP-19760 Aux Id: [PR-10120], [GH-10065]
+
+[PR-10120]: https://github.com/erlang/otp/pull/10120
+[GH-10065]: https://github.com/erlang/otp/issues/10065
+
 ## Inets 9.4.1
 
 ### Fixed Bugs and Malfunctions

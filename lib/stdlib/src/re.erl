@@ -100,7 +100,7 @@ node. If incompatible, as a fallback the `import/1` function will re-compile the
 expression from its string format, which is included in
 [`exported()`](`t:exported/0`).
 """.
--doc(#{since => <<"OTP @OTP-19730@">>}).
+-doc(#{since => <<"OTP 28.1">>}).
 -spec import(Exported :: exported()) -> mp().
 import(_) ->
     erlang:nif_error(undef).
@@ -277,7 +277,7 @@ Options:
   (in any way) to any node. The receiving node must import it by calling
   `import/1` to get a compiled regular expression executable on that local node.
 
-  Option `export` and function `import/1` are supported since OTP @OTP-19730@.
+  Option `export` and function `import/1` are supported since OTP 28.1.
 """.
 -spec compile(Regexp, Options) -> {ok, mp() | exported()} | {error, ErrSpec} when
       Regexp :: iodata() | unicode:charlist(),

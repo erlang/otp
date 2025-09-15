@@ -23,6 +23,57 @@ limitations under the License.
 
 This document describes the changes made to the SSL application.
 
+## SSL 11.4
+
+### Fixed Bugs and Malfunctions
+
+- The sender side is now closed if an error occurs on the socket.
+
+  Own Id: OTP-19694 Aux Id: [PR-10011]
+
+- The PEM cache process no longer crashes when a configured file has been deleted before it could be read.
+
+  Own Id: OTP-19698 Aux Id: [GH-9638], [PR-10019]
+
+- Corrected handling of `ssl:sockname/1` for DTLS, so that it now will return the correct result in all situations.
+
+  Own Id: OTP-19736 Aux Id: [PR-10108], [GH-10097]
+
+- Rendering of some tables in the documentation has been improved.
+
+  Own Id: OTP-19752 Aux Id: [PR-10142]
+
+[PR-10011]: https://github.com/erlang/otp/pull/10011
+[GH-9638]: https://github.com/erlang/otp/issues/9638
+[PR-10019]: https://github.com/erlang/otp/pull/10019
+[PR-10108]: https://github.com/erlang/otp/pull/10108
+[GH-10097]: https://github.com/erlang/otp/issues/10097
+[PR-10142]: https://github.com/erlang/otp/pull/10142
+
+### Improvements and New Features
+
+- Added support for quantum crypto signature algorithm ML-DSA (ssl and public_key) and key exchange algorithm ML-KEM (ssl).
+
+  Own Id: OTP-19552 Aux Id: [PR-10004]
+
+- Now allowing`send/2 `to buffer data when using sockets backend. Use 'high_watermark' and 'low_watermark' to steer buffering as gen_tcp does.
+
+  Own Id: OTP-19651 Aux Id: [PR-9879]
+
+- Now allowing the PSK identity to be the empty string in TLS-1.2 for compatibility reasons. It is allowed according to the spec, although providing a proper value makes more sense.
+
+  Own Id: OTP-19688 Aux Id: [PR-9843]
+
+- TLS server now fails early for supplied PEM file issues, such as the file not being found.
+
+  Own Id: OTP-19706 Aux Id: [PR-10046], [GH-9631]
+
+[PR-10004]: https://github.com/erlang/otp/pull/10004
+[PR-9879]: https://github.com/erlang/otp/pull/9879
+[PR-9843]: https://github.com/erlang/otp/pull/9843
+[PR-10046]: https://github.com/erlang/otp/pull/10046
+[GH-9631]: https://github.com/erlang/otp/issues/9631
+
 ## SSL 11.3.2
 
 ### Fixed Bugs and Malfunctions
