@@ -1088,6 +1088,12 @@ bit_syntax(Config) ->
                 end.
               d(<<16#110000/utf8>>) -> error;
               d(_) -> ok.
+              e(<<X:1/big-signed-unit:64>>) -> {int, X};
+              e(<<X:1/big-unsigned-float-unit:64>>) -> {float, X}.
+              f(<<X:1/big-unsigned-float-unit:64>>) -> {float, X};
+              f(<<X:1/big-signed-unit:64>>) -> {int, X}.
+              g(<<X:4/signed-binary>>) -> X;
+              g(<<X:1/unsigned-binary-unit:32>>) -> X.
              ">>,
 	   [],
            {warnings,[{{2,15},sys_core_fold,{nomatch,no_clause}},
@@ -1107,7 +1113,9 @@ bit_syntax(Config) ->
                       {{12,37},sys_core_fold,{nomatch,{bit_syntax_size,bad}}},
                       {{15,21},sys_core_fold,{nomatch,{bit_syntax_unsigned,-42}}},
                       {{17,21},sys_core_fold,{nomatch,{bit_syntax_type,42,binary}}},
-                      {{19,19},sys_core_fold,{nomatch,{bit_syntax_unicode,1114112}}}
+                      {{19,19},sys_core_fold,{nomatch,{bit_syntax_unicode,1114112}}},
+                      {{22,15},beam_core_to_ssa,{nomatch,{shadow,21}}},
+                      {{26,15},beam_core_to_ssa,{nomatch,{shadow,25}}}
                      ]}
           }],
     run(Config, Ts),
