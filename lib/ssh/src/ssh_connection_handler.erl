@@ -2247,8 +2247,9 @@ renegotiation_alive_timeout(#ssh{alive_interval = Interval, alive_count = Count}
 %%%#
 
 ssh_dbg_trace_points() -> [terminate, disconnect, connections, connection_events, renegotiation,
-                           tcp, connection_handshake].
+                           tcp, connection_handshake, alive].
 
+ssh_dbg_flags(alive) -> [c];
 ssh_dbg_flags(connections) -> [c | ssh_dbg_flags(terminate)];
 ssh_dbg_flags(renegotiation) -> [c];
 ssh_dbg_flags(connection_events) -> [c];
@@ -2257,6 +2258,10 @@ ssh_dbg_flags(terminate) -> [c];
 ssh_dbg_flags(tcp) -> [c];
 ssh_dbg_flags(disconnect) -> [c].
 
+ssh_dbg_on(alive) ->
+    dbg:tp(?MODULE,  handle_event, 4, x),
+    dbg:tpl(?MODULE, init_ssh_record, 4, x),
+    dbg:tpl(?MODULE, triggered_alive, 4, x);
 ssh_dbg_on(connections) -> dbg:tp(?MODULE,  init, 1, x),
                            ssh_dbg_on(terminate);
 ssh_dbg_on(connection_events) -> dbg:tp(?MODULE,   handle_event, 4, x);
@@ -2278,6 +2283,10 @@ ssh_dbg_on(tcp) -> dbg:tp(?MODULE, handle_event, 4,
 ssh_dbg_on(disconnect) -> dbg:tpl(?MODULE,  send_disconnect, 7, x).
 
 
+ssh_dbg_off(alive) ->
+    dbg:ctpg(?MODULE, handle_event, 4),
+    dbg:ctpl(?MODULE, init_ssh_record, 4),
+    dbg:ctpl(?MODULE, triggered_alive, 4);
 ssh_dbg_off(disconnect) -> dbg:ctpl(?MODULE, send_disconnect, 7);
 ssh_dbg_off(terminate) -> dbg:ctpg(?MODULE, terminate, 3);
 ssh_dbg_off(tcp) -> dbg:ctpg(?MODULE, handle_event, 4), % How to avoid cancelling 'connection_events' ?
@@ -2293,6 +2302,38 @@ ssh_dbg_off(connection_handshake) -> dbg:ctpl(?MODULE, handshake, 3);
 ssh_dbg_off(connections) -> dbg:ctpg(?MODULE, init, 1),
                             ssh_dbg_off(terminate).
 
+-define(PRINT_ALIVE_EVENT(_MOD, _FUN, _ARITY, _DATA),
+        io_lib:format("~p:~p/~p [Alive event] ~s", [_MOD, _FUN, _ARITY, _DATA])).
+
+ssh_dbg_format(alive, {return_from, {?MODULE, F=init_ssh_record, A=4}, Ssh}) ->
+    #ssh{alive_interval = AliveInterval, alive_count = AliveCount} = Ssh,
+    Str = io_lib:format("Interval=~p Count=~p", [AliveInterval, AliveCount]),
+    ?PRINT_ALIVE_EVENT(?MODULE, F, A, Str);
+ssh_dbg_format(alive, {call, {?MODULE,F=handle_event,
+                              [EventType, EventContent = {conn_msg, Msg}, State, _Data]}})
+  when is_record(Msg, ssh_msg_request_failure) orelse
+       is_record(Msg, ssh_msg_request_success) ->
+    Str = io_lib:format("~n~p ~p (state: ~p)", [EventType, EventContent, State]),
+    ?PRINT_ALIVE_EVENT(?MODULE, F, 4, Str);
+ssh_dbg_format(alive, {call, {?MODULE,F=handle_event,
+                              [EventType, EventContent, State, _Data]}})
+  when EventType == {timeout, alive} orelse EventType == {timeout, renegotiation_alive} ->
+    Str = io_lib:format("~n~p ~p (state: ~p)", [EventType, EventContent, State]),
+    ?PRINT_ALIVE_EVENT(?MODULE, F, 4, Str);
+ssh_dbg_format(alive, {call, {?MODULE,F=triggered_alive,
+                              [State, _,
+                               #ssh{alive_count       = Count,
+                                    alive_sent_probes = SentProbesCount}, _]
+                             }}) ->
+    Str = io_lib:format("~n~p out ~p alive probes sent (state: ~w)", [SentProbesCount, Count, State]),
+    ?PRINT_ALIVE_EVENT(?MODULE, F, 4, Str);
+ssh_dbg_format(alive, {return_from, {?MODULE, F=triggered_alive, 4}, {stop, Details, _}}) ->
+    Str = io_lib:format("~n0 alive probes left {stop, ~p, _}", [Details]),
+    ?PRINT_ALIVE_EVENT(?MODULE, F, 4, Str);
+ssh_dbg_format(alive, {call, {?MODULE, _, _}}) ->
+    skip;
+ssh_dbg_format(alive, {return_from, {?MODULE, _, _}, _Ret}) ->
+    skip;
 
 ssh_dbg_format(connections, {call, {?MODULE,init, [[Role, Sock, Opts]]}}) ->
     DefaultOpts = ssh_options:handle_options(Role,[]),
