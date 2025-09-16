@@ -191,17 +191,20 @@ protected:
      * assume that the respective entry is in ARG1, so we have to copy it over
      * if it isn't already. */
     arm::Mem emit_setup_dispatchable_call(const a32::Gp &Src) {
-        // TODO
-        ASSERT(false);
         return emit_setup_dispatchable_call(Src, active_code_ix);
     }
 
     arm::Mem emit_setup_dispatchable_call(const a32::Gp &Src,
                                           const a32::Gp &CodeIndex) {
-        // TODO
-        ASSERT(false);
-        arm::Mem m;
-        return m;
+        if (ARG1 != Src) {
+            a.mov(ARG1, Src);
+        }
+
+        ERTS_CT_ASSERT(offsetof(ErlFunEntry, dispatch) == 0);
+        ERTS_CT_ASSERT(offsetof(Export, dispatch) == 0);
+        ERTS_CT_ASSERT(offsetof(ErtsDispatchable, addresses) == 0);
+
+        return arm::Mem(ARG1, CodeIndex, arm::lsl(3));
     }
 
     /* Prefer `eHeapAlloc` over `eStack | eHeap` when calling
