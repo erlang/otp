@@ -483,7 +483,7 @@ jobs:
     uses: ./.github/workflows/reusable-vendor-vulnerability-scanner.yml
     with:
       fail_if_cve: false
-      checkout: false
+      checkout: true
       version: ${{ github.event_name == 'pull_request' && github.base_ref || github.ref_name }}
       # equivalent of ${{ env.BASE_BRANCH }} but reusable-workflows do not allow to pass env.
     secrets: inherit
