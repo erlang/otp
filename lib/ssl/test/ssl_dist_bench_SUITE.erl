@@ -552,7 +552,7 @@ setup(Config) ->
     run_nodepair_test(fun setup/6, Config).
 
 setup(A, B, Prefix, Effort, HA, HB) ->
-    Rounds = 1000 * Effort,
+    Rounds = 200 * Effort,
     [] = ssl_apply(HA, erlang, nodes, []),
     [] = ssl_apply(HB, erlang, nodes, []),
     pong = ssl_apply(HA, net_adm, ping, [B]),
@@ -694,7 +694,7 @@ parallel_setup(Config, Clients, _0, HNs) ->
     ServerNode = proplists:get_value(Key, Config),
     ServerHandle = start_ssl_node(Key, Config, 0),
     Effort = proplists:get_value(effort, Config, 1),
-    TotalRounds = 1000 * Effort,
+    TotalRounds = 200 * Effort,
     Rounds = round(TotalRounds / Clients),
     try
         {Log, Before, After} =
@@ -1385,8 +1385,13 @@ throughput_server_loop(Pid, GC_Before, N) ->
             case Msg of
                 {Pid, N, _} ->
                     throughput_server_loop(Pid, GC_Before, N - 1);
+                {OtherPid, WrongN, Data} when is_binary(Data) ->
+                    erlang:error(
+                      {self(),?FUNCTION_NAME,
+                       {{Pid,N}, {OtherPid,WrongN,byte_size(Data)}}});
                 Other ->
-                    erlang:error({self(),?FUNCTION_NAME,Other})
+                    erlang:error(
+                      {self(),?FUNCTION_NAME,{Pid,N},Other})
             end
     end.
 
@@ -1563,6 +1568,10 @@ perf_starter(Name, Config) ->
         _ ->
             {"",
              fun (Handle) ->
+                     NodeHandle = {Handle,PerfTag},
+                     NodePid = ssl_apply(NodeHandle, os, getpid, []),
+                     ?CT_PAL("~nStarted node ~s with pid: ~s~n",
+                             [Name, NodePid]),
                      Parent ! {PerfTag, none},
                      {Handle,PerfTag}
              end}
