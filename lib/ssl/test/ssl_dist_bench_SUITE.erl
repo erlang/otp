@@ -50,8 +50,7 @@
     throughput_1048576/1]).
 
 %% Debug
--export([payload/1, roundtrip_runner/2, setup_runner/2, throughput_runner/3,
-        mem/0]).
+-export([payload/1, roundtrip_runner/2, setup_runner/2, throughput_runner/3]).
 
 %%%-------------------------------------------------------------------
 
