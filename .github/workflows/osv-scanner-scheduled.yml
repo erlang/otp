@@ -57,11 +57,7 @@ jobs:
         type: ${{ fromJson(needs.schedule-scan.outputs.versions) }}
       fail-fast: false
     permissions:
-      security-events: read
-      issues: write
-      actions: write
-      contents: write
-      pull-requests: write
+      actions: read
     steps:
       # this call to a workflow_dispatch ref=master is important because
       # using ref={{matrix.type}} would trigger the workflow
