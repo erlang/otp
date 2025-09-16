@@ -32,9 +32,6 @@ if [ "$FOUND_PR" -ne 0 ]; then
   echo "A new PR will be created"
 fi
 
-git config user.name "github-actions[bot]"
-git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
 # Check if PR is closed
 if [ "$PR_STATUS" = "CLOSED" ] || [ "$PR_STATUS" = "MERGED" ] || [ "$FOUND_PR" -ne 0 ]; then
   echo "Pull request #$BRANCH_NAME is CLOSED or MERGED."
