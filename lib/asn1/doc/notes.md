@@ -23,6 +23,21 @@ limitations under the License.
 
 This document describes the changes made to the asn1 application.
 
+## Asn1 5.4.2
+
+### Fixed Bugs and Malfunctions
+
+- Decoding a constrained BIT STRING using JER was broken.
+
+  Own Id: OTP-19681 Aux Id: [PR-9949]
+
+- NIFs and linked-in drivers are now loadable when running in an Erlang source tree on Windows.
+
+  Own Id: OTP-19686 Aux Id: [PR-9969]
+
+[PR-9949]: https://github.com/erlang/otp/pull/9949
+[PR-9969]: https://github.com/erlang/otp/pull/9969
+
 ## Asn1 5.4.1
 
 ### Fixed Bugs and Malfunctions

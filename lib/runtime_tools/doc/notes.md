@@ -23,6 +23,29 @@ limitations under the License.
 
 This document describes the changes made to the Runtime_Tools application.
 
+## Runtime_Tools 2.3
+
+### Fixed Bugs and Malfunctions
+
+- NIFs and linked-in drivers are now loadable when running in an Erlang source tree on Windows.
+
+  Own Id: OTP-19686 Aux Id: [PR-9969]
+
+[PR-9969]: https://github.com/erlang/otp/pull/9969
+
+### Improvements and New Features
+
+- The default tracer is now aware that it is started by a remote shell (`-remsh`), in which case the traces will be sent to the remote group_leader to make the traces visible in the remote shell.
+
+  Own Id: OTP-19648 Aux Id: [PR-9589]
+
+- A User's Guide to `dbg` is now available in the documentation.
+
+  Own Id: OTP-19655 Aux Id: [PR-9853]
+
+[PR-9589]: https://github.com/erlang/otp/pull/9589
+[PR-9853]: https://github.com/erlang/otp/pull/9853
+
 ## Runtime_Tools 2.2
 
 ### Improvements and New Features

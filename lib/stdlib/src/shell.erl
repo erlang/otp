@@ -2180,7 +2180,7 @@ The flag can also be set by the STDLIB application variable `shell_hints`.
 Defaults to `true`, which means that hints will be printed by default. Value
 `false` means that no hints are printed in the shell.
 """.
--doc(#{since => <<"OTP @OTP-19759@">>}).
+-doc(#{since => <<"OTP 28.1">>}).
 -spec hints(Hints) -> OldHints when
       Hints :: boolean(),
       OldHints :: boolean().

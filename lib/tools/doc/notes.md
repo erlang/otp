@@ -23,6 +23,16 @@ limitations under the License.
 
 This document describes the changes made to the Tools application.
 
+## Tools 4.1.3
+
+### Improvements and New Features
+
+- Fixed some deprecations for newer emacs versions.
+
+  Own Id: OTP-19726 Aux Id: [PR-10106]
+
+[PR-10106]: https://github.com/erlang/otp/pull/10106
+
 ## Tools 4.1.2
 
 ### Fixed Bugs and Malfunctions

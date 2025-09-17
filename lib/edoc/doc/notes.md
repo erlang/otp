@@ -23,6 +23,16 @@ limitations under the License.
 
 This document describes the changes made to the EDoc application.
 
+## Edoc 1.4.1
+
+### Fixed Bugs and Malfunctions
+
+- Rendering of some tables in the documentation has been improved.
+
+  Own Id: OTP-19752 Aux Id: [PR-10142]
+
+[PR-10142]: https://github.com/erlang/otp/pull/10142
+
 ## Edoc 1.4
 
 ### Fixed Bugs and Malfunctions

@@ -597,7 +597,7 @@ gethostbyaddr(Address, Timeout) ->
     gethostbyaddr(Address, [], Timeout).
 
 -doc "Backend function used by `inet:gethostbyaddr/1`.".
--doc(#{since => "OTP @OTP-19737@"}).
+-doc(#{since => "OTP 28.1"}).
 -spec gethostbyaddr(Address, Opts, Timeout) ->
           {ok, Hostent} | {error, Reason} when
       Address :: inet:ip_address(),
@@ -723,7 +723,7 @@ This function uses resolver option `search` just like
       Timeout :: timeout(),
       Hostent :: inet:hostent(),
       Reason :: inet:posix() | res_error().
--doc(#{since => "OTP @OTP-19737@"}).
+-doc(#{since => "OTP 28.1"}).
 gethostbyname(Name, Family, Opts, Timeout) ->
     Timer = inet:start_timer(Timeout),
     Res = gethostbyname_tm(Name, Family, Opts, Timer),
@@ -819,7 +819,7 @@ See `resolve/5` about `Opts`.
       Timeout :: timeout(),
       Hostent :: inet:hostent() | hostent(),
       Reason :: inet:posix() | res_error().
--doc(#{since => "OTP @OTP-19737@"}).
+-doc(#{since => "OTP 28.1"}).
 getbyname(Name, Type, Opts, Timeout) ->
     Timer = inet:start_timer(Timeout),
     Res = getbyname_tm(Name, Type, Opts, Timer),

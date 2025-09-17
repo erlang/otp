@@ -27,6 +27,16 @@ as all enhancements and bugfixes for every release of Mnesia. Each release of
 Mnesia thus constitutes one section in this document. The title of each section
 is the version number of Mnesia.
 
+## Mnesia 4.24.1
+
+### Fixed Bugs and Malfunctions
+
+- Mnesia no longer crashes when the node name is used as a table name.
+
+  Own Id: OTP-19745 Aux Id: [PR-10147]
+
+[PR-10147]: https://github.com/erlang/otp/pull/10147
+
 ## Mnesia 4.24
 
 ### Improvements and New Features

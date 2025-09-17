@@ -23,6 +23,56 @@ limitations under the License.
 
 This document describes the changes made to the Crypto application.
 
+## Crypto 5.7
+
+### Fixed Bugs and Malfunctions
+
+- NIFs and linked-in drivers are now loadable when running in an Erlang source tree on Windows.
+
+  Own Id: OTP-19686 Aux Id: [PR-9969]
+
+- Fixed bug seen to cause beam crash when doing `init:restart()` with `crypto` statically linked to OpenSSL (`--disable-dynamic-ssl-lib`). Bug exists since OTP 28.0.
+
+  Own Id: OTP-19721 Aux Id: [GH-10061], [PR-10076]
+
+- Fixed `crypto:strong_rand_bytes` failing after `init:restart` on MacOS with statically linked OpenSSL.
+
+  Own Id: OTP-19725 Aux Id: [GH-10079], [PR-10085]
+
+- Fixed `crypto:hash(shake128 | shake256)` for OpenSSL 3.4 and newer.
+
+  Own Id: OTP-19733 Aux Id: [GH-9901], [PR-9982]
+
+- Rendering of some tables in the documentation has been improved.
+
+  Own Id: OTP-19752 Aux Id: [PR-10142]
+
+[PR-9969]: https://github.com/erlang/otp/pull/9969
+[GH-10061]: https://github.com/erlang/otp/issues/10061
+[PR-10076]: https://github.com/erlang/otp/pull/10076
+[GH-10079]: https://github.com/erlang/otp/issues/10079
+[PR-10085]: https://github.com/erlang/otp/pull/10085
+[GH-9901]: https://github.com/erlang/otp/issues/9901
+[PR-9982]: https://github.com/erlang/otp/pull/9982
+[PR-10142]: https://github.com/erlang/otp/pull/10142
+
+### Improvements and New Features
+
+- Support for ML-DSA and ML-KEM provided by OpenSSL 3.5.
+  
+  Algorithms `mldsa44`, `mldsa65` and `mldsa87` can be passed to `crypto:sign/4` and `crypto:verify/5`.
+  
+  New functions `crypto:encapsulate_key/2` and `crypto:decapsulate_key/3` can be used with `mlkem512`, `mlkem768` and `mlkem1024` to safely generate and communicate an encapsulated shared secret.
+
+  Own Id: OTP-19657 Aux Id: [PR-9900]
+
+- Added support for SHA2 512/224 and SHA2 512/256 truncated hashes.
+
+  Own Id: OTP-19666 Aux Id: [PR-9721]
+
+[PR-9900]: https://github.com/erlang/otp/pull/9900
+[PR-9721]: https://github.com/erlang/otp/pull/9721
+
 ## Crypto 5.6
 
 ### Fixed Bugs and Malfunctions

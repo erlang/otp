@@ -27,6 +27,21 @@ as all enhancements and bugfixes for every release of Megaco. Each release of
 Megaco thus constitutes one section in this document. The title of each section
 is the version number of Megaco.
 
+## Megaco 4.8.1
+
+### Fixed Bugs and Malfunctions
+
+- Documentation improvements.
+
+  Own Id: OTP-19669 Aux Id: [PR-9927]
+
+- Rendering of some tables in the documentation has been improved.
+
+  Own Id: OTP-19752 Aux Id: [PR-10142]
+
+[PR-9927]: https://github.com/erlang/otp/pull/9927
+[PR-10142]: https://github.com/erlang/otp/pull/10142
+
 ## Megaco 4.8
 
 ### Fixed Bugs and Malfunctions

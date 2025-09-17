@@ -23,6 +23,19 @@ limitations under the License.
 
 This document describes the changes made to the Xmerl application.
 
+## Xmerl 2.1.6
+
+### Fixed Bugs and Malfunctions
+
+- Corrected the bug that comments couldn't be exported.
+  
+  `#xmlComment` elements is now exported when calling `export/3` or `export_simple/3` and similar functions. Top level comments will only be exported if one creates and export elements as a document.
+
+  Own Id: OTP-19757 Aux Id: [PR-9796], [GH-5697]
+
+[PR-9796]: https://github.com/erlang/otp/pull/9796
+[GH-5697]: https://github.com/erlang/otp/issues/5697
+
 ## Xmerl 2.1.5
 
 ### Fixed Bugs and Malfunctions

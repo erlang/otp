@@ -23,6 +23,35 @@ limitations under the License.
 
 This document describes the changes made to the Kernel application.
 
+## Kernel 10.4
+
+### Fixed Bugs and Malfunctions
+
+- A remote shell can now exit by closing the input stream, without terminating the remote node.
+
+  Own Id: OTP-19667 Aux Id: [PR-9912]
+
+- The internal `inet_dns_tsig` and `inet_res` modules have been fixed to TSIG verify the correct timestamp. 
+  
+  In the process two undocumented error code atoms have been corrected to `notauth` and `notzone` to adhere to the DNS RFCs.  Code that relied on the previous incorrect values may have to be corrected.
+
+  *** POTENTIAL INCOMPATIBILITY ***
+
+  Own Id: OTP-19756 Aux Id: [PR-10146]
+
+[PR-9912]: https://github.com/erlang/otp/pull/9912
+[PR-10146]: https://github.com/erlang/otp/pull/10146
+
+### Improvements and New Features
+
+- The rudimentary DNS resolver `inet_res` has aqcuired 3 new functions `inet_res:gethostbyname/4`, `inet_res;getbyname/4` and `inet_res:gethostbyaddr/3`, that all take an option list argument.
+  
+  This option list can be used to override the Kernel application's resolver options when calling the `inet_res` function directly.
+
+  Own Id: OTP-19737 Aux Id: ERIERL-1209, [PR-10112]
+
+[PR-10112]: https://github.com/erlang/otp/pull/10112
+
 ## Kernel 10.3.2
 
 ### Fixed Bugs and Malfunctions

@@ -2932,7 +2932,7 @@ Supported encapsulation methods can be obtained with
 [`supports(kems)`](`supports/1`).
 """.
 -doc(#{group => ~b"Key API",
-       since => ~b"OTP @OTP-19657@"}).
+       since => ~b"OTP 28.1"}).
 -spec encapsulate_key(Type, OthersPublicKey) -> {Secret, EncapSecret}
               when Type :: kem(),
                    OthersPublicKey :: binary(),
@@ -2953,7 +2953,7 @@ Supported encapsulation methods can be obtained with
 [`supports(kems)`](`supports/1`).
 """.
 -doc(#{group => ~b"Key API",
-       since => ~b"OTP @OTP-19657@"}).
+       since => ~b"OTP 28.1"}).
 -spec decapsulate_key(Type, MyPrivKey, EncapSecret) -> Secret
               when Type :: kem(),
                    MyPrivKey :: binary(),

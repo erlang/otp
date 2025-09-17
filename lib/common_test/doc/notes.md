@@ -21,6 +21,21 @@ limitations under the License.
 -->
 # Common Test Release Notes
 
+## Common_Test 1.29
+
+### Improvements and New Features
+
+- Improved printing of maps. Map keys are now printed in the same order as `maps:iterator(Map, ordered)` would sort them.
+
+  Own Id: OTP-19642 Aux Id: ERIERL-1231, [PR-9862]
+
+- `ct:print` will now suppress printing of timestamp and heading when the heading option is set to the empty string.
+
+  Own Id: OTP-19714 Aux Id: [PR-10051]
+
+[PR-9862]: https://github.com/erlang/otp/pull/9862
+[PR-10051]: https://github.com/erlang/otp/pull/10051
+
 ## Common_Test 1.28
 
 ### Fixed Bugs and Malfunctions
