@@ -164,3 +164,34 @@ flowchart RL
     end
 end
 ```
+# Test Suites Overview
+## Crypto algorithms
+ssh_algorithms_SUITE (all algorithms against installed OpenSSH and self)
+ssh_compat_SUITE (all algorithms against different OpenSSH by using them)
+## Key handling
+ssh_pubkey_SUITE
+ssh_basic_SUITE
+ssh_algorithms_SUITE
+ssh_comp_SUITE
+ssh_engine_SUITE
+ssh_agent_SUITE + ssh_agent_mock_server  (Keys in an (mock) agent)
+## Protocol (error behaviour)
+ssh_protocol_SUITE (contains a minimal ssh that injects errors and hard-to-test stuff)
+ssh_comp_SUITE
+## Compatibility
+ssh_comp_SUITE (Tests towards dockers with different OpenSSH versions)
+## Channels
+ssh_chan_behaviours_SUITE
+ssh_basic_SUITE (shell, cli, key callback mechanism)
+ssh_connection_SUITE
+ssh_sftp_SUITE
+ssh_sftpd_SUITE
+## Perseverance
+ssh_property_test_SUITE (lib/ssh/test/property_test/ssh_eqc_*)
+## Misc
+ssh_agents_SUITE
+ssh_to_openssh_SUITE ( tcp-forwarding)
+ssh_dbg_SUITE
+ssh_sup_SUITE
+ssh_upgrade_SUITE (broken)
+ssh_options_SUITE
