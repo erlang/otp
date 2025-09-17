@@ -932,8 +932,7 @@ inet_set_ktls(
         ok ?=
             set_ktls(
               KtlsInfo
-              #{ setopt_fun => fun ?MODULE:inet_ktls_setopt/3,
-                 getopt_fun => fun ?MODULE:inet_ktls_getopt/3 }),
+              #{ setopt_fun => fun ?MODULE:inet_ktls_setopt/3}),
         %%
         #socket_options{
            mode = _Mode,
@@ -985,23 +984,11 @@ set_ktls(KtlsInfo) ->
 
 set_ktls_ulp(
   #{ socket := Socket,
-     setopt_fun := SetoptFun,
-     getopt_fun := GetoptFun },
+     setopt_fun := SetoptFun },
   OS) ->
     %%
     {Option, Value} = ktls_opt_ulp(OS),
-    Size = byte_size(Value),
-    _ = SetoptFun(Socket, Option, Value),
-    %%
-    %% Check if kernel module loaded,
-    %% i.e if getopts Level, Opt returns Value
-    %%
-    case GetoptFun(Socket, Option, Size + 1) of
-        {ok, <<Value:Size/binary, 0>>} ->
-            ok;
-        Other ->
-            {error, {ktls_set_ulp_failed, Option, Value, Other}}
-    end.
+    SetoptFun(Socket, Option, Value).
 
 %% Set kTLS cipher
 %%
@@ -1011,26 +998,13 @@ set_ktls_cipher(
          cipher_suite := CipherSuite,
          %%
          socket := Socket,
-         setopt_fun := SetoptFun,
-         getopt_fun := GetoptFun },
+         setopt_fun := SetoptFun },
   OS, CipherState, CipherSeq, TxRx) ->
     maybe
         {ok, {Option, Value}} ?=
             ktls_opt_cipher(
               OS, TLS_version, CipherSuite, CipherState, CipherSeq, TxRx),
-        _ = SetoptFun(Socket, Option, Value),
-        case TxRx of
-            tx ->
-                Size = byte_size(Value),
-                case GetoptFun(Socket, Option, Size) of
-                    {ok, Value} ->
-                        ok;
-                    Other ->
-                        {error, {ktls_set_cipher_failed, Other}}
-                end;
-            rx ->
-                ok
-        end
+        SetoptFun(Socket, Option, Value)
     end.
 
 ktls_os() ->

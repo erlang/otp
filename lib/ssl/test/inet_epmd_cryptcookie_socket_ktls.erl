@@ -233,7 +233,9 @@ stream_send(OutStream = [_ | Socket], Data) ->
     case socket:sendmsg(Socket, #{ iov => Data }) of
         ok ->
             OutStream;
-        {error, closed} ->
+        {error, Reason}
+          when Reason =:= closed;
+               Reason =:= econnreset ->
             [closed | OutStream];
         {error, Reason} ->
             erlang:error({?MODULE, ?FUNCTION_NAME, Reason, [OutStream, Data]})
@@ -273,5 +275,4 @@ supported() ->
 socket_ktls_info(Socket, KtlsInfo) ->
     KtlsInfo
         #{ socket => Socket,
-           setopt_fun => fun socket:setopt_native/3,
-           getopt_fun => fun socket:getopt_native/3 }.
+           setopt_fun => fun socket:setopt_native/3 }.

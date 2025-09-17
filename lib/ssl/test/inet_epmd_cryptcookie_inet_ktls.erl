@@ -286,5 +286,4 @@ supported() ->
 inet_ktls_info(Socket, KtlsInfo) ->
     KtlsInfo
         #{ socket => Socket,
-           setopt_fun => fun inet_tls_dist:inet_ktls_setopt/3,
-           getopt_fun => fun inet_tls_dist:inet_ktls_getopt/3 }.
+           setopt_fun => fun inet_tls_dist:inet_ktls_setopt/3 }.
