@@ -137,11 +137,11 @@ check_erltop ()
 		    echo "The environment variable ERL_TOP must be set." >&2
 		    exit 1
 		fi
-	else
+	elif [ "X$1" != "Xtests" ]
 	    real_ERL_TOP=`realpath $ERL_TOP`
 	    real_PWD=`realpath $PWD`
 	    if [ "X${real_PWD##$real_ERL_TOP*}" != "X" ]; then
-		echo "Current working directory is not in ERL_TOP." >&2
+		echo "ERROR: Current working directory is not in ERL_TOP." >&2
 		echo "ERL_TOP=$ERL_TOP" >&2
 		echo "PWD=$PWD" >&2
 		exit 1
@@ -1360,7 +1360,7 @@ do_remove_prebuilt_files ()
 
 # main
 
-check_erltop
+check_erltop $1
 
 cd "$ERL_TOP"
 
