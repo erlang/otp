@@ -1432,7 +1432,6 @@ bool erts_is_memory_break(ErtsTraceSession *session, const ErtsCodeInfo *ci)
  * to collect call_time and/or call_memory lists.
 */
 typedef struct {
-    Process *p;
     Uint break_flags;
     GenericBp *g;
     bp_pid_timem_hash_t* time_tot_hash;
@@ -1461,22 +1460,41 @@ bool erts_prepare_timem_trace_info(Process *p,
     bp = &g->data[erts_staging_bp_ix()];
 
     ASSERT((bp->flags & ~ERTS_BPF_ALL) == 0);
+    ASSERT(!finish_timem_info.time_tot_hash);
+    ASSERT(!finish_timem_info.mem_tot_hash);
+
+    /*
+     * Paused call_time/memory counters can be collected right here
+     * while active ones need to be scheduled.
+     */
 
     break_flags = 0;
     if (want_call_time) {
-        break_flags |= bp->flags & ERTS_BPF_TIME_TRACE;
+        const Uint time_flags = bp->flags & (ERTS_BPF_TIME_TRACE |
+                                             ERTS_BPF_TIME_TRACE_ACTIVE);
+        if (time_flags == ERTS_BPF_TIME_TRACE) {
+            collect_timem_info(bp->time, &finish_timem_info.time_tot_hash);
+        }
+        break_flags |= time_flags;
     }
     if (want_call_memory) {
-        break_flags |= bp->flags & ERTS_BPF_MEM_TRACE;
+        const Uint mem_flags = bp->flags & (ERTS_BPF_MEM_TRACE |
+                                            ERTS_BPF_MEM_TRACE_ACTIVE);
+        if (mem_flags == ERTS_BPF_MEM_TRACE) {
+            collect_timem_info(bp->memory, &finish_timem_info.mem_tot_hash);
+        }
+        break_flags |= mem_flags;
     }
 
-    if (!break_flags) {
+    if (!(break_flags & (ERTS_BPF_TIME_TRACE_ACTIVE |
+                         ERTS_BPF_MEM_TRACE_ACTIVE))) {
+        /* No active call_time or call_memory, no need for scheduling */
         return false;
     }
 
     /*
-     * Ok, we must do some scheduling to safely collect call_time/memory info
-     * from thread specific hash tables.
+     * Ok, we must do some scheduling to safely collect active call_time/memory
+     * info from the thread specific hash tables.
      * The strategy is:
      * 1. Allocate temporary zeroed hashes for any traced calls that may happen
      *    during the call to trace:info.
@@ -1491,20 +1509,17 @@ bool erts_prepare_timem_trace_info(Process *p,
      * 9. Deallocate the temp hashes and make the two halves of the breakpoint
      *    identical again using the same real hashes.
      */
-    if (break_flags & ERTS_BPF_TIME_TRACE) {
+    if (break_flags & ERTS_BPF_TIME_TRACE_ACTIVE) {
         ASSERT(bp->time);
         bp_hash_reset(&bp->time);
+        ASSERT(finish_timem_info.time_tot_hash == NULL);
     }
-    if (break_flags & ERTS_BPF_MEM_TRACE) {
+    if (break_flags & ERTS_BPF_MEM_TRACE_ACTIVE) {
         ASSERT(bp->memory);
         bp_hash_reset(&bp->memory);
+        ASSERT(finish_timem_info.mem_tot_hash == NULL);
     }
 
-    ASSERT(finish_timem_info.p == NULL);
-    ASSERT(finish_timem_info.time_tot_hash == NULL);
-    ASSERT(finish_timem_info.mem_tot_hash == NULL);
-
-    finish_timem_info.p = p;
     finish_timem_info.break_flags = break_flags;
     finish_timem_info.g = g;
 
@@ -1520,24 +1535,15 @@ void erts_timem_info_collect(void)
 
     /* Collect all thread hashes into temporary result hashes */
 
-    if (fin->break_flags & ERTS_BPF_TIME_TRACE) {
-        fin->time_tot_hash = bp_hash_alloc(64);
+    if (fin->break_flags & ERTS_BPF_TIME_TRACE_ACTIVE) {
+        ASSERT(fin->time_tot_hash == NULL);
         collect_timem_info(bp->time, &fin->time_tot_hash);
     }
-    else {
-        fin->time_tot_hash = NULL;
-    }
 
-    if (fin->break_flags & ERTS_BPF_MEM_TRACE) {
-        fin->mem_tot_hash = bp_hash_alloc(64);
+    if (fin->break_flags & ERTS_BPF_MEM_TRACE_ACTIVE) {
+        ASSERT(fin->mem_tot_hash == NULL);
         collect_timem_info(bp->memory, &fin->mem_tot_hash);
     }
-    else {
-        fin->mem_tot_hash = NULL;
-    }
-
-    /* Switch back and make the original hash tables active again. */
-    erts_commit_staged_bp();
 }
 
 static void collect_timem_info(BpTimemTrace* bdt,
@@ -1571,7 +1577,7 @@ void erts_timem_info_consolidate()
 
     ERTS_LC_ASSERT(erts_has_code_mod_permission());
     ASSERT(src_bp->flags == dst_bp->flags);
-    ASSERT(src_bp->flags & (ERTS_BPF_TIME_TRACE | ERTS_BPF_MEM_TRACE));
+    ASSERT(src_bp->flags & (ERTS_BPF_TIME_TRACE_ACTIVE | ERTS_BPF_MEM_TRACE_ACTIVE));
 
     /*
      * We use the *active* hash for dirty schedulers to receive the
@@ -1581,8 +1587,8 @@ void erts_timem_info_consolidate()
     */
     erts_mtx_lock(&erts_dirty_bp_ix_mtx);
 
-    if (fin->break_flags & ERTS_BPF_TIME_TRACE) {
-        ASSERT(src_bp->flags & ERTS_BPF_TIME_TRACE);
+    if (fin->break_flags & ERTS_BPF_TIME_TRACE_ACTIVE) {
+        ASSERT(src_bp->flags & ERTS_BPF_TIME_TRACE_ACTIVE);
         collect_timem_info(src_bp->time,
                             &(dst_bp->time->threads[dirty_thr_ix]));
 
@@ -1590,8 +1596,8 @@ void erts_timem_info_consolidate()
         src_bp->time = dst_bp->time;
         erts_refc_inc(&src_bp->time->refc, 2);
     }
-    if (fin->break_flags & ERTS_BPF_MEM_TRACE) {
-        ASSERT(src_bp->flags & ERTS_BPF_MEM_TRACE);
+    if (fin->break_flags & ERTS_BPF_MEM_TRACE_ACTIVE) {
+        ASSERT(src_bp->flags & ERTS_BPF_MEM_TRACE_ACTIVE);
         collect_timem_info(src_bp->memory,
                             &(dst_bp->memory->threads[dirty_thr_ix]));
 
@@ -1607,14 +1613,13 @@ void erts_build_timem_info(Process* p,
                            Eterm *call_memory)
 {
     ERTS_LC_ASSERT(erts_has_code_mod_permission());
-    ASSERT(p == finish_timem_info.p);
 
     /* Build call_time list of {Pid, CallCount, Sec, USec} */
-    if (finish_timem_info.time_tot_hash) {
+    if (finish_timem_info.break_flags & ERTS_BPF_TIME_TRACE) {
         bp_pid_timem_hash_t* time_tot_hash = finish_timem_info.time_tot_hash;
         Eterm list = NIL;
 
-        if (time_tot_hash->used > 0) {
+        if (time_tot_hash && time_tot_hash->used > 0) {
             Uint size;
             Eterm *hp, *hp_end;
 
@@ -1646,11 +1651,11 @@ void erts_build_timem_info(Process* p,
     }
 
     /* Build call_memory list of {Pid, CallCount, Words} */
-    if (finish_timem_info.mem_tot_hash) {
+    if (finish_timem_info.break_flags & ERTS_BPF_MEM_TRACE) {
         bp_pid_timem_hash_t* mem_tot_hash = finish_timem_info.mem_tot_hash;
         Eterm list = NIL;
 
-        if (mem_tot_hash->used > 0) {
+        if (mem_tot_hash && mem_tot_hash->used > 0) {
             Uint size;
             Eterm *hp, *hp_end;
 
@@ -1682,7 +1687,6 @@ void erts_free_timem_info(void)
     FinishTimemInfo *fin = &finish_timem_info;
 
     ERTS_LC_ASSERT(erts_has_code_mod_permission());
-    ASSERT(fin->p);
 
     if (fin->time_tot_hash) {
         bp_hash_dealloc(fin->time_tot_hash);
@@ -1692,7 +1696,6 @@ void erts_free_timem_info(void)
         bp_hash_dealloc(fin->mem_tot_hash);
         fin->mem_tot_hash = NULL;
     }
-    fin->p = NULL;
 }
 
 

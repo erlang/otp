@@ -96,8 +96,7 @@ static Eterm trace_info_pid(Process* p, ErtsTraceSession*, Eterm pid_spec, Eterm
 static Eterm trace_info_func(Process* p, ErtsTraceSession*, Eterm pid_spec,
                              Eterm key, bool *to_be_continued_p);
 static Eterm trace_info_func_epilogue(Process*, ErtsTraceSession*,
-                                      const ErtsCodeMFA *mfa, Eterm key, int want,
-                                      Eterm call_time, Eterm call_memory);
+                                      const ErtsCodeMFA *mfa, Eterm key, int want);
 static Eterm trace_info_func_sessions(Process* p, Eterm func_spec, Eterm key);
 static Eterm trace_info_on_load(Process* p, ErtsTraceSession*, Eterm key);
 static Eterm trace_info_sessions(Process* p, Eterm What, Eterm key);
@@ -2018,8 +2017,7 @@ trace_info_func(Process* p, ErtsTraceSession* session,
     /*
      * No need for scheduling. Just build result and return it.
      */
-    return trace_info_func_epilogue(p, session, &mfa, key, want,
-                                    am_false, am_false);
+    return trace_info_func_epilogue(p, session, &mfa, key, want);
 
 error:
     BIF_ERROR(p, BADARG);
@@ -2091,6 +2089,10 @@ static void trace_info_finisher(void* null)
 
     case 1:
         erts_timem_info_collect();
+
+        /* Switch back and make the original hash tables active again. */
+        erts_commit_staged_bp();
+
         erts_schedule_code_barrier(&trace_info_state.barrier,
                                    trace_info_finisher, NULL);
         break;
@@ -2120,8 +2122,6 @@ static void trace_info_finisher(void* null)
 
 static BIF_RETTYPE bif_trace_info_finish_trap(BIF_ALIST_1)
 {
-    Eterm call_time = am_false;
-    Eterm call_memory = am_false;
     Binary* bin;
     trace_info_trap_mbin_t* titm;
     ErtsTraceSession *session = trace_info_state.session;
@@ -2129,18 +2129,14 @@ static BIF_RETTYPE bif_trace_info_finish_trap(BIF_ALIST_1)
 
     ASSERT(BIF_P == trace_info_state.p);
 
-    erts_build_timem_info(BIF_P, &call_time, &call_memory);
-    erts_free_timem_info();
-
     bif_ret = trace_info_func_epilogue(BIF_P,
                                        trace_info_state.session,
                                        &trace_info_state.mfa,
                                        trace_info_state.key,
-                                       trace_info_state.want,
-                                       call_time, call_memory);
+                                       trace_info_state.want);
 
     bin = erts_magic_ref2bin(BIF_ARG_1);
-    ASSERT(ERTS_MAGIC_BIN_DESTRUCTOR(bin) ==trace_info_trap_destructor);
+    ASSERT(ERTS_MAGIC_BIN_DESTRUCTOR(bin) == trace_info_trap_destructor);
     titm = (trace_info_trap_mbin_t*) ERTS_MAGIC_BIN_DATA(bin);
     ASSERT(titm->is_active);
     titm->is_active = false;
@@ -2157,10 +2153,10 @@ trace_info_func_epilogue(Process* p,
                          ErtsTraceSession* session,
                          const ErtsCodeMFA *mfa,
                          Eterm key,
-                         int want,
-                         Eterm call_time,
-                         Eterm call_memory)
+                         int want)
 {
+    Eterm call_time = am_false;
+    Eterm call_memory = am_false;
     Eterm traced = am_false;
     Eterm match_spec = am_false;
     Eterm retval = am_false;
@@ -2169,6 +2165,9 @@ trace_info_func_epilogue(Process* p,
     Uint call_count = 0;
     Eterm* hp;
     int got;
+
+    erts_build_timem_info(p, &call_time, &call_memory);
+    erts_free_timem_info();
 
     got = function_is_traced(p, session, mfa, want, &ms, &ms_meta, &meta,
                              &call_count);
