@@ -565,20 +565,14 @@ class BeamModuleAssembler : public BeamAssembler,
          * backward displacements. */
         dispUnknown = (32 << 10) - sizeof(Uint32) - STUB_CHECK_INTERVAL,
 
-        /* +- 32KB: `tbz`, `tbnz`, `ldr` of 8-byte literal. */
-        disp32K = (32 << 10) - sizeof(Uint32),
-
-        /* +- 1MB: `adr`, `b.cond`, `cb.cond` */
-        disp1MB = (1 << 20) - sizeof(Uint32),
-
-        /* +- 128MB: `b`, `blr` */
-        disp128MB = (128 << 20) - sizeof(Uint32),
+        /* +- 32MB: `b`, `bl`, `blx` */
+        disp32MB = (32 << 20) - sizeof(Uint32),
 
         dispMin = dispUnknown,
-        dispMax = disp128MB
+        dispMax = disp32MB
     };
 
-    static_assert(dispMin <= dispUnknown && dispMax >= disp128MB);
+    static_assert(dispMin <= dispUnknown && dispMax >= disp32MB);
     static_assert(STUB_CHECK_INTERVAL < dispMin / 2);
 
     struct Veneer {
@@ -1027,7 +1021,7 @@ protected:
     void runtime_call(T(*func)) {
         static_assert(expected_arity == function_arity<T>());
 
-        a.b(resolve_fragment((void (*)())func, disp128MB));
+        a.blx(resolve_fragment((void (*)())func, disp32MB));
     }
 
     bool isRegisterBacked(const ArgVal &arg) {
