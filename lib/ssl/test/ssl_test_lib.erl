@@ -4369,8 +4369,7 @@ ktls_os() ->
 ktls_set_ulp(Socket, OS) ->
     inet_tls_dist:set_ktls_ulp(
       #{ socket => Socket,
-         setopt_fun => fun inet_tls_dist:inet_ktls_setopt/3,
-         getopt_fun => fun inet_tls_dist:inet_ktls_getopt/3 },
+         setopt_fun => fun inet_tls_dist:inet_ktls_setopt/3 },
       OS).
 
 ktls_set_cipher(Socket, OS, TxRx, Seed) ->
@@ -4383,8 +4382,7 @@ ktls_set_cipher(Socket, OS, TxRx, Seed) ->
         #{ socket => Socket,
            tls_version => TLS_version,
            cipher_suite => TLS_cipher,
-           setopt_fun => fun inet_tls_dist:inet_ktls_setopt/3,
-           getopt_fun => fun inet_tls_dist:inet_ktls_getopt/3 },
+           setopt_fun => fun inet_tls_dist:inet_ktls_setopt/3 },
     CipherState =
         #cipher_state{
            key = TLS_KEY,
