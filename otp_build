@@ -137,7 +137,7 @@ check_erltop ()
 		    echo "The environment variable ERL_TOP must be set." >&2
 		    exit 1
 		fi
-	elif [ "X$1" != "Xtests" ]
+	elif [ "X$1" != "Xtests" ]; then
 	    real_ERL_TOP=`realpath $ERL_TOP`
 	    real_PWD=`realpath $PWD`
 	    if [ "X${real_PWD##$real_ERL_TOP*}" != "X" ]; then
