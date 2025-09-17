@@ -2866,13 +2866,27 @@ calculate_statements(VexStmts, VexTableFile, Branch, VexPath) ->
             calculate_statements_from_cves(VexStmts, CVEs, Branch, VexPath)
     end.
 
-exists_cve_in_openvex(VexStmts, CVE, Purl) ->
+exists_cve_in_openvex(VexStmts, CVE, StatusCVE, Purl) ->
     lists:any(fun (#{~"vulnerability" := #{~"name" := VexCVE}}) when VexCVE =/= CVE ->
                       false;
+                  (#{~"vulnerability" := #{~"name" := VexCVE}, ~"status" := Status}) ->
+                    Ls = fetch_openvex_table_status(StatusCVE),
+                    lists:member(Status, Ls) andalso CVE == VexCVE;
                   (#{~"products" := Products}) ->
                       VexIds = lists:map(fun(M0) -> maps:get(~"@id", M0) end, Products),
                       lists:member(Purl, VexIds)
               end, VexStmts).
+
+fetch_openvex_table_status(#{~"affected" := _}=Status) when is_map(Status) ->
+    [~"affected" | fetch_openvex_table_status(maps:without([~"affected"], Status))];
+fetch_openvex_table_status(#{~"fixed" := _}=Status) when is_map(Status) ->
+    [~"fixed" | fetch_openvex_table_status(maps:without([~"fixed"], Status))];
+fetch_openvex_table_status(#{~"not_affected" := _}=Status) when is_map(Status) ->
+    [~"not_affected" | fetch_openvex_table_status(maps:without([~"not_affected"], Status))];
+fetch_openvex_table_status(Status) when Status == ~"under_investigation" ->
+    [Status];
+fetch_openvex_table_status(_) ->
+    [].
 
 fetch_openvex_status(M) when is_map(M) ->
     FixedStatus = maps:is_key(~"fixed", M),
@@ -2886,7 +2900,7 @@ calculate_statements_from_cves(VexStmts, CVEs, Branch, VexPath) ->
     lists:foldl(
       fun (#{~"status" := Status}=M, Acc) ->
               [{Purl, CVE}] = maps:to_list(maps:remove(~"status", M)),
-              ExistingEntry = exists_cve_in_openvex(VexStmts, CVE, Purl),
+              ExistingEntry = exists_cve_in_openvex(VexStmts, CVE, Status, Purl),
               case ExistingEntry of
                   true -> %% entry exists, ignore to make operation idempotent
                       Acc;
