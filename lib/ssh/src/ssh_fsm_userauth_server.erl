@@ -77,11 +77,10 @@ handle_event(internal,
                 {authorized, User, {Reply, Ssh1}} ->
                     D = connected_state(Reply, Ssh1, User, Method, D1),
                     {next_state, {connected,server}, D,
-                     [set_max_initial_idle_timeout(D),
-                      {change_callback_module,ssh_connection_handler}
-                     ]
-                    }
-                     
+                     start_alive(D,
+                                 [set_max_initial_idle_timeout(D),
+                                  {change_callback_module,ssh_connection_handler}
+                                 ])}
             end;
 	
 	{"ssh-connection", "ssh-connection", Method} ->
