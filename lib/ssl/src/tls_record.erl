@@ -57,7 +57,7 @@
 	 is_higher/2, supported_protocol_versions/0, sufficient_crypto_support/1,
 	 is_acceptable_version/1, is_acceptable_version/2, hello_version/1]).
 
--export_type([tls_version/0, tls_atom_version/0]).
+-export_type([tls_version/0, tls_atom_version/0, tls_max_frag_len/0]).
 
 -type tls_version()       :: ssl_record:ssl_version().
 -type tls_atom_version()  :: sslv3 | tlsv1 | 'tlsv1.1' | 'tlsv1.2' | 'tlsv1.3'.
