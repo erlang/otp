@@ -110,7 +110,7 @@ arm::Mem BeamModuleAssembler::emit_variable_apply(bool includeI) {
 
     a.bind(entry);
 
-    emit_enter_runtime<Update::eReductions | Update::eHeapAlloc>(3);
+    emit_enter_runtime<Update::eReductions | Update::eHeapAlloc>();
 
     a.mov(ARG1, c_p);
     load_x_reg_array(ARG2);
@@ -126,7 +126,7 @@ arm::Mem BeamModuleAssembler::emit_variable_apply(bool includeI) {
 
     emit_leave_runtime<Update::eReductions | Update::eHeapAlloc>();
 
-    a.test(ARG1, ARG1);
+    a.tst(ARG1, ARG1);
     a.b_ne(dispatch);
     emit_raise_exception(entry, &apply3_mfa);
 
@@ -149,7 +149,7 @@ void BeamModuleAssembler::emit_i_apply_only() {
 
     emit_leave_erlang_frame();
     // TODO
-    emit_nyi("emit_i_apply_only");
+    emit_nyi("emit_i_apply_only_next");
 }
 
 arm::Mem BeamModuleAssembler::emit_fixed_apply(const ArgWord &Arity,
