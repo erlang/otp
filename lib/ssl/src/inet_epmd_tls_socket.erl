@@ -199,6 +199,7 @@ connect(
 %% ------------------------------------------------------------
 start_dist_ctrl(
   NetAddress, #sslsocket{payload_sender = DistCtrl} = SslSocket) ->
+    link(DistCtrl),
     #hs_data{
        socket = DistCtrl,
        f_send =
