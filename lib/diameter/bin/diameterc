@@ -43,9 +43,10 @@ usage() ->
       "~n"
       "  options:~n"
       "~n"
-      "      --name name       = set @name~n"
-      "      --prefix prefix   = set @prefix~n"
-      "      --inherits dict|- = set/clear @inherits~n"
+      "      --name name         = set @name~n"
+      "      --prefix prefix     = set @prefix~n"
+      "      --inherits dict|-   = set/clear @inherits~n"
+      "      --indirect-inherits = enable indirect_inherits option~n"
       "~n"
       "      -h        = print this message~n"
       "      -v        = verbose output~n"
@@ -124,6 +125,9 @@ arg(["--prefix", Name | Args], #argv{options = Opts} = A) ->
 
 arg(["--inherits", Dict | Args], #argv{options = Opts} = A) ->
     arg(Args, A#argv{options = Opts ++ [{inherits, Dict}]});
+
+arg(["--indirect-inherits" | Args], #argv{options = Opts} = A) ->
+    arg(Args, A#argv{options = [indirect_inherits | Opts]});
 
 arg(["-E" | Args], #argv{output = Output} = A) ->
     arg(Args, A#argv{output = lists:delete(erl, Output)});

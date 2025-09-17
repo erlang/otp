@@ -163,6 +163,57 @@ order in which sections are specified is unimportant.
   @inherits diameter_gen_base_rfc6733
   ```
 
+  When using the `indirect_inherits` option from [codec/2](`diameter_make:codec/2`), 
+  only `@vendor` from the dictionary that defined the AVPs and `@avp_vendor_id`
+  in the currently compiled dictionary is used. All other dictionaries along the
+  chain are ignored, so for example:
+
+  `a.dia`:
+  ```text
+  @vendor 1 A
+  @avp_types
+      AAA 111 Unsigned32 V
+      BBB 222 Unsigned32 V
+  ```
+  `a.dia` will see:
+    - AAA vendor_id = 1
+    - BBB vendor_id = 1
+
+  `b.dia`:
+  ```text
+  @vendor 2 B
+  @avp_types
+      CCC 333 Unsigned32 V
+  @inherits diameter_a
+  @avp_vendor_id 4
+      AAA
+  ```
+
+  `b.dia` will see:
+    - AAA vendor_id = 4
+    - BBB vendor_id = 1
+    - CCC vendor_id = 2
+
+  `c.dia`:
+  ```text
+  @vendor 3 C
+  @avp_types
+      DDD 444 Unsigned32 V
+  @inherits diameter_b
+  @avp_vendor_id 5
+      BBB
+      CCC
+  ```
+
+  `c.dia` will see:
+    - AAA vendor_id = 1
+    - BBB vendor_id = 5
+    - CCC vendor_id = 5
+    - DDD vendor_id = 3
+
+  In particular `b.dia`'s override of `AAA` to vendor_id = 4 is ignored by `c.dia` and `AAA` is
+  back to having vendor_id = 1.
+
 - **`@avp_types`{: #avp_types }** - Defines the name, code, type and flags of
   individual AVPs. The section consists of definitions of the form
 
@@ -290,6 +341,56 @@ order in which sections are specified is unimportant.
   SIP_SERVER_CHANGE        2
   REMOVE_SIP_SERVER        3
   ```
+
+  If `indirect_inherits` option from [codec/2](`diameter_make:codec/2`) is used,
+  new enum values can also be added in each `.dia` file along the inheritance chain,
+  example:
+
+  `a.dia`:
+  ```text
+  @avp_types
+      AAA 111 Enumerated V
+  @enum AAA
+      A 0
+      B 1
+  ```
+
+  `a.dia` will see following enum values:
+    - A 0
+    - B 1
+
+  `b.dia`:
+  ```text
+  @inherits diameter_a
+  @enum AAA
+      C 2
+      D 3
+  ```
+
+  `b.dia` will see following enum values:
+    - A 0
+    - B 1
+    - C 2
+    - D 3
+
+  `c.dia`:
+  ```text
+  @inherits diameter_b
+  @enum AAA
+      E 4
+      F 5
+  ```
+
+  `c.dia` will see:
+    - A 0
+    - B 1
+    - C 2
+    - D 3
+    - E 4
+    - F 5
+
+  Warning: messages are not shown in this example, but it is required to add
+  enum AVPs to messages in order for the code to encode/decode them to be generated!
 
 - **`@end`{: #end }** - Causes parsing of the dictionary to terminate: any
   remaining content is ignored.

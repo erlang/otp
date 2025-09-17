@@ -149,6 +149,26 @@ file or returned, and can have the following types.
 
   Multiple `inherits` options can be specified.
 
+- **`indirect_inherits`** - This option makes compiler support automatic
+  recursive inheritance. When a dictionary file inherits another `.dia`, all
+  ancestors of that `.dia` will also be considered in code generation. This
+  enhancement removes the requirement to explicitly list all parent dictionaries
+  via `@inherits`, preventing missing AVP/message encodings and runtime errors.
+
+  **Example** `C.dia` inherits `B.dia` and `B.dia` inherits `A.dia`.
+
+  **Before (without indirect_inherits):**
+
+  If `C.dia` references AVPs from `A.dia` without directly inheriting it,
+  the generated code will lack necessary definitions, causing encoding failures.
+
+  **After (with indirect_inherits):**
+
+  `C.dia` can reference AVPs from `A.dia` without directly inheriting it,
+  compiler will resolve the entire inheritance chain automatically, ensuring
+  all relevant descendant definitions from `A.dia` are available without
+  additional user declarations.  
+
 Note that a dictionary's [`@name`](diameter_dict.md#name), together with the
 `outdir` option, determine the output paths when the `return` option is not
 specified. The [`@name`](diameter_dict.md#name) of a literal input dictionary
