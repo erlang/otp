@@ -122,7 +122,9 @@ arm::Mem BeamModuleAssembler::emit_variable_apply(bool includeI) {
     }
 
     comment("apply()");
-    runtime_call<4>(apply);
+    // Using the basic runtime_call instead of the BeamModuleAssembler version
+    // allows to skip veneer management
+    BeamAssembler::runtime_call<4>(apply);
 
     emit_leave_runtime<Update::eReductions | Update::eHeapAlloc>();
 
@@ -148,8 +150,8 @@ void BeamModuleAssembler::emit_i_apply_only() {
     arm::Mem target = emit_variable_apply(true);
 
     emit_leave_erlang_frame();
-    // TODO
-    emit_nyi("emit_i_apply_only_next");
+    branch(target);
+    mark_unreachable();
 }
 
 arm::Mem BeamModuleAssembler::emit_fixed_apply(const ArgWord &Arity,
