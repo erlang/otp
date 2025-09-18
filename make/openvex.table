@@ -540,7 +540,7 @@
       "status": "under_investigation"
     },
     {
-      "pkg:github/wxwidgets/wxwidgets@dc585039bbd426829e3433002023a93f9bedd0c2": "CVE-2024-58249",
+      "pkg:github/wxWidgets/wxWidgets@dc585039bbd426829e3433002023a93f9bedd0c2": "CVE-2024-58249",
       "status": {
         "apps": [
           "pkg:otp/wx@2.5"

@@ -1535,8 +1535,13 @@ ignore_vex_cves(Branch, Vulns) ->
                         %% that there is no vulnerability, then there is no vulnerability.
                         %% If there is a vulnerability, then OTP must update the vendor file
                         %% to remove the vulnerability.
-                        CVEsMatches = lists:filtermap(fun ({{PurlX, _}, CVEList}) when Purl == PurlX ->
-                                                              {true, CVEList};
+                        CVEsMatches = lists:filtermap(fun ({{PurlX, _}, CVEList}) ->
+                                                              case string:lowercase(Purl) == string:lowercase(PurlX) of
+                                                                  true ->
+                                                                      {true, CVEList};
+                                                                  false ->
+                                                                      false
+                                                              end;
                                                           (_) ->
                                                               false
                                                       end, OpenVex1),
