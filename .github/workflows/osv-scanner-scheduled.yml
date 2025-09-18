@@ -57,7 +57,10 @@ jobs:
         type: ${{ fromJson(needs.schedule-scan.outputs.versions) }}
       fail-fast: false
     permissions:
-      actions: read
+      # actions must have 'write' permission to be able to trigger a workflow in
+      # the same repo. in places where there is no 'gh api' call to the reusable
+      # workflow, and 'use:' is used, one can go with 'actions: read'.
+      actions: write
     steps:
       # this call to a workflow_dispatch ref=master is important because
       # using ref={{matrix.type}} would trigger the workflow
