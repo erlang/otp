@@ -241,6 +241,7 @@ ci(Opts) ->
                       "**/*.cover",
                       "lib/jinterface/.**",
                       "erts/etc/win32/",
+                      "lib/wx/wxwin-nothrow.m4",
                       "erts/lib_src/yielding_c_fun/lib/simple_c_gc/**",
                       "lib/inets/test/httpd_test_data/**"] ++
                       NoWarnNewFiles,
