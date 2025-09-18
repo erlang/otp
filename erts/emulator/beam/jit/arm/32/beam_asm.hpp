@@ -157,6 +157,11 @@ protected:
 #endif
     }
 
+    void branch(arm::Mem target) {
+        a.ldr(TMP, target);
+        a.bx(TMP);
+    }
+
     void runtime_call(a32::Gp func, unsigned args) {
         ASSERT(false);
     }
