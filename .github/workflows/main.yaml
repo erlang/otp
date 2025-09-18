@@ -481,10 +481,14 @@ jobs:
     name: Vendor Vulnerability Scanning
     uses: ./.github/workflows/reusable-vendor-vulnerability-scanner.yml
     with:
-      fail_if_cve: true
+      fail_if_cve: false
       checkout: true
       version: ${{ github.event_name == 'pull_request' && github.base_ref || github.ref_name }}
       # equivalent of ${{ env.BASE_BRANCH }} but reusable-workflows do not allow to pass env.
+      # `fail_if_cve` must always be `false`. the reason is that the reusable workflow tries to open
+      # a GH Issue if it finds a vulnerability. however, this can only work on internal PRs or PRs coming
+      # from a repo branch. this is a security limitation as otherwise, forked repos could create pull
+      # requests against Erlang/OTP which start creating automatic issues.
     secrets: inherit
 
   build:
