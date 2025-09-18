@@ -538,6 +538,15 @@
     {
       "pkg:github/PCRE2Project/pcre2@2dce7761b1831fd3f82a9c2bd5476259d945da4d": "CVE-2025-58050",
       "status": "under_investigation"
+    },
+    {
+      "pkg:github/wxwidgets/wxwidgets@dc585039bbd426829e3433002023a93f9bedd0c2": "CVE-2024-58249",
+      "status": {
+        "apps": [
+          "pkg:otp/wx@2.5"
+        ],
+        "not_affected": "vulnerable_code_not_present"
+      }
     }
   ]
 }

@@ -3,8 +3,8 @@
   "@id": "https://openvex.dev/docs/public/otp/vex-otp-28",
   "author": "vexctl",
   "timestamp": "2025-08-21T10:55:45.714759+02:00",
-  "last_updated": "2025-09-16T08:22:13.412871815Z",
-  "version": 23,
+  "last_updated": "2025-09-18T09:59:20.278041735+02:00",
+  "version": 25,
   "statements": [
     {
       "vulnerability": {
@@ -423,6 +423,56 @@
         }
       ],
       "status": "fixed"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2024-58249"
+      },
+      "timestamp": "2025-09-18T09:59:20.262521222+02:00",
+      "products": [
+        {
+          "@id": "pkg:github/erlang/otp@OTP-28.0"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-28.0.1"
+        },
+        {
+          "@id": "pkg:otp/wx@2.5"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-28.0.2"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-28.0.3"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-28.0.4"
+        },
+        {
+          "@id": "pkg:otp/wx@2.5.1"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-28.1"
+        },
+        {
+          "@id": "pkg:otp/wx@2.5.2"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_present"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2024-58249"
+      },
+      "timestamp": "2025-09-18T09:59:20.278042349+02:00",
+      "products": [
+        {
+          "@id": "pkg:github/wxwidgets/wxwidgets@dc585039bbd426829e3433002023a93f9bedd0c2"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_present"
     }
   ]
 }
