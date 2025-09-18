@@ -197,7 +197,9 @@
          exporter_master_secret_consumed/1,
          legacy_prf/0,
          legacy_prf/1,
-         listen_pem_file_failure/1
+         listen_pem_file_failure/1,
+         same_file_for_key_and_cert/0,
+         same_file_for_key_and_cert/1
         ]).
 
 %% Apply export
@@ -331,7 +333,8 @@ gen_api_tests() ->
      cipher_listing,
      export_key_materials,
      legacy_prf,
-     listen_pem_file_failure
+     listen_pem_file_failure,
+     same_file_for_key_and_cert
     ].
 
 handshake_paus_tests() ->
@@ -3849,6 +3852,7 @@ listen_pem_file_failure(Config) when is_list(Config) ->
     BadDH = filename:join(DataDir, "dHParam-invalid.pem"),
     BaseOpts = [{versions, [Version]}, {protocol, tls_or_dtls(Version)}],
     NoCACerts = filename:join(DataDir, "nocacerts.pem"),
+    CertAndKey = filename:join(DataDir, "cert_and_key.pem"),
     {error, {options, {keyfile, {Key, wrong_password}}}} =
         ssl:listen(0, [{certfile, Cert}, {keyfile, Key}] ++ BaseOpts),
     {error, {options, {certfile, {Key, no_certs}}}} =
@@ -3870,10 +3874,49 @@ listen_pem_file_failure(Config) when is_list(Config) ->
                 ssl:listen(0, ServerOpts ++ BaseOpts ++ [{dhfile, BadDH}]);
         _ ->
             ok
-    end.
+    end,
+    %% Shall not fail to have both cert and key in same file
+    {ok, L} = ssl:listen(0, [{certfile, CertAndKey}, {keyfile, CertAndKey}] ++ BaseOpts),
+    ssl:close(L).
+
+%%--------------------------------------------------------------------
+same_file_for_key_and_cert() ->
+    ["Test that it works to put entity cert (can be entity cert chain also) and key in same file"].
+
+same_file_for_key_and_cert(Config) when is_list(Config) ->
+    SHA = sha256,
+    #{client_config := ClientOpts0, 
+      server_config := ServerOpts0} = ssl_test_lib:make_cert_chains_der(rsa, [{server_chain,
+                                                                               [[{digest, SHA}],
+                                                                                [{digest, SHA}],
+                                                                                [{digest, SHA}]]},
+                                                                              {client_chain,
+                                                                               [[{digest, SHA}],
+                                                                                [{digest, SHA}],
+                                                                                [{digest, SHA}]]}
+                                                                             ]),
+    ServerCert = proplists:get_value(cert, ServerOpts0),
+    {SKeyType, SKey} = proplists:get_value(key, ServerOpts0),
+    ClientCert = proplists:get_value(cert, ClientOpts0),
+    {CKeyType, CKey} = proplists:get_value(key, ClientOpts0),
+    PrivDir = proplists:get_value(priv_dir, Config),
+    SCertAndKeyFile = filename:join(PrivDir, "server_cert_and_key.pem"),
+    CCertAndKeyFile = filename:join(PrivDir, "client_cert_and_key.pem"),
+    SPemE = [{'Certificate', ServerCert, not_encrypted}, {SKeyType, SKey, not_encrypted}],
+    CPemE = [{'Certificate', ClientCert, not_encrypted}, {CKeyType, CKey, not_encrypted}],
+    ok = file:write_file(SCertAndKeyFile, public_key:pem_encode(SPemE)),
+    ok = file:write_file(CCertAndKeyFile, public_key:pem_encode(CPemE)),
+    ssl_test_lib:basic_test(replace_cerkey_der_with_file(CCertAndKeyFile, ClientOpts0),
+                            replace_cerkey_der_with_file(SCertAndKeyFile, ServerOpts0), Config).
+
 %%--------------------------------------------------------------------
 %% Internal functions
 %%--------------------------------------------------------------------
+
+replace_cerkey_der_with_file(File, Opts0) ->
+   Opts = proplists:delete(key, proplists:delete(cert, Opts0)),
+   [{certfile, File}, {keyfile, File} | Opts].
+
 
 establish_connection(Id, ServerNode, ServerOpts, ClientNode, ClientOpts, Hostname) ->
     Server =
