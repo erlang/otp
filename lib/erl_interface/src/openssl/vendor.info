@@ -15,6 +15,7 @@
     "licenseDeclared": "Apache-2.0",
     "name": "openssl",
     "versionInfo": "3.5",
+    "sha": "636dfadc70ce26f2473870570bfd9ec352806b1d",
     "path": "./lib/erl_interface/src/openssl",
     "exclude": ["./lib/erl_interface/src/openssl/vendor.info",
                 "./lib/erl_interface/src/openssl/README",

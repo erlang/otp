@@ -7,17 +7,18 @@
 // %CopyrightEnd%
 [
   {
-    "ID": "wx",
+    "ID": "wx-doc-src",
     "description": "wxWidgets documentation inserted from original project into Erlang bindings",
     "copyrightText": "Copyright (c) 1998 Julian Smart, Robert Roebling et al",
     "downloadLocation": "https://github.com/wxWidgets/wxWidgets",
     "homepage": "https://github.com/wxWidgets/wxWidgets",
     "licenseDeclared": "LicenseRef-scancode-wxwindows-free-doc-3",
-    "name": "wx",
+    "name": "wx-doc-src",
     "versionInfo": "dc585039bbd426829e3433002023a93f9bedd0c2",
-    "path": "./lib/wx",
+    "sha": "dc585039bbd426829e3433002023a93f9bedd0c2",
+    "path": "./lib/wx/api_gen",
     "comments": "This only applies to the source code of Erlang files in 'src', and specifically to the documentation embedded in them",
-    "supplier": "NOASSERTION",
+    "supplier": "Organization: Ericsson AB",
     "purl": "pkg:github/wxwidgets/wxwidgets"
   }
 ]
