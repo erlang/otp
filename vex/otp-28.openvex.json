@@ -468,7 +468,7 @@
       "timestamp": "2025-09-18T09:59:20.278042349+02:00",
       "products": [
         {
-          "@id": "pkg:github/wxwidgets/wxwidgets@dc585039bbd426829e3433002023a93f9bedd0c2"
+          "@id": "pkg:github/wxWidgets/wxWidgets@dc585039bbd426829e3433002023a93f9bedd0c2"
         }
       ],
       "status": "not_affected",
