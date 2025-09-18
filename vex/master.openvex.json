@@ -1,0 +1,8 @@
+{
+  "@context": "https://openvex.dev/ns/v0.2.0",
+  "@id": "https://openvex.dev/docs/public/otp/vex-master",
+  "author": "vexctl",
+  "statements": [],
+  "timestamp": "2025-09-18T19:02:54.432864+02:00",
+  "version": 1
+}
