@@ -19,6 +19,7 @@
     "exclude": ["./erts/emulator/pcre/vendor.info",
                 "./erts/emulator/pcre/README.pcre_update.md",
                 "./erts/emulator/pcre/pcre.mk"],
+    "sha": "b2bd4254b379b9d7dc9a3dda060a7e27009ccdff",
     "supplier": "Person: Nicholas Wilson",
     "purl": "pkg:generic/pcre2"
   }
