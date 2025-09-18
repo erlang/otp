@@ -74,10 +74,8 @@ handle_info({'EXIT',_,{shutdown,Term}}, State) ->
     {stop, {shutdown,Term}, State};
 
 handle_info({sleep, Time}, State) ->
-    io:format("FOO: ~p~n", [Time]),
     timer:sleep(Time),
-    io:format("FOO: sleept~n", []),
-    handle_info({sleep, Time}, State);
+    {noreply, State};
 
 handle_info(_, State) ->
     {noreply, State}.

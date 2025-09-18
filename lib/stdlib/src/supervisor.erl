@@ -302,7 +302,8 @@ but the map is preferred.
 	 delete_child/2, terminate_child/2,
 	 which_children/1, which_child/2,
 	 count_children/1, check_childspecs/1,
-	 check_childspecs/2, get_childspec/2]).
+	 check_childspecs/2, get_childspec/2,
+	 stop/1, stop/3]).
 
 %% Internal exports
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -829,6 +830,45 @@ processes:
              | {workers, ChildWorkerCount :: non_neg_integer()}.
 count_children(Supervisor) ->
     call(Supervisor, count_children).
+
+-doc(#{equiv => stop(SupRef, normal, infinity)}).
+-doc(#{since => <<"OTP 28.0">>}).
+-spec stop(SupRef :: sup_ref()) -> ok.
+stop(Supervisor) ->
+    gen_server:stop(Supervisor).
+
+-doc """
+Stop a supervisor.
+
+Orders the supervisor specified by `SupRef` to exit
+with the specified `Reason` and waits for it to terminate.
+The supervisor will terminate all its children
+before exiting.
+
+The function returns `ok` if the supervisor terminates
+with the expected reason. Any other reason than `normal`, `shutdown`,
+or `{shutdown,Term}` causes an error report to be issued using `m:logger`.
+An exit signal with the same reason is sent to linked processes and ports.
+
+`Timeout` is an integer that specifies how many milliseconds to wait
+for the supervisor to terminate, or the atom `infinity` to wait indefinitely.
+If the supervisor has not terminated within the specified time,
+the call exits the calling process with reason `timeout`.
+
+If the process does not exist, the call exits the calling process
+with reason `noproc`, or with reason `{nodedown,Node}`
+if the connection fails to the remote `Node` where the supervisor runs.
+
+> #### Warning {: .warning }
+>
+> Calling this function from a (sub-)child process of the given supervisor
+> will result in a deadlock which will last until either the shutdown timeout
+> of the child or the timeout given to `stop/3` has expired.
+""".
+-doc(#{since => <<"OTP 28.0">>}).
+-spec stop(SupRef :: sup_ref(), Reason :: term(), Timeout :: timeout()) -> ok.
+stop(Supervisor, Reason, Timeout) ->
+    gen_server:stop(Supervisor, Reason, Timeout).
 
 call(Supervisor, Req) ->
     gen_server:call(Supervisor, Req, infinity).
