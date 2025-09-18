@@ -190,7 +190,7 @@ void BeamModuleAssembler::emit_i_func_info(const ArgWord &Label,
     if (code_header.isValid()) {
         /* We avoid using the `fragment_call` helper to ensure a constant
          * layout, as it adds code in certain debug configurations. */
-        a.bl(resolve_fragment(ga->get_i_func_info_shared(), disp128MB));
+        a.blx(resolve_fragment(ga->get_i_func_info_shared(), disp32MB));
     } else {
         a.udf(0xF1F0);
     }
@@ -206,8 +206,6 @@ void BeamModuleAssembler::emit_i_func_info(const ArgWord &Label,
 }
 
 void BeamModuleAssembler::emit_label(const ArgLabel &Label) {
-    // TODO
-    emit_nyi("emit_label");
     ASSERT(Label.isLabel());
 
     current_label = rawLabels[Label.get()];
@@ -218,8 +216,6 @@ void BeamModuleAssembler::emit_label(const ArgLabel &Label) {
 
 void BeamModuleAssembler::emit_aligned_label(const ArgLabel &Label,
                                              const ArgWord &Alignment) {
-    // TODO
-    emit_nyi("emit_aligned_label");
     a.align(AlignMode::kCode, Alignment.get());
     emit_label(Label);
 }
@@ -230,8 +226,6 @@ void BeamModuleAssembler::emit_on_load() {
 }
 
 void BeamModuleAssembler::bind_veneer_target(const Label &target) {
-    // TODO
-    emit_nyi("bind_veneer_target");
     auto veneer_range = _veneers.equal_range(target.id());
     for (auto it = veneer_range.first; it != veneer_range.second; it++) {
         const Veneer &veneer = it->second;
@@ -250,8 +244,6 @@ void BeamModuleAssembler::bind_veneer_target(const Label &target) {
 }
 
 void BeamModuleAssembler::emit_int_code_end() {
-    // TODO
-    emit_nyi("emit_int_code_end");
     /* This label is used to figure out the end of the last function */
     code_end = a.newLabel();
     a.bind(code_end);
@@ -270,8 +262,8 @@ void BeamModuleAssembler::emit_int_code_end() {
     for (auto pair : _dispatchTable) {
         bind_veneer_target(pair.second);
 
-        // a.mov(SUPER_TMP, imm(pair.first));
-        // a.br(SUPER_TMP);
+        mov_imm(TMP, pair.first);
+        a.blx(TMP);
     }
 
     mark_unreachable();
@@ -428,6 +420,17 @@ void BeamModuleAssembler::flush_pending_stubs(size_t range) {
     ssize_t effective_offset = a.offset() + range;
     Label next;
 
+    if (!_pending_labels.empty()) {
+        next = a.newLabel();
+
+        comment("Begin stub section");
+        if (!is_unreachable()) {
+            a.b(next);
+        }
+
+        flush_pending_labels();
+    }
+
     while (!_pending_veneers.empty()) {
         const Veneer &veneer = _pending_veneers.top();
 
@@ -440,7 +443,9 @@ void BeamModuleAssembler::flush_pending_stubs(size_t range) {
                 next = a.newLabel();
 
                 comment("Begin stub section");
-                a.b(next);
+                if (!is_unreachable()) {
+                    a.b(next);
+                }
             }
 
             emit_veneer(veneer);
@@ -465,7 +470,9 @@ void BeamModuleAssembler::flush_pending_stubs(size_t range) {
             next = a.newLabel();
 
             comment("Begin stub section");
-            a.b(next);
+            if (!is_unreachable()) {
+                a.b(next);
+            }
         }
 
         emit_constant(constant);
@@ -497,11 +504,13 @@ void BeamModuleAssembler::flush_pending_labels() {
 }
 
 void BeamModuleAssembler::emit_veneer(const Veneer &veneer) {
-        // TODO
+    // TODO
+    ASSERT(false);
     emit_nyi("emit_veneer");
 }
 
 void BeamModuleAssembler::emit_constant(const Constant &constant) {
-        // TODO
+    // TODO
+    ASSERT(false);
     emit_nyi("emit_constant");
 }
