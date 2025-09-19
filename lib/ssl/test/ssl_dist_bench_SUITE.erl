@@ -37,6 +37,7 @@
 -export(
    [setup/1,
     parallel_setup/1,
+    early_double_funcall/1,
     roundtrip/1,
     sched_utilization/1,
     mean_load_cpu_margin/1,
@@ -85,7 +86,8 @@ groups() ->
      %%
      %% categories()
      {setup, [{repeat, 1}],
-      [setup,
+      [early_double_funcall,
+       setup,
        parallel_setup]},
      {roundtrip, [{repeat, 1}], [roundtrip]},
      {sched_utilization,[{repeat, 1}],
@@ -779,6 +781,51 @@ parallel_setup_result(
       Prefix++" Parallel Setup Cycle",
       CycleSpeed, per_ks("cycles") ++ " " ++ MemText,
       SumTotalTime / Clients).
+
+%%-----------
+%% Early call
+
+early_double_funcall(Config) when is_list(Config) ->
+    A = proplists:get_value({client,1}, Config),
+    B = proplists:get_value(server, Config),
+    Effort = proplists:get_value(effort, Config, 1),
+    Rounds = 5 * Effort,
+    early_double_funcall(Config, A, B, Rounds).
+
+early_double_funcall(Config, A, B, Rounds) when 0 < Rounds ->
+    HA = start_ssl_node({client,1}, Config),
+    try
+        Ref = make_ref(),
+        HB = start_ssl_node(server, Config),
+        try
+            ssl_apply(HA, fun () -> early_double_funcall(B, Ref) end)
+        of
+            Ref ->
+                ok;
+            Other ->
+                erlang:error(Other)
+        after
+            stop_ssl_node(server, HB, Config)
+        end
+    after
+        stop_ssl_node({client,1}, HA, Config)
+    end,
+    early_double_funcall(Config, A, B, Rounds - 1);
+early_double_funcall(_Config, _A, _B, _Rounds) ->
+    ok.
+
+early_double_funcall(B, Ref) ->
+    %% First distribution module local fun call, via spawn
+    Pid = spawn(B, fun () -> receive Ref ->  exit(Ref) end end),
+    %% Second distribution module local fun call
+    Ref = erpc:call(B, fun () -> Ref end),
+    %% Orderly finish
+    Mon = monitor(process, Pid),
+    Pid ! Ref,
+    receive
+        {'DOWN', Mon, _, _, Reason} ->
+            Reason
+    end.
 
 %%----------------
 %% Roundtrip speed
