@@ -23,7 +23,7 @@
 
 -module(ssh_eqc_client_info_timing).
 
--compile(export_all).
+-export([prop_seq/1]).
 
 -include_lib("common_test/include/ct_property_test.hrl").
 
