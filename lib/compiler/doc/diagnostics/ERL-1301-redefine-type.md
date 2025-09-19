@@ -1,0 +1,1 @@
+# ERL-1301 - Type already defined
