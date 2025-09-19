@@ -55,6 +55,7 @@ order to make it easier to navigate.
   [`port_limit`](`m:erlang#system_info_port_limit`),
   [`process_count`](`m:erlang#system_info_process_count`),
   [`process_limit`](`m:erlang#system_info_process_limit`)
+  [`bif_timer_count`](`m:erlang#system_info_bif_timer_count`),
 
 - [`System Time`](`m:erlang#system_info/1-system-time`) -
   [`end_time`](`m:erlang#system_info_end_time`),
@@ -396,6 +397,13 @@ Returns information about the current system (emulator) limits as specified by `
   number of simultaneously existing processes at the local node. The value is
   given as an integer. This limit can be configured at startup by using
   command-line flag [`+P`](erl_cmd.md#+P) in `erl(1)`.
+
+- `bif_timer_count`{: #system_info_bif_timer_count } - Returns the number of bif
+  timers currently existing at the local node. Bif timers are those created by `erlang:send_after`
+  and `erlang:start_timer`, but not those implicitly created by receive statements with timeouts.
+  The value is given as an integer.
+
+  Since OTP 29.0
 
 ## System Time
 
