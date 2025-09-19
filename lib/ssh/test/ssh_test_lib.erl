@@ -25,6 +25,7 @@
 -module(ssh_test_lib).
 
 -export([
+analyze_events/2,
 connect/2,
 connect/3,
 daemon/1,
@@ -134,8 +135,9 @@ find_handshake_parent/1
         ]).
 %% logger callbacks and related helpers
 -export([log/2,
-         get_log_level/0, set_log_level/1, add_log_handler/0,
-         rm_log_handler/0, get_log_events/1]).
+         get_log_level/0, set_log_level/1,
+         add_log_handler/2, rm_log_handler/1,
+         get_log_events/1]).
 
 -include_lib("common_test/include/ct.hrl").
 -include("ssh_transport.hrl").
@@ -1350,22 +1352,24 @@ get_log_level() ->
 set_log_level(Level) ->
     ok = logger:set_primary_config(level, Level).
 
-add_log_handler() ->
-    logger:remove_handler(?MODULE),
+add_log_handler(HandlerId, Config) ->
+    logger:remove_handler(HandlerId),
     TestRef = make_ref(),
-    ok = logger:add_handler(?MODULE, ?MODULE,
+    ok = logger:add_handler(HandlerId, ?MODULE,
                             #{level => debug,
                               filter_default => log,
                               recipient => self(),
                               test_ref => TestRef}),
-    {ok, TestRef}.
+    [{log_handler_ref, TestRef} | Config].
 
-rm_log_handler() ->
-    ok = logger:remove_handler(?MODULE).
+rm_log_handler(HandlerId) ->
+    ok = logger:remove_handler(HandlerId).
 
 get_log_events(TestRef) ->
     {ok, get_log_events(TestRef, [])}.
 
+get_log_events(Config, Acc) when is_list(Config) ->
+    get_log_events(proplists:get_value(log_handler_ref, Config), Acc);
 get_log_events(TestRef, Acc) ->
     receive
         {TestRef, Event} ->
@@ -1374,6 +1378,110 @@ get_log_events(TestRef, Acc) ->
         500 ->
             Acc
     end.
+
+analyze_events(Events, EventNumber) when EventNumber >= 0 ->
+    {ok, Cnt} = print_interesting_events(Events, 0),
+    case Cnt > 0 of
+        true ->
+            ct:comment("LGR interesting: ~p boring: ~p",
+                       [Cnt, EventNumber - Cnt]);
+        _ ->
+            ct:comment("LGR boring: ~p",
+                       [length(Events)])
+    end,
+    AllEventsSummary = lists:flatten([process_event(E) || E <- Events]),
+    ct:log("~nTotal logger events: ~p~nAll events:~n~s", [EventNumber, AllEventsSummary]),
+    {ok, Cnt}.
+
+process_event(#{msg := {report,
+                        #{label := Label,
+                          report := [{supervisor, Supervisor},
+                                     {Status, Properties}]}},
+                level := Level}) ->
+    format_event1(Label, Supervisor, Status, Properties, Level);
+process_event(#{msg := {report,
+                        #{label := Label,
+                          report := [{supervisor, Supervisor},
+                                     {errorContext, _ErrorContext},
+                                     {reason, {Status, _ReasonDetails}},
+                                     {offender, Properties}]}},
+                level := Level}) ->
+    format_event1(Label, Supervisor, Status, Properties, Level);
+process_event(#{msg := {report,
+                        #{label := Label,
+                          report := [{supervisor, Supervisor},
+                                     {errorContext, _ErrorContext},
+                                     {reason, Status},
+                                     {offender, Properties}]}},
+                level := Level}) ->
+    format_event1(Label, Supervisor, Status, Properties, Level);
+process_event(#{msg := {report,
+                        #{label := Label,
+                          report := [Properties, []]}},
+                level := Level}) ->
+    {status, Status} = get_value(status, Properties),
+    {pid, Pid} = get_value(pid, Properties),
+    Id = get_value(registered_name, Properties),
+    {initial_call, {M, F, Args}} = get_value(initial_call, Properties),
+    io_lib:format("[~44s]  ~6s ~30s ~20s  ~30s ~20s:~10s(~40s)~n",
+                  [io_lib:format("~p", [E]) ||
+                      E <- [Pid, Level, Label, Status, Id, M, F, Args]]);
+process_event(#{msg := {report,
+                        #{label := Label,
+                          name := Pid,
+                          reason := {Reason, _Stack = [{M, F, Args, Location} | _]}}},
+                level := Level}) ->
+    io_lib:format("[~44s]  ~6s ~30s ~20s  ~30s ~20s:~10s(~40s) ~30s~n",
+                  [io_lib:format("~p", [E]) ||
+                      E <- [Pid, Level, Label, Reason, undefined, M, F, Args, Location]]);
+process_event(#{msg := {report,
+                        #{label := Label,
+                         format := Format,
+                         args := Args}},
+                meta := #{pid := Pid},
+                level := Level}) ->
+    io_lib:format("[~44s]  ~6s ~30s ~150s~n",
+                  [io_lib:format("~p", [E]) ||
+                      E <- [Pid, Level, Label]] ++ [io_lib:format(Format, Args)]);
+process_event(E) ->
+    io_lib:format("~n||RAW event||~n~p~n", [E]).
+
+format_event1(Label, Supervisor, Status, Properties, Level) ->
+    {pid, Pid} = get_value(pid, Properties),
+    Id = get_value(id, Properties),
+    {M, F, Args} = get_mfa_value(Properties),
+    RestartType = get_value(restart_type, Properties),
+    Significant = get_value(significant, Properties),
+    io_lib:format("[~30s <- ~10s]  ~6s ~30s ~20s  ~30s ~20s:~10s(~40s) ~20s ~25s~n",
+                  [io_lib:format("~p", [E]) ||
+                      E <- [Supervisor, Pid, Level, Label, Status, Id, M, F, Args,
+                            Significant, RestartType]]).
+
+get_mfa_value(Properties) ->
+    case get_value(mfargs, Properties) of
+        {mfargs, MFA} ->
+            MFA;
+        false ->
+            {mfa, MFA} = get_value(mfa, Properties),
+            MFA
+    end.
+
+get_value(Key, List) ->
+    case lists:keyfind(Key, 1, List) of
+        R = false ->
+            ct:log("Key ~p not found in~n~p", [Key, List]),
+            R;
+        R -> R
+    end.
+
+print_interesting_events([], Cnt) ->
+    {ok, Cnt};
+print_interesting_events([#{level := Level} = Event | Tail], Cnt)
+  when Level /= info, Level /= notice, Level /= debug ->
+    ct:log("------------~nInteresting event found:~n~p~n==========~n", [Event]),
+    print_interesting_events(Tail, Cnt + 1);
+print_interesting_events([_|Tail], Cnt) ->
+    print_interesting_events(Tail, Cnt).
 
 %% logger callbacks
 log(LogEvent = #{level:=_Level,msg:=_Msg,meta:=_Meta},
