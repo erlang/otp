@@ -237,8 +237,7 @@ protected:
     };
 
     void emit_enter_erlang_frame() {
-        // TODO
-        ASSERT(false);
+        a.str(a32::lr, arm::Mem(E, -4).pre());
     }
 
     void emit_leave_erlang_frame() {
@@ -570,7 +569,7 @@ class BeamModuleAssembler : public BeamAssembler,
          * backward displacements. */
         dispUnknown = (32 << 10) - sizeof(Uint32) - STUB_CHECK_INTERVAL,
 
-        /* +- 32MB: `b`, `bl`, `blx` */
+        /* +- 32MB: `b`, `bl`, `blx`, b.cond */
         disp32MB = (32 << 20) - sizeof(Uint32),
 
         dispMin = dispUnknown,
