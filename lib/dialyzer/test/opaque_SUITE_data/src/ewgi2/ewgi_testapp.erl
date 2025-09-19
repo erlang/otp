@@ -1,7 +1,9 @@
-%%%-------------------------------------------------------------------
-%%% File    : ewgi_testapp.erl
-%%% Authors : Hunter Morris <huntermorris@gmail.com>
-%%% License :
+%%% %CopyrightBegin%
+%%%
+%%% SPDX-License-Identifier: MPL-1.1
+%%%
+%%% Copyright 2007 S.G. Consulting srl
+%%%
 %%% The contents of this file are subject to the Mozilla Public
 %%% License Version 1.1 (the "License"); you may not use this file
 %%% except in compliance with the License. You may obtain a copy of
@@ -11,22 +13,20 @@
 %%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %%% the License for the specific language governing rights and
 %%% limitations under the License.
+%%%
+%%% %CopyrightEnd%
+%%%
+%%% Authors : Hunter Morris <huntermorris@gmail.com>
+%%%
 %%% The Initial Developer of the Original Code is S.G. Consulting
 %%% srl. Portions created by S.G. Consulting s.r.l. are Copyright (C)
 %%% 2007 S.G. Consulting srl. All Rights Reserved.
 %%%
-%%% @doc
-%%% <p>ewgi test applications</p>
-%%%
-%%% @end
-%%%
-%%% Created : 05 July 2009 by Hunter Morris <huntermorris@gmail.com>
-%%%-------------------------------------------------------------------
 -module(ewgi_testapp).
 
 -export([htmlise/1]).
 
--include_lib("ewgi.hrl").
+-include("ewgi.hrl").
 
 htmlise(C) ->
     iolist_to_binary(

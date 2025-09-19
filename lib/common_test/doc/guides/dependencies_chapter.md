@@ -80,7 +80,7 @@ into one test case. The resulting suite can look as follows:
 ```erlang
 -module(my_server_SUITE).
 -compile(export_all).
--include_lib("ct.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 %%% init and end functions...
 
@@ -184,7 +184,7 @@ _Example:_
 ```erlang
 -module(server_b_SUITE).
 -compile(export_all).
--include_lib("ct.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 %%% init and end functions...
 
