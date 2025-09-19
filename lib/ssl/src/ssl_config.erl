@@ -390,13 +390,8 @@ init_private_key(undefined, CertKey, DbHandle) ->
         KeyFile ->
             Password = maps:get(password, CertKey, undefined),
             try
-                {ok, List} = ssl_manager:cache_pem_file(KeyFile, DbHandle),
-                [PemEntry] = [PemEntry || PemEntry = {PKey, _ , _} <- List,
-                                          PKey =:= 'RSAPrivateKey' orelse
-                                              PKey =:= 'DSAPrivateKey' orelse
-                                              PKey =:= 'ECPrivateKey' orelse
-                                              PKey =:= 'PrivateKeyInfo'
-                             ],
+                {ok, PemEntries} = ssl_manager:cache_pem_file(KeyFile, DbHandle),
+                [PemEntry] = key_entry(PemEntries),
                 public_key:pem_entry_decode(PemEntry, Password)
             catch
                 _:Reason ->
@@ -2179,23 +2174,31 @@ do_handle_cert_file(File, PemCacheName) ->
 handle_key_file(#{keyfile := File} = CertKey, PemCacheName) ->
     case file:read_file(File) of
         {ok, Pem} ->
-            case public_key:pem_decode(Pem) of
+            PemEntries = public_key:pem_decode(Pem),
+            Password = maps:get(password, CertKey, ""),
+            case key_entry(PemEntries) of
                 [KeyEntry] ->
-                    Password = maps:get(password, CertKey, ""),
                     try public_key:pem_entry_decode(KeyEntry, Password) of
                         Key ->
-                            handle_key(PemCacheName, File, Key, [KeyEntry])
+                            handle_key(PemCacheName, File, Key, PemEntries)
                     catch _:_ ->
                             {error, wrong_password}
                     end;
-                Unexpected ->
-                    {error, {unexpected_content, Unexpected}}
+                _ ->
+                    {error, {unexpected_content, {missing_single_key, File}}}
             end;
         {error, _} =  Error ->
             Error
     end;
 handle_key_file(_,_) ->
     ok.
+
+key_entry(PemEntries) ->
+    [PemEntry || PemEntry = {PKey, _ , _} <- PemEntries,
+                 PKey =:= 'RSAPrivateKey' orelse
+                     PKey =:= 'DSAPrivateKey' orelse
+                     PKey =:= 'ECPrivateKey' orelse
+                     PKey =:= 'PrivateKeyInfo'].
 
 handle_key(PemCacheName, File, Key, Content) ->
     case check_key(Key) of
