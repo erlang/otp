@@ -1050,24 +1050,24 @@ apply_file_info_opts(Config) when is_list(Config) ->
     ok.
 
 table_absolute_names(Config) ->
-    ok = file:set_cwd(proplists:get_value(priv_dir, Config)),
-    TestFileName1 = lists:duplicate(99, $a),
-    TestFileName2 = lists:duplicate(10, $b),
-    _ = [ok = file:write_file(TestFileName, "hello, world\n") ||
-            TestFileName <- [TestFileName1, TestFileName2]],
+    PrivDir = proplists:get_value(priv_dir, Config),
+    ok = file:set_cwd(PrivDir),
+    N = max(1, 101 - length(PrivDir)),
+    TestFileName = lists:duplicate(N, $a),
+    ok = file:write_file(TestFileName, "hello, world\n"),
 
     %% File paths greater than 100 bytes will be split and stored
     %% as a filename and prefix.
-    TarTestFileName1 = filename:join("/tmp", TestFileName1),
+    TarTestFileName = filename:absname(TestFileName),
 
-    %% File paths less than 100 bytes bytes will not use the prefix field
-    TarTestFileName2 = filename:join("/tmp", TestFileName2),
+    io:format("~p: ~p\n", [length(TarTestFileName), TarTestFileName]),
 
     TarName = "my_tar_with_long_names.tar",
-    ok = erl_tar:create(TarName, [{TarTestFileName1, TestFileName1},
-                                  {TarTestFileName2, TestFileName2}]),
-    {ok, TarFiles} = erl_tar:table(TarName),
-    [TarTestFileName1, TarTestFileName2] = lists:sort(TarFiles),
+    ok = erl_tar:create(TarName, [TarTestFileName]),
+    {ok, [TarTestFileName]} = erl_tar:table(TarName),
+
+    ok = file:delete(TarTestFileName),
+    ok = file:delete(TarName),
 
     ok.
 
