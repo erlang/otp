@@ -2347,7 +2347,7 @@ send_to_pids([], _Msg) ->
     ok.
 
 reconfigure_participants(N, [P | Tail]) ->
-    case lists:member(N, P#participant.disc_nodes) or
+    case lists:member(N, P#participant.disc_nodes) orelse
 	 lists:member(N, P#participant.ram_nodes) of
 	false ->
 	    %% Ignore, since we are not a participant
