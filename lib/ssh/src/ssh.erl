@@ -456,7 +456,8 @@ Return values from the `connection_info/1` and `connection_info/2` functions.
       | {sockname, ip_port()}
       | {options, client_options()}
       | {algorithms, conn_info_algs()}
-      | {channels, conn_info_channels()}.
+      | {channels, conn_info_channels()}
+      | {user_auth, string()}.
 
 -doc(#{equiv => connection_info/2}).
 -doc(#{since => <<"OTP 22.1">>}).
