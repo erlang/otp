@@ -1,0 +1,49 @@
+{
+  "@context": "https://openvex.dev/ns/v0.2.0",
+  "@id": "https://openvex.dev/docs/public/otp/vex-otp-29",
+  "author": "vexctl",
+  "timestamp": "2025-09-19T10:20:20.759995+02:00",
+  "last_updated": "2025-09-19T10:33:18.152632187+02:00",
+  "version": 4,
+  "statements": [
+    {
+      "vulnerability": {
+        "name": "CVE-2016-2183"
+      },
+      "timestamp": "2025-09-19T10:33:18.120131746+02:00",
+      "products": [
+        {
+          "@id": "pkg:github/openssl/openssl@636dfadc70ce26f2473870570bfd9ec352806b1d"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_present"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2025-4575"
+      },
+      "timestamp": "2025-09-19T10:33:18.136216491+02:00",
+      "products": [
+        {
+          "@id": "pkg:github/openssl/openssl@01d5e2318405362b4de5e670c90d9b40a351d053"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_present"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2023-45853"
+      },
+      "timestamp": "2025-09-19T10:33:18.152633759+02:00",
+      "products": [
+        {
+          "@id": "pkg:github/madler/zlib@1a8db63788c34a50e39e273d39b7e1033208aea2"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_present"
+    }
+  ]
+}

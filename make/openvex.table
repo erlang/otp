@@ -547,6 +547,34 @@
         ],
         "not_affected": "vulnerable_code_not_present"
       }
+    },
+    {
+      "pkg:github/openssl/openssl@636dfadc70ce26f2473870570bfd9ec352806b1d": "CVE-2016-2183",
+      "status": {
+        "apps": [
+          "pkg:otp/erts@16.0",
+          "pkg:otp/erl_interface@5.6"
+        ],
+        "not_affected": "vulnerable_code_not_present"
+      }
+    }
+  ],
+  "otp-29": [
+    {
+      "pkg:github/madler/zlib@1a8db63788c34a50e39e273d39b7e1033208aea2": "CVE-2023-45853",
+      "status": { "not_affected": "vulnerable_code_not_present" }
+    },
+    {
+      "pkg:github/openssl/openssl@01d5e2318405362b4de5e670c90d9b40a351d053": "CVE-2025-4575",
+      "status": {
+        "not_affected": "vulnerable_code_not_present"
+      }
+    },
+    {
+      "pkg:github/openssl/openssl@636dfadc70ce26f2473870570bfd9ec352806b1d": "CVE-2016-2183",
+      "status": {
+        "not_affected": "vulnerable_code_not_present"
+      }
     }
   ]
 }
