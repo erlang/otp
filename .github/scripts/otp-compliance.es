@@ -1621,8 +1621,7 @@ maint_to_otp_conversion(Branch) ->
     case Branch of
         ~"master" ->
             %% Master corresponds to possible patched versions of OTP_VERSION-1.
-            VersionNumber = erlang:list_to_integer(string:trim(os:cmd("cat OTP_VERSION | cut -d. -f1"))),
-            BinVersionNumber = erlang:integer_to_binary(VersionNumber-1),
+            BinVersionNumber = erlang:list_to_binary(string:trim(os:cmd("cat OTP_VERSION | cut -d. -f1"))),
             <<"otp-", BinVersionNumber/binary>>;
         <<"maint-", Vers/binary>> ->
             <<"otp-", Vers/binary>>;
@@ -1758,7 +1757,7 @@ vendor_by_version(_) ->
 %% any vulnerability. The user should still look into possible
 %% issues with wx if they link to it.
 non_vulnerable_vendor_packages() ->
-    [~"wx"].
+    [~"wx-doc-src"].
 
 ignore_non_vulnerable_vendors(Packages) ->
     lists:filter(fun (#{~"ID" := Id}) -> not lists:member(Id, non_vulnerable_vendor_packages())
