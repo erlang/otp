@@ -1662,7 +1662,8 @@ standard_passes() ->
      {iff,'P',{src_listing,"P"}},
      {iff,'to_pp',{done,"P"}},
 
-     {iff,'dabstr',{listing,"abstr"}}
+     {iff,'dabstr',{listing,"abstr"}},
+     {iff,'to_abstr',{done,"abstr"}}
      | abstr_passes(verified_abstr)].
 
 abstr_passes(AbstrStatus) ->
@@ -1686,7 +1687,7 @@ abstr_passes(AbstrStatus) ->
          {iff,'dexp',{listing,"expand"}},
          {iff,'E',?pass(legalize_vars)},
          {iff,'E',{src_listing,"E"}},
-         {iff,'to_exp',{done,"E"}},
+         {iff,'to_exp',{done,"abstr"}},
 
          %% Conversion to Core Erlang.
          ?pass(core),

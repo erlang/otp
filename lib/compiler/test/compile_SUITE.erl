@@ -552,7 +552,8 @@ do_file_listings(DataDir, PrivDir, [File|Files]) ->
 
     %% Test options that produce a listing file if 'binary' is not given.
     do_listing(Simple, TargetDir, to_pp, ".P"),
-    do_listing(Simple, TargetDir, to_exp, ".E"),
+    do_listing(Simple, TargetDir, to_abstr, ".abstr"),
+    do_listing(Simple, TargetDir, to_exp, ".abstr"),
     do_listing(Simple, TargetDir, to_core0, ".core"),
     ok = file:delete(filename:join(TargetDir, File ++ ".core")),
     do_listing(Simple, TargetDir, to_core, ".core"),
