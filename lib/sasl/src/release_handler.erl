@@ -2250,7 +2250,7 @@ try_downgrade(ToVsn, CurrentVsn, Relup, Masters) ->
 
 %% Status = current | tmp_current | permanent
 set_status(Vsn, Status, Releases) ->
-    lists:zf(fun(Release) when Release#release.vsn == Vsn,
+    lists:filtermap(fun(Release) when Release#release.vsn == Vsn,
 		               Release#release.status == permanent ->
 		     %% If a permanent rel is installed, it keeps its
 		     %% permanent status (not changed to current).
@@ -2572,7 +2572,7 @@ write_releases(Dir, Releases, Masters) ->
     %% us after a node restart - since we would then have a permanent
     %% release running, but state set to current for a non-running
     %% release.
-    NewReleases = lists:zf(fun(Release) when Release#release.status == current ->
+    NewReleases = lists:filtermap(fun(Release) when Release#release.status == current ->
 				   {true, Release#release{status = unpacked}};
 			      (_) ->
 				   true
