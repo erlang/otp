@@ -1658,10 +1658,81 @@ group_values(Cs) ->
     maps:groups_from_list(F, Cs).
 
 group_keeping_order(Us, [C1|Cs]) ->
-    V1 = clause_val(C1),
-    {More,Rest} = splitwith(fun (C) -> clause_val(C) =:= V1 end, Cs),
+    SplitFun = group_keeping_order_fun(C1),
+    {More,Rest} = splitwith(SplitFun, Cs),
     [{Us,[C1|More]}|group_keeping_order(Us, Rest)];
 group_keeping_order(_, []) -> [].
+
+group_keeping_order_fun(C1) ->
+    case is_suitable_bin_seg(C1) of
+        true ->
+            %% The `C1` clause can only fail if the binary pattern
+            %% fails to match.
+            V1 = bin_seg_val(C1),
+            fun(C) ->
+                    case {V1,bin_seg_val(C)} of
+                        {{S,U,T,F,_}, {S,U,T,F,_}} ->
+                            %% Identical segments.
+                            true;
+                        {{S,U,binary,_,_}, {S,U,binary,_,_}} ->
+                            %% Identical binary segments.
+                            true;
+                        {{S,U,T1,_,Next}, {S,U,_T2,_,Next}}
+                          when T1 =:= integer; T1 =:= binary ->
+                            %% The patterns in clauses `C1` and `C`
+                            %% match the same number of bits, meaning
+                            %% that clause `C` clause will not be
+                            %% reached if clause `C1` succeeds.
+                            true;
+                        {_, _} ->
+                            false
+                    end
+            end;
+        false ->
+            %% Handle map or "unsuitable" binary segment.
+            V1 = clause_val(C1),
+            fun(C) ->
+                    V1 =:= clause_val(C)
+            end
+    end.
+
+%% is_suitable_bin_seg(iclause()) -> boolean().
+%%  Return `true` if this clause has a pattern that matches a binary
+%%  segment having no other patterns and having a `true` guard. In
+%%  order words, it returns `true` when the only reason a clause can
+%%  fail is that the binary pattern doesn't match.
+%%
+%%  For example, this functions returns `true` when given the
+%%  following clause:
+%%
+%%       foo(<<X:64,integer>>, A) -> ...
+%%
+%%  It returns `false` when given one of these clauses:
+%%
+%%       bar(<<X:64,integer>>, true) -> ...
+%%
+%%       baz(<<X:64,integer>>, A) when X < 10 -> ...
+%%
+is_suitable_bin_seg(#iclause{pats=[#cg_bin_seg{}|Ps],guard=G}) ->
+    is_true_guard(G) andalso
+        all(fun(#c_var{}) -> true;
+               (_) -> false
+            end, Ps);
+is_suitable_bin_seg(#iclause{}) ->
+    false.
+
+%% Similar to arg_val/2 for #cg_bin_seg{}, except that we also
+%% include the pattern for the next segment.
+bin_seg_val(#iclause{pats=[#cg_bin_seg{next=Next}=Arg|_]}=C) ->
+    {S,U,T,F} = arg_val(Arg, C),
+    case Next of
+        #cg_bin_end{} ->
+            {S,U,T,F,cg_bin_end};
+        #cg_bin_seg{size=#b_literal{val=all},unit=Unit,next=#cg_bin_end{}} ->
+            {S,U,T,F,{cg_bin_all,Unit}};
+        _ ->
+            {S,U,T,F,Next}
+    end.
 
 %% match_clause([Var], [Clause], Default, State) -> {Clause,State}.
 %%  At this point all the clauses have the same "value".  Build one
@@ -1951,6 +2022,8 @@ arg_val(Arg, C) ->
                 #b_var{name=V} ->
                     #iclause{sub=Sub} = C,
                     {#b_var{name=get_vsub(V, Sub)},U,T,Fs};
+                #b_literal{val=Sz} when is_integer(Sz), U > 1 ->
+                    {#b_literal{val=Sz*U},1,T,Fs};
                 #b_literal{} ->
                     {S,U,T,Fs}
             end;
