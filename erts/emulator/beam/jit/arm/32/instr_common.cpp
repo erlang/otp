@@ -71,8 +71,9 @@ using namespace asmjit;
 /* Helpers */
 
 void BeamModuleAssembler::emit_error(int reason) {
-    // TODO
-    emit_nyi("emit_error");
+    mov_imm(TMP, reason);
+    a.str(TMP, arm::Mem(c_p, offsetof(Process, freason)));
+    emit_raise_exception();
 }
 
 void BeamModuleAssembler::emit_error(int reason, const ArgSource &Src) {
@@ -231,8 +232,7 @@ void BeamModuleAssembler::emit_trim(const ArgWord &Words,
 
 void BeamModuleAssembler::emit_i_move(const ArgSource &Src,
                                       const ArgRegister &Dst) {
-    // TODO
-    emit_nyi("emit_i_move");
+    mov_arg(Dst, Src);
 }
 
 void BeamModuleAssembler::emit_move_two_trim(const ArgYRegister &Src1,
@@ -714,8 +714,8 @@ void BeamModuleAssembler::emit_is_int_ge(ArgLabel const &Fail,
 }
 
 void BeamModuleAssembler::emit_badmatch(const ArgSource &Src) {
-    // TODO
-    emit_nyi("emit_badmatch");
+    emit_error(BADMATCH, Src);
+    mark_unreachable();
 }
 
 void BeamModuleAssembler::emit_case_end(const ArgSource &Src) {
@@ -811,13 +811,39 @@ void BeamModuleAssembler::emit_raw_raise() {
 
 /* ARG3 = current_label */
 void BeamGlobalAssembler::emit_i_test_yield_shared() {
-    // TODO
     emit_nyi("emit_i_test_yield_shared");
+    a.sub(ARG2, ARG3, imm(sizeof(ErtsCodeMFA)));
+    a.add(ARG3, ARG3, imm(TEST_YIELD_RETURN_OFFSET));
+
+    a.str(ARG2, arm::Mem(c_p, offsetof(Process, current)));
+    a.ldr(ARG2, arm::Mem(ARG2, offsetof(ErtsCodeMFA, arity)));
+    a.strb(ARG2, arm::Mem(c_p, offsetof(Process, arity)));
+
+    a.b(labels[context_switch_simplified]);
 }
 
 void BeamModuleAssembler::emit_i_test_yield() {
-    // TODO
-    emit_nyi("emit_i_test_yield");
+    /* When present, this is guaranteed to be the first instruction after the
+     * breakpoint trampoline. */
+    ASSERT((a.offset() - code.labelOffsetFromBase(current_label)) ==
+           BEAM_ASM_FUNC_PROLOGUE_SIZE);
+
+    a.adr(ARG3, current_label);
+
+    if (erts_alcu_enable_code_atags) {
+        /* The point-of-origin allocation tags are vastly improved when the
+         * instruction pointer is updated frequently. This has a relatively low
+         * impact on performance but there's little point in doing this unless
+         * the user has requested it -- it's an undocumented feature for
+         * now. */
+        a.str(ARG3, arm::Mem(c_p, offsetof(Process, i)));
+    }
+
+    a.subs(FCALLS, FCALLS, imm(1));
+    a.b_le(resolve_fragment(ga->get_i_test_yield_shared(), disp32MB));
+
+    ASSERT((a.offset() - code.labelOffsetFromBase(current_label)) ==
+           TEST_YIELD_RETURN_OFFSET);
 }
 
 void BeamModuleAssembler::emit_i_yield() {
