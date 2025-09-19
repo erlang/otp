@@ -24,7 +24,6 @@ name: Open Source Vulnerabilities Scanner
 
 on:
   pull_request:
-  push:
   workflow_dispatch:
   schedule:
     - cron: 0 1 * * *
@@ -58,35 +57,25 @@ jobs:
         type: ${{ fromJson(needs.schedule-scan.outputs.versions) }}
       fail-fast: false
     permissions:
+      # actions must have 'write' permission to be able to trigger a workflow in
+      # the same repo. in places where there is no 'gh api' call to the reusable
+      # workflow, and 'use:' is used, one can go with 'actions: read'.
       actions: write
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # ratchet:actions/checkout@v4.2.2
-        with:
-          ref: ${{ matrix.type }}
-
+      # this call to a workflow_dispatch ref=master is important because
+      # using ref={{matrix.type}} would trigger the workflow
+      # reusable-vendor-vulnerability-scanner.yml in that ref/branch. since
+      # there is no such files in maint-25, maint-26, etc, the result would
+      # ignore the vulnerability scanning for those branches.
+      #
       - name: Trigger Vulnerability Scanning
         env:
           GH_TOKEN: ${{ github.token }}
-        if: ${{ hashFiles('.github/workflows/osv-scanner-scheduled.yml') != '' }}
+          REPO: ${{ github.repository }} # in testing cases, this is your fork, e.g., kikofernandez/otp
         run: |
           gh api \
             --method POST \
             -H "Accept: application/vnd.github+json" \
             -H "X-GitHub-Api-Version: 2022-11-28" \
-            /repos/${{ github.repository }}/actions/workflows/osv-scanner-scheduled.yml/dispatches \
-            -f "ref=${{ matrix.type }}"
-
-  scan-pr:
-    # run-scheduled-scan triggers this job
-    # PRs and pushes trigger this job
-    if: github.event_name != 'schedule'
-    permissions:
-        # Require writing security events to upload SARIF file to security tab
-        security-events: write
-        # Required to upload SARIF file to CodeQL.
-        # See: https://github.com/github/codeql-action/issues/2117
-        actions: read
-        contents: read
-    uses: "google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@e69cc6c86b31f1e7e23935bbe7031b50e51082de" # ratchet:google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@v2.1.0"
-    with:
-        upload-sarif: ${{ github.repository == 'erlang/otp' }}
+            /repos/${{ github.repository }}/actions/workflows/reusable-vendor-vulnerability-scanner.yml/dispatches \
+            -f 'ref=master' -f "inputs[checkout]=true" -f "inputs[version]=${{ matrix.type }}" -f "inputs[fail_if_cve]=true"

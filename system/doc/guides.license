@@ -2,7 +2,7 @@
 
 SPDX-License-Identifier: Apache-2.0
 
-Copyright Ericsson AB 2009-2025. All Rights Reserved.
+Copyright Ericsson AB 2024. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,13 +17,3 @@ See the License for the specific language governing permissions and
 limitations under the License.
 
 %CopyrightEnd%
-
-Dan Gudmundsson main work.
-
-Matthew Harrison wrote examples, code and helped debugging.
-
-Mats-Ola Persson wrote the the initial <em>wxWidgets</em> binding as
-part of his master thesis.
-
-Olle Mattsson wrote most of the demo in examples.
-

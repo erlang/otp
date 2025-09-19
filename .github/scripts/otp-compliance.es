@@ -61,10 +61,17 @@
          test_originator_Ericsson/1, test_versionInfo_not_empty/1, test_package_hasFiles/1,
          test_project_purl/1, test_packages_purl/1, test_download_location/1, 
          test_package_relations/1, test_has_extracted_licenses/1,
-         test_vendor_packages/1, test_erts/1%%,
+         test_vendor_packages/1, test_erts/1, test_download_vendor_location/1
          %% test_copyright_format/1, test_files_licenses/1,
         ]).
 
+%% openvex tests
+-export([test_openvex_branched_otp_tree/0,
+         test_openvex_branched_otp_tree_idempotent/0]).
+
+%%
+%% SBOM SPDX MACROS
+%%
 -define(default_classified_result, "scan-result-classified.json").
 -define(default_scan_result, "scan-result.json").
 -define(diff_classified_result, "scan-result-diff.json").
@@ -82,7 +89,36 @@
                               ~"referenceCategory" => ~"PACKAGE-MANAGER",
                               ~"referenceLocator" => ~"pkg:github/erlang/otp",
                               ~"referenceType" => ~"purl"}).
+%%
+%%
 
+%%
+%% VEX MACROS
+%%
+-define(VexPath, ~"vex/").
+-define(OpenVEXTablePath, "make/openvex.table").
+-define(ErlangPURL, "pkg:github/erlang/otp").
+
+-define(FOUND_VENDOR_VULNERABILITY_TITLE, "Vendor vulnerability found").
+-define(FOUND_VENDOR_VULNERABILITY, lists:append(string:replace(?FOUND_VENDOR_VULNERABILITY_TITLE, " ", "+", all))).
+
+-define(OTP_GH_URI, "https://raw.githubusercontent.com/" ++ ?GH_ACCOUNT ++ "/refs/heads/master/").
+
+%% GH default options
+-define(GH_ADVISORIES_OPTIONS, "state=published&direction=desc&per_page=100&sort=updated").
+
+%% Advisories to download from last X years.
+-define(GH_ADVISORIES_FROM_LAST_X_YEARS, 5).
+
+%% Defines path of script to create PRs for missing openvex/vulnerabilities
+-define(CREATE_OPENVEX_PR_SCRIPT_FILE, ".github/scripts/create-openvex-pr.sh").
+
+%% Sets end point account to fetch information from GH
+%% used by `gh` command-line tool.
+%% change to your fork for testing, e.g., `kikofernandez/otp`
+-define(GH_ACCOUNT, "erlang/otp").
+%%
+%%
 
 %% Add more relations if necessary.
 -type spdx_relations() :: #{ 'DOCUMENTATION_OF' => [],
@@ -124,6 +160,11 @@
                     optional_applications :: [atom()] }).
 
 -type app_info() :: #app_info{}.
+
+-type cve() :: #{ 'CVE' => binary(),
+                  'appName' => binary(),
+                  'affectedVersions' => [binary()],
+                  'fixedVersions' => [binary()]}.
 
 %%
 %% Commands
@@ -220,8 +261,63 @@ cli() ->
                                      > .github/scripts/otp-compliance.es sbom vendor --sbom-file otp.spdx.json
                                      """,
                                  arguments => [ sbom_option()],
-                                 handler => fun sbom_vendor/1}
+                                 handler => fun sbom_vendor/1},
+
+                          "osv-scan" =>
+                              #{ help =>
+                                     """
+                                     Performs vulnerability scanning on vendor libraries.
+                                     As a side effect,
+
+                                     Example:
+
+                                     > .github/scripts/otp-compliance.es sbom osv-scan --version maint-28
+                                     """,
+                                 arguments => [ versions_file(), fail_option() ],
+                                 handler => fun osv_scan/1}
                          }},
+             "vex" =>
+                 #{
+                   help => """
+                           Create VEX statements
+                           Update CVEs and generate OpenVex Statements
+                           """,
+                   commands =>
+                       #{"init" =>
+                             #{ help =>
+                                    """
+                                    Initialise an openvex file.
+                                    """,
+                                arguments => [ input_option(~"make/openvex.table"), branch_option(), vex_path_option()],
+                                handler => fun init_openvex/1},
+                         "run" =>
+                             #{ help =>
+                                    """
+                                    Updates an openvex file.
+                                    """,
+                                arguments => [ input_option(~"make/openvex.table"), branch_option(), vex_path_option()],
+                                handler => fun run_openvex/1},
+
+                         "verify" =>
+                             #{ help =>
+                                    """
+                                    Download Github Advisories for erlang/otp.
+                                    Download OpenVEX statement from erlang/otp for the selected branch.
+                                    Checks that those Advisories are present in OpenVEX statements.
+                                    Creates PR for any non-present Github Advisory.
+
+                                    Example:
+                                    > .github/scripts/otp-compliance.es vex verify -p
+
+                                    """,
+                                arguments => [create_pr()],
+                                handler => fun verify_openvex/1
+                              },
+
+                         "test" =>
+                             #{handler => fun test_openvex/1}
+                        }
+                  },
              "explore" =>
                  #{  help => """
                             Explore license data.
@@ -320,6 +416,19 @@ sbom_option() ->
       default => "bom.spdx.json",
       long => "-sbom-file"}.
 
+versions_file() ->
+    #{name => version,
+      type => binary,
+      long => "-version"}.
+
+fail_option() ->
+    #{name => fail_if_cve,
+      type => boolean,
+      default => false,
+      long => "-fail_if_cve"}.
+%% useful for pull requests since we do not want to
+%% add Github Security per found CVE on each PR.
+
 ntia_checker() ->
     #{name => ntia_checker,
       type => boolean,
@@ -368,6 +477,27 @@ base_file(DefaultFile) ->
       default => DefaultFile,
       long => "-base-file"}.
 
+branch_option() ->
+    #{name => branch,
+      type => binary,
+      required => true,
+      short => $b,
+      long => "-branch"}.
+
+vex_path_option() ->
+    #{name => vex_path,
+      type => binary,
+      required => false,
+      default => ?VexPath,
+      help => "Path to folder containing openvex statements, e.g., `vex/`",
+      long => "-vex-path"}.
+
+create_pr() ->
+    #{name => create_pr,
+      short => $p,
+      type => boolean,
+      default => false,
+      help => "Indicates if missing OpenVEX statements create and submit a PR"}.
 
 %%
 %% Commands
@@ -498,7 +628,7 @@ fix_project_purl(#{~"referenceLocator" := RefLoc}=Purl, #{ ~"documentDescribes" 
     Packages1= [case maps:get(~"SPDXID", Package) of
                     RootProject ->
                         VersionInfo = maps:get(~"versionInfo", Package),
-                        Purl1 = Purl#{~"referenceLocator" := <<RefLoc/binary, "@", VersionInfo/binary>>},
+                        Purl1 = Purl#{~"referenceLocator" := <<RefLoc/binary, "@OTP-", VersionInfo/binary>>},
                         Package#{ ~"externalRefs" => [Purl1]};
                     _ ->
                         Package
@@ -991,8 +1121,15 @@ remove_duplicate_packages(VendorPackages, #{~"packages" := Packages}=Spdx) ->
                             case lists:search(fun (#{~"SPDXID" := Id}) -> VendorId == Id end, Packages) of
                                 {value, P} ->
                                     Packages1 = Apc -- [P],
-                                    Comment = maps:get(~"comment", P, ~""),
-                                    Acc#{~"app" := [P#{~"comment" => <<Comment/binary, " vendor package">>} | Packages1]};
+                                    Comment = maps:get(~"comment", P, <<>>),
+                                    Comment1 =
+                                        case Comment of
+                                            <<>> ->
+                                                ~"vendor package";
+                                            _ ->
+                                                <<Comment/binary, " vendor package">>
+                                        end,
+                                    Acc#{~"app" := [P#{~"comment" => Comment1} | Packages1]};
                                 _ ->
                                     Acc#{~"vendor" := [Vendor | Vcc]}
                             end
@@ -1297,6 +1434,335 @@ generate_vendor_purl(Package) ->
             [create_externalRef_purl(Description, <<Purl/binary, "@", Vsn/binary>>)]
     end.
 
+osv_scan(#{version := <<"maint">>}=Opt) ->
+    VersionNumber = erlang:list_to_binary(string:trim(os:cmd("cat OTP_VERSION | cut -d. -f1"))),
+    osv_scan(Opt#{version := <<"maint-", VersionNumber/binary>>});
+osv_scan(#{version := Version,
+           fail_if_cve := FailIfCVEFound}) ->
+    application:ensure_all_started([ssl, inets]),
+    _ = valid_scan_branches(Version),
+    OSVQuery = vendor_by_version(Version),
+
+    io:format("[OSV] Information sent~n~s~n", [json:format(OSVQuery)]),
+
+    OSV = json:encode(OSVQuery),
+
+    Format = "application/x-www-form-urlencoded",
+    URI = "https://api.osv.dev/v1/querybatch",
+    Content = {URI, [], Format, OSV},
+    Result = httpc:request(post, Content, [], []),
+    Vulns =
+        case Result of
+            {ok,{{_, 200,_}, _Headers, Body}} ->
+                #{~"results" := OSVResults} = json:decode(erlang:list_to_binary(Body)),
+                [{NameVersion, [Id || #{~"id" := Id} <- Ids]} ||
+                    NameVersion <- osv_names(OSVQuery) && #{~"vulns" := Ids} <- OSVResults];
+            {error, Error} ->
+                {error, [URI, Error]}
+        end,
+
+    %% Substract from Vulns the OpenVex statements that dealt with them
+    %% Result Vulns1 are vulnerabilities not yet covered in OpenVex statements
+    Vulns1 = ignore_vex_cves(Version, Vulns),
+
+    %% vulnerability reporting can fail if new issues appear
+    FormattedVulns = format_vulnerabilities(Vulns1),
+    case FailIfCVEFound of
+        false ->
+            report_vulnerabilities(FormattedVulns);
+        true ->
+            case Vulns1 of
+                [] ->
+                    report_vulnerabilities(FormattedVulns);
+                _ ->
+                    Failure =
+                        """
+                        **Vulnerability Detected**
+
+                        The following CVEs must be checked in OpenVex statements for ~s:
+                        ~s
+
+                        Please follow instructions on how to do this from:
+                          https://github.com/erlang/otp/blob/master/HOWTO/SBOM.md#vex
+                        """,
+                    create_or_update_gh_issue(Version, Failure, FormattedVulns),
+                    fail(Failure, [Version, FormattedVulns])
+            end
+    end.
+
+create_or_update_gh_issue(Version, BodyText, Vulns) ->
+    VersionS = erlang:binary_to_list(Version),
+    Cmd = "gh api -H \"Accept: application/vnd.github+json\" -H \"X-GitHub-Api-Version: 2022-11-28\" ",
+    SearchCmd =
+        io_lib:format("/search/issues?q=repo:~s+in:title+~s+~s+is:issue+is:open",
+                      [?GH_ACCOUNT, VersionS, ?FOUND_VENDOR_VULNERABILITY]),
+
+    io:format("Query GH API~n~s~n~n", [Cmd ++ SearchCmd]),
+    RawResponse = cmd(Cmd ++ SearchCmd),
+    Bin = unicode:characters_to_binary(RawResponse),
+    #{~"total_count" := Count} = json:decode(Bin),
+    FormattedBody = io_lib:format(BodyText, [Version, Vulns]),
+    case Count of
+        0 ->
+            create_gh_issue(VersionS, ?FOUND_VENDOR_VULNERABILITY_TITLE, FormattedBody);
+        _ ->
+            ok
+    end.
+
+create_gh_issue(Version, Title, BodyText) ->
+    Create = io_lib:format("gh issue create -t \"[~s] ~s\" -b \"~s\" -R ~s", [Version, Title, BodyText, ?GH_ACCOUNT]),
+    io:format("GH Create Ticket with title '[~s] ~s'~n~s~n~n", [Version, Title, Create]),
+    _ = cmd(Create),
+    ok.
+
+ignore_vex_cves(Branch, Vulns) ->
+    OpenVex = download_otp_openvex_file(Branch),
+    OpenVex1 = format_vex_statements(OpenVex),
+
+    case OpenVex1 of
+        [] ->
+            [];
+        _ when is_list(OpenVex1) ->
+            io:format("Ignoring vulnerabilities already present in OpenVex file.~n~n")
+    end,
+    lists:foldl(fun({{Purl, _CommitId}=Package, CVEs}, Acc) ->
+                        %% Ignore commit id when an OpenVEX statement exists.
+                        %% OSV will report a vulnerability as long as Erlang/OTP does not
+                        %% update its vendor.info file for openssl. we can only do this
+                        %% when we actually vendor a different version of openssl, thus
+                        %% the commit ids do not match. instead of basing vendor CVE checks
+                        %% on commit id, if OTP adds an OpenVEX statement in which it claims
+                        %% that there is no vulnerability, then there is no vulnerability.
+                        %% If there is a vulnerability, then OTP must update the vendor file
+                        %% to remove the vulnerability.
+                        CVEsMatches = lists:filtermap(fun ({{PurlX, _}, CVEList}) ->
+                                                              case string:lowercase(Purl) == string:lowercase(PurlX) of
+                                                                  true ->
+                                                                      {true, CVEList};
+                                                                  false ->
+                                                                      false
+                                                              end;
+                                                          (_) ->
+                                                              false
+                                                      end, OpenVex1),
+                        case CVEs -- lists:flatten(CVEsMatches) of
+                            [] ->
+                                Acc;
+                            Ls ->
+                                [{Package, Ls} | Acc]
+                        end
+                end, [], Vulns).
+
+format_vex_statements(OpenVex) ->
+    Stmts = maps:get(~"statements", OpenVex, []),
+    lists:foldl(fun (#{~"vulnerability" := #{~"name":=Name},
+                       ~"products" := Products}, Acc) ->
+                        Result =
+                            lists:map(fun (#{~"@id" := <<"pkg:github/", Package/binary>>}) ->
+                                              {PkgName, VersionPart} = string:take(Package, "@", true, leading),
+                                              <<"@", Version/binary>> = VersionPart,
+                                              {{<<"github.com/", PkgName/binary>>, Version}, [Name]};
+                                          (_) ->
+                                              Acc
+                                      end, Products),
+                        Result ++ Acc
+              end, [], Stmts).
+
+read_openvex_file(Branch) ->
+    _ = create_dir(?VexPath),
+    OpenVexPath = path_to_openvex_filename(Branch),
+    OpenVexStr = erlang:binary_to_list(OpenVexPath),
+    decode(OpenVexStr).
+
+-spec download_otp_openvex_file(Branch :: binary()) -> Json :: map() | EmptyMap :: #{} | no_return().
+download_otp_openvex_file(Branch) ->
+    _ = create_dir(?VexPath),
+    OpenVexPath = path_to_openvex_filename(Branch),
+    OpenVexStr = erlang:binary_to_list(OpenVexPath),
+    GithubURI = get_gh_download_uri(OpenVexStr),
+
+    io:format("Checking OpenVex statements in '~s' from~n'~s'...~n", [OpenVexPath, GithubURI]),
+
+    ValidURI = "curl -I -Lj --silent " ++ GithubURI ++ " | head -n1 | cut -d' ' -f2",
+    case string:trim(os:cmd(ValidURI)) of
+        "200" ->
+            %% Overrides existing file.
+            io:format("OpenVex file found.~n~n"),
+            Command = "curl -LJ " ++ GithubURI ++ " --output " ++ OpenVexStr,
+            io:format("Proceed to download:~n~s~n~n", [Command]),
+            os:cmd(Command, #{ exception_on_failure => true }),
+            decode(OpenVexStr);
+        E ->
+            io:format("[~p] No OpenVex statements found for file '~s'.~n~n", [E, OpenVexStr]),
+            #{}
+    end.
+
+-spec get_gh_download_uri(String :: list()) -> String :: list().
+get_gh_download_uri(File) ->
+    ?OTP_GH_URI ++ File.
+
+-spec create_dir(DirName :: binary()) -> ok | no_return().
+create_dir(DirName) ->
+    case file:make_dir(DirName) of
+        Result when Result == ok;
+                    Result == {error, eexist} ->
+            io:format("Directory ~s created successfully.~n", [DirName]);
+        {error, Reason} ->
+            fail("Failed to create directory ~s: ~p~n", [DirName, Reason])
+    end.
+
+-spec path_to_openvex_filename(Branch :: binary()) -> Path :: binary().
+path_to_openvex_filename(Branch) ->
+    _ = valid_scan_branches(Branch),
+    Version = maint_to_otp_conversion(Branch),
+    vex_path(Version).
+
+maint_to_otp_conversion(Branch) ->
+    case Branch of
+        ~"master" ->
+            %% Master corresponds to possible patched versions of OTP_VERSION-1.
+            BinVersionNumber = erlang:list_to_binary(string:trim(os:cmd("cat OTP_VERSION | cut -d. -f1"))),
+            <<"otp-", BinVersionNumber/binary>>;
+        <<"maint-", Vers/binary>> ->
+            <<"otp-", Vers/binary>>;
+        <<"maint">> ->
+            BinVersionNumber = erlang:list_to_binary(string:trim(os:cmd("cat OTP_VERSION | cut -d. -f1"))),
+            <<"otp-", BinVersionNumber/binary>>;
+        <<"otp-", _Vers/binary>>=OTP ->
+            OTP
+    end.
+
+-spec valid_scan_branches(Branch :: binary()) -> ok | no_return().
+valid_scan_branches(Branch) ->
+    case Branch of
+        ~"master" ->
+            ok;
+        <<"maint-", _Vers/binary>> ->
+            ok;
+        <<"otp-", _Vers/binary>> ->
+            ok;
+        _ ->
+            fail("[ERROR] Valid branch names are `master` or `maint-XX`.~n'~s' is neither of them", [Branch])
+    end.
+
+format_vulnerabilities({error, ErrorContext}) ->
+    {error, ErrorContext};
+format_vulnerabilities(ExistingVulnerabilities) when is_list(ExistingVulnerabilities) ->
+    lists:map(fun ({{N, _}, Ids}) ->
+                      io_lib:format("- ~s: ~s~n", [N, lists:join(",", Ids)])
+              end, ExistingVulnerabilities).
+
+report_vulnerabilities([]) ->
+    io:format("[OSV] No new vulnerabilities reported.~n");
+report_vulnerabilities({error, [URI, Error]}) ->
+    fail("[OSV] POST request to ~p errors: ~p", [URI, Error]);
+report_vulnerabilities(FormatVulns) ->
+    io:format("[OSV] There are existing vulnerabilities:~n~s", [FormatVulns]).
+
+osv_names(#{~"queries" := Packages}) ->
+    lists:map(fun osv_names/1, Packages);
+osv_names(#{~"package" := #{~"name" := Name }, ~"commit" := Commit}) ->
+    {Name, Commit};
+osv_names(#{~"package" := #{~"name" := Name }, ~"version" := Version}) ->
+    {Name, Version}.
+
+
+generate_osv_query(Packages) ->
+    #{~"queries" => lists:usort(lists:foldl(fun generate_osv_query/2, [], Packages))}.
+generate_osv_query(#{~"versionInfo" := Vsn, ~"ecosystem" := Ecosystem, ~"name" := Name}, Acc) ->
+    Package = #{~"package" => #{~"name" => Name, ~"ecosystem" => Ecosystem}, ~"version" => Vsn},
+    [Package | Acc];
+generate_osv_query(#{~"sha" := SHA, ~"downloadLocation" := Location}, Acc) ->
+    case string:prefix(Location, ~"https://") of
+        nomatch ->
+            Acc;
+        URI ->
+            Package = #{~"package" => #{~"name" => URI}, ~"commit" => SHA},
+            [Package | Acc]
+    end;
+generate_osv_query(_, Acc) ->
+    Acc.
+
+%% when we no longer need to maintain maint-27, we can remove
+%% this hard-coded commits and versions.
+vendor_by_version(~"maint-26") ->
+    #{~"queries" =>
+          [#{%% v1.2.13
+             ~"commit"=> ~"04f42ceca40f73e2978b50e93806c2a18c1281fc",
+             ~"package"=> #{~"name"=> ~"github.com/madler/zlib"}},
+
+           #{~"commit"=> ~"915186f6c5c2f5a4638e5cb97ccc23d741521a64",
+             ~"package"=> #{~"name"=> ~"github.com/asmjit/asmjit"}},
+
+           #{~"commit"=> ~"e745bad3b1d05b5b19ec652d68abb37865ffa454",
+             ~"package"=> #{~"name"=> ~"github.com/microsoft/STL"}},
+
+           #{~"commit"=> ~"844864ac213bdbf1fb57e6f51c653b3d90af0937",
+             ~"package"=> #{~"name"=> ~"github.com/ulfjack/ryu"}},
+
+           #{% 3.1.4
+             ~"commit"=> ~"01d5e2318405362b4de5e670c90d9b40a351d053",
+             ~"package"=> #{~"name"=> ~"github.com/openssl/openssl"}},
+
+           #{% 8.45, not offial but the official sourceforge is not available
+             ~"commit"=> ~"3934406b50b8c2a4e2fc7362ed8026224ac90828",
+             ~"package"=> #{~"name"=> ~"github.com/nektro/pcre-8.45"}},
+
+           #{~"version"=> ~"2.32",
+             ~"package"=> #{~"ecosystem"=> ~"npm",
+                            ~"name"=> ~"tablesorter"}},
+
+           #{~"version"=> ~"3.7.1",
+             ~"package"=> #{~"ecosystem"=> ~"npm",
+                            ~"name"=> ~"jquery"}}
+          ]};
+vendor_by_version(~"maint-27") ->
+    #{~"queries" =>
+          [#{ %% v1.2.13
+             ~"commit"=> ~"04f42ceca40f73e2978b50e93806c2a18c1281fc",
+             ~"package"=> #{~"name"=> ~"github.com/madler/zlib"}},
+
+           #{~"commit"=> ~"a465fe71ab3d0e224b2b4bd0fac69ae68ab9239d",
+             ~"package"=> #{ ~"name"=> ~"github.com/asmjit/asmjit"}},
+
+           #{~"commit"=> ~"e745bad3b1d05b5b19ec652d68abb37865ffa454",
+             ~"package"=> #{~"name"=> ~"github.com/microsoft/STL"}},
+
+           #{~"commit"=> ~"844864ac213bdbf1fb57e6f51c653b3d90af0937",
+             ~"package"=>#{~"name"=> ~"github.com/ulfjack/ryu"}},
+
+           #{  % 3.1.4
+             ~"commit"=> ~"01d5e2318405362b4de5e670c90d9b40a351d053",
+             ~"package"=> #{~"name"=> ~"github.com/openssl/openssl"}},
+
+           #{% 8.45, not offial but the official sourceforge is not available
+             ~"commit"=> ~"3934406b50b8c2a4e2fc7362ed8026224ac90828",
+             ~"package"=> #{ ~"name"=> ~"github.com/nektro/pcre-8.45"}},
+
+           #{~"version"=> ~"2.32",
+             ~"package"=> #{~"ecosystem"=> ~"npm",
+                            ~"name"=> ~"tablesorter"}},
+
+           #{~"version"=> ~"3.7.1",
+             ~"package"=> #{~"ecosystem"=> ~"npm",
+                            ~"name"=> ~"jquery"}}
+          ]};
+vendor_by_version(_) ->
+    VendorSrcFiles = find_vendor_src_files("."),
+    Packages = generate_vendor_info_package(VendorSrcFiles),
+    Packages1 = ignore_non_vulnerable_vendors(Packages),
+    generate_osv_query(Packages1).
+
+%% OTP only vendors the documentation from wx, so we can ignore
+%% any vulnerability. The user should still look into possible
+%% issues with wx if they link to it.
+non_vulnerable_vendor_packages() ->
+    [~"wx-doc-src"].
+
+ignore_non_vulnerable_vendors(Packages) ->
+    lists:filter(fun (#{~"ID" := Id}) -> not lists:member(Id, non_vulnerable_vendor_packages())
+                 end, Packages).
+
 cleanup_path(<<"./", Path/binary>>) when is_binary(Path) -> Path;
 cleanup_path(Path) when is_binary(Path) -> Path.
 
@@ -1532,7 +1998,7 @@ test_file(#{sbom_file := SbomFile, ntia_checker := Verification}) ->
     ok.
 
 test_ntia_checker(false, _SbomFile) -> ok;
-test_ntia_checker(true, SbomFile) -> 
+test_ntia_checker(true, SbomFile) ->
     have_tool("ntia-checker"),
     Cmd = "sbomcheck --comply ntia --file " ++ SbomFile,
     io:format("~nRunning: NTIA Compliance Checker~n[~ts]~n", [Cmd]),
@@ -1542,7 +2008,7 @@ test_ntia_checker(true, SbomFile) ->
 
 cmd(Cmd) ->
     string:trim(os:cmd(unicode:characters_to_list(Cmd),
-                       #{ exception_on_failure => true })).    
+                       #{ exception_on_failure => true })).
 
 have_tool(Tool) ->
     case os:find_executable(Tool) of
@@ -1557,27 +2023,27 @@ fail(Fmt, Args) ->
 test_generator(Sbom) ->
     io:format("~nRunning: verification of OTP SBOM integrity~n"),
     ok = project_generator(Sbom),
-    ok = package_generator(Sbom),    
+    ok = package_generator(Sbom),
     ok.
 
--define(CALL_TEST_FUNCTIONS(Tests, Sbom), 
+-define(CALL_TEST_FUNCTIONS(Tests, Sbom),
          (begin
             io:format("[~s]~n", [?FUNCTION_NAME]),
             lists:all(fun (Fun) ->
                               Module = ?MODULE,
                               Result = apply(Module, Fun, [Sbom]),
                               L = length(atom_to_list(Fun)),
-                              io:format("- ~s~s~s~n", [Fun, lists:duplicate(40 - L, "."), Result]),                                                          
+                              io:format("- ~s~s~s~n", [Fun, lists:duplicate(40 - L, "."), Result]),
                               ok == Result
                       end, Tests)
         end)).
 
-project_generator(Sbom) ->    
+project_generator(Sbom) ->
     Tests = [test_project_name,
              test_name,
              test_creators_tooling,
              test_spdx_version],
-    true = ?CALL_TEST_FUNCTIONS(Tests, Sbom),    
+    true = ?CALL_TEST_FUNCTIONS(Tests, Sbom),
     ok.
 
 package_generator(Sbom) ->
@@ -1607,6 +2073,7 @@ package_generator(Sbom) ->
              test_project_purl,
              test_packages_purl,
              test_download_location,
+             test_download_vendor_location,
              test_package_relations,
              test_has_extracted_licenses,
              test_vendor_packages],
@@ -1651,7 +2118,6 @@ test_minimum_apps(#{~"documentDescribes" := [ProjectName], ~"packages" := Packag
     true = lists:all(fun (#{~"SPDXID" := Id, ~"versionInfo" := Version}) ->
                               case lists:keyfind(Id, 1, AppNamesVersion) of
                                   {_, TableVersion} ->
-                                      io:format("Table ~p AppVersion ~p, ~p~n", [TableVersion, Version, Id]),
                                       TableVersion == Version;
                                   false ->
                                       true
@@ -1672,7 +2138,7 @@ root_vendor_packages() ->
 minimum_vendor_packages() ->
     %% self-contained
     root_vendor_packages() ++
-        [~"tcl", ~"STL", ~"json-test-suite", ~"openssl", ~"Autoconf", ~"wx", ~"jquery", ~"jquery-tablesorter"].
+        [~"tcl", ~"STL", ~"json-test-suite", ~"openssl", ~"Autoconf", ~"wx-doc-src", ~"jquery", ~"tablesorter"].
 
 test_copyright_not_empty(#{~"packages" := Packages}) ->
     true = lists:all(fun (#{~"copyrightText" := Copyright}) -> Copyright =/= ~"" end, Packages),
@@ -1876,6 +2342,17 @@ test_download_location(#{~"packages" := Packages}) ->
     true = lists:all(fun (#{~"downloadLocation" := Loc}) -> Loc =/= ~"" end, Packages),
     ok.
 
+%% vendor location should use https://github.com where possible due to integration with OSV.
+%% see generate_osv_query/1.
+test_download_vendor_location(#{~"packages" := Packages}) ->
+    %% update list below if new runtime dependencies without git repo appear.
+    KnownExcludedNames = [~"Autoconf", ~"tcl", ~"Unicode Character Database"],
+    true = lists:all(fun (#{~"downloadLocation" := Loc, ~"name" := Name}) ->
+                             lists:member(Name, KnownExcludedNames)
+                                 orelse string:prefix(Loc, ~"https://github.com") =/= nomatch
+                     end, Packages),
+    ok.
+
 test_package_hasFiles(#{~"packages" := Packages}) ->
     %% test files are not repeated
     AllFiles = lists:foldl(fun (#{~"hasFiles" := FileIds}, Acc) -> FileIds ++ Acc end, [], Packages),
@@ -1894,7 +2371,7 @@ test_package_hasFiles(#{~"packages" := Packages}) ->
 test_project_purl(#{~"documentDescribes" := [ProjectName], ~"packages" := Packages}=_Sbom) ->
     [#{~"externalRefs" := [Purl], ~"versionInfo" := VersionInfo}] = lists:filter(fun (#{~"SPDXID" := Id}) -> ProjectName == Id end, Packages),
     RefLoc = ?spdx_project_purl,
-    true = Purl == RefLoc#{ ~"referenceLocator" := <<"pkg:github/erlang/otp@", VersionInfo/binary>> },
+    true = Purl == RefLoc#{ ~"referenceLocator" := <<?ErlangPURL, "@OTP-", VersionInfo/binary>> },
     ok.
 
 test_packages_purl(#{~"documentDescribes" := [ProjectName], ~"packages" := Packages}=_Sbom) ->
@@ -1947,14 +2424,14 @@ test_package_relations(#{~"packages" := Packages}=Spdx) ->
     true = lists:all(fun (#{~"relatedSpdxElement" := Related,
                             ~"relationshipType"   := Relation,
                             ~"spdxElementId" := PackageId}=Rel) ->
-                             Result =   
+                             Result =
                                  lists:member(Relation, [~"PACKAGE_OF", ~"DEPENDS_ON", ~"TEST_OF",
                                                          ~"OPTIONAL_DEPENDENCY_OF", ~"DOCUMENTATION_OF"]) andalso
                                  lists:member(Related, PackageIds) andalso
                                  lists:member(PackageId, PackageIds) andalso
                                  PackageId =/= Related andalso
                                  PackageId =/= ?spdxref_project_name,
-                            case Result of 
+                            case Result of
                                 false ->
                                     io:format("Error in relation: ~p~n", [Rel]),
                                     false;
@@ -2005,3 +2482,1086 @@ extracted_license_info() ->
 %%
 %% REUSE-IgnoreEnd
 %%
+
+%% input: file points to the list of items openvex.table
+%% branch: tell us which branch from openvex.table we take into account
+%%
+%% We take items from 'input.branch' and check that the openvex file
+%% contains those exact changes. if not, a new change is issued
+%%
+%% Documentation in HOWTO/SBOM.md
+%%
+
+vex_path(Branch) ->
+    VexPath = ?VexPath,
+    vex_path(VexPath, Branch).
+vex_path(VexPath, Branch) ->
+    <<VexPath/binary, Branch/binary, ".openvex.json">>.
+
+init_openvex(#{input_file := File, branch := Branch, vex_path := VexPath}) ->
+    InitVex = vex_path(VexPath, Branch),
+    VexStmts = case filelib:is_file(InitVex) of
+                   true -> % file exists
+                       maps:get(~"statements", decode(InitVex));
+                   false -> % create file
+                       Init = init_openvex_file(Branch),
+                       file:write_file(InitVex, json:format(Init)),
+                       maps:get(~"statements", Init)
+               end,
+    run_openvex1(VexStmts, File, Branch, VexPath).
+
+run_openvex(#{input_file := File, branch := Branch, vex_path := VexPath}) ->
+    InitVex = vex_path(VexPath, Branch),
+    VexStmts = maps:get(~"statements", decode(InitVex)),
+    run_openvex1(VexStmts, File, Branch, VexPath).
+
+run_openvex1(VexStmts, VexTableFile, Branch, VexPath) ->
+    Statements = calculate_statements(VexStmts, VexTableFile, Branch, VexPath),
+    lists:foreach(fun (St) -> io:format("~ts", [St]) end, Statements).
+
+verify_openvex(#{create_pr := PR}) ->
+    Branches = get_supported_branches(),
+    io:format("Sync ~p~n", [Branches]),
+    _ = lists:foreach(
+          fun (Branch) ->
+                  case verify_openvex_advisories(Branch) of
+                      [] ->
+                          io:format("No new advisories nor OpenVEX statements created for '~s'.", [Branch]);
+                      MissingAdvisories ->
+                          io:format("Missing Advisories:~n~p~n~n", [MissingAdvisories]),
+                          case PR of
+                              false ->
+                                  io:format("To automatically update openvex.table and create a PR run:~n" ++
+                                                ".github/scripts/otp-compliance.es vex verify -b ~s -p~n~n", [Branch]);
+                              true ->
+                                  Advs = create_advisory(MissingAdvisories),
+                                  _ = update_openvex_otp_table(Branch, Advs),
+                                  BranchStr = erlang:binary_to_list(Branch),
+                                  _ = cmd(".github/scripts/otp-compliance.es vex run -b "++ BranchStr ++ " | bash")
+                          end
+                  end
+          end, Branches),
+    case PR of
+        true ->
+            Result = cmd(".github/scripts/create-openvex-pr.sh " ++ ?GH_ACCOUNT ++ " vex"),
+            io:format("~s~n", [unicode:characters_to_binary(Result)]);
+        false ->
+            ok
+    end.
+
+verify_openvex_advisories(Branch) ->
+    OpenVEX = read_openvex_file(Branch),
+    Advisory = download_advisory_from_branch(Branch),
+    verify_advisory_against_openvex(OpenVEX, Advisory).
+
+-spec get_supported_branches() -> [Branches :: binary()].
+get_supported_branches() ->
+    Branches = cmd(".github/scripts/get-supported-branches.sh"),
+    BranchesBin = json:decode(erlang:list_to_binary(Branches)),
+    io:format("~p~n~p~n", [Branches, BranchesBin]),
+    lists:filtermap(fun (<<"maint-", _/binary>>=OTP) -> {true, maint_to_otp_conversion(OTP)};
+                        (_) -> false
+                 end, BranchesBin).
+
+create_advisory(Advisories) ->
+    lists:foldl(fun (Adv, Acc) ->
+                        create_openvex_otp_entries(Adv) ++ Acc
+                end, [], Advisories).
+
+create_openvex_otp_entries(#{'CVE' := CVEId,
+                             'appName' := AppName,
+                             'affectedVersions' := AffectedVersions,
+                             'fixedVersions' := FixedVersions}) ->
+    AppFixedVersions = lists:map(fun (Ver) -> create_app_purl(AppName, Ver) end, FixedVersions),
+    lists:map(fun (Affected) ->
+                      Purl = create_app_purl(AppName, Affected),
+                      create_openvex_app_entry(Purl, CVEId, AppFixedVersions)
+              end, AffectedVersions).
+
+create_app_purl(AppName, Version) when is_binary(AppName), is_binary(Version) ->
+    <<"pkg:otp/", AppName/binary, "@", Version/binary>>.
+
+create_openvex_app_entry(Purl, CVEId, FixedVersions) ->
+    #{Purl => CVEId,
+      ~"status" =>
+          #{ ~"affected" => iolist_to_binary(io_lib:format("Update to any of the following versions: ~s", [FixedVersions])),
+             ~"fixed" => FixedVersions}}.
+
+update_openvex_otp_table(Branch, Advs) ->
+    Path = ?OpenVEXTablePath,
+    io:format("OpenVEX Statements:~n~p~n~n", [Advs]),
+    #{Branch := Statements}=Table = decode(Path),
+    UpdatedTable = Table#{Branch := Advs ++ Statements},
+    io:format("Update table:~n~p~n", [UpdatedTable]),
+    file:write_file(Path, json:format(UpdatedTable)).
+
+generate_gh_link(Part) ->
+    "\"/repos/erlang/otp/security-advisories?" ++ Part ++ "\"".
+
+download_advisory_from_branch(Branch) ->
+    Opts = ?GH_ADVISORIES_OPTIONS,
+    Cmd = generate_gh_link(Opts),
+    paginate_years(Branch, Cmd).
+
+%%
+%% Download GH Advisories for erlang/otp using
+%% gh_advisories_options(). Download pages of information
+%% until there are no more pages of advisories information
+%% to download. Considers only information updated in the last
+%% 5 years.
+%%
+paginate_years(Branch, Cmd) when is_binary(Cmd) ->
+    paginate_years(Branch, erlang:binary_to_list(Cmd));
+paginate_years(Branch, Cmd) when is_list(Cmd) ->
+    Cmd0 = "gh api -i -H \"Accept: application/vnd.github+json\" -H \"X-GitHub-Api-Version: 2022-11-28\" ",
+    Cmd1 = Cmd0 ++ Cmd,
+    io:format("~p~n", [Cmd1]),
+    AdvisoryStr = cmd(Cmd1),
+    UnicodeBin = unicode:characters_to_binary(AdvisoryStr),
+    RawHTTP = string:split(UnicodeBin, "\n", all),
+    Body0 = extract_http_gh_body(RawHTTP),
+    {{LowRangeYear, _Month, _Day}, _} = calendar:local_time(),
+
+    %% Get the latest 5 years of CVEs. information is sorted
+    case process_gh_page(LowRangeYear - ?GH_ADVISORIES_FROM_LAST_X_YEARS, Branch, Body0) of
+        [] ->
+            %% there was nothing useful based on the dates (sorted)
+            %% so we do not need to continue pulling pages.
+            [];
+        [_|_]=Body1 ->
+            %% there were CVE under the last ?GH_ADVISORIES_FROM_LAST_X_YEARS years.
+            %% extract link to continue pulling GH pages
+            case extract_http_gh_link(RawHTTP) of
+                [NextQuery] ->
+                    Body1 ++ paginate_years(Branch, NextQuery);
+                [] ->
+                    Body1
+            end
+    end.
+
+process_gh_page(Year, Branch, Body) ->
+    lists:foldl(fun (Vuln0, Acc0) ->
+                        Vuln1 = filter_gh_cve_by({year, Year}, Vuln0),
+                        [filter_gh_cve_by({otp, Branch}, Vuln1) | Acc0]
+                end, [], Body).
+
+filter_gh_cve_by({year, Year},
+                 #{~"published_at" := <<Y1,Y2,Y3,Y4,_/binary>>}=Vuln) ->
+    YYYY = erlang:binary_to_integer(<<Y1,Y2,Y3,Y4>>),
+    case YYYY >= Year of
+        true ->
+            Vuln;
+        false ->
+            #{}
+    end;
+filter_gh_cve_by({otp, <<"otp-", Version/binary>>},
+                 #{~"vulnerabilities" := Vulns}=CVE) ->
+    %% Filters CVE based on version to scan.
+    %% Example: {otp, ~"otp-27"} will filter out vulnerabilities from Vulns
+    %% that affect OTP-25 applications. The algorithm updates the vulnerable_version_range
+    %% to point to the most precise version of the vulnerability. In some cases, OTP refers
+    %% to really old versions, so one must fetch the OTP-XX.0 version of the application
+    %% in question.
+    %%
+    %% this algorithm is not general enough to be able to deal with all possible
+    %% ways in which the CNA can report errors. and assumes the standard
+    %% of having one vulnerable_version_range in the form <<">= 3.0">>.
+    %%
+    CVE#{ ~"vulnerabilities" :=
+              lists:foldl(fun (#{~"package" := #{~"name" := ~"OTP"}}, Acc) ->
+                                  %% ignore OTP release versions. We can generate these ones from
+                                  %% the app specific version.
+                                  Acc;
+                              (#{~"package" := #{~"name" := AppName},
+                                 ~"vulnerable_version_range" := VulnerableVersion,
+                                 ~"patched_versions" := AppVersions}=Pkg, Acc) when is_binary(AppVersions) ->
+                                  AppVersions1 =
+                                      get_otp_app_version_from_gh_vulnerability(Version, VulnerableVersion, AppName, AppVersions),
+                                  [Pkg#{~"patched_versions" := A,
+                                        ~"vulnerable_version_range" := V} ||  {A, V} <- AppVersions1] ++ Acc
+                          end, [], Vulns)}.
+
+%% Input: <<"27">> and <<">= 3.2">> and <<"ssl">>, and <<"4.15.3, 5.1.5, 5.2.9">>
+%% Output: [{~"27.3.3", ~"4.15.3"}]
+-spec get_otp_app_version_from_gh_vulnerability(Branch, VulnerableVersion, Name, AppVersions) ->
+          [{AppVersion :: binary(), Vulnerable :: binary()}] when
+      Branch :: binary(),
+      VulnerableVersion :: binary(),
+      Name :: binary(),
+      AppVersions :: binary().
+get_otp_app_version_from_gh_vulnerability(BranchVersion, VulnerableVersion, Name, AppVersions) ->
+    VulnerableVersion1 = parse_vulnerable_version_range_gh(BranchVersion, VulnerableVersion, Name),
+    lists:uniq(
+      [{AppVersion, VulnerableVersion1} ||
+
+          %% split <<"4.15.3, 5.1.5, 5.2.9">> into multiple items
+          AppVersion <- split_gh_version_binaries_into_list(AppVersions),
+
+          %% fetch OTP versions attached to this item, e.g., 4.15.3 ==> ["26.2.5.6"]
+          OTPVersion <- fetch_otp_major_version_from_table(<<Name/binary, "-", AppVersion/binary>>),
+
+          %% if major version match, then accept them
+          BranchVersion == hd(binary:split(list_to_binary(OTPVersion), ~".", [global]))]).
+
+
+parse_vulnerable_version_range_gh(BranchVersion, <<">=", Version/binary>>, Name) ->
+    case length(binary:split(Version, ~",", [global, trim_all])) of
+        X when X > 1 ->
+            %% this reported vulnerability does not follow a previous format
+            %% and we cannot validate it.
+            throw(not_valid_cve_report);
+        X when X == 1 ->
+            AppVersion = string:trim(Version),
+            OTPVersion = fetch_otp_major_version_from_table(<<Name/binary, "-", AppVersion/binary>>),
+            OTPMajorVersion = hd(binary:split(list_to_binary(OTPVersion), ~".", [global])),
+            case BranchVersion == OTPMajorVersion of
+                true ->
+                    AppVersion;
+                false ->
+                    %% return first version from BranchVersion of the App.
+                    Vuln = fetch_app_from_table(binary_to_list(<<"OTP-", BranchVersion/binary, ".0">>), Name),
+                    [_, VulnVersion] = string:split(Vuln, ~"-"),
+                    list_to_binary(VulnVersion)
+            end
+    end.
+
+%% Input: <<"27.3.3, 26.2.5.11, 25.3.2.20">>
+%% Output: [~"27.3.3", ~"26.2.5.11", ~"25.3.2.20">>]
+-spec split_gh_version_binaries_into_list(binary()) -> [binary()].
+split_gh_version_binaries_into_list(Bin) ->
+    [string:trim(P) || P <- binary:split(Bin, ~",", [global, trim_all])].
+
+
+extract_http_gh_body(RawHTTP) when is_list(RawHTTP) ->
+    Body = lists:last(RawHTTP),
+    json:decode(Body).
+
+extract_http_gh_link(RawHTTP) when is_list(RawHTTP) ->
+    lists:filtermap(fun(<<"Link: ", _/binary>>=Link) ->
+                            Result = re:run(Link, "<([^>]+)>;\s*rel=\"next\"", [global, {capture, [1], list}]),
+                            case Result of
+                                {match, [[NextLink]]} ->
+                                    [_, LinkPart] = string:split(NextLink, ~"?"),
+                                    {true, generate_gh_link(LinkPart)};
+                                _ ->
+                                    false
+                            end;
+                       (_) ->
+                            false
+                    end, RawHTTP).
+
+verify_advisory_against_openvex(OpenVEX, Advisory) ->
+    AdvInfo = extract_advisory_info(Advisory),
+    AdvVEX = extract_openvex_info(OpenVEX),
+
+    %% checks that AdvVex is part of OpenVEX
+    %% returns a list of missing OpenVEX statements into some branch.
+    vex_set_inclusion(AdvInfo, AdvVEX).
+
+%%
+%% Extracts information from GH Advisories
+%%
+-spec extract_advisory_info(Advisories :: [map()]) -> [cve()].
+extract_advisory_info(Advisories) when is_list(Advisories) ->
+    lists:foldl(
+      fun (Advisory, Acc) ->
+              #{~"vulnerabilities" := Packages, ~"cve_id" := CVEId} = Advisory,
+              lists:map(fun (#{~"package" := #{~"name" := AppName},
+                               ~"patched_versions" := PatchedVersion,
+                               ~"vulnerable_version_range" := AffectedVersion}) ->
+                                create_cve(CVEId, AppName, [AffectedVersion], [PatchedVersion])
+                        end, Packages) ++ Acc
+      end, [], Advisories).
+
+-spec create_cve(CVEId, AppName, PatchedVersions, AffectedVersions) -> cve() when
+      CVEId :: binary(),
+      AppName :: binary(),
+      PatchedVersions :: [binary()],
+      AffectedVersions :: [binary()].
+create_cve(CVEId, AppName, PatchedVersions, AffectedVersions) ->
+    #{'CVE' => CVEId,
+      'appName' => AppName,
+      'affectedVersions' => PatchedVersions,
+      'fixedVersions' => AffectedVersions}.
+
+%%
+%% Extract information from OpenVEX statements
+%%
+-spec extract_openvex_info(OpenVEX :: map()) -> [cve()].
+extract_openvex_info(#{~"statements" := Statements}) ->
+    lists:foldl(fun (#{~"status" := Status}, Acc) when Status =:= ~"not_affected";
+                                                       Status =:= ~"under_investigation" ->
+                        Acc;
+                    (#{~"status" := Status}=Vuln, Acc) when Status =:= ~"affected";
+                                                            Status =:= ~"fixed" ->
+                        CVEId = openvex_vuln_name(Vuln),
+                        Products = openvex_vuln_products(Vuln),
+                        case openvex_filter_product(Products) of
+                            [] ->
+                                Acc;
+                            [{AppName, Versions}] ->
+                                Found = lists:search(fun (#{'CVE' := CVE0,'appName' := AppName0}) ->
+                                                          CVE0 == CVEId andalso AppName0 == AppName
+                                                     end, Acc),
+                                case Status of
+                                    ~"affected" ->
+                                        %% calculate < than using the format below
+                                        %% [<<"26">>, <<"1">>] < [<<"26">>, <<"1">>, <<"0">>].
+                                        VulnVersion = openvex_vuln_version(Versions, fun erlang:'=<'/2),
+                                        case Found of
+                                            false ->
+                                                [create_cve(CVEId, AppName, [VulnVersion], []) | Acc];
+                                            {value, #{'fixedVersions' := FixedVersions}=Item}  ->
+                                                [create_cve(CVEId, AppName, [VulnVersion], FixedVersions) | (Acc -- [Item])]
+                                        end;
+                                    ~"fixed" ->
+                                        VulnVersion = openvex_vuln_version(Versions, fun erlang:'>'/2),
+
+                                        case Found of
+                                            false ->
+                                                [create_cve(CVEId, AppName, [], [VulnVersion]) | Acc];
+                                            {value, #{'affectedVersions' := AffectedVersions}=Item}  ->
+                                                [create_cve(CVEId, AppName, AffectedVersions, [VulnVersion]) | (Acc -- [Item])]
+                                        end
+                                end
+                        end
+                end, [], Statements).
+
+openvex_vuln_name(#{~"vulnerability" := #{~"name" := Name}}) ->
+    Name.
+
+openvex_vuln_products(#{~"products" := Products}) ->
+    Products.
+
+openvex_vuln_version(Versions, Comparator) ->
+    lists:foldl(fun (X, <<>>) -> X;
+                    (X, Acc) ->
+                        case Comparator(X, Acc) of
+                            true ->
+                                X;
+                            false ->
+                                Acc
+                        end
+                end, <<>>, Versions).
+
+
+openvex_filter_product(Products) ->
+    lists:foldl(fun (#{~"@id" := <<"pkg:otp/", Pkg/binary>>}, Acc) ->
+                        [AppName, Version] = string:split(Pkg, ~"@"),
+                        case Acc of
+                            [] ->
+                                [{AppName, [Version]}];
+                            [{AppName, Versions}] ->
+                                [{AppName, [Version | Versions]}]
+                        end;
+                    (_, Acc) -> Acc
+                end, [], Products).
+
+vex_set_inclusion(AdvVEX, OpenVEX) ->
+    [VEX || VEX <- AdvVEX, not lists:member(VEX, OpenVEX)].
+
+calculate_statements(VexStmts, VexTableFile, Branch, VexPath) ->
+    VexTable = decode(VexTableFile),
+    case maps:get(Branch, VexTable, error) of
+        error ->
+            fail("Could not find '~ts' in file '~ts'.~nDid you forget to add an entry with name '~ts' into 'openvex.table'?",
+                 [Branch, VexTableFile, Branch]);
+        CVEs ->
+            calculate_statements_from_cves(VexStmts, CVEs, Branch, VexPath)
+    end.
+
+exists_cve_in_openvex(VexStmts, CVE, StatusCVE, Purl) ->
+    lists:any(fun (#{~"vulnerability" := #{~"name" := VexCVE}}) when VexCVE =/= CVE ->
+                      false;
+                  (#{~"vulnerability" := #{~"name" := VexCVE}, ~"status" := Status}) ->
+                    Ls = fetch_openvex_table_status(StatusCVE),
+                    lists:member(Status, Ls) andalso CVE == VexCVE;
+                  (#{~"products" := Products}) ->
+                      VexIds = lists:map(fun(M0) -> maps:get(~"@id", M0) end, Products),
+                      lists:member(Purl, VexIds)
+              end, VexStmts).
+
+fetch_openvex_table_status(#{~"affected" := _}=Status) when is_map(Status) ->
+    [~"affected" | fetch_openvex_table_status(maps:without([~"affected"], Status))];
+fetch_openvex_table_status(#{~"fixed" := _}=Status) when is_map(Status) ->
+    [~"fixed" | fetch_openvex_table_status(maps:without([~"fixed"], Status))];
+fetch_openvex_table_status(#{~"not_affected" := _}=Status) when is_map(Status) ->
+    [~"not_affected" | fetch_openvex_table_status(maps:without([~"not_affected"], Status))];
+fetch_openvex_table_status(Status) when Status == ~"under_investigation" ->
+    [Status];
+fetch_openvex_table_status(_) ->
+    [].
+
+fetch_openvex_status(M) when is_map(M) ->
+    FixedStatus = maps:is_key(~"fixed", M),
+    AffectedStatus = maps:is_key(~"affected", M),
+    {FixedStatus, AffectedStatus};
+fetch_openvex_status(_) ->
+    {false, false}.
+
+calculate_statements_from_cves(VexStmts, CVEs, Branch, VexPath) ->
+    %% make the function idempotent, i.e., can be called consecutive times producing the same input
+    lists:foldl(
+      fun (#{~"status" := Status}=M, Acc) ->
+              [{Purl, CVE}] = maps:to_list(maps:remove(~"status", M)),
+              ExistingEntry = exists_cve_in_openvex(VexStmts, CVE, Status, Purl),
+              case ExistingEntry of
+                  true -> %% entry exists, ignore to make operation idempotent
+                      Acc;
+                  false ->
+                      InitVex = vex_path(VexPath, Branch),
+                      {FixedStatus, AffectedStatus} = fetch_openvex_status(Status),
+                      case Purl of
+                          <<?ErlangPURL, _/binary>> ->
+                              case FixedStatus andalso AffectedStatus of
+                                  true ->
+                                      throw("Erlang/OTP release versions, (e.g.) OTP-26.1 do not support fixed and affected status");
+                                  false ->
+                                      [format_vexctl(InitVex, Purl, CVE, Status) | Acc]
+                              end;
+                          <<"pkg:otp/", _/binary>> -> % handle OTP Apps, pkg:otp/ssl@4.3.1
+                              FixedRange =
+                                  case FixedStatus orelse AffectedStatus of
+                                      true ->
+                                          maps:get(~"fixed", Status, []);
+                                      _ ->
+                                          %% not affected and we return all Erlang intermediate
+                                          %% versions and all intermediate apps
+                                          all
+                                  end,
+                              {OTPVersionsAffected, OTPVersionsFixed} = fetch_otp_purl_versions(Purl, FixedRange),
+                              R = format_vexctl(InitVex, OTPVersionsAffected, OTPVersionsFixed, CVE, Status),
+                              R ++ Acc;
+                          _ -> % vendor
+                              R = create_vendor_statements(FixedStatus andalso AffectedStatus, Status, InitVex, CVE, Purl),
+                              R ++ Acc
+                      end
+              end
+      end, [], CVEs).
+
+create_vendor_statements(true, #{~"apps" := _},  _, _, _) ->
+    %% this case is not accepted as input, e.g.
+    %% the following is rejected
+    %% {"pkg:github/madler/zlib@04f42ceca40f73e2978b50e93806c2a18c1281fc": "FIKA-2026-BROD",
+    %%  "status": { "affected": "Mitigation message, update to the next release",
+    %%              "fixed": ["pkg:github/madler/zlib@04f42thiscommitfixesthecve"],
+    %%              "apps": ["pkg:otp/erts@14.2.5.10"]} }
+    %% the current syntax from above has no way to understand when in erts this was fixed.
+    %%
+    %% If this case arises, write the CVE for zlib and then for OTP.
+    fail("Case containing 'affected', 'fixed', and 'apps' (all three) not supported.", []);
+create_vendor_statements(_, #{~"apps" := Apps}=Status, InitVex, CVE, Purl) ->
+    {OTPVersionsAffected, OTPVersionsFixed} =
+        lists:foldl(fun (App, {Af, Fx}) ->
+                            {Affected, Fixed} = fetch_otp_purl_versions(App, all),
+                            {merge_otp_version_binaries(Affected, Af),
+                             merge_otp_version_binaries(Fixed, Fx)}
+                    end, {<<>>, <<>>}, Apps),
+    AppsR = format_vexctl(InitVex, OTPVersionsAffected, OTPVersionsFixed, CVE, Status),
+    %% handle vendor dependencies. we lack sha-1 information to create
+    %% a range of commits. if one wants to provide specific vendor information,
+    %% e.g., false positive for openssl, one can do that manually using vexctl.
+    %% if one wants to mention that erts-10.9.4 is not vulnerable to CVE-XXX
+    %% in openssl, that's possible and goes via first case, pkg:otp/erts@10.9.4.
+    FixedRange = maps:get(~"fixed", Status, <<>>),
+    AppsR ++ format_vexctl(InitVex, Purl, FixedRange, CVE, Status);
+create_vendor_statements(_, Status, InitVex, CVE, Purl) when is_map(Status) ->
+    %% handle vendor dependencies. we lack sha-1 information to create
+    %% a range of commits. if one wants to provide specific vendor information,
+    %% e.g., false positive for openssl, one can do that manually using vexctl.
+    %% if one wants to mention that erts-10.9.4 is not vulnerable to CVE-XXX
+    %% in openssl, that's possible and goes via first case, pkg:otp/erts@10.9.4.
+    FixedRange = maps:get(~"fixed", Status, <<>>),
+    format_vexctl(InitVex, Purl, FixedRange, CVE, Status);
+create_vendor_statements(_, Status,InitVex, CVE, Purl) when is_binary(Status) ->
+    NotFixed = <<>>,
+    format_vexctl(InitVex, Purl, NotFixed, CVE, Status).
+
+format_vexctl(InitVex, Affected, Fixed, CVE, Status) ->
+    Format = fun (X) -> case X of [] -> []; _ -> [X] end end,
+    Format(format_vexctl(InitVex, Affected, CVE, Status)) ++
+    Format(format_vexctl(InitVex, Fixed, CVE, ~"fixed")).
+
+
+format_vexctl(_VexPath, <<>>, _CVE, _) ->
+    [];
+format_vexctl(VexPath, Versions, CVE, #{~"not_affected" := ~"vulnerable_code_not_present"}) ->
+    io_lib:format("vexctl add --in-place ~ts --product='~ts' --vuln='~ts' --status='~ts' --justification='~ts'~n",
+              [VexPath, Versions, CVE, ~"not_affected", ~"vulnerable_code_not_present"]);
+format_vexctl(VexPath, Versions, CVE, #{~"affected" := Mitigation}) ->
+    io_lib:format("vexctl add --in-place ~ts --product='~ts' --vuln='~ts' --status='~ts' --action-statement='~ts'~n",
+          [VexPath, Versions, CVE, ~"affected", Mitigation]);
+format_vexctl(VexPath, Versions, CVE, S) when S =:= ~"fixed";
+                                              S =:= ~"under_investigation";
+                                              S =:= ~"affected" ->
+    io_lib:format("vexctl add --in-place ~ts --product='~ts' --vuln='~ts' --status='~ts'~n",
+              [VexPath, Versions, CVE, S]).
+
+
+-spec fetch_otp_purl_versions(OTP :: binary(), FixedVersions :: [binary()] ) ->
+          {AffectedPurls :: binary(), FixedPurls :: binary()} | false.
+fetch_otp_purl_versions(<<?ErlangPURL, _/binary>>, _FixedVersions) ->
+    %% ignore
+    false;
+fetch_otp_purl_versions(<<"pkg:otp/", OTPApp/binary>>, all=_FixedVersions) ->
+    %% Used to fetch all OTP releases and OTPApp versions
+    %% starting from OTPApp Version
+
+    AffectedVersions = fetch_version_from_table(OTPApp),
+    ErlangOTPRelease = erlang:hd(AffectedVersions),
+    {MajorVersion, _} = string:take(ErlangOTPRelease, ".", true, leading),
+
+    All = fetch_otp_major_version_from_table(MajorVersion),
+    RelevantVersions = take_otp_versions_from(All, AffectedVersions),
+
+    {AffResult, FixResult} =
+        lists:foldl(fun (V, {AffectedPurls, FixedPurls}) ->
+                        All2 = fetch_app_from_table(V, OTPApp),
+                        LastVersion = erlang:list_to_binary("pkg:otp/" ++ string:replace(All2, ~"-", ~"@")),
+                        {AfP, FxP} = fetch_otp_purl_versions(LastVersion, []),
+                        AfPResult = merge_otp_version_binaries(AfP, AffectedPurls),
+                        FxPResult = merge_otp_version_binaries(FxP, FixedPurls),
+                        {AfPResult, FxPResult}
+                end, {<<>>, <<>>}, RelevantVersions),
+    {AffResult, FixResult};
+fetch_otp_purl_versions(<<"pkg:otp/", OTPApp/binary>>, FixedVersions) ->
+    AffectedVersions = fetch_version_from_table(OTPApp),
+    FixedRangeVersions = lists:flatmap(fun (<<"pkg:otp/", App/binary>>) ->
+                                               fetch_version_from_table(App)
+                                       end, FixedVersions),
+
+    % Proceed to figure out OTP affected versions
+    AffectedOTPVersionsInTree = calculate_otp_range_versions(AffectedVersions, FixedRangeVersions),
+    OTPVersions = build_erlang_version_from_list(AffectedOTPVersionsInTree),
+    OTPPurls = lists:map(fun erlang_purl/1, OTPVersions),
+    AppVersions = lists:uniq(
+                    lists:flatmap(fun (V) ->
+                                          Apps = fetch_app_from_table(V, OTPApp),
+                                          lists:map(fun (X) -> "pkg:otp/" ++ string:replace(X, ~"-", ~"@") end, Apps)
+                                  end, OTPVersions)),
+
+    AffectedPurls = erlang:list_to_binary(lists:join(",", OTPPurls ++ AppVersions)),
+
+    % Proceed to create fixed versions
+    FixedOTPVersions = lists:map(fun erlang_purl/1,
+                                 build_erlang_version_from_list(otp_version_to_number(FixedRangeVersions))),
+    FixedAppVersions = lists:map(fun erlang:binary_to_list/1, FixedVersions),
+    FixedPurls = erlang:list_to_binary(lists:join(",", FixedOTPVersions ++ FixedAppVersions)),
+
+    {AffectedPurls, FixedPurls};
+fetch_otp_purl_versions(_, _) ->
+    false.
+
+erlang_purl(Release) when is_list(Release) ->
+    ?ErlangPURL ++ "@OTP-" ++ Release.
+
+take_otp_versions_from(Versions, AffectedVersions) ->
+    F = fun (OTPRel) -> not lists:member(OTPRel, AffectedVersions) end,
+    AffectedVersions ++ lists:takewhile(F, Versions).
+
+merge_otp_version_binaries(A, B) ->
+    case {A, B} of
+        {<<>>, B} ->
+            B;
+        {_, <<>>} ->
+            A;
+        {_, _} ->
+            remove_duplicate_versions(<<A/binary, ",", B/binary>>)
+    end.
+
+-spec remove_duplicate_versions(ListOfVulnerabilities :: binary()) -> binary().
+remove_duplicate_versions(Version) ->
+    binary:join(
+      lists:uniq(
+        binary:split(Version, ~",", [global])),
+      <<",">>).
+
+
+%% Versions = [ [26, 0], [26, 1, 2], ...  ] represents ["26.1", "26.1.2"]
+build_erlang_version_from_list(Versions) ->
+    lists:map(fun (X) ->
+                      lists:join(".", lists:map(fun erlang:integer_to_list/1, X))
+              end, Versions).
+
+calculate_otp_range_versions(AffectedVersions, FixedRangeVersions) ->
+    Vs = get_otp_version_tree(AffectedVersions),
+    AffectedVersionsNumber = otp_version_to_number(AffectedVersions),
+    FixedVersionsNumber = otp_version_to_number(FixedRangeVersions),
+    Tree = build_tree(Vs),
+    prune_trees(Tree, AffectedVersionsNumber, FixedVersionsNumber).
+
+-spec build_tree(OTPTree :: list()) -> [{branch, Tree :: list()}].
+build_tree(OTPTree) ->
+    Sorted = lists:sort(fun less_than/2, OTPTree),
+    Tree = build_tree(Sorted, 1, []),
+    lists:map(fun ({branch, _}=Branch) -> Branch;
+                  (Root) when is_list(Root) -> {branch, Root}
+              end, Tree).
+
+build_tree([], Pos, Acc) when Pos >= 4 ->
+    {Acc, 0, []};
+build_tree([], _Pos, Acc) ->
+    [Acc];
+build_tree([N| Ns], LastPos, Acc) when length(N) < 4, LastPos < 4 ->
+    build_tree(Ns, length(N), [N | Acc]);
+build_tree([N| Ns], LastPos, Acc) when length(N) >= 4, LastPos >= 4 ->
+    build_tree(Ns, length(N), [N | Acc]);
+build_tree([N| Ns], LastPos, Acc) when length(N) < 4, LastPos >= 4 ->
+    {Acc, length(N), [N|Ns]};
+build_tree([N | Ns], LastPos, Acc) when length(N) == 4, LastPos < 4  ->
+    %% this is a new branch
+    {Branch, N1, Continuation} = build_tree(Ns, length(N), [N | Acc]),
+    [{branch, Branch} | build_tree(Continuation, N1, Acc)].
+
+
+get_otp_version_tree(AffectedVersions) ->
+      lists:uniq(
+        lists:flatmap(fun (Version) ->
+                              "OTP-"++Version1 = Version,
+                              [Major|_] = convert_range(Version1),
+                              OTPFlatTree = fetch_otp_major_version_from_table("OTP-"++Major),
+                              lists:map(fun (X) ->
+                                                lists:map(fun erlang:list_to_integer/1, convert_range(X))
+                                        end, OTPFlatTree)
+                      end, AffectedVersions)).
+
+%% OTPVersion :: "OTP-26", e.g.
+-spec otp_version_to_number(Ls) -> [Versions] when
+      Ls :: [OTPVersion],
+      OTPVersion :: string(),
+      Versions :: string().
+otp_version_to_number(Ls) ->
+    lists:map(fun (X) ->
+                      {_, Version} = string:take(string:trim(X, both), "OTP-"),
+                      lists:map(fun erlang:list_to_integer/1, convert_range(Version))
+              end, Ls).
+
+prune_trees(Trees, AffectedVersions, FixedVersions) ->
+    lists:sort(lists:uniq(
+      lists:flatmap(fun({branch, Branch}) ->
+                            Result = prune_tree(Branch, FixedVersions, lt),
+                            prune_tree(Result, AffectedVersions, gt)
+                    end, Trees) ++ AffectedVersions) -- FixedVersions).
+
+%% assumption: list versions are sorted, as per otp_versions.
+prune_tree(Ls, Affected, Comparator) ->
+    Comp = case Comparator of
+               lt -> true;
+               gt -> false
+           end,
+    lists:uniq([L || A <:- Affected, lists:member(A, Ls), L <:- Ls, less_than(L, A) == Comp ]).
+
+less_than([], []) ->
+    true;
+less_than([M | Ms], []) ->
+    less_than([M | Ms], [0]);
+less_than([], [N | Ns]) ->
+    less_than([0], [ N | Ns]);
+less_than([M | Ms], [N | Ns]) when M == N ->
+    less_than(Ms, Ns);
+less_than([M | _], [N | _]) when M =< N ->
+    true;
+less_than([M | _], [N | _]) when M > N ->
+    false.
+
+-spec fetch_version_from_table(OTPApp :: binary()) -> [string()].
+fetch_version_from_table(OTPApp) ->
+    App = erlang:list_to_binary(string:replace(OTPApp, ~"@", ~"-")),
+    fetch_from_table(erlang:binary_to_list(App)).
+
+-spec fetch_otp_major_version_from_table(Major :: string()) -> [string()].
+fetch_otp_major_version_from_table(Major) when is_binary(Major)->
+    fetch_otp_major_version_from_table(binary_to_list(Major));
+fetch_otp_major_version_from_table(Major) when is_list(Major)->
+    Ls = fetch_otp_from_version_table(Major),
+    lists:map(fun ("OTP-"++Version) -> Version end, Ls).
+
+fetch_from_table(Str) ->
+    Vulns = os:cmd("grep '"++ Str ++ " ' otp_versions.table | cut -d' ' -f1"),
+    lists:filter(fun (L) -> L=/= [] end, string:split(Vulns, ~"\n", all)).
+
+fetch_otp_from_version_table(OTPVersion) ->
+    Vulns = os:cmd("grep '"++ OTPVersion ++ "' otp_versions.table | cut -d' ' -f1"),
+    lists:filter(fun (L) -> L=/= [] end, string:split(Vulns, ~"\n", all)).
+
+%% OTPVersion = "OTP-26.3.1"
+%% App = <<"ssl-XXXX">>
+fetch_app_from_table(OTPVersion, App0) ->
+    App = lists:takewhile(fun (Char) -> Char =/= $@ end, erlang:binary_to_list(App0)),
+    Version = os:cmd("grep '" ++ OTPVersion ++ " : ' otp_versions.table"),
+    Vulns = string:split(Version, ~" ", all),
+    lists:filter(fun (L) ->
+                         case string:prefix(L, App) of
+                             nomatch ->
+                                 false;
+                             _ ->
+                                 true
+                         end
+                 end, Vulns).
+
+convert_range(Version) ->
+    string:split(Version, ".", all).
+
+
+init_openvex_file(Branch) ->
+    Ts = calendar:system_time_to_rfc3339(erlang:system_time(microsecond), [{unit, microsecond}]),
+    #{
+      ~"@context"   => ~"https://openvex.dev/ns/v0.2.0",
+      ~"@id"        => <<"https://openvex.dev/docs/public/otp/vex-", Branch/binary>>,
+      ~"author"     => ~"vexctl",
+      ~"timestamp"  => erlang:list_to_binary(Ts),
+      ~"version"    => 1,
+      ~"statements" => []
+     }.
+
+test_openvex(_) ->
+    Tests = [
+             test_openvex_branched_otp_tree,
+             test_openvex_branched_otp_tree_idempotent
+            ],
+    lists:all(fun (Fun) ->
+                      Result = with_otp_versions_table(Fun),
+                      L = length(atom_to_list(Fun)),
+                      io:format("- ~s~s~s~n", [Fun, lists:duplicate(80 - L, "."), Result]),
+                      ok == Result
+              end, Tests),
+    ok.
+
+
+test_openvex_branched_otp_tree() ->
+    {VexPath,  Branch, VexStmts} = setup_openvex_test(),
+    CVEs = fixup_openvex_branched_otp_tree(),
+    Result = calculate_statements_from_cves(VexStmts, CVEs, Branch, VexPath),
+    Expected = [~"vexctl add --in-place otp-23.openvex.json --product='pkg:github/erlang/otp@OTP-23.0,pkg:github/erlang/otp@OTP-23.0.1,pkg:github/erlang/otp@OTP-23.0.2,pkg:github/erlang/otp@OTP-23.0.3,pkg:github/erlang/otp@OTP-23.0.4,pkg:otp/ssl@10.0,pkg:github/erlang/otp@OTP-23.1,pkg:github/erlang/otp@OTP-23.1.1,pkg:github/erlang/otp@OTP-23.1.2,pkg:github/erlang/otp@OTP-23.1.3,pkg:github/erlang/otp@OTP-23.1.4,pkg:github/erlang/otp@OTP-23.1.4.1,pkg:github/erlang/otp@OTP-23.1.5,pkg:otp/ssl@10.1,pkg:github/erlang/otp@OTP-23.2,pkg:github/erlang/otp@OTP-23.2.1,pkg:otp/ssl@10.2,pkg:github/erlang/otp@OTP-23.2.2,pkg:github/erlang/otp@OTP-23.2.3,pkg:otp/ssl@10.2.1,pkg:github/erlang/otp@OTP-23.2.4,pkg:otp/ssl@10.2.2,pkg:github/erlang/otp@OTP-23.2.5,pkg:github/erlang/otp@OTP-23.2.6,pkg:otp/ssl@10.2.3,pkg:github/erlang/otp@OTP-23.2.7,pkg:otp/ssl@10.2.4,pkg:github/erlang/otp@OTP-23.2.7.1,pkg:otp/ssl@10.2.4.1,pkg:github/erlang/otp@OTP-23.2.7.2,pkg:github/erlang/otp@OTP-23.2.7.3,pkg:otp/ssl@10.2.4.2,pkg:github/erlang/otp@OTP-23.2.7.4,pkg:otp/ssl@10.2.4.3,pkg:github/erlang/otp@OTP-23.2.7.5,pkg:otp/ssl@10.2.4.4,pkg:github/erlang/otp@OTP-23.3,pkg:github/erlang/otp@OTP-23.3.1,pkg:otp/ssl@10.3,pkg:github/erlang/otp@OTP-23.3.2,pkg:github/erlang/otp@OTP-23.3.3,pkg:github/erlang/otp@OTP-23.3.4,pkg:github/erlang/otp@OTP-23.3.4.1,pkg:otp/ssl@10.3.1,pkg:github/erlang/otp@OTP-23.3.4.2,pkg:github/erlang/otp@OTP-23.3.4.3,pkg:github/erlang/otp@OTP-23.3.4.4,pkg:otp/ssl@10.3.1.1,pkg:github/erlang/otp@OTP-23.3.4.5,pkg:github/erlang/otp@OTP-23.3.4.6,pkg:github/erlang/otp@OTP-23.3.4.7,pkg:github/erlang/otp@OTP-23.3.4.8,pkg:github/erlang/otp@OTP-23.3.4.9,pkg:github/erlang/otp@OTP-23.3.4.10,pkg:github/erlang/otp@OTP-23.3.4.11,pkg:github/erlang/otp@OTP-23.3.4.12,pkg:github/erlang/otp@OTP-23.3.4.13,pkg:github/erlang/otp@OTP-23.3.4.14,pkg:otp/ssl@10.3.1.2,pkg:github/erlang/otp@OTP-23.3.4.15,pkg:otp/ssl@10.3.1.3,pkg:github/erlang/otp@OTP-23.3.4.16,pkg:otp/ssl@10.3.1.4,pkg:github/erlang/otp@OTP-23.3.4.17,pkg:github/erlang/otp@OTP-23.3.4.18,pkg:github/erlang/otp@OTP-23.3.4.19,pkg:github/erlang/otp@OTP-23.3.4.20,pkg:otp/ssl@10.3.1.5' --vuln='F00' --status='under_investigation'\n",
+
+                ~"vexctl add --in-place otp-23.openvex.json --product='pkg:github/erlang/otp@OTP-26.0,pkg:otp/erts@14.0,pkg:github/erlang/otp@OTP-26.0.1,pkg:otp/erts@14.0.1,pkg:github/erlang/otp@OTP-26.0.2,pkg:otp/erts@14.0.2,pkg:github/erlang/otp@OTP-26.1,pkg:github/erlang/otp@OTP-26.1.1,pkg:otp/erts@14.1,pkg:github/erlang/otp@OTP-26.1.2,pkg:otp/erts@14.1.1,pkg:github/erlang/otp@OTP-26.2,pkg:otp/erts@14.2,pkg:github/erlang/otp@OTP-26.2.1,pkg:otp/erts@14.2.1,pkg:github/erlang/otp@OTP-26.2.2,pkg:otp/erts@14.2.2,pkg:github/erlang/otp@OTP-26.2.3,pkg:otp/erts@14.2.3,pkg:github/erlang/otp@OTP-26.2.4,pkg:otp/erts@14.2.4,pkg:github/erlang/otp@OTP-26.2.5,pkg:otp/erts@14.2.5,pkg:github/erlang/otp@OTP-26.2.5.1,pkg:otp/erts@14.2.5.1,pkg:github/erlang/otp@OTP-26.2.5.2,pkg:otp/erts@14.2.5.2,pkg:github/erlang/otp@OTP-26.2.5.3,pkg:otp/erts@14.2.5.3,pkg:github/erlang/otp@OTP-26.2.5.4,pkg:github/erlang/otp@OTP-26.2.5.5,pkg:otp/erts@14.2.5.4,pkg:github/erlang/otp@OTP-26.2.5.6,pkg:otp/erts@14.2.5.5,pkg:github/erlang/otp@OTP-26.2.5.7,pkg:otp/erts@14.2.5.6,pkg:github/erlang/otp@OTP-26.2.5.8,pkg:otp/erts@14.2.5.7,pkg:github/erlang/otp@OTP-26.2.5.9,pkg:otp/erts@14.2.5.8,pkg:github/erlang/otp@OTP-26.2.5.10,pkg:github/erlang/otp@OTP-26.2.5.11,pkg:otp/erts@14.2.5.9,pkg:github/erlang/otp@OTP-26.2.5.12,pkg:github/erlang/otp@OTP-26.2.5.13,pkg:otp/erts@14.2.5.10,pkg:github/erlang/otp@OTP-26.2.5.14,pkg:github/erlang/otp@OTP-26.2.5.15,pkg:otp/erts@14.2.5.11' --vuln='CVE-2024-4444' --status='not_affected' --justification='vulnerable_code_not_present'\n",
+
+                ~"vexctl add --in-place otp-23.openvex.json --product='pkg:github/openssl/openssl@0foobar' --vuln='CVE-2024-4444' --status='not_affected' --justification='vulnerable_code_not_present'\n",
+
+                ~"vexctl add --in-place otp-23.openvex.json --product='pkg:github/erlang/otp@OTP-26.0,pkg:otp/erts@14.0,pkg:github/erlang/otp@OTP-26.0.1,pkg:otp/erts@14.0.1,pkg:github/erlang/otp@OTP-26.0.2,pkg:otp/erts@14.0.2,pkg:github/erlang/otp@OTP-26.1,pkg:github/erlang/otp@OTP-26.1.1,pkg:otp/erts@14.1,pkg:github/erlang/otp@OTP-26.1.2,pkg:otp/erts@14.1.1,pkg:github/erlang/otp@OTP-26.2,pkg:otp/erts@14.2,pkg:github/erlang/otp@OTP-26.2.1,pkg:otp/erts@14.2.1,pkg:github/erlang/otp@OTP-26.2.2,pkg:otp/erts@14.2.2,pkg:github/erlang/otp@OTP-26.2.3,pkg:otp/erts@14.2.3,pkg:github/erlang/otp@OTP-26.2.4,pkg:otp/erts@14.2.4,pkg:github/erlang/otp@OTP-26.2.5,pkg:otp/erts@14.2.5,pkg:github/erlang/otp@OTP-26.2.5.1,pkg:otp/erts@14.2.5.1,pkg:github/erlang/otp@OTP-26.2.5.2,pkg:otp/erts@14.2.5.2,pkg:github/erlang/otp@OTP-26.2.5.3,pkg:otp/erts@14.2.5.3,pkg:github/erlang/otp@OTP-26.2.5.4,pkg:github/erlang/otp@OTP-26.2.5.5,pkg:otp/erts@14.2.5.4,pkg:github/erlang/otp@OTP-26.2.5.6,pkg:otp/erts@14.2.5.5,pkg:github/erlang/otp@OTP-26.2.5.7,pkg:otp/erts@14.2.5.6,pkg:github/erlang/otp@OTP-26.2.5.8,pkg:otp/erts@14.2.5.7,pkg:github/erlang/otp@OTP-26.2.5.9,pkg:otp/erts@14.2.5.8,pkg:github/erlang/otp@OTP-26.2.5.10,pkg:github/erlang/otp@OTP-26.2.5.11,pkg:otp/erts@14.2.5.9,pkg:github/erlang/otp@OTP-26.2.5.12,pkg:github/erlang/otp@OTP-26.2.5.13,pkg:otp/erts@14.2.5.10,pkg:github/erlang/otp@OTP-26.2.5.14,pkg:github/erlang/otp@OTP-26.2.5.15,pkg:otp/erts@14.2.5.11' --vuln='CVE-2024-9143' --status='not_affected' --justification='vulnerable_code_not_present'\n",
+
+                ~"vexctl add --in-place otp-23.openvex.json --product='pkg:github/openssl/openssl@0foobar' --vuln='CVE-2024-9143' --status='not_affected' --justification='vulnerable_code_not_present'\n",
+
+                ~"vexctl add --in-place otp-23.openvex.json --product='pkg:github/madler/zlib@04f42ceca40f73e2978b50e93806c2a18c1281fc' --vuln='FIKA-2026-BROD' --status='affected' --action-statement='Mitigation message, update to the next release'\n",
+
+                ~"vexctl add --in-place otp-23.openvex.json --product='pkg:github/PCRE2Project/pcre2@2dce7761b1831fd3f82a9c2bd5476259d945da4d' --vuln='CVE-2025-58050' --status='affected'\n",
+
+                ~"vexctl add --in-place otp-23.openvex.json --product='pkg:github/erlang/otp@OTP-23.2.2,pkg:github/erlang/otp@OTP-23.2.3,pkg:github/erlang/otp@OTP-23.2.4,pkg:github/erlang/otp@OTP-23.2.5,pkg:github/erlang/otp@OTP-23.2.6,pkg:github/erlang/otp@OTP-23.2.7,pkg:github/erlang/otp@OTP-23.2.7.1,pkg:github/erlang/otp@OTP-23.3,pkg:github/erlang/otp@OTP-23.3.1,pkg:github/erlang/otp@OTP-23.3.2,pkg:github/erlang/otp@OTP-23.3.3,pkg:github/erlang/otp@OTP-23.3.4,pkg:github/erlang/otp@OTP-23.3.4.1,pkg:otp/ssl@10.2.1,pkg:otp/ssl@10.2.2,pkg:otp/ssl@10.2.3,pkg:otp/ssl@10.2.4,pkg:otp/ssl@10.2.4.1,pkg:otp/ssl@10.3,pkg:otp/ssl@10.3.1' --vuln='CVE-2025-26618' --status='affected' --action-statement='Update to the next version'\n",
+
+                ~"vexctl add --in-place otp-23.openvex.json --product='pkg:github/erlang/otp@OTP-23.3.4.4,pkg:github/erlang/otp@OTP-23.3.4.3,pkg:github/erlang/otp@OTP-23.3.4.2,pkg:github/erlang/otp@OTP-23.2.7.3,pkg:github/erlang/otp@OTP-23.2.7.2,pkg:otp/ssl@10.3.1.1,pkg:otp/ssl@10.2.4.2' --vuln='CVE-2025-26618' --status='fixed'\n"
+               ],
+    TestFun = fun (R) -> lists:member(erlang:list_to_binary(R), Expected) end,
+    true = lists:all(TestFun, Result),
+    ok.
+
+%% idempotent: script runs once. if run again, no new vex statements are introduced,
+%% because there was no change.
+test_openvex_branched_otp_tree_idempotent() ->
+    {VexPath,  Branch, VexStmts} = setup_openvex_test(fixup_openvex_branched_otp_tree_stmts()),
+    CVEs = fixup_openvex_branched_otp_tree(),
+    Result = calculate_statements_from_cves(VexStmts, CVEs, Branch, VexPath),
+    true = Result == [],
+    ok.
+
+setup_openvex_test() ->
+    VexPath = ~"",
+    Branch = ~"otp-23",
+    VexStmts = [],
+    {VexPath,  Branch, VexStmts}.
+setup_openvex_test(Stmts) ->
+    {VexPath, Branch, _} = setup_openvex_test(),
+    {VexPath, Branch, Stmts}.
+
+
+fixup_openvex_branched_otp_tree() ->
+[ #{ ~"pkg:otp/ssl@10.2.1" => ~"CVE-2025-26618",
+     ~"status" => #{ ~"affected" => ~"Update to the next version",
+                     ~"fixed" => [~"pkg:otp/ssl@10.3.1.1", ~"pkg:otp/ssl@10.2.4.2"]} },
+
+  #{ ~"pkg:github/madler/zlib@04f42ceca40f73e2978b50e93806c2a18c1281fc" => ~"FIKA-2026-BROD",
+     ~"status" => #{ ~"affected" => ~"Mitigation message, update to the next release"}},
+
+  #{ ~"pkg:github/openssl/openssl@0foobar" => ~"CVE-2024-9143",
+      ~"status" => #{ ~"not_affected" => ~"vulnerable_code_not_present",
+                      ~"apps" => [~"pkg:otp/erts@14.0"]}},
+
+  #{ ~"pkg:github/openssl/openssl@0foobar" => ~"CVE-2024-4444",
+     ~"status" => #{ ~"not_affected" => ~"vulnerable_code_not_present",
+                     ~"apps" => [~"pkg:otp/erts@14.2.5.10"]}},
+
+  #{~"pkg:github/PCRE2Project/pcre2@2dce7761b1831fd3f82a9c2bd5476259d945da4d" => ~"CVE-2025-58050",
+    ~"status" => ~"affected"},
+
+  #{ ~"pkg:otp/ssl@10.2.1" => ~"F00",
+     ~"status" => ~"under_investigation" }
+
+].
+
+
+fixup_openvex_branched_otp_tree_stmts() ->
+    [#{ ~"vulnerability"=>
+            #{"name"=> ~"CVE-2025-26618"},
+        ~"products"=>
+            [
+             #{~"@id"=> ~"pkg:github/erlang/otp@OTP-23.2.2"},
+             #{~"@id"=> ~"pkg:github/erlang/otp@OTP-23.2.3"},
+             #{~"@id"=> ~"pkg:github/erlang/otp@OTP-23.2.4"},
+             #{~"@id"=> ~"pkg:github/erlang/otp@OTP-23.2.5"},
+             #{~"@id"=> ~"pkg:github/erlang/otp@OTP-23.2.6"},
+             #{~"@id"=> ~"pkg:github/erlang/otp@OTP-23.2.7"},
+             #{~"@id"=> ~"pkg:github/erlang/otp@OTP-23.2.7.1"},
+             #{~"@id"=> ~"pkg:github/erlang/otp@OTP-23.3"},
+             #{~"@id"=> ~"pkg:github/erlang/otp@OTP-23.3.1"},
+             #{~"@id"=> ~"pkg:github/erlang/otp@OTP-23.3.2"},
+             #{~"@id"=> ~"pkg:github/erlang/otp@OTP-23.3.3"},
+             #{~"@id"=> ~"pkg:github/erlang/otp@OTP-23.3.4"},
+             #{~"@id"=> ~"pkg:github/erlang/otp@OTP-23.3.4.1"},
+             #{~"@id"=> ~"pkg:otp/ssl@10.2.1"},
+             #{~"@id"=> ~"pkg:otp/ssl@10.2.2"},
+             #{~"@id"=> ~"pkg:otp/ssl@10.2.3"},
+             #{~"@id"=> ~"pkg:otp/ssl@10.2.4"},
+             #{~"@id"=> ~"pkg:otp/ssl@10.2.4.1"},
+             #{~"@id"=> ~"pkg:otp/ssl@10.3"},
+             #{~"@id"=> ~"pkg:otp/ssl@10.3.1"}
+            ],
+        ~"status"=> ~"affected",
+        ~"action_statement"=> ~"Update to the next version"
+      },
+     #{ ~"vulnerability"=>
+            #{~"name"=> ~"CVE-2025-26618"},
+        ~"products"=>
+            [
+             #{~"@id"=> ~"pkg:github/erlang/otp@OTP-23.3.4.4"},
+             #{~"@id"=> ~"pkg:github/erlang/otp@OTP-23.3.4.3"},
+             #{~"@id"=> ~"pkg:github/erlang/otp@OTP-23.3.4.2"},
+             #{~"@id"=> ~"pkg:github/erlang/otp@OTP-23.2.7.3"},
+             #{~"@id"=> ~"pkg:github/erlang/otp@OTP-23.2.7.2"},
+             #{~"@id"=> ~"pkg:otp/ssl@10.3.1.1"},
+             #{~"@id"=> ~"pkg:otp/ssl@10.2.4.2"}
+            ],
+        ~"status"=> ~"fixed"
+      },
+     #{~"vulnerability"=>
+           #{~"name"=> ~"FIKA-2026-BROD"},
+       ~"products"=>
+           [
+            #{~"@id"=> ~"pkg:github/madler/zlib@04f42ceca40f73e2978b50e93806c2a18c1281fc"}
+           ],
+       ~"status"=> ~"affected",
+       ~"action_statement"=> ~"Mitigation message, update to the next release"
+      },
+     #{ ~"vulnerability" =>
+            #{ ~"name" => ~"CVE-2024-9143" },
+        ~"timestamp" => ~"2025-08-19T13:18:05.434247759+02:00",
+        ~"products" =>
+            [
+             #{~"@id" => ~"pkg:github/erlang/otp@OTP-26.0"},
+             #{~"@id" => ~"pkg:github/erlang/otp@OTP-26.0.1"},
+             #{~"@id" => ~"pkg:github/erlang/otp@OTP-26.0.2"},
+             #{~"@id" => ~"pkg:otp/erts@14.0"},
+             #{~"@id" => ~"pkg:otp/erts@14.0.1"},
+             #{~"@id" => ~"pkg:otp/erts@14.0.2"},
+             #{~"@id" => ~"pkg:github/erlang/otp@OTP-26.1"},
+             #{~"@id" => ~"pkg:github/erlang/otp@OTP-26.1.1"},
+             #{~"@id" => ~"pkg:github/erlang/otp@OTP-26.1.2"},
+             #{~"@id" => ~"pkg:otp/erts@14.1"},
+             #{~"@id" => ~"pkg:otp/erts@14.1.1"},
+             #{~"@id" => ~"pkg:github/erlang/otp@OTP-26.2"},
+             #{~"@id" => ~"pkg:github/erlang/otp@OTP-26.2.1"},
+             #{~"@id" => ~"pkg:github/erlang/otp@OTP-26.2.2"},
+             #{~"@id" => ~"pkg:github/erlang/otp@OTP-26.2.3"},
+             #{~"@id" => ~"pkg:github/erlang/otp@OTP-26.2.4"},
+             #{~"@id" => ~"pkg:github/erlang/otp@OTP-26.2.5"},
+             #{~"@id" => ~"pkg:github/erlang/otp@OTP-26.2.5.1"},
+             #{~"@id" => ~"pkg:github/erlang/otp@OTP-26.2.5.2"},
+             #{~"@id" => ~"pkg:github/erlang/otp@OTP-26.2.5.3"},
+             #{~"@id" => ~"pkg:github/erlang/otp@OTP-26.2.5.4"},
+             #{~"@id" => ~"pkg:github/erlang/otp@OTP-26.2.5.5"},
+             #{~"@id" => ~"pkg:github/erlang/otp@OTP-26.2.5.6"},
+             #{~"@id" => ~"pkg:github/erlang/otp@OTP-26.2.5.7"},
+             #{~"@id" => ~"pkg:github/erlang/otp@OTP-26.2.5.8"},
+             #{~"@id" => ~"pkg:github/erlang/otp@OTP-26.2.5.9"},
+             #{~"@id" => ~"pkg:github/erlang/otp@OTP-26.2.5.10"},
+             #{~"@id" => ~"pkg:github/erlang/otp@OTP-26.2.5.11"},
+             #{~"@id" => ~"pkg:github/erlang/otp@OTP-26.2.5.12"},
+             #{~"@id" => ~"pkg:github/erlang/otp@OTP-26.2.5.13"},
+             #{~"@id" => ~"pkg:github/erlang/otp@OTP-26.2.5.14"},
+             #{~"@id" => ~"pkg:otp/erts@14.2"},
+             #{~"@id" => ~"pkg:otp/erts@14.2.1"},
+             #{~"@id" => ~"pkg:otp/erts@14.2.2"},
+             #{~"@id" => ~"pkg:otp/erts@14.2.3"},
+             #{~"@id" => ~"pkg:otp/erts@14.2.4"},
+             #{~"@id" => ~"pkg:otp/erts@14.2.5"},
+             #{~"@id" => ~"pkg:otp/erts@14.2.5.1"},
+             #{~"@id" => ~"pkg:otp/erts@14.2.5.2"},
+             #{~"@id" => ~"pkg:otp/erts@14.2.5.3"},
+             #{~"@id" => ~"pkg:otp/erts@14.2.5.4"},
+             #{~"@id" => ~"pkg:otp/erts@14.2.5.5"},
+             #{~"@id" => ~"pkg:otp/erts@14.2.5.6"},
+             #{~"@id" => ~"pkg:otp/erts@14.2.5.7"},
+             #{~"@id" => ~"pkg:otp/erts@14.2.5.8"},
+             #{~"@id" => ~"pkg:otp/erts@14.2.5.9"},
+             #{~"@id" => ~"pkg:otp/erts@14.2.5.10"},
+             #{~"@id" => ~"pkg:otp/erts@14.2.5.11"}
+        ],
+      ~"status" => ~"not_affected",
+      ~"justification" => ~"vulnerable_code_not_present"
+      },
+     #{ ~"vulnerability" => #{ ~"name" => ~"CVE-2024-9143" },
+        ~"timestamp" => ~"2025-08-19T13:18:23.396290497+02:00",
+        ~"products" =>
+            [
+             #{ ~"@id" => ~"pkg:github/openssl/openssl@0foobar" }
+            ],
+        ~"status" => ~"not_affected",
+        ~"justification" => ~"vulnerable_code_not_present" },
+     #{ ~"vulnerability" =>
+            #{ ~"name" => ~"CVE-2024-4444" },
+        ~"timestamp" => ~"2025-08-19T13:18:05.434247759+02:00",
+        ~"products" =>
+            [#{~"@id" => ~"pkg:github/erlang/otp@OTP-26.2.5.14"},
+             #{~"@id" => ~"pkg:otp/erts@14.2.5.11"},
+             #{~"@id" => ~"pkg:github/erlang/otp@OTP-26.2.5.12"},
+             #{~"@id" => ~"pkg:github/erlang/otp@OTP-26.2.5.13"},
+             #{~"@id" => ~"pkg:otp/erts@14.2.5.10"}],
+      ~"status" => ~"not_affected",
+      ~"justification" => ~"vulnerable_code_not_present"
+      },
+     #{ ~"vulnerability" => #{ ~"name" => ~"CVE-2024-4444" },
+        ~"timestamp" => ~"2025-08-19T13:18:23.396290497+02:00",
+        ~"products" =>
+            [
+             #{ ~"@id" => ~"pkg:github/openssl/openssl@0foobar" }
+            ],
+        ~"status" => ~"not_affected",
+        ~"justification" => ~"vulnerable_code_not_present" },
+
+     #{ ~"vulnerability"=> #{"name"=> ~"F00"},
+        ~"products"=>
+            [
+             #{~"@id"=> ~"pkg:github/erlang/otp@OTP-23.2.2"},
+             #{~"@id"=> ~"pkg:otp/ssl@10.2.1"}
+            ],
+        ~"status"=> ~"under_investigation"
+      },
+     #{ ~"vulnerability"=> #{"name"=> ~"CVE-2025-58050"},
+        ~"products"=>
+            [
+             #{~"@id"=> ~"pkg:github/PCRE2Project/pcre2@2dce7761b1831fd3f82a9c2bd5476259d945da4d"}
+            ],
+        ~"status"=> ~"affected"
+      }
+    ].
+
+%% This table is used as fixed up data for the openvex verification.
+with_otp_versions_table(F) ->
+    OTPTable =
+     """
+     OTP-28.0.4 : inets-9.4.1 # asn1-5.4.1 common_test-1.28 compiler-9.0.1 crypto-5.6 debugger-6.0.2 dialyzer-5.4 diameter-2.5.1 edoc-1.4 eldap-1.2.16 erl_interface-5.6 erts-16.0.3 et-1.7.2 eunit-2.10 ftp-1.2.4 jinterface-1.15 kernel-10.3.2 megaco-4.8 mnesia-4.24 observer-2.18 odbc-2.16 os_mon-2.11 parsetools-2.7 public_key-1.18.2 reltool-1.0.2 runtime_tools-2.2 sasl-4.3 snmp-5.19 ssh-5.3.3 ssl-11.3.2 stdlib-7.0.3 syntax_tools-4.0 tftp-1.2.3 tools-4.1.2 wx-2.5.1 xmerl-2.1.5 :
+     OTP-28.0.3 : diameter-2.5.1 erts-16.0.3 ssh-5.3.3 stdlib-7.0.3 # asn1-5.4.1 common_test-1.28 compiler-9.0.1 crypto-5.6 debugger-6.0.2 dialyzer-5.4 edoc-1.4 eldap-1.2.16 erl_interface-5.6 et-1.7.2 eunit-2.10 ftp-1.2.4 inets-9.4 jinterface-1.15 kernel-10.3.2 megaco-4.8 mnesia-4.24 observer-2.18 odbc-2.16 os_mon-2.11 parsetools-2.7 public_key-1.18.2 reltool-1.0.2 runtime_tools-2.2 sasl-4.3 snmp-5.19 ssl-11.3.2 syntax_tools-4.0 tftp-1.2.3 tools-4.1.2 wx-2.5.1 xmerl-2.1.5 :
+     OTP-28.0.2 : compiler-9.0.1 debugger-6.0.2 erts-16.0.2 kernel-10.3.2 public_key-1.18.2 ssh-5.3.2 ssl-11.3.2 stdlib-7.0.2 wx-2.5.1 # asn1-5.4.1 common_test-1.28 crypto-5.6 dialyzer-5.4 diameter-2.5 edoc-1.4 eldap-1.2.16 erl_interface-5.6 et-1.7.2 eunit-2.10 ftp-1.2.4 inets-9.4 jinterface-1.15 megaco-4.8 mnesia-4.24 observer-2.18 odbc-2.16 os_mon-2.11 parsetools-2.7 reltool-1.0.2 runtime_tools-2.2 sasl-4.3 snmp-5.19 syntax_tools-4.0 tftp-1.2.3 tools-4.1.2 xmerl-2.1.5 :
+     OTP-28.0.1 : asn1-5.4.1 debugger-6.0.1 eldap-1.2.16 erts-16.0.1 kernel-10.3.1 public_key-1.18.1 ssh-5.3.1 ssl-11.3.1 stdlib-7.0.1 xmerl-2.1.5 # common_test-1.28 compiler-9.0 crypto-5.6 dialyzer-5.4 diameter-2.5 edoc-1.4 erl_interface-5.6 et-1.7.2 eunit-2.10 ftp-1.2.4 inets-9.4 jinterface-1.15 megaco-4.8 mnesia-4.24 observer-2.18 odbc-2.16 os_mon-2.11 parsetools-2.7 reltool-1.0.2 runtime_tools-2.2 sasl-4.3 snmp-5.19 syntax_tools-4.0 tftp-1.2.3 tools-4.1.2 wx-2.5 :
+     OTP-28.0 : asn1-5.4 common_test-1.28 compiler-9.0 crypto-5.6 debugger-6.0 dialyzer-5.4 diameter-2.5 edoc-1.4 eldap-1.2.15 erl_interface-5.6 erts-16.0 et-1.7.2 eunit-2.10 ftp-1.2.4 inets-9.4 jinterface-1.15 kernel-10.3 megaco-4.8 mnesia-4.24 observer-2.18 odbc-2.16 os_mon-2.11 parsetools-2.7 public_key-1.18 reltool-1.0.2 runtime_tools-2.2 sasl-4.3 snmp-5.19 ssh-5.3 ssl-11.3 stdlib-7.0 syntax_tools-4.0 tftp-1.2.3 tools-4.1.2 wx-2.5 xmerl-2.1.4 # :
+     OTP-27.3.4.3 : compiler-8.6.1.2 debugger-5.5.0.1 erts-15.2.7.2 inets-9.3.2.1 ssh-5.2.11.3 syntax_tools-3.2.2.1 # asn1-5.3.4.2 common_test-1.27.7 crypto-5.5.3 dialyzer-5.3.1 diameter-2.4.1 edoc-1.3.2 eldap-1.2.14.1 erl_interface-5.5.2 et-1.7.1 eunit-2.9.1 ftp-1.2.3 jinterface-1.14.1 kernel-10.2.7.2 megaco-4.7.2 mnesia-4.23.5 observer-2.17 odbc-2.15 os_mon-2.10.1 parsetools-2.6 public_key-1.17.1.1 reltool-1.0.1 runtime_tools-2.1.1 sasl-4.2.2 snmp-5.18.2 ssl-11.2.12.2 stdlib-6.2.2.2 tftp-1.2.2 tools-4.1.1 wx-2.4.3 xmerl-2.1.3.1 :
+     OTP-27.3.4.2 : asn1-5.3.4.2 compiler-8.6.1.1 erts-15.2.7.1 kernel-10.2.7.2 public_key-1.17.1.1 ssh-5.2.11.2 ssl-11.2.12.2 stdlib-6.2.2.2 # common_test-1.27.7 crypto-5.5.3 debugger-5.5 dialyzer-5.3.1 diameter-2.4.1 edoc-1.3.2 eldap-1.2.14.1 erl_interface-5.5.2 et-1.7.1 eunit-2.9.1 ftp-1.2.3 inets-9.3.2 jinterface-1.14.1 megaco-4.7.2 mnesia-4.23.5 observer-2.17 odbc-2.15 os_mon-2.10.1 parsetools-2.6 reltool-1.0.1 runtime_tools-2.1.1 sasl-4.2.2 snmp-5.18.2 syntax_tools-3.2.2 tftp-1.2.2 tools-4.1.1 wx-2.4.3 xmerl-2.1.3.1 :
+     OTP-27.3.4.1 : asn1-5.3.4.1 eldap-1.2.14.1 kernel-10.2.7.1 ssh-5.2.11.1 ssl-11.2.12.1 stdlib-6.2.2.1 xmerl-2.1.3.1 # common_test-1.27.7 compiler-8.6.1 crypto-5.5.3 debugger-5.5 dialyzer-5.3.1 diameter-2.4.1 edoc-1.3.2 erl_interface-5.5.2 erts-15.2.7 et-1.7.1 eunit-2.9.1 ftp-1.2.3 inets-9.3.2 jinterface-1.14.1 megaco-4.7.2 mnesia-4.23.5 observer-2.17 odbc-2.15 os_mon-2.10.1 parsetools-2.6 public_key-1.17.1 reltool-1.0.1 runtime_tools-2.1.1 sasl-4.2.2 snmp-5.18.2 syntax_tools-3.2.2 tftp-1.2.2 tools-4.1.1 wx-2.4.3 :
+     OTP-27.3.4 : erts-15.2.7 kernel-10.2.7 ssh-5.2.11 xmerl-2.1.3 # asn1-5.3.4 common_test-1.27.7 compiler-8.6.1 crypto-5.5.3 debugger-5.5 dialyzer-5.3.1 diameter-2.4.1 edoc-1.3.2 eldap-1.2.14 erl_interface-5.5.2 et-1.7.1 eunit-2.9.1 ftp-1.2.3 inets-9.3.2 jinterface-1.14.1 megaco-4.7.2 mnesia-4.23.5 observer-2.17 odbc-2.15 os_mon-2.10.1 parsetools-2.6 public_key-1.17.1 reltool-1.0.1 runtime_tools-2.1.1 sasl-4.2.2 snmp-5.18.2 ssl-11.2.12 stdlib-6.2.2 syntax_tools-3.2.2 tftp-1.2.2 tools-4.1.1 wx-2.4.3 :
+     OTP-27.3.3 : erts-15.2.6 kernel-10.2.6 megaco-4.7.2 ssh-5.2.10 ssl-11.2.12 # asn1-5.3.4 common_test-1.27.7 compiler-8.6.1 crypto-5.5.3 debugger-5.5 dialyzer-5.3.1 diameter-2.4.1 edoc-1.3.2 eldap-1.2.14 erl_interface-5.5.2 et-1.7.1 eunit-2.9.1 ftp-1.2.3 inets-9.3.2 jinterface-1.14.1 mnesia-4.23.5 observer-2.17 odbc-2.15 os_mon-2.10.1 parsetools-2.6 public_key-1.17.1 reltool-1.0.1 runtime_tools-2.1.1 sasl-4.2.2 snmp-5.18.2 stdlib-6.2.2 syntax_tools-3.2.2 tftp-1.2.2 tools-4.1.1 wx-2.4.3 xmerl-2.1.2 :
+     OTP-27.3.2 : asn1-5.3.4 compiler-8.6.1 erts-15.2.5 kernel-10.2.5 megaco-4.7.1 snmp-5.18.2 ssl-11.2.11 xmerl-2.1.2 # common_test-1.27.7 crypto-5.5.3 debugger-5.5 dialyzer-5.3.1 diameter-2.4.1 edoc-1.3.2 eldap-1.2.14 erl_interface-5.5.2 et-1.7.1 eunit-2.9.1 ftp-1.2.3 inets-9.3.2 jinterface-1.14.1 mnesia-4.23.5 observer-2.17 odbc-2.15 os_mon-2.10.1 parsetools-2.6 public_key-1.17.1 reltool-1.0.1 runtime_tools-2.1.1 sasl-4.2.2 ssh-5.2.9 stdlib-6.2.2 syntax_tools-3.2.2 tftp-1.2.2 tools-4.1.1 wx-2.4.3 :
+     OTP-27.3.1 : asn1-5.3.3 erts-15.2.4 kernel-10.2.4 mnesia-4.23.5 ssh-5.2.9 ssl-11.2.10 stdlib-6.2.2 # common_test-1.27.7 compiler-8.6 crypto-5.5.3 debugger-5.5 dialyzer-5.3.1 diameter-2.4.1 edoc-1.3.2 eldap-1.2.14 erl_interface-5.5.2 et-1.7.1 eunit-2.9.1 ftp-1.2.3 inets-9.3.2 jinterface-1.14.1 megaco-4.7 observer-2.17 odbc-2.15 os_mon-2.10.1 parsetools-2.6 public_key-1.17.1 reltool-1.0.1 runtime_tools-2.1.1 sasl-4.2.2 snmp-5.18.1 syntax_tools-3.2.2 tftp-1.2.2 tools-4.1.1 wx-2.4.3 xmerl-2.1.1 :
+     OTP-27.3 : asn1-5.3.2 common_test-1.27.7 compiler-8.6 crypto-5.5.3 erts-15.2.3 kernel-10.2.3 mnesia-4.23.4 ssh-5.2.8 ssl-11.2.9 stdlib-6.2.1 syntax_tools-3.2.2 xmerl-2.1.1 # debugger-5.5 dialyzer-5.3.1 diameter-2.4.1 edoc-1.3.2 eldap-1.2.14 erl_interface-5.5.2 et-1.7.1 eunit-2.9.1 ftp-1.2.3 inets-9.3.2 jinterface-1.14.1 megaco-4.7 observer-2.17 odbc-2.15 os_mon-2.10.1 parsetools-2.6 public_key-1.17.1 reltool-1.0.1 runtime_tools-2.1.1 sasl-4.2.2 snmp-5.18.1 tftp-1.2.2 tools-4.1.1 wx-2.4.3 :
+     OTP-27.2.4 : snmp-5.18.1 ssh-5.2.7 # asn1-5.3.1 common_test-1.27.6 compiler-8.5.5 crypto-5.5.2 debugger-5.5 dialyzer-5.3.1 diameter-2.4.1 edoc-1.3.2 eldap-1.2.14 erl_interface-5.5.2 erts-15.2.2 et-1.7.1 eunit-2.9.1 ftp-1.2.3 inets-9.3.2 jinterface-1.14.1 kernel-10.2.2 megaco-4.7 mnesia-4.23.3 observer-2.17 odbc-2.15 os_mon-2.10.1 parsetools-2.6 public_key-1.17.1 reltool-1.0.1 runtime_tools-2.1.1 sasl-4.2.2 ssl-11.2.8 stdlib-6.2 syntax_tools-3.2.1 tftp-1.2.2 tools-4.1.1 wx-2.4.3 xmerl-2.1 :
+     OTP-27.2.3 : inets-9.3.2 ssl-11.2.8 # asn1-5.3.1 common_test-1.27.6 compiler-8.5.5 crypto-5.5.2 debugger-5.5 dialyzer-5.3.1 diameter-2.4.1 edoc-1.3.2 eldap-1.2.14 erl_interface-5.5.2 erts-15.2.2 et-1.7.1 eunit-2.9.1 ftp-1.2.3 jinterface-1.14.1 kernel-10.2.2 megaco-4.7 mnesia-4.23.3 observer-2.17 odbc-2.15 os_mon-2.10.1 parsetools-2.6 public_key-1.17.1 reltool-1.0.1 runtime_tools-2.1.1 sasl-4.2.2 snmp-5.18 ssh-5.2.6 stdlib-6.2 syntax_tools-3.2.1 tftp-1.2.2 tools-4.1.1 wx-2.4.3 xmerl-2.1 :
+     OTP-27.2.2 : compiler-8.5.5 erts-15.2.2 kernel-10.2.2 public_key-1.17.1 ssl-11.2.7 # asn1-5.3.1 common_test-1.27.6 crypto-5.5.2 debugger-5.5 dialyzer-5.3.1 diameter-2.4.1 edoc-1.3.2 eldap-1.2.14 erl_interface-5.5.2 et-1.7.1 eunit-2.9.1 ftp-1.2.3 inets-9.3.1 jinterface-1.14.1 megaco-4.7 mnesia-4.23.3 observer-2.17 odbc-2.15 os_mon-2.10.1 parsetools-2.6 reltool-1.0.1 runtime_tools-2.1.1 sasl-4.2.2 snmp-5.18 ssh-5.2.6 stdlib-6.2 syntax_tools-3.2.1 tftp-1.2.2 tools-4.1.1 wx-2.4.3 xmerl-2.1 :
+     OTP-27.2.1 : common_test-1.27.6 dialyzer-5.3.1 erts-15.2.1 kernel-10.2.1 ssh-5.2.6 tftp-1.2.2 # asn1-5.3.1 compiler-8.5.4 crypto-5.5.2 debugger-5.5 diameter-2.4.1 edoc-1.3.2 eldap-1.2.14 erl_interface-5.5.2 et-1.7.1 eunit-2.9.1 ftp-1.2.3 inets-9.3.1 jinterface-1.14.1 megaco-4.7 mnesia-4.23.3 observer-2.17 odbc-2.15 os_mon-2.10.1 parsetools-2.6 public_key-1.17 reltool-1.0.1 runtime_tools-2.1.1 sasl-4.2.2 snmp-5.18 ssl-11.2.6 stdlib-6.2 syntax_tools-3.2.1 tools-4.1.1 wx-2.4.3 xmerl-2.1 :
+     OTP-27.2 : common_test-1.27.5 compiler-8.5.4 crypto-5.5.2 debugger-5.5 dialyzer-5.3 eldap-1.2.14 erts-15.2 inets-9.3.1 kernel-10.2 megaco-4.7 mnesia-4.23.3 observer-2.17 os_mon-2.10.1 public_key-1.17 snmp-5.18 ssh-5.2.5 ssl-11.2.6 stdlib-6.2 tools-4.1.1 # asn1-5.3.1 diameter-2.4.1 edoc-1.3.2 erl_interface-5.5.2 et-1.7.1 eunit-2.9.1 ftp-1.2.3 jinterface-1.14.1 odbc-2.15 parsetools-2.6 reltool-1.0.1 runtime_tools-2.1.1 sasl-4.2.2 syntax_tools-3.2.1 tftp-1.2.1 wx-2.4.3 xmerl-2.1 :
+     OTP-27.1.3 : common_test-1.27.4 compiler-8.5.3 erts-15.1.3 kernel-10.1.2 public_key-1.16.4 ssh-5.2.4 ssl-11.2.5 # asn1-5.3.1 crypto-5.5.1 debugger-5.4 dialyzer-5.2.1 diameter-2.4.1 edoc-1.3.2 eldap-1.2.13 erl_interface-5.5.2 et-1.7.1 eunit-2.9.1 ftp-1.2.3 inets-9.3 jinterface-1.14.1 megaco-4.6 mnesia-4.23.2 observer-2.16 odbc-2.15 os_mon-2.10 parsetools-2.6 reltool-1.0.1 runtime_tools-2.1.1 sasl-4.2.2 snmp-5.17 stdlib-6.1.2 syntax_tools-3.2.1 tftp-1.2.1 tools-4.1 wx-2.4.3 xmerl-2.1 :
+     OTP-27.1.2 : common_test-1.27.3 erts-15.1.2 kernel-10.1.1 ssh-5.2.3 ssl-11.2.4 stdlib-6.1.2 # asn1-5.3.1 compiler-8.5.2 crypto-5.5.1 debugger-5.4 dialyzer-5.2.1 diameter-2.4.1 edoc-1.3.2 eldap-1.2.13 erl_interface-5.5.2 et-1.7.1 eunit-2.9.1 ftp-1.2.3 inets-9.3 jinterface-1.14.1 megaco-4.6 mnesia-4.23.2 observer-2.16 odbc-2.15 os_mon-2.10 parsetools-2.6 public_key-1.16.3 reltool-1.0.1 runtime_tools-2.1.1 sasl-4.2.2 snmp-5.17 syntax_tools-3.2.1 tftp-1.2.1 tools-4.1 wx-2.4.3 xmerl-2.1 :
+     OTP-27.1.1 : common_test-1.27.2 erts-15.1.1 public_key-1.16.3 ssl-11.2.3 stdlib-6.1.1 # asn1-5.3.1 compiler-8.5.2 crypto-5.5.1 debugger-5.4 dialyzer-5.2.1 diameter-2.4.1 edoc-1.3.2 eldap-1.2.13 erl_interface-5.5.2 et-1.7.1 eunit-2.9.1 ftp-1.2.3 inets-9.3 jinterface-1.14.1 kernel-10.1 megaco-4.6 mnesia-4.23.2 observer-2.16 odbc-2.15 os_mon-2.10 parsetools-2.6 reltool-1.0.1 runtime_tools-2.1.1 sasl-4.2.2 snmp-5.17 ssh-5.2.2 syntax_tools-3.2.1 tftp-1.2.1 tools-4.1 wx-2.4.3 xmerl-2.1 :
+     OTP-27.1 : asn1-5.3.1 common_test-1.27.1 compiler-8.5.2 crypto-5.5.1 dialyzer-5.2.1 diameter-2.4.1 edoc-1.3.2 erts-15.1 ftp-1.2.3 inets-9.3 kernel-10.1 odbc-2.15 public_key-1.16.2 runtime_tools-2.1.1 snmp-5.17 ssh-5.2.2 ssl-11.2.2 stdlib-6.1 syntax_tools-3.2.1 tftp-1.2.1 tools-4.1 wx-2.4.3 xmerl-2.1 # debugger-5.4 eldap-1.2.13 erl_interface-5.5.2 et-1.7.1 eunit-2.9.1 jinterface-1.14.1 megaco-4.6 mnesia-4.23.2 observer-2.16 os_mon-2.10 parsetools-2.6 reltool-1.0.1 sasl-4.2.2 :
+     OTP-27.0.1 : compiler-8.5.1 edoc-1.3.1 erts-15.0.1 kernel-10.0.1 public_key-1.16.1 ssh-5.2.1 ssl-11.2.1 stdlib-6.0.1 # asn1-5.3 common_test-1.27 crypto-5.5 debugger-5.4 dialyzer-5.2 diameter-2.4 eldap-1.2.13 erl_interface-5.5.2 et-1.7.1 eunit-2.9.1 ftp-1.2.2 inets-9.2 jinterface-1.14.1 megaco-4.6 mnesia-4.23.2 observer-2.16 odbc-2.14.3 os_mon-2.10 parsetools-2.6 reltool-1.0.1 runtime_tools-2.1 sasl-4.2.2 snmp-5.16 syntax_tools-3.2 tftp-1.2 tools-4.0 wx-2.4.2 xmerl-2.0 :
+     OTP-27.0 : asn1-5.3 common_test-1.27 compiler-8.5 crypto-5.5 debugger-5.4 dialyzer-5.2 diameter-2.4 edoc-1.3 eldap-1.2.13 erl_interface-5.5.2 erts-15.0 et-1.7.1 eunit-2.9.1 ftp-1.2.2 inets-9.2 jinterface-1.14.1 kernel-10.0 megaco-4.6 mnesia-4.23.2 observer-2.16 odbc-2.14.3 os_mon-2.10 parsetools-2.6 public_key-1.16 reltool-1.0.1 runtime_tools-2.1 sasl-4.2.2 snmp-5.16 ssh-5.2 ssl-11.2 stdlib-6.0 syntax_tools-3.2 tftp-1.2 tools-4.0 wx-2.4.2 xmerl-2.0 # :
+     OTP-26.2.5.15 : inets-9.1.0.3 ssh-5.1.4.12 # asn1-5.2.2.1 common_test-1.26.2.4 compiler-8.4.3.3 crypto-5.4.2.3 debugger-5.3.4 dialyzer-5.1.3.1 diameter-2.3.2.2 edoc-1.2.1 eldap-1.2.12 erl_docgen-1.5.2 erl_interface-5.5.1 erts-14.2.5.11 et-1.7 eunit-2.9 ftp-1.2.1.1 jinterface-1.14 kernel-9.2.4.10 megaco-4.5 mnesia-4.23.1.2 observer-2.15.1 odbc-2.14.2 os_mon-2.9.1 parsetools-2.5 public_key-1.15.1.6 reltool-1.0 runtime_tools-2.0.1 sasl-4.2.1 snmp-5.15 ssl-11.1.4.9 stdlib-5.2.3.5 syntax_tools-3.1 tftp-1.1.1 tools-3.6 wx-2.4.1 xmerl-1.3.34.3 :
+     OTP-26.2.5.14 : erts-14.2.5.11 kernel-9.2.4.10 public_key-1.15.1.6 ssh-5.1.4.11 ssl-11.1.4.9 stdlib-5.2.3.5 # asn1-5.2.2.1 common_test-1.26.2.4 compiler-8.4.3.3 crypto-5.4.2.3 debugger-5.3.4 dialyzer-5.1.3.1 diameter-2.3.2.2 edoc-1.2.1 eldap-1.2.12 erl_docgen-1.5.2 erl_interface-5.5.1 et-1.7 eunit-2.9 ftp-1.2.1.1 inets-9.1.0.2 jinterface-1.14 megaco-4.5 mnesia-4.23.1.2 observer-2.15.1 odbc-2.14.2 os_mon-2.9.1 parsetools-2.5 reltool-1.0 runtime_tools-2.0.1 sasl-4.2.1 snmp-5.15 syntax_tools-3.1 tftp-1.1.1 tools-3.6 wx-2.4.1 xmerl-1.3.34.3 :
+     OTP-26.2.5.13 : asn1-5.2.2.1 kernel-9.2.4.9 ssh-5.1.4.10 stdlib-5.2.3.4 # common_test-1.26.2.4 compiler-8.4.3.3 crypto-5.4.2.3 debugger-5.3.4 dialyzer-5.1.3.1 diameter-2.3.2.2 edoc-1.2.1 eldap-1.2.12 erl_docgen-1.5.2 erl_interface-5.5.1 erts-14.2.5.10 et-1.7 eunit-2.9 ftp-1.2.1.1 inets-9.1.0.2 jinterface-1.14 megaco-4.5 mnesia-4.23.1.2 observer-2.15.1 odbc-2.14.2 os_mon-2.9.1 parsetools-2.5 public_key-1.15.1.5 reltool-1.0 runtime_tools-2.0.1 sasl-4.2.1 snmp-5.15 ssl-11.1.4.8 syntax_tools-3.1 tftp-1.1.1 tools-3.6 wx-2.4.1 xmerl-1.3.34.3 :
+     OTP-26.2.5.12 : compiler-8.4.3.3 erts-14.2.5.10 kernel-9.2.4.8 ssh-5.1.4.9 xmerl-1.3.34.3 # asn1-5.2.2 common_test-1.26.2.4 crypto-5.4.2.3 debugger-5.3.4 dialyzer-5.1.3.1 diameter-2.3.2.2 edoc-1.2.1 eldap-1.2.12 erl_docgen-1.5.2 erl_interface-5.5.1 et-1.7 eunit-2.9 ftp-1.2.1.1 inets-9.1.0.2 jinterface-1.14 megaco-4.5 mnesia-4.23.1.2 observer-2.15.1 odbc-2.14.2 os_mon-2.9.1 parsetools-2.5 public_key-1.15.1.5 reltool-1.0 runtime_tools-2.0.1 sasl-4.2.1 snmp-5.15 ssl-11.1.4.8 stdlib-5.2.3.3 syntax_tools-3.1 tftp-1.1.1 tools-3.6 wx-2.4.1 :
+     OTP-26.2.5.11 : ssh-5.1.4.8 xmerl-1.3.34.2 # asn1-5.2.2 common_test-1.26.2.4 compiler-8.4.3.2 crypto-5.4.2.3 debugger-5.3.4 dialyzer-5.1.3.1 diameter-2.3.2.2 edoc-1.2.1 eldap-1.2.12 erl_docgen-1.5.2 erl_interface-5.5.1 erts-14.2.5.9 et-1.7 eunit-2.9 ftp-1.2.1.1 inets-9.1.0.2 jinterface-1.14 kernel-9.2.4.7 megaco-4.5 mnesia-4.23.1.2 observer-2.15.1 odbc-2.14.2 os_mon-2.9.1 parsetools-2.5 public_key-1.15.1.5 reltool-1.0 runtime_tools-2.0.1 sasl-4.2.1 snmp-5.15 ssl-11.1.4.8 stdlib-5.2.3.3 syntax_tools-3.1 tftp-1.1.1 tools-3.6 wx-2.4.1 :
+     OTP-26.2.5.10 : erts-14.2.5.9 kernel-9.2.4.7 mnesia-4.23.1.2 ssh-5.1.4.7 ssl-11.1.4.8 # asn1-5.2.2 common_test-1.26.2.4 compiler-8.4.3.2 crypto-5.4.2.3 debugger-5.3.4 dialyzer-5.1.3.1 diameter-2.3.2.2 edoc-1.2.1 eldap-1.2.12 erl_docgen-1.5.2 erl_interface-5.5.1 et-1.7 eunit-2.9 ftp-1.2.1.1 inets-9.1.0.2 jinterface-1.14 megaco-4.5 observer-2.15.1 odbc-2.14.2 os_mon-2.9.1 parsetools-2.5 public_key-1.15.1.5 reltool-1.0 runtime_tools-2.0.1 sasl-4.2.1 snmp-5.15 stdlib-5.2.3.3 syntax_tools-3.1 tftp-1.1.1 tools-3.6 wx-2.4.1 xmerl-1.3.34.1 :
+     OTP-26.2.5.9 : erts-14.2.5.8 ssh-5.1.4.6 # asn1-5.2.2 common_test-1.26.2.4 compiler-8.4.3.2 crypto-5.4.2.3 debugger-5.3.4 dialyzer-5.1.3.1 diameter-2.3.2.2 edoc-1.2.1 eldap-1.2.12 erl_docgen-1.5.2 erl_interface-5.5.1 et-1.7 eunit-2.9 ftp-1.2.1.1 inets-9.1.0.2 jinterface-1.14 kernel-9.2.4.6 megaco-4.5 mnesia-4.23.1.1 observer-2.15.1 odbc-2.14.2 os_mon-2.9.1 parsetools-2.5 public_key-1.15.1.5 reltool-1.0 runtime_tools-2.0.1 sasl-4.2.1 snmp-5.15 ssl-11.1.4.7 stdlib-5.2.3.3 syntax_tools-3.1 tftp-1.1.1 tools-3.6 wx-2.4.1 xmerl-1.3.34.1 :
+     OTP-26.2.5.8 : erts-14.2.5.7 kernel-9.2.4.6 public_key-1.15.1.5 # asn1-5.2.2 common_test-1.26.2.4 compiler-8.4.3.2 crypto-5.4.2.3 debugger-5.3.4 dialyzer-5.1.3.1 diameter-2.3.2.2 edoc-1.2.1 eldap-1.2.12 erl_docgen-1.5.2 erl_interface-5.5.1 et-1.7 eunit-2.9 ftp-1.2.1.1 inets-9.1.0.2 jinterface-1.14 megaco-4.5 mnesia-4.23.1.1 observer-2.15.1 odbc-2.14.2 os_mon-2.9.1 parsetools-2.5 reltool-1.0 runtime_tools-2.0.1 sasl-4.2.1 snmp-5.15 ssh-5.1.4.5 ssl-11.1.4.7 stdlib-5.2.3.3 syntax_tools-3.1 tftp-1.1.1 tools-3.6 wx-2.4.1 xmerl-1.3.34.1 :
+     OTP-26.2.5.7 : common_test-1.26.2.4 dialyzer-5.1.3.1 erts-14.2.5.6 kernel-9.2.4.5 ssh-5.1.4.5 ssl-11.1.4.7 # asn1-5.2.2 compiler-8.4.3.2 crypto-5.4.2.3 debugger-5.3.4 diameter-2.3.2.2 edoc-1.2.1 eldap-1.2.12 erl_docgen-1.5.2 erl_interface-5.5.1 et-1.7 eunit-2.9 ftp-1.2.1.1 inets-9.1.0.2 jinterface-1.14 megaco-4.5 mnesia-4.23.1.1 observer-2.15.1 odbc-2.14.2 os_mon-2.9.1 parsetools-2.5 public_key-1.15.1.4 reltool-1.0 runtime_tools-2.0.1 sasl-4.2.1 snmp-5.15 stdlib-5.2.3.3 syntax_tools-3.1 tftp-1.1.1 tools-3.6 wx-2.4.1 xmerl-1.3.34.1 :
+     OTP-26.2.5.6 : common_test-1.26.2.3 erts-14.2.5.5 inets-9.1.0.2 kernel-9.2.4.4 mnesia-4.23.1.1 public_key-1.15.1.4 ssl-11.1.4.6 stdlib-5.2.3.3 # asn1-5.2.2 compiler-8.4.3.2 crypto-5.4.2.3 debugger-5.3.4 dialyzer-5.1.3 diameter-2.3.2.2 edoc-1.2.1 eldap-1.2.12 erl_docgen-1.5.2 erl_interface-5.5.1 et-1.7 eunit-2.9 ftp-1.2.1.1 jinterface-1.14 megaco-4.5 observer-2.15.1 odbc-2.14.2 os_mon-2.9.1 parsetools-2.5 reltool-1.0 runtime_tools-2.0.1 sasl-4.2.1 snmp-5.15 ssh-5.1.4.4 syntax_tools-3.1 tftp-1.1.1 tools-3.6 wx-2.4.1 xmerl-1.3.34.1 :
+     OTP-26.2.5.5 : common_test-1.26.2.2 crypto-5.4.2.3 ssh-5.1.4.4 ssl-11.1.4.5 # asn1-5.2.2 compiler-8.4.3.2 debugger-5.3.4 dialyzer-5.1.3 diameter-2.3.2.2 edoc-1.2.1 eldap-1.2.12 erl_docgen-1.5.2 erl_interface-5.5.1 erts-14.2.5.4 et-1.7 eunit-2.9 ftp-1.2.1.1 inets-9.1.0.1 jinterface-1.14 kernel-9.2.4.3 megaco-4.5 mnesia-4.23.1 observer-2.15.1 odbc-2.14.2 os_mon-2.9.1 parsetools-2.5 public_key-1.15.1.3 reltool-1.0 runtime_tools-2.0.1 sasl-4.2.1 snmp-5.15 stdlib-5.2.3.2 syntax_tools-3.1 tftp-1.1.1 tools-3.6 wx-2.4.1 xmerl-1.3.34.1 :
+     OTP-26.2.5.4 : common_test-1.26.2.1 compiler-8.4.3.2 crypto-5.4.2.2 erts-14.2.5.4 inets-9.1.0.1 kernel-9.2.4.3 public_key-1.15.1.3 ssh-5.1.4.3 ssl-11.1.4.4 stdlib-5.2.3.2 xmerl-1.3.34.1 # asn1-5.2.2 debugger-5.3.4 dialyzer-5.1.3 diameter-2.3.2.2 edoc-1.2.1 eldap-1.2.12 erl_docgen-1.5.2 erl_interface-5.5.1 et-1.7 eunit-2.9 ftp-1.2.1.1 jinterface-1.14 megaco-4.5 mnesia-4.23.1 observer-2.15.1 odbc-2.14.2 os_mon-2.9.1 parsetools-2.5 reltool-1.0 runtime_tools-2.0.1 sasl-4.2.1 snmp-5.15 syntax_tools-3.1 tftp-1.1.1 tools-3.6 wx-2.4.1 :
+     OTP-26.2.5.3 : compiler-8.4.3.1 diameter-2.3.2.2 erts-14.2.5.3 ftp-1.2.1.1 kernel-9.2.4.2 public_key-1.15.1.2 ssh-5.1.4.2 ssl-11.1.4.3 # asn1-5.2.2 common_test-1.26.2 crypto-5.4.2.1 debugger-5.3.4 dialyzer-5.1.3 edoc-1.2.1 eldap-1.2.12 erl_docgen-1.5.2 erl_interface-5.5.1 et-1.7 eunit-2.9 inets-9.1 jinterface-1.14 megaco-4.5 mnesia-4.23.1 observer-2.15.1 odbc-2.14.2 os_mon-2.9.1 parsetools-2.5 reltool-1.0 runtime_tools-2.0.1 sasl-4.2.1 snmp-5.15 stdlib-5.2.3.1 syntax_tools-3.1 tftp-1.1.1 tools-3.6 wx-2.4.1 xmerl-1.3.34 :
+     OTP-26.2.5.2 : crypto-5.4.2.1 erts-14.2.5.2 ssl-11.1.4.2 stdlib-5.2.3.1 # asn1-5.2.2 common_test-1.26.2 compiler-8.4.3 debugger-5.3.4 dialyzer-5.1.3 diameter-2.3.2.1 edoc-1.2.1 eldap-1.2.12 erl_docgen-1.5.2 erl_interface-5.5.1 et-1.7 eunit-2.9 ftp-1.2.1 inets-9.1 jinterface-1.14 kernel-9.2.4.1 megaco-4.5 mnesia-4.23.1 observer-2.15.1 odbc-2.14.2 os_mon-2.9.1 parsetools-2.5 public_key-1.15.1.1 reltool-1.0 runtime_tools-2.0.1 sasl-4.2.1 snmp-5.15 ssh-5.1.4.1 syntax_tools-3.1 tftp-1.1.1 tools-3.6 wx-2.4.1 xmerl-1.3.34 :
+     OTP-26.2.5.1 : diameter-2.3.2.1 erts-14.2.5.1 kernel-9.2.4.1 public_key-1.15.1.1 ssh-5.1.4.1 ssl-11.1.4.1 # asn1-5.2.2 common_test-1.26.2 compiler-8.4.3 crypto-5.4.2 debugger-5.3.4 dialyzer-5.1.3 edoc-1.2.1 eldap-1.2.12 erl_docgen-1.5.2 erl_interface-5.5.1 et-1.7 eunit-2.9 ftp-1.2.1 inets-9.1 jinterface-1.14 megaco-4.5 mnesia-4.23.1 observer-2.15.1 odbc-2.14.2 os_mon-2.9.1 parsetools-2.5 reltool-1.0 runtime_tools-2.0.1 sasl-4.2.1 snmp-5.15 stdlib-5.2.3 syntax_tools-3.1 tftp-1.1.1 tools-3.6 wx-2.4.1 xmerl-1.3.34 :
+     OTP-26.2.5 : dialyzer-5.1.3 erts-14.2.5 kernel-9.2.4 mnesia-4.23.1 ssl-11.1.4 stdlib-5.2.3 # asn1-5.2.2 common_test-1.26.2 compiler-8.4.3 crypto-5.4.2 debugger-5.3.4 diameter-2.3.2 edoc-1.2.1 eldap-1.2.12 erl_docgen-1.5.2 erl_interface-5.5.1 et-1.7 eunit-2.9 ftp-1.2.1 inets-9.1 jinterface-1.14 megaco-4.5 observer-2.15.1 odbc-2.14.2 os_mon-2.9.1 parsetools-2.5 public_key-1.15.1 reltool-1.0 runtime_tools-2.0.1 sasl-4.2.1 snmp-5.15 ssh-5.1.4 syntax_tools-3.1 tftp-1.1.1 tools-3.6 wx-2.4.1 xmerl-1.3.34 :
+     OTP-26.2.4 : asn1-5.2.2 common_test-1.26.2 compiler-8.4.3 crypto-5.4.2 debugger-5.3.4 diameter-2.3.2 erts-14.2.4 kernel-9.2.3 ssh-5.1.4 ssl-11.1.3 stdlib-5.2.2 # dialyzer-5.1.2 edoc-1.2.1 eldap-1.2.12 erl_docgen-1.5.2 erl_interface-5.5.1 et-1.7 eunit-2.9 ftp-1.2.1 inets-9.1 jinterface-1.14 megaco-4.5 mnesia-4.23 observer-2.15.1 odbc-2.14.2 os_mon-2.9.1 parsetools-2.5 public_key-1.15.1 reltool-1.0 runtime_tools-2.0.1 sasl-4.2.1 snmp-5.15 syntax_tools-3.1 tftp-1.1.1 tools-3.6 wx-2.4.1 xmerl-1.3.34 :
+     OTP-26.2.3 : compiler-8.4.2 crypto-5.4.1 erts-14.2.3 kernel-9.2.2 odbc-2.14.2 public_key-1.15.1 ssh-5.1.3 ssl-11.1.2 stdlib-5.2.1 wx-2.4.1 # asn1-5.2.1 common_test-1.26.1 debugger-5.3.3 dialyzer-5.1.2 diameter-2.3.1 edoc-1.2.1 eldap-1.2.12 erl_docgen-1.5.2 erl_interface-5.5.1 et-1.7 eunit-2.9 ftp-1.2.1 inets-9.1 jinterface-1.14 megaco-4.5 mnesia-4.23 observer-2.15.1 os_mon-2.9.1 parsetools-2.5 reltool-1.0 runtime_tools-2.0.1 sasl-4.2.1 snmp-5.15 syntax_tools-3.1 tftp-1.1.1 tools-3.6 xmerl-1.3.34 :
+     OTP-26.2.2 : common_test-1.26.1 erl_interface-5.5.1 erts-14.2.2 kernel-9.2.1 ssh-5.1.2 ssl-11.1.1 # asn1-5.2.1 compiler-8.4.1 crypto-5.4 debugger-5.3.3 dialyzer-5.1.2 diameter-2.3.1 edoc-1.2.1 eldap-1.2.12 erl_docgen-1.5.2 et-1.7 eunit-2.9 ftp-1.2.1 inets-9.1 jinterface-1.14 megaco-4.5 mnesia-4.23 observer-2.15.1 odbc-2.14.1 os_mon-2.9.1 parsetools-2.5 public_key-1.15 reltool-1.0 runtime_tools-2.0.1 sasl-4.2.1 snmp-5.15 stdlib-5.2 syntax_tools-3.1 tftp-1.1.1 tools-3.6 wx-2.4 xmerl-1.3.34 :
+     OTP-26.2.1 : erts-14.2.1 ssh-5.1.1 # asn1-5.2.1 common_test-1.26 compiler-8.4.1 crypto-5.4 debugger-5.3.3 dialyzer-5.1.2 diameter-2.3.1 edoc-1.2.1 eldap-1.2.12 erl_docgen-1.5.2 erl_interface-5.5 et-1.7 eunit-2.9 ftp-1.2.1 inets-9.1 jinterface-1.14 kernel-9.2 megaco-4.5 mnesia-4.23 observer-2.15.1 odbc-2.14.1 os_mon-2.9.1 parsetools-2.5 public_key-1.15 reltool-1.0 runtime_tools-2.0.1 sasl-4.2.1 snmp-5.15 ssl-11.1 stdlib-5.2 syntax_tools-3.1 tftp-1.1.1 tools-3.6 wx-2.4 xmerl-1.3.34 :
+     OTP-26.2 : asn1-5.2.1 common_test-1.26 crypto-5.4 debugger-5.3.3 dialyzer-5.1.2 diameter-2.3.1 edoc-1.2.1 eldap-1.2.12 erl_docgen-1.5.2 erl_interface-5.5 erts-14.2 eunit-2.9 ftp-1.2.1 inets-9.1 kernel-9.2 mnesia-4.23 os_mon-2.9.1 public_key-1.15 runtime_tools-2.0.1 ssh-5.1 ssl-11.1 stdlib-5.2 tftp-1.1.1 wx-2.4 xmerl-1.3.34 # compiler-8.4.1 et-1.7 jinterface-1.14 megaco-4.5 observer-2.15.1 odbc-2.14.1 parsetools-2.5 reltool-1.0 sasl-4.2.1 snmp-5.15 syntax_tools-3.1 tools-3.6 :
+     OTP-26.1.2 : erts-14.1.1 xmerl-1.3.33 # asn1-5.2 common_test-1.25.1 compiler-8.4.1 crypto-5.3 debugger-5.3.2 dialyzer-5.1.1 diameter-2.3 edoc-1.2 eldap-1.2.11 erl_docgen-1.5.1 erl_interface-5.4 et-1.7 eunit-2.8.2 ftp-1.2 inets-9.0.2 jinterface-1.14 kernel-9.1 megaco-4.5 mnesia-4.22.1 observer-2.15.1 odbc-2.14.1 os_mon-2.9 parsetools-2.5 public_key-1.14.1 reltool-1.0 runtime_tools-2.0 sasl-4.2.1 snmp-5.15 ssh-5.0.1 ssl-11.0.3 stdlib-5.1.1 syntax_tools-3.1 tftp-1.1 tools-3.6 wx-2.3.1 :
+     OTP-26.1.1 : compiler-8.4.1 stdlib-5.1.1 wx-2.3.1 # asn1-5.2 common_test-1.25.1 crypto-5.3 debugger-5.3.2 dialyzer-5.1.1 diameter-2.3 edoc-1.2 eldap-1.2.11 erl_docgen-1.5.1 erl_interface-5.4 erts-14.1 et-1.7 eunit-2.8.2 ftp-1.2 inets-9.0.2 jinterface-1.14 kernel-9.1 megaco-4.5 mnesia-4.22.1 observer-2.15.1 odbc-2.14.1 os_mon-2.9 parsetools-2.5 public_key-1.14.1 reltool-1.0 runtime_tools-2.0 sasl-4.2.1 snmp-5.15 ssh-5.0.1 ssl-11.0.3 syntax_tools-3.1 tftp-1.1 tools-3.6 xmerl-1.3.32 :
+     OTP-26.1 : asn1-5.2 common_test-1.25.1 compiler-8.4 crypto-5.3 debugger-5.3.2 dialyzer-5.1.1 erl_docgen-1.5.1 erts-14.1 inets-9.0.2 kernel-9.1 megaco-4.5 mnesia-4.22.1 observer-2.15.1 public_key-1.14.1 snmp-5.15 ssl-11.0.3 stdlib-5.1 # diameter-2.3 edoc-1.2 eldap-1.2.11 erl_interface-5.4 et-1.7 eunit-2.8.2 ftp-1.2 jinterface-1.14 odbc-2.14.1 os_mon-2.9 parsetools-2.5 reltool-1.0 runtime_tools-2.0 sasl-4.2.1 ssh-5.0.1 syntax_tools-3.1 tftp-1.1 tools-3.6 wx-2.3 xmerl-1.3.32 :
+     OTP-26.0.2 : compiler-8.3.2 erts-14.0.2 kernel-9.0.2 ssh-5.0.1 ssl-11.0.2 stdlib-5.0.2 # asn1-5.1 common_test-1.25 crypto-5.2 debugger-5.3.1 dialyzer-5.1 diameter-2.3 edoc-1.2 eldap-1.2.11 erl_docgen-1.5 erl_interface-5.4 et-1.7 eunit-2.8.2 ftp-1.2 inets-9.0.1 jinterface-1.14 megaco-4.4.4 mnesia-4.22 observer-2.15 odbc-2.14.1 os_mon-2.9 parsetools-2.5 public_key-1.14 reltool-1.0 runtime_tools-2.0 sasl-4.2.1 snmp-5.14 syntax_tools-3.1 tftp-1.1 tools-3.6 wx-2.3 xmerl-1.3.32 :
+     OTP-26.0.1 : compiler-8.3.1 erts-14.0.1 inets-9.0.1 kernel-9.0.1 ssl-11.0.1 stdlib-5.0.1 xmerl-1.3.32 # asn1-5.1 common_test-1.25 crypto-5.2 debugger-5.3.1 dialyzer-5.1 diameter-2.3 edoc-1.2 eldap-1.2.11 erl_docgen-1.5 erl_interface-5.4 et-1.7 eunit-2.8.2 ftp-1.2 jinterface-1.14 megaco-4.4.4 mnesia-4.22 observer-2.15 odbc-2.14.1 os_mon-2.9 parsetools-2.5 public_key-1.14 reltool-1.0 runtime_tools-2.0 sasl-4.2.1 snmp-5.14 ssh-5.0 syntax_tools-3.1 tftp-1.1 tools-3.6 wx-2.3 :
+     OTP-26.0 : asn1-5.1 common_test-1.25 compiler-8.3 crypto-5.2 dialyzer-5.1 diameter-2.3 erl_docgen-1.5 erl_interface-5.4 erts-14.0 et-1.7 ftp-1.2 inets-9.0 jinterface-1.14 kernel-9.0 megaco-4.4.4 mnesia-4.22 observer-2.15 odbc-2.14.1 os_mon-2.9 parsetools-2.5 public_key-1.14 reltool-1.0 runtime_tools-2.0 sasl-4.2.1 snmp-5.14 ssh-5.0 ssl-11.0 stdlib-5.0 syntax_tools-3.1 tftp-1.1 tools-3.6 wx-2.3 # debugger-5.3.1 edoc-1.2 eldap-1.2.11 eunit-2.8.2 xmerl-1.3.31 :
+     OTP-23.3.4.20 : ssh-4.11.1.7 # asn1-5.0.15.1 common_test-1.20.2.3 compiler-7.6.9.3 crypto-4.9.0.4 debugger-5.0 dialyzer-4.3.1.2 diameter-2.2.4 edoc-0.12 eldap-1.2.9 erl_docgen-1.0.2 erl_interface-4.0.3.1 erts-11.2.2.18 et-1.6.4 eunit-2.6 ftp-1.0.5 hipe-4.0.1 inets-7.3.2.3 jinterface-1.11.1.1 kernel-7.3.1.7 megaco-3.19.5.1 mnesia-4.19 observer-2.9.5 odbc-2.13.3.1 os_mon-2.6.1 parsetools-2.2 public_key-1.10.0.1 reltool-0.8 runtime_tools-1.16.1 sasl-4.0.2 snmp-5.8.0.1 ssl-10.3.1.5 stdlib-3.14.2.3 syntax_tools-2.5 tftp-1.0.2 tools-3.4.4 wx-1.9.3.1 xmerl-1.3.27.1 :
+     OTP-23.3.4.19 : compiler-7.6.9.3 erts-11.2.2.18 stdlib-3.14.2.3 xmerl-1.3.27.1 # asn1-5.0.15.1 common_test-1.20.2.3 crypto-4.9.0.4 debugger-5.0 dialyzer-4.3.1.2 diameter-2.2.4 edoc-0.12 eldap-1.2.9 erl_docgen-1.0.2 erl_interface-4.0.3.1 et-1.6.4 eunit-2.6 ftp-1.0.5 hipe-4.0.1 inets-7.3.2.3 jinterface-1.11.1.1 kernel-7.3.1.7 megaco-3.19.5.1 mnesia-4.19 observer-2.9.5 odbc-2.13.3.1 os_mon-2.6.1 parsetools-2.2 public_key-1.10.0.1 reltool-0.8 runtime_tools-1.16.1 sasl-4.0.2 snmp-5.8.0.1 ssh-4.11.1.6 ssl-10.3.1.5 syntax_tools-2.5 tftp-1.0.2 tools-3.4.4 wx-1.9.3.1 :
+     OTP-23.3.4.18 : dialyzer-4.3.1.2 erts-11.2.2.17 kernel-7.3.1.7 # asn1-5.0.15.1 common_test-1.20.2.3 compiler-7.6.9.2 crypto-4.9.0.4 debugger-5.0 diameter-2.2.4 edoc-0.12 eldap-1.2.9 erl_docgen-1.0.2 erl_interface-4.0.3.1 et-1.6.4 eunit-2.6 ftp-1.0.5 hipe-4.0.1 inets-7.3.2.3 jinterface-1.11.1.1 megaco-3.19.5.1 mnesia-4.19 observer-2.9.5 odbc-2.13.3.1 os_mon-2.6.1 parsetools-2.2 public_key-1.10.0.1 reltool-0.8 runtime_tools-1.16.1 sasl-4.0.2 snmp-5.8.0.1 ssh-4.11.1.6 ssl-10.3.1.5 stdlib-3.14.2.2 syntax_tools-2.5 tftp-1.0.2 tools-3.4.4 wx-1.9.3.1 xmerl-1.3.27 :
+     OTP-23.3.4.17 : erts-11.2.2.16 inets-7.3.2.3 kernel-7.3.1.6 ssl-10.3.1.5 # asn1-5.0.15.1 common_test-1.20.2.3 compiler-7.6.9.2 crypto-4.9.0.4 debugger-5.0 dialyzer-4.3.1.1 diameter-2.2.4 edoc-0.12 eldap-1.2.9 erl_docgen-1.0.2 erl_interface-4.0.3.1 et-1.6.4 eunit-2.6 ftp-1.0.5 hipe-4.0.1 jinterface-1.11.1.1 megaco-3.19.5.1 mnesia-4.19 observer-2.9.5 odbc-2.13.3.1 os_mon-2.6.1 parsetools-2.2 public_key-1.10.0.1 reltool-0.8 runtime_tools-1.16.1 sasl-4.0.2 snmp-5.8.0.1 ssh-4.11.1.6 stdlib-3.14.2.2 syntax_tools-2.5 tftp-1.0.2 tools-3.4.4 wx-1.9.3.1 xmerl-1.3.27 :
+     OTP-23.3.4.16 : crypto-4.9.0.4 erts-11.2.2.15 ssl-10.3.1.4 # asn1-5.0.15.1 common_test-1.20.2.3 compiler-7.6.9.2 debugger-5.0 dialyzer-4.3.1.1 diameter-2.2.4 edoc-0.12 eldap-1.2.9 erl_docgen-1.0.2 erl_interface-4.0.3.1 et-1.6.4 eunit-2.6 ftp-1.0.5 hipe-4.0.1 inets-7.3.2.2 jinterface-1.11.1.1 kernel-7.3.1.5 megaco-3.19.5.1 mnesia-4.19 observer-2.9.5 odbc-2.13.3.1 os_mon-2.6.1 parsetools-2.2 public_key-1.10.0.1 reltool-0.8 runtime_tools-1.16.1 sasl-4.0.2 snmp-5.8.0.1 ssh-4.11.1.6 stdlib-3.14.2.2 syntax_tools-2.5 tftp-1.0.2 tools-3.4.4 wx-1.9.3.1 xmerl-1.3.27 :
+     OTP-23.3.4.15 : crypto-4.9.0.3 erts-11.2.2.14 ssh-4.11.1.6 ssl-10.3.1.3 # asn1-5.0.15.1 common_test-1.20.2.3 compiler-7.6.9.2 debugger-5.0 dialyzer-4.3.1.1 diameter-2.2.4 edoc-0.12 eldap-1.2.9 erl_docgen-1.0.2 erl_interface-4.0.3.1 et-1.6.4 eunit-2.6 ftp-1.0.5 hipe-4.0.1 inets-7.3.2.2 jinterface-1.11.1.1 kernel-7.3.1.5 megaco-3.19.5.1 mnesia-4.19 observer-2.9.5 odbc-2.13.3.1 os_mon-2.6.1 parsetools-2.2 public_key-1.10.0.1 reltool-0.8 runtime_tools-1.16.1 sasl-4.0.2 snmp-5.8.0.1 stdlib-3.14.2.2 syntax_tools-2.5 tftp-1.0.2 tools-3.4.4 wx-1.9.3.1 xmerl-1.3.27 :
+     OTP-23.3.4.14 : compiler-7.6.9.2 erts-11.2.2.13 # asn1-5.0.15.1 common_test-1.20.2.3 crypto-4.9.0.2 debugger-5.0 dialyzer-4.3.1.1 diameter-2.2.4 edoc-0.12 eldap-1.2.9 erl_docgen-1.0.2 erl_interface-4.0.3.1 et-1.6.4 eunit-2.6 ftp-1.0.5 hipe-4.0.1 inets-7.3.2.2 jinterface-1.11.1.1 kernel-7.3.1.5 megaco-3.19.5.1 mnesia-4.19 observer-2.9.5 odbc-2.13.3.1 os_mon-2.6.1 parsetools-2.2 public_key-1.10.0.1 reltool-0.8 runtime_tools-1.16.1 sasl-4.0.2 snmp-5.8.0.1 ssh-4.11.1.5 ssl-10.3.1.2 stdlib-3.14.2.2 syntax_tools-2.5 tftp-1.0.2 tools-3.4.4 wx-1.9.3.1 xmerl-1.3.27 :
+     OTP-23.3.4.13 : erts-11.2.2.12 # asn1-5.0.15.1 common_test-1.20.2.3 compiler-7.6.9.1 crypto-4.9.0.2 debugger-5.0 dialyzer-4.3.1.1 diameter-2.2.4 edoc-0.12 eldap-1.2.9 erl_docgen-1.0.2 erl_interface-4.0.3.1 et-1.6.4 eunit-2.6 ftp-1.0.5 hipe-4.0.1 inets-7.3.2.2 jinterface-1.11.1.1 kernel-7.3.1.5 megaco-3.19.5.1 mnesia-4.19 observer-2.9.5 odbc-2.13.3.1 os_mon-2.6.1 parsetools-2.2 public_key-1.10.0.1 reltool-0.8 runtime_tools-1.16.1 sasl-4.0.2 snmp-5.8.0.1 ssh-4.11.1.5 ssl-10.3.1.2 stdlib-3.14.2.2 syntax_tools-2.5 tftp-1.0.2 tools-3.4.4 wx-1.9.3.1 xmerl-1.3.27 :
+     OTP-23.3.4.12 : common_test-1.20.2.3 erts-11.2.2.11 jinterface-1.11.1.1 kernel-7.3.1.5 # asn1-5.0.15.1 compiler-7.6.9.1 crypto-4.9.0.2 debugger-5.0 dialyzer-4.3.1.1 diameter-2.2.4 edoc-0.12 eldap-1.2.9 erl_docgen-1.0.2 erl_interface-4.0.3.1 et-1.6.4 eunit-2.6 ftp-1.0.5 hipe-4.0.1 inets-7.3.2.2 megaco-3.19.5.1 mnesia-4.19 observer-2.9.5 odbc-2.13.3.1 os_mon-2.6.1 parsetools-2.2 public_key-1.10.0.1 reltool-0.8 runtime_tools-1.16.1 sasl-4.0.2 snmp-5.8.0.1 ssh-4.11.1.5 ssl-10.3.1.2 stdlib-3.14.2.2 syntax_tools-2.5 tftp-1.0.2 tools-3.4.4 wx-1.9.3.1 xmerl-1.3.27 :
+     OTP-23.3.4.11 : erts-11.2.2.10 ssh-4.11.1.5 # asn1-5.0.15.1 common_test-1.20.2.2 compiler-7.6.9.1 crypto-4.9.0.2 debugger-5.0 dialyzer-4.3.1.1 diameter-2.2.4 edoc-0.12 eldap-1.2.9 erl_docgen-1.0.2 erl_interface-4.0.3.1 et-1.6.4 eunit-2.6 ftp-1.0.5 hipe-4.0.1 inets-7.3.2.2 jinterface-1.11.1 kernel-7.3.1.4 megaco-3.19.5.1 mnesia-4.19 observer-2.9.5 odbc-2.13.3.1 os_mon-2.6.1 parsetools-2.2 public_key-1.10.0.1 reltool-0.8 runtime_tools-1.16.1 sasl-4.0.2 snmp-5.8.0.1 ssl-10.3.1.2 stdlib-3.14.2.2 syntax_tools-2.5 tftp-1.0.2 tools-3.4.4 wx-1.9.3.1 xmerl-1.3.27 :
+     OTP-23.3.4.10 : erts-11.2.2.9 # asn1-5.0.15.1 common_test-1.20.2.2 compiler-7.6.9.1 crypto-4.9.0.2 debugger-5.0 dialyzer-4.3.1.1 diameter-2.2.4 edoc-0.12 eldap-1.2.9 erl_docgen-1.0.2 erl_interface-4.0.3.1 et-1.6.4 eunit-2.6 ftp-1.0.5 hipe-4.0.1 inets-7.3.2.2 jinterface-1.11.1 kernel-7.3.1.4 megaco-3.19.5.1 mnesia-4.19 observer-2.9.5 odbc-2.13.3.1 os_mon-2.6.1 parsetools-2.2 public_key-1.10.0.1 reltool-0.8 runtime_tools-1.16.1 sasl-4.0.2 snmp-5.8.0.1 ssh-4.11.1.4 ssl-10.3.1.2 stdlib-3.14.2.2 syntax_tools-2.5 tftp-1.0.2 tools-3.4.4 wx-1.9.3.1 xmerl-1.3.27 :
+     OTP-23.3.4.9 : erts-11.2.2.8 # asn1-5.0.15.1 common_test-1.20.2.2 compiler-7.6.9.1 crypto-4.9.0.2 debugger-5.0 dialyzer-4.3.1.1 diameter-2.2.4 edoc-0.12 eldap-1.2.9 erl_docgen-1.0.2 erl_interface-4.0.3.1 et-1.6.4 eunit-2.6 ftp-1.0.5 hipe-4.0.1 inets-7.3.2.2 jinterface-1.11.1 kernel-7.3.1.4 megaco-3.19.5.1 mnesia-4.19 observer-2.9.5 odbc-2.13.3.1 os_mon-2.6.1 parsetools-2.2 public_key-1.10.0.1 reltool-0.8 runtime_tools-1.16.1 sasl-4.0.2 snmp-5.8.0.1 ssh-4.11.1.4 ssl-10.3.1.2 stdlib-3.14.2.2 syntax_tools-2.5 tftp-1.0.2 tools-3.4.4 wx-1.9.3.1 xmerl-1.3.27 :
+     OTP-23.3.4.8 : erts-11.2.2.7 ssh-4.11.1.4 # asn1-5.0.15.1 common_test-1.20.2.2 compiler-7.6.9.1 crypto-4.9.0.2 debugger-5.0 dialyzer-4.3.1.1 diameter-2.2.4 edoc-0.12 eldap-1.2.9 erl_docgen-1.0.2 erl_interface-4.0.3.1 et-1.6.4 eunit-2.6 ftp-1.0.5 hipe-4.0.1 inets-7.3.2.2 jinterface-1.11.1 kernel-7.3.1.4 megaco-3.19.5.1 mnesia-4.19 observer-2.9.5 odbc-2.13.3.1 os_mon-2.6.1 parsetools-2.2 public_key-1.10.0.1 reltool-0.8 runtime_tools-1.16.1 sasl-4.0.2 snmp-5.8.0.1 ssl-10.3.1.2 stdlib-3.14.2.2 syntax_tools-2.5 tftp-1.0.2 tools-3.4.4 wx-1.9.3.1 xmerl-1.3.27 :
+     OTP-23.3.4.7 : erts-11.2.2.6 inets-7.3.2.2 kernel-7.3.1.4 # asn1-5.0.15.1 common_test-1.20.2.2 compiler-7.6.9.1 crypto-4.9.0.2 debugger-5.0 dialyzer-4.3.1.1 diameter-2.2.4 edoc-0.12 eldap-1.2.9 erl_docgen-1.0.2 erl_interface-4.0.3.1 et-1.6.4 eunit-2.6 ftp-1.0.5 hipe-4.0.1 jinterface-1.11.1 megaco-3.19.5.1 mnesia-4.19 observer-2.9.5 odbc-2.13.3.1 os_mon-2.6.1 parsetools-2.2 public_key-1.10.0.1 reltool-0.8 runtime_tools-1.16.1 sasl-4.0.2 snmp-5.8.0.1 ssh-4.11.1.3 ssl-10.3.1.2 stdlib-3.14.2.2 syntax_tools-2.5 tftp-1.0.2 tools-3.4.4 wx-1.9.3.1 xmerl-1.3.27 :
+     OTP-23.3.4.6 : erts-11.2.2.5 kernel-7.3.1.3 # asn1-5.0.15.1 common_test-1.20.2.2 compiler-7.6.9.1 crypto-4.9.0.2 debugger-5.0 dialyzer-4.3.1.1 diameter-2.2.4 edoc-0.12 eldap-1.2.9 erl_docgen-1.0.2 erl_interface-4.0.3.1 et-1.6.4 eunit-2.6 ftp-1.0.5 hipe-4.0.1 inets-7.3.2.1 jinterface-1.11.1 megaco-3.19.5.1 mnesia-4.19 observer-2.9.5 odbc-2.13.3.1 os_mon-2.6.1 parsetools-2.2 public_key-1.10.0.1 reltool-0.8 runtime_tools-1.16.1 sasl-4.0.2 snmp-5.8.0.1 ssh-4.11.1.3 ssl-10.3.1.2 stdlib-3.14.2.2 syntax_tools-2.5 tftp-1.0.2 tools-3.4.4 wx-1.9.3.1 xmerl-1.3.27 :
+     OTP-23.3.4.5 : asn1-5.0.15.1 common_test-1.20.2.2 erts-11.2.2.4 public_key-1.10.0.1 ssl-10.3.1.2 stdlib-3.14.2.2 # compiler-7.6.9.1 crypto-4.9.0.2 debugger-5.0 dialyzer-4.3.1.1 diameter-2.2.4 edoc-0.12 eldap-1.2.9 erl_docgen-1.0.2 erl_interface-4.0.3.1 et-1.6.4 eunit-2.6 ftp-1.0.5 hipe-4.0.1 inets-7.3.2.1 jinterface-1.11.1 kernel-7.3.1.2 megaco-3.19.5.1 mnesia-4.19 observer-2.9.5 odbc-2.13.3.1 os_mon-2.6.1 parsetools-2.2 reltool-0.8 runtime_tools-1.16.1 sasl-4.0.2 snmp-5.8.0.1 ssh-4.11.1.3 syntax_tools-2.5 tftp-1.0.2 tools-3.4.4 wx-1.9.3.1 xmerl-1.3.27 :
+     OTP-23.3.4.4 : dialyzer-4.3.1.1 inets-7.3.2.1 # asn1-5.0.15 common_test-1.20.2.1 compiler-7.6.9.1 crypto-4.9.0.2 debugger-5.0 diameter-2.2.4 edoc-0.12 eldap-1.2.9 erl_docgen-1.0.2 erl_interface-4.0.3.1 erts-11.2.2.3 et-1.6.4 eunit-2.6 ftp-1.0.5 hipe-4.0.1 jinterface-1.11.1 kernel-7.3.1.2 megaco-3.19.5.1 mnesia-4.19 observer-2.9.5 odbc-2.13.3.1 os_mon-2.6.1 parsetools-2.2 public_key-1.10 reltool-0.8 runtime_tools-1.16.1 sasl-4.0.2 snmp-5.8.0.1 ssh-4.11.1.3 ssl-10.3.1.1 stdlib-3.14.2.1 syntax_tools-2.5 tftp-1.0.2 tools-3.4.4 wx-1.9.3.1 xmerl-1.3.27 :
+     OTP-23.3.4.3 : erts-11.2.2.3 kernel-7.3.1.2 ssh-4.11.1.3 # asn1-5.0.15 common_test-1.20.2.1 compiler-7.6.9.1 crypto-4.9.0.2 debugger-5.0 dialyzer-4.3.1 diameter-2.2.4 edoc-0.12 eldap-1.2.9 erl_docgen-1.0.2 erl_interface-4.0.3.1 et-1.6.4 eunit-2.6 ftp-1.0.5 hipe-4.0.1 inets-7.3.2 jinterface-1.11.1 megaco-3.19.5.1 mnesia-4.19 observer-2.9.5 odbc-2.13.3.1 os_mon-2.6.1 parsetools-2.2 public_key-1.10 reltool-0.8 runtime_tools-1.16.1 sasl-4.0.2 snmp-5.8.0.1 ssl-10.3.1.1 stdlib-3.14.2.1 syntax_tools-2.5 tftp-1.0.2 tools-3.4.4 wx-1.9.3.1 xmerl-1.3.27 :
+     OTP-23.3.4.2 : compiler-7.6.9.1 crypto-4.9.0.2 erts-11.2.2.2 kernel-7.3.1.1 ssh-4.11.1.2 ssl-10.3.1.1 stdlib-3.14.2.1 # asn1-5.0.15 common_test-1.20.2.1 debugger-5.0 dialyzer-4.3.1 diameter-2.2.4 edoc-0.12 eldap-1.2.9 erl_docgen-1.0.2 erl_interface-4.0.3.1 et-1.6.4 eunit-2.6 ftp-1.0.5 hipe-4.0.1 inets-7.3.2 jinterface-1.11.1 megaco-3.19.5.1 mnesia-4.19 observer-2.9.5 odbc-2.13.3.1 os_mon-2.6.1 parsetools-2.2 public_key-1.10 reltool-0.8 runtime_tools-1.16.1 sasl-4.0.2 snmp-5.8.0.1 syntax_tools-2.5 tftp-1.0.2 tools-3.4.4 wx-1.9.3.1 xmerl-1.3.27 :
+     OTP-23.3.4.1 : common_test-1.20.2.1 crypto-4.9.0.1 erl_interface-4.0.3.1 erts-11.2.2.1 megaco-3.19.5.1 odbc-2.13.3.1 snmp-5.8.0.1 ssh-4.11.1.1 wx-1.9.3.1 # asn1-5.0.15 compiler-7.6.9 debugger-5.0 dialyzer-4.3.1 diameter-2.2.4 edoc-0.12 eldap-1.2.9 erl_docgen-1.0.2 et-1.6.4 eunit-2.6 ftp-1.0.5 hipe-4.0.1 inets-7.3.2 jinterface-1.11.1 kernel-7.3.1 mnesia-4.19 observer-2.9.5 os_mon-2.6.1 parsetools-2.2 public_key-1.10 reltool-0.8 runtime_tools-1.16.1 sasl-4.0.2 ssl-10.3.1 stdlib-3.14.2 syntax_tools-2.5 tftp-1.0.2 tools-3.4.4 xmerl-1.3.27 :
+     OTP-23.3.4 : compiler-7.6.9 diameter-2.2.4 erts-11.2.2 # asn1-5.0.15 common_test-1.20.2 crypto-4.9 debugger-5.0 dialyzer-4.3.1 edoc-0.12 eldap-1.2.9 erl_docgen-1.0.2 erl_interface-4.0.3 et-1.6.4 eunit-2.6 ftp-1.0.5 hipe-4.0.1 inets-7.3.2 jinterface-1.11.1 kernel-7.3.1 megaco-3.19.5 mnesia-4.19 observer-2.9.5 odbc-2.13.3 os_mon-2.6.1 parsetools-2.2 public_key-1.10 reltool-0.8 runtime_tools-1.16.1 sasl-4.0.2 snmp-5.8 ssh-4.11.1 ssl-10.3.1 stdlib-3.14.2 syntax_tools-2.5 tftp-1.0.2 tools-3.4.4 wx-1.9.3 xmerl-1.3.27 :
+     OTP-23.3.3 : common_test-1.20.2 compiler-7.6.8 erl_interface-4.0.3 kernel-7.3.1 runtime_tools-1.16.1 # asn1-5.0.15 crypto-4.9 debugger-5.0 dialyzer-4.3.1 diameter-2.2.3 edoc-0.12 eldap-1.2.9 erl_docgen-1.0.2 erts-11.2.1 et-1.6.4 eunit-2.6 ftp-1.0.5 hipe-4.0.1 inets-7.3.2 jinterface-1.11.1 megaco-3.19.5 mnesia-4.19 observer-2.9.5 odbc-2.13.3 os_mon-2.6.1 parsetools-2.2 public_key-1.10 reltool-0.8 sasl-4.0.2 snmp-5.8 ssh-4.11.1 ssl-10.3.1 stdlib-3.14.2 syntax_tools-2.5 tftp-1.0.2 tools-3.4.4 wx-1.9.3 xmerl-1.3.27 :
+     OTP-23.3.2 : asn1-5.0.15 common_test-1.20.1 erts-11.2.1 ssl-10.3.1 stdlib-3.14.2 xmerl-1.3.27 # compiler-7.6.7 crypto-4.9 debugger-5.0 dialyzer-4.3.1 diameter-2.2.3 edoc-0.12 eldap-1.2.9 erl_docgen-1.0.2 erl_interface-4.0.2 et-1.6.4 eunit-2.6 ftp-1.0.5 hipe-4.0.1 inets-7.3.2 jinterface-1.11.1 kernel-7.3 megaco-3.19.5 mnesia-4.19 observer-2.9.5 odbc-2.13.3 os_mon-2.6.1 parsetools-2.2 public_key-1.10 reltool-0.8 runtime_tools-1.16 sasl-4.0.2 snmp-5.8 ssh-4.11.1 syntax_tools-2.5 tftp-1.0.2 tools-3.4.4 wx-1.9.3 :
+     OTP-23.3.1 : ssh-4.11.1 # asn1-5.0.14 common_test-1.20 compiler-7.6.7 crypto-4.9 debugger-5.0 dialyzer-4.3.1 diameter-2.2.3 edoc-0.12 eldap-1.2.9 erl_docgen-1.0.2 erl_interface-4.0.2 erts-11.2 et-1.6.4 eunit-2.6 ftp-1.0.5 hipe-4.0.1 inets-7.3.2 jinterface-1.11.1 kernel-7.3 megaco-3.19.5 mnesia-4.19 observer-2.9.5 odbc-2.13.3 os_mon-2.6.1 parsetools-2.2 public_key-1.10 reltool-0.8 runtime_tools-1.16 sasl-4.0.2 snmp-5.8 ssl-10.3 stdlib-3.14.1 syntax_tools-2.5 tftp-1.0.2 tools-3.4.4 wx-1.9.3 xmerl-1.3.26 :
+     OTP-23.3 : common_test-1.20 compiler-7.6.7 crypto-4.9 dialyzer-4.3.1 eldap-1.2.9 erts-11.2 jinterface-1.11.1 kernel-7.3 mnesia-4.19 odbc-2.13.3 public_key-1.10 runtime_tools-1.16 sasl-4.0.2 snmp-5.8 ssh-4.11 ssl-10.3 stdlib-3.14.1 syntax_tools-2.5 tools-3.4.4 wx-1.9.3 # asn1-5.0.14 debugger-5.0 diameter-2.2.3 edoc-0.12 erl_docgen-1.0.2 erl_interface-4.0.2 et-1.6.4 eunit-2.6 ftp-1.0.5 hipe-4.0.1 inets-7.3.2 megaco-3.19.5 observer-2.9.5 os_mon-2.6.1 parsetools-2.2 reltool-0.8 tftp-1.0.2 xmerl-1.3.26 :
+     OTP-23.2.7.5 : ssl-10.2.4.4 # asn1-5.0.14 common_test-1.19.1 compiler-7.6.6 crypto-4.8.3 debugger-5.0 dialyzer-4.3 diameter-2.2.3 edoc-0.12 eldap-1.2.8 erl_docgen-1.0.2 erl_interface-4.0.2.1 erts-11.1.8 et-1.6.4 eunit-2.6 ftp-1.0.5 hipe-4.0.1 inets-7.3.2 jinterface-1.11 kernel-7.2.1 megaco-3.19.5 mnesia-4.18.1 observer-2.9.5 odbc-2.13.2 os_mon-2.6.1 parsetools-2.2 public_key-1.9.2 reltool-0.8 runtime_tools-1.15.1 sasl-4.0.1 snmp-5.7.3 ssh-4.10.8 stdlib-3.14 syntax_tools-2.4 tftp-1.0.2 tools-3.4.3 wx-1.9.2 xmerl-1.3.26 :
+     OTP-23.2.7.4 : ssl-10.2.4.3 # asn1-5.0.14 common_test-1.19.1 compiler-7.6.6 crypto-4.8.3 debugger-5.0 dialyzer-4.3 diameter-2.2.3 edoc-0.12 eldap-1.2.8 erl_docgen-1.0.2 erl_interface-4.0.2.1 erts-11.1.8 et-1.6.4 eunit-2.6 ftp-1.0.5 hipe-4.0.1 inets-7.3.2 jinterface-1.11 kernel-7.2.1 megaco-3.19.5 mnesia-4.18.1 observer-2.9.5 odbc-2.13.2 os_mon-2.6.1 parsetools-2.2 public_key-1.9.2 reltool-0.8 runtime_tools-1.15.1 sasl-4.0.1 snmp-5.7.3 ssh-4.10.8 stdlib-3.14 syntax_tools-2.4 tftp-1.0.2 tools-3.4.3 wx-1.9.2 xmerl-1.3.26 :
+     OTP-23.2.7.3 : erl_interface-4.0.2.1 # asn1-5.0.14 common_test-1.19.1 compiler-7.6.6 crypto-4.8.3 debugger-5.0 dialyzer-4.3 diameter-2.2.3 edoc-0.12 eldap-1.2.8 erl_docgen-1.0.2 erts-11.1.8 et-1.6.4 eunit-2.6 ftp-1.0.5 hipe-4.0.1 inets-7.3.2 jinterface-1.11 kernel-7.2.1 megaco-3.19.5 mnesia-4.18.1 observer-2.9.5 odbc-2.13.2 os_mon-2.6.1 parsetools-2.2 public_key-1.9.2 reltool-0.8 runtime_tools-1.15.1 sasl-4.0.1 snmp-5.7.3 ssh-4.10.8 ssl-10.2.4.2 stdlib-3.14 syntax_tools-2.4 tftp-1.0.2 tools-3.4.3 wx-1.9.2 xmerl-1.3.26 :
+     OTP-23.2.7.2 : ssl-10.2.4.2 # asn1-5.0.14 common_test-1.19.1 compiler-7.6.6 crypto-4.8.3 debugger-5.0 dialyzer-4.3 diameter-2.2.3 edoc-0.12 eldap-1.2.8 erl_docgen-1.0.2 erl_interface-4.0.2 erts-11.1.8 et-1.6.4 eunit-2.6 ftp-1.0.5 hipe-4.0.1 inets-7.3.2 jinterface-1.11 kernel-7.2.1 megaco-3.19.5 mnesia-4.18.1 observer-2.9.5 odbc-2.13.2 os_mon-2.6.1 parsetools-2.2 public_key-1.9.2 reltool-0.8 runtime_tools-1.15.1 sasl-4.0.1 snmp-5.7.3 ssh-4.10.8 stdlib-3.14 syntax_tools-2.4 tftp-1.0.2 tools-3.4.3 wx-1.9.2 xmerl-1.3.26 :
+     OTP-23.2.7.1 : ssl-10.2.4.1 # asn1-5.0.14 common_test-1.19.1 compiler-7.6.6 crypto-4.8.3 debugger-5.0 dialyzer-4.3 diameter-2.2.3 edoc-0.12 eldap-1.2.8 erl_docgen-1.0.2 erl_interface-4.0.2 erts-11.1.8 et-1.6.4 eunit-2.6 ftp-1.0.5 hipe-4.0.1 inets-7.3.2 jinterface-1.11 kernel-7.2.1 megaco-3.19.5 mnesia-4.18.1 observer-2.9.5 odbc-2.13.2 os_mon-2.6.1 parsetools-2.2 public_key-1.9.2 reltool-0.8 runtime_tools-1.15.1 sasl-4.0.1 snmp-5.7.3 ssh-4.10.8 stdlib-3.14 syntax_tools-2.4 tftp-1.0.2 tools-3.4.3 wx-1.9.2 xmerl-1.3.26 :
+     OTP-23.2.7 : kernel-7.2.1 ssl-10.2.4 # asn1-5.0.14 common_test-1.19.1 compiler-7.6.6 crypto-4.8.3 debugger-5.0 dialyzer-4.3 diameter-2.2.3 edoc-0.12 eldap-1.2.8 erl_docgen-1.0.2 erl_interface-4.0.2 erts-11.1.8 et-1.6.4 eunit-2.6 ftp-1.0.5 hipe-4.0.1 inets-7.3.2 jinterface-1.11 megaco-3.19.5 mnesia-4.18.1 observer-2.9.5 odbc-2.13.2 os_mon-2.6.1 parsetools-2.2 public_key-1.9.2 reltool-0.8 runtime_tools-1.15.1 sasl-4.0.1 snmp-5.7.3 ssh-4.10.8 stdlib-3.14 syntax_tools-2.4 tftp-1.0.2 tools-3.4.3 wx-1.9.2 xmerl-1.3.26 :
+     OTP-23.2.6 : inets-7.3.2 ssh-4.10.8 # asn1-5.0.14 common_test-1.19.1 compiler-7.6.6 crypto-4.8.3 debugger-5.0 dialyzer-4.3 diameter-2.2.3 edoc-0.12 eldap-1.2.8 erl_docgen-1.0.2 erl_interface-4.0.2 erts-11.1.8 et-1.6.4 eunit-2.6 ftp-1.0.5 hipe-4.0.1 jinterface-1.11 kernel-7.2 megaco-3.19.5 mnesia-4.18.1 observer-2.9.5 odbc-2.13.2 os_mon-2.6.1 parsetools-2.2 public_key-1.9.2 reltool-0.8 runtime_tools-1.15.1 sasl-4.0.1 snmp-5.7.3 ssl-10.2.3 stdlib-3.14 syntax_tools-2.4 tftp-1.0.2 tools-3.4.3 wx-1.9.2 xmerl-1.3.26 :
+     OTP-23.2.5 : erts-11.1.8 ssl-10.2.3 tools-3.4.3 # asn1-5.0.14 common_test-1.19.1 compiler-7.6.6 crypto-4.8.3 debugger-5.0 dialyzer-4.3 diameter-2.2.3 edoc-0.12 eldap-1.2.8 erl_docgen-1.0.2 erl_interface-4.0.2 et-1.6.4 eunit-2.6 ftp-1.0.5 hipe-4.0.1 inets-7.3.1 jinterface-1.11 kernel-7.2 megaco-3.19.5 mnesia-4.18.1 observer-2.9.5 odbc-2.13.2 os_mon-2.6.1 parsetools-2.2 public_key-1.9.2 reltool-0.8 runtime_tools-1.15.1 sasl-4.0.1 snmp-5.7.3 ssh-4.10.7 stdlib-3.14 syntax_tools-2.4 tftp-1.0.2 wx-1.9.2 xmerl-1.3.26 :
+     OTP-23.2.4 : snmp-5.7.3 ssl-10.2.2 # asn1-5.0.14 common_test-1.19.1 compiler-7.6.6 crypto-4.8.3 debugger-5.0 dialyzer-4.3 diameter-2.2.3 edoc-0.12 eldap-1.2.8 erl_docgen-1.0.2 erl_interface-4.0.2 erts-11.1.7 et-1.6.4 eunit-2.6 ftp-1.0.5 hipe-4.0.1 inets-7.3.1 jinterface-1.11 kernel-7.2 megaco-3.19.5 mnesia-4.18.1 observer-2.9.5 odbc-2.13.2 os_mon-2.6.1 parsetools-2.2 public_key-1.9.2 reltool-0.8 runtime_tools-1.15.1 sasl-4.0.1 ssh-4.10.7 stdlib-3.14 syntax_tools-2.4 tftp-1.0.2 tools-3.4.2 wx-1.9.2 xmerl-1.3.26 :
+     OTP-23.2.3 : crypto-4.8.3 erts-11.1.7 snmp-5.7.2 ssh-4.10.7 # asn1-5.0.14 common_test-1.19.1 compiler-7.6.6 debugger-5.0 dialyzer-4.3 diameter-2.2.3 edoc-0.12 eldap-1.2.8 erl_docgen-1.0.2 erl_interface-4.0.2 et-1.6.4 eunit-2.6 ftp-1.0.5 hipe-4.0.1 inets-7.3.1 jinterface-1.11 kernel-7.2 megaco-3.19.5 mnesia-4.18.1 observer-2.9.5 odbc-2.13.2 os_mon-2.6.1 parsetools-2.2 public_key-1.9.2 reltool-0.8 runtime_tools-1.15.1 sasl-4.0.1 ssl-10.2.1 stdlib-3.14 syntax_tools-2.4 tftp-1.0.2 tools-3.4.2 wx-1.9.2 xmerl-1.3.26 :
+     OTP-23.2.2 : crypto-4.8.2 erl_interface-4.0.2 erts-11.1.6 megaco-3.19.5 odbc-2.13.2 snmp-5.7.1 ssl-10.2.1 # asn1-5.0.14 common_test-1.19.1 compiler-7.6.6 debugger-5.0 dialyzer-4.3 diameter-2.2.3 edoc-0.12 eldap-1.2.8 erl_docgen-1.0.2 et-1.6.4 eunit-2.6 ftp-1.0.5 hipe-4.0.1 inets-7.3.1 jinterface-1.11 kernel-7.2 mnesia-4.18.1 observer-2.9.5 os_mon-2.6.1 parsetools-2.2 public_key-1.9.2 reltool-0.8 runtime_tools-1.15.1 sasl-4.0.1 ssh-4.10.6 stdlib-3.14 syntax_tools-2.4 tftp-1.0.2 tools-3.4.2 wx-1.9.2 xmerl-1.3.26 :
+     OTP-23.2.1 : erts-11.1.5 # asn1-5.0.14 common_test-1.19.1 compiler-7.6.6 crypto-4.8.1 debugger-5.0 dialyzer-4.3 diameter-2.2.3 edoc-0.12 eldap-1.2.8 erl_docgen-1.0.2 erl_interface-4.0.1 et-1.6.4 eunit-2.6 ftp-1.0.5 hipe-4.0.1 inets-7.3.1 jinterface-1.11 kernel-7.2 megaco-3.19.4 mnesia-4.18.1 observer-2.9.5 odbc-2.13.1 os_mon-2.6.1 parsetools-2.2 public_key-1.9.2 reltool-0.8 runtime_tools-1.15.1 sasl-4.0.1 snmp-5.7 ssh-4.10.6 ssl-10.2 stdlib-3.14 syntax_tools-2.4 tftp-1.0.2 tools-3.4.2 wx-1.9.2 xmerl-1.3.26 :
+     OTP-23.2 : common_test-1.19.1 compiler-7.6.6 crypto-4.8.1 dialyzer-4.3 erl_docgen-1.0.2 erts-11.1.4 inets-7.3.1 kernel-7.2 megaco-3.19.4 mnesia-4.18.1 public_key-1.9.2 snmp-5.7 ssh-4.10.6 ssl-10.2 stdlib-3.14 syntax_tools-2.4 tools-3.4.2 wx-1.9.2 xmerl-1.3.26 # asn1-5.0.14 debugger-5.0 diameter-2.2.3 edoc-0.12 eldap-1.2.8 erl_interface-4.0.1 et-1.6.4 eunit-2.6 ftp-1.0.5 hipe-4.0.1 jinterface-1.11 observer-2.9.5 odbc-2.13.1 os_mon-2.6.1 parsetools-2.2 reltool-0.8 runtime_tools-1.15.1 sasl-4.0.1 tftp-1.0.2 :
+     OTP-23.1.5 : ssh-4.10.5 # asn1-5.0.14 common_test-1.19 compiler-7.6.5 crypto-4.8 debugger-5.0 dialyzer-4.2.1 diameter-2.2.3 edoc-0.12 eldap-1.2.8 erl_docgen-1.0.1 erl_interface-4.0.1 erts-11.1.3 et-1.6.4 eunit-2.6 ftp-1.0.5 hipe-4.0.1 inets-7.3 jinterface-1.11 kernel-7.1 megaco-3.19.3 mnesia-4.18 observer-2.9.5 odbc-2.13.1 os_mon-2.6.1 parsetools-2.2 public_key-1.9.1 reltool-0.8 runtime_tools-1.15.1 sasl-4.0.1 snmp-5.6.1 ssl-10.1 stdlib-3.13.2 syntax_tools-2.3.1 tftp-1.0.2 tools-3.4.1 wx-1.9.1 xmerl-1.3.25 :
+     OTP-23.1.4.1 : ssh-4.10.4.1 # asn1-5.0.14 common_test-1.19 compiler-7.6.5 crypto-4.8 debugger-5.0 dialyzer-4.2.1 diameter-2.2.3 edoc-0.12 eldap-1.2.8 erl_docgen-1.0.1 erl_interface-4.0.1 erts-11.1.3 et-1.6.4 eunit-2.6 ftp-1.0.5 hipe-4.0.1 inets-7.3 jinterface-1.11 kernel-7.1 megaco-3.19.3 mnesia-4.18 observer-2.9.5 odbc-2.13.1 os_mon-2.6.1 parsetools-2.2 public_key-1.9.1 reltool-0.8 runtime_tools-1.15.1 sasl-4.0.1 snmp-5.6.1 ssl-10.1 stdlib-3.13.2 syntax_tools-2.3.1 tftp-1.0.2 tools-3.4.1 wx-1.9.1 xmerl-1.3.25 :
+     OTP-23.1.4 : ssh-4.10.4 # asn1-5.0.14 common_test-1.19 compiler-7.6.5 crypto-4.8 debugger-5.0 dialyzer-4.2.1 diameter-2.2.3 edoc-0.12 eldap-1.2.8 erl_docgen-1.0.1 erl_interface-4.0.1 erts-11.1.3 et-1.6.4 eunit-2.6 ftp-1.0.5 hipe-4.0.1 inets-7.3 jinterface-1.11 kernel-7.1 megaco-3.19.3 mnesia-4.18 observer-2.9.5 odbc-2.13.1 os_mon-2.6.1 parsetools-2.2 public_key-1.9.1 reltool-0.8 runtime_tools-1.15.1 sasl-4.0.1 snmp-5.6.1 ssl-10.1 stdlib-3.13.2 syntax_tools-2.3.1 tftp-1.0.2 tools-3.4.1 wx-1.9.1 xmerl-1.3.25 :
+     OTP-23.1.3 : erts-11.1.3 ssh-4.10.3 # asn1-5.0.14 common_test-1.19 compiler-7.6.5 crypto-4.8 debugger-5.0 dialyzer-4.2.1 diameter-2.2.3 edoc-0.12 eldap-1.2.8 erl_docgen-1.0.1 erl_interface-4.0.1 et-1.6.4 eunit-2.6 ftp-1.0.5 hipe-4.0.1 inets-7.3 jinterface-1.11 kernel-7.1 megaco-3.19.3 mnesia-4.18 observer-2.9.5 odbc-2.13.1 os_mon-2.6.1 parsetools-2.2 public_key-1.9.1 reltool-0.8 runtime_tools-1.15.1 sasl-4.0.1 snmp-5.6.1 ssl-10.1 stdlib-3.13.2 syntax_tools-2.3.1 tftp-1.0.2 tools-3.4.1 wx-1.9.1 xmerl-1.3.25 :
+     OTP-23.1.2 : compiler-7.6.5 erts-11.1.2 # asn1-5.0.14 common_test-1.19 crypto-4.8 debugger-5.0 dialyzer-4.2.1 diameter-2.2.3 edoc-0.12 eldap-1.2.8 erl_docgen-1.0.1 erl_interface-4.0.1 et-1.6.4 eunit-2.6 ftp-1.0.5 hipe-4.0.1 inets-7.3 jinterface-1.11 kernel-7.1 megaco-3.19.3 mnesia-4.18 observer-2.9.5 odbc-2.13.1 os_mon-2.6.1 parsetools-2.2 public_key-1.9.1 reltool-0.8 runtime_tools-1.15.1 sasl-4.0.1 snmp-5.6.1 ssh-4.10.2 ssl-10.1 stdlib-3.13.2 syntax_tools-2.3.1 tftp-1.0.2 tools-3.4.1 wx-1.9.1 xmerl-1.3.25 :
+     OTP-23.1.1 : compiler-7.6.4 erts-11.1.1 os_mon-2.6.1 public_key-1.9.1 ssh-4.10.2 # asn1-5.0.14 common_test-1.19 crypto-4.8 debugger-5.0 dialyzer-4.2.1 diameter-2.2.3 edoc-0.12 eldap-1.2.8 erl_docgen-1.0.1 erl_interface-4.0.1 et-1.6.4 eunit-2.6 ftp-1.0.5 hipe-4.0.1 inets-7.3 jinterface-1.11 kernel-7.1 megaco-3.19.3 mnesia-4.18 observer-2.9.5 odbc-2.13.1 parsetools-2.2 reltool-0.8 runtime_tools-1.15.1 sasl-4.0.1 snmp-5.6.1 ssl-10.1 stdlib-3.13.2 syntax_tools-2.3.1 tftp-1.0.2 tools-3.4.1 wx-1.9.1 xmerl-1.3.25 :
+     OTP-23.1 : asn1-5.0.14 compiler-7.6.3 crypto-4.8 dialyzer-4.2.1 erl_docgen-1.0.1 erl_interface-4.0.1 erts-11.1 eunit-2.6 ftp-1.0.5 hipe-4.0.1 inets-7.3 kernel-7.1 megaco-3.19.3 mnesia-4.18 observer-2.9.5 odbc-2.13.1 os_mon-2.6 public_key-1.9 runtime_tools-1.15.1 sasl-4.0.1 snmp-5.6.1 ssh-4.10.1 ssl-10.1 stdlib-3.13.2 syntax_tools-2.3.1 tools-3.4.1 # common_test-1.19 debugger-5.0 diameter-2.2.3 edoc-0.12 eldap-1.2.8 et-1.6.4 jinterface-1.11 parsetools-2.2 reltool-0.8 tftp-1.0.2 wx-1.9.1 xmerl-1.3.25 :
+     OTP-23.0.4 : erts-11.0.4 megaco-3.19.2 stdlib-3.13.1 # asn1-5.0.13 common_test-1.19 compiler-7.6.2 crypto-4.7 debugger-5.0 dialyzer-4.2 diameter-2.2.3 edoc-0.12 eldap-1.2.8 erl_docgen-1.0 erl_interface-4.0 et-1.6.4 eunit-2.5 ftp-1.0.4 hipe-4.0 inets-7.2 jinterface-1.11 kernel-7.0 mnesia-4.17 observer-2.9.4 odbc-2.13 os_mon-2.5.2 parsetools-2.2 public_key-1.8 reltool-0.8 runtime_tools-1.15 sasl-4.0 snmp-5.6 ssh-4.10 ssl-10.0 syntax_tools-2.3 tftp-1.0.2 tools-3.4 wx-1.9.1 xmerl-1.3.25 :
+     OTP-23.0.3 : compiler-7.6.2 erts-11.0.3 # asn1-5.0.13 common_test-1.19 crypto-4.7 debugger-5.0 dialyzer-4.2 diameter-2.2.3 edoc-0.12 eldap-1.2.8 erl_docgen-1.0 erl_interface-4.0 et-1.6.4 eunit-2.5 ftp-1.0.4 hipe-4.0 inets-7.2 jinterface-1.11 kernel-7.0 megaco-3.19.1 mnesia-4.17 observer-2.9.4 odbc-2.13 os_mon-2.5.2 parsetools-2.2 public_key-1.8 reltool-0.8 runtime_tools-1.15 sasl-4.0 snmp-5.6 ssh-4.10 ssl-10.0 stdlib-3.13 syntax_tools-2.3 tftp-1.0.2 tools-3.4 wx-1.9.1 xmerl-1.3.25 :
+     OTP-23.0.2 : erts-11.0.2 megaco-3.19.1 # asn1-5.0.13 common_test-1.19 compiler-7.6.1 crypto-4.7 debugger-5.0 dialyzer-4.2 diameter-2.2.3 edoc-0.12 eldap-1.2.8 erl_docgen-1.0 erl_interface-4.0 et-1.6.4 eunit-2.5 ftp-1.0.4 hipe-4.0 inets-7.2 jinterface-1.11 kernel-7.0 mnesia-4.17 observer-2.9.4 odbc-2.13 os_mon-2.5.2 parsetools-2.2 public_key-1.8 reltool-0.8 runtime_tools-1.15 sasl-4.0 snmp-5.6 ssh-4.10 ssl-10.0 stdlib-3.13 syntax_tools-2.3 tftp-1.0.2 tools-3.4 wx-1.9.1 xmerl-1.3.25 :
+     OTP-23.0.1 : compiler-7.6.1 erts-11.0.1 # asn1-5.0.13 common_test-1.19 crypto-4.7 debugger-5.0 dialyzer-4.2 diameter-2.2.3 edoc-0.12 eldap-1.2.8 erl_docgen-1.0 erl_interface-4.0 et-1.6.4 eunit-2.5 ftp-1.0.4 hipe-4.0 inets-7.2 jinterface-1.11 kernel-7.0 megaco-3.19 mnesia-4.17 observer-2.9.4 odbc-2.13 os_mon-2.5.2 parsetools-2.2 public_key-1.8 reltool-0.8 runtime_tools-1.15 sasl-4.0 snmp-5.6 ssh-4.10 ssl-10.0 stdlib-3.13 syntax_tools-2.3 tftp-1.0.2 tools-3.4 wx-1.9.1 xmerl-1.3.25 :
+     OTP-23.0 : asn1-5.0.13 common_test-1.19 compiler-7.6 crypto-4.7 debugger-5.0 dialyzer-4.2 edoc-0.12 erl_docgen-1.0 erl_interface-4.0 erts-11.0 eunit-2.5 hipe-4.0 inets-7.2 jinterface-1.11 kernel-7.0 megaco-3.19 mnesia-4.17 observer-2.9.4 odbc-2.13 os_mon-2.5.2 parsetools-2.2 public_key-1.8 runtime_tools-1.15 sasl-4.0 snmp-5.6 ssh-4.10 ssl-10.0 stdlib-3.13 syntax_tools-2.3 tools-3.4 wx-1.9.1 xmerl-1.3.25 # diameter-2.2.3 eldap-1.2.8 et-1.6.4 ftp-1.0.4 reltool-0.8 tftp-1.0.2 :
+     """,
+    _ = cmd("mv otp_versions.table otp_versions.table.backup"),
+    Module = ?MODULE,
+    file:write_file("otp_versions.table", OTPTable),
+    Result = apply(Module, F, []),
+    cmd("mv otp_versions.table.backup otp_versions.table"),
+    Result.
