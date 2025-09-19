@@ -116,7 +116,7 @@ void beamasm_flush_icache(const void *address, size_t size);
 
 /* Number of bytes emitted at first label in order to support trace and nif
  * load. */
-#    if defined(__aarch64__)
+#    if defined(__aarch64__) || defined(__arm__)
 #        define BEAM_ASM_FUNC_PROLOGUE_SIZE 12
 #    else
 #        define BEAM_ASM_FUNC_PROLOGUE_SIZE 8

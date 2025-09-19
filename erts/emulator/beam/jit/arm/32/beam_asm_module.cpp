@@ -104,8 +104,28 @@ void BeamGlobalAssembler::emit_i_breakpoint_trampoline_shared() {
 }
 
 void BeamModuleAssembler::emit_i_breakpoint_trampoline() {
-    // TODO
-    emit_nyi("emit_i_breakpoint_trampoline");
+    /* This little prologue is used by nif loading and tracing to insert
+     * alternative instructions. */
+    Label next = a.newLabel();
+
+    emit_enter_erlang_frame();
+    /* This branch is modified to jump to the BL instruction when the
+     * breakpoint is enabled. */
+    a.b(next);
+
+    if (code_header.isValid()) {
+        a.bl(resolve_fragment(ga->get_i_breakpoint_trampoline_shared(),
+                              disp32MB));
+    } else {
+        /* NIF or BIF stub; we're not going to use this trampoline as-is, but
+         * we need to reserve space for it. */
+        a.udf(0xB1F);
+    }
+
+    a.bind(next);
+
+    ASSERT((a.offset() - code.labelOffsetFromBase(current_label)) ==
+            BEAM_ASM_FUNC_PROLOGUE_SIZE);
 }
 
 static void i_emit_nyi(char *msg) {
@@ -284,8 +304,9 @@ void BeamModuleAssembler::emit_line(const ArgWord &Loc) {
      *
      * Since line addresses are taken _after_ line instructions we can avoid
      * this by adding a nop when we detect this condition. */
-    // TODO
-    emit_nyi("emit_line");
+    if (a.offset() == last_error_offset) {
+        a.nop();
+    }
 }
 
 void BeamModuleAssembler::emit_func_line(const ArgWord &Loc) {
