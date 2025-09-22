@@ -1151,7 +1151,7 @@ split_ustar_path(Path) ->
             false;
        true ->
             PathBin = binary:list_to_bin(Path),
-            case binary:split(PathBin, [<<$/>>], [global, trim_all]) of
+            case filename:split(PathBin) of
                 [Part] when byte_size(Part) >= ?V7_NAME_LEN ->
                     false;
                 Parts ->
