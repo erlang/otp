@@ -103,6 +103,8 @@ is_anno(_Config) ->
     true = erl_anno:is_anno(A4),
     A5 = erl_anno:set_file(<<"filename">>, A4),
     true = erl_anno:is_anno(A5),
+    A6 = erl_anno:set_end_location({2, 17}, A5),
+    true = erl_anno:is_anno(A6),
     ok.
 
 %% Test 'generated'.
