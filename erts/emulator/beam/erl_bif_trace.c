@@ -2098,14 +2098,20 @@ static void trace_info_finisher(void* null)
         break;
     case 2: {
         Process *p = trace_info_state.p;
+        Binary *trap_mbin = trace_info_state.trap_mbin;
 
         erts_timem_info_consolidate();
 
-        erts_bin_release(trace_info_state.trap_mbin);
         trace_info_state.trap_mbin = NULL;
+        erts_bin_release(trap_mbin);
+        /*
+         * We are no longer guaranteed to be protected by code_mod_permission
+         * as trace_info_trap_destructor might have been called.
+         */
 
         /*
-         * Resume caller of trace:info in bif_trace_info_finish_trap().
+         * Resume caller of trace:info in bif_trace_info_finish_trap()
+         * (if still alive)
          */
         erts_proc_lock(p, ERTS_PROC_LOCK_STATUS);
         if (!ERTS_PROC_IS_EXITING(p)) {
