@@ -1428,7 +1428,7 @@ write_a_string([], _N, _Len, _PP) ->
 write_a_string(S, N, Len, PP) ->
     SS = string:slice(S, 0, N),
     Sl = write_string(SS, PP),
-    case (string:length(Sl) > Len) and (N > ?MIN_SUBSTRING) of
+    case (string:length(Sl) > Len) andalso (N > ?MIN_SUBSTRING) of
         true ->
             write_a_string(S, N-1, Len, PP);
         false ->

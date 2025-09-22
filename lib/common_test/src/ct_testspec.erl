@@ -474,10 +474,10 @@ replace_names(Terms) ->
 				      throw({illegal_name_in_testspec,Name});
 				 true ->
 				      [First|_] = atom_to_list(Name),
-				      if ((First == $?) or (First == $$)
-					  or (First == $_)
-					  or ((First >= $A)
-					      and (First =< $Z))) ->
+				      if ((First == $?) orelse (First == $$)
+					  orelse (First == $_)
+					  orelse ((First >= $A)
+					      andalso (First =< $Z))) ->
 					      [Def];
 					 true ->
 					      throw({illegal_name_in_testspec,
@@ -1299,14 +1299,14 @@ insert_groups(Node,Dir,Suite,Group,Cases,Tests,MergeTests)
   when is_atom(Group); is_tuple(Group) ->
     insert_groups(Node,Dir,Suite,[Group],Cases,Tests,MergeTests);
 insert_groups(Node,Dir,Suite,Groups,Cases,Tests,false) when
-      ((Cases == all) or is_list(Cases)) and is_list(Groups) ->
+      ((Cases == all) orelse is_list(Cases)) andalso is_list(Groups) ->
     Groups1 = [if is_list(Gr) ->		% preserve group path
 		       {[Gr],Cases};
 		  true ->
 		       {Gr,Cases} end || Gr <- Groups],
     append({{Node,Dir},[{Suite,Groups1}]},Tests);
 insert_groups(Node,Dir,Suite,Groups,Cases,Tests,true) when
-      ((Cases == all) or is_list(Cases)) and is_list(Groups) ->
+      ((Cases == all) orelse is_list(Cases)) andalso is_list(Groups) ->
     Groups1 = [if is_list(Gr) ->		% preserve group path
 		       {[Gr],Cases};
 		  true ->
@@ -1418,11 +1418,11 @@ skip_groups(Node,Dir,Suite,Groups,Case,Cmt,Tests,MergeTests)
   when is_atom(Case),Case =/= all ->
     skip_groups(Node,Dir,Suite,Groups,[Case],Cmt,Tests,MergeTests);
 skip_groups(Node,Dir,Suite,Groups,Cases,Cmt,Tests,false) when
-      ((Cases == all) or is_list(Cases)) and is_list(Groups) ->
+      ((Cases == all) orelse is_list(Cases)) andalso is_list(Groups) ->
     Suites1 = skip_groups1(Suite,[{Gr,Cases} || Gr <- Groups],Cmt,[]),
     append({{Node,Dir},Suites1},Tests);
 skip_groups(Node,Dir,Suite,Groups,Cases,Cmt,Tests,true) when
-      ((Cases == all) or is_list(Cases)) and is_list(Groups) ->
+      ((Cases == all) orelse is_list(Cases)) andalso is_list(Groups) ->
     {Tests1,Done} =
 	lists:foldr(fun({{N,D},Suites0},{Merged,_}) when N == Node,
 							   D == Dir ->
@@ -1579,7 +1579,7 @@ is_node([master|_],_Nodes) ->
 is_node(What={N,H},Nodes) when is_atom(N), is_atom(H) ->
     is_node([What],Nodes);
 is_node([What|_],Nodes) ->
-    case lists:keymember(What,1,Nodes) or
+    case lists:keymember(What,1,Nodes) orelse
 	 lists:keymember(What,2,Nodes) of
 	true ->					
 	    true;
