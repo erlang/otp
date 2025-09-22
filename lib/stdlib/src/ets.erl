@@ -777,7 +777,7 @@ equal when they _compare equal_ whereas the other table types regard them equal
 only when they _match_, holds for [`lookup_element/4`](`lookup_element/4`).
 """.
 -doc(#{since => <<"OTP 26.0">>}).
--spec lookup_element(Table, Key, Pos, Default) -> Elem when
+-spec lookup_element(Table, Key, Pos, Default) -> Elem | Default when
     Table :: table(),
     Key :: term(),
     Pos :: pos_integer(),
