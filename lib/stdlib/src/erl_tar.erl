@@ -110,7 +110,7 @@ opens a tar file on a remote machine using an SFTP channel.
          format_error/1]).
 
 -include_lib("kernel/include/file.hrl").
--include_lib("erl_tar.hrl").
+-include("erl_tar.hrl").
 
 %% Converts the short error reason to a descriptive string.
 -doc "Converts an error reason term to a human-readable error message string.".
