@@ -544,11 +544,10 @@ This option is used to configure the alive messages. Alive messages are sent thr
 channel and are typically used to detect that a connection became unresponsive.
 
 The first value of the tuple sets the maximum number
-of alive messages which may be sent without the client/server receiving any messages back
+of alive messages which may be sent without receiving any messages back
 from the peer. If this threshold is reached the connection will be terminated.
 The second value of the tuple sets the timeout interval, in seconds, after which, if no data
-has been received from the peer, the client/server will send a message to request a response
-from the peer.
+has been received from the peer, a message to request a response from the peer is sent.
 
 The default is {3, infinity}, which means that alive messages will not be sent to the peer,
 since the `AliveInterval` is set to `infinity`.
@@ -558,7 +557,7 @@ is set to ensure that if the connection becomes unresponsive during renegotiatio
 disconnect.
 """.
 -doc(#{group => <<"Common Options">>}).
--type alive_common_option() :: {AliveCountMax::pos_integer(), AliveInterval::timeout()}.
+-type alive_common_option() :: {alive_params, {AliveCountMax::pos_integer(), AliveInterval::timeout()}}.
 
 -doc """
 Experimental options that should not to be used in products.
