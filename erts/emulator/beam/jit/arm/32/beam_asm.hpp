@@ -1179,8 +1179,10 @@ protected:
     }
 
     void mov_arg(const ArgRegister &To, const ArgVal &From) {
-        // TODO
-        ASSERT(false);
+        auto from = load_source(From, SUPER_TMP);
+        auto to = init_destination(To, from.reg);
+        mov_var(to, from);
+        flush_var(to);
     }
 
     void mov_arg(const ArgRegister &To, arm::Mem From) {
