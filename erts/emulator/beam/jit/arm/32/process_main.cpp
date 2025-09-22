@@ -97,8 +97,50 @@ void BeamGlobalAssembler::emit_process_main() {
     emit_nyi("context_switch_local");
     a.bind(context_switch_simplified_local);
     comment("Context switch, known arity and MFA");
-    //TODO
-    emit_nyi("context_switch_simplified_local");
+    {
+        Label not_exiting = a.newLabel();
+
+#ifdef DEBUG
+        Label check_i = a.newLabel();
+        /* Check that ARG3 is set to a valid CP. */
+        a.tst(ARG3, imm(_CPMASK));
+        a.b_eq(check_i);
+        a.udf(1);
+        a.bind(check_i);
+#endif
+
+        a.str(ARG3, arm::Mem(c_p, offsetof(Process, i)));
+        a.ldr(TMP, arm::Mem(c_p, offsetof(Process, state.value)));
+
+        a.tst(TMP, imm(ERTS_PSFLG_EXITING));
+        a.b_eq(not_exiting);
+        {
+            comment("Process exiting");
+
+            a.adr(TMP, labels[process_exit]);
+            a.str(TMP, arm::Mem(c_p, offsetof(Process, i)));
+            mov_imm(TMP, 0);
+            a.strb(TMP, arm::Mem(c_p, offsetof(Process, arity)));
+            a.str(TMP, arm::Mem(c_p, offsetof(Process, current)));
+            a.b(do_schedule_local);
+        }
+
+        a.bind(not_exiting);
+
+        /* Figure out reds_used. def_arg_reg[5] = REDS_IN */
+        a.ldr(TMP, arm::Mem(c_p, offsetof(Process, def_arg_reg[5])));
+        a.sub(FCALLS, TMP, FCALLS);
+
+        comment("Copy out X registers");
+        a.mov(ARG1, c_p);
+        load_x_reg_array(ARG2);
+        runtime_call<2>(copy_out_registers);
+
+        /* Restore reds_used from FCALLS */
+        a.mov(ARG3, FCALLS);
+
+        /* !! Fall through !! */
+    }
 
     a.bind(schedule_next);
     comment("schedule_next");
