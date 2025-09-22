@@ -31,7 +31,7 @@
 	 memory/1,unicode/1,read_other_implementations/1,bsdtgz/1,
          sparse/1, init/1, leading_slash/1, dotdot/1,
          roundtrip_metadata/1, apply_file_info_opts/1,
-         incompatible_options/1]).
+         incompatible_options/1, table_absolute_names/1]).
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/file.hrl").
@@ -46,7 +46,7 @@ all() ->
      symlinks, open_add_close, cooked_compressed, memory, unicode,
      read_other_implementations, bsdtgz,
      sparse,init,leading_slash,dotdot,roundtrip_metadata,
-     apply_file_info_opts,incompatible_options].
+     apply_file_info_opts,incompatible_options, table_absolute_names].
 
 groups() -> 
     [].
@@ -1058,6 +1058,28 @@ apply_file_info_opts(Config) when is_list(Config) ->
         file:read_file_info("extracted/file", [{time, posix}]),
     {ok, #file_info{mtime=0}} =
         file:read_file_info("extracted/memory_file", [{time, posix}]),
+
+    ok.
+
+table_absolute_names(Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    ok = file:set_cwd(PrivDir),
+    N = max(1, 101 - length(PrivDir)),
+    TestFileName = lists:duplicate(N, $a),
+    ok = file:write_file(TestFileName, "hello, world\n"),
+
+    %% File paths greater than 100 bytes will be split and stored
+    %% as a filename and prefix.
+    TarTestFileName = filename:absname(TestFileName),
+
+    io:format("~p: ~p\n", [length(TarTestFileName), TarTestFileName]),
+
+    TarName = "my_tar_with_long_names.tar",
+    ok = erl_tar:create(TarName, [TarTestFileName]),
+    {ok, [TarTestFileName]} = erl_tar:table(TarName),
+
+    ok = file:delete(TarTestFileName),
+    ok = file:delete(TarName),
 
     ok.
 
