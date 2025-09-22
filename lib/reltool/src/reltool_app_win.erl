@@ -829,8 +829,8 @@ app_to_mods(#state{xref_pid = Xref, app = App}) ->
 			{true, M}
 		end
         end,
-    UsedByMods = lists:zf(GetMod, App#app.used_by_mods),
-    UsesMods = lists:zf(GetMod, App#app.uses_mods),
+    UsedByMods = lists:filtermap(GetMod, App#app.used_by_mods),
+    UsesMods = lists:filtermap(GetMod, App#app.uses_mods),
     {
      [select_image(source,    M) || M <- SourceMods],
      [select_image(whitelist, M) || M <- WhiteMods],

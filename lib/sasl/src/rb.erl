@@ -555,7 +555,7 @@ scan_files(RptDir, Max, Type) ->
 make_file_list(Dir, FirstFileNo) ->
     case file:list_dir(Dir) of
 	{ok, FileNames} ->
-	    FileNumbers = lists:zf(fun(Name) ->
+	    FileNumbers = lists:filtermap(fun(Name) ->
 					   case catch list_to_integer(Name) of
 					       Int when is_integer(Int) ->
 						   {true, Int};

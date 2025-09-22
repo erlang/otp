@@ -361,6 +361,9 @@ make_gen_list([], _, _) ->
 make_gen_mfas(MFAs) ->
      [make_item(MFA) || MFA <- MFAs].
 
+make_item({{lists,zf,2},Text}) ->
+    %% Avoid creating a reference to this undocumented function.
+    ["-   Undocumented function lists:zf/2 ", " (",Text,")\n"];
 make_item({{M,F,A},Text}) ->
     ["-   `",lists:concat([M,":",F,"/",A]),"` ", " (",Text,")\n"].
 

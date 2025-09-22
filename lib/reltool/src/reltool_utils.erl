@@ -399,7 +399,7 @@ select_items(ListCtrl, OldItems, NewItems) ->
 		    false -> false
 		end
 	end,
-    case lists:zf(Filter, OldItems) of
+    case lists:filtermap(Filter, OldItems) of
 	[] ->
 	    %% None of the old selections are valid. Select the first.
 	    select_item(ListCtrl, NewItems);

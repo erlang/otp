@@ -40,7 +40,7 @@
 	 code_change/3, send_timeout/3]).
 -export([info/0]).
 
--import(lists, [zf/2, filter/2, map/2, foreach/2, foldl/3, mapfoldl/3,
+-import(lists, [filtermap/2, filter/2, map/2, foreach/2, foldl/3, mapfoldl/3,
 		keysearch/3, keydelete/3, keyreplace/4, member/2]).
 
 -define(AC, application_controller).
@@ -508,7 +508,7 @@ handle_info({ac_application_stopped, AppName}, S) ->
 %%-----------------------------------------------------------------
 handle_info({dist_ac_new_node, _Vsn, Node, HisAppls, []}, S) ->
     Appls = S#state.appls,
-    MyStarted = zf(fun(Appl) when Appl#appl.id =:= local ->
+    MyStarted = filtermap(fun(Appl) when Appl#appl.id =:= local ->
 			   {true, {node(), Appl#appl.name}};
 		      (_) ->
 			   false
@@ -623,7 +623,7 @@ handle_info({nodedown, Node}, S) ->
 			 (_) -> false
 		      end,
 		      S#state.appls),
-    Appls2 = zf(fun(Appl) when Appl#appl.id =:= {distributed, Node} -> 
+    Appls2 = filtermap(fun(Appl) when Appl#appl.id =:= {distributed, Node} ->
 			case lists:member(Appl#appl.name, AppNames) of
 			    true ->
 				{true, Appl#appl{id = {failover, Node}}};
@@ -1419,7 +1419,7 @@ do_dist_change_update(Appls, AppName, NewTime, NewNodes) ->
 
 %% Merge his Permissions with mine.
 dist_merge(MyAppls, HisAppls, HisNode) ->
-    zf(fun(Appl) ->
+    filtermap(fun(Appl) ->
 	       #appl{name = AppName, run = Run} = Appl,
 %	       #appl{name = AppName, nodes = Nodes, run = Run} = Appl,
 %	       HeIsMember = lists:member(HisNode, flat_nodes(Nodes)),
@@ -1442,7 +1442,7 @@ dist_merge(MyAppls, HisAppls, HisNode) ->
 dist_get_runnable_nodes(Appls, AppName) ->
     case keysearch(AppName, #appl.name, Appls) of
 	{value, #appl{run = Run}} ->
-	    zf(fun({Node, true}) -> {true, Node};
+	    filtermap(fun({Node, true}) -> {true, Node};
 		  (_) -> false
 	       end, Run);
 	false ->
@@ -1473,7 +1473,7 @@ is_loaded(AppName, #state{appls = Appls}) ->
     end.
 
 dist_get_runnable(Appls) ->
-    zf(fun(#appl{name = AppName, run = Run}) ->
+    filtermap(fun(#appl{name = AppName, run = Run}) ->
 	       case keysearch(node(), 1, Run) of
 		   {value, {_, true}} -> {true, AppName};
 		   _ -> false

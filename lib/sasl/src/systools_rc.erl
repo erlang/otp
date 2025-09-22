@@ -989,7 +989,7 @@ format_error(E) ->
 %% filtermap(F, List1) -> List2
 %% F(H) -> false | true | {true, Val}
 filtermap(F, List) ->
-    lists:zf(F, List).
+    lists:filtermap(F, List).
 
 %% split(F, List1) -> {List2, List3}
 %% F(H) -> true | false. Preserves order. 
