@@ -115,6 +115,7 @@ make/otp_doc_built
 JAVADOC-GENERATED
 
 *.1
+*.3
 
 # Anchored from $ERL_TOP
 /bin

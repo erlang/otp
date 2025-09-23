@@ -779,7 +779,6 @@ and returns. Here are the sequence of steps for a _state transition_:
    in order of appearance.  In this step all replies generated
    by any `t:reply_action/0` are sent.  Other actions set
    `t:transition_option/0`s that come into play in subsequent steps.
-
 2. If [_state enter calls_](`t:state_enter/0`) are used,
    it is either the initial state or one of the callback results
    [`repeat_state`](`t:state_callback_result/2`) or
@@ -797,15 +796,11 @@ and returns. Here are the sequence of steps for a _state transition_:
    [`(enter, OldState, State, Data)`](`t:state_enter/0`) (depending on
    [_callback mode_](`t:callback_mode/0`)) and when it returns
    starts again from the top of this sequence.
-
 3. If `t:postpone/0` is `true`, the current event is postponed.
-
 4. If this is a _state change_, the queue of incoming events is reset
    to start with the oldest postponed.
-
 5. All events stored with `t:action/0` `next_event` are inserted
    to be processed before previously queued events.
-
 6. Time-out timers `t:event_timeout/0`, `t:generic_timeout/0` and
    `t:state_timeout/0` are handled.  Time-outs with zero time
    are guaranteed to be delivered to the state machine
@@ -820,12 +815,10 @@ and returns. Here are the sequence of steps for a _state transition_:
    A _state change_ cancels a `t:state_timeout/0` and any new transition
    option of this type belongs to the new state, that is;
    a `t:state_timeout/0` applies to the state the state machine enters.
-
 7. If there are enqueued events the
    [_state callback_](#state-callback) for the possibly
    new state is called with the oldest enqueued event, and we start again
    from the top of this sequence.
-
 8. Otherwise the `gen_statem` goes into `receive` or hibernation
    (if `t:hibernate/0` is `true`) to wait for the next message.
    In hibernation the next non-system event awakens the `gen_statem`,

@@ -217,6 +217,7 @@ EX_DOC = @EX_DOC@
 DOCDIR=.
 HTMLDIR = $(DOCDIR)/html
 MAN1DIR = $(DOCDIR)/man1
+MAN3DIR = $(DOCDIR)/man3
 CHUNKSDIR = $(DOCDIR)/chunks
 
 ifeq ($(HTMLLOGO),)
