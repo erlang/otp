@@ -22,23 +22,28 @@
 
 set -e
 
-export MAKEFLAGS=-j$(getconf _NPROCESSORS_ONLN)
+MAKEFLAGS=-j$(getconf _NPROCESSORS_ONLN)
+export MAKEFLAGS
 
 if [ -z "$WXWIDGETS_VERSION" ]; then
-  WXWIDGETS_VERSION=3.1.5
+  # Value is set in .github/workflows/main.yaml for MacOS only, this here is the fallback value
+  WXWIDGETS_VERSION=3.2.8.1
 fi
 
-vsn=$WXWIDGETS_VERSION
-curl --fail -LO https://github.com/wxWidgets/wxWidgets/releases/download/v$vsn/wxWidgets-$vsn.tar.bz2
-tar -xf wxWidgets-$vsn.tar.bz2
-mv wxWidgets-$vsn/ wxWidgets
+WX_SELECTED_VERSION=${WXWIDGETS_VERSION}
+WX_DOWNLOAD_URL=https://github.com/wxWidgets/wxWidgets/releases/download/v${WX_SELECTED_VERSION}/wxWidgets-${WX_SELECTED_VERSION}.tar.bz2
+echo "Downloading WxWidgets from ${WX_DOWNLOAD_URL}"
+curl --fail -LO "${WX_DOWNLOAD_URL}"
+tar -xf "wxWidgets-${WX_SELECTED_VERSION}.tar.bz2"
+mv "wxWidgets-${WX_SELECTED_VERSION}/" wxWidgets
 
 cd wxWidgets
 ./configure \
   --disable-shared \
-  --prefix=$PWD/release \
+  --prefix="${PWD}/release" \
   --with-cocoa \
-  --with-macosx-version-min=10.15
+  --with-macosx-version-min=10.15 \
+  --with-libtiff=builtin
 #  --disable-sys-libs
 
 make
