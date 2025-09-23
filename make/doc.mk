@@ -50,9 +50,19 @@ endif
 # ----------------------------------------------------
 # Man dependencies
 # ----------------------------------------------------
+ERL_FILES := $(wildcard $(APP_SRC_DIR)/*.erl)
+ERL_FILES_WITH_DOC := $(shell grep -L '-moduledoc false.' $(ERL_FILES))
 MAN1_DEPS?=$(wildcard */*_cmd.md)
+MAN3_DEPS?=$(wildcard */references/*.md) $(wildcard references/*.md) \
+ $(wildcard */src/*.md) $(wildcard src/*.md) \
+ $(ERL_FILES_WITH_DOC)
+MAN3_DEPS_FILTERED=$(filter-out $(wildcard */references/*_cmd.md) $(wildcard references/*_cmd.md),$(MAN3_DEPS))
 
 MAN1_PAGES=$(MAN1_DEPS:references/%_cmd.md=$(MAN1DIR)/%.1)
+MAN3_PAGES=$(MAN3_DEPS_FILTERED:$(APP_SRC_DIR)/%.erl=$(MAN3DIR)/%.3)
+MAN3_PAGES+=$(MAN3_DEPS_FILTERED:references/%.md=$(MAN3DIR)/%.3)
+MAN3_PAGES+=$(MAN3_DEPS_FILTERED:src/%.md=$(MAN3DIR)/%.3)
+
 
 # ----------------------------------------------------
 # Targets
@@ -62,6 +72,9 @@ ifneq ($(CHUNK_FILES),)
 DEFAULT_DOC_TARGETS+=chunks
 endif
 ifneq ($(MAN1_DEPS),)
+DEFAULT_DOC_TARGETS+=man
+endif
+ifneq ($(MAN3_DEPS_FILTERED),)
 DEFAULT_DOC_TARGETS+=man
 endif
 DOC_TARGETS?=$(DEFAULT_DOC_TARGETS)
@@ -80,12 +93,23 @@ $(HTMLDIR)/index.html: $(HTML_DEPS) docs.exs $(ERL_TOP)/make/ex_doc.exs
 
 html: $(HTMLDIR)/index.html
 
-man: $(MAN1_PAGES)
+man: $(MAN1_PAGES) $(MAN3_PAGES)
 
 MARKDOWN_TO_MAN=$(ERL_TOP)/make/markdown_to_man.escript
 
 man1/%.1: references/%_cmd.md $(MARKDOWN_TO_MAN)
 	escript$(EXEEXT) $(MARKDOWN_TO_MAN) -o $(MAN1DIR) $<
+
+man3/%.3: src/%.md $(MARKDOWN_TO_MAN)
+	escript$(EXEEXT) $(MARKDOWN_TO_MAN) -o $(MAN3DIR) $<
+
+man3/%.3: references/%.md $(MARKDOWN_TO_MAN)
+	escript$(EXEEXT) $(MARKDOWN_TO_MAN) -o $(MAN3DIR) $<
+
+man3/%.3: ../src/%.erl $(MARKDOWN_TO_MAN)
+	escript$(EXEEXT) $(MARKDOWN_TO_MAN) -o $(MAN3DIR) $<
+
+# ----------------------------------------------------
 
 $(TYPES):
 
@@ -112,6 +136,10 @@ release_man_spec: man
 ifneq ($(MAN1_DEPS),)
 	$(INSTALL_DIR) "$(RELSYS_MANDIR)/man1"
 	$(INSTALL_DIR_DATA) "$(MAN1DIR)" "$(RELSYS_MANDIR)/man1"
+endif
+ifneq ($(MAN3_DEPS_FILTERED),)
+	$(INSTALL_DIR) "$(RELSYS_MANDIR)/man3"
+	$(INSTALL_DIR_DATA) "$(MAN3DIR)" "$(RELSYS_MANDIR)/man3"
 endif
 
 release_docs_spec: $(DOC_TARGETS:%=release_%_spec)
