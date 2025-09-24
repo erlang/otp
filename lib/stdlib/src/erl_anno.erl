@@ -219,6 +219,10 @@ is_anno2(location, Line) when ?LN(Line) ->
     true;
 is_anno2(location, {Line, Column}) when ?LN(Line), ?COL(Column) ->
     true;
+is_anno2(end_location, Line) when ?LN(Line) ->
+    true;
+is_anno2(end_location, {Line, Column}) when ?LN(Line), ?COL(Column) ->
+    true;
 is_anno2(generated, true) ->
     true;
 is_anno2(file, Filename) ->
