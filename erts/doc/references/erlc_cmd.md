@@ -166,7 +166,12 @@ The following compilers are supported:
 
   Supported options: same as for `.erl`.
 
-- **`.core`** - Erlang core source code. It generates a `.beam` file.
+- **`.core`** - Core Erlang source code. It generates a `.beam` file.
+
+  Supported options: same as for `.erl`.
+
+- **`.abstr`** - Erlang abstract format as produced by `to_abstr`.
+  It generates a `.beam` file.
 
   Supported options: same as for `.erl`.
 
