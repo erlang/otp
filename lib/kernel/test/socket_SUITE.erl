@@ -6355,9 +6355,9 @@ sc_lc_recv_response_tcpL(_Config) when is_list(_Config) ->
 %% locally closed while the process is calling the recv function.
 %% Socket is VSOCK (stream) socket.
 
-sc_lc_recv_response_tcpL(_Config) when is_list(_Config) ->
+sc_lc_recv_response_tcpV(_Config) when is_list(_Config) ->
     ?TT(?SECS(10)),
-    tc_try(sc_lc_recv_response_tcpL,
+    tc_try(sc_lc_recv_response_tcpV,
            fun() ->
 		   has_support_vsock()
 	   end,
