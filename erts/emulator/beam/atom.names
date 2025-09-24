@@ -744,6 +744,7 @@ atom total_run_queue_lengths_all
 atom tpkt
 atom trace traced
 atom trace_control_word
+atom trace_info_finish
 atom trace_status
 atom tracer
 atom trap_exit

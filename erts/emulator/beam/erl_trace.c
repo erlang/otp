@@ -64,7 +64,6 @@
 #endif
 
 erts_atomic32_t erts_active_bp_index;
-erts_atomic32_t erts_staging_bp_index;
 
 /* Pseudo export entries. Never filled in with data, only used to
    yield unique pointers of the correct type. */
