@@ -194,7 +194,7 @@ jobs:
     needs: pack
     if: needs.pack.outputs.build-c-code == 'true'
     env:
-      WXWIDGETS_VERSION: 3.2.6
+      WXWIDGETS_VERSION: 3.2.8.1
       MACOS_VERSION: 15
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # ratchet:actions/checkout@v4.2.2
