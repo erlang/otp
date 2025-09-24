@@ -5269,6 +5269,8 @@ erts_proc_sig_handle_pending_suspend(Process *c_p)
         msp = next_msp;
     }
 
+    state = erts_atomic32_read_nob(&c_p->state);
+
     sync = psusp->sync;
 
     while (sync) {
