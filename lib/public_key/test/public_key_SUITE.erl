@@ -107,6 +107,8 @@
          pkix_emailaddress/1,
          pkix_decode_cert/0,
          pkix_decode_cert/1,
+	 pkix_decode_cert_empty_rdns/0,
+	 pkix_decode_cert_empty_rdns/1,
          pkix_path_validation/0,
          pkix_path_validation/1,
          pkix_path_validation_root_expired/0,
@@ -193,6 +195,7 @@ all() ->
      pkix_countryname, 
      pkix_emailaddress, 
      pkix_decode_cert,
+     pkix_decode_cert_empty_rdns,
      pkix_path_validation,
      pkix_path_validation_root_expired,
      pkix_ext_key_usage,
@@ -1015,6 +1018,21 @@ pkix_decode_cert(Config) when is_list(Config) ->
             <<"MIICXDCCAgKgAwIBAgIBATAKBggqhkjOPQQDAjApMRkwFwYDVQQFExBjOTY4NDI4OTMyNzUwOGRiMQwwCgYDVQQMDANURUUwHhcNMjIxMDI5MTczMTA3WhcNMjkwNDE2MjAzNDUzWjAfMR0wGwYDVQQDExRBbmRyb2lkIEtleXN0b3JlIEtleTBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABFmIQDus/jIZ0cPnRCITCzUUuCjQBw8MetO6154mmTL8O/fFlGgYkZ6C8jSSntKC/lMwaZHxAgW1AGgoCrPuX5ejggEjMIIBHzALBgNVHQ8EBAMCB4AwCAYDVR0fBAEAMIIBBAYKKwYBBAHWeQIBEQSB9TCB8gIBAgoBAQIBAwoBAQQgyvsSa116xqleaXs6xA84wqpAPWFgaaTjCWBnZpHslmoEADBEv4VFQAQ+MDwxFjAUBAxjb20ud2hhdHNhcHACBA0+oAQxIgQgOYfQQ9EK769ahxCzZxQY/lfg4ZtlPJ34JVj+tf/OXUQweqEFMQMCAQKiAwIBA6MEAgIBAKUIMQYCAQYCAQSqAwIBAb+DdwIFAL+FPQgCBgGEJMweob+FPgMCAQC/hUAqMCgEIFNB5rJkaXmnDldlMAeh8xAWlCHsm92fGlZI91reAFrxAQH/CgEAv4VBBQIDAV+Qv4VCBQIDAxUYMAoGCCqGSM49BAMCA0gAMEUCIF0BwvRQipVoaz5SIhsYbIeK+FHbAjWPgOxWgQ6Juq64AiEA83ZLsK37DjZ/tZNRi271VHQqIU8mdqUIMboVUiy3DaM=">>),
 
     #'OTPCertificate'{} = public_key:pkix_decode_cert(Der, otp).
+
+%%--------------------------------------------------------------------
+pkix_decode_cert_empty_rdns() ->
+    [{doc, "Ensure that a certificate with empty RDNs in issuer and subject can be decoded"}].
+pkix_decode_cert_empty_rdns(Config) when is_list(Config) ->
+	DataDir = proplists:get_value(data_dir, Config),
+	{ok, Bin} = file:read_file(filename:join(DataDir, "empty_rdns_cert.pem")),
+
+	[{_, DerCert, _}] = public_key:pem_decode(Bin),
+	try public_key:pkix_decode_cert(DerCert, otp)
+	of #'OTPCertificate'{} -> ct:fail("Unexpected success decoding certificate containing empty RDNs", [])
+	catch error:{badmatch, _} -> ok
+	end,
+	#'OTPCertificate'{} = public_key:pkix_decode_cert(DerCert, relaxed),
+	ok.
 
 %%--------------------------------------------------------------------
 pkix_path_validation() ->

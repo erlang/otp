@@ -27,7 +27,7 @@
 
 -include("public_key_internal.hrl").
 
--export([decode_cert/1,
+-export([decode_cert/1, decode_cert/2,
          transform/2,
          supportedPublicKeyAlgorithms/1,
 	 supportedCurvesTypes/1,
@@ -47,7 +47,20 @@
 %% Description: Recursively decodes a Certificate. 
 %%-------------------------------------------------------------------- 
 decode_cert(DerCert) ->
-    {ok, Cert0} = 'OTP-PKIX':decode('OTPCertificate', DerCert),
+    decode_cert(DerCert, otp).
+
+%%--------------------------------------------------------------------
+-spec decode_cert(DerCert :: binary(), Type :: 'otp' | 'relaxed') -> {ok, #'OTPCertificate'{}}.
+%%
+%% Description: Recursively decodes a Certificate with given decoder Type. 
+%%-------------------------------------------------------------------- 
+decode_cert(DerCert, otp) ->
+    decode_cert1(DerCert, 'OTP-PKIX');
+decode_cert(DerCert, relaxed) ->
+    decode_cert1(DerCert, 'OTP-PKIX-Relaxed').
+
+decode_cert1(DerCert, Mod) ->
+    {ok, Cert0} = Mod:decode('OTPCertificate', DerCert),
     Cert = dec_transform(Cert0),
     {ok, Cert}.
 
@@ -450,7 +463,7 @@ decode_extensions(Exts, WhenCRL) ->
 decode_otp_cert_polices(Ext, Value) ->
     %% RFC 3280 states that certificate users SHOULD gracefully handle
     %% explicitText with more than 200 characters.
-    {ok, CPs} = 'OTP-PKIX':decode('OTPCertificatePolicies', Value),
+    {ok, CPs} = 'OTP-PKIX-Relaxed':decode('OTPCertificatePolicies', Value),
     Ext#'Extension'{extnValue=[translate_cert_polices(CP) || CP <- CPs]}.
 
 translate_cert_polices(#'OTPPolicyInformation'{policyIdentifier = Id, policyQualifiers = Qs0}) ->
