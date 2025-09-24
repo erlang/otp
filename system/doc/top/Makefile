@@ -81,9 +81,11 @@ man_index.md: src/otp_man_index.beam $(wildcard $(ERL_TOP)/erts/ebin/*.beam) $(w
 
 core/erts.md: Makefile | core
 	$(gen_verbose)echo "# erts" > $@
+
+MISSING_APP_DISCLAIMER="The documentation for this application was not generated because the application was skipped during the source build."
 %.md: Makefile | core database oam interfaces tools testing documentation
 	$(gen_verbose)APP=$(basename $(notdir $@)) && \
-		echo "# $${APP}" > $@
+		echo "# $${APP}\n\n$(MISSING_APP_DISCLAIMER)\n" > $@
 
 HTML_DEPS=README.md man_index.md ../guides $(REDIRECTS)
 EPUB=false
