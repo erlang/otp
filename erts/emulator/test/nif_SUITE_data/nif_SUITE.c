@@ -3765,9 +3765,9 @@ static ERL_NIF_TERM ioq(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     return enif_make_badarg(env);
 }
 
-static ERL_NIF_TERM make_bool(ErlNifEnv* env, int bool)
+static ERL_NIF_TERM make_bool(ErlNifEnv* env, int boolean)
 {
-    return bool ? atom_true : atom_false;
+    return boolean ? atom_true : atom_false;
 }
 
 static ERL_NIF_TERM get_local_pid_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
