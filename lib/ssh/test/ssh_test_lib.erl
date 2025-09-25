@@ -1443,6 +1443,21 @@ process_event(#{msg := {report,
     io_lib:format("[~44s]  ~6s ~30s ~150s~n",
                   [io_lib:format("~p", [E]) ||
                       E <- [Pid, Level, Label]] ++ [io_lib:format(Format, Args)]);
+process_event(#{msg := {Format, Args},
+                meta := #{pid := Pid},
+                level := Level}) when is_list(Format), is_list(Args)->
+    io_lib:format("[~44s]  ~6s~n~s~n",
+                  [io_lib:format("~p", [E]) ||
+                      E <- [Pid, Level]] ++ [io_lib:format(Format, Args)]);
+process_event(#{msg := {report,
+                        #{label := Label,
+                          reason := Reason,
+                          process_label := ProcessLabel}},
+                meta := #{pid := Pid},
+                level := Level}) ->
+    io_lib:format("[~44s]  ~6s ~30s ~30s~n~s~n",
+                  [io_lib:format("~p", [E]) ||
+                      E <- [Pid, Level, Label, ProcessLabel, Reason]]);
 process_event(E) ->
     io_lib:format("~n||RAW event||~n~p~n", [E]).
 
