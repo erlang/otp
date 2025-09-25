@@ -429,7 +429,7 @@ compile(Code, Options) when not is_list(Code)->
         _ -> compile([Code], Options)
     end;
 compile(Code, Options0) when is_list(Options0) ->
-    Forms = [erl_syntax:revert(F) || F <- Code],
+    Forms = erl_syntax:revert_forms(Code),
     Options = [verbose, report_errors, report_warnings, binary | Options0],
     compile:noenv_forms(Forms, Options).
 

@@ -1,4 +1,11 @@
-%% ``Licensed under the Apache License, Version 2.0 (the "License");
+%%
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
 %%
@@ -9,11 +16,9 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
-%% The Initial Developer of the Original Code is Ericsson Utvecklings AB.
-%% Portions created by Ericsson are Copyright 1999, Ericsson Utvecklings
-%% AB. All Rights Reserved.''
-%% 
+%%
+%% %CopyrightEnd%
+%%
 -module(merl_SUITE).
 
 -include_lib("common_test/include/ct.hrl").
@@ -25,19 +30,21 @@
 -include_lib("eunit/include/eunit.hrl").
 
 %% Test server specific exports
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1,
 	 init_per_group/2,end_per_group/2]).
 
 %% Test cases
 -export([merl_smoke_test/1,
-         transform_parse_error_test/1, otp_15291/1]).
+         transform_parse_error_test/1, otp_15291/1,
+         compile_and_load_with_comments/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() ->
     [merl_smoke_test,
      transform_parse_error_test,
-     otp_15291].
+     otp_15291,
+     compile_and_load_with_comments].
 
 groups() -> 
     [].
@@ -110,6 +117,18 @@ otp_15291(_Config) ->
     {clause,A1,[{var,A1,'_'},{var,A1,'_'}],[],[{atom,A1,ok}]} = C2,
     C1 = merl:quote("(_) -> ok"),
     {clause,A1,[{var,A1,'_'}],[],[{atom,A1,ok}]} = C1,
+    ok.
+
+compile_and_load_with_comments(_Config) ->
+    ?assertMatch({ok, _},
+                 merl:compile_and_load(merl:quote(
+                     ~"-module(merl_test_module_1)."))),
+    ?assertMatch({ok, _},
+                 merl:compile_and_load(merl:quote(
+                     ~"-module(merl_test_module_2). % comment"))),
+    ?assertMatch({ok, _},
+                 merl:compile_and_load(merl:quote(
+                     ~"\n-module(merl_test_module_3).\n% comment"))),
     ok.
 
 %% utilities
