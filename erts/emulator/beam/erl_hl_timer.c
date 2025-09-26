@@ -714,25 +714,29 @@ port_timeout_common(Port *port, void *tmr)
     return 0;
 }
 
+static ERTS_INLINE void
+init_btm_message(ErtsBifTimer *tmr, Eterm msg)
+{
+    Uint hsz = is_immed(msg) ? ((Uint) 0) : size_object(msg);
+    if (!hsz) {
+        tmr->btm.message = msg;
+        tmr->btm.bp = NULL;
+    } else {
+        ErlHeapFragment *bp = new_message_buffer(hsz);
+        Eterm *hp = bp->mem;
+        tmr->btm.message = copy_struct(msg, hsz, &hp, &bp->off_heap);
+        tmr->btm.bp = bp;
+    }
+}
+
 static ERTS_INLINE erts_aint_t
 init_btm_specifics(ErtsSchedulerData *esdp,
                    ErtsBifTimer *tmr, Eterm msg,
                    Uint32 *refn
     )
 {
-    Uint hsz = is_immed(msg) ? ((Uint) 0) : size_object(msg);
-    int refc;
-    if (!hsz) {
-        tmr->btm.message = msg;
-        tmr->btm.bp = NULL;
-    }
-    else {
-        ErlHeapFragment *bp = new_message_buffer(hsz);
-        Eterm *hp = bp->mem;
-        tmr->btm.message = copy_struct(msg, hsz, &hp, &bp->off_heap);
-        tmr->btm.bp = bp;
-    }
-    refc = 0;
+    int refc = 0;
+    init_btm_message(tmr, msg);
     tmr->btm.refn[0] = refn[0];
     tmr->btm.refn[1] = refn[1];
     tmr->btm.refn[2] = refn[2];
@@ -796,9 +800,9 @@ schedule_tw_timer_destroy(ErtsTWTimer *tmr)
      * Reference to process/port can be
      * dropped at once...
      */
-    if (tmr->head.roflgs & ERTS_TMR_ROFLG_PROC) {
+    if (tmr->head.roflgs & ERTS_TMR_ROFLG_PROC)
 	erts_proc_dec_refc(tmr->head.receiver.proc);
-    } else if (tmr->head.roflgs & ERTS_TMR_ROFLG_PORT)
+    else if (tmr->head.roflgs & ERTS_TMR_ROFLG_PORT)
 	erts_port_dec_refc(tmr->head.receiver.port);
 
     if (!(tmr->head.roflgs & ERTS_TMR_ROFLG_BIF_TMR))
@@ -969,38 +973,32 @@ create_tw_timer(ErtsSchedulerData *esdp,
  * Paused bif timers
  */
 
+static ERTS_INLINE uint64_t
+time_left_for_timer_in_msec(ErtsTimer* tmr, ErtsSchedulerData *esdp)
+{
+    ErtsMonotonicTime timeout_pos;
+    int is_hlt = !!(tmr->head.roflgs & ERTS_TMR_ROFLG_HLT);
+    timeout_pos = (is_hlt
+            ? tmr->hlt.timeout
+            : erts_tweel_read_timeout(&tmr->twt.u.tw_tmr));
+    return get_time_left(esdp, timeout_pos);
+}
+
 static ERTS_INLINE ErtsPausedBifTimer *
 create_paused_bif_timer(ErtsBifTimer *tmr, Process *c_p, ErtsSchedulerData *esdp)
 {
-    ErtsMonotonicTime timeout_pos;
-    Uint hsz;
     ErtsPausedBifTimer *result = erts_alloc(ERTS_ALC_T_PAUSED_TIMER,
         sizeof(ErtsPausedBifTimer));
-    int is_hlt = !!(tmr->type.head.roflgs & ERTS_TMR_ROFLG_HLT);
 
     ASSERT(!(tmr->type.head.roflgs & ERTS_TMR_ROFLG_PAUSED));
 
-    // The code that follows is a copy of init_btm_specifics
-    hsz = is_immed(tmr->btm.message) ? ((Uint) 0) : size_object(tmr->btm.message);
-    if (!hsz) {
-        result->tmr.btm.message = tmr->btm.message;
-        result->tmr.btm.bp = NULL;
-    }
-    else {
-        ErlHeapFragment *bp = new_message_buffer(hsz);
-        Eterm *hp = bp->mem;
-        result->tmr.btm.message = copy_struct(tmr->btm.message, hsz, &hp, &bp->off_heap);
-        result->tmr.btm.bp = bp;
-    }
+    init_btm_message(&result->tmr, tmr->btm.message);
 
     result->tmr.type.head.roflgs = tmr->type.head.roflgs | ERTS_TMR_ROFLG_PAUSED;
     erts_atomic32_init_nob(&result->tmr.type.head.refc, 1);
     result->tmr.type.head.receiver.proc = tmr->type.head.receiver.proc;
 
-    timeout_pos = (is_hlt
-            ? tmr->type.hlt.timeout
-            : erts_tweel_read_timeout(&tmr->type.twt.u.tw_tmr));
-    result->time_left_in_msec = get_time_left(esdp, timeout_pos);
+    result->time_left_in_msec = time_left_for_timer_in_msec((ErtsTimer *) tmr, esdp);
 
     return result;
 }
@@ -1023,9 +1021,6 @@ create_paused_proc_timer(Process *c_p)
             ErtsPausedProcTimer *pptmr = (ErtsPausedProcTimer*) tmr;
             pptmr->count++;
         } else {
-            int is_hlt = !!(tmr->head.roflgs & ERTS_TMR_ROFLG_HLT);
-            ErtsMonotonicTime timeout_pos;
-
             ASSERT(tmr->head.roflgs & ERTS_TMR_ROFLG_PROC);
 
             result = erts_alloc(ERTS_ALC_T_PAUSED_TIMER,
@@ -1034,10 +1029,7 @@ create_paused_proc_timer(Process *c_p)
             erts_atomic32_init_nob(&result->head.refc, 1);
             result->head.receiver.proc = tmr->head.receiver.proc;
 
-            timeout_pos = (is_hlt
-                       ? tmr->hlt.timeout
-                       : erts_tweel_read_timeout(&tmr->twt.u.tw_tmr));
-            result->time_left_in_msec = get_time_left(esdp, timeout_pos);
+            result->time_left_in_msec = time_left_for_timer_in_msec(tmr, esdp);
             result->count = 1;
         }
     }
