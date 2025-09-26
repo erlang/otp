@@ -1140,7 +1140,7 @@ avp_vendor_id(Flags, Name, Line, Dict) ->
 %% Import AVPs.
 
 pass3(Dict, Opts) ->
-    import_enums(import_groups(import_avps(insert_codes(Dict), Opts))).
+    import_enums(import_groups(import_avps(import_inherits(insert_codes(Dict), Opts))), Opts).
 
 %% insert_codes/1
 %%
@@ -1168,10 +1168,22 @@ mk_code(_Code, [[Line, _Name, IsReq]]) ->
                               Line,
                               choose(IsReq, "answer", "request")]).
 
-%% import_avps/2
+%% import_inherits/2
+import_inherits(Dict, Opts) ->
+    code:add_pathsa([D || {include, D} <- Opts]),
 
-import_avps(Dict, Opts) ->
-    Import = inherit(Dict, Opts),
+    case lists:member(indirect_inherits, Opts) of
+        true ->
+            AllInherits = get_all_inherits(Dict),
+            dict:store(inherits, AllInherits, Dict);
+        false ->
+            Dict
+    end.
+
+%% import_avps/1
+
+import_avps(Dict) ->
+    Import = inherit(Dict),
     report(imported, Import),
 
     %% examine/1 tests that all referenced AVP's are either defined
@@ -1205,8 +1217,17 @@ xi({L, {Name, _Code, _Type, _Flags} = A}, Dict, Mod, Line) ->
 import_groups(Dict) ->
     dict:store(import_groups, import(grouped, Dict), Dict).
 
-import_enums(Dict) ->
-    dict:store(import_enums, import(enum, Dict), Dict).
+import_enums(Dict, Opts) ->
+    Enums = import(enum, Dict),
+    case lists:member(indirect_inherits, Opts) of
+        true ->
+            Inherits = find(inherits, Dict),
+            ImportedAvps = dict:fetch(import_avps, Dict),
+            InheritedEnums = inherit_enums_for_defined_avps(Inherits, Enums, ImportedAvps, []),
+            dict:store(import_enums, Enums ++ InheritedEnums, Dict);
+        false ->
+            dict:store(import_enums, Enums, Dict)
+    end.
 
 import(Key, Dict) ->
     flatmap([fun import_key/2, Key], dict:fetch(import_avps, Dict)).
@@ -1224,14 +1245,13 @@ import_key({Mod, Avps}, Key) ->
     end.
 
 %% ------------------------------------------------------------------------
-%% inherit/2
+%% inherit/1
 %%
 %% Return a {Mod, Line, [{Lineno, Avp}]} list, where Mod is a module
 %% name, Line points to the corresponding @inherit and each Avp is
 %% from Mod:dict(). Lineno is 0 if the import is implicit.
 
-inherit(Dict, Opts) ->
-    code:add_pathsa([D || {include, D} <- Opts]),
+inherit(Dict) ->
     foldl(fun inherit_avps/2, [], find(inherits, Dict)).
 %% Note that the module order of the returned lists is reversed
 %% relative to @inherits.
@@ -1262,10 +1282,22 @@ acc_avp({Name, _Code, _Type, _Flags} = A, {Found, Not} = Acc) ->
             Acc
     end.
 
-%% avps_from_module/2
+%% avps_from_module/1
 
 avps_from_module(Mod) ->
     orddict:fetch(avp_types, dict(Mod)).
+
+%% imported_avps_from_module/1
+imported_avps_from_module(Mod) ->
+    orddict:fetch(import_avps, dict(Mod)).
+
+%% enums_from_module/1
+enums_from_module(Mod) ->
+    orddict:fetch(enum, dict(Mod)).
+
+%% inherits from module/1
+inherits_from_module(Mod) ->
+    orddict:fetch(inherits, dict(Mod)).
 
 dict(Mod) ->
     try Mod:dict() of
@@ -1280,6 +1312,90 @@ dict(Mod) ->
                            no_dict),
                     [Mod])
     end.
+
+%% inherited_modules/2
+%% Returns list of inherited modules, without returning module in which avp is defined
+inherited_modules(Mod, Inherits) ->
+    lists:filtermap(fun([_, {_, _, M} | _Names]) ->
+                            AM = ?A(M),
+                            case AM of
+                                Mod ->
+                                    false;
+                                _ ->
+                                    {true, AM}
+                            end
+                    end, Inherits).
+
+%% enums_and_avps_from_modules/1
+%% Returns a list of {Mod, Enums, Avps} from modules
+enums_and_avps_from_modules(Mods) ->
+    [{Mod, enums_from_module(Mod), imported_avps_from_module(Mod)} || Mod <- Mods].
+
+%% inherit_enums_for_defined_avps/4
+%% This inherits enum values for all defined AVPs from all inherited modules.
+inherit_enums_for_defined_avps(_Inherits, [], _Avps, Acc) ->
+    Acc;
+inherit_enums_for_defined_avps(Inherits, [{Mod, Enums} | Rest], Avps, Acc) ->
+    Mods = inherited_modules(Mod, Inherits),
+    EnumsAvps = enums_and_avps_from_modules(Mods),
+    Inherited = lists:foldl(fun({Name, _Values}, AccIn) ->
+                                    case find_avp(Name, "Enumerated", Avps) of
+                                        [] ->
+                                            AccIn;
+                                        [{Name, _Id, _Type, _Flags} = Avp] ->
+                                            case find_enum_with_same_avp_id(Avp, EnumsAvps) of
+                                                [] ->
+                                                    AccIn;
+                                                FoundEnums ->
+                                                    AccIn ++ FoundEnums
+                                            end
+                                    end
+                            end, [], Enums),
+    %% Sort according to inheritance chain, this is important in order to generate
+    %% correct encode/decode code for inherited enums
+    Sorted = lists:sort(fun({A, _}, {B, _}) ->
+                                InheritsFromModule = inherits_from_module(B),
+                                lists:any(fun({StringMod, _}) ->
+                                                  ?A(StringMod) == A
+                                          end, InheritsFromModule)
+                        end, Acc ++ Inherited),
+    inherit_enums_for_defined_avps(Inherits, Rest, Avps, Sorted).
+
+%% find_avp/3
+%% Find an AVP by name and type in a list of AVPs.
+find_avp(Name, Type, Avps) ->
+    lists:filtermap(fun({_Mod, AvpsInModule}) ->
+                            case lists:keyfind(Name, 1, AvpsInModule) of
+                                {Name, _Id, Type, _Flags} = Avp ->
+                                    {true, Avp};
+                                _ ->
+                                    false
+                            end
+                    end, Avps).
+
+%% find_enum_with_same_avp_id/2
+%% Find an enum with the same AVP id as the given AVP in a list of
+%% {Mod, Enums, Avps} tuples.
+find_enum_with_same_avp_id({Name, _Id, _Type, _Flags} = Avp, EnumsAvps) ->
+    lists:filtermap(fun({Mod, Enums, Avps}) ->
+                            case {find_avp_in_imported_avps(Avp, Avps),
+                                  find_enum_with_name(Name, Enums)} of
+                                {{value, _}, {value, Enum}} ->
+                                    {true, {Mod, [Enum]}};
+                                _ ->
+                                    false
+                            end
+                    end, EnumsAvps).
+
+%% find_avp_in_imported_avps/2
+%% Check if an AVP is present in the imported AVPs of a module.
+find_avp_in_imported_avps(Avp, ImportedAvps) ->
+    lists:search(fun({_Mod, Avps}) -> lists:member(Avp, Avps) end, ImportedAvps).
+
+%% find_enum_with_name/2
+%% Find an enum by name in a list of Enums.
+find_enum_with_name(Name, Enums) ->
+    lists:keysearch(Name, 1, Enums).
 
 %% ===========================================================================
 %% examine/1
@@ -1373,3 +1489,99 @@ eval([[F|X] | A]) ->
     eval([F | A ++ X]);
 eval([F|A]) ->
     apply(F,A).
+
+%% ===========================================================================
+
+get_all_inherits(Dict) ->
+    case find(inherits, Dict) of
+        [] ->
+            [];
+        Inherits ->
+            Nested = lists:flatmap(fun([_Line, {_, _, Mod} | _Names]) ->
+                                           get_all_inherits_from_module(dict(?A(Mod)))
+                                   end, Inherits),
+            combine_inherits(lists:enumerate(Inherits ++ Nested), maps:new())
+    end.
+
+get_all_inherits_from_module(List) ->
+    case proplists:get_value(inherits, List, []) of
+        [] ->
+            [];
+        Inherits ->
+            Nested = lists:flatmap(fun([]) ->
+                                           [];
+                                      ({Mod, _}) ->
+                                           get_all_inherits_from_module(dict(?A(Mod)))
+                                   end, Inherits),
+            Converted = [convert_to_nested_inherit(Inherit) || Inherit <- Inherits],
+            lists:append(Converted, Nested)
+    end.
+
+%% ===========================================================================
+
+convert_to_nested_inherit({Mod, []}) ->
+    [0, {word, 0, Mod}];
+convert_to_nested_inherit({Mod, Names}) ->
+    AvpNames = [{word, 0, Name} || Name <- Names],
+    [0, {word, 0, Mod} | AvpNames].
+
+%% ===========================================================================
+
+combine_inherits([], Acc) ->
+    Values = lists:flatten(maps:values(Acc)),
+    Sorted = lists:sort(Values),
+    [Inherit || {_Index, Inherit} <- Sorted];
+combine_inherits([{_, [Line, {_, _, Mod} | Names]} = Inherit | Rest], Acc) ->
+    case maps:get(Mod, Acc, undefined) of
+        undefined ->
+            %% Inherit to Mod is not present in Acc yet
+            NewAcc = maps:put(Mod, [Inherit], Acc),
+            combine_inherits(Rest, NewAcc);
+        [{_, [LinePrev, {_, _, Mod} | _NamesPrev]} | _] = PrevInherits when Line /= 0, LinePrev /= 0 ->
+            %% All inherits are not on line 0, they are in the same dictionary
+            %% we must not combine them, but preserve all of them
+            %% so it's detected as an error by the compiler
+            NewAcc = maps:put(Mod, PrevInherits ++ [Inherit], Acc),
+            combine_inherits(Rest, NewAcc);
+        [{_, [LinePrev, {_, _, Mod}]}] when Names == [], LinePrev /= 0 ->
+            %% Inherit to whole Mod with non-zero line number is present in Acc,
+            %% we can ignore our Inherit
+            combine_inherits(Rest, Acc);
+        [{_, [_LinePrev, {_, _, Mod}]}] when Names == [], Line /= 0 ->
+            %% We have whole module inherit with non-zero line number, we can replace previous
+            %% one with line number zero
+            NewAcc = maps:put(Mod, [Inherit], Acc),
+            combine_inherits(Rest, NewAcc);
+        [{_, [_LinePrev, {_, _, Mod}]}] when length(Names) > 0 ->
+            %% We have limited inherit, but there is already whole module inherit in Acc,
+            %% we ignore our inherit
+            combine_inherits(Rest, Acc);
+        _PrevInherits when Names == [] ->
+            %% Some names from Mod are already inherited, but we can replace previous inherit with
+            %% whole module Inherit
+            NewAcc = maps:put(Mod, [Inherit], Acc),
+            combine_inherits(Rest, NewAcc);
+        PrevInherits ->
+            %% Some names from Mod are already inherited, we must keep multiple inherits, but
+            %% remove names that intersect between previous inherits, and this one
+            PrevInheritsNoDuplicates = remove_duplicated_names(PrevInherits, Names, []),
+            NewAcc = maps:put(Mod, PrevInheritsNoDuplicates ++ [Inherit], Acc),
+            combine_inherits(Rest, NewAcc)
+    end.
+
+%% ===========================================================================
+
+remove_duplicated_names([], _Names, Acc) ->
+    lists:reverse(Acc);
+remove_duplicated_names([{IndexPrev, [LinePrev, M | NamesPrev]} | Rest], Names, Acc) ->
+    case lists:foldl(fun({_, _, Name}, FAcc) ->
+                             lists:keydelete(Name, 3, FAcc)
+                     end, NamesPrev, Names) of
+        [] ->
+            %% All names are intersected, none would be left, remove whole inherit
+            remove_duplicated_names(Rest, Names, Acc);
+        NamesPrevNoDup ->
+            %% Only some names are intersected, save everything else, and move on
+            NewAcc = [{IndexPrev, [LinePrev, M | NamesPrevNoDup]} | Acc],
+            remove_duplicated_names(Rest, Names, NewAcc)
+    end.

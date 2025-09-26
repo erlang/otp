@@ -45,7 +45,7 @@ source. Valid options are as follows.
 
 - **\-i <dir>** - Prepend the specified directory to the code path. Use to
   point at beam files compiled from inherited dictionaries,
-  `[@inherits](diameter_dict.md#inherits)` in a dictionary file creating a
+  [@inherits](diameter_dict.md#inherits) in a dictionary file creating a
   beam dependency, not an erl/hrl dependency.
 
   Multiple `-i` options can be specified.
@@ -60,11 +60,11 @@ source. Valid options are as follows.
 - **\--name <name>** - Name the output module.
 
 - **\--prefix <prefix>** - Transform the input dictionary before compilation,
-  setting `[@name](diameter_dict.md#name)` or
-  `[@prefix](diameter_dict.md#prefix)` to the specified string.
+  setting [@name](diameter_dict.md#name) or
+  [@prefix](diameter_dict.md#prefix) to the specified string.
 
 - **\--inherits <arg>** - Transform the input dictionary before compilation,
-  appending `[@inherits](diameter_dict.md#inherits)` of the specified string.
+  appending [@inherits](diameter_dict.md#inherits) of the specified string.
 
   Two forms of `--inherits` have special meaning:
 
@@ -79,6 +79,9 @@ source. Valid options are as follows.
   itself.
 
   Multiple `--inherits` options can be specified.
+
+- **\--indirect-inherits** - Enables indirect inherits feature, see more
+  [here](`diameter_make:codec/2`).
 
 # EXIT STATUS
 
