@@ -795,13 +795,13 @@ $ <input>erl \
         <taglist>
         <tag><c>no_time_warp</c></tag>
           <item><seeguide marker="time_correction#No_Time_Warp_Mode">
-            No time warp mode</seeguide> (the default)</item>
+            No time warp mode</seeguide></item>
           <tag><c>single_time_warp</c></tag>
           <item><seeguide marker="time_correction#Single_Time_Warp_Mode">
             Single time warp mode</seeguide></item>
           <tag><c>multi_time_warp</c></tag>
           <item><seeguide marker="time_correction#Multi_Time_Warp_Mode">
-            Multi-time warp mode</seeguide></item>
+            Multi-time warp mode</seeguide> (the default since Erlang/OTP 26.0)</item>
       </taglist>
       </item>
       <tag><c><![CDATA[+d]]></c></tag>
