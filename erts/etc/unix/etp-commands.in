@@ -426,8 +426,17 @@ define etp-boxed-immediate-1
                 else
                   # Hexdump the rest
                   if ($etp_boxed_immediate_h == etp_fun_subtag)
-                    printf "#Fun<"
+                    set $etp_boxed_immediate_arity = \
+                      ((($etp_boxed_immediate_p[0] >> \
+                         etp_header_fun_env_size_offs) & 0xff) + 1)
+                    if ($etp_boxed_immediate_p[0] >> etp_header_fun_kind_offs)
+                      printf "#FunX<"
+                    else
+                      printf "#FunL<"
+                    end
                   else
+                    set $etp_boxed_immediate_arity = \
+                      ($etp_boxed_immediate_p[0] >> etp_header_arity_offs)
                     if ($etp_boxed_immediate_h == etp_bin_ref_subtag)
                       printf "#BinRef<"
                     else
@@ -442,8 +451,6 @@ define etp-boxed-immediate-1
                       end
                     end
                   end
-                  set $etp_boxed_immediate_arity = \
-                    ($etp_boxed_immediate_p[0] >> etp_header_arity_offs)
                   while $etp_boxed_immediate_arity > 0
                     set $etp_boxed_immediate_p++
                     if $etp_boxed_immediate_arity > 1
