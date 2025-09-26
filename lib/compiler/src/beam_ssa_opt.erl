@@ -357,48 +357,49 @@ fdb_fs([#b_function{ args=Args,bs=Bs }=F | Fs], Exports, FuncDb0) ->
     Exported = gb_sets:is_element({Name, Arity}, Exports),
     ArgTypes = duplicate(length(Args), #{}),
 
-    FuncDb1 = case FuncDb0 of
-                  %% We may have an entry already if someone's called us.
-                  #{ Id := Info } ->
-                      FuncDb0#{ Id := Info#func_info{ exported=Exported,
-                                                      arg_types=ArgTypes }};
-                  #{} ->
-                      FuncDb0#{ Id => #func_info{ exported=Exported,
-                                                  arg_types=ArgTypes }}
-              end,
-
     RPO = beam_ssa:rpo(Bs),
-    FuncDb = beam_ssa:fold_blocks(fun(_L, #b_blk{is=Is}, FuncDb) ->
-                                       fdb_is(Is, Id, FuncDb)
-                               end, RPO, FuncDb1, Bs),
+    Callees0 = beam_ssa:fold_blocks(fun(_L, #b_blk{is=Is}, Acc) ->
+                                            fdb_is(Is, Acc)
+                                    end, RPO, [], Bs),
+    Callees = ordsets:from_list(Callees0),
+
+    CallerVertex0 = maps:get(Id, FuncDb0, #func_info{}),
+    CallerVertex = CallerVertex0#func_info{exported=Exported,
+                                           arg_types=ArgTypes,
+                                           out=Callees},
+    FuncDb = FuncDb0#{Id => CallerVertex},
 
     fdb_fs(Fs, Exports, FuncDb);
-fdb_fs([], _Exports, FuncDb) ->
-    FuncDb.
+fdb_fs([], _Exports, FuncDb0) ->
+    S0 = [{Caller,Callees} || Caller := #func_info{out=Callees} <:- FuncDb0],
+    S1 = sofs:family(S0),
+    S2 = sofs:family_to_relation(S1),
+    S3 = sofs:converse(S2),
+    S4 = sofs:relation_to_family(S3),
+    S = sofs:to_external(S4),
+    fdb_update_callees(S, FuncDb0).
 
 fdb_is([#b_set{op=call,
                args=[#b_local{}=Callee | _]} | Is],
-       Caller, FuncDb) ->
-    fdb_is(Is, Caller, fdb_update(Caller, Callee, FuncDb));
+       Acc) ->
+    fdb_is(Is, [Callee|Acc]);
 fdb_is([#b_set{op=make_fun,args=[#b_local{}=Callee | _]} | Is],
-       Caller, FuncDb) ->
+       Acc) ->
     %% The make_fun instruction's type depends on the return type of the
     %% function in question, so we treat this as a function call.
-    fdb_is(Is, Caller, fdb_update(Caller, Callee, FuncDb));
-fdb_is([_ | Is], Caller, FuncDb) ->
-    fdb_is(Is, Caller, FuncDb);
-fdb_is([], _Caller, FuncDb) ->
+    fdb_is(Is, [Callee|Acc]);
+fdb_is([_ | Is], Acc) ->
+    fdb_is(Is, Acc);
+fdb_is([], Acc) ->
+    Acc.
+
+fdb_update_callees([{Callee,CalledBy}|Calls], FuncDb0) ->
+    CalleeVertex = map_get(Callee, FuncDb0),
+    FuncDb = FuncDb0#{Callee := CalleeVertex#func_info{in=CalledBy}},
+    fdb_update_callees(Calls, FuncDb);
+fdb_update_callees([], FuncDb) ->
     FuncDb.
 
-fdb_update(Caller, Callee, FuncDb) ->
-    CallerVertex = maps:get(Caller, FuncDb, #func_info{}),
-    CalleeVertex = maps:get(Callee, FuncDb, #func_info{}),
-
-    Calls = ordsets:add_element(Callee, CallerVertex#func_info.out),
-    CalledBy = ordsets:add_element(Caller, CalleeVertex#func_info.in),
-
-    FuncDb#{ Caller => CallerVertex#func_info{out=Calls},
-             Callee => CalleeVertex#func_info{in=CalledBy} }.
 
 %% Returns the post-order of all local calls in this module. That is,
 %% called functions will be ordered before the functions calling them.
