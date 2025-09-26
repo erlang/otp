@@ -618,6 +618,7 @@ render_type(Module, D) ->
   render_type(Module, D, #{}).
 
 %% extract AST raw type specifications.
+-doc false.
 -spec extract_type_specs(module()) -> map().
 extract_type_specs(Module) ->
   maybe

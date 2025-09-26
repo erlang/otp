@@ -20,31 +20,37 @@
 %% %CopyrightEnd%
 %%
 -module(man_docs).
+-moduledoc false.
+
 -include_lib("kernel/include/eep48.hrl").
 
--export([module_to_manpage/2, module_to_manpage/3, markdown_to_manpage/2]).
+-export([module_to_manpage/3, module_to_manpage/4, markdown_to_manpage/3]).
 
 %% Formats a module documentation as a roff man page.
 %% Fetches the documentation for a module with `code:get_doc/1`
--spec module_to_manpage(Module, Path) -> unicode:chardata() when
+-spec module_to_manpage(Module, Path, Section) -> unicode:chardata() when
         Module :: module(),
-        Path :: string().
-module_to_manpage(Module, Path) when is_atom(Module) ->
+        Path :: string(),
+        Section :: string().
+module_to_manpage(Module, Path, Section) when is_atom(Module) ->
     case code:get_doc(Module) of
         {ok, Docs} ->
-                module_to_manpage(Module, Path, Docs);
+                module_to_manpage(Module, Path, Docs, Section);
         _Error ->
             ~""
     end.
--spec module_to_manpage(Module, Path, Docs) -> unicode:chardata() when
+-spec module_to_manpage(Module, Path, Docs, Section) -> unicode:chardata() when
         Module :: module(),
         Path :: string(),
-        Docs :: #docs_v1{}.
-module_to_manpage(_Module, _Path, #docs_v1{module_doc = None}) when None =:= none; None =:= hidden ->
+        Docs :: #docs_v1{},
+        Section :: string().
+module_to_manpage(_Module, _Path, #docs_v1{module_doc = None}, _Section) when None =:= none; None =:= hidden ->
     ~"";
-module_to_manpage(Module, Path, #docs_v1{module_doc = #{~"en" := ModuleDoc}, docs = AllDocs})
+module_to_manpage(Module, Path, #docs_v1{module_doc = #{~"en" := ModuleDoc}, docs = AllDocs}, Section)
     when is_atom(Module) ->
-    PreludeNDescription = markdown_to_manpage(ModuleDoc, Path),
+    PreludeNDescription = if is_binary(ModuleDoc) -> markdown_to_manpage(ModuleDoc, Path, Section);
+        true -> markdown_to_manpage1(ModuleDoc, Path, Section)
+    end,
 
     Types = [Doc || {{type,_,_},_,_,_,_}=Doc <- AllDocs],
     TypesSection = format_section("DATA TYPES", Types, Module, AllDocs),
@@ -56,10 +62,10 @@ module_to_manpage(Module, Path, #docs_v1{module_doc = #{~"en" := ModuleDoc}, doc
     iolist_to_binary([PreludeNDescription, TypesSection, FunctionsSection, CallbacksSection]).
 
 %% Formats markdown as a roff man page.
--spec markdown_to_manpage(binary() | shell_docs:chunk_elements(), file:filename()) -> binary().
-markdown_to_manpage(Markdown, Path) when is_binary(Markdown) ->
-        markdown_to_manpage(shell_docs_markdown:parse_md(Markdown), Path);
-markdown_to_manpage(MarkdownChunks, Path) ->
+-spec markdown_to_manpage(binary(), file:filename(), string()) -> binary().
+markdown_to_manpage(Markdown, Path, Section) ->
+        markdown_to_manpage1(shell_docs_markdown:parse_md(Markdown), Path, Section).
+markdown_to_manpage1(MarkdownChunks, Path, Section) ->
     Path1 = filename:absname(Path),
     App = case filename:split(string:prefix(Path1, os:getenv("ERL_TOP"))) of
         ["/", "lib", AppStr | _] ->
@@ -80,8 +86,8 @@ markdown_to_manpage(MarkdownChunks, Path) ->
     Extension = filename:extension(Path),
     FileName = list_to_binary(filename:rootname(filename:basename(Path), Extension)),
     Name = get_name(MarkdownChunks, FileName),
-    Prelude = io_lib:format(".TH ~s 3 \"~s ~s\" \"Ericsson AB\" \"Erlang Module Definition\"\n",
-                            [Name, atom_to_binary(App), Version]),
+    Prelude = io_lib:format(".TH ~s ~s \"~s ~s\" \"Ericsson AB\" \"Erlang Module Definition\"\n",
+                            [Name, Section, atom_to_binary(App), Version]),
     I = conv(MarkdownChunks, Name),
     iolist_to_binary([Prelude|I]).
 
@@ -113,10 +119,11 @@ conv([{h1,_,[Head]}|T],_) ->
     Name = ~".SH NAME\n",
     Desc = ~".SH DESCRIPTION\n",
     [Name,Head,$\n,Desc|format(T)];
-conv([H|T], Head) ->
+conv([{p,_,_}=ShortDesc0|T], Head) ->
     Name = ~".SH NAME\n",
     Desc = ~".SH DESCRIPTION\n",
-    [Name,Head,~" - ",format_one(H),$\n,Desc|format(T)].
+    [~".PP\n"|ShortDesc] = format_one(ShortDesc0),
+    [Name,Head,~B" \- ",ShortDesc,$\n,Desc|format(T)].
 
 escape(Text) when is_list(Text) ->
     escape(iolist_to_binary(Text));
@@ -136,10 +143,12 @@ format_one({h1,_,Hs}) ->
     [~'.SH "',Hs,~'"\n'];
 format_one({h2,_,Hs}) ->
     [~'.SS "',Hs,~'"\n'];
+format_one({h3,item,H}) ->
+    [~"\\fB",format_p_item(H),"\\fR"];
 format_one({h3,_,[Hs]}) when is_binary(Hs) ->
     [~'.PP\n\\fB',Hs,~'\\fR\n'];
-format_one({h3,_,Hs}) ->
-    [~'.PP\n\\fB',format_p(Hs),~'\\fR\n'];
+format_one({h3,_,Hs}) when is_list(Hs) ->
+    [~'.PP\n',[format_one({h3,item,Hi})||Hi<-Hs],~"\n"];
 format_one({h4,_,Hs}) ->
     format_one({h3,[],Hs});
 format_one({h5,_,Hs}) ->
@@ -152,16 +161,18 @@ format_one({ol,_,Ol}) ->
     format_ol(Ol);
 format_one({ul,_,Ul}) ->
     format_ul(Ul);
+format_one({a,_,[{code,_,Text}]}) ->
+    [~B"\fI",format_p_item(Text),~B"\fR"];
 format_one({a,_,Text}) ->
-    [~B"\fI",format(Text),~B"\fR"];
+    [~B"\fI",format_p_item(Text),~B"\fR"];
 format_one({code,_,Text}) ->
-    [~B"\fI",format(Text),~B"\fR"];
+    [~B"\fI",format_p_item(Text),~B"\fR"];
 format_one({strong,_,Text}) ->
-    ["\\fB", Text, "\\fR"];
+    [~B"\fB", format_p_item(Text), ~B"\fR"];
 format_one({em,_,Text}) ->
-    [~B"\fB",format_one(Text),~B"\fR"];
+    [~B"\fB",format_p_item(Text),~B"\fR"];
 format_one({i,_,Text}) ->
-    [~B"\fI",format_one(Text),~B"\fR"];
+    [~B"\fI",format_p_item(Text),~B"\fR"];
 format_one({dl,_,Content}) ->
     format_dl(Content);
 format_one([Text]) when is_binary(Text) ->
@@ -172,10 +183,16 @@ format_one(Text) when is_binary(Text) ->
 format_dl(Is) ->
     [~".RS 4\n", [format_dl_item(I) || I <- Is], ~".RE\n"].
 format_dl_item({dt,_,Content}) ->
-    [~".TP\n", "\\fB", format(Content), "\\fR", $\n];
+    [~".TP\n", "\\fB", format_p_item(Content), "\\fR", $\n];
 format_dl_item({dd,_,Content}) ->
-    format(Content).
-
+    [format_dd_item(Content), $\n].
+format_dd_item([{ul,_,_}=UL|Rest]) ->
+    [format([UL]), format_dd_item(Rest)];
+format_dd_item([{p,_,Content}|Rest]) ->
+    [format_p(Content)|format_dd_item(Rest)];
+format_dd_item([TextItem|Rest]) ->
+    [format_p_item(TextItem),format_dd_item(Rest)];
+format_dd_item([]) -> [].
 format_p(Text) when is_binary(Text) ->
     format_p([Text]);
 format_p(Is0) ->
@@ -183,16 +200,10 @@ format_p(Is0) ->
     Text = string:trim(Text0, leading),
     [~".PP\n",Text,$\n].
 
-format_p_item({code,_,Text}) ->
+format_p_item({Fi,_,Text}) when Fi =:= code; Fi =:= i; Fi =:= a ->
     [~B"\fI",format_p_item(Text),~B"\fR"];
-format_p_item({em,_,Text}) ->
+format_p_item({Fb,_,Text}) when Fb =:= em; Fb =:= strong ->
     [~B"\fB",format_p_item(Text),~B"\fR"];
-format_p_item({i,_,Text}) ->
-    [~B"\fI",format_p_item(Text),~B"\fR"];
-format_p_item({a,_,Text}) ->
-    [~B"\fI",format_p_item(Text),~B"\fR"];
-format_p_item({strong,_,Text}) ->
-    ["\\fB", format_p_item(Text), "\\fR"];
 format_p_item([H|T]) ->
     [format_p_item(H)|format_p_item(T)];
 format_p_item([]) ->
@@ -205,8 +216,7 @@ format_pre(Ps0) ->
     [~".IP\n.nf\n",Ps,$\n,~".fi\n"].
 
 format_pre_item({code,[{class,<<"table">>}],Text}) ->
-    Text2 = to_tbl(parse(extract(iolist_to_binary(Text)))),
-    escape_backslashes(Text2);
+    to_tbl(parse(extract(iolist_to_binary(Text))));
 format_pre_item({code,_,Text}) ->
     escape_backslashes(Text);
 format_pre_item(Text) ->
@@ -257,7 +267,13 @@ format_ul_item({li,_,Ps0}) ->
                  .IP \(bu 2.3
                  .\}
                  """,
-            [B,format(Ps0),~".RE\n"]
+            case Ps0 of
+                [Text|_] when is_binary(Text);
+                              element(1,Text) =:= code;
+                              element(1,Text) =:= a ->
+                    [B,format_p(Ps0),~".RE\n"];
+                _ -> [B,format(Ps0),~".RE\n"]
+            end
     end.
 
 strip_formatting({_,_,[_|_]=L}) ->
@@ -341,7 +357,10 @@ parse_row(Line) ->
     Cells = binary:split(NoOuterPipes, <<"|">>, [global]),
     
     %% 4. Trim whitespace from each individual cell.
-    [string:trim(Cell) || Cell <- Cells].
+    [format_cell(string:trim(Cell)) || Cell <- Cells].
+
+format_cell(B) ->
+    re:replace(B,"`(.+)`",<<"\\\\fI\\g{1}\\\\fR">>, [{return, binary},global]).
 
 %% Helper to safely remove the first and last characters if they are pipes.
 strip_outer_pipes(Bin) ->
@@ -415,9 +434,10 @@ format_ast(AST) ->
     BinSpec = unicode:characters_to_binary(string:trim(Spec, trailing, "\n")),
 
     BinSpec2 = re:replace(BinSpec, "-((type)|(spec)|(callback)) ", ""),
-
-    ["\\fB", escape(BinSpec2), "\\fR", "\n"].
+    BinSpec3 = string:replace(escape(BinSpec2),"\n","\\fR\n\\fB",all),
+    ["\\fB", BinSpec3, "\\fR", "\n"].
 
 format_meta(#{ deprecated := Depr } = M) ->
-    ["\n.br\nDeprecated: ", unicode:characters_to_binary(Depr) | format_meta(maps:remove(deprecated, M))];
+    [~"\n.RS\n.LP\nDeprecated: ",
+     unicode:characters_to_binary(Depr), ~"\n.RE\n" | format_meta(maps:remove(deprecated, M))];
 format_meta(_) -> [].

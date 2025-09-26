@@ -326,7 +326,7 @@ render_man(_Config) ->
                     #{source_path := Path} -> Path;
                     #{} -> proplists:get_value(source, proplists:get_value(compile, Mod:module_info()))
                 end,
-                man_docs:module_to_manpage(Mod, Path1, D)
+                man_docs:module_to_manpage(Mod, Path1, D, "3")
             catch _E:R:ST ->
                 io:format("Failed to render man page for ~p~n~p:~p~n~p~n",
                           [Mod,R,ST,D]),
