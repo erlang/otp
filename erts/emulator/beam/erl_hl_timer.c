@@ -2829,23 +2829,18 @@ erts_pause_proc_timer(Process *c_p)
     ERTS_LC_ASSERT(ERTS_PROC_LOCK_MAIN & erts_proc_lc_my_proc_locks(c_p));
 
     pptmr = create_paused_proc_timer(c_p);
-    if (pptmr) {
-        CANCEL_TIMER(c_p);
-        erts_atomic_set_nob(&c_p->common.timer, (erts_aint_t) pptmr);
-    }
+    if (!pptmr)
+        return;
+
+    CANCEL_TIMER(c_p);
+    erts_atomic_set_nob(&c_p->common.timer, (erts_aint_t) pptmr);
 }
 
 static ERTS_INLINE int
 add_bif_timer_to_worklist(ErtsBifTimer *tmr, void *arg, Sint reds)
 {
     ErtsWStack *s = (ErtsWStack *) arg;
-    // Logically WSTACK_PUSH(s, tmr);
-    // Unfortunately, we can't use the macro because it expects the stack to be defined as a local variable,
-    // rather than passed as a pointer.
-    if (s->wend - s->wsp < 1) {
-	erl_grow_wstack(s, 1);
-    }
-    *s->wsp++ = (UWord) tmr;
+    WSTACK_PUSH((*s), (UWord) tmr);
     return 1;
 }
 
