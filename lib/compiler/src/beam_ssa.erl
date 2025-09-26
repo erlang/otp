@@ -788,18 +788,11 @@ trim_unreachable([_|_]=Blocks) ->
 -spec used(b_blk() | b_set() | terminator()) -> [b_var()].
 
 used(#b_blk{is=Is,last=Last}) ->
-    used_1([Last|Is], ordsets:new());
-used(#b_br{bool=#b_var{}=V}) ->
-    [V];
-used(#b_ret{arg=#b_var{}=V}) ->
-    [V];
-used(#b_set{op=phi,args=Args}) ->
-    ordsets:from_list([V || {#b_var{}=V,_} <- Args]);
-used(#b_set{args=Args}) ->
-    ordsets:from_list(used_args(Args));
-used(#b_switch{arg=#b_var{}=V}) ->
-    [V];
-used(_) -> [].
+    used_is(Is, used_terminator(Last));
+used(#b_set{}=I) ->
+    used_instr(I);
+used(Terminator) ->
+    used_terminator(Terminator).
 
 -spec definitions(Labels :: [label()], Blocks :: block_map()) -> definition_map().
 definitions(Labels, Blocks) ->
@@ -1178,16 +1171,30 @@ rename_label(Lbl, _Old, _New) -> Lbl.
 
 used_args([#b_var{}=V|As]) ->
     [V|used_args(As)];
+used_args([#b_remote{mod=#b_literal{},name=#b_literal{}}|As]) ->
+    used_args(As);
 used_args([#b_remote{mod=Mod,name=Name}|As]) ->
     used_args([Mod,Name|As]);
 used_args([_|As]) ->
     used_args(As);
 used_args([]) -> [].
 
-used_1([H|T], Used0) ->
-    Used = ordsets:union(used(H), Used0),
-    used_1(T, Used);
-used_1([], Used) -> Used.
+used_is([H|T], Used0) ->
+    Used = ordsets:union(used_instr(H), Used0),
+    used_is(T, Used);
+used_is([], Used) -> Used.
+
+used_instr(#b_set{op=phi,args=Args}) ->
+    ordsets:from_list([V || {#b_var{}=V,_} <- Args]);
+used_instr(#b_set{args=[#b_var{}]=Args}) ->
+    Args;
+used_instr(#b_set{args=Args}) ->
+    ordsets:from_list(used_args(Args)).
+
+used_terminator(#b_br{bool=#b_var{}=V}) -> [V];
+used_terminator(#b_ret{arg=#b_var{}=V}) -> [V];
+used_terminator(#b_switch{arg=#b_var{}=V}) -> [V];
+used_terminator(_) -> [].
 
 
 %%% Merge blocks.
