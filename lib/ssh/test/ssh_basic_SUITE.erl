@@ -43,7 +43,7 @@
         ]).
 
 -export([
-         always_ok/1,
+         always_ok/0,
          app_test/1,
          appup_test/1,
          basic_test/1,
@@ -1465,7 +1465,7 @@ shell_exit_status(Config) when is_list(Config) ->
     ssh_test_lib:receive_exec_end(ConnectionRef, ChannelId),
     ssh:stop_daemon(Pid).
 
-always_ok(_) -> ok.
+always_ok() -> spawn(fun() -> exit(ok) end).
     
 %%----------------------------------------------------------------------------
 setopts_getopts(Config) ->
