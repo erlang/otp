@@ -50,19 +50,28 @@ endif
 # ----------------------------------------------------
 # Man dependencies
 # ----------------------------------------------------
-ERL_FILES := $(wildcard $(APP_SRC_DIR)/*.erl)
-ERL_FILES_WITH_DOC := $(shell grep -L '-moduledoc false.' $(ERL_FILES))
+ERL_FILES := $(wildcard $(APP_SRC_DIR)/*/*.erl)
+ifneq ($(ERL_FILES),)
+  ERL_FILES_WITH_DOC := $(shell grep -L "moduledoc false." $(ERL_FILES))
+else
+  ERL_FILES_WITH_DOC :=
+endif
+ERL_FILENAMES_ONLY := $(notdir $(ERL_FILES_WITH_DOC))
 MAN1_DEPS?=$(wildcard */*_cmd.md)
 MAN3_DEPS?=$(wildcard */references/*.md) $(wildcard references/*.md) \
  $(wildcard */src/*.md) $(wildcard src/*.md) \
- $(ERL_FILES_WITH_DOC)
+ $(ERL_FILENAMES_ONLY)
 MAN3_DEPS_FILTERED=$(filter-out $(wildcard */references/*_cmd.md) $(wildcard references/*_cmd.md),$(MAN3_DEPS))
 
 MAN1_PAGES=$(MAN1_DEPS:references/%_cmd.md=$(MAN1DIR)/%.1)
-MAN3_PAGES=$(MAN3_DEPS_FILTERED:$(APP_SRC_DIR)/%.erl=$(MAN3DIR)/%.3)
+MAN3_PAGES=$(MAN3_DEPS_FILTERED:%.erl=$(MAN3DIR)/%.3)
 MAN3_PAGES+=$(MAN3_DEPS_FILTERED:references/%.md=$(MAN3DIR)/%.3)
 MAN3_PAGES+=$(MAN3_DEPS_FILTERED:src/%.md=$(MAN3DIR)/%.3)
+# 1. Find all possible source directories recursively
+ERL_SRC_DIRS := $(shell find $(APP_SRC_DIR) -type d)
 
+# 2. Tell make to search for .erl files in all those directories
+vpath %.erl $(ERL_SRC_DIRS)
 
 # ----------------------------------------------------
 # Targets
@@ -106,7 +115,7 @@ man3/%.3: src/%.md $(MARKDOWN_TO_MAN)
 man3/%.3: references/%.md $(MARKDOWN_TO_MAN)
 	escript$(EXEEXT) $(MARKDOWN_TO_MAN) -o $(MAN3DIR) $<
 
-man3/%.3: ../src/%.erl $(MARKDOWN_TO_MAN)
+man3/%.3: %.erl $(MARKDOWN_TO_MAN)
 	escript$(EXEEXT) $(MARKDOWN_TO_MAN) -o $(MAN3DIR) $<
 
 # ----------------------------------------------------

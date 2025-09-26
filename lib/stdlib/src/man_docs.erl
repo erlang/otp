@@ -116,7 +116,8 @@ conv([{h1,_,[Head]}|T],_) ->
 conv([H|T], Head) ->
     Name = ~".SH NAME\n",
     Desc = ~".SH DESCRIPTION\n",
-    [Name,Head,~" - ",format_one(H),$\n,Desc|format(T)].
+    ShortDesc = ShortDesc = string:trim(format_one(H), trailing, [$., $\s]),
+    [Name,Head,~B" \- ",ShortDesc,$\n,Desc|format(T)].
 
 escape(Text) when is_list(Text) ->
     escape(iolist_to_binary(Text));
