@@ -146,7 +146,7 @@
                       'set_tuple_element' | 'succeeded' |
                       'update_record'.
 
--import(lists, [foldl/3,mapfoldl/3,member/2,reverse/1,reverse/2,sort/1]).
+-import(lists, [foldl/3,mapfoldl/3,reverse/1,reverse/2,sort/1]).
 
 -spec add_anno(Key, Value, Construct0) -> Construct when
       Key :: atom(),
@@ -650,7 +650,7 @@ fold_blocks(Fun, Labels, Acc0, Blocks) when is_map(Blocks) ->
 linearize(Blocks) when is_map(Blocks) ->
     Seen = sets:new(),
     {Linear0,_} = linearize_1([0], Blocks, Seen, []),
-    Linear = fix_phis(Linear0, #{}),
+    Linear = fix_phis(Linear0, maps:from_list(Linear0)),
     Linear.
 
 -spec rpo(Blocks) -> [Label] when
@@ -978,8 +978,7 @@ fix_phis([{L,Blk0}|Bs], S) ->
               #b_blk{} ->
                   Blk0
           end,
-    Successors = successors(Blk),
-    [{L,Blk}|fix_phis(Bs, S#{L=>Successors})];
+    [{L,Blk}|fix_phis(Bs, S)];
 fix_phis([], _) -> [].
 
 fix_phis_1([#b_set{op=phi,args=Args0}=I|Is], L, S) ->
@@ -990,8 +989,16 @@ fix_phis_1(Is, _, _) -> Is.
 
 is_successor(L, Pred, S) ->
     case S of
-        #{Pred:=Successors} ->
-            member(L, Successors);
+        #{Pred := #b_blk{last=Last}} ->
+            case Last of
+                #b_br{bool=#b_literal{val=true},succ=L} ->
+                    true;
+                #b_br{bool=#b_literal{val=false},fail=L} ->
+                    true;
+                _ ->
+                    %% This predecessor no longer branches to block L.
+                    false
+            end;
         #{} ->
             %% This block has been removed.
             false
