@@ -1847,11 +1847,12 @@ badarg:
 }
 
 static int
-cancel_bif_timer(ErtsBifTimer *tmr, int proc_lock_btm_held)
+cancel_bif_timer(ErtsBifTimer *tmr, ErtsProcLocks c_p_locks)
 {
     erts_aint_t state;
     Uint32 roflgs;
     int res;
+    int proc_lock_btm_held = c_p_locks & ERTS_PROC_LOCK_BTM;
 
     state = erts_atomic32_cmpxchg_acqb(&tmr->btm.state,
 					   ERTS_TMR_STATE_CANCELED,
@@ -1894,7 +1895,7 @@ cancel_bif_timer(ErtsBifTimer *tmr, int proc_lock_btm_held)
 }
 
 static ERTS_INLINE Sint64
-access_btm(ErtsBifTimer *tmr, Uint32 sid, ErtsSchedulerData *esdp, int cancel, int proc_lock_btm_held)
+access_btm(ErtsBifTimer *tmr, Uint32 sid, ErtsSchedulerData *esdp, int cancel, ErtsProcLocks c_p_locks)
 {
     int cncl_res;
     Sint64 time_left;
@@ -1916,7 +1917,7 @@ access_btm(ErtsBifTimer *tmr, Uint32 sid, ErtsSchedulerData *esdp, int cancel, i
         return -1;
     }
 
-    cncl_res = cancel_bif_timer(tmr, proc_lock_btm_held);
+    cncl_res = cancel_bif_timer(tmr, c_p_locks);
     if (!cncl_res)
         return -1;
 
@@ -2849,7 +2850,7 @@ add_bif_timer_to_worklist(ErtsBifTimer *tmr, void *arg, Sint reds)
 }
 
 void
-erts_pause_bif_timers(Process *c_p, int proc_lock_btm_held)
+erts_pause_bif_timers(Process *c_p, ErtsProcLocks c_p_locks)
 {
     ErtsSchedulerData *esdp = erts_proc_sched_data(c_p);
     WSTACK_DECLARE(bif_timers_worklist);
@@ -2864,7 +2865,7 @@ erts_pause_bif_timers(Process *c_p, int proc_lock_btm_held)
         ErtsPausedBifTimer *pbtmr = create_paused_bif_timer(tmr, c_p, esdp);
         pbtmr->next = c_p->paused_bif_timers;
         c_p->paused_bif_timers = pbtmr;
-        access_btm(tmr, (Uint32) esdp->no, esdp, /* cancel = */ 1, proc_lock_btm_held);
+        access_btm(tmr, (Uint32) esdp->no, esdp, /* cancel = */ 1, c_p_locks);
     }
     WSTACK_DESTROY(bif_timers_worklist);
 }

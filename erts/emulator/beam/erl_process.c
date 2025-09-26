@@ -9138,7 +9138,7 @@ erts_internal_suspend_process_2(BIF_ALIST_2)
             send_sig = !suspend_process(BIF_P, rp);
             if (!send_sig) {
                 erts_pause_proc_timer(rp);
-                erts_pause_bif_timers(rp, /* proc_lock_btm_held = */ 1);
+                erts_pause_bif_timers(rp, ERTS_PROC_LOCK_MAIN|ERTS_PROC_LOCK_STATUS|ERTS_PROC_LOCK_BTM);
                 erts_monitor_list_insert(&ERTS_P_LT_MONITORS(rp), &mdp->u.target);
                 erts_atomic_read_bor_relb(&msp->state,
                                           ERTS_MSUSPEND_STATE_FLG_ACTIVE);
