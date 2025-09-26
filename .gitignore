@@ -116,6 +116,9 @@ JAVADOC-GENERATED
 
 *.1
 *.3
+*.4
+*.6
+*.7
 
 # Anchored from $ERL_TOP
 /bin

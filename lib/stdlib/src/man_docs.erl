@@ -20,31 +20,35 @@
 %% %CopyrightEnd%
 %%
 -module(man_docs).
+-moduledoc false.
+
 -include_lib("kernel/include/eep48.hrl").
 
--export([module_to_manpage/2, module_to_manpage/3, markdown_to_manpage/2]).
+-export([module_to_manpage/3, module_to_manpage/4, markdown_to_manpage/3]).
 
 %% Formats a module documentation as a roff man page.
 %% Fetches the documentation for a module with `code:get_doc/1`
--spec module_to_manpage(Module, Path) -> unicode:chardata() when
+-spec module_to_manpage(Module, Path, Section) -> unicode:chardata() when
         Module :: module(),
-        Path :: string().
-module_to_manpage(Module, Path) when is_atom(Module) ->
+        Path :: string(),
+        Section :: string().
+module_to_manpage(Module, Path, Section) when is_atom(Module) ->
     case code:get_doc(Module) of
         {ok, Docs} ->
-                module_to_manpage(Module, Path, Docs);
+                module_to_manpage(Module, Path, Docs, Section);
         _Error ->
             ~""
     end.
--spec module_to_manpage(Module, Path, Docs) -> unicode:chardata() when
+-spec module_to_manpage(Module, Path, Docs, Section) -> unicode:chardata() when
         Module :: module(),
         Path :: string(),
-        Docs :: #docs_v1{}.
-module_to_manpage(_Module, _Path, #docs_v1{module_doc = None}) when None =:= none; None =:= hidden ->
+        Docs :: #docs_v1{},
+        Section :: string().
+module_to_manpage(_Module, _Path, #docs_v1{module_doc = None}, _Section) when None =:= none; None =:= hidden ->
     ~"";
-module_to_manpage(Module, Path, #docs_v1{module_doc = #{~"en" := ModuleDoc}, docs = AllDocs})
+module_to_manpage(Module, Path, #docs_v1{module_doc = #{~"en" := ModuleDoc}, docs = AllDocs}, Section)
     when is_atom(Module) ->
-    PreludeNDescription = markdown_to_manpage(ModuleDoc, Path),
+    PreludeNDescription = markdown_to_manpage(ModuleDoc, Path, Section),
 
     Types = [Doc || {{type,_,_},_,_,_,_}=Doc <- AllDocs],
     TypesSection = format_section("DATA TYPES", Types, Module, AllDocs),
@@ -56,10 +60,10 @@ module_to_manpage(Module, Path, #docs_v1{module_doc = #{~"en" := ModuleDoc}, doc
     iolist_to_binary([PreludeNDescription, TypesSection, FunctionsSection, CallbacksSection]).
 
 %% Formats markdown as a roff man page.
--spec markdown_to_manpage(binary() | shell_docs:chunk_elements(), file:filename()) -> binary().
-markdown_to_manpage(Markdown, Path) when is_binary(Markdown) ->
-        markdown_to_manpage(shell_docs_markdown:parse_md(Markdown), Path);
-markdown_to_manpage(MarkdownChunks, Path) ->
+-spec markdown_to_manpage(binary() | shell_docs:chunk_elements(), file:filename(), string()) -> binary().
+markdown_to_manpage(Markdown, Path, Section) when is_binary(Markdown) ->
+        markdown_to_manpage(shell_docs_markdown:parse_md(Markdown), Path, Section);
+markdown_to_manpage(MarkdownChunks, Path, Section) ->
     Path1 = filename:absname(Path),
     App = case filename:split(string:prefix(Path1, os:getenv("ERL_TOP"))) of
         ["/", "lib", AppStr | _] ->
@@ -80,8 +84,8 @@ markdown_to_manpage(MarkdownChunks, Path) ->
     Extension = filename:extension(Path),
     FileName = list_to_binary(filename:rootname(filename:basename(Path), Extension)),
     Name = get_name(MarkdownChunks, FileName),
-    Prelude = io_lib:format(".TH ~s 3 \"~s ~s\" \"Ericsson AB\" \"Erlang Module Definition\"\n",
-                            [Name, atom_to_binary(App), Version]),
+    Prelude = io_lib:format(".TH ~s ~s \"~s ~s\" \"Ericsson AB\" \"Erlang Module Definition\"\n",
+                            [Name, Section, atom_to_binary(App), Version]),
     I = conv(MarkdownChunks, Name),
     iolist_to_binary([Prelude|I]).
 
@@ -113,10 +117,11 @@ conv([{h1,_,[Head]}|T],_) ->
     Name = ~".SH NAME\n",
     Desc = ~".SH DESCRIPTION\n",
     [Name,Head,$\n,Desc|format(T)];
-conv([H|T], Head) ->
+conv([{p,_,_}=ShortDesc0|T], Head) ->
     Name = ~".SH NAME\n",
     Desc = ~".SH DESCRIPTION\n",
-    [Name,Head,~" - ",format_one(H),$\n,Desc|format(T)].
+    [~".PP\n"|ShortDesc] = format_one(ShortDesc0),
+    [Name,Head,~B" \- ",ShortDesc,$\n,Desc|format(T)].
 
 escape(Text) when is_list(Text) ->
     escape(iolist_to_binary(Text));
