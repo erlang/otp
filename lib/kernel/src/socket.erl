@@ -5427,20 +5427,16 @@ recv_deadline(SockRef, Length, Flags, Deadline, Buf) ->
 
         %%
         {select_read, Bin} -> %% All data, new recv operation in progress
+            %% The combination of select_read and recv with time-out
+            %% is contradictive since the return values has no place
+            %% for a continuation because neither a ref nor 'nowait'
+            %% was given, so we handle this as if there was no select_read
+            %% by cancelling the new recv operation
+            %%
             _ = cancel(SockRef, recv, Handle),
             {ok, condense_buffer(Bin, Buf)};
         %%
-        Select %% select | {select, Bin} %% No data or incomplete
-          when Select =:= select;
-               tuple_size(Select) =:= 2, element(1, Select) =:= select ->
-            {Length_1, Buf_1} =
-                if
-                    Select =:= select ->
-                        {Length, Buf};
-                    true ->
-                        Bin = element(2, Select),
-                        {Length - byte_size(Bin), [Bin | Buf]}
-                end,
+        select ->
             %%
             %% There is nothing just now, but we will be notified
             %% with a select message when there is something to recv
@@ -5451,7 +5447,30 @@ recv_deadline(SockRef, Length, Flags, Deadline, Buf) ->
                         0 < Timeout ->
                             %% Retry
                             recv_deadline(
-                              SockRef, Length_1, Flags, Deadline, Buf_1);
+                              SockRef, Length, Flags, Deadline, Buf);
+                        true ->
+                            recv_error(timeout, Buf)
+                    end;
+                ?socket_msg(_Socket, abort, {Handle, Reason}) ->
+                    recv_error(Reason, Buf)
+            after Timeout ->
+                    _ = cancel(SockRef, recv, Handle),
+                    recv_error(timeout, Buf)
+            end;
+        {select, Bin} ->
+            Buf_1 = [Bin | Buf],
+            %%
+            %% There is nothing just now, but we will be notified
+            %% with a select message when there is something to recv
+            Timeout = timeout(Deadline),
+            receive
+                ?socket_msg(?socket(SockRef), select, Handle) ->
+                    if
+                        0 < Timeout ->
+                            %% Retry
+                            recv_deadline(
+                              SockRef, Length - byte_size(Bin),
+                              Flags, Deadline, Buf_1);
                         true ->
                             recv_error(timeout, Buf_1)
                     end;
