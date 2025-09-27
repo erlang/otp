@@ -1894,7 +1894,7 @@ erts_port_output(Process *c_p,
 		    finalize_force_imm_drv_call(&try_call_state);
 		else
 		    finalize_imm_drv_call(&try_call_state);
-		/* Fall through... */
+		ERTS_FALLTHROUGH();
 	    case ERTS_TRY_IMM_DRV_CALL_INVALID_PORT:
 		driver_free_binary(&cbin->driver);
 		if (evp != &ev) {
@@ -2062,7 +2062,7 @@ erts_port_output(Process *c_p,
 		    finalize_force_imm_drv_call(&try_call_state);
 		else
 		    finalize_imm_drv_call(&try_call_state);
-		/* Fall through... */
+                ERTS_FALLTHROUGH();
 	    case ERTS_TRY_IMM_DRV_CALL_INVALID_PORT:
 		erts_free(ERTS_ALC_T_TMP, buf);
 		if (try_call_res != ERTS_TRY_IMM_DRV_CALL_OK)
