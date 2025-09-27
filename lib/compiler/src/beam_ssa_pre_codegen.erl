@@ -1188,7 +1188,7 @@ find_fc_errors([], Acc) ->
 %%% `setelement/3`calls as in the original source code.
 
 expand_update_tuple(#st{ssa=Blocks0,cnt=Count0}=St) ->
-    Linear0 = beam_ssa:linearize(Blocks0),
+    Linear0 = beam_ssa:linearize_only(Blocks0),
     {Linear, Count} = expand_update_tuple_1(Linear0, Count0, []),
     Blocks = maps:from_list(Linear),
     St#st{ssa=Blocks,cnt=Count}.

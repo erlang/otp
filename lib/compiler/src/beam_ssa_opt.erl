@@ -857,7 +857,7 @@ are_all_literals(Args) ->
 ssa_opt_element({#opt_st{ssa=Blocks}=St, FuncDb}) ->
     %% Collect the information about element instructions in this
     %% function.
-    GetEls = collect_element_calls(beam_ssa:linearize(Blocks)),
+    GetEls = collect_element_calls(beam_ssa:linearize_only(Blocks)),
 
     %% Collect the element instructions into chains. The
     %% element calls in each chain are ordered in reverse
@@ -1633,7 +1633,7 @@ ssa_opt_live({#opt_st{ssa=Linear0}=St, FuncDb}) ->
     RevLinear = reverse(Linear0),
     Blocks0 = maps:from_list(RevLinear),
     Blocks = live_opt(RevLinear, #{}, Blocks0),
-    Linear = beam_ssa:linearize(Blocks),
+    Linear = beam_ssa:linearize_only(Blocks),
     {St#opt_st{ssa=Linear}, FuncDb}.
 
 live_opt([{L,Blk0}|Bs], LiveMap0, Blocks) ->
@@ -1762,7 +1762,7 @@ ssa_opt_try({#opt_st{ssa=SSA0,cnt=Count0}=St, FuncDb}) ->
     {St#opt_st{ssa=SSA,cnt=Count}, FuncDb}.
 
 opt_try(Blocks, Count0) when is_map(Blocks) ->
-    {Count, Linear} = opt_try(beam_ssa:linearize(Blocks), Count0),
+    {Count, Linear} = opt_try(beam_ssa:linearize_only(Blocks), Count0),
     {Count, maps:from_list(Linear)};
 opt_try(Linear, Count0) when is_list(Linear) ->
     {Count, Shrunk} = shrink_try(Linear, Count0, []),
@@ -2854,7 +2854,7 @@ do_ssa_opt_sink(Defs, #opt_st{ssa=Linear}=St) when is_map(Defs) ->
                            move_defs(V, From, To, A)
                    end, Blocks0, DefLocs),
 
-    St#opt_st{ssa=beam_ssa:linearize(Blocks)}.
+    St#opt_st{ssa=beam_ssa:linearize_only(Blocks)}.
 
 def_blocks([{L,#b_blk{is=Is}}|Bs]) ->
     def_blocks_is(Is, L, def_blocks(Bs));

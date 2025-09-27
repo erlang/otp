@@ -35,6 +35,7 @@
          insert_on_edges/3,
          is_loop_header/1,
          linearize/1,
+         linearize_only/1,
          mapfold_blocks/4,
          mapfold_instrs/4,
          merge_blocks/2,
@@ -651,6 +652,22 @@ linearize(Blocks) when is_map(Blocks) ->
     Seen = sets:new(),
     {Linear0,_} = linearize_1([0], Blocks, Seen, []),
     Linear = fix_phis(Linear0, maps:from_list(Linear0)),
+    Linear.
+
+%% linearize_only(Blocks) -> [{BlockLabel,#b_blk{}}].
+%%  Linearize the intermediate representation of the code, discarding
+%%  unreachable blocks. Phi nodes will not be be adjusted, which makes
+%%  this function somewhat faster than linearize/1. However, it must
+%%  only be called when we KNOW that there is no need to adjust phi
+%%  nodes.
+
+-spec linearize_only(Blocks) -> Linear when
+      Blocks :: block_map(),
+      Linear :: [{label(),b_blk()}].
+
+linearize_only(Blocks) when is_map(Blocks) ->
+    Seen = sets:new(),
+    {Linear,_} = linearize_1([0], Blocks, Seen, []),
     Linear.
 
 -spec rpo(Blocks) -> [Label] when
