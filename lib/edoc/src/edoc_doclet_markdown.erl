@@ -58,7 +58,7 @@
 -export([run/2]).
 
 %% @headerfile "../include/edoc_doclet.hrl"
--include("../include/edoc_doclet.hrl").
+-include_lib("edoc/include/edoc_doclet.hrl").
 
 -include_lib("xmerl/include/xmerl.hrl").
 -include_lib("kernel/include/eep48.hrl").
