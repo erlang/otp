@@ -28,7 +28,7 @@ wxWidgets docs:
 [wxEvtHandler](https://docs.wxwidgets.org/3.2/classwx_evt_handler.html)
 """.
 -include("wxe.hrl").
--include("../include/wx.hrl").
+-include_lib("wx/include/wx.hrl").
 
 %% API
 -export([connect/2, connect/3, disconnect/1, disconnect/2, disconnect/3]).

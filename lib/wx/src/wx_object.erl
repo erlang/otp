@@ -198,7 +198,7 @@ Example:
   [wx:wx_object()](`m:wx#type-wx_object`) | atom() | pid()**
 """.
 -include("wxe.hrl").
--include("../include/wx.hrl").
+-include_lib("wx/include/wx.hrl").
 
 %% API
 -export([start/3, start/4,

@@ -71,7 +71,7 @@ Interface module for the Event Trace (ET) application
 -compile([{nowarn_deprecated_function,[{erlang,now,0}]}]).
 
 -include("et_internal.hrl").
--include("../include/et.hrl").
+-include_lib("et/include/et.hrl").
 
 -record(state, {parent_pid,
 		auto_shutdown, % Optionally shutdown when the last subscriber dies 

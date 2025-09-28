@@ -61,7 +61,7 @@ Manual.
 	 }).
 -type state() :: #state{}.
 
--include("../include/file.hrl").
+-include_lib("kernel/include/file.hrl").
 
 %%----------------------------------------------------------------------
 %% Exported functions
