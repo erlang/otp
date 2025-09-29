@@ -543,13 +543,13 @@ behavior of earlier flags.
   [time warp mode](time_correction.md#time-warp-modes):
 
   - **`no_time_warp`** -
-    [No time warp mode](time_correction.md#no-time-warp-mode) (the default)
+    [No time warp mode](time_correction.md#no-time-warp-mode)
 
   - **`single_time_warp`** -
     [Single time warp mode](time_correction.md#single-time-warp-mode)
 
   - **`multi_time_warp`** -
-    [Multi-time warp mode](time_correction.md#multi-time-warp-mode)
+    [Multi-time warp mode](time_correction.md#multi-time-warp-mode) (the default since Erlang/OTP 26.0)
 
 - **`+d`** - If the emulator detects an internal error (or runs out of memory),
   it, by default, generates both a crash dump and a core dump. The core dump is,
