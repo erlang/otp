@@ -490,11 +490,18 @@ decode(KeyBin, ssh2_pubkey) when is_binary(KeyBin) ->
     ssh_message:ssh2_pubkey_decode(KeyBin);
 
 decode(KeyBin, public_key) when is_binary(KeyBin) ->
-    Type = case KeyBin of
-               <<"-----BEGIN OPENSSH",_/binary>> -> openssh_key_v1;
-               <<"----",_/binary>> -> rfc4716_key;
-               _ -> openssh_key
-           end,
+    Matches = fun(Bin, Pattern, Type) ->
+                      case binary:match(Bin, Pattern) of
+                          nomatch -> false;
+                          _ -> Type
+                      end
+              end,
+    Type =
+        maybe
+            false ?= Matches(KeyBin, <<"\n-----BEGIN OPENSSH">>, openssh_key_v1),
+            false ?= Matches(KeyBin, <<"\n----">>, rfc4716_key),
+            openssh_key
+        end,
     decode(KeyBin, Type);
 
 decode(KeyBin, Type) when is_binary(KeyBin) andalso 
@@ -1172,7 +1179,7 @@ decode_ssh_file(PrivPub, Algorithm, Pem, Password) ->
 
 
 decode_pem_keys(RawBin, Password) ->
-    PemLines = split_in_lines(
+    PemLines = split_in_nonempty_lines(
                  binary:replace(RawBin, [<<"\\\n">>,<<"\\\r\\\n">>],  <<"">>, [global])
                 ),
     decode_pem_keys(PemLines, Password, []).
