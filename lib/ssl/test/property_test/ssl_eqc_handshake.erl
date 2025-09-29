@@ -798,7 +798,12 @@ generate_public_key(Group)
     #'ECPrivateKey'{publicKey = PublicKey} =
         public_key:generate_key({namedCurve, group_to_curve(Group)}),
     PublicKey;
-
+generate_public_key(Group) when
+       Group =:= mlkem512 orelse
+       Group =:= mlkem768 orelse
+       Group =:= mlkem1024 ->
+    {PublicKey, _} = crypto:generate_key(Group, []),
+    PublicKey;
 generate_public_key(Group) ->
     {PublicKey, _} =
         public_key:generate_key(ssl_dh_groups:dh_params(Group)),
