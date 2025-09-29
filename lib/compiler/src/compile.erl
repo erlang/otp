@@ -1711,8 +1711,6 @@ standard_passes() ->
 
      {iff,'dpp',{listing,"pp"}},
      ?pass(lint_module),
-     {unless,no_docs,?pass(beam_docs)},
-     ?pass(remove_doc_attributes),
 
      {iff,'P',{src_listing,"P"}},
      {iff,'to_pp',{done,"P"}},
@@ -1723,12 +1721,15 @@ standard_passes() ->
 
 abstr_passes(AbstrStatus) ->
     case AbstrStatus of
-        non_verified_abstr -> [{unless, no_lint, ?pass(lint_module)},
-                               {unless,no_docs,?pass(beam_docs)},
-                               ?pass(remove_doc_attributes)];
-        verified_abstr -> []
+        non_verified_abstr ->
+            [{unless, no_lint, ?pass(lint_module)}];
+        verified_abstr ->
+            []
     end ++
         [
+         {unless,no_docs,?pass(beam_docs)},
+         ?pass(remove_doc_attributes),
+
          %% Add all -compile() directives to #compile.options
          ?pass(compile_directives),
 

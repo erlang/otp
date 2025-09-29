@@ -238,7 +238,7 @@ forms_2(Config) when is_list(Config) ->
 
     Src = Simple,
     AbsSrc = filename:absname(Src),
-    {ok,[],SimpleCode} = compile:file(Simple, [dabstr,binary]),
+    {ok,[],SimpleCode} = compile:file(Simple, [to_abstr,binary]),
 
     {ok,simple,Bin1} = compile:forms(SimpleCode, [binary,{source,Src}]),
     {ok,simple,_} = compile:forms(SimpleCode,
@@ -250,7 +250,18 @@ forms_2(Config) when is_list(Config) ->
     %% Load and test that the proper source is returned.
     AbsSrc = forms_load_code(simple, Src, Bin1),
 
-    %% Work in a deleted directory.
+    %% For the rest of this function, compiling will be done in a
+    %% deleted directory (on Unix). See GH-3136. We will need to strip
+    %% the doc chunks because building documentation requires
+    %% determining the absolute path of the module (and that will not
+    %% work in deleted directory).
+
+    SimpleCodeNoDoc = [F || F <- SimpleCode,
+                            element(1, F) =/= attribute orelse element(3, F) =/= doc],
+
+    %% Test that the `to_abstr` option retains the doc attributes.
+    true = SimpleCodeNoDoc =/= SimpleCode,
+
     PrivDir = proplists:get_value(priv_dir, Config),
     WorkDir = filename:join(PrivDir, ?FUNCTION_NAME),
     ok = file:make_dir(WorkDir),
@@ -259,10 +270,10 @@ forms_2(Config) when is_list(Config) ->
 	{unix,_} -> os:cmd("rm -rf " ++ WorkDir);
 	_ -> ok
     end,
-    {ok,simple,Bin2} = compile:forms(SimpleCode),
+    {ok,simple,Bin2} = compile:forms(SimpleCodeNoDoc),
     undefined = forms_load_code(simple, "ignore", Bin2),
 
-    {ok,simple,Bin3} = compile:forms(SimpleCode, [{source,Src},report]),
+    {ok,simple,Bin3} = compile:forms(SimpleCodeNoDoc, [{source,Src},report]),
     case forms_load_code(simple, "ignore", Bin3) of
 	Src ->					%Unix.
 	    ok;
@@ -270,15 +281,15 @@ forms_2(Config) when is_list(Config) ->
 	    ok
     end,
 
-    {ok,simple,Core} = compile:forms(SimpleCode, [to_core0,binary]),
+    {ok,simple,Core} = compile:forms(SimpleCodeNoDoc, [to_core0,binary]),
     forms_compile_and_load(Core, [from_core]),
 
-    {ok,simple,Asm} = compile:forms(SimpleCode, [to_asm,binary]),
+    {ok,simple,Asm} = compile:forms(SimpleCodeNoDoc, [to_asm,binary]),
     forms_compile_and_load(Asm, [from_asm]),
 
     %% The `from_abstr` option is redundant when compiling from forms,
     %% but it should work.
-    forms_compile_and_load(SimpleCode, [from_abstr]),
+    forms_compile_and_load(SimpleCodeNoDoc, [from_abstr]),
 
     %% Cover the error handling code.
     error = compile:forms(bad_core, [from_core,report]),
