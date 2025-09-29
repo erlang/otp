@@ -1064,8 +1064,29 @@
 /* Define to 1 if the system has the type 'struct ip_mreqn'. */
 #undef HAVE_STRUCT_IP_MREQN
 
-/* Define to 1 if 'assoc_id' is a member of 'struct sctp_accoc_value'. */
-#undef HAVE_STRUCT_SCTP_ACCOC_VALUE_ASSOC_ID
+/* Define to 1 if 'sas_assoc_id' is a member of 'struct sctp_assoc_stats'. */
+#undef HAVE_STRUCT_SCTP_ASSOC_STATS_SAS_ASSOC_ID
+
+/* Define to 1 if 'sas_ipackets' is a member of 'struct sctp_assoc_stats'. */
+#undef HAVE_STRUCT_SCTP_ASSOC_STATS_SAS_IPACKETS
+
+/* Define to 1 if 'sas_obs_rto_ipaddr' is a member of 'struct
+   sctp_assoc_stats'. */
+#undef HAVE_STRUCT_SCTP_ASSOC_STATS_SAS_OBS_RTO_IPADDR
+
+/* Define to 1 if 'sas_opackets' is a member of 'struct sctp_assoc_stats'. */
+#undef HAVE_STRUCT_SCTP_ASSOC_STATS_SAS_OPACKETS
+
+/* Define to 1 if 'sas_outofseqtsns' is a member of 'struct sctp_assoc_stats'.
+   */
+#undef HAVE_STRUCT_SCTP_ASSOC_STATS_SAS_OUTOFSEQTSNS
+
+/* Define to 1 if 'assoc_id' is a member of 'struct sctp_assoc_value'. */
+#undef HAVE_STRUCT_SCTP_ASSOC_VALUE_ASSOC_ID
+
+/* Define to 1 if 'sctp_assoc_reset_event' is a member of 'struct
+   sctp_event_subscribe'. */
+#undef HAVE_STRUCT_SCTP_EVENT_SUBSCRIBE_SCTP_ASSOC_RESET_EVENT
 
 /* Define to 1 if 'sctp_authentication_event' is a member of 'struct
    sctp_event_subscribe'. */
@@ -1075,17 +1096,42 @@
    sctp_event_subscribe'. */
 #undef HAVE_STRUCT_SCTP_EVENT_SUBSCRIBE_SCTP_SENDER_DRY_EVENT
 
+/* Define to 1 if 'sctp_stream_change_event' is a member of 'struct
+   sctp_event_subscribe'. */
+#undef HAVE_STRUCT_SCTP_EVENT_SUBSCRIBE_SCTP_STREAM_CHANGE_EVENT
+
+/* Define to 1 if 'sctp_stream_reset_event' is a member of 'struct
+   sctp_event_subscribe'. */
+#undef HAVE_STRUCT_SCTP_EVENT_SUBSCRIBE_SCTP_STREAM_RESET_EVENT
+
+/* Define to 1 if 'spp_dscp' is a member of 'struct sctp_paddrparams'. */
+#undef HAVE_STRUCT_SCTP_PADDRPARAMS_SPP_DSCP
+
 /* Define to 1 if 'spp_flags' is a member of 'struct sctp_paddrparams'. */
 #undef HAVE_STRUCT_SCTP_PADDRPARAMS_SPP_FLAGS
 
 /* Define to 1 if 'spp_pathmtu' is a member of 'struct sctp_paddrparams'. */
 #undef HAVE_STRUCT_SCTP_PADDRPARAMS_SPP_PATHMTU
 
+/* Define to 1 if 'spp_pv6_flowlabel' is a member of 'struct
+   sctp_paddrparams'. */
+#undef HAVE_STRUCT_SCTP_PADDRPARAMS_SPP_PV6_FLOWLABEL
+
 /* Define to 1 if 'spp_sackdelay' is a member of 'struct sctp_paddrparams'. */
 #undef HAVE_STRUCT_SCTP_PADDRPARAMS_SPP_SACKDELAY
 
+/* Define to 1 if 'pdapi_seq' is a member of 'struct sctp_pdapi_event'. */
+#undef HAVE_STRUCT_SCTP_PDAPI_EVENT_PDAPI_SEQ
+
+/* Define to 1 if 'pdapi_stream' is a member of 'struct sctp_pdapi_event'. */
+#undef HAVE_STRUCT_SCTP_PDAPI_EVENT_PDAPI_STREAM
+
 /* Define to 1 if 'sre_data' is a member of 'struct sctp_remote_error'. */
 #undef HAVE_STRUCT_SCTP_REMOTE_ERROR_SRE_DATA
+
+/* Define to 1 if 'ssfe_data' is a member of 'struct sctp_send_failed_event'.
+   */
+#undef HAVE_STRUCT_SCTP_SEND_FAILED_EVENT_SSFE_DATA
 
 /* Define to 1 if 'ssf_data' is a member of 'struct sctp_send_failed'. */
 #undef HAVE_STRUCT_SCTP_SEND_FAILED_SSF_DATA
