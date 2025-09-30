@@ -69,6 +69,15 @@ void BeamGlobalAssembler::emit_process_main() {
     const arm::Mem start_time_i = arm::Mem(ARG4);
     const arm::Mem start_time = arm::Mem(ARG4, relative_start_t_offset);
 
+    /* Save the initial SP of the thread so that we can verify that it
+     * doesn't grow. */
+#ifdef JIT_HARD_DEBUG
+    int sp_offset = offsetof(ErtsSchedulerRegisters, initial_sp);
+    mov_imm(TMP, sp_offset);
+    a.add(TMP, scheduler_registers, TMP);
+    a.str(a32::sp, arm::Mem(TMP));
+#endif
+
     // Scheduling loop initialization
     mov_imm(TMP, 0);
     a.str(TMP, start_time_i);
