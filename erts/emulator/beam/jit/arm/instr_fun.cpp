@@ -41,7 +41,8 @@ void BeamGlobalAssembler::emit_unloaded_fun() {
     a.mov(ARG1, c_p);
     load_x_reg_array(ARG2);
     /* ARG3 and ARG4 have already been set. */
-    runtime_call<4>(beam_jit_handle_unloaded_fun);
+    a.mov(ARG5, active_code_ix);
+    runtime_call<5>(beam_jit_handle_unloaded_fun);
 
     emit_leave_runtime<Update::eHeapAlloc | Update::eXRegs |
                        Update::eReductions | Update::eCodeIndex>();
