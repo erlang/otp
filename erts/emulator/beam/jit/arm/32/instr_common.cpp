@@ -111,14 +111,19 @@ void BeamModuleAssembler::emit_i_validate(const ArgWord &Arity) {
 void BeamModuleAssembler::emit_allocate_heap(const ArgWord &NeedStack,
                                              const ArgWord &NeedHeap,
                                              const ArgWord &Live) {
+    ASSERT(NeedStack.get() <= MAX_REG);
+
     // TODO
-    emit_nyi("emit_allocate_heap");
+    //emit_gc_test(NeedStack, NeedHeap, Live);
+
+    if (NeedStack.get() > 0) {
+        sub(E, E, NeedStack.get() * sizeof(Eterm));
+    }
 }
 
 void BeamModuleAssembler::emit_allocate(const ArgWord &NeedStack,
                                         const ArgWord &Live) {
-    // TODO
-    emit_nyi("emit_allocate");
+    emit_allocate_heap(NeedStack, ArgWord(0), Live);
 }
 
 void BeamModuleAssembler::emit_deallocate(const ArgWord &Deallocate) {
