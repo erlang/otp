@@ -181,7 +181,7 @@ collect({swap,D1,D2})        ->
 collect({make_fun3,F,I,U,D,{list,Ss}}) -> {set,[D],Ss,{make_fun3,F,I,U}};
 collect(_)                   -> error.
 
-collect_debug_line({debug_line,_Loc,_Index,_Live,{_,Vars}}=I) ->
+collect_debug_line({debug_line,_Loc,_Index,_Live,#{vars:=Vars}}=I) ->
     Ss = flatmap(fun({_Name,Regs}) -> Regs end, Vars),
     {set,[],Ss,I}.
 
