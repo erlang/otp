@@ -48,7 +48,7 @@
 %% 
 init(SingleWaitFor) when SingleWaitFor =:= infinity ->
     {SingleWaitFor, timeout};
-init(SingleWaitFor) when is_integer(SingleWaitFor) and (SingleWaitFor >= 0) ->
+init(SingleWaitFor) when is_integer(SingleWaitFor) andalso (SingleWaitFor >= 0) ->
     {SingleWaitFor, timeout};
 init(Timer) when is_record(Timer, megaco_incr_timer) ->
     return_incr(Timer).
@@ -80,9 +80,9 @@ verify(#megaco_incr_timer{wait_for    = WaitFor,
 			  factor      = Factor,
 			  incr        = Incr,
 			  max_retries = MaxRetries}) ->
-    (megaco_config_misc:verify_strict_uint(WaitFor) and
-     megaco_config_misc:verify_strict_uint(Factor)  and
-     megaco_config_misc:verify_strict_int(Incr)     and
+    (megaco_config_misc:verify_strict_uint(WaitFor) andalso
+     megaco_config_misc:verify_strict_uint(Factor)  andalso
+     megaco_config_misc:verify_strict_int(Incr)     andalso
      verify_max_retries(MaxRetries));
 verify(Timer) ->
     megaco_config_misc:verify_uint(Timer).
@@ -106,7 +106,7 @@ return_incr(#megaco_incr_timer{wait_for    = WaitFor,
 
 return_incr(#megaco_incr_timer{wait_for    = WaitFor,
 			       max_retries = Int} = Timer) 
-  when is_integer(Int) and (Int > 0) ->
+  when is_integer(Int) andalso (Int > 0) ->
     {WaitFor, Timer};
 
 return_incr(#megaco_incr_timer{wait_for    = WaitFor,

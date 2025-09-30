@@ -759,7 +759,7 @@ handle_event(internal, {conn_msg,Msg}, StateName, #data{connection_state = Conne
             {Repls, D} = send_replies(RepliesConn, D0),
             case {Reason0,Role} of
                 {{_, Reason}, client} when ((StateName =/= {connected,client})
-                                            and (not Rengotation)) ->
+                                            andalso (not Rengotation)) ->
                     handshake({not_connected,Reason}, D);
                 _ ->
                     ok

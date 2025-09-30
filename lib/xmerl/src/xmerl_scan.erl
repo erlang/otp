@@ -1202,8 +1202,8 @@ scan_pi(Str = [H1,H2,H3 | T],S0=#xmerl_scanner{line = L, col = C}, Pos, Ps)
     %% names beginning with [xX][mM][lL] are reserved for future use.
     ?bump_col(3),
     if
-	((H2==$m) or (H2==$M)) and
-	((H3==$l) or (H3==$L)) ->
+	((H2==$m) orelse (H2==$M)) andalso
+	((H3==$l) orelse (H3==$L)) ->
 	    scan_wellknown_pi(T,S,Pos,Ps);
 	true ->
 	    {Target, _NamespaceInfo, T1, S1} = scan_name(Str, S),

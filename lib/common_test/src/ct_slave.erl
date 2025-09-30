@@ -350,7 +350,7 @@ do_start(Host, Node, Options) ->
 	{ok, ENode}->
 	     ok;
 	{error, Timeout, ENode}
-	     when ((Timeout==init_timeout) or (Timeout==startup_timeout)) and
+	     when ((Timeout==init_timeout) orelse (Timeout==startup_timeout)) andalso
 		  Options#options.kill_if_fail->
 	     do_stop(ENode);
 	_-> ok

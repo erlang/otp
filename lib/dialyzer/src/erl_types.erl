@@ -3244,7 +3244,7 @@ t_subtract_aux(?int_range(From, To) = T1, ?int_set(Set)) ->
 	    true -> To - 1;
 	    false -> To
 	  end,
-  if (NewFrom =:= From) and (NewTo =:= To) -> T1;
+  if (NewFrom =:= From) andalso (NewTo =:= To) -> T1;
      true -> t_from_range(NewFrom, NewTo)
   end;
 t_subtract_aux(?int_set(Set), ?int_range(From, To)) ->
