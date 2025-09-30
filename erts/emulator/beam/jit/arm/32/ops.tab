@@ -904,7 +904,7 @@ int_func_start Func_Label Func_Line M F A |
   is_mfa_bif(M, F, A) =>
     i_flush_stubs |
     func_line Func_Line |
-    aligned_label Func_Label u=8 |
+    aligned_label Func_Label u=4 |
     i_func_info Func_Label M F A |
       aligned_label Entry_Label u=4 |
       i_breakpoint_trampoline |
@@ -915,7 +915,7 @@ int_func_start Func_Label Func_Line M F A |
   func_prologue Entry_Label Entry_Line =>
     i_flush_stubs |
     func_line Func_Line |
-    aligned_label Func_Label u=8 |
+    aligned_label Func_Label u=4 |
     i_func_info Func_Label M F A |
       aligned_label Entry_Label u=4 |
       i_breakpoint_trampoline |
