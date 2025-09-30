@@ -414,9 +414,49 @@ const Label &BeamModuleAssembler::resolve_fragment(void (*fragment)(),
     return resolve_label(it->second, disp);
 }
 
+arm::Mem BeamModuleAssembler::embed_constant(const ArgVal &value,
+                                             enum Displacement disp) {
+    ssize_t currOffset = a.offset();
+
+    ssize_t minOffset = currOffset - disp;
+    ssize_t maxOffset = currOffset + disp;
+
+    ASSERT(disp >= dispMin && disp <= dispMax);
+    ASSERT(!value.isRegister());
+
+    /* If a previously embedded constant is reachable from this point, we
+     * can use it instead of creating a new one. */
+    auto range = _constants.equal_range(value);
+    for (auto it = range.first; it != range.second; it++) {
+        const Constant &constant = it->second;
+
+        if (code.isLabelBound(constant.anchor)) {
+            ssize_t constOffset = code.labelOffsetFromBase(constant.anchor);
+
+            if (constOffset >= minOffset && constOffset <= maxOffset) {
+                return arm::Mem(constant.anchor);
+            }
+        } else if (constant.latestOffset <= maxOffset) {
+            return arm::Mem(constant.anchor);
+        }
+    }
+
+    auto it = _constants.emplace(value,
+                                 Constant{.latestOffset = maxOffset,
+                                          .anchor = a.newLabel(),
+                                          .value = value});
+    const Constant &constant = it->second;
+    _pending_constants.emplace(constant);
+
+    return arm::Mem(constant.anchor);
+}
+
 void BeamModuleAssembler::emit_i_flush_stubs() {
-        // TODO
-    emit_nyi("emit_i_flush_stubs");
+    /* Flush all stubs that are due within the next two check intervals
+     * to prevent them from being emitted inside function prologues or
+     * NIF padding. */
+   flush_pending_stubs(STUB_CHECK_INTERVAL * 2);
+   last_stub_check_offset = a.offset();
 }
 
 void BeamModuleAssembler::check_pending_stubs() {
@@ -531,7 +571,53 @@ void BeamModuleAssembler::emit_veneer(const Veneer &veneer) {
 }
 
 void BeamModuleAssembler::emit_constant(const Constant &constant) {
-    // TODO
-    ASSERT(false);
-    emit_nyi("emit_constant");
+    const Label &anchor = constant.anchor;
+    const ArgVal &value = constant.value;
+
+    ASSERT(!code.isLabelBound(anchor));
+    a.align(AlignMode::kData, 4);
+    a.bind(anchor);
+
+    ASSERT(!value.isRegister());
+
+    if (value.isImmed()) {
+        a.embedUInt32(value.as<ArgImmed>().get());
+    } else if (value.isWord()) {
+        a.embedUInt32(value.as<ArgWord>().get());
+    } else if (value.isLabel()) {
+        a.embedLabel(rawLabels.at(value.as<ArgLabel>().get()));
+    } else {
+        switch (value.getType()) {
+        case ArgVal::BytePtr:
+            strings.push_back({anchor, 0, value.as<ArgBytePtr>().get()});
+            a.embedUInt32(INT_MAX);
+            break;
+        case ArgVal::Catch: {
+            auto handler = rawLabels[value.as<ArgCatch>().get()];
+            catches.push_back({{anchor, 0, 0}, handler});
+            a.embedUInt64(INT_MAX);
+            break;
+        }
+        case ArgVal::Export: {
+            auto index = value.as<ArgExport>().get();
+            imports[index].patches.push_back({anchor, 0, 0});
+            a.embedUInt64(INT_MAX);
+            break;
+        }
+        case ArgVal::FunEntry: {
+            auto index = value.as<ArgLambda>().get();
+            lambdas[index].patches.push_back({anchor, 0, 0});
+            a.embedUInt64(INT_MAX);
+            break;
+        }
+        case ArgVal::Literal: {
+            auto index = value.as<ArgLiteral>().get();
+            literals[index].patches.push_back({anchor, 0, 0});
+            a.embedUInt64(INT_MAX);
+            break;
+        }
+        default:
+            ASSERT(!"error");
+        }
+    }
 }
