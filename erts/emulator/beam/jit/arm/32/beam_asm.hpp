@@ -105,6 +105,17 @@ protected:
 
     const a32::Gp VAR = a32::r6;
 
+    const arm::Mem TMP_MEM1q = getSchedulerRegRef(
+            offsetof(ErtsSchedulerRegisters, aux_regs.d.TMP_MEM[0]));
+    const arm::Mem TMP_MEM2q = getSchedulerRegRef(
+            offsetof(ErtsSchedulerRegisters, aux_regs.d.TMP_MEM[1]));
+    const arm::Mem TMP_MEM3q = getSchedulerRegRef(
+            offsetof(ErtsSchedulerRegisters, aux_regs.d.TMP_MEM[2]));
+    const arm::Mem TMP_MEM4q = getSchedulerRegRef(
+            offsetof(ErtsSchedulerRegisters, aux_regs.d.TMP_MEM[3]));
+    const arm::Mem TMP_MEM5q = getSchedulerRegRef(
+            offsetof(ErtsSchedulerRegisters, aux_regs.d.TMP_MEM[4]));
+
     constexpr arm::Mem getSchedulerRegRef(int offset) const {
         ASSERT((offset & (sizeof(Eterm) - 1)) == 0);
         return arm::Mem(scheduler_registers, offset);
@@ -150,10 +161,17 @@ protected:
     }
 
     void emit_assert_redzone_unused() {
-        ASSERT(false);
 #ifdef JIT_HARD_DEBUG
-    // TODO
-    ASSERT(false);
+        const int REDZONE_BYTES = S_REDZONE * sizeof(Eterm);
+        Label next = a.newLabel();
+
+        a.sub(TMP, E, imm(REDZONE_BYTES));
+        a.cmp(HTOP, TMP);
+
+        a.b_ls(next);
+        a.udf(0xbeef);
+
+        a.bind(next);
 #endif
     }
 
@@ -651,20 +669,26 @@ class BeamModuleAssembler : public BeamAssembler,
             RegisterCache<16, arm::Mem, a32::Gp>(scheduler_registers, E, {});
 
     void reg_cache_put(arm::Mem mem, a32::Gp src) {
-        // TODO
-        ASSERT(false);
+        if (src != TMP) {
+            reg_cache.put(mem, src);
+        } else {
+            reg_cache.invalidate(mem);
+        }
     }
 
     a32::Gp find_cache(arm::Mem mem) {
-        // TODO
-        ASSERT(false);
         return reg_cache.find(a.offset(), mem);
     }
 
     /* Works as the STR instruction, but also updates the cache. */
     void str_cache(a32::Gp src, arm::Mem mem_dst) {
-        // TODO
-        ASSERT(false);
+        reg_cache.consolidate(a.offset());
+        reg_cache.invalidate(src);
+
+        a.str(src, mem_dst);
+
+        reg_cache_put(mem_dst, src);
+        reg_cache.update(a.offset());
     }
 
     /* Works as the STP instruction, but also updates the cache. */
@@ -675,14 +699,40 @@ class BeamModuleAssembler : public BeamAssembler,
 
     /* Works like LDR, but looks in the cache first. */
     void ldr_cached(a32::Gp dst, arm::Mem mem) {
-        // TODO
-        ASSERT(false);
+        a32::Gp cached_reg = find_cache(mem);
+
+        if (cached_reg.isValid()) {
+            /* This memory location is cached. */
+            if (cached_reg == dst) {
+                comment("skipped fetching of BEAM register");
+            } else {
+                comment("simplified fetching of BEAM register");
+                a.mov(dst, cached_reg);
+                reg_cache.invalidate(dst);
+                reg_cache.update(a.offset());
+            }
+        } else {
+            /* Not cached. Load and update cache. */
+            a.ldr(dst, mem);
+            reg_cache.invalidate(dst);
+            reg_cache_put(mem, dst);
+            reg_cache.update(a.offset());
+        }
     }
 
     template<typename L, typename... Any>
     void preserve_cache(L generate, Any... clobber) {
-        // TODO
-        ASSERT(false);
+        bool valid = reg_cache.validAt(a.offset());
+
+        generate();
+
+        if (valid) {
+            if (sizeof...(clobber) > 0) {
+                reg_cache.invalidate(clobber...);
+            }
+
+            reg_cache.update(a.offset());
+        }
     }
 
     void trim_preserve_cache(const ArgWord &Words) {
@@ -696,8 +746,11 @@ class BeamModuleAssembler : public BeamAssembler,
     }
 
     void mov_preserve_cache(a32::Gp dst, a32::Gp src) {
-        // TODO
-        ASSERT(false);
+        preserve_cache(
+            [&]() {
+                a.mov(dst, src);
+            },
+            dst);
     }
 
     void untag_ptr_preserve_cache(a32::Gp dst, a32::Gp src) {
@@ -1011,8 +1064,23 @@ protected:
      * that the return address forms a valid CP. */
     template<typename Any>
     void fragment_call(Any target) {
-        // TODO
-        ASSERT(false);
+        emit_assert_redzone_unused();
+
+#if defined(JIT_HARD_DEBUG)
+        /* Verify that the stack has not grown. */
+        Label next = a.newLabel();
+
+        int sp_offset = offsetof(ErtsSchedulerRegisters, initial_sp);
+        mov_imm(TMP, sp_offset);
+        a.add(TMP, scheduler_registers, TMP);
+        a.ldr(TMP, arm::Mem(TMP));
+        a.cmp(a32::sp, TMP);
+        a.b_eq(next);
+        a.udf(0xdead);
+        a.bind(next);
+#endif
+
+        a.bl(resolve_fragment((void (*)())target, disp32MB));
     }
 
     template<typename T>
@@ -1046,21 +1114,47 @@ protected:
     };
 
     Variable<a32::Gp> init_destination(const ArgVal &arg, a32::Gp tmp) {
-        // TODO
-        ASSERT(false);
-        return Variable(tmp);
+        return Variable(tmp, getArgRef(arg));
     }
 
     Variable<a32::VecD> init_destination(const ArgVal &arg, a32::VecD tmp) {
-        // TODO
-        ASSERT(false);
-        return Variable(tmp);
+        return Variable(tmp, getArgRef(arg));
     }
 
     Variable<a32::Gp> load_source(const ArgVal &arg, a32::Gp tmp) {
-        // TODO
-        ASSERT(false);
-        return Variable(tmp);
+        if (arg.isLiteral()) {
+            preserve_cache(
+                    [&]() {
+                        a.ldr(tmp, embed_constant(arg, disp32MB));
+                    },
+                    tmp);
+            return Variable(tmp);
+        } else if (arg.isRegister()) {
+            auto ref = getArgRef(arg);
+            ldr_cached(tmp, ref);
+            return Variable(tmp, ref);
+        } else {
+            if (arg.isImmed() || arg.isWord()) {
+                auto val = arg.isImmed() ? arg.as<ArgImmed>().get()
+                                         : arg.as<ArgWord>().get();
+
+                if (Support::isIntOrUInt32(val)) {
+                    preserve_cache(
+                            [&]() {
+                                mov_imm(tmp, val);
+                            },
+                            tmp);
+                    return Variable(tmp);
+                }
+            }
+
+            preserve_cache(
+                    [&]() {
+                        a.ldr(tmp, embed_constant(arg, disp32MB));
+                    },
+                    tmp);
+            return Variable(tmp);
+        }
     }
 
     /*
@@ -1125,30 +1219,35 @@ protected:
                         a32::Gp src2_default,
                         const ArgSource &Src3,
                         a32::Gp src3_default) {
-
+        //TODO
+        ASSERT(false);
     }
 
     template<typename Reg>
     void mov_var(const Variable<Reg> &to, const Variable<Reg> &from) {
-        // TODO
-        ASSERT(false);
+        mov_var(to.reg, from);
     }
 
     template<typename Reg>
     void mov_var(const Variable<Reg> &to, Reg from) {
-        // TODO
-        ASSERT(false);
+        if (to.reg != from) {
+            mov_preserve_cache(to.reg, from);
+        }
     }
 
     template<typename Reg>
     void mov_var(Reg to, const Variable<Reg> &from) {
-        // TODO
-        ASSERT(false);
+        if (to != from.reg) {
+            mov_preserve_cache(to, from.reg);
+        }
     }
 
     void flush_var(const Variable<a32::Gp> &to) {
-        // TODO
-        ASSERT(false);
+        if (to.mem.hasBase()) {
+            str_cache(to.reg, to.mem);
+        } else {
+            reg_cache.invalidate(to.reg);
+        }
     }
 
     void flush_var(const Variable<a32::VecD> &to) {
@@ -1179,7 +1278,7 @@ protected:
     }
 
     void mov_arg(const ArgRegister &To, const ArgVal &From) {
-        auto from = load_source(From, SUPER_TMP);
+        auto from = load_source(From, TMP);
         auto to = init_destination(To, from.reg);
         mov_var(to, from);
         flush_var(to);
@@ -1196,8 +1295,10 @@ protected:
     }
 
     void mov_arg(a32::Gp to, const ArgVal &from) {
-        // TODO
-        ASSERT(false);
+        auto r = load_source(from, to);
+        if (r.reg != to) {
+            mov_preserve_cache(to, r.reg);
+        }
     }
 
     void mov_arg(const ArgVal &to, a32::Gp from) {
