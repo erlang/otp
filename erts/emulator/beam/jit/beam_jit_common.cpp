@@ -122,8 +122,11 @@ void BeamAssemblerCommon::codegen(JitAllocator *allocator,
     *writable_ptr = span.rw();
 
     VirtMem::protectJitMemory(VirtMem::ProtectJitAccess::kReadWrite);
-
+#ifdef ARCH_32
+    code.relocateToBase((uint32_t)*executable_ptr);
+#else
     code.relocateToBase((uint64_t)*executable_ptr);
+#endif
     code.copyFlattenedData(*writable_ptr,
                            code.codeSize(),
                            CopySectionFlags::kPadSectionBuffer);
@@ -262,7 +265,11 @@ void BeamModuleAssembler::codegen(char *buff, size_t len) {
     code.flatten();
     code.resolveUnresolvedLinks();
     ERTS_ASSERT(code.codeSize() <= len);
+#ifdef ARCH_32
+    code.relocateToBase((uint32_t)buff);
+#else
     code.relocateToBase((uint64_t)buff);
+#endif
     code.copyFlattenedData(buff,
                            code.codeSize(),
                            CopySectionFlags::kPadSectionBuffer);
@@ -532,8 +539,11 @@ void BeamModuleAssembler::patchImport(char *rw_base,
     for (const auto &patch : imports[index].patches) {
         auto offset = code.labelOffsetFromBase(patch.where);
         auto where = (Eterm *)&rw_base[offset + patch.ptr_offs];
-
+#ifdef ARCH_32
+        ASSERT(INT_MAX == *where);
+#else
         ASSERT(LLONG_MAX == *where);
+#endif
         *where = reinterpret_cast<Eterm>(import) + patch.val_offs;
     }
 }
@@ -544,8 +554,11 @@ void BeamModuleAssembler::patchLambda(char *rw_base,
     for (const auto &patch : lambdas[index].patches) {
         auto offset = code.labelOffsetFromBase(patch.where);
         auto where = (Eterm *)&rw_base[offset + patch.ptr_offs];
-
+#ifdef ARCH_32
+        ASSERT(INT_MAX == *where);
+#else
         ASSERT(LLONG_MAX == *where);
+#endif
         *where = reinterpret_cast<Eterm>(fe) + patch.val_offs;
     }
 }
@@ -556,8 +569,11 @@ void BeamModuleAssembler::patchLiteral(char *rw_base,
     for (const auto &patch : literals[index].patches) {
         auto offset = code.labelOffsetFromBase(patch.where);
         auto where = (Eterm *)&rw_base[offset + patch.ptr_offs];
-
+#ifdef ARCH_32
+        ASSERT(INT_MAX == *where);
+#else
         ASSERT(LLONG_MAX == *where);
+#endif
         *where = lit + patch.val_offs;
     }
 }
@@ -568,7 +584,11 @@ void BeamModuleAssembler::patchStrings(char *rw_base,
         auto offset = code.labelOffsetFromBase(patch.where);
         auto where = (const byte **)&rw_base[offset + patch.ptr_offs];
 
+#ifdef ARCH_32
+        ASSERT(INT_MAX == (Eterm)*where);
+#else
         ASSERT(LLONG_MAX == (Eterm)*where);
+#endif
         *where = string_table + patch.val_offs;
     }
 }
