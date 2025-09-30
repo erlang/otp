@@ -32,11 +32,6 @@ IMPORTS
         ATTRIBUTE, Extensions{}, SingleAttribute
         FROM PKIX-CommonTypes-2009
 
-	CertificateSerialNumber, CertExtensions{}, NoticeReference
-	FROM PKIX1Implicit-2009
-	{iso(1) identified-organization(3) dod(6) internet(1) security(5)
-	mechanisms(5) pkix(7) id-mod(0) id-mod-pkix1-implicit-02(59)}
-
        at-name, at-surname, at-givenName, at-initials, at-generationQualifier,
        at-x520CommonName, at-x520LocalityName, at-x520StateOrProvinceName,
        at-x520OrganizationName, at-x520OrganizationalUnitName, at-x520Title,
@@ -47,90 +42,41 @@ IMPORTS
        id-at-organizationalUnitName, id-at-title, id-at-countryName, id-at-serialNumber,
        id-at-pseudonym, id-emailAddress,
        ub-name, ub-common-name, ub-locality-name, ub-state-name, ub-organization-name,
-       ub-organizational-unit-name, ub-title, ub-serial-number, ub-pseudonym, ub-emailaddress-length,
-       Validity, Version, SubjectPublicKeyInfo,
-       UniqueIdentifier,
-       id-qt-unotice, id-qt-cps
+       ub-organizational-unit-name, ub-title, ub-serial-number, ub-pseudonym, ub-emailaddress-length
        FROM PKIX1Explicit-2009
        {iso(1) identified-organization(3) dod(6) internet(1)
 	security(5) mechanisms(5) pkix(7) id-mod(0)
-	id-mod-pkix1-explicit-02(51)}
-
-	--Keys and Signatures
-        dsa-with-sha1, DSA-Sig-Value, mda-sha1, pk-dsa, DSA-Params
-        FROM PKIXAlgs-2009
-
-	AlgorithmIdentifier{}, SIGNATURE-ALGORITHM
-	FROM AlgorithmInformation-2009
-	{iso(1) identified-organization(3) dod(6) internet(1) security(5)
-	mechanisms(5) pkix(7) id-mod(0)
-	id-mod-algorithmInformation-02(58)};
+	id-mod-pkix1-explicit-02(51)};
 --
 -- Certificate
 --
 
 OTPCertificate  ::=  SEQUENCE  {
      tbsCertificate       OTPTBSCertificate,
-     signatureAlgorithm    AlgorithmIdentifier{SIGNATURE-ALGORITHM,
-                                    { OTPSignatureAlgorithms }},
+     signatureAlgorithm    OTP-PKIX.AlgorithmIdentifier{OTP-PKIX.SIGNATURE-ALGORITHM,
+                                                        { OTP-PKIX.OTPSignatureAlgorithms }},
      signature            BIT STRING  }
 
 OTPTBSCertificate  ::=  SEQUENCE  {
-     version         [0]  Version DEFAULT v1,
-     serialNumber         CertificateSerialNumber,
-     signature            AlgorithmIdentifier{SIGNATURE-ALGORITHM,
-                                    { OTPSignatureAlgorithms }},
+     version         [0]  OTP-PKIX.Version DEFAULT v1,
+     serialNumber         OTP-PKIX.CertificateSerialNumber,
+     signature            OTP-PKIX.AlgorithmIdentifier{OTP-PKIX.SIGNATURE-ALGORITHM,
+                                                       { OTP-PKIX.OTPSignatureAlgorithms }},
      issuer               OTPName,
-     validity             Validity,
+     validity             OTP-PKIX.Validity,
      subject              OTPName,
-     subjectPublicKeyInfo SubjectPublicKeyInfo,
+     subjectPublicKeyInfo OTP-PKIX.SubjectPublicKeyInfo,
      ... ,
       [[2:               -- If present, version MUST be v2
-      issuerUniqueID  [1]  IMPLICIT UniqueIdentifier OPTIONAL,
-      subjectUniqueID [2]  IMPLICIT UniqueIdentifier OPTIONAL
+      issuerUniqueID  [1]  IMPLICIT OTP-PKIX.UniqueIdentifier OPTIONAL,
+      subjectUniqueID [2]  IMPLICIT OTP-PKIX.UniqueIdentifier OPTIONAL
       ]],
       [[3:               -- If present, version MUST be v3 --
-      extensions      [3]  Extensions{{CertExtensions}} OPTIONAL
+      extensions      [3]  Extensions{{OTP-PKIX.CertExtensions}} OPTIONAL
       ]], ... }
 
--- Here follows a workaround to handle very old certificates.
-
-OTPSignatureAlgorithms SIGNATURE-ALGORITHM ::= {
-    OTPSignatureAlgs, ...,
-    PKIX1-PSS-OAEP-Algorithms-2009.SignatureAlgs }
-
-OTPSignatureAlgs SIGNATURE-ALGORITHM ::= {
-  PKIXAlgs-2009.sa-rsaWithMD2      |
-  PKIXAlgs-2009.sa-rsaWithMD5      |
-  PKIXAlgs-2009.sa-rsaWithSHA1     |
-  otp-sa-dsaWithSHA1               |
-  PKIXAlgs-2009.sa-ecdsaWithSHA1,
-  ..., -- Extensible
-  PKIXAlgs-2009.sa-dsaWithSHA224   |
-  PKIXAlgs-2009.sa-dsaWithSHA256   |
-  PKIXAlgs-2009.sa-ecdsaWithSHA224 |
-  PKIXAlgs-2009.sa-ecdsaWithSHA256 |
-  PKIXAlgs-2009.sa-ecdsaWithSHA384 |
-  PKIXAlgs-2009.sa-ecdsaWithSHA512
-}
-
-otp-sa-dsaWithSHA1 SIGNATURE-ALGORITHM ::= {
-  IDENTIFIER dsa-with-sha1
-  VALUE DSA-Sig-Value
--- Allow DSA-Params as well as NULL here.
-  PARAMS TYPE OTP-DSA-Params-Or-NULL ARE absent
-  HASHES { mda-sha1 }
-  PUBLIC-KEYS { pk-dsa }
-  SMIME-CAPS { IDENTIFIED BY dsa-with-sha1 }
-}
-
-OTP-DSA-Params-Or-NULL ::= CHOICE {
-  present DSA-Params,           -- Only in very old certificates.
-  absent NULL
-}
-
--- OTPName can contain country name and email addresses that don't
--- follow the standard.
+-- OTPName can contain empty RDNs that don't follow the standard
+-- but seem to be generally accepted.
 
 OTPName ::= CHOICE {
     rdnSequence  RDNSequence }
@@ -226,74 +172,19 @@ OTP-emailAddress ::= CHOICE {
     wrong   UTF8String
 }
 
--- We use this variation of SingleAttribute/AttributeTypeAndValue
--- when calculating the "short" hash of the certificate issuer.
--- See public_key:short_name_hash/1.
 
-HashSingleAttribute ::= SEQUENCE {
-    type      OBJECT IDENTIFIER,
-    value     UTF8String
-}
-
-HashRDNSequence ::= SEQUENCE OF HashRelativeDistinguishedName
-
-HashRelativeDistinguishedName  ::=
-      SET SIZE (1 .. MAX) OF HashSingleAttribute
-
--- Used to workaround that some CAs create too long User Notices
-
-OTPCertificatePolicies ::= SEQUENCE SIZE (1..MAX) OF OTPPolicyInformation
-
-OTPPolicyInformation ::= SEQUENCE {
-     policyIdentifier   CertPolicyId,
-     policyQualifiers   SEQUENCE SIZE (1..MAX) OF
-                OTPPolicyQualifierInfo OPTIONAL }
-
-CertPolicyId ::= OBJECT IDENTIFIER
-
-CERT-POLICY-QUALIFIER ::= TYPE-IDENTIFIER
-
-OTPPolicyQualifierInfo ::= SEQUENCE {
-       policyQualifierId  CERT-POLICY-QUALIFIER.
-            &id({PolicyQualifierId}),
-       qualifier          CERT-POLICY-QUALIFIER.
-            &Type({PolicyQualifierId}{@policyQualifierId})}
-
--- Implementations that recognize additional policy qualifiers MUST
--- augment the following definition for PolicyQualifierId
-
-PolicyQualifierId CERT-POLICY-QUALIFIER ::=
-    { pqid-cps | pqid-unotice, ... }
-
-pqid-cps CERT-POLICY-QUALIFIER ::= { CPSuri IDENTIFIED BY id-qt-cps }
-pqid-unotice CERT-POLICY-QUALIFIER ::= { OTPUserNotice
-    IDENTIFIED BY id-qt-unotice }
-
--- CPS pointer qualifier
-
-CPSuri ::= IA5String
-
-OTPUserNotice ::= SEQUENCE {
-     noticeRef        NoticeReference OPTIONAL,
-     explicitText     OTPDisplayText OPTIONAL}
-
--- NoticeReference ::= SEQUENCE {
---     organization     OTPDisplayText,
---     noticeNumbers    SEQUENCE OF INTEGER }
-
-OTPDisplayText ::= CHOICE {
-     ia5String        IA5String      (SIZE (1..650)),
-     visibleString    VisibleString  (SIZE (1..650)),
-     bmpString        BMPString      (SIZE (1..650)),
-     utf8String       UTF8String     (SIZE (1..650)) }
-
--- Extensions
-
-Extensions  ::=  SEQUENCE SIZE (1..MAX) OF OTPExtension
-
-OTPExtension  ::=  SEQUENCE  {
-     extnID      OBJECT IDENTIFIER,
-     critical    BOOLEAN DEFAULT FALSE,
-     extnValue   OCTET STRING  }
+HashSingleAttribute ::= OTP-PKIX.HashSingleAttribute
+HashRDNSequence ::= OTP-PKIX.HashRDNSequence
+HashRelativeDistinguishedName ::= OTP-PKIX.HashRelativeDistinguishedName
+OTPCertificatePolicies ::= OTP-PKIX.OTPCertificatePolicies
+OTPPolicyInformation ::= OTP-PKIX.OTPPolicyInformation
+CertPolicyId ::= OTP-PKIX.CertPolicyId
+CERT-POLICY-QUALIFIER ::= OTP-PKIX.CERT-POLICY-QUALIFIER
+OTPPolicyQualifierInfo ::= OTP-PKIX.OTPPolicyQualifierInfo
+CPSuri ::= OTP-PKIX.CPSuri
+OTPUserNotice ::= OTP-PKIX.OTPUserNotice
+OTPDisplayText ::= OTP-PKIX.OTPDisplayText
+Extensions ::= OTP-PKIX.Extensions
+OTPExtension ::= OTP-PKIX.OTPExtension
 
 END

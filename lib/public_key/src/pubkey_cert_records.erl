@@ -463,7 +463,7 @@ decode_extensions(Exts, WhenCRL) ->
 decode_otp_cert_polices(Ext, Value) ->
     %% RFC 3280 states that certificate users SHOULD gracefully handle
     %% explicitText with more than 200 characters.
-    {ok, CPs} = 'OTP-PKIX-Relaxed':decode('OTPCertificatePolicies', Value),
+    {ok, CPs} = 'OTP-PKIX':decode('OTPCertificatePolicies', Value),
     Ext#'Extension'{extnValue=[translate_cert_polices(CP) || CP <- CPs]}.
 
 translate_cert_polices(#'OTPPolicyInformation'{policyIdentifier = Id, policyQualifiers = Qs0}) ->
