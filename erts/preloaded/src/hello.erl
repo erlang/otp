@@ -73,8 +73,7 @@
 %%%
 start(_BootMod, _BootArgs) ->
     %hello(BootArgs),
-    1 = 2,
-    halt(42, []).
+    halt(42, [{flush, false}]).
 %
 %%% Entry from test suite.
 %hello(BootArgs) ->
