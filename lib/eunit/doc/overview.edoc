@@ -1,6 +1,28 @@
 
 			-*- html -*-
 
+<!--
+%CopyrightBegin%
+
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2000-2025. All Rights Reserved.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+%CopyrightEnd%
+-->
+
 	EUnit overview page
 
 @title EUnit - a Lightweight Unit Testing Framework for Erlang
@@ -963,11 +985,16 @@ tests, with optional teardown afterwards. The arguments are described in
 detail below.
 </dd>
 <dt>`{node, Node::atom(), Tests | Instantiator}'</dt>
-<dt>`{node, Node::atom(), Args::string(), Tests | Instantiator}'</dt>
+<dt>`{node, Node::atom(), Args::[string()] | string(), Tests | Instantiator}'</dt>
 <dd>`node' is like `setup', but with a built-in behaviour: it starts a
-slave node for the duration of the tests. The atom `Node' should have
+peer node for the duration of the tests. The atom `Node' should have
 the format `nodename@full.machine.name', and `Args' are the optional
-arguments to the new node; see `slave:start_link/3' for details.
+arguments to the new node; see `peer:start_link/1' for details. To remain compatible
+with pre-existing user tests, `Args' accepts both a list of strings and a string
+If a string is passed, it is parsed into a list of arguments, treating
+single- and double-quoted text as single arguments and removing the quotes.
+If you wish a quote character to remain a part of the parsed argument list,
+escape it with a backslash "\". Unbalanced quotes also become a part of the output.
 </dd>
 <dt>`{foreach, Where, Setup, Cleanup, [Tests | Instantiator]}'</dt>
 <dt>`{foreach, Setup, Cleanup, [Tests | Instantiator]}'</dt>
