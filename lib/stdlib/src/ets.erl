@@ -742,8 +742,8 @@ the `Pos`:th element of every object with key `Key`.
 
 If no object with key `Key` exists, the function exits with reason `badarg`.
 
-If `Pos` is larger than the size of the tuple, the function exits with reason
-`badarg`.
+If `Pos` is larger than the size of any tuple with a matching key, the function
+exits with reason `badarg`.
 
 The difference between `set`, `bag`, and `duplicate_bag` on one hand, and
 `ordered_set` on the other, regarding the fact that `ordered_set` view keys as
@@ -777,7 +777,7 @@ equal when they _compare equal_ whereas the other table types regard them equal
 only when they _match_, holds for [`lookup_element/4`](`lookup_element/4`).
 """.
 -doc(#{since => <<"OTP 26.0">>}).
--spec lookup_element(Table, Key, Pos, Default) -> Elem when
+-spec lookup_element(Table, Key, Pos, Default) -> Elem | Default when
     Table :: table(),
     Key :: term(),
     Pos :: pos_integer(),
