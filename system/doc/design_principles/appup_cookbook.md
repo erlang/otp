@@ -388,9 +388,9 @@ terminated before the child specification is changed and the module is deleted.
 
 ## Adding or Deleting a Module
 
-_Example
+_Example_
 
-_ A new functional module `m` is added to `ch_app`:
+A new functional module `m` is added to `ch_app`:
 
 ```erlang
 {"2",
