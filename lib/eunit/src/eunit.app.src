@@ -25,4 +25,4 @@
   {registered,[]},
   {applications, [kernel,stdlib]},
   {env, []},
-  {runtime_dependencies, ["stdlib-3.4","kernel-5.3","erts-9.0"]}]}.
+  {runtime_dependencies, ["stdlib-6.0","kernel-5.3","erts-9.0"]}]}.
