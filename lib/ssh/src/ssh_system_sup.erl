@@ -72,13 +72,7 @@ start_system(Address0, Options) ->
 
 %%%----------------------------------------------------------------
 stop_system(SysSup) when is_pid(SysSup) ->
-    case lists:keyfind(SysSup, 2, supervisor:which_children(sup(server))) of
-        {{?MODULE, Id}, SysSup, _, _} -> stop_system(Id);
-        false -> ok
-    end;
-stop_system(Id) ->
-    supervisor:terminate_child(sup(server), {?MODULE, Id}).
-
+    supervisor:stop(SysSup).
 
 %%%----------------------------------------------------------------
 stop_listener(SystemSup) when is_pid(SystemSup) ->
@@ -104,7 +98,7 @@ get_daemon_listen_address(SystemSup) ->
 %%% supervisor (callback = this module) for server and non-significant
 %%% child of sshc_sup for client
 start_connection(Role = client, _, Socket, Options) ->
-    do_start_connection(Role, sup(client), false, Socket, Options);
+    do_start_connection(Role, sshc_sup, false, Socket, Options);
 start_connection(Role = server, Address=#address{}, Socket, Options) ->
     case get_system_sup(Address, Options) of
         {ok, SysPid} ->
@@ -259,10 +253,6 @@ find_system_sup(Address0) ->
         [] -> {error,not_found};
         [_,_|_] -> {error,ambiguous}
     end.
-
-sup(client) -> sshc_sup;
-sup(server) -> sshd_sup.
-
 
 is_socket_server(Options) ->
     undefined =/= ?GET_INTERNAL_OPT(connected_socket,Options,undefined).
