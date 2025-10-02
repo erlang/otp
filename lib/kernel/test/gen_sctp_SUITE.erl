@@ -2101,7 +2101,9 @@ get_addrs_by_family_aux(Family, NumAddrs) when Family =:= inet;
             ?P("IfAddrs: ~p", [IfAddrs]),
 	    case filter_addrs_by_family(IfAddrs, Family) of
 		Addrs when length(Addrs) >= NumAddrs ->
-		    {ok, lists:sublist(Addrs, NumAddrs)};
+		    Addrs2 = lists:sublist(Addrs, NumAddrs),
+		    ?P("Addrs2: ~p", [Addrs2]),
+		    {ok, Addrs2};
 		[] ->
 		    {error, ?F("Need ~p ~p address(es) found none~n",
                                [NumAddrs, Family])};
@@ -2113,8 +2115,10 @@ get_addrs_by_family_aux(Family, NumAddrs) when Family =:= inet;
     end;
 get_addrs_by_family_aux(inet_and_inet6, NumAddrs) ->
     try {ok, [case get_addrs_by_family_aux(Family, NumAddrs) of
-                  {ok, Addrs}     -> Addrs;
-                  {error, Reason} -> throw({error, Reason})
+                  {ok, Addrs}     ->
+		      Addrs;
+                  {error, Reason} ->
+		      throw({error, Reason})
               end || Family <- [inet, inet6]]}
     catch
         throw:{error, _} = ERROR ->
@@ -2156,9 +2160,8 @@ do_open_and_connect(ServerAddresses, AddressToConnectTo, Fun) ->
 			      [ServerFamily|ServerOpts])),
     ok = gen_sctp:listen(S1, true),
     P1 = ok(inet:port(S1)),
+    ?P("S1: ~p", [inet:sockname(S1)]),
     ClientFamily = get_family_by_addr(AddressToConnectTo),
-    io:format("Connecting to ~p ~p~n",
-	      [ClientFamily, AddressToConnectTo]),
     ClientOpts =
 	[ClientFamily |
 	 case ClientFamily of
@@ -2168,7 +2171,10 @@ do_open_and_connect(ServerAddresses, AddressToConnectTo, Fun) ->
 		 []
 	 end],
     S2 = ok(gen_sctp:open(0, ClientOpts)),
+    ?P("S2: ~p", [inet:sockname(S2)]),
     log(open),
+    io:format("Connecting to ~p ~p~n",
+	      [ClientFamily, AddressToConnectTo]),
     %% Verify client can connect
     #sctp_assoc_change{state=comm_up} = S2Assoc =
 	ok(gen_sctp:connect(S2, AddressToConnectTo, P1, [])),
