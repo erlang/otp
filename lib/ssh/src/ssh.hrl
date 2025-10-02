@@ -378,6 +378,7 @@ further explained below.
       | auth_methods_common_option()
       | inet_common_option()
       | fd_common_option()
+      | alive_common_option()
         .
 
 -doc """
@@ -538,6 +539,25 @@ protocol).
 -doc(#{group => <<"Common Options">>}).
 -type fd_common_option() :: {fd, gen_tcp:socket()} .
 
+-doc """
+This option is used to configure the alive messages. Alive messages are sent through the encrypted
+channel and are typically used to detect that a connection became unresponsive.
+
+The first value of the tuple sets the maximum number
+of alive messages which may be sent without receiving any messages back
+from the peer. If this threshold is reached the connection will be terminated.
+The second value of the tuple sets the timeout interval, in seconds, after which, if no data
+has been received from the peer, a message to request a response from the peer is sent.
+
+The default is {3, infinity}, which means that alive messages will not be sent to the peer,
+since the `AliveInterval` is set to `infinity`.
+
+No alive messages are sent during renegotiation, however, a timeout derived from the alive parameters
+is set to ensure that if the connection becomes unresponsive during renegotiation, the client/server
+disconnect.
+""".
+-doc(#{group => <<"Common Options">>}).
+-type alive_common_option() :: {alive_params, {AliveCountMax::pos_integer(), AliveInterval::timeout()}}.
 
 -doc """
 Experimental options that should not to be used in products.
@@ -1278,7 +1298,13 @@ Experimental options that should not to be used in products.
 	  available_host_keys,
 	  pwdfun_user_state,
 	  authenticated = false,
-	  userauth_banner_sent = false
+	  userauth_banner_sent = false,
+          %% Keep-alive
+          alive_interval = infinity           :: non_neg_integer() | infinity,
+          alive_count = 0                     :: non_neg_integer(),
+          last_alive_at = 0                   :: non_neg_integer(),
+          awaiting_keepalive_response = false :: boolean(),
+          alive_sent_probes = 0               :: non_neg_integer()
 	 }).
 
 -record(alg,
