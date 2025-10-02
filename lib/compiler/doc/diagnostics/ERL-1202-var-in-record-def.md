@@ -1,0 +1,1 @@
+# ERL-1202 - Variable in record definition
