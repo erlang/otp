@@ -49,6 +49,8 @@
 	  sup_stop_infinity/1, sup_stop_timeout/1, sup_stop_timeout_dynamic/1,
 	  sup_stop_brutal_kill/1, sup_stop_brutal_kill_dynamic/1,
           sup_stop_race/1, sup_stop_non_shutdown_exit_dynamic/1, auto_hibernate/1,
+	  sup_stop_manual/1, sup_stop_manual_timeout/1,
+          sup_stop_race/1, sup_stop_non_shutdown_exit_dynamic/1,
 	  child_adm/1, child_adm_simple/1, child_specs/1, child_specs_map/1,
 	  extra_return/1, sup_flags/1]).
 
@@ -141,7 +143,8 @@ groups() ->
      {sup_stop, [],
       [sup_stop_infinity, sup_stop_timeout, sup_stop_timeout_dynamic,
        sup_stop_brutal_kill, sup_stop_brutal_kill_dynamic,
-       sup_stop_race, sup_stop_non_shutdown_exit_dynamic]},
+       sup_stop_race, sup_stop_non_shutdown_exit_dynamic,
+       sup_stop_manual, sup_stop_manual_timeout]},
      {normal_termination, [],
       [external_start_no_progress_log, permanent_normal, transient_normal, temporary_normal]},
      {shutdown_termination, [],
@@ -653,6 +656,72 @@ sup_stop_non_shutdown_exit_dynamic(Config) when is_list(Config) ->
         end,
         [temporary, transient, permanent]
     ).
+
+%%-------------------------------------------------------------------------
+%% Tests that children are shut down when a supervisor is stopped via
+%% supervisor:stop/1
+%% Since supervisors are gen_servers and the basic functionality of the
+%% stop functions is already tested in gen_server_SUITE, we only make
+%% sure that children are terminated correctly when applied to a
+%% supervisor.
+sup_stop_manual(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    {ok, Pid} = start_link({ok, {{one_for_one, 2, 3600}, []}}),
+    Child1 = {child1, {supervisor_1, start_child, []}, 
+	      permanent, brutal_kill, worker, []},
+    Child2 = {child2, {supervisor_1, start_child, []}, 
+	      permanent, 1000, worker, []},
+    Child3 = {child3, {supervisor_1, start_child, []},
+	      permanent, 1000, worker, []},
+    {ok, CPid1} = supervisor:start_child(sup_test, Child1),
+    link(CPid1),
+    {ok, CPid2} = supervisor:start_child(sup_test, Child2),
+    link(CPid2),
+    {ok, CPid3} = supervisor:start_child(sup_test, Child3),
+    link(CPid3),
+
+    CPid3 ! {sleep, 100000},
+
+    supervisor:stop(Pid),
+
+    check_exit_reason(Pid, normal),
+    check_exit_reason(CPid1, killed),
+    check_exit_reason(CPid2, shutdown),
+    check_exit_reason(CPid3, killed).
+
+%%-------------------------------------------------------------------------
+%% Tests that children are shut down when a supervisor is stopped via
+%% supervisor:stop/3, even if the stop call times out.
+%% Since supervisors are gen_servers and the basic functionality of the
+%% stop functions is already tested in gen_server_SUITE, we only make
+%% sure that children are terminated correctly when applied to a
+%% supervisor.
+sup_stop_manual_timeout(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    {ok, Pid} = start_link({ok, {{one_for_one, 2, 3600}, []}}),
+    Child1 = {child1, {supervisor_1, start_child, []}, 
+	      permanent, 5000, worker, []},
+    Child2 = {child2, {supervisor_1, start_child, []},
+	      permanent, 1000, worker, []},
+    {ok, CPid1} = supervisor:start_child(sup_test, Child1),
+    link(CPid1),
+    {ok, CPid2} = supervisor:start_child(sup_test, Child2),
+    link(CPid2),
+
+    CPid1 ! {sleep, 1000},
+
+    try
+	supervisor:stop(Pid, normal, 100)
+    of
+	ok -> ct:fail(expected_timeout)
+    catch
+	exit:timeout ->
+	    ok
+    end,
+
+    check_exit_reason(Pid, normal),
+    check_exit_reason(CPid1, shutdown),
+    check_exit_reason(CPid2, shutdown).
 
 %%-------------------------------------------------------------------------
 %% The start function provided to start a child may return {ok, Pid}
