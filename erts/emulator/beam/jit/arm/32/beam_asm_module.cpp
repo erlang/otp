@@ -340,6 +340,20 @@ void BeamModuleAssembler::emit_call_error_handler() {
     emit_nyi("call_error_handler should never be called");
 }
 
+const Label &BeamModuleAssembler::resolve_beam_label(const ArgLabel &Lbl,
+                                                     enum Displacement disp) {
+    ASSERT(Lbl.isLabel());
+
+    const Label &beamLabel = rawLabels.at(Lbl.get());
+    const auto &labelEntry = code.labelEntry(beamLabel);
+
+    if (labelEntry->hasName()) {
+        return resolve_label(rawLabels.at(Lbl.get()), disp, labelEntry->name());
+    } else {
+        return resolve_label(rawLabels.at(Lbl.get()), disp);
+    }
+}
+
 const Label &BeamModuleAssembler::resolve_label(const Label &target,
                                                 enum Displacement disp,
                                                 const char *labelName) {
