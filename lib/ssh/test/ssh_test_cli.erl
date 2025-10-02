@@ -74,7 +74,8 @@ terminate(_Why, _S) ->
     nop.
 
 run_portprog(User, cli, TmpDir) ->
-    Pty_bin = os:find_executable("cat"), 
+    Pty_bin = os:find_executable("cat"),
+    ct:pal("Pty_bin = ~p", [Pty_bin]),
     ssh_test_lib:open_port({spawn_executable, Pty_bin},
 			   [stream,
 			    {cd, TmpDir},
