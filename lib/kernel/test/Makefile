@@ -136,6 +136,7 @@ MODULES= \
 	standard_error_SUITE \
 	multi_load_SUITE \
 	shell_test_lib \
+	group_SUITE \
 	zzz_SUITE
 
 APP_FILES = \
