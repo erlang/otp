@@ -796,7 +796,12 @@ stop_daemon(Address, Port) ->
     stop_daemon(Address, Port, ?DEFAULT_PROFILE).
 
 
--doc "Stops the listener and all connections started by the listener.".
+-doc """
+Stops the listener and all connections started by the listener.
+
+If the daemon process does not exist, the call exits the calling process
+with reason `noproc`.
+""".
 -doc(#{since => <<"OTP 21.0">>}).
 -spec stop_daemon(any|inet:ip_address(), inet:port_number(), atom()) -> ok.
 

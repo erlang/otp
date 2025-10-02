@@ -1711,11 +1711,10 @@ stop_listener(Config) when is_list(Config) ->
     file:make_dir(UserDir),
     SysDir = proplists:get_value(data_dir, Config),
 
-    {Pid0, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
 					      {user_dir, UserDir},
 					      {password, "morot"},
 					      {exec, fun ssh_exec_echo/1}]),
-
     ConnectionRef0 = ssh_test_lib:connect(Host, Port,
                                           [{silently_accept_hosts, true},
                                            {user, "foo"},
@@ -1744,11 +1743,14 @@ stop_listener(Config) when is_list(Config) ->
 	    ct:fail("Exec Timeout")
     end,
 
+    %% Same daemon ref (Pid) is expected to be received below as
+    %% previously started system supervisor is still running and
+    %% assigned to Port
     case ssh_test_lib:daemon(Port, [{system_dir, SysDir},
                                     {user_dir, UserDir},
                                     {password, "potatis"},
                                     {exec, fun ssh_exec_echo/1}]) of
-	{Pid1, Host, Port} ->
+	{Pid, Host, Port} ->
 	    ConnectionRef1 =
                 ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
                                                   {user, "foo"},
@@ -1761,13 +1763,12 @@ stop_listener(Config) when is_list(Config) ->
                                                   {password, "morot"},
                                                   {user_interaction, true},
                                                   {user_dir, UserDir}]),
-	    ssh:close(ConnectionRef0),
-	    ssh:close(ConnectionRef1),
-	    ssh:stop_daemon(Pid0),
-	    ssh:stop_daemon(Pid1);
+	    ok = ssh:close(ConnectionRef0),
+	    ok = ssh:close(ConnectionRef1),
+	    ok = ssh:stop_daemon(Pid);
 	Error ->
 	    ssh:close(ConnectionRef0),
-	    ssh:stop_daemon(Pid0),
+	    ssh:stop_daemon(Pid),
 	    ct:fail({unexpected, Error})
     end.
 
