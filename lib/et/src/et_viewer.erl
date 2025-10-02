@@ -38,7 +38,7 @@
 	 stop/1, 
          get_collector_pid/1]).
 
--include("../include/et.hrl").
+-include_lib("et/include/et.hrl").
 -include("et_internal.hrl").
 
 -define(unknown, "UNKNOWN").
