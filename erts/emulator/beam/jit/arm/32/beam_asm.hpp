@@ -174,12 +174,36 @@ protected:
         a.bind(next);
 #endif
     }
-
+    
     void branch(arm::Mem target) {
         a.ldr(TMP, target);
         a.bx(TMP);
     }
+    
+    template<typename FuncPtr>
+    void aligned_call(FuncPtr(*target)) {
+        mov_imm(TMP, target);
+        a.blx(TMP);
+    }
+    
+    void aligned_call(Label target) {
+        a.blx(target);
+    }
 
+    void aligned_call(a32::Gp target) {
+        a.blx(target);
+    }
+
+    /* Calls the given address. In DEBUG builds, make
+     * sure that the CP is aligned. */
+    template<typename OperandType>
+    void aligned_call(OperandType target) {
+        ERTS_CT_ASSERT(_CPMASK == 3);
+        ASSERT(is_CP(a.offset()));
+        a.ldr(TMP, target);
+        a.blx(TMP);
+    }
+    
     void runtime_call(a32::Gp func, unsigned args) {
         ASSERT(false);
     }
