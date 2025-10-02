@@ -175,6 +175,15 @@ protected:
 #endif
     }
     
+    /*
+     * Calls an Erlang function.
+     */
+    template<typename Any>
+    void erlang_call(Any Target) {
+        emit_assert_redzone_unused();
+        aligned_call(Target);
+    }
+    
     void branch(arm::Mem target) {
         a.ldr(TMP, target);
         a.bx(TMP);
