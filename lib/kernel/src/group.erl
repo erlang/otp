@@ -526,8 +526,6 @@ handle_info(_State, {'EXIT',Shell,R}, #state{ shell = Shell, driver = Drv }) ->
 
 handle_info(_State, _UnknownEvent, _Data) ->
     %% Ignore this unknown message.
-    erlang:display({unknown, _UnknownEvent}),
-    ok = _UnknownEvent,
     keep_state_and_data.
 
 %% When we get an input request while already serving another, we
