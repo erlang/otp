@@ -46,8 +46,7 @@ void BeamModuleAssembler::emit_move_deallocate_return() {
 }
 
 void BeamModuleAssembler::emit_i_call(const ArgLabel &CallTarget) {
-    // TODO
-    emit_nyi("emit_i_call");
+    erlang_call(resolve_beam_label(CallTarget, disp32MB));
 }
 
 void BeamModuleAssembler::emit_i_call_last(const ArgLabel &CallTarget,
@@ -85,8 +84,12 @@ void BeamModuleAssembler::emit_i_call_ext(const ArgExport &Exp) {
 }
 
 void BeamModuleAssembler::emit_i_call_ext_only(const ArgExport &Exp) {
-    // TODO
-    emit_nyi("emit_i_call_ext_only");
+    mov_arg(ARG1, Exp);
+
+    arm::Mem target = emit_setup_dispatchable_call(ARG1);
+    emit_leave_erlang_frame();
+    branch(target);
+    mark_unreachable();
 }
 
 void BeamModuleAssembler::emit_i_call_ext_last(const ArgExport &Exp,
