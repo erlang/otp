@@ -72,13 +72,12 @@ start_system(Address0, Options) ->
 
 %%%----------------------------------------------------------------
 stop_system(SysSup) when is_pid(SysSup) ->
-    case lists:keyfind(SysSup, 2, supervisor:which_children(sup(server))) of
-        {{?MODULE, Id}, SysSup, _, _} -> stop_system(Id);
-        false -> ok
-    end;
-stop_system(Id) ->
-    supervisor:terminate_child(sup(server), {?MODULE, Id}).
-
+    try
+        supervisor:stop(SysSup)
+    catch
+        exit:noproc ->
+            ok
+    end.
 
 %%%----------------------------------------------------------------
 stop_listener(SystemSup) when is_pid(SystemSup) ->
