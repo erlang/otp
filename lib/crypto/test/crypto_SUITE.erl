@@ -1574,42 +1574,56 @@ cipher_info(Config) when is_list(Config) ->
 cipher_info_prop_aead_attr() ->
     [{doc, "crypto cipher_info prop_aead attribute testing"}].
 cipher_info_prop_aead_attr(Config) when is_list(Config) ->
-    AeadCiphers = [aes_128_ccm, aes_192_ccm, aes_256_ccm, aes_128_gcm, aes_192_gcm, aes_256_gcm, chacha20_poly1305],
-    case lists:foldl(fun(C,Ok) ->
-                        case crypto:cipher_info(C) of
-                            #{prop_aead := true} ->
-                                true and Ok;
-                            _ ->
-                                false
-                        end
+    SupportedCiphers = sets:from_list(crypto:supports(ciphers)),
+
+    %% Taken from type crypto:cipher_aead()
+    AeadCiphers = sets:from_list([aes_128_ccm, aes_192_ccm, aes_256_ccm, aes_ccm,
+                                  aes_128_gcm, aes_192_gcm, aes_256_gcm, aes_gcm,
+                                  sm4_gcm, sm4_ccm, chacha20_poly1305]),
+    SupportedAeadCiphers = sets:intersection(AeadCiphers, SupportedCiphers),
+    ct:log("Checking ~b/~b AEAD Ciphers: ~p",
+           [sets:size(SupportedAeadCiphers),
+            sets:size(AeadCiphers),
+            sets:to_list(SupportedAeadCiphers)]),
+    true = sets:fold(fun(C, Ok) ->
+                         case crypto:cipher_info(C) of
+                             #{prop_aead := true} ->
+                                 Ok;
+                             _ ->
+                                 ct:fail("AEAD Cipher attribute reported false: ~s", [C])
+                         end
                      end,
                      true,
-                     AeadCiphers
-                    )
-    of
-        true ->
-            ok;
-        false ->
-            ct:fail('AEAD Cipher attribute reported false',[])
-    end,
-    NonAeadCiphers = [aes_ige256, blowfish_cbc, blowfish_cfb64],
-    case lists:foldl(fun(C,Ok) ->
-                        case crypto:cipher_info(C) of
-                            #{prop_aead := false} ->
-                                true and Ok;
-                            _ ->
-                                false
-                        end
+                     SupportedAeadCiphers),
+
+    %% Taken from types crypto:cipher_iv() and crypto:cipher_no_iv()
+    NonAeadCiphers = sets:from_list([aes_128_cbc, aes_192_cbc, aes_256_cbc, aes_cbc,
+                                     aes_128_ofb, aes_192_ofb, aes_256_ofb, aes_128_cfb128,
+                                     aes_192_cfb128, aes_256_cfb128, aes_cfb128, aes_128_cfb8,
+                                     aes_192_cfb8, aes_256_cfb8, aes_cfb8, aes_128_ctr,
+                                     aes_192_ctr, aes_256_ctr, aes_ctr, sm4_cbc, sm4_ofb,
+                                     sm4_cfb, sm4_ctr, blowfish_cbc, blowfish_cfb64,
+                                     blowfish_ofb64, chacha20, des_ede3_cbc, des_ede3_cfb,
+                                     des_cbc, des_cfb, rc2_cbc, aes_128_ecb, aes_192_ecb,
+                                     aes_256_ecb, aes_ecb, blowfish_ecb, des_ecb, sm4_ecb,
+                                     rc4]),
+    SupportedNonAeadCiphers = sets:intersection(NonAeadCiphers, SupportedCiphers),
+    ct:log("Checking ~b/~b Non-AEAD Ciphers: ~p",
+           [sets:size(SupportedNonAeadCiphers),
+            sets:size(NonAeadCiphers),
+            sets:to_list(SupportedNonAeadCiphers)]),
+    true = sets:fold(fun(C, Ok) ->
+                         case crypto:cipher_info(C) of
+                             #{prop_aead := false} ->
+                                 Ok;
+                             _ ->
+                                 ct:fail("Non-AEAD Cipher attribute reported true: ~s", [C])
+                         end
                      end,
                      true,
-                     NonAeadCiphers
-                    )
-    of
-        true ->
-            ok;
-        false ->
-            ct:fail('Non-AEAD Cipher attribute reported true',[])
-    end.
+                     SupportedNonAeadCiphers),
+
+    ok.
 
 %%--------------------------------------------------------------------
 hash_info() ->
