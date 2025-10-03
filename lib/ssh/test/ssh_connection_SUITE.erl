@@ -235,128 +235,21 @@ end_per_group(_, Config) ->
     Config.
 
 %%--------------------------------------------------------------------
-init_per_testcase(_TestCase, Config) ->
+init_per_testcase(TestCase, Config) ->
     ssh:stop(),
     ssh:start(),
-    {ok, TestLogHandlerRef} = ssh_test_lib:add_log_handler(),
     ssh_test_lib:verify_sanity_check(Config),
-    [{log_handler_ref, TestLogHandlerRef} | Config].
+    ssh_test_lib:add_log_handler(TestCase, Config).
 
 end_per_testcase(TestCase, Config) ->
     {ok, Events} = ssh_test_lib:get_log_events(
                      proplists:get_value(log_handler_ref, Config)),
     EventCnt = length(Events),
-    {ok, InterestingEventCnt} = analyze_events(Events, EventCnt),
+    {ok, InterestingEventCnt} = ssh_test_lib:analyze_events(Events, EventCnt),
     VerificationResult = verify_events(TestCase, InterestingEventCnt),
-    ssh_test_lib:rm_log_handler(),
+    ssh_test_lib:rm_log_handler(TestCase),
     ssh:stop(),
     VerificationResult.
-
-analyze_events(_, 0) ->
-    {ok, 0};
-analyze_events(Events, EventNumber) when EventNumber > 0 ->
-    {ok, Cnt} = print_interesting_events(Events, 0),
-    case Cnt > 0 of
-        true ->
-            ct:comment("(logger stats) interesting: ~p boring: ~p",
-                       [Cnt, EventNumber - Cnt]);
-        _ ->
-            ct:comment("(logger stats) boring: ~p",
-                       [length(Events)])
-    end,
-    AllEventsSummary = lists:flatten([process_event(E) || E <- Events]),
-    ct:log("~nTotal logger events: ~p~nAll events:~n~s", [EventNumber, AllEventsSummary]),
-    {ok, Cnt}.
-
-process_event(#{msg := {report,
-                        #{label := Label,
-                          report := [{supervisor, Supervisor},
-                                     {Status, Properties}]}},
-                level := Level}) ->
-    format_event1(Label, Supervisor, Status, Properties, Level);
-process_event(#{msg := {report,
-                        #{label := Label,
-                          report := [{supervisor, Supervisor},
-                                     {errorContext, _ErrorContext},
-                                     {reason, {Status, _ReasonDetails}},
-                                     {offender, Properties}]}},
-                level := Level}) ->
-    format_event1(Label, Supervisor, Status, Properties, Level);
-process_event(#{msg := {report,
-                        #{label := Label,
-                          report := [{supervisor, Supervisor},
-                                     {errorContext, _ErrorContext},
-                                     {reason, Status},
-                                     {offender, Properties}]}},
-                level := Level}) ->
-    format_event1(Label, Supervisor, Status, Properties, Level);
-process_event(#{msg := {report,
-                        #{label := Label,
-                          report := [Properties, []]}},
-                level := Level}) ->
-    {status, Status} = get_value(status, Properties),
-    {pid, Pid} = get_value(pid, Properties),
-    Id = get_value(registered_name, Properties),
-    {initial_call, {M, F, Args}} = get_value(initial_call, Properties),
-    io_lib:format("[~44s]  ~6s ~30s ~20s  ~30s ~20s:~10s(~40s)~n",
-                  [io_lib:format("~p", [E]) ||
-                      E <- [Pid, Level, Label, Status, Id, M, F, Args]]);
-process_event(#{msg := {report,
-                        #{label := Label,
-                          name := Pid,
-                          reason := {Reason, _Stack = [{M, F, Args, Location} | _]}}},
-                level := Level}) ->
-    io_lib:format("[~44s]  ~6s ~30s ~20s  ~30s ~20s:~10s(~40s) ~30s~n",
-                  [io_lib:format("~p", [E]) ||
-                      E <- [Pid, Level, Label, Reason, undefined, M, F, Args, Location]]);
-process_event(#{msg := {report,
-                        #{label := Label,
-                         format := Format,
-                         args := Args}},
-                meta := #{pid := Pid},
-                level := Level}) ->
-    io_lib:format("[~44s]  ~6s ~30s ~150s~n",
-                  [io_lib:format("~p", [E]) ||
-                      E <- [Pid, Level, Label]] ++ [io_lib:format(Format, Args)]);
-process_event(E) ->
-    io_lib:format("~n||RAW event||~n~p~n", [E]).
-
-format_event1(Label, Supervisor, Status, Properties, Level) ->
-    {pid, Pid} = get_value(pid, Properties),
-    Id = get_value(id, Properties),
-    {M, F, Args} = get_mfa_value(Properties),
-    RestartType = get_value(restart_type, Properties),
-    Significant = get_value(significant, Properties),
-    io_lib:format("[~30s <- ~10s]  ~6s ~30s ~20s  ~30s ~20s:~10s(~40s) ~20s ~25s~n",
-                  [io_lib:format("~p", [E]) ||
-                      E <- [Supervisor, Pid, Level, Label, Status, Id, M, F, Args,
-                            Significant, RestartType]]).
-
-get_mfa_value(Properties) ->
-    case get_value(mfargs, Properties) of
-        {mfargs, MFA} ->
-            MFA;
-        false ->
-            {mfa, MFA} = get_value(mfa, Properties),
-            MFA
-    end.
-
-get_value(Key, List) ->
-    case lists:keyfind(Key, 1, List) of
-        R = false ->
-            ct:log("Key ~p not found in~n~p", [Key, List]),
-            R;
-        R -> R
-    end.
-
-print_interesting_events([], Cnt) ->
-    {ok, Cnt};
-print_interesting_events([#{level := Level} = Event | Tail], Cnt)
-  when Level /= info, Level /= notice, Level /= debug ->
-    ct:log("------------~nInteresting event found:~n~p~n==========~n", [Event]),
-    print_interesting_events(Tail, Cnt + 1);
-print_interesting_events([_|Tail], Cnt) ->
-    print_interesting_events(Tail, Cnt).
 
 verify_events(_TestCase, 0) -> ok;
 verify_events(no_sensitive_leak, 1) -> ok;
@@ -1647,7 +1540,8 @@ kex_error(Config) ->
                                               {preferred_algorithms,[{kex,[Kex1]}]}
                                              ]),
     Ref = make_ref(),
-    ok = ssh_log_h:add_fun(kex_error,
+    HandlerId = kex_error2, %% avoid conflict with ssh_test_lib log handler
+    ok = ssh_log_h:add_fun(HandlerId,
                            fun(#{msg:={report,#{format:=Fmt,args:=As,label:={error_logger,_}}}}, Pid) ->
                                    true = (erlang:process_info(Pid) =/= undefined), % remove handler if we are dead
                                    Pid ! {Ref, lists:flatten(io_lib:format(Fmt,As))};
@@ -1657,7 +1551,7 @@ kex_error(Config) ->
                            end,
                            self()),
     Cleanup = fun() ->
-                      ok = logger:remove_handler(kex_error),
+                      ok = logger:remove_handler(HandlerId),
                       ok = logger:set_primary_config(level, Level)
               end,
     try
@@ -1670,7 +1564,7 @@ kex_error(Config) ->
                                          ])
     of
         _ ->
-            ok = logger:remove_handler(kex_error),
+            ok = logger:remove_handler(HandlerId),
             ct:fail("expected failure", [])
     catch
         error:{badmatch,{error,"Key exchange failed"}} ->
@@ -1796,7 +1690,7 @@ no_sensitive_leak(Config) ->
         end,
  
     %% Install the test handler:
-    Hname = no_sensitive_leak,
+    Hname = no_sensitive_leak2,  %% avoid conflict with ssh_test_lib log handler
     ok = ssh_log_h:add_fun(Hname,
                            fun(#{msg := {report,#{report := Rep}}}, Pid) ->
                                    true = (erlang:process_info(Pid, status) =/= undefined), % remove handler if we are dead

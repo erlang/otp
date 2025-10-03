@@ -1084,19 +1084,20 @@ ext_info_c(Config) ->
 %%%--------------------------------------------------------------------
 %%%
 kex_strict_negotiated(Config0) ->
-    {ok, TestRef} = ssh_test_lib:add_log_handler(),
-    Config = start_std_daemon(Config0, []),
+    Config =
+        ssh_test_lib:add_log_handler(?FUNCTION_NAME,
+                                     start_std_daemon(Config0, [])),
     {Server, Host, Port} = proplists:get_value(server, Config),
     Level = ssh_test_lib:get_log_level(),
     ssh_test_lib:set_log_level(debug),
     {ok, ConnRef} = std_connect({Host, Port}, Config, []),
     {algorithms, _A} = ssh:connection_info(ConnRef, algorithms),
     ssh:stop_daemon(Server),
-    {ok, Events} = ssh_test_lib:get_log_events(TestRef),
+    {ok, Events} = ssh_test_lib:get_log_events(Config),
     true = ssh_test_lib:kex_strict_negotiated(client, Events),
     true = ssh_test_lib:kex_strict_negotiated(server, Events),
     ssh_test_lib:set_log_level(Level),
-    ssh_test_lib:rm_log_handler(),
+    ssh_test_lib:rm_log_handler(?FUNCTION_NAME),
     ok.
 
 %% Connect to an erlang server and inject unexpected SSH message
@@ -1203,9 +1204,9 @@ kex_strict_violation(Config) ->
     ct:log("==== END ====="),
     ok.
 
-kex_strict_violation_2(Config) ->
+kex_strict_violation_2(Config0) ->
     ExpectedReason = "KEX strict violation",
-    {ok, TestRef} = ssh_test_lib:add_log_handler(),
+    Config = ssh_test_lib:add_log_handler(?FUNCTION_NAME, Config0),
     Level = ssh_test_lib:get_log_level(),
     ssh_test_lib:set_log_level(debug),
     %% Connect and negotiate keys
@@ -1246,8 +1247,8 @@ kex_strict_violation_2(Config) ->
             ct:log("2nd flow disconnect already received")
     end,
     ct:sleep(100),
-    {ok, Events} = ssh_test_lib:get_log_events(TestRef),
-    ssh_test_lib:rm_log_handler(),
+    {ok, Events} = ssh_test_lib:get_log_events(Config),
+    ssh_test_lib:rm_log_handler(?FUNCTION_NAME),
     ct:log("Events = ~p", [Events]),
     true = ssh_test_lib:kex_strict_negotiated(client, Events),
     true = ssh_test_lib:kex_strict_negotiated(server, Events),
@@ -1270,8 +1271,8 @@ kex_strict_msg_unknown(Config) ->
          {match, disconnect(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED), receive_msg}],
     kex_strict_helper(Config, TestMessages, ExpectedReason).
 
-kex_strict_helper(Config, TestMessages, ExpectedReason) ->
-    {ok, TestRef} = ssh_test_lib:add_log_handler(),
+kex_strict_helper(Config0, TestMessages, ExpectedReason) ->
+    Config = ssh_test_lib:add_log_handler(?FUNCTION_NAME, Config0),
     Level = ssh_test_lib:get_log_level(),
     ssh_test_lib:set_log_level(debug),
     %% Connect and negotiate keys
@@ -1293,8 +1294,8 @@ kex_strict_helper(Config, TestMessages, ExpectedReason) ->
               TestMessages,
           InitialState),
     ct:sleep(100),
-    {ok, Events} = ssh_test_lib:get_log_events(TestRef),
-    ssh_test_lib:rm_log_handler(),
+    {ok, Events} = ssh_test_lib:get_log_events(Config),
+    ssh_test_lib:rm_log_handler(?FUNCTION_NAME),
     ct:log("Events = ~p", [Events]),
     true = ssh_test_lib:kex_strict_negotiated(client, Events),
     true = ssh_test_lib:kex_strict_negotiated(server, Events),
