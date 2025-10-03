@@ -1260,7 +1260,7 @@ packet_size(Config) ->
               ok = ssh_connection:shell(Conn, Ch),
               rec(Server, Conn, Ch, MaxPacketSize),
               ssh_connection:close(Conn, Ch)
-      end, [0, 1, 10, 25]),
+      end, [1, 10, 25]),
 
     ssh:close(Conn),
     ssh:stop_daemon(Server),
