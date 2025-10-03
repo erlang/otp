@@ -121,8 +121,66 @@ void BeamGlobalAssembler::emit_bif_export_trap() {
  * ARG1 = export entry
  */
 void BeamGlobalAssembler::emit_export_trampoline() {
-    // TODO
-    emit_nyi("emit_export_trampoline");
+    Label call_bif = a.newLabel(), error_handler = a.newLabel();
+
+    /* What are we supposed to do? */
+    a.ldr(TMP, arm::Mem(ARG1, offsetof(Export, trampoline.common.op)));
+
+    /* We test the generic bp first as it is most likely to be triggered in a
+     * loop. */
+    a.cmp(TMP, imm(op_i_generic_breakpoint));
+    a.b_eq(labels[generic_bp_global]);
+
+    a.cmp(TMP, imm(op_call_bif_W));
+    a.b_eq(call_bif);
+
+    a.cmp(TMP, imm(op_call_error_handler));
+    a.b_eq(error_handler);
+
+    /* Must never happen. */
+    a.udf(0xffff);
+
+    a.bind(call_bif);
+    {
+        /* Emulate a `call_bif` instruction.
+         *
+         * Note that we don't check reductions: yielding here is very tricky
+         * and error-prone, and there's little point in doing so as we can only
+         * land here directly after being scheduled in. */
+        ssize_t func_offset = offsetof(Export, trampoline.bif.address);
+
+        lea(ARG2, arm::Mem(ARG1, offsetof(Export, info.mfa)));
+        a.ldr(ARG3, arm::Mem(c_p, offsetof(Process, i)));
+        a.ldr(ARG4, arm::Mem(ARG1, func_offset));
+
+        /* `call_bif_shared` assumes that the return address has been pushed to
+         * the stack as part of the prologue, so we have to do that manually
+         * now. */
+        emit_enter_erlang_frame();
+        a.b(labels[call_bif_shared]);
+    }
+
+    a.bind(error_handler);
+    {
+        emit_enter_runtime_frame();
+        emit_enter_runtime<Update::eReductions | Update::eHeapAlloc>();
+
+        lea(ARG2, arm::Mem(ARG1, offsetof(Export, info.mfa)));
+        a.mov(ARG1, c_p);
+        load_x_reg_array(ARG3);
+        mov_imm(ARG4, am_undefined_function);
+        runtime_call<4>(call_error_handler);
+
+        /* If there is no error_handler, any number of X registers
+         * can be live. */
+        emit_leave_runtime<Update::eReductions | Update::eHeapAlloc>();
+        emit_leave_runtime_frame();
+
+        a.tst(ARG1, ARG1);
+        a.b_eq(labels[process_exit]);
+
+        branch(emit_setup_dispatchable_call(ARG1));
+    }
 }
 
 /*
@@ -130,8 +188,7 @@ void BeamGlobalAssembler::emit_export_trampoline() {
  * the return address as the error address.
  */
 void BeamModuleAssembler::emit_raise_exception() {
-    // TODO
-    emit_nyi("emit_raise_exception");
+    emit_raise_exception(nullptr);
 }
 
 void BeamModuleAssembler::emit_raise_exception(const ErtsCodeMFA *exp) {
