@@ -34,7 +34,7 @@ jobs:
     runs-on: 'ubuntu-latest'
     name: 'ratchet'
     steps:
-      - uses: 'actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683' # ratchet:actions/checkout@v4.2.2
+      - uses: 'actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955' # v4.3.0
       - id: files
         run:  |
             FILES=$(find .github/ -name "*.yml" -o -name "*.yaml" -printf "%p ")
