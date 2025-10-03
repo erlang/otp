@@ -3,8 +3,8 @@
   "@id": "https://openvex.dev/docs/public/otp/vex-otp-28",
   "author": "vexctl",
   "timestamp": "2025-08-21T10:55:45.714759+02:00",
-  "last_updated": "2025-09-19T10:34:52.749902956+02:00",
-  "version": 27,
+  "last_updated": "2025-10-03T10:20:24.208677628+02:00",
+  "version": 30,
   "statements": [
     {
       "vulnerability": {
@@ -476,9 +476,48 @@
     },
     {
       "vulnerability": {
+        "name": "CVE-2025-9232"
+      },
+      "timestamp": "2025-10-03T10:20:24.13493901+02:00",
+      "products": [
+        {
+          "@id": "pkg:github/openssl/openssl@636dfadc70ce26f2473870570bfd9ec352806b1d"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_present"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2025-9231"
+      },
+      "timestamp": "2025-10-03T10:20:24.15652644+02:00",
+      "products": [
+        {
+          "@id": "pkg:github/openssl/openssl@636dfadc70ce26f2473870570bfd9ec352806b1d"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_present"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2025-9230"
+      },
+      "timestamp": "2025-10-03T10:20:24.175534094+02:00",
+      "products": [
+        {
+          "@id": "pkg:github/openssl/openssl@636dfadc70ce26f2473870570bfd9ec352806b1d"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_present"
+    },
+    {
+      "vulnerability": {
         "name": "CVE-2016-2183"
       },
-      "timestamp": "2025-09-19T10:34:52.73417131+02:00",
+      "timestamp": "2025-10-03T10:20:24.191435568+02:00",
       "products": [
         {
           "@id": "pkg:github/erlang/otp@OTP-28.0"
@@ -527,7 +566,7 @@
       "vulnerability": {
         "name": "CVE-2016-2183"
       },
-      "timestamp": "2025-09-19T10:34:52.749903353+02:00",
+      "timestamp": "2025-10-03T10:20:24.208678161+02:00",
       "products": [
         {
           "@id": "pkg:github/openssl/openssl@636dfadc70ce26f2473870570bfd9ec352806b1d"
