@@ -131,6 +131,8 @@ const Eterm etp_tag_header_map = _TAG_HEADER_MAP;
 const Eterm etp_tag_header_mask = _TAG_HEADER_MASK;
 const Eterm etp_header_subtag_mask = _HEADER_SUBTAG_MASK;
 const Eterm etp_header_arity_offs = _HEADER_ARITY_OFFS;
+const Eterm etp_header_fun_kind_offs = FUN_HEADER_KIND_OFFS;
+const Eterm etp_header_fun_env_size_offs = FUN_HEADER_ENV_SIZE_OFFS;
 
 const Eterm etp_tag_primary_size = _TAG_PRIMARY_SIZE;
 const Eterm etp_tag_primary_mask = _TAG_PRIMARY_MASK;
