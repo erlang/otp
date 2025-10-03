@@ -196,7 +196,7 @@ protected:
     }
     
     void aligned_call(Label target) {
-        a.blx(target);
+        a.bl(target);
     }
 
     void aligned_call(a32::Gp target) {
