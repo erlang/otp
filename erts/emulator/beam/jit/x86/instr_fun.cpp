@@ -40,9 +40,11 @@ void BeamGlobalAssembler::emit_unloaded_fun() {
     load_x_reg_array(ARG2);
     a.shr(ARG3, imm(FUN_HEADER_ARITY_OFFS));
     /* ARG4 has already been set. */
+    a.mov(ARG5, active_code_ix);
 
-    runtime_call<const Export *(*)(Process *, Eterm *, int, Eterm),
-                 beam_jit_handle_unloaded_fun>();
+    runtime_call<
+            const Export *(*)(Process *, Eterm *, int, Eterm, ErtsCodeIndex),
+            beam_jit_handle_unloaded_fun>();
 
     emit_leave_runtime<Update::eHeapAlloc | Update::eReductions |
                        Update::eCodeIndex>();
