@@ -234,6 +234,10 @@ end_per_testcase(TestCase, Config)
 end_per_testcase(TestCase, Config) ->
     process_events(TestCase, Config).
 
+%% FIXME in parallel executions (p_basic group) this setup does not
+%% work log handlers are uniq per testcase, but they all receive same
+%% logger events; so if one testcase fails due to logger events, rest
+%% of group might fail as well
 process_events(TestCase, Config) ->
     {ok, Events} = ssh_test_lib:get_log_events(
                      proplists:get_value(log_handler_ref, Config)),
