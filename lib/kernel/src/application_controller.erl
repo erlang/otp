@@ -558,7 +558,7 @@ init(Init, Kernel) ->
 	    ReasonStr =
 		lists:flatten(io_lib:format("error in config file "
 					    "~tp (~w): ~ts",
-					    [File, Line, Str])),
+					    [File, Line, to_string(Str)])),
 	    Init ! {ack, self(), {error, to_string(ReasonStr)}};
         {error, {file_descriptor, FDString, Line, Str}} ->
 	    ReasonStr =
@@ -2035,8 +2035,8 @@ scan_file(Str) ->
 		Error ->
 		    Error
 	    end;
-	{done, Result, _} ->
-	    {error, {none, parse_file, tuple_to_list(Result)}};
+	{done, {error, {Line, Module, Description}, _}, _} ->
+	    {error, {Line, parse_file, {Module, Description}}};
 	{more, _} ->
 	    {error, {none, load_file, "no ending <dot> found"}}
     end.
