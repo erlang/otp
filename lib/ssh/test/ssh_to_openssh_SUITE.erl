@@ -157,17 +157,17 @@ end_per_testcase(_TestCase, _Config) ->
 erlang_shell_client_openssh_server(Config) when is_list(Config) ->
     eclient_oserver_helper2(eclient_oserver_helper1(), Config).
 
-eclient_oserver_kex_strict(Config) when is_list(Config)->
-    case proplists:get_value(kex_strict, Config) of
+eclient_oserver_kex_strict(Config0) when is_list(Config0)->
+    case proplists:get_value(kex_strict, Config0) of
         true ->
-            {ok, TestRef} = ssh_test_lib:add_log_handler(),
+            Config = ssh_test_lib:add_log_handler(?FUNCTION_NAME, Config0),
             Level = ssh_test_lib:get_log_level(),
             ssh_test_lib:set_log_level(debug),
             HelperParams = eclient_oserver_helper1(),
-            {ok, Events} = ssh_test_lib:get_log_events(TestRef),
+            {ok, Events} = ssh_test_lib:get_log_events(Config),
             true = ssh_test_lib:kex_strict_negotiated(client, Events),
             ssh_test_lib:set_log_level(Level),
-            ssh_test_lib:rm_log_handler(),
+            ssh_test_lib:rm_log_handler(?FUNCTION_NAME),
             eclient_oserver_helper2(HelperParams, Config);
         _ ->
             {skip, "KEX strict not support by local OpenSSH"}
@@ -268,19 +268,19 @@ erlang_server_openssh_client_renegotiate(Config) ->
     eserver_oclient_renegotiate_helper2(
       eserver_oclient_renegotiate_helper1(Config)).
 
-eserver_oclient_kex_strict(Config) ->
-    case proplists:get_value(kex_strict, Config) of
+eserver_oclient_kex_strict(Config0) ->
+    case proplists:get_value(kex_strict, Config0) of
         true ->
-            {ok, TestRef} = ssh_test_lib:add_log_handler(),
+            Config = ssh_test_lib:add_log_handler(?FUNCTION_NAME, Config0),
             Level = ssh_test_lib:get_log_level(),
             ssh_test_lib:set_log_level(debug),
 
             HelperParams = eserver_oclient_renegotiate_helper1(Config),
-            {ok, Events} = ssh_test_lib:get_log_events(TestRef),
+            {ok, Events} = ssh_test_lib:get_log_events(Config),
             ct:log("Events = ~n~p", [Events]),
             true = ssh_test_lib:kex_strict_negotiated(server, Events),
             ssh_test_lib:set_log_level(Level),
-            ssh_test_lib:rm_log_handler(),
+            ssh_test_lib:rm_log_handler(?FUNCTION_NAME),
             eserver_oclient_renegotiate_helper2(HelperParams);
         _ ->
             {skip, "KEX strict not support by local OpenSSH"}
