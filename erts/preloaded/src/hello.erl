@@ -71,12 +71,12 @@
 %%%
 %%%    res = erl_spawn_system_process(&parent, am_hello, am_start, args, &so);
 %%%
-start(_BootMod, _BootArgs) ->
-    %hello(BootArgs),
+start(_BootMod, BootArgs) ->
+    hello(BootArgs),
     halt(42, [{flush, false}]).
 %
 %%% Entry from test suite.
-%hello(BootArgs) ->
+hello(_BootArgs) ->
 %    _ = id(BootArgs),
 %    erlang:display_string("hello, world\n"),
 %    erlang:display_string(id("arguments: ")),
@@ -84,7 +84,7 @@ start(_BootMod, _BootArgs) ->
 %
 %    erlang:display_string("Testing stuff (should not crash)...\n"),
 %    test(BootArgs),
-%    erlang:display_string("Everything is fine!\n"),
+    erlang:display_string("Everything is fine!\n").
 %
 %    estone().
 %
