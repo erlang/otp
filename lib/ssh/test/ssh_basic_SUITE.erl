@@ -190,8 +190,10 @@ init_per_group(_, Config) ->
 end_per_group(_, Config) ->
     Config.
 %%--------------------------------------------------------------------
-init_per_testcase(TC, Config) when TC==shell_no_unicode ; 
-				   TC==shell_unicode_string ->
+init_per_testcase(TestCase, Config0)
+  when TestCase==shell_no_unicode;
+       TestCase==shell_unicode_string ->
+    Config = ssh_test_lib:add_log_handler(TestCase, Config0),
     PrivDir = proplists:get_value(priv_dir, Config),
     UserDir = proplists:get_value(priv_dir, Config),
     SysDir =  proplists:get_value(data_dir, Config),
@@ -208,31 +210,51 @@ init_per_testcase(TC, Config) when TC==shell_no_unicode ;
     ct:log("file:native_name_encoding() = ~p,~nio:getopts() = ~p",
 	   [file:native_name_encoding(),io:getopts()]),
     wait_for_erlang_first_line([{io,IO}, {shell,Shell}, {sftpd, Sftpd}  | Config]);
-
-init_per_testcase(inet6_option, Config) ->
+init_per_testcase(TestCase = inet6_option, Config0) ->
+    Config = ssh_test_lib:add_log_handler(TestCase, Config0),
     case ssh_test_lib:has_inet6_address() of
 	true ->
 	    init_per_testcase('__default__', Config);
 	false ->
 	    {skip,"No ipv6 interface address"}
     end;
-init_per_testcase(_TestCase, Config) ->
-    Config.
+init_per_testcase(TestCase, Config) ->
+    ssh_test_lib:add_log_handler(TestCase, Config).
 
-end_per_testcase(TC, Config) when TC==shell_no_unicode ; 
-				  TC==shell_unicode_string ->
+end_per_testcase(TestCase, Config)
+  when TestCase==shell_no_unicode;
+       TestCase==shell_unicode_string ->
     case proplists:get_value(sftpd, Config) of
 	{Pid, _, _} ->
 	    catch ssh:stop_daemon(Pid);
 	_ ->
 	    ok
     end,
-    end_per_testcase(Config);
-end_per_testcase(_TestCase, Config) ->
-    end_per_testcase(Config).
+    process_events(TestCase, Config);
+end_per_testcase(TestCase, Config) ->
+    process_events(TestCase, Config).
 
-end_per_testcase(_Config) ->
-    ok.
+%% FIXME in parallel executions (p_basic group) this setup does not
+%% work log handlers are uniq per testcase, but they all receive same
+%% logger events; so if one testcase fails due to logger events, rest
+%% of group might fail as well
+process_events(TestCase, Config) ->
+    {ok, Events} = ssh_test_lib:get_log_events(
+                     proplists:get_value(log_handler_ref, Config)),
+    EventCnt = length(Events),
+    {ok, InterestingEventCnt} = ssh_test_lib:analyze_events(Events, EventCnt),
+    VerificationResult = verify_events(TestCase, InterestingEventCnt),
+    ssh_test_lib:rm_log_handler(TestCase),
+    VerificationResult.
+
+verify_events(_TestCase, 0) ->
+    ok;
+verify_events(multi_daemon_opt_fd, 6) -> ok;
+verify_events(internal_error, 3) -> ok;
+verify_events(_TestCase, EventNumber) when EventNumber > 0->
+    {fail, lists:flatten(
+             io_lib:format("unexpected event cnt: ~s",
+                           [integer_to_list(EventNumber)]))}.
 
 %%--------------------------------------------------------------------
 %% Test Cases --------------------------------------------------------
@@ -1051,7 +1073,7 @@ parallel_login(Config) when is_list(Config) ->
     ok = ssh_connection:send(ConnectionRef, ChannelId, <<"Data">>),
     ok = ssh_connection:send(ConnectionRef, ChannelId, << >>),
     ssh_info:print(fun(Fmt, Args) -> io:fwrite(user, Fmt, Args) end),
-    {Parents, Conns, Handshakers} =
+    {_Parents, _Conns, _Handshakers} =
         ssh_test_lib:find_handshake_parent(Port),
     ssh:stop_daemon(Pid).
 
@@ -1539,7 +1561,7 @@ wait_for_erlang_first_line(Config) ->
 	    {fail,no_ssh_connection};
 	<<"Eshell ",_/binary>> = _ErlShellStart ->
 	    ct:log("Erlang shell start: ~p~n", [_ErlShellStart]),
-	    Config;
+            Config;
 	Other ->
 	    ct:log("Unexpected answer from ssh server: ~p",[Other]),
 	    {fail,unexpected_answer}
