@@ -481,12 +481,14 @@ protected:
 
     void mov_imm(a32::Gp to, std::nullptr_t value) {
         // TODO
-        ASSERT(false);
+        //ASSERT(false);
+        emit_nyi("mov_imm");
     }
 
     void sub(a32::Gp to, a32::Gp src, int64_t val) {
         // TODO
-        ASSERT(false);
+        //ASSERT(false);
+        emit_nyi("sub");
     }
 
     void add(a32::Gp to, a32::Gp src, int32_t val) {
@@ -586,9 +588,9 @@ class BeamModuleAssembler : public BeamAssembler,
     /* Save the last PC for an error. */
     size_t last_error_offset = 0;
 
-    static constexpr ptrdiff_t STUB_CHECK_INTERVAL = 4 << 10;
+    static constexpr ptrdiff_t STUB_CHECK_INTERVAL = 1 << 10;
     static constexpr ptrdiff_t STUB_CHECK_INTERVAL_UNREACHABLE =
-            (4 << 10) - 128;
+            (1 << 10) - 128;
     size_t last_stub_check_offset = 0;
 
     /* Save the last known unreachable position. */
@@ -618,7 +620,10 @@ class BeamModuleAssembler : public BeamAssembler,
          *
          * Note that we subtract the size of one instruction to handle
          * backward displacements. */
-        dispUnknown = (32 << 10) - sizeof(Uint32) - STUB_CHECK_INTERVAL,
+        dispUnknown = (4 << 10) - sizeof(Uint32) - STUB_CHECK_INTERVAL,
+        
+        /* +- 4KB: `ldr` of 4-byte literal. */
+        disp4KB = (4 << 10) - sizeof(Uint32),
 
         /* +- 32MB: `b`, `bl`, `blx`, b.cond */
         disp32MB = (32 << 20) - sizeof(Uint32),
@@ -1158,7 +1163,7 @@ protected:
         if (arg.isLiteral()) {
             preserve_cache(
                     [&]() {
-                        a.ldr(tmp, embed_constant(arg, disp32MB));
+                        a.ldr(tmp, embed_constant(arg, disp4KB));
                     },
                     tmp);
             return Variable(tmp);
@@ -1183,7 +1188,7 @@ protected:
 
             preserve_cache(
                     [&]() {
-                        a.ldr(tmp, embed_constant(arg, disp32MB));
+                        a.ldr(tmp, embed_constant(arg, disp4KB));
                     },
                     tmp);
             return Variable(tmp);
