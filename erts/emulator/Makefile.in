@@ -759,7 +759,8 @@ ESOCK_PRELOAD_BEAM = \
 	$(ERL_TOP)/erts/preloaded/ebin/prim_net.beam
 
 ifeq ($(JIT_ARCH_BITS), 32)
-PRELOAD_BEAM = $(ERL_TOP)/erts/preloaded/ebin/hello.beam
+PRELOAD_BEAM = $(ERL_TOP)/erts/preloaded/ebin/hello.beam \
+		$(ERL_TOP)/erts/preloaded/ebin/erlang.beam
 else
 PRELOAD_BEAM = $(ERL_TOP)/erts/preloaded/ebin/erts_code_purger.beam \
 		$(ERL_TOP)/erts/preloaded/ebin/erl_init.beam \
