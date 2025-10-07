@@ -179,7 +179,10 @@ stream_recv(InStream = [_ | Socket], Size) ->
             [Data | InStream];
         {error, timeout} ->
             [<<>> | InStream];
-        {error, closed} ->
+        {error, Reason}
+          when Reason =:= closed;
+               Reason =:= econnreset;
+               Reason =:= epipe ->
             [closed | InStream];
         {error, Reason} ->
             erlang:error({?MODULE, ?FUNCTION_NAME, Reason})
@@ -192,7 +195,10 @@ stream_send(OutStream = [_ | Socket], Data) ->
     case ?DRIVER:send(Socket, Data) of
         ok ->
             OutStream;
-        {error, closed} ->
+        {error, Reason}
+          when Reason =:= closed;
+               Reason =:= econnreset;
+               Reason =:= epipe ->
             [closed | OutStream];
         {error, Reason} ->
             erlang:error({?MODULE, ?FUNCTION_NAME, Reason, [OutStream, Data]})
