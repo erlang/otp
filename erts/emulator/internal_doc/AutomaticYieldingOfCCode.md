@@ -78,7 +78,7 @@ Yielding C Fun in the Erlang Run-time System
 
 At the time of writing, YCF is used for the following in ERTS:
 
-* `ets:insert/2` and`ets:insert_new/2` (when these two functions get a list as their second parameter)
+* `ets:insert/2` and `ets:insert_new/2` (when these two functions get a list as their second parameter)
 * `maps:from_keys/2`, `maps:from_list/1`, `maps:keys/1` and `maps:values/1`
 * The functions `erts_qsort_ycf_gen_yielding`,
   `erts_qsort_ycf_gen_continue` and `erts_qsort_ycf_gen_destroy`
