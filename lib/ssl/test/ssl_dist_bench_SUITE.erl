@@ -205,16 +205,17 @@ init_per_suite(Config) ->
           CertOptions, RootCert),
         %%
         Schedulers =
-            erpc:call(ServerNode, erlang, system_info, [schedulers]),
+            erpc:call(ServerNode, erlang, system_info, [schedulers_online]),
+        Clients = max(Schedulers, 16),
         [_, ClientHost] = split_node(Node),
         [{server_node, ServerNode},
          {server_name, ServerName},
          {server, Server},
          {server_dist_args,
           "-ssl_dist_optfile " ++ ServerConfFile ++ " "},
-         {clients, Schedulers} |
+         {clients, Clients} |
          init_client_node(
-           ClientHost, Schedulers, PrivDir, ServerConf, ClientConf,
+           ClientHost, Clients, PrivDir, ServerConf, ClientConf,
            CertOptions, RootCert, Config)]
     catch
         throw : {Skip, Reason} ->
