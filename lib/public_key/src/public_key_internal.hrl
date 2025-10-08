@@ -34,6 +34,9 @@
 
 -include("OTP-PKIX.hrl").
 -include("PKCS-1.hrl").
+-include("SLH-DSA-Module-2024.hrl").
+-undef('nistAlgorithms').
+-undef('sigAlgs').
 -include("X509-ML-DSA-2025.hrl").
 
 %%  Bug in ASN.1 compiler  (hardcode the correct value)
@@ -137,15 +140,30 @@
 
 -record('ML-DSAPrivateKey',
         {
-         algorithm :: mldsa44 | mldsa65 | mldsa87,
+         algorithm   :: crypto:mldsa(),
          seed = <<>> :: binary(),
          expandedkey = <<>> :: binary()
         }).
 
 -record('ML-DSAPublicKey',
         {
-         algorithm :: mldsa44 | mldsa65 | mldsa87,
-         key  :: binary()
+         algorithm :: crypto:mldsa(),
+         key       :: binary()
+        }).
+
+%%
+%%% SLH-DSA
+%%%
+-record('SLH-DSAPrivateKey',
+        {
+         algorithm   :: crypto:slh_dsa(),
+         key         :: binary()
+        }).
+
+-record('SLH-DSAPublicKey',
+        {
+         algorithm :: crypto:slh_dsa(),
+         key       :: binary()
         }).
 
 -record('ECParameters',
