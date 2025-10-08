@@ -47,8 +47,7 @@
          match_name/3,
 	 extensions_list/1,
          cert_auth_key_id/1,
-         time_str_2_gregorian_sec/1,
-         mldsa_algo_to_oid/1
+         time_str_2_gregorian_sec/1
         ]).
 
 %% Generate test data
@@ -1736,7 +1735,9 @@ verify_signature(OtpCert, DerCert, Key, KeyParams) ->
                 asn1_NOVALUE ->
                     public_key:verify(PlainText, DigestType, Signature, Key)
             end;
-	_ ->
+        #'SLH-DSAPublicKey'{} ->
+            public_key:verify(PlainText, none, Signature, Key);
+        _ ->
 	    public_key:verify(PlainText, DigestType, Signature, {Key, KeyParams})
     end.
 
@@ -2001,15 +2002,11 @@ sign_algorithm(#'ECPrivateKey'{parameters = Parms}, Opts) ->
     #'SignatureAlgorithm'{algorithm  = Type,
                           parameters = Parms};
 sign_algorithm(#'ML-DSAPrivateKey'{algorithm = Algo}, _) ->
-    #'SignatureAlgorithm'{algorithm  = mldsa_algo_to_oid(Algo),
+    #'SignatureAlgorithm'{algorithm  = pubkey_cert_records:mldsa_algo_to_oid(Algo),
+                          parameters = asn1_NOVALUE};
+sign_algorithm(#'SLH-DSAPrivateKey'{algorithm = Algo}, _) ->
+    #'SignatureAlgorithm'{algorithm  = pubkey_cert_records:slh_dsa_algo_to_oid(Algo),
                           parameters = asn1_NOVALUE}.
-
-mldsa_algo_to_oid(mldsa44) ->
-    ?'id-ml-dsa-44';
-mldsa_algo_to_oid(mldsa65) ->
-    ?'id-ml-dsa-65';
-mldsa_algo_to_oid(mldsa87) ->
-    ?'id-ml-dsa-87'.
 
 rsa_sign_algo(#'RSAPrivateKey'{}, ?'id-RSASSA-PSS' = Type,  #'RSASSA-PSS-params'{} = Params) ->
     #'SignatureAlgorithm'{algorithm  = Type,
@@ -2193,6 +2190,9 @@ key_info(Opts) ->
     end.
 
 encode_key(#'ML-DSAPrivateKey'{} = Key) ->
+    {Asn1Type, DER, _} = public_key:pem_entry_encode('PrivateKeyInfo', Key),
+    {Asn1Type, DER};
+encode_key(#'SLH-DSAPrivateKey'{} = Key) ->
     {Asn1Type, DER, _} = public_key:pem_entry_encode('PrivateKeyInfo', Key),
     {Asn1Type, DER};
 encode_key({#'RSAPrivateKey'{}, #'RSASSA-PSS-params'{}} = Key) ->
