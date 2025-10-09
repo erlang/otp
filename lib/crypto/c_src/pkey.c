@@ -110,6 +110,46 @@ struct pkey_type_t pkey_types[] = {
 #endif
 #ifdef HAVE_SLH_DSA
     {
+        .name.atom_str = "slh_dsa_shake_128s",
+        .evp_pkey_id = EVP_PKEY_SLH_DSA_SHAKE_128S,
+        .sign.alg_str = "SLH-DSA-SHAKE-128s"
+    },
+    {
+        .name.atom_str = "slh_dsa_shake_128f",
+        .evp_pkey_id = EVP_PKEY_SLH_DSA_SHAKE_128F,
+        .sign.alg_str = "SLH-DSA-SHAKE-128f"
+    },
+    {
+        .name.atom_str = "slh_dsa_sha2_128s",
+        .evp_pkey_id = EVP_PKEY_SLH_DSA_SHA2_128S,
+        .sign.alg_str = "SLH-DSA-SHA2-128s"
+    },
+    {
+        .name.atom_str = "slh_dsa_sha2_128f",
+        .evp_pkey_id = EVP_PKEY_SLH_DSA_SHA2_128F,
+        .sign.alg_str = "SLH-DSA-SHA2-128f"
+    },
+    {
+        .name.atom_str = "slh_dsa_shake_192s",
+        .evp_pkey_id = EVP_PKEY_SLH_DSA_SHAKE_192S,
+        .sign.alg_str = "SLH-DSA-SHAKE-192s"
+    },
+    {
+        .name.atom_str = "slh_dsa_shake_192f",
+        .evp_pkey_id = EVP_PKEY_SLH_DSA_SHAKE_192F,
+        .sign.alg_str = "SLH-DSA-SHAKE-192f"
+    },
+    {
+        .name.atom_str = "slh_dsa_sha2_192s",
+        .evp_pkey_id = EVP_PKEY_SLH_DSA_SHA2_192S,
+        .sign.alg_str = "SLH-DSA-SHA2-192s"
+    },
+    {
+        .name.atom_str = "slh_dsa_sha2_192f",
+        .evp_pkey_id = EVP_PKEY_SLH_DSA_SHA2_192F,
+        .sign.alg_str = "SLH-DSA-SHA2-192f"
+    },
+    {
         .name.atom_str = "slh_dsa_shake_256s",
         .evp_pkey_id = EVP_PKEY_SLH_DSA_SHAKE_256S,
         .sign.alg_str = "SLH-DSA-SHAKE-256s"
