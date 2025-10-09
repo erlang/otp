@@ -2443,7 +2443,9 @@ rand_seed_nif(_Seed) -> ?nif_stub.
 -type mldsa() :: mldsa44 | mldsa65 | mldsa87.
 -type mldsa_private() :: {seed | expandedkey, binary()}.
 -type mldsa_public() :: binary().
--type slh_dsa() :: slh_dsa_shake_256s | slh_dsa_shake_256f | slh_dsa_sha2_256s | slh_dsa_sha2_256f.
+-type slh_dsa() :: slh_dsa_shake_128s | slh_dsa_shake_128f | slh_dsa_sha2_128s | slh_dsa_sha2_128f
+                 | slh_dsa_shake_192s | slh_dsa_shake_192f | slh_dsa_sha2_192s | slh_dsa_sha2_192f
+                 | slh_dsa_shake_256s | slh_dsa_shake_256f | slh_dsa_sha2_256s | slh_dsa_sha2_256f.
 -type slh_dsa_private() :: binary().
 -type slh_dsa_public() :: binary().
 
@@ -2551,6 +2553,14 @@ pkey_sign_nif(_Algorithm, _Type, _Digest, _Key, _Options) -> ?nif_stub.
 
 pkey_sign_heavy_nif(_Algorithm, _Type, _Digest, _Key, _Options) -> ?nif_stub.
 
+is_heavy(slh_dsa_shake_128s) -> true;
+is_heavy(slh_dsa_shake_128f) -> true;
+is_heavy(slh_dsa_sha2_128s) -> true;
+is_heavy(slh_dsa_sha2_128f) -> true;
+is_heavy(slh_dsa_shake_192s) -> true;
+is_heavy(slh_dsa_shake_192f) -> true;
+is_heavy(slh_dsa_sha2_192s) -> true;
+is_heavy(slh_dsa_sha2_192f) -> true;
 is_heavy(slh_dsa_shake_256s) -> true;
 is_heavy(slh_dsa_shake_256f) -> true;
 is_heavy(slh_dsa_sha2_256s) -> true;
