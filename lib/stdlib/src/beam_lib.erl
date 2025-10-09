@@ -99,14 +99,11 @@ The key can be provided in the following two ways:
    [`compile`](`m:compile#debug_info_key`) and function `crypto_key_fun/1` to
    register a fun that returns the key whenever `beam_lib` must decrypt the
    debug information.
-
-If no such fun is registered, `beam_lib` instead searches for an `.erlang.crypt`
-file, see the next section.
-
+   If no such fun is registered, `beam_lib` instead searches for an `.erlang.crypt`
+   file, see the next section.
 1. Store the key in a text file named `.erlang.crypt`.
-
-In this case, Compiler option `encrypt_debug_info` can be used, see
-[`compile`](`m:compile#encrypt_debug_info`).
+   In this case, Compiler option `encrypt_debug_info` can be used, see
+   [`compile`](`m:compile#encrypt_debug_info`).
 
 ## .erlang.crypt
 
