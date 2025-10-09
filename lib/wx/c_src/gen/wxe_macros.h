@@ -71,9 +71,11 @@
 #include <wx/sysopt.h>
 #include <wx/overlay.h>
 #include <wx/notifmsg.h>
+#if WXE_WEBVIEW
 #include <wx/webview.h>
 #if wxUSE_WEBVIEW && wxUSE_WEBVIEW_IE
 #include <wx/msw/webview_ie.h>
+#endif
 #endif
 #if wxUSE_GLCANVAS_EGL && !wxCHECK_VERSION(3,2,3)
 #include <EGL/egl.h>
