@@ -195,7 +195,7 @@ Global (classless) functions are located in the wx_misc module.
 	      wx_enum/0, wx_wxMouseState/0, wx_wxHtmlLinkInfo/0]).
 
 -include("wxe.hrl").
--include("../include/wx.hrl").
+-include_lib("wx/include/wx.hrl").
 
 -type wx_object() :: #wx_ref{}.  %% Opaque object reference
 -type wx_env() :: #wx_env{}.     %% Opaque process environment
