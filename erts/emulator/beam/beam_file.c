@@ -1490,6 +1490,7 @@ Eterm beamfile_get_literal(const BeamFile *beam, Sint index) {
 
     /* Static literal indexes are checked when parsing operations, and dynamic
      * literals are managed by us, so we can only land here through a bug. */
+    erts_printf("%ld\n", index);
     ERTS_INTERNAL_ERROR("illegal literal index");
 }
 

@@ -601,7 +601,10 @@ cmp128(<<I:128>>, I) -> equal;
 cmp128(_, _) -> not_equal.
 
 mixed_sizes(_Config) ->
-    mixed({345,42},
+    _ = rand:uniform(),				%Seed generator
+    io:format("Seed: ~p", [rand:export_seed()]),
+
+    deterministic_mixed({345,42},
           fun({A,B}) ->
                   <<A:9,1:1,B:6>>;
              (<<A:9,_:1,B:6>>) ->
@@ -614,11 +617,35 @@ mixed_sizes(_Config) ->
              (<<A:16,B:16,C:32,D:22,E:2>>) ->
                   {A,B,C,D,E}
           end),
+    mixed({27033,59991,16#c001cafe,12345,2},
+          fun({A,B,C,D,E}) ->
+                  <<A:16/little,B:16/little,C:32/little,
+                    D:22/little,E:2/little>>;
+             (<<A:16/little,B:16/little,C:32/little,
+                D:22/little,E:2/little>>) ->
+                  {A,B,C,D,E}
+          end),
 
-    mixed({79,153,17555,50_000,777_000,36#hugebignumber,2222},
+    deterministic_mixed({79,153,17555,50_000,777_000,36#hugebignumber,2222},
           fun({A,B,C,D,E,F,G}) ->
                   <<A:7,B:8,C:15,0:3,D:17,E:23,F:88,G:13>>;
              (<<A:7,B:8,C:15,_:3,D:17,E:23,F:88,G:13>>) ->
+                  {A,B,C,D,E,F,G}
+          end),
+    deterministic_mixed({79,153,17555,50_000,777_000,36#hugebignumber,2222},
+          fun({A,B,C,D,E,F,G}) ->
+                  <<A:7/little,B:8/little,C:15/little,0:3/little,
+                    D:17/little,E:23/little,F:88/little,G:13/little>>;
+             (<<A:7/little,B:8/little,C:15/little,0:3/little,
+                D:17/little,E:23/little,F:88/little,G:13/little>>) ->
+                  {A,B,C,D,E,F,G}
+          end),
+    deterministic_mixed({79,153,17555,50_000,777_000,36#hugebignumber,2222},
+          fun({A,B,C,D,E,F,G}) ->
+                  <<A:7/little,B:8/big,C:15/little,0:3/little,
+                    D:17/little,E:23/big,F:88/little,G:13/big>>;
+             (<<A:7/little,B:8/big,C:15/little,0:3/little,
+                D:17/little,E:23/big,F:88/little,G:13/big>>) ->
                   {A,B,C,D,E,F,G}
           end),
 
@@ -628,7 +655,6 @@ mixed_sizes(_Config) ->
              (<<A:60,B:4,C:50,D:10>>) ->
                   {A,B,C,D}
           end),
-
     mixed({16#123456789ABCDEF,13,36#hugenum,979},
           fun({A,B,C,D}) ->
                   <<A:60/little,B:4/little,C:50/little,D:10/little>>;
@@ -657,10 +683,18 @@ mixed_sizes(_Config) ->
                   {A,B,C}
           end),
 
-    mixed({5,9,38759385,93},
+    deterministic_mixed({5,9,38759385,93},
           fun({A,B,C,D}) ->
                   <<1:3,A:4,B:5,C:47,D:7>>;
              (<<1:3,A:4,B:5,C:47,D:7>>) ->
+                  {A,B,C,D}
+          end),
+    deterministic_mixed({5,9,38759385,93},
+          fun({A,B,C,D}) ->
+                  <<1:3/little,A:4/little,B:5/little,
+                    C:47/little,D:7/little>>;
+             (<<1:3/little,A:4/little,B:5/little,
+                    C:47/little,D:7/little>>) ->
                   {A,B,C,D}
           end),
 
@@ -678,12 +712,62 @@ mixed_sizes(_Config) ->
                   _ = id(0),
                   {A,B,C}
           end),
+
+    %% Additional roundtrip testing without facit.
+
+    mixed(fun({A,B,C,D}) ->
+                  <<A:11/little,B:13,C:19/little,D:77/little>>;
+             (<<A:11/little,B:13,C:19/little,D:77/little>>) ->
+                  {A,B,C,D}
+          end),
+
+    mixed(fun({A,B,C,D,E}) ->
+                  <<A:9/little,B:13,C:35/little,D:7,E:16/little>>;
+             (<<A:9/little,B:13,C:35/little,D:7,E:16/little>>) ->
+                  {A,B,C,D,E}
+          end),
+
+    mixed(fun({A,B,C,D,E,F,G,H}) ->
+                  <<A:20/little,B:4/little,C:5/little,D:8/little,
+                    E:18,F:42,G:30/little,H:33/little>>;
+             (<<A:20/little,B:4/little,C:5/little,D:8/little,
+                E:18,F:42,G:30/little,H:33/little>>) ->
+                  {A,B,C,D,E,F,G,H}
+          end),
+
     ok.
 
+mixed(F) when is_function(F, 1) ->
+    NumBits = mixed_bit_size(F, 1),
+    rand_mixed(NumBits, F).
+
+mixed_bit_size(F, N) when N < 1000 ->
+    try F(erlang:make_tuple(N, 0)) of
+        Bits when is_bitstring(Bits) ->
+            bit_size(Bits)
+    catch
+        _:_ ->
+            mixed_bit_size(F, N + 1)
+    end.
+
 mixed(Data, F) ->
+    deterministic_mixed(Data, F),
+    rand_mixed(bit_size(F(Data)), F).
+
+deterministic_mixed(Data, F) ->
     Bin = F(Data),
     Data = F(Bin),
-    true = is_bitstring(Bin).
+    true = is_bitstring(Bin),
+    UnalignedBin = make_unaligned_sub_binary(Bin),
+    Data = F(UnalignedBin),
+    true = is_bitstring(UnalignedBin).
+
+rand_mixed(NumBits, F) ->
+    <<Bin:NumBits/bits,_/bits>> = rand:bytes((NumBits + 7) div 8),
+    Data = F(Bin),
+    Bin = F(Data),
+    UnalignedBin = make_unaligned_sub_binary(Bin),
+    Data = F(UnalignedBin).
 
 signed_integer(Config) when is_list(Config) ->
     {no_match,_} = sint(mkbin([])),
@@ -996,5 +1080,8 @@ unit(_Config) ->
 %%%
 %%% Common utilities.
 %%%
+
+make_unaligned_sub_binary(Bin) ->
+    erts_debug:unaligned_bitstring(Bin, 3).
 
 id(I) -> I.
