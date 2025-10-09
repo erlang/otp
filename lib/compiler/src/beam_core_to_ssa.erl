@@ -2664,8 +2664,14 @@ select_val_cg(Type, R, Vls, Tf, Vf, Sis, St0) ->
             {TypeIs++[#b_switch{arg=R,fail=Vf,list=Vls}|Sis],St1}
     end.
 
-combine([{Is,Vs1},{Is,Vs2}|Vis]) -> combine([{Is,Vs1 ++ Vs2}|Vis]);
-combine([V|Vis]) -> [V|combine(Vis)];
+
+combine([V|Vis0]) ->
+    case {V, combine(Vis0)} of
+        {{Is,Vs1}, [{Is,Vs2}|Vis]} ->
+            [{Is,Vs1 ++ Vs2}|Vis];
+        {_,Vis} ->
+            [V|Vis]
+    end;
 combine([]) -> [].
 
 select_labels([{Is,Vs}|Vis], St0, Vls, Sis) ->

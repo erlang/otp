@@ -3988,7 +3988,7 @@ icrt_export([{V,{{export,_},_,_}}|Vs0], [{V,{{export,_}=S0,_,As}}|Vt],
     %% V was an exported variable and has been used in an expression in at least
     %% one clause. Its state needs to be merged from all clauses to silence any
     %% exported var warning already emitted.
-    {VVs,Vs} = lists:partition(fun ({K,_}) -> K =:= V end, Vs0),
+    {VVs,Vs} = lists:splitwith(fun ({K,_}) -> K =:= V end, Vs0),
     S = foldl(fun ({_,{S1,_,_}}, AccS) -> merge_state(AccS, S1) end, S0, VVs),
     icrt_export(Vs, Vt, In, I, [{V,{S,used,As}}|Acc]);
 icrt_export([{V,_}|Vs0], [{V,{_,_,As}}|Vt], In, I, Acc) ->
@@ -4003,7 +4003,7 @@ icrt_export([{V1,_}|_]=Vs, [{V2,_}|Vt], In, I, Acc) when V1 > V2 ->
     icrt_export(Vs, Vt, In, I, Acc);
 icrt_export([{V,_}|_]=Vs0, Vt, In, I, Acc) ->
     %% V is a new variable.
-    {VVs,Vs} = lists:partition(fun ({K,_}) -> K =:= V end, Vs0),
+    {VVs,Vs} = lists:splitwith(fun ({K,_}) -> K =:= V end, Vs0),
     F = fun ({_,{S,U,As}}, {AccI,AccS0,AccAs0}) ->
                 AccS = case {S,AccS0} of
                            {{unsafe,_},{unsafe,_}} ->
