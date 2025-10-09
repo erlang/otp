@@ -303,7 +303,7 @@ tail_recur:
             WSTACK_PUSH(stack, (UWord) MAKE_HASH_CDR_POST_OP);
             goto tail_recur;
         }
-        /* fall through */
+        ERTS_FALLTHROUGH();
     case LIST_DEF:
         {
             Eterm* list = list_val(term);
@@ -370,7 +370,8 @@ tail_recur:
 
             WSTACK_PUSH3(stack, (UWord) arity, (UWord)(ptr+1), (UWord) arity);
             op = MAKE_HASH_TUPLE_OP;
-        }/*fall through*/
+        }
+        ERTS_FALLTHROUGH();
     case MAKE_HASH_TUPLE_OP:
     case MAKE_HASH_TERM_ARRAY_OP:
         {
