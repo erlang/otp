@@ -87,4 +87,6 @@ erts_debug_callback_timer_foreach(void (*tclbk)(void *),
 					       ErtsMonotonicTime,
 					       void *),
 				  void *arg);
+
+Uint erts_bif_timer_count_in_timer_service(ErtsHLTimerService *service);
 #endif /* ERL_HL_TIMER_H__ */
