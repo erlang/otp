@@ -289,7 +289,7 @@ connection({call, From}, {application_data, AppData},
             send_application_data(Data, From, connection, StateData)
     end;
 connection({call, From}, {post_handshake_data, HSData}, StateData) ->
-    send_post_handshake_data(HSData, From, connection, StateData);
+    send_post_handshake_data(HSData, From, connection, StateData, [{reply, From, ok}]);
 connection({call, From}, {ack_alert, #alert{} = Alert}, StateData0) ->
     StateData = send_tls_alert(Alert, StateData0),
     {next_state, connection, StateData,
@@ -340,7 +340,7 @@ connection({call, From}, get_application_traffic_secret, #data{env = #env{num_ke
 connection(internal, {application_packets, From, Data}, StateData) ->
     send_application_data(Data, From, connection, StateData);
 connection(internal, {post_handshake_data, From, HSData}, StateData) ->
-    send_post_handshake_data(HSData, From, connection, StateData);
+    send_post_handshake_data(HSData, From, connection, StateData, []);
 connection(cast, #alert{} = Alert, StateData0) ->
     StateData = send_tls_alert(Alert, StateData0),
     {next_state, connection, StateData};
@@ -439,6 +439,9 @@ death_row(_Type, _Msg, _StateData) ->
     keep_state_and_data.
 
 %% State entry function that starts shutdown state_timeout
+%% distribution otherwise shuts down the sender
+death_row_shutdown(Reason, #data{env = #env{dist_handle = false}} = StateData) ->
+    {stop, {shutdown, Reason}, StateData};
 death_row_shutdown(Reason, StateData) ->
     {next_state, death_row, StateData, [{state_timeout, 5000, Reason}]}.
 
@@ -532,7 +535,7 @@ send_application_data(Data, From, StateName,
     case time_to_rekey(Version, DataSz, ConnectionStates0, RenegotiateAt, KeyUpdateAt, BytesSent) of
         key_update ->
             KeyUpdate = tls_handshake_1_3:key_update(update_requested),
-            {keep_state_and_data, [{next_event, internal, {post_handshake_data, From, KeyUpdate}},
+            {keep_state_and_data, [{next_event, internal, {post_handshake_data, undefined, KeyUpdate}},
                                    {next_event, internal, {application_packets, From, Data}}]};
 	renegotiate ->
 	    tls_dtls_gen_connection:internal_renegotiation(Pid, ConnectionStates0),
@@ -542,8 +545,8 @@ send_application_data(Data, From, StateName,
             KeyUpdate = tls_handshake_1_3:key_update(update_requested),
             %% Prevent infinite loop of key updates
             {Chunk, Rest} = split_binary(iolist_to_binary(Data), KeyUpdateAt),
-            {keep_state_and_data, [{next_event, internal, {post_handshake_data, From, KeyUpdate}},
-                                   {next_event, internal, {application_packets, From, [Chunk]}},
+            {keep_state_and_data, [{next_event, internal, {post_handshake_data, undefined, KeyUpdate}},
+                                   {next_event, internal, {application_packets, undefined, [Chunk]}},
                                    {next_event, internal, {application_packets, From, [Rest]}}]};
 	false ->
 	    {Msgs, ConnectionStates} = tls_record:encode_data(Data, Version, ConnectionStates0),
@@ -552,29 +555,29 @@ send_application_data(Data, From, StateName,
                     ssl_logger:debug(LogLevel, outbound, 'record', Msgs),
                     StateData1 = update_bytes_sent(Version, ConnectionStates, StateData0, DataSz),
                     hibernate_after(StateName, StateData1, []);
-                Reason when DistHandle =/= undefined ->
-                    StateData = StateData0#data{connection_states = ConnectionStates},
-                    death_row_shutdown(Reason, StateData);
                 ok ->
                     ssl_logger:debug(LogLevel, outbound, 'record', Msgs),
                     StateData = update_bytes_sent(Version, ConnectionStates, StateData0, DataSz),
-                    gen_statem:reply(From, ok),
+                    send_reply(From, ok),
                     hibernate_after(StateName, StateData, []);
                 Result ->
-                    gen_statem:reply(From, Result),
+                    send_reply(From, Result),
                     StateData = StateData0#data{connection_states = ConnectionStates},
                     hibernate_after(StateName, StateData, [])
             end
     end.
 
+send_reply(undefined, _Msg) -> ok;
+send_reply(From, Msg) -> gen_statem:reply(From, Msg).
+
 %% TLS 1.3 Post Handshake Data
-send_post_handshake_data(Handshake, From, StateName,
+send_post_handshake_data(Handshake, _From, StateName,
                          #data{env = #env{socket = Socket,
-                                                dist_handle = DistHandle,
-                                                negotiated_version = Version,
-                                                transport_cb = Transport,
-                                                log_level = LogLevel},
-                               connection_states = ConnectionStates0} = StateData0) ->
+                                          dist_handle = DistHandle,
+                                          negotiated_version = Version,
+                                          transport_cb = Transport,
+                                          log_level = LogLevel},
+                               connection_states = ConnectionStates0} = StateData0, AckAction) ->
     BinHandshake = tls_handshake:encode_handshake(Handshake, Version),
     {Encoded, ConnectionStates} =
         tls_record:encode_handshake(BinHandshake, Version, ConnectionStates0),
@@ -584,15 +587,13 @@ send_post_handshake_data(Handshake, From, StateName,
         ok when DistHandle =/=  undefined ->
             ssl_logger:debug(LogLevel, outbound, 'record', Encoded),
             StateData = maybe_update_cipher_key(StateData1, Handshake),
-            {next_state, StateName, StateData, []};
-        Reason when DistHandle =/= undefined ->
-            death_row_shutdown(Reason, StateData1);
+            {next_state, StateName, StateData, AckAction};
         ok ->
             ssl_logger:debug(LogLevel, outbound, 'record', Encoded),
             StateData = maybe_update_cipher_key(StateData1, Handshake),
-            {next_state, StateName, StateData,  [{reply, From, ok}]};
-        Result ->
-            {next_state, StateName, StateData1,  [{reply, From, Result}]}
+            {next_state, StateName, StateData,  AckAction};
+        {error, Reason} ->
+            death_row_shutdown(Reason, StateData1)
     end.
 
 maybe_update_cipher_key(#data{connection_states = ConnectionStates0,
