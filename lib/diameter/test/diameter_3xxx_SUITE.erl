@@ -29,34 +29,38 @@
 -module(diameter_3xxx_SUITE).
 
 %% testcases, no common_test dependency
--export([run/0,
-         run/1]).
+-export([run/0]).
 
 %% common_test wrapping
 -export([
          %% Framework functions
          suite/0,
          all/0,
+         groups/0,
          init_per_suite/1,
          end_per_suite/1,
+         init_per_group/2,
+         end_per_group/2,
          init_per_testcase/2,
          end_per_testcase/2,
-         
+
          %% The test cases
-         traffic/1
+         answer/1,
+         answer_3xxx/1,
+         callback/1
         ]).
 
 %% internal
--export([send_unknown_application/1,
-         send_unknown_command/1,
-         send_ok/1,
-         send_invalid_hdr_bits/1,
-         send_missing_avp/1,
-         send_ignore_missing_avp/1,
-         send_5xxx_missing_avp/1,
-         send_double_error/1,
-         send_3xxx/1,
-         send_5xxx/1]).
+-export([send_unknown_application/2,
+         send_unknown_command/2,
+         send_ok/2,
+         send_invalid_hdr_bits/2,
+         send_missing_avp/2,
+         send_ignore_missing_avp/2,
+         send_5xxx_missing_avp/2,
+         send_double_error/2,
+         send_3xxx/2,
+         send_5xxx/2]).
 
 %% diameter callbacks
 -export([peer_up/3,
@@ -76,18 +80,16 @@
 
 %% ===========================================================================
 
--define(testcase(), get(?MODULE)).
-
 -define(L, atom_to_list).
 -define(A, list_to_atom).
 
 -define(CLIENT, "CLIENT").
 -define(SERVER, "SERVER").
 -define(REALM, "erlang.org").
--define(HOST(Host, Realm), Host ++ [$.|Realm]).
 
 -define(ERRORS, [answer, answer_3xxx, callback]).
 -define(RFCS, [rfc3588, rfc6733]).
+
 -define(DICT(RFC), ?A("diameter_gen_base_" ++ ?L(RFC))).
 -define(DICT, ?DICT(rfc6733)).
 
@@ -118,8 +120,11 @@ suite() ->
     [{timetrap, {seconds, 90}}].
 
 all() ->
-    [traffic].
+    [{group, rfc3588}, {group, rfc6733}].
 
+groups() ->
+    [{rfc3588, [], [answer, answer_3xxx, callback]},
+     {rfc6733, [], [answer, answer_3xxx, callback]}].
 
 init_per_suite(Config) ->
     ?XL("init_per_suite -> entry with"
@@ -131,9 +136,17 @@ end_per_suite(Config) ->
         "~n   Config: ~p", [Config]),
     ?DUTIL:end_per_suite(Config).
 
+init_per_group(GroupName, Config) ->
+    ?XL("init_per_group(~w) -> entry with"
+        "~n   Config: ~p", [GroupName, Config]),
+    [{rfc, GroupName} | Config].
+
+end_per_group(GroupName, _Config) ->
+    ?XL("end_per_group(~w) -> entry and done", [GroupName]),
+    ok.
 
 %% This test case can take a *long* time, so if the machine is too slow, skip
-init_per_testcase(Case, Config) when is_list(Config) ->
+init_per_testcase(Case, Config) ->
     ?XL("init_per_testcase(~w) -> entry with"
         "~n   Config: ~p"
         "~n   => check factor", [Case, Config]),
@@ -145,26 +158,13 @@ init_per_testcase(Case, Config) when is_list(Config) ->
             {skip, {machine_too_slow, Factor}};
         _ ->
             ?XL("init_per_testcase(~w) -> run test", [Case]),
+            ok = diameter:start(),
             Config
-    end;
-init_per_testcase(Case, Config) ->
-    ?XL("init_per_testcase(~w) -> entry", [Case]),
-    Config.
+    end.
 
-
-end_per_testcase(Case, Config) when is_list(Config) ->
-    ?XL("end_per_testcase(~w) -> entry", [Case]),
-    Config.
-
-
-%% ===========================================================================
-
-traffic(_Config) ->
-    ?XL("~w -> entry", [?FUNCTION_NAME]),
-    run().
-
-
-%% ===========================================================================
+end_per_testcase(Case, _Config) ->
+    ?XL("end_per_testcase(~w) -> entry and done", [Case]),
+    ok = diameter:stop().
 
 tc() ->
     [send_unknown_application,
@@ -178,96 +178,103 @@ tc() ->
      send_3xxx,
      send_5xxx].
 
-%% run/0
+% %% run/0
 
 run() ->
     ?XL("run -> entry"),
-    ?RUN([[{{?MODULE, run, [{E,D}]}, 60000} || E <- ?ERRORS,
-                                               D <- ?RFCS]]).
-
-%% run/1
-
-run({F, [_,_] = G}) ->
-    ?XL("run -> entry with"
-        "~n   F: ~p"
-        "~n   G: ~p", [F, G]),    
-    put(?MODULE, F),
-    apply(?MODULE, F, [G]);
-
-run({E,D}) ->
-    ?XL("run -> entry with"
-        "~n   E: ~p"
-        "~n   D: ~p", [E, D]),
+    {ok, Logger} = ?DEL_START(),
     try
-        run([E,D])
+        ok = diameter:start(),
+        [apply(?MODULE, Errors, [[{logger, Logger}, {rfc, RFC}]]) ||
+            Errors <- ?ERRORS, RFC <- ?RFCS]
     after
-        ?XL("run(after) -> stop diameter app"),
+        ?DEL_STOP(),
         ok = diameter:stop()
-    end;
+    end.
 
-run([Errors, RFC] = G) ->
-    ?XL("run -> entry with"
+%% ===========================================================================
+
+%% start_service/1
+
+start_service(Errors, RFC) ->
+    ?XL("start_service -> entry with"
         "~n   Errors: ~p"
         "~n   RFC:    ~p", [Errors, RFC]),
     Name = ?L(Errors) ++ "," ++ ?L(RFC),
-    ?XL("run -> start diameter app"),
-    ok = diameter:start(),
 
-    ?XL("run -> subscribe to 'server' (diameter) events"),
+    ?XL("start_service -> subscribe to 'server' (diameter) events"),
     ok = ?DEL_REG(?SERVER),
-    ?XL("run -> subscribe to 'client' (diameter) events"),
+    ?XL("start_service -> subscribe to 'client' (diameter) events"),
     ok = ?DEL_REG(?CLIENT),
 
-    ?XL("run -> start service 'server' (~p)", [Name]),
+    ?XL("start_service -> start service 'server' (~p)", [Name]),
     ok = diameter:start_service(?SERVER, ?SERVICE(Name, Errors, RFC)),
-    ?XL("run -> start service 'client'"),
+    ?XL("start_service -> start service 'client'"),
     ok = diameter:start_service(?CLIENT, ?SERVICE(?CLIENT,
                                                   callback,
                                                   rfc6733)),
-    ?XL("run -> (server) listen"),
+    ?XL("start_service -> (server) listen"),
     LRef = ?LISTEN(?SERVER, tcp),
-    ?XL("run -> (client) connect"),
+    ?XL("start_service -> (client) connect"),
     ?CONNECT(?CLIENT, tcp, LRef),
-    ?XL("run -> run"),
-    ?RUN([{?MODULE, run, [{F,G}]} || F <- tc()]),
-    ?XL("run -> \"check\" counters"),
-    _ = counters(G),
-    ?XL("run -> remove 'client' transport"),
-    ok = diameter:remove_transport(?CLIENT, true),
-    ?XL("run -> remove 'server' transport"),
-    ok = diameter:remove_transport(?SERVER, true),
-    ?XL("run -> stop service 'server'"),
-    ok = diameter:stop_service(?SERVER),
-    ?XL("run -> stop service 'client'"),
-    ok = diameter:stop_service(?CLIENT),
-
-    ?XL("run -> unsubscribe from 'server' (diameter) events"),
-    ok = ?DEL_UNREG(?SERVER),
-    ?XL("run -> unsubscribe from 'client' (diameter) events"),
-    ok = ?DEL_UNREG(?CLIENT),
-
-    ?XL("run -> done"),
     ok.
 
-%% counters/1
-%%
-%% Check that counters are as expected.
+%% stop_service/0
 
-counters([_Errors, _RFC] = G) ->
-    [] = ?RUN([[fun counters/3, K, S, G]
-                    || K <- [statistics, transport, connections],
-                       S <- [?CLIENT, ?SERVER]]).
+stop_service() ->
+    ?XL("stop_service -> remove 'client' transport"),
+    ok = diameter:remove_transport(?CLIENT, true),
+    ?XL("stop_service -> remove 'server' transport"),
+    ok = diameter:remove_transport(?SERVER, true),
+    ?XL("stop_service -> stop service 'server'"),
+    ok = diameter:stop_service(?SERVER),
+    ?XL("stop_service -> stop service 'client'"),
+    ok = diameter:stop_service(?CLIENT),
 
-counters(Key, Svc, Group) ->
-    counters(Key, Svc, Group, [_|_] = diameter:service_info(Svc, Key)).
+    ?XL("stop_service -> unsubscribe from 'server' (diameter) events"),
+    ok = ?DEL_UNREG(?SERVER),
+    ?XL("stop_service -> unsubscribe from 'client' (diameter) events"),
+    ok = ?DEL_UNREG(?CLIENT),
 
-counters(statistics, Svc, [Errors, Rfc], L) ->
+    ?XL("stop_service -> done"),
+    ok.
+
+%% ===========================================================================
+
+%% execute_testcase/2
+
+execute_testcase(Errors, RFC) ->
+    ?XL("execute_testcase -> entry with"
+        "~n   Error: ~p"
+        "~n   RFC:   ~p", [Errors, RFC]),
+    ?XL("execute_testcase -> start service"),
+    ok = start_service(Errors, RFC),
+    try
+        [apply(?MODULE, F, [Errors, RFC]) || F <- tc()],
+        counters(Errors, RFC)
+    after
+        ?XL("execute_testcase -> stop service"),
+        ok = stop_service()
+    end.
+
+%% ===========================================================================
+
+counters(Errors, RFC) ->
+    [counters(K, S, Errors, RFC) || K <- [statistics, transport, connections],
+                                    S <- [?CLIENT, ?SERVER]].
+
+counters(Key, Svc, Errors, RFC) ->
+    counters(Key, Svc, Errors, RFC, [_|_] = diameter:service_info(Svc, Key)).
+
+counters(statistics, Svc, Errors, Rfc, L) ->
     [{P, Stats}] = L,
     true = is_pid(P),
     stats(Svc, Errors, Rfc, lists:sort(Stats));
 
-counters(_, _, _, _) ->
+counters(_, _, _, _, _) ->
     todo.
+
+%% ===========================================================================
 
 stats(?CLIENT, E, rfc3588, L)
   when E == answer;
@@ -474,190 +481,205 @@ stats(?SERVER, callback, rfc6733, L) ->
      {{{0,275,1},recv,error},5}]
         = L.
 
-%% send_unknown_application/1
+%% ===========================================================================
+
+answer(Config) ->
+    RFC = proplists:get_value(rfc, Config),
+    execute_testcase(?FUNCTION_NAME, RFC).
+
+answer_3xxx(Config) ->
+    RFC = proplists:get_value(rfc, Config),
+    execute_testcase(?FUNCTION_NAME, RFC).
+
+callback(Config) ->
+    RFC = proplists:get_value(rfc, Config),
+    execute_testcase(?FUNCTION_NAME, RFC).
+
+%% ===========================================================================
+
+%% send_unknown_application/2
 %%
 %% Send an unknown application that a callback (which shouldn't take
 %% place) fails on.
 
 %% diameter answers.
-send_unknown_application([_,_]) ->
+send_unknown_application(_Errors, _RFC) ->
     ?XL("~w -> entry", [?FUNCTION_NAME]),
     #'diameter_base_answer-message'{'Result-Code' = 3007,
                                                  %% UNSUPPORTED_APPLICATION
                                     'Failed-AVP' = [],
                                     'AVP' = []}
-        = call().
+        = call(?FUNCTION_NAME).
 
-%% send_unknown_command/1
+%% send_unknown_command/2
 %%
 %% Send a unknown command that a callback discards.
 
 %% handle_request discards the request.
-send_unknown_command([callback, _]) ->
+send_unknown_command(callback, _RFC) ->
     ?XL("~w -> entry", [?FUNCTION_NAME]),
-    {error, timeout} = call();
+    {error, timeout} = call(?FUNCTION_NAME);
 
 %% diameter answers.
-send_unknown_command([_,_]) ->
+send_unknown_command(_Errors, _RFC) ->
     ?XL("~w -> entry", [?FUNCTION_NAME]),
     #'diameter_base_answer-message'{'Result-Code' = 3001,
                                                  %% UNSUPPORTED_COMMAND
                                     'Failed-AVP' = [],
                                     'AVP' = []}
-        = call().
+        = call(?FUNCTION_NAME).
 
-%% send_ok/1
+%% send_ok/2
 %%
 %% Send a correct STR that a callback answers with 5002.
 
 %% Callback answers.
-send_ok([_,_]) ->
+send_ok(_Errors, _RFC) ->
     ?XL("~w -> entry", [?FUNCTION_NAME]),
     #diameter_base_STA{'Result-Code' = 5002,  %% UNKNOWN_SESSION_ID
                        'Failed-AVP' = [],
                        'AVP' = []}
-        = call().
+        = call(?FUNCTION_NAME).
 
-%% send_invalid_hdr_bits/1
+%% send_invalid_hdr_bits/2
 %%
 %% Send a request with an incorrect E-bit that a callback ignores.
 
 %% Callback answers.
-send_invalid_hdr_bits([callback, _]) ->
+send_invalid_hdr_bits(callback, _RFC) ->
     ?XL("~w -> entry", [?FUNCTION_NAME]),
     #diameter_base_STA{'Result-Code' = 2001,  %% SUCCESS
                        'Failed-AVP' = [],
                        'AVP' = []}
-        = call();
+        = call(?FUNCTION_NAME);
 
 %% diameter answers.
-send_invalid_hdr_bits([_,_]) ->
+send_invalid_hdr_bits(_Errors, _RFC) ->
     ?XL("~w -> entry", [?FUNCTION_NAME]),
     #'diameter_base_answer-message'{'Result-Code' = 3008, %% INVALID_HDR_BITS
                                     'Failed-AVP' = [],
                                     'AVP' = []}
-        = call().
+        = call(?FUNCTION_NAME).
 
-%% send_missing_avp/1
+%% send_missing_avp/2
 %%
 %% Send a request with a missing AVP that a callback answers.
 
 %% diameter answers.
-send_missing_avp([answer, rfc6733]) ->
+send_missing_avp(answer, rfc6733) ->
     ?XL("~w -> entry", [?FUNCTION_NAME]),
     #'diameter_base_answer-message'{'Result-Code' = 5005,  %% MISSING_AVP
                                     'Failed-AVP' = [_],
                                     'AVP' = []}
-        = call();
+        = call(?FUNCTION_NAME);
 
 %% Callback answers.
-send_missing_avp([_,_]) ->
+send_missing_avp(_Errors, _RFC) ->
     ?XL("~w -> entry", [?FUNCTION_NAME]),
     #diameter_base_STA{'Result-Code' = 5005,  %% MISSING_AVP
                        'Failed-AVP' = [_],
                        'AVP' = []}
-        = call().
+        = call(?FUNCTION_NAME).
 
-%% send_ignore_missing_avp/1
+%% send_ignore_missing_avp/2
 %%
 %% Send a request with a missing AVP that a callback ignores.
 
 %% diameter answers.
-send_ignore_missing_avp([answer, rfc6733]) ->
+send_ignore_missing_avp(answer, rfc6733) ->
     ?XL("~w -> entry", [?FUNCTION_NAME]),
     #'diameter_base_answer-message'{'Result-Code' = 5005,  %% MISSING_AVP
                                     'Failed-AVP' = [_],
                                     'AVP' = []}
-        = call();
+        = call(?FUNCTION_NAME);
 
 %% Callback answers, ignores the error
-send_ignore_missing_avp([_,_]) ->
+send_ignore_missing_avp(_Errors, _RFC) ->
     ?XL("~w -> entry", [?FUNCTION_NAME]),
     #diameter_base_STA{'Result-Code' = 2001,  %% SUCCESS
                        'Failed-AVP' = [],
                        'AVP' = []}
-        = call().
+        = call(?FUNCTION_NAME).
 
-%% send_5xxx_missing_avp/1
+%% send_5xxx_missing_avp/2
 %%
 %% Send a request with a missing AVP that a callback answers
 %% with {answer_message, 5005}.
 
 %% RFC 6733 allows 5xxx in an answer-message.
-send_5xxx_missing_avp([_, rfc6733]) ->
+send_5xxx_missing_avp(_Errors, rfc6733) ->
     ?XL("~w -> entry", [?FUNCTION_NAME]),
     #'diameter_base_answer-message'{'Result-Code' = 5005,  %% MISSING_AVP
                                     'Failed-AVP' = [_],
                                     'AVP' = []}
-        = call();
+        = call(?FUNCTION_NAME);
 
 %% RFC 3588 doesn't: sending answer fails.
-send_5xxx_missing_avp([_, rfc3588]) ->
+send_5xxx_missing_avp(_Errors, rfc3588) ->
     ?XL("~w -> entry", [?FUNCTION_NAME]),
-    {error, timeout} = call();
+    {error, timeout} = call(?FUNCTION_NAME);
 
 %% Callback answers, ignores the error
-send_5xxx_missing_avp([_,_]) ->
+send_5xxx_missing_avp(_Errors, _RFC) ->
     ?XL("~w -> entry", [?FUNCTION_NAME]),
     #diameter_base_STA{'Result-Code' = 2001,  %% SUCCESS
                        'Failed-AVP' = [],
                        'AVP' = []}
-        = call().
+        = call(?FUNCTION_NAME).
 
-%% send_double_error/1
+%% send_double_error/2
 %%
 %% Send a request with both an invalid E-bit and a missing AVP.
 
 %% Callback answers with STA.
-send_double_error([callback, _]) ->
+send_double_error(callback, _RFC) ->
     ?XL("~w -> entry", [?FUNCTION_NAME]),
     #diameter_base_STA{'Result-Code' = 5005,  %% MISSING_AVP
                        'Failed-AVP' = [_],
                        'AVP' = []}
-        = call();
+        = call(?FUNCTION_NAME);
 
 %% diameter answers with answer-message.
-send_double_error([_,_]) ->
+send_double_error(_Errors, _RFC) ->
     ?XL("~w -> entry", [?FUNCTION_NAME]),
     #'diameter_base_answer-message'{'Result-Code' = 3008, %% INVALID_HDR_BITS
                                     'Failed-AVP' = [],
                                     'AVP' = []}
-        = call().
+        = call(?FUNCTION_NAME).
 
-%% send_3xxx/1
+%% send_3xxx/2
 %%
 %% Send a request that's answered with a 3xxx result code.
 
 %% Callback answers.
-send_3xxx([_,_]) ->
+send_3xxx(_Errors, _RFC) ->
     ?XL("~w -> entry", [?FUNCTION_NAME]),
     #'diameter_base_answer-message'{'Result-Code' = 3999,
                                     'Failed-AVP' = [],
                                     'AVP' = []}
-        = call().
+        = call(?FUNCTION_NAME).
 
-%% send_5xxx/1
+%% send_5xxx/2
 %%
 %% Send a request that's answered with a 5xxx result code.
 
 %% Callback answers but fails since 5xxx isn't allowed in an RFC 3588
 %% answer-message.
-send_5xxx([_, rfc3588]) ->
+send_5xxx(_Errors, rfc3588) ->
     ?XL("~w -> entry", [?FUNCTION_NAME]),
-    {error, timeout} = call();
+    {error, timeout} = call(?FUNCTION_NAME);
 
 %% Callback answers.
-send_5xxx([_,_]) ->
+send_5xxx(_Errors, _RFC) ->
     ?XL("~w -> entry", [?FUNCTION_NAME]),
     #'diameter_base_answer-message'{'Result-Code' = 5999,
                                     'Failed-AVP' = [],
                                     'AVP' = []}
-        = call().
+        = call(?FUNCTION_NAME).
 
 %% ===========================================================================
 
-call() ->
-    Name = ?testcase(),
+call(Name) ->
     ?XL("call -> make diameter call with Name: ~p", [Name]),
     %% There is a "bug" in diameter, which can cause this function to return
     %% {error, timeout} even though only a fraction on the time has expired.
