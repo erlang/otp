@@ -2848,21 +2848,34 @@ void
 erts_pause_bif_timers(Process *c_p, ErtsProcLocks c_p_locks)
 {
     ErtsSchedulerData *esdp = erts_proc_sched_data(c_p);
+    int must_release_btm_lock = 0;
     WSTACK_DECLARE(bif_timers_worklist);
 
+    ASSERT(c_p_locks & ERTS_PROC_LOCK_MAIN);
     ERTS_LC_ASSERT(ERTS_PROC_LOCK_MAIN & erts_proc_lc_my_proc_locks(c_p));
+
+    if (!(c_p_locks & ERTS_PROC_LOCK_BTM)) {
+        erts_proc_lock(c_p, ERTS_PROC_LOCK_BTM);
+        c_p_locks |= ERTS_PROC_LOCK_BTM;
+        must_release_btm_lock = 1;
+    }
+    ERTS_LC_ASSERT(ERTS_PROC_LOCK_BTM & erts_proc_lc_my_proc_locks(c_p));
 
     /* It would be better in theory to use a yielding version of foreach here, but it would be a lot more complex,
      * and since this function is only used by the debugger we don't care much about performance. */
     proc_btm_rbt_foreach(c_p->bif_timers, add_bif_timer_to_worklist, &bif_timers_worklist);
     while (!WSTACK_ISEMPTY(bif_timers_worklist)) {
         ErtsBifTimer *tmr = (ErtsBifTimer *) WSTACK_POP(bif_timers_worklist);
+        Uint32 sid = (tmr->type.head.roflgs & ERTS_TMR_ROFLG_SID_MASK);
         ErtsPausedBifTimer *pbtmr = create_paused_bif_timer(tmr, c_p, esdp);
         pbtmr->next = c_p->paused_bif_timers;
         c_p->paused_bif_timers = pbtmr;
-        access_btm(tmr, (Uint32) esdp->no, esdp, /* cancel = */ 1, c_p_locks);
+        access_btm(tmr, sid, esdp, /* cancel = */ 1, c_p_locks);
     }
     WSTACK_DESTROY(bif_timers_worklist);
+    if (must_release_btm_lock) {
+        erts_proc_unlock(c_p, ERTS_PROC_LOCK_BTM);
+    }
 }
 
 void
@@ -2901,6 +2914,8 @@ erts_resume_paused_bif_timers(Process *c_p)
     ErtsSchedulerData *esdp = erts_proc_sched_data(c_p);
 
     ERTS_LC_ASSERT(ERTS_PROC_LOCK_MAIN & erts_proc_lc_my_proc_locks(c_p));
+    ERTS_LC_ASSERT(!(ERTS_PROC_LOCK_BTM & erts_proc_lc_my_proc_locks(c_p)));
+    erts_proc_lock(c_p, ERTS_PROC_LOCK_BTM);
     while (paused_bif_timer) {
         ErtsPausedBifTimer *old_timer = paused_bif_timer;
         ErtsMonotonicTime timeout_pos;
@@ -2911,7 +2926,6 @@ erts_resume_paused_bif_timers(Process *c_p)
         void *hp;
 
         tmo = (UWord) paused_bif_timer->time_left_in_msec;
-        ASSERT(tmo > 0);
         timeout_pos = get_timeout_pos(erts_get_monotonic_time(esdp), (ErtsMonotonicTime) tmo);
 
         // Lifted from setup_bif_timer
@@ -2938,6 +2952,7 @@ erts_resume_paused_bif_timers(Process *c_p)
         erts_proc_inc_refc(c_p);
     }
     c_p->paused_bif_timers = NULL;
+    erts_proc_unlock(c_p, ERTS_PROC_LOCK_BTM);
 }
 
 void
