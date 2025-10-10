@@ -24,12 +24,12 @@
 -moduledoc false.
 -export([module/2]).
 
--import(lists, [any/2,reverse/1,reverse/2,seq/2,sort/1]).
+-import(lists, [any/2,merge/1,reverse/2,seq/2,sort/1]).
 
 -include("beam_asm.hrl").
 
 -record(st,
-        {safe :: sets:set(beam_asm:label()),    %Safe labels.
+        {safe :: gb_sets:set(beam_asm:label()),    %Safe labels.
          fsz :: non_neg_integer()
         }).
 
@@ -48,8 +48,8 @@ function({function,Name,Arity,CLabel,Is0}) ->
         {function,Name,Arity,CLabel,Is}
     catch
         Class:Error:Stack ->
-	    io:fwrite("Function: ~w/~w\n", [Name,Arity]),
-	    erlang:raise(Class, Error, Stack)
+            io:fwrite("Function: ~w/~w\n", [Name,Arity]),
+            erlang:raise(Class, Error, Stack)
     end.
 
 trim([{init_yregs,_}=I|Is], none, St0) ->
@@ -116,7 +116,7 @@ is_not_recursive(_) -> false.
 %%  Y registers. Return the recipe that trims the most.
 
 trim_recipe(Layout, IsNotRecursive, {Us,Ns}) ->
-    UsedRegs = ordsets:union(Us, Ns),
+    UsedRegs = gb_sets:union(Us, Ns),
     Recipes = construct_recipes(Layout, 0, [], []),
     NumOrigKills = length([I || {kill,_}=I <- Layout]),
     IsTooExpensive = is_too_expensive_fun(IsNotRecursive),
@@ -151,15 +151,18 @@ construct_recipes(_, _, _, Acc) ->
     Acc.
 
 take_last_dead(L) ->
-    take_last_dead_1(reverse(L)).
+    take_last_dead_1(L, []).
 
-take_last_dead_1([{live,_}|Is]) ->
-    take_last_dead_1(Is);
-take_last_dead_1([{kill,Reg}|Is]) ->
-    {Reg,reverse(Is)};
-take_last_dead_1([{dead,Reg}|Is]) ->
-    {Reg,reverse(Is)};
-take_last_dead_1(_) -> none.
+take_last_dead_1([{live,_}|T], Acc) ->
+    take_last_dead_1(T, Acc);
+take_last_dead_1([{kill,Reg}|T], Acc) ->
+    {Reg,reverse(T, Acc)};
+take_last_dead_1([{dead,Reg}|T], Acc) ->
+    {Reg,reverse(T, Acc)};
+take_last_dead_1([], _) ->
+    none;
+take_last_dead_1([H|T], Acc) ->
+    take_last_dead_1(T, [H|Acc]).
 
 %% Is trimming too expensive?
 is_too_expensive({Ks,_,Moves}, NumOrigKills, IsTooExpensive) ->
@@ -199,13 +202,12 @@ is_too_expensive_fun(false) ->
     end.
 
 is_recipe_viable({_,Trim,Moves}, UsedRegs) ->
-    Moved = ordsets:from_list([Src || {move,Src,_} <- Moves]),
-    Illegal = ordsets:from_list([Dst || {move,_,Dst} <- Moves]),
+    Moved = gb_sets:from_list([Src || {move,Src,_} <- Moves]),
+    Illegal = gb_sets:from_list([Dst || {move,_,Dst} <- Moves]),
     Eliminated = [{y,N} || N <- seq(0, Trim - 1)],
     %% All eliminated registers that are also in the used set must be moved.
-    UsedEliminated = ordsets:intersection(Eliminated, UsedRegs),
-    case ordsets:is_subset(UsedEliminated, Moved) andalso
-        ordsets:is_disjoint(Illegal, UsedRegs) of
+    UsedEliminated = gb_sets:intersection(gb_sets:from_list(Eliminated), UsedRegs),
+    case gb_sets:is_subset(UsedEliminated, Moved) andalso gb_sets:is_disjoint(Illegal, UsedRegs) of
         true ->
             UsedEliminated = Moved,                        %Assertion.
             true;
@@ -365,7 +367,7 @@ safe_labels([{label,L}|Is], Acc) ->
     end;
 safe_labels([_|Is], Acc) ->
     safe_labels(Is, Acc);
-safe_labels([], Acc) -> sets:from_list(Acc).
+safe_labels([], Acc) -> gb_sets:from_list(Acc).
 
 is_safe_label([{'%',_}|Is]) ->
     is_safe_label(Is);
@@ -405,12 +407,15 @@ is_safe_label_block([]) -> true.
 %%  Figure out the layout of the stack frame.
 
 frame_layout(N, Killed, {U,_}) ->
-    Dead0 = [{y,R} || R <- seq(0, N - 1)],
-    Dead = ordsets:subtract(Dead0, ordsets:union(U, Killed)),
-    Is = [[{R,{live,R}} || R <- U],
+    AllRegisters = [{y,R} || R <- seq(0, N - 1)],
+    LiveOrKilledSet = gb_sets:union(U, gb_sets:from_list(Killed)),
+    DeadSet = gb_sets:subtract(gb_sets:from_list(AllRegisters), LiveOrKilledSet),
+    UsedRegs = gb_sets:to_list(U),
+    Dead = gb_sets:to_list(DeadSet),
+    Is = [[{R,{live,R}} || R <- UsedRegs],
           [{R,{dead,R}} || R <- Dead],
           [{R,{kill,R}} || R <- Killed]],
-    [I || {_,I} <:- lists:merge(Is)].
+    [I || {_,I} <:- merge(Is)].
 
 %% usage([Instruction], SafeLabels) -> {FrameSize,[UsedYRegs]}
 %%  Find out the frame size and usage information by looking at the
@@ -435,8 +440,9 @@ usage_1([], Acc) ->
 do_usage(Is0, #st{safe=Safe}) ->
     case Is0 of
         [return,{deallocate,N}|Is] ->
-            Regs = [],
-            case do_usage(Is, Safe, Regs, [], []) of
+            Regs = gb_sets:new(),
+            Ns =  gb_sets:new(),
+            case do_usage(Is, Safe, Regs, Ns, []) of
                 none ->
                     none;
                 Us ->
@@ -458,22 +464,22 @@ do_usage([{block,Blk}|Is], Safe, Regs0, Ns0, Acc) ->
 do_usage([{bs_create_bin,Fail,_,_,_,Dst,{list,Args}}|Is], Safe, Regs0, Ns0, Acc) ->
     case is_safe_branch(Fail, Safe) of
         true ->
-            Regs1 = ordsets:del_element(Dst, Regs0),
-            Regs = ordsets:union(Regs1, yregs(Args)),
-            Ns = ordsets:union(yregs([Dst]), Ns0),
+            Regs1 = gb_sets:del_element(Dst, Regs0),
+            Regs = gb_sets:union(Regs1, yregs(Args)),
+            Ns = gb_sets:union(yregs([Dst]), Ns0),
             U = {Regs,Ns},
             do_usage(Is, Safe, Regs, Ns, [U|Acc]);
         false ->
             none
     end;
 do_usage([{bs_get_tail,Src,Dst,_}|Is], Safe, Regs0, Ns0, Acc) ->
-    Regs1 = ordsets:del_element(Dst, Regs0),
-    Regs = ordsets:union(Regs1, yregs([Src])),
-    Ns = ordsets:union(yregs([Dst]), Ns0),
+    Regs1 = gb_sets:del_element(Dst, Regs0),
+    Regs = gb_sets:union(Regs1, yregs([Src])),
+    Ns = gb_sets:union(yregs([Dst]), Ns0),
     U = {Regs,Ns},
     do_usage(Is, Safe, Regs, Ns, [U|Acc]);
 do_usage([{bs_set_position,Src1,Src2}|Is], Safe, Regs0, Ns, Acc) ->
-    Regs = ordsets:union(Regs0, yregs([Src1,Src2])),
+    Regs = gb_sets:union(Regs0, yregs([Src1,Src2])),
     U = {Regs,Ns},
     do_usage(Is, Safe, Regs, Ns, [U|Acc]);
 do_usage([{bs_start_match4,Fail,_Live,Src,Dst}|Is], Safe, Regs0, Ns, Acc) ->
@@ -481,7 +487,7 @@ do_usage([{bs_start_match4,Fail,_Live,Src,Dst}|Is], Safe, Regs0, Ns, Acc) ->
           Fail =:= {atom,resume} orelse
           is_safe_branch(Fail, Safe)) of
         true ->
-            Regs = ordsets:union(Regs0, yregs([Src,Dst])),
+            Regs = gb_sets:union(Regs0, yregs([Src,Dst])),
             U = {Regs,Ns},
             do_usage(Is, Safe, Regs, Ns, [U|Acc]);
         false ->
@@ -497,15 +503,15 @@ do_usage([{call_fun,_}|Is], Safe, Regs, Ns, Acc) ->
     U = {Regs,Ns},
     do_usage(Is, Safe, Regs, Ns, [U|Acc]);
 do_usage([{call_fun2,_,_,Ss}|Is], Safe, Regs0, Ns, Acc) ->
-    Regs = ordsets:union(Regs0, yregs([Ss])),
+    Regs = gb_sets:union(Regs0, yregs([Ss])),
     U = {Regs,Ns},
     do_usage(Is, Safe, Regs, Ns, [U|Acc]);
 do_usage([{bif,_,Fail,Ss,Dst}|Is], Safe, Regs0, Ns0, Acc) ->
     case is_safe_branch(Fail, Safe) of
         true ->
-            Regs1 = ordsets:del_element(Dst, Regs0),
-            Regs = ordsets:union(Regs1, yregs(Ss)),
-            Ns = ordsets:union(yregs([Dst]), Ns0),
+            Regs1 = gb_sets:del_element(Dst, Regs0),
+            Regs = gb_sets:union(Regs1, yregs(Ss)),
+            Ns = gb_sets:union(yregs([Dst]), Ns0),
             U = {Regs,Ns},
             do_usage(Is, Safe, Regs, Ns, [U|Acc]);
         false ->
@@ -514,9 +520,9 @@ do_usage([{bif,_,Fail,Ss,Dst}|Is], Safe, Regs0, Ns0, Acc) ->
 do_usage([{gc_bif,_,Fail,_,Ss,Dst}|Is], Safe, Regs0, Ns0, Acc) ->
     case is_safe_branch(Fail, Safe) of
         true ->
-            Regs1 = ordsets:del_element(Dst, Regs0),
-            Regs = ordsets:union(Regs1, yregs(Ss)),
-            Ns = ordsets:union(yregs([Dst]), Ns0),
+            Regs1 = gb_sets:del_element(Dst, Regs0),
+            Regs = gb_sets:union(Regs1, yregs(Ss)),
+            Ns = gb_sets:union(yregs([Dst]), Ns0),
             U = {Regs,Ns},
             do_usage(Is, Safe, Regs, Ns, [U|Acc]);
         false ->
@@ -527,46 +533,46 @@ do_usage([{get_map_elements,Fail,S,{list,List}}|Is], Safe, Regs0, Ns0, Acc) ->
         true ->
             {Ss,Ds1} = beam_utils:split_even(List),
             Ds = yregs(Ds1),
-            Regs1 = ordsets:subtract(Regs0, Ds),
-            Regs = ordsets:union(Regs1, yregs([S|Ss])),
-            Ns = ordsets:union(Ns0, Ds),
+            Regs1 = gb_sets:subtract(Regs0, Ds),
+            Regs = gb_sets:union(Regs1, yregs([S|Ss])),
+            Ns = gb_sets:union(Ns0, Ds),
             U = {Regs,Ns},
             do_usage(Is, Safe, Regs, Ns, [U|Acc]);
         false ->
             none
     end;
 do_usage([{init_yregs,{list,Ds}}|Is], Safe, Regs0, Ns0, Acc) ->
-    Regs = ordsets:subtract(Regs0, Ds),
-    Ns = ordsets:union(Ns0, Ds),
+    Regs = gb_sets:subtract(Regs0, yregs(Ds)),
+    Ns = gb_sets:union(Ns0, gb_sets:from_list(Ds)),
     U = {Regs,Ns},
     do_usage(Is, Safe, Regs, Ns, [U|Acc]);
 do_usage([{make_fun3,_,_,_,Dst,{list,Ss}}|Is], Safe, Regs0, Ns0, Acc) ->
-    Regs1 = ordsets:del_element(Dst, Regs0),
-    Regs = ordsets:union(Regs1, yregs(Ss)),
-    Ns = ordsets:union(yregs([Dst]), Ns0),
+    Regs1 = gb_sets:del_element(Dst, Regs0),
+    Regs = gb_sets:union(Regs1, yregs(Ss)),
+    Ns = gb_sets:union(yregs([Dst]), Ns0),
     U = {Regs,Ns},
     do_usage(Is, Safe, Regs, Ns, [U|Acc]);
 do_usage([{update_record,_,_,Src,Dst,{list,Ss}}|Is], Safe, Regs0, Ns0, Acc) ->
-    Regs1 = ordsets:del_element(Dst, Regs0),
-    Regs = ordsets:union(Regs1, yregs([Src|Ss])),
-    Ns = ordsets:union(yregs([Dst]), Ns0),
+    Regs1 = gb_sets:del_element(Dst, Regs0),
+    Regs = gb_sets:union(Regs1, yregs([Src|Ss])),
+    Ns = gb_sets:union(yregs([Dst]), Ns0),
     U = {Regs,Ns},
     do_usage(Is, Safe, Regs, Ns, [U|Acc]);
 do_usage([{line,_}|Is], Safe, Regs, Ns, Acc) ->
     U = {Regs,Ns},
     do_usage(Is, Safe, Regs, Ns, [U|Acc]);
 do_usage([{recv_marker_clear,Src}|Is], Safe, Regs0, Ns, Acc) ->
-    Regs = ordsets:union(Regs0, yregs([Src])),
+    Regs = gb_sets:union(Regs0, yregs([Src])),
     U = {Regs,Ns},
     do_usage(Is, Safe, Regs, Ns, [U|Acc]);
 do_usage([{recv_marker_reserve,Src}|Is], Safe, Regs0, Ns, Acc) ->
-    Regs = ordsets:union(Regs0, yregs([Src])),
+    Regs = gb_sets:union(Regs0, yregs([Src])),
     U = {Regs,Ns},
     do_usage(Is, Safe, Regs, Ns, [U|Acc]);
 do_usage([{test,_,Fail,Ss}|Is], Safe, Regs0, Ns, Acc) ->
     case is_safe_branch(Fail, Safe) of
         true ->
-            Regs = ordsets:union(Regs0, yregs(Ss)),
+            Regs = gb_sets:union(Regs0, yregs(Ss)),
             U = {Regs,Ns},
             do_usage(Is, Safe, Regs, Ns, [U|Acc]);
         false ->
@@ -575,9 +581,9 @@ do_usage([{test,_,Fail,Ss}|Is], Safe, Regs0, Ns, Acc) ->
 do_usage([{test,_,Fail,_,Ss,Dst}|Is], Safe, Regs0, Ns0, Acc) ->
     case is_safe_branch(Fail, Safe) of
         true ->
-            Regs1 = ordsets:del_element(Dst, Regs0),
-            Regs = ordsets:union(Regs1, yregs(Ss)),
-            Ns = ordsets:union(yregs([Dst]), Ns0),
+            Regs1 = gb_sets:del_element(Dst, Regs0),
+            Regs = gb_sets:union(Regs1, yregs(Ss)),
+            Ns = gb_sets:union(yregs([Dst]), Ns0),
             U = {Regs,Ns},
             do_usage(Is, Safe, Regs, Ns, [U|Acc]);
         false ->
@@ -590,19 +596,19 @@ do_usage([], _Safe, _Regs, _Ns, Acc) -> Acc.
 do_usage_blk([{set,Ds0,Ss,_}|Is], Regs0, Ns0) ->
     Ds = yregs(Ds0),
     {Regs1,Ns1} = do_usage_blk(Is, Regs0, Ns0),
-    Regs2 = ordsets:subtract(Regs1, Ds),
-    Regs = ordsets:union(Regs2, yregs(Ss)),
-    Ns = ordsets:union(Ns1, Ds),
+    Regs2 = gb_sets:subtract(Regs1, Ds),
+    Regs = gb_sets:union(Regs2, yregs(Ss)),
+    Ns = gb_sets:union(Ns1, Ds),
     {Regs,Ns};
 do_usage_blk([], Regs, Ns) -> {Regs,Ns}.
 
 is_safe_branch({f,0}, _Safe) ->
     true;
 is_safe_branch({f,L}, Safe) ->
-    sets:is_element(L, Safe).
+    gb_sets:is_element(L, Safe).
 
 yregs(Rs) ->
-    ordsets:from_list(yregs_1(Rs)).
+    gb_sets:from_list(yregs_1(Rs)).
 
 yregs_1([{y,_}=Y|Rs]) ->
     [Y|yregs_1(Rs)];
