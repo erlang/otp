@@ -60,6 +60,11 @@
          empty_service_name/1,
          ext_info_c/1,
          ext_info_s/1,
+         keep_alive_sent/1,
+         keep_alive_maxcount_exceeded/1,
+         keep_alive_renegotiate_timeout/1,
+         keep_alive_sent_server/1,
+         keep_alive_maxcount_exceeded_server/1,
          kex_strict_negotiated/1,
          kex_strict_violation_key_exchange/1,
          kex_strict_violation_new_keys/1,
@@ -138,7 +143,8 @@ all() ->
      {group,ext_info},
      {group,preferred_algorithms},
      {group,client_close_early},
-     {group,channel_close}
+     {group,channel_close},
+     {group,keep_alive}
     ].
 
 groups() ->
@@ -190,7 +196,12 @@ groups() ->
                                  modify_combo
                                 ]},
      {client_close_early, [], [client_close_after_hello]},
-     {channel_close, [], [channel_close_timeout]}
+     {channel_close, [], [channel_close_timeout]},
+     {keep_alive, [], [keep_alive_sent,
+                       keep_alive_maxcount_exceeded,
+                       keep_alive_renegotiate_timeout,
+                       keep_alive_sent_server,
+                       keep_alive_maxcount_exceeded_server]}
     ].
 
 
@@ -1494,6 +1505,249 @@ extra_ssh_msg_service_request(Config) ->
 	   close_socket
 	  ], EndState),
     ok.
+
+keep_alive_sent(Config) ->
+    User = "foo",
+    Pwd = "morot",
+    UserDir = user_dir(Config),
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, system_dir(Config)},
+					     {user_dir, UserDir},
+					     {password, Pwd},
+					     {failfun, fun ssh_test_lib:failfun/2},
+					     {alive_params, {1,1}}]),
+
+    {ok,AfterUserAuthReqState} = connect_and_userauth_request(Host, Port, User, Pwd, UserDir),
+    {ok,EndState} =
+	ssh_trpt_test_lib:exec(
+	  [{match, #ssh_msg_userauth_success{_='_'}, receive_msg},
+           {match, #ssh_msg_global_request{name = <<"keepalive@erlang.org">>,
+                                           want_reply = true,
+                                           data = <<>>}, receive_msg},
+           {send, #ssh_msg_request_failure{}},
+           {match, #ssh_msg_global_request{name = <<"keepalive@erlang.org">>,
+                                           want_reply = true,
+                                           data = <<>>}, receive_msg},
+           %% Send success just to check that it works as well
+           {send, #ssh_msg_request_success{data = <<>>}},
+           {match, #ssh_msg_global_request{name = <<"keepalive@erlang.org">>,
+                                           want_reply = true,
+                                           data = <<>>}, receive_msg}
+	  ], AfterUserAuthReqState),
+
+    {ok,_} = trpt_test_lib_send_disconnect(EndState),
+
+    ssh:stop_daemon(Pid),
+    Config.
+
+keep_alive_maxcount_exceeded(Config) ->
+    User = "foo",
+    Pwd = "morot",
+    UserDir = user_dir(Config),
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, system_dir(Config)},
+					     {user_dir, UserDir},
+					     {password, Pwd},
+					     {failfun, fun ssh_test_lib:failfun/2},
+					     {alive_params, {2,1}}]),
+
+    {ok,AfterUserAuthReqState} = connect_and_userauth_request(Host, Port, User, Pwd, UserDir),
+    {ok,EndState} =
+	ssh_trpt_test_lib:exec(
+	  [{match, #ssh_msg_userauth_success{_='_'}, receive_msg},
+           {match, #ssh_msg_global_request{name = <<"keepalive@erlang.org">>,
+                                           want_reply = true,
+                                           data = <<>>}, receive_msg},
+           {match, #ssh_msg_global_request{name = <<"keepalive@erlang.org">>,
+                                           want_reply = true,
+                                           data = <<>>}, receive_msg},
+           {match, #ssh_msg_disconnect{_='_'}, receive_msg}
+	  ], AfterUserAuthReqState),
+
+    {ok,_} = trpt_test_lib_send_disconnect(EndState),
+
+    ssh:stop_daemon(Pid),
+    Config.
+
+keep_alive_renegotiate_timeout(Config) ->
+    %% User = "foo",
+    %% Pwd = "morot",
+    %% UserDir = user_dir(Config),
+    %% {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, system_dir(Config)},
+    %%     				     {user_dir, UserDir},
+    %%     				     {password, Pwd},
+    %%     				     {failfun, fun ssh_test_lib:failfun/2},
+    %%     				     {alive_params, {2,2}}]),
+
+    %% {ok,AfterUserAuthReqState} = connect_and_userauth_request(Host, Port, User, Pwd, UserDir),
+    %% {ok,EndState} =
+    %%     ssh_trpt_test_lib:exec(
+    %%       [{match, #ssh_msg_userauth_success{_='_'}, receive_msg},
+    %%        {match, #ssh_msg_global_request{name = <<"keepalive@erlang.org">>,
+    %%                                        want_reply = true,
+    %%                                        data = <<>>}, receive_msg},
+    %%        {send, #ssh_msg_request_failure{}},
+    %%        {send, ssh_msg_kexinit},
+    %%        {match, #ssh_msg_global_request{name = <<"keepalive@erlang.org">>,
+    %%                                        want_reply = true,
+    %%                                        data = <<>>}, receive_msg}
+    %%       ], AfterUserAuthReqState),
+
+    %% {ok,_} = trpt_test_lib_send_disconnect(EndState),
+
+    %% ssh:stop_daemon(Pid),
+
+    %%% TODO: figure out why ssh_msg_kexinit can't be decoded by the server
+    Config.
+
+keep_alive_sent_server(Config) ->
+    {User,_Pwd} = server_user_password(Config),
+
+    %% Create a listening socket as server socket:
+    {ok,InitialState} = ssh_trpt_test_lib:exec(listen),
+    HostPort = ssh_trpt_test_lib:server_host_port(InitialState),
+
+    Parent = self(),
+    %% Start a process handling one connection on the server side:
+    spawn_link(
+      fun() ->
+	      Result =
+		  ssh_trpt_test_lib:exec(
+		    [{set_options, [print_ops, print_messages]},
+		     {accept, [{system_dir, system_dir(Config)},
+			       {user_dir, user_dir(Config)}]},
+		     receive_hello,
+		     {send, hello},
+
+		     {send, ssh_msg_kexinit},
+		     {match, #ssh_msg_kexinit{_='_'}, receive_msg},
+
+		     {match, #ssh_msg_kexdh_init{_='_'}, receive_msg},
+		     {send, ssh_msg_kexdh_reply},
+
+		     {send, #ssh_msg_newkeys{}},
+		     {match,  #ssh_msg_newkeys{_='_'}, receive_msg},
+
+		     {match, #ssh_msg_service_request{name="ssh-userauth"}, receive_msg},
+		     {send, #ssh_msg_service_accept{name="ssh-userauth"}},
+
+		     {match, #ssh_msg_userauth_request{service="ssh-connection",
+						       method="none",
+						       user=User,
+						       _='_'}, receive_msg},
+
+		     {send, #ssh_msg_userauth_failure{authentications = "password",
+						      partial_success = false}},
+
+		     {match, #ssh_msg_userauth_request{service="ssh-connection",
+						       method="password",
+						       user=User,
+						       _='_'}, receive_msg},
+		     {send, #ssh_msg_userauth_success{}},
+                     %% Keep-alive matching
+                     {match, #ssh_msg_global_request{name = <<"keepalive@erlang.org">>,
+                                                     want_reply = true,
+                                                     data = <<>>}, receive_msg},
+                     {send, #ssh_msg_request_failure{}},
+                     {match, #ssh_msg_global_request{name = <<"keepalive@erlang.org">>,
+                                                     want_reply = true,
+                                                     data = <<>>}, receive_msg},
+                     %% Send success just to check that it works as well
+                     {send, #ssh_msg_request_success{data = <<>>}},
+                     {match, #ssh_msg_global_request{name = <<"keepalive@erlang.org">>,
+                                                     want_reply = true,
+                                                     data = <<>>}, receive_msg},
+		     close_socket,
+		     print_state
+		    ],
+		    InitialState),
+              Parent ! {result, self(), Result}
+      end),
+
+    %% and finally connect to it with a regular Erlang SSH client:
+    {ok,_} = std_connect(HostPort, Config,
+			 [{preferred_algorithms,[{kex,[?DEFAULT_KEX]},
+                                                 {cipher,?DEFAULT_CIPHERS}
+                                                ]},
+                          {alive_params, {1,1}}
+                         ]
+			),
+    %% Check that the daemon got expected result:
+    receive
+        {result, Pid, {ok,_}} -> ok;
+        {result, Pid, Error} -> ct:fail("Error: ~p",[Error])
+    end.
+
+keep_alive_maxcount_exceeded_server(Config) ->
+    {User,_Pwd} = server_user_password(Config),
+
+    %% Create a listening socket as server socket:
+    {ok,InitialState} = ssh_trpt_test_lib:exec(listen),
+    HostPort = ssh_trpt_test_lib:server_host_port(InitialState),
+
+    Parent = self(),
+    %% Start a process handling one connection on the server side:
+    spawn_link(
+      fun() ->
+	      Result =
+		  ssh_trpt_test_lib:exec(
+		    [{set_options, [print_ops, print_messages]},
+		     {accept, [{system_dir, system_dir(Config)},
+			       {user_dir, user_dir(Config)}]},
+		     receive_hello,
+		     {send, hello},
+
+		     {send, ssh_msg_kexinit},
+		     {match, #ssh_msg_kexinit{_='_'}, receive_msg},
+
+		     {match, #ssh_msg_kexdh_init{_='_'}, receive_msg},
+		     {send, ssh_msg_kexdh_reply},
+
+		     {send, #ssh_msg_newkeys{}},
+		     {match,  #ssh_msg_newkeys{_='_'}, receive_msg},
+
+		     {match, #ssh_msg_service_request{name="ssh-userauth"}, receive_msg},
+		     {send, #ssh_msg_service_accept{name="ssh-userauth"}},
+
+		     {match, #ssh_msg_userauth_request{service="ssh-connection",
+						       method="none",
+						       user=User,
+						       _='_'}, receive_msg},
+
+		     {send, #ssh_msg_userauth_failure{authentications = "password",
+						      partial_success = false}},
+
+		     {match, #ssh_msg_userauth_request{service="ssh-connection",
+						       method="password",
+						       user=User,
+						       _='_'}, receive_msg},
+		     {send, #ssh_msg_userauth_success{}},
+                     %% Keep-alive matching
+                     {match, #ssh_msg_global_request{name = <<"keepalive@erlang.org">>,
+                                                     want_reply = true,
+                                                     data = <<>>}, receive_msg},
+                     {match, #ssh_msg_global_request{name = <<"keepalive@erlang.org">>,
+                                                     want_reply = true,
+                                                     data = <<>>}, receive_msg},
+                     {match, #ssh_msg_disconnect{_='_'}, receive_msg},
+		     close_socket,
+		     print_state
+		    ],
+		    InitialState),
+              Parent ! {result, self(), Result}
+      end),
+
+    %% and finally connect to it with a regular Erlang SSH client:
+    {ok,_} = std_connect(HostPort, Config,
+			 [{preferred_algorithms,[{kex,[?DEFAULT_KEX]},
+                                                 {cipher,?DEFAULT_CIPHERS}
+                                                ]},
+                          {alive_params, {2,1}}
+                         ]
+			),
+    %% Check that the daemon got expected result:
+    receive
+        {result, Pid, {ok,_}} -> ok;
+        {result, Pid, Error} -> ct:fail("Error: ~p",[Error])
+    end.
 
 %%%================================================================
 %%%==== Internal functions ========================================
