@@ -284,7 +284,7 @@ connection({call, From}, {application_data, Data}, StateData) ->
 connection({call, From}, {post_handshake_data, HSData}, #data{buff = Buff} = StateData) ->
     case Buff of
         undefined ->
-            send_post_handshake_data(HSData, From, connection, StateData);
+            send_post_handshake_data(HSData, From, connection, StateData, [{reply, From, ok}]);
         Async ->
             {next_state, async_wait, StateData#data{buff = Async#async{low = 0}}, [postpone]}
     end;
@@ -328,7 +328,7 @@ connection(internal, {application_packets, From, Data}, StateData) ->
 connection(internal, {post_handshake_data, From, HSData}, #data{buff = Buff} = StateData) ->
      case Buff of
          undefined ->
-             send_post_handshake_data(HSData, From, connection, StateData);
+             send_post_handshake_data(HSData, From, connection, StateData, []);
          Async ->
              {next_state, async_wait, StateData#data{buff = Async#async{low = 0}}, [postpone]}
      end;
@@ -554,13 +554,13 @@ send_application_data(Data, From, StateName,
             KeyUpdate = tls_handshake_1_3:key_update(update_requested),
             case DataSz > KeyUpdateAt of
                 false ->
-                    {keep_state_and_data, [{next_event, internal, {post_handshake_data, From, KeyUpdate}},
+                    {keep_state_and_data, [{next_event, internal, {post_handshake_data, undefined, KeyUpdate}},
                                            {next_event, internal, {application_packets, From, Data}}]};
                 true ->
                     %% Prevent infinite loop of key updates
                     {Chunk, Rest} = split_binary(iolist_to_binary(Data), KeyUpdateAt),
-                    {keep_state_and_data, [{next_event, internal, {post_handshake_data, From, KeyUpdate}},
-                                           {next_event, internal, {application_packets, From, [Chunk]}},
+                    {keep_state_and_data, [{next_event, internal, {post_handshake_data, undefined, KeyUpdate}},
+                                           {next_event, internal, {application_packets, undefined, [Chunk]}},
                                            {next_event, internal, {application_packets, From, [Rest]}}]}
             end;
 	{renegotiate, _} ->
@@ -730,7 +730,7 @@ send_post_handshake_data(Handshake, From, StateName,
                          #data{env = #env{socket = Socket,
                                           negotiated_version = Version,
                                           transport_cb = Transport},
-                               connection_states = ConnStates0} = StateData0) ->
+                               connection_states = ConnStates0} = StateData0, AckAction) ->
     BinHandshake = tls_handshake:encode_handshake(Handshake, Version),
     {Encoded, ConnStates} =
         tls_record:encode_handshake(BinHandshake, Version, ConnStates0),
@@ -745,7 +745,9 @@ send_post_handshake_data(Handshake, From, StateName,
         ok ->
             ssl_logger:debug(LogLevel, outbound, 'record', Encoded),
             StateData = maybe_update_cipher_key(StateData1, Handshake),
-            {next_state, StateName, StateData,  [{reply, From, ok}]};
+            %% AckAction will send sync message if post_handshake_data
+            %% was initiated by peer via the receiver process.
+            {next_state, StateName, StateData,  AckAction};
         {error, Reason} ->
             death_row_shutdown(Reason, StateData1)
     end.
