@@ -404,7 +404,13 @@ the generator's range:
          uniform_real/0, uniform_real_s/1,
          bytes/1, bytes_s/2,
          jump/0, jump/1,
-         normal/0, normal/2, normal_s/1, normal_s/3
+         normal/0, normal/2, normal_s/1, normal_s/3,
+         shuffle1/1, shuffle1_s/2,
+         shuffle2/1, shuffle2_s/2,
+         shuffle3/1, shuffle3_s/2,
+         shuffle4/1, shuffle4_s/2,
+         shuffle5/1, shuffle5_s/2,
+         shuffle6/1, shuffle6_s/2
 	]).
 
 %% Utilities
@@ -1314,6 +1320,396 @@ Returns [`X`](`t:float/0`) and the [`NewState`](`t:state/0`).
 normal_s(Mean, Variance, State0) when 0 =< Variance ->
     {X, State} = normal_s(State0),
     {Mean + (math:sqrt(Variance) * X), State}.
+
+%% -------
+
+-spec shuffle1(list()) -> list().
+shuffle1(List) ->
+    {ShuffledList, State} = shuffle1_s(List, seed_get()),
+    _ = seed_put(State),
+    ShuffledList.
+
+-spec shuffle1_s(list(), state()) -> {list(), state()}.
+shuffle1_s(List, {#{bits:=_, next:=Next} = AlgHandler, R0} = State)
+  when is_list(List) ->
+    case List of
+        [] ->
+            {List, State};
+        [_] ->
+            {List, State};
+        _ ->
+            WeakLowBits = maps:get(weak_low_bits, AlgHandler, 0),
+            {ShuffledList, R1} = shuffle1_r(List, Next, R0, WeakLowBits, []),
+            {ShuffledList, {AlgHandler, R1}}
+    end;
+shuffle1_s(List, {#{max:=_, next:=Next} = AlgHandler, R0} = State)
+  when is_list(List) ->
+    case List of
+        [] ->
+            {List, State};
+        [_] ->
+            {List, State};
+        _ ->
+            %% Old spec - assume 2 weak low bits
+            WeakLowBits = 2,
+            {ShuffledList, R1} = shuffle1_r(List, Next, R0, WeakLowBits, []),
+            {ShuffledList, {AlgHandler, R1}}
+    end.
+
+%% See the Wikipedia article "Fisher-Yates shuffle", section "Sorting".
+%%
+%% To avoid bias due to duplicate random numbers, the resulting
+%% sorted list is checked for sequences of duplicate keys,
+%% which are recursively shuffled.  This algorithm also
+%% produces a bias free shuffle.
+
+%% Recursion entry point
+shuffle1_r([X, Y], Next, R0, _WeakLowBits, Acc) ->
+    %% Optimization for 2 elements; the most common case for duplicates
+    {V, R1} = Next(R0),
+    if
+        %% Bit 7 should not be weak in any of the generators
+        V band 128 =:= 0 -> {[Y, X | Acc], R1};
+        true             -> {[X, Y | Acc], R1}
+    end;
+shuffle1_r(L, Next, R0, WeakLowBits, Acc) ->
+    shuffle1_tag(L, Next, R0, WeakLowBits, Acc, []).
+
+%% Tag elements with random integers
+shuffle1_tag([], Next, R, WeakLowBits, Acc, TL) ->
+    %% Shuffle1; sort by random tag
+    shuffle1_untag(lists:keysort(1, TL), Next, R, WeakLowBits, Acc);
+shuffle1_tag([X | L], Next, R0, WeakLowBits, Acc, TL) ->
+    {V, R1} = Next(R0),
+    T = V bsr WeakLowBits,
+    shuffle1_tag(L, Next, R1, WeakLowBits, Acc, [{T,X} | TL]).
+
+%% Strip the tag integers
+shuffle1_untag([{T,X}, {T,Y} | TL], Next, R, WeakLowBits, Acc) ->
+    %% Random number duplicate
+    shuffle1_untag(TL, Next, R, WeakLowBits, Acc, [Y, X], T);
+shuffle1_untag([{_,X} | TL], Next, R, WeakLowBits, Acc) ->
+    shuffle1_untag(TL, Next, R, WeakLowBits, [X | Acc]);
+shuffle1_untag([], _Next, R, _WeakLowBits, Acc) ->
+    {Acc, R}.
+%%
+%% Collect duplicates
+shuffle1_untag([{T,X} | TL], Next, R, WeakLowBits, Acc, Dups, T) ->
+    shuffle1_untag(TL, Next, R, WeakLowBits, Acc, [X | Dups], T);
+shuffle1_untag(TL, Next, R0, WeakLowBits, Acc0, Dups, _T) ->
+    %% Shuffle1 the duplicates onto the result
+    {Acc1, R1} = shuffle1_r(Dups, Next, R0, WeakLowBits, Acc0),
+    shuffle1_untag(TL, Next, R1, WeakLowBits, Acc1).
+
+%% -------
+
+-spec shuffle2(list()) -> list().
+shuffle2(List) ->
+    {ShuffledList, State} = shuffle2_s(List, seed_get()),
+    _ = seed_put(State),
+    ShuffledList.
+
+-spec shuffle2_s(list(), state()) -> {list(), state()}.
+shuffle2_s(List, State)
+  when is_list(List) ->
+    case List of
+        [] ->
+            {List, State};
+        [_] ->
+            {List, State};
+        _ ->
+            M = maps:from_list(lists:enumerate(List)),
+            N = maps:size(M),
+            shuffle2_s(M, State, N, [])
+    end.
+
+%% Classical Fisher-Yates shuffle, a.k.a Knuth shuffle.
+%% See the Wikipedia article "Fisher-Yates shuffle".
+%%
+%% This variant uses a map with integer keys as array
+%% and is optimized in that it minimizes map updates
+%% since the high index is never used again, so an overwrite
+%% can be used instead of an exchange.
+
+shuffle2_s(M0, State0, N, Acc)
+  when is_map(M0), is_integer(N) ->
+    if
+        N =:= 0 -> {Acc, State0};
+        true ->
+            X = maps:get(N, M0),
+            case uniform_s(N, State0) of
+                {N, State1} ->
+                    shuffle2_s(M0, State1, N - 1, [X | Acc]);
+                {K, State1} when is_integer(K) ->
+                    Y = maps:get(K, M0),
+                    M1 = maps:update(K, X, M0),
+                    shuffle2_s(M1, State1, N - 1, [Y | Acc])
+            end
+    end.
+
+%% -------
+
+-spec shuffle3(list()) -> list().
+shuffle3(List) ->
+    {ShuffledList, State} = shuffle3_s(List, seed_get()),
+    _ = seed_put(State),
+    ShuffledList.
+
+-spec shuffle3_s(list(), state()) -> {list(), state()}.
+shuffle3_s(List, {#{bits:=_, next:=Next} = AlgHandler, R0} = State)
+  when is_list(List) ->
+    case List of
+        [] ->
+            {List, State};
+        [_] ->
+            {List, State};
+        _ ->
+            WeakLowBits = maps:get(weak_low_bits, AlgHandler, 0),
+            T = gb_trees:empty(),
+            {ShuffledList, R1} = shuffle3_r(List, Next, R0, WeakLowBits, T),
+            {ShuffledList, {AlgHandler, R1}}
+    end;
+shuffle3_s(List, {#{max:=Mask, next:=Next} = AlgHandler, R0} = State)
+  when is_list(List), ?MASK(58) =< Mask ->
+    case List of
+        [] ->
+            {List, State};
+        [_] ->
+            {List, State};
+        _ ->
+            %% Old spec - assume 2 weak low bits
+            WeakLowBits = 2,
+            T = gb_trees:empty(),
+            {ShuffledList, R1} = shuffle3_r(List, Next, R0, WeakLowBits, T),
+            {ShuffledList, {AlgHandler, R1}}
+    end.
+
+%% See the Wikipedia article "Fisher-Yates shuffle", section "Sorting".
+%%
+%% To avoid bias due to duplicate random numbers, a gb_tree
+%% is used to check if a random number has already been used,
+%% and if so generate a new random number.
+%%
+%% Because a gb_tree is sorted no sorting needs to be done,
+%% it is enough to extract the values of the gb_tree that are
+%% ordered in key sort order.
+
+shuffle3_r([], _Next, R, _WeakLowBits, T) ->
+    {gb_trees:values(T), R};
+shuffle3_r([X | L] , Next, R0, WeakLowBits, T) ->
+    {V, R1} = Next(R0),
+    K = V bsr WeakLowBits,
+    case gb_trees:is_defined(K, T) of
+        false ->
+            shuffle3_r(L, Next, R1, WeakLowBits, gb_trees:insert(K, X, T));
+        true ->
+            shuffle3_r([X | L], Next, R1, WeakLowBits, T)
+    end.
+
+%% -------
+
+-spec shuffle4(list()) -> list().
+shuffle4(List) ->
+    {ShuffledList, State} = shuffle4_s(List, seed_get()),
+    _ = seed_put(State),
+    ShuffledList.
+
+-spec shuffle4_s(list(), state()) -> {list(), state()}.
+shuffle4_s(List, {#{bits:=_, next:=Next} = AlgHandler, R0} = State)
+  when is_list(List) ->
+    case List of
+        [] ->
+            {List, State};
+        [_] ->
+            {List, State};
+        _ ->
+            WeakLowBits = maps:get(weak_low_bits, AlgHandler, 0),
+            {ShuffledList, R1} = shuffle4_r(List, Next, R0, WeakLowBits, #{}),
+            {ShuffledList, {AlgHandler, R1}}
+    end;
+shuffle4_s(List, {#{max:=Mask, next:=Next} = AlgHandler, R0} = State)
+  when is_list(List), ?MASK(58) =< Mask ->
+    case List of
+        [] ->
+            {List, State};
+        [_] ->
+            {List, State};
+        _ ->
+            %% Old spec - assume 2 weak low bits
+            WeakLowBits = 2,
+            {ShuffledList, R1} = shuffle4_r(List, Next, R0, WeakLowBits, #{}),
+            {ShuffledList, {AlgHandler, R1}}
+    end.
+
+%% See the Wikipedia article "Fisher-Yates shuffle", section "Sorting".
+%%
+%% To avoid bias due to duplicate random numbers, a map
+%% is used to check if a random number has already been used,
+%% and if so generate a new random number.
+%%
+%% Actual sorting doesn't is not needed.  A map is ordered by key
+%% and therefore it is enough to extract the values of the map.
+%% The internal map key order will do just fine.
+
+shuffle4_r([], _Next, R, _WeakLowBits, M) ->
+    {maps:values(M), R};
+shuffle4_r([X | L] , Next, R0, WeakLowBits, M) ->
+    {V, R1} = Next(R0),
+    K = V bsr WeakLowBits,
+    case maps:is_key(K, M) of
+        true ->
+            shuffle4_r([X | L], Next, R1, WeakLowBits, M);
+        false ->
+            shuffle4_r(L, Next, R1, WeakLowBits, maps:put(K, X, M))
+    end.
+
+%% -------
+
+-spec shuffle5(list()) -> list().
+shuffle5(List) ->
+    {ShuffledList, State} = shuffle5_s(List, seed_get()),
+    _ = seed_put(State),
+    ShuffledList.
+
+-spec shuffle5_s(list(), state()) -> {list(), state()}.
+shuffle5_s(List, State) when is_list(List) ->
+    shuffle5_r(List, State, []).
+
+%% Random-split-and-shuffle algorithm suggested by Richard A. O'Keefe
+%% on ErlangForums, as I interpreted it...
+%%
+%% Randomly split the list in two lists,
+%% recursively shuffle the two smaller lists,
+%% randomize the order between the lists according to their size.
+%%
+%% This is equivalent to assigning a random number to each
+%% element and sorting, but extending the numbers on demand
+%% while there still are duplicates.
+
+%% Leaf cases - random permutations for 0..4 elements
+shuffle5_r([], State, Acc) ->
+    {Acc, State};
+shuffle5_r([X], State, Acc) ->
+    {[X | Acc], State};
+shuffle5_r([X, Y], State0, Acc) ->
+    {V, State1} = uniform_s(2, State0),
+    {case V of
+         1 -> [Y, X | Acc];
+         2 -> [X, Y | Acc]
+     end, State1};
+shuffle5_r([X, Y, Z], State0, Acc) ->
+    {V, State1} = uniform_s(6, State0),
+    {case V of
+         1 -> [Z, Y, X | Acc];
+         2 -> [Y, Z, X | Acc];
+         3 -> [Z, X, Y | Acc];
+         4 -> [X, Z, Y | Acc];
+         5 -> [Y, X, Z | Acc];
+         6 -> [X, Y, Z | Acc]
+     end, State1};
+shuffle5_r([X, Y, Z, Q], State0, Acc) ->
+    {V, State1} = uniform_s(24, State0),
+    {case V of
+         1  -> [Q, Z, Y, X | Acc];
+         2  -> [Z, Q, Y, X | Acc];
+         3  -> [Q, Y, Z, X | Acc];
+         4  -> [Y, Q, Z, X | Acc];
+         5  -> [Z, Y, Q, X | Acc];
+         6  -> [Y, Z, Q, X | Acc];
+         7  -> [Q, Z, X, Y | Acc];
+         8  -> [Z, Q, X, Y | Acc];
+         9  -> [Q, X, Z, Y | Acc];
+         10 -> [X, Q, Z, Y | Acc];
+         11 -> [Z, X, Q, Y | Acc];
+         12 -> [X, Z, Q, Y | Acc];
+         13 -> [Q, Y, X, Z | Acc];
+         14 -> [Y, Q, X, Z | Acc];
+         15 -> [Q, X, Y, Z | Acc];
+         16 -> [X, Q, Y, Z | Acc];
+         17 -> [Y, X, Q, Z | Acc];
+         18 -> [X, Y, Q, Z | Acc];
+         19 -> [Z, Y, X, Q | Acc];
+         20 -> [Y, Z, X, Q | Acc];
+         21 -> [Z, X, Y, Q | Acc];
+         22 -> [X, Z, Y, Q | Acc];
+         23 -> [Y, X, Z, Q | Acc];
+         24 -> [X, Y, Z, Q | Acc]
+     end, State1};
+%%
+%% General case - split and recursive shuffle
+shuffle5_r([_, _, _, _ | _] = List, State0, Acc0) ->
+    {Left, Right, State1} = shuffle5_split(List, State0),
+    {Acc1, State2} = shuffle5_r(Left, State1, Acc0),
+    shuffle5_r(Right, State2, Acc1).
+
+%% Split L into two random subsets: Left and Right
+%%
+shuffle5_split(L, State) ->
+    shuffle5_split(L, State, 1, [], []).
+%%
+shuffle5_split([], State, _P, Left, Right) ->
+    {Left, Right, State};
+shuffle5_split([_ | _] = L, State0, 1, Left, Right) ->
+    M = 1 bsl 56,
+    case rand:uniform_s(M, State0) of
+        {V, State1} when is_integer(V), 1 =< V, V =< M ->
+            %% Setting the top bit M here provides the marker
+            %% for when we are out of random bits: P =:= 1
+            shuffle5_split(L, State1, (V - 1) + M, Left, Right)
+    end;
+shuffle5_split([X | L], State, P, Left, Right)
+  when is_integer(P), 1 =< P, P < 1 bsl 57 ->
+    case P band 1 of
+        0 ->
+            shuffle5_split(L, State, P bsr 1, [X | Left], Right);
+        1 ->
+            shuffle5_split(L, State, P bsr 1, Left, [X | Right])
+    end.
+
+%% -------
+
+-spec shuffle6(list()) -> list().
+shuffle6(List) ->
+    {ShuffledList, State} = shuffle6_s(List, seed_get()),
+    _ = seed_put(State),
+    ShuffledList.
+
+-spec shuffle6_s(list(), state()) -> {list(), state()}.
+shuffle6_s(List, State)
+  when is_list(List) ->
+    case List of
+        [] ->
+            {List, State};
+        [_] ->
+            {List, State};
+        _ ->
+            A = array:from_list([[] | List]), % Make it 1 based
+            N = array:size(A),
+            shuffle6_s(A, State, N, [])
+    end.
+
+%% Classical Fisher-Yates shuffle, a.k.a Knuth shuffle.
+%% See the Wikipedia article "Fisher-Yates shuffle".
+%%
+%% Use the 'array' module and insert a dummy element first
+%% to make it effectively 1-based.
+%%
+%% This is the fastest Fisher-Yates among the shuffle algorithms here.
+
+shuffle6_s(A0, State0, N, Acc) when is_integer(N), 0 =< N ->
+    if
+        N =:= 0 -> {Acc, State0};
+        true ->
+            X = array:get(N, A0),
+            case uniform_s(N, State0) of
+                {N, State1} ->
+                    shuffle6_s(A0, State1, N - 1, [X | Acc]);
+                {K, State1} when is_integer(K) ->
+                    Y = array:get(K, A0),
+                    A1 = array:set(K, X, A0),
+                    shuffle6_s(A1, State1, N - 1, [Y | Acc])
+            end
+    end.
 
 %% =====================================================================
 %% Internal functions
