@@ -2622,6 +2622,9 @@ check_element_type(XML=[#xmlText{}|_],
     {ResolvedType,_} = resolve({simple_or_complex_Type,BT},S),
     check_element_type(XML,ResolvedType,Env,Block,S,Checked);
 
+check_element_type(_C, optional_text, _Env, _Block, S, _Checked) ->
+    {[], [], S};
+
 %% single schema object
 check_element_type(XML=[_H|_],
 		   #schema_complex_type{name=Name,block=Bl,content=C},
@@ -3057,12 +3060,16 @@ allow_empty_content([{extension,{_BT,_CM=[]}}]) ->
     true;
 allow_empty_content([{_,{_,{0,_}}}|Rest]) ->
     allow_empty_content(Rest);
+allow_empty_content([{any,{_,{0,_},_}}|Rest]) ->
+    allow_empty_content(Rest);
 allow_empty_content([{_,{Content,_}}|Rest]) ->
      case allow_empty_content(Content) of
 	 true ->
 	     allow_empty_content(Rest);
 	 _ -> false
      end;
+allow_empty_content([optional_text|Rest]) ->
+    allow_empty_content(Rest);
 allow_empty_content(_) ->
     false.
 
@@ -3915,6 +3922,8 @@ is_optional(G={group,_},S) ->
 	{#schema_group{content=[CM]},_} ->
 	    is_optional(CM,S)
     end;
+is_optional(optional_text,_) ->
+    true;
 is_optional(_,_) ->
     false.
 
