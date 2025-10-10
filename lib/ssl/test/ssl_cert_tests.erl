@@ -75,6 +75,8 @@
          custom_groups/1,
          mlkem_groups/0,
          mlkem_groups/1,
+         mlkem_hybrid_groups/0,
+         mlkem_hybrid_groups/1,
          hello_retry_client_auth/0,
          hello_retry_client_auth/1,
          hello_retry_client_auth_empty_cert_accepted/0,
@@ -653,6 +655,14 @@ mlkem_groups(Config) ->
     test_mlkem(Config, mlkem768),
     test_mlkem(Config, mlkem1024).
 
+mlkem_hybrid_groups() ->
+    [{doc,"Test that ssl server can select a common mlkem hybrid group for key-exchange"}].
+
+mlkem_hybrid_groups(Config) ->
+    test_mlkem(Config, x25519mlkem768),
+    test_mlkem(Config, secp256r1mlkem768),
+    test_mlkem(Config, secp384r1mlkem1024).
+
 test_mlkem(Config, MLKemGroup) ->
     ClientOpts0 = ssl_test_lib:ssl_options(client_cert_opts, Config),
     ServerOpts0 = ssl_test_lib:ssl_options(server_cert_opts, Config),
@@ -831,9 +841,9 @@ group_config_mlkem(Config, ServerOpts, ClientOpts, Group) ->
         case proplists:get_value(client_type, Config) of
             erlang ->
                 {[{groups, openssl_mlkem(Group)} | ServerOpts],
-                 [{supported_groups, [Group]} | ClientOpts]};
+                 [{supported_groups, supported_groups(Group)} | ClientOpts]};
             openssl ->
-                {[{supported_groups, [Group]} | ServerOpts],
+                {[{supported_groups, supported_groups(Group)} | ServerOpts],
                  [{groups, openssl_mlkem(Group)} | ClientOpts]}
         end.
 
@@ -842,7 +852,18 @@ openssl_mlkem(mlkem512) ->
 openssl_mlkem(mlkem768) ->
     "MLKEM768";
 openssl_mlkem(mlkem1024) ->
-    "MLKEM1024".
+    "MLKEM1024";
+openssl_mlkem(x25519mlkem768) ->
+    "X25519MLKEM768";
+openssl_mlkem(secp256r1mlkem768) ->
+    "SecP256r1MLKEM768";
+openssl_mlkem(secp384r1mlkem1024) ->
+    "SecP384r1MLKEM1024".
+
+supported_groups(Group) ->
+    [Group].
+
+
 
 choose_custom_key(#'RSAPrivateKey'{} = Key, Version)
   when (Version == 'dtlsv1') or (Version == 'tlsv1') or (Version == 'tlsv1.1') ->

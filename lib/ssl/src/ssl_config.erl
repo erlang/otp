@@ -493,6 +493,7 @@ ssl_options() ->
      partial_chain,
      password,
      protocol,
+     psk_groups,
      psk_identity,
      receiver_spawn_opts,
      renegotiate_at,
@@ -1371,7 +1372,7 @@ handle_user_lookup(UserOpts, #{versions := Versions} = Opts) ->
     end.
     
 
-opt_supported_groups(UserOpts, #{versions := TlsVsns} = Opts, _Env) ->
+opt_supported_groups(UserOpts, #{versions := TlsVsns} = Opts, Env) ->
     SG = case get_opt_list(supported_groups,  undefined, UserOpts, Opts) of
              {default, undefined} ->
                  try assert_version_dep(supported_groups, TlsVsns, ['tlsv1.3']) of
@@ -1404,7 +1405,27 @@ opt_supported_groups(UserOpts, #{versions := TlsVsns} = Opts, _Env) ->
                 throw:_ ->
                     []
             end,
-    Opts#{ciphers => CPHS, eccs => ECCS, supported_groups => SG}.
+    case opt_psk_groups(SG, UserOpts, Opts, Env)  of
+        undefined ->
+            Opts#{ciphers => CPHS, eccs => ECCS, supported_groups => SG};
+        PSKGroups ->
+            Opts#{ciphers => CPHS, eccs => ECCS, supported_groups => SG, psk_groups => PSKGroups}
+    end.
+
+opt_psk_groups(undefined, _,  _, _) ->
+    undefined;
+opt_psk_groups(#supported_groups{supported_groups = SupportedGroups},  UserOpts, Opts, _Env) ->
+    %% Version dependency already asserted when SupportedGroups is supported
+    %% so is psk_groups
+    First = hd(SupportedGroups),
+    case get_opt_list(psk_groups, [First], UserOpts, Opts) of
+        {default, Default} ->
+            Default;
+        {new, PSKGroups} ->
+            [Group || Group <- SupportedGroups, lists:member(Group, PSKGroups)];
+        {old, PSKGroups} ->
+            PSKGroups
+    end.
 
 opt_crl(UserOpts, Opts, _Env) ->
     {_, Check} = get_opt_of(crl_check, [best_effort, peer, true, false], false, UserOpts, Opts),

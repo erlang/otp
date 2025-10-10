@@ -1380,6 +1380,11 @@ certificate signatures.
 The following options are specific to the client side, or have
 different semantics for the client and server:
 
+- **`{psk_groups, Groups}`** - key exchange groups that the client
+will send pre share keys for, defaults to first group in
+supported_groups. Must be a subset of supported_groups and will
+be sent in the same order as they appear in supported_groups.
+
 - **`{alpn_advertised_protocols, AppProtocols}`** - Application layer protocol
 
   The list of protocols supported by the client to be sent to the server to be
@@ -1397,6 +1402,7 @@ different semantics for the client and server:
 
 -type client_option() :: client_option_cert() |
                          common_option_cert() |
+                         {psk_groups, [group()]} |
                          {alpn_advertised_protocols, AppProtocols::[AppProto::binary()]} |
                          {max_fragment_length, MaxLen:: undefined | 512 | 1024 | 2048 | 4096} |
                          client_option_tls13() |

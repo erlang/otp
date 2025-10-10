@@ -185,6 +185,11 @@
 -define(MLKEM768, 16#0201).
 -define(MLKEM1024, 16#0202).
 
+%% ML-KEM hybrids
+-define(X25519MLKEM768, 16#11EC).
+-define(SECP256R1MLKEM768, 16#11EB).
+-define(SECP384R1MLKEM1024, 16#11ED).
+
 %% RFC 8446 Finite Field Groups (DHE)
 -define(FFDHE2048, 16#0100).
 -define(FFDHE3072, 16#0101).
