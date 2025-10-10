@@ -199,6 +199,18 @@ connect(
 %% ------------------------------------------------------------
 start_dist_ctrl(
   NetAddress, #sslsocket{payload_sender = DistCtrl} = SslSocket) ->
+    %% The distribution controller (output controller) needs to be linked
+    %% to the caller, which becomes the distribution ticker
+    %% after distribution handshake.
+    %%
+    %% net_kernel takes down either the distribution controller
+    %% or the ticker, but all processes involved in the channel
+    %% must be taken down when the channel goes down.
+    %%
+    %% The SSL socket receiver and payload sender will go down
+    %% together thanks to their supervisor.
+    %%
+    link(DistCtrl),
     #hs_data{
        socket = DistCtrl,
        f_send =
