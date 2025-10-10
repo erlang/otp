@@ -281,6 +281,22 @@ After any post hook has been executed for all installed CTHs,
 skipped, respectively. You cannot affect the outcome of the tests any further at
 this point.
 
+[](){: #comment }
+
+### Comment in hooks
+
+As mentioned in `ct:comment/1` same limitation regarding calling `ct:comment/1-2`
+exists in hook functions. Calling `ct:comment/1-2` should only be done directly from
+the process executing hook function, or it's descendant.
+
+Be aware that if you spawn a process in one hook function and keep it alive
+while common_test has moved to calling another hook function, and you try to
+execute `ct:comment/1-2` from this process the comment may not be printed in
+correct place in html logs, or at all.
+
+Calling this function from process that is neither a common_test process, nor it's
+descendant is no-op.
+
 [](){: #synchronizing }
 
 ## Synchronizing External User Applications with Common Test
