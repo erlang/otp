@@ -2093,7 +2093,7 @@ validation_fun_and_state(undefined, VerifyState, CertPath, LogLevel) ->
 				      Extension,
 				      SslState,
                                       LogLevel);
-	(OtpCert, _DerCert, VerifyResult, SslState) when (VerifyResult == valid) or
+	(OtpCert, _DerCert, VerifyResult, SslState) when (VerifyResult == valid) orelse
                                                         (VerifyResult == valid_peer) ->
 	     case cert_status_check(OtpCert, SslState, VerifyResult, CertPath, LogLevel) of
 		 valid ->
@@ -2113,7 +2113,7 @@ path_validation_options(Opts, ValidationFunAndState) ->
      {verify_fun, ValidationFunAndState} | PolicyOpts].
 
 apply_user_fun(Fun, OtpCert, DerCert, VerifyResult0, UserState0, SslState, CertPath, LogLevel) when
-      (VerifyResult0 == valid) or (VerifyResult0 == valid_peer) ->
+      (VerifyResult0 == valid) orelse (VerifyResult0 == valid_peer) ->
     VerifyResult = maybe_check_hostname(OtpCert, VerifyResult0, SslState, LogLevel),
     case apply_fun(Fun, OtpCert, DerCert, VerifyResult, UserState0) of
 	{Valid, UserState} when (Valid == valid) orelse (Valid == valid_peer) ->

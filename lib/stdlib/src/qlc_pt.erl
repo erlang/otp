@@ -853,7 +853,7 @@ opt_info(TemplateInfo, Sizes, JoinInfo, MSQs, Anno,
 
 opt_column_constants(ColumnConstants0) ->
     [CC || {{IdNo,_Col},Const,_FilNs}=CC <- ColumnConstants0,
-           (IdNo =/= ?TNO) or (length(Const) =:= 1)].
+           (IdNo =/= ?TNO) orelse (length(Const) =:= 1)].
 
 opt_constants(Anno, ColumnConstants) ->
     Ns = lists:usort([IdNo || {{IdNo,_Col},_Const,_FilNs} <- ColumnConstants]),

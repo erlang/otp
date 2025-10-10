@@ -634,7 +634,7 @@ erase(Key) ->
 get_mibs(Mibs, Vsns) ->
     MibDir = filename:join(code:priv_dir(snmp), "mibs"),
     StdMib = 
-	case (lists:member(v2, Vsns) or lists:member(v3, Vsns)) of
+	case (lists:member(v2, Vsns) orelse lists:member(v3, Vsns)) of
 	    true  -> filename:join([MibDir, "SNMPv2-MIB"]);
 	    false -> filename:join([MibDir, "STANDARD-MIB"])
 	end,
@@ -705,7 +705,7 @@ conf1(Dir, Vsns, Func) ->
     snmp_notification_mib:Func(Dir),
     ?vdebug("~w snmp_view_based_acm_mib",[Func]),
     snmp_view_based_acm_mib:Func(Dir),
-    case lists:member(v1, Vsns) or lists:member(v2, Vsns) of
+    case lists:member(v1, Vsns) orelse lists:member(v2, Vsns) of
 	true ->
 	    ?vdebug("we need to handle v1 and/or v2 =>~n"
 		    "   ~w snmp_community_mib",[Func]),
