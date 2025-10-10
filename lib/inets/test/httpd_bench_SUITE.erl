@@ -164,12 +164,18 @@ erl_dummy_big(Config)  when is_list(Config) ->
     notify(Result, Config, "erl_1M_file").
 
 wget_small(Config) when is_list(Config) ->
-    {ok, Result} = run_test(wget_client, "1k_file", Config),
-    notify(Result, Config, "wget_1k_file").
+    ensure_non_windows_and_executable_exists("wget",
+        fun() ->
+            {ok, Result} = run_test(wget_client, "1k_file", Config),
+            notify(Result, Config, "wget_1k_file")
+        end).
 
 wget_big(Config)  when is_list(Config) ->
-    {ok, Result} = run_test(wget_client, "1M_file", Config),
-    notify(Result, Config, "wget_1M_file").
+    ensure_non_windows_and_executable_exists("wget",
+        fun() ->
+            {ok, Result} = run_test(wget_client, "1M_file", Config),
+            notify(Result, Config, "wget_1M_file")
+        end).
 
 httpc_small(Config) when is_list(Config) ->
     {ok, Result} = run_test(httpc_client, "1k_file", Config),
@@ -485,16 +491,23 @@ start_web_server(Group, Config) when Group == https_inets;
 
 start_web_server(Group, Config)  when Group == http_nginx;
                                       Group == http_nginx_keep_alive ->
-    case os:find_executable("nginx") of
-        false -> {skip, "nginx not found"};
-        _ -> start_nginx("http",  Config)
-    end;
+    ensure_non_windows_and_executable_exists("nginx",
+        fun() -> start_nginx("http",  Config) end);
 
 start_web_server(Group, Config)  when Group == https_nginx;
                                       Group == https_nginx_keep_alive ->
-    case os:find_executable("nginx") of
-        false -> {skip, "nginx not found"};
-        _ -> start_nginx("https",  cert_opts(Config) ++ Config)
+    ensure_non_windows_and_executable_exists("nginx",
+        fun() -> start_nginx("https", cert_opts(Config) ++ Config) end).
+
+ensure_non_windows_and_executable_exists(Executable, SuccessFn) ->
+    case os:type() of
+        {win32, _} ->
+            {skip, "skip: not running the benchmark on Windows"};
+        _ ->
+            case os:find_executable(Executable) of
+                false -> {skip, "skip: executable not found: " ++ Executable};
+                _Filename  -> SuccessFn()
+            end
     end.
 
 start_inets_server(Protocol, ConfHttpd, Config) ->
