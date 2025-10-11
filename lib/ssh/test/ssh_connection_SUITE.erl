@@ -1609,7 +1609,6 @@ stop_listener(Config) when is_list(Config) ->
 					      {user_dir, UserDir},
 					      {password, "morot"},
 					      {exec, fun ssh_exec_echo/1}]),
-
     ConnectionRef0 = ssh_test_lib:connect(Host, Port,
                                           [{silently_accept_hosts, true},
                                            {user, "foo"},
@@ -1657,8 +1656,9 @@ stop_listener(Config) when is_list(Config) ->
                                                   {user_dir, UserDir}]),
 	    ssh:close(ConnectionRef0),
 	    ssh:close(ConnectionRef1),
-	    ssh:stop_daemon(Pid0),
-	    ssh:stop_daemon(Pid1);
+            Pid0 = Pid1,
+	    ok = ssh:stop_daemon(Pid0),
+	    ok = ssh:stop_daemon(Pid1);
 	Error ->
 	    ssh:close(ConnectionRef0),
 	    ssh:stop_daemon(Pid0),
