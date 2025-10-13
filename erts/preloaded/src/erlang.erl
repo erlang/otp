@@ -10251,6 +10251,7 @@ the `CpuTopology` type to change.
       Alloc :: atom();
          (atom_count) -> pos_integer();
          (atom_limit) -> pos_integer();
+         (bif_timer_count) -> non_neg_integer();
          (build_type) -> opt | debug |
                          gcov | valgrind | gprof | lcnt | frmptr;
          (c_compiler_used) -> {atom(), term()};
