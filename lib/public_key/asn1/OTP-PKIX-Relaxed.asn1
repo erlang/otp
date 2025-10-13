@@ -19,8 +19,7 @@
 -- %CopyrightEnd%
 
 OTP-PKIX-Relaxed {iso(1) identified-organization(3) dod(6) internet(1)
-		  private(4) enterprices(1) ericsson(193) otp(19) ssl(10)
-		  pkix1(1)}
+		  private(4) enterprise(1) 193 otp(19) otpApplications(3)}
 
 DEFINITIONS EXPLICIT TAGS ::=
 
