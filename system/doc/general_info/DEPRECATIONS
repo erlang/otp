@@ -51,7 +51,7 @@ crypto:enable_fips_mode/1 since=28
 #
 # Added in OTP 27.
 #
-mnesia_registry:create_table/_ since=27 remove=28
+mnesia_registry:create_table/_ since=27 remove=29
 code:lib_dir/2 since=27
 ssl:prf/5 since=27
 ssl:prf_random/0 since=27 remove=28
