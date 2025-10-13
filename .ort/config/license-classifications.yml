@@ -117,3 +117,6 @@ categorizations:
 - id: "SGI-B-2.0"
   categories:
   - "review"
+- id: "LicenseRef-scancode-public-domain"
+  categories:
+  - "review"
