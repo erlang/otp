@@ -941,7 +941,7 @@ error_notification(Mod,Func,_Args,{Error,Loc}) ->
 	      end,
     ErrorStr = case ErrorSpec of
 		 {badmatch,Descr} ->
-                     Descr1 = io_lib:format("~tP",[Descr,10]),
+                     Descr1 = io_lib:format("~0tP",[Descr,10]),
                      DescrLength = string:length(Descr1),
                      if DescrLength > 50 ->
 			     Descr2 = string:slice(Descr1,0,50),
@@ -950,7 +950,7 @@ error_notification(Mod,Func,_Args,{Error,Loc}) ->
 			     io_lib:format("{badmatch,~ts}",[Descr1])
 		     end;
 		 {'EXIT',Descr} ->
-                     Descr1 = io_lib:format("~tP",[Descr,10]),
+                     Descr1 = io_lib:format("~0tP",[Descr,10]),
                      DescrLength = string:length(Descr1),
                      if DescrLength > 50 ->
 			     Descr2 = string:slice(Descr1,0,50),
