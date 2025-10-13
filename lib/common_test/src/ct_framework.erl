@@ -949,6 +949,15 @@ error_notification(Mod,Func,_Args,{Error,Loc}) ->
 			true ->
 			     io_lib:format("{badmatch,~ts}",[Descr1])
 		     end;
+		 {'EXIT',Descr} ->
+                     Descr1 = io_lib:format("~tP",[Descr,10]),
+                     DescrLength = string:length(Descr1),
+                     if DescrLength > 50 ->
+			     Descr2 = string:slice(Descr1,0,50),
+			     io_lib:format("{'EXIT',~ts...}",[Descr2]);
+			true ->
+			     io_lib:format("{'EXIT',~ts}",[Descr1])
+		     end;
 		 {test_case_failed,Reason} ->
 		     case (catch io_lib:format("{test_case_failed,~ts}", [Reason])) of
 			 {'EXIT',_} ->
