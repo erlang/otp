@@ -1,0 +1,1 @@
+# ERL-1324 - Renamed type

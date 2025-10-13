@@ -1,0 +1,1 @@
+# ERL-1086 - Function is removed
