@@ -98,7 +98,7 @@ ERL_NIF_TERM dh_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
         }
         params[i++] = OSSL_PARAM_construct_uint64("priv_len", &len);
     }
-    
+
     /* End of parameter fetching */
     params[i++] = OSSL_PARAM_construct_end();
 
