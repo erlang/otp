@@ -106,7 +106,8 @@ The exception `error:notsup` signifies that the algorithm is known but is not
 supported by current underlying libcrypto or explicitly disabled when building
 that.
 
-For a list of supported algorithms, see [supports(ciphers)](`supports/1`).
+For a list of supported algorithms, see [supports(ciphers)](`supports/1`)
+and [supports()](`supports/0`).
 
 [](){: #error_3tup }
 
@@ -151,7 +152,7 @@ end
 """.
 
 
--export([start/0, stop/0, info/0, info_lib/0, info_fips/0, supports/0, enable_fips_mode/1,
+-export([start/0, stop/0, info/0, info_lib/0, info_fips/0, enable_fips_mode/1,
          version/0, bytes_to_integer/1]).
 -export([cipher_info/1, hash_info/1]).
 -export([hash/2, hash_xof/3, hash_init/1, hash_update/2, hash_final/1, hash_final_xof/2]).
@@ -238,7 +239,7 @@ end
 
          hash_equals/2,
 
-         supports/1,
+         supports/0, supports/1,
          mac/3, mac/4, macN/4, macN/5,
          mac_init/2, mac_init/3, mac_update/2, mac_final/1, mac_finalN/2
         ]).
@@ -271,6 +272,9 @@ end
        hash_algorithms/0, pubkey_algorithms/0, cipher_algorithms/0,
        kem_algorithms_nif/0,
        mac_algorithms/0, curve_algorithms/0, rsa_opts_algorithms/0,
+       fips_forbidden_hash_algorithms/0, fips_forbidden_pubkey_algorithms/0,
+       fips_forbidden_cipher_algorithms/0, fips_forbidden_kem_algorithms/0,
+       fips_forbidden_mac_algorithms/0, fips_forbidden_curve_algorithms/0,
        hash_info/1, hash_nif/2, hash_init_nif/1, hash_update_nif/2,
        hash_final_nif/1, hash_final_xof_nif/2, mac_nif/4, mac_init_nif/3, mac_update_nif/2,
        mac_final_nif/1, cipher_info_nif/1, ng_crypto_init_nif/4,
@@ -815,23 +819,70 @@ start() ->
 stop() ->
     application:stop(crypto).
 
--doc false.
--spec supports() -> [Support]
-                        when Support :: {hashs,   Hashs}
-                                      | {ciphers, Ciphers}
-                                      | {kems, KEMs}
-                                      | {public_keys, PKs}
-                                      | {macs,    Macs}
-                                      | {curves,  Curves}
-                                      | {rsa_opts, RSAopts},
-                             Hashs :: [sha1() | sha2() | sha3() | sha3_xof() | blake2() | ripemd160 | sm3 | compatibility_only_hash()],
-                             Ciphers :: [cipher()],
-                             KEMs :: [kem()],
-                             PKs :: [rsa | dss | ecdsa | dh | ecdh | eddh | ec_gf2m | mldsa() | slh_dsa()],
-                             Macs :: [hmac | cmac | poly1305],
-                             Curves :: [ec_named_curve() | edwards_curve_dh() | edwards_curve_ed()],
-                             RSAopts :: [rsa_sign_verify_opt() | rsa_opt()] .
+-type digest_algorithm() :: sha1() | sha2() | sha3() | sha3_xof() | blake2() | ripemd160 | compatibility_only_hash().
+-type public_key_algorithm() ::  rsa | dss | ecdsa | dh | ecdh | eddh | ec_gf2m | mldsa() | slh_dsa().
+-type mac_algorithm() :: hmac | cmac | poly1305.
+-type curve_algorithm() :: ec_named_curve() | edwards_curve_dh() | edwards_curve_ed().
+-type rsa_option() :: rsa_sign_verify_opt() | rsa_opt().
+-type supported_algorithm_list() :: [digest_algorithm()] | [cipher()] | [kem()] | [public_key_algorithm()]
+    | [mac_algorithm()] | [curve_algorithm()] | [rsa_option()].
+
+-type supported_result_item() ::
+      {hashs,       [digest_algorithm()]}
+    | {ciphers,     [cipher()]}
+    | {kems,        [kem()]}
+    | {public_keys, [public_key_algorithm()]}
+    | {macs,        [cmac_cipher_algorithm()]}
+    | {curves,      [curve_algorithm()]}
+    | {rsa_opts,    [rsa_option()]}.
+
+-doc """
+Get a collection of all supported crypto algorithms, grouped per type.
+
+If FIPS mode is enabled and supported, the return value will also include an additional key:
+`fips_forbidden`, containing lists of algorithms which are not allowed to use under FIPS mode.
+Each algorithm is tried once during the `crypto` application startup.
+
+The `rsa_opts` key in `fips_forbidden` is returned for completeness and is always an empty list,
+because the validity of each `rsa_opts` option under FIPS can only be determined based on
+multiple other `rsa_opts` passed together.
+
+Example response with FIPS enabled:
+```erlang
+[{hashs, [...
+ {ciphers, ...
+ {kems, []},
+ {public_keys, ...
+ {macs, ...
+ {curves, ...
+ {rsa_opts, ...
+ {fips_forbidden,[{hashs,[blake2s,blake2b,sm3,ripemd160,md5,md4]},
+                  {ciphers,[chacha20,sm4_ctr,sm4_ofb,sm4_cfb,sm4_ecb,sm4_cbc,...]},
+                  {kems,[mlkem1024,mlkem768,mlkem512]},
+                  {public_keys,[srp,eddh,eddsa,ecdh,ecdsa,ec_gf2m,dss]},
+                  {macs,[hmac,poly1305]},
+                  {curves,[secp256r1]},
+                  {rsa_opts,[]}]}]
+```
+""".
+-doc(#{group => <<"Utility Functions">>}).
+-spec supports() -> [supported_result_item() | {fips_forbidden, [supported_result_item()]}].
 supports() ->
+    %% Add FIPS-disabled algorithms separately for the users to see
+    FIPSForbidden = case application:get_env(crypto, fips_mode, false) of
+                        true -> [
+                            {fips_forbidden, [
+                                {hashs, fips_forbidden(hashs)},
+                                {ciphers, fips_forbidden(ciphers)},
+                                {kems, fips_forbidden(kems)},
+                                {public_keys, fips_forbidden(public_keys)},
+                                {macs, fips_forbidden(macs)},
+                                {curves, fips_forbidden(curves)},
+                                {rsa_opts, []} % Always empty, added for completeness
+                            ]}
+                        ];
+                        false -> []
+                    end,
      [{hashs,       supports(hashs)},
       {ciphers,     supports(ciphers)},
       {kems,        supports(kems)}
@@ -840,8 +891,9 @@ supports() ->
                                   curves,
                                   rsa_opts]
         ]
-     ].
+     ] ++ FIPSForbidden.
 
+-type supported_algorithm_type() :: hashs | ciphers | kems | public_keys | macs | curves | rsa_opts.
 
 -doc """
 Get which crypto algorithms that are supported by the underlying libcrypto
@@ -851,28 +903,7 @@ See `hash_info/1` and `cipher_info/1` for information about the hash and cipher
 algorithms.
 """.
 -doc(#{since => <<"OTP 22.0">>}).
--spec supports(Type) -> Support
-                        when Type :: hashs
-			           | ciphers
-                                   | kems
-                                   | public_keys
-                                   | macs
-                                   | curves
-                                   | rsa_opts,
-			     Support :: Hashs
-                                      | Ciphers
-                                      | KEMs
-                                      | PKs
-                                      | Macs
-                                      | Curves
-                                      | RSAopts,
-                             Hashs :: [sha1() | sha2() | sha3() | sha3_xof() | blake2() | ripemd160 | compatibility_only_hash()],
-                             Ciphers :: [cipher()],
-                             KEMs :: [kem()],
-                             PKs :: [rsa | dss | ecdsa | dh | ecdh | eddh | ec_gf2m],
-                             Macs :: [hmac | cmac | poly1305],
-                             Curves :: [ec_named_curve() | edwards_curve_dh() | edwards_curve_ed()],
-                             RSAopts :: [rsa_sign_verify_opt() | rsa_opt()] .
+-spec supports(supported_algorithm_type()) -> supported_algorithm_list().
 
 -define(CURVES, '$curves$').
 
@@ -884,6 +915,24 @@ supports(kems)        -> kem_algorithms_nif();
 supports(macs)        -> mac_algorithms();
 supports(curves)      -> curve_algorithms();
 supports(rsa_opts)    -> rsa_opts_algorithms().
+
+-doc """
+Only when FIPS mode is enabled, will return crypto algorithms that are forbidden in the FIPS mode.
+When FIPS mode is disabled, always returns empty list.
+""".
+-doc(#{since => <<"OTP 28.2">>}).
+-spec fips_forbidden(supported_algorithm_type()) -> supported_algorithm_list().
+
+-doc(#{group => <<"Utility Functions">>}).
+fips_forbidden(hashs)       -> fips_forbidden_hash_algorithms();
+fips_forbidden(public_keys) -> fips_forbidden_pubkey_algorithms();
+fips_forbidden(ciphers)     -> add_cipher_aliases(fips_forbidden_cipher_algorithms());
+fips_forbidden(kems)        -> fips_forbidden_kem_algorithms();
+fips_forbidden(macs)        -> fips_forbidden_mac_algorithms();
+fips_forbidden(curves)      -> fips_forbidden_curve_algorithms().
+%% Missing: fips_forbidden(rsa_opts) because RSA options can only be forbidden
+%% or valid together with multiple other settings, not feasible to test all
+%% combinations of those early.
 
 -doc(#{group => <<"Utility Functions">>}).
 -doc """
@@ -973,7 +1022,17 @@ about how to enable FIPS mode.
 info_fips() -> ?nif_stub.
 
 -doc """
-Enable or disable FIPs mode.
+Enable or disable FIPS mode of the OpenSSL library.
+
+---
+It is not safe to use this function in your code, it is designed to be used by the
+crypto library during the startup or by Erlang self-tests.
+
+This operation is not thread-safe, any user code calling it, while there are SSL operations
+running, might get undesired consequences, because the attached OpenSSL library structures
+will switch on the fly. Unintended non-FIPS algorithms might become enabled in your
+FIPS-only code.
+---
 
 Argument `Enable` should be `true` to enable and `false` to disable FIPS mode.
 Returns `true` if the operation was successful or `false` otherwise.
@@ -2669,6 +2728,7 @@ pkey_sign_nif(_Algorithm, _Type, _Digest, _Key, _Options) -> ?nif_stub.
 
 pkey_sign_heavy_nif(_Algorithm, _Type, _Digest, _Key, _Options) -> ?nif_stub.
 
+%% Post-Quantum Cryptography (pqc) algorithms are CPU-heavy
 is_heavy(slh_dsa_shake_128s) -> true;
 is_heavy(slh_dsa_shake_128f) -> true;
 is_heavy(slh_dsa_sha2_128s) -> true;
@@ -2942,12 +3002,11 @@ pkey_crypt_nif(_Algorithm, _In, _Key, _Options, _IsPrivate, _IsEncrypt) -> ?nif_
 -doc(#{equiv => generate_key/3}).
 -doc(#{group => <<"Key API">>,
        since => <<"OTP R16B01">>}).
--spec generate_key(Type, Params)
-                 -> {PublicKey, PrivKeyOut}
-                        when Type :: dh | ecdh | eddh | eddsa | rsa | mldsa() | mlkem512 | mlkem768 | mlkem1024 | slh_dsa() | srp,
-                             PublicKey :: dh_public() | ecdh_public() | rsa_public() | srp_public(),
-                             PrivKeyOut :: dh_private() | ecdh_private() | rsa_private() | {srp_public(),srp_private()},
-                             Params :: dh_params() | ecdh_params() | eddsa_params() | rsa_params() | srp_gen_params() | [].
+-spec generate_key(Type, Params) -> {PublicKey, PrivKeyOut}
+    when Type :: dh | ecdh | eddh | eddsa | rsa | mldsa() | mlkem512 | mlkem768 | mlkem1024 | slh_dsa() | srp,
+         PublicKey :: dh_public() | ecdh_public() | rsa_public() | srp_public(),
+         PrivKeyOut :: dh_private() | ecdh_private() | rsa_private() | {srp_public(),srp_private()},
+         Params :: dh_params() | ecdh_params() | eddsa_params() | rsa_params() | srp_gen_params() | [].
 generate_key(Type, Params) ->
     generate_key(Type, Params, undefined).
 
@@ -2973,14 +3032,12 @@ Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
 """.
 -doc(#{group => <<"Key API">>,
        since => <<"OTP R16B01">>}).
--spec generate_key(Type, Params, PrivKeyIn)
-                 -> {PublicKey, PrivKeyOut}
-                        when Type :: dh | ecdh | eddh | eddsa | rsa | mldsa() | mlkem512 | mlkem768 | mlkem1024 | srp | slh_dsa(),
-                             PublicKey :: dh_public() | ecdh_public() | rsa_public() | srp_public(),
-                             PrivKeyIn :: undefined | dh_private() | ecdh_private() | rsa_private() | {srp_public(),srp_private()},
-                             PrivKeyOut :: dh_private() | ecdh_private() | rsa_private() | {srp_public(),srp_private()},
-                             Params :: dh_params() | ecdh_params() | eddsa_params() | rsa_params() | srp_comp_params() | []
-                                       .
+-spec generate_key(Type, Params, PrivKeyIn) -> {PublicKey, PrivKeyOut}
+    when Type :: dh | ecdh | eddh | eddsa | rsa | mldsa() | mlkem512 | mlkem768 | mlkem1024 | srp | slh_dsa(),
+         PublicKey :: dh_public() | ecdh_public() | rsa_public() | srp_public(),
+         PrivKeyIn :: undefined | dh_private() | ecdh_private() | rsa_private() | {srp_public(),srp_private()},
+         PrivKeyOut :: dh_private() | ecdh_private() | rsa_private() | {srp_public(),srp_private()},
+         Params :: dh_params() | ecdh_params() | eddsa_params() | rsa_params() | srp_comp_params() | [].
 
 generate_key(dh, DHParameters0, PrivateKey) ->
     {DHParameters, Len} =
@@ -4042,14 +4099,44 @@ hash_equals(A, B) ->
 
 hash_equals_nif(_A, _B) -> ?nif_stub.
 
+-spec hash_algorithms() -> [digest_algorithm()].
 hash_algorithms() -> ?nif_stub.
-pubkey_algorithms() -> ?nif_stub.
-cipher_algorithms() -> ?nif_stub.
-kem_algorithms_nif() -> ?nif_stub.
-mac_algorithms() -> ?nif_stub.
-curve_algorithms() -> ?nif_stub.
-rsa_opts_algorithms() -> ?nif_stub.
 
+-spec fips_forbidden_hash_algorithms() -> [digest_algorithm()].
+fips_forbidden_hash_algorithms() -> ?nif_stub.
+
+-spec pubkey_algorithms() -> [public_key_algorithm()].
+pubkey_algorithms() -> ?nif_stub.
+
+-spec fips_forbidden_pubkey_algorithms() -> [public_key_algorithm()].
+fips_forbidden_pubkey_algorithms() -> ?nif_stub.
+
+-spec cipher_algorithms() -> [cipher()].
+cipher_algorithms() -> ?nif_stub.
+
+-spec fips_forbidden_cipher_algorithms() -> [cipher()].
+fips_forbidden_cipher_algorithms() -> ?nif_stub.
+
+-spec kem_algorithms_nif() -> [kem()].
+kem_algorithms_nif() -> ?nif_stub.
+
+-spec fips_forbidden_kem_algorithms() -> [kem()].
+fips_forbidden_kem_algorithms() -> ?nif_stub.
+
+-spec mac_algorithms() -> [mac_algorithm()].
+mac_algorithms() -> ?nif_stub.
+
+-spec fips_forbidden_mac_algorithms() -> [mac_algorithm()].
+fips_forbidden_mac_algorithms() -> ?nif_stub.
+
+-spec curve_algorithms() -> [curve_algorithm()].
+curve_algorithms() -> ?nif_stub.
+
+-spec fips_forbidden_curve_algorithms() -> [curve_algorithm()].
+fips_forbidden_curve_algorithms() -> ?nif_stub.
+
+-spec rsa_opts_algorithms() -> [rsa_opt()].
+rsa_opts_algorithms() -> ?nif_stub.
 
 int_to_bin(X) when X < 0 -> int_to_bin_neg(X, []);
 int_to_bin(X) -> int_to_bin_pos(X, []).

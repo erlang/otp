@@ -194,7 +194,6 @@ ERL_NIF_TERM evp_compute_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
     }
 
     ret = enif_make_binary(env, &key_bin);
-    key_bin_alloc = 0;
     goto done;
 
  bad_arg:
@@ -229,10 +228,10 @@ ERL_NIF_TERM evp_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
     ErlNifBinary prv_key;
     size_t key_len;
     unsigned char *out_pub = NULL, *out_priv = NULL;
-    struct pkey_type_t *pkey_type = get_pkey_type(argv[0]);
+    const pkey_type_C *pkey_type = get_pkey_type(env, argv[0]);
 
     if (pkey_type) {
-        type = pkey_type->evp_pkey_id;
+        type = get_pkey_type_evp_pkey_id(pkey_type);
     }
     else if (argv[0] == atom_x25519)
         type = EVP_PKEY_X25519;
