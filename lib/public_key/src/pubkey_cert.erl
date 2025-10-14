@@ -280,7 +280,7 @@ validate_signature(Cert, DerCert, Key, KeyParams0,
 %% Description: Extracts data from DerCert needed to call public_key:verify/4.
 %%--------------------------------------------------------------------
 verify_data(DerCert) ->
-    {ok, OtpCert} = pubkey_cert_records:decode_cert(DerCert),
+    {ok, OtpCert} = pubkey_cert_records:decode_cert(DerCert, relaxed),
     extract_verify_data(OtpCert, DerCert).
 
 %%--------------------------------------------------------------------

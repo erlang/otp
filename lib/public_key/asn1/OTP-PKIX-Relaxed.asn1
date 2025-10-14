@@ -1,0 +1,189 @@
+-- %CopyrightBegin%
+--
+-- SPDX-License-Identifier: Apache-2.0
+--
+-- Copyright Ericsson AB 2008-2025. All Rights Reserved.
+--
+-- Licensed under the Apache License, Version 2.0 (the "License");
+-- you may not use this file except in compliance with the License.
+-- You may obtain a copy of the License at
+--
+--     http://www.apache.org/licenses/LICENSE-2.0
+--
+-- Unless required by applicable law or agreed to in writing, software
+-- distributed under the License is distributed on an "AS IS" BASIS,
+-- WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+-- See the License for the specific language governing permissions and
+-- limitations under the License.
+--
+-- %CopyrightEnd%
+
+OTP-PKIX-Relaxed {iso(1) identified-organization(3) dod(6) internet(1)
+		  private(4) enterprise(1) 193 otp(19) otpApplications(3)}
+
+DEFINITIONS EXPLICIT TAGS ::=
+
+BEGIN
+
+-- EXPORTS ALL
+
+IMPORTS
+        ATTRIBUTE, Extensions{}, SingleAttribute
+        FROM PKIX-CommonTypes-2009
+
+       at-name, at-surname, at-givenName, at-initials, at-generationQualifier,
+       at-x520CommonName, at-x520LocalityName, at-x520StateOrProvinceName,
+       at-x520OrganizationName, at-x520OrganizationalUnitName, at-x520Title,
+       at-x520dnQualifier, at-x520SerialNumber, at-x520Pseudonym,
+       at-domainComponent, at-emailAddress,
+       id-at-name, id-at-surname, id-at-givenName, id-at-initials, id-at-generationQualifier,
+       id-at-commonName, id-at-localityName, id-at-stateOrProvinceName, id-at-organizationName,
+       id-at-organizationalUnitName, id-at-title, id-at-countryName, id-at-serialNumber,
+       id-at-pseudonym, id-emailAddress,
+       ub-name, ub-common-name, ub-locality-name, ub-state-name, ub-organization-name,
+       ub-organizational-unit-name, ub-title, ub-serial-number, ub-pseudonym, ub-emailaddress-length
+       FROM PKIX1Explicit-2009
+       {iso(1) identified-organization(3) dod(6) internet(1)
+	security(5) mechanisms(5) pkix(7) id-mod(0)
+	id-mod-pkix1-explicit-02(51)};
+--
+-- Certificate
+--
+
+OTPCertificate  ::=  SEQUENCE  {
+     tbsCertificate       OTPTBSCertificate,
+     signatureAlgorithm    OTP-PKIX.AlgorithmIdentifier{OTP-PKIX.SIGNATURE-ALGORITHM,
+                                                        { OTP-PKIX.OTPSignatureAlgorithms }},
+     signature            BIT STRING  }
+
+OTPTBSCertificate  ::=  SEQUENCE  {
+     version         [0]  OTP-PKIX.Version DEFAULT v1,
+     serialNumber         OTP-PKIX.CertificateSerialNumber,
+     signature            OTP-PKIX.AlgorithmIdentifier{OTP-PKIX.SIGNATURE-ALGORITHM,
+                                                       { OTP-PKIX.OTPSignatureAlgorithms }},
+     issuer               OTPName,
+     validity             OTP-PKIX.Validity,
+     subject              OTPName,
+     subjectPublicKeyInfo OTP-PKIX.SubjectPublicKeyInfo,
+     ... ,
+      [[2:               -- If present, version MUST be v2
+      issuerUniqueID  [1]  IMPLICIT OTP-PKIX.UniqueIdentifier OPTIONAL,
+      subjectUniqueID [2]  IMPLICIT OTP-PKIX.UniqueIdentifier OPTIONAL
+      ]],
+      [[3:               -- If present, version MUST be v3 --
+      extensions      [3]  Extensions{{OTP-PKIX.CertExtensions}} OPTIONAL
+      ]], ... }
+
+-- OTPName can contain empty RDNs that don't follow the standard
+-- but seem to be generally accepted.
+
+OTPName ::= CHOICE {
+    rdnSequence  RDNSequence }
+
+RDNSequence ::= SEQUENCE OF OTPRelativeDistinguishedName
+
+OTPRelativeDistinguishedName  ::=
+      SET SIZE (1 .. MAX) OF SingleAttribute { {OTPSupportedAttributes} }
+
+OTPSupportedAttributes ATTRIBUTE ::= {
+    otp-at-name | otp-at-surname | otp-at-givenName | otp-at-initials |
+    otp-at-generationQualifier | otp-at-x520CommonName |
+    otp-at-x520LocalityName | otp-at-x520StateOrProvinceName |
+    otp-at-x520OrganizationName | otp-at-x520OrganizationalUnitName |
+    otp-at-x520Title | at-x520dnQualifier | otp-at-x520countryName |
+    otp-at-x520SerialNumber | otp-at-x520Pseudonym | at-domainComponent |
+    otp-at-emailAddress, ... }
+
+OTPDirectoryString{INTEGER:maxSize} ::= CHOICE {
+    teletexString    TeletexString(SIZE (0..maxSize)),
+    printableString  PrintableString(SIZE (0..maxSize)),
+    bmpString        BMPString(SIZE (0..maxSize)),
+    universalString  UniversalString(SIZE (0..maxSize)),
+    -- Note: The tag was spelled as `uTF8String` in the
+    -- RFC for unknown reason. That breaks backward
+    -- for public_key.
+    utf8String       UTF8String(SIZE (0..maxSize))
+}
+
+OTP-X520name ::= OTPDirectoryString { ub-name }
+
+otp-at-name ATTRIBUTE ::= {
+    TYPE OTP-X520name IDENTIFIED BY id-at-name }
+
+otp-at-surname ATTRIBUTE ::= {
+    TYPE OTP-X520name IDENTIFIED BY id-at-surname }
+
+otp-at-givenName ATTRIBUTE ::= {
+    TYPE OTP-X520name IDENTIFIED BY id-at-givenName }
+
+otp-at-initials ATTRIBUTE ::= {
+    TYPE OTP-X520name IDENTIFIED BY id-at-initials }
+
+otp-at-generationQualifier ATTRIBUTE ::= {
+    TYPE OTP-X520name IDENTIFIED BY id-at-generationQualifier }
+
+otp-at-x520LocalityName ATTRIBUTE ::= {
+    TYPE OTP-X520localityName IDENTIFIED BY id-at-localityName }
+OTP-X520localityName ::= OTPDirectoryString { ub-locality-name }
+
+otp-at-x520StateOrProvinceName ATTRIBUTE ::= {
+    TYPE OTP-X520stateOrProvinceName IDENTIFIED BY id-at-stateOrProvinceName }
+OTP-X520stateOrProvinceName ::= OTPDirectoryString { ub-state-name }
+
+otp-at-x520CommonName ATTRIBUTE ::= {
+    TYPE OTP-X520commonName IDENTIFIED BY id-at-commonName }
+OTP-X520commonName ::= OTPDirectoryString { ub-common-name }
+
+otp-at-x520OrganizationName ATTRIBUTE ::= {
+    TYPE OTP-X520organizationName IDENTIFIED BY id-at-organizationName }
+OTP-X520organizationName ::= OTPDirectoryString { ub-organization-name }
+
+otp-at-x520OrganizationalUnitName ATTRIBUTE ::= {
+    TYPE OTP-X520organizationalUnitName IDENTIFIED BY id-at-organizationalUnitName }
+OTP-X520organizationalUnitName ::= OTPDirectoryString { ub-organizational-unit-name }
+
+otp-at-x520Title ATTRIBUTE ::= {
+    TYPE OTP-X520title IDENTIFIED BY id-at-title }
+OTP-X520title ::= OTPDirectoryString { ub-title }
+
+otp-at-x520countryName ATTRIBUTE ::= {
+    TYPE OTP-X520countryName IDENTIFIED BY id-at-countryName }
+-- We accept utf8String encoding of the US-ASCII
+-- country name code and the mix up with other country code systems
+-- that uses three characters instead of two.
+OTP-X520countryName ::= CHOICE {
+    correct PrintableString (SIZE(0) | SIZE (2..3)), -- Correct size is 2.
+    wrong   UTF8String      (SIZE(0) | SIZE (2..3))
+}
+
+otp-at-x520SerialNumber ATTRIBUTE ::= {
+    TYPE OTP-X520serialNumber IDENTIFIED BY id-at-serialNumber }
+OTP-X520serialNumber ::= OTPDirectoryString { ub-serial-number }
+
+otp-at-x520Pseudonym ATTRIBUTE ::= {
+    TYPE OTP-X520pseudonym IDENTIFIED BY id-at-pseudonym }
+OTP-X520pseudonym ::= OTPDirectoryString { ub-pseudonym }
+
+otp-at-emailAddress ATTRIBUTE ::= {
+    TYPE OTP-emailAddress IDENTIFIED BY id-emailAddress }
+OTP-emailAddress ::= CHOICE {
+    correct IA5String (SIZE (0..ub-emailaddress-length)),
+    wrong   UTF8String
+}
+
+
+HashSingleAttribute ::= OTP-PKIX.HashSingleAttribute
+HashRDNSequence ::= OTP-PKIX.HashRDNSequence
+HashRelativeDistinguishedName ::= OTP-PKIX.HashRelativeDistinguishedName
+OTPCertificatePolicies ::= OTP-PKIX.OTPCertificatePolicies
+OTPPolicyInformation ::= OTP-PKIX.OTPPolicyInformation
+CertPolicyId ::= OTP-PKIX.CertPolicyId
+CERT-POLICY-QUALIFIER ::= OTP-PKIX.CERT-POLICY-QUALIFIER
+OTPPolicyQualifierInfo ::= OTP-PKIX.OTPPolicyQualifierInfo
+CPSuri ::= OTP-PKIX.CPSuri
+OTPUserNotice ::= OTP-PKIX.OTPUserNotice
+OTPDisplayText ::= OTP-PKIX.OTPDisplayText
+Extensions ::= OTP-PKIX.Extensions
+OTPExtension ::= OTP-PKIX.OTPExtension
+
+END
