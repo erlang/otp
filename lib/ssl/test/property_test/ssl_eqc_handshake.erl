@@ -487,45 +487,48 @@ signature_algorithms() ->
          #signature_algorithms{signature_scheme_list = List}).
 
 sig_scheme_list() ->
-    oneof([[rsa_pkcs1_sha256],
-           [rsa_pkcs1_sha256, ecdsa_sha1],
-           [rsa_pkcs1_sha256,
-            rsa_pkcs1_sha384,
-            rsa_pkcs1_sha512,
-            ecdsa_secp256r1_sha256,
-            ecdsa_secp384r1_sha384,
-            ecdsa_secp521r1_sha512,
-            ecdsa_brainpoolP256r1tls13_sha256,
-            ecdsa_brainpoolP384r1tls13_sha384,
-            ecdsa_brainpoolP512r1tls13_sha512,
-            rsa_pss_rsae_sha256,
-            rsa_pss_rsae_sha384,
-            rsa_pss_rsae_sha512,
-            rsa_pss_pss_sha256,
-            rsa_pss_pss_sha384,
-            rsa_pss_pss_sha512,
+    elements([
+              [rsa_pkcs1_sha256],
+              [rsa_pkcs1_sha256, ecdsa_sha1],
+              [rsa_pkcs1_sha256,
+               rsa_pkcs1_sha384,
+               rsa_pkcs1_sha512,
+               ecdsa_secp256r1_sha256,
+               ecdsa_secp384r1_sha384,
+               ecdsa_secp521r1_sha512,
+               ecdsa_brainpoolP256r1tls13_sha256,
+               ecdsa_brainpoolP384r1tls13_sha384,
+               ecdsa_brainpoolP512r1tls13_sha512,
+               rsa_pss_rsae_sha256,
+               rsa_pss_rsae_sha384,
+               rsa_pss_rsae_sha512,
+               rsa_pss_pss_sha256,
+               rsa_pss_pss_sha384,
+               rsa_pss_pss_sha512,
             rsa_pkcs1_sha1,
-            ecdsa_sha1]
-          ]).
+               ecdsa_sha1]
+             ]).
 
 sig_scheme() ->
-    oneof([rsa_pkcs1_sha256,
-           rsa_pkcs1_sha384,
-           rsa_pkcs1_sha512,
-           ecdsa_secp256r1_sha256,
-           ecdsa_secp384r1_sha384,
-           ecdsa_secp521r1_sha512,
-           ecdsa_brainpoolP256r1tls13_sha256,
-           ecdsa_brainpoolP384r1tls13_sha384,
-           ecdsa_brainpoolP512r1tls13_sha512,
-           rsa_pss_rsae_sha256,
-           rsa_pss_rsae_sha384,
-           rsa_pss_rsae_sha512,
-           rsa_pss_pss_sha256,
-           rsa_pss_pss_sha384,
-           rsa_pss_pss_sha512,
-           rsa_pkcs1_sha1,
-           ecdsa_sha1]).
+    elements([
+              rsa_pkcs1_sha256,
+              rsa_pkcs1_sha384,
+              rsa_pkcs1_sha512,
+              ecdsa_secp256r1_sha256,
+              ecdsa_secp384r1_sha384,
+              ecdsa_secp521r1_sha512,
+              ecdsa_brainpoolP256r1tls13_sha256,
+              ecdsa_brainpoolP384r1tls13_sha384,
+              ecdsa_brainpoolP512r1tls13_sha512,
+              rsa_pss_rsae_sha256,
+              rsa_pss_rsae_sha384,
+              rsa_pss_rsae_sha512,
+              rsa_pss_pss_sha256,
+              rsa_pss_pss_sha384,
+              rsa_pss_pss_sha512,
+              rsa_pkcs1_sha1,
+              ecdsa_sha1
+             ]).
 
 signature() ->
     <<44,119,215,137,54,84,156,26,121,212,64,173,189,226,

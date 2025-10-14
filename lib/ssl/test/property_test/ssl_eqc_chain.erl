@@ -162,14 +162,14 @@ tls_version() ->
     Versions = [Version || Version <- ['tlsv1.3', 'tlsv1.2', 'tlsv1.1', 'tlsv1', 'dtlsv1.2', 'dtlsv1'],
                            ssl_test_lib:sufficient_crypto_support(Version)
                ],
-    oneof(Versions).
+    elements(Versions).
 
 key_alg(Version) when Version == 'tlsv1.3';
                       Version == 'tlsv1.2';
                       Version == 'dtlsv1.2'->
-    oneof([rsa, ecdsa]);
+    elements([rsa, ecdsa]);
 key_alg(_) ->
-    oneof([rsa]).
+    elements([rsa]).
 
 server_options('tlsv1.3') ->
     [{verify, verify_peer},
