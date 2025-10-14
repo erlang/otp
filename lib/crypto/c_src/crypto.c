@@ -70,12 +70,27 @@ static ErlNifFunc nif_funcs[] = {
     {"info_lib", 0, info_lib, 0},
     {"info_fips", 0, info_fips, 0},
     {"enable_fips_mode_nif", 1, enable_fips_mode_nif, 0},
+
     {"hash_algorithms", 0, hash_algorithms, 0},
+    {"fips_forbidden_hash_algorithms", 0, fips_forbidden_hash_algorithms, 0},
+
     {"pubkey_algorithms", 0, pubkey_algorithms, 0},
+    {"fips_forbidden_pubkey_algorithms", 0, fips_forbidden_pubkey_algorithms, 0},
+
     {"cipher_algorithms", 0, cipher_algorithms, 0},
+    {"fips_forbidden_cipher_algorithms", 0, fips_forbidden_cipher_algorithms, 0},
+
+    {"kem_algorithms_nif", 0, kem_algorithms_nif, 0},
+    {"fips_forbidden_kem_algorithms", 0, fips_forbidden_kem_algorithms, 0},
+
     {"mac_algorithms", 0, mac_algorithms, 0},
+    {"fips_forbidden_mac_algorithms", 0, fips_forbidden_mac_algorithms, 0},
+
     {"curve_algorithms", 0, curve_algorithms, 0},
+    {"fips_forbidden_curve_algorithms", 0, fips_forbidden_curve_algorithms, 0},
+
     {"rsa_opts_algorithms", 0, rsa_opts_algorithms, 0},
+
     {"hash_info", 1, hash_info_nif, 0},
     {"hash_nif", 2, hash_nif, 0},
     {"hash_init_nif", 1, hash_init_nif, 0},
@@ -99,14 +114,13 @@ static ErlNifFunc nif_funcs[] = {
     {"do_exor", 2, do_exor, 0},
 
     {"hash_equals_nif", 2, hash_equals_nif, 0},
-    
+
     {"pbkdf2_hmac_nif", 5, pbkdf2_hmac_nif, 0},
     {"pkey_sign_nif", 5, pkey_sign_nif, 0},
     {"pkey_verify_nif", 6, pkey_verify_nif, 0},
     {"pkey_crypt_nif", 6, pkey_crypt_nif, 0},
     {"encapsulate_key_nif", 2, encapsulate_key_nif, 0},
     {"decapsulate_key_nif", 3, decapsulate_key_nif, 0},
-    {"kem_algorithms_nif", 0, kem_algorithms_nif, 0},
     {"rsa_generate_key_nif", 2, rsa_generate_key_nif, 0},
     {"dh_generate_key_nif", 4, dh_generate_key_nif, 0},
     {"dh_compute_key_nif", 3, dh_compute_key_nif, 0},
@@ -411,4 +425,3 @@ static void unload(ErlNifEnv* env, void* priv_data)
          */
     }
 }
-

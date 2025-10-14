@@ -44,17 +44,15 @@ ERL_NIF_TERM enable_fips_mode(ErlNifEnv* env, ERL_NIF_TERM fips_mode_to_set)
 {
     if (fips_mode_to_set == atom_true) {
         if (FIPS_mode_set(1)) return atom_true;
-                         else return atom_false;
-
-    } else if (fips_mode_to_set == atom_false) {
+        return atom_false;
+    }
+    if (fips_mode_to_set == atom_false) {
         if (!FIPS_mode_set(0)) return atom_false;
-                          else return atom_true;
-
-    } else
-        return enif_make_badarg(env);
+        return atom_true;
+    }
+    return enif_make_badarg(env);
 }
 #else
-
 {
     if (fips_mode_to_set == atom_true) return atom_false;
     else if (fips_mode_to_set == atom_false) return atom_true;

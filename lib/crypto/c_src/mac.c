@@ -34,15 +34,15 @@
 
 struct mac_type_t {
     union {
-	const char*  str;        /* before init, NULL for end-of-table */
-	ERL_NIF_TERM atom;       /* after init, 'false' for end-of-table */
-    }name;
-    unsigned flags;
+        const char*  str;        /* before init, NULL for end-of-table */
+        ERL_NIF_TERM atom;       /* after init, 'false' for end-of-table */
+    } name;
+    unsigned unavail_flags;      /* MAC_UNAVAIL_FLAGS: reasons why not available */
     union {
         const int pkey_type;
-    }alg;
-    int type;
-    size_t key_len;      /* != 0 to also match on key_len */
+    } alg;
+    int type;               /* MAC_TYPE */
+    size_t key_len;         /* != 0 to also match on key_len */
 #if defined(HAS_3_0_API)
     const char* fetch_name;
     EVP_MAC *evp_mac;
@@ -50,16 +50,21 @@ struct mac_type_t {
 };
 
 /* masks in the flags field if mac_type_t */
-#define NO_FIPS_MAC 1
+enum MAC_UNAVAIL_FLAGS {
+    FIPS_MAC_NOT_AVAIL = 1,
+    FIPS_FORBIDDEN_MAC = 2,
+};
 
-#define NO_mac 0
-#define HMAC_mac 1
-#define CMAC_mac 2
-#define POLY1305_mac 3
+enum MAC_TYPE {
+    NO_mac = 0,
+    HMAC_mac = 1,
+    CMAC_mac = 2,
+    POLY1305_mac = 3,
+};
 
 static struct mac_type_t mac_types[] =
 {
-    {{"poly1305"}, NO_FIPS_MAC,
+    {{"poly1305"}, FIPS_FORBIDDEN_MAC,
 #ifdef HAVE_POLY1305
      /* If we have POLY then we have EVP_PKEY */
      {EVP_PKEY_POLY1305}, POLY1305_mac, 32
@@ -102,9 +107,9 @@ static struct mac_type_t mac_types[] =
 };
 
 #ifdef FIPS_SUPPORT
-# define MAC_FORBIDDEN_IN_FIPS(P) (((P)->flags & NO_FIPS_MAC) && FIPS_MODE())
+# define IS_MAC_FORBIDDEN_IN_FIPS(p) (((p)->unavail_flags & FIPS_FORBIDDEN_MAC) && FIPS_MODE())
 #else
-# define MAC_FORBIDDEN_IN_FIPS(P) 0
+# define IS_MAC_FORBIDDEN_IN_FIPS(P) 0
 #endif
 
 /***************************
@@ -123,35 +128,75 @@ ERL_NIF_TERM mac_update(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
  Support functions for type array
 *********************************/
 
+#ifdef HAS_3_0_API
+#ifdef FIPS_SUPPORT
+/* Initialize an algorithm to check that all its dependencies are valid in FIPS */
+static int is_valid_in_fips(EVP_MAC* mac)
+{
+    int usable = 0;
+    if (mac) {
+        EVP_MAC_CTX *ctx = EVP_MAC_CTX_new(mac);
+
+        /* Dummy key and parameters. */
+        unsigned char key[64] = {0};
+        OSSL_PARAM params[2];
+        params[0] = OSSL_PARAM_construct_utf8_string("digest", "SHA256", 0);
+        params[1] = OSSL_PARAM_construct_end();
+
+        /* Try to initialize the digest algorithm for use, this will check the dependencies */
+        if (EVP_MAC_init(ctx, key, sizeof(key), params) == 1) {
+            usable |= FIPS_FORBIDDEN_MAC;
+        }
+
+        EVP_MAC_CTX_free(ctx);
+    } else {
+        return FIPS_MAC_NOT_AVAIL;
+    }
+    return usable;
+}
+#endif /* FIPS_SUPPORT */
+#endif /* HAS_3_0_API */
+
 void init_mac_types(ErlNifEnv* env)
 {
     struct mac_type_t* p = mac_types;
 
-    for (p = mac_types; p->name.str; p++) {
-	p->name.atom = enif_make_atom(env, p->name.str);
+    for (/* p = mac_types */; p->name.str; p++) {
+        p->name.atom = enif_make_atom(env, p->name.str);
 #if defined(HAS_3_0_API)
+# ifdef FIPS_SUPPORT
+        {
+            EVP_MAC* fetched_mac = EVP_MAC_fetch(NULL, p->fetch_name, "fips=yes");
+            const int unavail_flags = is_valid_in_fips(fetched_mac); /* Also tests for NULL */
+            if (unavail_flags == 0) {
+                p->unavail_flags = 0; /* mark available */
+                p->evp_mac = fetched_mac;
+            } else {
+                p->unavail_flags |= unavail_flags;
+                EVP_MAC_free(fetched_mac);
+            }
+        }
+# else
         p->evp_mac = EVP_MAC_fetch(NULL, p->fetch_name, NULL);
+# endif
 #endif
     }
     p->name.atom = atom_false;  /* end marker */
 }
 
-ERL_NIF_TERM mac_types_as_list(ErlNifEnv* env)
+ERL_NIF_TERM mac_types_as_list(ErlNifEnv* env, const bool fips_forbidden)
 {
-    struct mac_type_t* p;
-    ERL_NIF_TERM prev, hd;
+    ERL_NIF_TERM prev = atom_undefined;
+    ERL_NIF_TERM hd = enif_make_list(env, 0);
 
-    hd = enif_make_list(env, 0);
-    prev = atom_undefined;
-
-    for (p = mac_types; p->name.atom != atom_false; p++) {
-        if (prev == p->name.atom)
+    for (struct mac_type_t *p = mac_types; p->name.atom != atom_false; p++)
+    {
+        if (prev == p->name.atom || IS_MAC_FORBIDDEN_IN_FIPS(p) != fips_forbidden) {
             continue;
-
-        if (p->type != NO_mac)
-            {
-                hd = enif_make_list_cell(env, p->name.atom, hd);
-            }
+        }
+        if (p->type != NO_mac) {
+            hd = enif_make_list_cell(env, p->name.atom, hd);
+        }
     }
 
     return hd;
@@ -161,10 +206,10 @@ struct mac_type_t* get_mac_type(ERL_NIF_TERM type, size_t key_len)
 {
     struct mac_type_t* p = NULL;
     for (p = mac_types; p->name.atom != atom_false; p++) {
-	if (type == p->name.atom) {
-            if ((p->key_len == 0) || (p->key_len == key_len))
+        if (type == p->name.atom) {
+            if (p->key_len == 0 || p->key_len == key_len)
                 return p;
-	}
+        }
     }
     return NULL;
 }
@@ -173,9 +218,9 @@ struct mac_type_t* get_mac_type_no_key(ERL_NIF_TERM type)
 {
     struct mac_type_t* p = NULL;
     for (p = mac_types; p->name.atom != atom_false; p++) {
-	if (type == p->name.atom) {
-	    return p;
-	}
+        if (type == p->name.atom) {
+            return p;
+        }
     }
     return NULL;
 }
@@ -245,7 +290,8 @@ ERL_NIF_TERM mac_one_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
             goto err;
         }
 
-    if (!(macp = get_mac_type(argv[0], key_bin.size)))
+    macp = get_mac_type(argv[0], key_bin.size);
+    if (!macp)
         {
             if (!get_mac_type_no_key(argv[0]))
                 return_term = EXCP_BADARG_N(env, 0, "Unknown mac algorithm");
@@ -254,7 +300,7 @@ ERL_NIF_TERM mac_one_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
             goto err;
         }
 
-    if (MAC_FORBIDDEN_IN_FIPS(macp))
+    if (IS_MAC_FORBIDDEN_IN_FIPS(macp))
         {
             return_term = EXCP_NOTSUP_N(env, 0, "MAC algorithm forbidden in FIPS");
             goto err;
@@ -281,7 +327,7 @@ ERL_NIF_TERM mac_one_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
                     return_term = EXCP_BADARG_N(env, 1, "Bad digest algorithm for HMAC");
                     goto err;
                 }
-            if (DIGEST_FORBIDDEN_IN_FIPS(digp))
+            if (IS_DIGEST_FORBIDDEN_IN_FIPS(digp))
                 {
                     return_term = EXCP_NOTSUP_N(env, 1, "Digest algorithm for HMAC forbidden in FIPS");
                     goto err;
@@ -335,7 +381,7 @@ ERL_NIF_TERM mac_one_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
                     goto err;
                 }
             
-            if (CIPHER_FORBIDDEN_IN_FIPS(cipherp))
+            if (IS_CIPHER_FORBIDDEN_IN_FIPS(cipherp))
                 {
                     return_term = EXCP_NOTSUP_N(env, 1, "Cipher algorithm not supported in FIPS");
                     goto err;
@@ -606,7 +652,7 @@ ERL_NIF_TERM mac_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
             goto err;
         }
 
-    if (MAC_FORBIDDEN_IN_FIPS(macp))
+    if (IS_MAC_FORBIDDEN_IN_FIPS(macp))
         {
             return_term = EXCP_NOTSUP_N(env, 0, "MAC algorithm forbidden in FIPS");
             goto err;
@@ -633,7 +679,7 @@ ERL_NIF_TERM mac_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
                     return_term = EXCP_BADARG_N(env, 1, "Bad digest algorithm for HMAC");
                     goto err;
                 }
-            if (DIGEST_FORBIDDEN_IN_FIPS(digp))
+            if (IS_DIGEST_FORBIDDEN_IN_FIPS(digp))
                 {
                     return_term = EXCP_NOTSUP_N(env, 1, "Digest algorithm for HMAC forbidden in FIPS");
                     goto err;
@@ -677,7 +723,7 @@ ERL_NIF_TERM mac_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
                     goto err;
                 }
             
-            if (CIPHER_FORBIDDEN_IN_FIPS(cipherp))
+            if (IS_CIPHER_FORBIDDEN_IN_FIPS(cipherp))
                 {
                     return_term = EXCP_NOTSUP_N(env, 1, "Cipher algorithm not supported in FIPS");
                     goto err;

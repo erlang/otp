@@ -111,7 +111,7 @@ ERL_NIF_TERM aead_cipher_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
         {ret = EXCP_BADARG_N(env, 0, "Bad cipher"); goto done;}
     if (! (ctx_res->cipherp->flags & AEAD_CIPHER) )
         {ret = EXCP_BADARG_N(env, 0, "Not aead cipher"); goto done;}
-    if (CIPHER_FORBIDDEN_IN_FIPS(ctx_res->cipherp))
+    if (IS_CIPHER_FORBIDDEN_IN_FIPS(ctx_res->cipherp))
         {ret = EXCP_NOTSUP_N(env, 0, "Forbidden in FIPS"); goto done;}
 
 #if defined(HAVE_GCM_EVP_DECRYPT_BUG)
@@ -210,7 +210,7 @@ ERL_NIF_TERM aead_cipher_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
             {ret = EXCP_BADARG_N(env, 0, "Bad cipher"); goto done;}
         if (! (cipherp->flags & AEAD_CIPHER) )
             {ret = EXCP_BADARG_N(env, 0, "Not aead cipher"); goto done;}
-        if (CIPHER_FORBIDDEN_IN_FIPS(cipherp))
+        if (IS_CIPHER_FORBIDDEN_IN_FIPS(cipherp))
             {ret = EXCP_NOTSUP_N(env, 0, "Forbidden in FIPS"); goto done;}
 
 #if defined(HAVE_GCM_EVP_DECRYPT_BUG)
