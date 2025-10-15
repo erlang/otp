@@ -1160,7 +1160,7 @@ sleep(T) -> receive after T -> ok end.
 
 start_prim_loader(Init, Path0, {Pa,Pz}) ->
     Path = case Path0 of
-	       false -> Pa ++ ["."|Pz];
+	       false -> Pa ++ Pz;
 	       _ -> Path0
 	   end,
     case erl_prim_loader:start() of
