@@ -129,6 +129,8 @@
          custom_groups/1,
          mlkem_groups/0,
          mlkem_groups/1,
+         mlkem_hybrid_groups/0,
+         mlkem_hybrid_groups/1,
          hello_retry_client_auth/0,
          hello_retry_client_auth/1,
          hello_retry_client_auth_empty_cert_accepted/0,
@@ -216,6 +218,7 @@ tls_1_3_tests() ->
      hello_retry_request,
      custom_groups,
      mlkem_groups,
+     mlkem_hybrid_groups,
      client_auth_no_suitable_chain,
      cert_auth_in_first_ca,
      hello_retry_client_auth,
@@ -344,6 +347,8 @@ end_per_group(GroupName, Config) ->
   ssl_test_lib:end_per_group(GroupName, Config).
 
 init_per_testcase(mlkem_groups, Config) ->
+   ssl_cert_tests:support_kems(Config);
+init_per_testcase(mlkem_hybrid_groups, Config) ->
    ssl_cert_tests:support_kems(Config);
 init_per_testcase(signature_algorithms_bad_curve_secp256r1, Config) ->
     init_ecdsa_opts(Config, secp256r1);
@@ -1216,7 +1221,7 @@ custom_groups(Config) ->
 
 %%--------------------------------------------------------------------
 mlkem_groups() ->
-    [{doc,"Test that ssl server can select a common group for key-exchange"}].
+    [{doc,"Test that ssl server can select a common mlkem group for key-exchange"}].
 
 mlkem_groups(Config) ->
     ClientOpts0 = ssl_test_lib:ssl_options(client_cert_opts, Config),
@@ -1225,6 +1230,17 @@ mlkem_groups(Config) ->
     mlkem_kex(mlkem512, ClientOpts0, ServerOpts0, Config),
     mlkem_kex(mlkem768, ClientOpts0, ServerOpts0, Config),
     mlkem_kex(mlkem1024, ClientOpts0, ServerOpts0, Config).
+
+mlkem_hybrid_groups() ->
+    [{doc,"Test that ssl server can select a common mlkem-hybrid group for key-exchange"}].
+
+mlkem_hybrid_groups(Config) ->
+    ClientOpts0 = ssl_test_lib:ssl_options(client_cert_opts, Config),
+    ServerOpts0 = ssl_test_lib:ssl_options(server_cert_opts, Config),
+
+    mlkem_kex(x25519mlkem768, ClientOpts0, ServerOpts0, Config),
+    mlkem_kex(secp256r1mlkem768, ClientOpts0, ServerOpts0, Config),
+    mlkem_kex(secp384r1mlkem1024, ClientOpts0, ServerOpts0, Config).
 
 mlkem_kex(MLKem, ClientOpts0, ServerOpts0, Config) ->
     %% Set versions

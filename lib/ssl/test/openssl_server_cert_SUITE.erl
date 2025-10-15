@@ -61,6 +61,8 @@
          custom_groups/1,
          mlkem_groups/0,
          mlkem_groups/1,
+         mlkem_hybrid_groups/0,
+         mlkem_hybrid_groups/1,
          hello_retry_client_auth/0,
          hello_retry_client_auth/1,
          hello_retry_client_auth_empty_cert_accepted/0,
@@ -138,6 +140,7 @@ tls_1_3_tests() ->
      hello_retry_request,
      custom_groups,
      mlkem_groups,
+     mlkem_hybrid_groups,
      hello_retry_client_auth,
      hello_retry_client_auth_empty_cert_accepted,
      hello_retry_client_auth_empty_cert_rejected
@@ -205,6 +208,8 @@ end_per_group(GroupName, Config) ->
 
 init_per_testcase(mlkem_groups, Config) ->
     ssl_cert_tests:support_kems(Config);
+init_per_testcase(mlkem_hybrid_groups, Config) ->
+    ssl_cert_tests:support_kems(Config);
 init_per_testcase(_TestCase, Config) ->
     ssl_test_lib:ct_log_supported_protocol_versions(Config),
     ct:timetrap({seconds, 30}),
@@ -266,6 +271,10 @@ mlkem_groups() ->
     ssl_cert_tests:mlkem_groups().
 mlkem_groups(Config) ->
     ssl_cert_tests:mlkem_groups(Config).
+mlkem_hybrid_groups() ->
+    ssl_cert_tests:mlkem_hybrid_groups().
+mlkem_hybrid_groups(Config) ->
+    ssl_cert_tests:mlkem_hybrid_groups(Config).
 unsupported_sign_algo_cert_client_auth() ->
     ssl_cert_tests:unsupported_sign_algo_cert_client_auth().
 unsupported_sign_algo_cert_client_auth(Config) ->

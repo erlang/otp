@@ -1474,20 +1474,34 @@ add_selected_version(Extensions) ->
     Extensions#{server_hello_selected_version => SupportedVersions}.
 
 kse_remove_private_key(#key_share_entry{
-                      group = Group,
-                      key_exchange =
-                          #'ECPrivateKey'{publicKey = PublicKey}}) ->
+                          group = Group,
+                          key_exchange =
+                              #'ECPrivateKey'{publicKey = PublicKey}}) ->
     #key_share_entry{
        group = Group,
        key_exchange = PublicKey};
 kse_remove_private_key(#key_share_entry{
-                      group = Group,
-                      key_exchange =
-                          {PublicKey, _}}) ->
+                          group = Group,
+                          key_exchange =
+                              {#'ECPrivateKey'{publicKey = PublicKey1},
+                                {PublicKey2, _}}}) ->
+    #key_share_entry{
+       group = Group,
+       key_exchange = <<PublicKey1/binary, PublicKey2/binary>>};
+kse_remove_private_key(#key_share_entry{
+                          group = Group,
+                          key_exchange =
+                              {{PublicKey1, _}, {PublicKey2, _}}}) ->
+    #key_share_entry{
+       group = Group,
+       key_exchange = <<PublicKey1/binary, PublicKey2/binary>>};
+kse_remove_private_key(#key_share_entry{
+                          group = Group,
+                          key_exchange =
+                              {PublicKey, _}}) ->
     #key_share_entry{
        group = Group,
        key_exchange = PublicKey}.
-
 
 signature_algs_ext(undefined) ->
     undefined;
@@ -2665,7 +2679,6 @@ encode_versions(Versions) ->
 
 encode_client_shares(ClientShares) ->
     << << (encode_key_share_entry(KeyShareEntry0))/binary >> || KeyShareEntry0 <- ClientShares >>.
-
 encode_key_share_entry(#key_share_entry{group = Group,
                                         key_exchange = KeyExchange}) ->
     Len = byte_size(KeyExchange),
@@ -3075,14 +3088,15 @@ decode_extensions(<<?UINT16(?KEY_SHARE_EXT), ?UINT16(Len),
 decode_extensions(<<?UINT16(?KEY_SHARE_EXT), ?UINT16(Len),
                     ExtData:Len/binary, Rest/binary>>,
                   Version, MessageType = server_hello, Acc) ->
-    <<?UINT16(Group),?UINT16(KeyLen),KeyExchange:KeyLen/binary>> = ExtData,
-    assert_unique_extension(key_share, Acc),
+    <<?UINT16(EnumGroup),?UINT16(KeyLen),KeyExchange0:KeyLen/binary>> = ExtData,
+    Group =  tls_v1:enum_to_group(EnumGroup),
+    KeyExchange = maybe_dec_server_hybrid_share(Group, KeyExchange0),
     decode_extensions(Rest, Version, MessageType,
                       Acc#{key_share =>
                                #key_share_server_hello{
                                   server_share =
                                       #key_share_entry{
-                                         group = tls_v1:enum_to_group(Group),
+                                         group = Group,
                                          key_exchange = KeyExchange}}});
 
 decode_extensions(<<?UINT16(?KEY_SHARE_EXT), ?UINT16(Len),
@@ -3239,8 +3253,53 @@ dec_hashsign(Value) ->
     [HashSign] = decode_sign_alg(?TLS_1_2, Value),
     HashSign.
 
+maybe_dec_server_hybrid_share(x25519mlkem768, <<MLKem:1088/binary, X25519:32/binary>>) ->
+    %% Concatenation of an ML-KEM ciphertext returned from
+    %% encapsulation to the client's encapsulation key The size of the
+    %% server share is 1120 bytes (1088 bytes for the ML-KEM part and
+    %% 32 bytes for X25519).
+    %% Note exception algorithm should be in reveres order of name due to legacy reason
+    {MLKem, X25519};
+maybe_dec_server_hybrid_share(secp256r1mlkem768, <<Secp256r1:65/binary, MLKem:1088/binary>>) ->
+    %% Concatenation of the server's ephemeral secp256r1 share encoded
+    %% in the same way as the client share and an ML-KEM The size of
+    %% the server share is 1153 bytes (1088 bytes for the ML-KEM part
+    %% and 65 bytes for secp256r1).
+    {Secp256r1, MLKem};
+maybe_dec_server_hybrid_share(secp384r1mlkem1024, <<Secp384r1:97/binary, MLKem:1568/binary>>) ->
+    %% Concatenation of the server's ephemeral secp384r1 share encoded
+    %% in the same way as the client share and an ML-KEM ciphertext
+    %% returned from encapsulation to the client's encapsulation key
+    %% The size of the server share is 1665 bytes (1568 bytes for the
+    %% ML-KEM part and 97 bytes for secp384r1)
+    {Secp384r1, MLKem};
+maybe_dec_server_hybrid_share(_, Share) ->
+    %% Not hybrid
+    Share.
 
-%% Ignore unknown names (only host_name is supported)
+maybe_dec_client_hybrid_share(x25519mlkem768, <<MLKem:1184/binary, X25519:32/binary>>) ->
+    %% Concatenation of the client's ML-KEM-768 encapsulation key and
+    %% the client's X25519 ephemeral share.  The size of the client share
+    %% is 1216 bytes (1184 bytes for the ML-KEM part and 32 bytes for
+    %% X25519).
+    %% Note exception algorithm should be in reveres order of name due to legacy reason
+    {MLKem, X25519};
+maybe_dec_client_hybrid_share(secp256r1mlkem768, <<Secp256r1:65/binary, MLKem:1184/binary>>) ->
+    %% Concatenation of the secp256r1 ephemeral share and ML-KEM-768
+    %% encapsulation key The size of the client share is 1249 bytes (65
+    %% bytes for the secp256r1 part and 1184 bytes for ML-KEM).  Ignore
+    %% unknown names (only host_name is supported)
+    {Secp256r1, MLKem};
+maybe_dec_client_hybrid_share(secp384r1mlkem1024, <<Secp384r1:97/binary, MLKem:1568/binary>>) ->
+     %% Concatenation of the secp384r1 ephemeral share and the
+     %% ML-KEM-1024 encapsulation key.  The size of the client share
+     %% is 1665 bytes (97 bytes for the secp384r1 and the 1568 for the
+     %% ML-KEM).
+    {Secp384r1, MLKem};
+maybe_dec_client_hybrid_share(_, Share) ->
+    %% Not hybrid
+    Share.
+
 dec_sni(<<?BYTE(?SNI_NAMETYPE_HOST_NAME), ?UINT16(Len),
                 HostName:Len/binary, _/binary>>) ->
     #sni{hostname = binary_to_list(HostName)};
@@ -3266,12 +3325,13 @@ decode_client_shares(ClientShares) ->
 %%
 decode_client_shares(<<>>, Acc) ->
     lists:reverse(Acc);
-decode_client_shares(<<?UINT16(Group0),?UINT16(Len),KeyExchange:Len/binary,Rest/binary>>, Acc) ->
+decode_client_shares(<<?UINT16(Group0),?UINT16(Len),KeyExchange0:Len/binary,Rest/binary>>, Acc) ->
     case tls_v1:enum_to_group(Group0) of
         undefined ->
             %% Ignore key_share with unknown group
             decode_client_shares(Rest, Acc);
         Group ->
+            KeyExchange = maybe_dec_client_hybrid_share(Group, KeyExchange0),
             decode_client_shares(Rest, [#key_share_entry{
                                            group = Group,
                                            key_exchange= KeyExchange
