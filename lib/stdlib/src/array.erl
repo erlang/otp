@@ -101,6 +101,7 @@ beyond the last set entry:
 -export([new/0, new/1, new/2, is_array/1, set/3, get/2, size/1,
 	 sparse_size/1, default/1, reset/2, to_list/1, sparse_to_list/1,
 	 from_list/1, from_list/2, to_orddict/1, sparse_to_orddict/1,
+         from/2, from/3,
 	 from_orddict/1, from_orddict/2, map/2, sparse_map/2, foldl/3,
 	 foldr/3, sparse_foldl/3, sparse_foldr/3, fix/1, relax/1, is_fix/1,
 	 resize/1, resize/2]).
@@ -1064,6 +1065,81 @@ from_list_test_() ->
 -endif.
 
 
+-doc "Equivalent to [`from(Fun, State, undefined)`](`from/3`).".
+-doc(#{since => <<"OTP 29.0">>}).
+-spec from(Function, State :: term()) -> array(Type) when
+      Function :: fun((State0 :: term()) -> {Type, State1 :: term()} | done).
+
+from(Fun, State)  ->
+    from(Fun, State, undefined).
+
+
+-doc """
+Creates an extendible array with values obtained with `Function(State)`.
+
+The 'Function(State)' shall return `{Value, NewState}` or `done`, and is invoked
+until `done` is returned, otherwise the call fails with reason `badarg`.
+
+`Default` is used as the value for uninitialized entries of the array.
+
+## Examples
+
+```erlang
+1> Floats = << <<N:32/float-native>> || N <- lists:seq(0, 2047)>>.
+2> BinToVal = fun(I) ->
+     case Floats of
+         <<_:I/binary, N:32/float-native, _/binary>> ->
+             {N, I+4};
+         _ ->
+             done
+     end
+   end.
+3> A = array:from(BinToVal, 0).
+4> array:get(10, A).
+10.0
+5> array:size(A).
+2048
+6> ValToBin = fun(_K, V, Acc) -> <<Acc/binary, V:32/float-native>> end.
+7> Floats == array:foldl(ValToBin, <<>>, A).
+true
+```
+
+See also `new/2`, `from_list/1`, `foldl/3`.
+""".
+
+-doc(#{since => <<"OTP 29.0">>}).
+-spec from(Function, State :: term(), Default :: term()) -> array(Type) when
+      Function :: fun((State0 :: term()) -> {Type, State1 :: term()} | done).
+
+from(Fun, S0, Default) when is_function(Fun, 1) ->
+    VS = Fun(S0),
+    {E, N, M} = from_fun_1(?LEAFSIZE, Default, Fun, VS, 0, [], []),
+    #array{size = N, max = M, default = Default, elements = E};
+from(_, _, _) ->
+    error(badarg).
+
+
+from_fun_1(0, D, Fun, VS, N, As, Es) ->
+    E = list_to_tuple(lists:reverse(As)),
+    case VS of
+	done ->
+	    case Es of
+		[] ->
+		    {E, N, ?LEAFSIZE};
+		_ ->
+		    from_list_2_0(N, [E | Es], ?LEAFSIZE)
+	    end;
+	_ ->
+	    from_fun_1(?LEAFSIZE, D, Fun, VS, N, [], [E | Es])
+    end;
+from_fun_1(I, D, Fun, done, N, As, Es) ->
+    from_fun_1(I-1, D, Fun, done, N, [D | As], Es);
+from_fun_1(I, D, Fun, {X, S}, N, As, Es) ->
+    from_fun_1(I-1, D, Fun, Fun(S), N+1, [X | As], Es);
+from_fun_1(_I, _D, _Fun, _VS, _N, _As, _Es) ->
+    erlang:error(badarg).
+
+
 -doc """
 Converts the array to an ordered list of pairs `{Index, Value}`.
 
@@ -1240,8 +1316,6 @@ sparse_to_orddict_test_() ->
     ].
 -endif.
 
-
-%% @equiv from_orddict(Orddict, undefined)
 
 -doc "Equivalent to [`from_orddict(Orddict, undefined)`](`from_orddict/2`).".
 -spec from_orddict(Orddict :: indx_pairs(Value :: Type)) -> array(Type).
@@ -1943,6 +2017,7 @@ sparse_foldr_test_() ->
     Vals = fun(_K,undefined,{C,L}) -> {C+1,L};
 	      (K,X,{C,L}) -> {C,[K+X|L]} 
 	   end,
+
     [?_assertError(badarg, sparse_foldr([], 0, new())),
      ?_assertError(badarg, sparse_foldr([], 0, new(10))),
      ?_assert(sparse_foldr(Count, 0, new()) =:= 0),
