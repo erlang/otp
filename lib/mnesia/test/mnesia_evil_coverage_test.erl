@@ -2555,18 +2555,6 @@ record_name_dirty_access(Storage, Config) ->
     ?match([{some_counter, C, 4711}], mnesia:dirty_read(CounterTab, C)),
     ?match(0, mnesia:dirty_update_counter(CounterTab, C, -4747)),
 
-    %% Registry tests
-
-    RegTab = list_to_atom(lists:concat([Tab, "_registry"])),
-    RegTabDef = [{record_name, some_reg}],
-    ?match(ok, mnesia_registry:create_table(RegTab, RegTabDef)),
-    ?match(some_reg, mnesia:table_info(RegTab, record_name)),
-    {success, RegRecs} =
-	?match([_ | _], mnesia_registry_test:dump_registry(node(), RegTab)),
-
-    R = ?sort(RegRecs),
-    ?match(R, ?sort(mnesia_registry_test:restore_registry(node(), RegTab))),
-
     ?verify_mnesia(Nodes, []).
 
 sorted_ets(suite) ->

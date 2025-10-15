@@ -32,7 +32,6 @@ MODULES= \
 	mnesia_bench_SUITE \
 	mnesia_test_lib \
 	mnesia_install_test \
-	mnesia_registry_test \
 	mnesia_config_test \
 	mnesia_frag_test \
 	mnesia_inconsistent_database_test \
