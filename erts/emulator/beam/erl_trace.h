@@ -67,7 +67,6 @@ typedef struct
 #define ERTS_NUM_BP_IX 2
 typedef Uint32 ErtsBpIndex;
 extern erts_atomic32_t erts_active_bp_index;
-extern erts_atomic32_t erts_staging_bp_index;
 
 struct trace_pattern_flags {
     unsigned int breakpoint : 1; /* Set if any other is set */
