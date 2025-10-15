@@ -43,7 +43,9 @@
          keylog_client_cb/0,
          keylog_client_cb/1,
          keylog_server_cb/0,
-         keylog_server_cb/1
+         keylog_server_cb/1,
+         key_update_unexpected_msg/0,
+         key_update_unexpected_msg/1
         ]).
 
 -include("ssl_test_lib.hrl").
@@ -62,7 +64,8 @@ tls_1_3_tests() ->
      key_update_at_server,
      explicit_key_update,
      keylog_client_cb,
-     keylog_server_cb].
+     keylog_server_cb,
+     key_update_unexpected_msg].
 
 init_per_suite(Config0) ->
     case application:ensure_started(crypto) of
@@ -200,6 +203,25 @@ keylog_server_cb(Config) ->
             OppositeRole = traffic_secret_0(TConKeylog2)
     end,
     ok = traffic_secret_1_and_2([{client,1}, {client, 2}, {server,1}, {server, 2}]).
+
+
+key_update_unexpected_msg() ->
+    [{doc,"Test that internla sync messages are not sent to socket user"}].
+key_update_unexpected_msg(Config) ->
+    Data = "123456789012345",  %% 15 bytes
+    Server = ssl_test_lib:start_server(erlang,[], Config),
+    Port = ssl_test_lib:inet_port(Server),
+
+    {ok, Socket} = ssl:connect(net_adm:localhost(), Port, [{verify, verify_none}, {key_update_at, 9}]),
+
+    ok = ssl:send(Socket, Data),
+
+    receive
+        {_, ok} = Msg ->
+            ct:fail({unexpected_message, Msg})
+    after 500 ->
+          ok
+    end.
 
 %%--------------------------------------------------------------------
 %% Internal functions  -----------------------------------------------
