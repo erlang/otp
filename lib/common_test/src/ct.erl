@@ -1055,6 +1055,20 @@ suite result page.
 
 If called several times, only the last comment is printed. The test case return
 value `{comment,Comment}` overwrites the string set by this function.
+
+> #### Warning {: .warning }
+>
+> This function (and `ct:comment/2`) should only be called from the process running
+> the common_test functions, typically the test case process or it's descendant.
+> Be aware that if you spawn a new process in one common_test function (e.g. `init_per_suite`)
+> and then execute `ct:comment/1-2` in that new process while the test execution has moved
+> to another common_test function (e.g. `init_per_testcase` or test case function) the comment
+> might not be printed in the correct place in html logs or at all.
+>
+> Calling this function from process that is neither a common_test process, nor it's
+> descendant is no-op.
+>
+> Similar limitation exists for common_test hooks, see: [Comment in hooks](ct_hooks_chapter.md#comment)
 """.
 -spec comment(Comment) -> ok
       when Comment :: term().
