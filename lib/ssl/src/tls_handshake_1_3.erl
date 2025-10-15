@@ -82,6 +82,8 @@
          get_pre_shared_key/4,
          get_pre_shared_key_early_data/2,
          get_supported_groups/1,
+         generate_kex_keys/1,
+         hybrid_algs/1,
          calculate_traffic_secrets/1,
          calculate_client_early_traffic_secret/5,
          calculate_client_early_traffic_secret/2,
@@ -1096,6 +1098,39 @@ get_supported_groups(undefined = Groups) ->
 get_supported_groups(#supported_groups{supported_groups = Groups}) ->
     {ok, Groups}.
 
+generate_kex_keys(secp256r1) ->
+    public_key:generate_key({namedCurve, secp256r1});
+generate_kex_keys(secp384r1) ->
+    public_key:generate_key({namedCurve, secp384r1});
+generate_kex_keys(secp521r1) ->
+    public_key:generate_key({namedCurve, secp521r1});
+generate_kex_keys(x25519) ->
+    crypto:generate_key(ecdh, x25519);
+generate_kex_keys(x448) ->
+    crypto:generate_key(ecdh, x448);
+generate_kex_keys(MLKem) when MLKem == mlkem512;
+                              MLKem == mlkem768;
+                              MLKem == mlkem1024 ->
+    crypto:generate_key(MLKem, []);
+generate_kex_keys(x25519mlkem768 = Group)->
+    %% Note exception algorithm should be in reveres order of name due to legacy reason
+    {Curve, MLKem} = hybrid_algs(Group),
+    {crypto:generate_key(MLKem, []), crypto:generate_key(ecdh, Curve)};
+generate_kex_keys(Group) when Group == secp256r1mlkem768;
+                              Group == secp384r1mlkem1024 ->
+    {Curve, MLKem} = hybrid_algs(Group),
+    {public_key:generate_key({namedCurve, Curve}), 
+     crypto:generate_key(MLKem, [])};
+generate_kex_keys(FFDHE) ->
+    public_key:generate_key(ssl_dh_groups:dh_params(FFDHE)).
+
+hybrid_algs(x25519mlkem768)->
+    {x25519, mlkem768};
+hybrid_algs(secp256r1mlkem768) ->
+    {secp256r1, mlkem768};
+hybrid_algs(secp384r1mlkem1024) ->
+    {secp384r1, mlkem1024}.
+
 choose_psk(undefined, _) ->
     undefined;
 choose_psk([], _) ->
@@ -1163,8 +1198,32 @@ calculate_shared_secret(OthersKey, MyKey = #'ECPrivateKey'{}, _Group)
     Point = #'ECPoint'{point = OthersKey},
     public_key:compute_key(Point, MyKey).
 
+mlkem_calculate_shared_secret(client, x25519mlkem768, 
+                              {CipherText, OthersKey}, {MLKemKey, EDKey}) ->
+    MLKem = crypto:decapsulate_key(mlkem768, MLKemKey, CipherText),
+    X25519 = calculate_shared_secret(OthersKey, EDKey, x25519),
+    <<MLKem/binary, X25519/binary>>;
+mlkem_calculate_shared_secret(client, secp256r1mlkem768,
+                              {OthersKey, CipherText}, {ECkey, MLKemKey}) ->
+    MLKem = crypto:decapsulate_key(mlkem768, MLKemKey, CipherText),
+    EC = calculate_shared_secret(OthersKey, ECkey, secp256r1),
+    <<EC/binary, MLKem/binary>>;
+mlkem_calculate_shared_secret(client, secp384r1mlkem1024,
+                              {OthersKey, CipherText}, {ECkey, MLKemKey}) ->
+    MLKem = crypto:decapsulate_key(mlkem1024, MLKemKey, CipherText),
+    EC = calculate_shared_secret(OthersKey, ECkey, secp384r1),
+    <<EC/binary, MLKem/binary>>;
 mlkem_calculate_shared_secret(client, Group, CipherText, PrivKey) ->
     crypto:decapsulate_key(Group, PrivKey, CipherText);
+mlkem_calculate_shared_secret(server, x25519mlkem768, {_, OthersKey}, {Secret, EdKey}) ->
+    EDSecret = calculate_shared_secret(OthersKey, EdKey, x25519),
+    <<Secret/binary, EDSecret/binary>>;
+mlkem_calculate_shared_secret(server, secp256r1mlkem768, {OthersKey, _}, {EcKey, Secret}) ->
+     ECSecret = calculate_shared_secret(OthersKey, EcKey, secp256r1),
+    <<ECSecret/binary, Secret/binary>>;
+mlkem_calculate_shared_secret(server, secp384r1mlkem1024, {OthersKey, _}, {EcKey, Secret}) ->
+     ECSecret = calculate_shared_secret(OthersKey, EcKey, secp384r1),
+    <<ECSecret/binary, Secret/binary>>;
 mlkem_calculate_shared_secret(server, _, _, Secret) ->
     Secret.
 
@@ -2047,7 +2106,10 @@ plausible_missing_chain(_,Plausible,_,_,_) ->
 
 is_mlkem(Group) when Group == mlkem512;
                      Group == mlkem768;
-                     Group == mlkem1024 ->
+                     Group == mlkem1024;
+                     Group == x25519mlkem768;
+                     Group == secp384r1mlkem1024;
+                     Group == secp256r1mlkem768 ->
     true;
 is_mlkem(_) ->
     false.

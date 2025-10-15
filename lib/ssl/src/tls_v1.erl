@@ -1230,6 +1230,9 @@ groups(all) ->
      mlkem512,
      mlkem768,
      mlkem1024,
+     x25519mlkem768,
+     secp384r1mlkem1024,
+     secp256r1mlkem768,
      ffdhe2048,
      ffdhe3072,
      ffdhe4096,
@@ -1246,11 +1249,25 @@ groups(default) ->
      brainpoolP256r1tls13,
      mlkem512,
      mlkem768,
-     mlkem1024
+     mlkem1024,
+     x25519mlkem768,
+     secp384r1mlkem1024,
+     secp256r1mlkem768
     ];
 groups(TLSGroups) when is_list(TLSGroups) ->
     CryptoGroups = crypto_supported_groups(),
-    lists:filter(fun(Group) -> proplists:get_bool(maybe_group_to_curve(Group), CryptoGroups) end, TLSGroups).
+    lists:filter(fun(x25519mlkem768) ->
+                         proplists:get_bool(mlkem768, CryptoGroups)
+                             andalso proplists:get_bool(x25519, CryptoGroups);
+                     (secp256r1mlkem768) ->
+                         proplists:get_bool(mlkem768, CryptoGroups)
+                             andalso proplists:get_bool(secp256r1, CryptoGroups);
+                    (secp384r1mlkem1024) ->
+                         proplists:get_bool(mlkem1024, CryptoGroups)
+                             andalso proplists:get_bool(secp384r1, CryptoGroups);
+                    (Group) ->
+                         proplists:get_bool(maybe_group_to_curve(Group), CryptoGroups)
+                 end, TLSGroups).
 
 default_groups() ->
     TLSGroups = groups(default),
@@ -1271,6 +1288,9 @@ group_to_enum(brainpoolP512r1tls13) -> ?BRAINPOOLP512R1TLS13;
 group_to_enum(mlkem512)  -> ?MLKEM512;
 group_to_enum(mlkem768)  -> ?MLKEM768;
 group_to_enum(mlkem1024) -> ?MLKEM1024;
+group_to_enum(x25519mlkem768)  -> ?X25519MLKEM768;
+group_to_enum(secp256r1mlkem768) -> ?SECP256R1MLKEM768;
+group_to_enum(secp384r1mlkem1024)  -> ?SECP384R1MLKEM1024;
 group_to_enum(ffdhe2048) -> ?FFDHE2048;
 group_to_enum(ffdhe3072) -> ?FFDHE3072;
 group_to_enum(ffdhe4096) -> ?FFDHE4096;
@@ -1288,13 +1308,15 @@ enum_to_group(?BRAINPOOLP512R1TLS13) -> brainpoolP512r1tls13;
 enum_to_group(?MLKEM512)  -> mlkem512;
 enum_to_group(?MLKEM768)  -> mlkem768;
 enum_to_group(?MLKEM1024) -> mlkem1024;
+enum_to_group(?X25519MLKEM768)     -> x25519mlkem768;
+enum_to_group(?SECP256R1MLKEM768)  -> secp256r1mlkem768;
+enum_to_group(?SECP384R1MLKEM1024) -> secp384r1mlkem1024;
 enum_to_group(?FFDHE2048) -> ffdhe2048;
 enum_to_group(?FFDHE3072) -> ffdhe3072;
 enum_to_group(?FFDHE4096) -> ffdhe4096;
 enum_to_group(?FFDHE6144) -> ffdhe6144;
 enum_to_group(?FFDHE8192) -> ffdhe8192;
 enum_to_group(_) -> undefined.
-
 
 %% 1-22 Deprecated in RFC 8422
 oid_to_enum(?sect163k1) -> 1;

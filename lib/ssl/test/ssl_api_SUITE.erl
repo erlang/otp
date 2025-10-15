@@ -29,6 +29,7 @@
 -include_lib("common_test/include/ct.hrl").
 -include_lib("ssl/src/ssl_api.hrl").
 -include_lib("ssl/src/ssl_internal.hrl").
+-include_lib("ssl/src/ssl_handshake.hrl").
 -include_lib("public_key/include/public_key.hrl").
 -include_lib("ssl/src/ssl_record.hrl").
 
@@ -3122,11 +3123,18 @@ options_sign_alg(_Config) ->  %% signature_algs[_cert]
     ok.
 
 options_supported_groups(_Config) ->
-    Default = ssl:groups(default),
-    ?OK(#{supported_groups := {supported_groups, Default}},
+    DefaultGroups = ssl:groups(default),
+    First = hd(DefaultGroups),
+    ?OK(#{supported_groups := #supported_groups{supported_groups = DefaultGroups}},
         [], client),
-    ?OK(#{supported_groups := {supported_groups, [secp521r1, ffdhe2048]}},
+    ?OK(#{supported_groups := #supported_groups{supported_groups = [secp521r1, ffdhe2048]}},
         [{supported_groups, [secp521r1, ffdhe2048]}], client),
+
+    ?OK(#{psk_groups := [First]},
+        [], client),
+    ?OK(#{psk_groups := [secp521r1, secp256r1],
+          supported_groups := #supported_groups{supported_groups = [secp521r1, secp256r1, ffdhe2048]}},
+        [{supported_groups, [secp521r1, secp256r1, ffdhe2048]}, {psk_groups, [secp521r1, secp384r1, secp256r1]}], client),
 
     %% ERRORs
     ?ERR({{'tlvs1.2'},{versions,[{'tlvs1.2'}]}},
