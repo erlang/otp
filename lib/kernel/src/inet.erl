@@ -2817,7 +2817,7 @@ getll(Socket) when is_port(Socket) ->
 
 getfd(?module_socket(GenSocketMod, ESock) = _Socket)
   when is_atom(GenSocketMod) ->
-    socket:getopt(ESock, otp, fd);
+    socket:getopt(ESock, {otp, fd});
 getfd(Socket) ->
     prim_inet:getfd(Socket).
 
