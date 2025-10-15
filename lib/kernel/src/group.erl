@@ -800,9 +800,13 @@ getopts(Data) ->
                          true -> unicode;
                          _ -> latin1
                      end},
-    Terminal = get_terminal_state(Data#state.driver),
-    Tty = {terminal, maps:get(stdout, Terminal)},
-    [Exp,Echo,LineHistory,Log,Bin,Uni,Tty|maps:to_list(Terminal)].
+    case get_terminal_state(Data#state.driver) of
+        Terminal when is_map(Terminal) ->
+            Tty = {terminal, maps:get(stdout, Terminal)},
+            [Exp,Echo,LineHistory,Log,Bin,Uni,Tty|maps:to_list(Terminal)];
+        Error ->
+            Error
+    end.
 
 %% Convert error code to make it look as before
 err_func(io_lib, get_until, {_,F,_}) ->
