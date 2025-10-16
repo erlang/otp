@@ -25,135 +25,51 @@
 
 %%-export([prop_tls_orded_path/1]).
 -compile(export_all).
-
--proptest(eqc).
--proptest([triq,proper]).
-
--ifndef(EQC).
--ifndef(PROPER).
--ifndef(TRIQ).
--define(EQC,true).
--endif.
--endif.
--endif.
-
--ifdef(EQC).
--include_lib("eqc/include/eqc.hrl").
--define(MOD_eqc,eqc).
-
--else.
--ifdef(PROPER).
--include_lib("proper/include/proper.hrl").
--define(MOD_eqc,proper).
-
--else.
--ifdef(TRIQ).
--define(MOD_eqc,triq).
--include_lib("triq/include/triq.hrl").
-
--endif.
--endif.
--endif.
-
+-include_lib("common_test/include/ct_property_test.hrl").
 -include_lib("public_key/include/public_key.hrl").
 %%--------------------------------------------------------------------
 %% Properties --------------------------------------------------------
 %%--------------------------------------------------------------------
+
+signature_algs_test(ClientOptions, ServerOptions) ->
+    try
+        [TLSVersion] = proplists:get_value(versions, ClientOptions),
+        SigAlgs = signature_algs(TLSVersion),
+        ssl_test_lib:basic_test(SigAlgs ++ ClientOptions,
+                                SigAlgs ++ ServerOptions, [{server_type, erlang},
+                                                           {client_type, erlang},
+                                                           {version, TLSVersion}
+                                                          ]),
+
+        true
+    catch _:_ ->
+            false
+    end.
+
 prop_tls_unordered_path(PrivDir) ->
-    ?FORALL({ClientOptions, ServerOptions}, ?LET(Version, tls_version(), unordered_options(Version, PrivDir)),
-            try
-                [TLSVersion] = proplists:get_value(versions, ClientOptions),
-                SigAlgs = signature_algs(TLSVersion),
-                ssl_test_lib:basic_test(SigAlgs ++ ClientOptions,
-                                        SigAlgs ++ ServerOptions, [{server_type, erlang},
-                                                                   {client_type, erlang},
-                                                                   {version, TLSVersion}
-                                                                  ])
-            of
-                _ ->
-                    true
-            catch
-                _:_ ->
-                    false
-            end
-	   ).
+    ?FORALL({ClientOptions, ServerOptions},
+            ?LET(Version, tls_version(), unordered_options(Version, PrivDir)),
+            signature_algs_test(ClientOptions, ServerOptions)).
 
 prop_tls_extraneous_path(PrivDir) ->
-    ?FORALL({ClientOptions, ServerOptions}, ?LET(Version, tls_version(), extraneous_options(Version, PrivDir)),
-            try
-                [TLSVersion] = proplists:get_value(versions, ClientOptions),
-                SigAlgs = signature_algs(TLSVersion),
-                ssl_test_lib:basic_test(SigAlgs ++ ClientOptions,
-                                        SigAlgs ++ ServerOptions, [{server_type, erlang},
-                                                                   {client_type, erlang},
-                                                                   {version, TLSVersion}
-                                                                  ])
-            of
-                _ ->
-                    true
-            catch
-                _:_ ->
-                    false
-            end
-           ).
+    ?FORALL({ClientOptions, ServerOptions},
+            ?LET(Version, tls_version(), extraneous_options(Version, PrivDir)),
+            signature_algs_test(ClientOptions, ServerOptions)).
 
 prop_tls_extraneous_paths() ->
-    ?FORALL({ClientOptions, ServerOptions}, ?LET(Version, tls_version(), extra_extraneous_options(Version)),
-            try
-                [TLSVersion] = proplists:get_value(versions, ClientOptions),
-                SigAlgs = signature_algs(TLSVersion),
-                ssl_test_lib:basic_test(SigAlgs ++ ClientOptions,
-                                        SigAlgs ++ ServerOptions, [{server_type, erlang},
-                                                                   {client_type, erlang},
-                                                                   {version, TLSVersion}
-                                                                  ])
-            of
-                _ ->
-                    true
-            catch
-                _:_ ->
-                    false
-            end
-           ).
+    ?FORALL({ClientOptions, ServerOptions},
+            ?LET(Version, tls_version(), extra_extraneous_options(Version)),
+            signature_algs_test(ClientOptions, ServerOptions)).
 
 prop_tls_extraneous_and_unordered_path() ->
-    ?FORALL({ClientOptions, ServerOptions}, ?LET(Version, tls_version(), unordered_extraneous_options(Version)),
-            try
-                [TLSVersion] = proplists:get_value(versions, ClientOptions),
-                SigAlgs = signature_algs(TLSVersion),
-                ssl_test_lib:basic_test(SigAlgs ++ ClientOptions,
-                                        SigAlgs ++ ServerOptions, [{server_type, erlang},
-                                                                   {client_type, erlang},
-                                                                   {version, TLSVersion}
-                                                                  ])
-            of
-                _ ->
-                    true
-            catch
-                _:_ ->
-                    false
-            end
-           ).
+    ?FORALL({ClientOptions, ServerOptions},
+            ?LET(Version, tls_version(), unordered_extraneous_options(Version)),
+            signature_algs_test(ClientOptions, ServerOptions)).
 
 prop_client_cert_auth() ->
-    ?FORALL({ClientOptions, ServerOptions}, ?LET(Version, tls_version(), client_cert_auth_opts(Version)),
-            try
-                [TLSVersion] = proplists:get_value(versions, ClientOptions),
-                SigAlgs = signature_algs(TLSVersion),
-                ssl_test_lib:basic_test(SigAlgs ++ ClientOptions,
-                                        SigAlgs ++ ServerOptions,
-                                        [{server_type, erlang},
-                                         {client_type, erlang},
-                                         {version, TLSVersion}
-                                        ])
-            of
-                _ ->
-                    true
-            catch
-                _:_ ->
-                    false
-            end
-           ).
+    ?FORALL({ClientOptions, ServerOptions},
+            ?LET(Version, tls_version(), client_cert_auth_opts(Version)),
+            signature_algs_test(ClientOptions, ServerOptions)).
 
 %%--------------------------------------------------------------------
 %% Chain Generators  -----------------------------------------------
@@ -162,14 +78,14 @@ tls_version() ->
     Versions = [Version || Version <- ['tlsv1.3', 'tlsv1.2', 'tlsv1.1', 'tlsv1', 'dtlsv1.2', 'dtlsv1'],
                            ssl_test_lib:sufficient_crypto_support(Version)
                ],
-    oneof(Versions).
+    elements(Versions).
 
 key_alg(Version) when Version == 'tlsv1.3';
                       Version == 'tlsv1.2';
                       Version == 'dtlsv1.2'->
-    oneof([rsa, ecdsa]);
+    elements([rsa, ecdsa]);
 key_alg(_) ->
-    oneof([rsa]).
+    elements([rsa]).
 
 server_options('tlsv1.3') ->
     [{verify, verify_peer},
@@ -196,11 +112,11 @@ pem_unordered_options(Version, PrivDir) ->
 unordered_der_cert_chain_opts(Version, Alg) ->
     #{server_config := ServerConf,
       client_config := ClientConf} = public_key:pkix_test_data(#{server_chain => #{root => root_key(Alg),
-                                                                                    intermediates => intermediates(Alg, 4),
-                                                                                    peer => peer_key(Alg)},
-                                                                  client_chain => #{root => root_key(Alg),
-                                                                                    intermediates => intermediates(Alg, 4),
-                                                                                    peer => peer_key(Alg)}}),
+                                                                                   intermediates => intermediates(Alg, 4),
+                                                                                   peer => peer_key(Alg)},
+                                                                 client_chain => #{root => root_key(Alg),
+                                                                                   intermediates => intermediates(Alg, 4),
+                                                                                   peer => peer_key(Alg)}}),
     {client_options(Version) ++ [protocol(Version), {versions, [Version]} | unordered_der_conf(ClientConf)],
      server_options(Version) ++ [protocol(Version), {versions, [Version]} | unordered_der_conf(ServerConf)]}.
 
