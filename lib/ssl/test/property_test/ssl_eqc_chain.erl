@@ -59,101 +59,46 @@
 %%--------------------------------------------------------------------
 %% Properties --------------------------------------------------------
 %%--------------------------------------------------------------------
+
+signature_algs_test(ClientOptions, ServerOptions) ->
+    try
+        [TLSVersion] = proplists:get_value(versions, ClientOptions),
+        SigAlgs = signature_algs(TLSVersion),
+        ssl_test_lib:basic_test(SigAlgs ++ ClientOptions,
+                                SigAlgs ++ ServerOptions, [{server_type, erlang},
+                                                           {client_type, erlang},
+                                                           {version, TLSVersion}
+                                                          ]),
+
+        true
+    catch _:_ ->
+            false
+    end.
+
 prop_tls_unordered_path(PrivDir) ->
-    ?FORALL({ClientOptions, ServerOptions}, ?LET(Version, tls_version(), unordered_options(Version, PrivDir)),
-            try
-                [TLSVersion] = proplists:get_value(versions, ClientOptions),
-                SigAlgs = signature_algs(TLSVersion),
-                ssl_test_lib:basic_test(SigAlgs ++ ClientOptions,
-                                        SigAlgs ++ ServerOptions, [{server_type, erlang},
-                                                                   {client_type, erlang},
-                                                                   {version, TLSVersion}
-                                                                  ])
-            of
-                _ ->
-                    true
-            catch
-                _:_ ->
-                    false
-            end
-	   ).
+    ?FORALL({ClientOptions, ServerOptions},
+            ?LET(Version, tls_version(), unordered_options(Version, PrivDir)),
+            signature_algs_test(ClientOptions, ServerOptions)).
 
 prop_tls_extraneous_path(PrivDir) ->
-    ?FORALL({ClientOptions, ServerOptions}, ?LET(Version, tls_version(), extraneous_options(Version, PrivDir)),
-            try
-                [TLSVersion] = proplists:get_value(versions, ClientOptions),
-                SigAlgs = signature_algs(TLSVersion),
-                ssl_test_lib:basic_test(SigAlgs ++ ClientOptions,
-                                        SigAlgs ++ ServerOptions, [{server_type, erlang},
-                                                                   {client_type, erlang},
-                                                                   {version, TLSVersion}
-                                                                  ])
-            of
-                _ ->
-                    true
-            catch
-                _:_ ->
-                    false
-            end
-           ).
+    ?FORALL({ClientOptions, ServerOptions},
+            ?LET(Version, tls_version(), extraneous_options(Version, PrivDir)),
+            signature_algs_test(ClientOptions, ServerOptions)).
 
 prop_tls_extraneous_paths() ->
-    ?FORALL({ClientOptions, ServerOptions}, ?LET(Version, tls_version(), extra_extraneous_options(Version)),
-            try
-                [TLSVersion] = proplists:get_value(versions, ClientOptions),
-                SigAlgs = signature_algs(TLSVersion),
-                ssl_test_lib:basic_test(SigAlgs ++ ClientOptions,
-                                        SigAlgs ++ ServerOptions, [{server_type, erlang},
-                                                                   {client_type, erlang},
-                                                                   {version, TLSVersion}
-                                                                  ])
-            of
-                _ ->
-                    true
-            catch
-                _:_ ->
-                    false
-            end
-           ).
+    ?FORALL({ClientOptions, ServerOptions},
+            ?LET(Version, tls_version(), extra_extraneous_options(Version)),
+            signature_algs_test(ClientOptions, ServerOptions)).
 
 prop_tls_extraneous_and_unordered_path() ->
-    ?FORALL({ClientOptions, ServerOptions}, ?LET(Version, tls_version(), unordered_extraneous_options(Version)),
-            try
-                [TLSVersion] = proplists:get_value(versions, ClientOptions),
-                SigAlgs = signature_algs(TLSVersion),
-                ssl_test_lib:basic_test(SigAlgs ++ ClientOptions,
-                                        SigAlgs ++ ServerOptions, [{server_type, erlang},
-                                                                   {client_type, erlang},
-                                                                   {version, TLSVersion}
-                                                                  ])
-            of
-                _ ->
-                    true
-            catch
-                _:_ ->
-                    false
-            end
-           ).
+    ?FORALL({ClientOptions, ServerOptions},
+            ?LET(Version, tls_version(), unordered_extraneous_options(Version)),
+            signature_algs_test(ClientOptions, ServerOptions)).
 
 prop_client_cert_auth() ->
-    ?FORALL({ClientOptions, ServerOptions}, ?LET(Version, tls_version(), client_cert_auth_opts(Version)),
-            try
-                [TLSVersion] = proplists:get_value(versions, ClientOptions),
-                SigAlgs = signature_algs(TLSVersion),
-                ssl_test_lib:basic_test(SigAlgs ++ ClientOptions,
-                                        SigAlgs ++ ServerOptions,
-                                        [{server_type, erlang},
-                                         {client_type, erlang},
-                                         {version, TLSVersion}
-                                        ])
-            of
-                _ ->
-                    true
-            catch
-                _:_ ->
-                    false
-            end
-           ).
+    ?FORALL({ClientOptions, ServerOptions},
+            ?LET(Version, tls_version(), client_cert_auth_opts(Version)),
+            signature_algs_test(ClientOptions, ServerOptions)).
 
 %%--------------------------------------------------------------------
 %% Chain Generators  -----------------------------------------------
