@@ -75,7 +75,7 @@ be rendered as is.
 
 %% Convenience functions
 -export([get_doc/1, get_doc/3, get_type_doc/3, get_callback_doc/3]).
-
+-export([extract_type_specs/1]).
 -export_type([chunk_elements/0, chunk_element_attr/0]).
 
 -record(config, { docs,
@@ -618,6 +618,8 @@ render_type(Module, D) ->
   render_type(Module, D, #{}).
 
 %% extract AST raw type specifications.
+-doc false.
+-spec extract_type_specs(module()) -> map().
 extract_type_specs(Module) ->
   maybe
     Path = find_path(Module),
