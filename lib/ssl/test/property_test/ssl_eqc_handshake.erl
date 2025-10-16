@@ -25,35 +25,7 @@
 
 -compile(export_all).
 
--proptest(eqc).
--proptest([triq,proper]).
-
--ifndef(EQC).
--ifndef(PROPER).
--ifndef(TRIQ).
--define(EQC,true).
--endif.
--endif.
--endif.
-
--ifdef(EQC).
--include_lib("eqc/include/eqc.hrl").
--define(MOD_eqc,eqc).
-
--else.
--ifdef(PROPER).
--include_lib("proper/include/proper.hrl").
--define(MOD_eqc,proper).
-
--else.
--ifdef(TRIQ).
--define(MOD_eqc,triq).
--include_lib("triq/include/triq.hrl").
-
--endif.
--endif.
--endif.
-
+-include_lib("common_test/include/ct_property_test.hrl").
 -include_lib("kernel/include/inet.hrl").
 -include_lib("ssl/src/tls_handshake_1_3.hrl").
 -include_lib("ssl/src/tls_handshake.hrl").
@@ -61,7 +33,6 @@
 -include_lib("ssl/src/ssl_alert.hrl").
 -include_lib("ssl/src/ssl_internal.hrl").
 -include_lib("ssl/src/ssl_record.hrl").
-
 
 %%--------------------------------------------------------------------
 %% Properties --------------------------------------------------------
