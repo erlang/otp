@@ -1428,6 +1428,14 @@ process_event(#{msg := {report,
                       E <- [Pid, Level, Label, Status, Id, M, F, Args]]);
 process_event(#{msg := {report,
                         #{label := Label,
+                          report := [MsgString]}},
+                meta := #{pid := Pid},
+                level := Level}) ->
+    io_lib:format("[~44s]  ~6s ~20s ~s~n",
+                  [io_lib:format("~p", [E]) ||
+                      E <- [Pid, Level, Label]] ++ [MsgString]);
+process_event(#{msg := {report,
+                        #{label := Label,
                           name := Pid,
                           reason := {Reason, _Stack = [{M, F, Args, Location} | _]}}},
                 level := Level}) ->
@@ -1449,6 +1457,12 @@ process_event(#{msg := {Format, Args},
     io_lib:format("[~44s]  ~6s~n~s~n",
                   [io_lib:format("~p", [E]) ||
                       E <- [Pid, Level]] ++ [io_lib:format(Format, Args)]);
+process_event(#{msg := {string, MsgString},
+                meta := #{pid := Pid},
+                level := Level}) when is_list(MsgString) ->
+    io_lib:format("[~44s]  ~6s ~s~n",
+                  [io_lib:format("~p", [E]) ||
+                      E <- [Pid, Level]] ++ [MsgString]);
 process_event(#{msg := {report,
                         #{label := Label,
                           reason := Reason,
