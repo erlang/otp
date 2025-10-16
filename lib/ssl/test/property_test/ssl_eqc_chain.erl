@@ -141,11 +141,11 @@ pem_unordered_options(Version, PrivDir) ->
 unordered_der_cert_chain_opts(Version, Alg) ->
     #{server_config := ServerConf,
       client_config := ClientConf} = public_key:pkix_test_data(#{server_chain => #{root => root_key(Alg),
-                                                                                    intermediates => intermediates(Alg, 4),
-                                                                                    peer => peer_key(Alg)},
-                                                                  client_chain => #{root => root_key(Alg),
-                                                                                    intermediates => intermediates(Alg, 4),
-                                                                                    peer => peer_key(Alg)}}),
+                                                                                   intermediates => intermediates(Alg, 4),
+                                                                                   peer => peer_key(Alg)},
+                                                                 client_chain => #{root => root_key(Alg),
+                                                                                   intermediates => intermediates(Alg, 4),
+                                                                                   peer => peer_key(Alg)}}),
     {client_options(Version) ++ [protocol(Version), {versions, [Version]} | unordered_der_conf(ClientConf)],
      server_options(Version) ++ [protocol(Version), {versions, [Version]} | unordered_der_conf(ServerConf)]}.
 

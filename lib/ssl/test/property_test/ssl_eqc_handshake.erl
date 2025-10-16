@@ -71,12 +71,7 @@ prop_tls_hs_encode_decode() ->
     ?FORALL({Handshake, TLSVersion}, ?LET(Version, tls_version(), {tls_msg(Version), Version}),
             try 
                 [Type, _Length, Data] = tls_handshake:encode_handshake(Handshake, TLSVersion),
-                case tls_handshake:decode_handshake(TLSVersion, Type, Data) of
-                    Handshake ->
-                        true;
-                    _ ->
-                        false
-                end
+                tls_handshake:decode_handshake(TLSVersion, Type, Data) == Handshake
             catch
                 throw:#alert{} ->
                     true

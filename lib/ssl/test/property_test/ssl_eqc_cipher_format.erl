@@ -67,13 +67,7 @@
 
 prop_tls_cipher_suite_rfc_name() ->
     ?FORALL({CipherSuite, _TLSVersion}, ?LET(Version, tls_version(), {cipher_suite(Version), Version}),
-            case ssl:str_to_suite(ssl:suite_to_str(CipherSuite)) of
-		CipherSuite ->
-		    true;
-		_ ->
-		    false
-	    end
-	   ).
+            ssl:str_to_suite(ssl:suite_to_str(CipherSuite)) == CipherSuite).
 
 prop_tls_cipher_suite_openssl_name() ->
     ?FORALL({CipherSuite, _TLSVersion}, ?LET(Version, tls_version(), {cipher_suite(Version), Version}),
@@ -91,17 +85,14 @@ prop_tls_cipher_suite_openssl_name() ->
 	   ).
 
 prop_tls_anon_cipher_suite_rfc_name() ->
-    ?FORALL({CipherSuite, _TLSVersion}, ?LET(Version, pre_tls_1_3_version(), {anon_cipher_suite(Version), Version}),
-            case ssl:str_to_suite(ssl:suite_to_str(CipherSuite)) of
-		CipherSuite ->
-		    true;
-		_ ->
-		    false
-	    end
-	   ).
+    ?FORALL({CipherSuite, _TLSVersion},
+            ?LET(Version, pre_tls_1_3_version(), {anon_cipher_suite(Version), Version}),
+            ssl:str_to_suite(ssl:suite_to_str(CipherSuite)) == CipherSuite
+           ).
 
 prop_tls_anon_cipher_suite_openssl_name() ->
-    ?FORALL({CipherSuite, _TLSVersion}, ?LET(Version, pre_tls_1_3_version(), {anon_cipher_suite(Version), Version}),
+    ?FORALL({CipherSuite, _TLSVersion},
+            ?LET(Version, pre_tls_1_3_version(), {anon_cipher_suite(Version), Version}),
             case ssl:str_to_suite(ssl:suite_to_openssl_str(CipherSuite)) of
 		CipherSuite ->
 		    lists:member(ssl:suite_to_openssl_str(CipherSuite), openssl_legacy_names());
@@ -112,8 +103,7 @@ prop_tls_anon_cipher_suite_openssl_name() ->
 
 prop_tls_signature_algs() ->
     ?FORALL(SigAlg, ?LET(SigAlg, sig_alg(), SigAlg),
-            true = lists:member(ssl_cipher:signature_algorithm_to_scheme(SigAlg), sig_schemes())
-	   ).
+            lists:member(ssl_cipher:signature_algorithm_to_scheme(SigAlg), sig_schemes())).
 
 %%--------------------------------------------------------------------
 %% Generators  -----------------------------------------------
