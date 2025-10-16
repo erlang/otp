@@ -2814,6 +2814,16 @@ infer_type({bif,is_function}, [#b_var{}=Arg, Arity], _Ts, _Ds) ->
 infer_type({bif,is_integer}, [#b_var{}=Arg], _Ts, _Ds) ->
     T = {Arg, #t_integer{}},
     {[T], [T]};
+infer_type({bif,is_integer}, [#b_var{}=Arg,
+                              #b_literal{val=Min},
+                              #b_literal{val=Max}], _Ts, _Ds) when Min =< Max ->
+    T = {Arg, beam_types:make_integer(Min, Max)},
+    {[T], [T]};
+infer_type({bif,is_integer}, [#b_var{}=Arg, _, _], _Ts, _Ds) ->
+    %% We cannot subtract the type when the bounds are unknown: `Arg` may still
+    %% be an integer if it is not in the tested range.
+    T = {Arg, #t_integer{}},
+    {[T], []};
 infer_type({bif,is_list}, [#b_var{}=Arg], _Ts, _Ds) ->
     T = {Arg, #t_list{}},
     {[T], [T]};

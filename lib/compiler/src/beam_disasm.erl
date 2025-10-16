@@ -820,6 +820,10 @@ resolve_inst({bif2,Args},Imports,_,_) ->
     [F,Bif,A1,A2,Reg] = resolve_args(Args),
     {extfunc,_Mod,BifName,_Arity} = lookup(Bif+1,Imports),
     {bif,BifName,F,[A1,A2],Reg};
+resolve_inst({bif3,Args},Imports,_,_) ->
+    [F,Bif,A1,A2,A3,Reg] = resolve_args(Args),
+    {extfunc,_Mod,BifName,_Arity} = lookup(Bif+1,Imports),
+    {bif,BifName,F,[A1,A2,A3],Reg};
 resolve_inst({allocate,[{u,X0},{u,X1}]},_,_,_) ->
     {allocate,X0,X1};
 resolve_inst({allocate_heap,[{u,X0},{u,X1},{u,X2}]},_,_,_) ->

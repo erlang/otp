@@ -484,7 +484,7 @@ A list of binaries. This datatype is useful to use together with
 
 -export([abs/1, append/2, element/2, get_module_info/2, hd/1,
          is_atom/1, is_binary/1, is_bitstring/1, is_boolean/1,
-         is_float/1, is_function/1, is_function/2, is_integer/1,
+         is_float/1, is_function/1, is_function/2, is_integer/1, is_integer/3,
          is_list/1, is_map/1, is_number/1, is_pid/1, is_port/1, is_record/2,
          is_record/3, is_reference/1, is_tuple/1, load_module/2,
          load_nif/2, localtime_to_universaltime/2, make_fun/3,
@@ -7301,6 +7301,31 @@ false
       Term :: term().
 is_tuple(_Term) ->
     erlang:nif_error(undefined).
+
+%% Shadowed by erl_bif_types: erlang:is_integer/3
+-doc """
+Returns `true` if `Term`, `LB`, and `UB` all evaluate to integers, and `Term`
+is between `LB` and `UB` inclusive; otherwise, returns `false`.
+
+## Examples
+
+```erlang
+1> is_integer(15, 0, 1024).
+true
+2> is_integer(-1, 0, 1).
+false
+```
+
+Failure: `badarg` if `LB` or `UB` does not evaluate to an integer.
+""".
+-doc #{ category => terms }.
+-spec is_integer(Term, LB, UB) -> boolean() when
+      Term :: integer(),
+      LB :: integer(),
+      UB :: integer().
+is_integer(_Term, _LB, _UB) ->
+    erlang:nif_error(undefined).
+
 
 -doc """
 Loads `Module` described by the object code contained within `Binary`.

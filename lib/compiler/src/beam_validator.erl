@@ -2288,6 +2288,19 @@ infer_types_1(#value{op={bif,is_function},args=[Src]}, Val, Op, Vst) ->
     infer_type_test_bif(#t_fun{}, Src, Val, Op, Vst);
 infer_types_1(#value{op={bif,is_integer},args=[Src]}, Val, Op, Vst) ->
     infer_type_test_bif(#t_integer{}, Src, Val, Op, Vst);
+infer_types_1(#value{op={bif,is_integer},args=[Src,
+                                               {integer, Min},
+                                               {integer, Max}]}, Val, Op, Vst) ->
+    infer_type_test_bif(beam_types:make_integer(Min, Max), Src, Val, Op, Vst);
+infer_types_1(#value{op={bif,is_integer},args=[Src, _, _]}, Val, Op, Vst) ->
+    %% Unknown bounds; we know it's an integer when 'true', but cannot draw
+    %% any conclusions when 'false'.
+    case Val of
+        {atom, Bool} when Op =:= eq_exact, Bool; Op =:= ne_exact, not Bool ->
+            update_type(fun meet/2, #t_integer{}, Src, Vst);
+        _ ->
+            Vst
+    end;
 infer_types_1(#value{op={bif,is_list},args=[Src]}, Val, Op, Vst) ->
     infer_type_test_bif(#t_list{}, Src, Val, Op, Vst);
 infer_types_1(#value{op={bif,is_map},args=[Src]}, Val, Op, Vst) ->

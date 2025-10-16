@@ -2792,6 +2792,7 @@ is_gc_bif(node, [_]) -> false;
 is_gc_bif(element, [_,_]) -> false;
 is_gc_bif(get, [_]) -> false;
 is_gc_bif(is_map_key, [_,_]) -> false;
+is_gc_bif(is_integer, [_,_,_]) -> false;
 is_gc_bif(map_get, [_,_]) -> false;
 is_gc_bif(tuple_size, [_]) -> false;
 is_gc_bif(Bif, Args) ->
