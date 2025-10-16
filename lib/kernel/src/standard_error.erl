@@ -62,12 +62,11 @@ init([]) ->
     end.
 
 start() ->
-    Id = spawn(fun server/0),
-    register(?NAME, Id),
-    Id.
+    spawn(fun server/0).
 
 server() ->
     process_flag(trap_exit, true),
+    register(?NAME, self()),
     ok = prim_tty:load(),
     TTY = prim_tty:init(#{ input => disabled,
                            output => cooked,
