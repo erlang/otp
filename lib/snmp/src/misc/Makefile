@@ -98,6 +98,9 @@ ERL_COMPILE_FLAGS += -I../../include \
                      -I$(ERL_TOP)/lib/stdlib \
                      $(SNMP_FLAGS)
 
+ifeq ($(ERL_DETERMINISTIC),yes)
+  ASN1_OPTS += +deterministic
+endif
 
 # ----------------------------------------------------
 # Targets
