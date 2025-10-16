@@ -3846,8 +3846,8 @@ typedef struct binary_range_info {
 } BinaryRangeInfo;
 
 static void gather_binaries(BinaryRangeInfo *range_infos, const Uint count,
-                            Eterm *start, const Eterm *stop) {
-    Eterm* tp = start;
+                            const Eterm *start, const Eterm *stop) {
+    const Eterm* tp = start;
     while (tp < stop) {
         Eterm val = *tp++;
 
