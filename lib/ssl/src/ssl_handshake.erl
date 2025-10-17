@@ -2688,9 +2688,13 @@ encode_psk_binders(Binders) ->
     Len = byte_size(Result),
     <<?UINT16(Len), Result/binary>>.
 
-
 hello_extensions_list(HelloExtensions) ->
-    [Ext || {_, Ext} <- maps:to_list(HelloExtensions), Ext =/= undefined].
+    case maps:take(pre_shared_key, HelloExtensions) of
+        {#pre_shared_key_client_hello{} = PSK, Rest} ->
+            [Ext || {_, Ext} <- maps:to_list(Rest), Ext =/= undefined] ++ [PSK];
+        _ ->
+            [Ext || {_, Ext} <- maps:to_list(HelloExtensions), Ext =/= undefined]
+    end.
 
 %%-------------Decode handshakes---------------------------------
 dec_server_key(<<?UINT16(PLen), P:PLen/binary,
