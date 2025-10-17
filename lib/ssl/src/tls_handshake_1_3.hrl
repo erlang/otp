@@ -117,7 +117,8 @@
 %% } PreSharedKeyExtension;
 -record(pre_shared_key_client_hello,
         {
-         offered_psks
+         offered_psks,
+         binder_length
         }).
 
 -record(pre_shared_key_server_hello,
