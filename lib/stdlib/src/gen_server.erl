@@ -258,6 +258,7 @@ using exit signals.
 -record(server_data, {parent :: pid(),
 		      tag = make_ref() :: reference(),
 		      name :: term(),
+                      server_name :: term(),
 		      module :: module(),
 		      hibernate_after :: timeout(),
 		      handle_call :: fun((Request :: term(), From :: from(), State :: term()) ->
@@ -2206,7 +2207,7 @@ according to `ServerName`.
 enter_loop(Mod, Options, State, ServerName, Action)
   when is_atom(Mod), is_list(Options) ->
     Name = gen:get_proc_name(ServerName),
-    ServerData = server_data(gen:get_parent(), Name, Mod, gen:hibernate_after(Options)),
+    ServerData = server_data(gen:get_parent(), ServerName, Name, Mod, gen:hibernate_after(Options)),
     case handle_action(ServerData, Action) of
         error ->
             gen:unregister_name(Name),
@@ -2231,7 +2232,7 @@ init_it(Starter, self, Name, Mod, Args, Options) ->
     init_it(Starter, self(), Name, Mod, Args, Options);
 init_it(Starter, Parent, Name0, Mod, Args, Options) ->
     Name = gen:name(Name0),
-    ServerData = server_data(Parent, Name, Mod, gen:hibernate_after(Options)),
+    ServerData = server_data(Parent, Name0, Name, Mod, gen:hibernate_after(Options)),
     Debug = gen:debug_options(Name, Options),
     case init_it(Mod, Args) of
 	{ok, {ok, State}} ->
@@ -2350,12 +2351,13 @@ cancel_timer([]) ->
 cancel_timer([TRef | _]) ->
     ok = erlang:cancel_timer(TRef, [{async, true}, {info, false}]).
 
--compile({inline, [server_data/4, update_callback_cache/1]}).
+-compile({inline, [server_data/5, update_callback_cache/1]}).
 
-server_data(Parent, Name, Mod, HibernateAfter) ->
+server_data(Parent, ServerName, Name, Mod, HibernateAfter) ->
     #server_data{
        parent          = Parent,
        name            = Name,
+       server_name     = ServerName,
        module          = Mod,
        hibernate_after = HibernateAfter,
        handle_call     = fun Mod:handle_call/3,
@@ -2731,6 +2733,7 @@ terminate(ServerData, State, Msg, From, Class, Reason, Stacktrace, Debug) ->
 -spec terminate(_, _, _, _, _, _, _, _, _) -> no_return().
 terminate(ServerData, State, Msg, From, Class, Reason, Stacktrace, Debug, ReportStacktrace) ->
     Reply = try_terminate(ServerData, State, catch_result(Class, Reason, Stacktrace)),
+    gen:unregister_name(ServerData#server_data.server_name),
     case Reply of
 	{'EXIT', C, R, S} ->
 	    error_info(ServerData, State, Msg, From, R, S, Debug),

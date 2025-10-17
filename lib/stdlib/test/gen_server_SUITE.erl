@@ -57,7 +57,8 @@
 	 undef_handle_continue/1,
 
          format_log_1/1, format_log_2/1, format_log_with_process_label/1,
-         reply_by_alias_with_payload/1
+         reply_by_alias_with_payload/1,
+         terminate_unregisters/1
 	]).
 
 -export([stop1/1, stop2/1, stop3/1, stop4/1, stop5/1, stop6/1, stop7/1,
@@ -113,7 +114,8 @@ all() ->
      call_with_huge_message_queue, {group, undef_callbacks},
      undef_in_terminate, undef_in_handle_info,
      format_log_1, format_log_2, format_log_with_process_label,
-     reply_by_alias_with_payload].
+     reply_by_alias_with_payload,
+     terminate_unregisters].
 
 groups() -> 
     [{stop, [],
@@ -3113,6 +3115,41 @@ reply_by_alias_with_payload(Config) when is_list(Config) ->
         {[[alias|Alias2]|_] = Tag2, Reply2} ->
             ok
     end.
+
+terminate_unregisters(_Config) ->
+    dummy_via:reset(),
+
+    Name = {via, dummy_via, ?FUNCTION_NAME},
+    Test = self(),
+    Parent = spawn(fun() ->
+        {ok, Pid} = start_link(spec_init_via, [{ok, Name}, []]),
+        Test ! {server, Pid},
+        timer:sleep(infinity)
+    end),
+    Server = receive {server, Pid} -> Pid end,
+
+    Session = trace:session_create(?MODULE, self(), []),
+    _ = trace:function(Session, {dummy_via, unregister_name, 1}, true, []),
+    _ = trace:process(Session, all, true, [call]),
+
+    Ref = monitor(process, Server),
+    exit(Parent, shutdown),
+
+    % ensure unregister was called
+    receive
+        {trace, Server, call, {dummy_via, unregister_name, [Name]}} -> ok
+    after 500 ->
+        ct:fail("unregister not called")
+    end,
+    receive
+        {'DOWN', Ref, process, Server, _} -> ok
+    after
+        500 ->
+            ct:fail("server didn't terminate")
+    end,
+    trace:session_destroy(Session),
+    ok.
+
 
 %%--------------------------------------------------------------
 %% Help functions to spec_init_*
