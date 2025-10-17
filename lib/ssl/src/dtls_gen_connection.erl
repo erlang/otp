@@ -599,6 +599,7 @@ reinit_handshake_data(#state{static_env = #static_env{data_tag = DataTag},
     State#state{handshake_env = HsEnv#handshake_env{tls_handshake_history = ssl_handshake:init_handshake_history(),
                                                     public_key_info = undefined,
                                                     premaster_secret = undefined,
+                                                    expecting_finished = false,
                                                     flight_buffer = new_flight()},
                 protocol_specific = PS#{flight_state => initial_flight_state(DataTag)},
                 protocol_buffers =

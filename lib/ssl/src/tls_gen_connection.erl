@@ -220,7 +220,8 @@ reinit_handshake_data(#state{handshake_env = HsEnv} =State) ->
        handshake_env = HsEnv#handshake_env{tls_handshake_history =
                                                ssl_handshake:init_handshake_history(),
                                            public_key_info = undefined,
-                                           premaster_secret = undefined}
+                                           premaster_secret = undefined,
+                                           expecting_finished = false}
      }.
 
 select_sni_extension(#client_hello{extensions = #{sni := SNI}}) ->
