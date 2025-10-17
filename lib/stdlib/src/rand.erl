@@ -1324,8 +1324,19 @@ shuffle(List) ->
     ShuffledList.
 
 -spec shuffle_s(list(), state()) -> {list(), state()}.
-shuffle_s(List, State) when is_list(List) ->
-    shuffle_r(List, State, []).
+shuffle_s(List, {#{bits:=_, next:=Next} = AlgHandler, R0})
+  when is_list(List) ->
+    WeakLowBits = maps:get(weak_low_bits, AlgHandler, 0),
+    [P0|S0] = shuffle_init_bitstream(R0, Next, WeakLowBits),
+    {ShuffledList, _P1, [R1|_]=_S1} = shuffle_r(List, [], P0, S0),
+    {ShuffledList, {AlgHandler, R1}};
+shuffle_s(List, {#{max:=_, next:=Next} = AlgHandler, R0})
+  when is_list(List) ->
+    %% Old spec - assume 2 weak low bits
+    WeakLowBits = 2,
+    [P0|S0] = shuffle_init_bitstream(R0, Next, WeakLowBits),
+    {ShuffledList, _P1, [R1|_]=_S1} = shuffle_r(List, [], P0, S0),
+    {ShuffledList, {AlgHandler, R1}}.
 
 %% Random-split-and-shuffle algorithm suggested by Richard A. O'Keefe
 %% on ErlangForums, as I interpreted it...  "basically a randomized
@@ -1392,83 +1403,126 @@ shuffle_s(List, State) when is_list(List) ->
 %% a random word and cache it, then shift out one bit at the time.
 
 %% Leaf cases - random permutations for 0..4 elements
-shuffle_r([], State, Acc) ->
-    {Acc, State};
-shuffle_r([X], State, Acc) ->
-    {[X | Acc], State};
-shuffle_r([X, Y], State0, Acc) ->
-    {V, State1} = uniform_s(2, State0),
-    {case V of
-         1 -> [Y, X | Acc];
-         2 -> [X, Y | Acc]
-     end, State1};
-shuffle_r([X, Y, Z], State0, Acc) ->
-    {V, State1} = uniform_s(6, State0),
-    {case V of
-         1 -> [Z, Y, X | Acc];
-         2 -> [Y, Z, X | Acc];
-         3 -> [Z, X, Y | Acc];
-         4 -> [X, Z, Y | Acc];
-         5 -> [Y, X, Z | Acc];
-         6 -> [X, Y, Z | Acc]
-     end, State1};
-shuffle_r([X, Y, Z, Q], State0, Acc) ->
-    {V, State1} = uniform_s(24, State0),
-    {case V of
-         1  -> [Q, Z, Y, X | Acc];
-         2  -> [Z, Q, Y, X | Acc];
-         3  -> [Q, Y, Z, X | Acc];
-         4  -> [Y, Q, Z, X | Acc];
-         5  -> [Z, Y, Q, X | Acc];
-         6  -> [Y, Z, Q, X | Acc];
-         7  -> [Q, Z, X, Y | Acc];
-         8  -> [Z, Q, X, Y | Acc];
-         9  -> [Q, X, Z, Y | Acc];
-         10 -> [X, Q, Z, Y | Acc];
-         11 -> [Z, X, Q, Y | Acc];
-         12 -> [X, Z, Q, Y | Acc];
-         13 -> [Q, Y, X, Z | Acc];
-         14 -> [Y, Q, X, Z | Acc];
-         15 -> [Q, X, Y, Z | Acc];
-         16 -> [X, Q, Y, Z | Acc];
-         17 -> [Y, X, Q, Z | Acc];
-         18 -> [X, Y, Q, Z | Acc];
-         19 -> [Z, Y, X, Q | Acc];
-         20 -> [Y, Z, X, Q | Acc];
-         21 -> [Z, X, Y, Q | Acc];
-         22 -> [X, Z, Y, Q | Acc];
-         23 -> [Y, X, Z, Q | Acc];
-         24 -> [X, Y, Z, Q | Acc]
-     end, State1};
+shuffle_r([], Acc, P, S) ->
+    {Acc, P, S};
+shuffle_r([X], Acc, P, S) ->
+    {[X | Acc], P, S};
+shuffle_r([X, Y], Acc, P, S) ->
+    shuffle_r_2(X, Acc, P, S, Y);
+shuffle_r([X, Y, Z], Acc, P, S) ->
+    shuffle_r_3(X, Acc, P, S, Y, Z);
+shuffle_r([X, Y, Z, Q], Acc, P, S) ->
+    shuffle_r_4(X, Acc, P, S, Y, Z, Q);
 %% General case - split and recursive shuffle
-shuffle_r([_, _, _, _ | _] = List, State0, Acc0) ->
-    {Zero, One, State1} = shuffle_split(List, State0),
-    {Acc1, State2} = shuffle_r(Zero, State1, Acc0),
-    shuffle_r(One, State2, Acc1).
-
+shuffle_r([_, _, _, _ | _] = List, Acc, P, S) ->
+    %% P and S is bitstream cache and state
+    shuffle_r(List, Acc, P, S, [], []).
+%%
 %% Split L into two random subsets: Zero and One
 %%
-shuffle_split(L, State) ->
-    shuffle_split(L, State, 1, [], []).
-%%
-shuffle_split([], State, _P, Zero, One) ->
-    {Zero, One, State};
-shuffle_split([_ | _] = L, State0, 1, Zero, One) ->
-    M = 1 bsl 56,
-    case uniform_s(M, State0) of
-        {V, State1} when is_integer(V), 1 =< V, V =< M ->
-            %% Setting the top bit M here provides the marker
-            %% for when we are out of random bits: P =:= 1
-            shuffle_split(L, State1, (V - 1) + M, Zero, One)
-    end;
-shuffle_split([X | L], State, P, Zero, One)
+shuffle_r([], Acc0, P0, S0, Zero, One) ->
+    %% Split done, recursively shuffle Zero and One onto Acc
+    {Acc1, P1, S1} = shuffle_r(Zero, Acc0, P0, S0),
+    shuffle_r(One, Acc1, P1, S1);
+shuffle_r([X | L], Acc, P, S, Zero, One)
   when is_integer(P), 1 < P, P < 1 bsl 57 ->
     case P band 1 of
         0 ->
-            shuffle_split(L, State, P bsr 1, [X | Zero], One);
+            shuffle_r(L, Acc, P bsr 1, S, [X | Zero], One);
         1 ->
-            shuffle_split(L, State, P bsr 1, Zero, [X | One])
-    end.
+            shuffle_r(L, Acc, P bsr 1, S, Zero, [X | One])
+    end;
+shuffle_r([_ | _] = L, Acc, _P, S0, Zero, One) ->
+    [P|S1] = shuffle_new_bits(S0),
+    shuffle_r(L, Acc, P, S1, Zero, One).
+
+%% Permute 2 elements
+shuffle_r_2(X, Acc, P, S, Y)
+  when is_integer(P), 1 < P, P < 1 bsl 57 ->
+    {case P band 1 of
+         0 -> [Y, X | Acc];
+         1 -> [X, Y | Acc]
+     end, P bsr 1, S};
+shuffle_r_2(X, Acc, _P, S0, Y) ->
+    [P|S1] = shuffle_new_bits(S0),
+    shuffle_r_2(X, Acc, P, S1, Y).
+
+%% shuffle_r_3 and shuffle_r_4 below use a small and simple uniform range
+%% algorithm that draws 2 extra bits from the bitstream to lower the risk
+%% of getting V in the truncated high top range of the random bits.
+
+%% Permute 3 elements
+shuffle_r_3(X, Acc, P0, S, Y, Z)
+  when is_integer(P0), 31 < P0, P0 < 1 bsl 57 ->
+    V = P0 band 31,
+    P1 = P0 bsr 5,
+    case V div 5 of
+        %% Range 6 repeated 5 times uses V = 0..29 of 0..31
+        0 -> {[Z, Y, X | Acc], P1, S};
+        1 -> {[Y, Z, X | Acc], P1, S};
+        2 -> {[Z, X, Y | Acc], P1, S};
+        3 -> {[X, Z, Y | Acc], P1, S};
+        4 -> {[Y, X, Z | Acc], P1, S};
+        5 -> {[X, Y, Z | Acc], P1, S};
+        _ -> % Reject and retry
+            shuffle_r_3(X, Acc, P1, S, Y, Z)
+    end;
+shuffle_r_3(X, Acc, _P, S0, Y, Z) ->
+    [P|S1] = shuffle_new_bits(S0),
+    shuffle_r_3(X, Acc, P, S1, Y, Z).
+
+%% Permute 4 elements
+shuffle_r_4(X, Acc, P0, S, Y, Z, Q)
+  when is_integer(P0), 127 < P0, P0 < 1 bsl 57 ->
+    V = P0 band 127,
+    P1 = P0 bsr 7,
+    case V div 5 of
+        %% Range 24 repeated 5 times uses V = 0..119 of 0..127
+        0  -> {[Q, Z, Y, X | Acc], P1, S};
+        1  -> {[Z, Q, Y, X | Acc], P1, S};
+        2  -> {[Q, Y, Z, X | Acc], P1, S};
+        3  -> {[Y, Q, Z, X | Acc], P1, S};
+        4  -> {[Z, Y, Q, X | Acc], P1, S};
+        5  -> {[Y, Z, Q, X | Acc], P1, S};
+        6  -> {[Q, Z, X, Y | Acc], P1, S};
+        7  -> {[Z, Q, X, Y | Acc], P1, S};
+        8  -> {[Q, X, Z, Y | Acc], P1, S};
+        9  -> {[X, Q, Z, Y | Acc], P1, S};
+        10 -> {[Z, X, Q, Y | Acc], P1, S};
+        11 -> {[X, Z, Q, Y | Acc], P1, S};
+        12 -> {[Q, Y, X, Z | Acc], P1, S};
+        13 -> {[Y, Q, X, Z | Acc], P1, S};
+        14 -> {[Q, X, Y, Z | Acc], P1, S};
+        15 -> {[X, Q, Y, Z | Acc], P1, S};
+        16 -> {[Y, X, Q, Z | Acc], P1, S};
+        17 -> {[X, Y, Q, Z | Acc], P1, S};
+        18 -> {[Z, Y, X, Q | Acc], P1, S};
+        19 -> {[Y, Z, X, Q | Acc], P1, S};
+        20 -> {[Z, X, Y, Q | Acc], P1, S};
+        21 -> {[X, Z, Y, Q | Acc], P1, S};
+        22 -> {[Y, X, Z, Q | Acc], P1, S};
+        23 -> {[X, Y, Z, Q | Acc], P1, S};
+        _  -> % Reject and retry
+            shuffle_r_4(X, Acc, P1, S, Y, Z, Q)
+    end;
+shuffle_r_4(X, Acc, _P, S0, Y, Z, Q) ->
+    [P|S1] = shuffle_new_bits(S0),
+    shuffle_r_4(X, Acc, P, S1, Y, Z, Q).
+
+shuffle_init_bitstream(R, Next, WeakLowBits) ->
+    P = 1,                      % Marker for out of random bits
+    W = {Next,WeakLowBits},     % Generator
+    S = [R|W],                  % Generator state
+    [P|S].                      % Bit cash and state
+
+shuffle_new_bits([R0|{Next,WeakLowBits}=W]) ->
+    {V, R1} = Next(R0),
+    %% Setting the top bit M here provides the marker
+    %% for when we are out of random bits: P =:= 1
+    M = 1 bsl 56,
+    P = ((V bsr WeakLowBits) band (M-1)) bor M,
+    S = [R1|W],
+    [P|S].
 
 %% =====================================================================
 %% Internal functions
