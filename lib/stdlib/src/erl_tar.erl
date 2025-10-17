@@ -199,7 +199,7 @@ Here `Fd` was specified to function [`init/3`](`init/3`) as:
 
 ```erlang
 {ok,Fd} = file:open(Name, ...).
-{ok,TarDesc} = erl_tar:init(Fd, [write], ExampleFun),
+{ok,TarDesc} = erl_tar:init(Fd, write, ExampleFun),
 ```
 
 `TarDesc` is then used:
