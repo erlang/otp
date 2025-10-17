@@ -21,6 +21,8 @@
 # %CopyrightEnd%
 -->
 
+<!-- REUSE-IgnoreStart -->
+
 # How to update the PCRE version used by Erlang
 
 ## The basic changes to the PCRE library
@@ -551,3 +553,5 @@ in pace with the changes to PCRE2. PCRE2 should probably be updated for
 each major release, instead of every five years. There seems to be an
 interest from the maintainers of PCRE2 to support yielding. Which
 would deprecates most of this file.
+
+<!-- REUSE-IgnoreEnd -->

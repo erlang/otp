@@ -230,6 +230,8 @@ erl_copyright() ->
 erl_wx_copyright() ->
     erl_copyright_template("Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3").
 
+%% REUSE-IgnoreStart
+
 erl_copyright_template(License) ->
     StartYear = start_year(get(current_class)),
     {CurrentYear,_,_}   = erlang:date(),
@@ -255,6 +257,8 @@ erl_copyright_template(License) ->
     w("%%~n",[]),
     append_license(License),
     w("%% %CopyrightEnd%~n",[]).
+
+%% REUSE-IgnoreEnd
 
 append_license("Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3") ->
     w("%% For documentation, wxWindow Free Documentation License, Version 3 applies.~n",[]),
@@ -295,6 +299,7 @@ append_license("Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3") ->
 append_license(_) ->
     ok.
 
+%% REUSE-IgnoreStart
 
 c_copyright() ->
     {CurrentYear,_,_}   = erlang:date(),
@@ -319,6 +324,8 @@ c_copyright() ->
     w(" *~n",[]),
     w(" * %CopyrightEnd%~n",[]),
     w("*/~n",[]).
+
+%% REUSE-IgnoreEnd
 
 start_year("wxAuiManagerEvent") -> 2009;
 start_year("wxAuiNotebookEvent") -> 2009;
