@@ -431,7 +431,7 @@ certificate_verify(Signature, PublicKeyInfo, Version,
     end.
 %%--------------------------------------------------------------------
 -spec verify_signature(ssl_record:ssl_version(), binary(), {term(), term()}, binary(),
-				   public_key_info()) -> true | false.
+                       public_key_info()) -> true | false.
 %%
 %% Description: Checks that a public_key signature is valid.
 %%--------------------------------------------------------------------
@@ -3112,8 +3112,9 @@ decode_extensions(<<?UINT16(?PRE_SHARED_KEY_EXT), ?UINT16(Len),
                                #pre_shared_key_client_hello{
                                   offered_psks = #offered_psks{
                                                     identities = decode_psk_identities(Identities),
-                                                    binders = decode_psk_binders(Binders)}}});
-
+                                                    binders = decode_psk_binders(Binders)},
+                                  binder_length = BLen + 2}}
+                     );
 decode_extensions(<<?UINT16(?PRE_SHARED_KEY_EXT), ?UINT16(Len),
                        ExtData:Len/binary, Rest/binary>>,
                   Version, MessageType = server_hello, Acc) ->
