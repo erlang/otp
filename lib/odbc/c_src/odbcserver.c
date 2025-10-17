@@ -1337,8 +1337,14 @@ static db_result_msg encode_column_name_list(SQLSMALLINT num_of_columns,
 				       &nullable)))
 	    DO_EXIT(EXIT_DESC);
 
-	if(size == 0 && (sql_type == SQL_LONGVARCHAR || sql_type == SQL_LONGVARBINARY || sql_type == SQL_WLONGVARCHAR))
-	    size = MAXCOLSIZE;
+	if(sql_type == SQL_LONGVARCHAR || sql_type == SQL_LONGVARBINARY || sql_type == SQL_WLONGVARCHAR) {
+	    if(size == 0) {
+		size = MAXCOLSIZE;  /* Default for databases that return 0 */
+	    } else if(size > MAXCOLSIZE) {
+		size = MAXCOLSIZE;  /* Cap excessive sizes from MSSQL/Oracle */
+	    }
+	    /* If size is reasonable (0 < size <= MAXCOLSIZE), keep it as-is for PostgreSQL */
+	}
     
 	(columns(state)[i]).type.decimal_digits = dec_digits;
 	(columns(state)[i]).type.sql = sql_type;
