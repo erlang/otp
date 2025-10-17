@@ -27,7 +27,26 @@
 
 -include_lib("common_test/include/ct.hrl").
 
--define(LOOP, 1000000).
+%% Testcases
+-export(
+   [seed/1, interval_int/1, interval_float/1,
+    bytes_count/1,
+    shuffle_elements/1, shuffle_reference/1,
+    basic_stats_shuffle/1, measure_shuffle/1,
+    api_eq/1,
+    mwc59_api/1,
+    exsp_next_api/1, exsp_jump_api/1,
+    splitmix64_next_api/1,
+    reference/1,
+    uniform_real_conv/1,
+    plugin/1, measure/1,
+    short_jump/1
+   ]).
+
+%% Manual test functions
+-export([measure_shuffle/2, measure_shuffle/4]).
+
+-define(LOOP, 1000_000).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -36,6 +55,8 @@ suite() ->
 all() ->
     [seed, interval_int, interval_float,
      bytes_count,
+     shuffle_elements, shuffle_reference,
+     basic_stats_shuffle, measure_shuffle,
      api_eq,
      mwc59_api,
      exsp_next_api, exsp_jump_api,
@@ -389,6 +410,155 @@ bytes_count(Config) when is_list(Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+%% Check that shuffle doesn't loose or duplicate elements
+
+shuffle_elements(Config) when is_list(Config) ->
+    M = 20,
+    SortedList = lists:seq(0, (1 bsl M) - 1),
+    State = rand:seed(default),
+    case lists:sort(rand:shuffle(SortedList)) of
+        SortedList -> ok;
+        _ ->
+            error({mismatch, State})
+    end.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Check that shuffle is repeatable
+
+shuffle_reference(Config) when is_list(Config) ->
+    M = 20,
+    Seed = {1,2,3},
+    MD5 = <<56,202,188,237,192,69,132,182,227,54,33,68,45,74,208,89>>,
+    %%
+    SortedList = lists:seq(0, (1 bsl M) - 1),
+    S = rand:seed_s(default, Seed),
+    {ShuffledList, NewS} = rand:shuffle_s(SortedList, S),
+    Data = mk_iolist(ShuffledList, M),
+    case erlang:md5(Data) of
+        MD5 -> ok;
+        WrongMD5 ->
+            error({wrong_checksum, WrongMD5, NewS})
+    end.
+
+mk_iolist([], _M) -> [];
+mk_iolist([X, Y | L], M) ->
+    [<<X:M, Y:M>> | mk_iolist(L, M)].
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Check basic stats for shuffle
+
+basic_stats_shuffle(Config) when is_list(Config) ->
+    ct:timetrap({minutes,15}), %% valgrind needs a lot of time
+    Loop            = ?LOOP div 10,
+    Buckets         = 113,
+    CountTolerance  = 0.18,
+    Alg             = default,
+    %%
+    %% One array per position.
+    %% The array is a histogram that counts how many times
+    %% a random number has occured in that position,
+    %% where the random number is the index in the array.
+    SortedList = lists:seq(1, Buckets),
+    S = rand:seed(Alg),
+    Result =
+        lists:filter(
+          fun (R) -> R =/= [] end,
+          [begin
+               Sum             = basic_shuffle_sum(1, Counters),
+               Buckets         = length(Counters),
+               ExpectedAverage = (Buckets + 1) / 2,
+               basic_verify(
+                 Pos, Loop, Sum, ExpectedAverage, Counters, CountTolerance)
+           end ||
+              {Pos, Counters} <-
+                  lists:zip(
+                    SortedList,
+                    basic_shuffle(Loop, SortedList, S))]),
+    Result =:= [] orelse
+        ct:fail({Result, S}),
+    ok.
+
+basic_shuffle(N, SortedList, S) ->
+    Buckets = length(SortedList),
+    AL = lists:duplicate(Buckets, array:new([Buckets + 1, {default,0}])),
+    basic_shuffle(N, SortedList, S, AL).
+%%
+basic_shuffle(N, _SortedList, _S, AL) when N =< 0 ->
+    [tl(array:to_list(A)) || A <- AL];
+basic_shuffle(N, SortedList, S0, AL0) ->
+    {ShuffledList, S1} = rand:shuffle_s(SortedList, S0),
+    AL1 = basic_shuffle_count(ShuffledList, AL0),
+    basic_shuffle(N - 1, SortedList, S1, AL1).
+
+basic_shuffle_count([], [])            -> [];
+basic_shuffle_count([X | L], [A | AL]) ->
+    [array_add(X, 1, A) | basic_shuffle_count(L, AL)].
+
+basic_shuffle_sum(_Number, [])                  -> 0;
+basic_shuffle_sum(Number, [Counter | Counters]) ->
+    Number*Counter + basic_shuffle_sum(Number + 1, Counters).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Measure shuffle with PRNG algorithms and against
+%% a known reference shuffle implementation
+
+measure_shuffle(Config) when is_list(Config) ->
+    ct:timetrap({minutes,60}), %% valgrind needs a lot of time
+    case ct:get_timetrap_info() of
+        {_,{_,1}} -> % No scaling
+            Effort = proplists:get_value(measure_effort, Config, 1),
+            measure_shuffle(Effort);
+        {_,{_,Scale}} ->
+            {skip,{will_not_run_in_scaled_time,Scale}}
+    end;
+measure_shuffle(Effort) when is_integer(Effort) ->
+    Algs =
+        [default, exs1024 |
+         case crypto_support() of
+             ok -> [crypto];
+             _  -> []
+         end],
+    measure_shuffle(Effort, Algs).
+
+measure_shuffle(Effort, Algs)
+  when is_integer(Effort), is_list(Algs) ->
+    _ = measure_shuffle(100, us, Algs, 10000 * Effort),
+    _ = measure_shuffle(10_000, ms, Algs, 100 * Effort),
+    _ = measure_shuffle(1000_000, ms, Algs, Effort),
+    ok.
+
+measure_shuffle(Size, Unit, Algs, I)
+  when is_integer(Size), is_atom(Unit), is_list(Algs), is_integer(I) ->
+    ct:log("~nShuffle ~w performance~n", [Size]),
+    [TMark, Overhead | _] = RandResults =
+        measure_1(
+          fun (_Mod, _State) ->
+                  List = lists:seq(1, Size),
+                  fun (St0) ->
+                          case rand:shuffle_s(List, St0) of
+                              {L, St1} when is_list(L) ->
+                                  St1
+                          end
+                  end
+          end, Algs, {I, Unit}),
+    RandResults ++
+        [measure_1(
+           fun (_Mod, _State) ->
+                   List = lists:seq(1, Size),
+                   fun (St0) ->
+                           case shuffle_ref(List, St0) of
+                               {L, St1} when is_list(L) ->
+                                   St1
+                           end
+                   end
+           end, {shuffle_ref,Alg}, {I, Unit}, TMark, Overhead)
+         || Alg <- Algs].
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 %% Check if each algorithm generates the proper sequence.
 reference(Config) when is_list(Config) ->
     [reference_1(Alg) || Alg <- algs()],
@@ -455,33 +625,58 @@ gen(_, _, _, Acc) -> lists:reverse(Acc).
 
 basic_stats_uniform_1(Config) when is_list(Config) ->
     ct:timetrap({minutes,15}), %% valgrind needs a lot of time
+    Loop            = ?LOOP,
+    Buckets         = 100,
+    CountTolerance  = 0.05,
+    ExpectedAverage = 1/2,
     Result =
         lists:filter(
           fun (R) -> R =/= [] end,
-          [basic_uniform_1(Alg, ?LOOP, 100)
-           || Alg <- [default|algs()]]),
+          [begin
+               {Sum, Counters} = basic_uniform_1(Loop, Buckets, Alg),
+               basic_verify(
+                 Alg, Loop, Sum, ExpectedAverage, Counters, CountTolerance)
+           end ||
+              Alg <- [default|algs()]]),
     Result =:= [] orelse
         ct:fail(Result),
     ok.
 
 basic_stats_uniform_2(Config) when is_list(Config) ->
     ct:timetrap({minutes,15}), %% valgrind needs a lot of time
+    Loop            = ?LOOP,
+    Buckets         = 100,
+    CountTolerance  = 0.05,
+    ExpectedAverage = (1 + Buckets) / 2,
     Result =
         lists:filter(
           fun (R) -> R =/= [] end,
-          [basic_uniform_2(Alg, ?LOOP, 100)
-           || Alg <- [default|algs()]]),
+          [begin
+               {Sum, Counters} = basic_uniform_2(Loop, Buckets, Alg),
+               basic_verify(
+                 Alg, Loop, Sum, ExpectedAverage, Counters, CountTolerance)
+           end ||
+              Alg <- [default|algs()]]),
     Result =:= [] orelse
         ct:fail(Result),
     ok.
 
 basic_stats_bytes(Config) when is_list(Config) ->
     ct:timetrap({minutes,15}), %% valgrind needs a lot of time
+    Loop           = ?LOOP div 100,
+    BinSize        = 113,
+    CountTolerance = 0.07,
     Result =
         lists:filter(
           fun (R) -> R =/= [] end,
-          [basic_bytes(Alg, ?LOOP div 100, 113)
-           || Alg <- [default|algs()]]),
+          [begin
+               {ExpectedAverage, Sum, Counters} =
+                   basic_bytes(Loop, BinSize, Alg),
+               basic_verify(
+                 Alg, Loop * BinSize, Sum, ExpectedAverage,
+                 Counters, CountTolerance)
+           end ||
+              Alg <- [default|algs()]]),
     Result =:= [] orelse
         ct:fail(Result),
     ok.
@@ -529,13 +724,13 @@ basic_stats_normal(Config) when is_list(Config) ->
         ct:fail(Result),
     ok.
 
-basic_uniform_1(Alg, Loop, Buckets) ->
+basic_uniform_1(Loop, Buckets, Alg) ->
     basic_uniform_1(
-      0, Loop, Buckets, rand:seed_s(Alg), 0.0,
+      Loop, Buckets, rand:seed_s(Alg), 0.0,
       array:new(Buckets, [{default, 0}])).
 %%
-basic_uniform_1(N, Loop, Buckets, S0, Sum, A0) when N < Loop ->
-    {X,S} =
+basic_uniform_1(N, Buckets, S0, Sum, A) when 0 < N ->
+    {X,S1} =
         case N band 1 of
             0 ->
                 rand:uniform_s(S0);
@@ -543,81 +738,84 @@ basic_uniform_1(N, Loop, Buckets, S0, Sum, A0) when N < Loop ->
                 rand:uniform_real_s(S0)
         end,
     I = trunc(X*Buckets),
-    A = array:set(I, 1+array:get(I,A0), A0),
-    basic_uniform_1(N+1, Loop, Buckets, S, Sum+X, A);
-basic_uniform_1(_N, Loop, Buckets, {#{type:=Alg}, _}, Sum, A) ->
-    AverExp = 1.0 / 2,
-    Counters = array:to_list(A),
-    basic_verify(Alg, Loop, Sum, AverExp, Buckets, Counters).
+    basic_uniform_1(N-1, Buckets, S1, Sum+X, array_add(I, 1, A));
+basic_uniform_1(_0, _Buckets, _S, Sum, A) ->
+    {Sum, array:to_list(A)}.
 
-basic_uniform_2(Alg, Loop, Buckets) ->
+basic_uniform_2(Loop, Buckets, Alg) ->
     basic_uniform_2(
-      0, Loop, Buckets, rand:seed_s(Alg), 0,
-      array:new(Buckets, [ {default, 0}])).
+      Loop, Buckets, rand:seed_s(Alg), 0,
+      array:new(Buckets + 1, [{default, 0}])).
 %%
-basic_uniform_2(N, Loop, Buckets, S0, Sum, A0) when N < Loop ->
+basic_uniform_2(N, Buckets, S0, Sum, A0) when 0 < N ->
     {X,S} = rand:uniform_s(Buckets, S0),
-    A = array:set(X-1, 1+array:get(X-1,A0), A0),
-    basic_uniform_2(N+1, Loop, Buckets, S, Sum+X, A);
-basic_uniform_2(_N, Loop, Buckets, {#{type:=Alg}, _}, Sum, A) ->
-    AverExp = ((Buckets - 1) / 2) + 1,
-    Counters = tl(array:to_list(A)),
-    basic_verify(Alg, Loop, Sum, AverExp, Buckets, Counters).
+    A = array_add(X, 1, A0),
+    basic_uniform_2(N-1, Buckets, S, Sum+X, A);
+basic_uniform_2(_N, _Buckets, _S, Sum, A) ->
+    {Sum, tl(array:to_list(A))}.
 
-basic_bytes(Alg, Loop, BytesSize) ->
+basic_bytes(Loop, BinSize, Alg) ->
     basic_bytes(
-      0, Loop, BytesSize, rand:seed_s(Alg), 0,
+      Loop, BinSize, rand:seed_s(Alg), 0,
       array:new(256, [{default, 0}])).
-basic_bytes(N, Loop, BytesSize, S0, Sum0, A0) when N < Loop ->
-    {Bin,S} = rand:bytes_s(BytesSize, S0),
+%%
+basic_bytes(N, BinSize, S0, Sum0, A0) when 0 < N ->
+    {Bin,S} = rand:bytes_s(BinSize, S0),
     {Sum,A} = basic_bytes_incr(Bin, Sum0, A0),
-    basic_bytes(N+1, Loop, BytesSize, S, Sum, A);
-basic_bytes(_N, Loop, BytesSize, {#{type:=Alg}, _}, Sum, A) ->
-    Buckets = 256,
-    AverExp = (Buckets - 1) / 2,
+    basic_bytes(N-1, BinSize, S, Sum, A);
+basic_bytes(_N, _BinSize, _S, Sum, A) ->
     Counters = array:to_list(A),
-    basic_verify(Alg, Loop * BytesSize, Sum, AverExp, Buckets, Counters).
+    ExpectedAverage = (0 + (array:size(A) - 1)) / 2,
+    {ExpectedAverage, Sum, Counters}.
 
 basic_bytes_incr(Bin, Sum, A) ->
     basic_bytes_incr(Bin, Sum, A, 0).
 %%
-basic_bytes_incr(Bin, Sum, A, N) ->
+basic_bytes_incr(Bin, Sum, A, I) ->
     case Bin of
-        <<_:N/binary, B, _/binary>> ->
-            basic_bytes_incr(
-              Bin, Sum+B, array:set(B, array:get(B, A)+1, A), N+1);
+        <<_:I/binary, B, _/binary>> ->
+            basic_bytes_incr(Bin, Sum+B, array_add(B, 1, A), I+1);
         <<_/binary>> ->
             {Sum,A}
     end.
 
-basic_verify(Alg, Loop, Sum, AverExp, Buckets, Counters) ->
-    AverDiff = AverExp * 0.01,
-    Aver = Sum / Loop,
+array_add(I, S, A) ->
+    array:set(I, array:get(I, A) + S, A).
+
+basic_verify(
+  Tag, Loop, Sum, ExpectedAverage, Counters, CountTolerance) ->
+    %%
+    AllowedAverageDiff = ExpectedAverage * 10 / math:sqrt(Loop),
+    Average = Sum / Loop,
     io:format(
       "~.12w: Expected Average: ~.4f, Allowed Diff: ~.4f, Average: ~.4f~n",
-      [Alg, AverExp, AverDiff, Aver]),
+      [Tag, ExpectedAverage, AllowedAverageDiff, Average]),
     %%
-    CountExp = Loop / Buckets,
-    CountDiff = CountExp * 0.1,
+    %% XXX It would be nice and possible, but perhaps too much
+    %% math-stat to calculate a good CountTolerance
+    ExpectedCount = Loop / length(Counters),
+    MinCount = (1 - CountTolerance) * ExpectedCount,
+    MaxCount = (1 + CountTolerance) * ExpectedCount,
     {MinBucket, Min} = lists_where(fun erlang:min/2, Counters),
     {MaxBucket, Max} = lists_where(fun erlang:max/2, Counters),
     io:format(
-      "~.12w: Expected Count: ~p, Allowed Diff: ~p, Min: ~p, Max: ~p~n",
-      [Alg, CountExp, CountDiff, Min, Max]),
+      "~.12w: Expected Count: ~p, MinCount: ~p, MaxCount: ~p, "
+      "Min: ~p, Max: ~p~n",
+      [Tag, ExpectedCount, MinCount, MaxCount, Min, Max]),
     %%
     %% Verify that the basic statistics are ok
     %% be gentle - we don't want to see to many failing tests
     if
-        abs(Aver - AverExp) < AverDiff -> [];
-        true -> [{average, Alg, Aver, AverExp, AverDiff}]
+        abs(Average - ExpectedAverage) < AllowedAverageDiff -> [];
+        true -> [{average, Tag, Average, ExpectedAverage, AllowedAverageDiff}]
     end ++
         if
-            abs(Min - CountExp) < CountDiff -> [];
-            true -> [{min, Alg, {MinBucket,Min}, CountExp, CountDiff}]
+            Min > MinCount -> [];
+            true -> [{min, Tag, {MinBucket,Min}, MinCount}]
         end ++
         if
-            abs(Max - CountExp) < CountDiff -> [];
-            true -> [{max, Alg, {MaxBucket,Max}, CountExp, CountDiff}]
+            Max < MaxCount -> [];
+            true -> [{max, Tag, {MaxBucket,Max}, MaxCount}]
         end.
 
 lists_where(Fun, [X | L]) ->
@@ -1073,8 +1271,8 @@ measure(Config) when is_list(Config) ->
             {skip,{will_not_run_in_scaled_time,Scale}}
     end;
 measure(Effort) when is_integer(Effort) ->
-    Iterations = ?LOOP div 5,
-    do_measure(Iterations * Effort).
+    I = ?LOOP div 5,
+    do_measure(I * Effort).
 
 
 -define(CHECK_UNIFORM_RANGE(Gen, Range, X, St),
@@ -1103,7 +1301,8 @@ measure(Effort) when is_integer(Effort) ->
                 St
         end).
 
-do_measure(Iterations) ->
+do_measure(I) ->
+    Iterations = {I, ns},
     Algs =
         case crypto_support() of
             ok ->
@@ -1645,7 +1844,7 @@ do_measure(Iterations) ->
                   Algs ++ [crypto_bytes, crypto_bytes_cached];
               _ ->
                   Algs
-          end, Iterations div 50),
+          end, setelement(1, Iterations, I div 50)),
     _ =
         measure_1(
           fun (_Mod, _State) ->
@@ -1653,7 +1852,7 @@ do_measure(Iterations) ->
                           ?CHECK_BYTE_SIZE(
                              mwc59_bytes(ByteSize2, St0), ByteSize2, Bin, St1)
                   end
-          end, {mwc59,bytes}, Iterations div 50,
+          end, {mwc59,bytes}, setelement(1, Iterations, I div 50),
           TMarkBytes2, OverheadBytes2),
     %%
     ct:log("~nRNG uniform float performance~n",[]),
@@ -1738,12 +1937,12 @@ do_measure(Iterations) ->
           TMarkNormalFloat, OverheadNormalFloat),
     ok.
 
-measure_loop(State, Fun, I) when 10 =< I ->
+measure_loop(State, Fun, I) when is_integer(I), 10 =< I ->
     %% Loop unrolling to dilute benchmark overhead...
     measure_loop(
       Fun(Fun(Fun(Fun(Fun(  Fun(Fun(Fun(Fun(Fun(State))))) ))))),
       Fun, I - 10);
-measure_loop(State, Fun, I) when 1 =< I ->
+measure_loop(State, Fun, I) when is_integer(I), 1 =< I ->
     measure_loop(Fun(State), Fun, I - 1);
 measure_loop(_, _, _) ->
     ok.
@@ -1764,7 +1963,8 @@ measure_1(InitFun, Algs, Iterations) ->
         [measure_1(InitFun, Alg, Iterations, TMark, Overhead)
          || Alg <- tl(Algs)].
 
-measure_1(InitFun, Alg, Iterations, TMark, Overhead) ->
+measure_1(InitFun, Alg, {I,Unit}, TMark, Overhead)
+  when is_integer(I), is_atom(Unit) ->
     Parent = self(),
     MeasureFun =
         fun () ->
@@ -1773,7 +1973,7 @@ measure_1(InitFun, Alg, Iterations, TMark, Overhead) ->
                 {T, ok} =
                     timer:tc(
                       fun () ->
-                              measure_loop(State, IterFun, Iterations)
+                              measure_loop(State, IterFun, I)
                       end),
                 Time = T - Overhead,
                 Percent =
@@ -1784,9 +1984,12 @@ measure_1(InitFun, Alg, Iterations, TMark, Overhead) ->
                             io_lib:format(
                               "~8.1f%", [(Time * 100 + 50) / TMark])
                     end,
+                {Scale, UnitStr} = scale(Unit),
                 io:format(
-                  "~.24w: ~8.1f ns ~s~n",
-                  [Alg, (Time * 1000 + 500) / Iterations, Percent]),
+                  "~.24w: ~8.1f ~s ~s~n",
+                  [Alg,
+                   (Time + 0.5) / 1000_000 * Scale / I,
+                   UnitStr, Percent]),
                 Parent ! {self(), Time},
                 ok
         end,
@@ -1794,6 +1997,11 @@ measure_1(InitFun, Alg, Iterations, TMark, Overhead) ->
     receive
 	{Pid, Msg} -> Msg
     end.
+
+scale(s)  -> {1, "s"};
+scale(ms) -> {1000, "ms"};
+scale(us) -> {1000_000, "µs"};
+scale(ns) -> {1000_000_000, "ns"}.
 
 measure_init(Alg) ->
     case Alg of
@@ -1832,7 +2040,9 @@ measure_init(Alg) ->
                     {_, S} = rand:seed_s(exsp),
                     {rand, S};
                 splitmix64 ->
-                    {rand, erlang:unique_integer()}
+                    {rand, erlang:unique_integer()};
+                shuffle_ref ->
+                    measure_init(Tag)
             end;
         _ ->
             {rand, rand:seed_s(Alg)}
@@ -2489,3 +2699,50 @@ half_range({#{bits:=Bits}, _}) -> 1 bsl (Bits - 1);
 half_range({#{max:=Max}, _}) -> (Max bsr 1) + 1;
 half_range({#{}, _}) -> 1 bsl 63; % crypto
 half_range({_, _, _}) -> 1 bsl 50. % random
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Reference shuffle algorithm
+%%
+%% Decorate, sort, undecorate and shuffle duplicates.
+%% O(N) random number generations if there are no duplicates.
+%% O(N log N) for the whole algorithm due to the sort,
+%% which is as good as it gets.
+
+shuffle_ref([],        State) -> {[], State};
+shuffle_ref([_] = L,   State) -> {L,  State};
+shuffle_ref([_|_] = L, State) -> shuffle_r(L, State, []).
+
+%% Recursion entry point
+shuffle_r([X, Y], State0, Acc) ->
+    %% Optimization for 2 elements; the most common case for duplicates
+    {V, State1} = rand:uniform_s(2, State0),
+    {case V of
+         1 -> [Y, X | Acc];
+         2 -> [X, Y | Acc]
+     end, State1};
+shuffle_r([_, _ | _] = L, State, Acc) ->
+    shuffle_tag(L, State, Acc, []).
+
+%% Tag elements with random integers
+shuffle_tag([X | L], State0, Acc, TL) ->
+    {T, State1} = rand:uniform_s(1 bsl 56, State0),
+    shuffle_tag(L, State1, Acc, [{T,X} | TL]);
+shuffle_tag([], State, Acc, TL) ->
+    shuffle_untag(lists:keysort(1, TL), State, Acc).
+
+%% Strip the tag integers
+shuffle_untag([{T,X}, {T,Y} | TL], State, Acc) ->
+    shuffle_duplicates(TL, State, Acc, T, [Y, X]);
+shuffle_untag([{_,X} | TL], State, Acc) ->
+    shuffle_untag(TL, State, [X | Acc]);
+shuffle_untag([], State, Acc) ->
+    {Acc, State}.
+%%
+%% Collect duplicates
+shuffle_duplicates([{T,Z} | TL], State, Acc, T, Dups) ->
+    shuffle_duplicates(TL, State, Acc, T, [Z | Dups]);
+shuffle_duplicates(TL, State0, Acc0, _T, Dups) when is_list(TL) ->
+    %% Shuffle duplicates onto the result
+    {Acc1, State1} = shuffle_r(Dups, State0, Acc0),
+    shuffle_untag(TL, State1, Acc1).
