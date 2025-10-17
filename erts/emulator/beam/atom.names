@@ -136,6 +136,7 @@ atom bif_return_trap
 atom binary
 atom binary_copy_trap
 atom binary_find_trap
+atom binary_full
 atom binary_longest_prefix_trap
 atom binary_longest_suffix_trap
 atom binary_to_list_continue
