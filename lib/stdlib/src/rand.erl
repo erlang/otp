@@ -404,7 +404,8 @@ the generator's range:
          uniform_real/0, uniform_real_s/1,
          bytes/1, bytes_s/2,
          jump/0, jump/1,
-         normal/0, normal/2, normal_s/1, normal_s/3
+         normal/0, normal/2, normal_s/1, normal_s/3,
+         shuffle/1, shuffle_s/2
 	]).
 
 %% Utilities
@@ -1314,6 +1315,142 @@ Returns [`X`](`t:float/0`) and the [`NewState`](`t:state/0`).
 normal_s(Mean, Variance, State0) when 0 =< Variance ->
     {X, State} = normal_s(State0),
     {Mean + (math:sqrt(Variance) * X), State}.
+
+
+-spec shuffle(list()) -> list().
+shuffle(List) ->
+    {ShuffledList, State} = shuffle_s(List, seed_get()),
+    _ = seed_put(State),
+    ShuffledList.
+
+-spec shuffle_s(list(), state()) -> {list(), state()}.
+shuffle_s(List, State) when is_list(List) ->
+    shuffle_r(List, State, []).
+
+%% Random-split-and-shuffle algorithm suggested by Richard A. O'Keefe
+%% on ErlangForums, as I interpreted it...  "basically a randomized
+%% quicksort", shall we name it Quickshuffle?
+%%
+%% Randomly split the list in two lists, and recursively shuffle
+%% the two smaller lists.
+%%
+%% How the algorithm works and why it is correct can be explained like this:
+%%
+%% The objective is, given a list of elements, to return a random
+%% permutation of those elements so that every possible permutation
+%% has the same probability to be returned.
+%%
+%% One of the two correct and bias free algorithms described on the Wikipedia
+%% page for Fisher-Yates shuffling is to assign a random number to each
+%% element in the list and order the elements according to the numbers.
+%% For this to be correct the generated numbers must not have duplicates.
+%%
+%% This algorithm does that, but assigning a number and ordering
+%% the elements is more or less the same step, which is taken
+%% one binary bit at the time.
+%%
+%% It can be seen as, to each element, assign a fixpoint number
+%% of infinite length starting with bit weight 1/2, continuing with 1/4,
+%% and so on..., but reveal it incrementally.
+%%
+%% The list to shuffle is traversed, and a random bit is generated
+%% for each element.  If it is a 0, the element is assigned the zero bit
+%% by moving it to the head of the list Zero, and if it is a 1,
+%% to the head of the list One.
+%%
+%% Then the list Zero is recursively shuffled onto the accumulator list Acc,
+%% after that the list One.  By that all elements in Zero are ordered
+%% before the ones in One, according to the generated numbers.
+%% The order is actually not important as long as it is consistent.
+%%
+%% The algorithm recurses until the Zero or One list has length
+%% 0 or 1, which is when the generated fixpoint number has no duplicate.
+%% The fixpoint number in itself only exists in the guise of the
+%% recursion call stack, that is whether an element belongs to list
+%% Zero or One on each recursion level.
+%%
+%% As an optimization, since the algorithm is equivalent to its objective
+%% to randomly permute a list, we can when reaching a small enough list
+%% as in 4 or less instead do an explicit random permutation of the list.
+
+%% Leaf cases - random permutations for 0..4 elements
+shuffle_r([], State, Acc) ->
+    {Acc, State};
+shuffle_r([X], State, Acc) ->
+    {[X | Acc], State};
+shuffle_r([X, Y], State0, Acc) ->
+    {V, State1} = uniform_s(2, State0),
+    {case V of
+         1 -> [Y, X | Acc];
+         2 -> [X, Y | Acc]
+     end, State1};
+shuffle_r([X, Y, Z], State0, Acc) ->
+    {V, State1} = uniform_s(6, State0),
+    {case V of
+         1 -> [Z, Y, X | Acc];
+         2 -> [Y, Z, X | Acc];
+         3 -> [Z, X, Y | Acc];
+         4 -> [X, Z, Y | Acc];
+         5 -> [Y, X, Z | Acc];
+         6 -> [X, Y, Z | Acc]
+     end, State1};
+shuffle_r([X, Y, Z, Q], State0, Acc) ->
+    {V, State1} = uniform_s(24, State0),
+    {case V of
+         1  -> [Q, Z, Y, X | Acc];
+         2  -> [Z, Q, Y, X | Acc];
+         3  -> [Q, Y, Z, X | Acc];
+         4  -> [Y, Q, Z, X | Acc];
+         5  -> [Z, Y, Q, X | Acc];
+         6  -> [Y, Z, Q, X | Acc];
+         7  -> [Q, Z, X, Y | Acc];
+         8  -> [Z, Q, X, Y | Acc];
+         9  -> [Q, X, Z, Y | Acc];
+         10 -> [X, Q, Z, Y | Acc];
+         11 -> [Z, X, Q, Y | Acc];
+         12 -> [X, Z, Q, Y | Acc];
+         13 -> [Q, Y, X, Z | Acc];
+         14 -> [Y, Q, X, Z | Acc];
+         15 -> [Q, X, Y, Z | Acc];
+         16 -> [X, Q, Y, Z | Acc];
+         17 -> [Y, X, Q, Z | Acc];
+         18 -> [X, Y, Q, Z | Acc];
+         19 -> [Z, Y, X, Q | Acc];
+         20 -> [Y, Z, X, Q | Acc];
+         21 -> [Z, X, Y, Q | Acc];
+         22 -> [X, Z, Y, Q | Acc];
+         23 -> [Y, X, Z, Q | Acc];
+         24 -> [X, Y, Z, Q | Acc]
+     end, State1};
+%% General case - split and recursive shuffle
+shuffle_r([_, _, _, _ | _] = List, State0, Acc0) ->
+    {Zero, One, State1} = shuffle_split(List, State0),
+    {Acc1, State2} = shuffle_r(Zero, State1, Acc0),
+    shuffle_r(One, State2, Acc1).
+
+%% Split L into two random subsets: Zero and One
+%%
+shuffle_split(L, State) ->
+    shuffle_split(L, State, 1, [], []).
+%%
+shuffle_split([], State, _P, Zero, One) ->
+    {Zero, One, State};
+shuffle_split([_ | _] = L, State0, 1, Zero, One) ->
+    M = 1 bsl 56,
+    case uniform_s(M, State0) of
+        {V, State1} when is_integer(V), 1 =< V, V =< M ->
+            %% Setting the top bit M here provides the marker
+            %% for when we are out of random bits: P =:= 1
+            shuffle_split(L, State1, (V - 1) + M, Zero, One)
+    end;
+shuffle_split([X | L], State, P, Zero, One)
+  when is_integer(P), 1 < P, P < 1 bsl 57 ->
+    case P band 1 of
+        0 ->
+            shuffle_split(L, State, P bsr 1, [X | Zero], One);
+        1 ->
+            shuffle_split(L, State, P bsr 1, Zero, [X | One])
+    end.
 
 %% =====================================================================
 %% Internal functions
