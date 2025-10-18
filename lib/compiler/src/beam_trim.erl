@@ -24,7 +24,7 @@
 -moduledoc false.
 -export([module/2]).
 
--import(lists, [any/2,merge/1,reverse/2,seq/2,sort/1]).
+-import(lists, [any/2,merge/1,reverse/1,reverse/2,seq/2,sort/1]).
 
 -include("beam_asm.hrl").
 
@@ -151,18 +151,15 @@ construct_recipes(_, _, _, Acc) ->
     Acc.
 
 take_last_dead(L) ->
-    take_last_dead_1(L, []).
+    take_last_dead_1(reverse(L)).
 
-take_last_dead_1([{live,_}|T], Acc) ->
-    take_last_dead_1(T, Acc);
-take_last_dead_1([{kill,Reg}|T], Acc) ->
-    {Reg,reverse(T, Acc)};
-take_last_dead_1([{dead,Reg}|T], Acc) ->
-    {Reg,reverse(T, Acc)};
-take_last_dead_1([], _) ->
-    none;
-take_last_dead_1([H|T], Acc) ->
-    take_last_dead_1(T, [H|Acc]).
+take_last_dead_1([{live,_}|Is]) ->
+    take_last_dead_1(Is);
+take_last_dead_1([{kill,Reg}|Is]) ->
+    {Reg,reverse(Is)};
+take_last_dead_1([{dead,Reg}|Is]) ->
+    {Reg,reverse(Is)};
+take_last_dead_1(_) -> none.
 
 %% Is trimming too expensive?
 is_too_expensive({Ks,_,Moves}, NumOrigKills, IsTooExpensive) ->
@@ -209,7 +206,7 @@ is_recipe_viable({_,Trim,Moves}, UsedRegs) ->
     UsedEliminated = gb_sets:intersection(gb_sets:from_list(Eliminated), UsedRegs),
     case gb_sets:is_subset(UsedEliminated, Moved) andalso gb_sets:is_disjoint(Illegal, UsedRegs) of
         true ->
-            UsedEliminated = Moved,                        %Assertion.
+            true = gb_sets:is_equal(UsedEliminated, Moved),                        %Assertion.
             true;
         _ ->
             false
