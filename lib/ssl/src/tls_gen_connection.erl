@@ -205,8 +205,9 @@ queue_change_cipher(Msg, #state{connection_env = #connection_env{negotiated_vers
 
 reinit(#state{protocol_specific = #{sender := Sender},
               connection_env = #connection_env{negotiated_version = Version},
-              connection_states = #{current_write := Write}} = State0) ->
-    tls_sender:update_connection_state(Sender, Write, Version),
+              connection_states = #{current_write := Write} = ConnectionStates} = State0) ->
+    MaxFragLength = maps:get(max_fragment_length, ConnectionStates, undefined),
+    tls_sender:update_connection_state(Sender, Write, Version, MaxFragLength),
     State = reinit_handshake_data(State0),
     garbage_collect(),
     State.
