@@ -1401,6 +1401,8 @@ shuffle_s(List, {#{max:=_, next:=Next} = AlgHandler, R0})
 %%
 %% The `random_bit()` can be generated with small overhead by generating
 %% a random word and cache it, then shift out one bit at the time.
+%%
+%% Also, it is faster to do a 4-way split instead of a 2-way.
 
 %% Leaf cases - random permutations for 0..4 elements
 shuffle_r([], Acc, P, S) ->
@@ -1416,25 +1418,28 @@ shuffle_r([X, Y, Z, Q], Acc, P, S) ->
 %% General case - split and recursive shuffle
 shuffle_r([_, _, _, _ | _] = List, Acc, P, S) ->
     %% P and S is bitstream cache and state
-    shuffle_r(List, Acc, P, S, [], []).
+    shuffle_r(List, Acc, P, S, [], [], [], []).
 %%
-%% Split L into two random subsets: Zero and One
+%% Split L into 4 random subsets
 %%
-shuffle_r([], Acc0, P0, S0, Zero, One) ->
-    %% Split done, recursively shuffle Zero and One onto Acc
+shuffle_r([], Acc0, P0, S0, Zero, One, Two, Three) ->
+    %% Split done, recursively shuffle the splitted lists onto Acc
     {Acc1, P1, S1} = shuffle_r(Zero, Acc0, P0, S0),
-    shuffle_r(One, Acc1, P1, S1);
-shuffle_r([X | L], Acc, P, S, Zero, One)
-  when is_integer(P), 1 < P, P < 1 bsl 57 ->
-    case P band 1 of
-        0 ->
-            shuffle_r(L, Acc, P bsr 1, S, [X | Zero], One);
-        1 ->
-            shuffle_r(L, Acc, P bsr 1, S, Zero, [X | One])
+    {Acc2, P2, S2} = shuffle_r(One, Acc1, P1, S1),
+    {Acc3, P3, S3} = shuffle_r(Two, Acc2, P2, S2),
+    shuffle_r(Three, Acc3, P3, S3);
+shuffle_r([X | L], Acc, P0, S, Zero, One, Two, Three)
+  when is_integer(P0), 3 < P0, P0 < 1 bsl 57 ->
+    P1 = P0 bsr 2,
+    case P0 band 3 of
+        0 -> shuffle_r(L, Acc, P1, S, [X | Zero], One, Two, Three);
+        1 -> shuffle_r(L, Acc, P1, S, Zero, [X | One], Two, Three);
+        2 -> shuffle_r(L, Acc, P1, S, Zero, One, [X | Two], Three);
+        3 -> shuffle_r(L, Acc, P1, S, Zero, One, Two, [X | Three])
     end;
-shuffle_r([_ | _] = L, Acc, _P, S0, Zero, One) ->
+shuffle_r([_ | _] = L, Acc, _P, S0, Zero, One, Two, Three) ->
     [P|S1] = shuffle_new_bits(S0),
-    shuffle_r(L, Acc, P, S1, Zero, One).
+    shuffle_r(L, Acc, P, S1, Zero, One, Two, Three).
 
 %% Permute 2 elements
 shuffle_r_2(X, Acc, P, S, Y)
