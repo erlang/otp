@@ -31,7 +31,7 @@
 	 test_error/1, test_warning/1, otp_14285/1,
 	 test_if/1,source_name/1,otp_16978/1,otp_16824/1,scan_file/1,file_macro/1,
          deterministic_include/1, nondeterministic_include/1,
-         gh_8268/1,
+         gh_8268/1, gh_10280/1,
          moduledoc_include/1
         ]).
 
@@ -77,7 +77,7 @@ all() ->
      encoding, extends, function_macro, test_error, test_warning,
      otp_14285, test_if, source_name, otp_16978, otp_16824, scan_file, file_macro,
      deterministic_include, nondeterministic_include,
-     gh_8268,
+     gh_8268, gh_10280,
      moduledoc_include].
 
 groups() ->
@@ -2121,6 +2121,19 @@ gh_8268(Config) ->
     [] = run(Config, Ts),
     ok.
 
+gh_10280(Config) ->
+    Ts = [{fun_type,
+           <<"-define(FOO(X), X).
+              -type foo() :: ?FOO(fun(() -> ok)).
+              -type bar() :: ?FOO(fun((atom(), string()) -> undefined)).
+
+              -spec t() -> foo() | bar().
+              t() -> ok.
+            ">>,
+           [],
+           ok}],
+    [] = run(Config, Ts),
+    ok.
 
 %% Start location is 1.
 check(Config, Tests) ->
