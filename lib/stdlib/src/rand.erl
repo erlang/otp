@@ -1317,13 +1317,42 @@ normal_s(Mean, Variance, State0) when 0 =< Variance ->
     {Mean + (math:sqrt(Variance) * X), State}.
 
 
--spec shuffle(list()) -> list().
+-doc """
+Shuffle a list.
+
+Like `shuffle_s/2` but operates on the state stored in
+the process dictionary.  Returns the shuffled list.
+""".
+-doc(#{group => <<"Plug-in framework API">>,since => <<"OTP 29.0">>}).
+-spec shuffle(List :: list()) -> ShuffledList :: list().
 shuffle(List) ->
     {ShuffledList, State} = shuffle_s(List, seed_get()),
     _ = seed_put(State),
     ShuffledList.
 
--spec shuffle_s(list(), state()) -> {list(), state()}.
+-doc """
+Shuffle a list.
+
+From the specified `State` shuffles the elements in argument `List` so that,
+given that the [PRNG algorithm](#algorithms) in `State` is perfect,
+every possible permutation of the elements in the returned `ShuffledList`
+has the same probability.
+
+In other words, the quality of the shuffling depends only on
+the quality of the backend [random number generator](#algorithms)
+and [seed](`seed_s/1`).  If a cryptographically unpredictable
+shuffling is needed, use for example `crypto:rand_seed_alg_s/1`
+to initialize the random number generator.
+
+Returns the shuffled list [`ShuffledList`](`t:list/0`)
+and the [`NewState`](`t:state/0`).
+""".
+-doc(#{group => <<"Plug-in framework API">>,since => <<"OTP 29.0">>}).
+-spec shuffle_s(List, State) ->
+          {ShuffledList :: list(), NewState :: state()}
+              when
+      List         :: list(),
+      State        :: state().
 shuffle_s(List, {#{bits:=_, next:=Next} = AlgHandler, R0})
   when is_list(List) ->
     WeakLowBits = maps:get(weak_low_bits, AlgHandler, 0),
