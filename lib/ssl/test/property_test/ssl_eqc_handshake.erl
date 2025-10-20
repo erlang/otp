@@ -689,7 +689,7 @@ elliptic_curves(Version) when ?TLS_LT(Version, ?TLS_1_3) ->
 
 %% RFC 8446 (TLS 1.3) renamed the "elliptic_curve" extension.
 supported_groups(Version) when ?TLS_GTE(Version, ?TLS_1_3) ->
-    SupportedGroups = tls_v1:groups(),
+    SupportedGroups = tls_v1:groups(),   
     #supported_groups{supported_groups = SupportedGroups}.
 
 
@@ -773,10 +773,29 @@ generate_public_key(Group) when
        Group =:= mlkem1024 ->
     {PublicKey, _} = crypto:generate_key(Group, []),
     PublicKey;
+generate_public_key(x25519mlkem768 = Group) ->
+    {Curve, MLKem} = hybrid_algs(Group),
+    P2 = generate_public_key(Curve),
+    {P1,_} = crypto:generate_key(MLKem, []),
+    <<P1/binary, P2/binary>>;
+generate_public_key(Group) when
+       Group =:= secp256r1mlkem768 orelse
+       Group =:= secp384r1mlkem1024 ->
+    {Curve, MLKem} = hybrid_algs(Group),
+    P1 = generate_public_key(Curve),
+    {P2, _} = crypto:generate_key(MLKem, []),
+    <<P1/binary, P2/binary>>;
 generate_public_key(Group) ->
     {PublicKey, _} =
         public_key:generate_key(ssl_dh_groups:dh_params(Group)),
     PublicKey.
+
+hybrid_algs(x25519mlkem768)->
+    {x25519, mlkem768};
+hybrid_algs(secp256r1mlkem768) ->
+    {secp256r1, mlkem768};
+hybrid_algs(secp384r1mlkem1024) ->
+    {secp384r1, mlkem1024}.
 
 groups() ->
     Max = length(ssl:groups()),
