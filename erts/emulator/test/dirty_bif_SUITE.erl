@@ -41,7 +41,8 @@
 	 dirty_process_register/1,
 	 dirty_process_trace/1,
 	 code_purge/1,
-         otp_15688/1]).
+         otp_15688/1,
+         suspend_process/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -68,7 +69,8 @@ all() ->
      dirty_process_register,
      dirty_process_trace,
      code_purge,
-     otp_15688].
+     otp_15688,
+     suspend_process].
 
 init_per_suite(Config) ->
     case erlang:system_info(dirty_cpu_schedulers) of
@@ -541,7 +543,92 @@ otp_15688(Config) when is_list(Config) ->
             exit(See, kill),
             ct:fail({suspendee_stuck, PI})
     end.
-    
+
+suspend_process(Config) when is_list(Config) ->
+    Go = make_ref(),
+    AS = make_ref(),
+    Tester = self(),
+    P = spawn_link(fun () ->
+                           receive {Go, 1} -> ok end,
+                           Tester ! {Go, 2},
+                           erts_debug:dirty_io(wait, 500),
+                           receive {Go, 3}-> ok end,
+                           Tester ! {Go, 4},
+                           erts_debug:dirty_io(wait, 500),
+                           receive {Go, 5} -> ok end,
+                           Tester ! {Go, 6},
+                           erts_debug:dirty_cpu(wait, 500),
+                           receive {Go, 7} -> ok end,
+                           Tester ! {Go, 8},
+                           erts_debug:dirty_cpu(wait, 500)
+                   end),
+
+    %% Sync DIO
+    {status, Status1} = erlang:process_info(P, status),
+    false = Status1 == suspended,
+
+    P ! {Go, 1},
+    receive {Go, 2} -> ok end,
+    erlang:yield(),
+    true = erlang:suspend_process(P),
+
+    {status, Status2} = erlang:process_info(P, status),
+    true = Status2 == suspended,
+
+    true = erlang:resume_process(P),
+
+    %% Async DIO
+    {status, Status3} = erlang:process_info(P, status),
+    false = Status3 == suspended,
+
+    P ! {Go, 3},
+    receive {Go, 4} -> ok end,
+    erlang:yield(),
+
+    true = erlang:suspend_process(P, [{asynchronous, AS}]),
+    receive {AS, What1} -> suspended = What1 end,
+
+    {status, Status4} = erlang:process_info(P, status),
+    true = Status4 == suspended,
+
+    true = erlang:resume_process(P),
+
+    %% Sync DCPU
+    {status, Status5} = erlang:process_info(P, status),
+    false = Status5 == suspended,
+
+    P ! {Go, 5},
+    receive {Go, 6} -> ok end,
+    erlang:yield(),
+
+    true = erlang:suspend_process(P),
+
+    {status, Status6} = erlang:process_info(P, status),
+    true = Status6 == suspended,
+
+    true = erlang:resume_process(P),
+
+    %% Async DCPU
+    {status, Status7} = erlang:process_info(P, status),
+    false = Status7 == suspended,
+
+    P ! {Go, 7},
+    receive {Go, 8} -> ok end,
+    erlang:yield(),
+
+    true = erlang:suspend_process(P, [{asynchronous, AS}]),
+    receive {AS, What2} -> suspended = What2 end,
+
+    {status, Status8} = erlang:process_info(P, status),
+    true = Status8 == suspended,
+
+    true = erlang:resume_process(P),
+
+    unlink(P),
+    exit(P, kill),
+    false = is_process_alive(P),
+
+    ok.
 
 %%
 %% Internal...

@@ -5489,6 +5489,7 @@ sync_suspend_reply(Process *c_p, ErtsMessage *mp, erts_aint32_t state)
      */
     Process *rp;
     ErtsSyncSuspendRequest *ssusp;
+    int is_managed;
 
     ssusp = (ErtsSyncSuspendRequest *) (char *) (&mp->hfrag.mem[0]
                                                  + mp->hfrag.used_size);
@@ -5508,7 +5509,10 @@ sync_suspend_reply(Process *c_p, ErtsMessage *mp, erts_aint32_t state)
     mp->data.attached = ERTS_MSG_COMBINED_HFRAG;
     mp->next = NULL;
 
-    rp = erts_proc_lookup(ssusp->requester);
+    is_managed = erts_thr_progress_is_managed_thread();
+    rp = (is_managed
+          ? erts_proc_lookup(ssusp->requester)
+          : erts_proc_lookup_inc_refc(ssusp->requester));
     if (!rp)
         erts_cleanup_messages(mp);
     else {
@@ -5527,6 +5531,8 @@ sync_suspend_reply(Process *c_p, ErtsMessage *mp, erts_aint32_t state)
         }
         ERL_MESSAGE_TOKEN(mp) = am_undefined;
         erts_queue_proc_message(c_p, rp, 0, mp, ssusp->message);
+        if (!is_managed)
+            erts_proc_dec_refc(rp);
     }
 }
 
@@ -5666,6 +5672,8 @@ erts_proc_sig_handle_pending_suspend(Process *c_p)
 
         msp = next_msp;
     }
+
+    state = erts_atomic32_read_nob(&c_p->state);
 
     sync = psusp->sync;
 
