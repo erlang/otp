@@ -179,6 +179,15 @@ The semantics of each of the possible return values are as follows.
   return value (for example, from a `c:handle_error/4` callback) causes the
   request to be answered with 3002 (DIAMETER_UNABLE_TO_DELIVER).
 
+  This return value can be used only in relay applications
+  (Application identifier = 0xFFFFFFFF).
+
+- **`{proxy, Opts}`** - Like `relay` but can only be used in applications other
+  then the relay application.
+
+- **`{resend, Opts}`** - Neutral alternative to `relay` and `proxy` that can be
+  used in any application.
+
 - **`discard`** - Discard the request. No answer message is sent to the peer.
 
 - **`{eval, Action, PostF}`** - Handle the request as if `Action` has been
