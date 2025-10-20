@@ -726,6 +726,8 @@ i_case_3(Vs, Env, E, S) ->
 i_clauses(Cs, Ctxt, Ren, Env, S) ->
     i_clauses([], Cs, Ctxt, Ren, Env, S).
 
+%% REUSE-IgnoreStart
+
 i_clauses(Es, Cs, Ctxt, Ren, Env, S) ->
     %% Create templates for the switch expressions.
     {Ts, {Vs, Env0}} = mapfoldl(fun (E, {Vs, Env_i}) ->
@@ -837,6 +839,8 @@ i_clause_head(C, Ts, Ren, Env, S) ->
     C1 = update_c_clause(C, Ps1, G1, B),
     {set_clause_extras(C1, Ren1, Env1, Size), revert_size(S, S5)}.
 
+%% REUSE-IgnoreEnd
+
 add_match_bindings(Bs, E) ->
     %% Don't waste time if the variables definitely cannot be used.
     %% (Most guards are simply `true'.)
@@ -849,12 +853,16 @@ add_match_bindings(Bs, E) ->
 	    c_let(Vs, c_values(Es), E)
     end.
 
+%% REUSE-IgnoreStart
+
 i_clause_body(C0, Ctxt, S) ->
     {C, Ren, Env, Size} = get_clause_extras(C0),
     S1 = count_size(Size, S),
     {B, S2} = i(clause_body(C), Ctxt, Ren, Env, S1),
     C1 = update_c_clause(C, clause_pats(C), clause_guard(C), B),
     {C1, S2}.
+
+%% REUSE-IgnoreEnd
 
 get_clause_extras(C) ->
     [{Ren, Env, Size} | As] = get_ann(C),
