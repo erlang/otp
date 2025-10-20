@@ -23,6 +23,34 @@ limitations under the License.
 
 This document describes the changes made to the SSL application.
 
+## SSL 11.4.1
+
+### Fixed Bugs and Malfunctions
+
+- Fixed so that sending of application data will adhere to max_fragment_length. This was broken in OTP-27 release by an optimization.
+
+  Own Id: OTP-19774 Aux Id: [GH-10191], [PR-10201]
+
+- PR-10046 put to hard requirements on key file content. Make sure same file can be used as keyfile and certfile
+
+  Own Id: OTP-19780 Aux Id: [GH-10217], [GH-10212], [PR-10221]
+
+- Assert that hello extensions are unique and send an illegal parameter alert if they are not.
+
+  Own Id: OTP-19791 Aux Id: [PR-10245]
+
+- Avoid sending an internal message to the user process in conjunction with handling a key update.
+
+  Own Id: OTP-19806 Aux Id: [PR-10274]
+
+[GH-10191]: https://github.com/erlang/otp/issues/10191
+[PR-10201]: https://github.com/erlang/otp/pull/10201
+[GH-10217]: https://github.com/erlang/otp/issues/10217
+[GH-10212]: https://github.com/erlang/otp/issues/10212
+[PR-10221]: https://github.com/erlang/otp/pull/10221
+[PR-10245]: https://github.com/erlang/otp/pull/10245
+[PR-10274]: https://github.com/erlang/otp/pull/10274
+
 ## SSL 11.4
 
 ### Fixed Bugs and Malfunctions
