@@ -2125,6 +2125,8 @@ make_new_atoms(Config) when is_list(Config) ->
     0 = make_new_atom(TooLong4ByteUtf8AtomText, ?ERL_NIF_UTF8),
     ok.
 
+%% REUSE-IgnoreStart
+
 %% Test enif_make_existing_atom_len
 make_existing_atoms(Config) when is_list(Config) ->
     ensure_lib_loaded(Config, 1),
@@ -2204,6 +2206,8 @@ make_existing_atoms(Config) when is_list(Config) ->
     0 = make_existing_atom(Longest4ByteUtf8AtomTextNE, ?ERL_NIF_UTF8),
     0 = make_existing_atom(TooLong4ByteUtf8AtomText, ?ERL_NIF_UTF8),
     ok.
+
+%% REUSE-IgnoreEnd
 
 %% Test NIF maps handling.
 maps(Config) when is_list(Config) ->

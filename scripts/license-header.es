@@ -21,6 +21,8 @@
 %%
 %% %CopyrightEnd%
 
+
+%% REUSE-IgnoreStart
 -include_lib("kernel/include/file.hrl").
 -export([read_file_info/1, read_link_info/1, list_dir/1]).
 
@@ -751,3 +753,5 @@ pmap_loop(Parent, MonitorRef, ParentMonitor) ->
             Parent ! {done, self(), MonitorRef, Res},
             pmap_loop(Parent, MonitorRef, ParentMonitor)
     end.
+
+%% REUSE-IgnoreEnd
