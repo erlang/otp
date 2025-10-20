@@ -23,6 +23,17 @@ limitations under the License.
 
 Releases are listed in reverse chronological order, most recent first.
 
+## diameter 2.5.2
+
+### Fixed Bugs and Malfunctions
+
+- Added documentation about 'proxy' and 'resend' options in diameter:handle_request/3
+
+  Own Id: OTP-19768 Aux Id: [GH-10150], [PR-10182]
+
+[GH-10150]: https://github.com/erlang/otp/issues/10150
+[PR-10182]: https://github.com/erlang/otp/pull/10182
+
 ## diameter 2.5.1
 
 ### Fixed Bugs and Malfunctions

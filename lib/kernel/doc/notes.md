@@ -23,6 +23,16 @@ limitations under the License.
 
 This document describes the changes made to the Kernel application.
 
+## Kernel 10.4.1
+
+### Fixed Bugs and Malfunctions
+
+- With this change group.erl will not crash when receiving unknown message.
+
+  Own Id: OTP-19796 Aux Id: ERIERL-1264, [PR-10248]
+
+[PR-10248]: https://github.com/erlang/otp/pull/10248
+
 ## Kernel 10.4
 
 ### Fixed Bugs and Malfunctions

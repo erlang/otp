@@ -23,6 +23,21 @@ limitations under the License.
 
 This document describes the changes made to the ERTS application.
 
+## Erts 16.1.1
+
+### Fixed Bugs and Malfunctions
+
+- Fixed the `erl` documentation of the default timewarp mode used.
+
+  Own Id: OTP-19790 Aux Id: [PR-9970]
+
+- The `erlang:suspend_process()` BIFs failed to suspend processes currently executing on dirty schedulers.
+
+  Own Id: OTP-19799 Aux Id: [PR-10241]
+
+[PR-9970]: https://github.com/erlang/otp/pull/9970
+[PR-10241]: https://github.com/erlang/otp/pull/10241
+
 ## Erts 16.1
 
 ### Fixed Bugs and Malfunctions
