@@ -1244,7 +1244,7 @@ filter_attrs(#class{name=Name, parent=Parent,attributes=Attrs}) ->
 gen_funcnames() ->
     Ns = get_unique_names(),
     open_write("../src/gen/wxe_funcs.hrl"),
-    erl_copyright(),
+    erl_wx_copyright(),
     w("%% This file is generated DO NOT EDIT~n~n", []),
     w("%% We define each id so we don't get huge diffs when adding new funcs/classes~n~n",[]),
     [w("-define(~s_~s, ~p).~n", [Class,Name,Id]) || {Class,Name,_,Id} <- Ns],
