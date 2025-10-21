@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -115,7 +117,7 @@ end_per_suite(Config) ->
 -define(TESTMODOBJ, ?TESTMODSTR ".beam").
 
 init_per_testcase(big_boot_embedded, Config) ->
-    case catch crypto:start() of
+    case catch application:start(crypto) of
 	ok ->
 	    init_per_testcase(do_big_boot_embedded, Config);
 	_Else ->

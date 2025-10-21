@@ -1,15 +1,10 @@
 ;;; erlang.el --- Major modes for editing and running Erlang -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2004  Free Software Foundation, Inc.
-;; Author:   Anders Lindgren
-;; Keywords: erlang, languages, processes
-;; Date:     2011-12-11
-;; Version:  2.8.4
-;; Package-Requires: ((emacs "24.3"))
-
 ;; %CopyrightBegin%
 ;;
-;; Copyright Ericsson AB 1996-2024. All Rights Reserved.
+;; SPDX-License-Identifier: Apache-2.0
+;;
+;; Copyright Ericsson AB 1996-2025. All Rights Reserved.
 ;;
 ;; Licensed under the Apache License, Version 2.0 (the "License");
 ;; you may not use this file except in compliance with the License.
@@ -24,7 +19,13 @@
 ;; limitations under the License.
 ;;
 ;; %CopyrightEnd%
-;;
+
+;; Copyright (C) 2004  Free Software Foundation, Inc.
+;; Author:   Anders Lindgren
+;; Keywords: erlang, languages, processes
+;; Date:     2011-12-11
+;; Version:  2.8.6
+;; Package-Requires: ((emacs "24.3"))
 
 ;; Lars Thorsén's modifications of 2000-06-07 included.
 ;; The original version of this package was written by Robert Virding.
@@ -80,6 +81,7 @@
 (require 'comint)
 (require 'tempo)
 (require 'cl-lib)
+(require 'advice)
 
 ;;; `caddr' is builtin since Emacs 26.
 (eval-and-compile
@@ -92,7 +94,7 @@
   "The Erlang programming language."
   :group 'languages)
 
-(defconst erlang-version "2.8.5"
+(defconst erlang-version "2.8.6"
   "The version number of Erlang mode.")
 
 (defcustom erlang-root-dir nil
@@ -498,8 +500,8 @@ To activate the workaround, place the following in your `~/.emacs' file:
 nil means keeping default behavior.  When non-nil, indent to the column of
 if/case/receive."
   :group 'erlang
-  :type 'boolean
-  :safe 'booleanp)
+  :type '(restricted-sexp :match-alternatives (integerp 'nil))
+  :safe (lambda (val) (or (eq val nil) (integerp val))))
 
 (defcustom erlang-indent-guard 2
   "Indentation of Erlang guards."
@@ -576,6 +578,10 @@ matches REGEXP specifies FUNCTION to use to compute the compilation
 command. The FUNCTION will be called with two arguments: module name and
 default compilation options, like output directory. The FUNCTION
 is expected to return a string.")
+
+(defvar erlang-compilation-parsing-end nil
+  "The position after last compilation command")
+
 
 (defvar erlang-leex-compile-opts '()
   "Options to pass to leex when compiling xrl files.
@@ -993,6 +999,8 @@ resulting regexp is surrounded by \\_< and \\_>."
       "posixtime_to_universaltime"
       "prepare_loading"
       "process_display"
+      "processes_iterator"
+      "processes_next"
       "raise"
       "read_timer"
       "resume_process"
@@ -1186,7 +1194,7 @@ behaviour.")
 
 (defvar erlang-font-lock-keywords-lc
   (list
-   (list "\\(<-\\|<=\\|||\\)\\(\\s \\|$\\)" 1 'font-lock-keyword-face))
+   (list "\\(<-\\|<:-\\|<=\\|<:=\\|||\\|&&\\)\\(\\s \\|$\\)" 1 'font-lock-keyword-face))
   "Font lock keyword highlighting list comprehension operators.")
 
 (defvar erlang-font-lock-keywords-keywords
@@ -1262,7 +1270,7 @@ This must be placed in front of `erlang-font-lock-keywords-vars'.")
   "Font lock keyword highlighting Erlang variables.
 Must be preceded by `erlang-font-lock-keywords-macros' to work properly.")
 
-(defvar erlang-font-lock-descr-string
+(defmacro erlang-font-lock-descr-string ()
   "Font-lock keywords used by Erlang Mode.
 
 There exists three levels of Font Lock keywords for Erlang:
@@ -1286,7 +1294,7 @@ Example:
           erlang-font-lock-keywords-keywords
           )
   ;; DocStringOrig: erlang-font-lock-keywords
-  erlang-font-lock-descr-string)
+  (erlang-font-lock-descr-string))
 
 (defvar erlang-font-lock-keywords-2
   (append erlang-font-lock-keywords-1
@@ -1297,7 +1305,7 @@ Example:
           erlang-font-lock-keywords-guards
           )
   ;; DocStringCopy: erlang-font-lock-keywords
-  erlang-font-lock-descr-string)
+  (erlang-font-lock-descr-string))
 
 (defvar erlang-font-lock-keywords-3
   (append erlang-font-lock-keywords-2
@@ -1308,7 +1316,7 @@ Example:
           erlang-font-lock-keywords-predefined-types
           )
   ;; DocStringCopy: erlang-font-lock-keywords
-  erlang-font-lock-descr-string)
+  (erlang-font-lock-descr-string))
 
 (defvar erlang-font-lock-keywords-4
   (append erlang-font-lock-keywords-3
@@ -1319,11 +1327,11 @@ Example:
           erlang-font-lock-keywords-lc
           )
   ;; DocStringCopy: erlang-font-lock-keywords
-  erlang-font-lock-descr-string)
+  (erlang-font-lock-descr-string))
 
 (defvar erlang-font-lock-keywords erlang-font-lock-keywords-4
   ;; DocStringCopy: erlang-font-lock-keywords
-  erlang-font-lock-descr-string)
+  (erlang-font-lock-descr-string))
 
 (defvar erlang-font-lock-syntax-table nil
   "Syntax table used by Font Lock mode.
@@ -1513,7 +1521,7 @@ Other commands:
          ))
     (add-to-list 'align-rules-list
       `(erlang-generator-arrows
-         (regexp   . ,(concat space-group "\\(<-\\|<=\\)" space-group))
+         (regexp   . ,(concat space-group "\\(<-\\|<:-\\|<=\\|<:=\\|&&\\)" space-group))
          (group    . (1 3))
          (separate . ,(concat "\\(||\\|" erl-sep-forms "\\|" erl-sep-symbols "\\)"))
          (repeat   . t)
@@ -1609,7 +1617,9 @@ Other commands:
   (put 'bitsyntax-close-outer 'syntax-table '(5 . ?<))
   (put 'bitsyntax-close-outer 'rear-nonsticky '(category))
   (make-local-variable 'parse-sexp-lookup-properties)
-  (setq parse-sexp-lookup-properties 't))
+  (setq parse-sexp-lookup-properties 't)
+  (add-hook 'post-self-insert-hook
+    #'erlang-electric-pair-string-delimiter 'append t))
 
 
 (defun erlang-mode-variables ()
@@ -2389,9 +2399,6 @@ buffer more accurate."
              function-name
              module-name)))
 
-;; Should the defadvice be at the top level, the package `advice' would
-;; be required.  Now it is only required when this functionality
-;; is used.  (Emacs 19 specific.)
 (defun erlang-man-patch-notify ()
   "Patch the function `Man-notify-when-ready' to search for function.
 The variable `erlang-man-function-name' is assumed to be bound to
@@ -2399,23 +2406,17 @@ the function name, or to nil.
 
 The reason for patching a function is that under Emacs 19, the man
 command is executed asynchronously."
-  (condition-case nil
-      (require 'advice)
-    ;; This should never happened since this is only called when
-    ;; running under Emacs 19.
-    (error (error (concat "This command needs the package `advice', "
-                          "please upgrade your Emacs."))))
   (require 'man)
-  (defadvice Man-notify-when-ready
-      (after erlang-Man-notify-when-ready activate)
-    "Set point at the documentation of the function name in
+  (if (fboundp 'advice-add)
+    (advice-add 'Man-notify-when-ready :after
+      #'erlang-man-function-name-advice)))
+
+(defun erlang-man-function-name-advice (arg)
+  "Set point at the documentation of the function name in
 `erlang-man-function-name' when the man page is displayed."
-    (if erlang-man-function-name
-        (erlang-man-repeated-search-for-function (ad-get-arg 0)
-                                                 erlang-man-function-name)
-      (setq erlang-man-function-name nil))))
-
-
+  (if erlang-man-function-name
+    (erlang-man-repeated-search-for-function arg erlang-man-function-name)
+    (setq erlang-man-function-name nil)))
 
 
 (defun erlang-man-find-function (buf func &optional module-name)
@@ -2713,6 +2714,7 @@ This is automagically called by the user level function `indent-region'."
       (goto-char beg)
       (beginning-of-line)
       (setq indent-point (point))
+      (erlang-string-start)
       (erlang-beginning-of-clause)
       ;; Parse the Erlang code from the beginning of the clause to
       ;; the beginning of the region.
@@ -2793,7 +2795,6 @@ This is automagically called by the user level function `indent-region'."
 (defmacro erlang-push (x stack) (list 'setq stack (list 'cons x stack)))
 (defmacro erlang-pop (stack) (list 'setq stack (list 'cdr stack)))
 
-
 (defun erlang-calculate-indent (&optional parse-start)
   "Compute appropriate indentation for current line as Erlang code.
 Return nil if line starts inside string, t if in a comment."
@@ -2802,7 +2803,8 @@ Return nil if line starts inside string, t if in a comment."
           (case-fold-search nil)
           (state nil))
       (if parse-start
-          (goto-char parse-start)
+        (goto-char parse-start)
+        (erlang-string-start)
         (erlang-beginning-of-clause))
       (while (< (point) indent-point)
         (let ((pt (point)))
@@ -2819,7 +2821,8 @@ Return nil if line starts inside string, t if in a comment."
   (save-excursion
     (let ((starting-point (point))
           (case-fold-search nil)
-          (state nil))
+           (state nil))
+      (erlang-string-start)
       (erlang-beginning-of-clause)
       (while (< (point) starting-point)
         (setq state (erlang-partial-parse (point) starting-point state)))
@@ -2832,12 +2835,24 @@ Value is list (stack token-start token-type in-what)."
   (goto-char from)                      ; Start at the beginning
   (erlang-skip-blank to)
   (let ((cs (char-syntax (following-char)))
-        (stack (car state))
-        (token (point))
-        in-what)
+         (stack (car state))
+         (token (point))
+         in-what)
     (cond
+      ((and stack (eq (car (car stack)) 'string))
+        (goto-char (car (cdr (car stack))))  ;; String start
+        (condition-case nil
+          (progn
+            (forward-sexp 1)
+            (if (<= (point) to)
+              (erlang-pop stack)
+              (setq in-what 'string)
+              ))
+          (error
+            (setq in-what 'string)
+            (goto-char to))))
 
-     ;; Done: Return previous state.
+      ;; Done: Return previous state.
      ((>= token to)
       (setq token (nth 1 state))
       (setq cs (nth 2 state))
@@ -2920,16 +2935,18 @@ Value is list (stack token-start token-type in-what)."
       (forward-sexp 1))
      ;; String: Try to skip over it. (Catch error if not complete.)
      ((= cs ?\")
-      (condition-case nil
-          (progn
-            (forward-sexp 1)
-            (if (> (point) to)
-                (progn
-                  (setq in-what 'string)
-                  (goto-char to))))
-        (error
-         (setq in-what 'string)
-         (goto-char to))))
+       (condition-case nil
+         (progn
+           (forward-sexp 1)
+           (if (> (point) to)
+             (progn
+               (erlang-push (list 'string token (current-column)) stack)
+               (setq in-what 'string)
+               (goto-char to))
+             ))
+         (error
+           (setq in-what 'string)
+           (goto-char to))))
 
      ;; Expression prefix e.i. $ or ^ (Note ^ can be in the character
      ;; literal $^ or part of string and $ outside of a string denotes
@@ -3490,6 +3507,18 @@ commands."
 ;; The current implementation makes it hopeless to use the functions as
 ;; subroutines in more complex commands.   /andersl
 
+(defun erlang-string-start ()
+  "If inside a string (or comment), move to the beginning of the string"
+
+  ;; This is not perfect because of erlang.el handling of multiline strings but better than before
+  (beginning-of-line)
+  (let ((string-start-pos (nth 8 (syntax-ppss))))
+    (while string-start-pos
+      (goto-char string-start-pos)
+      (beginning-of-line)  ;; Hack to handle "" inside """  """
+      (setq string-start-pos (nth 8 (syntax-ppss)))
+      )))
+
 (defun erlang-beginning-of-clause (&optional arg)
   "Move backward to previous start of clause.
 With argument, do this that many times.
@@ -3506,11 +3535,11 @@ Return t unless search stops due to end of buffer."
               (forward-char 1))
         (forward-char -1)
         (if (looking-at "\\`\n")
-            (forward-char 1))))
+          (forward-char 1))))
   ;; The regexp matches a function header that isn't
   ;; included in a string.
   (and (re-search-forward "\\(\\`\\|\\`\n\\|[^\\]\n\\)\\(-?[a-z]\\|'\\|-\\)"
-                          nil 'move (- arg))
+         nil 'move (- arg))
        (let ((beg (match-beginning 2)))
          (and beg (goto-char beg))
          t)))
@@ -4391,6 +4420,18 @@ non-whitespace characters following the point on the current line."
                                   '(category nil))
           (forward-char 1))))))
 
+(defun erlang-electric-pair-string-delimiter ()
+  "Check if a third double-quote was just inserted, and if so, insert three more."
+  (when (and electric-pair-mode
+             (eq last-command-event ?\")
+             (let ((count 0))
+               (while (eq (char-before (- (point) count)) last-command-event)
+                 (cl-incf count))
+               (= count 3))
+             (eq (char-after) last-command-event))
+    (insert ?\n)
+    (save-excursion (insert "\n\"\""))))
+
 (defun erlang-after-bitsyntax-close ()
   "Return t if point is immediately after a bit-syntax close parenthesis (`>>')."
   (and (>= (point) 3)
@@ -5076,19 +5117,11 @@ for a tag on the form `module:tag'."
 ;;; completion-table' containing all normal tags plus tags on the form
 ;;; `module:tag' and `module:'.
 
-(if (fboundp 'advice-add)
-    ;; Emacs 24.4+
-    (progn
-      (require 'etags)
-      (advice-add 'etags-tags-completion-table :around
-                  #'erlang-etags-tags-completion-table-advice))
-  ;; Emacs 23.1-24.3
-  (defadvice etags-tags-completion-table (around
-                                          erlang-replace-tags-table
-                                          activate)
-    (if erlang-replace-etags-tags-completion-table
-        (setq ad-return-value (erlang-etags-tags-completion-table))
-      ad-do-it)))
+(progn
+  (require 'etags)
+  (if (fboundp 'advice-add)
+    (advice-add 'etags-tags-completion-table :around
+      #'erlang-etags-tags-completion-table-advice)))
 
 (defun erlang-etags-tags-completion-table-advice (oldfun)
   (if erlang-replace-etags-tags-completion-table
@@ -6084,7 +6117,7 @@ Return the position after the newly inserted command."
                       (not (eq (point) (point-max))))
           (delete-char 1)
           (or (bolp)
-              (backward-delete-char 1))))))
+            (delete-char -1))))))
 
 
 ;; Basically `comint-strip-ctrl-m', with a few extra checks.
@@ -6138,9 +6171,9 @@ There exists two workarounds for this bug:
     (sit-for 0)
     (inferior-erlang-wait-prompt)
     (with-current-buffer inferior-erlang-buffer
-      (when (and (boundp 'compilation-error-list) (boundp 'compilation-parsing-end))
-        (setq compilation-error-list nil)
-        (set-marker compilation-parsing-end end)))
+      (set-marker erlang-compilation-parsing-end end)
+      (when (boundp 'compilation-error-list)
+        (setq compilation-error-list nil)))
     (setq next-error-last-buffer inferior-erlang-buffer)))
 
 (defun inferior-erlang-prepare-for-input (&optional no-display)
@@ -6363,9 +6396,12 @@ The default is to go to the directory of the current buffer."
         (match-string 0))))
 
 (defconst erlang-unload-hook
-  (list (lambda ()
-          (ad-unadvise 'Man-notify-when-ready)
-          (ad-unadvise 'set-visited-file-name))))
+  (if (fboundp 'advice-remove)
+    (list (lambda ()
+            (advice-remove 'Man-notify-when-ready
+              #'erlang-man-function-name-advice)
+            (advice-remove 'etags-tags-completion-table
+              #'erlang-etags-tags-completion-table-advice)))))
 
 ;; The end...
 

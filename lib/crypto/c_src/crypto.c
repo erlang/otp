@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2010-2024. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2010-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -102,6 +104,9 @@ static ErlNifFunc nif_funcs[] = {
     {"pkey_sign_nif", 5, pkey_sign_nif, 0},
     {"pkey_verify_nif", 6, pkey_verify_nif, 0},
     {"pkey_crypt_nif", 6, pkey_crypt_nif, 0},
+    {"encapsulate_key_nif", 2, encapsulate_key_nif, 0},
+    {"decapsulate_key_nif", 3, decapsulate_key_nif, 0},
+    {"kem_algorithms_nif", 0, kem_algorithms_nif, 0},
     {"rsa_generate_key_nif", 2, rsa_generate_key_nif, 0},
     {"dh_generate_key_nif", 4, dh_generate_key_nif, 0},
     {"dh_compute_key_nif", 3, dh_compute_key_nif, 0},
@@ -118,6 +123,8 @@ static ErlNifFunc nif_funcs[] = {
     {"rand_seed_nif", 1, rand_seed_nif, 0},
 
     {"aead_cipher_nif", 7, aead_cipher_nif, 0},
+    {"aead_cipher_nif", 4, aead_cipher_nif, 0},
+    {"aead_cipher_init_nif", 4, aead_cipher_init_nif, 0},
 
     {"engine_by_id_nif", 1, engine_by_id_nif, 0},
     {"engine_init_nif", 1, engine_init_nif, 0},
@@ -137,6 +144,9 @@ static ErlNifFunc nif_funcs[] = {
 };
 
 #ifdef HAS_3_0_API
+# ifdef FIPS_SUPPORT
+OSSL_PROVIDER *fips_provider;
+# endif
 OSSL_PROVIDER *prov[MAX_NUM_PROVIDERS];
 int prov_cnt;
 #endif
@@ -224,6 +234,10 @@ static int initialize(ErlNifEnv* env, ERL_NIF_TERM load_info)
     if (!init_cipher_ctx(env, &rt_buf)) {
         ret = __LINE__; goto done;
     }
+    if (!init_aead_cipher_ctx(env, &rt_buf)) {
+        ret = __LINE__; goto done;
+    }
+
     if (!init_engine_ctx(env, &rt_buf)) {
         ret = __LINE__; goto done;
     }
@@ -249,20 +263,20 @@ static int initialize(ErlNifEnv* env, ERL_NIF_TERM load_info)
 #ifdef HAS_3_0_API
     prov_cnt = 0;
 # ifdef FIPS_SUPPORT
-    if ((prov[prov_cnt] = OSSL_PROVIDER_load(NULL, "fips"))) {
-        prov_cnt++;
-    }
+    fips_provider = OSSL_PROVIDER_load(NULL, "fips");
 # endif
     if (!(prov[prov_cnt++] = OSSL_PROVIDER_load(NULL, "default"))) {
         ret = __LINE__; goto done;
     }
     if (!(prov[prov_cnt++] = OSSL_PROVIDER_load(NULL, "base"))) {
-        ret = __LINE__; goto done;
+            ret = __LINE__; goto done;
     }
     if ((prov[prov_cnt] = OSSL_PROVIDER_load(NULL, "legacy"))) {
         /* Don't fail loading if the legacy provider is missing */
         prov_cnt++;
     }
+    prefetched_sign_algo_init();
+
 #endif
 
     if (!init_atoms(env)) {
@@ -385,11 +399,16 @@ static void unload(ErlNifEnv* env, void* priv_data)
         destroy_curve_mutex();
         destroy_engine_mutex(env);
 
-#ifdef HAS_3_0_API
-        while (prov_cnt > 0) {
-            OSSL_PROVIDER_unload(prov[--prov_cnt]);
-        }
-#endif
+        /*
+         * We do not do any OpenSSL cleanup here as we are not sure the lib
+         * will actually be unloaded. For example
+         * + With  musl libc, dlclose() is a no-op.
+         * + On MacOS with statically linked OpenSSL crypto.so has been seen to
+         *   be locked in place after OSSL_provider_load() has been called.
+         *
+         * So, we rely on OpenSSL doing automatic cleanup with its own "atexit"
+         * handler if the lib is actually unloaded.
+         */
     }
 }
 

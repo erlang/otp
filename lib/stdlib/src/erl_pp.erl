@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -61,7 +63,7 @@ expressions.
 -define(DEFAULT_INDENT, 4).
 
 -doc """
-Optional argument `HookFunction`{: #hook_function }, shown in the functions
+Optional argument `HookFunction`, shown in the functions
 described in this module, defines a function that is called when an unknown form
 occurs where there is to be a valid expression. If `HookFunction` is equal to
 `none`, there is no hook function.
@@ -402,6 +404,8 @@ lattribute({attribute,_Anno,type,Type}, Opts) ->
     [typeattr(type, Type, Opts),leaf(".\n")];
 lattribute({attribute,_Anno,opaque,Type}, Opts) ->
     [typeattr(opaque, Type, Opts),leaf(".\n")];
+lattribute({attribute,_Anno,nominal,Type}, Opts) ->
+    [typeattr(nominal, Type, Opts),leaf(".\n")];
 lattribute({attribute,_Anno,spec,Arg}, _Opts) ->
     [specattr(spec, Arg),leaf(".\n")];
 lattribute({attribute,_Anno,callback,Arg}, _Opts) ->
@@ -843,6 +847,8 @@ lexpr({remote,_,M,F}, Prec, Opts) ->
 %% BIT SYNTAX:
 lexpr({bin,_,Fs}, _, Opts) ->
     bit_grp(Fs, Opts);
+lexpr({debug_line,Line,Index}, _Prec, _Opts) ->
+    leaf(format("beam_instruction:debug_line(~p, ~p)", [Line,Index]));
 lexpr({executable_line,Line,Index}, _Prec, _Opts) ->
     leaf(format("beam_instruction:executable_line(~p, ~p)", [Line,Index]));
 %% Special case for straight values.
@@ -1047,15 +1053,26 @@ clauses(Type, Opts, Cs) ->
 lc_quals(Qs, Opts) ->
     {prefer_nl,[$,],lexprs(Qs, fun lc_qual/2, Opts)}.
 
+lc_qual({zip,_,Qs}, Opts) ->
+    {prefer_nl,["&&"],lexprs(Qs, fun lc_qual/2, Opts)};
 lc_qual({m_generate,_,Pat,E}, Opts) ->
     Pl = map_field(Pat, Opts),
     {list,[{step,[Pl,leaf(" <-")],lexpr(E, 0, Opts)}]};
+lc_qual({m_generate_strict,_,Pat,E}, Opts) ->
+    Pl = map_field(Pat, Opts),
+    {list,[{step,[Pl,leaf(" <:-")],lexpr(E, 0, Opts)}]};
 lc_qual({b_generate,_,Pat,E}, Opts) ->
     Pl = lexpr(Pat, 0, Opts),
     {list,[{step,[Pl,leaf(" <=")],lexpr(E, 0, Opts)}]};
+lc_qual({b_generate_strict,_,Pat,E}, Opts) ->
+    Pl = lexpr(Pat, 0, Opts),
+    {list,[{step,[Pl,leaf(" <:=")],lexpr(E, 0, Opts)}]};
 lc_qual({generate,_,Pat,E}, Opts) ->
     Pl = lexpr(Pat, 0, Opts),
     {list,[{step,[Pl,leaf(" <-")],lexpr(E, 0, Opts)}]};
+lc_qual({generate_strict,_,Pat,E}, Opts) ->
+    Pl = lexpr(Pat, 0, Opts),
+    {list,[{step,[Pl,leaf(" <:-")],lexpr(E, 0, Opts)}]};
 lc_qual(Q, Opts) ->
     lexpr(Q, 0, Opts).
 

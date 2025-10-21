@@ -1,7 +1,9 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1996-2024. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 1996-2025. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -112,6 +114,7 @@ BEAM_H = $(wildcard ../priv/beam_h/*.h)
 HRL_FILES= \
 	beam_asm.hrl \
 	beam_disasm.hrl \
+	beam_ssa_alias_debug.hrl \
 	beam_ssa_opt.hrl \
 	beam_ssa.hrl \
 	beam_types.hrl \
@@ -137,7 +140,7 @@ APPUP_TARGET= $(EBIN)/$(APPUP_FILE)
 # FLAGS
 # ----------------------------------------------------
 
-ERL_COMPILE_FLAGS += -Werror
+ERL_COMPILE_FLAGS += -Werror +warn_deprecated_catch
 ERL_COMPILE_FLAGS += +inline +warn_unused_import \
  -I../../stdlib/include -I$(EGEN) -W +warn_missing_spec
 
@@ -179,9 +182,6 @@ $(EGEN)/OPCODES-GENERATED: genop.tab
 $(EBIN)/beam_asm.beam: $(ESRC)/beam_asm.erl $(EGEN)/beam_opcodes.hrl
 	$(V_ERLC) $(ERL_COMPILE_FLAGS) -DCOMPILER_VSN='"$(VSN)"' -o$(EBIN) $<
 
-$(EBIN)/cerl_inline.beam: $(ESRC)/cerl_inline.erl
-	$(V_ERLC) $(ERL_COMPILE_FLAGS) +nowarn_shadow_vars -o$(EBIN) $<
-
 # Inlining core_parse is slow and has no benefit.
 $(EBIN)/core_parse.beam: $(EGEN)/core_parse.erl
 	$(V_ERLC) $(subst +inline,,$(ERL_COMPILE_FLAGS)) -o$(EBIN) $<
@@ -216,7 +216,8 @@ $(EBIN)/beam_jump.beam: beam_asm.hrl
 $(EBIN)/beam_listing.beam: core_parse.hrl beam_ssa.hrl \
      beam_asm.hrl beam_types.hrl
 $(EBIN)/beam_ssa.beam: beam_ssa.hrl
-$(EBIN)/beam_ssa_alias_opt.beam: beam_ssa_opt.hrl beam_types.hrl
+$(EBIN)/beam_ssa_alias.beam: beam_ssa_opt.hrl beam_ssa_alias_debug.hrl \
+     beam_types.hrl
 $(EBIN)/beam_ssa_bsm.beam: beam_ssa.hrl
 $(EBIN)/beam_ssa_bool.beam: beam_ssa.hrl
 $(EBIN)/beam_ssa_check.beam: beam_ssa.hrl beam_types.hrl
@@ -229,7 +230,7 @@ $(EBIN)/beam_ssa_pp.beam: beam_ssa.hrl beam_types.hrl
 $(EBIN)/beam_ssa_pre_codegen.beam: beam_ssa.hrl beam_asm.hrl
 $(EBIN)/beam_ssa_recv.beam: beam_ssa.hrl
 $(EBIN)/beam_ssa_share.beam: beam_ssa.hrl
-$(EBIN)/beam_ssa_ss.beam: beam_ssa.hrl beam_types.hrl
+$(EBIN)/beam_ssa_ss.beam: beam_ssa.hrl beam_ssa_alias_debug.hrl beam_types.hrl
 $(EBIN)/beam_ssa_throw.beam: beam_ssa.hrl beam_types.hrl
 $(EBIN)/beam_ssa_type.beam: beam_ssa.hrl beam_types.hrl
 $(EBIN)/beam_trim.beam: beam_asm.hrl

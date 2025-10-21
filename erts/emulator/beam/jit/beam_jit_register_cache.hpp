@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2024. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2024-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -38,6 +40,14 @@ class RegisterCache {
     const Reg xregs_base;
     const Reg yregs_base;
 
+    const CacheEntry *cbegin() const {
+        return std::begin(cache);
+    }
+
+    const CacheEntry *cend() const {
+        return cbegin() + entries;
+    }
+
     CacheEntry *begin() {
         return std::begin(cache);
     }
@@ -46,8 +56,8 @@ class RegisterCache {
         return begin() + entries;
     }
 
-    bool isCached(const Reg &reg) {
-        return std::any_of(begin(), end(), [&](const auto &entry) {
+    bool isCached(const Reg &reg) const {
+        return std::any_of(cbegin(), cend(), [&](const auto &entry) {
             return reg == entry.reg;
         });
     }
@@ -70,11 +80,11 @@ public:
         ASSERT(mem.hasBase());
         consolidate(offset);
 
-        auto it = std::find_if(begin(), end(), [&](const auto &entry) {
+        auto it = std::find_if(cbegin(), cend(), [&](const auto &entry) {
             return mem == entry.mem;
         });
 
-        if (it != end()) {
+        if (it != cend()) {
             ASSERT(it->reg.isValid());
             return it->reg;
         }
@@ -149,7 +159,7 @@ public:
                                });
 
         if (it != temporaries.cend()) {
-            ASSERT(std::none_of(begin(), end(), [&](const auto &entry) {
+            ASSERT(std::none_of(cbegin(), cend(), [&](const auto &entry) {
                 return (*it == entry.reg) ||
                        (entry.mem.hasBase() && entry.mem.baseReg() == *it);
             }));
@@ -189,7 +199,7 @@ public:
         it->mem = mem;
     }
 
-    bool validAt(size_t offset) {
+    bool validAt(size_t offset) const {
         return position == offset;
     }
 

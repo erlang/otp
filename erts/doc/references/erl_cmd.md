@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2025. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -65,14 +67,14 @@ arguments_:
 _Examples:_
 
 ```erlang
-% erl +W w -sname arnie +R 9 -s my_init -extra +bertie
+% erl +W w -sname arnie +S 2 -s my_init -extra +bertie
 (arnie@host)1> init:get_argument(sname).
 {ok,[["arnie"]]}
 (arnie@host)2> init:get_plain_arguments().
 ["+bertie"]
 ```
 
-Here `+W w` and `+R 9` are emulator flags. `-s my_init` is an init flag,
+Here `+W w` and `+S 2` are emulator flags. `-s my_init` is an init flag,
 interpreted by `init`. `-sname arnie` is a user flag, stored by `init`. It is
 read by Kernel and causes the Erlang runtime system to become distributed.
 Finally, everything after `-extra` (that is, `+bertie`) is considered as plain
@@ -541,13 +543,13 @@ behavior of earlier flags.
   [time warp mode](time_correction.md#time-warp-modes):
 
   - **`no_time_warp`** -
-    [No time warp mode](time_correction.md#no-time-warp-mode) (the default)
+    [No time warp mode](time_correction.md#no-time-warp-mode)
 
   - **`single_time_warp`** -
     [Single time warp mode](time_correction.md#single-time-warp-mode)
 
   - **`multi_time_warp`** -
-    [Multi-time warp mode](time_correction.md#multi-time-warp-mode)
+    [Multi-time warp mode](time_correction.md#multi-time-warp-mode) (the default since Erlang/OTP 26.0)
 
 - **`+d`** - If the emulator detects an internal error (or runs out of memory),
   it, by default, generates both a crash dump and a core dump. The core dump is,
@@ -705,7 +707,7 @@ behavior of earlier flags.
   scheduling latency for individual file descriptor input events.
 
 - **`+JPcover true|false|function|function_counters|line|line_counters`{:
-  #+JPcover }** - Since: OTP 27.0
+  #+JPcover }**
 
   Enables or disables support for coverage when running with the JIT. Defaults
   to false.
@@ -742,6 +744,8 @@ behavior of earlier flags.
 
   - **`false`** - Disables coverage.
 
+  Since: OTP 27.0
+
 - **`+JPperf true|false|dump|map|fp|no_fp`{: #+JPperf }** - Enables or disables
   support for the `perf` profiler when running with the JIT on Linux. Defaults
   to false.
@@ -768,14 +772,20 @@ behavior of earlier flags.
   [perf support](BeamAsm.md#linux-perf-support) section in the BeamAsm internal
   documentation.
 
-- **`+JMsingle true|false`{: #+JMsingle }** - Since: OTP-26.0
+- **`+JPperfdirectory <directory>`{: #+JPperfdirectory }** - Set the directory
+  used to store `perf` dump and map files when running with the JIT on Linux.
+  Defaults to `/tmp`.
 
-  Enables or disables the use of single-mapped RWX memory for JIT code. The
-  default is to map JIT:ed machine code into two regions sharing the same
+- **`+JMsingle true|false`{: #+JMsingle }** - Enables or disables the use of
+  single-mapped RWX memory for JIT code.
+
+  The default is to map JIT:ed machine code into two regions sharing the same
   physical pages, where one region is executable but not writable, and the other
   writable but not executable. As some tools, such as QEMU user mode emulation,
   cannot deal with the dual mapping, this flags allows it to be disabled. This
   flag is automatically enabled by the [`+JPperf`](#%2BJPperf) flag.
+
+  Since: OTP 26.0
 
 - **`+L`** - Prevents loading information about source filenames and line
   numbers. This saves some memory, but exceptions do not contain information
@@ -784,15 +794,16 @@ behavior of earlier flags.
 - **`+MFlag Value`{: #erts_alloc }** - Memory allocator-specific flags. For more
   information, see [`erts_alloc(3)`](erts_alloc.md).
 
-- **`+pad true|false`{: #+pad }** - Since: OTP 25.3
+- **`+pad true|false`{: #+pad }** - The boolean value used with the `+pad`
+  parameter determines the default value of the [`async_dist`](`m:erlang#process_flag_async_dist`) process flag of newly spawned processes.
 
-  The boolean value used with the `+pad` parameter determines the default value
-  of the [`async_dist`](`m:erlang#process_flag_async_dist`) process flag of
-  newly spawned processes. By default, if no `+pad` command line option is
+  By default, if no `+pad` command line option is
   passed, the `async_dist` flag will be set to `false`.
 
   The value used in runtime can be inspected by calling
   [`erlang:system_info(async_dist)`](`m:erlang#system_info_async_dist`).
+
+  Since: OTP 25.3
 
 - **[](){: #%2Bpc } `+pc Range`{: #printable_character_range }** -
   Sets the range of characters that the system considers printable in heuristic
@@ -850,21 +861,6 @@ behavior of earlier flags.
 
   On Windows the default value is set to `8196` because the normal OS
   limitations are set higher than most machines can handle.
-
-- **`+R ReleaseNumber`{: #compat_rel }** - Sets the compatibility mode.
-
-  The distribution mechanism is not backward compatible by default. This flag
-  sets the emulator in compatibility mode with an earlier Erlang/OTP release
-  `ReleaseNumber`. The release number must be in the range
-  `<current release>-2` through `<current release>`. This limits the emulator,
-  making it possible for it to communicate with Erlang nodes (as well as C
-  and Java nodes) running that earlier release.
-
-  > #### Note {: .info }
-  >
-  > Ensure that all nodes (Erlang-, C-, and Java nodes) of a distributed Erlang
-  > system is of the same Erlang/OTP release, or from two different Erlang/OTP
-  > releases X and Y, where _all_ Y nodes have compatibility mode X.
 
 - **`+r`** - Forces ETS memory blocks to be moved on reallocation.
 

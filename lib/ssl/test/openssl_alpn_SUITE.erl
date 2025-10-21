@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2019-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2019-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -165,8 +167,8 @@ end_per_testcase(_, Config) ->
 %%--------------------------------------------------------------------
 
 erlang_client_alpn_openssl_server_alpn(Config) when is_list(Config) ->
-    ServerOpts = proplists:get_value(server_rsa_verify_opts, Config),
-    ClientOpts =  ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     AlpnProtocol = <<"spdy/2">>,
 
     {Server, OpenSSLPort} =
@@ -193,7 +195,7 @@ erlang_client_alpn_openssl_server_alpn(Config) when is_list(Config) ->
 %%--------------------------------------------------------------------
 
 erlang_server_alpn_openssl_client_alpn(Config) when is_list(Config) ->
-    ClientOpts = proplists:get_value(client_rsa_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
     ServerOpts =  ssl_test_lib:ssl_options(server_rsa_opts, Config),
     Protocol = <<"spdy/2">>,
     Server = ssl_test_lib:start_server(erlang, [{from, self()}],
@@ -222,7 +224,7 @@ erlang_server_alpn_openssl_client_alpn(Config) when is_list(Config) ->
 %%--------------------------------------------------------------------------
 
 erlang_client_alpn_openssl_server(Config) when is_list(Config) ->
-    ServerOpts = proplists:get_value(server_rsa_verify_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
     ClientOpts =  ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     Protocol = <<"spdy/2">>,
 
@@ -248,7 +250,7 @@ erlang_client_alpn_openssl_server(Config) when is_list(Config) ->
 %%--------------------------------------------------------------------------
 
 erlang_client_openssl_server_alpn(Config) when is_list(Config) ->
-    ServerOpts = proplists:get_value(server_rsa_verify_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
     ClientOpts =  ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
 
     {Server, OpenSSLPort} = ssl_test_lib:start_server(openssl, [{alpn,"spdy/2"}, return_port],
@@ -269,7 +271,7 @@ erlang_client_openssl_server_alpn(Config) when is_list(Config) ->
 
 %%--------------------------------------------------------------------------
 erlang_server_alpn_openssl_client(Config) when is_list(Config) ->
-    ClientOpts = proplists:get_value(client_rsa_verify_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     ServerOpts =  ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
     Server = ssl_test_lib:start_server(erlang, [{from, self()}],
                                        [{server_opts, [{alpn_preferred_protocols,
@@ -296,7 +298,7 @@ erlang_server_alpn_openssl_client(Config) when is_list(Config) ->
 %%--------------------------------------------------------------------------
 
 erlang_server_openssl_client_alpn(Config) when is_list(Config) ->
-    ClientOpts = proplists:get_value(client_rsa_verify_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     ServerOpts =  ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
     Server = ssl_test_lib:start_server(erlang, [{from, self()}],
                                        [{server_opts, [ServerOpts]} | Config]),
@@ -324,7 +326,7 @@ erlang_server_openssl_client_alpn(Config) when is_list(Config) ->
 
 erlang_client_alpn_openssl_server_alpn_renegotiate(Config) when is_list(Config) ->
 
-    ServerOpts = proplists:get_value(server_rsa_verify_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
     ClientOpts =  ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     AlpnProtocol = <<"spdy/2">>,
 
@@ -361,7 +363,7 @@ erlang_client_alpn_openssl_server_alpn_renegotiate(Config) when is_list(Config) 
 %%--------------------------------------------------------------------
 
 erlang_server_alpn_openssl_client_alpn_renegotiate(Config) when is_list(Config) ->
-    ClientOpts = proplists:get_value(client_rsa_verify_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     ServerOpts =  ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
     AlpnProtocol = <<"spdy/2">>,
     Server = ssl_test_lib:start_server(erlang, [{from, self()}],
@@ -398,7 +400,7 @@ erlang_server_alpn_openssl_client_alpn_renegotiate(Config) when is_list(Config) 
 %%--------------------------------------------------------------------
 
 erlang_client_alpn_npn_openssl_server_alpn_npn(Config) when is_list(Config) ->
-    ServerOpts = proplists:get_value(server_rsa_verify_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
     ClientOpts =  ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     AlpnProtocol = <<"spdy/2">>,
 
@@ -426,7 +428,7 @@ erlang_client_alpn_npn_openssl_server_alpn_npn(Config) when is_list(Config) ->
 %%--------------------------------------------------------------------
 
 erlang_server_alpn_npn_openssl_client_alpn_npn(Config) when is_list(Config) ->
-    ClientOpts = proplists:get_value(client_rsa_verify_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     ServerOpts =  ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
     AlpnProtocol = <<"spdy/2">>,
     Server = ssl_test_lib:start_server(erlang,

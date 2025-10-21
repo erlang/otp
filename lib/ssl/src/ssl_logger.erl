@@ -1,6 +1,8 @@
 %%
 %% %CopyrightBegin%
 %%
+%% SPDX-License-Identifier: Apache-2.0
+%%
 %% Copyright Ericsson AB 1999-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
@@ -53,11 +55,11 @@
 log(Level, LogLevel, ReportMap, Meta) ->
     case logger:compare_levels(LogLevel, Level) of
         lt ->
-            logger:log(Level, ReportMap,  Meta#{depth => ?DEPTH, 
-                                                report_cb => fun ?MODULE:format/1});
+            logger:log(Level, maps:merge(ReportMap, Meta),
+                       Meta#{depth => ?DEPTH, report_cb => fun ?MODULE:format/1});
         eq ->
-            logger:log(Level, ReportMap, Meta#{depth => ?DEPTH, 
-                                               report_cb => fun ?MODULE:format/1});
+            logger:log(Level, maps:merge(ReportMap, Meta),
+                       Meta#{depth => ?DEPTH, report_cb => fun ?MODULE:format/1});
         _ ->
             ok
     end.
@@ -105,11 +107,15 @@ format(#{alert := Alert, alerter := ignored} = Report) ->
     %% Happens in DTLS
     {Fmt, Args} = ssl_alert:own_alert_format(ProtocolName, Role, StateName, Alert),
     {"~s " ++ Fmt, ["Ignored alert to mitigate DoS attacks", Args]};
+format(#{description := Desc, reason := Reason, file := Mod, line := Line}) ->
+    {"~12s ~p~n"
+     "~12s ~p~n"
+     "~12s ~s:~w~n",
+     ["Description:", Desc, "Reason:", Reason, "Location:", Mod, Line]
+    };
 format(#{description := Desc, reason := Reason}) ->
-    {"~12s ~p"
-     "~n"
-     "~12s ~p"
-     "~n",
+    {"~12s ~p~n"
+     "~12s ~p~n",
      ["Description:", Desc, "Reason:", Reason]
     }.
 
@@ -175,13 +181,11 @@ keylog_traffic_1_3(Role, ClientRandom, Prf, TrafficSecretBin, N) ->
     ClientRand = io_lib:format("~64.16.0B", [ClientRandBin]),
     case Role of
         client ->
-            ["CLIENT_TRAFFIC_SECRET_" ++ integer_to_list(N),
-             ClientRand,
-             TrafficSecret];
+            ["CLIENT_TRAFFIC_SECRET_" ++ integer_to_list(N) ++ " "
+             ++ ClientRand ++ " " ++ TrafficSecret];
         server ->
-            ["SERVER_TRAFFIC_SECRET_" ++ integer_to_list(N),
-             ClientRand,
-             TrafficSecret]
+            ["SERVER_TRAFFIC_SECRET_" ++ integer_to_list(N) ++ " "
+             ++ ClientRand ++ " " ++ TrafficSecret]
     end.
 
 keylog_traffic_pre_1_3(ClientRandom, MasterSecret) ->

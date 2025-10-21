@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2007-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -89,7 +91,7 @@ use(Pid, Identifiers, Prf, HandshakeHist) ->
 init([Listener | Args]) ->
     process_flag(trap_exit, true),
     proc_lib:set_label({tls_13_server_session_tickets, Listener}),
-    Monitor = inet:monitor(Listener),
+    Monitor = tls_socket:monitor_socket(Listener),
     State = initial_state(Args),
     {ok, State#state{listen_monitor = Monitor}}.
 

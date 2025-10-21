@@ -1,7 +1,10 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+
+Copyright 2001-2025 Richard Carlsson. All Rights Reserved.
+Copyright Ericsson AB 2024-2025. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,6 +17,16 @@ distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
+
+Alternatively, you may use this file under the terms of the GNU Lesser
+General Public License (the "LGPL") as published by the Free Software
+Foundation; either version 2.1, or (at your option) any later version.
+If you wish to allow use of your version of this file only under the
+terms of the LGPL, you should delete the provisions above and replace
+them with the notice and other provisions required by the LGPL; see
+<http://www.gnu.org/licenses/>. If you do not delete the provisions
+above, a recipient may use your version of this file under the terms of
+either the Apache License or the LGPL.
 
 %CopyrightEnd%
 -->
@@ -48,7 +61,7 @@ documentation for other tools like `m:shell_docs`.
 ## Introduction
 
 EDoc lets you write the documentation of an Erlang program as comments in the
-source code itself, using _tags_ on the form "`@Name ...`". A source file does
+source code itself, using _tags_ of the form "`@Name ...`". A source file does
 not have to contain tags for EDoc to generate its documentation, but without
 tags the result will only contain the basic available information that can be
 extracted from the module.
@@ -452,17 +465,17 @@ In several contexts (`@see` tags, `@link` macros, etc.), EDoc lets you refer to
 the generated documentation for modules, functions, datatypes, and applications,
 using a simple and compact syntax. The possible formats for references are:
 
-| _Reference syntax_                    | _Example_                                       | _Scope_       |
-| ------------------------------------- | ----------------------------------------------- | ------------- |
-| `Module`                              | `m:edoc_run`, `erl.lang.list`                   | Global        |
-| `Function/Arity`                      | `file/2`                                        | Within module |
-| `Module:Function/Arity`               | `edoc:application/2`                            | Global        |
-| `Type()`                              | `filename()`                                    | Within module |
-| `Module:Type()`                       | [edoc:edoc_module()](`t:edoc:edoc_module/0`)    | Global        |
-| `//Application`                       | [edoc](index.html)                              | Global        |
-| `//Application/Module`                | `m:edoc_doclet`                                 | Global        |
-| `//Application/Module:Function/Arity` | `edoc_run:file/1`                               | Global        |
-| `//Application/Module:Type()`         | [edoc:edoc_module()](`t:edoc:edoc_module/0`)    | Global        |
+| Reference syntax                      | Example                                      | Scope         |
+| ------------------------------------- | -------------------------------------------- | ------------- |
+| `Module`                              | `m:edoc_run`, `erl.lang.list`                | Global        |
+| `Function/Arity`                      | `file/2`                                     | Within module |
+| `Module:Function/Arity`               | `edoc:application/2`                         | Global        |
+| `Type()`                              | `filename()`                                 | Within module |
+| `Module:Type()`                       | [edoc:edoc_module()](`t:edoc:edoc_module/0`) | Global        |
+| `//Application`                       | [edoc](index.html)                           | Global        |
+| `//Application/Module`                | `m:edoc_doclet`                              | Global        |
+| `//Application/Module:Function/Arity` | `edoc_run:file/1`                            | Global        |
+| `//Application/Module:Type()`         | [edoc:edoc_module()](`t:edoc:edoc_module/0`) | Global        |
 
 _Table: reference syntax_
 
@@ -817,27 +830,51 @@ have higher precedence than union types; e.g.,
 "`(atom()) -> atom() | integer()`" is parsed as
 `((atom()) -> atom()) | integer()`, not as `(atom()) -> (atom() | integer())`.
 
-| `Spec`          | ::= | `FunType "where"? DefList?           | FunctionName FunType "where"? DefList?`        |
-| --------------- | --- | ------------------------------------ | ---------------------------------------------- | ------------------ | -------------------------------- | -------------------- | ------- | ------------------ | ---------- | ------------------- | ------------------------ | ------- | ----------------- | --------------------------- | ----------------- | ------- | ---------------------------- | ------------------------------------------- | ------------------------------------------------------------- |
-| `FunctionName`  | ::= | `Atom`                               |
-| `FunType`       | ::= | `"(" UnionTypes? ")" "->" UnionType` |
-| `UnionTypes`    | ::= | `UnionType                           | UnionType "," UnionTypes`                      |
-| `UnionType`     | ::= | `UnionList                           | Name "::" UnionList`                           |
-| `Name`          | ::= | `Variable`                           |
-| `UnionList`     | ::= | `Type                                | Type "+" UnionList                             | Type "             | " UnionList`                     |
-| `Type`          | ::= | `TypeVariable                        | Atom                                           | Integer            | Float                            | Integer ".." Integer | FunType | "fun(" FunType ")" | "fun(...)" | "{" UnionTypes? "}" | "#" Atom "{" Fields? "}" | "[" "]" | "[" UnionType "]" | "[" UnionType "," "..." "]" | "(" UnionType ")" | BinType | TypeName "(" UnionTypes? ")" | ModuleName ":" TypeName "(" UnionTypes? ")" | "//" AppName "/" ModuleName ":" TypeName "(" UnionTypes? ")"` |
-| `Fields`        | ::= | `Field                               | Fields "," Fields`                             |
-| `Field`         | ::= | `Atom "=" UnionList`                 |
-| `BinType`       | ::= | `"<<>>"                              | "<<" BaseType ">>"                             | "<<" UnitType ">>" | "<<" BaseType "," UnitType ">>"` |
-| `BaseType`      | ::= | `"_" ":" Integer`                    |
-| `UnitType`      | ::= | `"_" ":" "_" "*" Integer`            |
-| `TypeVariable`  | ::= | `Variable`                           |
-| `TypeName`      | ::= | `Atom`                               |
-| `ModuleName`    | ::= | `Atom                                | ModuleName "." Atom`                           |
-| `AppName`       | ::= | `Atom`                               |
-| `DefList`       | ::= | `Def                                 | DefList Def                                    | DefList "," Def`   |
-| `Def`           | ::= | `TypeVariable "=" UnionList          | TypeName "(" TypeVariables? ")" "=" UnionType` |
-| `TypeVariables` | ::= | `TypeVariable                        | TypeVariable "," TypeVariables`                |
+|                 |     |                                                                         |
+| --------------- | --- | ----------------------------------------------------------------------- |
+| `Spec`          | ::= | `FunType "where"? DefList?` \|                                          |
+|                 |     | `FunctionName FunType "where"? DefList?`                                |
+| `FunctionName`  | ::= | `Atom`                                                                  |
+| `FunType`       | ::= | `"(" UnionTypes? ")" "->" UnionType`                                    |
+| `UnionTypes`    | ::= | `UnionType` \| `UnionType "," UnionTypes`                               |
+| `UnionType`     | ::= | `UnionList` \| `Name "::" UnionList`                                    |
+| `Name`          | ::= | `Variable`                                                              |
+| `UnionList`     | ::= | `Type` \| `Type "+" UnionList` \| `Type "\|" UnionList`                 |
+| `Type`          | ::= | `TypeVariable` \|                                                       |
+|                 |     | `Atom` \|                                                               |
+|                 |     | `Integer` \|                                                            |
+|                 |     | `Float` \|                                                              |
+|                 |     | `Integer ".." Integer` \|                                               |
+|                 |     | `FunType` \|                                                            |
+|                 |     | `"fun(" FunType ")"` \|                                                 |
+|                 |     | `"fun(...)"` \|                                                         |
+|                 |     | `"{" UnionTypes? "}"` \|                                                |
+|                 |     | `"#" Atom "{" Fields? "}"` \|                                           |
+|                 |     | `"[" "]"` \|                                                            |
+|                 |     | `"[" UnionType "]"` \|                                                  |
+|                 |     | `"[" UnionType "," "..." "]"` \|                                        |
+|                 |     | `"(" UnionType ")"` \|                                                  |
+|                 |     | `BinType` \|                                                            |
+|                 |     | `TypeName "(" UnionTypes? ")"` \|                                       |
+|                 |     | `ModuleName ":" TypeName "(" UnionTypes? ")"` \|                        |
+|                 |     | `"//" AppName "/" ModuleName ":" TypeName "(" UnionTypes? ")"`          |
+| `Fields`        | ::= | `Field` \| `Fields "," Fields`                                          |
+| `Field`         | ::= | `Atom "=" UnionList`                                                    |
+| `BinType`       | ::= | `"<<>>"` \|                                                             |
+|                 |     | `"<<" BaseType ">>"` \|                                                 |
+|                 |     | `"<<" UnitType ">>"` \|                                                 |
+|                 |     | `"<<" BaseType "," UnitType ">>"`                                       |
+| `BaseType`      | ::= | `"_" ":" Integer`                                                       |
+| `UnitType`      | ::= | `"_" ":" "_" "*" Integer`                                               |
+| `TypeVariable`  | ::= | `Variable`                                                              |
+| `TypeName`      | ::= | `Atom`                                                                  |
+| `ModuleName`    | ::= | `Atom` \| `ModuleName "." Atom`                                         |
+| `AppName`       | ::= | `Atom`                                                                  |
+| `DefList`       | ::= | `Def` \| `DefList Def` \| `DefList "," Def`                             |
+| `Def`           | ::= | `TypeVariable "=" UnionList` \|                                         |
+|                 |     | `TypeName "(" TypeVariables? ")" "=" UnionType`                         |
+| `TypeVariables` | ::= | `TypeVariable` \|                                                       |
+|                 |     | `TypeVariable "," TypeVariables`                                        |
 
 _Table: specification syntax grammar_
 
@@ -931,8 +968,11 @@ used unless there is a type alias with the same name.
 The following grammar (see above for auxiliary definitions) describes the form
 of the definitions that may follow a `@type` tag:
 
-| `Typedef` | ::= | `TypeName "(" TypeVariables? ")" DefList? | TypeName "(" TypeVariables? ")" "=" UnionList DefList?` |
-| --------- | --- | ----------------------------------------- | ------------------------------------------------------- |
+|           |     |                                                          |
+| --------- | --- | -------------------------------------------------------- |
+| `Typedef` | ::= | `TypeName "(" TypeVariables? ")" DefList?` \|            |
+|           |     | `TypeName "(" TypeVariables? ")" "=" UnionList DefList?` |
+
 
 _Table: type definition grammar_
 

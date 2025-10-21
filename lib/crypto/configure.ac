@@ -2,7 +2,9 @@ dnl Process this file with autoconf to produce a configure script. -*-Autoconf-*
 dnl
 dnl %CopyrightBegin%
 dnl
-dnl Copyright Ericsson AB 2018-2024. All Rights Reserved.
+dnl SPDX-License-Identifier: Apache-2.0
+dnl
+dnl Copyright Ericsson AB 2018-2025. All Rights Reserved.
 dnl
 dnl Licensed under the Apache License, Version 2.0 (the "License");
 dnl you may not use this file except in compliance with the License.
@@ -30,6 +32,8 @@ m4_include([otp.m4])
 
 AC_CONFIG_AUX_DIR([${ERL_TOP}/make/autoconf])
 
+ERL_PUSH_WERROR
+
 ERL_CANONICAL_SYSTEM_TYPE
 
 AC_LANG(C)
@@ -51,6 +55,7 @@ AC_SUBST(CROSS_COMPILING)
 ERL_XCOMP_SYSROOT_INIT
 
 AC_PROG_CC
+LM_PROG_LD
 LM_WINDOWS_ENVIRONMENT
 
 ERL_DED
@@ -921,6 +926,8 @@ AS_IF([test $have_crypto_memcmp_decl = yes],
 CFLAGS="$saveCFLAGS"
 LDFLAGS="$saveLDFLAGS"
 LIBS="$saveLIBS"
+
+ERL_PUSH_WERROR
 
 AC_SUBST(SSL_INCLUDE)
 AC_SUBST(SSL_INCDIR)

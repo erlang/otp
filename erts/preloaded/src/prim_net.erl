@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2018-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2018-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -107,7 +109,8 @@
 -type interface_info_args() :: #{debug => boolean()}.
 -type if_entry_args() :: #{index := non_neg_integer(),
                            debug => boolean()}.
--type ip_address_table_args() :: #{debug => boolean()}.
+-type ip_address_table_args() :: #{sort  => boolean(),
+				   debug => boolean()}.
 
 -type if_type()       :: other | ethernet_csmacd | iso88025_tokenring |
                          fddi | ppp | software_loopback | atm | ieee80211 |

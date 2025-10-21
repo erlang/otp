@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2025. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,6 +20,84 @@ limitations under the License.
 %CopyrightEnd%
 -->
 # Inets Release Notes
+
+## Inets 9.4.2
+
+### Fixed Bugs and Malfunctions
+
+- Fixed a RFC 2616 violation, where a http request, made by httpc, without providing any options, would be sent with an empty TE header, without also having a TE value in the connection header. Now the default request doesn't send a TE header at all.
+
+  Own Id: OTP-19760 Aux Id: [PR-10120], [GH-10065]
+
+[PR-10120]: https://github.com/erlang/otp/pull/10120
+[GH-10065]: https://github.com/erlang/otp/issues/10065
+
+## Inets 9.4.1
+
+### Fixed Bugs and Malfunctions
+
+- Fixed a bug where a request sent to httpd server which is using CGI script to generate a response, would pollute server's environment variable - `HTTP_PROXY` for that request. This bug is also known as httpoxy. More information: CVE-2016-1000107
+
+  Own Id: OTP-19729 Aux Id: [PR-6223], [GH-3392], [CVE-2016-1000107]
+
+[PR-6223]: https://github.com/erlang/otp/pull/6223
+[GH-3392]: https://github.com/erlang/otp/issues/3392
+[CVE-2016-1000107]: https://nvd.nist.gov/vuln/detail/2016-1000107
+
+## Inets 9.4
+
+### Fixed Bugs and Malfunctions
+
+- Replaced calls to deprecated `crypto:start()` with `application:start(crypto)`.
+
+  Own Id: OTP-19485 Aux Id: [PR-8592]
+
+- Enhance specs of timeout for improving documentation and dialyzer analysis.
+
+  Own Id: OTP-19604 Aux Id: [PR-9574]
+
+[PR-8592]: https://github.com/erlang/otp/pull/8592
+[PR-9574]: https://github.com/erlang/otp/pull/9574
+
+### Improvements and New Features
+
+- Enhanced http client documentation.
+
+  Own Id: OTP-19520 Aux Id: [PR-9516]
+
+- Enhance made to mod_esi documentation
+
+  Own Id: OTP-19521 Aux Id: [PR-9472]
+
+- The license and copyright header has changed format to include an `SPDX-License-Identifier`. At the same time, most files have been updated to follow a uniform standard for license headers.
+
+  Own Id: OTP-19575 Aux Id: [PR-9670]
+
+- Inets Makefiles now create and use dependencies files for .erl files
+
+  Own Id: OTP-19624 Aux Id: [PR-9101]
+
+[PR-9516]: https://github.com/erlang/otp/pull/9516
+[PR-9472]: https://github.com/erlang/otp/pull/9472
+[PR-9670]: https://github.com/erlang/otp/pull/9670
+[PR-9101]: https://github.com/erlang/otp/pull/9101
+
+## Inets 9.3.2.1
+
+### Fixed Bugs and Malfunctions
+
+- Fixed a bug where a request sent to httpd server which is using CGI script to generate a response, would pollute server's environment variable - `HTTP_PROXY` for that request. This bug is also known as httpoxy. More information: CVE-2016-1000107
+
+  Own Id: OTP-19729 Aux Id: [PR-6223], [GH-3392]
+
+- Fixed a RFC 2616 violation, where a http request, made by httpc, without providing any options, would be sent with an empty TE header, without also having a TE value in the connection header. Now the default request doesn't send a TE header at all.
+
+  Own Id: OTP-19760 Aux Id: [PR-10120], [GH-10065]
+
+[PR-6223]: https://github.com/erlang/otp/pull/6223
+[GH-3392]: https://github.com/erlang/otp/issues/3392
+[PR-10120]: https://github.com/erlang/otp/pull/10120
+[GH-10065]: https://github.com/erlang/otp/issues/10065
 
 ## Inets 9.3.2
 
@@ -132,6 +212,17 @@ limitations under the License.
 [PR-7678]: https://github.com/erlang/otp/pull/7678
 [PR-8029]: https://github.com/erlang/otp/pull/8029
 [PR-8026]: https://github.com/erlang/otp/pull/8026
+
+## Inets 9.1.0.3
+
+### Fixed Bugs and Malfunctions
+
+* Fixed a bug where a request sent to httpd server which is using CGI script to generate a response, would pollute server's environment variable - `HTTP_PROXY` for that request. This bug is also known as httpoxy. More information: CVE-2016-1000107
+
+  Own Id: OTP-19729 Aux Id: PR-6223, GH-3392
+* Fixed a RFC 2616 violation, where a http request, made by httpc, without providing any options, would be sent with an empty TE header, without also having a TE value in the connection header. Now the default request doesn't send a TE header at all.
+
+  Own Id: OTP-19760 Aux Id: PR-10120, GH-10065
 
 ## Inets 9.1.0.2
 

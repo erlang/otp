@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
 %% 
-%% Copyright Ericsson AB 2004-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2025. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -39,7 +41,7 @@ all() -> [encrypt_decrypt_one_time,
 %%% First prepare Config and compile the property tests for the found tool:
 init_per_suite(Config) ->
     case
-        try crypto:start() of
+        try application:start(crypto) of
             ok -> true;
             {error, already_started} -> true;
             {error,{already_started,crypto}} -> true;

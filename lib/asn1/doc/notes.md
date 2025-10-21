@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2025. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -20,6 +22,90 @@ limitations under the License.
 # asn1 Release Notes
 
 This document describes the changes made to the asn1 application.
+
+## Asn1 5.4.2
+
+### Fixed Bugs and Malfunctions
+
+- Decoding a constrained BIT STRING using JER was broken.
+
+  Own Id: OTP-19681 Aux Id: [PR-9949]
+
+- NIFs and linked-in drivers are now loadable when running in an Erlang source tree on Windows.
+
+  Own Id: OTP-19686 Aux Id: [PR-9969]
+
+[PR-9949]: https://github.com/erlang/otp/pull/9949
+[PR-9969]: https://github.com/erlang/otp/pull/9969
+
+## Asn1 5.4.1
+
+### Fixed Bugs and Malfunctions
+
+- The ASN.1 compiler could generate code that would cause Dialyzer with the `unmatched_returns` option to emit warnings.
+
+  Own Id: OTP-19638 Aux Id: [GH-9841], [PR-9846]
+
+[GH-9841]: https://github.com/erlang/otp/issues/9841
+[PR-9846]: https://github.com/erlang/otp/pull/9846
+
+## Asn1 5.4
+
+### Fixed Bugs and Malfunctions
+
+- The `undec_rest` option would be ignored in generated functions for exclusive decode. The option is now respected, meaning that the return value from such functions are now three-tuples instead of a two-tuples.
+
+  *** POTENTIAL INCOMPATIBILITY ***
+
+  Own Id: OTP-19290 Aux Id: [PR-8798]
+
+[PR-8798]: https://github.com/erlang/otp/pull/8798
+
+### Improvements and New Features
+
+- The license and copyright header has changed format to include an `SPDX-License-Identifier`. At the same time, most files have been updated to follow a uniform standard for license headers.
+
+  Own Id: OTP-19575 Aux Id: [PR-9670]
+
+- The ancient ASN.1 modules used in `public_key` has been replaced with more modern versions, but we have strived to keep the documented Erlang API for the `public_key` application compatible.
+
+  *** POTENTIAL INCOMPATIBILITY ***
+
+  Own Id: OTP-19612 Aux Id: [PR-9774]
+
+[PR-9670]: https://github.com/erlang/otp/pull/9670
+[PR-9774]: https://github.com/erlang/otp/pull/9774
+
+## Asn1 5.3.4.2
+
+### Fixed Bugs and Malfunctions
+
+- Decoding a constrained BIT STRING using JER was broken.
+
+  Own Id: OTP-19681 Aux Id: [PR-9949]
+
+[PR-9949]: https://github.com/erlang/otp/pull/9949
+
+## Asn1 5.3.4.1
+
+### Fixed Bugs and Malfunctions
+
+- The ASN.1 compiler could generate code that would cause Dialyzer with the `unmatched_returns` option to emit warnings.
+
+  Own Id: OTP-19638 Aux Id: [GH-9841], [PR-9846]
+
+[GH-9841]: https://github.com/erlang/otp/issues/9841
+[PR-9846]: https://github.com/erlang/otp/pull/9846
+
+## Asn1 5.3.4
+
+### Fixed Bugs and Malfunctions
+
+- Negative REAL numbers greater than -1 would be incorrectly encoded (the minus sign would be lost).
+
+  Own Id: OTP-19567 Aux Id: ERIERL-1214, [PR-9658]
+
+[PR-9658]: https://github.com/erlang/otp/pull/9658
 
 ## Asn1 5.3.3
 
@@ -92,6 +178,14 @@ This document describes the changes made to the asn1 application.
 [PR-7738]: https://github.com/erlang/otp/pull/7738
 [PR-8026]: https://github.com/erlang/otp/pull/8026
 [PR-8241]: https://github.com/erlang/otp/pull/8241
+
+## Asn1 5.2.2.1
+
+### Fixed Bugs and Malfunctions
+
+* The ASN.1 compiler could generate code that would cause Dialyzer with the `unmatched_returns` option to emit warnings.
+
+  Own Id: OTP-19638 Aux Id: GH-9841, PR-9846
 
 ## Asn1 5.2.2
 

@@ -1,6 +1,8 @@
 %%
 %% %CopyrightBegin%
 %%
+%% SPDX-License-Identifier: Apache-2.0
+%%
 %% Copyright Ericsson AB 1996-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
@@ -952,7 +954,7 @@ clear_system(Unload,BootPid,State) ->
     Logger = get_logger(State#state.kernel),
     shutdown_pids(Heart,Logger,BootPid,State),
     Unload andalso unload(Heart),
-    kill_em([Logger]),
+    exit(Logger,kill),
     Unload andalso do_unload([logger_server]).
 
 flush() ->
@@ -1065,30 +1067,27 @@ resend(_) ->
 %%
 %% Kill all existing pids in the system (except init and heart).
 kill_all_pids(Heart,Logger) ->
-    case get_pids(Heart,Logger) of
-	[] ->
-	    ok;
-	Pids ->
-	    kill_em(Pids),
-	    kill_all_pids(Heart,Logger)  % Continue until all are really killed.
+    Iter = erlang:processes_iterator(),
+    case kill_pids(Heart, Logger, Iter, false) of
+        true ->
+            %% Continue until all are really killed.
+            kill_all_pids(Heart, Logger);
+        false ->
+            ok
     end.
-    
-%% All except system processes.
-get_pids(Heart,Logger) ->
-    Pids = [P || P <- processes(), not erts_internal:is_system_process(P)],
-    delete(Heart,Logger,self(),Pids).
 
-delete(Heart,Logger,Init,[Heart|Pids]) -> delete(Heart,Logger,Init,Pids);
-delete(Heart,Logger,Init,[Logger|Pids])  -> delete(Heart,Logger,Init,Pids);
-delete(Heart,Logger,Init,[Init|Pids])  -> delete(Heart,Logger,Init,Pids);
-delete(Heart,Logger,Init,[Pid|Pids])   -> [Pid|delete(Heart,Logger,Init,Pids)];
-delete(_,_,_,[])                  -> [].
-    
-kill_em([Pid|Pids]) ->
-    exit(Pid,kill),
-    kill_em(Pids);
-kill_em([]) ->
-    ok.
+kill_pids(Heart, Logger, Iter0, MorePids) ->
+    case erlang:processes_next(Iter0) of
+        none -> MorePids;
+        {Pid, Iter1} ->
+            case erts_internal:is_system_process(Pid) orelse
+                lists:member(Pid, [Heart, Logger, self()]) of
+                true -> kill_pids(Heart, Logger, Iter1, MorePids);
+                false ->
+                    exit(Pid, kill),
+                    kill_pids(Heart, Logger, Iter1, true)
+            end
+    end.
 
 %%
 %% Kill all existing ports in the system (except the heart port),
@@ -1359,6 +1358,18 @@ eval_script(What, #es{}) ->
 load_modules(Mods0, Init) ->
     Mods = [M || M <- Mods0, not erlang:module_loaded(M)],
     F = prepare_loading_fun(),
+    case has_small_memory() of
+        true ->
+            %% Load one module at the time to reduce the peak memory
+            %% usage.
+            _ = [do_load_modules([M], F, Init) || M <- Mods],
+            ok;
+        false ->
+            %% Load the modules in parallel.
+            do_load_modules(Mods, F, Init)
+    end.
+
+do_load_modules(Mods, F, Init) ->
     case erl_prim_loader:get_modules(Mods, F) of
 	{ok,{Prep0,[]}} ->
 	    Prep = [Code || {_,{prepared,Code,_}} <- Prep0],
@@ -1393,6 +1404,13 @@ prepare_loading_fun() ->
 		    end
 	    end
     end.
+
+has_small_memory() ->
+    %% Heuristic for small memory. If true, we'll try to preserve
+    %% memory by not loading code in parallel.
+    (erlang:system_info(wordsize) =:= 4 andalso
+     erlang:system_info(schedulers_online) =:= 1) orelse
+        erlang:system_info(debug_compiled).
 
 make_path(Pa, Pz, Path, Vars) ->
     append([Pa,append([fix_path(Path,Vars),Pz])]).

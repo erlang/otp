@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -787,7 +789,7 @@ table_lookup(Table, Key) ->
 %%% table_lookup_batch(Tables, Class, Cond) -> KeyList
 %%%
 %%% Extract the keys from a table or a table group.
-%%% If a condition is supplied, it is on the form {Mod, Fun, ExtraArgs}
+%%% If a condition is supplied, it is of the form {Mod, Fun, ExtraArgs}
 %%% and returns {true,Key} or false when called using
 %%% apply(Mod, Fun, [Instance|ExtraArgs]).
 %%% Instance is, for historic reasons, {{Class, Key}, Value} when the function

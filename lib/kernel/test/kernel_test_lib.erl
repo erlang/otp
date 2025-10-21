@@ -1,5 +1,7 @@
 %%
 %% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
 %% 
 %% Copyright Ericsson AB 2020-2025. All Rights Reserved.
 %% 
@@ -27,9 +29,10 @@
 	 listen/3,
          connect/4, connect/5,
          open/3,
+         ttest_condition/0,
          is_socket_backend/1,
          inet_backend_opts/1,
-         explicit_inet_backend/0,
+         explicit_inet_backend/0, explicit_inet_backend/1,
          test_inet_backends/0,
          which_inet_backend/1,
          config_inet_backend/2]).
@@ -41,6 +44,7 @@
 -export([good_hosts/1,
          lookup/3]).
 -export([
+         sz/1,
          os_cmd/1, os_cmd/2,
          mq/0, mq/1,
          ts/0, ts/1
@@ -2370,7 +2374,6 @@ set_tc_name(N) when is_list(N) ->
 tc_begin(TC) ->
     OldVal = process_flag(trap_exit, true),
     put(old_trap_exit, OldVal),
-    put(sname, tc),
     set_tc_name(TC),
     tc_print("begin ***",
              "~n----------------------------------------------------~n", "").
@@ -2560,6 +2563,9 @@ start_node(Name, Args, Opts) ->
         " -pa " ++ Pa ++ 
         " -s " ++ atom_to_list(kernel_test_sys_monitor) ++ " start" ++ 
         " -s global sync",
+    print("~w -> try start node ~p with"
+          "~n   Args: ~p"
+          "~n   Opts: ~p", [?FUNCTION_NAME, Name, A, Opts]),
     case test_server:start_node(Name, peer, [{args, A}|Opts]) of
         {ok, _Node} = OK ->
             global:sync(),
@@ -2581,6 +2587,14 @@ timetrap_scale_factor() ->
         N ->
             N
     end.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+sz(B) when is_binary(B) ->
+    byte_size(B);
+sz(L) when is_list(L) ->
+    iolist_size(L).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -2618,15 +2632,19 @@ socket_type(Config) ->
 
 listen(Config, Port, Opts) ->
     InetBackendOpts = inet_backend_opts(Config),
-    gen_tcp:listen(Port, InetBackendOpts ++ Opts).
+    gen_tcp:listen(Port,
+                   InetBackendOpts ++ Opts).
 
 connect(Config, Host, Port, Opts) ->
     InetBackendOpts = inet_backend_opts(Config),
-    gen_tcp:connect(Host, Port, InetBackendOpts ++ Opts).
+    gen_tcp:connect(Host, Port,
+                    InetBackendOpts ++ Opts).
 
 connect(Config, Host, Port, Opts, Timeout) ->
     InetBackendOpts = inet_backend_opts(Config),
-    gen_tcp:connect(Host, Port, InetBackendOpts ++ Opts, Timeout).
+    gen_tcp:connect(Host, Port,
+                    InetBackendOpts ++ Opts,
+                    Timeout).
 
 
 %% gen_udp wrappers
@@ -2637,7 +2655,12 @@ open(Config, Port, Opts) ->
 
 
 inet_backend_opts(Config) when is_list(Config) ->
+    inet_backend_opts(Config, any).
+
+inet_backend_opts(Config, Proto) when is_list(Config) ->
     case lists:keyfind(socket_create_opts, 1, Config) of
+        {_, [{inet_backend, socket}] = InetBackendOpts} when (Proto =:= tcp) ->
+            InetBackendOpts ++ [{erb, 10}];
         {_, InetBackendOpts} ->
             InetBackendOpts;
         false ->
@@ -2653,6 +2676,24 @@ is_socket_backend(Config) when is_list(Config) ->
     end.
 
 
+%% ESOCK_TTEST_CONDITION
+
+ttest_condition() ->
+    case application:get_all_env(kernel) of
+        Env when is_list(Env) ->
+            case lists:keyfind(esock_ttest_condition, 1, Env) of
+                {_, infinity = Factor} ->
+                    Factor;
+                {_, Factor} when is_integer(Factor) andalso (Factor > 0) ->
+                    Factor;
+                _ ->
+                    undefined
+            end;
+        _ ->
+            undefined
+    end.
+    
+
 explicit_inet_backend() ->
     case application:get_all_env(kernel) of
         Env when is_list(Env) ->
@@ -2664,6 +2705,15 @@ explicit_inet_backend() ->
             end;
         _ ->
             false
+    end.
+
+explicit_inet_backend(Config) ->
+    Key = inet_backend,
+    case lists:keysearch(Key, 1, Config) of
+        {value, {Key, Backend}} ->
+            Backend;
+        false ->
+            undefined
     end.
 
 
@@ -2758,8 +2808,10 @@ has_support_unix_domain_socket() ->
 %% We should really implement this using the ("new") net module,
 %% but until that gets the necessary functionality...
 which_local_addr(Domain) ->
+    %% put(debug, true),
     case which_local_host_info(false, Domain) of
         {ok, [#{addr := Addr}|_]} ->
+            %% put(debug, false),
             {ok, Addr};
         {error, _Reason} = ERROR ->
             ERROR
@@ -2787,14 +2839,26 @@ which_local_host_info(Domain) ->
 which_local_host_info(LinkLocal, Domain)
   when is_boolean(LinkLocal) andalso
        ((Domain =:= inet) orelse (Domain =:= inet6)) ->
+    %% Prioritize net (if supported)
+    case is_socket_supported() of
+        true ->  % Use net
+            net_which_local_host_info(LinkLocal, Domain);
+        false -> % Use inet
+            inet_which_local_host_info(LinkLocal, Domain)
+    end.
+
+
+%% -- net
+
+net_which_local_host_info(LinkLocal, Domain) ->
     ?DBG("~w -> entry with"
          "~n   LinkLocal: ~p"
          "~n   Domain:    ~p", [?FUNCTION_NAME, LinkLocal, Domain]),
-    case inet:getifaddrs() of
+    case net_getifaddrs(LinkLocal, Domain) of
         {ok, IFL} ->
             ?DBG("~w -> "
                  "~n   IFL: ~p", [?FUNCTION_NAME, IFL]),
-            which_local_host_info(LinkLocal, Domain, IFL, []);
+            net_which_local_host_info2(IFL, []);
         {error, _} = ERROR ->
             ERROR
     end.
@@ -2815,64 +2879,206 @@ which_local_host_info(LinkLocal, Domain)
 %%   anpi0
 %%.  vmenet0
 %% On Mac, List hw: networksetup -listallhardwareports
-which_local_host_info(_LinkLocal, _Domain, [], []) ->
+net_which_local_host_info2([], []) ->
     {error, no_address};
-which_local_host_info(_LinkLocal, _Domain, [], Acc) ->
-    {ok, lists:reverse(Acc)};
-which_local_host_info(LinkLocal, Domain, [{"tun" ++ _, _}|IFL], Acc) ->
-    which_local_host_info(LinkLocal, Domain, IFL, Acc);
-which_local_host_info(LinkLocal, Domain, [{"docker" ++ _, _}|IFL], Acc) ->
-    which_local_host_info(LinkLocal, Domain, IFL, Acc);
-which_local_host_info(LinkLocal, Domain, [{"br-" ++ _, _}|IFL], Acc) ->
-    which_local_host_info(LinkLocal, Domain, IFL, Acc);
-which_local_host_info(LinkLocal, Domain, [{"ap" ++ _, _}|IFL], Acc) ->
-    which_local_host_info(LinkLocal, Domain, IFL, Acc);
-which_local_host_info(LinkLocal, Domain, [{"anpi" ++ _, _}|IFL], Acc) ->
-    which_local_host_info(LinkLocal, Domain, IFL, Acc);
-which_local_host_info(LinkLocal, Domain, [{"vmenet" ++ _, _}|IFL], Acc) ->
-    which_local_host_info(LinkLocal, Domain, IFL, Acc);
-which_local_host_info(LinkLocal, Domain, [{"utun" ++ _, _}|IFL], Acc) ->
-    which_local_host_info(LinkLocal, Domain, IFL, Acc);
-which_local_host_info(LinkLocal, Domain, [{"bridge" ++ _, _}|IFL], Acc) ->
-    which_local_host_info(LinkLocal, Domain, IFL, Acc);
-which_local_host_info(LinkLocal, Domain, [{"llw" ++ _, _}|IFL], Acc) ->
-    which_local_host_info(LinkLocal, Domain, IFL, Acc);
-which_local_host_info(LinkLocal, Domain, [{"awdl" ++ _, _}|IFL], Acc) ->
-    which_local_host_info(LinkLocal, Domain, IFL, Acc);
-which_local_host_info(LinkLocal, Domain, [{"p2p" ++ _, _}|IFL], Acc) ->
-    which_local_host_info(LinkLocal, Domain, IFL, Acc);
-which_local_host_info(LinkLocal, Domain, [{"stf" ++ _, _}|IFL], Acc) ->
-    which_local_host_info(LinkLocal, Domain, IFL, Acc);
-which_local_host_info(LinkLocal, Domain, [{"XHCZ" ++ _, _}|IFL], Acc) ->
-    which_local_host_info(LinkLocal, Domain, IFL, Acc);
-which_local_host_info(LinkLocal, Domain, [{Name, IFO}|IFL], Acc) ->
+net_which_local_host_info2([], Acc) ->
+    {ok, [net_which_local_host_info3(IF) || IF <- lists:reverse(Acc)]};
+net_which_local_host_info2([#{name := "tun" ++ _}|IFL], Acc) ->
+    net_which_local_host_info2(IFL, Acc);
+net_which_local_host_info2([#{name := "docker" ++ _}|IFL], Acc) ->
+    net_which_local_host_info2(IFL, Acc);
+net_which_local_host_info2([#{name := "br-" ++ _}|IFL], Acc) ->
+    net_which_local_host_info2(IFL, Acc);
+net_which_local_host_info2([#{name := "ap" ++ _}|IFL], Acc) ->
+    net_which_local_host_info2(IFL, Acc);
+net_which_local_host_info2([#{name := "anpi" ++ _}|IFL], Acc) ->
+    net_which_local_host_info2(IFL, Acc);
+net_which_local_host_info2([#{name := "vmenet" ++ _}|IFL], Acc) ->
+    net_which_local_host_info2(IFL, Acc);
+net_which_local_host_info2([#{name := "utun" ++ _}|IFL], Acc) ->
+    net_which_local_host_info2(IFL, Acc);
+net_which_local_host_info2([#{name := "bridge" ++ _}|IFL], Acc) ->
+    net_which_local_host_info2(IFL, Acc);
+net_which_local_host_info2([#{name := "llw" ++ _}|IFL], Acc) ->
+    net_which_local_host_info2(IFL, Acc);
+net_which_local_host_info2([#{name := "awdl" ++ _}|IFL], Acc) ->
+    net_which_local_host_info2(IFL, Acc);
+net_which_local_host_info2([#{name := "p2p" ++ _}|IFL], Acc) ->
+    net_which_local_host_info2(IFL, Acc);
+net_which_local_host_info2([#{name := "stf" ++ _}|IFL], Acc) ->
+    net_which_local_host_info2(IFL, Acc);
+net_which_local_host_info2([#{name := "XHCZ" ++ _}|IFL], Acc) ->
+    net_which_local_host_info2(IFL, Acc);
+net_which_local_host_info2([#{name := Name} = IF|IFL], Acc) ->
+    ?DBG("~w -> entry with"
+         "~n   Name: ~p"
+         "~n   IF:   ~p",
+         [?FUNCTION_NAME, Name, IF]),
+    net_which_local_host_info2(IFL, [IF|Acc]).
+
+
+net_which_local_host_info3(#{name      := Name,
+                             flags     := Flags,
+                             addr      := #{family := inet = Domain,
+                                            addr   := Addr},
+                             netmask   := #{addr   := NetMask}} = HI) ->
+    BroadAddr = case maps:get(broadaddr, HI, undefined) of
+                    #{addr := BA} ->
+                        BA;
+                    _ ->
+                        undefined
+                end,
+    DestAddr = case maps:get(dstaddr, HI, undefined) of
+                   #{addr := DA} ->
+                        DA;
+                    _ ->
+                        undefined
+                end,
+    #{name      => Name,
+      domain    => Domain,
+      flags     => Flags,
+      addr      => Addr,
+      netmask   => NetMask,
+      dstaddr   => DestAddr,
+      broadaddr => BroadAddr};
+net_which_local_host_info3(#{name    := Name,
+                             flags   := Flags,
+                             addr    := #{family := inet6 = Domain,
+                                          addr   := Addr},
+                             netmask := #{addr   := NetMask}}) ->
+    #{name    => Name,
+      domain  => Domain,
+      flags   => Flags,
+      addr    => Addr,
+      netmask => NetMask}.
+
+
+net_getifaddrs(_LinkLocal, local = _Domain) ->
+    net:getifaddrs(#{family => local, flags => any});
+net_getifaddrs(LinkLocal, Domain) ->
+    Filter = fun(#{name  := _Name,
+                   flags := Flags,
+                   addr  := #{family := Family,
+                              addr   := Addr}}) when (Family =:= Domain) ->
+                     ?DBG("~w:filter-fun -> entry with"
+                          "~n   Name:   ~p"
+                          "~n   Flags:  ~p"
+                          "~n   Family: ~p"
+                          "~n   Addr:   ~p"
+                          "~nwhen"
+                          "~n   Domain: ~p",
+                          [_Name, Flags, Family, Addr, Domain]),
+                     lists:member(up, Flags) andalso
+                         lists:member(running, Flags) andalso
+                         (not lists:member(loopback, Flags)) andalso
+                         accept_address(LinkLocal, Addr);
+                (_) ->
+                     false
+             end,
+    net:getifaddrs(Filter).
+
+%% LinkLocal - Do we *want* a link local address (boolean())
+accept_address(LinkLocal, {A, B, _, _} = _Addr)
+  when (A =:= 169) andalso (B =:= 254) ->
+    %% This *is* a link local address:
+    %% Will be accepted only if we *are* looking for a link local address
+    LinkLocal;
+accept_address(LinkLocal, {A, _, _, _, _, _, _, _} = _Addr)
+  when (A =:= 16#fe80) ->
+    %% This *is* a link local address:
+    %% Will be accepted only if we *are* looking for a link local address
+    LinkLocal;
+accept_address(LinkLocal, Addr)
+  when is_tuple(Addr) andalso (tuple_size(Addr) =:= 4) ->
+    %% This is *not* a link local address:
+    %% Will be accepted only if we are *not* looking for a link local address
+    not LinkLocal;
+accept_address(LinkLocal, Addr)
+  when is_tuple(Addr) andalso (tuple_size(Addr) =:= 8) ->
+    %% This is *not* a link local address:
+    %% Will be accepted only if we are *not* looking for a link local address
+    not LinkLocal;
+accept_address(_LinkLocal, _Addr) ->
+    false.
+
+
+%% -- inet
+
+inet_which_local_host_info(LinkLocal, Domain) ->
     ?DBG("~w -> entry with"
          "~n   LinkLocal: ~p"
-         "~n   Domain:    ~p"
-         "~n   Name:      ~p"
-         "~n   IFO:       ~p",
-         [?FUNCTION_NAME, LinkLocal, Domain, Name, IFO]),    
+         "~n   Domain:    ~p", [?FUNCTION_NAME, LinkLocal, Domain]),
+    case inet:getifaddrs() of
+        {ok, IFL} ->
+            ?DBG("~w -> "
+                 "~n   IFL: ~p", [?FUNCTION_NAME, IFL]),
+            inet_which_local_host_info(LinkLocal, Domain, IFL, []);
+        {error, _} = ERROR ->
+            ERROR
+    end.
+
+%% There are a bunch of "special" interfaces that we exclude:
+%% Here are some MacOS interfaces:
+%%   lo      (skip) is the loopback interface
+%%   en0     (keep) is your hardware interfaces (usually Ethernet and WiFi)
+%%   p2p0    (skip) is a point to point link (usually VPN)
+%%   stf0    (skip) is a "six to four" interface (IPv6 to IPv4)
+%%   gif01   (skip) is a software interface
+%%   bridge0 (skip) is a software bridge between other interfaces
+%%   utun0   (skip) is used for "Back to My Mac"
+%%   XHC20   (skip) is a USB network interface
+%%   awdl0   (skip) is Apple Wireless Direct Link (Bluetooth) to iOS devices
+%% What are these:
+%%   ap0
+%%   anpi0
+%%.  vmenet0
+%% On Mac, List hw: networksetup -listallhardwareports
+inet_which_local_host_info(_LinkLocal, _Domain, [], []) ->
+    {error, no_address};
+inet_which_local_host_info(_LinkLocal, _Domain, [], Acc) ->
+    {ok, lists:reverse(Acc)};
+inet_which_local_host_info(LinkLocal, Domain, [{"tun" ++ _, _}|IFL], Acc) ->
+    inet_which_local_host_info(LinkLocal, Domain, IFL, Acc);
+inet_which_local_host_info(LinkLocal, Domain, [{"docker" ++ _, _}|IFL], Acc) ->
+    inet_which_local_host_info(LinkLocal, Domain, IFL, Acc);
+inet_which_local_host_info(LinkLocal, Domain, [{"br-" ++ _, _}|IFL], Acc) ->
+    inet_which_local_host_info(LinkLocal, Domain, IFL, Acc);
+inet_which_local_host_info(LinkLocal, Domain, [{"ap" ++ _, _}|IFL], Acc) ->
+    inet_which_local_host_info(LinkLocal, Domain, IFL, Acc);
+inet_which_local_host_info(LinkLocal, Domain, [{"anpi" ++ _, _}|IFL], Acc) ->
+    inet_which_local_host_info(LinkLocal, Domain, IFL, Acc);
+inet_which_local_host_info(LinkLocal, Domain, [{"vmenet" ++ _, _}|IFL], Acc) ->
+    inet_which_local_host_info(LinkLocal, Domain, IFL, Acc);
+inet_which_local_host_info(LinkLocal, Domain, [{"utun" ++ _, _}|IFL], Acc) ->
+    inet_which_local_host_info(LinkLocal, Domain, IFL, Acc);
+inet_which_local_host_info(LinkLocal, Domain, [{"bridge" ++ _, _}|IFL], Acc) ->
+    inet_which_local_host_info(LinkLocal, Domain, IFL, Acc);
+inet_which_local_host_info(LinkLocal, Domain, [{"llw" ++ _, _}|IFL], Acc) ->
+    inet_which_local_host_info(LinkLocal, Domain, IFL, Acc);
+inet_which_local_host_info(LinkLocal, Domain, [{"awdl" ++ _, _}|IFL], Acc) ->
+    inet_which_local_host_info(LinkLocal, Domain, IFL, Acc);
+inet_which_local_host_info(LinkLocal, Domain, [{"p2p" ++ _, _}|IFL], Acc) ->
+    inet_which_local_host_info(LinkLocal, Domain, IFL, Acc);
+inet_which_local_host_info(LinkLocal, Domain, [{"stf" ++ _, _}|IFL], Acc) ->
+    inet_which_local_host_info(LinkLocal, Domain, IFL, Acc);
+inet_which_local_host_info(LinkLocal, Domain, [{"XHCZ" ++ _, _}|IFL], Acc) ->
+    inet_which_local_host_info(LinkLocal, Domain, IFL, Acc);
+inet_which_local_host_info(LinkLocal, Domain, [{Name, IFO}|IFL], Acc) ->
     case if_is_running_and_not_loopback(IFO) of
         true ->
-            ?DBG("~w -> running and not loopback", [?FUNCTION_NAME]),    
-            try which_local_host_info2(LinkLocal, Domain, IFO) of
+            try inet_which_local_host_info2(LinkLocal, Domain, IFO) of
                 Info ->
-                    ?DBG("~w -> "
-                         "~n   Info: ~p", [?FUNCTION_NAME, Info]),
-                    which_local_host_info(LinkLocal, Domain, IFL,
-                                          [Info#{name => Name}|Acc])
+                    inet_which_local_host_info(LinkLocal, Domain, IFL,
+                                               [Info#{name => Name}|Acc])
             catch
                 throw:_E:_ ->
-                    ?DBG("~w -> catch"
-                         "~n   E: ~p", [?FUNCTION_NAME, _E]),
-                    which_local_host_info(LinkLocal, Domain, IFL, Acc)
+                    inet_which_local_host_info(LinkLocal, Domain, IFL, Acc)
             end;
         false ->
-            ?DBG("~w -> not running or is loopback", [?FUNCTION_NAME]),    
-            which_local_host_info(LinkLocal, Domain, IFL, Acc)
+            inet_which_local_host_info(LinkLocal, Domain, IFL, Acc)
     end;
-which_local_host_info(LinkLocal, Domain, [_|IFL], Acc) ->
-    which_local_host_info(LinkLocal, Domain, IFL, Acc).
+inet_which_local_host_info(LinkLocal, Domain, [_|IFL], Acc) ->
+    inet_which_local_host_info(LinkLocal, Domain, IFL, Acc).
 
 if_is_running_and_not_loopback(If) ->
     lists:keymember(flags, 1, If) andalso
@@ -2883,10 +3089,8 @@ if_is_running_and_not_loopback(If) ->
         end.
 
 
-which_local_host_info2(LinkLocal, inet = _Domain, IFO) ->
-    ?DBG("~w(~w, ~w) -> entry with"
-         "~n   IFO: ~p", [?FUNCTION_NAME, LinkLocal, _Domain, IFO]),    
-    Addr      = which_local_host_info3(
+inet_which_local_host_info2(LinkLocal, inet = _Domain, IFO) ->
+    Addr      = inet_which_local_host_info3(
                   addr,  IFO,
                   fun({A, _, _, _}) when (A =:= 127) -> false;
                      ({A, B, _, _}) when (A =:= 169) andalso 
@@ -2894,23 +3098,23 @@ which_local_host_info2(LinkLocal, inet = _Domain, IFO) ->
                      ({_, _, _, _}) -> not LinkLocal;
                      (_) -> false
                   end),
-    NetMask   = try which_local_host_info3(netmask,  IFO,
-					   fun({_, _, _, _}) -> true;
-					      (_) -> false
-					   end)
+    NetMask   = try inet_which_local_host_info3(netmask,  IFO,
+                                                fun({_, _, _, _}) -> true;
+                                                   (_) -> false
+                                                end)
 		catch
 		    throw:{error, no_address} ->
 			undefined
 		end,
-    BroadAddr = try which_local_host_info3(broadaddr,  IFO,
-					   fun({_, _, _, _}) -> true;
-					      (_) -> false
-					   end)
+    BroadAddr = try inet_which_local_host_info3(broadaddr,  IFO,
+                                                fun({_, _, _, _}) -> true;
+                                                   (_) -> false
+                                                end)
 		catch
 		    throw:{error, no_address} ->
 			undefined
 		end,
-    Flags     = try which_local_host_info3(flags, IFO, fun(_) -> true end)
+    Flags     = try inet_which_local_host_info3(flags, IFO, fun(_) -> true end)
 		catch
 		    throw:{error, no_address} ->
 			[]
@@ -2919,87 +3123,39 @@ which_local_host_info2(LinkLocal, inet = _Domain, IFO) ->
       addr      => Addr,
       broadaddr => BroadAddr,
       netmask   => NetMask};
-which_local_host_info2(LinkLocal, inet6 = _Domain, IFO) ->
-    ?DBG("~w(~w, ~w) -> entry with"
-         "~n   IFO: ~p", [?FUNCTION_NAME, LinkLocal, _Domain, IFO]),    
-    Addr    = which_local_host_info3(addr,  IFO,
-                                     fun({A, _, _, _, _, _, _, _} = _Address) 
-                                           when (A =:= 0) ->
-                                             ?DBG("~w:fun(1) -> no match: "
-                                                  "~n   Address: ~p",
-                                                  [?FUNCTION_NAME, _Address]),
-                                             false;
-                                        ({A, _, _, _, _, _, _, _} = _Address)
-                                           when (A =:= 16#fe80) ->
-                                             if
-                                                 LinkLocal ->
-                                                     ?DBG("~w:fun(2) -> "
-                                                          "link local address "
-                                                          "accepted: "
-                                                          "~n   ~p",
-                                                          [?FUNCTION_NAME,
-                                                           _Address]);
-                                                 true ->
-                                                     ?DBG("~w:fun(2) -> "
-                                                          "link local address "
-                                                          "rejected: "
-                                                          "~n   ~p",
-                                                          [?FUNCTION_NAME,
-                                                           _Address])
-                                             end,
-                                             LinkLocal;
-                                        ({_, _, _, _, _, _, _, _} = _Address) ->
-                                             if
-                                                 (not LinkLocal) ->
-                                                     ?DBG("~w:fun(3) -> "
-                                                          "'normal'"
-                                                          "local address "
-                                                          "accepted: "
-                                                          "~n   ~p",
-                                                          [?FUNCTION_NAME,
-                                                           _Address]);
-                                                 true ->
-                                                     ?DBG("~w:fun(3) -> "
-                                                          "'normal' address "
-                                                          "rejected: "
-                                                          "~n   ~p",
-                                                          [?FUNCTION_NAME,
-                                                           _Address])
-                                             end,
-                                             not LinkLocal;
-                                        (_Address) ->
-                                             ?DBG("~w:fun(4) -> no match: "
-                                                  "~n   Address: ~p",
-                                                  [?FUNCTION_NAME, _Address]),
-                                             false
-                                     end),
-    NetMask = which_local_host_info3(netmask,  IFO,
-                                       fun({_, _, _, _, _, _, _, _}) -> true;
-                                          (_) -> false
-                                       end),
-    Flags   = which_local_host_info3(flags, IFO, fun(_) -> true end),
+inet_which_local_host_info2(LinkLocal, inet6 = _Domain, IFO) ->
+    Addr    = inet_which_local_host_info3(
+                addr,  IFO,
+                fun({A, _, _, _, _, _, _, _}) 
+                      when (A =:= 0) -> false;
+                   ({A, _, _, _, _, _, _, _})
+                      when (A =:= 16#fe80) -> LinkLocal;
+                   ({_, _, _, _, _, _, _, _}) -> not LinkLocal;
+                   (_) -> false
+                end),
+    NetMask = inet_which_local_host_info3(
+                netmask,  IFO,
+                fun({_, _, _, _, _, _, _, _}) -> true;
+                   (_) -> false
+                end),
+    Flags   = inet_which_local_host_info3(flags, IFO, fun(_) -> true end),
     #{flags   => Flags,
       addr    => Addr,
       netmask => NetMask}.
 
-which_local_host_info3(_Key, [], _) ->
-    ?DBG("~w -> no address", [?FUNCTION_NAME]),    
+inet_which_local_host_info3(_Key, [], _) ->
     throw({error, no_address});
-which_local_host_info3(Key, [{Key, Val}|IFO], Check) ->
-    ?DBG("~w -> entry with"
-         "~n   Key: ~p"
-         "~n   Val: ~p", [?FUNCTION_NAME, Key, Val]),    
+inet_which_local_host_info3(Key, [{Key, Val}|IFO], Check) ->
     case Check(Val) of
         true ->
             ?DBG("~w -> validated", [?FUNCTION_NAME]),    
             Val;
         false ->
-            ?DBG("~w -> not validated", [?FUNCTION_NAME]),    
-            which_local_host_info3(Key, IFO, Check)
+            inet_which_local_host_info3(Key, IFO, Check)
     end;
-which_local_host_info3(Key, [_|IFO], Check) ->
-    ?DBG("~w -> key (~w) not found - continue", [?FUNCTION_NAME, Key]),    
-    which_local_host_info3(Key, IFO, Check).
+inet_which_local_host_info3(Key, [_|IFO], Check) ->
+    inet_which_local_host_info3(Key, IFO, Check).
+
 
 
 
@@ -3040,6 +3196,7 @@ format_timestamp({_N1, _N2, N3} = TS) ->
                              [Hour, Min, Sec, N3 div 1000]),  
     lists:flatten(FormatTS).
 
+
 print(F) ->
     print(F, []).
 
@@ -3049,6 +3206,7 @@ print(F, A) ->
 print(Prefix, F, A) ->
     io:format("~s[~s , ~p] " ++ F ++ "~n",
               [Prefix, formated_timestamp(), self() | A]).
+
 
 dbg(F, A) ->
     dbg(get(debug), F, A).

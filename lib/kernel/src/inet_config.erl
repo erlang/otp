@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1997-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,6 +21,8 @@
 %%
 -module(inet_config).
 -moduledoc false.
+
+-compile(nowarn_deprecated_catch).
 
 -include("inet_config.hrl").
 -include("inet.hrl").
@@ -55,36 +59,6 @@ init() ->
 
     OsType = os:type(),
     do_load_resolv(OsType, erl_dist_mode()),
-
-    case OsType of
-	{unix,Type} ->
-	    if Type =:= linux ->
-		    %% It may be the case that the domain name was not set
-		    %% because the hostname was short. But NOW we can look it
-		    %% up and get the long name and the domain name from it.
-		    
-		    %% FIXME: The second call to set_hostname will insert
-		    %% a duplicate entry in the search list.
-		    
-		    case inet_db:res_option(domain) of
-			"" ->
-			    case inet:gethostbyname(inet_db:gethostname()) of
-				{ok,#hostent{h_name = []}} ->
-				    ok;
-				{ok,#hostent{h_name = HostName}} ->
-				    set_hostname({ok,HostName});
-				_ ->
-				    ok
-			    end;
-			_ ->
-			    ok
-		    end;
-	       true -> ok
-	    end,    
-	    add_dns_lookup(inet_db:res_option(lookup));
-	_ ->
-	    ok
-    end,
 
     %% Read inetrc file, if it exists.
     {RcFile,CfgFiles,CfgList} = read_rc(),
@@ -131,6 +105,36 @@ init() ->
 		_ -> ok
 	    end;
 	_ -> ok
+    end, 
+
+    case OsType of
+	{unix,Type} ->
+	    if Type =:= linux ->
+		    %% It may be the case that the domain name was not set
+		    %% because the hostname was short. But NOW we can look it
+		    %% up and get the long name and the domain name from it.
+		    
+		    %% FIXME: The second call to set_hostname will insert
+		    %% a duplicate entry in the search list.
+		    
+		    case inet_db:res_option(domain) of
+			"" ->
+			    case inet:gethostbyname(inet_db:gethostname()) of
+				{ok,#hostent{h_name = []}} ->
+				    ok;
+				{ok,#hostent{h_name = HostName}} ->
+				    set_hostname({ok,HostName});
+				_ ->
+				    ok
+			    end;
+			_ ->
+			    ok
+		    end;
+	       true -> ok
+	    end,    
+	    add_dns_lookup(inet_db:res_option(lookup));
+	_ ->
+	    ok
     end.
 
 

@@ -7,7 +7,9 @@
 ;
 ; %CopyrightBegin%
 ;
-; Copyright Ericsson AB 2012-2024. All Rights Reserved.
+; SPDX-License-Identifier: Apache-2.0
+;
+; Copyright Ericsson AB 2012-2025. All Rights Reserved.
 ;
 ; Licensed under the Apache License, Version 2.0 (the "License");
 ; you may not use this file except in compliance with the License.
@@ -68,7 +70,11 @@ Var STARTMENU_FOLDER
 !if ${WINTYPE} == "win64"
 	!define MUI_STARTMENUPAGE_DEFAULTFOLDER "${OTP_PRODUCT} ${OTP_RELEASE} (x64)"
 !else
-	!define MUI_STARTMENUPAGE_DEFAULTFOLDER "${OTP_PRODUCT} ${OTP_RELEASE} (i386)"
+	!if ${WINTYPE} == "arm64"
+		!define MUI_STARTMENUPAGE_DEFAULTFOLDER "${OTP_PRODUCT} ${OTP_RELEASE} (arm64)"
+	!else
+		!define MUI_STARTMENUPAGE_DEFAULTFOLDER "${OTP_PRODUCT} ${OTP_RELEASE} (i386)"
+	!endif
 !endif  
 
 ;--------------------------------
@@ -385,6 +391,10 @@ Function .onInit
    StrCmpS ${WINTYPE} "win64" +1 +4
 	StrCpy $archprefix "amd64"
 	StrCpy $sysnativedir "$WINDIR\sysnative"
+   Goto +4
+    StrCmpS ${WINTYPE} "arm64" +1 +6
+	StrCpy $archprefix "arm64"
+	StrCpy $sysnativedir "$WINDIR\sysnative"
    Goto +3
 	StrCpy $archprefix "x86"
 	StrCpy $sysnativedir $SYSDIR
@@ -482,12 +492,16 @@ continue_delete:
 
 noshortcuts:
 ; We delete both in HKCU and HKLM, we don't really know were they might be...
-  	DeleteRegKey /ifempty HKLM "SOFTWARE\Ericsson\Erlang\${ERTS_VERSION}"
-  	DeleteRegKey /ifempty HKCU "SOFTWARE\Ericsson\Erlang\${ERTS_VERSION}"
-  	DeleteRegKey HKLM \
-		"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Erlang OTP"
-  	DeleteRegKey HKCU \
-		"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Erlang OTP"
+	DeleteRegKey /ifnosubkeys HKCU "SOFTWARE\Ericsson\Erlang\${ERTS_VERSION}"
+	DeleteRegKey /ifnosubkeys HKCU "SOFTWARE\Ericsson\Erlang"
+	DeleteRegKey /ifnosubkeys HKCU "SOFTWARE\Ericsson"
+
+	DeleteRegKey /ifnosubkeys HKLM "SOFTWARE\Ericsson\Erlang\${ERTS_VERSION}"
+	DeleteRegKey /ifnosubkeys HKLM "SOFTWARE\Ericsson\Erlang"
+	DeleteRegKey /ifnosubkeys HKLM "SOFTWARE\Ericsson"
+
+	DeleteRegKey HKLM "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Erlang OTP"
+	DeleteRegKey HKCU "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Erlang OTP"
 
 
 ; Now remove shell/file associations we'we made...

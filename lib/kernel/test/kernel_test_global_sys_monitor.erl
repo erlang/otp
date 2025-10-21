@@ -1,8 +1,10 @@
 %% 
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2021-2022. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %% 
 
@@ -124,7 +126,7 @@ loop(State) ->
 
         {nodedown = Event, Node} ->
             State2 = process_event(State, Node, Event),
-            loop(State2);            
+            loop(State2);
 
         _ ->
             loop(State)
@@ -147,6 +149,11 @@ process_event(State, Node, {TS, starting}) ->
     end,
     State;
 
+process_event(State, Node, {TS, started}) ->
+    FTS = format_timestamp(TS),
+    info_msg("System Monitor started on node ~p at ~s", [Node, FTS]),
+    State;
+
 process_event(State, Node, {TS, stopping}) ->
     FTS = format_timestamp(TS),
     info_msg("System Monitor stopping on node ~p at ~s", [Node, FTS]),
@@ -156,6 +163,11 @@ process_event(State, Node, {TS, stopping}) ->
         true ->
             ok
     end,
+    State;
+
+process_event(State, Node, {TS, ping}) ->
+    FTS = format_timestamp(TS),
+    info_msg("System Monitor on node ~p was pinged at ~s", [Node, FTS]),
     State;
 
 process_event(State, Node, {TS, already_started}) ->

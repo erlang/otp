@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -176,6 +178,8 @@ supports multiple lines.
 - **`yank`** - Insert the contents of the kill buffer at the cursor position.
 """.
 -moduledoc(#{since => "OTP 26.1"}).
+
+-compile(nowarn_deprecated_catch).
 
 %% A simple Emacs-like line editor.
 %% About Latin-1 characters: see the beginning of erl_scan.erl.

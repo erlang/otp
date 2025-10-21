@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2020-2024. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2020-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -42,6 +44,7 @@ ErtsFrameLayout ERTS_WRITE_UNLIKELY(erts_frame_layout);
 /* Global configuration variables (under the `+J` prefix) */
 #ifdef HAVE_LINUX_PERF_SUPPORT
 enum beamasm_perf_flags erts_jit_perf_support;
+char etrs_jit_perf_directory[MAXPATHLEN] = "/tmp";
 #endif
 /* Force use of single-mapped RWX memory for JIT code */
 int erts_jit_single_map = 0;
@@ -59,6 +62,7 @@ ErtsCodePtr beam_continue_exit;
 ErtsCodePtr beam_save_calls_export;
 ErtsCodePtr beam_save_calls_fun;
 ErtsCodePtr beam_unloaded_fun;
+ErtsCodePtr beam_i_line_breakpoint_cleanup;
 
 /* NOTE These should be the only variables containing trace instructions.
 **      Sometimes tests are for the instruction value, and sometimes
@@ -322,18 +326,18 @@ void beamasm_init() {
         func_label = label++;
         entry_label = label++;
 
-        args = {ArgVal(ArgVal::Label, func_label),
-                ArgVal(ArgVal::Word, sizeof(UWord))};
+        args = {ArgVal(ArgVal::Type::Label, func_label),
+                ArgVal(ArgVal::Type::Word, sizeof(UWord))};
         bma->emit(op_aligned_label_Lt, args);
 
-        args = {ArgVal(ArgVal::Word, func_label),
-                ArgVal(ArgVal::Immediate, mod_name),
-                ArgVal(ArgVal::Immediate, op.name),
-                ArgVal(ArgVal::Word, op.arity)};
+        args = {ArgVal(ArgVal::Type::Word, func_label),
+                ArgVal(ArgVal::Type::Immediate, mod_name),
+                ArgVal(ArgVal::Type::Immediate, op.name),
+                ArgVal(ArgVal::Type::Word, op.arity)};
         bma->emit(op_i_func_info_IaaI, args);
 
-        args = {ArgVal(ArgVal::Label, entry_label),
-                ArgVal(ArgVal::Word, sizeof(UWord))};
+        args = {ArgVal(ArgVal::Type::Label, entry_label),
+                ArgVal(ArgVal::Type::Word, sizeof(UWord))};
         bma->emit(op_aligned_label_Lt, args);
 
         args = {};
@@ -391,6 +395,9 @@ void beamasm_init() {
 
     beam_unloaded_fun = (ErtsCodePtr)bga->get_unloaded_fun();
 
+    beam_i_line_breakpoint_cleanup =
+            (ErtsCodePtr)bga->get_i_line_breakpoint_cleanup();
+
     beamasm_metadata_late_init();
 }
 
@@ -403,7 +410,7 @@ void init_emulator(void) {
 }
 
 void process_main(ErtsSchedulerData *esdp) {
-    typedef void (*pmain_type)(ErtsSchedulerData *);
+    typedef void(ERTS_CCONV_JIT * pmain_type)(ErtsSchedulerData *);
 
     pmain_type pmain = (pmain_type)bga->get_process_main();
     pmain(esdp);
@@ -540,24 +547,26 @@ extern "C"
         BeamModuleAssembler ba(bga, info->mfa.module, 3);
         std::vector<ArgVal> args;
 
-        args = {ArgVal(ArgVal::Label, 1), ArgVal(ArgVal::Word, sizeof(UWord))};
+        args = {ArgVal(ArgVal::Type::Label, 1),
+                ArgVal(ArgVal::Type::Word, sizeof(UWord))};
         ba.emit(op_aligned_label_Lt, args);
 
-        args = {ArgVal(ArgVal::Word, 1),
-                ArgVal(ArgVal::Immediate, info->mfa.module),
-                ArgVal(ArgVal::Immediate, info->mfa.function),
-                ArgVal(ArgVal::Word, info->mfa.arity)};
+        args = {ArgVal(ArgVal::Type::Word, 1),
+                ArgVal(ArgVal::Type::Immediate, info->mfa.module),
+                ArgVal(ArgVal::Type::Immediate, info->mfa.function),
+                ArgVal(ArgVal::Type::Word, info->mfa.arity)};
         ba.emit(op_i_func_info_IaaI, args);
 
-        args = {ArgVal(ArgVal::Label, 2), ArgVal(ArgVal::Word, sizeof(UWord))};
+        args = {ArgVal(ArgVal::Type::Label, 2),
+                ArgVal(ArgVal::Type::Word, sizeof(UWord))};
         ba.emit(op_aligned_label_Lt, args);
 
         args = {};
         ba.emit(op_i_breakpoint_trampoline, args);
 
-        args = {ArgVal(ArgVal::Word, (BeamInstr)normal_fptr),
-                ArgVal(ArgVal::Word, (BeamInstr)lib),
-                ArgVal(ArgVal::Word, (BeamInstr)dirty_fptr)};
+        args = {ArgVal(ArgVal::Type::Word, (BeamInstr)normal_fptr),
+                ArgVal(ArgVal::Type::Word, (BeamInstr)lib),
+                ArgVal(ArgVal::Type::Word, (BeamInstr)dirty_fptr)};
         ba.emit(op_call_nif_WWW, args);
 
         ba.codegen(buff, buff_len);
@@ -686,5 +695,10 @@ extern "C"
                                const byte *string_table) {
         BeamModuleAssembler *ba = static_cast<BeamModuleAssembler *>(instance);
         ba->patchStrings(rw_base, string_table);
+    }
+
+    enum erts_is_line_breakpoint beamasm_is_line_breakpoint_trampoline(
+            ErtsCodePtr addr) {
+        return bga->is_line_breakpoint_trampoline(addr);
     }
 }

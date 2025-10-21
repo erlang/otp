@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2007-2024. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2007-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -74,7 +76,7 @@ ERTS_GLB_INLINE Eterm* move_boxed(Eterm *ERTS_RESTRICT ptr, Eterm hdr, Eterm **h
         }
         break;
     case FUN_SUBTAG:
-        nelts += fun_env_size((ErlFunThing*)(ptr));
+        nelts += fun_num_free((ErlFunThing*)(ptr));
         break;
     }
 
@@ -193,9 +195,13 @@ int erts_dbg_within_proc(Eterm *ptr, Process *p, Eterm* real_htop);
 #endif
 
 #ifdef DEBUG
+
+# ifdef ERLANG_FRAME_POINTERS
 /* Validates the frame chain, ensuring that it always points within the stack
  * and that no frames are skipped. */
 void erts_validate_stack(Process *p, Eterm *frame_ptr, Eterm *stack_top);
+# endif
+
 int
 erts_dbg_check_heap_terms(int (*check_eterm)(Eterm),
                           Process *p,

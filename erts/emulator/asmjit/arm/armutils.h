@@ -127,6 +127,13 @@ static ASMJIT_INLINE_NODEBUG bool isLogicalImm(uint64_t imm, uint32_t width) noe
   return encodeLogicalImm(imm, width, &dummy);
 }
 
+//! Returns true if the given `imm` value is encodable as an immediate with `add` and `sub` instructions on AArch64.
+//! These two instructions can encode 12-bit immediate value optionally shifted left by 12 bits.
+ASMJIT_MAYBE_UNUSED
+static ASMJIT_INLINE_NODEBUG bool isAddSubImm(uint64_t imm) noexcept {
+  return imm <= 0xFFFu || (imm & ~uint64_t(0xFFFu << 12)) == 0;
+}
+
 //! Returns true if the given `imm` value is a byte mask. Byte mask has each byte part of the value set to either
 //! 0x00 or 0xFF. Some ARM instructions accept immediates that form a byte-mask and this function can be used to
 //! verify that the immediate is encodable before using the value.

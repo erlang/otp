@@ -1,7 +1,9 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2008-2024. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 2008-2025. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -34,6 +36,10 @@ EBIN = ../ebin
 ERLC = erlc
 ERLINC = ../include
 ERL_COMPILE_FLAGS += -I$(ERLINC) +warn_unused_vars +nowarn_missing_doc
+
+ifeq ($(CAN_BUILD_DRIVER), true)
+ERL_COMPILE_FLAGS += -DCAN_BUILD_DRIVER
+endif
 
 ARCHIVE         = wx-$(VSN).ez
 

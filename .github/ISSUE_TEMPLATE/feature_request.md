@@ -17,3 +17,15 @@ A clear and concise description of any alternative solutions or features you've 
 
 **Additional context**
 Add any other context or screenshots about the feature request here.
+
+<!--
+
+%CopyrightBegin%
+
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2021-2025. All Rights Reserved.
+
+%CopyrightEnd%
+
+-->

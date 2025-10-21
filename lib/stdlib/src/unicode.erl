@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -56,6 +58,8 @@ normalization functions where introduced in OTP 20. Additional information on
 normalization can be found in the
 [Unicode FAQ](http://unicode.org/faq/normalization.html).
 """.
+
+-compile(nowarn_deprecated_catch).
 
 -export([characters_to_list/1, characters_to_list_int/2,
 	 characters_to_binary/1, characters_to_binary_int/2,

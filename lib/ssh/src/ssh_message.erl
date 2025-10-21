@@ -1,6 +1,8 @@
 %%
 %% %CopyrightBegin%
 %%
+%% SPDX-License-Identifier: Apache-2.0
+%%
 %% Copyright Ericsson AB 2013-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
@@ -44,12 +46,12 @@
 
 -behaviour(ssh_dbg).
 -export([ssh_dbg_trace_points/0, ssh_dbg_flags/1, ssh_dbg_on/1, ssh_dbg_off/1, ssh_dbg_format/2]).
--define(ALG_NAME_LIMIT, 64).
+-define(ALG_NAME_LIMIT, 64). % RFC4251 sec6
 
 ucl(B) ->
     try unicode:characters_to_list(B) of
 	L when is_list(L) -> L;
-	{error,_Matched,Rest} -> throw({error,{bad_unicode,Rest}})
+	{error,_Matched,_Rest} -> throw({error,bad_unicode})
     catch
 	_:_ -> throw({error,bad_unicode})
     end.
@@ -209,12 +211,12 @@ encode(#ssh_msg_disconnect{
 encode(#ssh_msg_service_request{
 	  name = Service
 	 }) ->
-    <<?Ebyte(?SSH_MSG_SERVICE_REQUEST), ?Estring_utf8(Service)>>;
+    <<?Ebyte(?SSH_MSG_SERVICE_REQUEST), ?Estring(Service)>>;
 
 encode(#ssh_msg_service_accept{
 	  name = Service
 	 }) ->
-    <<?Ebyte(?SSH_MSG_SERVICE_ACCEPT), ?Estring_utf8(Service)>>;
+    <<?Ebyte(?SSH_MSG_SERVICE_ACCEPT), ?Estring(Service)>>;
 
 encode(#ssh_msg_ext_info{
           nr_extensions = N,
@@ -377,7 +379,7 @@ decode(<<?BYTE(?SSH_MSG_CHANNEL_REQUEST), ?UINT32(Recipient),
     try
         #ssh_msg_channel_request{
            recipient_channel = Recipient,
-           request_type = ?unicode_list(RequestType),
+           request_type = binary:bin_to_list(RequestType),
            want_reply = erl_boolean(Bool),
            data  = Data
           }
@@ -407,8 +409,8 @@ decode(<<?BYTE(?SSH_MSG_USERAUTH_REQUEST),
 	 Data/binary>>) ->
     #ssh_msg_userauth_request{
        user =    ?unicode_list(User),
-       service = ?unicode_list(Service),
-       method =  ?unicode_list(Method),
+       service = binary:bin_to_list(Service),
+       method =  binary:bin_to_list(Method),
        data = Data
       };
 
@@ -416,7 +418,7 @@ decode(<<?BYTE(?SSH_MSG_USERAUTH_FAILURE),
 	 ?DEC_BIN(Auths,__0),
 	 ?BYTE(Bool)>>) ->
     #ssh_msg_userauth_failure {
-       authentications = ?unicode_list(Auths),
+       authentications = binary:bin_to_list(Auths),
        partial_success = erl_boolean(Bool)
       };
 
@@ -530,12 +532,12 @@ decode(<<"ecdh",?BYTE(?SSH_MSG_KEX_ECDH_REPLY),
 
 decode(<<?SSH_MSG_SERVICE_REQUEST, ?DEC_BIN(Service,__0)>>) ->
     #ssh_msg_service_request{
-       name = ?unicode_list(Service)
+       name = binary:bin_to_list(Service)
       };
 
 decode(<<?SSH_MSG_SERVICE_ACCEPT, ?DEC_BIN(Service,__0)>>) ->
     #ssh_msg_service_accept{
-       name = ?unicode_list(Service)
+       name = binary:bin_to_list(Service)
       };
 
 decode(<<?BYTE(?SSH_MSG_DISCONNECT), ?UINT32(Code), ?DEC_BIN(Desc,__0), ?DEC_BIN(Lang,__1)>>) ->
@@ -556,6 +558,9 @@ decode(<<?BYTE(?SSH_MSG_DISCONNECT), ?UINT32(Code), ?DEC_BIN(Desc,__0)>>) ->
 decode(<<?SSH_MSG_NEWKEYS>>) ->
     #ssh_msg_newkeys{};
 
+%% Accept SSH_MSG_IGNORE without data to have feature parity with other implementations like openssh
+decode(<<?BYTE(?SSH_MSG_IGNORE)>>) ->
+    #ssh_msg_ignore{};
 decode(<<?BYTE(?SSH_MSG_IGNORE), ?DEC_BIN(Data,__0)>>) ->
     #ssh_msg_ignore{data = Data};
 
@@ -822,23 +827,33 @@ decode_kex_init(<<?BYTE(Bool)>>, Acc, 0) ->
     %% See rfc 4253 7.1
     X = 0,
     list_to_tuple(lists:reverse([X, erl_boolean(Bool) | Acc]));
-decode_kex_init(<<?DEC_BIN(Data,__0), Rest/binary>>, Acc, N) ->
+decode_kex_init(<<?DEC_BIN(Data,__0), Rest/binary>>, Acc, N) when
+      byte_size(Data) < ?MAX_NUM_ALGORITHMS * ?ALG_NAME_LIMIT ->
     BinParts = binary:split(Data, <<$,>>, [global]),
-    Process =
-        fun(<<>>, PAcc) ->
-                PAcc;
-           (Part, PAcc) ->
-                case byte_size(Part) > ?ALG_NAME_LIMIT of
-                    true ->
-                        ?LOG_DEBUG("Ignoring too long name", []),
+    AlgCount = length(BinParts),
+    case AlgCount =< ?MAX_NUM_ALGORITHMS of
+        true ->
+            Process =
+                fun(<<>>, PAcc) ->
                         PAcc;
-                    false ->
-                        Name = binary:bin_to_list(Part),
-                        [Name | PAcc]
-                end
-        end,
-    Names = lists:foldr(Process, [], BinParts),
-    decode_kex_init(Rest, [Names | Acc], N - 1).
+                   (Part, PAcc) ->
+                        case byte_size(Part) =< ?ALG_NAME_LIMIT of
+                            true ->
+                                Name = binary:bin_to_list(Part),
+                                [Name | PAcc];
+                            false ->
+                                ?LOG_DEBUG("Ignoring too long name", []),
+                                PAcc
+                        end
+                end,
+            Names = lists:foldr(Process, [], BinParts),
+            decode_kex_init(Rest, [Names | Acc], N - 1);
+        false ->
+            throw({error, {kexinit_error, N, {alg_count, AlgCount}}})
+    end;
+decode_kex_init(<<?DEC_BIN(Data,__0), _Rest/binary>>, _Acc, N) ->
+    throw({error, {kexinit, N, {string_size, byte_size(Data)}}}).
+
 
 
 %%%================================================================

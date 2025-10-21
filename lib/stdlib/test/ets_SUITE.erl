@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -99,7 +101,7 @@
 	 exit_many_large_table_owner/1,
 	 exit_many_tables_owner/1,
 	 exit_many_many_tables_owner/1]).
--export([write_concurrency/1, heir/1, give_away/1, setopts/1]).
+-export([write_concurrency/1, heir/1, heir_2/1, give_away/1, setopts/1]).
 -export([bad_table/1, types/1]).
 -export([otp_9932/1]).
 -export([otp_9423/1]).
@@ -178,7 +180,7 @@ all() ->
      smp_ordered_iteration,
      smp_select_delete, otp_8166, exit_large_table_owner,
      exit_many_large_table_owner, exit_many_tables_owner,
-     exit_many_many_tables_owner, write_concurrency, heir,
+     exit_many_many_tables_owner, write_concurrency, heir, heir_2,
      give_away, setopts, bad_table, types,
      otp_10182,
      otp_9932,
@@ -190,7 +192,7 @@ all() ->
      whereis_table,
      delete_unfix_race,
      test_throughput_benchmark,
-     {group, benchmark},
+     %%{group, benchmark},
      test_table_size_concurrency,
      test_table_memory_concurrency,
      test_delete_table_while_size_snapshot,
@@ -3538,6 +3540,38 @@ heir_1(HeirData,Mode,Opts) ->
     Founder ! {go, Heir},
     {'DOWN', Mref, process, Heir, normal} = receive_any().
 
+
+%% Test the heir option without gift data
+heir_2(Config) when is_list(Config) ->
+    repeat_for_opts(fun heir_2_do/1).
+
+
+heir_2_do(Opts) ->
+    Parent = self(),
+
+    FounderFn = fun() ->
+		    Tab = ets:new(foo, [private, {heir, Parent} | Opts]),
+		    true = ets:insert(Tab, {key, 1}),
+		    get_tab = receive_any(),
+		    Parent ! {tab, Tab},
+		    die_please = receive_any(),
+		    ok
+		end,
+
+    {Founder, FounderRef} = my_spawn_monitor(FounderFn),
+
+    Founder ! get_tab,
+    {tab, Tab} = receive_any(),
+    {'EXIT', {badarg, _}} = (catch ets:lookup(Tab, key)),
+
+    Founder ! die_please,
+    {'DOWN', FounderRef, process, Founder, normal} = receive_any(),
+    [{key, 1}] = ets:lookup(Tab, key),
+
+    true = ets:delete(Tab),
+    ok.
+
+
 %% Test ets:give_way/3.
 give_away(Config) when is_list(Config) ->
     repeat_for_opts(fun give_away_do/1).
@@ -3628,17 +3662,18 @@ setopts_do(Opts) ->
     T = ets_new(foo,[named_table, private | Opts]),
     none = ets:info(T,heir),
     Heir = my_spawn_link(fun()->heir_heir(Self) end),
-    ets:setopts(T,{heir,Heir,"Data"}),
+    ets:setopts(T,{heir,Heir}),
     Heir = ets:info(T,heir),
-    ets:setopts(T,{heir,self(),"Data"}),
+    ets:setopts(T,{heir,self()}),
     Self = ets:info(T,heir),
     ets:setopts(T,[{heir,Heir,"Data"}]),
     Heir = ets:info(T,heir),
+    ets:setopts(T,[{heir,self(),"Data"}]),
+    Self = ets:info(T,heir),
     ets:setopts(T,[{heir,none}]),
     none = ets:info(T,heir),
 
     {'EXIT',{badarg,_}} = (catch ets:setopts(T,[{heir,self(),"Data"},false])),
-    {'EXIT',{badarg,_}} = (catch ets:setopts(T,{heir,self()})),
     {'EXIT',{badarg,_}} = (catch ets:setopts(T,{heir,false})),
     {'EXIT',{badarg,_}} = (catch ets:setopts(T,heir)),
     {'EXIT',{badarg,_}} = (catch ets:setopts(T,{heir,false,"Data"})),
@@ -7378,7 +7413,12 @@ smp_insert_do(Opts) ->
     ExecF = fun(_) -> true = ets:insert(smp_insert,{rand:uniform(KeyRange)})
             end,
     FiniF = fun(_) -> ok end,
-    run_smp_workers(InitF,ExecF,FiniF,100000),
+    %% Limit number of concurrent inserters on large multicore machines
+    %% as hash tables have been seen to not keep up with growth.
+    %% But probably not a problem in practice with such massively
+    %% concurrent frequent insertions.
+    MaxWorkers = 150,
+    run_smp_workers(InitF,ExecF,FiniF,100000, #{max => MaxWorkers}),
     verify_table_load(smp_insert),
     ets:delete(smp_insert).
 
@@ -7968,7 +8008,7 @@ otp_9423(Config) when is_list(Config) ->
                               end
                       end,
               FiniF = fun(R) -> R end,
-              case run_smp_workers(InitF, ExecF, FiniF, infinite, 1) of
+              case run_smp_workers(InitF, ExecF, FiniF, infinite, #{exclude => 1}) of
                   Pids when is_list(Pids) ->
                       %%[P ! start || P <- Pids],
                       repeat(fun() -> ets_new(otp_9423, [named_table, public,
@@ -8881,11 +8921,15 @@ add_lists([E1|T1], [E2|T2], Acc) ->
     add_lists(T1, T2, [E1+E2 | Acc]).
 
 run_smp_workers(InitF,ExecF,FiniF,Laps) ->
-    run_smp_workers(InitF,ExecF,FiniF,Laps, 0).
-run_smp_workers(InitF,ExecF,FiniF,Laps, Exclude) ->
+    run_smp_workers(InitF,ExecF,FiniF,Laps, #{}).
+
+run_smp_workers(InitF,ExecF,FiniF,Laps, Opts) ->
+    Exclude = maps:get(exclude, Opts, 0),
+    Max = maps:get(max, Opts, infinite),
     case erlang:system_info(schedulers_online) of
         N when N > Exclude ->
-            run_workers_do(InitF,ExecF,FiniF,Laps, N - Exclude);
+            Workers = min(N - Exclude, Max),
+            run_workers_do(InitF, ExecF, FiniF, Laps, Workers);
         _ ->
             {skipped, "Too few schedulers online"}
     end.
@@ -9999,11 +10043,8 @@ make_sub_binary(Bin) when is_binary(Bin) ->
 make_sub_binary(List) ->
     make_sub_binary(list_to_binary(List)).
 
-make_unaligned_sub_binary(Bin0) when is_binary(Bin0) ->
-    Bin1 = <<0:3,Bin0/binary,31:5>>,
-    Sz = size(Bin0),
-    <<0:3,Bin:Sz/binary,31:5>> = id(Bin1),
-    Bin;
+make_unaligned_sub_binary(Bin) when is_binary(Bin) ->
+    erts_debug:unaligned_bitstring(Bin, 3);
 make_unaligned_sub_binary(List) ->
     make_unaligned_sub_binary(list_to_binary(List)).
 

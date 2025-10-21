@@ -1,3 +1,23 @@
+# %CopyrightBegin%
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 2024-2025. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# %CopyrightEnd%
+
 cwd = File.cwd!()
 
 ## Read local configuration
@@ -76,7 +96,8 @@ titles =
     [],
     fn module, acc ->
       case Code.fetch_docs(module) do
-        {:docs_v1, _, :erlang, _, _, %{:titles => ts}, _} ->
+        {:docs_v1, _, :erlang, _, _, _, fun_docs} ->
+          ts = for {{type, _, _}, _, _, _, %{group: group}} <- fun_docs, do: {type, group}
           acc ++ ts
 
         _ ->
@@ -88,34 +109,34 @@ titles =
 
 groups_for_docs =
   Enum.map(
-    Access.get(titles, :type, []),
+    Enum.sort(Access.get(titles, :type, [])),
     fn {:type, title} ->
       {"Types: #{title}",
        fn a ->
-         a[:kind] == :type && String.equivalent?(Access.get(a, :title, ""), title)
+         a[:kind] == :type && String.equivalent?(Access.get(a, :group, ""), title)
        end}
     end
   ) ++
     [Types: &(&1[:kind] == :type)] ++
     Enum.map(
-      Access.get(titles, :callback, []),
+      Enum.sort(Access.get(titles, :callback, [])),
       fn {:callback, title} ->
         {"Callbacks: #{title}",
          fn a ->
-           a[:kind] == :callback && String.equivalent?(Access.get(a, :title, ""), title)
+           a[:kind] == :callback && String.equivalent?(Access.get(a, :group, ""), title)
          end}
       end
     ) ++
-      [Callbacks: &(&1[:kind] == :callback)] ++
-      Enum.map(
-        Access.get(titles, :function, []),
-        fn {:function, title} ->
-          {"#{title}",
-           fn a ->
-             a[:kind] == :function && String.equivalent?(Access.get(a, :title, ""), title)
-           end}
-        end
-      )
+    [Callbacks: &(&1[:kind] == :callback)] ++
+    Enum.map(
+      Enum.sort(Access.get(titles, :function, [])),
+      fn {:function, title} ->
+        {"#{title}",
+         fn a ->
+           a[:kind] == :function && String.equivalent?(Access.get(a, :group, ""), title)
+         end}
+      end
+    )
 
 ## Create the correct source url to github
 base_url = "https://github.com/" <> System.get_env("BASE_URL", "erlang/otp/blob/master/")
@@ -161,7 +182,7 @@ current_datetime = System.os_time() |> DateTime.from_unix!(:native)
 config = [
   proglang: :erlang,
   source_url_pattern: source_url_pattern,
-  assets: %{ Path.join(cwd, "/assets") => "assets" },
+  assets: %{Path.join(cwd, "/assets") => "assets"},
   logo: Path.join(:code.root_dir(), "system/doc/assets/erlang-logo.png"),
   before_closing_head_tag: fn _ -> "<style>.dark img { background-color: white; }</style>" end,
   before_closing_footer_tag: fn _ ->
@@ -197,28 +218,34 @@ config = [
   before_closing_body_tag: fn
     :html ->
       """
-      <script>
-        function mermaidLoaded() {
-          mermaid.initialize({
-            startOnLoad: false,
-            theme: document.body.className.includes("dark") ? "dark" : "default"
-          });
-          let id = 0;
-          for (const codeEl of document.querySelectorAll("pre code.mermaid")) {
+        <script defer src="https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.min.js"></script>
+        <script>
+        let initialized = false;
+
+        window.addEventListener("exdoc:loaded", () => {
+            if (!initialized) {
+            mermaid.initialize({
+                startOnLoad: false,
+                theme: document.body.className.includes("dark") ? "dark" : "default"
+            });
+            initialized = true;
+            }
+
+            let id = 0;
+            for (const codeEl of document.querySelectorAll("pre code.mermaid")) {
             const preEl = codeEl.parentElement;
             const graphDefinition = codeEl.textContent;
             const graphEl = document.createElement("div");
             const graphId = "mermaid-graph-" + id++;
             mermaid.render(graphId, graphDefinition).then(({svg, bindFunctions}) => {
-              graphEl.innerHTML = svg;
-              bindFunctions?.(graphEl);
-              preEl.insertAdjacentElement("afterend", graphEl);
-              preEl.remove();
+                graphEl.innerHTML = svg;
+                bindFunctions?.(graphEl);
+                preEl.insertAdjacentElement("afterend", graphEl);
+                preEl.remove();
             });
-          }
-        }
-      </script>
-      <script async src="https://cdn.jsdelivr.net/npm/mermaid@10.2.3/dist/mermaid.min.js" onload="mermaidLoaded();"></script>
+            }
+        });
+        </script>
       """
 
     _ ->

@@ -1,6 +1,8 @@
 %%
 %% %CopyrightBegin%
 %%
+%% SPDX-License-Identifier: Apache-2.0
+%%
 %% Copyright Ericsson AB 2022-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
@@ -105,10 +107,13 @@
 callback_mode() ->
     [state_functions, state_enter].
 
-init([?SERVER_ROLE, Sender, Host, Port, Socket, Options,  User, CbInfo]) ->
+init([?SERVER_ROLE, Sender, Tab, Host, Port, Socket, Options,  User, CbInfo]) ->
     State0 = #state{protocol_specific = Map} =
-        tls_gen_connection_1_3:initial_state(?SERVER_ROLE, Sender,
+        tls_gen_connection_1_3:initial_state(?SERVER_ROLE, Sender, Tab,
                                              Host, Port, Socket, Options, User, CbInfo),
+    #state{static_env = #static_env{user_socket = UserSocket}} = State0,
+    User ! {self(), user_socket, UserSocket},
+    put(tls_role, server),
     try
 	State = ssl_gen_statem:init_ssl_config(State0#state.ssl_options, ?SERVER_ROLE, State0),
         tls_gen_connection:initialize_tls_sender(State),
@@ -165,7 +170,7 @@ user_hello({call, From}, cancel, State) ->
 user_hello({call, From}, {handshake_continue, NewOptions, Timeout},
            #state{handshake_env = #handshake_env{continue_status = {pause, ClientVersions}},
                   ssl_options = Options0} = State0) ->
-    try ssl:update_options(NewOptions, ?SERVER_ROLE, Options0) of
+    try ssl_config:update_options(NewOptions, ?SERVER_ROLE, Options0) of
         Options = #{versions := Versions} ->
             State1 = ssl_gen_statem:ssl_config(Options, ?SERVER_ROLE, State0),
             #state{handshake_env = HsEnv0} = State1,
@@ -362,6 +367,8 @@ wait_eoed(Type, Msg, State) ->
                  term(), #state{}) ->
           gen_statem:state_function_result().
 %%--------------------------------------------------------------------
+connection(info, Msg, State) ->
+    tls_gen_connection:gen_info(Msg, connection, State);
 connection(Type, Msg, State) ->
     tls_gen_connection_1_3:connection(Type, Msg, State).
 
@@ -455,7 +462,7 @@ do_handle_client_hello(#client_hello{cipher_suites = ClientCiphers,
         {Group, ClientPubKey} = select_client_public_key(Groups, ClientShares),
 
         %% Generate server_share
-        KeyShare = ssl_cipher:generate_server_share(Group),
+        KeyShare = generate_server_share(Group, ClientPubKey),
 
         State2 = case maps:get(max_frag_enum, Extensions, undefined) of
                       MaxFragEnum when is_record(MaxFragEnum, max_frag_enum) ->
@@ -756,12 +763,55 @@ default_or_fallback({fallback, _}, #session{} = Default) ->
 default_or_fallback(Default, _) ->
     Default.
 
+generate_server_share(Group, OtherPubKey) when Group == mlkem512;
+                                               Group == mlkem768;
+                                               Group == mlkem1024 -> 
+    {Secret, CipherText} = crypto:encapsulate_key(Group, OtherPubKey),
+    #key_share_server_hello{server_share = #key_share_entry{
+                                              group = Group,
+                                              key_exchange = {CipherText, Secret}
+                                             }};
+generate_server_share(x25519mlkem768 = Group, {OtherPubKey, _}) ->
+    %% Note exception algorithm should be in reveres order of name due to legacy reason
+    {Curve, MlKem} = tls_handshake_1_3:hybrid_algs(Group),
+    {Secret, CipherText} = crypto:encapsulate_key(MlKem, OtherPubKey),
+    Keys = tls_handshake_1_3:generate_kex_keys(Curve),
+    #key_share_server_hello{server_share = #key_share_entry{
+                                              group = Group,
+                                              key_exchange = {{CipherText, Secret}, Keys}
+                                             }};
+generate_server_share(Group, {_, OtherPubKey}) when Group == secp256r1mlkem768;
+                                                    Group == secp384r1mlkem1024 ->
+    {Curve, MlKem} = tls_handshake_1_3:hybrid_algs(Group),
+    {Secret, CipherText} = crypto:encapsulate_key(MlKem, OtherPubKey),
+    Keys = tls_handshake_1_3:generate_kex_keys(Curve),
+    #key_share_server_hello{server_share = #key_share_entry{
+                                              group = Group,
+                                              key_exchange = {Keys, {CipherText, Secret}}
+                                             }};
+generate_server_share(Group, _) ->
+    Keys = tls_handshake_1_3:generate_kex_keys(Group),
+    #key_share_server_hello{
+       server_share = #key_share_entry{
+                         group = Group,
+                         key_exchange = Keys
+                        }}.
+
 select_server_private_key(#key_share_server_hello{server_share = ServerShare}) ->
     select_private_key(ServerShare).
 
 select_private_key(#key_share_entry{
                    key_exchange = #'ECPrivateKey'{} = PrivateKey}) ->
     PrivateKey;
+select_private_key(#key_share_entry{
+                      key_exchange =
+                          {#'ECPrivateKey'{} = PrivateKey1, {_, PrivateKey2}}}) ->
+    {PrivateKey1, PrivateKey2};
+
+select_private_key(#key_share_entry{
+                      key_exchange =
+                          {{_, PrivateKey1}, {_, PrivateKey2}}}) ->
+    {PrivateKey1, PrivateKey2};
 select_private_key(#key_share_entry{
                       key_exchange =
                           {_, PrivateKey}}) ->

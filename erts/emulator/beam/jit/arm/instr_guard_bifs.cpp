@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2020-2024. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2020-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -76,7 +78,7 @@ void BeamGlobalAssembler::emit_bif_is_eq_exact_shared() {
     emit_enter_runtime_frame();
     emit_enter_runtime();
 
-    runtime_call<2>(eq);
+    runtime_call<int (*)(Eterm, Eterm), eq>();
 
     emit_leave_runtime();
     emit_leave_runtime_frame();
@@ -108,7 +110,7 @@ void BeamGlobalAssembler::emit_bif_is_ne_exact_shared() {
     emit_enter_runtime_frame();
     emit_enter_runtime();
 
-    runtime_call<2>(eq);
+    runtime_call<int (*)(Eterm, Eterm), eq>();
 
     emit_leave_runtime();
     emit_leave_runtime_frame();
@@ -609,19 +611,12 @@ void BeamModuleAssembler::emit_bif_element(const ArgLabel &Fail,
 
             a.asr(TMP3, pos.reg, imm(_TAG_IMMED1_SIZE));
 
-            if (min >= 1) {
-                comment("skipped check for position >= 1");
+            if (1 <= min && max <= size) {
+                comment("skipped check for known safe position");
             } else {
-                a.cmp(TMP3, imm(1));
-                a.b_mi(fail);
-            }
-
-            if (size >= max) {
-                comment("skipped check for position beyond tuple");
-            } else {
-                mov_imm(TMP2, size);
-                a.cmp(TMP2, TMP3);
-                a.b_lo(fail);
+                a.sub(TMP2, TMP3, imm(1));
+                cmp(TMP2, size);
+                a.b_hs(fail);
             }
 
             a.ldr(dst.reg, arm::Mem(TMP1, TMP3, arm::lsl(3)));
@@ -821,7 +816,7 @@ void BeamModuleAssembler::emit_bif_is_map_key(const ArgWord &Bif,
         emit_cond_to_bool(arm::CondCode::kEQ, Dst);
     } else {
         emit_enter_runtime();
-        runtime_call<2>(get_map_element);
+        runtime_call<Eterm (*)(Eterm, Eterm), get_map_element>();
         emit_leave_runtime();
 
         cmp(ARG1, THE_NON_VALUE);
@@ -914,7 +909,7 @@ void BeamModuleAssembler::emit_bif_map_get(const ArgLabel &Fail,
         }
     } else {
         emit_enter_runtime();
-        runtime_call<2>(get_map_element);
+        runtime_call<Eterm (*)(Eterm, Eterm), get_map_element>();
         emit_leave_runtime();
 
         if (Fail.get() == 0) {

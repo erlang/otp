@@ -1,6 +1,8 @@
 %%
 %% %CopyrightBegin%
 %%
+%% SPDX-License-Identifier: Apache-2.0
+%%
 %% Copyright Ericsson AB 2008-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
@@ -25,11 +27,11 @@
 -behaviour(ct_suite).
 
 -include_lib("common_test/include/ct.hrl").
--include("ssl_alert.hrl").
--include("ssl_handshake.hrl").
--include("ssl_internal.hrl").
--include("ssl_record.hrl").
--include("tls_handshake.hrl").
+-include_lib("ssl/src/ssl_alert.hrl").
+-include_lib("ssl/src/ssl_handshake.hrl").
+-include_lib("ssl/src/ssl_internal.hrl").
+-include_lib("ssl/src/ssl_record.hrl").
+-include_lib("ssl/src/tls_handshake.hrl").
 -include_lib("public_key/include/public_key.hrl").
 
 %% Common test
@@ -85,13 +87,13 @@ end_per_group(_,Config) ->
 init_per_testcase(TC, Config0) when
       TC =:= ignore_hassign_extension_pre_tls_1_2 orelse
       TC =:= signature_algorithms ->
-    catch crypto:stop(),
-    try crypto:start() of
+    catch application:stop(crypto),
+    try application:start(crypto) of
 	ok ->
 	    case is_supported(sha512) of
 		true ->
 		    ssl_test_lib:clean_start(),
-		    %% make rsa certs using oppenssl
+		    %% make rsa certs using openssl
 		    {ok, _} = make_certs:all(proplists:get_value(data_dir, Config0),
 					     proplists:get_value(priv_dir, Config0)),
 		    Config = ssl_test_lib:cert_options(Config0),
@@ -107,7 +109,7 @@ init_per_testcase(_, Config0) ->
     Config0.
 
 end_per_testcase(ignore_hassign_extension_pre_tls_1_2, _) ->
-    crypto:stop();
+    application:stop(crypto);
 end_per_testcase(_TestCase, Config) ->
     Config.
 
@@ -129,7 +131,7 @@ decode_hello_handshake(_Config) ->
 		    16#70, 16#64, 16#79, 16#2f, 16#32>>,
 	
     Version = ?SSL_3_0,
-    DefOpts = ssl:update_options([{verify, verify_none}], client, #{}),
+    DefOpts = ssl_config:update_options([{verify, verify_none}], client, #{}),
     {Records, _Buffer} = tls_handshake:get_tls_handshakes(Version, HelloPacket, <<>>, DefOpts),
 
     {Hello, _Data} = hd(Records),

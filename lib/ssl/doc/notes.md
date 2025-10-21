@@ -1,6 +1,8 @@
 <!--
 %CopyrightBegin%
 
+SPDX-License-Identifier: Apache-2.0
+
 Copyright Ericsson AB 2023-2025. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,6 +22,211 @@ limitations under the License.
 # SSL Release Notes
 
 This document describes the changes made to the SSL application.
+
+## SSL 11.4.1
+
+### Fixed Bugs and Malfunctions
+
+- Fixed so that sending of application data will adhere to max_fragment_length. This was broken in OTP-27 release by an optimization.
+
+  Own Id: OTP-19774 Aux Id: [GH-10191], [PR-10201]
+
+- PR-10046 put to hard requirements on key file content. Make sure same file can be used as keyfile and certfile
+
+  Own Id: OTP-19780 Aux Id: [GH-10217], [GH-10212], [PR-10221]
+
+- Assert that hello extensions are unique and send an illegal parameter alert if they are not.
+
+  Own Id: OTP-19791 Aux Id: [PR-10245]
+
+- Avoid sending an internal message to the user process in conjunction with handling a key update.
+
+  Own Id: OTP-19806 Aux Id: [PR-10274]
+
+[GH-10191]: https://github.com/erlang/otp/issues/10191
+[PR-10201]: https://github.com/erlang/otp/pull/10201
+[GH-10217]: https://github.com/erlang/otp/issues/10217
+[GH-10212]: https://github.com/erlang/otp/issues/10212
+[PR-10221]: https://github.com/erlang/otp/pull/10221
+[PR-10245]: https://github.com/erlang/otp/pull/10245
+[PR-10274]: https://github.com/erlang/otp/pull/10274
+
+## SSL 11.4
+
+### Fixed Bugs and Malfunctions
+
+- The sender side is now closed if an error occurs on the socket.
+
+  Own Id: OTP-19694 Aux Id: [PR-10011]
+
+- The PEM cache process no longer crashes when a configured file has been deleted before it could be read.
+
+  Own Id: OTP-19698 Aux Id: [GH-9638], [PR-10019]
+
+- Corrected handling of `ssl:sockname/1` for DTLS, so that it now will return the correct result in all situations.
+
+  Own Id: OTP-19736 Aux Id: [PR-10108], [GH-10097]
+
+- Rendering of some tables in the documentation has been improved.
+
+  Own Id: OTP-19752 Aux Id: [PR-10142]
+
+[PR-10011]: https://github.com/erlang/otp/pull/10011
+[GH-9638]: https://github.com/erlang/otp/issues/9638
+[PR-10019]: https://github.com/erlang/otp/pull/10019
+[PR-10108]: https://github.com/erlang/otp/pull/10108
+[GH-10097]: https://github.com/erlang/otp/issues/10097
+[PR-10142]: https://github.com/erlang/otp/pull/10142
+
+### Improvements and New Features
+
+- Added support for quantum crypto signature algorithm ML-DSA (ssl and public_key) and key exchange algorithm ML-KEM (ssl).
+
+  Own Id: OTP-19552 Aux Id: [PR-10004]
+
+- Now allowing`send/2 `to buffer data when using sockets backend. Use 'high_watermark' and 'low_watermark' to steer buffering as gen_tcp does.
+
+  Own Id: OTP-19651 Aux Id: [PR-9879]
+
+- Now allowing the PSK identity to be the empty string in TLS-1.2 for compatibility reasons. It is allowed according to the spec, although providing a proper value makes more sense.
+
+  Own Id: OTP-19688 Aux Id: [PR-9843]
+
+- TLS server now fails early for supplied PEM file issues, such as the file not being found.
+
+  Own Id: OTP-19706 Aux Id: [PR-10046], [GH-9631]
+
+[PR-10004]: https://github.com/erlang/otp/pull/10004
+[PR-9879]: https://github.com/erlang/otp/pull/9879
+[PR-9843]: https://github.com/erlang/otp/pull/9843
+[PR-10046]: https://github.com/erlang/otp/pull/10046
+[GH-9631]: https://github.com/erlang/otp/issues/9631
+
+## SSL 11.3.2
+
+### Fixed Bugs and Malfunctions
+
+- Improve error message for bad arguments to underlying connect.
+
+  Own Id: OTP-19697 Aux Id: [GH-10007], [PR-10016]
+
+[GH-10007]: https://github.com/erlang/otp/issues/10007
+[PR-10016]: https://github.com/erlang/otp/pull/10016
+
+## SSL 11.3.1
+
+### Fixed Bugs and Malfunctions
+
+- hs_keylog callback properly handle alert in initial states, where encryption is not yet used.  Also add keylog callback invocation for corner-case where server alert is encrypted with application secrets as client is already in connection state.
+
+  Own Id: OTP-19635 Aux Id: ERIERL-1235, [PR-9849]
+
+[PR-9849]: https://github.com/erlang/otp/pull/9849
+
+### Improvements and New Features
+
+- The documentation for SSL option `verify_fun` has been improved.
+
+  Own Id: OTP-19676 Aux Id: [PR-9691]
+
+[PR-9691]: https://github.com/erlang/otp/pull/9691
+
+## SSL 11.3
+
+### Improvements and New Features
+
+- Refactoring, minor optimizations and improved log printouts.
+
+  Own Id: OTP-19367 Aux Id: [PR-9019]
+
+- `supervisor:which_child/2` is now used to make start-up code for TLS-connections simpler and more straight forward, and to increase stability and maintainability of the ssl application.
+
+  Own Id: OTP-19406 Aux Id: [PR-9231]
+
+- The data handling for tls-v1.3 has been optimized.
+
+  Own Id: OTP-19430 Aux Id: [PR-9305]
+
+- Added experimental socket support.
+
+  Own Id: OTP-19463 Aux Id: [PR-9398]
+
+- Improve code health by removing dead code.
+
+  Own Id: OTP-19531 Aux Id: [PR-9563]
+
+- A test module for TLS distribution over `socket` has been implemented.
+
+  Own Id: OTP-19539 Aux Id: [PR-9511]
+
+- The license and copyright header has changed format to include an `SPDX-License-Identifier`. At the same time, most files have been updated to follow a uniform standard for license headers.
+
+  Own Id: OTP-19575 Aux Id: [PR-9670]
+
+[PR-9019]: https://github.com/erlang/otp/pull/9019
+[PR-9231]: https://github.com/erlang/otp/pull/9231
+[PR-9305]: https://github.com/erlang/otp/pull/9305
+[PR-9398]: https://github.com/erlang/otp/pull/9398
+[PR-9563]: https://github.com/erlang/otp/pull/9563
+[PR-9511]: https://github.com/erlang/otp/pull/9511
+[PR-9670]: https://github.com/erlang/otp/pull/9670
+
+## SSL 11.2.12.2
+
+### Fixed Bugs and Malfunctions
+
+- Improve error message for bad arguments to underlying connect.
+
+  Own Id: OTP-19697 Aux Id: [GH-10007], [PR-10016]
+
+[GH-10007]: https://github.com/erlang/otp/issues/10007
+[PR-10016]: https://github.com/erlang/otp/pull/10016
+
+### Improvements and New Features
+
+- Allow the PSK identity to be the empty string in TLS-1.2 for compatibility reasons. It is allowed according to the spec although providing a proper value makes more sense.
+
+  Own Id: OTP-19688 Aux Id: [PR-9843]
+
+[PR-9843]: https://github.com/erlang/otp/pull/9843
+
+## SSL 11.2.12.1
+
+### Fixed Bugs and Malfunctions
+
+- hs_keylog callback properly handle alert in initial states, where encryption is not yet used.  Also add keylog callback invocation for corner-case where server alert is encrypted with application secrets as client is already in connection state.
+
+  Own Id: OTP-19635 Aux Id: ERIERL-1235, [PR-9849]
+
+[PR-9849]: https://github.com/erlang/otp/pull/9849
+
+### Improvements and New Features
+
+- The documentation for SSL option `verify_fun` has been improved.
+
+  Own Id: OTP-19676 Aux Id: [PR-9691]
+
+[PR-9691]: https://github.com/erlang/otp/pull/9691
+
+## SSL 11.2.12
+
+### Improvements and New Features
+
+- Lower log level for user cancelation as this is not an error case. Also handle possible undecrypted close alert  during TLS-1.3 handshake.
+
+  Own Id: OTP-19592 Aux Id: [PR-9566]
+
+[PR-9566]: https://github.com/erlang/otp/pull/9566
+
+## SSL 11.2.11
+
+### Fixed Bugs and Malfunctions
+
+- Correct the debug functionality for NSS keylogging for TLS-1.3 introduced in OTP-27.3.1 so that TLS-1.3 key updates items always get correct counter value and each item is logged as one single line.
+
+  Own Id: OTP-19569 Aux Id: [PR-9661]
+
+[PR-9661]: https://github.com/erlang/otp/pull/9661
 
 ## SSL 11.2.10
 
@@ -323,6 +530,14 @@ This document describes the changes made to the SSL application.
 [PR-8026]: https://github.com/erlang/otp/pull/8026
 [PR-8250]: https://github.com/erlang/otp/pull/8250
 [PR-8255]: https://github.com/erlang/otp/pull/8255
+
+## SSL 11.1.4.9
+
+### Fixed Bugs and Malfunctions
+
+* Improve error message for bad arguments to underlying connect.
+
+  Own Id: OTP-19697 Aux Id: GH-10007, PR-10016
 
 ## SSL 11.1.4.8
 

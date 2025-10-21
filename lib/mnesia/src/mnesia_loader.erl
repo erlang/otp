@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1998-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -57,6 +59,7 @@ disc_load_table(Tab, Reason, Cs) ->
 		     {type, Type}]),
     do_get_disc_copy2(Tab, Reason, Storage, Type).
 
+-dialyzer({no_opaque_union, [do_get_disc_copy2/4]}).
 do_get_disc_copy2(Tab, Reason, Storage, _Type) when Storage == unknown ->
     verbose("Local table copy of ~0tp ~0p has recently been deleted, ignored.~n",
 	    [Tab, Reason]),

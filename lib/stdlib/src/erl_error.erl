@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
 %% 
-%% Copyright Ericsson AB 1996-2024. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -397,6 +399,8 @@ explain_reason({bad_filter,V}, error=Cl, [], PF, S, _Enc, CL) ->
     format_value(V, <<"bad filter ">>, Cl, PF, S, CL);
 explain_reason({bad_generator,V}, error=Cl, [], PF, S, _Enc, CL) ->
     format_value(V, <<"bad generator ">>, Cl, PF, S, CL);
+explain_reason({bad_generators,V}, error=Cl, [], PF, S, _Enc, CL) ->
+    format_value(V, <<"bad generators: ">>, Cl, PF, S, CL);
 explain_reason({unbound,V}, error, [], _PF, _S, _Enc, _CL) ->
     io_lib:fwrite(<<"variable ~w is unbound">>, [V]);
 %% Exit codes local to the shell module (restricted shell):
@@ -526,7 +530,7 @@ location(L) ->
     Line = proplists:get_value(line, L),
     if
 	File =/= undefined, Line =/= undefined ->
-	    io_lib:format("(~ts, line ~w)", [File, Line]);
+	    io_lib:format("(~ts:~w)", [File, Line]);
 	true ->
 	    ""
     end.

@@ -1,5 +1,7 @@
 %%
 %% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
 %% 
 %% Copyright Ericsson AB 2018-2025. All Rights Reserved.
 %% 
@@ -132,6 +134,12 @@ loop(ID, [#{desc := Desc,
             ?SEV_IPRINT("command ~w skip: "
                         "~n   ~p", [ID, Reason]),
             exit({skip, Reason});
+        {error, Reason} when (Reason =:= enetdown) ->
+            %% ENETDOWN:
+            %% The local network interface used to reach the destination is down
+            %% This could be temporary, but no point in waiting, just give up.
+            wprint("command ~w failed: ~w => SKIP", [ID, Reason]),
+            exit({skip, Reason});
         {error, Reason} ->
             ?SEV_EPRINT("command ~w failed: "
                         "~n   ~p", [ID, Reason]),
@@ -174,6 +182,16 @@ await_finish([], _OK, Fails) ->
     Fails;
 await_finish(Evs, OK, Fails) ->
     receive
+        {'EXIT', _Pid, {timetrap_timeout, _Timeout, _Stack}} ->
+            %% The test timeout is up.
+            ?SEV_EPRINT("timetrap timeout when: "
+                        "~n   Num Remaining Evs: ~w"
+                        "~n   OK Evs:            ~p"
+                        "~n   Failed Evs:        ~p",
+                        [length(Evs), OK, Fails]),
+            force_evs_kill(Evs),
+            exit(timetrap_timeout);
+
         %% Successful termination of evaluator
         {'DOWN', _MRef, process, Pid, normal} ->
             {Evs2, OK2, Fails2} = await_finish_normal(Pid, Evs, OK, Fails),
@@ -587,6 +605,13 @@ await(ExpPid, Name, Announcement, Slogan, OtherPids)
             iprint("Unexpected SKIP from ~w (~p): "
                    "~n   ~p", [Name, Pid, SkipReason]),
             ?LIB:skip(SkipReason);
+        {'DOWN', _, process, Pid, Reason}
+          when (Pid =:= ExpPid) andalso
+               (Reason =:= enetdown) ->
+            %% This should really have been caught earlier, but...
+            wprint("Unexpected DOWN (~w) from ~w (~p): SKIP",
+                   [Reason, Name, Pid]),
+            ?LIB:skip(Reason);
         {'DOWN', _, process, Pid, Reason} when (Pid =:= ExpPid) ->
             eprint("Unexpected DOWN from ~w (~p): "
                    "~n   ~p", [Name, Pid, Reason]),
@@ -644,12 +669,31 @@ check_down(Pid, DownReason, Pids) ->
 
 %% ============================================================================
 
+force_evs_kill(Evs) when is_list(Evs) ->
+    force_evs_exit(Evs, kill).
+
+force_evs_exit([], _) ->
+    ok;
+force_evs_exit([#ev{name = Name,
+                    pid  = Pid,
+                    mref = MRef} | Evs], Reason) ->
+    ?SEV_IPRINT("Force terminate evaluator ~p (~p)", [Name, Pid]),
+    (catch erlang:demonitor(MRef, [flush])),
+    exit(Pid, Reason),
+    force_evs_exit(Evs, Reason).
+
+
+%% ============================================================================
+
 f(F, A) ->
     lists:flatten(io_lib:format(F, A)).
 
 
 iprint(F, A) ->
     print("", F, A).
+
+wprint(F, A) ->
+    print("<WARNING> ", F, A).
 
 eprint(F, A) ->
     print("<ERROR> ", F, A).

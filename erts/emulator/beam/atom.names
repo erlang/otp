@@ -1,7 +1,9 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1996-2024. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 1996-2025. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -111,6 +113,7 @@ atom asynchronous
 atom atom
 atom atom_used
 atom attributes
+atom auto
 atom auto_connect
 atom await_exit
 atom await_microstate_accounting_modifications
@@ -169,6 +172,7 @@ atom caller_line
 atom capture
 atom case_clause
 atom caseless
+atom catch
 atom catchlevel
 atom cause
 atom cd
@@ -214,9 +218,11 @@ atom current_location
 atom current_stacktrace
 atom data
 atom debug_flags
+atom debugger_event
 atom decentralized_counters
 atom decimals
 atom default
+atom debug_hash_fixed_number_of_locks
 atom delay_trap
 atom demonitor
 atom deterministic
@@ -260,6 +266,7 @@ atom emulator
 atom enable_trace
 atom enabled
 atom endian
+atom entry
 atom env
 atom ensure_at_least ensure_exactly
 atom eof
@@ -295,6 +302,7 @@ atom existing_processes
 atom existing_ports
 atom existing
 atom exiting
+atom export
 atom exports
 atom extended
 atom external
@@ -403,6 +411,7 @@ atom Le='=<'
 atom legacy
 atom lf
 atom line
+atom line_breakpoint
 atom line_counters
 atom line_delimiter
 atom line_length
@@ -486,6 +495,7 @@ atom new_processes
 atom new_ports
 atom new_uniq
 atom newline
+atom nifs
 atom no
 atom nomatch
 atom none
@@ -523,6 +533,7 @@ atom notempty_atstart
 atom notify
 atom notsup
 atom nouse_stdio
+atom nul
 atom off_heap
 atom offset
 atom ok
@@ -571,6 +582,7 @@ atom prepare
 atom prepare_on_load
 atom print
 atom priority
+atom priority_messages
 atom private
 atom private_append
 atom process
@@ -592,6 +604,7 @@ atom public
 atom queue_size
 atom raw
 atom re
+atom re_exported_pattern
 atom re_pattern
 atom re_run_trap
 atom read_concurrency
@@ -675,10 +688,14 @@ atom sigstop
 atom sigint
 atom sigsegv
 atom sigtstp
+atom sigcont
 atom sigquit
+atom sigwinch
+atom siginfo
 atom silent
 atom size
 atom skip
+atom slots
 atom spawn_executable
 atom spawn_driver
 atom spawn_init
@@ -755,6 +772,7 @@ atom unloaded
 atom unloaded_only
 atom unload_cancelled
 atom unsafe
+atom unsupported
 atom value
 atom version
 atom visible
@@ -765,10 +783,9 @@ atom warning
 atom warning_msg
 atom wordsize
 atom write_concurrency
+atom x
 atom xor
 atom x86
+atom y
 atom yes
 atom yield
-atom nifs
-atom auto
-atom debug_hash_fixed_number_of_locks

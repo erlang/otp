@@ -88,12 +88,26 @@ public:
   ASMJIT_INLINE_NODEBUG constexpr bool isGpd() const noexcept { return hasBaseSignature(RegTraits<RegType::kX86_Gpd>::kSignature); }
   //! Tests whether the register is a GPQ register (64-bit).
   ASMJIT_INLINE_NODEBUG constexpr bool isGpq() const noexcept { return hasBaseSignature(RegTraits<RegType::kX86_Gpq>::kSignature); }
+
+  //! Tests whether the register is a 32-bit general purpose register, alias of \ref isGpd().
+  ASMJIT_INLINE_NODEBUG constexpr bool isGp32() const noexcept { return hasBaseSignature(RegTraits<RegType::kX86_Gpd>::kSignature); }
+  //! Tests whether the register is a 64-bit general purpose register, alias of \ref isGpq()
+  ASMJIT_INLINE_NODEBUG constexpr bool isGp64() const noexcept { return hasBaseSignature(RegTraits<RegType::kX86_Gpq>::kSignature); }
+
   //! Tests whether the register is an XMM register (128-bit).
   ASMJIT_INLINE_NODEBUG constexpr bool isXmm() const noexcept { return hasBaseSignature(RegTraits<RegType::kX86_Xmm>::kSignature); }
   //! Tests whether the register is a YMM register (256-bit).
   ASMJIT_INLINE_NODEBUG constexpr bool isYmm() const noexcept { return hasBaseSignature(RegTraits<RegType::kX86_Ymm>::kSignature); }
   //! Tests whether the register is a ZMM register (512-bit).
   ASMJIT_INLINE_NODEBUG constexpr bool isZmm() const noexcept { return hasBaseSignature(RegTraits<RegType::kX86_Zmm>::kSignature); }
+
+  //! Tests whether the register is a 128-bit vector register, alias of \ref isXmm().
+  ASMJIT_INLINE_NODEBUG constexpr bool isVec128() const noexcept { return hasBaseSignature(RegTraits<RegType::kX86_Xmm>::kSignature); }
+  //! Tests whether the register is a 256-bit vector register, alias of \ref isYmm().
+  ASMJIT_INLINE_NODEBUG constexpr bool isVec256() const noexcept { return hasBaseSignature(RegTraits<RegType::kX86_Ymm>::kSignature); }
+  //! Tests whether the register is a 512-bit vector register, alias of \ref isZmm().
+  ASMJIT_INLINE_NODEBUG constexpr bool isVec512() const noexcept { return hasBaseSignature(RegTraits<RegType::kX86_Zmm>::kSignature); }
+
   //! Tests whether the register is an MMX register (64-bit).
   ASMJIT_INLINE_NODEBUG constexpr bool isMm() const noexcept { return hasBaseSignature(RegTraits<RegType::kX86_Mm>::kSignature); }
   //! Tests whether the register is a K register (64-bit).
@@ -242,10 +256,17 @@ class Vec : public Reg {
 
   //! Casts this register to XMM (clone).
   ASMJIT_INLINE_NODEBUG Xmm xmm() const noexcept;
-  //! Casts this register to YMM.
+  //! Casts this register to YMM (clone).
   ASMJIT_INLINE_NODEBUG Ymm ymm() const noexcept;
-  //! Casts this register to ZMM.
+  //! Casts this register to ZMM (clone).
   ASMJIT_INLINE_NODEBUG Zmm zmm() const noexcept;
+
+  //! Casts this register to XMM (clone).
+  ASMJIT_INLINE_NODEBUG Vec v128() const noexcept;
+  //! Casts this register to YMM (clone).
+  ASMJIT_INLINE_NODEBUG Vec v256() const noexcept;
+  //! Casts this register to ZMM (clone).
+  ASMJIT_INLINE_NODEBUG Vec v512() const noexcept;
 
   //! Casts this register to a register that has half the size (or XMM if it's already XMM).
   ASMJIT_INLINE_NODEBUG Vec half() const noexcept {
@@ -344,6 +365,9 @@ ASMJIT_INLINE_NODEBUG Gpq Gp::r64() const noexcept { return Gpq(id()); }
 ASMJIT_INLINE_NODEBUG Xmm Vec::xmm() const noexcept { return Xmm(id()); }
 ASMJIT_INLINE_NODEBUG Ymm Vec::ymm() const noexcept { return Ymm(id()); }
 ASMJIT_INLINE_NODEBUG Zmm Vec::zmm() const noexcept { return Zmm(id()); }
+ASMJIT_INLINE_NODEBUG Vec Vec::v128() const noexcept { return Xmm(id()); }
+ASMJIT_INLINE_NODEBUG Vec Vec::v256() const noexcept { return Ymm(id()); }
+ASMJIT_INLINE_NODEBUG Vec Vec::v512() const noexcept { return Zmm(id()); }
 //! \endcond
 
 //! \namespace asmjit::x86::regs
@@ -846,6 +870,9 @@ public:
   //! so in some cases size is required would be non-zero (for example `inc [mem], immediate` requires size to
   //! distinguish between 8-bit, 16-bit, 32-bit, and 64-bit increments.
   ASMJIT_INLINE_NODEBUG constexpr uint32_t size() const noexcept { return _signature.getField<Signature::kSizeMask>(); }
+
+  //! Sets the memory operand size (in bytes).
+  ASMJIT_INLINE_NODEBUG void setSize(uint32_t size) noexcept { _signature.setField<Signature::kSizeMask>(size); }
 
   //! \}
 

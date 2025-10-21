@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2017-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2017-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -252,7 +254,7 @@ verify_nfc(Data0, LineNo, _Acc) ->
         C2GC = fetch(C2, fun unicode_util:nfc/1),
         C2GC = fetch(C3, fun unicode_util:nfc/1)
     catch  _Cl:{badmatch, Other} = _R:Stacktrace ->
-            io:format("Failed: ~p~nInput: ~ts~n\t=> ~w |~ts|~n",[LineNo, Data1, C1, C1]),
+            io:format("Failed: ~p~nInput: ~ts~n\t=> ~w |~ts| ~w ~w~n",[LineNo, Data1, C1, C1, C2, C3]),
             io:format("Expected: ~ts ~w~n", [C2GC, C2GC]),
             io:format("Got:      ~ts ~w~n", [Other, Other]),
             erlang:raise(_Cl,_R,Stacktrace);

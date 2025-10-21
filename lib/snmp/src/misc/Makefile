@@ -1,9 +1,11 @@
 #-*-makefile-*-   ; force emacs to enter makefile-mode
 
 # %CopyrightBegin%
-# 
-# Copyright Ericsson AB 2003-2024. All Rights Reserved.
-# 
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 2003-2025. All Rights Reserved.
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -15,7 +17,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# 
+#
 # %CopyrightEnd%
 
 include $(ERL_TOP)/make/target.mk
@@ -108,13 +110,23 @@ opt: $(TARGET_FILES)
 
 
 clean:
-	rm -f $(TARGET_FILES) 
+	rm -f $(TARGET_FILES)
+	rm -f snmp_pdus_basic.erl
+	rm -f snmp_pdus_basic.asn1db
 	rm -f core *~
 
 docs:
 
 info:
-	@echo "TARGET_FILES: $(TARGET_FILES)"
+	@echo ""
+	@echo "MODULES:           $(MODULES)"
+	@echo "HRLS:              $(HRLS)"
+	@echo ""
+	@echo "ASN1_SPECS:        $(ASN1_SPECS)"
+	@echo ""
+	@echo "TARGET_FILES:      $(TARGET_FILES)"
+	@echo ""
+	@echo "ERL_COMPILE_FLAGS: $(ERL_COMPILE_FLAGS)"
 	@echo ""
 
 
@@ -129,8 +141,6 @@ release_spec: opt
 	$(INSTALL_DATA) $(ERL_FILES) $(HRL_FILES) "$(RELSYSDIR)/src/misc"
 	$(INSTALL_DIR) "$(RELSYSDIR)/ebin"
 	$(INSTALL_DATA) $(TARGET_FILES) "$(RELSYSDIR)/ebin"
-# 	$(INSTALL_DIR) "$(RELSYSDIR)/include"
-# 	$(INSTALL_DATA) $(EXT_HRL_FILES) "$(RELSYSDIR)/include"
 
 release_docs_spec:
 

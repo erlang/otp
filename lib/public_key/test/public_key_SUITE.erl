@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -53,8 +55,6 @@
          rsa_priv_pkcs8/1,
          ec_pem/0,
          ec_pem/1,
-         ec_pem2/0,
-         ec_pem2/1,
          ec_priv_pkcs8/0,
          ec_priv_pkcs8/1,
          eddsa_priv_pkcs8/0,
@@ -63,6 +63,10 @@
          eddsa_priv_rfc5958/1,
          eddsa_pub/0,
          eddsa_pub/1,
+         mldsa_priv_pkcs8/0,
+         mldsa_priv_pkcs8/1,
+         mldsa_pub_pem/0,
+         mldsa_pub_pem/1,
          eddsa_sign_verify_24_compat/1,
          init_ec_pem_encode_generated/1,
          ec_pem_encode_generated/0,
@@ -87,8 +91,12 @@
          rsa_sign_verify/1,
          rsa_pss_sign_verify/0,
          rsa_pss_sign_verify/1,
+         mldsa_verify/0,
+         mldsa_verify/1,
+         mldsa_sign/0,
+         mldsa_sign/1,
          dsa_sign_verify/0,
-         dsa_sign_verify/1,
+         dsa_sign_verify/1,         
          custom_sign_fun_verify/0,
          custom_sign_fun_verify/1,
          pkix/0,
@@ -107,6 +115,8 @@
          pkix_ext_key_usage/1,
          pkix_ext_key_usage_any/0,
          pkix_ext_key_usage_any/1,
+         pkix_extensionreq/0,
+         pkix_extensionreq/1,
          pkix_path_validation_bad_date/0,
          pkix_path_validation_bad_date/1,
          pkix_verify_hostname_cn/1,
@@ -119,10 +129,14 @@
          pkix_iso_rsa_oid/1,
          pkix_iso_dsa_oid/0,
          pkix_iso_dsa_oid/1,
+         pkix_rsa_md2_oid/0,
+         pkix_rsa_md2_oid/1,
          pkix_dsa_sha2_oid/0,
          pkix_dsa_sha2_oid/1,
          pkix_crl/0,
          pkix_crl/1,
+         pkix_pss_params_in_signalg/0,
+         pkix_pss_params_in_signalg/1,
          general_name/0,
          general_name/1,
          pkix_hash_type/0,
@@ -138,13 +152,21 @@
          short_cert_issuer_hash/1,
          short_crl_issuer_hash/0,
          short_crl_issuer_hash/1,
-         gen_ec_param_prime_field/0,
-         gen_ec_param_prime_field/1,
-         gen_ec_param_char_2_field/0,
-         gen_ec_param_char_2_field/1,
          cacerts_load/0, cacerts_load/1,
          ocsp_extensions/0, ocsp_extensions/1
         ]).
+
+%% Explicit parameters for EC are currently not implemented.
+%%-define('EXPLICIT_EC_PARAMS', true).
+
+-ifdef('EXPLICIT_EC_PARAMS').
+-export([ec_pem2/0,
+         ec_pem2/1,
+         gen_ec_param_prime_field/0,
+         gen_ec_param_prime_field/1,
+         gen_ec_param_char_2_field/0,
+         gen_ec_param_char_2_field/1]).
+-endif.
 
 -export([list_cacerts/0]).  % debug exports
 
@@ -178,8 +200,10 @@ all() ->
      pkix_path_validation_bad_date,
      pkix_iso_rsa_oid, 
      pkix_iso_dsa_oid, 
+     pkix_rsa_md2_oid,
      pkix_dsa_sha2_oid,
      pkix_crl, 
+     pkix_pss_params_in_signalg,
      pkix_hash_type,
      general_name,
      pkix_verify_hostname_cn,
@@ -190,29 +214,42 @@ all() ->
      pkix_test_data_all_default,
      pkix_test_data,
      pkix_is_issuer,
+     pkix_extensionreq,
      short_cert_issuer_hash, 
      short_crl_issuer_hash,
      cacerts_load,
      ocsp_extensions,
-     pkix_ocsp_validate
+     pkix_ocsp_validate | maybe_more()
     ].
 
 groups() -> 
     [{pem_decode_encode, [], [dsa_pem, rsa_pem, rsa_pss_pss_pem, 
                               rsa_pss_default_pem, ec_pem,
 			      encrypted_pem_pwdstring, encrypted_pem_pwdfun,
-			      dh_pem, cert_pem, pkcs7_pem, pkcs10_pem, ec_pem2,
+			      dh_pem, cert_pem, pkcs7_pem, pkcs10_pem,
 			      rsa_priv_pkcs8, dsa_priv_pkcs8, ec_priv_pkcs8,
-			      eddsa_priv_pkcs8, eddsa_priv_rfc5958,
-			      ec_pem_encode_generated, gen_ec_param_prime_field,
-			      gen_ec_param_char_2_field]},
-     {sign_verify, [], [rsa_sign_verify, rsa_pss_sign_verify, dsa_sign_verify,
-                        eddsa_sign_verify_24_compat, custom_sign_fun_verify]}
+			      eddsa_priv_pkcs8, eddsa_priv_rfc5958, mldsa_pub_pem,
+                              mldsa_priv_pkcs8]},
+     {sign_verify, [], [rsa_sign_verify, rsa_pss_sign_verify, mldsa_verify,
+                        mldsa_sign, dsa_sign_verify,
+                        eddsa_sign_verify_24_compat, custom_sign_fun_verify]},
+     {explicit_ec_params,
+      [ec_pem2,
+       gen_ec_param_char_2_field,
+       gen_ec_param_prime_field
+      ]}
     ].
+
+-ifdef('EXPLICIT_EC_PARAMS').
+maybe_more() -> [{group, explicit_ec_params}].
+-else.
+maybe_more() -> [].
+-endif.
+
 %%-------------------------------------------------------------------
 init_per_suite(Config) ->
     application:stop(crypto),
-    try crypto:start() of
+    try application:start(crypto) of
         ok ->
             application:start(asn1),
             Config
@@ -266,7 +303,18 @@ init_per_testcase(eddsa_sign_verify_24_compat, Config) ->
         false ->
             {skip, eddsa_not_supported_by_crypto}
     end;
-
+init_per_testcase(TestCase, Config) when TestCase == mldsa_sign;
+                                         TestCase == mldsa_verify ->
+    PkAlgs = crypto:supports(public_keys),
+    case lists:member(mldsa44, PkAlgs) andalso
+        lists:member(mldsa65, PkAlgs) andalso
+        lists:member(mldsa87, PkAlgs)
+    of
+        true ->
+            Config;
+        false ->
+            {skip, mldsa_not_supported_by_crypto}
+    end;
 init_per_testcase(TestCase, Config) ->
     case TestCase of
         ec_pem_encode_generated ->
@@ -436,7 +484,8 @@ ec_pem(Config) when is_list(Config) ->
     true = check_entry_type(ECPrivKey#'ECPrivateKey'.parameters, 'EcpkParameters'),
     ECPemNoEndNewLines = strip_superfluous_newlines(ECPrivPem),
     ECPemNoEndNewLines = strip_superfluous_newlines(public_key:pem_encode([Entry1, Entry2])).
-    
+
+-ifdef('EXPLICIT_EC_PARAMS').
 ec_pem2() ->
     [{doc, "EC key w/explicit params PEM-file decode/encode"}].
 ec_pem2(Config) when is_list(Config) ->
@@ -455,6 +504,7 @@ ec_pem2(Config) when is_list(Config) ->
     true = check_entry_type(ECPrivKey#'ECPrivateKey'.parameters, 'EcpkParameters'),
     ECPemNoEndNewLines = strip_superfluous_newlines(ECPrivPem),
     ECPemNoEndNewLines = strip_superfluous_newlines(public_key:pem_encode([Entry1, Entry2])).
+-endif.
 
 ec_priv_pkcs8() ->
     [{doc, "EC PKCS8 private key decode/encode"}].
@@ -502,14 +552,50 @@ eddsa_pub() ->
 eddsa_pub(Config) when is_list(Config) ->
     Datadir = proplists:get_value(data_dir, Config),
     {ok, EDDSAPubPem} = file:read_file(filename:join(Datadir, "public_eddsa.pem")),
-    [{'SubjectPublicKeyInfo', _, not_encrypted} = Key] = PemEntry =
+    [{'SubjectPublicKeyInfo', _, not_encrypted}] = PemEntry =
         public_key:pem_decode(EDDSAPubPem),
     EDDSAPubKey = public_key:pem_entry_decode(PemEntry),
     true = check_entry_type(EDDSAPubKey, 'ECPoint'),
     {_, {namedCurve, ?'id-Ed25519'}} = EDDSAPubKey,
-    PrivEntry0 = public_key:pem_entry_encode('SubjectPublicKeyInfo', EDDSAPubKey),
+    PemEntry0 = public_key:pem_entry_encode('SubjectPublicKeyInfo', EDDSAPubKey),
     ECPemNoEndNewLines = strip_superfluous_newlines(EDDSAPubPem),
-    ECPemNoEndNewLines = strip_superfluous_newlines(public_key:pem_encode([PemEntry])).
+    ECPemNoEndNewLines = strip_superfluous_newlines(public_key:pem_encode([PemEntry0])).
+
+mldsa_pub_pem() ->
+    [{doc, "ML-DSA public_key decode/encode"}].
+mldsa_pub_pem(Config) when is_list(Config) ->
+    ml_dsa_pub("mldsa-44-pub.pem", ?'id-ml-dsa-44', Config),
+    ml_dsa_pub("mldsa-65-pub.pem", ?'id-ml-dsa-65', Config),
+    ml_dsa_pub("mldsa-87-pub.pem", ?'id-ml-dsa-87', Config).
+
+ml_dsa_pub(File, AlgOid, Config) ->
+    Datadir = proplists:get_value(data_dir, Config),
+    {ok, MLDSAPubPem} = file:read_file(filename:join(Datadir, File)),
+     [{'SubjectPublicKeyInfo', _, _} = PubEntry0] =
+        public_key:pem_decode(MLDSAPubPem),
+    MLDSAPubKey = #'ML-DSAPublicKey'{} = public_key:pem_entry_decode(PubEntry0),
+    true = check_entry_type(MLDSAPubKey, AlgOid),
+    PubEntry0 = public_key:pem_entry_encode('SubjectPublicKeyInfo', MLDSAPubKey),
+
+    MLDSAPemNoEndNewLines = strip_licence(strip_superfluous_newlines(MLDSAPubPem)),
+    MLDSAPemNoEndNewLines = strip_superfluous_newlines(public_key:pem_encode([PubEntry0])).
+
+mldsa_priv_pkcs8() ->
+    [{doc, "ML-DSA PKCS8 private key decode/encode"}].
+mldsa_priv_pkcs8(Config) when is_list(Config) ->
+    ml_dsa_priv("mldsa-44.pem", ?'id-ml-dsa-44', Config),
+    ml_dsa_priv("mldsa-65.pem", ?'id-ml-dsa-65', Config),
+    ml_dsa_priv("mldsa-87.pem", ?'id-ml-dsa-87', Config).
+
+ml_dsa_priv(File, AlgOid, Config) ->
+    Datadir = proplists:get_value(data_dir, Config),
+    {ok, MLDSAPrivPem} = file:read_file(filename:join(Datadir, File)),
+    [{'PrivateKeyInfo', _, not_encrypted} = PKCS8Key] = public_key:pem_decode(MLDSAPrivPem),
+    MLDSAKey = #'ML-DSAPrivateKey'{} = public_key:pem_entry_decode(PKCS8Key),
+    true = check_entry_type(MLDSAKey, AlgOid),
+    PrivEntry0 = public_key:pem_entry_encode('PrivateKeyInfo', MLDSAKey),
+    MLDSAPemNoEndNewLines = strip_licence(strip_superfluous_newlines(MLDSAPrivPem)),
+    MLDSAPemNoEndNewLines = strip_superfluous_newlines(public_key:pem_encode([PrivEntry0])).
 
 eddsa_sign_verify_24_compat(_Config) ->
     Key =
@@ -754,9 +840,38 @@ rsa_pss_sign_verify(Config) when is_list(Config) ->
     {#'RSAPrivateKey'{modulus=Mod, publicExponent=Exp}, Parms} = {hardcode_rsa_key(1), pss_params(sha256)},
            
     true = public_key:pkix_verify(Cert, {#'RSAPublicKey'{modulus=Mod, publicExponent=Exp}, Parms}).
-    
-%%--------------------------------------------------------------------
 
+%%--------------------------------------------------------------------
+mldsa_verify() ->
+    [{doc, "Checks that we can verify ml-dsa signatures."}].
+mldsa_verify(Config) when is_list(Config) ->
+    Datadir = proplists:get_value(data_dir, Config),
+    {ok, MLDSAPubPem} = file:read_file(filename:join(Datadir, "mldsa-44-pub.pem")),
+    [{'SubjectPublicKeyInfo', _, _} = PubEntry0] =
+        public_key:pem_decode(MLDSAPubPem),
+    {ok, MLDSACertPem} = file:read_file(filename:join(Datadir, "mldsa-44-cert.pem")),
+    [{_, Cert, _}] = public_key:pem_decode(MLDSACertPem),
+    MLDSAPubKey = #'ML-DSAPublicKey'{} = public_key:pem_entry_decode(PubEntry0),
+    true = public_key:pkix_verify(Cert, MLDSAPubKey).
+
+%%--------------------------------------------------------------------
+mldsa_sign() ->
+    [{doc, "Checks that we can sign and verify ml-dsa signatures."}].
+mldsa_sign(Config) when is_list(Config) ->
+    Datadir = proplists:get_value(data_dir, Config),
+    Msg = list_to_binary(lists:duplicate(5, "Foo bar 100")),
+    {ok, MLDSAPubPem} = file:read_file(filename:join(Datadir, "mldsa-44-pub.pem")),
+    [{'SubjectPublicKeyInfo', _, _} = PubEntry0] =
+        public_key:pem_decode(MLDSAPubPem),
+    MLDSAPubKey = #'ML-DSAPublicKey'{} = public_key:pem_entry_decode(PubEntry0),
+    {ok, MLDSAPrivPem} = file:read_file(filename:join(Datadir, "mldsa-44.pem")),
+    [{'PrivateKeyInfo', _, _} = PubEntry1] =
+        public_key:pem_decode(MLDSAPrivPem),
+    MLDSAPrivKey = #'ML-DSAPrivateKey'{} = public_key:pem_entry_decode(PubEntry1),
+    Signature = public_key:sign(Msg, none, MLDSAPrivKey),
+    public_key:verify(Msg, none, Signature, MLDSAPubKey).
+
+%%--------------------------------------------------------------------
 dsa_sign_verify() ->
     [{doc, "Checks that we can sign and verify dsa signatures."}].
 dsa_sign_verify(Config) when is_list(Config) ->
@@ -1368,6 +1483,18 @@ pkix_iso_dsa_oid(Config) when is_list(Config) ->
     {_, dsa} = public_key:pkix_sign_types(SigAlg#'SignatureAlgorithm'.algorithm).
 
 %%--------------------------------------------------------------------
+
+pkix_rsa_md2_oid() ->
+ [{doc, "Test support for MD2 signed RSA certs." "oid 1.2.840.113549.1.1.2"}].
+pkix_rsa_md2_oid(Config) when is_list(Config) ->
+    Datadir = proplists:get_value(data_dir, Config),
+    {ok, PemCert} = file:read_file(filename:join(Datadir, "rsa_md2.pem")),
+    [{_, Cert, _}] = public_key:pem_decode(PemCert),
+    OTPCert = public_key:pkix_decode_cert(Cert, otp),
+    SigAlg = OTPCert#'OTPCertificate'.signatureAlgorithm,
+    {md2, rsa} = public_key:pkix_sign_types(SigAlg#'SignatureAlgorithm'.algorithm).
+
+%%--------------------------------------------------------------------
 pkix_dsa_sha2_oid() ->
  [{doc, "Test support dsa_sha2 oid"}].
 pkix_dsa_sha2_oid(Config) when is_list(Config) ->
@@ -1383,7 +1510,7 @@ pkix_crl(Config) when is_list(Config) ->
     Datadir = proplists:get_value(data_dir, Config),
     {ok, PemCRL} = file:read_file(filename:join(Datadir, "idp_crl.pem")),
     [{_, CRL, _}] = public_key:pem_decode(PemCRL),
-    
+
     {ok, IDPPemCert} = file:read_file(filename:join(Datadir, "idp_cert.pem")),
     [{_, IDPCert, _}] = public_key:pem_decode(IDPPemCert),
 
@@ -1396,7 +1523,6 @@ pkix_crl(Config) when is_list(Config) ->
 
     {rdnSequence,_} = public_key:pkix_crl_issuer(CRL),
     {rdnSequence,_} = public_key:pkix_crl_issuer(ERLCRL),
-    
     true = public_key:pkix_crl_verify(CRL, SignCert),
     true = public_key:pkix_crl_verify(ERLCRL, OTPSignCert),
 
@@ -1422,6 +1548,34 @@ general_name(Config) when is_list(Config) ->
 					[{rfc822Name, DummyRfc822Name}],
 				    authorityCertSerialNumber = 
 					1}).
+%%--------------------------------------------------------------------
+
+pkix_pss_params_in_signalg() ->
+    [{doc, "Test that we can verify chain without RSA-PSS params in subjectPublickeyInfo, "
+   "but supplied in signature algorithm identifier record instead"}].
+pkix_pss_params_in_signalg(Config) when is_list(Config) ->
+    %% Use some pre-generated certificates, we do not care when they happen
+    %% to expire, we are testing that we handle RSA-PSS params.
+    Verify = {fun(_,{bad_cert, cert_expired}, UserState) ->
+                      {valid, UserState};
+                 (_,{bad_cert, _} = Reason, _) ->
+                      {fail, Reason};
+                 (_,{extension, _}, UserState) ->
+                      {unknown, UserState};
+                 (_, valid, UserState) ->
+                      {valid, UserState};
+                 (_, valid_peer, UserState) ->
+                      {valid, UserState}
+              end, []},
+    Root = root_cert(),
+    Intermediate = intermediate_cert(),
+    Entity = entity_cert(),
+    {ok,{{?'id-RSASSA-PSS',
+          #'RSAPublicKey'{},
+          asn1_NOVALUE},
+         []}} =
+        public_key:pkix_path_validation(Root, [Intermediate, Entity],
+                                        [{verify_fun, Verify}]).
 
 %%--------------------------------------------------------------------
 
@@ -1534,6 +1688,18 @@ pkix_is_issuer(Config) when is_list(Config) ->
     true = pubkey_cert:is_issuer(Upper, Lower).
 
 %%--------------------------------------------------------------------
+pkix_extensionreq() ->
+    [{doc, "Basic test that asn1 for EnrollmentMessageSyntax is supported"}].
+
+pkix_extensionreq(Config) when is_list(Config) ->
+    Expected = <<48,0>>,
+    Expected = public_key:der_encode('ExtensionReq', []),
+    [] = public_key:der_decode('ExtensionReq', Expected),
+    %% Backwards compatibility
+    Expected = public_key:der_encode('ExtensionRequest', []),
+    [] = public_key:der_decode('ExtensionRequest', Expected).
+
+%%--------------------------------------------------------------------
 short_cert_issuer_hash() ->
     [{doc, "Test OpenSSL-style hash for certificate issuer"}].
 
@@ -1568,6 +1734,7 @@ short_crl_issuer_hash(Config) when is_list(Config) ->
 
     CrlIssuerHash = public_key:short_name_hash(Issuer).
 
+-ifdef('EXPLICIT_EC_PARAMS').
 %%--------------------------------------------------------------------
 gen_ec_param_prime_field() ->
     [{doc, "Generate key with EC prime_field parameters"}].
@@ -1581,18 +1748,24 @@ gen_ec_param_char_2_field() ->
 gen_ec_param_char_2_field(Config) when is_list(Config) ->
     Datadir = proplists:get_value(data_dir, Config),
     do_gen_ec_param(filename:join(Datadir, "ec_key_param1.pem")).
+-endif.
 
 %%--------------------------------------------------------------------
 ocsp_extensions() ->
     [{doc, "Check OCSP extensions"}].
 ocsp_extensions(_Config) ->
     Nonce = <<4,8,66,243,220,236,16,118,51,215>>,
-    ExpectedExtentions =
+    ExpectedExtensions =
         [{'Extension',
           ?'id-pkix-ocsp-nonce',
           asn1_DEFAULT,
-          <<4,8,66,243,220,236,16,118,51,215>>}],
-    ExpectedExtentions = public_key:ocsp_extensions(Nonce).
+          Nonce}],
+    ExpectedExtensions = public_key:ocsp_extensions(Nonce),
+    Encoded = public_key:der_encode('Extensions', ExpectedExtensions),
+    [#'Extension'{extnID=?'id-pkix-ocsp-nonce',
+                  critical=false,
+                  extnValue=Nonce}] = public_key:der_decode('Extensions', Encoded),
+    ok.
 
 pkix_ocsp_validate() ->
     [{doc, "Check OCSP extensions"}].
@@ -1728,7 +1901,10 @@ cacerts_load(Config) ->
     false = public_key:cacerts_clear(),
 
     %% Reload from file
-    ok = public_key:cacerts_load(filename:join(Datadir, "cacerts.pem")),
+    {ok, Bin} = file:read_file(filename:join(Datadir, "cacerts.pem")),
+    ok = file:write_file("cacerts_with_key.pem", [Bin, priv_key()]),
+
+    ok = public_key:cacerts_load("cacerts_with_key.pem"),
     [_TestCert1, _TestCert2] = public_key:cacerts_get(),
 
     %% Reload default OS certs
@@ -1777,20 +1953,22 @@ cert_info([]) ->
 
 
 subject(S) ->
-    string:lowercase(subject(public_key:pkix_normalize_name(S), "unknown")).
+    unicode:characters_to_list(
+      string:lowercase(
+        subject(public_key:pkix_normalize_name(S), "unknown"))).
 
 subject({rdnSequence, Seq}, Def) ->
     subject(Seq, Def);
 subject([[{'AttributeTypeAndValue', ?'id-at-commonName', Name0}]|_], _Def) ->
     case Name0 of
         {printableString, Name} -> Name;
-        {utf8String, Name} -> unicode:characters_to_list(Name);
+        {utf8String, Name} -> Name;
         Name -> Name
     end;
 subject([[{'AttributeTypeAndValue', ?'id-at-organizationName', Name0}]|Rest], _Def) ->
     Name = case Name0 of
                {printableString, Name1} -> Name1;
-               {utf8String, Name1} -> unicode:characters_to_list(Name1);
+               {utf8String, Name1} -> Name1;
                Name1 -> Name1
            end,
     subject(Rest, Name);
@@ -1806,6 +1984,37 @@ list_cacerts() ->
     lists:foldl(IO, 0, lists:sort(cert_info(Certs))),
     ok.
 
+priv_key() ->
+"""
+-----BEGIN PRIVATE KEY-----
+MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCyuMx6KYPg5lYp
+igiML9VAu22Iil2mugAylYOHeZAgodMmKNY0t63EIR24ncKTRT0CE0PcKf58w4ka
+UN0fu7su+rtvY8J2BKcNOTya6v03b8tdcs+ABCI3XgW2MURfsihVsF6AEfoVZiB6
+IxTraAx9P8uPS+htGVC2h8KvNDRs4g/O69B6Xuzybu77CbEOR6n8ckLfBNbxZPdR
+hspTv3x8FazEel4rfYvzcsPe/aUzu0WmwCgZsk6DfyO0QtpX1fuEfcN8hrk2NvYj
+dQPzF1hlMizFVMo/vw1svEtEHbCxxeXcL+zjkU8qrUAcORiqWuB0V1ihjYK2Oolv
+j3lA9subAgMBAAECggEAN+0UL3YmSo5JkB4dpqChPuxnzj5eJ/o0bZ/T1OT5cPyy
+slI9FaoUujcSsd7MMIGOIcQdjBuoAyq9EHsVdwSsAnt7g9PX2k6CZ+TtTh0St/JH
+1SpEPG8Otfy6FNU97CQ38viJ2dHGTEP1DcNEnJWmstrvvBuo09sEItpA1cqkTR26
+cSxsxPwBxYo0vJiNn7eMfKZVgW6kb2vdNTd1ybtKaDBF+fSyhYqj0c0CjZtOWP+Y
+r1c73rZKF8g7TyNMbRsgnFoTDPobkFlVL0THE4cUIFfBdl1zvNnGfiSD7X553NJk
+2oV/c/bIo9wQqWTmWHd1TjsSJ3VkF4KRZ5ukKw8HwQKBgQDjCAwibHY/aRC6WSon
+pv9fdVUx40nJ+bW+yjX6OfgMwNBP+rnLPclcbFiBAQGSXDwt52wgh7LM/FyorNcw
+fdbJ2/PJbfmWOqku5eqBMzqvaVWWn8sDyVvPl+ENppDw25//VjNdWzgBwwsLqa5M
+VDWpbPL3KtIIPOuZBtSUKBJywwKBgQDJhrnB6NmQaDauYX69x0lWTyef/aBQWX86
+gym6kLP2GrT7l9ZJzO8jVsIglM+8G0eMM5IBNGYn0xoNr7U35vwTp+gBdWVvJdW1
+9N2q8NFuBYzF56LqIoiMeZf08I5ntzyyyF3NlFq+KuhnApNjwyx7nS6/zZ6GC/l+
+lmePx7aGSQKBgBMKAbqBTglTTkvSXm6k2pWuyU49uVpuzocJfi1V3y9ynAWZCSu6
+KsDNdT6cTv1vLrzKw46W0q/OGhcrJ4CxjOmwwGkMB/pJQRblwRzEpw8+ziarj+Lp
+aAGowv7aER2hzXEkUXpqw++h47M+r5dHGJj0wgtoU+TM9xUGNZ2XHrTxAoGAKOjo
+nKygPehp8UxpZi0mfhbjfF8IREdmxIIL3ouxfKw/QTO5lJG9mfbqwaJz6UPAan2t
+jgENG9iG2XBp4UdKtNLJDkK+rKmJkL58oU7xtNv7j9FOCSmpfprQdjC/N97Cu6hh
+InKTWTdspjynnwDn7tAhxV4AaEXWCBSQQWfRbcECgYEAkBd9KJD2Ypedp/2dtJHC
+jDr1ePl71oDwe8vEwN/DujwyaJXJL6gdEbOhPIp/D65L+JayPN1C2lHxDF/zIAKz
+j1exw1nyGDYNeBhQXyk+uKGkEN53Rrb+wYnfK74ItBBdf/5XotYTGH24wB2GLwdO
+bAMOCtAd2sl//30zzUVW1dc=
+-----END PRIVATE KEY-----
+""".
 
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
@@ -1862,6 +2071,18 @@ check_entry_type({namedCurve, _}, 'EcpkParameters') ->
     true;
 check_entry_type({ecParameters, #'ECParameters'{}}, 'EcpkParameters') ->
     true;
+check_entry_type(#'ML-DSAPublicKey'{algorithm = mldsa44}, ?'id-ml-dsa-44') ->
+    true;
+check_entry_type(#'ML-DSAPublicKey'{algorithm = mldsa65}, ?'id-ml-dsa-65') ->
+    true;
+check_entry_type(#'ML-DSAPublicKey'{algorithm = mldsa87}, ?'id-ml-dsa-87') ->
+    true;
+check_entry_type(#'ML-DSAPrivateKey'{algorithm = mldsa44}, ?'id-ml-dsa-44') ->
+    true;
+check_entry_type(#'ML-DSAPrivateKey'{algorithm = mldsa65}, ?'id-ml-dsa-65') ->
+    true;
+check_entry_type(#'ML-DSAPrivateKey'{algorithm = mldsa87}, ?'id-ml-dsa-87') ->
+    true;
 check_entry_type(_,_) ->
     false.
 
@@ -1874,8 +2095,22 @@ check_encapsulated_header([ _ | Rest]) ->
 check_encapsulated_header([]) ->
     false.
 
-strip_superfluous_newlines(Bin) ->
+strip_licence("-----" ++ _ = PEM) ->
+    PEM;
+strip_licence("//" ++ Rest0) ->
+    Rest = skip_until_nl(Rest0),
+    strip_licence(Rest).
+
+skip_until_nl([$\n| Rest]) ->
+    Rest;
+skip_until_nl([_| Rest]) ->
+    skip_until_nl(Rest).
+
+strip_superfluous_newlines(Bin) when is_binary(Bin) ->
     Str = string:strip(binary_to_list(Bin), right, 10),
+    re:replace(Str,"\n\n","\n", [{return,list}, global]);
+strip_superfluous_newlines(Str0) ->
+    Str = string:strip(Str0, right, 10),
     re:replace(Str,"\n\n","\n", [{return,list}, global]).
 
 do_gen_ec_param(File) ->    
@@ -1980,3 +2215,138 @@ pss_params(sha256) ->
                                              },
        saltLength = 32,
        trailerField = 1}.
+
+root_cert() ->
+    <<48,130,3,101,48,130,2,77,2,20,84,146,109,40,51,96,205,30,13,45,128,74,161,
+      155,47,20,138,254,44,215,48,13,6,9,42,134,72,134,247,13,1,1,11,5,0,48,111,49,
+      11,48,9,6,3,85,4,6,19,2,83,69,49,18,48,16,6,3,85,4,8,12,9,83,116,111,99,107,
+      104,111,108,109,49,18,48,16,6,3,85,4,7,12,9,83,116,111,99,107,104,111,108,
+      109,49,18,48,16,6,3,85,4,10,12,9,77,121,79,114,103,78,97,109,101,49,17,48,15,
+      6,3,85,4,11,12,8,77,121,82,111,111,116,67,65,49,17,48,15,6,3,85,4,3,12,8,77,
+      121,82,111,111,116,67,65,48,30,23,13,50,53,48,51,50,52,49,56,52,54,51,53,90,
+      23,13,51,53,48,51,50,50,49,56,52,54,51,53,90,48,111,49,11,48,9,6,3,85,4,6,19,
+      2,83,69,49,18,48,16,6,3,85,4,8,12,9,83,116,111,99,107,104,111,108,109,49,18,
+      48,16,6,3,85,4,7,12,9,83,116,111,99,107,104,111,108,109,49,18,48,16,6,3,85,4,
+      10,12,9,77,121,79,114,103,78,97,109,101,49,17,48,15,6,3,85,4,11,12,8,77,121,
+      82,111,111,116,67,65,49,17,48,15,6,3,85,4,3,12,8,77,121,82,111,111,116,67,65,
+      48,130,1,34,48,13,6,9,42,134,72,134,247,13,1,1,1,5,0,3,130,1,15,0,48,130,1,
+      10,2,130,1,1,0,172,31,79,63,209,47,91,232,50,144,244,240,108,21,154,11,248,
+      137,136,255,175,123,48,19,227,178,98,227,162,99,222,164,175,37,245,195,160,
+      169,247,10,158,143,232,52,48,32,64,83,161,133,29,92,14,229,118,75,162,237,
+      194,148,158,210,16,247,1,105,133,153,8,108,123,119,86,45,155,9,85,5,72,176,
+      91,243,192,172,84,63,46,8,200,216,153,199,38,156,159,9,234,116,237,44,90,231,
+      22,214,236,213,21,233,7,62,75,42,187,211,62,216,129,1,75,21,47,218,78,54,113,
+      184,78,114,85,25,15,117,69,231,84,245,231,55,48,30,254,104,143,187,218,22,27,
+      67,192,240,251,166,40,194,197,65,52,1,139,152,148,60,174,36,212,135,70,132,
+      203,121,28,90,193,62,142,115,5,40,48,164,113,209,193,154,69,212,11,221,148,
+      194,4,12,187,57,202,164,98,148,189,9,67,135,155,189,10,252,107,191,141,26,52,
+      175,67,41,114,15,80,79,97,229,148,205,254,29,198,130,88,134,133,153,117,73,
+      223,7,236,23,124,240,207,192,193,16,198,155,212,44,213,218,46,203,199,198,
+      120,252,28,205,2,3,1,0,1,48,13,6,9,42,134,72,134,247,13,1,1,11,5,0,3,130,1,1,
+      0,129,55,80,172,175,171,144,210,76,225,67,60,141,160,98,125,231,122,225,103,
+      217,88,51,67,200,96,2,7,161,20,47,170,243,190,67,81,233,66,94,134,217,247,
+      157,29,157,89,232,26,114,64,112,125,238,125,243,133,125,131,174,151,205,142,
+      157,145,243,69,64,43,186,99,230,79,251,218,20,61,83,253,250,233,95,149,55,
+      143,235,220,22,18,16,133,209,74,153,96,90,155,29,10,128,115,33,134,84,114,
+      144,196,51,170,78,54,55,200,21,41,54,230,62,121,92,229,236,93,226,127,64,79,
+      8,237,230,66,48,73,247,74,138,150,69,99,186,7,15,81,208,223,233,79,24,41,205,
+      95,2,130,147,41,153,192,126,2,38,208,194,37,16,229,157,100,190,103,167,94,
+      103,26,239,121,224,139,40,83,31,56,49,187,100,145,141,122,122,81,29,11,5,217,
+      199,48,39,1,201,190,86,230,33,247,193,149,81,228,99,173,153,3,158,155,238,
+      113,155,48,237,192,52,189,33,50,180,74,148,121,193,186,52,0,17,170,145,140,
+      201,199,76,185,45,155,90,133,210,208,177,76,251,180,240,49,231,184,171,131,
+      39,214>>.
+
+intermediate_cert() ->
+    <<48,130,4,56,48,130,3,32,160,3,2,1,2,2,5,23,66,132,25,149,48,13,6,9,42,134,72,
+      134,247,13,1,1,11,5,0,48,111,49,11,48,9,6,3,85,4,6,19,2,83,69,49,18,48,16,6,
+      3,85,4,8,12,9,83,116,111,99,107,104,111,108,109,49,18,48,16,6,3,85,4,7,12,9,
+      83,116,111,99,107,104,111,108,109,49,18,48,16,6,3,85,4,10,12,9,77,121,79,114,
+      103,78,97,109,101,49,17,48,15,6,3,85,4,11,12,8,77,121,82,111,111,116,67,65,
+      49,17,48,15,6,3,85,4,3,12,8,77,121,82,111,111,116,67,65,48,30,23,13,50,53,48,
+      51,50,52,49,56,52,54,51,53,90,23,13,51,53,48,51,50,50,49,56,52,54,51,53,90,
+      48,109,49,11,48,9,6,3,85,4,6,19,2,83,69,49,18,48,16,6,3,85,4,8,12,9,83,116,
+      111,99,107,104,111,108,109,49,18,48,16,6,3,85,4,10,12,9,77,121,79,114,103,78,
+      97,109,101,49,25,48,23,6,3,85,4,11,12,16,77,121,73,110,116,101,114,109,101,
+      100,105,97,116,101,67,65,49,27,48,25,6,3,85,4,3,12,18,77,121,73,110,116,101,
+      114,109,101,100,105,97,116,101,67,65,45,50,48,130,1,34,48,13,6,9,42,134,72,
+      134,247,13,1,1,1,5,0,3,130,1,15,0,48,130,1,10,2,130,1,1,0,156,174,148,169,31,
+      183,41,227,124,177,2,91,41,77,105,187,136,57,229,255,251,22,197,103,254,91,
+      17,198,213,237,164,161,121,214,179,198,81,151,226,74,224,158,208,112,81,102,
+      154,21,79,181,154,60,234,22,136,27,3,183,62,225,223,4,17,105,122,21,15,68,22,
+      236,252,6,210,217,30,142,9,120,128,181,8,130,195,253,245,59,239,27,191,97,7,
+      14,8,138,217,61,4,134,14,118,228,183,206,99,157,152,46,115,66,87,17,40,88,45,
+      49,238,54,57,53,156,172,139,50,206,79,179,118,89,26,201,196,17,6,222,77,78,
+      245,5,73,85,81,242,234,136,97,4,175,134,74,207,38,9,54,98,185,191,11,183,130,
+      108,26,234,5,60,203,29,141,40,207,132,105,200,115,14,42,123,248,2,118,241,6,
+      2,143,229,40,121,216,119,249,145,65,243,75,226,142,26,209,185,21,165,60,153,
+      235,155,230,203,132,253,183,158,109,240,56,22,42,118,34,33,141,74,161,201,76,
+      127,220,218,229,104,112,162,83,138,175,106,182,95,42,116,179,248,69,112,217,
+      103,179,150,137,5,64,76,46,170,157,12,96,93,2,3,1,0,1,163,129,220,48,129,217,
+      48,14,6,3,85,29,15,1,1,255,4,4,3,2,1,6,48,15,6,3,85,29,19,1,1,255,4,5,48,3,1,
+      1,255,48,29,6,3,85,29,14,4,22,4,20,149,52,132,249,152,100,9,172,104,217,14,
+      21,103,243,114,237,4,135,197,71,48,129,150,6,3,85,29,35,4,129,142,48,129,139,
+      161,115,164,113,48,111,49,11,48,9,6,3,85,4,6,19,2,83,69,49,18,48,16,6,3,85,4,
+      8,12,9,83,116,111,99,107,104,111,108,109,49,18,48,16,6,3,85,4,7,12,9,83,116,
+      111,99,107,104,111,108,109,49,18,48,16,6,3,85,4,10,12,9,77,121,79,114,103,78,
+      97,109,101,49,17,48,15,6,3,85,4,11,12,8,77,121,82,111,111,116,67,65,49,17,48,
+      15,6,3,85,4,3,12,8,77,121,82,111,111,116,67,65,130,20,84,146,109,40,51,96,
+      205,30,13,45,128,74,161,155,47,20,138,254,44,215,48,13,6,9,42,134,72,134,247,
+      13,1,1,11,5,0,3,130,1,1,0,113,62,255,199,151,42,233,82,42,44,101,9,155,153,
+      127,205,20,52,24,99,231,126,37,61,244,68,105,72,182,208,3,145,187,137,166,
+      239,219,155,68,7,241,5,64,142,191,68,248,51,197,135,181,121,9,60,109,216,199,
+      79,113,223,228,14,91,199,110,222,13,84,193,50,112,116,127,129,48,195,223,35,
+      179,154,182,85,3,11,78,100,228,163,41,166,134,90,230,240,231,241,126,23,49,2,
+      239,101,4,178,24,11,249,183,238,226,160,121,221,133,255,168,41,243,220,193,9,
+      114,167,52,138,30,143,247,221,162,127,100,137,66,199,175,8,112,52,52,143,71,
+      5,181,13,81,129,232,212,115,14,253,220,141,174,82,186,122,174,107,53,56,127,
+      189,105,132,110,154,193,152,43,145,181,233,136,202,95,58,249,179,121,70,79,
+      182,83,222,51,233,247,57,223,174,51,219,90,67,61,129,197,255,47,101,2,127,
+      220,106,211,166,156,75,215,235,18,58,27,179,74,251,149,63,250,101,83,171,229,
+      106,163,229,123,160,62,76,79,121,223,182,12,208,153,220,233,111,84,149,52,
+      206,65,157,104,120,68,104,225,47,56,80>>.
+
+entity_cert() ->
+    <<48,130,3,191,48,130,2,124,2,20,15,173,151,156,170,164,58,131,234,136,140,158,
+      13,36,237,166,129,102,178,109,48,56,6,9,42,134,72,134,247,13,1,1,10,48,43,
+      160,13,48,11,6,9,96,134,72,1,101,3,4,2,1,161,26,48,24,6,9,42,134,72,134,247,
+      13,1,1,8,48,11,6,9,96,134,72,1,101,3,4,2,1,48,109,49,11,48,9,6,3,85,4,6,19,2,
+      83,69,49,18,48,16,6,3,85,4,8,12,9,83,116,111,99,107,104,111,108,109,49,18,48,
+      16,6,3,85,4,10,12,9,77,121,79,114,103,78,97,109,101,49,25,48,23,6,3,85,4,11,
+      12,16,77,121,73,110,116,101,114,109,101,100,105,97,116,101,67,65,49,27,48,25,
+      6,3,85,4,3,12,18,77,121,73,110,116,101,114,109,101,100,105,97,116,101,67,65,
+      45,50,48,30,23,13,50,53,48,51,50,52,49,56,52,54,51,54,90,23,13,51,53,48,51,
+      50,50,49,56,52,54,51,54,90,48,119,49,11,48,9,6,3,85,4,6,19,2,83,69,49,18,48,
+      16,6,3,85,4,8,12,9,83,116,111,99,107,104,111,108,109,49,18,48,16,6,3,85,4,7,
+      12,9,83,116,111,99,107,104,111,108,109,49,18,48,16,6,3,85,4,10,12,9,77,121,
+      79,114,103,78,97,109,101,49,24,48,22,6,3,85,4,11,12,15,77,121,83,101,114,118,
+      105,99,101,67,108,105,101,110,116,49,18,48,16,6,3,85,4,3,12,9,108,111,99,97,
+      108,104,111,115,116,48,130,1,32,48,11,6,9,42,134,72,134,247,13,1,1,10,3,130,
+      1,15,0,48,130,1,10,2,130,1,1,0,189,65,229,200,99,164,197,115,5,62,249,116,8,
+      91,48,99,76,105,88,243,190,73,230,205,56,243,126,64,38,197,95,173,13,142,36,
+      81,67,91,163,9,136,101,237,143,151,192,214,144,21,27,141,149,59,40,182,244,
+      58,107,175,14,55,210,75,135,217,129,12,61,222,42,3,72,219,79,232,185,17,22,
+      62,5,117,249,16,45,41,112,201,202,229,223,90,217,217,227,199,242,75,60,109,
+      185,247,189,165,180,57,118,158,54,188,108,205,150,101,171,197,230,199,107,
+      206,31,127,143,96,121,39,24,216,190,34,241,215,142,21,65,158,211,113,211,116,
+      115,92,145,2,216,34,218,245,51,51,171,147,118,165,67,211,236,245,28,90,27,85,
+      54,28,153,59,199,206,44,23,252,2,216,211,188,43,89,247,135,227,158,198,151,
+      90,108,161,140,207,160,178,207,64,161,24,13,85,10,240,55,105,255,119,191,93,
+      123,233,207,91,131,52,26,165,199,186,8,143,1,74,124,140,11,224,195,29,25,239,
+      109,178,86,57,141,110,247,146,14,44,175,152,88,7,221,9,55,247,95,171,190,119,
+      154,177,123,123,205,25,12,65,173,2,3,1,0,1,48,56,6,9,42,134,72,134,247,13,1,
+      1,10,48,43,160,13,48,11,6,9,96,134,72,1,101,3,4,2,1,161,26,48,24,6,9,42,134,
+      72,134,247,13,1,1,8,48,11,6,9,96,134,72,1,101,3,4,2,1,3,130,1,1,0,121,122,65,
+      44,230,154,144,151,21,186,181,229,46,141,213,104,136,245,156,128,159,0,185,
+      227,176,198,113,197,103,245,177,30,216,30,48,101,196,111,119,89,84,2,43,87,
+      21,42,85,220,184,194,171,207,5,7,143,142,7,178,211,212,92,124,1,145,180,84,
+      168,128,114,207,111,225,239,171,46,250,63,188,79,221,217,170,103,36,28,139,
+      156,199,63,232,34,156,146,42,163,206,172,107,74,189,112,9,129,69,107,75,54,
+      41,227,136,127,204,234,77,99,186,232,26,74,184,175,170,40,44,196,77,160,226,
+      160,168,206,198,137,121,114,225,90,231,195,220,119,178,70,167,95,28,174,110,
+      4,219,141,181,29,113,27,165,184,183,4,228,43,175,119,101,7,199,81,205,23,130,
+      154,112,72,76,139,12,27,145,203,220,27,176,236,219,66,52,2,49,26,42,83,218,8,
+      37,234,177,21,23,175,104,224,201,67,168,55,11,52,243,187,120,10,143,42,247,
+      192,248,221,66,55,73,61,67,213,223,3,129,161,19,191,166,23,234,120,254,108,
+      210,239,35,51,101,41,224,241,14,212,245,123,140,245,241,129,175,129,123,242,
+      175>>.

@@ -1,6 +1,8 @@
 %%
 %% %CopyrightBegin%
 %%
+%% SPDX-License-Identifier: Apache-2.0
+%%
 %% Copyright Ericsson AB 2008-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
@@ -35,7 +37,6 @@
 -include("ssh_transport.hrl").
 -include("ssh_auth.hrl").
 -include("ssh_connect.hrl").
-
 -include("ssh_fsm.hrl").
 
 %%====================================================================
@@ -687,9 +688,12 @@ handle_event(state_timeout, no_hello_received, {hello,_Role}=StateName, D0 = #da
     {stop, Shutdown, D};
 
 
-%%% ######## {service_request, client|server} ####
-
-handle_event(internal, Msg = #ssh_msg_service_request{name=ServiceName}, StateName = {service_request,server}, D0) ->
+%%% ######## {service_request, client|server} #### StateName ==
+%% {userauth,server} guard added due to interoperability with clients
+%% sending extra ssh_msg_service_request (e.g. Paramiko for Python,
+%% see GH-6463)
+handle_event(internal, Msg = #ssh_msg_service_request{name=ServiceName}, StateName, D0)
+  when StateName == {service_request,server}; StateName == {userauth,server} ->
     case ServiceName of
 	"ssh-userauth" ->
 	    Ssh0 = #ssh{session_id=SessionId} = D0#data.ssh_params,
@@ -731,16 +735,6 @@ handle_event(internal, #ssh_msg_disconnect{description=Desc} = Msg, StateName, D
     {Actions,D} = send_replies(RepliesCon, D0),
     disconnect_fun("Received disconnect: "++Desc, D),
     {stop_and_reply, {shutdown,Desc}, Actions, D};
-
-handle_event(internal, #ssh_msg_ignore{}, {_StateName, _Role, init},
-             #data{ssh_params = #ssh{kex_strict_negotiated = true,
-                                     send_sequence = SendSeq,
-                                     recv_sequence = RecvSeq}}) ->
-    ?DISCONNECT(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
-                io_lib:format("strict KEX violation: unexpected SSH_MSG_IGNORE "
-                              "send_sequence = ~p  recv_sequence = ~p",
-                              [SendSeq, RecvSeq])
-               );
 
 handle_event(internal, #ssh_msg_ignore{}, _StateName, _) ->
     keep_state_and_data;
@@ -1100,12 +1094,22 @@ handle_event({call,From}, {recv_window, ChannelId}, StateName, D)
 
 handle_event({call,From}, {close, ChannelId}, StateName, D0)
   when ?CONNECTED(StateName) ->
+    %% Send 'channel-close' only if it has not been sent yet
+    %% e.g. when 'exit-signal' was received from the peer
+    %% and(!) we update the cache so that we remember what we've done
     case ssh_client_channel:cache_lookup(cache(D0), ChannelId) of
-	#channel{remote_id = Id} = Channel ->
+	#channel{remote_id = Id, sent_close = false} = Channel ->
 	    D1 = send_msg(ssh_connection:channel_close_msg(Id), D0),
-	    ssh_client_channel:cache_update(cache(D1), Channel#channel{sent_close = true}),
-	    {keep_state, D1, [cond_set_idle_timer(D1), {reply,From,ok}]};
-	undefined ->
+	    ssh_client_channel:cache_update(cache(D1),
+                                            Channel#channel{sent_close = true}),
+	    {keep_state, D1, [cond_set_idle_timer(D1),
+                              channel_close_timer(D1, Id),
+                              {reply,From,ok}]};
+	_ ->
+            %% Here we match a channel which has already sent 'channel-close'
+            %% AND possible cases of 'broken cache' i.e. when a channel
+            %% disappeared from the cache, but has not been properly shut down
+            %% The latter would be a bug, but hard to chase
 	    {keep_state_and_data, [{reply,From,ok}]}
     end;
 
@@ -1145,11 +1149,14 @@ handle_event(info, {Proto, Sock, NewData}, StateName,
     of
 	{packet_decrypted, DecryptedBytes, EncryptedDataRest, Ssh1} ->
 	    D1 = D0#data{ssh_params =
-			    Ssh1#ssh{recv_sequence = ssh_transport:next_seqnum(Ssh1#ssh.recv_sequence)},
-			decrypted_data_buffer = <<>>,
-                        undecrypted_packet_length = undefined,
-                        aead_data = <<>>,
-			encrypted_data_buffer = EncryptedDataRest},
+                             Ssh1#ssh{recv_sequence =
+                                          ssh_transport:next_seqnum(StateName,
+                                                                    Ssh1#ssh.recv_sequence,
+                                                                    SshParams)},
+                         decrypted_data_buffer = <<>>,
+                         undecrypted_packet_length = undefined,
+                         aead_data = <<>>,
+                         encrypted_data_buffer = EncryptedDataRest},
 	    try
 		ssh_message:decode(set_kex_overload_prefix(DecryptedBytes,D1))
 	    of
@@ -1181,12 +1188,21 @@ handle_event(info, {Proto, Sock, NewData}, StateName,
                                       {next_event, internal, Msg}
 				    ]}
 	    catch
-		C:E:ST  ->
-                    MaxLogItemLen = ?GET_OPT(max_log_item_len,SshParams#ssh.opts),
+		Class:Reason0:Stacktrace  ->
+                    Reason = ssh_lib:trim_reason(Reason0),
+                    MsgFun =
+                        fun(debug) ->
+                                io_lib:format("Bad packet: Decrypted, but can't decode~n~p:~p~n~p",
+                                              [Class,Reason,Stacktrace],
+                                              [{chars_limit, ssh_lib:max_log_len(SshParams)}]);
+                           (_) ->
+                                io_lib:format("Bad packet: Decrypted, but can't decode ~p:~p",
+                                              [Class, Reason],
+                                              [{chars_limit, ssh_lib:max_log_len(SshParams)}])
+                        end,
                     {Shutdown, D} =
                         ?send_disconnect(?SSH_DISCONNECT_PROTOCOL_ERROR,
-                                         io_lib:format("Bad packet: Decrypted, but can't decode~n~p:~p~n~p",
-                                                       [C,E,ST], [{chars_limit, MaxLogItemLen}]),
+                                         ?SELECT_MSG(MsgFun),
                                          StateName, D1),
                     {stop, Shutdown, D}
 	    end;
@@ -1216,12 +1232,20 @@ handle_event(info, {Proto, Sock, NewData}, StateName,
                                  StateName, D0),
             {stop, Shutdown, D}
     catch
-	C:E:ST ->
-            MaxLogItemLen = ?GET_OPT(max_log_item_len,SshParams#ssh.opts),
+	Class:Reason0:Stacktrace ->
+            MsgFun =
+                fun(debug) ->
+                        io_lib:format("Bad packet: Couldn't decrypt~n~p:~p~n~p",
+                                      [Class,Reason0,Stacktrace],
+                                      [{chars_limit, ssh_lib:max_log_len(SshParams)}]);
+                   (_) ->
+                        Reason = ssh_lib:trim_reason(Reason0),
+                        io_lib:format("Bad packet: Couldn't decrypt~n~p:~p",
+                                      [Class,Reason],
+                                      [{chars_limit, ssh_lib:max_log_len(SshParams)}])
+                end,
             {Shutdown, D} =
-                ?send_disconnect(?SSH_DISCONNECT_PROTOCOL_ERROR,
-                                 io_lib:format("Bad packet: Couldn't decrypt~n~p:~p~n~p",
-                                               [C,E,ST], [{chars_limit, MaxLogItemLen}]),
+                ?send_disconnect(?SSH_DISCONNECT_PROTOCOL_ERROR, ?SELECT_MSG(MsgFun),
                                  StateName, D0),
             {stop, Shutdown, D}
     end;
@@ -1263,15 +1287,33 @@ handle_event(info, {timeout, {_, From} = Request}, _,
 %%% Handle that ssh channels user process goes down
 handle_event(info, {'DOWN', _Ref, process, ChannelPid, _Reason}, _, D) ->
     Cache = cache(D),
-    ssh_client_channel:cache_foldl(
-      fun(#channel{user=U,
-                   local_id=Id}, Acc) when U == ChannelPid ->
-              ssh_client_channel:cache_delete(Cache, Id),
-              Acc;
-         (_,Acc) ->
-              Acc
-      end, [], Cache),
-    {keep_state, D, cond_set_idle_timer(D)};
+    %% Here we first collect the list of channel id's  handled by the process
+    %% Do NOT remove them from the cache - they are not closed yet!
+    Channels = ssh_client_channel:cache_foldl(
+                 fun(#channel{user=U} = Channel, Acc) when U == ChannelPid ->
+                         [Channel | Acc];
+                    (_,Acc) ->
+                         Acc
+                 end, [], Cache),
+    %% Then for each channel where 'channel-close' has not been sent yet
+    %% we send 'channel-close' and(!) update the cache so that we remember
+    %% what we've done.
+    %% Also set user as 'undefined' as there is no such process anyway
+    {D2, NewTimers} = lists:foldl(
+                        fun(#channel{remote_id = Id, sent_close = false} = Channel,
+                            {D0, Timers}) when Id /= undefined ->
+                                D1 = send_msg(ssh_connection:channel_close_msg(Id), D0),
+                                ssh_client_channel:cache_update(cache(D1),
+                                                                Channel#channel{sent_close = true,
+                                                                                user = undefined}),
+                                ChannelTimer = channel_close_timer(D1, Id),
+                                {D1, [ChannelTimer | Timers]};
+                           (Channel, {D0, _} = Acc) ->
+                                ssh_client_channel:cache_update(cache(D0),
+                                                                Channel#channel{user = undefined}),
+                                Acc
+                        end, {D, []}, Channels),
+    {keep_state, D2, [cond_set_idle_timer(D2) | NewTimers]};
 
 handle_event({timeout,idle_time}, _Data,  _StateName, D) ->
     case ssh_client_channel:cache_info(num_entries, cache(D)) of
@@ -1283,6 +1325,16 @@ handle_event({timeout,idle_time}, _Data,  _StateName, D) ->
 
 handle_event({timeout,max_initial_idle_time}, _Data,  _StateName, _D) ->
     {stop, {shutdown, "Timeout"}};
+
+handle_event({timeout, {channel_close, ChannelId}}, _Data, _StateName, D) ->
+    Cache = cache(D),
+    case ssh_client_channel:cache_lookup(Cache, ChannelId) of
+        #channel{sent_close = true} ->
+            ssh_client_channel:cache_delete(Cache, ChannelId),
+            {keep_state, D, cond_set_idle_timer(D)};
+        _ ->
+            keep_state_and_data
+    end;
 
 %%% So that terminate will be run when supervisor is shutdown
 handle_event(info, {'EXIT', _Sup, Reason}, StateName, _D) ->
@@ -2056,6 +2108,10 @@ cond_set_idle_timer(D) ->
         _ -> {{timeout,idle_time}, infinity, none}
     end.
 
+channel_close_timer(D, ChannelId) ->
+    {{timeout, {channel_close, ChannelId}},
+     ?GET_OPT(channel_close_timeout, (D#data.ssh_params)#ssh.opts), none}.
+
 %%%----------------------------------------------------------------
 start_channel_request_timer(_,_, infinity) ->
     ok;
@@ -2158,16 +2214,20 @@ ssh_dbg_format(connections, {call, {?MODULE,init, [[Role, Sock, Opts]]}}) ->
                             end
                     end,
                     Opts),
-    {ok, {IPp,Portp}} = inet:peername(Sock),
-    {ok, {IPs,Ports}} = inet:sockname(Sock),
+    Addresses =
+        case {inet:peername(Sock), inet:sockname(Sock)} of
+            {{ok, {IPp,Portp}}, {ok, {IPs,Ports}}} ->
+                io_lib:format("Socket = ~p, Peer = ~s, Local = ~s,~n"
+                              "Non-default options:~n~p",
+                              [Sock, ssh_lib:format_address_port(IPp,Portp),
+                               ssh_lib:format_address_port(IPs,Ports), NonDefaultOpts]);
+            {E1, E2} ->
+                io_lib:format("Socket = ~p, Peer = ~p, Local = ~p,~n"
+                              "Non-default options:~n~p",
+                              [Sock, E1, E2, NonDefaultOpts])
+        end,
     [io_lib:format("Starting ~p connection:\n",[Role]),
-     io_lib:format("Socket = ~p, Peer = ~s, Local = ~s,~n"
-                   "Non-default options:~n~p",
-                   [Sock,
-                    ssh_lib:format_address_port(IPp,Portp),
-                    ssh_lib:format_address_port(IPs,Ports),
-                    NonDefaultOpts])
-    ];
+     Addresses];
 ssh_dbg_format(connections, F) ->
     ssh_dbg_format(terminate, F);
 

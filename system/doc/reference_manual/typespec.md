@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2025. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -192,34 +194,34 @@ predefined aliases for the type unions also shown in the table.
 
 [](){: #builtin_types }
 
-| _Built-in type_           | _Defined as_                                                                |
-| ------------------------- | --------------------------------------------------------------------------- |
-| `t:term/0`                | `t:any/0`                                                                   |
-| `t:binary/0`              | `<<_:_*8>>`                                                                 |
-| `t:nonempty_binary/0`     | `<<_:8, _:_*8>>`                                                            |
-| `t:bitstring/0`           | `<<_:_*1>>`                                                                 |
-| `t:nonempty_bitstring/0`  | `<<_:1, _:_*1>>`                                                            |
-| `t:boolean/0`             | `'false'` \| `'true'`                                                       |
-| `t:byte/0`                | `0..255`                                                                    |
-| `t:char/0`                | `0..16#10ffff`                                                              |
-| `t:nil/0`                 | `[]`                                                                        |
-| `t:number/0`              | `t:integer/0` \| `t:float/0`                                                |
-| `t:list/0`                | `[any()]`                                                                   |
-| `t:maybe_improper_list/0` | [`maybe_improper_list(any(), any())`](`t:maybe_improper_list/2`)            |
-| `t:nonempty_list/0`       | [`nonempty_list(any())`](`t:nonempty_list/1`)                               |
-| `t:string/0`              | `[char()]`                                                                  |
-| `t:nonempty_string/0`     | `[char(),...]`                                                              |
-| `t:iodata/0`              | `iolist()` \| `binary()`                                                    |
-| `t:iolist/0`              | `maybe_improper_list(byte()` \| `binary()` \| `iolist(), binary()` \| `[])` |
-| `t:map/0`                 | `#{any() => any()}`                                                         |
-| `t:function/0`            | `fun()`                                                                     |
-| `t:module/0`              | `t:atom/0`                                                                  |
-| `t:mfa/0`                 | `{module(),atom(),arity()}`                                                 |
-| `t:arity/0`               | `0..255`                                                                    |
-| `t:identifier/0`          | `pid()` \| `port()` \| `reference()`                                        |
-| `node/0`                  | `t:atom/0`                                                                  |
-| `t:timeout/0`             | `'infinity'` \| `non_neg_integer()`                                         |
-| `t:no_return/0`           | `t:none/0`                                                                  |
+| Built-in type             | Defined as                                                                                         |
+| ------------------------- | -------------------------------------------------------------------------------------------------- |
+| `t:term/0`                | `t:any/0`                                                                                          |
+| `t:binary/0`              | `<<_:_*8>>`                                                                                        |
+| `t:nonempty_binary/0`     | `<<_:8, _:_*8>>`                                                                                   |
+| `t:bitstring/0`           | `<<_:_*1>>`                                                                                        |
+| `t:nonempty_bitstring/0`  | `<<_:1, _:_*1>>`                                                                                   |
+| `t:boolean/0`             | `'false'` \| `'true'`                                                                              |
+| `t:byte/0`                | `0..255`                                                                                           |
+| `t:char/0`                | `0..16#10ffff`                                                                                     |
+| `t:nil/0`                 | `[]`                                                                                               |
+| `t:number/0`              | `t:integer/0` \| `t:float/0`                                                                       |
+| `t:list/0`                | `[any()]`                                                                                          |
+| `t:maybe_improper_list/0` | [`maybe_improper_list(any(), any())`](`t:maybe_improper_list/2`)                                   |
+| `t:nonempty_list/0`       | [`nonempty_list(any())`](`t:nonempty_list/1`)                                                      |
+| `t:string/0`              | `[char()]`                                                                                         |
+| `t:nonempty_string/0`     | `[char(), ...]`                                                                                    |
+| `t:iodata/0`              | `iolist()` \| `binary()`                                                                           |
+| `t:iolist/0`              | [`maybe_improper_list(byte() \| binary() \| iolist(), binary() \| [])`](`t:maybe_improper_list/2`) |
+| `t:map/0`                 | `#{any() => any()}`                                                                                |
+| `t:function/0`            | `fun()`                                                                                            |
+| `t:module/0`              | `t:atom/0`                                                                                         |
+| `t:mfa/0`                 | `{module(),atom(),arity()}`                                                                        |
+| `t:arity/0`               | `0..255`                                                                                           |
+| `t:identifier/0`          | `pid()` \| `port()` \| `reference()`                                                               |
+| `node/0`                  | `t:atom/0`                                                                                         |
+| `t:timeout/0`             | `'infinity'` \| `non_neg_integer()`                                                                |
+| `t:no_return/0`           | `t:none/0`                                                                                         |
 
 _Table: Built-in types, predefined aliases_
 
@@ -227,11 +229,11 @@ In addition, the following three built-in types exist and can be thought as
 defined below, though strictly their "type definition" is not valid syntax
 according to the type language defined above.
 
-| _Built-in type_       | _Can be thought defined by the syntax_ |
-| --------------------- | -------------------------------------- |
-| `t:non_neg_integer/0` | `0..`                                  |
-| `t:pos_integer/0`     | `1..`                                  |
-| `t:neg_integer/0`     | `..-1`                                 |
+| Built-in type         | Can be thought defined by the syntax |
+| --------------------- | ------------------------------------ |
+| `t:non_neg_integer/0` | `0..`                                |
+| `t:pos_integer/0`     | `1..`                                |
+| `t:neg_integer/0`     | `..-1`                               |
 
 _Table: Additional built-in types_
 
@@ -290,12 +292,13 @@ warning), and Dialyzer will not emit any additional warnings.
 ## Type Declarations of User-Defined Types
 
 As seen, the basic syntax of a type is an atom followed by closed parentheses.
-New types are declared using `-type` and `-opaque` attributes as in the
-following:
+New types are declared using `-type`, [`-opaque`](opaques.md), and
+[`-nominal`](nominals.md) attributes as in the following example:
 
 ```erlang
 -type my_struct_type() :: Type.
 -opaque my_opaq_type() :: Type.
+-nominal my_nominal_type() :: Type.
 ```
 
 The type name is the atom `my_struct_type`, followed by parentheses. `Type` is a
@@ -352,7 +355,16 @@ module defining them is allowed to depend on their term structure. Consequently,
 such types do not make much sense as module local - module local types are not
 accessible by other modules anyway - and is always to be exported.
 
-Read more on [Opaques](opaques.md)
+> #### Change {: .info }
+>
+> Nominal types were introduced in Erlang/OTP 28.
+
+Types declared as `nominal` are type-checked according to the user-defined
+names instead of their structure. That is, `-nominal feet() :: integer()` and
+`-nominal meter() :: integer()` are not the same type, while if `-type` is
+used it would be.
+
+Read more on [Opaques](opaques.md) and [Nominals](nominals.md)
 
 [](){: #typeinrecords }
 

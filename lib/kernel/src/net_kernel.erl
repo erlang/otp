@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -67,6 +69,8 @@ in the Erlang Reference Manual.
 > [Using SSL for Erlang Distribution](`e:ssl:ssl_distribution.md`) User's Guide
 > for details on how to setup a secure distributed node.
 """.
+
+-compile(nowarn_deprecated_catch).
 
 -behaviour(gen_server).
 
@@ -176,7 +180,7 @@ in the Erlang Reference Manual.
 -define(LISTEN_ID, #listen.listen).
 -define(ACCEPT_ID, #listen.accept).
 
--type connection_state() :: pending | up | up_pending.
+-type connection_state() :: check_pending | pending | up | up_pending.
 -type connection_type() :: normal | hidden.
 
 -include("net_address.hrl").
@@ -205,13 +209,13 @@ in the Erlang Reference Manual.
 -record(tick,
         {ticker     :: pid(),                 %% ticker
          time       :: pos_integer(),         %% net tick time (ms)
-         intensity  :: 4..1000                %% ticks until timout
+         intensity  :: 4..1000                %% ticks until timeout
         }).
 
 -record(tick_change,
         {ticker     :: pid(),                 %% ticker
          time       :: pos_integer(),         %% net tick time (ms)
-         intensity  :: 4..1000,               %% ticks until timout
+         intensity  :: 4..1000,               %% ticks until timeout
          how        :: 'longer' | 'shorter'   %% What type of change
         }).
 
@@ -248,13 +252,26 @@ that list will be rejected.
 Subsequent calls to [`allow/1`](`allow/1`) will add the specified nodes to the
 list of allowed nodes. It is not possible to remove nodes from the list.
 
-Returns `error` if any element in `Nodes` is not an atom.
+Disallowing an already connected node will not cause it to be disconnected. It
+will, however, prevent any future reconnection attempts.
+
+Passing `Nodes` as an empty list has never any affect at all.
+
+Returns `error` if any element in `Nodes` is not an atom, and `ignored` if the
+local node is not alive.
 """.
--spec allow(Nodes) -> ok | error when
+-spec allow(Nodes) -> ok | error | ignored when
       Nodes :: [node()].
 allow(Nodes) ->                request({allow, Nodes}).
 
--doc false.
+-doc """
+Returns a list of nodes that are explicitly allowed to connect to the node by calling
+[`allow/1`](`allow/1`). If empty list is returned, it means that any node using the
+same cookie will be able to connect.
+""".
+-doc(#{since => <<"OTP 28.0">>}).
+-spec allowed() -> {ok, Nodes} | ignored when
+      Nodes :: [node()].
 allowed() ->                   request(allowed).
 
 -doc false.
@@ -1079,7 +1096,7 @@ do_auto_connect_2(Node, ConnId, From, State, ConnLookup) ->
                                            ets:lookup(sys_dist, Node)}),
                     {reply, false, State};
                 _ ->
-                    case setup(Node, ConnId, normal, From, State) of
+                    case setup_check(Node, ConnId, normal, From, State) of
                         {ok, SetupPid} ->
                             Owners = State#state.conn_owners,
                             {noreply,State#state{conn_owners=Owners#{SetupPid => Node}}};
@@ -1094,7 +1111,8 @@ do_auto_connect_2(Node, ConnId, From, State, ConnLookup) ->
 do_explicit_connect([#connection{conn_id = ConnId, state = up}], _, _, ConnId, _From, State) ->
     {reply, true, State};
 do_explicit_connect([#connection{conn_id = ConnId}=Conn], _, _, ConnId, From, State)
-  when Conn#connection.state =:= pending;
+  when Conn#connection.state =:= check_pending;
+       Conn#connection.state =:= pending;
        Conn#connection.state =:= up_pending ->
     Waiting = Conn#connection.waiting,
     ets:insert(sys_dist, Conn#connection{waiting = [From|Waiting]}),
@@ -1103,7 +1121,7 @@ do_explicit_connect([#barred_connection{}], Type, Node, ConnId, From , State) ->
     %% Barred connection only affects auto_connect, ignore it.
     do_explicit_connect([], Type, Node, ConnId, From , State);
 do_explicit_connect(_ConnLookup, Type, Node, ConnId, From , State) ->
-    case setup(Node,ConnId,Type,From,State) of
+    case setup_check(Node,ConnId,Type,From,State) of
         {ok, SetupPid} ->
             Owners = State#state.conn_owners,
             {noreply,State#state{conn_owners=Owners#{SetupPid => Node}}};
@@ -1193,8 +1211,8 @@ handle_call({spawn_opt,M,F,A,O,L,Gleader},{From,Tag},State) when is_pid(From) ->
 handle_call({allow, Nodes}, From, State) ->
     case all_atoms(Nodes) of
 	true ->
-	    Allowed = State#state.allowed,
-            async_reply({reply,ok,State#state{allowed = Allowed ++ Nodes}},
+	    Allowed = lists:uniq(State#state.allowed ++ Nodes),
+            async_reply({reply,ok,State#state{allowed = Allowed}},
                         From);
 	false ->
 	    async_reply({reply,error,State}, From)
@@ -1445,7 +1463,7 @@ handle_info({dist_ctrlr, Ctrlr, Node, SetupPid} = Msg,
 %%
 %% A node has successfully been connected.
 %%
-handle_info({SetupPid, {nodeup,Node,Address,Type,NamedMe} = Nodeup},
+handle_info({SetupPid, {nodeup,Node,Address,Type,NamedMe} = Nodeup} = Msg,
             #state{tick = Tick} = State) ->
     case ets:lookup(sys_dist, Node) of
 	[Conn] when (Conn#connection.state =:= pending)
@@ -1469,7 +1487,8 @@ handle_info({SetupPid, {nodeup,Node,Address,Type,NamedMe} = Nodeup},
             verbose(Nodeup, 1, State1),
             verbose({nodeup,Node,SetupPid,Conn#connection.ctrlr}, 2, State1),
             {noreply, State1};
-	_ ->
+	_Conn ->
+            verbose({bad_request, Msg, _Conn}, 2, State),
 	    SetupPid ! {self(), bad_request},
 	    {noreply, State}
     end;
@@ -1481,9 +1500,14 @@ handle_info({AcceptPid, {accept_pending,MyNode,NodeOrHost,Type}}, State0) ->
     {NameType, Node, Creation,
      ConnLookup, State} = ensure_node_name(NodeOrHost, State0),
     case ConnLookup of
-	[#connection{state=pending}=Conn] ->
+	[#connection{state=Pending}=Conn] when Pending == pending;
+                                               Pending == check_pending ->
 	    if
-		MyNode > Node ->
+                %% If we are in check_pending, we always select the other node.
+                %% We currently have not started the handshake at all, and the
+                %% other node's connection attempt is ongoing, so we select its
+                %% connection.
+		MyNode > Node andalso Pending == pending ->
 		    AcceptPid ! {self(),{accept_pending,nok_pending}},
                     verbose({accept_pending_nok, Node, AcceptPid}, 2, State),
 		    {noreply,State};
@@ -1495,7 +1519,7 @@ handle_info({AcceptPid, {accept_pending,MyNode,NodeOrHost,Type}}, State0) ->
 		    OldOwner = Conn#connection.owner,
                     case maps:is_key(OldOwner, State#state.conn_owners) of
                         true ->
-                            verbose({remark,OldOwner,AcceptPid}, 2, State),
+                            verbose({remark,Node,OldOwner,AcceptPid}, 2, State),
                             ?debug({net_kernel, remark, old, OldOwner, new, AcceptPid}),
                             exit(OldOwner, remarked),
                             receive
@@ -1505,11 +1529,13 @@ handle_info({AcceptPid, {accept_pending,MyNode,NodeOrHost,Type}}, State0) ->
                             end;
                         false ->
                             verbose(
-                              {accept_pending, OldOwner, inconsistency},
+                              {accept_pending, Node, OldOwner, inconsistency},
                               2, State),
                             ok % Owner already exited
                     end,
-		    ets:insert(sys_dist, Conn#connection{owner = AcceptPid}),
+                    ets:insert(sys_dist, Conn#connection{owner = AcceptPid,
+                                                         state = pending,
+                                                         type = Type}),
 		    AcceptPid ! {self(),{accept_pending,ok_pending}},
                     Owners = maps:remove(OldOwner, State#state.conn_owners),
 		    {noreply, State#state{conn_owners=Owners#{AcceptPid => Node}}}
@@ -1641,6 +1667,14 @@ handle_info(transition_period_end,
     {noreply,State#state{tick = #tick{ticker = Tckr,
                                       time = T,
                                       intensity = I}}};
+
+handle_info({setup_check, Node, Pid, Timer, Res} = Msg, State) ->
+    verbose(Msg, 2, State),
+    {noreply, setup(Node, Pid, Timer, Res, State)};
+
+handle_info({setup_check_timeout, Node, Pid} = Msg, State) ->
+    verbose(Msg, 2, State),
+    {noreply, setup_check_timeout(Node, Pid, State)};
 
 handle_info(X, State) ->
     error_msg("Net kernel got ~tw~n",[X]),
@@ -1829,8 +1863,10 @@ delete_ctrlr(Ctrlr, #state{dist_ctrlrs = DCs} = State) ->
     State#state{dist_ctrlrs = maps:remove(Ctrlr, DCs)}.
 
 nodedown(Conn, Exited, Node, Reason, Type, State) ->
+    verbose({nodedown, Node, Conn#connection.state, Reason}, 2, State),
     case Conn#connection.state of
-	pending ->
+	Pending when Pending == pending;
+                     Pending == check_pending ->
 	    pending_nodedown(Conn, Exited, Node, Type, State);
 	up ->
 	    up_nodedown(Conn, Exited, Node, Reason, Type, State);
@@ -2226,41 +2262,68 @@ spawn_func(_,{From,Tag},M,F,A,Gleader) ->
 %% Set up connection to a new node.
 %% -----------------------------------------------------------
 
-setup(Node, ConnId, Type, From, State) ->
-    case setup_check(Node, State) of
-		{ok, L} ->
-		    Mod = L#listen.module,
-		    LAddr = L#listen.address,
-		    MyNode = State#state.node,
-		    Pid = Mod:setup(Node,
-				    Type,
-				    MyNode,
-				    State#state.type,
-				    State#state.connecttime),
+setup(Node, CheckPid, CheckTimer, CheckRes, State) ->
+    ok = erlang:cancel_timer(CheckTimer, [{async, true}, {info, false}]),
+    unlink(CheckPid),
+    exit(CheckPid, kill),
+    case ets:lookup(sys_dist, Node) of
+        [#connection{owner = CheckPid, state = check_pending} = Conn] ->
+            case CheckRes of
+                {ok, #listen{} = L} ->
+                    Mod = L#listen.module,
+                    LAddr = L#listen.address,
+                    MyNode = State#state.node,
+                    %% We intentionally allow for a full connecttime in
+                    %% Mod:setup() since the check was successful. The
+                    %% setup timer is reset in other places as well...
+                    SetupPid = Mod:setup(Node,
+                                         Conn#connection.type,
+                                         MyNode,
+                                         State#state.type,
+                                         State#state.connecttime),
                     verbose(
-                      {setup,Node,Type,MyNode,State#state.type,Pid},
+                      {setup,Node,Conn#connection.type,
+                       MyNode,State#state.type,SetupPid},
                       2, State),
-		    Addr = LAddr#net_address {
-					      address = undefined,
-					      host = undefined },
-                    Waiting = case From of
-                                  noreply -> [];
-                                  _ -> [From]
-                              end,
-		    ets:insert(sys_dist, #connection{node = Node,
-                                                     conn_id = ConnId,
-						     state = pending,
-						     owner = Pid,
-						     waiting = Waiting,
-						     address = Addr,
-						     type = normal,
-                                                     remote_name_type = static}),
-		    {ok, Pid};
-		Error ->
-		    Error
+                    Addr = LAddr#net_address{address = undefined,
+                                             host = undefined},
+                    ets:insert(sys_dist, Conn#connection{state = pending,
+                                                         owner = SetupPid,
+                                                         address = Addr,
+                                                         type = normal}),
+                    State2 = delete_owner(CheckPid, State),
+                    Owners = State#state.conn_owners,
+                    State2#state{conn_owners = Owners#{SetupPid => Node}};
+                CheckError ->
+                    Failure = {setup_check_failed, Node, CheckError},
+                    verbose(Failure, 2, State),
+                    ?connect_failure(Node, Failure),
+                    pending_nodedown(Conn, CheckPid, Node,
+                                     Conn#connection.type, State)
+            end;
+        _ ->
+            State
     end.
 
-setup_check(Node, State) ->
+setup_check_timeout(Node, CheckPid, State) ->
+    case ets:lookup(sys_dist, Node) of
+        [#connection{owner = CheckPid, state = check_pending} = Conn] ->
+            unlink(CheckPid),
+            exit(CheckPid, kill),
+            Failure = {setup_check_failed, Node, setup_check_timeout},
+            verbose(Failure, 2, State),
+            ?connect_failure(Node, Failure),
+            pending_nodedown(Conn, CheckPid, Node,
+                             Conn#connection.type, State);
+        _ ->
+            State
+    end.
+
+%% Shut up dialyzer warning about no return from SelMod fun. It
+%% should be that way...
+-dialyzer([{nowarn_function, setup_check/5}, no_return]).
+
+setup_check(Node, ConnId, Type, From, State) ->
     Allowed = State#state.allowed,
     case lists:member(Node, Allowed) of
 	false when Allowed =/= [] ->
@@ -2268,10 +2331,33 @@ setup_check(Node, State) ->
 		      "disallowed node ~w ** ~n", [Node]),
 	    {error, bad_node};
        _ ->
-            case select_mod(Node, State#state.listen) of
-                {ok, _L}=OK -> OK;
-                Error -> Error
-            end
+            NetKernel = self(),
+            TimeoutTime = State#state.connecttime,
+            Listen = State#state.listen,
+            SelMod = fun () ->
+                             TimeoutMsg = {setup_check_timeout, Node, self()},
+                             Tmr = erlang:send_after(TimeoutTime,
+                                                     NetKernel,
+                                                     TimeoutMsg),
+                             Res = select_mod(Node, Listen),
+                             NetKernel ! {setup_check, Node, self(), Tmr, Res},
+                             %% Wait for net_kernel to kill us...
+                             receive after infinity -> ok end
+                     end,
+            Pid = spawn_link(SelMod),
+            verbose({init_setup_check, Node, Pid, TimeoutTime}, 2, State),
+            Waiting = case From of
+                          noreply -> [];
+                          _ -> [From]
+                      end,
+            ets:insert(sys_dist, #connection{node = Node,
+                                             conn_id = ConnId,
+                                             state = check_pending,
+                                             owner = Pid,
+                                             waiting = Waiting,
+                                             type = Type,
+                                             remote_name_type = static}),
+            {ok, Pid}
     end.
 
 %%

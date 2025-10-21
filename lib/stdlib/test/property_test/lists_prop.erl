@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2021-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -2056,7 +2058,7 @@ check_uniqed(L, UL) ->
     check_uniqed(fun(X) -> X end, L, UL).
 
 check_uniqed(Fn, L, UL) ->
-    check_uniqed1(Fn, L, UL, sets:new([{version, 2}])).
+    check_uniqed1(Fn, L, UL, sets:new()).
 
 check_uniqed1(Fn, [E|L], [], Seen) ->
     sets:is_element(Fn(E), Seen) andalso

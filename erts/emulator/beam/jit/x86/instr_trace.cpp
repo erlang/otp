@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2020-2023. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2020-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,7 +39,8 @@ void BeamGlobalAssembler::emit_generic_bp_global() {
     a.mov(ARG1, c_p);
     a.lea(ARG2, x86::qword_ptr(RET, offsetof(Export, info)));
     load_x_reg_array(ARG3);
-    runtime_call<3>(erts_generic_breakpoint);
+    runtime_call<BeamInstr (*)(Process *, ErtsCodeInfo *, Eterm *),
+                 erts_generic_breakpoint>();
 
     emit_leave_runtime<Update::eReductions | Update::eHeapAlloc>();
 
@@ -98,7 +101,8 @@ void BeamGlobalAssembler::emit_generic_bp_local() {
     a.mov(ARG1, c_p);
     /* ARG2 is already set above */
     load_x_reg_array(ARG3);
-    runtime_call<3>(erts_generic_breakpoint);
+    runtime_call<BeamInstr (*)(Process *, ErtsCodeInfo *, Eterm *),
+                 erts_generic_breakpoint>();
 
     emit_leave_runtime<Update::eReductions | Update::eHeapAlloc>();
 
@@ -146,7 +150,9 @@ void BeamGlobalAssembler::emit_debug_bp() {
     a.lea(ARG2, x86::qword_ptr(ARG2, -(int)sizeof(ErtsCodeMFA)));
     load_x_reg_array(ARG3);
     a.mov(ARG4, imm(am_breakpoint));
-    runtime_call<4>(call_error_handler);
+    runtime_call<
+            const Export *(*)(Process *, const ErtsCodeMFA *, Eterm *, Eterm),
+            call_error_handler>();
 
     emit_leave_runtime<Update::eReductions | Update::eHeapAlloc>();
     emit_leave_frame();
@@ -182,12 +188,16 @@ void BeamModuleAssembler::emit_return_trace() {
     emit_enter_runtime<Update::eHeapAlloc>();
 
     a.mov(ARG1, c_p);
-    runtime_call<5>(return_trace);
+    runtime_call<void (*)(Process *, ErtsCodeMFA *, Eterm, ErtsTracer, Eterm),
+                 return_trace>();
 
     emit_leave_runtime<Update::eHeapAlloc>();
 
     emit_deallocate(ArgWord(BEAM_RETURN_TRACE_FRAME_SZ));
-    emit_return();
+
+    /* Return and set c_p->i to avoid calls to BeamIsReturnTrace(c_p->i)
+       to assume there is still a trace frame on the stack. */
+    emit_return_do(true);
 }
 
 void BeamModuleAssembler::emit_i_call_trace_return() {
@@ -204,12 +214,16 @@ void BeamModuleAssembler::emit_i_call_trace_return() {
     emit_enter_runtime<Update::eHeapAlloc>();
 
     a.mov(ARG1, c_p);
-    runtime_call<4>(erts_call_trace_return);
+    runtime_call<void (*)(Process *, const ErtsCodeInfo *, Eterm, Eterm),
+                 erts_call_trace_return>();
 
     emit_leave_runtime<Update::eHeapAlloc>();
 
     emit_deallocate(ArgWord(BEAM_RETURN_CALL_ACC_TRACE_FRAME_SZ));
-    emit_return();
+
+    /* Return and set c_p->i to avoid calls to BeamIsReturnCallAccTrace(c_p->i)
+       to assume there is still a trace frame on the stack. */
+    emit_return_do(true);
 }
 
 void BeamModuleAssembler::emit_i_return_to_trace() {
@@ -225,32 +239,41 @@ void BeamModuleAssembler::emit_i_return_to_trace() {
     emit_enter_runtime<Update::eReductions | Update::eHeapAlloc>();
 
     a.mov(ARG1, c_p);
-    runtime_call<3>(beam_jit_return_to_trace);
+    runtime_call<void (*)(Process *, Eterm, Eterm *),
+                 beam_jit_return_to_trace>();
 
     emit_leave_runtime<Update::eReductions | Update::eHeapAlloc>();
 
     emit_deallocate(ArgWord(BEAM_RETURN_TO_TRACE_FRAME_SZ));
-    emit_return();
+
+    /* Return and set c_p->i to avoid calls to BeamIsReturnToTrace(c_p->i)
+       to assume there is still a trace frame on the stack. */
+    emit_return_do(true);
 }
 
 void BeamModuleAssembler::emit_i_hibernate() {
-    Label error = a.newLabel();
-
-    emit_enter_runtime<Update::eReductions | Update::eHeapAlloc>();
+    emit_enter_runtime<Update::eReductions | Update::eHeap | Update::eStack>();
 
     a.mov(ARG1, c_p);
     load_x_reg_array(ARG2);
-    runtime_call<2>(erts_hibernate);
+    mov_imm(ARG3, 0);
+    runtime_call<void (*)(Process *, Eterm *, int), erts_hibernate>();
 
-    emit_leave_runtime<Update::eReductions | Update::eHeapAlloc>();
-
-    a.test(RET, RET);
-    a.je(error);
+    emit_leave_runtime<Update::eReductions | Update::eHeap | Update::eStack>();
 
     a.and_(x86::dword_ptr(c_p, offsetof(Process, flags)),
            imm(~F_HIBERNATE_SCHED));
-    a.jmp(resolve_fragment(ga->get_do_schedule()));
 
-    a.bind(error);
-    emit_raise_exception(&BIF_TRAP_EXPORT(BIF_hibernate_3)->info.mfa);
+    a.mov(getXRef(0), imm(am_ok));
+#ifdef NATIVE_ERLANG_STACK
+    fragment_call(resolve_fragment(ga->get_dispatch_return()));
+#else
+    Label next = a.newLabel();
+
+    a.lea(ARG3, x86::qword_ptr(next));
+    a.jmp(resolve_fragment(ga->get_dispatch_return()));
+
+    a.align(AlignMode::kCode, 8);
+    a.bind(next);
+#endif
 }

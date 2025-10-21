@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2020-2023. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2020-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -114,7 +116,7 @@ void BeamGlobalAssembler::emit_fconv_shared() {
 
     /* ARG1 already contains the source term. */
     lea(ARG2, TMP_MEM1q);
-    runtime_call<2>(big_to_double);
+    runtime_call<int (*)(Eterm, double *), big_to_double>();
 
     emit_leave_runtime();
     emit_leave_runtime_frame();

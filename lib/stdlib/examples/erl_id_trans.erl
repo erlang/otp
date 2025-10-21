@@ -1,4 +1,10 @@
-%% ``Licensed under the Apache License, Version 2.0 (the "License");
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1999-2025. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
 %%
@@ -9,13 +15,8 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
-%% The Initial Developer of the Original Code is Ericsson Utvecklings AB.
-%% Portions created by Ericsson are Copyright 1999, Ericsson Utvecklings
-%% AB. All Rights Reserved.''
-%% 
-%%     $Id$
 %%
+%% %CopyrightEnd%
 -module(erl_id_trans).
 
 -moduledoc """
@@ -321,7 +322,7 @@ guard0([]) -> [].
 
 guard_test(Expr={call,Anno,{atom,Aa,F},As0}) ->
     case erl_internal:type_test(F, length(As0)) of
-	true -> 
+	true ->
 	    As1 = gexpr_list(As0),
 	    {call,Anno,{atom,Aa,F},As1};
 	_ ->
@@ -381,7 +382,7 @@ gexpr({call,Anno,{atom,Aa,F},As0}) ->
 % Guard bif's can be remote, but only in the module erlang...
 gexpr({call,Anno,{remote,Aa,{atom,Ab,erlang},{atom,Ac,F}},As0}) ->
     case erl_internal:guard_bif(F, length(As0)) or
-	 erl_internal:arith_op(F, length(As0)) or 
+	 erl_internal:arith_op(F, length(As0)) or
 	 erl_internal:comp_op(F, length(As0)) or
 	 erl_internal:bool_op(F, length(As0)) of
 	true -> As1 = gexpr_list(As0),
@@ -391,7 +392,7 @@ gexpr({bin,Anno,Fs}) ->
     Fs2 = pattern_grp(Fs),
     {bin,Anno,Fs2};
 gexpr({op,Anno,Op,A0}) ->
-    case erl_internal:arith_op(Op, 1) or 
+    case erl_internal:arith_op(Op, 1) or
 	 erl_internal:bool_op(Op, 1) of
 	true -> A1 = gexpr(A0),
 		{op,Anno,Op,A1}
@@ -403,7 +404,7 @@ gexpr({op,Anno,Op,L0,R0}) when Op =:= 'andalso'; Op =:= 'orelse' ->
     {op,Anno,Op,L1,R1};
 gexpr({op,Anno,Op,L0,R0}) ->
     case erl_internal:arith_op(Op, 2) or
-	  erl_internal:bool_op(Op, 2) or 
+	  erl_internal:bool_op(Op, 2) or
 	  erl_internal:comp_op(Op, 2) of
 	true ->
 	    L1 = gexpr(L0),
@@ -623,14 +624,29 @@ comprehension_quals([{generate,Anno,P0,E0}|Qs]) ->
     E1 = expr(E0),
     P1 = pattern(P0),
     [{generate,Anno,P1,E1}|comprehension_quals(Qs)];
+comprehension_quals([{generate_strict,Anno,P0,E0}|Qs]) ->
+    E1 = expr(E0),
+    P1 = pattern(P0),
+    [{generate_strict,Anno,P1,E1}|comprehension_quals(Qs)];
 comprehension_quals([{b_generate,Anno,P0,E0}|Qs]) ->
     E1 = expr(E0),
     P1 = pattern(P0),
     [{b_generate,Anno,P1,E1}|comprehension_quals(Qs)];
+comprehension_quals([{b_generate_strict,Anno,P0,E0}|Qs]) ->
+    E1 = expr(E0),
+    P1 = pattern(P0),
+    [{b_generate_strict,Anno,P1,E1}|comprehension_quals(Qs)];
 comprehension_quals([{m_generate,Anno,P0,E0}|Qs]) ->
     E1 = expr(E0),
     P1 = pattern(P0),
     [{m_generate,Anno,P1,E1}|comprehension_quals(Qs)];
+comprehension_quals([{m_generate_strict,Anno,P0,E0}|Qs]) ->
+    E1 = expr(E0),
+    P1 = pattern(P0),
+    [{m_generate_strict,Anno,P1,E1}|comprehension_quals(Qs)];
+comprehension_quals([{zip,Anno,Gens0}|Qs]) ->
+    Gens1 = comprehension_quals(Gens0),
+    [{zip,Anno,Gens1}|comprehension_quals(Qs)];
 comprehension_quals([E0|Qs]) ->
     E1 = expr(E0),
     [E1|comprehension_quals(Qs)];

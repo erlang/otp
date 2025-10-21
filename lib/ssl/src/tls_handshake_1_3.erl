@@ -1,6 +1,8 @@
 %%
 %% %CopyrightBegin%
 %%
+%% SPDX-License-Identifier: Apache-2.0
+%%
 %% Copyright Ericsson AB 2007-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
@@ -80,6 +82,8 @@
          get_pre_shared_key/4,
          get_pre_shared_key_early_data/2,
          get_supported_groups/1,
+         generate_kex_keys/1,
+         hybrid_algs/1,
          calculate_traffic_secrets/1,
          calculate_client_early_traffic_secret/5,
          calculate_client_early_traffic_secret/2,
@@ -430,20 +434,17 @@ process_certificate_request(#certificate_request_1_3{
 process_certificate(#certificate_1_3{
                        certificate_request_context = <<>>,
                        certificate_list = []},
-                    #state{ssl_options =
+                    #state{static_env = #static_env{role = server},
+                           ssl_options =
                                #{fail_if_no_peer_cert := false}} = State) ->
     {ok, {State, wait_finished}};
 process_certificate(#certificate_1_3{
                        certificate_request_context = <<>>,
                        certificate_list = []},
-                    #state{ssl_options =
+                    #state{static_env = #static_env{role = server = Role},
+                           ssl_options =
                                #{fail_if_no_peer_cert := true}} = State0) ->
-    %% At this point the client believes that the connection is up and starts using
-    %% its traffic secrets. In order to be able send an proper Alert to the client
-    %% the server should also change its connection state and use the traffic
-    %% secrets.
-    State1 = calculate_traffic_secrets(State0),
-    State = ssl_record:step_encryption_state(State1),
+    State = handle_alert_encryption_state(Role, State0),
     {error, {?ALERT_REC(?FATAL, ?CERTIFICATE_REQUIRED, certificate_required), State}};
 process_certificate(#certificate_1_3{certificate_list = CertEntries},
                     #state{ssl_options = SslOptions,
@@ -461,7 +462,7 @@ process_certificate(#certificate_1_3{certificate_list = CertEntries},
            CertEntries, CertDbHandle, CertDbRef, SslOptions, CRLDbHandle, Role,
            Host, StaplingState) of
         #alert{} = Alert ->
-            State = update_encryption_state(Role, State0),
+            State = handle_alert_encryption_state(Role, State0),
             {error, {Alert, State}};
         {PeerCert, PublicKeyInfo} ->
             State = store_peer_cert(State0, PeerCert, PublicKeyInfo),
@@ -801,15 +802,33 @@ build_content(Context, THash) ->
 
 
 %% Sets correct encryption state when sending Alerts in shared states that use different secrets.
-%% - If client: use handshake secrets.
 %% - If server: use traffic secrets as by this time the client's state machine
 %%              already stepped into the 'connection' state.
-update_encryption_state(server, State0) ->
+handle_alert_encryption_state(server, State0) ->
     State1 = calculate_traffic_secrets(State0),
-    ssl_record:step_encryption_state(State1);
-update_encryption_state(client, State) ->
+    #state{ssl_options = Options,
+           connection_states = ConnectionStates,
+           protocol_specific = PS} = State = ssl_record:step_encryption_state(State1),
+    KeylogFun = maps:get(keep_secrets, Options, undefined),
+    maybe_keylog(KeylogFun, PS, ConnectionStates),
+    State;
+%% - If client: use handshake secrets.
+handle_alert_encryption_state(client, State) ->
     State.
 
+maybe_keylog({Keylog, Fun}, ProtocolSpecific, ConnectionStates) when Keylog == keylog_hs;
+                                                                     Keylog == keylog ->
+    N = maps:get(num_key_updates, ProtocolSpecific, 0),
+    #{security_parameters := #security_parameters{client_random = ClientRandom,
+                                                  prf_algorithm = Prf,
+                                                  application_traffic_secret = TrafficSecret}}
+        = ssl_record:current_connection_state(ConnectionStates, write),
+    TrafficKeyLog = ssl_logger:keylog_traffic_1_3(server, ClientRandom,
+                                                  Prf, TrafficSecret, N),
+
+    ssl_logger:keylog(TrafficKeyLog, ClientRandom, Fun);
+maybe_keylog(_,_,_) ->
+    ok.
 
 validate_certificate_chain(CertEntries, CertDbHandle, CertDbRef,
                            SslOptions, CRLDbHandle, Role, Host, StaplingState) ->
@@ -898,8 +917,9 @@ handle_secrets(State0) ->
     State3 =  State2#state{protocol_specific = PS#{exporter_master_secret => ExporterSecret}},
     forget_master_secret(State3).
 
-calculate_handshake_secrets(PublicKey, PrivateKey, SelectedGroup, PSK,
+calculate_handshake_secrets(PublicKey, PrivateKeyOrSecret, SelectedGroup, PSK,
                               #state{connection_states = ConnectionStates,
+                                     static_env = #static_env{role = Role},
                                      handshake_env =
                                          #handshake_env{
                                             tls_handshake_history = HHistory}} = State0) ->
@@ -909,8 +929,15 @@ calculate_handshake_secrets(PublicKey, PrivateKey, SelectedGroup, PSK,
                          cipher_suite = CipherSuite} = SecParamsR,
     EarlySecret = tls_v1:key_schedule(early_secret, HKDFAlgo , {psk, PSK}),
 
-    IKM = calculate_shared_secret(PublicKey, PrivateKey, SelectedGroup),
-    HandshakeSecret = tls_v1:key_schedule(handshake_secret, HKDFAlgo, IKM, EarlySecret),
+    HandshakeSecret =
+        case is_mlkem(SelectedGroup) of
+            true ->
+                IKM = mlkem_calculate_shared_secret(Role, SelectedGroup, PublicKey, PrivateKeyOrSecret),
+                tls_v1:key_schedule(handshake_secret, HKDFAlgo, IKM, EarlySecret);
+            false ->
+                IKM = calculate_shared_secret(PublicKey, PrivateKeyOrSecret, SelectedGroup),
+                tls_v1:key_schedule(handshake_secret, HKDFAlgo, IKM, EarlySecret)
+        end,
 
     %% Calculate [sender]_handshake_traffic_secret
     {Messages, _} =  HHistory,
@@ -1071,6 +1098,39 @@ get_supported_groups(undefined = Groups) ->
 get_supported_groups(#supported_groups{supported_groups = Groups}) ->
     {ok, Groups}.
 
+generate_kex_keys(secp256r1) ->
+    public_key:generate_key({namedCurve, secp256r1});
+generate_kex_keys(secp384r1) ->
+    public_key:generate_key({namedCurve, secp384r1});
+generate_kex_keys(secp521r1) ->
+    public_key:generate_key({namedCurve, secp521r1});
+generate_kex_keys(x25519) ->
+    crypto:generate_key(ecdh, x25519);
+generate_kex_keys(x448) ->
+    crypto:generate_key(ecdh, x448);
+generate_kex_keys(MLKem) when MLKem == mlkem512;
+                              MLKem == mlkem768;
+                              MLKem == mlkem1024 ->
+    crypto:generate_key(MLKem, []);
+generate_kex_keys(x25519mlkem768 = Group)->
+    %% Note exception algorithm should be in reveres order of name due to legacy reason
+    {Curve, MLKem} = hybrid_algs(Group),
+    {crypto:generate_key(MLKem, []), crypto:generate_key(ecdh, Curve)};
+generate_kex_keys(Group) when Group == secp256r1mlkem768;
+                              Group == secp384r1mlkem1024 ->
+    {Curve, MLKem} = hybrid_algs(Group),
+    {public_key:generate_key({namedCurve, Curve}), 
+     crypto:generate_key(MLKem, [])};
+generate_kex_keys(FFDHE) ->
+    public_key:generate_key(ssl_dh_groups:dh_params(FFDHE)).
+
+hybrid_algs(x25519mlkem768)->
+    {x25519, mlkem768};
+hybrid_algs(secp256r1mlkem768) ->
+    {secp256r1, mlkem768};
+hybrid_algs(secp384r1mlkem1024) ->
+    {secp384r1, mlkem1024}.
+
 choose_psk(undefined, _) ->
     undefined;
 choose_psk([], _) ->
@@ -1138,6 +1198,34 @@ calculate_shared_secret(OthersKey, MyKey = #'ECPrivateKey'{}, _Group)
     Point = #'ECPoint'{point = OthersKey},
     public_key:compute_key(Point, MyKey).
 
+mlkem_calculate_shared_secret(client, x25519mlkem768, 
+                              {CipherText, OthersKey}, {MLKemKey, EDKey}) ->
+    MLKem = crypto:decapsulate_key(mlkem768, MLKemKey, CipherText),
+    X25519 = calculate_shared_secret(OthersKey, EDKey, x25519),
+    <<MLKem/binary, X25519/binary>>;
+mlkem_calculate_shared_secret(client, secp256r1mlkem768,
+                              {OthersKey, CipherText}, {ECkey, MLKemKey}) ->
+    MLKem = crypto:decapsulate_key(mlkem768, MLKemKey, CipherText),
+    EC = calculate_shared_secret(OthersKey, ECkey, secp256r1),
+    <<EC/binary, MLKem/binary>>;
+mlkem_calculate_shared_secret(client, secp384r1mlkem1024,
+                              {OthersKey, CipherText}, {ECkey, MLKemKey}) ->
+    MLKem = crypto:decapsulate_key(mlkem1024, MLKemKey, CipherText),
+    EC = calculate_shared_secret(OthersKey, ECkey, secp384r1),
+    <<EC/binary, MLKem/binary>>;
+mlkem_calculate_shared_secret(client, Group, CipherText, PrivKey) ->
+    crypto:decapsulate_key(Group, PrivKey, CipherText);
+mlkem_calculate_shared_secret(server, x25519mlkem768, {_, OthersKey}, {Secret, EdKey}) ->
+    EDSecret = calculate_shared_secret(OthersKey, EdKey, x25519),
+    <<Secret/binary, EDSecret/binary>>;
+mlkem_calculate_shared_secret(server, secp256r1mlkem768, {OthersKey, _}, {EcKey, Secret}) ->
+     ECSecret = calculate_shared_secret(OthersKey, EcKey, secp256r1),
+    <<ECSecret/binary, Secret/binary>>;
+mlkem_calculate_shared_secret(server, secp384r1mlkem1024, {OthersKey, _}, {EcKey, Secret}) ->
+     ECSecret = calculate_shared_secret(OthersKey, EcKey, secp384r1),
+    <<ECSecret/binary, Secret/binary>>;
+mlkem_calculate_shared_secret(server, _, _, Secret) ->
+    Secret.
 
 maybe_calculate_resumption_master_secret(#state{ssl_options = #{session_tickets := disabled}} = State) ->
     State;
@@ -1518,6 +1606,9 @@ select_sign_algo(PublicKeyAlgo, RSAKeySize, [CertSignAlg|CertSignAlgs], OwnSignA
           orelse (PublicKeyAlgo =:= rsa_pss_pss andalso S =:= rsa_pss_pss)
           orelse (PublicKeyAlgo =:= ecdsa andalso S =:= ecdsa)
           orelse (PublicKeyAlgo =:= eddsa andalso S =:= eddsa)
+          orelse (PublicKeyAlgo =:= mldsa44 andalso S =:= mldsa44)
+          orelse (PublicKeyAlgo =:= mldsa65 andalso S =:= mldsa65)
+          orelse (PublicKeyAlgo =:= mldsa87 andalso S =:= mldsa87)
          )
         andalso
         lists:member(CertSignAlg, OwnSignAlgs) of
@@ -1625,6 +1716,12 @@ public_key_algo(?'id-Ed25519') ->
     eddsa;
 public_key_algo(?'id-Ed448') ->
     eddsa;
+public_key_algo(?'id-ml-dsa-44') ->
+    mldsa44;
+public_key_algo(?'id-ml-dsa-65') ->
+    mldsa65;
+public_key_algo(?'id-ml-dsa-87') ->
+    mldsa87;
 public_key_algo(?'id-dsa') ->
     dsa.
 
@@ -2006,3 +2103,13 @@ plausible_missing_chain([_] = EncodedChain, undefined, SignAlg, Key, Session0) -
                     };
 plausible_missing_chain(_,Plausible,_,_,_) ->
     Plausible.
+
+is_mlkem(Group) when Group == mlkem512;
+                     Group == mlkem768;
+                     Group == mlkem1024;
+                     Group == x25519mlkem768;
+                     Group == secp384r1mlkem1024;
+                     Group == secp256r1mlkem768 ->
+    true;
+is_mlkem(_) ->
+    false.

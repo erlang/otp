@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2025. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -40,6 +42,11 @@ For more information about configuration parameters, see the
 - **`shell_catch_exception = boolean()`{: #shell_catch_exception }** - Can be
   used to set the exception handling of the evaluator process of Erlang shell.
 
+- **`shell_docs_columns = pos_integer()`{: #shell_docs_columns }** -
+  Configures how wide the documentation should be rendered in the shell.
+
+  See also `t:shell_docs:config/0`.
+
 - **`shell_expand_location = above | below`{: #shell_expand_location }** - Sets
   where the tab expansion text should appear in the shell. The default is
   `below`. This will open a pager below the cursor that is scrollable one line
@@ -55,7 +62,7 @@ For more information about configuration parameters, see the
 - **`format_shell_func = {Mod, Func} | string() | default`{: #format_shell_func
   }** - Can be used to set the formatting of the Erlang shell output. This has
   an effect on commands that have been submitted and how it is saved in history
-  or if the formatting hotkey is pressed while editing an expression (Alt-f by
+  or if the formatting hotkey is pressed while editing an expression (Alt+F by
   default). You can specify a Mod:Func/1 that expects the whole expression as a
   string and returns a formatted expressions as a string. See
   `shell:format_shell_func/1` for how to set it from inside the shell.
@@ -118,6 +125,9 @@ For more information about configuration parameters, see the
 
 - **`shell_strings = boolean()`{: #shell_strings }** - Can be used to determine
   how the Erlang shell outputs lists of integers.
+
+- **`shell_hints = boolean()`{: #shell_hints}** - Can be used to enable/disable
+  printing of helpful hints in the shell.
 
 ## See Also
 

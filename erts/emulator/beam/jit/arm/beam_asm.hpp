@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2020-2024. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2020-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -59,6 +61,9 @@ extern "C"
                    sizeof(((Struct *)nullptr)->Field2)))
 
 using namespace asmjit;
+
+#define ERTS_CCONV_ERTS
+#define ERTS_CCONV_JIT
 
 struct BeamAssembler : public BeamAssemblerCommon {
     BeamAssembler() : BeamAssemblerCommon(a) {
@@ -338,23 +343,24 @@ protected:
         a.blr(TMP1);
     }
 
-    void runtime_call(a64::Gp func, unsigned args) {
-        ASSERT(args < 5);
-        a.blr(func);
+    template<typename T, typename = void>
+    struct function_traits;
+
+    template<typename Range, typename... Domain>
+    struct function_traits<Range (*)(Domain...)> {
+        static constexpr size_t Arity = sizeof...(Domain);
+    };
+
+    template<typename T, T Func>
+    void runtime_call() {
+        a.mov(TMP1, Func);
+        a.blr(TMP1);
     }
 
-    template<typename T>
-    struct function_arity;
-    template<typename T, typename... Args>
-    struct function_arity<T(Args...)>
-            : std::integral_constant<int, sizeof...(Args)> {};
-
-    template<int expected_arity, typename T>
-    void runtime_call(T(*func)) {
-        static_assert(expected_arity == function_arity<T>());
-
-        a.mov(TMP1, func);
-        a.blr(TMP1);
+    template<int Arity>
+    void dynamic_runtime_call(a64::Gp func) {
+        ERTS_CT_ASSERT(Arity <= 4);
+        a.blr(func);
     }
 
     /* Explicitly position-independent absolute jump, for use in fragments that
@@ -1251,6 +1257,28 @@ protected:
                                Label Fail,
                                const a64::Gp &out);
 
+    void emit_bs_get_small(const Label &fail,
+                           const ArgRegister &Ctx,
+                           const ArgWord &Live,
+                           const ArgSource &Sz,
+                           Uint unit,
+                           Uint flags);
+
+    void emit_bs_get_any_int(const Label &fail,
+                             const ArgRegister &Ctx,
+                             const ArgWord &Live,
+                             const ArgSource &Sz,
+                             Uint unit,
+                             Uint flags);
+
+    void emit_bs_get_binary(const ArgWord heap_need,
+                            const ArgRegister &Ctx,
+                            const ArgLabel &Fail,
+                            const ArgWord &Live,
+                            const ArgSource &Size,
+                            const ArgWord &Unit,
+                            const ArgRegister &Dst);
+
     void emit_bs_get_utf8(const ArgRegister &Ctx, const ArgLabel &Fail);
     void emit_bs_get_utf16(const ArgRegister &Ctx,
                            const ArgLabel &Fail,
@@ -1346,7 +1374,8 @@ protected:
     void emit_tuple_assertion(const ArgSource &Src, a64::Gp tuple_reg);
 #endif
 
-    void emit_dispatch_return();
+    void emit_return_do(bool set_I);
+    void emit_dispatch_return(bool set_I);
 
 #include "beamasm_protos.h"
 
@@ -1421,20 +1450,12 @@ protected:
         a.bind(next);
 #endif
 
-        a.bl(resolve_fragment((void (*)())target, disp128MB));
+        a.bl(resolve_fragment(reinterpret_cast<void (*)()>(target), disp128MB));
     }
 
-    template<typename T>
-    struct function_arity;
-    template<typename T, typename... Args>
-    struct function_arity<T(Args...)>
-            : std::integral_constant<int, sizeof...(Args)> {};
-
-    template<int expected_arity, typename T>
-    void runtime_call(T(*func)) {
-        static_assert(expected_arity == function_arity<T>());
-
-        a.bl(resolve_fragment((void (*)())func, disp128MB));
+    template<typename T, T Func>
+    void runtime_call() {
+        a.bl(resolve_fragment(reinterpret_cast<void (*)()>(Func), disp128MB));
     }
 
     bool isRegisterBacked(const ArgVal &arg) {
@@ -1657,19 +1678,19 @@ protected:
         }
     }
 
-    enum Relation { none, consecutive, reverse_consecutive };
+    enum class Relation { none, consecutive, reverse_consecutive };
 
     static Relation memory_relation(const arm::Mem &mem1,
                                     const arm::Mem &mem2) {
         if (mem1.hasBaseReg() && mem2.hasBaseReg() &&
             mem1.baseId() == mem2.baseId()) {
             if (mem1.offset() + 8 == mem2.offset()) {
-                return consecutive;
+                return Relation::consecutive;
             } else if (mem1.offset() == mem2.offset() + 8) {
-                return reverse_consecutive;
+                return Relation::reverse_consecutive;
             }
         }
-        return none;
+        return Relation::none;
     }
 
     void flush_vars(const Variable<a64::Gp> &to1,

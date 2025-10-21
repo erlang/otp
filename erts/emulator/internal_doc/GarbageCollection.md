@@ -1,3 +1,25 @@
+<!--
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2017-2025. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%%
+%% %CopyrightEnd%
+-->
+
 # Erlang Garbage Collector
 
 Erlang manages dynamic memory with a [tracing garbage collector](https://en.wikipedia.org/wiki/Tracing_garbage_collection). More precisely a per process generational semi-space copying collector using Cheney's copy collection algorithm together with a global large object space. (See C. J. Cheney in [References](#references).)
@@ -59,7 +81,7 @@ After [all terms](https://github.com/erlang/otp/blob/OTP-18.0/erts/emulator/beam
 
 ![Garbage collection: heap scan](assets/gc-heap-scan1.png)
 
-Every term object we can reach is copied to the *to space* and stored on top off the *scan stop* line, and then the scan stop is moved to the end of the last object.
+Every term object we can reach is copied to the *to space* and stored on top of the *scan stop* line, and then the scan stop is moved to the end of the last object.
 
 ![Garbage collection: heap scan](assets/gc-heap-stop.png)
 

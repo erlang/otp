@@ -1,3 +1,22 @@
+# %CopyrightBegin%
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 2024-2025. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# %CopyrightEnd%
 system_guides =
   File.read!("../guides")
   |> String.trim()
@@ -6,10 +25,26 @@ system_guides =
     line |> String.split(":") |> Enum.at(0)
   end)
 
+# Root /configure creates artifact /lib/SKIP-APPLICATIONS containing all apps
+# not built for various reasons. We can't build documentation for them either.
+skipped_apps_from_file =
+  with erl_top when is_binary(erl_top) <- System.get_env("ERL_TOP"),
+       skip_path <- Path.join([erl_top, "lib", "SKIP-APPLICATIONS"]),
+       true <- File.exists?(skip_path),
+       {:ok, content} <- File.read(skip_path) do
+    content
+    |> String.split(~r/\s+/, trim: true)
+    |> Enum.map(&String.downcase/1)
+    |> MapSet.new()
+  else
+    _ -> MapSet.new()
+  end
+
 apps =
   Path.wildcard("{core,database,oam,interfaces,tools,testing,documentation}/*.md")
   |> Enum.map(&Path.basename/1)
   |> Enum.map(&Path.rootname/1)
+  |> Enum.reject(fn app -> skipped_apps_from_file |> MapSet.member?(app) end)
 
 redirects =
   Enum.map(apps, fn

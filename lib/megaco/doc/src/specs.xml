@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="utf-8" ?>
-<specs xmlns:xi="http://www.w3.org/2001/XInclude">
-  <xi:include href="../specs/specs_megaco.xml"/>
-  <xi:include href="../specs/specs_megaco_digit_map.xml"/>
-  <xi:include href="../specs/specs_megaco_encoder.xml"/>
-  <xi:include href="../specs/specs_megaco_sdp.xml"/>
-  <xi:include href="../specs/specs_megaco_user.xml"/>
-  <xi:include href="../specs/specs_megaco_flex_scanner.xml"/>
-</specs>

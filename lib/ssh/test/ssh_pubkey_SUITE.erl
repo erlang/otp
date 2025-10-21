@@ -1,6 +1,8 @@
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2020. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2005-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -638,12 +640,14 @@ ssh_rfc4716_rsa_comment(Config) when is_list(Config) ->
     {ok, RSARawSsh2} = file:read_file(filename:join(Datadir, "ssh2_rsa_comment_pub")),
     [{#'RSAPublicKey'{} = PubKey, Attributes}] =
         ssh_file:decode(RSARawSsh2, public_key),
-
     Headers = proplists:get_value(headers, Attributes),
-
     Value = proplists:get_value("Comment", Headers, undefined),
     true = Value =/= undefined,
-    RSARawSsh2 = ssh_file:encode([{PubKey, Attributes}], rfc4716_key).
+    Encoded = ssh_file:encode([{PubKey, Attributes}], rfc4716_key),
+    %% matching license in 1st segment
+    LicenseSize = byte_size(RSARawSsh2) - byte_size(Encoded),
+    <<_:LicenseSize/binary, RSARawSsh2NoLicense/binary>> = RSARawSsh2,
+    RSARawSsh2NoLicense = Encoded.
 
 %%--------------------------------------------------------------------
 ssh_rfc4716_dsa_comment(Config) when is_list(Config) ->

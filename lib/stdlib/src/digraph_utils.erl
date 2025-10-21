@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1999-2024. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1999-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(digraph_utils).
@@ -57,18 +59,18 @@ For basic functions on directed graphs, see the `m:digraph` module.
   process is repeated.
 - A _partial ordering_{: #partial_ordering } of a set S is a transitive,
   antisymmetric, and reflexive relation between the objects of S.
-- The problem of _topological sorting_{: #topsort } is to find a total ordering
-  of S that is a superset of the partial ordering. A digraph G = (V, E) is
-  equivalent to a relation E on V (we neglect that the version of directed
-  graphs provided by the `digraph` module allows multiple edges between
-  vertices). If the digraph has no cycles of length two or more, the reflexive
-  and transitive closure of E is a partial ordering.
+- The problem of [_topological sorting_](https://en.wikipedia.org/wiki/Topological_sorting) {: #topsort }
+  is to find a total ordering of S that is a superset of the partial ordering.
+  A digraph G = (V, E) is equivalent to a relation E on V (we neglect that
+  the version of directed graphs provided by the `digraph` module allows
+  multiple edges between vertices). If the digraph has no cycles of length
+  two or more, the reflexive and transitive closure of E is a partial ordering.
 - A _subgraph_{: #subgraph } G' of G is a digraph whose vertices and edges form
   subsets of the vertices and edges of G.
 - G' is _maximal_ with respect to a property P if all other subgraphs that
   include the vertices of G' do not have property P.
-- A _strongly connected component_{: #strong_components } is a maximal subgraph
-  such that there is a path between each pair of vertices.
+- A [_strongly connected component_](https://en.wikipedia.org/wiki/Strongly_connected_component) {: #strong_components }
+  is a maximal subgraph such that there is a path between each pair of vertices
 - A _connected component_{: #components } is a maximal subgraph such that there
   is a path between each pair of vertices, considering all edges undirected.
 - An _arborescence_{: #arborescence } is an acyclic digraph with a vertex V, the
@@ -390,7 +392,9 @@ collecting visited vertices in preorder.
       Vertices :: [digraph:vertex()].
 
 preorder(G) ->
-    lists:reverse(revpreorder(G)).
+    T = sets:new(),
+    {_, Acc} = ptraverse(roots(G), fun out/3, G, T, [], []),
+    lists:reverse(lists:append(Acc)).
 
 -doc """
 Returns all vertices of digraph `Digraph`. The order is given by a
@@ -405,11 +409,18 @@ vertices.
       Vertices :: [digraph:vertex()].
 
 postorder(G) ->
-    lists:reverse(revpostorder(G)).
+    T = sets:new(),
+    {Acc, _} = posttraverse(roots(G), G, T, []),
+    lists:reverse(Acc).
 
 %%
 %%  Local functions
 %%
+
+roots(G) ->
+    R1 = [V || V <- digraph:vertices(G), digraph:in_degree(G, V) =:= 0],
+    R2 = [X || [X|_] <- components(G)],
+    R1 ++ R2.
 
 forest(G, SF) ->
     forest(G, SF, digraph:vertices(G)).
@@ -418,53 +429,48 @@ forest(G, SF, Vs) ->
     forest(G, SF, Vs, first).
 
 forest(G, SF, Vs, HandleFirst) ->
-    T = ets:new(forest, [set]),
-    F = fun(V, LL) -> pretraverse(HandleFirst, V, SF, G, T, LL) end,
-    LL = lists:foldl(F, [], Vs),
-    ets:delete(T),
+    T = sets:new(),
+    F = fun(V, {T0, LL}) -> pretraverse(HandleFirst, V, SF, G, T0, LL) end,
+    {_, LL} = lists:foldl(F, {T, []}, Vs),
     LL.
 
 pretraverse(first, V, SF, G, T, LL) ->
     ptraverse([V], SF, G, T, [], LL);
 pretraverse(not_first, V, SF, G, T, LL) ->
-    case ets:member(T, V) of
+    case sets:is_element(V, T) of
 	false -> ptraverse(SF(G, V, []), SF, G, T, [], LL);
-	true  -> LL
+	true  -> {T, LL}
     end.
 
-ptraverse([V | Vs], SF, G, T, Rs, LL) ->
-    case ets:member(T, V) of
+ptraverse([V | Vs], SF, G, T0, Rs, LL) ->
+    case sets:is_element(V, T0) of
 	false ->
-	    ets:insert(T, {V}),
-	    ptraverse(SF(G, V, Vs), SF, G, T, [V | Rs], LL);
+	    T1 = sets:add_element(V, T0),
+	    ptraverse(SF(G, V, Vs), SF, G, T1, [V | Rs], LL);
 	true ->
-	    ptraverse(Vs, SF, G, T, Rs, LL)
+	    ptraverse(Vs, SF, G, T0, Rs, LL)
     end;
-ptraverse([], _SF, _G, _T, [], LL) ->
-    LL;
-ptraverse([], _SF, _G, _T, Rs, LL) ->
-    [Rs | LL].
-
-revpreorder(G) ->
-    lists:append(forest(G, fun out/3)).
+ptraverse([], _SF, _G, T, [], LL) ->
+    {T, LL};
+ptraverse([], _SF, _G, T, Rs, LL) ->
+    {T, [Rs | LL]}.
 
 revpostorder(G) ->
-    T = ets:new(forest, [set]),
-    L = posttraverse(digraph:vertices(G), G, T, []),
-    ets:delete(T),
+    T = sets:new(),
+    {L, _} = posttraverse(digraph:vertices(G), G, T, []),
     L.
 
-posttraverse([V | Vs], G, T, L) ->
-    L1 = case ets:member(T, V) of
-	     false ->
-		 ets:insert(T, {V}),
-		 [V | posttraverse(out(G, V, []), G, T, L)];
-	     true ->
-		 L
-	 end,
-    posttraverse(Vs, G, T, L1);
-posttraverse([], _G, _T, L) ->
-    L.
+posttraverse([V | Vs], G, T0, Acc0) ->
+    case sets:is_element(V, T0) of
+        false ->
+            T1 = sets:add_element(V, T0),
+            {Acc1, T2} = posttraverse(out(G, V, []), G, T1, Acc0),
+            posttraverse(Vs, G, T2, [V|Acc1]);
+        true ->
+            posttraverse(Vs, G, T0, Acc0)
+    end;
+posttraverse([], _G, T, Acc) ->
+    {Acc, T}.
 
 in(G, V, Vs) ->
     digraph:in_neighbours(G, V) ++ Vs.

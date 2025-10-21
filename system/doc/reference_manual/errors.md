@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2025. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -63,11 +65,11 @@ distinguish between the different classes, whereas the
 [catch](expressions.md#catch-and-throw) expression cannot. `try` and `catch` are described
 in [Expressions](expressions.md).
 
-| _Class_ | _Origin_                                                                           |
-| ------- | ---------------------------------------------------------------------------------- |
-| `error` | Run-time error, for example, `1+a`, or the process called [`error/1`](`error/1`)   |
-| `exit`  | The process called [`exit/1`](`exit/1`)                                            |
-| `throw` | The process called [`throw/1`](`throw/1`)                                          |
+| Class   | Origin                                                                           |
+| ------- | -------------------------------------------------------------------------------- |
+| `error` | Run-time error, for example, `1+a`, or the process called [`error/1`](`error/1`) |
+| `exit`  | The process called [`exit/1`](`exit/1`)                                          |
+| `throw` | The process called [`throw/1`](`throw/1`)                                        |
 
 _Table: Exception Classes._
 

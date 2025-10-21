@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2025. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -85,6 +87,14 @@ Any event handler added to `erl_signal_server` must handle the following events.
 - **`sigstop`** - Stop process
 
 - **`sigtstp`** - Stop typed at terminal
+
+- **`sigcont`** - Continue after stop
+
+- **`sigwinch`** - Window size change
+
+- **`siginfo`** - Status request from keyboard. Note several operating systems
+  (Linux in particular) do not support this signal. `os:set_signal/2` will thow
+  a `badarg` exception if support is missing.
 
 Setting OS signals are described in `os:set_signal/2`.
 
@@ -436,6 +446,11 @@ For more information about configuration parameters, see file
   `true` in an embedded system using this service.
 
   Defaults to `false`.
+
+- **`shell_docs_ansi = boolean()`{: #shell_docs_ansi }** - Specifies whether
+  the documentation rendered in the shell should use ANSI escape codes.
+
+  See also `t:shell_docs:config/0`.
 
 - **`shell_history = enabled | disabled | module()`{: #shell_history }** -
   Specifies whether shell history should be logged to disk between usages of

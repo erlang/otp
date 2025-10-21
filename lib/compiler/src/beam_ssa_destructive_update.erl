@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2024-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -92,7 +94,7 @@
 
 -export([opt/2]).
 
--import(lists, [foldl/3, foldr/3, keysort/2, reverse/1]).
+-import(lists, [foldl/3, foldr/3, keysort/2, splitwith/2, reverse/1]).
 
 -include("beam_ssa_opt.hrl").
 -include("beam_types.hrl").
@@ -140,7 +142,7 @@ opt(StMap, FuncDb) ->
                            ForceCopy, StMap, FuncDb)
     catch
         throw:too_deep ->
-            %% Give up and leave the module onmodified.
+            %% Give up and leave the module unmodified.
             {StMap,FuncDb}
     end.
 
@@ -268,7 +270,7 @@ patch_instructions(Applicable, InitialsToPatch, ForceCopy, StMap0, FuncDb) ->
     ?DP("Initial values to patch :~n  ~p~n", [InitialsToPatch]),
     ?DP("Force copy :~n  ~p~n", [ForceCopy]),
     %% Merge instructions and initial values so we only get one map
-    %% per fuctions which is indexed on the variable.
+    %% per function which is indexed on the variable.
     Merge =
         fun(A, B) ->
                 maps:fold(fun(VarOrLbl, Info0, Acc) ->
@@ -334,7 +336,7 @@ fiv_track_value_in_fun([{#b_var{}=V,Element}|Rest], Fun, Work0, Defs,
     ?DP("Tracking ~p of ~p in fun ~s~n", [Element, V, ff(Fun)]),
     ValuesInFun = ValuesInFun0#{{V,Element}=>visited},
     case Defs of
-        #{V:=#b_set{dst=V,op=Op,args=Args}} ->
+        #{V:=#b_set{dst=V,op=Op,args=Args,anno=Anno}} ->
             case {Op,Args,Element} of
                 {bs_create_bin,[#b_literal{val=append},_,Arg|_],
                  {self,init_writable}} ->
@@ -378,20 +380,74 @@ fiv_track_value_in_fun([{#b_var{}=V,Element}|Rest], Fun, Work0, Defs,
                     %% be able to safely rewrite an accumulator in the
                     %% tail field of the cons, thus we will never
                     %% have to track it.
-                    Depth = fiv_get_new_depth(Element),
-                    ?DP("value is created by a get_hd, adding ~p.~n",
-                        [{List,{hd,Element,Depth}}]),
-                    fiv_track_value_in_fun(
-                      [{List,{hd,Element,Depth}}|Rest], Fun, Work0,
-                      Defs, ValuesInFun, FivSt0);
+
+                    %% We know that there will be type information
+                    %% about the list as get_hd is never used
+                    %% unprotected without a guard (which will allow
+                    %% the type pass to deduce the type) or when
+                    %% existing type information allows the guard to
+                    %% be eliminated.
+                    #{arg_types:=#{0:=#t_cons{type=Type}}} = Anno,
+                    IsComp = fiv_elem_is_compatible(Element, Type),
+                    ?DP("~p is ~scompatible with ~p~n",
+                        [Element,
+                         case IsComp of true -> ""; false -> "not " end,
+                         Type]),
+                    case IsComp of
+                        true ->
+                            Depth = fiv_get_new_depth(Element),
+                            ?DP("value is created by a get_hd, adding ~p.~n",
+                                [{List,{hd,Element,Depth}}]),
+                            fiv_track_value_in_fun(
+                              [{List,{hd,Element,Depth}}|Rest], Fun, Work0,
+                              Defs, ValuesInFun, FivSt0);
+                        false ->
+                            ?DP("value type is not compatible with element.~n"),
+                            fiv_track_value_in_fun(
+                              Rest, Fun, Work0, Defs, ValuesInFun, FivSt0)
+                    end;
                 {get_tuple_element,[#b_var{}=Tuple,#b_literal{val=Idx}],_} ->
-                    Depth = fiv_get_new_depth(Element),
-                    ?DP("value is created by a get_tuple_element, adding ~p.~n",
-                        [{Tuple,{tuple_element,Idx,Element,Depth}}]),
-                    fiv_track_value_in_fun(
-                      [{Tuple,{tuple_element,Idx,Element,Depth}}|Rest],
-                      Fun, Work0,
-                      Defs, ValuesInFun, FivSt0);
+                    %% The type annotation is present following the
+                    %% same argument as for get_hd. We know that it
+                    %% must be either a #t_tuple{} or a #t_union{}
+                    %% containing tuples.
+                    #{arg_types:=#{0:=TupleType}} = Anno,
+                    ?DP("  tuple-type: ~p~n", [TupleType]),
+                    ?DP("  idx: ~p~n", [Idx]),
+                    ?DP("  element: ~p~n", [Element]),
+                    Type =
+                        case TupleType of
+                            #t_tuple{elements=Es} ->
+                                T = maps:get(Idx + 1, Es, any),
+                                ?DP(" type: ~p~n", [T]),
+                                T;
+                            #t_union{tuple_set=TS} ->
+                                ?DP(" tuple-set: ~p~n", [TS]),
+                                JointType =
+                                    fiv_get_effective_tuple_set_type(Idx, TS),
+                                ?DP(" joint-type: ~p~n", [JointType]),
+                                JointType
+                        end,
+                    IsComp = fiv_elem_is_compatible(Element, Type),
+                    ?DP("~p is ~scompatible with ~p~n",
+                        [Element,
+                         case IsComp of true -> ""; false -> "not " end,
+                         TupleType]),
+                    case IsComp of
+                        true ->
+                            Depth = fiv_get_new_depth(Element),
+                            ?DP("value is created by a get_tuple_element,"
+                                " adding ~p.~n",
+                                [{Tuple,{tuple_element,Idx,Element,Depth}}]),
+                            fiv_track_value_in_fun(
+                              [{Tuple,{tuple_element,Idx,Element,Depth}}|Rest],
+                              Fun, Work0,
+                              Defs, ValuesInFun, FivSt0);
+                        false ->
+                            ?DP("value type is not compatible with element.~n"),
+                            fiv_track_value_in_fun(
+                              Rest, Fun, Work0, Defs, ValuesInFun, FivSt0)
+                    end;
                 {phi,_,_} ->
                     ?DP("value is created by a phi~n"),
                     {ToExplore,FivSt} = fiv_handle_phi(Fun, V, Args,
@@ -702,6 +758,52 @@ fiv_get_new_depth({hd,_,D}) ->
 fiv_get_new_depth(_) ->
     0.
 
+fiv_elem_is_compatible({tuple_element,Idx,Element,_},
+                       #t_tuple{exact=true,elements=Types}) ->
+    %% There is no need to check if the index is within bounds as the
+    %% compiler will ensure that the size of the tuple, and that, in
+    %% turn, will ensure that there is type information.
+    fiv_elem_is_compatible(Element, maps:get(Idx + 1, Types, any));
+fiv_elem_is_compatible({tuple_element,_,_,_}=Element,
+                       #t_union{tuple_set=TS}) ->
+    fiv_elem_is_compatible_with_ts(Element, TS);
+fiv_elem_is_compatible({self,heap_tuple}, #t_tuple{}) ->
+    true;
+fiv_elem_is_compatible({self,heap_tuple}=Element, #t_union{tuple_set=TS}) ->
+    fiv_elem_is_compatible_with_ts(Element, TS);
+fiv_elem_is_compatible({self,heap_tuple}, any) ->
+    true;
+fiv_elem_is_compatible({self,heap_tuple}, _) ->
+    %% With a heap_tuple, anything which isn't t_union{}, #t_tuple{}
+    %% or any is not compatible.
+    false;
+fiv_elem_is_compatible({hd,Element,_}, #t_cons{type=T}) ->
+    fiv_elem_is_compatible(Element, T);
+fiv_elem_is_compatible({hd,Element,_}, #t_union{list=T}) ->
+    fiv_elem_is_compatible(Element, T);
+fiv_elem_is_compatible({hd,_,_}, _) ->
+    %% With a hd, anything which isn't t_list{}, t_cons{} or
+    %% #t_union{} is not compatible.
+    false;
+fiv_elem_is_compatible(_Element, _Type) ->
+    %% Conservatively consider anything which isn't explicitly flagged
+    %% as incompatible as compatible.
+    true.
+
+fiv_get_effective_tuple_set_type(TupleIdx, TS) ->
+    beam_types:join([maps:get(TupleIdx + 1, Es, any)
+                     || {_,#t_tuple{elements=Es}} <- TS]).
+
+%% Check if the element is compatible with a record_set()
+fiv_elem_is_compatible_with_ts(Element, #t_tuple{}=Type) ->
+    fiv_elem_is_compatible(Element, Type);
+fiv_elem_is_compatible_with_ts(Element, [{_,T}|Rest]) ->
+    fiv_elem_is_compatible(Element, T)
+        orelse fiv_elem_is_compatible_with_ts(Element, Rest);
+fiv_elem_is_compatible_with_ts(_Element, []) ->
+    %% The element was not compatible with any of the record sets.
+    false.
+
 patch_f(SSA0, Cnt0, Patches) ->
     patch_f(SSA0, Cnt0, Patches, [], []).
 
@@ -720,9 +822,19 @@ patch_f([{Lbl,Blk=#b_blk{is=Is0,last=Last0}}|Rest],
     patch_f(Rest, Cnt, PD, Acc, BlockAdditions++BlockAdditions0);
 patch_f([], Cnt, _PD, Acc, BlockAdditions) ->
     ?DP("BlockAdditions: ~p~n", [BlockAdditions]),
-    Linear = insert_block_additions(Acc, maps:from_list(BlockAdditions), []),
+    Merged = merge_block_additions(BlockAdditions, #{}),
+    Linear = insert_block_additions(Acc, Merged, []),
     ?DP("SSA-result:~n~p~n", [Linear]),
     {Linear, Cnt}.
+
+merge_block_additions([{Lbl, Extra} | Rest], Acc) ->
+    Is = case Acc of
+             #{ Lbl := Is0 } -> Extra ++ Is0;
+             #{} -> Extra
+         end,
+    merge_block_additions(Rest, Acc#{ Lbl => Is });
+merge_block_additions([], Acc) ->
+    Acc.
 
 patch_is([I0=#b_set{dst=Dst}|Rest], PD0, Cnt0, Acc, BlockAdditions0)
   when is_map_key(Dst, PD0) ->
@@ -730,18 +842,17 @@ patch_is([I0=#b_set{dst=Dst}|Rest], PD0, Cnt0, Acc, BlockAdditions0)
     PD = maps:remove(Dst, PD0),
     case Patches of
         [{opargs,Dst,_,_,_}|_] ->
+            Splitter = fun({opargs,D,_Idx,_Lit,_Element}) ->
+                               Dst =:= D;
+                          (_) ->
+                               false
+                       end,
+            {OpArgs0, Other} = splitwith(Splitter, Patches),
             OpArgs = [{Idx,Lit,Element}
-                      || {opargs,D,Idx,Lit,Element} <- Patches, Dst =:= D],
-            Forced = [ F || {force_copy,_}=F <- Patches],
-            I1 = case Forced of
-                     [] ->
-                         I0;
-                     _ ->
-                         no_reuse(I0)
-                 end,
-            0 = length(Patches) - length(Forced) - length(OpArgs),
-            {Is,Cnt} = patch_opargs(I1, OpArgs, Cnt0),
-            patch_is(Rest, PD, Cnt, Is++Acc, BlockAdditions0);
+                      || {opargs,_D,Idx,Lit,Element} <:- OpArgs0],
+            {Is,Cnt} = patch_opargs(I0, OpArgs, Cnt0),
+            patch_is([hd(Is)|Rest], PD#{Dst=>Other}, Cnt,
+                     tl(Is)++Acc, BlockAdditions0);
         [{appendable_binary,Dst,#b_literal{val= <<>>}=Lit}] ->
             %% Special case for when the first fragment is a literal
             %% <<>> and it has to be replaced with a bs_init_writable.
@@ -788,7 +899,7 @@ no_reuse(I) ->
 %% literal.
 patch_ret(Last=#b_ret{arg=#b_literal{val=Lit}}, Patches, Cnt0) ->
     ?DP("patch_appends_ret:~n  lit: ~p~n  Patches: ~p~n", [Lit, Patches]),
-    Element = aggregate_ret_patches(keysort(1, [E || {ret,_,E} <- Patches])),
+    Element = aggregate_ret_patches(keysort(1, [E || {ret,_,E} <:- Patches])),
     ?DP("  element: ~p~n", [Element]),
     {V,Extra,Cnt} = patch_literal_term(Lit, Element, Cnt0),
     {Last#b_ret{arg=V}, Extra, Cnt}.
@@ -850,6 +961,8 @@ merge_arg_patches([{Idx,_Lit,E1}|Patches], Acc) ->
 merge_arg_patches([], Acc) ->
     Acc.
 
+%% Merge two patches. The merging should be commutative since we do not
+%% normalize patch order before merging.
 merge_patches({tuple_element,I,E0,D0}, {tuple_element,I,E1,D1}) ->
     {tuple_element, I, merge_patches(E0, E1), max(D0,D1)};
 merge_patches({tuple_element,IA,EA,_}, {tuple_element,IB,EB,_}) ->
@@ -858,6 +971,10 @@ merge_patches({tuple_element,IA,EA,_}, {tuple_elements,Es}) ->
     {tuple_elements,[{IA,EA}|Es]};
 merge_patches({tuple_elements,Es}, {tuple_element,IA,EA,_}) ->
     {tuple_elements,[{IA,EA}|Es]};
+merge_patches(Patch, {self,heap_tuple}) ->
+    %% If we find anything more specific than a heap_tuple, the more
+    %% specific patch subsumes the heap_tuple
+    Patch;
 merge_patches({self,heap_tuple}, Other) ->
     %% We're already patching this element in Other and as it will
     %% force the term onto the heap, we can ignore the new patch.
@@ -892,7 +1009,7 @@ merge_phi_patch({phi,Var,Lbl,Lit,E}, Acc) ->
 
 %% Should return the instructions in reversed order
 patch_literal_term(Tuple, {tuple_elements,Elems}, Cnt) ->
-    Es = [{tuple_element,I,E,0} || {I,E} <- keysort(1, Elems)],
+    Es = [{tuple_element,I,E,0} || {I,E} <:- keysort(1, Elems)],
     patch_literal_tuple(Tuple, Es, Cnt);
 patch_literal_term(Tuple, E={tuple_element,_,_,_}, Cnt) ->
     patch_literal_tuple(Tuple, [E], Cnt);
@@ -906,6 +1023,28 @@ patch_literal_term(<<>>, {self,init_writable}, Cnt0) ->
     {V,Cnt} = new_var(Cnt0),
     I = #b_set{op=bs_init_writable,dst=V,args=[#b_literal{val=256}]},
     {V,[I],Cnt};
+patch_literal_term(<<Bits/bits>>, {self,init_writable}, Cnt0) ->
+    {VWr,Cnt1} = new_var(Cnt0),
+    {VAppend,Cnt} = new_var(Cnt1),
+    I = #b_set{op=bs_init_writable,dst=VWr,args=[#b_literal{val=256}]},
+
+    %% Normally a `bs_create_bin` instruction must be followed by a
+    %% `succeeded` instruction and a `br` terminator. Currently,
+    %% without extensive refactoring, we are unable to generate such
+    %% instruction sequences here. Therefore, since we KNOW that this
+    %% instruction cannot be used in a guard and cannot fail, we can
+    %% cheat by omitting the `succeeded` instruction and instead
+    %% extend beam_ssa_codegen to handle this special case.
+    Segments = [#b_literal{val=private_append},
+                #b_literal{val=[1,{segment,1}]},VWr,
+                #b_literal{val=all},
+                #b_literal{val=binary},
+                #b_literal{val=[1,{segment,2}]},#b_literal{val=Bits},
+                #b_literal{val=all}],
+    Anno = #{append_string_to_writable => true,
+             arg_types => #{2 => #t_bitstring{size_unit=256,appendable=true}}},
+    Append = #b_set{op=bs_create_bin,anno=Anno,dst=VAppend,args=Segments},
+    {VAppend,[Append,I],Cnt};
 patch_literal_term(Lst, {hd,_,_}=E, Cnt0) ->
     patch_literal_list(Lst, E, Cnt0);
 patch_literal_term(Lit, [], Cnt) ->
@@ -933,7 +1072,7 @@ patch_literal_list(Lit, {hd,_,_}, Cnt) ->
 patch_literal_tuple(Tuple, Elements0, Cnt) ->
     ?DP("Will patch literal tuple~n  tuple:~p~n  elements: ~p~n",
         [Tuple,Elements0]),
-    Elements = [ E || {tuple_element,_,_,_}=E <- Elements0],
+    Elements = [ E || {tuple_element,_,_,_}=E <:- Elements0],
     patch_literal_tuple(erlang:tuple_to_list(Tuple), Elements, [], [], 0, Cnt).
 
 patch_literal_tuple([Lit|LitElements],

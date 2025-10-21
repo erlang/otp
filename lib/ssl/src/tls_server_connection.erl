@@ -1,6 +1,8 @@
 %%
 %% %CopyrightBegin%
 %%
+%% SPDX-License-Identifier: Apache-2.0
+%%
 %% Copyright Ericsson AB 2023-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
@@ -136,13 +138,16 @@
 %% Internal application API
 %%====================================================================
 
-init([Role, Sender, Host, Port, Socket, Options,  User, CbInfo]) ->
-    State0 = tls_dtls_gen_connection:initial_state(Role, Sender, Host, Port, Socket,
+init([Role, Sender, Tab, Host, Port, Socket, Options,  User, CbInfo]) ->
+    State0 = tls_dtls_gen_connection:initial_state(Role, Sender, Tab, Host, Port, Socket,
                                                    Options, User, CbInfo),
-    try
-        State = ssl_gen_statem:init_ssl_config(State0#state.ssl_options, Role, State0),
-        tls_gen_connection:initialize_tls_sender(State),
-        gen_statem:enter_loop(?MODULE, [], initial_hello, State)
+    #state{static_env = #static_env{user_socket = UserSocket}} = State0,
+    User ! {self(), user_socket, UserSocket},
+    put(tls_role, server),
+    try ssl_gen_statem:init_ssl_config(State0#state.ssl_options, Role, State0) of
+        State ->
+            tls_gen_connection:initialize_tls_sender(State),
+            gen_statem:enter_loop(?MODULE, [], initial_hello, State)
     catch throw:Error ->
             #state{protocol_specific = Map} = State0,
             EState = State0#state{protocol_specific = Map#{error => Error}},
@@ -178,7 +183,7 @@ initial_hello({call, From}, {start, {Opts, EmOpts}, Timeout},
             ssl_options = OrigSSLOptions,
             socket_options = SockOpts} = State0) ->
     try
-        SslOpts = ssl:update_options(Opts, Role, OrigSSLOptions),
+        SslOpts = ssl_config:update_options(Opts, Role, OrigSSLOptions),
 	State = ssl_gen_statem:ssl_config(SslOpts, Role, State0),
         CountinueStatus = case maps:get(handshake, SslOpts) of
                               hello ->
@@ -295,7 +300,7 @@ wait_cert_verify(internal, #certificate_verify{signature = Signature,
 				  State#state{handshake_env = HsEnv,
                                               session = Session0#session{sign_alg = HashSign}});
 	#alert{} = Alert ->
-            throw(Alert)
+            ssl_gen_statem:handle_own_alert(Alert, ?STATE(wait_cert_verify), State)
     end;
 wait_cert_verify(Type, Event, State) ->
     ssl_gen_statem:handle_common_event(Type, Event, ?STATE(wait_cert_verify), State).

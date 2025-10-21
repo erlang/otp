@@ -1,1 +1,1 @@
-{dialyzer_options, [{indent_opt, false}, {warnings, [no_unknown, underspecs]}]}.
+{dialyzer_options, [{indent_opt, false}, {warnings, [no_unknown, underspecs, opaque_union]}]}.

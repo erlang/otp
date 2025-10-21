@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2009-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -332,7 +334,7 @@ Options details:
 - **`body_format`** - Defines if the body is to be delivered as a string or
   binary. This option is only valid for the synchronous request.
 
-  Default is `string`.
+  Default is `string`. Asynchronous requests always use `binary`.
 
 - **`full_result`** - Defines if a "full result" is to be returned to the caller
   (that is, the body, the headers, and the entire status line) or not (the body
@@ -1949,13 +1951,24 @@ header_record([{Key, Val} | Rest], RequestHeaders, Host, Version) ->
 				   RequestHeaders#http_request_h.other]}, 
 		  Host, Version).
 
-validate_headers(RequestHeaders = #http_request_h{te = undefined}, Host, 
-		 "HTTP/1.1" = Version) ->
-    validate_headers(RequestHeaders#http_request_h{te = ""}, Host, 
-		     "HTTP/1.1" = Version);
 validate_headers(RequestHeaders = #http_request_h{host = undefined}, 
 		 Host, "HTTP/1.1" = Version) ->
     validate_headers(RequestHeaders#http_request_h{host = Host}, Host, Version);
+validate_headers(RequestHeaders = #http_request_h{te = TE, connection = Conn}, _, "HTTP/1.1") ->
+    case TE of
+        undefined ->
+            RequestHeaders;
+        _TEValue ->
+            NewConn = case Conn of
+                undefined -> "TE";
+                ExistingConn ->
+                    case lists:member("te", http_util:connection_tokens(ExistingConn)) of
+                        true -> ExistingConn;
+                        false -> ExistingConn ++ ", TE"
+                    end
+            end,
+            RequestHeaders#http_request_h{connection = NewConn}
+    end;
 validate_headers(RequestHeaders, _, _) ->
     RequestHeaders.
 

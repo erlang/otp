@@ -1,2 +1,2 @@
-{dialyzer_options, [{indent_opt, false}, {warnings, [no_unused, no_return, no_unknown]}]}.
+{dialyzer_options, [{indent_opt, false}, {warnings, [no_unused, no_return, no_unknown, opaque_union]}]}.
 {time_limit, 40}.

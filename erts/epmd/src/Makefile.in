@@ -1,7 +1,9 @@
 #
 # %CopyrightBegin%
+#
+# SPDX-License-Identifier: Apache-2.0
 # 
-# Copyright Ericsson AB 1998-2021. All Rights Reserved.
+# Copyright Ericsson AB 1998-2025. All Rights Reserved.
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -120,6 +122,9 @@ include $(ERL_TOP)/make/otp_release_targets.mk
 release_spec: all
 	$(INSTALL_DIR)     "$(RELEASE_PATH)/erts-$(VSN)/bin"
 	$(INSTALL_PROGRAM) $(INSTALL_PROGS) "$(RELEASE_PATH)/erts-$(VSN)/bin"
+ifeq ($(TARGET),win32)
+	$(INSTALL_DATA) $(INSTALL_PROGS:.exe=.pdb) "$(RELEASE_PATH)/erts-$(VSN)/bin"
+endif
 
 
 release_docs_spec:

@@ -1,6 +1,8 @@
 %%
 %% %CopyrightBegin%
 %%
+%% SPDX-License-Identifier: Apache-2.0
+%%
 %% Copyright Ericsson AB 2004-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
@@ -82,6 +84,12 @@ format_error({{_M,F,A},{I,Off,Desc}}) ->
       "  Internal consistency check failed - please report this bug.~n"
       "  Instruction: ~p~n"
       "  Error:       ~p:~n", [F,A,Off,I,Desc]);
+format_error({{_M,F,A},too_many_arguments}) ->
+    %% The linter rejects user-provided functions that violate this, leaving
+    %% only generated functions like funs or comprehensions. This is not
+    %% super-helpful but it's better than nothing.
+    io_lib:format("System limit reached: generated function ~p/~p has too "
+                  "many arguments.", [F, A]);
 format_error(Error) ->
     io_lib:format("~p~n", [Error]).
 
@@ -182,7 +190,7 @@ validate_0([{function, Name, Arity, Entry, Code} | Fs], Module, Level, Ft) ->
          %% A set of all registers containing "fragile" terms. That is, terms
          %% that don't exist on our process heap and would be destroyed by a
          %% GC.
-         fragile=sets:new([{version, 2}]) :: sets:set(),
+         fragile=sets:new() :: sets:set(),
          %% Number of Y registers.
          %%
          %% Note that this may be 0 if there's a frame without saved values,
@@ -229,7 +237,7 @@ validate_0([{function, Name, Arity, Entry, Code} | Fs], Module, Level, Ft) ->
          %% States at labels
          branched=#{}              :: #{ label() => state() },
          %% All defined labels
-         labels=sets:new([{version, 2}])    :: sets:set(),
+         labels=sets:new()    :: sets:set(),
          %% Information of other functions in the module
          ft=#{}                    :: #{ label() => map() },
          %% Counter for #value_ref{} creation
@@ -279,17 +287,13 @@ validate_1(Is, MFA0, Entry, Level, Ft) ->
 
     validate_branches(MFA, Vst).
 
-extract_header([{func_info, {atom,Mod}, {atom,Name}, Arity}=I | Is],
-               MFA0, Entry, Offset, Acc) ->
-    {_, Name, Arity} = MFA0,                    %Assertion.
-    MFA = {Mod, Name, Arity},
-
-    case Is of
-        [{label, Entry} | _] ->
-            Header = reverse(Acc, [I]),
-            {Offset + 1, MFA, Header, Is};
-        _ ->
-            error({MFA, no_entry_label})
+extract_header([{func_info, {atom, Mod}, {atom,Name}, Arity}=I |
+                [{label, Entry} | _]=Is],
+               {_, Name, Arity}, Entry, Offset, Acc) ->
+    MFA = {Mod, Name, Arity} ,
+    case Arity =< ?MAX_FUNC_ARGS of
+        true -> {Offset + 1, MFA, reverse(Acc, [I]), Is};
+        false -> error({MFA, too_many_arguments})
     end;
 extract_header([{label,_}=I | Is], MFA, Entry, Offset, Acc) ->
     extract_header(Is, MFA, Entry, Offset + 1, [I | Acc]);
@@ -302,7 +306,7 @@ init_vst({_, _, Arity}, Level, Ft) ->
     Vst = #vst{branched=#{},
                current=#st{},
                ft=Ft,
-               labels=sets:new([{version, 2}]),
+               labels=sets:new(),
                level=Level},
     init_function_args(Arity - 1, Vst).
 
@@ -373,8 +377,14 @@ vi({'%',_}, Vst) ->
     Vst;
 vi({line,_}, Vst) ->
     Vst;
-vi({executable_line,_,_}, Vst) ->
+vi({executable_line,_,Index}, Vst) when is_integer(Index) ->
     Vst;
+vi({debug_line,_,Index,Live,Info}, Vst) when is_integer(Index),
+                                             is_integer(Live) ->
+    validate_debug_line(Info, Live, Vst);
+vi({debug_line,_,_,Index,Live,Info}, Vst) when is_integer(Index),
+                                               is_integer(Live) ->
+    validate_debug_line(Info, Live, Vst);
 vi(nif_start, Vst) ->
     Vst;
 %%
@@ -915,11 +925,13 @@ vi({test,bs_skip_bits2,{f,Fail},[Ctx,Size0,Unit,_Flags]}, Vst) ->
              end,
 
     validate_bs_skip(Fail, Ctx, Stride, Vst);
-vi({test,bs_test_tail2,{f,Fail},[Ctx,_Size]}, Vst) ->
+vi({test,bs_test_tail2,{f,Fail},[Ctx0,_Size]}, Vst) ->
+    Ctx = unpack_typed_arg(Ctx0, Vst),
     assert_no_exception(Fail),
     assert_type(#t_bs_context{}, Ctx, Vst),
     branch(Fail, Vst);
-vi({test,bs_test_unit,{f,Fail},[Ctx,Unit]}, Vst) ->
+vi({test,bs_test_unit,{f,Fail},[Ctx0,Unit]}, Vst) ->
+    Ctx = unpack_typed_arg(Ctx0, Vst),
     assert_type(#t_bs_context{}, Ctx, Vst),
 
     Type = #t_bs_context{tail_unit=Unit},
@@ -1089,113 +1101,6 @@ vi({bs_create_bin,{f,Fail},Heap,Live,Unit,Dst,{list,List0}}, Vst0) ->
                    SuccVst = heap_alloc(Heap, SuccVst1),
                    create_term(#t_bitstring{size_unit=Unit}, bs_create_bin, [], Dst,
                                SuccVst)
-           end);
-vi({bs_init2,{f,Fail},Sz,Heap,Live,_,Dst}, Vst0) ->
-    verify_live(Live, Vst0),
-    verify_y_init(Vst0),
-    if
-        is_integer(Sz) -> ok;
-        true -> assert_term(Sz, Vst0)
-    end,
-    Vst = heap_alloc(Heap, Vst0),
-    branch(Fail, Vst,
-           fun(SuccVst0) ->
-                   SuccVst = prune_x_regs(Live, SuccVst0),
-                   create_term(#t_bitstring{size_unit=8}, bs_init2, [], Dst,
-                               SuccVst, SuccVst0)
-           end);
-vi({bs_init_bits,{f,Fail},Sz,Heap,Live,_,Dst}, Vst0) ->
-    verify_live(Live, Vst0),
-    verify_y_init(Vst0),
-    if
-        is_integer(Sz) -> ok;
-        true -> assert_term(Sz, Vst0)
-    end,
-    Vst = heap_alloc(Heap, Vst0),
-    branch(Fail, Vst,
-           fun(SuccVst0) ->
-                   SuccVst = prune_x_regs(Live, SuccVst0),
-                   create_term(#t_bitstring{}, bs_init_bits, [], Dst, SuccVst)
-           end);
-vi({bs_add,{f,Fail},[A,B,_],Dst}, Vst) ->
-    assert_term(A, Vst),
-    assert_term(B, Vst),
-    branch(Fail, Vst,
-           fun(SuccVst) ->
-                   create_term(#t_integer{}, bs_add, [A, B], Dst, SuccVst)
-           end);
-vi({bs_utf8_size,{f,Fail},A,Dst}, Vst) ->
-    assert_term(A, Vst),
-    branch(Fail, Vst,
-           fun(SuccVst) ->
-                   create_term(#t_integer{}, bs_utf8_size, [A], Dst, SuccVst)
-           end);
-vi({bs_utf16_size,{f,Fail},A,Dst}, Vst) ->
-    assert_term(A, Vst),
-    branch(Fail, Vst,
-           fun(SuccVst) ->
-                   create_term(#t_integer{}, bs_utf16_size, [A], Dst, SuccVst)
-           end);
-vi({bs_append,{f,Fail},Bits,Heap,Live,Unit,Bin,_Flags,Dst}, Vst0) ->
-    verify_live(Live, Vst0),
-    verify_y_init(Vst0),
-    assert_term(Bits, Vst0),
-    assert_term(Bin, Vst0),
-    Vst = heap_alloc(Heap, Vst0),
-    branch(Fail, Vst,
-           fun(SuccVst0) ->
-                   SuccVst = prune_x_regs(Live, SuccVst0),
-                   create_term(#t_bitstring{size_unit=Unit}, bs_append,
-                               [Bin], Dst, SuccVst, SuccVst0)
-           end);
-vi({bs_private_append,{f,Fail},Bits,Unit,Bin,_Flags,Dst}, Vst) ->
-    assert_term(Bits, Vst),
-    assert_term(Bin, Vst),
-    branch(Fail, Vst,
-           fun(SuccVst) ->
-                   create_term(#t_bitstring{size_unit=Unit}, bs_private_append,
-                               [Bin], Dst, SuccVst)
-           end);
-vi({bs_put_string,Sz,_}, Vst) when is_integer(Sz) ->
-    Vst;
-vi({bs_put_binary,{f,Fail},Sz,_,_,Src}, Vst) ->
-    assert_term(Sz, Vst),
-    assert_term(Src, Vst),
-    branch(Fail, Vst,
-           fun(SuccVst) ->
-                   update_type(fun meet/2, #t_bitstring{}, Src, SuccVst)
-           end);
-vi({bs_put_float,{f,Fail},Sz,_,_,Src}, Vst) ->
-    assert_term(Sz, Vst),
-    assert_term(Src, Vst),
-    branch(Fail, Vst,
-           fun(SuccVst) ->
-                   update_type(fun meet/2, #t_float{}, Src, SuccVst)
-           end);
-vi({bs_put_integer,{f,Fail},Sz,_,_,Src}, Vst) ->
-    assert_term(Sz, Vst),
-    assert_term(Src, Vst),
-    branch(Fail, Vst,
-           fun(SuccVst) ->
-                   update_type(fun meet/2, #t_integer{}, Src, SuccVst)
-           end);
-vi({bs_put_utf8,{f,Fail},_,Src}, Vst) ->
-    assert_term(Src, Vst),
-    branch(Fail, Vst,
-           fun(SuccVst) ->
-                   update_type(fun meet/2, #t_integer{}, Src, SuccVst)
-           end);
-vi({bs_put_utf16,{f,Fail},_,Src}, Vst) ->
-    assert_term(Src, Vst),
-    branch(Fail, Vst,
-           fun(SuccVst) ->
-                   update_type(fun meet/2, #t_integer{}, Src, SuccVst)
-           end);
-vi({bs_put_utf32,{f,Fail},_,Src}, Vst) ->
-    assert_term(Src, Vst),
-    branch(Fail, Vst,
-           fun(SuccVst) ->
-                   update_type(fun meet/2, #t_integer{}, Src, SuccVst)
            end);
 
 vi(_, _) ->
@@ -1439,7 +1344,7 @@ extract_map_keys([], _Vst) ->
 
 
 extract_map_vals(List, Src, SuccVst) ->
-    Seen = sets:new([{version, 2}]),
+    Seen = sets:new(),
     extract_map_vals(List, Src, Seen, SuccVst, SuccVst).
 
 extract_map_vals([Key0, Dst | Vs], Map, Seen0, Vst0, Vsti0) ->
@@ -1849,7 +1754,8 @@ validate_bs_get_1(Fail, Ctx, Live, Vst, SuccFun) ->
 validate_bs_skip(Fail, Ctx, Stride, Vst) ->
     validate_bs_skip(Fail, Ctx, Stride, no_live, Vst).
 
-validate_bs_skip(Fail, Ctx, Stride, Live, Vst) ->
+validate_bs_skip(Fail, Ctx0, Stride, Live, Vst) ->
+    Ctx = unpack_typed_arg(Ctx0, Vst),
     assert_no_exception(Fail),
 
     assert_type(#t_bs_context{}, Ctx, Vst),
@@ -2224,7 +2130,7 @@ assert_unique_map_keys([_,_|_]=Ls) ->
               assert_literal(L),
               L
           end || L <- Ls],
-    case length(Vs) =:= sets:size(sets:from_list(Vs, [{version, 2}])) of
+    case length(Vs) =:= sets:size(sets:from_list(Vs)) of
         true -> ok;
         false -> error(keys_not_unique)
     end.
@@ -2279,6 +2185,44 @@ validate_select_tuple_arity(Fail, [], _, #vst{}=Vst) ->
                    %% The next instruction is never executed.
                    kill_state(SuccVst)
            end).
+
+%%
+%% Validate debug information in `debug_line` instructions.
+%%
+
+validate_debug_line({entry,Args}, Live, Vst) ->
+    do_validate_debug_line(none, Live, Vst),
+    _ = [get_term_type(Reg, Vst) || {_Name,[Reg]} <:- Args],
+    prune_x_regs(Live, Vst);
+validate_debug_line({Stk,Vars}, Live, Vst0) ->
+    do_validate_debug_line(Stk, Live, Vst0),
+    Vst = prune_x_regs(Live, Vst0),
+    _ = [validate_dbg_vars(Regs, Name, Vst) || {Name,Regs} <:- Vars],
+    Vst.
+
+do_validate_debug_line(ExpectedStk, Live, #vst{current=St}=Vst) ->
+    case St of
+        #st{numy=ExpectedStk} ->
+            ok;
+        #st{numy=ActualStk} ->
+            error({beam_debug_info,frame_size,ExpectedStk,actual,ActualStk})
+    end,
+    verify_live(Live, Vst),
+    verify_y_init(Vst).
+
+validate_dbg_vars([R|Rs], Name, Vst) ->
+    Type = get_term_type(R, Vst),
+    validate_dbg_vars(Rs, Type, Name, Vst).
+
+validate_dbg_vars([R|Rs], Type, Name, Vst) ->
+    case get_term_type(R, Vst) of
+        Type ->
+            validate_dbg_vars(Rs, Type, Name, Vst);
+        OtherType ->
+            error({type_mismatch,Name,OtherType,Type})
+    end;
+validate_dbg_vars([], _Type, _Name, _Vst) ->
+    ok.
 
 %%
 %% Infers types from comparisons, looking at the expressions that produced the
@@ -3390,7 +3334,7 @@ mark_fragile(Reg, Vst) ->
 propagate_fragility(Reg, Args, #vst{current=St0}=Vst) ->
     #st{fragile=Fragile0} = St0,
 
-    Sources = sets:from_list(Args, [{version, 2}]),
+    Sources = sets:from_list(Args),
     Fragile = case sets:is_disjoint(Sources, Fragile0) of
                   true -> sets:del_element(Reg, Fragile0);
                   false -> sets:add_element(Reg, Fragile0)
@@ -3414,7 +3358,7 @@ remove_fragility(Reg, Vst) ->
 
 %% Marks all registers as durable.
 remove_fragility(#vst{current=St0}=Vst) ->
-    St = St0#st{fragile=sets:new([{version, 2}])},
+    St = St0#st{fragile=sets:new()},
     Vst#vst{current=St}.
 
 assert_durable_term(Src, Vst) ->

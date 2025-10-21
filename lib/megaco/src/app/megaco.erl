@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1999-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -132,11 +134,11 @@ Interface module for the Megaco application
 -type void() :: term().
 
 -doc "The Megaco Identifier.".
--type mid()               :: megaco_encoder:ip4Address() |
-                             megaco_encoder:ip6Address() |
-                             megaco_encoder:domainName() |
-                             megaco_encoder:deviceName() |
-                             megaco_encoder:mtpAddress().
+-type mid()               :: {ip4Address, megaco_encoder:ip4Address()} |
+                             {ip6Address, megaco_encoder:ip6Address()} |
+                             {domainName, megaco_encoder:domainName()} |
+                             {deviceName, megaco_encoder:deviceName()} |
+                             {mtpAddress, megaco_encoder:mtpAddress()}.
 -type megaco_message()    :: megaco_encoder:megaco_message().
 -type action_request()    :: megaco_encoder:action_request().
 -type action_reply()      :: megaco_encoder:action_reply().
@@ -153,17 +155,15 @@ Interface module for the Megaco application
 -type action_reps()    :: [action_reply()].
 -doc """
 This type is a basic (atom) lookup key (for info on an active connection). The
-corresponding value can be of any type.[](){: #ci_control_pid }
+corresponding value can be of any type.
 
-- **`control_pid`** - The process identifier of the controlling process for a
-  connection.
+- **`control_pid`**{: #ci_control_pid } - The process identifier of the
+  controlling process for a connection.
 
   Value type: [pid()](`t:erlang:pid/0`)
 
-  [](){: #ci_send_handle }
-
-- **`send_handle`** - Opaque send handle whose contents is internal for the send
-  module.
+- **`send_handle`**{: #ci_send_handle } - Opaque send handle whose contents is
+  internal for the send module.
 
   Value type: `t:send_handle/0`
 
@@ -1164,9 +1164,9 @@ to file or to stdout after formating).
 -type counter_value()  :: non_neg_integer().
 
 -doc """
-[](){: #si_text_config }
+System info items.
 
-- **`text_config`** - The text encoding config.
+- **`text_config`**{: #si_text_config } - The text encoding config.
 
   Value type: [term()](`t:erlang:term/0`)
 

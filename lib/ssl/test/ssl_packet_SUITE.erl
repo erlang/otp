@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2022. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -234,7 +236,7 @@
 -define(uint64(X), << ?UINT64(X) >> ).
 
 -define(MANY, 1000).
--define(SOME, 50).
+-define(SOME, 102).     %% More than def: {active, N=100}
 -define(BASE_TIMEOUT_SECONDS, 20).
 -define(SOME_SCALE, 2).
 -define(MANY_SCALE, 3).
@@ -253,10 +255,10 @@ all() ->
     ].
 
 groups() ->
-    [{'tlsv1.3', [], socket_packet_tests() ++ protocol_packet_tests()},
-     {'tlsv1.2', [], socket_packet_tests() ++ protocol_packet_tests()},
-     {'tlsv1.1', [], socket_packet_tests() ++ protocol_packet_tests()},
-     {'tlsv1', [], socket_packet_tests() ++ protocol_packet_tests()},
+    [{'tlsv1.3', [parallel], socket_packet_tests() ++ protocol_packet_tests()},
+     {'tlsv1.2', [parallel], socket_packet_tests() ++ protocol_packet_tests()},
+     {'tlsv1.1', [parallel], socket_packet_tests() ++ protocol_packet_tests()},
+     {'tlsv1', [parallel], socket_packet_tests() ++ protocol_packet_tests()},
      %% We will not support any packet types if the transport is
      %% not reliable. We might support it for DTLS over SCTP in the future 
      {'dtlsv1.2', [], [reject_packet_opt]},
@@ -353,8 +355,8 @@ protocol_active_packet_tests() ->
     ].
 
 init_per_suite(Config) ->
-    catch crypto:stop(),
-    try crypto:start() of
+    catch application:stop(crypto),
+    try application:start(crypto) of
 	ok ->
 	    ssl_test_lib:clean_start(),
             ssl_test_lib:make_rsa_cert(Config)
@@ -2313,7 +2315,7 @@ passive_recv_packet(Socket, Data, N) ->
     end.
 
 send(Socket,_, 0) ->
-    ssl:send(Socket, <<>>),
+    ok = ssl:send(Socket, <<>>),
     no_result_msg;
 send(Socket, Data, N) ->
     case ssl:send(Socket, [Data]) of
@@ -2546,18 +2548,25 @@ client_reject_packet_opt(Config, PacketOpt) ->
 
     Server = ssl_test_lib:start_server([{node, ClientNode}, {port, 0},
                                         {from, self()},
-                                        {mfa, {ssl_test_lib, no_result_msg ,[]}},
+                                        {mfa, {ssl_test_lib, no_result, []}},
                                         {options, ServerOpts}]),
     Port = ssl_test_lib:inet_port(Server),
     Client = ssl_test_lib:start_client_error([{node, ServerNode}, {port, Port},
                                               {host, Hostname},
                                               {from, self()},
-                                              {mfa, {ssl_test_lib, no_result_msg, []}},
-                                              {options, [PacketOpt |
-                                                         ClientOpts]}]),
-    
-    ssl_test_lib:check_result(Client, {error, {options, {not_supported, PacketOpt}}}).
+                                              {mfa, {ssl_test_lib, no_result, []}},
+                                              {options, [PacketOpt | ClientOpts]}]),
 
+    ok = ssl_test_lib:check_result(Client, {error, {options, {not_supported, PacketOpt}}}),
+
+    Client2 = ssl_test_lib:start_client([{node, ServerNode}, {port, Port},
+                                         {host, Hostname},
+                                         {from, self()},
+                                         {mfa, {ssl, setopts, [[PacketOpt]]}},
+                                         {options, ClientOpts}]),
+    ssl_test_lib:check_result(Client2, {error, {options, {socket_options, PacketOpt}}}),
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client2).
 
 send_switch_packet(SslSocket, Data, NextPacket) ->
     spawn(fun() -> ssl:send(SslSocket, Data) end),

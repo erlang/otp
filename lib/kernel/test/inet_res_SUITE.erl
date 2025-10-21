@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2009-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -159,24 +161,34 @@ init_per_testcase(Func, Config) ->
     DataDir = proplists:get_value(data_dir, Config),
     try ns_init(zone_dir(Func), PrivDir, DataDir) of
 	NsSpec ->
-            ?P("init_per_testcase -> get resolver lookup"),
-	    Lookup = inet_db:res_option(lookup),
-            ?P("init_per_testcase -> set file:dns"),
-	    inet_db:set_lookup([file,dns]),
-	    case NsSpec of
-		{_,{IP,Port},_} ->
-                    ?P("init_per_testcase -> insert alt nameserver ~p:~w",
-                       [IP, Port]),
-		    inet_db:ins_alt_ns(IP, Port);
-		_ -> ok
-	    end,
+            UpdatedConfig =
+                [{nameserver, NsSpec}] ++
+                case Func of
+                    basic ->
+                        Config;
+                    _ ->
+                        ?P("init_per_testcase -> get resolver lookup"),
+                        Lookup = inet_db:res_option(lookup),
+                        ?P("init_per_testcase -> set file:dns"),
+                        inet_db:set_lookup([file,dns]),
+                        case NsSpec of
+                            {_,{IP,Port},_} ->
+                                ?P("init_per_testcase -> "
+                                   "insert alt nameserver ~p:~w",
+                                   [IP, Port]),
+                                inet_db:ins_alt_ns(IP, Port);
+                            _ -> ok
+                        end,
+                        ?P("init_per_testcase -> saved "
+                           "lookup: ~p", [Lookup]),
+                        [{res_lookup, Lookup} | Config]
+                end,
             %% dbg:tracer(),
             %% dbg:p(all, c),
             %% dbg:tpl(inet_res, query_nss_res, cx),
             ?P("init_per_testcase -> done:"
-               "~n    NsSpec: ~p"
-               "~n    Lookup: ~p", [NsSpec, Lookup]),
-	    [{nameserver, NsSpec}, {res_lookup, Lookup} | Config]
+               "~n    NsSpec: ~p", [NsSpec]),
+            UpdatedConfig
     catch
 	SkipReason ->
             ?P("init_per_testcase -> skip: ~p", [SkipReason]),
@@ -188,16 +200,20 @@ init_per_testcase(Func, Config) ->
     end.
 
 end_per_testcase(_Func, Config) ->
-    inet_db:set_lookup(proplists:get_value(res_lookup, Config)),
     NsSpec = proplists:get_value(nameserver, Config),
-    case NsSpec of
-	{_,{IP,Port},_} ->
-	    inet_db:del_alt_ns(IP, Port);
-	_ -> ok
+    case proplists:lookup(res_lookup, Config) of
+        none ->
+            ok;
+        {res_lookup, Lookup} ->
+            inet_db:set_lookup(Lookup),
+            case NsSpec of
+                {_,{IP,Port},_} ->
+                    inet_db:del_alt_ns(IP, Port);
+                _ -> ok
+            end
     end,
     %% dbg:stop(),
     ns_end(NsSpec, proplists:get_value(priv_dir, Config)).
-
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Nameserver control
@@ -526,6 +542,8 @@ proxy_ns({proxy,_,_,ProxyNS}) -> ProxyNS.
 basic(Config) when is_list(Config) ->
     ?P("begin"),
     NS = ns(Config),
+    NSs = [NS],
+    Options = [{nameservers,NSs},verbose],
     Name = "ns.otptest",
     NameC = caseflip(Name),
     NameD = NameC ++ ".",
@@ -533,7 +551,7 @@ basic(Config) when is_list(Config) ->
     IP2 = {127,0,0,254},
     %%
     %% nslookup
-    {ok,Msg1} = inet_res:nslookup(Name, in, a, [NS]),
+    {ok,Msg1} = inet_res:nslookup(Name, in, a, NSs),
     ?P("nslookup with ~p: ~n      ~p", [Name, Msg1]),
     [RR1, RR2] = lists:sort(inet_dns:msg(Msg1, anlist)),
     IP1 = inet_dns:rr(RR1, data),
@@ -542,7 +560,7 @@ basic(Config) when is_list(Config) ->
     %%io:format("Bin1 = ~w~n", [Bin1]),
     {ok,Msg1} = inet_dns:decode(Bin1),
     %% Now with scrambled case
-    {ok,Msg1b} = inet_res:nslookup(NameC, in, a, [NS]),
+    {ok,Msg1b} = inet_res:nslookup(NameC, in, a, NSs),
     ?P("nslookup with ~p: ~n      ~p", [NameC, Msg1b]),
     [RR1b, RR2b] = lists:sort(inet_dns:msg(Msg1b, anlist)),
     IP1 = inet_dns:rr(RR1b, data),
@@ -558,7 +576,7 @@ basic(Config) when is_list(Config) ->
 	 =:= tolower(inet_dns:rr(RR2b, domain))),
     %%
     %% resolve
-    {ok,Msg2} = inet_res:resolve(Name, in, a, [{nameservers,[NS]},verbose]),
+    {ok,Msg2} = inet_res:resolve(Name, in, a, Options),
     ?P("resolve with ~p: ~n      ~p", [Name, Msg2]),
     [RR1c, RR2c] = lists:sort(inet_dns:msg(Msg2, anlist)),
     IP1 = inet_dns:rr(RR1c, data),
@@ -567,7 +585,7 @@ basic(Config) when is_list(Config) ->
     %%io:format("Bin2 = ~w~n", [Bin2]),
     {ok,Msg2} = inet_dns:decode(Bin2),
     %% Now with scrambled case
-    {ok,Msg2b} = inet_res:resolve(NameC, in, a, [{nameservers,[NS]},verbose]),
+    {ok,Msg2b} = inet_res:resolve(NameC, in, a, Options),
     ?P("resolve with ~p: ~n      ~p", [NameC, Msg2b]),
     [RR1d, RR2d] = lists:sort(inet_dns:msg(Msg2b, anlist)),
     IP1 = inet_dns:rr(RR1d, data),
@@ -583,10 +601,10 @@ basic(Config) when is_list(Config) ->
 	  =:= tolower(inet_dns:rr(RR2d, domain))),
     ?P("resolve \"127.0.0.1\"~n", []),
     {ok, Msg3} =
-        inet_res:resolve("127.0.0.1", in, a, [{nameservers,[NS]},verbose]),
+        inet_res:resolve("127.0.0.1", in, a, Options),
     [] = inet_dns:msg(Msg3, anlist),
     {ok, Msg4} =
-        inet_res:resolve("127.0.0.1", in, ptr, [{nameservers,[NS]},verbose]),
+        inet_res:resolve("127.0.0.1", in, ptr, Options),
     [RR4] = inet_dns:msg(Msg4, anlist),
     "1.0.0.127.in-addr.arpa" = inet_dns:rr(RR4, domain),
     "test1-78901234567890123456789012345678.otptest" =
@@ -596,28 +614,41 @@ basic(Config) when is_list(Config) ->
     ?P("lookup"),
     [IP1, IP2] =
         lists:sort(
-          inet_res:lookup(Name, in, a, [{nameservers,[NS]},verbose])),
+          inet_res:lookup(Name, in, a, Options)),
     [IP1, IP2] =
         lists:sort(
-          inet_res:lookup(NameC, in, a, [{nameservers,[NS]},verbose])),
+          inet_res:lookup(NameC, in, a, Options)),
     [IP1, IP2] =
         lists:sort(
-          inet_res:lookup(NameD, in, a, [{nameservers,[NS]},verbose])),
+          inet_res:lookup(NameD, in, a, Options)),
     %%
     %% gethostbyname
     ?P("gethostbyname"),
-    {ok,#hostent{h_addr_list=IPs1}} = inet_res:gethostbyname(Name),
+    {ok,#hostent{h_addr_list=IPs1}} =
+        inet_res:gethostbyname(Name, inet, Options, infinity),
     [IP1, IP2] = lists:sort(IPs1),
-    {ok,#hostent{h_addr_list=IPs2}} = inet_res:gethostbyname(NameC),
+    {ok,#hostent{h_addr_list=IPs2}} =
+        inet_res:gethostbyname(NameC, inet, Options, infinity),
     [IP1, IP2] = lists:sort(IPs2),
     %%
     %% getbyname
     ?P("getbyname"),
-    {ok,#hostent{h_addr_list=IPs3}} = inet_res:getbyname(Name, a),
+    {ok,#hostent{h_addr_list=IPs3}} =
+        inet_res:getbyname(Name, a, Options, infinity),
     [IP1, IP2] = lists:sort(IPs3),
-    {ok,#hostent{h_addr_list=IPs4}} = inet_res:getbyname(NameC, a),
+    {ok,#hostent{h_addr_list=IPs4}} =
+        inet_res:getbyname(NameC, a, Options, infinity),
     [IP1, IP2] = lists:sort(IPs4),
     ?P("end"),
+    %%
+    %% gethostbyaddr
+    ?P("gethostbyaddr"),
+    {ok,#hostent{h_name=Name,
+                 h_addr_list=[IP2]}} =
+        inet_res:gethostbyaddr(IP2, Options, infinity),
+    {ok,#hostent{h_name=Name,
+                 h_addr_list=[IP1]}} =
+        inet_res:gethostbyaddr(IP1, Options, infinity),
     ok.
 
 
@@ -1477,6 +1508,21 @@ update(Config) when is_list(Config) ->
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Tests for TSIG
 
+%% erlang-questions Message-ID 20081120202532.GG229@h216-235-12-168.host.egate.net
+-define(DNS_PP(R),
+dns_pp(R, N) ->
+	N = record_info(size, R) - 1,
+	record_info(fields, R)).
+dns_pp(R) ->
+	io_lib_pretty:print(R, fun dns_pp/2).
+?DNS_PP(dns_rec);
+?DNS_PP(dns_header);
+?DNS_PP(dns_query);
+?DNS_PP(dns_rr);
+?DNS_PP(dns_rr_opt);
+?DNS_PP(dns_rr_tsig);
+dns_pp(_RN, _N) -> no.
+
 % note for implementors reading this, the usage of
 % inet_dns_tsig.erl is identical except you do not need
 % to inspect the reponse for the presence of a TSIG RR
@@ -1492,6 +1538,7 @@ tsig_client(Config) when is_list(Config) ->
     Key = {"testkey","ded5ada3-07f2-42b9-84bf-82d30f6795ee"},
     TS0 = inet_dns_tsig:init([{key,Key}]),
     {ok,PktS,TS1} = inet_dns_tsig:sign(Pkt, TS0),
+    ?P("Request: ~s", [dns_pp(element(2, inet_dns:decode(PktS)))]),
 
     SockOpts = [binary,{active,false},{nodelay,true},{packet,2}],
     {ok,Sock} = gen_tcp:connect(NSIP, NSPort, SockOpts),
@@ -1512,6 +1559,8 @@ tsig_client(Config) when is_list(Config) ->
 
     {_TS,Response} = lists:foldl(fun(P, {T0,R0}) ->
         {ok,R} = inet_dns:decode(P),
+        ?P("Response: ~s", [dns_pp(R)]),
+        R#dns_rec.header#dns_header.rcode == ?NOERROR orelse throw("response rcode"),
         {ok,T} = inet_dns_tsig:verify(P, R, T0),
         {T,R0 ++ [R]}
     end, {TS1,[]}, PktR),
@@ -1627,6 +1676,7 @@ tsig_server(Domain, TS0, Sock) ->
     ok = gen_tcp:shutdown(Sock, read),
 
     {ok,Request} = inet_dns:decode(Pkt),
+    ?P("Request: ~s", [dns_pp(Request)]),
     {ok,TS1} = inet_dns_tsig:verify(Pkt, Request, TS0),
 
     % actual implementations would here now consider if the additional
@@ -1661,6 +1711,7 @@ tsig_server(Domain, TS0, Sock) ->
                   X <- lists:seq(20, 29) ] ++ [SOA],
     PktR3 = inet_dns:encode(PktR0#dns_rec{ anlist = AnList3 }),
     {ok,PktR3S,_TS} = inet_dns_tsig:sign(PktR3, TS3),
+    ?P("Response: ~s", [dns_pp(element(2, inet_dns:decode(PktR3S)))]),
     ok = gen_tcp:send(Sock, PktR3S).
 
 

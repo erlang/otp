@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2011-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -133,7 +135,7 @@ create_pro_menu(Parent, Holder) ->
 				  type=check,
 				  check=call(Holder, {get_accum, self()})},
 		     separator,
-		     #create_menu{id=?ID_REFRESH, text="Refresh\tCtrl-R"},
+		     #create_menu{id=?ID_REFRESH, text="Refresh\tCtrl+R"},
 		     #create_menu{id=?ID_REFRESH_INTERVAL, text="Refresh Interval"}]},
 		   {"Trace",
 		    [#create_menu{id=?ID_TRACE_PIDS, text="Trace processes"},

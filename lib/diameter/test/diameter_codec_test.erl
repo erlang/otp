@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2010-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,7 +23,7 @@
 -module(diameter_codec_test).
 
 -export([base/0,
-         gen/1,
+         gen/2,
          lib/0]).
 
 %%
@@ -43,17 +45,17 @@
 base() ->
     [] = run([[fun base/1, T] || T <- [zero, decode]]).
 
-gen(Mod) ->
+gen(Mod, Rfc) ->
     Fs = [{Mod, F, []} || Mod /= diameter_gen_doic_rfc7683,
                           F <- [name, id, vendor_id, vendor_name]],
-    [] = run(Fs ++ [[fun gen/2, Mod, T] || T <- [messages,
-                                                 command_codes,
-                                                 avp_types,
-                                                 grouped,
-                                                 enum,
-                                                 import_avps,
-                                                 import_groups,
-                                                 import_enums]]).
+    [] = run(Fs ++ [[fun gen/3, Mod, T, Rfc] || T <- [messages,
+                                                      command_codes,
+                                                      avp_types,
+                                                      grouped,
+                                                      enum,
+                                                      import_avps,
+                                                      import_groups,
+                                                      import_enums]]).
 
 lib() ->
     Vs = {_,_,_} = values('Address'),
@@ -127,8 +129,8 @@ types() ->
 %% Test of generated encode/decode module.
 %% ------------------------------------------------------------------------
 
-gen(M, T) ->
-    [] = run(lists:map(fun(X) -> [fun gen/3, M, T, X] end,
+gen(M, T, Rfc) ->
+    [] = run(lists:map(fun(X) -> [fun gen/4, M, T, X, Rfc] end,
                        fetch(T, dict(M)))).
 
 fetch(T, Spec) ->
@@ -139,11 +141,11 @@ fetch(T, Spec) ->
             []
     end.
 
-gen(M, messages = T, {Name, Code, Flags, ApplId, Avps})
+gen(M, messages = T, {Name, Code, Flags, ApplId, Avps}, Rfc)
   when is_list(Name) ->
-    gen(M, T, {?A(Name), Code, Flags, ApplId, Avps});
+    gen(M, T, {?A(Name), Code, Flags, ApplId, Avps}, Rfc);
 
-gen(M, messages, {Name, Code, Flags, _, _}) ->
+gen(M, messages, {Name, Code, Flags, _, _}, _Rfc) ->
     Rname = M:msg2rec(Name),
     Name = M:rec2msg(Rname),
     {Code, F, _} = M:msg_header(Name),
@@ -157,16 +159,16 @@ gen(M, messages, {Name, Code, Flags, _, _}) ->
            end,
     [] = arity(M, Name, Rname);
 
-gen(M, command_codes, {Code, Req, Ans}) ->
+gen(M, command_codes, {Code, Req, Ans}, _Rfc) ->
     Msgs = orddict:fetch(messages, dict(M)),
     {_, Code, _, _, _} = lists:keyfind(Req, 1, Msgs),
     {_, Code, _, _, _} = lists:keyfind(Ans, 1, Msgs);
 
-gen(M, avp_types = T, {Name, Code, Type, Flags})
+gen(M, avp_types = T, {Name, Code, Type, Flags}, Rfc)
   when is_list(Name) ->
-    gen(M, T, {?A(Name), Code, ?A(Type), Flags});
+    gen(M, T, {?A(Name), Code, ?A(Type), Flags}, Rfc);
 
-gen(M, avp_types, {Name, Code, Type, _Flags}) ->
+gen(M, avp_types, {Name, Code, Type, _Flags}, Rfc) ->
     {Code, Flags, VendorId} = M:avp_header(Name),
     0 = Flags band 2#00011111,
     V = undefined /= VendorId,
@@ -174,57 +176,61 @@ gen(M, avp_types, {Name, Code, Type, _Flags}) ->
     {Name, Type} = M:avp_name(Code, VendorId),
     B = M:empty_value(Name, #{module => M}),
     B = z(B),
-    [] = avp_decode(M, Type, Name);
+    [] = avp_decode(M, Type, Name, Rfc);
 
-gen(M, grouped = T, {Name, Code, Vid, Avps})
+gen(M, grouped = T, {Name, Code, Vid, Avps}, Rfc)
   when is_list(Name) ->
-    gen(M, T, {?A(Name), Code, Vid, Avps});
+    gen(M, T, {?A(Name), Code, Vid, Avps}, Rfc);
 
-gen(M, grouped, {Name, _, _, _}) ->
+gen(M, grouped, {Name, _, _, _}, _Rfc) ->
     Rname = M:name2rec(Name),
     [] = arity(M, Name, Rname);
 
-gen(M, enum = T, {Name, ED})
+gen(M, enum = T, {Name, ED}, Rfc)
   when is_list(Name) ->
-    gen(M, T, {?A(Name), lists:map(fun({E,D}) -> {?A(E), D} end, ED)});
+    gen(M, T, {?A(Name), lists:map(fun({E,D}) -> {?A(E), D} end, ED)}, Rfc);
 
-gen(M, enum, {Name, ED}) ->
-    [] = run([[fun enum/3, M, Name, T] || T <- ED]);
+gen(M, enum, {Name, ED}, Rfc) ->
+    [] = run([[fun enum/4, M, Name, T, Rfc] || T <- ED]);
 
-gen(M, Tag, {_Mod, L}) ->
+gen(M, Tag, {_Mod, L}, Rfc) ->
     T = retag(Tag),
-    [] = run([[fun gen/3, M, T, I] || I <- L]).
+    [] = run([[fun gen/4, M, T, I, Rfc] || I <- L]).
 
 %% avp_decode/3
 
-avp_decode(Mod, Type, Name) ->
+avp_decode(Mod, Type, Name, Rfc) ->
     {Ts, Fs, _} = values(Type, Name, Mod),
-    [] = run([[fun avp_decode/5, Mod, Name, Type, true, V]
+    [] = run([[fun avp_decode/6, Mod, Name, Type, true, V, Rfc]
               || V <- v(Ts)]),
-    [] = run([[fun avp_decode/5, Mod, Name, Type, false, V]
+    [] = run([[fun avp_decode/6, Mod, Name, Type, false, V, Rfc]
               || V <- v(Fs)]).
 
-avp_decode(Mod, Name, Type, Eq, Value) ->
-    d(fun(X,V) -> avp(Mod, X, V, Name, Type) end, Eq, Value).
+avp_decode(Mod, Name, Type, Eq, Value, Rfc) ->
+    d(fun(X,V) -> avp(Mod, X, V, Name, Type, Rfc) end, Eq, Value).
 
-avp(Mod, decode = X, V, Name, 'Grouped') ->
-    {Rec, _} = Mod:avp(X, V, Name, opts(Mod)),
+avp(Mod, decode = X, V, Name, 'Grouped', Rfc) ->
+    {Rec, _} = Mod:avp(X, V, Name, opts(Mod, Rfc)),
     Rec;
-avp(Mod, decode = X, V, Name, _) ->
-    Mod:avp(X, V, Name, opts(Mod));
-avp(Mod, encode = X, V, Name, _) ->
-    iolist_to_binary(Mod:avp(X, V, Name, opts(Mod))).
-
-opts(Mod) ->
-    (opts())#{module => Mod,
-              app_dictionary => Mod}.
+avp(Mod, decode = X, V, Name, _, Rfc) ->
+    Mod:avp(X, V, Name, opts(Mod, Rfc));
+avp(Mod, encode = X, V, Name, _, Rfc) ->
+    iolist_to_binary(Mod:avp(X, V, Name, opts(Mod, Rfc))).
 
 opts() ->
+    opts(6733).
+
+opts(Mod, Rfc) ->
+    (opts(Rfc))#{module => Mod,
+                 app_dictionary => Mod}.
+
+opts(unknown) ->
     #{decode_format => record,
       string_decode => true,
       strict_mbit => true,
-      rfc => 6733,
-      failed_avp => false}.
+      failed_avp => false};
+opts(Rfc) ->
+    maps:put(rfc, Rfc, opts(unknown)).
 
 %% v/1
 
@@ -269,10 +275,10 @@ arity(M, Name, AvpName, Rec) ->
 
 %% enum/3
 
-enum(M, Name, {_,E}) ->
+enum(M, Name, {_,E}, Rfc) ->
     B = <<E:32>>,
-    B = M:avp(encode, E, Name, opts(M)),
-    E = M:avp(decode, B, Name, opts(M)).
+    B = M:avp(encode, E, Name, opts(M, Rfc)),
+    E = M:avp(decode, B, Name, opts(M, Rfc)).
 
 retag(import_avps)   -> avp_types;
 retag(import_groups) -> grouped;

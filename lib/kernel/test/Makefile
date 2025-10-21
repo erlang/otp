@@ -1,7 +1,9 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1997-2024. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 1997-2025. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -71,6 +73,7 @@ MODULES= \
 	appinc2top \
 	appinc2A \
 	appinc2B \
+	block_select_dist \
 	code_SUITE \
 	code_b_test \
 	code_coverage_SUITE \
@@ -115,6 +118,7 @@ MODULES= \
 	logger_stress_SUITE \
 	logger_test_lib \
 	net_SUITE \
+	prim_net_SUITE \
 	os_SUITE \
 	pg_SUITE \
 	rtnode \
@@ -127,6 +131,8 @@ MODULES= \
 	sendfile_SUITE \
 	standard_error_SUITE \
 	multi_load_SUITE \
+	shell_test_lib \
+	group_SUITE \
 	zzz_SUITE
 
 APP_FILES = \
@@ -153,7 +159,8 @@ HRL_FILES= \
 	kernel_test_lib.hrl \
 	socket_test_evaluator.hrl \
 	socket_test_ttest.hrl \
-	socket_test_ttest_client.hrl
+	socket_test_ttest_client.hrl \
+	shell_test_lib.hrl
 
 EXTRA_FILES= $(ERL_TOP)/otp_versions.table
 

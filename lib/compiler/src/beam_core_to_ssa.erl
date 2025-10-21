@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2023-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2023-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -67,8 +69,7 @@
                 map/2,mapfoldl/3,member/2,
                 keyfind/3,keysort/2,last/1,
                 partition/2,reverse/1,reverse/2,
-                sort/1,sort/2,splitwith/2,
-                zip/2]).
+                sort/1,sort/2,splitwith/2]).
 -import(ordsets, [add_element/2,del_element/2,intersection/2,
                   subtract/2,union/2,union/1]).
 
@@ -94,7 +95,7 @@
 %% matching. (Construction of those term types is translated directly
 %% to SSA instructions.)
 
--record(cg_tuple, {es}).
+-record(cg_tuple, {es,keep=ordsets:new()}).
 -record(cg_map, {var=#b_literal{val=#{}},op,es}).
 -record(cg_map_pair, {key,val}).
 -record(cg_cons, {hd,tl}).
@@ -145,11 +146,12 @@ get_anno(#cg_select{anno=Anno}) -> Anno.
                fargs=[] :: [#b_var{}], %Arguments for current function
                vcount=0,               %Variable counter
                fcount=0,               %Fun counter
-               ds=sets:new([{version, 2}]) :: sets:set(), %Defined variables
+               ds=sets:new() :: sets:set(), %Defined variables
                funs=[],                         %Fun functions
                free=#{},                        %Free variables
                ws=[]   :: [warning()],          %Warnings.
-               no_min_max_bifs=false :: boolean()
+               no_min_max_bifs=false :: boolean(),
+               beam_debug_info=false :: boolean()
               }).
 
 -spec module(cerl:c_module(), [compile:option()]) ->
@@ -159,8 +161,10 @@ module(#c_module{name=#c_literal{val=Mod},exports=Es,attrs=As,defs=Fs}, Options)
     Kas = attributes(As),
     Kes = map(fun (#c_var{name={_,_}=Fname}) -> Fname end, Es),
     NoMinMaxBifs = proplists:get_bool(no_min_max_bifs, Options),
+    DebugInfo = proplists:get_bool(beam_debug_info, Options),
     St0 = #kern{module=Mod,
-                no_min_max_bifs=NoMinMaxBifs},
+                no_min_max_bifs=NoMinMaxBifs,
+                beam_debug_info=DebugInfo},
     {Kfs,St} = mapfoldl(fun function/2, St0, Fs),
     Body = Kfs ++ St#kern.funs,
     Code = #b_module{name=Mod,exports=Kes,attributes=Kas,body=Body},
@@ -169,8 +173,8 @@ module(#c_module{name=#c_literal{val=Mod},exports=Es,attrs=As,defs=Fs}, Options)
 -spec format_error(warning()) -> string() | binary().
 
 format_error({nomatch,{shadow,Line}}) ->
-    M = io_lib:format(<<"this clause cannot match because a previous clause at line ~p "
-                        "always matches">>, [Line]),
+    S = ~"this clause cannot match because a previous clause at line ~p matches the same pattern as this clause",
+    M = io_lib:format(S, [Line]),
     flatten(M);
 format_error({nomatch,shadow}) ->
     <<"this clause cannot match because a previous clause always matches">>;
@@ -199,12 +203,17 @@ include_attribute(file) -> false;
 include_attribute(compile) -> false;
 include_attribute(_) -> true.
 
-function({#c_var{name={F,Arity}=FA},Body}, St0) ->
+function({#c_var{anno=Anno,name={F,Arity}=FA},Body0}, St0) ->
     try
         %% Find a suitable starting value for the counter
         %% used for generating labels and variable names.
-        Count0 = cerl_trees:next_free_variable_name(Body),
+        Count0 = cerl_trees:next_free_variable_name(Body0),
         Count = max(?EXCEPTION_BLOCK + 1, Count0),
+
+        %% If this module is being compiled with `beam_debug_info`,
+        %% insert a special `debug_line` instruction as the
+        %% first instruction in this function.
+        Body = handle_debug_line(Anno, Body0),
 
         %% First pass: Basic translation.
         St1 = St0#kern{func=FA,vcount=Count,fcount=0},
@@ -217,12 +226,21 @@ function({#c_var{name={F,Arity}=FA},Body}, St0) ->
 
         %% Third pass: Translation to SSA code.
         FDef = make_ssa_function(Ab, F, Kvs, B1, St5),
+
         {FDef,St5}
     catch
         Class:Error:Stack ->
             io:fwrite("Function: ~w/~w\n", [F,Arity]),
             erlang:raise(Class, Error, Stack)
     end.
+
+handle_debug_line([{debug_line,{Location,Index}}], #c_fun{body=Body}=Fun) ->
+    DbgLine = #c_primop{anno=Location,
+                        name=#c_literal{val=debug_line},
+                        args=[#c_literal{val=Index}]},
+    Seq = #c_seq{arg=DbgLine,body=Body},
+    Fun#c_fun{body=Seq};
+handle_debug_line(_, Fun) -> Fun.
 
 %%%
 %%% First pass: Basic translation.
@@ -307,7 +325,9 @@ expr(#c_binary{anno=A,segments=Cv}, Sub, St0) ->
             Error = #c_call{anno=A,module=Erl,name=Name,args=Args},
             expr(Error, Sub, St1)
     end;
-expr(#c_fun{anno=A,vars=Cvs,body=Cb}, Sub0, #kern{fargs=OldFargs}=St0) ->
+expr(#c_fun{anno=A,vars=Cvs}=Fun, Sub0, #kern{fargs=OldFargs}=St0) ->
+    FilteredAnno = [Item || {debug_line,_}=Item <- A],
+    #c_fun{body=Cb} = handle_debug_line(FilteredAnno, Fun),
     {Kvs,Sub1,St1} = pattern_list(Cvs, Sub0, St0),
     {Kb,Pb,St2} = body(Cb, Sub1, St1#kern{fargs=Kvs}),
     {#ifun{anno=A,vars=Kvs,body=pre_seq(Pb, Kb)},[],St2#kern{fargs=OldFargs}};
@@ -321,7 +341,7 @@ expr(#c_let{vars=Cvs,arg=Ca,body=Cb}, Sub0, St0) ->
     %% Break known multiple values into separate sets.
     Sets = case Ka of
                #ivalues{args=Kas} ->
-                   [#iset{vars=[V],arg=Val} || {V,Val} <- zip(Kps, Kas)];
+                   [#iset{vars=[V],arg=Val} || V <- Kps && Val <- Kas];
                _Other ->
                    [#iset{vars=Kps,arg=Ka}]
            end,
@@ -369,6 +389,19 @@ expr(#c_call{anno=A,module=M0,name=F0,args=Cargs}, Sub, St0) ->
                            args=[M0,F0,cerl:make_list(Cargs)]},
             expr(Call, Sub, St)
     end;
+expr(#c_primop{anno=A0,name=#c_literal{val=debug_line},
+               args=Cargs}, Sub, St0) ->
+    {Args,Ap,St1} = atomic_list(Cargs, Sub, St0),
+    #b_set{anno=A1} = I0 = primop(debug_line, A0, Args),
+    {_,Alias0} = Sub,
+    %% Get rid of of useless mapping of variables to funs (in letrecs
+    %% and named funs).
+    RmKeys = [K || K := [{_,_}] <- Alias0],
+    Alias = maps:without(RmKeys, Alias0),
+    A = A1#{alias => Alias},
+    I = I0#b_set{anno=A},
+    St2 = St1#kern{beam_debug_info=true},
+    {I,Ap,St2};
 expr(#c_primop{anno=A,name=#c_literal{val=match_fail},args=[Arg]}, Sub, St) ->
     translate_match_fail(Arg, Sub, A, St);
 expr(#c_primop{anno=A,name=#c_literal{val=Op},args=Cargs}, Sub, St0) ->
@@ -410,12 +443,13 @@ primop_succeeded(Op, Anno0, Args) ->
 letrec_local_function(A, Cfs, Cb, Sub0, St0) ->
     %% Make new function names and store substitution.
     {Fs0,{Sub1,St1}} =
-        mapfoldl(fun ({#c_var{name={F,Ar}},#c_fun{}=B0}, {Sub,S0}) ->
+        mapfoldl(fun ({#c_var{name={F,Ar}},#c_fun{anno=Anno0}=B0}, {Sub,S0}) ->
                          {N,St1} = new_fun_name(atom_to_list(F)
                                                 ++ "/" ++
                                                     integer_to_list(Ar),
                                                 S0),
-                         B = B0#c_fun{anno=[{letrec_name,N}]},
+                         Anno = [{letrec_name,N} | [Dbg || {debug_line,_}=Dbg <- Anno0]],
+                         B = B0#c_fun{anno=Anno},
                          {{N,B},{set_fsub(F, Ar, N, Sub),St1}}
                  end, {Sub0,St0}, Cfs),
     %% Run translation on functions and body.
@@ -1451,7 +1485,7 @@ reorder_bin_ints(Cs0) ->
     %% * The patterns that follow are also safe to re-order.
     try
         Cs = sort([{reorder_bin_int_sort_key(C),C} || C <- Cs0]),
-        [C || {_,C} <- Cs]
+        [C || {_,C} <:- Cs]
     catch
         throw:not_possible ->
             Cs0
@@ -1502,12 +1536,46 @@ ensure_fixed_size(#cg_bin_end{}) ->
 %%  At this point all the clauses have the same constructor; we must
 %%  now separate them according to value.
 
+match_value(Us0, cg_map=T, Cs0, Def, St0) ->
+    {Cs1,St1} = remove_unreachable(Cs0, St0),
+    {Us1,Cs2,St2} = partition_intersection(Us0, Cs1, St1),
+    do_match_value(Us1, T, Cs2, Def, St2);
 match_value(Us0, T, Cs0, Def, St0) ->
-    {Us1,Cs1,St1} = partition_intersection(T, Us0, Cs0, St0),
-    UCss = group_value(T, Us1, Cs1),
-    mapfoldl(fun ({Us,Cs}, St) -> match_clause(Us, Cs, Def, St) end, St1, UCss).
+    do_match_value(Us0, T, Cs0, Def, St0).
 
-%% partition_intersection(Type, Us, [Clause], State) -> {Us,Cs,State}.
+do_match_value(Us0, T, Cs0, Def, St0) ->
+    UCss = group_value(T, Us0, Cs0),
+    mapfoldl(fun ({Us,Cs}, St) -> match_clause(Us, Cs, Def, St) end, St0, UCss).
+
+%% remove_unreachable([Clause], State) -> {[Clause],State}
+%%  Remove all clauses after a clause that will always match any
+%%  map.
+remove_unreachable([#iclause{anno=Anno,pats=Pats,guard=G}=C|Cs0], St0) ->
+    maybe
+        %% Will the first pattern match any map?
+        [#cg_map{es=[]}|Ps] ?= Pats,
+
+        %% Are all following pattern variables, which will always match?
+        true ?= all(fun(#b_var{}) -> true;
+                       (_) -> false
+                    end, Ps),
+
+        %% Will the guard always succeed?
+        #c_literal{val=true} ?= G,
+
+        %% This clause will always match. Warn and discard all clauses
+        %% that follow.
+        St1 = maybe_add_warning(Cs0, Anno, St0),
+        {[C],St1}
+    else
+        _ ->
+            {Cs,St} = remove_unreachable(Cs0, St0),
+            {[C|Cs],St}
+    end;
+remove_unreachable([], St0) ->
+    {[],St0}.
+
+%% partition_intersection(Us, [Clause], State) -> {Us,Cs,State}.
 %%  Partition a map into two maps with the most common keys to the
 %%  first map.
 %%
@@ -1528,19 +1596,19 @@ match_value(Us0, T, Cs0, Def, St0) ->
 %%  The intention is to group as many keys together as possible and
 %%  thus reduce the number of lookups to that key.
 
-partition_intersection(cg_map, [U|_]=Us, [_,_|_]=Cs0, St0) ->
+partition_intersection([U|_]=Us, [_,_|_]=Cs0, St0) ->
     Ps = [clause_val(C) || C <- Cs0],
     case find_key_intersection(Ps) of
         none ->
             {Us,Cs0,St0};
-        Ks ->
+        {ok, Ks} ->
             Cs1 = map(fun(#iclause{pats=[Arg|Args]}=C) ->
                               {Arg1,Arg2} = partition_keys(Arg, Ks),
                               C#iclause{pats=[Arg1,Arg2|Args]}
                       end, Cs0),
             {[U|Us],Cs1,St0}
     end;
-partition_intersection(_, Us, Cs, St) ->
+partition_intersection(Us, Cs, St) ->
     {Us,Cs,St}.
 
 partition_keys(#cg_map{es=Pairs}=Map, Ks) ->
@@ -1555,7 +1623,7 @@ partition_keys(#ialias{pat=Map}=Alias, Ks) ->
     {Map1,Alias#ialias{pat=Map2}}.
 
 find_key_intersection(Ps) ->
-    Sets = [sets:from_list(Ks, [{version, 2}]) || Ks <- Ps],
+    Sets = [sets:from_list(Ks) || Ks <- Ps],
     Intersection = sets:intersection(Sets),
     case sets:is_empty(Intersection) of
         true ->
@@ -1568,7 +1636,7 @@ find_key_intersection(Ps) ->
                     %% the keys could only make the code worse.
                     none;
                 false ->
-                    Intersection
+                    {ok, Intersection}
             end
     end.
 
@@ -1632,9 +1700,24 @@ get_match(#cg_bin_seg{}=Seg, St0) ->
 get_match(#cg_bin_int{}=BinInt, St0) ->
     {N,St1} = new_var(St0),
     {BinInt#cg_bin_int{next=N},[N],St1};
-get_match(#cg_tuple{es=Es}, St0) ->
+get_match(#cg_tuple{es=Es}, #kern{beam_debug_info=DebugInfo}=St0) ->
     {Mes,St1} = new_vars(length(Es), St0),
-    {#cg_tuple{es=Mes},Mes,St1};
+    Keep =
+        case DebugInfo of
+            true ->
+                %% Force extraction of all variables mentioned in the
+                %% original source to give them a chance to appear in
+                %% the debug information. This is a not guarantee that
+                %% they will appear, since they can be killed before
+                %% reaching a `debug_line` instruction.
+                Keep0 = [New ||
+                            #b_var{name=Old} <- Es && #b_var{name=New} <- Mes,
+                            beam_ssa_codegen:is_original_variable(Old)],
+                ordsets:from_list(Keep0);
+            false ->
+                []
+        end,
+    {#cg_tuple{es=Mes,keep=Keep},Mes,St1};
 get_match(#cg_map{op=exact,es=Es0}, St0) ->
     {Mes,St1} = new_vars(length(Es0), St0),
     {Es,_} = mapfoldl(fun(#cg_map_pair{}=Pair, [V|Vs]) ->
@@ -1658,7 +1741,7 @@ new_clauses(Cs, #b_var{name=U}) ->
                            #cg_bin_int{next=N} ->
                                [N|As];
                            #cg_map{op=exact,es=Es} ->
-                               Vals = [V || #cg_map_pair{val=V} <- Es],
+                               Vals = [V || #cg_map_pair{val=V} <:- Es],
                                Vals ++ As;
                            _Other ->
                                As
@@ -1768,7 +1851,7 @@ do_squeeze_clauses(Cs, Size, Count) when Count >= 16; Size =< 1 ->
     Cs;
 do_squeeze_clauses(Cs, Size, _Count) ->
     [C#iclause{pats=[squeeze_segments(P, Size)|Pats]} ||
-        #iclause{pats=[P|Pats]}=C <- Cs].
+        #iclause{pats=[P|Pats]}=C <:- Cs].
 
 squeeze_segments(BinSeg, Size) ->
     squeeze_segments(BinSeg, 0, 0, Size).
@@ -1885,7 +1968,7 @@ arg_val(Arg, C) ->
                          %% Literals will sort before variables
                          %% as intended.
                          erts_internal:cmp_term(A, B) < 0
-                 end, [Key || #cg_map_pair{key=Key} <- Es])
+                 end, [Key || #cg_map_pair{key=Key} <:- Es])
     end.
 
 %%%
@@ -2218,12 +2301,13 @@ umatch_list(Ms0, Br, St) ->
                   {[M1|Ms1],union(Mu, Us),Stb}
           end, {[],[],St}, Ms0).
 
-pat_mark_unused(#cg_tuple{es=Es0}=P, Used0, Ps) ->
+pat_mark_unused(#cg_tuple{es=Es0,keep=Keep}=P, Used0, Ps) ->
     %% Not extracting unused tuple elements is an optimization for
     %% compile time and memory use during compilation. It is probably
     %% worthwhile because it is common to extract only a few elements
     %% from a huge record.
-    Used = intersection(Used0, Ps),
+    Used1 = ordsets:union(Used0, Keep),
+    Used = intersection(Used1, Ps),
     Es = [case member(V, Used) of
               true -> Var;
               false -> #b_literal{val=unused}
@@ -2340,6 +2424,29 @@ cg(#b_set{op=copy,dst=#b_var{name=Dst},args=[Arg0]}, St0) ->
     Arg = ssa_arg(Arg0, St0),
     St = set_ssa_var(Dst, Arg, St0),
     {[],St};
+cg(#b_set{anno=Anno0,op=debug_line,args=Args0}=Set0, St) ->
+    Args = ssa_args(Args0, St),
+    Literals = [{Val,From} || From := #b_literal{val=Val} <- St#cg.vars],
+    Anno1 = Anno0#{literals => Literals},
+    NewAlias = [{To,From} || From := #b_var{name=To} <- St#cg.vars],
+    case NewAlias of
+        [_|_] ->
+            Alias0 = maps:get(alias, Anno0, #{}),
+            Alias1 = foldl(fun({To,From}, A) ->
+                                   case A of
+                                       #{To := Vars0} ->
+                                           Vars1 = ordsets:add_element(From, Vars0),
+                                           A#{To := Vars1};
+                                       #{} ->
+                                           A#{To => [From]}
+                                   end
+                           end, Alias0, NewAlias),
+            Anno = Anno1#{alias => Alias1},
+            Set = Set0#b_set{anno=Anno,args=Args},
+            {[Set],St};
+        [] ->
+            {[Set0#b_set{anno=Anno1,args=Args}],St}
+    end;
 cg(#b_set{args=Args0}=Set0, St) ->
     Args = ssa_args(Args0, St),
     Set = Set0#b_set{args=Args},
@@ -2401,8 +2508,10 @@ cg(#cg_opaque{val=Check}, St) ->
 match_cg(#cg_alt{first=F,then=S}, Fail, St0) ->
     {Tf,St1} = new_label(St0),
     {Fis,St2} = match_cg(F, Tf, St1),
-    {Sis,St3} = match_cg(S, Fail, St2),
-    {Fis ++ [{label,Tf}] ++ Sis,St3};
+    St3 = restore_vars(St1, St2),
+    {Sis,St4} = match_cg(S, Fail, St3),
+    St5 = restore_vars(St3, St4),
+    {Fis ++ [{label,Tf}] ++ Sis,St5};
 match_cg(#cg_select{var=#b_var{}=Src0,types=Scs}, Fail, St) ->
     Src = ssa_arg(Src0, St),
     match_fmf(fun (#cg_type_clause{type=Type,values=Vs}, F, Sta) ->
@@ -2443,7 +2552,8 @@ select_cg(Type, Scs, Var, Tf, Vf, St0) ->
     {Vis,St1} =
         mapfoldl(fun (S, Sta) ->
                          {Val,Is,Stb} = select_val(S, Var, Vf, Sta),
-                         {{Is,[Val]},Stb}
+                         Stc = restore_vars(Sta, Stb),
+                         {{Is,[Val]},Stc}
                  end, St0, Scs),
     OptVls = combine(lists:sort(combine(Vis))),
     {Vls,Sis,St2} = select_labels(OptVls, St1, [], []),
@@ -2489,8 +2599,14 @@ select_val_cg(Type, R, Vls, Tf, Vf, Sis, St0) ->
             {TypeIs++[#b_switch{arg=R,fail=Vf,list=Vls}|Sis],St1}
     end.
 
-combine([{Is,Vs1},{Is,Vs2}|Vis]) -> combine([{Is,Vs1 ++ Vs2}|Vis]);
-combine([V|Vis]) -> [V|combine(Vis)];
+
+combine([V|Vis0]) ->
+    case {V, combine(Vis0)} of
+        {{Is,Vs1}, [{Is,Vs2}|Vis]} ->
+            [{Is,Vs1 ++ Vs2}|Vis];
+        {_,Vis} ->
+            [V|Vis]
+    end;
 combine([]) -> [].
 
 select_labels([{Is,Vs}|Vis], St0, Vls, Sis) ->
@@ -2726,6 +2842,10 @@ guard_cg(#cg_seq{arg=Arg,body=Body}, Fail, St0) ->
     {ArgIs,St1} = guard_cg(Arg, Fail, St0),
     {BodyIs,St} = guard_cg(Body, Fail, St1),
     {ArgIs++BodyIs,St};
+guard_cg(#cg_succeeded{set=Set0}, Fail, St0) ->
+    {[#b_set{dst=Dst}=Set],St1} = cg(Set0, St0),
+    {Is,St} = make_succeeded(Dst, {guard, Fail}, St1),
+    {[Set|Is],St};
 guard_cg(G, _Fail, St) ->
     cg(G, St).
 
@@ -2752,13 +2872,25 @@ test_cg(Test, Inverted, As0, Fail, St0) ->
 %%  an externally generated failure label, LastFail.  N.B. We do not
 %%  know or care how the failure labels are used.
 
-match_fmf(F, LastFail, St, [H]) ->
-    F(H, LastFail, St);
+match_fmf(F, LastFail, St0, [H]) ->
+    {R,St1} = F(H, LastFail, St0),
+    {R,restore_vars(St0, St1)};
 match_fmf(F, LastFail, St0, [H|T]) ->
     {Fail,St1} = new_label(St0),
     {R,St2} = F(H, Fail, St1),
-    {Rs,St3} = match_fmf(F, LastFail, St2, T),
-    {R ++ [{label,Fail}] ++ Rs,St3}.
+    St3 = restore_vars(St1, St2),
+    {Rs,St4} = match_fmf(F, LastFail, St3, T),
+    {R ++ [{label,Fail}] ++ Rs,St4}.
+
+%% restore_vars(PreviousState, CurrentSt) -> UpdatedCurrentState.
+%%  Restore variables to their previous state. When exiting a scope,
+%%  any substitutions that are no longer applicable will be
+%%  discarded. More importantly, when generating BEAM debug
+%%  information, variables bound to literal values will only appear in
+%%  `debug_line` instructions if they are still in scope.
+
+restore_vars(St0, St) ->
+    St#cg{vars=St0#cg.vars}.
 
 %% fail_context(State) -> {body | guard, FailureLabel}.
 %%  Return an indication of which part of a function code is

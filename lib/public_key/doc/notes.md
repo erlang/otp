@@ -1,6 +1,8 @@
 <!--
 %CopyrightBegin%
 
+SPDX-License-Identifier: Apache-2.0
+
 Copyright Ericsson AB 2023-2025. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,6 +20,111 @@ limitations under the License.
 %CopyrightEnd%
 -->
 # Public_Key Release Notes
+
+## Public_Key 1.18.3
+
+### Fixed Bugs and Malfunctions
+
+- NIFs and linked-in drivers are now loadable when running in an Erlang source tree on Windows.
+
+  Own Id: OTP-19686 Aux Id: [PR-9969]
+
+- Added missing reference to `SignedAttributes` so that it now works with the `der_encode` and `der_decode` functions.
+
+  Own Id: OTP-19727 Aux Id: [PR-10091]
+
+[PR-9969]: https://github.com/erlang/otp/pull/9969
+[PR-10091]: https://github.com/erlang/otp/pull/10091
+
+### Improvements and New Features
+
+- Added support for quantum crypto signature algorithm ML-DSA (ssl and public_key) and key exchange algorithm ML-KEM (ssl).
+
+  Own Id: OTP-19552 Aux Id: [PR-10004]
+
+[PR-10004]: https://github.com/erlang/otp/pull/10004
+
+## Public_Key 1.18.2
+
+### Fixed Bugs and Malfunctions
+
+- Adjustments in include file to retain compatibility with supported ASN-1 standards, although not all record and macros are explicitly documented.
+
+  Own Id: OTP-19678 Aux Id: [PR-10008], [PR-9955], [GH-10001]
+
+- Handle certificates that are signed with RSASSA-PSS but the PSS params are specified in the 'SignatureAlgorithm' of the signed cert and not in the signer's 'SubjectPublicKeyInfo'.
+
+  Own Id: OTP-19699 Aux Id: [GH-9632], [PR-10023]
+
+- Add modern ASN-1 specs to be able to retain support for ExtensionRequest from legacy PKCS-9 spec.
+
+  Own Id: OTP-19703 Aux Id: [GH-10028], [PR-10031]
+
+[PR-10008]: https://github.com/erlang/otp/pull/10008
+[PR-9955]: https://github.com/erlang/otp/pull/9955
+[GH-10001]: https://github.com/erlang/otp/issues/10001
+[GH-9632]: https://github.com/erlang/otp/issues/9632
+[PR-10023]: https://github.com/erlang/otp/pull/10023
+[GH-10028]: https://github.com/erlang/otp/issues/10028
+[PR-10031]: https://github.com/erlang/otp/pull/10031
+
+## Public_Key 1.18.1
+
+### Fixed Bugs and Malfunctions
+
+- Add back some ASN-1 macros and definitions that should be included in API.
+
+  Own Id: OTP-19644 Aux Id: [PR-9880]
+
+[PR-9880]: https://github.com/erlang/otp/pull/9880
+
+## Public_Key 1.18
+
+### Fixed Bugs and Malfunctions
+
+- Enable public_key to decode legacy certs using md2 hash.
+
+  Own Id: OTP-19616 Aux Id: [PR-9755], [GH-9754]
+
+[PR-9755]: https://github.com/erlang/otp/pull/9755
+[GH-9754]: https://github.com/erlang/otp/issues/9754
+
+### Improvements and New Features
+
+- When compiling C/C++ code on Unix systems, the compiler hardening flags suggested by the [Open Source Security Foundation](https://github.com/ossf/wg-best-practices-os-developers/blob/main/docs/Compiler-Hardening-Guides/Compiler-Options-Hardening-Guide-for-C-and-C%2B%2B.md) are now enabled by default. To disable them, pass `--disable-security-hardening-flags` to `configure`.
+
+  Own Id: OTP-19519 Aux Id: [PR-9441]
+
+- Ignore instead of crashing unhandled entries when loading CA-certificates.
+
+  Own Id: OTP-19573 Aux Id: [GH-9565], [PR-9677]
+
+- The license and copyright header has changed format to include an `SPDX-License-Identifier`. At the same time, most files have been updated to follow a uniform standard for license headers.
+
+  Own Id: OTP-19575 Aux Id: [PR-9670]
+
+- The ancient ASN.1 modules used in `public_key` has been replaced with more modern versions, but we have strived to keep the documented Erlang API for the `public_key` application compatible.
+
+  *** POTENTIAL INCOMPATIBILITY ***
+
+  Own Id: OTP-19612 Aux Id: [PR-9774]
+
+[PR-9441]: https://github.com/erlang/otp/pull/9441
+[GH-9565]: https://github.com/erlang/otp/issues/9565
+[PR-9677]: https://github.com/erlang/otp/pull/9677
+[PR-9670]: https://github.com/erlang/otp/pull/9670
+[PR-9774]: https://github.com/erlang/otp/pull/9774
+
+## Public_Key 1.17.1.1
+
+### Fixed Bugs and Malfunctions
+
+- Handle certificates that are signed with RSASSA-PSS but the PSS params are specified in the 'SignatureAlgorithm' of the signed cert and not in the signer's 'SubjectPublicKeyInfo'.
+
+  Own Id: OTP-19699 Aux Id: [GH-9632], [PR-10023]
+
+[GH-9632]: https://github.com/erlang/otp/issues/9632
+[PR-10023]: https://github.com/erlang/otp/pull/10023
 
 ## Public_Key 1.17.1
 
@@ -172,6 +279,14 @@ limitations under the License.
 [PR-7475]: https://github.com/erlang/otp/pull/7475
 [PR-8026]: https://github.com/erlang/otp/pull/8026
 [PR-8233]: https://github.com/erlang/otp/pull/8233
+
+## Public_Key 1.15.1.6
+
+### Fixed Bugs and Malfunctions
+
+* Handle certificates that are signed with RSASSA-PSS but the PSS params are specified in the 'SignatureAlgorithm' of the signed cert and not in the signer's 'SubjectPublicKeyInfo'.
+
+  Own Id: OTP-19699 Aux Id: GH-9632, PR-10023
 
 ## Public_Key 1.15.1.5
 

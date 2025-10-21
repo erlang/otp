@@ -1,6 +1,8 @@
 %%
 %% %CopyrightBegin%
 %%
+%% SPDX-License-Identifier: Apache-2.0
+%%
 %% Copyright Ericsson AB 2008-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,8 +22,6 @@
 
 -module(pubkey_cert).
 -moduledoc false.
-
--include("public_key.hrl").
 
 %% path validation
 -export([init_validation_state/3,
@@ -47,7 +47,8 @@
          match_name/3,
 	 extensions_list/1,
          cert_auth_key_id/1,
-         time_str_2_gregorian_sec/1
+         time_str_2_gregorian_sec/1,
+         mldsa_algo_to_oid/1
         ]).
 
 %% Generate test data
@@ -55,7 +56,7 @@
          x509_pkix_sign_types/1,
          root_cert/2]).
 
--define(NULL, 0).
+-include("public_key_internal.hrl").
 
 %%====================================================================
 %% Internal application APIs
@@ -258,9 +259,10 @@ validate_names(Cert, Permit, Exclude, Last, UserState, VerifyFun) ->
 %% working_public_key_algorithm, the working_public_key, and
 %% the working_public_key_parameters in path_validation_state.
 %%--------------------------------------------------------------------
-validate_signature(Cert, DerCert, Key, KeyParams,
+validate_signature(Cert, DerCert, Key, KeyParams0,
 		   UserState, VerifyFun) ->
     OtpCert = otp_cert(Cert),
+    KeyParams = key_params(OtpCert#'OTPCertificate'.tbsCertificate, KeyParams0),
     case verify_signature(OtpCert, DerCert, Key, KeyParams) of
 	true ->
 	    UserState;
@@ -673,11 +675,11 @@ x509_pkix_sign_types(#'SignatureAlgorithm'{algorithm = Alg}) ->
 %% Description: Generate a self-signed root cert
 %%%%--------------------------------------------------------------------
 root_cert(Name, Opts) ->
-    PrivKey = gen_key(proplists:get_value(key, Opts, default_key_gen())),
+    {SPubkeyInfo, PrivKey} = key_info(Opts),
+
     TBS = cert_template(),
     Issuer = subject("root", Name),
     SignatureId =  sign_algorithm(PrivKey, Opts),
-    SPI = public_key(PrivKey, SignatureId),
 
     OTPTBS =
         TBS#'OTPTBSCertificate'{
@@ -685,7 +687,7 @@ root_cert(Name, Opts) ->
           issuer = Issuer,
           validity = validity(Opts),
           subject = Issuer,
-          subjectPublicKeyInfo = SPI,
+          subjectPublicKeyInfo = SPubkeyInfo,
           extensions = extensions(undefined, ca, Opts)
          },
     #{cert => public_key:pkix_sign(OTPTBS, PrivKey),
@@ -1439,7 +1441,7 @@ is_dir_name([[{'AttributeTypeAndValue', Type, What1}]|Rest1],
     end;
 is_dir_name(_,[],false) ->
     true;
-is_dir_name(_,_,_) ->
+is_dir_name(_A,_B,_) ->
     false.
 
 %% attribute values in types other than PrintableString are case
@@ -1730,6 +1732,8 @@ verify_signature(OtpCert, DerCert, Key, KeyParams) ->
                     public_key:verify(PlainText, DigestType, Signature, Key,
                                       verify_options(KeyParams));
                 'NULL' ->
+                    public_key:verify(PlainText, DigestType, Signature, Key);
+                asn1_NOVALUE ->
                     public_key:verify(PlainText, DigestType, Signature, Key)
             end;
 	_ ->
@@ -1737,10 +1741,9 @@ verify_signature(OtpCert, DerCert, Key, KeyParams) ->
     end.
 
 encoded_tbs_cert(Cert) ->
-    {ok, PKIXCert} =
-	'OTP-PUB-KEY':decode_TBSCert_exclusive(Cert),
-    {'Certificate',
-     {'Certificate_tbsCertificate', EncodedTBSCert}, _, _} = PKIXCert,
+    {ok, PKIXCert} = 'OTP-PKIX':decode_TBSCert_exclusive(Cert),
+    {'OTPCertificate',
+     {'OTPCertificate_tbsCertificate', EncodedTBSCert}, _, _} = PKIXCert,
     EncodedTBSCert.
 
 public_key_info(PublicKeyInfo,
@@ -1748,8 +1751,8 @@ public_key_info(PublicKeyInfo,
 				       WorkingAlgorithm,
 				       working_public_key_parameters =
 				       WorkingParams}) ->
-    PublicKey = PublicKeyInfo#'OTPSubjectPublicKeyInfo'.subjectPublicKey,
-    AlgInfo = PublicKeyInfo#'OTPSubjectPublicKeyInfo'.algorithm,
+    #'OTPSubjectPublicKeyInfo'{subjectPublicKey=PublicKey,
+                               algorithm=AlgInfo} = PublicKeyInfo,
 
     PublicKeyParams = AlgInfo#'PublicKeyAlgorithm'.parameters,
     Algorithm = AlgInfo#'PublicKeyAlgorithm'.algorithm,
@@ -1977,10 +1980,10 @@ sign_algorithm(#'RSAPrivateKey'{} = Key , Opts) ->
       case proplists:get_value(rsa_padding, Opts, rsa_pkcs1_pss_padding) of
         rsa_pkcs1_pss_padding ->
             DigestId = rsa_digest_oid(proplists:get_value(digest, Opts, sha1)),
-            rsa_sign_algo(Key, DigestId, 'NULL');
+            rsa_sign_algo(Key, DigestId, asn1_NOVALUE);
         rsa_pss_rsae ->
             DigestId = rsa_digest_oid(proplists:get_value(digest, Opts, sha256)),
-            rsa_sign_algo(Key, DigestId, 'NULL')
+            rsa_sign_algo(Key, DigestId, asn1_NOVALUE)
       end;
 sign_algorithm({#'RSAPrivateKey'{} = Key,#'RSASSA-PSS-params'{} = Params}, _Opts) ->
     rsa_sign_algo(Key, ?'id-RSASSA-PSS', Params);
@@ -1996,7 +1999,17 @@ sign_algorithm(#'ECPrivateKey'{parameters = {namedCurve, EDCurve}}, _Opts)
 sign_algorithm(#'ECPrivateKey'{parameters = Parms}, Opts) ->
     Type = ecdsa_digest_oid(proplists:get_value(digest, Opts, sha1)),
     #'SignatureAlgorithm'{algorithm  = Type,
-                          parameters = Parms}.
+                          parameters = Parms};
+sign_algorithm(#'ML-DSAPrivateKey'{algorithm = Algo}, _) ->
+    #'SignatureAlgorithm'{algorithm  = mldsa_algo_to_oid(Algo),
+                          parameters = asn1_NOVALUE}.
+
+mldsa_algo_to_oid(mldsa44) ->
+    ?'id-ml-dsa-44';
+mldsa_algo_to_oid(mldsa65) ->
+    ?'id-ml-dsa-65';
+mldsa_algo_to_oid(mldsa87) ->
+    ?'id-ml-dsa-87'.
 
 rsa_sign_algo(#'RSAPrivateKey'{}, ?'id-RSASSA-PSS' = Type,  #'RSASSA-PSS-params'{} = Params) ->
     #'SignatureAlgorithm'{algorithm  = Type,
@@ -2040,29 +2053,29 @@ cert_chain(Role, Root, RootKey, Opts) ->
     cert_chain(Role, Root, RootKey, Opts, 0, []).
 
 cert_chain(Role, IssuerCert, IssuerKey, [PeerOpts], _, Acc) ->
-    Key = gen_key(proplists:get_value(key, PeerOpts, default_key_gen())),
+    {SPubKeyInfo, PrivKey} = key_info(PeerOpts),
     Cert = cert(Role, public_key:pkix_decode_cert(IssuerCert, otp),
-                IssuerKey, Key, "admin", " Peer cert", PeerOpts, peer),
-    [{Cert, encode_key(Key)}, {IssuerCert, encode_key(IssuerKey)} | Acc];
+                IssuerKey, SPubKeyInfo, PrivKey, "admin", " Peer cert", PeerOpts, peer),
+    [{Cert, encode_key(PrivKey)}, {IssuerCert, encode_key(IssuerKey)} | Acc];
 cert_chain(Role, IssuerCert, IssuerKey, [CAOpts | Rest], N, Acc) ->
-    Key = gen_key(proplists:get_value(key, CAOpts, default_key_gen())),
-    Cert = cert(Role, public_key:pkix_decode_cert(IssuerCert, otp), IssuerKey, Key, "webadmin",
+    {SPubKeyInfo, PrivKey} = key_info(CAOpts),
+    Cert = cert(Role, public_key:pkix_decode_cert(IssuerCert, otp), IssuerKey, SPubKeyInfo, PrivKey, "webadmin",
                 " Intermediate CA " ++ integer_to_list(N), CAOpts, ca),
-    cert_chain(Role, Cert, Key, Rest, N+1, [{IssuerCert, encode_key(IssuerKey)} | Acc]).
+    cert_chain(Role, Cert, PrivKey, Rest, N+1, [{IssuerCert, encode_key(IssuerKey)} | Acc]).
 
 cert(Role, #'OTPCertificate'{tbsCertificate = #'OTPTBSCertificate'{subject = Issuer}},
-     PrivKey, Key, Contact, Name, Opts, Type) ->
+     IssuerKey, SPubKeyInfo, _PrivKey, Contact, Name, Opts, Type) ->
     TBS = cert_template(),
-    SignAlgoId = sign_algorithm(PrivKey, Opts),
+    SignAlgoId = sign_algorithm(IssuerKey, Opts),
     OTPTBS = TBS#'OTPTBSCertificate'{
                signature = SignAlgoId,
                issuer =  Issuer,
                validity = validity(Opts),
                subject = subject(Contact, atom_to_list(Role) ++ Name),
-               subjectPublicKeyInfo = public_key(Key, SignAlgoId),
+               subjectPublicKeyInfo = SPubKeyInfo,
                extensions = extensions(Role, Type, Opts)
               },
-    public_key:pkix_sign(OTPTBS, PrivKey).
+    public_key:pkix_sign(OTPTBS, IssuerKey).
 
 ca_config(Root, CAsKeys) ->
     [Root | [CA || {CA, _}  <- CAsKeys]].
@@ -2076,6 +2089,10 @@ default_key_gen() ->
             {namedCurve, Oid}
     end.
 
+public_key({pub, PubKey}, #'SignatureAlgorithm'{algorithm = SignAlgoId}) ->
+    Algo = #'PublicKeyAlgorithm'{algorithm = SignAlgoId, parameters=asn1_NOVALUE},
+    #'OTPSubjectPublicKeyInfo'{algorithm = Algo,
+                               subjectPublicKey = PubKey};
 public_key(#'RSAPrivateKey'{modulus=N, publicExponent=E},
            #'SignatureAlgorithm'{algorithm  = ?rsaEncryption,
                                  parameters = #'RSASSA-PSS-params'{} = Params}) ->
@@ -2092,7 +2109,7 @@ public_key({#'RSAPrivateKey'{modulus=N, publicExponent=E}, #'RSASSA-PSS-params'{
 			       subjectPublicKey = Public};
 public_key(#'RSAPrivateKey'{modulus=N, publicExponent=E}, _) ->
     Public = #'RSAPublicKey'{modulus=N, publicExponent=E},
-    Algo = #'PublicKeyAlgorithm'{algorithm= ?rsaEncryption, parameters='NULL'},
+    Algo = #'PublicKeyAlgorithm'{algorithm= ?rsaEncryption, parameters=asn1_NOVALUE},
     #'OTPSubjectPublicKeyInfo'{algorithm = Algo,
 			       subjectPublicKey = Public};
 public_key(#'DSAPrivateKey'{p=P, q=Q, g=G, y=Y}, _) ->
@@ -2162,6 +2179,22 @@ add_default_extensions(Defaults0, Exts) ->
                                end, Defaults0),
     Exts ++ Defaults.
 
+key_info(Opts) ->
+    case proplists:get_value(key, Opts, default_key_gen()) of
+        {both, PubKey0, PrivKey0} ->
+            SignatureId = sign_algorithm(PrivKey0, Opts),
+            SPubKey = public_key({pub, PubKey0}, SignatureId),
+            {SPubKey, PrivKey0};
+        KeyInfo ->
+            PrivKeyGen = gen_key(KeyInfo),
+            SignatureIdGen = sign_algorithm(PrivKeyGen, Opts),
+            SPubKeyGen = public_key(PrivKeyGen, SignatureIdGen),
+            {SPubKeyGen, PrivKeyGen}
+    end.
+
+encode_key(#'ML-DSAPrivateKey'{} = Key) ->
+    {Asn1Type, DER, _} = public_key:pem_entry_encode('PrivateKeyInfo', Key),
+    {Asn1Type, DER};
 encode_key({#'RSAPrivateKey'{}, #'RSASSA-PSS-params'{}} = Key) ->
     {Asn1Type, DER, _} = public_key:pem_entry_encode('PrivateKeyInfo', Key),
     {Asn1Type, DER};
@@ -2194,3 +2227,16 @@ otp_cert(#'OTPCertificate'{} = Cert) ->
     Cert;
 otp_cert(#cert{otp = OtpCert}) ->
     OtpCert.
+
+key_params(#'OTPTBSCertificate'{signature =
+                                    #'SignatureAlgorithm'{algorithm =
+                                                              ?'id-RSASSA-PSS',
+                                                          parameters = KeyParams}},
+           KeyParams0) when KeyParams0 == asn1_NOVALUE;
+                            KeyParams0 == 'NULL' ->
+    %% Sometimes parameters may be missing in issuer's
+    %% "SubjectPublicKeyInfo" but included in the certs
+    %% "SignatureAlgorithm" for RSA PSS signatures.
+    KeyParams;
+key_params(_, KeyParams) ->
+    KeyParams.

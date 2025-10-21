@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2025. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -386,9 +388,9 @@ terminated before the child specification is changed and the module is deleted.
 
 ## Adding or Deleting a Module
 
-_Example
+_Example_
 
-_ A new functional module `m` is added to `ch_app`:
+A new functional module `m` is added to `ch_app`:
 
 ```erlang
 {"2",

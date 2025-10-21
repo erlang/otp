@@ -1,6 +1,8 @@
 %%
 %% %CopyrightBegin%
 %%
+%% SPDX-License-Identifier: Apache-2.0
+%%
 %% Copyright Ericsson AB 2022-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
@@ -31,7 +33,7 @@
 
 
 % gen_statem state help functions
--export([initial_state/8,
+-export([initial_state/9,
          user_hello/3,
          wait_cert/3,
          wait_cv/3,
@@ -54,7 +56,7 @@
 %%--------------------------------------------------------------------
 %%  Internal API 
 %%--------------------------------------------------------------------
-initial_state(Role, Sender, Host, Port, Socket,
+initial_state(Role, Sender, Tab, Host, Port, Socket,
               {SSLOptions, SocketOptions, Trackers}, User,
 	      {CbModule, DataTag, CloseTag, ErrorTag, PassiveTag}) ->
     put(log_level, maps:get(log_level, SSLOptions)),
@@ -66,8 +68,13 @@ initial_state(Role, Sender, Host, Port, Socket,
                                                          disabled,
                                                          MaxEarlyDataSize),
     UserMonitor = erlang:monitor(process, User),
+    SslSocket = tls_socket:socket([self(),Sender], CbModule, Socket, tls_gen_connection, Tab, Trackers),
+
+    true = ets:insert(Tab, {{socket_options, packet}, SocketOptions#socket_options.packet}),
+
     InitStatEnv = #static_env{
                      role = Role,
+                     user_socket = SslSocket,
                      transport_cb = CbModule,
                      protocol_cb = tls_gen_connection,
                      data_tag = DataTag,
@@ -80,6 +87,7 @@ initial_state(Role, Sender, Host, Port, Socket,
                      trackers = Trackers
                     },
     #state{
+       tab = Tab,
        static_env = InitStatEnv,
        handshake_env = #handshake_env{
                           tls_handshake_history =
@@ -151,10 +159,9 @@ connection(internal, #new_session_ticket{} = NewSessionTicket, State) ->
     tls_gen_connection:next_event(?STATE(connection), no_record, State);
 
 connection(internal, #key_update{} = KeyUpdate, #state{static_env = #static_env{role = Role},
-                                                       ssl_options = SslOpts,
-                                                       protocol_specific = PS} = State0) ->
+                                                       ssl_options = SslOpts} = State0) ->
     case handle_key_update(KeyUpdate, State0) of
-        {ok, #state{connection_states = ConnectionStates} = State} ->
+        {ok, #state{connection_states = ConnectionStates, protocol_specific = PS} = State} ->
             Keep = maps:get(keep_secrets, SslOpts, false),
             N = maps:get(num_key_updates, PS, 0),
             maybe_traffic_keylog_1_3(Keep, Role, ConnectionStates, N),
@@ -318,20 +325,17 @@ update_cipher_key(ConnStateName, CS0) ->
       cipher_state := CipherState0} = ConnState0 = maps:get(ConnStateName, CS0),
     HKDF = SecParams0#security_parameters.prf_algorithm,
     CipherSuite = SecParams0#security_parameters.cipher_suite,
-    ApplicationTrafficSecret0 =
-        SecParams0#security_parameters.application_traffic_secret,
-    ApplicationTrafficSecret =
-        tls_v1:update_traffic_secret(HKDF,
-                                     ApplicationTrafficSecret0),
+    ApplicationTrafficSecret0 = SecParams0#security_parameters.application_traffic_secret,
+    ApplicationTrafficSecret = tls_v1:update_traffic_secret(HKDF,ApplicationTrafficSecret0),
 
     %% Calculate traffic keys
     KeyLength = tls_v1:key_length(CipherSuite),
-    {Key, IV} = tls_v1:calculate_traffic_keys(HKDF, KeyLength,
-                                              ApplicationTrafficSecret),
+    {Key, IV} = tls_v1:calculate_traffic_keys(HKDF, KeyLength, ApplicationTrafficSecret),
 
     SecParams = SecParams0#security_parameters{application_traffic_secret = ApplicationTrafficSecret},
     CipherState = CipherState0#cipher_state{key = Key, iv = IV},
-    ConnState = ConnState0#{security_parameters => SecParams,
+    ConnState1 = maps:remove(aead_handle, ConnState0),
+    ConnState = ConnState1#{security_parameters => SecParams,
                             cipher_state => CipherState,
                             sequence_number => 0},
     CS0#{ConnStateName => ConnState}.

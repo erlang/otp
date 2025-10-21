@@ -1,4 +1,26 @@
-The beam\_makeops script
+<!--
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2017-2025. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%%
+%% %CopyrightEnd%
+-->
+
+The beam_makeops script
 =======================
 
 This document describes the **beam\_makeops** script.
@@ -388,7 +410,7 @@ used by `beam_load.c` but also by `beam_{hot,warm,cold}.h`.
 For the traditional BEAM interpreter, the following files are also
 generated:
 
-* `beam_hot.h`, `beam_warm.h`, `beam_cold.`h - Implementation of
+* `beam_hot.h`, `beam_warm.h`, `beam_cold.h` - Implementation of
 instructions.  Included inside the `process_main()` function in
 `beam_emu.c`.
 
@@ -891,10 +913,16 @@ a variable must begin with an uppercase letter.  In constrast to Erlang,
 variables must **not** be repeated.
 
 Variables that have been bound on the left-hand side can be used on
-the right-hand side.  For example, this rule will rewrite all `move`
-instructions to `assign` instructions with the operands swapped:
+the right-hand side or in predicates.  For example, this rule will rewrite all
+`move` instructions to `assign` instructions with the operands swapped:
 
     move Src Dst => assign Dst Src
+
+To help catch issues caused by unused variables (such as GH-8875), they are
+considered errors. If you wish to give an operand a name for documentation
+purposes, prefix it with an underscore (`_Foobar`) to mark the variable as
+intentionally unused. Conversely, using a variable marked in this manner is
+also an error.
 
 If we only want to match operands of a certain type, we can
 use a type constraint.  A type constraint consists of one or more

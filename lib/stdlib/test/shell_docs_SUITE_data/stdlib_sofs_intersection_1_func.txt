@@ -1,3 +1,10 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
 [;1m  intersection(SetOfSets)[0m
 
@@ -5,3 +12,17 @@
 
   Intersecting an empty set of sets exits the process with a [;;4mbadarg[0m
   message.
+
+[;1mExamples[0m
+
+    1> S1 = sofs:set([a,b,c]).
+    2> S2 = sofs:set([b,c,d,e]).
+    3> S3 = sofs:set([a,b,c,d]).
+    4> S4 = sofs:from_sets([S1,S2,S3]).
+    5> S5 = sofs:intersection(S4).
+    6> sofs:to_external(S5).
+    [b,c]
+    7> S6 = sofs:from_sets([]).
+    8> sofs:intersection(S6).
+    ** exception error: bad argument
+         in function  sofs:intersection/1

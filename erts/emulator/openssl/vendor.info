@@ -1,0 +1,26 @@
+// %CopyrightBegin%
+//
+// SPDX-License-Identifier: Apache-2.0
+//
+// Copyright Ericsson AB 2025. All Rights Reserved.
+//
+// %CopyrightEnd%
+[
+  {
+    "ID": "erts-openssl",
+    "description": "Openssl MD5 implementation in ERTS",
+    "copyrightText": "Copyright 1995-2022 The OpenSSL Project Authors. All Rights Reserved.",
+    "downloadLocation": "https://github.com/openssl/openssl",
+    "homepage": "https://www.openssl.org/",
+    "licenseDeclared": "Apache-2.0",
+    "name": "openssl",
+    "versionInfo": "3.5",
+    "sha": "636dfadc70ce26f2473870570bfd9ec352806b1d",
+    "path": "./erts/emulator/openssl",
+    "exclude": ["./erts/emulator/openssl/vendor.info",
+                "./erts/emulator/openssl/README",
+                "./erts/emulator/openssl/openssl.mk"],
+    "supplier": "Organization: OpenSSL Mission",
+    "purl": "pkg:generic/openssl"
+  }
+]

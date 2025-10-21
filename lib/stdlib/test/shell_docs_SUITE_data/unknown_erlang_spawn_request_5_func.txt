@@ -1,3 +1,10 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
 [;1m  spawn_request(Node, Module, Function, Args, Options)[0m
 
@@ -9,7 +16,7 @@
 
   If the spawn operation succeeds, a new process is created on the
   node identified by [;;4mNode[0m. When a spawn operation succeeds, the
-  caller will by default be sent a message on the form [;;4m{ReplyTag,[0m
+  caller will by default be sent a message of the form [;;4m{ReplyTag,[0m
   [;;4mReqId, ok, Pid}[0m where [;;4mPid[0m is the process identifier of the
   newly created process. Such a message is referred to as a success
   message below in the text. [;;4mReplyTag[0m is by default the atom [;;4m[0m

@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2010-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -2356,11 +2358,7 @@ map_info(_, T, _) ->
 bins_sum(L, true = _BinsInfo) ->
     {0, bins_sum2(L, dict:new())};
 bins_sum(L, BinsInfo) when is_integer(BinsInfo) ->
-    bins_sum3(L, BinsInfo, dict:new());
-bins_sum(_, _) ->
-    %% We should actually not get here, but just in case
-    %% we have a logic error somewhere...
-    dict:new().
+    bins_sum3(L, BinsInfo, dict:new()).
 
 bins_sum2([], D) ->
     D;

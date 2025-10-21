@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2010-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -85,16 +87,17 @@ normal(Config) when is_list(Config) ->
     {yes,"test:",[]} = do_expand("expand_"),
     {no, [], []} = do_expand("expandXX_"),
     {no,[],[#{
-               title:="functions",
+               title:="Functions",
                elems:=[{"a_fun_name",[{ending,"("}]},
                         {"a_less_fun_name",_},
                         {"b_comes_after_a",_},
                         {"expand0arity_entirely",_},
                         {"module_info",_}]
               }]} = do_expand("expand_test:"),
-    {yes,[],[#{title:="functions",
+    {yes,[],[#{title:="Functions",
                       elems:=[{"a_fun_name",_},{"a_less_fun_name",_}]}]} = do_expand("expand_test:a_"),
     {yes,"arity_entirely()",[]} = do_expand("expand_test:expand0"),
+    {no, [], [#{title:="Functions"}, #{title:="Obsolete API functions"}]} = do_expand("string:"),
     ok.
 
 to_atom(Str) ->
@@ -240,6 +243,9 @@ map_completion(_Config) ->
     %% test that an already specified key does not get suggested again
     {no, [], [{"a_key",_},{"c_key", _}]} = do_expand("MapBinding#{b_key=>1,"),
     %% test that unicode works
+    {yes, "'илли́ч'=>", []} = do_expand("UnicodeMap#{"),
+    %% test that non atoms are not suggested as completion
+    {no, "", []} = do_expand("NonAtomMap#{"),
     ok.
 
 function_parameter_completion(Config) ->
@@ -527,7 +533,7 @@ get_coverage(Config) ->
     lists:flatten(edlin_expand:format_matches(M10, 20)),
     %% Test that we are not filtering duplicates bit with different case or different string lengths
     {yes,"e", M11} = do_expand("complete_function_parameter:cas"),
-    "\e[;1;4mfunctions\e[0m\ncaseSensitiveFunction(        casesensitivefunction(        \ncaseSensitiveFunctionName(\n" = do_format(M11),
+    "\e[;1;4mFunctions\e[0m\ncaseSensitiveFunction(        casesensitivefunction(        \ncaseSensitiveFunctionName(\n" = do_format(M11),
     ok.
 
 %% Normal module name, some function names using quoted atoms.
@@ -537,7 +543,7 @@ quoted_fun(Config) when is_list(Config) ->
     %% should be no colon after test this time
     {yes, "test", [#{title:="modules", elems:=[{"expand_test",[{ending, ":"}]},{"expand_test1",_}]}]} = do_expand("expand_"),
     {no, [], []} = do_expand("expandXX_"),
-    {no,[],[#{title:="functions",
+    {no,[],[#{title:="Functions",
                      elems:=[{"'#weird-fun-name'",_},
                             {"'Quoted_fun_name'",_},
                             {"'Quoted_fun_too'",_},
@@ -570,7 +576,7 @@ quoted_module(Config) when is_list(Config) ->
                             {"a_less_fun_name",_},
                             {"b_comes_after_a",_},
                             {"module_info",_}]}]} = do_expand("'ExpandTestCaps':"),
-    {yes,[],[#{title:="functions", elems:=[{"a_fun_name",_},
+    {yes,[],[#{title:="Functions", elems:=[{"a_fun_name",_},
                                                 {"a_less_fun_name",_}]}]} = do_expand("'ExpandTestCaps':a_"),
     ok.
 
@@ -647,6 +653,8 @@ do_expand(String) ->
     Bs = [
           {'Binding', 0},
           {'MapBinding', #{a_key=>0, b_key=>1, c_key=>2}},
+          {'UnicodeMap', #{'илли́ч' => 0}},
+          {'NonAtomMap', #{{} => 1}},
           {'RecordBinding', {some_record, 1, 2}},
           {'TupleBinding', {0, 1, 2}},
           {'Söndag', 0},

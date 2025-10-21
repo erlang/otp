@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -66,6 +68,8 @@ be rendered as is.
 -export([render_type/2, render_type/3, render_type/4, render_type/5]).
 -export([render_callback/2, render_callback/3, render_callback/4, render_callback/5]).
 
+-export([test/2]).
+
 %% Used by chunks.escript in erl_docgen
 -export([validate/1, normalize/1, supported_tags/0]).
 
@@ -117,7 +121,9 @@ The configuration of how the documentation should be rendered.
 
 - **columns** - Configure how wide the target documentation should be rendered.
   By default `shell_docs` used the value returned by
-  [`io:columns()`](`io:columns/0`).
+  [`io:columns()`](`io:columns/0`). It is possible to override this default
+  by setting the stdlib configuration parameter `shell_docs_columns`
+  to a `t:pos_integer/0` value.
 """.
 -doc #{ since => ~"OTP 23.2" }.
 -type config() :: #{ encoding => unicode | latin1,
@@ -266,7 +272,8 @@ This function can be used to do whitespace normalization of
 normalize(Docs) ->
     Trimmed = normalize_trim(Docs,true),
     Space = normalize_space(Trimmed),
-    normalize_paragraph(Space).
+    Paragraph = normalize_paragraph(Space),
+    normalize_list(Paragraph).
 
 normalize_trim(Bin,true) when is_binary(Bin) ->
     %% Remove any whitespace (except \n) before or after a newline
@@ -432,6 +439,15 @@ normalize_paragraph(Elems) ->
             [{p,[],NotP} | normalize_paragraph(P)]
     end.
 
+%% Make sure all Content is in a list
+normalize_list([{Tag, Attr, Content} | T]) when is_binary(Content) ->
+    [{Tag, Attr, [Content]} | normalize_list(T)];
+normalize_list([{Tag, Attr, Content} | T]) ->
+    [{Tag, Attr, normalize_list(Content)} | normalize_list(T)];
+normalize_list([Content | T]) when is_binary(Content) ->
+    [Content | normalize_list(T)];
+normalize_list([]) -> [].
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% API function for dealing with the function documentation
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -453,6 +469,19 @@ get_doc(Module, Function, Arity) ->
     {ok, #docs_v1{ docs = Docs } = D}  = code:get_doc(Module),
     Map = fun ({F,A,S,Dc,M}) -> {F,A,S,get_local_doc(F, Dc, D),M} end,
     filtermap_mfa({function, Function, Arity}, Map, Docs).
+
+-doc false.
+-spec test(module(), [{{function | type | callback, atom(), non_neg_integer()}
+                      | module_doc, erl_eval:binding_struct()}]) -> ok.
+test(Module, Bindings) ->
+    case code:get_doc(Module) of
+        {ok, #docs_v1{ format = ~"text/markdown" } = Docs} ->
+            shell_docs_test:module(Docs, Bindings);
+        {ok, _} ->
+            {error, unsupported_format};
+        Else ->
+            Else
+    end.
 
 -doc(#{equiv => render(Module, Docs, #{})}).
 -doc(#{since => <<"OTP 23.0">>}).
@@ -593,10 +622,9 @@ extract_type_specs(Module) ->
   maybe
     Path = find_path(Module),
     true ?= non_existing =/= Path,
-    {ok, {_ModName,
-            [{debug_info,
-                {debug_info_v1,erl_abstract_code,
-                   {AST, _Opts}}}]}} ?= beam_lib:chunks(Path, [debug_info]),
+    {ok, {Module,
+           [{abstract_code,
+             {raw_abstract_v1,AST}}]}} ?= beam_lib:chunks(Path, [abstract_code]),
 
     %% the mapping keys 'type', 'function', and 'callback' correspond
     %% to existing EEP-48 {**Kind**, Name, Arity} format, where Kind
@@ -606,6 +634,7 @@ extract_type_specs(Module) ->
     lists:foldl(fun filter_exported_types/2, Acc, AST)
   else
     false -> #{}; % when non_existing =/= Path,
+    {ok, {Module, [{abstract_code, no_abstract_code}]}} -> #{}; % from beam_lib:chunks/1
     {error,beam_lib,{file_error,_,_}} -> #{} % from beam_lib:chunks/1
   end.
 
@@ -963,12 +992,7 @@ init_config(D, Config) when is_map(Config) ->
     Columns =
         case maps:find(columns, Config) of
             error ->
-                case io:columns() of
-                    {ok, C} ->
-                        C;
-                    _ ->
-                        80
-                end;
+                get_columns();
             {ok, C} ->
                 C
         end,
@@ -980,6 +1004,19 @@ init_config(D, Config) when is_map(Config) ->
            };
 init_config(D, Config) ->
     Config#config{ docs = D }.
+
+get_columns() ->
+    case application:get_env(stdlib, shell_docs_columns) of
+        {ok, C} when is_integer(C), C > 0 ->
+            C;
+        _ ->
+            case io:columns() of
+                 {ok, C} ->
+                     C;
+                 _ ->
+                     80
+             end
+    end.
 
 render_docs(Elems,State,Pos,Ind,D) when is_list(Elems) ->
     lists:mapfoldl(fun(Elem,P) ->

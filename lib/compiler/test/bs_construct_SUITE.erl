@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
 %% 
-%% Copyright Ericsson AB 2004-2023. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2025. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -72,14 +74,6 @@ end_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
 
 verify_highest_opcode(_Config) ->
     case ?MODULE of
-        bs_construct_r24_SUITE ->
-            {ok,Beam} = file:read_file(code:which(?MODULE)),
-            case test_lib:highest_opcode(Beam) of
-                Highest when Highest =< 176 ->
-                    ok;
-                TooHigh ->
-                    ct:fail({too_high_opcode,TooHigh})
-            end;
         bs_construct_r25_SUITE ->
             {ok,Beam} = file:read_file(code:which(?MODULE)),
             case test_lib:highest_opcode(Beam) of
@@ -763,6 +757,9 @@ private_append(_Config) ->
     <<>> = private_append_2(false),
     {'EXIT', _} = catch private_append_2(true),
 
+    {ok,<<>>} = private_append_3(id(<<>>)),
+    {error,<<"wrong parity">>} = private_append_3(id(<<1>>)),
+
     ok.
 
 %% GH-7121: Alias analysis would not mark fun arguments as aliased,
@@ -777,3 +774,21 @@ private_append_1(M) when is_map(M) ->
 %% GH-7142: The private append pass crashed on oddly structured code.
 private_append_2(Boolean) ->
     <<<<(id(Boolean) orelse <<>>)/binary>>/binary>>.
+
+%% GH-10077. Would crash when attempting patch the
+%% {error, <<"wrong parity">>} tuple.
+private_append_3(Input) ->
+    private_append_3(Input, {ok, <<>>}).
+
+private_append_3(_, {error, Msg}) ->
+    {error, Msg};
+private_append_3(<<>>, {ok, Acc}) ->
+    {ok, Acc};
+private_append_3(<<B/bitstring>>, {ok, Acc}) ->
+    case B of
+        <<>> ->
+            private_append_3(<<>>, {ok, <<Acc/bitstring>>});
+        _ ->
+            %% The compiler would fail to patch this tuple.
+            private_append_3(<<>>, {error, <<"wrong parity">>})
+    end.

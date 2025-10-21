@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2022. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1997-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -29,7 +31,7 @@
 	 memory/1,unicode/1,read_other_implementations/1,bsdtgz/1,
          sparse/1, init/1, leading_slash/1, dotdot/1,
          roundtrip_metadata/1, apply_file_info_opts/1,
-         incompatible_options/1]).
+         incompatible_options/1, table_absolute_names/1]).
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/file.hrl").
@@ -44,13 +46,13 @@ all() ->
      symlinks, open_add_close, cooked_compressed, memory, unicode,
      read_other_implementations, bsdtgz,
      sparse,init,leading_slash,dotdot,roundtrip_metadata,
-     apply_file_info_opts,incompatible_options].
+     apply_file_info_opts,incompatible_options, table_absolute_names].
 
 groups() -> 
     [].
 
 init_per_suite(Config) ->
-    Config.
+    uid_config(Config).
 
 end_per_suite(_Config) ->
     ok.
@@ -83,7 +85,7 @@ borderline(Config) when is_list(Config) ->
     Record = 512,
     Block = 20 * Record,
 
-    lists:foreach(fun(Size) -> borderline_test(Size, TempDir) end,
+    lists:foreach(fun(Size) -> borderline_test(Size, TempDir, Config) end,
 		  [0, 1, 10, 13, 127, 333, Record-1, Record, Record+1,
 		   Block-2*Record-1, Block-2*Record, Block-2*Record+1,
 		   Block-Record-1, Block-Record, Block-Record+1,
@@ -95,13 +97,16 @@ borderline(Config) when is_list(Config) ->
 
     verify_ports(Config).
 
-borderline_test(Size, TempDir) ->
+borderline_test(Size, TempDir, Config) ->
     io:format("Testing size ~p", [Size]),
-    borderline_test(Size, TempDir, true),
-    borderline_test(Size, TempDir, false),
+    case long_uid(Config) of
+        true -> ok;
+        false -> borderline_test1(Size, TempDir, true)
+    end,
+    borderline_test1(Size, TempDir, false),
     ok.
 
-borderline_test(Size, TempDir, IsUstar) ->
+borderline_test1(Size, TempDir, IsUstar) ->
     Prefix = case IsUstar of
                  true ->
                      "file_";
@@ -341,7 +346,6 @@ create_long_names() ->
     ok = erl_tar:tt(TarName),
 
     %% Extract and verify.
-    true = is_ustar(TarName),
     ExtractDir = "extract_dir",
     ok = file:make_dir(ExtractDir),
     ok = erl_tar:extract(TarName, [{cwd,ExtractDir}]),
@@ -588,7 +592,7 @@ symlinks(Config) when is_list(Config) ->
 	      {error, enotsup} ->
 		  {skip, "Symbolic links not supported on this platform"};
 	      ok ->
-		  symlinks(Dir, "bad_symlink", PointsTo),
+		  symlinks(Dir, "bad_symlink", PointsTo, Config),
 		  long_symlink(Dir),
                   symlink_vulnerability(VulnerableDir)
 	  end,
@@ -621,7 +625,7 @@ make_symlink(Path, Link) ->
 	    file:make_symlink(Path, Link)
     end.
 
-symlinks(Dir, BadSymlink, PointsTo) ->
+symlinks(Dir, BadSymlink, PointsTo, Config) ->
     Tar = filename:join(Dir, "symlink.tar"),
     DerefTar = filename:join(Dir, "dereference.tar"),
 
@@ -634,7 +638,6 @@ symlinks(Dir, BadSymlink, PointsTo) ->
     ok = file:write_file(AFile, ALine),
     ok = file:make_symlink(AFile, GoodSymlink),
     ok = erl_tar:create(Tar, [BadSymlink, GoodSymlink, AFile], [verbose]),
-    true = is_ustar(Tar),
 
     %% List contents of tar file.
 
@@ -643,7 +646,12 @@ symlinks(Dir, BadSymlink, PointsTo) ->
     %% Also create another archive with the dereference flag.
 
     ok = erl_tar:create(DerefTar, [AFile, GoodSymlink], [dereference, verbose]),
-    true = is_ustar(DerefTar),
+    case long_uid(Config) of
+        true -> ok;
+        false ->
+            true = is_ustar(Tar),
+            true = is_ustar(DerefTar)
+    end,
 
     %% Extract files to a new directory.
 
@@ -774,7 +782,11 @@ open_add_close(Config) when is_list(Config) ->
     ok = erl_tar:add(AD, ADir, [verbose]),
     ok = erl_tar:add(AD, AnotherDir, [verbose]),
     ok = erl_tar:close(AD),
-    true = is_ustar(TarOne),
+    case long_uid(Config) of
+        true -> ok;
+        false ->
+            true = is_ustar(TarOne)
+    end,
 
     ok = erl_tar:t(TarOne),
     ok = erl_tar:tt(TarOne),
@@ -1049,6 +1061,28 @@ apply_file_info_opts(Config) when is_list(Config) ->
 
     ok.
 
+table_absolute_names(Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    ok = file:set_cwd(PrivDir),
+    N = max(1, 101 - length(PrivDir)),
+    TestFileName = lists:duplicate(N, $a),
+    ok = file:write_file(TestFileName, "hello, world\n"),
+
+    %% File paths greater than 100 bytes will be split and stored
+    %% as a filename and prefix.
+    TarTestFileName = filename:absname(TestFileName),
+
+    io:format("~p: ~p\n", [length(TarTestFileName), TarTestFileName]),
+
+    TarName = "my_tar_with_long_names.tar",
+    ok = erl_tar:create(TarName, [TarTestFileName]),
+    {ok, [TarTestFileName]} = erl_tar:table(TarName),
+
+    ok = file:delete(TarTestFileName),
+    ok = file:delete(TarName),
+
+    ok.
+
 %% Delete the given list of files.
 delete_files([]) -> ok;
 delete_files([Item|Rest]) ->
@@ -1137,3 +1171,14 @@ verify_ports(Config) ->
         [_|_]=Rem ->
             error({leaked_ports,Rem})
     end.
+
+uid_config(Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+    Long = filename:join(DataDir, "long_names.tar"),
+    {ok, FileInfo} = file:read_file_info(Long),
+    Uid = FileInfo#file_info.uid,
+    Octal = integer_to_list(Uid, 8),
+    [{longuid, length(Octal) > 7}|Config].
+
+long_uid(Config) ->
+    proplists:get_value(longuid, Config).

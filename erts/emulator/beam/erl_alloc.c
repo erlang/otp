@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2002-2023. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2002-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -1823,6 +1825,10 @@ handle_args(int *argc, char **argv, erts_alc_hndl_args_init_t *init)
 			init->alloc_util.sac
 			    = get_bool_value(argv[i]+6, argv, &i);
 		    }
+                    else if (has_prefix("madtn", argv[i]+3)) {
+                        init->alloc_util.madtn
+                            = get_bool_value(argv[i]+8, argv, &i);
+                    }
 		    else {
 			int a;
 			int start = i;
@@ -2493,6 +2499,7 @@ erts_memory(fmtfn_t *print_to_p, void *print_to_arg, void *proc, Eterm earg)
 	size.code += export_table_sz();
 	size.code += export_entries_sz();
 	size.code += erts_fun_table_sz();
+	size.code += erts_fun_entries_sz();
 	size.code += erts_ranges_sz();
 	size.code += erts_total_code_size;
     }
@@ -2636,6 +2643,11 @@ erts_allocated_areas(fmtfn_t *print_to_p, void *print_to_arg, void *proc)
     values[i].arity = 2;
     values[i].name = "fun_table";
     values[i].ui[0] = erts_fun_table_sz();
+    i++;
+
+    values[i].arity = 2;
+    values[i].name = "fun_list";
+    values[i].ui[0] = erts_fun_entries_sz();
     i++;
 
     values[i].arity = 2;
@@ -2907,6 +2919,7 @@ erts_allocator_options(void *proc)
     hpp = NULL;
     szp = &sz;
     sz = 0;
+    ERTS_UNDEF(hp, NULL);
 
  bld_term:
 

@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
 %% 
-%% Copyright Ericsson AB 2001-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2025. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -104,7 +106,7 @@ create_tables(C) ->
 %% -------------------------------------------------------------------
 
 populate_subscriber(Wlock, C) ->
-    random:seed(),
+    rand:seed(default),
     N = C#config.n_subscribers,
     ?d("    Populate ~p subscribers...", [N]),
     do_populate_subscriber(Wlock, N - 1, C).
@@ -112,8 +114,8 @@ populate_subscriber(Wlock, C) ->
 do_populate_subscriber(Wlock, Id, C) when Id >= 0 ->
     Suffix = bench_trans:number_to_suffix(Id),
     SubscrId = bench_trans:number_to_key(Id, C),
-    Name = list_to_binary([random:uniform(26) + $A - 1]),
-    GroupId = random:uniform(C#config.n_groups) - 1,
+    Name = list_to_binary([rand:uniform(26) + $A - 1]),
+    GroupId = rand:uniform(C#config.n_groups) - 1,
     Subscr = #subscriber{subscriber_number = SubscrId,
                          subscriber_name   = Name,
                          group_id          = GroupId,
@@ -134,7 +136,7 @@ do_populate_subscriber(_Wlock, _, _) ->
 %% -------------------------------------------------------------------
 
 populate_group(Wlock, C) ->
-    random:seed(),
+    rand:seed(default),
     N = C#config.n_groups,
     ?d("    Populate ~p groups...", [N]),
     do_populate_group(Wlock, N - 1, C).
@@ -158,7 +160,7 @@ init_allow(C) ->
     do_init_allow(0, C#config.n_servers - 1).
 
 do_init_allow(Allow, NS) when NS >= 0 ->
-    case random:uniform(100) < (90 + 1) of
+    case rand:uniform(100) < (90 + 1) of
         true ->
 	    ServerBit = 1 bsl NS,
             do_init_allow(Allow bor ServerBit, NS - 1);
@@ -173,7 +175,7 @@ do_init_allow(Allow, _) ->
 %% -------------------------------------------------------------------
 
 populate_server(Wlock, C) ->
-    random:seed(),
+    rand:seed(default),
     N = C#config.n_servers,
     ?d("    Populate ~p servers with 100 records each...", [N]),
     do_populate_server(Wlock, N - 1).

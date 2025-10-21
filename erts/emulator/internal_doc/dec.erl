@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2021. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2000-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -54,6 +56,10 @@ read(FName) ->
 	      length(A) > 1% , hd(A) < 769
 		 ].
 
+%%
+%% REUSE-IgnoreStart
+%%
+
 dec() ->
     L = read(?INPUT_FILE_NAME),
     G = group(L),
@@ -61,7 +67,9 @@ dec() ->
     io:format
       (Out,
        "/*~n"
-       "* %CopyrightBegin%~n"
+       "* %CopyrightBegin%
+       "*
+       "* SPDX-License-Identifier: Apache-2.0~n"
        "*~n"
        "* Copyright Ericsson AB 1999-2010. All Rights Reserved.~n"
        "*~n"
@@ -108,6 +116,9 @@ dec() ->
 %%    dump_big_prefixes(Out,BigPreTab),
     file:close(Out),
     ok.
+%%
+%% REUSE-IgnoreEnd
+%%
     
    
 

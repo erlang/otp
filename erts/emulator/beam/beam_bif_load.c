@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1999-2024. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 1999-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -1082,7 +1084,24 @@ erts_check_copy_literals_gc_need(Process *c_p, int *redsp,
 		goto done;
 	}
     }
-    
+
+    /* Check if there are any *direct* references to literals in the process'
+     * registers.
+     *
+     * These are not guaranteed to be kept up to date, but as we can only land
+     * here during signal handling we KNOW that these are either up to date, or
+     * they are not actually live (effective arity is 0 in a `receive`). Should
+     * any of these registers contain garbage, we merely risk scheduling a
+     * pointless garbage collection as `any_heap_ref_ptrs` doesn't follow
+     * pointers, it just range-checks them. */
+    scanned += c_p->arity;
+    if (any_heap_ref_ptrs(&c_p->arg_reg[0],
+                          &c_p->arg_reg[c_p->arity],
+                          literals,
+                          lit_bsize)) {
+        goto done;
+    }
+
     res = 0; /* no need for gc */
 
 done: {
@@ -1249,6 +1268,138 @@ any_heap_refs(Eterm* start, Eterm* end, char* mod_start, Uint mod_size)
         }
     }
     return 0;
+}
+
+BIF_RETTYPE code_get_debug_info_1(BIF_ALIST_1)
+{
+#ifdef BEAMASM
+    ErtsCodeIndex code_ix;
+    Module* modp;
+    const BeamCodeHeader* hdr;
+    const BeamCodeLineTab* lt;
+    const BeamDebugTab* debug;
+    Sint i;
+    Uint alloc_size;
+    Eterm result = NIL;
+    Eterm* hp;
+    Eterm* hend;
+
+    if (is_not_atom(BIF_ARG_1)) {
+        BIF_ERROR(BIF_P, BADARG);
+    }
+    code_ix = erts_active_code_ix();
+    modp = erts_get_module(BIF_ARG_1, code_ix);
+    if (modp == NULL) {
+        BIF_ERROR(BIF_P, BADARG);
+    }
+    hdr = modp->curr.code_hdr;
+    if (hdr == NULL) {
+        BIF_ERROR(BIF_P, BADARG);
+    }
+
+    lt = hdr->line_table;
+
+    debug = hdr->debug;
+    if (debug == NULL) {
+        return am_none;
+    }
+
+    alloc_size = 0;
+
+    for (i = 0; i < debug->item_count; i++) {
+        /* [ {Line, {FrameSize, Pairs}} ] */
+        alloc_size += 2 + 3 + 3;
+        /* Pairs = [{Name, Value}], where Value is an atom or 2-tuple.
+         *
+         * Assume they are all 2-tuples and HRelease() the excess
+         * later. */
+        alloc_size += debug->items[i].num_vars * (2 + 3 + 3);
+    }
+
+    hp = HAlloc(BIF_P, alloc_size);
+    hend = hp + alloc_size;
+
+    for (i = debug->item_count-1; i >= 0; i--) {
+        BeamDebugItem* items = &debug->items[i];
+        Sint frame_size = items->frame_size;
+        Uint num_vars = items->num_vars;
+        Eterm *tp = &items->first[2 * (num_vars - 1)];
+        Uint32 location_index, location;
+        Eterm frame_size_term;
+        Eterm var_list = NIL;
+        Eterm tmp;
+
+        location_index = items->location_index;
+
+        if (location_index == ERTS_UINT32_MAX) {
+            continue;
+        }
+        if (lt->loc_size == 2) {
+            location = lt->loc_tab.p2[location_index];
+        } else {
+            ASSERT(lt->loc_size == 4);
+            location = lt->loc_tab.p4[location_index];
+        }
+
+        switch (frame_size) {
+        case BEAMFILE_FRAMESIZE_ENTRY:
+            frame_size_term = am_entry;
+            break;
+        case BEAMFILE_FRAMESIZE_NONE:
+            frame_size_term = am_none;
+            break;
+        default:
+            ASSERT(frame_size >= 0);
+            frame_size_term = make_small(frame_size);
+            break;
+        }
+
+        while (num_vars-- != 0) {
+            Eterm val;
+            Eterm tag;
+
+            switch(loader_tag(tp[1])) {
+            case LOADER_X_REG:
+                tag = am_x;
+                val = make_small(loader_x_reg_index(tp[1]));
+                break;
+            case LOADER_Y_REG:
+                tag = am_y;
+                val = make_small(loader_y_reg_index(tp[1]));
+                break;
+            default:
+                tag = am_value;
+                val = tp[1];
+                break;
+            }
+            tmp = TUPLE2(hp, tag, val);
+            hp += 3;
+
+            tmp = TUPLE2(hp, tp[0], tmp);
+            hp += 3;
+
+            tp -= 2;
+
+            var_list = CONS(hp, tmp, var_list);
+            hp += 2;
+        }
+
+        tmp = TUPLE2(hp, frame_size_term, var_list);
+        hp += 3;
+
+        tmp = TUPLE2(hp, make_small(LOC_LINE(location)), tmp);
+        hp += 3;
+
+        result = CONS(hp, tmp, result);
+        hp += 2;
+    }
+
+    ASSERT(hp <= hend);
+    HRelease(BIF_P, hend, hp);
+    return result;
+#endif
+
+    BIF_ERROR(BIF_P, BADARG);
 }
 
 /*
@@ -1762,8 +1913,9 @@ erts_purge_state_add_fun(ErlFunEntry *fe)
     purge_state.funs[purge_state.fe_count++] = fe;
 }
 
-Export *
-erts_suspend_process_on_pending_purge_lambda(Process *c_p, ErlFunEntry* fe)
+const Export *
+erts_suspend_process_on_pending_purge_lambda(Process *c_p,
+                                             const ErlFunEntry* fe)
 {
     erts_mtx_lock(&purge_state.mtx);
     if (purge_state.module == fe->module) {

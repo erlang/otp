@@ -62,7 +62,9 @@ public:
     ASMJIT_INLINE_NODEBUG void setEnd(T* end) noexcept { _end = (void*)end; }
 
     template<typename T>
-    ASMJIT_INLINE_NODEBUG T* data() const noexcept { return (T*)((uint8_t*)(this) + sizeof(Block)); }
+    ASMJIT_INLINE_NODEBUG const T* data() const noexcept { return (const T*)((const uint8_t*)(this) + sizeof(Block)); }
+    template<typename T>
+    ASMJIT_INLINE_NODEBUG T* data() noexcept { return (T*)((uint8_t*)(this) + sizeof(Block)); }
 
     template<typename T>
     ASMJIT_INLINE_NODEBUG bool canPrepend() const noexcept { return _start > data<void>(); }

@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2003-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -132,7 +134,8 @@ becomes:
 
 ```
 """.
--spec value_of(E :: xmerl:element()) -> io_lib:chars().
+-spec value_of(E) -> io_lib:chars() when
+      E :: xmerl:element() | [xmerl:element()].
 value_of(E)->
     lists:reverse(xmerl_lib:foldxml(fun value_of1/2, [], E)).
 
@@ -148,7 +151,18 @@ Equivalent to [`xmerl_xpath:string(Str, E)`](`xmerl_xpath:string/2`).
 
 _See also:_ `value_of/1`.
 """.
--spec select(String :: term(), E :: xmerl:element()) -> _.
+-spec select(String, E) -> Result when
+      String  :: term(),
+      E :: xmerl:element(),
+      Result :: [xmerl:xmlElement()
+                | xmerl:xmlAttribute()
+                | xmerl:xmlText()
+                | xmerl:xmlPI()
+                | xmerl:xmlComment()
+                | xmerl:xmlNsNode()
+                | xmerl:xmlDocument()] |
+                Scalar,
+      Scalar  :: #xmlObj{}.
 select(Str,E)->
     xmerl_xpath:string(Str,E).
 

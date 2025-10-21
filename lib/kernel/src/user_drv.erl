@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1996-2024. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(user_drv).
@@ -52,6 +54,9 @@
         %% Same as put_chars/3, but sends Reply to From when the characters are
         %% guaranteed to have been written to the terminal
         {put_chars_sync, unicode, binary(), {From :: pid(), Reply :: term()}} |
+        %% Output raw binary, should only be called if output mode is set to raw
+        %% and encoding set to latin1.
+        {put_chars_sync, latin1, binary(), {From :: pid(), Reply :: term()}} |
         %% Put text in expansion area
         {put_expand, unicode, binary(), integer()} |
         {move_expand, -32768..32767} |
@@ -103,7 +108,8 @@
 -record(editor, { port :: port(), file :: file:name(), requester :: pid() }).
 -record(state, { tty :: prim_tty:state() | undefined,
                  write :: reference() | undefined,
-                 read :: reference() | undefined,
+                 read :: reference() | eof | undefined,
+                 terminal_mode :: raw | cooked | disabled,
                  shell_started = new :: new | old | false,
                  editor :: #editor{} | undefined,
                  user :: pid(),
@@ -111,9 +117,10 @@
                  groups, queue }).
 
 -type shell() :: {module(), atom(), [term()]} | {node(), module(), atom(), [term()]}.
--type arguments() :: #{ initial_shell => noshell | shell() |
-                        {remote, unicode:charlist()} | {remote, unicode:charlist(), {module(), atom(), [term()]}},
-                        input => boolean() }.
+-type arguments() ::
+        #{ initial_shell => noshell | shell() |
+           {remote, unicode:charlist()} | {remote, unicode:charlist(), {module(), atom(), [term()]}},
+           input => cooked | raw | disabled }.
 
 %% Default line editing shell
 -spec start() -> pid().
@@ -159,23 +166,27 @@ callback_mode() -> state_functions.
 init(Args) ->
     process_flag(trap_exit, true),
 
+    ok = prim_tty:load(),
+
     IsTTY = prim_tty:isatty(stdin) =:= true andalso prim_tty:isatty(stdout) =:= true,
     StartShell = maps:get(initial_shell, Args, undefined) =/= noshell,
     OldShell = maps:get(initial_shell, Args, undefined) =:= oldshell,
+
     try
         if
             not IsTTY andalso StartShell; OldShell ->
                 error(enotsup);
             IsTTY, StartShell ->
-                TTYState = prim_tty:init(#{}),
+                TTYState = prim_tty:init(#{ input => raw,
+                                            output => cooked }),
                 init_standard_error(TTYState, true),
-                {ok, init, {Args, #state{ user = start_user() } },
+                {ok, init, {Args, #state{ terminal_mode = raw, user = start_user() } },
                  {next_event, internal, TTYState}};
-           true ->
-                TTYState = prim_tty:init(#{input => maps:get(input, Args, true),
-                                           tty => false}),
+            true ->
+                TTYState = prim_tty:init(
+                             #{ input => maps:get(input, Args), output => raw }),
                 init_standard_error(TTYState, false),
-                {ok, init, {Args,#state{ user = start_user() } },
+                {ok, init, {Args,#state{ terminal_mode = maps:get(input, Args), user = start_user() } },
                  {next_event, internal, TTYState}}
         end
     catch error:enotsup ->
@@ -186,9 +197,9 @@ init(Args) ->
             %% The oldshell mode is important as it is
             %% the mode used when running erlang in an
             %% emacs buffer.
-            CatchTTYState = prim_tty:init(#{tty => false}),
+            CatchTTYState = prim_tty:init(#{ input => cooked, output => raw }),
             init_standard_error(CatchTTYState, false),
-            {ok, init, {Args,#state{ shell_started = old, user = start_user() } },
+            {ok, init, {Args,#state{ terminal_mode = cooked, shell_started = old, user = start_user() } },
              {next_event, internal, CatchTTYState}}
     end.
 
@@ -245,6 +256,7 @@ exit_on_remote_shell_error(_, _, Result) ->
 %% We have been started with -noshell. In this mode the current_group is
 %% the `user` group process.
 init_noshell(State) ->
+    State#state.user ! {self(), terminal_mode, State#state.terminal_mode},
     init_shell(State#state{ shell_started = false }, "").
 
 init_remote_shell(State, Node, {M, F, A}) ->
@@ -305,7 +317,7 @@ init_remote_shell(State, Node, {M, F, A}) ->
                         end,
 
                     Group = group:start(self(), RShell,
-                                        [{echo,State#state.shell_started =:= new}] ++
+                                        [{dumb, State#state.shell_started =/= new}] ++
                                             group_opts(RemoteNode)),
 
                     Gr = gr_add_cur(State#state.groups, Group, RShell),
@@ -329,14 +341,18 @@ init_local_shell(State, InitialShell) ->
 
     Gr = gr_add_cur(State#state.groups,
                     group:start(self(), InitialShell,
-                                group_opts() ++ [{echo,State#state.shell_started =:= new}]),
+                                group_opts() ++ [{dumb,State#state.shell_started =/= new}]),
                     InitialShell),
 
     init_shell(State#state{ groups = Gr }, [Slogan,$\n]).
 
 init_shell(State, Slogan) ->
 
-    init_standard_error(State#state.tty, State#state.shell_started =:= new),
+    init_standard_error(State#state.tty, State#state.terminal_mode =:= raw),
+
+    %% Tell the reader to read greedily if there is a shell
+    [prim_tty:read(State#state.tty) || State#state.shell_started =/= false],
+
     Curr = gr_cur_pid(State#state.groups),
     put(current_group, Curr),
     {next_state, server, State#state{ current_group = gr_cur_pid(State#state.groups) },
@@ -351,10 +367,7 @@ init_shell(State, Slogan) ->
 start_user() ->
     case whereis(user) of
 	undefined ->
-	    User = group:start(self(), {}, [{echo,false},
-                                            {noshell,true}]),
-	    register(user, User),
-	    User;
+	    group:start(self(), noshell, [{name, user}]);
 	User ->
 	    User
     end.
@@ -370,16 +383,28 @@ server({call, From}, {start_shell, Args},
                 not IsTTY andalso StartShell; OldShell ->
                     error(enotsup);
                 IsTTY, StartShell ->
-                    NewTTY = prim_tty:reinit(TTY, #{ }),
-                    State#state{ tty = NewTTY,
-                                 shell_started = new };
-               true ->
-                    NewTTY = prim_tty:reinit(TTY, #{ tty => false }),
-                    State#state{ tty = NewTTY, shell_started = false }
+                    NewTTY = prim_tty:reinit(TTY, #{ input => raw, output => cooked }),
+                    State#state{ tty = NewTTY, terminal_mode = raw, shell_started = new };
+                not StartShell ->
+                    Input = maps:get(input, Args),
+                    if not IsTTY andalso Input =:= raw ->
+                            error(enotsup);
+                       true ->
+                            State#state{
+                              terminal_mode = Input,
+                              tty = prim_tty:reinit(TTY, #{ input => Input,
+                                                            output => raw }),
+                              shell_started = false }
+                    end
             end
         catch error:enotsup ->
-                NewTTYState = prim_tty:reinit(TTY, #{ tty => false }),
-                State#state{ tty = NewTTYState, shell_started = old }
+                NewTTYState = prim_tty:reinit(TTY, #{ input => cooked, output => raw }),
+                Shell = if StartShell ->
+                                old;
+                           true ->
+                                false
+                        end,
+                State#state{ terminal_mode = cooked, tty = NewTTYState, shell_started = Shell }
         end,
     #{ read := ReadHandle, write := WriteHandle } = prim_tty:handles(NewState#state.tty),
     NewHandleState = NewState#state {
@@ -389,7 +414,12 @@ server({call, From}, {start_shell, Args},
     {Result, Reply}
         = case maps:get(initial_shell, Args, undefined) of
               noshell ->
-                  {init_noshell(NewHandleState), ok};
+                  case maps:get(input, Args) =:= NewHandleState#state.terminal_mode of
+                    true ->
+                        {init_noshell(NewHandleState), ok};
+                    false ->
+                        {init_noshell(NewHandleState), {error, enotsup}}
+                    end;
               {remote, Node} ->
                   case init_remote_shell(NewHandleState, Node, {shell, start, []}) of
                       {error, _} = Error ->
@@ -443,9 +473,20 @@ server(info, {ReadHandle,{data,UTF8Binary}}, State = #state{ read = ReadHandle }
     end;
 server(info, {ReadHandle,eof}, State = #state{ read = ReadHandle }) ->
     State#state.current_group ! {self(), eof},
-    {keep_state, State#state{ read = undefined }};
+    {keep_state, State#state{ read = eof }};
 server(info,{ReadHandle,{signal,Signal}}, State = #state{ tty = TTYState, read = ReadHandle }) ->
     {keep_state, State#state{ tty = prim_tty:handle_signal(TTYState, Signal) }};
+
+server(info, {Requester, read, N}, State = #state{ tty = TTYState })
+  when Requester =:= State#state.current_group ->
+    %% Only allowed when current_group == user
+    true = State#state.current_group =:= State#state.user,
+    ok = prim_tty:read(TTYState, N),
+    keep_state_and_data;
+
+server(info, {Requester, read, _N}, _State) ->
+    Requester ! {self(), {error, enotsup}},
+    keep_state_and_data;
 
 server(info, {Requester, tty_geometry}, #state{ tty = TTYState }) ->
     case prim_tty:window_size(TTYState) of
@@ -567,10 +608,25 @@ server(info,{'EXIT', Group, Reason}, State) ->
                                                       current_group = NewGroup,
                                                       groups = Gr2 }};
                         _ -> % remote shell
-                            NewTTYState = io_requests(
-                                            Reqs ++ [{put_chars,unicode,<<"(^G to start new job) ***\n">>}],
-                                            State#state.tty),
-                            {keep_state, State#state{ tty = NewTTYState, groups = Gr1 }}
+                            %% If the readhandle has terminated, then we should quit
+                            case State#state.read =:= eof of
+                                true ->
+                                    NewTTYState = io_requests(Reqs,
+                                                State#state.tty),
+                                    _ = io_request({put_chars_sync,unicode,<<"Read EOF ***\n">>, {self(), none}}, NewTTYState),
+                                    WriterRef = State#state.write,
+                                    receive
+                                        {WriterRef, ok} -> ok
+                                    after 100 ->
+                                        ok
+                                    end,
+                                    erlang:halt(0, []);
+                                false ->
+                                    NewTTYState = io_requests(
+                                                    Reqs ++ [{put_chars,unicode,<<"(^G to start new job) ***\n">>}],
+                                                    State#state.tty),
+                                    {keep_state, State#state{ tty = NewTTYState, groups = Gr1 }}
+                            end
                     end;
                 _ ->
                     {keep_state, State#state{ groups = gr_del_pid(State#state.groups, Group) }}
@@ -611,7 +667,7 @@ switch_loop(internal, init, State) ->
                           groups = gr_add_cur(Gr1, NewGroup, {shell,start,[]})}};
 	jcl ->
             NewTTYState =
-                io_requests([{insert_chars,unicode,<<"\nUser switch command (type h for help)\n">>}],
+                io_requests([{insert_chars,unicode,<<"\nUser switch command (enter 'h' for help)\n">>}],
                             State#state.tty),
 	    %% init edlin used by switch command and have it copy the
 	    %% text buffer from current group process
@@ -625,7 +681,7 @@ switch_loop(internal, line, State) ->
 switch_loop(internal, {line, Line}, State) ->
     case erl_scan:string(Line) of
         {ok, Tokens, _} ->
-            case switch_cmd(Tokens, State#state.groups) of
+            case switch_cmd(Tokens, State#state.groups, State#state.shell_started =/= new) of
                 {ok, Groups} ->
                     Curr = gr_cur_pid(Groups),
                     put(current_group, Curr),
@@ -676,38 +732,51 @@ switch_loop(info, {Requester, get_terminal_state}, _State) ->
                                                 stdout => prim_tty:isatty(stdout),
                                                 stderr => prim_tty:isatty(stderr) } },
     keep_state_and_data;
+switch_loop(info, {Requester, tty_geometry}, {_Cont, #state{ tty = TTYState }}) ->
+    case prim_tty:window_size(TTYState) of
+        {ok, Geometry} ->
+            Requester ! {self(), tty_geometry, Geometry},
+            ok;
+        Error ->
+            Requester ! {self(), tty_geometry, Error},
+            ok
+    end,
+    keep_state_and_data;
 switch_loop(timeout, _, {_Cont, State}) ->
     {keep_state_and_data,
      {next_event, info, {State#state.read,{data,[]}}}};
 switch_loop(info, _Unknown, _State) ->
     {keep_state_and_data, postpone}.
 
-switch_cmd([{atom,_,Key},{Type,_,Value}], Gr)
+switch_cmd([{atom,_,Key},{Type,_,Value}], Gr, Dumb)
   when Type =:= atom; Type =:= integer ->
-    switch_cmd({Key, Value}, Gr);
-switch_cmd([{atom,_,Key},{atom,_,V1},{atom,_,V2}], Gr) ->
-    switch_cmd({Key, V1, V2}, Gr);
-switch_cmd([{atom,_,Key}], Gr) ->
-    switch_cmd(Key, Gr);
-switch_cmd([{'?',_}], Gr) ->
-    switch_cmd(h, Gr);
+    switch_cmd({Key, Value}, Gr, Dumb);
+switch_cmd([{atom,_,Key},{atom,_,V1},{atom,_,V2}], Gr, Dumb) ->
+    switch_cmd({Key, V1, V2}, Gr, Dumb);
+switch_cmd([{atom,_,Key}], Gr, Dumb) ->
+    switch_cmd(Key, Gr, Dumb);
+switch_cmd([{'?',_}], Gr, Dumb) ->
+    switch_cmd(h, Gr, Dumb);
 
-switch_cmd(Cmd, Gr) when Cmd =:= c; Cmd =:= i; Cmd =:= k ->
-    switch_cmd({Cmd, gr_cur_index(Gr)}, Gr);
-switch_cmd({c, I}, Gr0) ->
+switch_cmd(Cmd, Gr, Dumb) when Cmd =:= c; Cmd =:= i; Cmd =:= k ->
+    switch_cmd({Cmd, gr_cur_index(Gr)}, Gr, Dumb);
+switch_cmd({c, I}, Gr0, _Dumb) ->
     case gr_set_cur(Gr0, I) of
 	{ok,Gr} -> {ok, Gr};
 	undefined -> unknown_group()
     end;
-switch_cmd({i, I}, Gr) ->
+switch_cmd({i, I}, Gr, _Dumb) ->
     case gr_get_num(Gr, I) of
-	{pid,Pid} ->
-	    exit(Pid, interrupt),
-	    {retry, []};
-	undefined ->
-	    unknown_group()
+        {pid,Pid} ->
+            exit(Pid, interrupt),
+
+            {retry, [{put_chars, unicode,
+                      unicode:characters_to_binary(
+                        io_lib:format("Interrupted job ~p, enter 'c' to resume.~n",[I]))}]};
+        undefined ->
+            unknown_group()
     end;
-switch_cmd({k, I}, Gr) ->
+switch_cmd({k, I}, Gr, _Dumb) ->
     case gr_get_num(Gr, I) of
 	{pid,Pid} ->
 	    exit(Pid, die),
@@ -724,15 +793,15 @@ switch_cmd({k, I}, Gr) ->
 	undefined ->
 	    unknown_group()
     end;
-switch_cmd(j, Gr) ->
+switch_cmd(j, Gr, _Dumb) ->
     {retry, gr_list(Gr)};
-switch_cmd({s, Shell}, Gr0) when is_atom(Shell) ->
-    Pid = group:start(self(), {Shell,start,[]}),
+switch_cmd({s, Shell}, Gr0, Dumb) when is_atom(Shell) ->
+    Pid = group:start(self(), {Shell,start,[]}, [{dumb, Dumb} | group_opts()]),
     Gr = gr_add_cur(Gr0, Pid, {Shell,start,[]}),
     {retry, [], Gr};
-switch_cmd(s, Gr) ->
-    switch_cmd({s, shell}, Gr);
-switch_cmd(r, Gr0) ->
+switch_cmd(s, Gr, Dumb) ->
+    switch_cmd({s, shell}, Gr, Dumb);
+switch_cmd(r, Gr0, _Dumb) ->
     case is_alive() of
 	true ->
 	    Node = pool:get_node(),
@@ -742,30 +811,36 @@ switch_cmd(r, Gr0) ->
 	false ->
 	    {retry, [{put_chars,unicode,<<"Node is not alive\n">>}]}
     end;
-switch_cmd({r, Node}, Gr) when is_atom(Node)->
-    switch_cmd({r, Node, shell}, Gr);
-switch_cmd({r,Node,Shell}, Gr0) when is_atom(Node), is_atom(Shell) ->
+switch_cmd({r, Node}, Gr, Dumb) when is_atom(Node)->
+    switch_cmd({r, Node, shell}, Gr, Dumb);
+switch_cmd({r,Node,Shell}, Gr0, Dumb) when is_atom(Node), is_atom(Shell) ->
     case is_alive() of
 	true ->
-            Pid = group:start(self(), {Node,Shell,start,[]}, group_opts(Node)),
-            Gr = gr_add_cur(Gr0, Pid, {Node,Shell,start,[]}),
-            {retry, [], Gr};
+            case net_kernel:connect_node(Node) of
+                true ->
+                    Pid = group:start(self(), {Node,Shell,start,[]}, [{dumb, Dumb} | group_opts(Node)]),
+                    Gr = gr_add_cur(Gr0, Pid, {Node,Shell,start,[]}),
+                    {retry, [], Gr};
+                false ->
+                    Bin = atom_to_binary(Node),
+                    {retry, [{put_chars,unicode,<<"Could not connect to node ", Bin/binary, "\n">>}]}
+            end;
         false ->
             {retry, [{put_chars,unicode,"Node is not alive\n"}]}
     end;
 
-switch_cmd(q, _Gr) ->
+switch_cmd(q, _Gr, _Dumb) ->
     case erlang:system_info(break_ignored) of
 	true ->					% noop
 	    {retry, [{put_chars,unicode,<<"Unknown command\n">>}]};
 	false ->
 	    halt()
     end;
-switch_cmd(h, _Gr) ->
+switch_cmd(h, _Gr, _Dumb) ->
     {retry, list_commands()};
-switch_cmd([], _Gr) ->
+switch_cmd([], _Gr, _Dumb) ->
     {retry,[]};
-switch_cmd(_Ts, _Gr) ->
+switch_cmd(_Ts, _Gr, _Dumb) ->
     {retry, [{put_chars,unicode,<<"Unknown command\n">>}]}.
 
 unknown_group() ->
@@ -800,7 +875,7 @@ group_opts() ->
     [{expand_below, application:get_env(stdlib, shell_expand_location, below) =:= below}].
 
 -spec io_request(request(), prim_tty:state()) -> {noreply, prim_tty:state()} |
-          {term(), reference(), prim_tty:state()}.
+          {term(), reference(), prim_tty:state()} | {term(), {error, term()}}.
 io_request({requests,Rs}, TTY) ->
     {noreply, io_requests(Rs, TTY)};
 io_request(redraw_prompt, TTY) ->
@@ -815,6 +890,22 @@ io_request(delete_line, TTY) ->
     write(prim_tty:handle_request(TTY, delete_line));
 io_request({put_chars, unicode, Chars}, TTY) ->
     write(prim_tty:handle_request(TTY, {putc, unicode:characters_to_binary(Chars)}));
+io_request({put_chars_sync, latin1, Chars, Reply}, TTY) ->
+    try
+        case {prim_tty:unicode(TTY), prim_tty:output_mode(TTY)} of
+            {false, raw} ->
+                Bin = if is_binary(Chars) -> Chars;
+                    true -> list_to_binary(Chars)
+                end,
+                {Output, NewTTY} = prim_tty:handle_request(TTY, {putc_raw, Bin}),
+                {ok, MonitorRef} = prim_tty:write(NewTTY, Output, self()),
+                {Reply, MonitorRef, NewTTY};
+            _ ->
+                io_request({put_chars_sync, unicode, unicode:characters_to_binary(Chars,latin1), Reply}, TTY)
+        end
+    catch
+        _:_ -> {Reply, {error, {put_chars, latin1, Chars}}}
+    end;
 io_request({put_chars_sync, unicode, Chars, Reply}, TTY) ->
     {Output, NewTTY} = prim_tty:handle_request(TTY, {putc, unicode:characters_to_binary(Chars)}),
     {ok, MonitorRef} = prim_tty:write(NewTTY, Output, self()),
@@ -906,13 +997,16 @@ mktemp() ->
 handle_req(next, TTYState, {false, IOQ} = IOQueue) ->
     case queue:out(IOQ) of
         {empty, _} ->
-	    {TTYState, IOQueue};
+            {TTYState, IOQueue};
         {{value, {Origin, Req}}, ExecQ} ->
             case io_request(Req, TTYState) of
                 {noreply, NewTTYState} ->
-		    handle_req(next, NewTTYState, {false, ExecQ});
+                    handle_req(next, NewTTYState, {false, ExecQ});
                 {Reply, MonitorRef, NewTTYState} ->
-		    {NewTTYState, {{Origin, MonitorRef, Reply}, ExecQ}}
+                    {NewTTYState, {{Origin, MonitorRef, Reply}, ExecQ}};
+                {Reply, {error, Reason}} ->
+                    Origin ! {reply, Reply, {error, Reason}},
+                    handle_req(next, TTYState, {false, ExecQ})
             end
     end;
 handle_req(Msg, TTYState, {false, IOQ} = IOQueue) ->
@@ -920,9 +1014,12 @@ handle_req(Msg, TTYState, {false, IOQ} = IOQueue) ->
     {Origin, Req} = Msg,
     case io_request(Req, TTYState) of
         {noreply, NewTTYState} ->
-	    {NewTTYState, IOQueue};
+            {NewTTYState, IOQueue};
         {Reply, MonitorRef, NewTTYState} ->
-	    {NewTTYState, {{Origin, MonitorRef, Reply}, IOQ}}
+            {NewTTYState, {{Origin, MonitorRef, Reply}, IOQ}};
+        {Reply, {error, Reason}} ->
+            Origin ! {reply, Reply, {error, Reason}},
+            {TTYState, IOQueue}
     end;
 handle_req(Msg,TTYState,{Resp, IOQ}) ->
     %% All requests are queued when we have outstanding sync put_chars

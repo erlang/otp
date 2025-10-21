@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1997-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -49,5 +51,5 @@
   {registered, [dbg_iserver, dbg_wx_mon, dbg_wx_winman]},
   {applications, [kernel, stdlib, compiler]},
   {optional_applications, [compiler, wx]},
-  {runtime_dependencies, ["wx-2.0","stdlib-3.15","kernel-10.0","erts-15.0",
+  {runtime_dependencies, ["wx-2.0","stdlib-7.0","kernel-10.0","erts-15.0",
 			  "compiler-8.0"]}]}.

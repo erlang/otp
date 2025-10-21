@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2003-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -106,17 +108,21 @@ Possible options are:
 
 
 -doc(#{ equiv => string(String, Doc, [], Doc, []) }).
--spec string(String, Doc) -> _ when
+-spec string(String, Doc) ->  
+          [nodeEntity()] | Scalar when
       String  :: xPathString(),
-      Doc     :: nodeEntity().
+      Doc     :: nodeEntity(),
+      Scalar  :: #xmlObj{}.
 string(Str, Doc) ->
     string(Str, Doc, []).
 
 -doc(#{ equiv => string(String, Doc, [], Doc, Options) }).
--spec string(String, Doc, Options) -> _ when
+-spec string(String, Doc, Options) -> 
+          [nodeEntity()] | Scalar when
       String  :: xPathString(),
       Doc     :: nodeEntity(),
-      Options :: option_list().
+      Options :: option_list(),
+      Scalar  :: #xmlObj{}.
 string(Str, Doc, Options) ->
     string(Str, Doc, [], Doc, Options).
 

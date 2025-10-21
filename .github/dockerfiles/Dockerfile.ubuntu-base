@@ -1,6 +1,8 @@
 ## %CopyrightBegin%
 ##
-## Copyright Ericsson AB 2024. All Rights Reserved.
+## SPDX-License-Identifier: Apache-2.0
+##
+## Copyright Ericsson AB 2024-2025. All Rights Reserved.
 ##
 ## Licensed under the Apache License, Version 2.0 (the "License");
 ## you may not use this file except in compliance with the License.
@@ -31,10 +33,13 @@ ENV LANG=C.UTF-8 LC_ALL=C.UTF-8
 
 ## Install build tools
 RUN apt-get update && apt-get -y upgrade && \
-    apt-get install -y build-essential m4 autoconf \
-    default-jdk flex pkg-config locales tzdata sudo ${INSTALL_LIBS} && \
+    apt-get install -y build-essential m4 autoconf clang-format \
+    flex pkg-config locales tzdata sudo ${INSTALL_LIBS} && \
     sed -i 's@# en_US.UTF-8@en_US.UTF-8@g' /etc/locale.gen && locale-gen && \
-    update-alternatives --set wx-config /usr/lib/x86_64-linux-gnu/wx/config/gtk3-unicode-3.0
+    update-alternatives --set wx-config /usr/lib/x86_64-linux-gnu/wx/config/gtk3-unicode-3.0 && \
+    apt-get install -y openjdk-8-jdk-headless && apt-get install -y openjdk-11-jdk-headless && \
+    (update-java-alternatives -s java-1.8.0-openjdk-amd64 || true) && \
+    java -version 2>&1 | grep 'version "1[.]8' > /dev/null || exit 1
 
 ARG MAKEFLAGS=-j4
 ENV MAKEFLAGS=$MAKEFLAGS \
@@ -61,13 +66,19 @@ ENV OTP_STRICT_INSTALL=yes
 
 RUN mkdir /buildroot /tests /otp && chown ${USER}:${GROUP} /buildroot /tests /otp
 
+ARG LATEST_ERLANG_VERSION=unknown
+
 ## We install the latest version of the previous three releases in order to do
 ## backwards compatability testing of Erlang.
 RUN apt-get update && apt-get install -y git curl && \
     curl -L https://raw.githubusercontent.com/kerl/kerl/master/kerl > /usr/bin/kerl && \
     chmod +x /usr/bin/kerl && \
     kerl update releases && \
-    LATEST=$(kerl list releases | grep "\*$" | tail -1 | awk -F '.' '{print $1}') && \
+    if [ ${LATEST_ERLANG_VERSION} = "unknown" ]; then \
+        LATEST=$(kerl list releases | grep "\*$" | tail -1 | awk -F '.' '{print $1}'); \
+    else \
+        LATEST=${LATEST_ERLANG_VERSION}; \
+    fi && \
     for release in $(seq $(( LATEST - 2 )) $(( LATEST ))); do \
       VSN=$(kerl list releases | grep "^$release" | tail -1 | awk '{print $1}'); \
       if [ $release = $LATEST ]; then \
@@ -90,7 +101,7 @@ RUN apt-get update && apt-get install -y \
     unixodbc odbc-postgresql postgresql ssh openssh-server groff-base gdb \
     tinyproxy knot ldnsutils expect vsftpd python3 emacs nano vim \
     linux-tools-common linux-tools-generic jq \
-    xvfb libgl1-mesa-dri && \
+    xvfb libgl1-mesa-dri zstd && \
     for lib in ${EXTRA_LIBS}; do apt-get install -y ${lib}; done && \
     if [ ! -f /etc/apache2/apache2.conf ]; then apt-get install -y apache2; fi
 RUN apt-get install -y linux-tools-$(uname -r) || true
@@ -120,7 +131,7 @@ ENV USER=${USER}
 RUN ssh-keygen -q -t rsa -N '' -f $HOME/.ssh/id_rsa && \
     cp $HOME/.ssh/id_rsa.pub $HOME/.ssh/authorized_keys
 
-COPY --chown=${USER}:${GROUP} dockerfiles/init.sh /buildroot/
+COPY --chown=${USER}:${GROUP} dockerfiles/.profile /home/otptest/.profile
 
 WORKDIR /buildroot/
 
@@ -148,4 +159,4 @@ RUN export PATH="$(cat /home/${USER}/LATEST):${PATH}" && \
 
 ENV ERL_LIBS=/buildroot/proper
 
-ENTRYPOINT ["/buildroot/init.sh"]
+ENTRYPOINT ["/bin/bash","-l","-c"]

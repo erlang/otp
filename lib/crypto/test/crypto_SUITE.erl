@@ -1,7 +1,9 @@
-%
+%%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1999-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -9,7 +11,7 @@
 %%
 %%     http://www.apache.org/licenses/LICENSE-2.0
 %%
-
+%% Unless required by applicable law or agreed to in writing, software
 %% distributed under the License is distributed on an "AS IS" BASIS,
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
@@ -71,6 +73,7 @@
          compute_bug/1,
          crypto_load/1,
          crypto_load_and_call/1,
+         encapsulate/1,
          exor/0,
          exor/1,
          generate/0,
@@ -123,6 +126,7 @@
          hash_equals/1,
          sign_verify/0,
          sign_verify/1,
+         sign_verify_oqs/1,
          ec_key_padding/1,
          use_all_ec_sign_verify/1,
          use_all_ecdh_generate_compute/1,
@@ -217,6 +221,8 @@ all() ->
      ec_key_padding,
      node_supports_cache,
      mod_pow,
+     encapsulate,
+     sign_verify_oqs,
      exor,
      rand_uniform,
      rand_threads,
@@ -255,6 +261,8 @@ groups() ->
                      {group, sha3_384},
                      {group, sha3_512},
                      {group, sha512},
+                     {group, sha512_224},
+                     {group, sha512_256},
                      {group, shake128},
                      {group, shake256},
                      {group, sha},
@@ -388,6 +396,8 @@ groups() ->
      {sha256,               [], [hash, hmac, hmac_update]},
      {sha384,               [], [hash, hmac, hmac_update]},
      {sha512,               [], [hash, hmac, hmac_update]},
+     {sha512_224,           [], [hash, hmac, hmac_update]},
+     {sha512_256,           [], [hash, hmac, hmac_update]},
      {sha3_224,             [], [hash, hmac, hmac_update]},
      {sha3_256,             [], [hash, hmac, hmac_update]},
      {sha3_384,             [], [hash, hmac, hmac_update]},
@@ -520,7 +530,7 @@ init_per_suite(Config) ->
     {ok, _} = zip:unzip("cmactestvectors.zip"),
     {ok, _} = zip:unzip("gcmtestvectors.zip"),
 
-    try is_ok(crypto:start()) of
+    try is_ok(application:start(crypto)) of
 	ok ->
             catch ct:comment("~s",[element(3,hd(crypto:info_lib()))]),
             catch ct:log("crypto:info()     -> ~p~n"
@@ -693,8 +703,6 @@ simple_cipher_test(Cipher) ->
             error
     end.
 
-
-
 enc_dec(Cipher, Key, 0, _Mode, Plain) ->
     case crypto:crypto_one_time(Cipher, Key, Plain, true) of
         Encrypted when is_binary(Encrypted) ->
@@ -755,13 +763,13 @@ no_support(Config) when is_list(Config) ->
     false = is_supported(Type).
 %%--------------------------------------------------------------------
 crypto_load(_Config) ->
-    (catch crypto:stop()),
+    (catch application:stop(crypto)),
     code:delete(crypto),
     code:purge(crypto),
-    crypto:start().
+    application:start(crypto).
 %%--------------------------------------------------------------------
 crypto_load_and_call(_Config) ->
-    (catch crypto:stop()),
+    (catch application:stop(crypto)),
     code:delete(crypto),
     code:purge(crypto),
     Key0 = "ablurf123BX#$;3",
@@ -1241,6 +1249,62 @@ compute(Config) when is_list(Config) ->
     lists:foreach(fun do_compute/1, Gen).
 
 %%--------------------------------------------------------------------
+encapsulate(_Config) ->
+    case openssl_version() of
+        V when V < {3,5,0} ->
+            {skip, "Requires OpenSSL 3.5 "};
+        _ ->
+            KEM_algs = [mlkem512, mlkem768, mlkem1024],
+            Supported = crypto:supports(kems),
+            [begin
+                 true = lists:member(Alg, Supported),
+                 encap_decap(Alg)
+             end || Alg <- KEM_algs],
+            ok
+    end.
+
+encap_decap(Alg) ->
+    io:format("Alg = ~p\n", [Alg]),
+    {Pub, Priv} = crypto:generate_key(Alg, []),
+    {Pub, Priv} = crypto:generate_key(Alg, [], Priv),
+    {Secret, Encap} = crypto:encapsulate_key(Alg, Pub),
+    Secret2 = crypto:decapsulate_key(Alg, Priv, Encap),
+    {Secret2,Secret} = {Secret,Secret2},
+    ok.
+
+%%--------------------------------------------------------------------
+sign_verify_oqs(_Config) ->
+    case openssl_version() of
+        V when V < {3,5,0} ->
+            {skip, "Requires OpenSSL 3.5"};
+        _ ->
+            Supported = crypto:supports(public_keys),
+            [begin
+                 true = lists:member(Alg, Supported),
+                 sign_verify_oqs_do(Alg)
+             end
+             || Alg <- mldsa_sign_ciphers()],
+            ok
+    end.
+
+sign_verify_oqs_do(Alg) ->
+    io:format("Alg = ~p\n", [Alg]),
+    {Pub, Priv} = crypto:generate_key(Alg, []),
+    {Pub, Priv} = crypto:generate_key(Alg, [], Priv),
+    Msg = "Hejsan",
+    [begin
+         io:format("Hash = ~p\n", [Hash]),
+         Sign = crypto:sign(Alg, Hash, Msg, {expandedkey,Priv}),
+         true = crypto:verify(Alg, Hash, Msg, Sign, Pub)
+     end
+     || Hash <- [none, sha]],
+    ok.
+
+%% Supported by OpenSSL 3.5
+mldsa_sign_ciphers() ->
+    [mldsa44, mldsa65, mldsa87].
+
+%%--------------------------------------------------------------------
 use_all_ec_sign_verify(_Config) ->
     Msg = <<"hello world!">>,
     Sups = crypto:supports(),
@@ -1587,6 +1651,12 @@ hash_xof(Type, DefaultLen, [Msg | RestMsg], [Digest | RestDigest], [Length | Res
                     ok;
                 Other2 ->
                     ct:fail({{crypto, hash_xof, [Type, Msg, Length]}, {expected, Digest}, {got, Other2}})
+            end,
+            case crypto:hash(Type, Msg) of
+                Digest ->
+                    ok;
+                Other3 ->
+                    ct:fail({{crypto, hash, [Type, Msg]}, {expected, Digest}, {got, Other3}})
             end;
         _ ->
             ok % No crypto:hash_init({Type,Length}) support yet
@@ -1648,11 +1718,29 @@ aead_cipher_ng({Type, Key, PlainText, IV, AAD, CipherText, CipherTag, _Info}=T) 
 aead_cipher_ng({Type, Key, PlainText, IV, AAD, CipherText, CipherTag, TagLen, _Info}=T) ->
     <<TruncatedCipherTag:TagLen/binary, _/binary>> = CipherTag,
     Plain = iolist_to_binary(PlainText),
-    cipher_test(T,
-                fun() -> crypto:crypto_one_time_aead(Type, Key, IV, PlainText, AAD, TagLen, true) end,
-                {CipherText, TruncatedCipherTag},
-                fun() -> crypto:crypto_one_time_aead(Type, Key, IV, CipherText, AAD, TruncatedCipherTag, false) end,
-                Plain).
+    T1 = cipher_test(T,
+                     fun() -> crypto:crypto_one_time_aead(Type, Key, IV, PlainText, AAD, TagLen, true) end,
+                     {CipherText, TruncatedCipherTag},
+                     fun() -> crypto:crypto_one_time_aead(Type, Key, IV, CipherText, AAD, TruncatedCipherTag, false) end,
+                     Plain),
+    case T1 == ok of
+        false ->
+            T1;
+        true ->
+            %% ok
+            CipherTextCipherTag = <<CipherText/binary, TruncatedCipherTag/binary>>,
+            cipher_test(T,
+                        fun() ->
+                                Handle = crypto:crypto_one_time_aead_init(Type, Key, TagLen, true),
+                                crypto:crypto_one_time_aead(Handle, IV, PlainText, AAD)
+                        end,
+                        CipherTextCipherTag,
+                        fun() ->
+                                Handle = crypto:crypto_one_time_aead_init(Type, Key, TagLen, false),
+                                crypto:crypto_one_time_aead(Handle, IV, CipherTextCipherTag, AAD)
+                        end,
+                        Plain)
+    end.
 
 aead_cipher_bad_tag({Type, Key, _PlainText, IV, AAD, CipherText, CipherTag, _Info}=T) ->
     BadTag = mk_bad_tag(CipherTag),
@@ -1708,7 +1796,7 @@ do_cipher_tests(F, TestVectors) when is_function(F,1) ->
         [] ->
             ct:comment("All ~p passed", [length(Passed)]);
         _ ->
-            ct:log("~p",[hd(Failed)]),
+            ct:log("~p", [hd(Failed)]),
             ct:comment("Passed: ~p, BothFailed: ~p OnlyOneFailed: ~p",
                        [length(Passed), length(BothFailed), length(Failed)-length(BothFailed)]),
             ct:fail("Failed", [])
@@ -2212,6 +2300,16 @@ group_config(sha512 = Type, Config) ->
     Msgs =  [rfc_4634_test1(), rfc_4634_test2(), long_msg()],
     Digests = rfc_4634_sha512_digests() ++ [long_sha512_digest()],
     [{hash, {Type, Msgs, Digests}} | Config];
+group_config(sha512_224 = Type, Config) ->
+    % https://csrc.nist.gov/csrc/media/projects/cryptographic-standards-and-guidelines/documents/examples/sha512_224.pdf
+    Msgs =  [rfc_4634_test1(), rfc_4634_test2(), long_msg()],
+    Digests = rfc_4634_sha512_224_digests() ++ [long_sha512_224_digest()],
+    [{hash, {Type, Msgs, Digests}} | Config];
+group_config(sha512_256 = Type, Config) ->
+    % https://csrc.nist.gov/csrc/media/projects/cryptographic-standards-and-guidelines/documents/examples/sha512_256.pdf
+    Msgs =  [rfc_4634_test1(), rfc_4634_test2(), long_msg()],
+    Digests = rfc_4634_sha512_256_digests() ++ [long_sha512_256_digest()],
+    [{hash, {Type, Msgs, Digests}} | Config];
 group_config(sha3_224 = Type, Config) ->
     {Msgs,Digests} = sha3_test_vectors(Type),
     [{hash, {Type, Msgs, Digests}} | Config];
@@ -2387,6 +2485,16 @@ do_configure_mac(hmac, Type, _Config) ->
             Keys = rfc_4231_keys() ++ [long_hmac_key(sha512)],
             Data = rfc_4231_msgs() ++ [long_msg()],
             Hmac = rfc4231_hmac_sha512() ++ [long_hmac(sha512)],
+            zip3_special(hmac, Type, Keys, Data, Hmac);
+        sha512_224 ->
+            Keys = rfc_4231_keys() ++ [long_hmac_key(sha512_224)],
+            Data = rfc_4231_msgs() ++ [long_msg()],
+            Hmac = rfc4231_hmac_sha512_224() ++ [long_hmac(sha512_224)],
+            zip3_special(hmac, Type, Keys, Data, Hmac);
+        sha512_256 ->
+            Keys = rfc_4231_keys() ++ [long_hmac_key(sha512_256)],
+            Data = rfc_4231_msgs() ++ [long_msg()],
+            Hmac = rfc4231_hmac_sha512_256() ++ [long_hmac(sha512_256)],
             zip3_special(hmac, Type, Keys, Data, Hmac);
         sm3 ->
             Keys = sm3_keys(),
@@ -2891,6 +2999,16 @@ rfc_4634_sha512_digests() ->
 		"454D4423643CE80E2A9AC94FA54CA49F"),
      hexstr2bin("8E959B75DAE313DA8CF4F72814FC143F8F7779C6EB9F7FA17299AEADB6889018501D289E4900F7E4331B99DEC4B5433AC7D329EEB6DD26545E96E55B874BE909")].
 
+rfc_4634_sha512_224_digests() ->
+  [hexstr2bin("4634270F707B6A54DAAE7530460842E20E37ED265CEEE9A43E8924AA"),
+   hexstr2bin("23FEC5BB94D60B23308192640B0C453335D664734FE40E7268674AF9")
+  ].
+
+rfc_4634_sha512_256_digests() ->
+  [hexstr2bin("53048E2681941EF99B2E29B76B4C7DABE4C2D0C634FC6D46E0E2F13107E7AF23"),
+   hexstr2bin("3928E184FB8690F840DA3988121D31BE65CB9D3EF83EE6146FEAC861E19B563A")
+  ].
+
 long_msg() ->
     fun() -> lists:duplicate(1000000, $a) end.
 
@@ -2916,6 +3034,14 @@ long_sha384_digest() ->
 long_sha512_digest() ->
     hexstr2bin("e718483d0ce76964" "4e2e42c7bc15b463" "8e1f98b13b204428" "5632a803afa973eb"
 	       "de0ff244877ea60a" "4cb0432ce577c31b" "eb009c5c2c49aa2e" "4eadb217ad8cc09b").
+
+long_sha512_224_digest() ->
+    % test vector generated from openssl
+    hexstr2bin("37AB331D76F0D36DE422BD0EDEB22A28ACCD487B7A8453AE965DD287").
+
+long_sha512_256_digest() ->
+    % test vector generated from openssl
+    hexstr2bin("9a59a052930187a97038cae692f30708aa6491923ef5194394dc68d56c74fb21").
 
 ripemd160_msgs() ->
     [<<"">>,
@@ -2991,7 +3117,9 @@ cmac_inc(_) ->
 
 %% https://www.cosic.esat.kuleuven.be/nessie/testvectors/
 long_hmac_key(Type) when Type == sha384;
-			 Type == sha512 ->
+			 Type == sha512;
+                         Type == sha512_256;
+                         Type == sha512_224 ->
     hexstr2bin("00112233445566778899AABBCCDDEEFF"
 	       "0123456789ABCDEF0011223344556677"
 	       "8899AABBCCDDEEFF0123456789ABCDEF"
@@ -3016,7 +3144,18 @@ long_hmac(sha512) ->
     hexstr2bin("D116BF471AAE1264854F1906025E846A"
 	       "61618A965FCA30B695220EA2D6E547E3"
 	       "F3B5A4B54E6778928C26D5D3D810498E"
-	       "8DF86CB3CC1E9F66A00419B13B6B0C9A").
+	       "8DF86CB3CC1E9F66A00419B13B6B0C9A");
+
+long_hmac(sha512_256) ->
+  %% test vectors generated from openssl
+
+  hexstr2bin("a5c5701071e79b0e208f13d50b96fc90"
+             "4ceefd45b7a1e9e69afbdc805121f904");
+
+long_hmac(sha512_224) ->
+  %% test vectors generated from openssl
+  hexstr2bin("534d74563c873444d485569369c209ee"
+             "6734de4c8cb81d5eee148e2e").
 
 rfc_2202_hmac_md5() ->
     [
@@ -3084,8 +3223,8 @@ rfc4231_hmac_sha256() ->
 		"5a003f089d2739839dec58b964ec3843"),
      hexstr2bin("773ea91e36800e46854db8ebd09181a7"
 		"2959098b3ef8c122d9635514ced565fe"),
-    hexstr2bin("82558a389a443c0ea4cc819899f2083a"
-	       "85f0faa3e578f8077a2e3ff46729665b"),
+     hexstr2bin("82558a389a443c0ea4cc819899f2083a"
+	        "85f0faa3e578f8077a2e3ff46729665b"),
      hexstr2bin("a3b6167473100ee06e0c796c2955552b"),
      hexstr2bin("60e431591ee0b67f0d8a26aacbf5b77f"
 		"8e0bc6213728c5140546040f0ee37f54"),
@@ -3138,6 +3277,40 @@ rfc4231_hmac_sha512() ->
 		"debd71f8867289865df5a32d20cdc944"
 		"b6022cac3c4982b10d5eeb55c3e4de15"
 		"134676fb6de0446065c97440fa8c6a58")].
+
+rfc4231_hmac_sha512_256() ->
+    % test vectors generated from openssl
+    [hexstr2bin("9f9126c3d9c3c330d760425ca8a217e3"
+                "1feae31bfe70196ff81642b868402eab"),
+     hexstr2bin("6df7b24630d5ccb2ee335407081a8718"
+                "8c221489768fa2020513b2d593359456"),
+     hexstr2bin("229006391d66c8ecddf43ba5cf8f8353"
+                "0ef221a4e9401840d1bead5137c8a2ea"),
+     hexstr2bin("36d60c8aa1d0be856e10804cf836e821"
+                "e8733cbafeae87630589fd0b9b0a2f4c"),
+     hexstr2bin("337f526924766971bf72b82ad19c2c82"),
+     hexstr2bin("87123c45f7c537a404f8f47cdbedda1f"
+                "c9bec60eeb971982ce7ef10e774e6539"),
+     hexstr2bin("6ea83f8e7315072c0bdaa33b93a26fc1"
+                "659974637a9db8a887d06c05a7f35a66")].
+
+
+rfc4231_hmac_sha512_224() ->
+    % test vectors generated from openssl
+    [hexstr2bin("b244ba01307c0e7a8ccaad13b1067a4c"
+                "f6b961fe0c6a20bda3d92039"),
+     hexstr2bin("4a530b31a79ebcce36916546317c45f2"
+                "47d83241dfb818fd37254bde"),
+     hexstr2bin("db34ea525c2c216ee5a6ccb6608bea87"
+                "0bbef12fd9b96a5109e2b6fc"),
+     hexstr2bin("c2391863cda465c6828af06ac5d4b72d"
+                "0b792109952da530e11a0d26"),
+     hexstr2bin("1df8eae8baeedd4eddfb555ec0ba768f"),
+     hexstr2bin("29bef8ce88b54d4226c3c7718ea9e32a"
+                "ce2429026f089e38cea9aeda"),
+     hexstr2bin("82a9619b47af0cea73a8b9741355ce90"
+                "2d807ad87ee9078522a246e1")].
+
 
 %% HMAC-SM3 from GM/T 0042-2015 Appendix D.3
 %% https://github.com/openssl/openssl/pull/18714
@@ -4888,13 +5061,13 @@ bad_sign_name(_Config) ->
     ?chk_api_name(crypto:sign(rsa, foobar, "nothing", <<1:1024>>),
                   error:{badarg, {"pkey.c",_}, "Bad digest type"++_}),
     ?chk_api_name(crypto:sign(foobar, sha, "nothing", <<1:1024>>),
-                  error:{badarg, {"pkey.c",_}, "Bad algorithm"++_}).
+                  error:{_, {"pkey.c",_}, _}).
     
 bad_verify_name(_Config) ->
     ?chk_api_name(crypto:verify(rsa, foobar, "nothing", <<"nothing">>,  <<1:1024>>),
                   error:{badarg,{"pkey.c",_},"Bad digest type"++_}),
     ?chk_api_name(crypto:verify(foobar, sha, "nothing", <<"nothing">>, <<1:1024>>),
-                  error:{badarg, {"pkey.c",_}, "Bad algorithm"++_}).
+                  error:{_, {"pkey.c",_}, _}).
 
 
 %%%----------------------------------------------------------------
@@ -4902,6 +5075,7 @@ try_enable_fips_mode(Config) ->
     FIPSConfig = [{fips, true} | Config],
     case crypto:info_fips() of
         enabled ->
+            check_fips_provider(),
             FIPSConfig;
         not_enabled ->
             %% Erlang/crypto configured with --enable-fips
@@ -4909,6 +5083,7 @@ try_enable_fips_mode(Config) ->
 		true ->
                     %% and also the cryptolib is fips enabled
 		    enabled = crypto:info_fips(),
+                    check_fips_provider(),
 		    FIPSConfig;
 		false ->
                     try
@@ -4928,6 +5103,23 @@ try_enable_fips_mode(Config) ->
         not_supported ->
             {skip, "FIPS mode not supported"}
     end.
+
+check_fips_provider() ->
+    case have_provider_support() of
+        true ->
+            case crypto:info() of
+                #{fips_provider_available := true,
+                  fips_provider_buildinfo := BI} when is_list(BI) ->
+                    ok
+            end;
+        false ->
+            ok
+    end.
+
+have_provider_support() ->
+    [{_, PackedVsn, _}] = crypto:info_lib(),
+    MajorVsn = (PackedVsn bsr 28),
+    MajorVsn >= 3.
 
 pbkdf2_hmac() ->
   [{doc, "Test the pbkdf2_hmac function"}].
@@ -5038,3 +5230,12 @@ get_priv_pub({Type, undefined=_Hash, Private, Public, _Msg, _Signature}, Acc) ->
 get_priv_pub({Type, _Hash, Public, Private, _Msg}, Acc) -> [{Type,Private,Public} | Acc];
 get_priv_pub({Type, _Hash, Public, Private, _Msg, _Options}, Acc) -> [{Type,Private,Public} | Acc];
 get_priv_pub(_, Acc) -> Acc.
+
+openssl_version() ->
+    case crypto:info_lib() of
+        [{<<"OpenSSL">>,Ver,<<"OpenSSL",_/binary>>}] ->
+            <<Maj,Min,Patch>> = <<(Ver bsr 12):24/integer>>,
+            {Maj,Min,Patch};
+        _ ->
+            undefined
+    end.

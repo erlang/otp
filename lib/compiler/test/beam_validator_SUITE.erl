@@ -1,6 +1,8 @@
 %%
 %% %CopyrightBegin%
 %%
+%% SPDX-License-Identifier: Apache-2.0
+%%
 %% Copyright Ericsson AB 2004-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
@@ -24,7 +26,7 @@
 	 init_per_testcase/2,end_per_testcase/2,
 	 compiler_bug/1,stupid_but_valid/1,
 	 xrange/1,yrange/1,stack/1,call_last/1,merge_undefined/1,
-	 uninit/1,unsafe_catch/1,
+	 uninit/1,
 	 dead_code/1,
 	 overwrite_catchtag/1,overwrite_trytag/1,accessing_tags/1,bad_catch_try/1,
 	 cons_guard/1,
@@ -44,7 +46,7 @@
          infer_relops/1,
          not_equal_inference/1,bad_bin_unit/1,singleton_inference/1,
          inert_update_type/1,range_inference/1,
-         bif_inference/1,ensure_bits/1]).
+         bif_inference/1,too_many_arguments/1,ensure_bits/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -65,7 +67,7 @@ groups() ->
     [{p,test_lib:parallel(),
       [compiler_bug,stupid_but_valid,xrange,
        yrange,stack,call_last,merge_undefined,uninit,
-       unsafe_catch,dead_code,
+       dead_code,
        overwrite_catchtag,overwrite_trytag,accessing_tags,
        bad_catch_try,cons_guard,freg_range,freg_uninit,
        bad_bin_match,bad_dsetel,
@@ -82,7 +84,7 @@ groups() ->
        container_performance,infer_relops,
        not_equal_inference,bad_bin_unit,singleton_inference,
        inert_update_type,range_inference,
-       bif_inference,ensure_bits]}].
+       bif_inference,too_many_arguments,ensure_bits]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -206,15 +208,6 @@ uninit(Config) when is_list(Config) ->
      {{t,sum_3,2},
       {{bif,'+',{f,0},[{x,0},{y,0}],{x,0}},
        7,
-       {unassigned,{y,0}}}}] = Errors,
-    ok.
-
-unsafe_catch(Config) when is_list(Config) ->
-    Errors = do_val(unsafe_catch, Config),
-    [{{t,small,2},
-      {{bs_put_integer,{f,0},{integer,16},1,
-        {field_flags,[unsigned,big]},{y,0}},
-       21,
        {unassigned,{y,0}}}}] = Errors,
     ok.
 
@@ -351,7 +344,7 @@ undef_label(Config) when is_list(Config) ->
 	 5},
     Errors = beam_val(M),
     [{{undef_label,t,1},{undef_labels,[42]}},
-     {{undef_label,x,1},no_entry_label}] = Errors,
+     {{undef_label,x,1},invalid_function_header}] = Errors,
     ok.
 
 illegal_instruction(Config) when is_list(Config) ->
@@ -1168,6 +1161,29 @@ bif_inference_is_function(A, A)  when A orelse ok; is_function(A) ->
     ok;
 bif_inference_is_function(_, _) ->
     error.
+
+%% GH-9113: We didn't reject funs, comprehensions, and the likes which exceeded
+%% the argument limit.
+too_many_arguments(_Config) ->
+    M = {too_many_arguments,
+         [{t,256},{t,0}],
+         [],
+         [{function,t,256,2,
+           [{label,1},
+            {func_info,{atom,too_many_arguments},{atom,t},256},
+            {label,2},
+            return]},
+          {function,t,0,4,
+           [{label,3},
+            %% Mismatching arity.
+            {func_info,{atom,too_many_arguments},{atom,t},5},
+            {label,4},
+            return]}],
+         5},
+    Errors = beam_val(M),
+    [{{too_many_arguments,t,256},too_many_arguments},
+     {{too_many_arguments,t,0},invalid_function_header}] = Errors,
+    ok.
 
 %% GH-9304: Validator did not check that operations were preceded by
 %% ensure_at_least / ensure_exactly.

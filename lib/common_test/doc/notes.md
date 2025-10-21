@@ -1,6 +1,8 @@
 <!--
 %CopyrightBegin%
 
+SPDX-License-Identifier: Apache-2.0
+
 Copyright Ericsson AB 2023-2025. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,6 +20,68 @@ limitations under the License.
 %CopyrightEnd%
 -->
 # Common Test Release Notes
+
+## Common_Test 1.29
+
+### Improvements and New Features
+
+- Improved printing of maps. Map keys are now printed in the same order as `maps:iterator(Map, ordered)` would sort them.
+
+  Own Id: OTP-19642 Aux Id: ERIERL-1231, [PR-9862]
+
+- `ct:print` will now suppress printing of timestamp and heading when the heading option is set to the empty string.
+
+  Own Id: OTP-19714 Aux Id: [PR-10051]
+
+[PR-9862]: https://github.com/erlang/otp/pull/9862
+[PR-10051]: https://github.com/erlang/otp/pull/10051
+
+## Common_Test 1.28
+
+### Fixed Bugs and Malfunctions
+
+- Replaced calls to deprecated `crypto:start()` with `application:start(crypto)`.
+
+  Own Id: OTP-19485 Aux Id: [PR-8592]
+
+- Enhance specs of timeout for improving documentation and dialyzer analysis.
+
+  Own Id: OTP-19604 Aux Id: [PR-9574]
+
+[PR-8592]: https://github.com/erlang/otp/pull/8592
+[PR-9574]: https://github.com/erlang/otp/pull/9574
+
+### Improvements and New Features
+
+- The overage reports in HTML can be rendered in dark mode if requested by the user's browser.
+
+  Own Id: OTP-19159 Aux Id: [PR-7830]
+
+- The `abort_if_missing_suites` option now defaults to `true`. If you prefer the old behavior, set `abort_if_missing_suites` to `false` in your test runs.
+
+  *** POTENTIAL INCOMPATIBILITY ***
+
+  Own Id: OTP-19355 Aux Id: [PR-9045]
+
+- Fixed licenses in files and added ORT curations to the following apps: otp, eldap, erl_interface, eunit, parsetools, stdlib, syntax_tools, and ERTS.
+
+  Own Id: OTP-19478 Aux Id: [PR-9376], [PR-9402], [PR-9819]
+
+- Added support for compiling Erlang/OTP for Windows on ARM64.
+
+  Own Id: OTP-19480 Aux Id: [PR-8734]
+
+- The license and copyright header has changed format to include an `SPDX-License-Identifier`. At the same time, most files have been updated to follow a uniform standard for license headers.
+
+  Own Id: OTP-19575 Aux Id: [PR-9670]
+
+[PR-7830]: https://github.com/erlang/otp/pull/7830
+[PR-9045]: https://github.com/erlang/otp/pull/9045
+[PR-9376]: https://github.com/erlang/otp/pull/9376
+[PR-9402]: https://github.com/erlang/otp/pull/9402
+[PR-9819]: https://github.com/erlang/otp/pull/9819
+[PR-8734]: https://github.com/erlang/otp/pull/8734
+[PR-9670]: https://github.com/erlang/otp/pull/9670
 
 ## Common_Test 1.27.7
 

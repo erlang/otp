@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
 %% 
-%% Copyright Ericsson AB 1997-2023. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2025. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,6 +25,7 @@
 -export([all/0, suite/0, groups/0]).
 
 -export([t_div/1, eq_28/1, eq_32/1, eq_big/1, eq_math/1, eq_big_mul_div/1,
+         eq_big_rem/1,
          big_literals/1, borders/1, negative/1, karatsuba/1,
          big_float_1/1, big_float_2/1,
          bxor_2pow/1, band_2pow/1,
@@ -44,6 +47,7 @@ suite() ->
 
 all() -> 
     [t_div, eq_28, eq_32, eq_big, eq_math, eq_big_mul_div,
+     eq_big_rem,
      big_literals, borders, negative, karatsuba,
      {group, big_float}, shift_limit_1,
      bxor_2pow, band_2pow,
@@ -81,6 +85,10 @@ eq_math(Config) when is_list(Config) ->
     test(TestFile).
 
 eq_big_mul_div(Config) when is_list(Config) ->
+    TestFile = test_file(Config, ?FUNCTION_NAME),
+    test(TestFile).
+
+eq_big_rem(Config) when is_list(Config) ->
     TestFile = test_file(Config, ?FUNCTION_NAME),
     test(TestFile).
 

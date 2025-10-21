@@ -1,6 +1,15 @@
-%% Licensed under the Apache License, Version 2.0 (the "License"); you may
-%% not use this file except in compliance with the License. You may obtain
-%% a copy of the License at <http://www.apache.org/licenses/LICENSE-2.0>
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+%%
+%% Copyright 2006 Richard Carlsson
+%% Copyright Ericsson AB 2009-2025. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
 %%
 %% Unless required by applicable law or agreed to in writing, software
 %% distributed under the License is distributed on an "AS IS" BASIS,
@@ -18,8 +27,9 @@
 %% above, a recipient may use your version of this file under the terms of
 %% either the Apache License or the LGPL.
 %%
+%% %CopyrightEnd%
+%%
 %% @author Richard Carlsson <carlsson.richard@gmail.com>
-%% @copyright 2006 Richard Carlsson
 %% @private
 %% @see eunit
 %% @doc Test running functionality
@@ -29,6 +39,7 @@
 
 -export([run_testfun/1, mf_wrapper/2, enter_context/4, multi_setup/1]).
 
+-compile(nowarn_unexported_function).
 
 -include("eunit.hrl").
 -include("eunit_internal.hrl").
@@ -367,7 +378,7 @@ context_error(Type, Class, Trace, Term) ->
     throw({context_error, Type, {Class, Term, get_stacktrace(Trace)}}).
 
 %% This generates single setup/cleanup functions from a list of tuples
-%% on the form {Tag, Setup, Cleanup}, where the setup function always
+%% of the form {Tag, Setup, Cleanup}, where the setup function always
 %% backs out correctly from partial completion.
 
 multi_setup(List) ->

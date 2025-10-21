@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2003-2024. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2003-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -28,6 +30,7 @@
 	 expand_content/3, normalize_element/1, normalize_element/3,
 	 expand_element/1, expand_element/3, expand_attributes/1,
 	 expand_attributes/3, export_text/1, flatten_text/1, export_cdata/1,
+	 export_comment/1,
 	 export_attribute/1, markup/2, markup/3, simplify_element/1,
 	 simplify_content/1, start_tag/1, start_tag/2, end_tag/1,
 	 empty_tag/1, empty_tag/2,is_empty_data/1, find_attribute/2,
@@ -101,6 +104,21 @@ export_cdata([], []) ->
     [];
 export_cdata(Bin, Cont) ->
     export_cdata(binary_to_list(Bin), Cont).
+
+%% Export comment
+export_comment(T) ->
+    R = "<!--" ++ export_comment(T, []),
+    R ++ "-->".
+export_comment([C | T], Cont) when is_integer(C) ->
+    [C | export_comment(T, Cont)];
+export_comment([T | T1], Cont) ->
+    export_comment(T, [T1 | Cont]);
+export_comment([], [T | Cont]) ->
+    export_comment(T, Cont);
+export_comment([], []) ->
+    [];
+export_comment(Bin, Cont) ->
+    export_comment(binary_to_list(Bin), Cont).
 
 %% Convert attribute value to a flat string, escaping characters `"',
 %% `<' and `&'. (Note that single-quote characters are not escaped; the

@@ -1,3 +1,10 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 {application, ssl,
    [{description, "Erlang/OTP SSL application"},
     {vsn, "%VSN%"},
@@ -13,6 +20,7 @@
 	       tls_record,
 	       tls_record_1_3,
 	       tls_socket,
+	       tls_socket_tcp,
 	       tls_v1,
 	       tls_connection_sup,
 	       tls_gen_connection,
@@ -56,6 +64,7 @@
 	       tls_bloom_filter,
 	       tls_client_ticket_store,
 	       %% Erlang Distribution over SSL/TLS
+	       inet_epmd_tls_socket,
 	       inet_tls_dist,
 	       inet6_tls_dist,
 	       ssl_dist_sup,
@@ -92,6 +101,6 @@
     {applications, [crypto, public_key, kernel, stdlib]},
     {env, []},
     {mod, {ssl_app, []}},
-    {runtime_dependencies, ["stdlib-6.0","public_key-1.16.4","kernel-9.0",
-                            "erts-15.0","crypto-5.0", "inets-5.10.7",
+    {runtime_dependencies, ["stdlib-7.0","public_key-1.18.3","kernel-10.3",
+                            "erts-16.0","crypto-5.7", "inets-5.10.7",
                             "runtime_tools-1.15.1"]}]}.

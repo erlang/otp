@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2024 All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2007-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -184,18 +186,24 @@ certificate_chain(#cert{} = Cert, CertDbHandle, CertsDbRef, Candidates, Type) ->
 %% Description: Return list of DER encoded certificates.
 %%--------------------------------------------------------------------
 file_to_certificats(File, DbHandle) ->
-    {ok, List} = ssl_manager:cache_pem_file(File, DbHandle),
-    [Bin || {'Certificate', Bin, not_encrypted} <- List].
-
+    case ssl_manager:cache_pem_file(File, DbHandle) of
+        {ok, List} ->
+            [Bin || {'Certificate', Bin, not_encrypted} <- List];
+        _ ->
+            [] % If file no longer exists return empty content
+    end.
 %%--------------------------------------------------------------------
 -spec file_to_crls(binary(), term()) -> [public_key:der_encoded()].
 %%
 %% Description: Return list of DER encoded certificates.
 %%--------------------------------------------------------------------
 file_to_crls(File, DbHandle) ->
-    {ok, List} = ssl_manager:cache_pem_file(File, DbHandle),
-    [Bin || {'CertificateList', Bin, not_encrypted} <- List].
-
+    case ssl_manager:cache_pem_file(File, DbHandle) of
+        {ok, List} ->
+            [Bin || {'CertificateList', Bin, not_encrypted} <- List];
+        _ ->
+            [] % If file no longer exists return empty content
+    end.
 %%--------------------------------------------------------------------
 -spec validate(term(), {extension, #'Extension'{}} | {bad_cert, atom()} | valid | valid_peer,
 	       term(), logger:level() | none | all) -> {valid, term()} | {fail, tuple()} | {unknown, term()}.
@@ -353,7 +361,7 @@ available_cert_key_pairs(CertKeyGroups) ->
 %% Create the prioritized list of cert key pairs that
 %% are availble for use in the negotiated version
 available_cert_key_pairs(CertKeyGroups, ?TLS_1_3) ->
-    RevAlgos = [rsa, rsa_pss_pss, ecdsa, eddsa],
+    RevAlgos = [mldsa, rsa, rsa_pss_pss, ecdsa, eddsa],
     cert_key_group_to_list(RevAlgos, CertKeyGroups, []);
 available_cert_key_pairs(CertKeyGroups, ?TLS_1_2) ->
      RevAlgos = [dsa, rsa, rsa_pss_pss, ecdsa],
@@ -558,7 +566,9 @@ public_key(#'OTPSubjectPublicKeyInfo'{algorithm = #'PublicKeyAlgorithm'{algorith
 public_key(#'OTPSubjectPublicKeyInfo'{algorithm = #'PublicKeyAlgorithm'{algorithm = ?'id-dsa',
 									parameters = {params, Params}},
 				      subjectPublicKey = Key}) ->
-    {Key, Params}.
+    {Key, Params};
+public_key(#'OTPSubjectPublicKeyInfo'{subjectPublicKey = Key}) ->
+    Key.
 
 other_issuer(#cert{otp=OtpCert}=Cert, CertDbHandle, CertDbRef) ->
     case public_key:pkix_issuer_id(OtpCert, other) of

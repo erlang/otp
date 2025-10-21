@@ -298,3 +298,13 @@ factored_ets_new_t() ->
     factored_ets_new(name,{bag}),
     factored_ets_new(name,bag),
     ok.
+
+%===============================================================================
+
+-nominal t1() :: t2().
+-nominal t2() :: integer().
+-record(r, {t :: t1()}).
+
+-spec swap_r(#r{}) -> #r{t :: t2()}.
+swap_r(#r{t = T}) ->
+  #r{t = T}.

@@ -1,15 +1,18 @@
 
-dict_use.erl:41:3: The attempt to match a term of type dict:dict(_,_) against the pattern 'gazonk' breaks the opacity of the term
-dict_use.erl:45:5: The attempt to match a term of type dict:dict(_,_) against the pattern [] breaks the opacity of the term
-dict_use.erl:46:5: The attempt to match a term of type dict:dict(_,_) against the pattern 42 breaks the opacity of the term
-dict_use.erl:51:5: The attempt to match a term of type dict:dict(_,_) against the pattern [] breaks the opacity of the term
-dict_use.erl:52:5: The attempt to match a term of type dict:dict(_,_) against the pattern 42 breaks the opacity of the term
+dict_use.erl:41:3: The pattern 'gazonk' can never match the type dict:dict(_,_)
+dict_use.erl:45:5: The pattern [] can never match the type dict:dict(_,_)
+dict_use.erl:46:5: The pattern 42 can never match the type dict:dict(_,_)
+dict_use.erl:51:5: The pattern [] can never match the type dict:dict(_,_)
+dict_use.erl:52:5: The pattern 42 can never match the type dict:dict(_,_)
 dict_use.erl:58:3: Attempt to test for equality between a term of type maybe_improper_list() and a term of opaque type dict:dict(_,_)
+dict_use.erl:58:3: The test maybe_improper_list() =:= dict:dict(_,_) can never evaluate to 'true'
 dict_use.erl:60:3: Attempt to test for inequality between a term of type atom() and a term of opaque type dict:dict(_,_)
-dict_use.erl:64:19: Guard test length(D::dict:dict(_,_)) breaks the opacity of its argument
-dict_use.erl:65:20: Guard test is_atom(D::dict:dict(_,_)) breaks the opacity of its argument
-dict_use.erl:66:20: Guard test is_list(D::dict:dict(_,_)) breaks the opacity of its argument
-dict_use.erl:70:3: The type test is_list(dict:dict(_,_)) breaks the opacity of the term dict:dict(_,_)
+dict_use.erl:60:3: The test atom() =/= dict:dict(_,_) can never evaluate to 'false'
+dict_use.erl:64:12: Guard test length(D::dict:dict(_,_)) can never succeed
+dict_use.erl:65:12: Guard test is_atom(D::dict:dict(_,_)) can never succeed
+dict_use.erl:66:12: Guard test is_list(D::dict:dict(_,_)) can never succeed
 dict_use.erl:73:19: The call dict:fetch('foo',[1, 2, 3]) does not have an opaque term of type dict:dict(_,_) as 2nd argument
+dict_use.erl:73:19: The call dict:fetch('foo',[1, 2, 3]) will never return since the success typing is (any(),{'dict',non_neg_integer(),non_neg_integer(),pos_integer(),non_neg_integer(),non_neg_integer(),non_neg_integer(),tuple(),tuple()}) -> any() and the contract is (Key,Dict) -> Value when Dict :: dict(Key,Value)
 dict_use.erl:76:19: The call dict:merge(Fun::any(),42,[1, 2]) does not have opaque terms as 2nd and 3rd arguments
+dict_use.erl:76:19: The call dict:merge(Fun::any(),42,[1, 2]) will never return since the success typing is (any(),any(),{'dict',non_neg_integer(),non_neg_integer(),non_neg_integer(),non_neg_integer(),non_neg_integer(),non_neg_integer(),tuple(),tuple()}) -> any() and the contract is (Fun,Dict1,Dict2) -> Dict3 when Fun :: fun((Key,Value1,Value2) -> Value), Dict1 :: dict(Key,Value1), Dict2 :: dict(Key,Value2), Dict3 :: dict(Key,Value)
 dict_use.erl:80:7: The call dict:store(42,'elli',{'dict', 0, 16, 16, 8, 80, 48, {[], [], [], [], [], [], [], [], [], [], [], [], [], [], [], []}, {{[], [], [], [], [], [], [], [], [], [], [], [], [], [], [], []}}}) does not have an opaque term of type dict:dict(_,_) as 3rd argument

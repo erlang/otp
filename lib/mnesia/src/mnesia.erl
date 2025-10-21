@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1005,6 +1007,12 @@ Mnesia forwards calls to the following functions:
 - mnesia:index_match_object/4 (index_match_object/2)
 - mnesia:index_read/3
 - mnesia:table_info/2
+- mnesia:foldl/4 (foldl/3)
+- mnesia:foldr/4 (foldr/3)
+- mnesia:select/3 (select/2)
+- mnesia:select/4
+- mnesia:select/1
+- mnesia:clear_table/1
 
 to the corresponding:
 
@@ -1022,6 +1030,12 @@ to the corresponding:
 - AccessMod:index_match_object(ActivityId, Opaque, Tab, Pattern, Attr, LockKind)
 - AccessMod:index_read(ActivityId, Opaque, Tab, SecondaryKey, Attr, LockKind)
 - AccessMod:table_info(ActivityId, Opaque, Tab, InfoItem)
+- AccessMod:foldl(ActivityId, Opaque, Fun, Acc, Tab, LockKind)
+- AccessMod:foldr(ActivityId, Opaque, Fun, Acc, Tab, LockKind)
+- AccessMod:select(ActivityId, Opaque, Tab, Spec, LockKind)
+- AccessMod:select(ActivityId, Opaque, Tab, Spec, NObjects, LockKind)
+- AccessMod:select_cont(ActivityId, Opaque, Cont)
+- AccessMod:clear_table(ActivityId, Opaque, Tab, Obj)
 
 `ActivityId` is a record that represents the identity of the enclosing Mnesia
 activity. The first field (obtained with
@@ -4158,7 +4172,7 @@ create_table(Arg) ->
 -doc """
 Create a table.
 
-Creates a Mnesia table called `Name` according to argument `TabDef`. This list
+Creates a Mnesia table called `Name` according to argument `Opts`. This list
 must be a list of `{Item, Value}` tuples, where the following values are
 allowed:
 

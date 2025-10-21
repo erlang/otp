@@ -1,6 +1,8 @@
 %%
 %% %CopyrightBegin%
 %%
+%% SPDX-License-Identifier: Apache-2.0
+%%
 %% Copyright Ericsson AB 2008-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
@@ -55,7 +57,7 @@
          crl_hash_dir_expired/1,
          delete_crl_with_path/1]).
 
--define(TIMEOUT, {seconds, 30}).
+-define(TIMEOUT, {seconds, 15}).
 
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
@@ -204,6 +206,7 @@ init_per_testcase(Case, Config0) ->
                     {skip, "Unable to create IDP crls"}
             end;
 	false ->
+            ct:timetrap(?TIMEOUT),
 	    end_per_testcase(Case, Config0),
 	    ssl_test_lib:clean_start(),
 	    Config0

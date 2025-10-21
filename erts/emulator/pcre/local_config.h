@@ -1,33 +1,42 @@
-/* %ExternalCopyright% */
+/* SPDX-License-Identifier: BSD-3-Clause */
 
-#define HAVE_ZLIB_H 1
+#define PCRE2_CODE_UNIT_WIDTH 8
+
+/* Do not make any symbols visble */
+#define PCRE2_EXPORT
+
+/* This limits the amount of memory that may be used while matching a pattern.
+   It applies to both pcre2_match() and pcre2_dfa_match(). It does not apply
+   to JIT matching. The value is in kibibytes (units of 1024 bytes). */
+#define HEAP_LIMIT 20000000
+
 /* The value of LINK_SIZE determines the number of bytes used to store links
    as offsets within the compiled regex. The default is 2, which allows for
-   compiled patterns up to 64K long. This covers the vast majority of cases.
-   However, PCRE can also be compiled to use 3 or 4 bytes instead. This allows
-   for longer patterns in extreme cases. On systems that support it,
-   "configure" can be used to override this default. */
+   compiled patterns up to 65535 code units long. This covers the vast
+   majority of cases. However, PCRE2 can also be compiled to use 3 or 4 bytes
+   instead. This allows for longer patterns in extreme cases. */
 #define LINK_SIZE 2
 
 /* The value of MATCH_LIMIT determines the default number of times the
-   internal match() function can be called during a single execution of
-   pcre_exec(). There is a runtime interface for setting a different limit.
-   The limit exists in order to catch runaway regular expressions that take
-   for ever to determine that they do not match. The default is set very large
-   so that it does not accidentally catch legitimate cases. On systems that
-   support it, "configure" can be used to override this default default. */
+   pcre2_match() function can record a backtrack position during a single
+   matching attempt. The value is also used to limit a loop counter in
+   pcre2_dfa_match(). There is a runtime interface for setting a different
+   limit. The limit exists in order to catch runaway regular expressions that
+   take forever to determine that they do not match. The default is set very
+   large so that it does not accidentally catch legitimate cases. */
 #define MATCH_LIMIT 10000000
 
-/* The above limit applies to all calls of match(), whether or not they
-   increase the recursion depth. In some environments it is desirable to limit
-   the depth of recursive calls of match() more strictly, in order to restrict
-   the maximum amount of stack (or heap, if NO_RECURSE is defined) that is
-   used. The value of MATCH_LIMIT_RECURSION applies only to recursive calls of
-   match(). To have any useful effect, it must be less than the value of
-   MATCH_LIMIT. The default is to use the same value as MATCH_LIMIT. There is
-   a runtime method for setting a different limit. On systems that support it,
-   "configure" can be used to override the default. */
-#define MATCH_LIMIT_RECURSION MATCH_LIMIT
+/* The above limit applies to all backtracks, whether or not they are nested.
+   In some environments it is desirable to limit the nesting of backtracking
+   (that is, the depth of tree that is searched) more strictly, in order to
+   restrict the maximum amount of heap memory that is used. The value of
+   MATCH_LIMIT_DEPTH provides this facility. To have any useful effect, it
+   must be less than the value of MATCH_LIMIT. The default is to use the same
+   value as MATCH_LIMIT. There is a runtime method for setting a different
+   limit. In the case of pcre2_dfa_match(), this limit controls the depth of
+   the internal nested function calls that are used for pattern recursions,
+   lookarounds, and atomic groups. */
+#define MATCH_LIMIT_DEPTH MATCH_LIMIT
 
 /* This limit is parameterized just in case anybody ever wants to change it.
    Care must be taken if it is increased, because it guards against integer
@@ -37,50 +46,26 @@
 /* This limit is parameterized just in case anybody ever wants to change it.
    Care must be taken if it is increased, because it guards against integer
    overflow caused by enormously large patterns. */
-#define MAX_NAME_SIZE 32
+#define MAX_NAME_SIZE 128
 
-/* The value of NEWLINE determines the newline character sequence. On systems
-   that support it, "configure" can be used to override the default, which is
-   10. The possible values are 10 (LF), 13 (CR), 3338 (CRLF), -1 (ANY), or -2
-   (ANYCRLF). */
-#define NEWLINE 10
+/* The value of MAX_VARLOOKBEHIND specifies the default maximum length, in
+   characters, for a variable-length lookbehind assertion. */
+#define MAX_VARLOOKBEHIND 255
 
-/* PCRE uses recursive function calls to handle backtracking while matching.
-   This can sometimes be a problem on systems that have stacks of limited
-   size. Define NO_RECURSE to get a version that doesn't use recursion in the
-   match() function; instead it creates its own stack by steam using
-   pcre_recurse_malloc() to obtain memory from the heap. For more detail, see
-   the comments and other stuff just above the match() function. On systems
-   that support it, "configure" can be used to set this in the Makefile (use
-   --disable-stack-for-recursion). */
-#define NO_RECURSE 
+/* The value of NEWLINE_DEFAULT determines the default newline character
+   sequence. PCRE2 client programs can override this by selecting other values
+   at run time. The valid values are 1 (CR), 2 (LF), 3 (CRLF), 4 (ANY), 5
+   (ANYCRLF), and 6 (NUL). */
+#define NEWLINE_DEFAULT 2
 
 /* The value of PARENS_NEST_LIMIT specifies the maximum depth of nested
    parentheses (of any kind) in a pattern. This limits the amount of system
    stack that is used while compiling a pattern. */
 #define PARENS_NEST_LIMIT 10000
 
-/* Define if linking statically (TODO: make nice with Libtool) */
-#define PCRE_STATIC 1
+/* Define to any value to enable support for Unicode and UTF encoding. This
+   will work even in an EBCDIC environment, but it is incompatible with the
+   EBCDIC macro. That is, PCRE2 can support *either* EBCDIC code *or*
+   ASCII/Unicode, but not both at once. */
+#define SUPPORT_UNICODE /**/
 
-/* When calling PCRE via the POSIX interface, additional working storage is
-   required for holding the pointers to capturing substrings because PCRE
-   requires three integers per substring, whereas the POSIX interface provides
-   only two. If the number of expected substrings is small, the wrapper
-   function uses space on the stack, because this is faster than using
-   malloc() for each call. The threshold above which the stack is no longer
-   used is defined by POSIX_MALLOC_THRESHOLD. On systems that support it,
-   "configure" can be used to override this default. */
-#define POSIX_MALLOC_THRESHOLD 10
-
-/* Define to enable support for Unicode properties */
-#define SUPPORT_UCP
-
-/* Define to any value to enable support for the UTF-8/16/32 Unicode encoding.
-   This will work even in an EBCDIC environment, but it is incompatible with
-   the EBCDIC macro. That is, PCRE can support *either* EBCDIC code *or*
-   ASCII/UTF-8/16/32, but not both at once. */
-#define SUPPORT_UTF 
-
-/* Version number of package */
-#define VERSION "8.44"

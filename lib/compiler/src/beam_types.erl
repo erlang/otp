@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2019-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2019-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -446,7 +448,7 @@ subtract(#t_union{list=List}=A, B) when ?IS_LIST_TYPE(B) ->
     shrink_union(A#t_union{list=subtract(List, B)});
 subtract(#t_union{tuple_set=[_|_]=Records0}=A, #t_tuple{}=B) ->
     %% Filter out all records that are more specific than B.
-    NewSet = case [{Key, T} || {Key, T} <- Records0, meet(T, B) =/= T] of
+    NewSet = case [{Key, T} || {Key, T} <:- Records0, meet(T, B) =/= T] of
                  [_|_]=Records -> Records;
                  [] -> none
              end,
@@ -1480,7 +1482,7 @@ convert_ext(?BEAM_TYPES_VERSION_25, Types0) ->
                        <<TypeBits:16,Min:64/signed,Max:64/signed>>;
                    false ->
                        <<TypeBits0:16>>
-               end || <<TypeBits0:16,Min:64/signed,Max:64/signed>> <= Types0 >>,
+               end || <<TypeBits0:16,Min:64/signed,Max:64/signed>> <:= Types0 >>,
     convert_ext(?BEAM_TYPES_VERSION_26, Types);
 convert_ext(_Version, _Types) ->
     none.

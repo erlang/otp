@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2021-2024. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2021-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -38,7 +40,11 @@ void BeamGlobalAssembler::emit_unloaded_fun() {
     load_x_reg_array(ARG2);
     a.shr(ARG3, imm(FUN_HEADER_ARITY_OFFS));
     /* ARG4 has already been set. */
-    runtime_call<4>(beam_jit_handle_unloaded_fun);
+    a.mov(ARG5, active_code_ix);
+
+    runtime_call<
+            const Export *(*)(Process *, Eterm *, int, Eterm, ErtsCodeIndex),
+            beam_jit_handle_unloaded_fun>();
 
     emit_leave_runtime<Update::eHeapAlloc | Update::eReductions |
                        Update::eCodeIndex>();
@@ -98,7 +104,8 @@ void BeamGlobalAssembler::emit_handle_call_fun_error() {
         a.mov(ARG1, c_p);
         load_x_reg_array(ARG2);
         a.shr(ARG3, imm(FUN_HEADER_ARITY_OFFS));
-        runtime_call<3>(beam_jit_build_argument_list);
+        runtime_call<Eterm (*)(Process *, const Eterm *, int),
+                     beam_jit_build_argument_list>();
 
         emit_leave_runtime<Update::eHeapAlloc>();
 
@@ -189,7 +196,7 @@ void BeamModuleAssembler::emit_i_make_fun3(const ArgLambda &Lambda,
                                            const ArgWord &Arity,
                                            const ArgWord &NumFree,
                                            const Span<ArgVal> &env) {
-    ASSERT((NumFree.get() + 1) == env.size() &&
+    ASSERT((NumFree.get()) == env.size() &&
            (NumFree.get() + Arity.get()) < MAX_ARG);
 
     mov_arg(RET, Lambda);

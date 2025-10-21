@@ -1,0 +1,757 @@
+#!/usr/bin/env escript
+%% -*- erlang -*-
+
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2025. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%%
+%% %CopyrightEnd%
+
+
+%% REUSE-IgnoreStart
+-include_lib("kernel/include/file.hrl").
+-export([read_file_info/1, read_link_info/1, list_dir/1]).
+
+main(Args) ->
+    argparse:run(Args, cli(), #{ progname => 'license-header' }).
+
+cli() ->
+    #{ commands =>
+           #{ "scan" =>
+                  #{ help => "Scan files in folder for correct license headers.",
+                     arguments => [verbose_option(),
+                                   no_missing_option([]),
+                                   update_option(),
+                                   path_option()],
+                     handler => fun scan/1},
+              "ci" =>
+                  #{ help => "Scan files using CI settings.",
+                     arguments => [path_option()],
+                     handler => fun ci/1},
+              "update" =>
+                  #{ help => "Update copyright on files in folder for correct license headers.",
+                     arguments => [verbose_option(),
+                                   no_missing_option(["**"]),
+                                   path_option()],
+                     handler => fun update/1}
+            },
+       help => """
+       license-header can be used to scan all files in an Erlang/OTP repo for
+       compliance with the license header format used. See HOWTO/FILE-HEADERS.md
+       for details on how to properly write license headers. Typical usage is:
+
+         # Scan the entire repo
+         $ ERL_TOP=`pwd` ./scripts/license-header.es scan
+
+         # Update the Ericsson copyright year for the entire repo
+         $ ERL_TOP=`pwd` ./scripts/license-header.es update
+
+         # Scan only a specific part
+         $ ERL_TOP=`pwd` ./scripts/license-header.es scan --path lib/stdlib
+
+         # Scan only a specific part and disable all missing suppressions
+         $ ERL_TOP=`pwd` ./scripts/license-header.es scan --no-missing --path lib/stdlib
+
+       """
+     }.
+
+verbose_option() ->
+    #{ name => verbose,
+       long => "-verbose",
+       short => $v,
+       default => false,
+       type => boolean,
+       help => "Give more verbose output when a header is incorrect" }.
+
+update_option() ->
+    #{ name => update,
+       long => "-update",
+       short => $u,
+       default => false,
+       type => boolean,
+       help => "Update all Ericsson copyright notices" }.
+
+no_missing_option(Default) ->
+    #{ name => no_missing,
+       long => "-no-missing",
+       nargs => list,
+       default => Default,
+       help => "File globs to not generate missing header warnings for" }.
+
+path_option() ->
+    #{ name => path,
+       long => "-path",
+       default => [case os:getenv("ERL_TOP") of false -> {ok, Cwd} = file:get_cwd(), Cwd; Cwd -> Cwd end],
+       nargs => list,
+       help => "The files and directories to be scanned. Use 'stdin' for reading the list of files from stdin." }.
+
+scan(Opts) ->
+    YearMatch = "(?:19|20)[0-9]{2}",
+    {ok, EricssonCopyright} = re:compile(["^Copyright Ericsson AB (",YearMatch,"-)?(",YearMatch,")\\. "
+                                          "All Rights Reserved\\.$"]),
+    persistent_term:put(ericsson_copyright, EricssonCopyright),
+    FilesToScan = get_files_to_scan(Opts),
+    RootDir = get_rootdir(Opts),
+    LicenseTemplates = get_license_templates(RootDir),
+    VendorPaths = get_vendor_paths(RootDir),
+    LargestLicense = lists:max([byte_size(L) || _ := L <- LicenseTemplates]),
+    N = pmap(fun(File) -> check_file(File, LargestLicense, LicenseTemplates, VendorPaths, Opts) end, FilesToScan),
+    io:format("Checked ~p files\n", [length(N)]),
+    [io:format("Updated ~p files\n", [length([update || update <- N])]) || maps:get(update, Opts, false)],
+    io:format("Warnings ~p in files\n", [length([warn || warn <- N])]),
+    length([warn || warn <- N]) > 0 andalso
+        begin
+            Notice = """
+              Found some invalid license headers.
+              See https://github.com/erlang/otp/tree/master/HOWTO/FILE-HEADERS.md for details
+              on how license headers should look.
+              """,
+            io:format("~ts~n",[Notice]),
+            erlang:halt(1)
+        end,
+    ok.
+
+update(Opts) ->
+    scan(Opts#{ update => true }).
+
+ci(Opts) ->
+
+    %% The list below is generated by running
+    %%   git diff --name-only --diff-filter=d OTP-27.3 HEAD | ./scripts/license-header.es scan --no-missing --path stdin | grep ":" | grep -v "^See" | awk -F: '{print "\"" $1 "\","}' | sort
+    NoWarnNewFiles = ["erts/emulator/test/big_SUITE_data/eq_big.dat",
+                      "erts/emulator/test/big_SUITE_data/eq_big_rem.dat",
+                      "erts/emulator/test/float_SUITE_data/fp_drv.c",
+                      "lib/asn1/test/asn1_SUITE_data/PrimStrings.asn1",
+                      "lib/common_test/test/ct_surefire_SUITE_data/skip_one_suite.spec",
+                      "lib/compiler/test/beam_doc_SUITE_data/converted_metadata.erl",
+                      "lib/compiler/test/beam_doc_SUITE_data/converted_metadata_warnings.erl",
+                      "lib/compiler/test/beam_doc_SUITE_data/cover_compiled.erl",
+                      "lib/compiler/test/beam_ssa_check_SUITE_data/phis.erl",
+                      "lib/compiler/test/beam_ssa_check_SUITE_data/ss_depth_limit.erl",
+                      "lib/compiler/test/compile_SUITE_data/small.erl",
+                      "lib/dialyzer/test/behaviour_SUITE_data/results/gen_server_incorrect_args",
+                      "lib/dialyzer/test/indent_SUITE_data/results/dict_use",
+                      "lib/dialyzer/test/indent_SUITE_data/results/map_galore",
+                      "lib/dialyzer/test/indent_SUITE_data/results/queue_use",
+                      "lib/dialyzer/test/indent_SUITE_data/results/rec",
+                      "lib/dialyzer/test/indent_SUITE_data/results/simple",
+                      "lib/dialyzer/test/indent_SUITE_data/src/record_send_test.erl",
+                      "lib/dialyzer/test/indent_SUITE_data/src/rec/rec_adt.erl",
+                      "lib/dialyzer/test/indent_SUITE_data/src/rec/rec_use.erl",
+                      "lib/dialyzer/test/indent_SUITE_data/src/simple/is_rec.erl",
+                      "lib/dialyzer/test/map_SUITE_data/results/loop",
+                      "lib/dialyzer/test/map_SUITE_data/results/map_galore",
+                      "lib/dialyzer/test/map_SUITE_data/results/opaque_key",
+                      "lib/dialyzer/test/nowarn_function_SUITE_data/results/warn_function",
+                      "lib/dialyzer/test/opaque_SUITE_data/dialyzer_options",
+                      "lib/dialyzer/test/opaque_SUITE_data/results/array",
+                      "lib/dialyzer/test/opaque_SUITE_data/results/crash",
+                      "lib/dialyzer/test/opaque_SUITE_data/results/dict",
+                      "lib/dialyzer/test/opaque_SUITE_data/results/ets",
+                      "lib/dialyzer/test/opaque_SUITE_data/results/inf_loop1",
+                      "lib/dialyzer/test/opaque_SUITE_data/results/inf_loop2",
+                      "lib/dialyzer/test/opaque_SUITE_data/results/int",
+                      "lib/dialyzer/test/opaque_SUITE_data/results/mixed_opaque",
+                      "lib/dialyzer/test/opaque_SUITE_data/results/modules",
+                      "lib/dialyzer/test/opaque_SUITE_data/results/my_queue",
+                      "lib/dialyzer/test/opaque_SUITE_data/results/opaque",
+                      "lib/dialyzer/test/opaque_SUITE_data/results/para",
+                      "lib/dialyzer/test/opaque_SUITE_data/results/queue",
+                      "lib/dialyzer/test/opaque_SUITE_data/results/rec",
+                      "lib/dialyzer/test/opaque_SUITE_data/results/simple",
+                      "lib/dialyzer/test/opaque_SUITE_data/results/timer",
+                      "lib/dialyzer/test/opaque_SUITE_data/results/union",
+                      "lib/dialyzer/test/opaque_SUITE_data/results/weird",
+                      "lib/dialyzer/test/opaque_SUITE_data/results/wings",
+                      "lib/dialyzer/test/opaque_SUITE_data/src/opaque/opaque_adt.erl",
+                      "lib/dialyzer/test/opaque_SUITE_data/src/rec/rec_adt.erl",
+                      "lib/dialyzer/test/opaque_SUITE_data/src/rec/rec_use.erl",
+                      "lib/dialyzer/test/opaque_SUITE_data/src/simple/is_rec.erl",
+                      "lib/dialyzer/test/opaque_SUITE_data/src/timer/timer_use.erl",
+                      "lib/dialyzer/test/options1_SUITE_data/src/compiler/sys_expand_pmod.erl",
+                      "lib/dialyzer/test/options2_SUITE_data/src/kernel/global.erl",
+                      "lib/dialyzer/test/overspecs_SUITE_data/dialyzer_options",
+                      "lib/dialyzer/test/overspecs_SUITE_data/results/opaque",
+                      "lib/dialyzer/test/r9c_SUITE_data/dialyzer_options",
+                      "lib/dialyzer/test/r9c_SUITE_data/results/asn1",
+                      "lib/dialyzer/test/r9c_SUITE_data/results/mnesia",
+                      "lib/dialyzer/test/r9c_SUITE_data/src/asn1/asn1ct_value.erl",
+                      "lib/dialyzer/test/r9c_SUITE_data/src/asn1/asn1rt_per.erl",
+                      "lib/dialyzer/test/r9c_SUITE_data/src/mnesia/mnesia_lib.erl",
+                      "lib/dialyzer/test/small_SUITE_data/results/bif1",
+                      "lib/dialyzer/test/small_SUITE_data/results/maps_sum",
+                      "lib/dialyzer/test/small_SUITE_data/src/contracts_with_subtypes.erl",
+                      "lib/dialyzer/test/small_SUITE_data/src/false_false.erl",
+                      "lib/dialyzer/test/underspecs_SUITE_data/dialyzer_options",
+                      "lib/dialyzer/test/underspecs_SUITE_data/results/opaque",
+                      "lib/dialyzer/test/unmatched_returns_SUITE_data/results/lc_warnings",
+                      "lib/dialyzer/test/user_SUITE_data/dialyzer_options",
+                      "lib/dialyzer/test/user_SUITE_data/results/gcpFlowControl",
+                      "lib/edoc/test/eep48_SUITE_data/eep48_specs.erl",
+                      "lib/kernel/test/interactive_shell_SUITE_data/ssh_host_rsa_key",
+                      "lib/kernel/test/interactive_shell_SUITE_data/valid_keymap.config",
+                      "lib/stdlib/test/erl_lint_SUITE_data/bad_behaviour1.erl",
+                      "lib/stdlib/test/re_SUITE_data/mod_testoutput8",
+                      "lib/stdlib/test/re_SUITE_data/old_pcre1/mod_testoutput8",
+                      "lib/stdlib/test/re_SUITE_data/old_pcre1/testoutput1",
+                      "lib/stdlib/test/re_SUITE_data/old_pcre1/testoutput10",
+                      "lib/stdlib/test/re_SUITE_data/old_pcre1/testoutput2",
+                      "lib/stdlib/test/re_SUITE_data/old_pcre1/testoutput3",
+                      "lib/stdlib/test/re_SUITE_data/old_pcre1/testoutput4",
+                      "lib/stdlib/test/re_SUITE_data/old_pcre1/testoutput5",
+                      "lib/stdlib/test/re_SUITE_data/old_pcre1/testoutput6",
+                      "lib/stdlib/test/re_SUITE_data/testoutput1",
+                      "lib/stdlib/test/re_SUITE_data/testoutput10",
+                      "lib/stdlib/test/re_SUITE_data/testoutput2",
+                      "lib/stdlib/test/re_SUITE_data/testoutput4",
+                      "lib/stdlib/test/re_SUITE_data/testoutput5",
+                      "lib/stdlib/test/unicode_util_SUITE_data/unicode_table.bin",
+                      "lib/stdlib/test/zstd_SUITE_data/dict",
+                      "lib/syntax_tools/test/syntax_tools_SUITE_data/syntax_tools_SUITE_test_module.erl",
+                      "lib/tools/test/emacs_SUITE_data/comprehensions",
+                      "lib/tools/test/emacs_SUITE_data/type_specs",
+                      "make/ex_doc_link",
+                      "make/ex_doc.sha1sum",
+                      "make/ex_doc.sha256sum",
+                      "make/ex_doc_vsn"],
+
+    %% A long list of things we currently ignore... all of these should be fixed!
+    NoWarnAllFiles = ["**/doc/**",
+                      "**/examples/**",
+                      "**/test/**",
+                      "make/gdb_*",
+                      "make/otp_patch*",
+                      "make/otp_version*",
+                      "OTP_VERSION",
+                      "**/TAR.include",
+                      "**/TAR.exclude",
+                      "make/autoconf/*.static",
+                      "**/*.cover",
+                      "lib/jinterface/.**",
+                      "erts/etc/win32/",
+                      "lib/wx/wxwin-nothrow.m4",
+                      "erts/lib_src/yielding_c_fun/lib/simple_c_gc/**",
+                      "lib/inets/test/httpd_test_data/**"] ++
+                      NoWarnNewFiles,
+
+    ListFiles = fun(Cmd) ->
+                        Res = cmd("cd "++ maps:get(path, Opts) ++" && " ++ Cmd),
+                        string:split(string:strip(Res, both, $\n),"\n",all)
+                end,
+
+    ScanAllFiles = maps:get(path, Opts),
+
+    io:format("Scan all files...~n"),
+    scan(Opts#{ path => ScanAllFiles, no_missing => NoWarnAllFiles }),
+
+    NewFiles = ListFiles("git diff --name-only --diff-filter=d OTP-27.3"),
+    io:format("Scan new files since OTP-27.3~n",[]),
+    scan(Opts#{ path => NewFiles, no_missing => NoWarnNewFiles }).
+
+check_file(File, LargestLicense, Templates, VendorPaths, Opts) ->
+    try
+        [throw(skip) || is_skipped(File)],
+        Data = read(File, LargestLicense*3),
+        case re:run(Data, "(.* )?%CopyrightBegin%(?:\r\n|\n)",[]) of
+            {match, [StartPos | PrefixPos]} ->
+                check_file_header(File, File, Data, StartPos, PrefixPos, Templates, Opts);
+            nomatch ->
+                maybe
+                    {ok, LicData} ?= file:read_file(File++".license"),
+                    {match, [StartPos | PrefixPos]} ?= re:run(LicData, "(.* )?%CopyrightBegin%(?:\r\n|\n)",[]),
+                    check_file_header(File, File++".license", LicData, StartPos, PrefixPos, Templates, Opts)
+                else
+                    _ ->
+                        ReportMissing = not is_ignored(File) andalso
+                            not is_vendored(File, VendorPaths)
+                            %% andalso any_glob(File, maps:get(missing, Opts))
+                            andalso not any_glob(File, maps:get(no_missing, Opts)),
+                        ReportMissing andalso throw({warn, "license header not found", []}),
+                        missing
+                end
+        end
+    catch
+        skip -> ok;
+        {fail, Fmt, Args} ->
+            fail("~ts: " ++ Fmt, [File] ++ Args),
+            error;
+        {warn, Fmt, Args} ->
+            warn("~ts: " ++ Fmt, [File] ++ Args),
+            warn;
+        E:R:ST ->
+            warn("~ts: crash", [File]),
+            erlang:raise(E,R,ST)
+    end.
+
+check_file_header(File, LicenseFile, Data, StartPos, [], Templates, Opts) ->
+    check_file_header(File, LicenseFile, Data, StartPos, <<>>, Templates, Opts);
+check_file_header(File, LicenseFile, Data, StartPos, [PrefixPos], Templates, Opts) ->
+    check_file_header(File, LicenseFile, Data, StartPos, binary:part(Data, PrefixPos), Templates, Opts);
+check_file_header(File, LicenseFile, Data, {Start, StartEnd}, Prefix, Templates, Opts) ->
+    case re:run(Data, ["\\Q", Prefix, "\\E%CopyrightEnd%(\r\n|\n)"],[]) of
+        {match, [{End, EndPos},{_,NlSize}]} ->
+            DataAfterHeader = binary:part(Data, End+EndPos, byte_size(Data) - (End+EndPos)),
+            PrefixSpdxCopyrightAndLicense = binary:part(Data, Start+StartEnd, End - (Start+StartEnd) - NlSize),
+            {SpdxCopyrightAndLicense, LineEnding} = check_prefix(Prefix, PrefixSpdxCopyrightAndLicense),
+            {Spdx, CopyrightAndLicense} = check_spdx(SpdxCopyrightAndLicense, Opts),
+            {Copyrights, License} = check_copyright(CopyrightAndLicense),
+            check_license(License, Spdx, Templates,
+                          length(string:split(DataAfterHeader,"\n",all)),
+                          File, not string:equal(File, LicenseFile), Opts),
+            case maps:get(update, Opts, false) of
+                true -> update_copyright(LicenseFile, Start + StartEnd, End, Prefix, LineEnding, Spdx, Copyrights, License);
+                false -> ok
+            end;
+        nomatch when map_get(verbose, Opts) ->
+            throw({warn, "Could not find '~ts %CopyrightEnd%'.\n~ts", [Prefix, Data]});
+        nomatch ->
+            throw({warn, "Could not find '~ts %CopyrightEnd%'", [Prefix]})
+    end.
+
+update_copyright(File, Begin, End, Prefix, LineEnding, Spdx, Copyrights, License) ->
+    case update_copyright(File, Copyrights) of
+        Copyrights -> ok;
+        NewCopyrights ->
+            {ok, Data} = file:read_file(File),
+            Before = binary:part(Data, 0, Begin),
+            After = binary:part(Data, End, byte_size(Data) - End),
+            ok = file:write_file(
+                   File,
+                   [Before,
+                    string:trim(Prefix, trailing), LineEnding,
+                    Prefix, "SPDX-License-Identifier: ", Spdx, LineEnding,
+                    string:trim(Prefix, trailing), LineEnding,
+                    [[string:trim([Prefix, C],trailing), LineEnding] || C <- NewCopyrights],
+                    string:trim(Prefix, trailing), LineEnding,
+                    [[string:trim([Prefix, Line], trailing), LineEnding] || Line <- License],
+                    After]),
+            update
+    end.
+
+update_copyright(File, [C | T]) ->
+    case re:run(C, persistent_term:get(ericsson_copyright), [{capture, [2,1], binary}]) of
+        {match, [EndYear | MaybeStartYear]} ->
+            {{YY, _, _}, {_, _, _}} = erlang:localtime(),    
+            case string:equal(integer_to_list(YY), EndYear) of
+                true ->
+                    [C | T];
+                false ->
+                    LastUpdatedYear = last_updated_year(File,
+                    fun() -> throw({warn,"Could not get copyright year using git log. You need to update it manually.", []}) end),
+                    case string:equal(LastUpdatedYear, EndYear) of
+                        true ->
+                            [C | T];
+                        _ ->
+                            StartYear = if
+                                            MaybeStartYear =:= [<<>>] ->
+                                                [EndYear,$-];
+                                            true ->
+                                                MaybeStartYear
+                                        end,
+                            [["Copyright Ericsson AB ", StartYear, LastUpdatedYear, ". All Rights Reserved."] | T]
+                    end
+            end;
+        _ ->
+            [C | update_copyright(File, T)]
+    end;
+update_copyright(File, []) ->
+    case last_updated_year(File, fun() -> undefined end) of
+        undefined -> [];
+        LastUpdatedYear ->
+            case first_updated_year(File, fun() -> fail("Could not find first year", []) end) of
+                LastUpdatedYear ->
+                    [["Copyright Ericsson AB ", LastUpdatedYear, ". All Rights Reserved."]];
+                FirstUpdatedYear ->
+                    [["Copyright Ericsson AB ", FirstUpdatedYear, "-", LastUpdatedYear, ". All Rights Reserved."]]
+            end
+    end.
+
+last_updated_year(File, Missing) ->
+    commit_year(File, Missing, last).
+
+first_updated_year(File, Missing) ->
+    commit_year(File, Missing, first).
+
+commit_year(File, Missing, When) when When =:= first; When =:= last, is_function(Missing)->
+    RFC3339Date =
+        cmd(["git log --format=format:%aI",
+             [" --reverse" || When =:= first],
+             " --author='@erlang.org' --author='@ericsson.com'",
+             " --no-merges HEAD -- ", File, " | head -1"]),
+    try calendar:rfc3339_to_system_time(RFC3339Date) of
+        SystemTime ->
+            {{YY, _, _}, _} = calendar:system_time_to_local_time(SystemTime,second),
+            integer_to_list(YY)
+    catch _:_ ->
+        Missing()
+    end.
+
+check_prefix(Prefix, Bin) when is_binary(Bin) ->
+    case string:split(Bin, "\r\n") of
+        [Bin] ->
+            LineEnding = "\n",
+            Lines = string:split(Bin, "\n", all);
+        [Line, Rest] ->
+            LineEnding = "\r\n",
+            Lines = [Line | string:split(Rest, "\r\n", all)]
+    end,
+    {check_prefix(Prefix, Lines), LineEnding};
+check_prefix(Prefix, [Line | Rest]) ->
+    TrimmedPrefix = string:trim(Prefix, trailing),
+    case Line of
+        <<Prefix:(byte_size(Prefix))/binary, Content/binary>> ->
+            [Content | check_prefix(Prefix, Rest)];
+        TrimmedPrefix ->
+            [<<>> | check_prefix(Prefix, Rest)];
+        Line ->
+            throw({warn, "Incorrect prefix (~ts) on this line: '~p'", [Prefix, Line]})
+    end;
+check_prefix(_Prefix, []) ->
+    [].
+
+check_spdx([<<>>, <<"SPDX-License-Identifier: ", Spdx/binary>>, <<>> | Rest], _Opts) ->
+    {Spdx, Rest};
+check_spdx(_, _) ->
+    throw({warn, "Could not find 'SPDX-License-Identifier:'", []}).
+
+check_copyright(Lines) ->
+    check_copyright(Lines, []).
+check_copyright([<<"Copyright ", _/binary>> = Copyright | Rest], Copyrights) ->
+    check_copyright(Rest, [Copyright | Copyrights]);
+check_copyright([<<"SPDX-FileCopyrightText:", _/binary>> = Copyright | Rest], Copyrights) ->
+    check_copyright(Rest, [Copyright | Copyrights]);
+check_copyright([], Copyrights) ->
+    check_copyright([<<>>], Copyrights);
+check_copyright([<<>> | Rest], Copyrights) ->
+    [case string:find(Copyright, "Ericsson AB") of
+        nomatch -> ok;
+        _ ->
+            case re:run(Copyright, persistent_term:get(ericsson_copyright)) of
+                nomatch -> throw({warn, "Invalid Ericsson Copyright: '~ts'", [Copyright]});
+                _ -> ok
+            end
+     end || Copyright <- Copyrights],
+    {Copyrights, Rest};
+check_copyright([Line | _], _Copyrights) ->
+    throw({warn, "Copyright statements must start with 'Copyright ' or "
+                 "'SPDX-FileCopyrightText:'. Found:~n\t~ts", [Line]}).
+
+check_license(License, Spdx, Templates, LinesAfterLicense, Filename, IsLicenseFile, Opts) ->
+    FlatSPDX = unicode:characters_to_binary(string:replace(Spdx, " ", "-", all)),
+    case maps:find(FlatSPDX, Templates) of
+        {ok, Template} ->
+            check_license(lists:join($\n, License),
+                          string:trim(Template),
+                          Opts#{ lines_after_license => LinesAfterLicense,
+                                 is_license_file => IsLicenseFile,
+                                 filename => Filename });
+        _ ->
+            throw({warn, "Could not find ~ts.txt in LICENSES or LICENSES/HEADERS",[FlatSPDX]})
+    end.
+
+check_license([], <<>>, _) ->
+    %% SPDX was NOASSERTION or NONE
+    ok;
+check_license([], _Template, #{ lines_after_license := LinesAfterLicense,
+                                filename := Filename,
+                                is_license_file := IsLicenseFile }) ->
+    %% Regexps to run on filename that may have a short license
+    ShortLicense = ["lib/[^/]+/test/[^/]+_SUITE_data/",
+                    "\\.app(up)?\\.src$",
+                    "vendor\\.info"],
+
+    %% Regexps to run on filename that may have a short license
+    %% if the file also is short
+    ShortIfShort = ["\\.txt$","\\.mk$","AUTHORS$",
+            "\\.spec$", "\\.cover$", "\\.exs$",
+            "\\.md$", "\\.config$"],
+
+    NeedsNoLicense = any_match(Filename, ShortLicense) orelse IsLicenseFile,
+    
+    IsShort = LinesAfterLicense =< 20,
+
+    NeedsNoLicenseIfShort = any_match(Filename, ShortIfShort),
+
+    if
+        NeedsNoLicense -> ok;
+        IsShort, NeedsNoLicenseIfShort -> ok;
+        NeedsNoLicenseIfShort ->
+            throw({warn, "is longer than 10 lines, needs license in header.", []});
+        true ->
+            throw({warn, "needs license in header.", []})
+    end;
+check_license(License, Template, Opts) ->
+    TemplateWithNewLine = [Template,$\n],
+    case string:equal(License, TemplateWithNewLine) of
+        true -> ok;
+        false when map_get(verbose, Opts) ->
+            Tmp1 = cmd("mktemp"),
+            Tmp2 = cmd("mktemp"),
+            ok = file:write_file(Tmp1, License),
+            ok = file:write_file(Tmp2, Template),
+            Diff = os:cmd("diff " ++ Tmp1 ++ " " ++ Tmp2),
+            ok = file:delete(Tmp1),
+            ok = file:delete(Tmp2),
+            throw({warn, "license header did not match template\n~ts", [Diff]});
+        false ->
+            throw({warn, "license header did not match template", []})
+    end.
+
+read(Filename, Bytes) ->
+    {ok, D} = file:open(Filename, [read, raw, binary]),
+    case file:read(D, Bytes) of
+        eof -> {ok, Data} = file:read(D, 0);
+        {ok, Data} -> Data
+    end,
+    file:close(D),
+    Data.
+
+get_license_templates(RootDir) ->
+    Headers = filename:join([RootDir, "FILE-HEADERS"]),
+    Licenses = filename:join([RootDir, "LICENSES"]),
+    %% The order matters as there are duplicates in HEADERS and LICENSES.
+    %% We want to select HEADERS before LICENSES.
+    maps:from_list(get_license_templates_from_dir(Licenses) ++
+                       get_license_templates_from_dir(Headers) ++
+                       [{~"NOASSERTION", ~""},{~"NONE", ~""}]).
+
+get_license_templates_from_dir(Path) ->
+    lists:map(
+      fun(FN) ->
+              {ok, Template} = file:read_file(FN),
+              {unicode:characters_to_binary(filename:basename(filename:rootname(FN))), Template}
+      end, filelib:wildcard(filename:join(Path,"*.txt"))).
+
+get_vendor_paths(RootPath) ->
+    lists:flatmap(fun get_vendor_path/1, filelib:wildcard(filename:join(RootPath, "**/vendor.info"))).
+get_vendor_path(File) ->
+    {ok, B} = file:read_file(File),
+    [_ | _] = Vendors = json:decode(re:replace(B, "^//.*", "", [multiline, global, {return, binary}])),
+    lists:flatmap(
+        fun(V) ->
+                case maps:get(~"path", V) of
+                    Path when is_binary(Path) ->
+                        filelib:is_dir(binary_to_list(Path)) orelse
+                            fail("~ts: path must be a directory or an array of files", [File]),
+                        [filename:absname(Path)];
+                    Paths ->
+                        [begin
+                            not filelib:is_dir(binary_to_list(P)) orelse
+                                fail("~ts: path must be a directory or an array of files", [File]),
+                            filename:absname(P)
+                         end || P <- Paths]
+                end
+        end, Vendors).
+
+is_vendored(Filename, VendorPaths) ->
+    lists:any(fun(Path) ->
+         string:prefix(filename:absname(Filename), Path) =/= nomatch
+    end, VendorPaths).
+
+is_ignored(Filename) ->
+    any_match(Filename,
+              [
+               "/LICENSE$",
+               "^LICENSE.txt$",
+               "^LICENSES/.*",
+               "^FILE-HEADERS/.*",
+               "^system/COPYRIGHT$",
+               "^.mailmap$",
+               "^OTP_VERSION$",
+               "^make/otp_patch_solve_forward_merge_version$",
+               "^make/otp_version_tickets$",
+               "/configure$",
+               "/config\\.h\\.in",
+               "config\\.cache\\.static$",
+               "^bootstrap/.*\\.boot$",
+               "^otp_versions\\.table$",
+               "\\.beam$",
+               "\\.gitignore$",
+               "\\.gitattributes$",
+               "prebuild\\.(skip|keep|delete)$"]).
+
+is_skipped(Filename) ->
+    any_match(Filename,
+              [
+                "mix\\.lock$",
+               "\\.license$"]).
+
+any_match(Filename, REs) ->
+    lists:any(fun(RE) ->
+                      case re:run(Filename, RE, [unicode]) of
+                          {match, _} -> true;
+                          _ -> false
+                      end
+              end, REs).
+
+any_glob(Filename, Globs) ->
+    lists:any(
+      fun(Glob) ->
+        glob_match(Filename, Glob)
+      end, Globs).
+
+get_files_to_scan(#{ path := ["stdin" | Rest] } = Opts) ->
+    case io:get_line("") of
+        eof ->
+            get_files_to_scan(Opts#{ path := Rest});
+        {error, Reason} ->
+            fail("Failed to read from stdin ~p", [Reason]);
+        Line ->
+            get_files_to_scan(Opts#{ path := ["stdin", string:trim(Line) | Rest]})
+    end;
+get_files_to_scan(#{ path := Paths }) ->
+    lists:usort(
+      lists:flatmap(
+        fun(Path) ->
+                case filelib:is_dir(Path) of
+                    true -> get_files_from_dir(Path);
+                    false ->
+                        case filelib:is_regular(Path) of
+                            true ->
+                                [Path];
+                            false ->
+                                % fail("~ts does not exist.", [Path]),
+                                []
+                        end
+                end
+        end, Paths)).
+
+get_rootdir(#{ path := Paths }) ->
+    [Path | _ ] = Paths,
+    DirPath =
+        case filelib:is_dir(Path) of
+            true -> Path;
+            false -> filename:dirname(Path)
+        end,
+    string:trim(cmd("cd " ++ DirPath ++ " && git rev-parse --show-toplevel")).
+
+get_files_from_dir(Dir) ->
+    Filenames = cmd("git ls-tree -z -r --name-only HEAD " ++ Dir),
+    [Name || Name <- string:split(string:trim(Filenames, both, "\0"),"\0",all),
+        filelib:is_file(Name), not is_link(Name)].
+
+is_link(Name) ->
+    {ok, #file_info{ type = Type }} = file:read_link_info(Name),
+    Type =/= regular.
+
+warn(Fmt, Args) ->
+    io:format(Fmt++"\n", Args).
+
+fail(Fmt, Args) ->
+    io:format(standard_error, Fmt++"\n", Args),
+    do_cleanup(),
+    erlang:halt(1).
+
+                                                % cleanup(Fun) ->
+                                                %     [put(cleanup, []) || get(cleanup) =:= undefined],
+                                                %     put(cleanup, [Fun | get(cleanup)]).
+
+do_cleanup() ->
+    [put(cleanup, []) || get(cleanup) =:= undefined],
+    [Fun() || Fun <- get(cleanup)],
+    erase(cleanup).
+
+cmd(Cmd) ->
+    string:trim(os:cmd(unicode:characters_to_list(Cmd),
+                       #{ exception_on_failure => true })).
+
+%% This is an implementation of globmatching that works on a given
+%% path instead of searching the disk.
+glob_match(Path, Glob) ->
+    put(path, filename:split("./" ++ unicode:characters_to_list(Path))),
+    filelib:wildcard(unicode:characters_to_list(Glob), ?MODULE) =/= [].
+
+read_link_info(File) ->
+    read_link_info(filename:split(File), get(path)).
+
+read_link_info([A],[A]) ->
+    {ok, #file_info{ type = file }};
+read_link_info([A|TA],[A|TB]) ->
+    read_link_info(TA, TB);
+read_link_info([], [_|_]) ->
+    {ok, #file_info{ type = directory }};
+read_link_info(_,_) ->
+    {error, enoent}.
+
+read_file_info(File) ->
+    read_link_info(File).
+
+list_dir(Dir) ->
+    list_dir(filename:split(Dir), get(path)).
+
+list_dir([A],[A]) ->
+    {error, enotdir};
+list_dir([A|TA],[A|TB]) ->
+    list_dir(TA, TB);
+list_dir([],[A|_TB]) ->
+    {ok, [A]};
+list_dir(_,_) ->
+    {ok, []}.
+
+%% Simple pmap implementation that batches work in 100 segments
+pmap(Fun, List) ->
+    pmap(Fun, List, erlang:system_info(schedulers_online)).
+pmap(Fun, List, N) when is_integer(N) ->
+    pmap(Fun, List, [pmap_start() || _ <- lists:seq(1,N)], []).
+pmap(Fun, List, [{Pid, Ref} | Pids], Running) when List =/= [] ->
+    {Work, Rest} =
+        try lists:split(1000, List)
+        catch error:badarg ->
+                {List, []}
+        end,
+    Pid ! {run, Ref, Fun, Work},
+    pmap(Fun, Rest, Pids, [{Pid, Ref} | Running]);
+pmap(_Fun, [], Pids, []) ->
+    [begin erlang:demonitor(R, [flush]), exit(P, shutdown) end || {P, R} <- Pids],
+    [];
+pmap(Fun, List, Pids, Running) ->
+    receive
+        {done, Who, Ref, Result} ->
+            Result ++ pmap(Fun, List, [{Who, Ref}| Pids], Running -- [{Who, Ref}]);
+        {'DOWN', _Ref, _, _, {E, R, ST}} ->
+            erlang:raise(E, R, ST)
+    end.
+
+pmap_start() ->
+    P = self(),
+    InitRef = make_ref(),
+    {Pid, Ref} = spawn_monitor(fun() -> pmap_init(P, InitRef) end),
+    Pid ! {self(), InitRef, Ref},
+    {Pid, Ref}.
+
+pmap_init(Parent, InitRef) ->
+    receive
+        {Parent, InitRef, MonitorRef} ->
+            ParentMonitor = erlang:monitor(process, Parent),
+            pmap_loop(Parent, MonitorRef, ParentMonitor)
+    end.
+
+pmap_loop(Parent, MonitorRef, ParentMonitor) ->
+    receive
+        {run, MonitorRef, Fun, Items} ->
+            Res = [try
+                 receive {'DOWN',ParentMonitor, _, _, Reason} -> exit(Reason)
+                 after 0 -> timeout end,
+                 Fun(Item)
+             catch E:R:ST ->
+                     exit({E, R, ST})
+             end || Item <- Items],
+            Parent ! {done, self(), MonitorRef, Res},
+            pmap_loop(Parent, MonitorRef, ParentMonitor)
+    end.
+
+%% REUSE-IgnoreEnd

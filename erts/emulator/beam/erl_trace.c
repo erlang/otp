@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1999-2024. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 1999-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -61,13 +63,15 @@
 #undef DEBUG_PRINTOUTS
 #endif
 
+erts_atomic32_t erts_active_bp_index;
+erts_atomic32_t erts_staging_bp_index;
+
 /* Pseudo export entries. Never filled in with data, only used to
    yield unique pointers of the correct type. */
 Export exp_send, exp_receive, exp_timeout;
 
 static ErtsTracer system_seq_tracer;
 
-static Eterm system_monitor;
 static Eterm system_profile;
 static erts_atomic_t system_logger;
 
@@ -301,12 +305,14 @@ static void enqueue_sys_msg_unlocked(enum ErtsSysMsgType type,
 				     Eterm from,
 				     Eterm to,
 				     Eterm msg,
-				     ErlHeapFragment *bp);
+				     ErlHeapFragment *bp,
+                                     ErtsTraceSession*);
 static void enqueue_sys_msg(enum ErtsSysMsgType type,
 			    Eterm from,
 			    Eterm to,
 			    Eterm msg,
-			    ErlHeapFragment *bp);
+			    ErlHeapFragment *bp,
+                            ErtsTraceSession*);
 static void init_sys_msg_dispatcher(void);
 
 static void init_tracer_nif(void);
@@ -329,7 +335,6 @@ void erts_init_trace(void) {
     erts_cpu_timestamp = 0;
 #endif
     erts_bif_trace_init();
-    erts_system_monitor_clear(NULL);
     erts_system_profile_clear(NULL);
     system_seq_tracer = erts_tracer_nil;
     erts_atomic_init_nob(&system_logger, am_logger);
@@ -401,28 +406,42 @@ erts_system_profile_setup_active_schedulers(void)
 static void
 exiting_reset(Eterm exiting)
 {
+    erts_rwmtx_rwlock(&erts_trace_session_list_lock);
     erts_rwmtx_rwlock(&sys_trace_rwmtx);
-    if (exiting == system_monitor) {
-	system_monitor = NIL;
-	/* Let the trace message dispatcher clear flags, etc */
+
+    for (ErtsTraceSession *s = &erts_trace_session_0; s; s = s->next) {
+        if (exiting == s->system_monitor.receiver) {
+            s->system_monitor.receiver = NIL;
+            /* Let the trace message dispatcher clear flags, etc */
+        }
     }
+
     if (exiting == system_profile) {
 	system_profile = NIL;
 	/* Let the trace message dispatcher clear flags, etc */
     }
     erts_rwmtx_rwunlock(&sys_trace_rwmtx);
+    erts_rwmtx_rwunlock(&erts_trace_session_list_lock);
 }
 
 void
 erts_trace_check_exiting(Eterm exiting)
 {
     int reset = 0;
+    erts_rwmtx_rlock(&erts_trace_session_list_lock);
     erts_rwmtx_rlock(&sys_trace_rwmtx);
-    if (exiting == system_monitor)
-	reset = 1;
-    else if (exiting == system_profile)
-	reset = 1;
+
+    for (ErtsTraceSession *s = &erts_trace_session_0; s; s = s->next) {
+        if (exiting == s->system_monitor.receiver) {
+            reset = 1;
+            break;
+        }
+    }
+
+    if (exiting == system_profile)
+        reset = 1;
     erts_rwmtx_runlock(&sys_trace_rwmtx);
+    erts_rwmtx_runlock(&erts_trace_session_list_lock);
     if (reset)
 	exiting_reset(exiting);
 }
@@ -616,19 +635,19 @@ erts_get_new_port_tracing(ErtsTraceSession* session,
 }
 
 void
-erts_set_system_monitor(Eterm monitor)
+erts_set_system_monitor(ErtsTraceSession *session, Eterm monitor)
 {
     erts_rwmtx_rwlock(&sys_trace_rwmtx);
-    system_monitor = monitor;
+    session->system_monitor.receiver = monitor;
     erts_rwmtx_rwunlock(&sys_trace_rwmtx);
 }
 
 Eterm
-erts_get_system_monitor(void)
+erts_get_system_monitor(ErtsTraceSession *session)
 {
     Eterm monitor;
     erts_rwmtx_rlock(&sys_trace_rwmtx);
-    monitor = system_monitor;
+    monitor = session->system_monitor.receiver;
     erts_rwmtx_runlock(&sys_trace_rwmtx);
     return monitor;
 }
@@ -1209,7 +1228,7 @@ erts_call_trace(Process* p, ErtsCodeInfo *info, Binary *match_spec,
                                     &tnif, TRACE_FUN_ENABLED,
                                     am_trace_status, p->common.id)) {
         default:
-        case am_remove: *tracer_p = erts_tracer_nil;
+        case am_remove: *tracer_p = erts_tracer_nil; ERTS_FALLTHROUGH();
         case am_discard: return 0;
         case am_trace:
             switch (call_enabled_tracer(tracer,
@@ -1368,8 +1387,8 @@ trace_proc_spawn(Process *p, Eterm what, Eterm pid,
 {
     ErtsTracerRef *ref;
     ErtsTracerRef *next_ref;
-    Eterm mfa;
-    Eterm* hp = NULL;
+    Eterm mfa = THE_NON_VALUE;
+
     for (ref = p->common.tracee.first_ref; ref; ref = next_ref) {
         ErtsTracerNif *tnif = NULL;
         next_ref = ref->next;
@@ -1377,8 +1396,8 @@ trace_proc_spawn(Process *p, Eterm what, Eterm pid,
             && is_tracer_ref_enabled(NULL, 0, &p->common, ref, &tnif,
                                      TRACE_FUN_E_PROCS, what)) {
 
-            if(!hp){
-                hp = HAlloc(p, 4);
+            if(is_non_value(mfa)){
+                Eterm* hp = HAlloc(p, 4);
                 mfa = TUPLE3(hp, mod, func, args);
             }
             send_to_tracer_nif(NULL, &p->common, ref, p->common.id, tnif, TRACE_FUN_T_PROCS,
@@ -1388,12 +1407,12 @@ trace_proc_spawn(Process *p, Eterm what, Eterm pid,
     ERTS_ASSERT_TRACER_REFS(&p->common);
 }
 
-void save_calls(Process *p, Export *e)
+void save_calls(Process *p, const Export *e)
 {
     if (!ERTS_IS_PROC_SENSITIVE(p)) {
 	struct saved_calls *scb = ERTS_PROC_GET_SAVED_CALLS_BUF(p);
 	if (scb) {
-	    Export **ct = &scb->ct[0];
+	    const Export **ct = &scb->ct[0];
 	    int len = scb->len;
 
 	    ct[scb->cur] = e;
@@ -1455,9 +1474,10 @@ trace_gc(Process *p, Eterm what, Uint size, Eterm msg)
     erts_thr_progress_unmanaged_continue(dhndl);
 }
 
-void 
-monitor_long_schedule_proc(Process *p, const ErtsCodeMFA *in_fp,
-                           const ErtsCodeMFA *out_fp, Uint time)
+static void
+monitor_long_schedule_proc_session(Process *p, const ErtsCodeMFA *in_fp,
+                                   const ErtsCodeMFA *out_fp, Uint time,
+                                   ErtsTraceSession *session)
 {
     ErlHeapFragment *bp;
     ErlOffHeap *off_heap;
@@ -1501,10 +1521,27 @@ monitor_long_schedule_proc(Process *p, const ErtsCodeMFA *in_fp,
     hp += 2;
     msg = TUPLE4(hp, am_monitor, p->common.id, am_long_schedule, list);
     hp += 5;
-    enqueue_sys_msg(SYS_MSG_TYPE_SYSMON, p->common.id, NIL, msg, bp);
+    enqueue_sys_msg(SYS_MSG_TYPE_SYSMON, p->common.id,
+                    session->system_monitor.receiver, msg, bp, session);
 }
+
 void 
-monitor_long_schedule_port(Port *pp, ErtsPortTaskType type, Uint time)
+monitor_long_schedule_proc(Process *p, const ErtsCodeMFA *in_fp,
+                           const ErtsCodeMFA *out_fp, Uint time)
+{
+    erts_rwmtx_rlock(&erts_trace_session_list_lock);
+    for (ErtsTraceSession *s = &erts_trace_session_0; s; s = s->next) {
+        if (time-1 > s->system_monitor.limits[ERTS_SYSMON_LONG_SCHEDULE]-1) {
+            monitor_long_schedule_proc_session(p, in_fp, out_fp, time, s);
+        }
+    }
+    erts_rwmtx_runlock(&erts_trace_session_list_lock);
+}
+
+
+static void
+monitor_long_schedule_port_session(Port *pp, ErtsPortTaskType type, Uint time,
+                                   ErtsTraceSession *session)
 {
     ErlHeapFragment *bp;
     ErlOffHeap *off_heap;
@@ -1547,11 +1584,26 @@ monitor_long_schedule_port(Port *pp, ErtsPortTaskType type, Uint time)
     hp += 2;
     msg = TUPLE4(hp, am_monitor, pp->common.id, am_long_schedule, list);
     hp += 5;
-    enqueue_sys_msg(SYS_MSG_TYPE_SYSMON, pp->common.id, NIL, msg, bp);
+    enqueue_sys_msg(SYS_MSG_TYPE_SYSMON, pp->common.id,
+                    session->system_monitor.receiver, msg, bp, session);
 }
 
 void
-monitor_long_gc(Process *p, Uint time) {
+monitor_long_schedule_port(Port *pp, ErtsPortTaskType type, Uint time)
+{
+    erts_rwmtx_rlock(&erts_trace_session_list_lock);
+    for (ErtsTraceSession *s = &erts_trace_session_0; s; s = s->next) {
+        if (time-1 > s->system_monitor.limits[ERTS_SYSMON_LONG_SCHEDULE]-1) {
+            monitor_long_schedule_port_session(pp, type, time, s);
+        }
+    }
+    erts_rwmtx_runlock(&erts_trace_session_list_lock);
+}
+
+
+static void
+monitor_long_gc_session(Process *p, Uint time, ErtsTraceSession* session)
+{
     ErlHeapFragment *bp;
     ErlOffHeap *off_heap;
     Uint hsz;
@@ -1605,11 +1657,25 @@ monitor_long_gc(Process *p, Uint time) {
     ASSERT(hp == hp_end);
 #endif
 
-    enqueue_sys_msg(SYS_MSG_TYPE_SYSMON, p->common.id, NIL, msg, bp);
+    enqueue_sys_msg(SYS_MSG_TYPE_SYSMON, p->common.id,
+                    session->system_monitor.receiver, msg, bp, session);
 }
 
 void
-monitor_large_heap(Process *p) {
+monitor_long_gc(Process *p, Uint time)
+{
+    erts_rwmtx_rlock(&erts_trace_session_list_lock);
+    for (ErtsTraceSession *s = &erts_trace_session_0; s; s = s->next) {
+        if (time-1 > s->system_monitor.limits[ERTS_SYSMON_LONG_GC]-1) {
+            monitor_long_gc_session(p, time, s);
+        }
+    }
+    erts_rwmtx_runlock(&erts_trace_session_list_lock);
+}
+
+static void
+monitor_large_heap_session(Process *p, ErtsTraceSession *session)
+{
     ErlHeapFragment *bp;
     ErlOffHeap *off_heap;
     Uint hsz;
@@ -1662,11 +1728,25 @@ monitor_large_heap(Process *p) {
     ASSERT(hp == hp_end);
 #endif
 
-    enqueue_sys_msg(SYS_MSG_TYPE_SYSMON, p->common.id, NIL, msg, bp);
+    enqueue_sys_msg(SYS_MSG_TYPE_SYSMON, p->common.id,
+                    session->system_monitor.receiver, msg, bp, session);
 }
 
 void
-monitor_generic(Process *p, Eterm type, Eterm spec) {
+monitor_large_heap(Process *p, Uint size)
+{
+    erts_rwmtx_rlock(&erts_trace_session_list_lock);
+    for (ErtsTraceSession *s = &erts_trace_session_0; s; s = s->next) {
+        if (size-1 > s->system_monitor.limits[ERTS_SYSMON_LARGE_HEAP]-1) {
+            monitor_large_heap_session(p, s);
+        }
+    }
+    erts_rwmtx_runlock(&erts_trace_session_list_lock);
+}
+
+static void
+monitor_generic(Process *p, Eterm type, Eterm spec, ErtsTraceSession *session)
+{
     ErlHeapFragment *bp;
     ErlOffHeap *off_heap;
     Eterm *hp, msg;
@@ -1677,10 +1757,199 @@ monitor_generic(Process *p, Eterm type, Eterm spec) {
     msg = TUPLE4(hp, am_monitor, p->common.id, type, spec); 
     hp += 5;
 
-    enqueue_sys_msg(SYS_MSG_TYPE_SYSMON, p->common.id, NIL, msg, bp);
-
+    enqueue_sys_msg(SYS_MSG_TYPE_SYSMON, p->common.id,
+                    session->system_monitor.receiver, msg, bp, session);
 }
 
+/*
+ * ERTS_PSD_SYSMON_MSGQ_LEN_LOW
+ * A trace session where this process have reached the upper msgq limit
+ * and is "on its way down" to the lower limit.
+ */
+typedef struct ErtsSysMonMsgqLow {
+    struct ErtsSysMonMsgqLow *next;
+    struct ErtsSysMonMsgqLow *prev;
+    Eterm session_weak_id;
+} ErtsSysMonMsgqLow;
+
+static ErtsSysMonMsgqLow*
+get_msgq_low_session(Process *p, ErtsTraceSession *session)
+{
+    ErtsSysMonMsgqLow *that =
+        (ErtsSysMonMsgqLow*) erts_psd_get(p, ERTS_PSD_SYSMON_MSGQ_LEN_LOW);
+
+    ASSERT(!!that == !!(p->sig_qs.flags & FS_MON_MSGQ_LEN_LOW));
+
+    while (that) {
+        if (that->session_weak_id == session->weak_id) {
+            return that;
+        }
+        that = that->next;
+    }
+    return NULL;
+}
+
+static void
+add_msgq_low_session(Process *p, ErtsTraceSession *session)
+{
+    ErtsSysMonMsgqLow *thiz = erts_alloc(ERTS_ALC_T_HEAP_FRAG,  // ToDo type?
+                                         sizeof(ErtsSysMonMsgqLow));
+    ErtsSysMonMsgqLow *was_first;
+
+    thiz->session_weak_id = session->weak_id;
+    was_first = erts_psd_set(p, ERTS_PSD_SYSMON_MSGQ_LEN_LOW, thiz);
+    ASSERT(!was_first || !was_first->prev);
+
+    thiz->next = was_first;
+    thiz->prev = NULL;
+    if (was_first) {
+        was_first->prev = thiz;
+    }
+
+    p->sig_qs.flags |= FS_MON_MSGQ_LEN_LOW;
+}
+
+static void
+remove_msgq_low_session(Process *p, ErtsSysMonMsgqLow *thiz)
+{
+    ErtsSysMonMsgqLow *was_first;
+
+    if (thiz->prev) {
+        thiz->prev->next = thiz->next;
+#ifdef DEBUG
+        was_first = erts_psd_get(p, ERTS_PSD_SYSMON_MSGQ_LEN_LOW);
+        ASSERT(was_first && was_first != thiz);
+#endif
+    }
+    else {
+        was_first = erts_psd_set(p, ERTS_PSD_SYSMON_MSGQ_LEN_LOW, thiz->next);
+        ASSERT(was_first == thiz); (void)was_first;
+        if (!thiz->next) {
+            p->sig_qs.flags &= ~FS_MON_MSGQ_LEN_LOW;
+        }
+    }
+    if (thiz->next) {
+        thiz->next->prev = thiz->prev;
+    }
+    erts_free(ERTS_ALC_T_HEAP_FRAG, thiz);  // ToDo type?
+}
+
+void
+erts_clear_all_msgq_low_sessions(Process *p)
+{
+    ErtsSysMonMsgqLow *that, *next;
+
+    that = erts_psd_set(p, ERTS_PSD_SYSMON_MSGQ_LEN_LOW, NULL);
+    while (that) {
+        next = that->next;
+        erts_free(ERTS_ALC_T_HEAP_FRAG, that);  // ToDo type?
+        that = next;
+    }
+    p->sig_qs.flags &= ~FS_MON_MSGQ_LEN_LOW;
+}
+
+void
+erts_consolidate_all_msgq_low_sessions(Process *p)
+{
+    ErtsSysMonMsgqLow *that, *next;
+    ErtsTraceSession *s;
+
+    that = (ErtsSysMonMsgqLow*) erts_psd_get(p, ERTS_PSD_SYSMON_MSGQ_LEN_LOW);
+    while (that) {
+        next = that->next;
+
+        erts_rwmtx_rlock(&erts_trace_session_list_lock);
+        for (s = &erts_trace_session_0; s; s = s->next) {
+            if (s->weak_id == that->session_weak_id) {
+                if (s->system_monitor.long_msgq_off < 0) {
+                    s = NULL;
+                }
+                break;
+            }
+        }
+        erts_rwmtx_runlock(&erts_trace_session_list_lock);
+        if (!s) {
+            remove_msgq_low_session(p, that);
+        }
+        that = next;
+    }
+}
+
+void
+monitor_long_msgq_on(Process *p)
+{
+    p->sig_qs.flags &= ~FS_MON_MSGQ_LEN_HIGH;
+
+    erts_rwmtx_rlock(&erts_trace_session_list_lock);
+    for (ErtsTraceSession *s = &erts_trace_session_0; s; s = s->next) {
+        if (s->system_monitor.limits[ERTS_SYSMON_LONG_MSGQ]) {
+            ErtsSysMonMsgqLow *low = get_msgq_low_session(p, s);
+
+            if (!low) {
+                if (p->sig_qs.mq_len >= s->system_monitor.limits[ERTS_SYSMON_LONG_MSGQ]) {
+                    monitor_generic(p, am_long_message_queue, am_true, s);
+                    add_msgq_low_session(p, s);
+                }
+                else {
+                    /* still a session with a limit we have not reached */
+                    p->sig_qs.flags |= FS_MON_MSGQ_LEN_HIGH;
+                }
+            }
+            /* else we have already reached the upper limit for this session */
+        }
+    }
+    erts_rwmtx_runlock(&erts_trace_session_list_lock);
+}
+
+void
+monitor_long_msgq_off(Process *p)
+{
+    ASSERT(p->sig_qs.flags & FS_MON_MSGQ_LEN_LOW);
+
+    erts_rwmtx_rlock(&erts_trace_session_list_lock);
+    for (ErtsTraceSession *s = &erts_trace_session_0; s; s = s->next) {
+        ErtsSysMonMsgqLow *low = get_msgq_low_session(p, s);
+
+        if (low) {
+            if (p->sig_qs.mq_len <= s->system_monitor.long_msgq_off) {
+                monitor_generic(p, am_long_message_queue, am_false, s);
+                remove_msgq_low_session(p, low);
+                p->sig_qs.flags |= FS_MON_MSGQ_LEN_HIGH;
+            }
+            else if (s->system_monitor.long_msgq_off < 0) {
+                /* disabled */
+                remove_msgq_low_session(p, low);
+            }
+
+        }
+        /* else we have not reached the upper limit for this session */
+    }
+    erts_rwmtx_runlock(&erts_trace_session_list_lock);
+}
+
+void
+monitor_busy_port(Process *p, Eterm spec)
+{
+    erts_rwmtx_rlock(&erts_trace_session_list_lock);
+    for (ErtsTraceSession *s = &erts_trace_session_0; s; s = s->next) {
+        if (s->system_monitor.flags.busy_port) {
+            monitor_generic(p, am_busy_port, spec, s);
+        }
+    }
+    erts_rwmtx_runlock(&erts_trace_session_list_lock);
+}
+
+void
+monitor_busy_dist_port(Process *p, Eterm spec)
+{
+    erts_rwmtx_rlock(&erts_trace_session_list_lock);
+    for (ErtsTraceSession *s = &erts_trace_session_0; s; s = s->next) {
+        if (s->system_monitor.flags.busy_dist_port) {
+            monitor_generic(p, am_busy_dist_port, spec, s);
+        }
+    }
+    erts_rwmtx_runlock(&erts_trace_session_list_lock);
+}
 
 /* Begin system_profile tracing */
 /* Scheduler profiling */
@@ -1719,7 +1988,7 @@ profile_scheduler(Eterm scheduler_id, Eterm state) {
     /* Write timestamp in element 6 of the 'msg' tuple */
     hp[-1] = write_ts(erts_system_profile_ts_type, hp, bp, NULL);
 
-    enqueue_sys_msg_unlocked(SYS_MSG_TYPE_SYSPROF, NIL, NIL, msg, bp);
+    enqueue_sys_msg_unlocked(SYS_MSG_TYPE_SYSPROF, NIL, NIL, msg, bp, NULL);
     erts_mtx_unlock(&smq_mtx);
 
 }
@@ -2080,7 +2349,7 @@ profile_runnable_port(Port *p, Eterm status) {
     /* Write timestamp in element 5 of the 'msg' tuple */
     hp[-1] = write_ts(erts_system_profile_ts_type, hp, bp, NULL);
 
-    enqueue_sys_msg_unlocked(SYS_MSG_TYPE_SYSPROF, p->common.id, NIL, msg, bp);
+    enqueue_sys_msg_unlocked(SYS_MSG_TYPE_SYSPROF, p->common.id, NIL, msg, bp, NULL);
     erts_mtx_unlock(&smq_mtx);
 }
 
@@ -2134,7 +2403,7 @@ profile_runnable_proc(Process *p, Eterm status){
     /* Write timestamp in element 5 of the 'msg' tuple */
     hp[-1] = write_ts(erts_system_profile_ts_type, hp, bp, NULL);
 
-    enqueue_sys_msg_unlocked(SYS_MSG_TYPE_SYSPROF, p->common.id, NIL, msg, bp);
+    enqueue_sys_msg_unlocked(SYS_MSG_TYPE_SYSPROF, p->common.id, NIL, msg, bp, NULL);
     erts_mtx_unlock(&smq_mtx);
 }
 /* End system_profile tracing */
@@ -2146,6 +2415,7 @@ typedef struct ErtsSysMsgQ_ ErtsSysMsgQ;
 struct  ErtsSysMsgQ_ {
     ErtsSysMsgQ *next;
     enum ErtsSysMsgType type;
+    ErtsTraceSession *session;
     Eterm from;
     Eterm to;
     Eterm msg;
@@ -2165,18 +2435,23 @@ enqueue_sys_msg_unlocked(enum ErtsSysMsgType type,
 			 Eterm from,
 			 Eterm to,
 			 Eterm msg,
-			 ErlHeapFragment *bp)
+			 ErlHeapFragment *bp,
+                         ErtsTraceSession *session)
 {
     ErtsSysMsgQ *smqp;
 
     smqp	= smq_element_alloc();
     smqp->next	= NULL;
     smqp->type	= type;
+    smqp->session = session;
+    if (session) {
+        erts_ref_trace_session(session);
+    }
     smqp->from	= from;
     smqp->to	= to;
     smqp->msg	= msg;
     smqp->bp	= bp;
-    
+
     if (sys_message_queue_end) {
 	ASSERT(sys_message_queue);
 	sys_message_queue_end->next = smqp;
@@ -2194,10 +2469,11 @@ enqueue_sys_msg(enum ErtsSysMsgType type,
 		Eterm from,
 		Eterm to,
 		Eterm msg,
-		ErlHeapFragment *bp)
+		ErlHeapFragment *bp,
+                ErtsTraceSession *session)
 {
     erts_mtx_lock(&smq_mtx);
-    enqueue_sys_msg_unlocked(type, from, to, msg, bp);
+    enqueue_sys_msg_unlocked(type, from, to, msg, bp, session);
     erts_mtx_unlock(&smq_mtx);
 }
 
@@ -2218,14 +2494,14 @@ erts_set_system_logger(Eterm logger)
 void
 erts_queue_error_logger_message(Eterm from, Eterm msg, ErlHeapFragment *bp)
 {
-    enqueue_sys_msg(SYS_MSG_TYPE_ERRLGR, from, erts_get_system_logger(), msg, bp);
+    enqueue_sys_msg(SYS_MSG_TYPE_ERRLGR, from, erts_get_system_logger(), msg, bp, NULL);
 }
 
 void
 erts_send_sys_msg_proc(Eterm from, Eterm to, Eterm msg, ErlHeapFragment *bp)
 {
     ASSERT(is_internal_pid(to));
-    enqueue_sys_msg(SYS_MSG_TYPE_PROC_MSG, from, to, msg, bp);
+    enqueue_sys_msg(SYS_MSG_TYPE_PROC_MSG, from, to, msg, bp, NULL);
 }
 
 #ifdef DEBUG_PRINTOUTS
@@ -2258,18 +2534,21 @@ sys_msg_disp_failure(ErtsSysMsgQ *smqp, Eterm receiver)
     switch (smqp->type) {
     case SYS_MSG_TYPE_SYSMON:
 	if (receiver == NIL
-	    && !erts_system_monitor_long_gc
-	    && !erts_system_monitor_long_schedule
-	    && !erts_system_monitor_large_heap
-	    && !erts_system_monitor_flags.busy_port
-	    && !erts_system_monitor_flags.busy_dist_port)
+            && !smqp->session->system_monitor.limits[ERTS_SYSMON_LONG_GC]
+	    && !smqp->session->system_monitor.limits[ERTS_SYSMON_LONG_SCHEDULE]
+	    && !smqp->session->system_monitor.limits[ERTS_SYSMON_LARGE_HEAP]
+            && !smqp->session->system_monitor.limits[ERTS_SYSMON_LONG_MSGQ]
+	    && !smqp->session->system_monitor.flags.busy_port
+	    && !smqp->session->system_monitor.flags.busy_dist_port)
 	    break; /* Everything is disabled */
 	erts_thr_progress_block();
-	if (system_monitor == receiver || receiver == NIL)
-	    erts_system_monitor_clear(NULL);
+	if (receiver == smqp->session->system_monitor.receiver
+            || receiver == NIL) {
+	    erts_system_monitor_clear(smqp->session);
+        }
 	erts_thr_progress_unblock();
 	break;
-	 case SYS_MSG_TYPE_SYSPROF:
+    case SYS_MSG_TYPE_SYSPROF:
 	if (receiver == NIL
 	    && !erts_system_profile_flags.runnable_procs
 	    && !erts_system_profile_flags.runnable_ports
@@ -2408,6 +2687,9 @@ sys_msg_dispatcher_func(void *unused)
 	while (local_sys_message_queue) {
 	    smqp = local_sys_message_queue;
 	    local_sys_message_queue = smqp->next;
+            if (smqp->session) {
+                erts_deref_trace_session(smqp->session);
+            }
 	    smq_element_free(smqp);
 	}
 
@@ -2473,7 +2755,7 @@ sys_msg_dispatcher_func(void *unused)
                 receiver = smqp->to;
                 break;
 	    case SYS_MSG_TYPE_SYSMON:
-		receiver = erts_get_system_monitor();
+                receiver = smqp->to;
 		if (smqp->from == receiver) {
 #ifdef DEBUG_PRINTOUTS
 		    erts_fprintf(stderr, "MSG=%T to %T... ",
@@ -2598,7 +2880,7 @@ erts_debug_foreach_sys_msg_in_q(void (*func)(Eterm,
             Eterm to;
             switch (sm->type) {
             case SYS_MSG_TYPE_SYSMON:
-                to = erts_get_system_monitor();
+                to = erts_get_system_monitor(sm->session);
                 break;
             case SYS_MSG_TYPE_SYSPROF:
                 to = erts_get_system_profile();
@@ -2810,7 +3092,11 @@ erts_term_to_tracer(Eterm prefix, Eterm t)
 {
     ErtsTracer tracer = erts_tracer_nil;
     ASSERT(is_atom(prefix) || prefix == THE_NON_VALUE);
-    if (!is_nil(t)) {
+
+    if (is_internal_pid(t)) {
+        tracer = t;
+    }
+    else if (!is_nil(t)) {
         Eterm module = am_erl_tracer, state = THE_NON_VALUE;
         Eterm hp[2];
         if (is_tuple(t)) {
@@ -3151,8 +3437,19 @@ static void free_tracer(void *p)
     }
 }
 
+bool erts_get_tracer_pid(ErtsTracer tracer, Eterm* pid)
+{
+    if (is_list(tracer) && ERTS_TRACER_MODULE(tracer) == am_erl_tracer
+        && is_internal_pid(ERTS_TRACER_STATE(tracer))) {
+
+        *pid = ERTS_TRACER_STATE(tracer);
+        return true;
+    }
+    return false;
+}
+
 /*
- * ErtsTracer is either NIL, 'true' or [Mod | State]
+ * ErtsTracer is either NIL, 'true', local pid or [Mod | State]
  *
  * - If State is immediate then the memory for
  *   the cons cell is just two words + sizeof(ErtsThrPrgrLaterOp) large.
@@ -3177,15 +3474,15 @@ static void free_tracer(void *p)
  * the refc when *tracer is NIL.
  */
 void
-erts_tracer_update_impl(ErtsTracer *tracer, const ErtsTracer new_tracer)
+erts_tracer_update_impl(ErtsTracer *tracer, ErtsTracer new_tracer)
 {
     ErlHeapFragment *hf;
 
-    if (is_not_nil(*tracer)) {
+    if (is_list(*tracer)) {
         Uint offs = 2;
         UWord size = 2 * sizeof(Eterm) + sizeof(ErtsThrPrgrLaterOp);
         ErtsThrPrgrLaterOp *lop;
-        ASSERT(is_list(*tracer));
+
         if (is_not_immed(ERTS_TRACER_STATE(*tracer))) {
             hf = ErtsContainerStruct_(ptr_val(*tracer), ErlHeapFragment, mem);
             offs = hf->used_size;
@@ -3212,7 +3509,15 @@ erts_tracer_update_impl(ErtsTracer *tracer, const ErtsTracer new_tracer)
             free_tracer, (void*)(*tracer), lop, size);
     }
 
-    if (is_nil(new_tracer)) {
+    if (is_list(new_tracer)) {
+        const Eterm module = ERTS_TRACER_MODULE(new_tracer);
+        const Eterm state = ERTS_TRACER_STATE(new_tracer);
+        if (module == am_erl_tracer && is_internal_pid(state)) {
+            new_tracer = state;
+        }
+    }
+    if (is_immed(new_tracer)) {
+        ASSERT(is_nil(new_tracer) || is_internal_pid(new_tracer));
         *tracer = new_tracer;
     } else if (is_immed(ERTS_TRACER_STATE(new_tracer))) {
         /* If tracer state is an immediate we only allocate a 2 Eterm heap.
@@ -3517,6 +3822,11 @@ void erts_change_proc_trace_session_flags(Process* p, ErtsTraceSession* session,
 }
 
 #ifdef DEBUG
+bool erts_is_trace_session_weak_id(Eterm term)
+{
+    return is_small(term) || term == am_default;
+}
+
 void erts_assert_tracer_refs(ErtsPTabElementCommon* t_p)
 {
     ErtsTracerRef *ref, *other;

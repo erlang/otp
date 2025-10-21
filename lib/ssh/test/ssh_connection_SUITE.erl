@@ -1,6 +1,8 @@
 %%
 %% %CopyrightBegin%
 %%
+%% SPDX-License-Identifier: Apache-2.0
+%%
 %% Copyright Ericsson AB 2008-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
@@ -109,6 +111,7 @@
          stop_listener/1,
          trap_exit_connect/1,
          trap_exit_daemon/1,
+         handler_down_before_open/1,
          ssh_exec_echo/2 % called as an MFA
         ]).
 
@@ -180,7 +183,8 @@ all() ->
      stop_listener,
      no_sensitive_leak,
      start_subsystem_on_closed_channel,
-     max_channels_option
+     max_channels_option,
+     handler_down_before_open
     ].
 groups() ->
     [{openssh, [], payload() ++ ptty() ++ sock()}].
@@ -231,128 +235,21 @@ end_per_group(_, Config) ->
     Config.
 
 %%--------------------------------------------------------------------
-init_per_testcase(_TestCase, Config) ->
+init_per_testcase(TestCase, Config) ->
     ssh:stop(),
     ssh:start(),
-    {ok, TestLogHandlerRef} = ssh_test_lib:add_log_handler(),
     ssh_test_lib:verify_sanity_check(Config),
-    [{log_handler_ref, TestLogHandlerRef} | Config].
+    ssh_test_lib:add_log_handler(TestCase, Config).
 
 end_per_testcase(TestCase, Config) ->
     {ok, Events} = ssh_test_lib:get_log_events(
                      proplists:get_value(log_handler_ref, Config)),
     EventCnt = length(Events),
-    {ok, InterestingEventCnt} = analyze_events(Events, EventCnt),
+    {ok, InterestingEventCnt} = ssh_test_lib:analyze_events(Events, EventCnt),
     VerificationResult = verify_events(TestCase, InterestingEventCnt),
-    ssh_test_lib:rm_log_handler(),
+    ssh_test_lib:rm_log_handler(TestCase),
     ssh:stop(),
     VerificationResult.
-
-analyze_events(_, 0) ->
-    {ok, 0};
-analyze_events(Events, EventNumber) when EventNumber > 0 ->
-    {ok, Cnt} = print_interesting_events(Events, 0),
-    case Cnt > 0 of
-        true ->
-            ct:comment("(logger stats) interesting: ~p boring: ~p",
-                       [Cnt, EventNumber - Cnt]);
-        _ ->
-            ct:comment("(logger stats) boring: ~p",
-                       [length(Events)])
-    end,
-    AllEventsSummary = lists:flatten([process_event(E) || E <- Events]),
-    ct:log("~nTotal logger events: ~p~nAll events:~n~s", [EventNumber, AllEventsSummary]),
-    {ok, Cnt}.
-
-process_event(#{msg := {report,
-                        #{label := Label,
-                          report := [{supervisor, Supervisor},
-                                     {Status, Properties}]}},
-                level := Level}) ->
-    format_event1(Label, Supervisor, Status, Properties, Level);
-process_event(#{msg := {report,
-                        #{label := Label,
-                          report := [{supervisor, Supervisor},
-                                     {errorContext, _ErrorContext},
-                                     {reason, {Status, _ReasonDetails}},
-                                     {offender, Properties}]}},
-                level := Level}) ->
-    format_event1(Label, Supervisor, Status, Properties, Level);
-process_event(#{msg := {report,
-                        #{label := Label,
-                          report := [{supervisor, Supervisor},
-                                     {errorContext, _ErrorContext},
-                                     {reason, Status},
-                                     {offender, Properties}]}},
-                level := Level}) ->
-    format_event1(Label, Supervisor, Status, Properties, Level);
-process_event(#{msg := {report,
-                        #{label := Label,
-                          report := [Properties, []]}},
-                level := Level}) ->
-    {status, Status} = get_value(status, Properties),
-    {pid, Pid} = get_value(pid, Properties),
-    Id = get_value(registered_name, Properties),
-    {initial_call, {M, F, Args}} = get_value(initial_call, Properties),
-    io_lib:format("[~44s]  ~6s ~30s ~20s  ~30s ~20s:~10s(~40s)~n",
-                  [io_lib:format("~p", [E]) ||
-                      E <- [Pid, Level, Label, Status, Id, M, F, Args]]);
-process_event(#{msg := {report,
-                        #{label := Label,
-                          name := Pid,
-                          reason := {Reason, _Stack = [{M, F, Args, Location} | _]}}},
-                level := Level}) ->
-    io_lib:format("[~44s]  ~6s ~30s ~20s  ~30s ~20s:~10s(~40s) ~30s~n",
-                  [io_lib:format("~p", [E]) ||
-                      E <- [Pid, Level, Label, Reason, undefined, M, F, Args, Location]]);
-process_event(#{msg := {report,
-                        #{label := Label,
-                         format := Format,
-                         args := Args}},
-                meta := #{pid := Pid},
-                level := Level}) ->
-    io_lib:format("[~44s]  ~6s ~30s ~150s~n",
-                  [io_lib:format("~p", [E]) ||
-                      E <- [Pid, Level, Label]] ++ [io_lib:format(Format, Args)]);
-process_event(E) ->
-    io_lib:format("~n||RAW event||~n~p~n", [E]).
-
-format_event1(Label, Supervisor, Status, Properties, Level) ->
-    {pid, Pid} = get_value(pid, Properties),
-    Id = get_value(id, Properties),
-    {M, F, Args} = get_mfa_value(Properties),
-    RestartType = get_value(restart_type, Properties),
-    Significant = get_value(significant, Properties),
-    io_lib:format("[~30s <- ~10s]  ~6s ~30s ~20s  ~30s ~20s:~10s(~40s) ~20s ~25s~n",
-                  [io_lib:format("~p", [E]) ||
-                      E <- [Supervisor, Pid, Level, Label, Status, Id, M, F, Args,
-                            Significant, RestartType]]).
-
-get_mfa_value(Properties) ->
-    case get_value(mfargs, Properties) of
-        {mfargs, MFA} ->
-            MFA;
-        false ->
-            {mfa, MFA} = get_value(mfa, Properties),
-            MFA
-    end.
-
-get_value(Key, List) ->
-    case lists:keyfind(Key, 1, List) of
-        R = false ->
-            ct:log("Key ~p not found in~n~p", [Key, List]),
-            R;
-        R -> R
-    end.
-
-print_interesting_events([], Cnt) ->
-    {ok, Cnt};
-print_interesting_events([#{level := Level} = Event | Tail], Cnt)
-  when Level /= info, Level /= notice ->
-    ct:log("------------~nInteresting event found:~n~p~n==========~n", [Event]),
-    print_interesting_events(Tail, Cnt + 1);
-print_interesting_events([_|Tail], Cnt) ->
-    print_interesting_events(Tail, Cnt).
 
 verify_events(_TestCase, 0) -> ok;
 verify_events(no_sensitive_leak, 1) -> ok;
@@ -925,12 +822,11 @@ new_shell_xterm_term(Config) when is_list(Config) ->
                        exp_output =>
                            [<<"Enter command\r\n">>,
                             <<"1> ">>,
-                            <<"one_atom_please.\r\n\e[1022D\e[1B">>,
+                            <<"one_atom_please.\r\n">>,
                             <<"{simple_eval,one_atom_please}\r\n">>,
                             <<"2> ">>,
-                            <<"\e[3D\e[J">>,
                             <<"\e[;1;4msearch:\e[0m ">>,
-                            <<"\r\n  one_atom_please.">>]},
+                            <<"\b\b\b\b\b\b\b\b\e[J\e[;1;4msearch:\e[0m \r\n  one_atom_please.\e[A\b\b\b\b\b\b\b\b\b\b">>]},
                     Config).
 
 new_shell_helper(#{term := Term, cmds := Cmds,
@@ -1001,7 +897,7 @@ start_shell_exec(Config) when is_list(Config) ->
     {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
 					     {user_dir, UserDir},
 					     {password, "morot"},
-					     {exec, {?MODULE,ssh_exec_echo,[]}} ]),
+					     {exec, {?MODULE,ssh_exec_echo,["foo"]}} ]),
 
     ConnectionRef = ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
 						      {user, "foo"},
@@ -1105,7 +1001,7 @@ start_shell_exec_fun(Config) ->
                                                   io:format("echo ~s\n", [Cmd])
                                           end)
                             end,
-                            "testing", <<"echo testing\n">>, 0,
+                            "testing", <<"echo testing\r\n">>, 0,
                             Config).
 
 start_shell_exec_fun2(Config) ->
@@ -1114,7 +1010,7 @@ start_shell_exec_fun2(Config) ->
                                                   io:format("echo ~s ~s\n",[User,Cmd])
                                           end)
                             end,
-                            "testing", <<"echo foo testing\n">>, 0,
+                            "testing", <<"echo foo testing\r\n">>, 0,
                             Config).
 
 start_shell_exec_fun3(Config) ->
@@ -1123,7 +1019,7 @@ start_shell_exec_fun3(Config) ->
                                                   io:format("echo ~s ~s\n",[User,Cmd])
                                           end)
                             end,
-                            "testing", <<"echo foo testing\n">>, 0,
+                            "testing", <<"echo foo testing\r\n">>, 0,
                             Config).
 
 start_shell_exec_direct_fun(Config) ->
@@ -1188,11 +1084,11 @@ start_exec_direct_fun1_read_write(Config) ->
     {ok, Ch} = ssh_connection:session_channel(C, infinity),
 
     success = ssh_connection:exec(C, Ch, "> ", infinity),
-    ssh_test_lib:receive_exec_result_or_fail({ssh_cm,C,{data,Ch,0,<<"Tiny read/write test\n">>}}),
+    ssh_test_lib:receive_exec_result_or_fail({ssh_cm,C,{data,Ch,0,<<"Tiny read/write test\r\n">>}}),
 
     ssh_test_lib:receive_exec_result_or_fail({ssh_cm,C,{data,Ch,0,<<"1> ">>}}),
     ok = ssh_connection:send(C, Ch, "hej.\n", 5000),
-    ssh_test_lib:receive_exec_result_or_fail({ssh_cm,C,{data,Ch,0,<<"{simple_eval,hej}\n">>}}),
+    ssh_test_lib:receive_exec_result_or_fail({ssh_cm,C,{data,Ch,0,<<"{simple_eval,hej}\r\n">>}}),
 
     ssh_test_lib:receive_exec_result_or_fail({ssh_cm,C,{data,Ch,0,<<"2> ">>}}),
     ok = ssh_connection:send(C, Ch, "quit.\n", 5000),
@@ -1236,18 +1132,18 @@ start_exec_direct_fun1_read_write_advanced(Config) ->
     {ok, Ch} = ssh_connection:session_channel(C, infinity),
 
     success = ssh_connection:exec(C, Ch, "> ", infinity),
-    ssh_test_lib:receive_exec_result_or_fail({ssh_cm,C,{data,Ch,0,<<"Tiny read/write test\n">>}}),
+    ssh_test_lib:receive_exec_result_or_fail({ssh_cm,C,{data,Ch,0,<<"Tiny read/write test\r\n">>}}),
 
     ssh_test_lib:receive_exec_result_or_fail({ssh_cm,C,{data,Ch,0,<<"1> ">>}}),
     ok = ssh_connection:send(C, Ch, "hej.\n", 5000),
-    ssh_test_lib:receive_exec_result_or_fail({ssh_cm,C,{data,Ch,0,<<"{simple_eval,hej}\n">>}}),
+    ssh_test_lib:receive_exec_result_or_fail({ssh_cm,C,{data,Ch,0,<<"{simple_eval,hej}\r\n">>}}),
 
     ssh_test_lib:receive_exec_result_or_fail({ssh_cm,C,{data,Ch,0,<<"2> ">>}}),
     ok = ssh_connection:send(C, Ch, "'Hi ", 5000),
     ok = ssh_connection:send(C, Ch, "there", 5000),
     ok = ssh_connection:send(C, Ch, "'", 5000),
     ok = ssh_connection:send(C, Ch, ".\n", 5000),
-    ssh_test_lib:receive_exec_result_or_fail({ssh_cm,C,{data,Ch,0,<<"{simple_eval,'Hi there'}\n">>}}),
+    ssh_test_lib:receive_exec_result_or_fail({ssh_cm,C,{data,Ch,0,<<"{simple_eval,'Hi there'}\r\n">>}}),
     ssh_test_lib:receive_exec_result_or_fail({ssh_cm,C,{data,Ch,0,<<"3> ">>}}),
     ok = ssh_connection:send(C, Ch, "bad_input.\n", 5000),
     ssh_test_lib:receive_exec_result_or_fail({ssh_cm,C,{data,Ch,1,<<"**Error** {bad_input,3}">>}}),
@@ -1264,8 +1160,8 @@ start_exec_direct_fun1_read_write_advanced(Config) ->
     after 5000 -> go_on
     end,
     receive
-        X -> ct:fail("remaining messages"),
-             ct:log("remaining message: ~p",[X])
+        X -> ct:log("remaining message: ~p",[X]),
+        ct:fail("remaining messages")
     after 0 -> go_on
     end,
     ssh:stop_daemon(Pid).
@@ -1294,7 +1190,7 @@ simple_eval(Inp) -> {simple_eval,Inp}.
 
 do_start_shell_exec_fun(Fun, Command, Expect, ExpectType, Config) ->
     DefaultReceiveFun =
-        fun(ConnectionRef, ChannelId, Expect, ExpectType) ->
+        fun(ConnectionRef, ChannelId, _Expect, _ExpectType) ->
                 receive
                     {ssh_cm, ConnectionRef, {data, ChannelId, ExpectType, Expect}} ->
                         ok
@@ -1415,7 +1311,7 @@ start_shell_sock_exec_fun(Config) when is_list(Config) ->
 				  "testing", infinity),
 
     receive
-	{ssh_cm, ConnectionRef, {data, _ChannelId, 0, <<"echo testing\n">>}} ->
+	{ssh_cm, ConnectionRef, {data, _ChannelId, 0, <<"echo testing\r\n">>}} ->
 	    ok
     after 5000 ->
 	    ct:fail("Exec Timeout")
@@ -1460,7 +1356,7 @@ start_shell_sock_daemon_exec(Config) ->
 				  "testing", infinity),
 
     receive
-	{ssh_cm, ConnectionRef, {data, _ChannelId, 0, <<"echo testing\n">>}} ->
+	{ssh_cm, ConnectionRef, {data, _ChannelId, 0, <<"echo testing\r\n">>}} ->
 	    ok
     after 5000 ->
 	    ct:fail("Exec Timeout")
@@ -1520,7 +1416,7 @@ start_shell_sock_daemon_exec_multi(Config) ->
                             success = ssh_connection:exec(ConnectionRef, ChannelId0, "testing", infinity),
                             ct:log("~p:~p: exec on connection ~p", [?MODULE,?LINE,ConnectionRef]),
                             receive
-                                {ssh_cm, ConnectionRef, {data, _ChannelId, 0, <<"echo testing\n">>}} ->
+                                {ssh_cm, ConnectionRef, {data, _ChannelId, 0, <<"echo testing\r\n">>}} ->
                                     Parent ! {answer_received,self()},
                                     ct:log("~p:~p: received result on connection ~p", [?MODULE,?LINE,ConnectionRef])
                             after 5000 ->
@@ -1631,6 +1527,8 @@ gracefull_invalid_long_start_no_nl(Config) when is_list(Config) ->
     end.
 
 kex_error(Config) ->
+    #{level := Level} = logger:get_primary_config(),
+    ok = logger:set_primary_config(level, debug),
     PrivDir = proplists:get_value(priv_dir, Config),
     UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
     file:make_dir(UserDir),
@@ -1642,7 +1540,8 @@ kex_error(Config) ->
                                               {preferred_algorithms,[{kex,[Kex1]}]}
                                              ]),
     Ref = make_ref(),
-    ok = ssh_log_h:add_fun(kex_error,
+    HandlerId = kex_error2, %% avoid conflict with ssh_test_lib log handler
+    ok = ssh_log_h:add_fun(HandlerId,
                            fun(#{msg:={report,#{format:=Fmt,args:=As,label:={error_logger,_}}}}, Pid) ->
                                    true = (erlang:process_info(Pid) =/= undefined), % remove handler if we are dead
                                    Pid ! {Ref, lists:flatten(io_lib:format(Fmt,As))};
@@ -1651,6 +1550,10 @@ kex_error(Config) ->
                                    ok % Other msg
                            end,
                            self()),
+    Cleanup = fun() ->
+                      ok = logger:remove_handler(HandlerId),
+                      ok = logger:set_primary_config(level, Level)
+              end,
     try
         ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
                                           {user, "foo"},
@@ -1661,14 +1564,14 @@ kex_error(Config) ->
                                          ])
     of
         _ ->
-            ok = logger:remove_handler(kex_error),
+            ok = logger:remove_handler(HandlerId),
             ct:fail("expected failure", [])
     catch
         error:{badmatch,{error,"Key exchange failed"}} ->
             %% ok
             receive
                 {Ref, ErrMsgTxt} ->
-                    ok = logger:remove_handler(kex_error),
+                    Cleanup(),
                     ct:log("ErrMsgTxt = ~n~s", [ErrMsgTxt]),
                     Lines = lists:map(fun string:trim/1, string:tokens(ErrMsgTxt, "\n")),
                     OK = (lists:all(fun(S) -> lists:member(S,Lines) end,
@@ -1686,12 +1589,12 @@ kex_error(Config) ->
                             ct:fail("unexpected error text msg", [])
                     end
             after 20000 ->
-                    ok = logger:remove_handler(kex_error),
+                    Cleanup(),
                     ct:fail("timeout", [])
             end;
 
         error:{badmatch,{error,_}} ->
-            ok = logger:remove_handler(kex_error),
+            Cleanup(),
             ct:fail("unexpected error msg", [])
     end.
 
@@ -1729,7 +1632,7 @@ stop_listener(Config) when is_list(Config) ->
 				  "testing", infinity),
     receive
 	{ssh_cm, ConnectionRef0,
-         {data, ChannelId0, 0, <<"echo testing\n">>}} ->
+         {data, ChannelId0, 0, <<"echo testing\r\n">>}} ->
 	    ok
     after 5000 ->
 	    ct:fail("Exec Timeout")
@@ -1787,7 +1690,7 @@ no_sensitive_leak(Config) ->
         end,
  
     %% Install the test handler:
-    Hname = no_sensitive_leak,
+    Hname = no_sensitive_leak2,  %% avoid conflict with ssh_test_lib log handler
     ok = ssh_log_h:add_fun(Hname,
                            fun(#{msg := {report,#{report := Rep}}}, Pid) ->
                                    true = (erlang:process_info(Pid, status) =/= undefined), % remove handler if we are dead
@@ -1942,6 +1845,138 @@ max_channels_option(Config) when is_list(Config) ->
 
     ssh:close(ConnectionRef),
     ssh:stop_daemon(Pid).
+
+handler_down_before_open(Config) ->
+    %% Start echo subsystem with a delay in init() - until a signal is received
+    %% One client opens a channel on the connection
+    %% the other client requests the echo subsystem on the second channel and then immediately goes down
+    %% the test monitors the client and when receiving 'DOWN' signals 'echo' to proceed
+    %% a) there should be no crash after 'channel-open-confirmation'
+    %% b) there should be proper 'channel-close' exchange
+    %% c) the 'exec' channel should not be affected after the 'echo' channel goes down
+    PrivDir = proplists:get_value(priv_dir, Config),
+    UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
+    file:make_dir(UserDir),
+    SysDir = proplists:get_value(data_dir, Config),
+    Parent = self(),
+    EchoSS_spec = {ssh_echo_server, [8, [{dbg, true}, {parent, Parent}]]},
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
+					     {user_dir, UserDir},
+					     {password, "morot"},
+					     {exec, fun ssh_exec_echo/1},
+					     {subsystems, [{"echo_n",EchoSS_spec}]}]),
+    ct:log("~p:~p connect", [?MODULE,?LINE]),
+    ConnectionRef = ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
+						      {user, "foo"},
+						      {password, "morot"},
+						      {user_interaction, false},
+						      {user_dir, UserDir}]),
+    ct:log("~p:~p connected", [?MODULE,?LINE]),
+
+    ExecChannelPid =
+        spawn(
+          fun() ->
+                  {ok, ChannelId0} = ssh_connection:session_channel(ConnectionRef, infinity),
+
+                  %% This is to get peer's connection handler PID ({conn_peer ...} below) and suspend it
+                  {ok, ChannelId1} = ssh_connection:session_channel(ConnectionRef, infinity),
+                  ssh_connection:subsystem(ConnectionRef, ChannelId1, "echo_n", infinity),
+                  ssh_connection:close(ConnectionRef, ChannelId1),
+                  receive
+                      {ssh_cm, ConnectionRef, {closed, 1}} -> ok
+                  end,
+
+                  Parent ! {self(), channelId, ChannelId0},
+                  Result = receive
+                               cmd ->
+                                   ct:log("~p:~p Channel ~p executing", [?MODULE, ?LINE, ChannelId0]),
+                                   success = ssh_connection:exec(ConnectionRef, ChannelId0, "testing", infinity),
+                                   Expect = <<"echo testing\n">>,
+                                   ExpSz = size(Expect),
+                                   receive
+                                       {ssh_cm, ConnectionRef, {data, ChannelId0, 0,
+                                                                <<Expect:ExpSz/binary, _/binary>>}} = R ->
+                                           ct:log("~p:~p Got expected ~p",[?MODULE,?LINE, R]),
+                                           ok;
+                                       Other ->
+                                           ct:log("~p:~p Got unexpected ~p~nExpect: ~p~n",
+                                                  [?MODULE,?LINE, Other, {ssh_cm, ConnectionRef,
+                                                                          {data, ChannelId0, 0, Expect}}]),
+                                           {fail, "Unexpected data"}
+                                   after 5000 ->
+                                           {fail, "Exec Timeout"}
+                                   end;
+                               stop -> {fail, "Stopped"}
+                           end,
+                  Parent ! {self(), Result}
+          end),
+    try
+        receive
+            {ExecChannelPid, channelId, ExId} ->
+                ct:log("~p:~p Channel that should stay: ~p pid ~p",
+                       [?MODULE, ?LINE, ExId, ExecChannelPid]),
+                %% This is sent by the echo subsystem as a reaction to channel1 above
+                ConnPeer = receive {conn_peer, CM} -> CM end,
+                %% The sole purpose of this channel is to go down
+                %% before the opening procedure is complete
+                DownChannelPid = spawn(
+                    fun() ->
+                        ct:log("~p:~p open channel (incomplete)",[?MODULE,?LINE]),
+                        Parent ! {self(), channelId, ok},
+                        %% This is to prevent the peer from answering our 'channel-open' in time
+                        sys:suspend(ConnPeer),
+                        {ok, _} = ssh_connection:session_channel(ConnectionRef, infinity)
+                    end),
+                MonRef = erlang:monitor(process, DownChannelPid),
+                receive
+                    {DownChannelPid, channelId, ok} ->
+                        ct:log("~p:~p Channel handler that won't continue: pid ~p",
+                               [?MODULE, ?LINE, DownChannelPid]),
+                        ensure_channels(ConnectionRef, 2),
+                        channel_down_sequence(DownChannelPid, ExecChannelPid,
+                                              ExId, MonRef, ConnectionRef, ConnPeer)
+                end
+        end,
+        ensure_channels(ConnectionRef, 0)
+    after
+        ssh:close(ConnectionRef),
+        ssh:stop_daemon(Pid)
+    end.
+
+ensure_channels(ConnRef, Expected) ->
+    {ok, ChannelList} = ssh_connection_handler:info(ConnRef),
+    do_ensure_channels(ConnRef, Expected, length(ChannelList)).
+
+do_ensure_channels(_ConnRef, NumExpected, NumExpected) ->
+    ok;
+do_ensure_channels(ConnRef, NumExpected, _ChannelListLen) ->
+    ct:sleep(100),
+    {ok, ChannelList} = ssh_connection_handler:info(ConnRef),
+    do_ensure_channels(ConnRef, NumExpected, length(ChannelList)).
+
+channel_down_sequence(DownChannelPid, ExecChannelPid, ExecChannelId, MonRef, ConnRef, Peer) ->
+    ct:log("~p:~p sending order to ~p to go down", [?MODULE, ?LINE, DownChannelPid]),
+    exit(DownChannelPid, die),
+    receive {'DOWN', MonRef, _, _, _} -> ok end,
+    ct:log("~p:~p order executed, sending order to ~p to proceed", [?MODULE, ?LINE, Peer]),
+    %% Resume the peer connection to let it clean up among its channels
+    sys:resume(Peer),
+    ensure_channels(ConnRef, 1),
+    ExecChannelPid ! cmd,
+    try
+        receive
+            {ExecChannelPid, ok} ->
+                ct:log("~p:~p expected exec result: ~p", [?MODULE, ?LINE, ok]),
+                ok;
+            {ExecChannelPid, Result} ->
+                ct:log("~p:~p Unexpected exec result: ~p", [?MODULE, ?LINE, Result]),
+                {fail, "Unexpected exec result"}
+        after 5000 ->
+            {fail, "Exec result timeout"}
+        end
+    after
+        ssh_connection:close(ConnRef, ExecChannelId)
+    end.
 
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------

@@ -27,7 +27,7 @@ ri14() ->
 -spec '1-3'() -> '1-3-t'().
 
 '1-3'() ->
-    random:uniform(3).
+    rand:uniform(3).
 
 
 -spec 'Atom'() -> atom().

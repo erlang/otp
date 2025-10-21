@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1998-2020. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 1998-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -43,7 +45,7 @@ typedef struct {
 typedef struct {
     erts_rwmtx_t lock; /* The lock for this base node */
     erts_atomic_t lock_statistics;
-    int is_valid; /* If this base node is still valid */
+    bool is_valid; /* If this base node is still valid */
     TreeDbTerm *root; /* The root of the sequential tree */
     ErtsThrPrgrLaterOp free_item; /* Used when freeing using thread progress */
 
@@ -56,14 +58,14 @@ typedef struct {
 #endif
     ErtsThrPrgrLaterOp free_item; /* Used when freeing using thread progress */
     erts_mtx_t lock; /* Used when joining route nodes */
-    int is_valid; /* If this route node is still valid */
+    bool is_valid; /* If this route node is still valid */
     erts_atomic_t left;
     erts_atomic_t right;
     DbRouteKey key;
 } DbTableCATreeRouteNode;
 
 typedef struct DbTableCATreeNode {
-    int is_base_node;
+    bool is_base_node;
     union {
         DbTableCATreeRouteNode route;
         DbTableCATreeBaseNode base;
@@ -81,8 +83,7 @@ typedef struct db_table_catree {
 
     /* CA Tree-specific fields */
     erts_atomic_t root;         /* The tree root (DbTableCATreeNode*) */
-    Uint deletion;		/* Being deleted */
-    int is_routing_nodes_freed;
+    bool deletion;		/* Being deleted */
     /* The fields below are used by delete_all_objects and
        select_delete(DeleteAll)*/
     Uint nr_of_deleted_items;
@@ -95,7 +96,7 @@ typedef struct {
     DbTableCATreeNode* locked_bnode;
     DbTableCATreeNode* bnode_parent;
     int bnode_level;
-    int read_only;
+    bool read_only;
     DbRouteKey* search_key;
 } CATreeRootIterator;
 

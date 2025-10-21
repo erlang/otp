@@ -1,3 +1,11 @@
+%%
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright 1999-2002 Richard Carlsson
+%% Copyright Ericsson AB 2010-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -10,13 +18,9 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 %%
-%% @copyright 1999-2002 Richard Carlsson.
+%% %CopyrightEnd%
+%%
 %% @author Richard Carlsson <carlsson.richard@gmail.com>
-%% @doc Basic functions on Core Erlang abstract syntax trees.
-%%
-%% <p>Syntax trees are defined in the module {@link cerl}.</p>
-%%
-%% @type cerl() = cerl:cerl()
 
 -module(cerl_trees).
 -moduledoc """
@@ -821,7 +825,7 @@ labeled.
 
 The returned value is a tuple `{NewTree, Max}`, where `NewTree` is the labeled
 tree and `Max` is 1 plus the largest label value used. All previous annotation
-terms on the form `{label, X}` are deleted.
+terms of the form `{label, X}` are deleted.
 
 The values of L used in the tree is a dense range from `N` to `Max - 1`, where
 `N =< Max =< N + size(Tree)`. Note that it is possible that no labels are used

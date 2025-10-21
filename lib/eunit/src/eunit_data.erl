@@ -1,6 +1,15 @@
-%% Licensed under the Apache License, Version 2.0 (the "License"); you may
-%% not use this file except in compliance with the License. You may obtain
-%% a copy of the License at <http://www.apache.org/licenses/LICENSE-2.0>
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+%%
+%% Copyright 2006 Richard Carlsson
+%% Copyright Ericsson AB 2009-2025. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
 %%
 %% Unless required by applicable law or agreed to in writing, software
 %% distributed under the License is distributed on an "AS IS" BASIS,
@@ -18,6 +27,8 @@
 %% above, a recipient may use your version of this file under the terms of
 %% either the Apache License or the LGPL.
 %%
+%% %CopyrightEnd%
+%%
 %% @author Richard Carlsson <carlsson.richard@gmail.com>
 %% @copyright 2006 Richard Carlsson
 %% @private
@@ -34,6 +45,7 @@
 
 -export([iter_init/3, iter_next/1, iter_prev/1, iter_id/1,
 	 enter_context/3, get_module_tests/2]).
+-export([parse_command_line/2]). % for unit testing
 
 -define(TICKS_PER_SECOND, 1000).
 
@@ -182,8 +194,69 @@ next(Tests, Options) ->
 	    none
     end.
 
-%% Temporary suppression
--compile([{nowarn_deprecated_function,[{slave,start_link,3},{slave,stop,1}]}]).
+%% Read a word till whitespace or end of input
+-spec cmd_parse_read_unquoted(string(), Acc :: string())
+        -> #{token => string(), tail => string()}.
+cmd_parse_read_unquoted([], Acc) ->
+    #{token => lists:reverse(Acc), tail => []};
+cmd_parse_read_unquoted([C | Tail], Acc) ->
+    case unicode_util:is_whitespace(C) of
+        true -> #{token => lists:reverse(Acc), tail => Tail};
+        false -> cmd_parse_read_unquoted(Tail, [C | Acc])
+    end.
+
+%% Balanced: "value with spaces" becomes "value with spaces" without quotes.
+%% Unbalanced: "value with spaces   (no closing) - parsed word starts with the quote.
+cmd_parse_read_quoted(Quote, [], Acc) ->
+    %% No closing quote: return token with dangling opening quote, as-is
+    %% (include the opening quote, keep content unchanged)
+    #{token => [Quote | lists:reverse(Acc)], tail => []};
+cmd_parse_read_quoted(Quote, [Quote | Rest], Acc) ->
+    #{token => lists:reverse(Acc), tail => Rest};
+cmd_parse_read_quoted(Quote, [$\\, C | Rest], Acc) ->
+    %% Backslash escapes the next character inside quotes
+    cmd_parse_read_quoted(Quote, Rest, [C | Acc]);
+cmd_parse_read_quoted(Quote, [C | Rest], Acc) ->
+    cmd_parse_read_quoted(Quote, Rest, [C | Acc]).
+
+%% Parses an old style command line (a single string) into a list of strings.
+%% - Splits on whitespace.
+%% - If the next non-whitespace character is ' or ", consumes until the matching
+%%   closing quote; the quotes are removed for balanced quotes.
+%% - Inside quotes, backslash escapes the following character.
+%% - If the closing quote is missing, returns the parameter as-is with a dangling quote
+parse_command_line(Input, Acc) when is_list(Input) ->
+    case string:trim(Input) of
+        [] ->
+            lists:reverse(Acc);
+        [$" | Rest] ->
+            #{token := Token1, tail := Rest1}
+                = cmd_parse_read_quoted($", Rest, []),
+            parse_command_line(Rest1, [Token1 | Acc]);
+        [$' | Rest] ->
+            #{token := Token2, tail := Rest2}
+                = cmd_parse_read_quoted($', Rest, []),
+            parse_command_line(Rest2, [Token2 | Acc]);
+        Other ->
+            #{token := Token3, tail := Rest3}
+                = cmd_parse_read_unquoted(Other, []),
+            parse_command_line(Rest3, [Token3 | Acc])
+    end.
+
+%% Adapter for a string command line passed to old deprecated option. Coalesces any command line
+%% format (string or list of strings) into list of strings.
+-spec parse_peer_args(string() | [string()]) -> [string()].
+parse_peer_args([]) -> [];
+parse_peer_args(Args) when is_list(Args) -> % can be string or list of strings
+    case io_lib:printable_unicode_list(Args) of
+        true ->
+            parse_command_line(Args, []);
+        false ->
+            case lists:all(fun io_lib:printable_unicode_list/1, Args) of % each element of Args is a string
+                true -> Args; % no modification, it is already a list
+                false -> erlang:throw({badarg, Args})
+            end
+    end.
 
 %% this returns either a #test{} or #group{} record, or {data, T} to
 %% signal that T has been substituted for the given representation
@@ -325,12 +398,18 @@ parse({node, N, A, T1}=T, Options) when is_atom(N) ->
 %% 			       end,
 %% 			   ?debugVal({started, StartedNet}),
 			   {Name, Host} = eunit_lib:split_node(N),
-			   {ok, Node} = slave:start_link(Host, Name, A),
+                           {ok, Node} = case peer:start_link(#{
+                               host => atom_to_list(Host),
+                               name => Name, args => parse_peer_args(A)}) of
+                                {ok, Pid} -> {ok, Pid};
+                                {ok, Pid, _Node} -> {ok, Pid};
+                                {error, Rsn} -> throw({peer_start, Rsn})
+                            end,
 			   {Node, StartedNet}
 		   end,
 		   fun ({Node, StopNet}) ->
 %% 			   ?debugVal({stop, StopNet}),
-			   slave:stop(Node),
+                           peer:stop(Node),
 			   case StopNet of
 			       true -> net_kernel:stop();
 			       false -> ok

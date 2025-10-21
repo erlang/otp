@@ -1,6 +1,8 @@
 /*
  * %CopyrightBegin%
  *
+ * SPDX-License-Identifier: Apache-2.0
+ *
  * Copyright Ericsson AB 1997-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -54,6 +56,7 @@
 #include "beam_load.h"
 #include "erl_global_literals.h"
 #include "erl_iolist.h"
+#include "erl_debugger.h"
 
 #include "jit/beam_asm.h"
 
@@ -239,17 +242,6 @@ void erl_error(const char *fmt, va_list args)
 
 static int early_init(int *argc, char **argv);
 
-static void init_constant_literals(void) {
-       Eterm* hp = erts_alloc_global_literal(ERTS_LIT_EMPTY_TUPLE, 2);
-       Eterm tuple;
-       hp[0] = make_arityval_zero();
-       hp[1] = make_arityval_zero();
-       tuple = make_tuple(hp);
-       erts_register_global_literal(ERTS_LIT_EMPTY_TUPLE, tuple);
-       ERTS_GLOBAL_LIT_EMPTY_TUPLE =
-           erts_get_global_literal(ERTS_LIT_EMPTY_TUPLE);
-}
-
 static void
 erl_init(int ncpu,
 	 int proc_tab_sz,
@@ -263,7 +255,7 @@ erl_init(int ncpu,
 	 int node_tab_delete_delay,
 	 ErtsDbSpinCount db_spin_count)
 {
-    init_constant_literals();
+    init_global_literals();
     erts_monitor_link_init();
     erts_bif_unique_init();
     erts_proc_sig_queue_init(); /* Must be after erts_bif_unique_init(); */
@@ -285,6 +277,7 @@ erl_init(int ncpu,
     H_MIN_SIZE      = erts_next_heap_size(H_MIN_SIZE, 0);
     BIN_VH_MIN_SIZE = erts_next_heap_size(BIN_VH_MIN_SIZE, 0);
 
+    erts_init_debugger();
     erts_init_trace();
     erts_code_ix_init();
     erts_init_fun_table();
@@ -539,7 +532,7 @@ load_preloaded(void)
 }
 
 /* be helpful (or maybe downright rude:-) */
-void erts_usage(void)
+__decl_noreturn void __noreturn  erts_usage(void)
 {
     int this_rel = this_rel_num();
     erts_fprintf(stderr, "Usage: %s [flags] [ -- [init_args] ]\n", progname(program));
@@ -553,8 +546,8 @@ void erts_usage(void)
 		 ERTS_MAX_NO_OF_ASYNC_THREADS);
     erts_fprintf(stderr, "\n");
 
-    erts_fprintf(stderr, "-B[c|d|i]      set break (Ctrl-C) behavior; valid letters are:\n");
-    erts_fprintf(stderr, "                  'c' to have Ctrl-C interrupt the Erlang shell;\n");
+    erts_fprintf(stderr, "-B[c|d|i]      set break (Ctrl+C) behavior; valid letters are:\n");
+    erts_fprintf(stderr, "                  'c' to have Ctrl+C interrupt the Erlang shell;\n");
     erts_fprintf(stderr, "                  'd' (or no extra option) to disable the break handler;\n");
     erts_fprintf(stderr, "                  'i' to ignore break signals\n");
     erts_fprintf(stderr, "\n");
@@ -564,6 +557,8 @@ void erts_usage(void)
     erts_fprintf(stderr, "               no_time_warp | single_time_warp | multi_time_warp\n");
     erts_fprintf(stderr, "\n");
 
+    erts_fprintf(stderr, "-D             enable debugging support\n");
+    erts_fprintf(stderr, "-Dibpl bool    enable or disable instrumentation for breakpoints on lines (default true)\n");
     erts_fprintf(stderr, "-d             don't write a crash dump for internally detected errors\n");
     erts_fprintf(stderr, "               (halt(String) will still produce a crash dump)\n");
     erts_fprintf(stderr, "-dcg           set the limit for the number of decentralized counter groups\n");
@@ -603,6 +598,7 @@ void erts_usage(void)
     erts_fprintf(stderr, "-JDdump bool   enable or disable dumping of generated assembly code for each module loaded\n");
     erts_fprintf(stderr, "-JPcover true|false|line|line_counters|function|function_counters  enable or disable instrumentation for coverage\n");
     erts_fprintf(stderr, "-JPperf true|false|dump|map|fp|no_fp   enable or disable support for perf on Linux\n");
+    erts_fprintf(stderr, "-JPperfdirectory <directory>    set the directory perf files are stored. Default: /tmp\n");
     erts_fprintf(stderr, "-JMsingle bool enable the use of single-mapped RWX memory for JIT:ed code\n");
     erts_fprintf(stderr, "\n");
 #endif
@@ -1044,6 +1040,7 @@ early_init(int *argc, char **argv) /*
 			    case 1:
 				onln = tot < dirty_cpu_scheds_online ?
 				    tot : dirty_cpu_scheds_online;
+                                ERTS_FALLTHROUGH();
 			    case 2:
 			    chk_SDcpu:
 				if (tot > 0)
@@ -1114,6 +1111,7 @@ early_init(int *argc, char **argv) /*
 			    }
 			case 1:
 			    onln = tot < schdlrs_onln ? tot : schdlrs_onln;
+                            ERTS_FALLTHROUGH();
 			case 2:
 			chk_S:
 			    if (tot > 0)
@@ -1279,8 +1277,8 @@ early_init(int *argc, char **argv) /*
     /* Creates threads on Windows that depend on the arguments, so has to be after erl_sys_args */
     erl_sys_init();
 
-    erts_ets_realloc_always_moves = 0;
-    erts_ets_always_compress = 0;
+    erts_ets_realloc_always_moves = false;
+    erts_ets_always_compress = false;
     erts_dist_buf_busy_limit = ERTS_DE_BUSY_LIMIT;
 
     return ncpu;
@@ -1636,6 +1634,34 @@ erl_start(int argc, char **argv)
 	    }
 	    break;
 	}
+	case 'D':
+            if (sys_strcmp(argv[i]+1, "D") == 0) {
+                erts_debugger_flags |= ERTS_DEBUGGER_ENABLED;
+            } else if (argv[i][2] == 'i') {
+                const char *instr_opt = argv[i]+1;
+                Uint flag;
+
+                if (sys_strcmp(instr_opt, "Dibpl") == 0) {
+                    flag = ERTS_DEBUGGER_LINE_BREAKPOINTS;
+                    arg = get_arg(argv[i]+6, argv[i+1], &i);
+                } else {
+                    erts_fprintf(stderr, "Unknown instrumentation option %s\n", instr_opt);
+                    erts_usage();
+                }
+
+                if (sys_strcmp(arg, "true") == 0) {
+                    erts_debugger_flags |= flag;
+                } else if (sys_strcmp(arg, "false") == 0) {
+                    erts_debugger_flags &= ~flag;
+                } else {
+                    erts_fprintf(stderr, "%s expected `true' or `false' but got: `%s'\n", instr_opt, arg);
+                    erts_usage();
+                }
+            } else {
+                erts_fprintf(stderr, "Unknown option %s\n", argv[i]+1);
+                erts_usage();
+            }
+	    break;
 	case 'd':
 	    /*
 	     * Never produce crash dumps for internally detected
@@ -1649,7 +1675,7 @@ erl_start(int argc, char **argv)
 
 	case 'e':
 	    if (sys_strcmp("c", argv[i]+2) == 0) {
-		erts_ets_always_compress = 1;
+		erts_ets_always_compress = true;
 	    }
 	    else {
 		/* set maximum number of ets tables */
@@ -1693,7 +1719,17 @@ erl_start(int argc, char **argv)
             case 'P':
                 sub_param++;
 
-                if (has_prefix("perf", sub_param)) {
+                if (has_prefix("perfdirectory", sub_param)){
+                    arg = get_arg(sub_param+13, argv[i + 1], &i);
+#ifdef HAVE_LINUX_PERF_SUPPORT
+                    sys_strncpy(etrs_jit_perf_directory, arg, sizeof(etrs_jit_perf_directory));
+                    etrs_jit_perf_directory[sizeof(etrs_jit_perf_directory) -1 ] = '\0';
+#else
+                    erts_fprintf(stderr, "+JPperfdirectory is not supported on this platform\n");
+                    erts_usage();
+#endif
+                }
+                else if (has_prefix("perf", sub_param)) {
                     arg = get_arg(sub_param+4, argv[i + 1], &i);
 
 #ifdef HAVE_LINUX_PERF_SUPPORT
@@ -1820,14 +1856,16 @@ erl_start(int argc, char **argv)
 	    if (sys_strcmp(arg, "legacy") == 0)
 		legacy_proc_tab = 1;
 	    else {
+                long val;
 		errno = 0;
-		proc_tab_sz = strtol(arg, NULL, 10);
+		val = strtol(arg, NULL, 10);
 		if (errno != 0
-		    || proc_tab_sz < ERTS_MIN_PROCESSES
-		    || ERTS_MAX_PROCESSES < proc_tab_sz) {
+		    || val < ERTS_MIN_PROCESSES
+		    || ERTS_MAX_PROCESSES < val) {
 		    erts_fprintf(stderr, "bad number of processes %s\n", arg);
 		    erts_usage();
 		}
+                proc_tab_sz=val;
 	    }
 	    break;
 
@@ -1836,14 +1874,16 @@ erl_start(int argc, char **argv)
 	    if (sys_strcmp(arg, "legacy") == 0)
 		legacy_port_tab = 1;
 	    else {
+                long val;
 		errno = 0;
-		port_tab_sz = strtol(arg, NULL, 10);
+		val = strtol(arg, NULL, 10);
 		if (errno != 0
-		    || port_tab_sz < ERTS_MIN_PORTS
-		    || ERTS_MAX_PORTS < port_tab_sz) {
+		    || val < ERTS_MIN_PORTS
+		    || ERTS_MAX_PORTS < val) {
 		    erts_fprintf(stderr, "bad number of ports %s\n", arg);
 		    erts_usage();
 		}
+                port_tab_sz = val;
 		port_tab_sz_ignore_files = 1;
 	    }
 	    break;
@@ -2158,21 +2198,24 @@ erl_start(int argc, char **argv)
 	    }
 	    break;
 	}
-	case 't':
+	case 't': {
 	    /* set atom table size */
-	    arg = get_arg(argv[i]+2, argv[i+1], &i);
+            long val;
+            arg = get_arg(argv[i]+2, argv[i+1], &i);
 	    errno = 0;
-	    erts_atom_table_size = strtol(arg, NULL, 10);
+	    val = strtol(arg, NULL, 10);
 	    if (errno != 0 ||
-		erts_atom_table_size < MIN_ATOM_TABLE_SIZE ||
-		erts_atom_table_size > MAX_ATOM_TABLE_SIZE) {
+		val < MIN_ATOM_TABLE_SIZE ||
+		val > MAX_ATOM_TABLE_SIZE) {
 		erts_fprintf(stderr, "bad atom table size %s\n", arg);
 		erts_usage();
 	    }
+            erts_atom_table_size=val;
 	    VERBOSE(DEBUG_SYSTEM,
                     ("setting maximum number of atoms to %d\n",
 		     erts_atom_table_size));
 	    break;
+        }
 
 	case 'T' :
 	    arg = get_arg(argv[i]+2, argv[i+1], &i);
@@ -2244,7 +2287,7 @@ erl_start(int argc, char **argv)
 		/* already handled */
 	    }
 	    else {
-		erts_ets_realloc_always_moves = 1;
+		erts_ets_realloc_always_moves = true;
 	    }
 	    break;
 	}

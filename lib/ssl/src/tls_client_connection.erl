@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2023-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2023-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -137,9 +139,12 @@
 %% Internal application API
 %%====================================================================
 
-init([Role, Sender, Host, Port, Socket, Options,  User, CbInfo]) ->
-    State0 = tls_dtls_gen_connection:initial_state(Role, Sender, Host, Port,
+init([Role, Sender, Tab, Host, Port, Socket, Options,  User, CbInfo]) ->
+    State0 = tls_dtls_gen_connection:initial_state(Role, Sender, Tab, Host, Port,
                                                    Socket, Options, User, CbInfo),
+    #state{static_env = #static_env{user_socket = UserSocket}} = State0,
+    User ! {self(), user_socket, UserSocket},
+    put(tls_role, client),
     try
         State1 = #state{static_env = #static_env{session_cache = Cache,
                                                  session_cache_cb = CacheCb
@@ -262,11 +267,10 @@ initial_hello({call, From}, {start, {Opts, EmOpts}, Timeout},
                      ssl_options = OrigSSLOptions,
                      socket_options = SockOpts} = State0) ->
     try
-        SslOpts = ssl:update_options(Opts, Role, OrigSSLOptions),
+        SslOpts = ssl_config:update_options(Opts, Role, OrigSSLOptions),
 	State = ssl_gen_statem:ssl_config(SslOpts, Role, State0),
 	initial_hello({call, From}, {start, Timeout},
-                      State#state{ssl_options = SslOpts,
-                                  socket_options =
+                      State#state{socket_options =
                                       ssl_config:new_emulated(EmOpts, SockOpts)})
     catch throw:Error ->
             {stop_and_reply, {shutdown, normal}, {reply, From, {error, Error}}, State0}

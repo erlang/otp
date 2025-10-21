@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2000-2024. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2000-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -63,8 +65,6 @@
 
 #define ERTS_BPF_ALL              0x3FF
 
-erts_atomic32_t erts_active_bp_index;
-erts_atomic32_t erts_staging_bp_index;
 erts_mtx_t erts_dirty_bp_ix_mtx;
 
 ErtsTraceSession* erts_staging_trace_session;
@@ -223,12 +223,15 @@ erts_bp_match_functions(BpFunctions* f, ErtsCodeMFA *mfa, int specified)
             case 3:
                 if (ci->mfa.arity != mfa->arity)
                     continue;
+                ERTS_FALLTHROUGH();
             case 2:
                 if (ci->mfa.function != mfa->function)
                     continue;
+                ERTS_FALLTHROUGH();
             case 1:
                 if (ci->mfa.module != mfa->module)
                     continue;
+                ERTS_FALLTHROUGH();
             case 0:
                 break;
             }
@@ -261,12 +264,15 @@ erts_bp_match_export(BpFunctions* f, ErtsCodeMFA *mfa, int specified)
         case 3:
             if (mfa->arity != ep->info.mfa.arity)
                 continue;
+            ERTS_FALLTHROUGH();
         case 2:
             if (mfa->function != ep->info.mfa.function)
                 continue;
+            ERTS_FALLTHROUGH();
         case 1:
             if (mfa->module != ep->info.mfa.module)
                 continue;
+            ERTS_FALLTHROUGH();
         case 0:
             break;
         default:
@@ -1095,6 +1101,27 @@ do_session_breakpoint(Process *c_p, ErtsCodeInfo *info, Eterm *reg,
     return bp_flags;
 }
 
+#ifdef DEBUG
+void assert_return_trace_frame(const Eterm *frame)
+{
+    ASSERT_MFA((ErtsCodeMFA*)cp_val(frame[0]));
+    ASSERT(IS_TRACER_VALID(frame[1]));
+    ASSERT(erts_is_trace_session_weak_id(frame[2]));
+}
+
+void assert_return_to_trace_frame(const Eterm *frame)
+{
+    ASSERT(erts_is_trace_session_weak_id(frame[0]));
+}
+
+void assert_return_call_acc_trace_frame(const Eterm *frame)
+{
+    ASSERT(is_CP(frame[0]) || is_nil(frame[0])); // prev_info
+    ASSERT((unsigned_val(frame[1]) & ~ERTS_BPF_ALL) == 0); // bp_flags
+    ASSERT(erts_is_trace_session_weak_id(frame[2]));
+}
+#endif
+
 static ErtsTracer
 do_call_trace(Process* c_p, ErtsCodeInfo* info, Eterm* reg,
 	      int local, Binary* ms,
@@ -1486,6 +1513,133 @@ int erts_is_call_break(Process *p, ErtsTraceSession *session, int is_time,
     }
     bp_hash_delete(&hash);
     return 1;
+}
+
+void erts_install_line_breakpoint(struct erl_module_instance *mi, ErtsCodePtr cp_exec) {
+    ErtsCodePtr cp_rw;
+
+    erts_unseal_module(mi);
+    cp_rw = erts_writable_code_ptr(mi, cp_exec);
+
+#ifdef BEAMASM
+    erts_asm_bp_enable(cp_rw);
+#else
+{
+    BeamInstr volatile *pc = (BeamInstr*)cp_rw;
+    BeamInstr instr = *pc;
+    BeamInstr br = BeamOpCodeAddr(op_i_enabled_line_breakpoint_t);
+
+    /* The following write is not protected by any lock.
+     * See note in erts_install_breakpoints().
+     */
+    instr = BeamSetCodeAddr(instr, br);
+    *pc = instr;
+}
+#endif
+
+    erts_seal_module(mi);
+}
+
+void erts_uninstall_line_breakpoint(struct erl_module_instance *mi, ErtsCodePtr cp_exec) {
+    ErtsCodePtr cp_rw;
+
+    erts_unseal_module(mi);
+    cp_rw = erts_writable_code_ptr(mi, cp_exec);
+
+#ifdef BEAMASM
+    erts_asm_bp_disable(cp_rw);
+#else
+{
+    BeamInstr volatile *pc = (BeamInstr*)cp_rw;
+    BeamInstr instr = *pc;
+    BeamInstr br = BeamOpCodeAddr(op_i_disabled_line_breakpoint_t);
+
+    /* The following write is not protected by any lock.
+     * See note in erts_install_breakpoints().
+     */
+    instr = BeamSetCodeAddr(instr, br);
+    *pc = instr;
+}
+#endif
+
+    erts_seal_module(mi);
+}
+
+enum erts_is_line_breakpoint erts_is_line_breakpoint_code(ErtsCodePtr p) {
+#ifdef BEAMASM
+    return beamasm_is_line_breakpoint_trampoline(p);
+#else
+    const UWord instr = *(UWord *)p;
+    if (BeamIsOpCode(instr, op_i_disabled_line_breakpoint_t))
+        return IS_DISABLED_LINE_BP;
+    if (BeamIsOpCode(instr, op_i_enabled_line_breakpoint_t))
+        return IS_ENABLED_LINE_BP;
+    return IS_NOT_LINE_BP;
+#endif
+}
+
+const Export *
+erts_line_breakpoint_hit__prepare_call(Process* c_p, ErtsCodePtr pc, Uint live, Eterm *regs, UWord *stk) {
+    FunctionInfo fi;
+    const Export *ep;
+
+    ASSERT(live <= MAX_REG);
+
+    /*
+     * Search the error_handler module
+     */
+    ep = erts_find_function(am_erts_internal, am_breakpoint, 4,
+                            erts_active_code_ix());
+    if (ep == NULL) {
+        /* No error handler */
+        return NULL;
+    }
+
+    /*
+     * Find breakpoint location
+     */
+    erts_lookup_function_info(&fi, pc, 1);
+    if (!fi.mfa) {
+        return NULL;
+    }
+
+    if (ep->info.mfa.module == fi.mfa->module
+        && ep->info.mfa.function == fi.mfa->function
+        && ep->info.mfa.arity == fi.mfa->arity) {
+        /* Cycle breaker */
+        return NULL;
+    }
+
+    /*
+     * Save live regs on the stack
+     */
+    for(int i = 0; i < live; i++) {
+        *(stk++) = regs[i];
+    }
+
+    regs[0] = fi.mfa->module;
+    regs[1] = fi.mfa->function;
+    regs[2] = make_small(fi.mfa->arity);
+    regs[3] = make_small(LOC_LINE(fi.loc));
+
+    return ep;
+}
+
+Uint
+erts_line_breakpoint_hit__cleanup(Eterm *regs, UWord *stk) {
+    int i = 0;
+
+    /*
+     * Restore X-registers
+     */
+    while(is_not_CP(*stk)) {
+        regs[i++] = *(stk++);
+    }
+
+    /*
+     * Return number of registers restored
+     */
+    return i;
 }
 
 const ErtsCodeInfo *

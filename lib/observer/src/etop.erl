@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2002-2024. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2002-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(etop).
@@ -133,8 +135,13 @@ Terminates `etop`.
 -spec stop() -> stop | not_started.
 stop() ->
     case whereis(etop_server) of
-	undefined -> not_started;
-	Pid when is_pid(Pid) -> etop_server ! stop
+        undefined -> not_started;
+        Pid when is_pid(Pid) ->
+            MonRef = monitor(process, Pid),
+            Pid ! stop,
+            stop_etop_input_server(),
+            receive {'DOWN', MonRef, process, Pid, _} -> ok end,
+            stop
     end.
 
 -doc """
@@ -208,7 +215,7 @@ start(Opts) ->
 
     %% Maybe set up the tracing
     Config3 = 
-	if Node /= node() ->
+	if Config2#opts.tracing == on andalso Node /= node() ->
 		%% Cannot trace on current node since the tracer will
 		%% trace itself
 		etop_tr:setup_tracer(Config2);
@@ -223,12 +230,52 @@ start(Opts) ->
 		       [set,public,{keypos,#etop_proc_info.pid}]),
     Config4 = Config3#opts{accum_tab=AccumTab},
 
+    %% Switch shell to raw mode if possible
+    Config5 =
+        case shell:start_interactive({noshell, raw}) of
+            ok ->
+                spawn_link(fun stop_on_input/0),
+                Config4#opts{shell_mode = raw};
+            {error, _Other} ->
+                Config4
+        end,
+
     %% Start the output server
-    Out = spawn_link(Config4#opts.out_mod, init, [Config4]),
-    Config5 = Config4#opts{out_proc = Out},       
+    Out = spawn_link(Config5#opts.out_mod, init, [Config5]),
+    Config6 = Config5#opts{out_proc = Out},
     
-    init_data_handler(Config5),
+    init_data_handler(Config6),
     ok.
+
+stop_on_input() ->
+    register(etop_input_server, self()),
+    stop_on_input_loop().
+
+stop_on_input_loop() ->
+    case io:get_chars("", 1) of
+        {error, Reason} ->
+            io:fwrite("Cannot get user's input, reason: ~p\r\n", [Reason]),
+            ok;
+        eof ->
+            ok;
+        Input ->
+            case string:find(Input, "q") of
+                nomatch ->
+                    stop_on_input_loop();
+                _ ->
+                    stop()
+            end
+    end.
+
+stop_etop_input_server() ->
+    Self = self(),
+    case whereis(etop_input_server) of
+        Self ->
+            ok;
+        InputServer ->
+            catch exit(InputServer, stop),
+            ok
+    end.
 
 check_runtime_tools_vsn(Node) ->
     case rpc:call(Node,observer_backend,vsn,[]) of
@@ -252,7 +299,7 @@ init_data_handler(Config) ->
 data_handler(Reader, Opts) ->
     receive
 	stop ->
-	    stop(Opts),
+	    stop(Reader, Opts),
 	    ok;
 	{config,{Key,Value}} ->
 	    data_handler(Reader,putopt(Key,Value,Opts));
@@ -264,23 +311,37 @@ data_handler(Reader, Opts) ->
 		normal -> ok;
 		_ -> io:format("Output server crashed: ~tp~n",[Reason])
 	    end,
-	    stop(Opts),
+	    stop(Reader, Opts),
 	    out_proc_stopped;
 	{'EXIT', Reader, eof} ->
 	    io:format("Lost connection to node ~p exiting~n", [Opts#opts.node]),
-	    stop(Opts),
+	    stop(Reader, Opts),
 	    connection_lost;
 	_ ->
 	    data_handler(Reader, Opts)
     end.
 
-stop(Opts) ->
+stop(Reader, Opts) ->
     (Opts#opts.out_mod):stop(Opts#opts.out_proc),
-    if Opts#opts.tracing == on -> etop_tr:stop_tracer(Opts);
-       true -> ok
+    case {Reader, Opts#opts.tracing == on} of
+        {undefined, true} ->
+            etop_tr:stop_tracer(Opts);
+        {Pid, true} when is_pid(Pid) ->
+            etop_tr:stop_tracer(Opts),
+            %% Stop reader process so it doesn't crash on deleted accumulator table
+            %% when our process dies.
+            case is_process_alive(Pid) of
+                true ->
+                    MonRef = monitor(process, Pid),
+                    exit(Pid, stop),
+                    receive {'DOWN', MonRef, process, Pid, _} -> ok end;
+                false -> ok
+            end;
+        _ ->
+            ok
     end,
     unregister(etop_server).
-    
+
 -doc false.
 update(#opts{store=Store,node=Node,tracing=Tracing,intv=Interval}=Opts) ->
     Pid = spawn_link(Node,observer_backend,etop_collect,[self()]),

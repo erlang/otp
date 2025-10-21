@@ -1,6 +1,8 @@
 /*
  * %CopyrightBegin%
  *
+ * SPDX-License-Identifier: Apache-2.0
+ *
  * Copyright Ericsson AB 2000-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -123,7 +125,6 @@ erts_term_init(void)
                               POS_BIG_SUBTAG,
                               NEG_BIG_SUBTAG,
                               REF_SUBTAG,
-                              FUN_REF_SUBTAG,
                               FUN_SUBTAG,
                               FLOAT_SUBTAG,
                               HEAP_BITS_SUBTAG,

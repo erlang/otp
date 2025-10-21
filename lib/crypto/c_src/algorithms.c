@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2010-2024. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2010-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -191,8 +193,24 @@ void init_pubkey_types(ErlNifEnv* env) {
     algo_pubkey[algo_pubkey_cnt++] = enif_make_atom(env, "eddh");
 #endif
     algo_pubkey[algo_pubkey_cnt++] = enif_make_atom(env, "srp");
-
+#ifdef HAVE_ML_DSA
+    algo_pubkey[algo_pubkey_cnt++] = atom_mldsa44;
+    algo_pubkey[algo_pubkey_cnt++] = atom_mldsa65;
+    algo_pubkey[algo_pubkey_cnt++] = atom_mldsa87;
+#endif
     ASSERT(algo_pubkey_cnt <= sizeof(algo_pubkey)/sizeof(ERL_NIF_TERM));
+}
+
+ERL_NIF_TERM kem_algorithms_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+#ifdef HAVE_ML_KEM
+    return enif_make_list3(env,
+                           atom_mlkem512,
+                           atom_mlkem768,
+                           atom_mlkem1024);
+#else
+    return enif_make_list(env, 0);
+#endif
 }
 
 

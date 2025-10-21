@@ -1,7 +1,9 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2004-2024. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 2004-2025. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -40,7 +42,9 @@ assets/erl_uds_dist.erl: ../../lib/kernel/examples/erl_uds_dist/src/erl_uds_dist
 assets/time_compat.erl: ../example/time_compat.erl
 	$(V_at)cp $< $@
 
-$(HTMLDIR)/index.html: $(patsubst ../emulator/internal_doc/assets/%,assets/%,$(wildcard ../emulator/internal_doc/assets/*.png) $(wildcard ../emulator/internal_doc/assets/*.svg)) assets/gen_tcp_dist.erl assets/erl_uds_dist.erl assets/time_compat.erl
+$(HTMLDIR)/index.html: $(wildcard ../emulator/internal_doc/*.md) \
+	$(patsubst ../emulator/internal_doc/assets/%,assets/%,$(wildcard ../emulator/internal_doc/assets/*.png) $(wildcard ../emulator/internal_doc/assets/*.svg)) \
+	assets/gen_tcp_dist.erl assets/erl_uds_dist.erl assets/time_compat.erl
 
 # ----------------------------------------------------
 # Release Target

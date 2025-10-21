@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2002-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2002-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,7 +27,7 @@
 %% don't use it. Therefore, we explicitly disable it until OTP 25 is out of
 %% support.
 -feature(maybe_expr, disable).
--compile(r24).
+-compile(r25).
 
 %% Test Controller interface
 -export([is_release_available/1, find_release/1]).

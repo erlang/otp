@@ -1,7 +1,16 @@
 %% =====================================================================
-%% Licensed under the Apache License, Version 2.0 (the "License"); you may
-%% not use this file except in compliance with the License. You may obtain
-%% a copy of the License at <http://www.apache.org/licenses/LICENSE-2.0>
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+%%
+%% Copyright 2000-2006 Richard Carlsson
+%% Copyright Ericsson AB 2009-2025. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
 %%
 %% Unless required by applicable law or agreed to in writing, software
 %% distributed under the License is distributed on an "AS IS" BASIS,
@@ -19,7 +28,8 @@
 %% above, a recipient may use your version of this file under the terms of
 %% either the Apache License or the LGPL.
 %%
-%% @copyright 2000-2006 Richard Carlsson
+%% %CopyrightEnd%
+%%
 %% @author Richard Carlsson <carlsson.richard@gmail.com>
 %% @end
 %% =====================================================================
@@ -622,7 +632,7 @@ flatrev([], As, []) ->
 %% selects the "best" layout of a document, returning a simplified
 %% representation that can be given directly to `layout', unless the
 %% returned value is `empty', signaling that no layout could be
-%% produced. In addition, documents on the form `#union{d1 = D1, d2 =
+%% produced. In addition, documents of the form `#union{d1 = D1, d2 =
 %% D2}' and `#fit{d = D}' are used internally.
 %%
 %% Note: It is vital for this algorithm to maintain the invariant on

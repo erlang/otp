@@ -1,3 +1,10 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
 [;1m  system_info(Item)[0m
 
@@ -37,10 +44,10 @@
      [;;4mdist_ctrl[0m
 
    • [;;4mSystem Information[0m - [;;4mc_compiler_used[0m, [;;4mcheck_io[0m, [;;4m[0m
-     [;;4mcompat_rel[0m, [;;4mdebug_compiled[0m, [;;4mdriver_version[0m, [;;4m[0m
-     [;;4mdynamic_trace[0m, [;;4mdynamic_trace_probes[0m, [;;4memu_flavor[0m, [;;4m[0m
-     [;;4memu_type[0m, [;;4minfo[0m, [;;4mkernel_poll[0m, [;;4mloaded[0m, [;;4mmachine[0m, [;;4m[0m
-     [;;4mmodified_timing_level[0m, [;;4mnif_version[0m, [;;4motp_release[0m, [;;4m[0m
+     [;;4mdebug_compiled[0m, [;;4mdriver_version[0m, [;;4mdynamic_trace[0m, [;;4m[0m
+     [;;4mdynamic_trace_probes[0m, [;;4memu_flavor[0m, [;;4memu_type[0m, [;;4minfo[0m, [;;4m[0m
+     [;;4mkernel_poll[0m, [;;4mloaded[0m, [;;4mmachine[0m, [;;4mmodified_timing_level[0m, [;;4m[0m
+     [;;4mnif_version[0m, [;;4motp_release[0m, [;;4m[0m
      [;;4moutstanding_system_requests_limit[0m, [;;4mport_parallelism[0m, [;;4m[0m
      [;;4msystem_architecture[0m, [;;4msystem_logger[0m, [;;4msystem_version[0m, [;;4m[0m
      [;;4mtrace_control_word[0m, [;;4mversion[0m, [;;4mwordsize[0m
@@ -761,13 +768,6 @@
      Notice that the content of the returned list can vary
      between platforms and over time. It is only guaranteed that
      a list is returned.
-
-   • [;;4mcompat_rel[0m - Returns the compatibility mode of the local
-     node as an integer. The integer returned represents the
-     Erlang/OTP release that the current emulator has been set to
-     be backward compatible with. The compatibility mode can be
-     configured at startup by using command-line flag [;;4m+R[0m in [;;4m[0m
-     [;;4merl(1)[0m.
 
    • [;;4mdebug_compiled[0m - Returns [;;4mtrue[0m if the emulator has been
      debug-compiled, otherwise [;;4mfalse[0m.

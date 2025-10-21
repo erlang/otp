@@ -13,6 +13,7 @@
 
 ASMJIT_BEGIN_NAMESPACE
 
+//! \cond INTERNAL
 //! \addtogroup asmjit_builder
 //! \{
 
@@ -28,6 +29,7 @@ static inline void BaseBuilder_assignInstState(BaseBuilder* self, InstNode* node
 }
 
 //! \}
+//! \endcond
 
 ASMJIT_END_NAMESPACE
 

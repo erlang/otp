@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2021. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1998-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -192,10 +194,10 @@ Interpret one module").
 	  "Start the debugger and interpret the modules [test, lists1, ordsets1]. Close the Interpret dialog. Set Attach on First Call and Attach on Break.").
 
 ?MAN_CASE(all_step3, "Click Step through all evaluation",
-	  "In the shell, call test:test1(). Use the Step button, the Process->Step menu item and the ctrl-s shortcut to step through the *entire* execution of the call. (Approx 36 steps). Then close the Attach window. The result printed in the shell should be: {\"peter\",[1,2,4,a,b,c],\"olin\"}").
+	  "In the shell, call test:test1(). Use the Step button, the Process->Step menu item and the Ctrl+S shortcut to step through the *entire* execution of the call. (Approx 36 steps). Then close the Attach window. The result printed in the shell should be: {\"peter\",[1,2,4,a,b,c],\"olin\"}").
 
 ?MAN_CASE(all_next3,"Click Next through all evaluation",
-	  "Again call test:test1() in the shell. This time Use the Next button,  the Process->Next menu and the ctrl-n shortcut to quickly step over the execution of the four lines in the test1-function. The result printed in the shell should be: {\"peter\",[1,2,4,a,b,c],\"olin\"}").
+	  "Again call test:test1() in the shell. This time Use the Next button,  the Process->Next menu and the Ctrl+N shortcut to quickly step over the execution of the four lines in the test1-function. The result printed in the shell should be: {\"peter\",[1,2,4,a,b,c],\"olin\"}").
 
 ?MAN_CASE(save3, "Save the debugger state",
 	  "Use File->Save Settings to save the debugger state with the name 'three.state'").
@@ -256,7 +258,7 @@ Interpret one module").
 
 
 ?MAN_CASE(all_step6, "Click Step through all evaluation",
-	  "In the bar shell, call test:test1().This should open an attach window. Use the Step button, the Process->Step menu item and the ctrl-s shortcut to step through the *entire* execution of the call. (Approx 36 steps). Then close the Attach window. The result printed in the bar shell should be: {\"peter\",[1,2,4,a,b,c],\"olin\"}").
+	  "In the bar shell, call test:test1().This should open an attach window. Use the Step button, the Process->Step menu item and the Ctrl+S shortcut to step through the *entire* execution of the call. (Approx 36 steps). Then close the Attach window. The result printed in the bar shell should be: {\"peter\",[1,2,4,a,b,c],\"olin\"}").
 
 ?MAN_CASE(all_next6,"Click Next through all evaluation",
-	  "Again, in the bar shell, call test:test1(). This time Use the Next button,  the Process->Next menu and the ctrl-n shortcut to quickly step over the execution of the four lines in the test1-function. The result printed in the shell should be: {\"peter\",[1,2,4,a,b,c],\"olin\"}").
+	  "Again, in the bar shell, call test:test1(). This time Use the Next button,  the Process->Next menu and the Ctrl+N shortcut to quickly step over the execution of the four lines in the test1-function. The result printed in the shell should be: {\"peter\",[1,2,4,a,b,c],\"olin\"}").

@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2025. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -27,7 +29,7 @@ of which are mandatory while others are only optional:
 - `send_message` \- Send a message. _Mandatory_
 - `block` \- Block the transport. _Optional_
 
-  This function is usefull for flow control.
+  This function is useful for flow control.
 
 - `unblock` \- Unblock the transport. _Optional_
 

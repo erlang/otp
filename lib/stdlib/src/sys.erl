@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
 %% 
-%% Copyright Ericsson AB 1996-2024. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -73,9 +75,8 @@ Four predefined system events are used when a process receives or sends a
 message. The process can also define its own system events. It is always up to
 the process itself to format these events.
 """.
--moduledoc(#{titles =>
-                 [{function,<<"Process Implementation Functions">>},
-                  {callback,<<"Process Implementation Functions">>}]}).
+
+-compile(nowarn_deprecated_catch).
 
 %% External exports
 -export([suspend/1, suspend/2, resume/1, resume/2,
@@ -218,7 +219,7 @@ function converts argument `Misc` to the new data structure. `OldVsn` is
 attribute _vsn_ of the old version of the `Module`. If no such attribute is
 defined, the atom `undefined` is sent.
 """.
--doc(#{title => <<"Process Implementation Functions">>}).
+-doc(#{group => <<"Process Implementation Functions">>}).
 -callback system_code_change(Misc, Module, OldVsn, Extra) -> {ok, NMisc} when
       Misc :: term(),
       OldVsn :: undefined | term(),
@@ -229,7 +230,7 @@ defined, the atom `undefined` is sent.
 Called from `handle_system_msg/6` when the process is to continue its execution
 (for example, after it has been suspended). This function never returns.
 """.
--doc(#{title => <<"Process Implementation Functions">>}).
+-doc(#{group => <<"Process Implementation Functions">>}).
 -callback system_continue(Parent, Debug, Misc) -> no_return() when
       Parent :: pid(),
       Debug :: [dbg_opt()],
@@ -238,7 +239,7 @@ Called from `handle_system_msg/6` when the process is to continue its execution
 Called from `handle_system_msg/6` when the process is to return a term that
 reflects its current state. `State` is the value returned by `get_state/2`.
 """.
--doc(#{title => <<"Process Implementation Functions">>,
+-doc(#{group => <<"Process Implementation Functions">>,
        since => <<"OTP 17.0">>}).
 -callback system_get_state(Misc) -> {ok, State} when
       Misc :: term(), State :: term().
@@ -246,7 +247,7 @@ reflects its current state. `State` is the value returned by `get_state/2`.
 Called from `handle_system_msg/6` when the process is to replace its current
 state. `NState` is the value returned by `replace_state/3`.
 """.
--doc(#{title => <<"Process Implementation Functions">>,
+-doc(#{group => <<"Process Implementation Functions">>,
        since => <<"OTP 17.0">>}).
 -callback system_replace_state(StateFun, Misc) -> {ok, NState, NMisc} when
       Misc :: term(),
@@ -259,7 +260,7 @@ this function is called when the process is suspended and its parent orders
 shutdown. It gives the process a chance to do a cleanup. This function never
 returns.
 """.
--doc(#{title => <<"Process Implementation Functions">>}).
+-doc(#{group => <<"Process Implementation Functions">>}).
 -callback system_terminate(Reason, Parent, Debug, Misc) -> no_return() when
       Reason :: term(),
       Parent :: pid(),
@@ -316,7 +317,7 @@ The value of `Misc` varies for different types of processes, for example:
 - A `m:gen_event` process returns information about each of its registered
   handlers.
 - A bare `m:sys` process returns the value passed as `Misc` to
-  `handle_system_message/6`.
+  `handle_system_msg/6`.
 
 Callback modules for `m:gen_server`, `m:gen_statem`, and `m:gen_event` can also change
 the value of `Misc` by exporting a function `format_status/1`, which contributes
@@ -743,7 +744,7 @@ remove(Name, FuncOrFuncId, Timeout) ->
     send_system_msg(Name, {debug, {remove, FuncOrFuncId}}, Timeout).
 
 %%-----------------------------------------------------------------
-%% All system messages sent are on the form {system, From, Msg}
+%% All system messages sent are of the form {system, From, Msg}
 %% The receiving side should send Msg to handle_system_msg/5.
 %%-----------------------------------------------------------------
 send_system_msg(Name, Request) ->
@@ -812,7 +813,7 @@ Argument `Misc` can be used to save internal data in a process, for example, its
 state. It is sent to [`Module:system_continue/3`](`c:system_continue/3`) or
 [`Module:system_terminate/4`](`c:system_terminate/4`).
 """.
--doc(#{title => <<"Process Implementation Functions">>}).
+-doc(#{group => <<"Process Implementation Functions">>}).
 -spec handle_system_msg(Msg, From, Parent, Module, Debug, Misc) ->
                                no_return() when
       Msg :: term(),
@@ -854,7 +855,7 @@ to print the events, which is necessary if tracing is activated. `Extra` is any
 extra information that the process needs in the format function, for example,
 the process name.
 """.
--doc(#{title => <<"Process Implementation Functions">>}).
+-doc(#{group => <<"Process Implementation Functions">>}).
 -spec handle_debug(Debug, FormFunc, Extra, Event) -> [dbg_opt()] when
       Debug :: [dbg_opt()],
       FormFunc :: format_fun(),
@@ -1112,7 +1113,7 @@ Gets the data associated with a debug option. `Default` is returned if `Item` is
 not found. Can be used by the process to retrieve debug data for printing before
 it terminates.
 """.
--doc(#{title => <<"Process Implementation Functions">>}).
+-doc(#{group => <<"Process Implementation Functions">>}).
 -spec get_debug(Item, Debug, Default) -> term() when
       Item :: 'log' | 'statistics',
       Debug :: [dbg_opt()],
@@ -1131,7 +1132,7 @@ get_debug2(Item, Debug, Default) ->
 Prints the logged system events in the debug structure, using `FormFunc` as
 defined when the event was generated by a call to `handle_debug/4`.
 """.
--doc(#{title => <<"Process Implementation Functions">>}).
+-doc(#{group => <<"Process Implementation Functions">>}).
 -spec print_log(Debug) -> 'ok' when
       Debug :: [dbg_opt()].
 print_log(Debug) ->
@@ -1142,7 +1143,7 @@ print_log(Debug) ->
 Returns the logged system events in the debug structure, that is the last
 argument to `handle_debug/4`.
 """.
--doc(#{title => <<"Process Implementation Functions">>,
+-doc(#{group => <<"Process Implementation Functions">>,
        since => <<"OTP-22.0">>}).
 -spec get_log(Debug) -> [system_event()] when
       Debug :: [dbg_opt()].
@@ -1240,7 +1241,7 @@ Can be used by a process that initiates a debug structure from a list of
 options. The values of argument `Opt` are the same as for the corresponding
 functions.
 """.
--doc(#{title => <<"Process Implementation Functions">>}).
+-doc(#{group => <<"Process Implementation Functions">>}).
 -spec debug_options([Opt :: debug_option()]) -> [dbg_opt()].
 debug_options(Options) ->
     debug_options(Options, []).

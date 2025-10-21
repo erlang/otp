@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2004-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -276,8 +278,8 @@ init_per_group(Group, Config) when Group == ftpes_passive;
                                    Group == ftpes_active_reuse;
                                    Group == ftps_passive_reuse;
                                    Group == ftps_active_reuse ->
-    catch crypto:stop(),
-    try crypto:start() of
+    catch application:stop(crypto),
+    try application:start(crypto) of
         ok when Group == ftpes_passive; Group == ftpes_active ->
             start_ftpd([{ftpd_ssl,true}|Config]);
         ok when Group == ftps_passive; Group == ftps_active ->
@@ -305,8 +307,8 @@ init_per_testcase(Case, Config0) ->
     application:ensure_started(ftp),
     case Case of
         error_datafail ->
-            catch crypto:stop(),
-            try crypto:start() of
+            catch application:stop(crypto),
+            try application:start(crypto) of
                 ok ->
                     Config = start_ftpd([{ftpd_ssl,true},{ftpd_ssl_reuse,true}|Config0]),
                     init_per_testcase2(Case, Config)

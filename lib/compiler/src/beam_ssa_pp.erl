@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2018-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2018-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -97,12 +99,12 @@ format_anno(parameter_info, Map) when is_map(Map) ->
                             [format_var(V),
                              Break,
                              format_param_info(I, Break)]) ||
-                 {V,I} <- Params]]
+                 {V,I} <:- Params]]
     end;
 format_anno(Key, Map) when is_map(Map) ->
     Sorted = maps:to_list(maps:iterator(Map, ordered)),
     [io_lib:format("%% ~s:\n", [Key]),
-     [io_lib:format("%%    ~kw => ~kw\n", [K,V]) || {K,V} <- Sorted]];
+     [io_lib:format("%%    ~kw => ~kw\n", [K,V]) || {K,V} <:- Sorted]];
 format_anno(Key, Value) ->
     io_lib:format("%% ~s: ~kp\n", [Key,Value]).
 
@@ -241,7 +243,7 @@ format_arg(Other, _) ->
 
 format_switch_list(List, FuncAnno) ->
     Ss = [io_lib:format("{ ~ts, ~ts }", [format_arg(Val, FuncAnno),
-                                         format_label(L)]) || {Val,L} <- List],
+                                         format_label(L)]) || {Val,L} <:- List],
     io_lib:format("[\n    ~ts\n  ]", [lists:join(",\n    ", Ss)]).
 
 format_label(L) ->
@@ -266,9 +268,8 @@ format_instr_anno(#{arg_types:=Ts}=Anno0, FuncAnno, Args) ->
 
     Iota = lists:seq(0, length(Args) - 1),
     Formatted0 = [[format_arg(Arg, FuncAnno), " => ",
-                   format_type(map_get(Idx, Ts),
-                   Break)]
-                  || {Idx, Arg} <- lists:zip(Iota, Args), is_map_key(Idx, Ts)],
+                   format_type(map_get(Idx, Ts), Break)] ||
+                     Idx <- Iota && Arg <- Args, is_map_key(Idx, Ts)],
     Formatted = lists:join(Break, Formatted0),
 
     [io_lib:format("  %% Argument types:~s~ts\n",
@@ -299,7 +300,7 @@ format_live_interval(#b_var{}=Dst, #{live_intervals:=Intervals}) ->
     case Intervals of
         #{Dst:=Rs0} ->
             Rs1 = [io_lib:format("~p..~p", [Start,End]) ||
-                      {Start,End} <- Rs0],
+                      {Start,End} <:- Rs0],
             Rs = lists:join(" ", Rs1),
             io_lib:format("  %% ~ts: ~s\n", [format_var_1(Dst),Rs]);
         #{} ->

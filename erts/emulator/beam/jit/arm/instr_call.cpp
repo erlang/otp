@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2020-2024. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2020-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,13 +35,13 @@ void BeamGlobalAssembler::emit_dispatch_return() {
     a.b(labels[context_switch_simplified]);
 }
 
-void BeamModuleAssembler::emit_dispatch_return() {
+void BeamModuleAssembler::emit_dispatch_return(bool set_I) {
 #ifdef JIT_HARD_DEBUG
     /* Validate return address and {x,0} */
-    emit_validate(ArgVal(ArgVal::Word, 1));
+    emit_validate(ArgVal(ArgVal::Type::Word, 1));
 #endif
 
-    if (erts_alcu_enable_code_atags) {
+    if (erts_alcu_enable_code_atags || set_I) {
         /* See emit_i_test_yield. */
         a.str(a64::x30, arm::Mem(c_p, offsetof(Process, i)));
     }
@@ -55,13 +57,17 @@ void BeamModuleAssembler::emit_dispatch_return() {
 }
 
 void BeamModuleAssembler::emit_return() {
+    emit_return_do(false);
+}
+
+void BeamModuleAssembler::emit_return_do(bool set_I) {
     emit_leave_erlang_frame();
-    emit_dispatch_return();
+    emit_dispatch_return(set_I);
 }
 
 void BeamModuleAssembler::emit_move_deallocate_return() {
     a.ldp(XREG0, a64::x30, arm::Mem(E).post(16));
-    emit_dispatch_return();
+    emit_dispatch_return(false);
 }
 
 void BeamModuleAssembler::emit_i_call(const ArgLabel &CallTarget) {
@@ -127,7 +133,7 @@ void BeamGlobalAssembler::emit_dispatch_save_calls_export() {
 
     a.mov(ARG2, ARG1);
     a.mov(ARG1, c_p);
-    runtime_call<2>(save_calls);
+    runtime_call<void (*)(Process *, const Export *), save_calls>();
 
     emit_leave_runtime();
     emit_leave_runtime_frame();
@@ -223,7 +229,8 @@ arm::Mem BeamModuleAssembler::emit_variable_apply(bool includeI) {
     mov_imm(ARG4, 0);
 
     comment("apply()");
-    runtime_call<4>(apply);
+    runtime_call<const Export *(*)(Process *, Eterm *, ErtsCodePtr, Uint),
+                 apply>();
 
     /* Any number of X registers can be live at this point. */
     emit_leave_runtime<Update::eReductions | Update::eHeapAlloc |
@@ -276,7 +283,8 @@ arm::Mem BeamModuleAssembler::emit_fixed_apply(const ArgWord &Arity,
 
     mov_imm(ARG5, 0);
 
-    runtime_call<5>(fixed_apply);
+    runtime_call<const Export *(*)(Process *, Eterm *, Uint, ErtsCodePtr, Uint),
+                 fixed_apply>();
 
     /* We will need to reload all X registers in case there has been
      * an error. */

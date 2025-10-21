@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2000-2024. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2000-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -80,8 +82,6 @@ typedef struct GenericBpData {
     BpDataCallTrace* memory;	/* For memory trace */
 } GenericBpData;
 
-#define ERTS_NUM_BP_IX 2
-
 typedef struct GenericBp {
     BeamInstr orig_instr;
     GenericBpData data[ERTS_NUM_BP_IX];
@@ -108,8 +108,6 @@ enum erts_break_op{
     ERTS_BREAK_PAUSE
 };
 
-typedef Uint32 ErtsBpIndex;
-
 typedef struct {
     const ErtsCodeInfo *code_info;
     Module* mod;
@@ -119,6 +117,12 @@ typedef struct {
     Uint matched;		/* Number matched */
     BpFunction* matching;	/* Matching functions */
 } BpFunctions;
+
+enum erts_is_line_breakpoint {
+    IS_NOT_LINE_BP = 0,
+    IS_ENABLED_LINE_BP = 1,
+    IS_DISABLED_LINE_BP = 2,
+ };
 
 /*
 ** Function interface exported from beam_bp.c
@@ -191,12 +195,26 @@ void erts_clear_memory_break(BpFunctions *f);
 Eterm erts_make_bp_session_list(ErtsHeapFactory*, const ErtsCodeInfo*,
                                 Eterm tail);
 
+void erts_install_line_breakpoint(struct erl_module_instance *, ErtsCodePtr);
+void erts_uninstall_line_breakpoint(struct erl_module_instance *, ErtsCodePtr);
+enum erts_is_line_breakpoint erts_is_line_breakpoint_code(ErtsCodePtr);
+
+const Export *erts_line_breakpoint_hit__prepare_call(Process* c_p,
+                                                     ErtsCodePtr pc,
+                                                     Uint live,
+                                                     Eterm *regs,
+                                                     UWord *stk);
+Uint erts_line_breakpoint_hit__cleanup(Eterm *regs, UWord *stk);
+
 const ErtsCodeInfo *erts_find_local_func(const ErtsCodeMFA *mfa);
 
-#if ERTS_GLB_INLINE_INCL_FUNC_DEF
+#ifdef DEBUG
+void assert_return_trace_frame(const Eterm *frame);
+void assert_return_to_trace_frame(const Eterm *frame);
+void assert_return_call_acc_trace_frame(const Eterm *frame);
+#endif
 
-extern erts_atomic32_t erts_active_bp_index;
-extern erts_atomic32_t erts_staging_bp_index;
+#if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
 ERTS_GLB_INLINE ErtsBpIndex erts_active_bp_ix(void)
 {

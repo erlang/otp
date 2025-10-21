@@ -1,7 +1,9 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2005-2022. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 2005-2025. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -98,6 +100,17 @@ BEHAVIOUR_TARGET_FILES= $(BEHAVIOUR_MODULES:%=$(EBIN)/%.$(EMULATOR))
 
 INETS_FLAGS = -D'SERVER_SOFTWARE="$(APPLICATION)/$(VSN)"'
 
+DEPDIR=deps
+DEP_FILE=$(DEPDIR)/http_server.d
+$(shell mkdir -p $(dir $(DEP_FILE)) >/dev/null)
+
+ifeq ($(TARGET), win32)
+  # Native path without C: ignore driveletter case
+  ERL_TOP_NATIVE = $(shell w32_path.sh -m $(ERL_TOP) | sed "s@[a-zA-Z]:@:@")
+else
+  ERL_TOP_NATIVE = $(ERL_TOP)
+endif
+
 
 # ----------------------------------------------------
 # FLAGS
@@ -117,11 +130,14 @@ ERL_COMPILE_FLAGS += \
 # ----------------------------------------------------
 $(TARGET_FILES): $(BEHAVIOUR_TARGET_FILES)
 
-$(TYPES): $(TARGET_FILES)
+$(TYPES): $(TARGET_FILES) $(DEP_FILE)
+
+deps: $(DEP_FILE)
 
 clean:
 	rm -f $(TARGET_FILES) $(BEHAVIOUR_TARGET_FILES)
 	rm -f core
+	rm -rf $(DEPDIR)
 
 docs:
 
@@ -145,4 +161,19 @@ info:
 	@echo "INETS_DEBUG       = $(INETS_DEBUG)"
 	@echo "INETS_FLAGS       = $(INETS_FLAGS)"
 	@echo "ERL_COMPILE_FLAGS = $(ERL_COMPILE_FLAGS)"
+
+$(DEP_FILE): $(ERL_FILES)
+	@echo SED $(TARGET) $(ERL_TOP_NATIVE)
+	$(gen_verbose)erlc -M $(ERL_FILES) \
+	| perl -pe "s@ [a-zA-Z]?$(ERL_TOP_NATIVE)/(?:bootstrap/)?lib/([^/]+)@ ../../../\1@g" 2> /dev/null \
+	| sed "s/\.$(EMULATOR)/\.$$\(EMULATOR\)/" \
+	| sed 's@^httpd@$$(EBIN)/httpd@' \
+	| sed 's@^mod_@$$(EBIN)/mod_@' \
+	> $(DEP_FILE)
+
+
+# ----------------------------------------------------
+# Dependencies
+# ----------------------------------------------------
+-include $(DEP_FILE)
 

@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2002-2024. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2002-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %%
@@ -171,9 +173,9 @@ enc_match_input(#gen{pack=record}, ValName, CompList) ->
 enc_match_input(#gen{pack=map}, ValName, CompList) ->
     Len = length(CompList),
     Vars = [lists:concat(["Cindex",N]) || N <- lists:seq(1, Len)],
-    Zipped = lists:zip(CompList, Vars),
     M = [[{asis,Name},":=",Var] ||
-            {#'ComponentType'{prop=mandatory,name=Name},Var} <- Zipped],
+            #'ComponentType'{prop=mandatory,name=Name} <- CompList &&
+                Var <- Vars],
     case M of
         [] ->
             ok;
@@ -181,7 +183,8 @@ enc_match_input(#gen{pack=map}, ValName, CompList) ->
             emit(["#{",lists:join(",", M),"} = ",ValName,com,nl])
     end,
     Os0 = [{Name,Var} ||
-              {#'ComponentType'{prop=Prop,name=Name},Var} <- Zipped,
+              #'ComponentType'{prop=Prop,name=Name} <- CompList &&
+                  Var <- Vars,
               Prop =/= mandatory],
     F = fun({Name,Var}) ->
                 [Var," = case ",ValName," of\n"
@@ -316,8 +319,8 @@ dec_external(#gen{pack=map}, _RecordName) ->
     Vars = asn1ct_name:all(term),
     Names = ['direct-reference','indirect-reference',
              'data-value-descriptor',encoding],
-    Zipped = lists:zip(Names, Vars),
-    MapInit = lists:join(",", [["'",N,"'=>",{var,V}] || {N,V} <- Zipped]),
+    MapInit = lists:join(",", [["'",N,"'=>",{var,V}] ||
+                                  N <- Names && V <- Vars]),
     emit(["OldFormat = #{",MapInit,"}",com,nl,
           "ASN11994Format =",nl,
           {call,ext,transform_to_EXTERNAL1994_maps,

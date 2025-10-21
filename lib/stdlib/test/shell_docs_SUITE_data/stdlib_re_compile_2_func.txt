@@ -1,3 +1,10 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
 [;1m  compile(Regexp, Options)[0m
 
@@ -125,6 +132,9 @@
 
       ￮ [;;4mlf[0m - Newline is indicated by a single character LF
         (ASCII 10), the default.
+
+      ￮ [;;4mnul[0m - Newline is indicated by a single character NUL
+        (ASCII 0).
 
       ￮ [;;4mcrlf[0m - Newline is indicated by the two-character CRLF
         (ASCII 13 followed by ASCII 10) sequence.

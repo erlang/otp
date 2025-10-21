@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2020-2023. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2020-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,6 +31,7 @@
 #include "beam_load.h"
 #include "erl_version.h"
 #include "beam_bp.h"
+#include "erl_debugger.h"
 
 #define CodeNeed(w) do {                                                \
     ASSERT(ci <= codev_size);                                           \
@@ -77,6 +80,7 @@ int beam_load_prepare_emit(LoaderState *stp) {
     hdr->literal_area = NULL;
     hdr->md5_ptr = NULL;
     hdr->are_nifs = NULL;
+    hdr->debugger_flags = erts_debugger_flags;
 
     stp->code_hdr = hdr;
 
@@ -93,10 +97,10 @@ int beam_load_prepare_emit(LoaderState *stp) {
         init_label(&stp->labels[i]);
     }
 
-    stp->fun_refs = erts_alloc(ERTS_ALC_T_PREPARED_CODE,
+    stp->lambda_literals = erts_alloc(ERTS_ALC_T_PREPARED_CODE,
                                stp->beam.lambdas.count * sizeof(SWord));
     for (i = 0; i < stp->beam.lambdas.count; i++) {
-        stp->fun_refs[i] = ERTS_SWORD_MAX;
+        stp->lambda_literals[i] = ERTS_SWORD_MAX;
     }
 
     stp->import_patches =
@@ -111,7 +115,7 @@ int beam_load_prepare_emit(LoaderState *stp) {
 
     for (i = 0; i < stp->beam.imports.count; i++) {
         BeamFile_ImportEntry *import;
-        Export *export;
+        const Export *export;
         int bif_number;
 
         import = &stp->beam.imports.entries[i];
@@ -190,9 +194,9 @@ int beam_load_prepared_dtor(Binary* magic)
         stp->labels = NULL;
     }
 
-    if (stp->fun_refs != NULL) {
-        erts_free(ERTS_ALC_T_PREPARED_CODE, (void *)stp->fun_refs);
-        stp->fun_refs = NULL;
+    if (stp->lambda_literals != NULL) {
+        erts_free(ERTS_ALC_T_PREPARED_CODE, (void *)stp->lambda_literals);
+        stp->lambda_literals = NULL;
     }
 
     if (stp->import_patches != NULL) {
@@ -600,7 +604,7 @@ void beam_load_finalize_code(LoaderState* stp, struct erl_module_instance* inst_
      */
     for (i = 0; i < stp->beam.imports.count; i++) {
         BeamFile_ImportEntry *import;
-        Export *export;
+        const Export *export;
         Uint current;
         Uint next;
 
@@ -634,44 +638,28 @@ void beam_load_finalize_code(LoaderState* stp, struct erl_module_instance* inst_
         for (int i = 0; i < lambda_table->count; i++) {
             BeamFile_LambdaEntry *lambda;
             ErlFunEntry *fun_entry;
-            FunRef *fun_refp;
-            Eterm fun_ref;
 
             lambda = &lambda_table->entries[i];
 
-            fun_entry = erts_put_fun_entry2(stp->module,
-                                            lambda->old_uniq,
-                                            i,
-                                            stp->beam.checksum,
-                                            lambda->index,
-                                            lambda->arity - lambda->num_free);
+            fun_entry = erts_fun_entry_put(stp->module,
+                                           lambda->old_uniq,
+                                           i,
+                                           stp->beam.checksum,
+                                           lambda->index,
+                                           lambda->arity - lambda->num_free);
             fun_entries[i] = fun_entry;
 
-            fun_ref = beamfile_get_literal(&stp->beam, stp->fun_refs[i]);
-
-            /* If there are no free variables, the literal refers to an
-             * ErlFunThing that needs to be fixed up before we process the
-             * FunRef. */
+            /* If there are no free variables, the loader has created a literal
+             * for this lambda and we need to set its fun entry. */
             if (lambda->num_free == 0) {
-                ErlFunThing *funp = (ErlFunThing*)boxed_val(fun_ref);
+                ErlFunThing *funp;
+                Eterm fun;
+
+                ASSERT(stp->lambda_literals[i] != ERTS_SWORD_MAX);
+                fun = beamfile_get_literal(&stp->beam, stp->lambda_literals[i]);
+                funp = (ErlFunThing*)boxed_val(fun);
                 ASSERT(funp->entry.fun == NULL);
                 funp->entry.fun = fun_entry;
-                fun_ref = funp->env[0];
-            }
-
-            /* Patch up the fun reference literal. */
-            fun_refp = (FunRef*)boxed_val(fun_ref);
-            fun_refp->entry = fun_entry;
-
-            /* Bump the reference count: this could not be done when copying
-             * the literal as we had no idea which entry it belonged to.
-             *
-             * We also need to parry an annoying wrinkle: when reloading a
-             * module over itself, we inherit the old instance's fun entries,
-             * and thus have to cancel the reference bump in
-             * `erts_put_fun_entry2` to make fun purging work. */
-            if (!erts_is_fun_loaded(fun_entry, staging_ix)) {
-                erts_refc_inctest(&fun_entry->refc, 1);
             }
 
             erts_set_fun_code(fun_entry,
@@ -831,6 +819,44 @@ new_string_patch(LoaderState* stp, int pos)
     p->pos = pos;
     p->next = stp->string_patches;
     stp->string_patches = p;
+}
+
+static int add_line_entry(LoaderState *stp,
+                          int pos,
+                          BeamInstr item,
+                          int insert_duplicates) {
+    int is_duplicate;
+    unsigned int li;
+
+    if (!stp->line_instr) {
+        return 0;
+    }
+
+    if (item >= stp->beam.lines.item_count) {
+        BeamLoadError2(stp, "line instruction index overflow (%u/%u)",
+                       item, stp->beam.lines.item_count);
+    }
+
+    li = stp->current_li;
+    is_duplicate = li && (stp->line_instr[li-1].loc == item);
+
+    if (insert_duplicates || !is_duplicate ||
+        li <= stp->func_line[stp->function_number - 1]) {
+
+        if (li >= stp->beam.lines.instruction_count) {
+            BeamLoadError2(stp, "line instruction table overflow (%u/%u)",
+                           li, stp->beam.lines.instruction_count);
+        }
+
+        stp->line_instr[li].pos = pos;
+        stp->line_instr[li].loc = item;
+        stp->current_li++;
+    }
+
+    return 0;
+
+load_error:
+    return -1;
 }
 
 int beam_load_emit_op(LoaderState *stp, BeamOp *tmp_op) {
@@ -1434,7 +1460,6 @@ int beam_load_emit_op(LoaderState *stp, BeamOp *tmp_op) {
         /* Remember offset for the on_load function. */
         stp->on_load = ci;
         break;
-    case op_bs_put_string_WW:
     case op_i_bs_match_string_xfWW:
     case op_i_bs_match_string_yfWW:
         new_string_patch(stp, ci-1);
@@ -1464,40 +1489,37 @@ int beam_load_emit_op(LoaderState *stp, BeamOp *tmp_op) {
         break;
 
     case op_line_I:
-        if (stp->line_instr) {
-            BeamInstr item = code[ci-1];
-            unsigned int li;
-            if (item >= stp->beam.lines.item_count) {
-                BeamLoadError2(stp, "line instruction index overflow (%u/%u)",
-                               item, stp->beam.lines.item_count);
-            }
-            li = stp->current_li;
-            if (li >= stp->beam.lines.instruction_count) {
-                BeamLoadError2(stp, "line instruction table overflow (%u/%u)",
-                               li, stp->beam.lines.instruction_count);
+        {
+            int pos = ci-2;
+
+            if (pos == stp->last_func_start) {
+                /*
+                 * This line instruction directly follows the func_info
+                 * instruction. Its address must be adjusted to point to
+                 * func_info instruction.
+                 */
+                 pos = stp->last_func_start - FUNC_INFO_SZ;
             }
 
-            if (ci - 2 == stp->last_func_start) {
-                /*
-		 * This line instruction directly follows the func_info
-		 * instruction. Its address must be adjusted to point to
-		 * func_info instruction.
-		 */
-                stp->line_instr[li].pos = stp->last_func_start - FUNC_INFO_SZ;
-                stp->line_instr[li].loc = item;
-                stp->current_li++;
-            } else if (li <= stp->func_line[stp->function_number - 1] ||
-		       stp->line_instr[li-1].loc != item) {
-                /*
-		 * Only store the location if it is different
-		 * from the previous location in the same function.
-		 */
-                stp->line_instr[li].pos = ci - 2;
-                stp->line_instr[li].loc = item;
-                stp->current_li++;
+            /* We'll save some memory by not inserting a line entry that
+             * is equal to the previous one. */
+            if (add_line_entry(stp, pos, code[ci-1], 0)) {
+                goto load_error;
             }
+            ci -= 2;                /* Get rid of the instruction */
         }
-        ci -= 2;                /* Get rid of the instruction */
+        break;
+
+    case op_i_debug_line_It:
+        /* Each i_debug_line is a distinct instrumentation point and we don't
+         * want to miss a single one of them (so they all can be selected),
+         * so allow duplicates here.
+         */
+        if (add_line_entry(stp, ci-3, code[ci-2], 1)) {
+            goto load_error;
+        }
+
+        ci -= 3;                /* Get rid of the instruction */
         break;
 
         /* End of code found. */

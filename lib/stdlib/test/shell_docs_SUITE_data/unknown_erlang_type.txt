@@ -1,3 +1,10 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 [;1m	erlang[0m
 
 These types are documented in this module:
@@ -41,6 +48,10 @@ These types are documented in this module:
 [;1m  message_queue_data()[0m
 
 [;1m  priority_level()[0m
+
+[;1m  processes_iter_ref()[0m
+
+[;1m  link_option()[0m
 
 [;1m  monitor_option()[0m
 

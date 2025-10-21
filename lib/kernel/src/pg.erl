@@ -1,5 +1,9 @@
 %%
+%% %CopyrightBegin%
 %%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2022-2025. All Rights Reserved.
 %% Copyright WhatsApp Inc. and its affiliates. All rights reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,6 +18,7 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 %%
+%% %CopyrightEnd%
 %%
 %%-------------------------------------------------------------------
 %%

@@ -1,6 +1,8 @@
 ## %CopyrightBegin%
 ##
-## Copyright Ericsson AB 2024. All Rights Reserved.
+## SPDX-License-Identifier: Apache-2.0
+##
+## Copyright Ericsson AB 2024-2025. All Rights Reserved.
 ##
 ## Licensed under the Apache License, Version 2.0 (the "License");
 ## you may not use this file except in compliance with the License.
@@ -16,8 +18,8 @@
 ##
 ## %CopyrightEnd%
 
-## This workflow continually scan the master branch to make sure that no files
-## are added without a copyright notice and license.
+## This workflow will scan pull requests and pushed for files that do not
+## have the proper license.
 
 name: Check license header
 
@@ -34,58 +36,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # ratchet:actions/checkout@v4.2.2
-      - name: Check which files have been added
-        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # ratchet:dorny/paths-filter@v3.0.2
-        id: new-files
         with:
-          predicate-quantifier: 'every'
-          filters: |
-              new:
-                  - added: '**'
-                  - '!**/*.beam'
-                  - '!**/*.exe'
-                  - '!**/*.config.cache.static'
-          ## OTP-27.0 tag as base
-          base: 601a012837ea0a5c8095bf24223132824177124d
-          list-files: shell
-
-      - uses: erlef/setup-beam@5304e04ea2b355f03681464e683d92e3b2f18451 # ratchet:erlef/setup-beam@v1
+            fetch-depth: '0'
+      - uses: erlef/setup-beam@e6d7c94229049569db56a7ad5a540c051a010af9 # v1.20.4
         with:
-          otp-version: '27.1'
+            otp-version: '27'
 
-      - name: License Compliance Check
+      - name: License Compliance Check all files
+        run: ./scripts/license-header.es ci
+
+      - name: Check that copyright update works as it should
         run: |
-            pip install scancode-toolkit==32.3.0
-            scancode-reindex-licenses --additional-directory scripts/licensedetection/
-            scripts/scan-code.escript --file-or-dir "${{ steps.new-files.outputs.new_files }}" \
-                --sarif results.sarif
-
-      - name: "Upload artifact"
-        if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.4.3 ratchet:actions/upload-artifact@v4
-        with:
-            name: SARIF file
-            path: results.sarif
-          
-  upload-scan:
-    needs: run-scan
-    runs-on: ubuntu-latest
-    if: ${{ !cancelled() && github.repository == 'erlang/otp' }}
-    permissions:
-      # Required to upload SARIF file to CodeQL.
-      # See: https://github.com/github/codeql-action/issues/2117
-      actions: read
-      # Require writing security events to upload SARIF file to security tab
-      security-events: write
-      # Only need to read contents
-      contents: read
-    steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # ratchet:actions/checkout@v4.2.2
-      - name: Download sarif file
-        uses: actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e # ratchet:actions/download-artifact@v4.2.1
-      # Upload the results to GitHub's code scanning dashboard.
-      - name: "Upload to code-scanning"
-        if: ${{ !cancelled() }}
-        uses: github/codeql-action/upload-sarif@1b549b9259bda1cb5ddde3b41741a82a2d15a841 # ratchet:github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: "SARIF file/results.sarif"
+          ./scripts/license-header.es update
+          ./scripts/license-header.es ci

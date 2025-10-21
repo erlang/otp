@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,8 +22,8 @@
 
 -module(pubkey_ocsp).
 -moduledoc false.
--feature(maybe_expr,enable).
--include("public_key.hrl").
+
+-include("public_key_internal.hrl").
 
 -export([find_single_response/3,
          get_acceptable_response_types_extn/0,
@@ -56,7 +58,7 @@ verify_response(#'BasicOCSPResponse'{
         ok ?= verify_past_timestamp(ProducedAt),
         ok ?= verify_signature(
                 public_key:der_encode('ResponseData', ResponseData),
-                SignatureAlgo#'AlgorithmIdentifier'.algorithm,
+                SignatureAlgo#'BasicOCSPResponse_signatureAlgorithm'.algorithm,
                 Signature, ResponderCerts,
                 ResponderID, IssuerCert, IsTrustedResponderFun),
         verify_nonce(ResponseData, Nonce)
@@ -110,7 +112,7 @@ match_single_response(IssuerName, IssuerKey, SerialNum,
                            SingleResponse | Tail]) ->
     #'SingleResponse'{thisUpdate = ThisUpdate,
                       nextUpdate = NextUpdate} = SingleResponse,
-    HashType = public_key:pkix_hash_type(Algo#'AlgorithmIdentifier'.algorithm),
+    HashType = public_key:pkix_hash_type(Algo#'CertID_hashAlgorithm'.algorithm),
     case (SerialNum == CertID#'CertID'.serialNumber) andalso
         (crypto:hash(HashType, IssuerName) == CertID#'CertID'.issuerNameHash) andalso
         (crypto:hash(HashType, IssuerKey) == CertID#'CertID'.issuerKeyHash) andalso

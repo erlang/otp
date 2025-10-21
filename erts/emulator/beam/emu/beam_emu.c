@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2023. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 1996-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -119,6 +121,8 @@ ErtsCodePtr beam_exit;
 static BeamInstr beam_continue_exit_[1];
 ErtsCodePtr beam_continue_exit;
 
+static BeamInstr beam_i_line_breakpoint_cleanup_[1];
+ErtsCodePtr beam_i_line_breakpoint_cleanup;
 
 /* NOTE These should be the only variables containing trace instructions.
 **      Sometimes tests are for the instruction value, and sometimes
@@ -320,8 +324,6 @@ void process_main(ErtsSchedulerData *esdp)
 
     ERTS_MSACC_DECLARE_CACHE_X() /* a cached value of the tsd pointer for msacc */
 
-    ERL_BITS_DECLARE_STATEP; /* Has to be last declaration */
-
     /*
      * Note: In this function, we attempt to place rarely executed code towards
      * the end of the function, in the hope that the cache hit rate will be better.
@@ -379,7 +381,6 @@ void process_main(ErtsSchedulerData *esdp)
 	start_time_i = c_p->i;
     }
 
-    ERL_BITS_RELOAD_STATEP(c_p);
     {
 	int reds;
 	BeamInstr next;
@@ -531,19 +532,25 @@ void process_main(ErtsSchedulerData *esdp)
          * code[3]: &&call_error_handler
          * code[4]: Not used
          */
-        Export *error_handler;
+        const Export *error_handler;
+        const ErtsCodeMFA *mfa;
 
         HEAVY_SWAPOUT;
-        error_handler = call_error_handler(c_p, erts_code_to_codemfa(I),
-                                           reg, am_undefined_function);
+        mfa = erts_code_to_codemfa(I);
+        error_handler = call_error_handler(c_p,
+                                           mfa,
+                                           reg,
+                                           am_undefined_function);
         HEAVY_SWAPIN;
 
         if (error_handler) {
             I = error_handler->dispatch.addresses[erts_active_code_ix()];
             Goto(*I);
         }
+
+        I = handle_error(c_p, cp_val(*E), reg, mfa);
+        goto post_error_handling;
     }
- /* Fall through */
  OpCase(error_action_code): {
     handle_error:
      SWAPOUT;
@@ -581,6 +588,7 @@ void process_main(ErtsSchedulerData *esdp)
  OpCase(label_L):
  OpCase(on_load):
  OpCase(line_I):
+ OpCase(i_debug_line_It):
  OpCase(i_nif_padding):
     erts_exit(ERTS_ERROR_EXIT, "meta op\n");
 
@@ -688,6 +696,9 @@ init_emulator_finish(void)
 
     beam_continue_exit_[0]     = BeamOpCodeAddr(op_continue_exit);
     beam_continue_exit = (ErtsCodePtr)&beam_continue_exit_[0];
+
+    beam_i_line_breakpoint_cleanup_[0] = BeamOpCodeAddr(op_i_line_breakpoint_cleanup);
+    beam_i_line_breakpoint_cleanup = (ErtsCodePtr)&beam_i_line_breakpoint_cleanup_[0];
 
     beam_return_to_trace_[0]   = BeamOpCodeAddr(op_i_return_to_trace);
     beam_return_to_trace = (ErtsCodePtr)&beam_return_to_trace_[0];

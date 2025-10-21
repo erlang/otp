@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1998-2024. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 1998-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -93,6 +95,75 @@ erts_debug_size_shared_1(BIF_ALIST_1)
 	Eterm* hp = HAlloc(p, BIG_UINT_HEAP_SIZE);
 	BIF_RET(uint_to_big(size, hp));
     }
+}
+
+BIF_RETTYPE
+erts_debug_unaligned_bitstring_2(BIF_ALIST_2)
+{
+    Eterm bitstring;
+    Uint offset;
+
+    byte *source_bytes;
+    Uint source_offset;
+    Uint source_size;
+
+    byte *target_bytes;
+    Eterm target_size;
+
+    Eterm *hp;
+    Eterm refc_binary;
+    ErlSubBits *sb;
+
+    Uint inner_offset, inner_size;
+    Eterm br_flags;
+    BinRef *br;
+    const byte *base;
+
+    bitstring = BIF_ARG_1;
+    if (is_not_bitstring(bitstring)) {
+        BIF_ERROR(BIF_P, BADARG);
+    }
+
+    if (is_not_small(BIF_ARG_2)) {
+        BIF_ERROR(BIF_P, BADARG);
+    }
+    offset = unsigned_val(BIF_ARG_2);
+    if (!(0 < offset && offset < 8)) {
+        BIF_ERROR(BIF_P, BADARG);
+    }
+
+    ERTS_GET_BITSTRING(bitstring,
+                       source_bytes,
+                       source_offset,
+                       source_size);
+
+    target_size = MAX(source_size + offset, ERL_ONHEAP_BITS_LIMIT + 1);
+    refc_binary = erts_new_bitstring(BIF_P, target_size, &target_bytes);
+
+    copy_binary_to_buffer(target_bytes, offset,
+                          source_bytes, source_offset,
+                          source_size);
+
+    hp = HAlloc(BIF_P, ERL_SUB_BITS_SIZE);
+    sb = (ErlSubBits*)hp;
+
+    ERTS_GET_BITSTRING_REF(refc_binary,
+                           br_flags,
+                           br,
+                           base,
+                           inner_offset,
+                           inner_size);
+    (void)inner_offset;
+    (void)inner_size;
+
+    erl_sub_bits_init(sb,
+                      br_flags,
+                      ((Eterm)br) | br_flags,
+                      base,
+                      offset,
+                      source_size);
+
+    BIF_RET(make_bitstring(sb));
 }
 
 BIF_RETTYPE
@@ -346,10 +417,10 @@ erts_debug_disassemble_1(BIF_ALIST_1)
 	}
     } else if (is_tuple(addr)) {
 	ErtsCodeIndex code_ix;
+	const Export *ep;
 	Module* modp;
 	Eterm mod;
 	Eterm name;
-	Export* ep;
 	Sint arity;
 	int n;
 
@@ -687,15 +758,6 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
                     Uint bits = ap[-1];
                     Uint bytes = (bits+7)/8;
                     byte* str = (byte *) *ap;
-                    print_byte_string(to, to_arg, str, bytes);
-                }
-                break;
-	    case op_bs_put_string_WW:
-                if (ap - first_arg == 0) {
-                    erts_print(to, to_arg, "%d", *ap);
-                } else {
-                    Uint bytes = ap[-1];
-                    byte* str = (byte *) ap[0];
                     print_byte_string(to, to_arg, str, bytes);
                 }
                 break;
@@ -1313,13 +1375,15 @@ dirty_test(Process *c_p, Eterm type, Eterm arg1, Eterm arg2, ErtsCodePtr I)
 	dirty_send_message(c_p, arg2, AM_done);
 	ERTS_BIF_PREP_RET(ret, am_ok);
     }
-    else if (ERTS_IS_ATOM_STR("alive_waitexiting", arg1)) {
+    else if (ERTS_IS_ATOM_STR("alive_waitexiting", arg1)
+             || ERTS_IS_ATOM_STR("alive_waitexitingonly", arg1)) {
 	Process *real_c_p = erts_proc_shadow2real(c_p);
 	Eterm *hp, *hp2;
 	Uint sz;
 	int i;
 	ErtsSchedulerData *esdp = erts_get_scheduler_data();
         int dirty_io = esdp->type == ERTS_SCHED_DIRTY_IO;
+        int no_wait_alloc = ERTS_IS_ATOM_STR("alive_waitexitingonly", arg1);
 
 	if (ERTS_PROC_IS_EXITING(real_c_p))
 	    goto badarg;
@@ -1333,16 +1397,21 @@ dirty_test(Process *c_p, Eterm type, Eterm arg1, Eterm arg2, ErtsCodePtr I)
                 erts_thr_yield();
         }
 
-	ms_wait(c_p, make_small(1000), 0);
+        if (no_wait_alloc) {
+            ERTS_BIF_PREP_RET(ret, am_ok);
+        }
+        else {
+            ms_wait(c_p, make_small(1000), 0);
 
-	/* Should still be able to allocate memory */
-	hp = HAlloc(c_p, 3); /* Likely on heap */
-	sz = 10000;
-	hp2 = HAlloc(c_p, sz); /* Likely in heap fragment */
-	*hp2 = make_pos_bignum_header(sz);
-	for (i = 1; i < sz; i++)
-	    hp2[i] = (Eterm) 4711;
-	ERTS_BIF_PREP_RET(ret, TUPLE2(hp, am_ok, make_big(hp2)));
+            /* Should still be able to allocate memory */
+            hp = HAlloc(c_p, 3); /* Likely on heap */
+            sz = 10000;
+            hp2 = HAlloc(c_p, sz); /* Likely in heap fragment */
+            *hp2 = make_pos_bignum_header(sz);
+            for (i = 1; i < sz; i++)
+                hp2[i] = (Eterm) 4711;
+            ERTS_BIF_PREP_RET(ret, TUPLE2(hp, am_ok, make_big(hp2)));
+        }
     }
     else {
     badarg:

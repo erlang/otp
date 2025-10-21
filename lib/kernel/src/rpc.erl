@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -29,17 +31,20 @@ some specific side effects on the remote node.
 
 > #### Note {: .info }
 >
-> `rpc:call/4` and friends makes it quite hard to distinguish between successful
-> results, raised exceptions, and other errors. This cannot be changed due to
-> compatibility reasons. As of OTP 23, a new module `m:erpc` was introduced in
-> order to provide an API that makes it possible to distinguish between the
-> different results. The `erpc` module provides a subset (however, the central
-> subset) of the functionality available in the `rpc` module. The `erpc`
-> implementation also provides a more scalable implementation with better
-> performance than the original `rpc` implementation. However, since the
-> introduction of `erpc`, the `rpc` module implements large parts of its central
-> functionality using `erpc`, so the `rpc` module won't not suffer scalability
-> wise and performance wise compared to `erpc`.
+ `rpc:call/4` and related functions make it difficult to distinguish
+> between successful results, raised exceptions, and other errors. This
+> behavior cannot be changed for compatibility reasons.
+>
+> The `m:erpc` module was introduced in Erlang/OTP 23 to provide an API
+> that allows clear distinction between these different outcomes. The
+> `m:erpc` module offers the core subset of the functionality provided by
+> the `m:rpc` module. It also features a more scalable and
+> higher-performance implementation compared to the original `m:rpc` module.
+>
+> Since the introduction of `m:erpc`, the `m:rpc` module has been
+> updated to use `m:erpc` internally for most of its core
+> functionality. As a result, the `m:rpc` module does not fall short in
+> scalability or performance compared to `m:erpc`.
 
 > #### Note {: .info }
 >
@@ -64,6 +69,8 @@ some specific side effects on the remote node.
 -define(TAB_NAME, rex_nodes_observer).
 
 -behaviour(gen_server).
+
+-compile(nowarn_deprecated_catch).
 
 -export([start/0, start_link/0, stop/0,
 	 call/4, call/5,
@@ -591,8 +598,8 @@ rpc_check(X) -> X.
 
 
 %% This is a real handy function to be used when interacting with
-%% a server called Name at node Node, It is assumed that the server
-%% Receives messages on the form {From, Request} and replies on the
+%% a server called Name at node Node. It is assumed that the server
+%% receives messages of the form {From, Request} and replies are of the
 %% form From ! {ReplyWrapper, Node, Reply}.
 %% This function makes such a server call and ensures that that
 %% The entire call is packed into an atomic transaction which 
@@ -903,7 +910,7 @@ rpcmulticallify([_N|Ns], [{Class, Reason}|Rlts], Ok, Err) ->
 %% that failed during the timespan of the call.
 %% This function assumes that if we send a request to a server 
 %% called Name, the server will reply with a reply
-%% on the form {Name, Node, Reply}, otherwise this function will
+%% of the form {Name, Node, Reply}, otherwise this function will
 %% hang forever. 
 %% It also assumes that the server receives messages on the form
 %% {From, Msg} and then replies as From ! {Name, node(), Reply}.

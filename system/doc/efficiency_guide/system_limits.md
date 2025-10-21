@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2025. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -45,7 +47,7 @@ limited by either the maximum number of simultaneously known remote nodes,
 [the maximum number of (Erlang) ports](#ports) available,
 or [the maximum number of sockets](#files_sockets) available.
 
-- **Characters in an atom** - 255.
+- [](){: #atom_name_limit } **Characters in an atom** - 255.
 
 - [](){: #atoms } **Atoms** - By default, the maximum number of atoms is 1,048,576.
 This limit can be raised or lowered using the `+t` option.
@@ -82,7 +84,10 @@ on a 32 bit system at most `2²⁸ - 1`.
 open files and sockets depends on [the maximum number of Erlang ports](#ports)
 available, as well as on operating system-specific settings and limits.
 
-- **Number of arguments to a function or fun** - 255.
+- **Number of arguments to a function** - 255.
+
+- **Number of arguments to a fun** - 255, minus one for each environment
+variable.
 
 - [](){: #unique_references } **Unique References on a Runtime System Instance** -
 Each scheduler thread has its own set of references, and all other threads have

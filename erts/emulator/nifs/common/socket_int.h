@@ -1,6 +1,8 @@
 /*
  * %CopyrightBegin%
  *
+ * SPDX-License-Identifier: Apache-2.0
+ *
  * Copyright Ericsson AB 2018-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -166,6 +168,9 @@ typedef int BOOLEAN_T;
 #define BOOL2ATOM(__B__) ((__B__) ? esock_atom_true : esock_atom_false)
 
 #define B2S(__B__) ((__B__) ? "true" : "false")
+
+#define DOM2STR(__D__)   esock_domain_to_string((__D__))
+#define PROTO2STR(__P__) esock_protocol_to_string((__P__))
 
 #define TYPE2STR(T) (((T) == SOCK_STREAM) ? "stream" :                  \
                      (((T) == SOCK_DGRAM) ? "dgram"  :                  \
@@ -344,6 +349,7 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(family);                   \
     GLOBAL_ATOM_DEF(fastroute);                \
     GLOBAL_ATOM_DEF(fast_retrans);             \
+    GLOBAL_ATOM_DEF(file_not_found);           \
     GLOBAL_ATOM_DEF(fin_wait_1);               \
     GLOBAL_ATOM_DEF(fin_wait_2);               \
     GLOBAL_ATOM_DEF(flags);                    \

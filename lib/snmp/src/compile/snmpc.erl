@@ -1,7 +1,9 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1997-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -79,6 +81,10 @@ The `mib_to_hrl` generator can be invoked from the OS command line by using the
 command `erlc`. `erlc` recognizes the extension `.bin`, and invokes this
 function for files with that extension.
 """.
+-spec mib_to_hrl(MibName) -> Result when
+    MibName :: string(),
+    Result :: ok | {error, Reason},
+    Reason :: term().
 mib_to_hrl(MibName) ->
     snmpc_mib_to_hrl:convert(MibName).
 
@@ -166,8 +172,8 @@ compile(FileName) ->
     compile(FileName, []).
 
 -doc """
-[](){: #compiler_opts } Compiles the specified MIB file `<FileName>.mib`. The
-compiled file `BinFileName` is called `<FileName>.bin`.
+Compiles the specified MIB file `<FileName>.mib`. The compiled file `BinFileName`
+is called `<FileName>.bin`.
 
 - The option `agent_capabilities`, if present, specifies that the
   AGENT-CAPABILITIES statement of the MIB shall be included (with a mib-entry

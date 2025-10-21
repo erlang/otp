@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2023-2023. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2023-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -37,7 +39,8 @@
 	 recv/2, recv/3,
 	 send/2,
 	 shutdown/2,
-	 sockname/1
+	 sockname/1,
+         info/1
 	]).
 
 
@@ -85,11 +88,17 @@ connect(Addr, Port, #{domain := Domain}) ->
     do_connect(Addr, Port, Opts).
 
 do_connect(Addr, Port, Opts) ->
-    case gen_tcp:connect(Addr, Port, Opts) of
+    %% Since this (usually) is run on a remote node,
+    %% we try-catch the call so that we can re-through
+    %% with as much info as possible.
+    try gen_tcp:connect(Addr, Port, Opts) of
 	{ok, Sock} ->
 	    {ok, Sock};
 	{error, _} = ERROR ->
 	    ERROR
+    catch
+        C:E:S ->
+            exit({catched, {C, E, S}})
     end.
 
 controlling_process(Sock, NewPid) ->
@@ -110,7 +119,14 @@ listen(Port, #{domain := Domain}) when is_integer(Port) andalso (Port >= 0) ->
                     Domain,
 		    binary, {ip, Addr}, {packet, raw}, {active, false},
 		    {buffer, 32*1024}],
-	    gen_tcp:listen(Port, Opts);
+            %% Since this (usually) is run on a remote node,
+            %% we try-catch the call so that we can re-through
+            %% with as much info as possible.
+	    try gen_tcp:listen(Port, Opts)
+            catch
+                C:E:S ->
+                    exit({catched, {C, E, S}})
+            end;
 	{error, _} = ERROR ->
 	    ERROR
     end.
@@ -140,6 +156,10 @@ shutdown(Sock, How) ->
 
 sockname(Sock) ->
     inet:sockname(Sock).
+
+
+info(Sock) ->
+    inet:info(Sock).
 
 
 %% ==========================================================================

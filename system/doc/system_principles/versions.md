@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2025. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -172,7 +174,7 @@ ancestor. When branching multiple times from the same base version,
 can be compared as described in the previous paragraph.
 
 An example of branched versions: The version `6.0.2.1` is a branched version
-from the base version `6.0.2`. Versions on the form `6.0.2.<X>` can be compared
+from the base version `6.0.2`. Versions of the form `6.0.2.<X>` can be compared
 with normal versions smaller than or equal to `6.0.2`, and other versions on the
 form `6.0.2.<X>`. The version `6.0.2.1` will include all changes in `6.0.2`.
 However, `6.0.3` will most likely _not_ include all changes in `6.0.2.1` (note

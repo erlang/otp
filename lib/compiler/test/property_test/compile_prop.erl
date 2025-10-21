@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2020-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2020-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -82,7 +84,6 @@ spawn_compile(Forms, Options) ->
 compiler_variants() ->
     [
      [ssalint,clint0,clint],
-     [r24,ssalint],
      [r25,ssalint],
      [r26,ssalint],
      [no_type_opt,ssalint],

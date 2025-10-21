@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2010-2024. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2010-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -197,6 +199,16 @@
 # define HAVE_SM4_CCM
 #endif
 
+#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,1,1)	\
+    && !defined(OPENSSL_NO_SHA512) && defined(NID_sha512_224)
+# define HAVE_SHA512_224
+#endif
+
+#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,1,1)	\
+    && !defined(OPENSSL_NO_SHA512) && defined(NID_sha512_256)
+# define HAVE_SHA512_256
+#endif
+
 // SHA3:
 #if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,1,1)
 // An error in beta releases of 1.1.1 fixed in production release
@@ -377,6 +389,14 @@
 #endif
 #endif
 
+#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(3,5,0)
+#  ifndef OPENSSL_NO_ML_KEM
+#    define HAVE_ML_KEM
+#  endif
+#  ifndef OPENSSL_NO_ML_DSA
+#    define HAVE_ML_DSA
+#  endif
+#endif
 
 #if defined(HAS_ENGINE_SUPPORT)
 # include <openssl/engine.h>

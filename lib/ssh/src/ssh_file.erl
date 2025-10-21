@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2005-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -168,9 +170,7 @@ Clients uses all files stored in the [USERDIR](`m:ssh_file#USERDIR`) directory.
 
   To change the USERDIR, see the [user_dir](`t:user_dir_common_option/0`) option
 """.
--moduledoc(#{since => "OTP 21.2",
-             titles =>
-                 [{type,<<"Options">>}]}).
+-moduledoc(#{since => "OTP 21.2"}).
 
 -include_lib("public_key/include/public_key.hrl").
 -include_lib("kernel/include/file.hrl").
@@ -186,7 +186,7 @@ Clients uses all files stored in the [USERDIR](`m:ssh_file#USERDIR`) directory.
 -export([host_key/2, is_auth_key/3]).
 -export_type([system_dir_daemon_option/0]).
 -doc "Sets the [system directory](`m:ssh_file#SYSDIR`).".
--doc(#{title => <<"Options">>}).
+-doc(#{group => <<"Options">>}).
 -type system_dir_daemon_option()   :: {system_dir, string()}.
 
 %%%--------------------- client exports ---------------------------
@@ -195,11 +195,11 @@ Clients uses all files stored in the [USERDIR](`m:ssh_file#USERDIR`) directory.
 -export_type([pubkey_passphrase_client_options/0]).
 -doc """
 If the user's DSA, RSA or ECDSA key is protected by a passphrase, it can be
-supplied with thoose options.
+supplied with those options.
 
 Note that EdDSA passhrases (Curves 25519 and 448) are not implemented.
 """.
--doc(#{title => <<"Options">>}).
+-doc(#{group => <<"Options">>}).
 -type pubkey_passphrase_client_options() ::   {dsa_pass_phrase,      string()}
                                             | {rsa_pass_phrase,      string()}
                                               %% Not yet implemented:                     | {ed25519_pass_phrase,  string()}
@@ -218,15 +218,15 @@ Note that EdDSA passhrases (Curves 25519 and 448) are not implemented.
              ]).
 
 -doc "Sets the [user directory](`m:ssh_file#USERDIR`).".
--doc(#{title => <<"Options">>}).
+-doc(#{group => <<"Options">>}).
 -type user_dir_common_option()     :: {user_dir,  string()}.
--doc(#{title => <<"Options">>}).
+-doc(#{group => <<"Options">>}).
 -type user_dir_fun_common_option() :: {user_dir_fun, user2dir()}.
 -doc """
 Sets the [user directory](`m:ssh_file#USERDIR`) dynamically by evaluating the
 `user2dir` function.
 """.
--doc(#{title => <<"Options">>}).
+-doc(#{group => <<"Options">>}).
 -type user2dir() :: fun((RemoteUserName::string()) -> UserDir :: string()) .
 
 -doc """
@@ -238,16 +238,16 @@ To set it, set the option `{key_cb, {ssh_file, [{optimize,TimeOrSpace}]}` in the
 call of ["ssh:connect/3](`ssh:connect/3`), `ssh:daemon/2` or similar function
 call that initiates an ssh connection.
 """.
--doc(#{title => <<"Options">>}).
+-doc(#{group => <<"Options">>}).
 -type optimize_key_lookup() :: {optimize, time|space} .
 
 -doc "The key representation".
--doc(#{title => <<"Options">>}).
+-doc(#{group => <<"Options">>}).
 -type key() :: public_key:public_key() | public_key:private_key() .
--doc(#{title => <<"Options">>}).
+-doc(#{group => <<"Options">>}).
 -type experimental_openssh_key_v1() :: [{key(), openssh_key_v1_attributes()}].
 -doc "Types for the experimental implementaition of the `openssh_key_v1` format.".
--doc(#{title => <<"Options">>}).
+-doc(#{group => <<"Options">>}).
 -type openssh_key_v1_attributes() :: [{atom(),term()}].
 
 %%%================================================================
@@ -490,11 +490,18 @@ decode(KeyBin, ssh2_pubkey) when is_binary(KeyBin) ->
     ssh_message:ssh2_pubkey_decode(KeyBin);
 
 decode(KeyBin, public_key) when is_binary(KeyBin) ->
-    Type = case KeyBin of
-               <<"-----BEGIN OPENSSH",_/binary>> -> openssh_key_v1;
-               <<"----",_/binary>> -> rfc4716_key;
-               _ -> openssh_key
-           end,
+    Matches = fun(Bin, Pattern, Type) ->
+                      case binary:match(Bin, Pattern) of
+                          nomatch -> false;
+                          _ -> Type
+                      end
+              end,
+    Type =
+        maybe
+            false ?= Matches(KeyBin, <<"\n-----BEGIN OPENSSH">>, openssh_key_v1),
+            false ?= Matches(KeyBin, <<"\n----">>, rfc4716_key),
+            openssh_key
+        end,
     decode(KeyBin, Type);
 
 decode(KeyBin, Type) when is_binary(KeyBin) andalso 
@@ -1172,7 +1179,7 @@ decode_ssh_file(PrivPub, Algorithm, Pem, Password) ->
 
 
 decode_pem_keys(RawBin, Password) ->
-    PemLines = split_in_lines(
+    PemLines = split_in_nonempty_lines(
                  binary:replace(RawBin, [<<"\\\n">>,<<"\\\r\\\n">>],  <<"">>, [global])
                 ),
     decode_pem_keys(PemLines, Password, []).

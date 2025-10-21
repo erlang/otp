@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -86,6 +88,8 @@ message.
 `m:ets`, `m:mnesia`, `m:qlc`
 """.
 
+-compile(nowarn_deprecated_catch).
+
 %% Disk based linear hashing lookup dictionary.
 
 %% Public.
@@ -163,7 +167,7 @@ message.
                    {badarg_exit,2},{lookup_reply,2},
                    {pidof,1},{resp,2}]}).
 
--include_lib("kernel/include/file.hrl").
+-include_lib("kernel/include/logger.hrl").
 
 -include("dets.hrl").
 
@@ -2049,8 +2053,7 @@ open_file_loop2(Head, N) ->
             sys:handle_system_msg(Req, From, Head#head.parent, 
                                   ?MODULE, [], Head);
         Message ->
-            error_logger:format("** dets: unexpected message"
-                                "(ignored): ~tw~n", [Message]),
+            ?LOG_ERROR("** dets: unexpected message (ignored): ~tw~n", [Message]),
             open_file_loop(Head, N)
     end.
 
@@ -2282,15 +2285,15 @@ bug_found(Name, Op, Bad, Stacktrace, From) ->
         true ->
             %% If stream_op/5 found more requests, this is not
             %% the last operation.
-            error_logger:format
-              ("** dets: Bug was found when accessing table ~tw,~n"
+            ?LOG_ERROR(
+                "** dets: Bug was found when accessing table ~tw,~n"
                "** dets: operation was ~tp and reply was ~tw.~n"
                "** dets: Stacktrace: ~tw~n",
                [Name, Op, Bad, Stacktrace]);
         false ->
-            error_logger:format
-              ("** dets: Bug was found when accessing table ~tw~n",
-               [Name])
+            ?LOG_ERROR(
+                "** dets: Bug was found when accessing table ~tw~n",
+                [Name])
     end,
     if
         From =/= self() ->
@@ -2815,8 +2818,8 @@ do_open_file([Fname, Verbose], Parent, Server, Ref) ->
 	{'EXIT', _Reason} = Error ->
 	    Error;
 	Bad ->
-	    error_logger:format
-	      ("** dets: Bug was found in open_file/1, reply was ~tw.~n",
+	    ?LOG_ERROR(
+	       "** dets: Bug was found in open_file/1, reply was ~tw.~n",
 	       [Bad]),
 	    {error, {dets_bug, Fname, Bad}}
     end;
@@ -2832,8 +2835,8 @@ do_open_file([Tab, OpenArgs, Verb], Parent, Server, _Ref) ->
 	{'EXIT', _Reason} = Error ->
 	    Error;
 	Bad ->
-	    error_logger:format
-	      ("** dets: Bug was found in open_file/2, arguments were~n"
+	    ?LOG_ERROR(
+	       "** dets: Bug was found in open_file/2, arguments were~n"
 	       "** dets: ~tw and reply was ~tw.~n",
 	       [OpenArgs, Bad]),
 	    {error, {dets_bug, Tab, {open_file, OpenArgs}, Bad}}
@@ -3188,7 +3191,7 @@ fopen2(Fname, Tab) ->
                  end,
             case Do of
 		{repair, Mess} ->
-                    io:format(user, "dets: file ~tp~s~n", [Fname, Mess]),
+                    ?LOG_INFO("dets: file ~tp~s~n", [Fname, Mess]),
                     case fsck(Fd, Tab, Fname, FH, default, default) of
                         ok ->
                             fopen2(Fname, Tab);
@@ -3267,7 +3270,7 @@ fopen_existing_file(Tab, OpenArgs) ->
 	_ when FH#fileheader.keypos =/= Kp ->
 	    throw({error, {keypos_mismatch, Fname}});
 	{compact, SourceHead} ->
-	    io:format(user, "dets: file ~tp is now compacted ...~n", [Fname]),
+            ?LOG_DEBUG("dets: file ~tp is now compacted ...~n", [Fname]),
 	    {ok, NewSourceHead} = open_final(SourceHead, Fname, read, false,
 					     ?DEFAULT_CACHE, Tab, Debug),
 	    case catch compact(NewSourceHead) of
@@ -3277,14 +3280,14 @@ fopen_existing_file(Tab, OpenArgs) ->
 		_Err ->
                     _ = file:close(Fd),
                     dets_utils:stop_disk_map(),
-		    io:format(user, "dets: compaction of file ~tp failed, "
-			      "now repairing ...~n", [Fname]),
+                    ?LOG_INFO("dets: compaction of file ~tp failed, "
+                              "now repairing ...~n", [Fname]),
                     {ok, Fd2, _FH} = read_file_header(Fname, Acc, Ram),
                     do_repair(Fd2, Tab, Fname, FH, MinSlots, MaxSlots, 
 			      OpenArgs)
 	    end;
 	{repair, Mess} ->
-	    io:format(user, "dets: file ~tp~s~n", [Fname, Mess]),
+            ?LOG_INFO("dets: file ~tp~s~n", [Fname, Mess]),
             do_repair(Fd, Tab, Fname, FH, MinSlots, MaxSlots, 
 		      OpenArgs);
 	{final, H} ->
@@ -3821,8 +3824,8 @@ check_safe_fixtable(Head) ->
     case (Head#head.fixed =:= false) andalso 
          ((get(verbose) =:= yes) orelse dets_utils:debug_mode()) of
         true ->
-            error_logger:format
-              ("** dets: traversal of ~tp needs safe_fixtable~n",
+            ?LOG_DEBUG(
+               "** dets: traversal of ~tp needs safe_fixtable~n",
                [Head#head.name]);
         false ->
             ok
@@ -3888,7 +3891,7 @@ scan_read(H, From, _To, Min, _L, Ts, R, C) ->
 err(Error) ->
     case get(verbose) of
 	yes -> 
-	    error_logger:format("** dets: failed with ~tw~n", [Error]),
+	    ?LOG_INFO("** dets: failed with ~tw~n", [Error]),
 	    Error;
 	undefined  ->
 	    Error

@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2000-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -41,8 +43,8 @@
 %%-----------------------------------------------------------------------
 
 -type index()        :: non_neg_integer().
--type literals()     :: 'none' | gb_trees:tree(index(), term()).
--type types()        :: 'none' | gb_trees:tree(index(), term()).
+-type literals()     :: gb_trees:tree(index(), term()).
+-type types()        :: gb_trees:tree(index(), term()).
 -type symbolic_tag() :: 'a' | 'f' | 'h' | 'i' | 'u' | 'x' | 'y' | 'z'.
 -type disasm_tag()   :: symbolic_tag() | 'fr' | 'atom' | 'float' | 'literal'.
 -type disasm_term()  :: 'nil' | {disasm_tag(), _}.
@@ -191,8 +193,11 @@ process_chunks(F) ->
 	    Atoms = mk_atoms(AtomsList),
 	    LambdaBin = optional_chunk(F, "FunT"),
 	    Lambdas = beam_disasm_lambdas(LambdaBin, Atoms),
-	    LiteralBin = optional_chunk(F, "LitT"),
-	    Literals = beam_disasm_literals(LiteralBin),
+            Literals1 = case optional_chunk(F, literals) of
+                            none -> [];
+                            Literals0 -> Literals0
+                        end,
+	    Literals = gb_trees:from_orddict(Literals1),
 	    TypeBin = optional_chunk(F, "Type"),
 	    Types = beam_disasm_types(TypeBin),
 	    Code = beam_disasm_code(CodeBin, Atoms, mk_imports(ImportsList),
@@ -245,28 +250,13 @@ disasm_lambdas(<<F:32,A:32,Lbl:32,Index:32,NumFree:32,OldUniq:32,More/binary>>,
 disasm_lambdas(<<>>, _, _) -> [].
 
 %%-----------------------------------------------------------------------
-%% Disassembles the literal table (constant pool) of a BEAM file.
-%%-----------------------------------------------------------------------
-
--spec beam_disasm_literals('none' | binary()) -> literals().
-
-beam_disasm_literals(none) -> none;
-beam_disasm_literals(<<_:32,Compressed/binary>>) ->
-    <<_:32,Tab/binary>> = zlib:uncompress(Compressed),
-    gb_trees:from_orddict(disasm_literals(Tab, 0)).
-
-disasm_literals(<<Sz:32,Ext:Sz/binary,T/binary>>, Index) ->
-    [{Index,binary_to_term(Ext)}|disasm_literals(T, Index+1)];
-disasm_literals(<<>>, _) -> [].
-
-%%-----------------------------------------------------------------------
 %% Disassembles the type table of a BEAM file.
 %%-----------------------------------------------------------------------
 
 -spec beam_disasm_types('none' | binary()) -> types().
 
 beam_disasm_types(none) ->
-    none;
+    gb_trees:empty();
 beam_disasm_types(<<Version:32,Count:32,Table0/binary>>) ->
     case beam_types:convert_ext(Version, Table0) of
         none ->
@@ -277,7 +267,7 @@ beam_disasm_types(<<Version:32,Count:32,Table0/binary>>) ->
             Res
     end;
 beam_disasm_types(<<_/binary>>) ->
-    none.
+    gb_trees:empty().
 
 disasm_types(Types0, Index) ->
     case beam_types:decode_ext(Types0) of
@@ -307,7 +297,7 @@ beam_disasm_code(<<_SS:32, % Sub-Size (length of information before code)
 	    [function__code_update(Function,
 				   resolve_names(Is, Imports, Str,
 						 Labels, Lambdas, Literals, M))
-	     || Function = #function{code=Is} <- Functions]
+	     || Function = #function{code=Is} <:- Functions]
     catch
 	error:Rsn ->
 	    ?NO_DEBUG('code disassembling failed: ~p~n', [Rsn]),
@@ -1312,6 +1302,14 @@ resolve_inst({executable_line,[Location,Index]},_,_,_) ->
     {executable_line,resolve_arg(Location),resolve_arg(Index)};
 
 %%
+%% OTP 28.
+%%
+
+resolve_inst({debug_line,[Kind,Location,Index,Live]},_,_,_) ->
+    {debug_line,resolve_arg(Kind),resolve_arg(Location),
+     resolve_arg(Index),resolve_arg(Live)};
+
+%%
 %% Catches instructions that are not yet handled.
 %%
 resolve_inst(X,_,_,_) -> ?exit({resolve_inst,X}).
@@ -1410,7 +1408,8 @@ decode_field_flags(FieldFlags) when is_integer(FieldFlags) ->
 %%-----------------------------------------------------------------------
 
 mk_imports(ImportList) ->
-    gb_trees:from_orddict([{I,{extfunc,M,F,A}} || {I,M,F,A} <- ImportList]).
+    gb_trees:from_orddict([{I,{extfunc,M,F,A}} ||
+                              {I,M,F,A} <:- ImportList]).
 
 mk_atoms(AtomList) ->
     gb_trees:from_orddict(AtomList).

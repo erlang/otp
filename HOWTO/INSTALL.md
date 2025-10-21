@@ -1,3 +1,26 @@
+<!--
+%%
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2013-2025. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%%
+%% %CopyrightEnd%
+-->
+
 Building and Installing Erlang/OTP
 ==================================
 
@@ -428,6 +451,10 @@ Some of the available `configure` options are:
     option which will enable `configure` to continue without support for
     timestamps after mid-January 2038. This is typically only an issue on 32-bit
     platforms.
+*   `--disable-security-hardening-flags` - Disable all security hardening
+    flags when compiling Erlang/OTP. This can be useful in some scenarios
+    when the flags either causes Erlang/OTP not to build, or unacceptable
+    performance degradations.
 
 If you or your system has special requirements please read the `Makefile` for
 additional configuration information.
@@ -598,7 +625,7 @@ On Linux, a static library is built as follows:
     $ make && sudo make install
     $ export PATH=/usr/local/bin:$PATH
 
-On macOs, a static library compatible with macOS 13 (Ventura) and later is built
+On macOS, a static library compatible with macOS 13 (Ventura) and later is built
 as follows:
 
     $ ./configure --prefix=/usr/local --with-macosx-version-min=13.0 --disable-shared
@@ -653,10 +680,9 @@ as before, but the build process will take a much longer time.
 #### How to Build a Debug Enabled Erlang RunTime System ####
 
 After completing all the normal building steps described above a debug
-enabled runtime system can be built. To do this you have to change
-directory to `$ERL_TOP/erts/emulator` and execute:
+enabled runtime system can be built. To do this you execute:
 
-    $ (cd $ERL_TOP/erts/emulator && make debug)
+    $ make TYPE=debug
 
 This will produce a `beam.debug.smp` executable. The
 file are installed along side with the normal (opt) version `beam.smp`.
@@ -664,6 +690,10 @@ file are installed along side with the normal (opt) version `beam.smp`.
 To start the debug enabled runtime system execute:
 
     $ $ERL_TOP/bin/cerl -debug
+
+or
+
+    $ $ERL_TOP/bin/erl -emu_type debug
 
 The debug enabled runtime system features lock violation checking,
 assert checking and various sanity checks to help a developer ensure
@@ -673,12 +703,15 @@ using appropriate configure options.
 There are other types of runtime systems that can be built as well
 using the similar steps just described.
 
-    $ (cd $ERL_TOP/erts/emulator && make $TYPE)
+    $ make TYPE=$TYPE
 
 where `$TYPE` is `opt`, `gcov`, `gprof`, `debug`, `valgrind`, `asan` or `lcnt`.
 These different beam types are useful for debugging and profiling
 purposes.
 
+You can also release and install the special builds using make release like this:
+
+    $ make release TYPE=$TYPE
 
 ### Installing ###
 

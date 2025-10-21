@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1998-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,6 +21,8 @@
 %%
 -module(code_server).
 -moduledoc false.
+
+-compile(nowarn_deprecated_catch).
 
 %% This file holds the server part of the code_server.
 
@@ -306,6 +310,11 @@ handle_call({replace_path,Name,Dir,Control}, _From,
 
 handle_call(get_path, _From, S) ->
     {reply,[P || {P, _Cache} <- S#state.path],S};
+
+handle_call({where_is_file,File}, _From,
+            #state{path=Path,path_cache=Cache0}=S) ->
+    {Resp,Cache} = where_is_file(Path, File, Cache0),
+    {reply,Resp,S#state{path_cache=Cache}};
 
 handle_call(clear_cache, _From, S) ->
     {reply,ok,S#state{path_cache=#{}}};
@@ -1452,3 +1461,22 @@ archive_extension() ->
 
 to_list(X) when is_list(X) -> X;
 to_list(X) when is_atom(X) -> atom_to_list(X).
+
+where_is_file([], _File, Cache) ->
+    {non_existing, Cache};
+where_is_file([{Dir, nocache} | Tail], File, Cache) ->
+    Full = filename:append(Dir, File),
+    case erl_prim_loader:read_file_info(Full) of
+        {ok,_} ->
+            {Full, Cache};
+        _Error ->
+            where_is_file(Tail, File, Cache)
+    end;
+where_is_file([{Dir, CacheKey} | Tail], File, Cache) when is_integer(CacheKey) ->
+    case with_cache(CacheKey, Dir, File, Cache) of
+        {true, Cache1} ->
+            Full = filename:append(Dir, File),
+            {Full, Cache1};
+        {false, Cache1} ->
+            where_is_file(Tail, File, Cache1)
+    end.

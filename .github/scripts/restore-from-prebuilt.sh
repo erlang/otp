@@ -2,7 +2,9 @@
 
 ## %CopyrightBegin%
 ##
-## Copyright Ericsson AB 2024. All Rights Reserved.
+## SPDX-License-Identifier: Apache-2.0
+##
+## Copyright Ericsson AB 2024-2025. All Rights Reserved.
 ##
 ## Licensed under the Apache License, Version 2.0 (the "License");
 ## you may not use this file except in compliance with the License.
@@ -99,6 +101,8 @@ for delete in $DELETED; do
         rm -r "${CACHE_DIR}/${delete}"
     elif [ -f "${CACHE_DIR}/${delete}" ]; then
         rm "${CACHE_DIR}/${delete}"
+    elif [ "$(basename ${delete})" = ".gitignore" ]; then
+        echo "Should not delete .gitignore files"
     else
         echo "Could not find $delete to delete"
         exit 1

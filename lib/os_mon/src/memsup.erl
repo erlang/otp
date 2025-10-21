@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1996-2024. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(memsup).
@@ -246,7 +248,7 @@ get_system_memory_data() ->
 -doc """
 Returns the time interval, in milliseconds, for the periodic memory check.
 """.
--spec get_check_interval() -> Milliseconds :: integer().
+-spec get_check_interval() -> Milliseconds :: timer:time().
 get_check_interval() ->
     os_mon:call(memsup, get_check_interval, infinity).
 -doc """

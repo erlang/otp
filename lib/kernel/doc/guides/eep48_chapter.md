@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2025. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -105,8 +107,8 @@ For each entry in Docs, we have:
   `callback`. Other languages will add their own. For instance, Elixir and LFE
   might add `macro`.
 
-- **`Anno`** - annotation (line, column, file) of the module documentation or of
-  the definition itself (see `m:erl_anno`).
+- **`Anno`** - annotation (line, column, file) of the module documentation
+  (see `m:erl_anno`).
 
 - **`Signature`** - the signature of the entity. It is is a list of binaries.
   Each entry represents a binary in the signature that can be joined with
@@ -134,6 +136,9 @@ information to each entry. This EEP documents the following metadata keys:
 
 - **`authors := [binary()]`** - a list of authors as binaries.
 
+- **`behaviours := [module()]`** - a list of the behaviours implemented by
+  this module.
+
 - **`cross_references := [module() | {module(), {Kind, Name, Arity}}]`** - a
   list of modules or module entries that can be used as cross references when
   generating documentation.
@@ -142,11 +147,19 @@ information to each entry. This EEP documents the following metadata keys:
   deprecated with a binary that represents the reason for deprecation and a
   recommendation to replace the deprecated code.
 
+- **`group := binary()`** - when present, it allows tooling, such as shell
+  autocompletion and documentation generators, to list all entries within the
+  same group together, often using the group name as an indicator. It currently
+  only applies to doc entries, not for module metadata.
+
 - **`since := binary()`** - a binary representing the version such entry was
   added, such as `<<"1.3.0">>` or `<<"20.0">>`.
 
-- **`edit_url := binary()`** - a binary representing a URL to change the
-  documentation itself.
+- **`source_annos := [erl_anno:anno()]`** - a list of source code locations.
+  You may either store one for each clause or only for the first clause.
+
+- **`source_path := file:filename()`** - the absolute location of the source file for
+  this module. Applies only to the module metadata.
 
 Any key may be added to Metadata at any time. Keys that are frequently used by
 the community can be standardized in future versions.

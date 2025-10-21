@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2018-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2018-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,35 +25,7 @@
 
 -compile(export_all).
 
--proptest(eqc).
--proptest([triq,proper]).
-
--ifndef(EQC).
--ifndef(PROPER).
--ifndef(TRIQ).
--define(EQC,true).
--endif.
--endif.
--endif.
-
--ifdef(EQC).
--include_lib("eqc/include/eqc.hrl").
--define(MOD_eqc,eqc).
-
--else.
--ifdef(PROPER).
--include_lib("proper/include/proper.hrl").
--define(MOD_eqc,proper).
-
--else.
--ifdef(TRIQ).
--define(MOD_eqc,triq).
--include_lib("triq/include/triq.hrl").
-
--endif.
--endif.
--endif.
-
+-include_lib("common_test/include/ct_property_test.hrl").
 -include_lib("kernel/include/inet.hrl").
 -include_lib("ssl/src/tls_handshake_1_3.hrl").
 -include_lib("ssl/src/tls_handshake.hrl").
@@ -59,7 +33,6 @@
 -include_lib("ssl/src/ssl_alert.hrl").
 -include_lib("ssl/src/ssl_internal.hrl").
 -include_lib("ssl/src/ssl_record.hrl").
-
 
 %%--------------------------------------------------------------------
 %% Properties --------------------------------------------------------
@@ -69,12 +42,7 @@ prop_tls_hs_encode_decode() ->
     ?FORALL({Handshake, TLSVersion}, ?LET(Version, tls_version(), {tls_msg(Version), Version}),
             try 
                 [Type, _Length, Data] = tls_handshake:encode_handshake(Handshake, TLSVersion),
-                case tls_handshake:decode_handshake(TLSVersion, Type, Data) of
-                    Handshake ->
-                        true;
-                    _ ->
-                        false
-                end
+                tls_handshake:decode_handshake(TLSVersion, Type, Data) == Handshake
             catch
                 throw:#alert{} ->
                     true
@@ -485,45 +453,48 @@ signature_algorithms() ->
          #signature_algorithms{signature_scheme_list = List}).
 
 sig_scheme_list() ->
-    oneof([[rsa_pkcs1_sha256],
-           [rsa_pkcs1_sha256, ecdsa_sha1],
-           [rsa_pkcs1_sha256,
-            rsa_pkcs1_sha384,
-            rsa_pkcs1_sha512,
-            ecdsa_secp256r1_sha256,
-            ecdsa_secp384r1_sha384,
-            ecdsa_secp521r1_sha512,
-            ecdsa_brainpoolP256r1tls13_sha256,
-            ecdsa_brainpoolP384r1tls13_sha384,
-            ecdsa_brainpoolP512r1tls13_sha512,
-            rsa_pss_rsae_sha256,
-            rsa_pss_rsae_sha384,
-            rsa_pss_rsae_sha512,
-            rsa_pss_pss_sha256,
-            rsa_pss_pss_sha384,
-            rsa_pss_pss_sha512,
+    elements([
+              [rsa_pkcs1_sha256],
+              [rsa_pkcs1_sha256, ecdsa_sha1],
+              [rsa_pkcs1_sha256,
+               rsa_pkcs1_sha384,
+               rsa_pkcs1_sha512,
+               ecdsa_secp256r1_sha256,
+               ecdsa_secp384r1_sha384,
+               ecdsa_secp521r1_sha512,
+               ecdsa_brainpoolP256r1tls13_sha256,
+               ecdsa_brainpoolP384r1tls13_sha384,
+               ecdsa_brainpoolP512r1tls13_sha512,
+               rsa_pss_rsae_sha256,
+               rsa_pss_rsae_sha384,
+               rsa_pss_rsae_sha512,
+               rsa_pss_pss_sha256,
+               rsa_pss_pss_sha384,
+               rsa_pss_pss_sha512,
             rsa_pkcs1_sha1,
-            ecdsa_sha1]
-          ]).
+               ecdsa_sha1]
+             ]).
 
 sig_scheme() ->
-    oneof([rsa_pkcs1_sha256,
-           rsa_pkcs1_sha384,
-           rsa_pkcs1_sha512,
-           ecdsa_secp256r1_sha256,
-           ecdsa_secp384r1_sha384,
-           ecdsa_secp521r1_sha512,
-           ecdsa_brainpoolP256r1tls13_sha256,
-           ecdsa_brainpoolP384r1tls13_sha384,
-           ecdsa_brainpoolP512r1tls13_sha512,
-           rsa_pss_rsae_sha256,
-           rsa_pss_rsae_sha384,
-           rsa_pss_rsae_sha512,
-           rsa_pss_pss_sha256,
-           rsa_pss_pss_sha384,
-           rsa_pss_pss_sha512,
-           rsa_pkcs1_sha1,
-           ecdsa_sha1]).
+    elements([
+              rsa_pkcs1_sha256,
+              rsa_pkcs1_sha384,
+              rsa_pkcs1_sha512,
+              ecdsa_secp256r1_sha256,
+              ecdsa_secp384r1_sha384,
+              ecdsa_secp521r1_sha512,
+              ecdsa_brainpoolP256r1tls13_sha256,
+              ecdsa_brainpoolP384r1tls13_sha384,
+              ecdsa_brainpoolP512r1tls13_sha512,
+              rsa_pss_rsae_sha256,
+              rsa_pss_rsae_sha384,
+              rsa_pss_rsae_sha512,
+              rsa_pss_pss_sha256,
+              rsa_pss_pss_sha384,
+              rsa_pss_pss_sha512,
+              rsa_pkcs1_sha1,
+              ecdsa_sha1
+             ]).
 
 signature() ->
     <<44,119,215,137,54,84,156,26,121,212,64,173,189,226,
@@ -796,7 +767,12 @@ generate_public_key(Group)
     #'ECPrivateKey'{publicKey = PublicKey} =
         public_key:generate_key({namedCurve, group_to_curve(Group)}),
     PublicKey;
-
+generate_public_key(Group) when
+       Group =:= mlkem512 orelse
+       Group =:= mlkem768 orelse
+       Group =:= mlkem1024 ->
+    {PublicKey, _} = crypto:generate_key(Group, []),
+    PublicKey;
 generate_public_key(Group) ->
     {PublicKey, _} =
         public_key:generate_key(ssl_dh_groups:dh_params(Group)),

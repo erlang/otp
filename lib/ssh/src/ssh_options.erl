@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2004-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -229,7 +231,6 @@ handle_options(Role, OptsList0, Opts0) when is_map(Opts0),
         %% Enter the user's values into the map; unknown keys are
         %% treated as socket options
         check_and_save(OptsList2, OptionDefinitions, InitialMap)
-
     catch
         error:{EO, KV, Reason} when EO == eoptions ; EO == eerl_env ->
             if
@@ -455,7 +456,7 @@ default(server) ->
 
       tcpip_tunnel_in =>
            #{default => false,
-             chk => fun(V) -> erlang:is_boolean(V) end,
+             chk => fun(V) -> check_function2(V) orelse erlang:is_boolean(V) end,
              class => user_option
             },
 
@@ -586,6 +587,12 @@ default(server) ->
       connectfun =>
           #{default => fun(_,_,_) -> void end,
             chk => fun(V) -> check_function3(V) end,
+            class => user_option
+           },
+
+      bannerfun =>
+          #{default => fun(_) -> <<>> end,
+            chk => fun(V) -> check_function1(V) end,
             class => user_option
            },
 
@@ -884,6 +891,12 @@ default(common) ->
 
        max_random_length_padding =>
            #{default => ?MAX_RND_PADDING_LEN,
+             chk => fun(V) -> check_non_neg_integer(V) end,
+             class => undoc_user_option
+            },
+
+       channel_close_timeout =>
+           #{default => 5 * 1000,
              chk => fun(V) -> check_non_neg_integer(V) end,
              class => undoc_user_option
             }

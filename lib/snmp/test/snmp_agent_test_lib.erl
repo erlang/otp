@@ -1,7 +1,9 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2005-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -128,15 +130,17 @@ init_all(Config) when is_list(Config) ->
     %% Start nodes
     %%
 
-    ?IPRINT("init_all -> start sub-agent node"),
-    Args = ["-s", "snmp_test_sys_monitor", "start", "-s", "global", "sync"],
+    %% Since our nodes run through many test cases,
+    %% we, *current* process, cannot be linked to it.
+    %% Since we (current process) are dead once this
+    %% initiation is done, which would get the 'Peer'
+    %% process to terminate the node.
 
-    {ok, SaPeer, SaNode}  = ?CT_PEER(#{name => ?CT_PEER_NAME(snmp_sa), args => Args}),
-    unlink(SaPeer), %% must unlink, otherwise peer will exit before test case
+    ?IPRINT("init_all -> start sub-agent node"),
+    {SaPeer, SaNode} = ?START_NODE(?CT_PEER_NAME(snmp_sa), true),
 
     ?IPRINT("init_all -> start manager node"),
-    {ok, MgrPeer, MgrNode} = ?CT_PEER(#{name => ?CT_PEER_NAME(snmp_mgr), args => Args}),
-    unlink(MgrPeer), %% must unlink, otherwise peer will exit before test case
+    {MgrPeer, MgrNode} = ?START_NODE(?CT_PEER_NAME(snmp_mgr), true),
 
     global:sync(),
 

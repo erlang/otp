@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1997-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -2205,11 +2207,8 @@ make_sub_binary(Bin) when is_binary(Bin) ->
 make_sub_binary(List) ->
     make_sub_binary(list_to_binary(List)).
 
-make_unaligned_sub_binary(Bin0) when is_binary(Bin0) ->
-    Bin1 = <<0:3,Bin0/binary,31:5>>,
-    Sz = size(Bin0),
-    <<0:3,Bin:Sz/binary,31:5>> = id(Bin1),
-    Bin;
+make_unaligned_sub_binary(Bin) when is_binary(Bin) ->
+    erts_debug:unaligned_bitstring(Bin, 3);
 make_unaligned_sub_binary(List) ->
     make_unaligned_sub_binary(list_to_binary(List)).
 

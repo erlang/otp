@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
 %% 
-%% Copyright Ericsson AB 2001-2024. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2025. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,6 +22,8 @@
 -module(dets_v9).
 -moduledoc false.
 -compile([{nowarn_deprecated_function, [{erlang,phash,2}]}]).
+
+-compile(nowarn_deprecated_catch).
 
 %% Dets files, implementation part. This module handles version 9.
 %% To be called from dets.erl only.
@@ -2633,9 +2637,8 @@ v_segment(H, SegNo, SegPos, SegSlot) ->
     BucketP = SegPos + (4 * ?SZOBJP * SegSlot),
     case catch read_bucket(H, BucketP, H#head.type) of
 	{'EXIT', Reason} -> 
-	    dets_utils:vformat("** dets: Corrupt or truncated dets file~n", 
-			       []), 
-	    io:format("~nERROR ~tp~n", [Reason]);
+            io:format("** dets: Corrupt or truncated dets file~nERROR ~tp~n",
+                      [Reason]);
 	[] ->  %% don't print empty buckets
 	    true;
 	{Size, CollP, Objects} ->

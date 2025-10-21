@@ -16,7 +16,7 @@
 #define ASMJIT_LIBRARY_MAKE_VERSION(major, minor, patch) ((major << 16) | (minor << 8) | (patch))
 
 //! AsmJit library version, see \ref ASMJIT_LIBRARY_MAKE_VERSION for a version format reference.
-#define ASMJIT_LIBRARY_VERSION ASMJIT_LIBRARY_MAKE_VERSION(1, 12, 0)
+#define ASMJIT_LIBRARY_VERSION ASMJIT_LIBRARY_MAKE_VERSION(1, 13, 0)
 
 //! \def ASMJIT_ABI_NAMESPACE
 //!
@@ -27,7 +27,7 @@
 //! AsmJit default, which makes it possible to use multiple AsmJit libraries within a single project, totally
 //! controlled by users. This is useful especially in cases in which some of such library comes from third party.
 #if !defined(ASMJIT_ABI_NAMESPACE)
-  #define ASMJIT_ABI_NAMESPACE _abi_1_12
+  #define ASMJIT_ABI_NAMESPACE _abi_1_13
 #endif // !ASMJIT_ABI_NAMESPACE
 
 //! \}
@@ -43,7 +43,6 @@
 #include <string.h>
 
 #include <initializer_list>
-#include <iterator>
 #include <limits>
 #include <type_traits>
 #include <utility>
@@ -164,6 +163,41 @@ namespace asmjit {
 // Target Architecture Detection
 // =============================
 
+//! \addtogroup asmjit_core
+//! \{
+
+//! \def ASMJIT_ARCH_X86
+//!
+//! Defined to either 0, 32, or 64 depending on whether the target CPU is X86 (32) or X86_64 (64).
+
+//! \def ASMJIT_ARCH_ARM
+//!
+//! Defined to either 0, 32, or 64 depending on whether the target CPU is ARM (32) or AArch64 (64).
+
+//! \def ASMJIT_ARCH_MIPS
+//!
+//! Defined to either 0, 32, or 64 depending on whether the target CPU is MIPS (32) or MISP64 (64).
+
+//! \def ASMJIT_ARCH_RISCV
+//!
+//! Defined to either 0, 32, or 64 depending on whether the target CPU is RV32 (32) or RV64 (64).
+
+//! \def ASMJIT_ARCH_BITS
+//!
+//! Defined to either 32 or 64 depending on the target.
+
+//! \def ASMJIT_ARCH_LE
+//!
+//! Defined to 1 if the target architecture is little endian.
+
+//! \def ASMJIT_ARCH_BE
+//!
+//! Defined to 1 if the target architecture is big endian.
+
+//! \}
+
+//! \cond NONE
+
 #if defined(_M_X64) || defined(__x86_64__)
   #define ASMJIT_ARCH_X86 64
 #elif defined(_M_IX86) || defined(__X86__) || defined(__i386__)
@@ -188,10 +222,17 @@ namespace asmjit {
   #define ASMJIT_ARCH_MIPS 0
 #endif
 
-#define ASMJIT_ARCH_BITS (ASMJIT_ARCH_X86 | ASMJIT_ARCH_ARM | ASMJIT_ARCH_MIPS)
+// NOTE `__riscv` is the correct macro in this case as specified by "RISC-V Toolchain Conventions".
+#if (defined(__riscv) || defined(__riscv__)) && defined(__riscv_xlen)
+  #define ASMJIT_ARCH_RISCV __riscv_xlen
+#else
+  #define ASMJIT_ARCH_RISCV 0
+#endif
+
+#define ASMJIT_ARCH_BITS (ASMJIT_ARCH_X86 | ASMJIT_ARCH_ARM | ASMJIT_ARCH_MIPS | ASMJIT_ARCH_RISCV)
 #if ASMJIT_ARCH_BITS == 0
   #undef ASMJIT_ARCH_BITS
-  #if defined (__LP64__) || defined(_LP64)
+  #if defined(__LP64__) || defined(_LP64)
     #define ASMJIT_ARCH_BITS 64
   #else
     #define ASMJIT_ARCH_BITS 32
@@ -218,6 +259,7 @@ namespace asmjit {
   #endif
 #endif
 
+//! \endcond
 
 // C++ Compiler and Features Detection
 // ===================================
@@ -231,9 +273,68 @@ namespace asmjit {
 // API Decorators & C++ Extensions
 // ===============================
 
+//! \addtogroup asmjit_core
+//! \{
+
 //! \def ASMJIT_API
 //!
 //! A decorator that is used to decorate API that AsmJit exports when built as a shared library.
+
+//! \def ASMJIT_VIRTAPI
+//!
+//! This is basically a workaround. When using MSVC and marking class as DLL export everything gets exported, which
+//! is unwanted in most projects. MSVC automatically exports typeinfo and vtable if at least one symbol of the class
+//! is exported. However, GCC has some strange behavior that even if one or more symbol is exported it doesn't export
+//! typeinfo unless the class itself is decorated with "visibility(default)" (i.e. ASMJIT_API).
+
+//! \def ASMJIT_FORCE_INLINE
+//!
+//! Decorator to force inlining of functions, uses either `__attribute__((__always_inline__))` or __forceinline,
+//! depending on C++ compiler.
+
+//! \def ASMJIT_INLINE_NODEBUG
+//!
+//! Like \ref ASMJIT_FORCE_INLINE, but uses additionally `__nodebug__` or `__artificial__` attribute to make the
+//! debugging of some AsmJit functions easier, especially getters and one-line abstractions where usually you don't
+//! want to step in.
+
+//! \def ASMJIT_NOINLINE
+//!
+//! Decorator to avoid inlining of functions, uses either `__attribute__((__noinline__))` or `__declspec(noinline)`
+//! depending on C++ compiler.
+
+//! \def ASMJIT_NORETURN
+//!
+//! Decorator that marks functions that should never return. Typically used to implement assertion handlers that
+//! terminate, so the function never returns.
+
+//! \def ASMJIT_CDECL
+//!
+//! CDECL function attribute - either `__attribute__((__cdecl__))` or `__cdecl`.
+
+//! \def ASMJIT_STDCALL
+//!
+//! STDCALL function attribute - either `__attribute__((__stdcall__))` or `__stdcall`.
+//!
+//! \note This expands to nothing on non-x86 targets as STDCALL is X86 specific.
+
+//! \def ASMJIT_FASTCALL
+//!
+//! FASTCALL function attribute - either `__attribute__((__fastcall__))` or `__fastcall`.
+//!
+//! \note Expands to nothing on non-x86 targets as FASTCALL is X86 specific.
+
+//! \def ASMJIT_REGPARM(N)
+//!
+//! Expands to `__attribute__((__regparm__(N)))` when compiled by GCC or clang, nothing otherwise.
+
+//! \def ASMJIT_VECTORCALL
+//!
+//! VECTORCALL function attribute - either `__attribute__((__vectorcall__))` or `__vectorcall`.
+//!
+//! \note Expands to nothing on non-x86 targets as VECTORCALL is X86 specific.
+
+//! \}
 
 // API (Export / Import).
 #if !defined(ASMJIT_STATIC)
@@ -262,12 +363,6 @@ namespace asmjit {
   #define ASMJIT_VARAPI extern ASMJIT_API
 #endif
 
-//! \def ASMJIT_VIRTAPI
-//!
-//! This is basically a workaround. When using MSVC and marking class as DLL export everything gets exported, which
-//! is unwanted in most projects. MSVC automatically exports typeinfo and vtable if at least one symbol of the class
-//! is exported. However, GCC has some strange behavior that even if one or more symbol is exported it doesn't export
-//! typeinfo unless the class itself is decorated with "visibility(default)" (i.e. ASMJIT_API).
 #if defined(__GNUC__) && !defined(_WIN32)
   #define ASMJIT_VIRTAPI ASMJIT_API
 #else

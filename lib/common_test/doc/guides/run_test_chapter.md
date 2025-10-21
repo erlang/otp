@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2025. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -40,16 +42,19 @@ suites are compiled. If a particular test object directory is specified (meaning
 all suites in this directory are to be part of the test), `Common Test` runs
 function `make:all/1` in the directory to compile the suites.
 
-If compilation fails for one or more suites, the compilation errors are printed
-to tty and the operator is asked if the test run is to proceed without the
-missing suites, or be aborted. If the operator chooses to proceed, the tests
-having missing suites are noted in the HTML log. If `Common Test` is unable to
-prompt the user after compilation failure (if `Common Test` does not control
-`stdin`), the test run proceeds automatically without the missing suites. This
-behavior can however be modified with the `ct_run` flag
-`-abort_if_missing_suites`, or the `ct:run_test/1` option
-`{abort_if_missing_suites,TrueOrFalse}`. If `abort_if_missing_suites` is set to
-`true`, the test run stops immediately if some suites fail to compile.
+If compilation fails for one or more suites, the test run stops
+immediately if some suites fail to compile. This behavior can however
+be modified with the `ct_run` flag `-abort_if_missing_suites`, or the
+`ct:run_test/1` option `{abort_if_missing_suites,TrueOrFalse}`.Option
+`abort_if_missing_suites` is set to `true` by default.
+
+If `abort_if_missing_suites` is set to `false`, the compilation errors
+are printed to tty and the operator is asked if the test run is to
+proceed without the missing suites, or be aborted. If the operator
+chooses to proceed, the tests having missing suites are noted in the
+HTML log. If `Common Test` is unable to prompt the user after
+compilation failure (if `Common Test` does not control `stdin`), the
+test run proceeds automatically without the missing suites.
 
 Any help module (that is, regular Erlang module with name not ending with
 "\_SUITE") that resides in the same test object directory as a suite, which is
@@ -630,7 +635,7 @@ The step functionality can be used together with flag/option `suite` and `suite`
 The most flexible way to specify what to test, is to use a test specification,
 which is a sequence of Erlang terms. The terms are normally declared in one or
 more text files (see `ct:run_test/1`), but can also be passed to `Common Test`
-on the form of a list (see `ct:run_testspec/1`). There are two general types of
+in the form of a list (see `ct:run_testspec/1`). There are two general types of
 terms: configuration terms and test specification terms.
 
 With configuration terms it is, for example, possible to do the following:

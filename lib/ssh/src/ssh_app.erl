@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2004-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -29,7 +31,7 @@
 %%%                      |                  :
 %%%                      |                  +--> "connection sup" (etc)
 %%%                      |
-%%%                      +-----> sshc_sup --+--> "system sup" (etc)
+%%%                      +-----> sshd_sup --+--> "lsocket sup" (etc)
 %%%                                         |
 %%%                                         +--> "system sup" (etc)
 %%%                                         :
@@ -64,21 +66,26 @@ init([ssh_sup]) ->
     add_logger_filter(),
     SupFlags = #{strategy  => one_for_one,
                  intensity =>   10,
-                 period    => 3600
-                },
+                 period    => 3600},
     ChildSpecs = [#{id       => SupName,
                     start    => {supervisor, start_link,
-                                 [{local,SupName}, ?MODULE, [sshX_sup]]},
+                                 [{local,SupName}, ?MODULE, [SupName]]},
                     type     => supervisor}
-                  || SupName <- [sshd_sup, sshc_sup]
-                 ],
+                  || SupName <- [sshd_sup, sshc_sup]],
     {ok, {SupFlags,ChildSpecs}};
 
-init([sshX_sup]) ->
+init([sshd_sup]) ->
     SupFlags = #{strategy  => one_for_one,
                  intensity =>   10,
-                 period    => 3600
-                },
+                 period    => 3600},
+    ChildSpecs = [#{id       => ssh_lsocket_sup,
+                    start    => {ssh_lsocket_sup, start_link, []},
+                    type     => supervisor}],
+    {ok, {SupFlags,ChildSpecs}};
+init([sshc_sup]) ->
+    SupFlags = #{strategy  => one_for_one,
+                 intensity =>   10,
+                 period    => 3600},
     ChildSpecs = [],
     {ok, {SupFlags,ChildSpecs}}.
 

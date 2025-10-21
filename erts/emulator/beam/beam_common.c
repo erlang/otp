@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2024. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 1996-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -406,9 +408,9 @@ Eterm error_atom[NUMBER_EXIT_CODES] = {
  *
  * This is needed to generate correct stacktraces when throwing errors from
  * instructions that return like an ordinary function, such as call_nif. */
-ErtsCodePtr erts_printable_return_address(Process* p, Eterm *E) {
-    Eterm *stack_bottom = STACK_START(p);
-    Eterm *scanner = E;
+ErtsCodePtr erts_printable_return_address(const Process* p, const Eterm *E) {
+    const Eterm *stack_bottom = STACK_START(p);
+    const Eterm *scanner = E;
 
     ASSERT(is_CP(scanner[0]));
 
@@ -1285,11 +1287,13 @@ build_stacktrace(Process* c_p, Eterm exc) {
     return res;
 }
 
-Export*
-call_error_handler(Process* p, const ErtsCodeMFA *mfa, Eterm* reg, Eterm func)
+const Export *call_error_handler(Process* p,
+                                 const ErtsCodeMFA *mfa,
+                                 Eterm* reg,
+                                 Eterm func)
 {
+    const Export* ep;
     Eterm* hp;
-    Export* ep;
     int arity;
     Eterm args;
     Uint sz;
@@ -1333,48 +1337,8 @@ call_error_handler(Process* p, const ErtsCodeMFA *mfa, Eterm* reg, Eterm func)
     return ep;
 }
 
-static Export*
-apply_setup_error_handler(Process* p, Eterm module, Eterm function, Uint arity, Eterm* reg)
-{
-    Export* ep;
-
-    /*
-     * Find the export table index for the error handler. Return NULL if
-     * there is no error handler module.
-     */
-
-    if ((ep = erts_active_export_entry(erts_proc_get_error_handler(p),
-				     am_undefined_function, 3)) == NULL) {
-	return NULL;
-    } else {
-	int i;
-	Uint sz = 2*arity;
-	Eterm* hp;
-	Eterm args = NIL;
-
-	/*
-	 * Always copy args from registers to a new list; this ensures
-	 * that we have the same behaviour whether or not this was
-	 * called from apply or fixed_apply (any additional last
-	 * THIS-argument will be included, assuming that arity has been
-	 * properly adjusted).
-	 */
-
-        hp = HAlloc(p, sz);
-	for (i = arity-1; i >= 0; i--) {
-	    args = CONS(hp, reg[i], args);
-	    hp += 2;
-	}
-	reg[0] = module;
-	reg[1] = function;
-	reg[2] = args;
-    }
-
-    return ep;
-}
-
 static ERTS_INLINE void
-apply_bif_error_adjustment(Process *p, Export *ep,
+apply_bif_error_adjustment(Process *p, const Export *ep,
                            Eterm *reg, Uint arity,
                            ErtsCodePtr I, Uint stack_offset)
 {
@@ -1462,11 +1426,11 @@ apply_bif_error_adjustment(Process *p, Export *ep,
     }
 }
 
-Export*
+const Export *
 apply(Process* p, Eterm* reg, ErtsCodePtr I, Uint stack_offset)
 {
+    const Export *ep;
     int arity;
-    Export* ep;
     Eterm tmp;
     Eterm module = reg[0];
     Eterm function = reg[1];
@@ -1547,26 +1511,21 @@ apply(Process* p, Eterm* reg, ErtsCodePtr I, Uint stack_offset)
 	goto error;
     }
 
-    /*
-     * Get the index into the export table, or failing that the export
-     * entry for the error handler.
-     *
-     * Note: All BIFs have export entries; thus, no special case is needed.
-     */
+    /* Call the referenced function, if any: should the function not be found,
+     * create a stub entry which in turn calls the error handler. */
+    ep = erts_export_get_or_make_stub(module, function, arity);
 
-    if ((ep = erts_active_export_entry(module, function, arity)) == NULL) {
-	if ((ep = apply_setup_error_handler(p, module, function, arity, reg)) == NULL) goto error;
-    }
     apply_bif_error_adjustment(p, ep, reg, arity, I, stack_offset);
     DTRACE_GLOBAL_CALL_FROM_EXPORT(p, ep);
+
     return ep;
 }
 
-Export*
+const Export *
 fixed_apply(Process* p, Eterm* reg, Uint arity,
             ErtsCodePtr I, Uint stack_offset)
 {
-    Export* ep;
+    const Export *ep;
     Eterm module;
     Eterm function;
 
@@ -1593,105 +1552,28 @@ fixed_apply(Process* p, Eterm* reg, Uint arity,
 	return apply(p, reg, I, stack_offset);
     }
 
-    /*
-     * Get the index into the export table, or failing that the export
-     * entry for the error handler module.
-     *
-     * Note: All BIFs have export entries; thus, no special case is needed.
-     */
-
-    if ((ep = erts_active_export_entry(module, function, arity)) == NULL) {
-	if ((ep = apply_setup_error_handler(p, module, function, arity, reg)) == NULL)
-	    goto error;
-    }
+    /* Call the referenced function, if any: should the function not be found,
+     * create a stub entry which in turn calls the error handler. */
+    ep = erts_export_get_or_make_stub(module, function, arity);
 
     apply_bif_error_adjustment(p, ep, reg, arity, I, stack_offset);
     DTRACE_GLOBAL_CALL_FROM_EXPORT(p, ep);
     return ep;
 }
 
-int
-erts_hibernate(Process* c_p, Eterm* reg)
-{
-    int arity;
-    Eterm tmp;
-    Eterm module = reg[0];
-    Eterm function = reg[1];
-    Eterm args = reg[2];
+void erts_hibernate(Process *c_p, Eterm *regs, int arity) {
+    const Uint max_default_arg_reg =
+        sizeof(c_p->def_arg_reg) / sizeof(c_p->def_arg_reg[0]);
 
-    if (is_not_atom(module) || is_not_atom(function)) {
-	/*
-	 * No need to test args here -- done below.
-	 */
-    error:
-	c_p->freason = BADARG;
-
-    error2:
-	reg[0] = module;
-	reg[1] = function;
-	reg[2] = args;
-	return 0;
+    /* Save some memory if possible. */
+    if (arity <= max_default_arg_reg && c_p->arg_reg != c_p->def_arg_reg) {
+        erts_free(ERTS_ALC_T_ARG_REG, c_p->arg_reg);
+        c_p->max_arg_reg = max_default_arg_reg;
+        c_p->arg_reg = c_p->def_arg_reg;
     }
 
-    arity = 0;
-    tmp = args;
-    while (is_list(tmp)) {
-	if (arity < MAX_REG) {
-	    tmp = CDR(list_val(tmp));
-	    arity++;
-	} else {
-	    c_p->freason = SYSTEM_LIMIT;
-	    goto error2;
-	}
-    }
-    if (is_not_nil(tmp)) {	/* Must be well-formed list */
-	goto error;
-    }
-
-    /*
-     * At this point, arguments are known to be good.
-     */
-
-    if (c_p->arg_reg != c_p->def_arg_reg) {
-	/* Save some memory */
-	erts_free(ERTS_ALC_T_ARG_REG, c_p->arg_reg);
-	c_p->arg_reg = c_p->def_arg_reg;
-	c_p->max_arg_reg = sizeof(c_p->def_arg_reg)/sizeof(c_p->def_arg_reg[0]);
-    }
-
-#ifdef USE_VM_PROBES
-    if (DTRACE_ENABLED(process_hibernate)) {
-        ErtsCodeMFA cmfa = { module, function, arity};
-        DTRACE_CHARBUF(process_name, DTRACE_TERM_BUF_SIZE);
-        DTRACE_CHARBUF(mfa_buf, DTRACE_TERM_BUF_SIZE);
-        dtrace_fun_decode(c_p, &cmfa, process_name, mfa_buf);
-        DTRACE2(process_hibernate, process_name, mfa_buf);
-    }
-#endif
-    /*
-     * Arrange for the process to be resumed at the given MFA with
-     * the stack cleared.
-     */
-    c_p->arity = 3;
-    c_p->arg_reg[0] = module;
-    c_p->arg_reg[1] = function;
-    c_p->arg_reg[2] = args;
-    c_p->stop = c_p->hend - CP_SIZE; /* Keep first continuation pointer */
-
-    switch(erts_frame_layout) {
-    case ERTS_FRAME_LAYOUT_RA:
-        ASSERT(c_p->stop[0] == make_cp(beam_normal_exit));
-        break;
-    case ERTS_FRAME_LAYOUT_FP_RA:
-        FRAME_POINTER(c_p) = &c_p->stop[0];
-        ASSERT(c_p->stop[0] == make_cp(NULL));
-        ASSERT(c_p->stop[1] == make_cp(beam_normal_exit));
-        break;
-    }
-
-    c_p->catches = 0;
-    c_p->return_trace_frames = 0;
-    c_p->i = beam_run_process;
+    sys_memcpy(c_p->arg_reg, regs, arity * sizeof(Eterm));
+    c_p->arity = arity;
 
     /*
      * If there are no waiting messages, garbage collect and
@@ -1710,10 +1592,9 @@ erts_hibernate(Process* c_p, Eterm* reg)
 	    erts_atomic32_read_band_relb(&c_p->state, ~ERTS_PSFLG_ACTIVE);
 	ASSERT(!ERTS_PROC_IS_EXITING(c_p));
     }
+
     erts_proc_unlock(c_p, ERTS_PROC_LOCK_MSGQ|ERTS_PROC_LOCK_STATUS);
-    c_p->current = &BIF_TRAP_EXPORT(BIF_hibernate_3)->info.mfa;
     c_p->flags |= F_HIBERNATE_SCHED; /* Needed also when woken! */
-    return 1;
 }
 
 ErtsCodePtr
@@ -1743,12 +1624,7 @@ call_fun(Process* p,    /* Current process. */
 
     if (ERTS_LIKELY(code_ptr != beam_unloaded_fun &&
                     fun_arity(funp) == arity)) {
-        /* Copy the free variables, skipping the FunRef in the environment.
-         *
-         * Note that we avoid using fun_num_free as it asserts that the
-         * argument is a local function, which we don't need to care about
-         * here. */
-        for (int i = 0, num_free = fun_env_size(funp) - 1; i < num_free; i++) {
+        for (int i = 0; i < fun_num_free(funp); i++) {
             reg[i + arity] = funp->env[i];
         }
 
@@ -1793,10 +1669,10 @@ call_fun(Process* p,    /* Current process. */
             p->fvalue = TUPLE2(hp, fun, args);
             return NULL;
         } else {
-            ErlFunEntry *fe;
+            const ErlFunEntry *fe;
+            const Export *ep;
             Eterm module;
             Module *modp;
-            Export *ep;
 
             /* There is no module loaded that defines the fun, either because
              * the fun is newly created from the external representation (the
@@ -2478,8 +2354,8 @@ int catchlevel(Process *p)
 int
 erts_is_builtin(Eterm Mod, Eterm Name, int arity)
 {
+    const Export *ep;
     Export e;
-    Export* ep;
 
     if (Mod == am_erlang) {
         /*

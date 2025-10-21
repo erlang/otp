@@ -1,6 +1,8 @@
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2023-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -107,9 +109,17 @@
          fuzz0/0, fuzz0/1,
          alias_after_phi/0,
          check_identifier_type/0,
+
          gh9014_main/0,
 
-         duplicated_args/1]).
+         nested_tuple/0,
+         nested_cons/0,
+         nested_mixed/0,
+
+         see_through/0,
+
+         duplicated_args/1,
+         gh9813/0]).
 
 %% Trivial smoke test
 transformable0(L) ->
@@ -821,20 +831,21 @@ aliased_pair_tl_instr(Ls) ->
 aliasing_after_tuple_extract(N) ->
     aliasing_after_tuple_extract(N, {<<>>, dummy}).
 
-%% Check that both the tuple (Acc) and the extracted element (X) are
-%% aliased.
+%% Check that the Acc tuple is unique on entry, but that the elements
+%% are aliased.
 aliasing_after_tuple_extract(0, Acc) ->
 %ssa% (_,Acc) when post_ssa_opt ->
-%ssa% X = get_tuple_element(Acc, 0) {aliased => [Acc]},
-%ssa% _ = bs_create_bin(_,_,X,...) {aliased => [X]}.
+%ssa% X = get_tuple_element(Acc, 0) {unique => [Acc]},
+%ssa% Bin = bs_create_bin(_,_,X,...) {aliased => [X]},
+%ssa% Tuple = put_tuple(Bin, Acc) {aliased => [Bin], unique => [Acc]}.
     Acc;
 aliasing_after_tuple_extract(N, Acc) ->
     {X,_} = Acc,
     aliasing_after_tuple_extract(N - 1, {<<X/bitstring, 1>>, Acc}).
 
 
-%% Check that both the pair (Acc) and the extracted element (X) are
-%% aliased.
+%% Check that the pair (Acc) is unique on entry but that its contents
+%% are alised.
 alias_after_pair_hd(N) ->
     alias_after_pair_hd(N, [<<>>|dummy]).
 
@@ -842,13 +853,14 @@ alias_after_pair_hd(0, Acc) ->
     Acc;
 alias_after_pair_hd(N, Acc) ->
 %ssa% (_,Acc) when post_ssa_opt ->
-%ssa% X = get_hd(Acc) {aliased => [Acc]},
-%ssa% _ = bs_create_bin(_,_,X,...) {aliased => [X]}.
+%ssa% X = get_hd(Acc) {unique => [Acc]},
+%ssa% Bin = bs_create_bin(_,_,X,...) {aliased => [X]},
+%ssa% Tuple = put_list(Bin, Acc) {aliased => [Bin], unique => [Acc]}.
     [X|_] = Acc,
     alias_after_pair_hd(N - 1, [<<X/bitstring, 1>>|Acc]).
 
-%% Check that both the pair (Acc) and the extracted element (X) are
-%% aliased.
+%% Check that the pair (Acc) is unique on entry but that its contents
+%% are alised.
 alias_after_pair_tl(N) ->
     alias_after_pair_tl(N, [dummy|<<>>]).
 
@@ -856,8 +868,9 @@ alias_after_pair_tl(0, Acc) ->
     Acc;
 alias_after_pair_tl(N, Acc) ->
 %ssa% (_,Acc) when post_ssa_opt ->
-%ssa% X = get_tl(Acc) {aliased => [Acc]},
-%ssa% _ = bs_create_bin(_,_,X,...) {aliased => [X]}.
+%ssa% X = get_tl(Acc) {unique => [Acc]},
+%ssa% Bin = bs_create_bin(_,_,X,...) {aliased => [X]},
+%ssa% Tuple = put_list(Acc, Bin) {aliased => [Bin], unique => [Acc]}.
     [_|X] = Acc,
     alias_after_pair_tl(N - 1, [Acc|<<X/bitstring, 1>>]).
 
@@ -1071,7 +1084,7 @@ update_record0() ->
 
 update_record0([Val|Ls], Acc=#r0{not_aliased=N}) ->
 %ssa% (_, Rec) when post_ssa_opt ->
-%ssa% _ = update_record(reuse, 3, Rec, 3, A, 2, NA) {unique => [Rec, NA], aliased => [A]}.
+%ssa% _ = update_record(copy, 3, Rec, 3, A, 2, NA) {unique => [Rec, NA], aliased => [A]}.
     R = Acc#r0{not_aliased=N+1,aliased=Val},
     update_record0(Ls, R);
 update_record0([], Acc) ->
@@ -1084,7 +1097,7 @@ update_record1() ->
 
 update_record1([Val|Ls], Acc=#r1{not_aliased0=N0,not_aliased1=N1}) ->
 %ssa% (_, Rec) when post_ssa_opt ->
-%ssa% _ = update_record(reuse, 3, Rec, 3, NA0, 2, NA1) {unique => [Rec, NA1, NA0], source_dies => true}.
+%ssa% _ = update_record(copy, 3, Rec, 3, NA0, 2, NA1) {unique => [Rec, NA1, NA0], source_dies => true}.
     R = Acc#r1{not_aliased0=N0+1,not_aliased1=[Val|N1]},
     update_record1(Ls, R);
 update_record1([], Acc) ->
@@ -1183,6 +1196,61 @@ gh9014_wibble(State) ->
 gh9014_main() ->
     {counter, 1} = gh9014_wibble({state, {counter, 0}}).
 
+
+%% Check that the alias analysis handles a chain of extracts from
+%% tuples.
+nested_tuple_inner() ->
+    {{{{<<>>, e:x()}}}}.
+
+nested_tuple() ->
+%ssa% () when post_ssa_opt ->
+%ssa% U = bs_create_bin(append, _, T, ...) { unique => [T] },
+%ssa% R = put_tuple(U, A) { aliased => [A], unique => [U] },
+%ssa% ret(R).
+    {{{{Z,X}}}} = nested_tuple_inner(),
+    {<<Z/binary, 1:8>>,X}.
+
+%% Check that the alias analysis handles a chain of extracts from
+%% pairs.
+nested_cons_inner() ->
+    [[[[<<>>, e:x()]]]].
+
+nested_cons() ->
+%ssa% () when post_ssa_opt ->
+%ssa% U = bs_create_bin(append, _, T, ...) { unique => [T] },
+%ssa% R = put_tuple(U, A) { aliased => [A], unique => [U] },
+%ssa% ret(R).
+    [[[[Z,X]]]] = nested_cons_inner(),
+    {<<Z/binary, 1:8>>,X}.
+
+nested_mixed_inner() ->
+    [{[{<<>>, e:x()}]}].
+
+nested_mixed() ->
+%ssa% () when post_ssa_opt ->
+%ssa% U = bs_create_bin(append, _, T, ...) { unique => [T] },
+%ssa% R = put_tuple(U, A) { aliased => [A], unique => [U] },
+%ssa% ret(R).
+    [{[{Z,X}]}] = nested_mixed_inner(),
+    {<<Z/binary, 1:8>>,X}.
+
+%%
+%% Check that the analysis can see through embed-extract chains.
+%%
+-record(see_through, {a,b}).
+
+see_through() ->
+    [R] = see_through0(),
+    see_through1(R).
+
+see_through1({_,R}) ->
+%ssa% (_) when post_ssa_opt ->
+%ssa% _ = update_record(reuse, 3, Rec, _, _) {unique => [Rec], source_dies => true}.
+    R#see_through{a=e:f()}.
+
+see_through0() ->
+    [{foo, #see_through{a={bar, [foo]}}}].
+
 duplicated_args(V) ->
     %% The constructed list was considered unique, which made
     %% duplicated_args/2 think that both arguments were unique
@@ -1193,3 +1261,15 @@ duplicated_args(A, B) ->
 %ssa% (A, B) when post_ssa_opt ->
 %ssa% _ = put_tuple(A, B) {aliased => [A, B]}.
     {A, B}.
+
+%% Force aliasing of Creation to prevent destructive update.
+gh9813() ->
+%ssa% () when post_ssa_opt ->
+%ssa% _ = get_tuple_element(Creation, 1) {aliased => [Creation]}.
+    R = e:f(),
+    {_, DT} = Creation = gh9813_inner(0),
+    Aged = {19, setelement(1, DT, 38)},
+    {Creation, Aged} = R.
+
+gh9813_inner(Sec) ->
+    {19, {2038, Sec}}.

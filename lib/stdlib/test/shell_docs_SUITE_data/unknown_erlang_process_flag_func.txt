@@ -1,3 +1,10 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%%
+%% %CopyrightEnd%
 
 [;1m  process_flag(Flag, Value)[0m
 
@@ -33,11 +40,11 @@
        memory condition.
 
      Blocking due to disabled [;;4masync_dist[0m can be monitored by [;;4m[0m
-     [;;4merlang:system_monitor()[0m using the [;;4mbusy_dist_port[0m option.
-     Only data buffered by processes which (at the time of
-     sending a signal) have disabled [;;4masync_dist[0m will be counted
-     when determining whether or not an operation should block
-     the caller.
+     [;;4mtrace:system()[0m using the [;;4mbusy_dist_port[0m option. Only data
+     buffered by processes which (at the time of sending a
+     signal) have disabled [;;4masync_dist[0m will be counted when
+     determining whether or not an operation should block the
+     caller.
 
      The [;;4masync_dist[0m flag can also be set on a new process when
      spawning it using the [;;4mspawn_opt()[0m BIF with the option [;;4m[0m

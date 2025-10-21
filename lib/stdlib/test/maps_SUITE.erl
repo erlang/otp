@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1997-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -36,7 +38,7 @@
          t_with_2/1,t_without_2/1,
          t_intersect/1, t_intersect_with/1,
          t_merge_with/1, t_from_keys/1,
-         error_info/1,
+         error_info/1, doctests/1,
          t_from_list_kill_process/1,
          t_from_keys_kill_process/1,
          t_values_kill_process/1,
@@ -65,7 +67,7 @@ all() ->
      t_with_2,t_without_2,
      t_intersect, t_intersect_with,
      t_merge_with, t_from_keys,
-     error_info,
+     error_info, doctests,
      t_from_list_kill_process,
      t_from_keys_kill_process,
      t_values_kill_process,
@@ -1063,5 +1065,8 @@ error_info(_Config) ->
          {without, [[1,2,3], {no,map}]}
         ],
     error_info_lib:test_error_info(maps, L).
+
+doctests(_Config) ->
+    shell_docs:test(maps, []).
 
 id(I) -> I.

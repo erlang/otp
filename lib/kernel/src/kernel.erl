@@ -1,8 +1,10 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1996-2024. All Rights Reserved.
-%% 
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +16,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(kernel).
@@ -135,6 +137,14 @@ init([]) ->
                type => worker,
                modules => [?MODULE]},
 
+    %% Must be started before user
+    SigSrv = #{id => erl_signal_server,
+               start => {gen_event, start_link, [{local, erl_signal_server}]},
+               restart => permanent,
+               shutdown => 2000,
+               type => worker,
+               modules => dynamic},
+
     User = #{id => user,
              start => {user_sup, start, []},
              restart => temporary,
@@ -189,7 +199,7 @@ init([]) ->
             {ok, {SupFlags,
                   [Code, StdError | EarlyFile] ++
                       [OnLoad | LateFile] ++
-                      Peer ++
+                      [SigSrv | Peer] ++
                       [User, LoggerSup, Config, RefC, SafeSup]}};
         _ ->
             DistChildren =
@@ -204,13 +214,6 @@ init([]) ->
                        shutdown => 2000,
                        type => worker,
                        modules => [inet_db]},
-
-            SigSrv = #{id => erl_signal_server,
-                       start => {gen_event, start_link, [{local, erl_signal_server}]},
-                       restart => permanent,
-                       shutdown => 2000,
-                       type => worker,
-                       modules => dynamic},
 
             Timer = start_timer(),
             CompileServer = start_compile_server(),

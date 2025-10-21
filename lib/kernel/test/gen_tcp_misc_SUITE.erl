@@ -1,6 +1,8 @@
 %%
 %% %CopyrightBegin%
 %%
+%% SPDX-License-Identifier: Apache-2.0
+%%
 %% Copyright Ericsson AB 1998-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
@@ -29,15 +31,17 @@
 %%
 %% (cd /mnt/c/$LOCAL_TESTS/26/kernel_test/ && $ERL_TOP/bin/win32/erl.exe -sname kernel-26-tester -pa c:$LOCAL_TESTS/26/test_server)
 %% application:set_env(kernel, test_inet_backends, true).
+%%
 %% S = fun() -> ts:run(kernel, gen_tcp_misc_SUITE, [batch]) end.
 %% S = fun(SUITE) -> ts:run(kernel, SUITE, [batch]) end.
-%% S = fun() -> ct:run_test([{suite, gen_tcp_misc_SUITE}]) end.
-%% S = fun(SUITE) -> ct:run_test([{suite, SUITE}]) end.
 %% G = fun(GROUP) -> ts:run(kernel, gen_tcp_misc_SUITE, {group, GROUP}, [batch]) end.
 %% G = fun(SUITE, GROUP) -> ts:run(kernel, SUITE, {group, GROUP}, [batch]) end.
+%% T = fun(TC) -> ts:run(kernel, gen_tcp_misc_SUITE, TC, [batch]) end.
+%%
+%% S = fun() -> ct:run_test([{suite, gen_tcp_misc_SUITE}]) end.
+%% S = fun(SUITE) -> ct:run_test([{suite, SUITE}]) end.
 %% G = fun(GROUP) -> ct:run_test([{suite, gen_tcp_misc_SUITE}, {group, GROUP}]) end.
 %% G = fun(SUITE, GROUP) -> ct:run_test([{suite, SUITE}, {group, GROUP}]) end.
-%% T = fun(TC) -> ts:run(kernel, gen_tcp_misc_SUITE, TC, [batch]) end.
 %% T = fun(TC) -> ct:run_test([{suite, gen_tcp_misc_SUITE}, {testcase, TC}]) end.
 %% T = fun(TC) -> ct:run_test([{suite, gen_tcp_misc_SUITE}, {group, inet_backend_socket}, {testcase, TC}]) end.
 %% T = fun(S, TC) -> ct:run_test([{suite, S}, {testcase, TC}]) end.
@@ -104,6 +108,7 @@
 	 socket_monitor2/1,
 	 socket_monitor2_manys/1,
 	 socket_monitor2_manyc/1,
+         t_kernel_options/1, do_kernel_options_remote/2,
 	 otp_17492/1,
 	 otp_18357/1,
          otp_18883/1,
@@ -188,7 +193,7 @@ groups() ->
      {inet_backend_socket,    [], inet_backend_socket_cases()},
 
      {tickets,                [], ticket_cases()},
-     
+
      {ctrl_proc,              [], ctrl_proc_cases()},
      {close,                  [], close_cases()},
      {active,                 [], active_cases()},
@@ -240,7 +245,8 @@ all_std_cases() ->
      {group, socket_monitor},
      otp_17492,
      otp_18707,
-     send_block_unblock
+     send_block_unblock,
+     t_kernel_options
     ].
 
 ticket_cases() ->
@@ -405,23 +411,50 @@ end_per_suite(Config0) ->
     Config1.
 
 init_per_group(inet_backend_default = _GroupName, Config) ->
-    [{socket_create_opts, []} | Config];
+    ?P("~w(~w) -> check explicit inet-backend when"
+       "~n   Config: ~p", [?FUNCTION_NAME, _GroupName, Config]),
+    case ?EXPLICIT_INET_BACKEND(Config) of
+        undefined ->
+            [{socket_create_opts, []} | Config];
+        inet ->
+            {skip, "explicit inet-backend = inet"};
+        socket ->
+            {skip, "explicit inet-backend = socket"}
+    end;
 init_per_group(inet_backend_inet = _GroupName, Config) ->
-    case ?EXPLICIT_INET_BACKEND() of
-        true ->
-            %% The environment trumps us,
-            %% so only the default group should be run!
-            {skip, "explicit inet backend"};
-        false ->
-            [{socket_create_opts, [{inet_backend, inet}]} | Config]
+    ?P("~w(~w) -> check explicit inet-backend when"
+       "~n   Config: ~p", [?FUNCTION_NAME, _GroupName, Config]),
+    case ?EXPLICIT_INET_BACKEND(Config) of
+        undefined ->
+            case ?EXPLICIT_INET_BACKEND() of
+                true ->
+                    %% The environment trumps us,
+                    %% so only the default group should be run!
+                    {skip, "explicit inet backend"};
+                false ->
+                    [{socket_create_opts, [{inet_backend, inet}]} | Config]
+            end;
+        inet ->
+            [{socket_create_opts, [{inet_backend, inet}]} | Config];
+        socket ->
+            {skip, "explicit inet-backend = socket"}
     end;
 init_per_group(inet_backend_socket = _GroupName, Config) ->
-    case ?EXPLICIT_INET_BACKEND() of
-        true ->
-            %% The environment trumps us,
-            %% so only the default group should be run!
-            {skip, "explicit inet backend"};
-        false ->
+    ?P("~w(~w) -> check explicit inet-backend when"
+       "~n   Config: ~p", [?FUNCTION_NAME, _GroupName, Config]),
+    case ?EXPLICIT_INET_BACKEND(Config) of
+        undefined ->
+            case ?EXPLICIT_INET_BACKEND() of
+                true ->
+                    %% The environment trumps us,
+                    %% so only the default group should be run!
+                    {skip, "explicit inet backend"};
+                false ->
+                    [{socket_create_opts, [{inet_backend, socket}]} | Config]
+            end;
+        inet ->
+            {skip, "explicit inet-backend = inet"};
+        socket ->
             [{socket_create_opts, [{inet_backend, socket}]} | Config]
     end;
 init_per_group(_GroupName, Config) ->
@@ -2054,16 +2087,16 @@ do_show_econnreset_active(Config, Addr) ->
     {ok, S1} = gen_tcp:accept(L1),
     ok = gen_tcp:close(L1),
     ok = inet:setopts(Client1, [{linger, {true, 0}}]),
-    %% ?P("enable server socket debug"),
-    %% _ = inet:setopts(S1, [{debug, true}]),
-    ?P("close the client socket"),
+    %% ok = inet:setopts(S1, [{debug, true}]),
+    ?P("close client(1) socket"),
     ok = gen_tcp:close(Client1),
-    ?P("await server side econnreset (tcp-) error message"),
+    ?P("await accepted socket econnreset tcp-error message"),
     receive
 	{tcp_error, S1, econnreset} ->
+	    ?P("received accepted socket expected tcp-error message (econnreset)"),
 	    receive
 		{tcp_closed, S1} ->
-                    ?P("done"),
+                    ?P("received accepted socket tcp-closed message - done"),
 		    ok;
 		Other1 ->
                     ?P("UNEXPECTED (expected closed):"
@@ -2073,14 +2106,9 @@ do_show_econnreset_active(Config, Addr) ->
                     ?P("UNEXPECTED timeout (expected closed)"),
                     ct:fail({timeout, {server, no_tcp_closed}})
 	    end;
-
-	{tcp_closed, S1} ->
-            ?P("Received unexpected 'closed' message"),
-	    ct:fail({unexpected, on, econnreset, closed});
-	    
 	Other2 ->
-	    ?P("Received unexpected message:"
-	       "~n   ~p", [Other2]),
+            ?P("UNEXPECTED (expected error:econnreset):"
+               "~n   ~p", [Other2]),
 	    ct:fail({unexpected, on, econnreset, Other2})
     after 1000 ->
             ?P("UNEXPECTED timeout (expected error:econnreset)"),
@@ -8639,41 +8667,43 @@ bdt_payload(N) ->
 
 do_bidirectional_traffic(Config, #{lsock       := LSock,
                                    num_workers := NumWorkers} = Info) ->
-    ?P("case -> begin"),
+    ?P("~w -> begin", [?FUNCTION_NAME]),
     {ok, Port} = inet:port(LSock),
-    ?P("case -> listen socket port number ~w", [Port]),
+    ?P("~w -> listen socket port number ~w", [?FUNCTION_NAME, Port]),
     Control = self(),
-    ?P("case -> create ~w receivers", [NumWorkers]),
+    ?P("~w -> create ~w receivers", [?FUNCTION_NAME, NumWorkers]),
     Receivers = [spawn_link(fun () ->
                                     erlang:process_flag(trap_exit, true),
 				    exchange(Config,
                                              Info#{port => Port,
                                                    ctrl => Control})
 			    end) || _ <- lists:seq(1, NumWorkers)],
-    ?P("case -> await the result"),
+    ?P("~w -> await the result", [?FUNCTION_NAME]),
     %% Should we not collect as many as possible?
     %% To see how many as issues?
     Result =
 	%% If any of the receivers report, we have an error
         receive
             {timeout, Socket, Total} ->
-                ?P("case -> timeout msg for ~p: received ~w", [Socket, Total]),
+                ?P("~w -> timeout msg for ~p: received ~w",
+                   [?FUNCTION_NAME, Socket, Total]),
                 throw({fail, {timeout, Socket, Total}});
 	    {error, Socket, Reason} ->
-                ?P("case -> error msg for ~p: ~p", [Socket, Reason]),
+                ?P("~w -> error msg for ~p: ~p",
+                   [?FUNCTION_NAME, Socket, Reason]),
                 throw({fail, {error, Socket, Reason}})
         after 30000 ->
                 %% if it does not fail in 30 seconds, it most likely works
-                ?P("case -> timeout => success"),
+                ?P("~w -> timeout => success", [?FUNCTION_NAME]),
                 ok
         end,
-    ?P("case -> ensure all receivers terminated"),
+    ?P("~w -> ensure all receivers terminated", [?FUNCTION_NAME]),
     %% [begin unlink(Rec), exit(Rec, kill) end || Rec <- Receivers],
     bt_terminate_receivers(Receivers),
-    ?P("case -> done"),
+    ?P("~w -> done", [?FUNCTION_NAME]),
     Result.
 
-%% The point of this (function) is so that the 'receivers' should
+%% The point of this (function) is to ensure that the 'receivers' should
 %% get a chance to "tell us" what they are up to...
 bt_terminate_receivers(Recvs) ->
     bt_terminate_receivers_nice(Recvs),
@@ -8696,72 +8726,111 @@ exchange(Config, #{lsock    := LSock,
                    ctrl     := Control,
                    active_n := ActiveN}) ->
     %% spin up client
+    ?P("exchange -> spin up client"),
     ClientRcv =
         spawn_link(
           fun () ->
                   erlang:process_flag(trap_exit, true),
-                  ?P("exchange:client -> connect"),
-                  {ok, Client} =
-                      ?CONNECT(Config,
-                               Addr,
-                               Port,
-                               [binary,
-                                {ip, Addr}, {packet, 0}, {active, ActiveN}]),
-                  ?P("exchange:client -> connected: ~p"
+                  ?P("~w(client) -> try connect", [?FUNCTION_NAME]),
+                  %% Should we have some error handling here?
+                  %% That is, what does it mean if we fail to connect?
+                  %% After all the test case is about bidirectional traffic,
+                  %% connecting and accepting is not what this is about...
+                  %% System congested?
+                  COpts = [binary,
+                           {ip,     Addr},
+                           {packet, 0},
+                           {active, ActiveN}],
+                  Client =
+                      case ?CONNECT(Config, Addr, Port, COpts) of
+                          {ok, CS} ->
+                              CS;
+                          {error, econnreset = Reason} ->
+                              ?P("exchange:client -> "
+                                 "failed connect: ~p => SKIP",
+                                 [Reason]),
+                              exit({skip, Reason})
+                      end,
+                  ?P("~w(client) -> connected:"
+                     "~n      Socket:   ~p"
                      "~n      PeerName: ~p"
                      "~n      SockName: ~p",
-                     [Client,
+                     [?FUNCTION_NAME,
+                      Client,
                       oki(inet:peername(Client)), oki(inet:sockname(Client))]),
                   put(role, connected),
                   send_recv_loop(undefined,
                                  Client, Payload, Control, ActiveN)
           end),
-    ?P("exchange -> accept"),
-    {ok, Socket} = gen_tcp:accept(LSock),
-    ?P("exchange -> accepted: ~p"
+    ?P("~w -> try accept", [?FUNCTION_NAME]),
+    Socket = case gen_tcp:accept(LSock) of
+                 {ok, AS} ->
+                     AS;
+                 {error, AReason} ->
+                     ?P("exchange -> accept failed: "
+                        "~n     ~p"
+                        "~n   when"
+                        "~n     (listen) Socket Info: ~p",
+                        [AReason, socket:info(LSock)]),
+                     exit({accept, AReason})
+             end,
+    ?P("~w -> accepted: "
+       "~n      Socket:   ~p"
        "~n      PeerName: ~p"
        "~n      SockName: ~p",
-       [Socket, oki(inet:peername(Socket)), oki(inet:sockname(Socket))]),
+       [?FUNCTION_NAME,
+        Socket,
+        oki(inet:peername(Socket)), oki(inet:sockname(Socket))]),
     %% sending process
     put(role, accepted),
     send_recv_loop(ClientRcv,
                    Socket, Payload, Control, ActiveN).
 
 %% ClientPid: pid() | undefined
+%% This function is used both by the "main" process and the client process.
+%% In the client process, ClientPid is 'undefined'.
 send_recv_loop(ClientPid,
                Socket, Payload, Control, ActiveN) ->
     %% {active, N} must be set to active > 12 to trigger the issue
     %% {active, 30} seems to trigger it quite often & reliably
     Role = get(role),
-    ?P("[~w] set (initial) active: ~p", [Role, ActiveN]),
+    ?P("~w(~w) -> set (initial) active: ~p", [?FUNCTION_NAME, Role, ActiveN]),
     inet:setopts(Socket, [{active, ActiveN}]),
-    ?P("[~w] spawn sender", [Role]),
+    ?P("~w(~w) -> spawn sender", [?FUNCTION_NAME, Role]),
     SenderPid = spawn_link(
         fun Sender() ->
-            case gen_tcp:send(Socket, Payload) of
-                ok ->
-                    Sender();
-                {error, closed} ->
-                    ?P("[~w,sender] Socket closed", [Role]),
-                    exit(normal);
+                T0 = ?TS(),                
+                case gen_tcp:send(Socket, Payload) of
+                    ok ->
+                        Sender();
+                    {error, closed} ->
+                        T1 = ?TS(),
+                        ?P("~w:sender(~w,sender) -> "
+                           "Socket failed (~w ms) - socket closed",
+                           [?FUNCTION_NAME, Role, T1 - T0]),
+                        exit(normal);
 
-                %% This happens at least for connected sender
-                {error, einval = Reason} ->
-                    ?P("[~w,sender] Send failed: "
-                       "~n      Reason: ~p"
-                       "~n      Links:  ~p", [Role, Reason, links()]),
-                    exit(normal);
+                    %% This happens at least for connected sender
+                    {error, einval = Reason} ->
+                        T1 = ?TS(),
+                        ?P("~w:sender(~w,sender) -> Send failed (~w ms): "
+                           "~n      Reason: ~p"
+                           "~n      Links:  ~p",
+                           [?FUNCTION_NAME, Role, T1 - T0, Reason, links()]),
+                        exit(normal);
 
-                {error, Reason} ->
-                    ?P("[~w,sender] Send failed: "
-                       "~n      Reason: ~p"
-                       "~n      Links:  ~p", [Role, Reason, links()]),
-                    exit({send_failed, Reason})
-            end
+                    {error, Reason} ->
+                        T1 = ?TS(),
+                        ?P("~w:sender(~w,sender) -> Send failed (~w ms): "
+                           "~n      Reason: ~p"
+                           "~n      Links:  ~p",
+                           [?FUNCTION_NAME, Role, T1 - T0, Reason, links()]),
+                        exit({send_failed, Reason})
+                end
         end),
-    ?P("[~w] begin recv when"
+    ?P("~w(~w) -> begin recv when"
        "~n   Sender: ~p"
-       "~n   Links:  ~p", [Role, SenderPid, links()]),
+       "~n   Links:  ~p", [?FUNCTION_NAME, Role, SenderPid, links()]),
     recv(ClientPid, SenderPid,
          Socket, 0, 0, 0, Control, ActiveN).
 
@@ -8769,17 +8838,17 @@ recv(ClientPid, SenderPid,
      Socket, Total, TotIter, TotAct, Control, ActiveN) ->
     receive
         terminate ->
-            ?P("[~w,recv] received terminate message when"
+            ?P("~w(~w,recv) -> received terminate message when"
                "~n      Total received:    ~w"
                "~n      Total iterations:  ~w"
                "~n      Total activations: ~w"
                "~n      Socket:            ~p"
                "~n      Socket Info:       ~p",
-               [get(role),
+               [?FUNCTION_NAME, get(role),
                 Total, TotIter, TotAct,
                 Socket, (catch inet:info(Socket))]),
             maybe_stop_client(ClientPid),
-            ?P("~w[~w,recv] -> close socket", [?FUNCTION_NAME, get(role)]),
+            ?P("~w(~w,recv) -> close socket", [?FUNCTION_NAME, get(role)]),
             (catch gen_tcp:close(Socket)),
             await_sender_exit(SenderPid),
             exit(normal);
@@ -8794,18 +8863,19 @@ recv(ClientPid, SenderPid,
             recv(ClientPid, SenderPid,
                  Socket, Total, TotIter, TotAct + 1, Control, ActiveN);
         {tcp_closed, Socket} ->
-            ?P("[~w,recv] closed when"
+            ?P("~w(~w,recv) -> closed when"
                "~n      Total received:    ~w"
                "~n      Total iterations:  ~w"
                "~n      Total activations: ~w"
                "~n      Socket Info:       ~p",
-	       [get(role), Total, TotIter, TotAct, (catch inet:info(Socket))]),
+	       [?FUNCTION_NAME, get(role),
+                Total, TotIter, TotAct, (catch inet:info(Socket))]),
 	    ok;
 
         %% It is a race if this message is received before the tcp_closed
         %% since we are now linked with the client process...
         {'EXIT', ClientPid, normal} ->
-            ?P("[~w,recv] received (normal) exit message from client"
+            ?P("~w(~w,recv) -> received (normal) exit message from client"
                "~n   when:"
                "~n      Total received:    ~w"
                "~n      Total iterations:  ~w"
@@ -8814,7 +8884,7 @@ recv(ClientPid, SenderPid,
                "~n      PeerName:          ~p"
                "~n      SockName:          ~p"
                "~n      Socket Info:       ~p",
-               [get(role),
+               [?FUNCTION_NAME, get(role),
                 Total, TotIter, TotAct,
                 Socket, oki(inet:peername(Socket)), oki(inet:sockname(Socket)),
                 (catch inet:info(Socket))]),
@@ -8823,9 +8893,9 @@ recv(ClientPid, SenderPid,
                  Total, TotIter, TotAct,
                  Control, ActiveN);
 
-        Other ->
-            ?P("[~w,recv] received unexpected message"
-               "~n      Msg:               ~p"
+        {'EXIT', ClientPid, Reason} ->
+            ?P("~w(~w,recv) received unexpected exit message from client"
+               "~n      Reason:            ~p"
                "~n   when:"
                "~n      Total received:    ~w"
                "~n      Total iterations:  ~w"
@@ -8834,8 +8904,31 @@ recv(ClientPid, SenderPid,
                "~n      PeerName:          ~p"
                "~n      SockName:          ~p"
                "~n      Socket Info:       ~p",
-               [get(role),
+               [?FUNCTION_NAME, get(role),
+                Reason,
+                Total, TotIter, TotAct,
+                Socket, oki(inet:peername(Socket)), oki(inet:sockname(Socket)),
+                (catch inet:info(Socket))]),
+            (catch gen_tcp:close(Socket)),
+            await_sender_exit(SenderPid),
+            Control ! {error, Socket, Reason};
+
+        Other ->
+            ?P("~w(~w,recv) received unexpected message"
+               "~n      Msg:               ~p"
+               "~n   when:"
+               "~n      Client Pid:        ~p"
+               "~n      Sender Pid:        ~p"
+               "~n      Total received:    ~w"
+               "~n      Total iterations:  ~w"
+               "~n      Total activations: ~w"
+               "~n      Socket:            ~p"
+               "~n      PeerName:          ~p"
+               "~n      SockName:          ~p"
+               "~n      Socket Info:       ~p",
+               [?FUNCTION_NAME, get(role),
                 Other,
+                ClientPid, SenderPid,
                 Total, TotIter, TotAct,
                 Socket, oki(inet:peername(Socket)), oki(inet:sockname(Socket)),
                 (catch inet:info(Socket))]),
@@ -8846,7 +8939,7 @@ recv(ClientPid, SenderPid,
 
     after 2000 ->
             %% no data received in 2 seconds => test failed
-            ?P("[~w,recv timeout] received nothing when:"
+            ?P("~w(~w,recv timeout) -> received nothing when:"
                "~n      Total received:    ~w"
                "~n      Total iterations:  ~w"
                "~n      Total activations: ~w"
@@ -8854,7 +8947,7 @@ recv(ClientPid, SenderPid,
                "~n      PeerName:          ~p"
                "~n      SockName:          ~p"
                "~n      Socket Info:       ~p",
-               [get(role),
+               [?FUNCTION_NAME, get(role),
                 Total, TotIter, TotAct,
                 Socket, oki(inet:peername(Socket)), oki(inet:sockname(Socket)),
                 (catch inet:info(Socket))]),
@@ -8866,41 +8959,42 @@ recv(ClientPid, SenderPid,
 
 %% The accepted (send and recv) process has a pid.
 %% But the connected (client) process does not.
+%% So, role will always be 'accepted' in the printouts...
 maybe_stop_client(ClientPid) when is_pid(ClientPid) ->
-    ?P("~w -> forward terminate to client process ~p",
-       [?FUNCTION_NAME, ClientPid]),
+    ?P("~w(~w) -> forward terminate to client process ~p",
+       [?FUNCTION_NAME, get(role), ClientPid]),
     ClientPid ! terminate,
     receive
         {'EXIT', ClientPid, _} ->
-            ?P("~w -> received exit signal from client process ~p",
-               [?FUNCTION_NAME, ClientPid]),
+            ?P("~w(~w) -> received exit signal from client process ~p",
+               [?FUNCTION_NAME, get(role), ClientPid]),
             ok
     after 2000 ->
             %% We need to give the client time to wait for *its*
             %% sender to terminate (therefor 2000 here).
-            ?P("~w -> client process ~p did not die in time - give up"
+            ?P("~w(~w) -> client process ~p did not die in time - give up"
                "~n   Info:  ~p"
                "~n   Links: ~p",
-               [?FUNCTION_NAME, ClientPid, pi(ClientPid), links()]),
+               [?FUNCTION_NAME, get(role), ClientPid, pi(ClientPid), links()]),
             ok
     end;
 maybe_stop_client(_) ->
     ok.
 
 await_sender_exit(SenderPid) ->
-    ?P("~w[~w,recv] -> await sender (~p) exit when"
+    ?P("~w(~w,recv) -> await sender (~p) exit when"
        "~n   Links: ~p",
        [?FUNCTION_NAME, get(role), SenderPid, links()]),
     receive
         {'EXIT', SenderPid, _Reason} ->
-            ?P("~w -> received exit signal from sender process ~p",
-               [?FUNCTION_NAME, SenderPid]),
+            ?P("~w(~w) -> received exit signal from sender process ~p",
+               [?FUNCTION_NAME, get(role), SenderPid]),
             ok
     after 1000 ->
-            ?P("~w -> sender process ~p did not die in time - give up"
+            ?P("~w(~w) -> sender process ~p did not die in time - give up"
                "~n   Info:  ~p"
                "~n   Links: ~p",
-               [?FUNCTION_NAME, SenderPid, pi(SenderPid), links()]),
+               [?FUNCTION_NAME, get(role), SenderPid, pi(SenderPid), links()]),
             ok
     end.
 
@@ -8982,8 +9076,8 @@ sm_await_down(Pid, Mon, ExpRes) ->
 	    ok;
 	{'DOWN', Mon, process, Pid, UnexpRes} ->
 	    ?P("received unexpected process down message from ~p: "
-	       "~n   ~p, Expected:"
-               "~n   ~p", [Pid, UnexpRes, ExpRes]),
+	       "~n   ~p"
+	       "~n   Expected: ~p", [Pid, UnexpRes, ExpRes]),
 	    ct:fail({unexpected_down, UnexpRes, ExpRes})
     end.
 
@@ -9521,18 +9615,14 @@ otp_18357(Config) when is_list(Config) ->
 
 do_otp_18357(#{name := Name, addr := Addr}) ->
     ?P("try create listen socket"),
-    {ok, L}      = gen_tcp:listen(0, [{ifaddr, Addr}]),
+    {ok, L}      = gen_tcp:listen(0,
+                                  [{inet_backend, socket},
+                                   {debug,        true},
+                                   {ifaddr,       Addr}]),
     {ok, PortNo} = inet:port(L),
 
-    %% Need this for the error handling
-    OS = case os:type() of
-             {unix, darwin = Flavor} ->
-                 Flavor;
-             _ ->
-                 other % We do not really care...
-         end,
-
     ?P("try connect (with bind-to-device)"),
+    OS = which_os(),
     C = case gen_tcp:connect(Addr, PortNo,
                              [{inet_backend,   socket},
                               {debug,          true},
@@ -9847,6 +9937,113 @@ payload(N, Bin) ->
     C = rand:uniform($z - $0 + 1) + $0,
     payload(N - 1, <<Bin/binary, C>>).
 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% This is the most basic of tests.
+
+%% Create a new node with kernel option(s) 'inet_default_listen_options'
+%% and 'inet_default_connect_options' set then rpc call a function which
+%% creates socket(s) and reads back their values of that socket (buffer
+%% and recbuf).
+%%
+t_kernel_options(Config) when is_list(Config) ->
+    ?TC_TRY(?FUNCTION_NAME,
+            fun() -> ok end,
+            fun() -> case ?WHICH_LOCAL_ADDR(inet) of
+                         {ok, Addr} ->
+                             Addr;
+                         {error, Reason} ->
+                             throw({skip, Reason})
+                     end
+            end,
+            fun(Addr) ->
+                    do_kernel_options(Config, Addr)
+            end,
+            fun(_) ->
+                    ok
+            end).
+
+do_kernel_options(Config, Addr) ->
+    LBSz   = 12345,
+    LRBSz  = 54321,
+    CBSz   = 23456,
+    CRBSz  = 65432,
+    KOpts = ?F("-kernel inet_default_listen_options "
+               "\"[{buffer,~w},{recbuf,~w}]\" "
+               "-kernel inet_default_connect_options "
+               "\"[{buffer,~w},{recbuf,~w}]\"",
+               [LBSz, LRBSz, CBSz, CRBSz]),
+    ?P("try start node"),
+    case ?START_NODE(?UNIQ_NODE_NAME, KOpts) of
+        {ok, Node} ->
+            LExpected = [{buffer, LBSz}, {recbuf, LRBSz}],
+            CExpected = [{buffer, CBSz}, {recbuf, CRBSz}],
+            %% Listen, Connect, Accept
+            Expected = {LExpected, CExpected, LExpected},
+            ?P("node ~p started - try get (tcp) buffer options", [Node]),
+            case rpc:call(Node,
+                          ?MODULE,
+                          do_kernel_options_remote,
+                          [Config, Addr]) of
+                {
+                 [{buffer, LBSz}, {recbuf, RB1}], % Listen
+                 [{buffer, CBSz}, {recbuf, RB2}], % Connect
+                 [{buffer, LBSz}, {recbuf, RB3}]  % Accept
+                }
+                  when (RB1 >= LRBSz) andalso
+                       (RB2 >= CRBSz) andalso
+                       (RB3 >= LRBSz) -> 
+                    ?P("options (buffers) verified:"
+                       "~n   listen:  ~p (>= ~p)"
+                       "~n   connect: ~p (>= ~p)"
+                       "~n   accept:  ~p (>= ~p)",
+                       [RB1, LRBSz, RB2, CRBSz, RB3, LRBSz]),
+                    (catch ?STOP_NODE(Node)),
+                    ok;
+                Actual ->
+                    ?P("unexpected:"
+                       "~n   Expected: ~p"
+                       "~n   Actual:   ~p", [Expected, Actual]),
+                    (catch ?STOP_NODE(Node)),
+                    exit({unexpected, Expected, Actual})
+            end;
+        {error, Reason} ->
+            ?P("failed start node: ~p", [Reason]),
+            error
+    end.
+
+do_kernel_options_remote(Config, Addr) ->
+    LS = case ?LISTEN(Config, 0, [{ip, Addr}]) of
+             {ok, S1} ->
+                 S1;
+             {error, _} = ERROR1 ->
+                 exit({listen, ERROR1})
+         end,
+    {LAddr, LPort} = case inet:sockname(LS) of
+                         {ok, {A, P}} ->
+                             {A, P};
+                                                  {error, _} = SN_ERROR ->
+                             exit({sockname, SN_ERROR})
+                     end,
+    CS = case ?CONNECT(Config, LAddr, LPort, [{ip, Addr}]) of
+             {ok, S2} ->
+                 S2;
+             {error, _} = ERROR2 ->
+                 exit({connect, ERROR2})
+         end,
+    AS = case gen_tcp:accept(LS) of
+             {ok, S3} ->
+                 S3;
+             {error, _} = ERROR3 ->
+                 exit({accept, ERROR3})
+         end,
+    {ok, LBuffs} = inet:getopts(LS, [buffer, recbuf]),
+    {ok, CBuffs} = inet:getopts(CS, [buffer, recbuf]),
+    {ok, ABuffs} = inet:getopts(AS, [buffer, recbuf]),
+    {LBuffs, CBuffs, ABuffs}.
+
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 is_windows() ->
@@ -9928,6 +10125,19 @@ skip(Reason) ->
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% This is a simplified os:type()
+which_os() ->
+    %% Need this for the error handling
+    case os:type() of
+        {unix, Flavor} ->
+            Flavor;
+        {win32, nt} ->
+            windows;
+        _ ->
+            other % We do not really care...
+    end.
+
 
 messages() ->
     pi(messages).

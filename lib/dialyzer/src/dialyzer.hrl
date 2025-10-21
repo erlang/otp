@@ -1,5 +1,12 @@
 %%% This is an -*- Erlang -*- file.
 %%%
+%%% %CopyrightBegin%
+%%%
+%%% SPDX-License-Identifier: Apache-2.0
+%%%
+%%% Copyright 2004-2010 held by the authors. All Rights Reserved.
+%%% Copyright Ericsson AB 2009-2025. All Rights Reserved.
+%%%
 %%% Licensed under the Apache License, Version 2.0 (the "License");
 %%% you may not use this file except in compliance with the License.
 %%% You may obtain a copy of the License at
@@ -11,6 +18,8 @@
 %%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %%% See the License for the specific language governing permissions and
 %%% limitations under the License.
+%%%
+%%% %CopyrightEnd%
 %%%
 %%%-------------------------------------------------------------------
 %%% File    : dialyzer.hrl
@@ -39,6 +48,7 @@
 -define(WARN_CONTRACT_EXTRA_RETURN, warn_contract_extra_return).
 -define(WARN_CONTRACT_MISSING_RETURN, warn_contract_missing_return).
 -define(WARN_CONTRACT_NOT_EQUAL, warn_contract_not_equal).
+-define(WARN_CONTRACT_OPAQUE, warn_contract_opaque).
 -define(WARN_CONTRACT_RANGE, warn_contract_range).
 -define(WARN_CONTRACT_SUBTYPE, warn_contract_subtype).
 -define(WARN_CONTRACT_SUPERTYPE, warn_contract_supertype).
@@ -51,6 +61,7 @@
 -define(WARN_NON_PROPER_LIST, warn_non_proper_list).
 -define(WARN_NOT_CALLED, warn_not_called).
 -define(WARN_OPAQUE, warn_opaque).
+-define(WARN_OPAQUE_UNION, warn_opaque_union).
 -define(WARN_OVERLAPPING_CONTRACT, warn_overlapping_contract).
 -define(WARN_RETURN_NO_RETURN, warn_return_no_exit).
 -define(WARN_RETURN_ONLY_EXIT, warn_return_only_exit).
@@ -66,6 +77,7 @@
 -type dial_warn_tag() :: ?WARN_BEHAVIOUR | ?WARN_BIN_CONSTRUCTION
                        | ?WARN_CALLGRAPH | ?WARN_CONTRACT_EXTRA_RETURN
                        | ?WARN_CONTRACT_MISSING_RETURN | ?WARN_CONTRACT_NOT_EQUAL
+                       | ?WARN_CONTRACT_OPAQUE
                        | ?WARN_CONTRACT_RANGE | ?WARN_CONTRACT_SUBTYPE
                        | ?WARN_CONTRACT_SUPERTYPE | ?WARN_CONTRACT_SYNTAX
                        | ?WARN_CONTRACT_TYPES | ?WARN_FAILING_CALL
@@ -141,7 +153,8 @@ the warning options.
                        | 'extra_return'
                        | 'no_extra_return'
                        | 'missing_return'
-                       | 'no_missing_return'.
+                       | 'no_missing_return'
+                       | 'opaque_union'.
 -doc """
 Option `from` defaults to `byte_code`. Options `init_plt` and `plts` change the
 default.

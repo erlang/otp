@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2024-2025. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,21 +21,11 @@
 %%
 
 -module(opaque_bug6).
+-export([record_update/1]).
 
--export([loop/1]).
--export_type([unused_dummy/0]).
+record_update(R) ->
+    Anno = element(2, R),
+    [ln(Anno), Anno].
 
--type other_type() :: opaque_bug6_adt:adt().
-
-%% Required for decorate/3 to be called, jarring the bug loose. Does not need
-%% to be used anywhere.
--opaque unused_dummy() :: {pid(), binary()}.
-
--spec loop(other_type()) -> no_return().
-loop(OtherType) ->
-    receive
-        _X ->
-            loop(OtherType)
-    after timer:minutes(30) ->
-            opaque_bug6_adt:do(OtherType)
-    end.
+ln(Anno) ->
+    opaque_adt:line(Anno).

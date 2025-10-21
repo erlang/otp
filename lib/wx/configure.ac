@@ -2,7 +2,9 @@ dnl Process this file with autoconf to produce a configure script. -*-m4-*-
 
 dnl %CopyrightBegin%
 dnl
-dnl Copyright Ericsson AB 2008-2024. All Rights Reserved.
+dnl SPDX-License-Identifier: Apache-2.0
+dnl
+dnl Copyright Ericsson AB 2008-2025. All Rights Reserved.
 dnl
 dnl Licensed under the Apache License, Version 2.0 (the "License");
 dnl you may not use this file except in compliance with the License.
@@ -25,6 +27,8 @@ m4_include([otp.m4])
 AC_CONFIG_AUX_DIR([${ERL_TOP}/make/autoconf])
 
 AC_PREREQ([2.71])
+
+ERL_PUSH_WERROR
 
 ## Delete previous failed configure results
 if test -f ./CONF_INFO; then
@@ -70,6 +74,7 @@ AC_PROG_CC
 AC_PROG_CXX
 AC_PROG_RANLIB
 AC_PROG_CPP
+LM_PROG_LD
 
 AC_LANG_PUSH([C++])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM(
@@ -85,6 +90,18 @@ WXERL_CAN_BUILD_DRIVER=false
 
 AC_MSG_NOTICE(Building for [$host_os])
 WXERL_CAN_BUILD_DRIVER=true
+
+ERL_OSSF_FLAGS
+
+case $host_os in
+    darwin*)
+        dnl For Darwin (MacOS) disable one hardening option which causes problems
+        dnl with C++ catch, as it is necessary for the module to operate correctly
+        CFLAGS=`echo "$CFLAGS" | sed 's/-mbranch-protection=standard/ /g'`
+        ;;
+    *)
+	    ;;
+esac
 
 LM_WINDOWS_ENVIRONMENT
 
@@ -239,7 +256,7 @@ dnl ----------------------------------------------------------------------
 case $host_os in
     mingw32)
 	DEBUG_CFLAGS="-g -Wall -DDEBUG $CFLAGS"
-	CFLAGS="-g -Wall -O2 $CFLAGS -fomit-frame-pointer -fno-strict-aliasing"
+	CFLAGS="-g -Wall -O2 $CFLAGS -fomit-frame-pointer"
 	;;
     win32)
 	DEBUG_CFLAGS="-g -Wall $CFLAGS -DDEBUG"
@@ -248,11 +265,11 @@ case $host_os in
     darwin*)
 	DEBUG_CFLAGS="-g -Wall -fPIC $CFLAGS -DDEBUG"
 	# omit-frame-pointer causes seg faults with 10.9 and clang
-	CFLAGS="-g -Wall -fPIC $CFLAGS -fno-strict-aliasing"
+	CFLAGS="-g -Wall -fPIC $CFLAGS"
 	;;
     *)
 	DEBUG_CFLAGS="-g -Wall -fPIC $CFLAGS -DDEBUG"
-	CFLAGS="-Wall -fPIC $CFLAGS -fomit-frame-pointer -fno-strict-aliasing"
+	CFLAGS="-Wall -fPIC $CFLAGS -fomit-frame-pointer"
 	;;
 esac
 
@@ -488,22 +505,30 @@ AS_IF(
     CWX_DOCUMENTED="$DOC_OPT2/wxWidgets-3.*.* $DOC_OPT2/wxMSW-3.*.* $CWX_DOCUMENTED"
 
     case $ac_cv_sizeof_void_p in
-    	 8)
-                VC_LIB=lib/vc_x64_lib
-                WX_ARCH=x64
-		DOC_OPT64_1=/opt/local64/pgm
-		DOC_OPT64_2=/mnt/c/opt/local64/pgm
-		CWX_DOCUMENTED="$DOC_OPT64_1/wxWidgets-3.*.* $DOC_OPT64_1/wxMSW-3.*.* $CWX_DOCUMENTED"
-		CWX_DOCUMENTED="$DOC_OPT64_2/wxWidgets-3.*.* $DOC_OPT64_2/wxMSW-3.*.* $CWX_DOCUMENTED"
-		;;
-         *)
-                VC_LIB=lib/vc_lib
-                WX_ARCH=x86
-		DOC_OPT3=/opt/local32/pgm
-		DOC_OPT4=/mnt/c/opt/local32/pgm
-		CWX_DOCUMENTED="$DOC_OPT3/wxWidgets-3.*.* $DOC_OPT3/wxMSW-3.*.* $CWX_DOCUMENTED"
-		CWX_DOCUMENTED="$DOC_OPT4/wxWidgets-3.*.* $DOC_OPT4/wxMSW-3.*.* $CWX_DOCUMENTED"
-		;;
+      8)
+        case $host_cpu in
+          aarch64)
+            VC_LIB=lib/vc_arm64_lib
+            WX_ARCH=aarch64
+            ;;
+          *)
+            VC_LIB=lib/vc_x64_lib
+            WX_ARCH=x64
+            ;;
+        esac
+        DOC_OPT64_1=/opt/local64/pgm
+        DOC_OPT64_2=/mnt/c/opt/local64/pgm
+        CWX_DOCUMENTED="$DOC_OPT64_1/wxWidgets-3.*.* $DOC_OPT64_1/wxMSW-3.*.* $CWX_DOCUMENTED"
+        CWX_DOCUMENTED="$DOC_OPT64_2/wxWidgets-3.*.* $DOC_OPT64_2/wxMSW-3.*.* $CWX_DOCUMENTED"
+        ;;
+      *)
+        VC_LIB=lib/vc_lib
+        WX_ARCH=x86
+        DOC_OPT3=/opt/local32/pgm
+        DOC_OPT4=/mnt/c/opt/local32/pgm
+        CWX_DOCUMENTED="$DOC_OPT3/wxWidgets-3.*.* $DOC_OPT3/wxMSW-3.*.* $CWX_DOCUMENTED"
+        CWX_DOCUMENTED="$DOC_OPT4/wxWidgets-3.*.* $DOC_OPT4/wxMSW-3.*.* $CWX_DOCUMENTED"
+        ;;
     esac
 
     CWXPATH="$CWXWIN0 $CWXWIN1 $CWXWIN2 $CWX_DOCUMENTED $CWXWIN3 $CWXWIN4"
@@ -749,6 +774,8 @@ AC_SUBST(WXERL_SYS_TYPE)
 mkdir -p $WXERL_SYS_TYPE
 CONFIG_STATUS=$WXERL_SYS_TYPE/config.status
 
+ERL_POP_WERROR
+
 dnl
 
 AC_CONFIG_FILES([ 
@@ -762,6 +789,3 @@ CORES=`ls core* 2>/dev/null`
 if test X"$CORES" != X"" ; then
    echo "Configure dumped core files" > ignore_core_files
 fi
-
-
-

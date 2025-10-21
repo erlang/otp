@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2004-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -950,7 +952,7 @@ error_notification(Mod,Func,_Args,{Error,Loc}) ->
 		 {test_case_failed,Reason} ->
 		     case (catch io_lib:format("{test_case_failed,~ts}", [Reason])) of
 			 {'EXIT',_} ->
-			     io_lib:format("{test_case_failed,~tp}", [Reason]);
+			     io_lib:format("{test_case_failed,~tkp}", [Reason]);
 			 Result -> Result
 		     end;
 		 Other ->

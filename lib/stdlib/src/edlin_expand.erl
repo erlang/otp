@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2005-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -251,7 +253,7 @@ expand_map(_, [], _, _) ->
 expand_map(Word, Bs, Binding, Keys) ->
     case proplists:get_value(list_to_atom(Binding), Bs) of
         Map when is_map(Map) ->
-            K1 = sets:from_list(maps:keys(Map)),
+            K1 = sets:from_list([Key || Key <- maps:keys(Map), is_atom(Key)]),
             K2 = sets:subtract(K1, sets:from_list([list_to_atom(K) || K <- Keys])),
             match(Word, sets:to_list(K2), "=>");
         _ -> {no, [], []}
@@ -945,48 +947,54 @@ get_exports(Mod) ->
                     []
             end
     end.
-
-expand_function_name(ModStr, FuncPrefix, CompleteChar, FT) ->
+pp(String) when is_binary(String) ->
+    binary_to_list(string:titlecase(string:trim(String)));
+pp(String) when is_list(String) ->
+    string:titlecase(string:trim(String)).
+expand_name(ModStr, Type, Prefix, CompleteChar, FT) ->
     case to_atom(ModStr) of
         {ok, Mod} ->
-            Extra = case Mod of
-                        shell_default -> [{Name, Arity}||{{function, {_, Name, Arity}}, _} <- FT];
-                        _ -> []
-                    end,
-            Exports = get_exports(Mod) ++ Extra,
-            {Res, Expansion, Matches}=Result = match(FuncPrefix, Exports, CompleteChar),
-            case Matches of
-                [] -> Result;
-                _ -> {Res, Expansion, [#{title=>"functions", elems=>Matches, options=>[highlight_all]}]}
-            end;
-        error ->
-            {no, [], []}
-    end.
-
-get_module_types(Mod) ->
-    case code:get_doc(Mod, #{sources => [debug_info]}) of
-        {ok, #docs_v1{ docs = Docs } } ->
-            [{T, A} || {{type, T, A},_Anno,_Sig,_Doc,_Meta} <- Docs];
-        _ -> {no, [], []}
-    end.
-
-expand_type_name(ModStr, TypePrefix, CompleteChar) ->
-    case to_atom(ModStr) of
-        {ok, Mod} ->
-            case get_module_types(Mod) of
-                {no, [], []} ->
-                    {no, [], []};
-                Types ->
-                    {Res, Expansion, Matches}=Result = match(TypePrefix, Types, CompleteChar),
+            case Mod =:= shell_default of
+                true -> ShellDefaultStr = pp("shell defined "++atom_to_list(Type)++"s"),
+                        Groups = #{ShellDefaultStr=>[{Name, Arity}||{{Type1, {_, Name, Arity}}, _} <- FT, Type1 =:= Type]};
+                false ->
+                    TypeStr = pp(atom_to_list(Type)++"s"),
+                    case code:get_doc(Mod) of
+                        {ok, #docs_v1{ docs = Docs } } ->
+                            case Type of
+                                function ->
+                                    Exports = get_exports(Mod),
+                                    Grouped = [{pp(G),{Name,Arity}} || {{Type1,Name,Arity},_,_,_,#{group := G}}<-Docs, Type1 =:= Type, lists:member({Name,Arity},Exports)],
+                                    Ungrouped = [{TypeStr,{Name,Arity}} || {{Type1,Name,Arity},_,_,_,MD}<-Docs, Type1 =:= Type, maps:is_key(group, MD) =:= false, lists:member({Name,Arity},Exports)];
+                                type ->
+                                    Grouped = [{pp(G),{Name,Arity}} || {{Type1,Name,Arity},_,_,_,#{exported := true, group := G}}<-Docs, Type1 =:= Type],
+                                    Ungrouped = [{TypeStr,{Name,Arity}} || {{Type1,Name,Arity},_,_,_,#{exported := true}=MD}<-Docs, Type1 =:= Type, maps:is_key(group, MD) =:= false]
+                            end,
+                            Groups = maps:groups_from_list(fun (T)->element(1,T) end,
+                                                        fun(T)->element(2,T) end,
+                                                        Grouped ++ Ungrouped);
+                        _ when Type =:= function ->
+                            Groups = #{TypeStr => get_exports(Mod)};
+                        _ -> %% No docs?
+                            Groups = #{}
+                    end
+            end,
+            fold_results(
+                [begin
+                    {Res, Expansion, Matches}=Result = match(Prefix, maps:get(Title, Groups), CompleteChar),
                     case Matches of
                         [] -> Result;
-                        _ -> {Res, Expansion, [#{title=>"types", elems=>Matches, options=>[highlight_all]}]}
+                        _ ->
+                            {Res, Expansion, [#{title=>Title, elems=>Matches, options=>[highlight_all]}]}
                     end
-            end;
+                end || Title <- maps:keys(Groups)]);
         error ->
             {no, [], []}
     end.
-
+expand_function_name(ModStr, FuncPrefix, CompleteChar, FT) ->
+    expand_name(ModStr, function, FuncPrefix, CompleteChar, FT).
+expand_type_name(ModStr, TypePrefix, CompleteChar) ->
+    expand_name(ModStr, type, TypePrefix, CompleteChar, []).
 to_atom(Str) ->
     case erl_scan:string(Str) of
         {ok, [{atom,_,A}], _} ->

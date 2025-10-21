@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1997-2024. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 1997-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -169,14 +171,6 @@ erts_cleanup_offheap_list(struct erl_off_heap_header* first)
 	switch (thing_subtag(u.hdr->thing_word)) {
 	case BIN_REF_SUBTAG:
             erts_bin_release(u.br->val);
-	    break;
-	case FUN_REF_SUBTAG:
-            /* The pointer to the fun entry can be NULL if loading
-             * was aborted because of an invalid BEAM file. */
-            if (u.fref->entry &&
-                erts_refc_dectest(&(u.fref->entry)->refc, 0) == 0) {
-                erts_erase_fun_entry(u.fref->entry);
-            }
 	    break;
 	case REF_SUBTAG:
 	    ASSERT(is_magic_ref_thing(u.hdr));
@@ -1517,7 +1511,7 @@ void erts_factory_trim_and_close(ErtsHeapFactory* factory,
 	    /*else we don't trim multi fragmented messages for now (off_heap...) */
 	    break;
 	}
-	/* Fall through... */
+	ERTS_FALLTHROUGH();
     }
     case FACTORY_HEAP_FRAGS:
 	bp = factory->heap_frags;

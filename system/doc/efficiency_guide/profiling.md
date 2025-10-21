@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2025. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -173,11 +175,15 @@ module basis. `cprof` has a low performance degradation effect (compared with
 
 ### Tool Summary
 
-| _Tool_  | _Results_                           | _Size of Result_ | _Effects on Program Execution Time_ | _Records Number of Calls_ | _Records Execution Time_ | _Records Called by_ | _Records Garbage Collection_ |
-| ------- | ----------------------------------- | ---------------- | ----------------------------------- | ------------------------- | ------------------------ | ------------------- | ---------------------------- |
-| `fprof` | Per process to screen/file          | Large            | Significant slowdown                | Yes                       | Total and own            | Yes                 | Yes                          |
-| `eprof` | Per process/function to screen/file | Medium           | Small slowdown                      | Yes                       | Only total               | No                  | No                           |
-| `cprof` | Per module to caller                | Small            | Small slowdown                      | Yes                       | No                       | No                  | No                           |
+|                                       | fprof                      | eprof                               | cprof                |
+| ------------------------------------- | -------------------------- | ----------------------------------- | -------------------- |
+| **Results**                           | Per process to screen/file | Per process/function to screen/file | Per module to caller |
+| **Size of Result**                    | Large                      | Medium                              | Small                |
+| **Effects on Program Execution Time** | Significant slowdown       | Small slowdown                      | Small slowdown       |
+| **Records Number of Calls**           | Yes                        | Yes                                 | Yes                  |
+| **Records Execution Time**            | Total and own              | Only total                          | No                   |
+| **Records Called by**                 | Yes                        | No                                  | No                   |
+| **Records Garbage Collection**        | Yes                        | No                                  | No                   |
 
 _Table: Tool Summary_
 

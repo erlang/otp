@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2003-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -551,7 +553,12 @@ tc_print(Category,Importance,Format,Args,Opts) ->
                     undefined -> atom_to_list(Category);
                     Hd        -> Hd
                 end,
-            Str = lists:flatten([get_header(Heading),Format,"\n\n"]),
+            Parts =
+                case Heading of
+                    "" -> [Format, "\n"];
+                    _ -> [get_header(Heading),Format,"\n\n"]
+                end,
+            Str = lists:flatten(Parts),
             try
                 io:format(?def_gl, Str, Args)
             catch

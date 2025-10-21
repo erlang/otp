@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2012-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2012-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -100,24 +102,6 @@ get_list(Src, Hd, Tl, [{swap,R1,R2}|Is]=Is0) ->
 get_list(Src, Hd, Tl, Is) ->
     [{get_list,Src,Hd,Tl}|undo_renames(Is)].
 
-undo_rename({bs_put,F,{I,U,Fl},[Sz,Src]}) ->
-    {I,F,Sz,U,Fl,Src};
-undo_rename({bs_put,F,{I,Fl},[Src]}) ->
-    {I,F,Fl,Src};
-undo_rename({bif,bs_add=I,F,[Src1,Src2,{integer,U}],Dst}) ->
-    {I,F,[Src1,Src2,U],Dst};
-undo_rename({bif,bs_utf8_size=I,F,[Src],Dst}) ->
-    {I,F,Src,Dst};
-undo_rename({bif,bs_utf16_size=I,F,[Src],Dst}) ->
-    {I,F,Src,Dst};
-undo_rename({bs_init,F,{I,U,Flags},none,[Sz,Src],Dst}) ->
-    {I,F,Sz,U,Src,Flags,Dst};
-undo_rename({bs_init,F,{I,Extra,Flags},Live,[Sz],Dst}) ->
-    {I,F,Sz,Extra,Live,Flags,Dst};
-undo_rename({bs_init,F,{I,Extra,U,Flags},Live,[Sz,Src],Dst}) ->
-    {I,F,Sz,Extra,Live,U,Src,Flags,Dst};
-undo_rename({bs_init,_,bs_init_writable=I,_,_,_}) ->
-    I;
 undo_rename({put_map,Fail,assoc,S,D,R,L}) ->
     {put_map_assoc,Fail,S,D,R,L};
 undo_rename({put_map,Fail,exact,S,D,R,L}) ->
@@ -141,6 +125,8 @@ undo_rename(I) -> I.
 remove_redundant_lines(Is) ->
     remove_redundant_lines_1(Is, none).
 
+remove_redundant_lines_1([{debug_line,_,_,_,_}=I|Is], _PrevLoc) ->
+    [I|remove_redundant_lines_1(Is, none)];
 remove_redundant_lines_1([{executable_line,_,_}=I|Is], _PrevLoc) ->
     [I|remove_redundant_lines_1(Is, none)];
 remove_redundant_lines_1([{line,Loc}=I|Is], PrevLoc) ->

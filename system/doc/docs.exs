@@ -1,3 +1,22 @@
+# %CopyrightBegin%
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 2024-2025. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# %CopyrightEnd%
 [
   extras: [
     "README.md",
@@ -12,12 +31,14 @@
     "system_principles/upgrade.md": [],
     "system_principles/versions.md": [],
     "system_principles/misc.md": [],
+    "sbom/sbom.md": [],
     "embedded/embedded.md": [],
     "getting_started/getting_started.md": [],
     "getting_started/seq_prog.md": [],
     "getting_started/conc_prog.md": [],
     "getting_started/robustness.md": [],
     "getting_started/records_macros.md": [],
+    "getting_started/howto_debug.md": [],
     "reference_manual/reference_manual.md": [],
     "reference_manual/character_set.md": [],
     "reference_manual/data_types.md": [],
@@ -27,6 +48,7 @@
     "reference_manual/ref_man_functions.md": [],
     "reference_manual/typespec.md": [],
     "reference_manual/opaques.md": [],
+    "reference_manual/nominals.md": [],
     "reference_manual/expressions.md": [],
     "reference_manual/macros.md": [],
     "reference_manual/ref_man_records.md": [],

@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2010-2018. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2010-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,6 +24,22 @@
 #define E_PKEY_H__ 1
 
 #include "common.h"
+
+void prefetched_sign_algo_init(void);
+
+#ifdef HAS_3_0_API
+enum pkey_format_t {
+    PKEY_PUB  = 0,
+    PKEY_PRIV = 1,
+    PKEY_PRIV_SEED = 2
+};
+int get_pkey_from_octet_string(ErlNifEnv*,
+                               ERL_NIF_TERM alg_atom,
+                               ERL_NIF_TERM key_bin,
+                               enum pkey_format_t,
+                               EVP_PKEY **pkey_p,
+                               ERL_NIF_TERM *ret_p);
+#endif
 
 ERL_NIF_TERM pkey_sign_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 ERL_NIF_TERM pkey_verify_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);

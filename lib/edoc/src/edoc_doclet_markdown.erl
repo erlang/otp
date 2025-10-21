@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+%%
+%% Copyright Ericsson AB 2024-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -15,8 +17,18 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 %%
-%% %CopyrightEnd%
+%% Alternatively, you may use this file under the terms of the GNU Lesser
+%% General Public License (the "LGPL") as published by the Free Software
+%% Foundation; either version 2.1, or (at your option) any later version.
+%% If you wish to allow use of your version of this file only under the
+%% terms of the LGPL, you should delete the provisions above and replace
+%% them with the notice and other provisions required by the LGPL; see
+%% <http://www.gnu.org/licenses/>. If you do not delete the provisions
+%% above, a recipient may use your version of this file under the terms of
+%% either the Apache License or the LGPL.
 %%
+%% %CopyrightEnd%
+%% 
 
 %% @doc Doclet converting an edoc application to use <a href="https://www.erlang.org/eeps/eep-0059">EEP-59</a> and Markdown.
 %%
@@ -403,10 +415,10 @@ filter_and_fix_anno(AST, [{{What, F, A}, _Anno, S, D, M} | T], ModuleDoc)
                 end;
            type ->
                 case lists:search(fun({attribute, _TypeAnno, TO, {FA, _}}) when
-                                            is_tuple(FA), TO =:= type orelse TO =:= opaque ->
+                                            is_tuple(FA), TO =:= type orelse TO =:= nominal ->
                                           {F, A} =:= FA;
                                      ({attribute, _TypeAnno, TO, {Type, _, Args}}) when
-                                            is_atom(Type), TO =:= type orelse TO =:= opaque ->
+                                            is_atom(Type), TO =:= type orelse TO =:= opaque orelse TO =:= nominal->
                                           {F, A} =:= {Type, length(Args)};
                                      (_) ->
                                           false

@@ -337,10 +337,17 @@ public:
   //! Tests whether the emitter is destroyed (only used during destruction).
   ASMJIT_INLINE_NODEBUG bool isDestroyed() const noexcept { return hasEmitterFlag(EmitterFlags::kDestroyed); }
 
+  //! \}
+
+  //! \cond INTERNAL
+  //! \name Internal Functions
+  //! \{
+
   ASMJIT_INLINE_NODEBUG void _addEmitterFlags(EmitterFlags flags) noexcept { _emitterFlags |= flags; }
   ASMJIT_INLINE_NODEBUG void _clearEmitterFlags(EmitterFlags flags) noexcept { _emitterFlags &= _emitterFlags & ~flags; }
 
   //! \}
+  //! \endcond
 
   //! \name Target Information
   //! \{
@@ -365,6 +372,9 @@ public:
 
   //! Returns the target architecture's GP register size (4 or 8 bytes).
   ASMJIT_INLINE_NODEBUG uint32_t registerSize() const noexcept { return environment().registerSize(); }
+
+  //! Returns a signature of a native general purpose register (either 32-bit or 64-bit depending on the architecture).
+  ASMJIT_INLINE_NODEBUG OperandSignature gpSignature() const noexcept { return _gpSignature; }
 
   //! Returns instruction alignment.
   //!
@@ -554,23 +564,38 @@ public:
   //! \name Emitter State
   //! \{
 
+  //! Resets the emitter state, which contains instruction options, extra register, and inline comment.
+  //!
+  //! Emitter can have a state that describes instruction options and extra register used by the instruction. Most
+  //! instructions don't need nor use the state, however, if an instruction uses a prefix such as REX or REP prefix,
+  //! which is set explicitly, then the state would contain it. This allows to mimic the syntax of assemblers such
+  //! as X86. For example `rep().movs(...)` would map to a `REP MOVS` instuction on X86. The same applies to various
+  //! hints and the use of a mask register in AVX-512 mode.
   ASMJIT_INLINE_NODEBUG void resetState() noexcept {
     resetInstOptions();
     resetExtraReg();
     resetInlineComment();
   }
 
+  //! \cond INTERNAL
+
+  //! Grabs the current emitter state and resets the emitter state at the same time, returning the state the emitter
+  //! had before the state was reset.
   ASMJIT_INLINE_NODEBUG State _grabState() noexcept {
     State s{_instOptions | _forcedInstOptions, _extraReg, _inlineComment};
     resetState();
     return s;
   }
+  //! \endcond
 
   //! \}
 
   //! \name Sections
   //! \{
 
+  //! Switches the given `section`.
+  //!
+  //! Once switched, everything is added to the given `section`.
   ASMJIT_API virtual Error section(Section* section);
 
   //! \}
@@ -634,35 +659,51 @@ public:
   ASMJIT_API Error _emitI(InstId instId, const Operand_& o0, const Operand_& o1, const Operand_& o2, const Operand_& o3, const Operand_& o4, const Operand_& o5);
 
   //! Emits an instruction `instId` with the given `operands`.
+  //!
+  //! This is the most universal way of emitting code, which accepts an instruction identifier and instruction
+  //! operands. This is called an "unchecked" API as emit doesn't provide any type checks at compile-time. This
+  //! allows to emit instruction with just \ref Operand instances, which could be handy in some cases - for
+  //! example emitting generic code where you don't know whether some operand is register, memory, or immediate.
   template<typename... Args>
   ASMJIT_INLINE_NODEBUG Error emit(InstId instId, Args&&... operands) {
     return _emitI(instId, Support::ForwardOp<Args>::forward(operands)...);
   }
 
+  //! Similar to \ref emit(), but uses array of `operands` instead.
   ASMJIT_INLINE_NODEBUG Error emitOpArray(InstId instId, const Operand_* operands, size_t opCount) {
     return _emitOpArray(instId, operands, opCount);
   }
 
+  //! Similar to \ref emit(), but emits instruction with both instruction options and extra register, followed
+  //! by an array of `operands`.
   ASMJIT_FORCE_INLINE Error emitInst(const BaseInst& inst, const Operand_* operands, size_t opCount) {
     setInstOptions(inst.options());
     setExtraReg(inst.extraReg());
     return _emitOpArray(inst.id(), operands, opCount);
   }
 
+  //! \}
+
   //! \cond INTERNAL
+  //! \name Emit Internals
+  //! \{
+
   //! Emits an instruction - all 6 operands must be defined.
   ASMJIT_API virtual Error _emit(InstId instId, const Operand_& o0, const Operand_& o1, const Operand_& o2, const Operand_* oExt);
   //! Emits instruction having operands stored in array.
   ASMJIT_API virtual Error _emitOpArray(InstId instId, const Operand_* operands, size_t opCount);
-  //! \endcond
 
   //! \}
+  //! \endcond
 
   //! \name Emit Utilities
   //! \{
 
+  //! Emits a function prolog described by the given function `frame`.
   ASMJIT_API Error emitProlog(const FuncFrame& frame);
+  //! Emits a function epilog described by the given function `frame`.
   ASMJIT_API Error emitEpilog(const FuncFrame& frame);
+  //! Emits code that reassigns function `frame` arguments to the given `args`.
   ASMJIT_API Error emitArgsAssignment(const FuncFrame& frame, const FuncArgsAssignment& args);
 
   //! \}

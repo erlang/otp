@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2010-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1126,7 +1128,7 @@ actions([Dir | As], _, S)
 actions([Msg | As], send = Dir, S)
   when is_binary(Msg);
        is_record(Msg, diameter_packet) ->
-    actions(As, Dir, send(Msg, S));
+    send(Msg, actions(As, Dir, S));
 
 actions([Msg | As], recv = Dir, #transport{parent = Pid} = S)
   when is_binary(Msg);

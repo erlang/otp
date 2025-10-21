@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1997-2023. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 1997-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -83,7 +85,6 @@ static void* emalloc(size_t size);
 static void efree(void *p);
 #endif
 static char* strsave(char* string);
-static void push_words(char* src);
 static int run_erlang(char* name, char** argv);
 static void call_compile_server(char** argv);
 static void encode_env(ei_x_buff* buf);
@@ -259,6 +260,9 @@ int main(int argc, char** argv)
     {
         char* full_path_emulator = find_executable(emulator);
         set_env("ERLC_CONFIGURATION", full_path_emulator);
+        if (full_path_emulator != emulator) {
+            free(full_path_emulator);
+        }
     }
 #endif
 
@@ -276,7 +280,10 @@ int main(int argc, char** argv)
     eargv_base = (char **) emalloc(eargv_size*sizeof(char*));
     eargv = eargv_base;
     eargc = 0;
-    push_words(emulator);
+    PUSH(strsave(emulator));
+    if (emulator != env) {
+        free(emulator);
+    }
     eargc_base = eargc;
     eargv = eargv + eargv_size/2;
     eargc = 0;
@@ -469,27 +476,6 @@ get_env_compile_server(void)
     }
     fprintf(stderr, "erlc: Warning: Ignoring unrecognized value '%s' "
             "for environment value ERLC_USE_SERVER\n", us);
-}
-
-static void
-push_words(char* src)
-{
-    char sbuf[MAXPATHLEN];
-    char* dst;
-
-    dst = sbuf;
-    while ((*dst++ = *src++) != '\0') {
-	if (isspace((int)*src)) {
-	    *dst = '\0';
-	    PUSH(strsave(sbuf));
-	    dst = sbuf;
-	    do {
-		src++;
-	    } while (isspace((int)*src));
-	}
-    }
-    if (sbuf[0])
-	PUSH(strsave(sbuf));
 }
 
 #ifdef __WIN32__
@@ -787,32 +773,40 @@ call_compile_server(char** argv)
         if (dec_size >= 2) {
             ei_decode_atom(reply.buff, &dec_index, atom);
         }
-        if (dec_size == 2) {
-            if (strcmp(atom, "ok") == 0) {
-                char* output = decode_binary(reply.buff, &dec_index, &dec_size);
-                if (debug) {
-                    fprintf(stderr, "called server for %s => ok\n", source_file);
-                }
-                if (output) {
-                    fwrite(output, dec_size, 1, stdout);
-                    exit(0);
-                }
+        if (dec_size == 2 && strcmp(atom, "ok") == 0) {
+            /* An old compile server from OTP 27 or earlier. */
+            char* output = decode_binary(reply.buff, &dec_index, &dec_size);
+            if (debug) {
+                fprintf(stderr, "called server for %s => ok\n", source_file);
             }
-        } else if (dec_size == 3 && strcmp(atom, "error") == 0) {
+            if (output) {
+                fwrite(output, dec_size, 1, stdout);
+                exit(0);
+            }
+        } else if (dec_size == 3 && (strcmp(atom, "ok") ||
+                                     strcmp(atom, "error"))) {
+            /* A compile server from OTP 28 or later. */
             int std_size, err_size;
             char* std;
             char* err;
+            int exit_status = atom[0] == 'e';
 
             if (debug) {
-                fprintf(stderr, "called server for %s => error\n", source_file);
+                if (exit_status) {
+                    fprintf(stderr, "called server for %s => error\n", source_file);
+                } else {
+                    fprintf(stderr, "called server for %s => ok\n", source_file);
+                }
             }
             std = decode_binary(reply.buff, &dec_index, &std_size);
             err = decode_binary(reply.buff, &dec_index, &err_size);
-            if (std && err) {
-                fwrite(err, err_size, 1, stderr);
+            if (std) {
                 fwrite(std, std_size, 1, stdout);
-                exit(1);
             }
+            if (err) {
+                fwrite(err, err_size, 1, stderr);
+            }
+            exit(exit_status);
         }
     }
 
@@ -1075,7 +1069,7 @@ get_default_emulator(char* progname)
     char* s;
 
     if (strlen(progname) >= sizeof(sbuf))
-        return ERL_NAME;
+        return strsave(ERL_NAME);
 
     strcpy(sbuf, progname);
     for (s = sbuf+strlen(sbuf); s >= sbuf; s--) {
@@ -1086,7 +1080,7 @@ get_default_emulator(char* progname)
 	    break;
 	}
     }
-    return ERL_NAME;
+    return strsave(ERL_NAME);
 }
 
 

@@ -1,7 +1,10 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+
+Copyright 2004-2025 Mickaël Rémond, Richard Carlsson. All Rights Reserved.
+Copyright Ericsson AB 2024-2025. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,6 +17,16 @@ distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
+
+Alternatively, you may use this file under the terms of the GNU Lesser
+General Public License (the "LGPL") as published by the Free Software
+Foundation; either version 2.1, or (at your option) any later version.
+If you wish to allow use of your version of this file only under the
+terms of the LGPL, you should delete the provisions above and replace
+them with the notice and other provisions required by the LGPL; see
+<http://www.gnu.org/licenses/>. If you do not delete the provisions
+above, a recipient may use your version of this file under the terms of
+either the Apache License or the LGPL.
 
 %CopyrightEnd%
 -->
@@ -972,13 +985,14 @@ regardless of the outcome (success, failures, timeouts, etc.).
 
 To make the descriptions simpler, we first list some definitions:
 
-| `Setup`        | `() -> (R::any())`              |
-| -------------- | ------------------------------- | ---------------------------------------------- | ---------------------- |
-| `SetupX`       | `(X::any()) -> (R::any())`      |
-| `Cleanup`      | `(R::any()) -> any()`           |
-| `CleanupX`     | `(X::any(), R::any()) -> any()` |
-| `Instantiator` | `((R::any()) -> Tests)          | {with, [AbstractTestFun::((any()) -> any())]}` |
-| `Where`        | `local                          | spawn                                          | {spawn, Node::atom()}` |
+|                |                                                                            |
+| -------------- | -------------------------------------------------------------------------- |
+| `Setup`        | `() -> (R::any())`                                                         |
+| `SetupX`       | `(X::any()) -> (R::any())`                                                 |
+| `Cleanup`      | `(R::any()) -> any()`                                                      |
+| `CleanupX`     | `(X::any(), R::any()) -> any()`                                            |
+| `Instantiator` | `((R::any()) -> Tests)` \| `{with, [AbstractTestFun::((any()) -> any())]}` |
+| `Where`        | `local` \| `spawn` \| `{spawn, Node::atom()}`                              |
 
 (these are explained in more detail further below.)
 
@@ -996,11 +1010,16 @@ The following representations specify fixture handling for test sets:
 
 - **`{node, Node::atom(), Tests | Instantiator}`**
 
-- **`{node, Node::atom(), Args::string(), Tests | Instantiator}`** - `node` is
-  like `setup`, but with a built-in behaviour: it starts a slave node for the
+- **`{node, Node::atom(), Args::[string()] | string(), Tests | Instantiator}`** - `node` is
+  like `setup`, but with a built-in behaviour: it starts a peer node for the
   duration of the tests. The atom `Node` should have the format
   `nodename@full.machine.name`, and `Args` are the optional arguments to the new
-  node; see `slave:start_link/3` for details.
+  node; see `peer:start_link/1` for details. To remain compatible
+  with pre-existing user tests, `Args` accepts both a list of strings and a string.
+  If a string is passed, it is parsed into a list of arguments, treating
+  single- and double-quoted text as single arguments and removing the quotes.
+  If you wish a quote character to remain a part of the parsed argument list,
+  escape it with a backslash "\". Unbalanced quotes also become a part of the output.
 
 - **`{foreach, Where, Setup, Cleanup, [Tests | Instantiator]}`**
 

@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2007-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -57,7 +59,7 @@
          openssl_client_early_data_basic/1]).
 
 -include("ssl_test_lib.hrl").
--include("tls_handshake.hrl").
+-include_lib("ssl/src/tls_handshake.hrl").
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -74,7 +76,10 @@ all() ->
 groups() ->
     [{'tlsv1.3', [], [{group, stateful},
                       {group, stateless},
-                      {group, openssl_server}]},
+                      {group, openssl_server},
+                      {group, transport_socket}
+                     ]},
+     {transport_socket, [{group, openssl_server}]},
      {openssl_server, [], [openssl_server_basic,
                            openssl_server_hrr,
                            openssl_server_hrr_multiple_tickets,
@@ -133,9 +138,10 @@ openssl_server_basic(Config) when is_list(Config) ->
 
     %% Configure session tickets
     ClientOpts = [{session_tickets, auto},
-                  {versions, ['tlsv1.2','tlsv1.3']}|ClientOpts0],
+                  {versions, ['tlsv1.2','tlsv1.3']}|
+                  proplists:delete(versions, ClientOpts0)],
 
-    Server = ssl_test_lib:start_server(openssl, [], 
+    Server = ssl_test_lib:start_server(openssl, [],
                                        [{server_opts, ServerOpts} | Config]),
     
     Port = ssl_test_lib:inet_port(Server),
@@ -168,7 +174,7 @@ openssl_client_basic() ->
     [{doc,"Test session resumption with session tickets (openssl client - erlang server)"}].
 openssl_client_basic(Config) when is_list(Config) ->
     ServerOpts0 = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
-    ClientOpts = proplists:get_value(client_rsa_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
 
     {_, ServerNode, _Hostname} = ssl_test_lib:run_where(Config),
     TicketFile0 = filename:join([proplists:get_value(priv_dir, Config), "session_ticket0"]),
@@ -179,8 +185,9 @@ openssl_client_basic(Config) when is_list(Config) ->
 
     %% Configure session tickets
     ServerOpts = [{session_tickets, ServerTicketMode},
-                  {versions, ['tlsv1.2','tlsv1.3']}|ServerOpts0],
-
+                  {versions, ['tlsv1.2','tlsv1.3']}|
+                  proplists:delete(versions, ServerOpts0)],
+    
     Server0 =
 	ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
 				   {from, self()},
@@ -227,7 +234,8 @@ openssl_server_hrr(Config) when is_list(Config) ->
     %% Configure session tickets
     ClientOpts = [{session_tickets, auto},
                   {versions, ['tlsv1.2','tlsv1.3']},
-                  {supported_groups,[secp256r1, x25519]}|ClientOpts0],
+                  {supported_groups,[secp256r1, x25519]}|
+                  proplists:delete(versions, ClientOpts0)],
 
     
     Server = ssl_test_lib:start_server(openssl, [{groups, "X448:X25519"}], 
@@ -264,7 +272,7 @@ openssl_client_hrr() ->
     [{doc,"Test session resumption with session tickets and hello_retry_request (openssl client - erlang server)"}].
 openssl_client_hrr(Config) when is_list(Config) ->
     ServerOpts0 = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
-    ClientOpts = proplists:get_value(client_rsa_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
     {_, ServerNode, _Hostname} = ssl_test_lib:run_where(Config),
     TicketFile0 = filename:join([proplists:get_value(priv_dir, Config), "session_ticket0"]),
     TicketFile1 = filename:join([proplists:get_value(priv_dir, Config), "session_ticket1"]),
@@ -275,7 +283,8 @@ openssl_client_hrr(Config) when is_list(Config) ->
     %% Configure session tickets
     ServerOpts = [{session_tickets, ServerTicketMode},
                   {versions, ['tlsv1.2','tlsv1.3']},
-                  {supported_groups,[x448, x25519]}|ServerOpts0],
+                  {supported_groups,[x448, x25519]}|
+                  proplists:delete(versions, ServerOpts0)],
 
     Server0 =
 	ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
@@ -329,7 +338,8 @@ openssl_server_hrr_multiple_tickets(Config) when is_list(Config) ->
     %% Configure session tickets
     ClientOpts = [{session_tickets, manual},
                   {versions, ['tlsv1.2','tlsv1.3']},
-                  {supported_groups,[secp256r1, x25519]}|ClientOpts0],
+                  {supported_groups,[secp256r1, x25519]}|
+                  proplists:delete(versions, ClientOpts0)],
 
 
     Server = ssl_test_lib:start_server(openssl, [{groups, "X448:X25519"}], 
@@ -375,7 +385,8 @@ openssl_server_early_data_basic(Config) when is_list(Config) ->
 
     %% Configure session tickets
     ClientOpts1 = [{session_tickets, auto},
-                  {versions, ['tlsv1.2','tlsv1.3']}|ClientOpts0],
+                   {versions, ['tlsv1.2','tlsv1.3']}|
+                   proplists:delete(versions, ClientOpts0)],
     ClientOpts2 = [{early_data, <<"SampleData">>}|ClientOpts1],
 
     Server = ssl_test_lib:start_server(openssl, [{early_data, 16384}],
@@ -417,7 +428,8 @@ openssl_server_early_data_big(Config) when is_list(Config) ->
 
     %% Configure session tickets
     ClientOpts1 = [{session_tickets, auto},
-                  {versions, ['tlsv1.2','tlsv1.3']}|ClientOpts0],
+                   {versions, ['tlsv1.2','tlsv1.3']}|
+                   proplists:delete(versions, ClientOpts0)],
     ClientOpts2 = [{early_data, <<"SampleData">>}|ClientOpts1],
 
     Server = ssl_test_lib:start_server(openssl, [{early_data, 5}],
@@ -462,7 +474,8 @@ openssl_server_early_data_manual(Config) when is_list(Config) ->
 
     %% Configure session tickets
     ClientOpts1 = [{session_tickets, manual},
-                   {versions, ['tlsv1.2','tlsv1.3']}|ClientOpts0],
+                   {versions, ['tlsv1.2','tlsv1.3']}|
+                   proplists:delete(versions, ClientOpts0)],
     ClientOpts2 = [{early_data, <<"SampleData">>}|ClientOpts1],
 
     Server = ssl_test_lib:start_server(openssl, [{early_data, 16384}],
@@ -511,7 +524,8 @@ openssl_server_early_data_manual_big(Config) when is_list(Config) ->
 
     %% Configure session tickets
     ClientOpts1 = [{session_tickets, manual},
-                   {versions, ['tlsv1.2','tlsv1.3']}|ClientOpts0],
+                   {versions, ['tlsv1.2','tlsv1.3']}|
+                   proplists:delete(versions, ClientOpts0)],
     ClientOpts2 = [{early_data, <<"SampleData">>}|ClientOpts1],
 
     Server = ssl_test_lib:start_server(openssl, [{early_data, 5}],
@@ -558,7 +572,8 @@ openssl_server_early_data_manual_2_tickets(Config) when is_list(Config) ->
 
     %% Configure session tickets
     ClientOpts1 = [{session_tickets, manual},
-                   {versions, ['tlsv1.2','tlsv1.3']}|ClientOpts0],
+                   {versions, ['tlsv1.2','tlsv1.3']}|
+                   proplists:delete(versions, ClientOpts0)],
     ClientOpts2 = [{early_data, <<"SampleData">>}|ClientOpts1],
 
     Server = ssl_test_lib:start_server(openssl, [{early_data, 16384}],
@@ -606,7 +621,8 @@ openssl_server_early_data_manual_2_chacha_tickets(Config) when is_list(Config) -
     %% Configure session tickets
     ClientOpts1 = [{session_tickets, manual},
                    {ciphers, ["TLS_CHACHA20_POLY1305_SHA256"]},
-                   {versions, ['tlsv1.2','tlsv1.3']}|ClientOpts0],
+                   {versions, ['tlsv1.2','tlsv1.3']}|
+                   proplists:delete(versions, ClientOpts0)],
     ClientOpts2 = [{early_data, <<"SampleData">>}|ClientOpts1],
 
     %% openssl s_server seems to select a cipher_suite that satisfies the requirements
@@ -650,7 +666,7 @@ openssl_client_early_data_basic() ->
     [{doc,"Test early data (openssl client - erlang server)"}].
 openssl_client_early_data_basic(Config) when is_list(Config) ->
     ServerOpts0 = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
-    ClientOpts = proplists:get_value(client_rsa_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
 
     {_, ServerNode, _Hostname} = ssl_test_lib:run_where(Config),
     TicketFile0 = filename:join([proplists:get_value(priv_dir, Config), "session_ticket0"]),
@@ -664,7 +680,8 @@ openssl_client_early_data_basic(Config) when is_list(Config) ->
     %% Configure session tickets
     ServerOpts = [{session_tickets, ServerTicketMode},
                   {early_data, enabled},
-                  {versions, ['tlsv1.2','tlsv1.3']}|ServerOpts0],
+                  {versions, ['tlsv1.2','tlsv1.3']}|
+                  proplists:delete(versions, ServerOpts0)],
 
     Server0 =
 	ssl_test_lib:start_server([{node, ServerNode}, {port, 0},

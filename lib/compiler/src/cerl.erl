@@ -1,4 +1,11 @@
 %%
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright 1999-2002 Richard Carlsson
+%% Copyright Ericsson AB 2013-2025. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -11,7 +18,8 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 %%
-%% @copyright 1999-2002 Richard Carlsson
+%% %CopyrightEnd%
+%%
 %% @author Richard Carlsson <carlsson.richard@gmail.com>
 %%
 
@@ -651,7 +659,7 @@ _See also: _`c_module/4`.
 -spec module_vars(Node :: c_module()) -> [cerl()].
 
 module_vars(Node) ->
-    [F || {F, _} <- module_defs(Node)].
+    [F || {F, _} <:- module_defs(Node)].
 
 %% ---------------------------------------------------------------------
 
@@ -1774,7 +1782,7 @@ A variable is identified by its name, given by the `Name` parameter.
 If a name is given by a single atom, it should either be a "simple" atom which
 does not need to be single-quoted in Erlang, or otherwise its print name should
 correspond to a proper Erlang variable, that is, begin with an uppercase character
-or an underscore. Names on the form `{A, N}` represent function name variables
+or an underscore. Names of the form `{A, N}` represent function name variables
 "`A/N`"; these are special variables which may be bound only in the function
 definitions of a module or a `letrec`. They may not be bound in `let`
 expressions and cannot occur in clause patterns. The atom `A` in a function name
@@ -2561,7 +2569,7 @@ _See also: _`c_letrec/2`.
 -spec letrec_vars(Node :: c_letrec()) -> [cerl()].
 
 letrec_vars(Node) ->
-    [F || {F, _} <- letrec_defs(Node)].
+    [F || {F, _} <:- letrec_defs(Node)].
 
 
 %% ---------------------------------------------------------------------
@@ -4027,16 +4035,16 @@ meta_1('catch', Node) ->
 meta_1(letrec, Node) ->
     meta_call(c_letrec,
 	      [make_list([c_tuple([meta(N), meta(F)])
-			  || {N, F} <- letrec_defs(Node)]),
+			  || {N, F} <:- letrec_defs(Node)]),
 	       meta(letrec_body(Node))]);
 meta_1(module, Node) ->
     meta_call(c_module,
 	      [meta(module_name(Node)),
 	       make_list(meta_list(module_exports(Node))),
 	       make_list([c_tuple([meta(A), meta(V)])
-			  || {A, V} <- module_attrs(Node)]),
+			  || {A, V} <:- module_attrs(Node)]),
 	       make_list([c_tuple([meta(N), meta(F)])
-			  || {N, F} <- module_defs(Node)])]).
+			  || {N, F} <:- module_defs(Node)])]).
 
 meta_call(F, As) ->
     c_call(c_atom(?MODULE), c_atom(F), As).

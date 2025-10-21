@@ -1,7 +1,9 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1998-2024. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 1998-2025. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -540,8 +542,10 @@ compdb:
 
 format-check:
 	(cd erts/emulator && ERL_TOP=$(ERL_TOP) $(MAKE) format-check)
+	mix format --check-formatted
 format:
 	(cd erts/emulator && ERL_TOP=$(ERL_TOP) $(MAKE) format)
+	mix format
 
 dep depend:
 	$(make_verbose)
@@ -976,7 +980,8 @@ bootstrap_clean:
 .PHONY: test dialyzer
 
 test: all release release_tests
-	$(ERL_TOP)/make/test_target_script.sh $(ERL_TOP)
+	MAKE="$(MAKE)" \
+	  $(ERL_TOP)/make/test_target_script.sh $(ERL_TOP)
 
 ifeq ($(TYPE),)
 dialyzer: all

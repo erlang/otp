@@ -1,6 +1,9 @@
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB and Kjell Winblad 2019. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 2019-2025. All Rights Reserved.
+# Copyright Kjell Winblad 2019. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -46,24 +49,19 @@ ifdef CC_32_BIT
 	EXTRA_C_FLAGS = -m32 -g -O03 -std=c99 -pedantic -Wall
 endif
 
-ifdef USE_GC
-	USE_GC_STRING = -use_gc
-endif
-
 ifdef ADD_SAN
 	V_CC = clang
-	EXTRA_C_FLAGS = -std=c99 -Wall -pedantic -g -O00 -fsanitize-blacklist=lib/simple_c_gc/.misc/clang_blacklist.txt -fsanitize=address -fno-omit-frame-pointer
-	USE_GC_STRING = -use_gc
+	EXTRA_C_FLAGS = -std=c99 -Wall -pedantic -g -O00 -fsanitize=address -fno-omit-frame-pointer
 endif
 
 ifdef MEM_SAN
 	V_CC = clang
-	EXTRA_C_FLAGS = -std=c99 -Wall -pedantic -g -O00 -fsanitize-blacklist=lib/simple_c_gc/.misc/clang_blacklist.txt -fsanitize=memory -fno-omit-frame-pointer
+	EXTRA_C_FLAGS = -std=c99 -Wall -pedantic -g -O00 -fsanitize=memory -fno-omit-frame-pointer
 endif
 
 ifdef UB_SAN
 	V_CC = clang
-	EXTRA_C_FLAGS = -std=c99 -Wall -pedantic -g -O00 -fsanitize-blacklist=lib/simple_c_gc/.misc/clang_blacklist.txt -fsanitize=undefined -fno-omit-frame-pointer
+	EXTRA_C_FLAGS = -std=c99 -Wall -pedantic -g -O00 -fsanitize=undefined -fno-omit-frame-pointer
 endif
 
 
@@ -133,7 +131,7 @@ Makefile: $(YCF_SOURCES)
 .PHONY: all clean test run_test_continusly CMakeLists.txt cmake_compile clang_format test_add_san test_mem_san test_modern_cc test_sanitizers test_gcc_clang_tcc clang_tidy test_bmake test_all
 
 test: $(YCF_EXECUTABLE)
-	./test/test.sh $(USE_GC_STRING) ;\
+	./test/test.sh;\
 	RESULT=$$? &&\
 	(exit $$RESULT) &&\
 	printf "\n\n\033[0;32mALL TESTS PASSED!\033[0m\n\n\n" ||\
@@ -194,13 +192,13 @@ cmake_compile: CMakeLists.txt
 	cd cmake_mkdir && cmake ..
 
 clang_tidy:
-	(ls *.c ; echo lib/simple_c_gc/simple_c_gc.c) | xargs -I{} -n1 clang-tidy -warnings-as-errors=*  {} -- $(YCF_INCLUDE_DIRS) $(YCF_CFLAGS)
+	(ls *.c) | xargs -I{} -n1 clang-tidy -warnings-as-errors=*  {} -- $(YCF_INCLUDE_DIRS) $(YCF_CFLAGS)
 
 clang_format:
 	clang-format -style="{BasedOnStyle: LLVM}" -i *.c *.h
 
 clean:
-	rm -f lib/simple_c_gc/*.o ./*.o ./*~ core trap parse $(YCF_EXECUTABLE) CMakeLists.txt
+	rm -f ./*.o ./*~ core trap parse $(YCF_EXECUTABLE) CMakeLists.txt
 
 # Produce a CMakeLists.txt to build with cmake
 CMakeLists.txt: $(YCF_SOURCES)

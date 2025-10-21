@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2022. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2009-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -143,7 +145,7 @@ no_compile(Config) when is_list(Config) ->
     Join = fun(D, S) -> filename:join(D, "error/test/"++S) end,
     Suites = [Join(DataDir, "no_compile_SUITE")],
     {Opts,ERPid} = setup([{suite,Suites}], Config),
-    ok = ct_test_support:run(Opts, Config),
+    {error, {make_failed, _}} = ct_test_support:run(Opts, Config),
     Events = ct_test_support:get_events(ERPid, Config),
 
     ct_test_support:log_events(no_compile, 

@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1997-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -645,7 +647,7 @@ encrypted_abstr(Config) when is_list(Config) ->
 		  OldPath = code:get_path(),
 		  try
 		      NewPath = OldPath -- [filename:dirname(code:which(crypto))],
-		      (catch crypto:stop()),
+		      (catch application:stop(crypto)),
 		      code:delete(crypto),
 		      code:purge(crypto),
 		      code:set_path(NewPath),
@@ -805,8 +807,8 @@ verify_abstract(Beam, Backend) ->
 
 has_crypto() ->
     try
-	crypto:start(),
-	crypto:stop(),
+	application:start(crypto),
+	application:stop(crypto),
 	true
     catch
 	error:_ -> false
@@ -944,19 +946,31 @@ test_sloppy() ->
     Turtle.
 
 utf8_atoms(Config) when is_list(Config) ->
+    do_utf8_atom(binary_to_atom(<<"こんにちは"/utf8>>, utf8)),
+
+    LongAtom = binary_to_atom(binary:copy(<<240,159,159,166>>, 255)),
+    do_utf8_atom(LongAtom),
+
+    ok.
+
+do_utf8_atom(Atom) ->
+    Mod = ?FUNCTION_NAME,
     Anno = erl_anno:new(1),
-    Atom = binary_to_atom(<<"こんにちは"/utf8>>, utf8),
-    Forms = [{attribute,Anno,compile,[export_all]},
+    Forms = [{attribute,Anno,module,Mod},
+             {attribute,Anno,compile,[export_all]},
 	     {function,Anno,atom,0,[{clause,Anno,[],[],[{atom,Anno,Atom}]}]}],
 
-    Utf8AtomForms = [{attribute,Anno,module,utf8_atom}|Forms],
-    {ok,utf8_atom,Utf8AtomBin} =
-	compile:forms(Utf8AtomForms, [binary]),
-    {ok,{utf8_atom,[{atoms,_}]}} =
-	beam_lib:chunks(Utf8AtomBin, [atoms]),
-    code:load_binary(utf8_atom, "compile_SUITE", Utf8AtomBin),
-    Atom = utf8_atom:atom(),
+    {ok,Mod,Utf8AtomBin} = compile:forms(Forms, [binary,report]),
+    {ok,{Mod,[{atoms,_}]}} = beam_lib:chunks(Utf8AtomBin, [atoms]),
+
+    code:load_binary(Mod, "compile_SUITE", Utf8AtomBin),
+
+    Atom = Mod:atom(),
     true = is_atom(Atom),
+
+    true = code:delete(Mod),
+    false = code:purge(Mod),
+
     ok.
 
 utf8_functions(Config) when is_list(Config) ->
@@ -1136,14 +1150,7 @@ core_roundtrip(Config) ->
     TestBeams = get_unique_beam_files(),
 
     Test = fun(F) -> do_core_roundtrip(F, Outdir) end,
-    case erlang:system_info(wordsize) of
-        4 ->
-            %% This test case is very memory intensive. Only
-            %% use a single process.
-            test_lib:p_run(Test, TestBeams, 1);
-        8 ->
-            test_lib:p_run(Test, TestBeams)
-    end.
+    test_lib:p_run(Test, TestBeams).
 
 do_core_roundtrip(Beam, Outdir) ->
     try
@@ -1464,7 +1471,7 @@ beam_ssa_pp_1(Mod, Abstr, Outdir) ->
 
 %% Test that warnings contain filenames and line numbers.
 warnings(_Config) ->
-    Files = get_unique_files(".erl"),
+    Files = test_lib:get_unique_files(".erl"),
     test_lib:p_run(fun do_warnings/1, Files).
 
 do_warnings(F) ->
@@ -1708,43 +1715,39 @@ bc_options(Config) ->
 
     DataDir = proplists:get_value(data_dir, Config),
 
-    L = [{171, small_float, [no_line_info,
-                             no_ssa_opt_float,
-                             no_type_opt]},
-         {171, small_float, [no_line_info]},
-         {171, small_float, []},
-         {171, small_float, [r24]},
-         {171, small_float, [r25]},
+    L = [{177, small_float, []},
 
-         {172, small, [no_ssa_opt_record,
+         {177, small, [no_ssa_opt_record,
                        no_ssa_opt_float,
                        no_line_info,
                        no_type_opt,
                        no_bs_match]},
-         {172, small, [r24]},
 
-         {172, funs, [no_ssa_opt_record,
-                      no_ssa_opt_float,no_line_info,
-                      no_type_opt]},
-         {172, funs, [no_ssa_opt_record,
+         {177, funs, [no_ssa_opt_record,
+                      no_ssa_opt_float,
                       no_line_info,
                       no_stack_trimming,
                       no_type_opt]},
-         {172, funs, [r24]},
 
-         {172, small_maps, [r24]},
-         {172, small_maps, [no_type_opt]},
+         {177, small_maps, [no_type_opt]},
 
-         {172, big, [no_ssa_opt_record,
+         {177, big, [no_ssa_opt_record,
                      no_ssa_opt_float,
                      no_line_info,
                      no_type_opt]},
-         {172, big, [r24]},
 
          {178, small, [r25]},
          {178, big, [r25]},
          {178, funs, []},
-         {178, big, []}
+         {178, big, []},
+
+         {182, small, [r26]},
+         {182, small, []},
+
+         {183, small, [line_coverage]},
+
+         {184, small, [beam_debug_info]},
+         {184, big, [beam_debug_info]}
         ],
 
     Test = fun({Expected,Mod,Options}) ->
@@ -1810,7 +1813,6 @@ deterministic_paths_1(DataDir, Name, Opts) ->
 deterministic_docs(Config) when is_list(Config) ->
     DataDir = proplists:get_value(data_dir, Config),
     Filepath = filename:join(DataDir, "ssh"),
-    false = deterministic_docs_1(Filepath, [binary], 25),
     true = deterministic_docs_1(Filepath, [binary, deterministic], 25),
     ok.
 
@@ -2367,22 +2369,7 @@ compile_and_verify(Name, Target, Opts) ->
     Opts = BeamOpts.
 
 get_unique_beam_files() ->
-    get_unique_files(".beam").
-
-get_unique_files(Ext) ->
-    Wc = filename:join(filename:dirname(code:which(?MODULE)), "*"++Ext),
-    [F || F <- filelib:wildcard(Wc),
-	  not is_cloned(F, Ext), not is_lfe_module(F, Ext)].
-
-is_cloned(File, Ext) ->
-    Mod = list_to_atom(filename:basename(File, Ext)),
-    test_lib:is_cloned_mod(Mod).
-
-is_lfe_module(File, Ext) ->
-    case filename:basename(File, Ext) of
-	"lfe_" ++ _ -> true;
-	_ -> false
-    end.
+    test_lib:get_unique_files(".beam").
 
 %% Compiles a test module and returns the list of errors and warnings.
 

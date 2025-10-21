@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2023-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2023-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -37,7 +39,7 @@
 -include_lib("kernel/include/eep48.hrl").
 
 -define(DEFAULT_MODULE_DOC_LOC, 1).
--define(DEFAULT_FORMAT, <<"text/markdown">>).
+-define(DEFAULT_FORMAT, ~"text/markdown").
 
 
 -record(docs, {%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -57,11 +59,14 @@
                opts                :: [opt()],
 
                module              :: module(),
+               anno = none         :: none | erl_anno:anno(),
                deprecated = #{}    :: map(),
 
-               docformat = ?DEFAULT_FORMAT :: binary(),
-               moduledoc = {?DEFAULT_MODULE_DOC_LOC, none} :: {integer() | erl_anno:anno(), none | map() | hidden},
+               docformat :: binary(),
+               moduledoc = {erl_anno:new(?DEFAULT_MODULE_DOC_LOC), none} :: {erl_anno:anno(), none | map() | hidden},
                moduledoc_meta = none :: none | #{ _ := _ },
+
+               behaviours = []     :: list(module()),
 
                %% If the module has any documentation attributes at all.
                %% If it does not and no documentation related options are
@@ -107,7 +112,7 @@
                %% populates all function / types, callbacks. it is updated on an ongoing basis
                %% since a doc attribute `doc ...` is not known in a first pass to be attached
                %% to a function / type / callback.
-               docs = #{} :: #{{Attribute :: function | type | opaque | callback,
+               docs = #{} :: #{{Attribute :: function | type | opaque | nominal | callback,
                                 FunName :: atom(),
                                 Arity :: non_neg_integer()}
                                =>
@@ -130,7 +135,7 @@
                %% documentation text, etc.
                %%
                %% one cannot rely on the fields below to keep track of documentation,
-               %% as Erlang allows pretty unstructure code.
+               %% as Erlang allows pretty unstructured code.
                %%
                %% e.g.,
                %%
@@ -142,8 +147,8 @@
                %% -doc #{author => "X"}.
                %% -doc foo() -> ok.
                %%
-               %% thus, after reading a terminal AST node (spec, type, fun declaration, opaque, callback),
-               %% the intermediate state saveed in the fields below needs to be
+               %% thus, after reading a terminal AST node (spec, type, fun declaration, opaque, nominal, callback),
+               %% the intermediate state saved in the fields below needs to be
                %% saved in the `docs` field.
 
                hidden_status = none :: none | hidden,
@@ -185,7 +190,7 @@
                %% Stateful, need to be fixed as docs.
                meta   = #{exported => false} :: map(),
 
-               %% on analysing the AST, and upon finding a spec of a exported
+               %% on analyzing the AST, and upon finding a spec of a exported
                %% function, the types from the spec are added to the field
                %% below. if the function to which the spec belongs to is hidden,
                %% we purge types from this field. if the function to which the
@@ -228,7 +233,7 @@
 -type kfa() :: {Kind :: function | type | callback, Name :: atom(), Arity :: arity()}.
 -type warnings() :: [{file:filename(),
                       [{erl_anno:location(), beam_doc, warning()}]}].
--type warning() :: {missing_doc, kfa()} | missing_moduledoc |
+-type warning() :: {missing_doc, kfa()} | missing_moduledoc | invalid_metadata |
                    {hidden_type_used_in_exported_fun | hidden_callback, {Name :: atom(), arity()}}.
 
 
@@ -244,15 +249,30 @@ main(Dirname, Filename, AST, CmdLineOpts) ->
     if State1#docs.has_docs orelse Opts =/= [] ->
             Docs = extract_documentation(AST, State1),
             {ModuleDocAnno, ModuleDoc} = Docs#docs.moduledoc,
-            DocV1 = #docs_v1{},
-            Result = DocV1#docs_v1{ format = Docs#docs.docformat,
+            Behaviours = lists:sort(Docs#docs.behaviours),
+            Metadata0 = maps:merge(Docs#docs.moduledoc_meta, #{
+                source_anno => Docs#docs.anno,
+                behaviours => Behaviours}),
+            Metadata = maybe_add_source_path_meta(Metadata0, Docs, CmdLineOpts),
+            DocFormat = maps:get(format, Metadata, ?DEFAULT_FORMAT),
+            Result = #docs_v1{ format = DocFormat,
                                     anno = ModuleDocAnno,
-                                    metadata = Docs#docs.moduledoc_meta,
+                                    metadata = Metadata,
                                     module_doc = ModuleDoc,
                                     docs = process_docs(Docs) },
             {ok, Result, Docs#docs.warnings };
        not State1#docs.has_docs ->
             {error, no_docs}
+    end.
+
+maybe_add_source_path_meta(Metadata, Docs, CmdLineOpts) ->
+    case lists:member(deterministic, CmdLineOpts) of
+        true ->
+            Metadata;
+        false ->
+            Dir = filename:absname(Docs#docs.cwd),
+            SourcePath = filename:join(Dir, Docs#docs.filename),
+            Metadata#{source_path => SourcePath}
     end.
 
 extract_opts(AST, CmdLineOpts) ->
@@ -300,7 +320,11 @@ format_error({hidden_callback, {Name, Arity}}) ->
 format_error({missing_doc, {Kind, Name, Arity}}) ->
     io_lib:format("missing -doc for ~w ~tw/~w", [Kind, Name, Arity]);
 format_error(missing_moduledoc) ->
-    io_lib:format("missing -moduledoc", []).
+    io_lib:format("missing -moduledoc", []);
+format_error({invalid_metadata, authors}) ->
+    "authors should be a list of unicode strings, that is [unicode:chardata/0]";
+format_error({invalid_metadata, Key}) ->
+    io_lib:format("~p should be a unicode string, that is unicode:chardata/0",[Key]).
 
 process_docs(#docs{ast_callbacks = AstCallbacks, ast_fns = AstFns, ast_types = AstTypes}) ->
     AstTypes ++ AstCallbacks ++ AstFns.
@@ -315,12 +339,11 @@ preprocessing(AST, State) ->
                                      fun extract_signature_from_spec0/2,
                                      fun track_documentation/2,      %must be before upsert_documentation_from_terminal_item/2
                                      fun upsert_documentation_from_terminal_item/2,
-                                     fun extract_docformat0/2,
                                      fun extract_moduledoc0/2,
-                                     fun extract_module_meta/2,
                                      fun extract_exported_funs/2,
                                      fun extract_file/2,
                                      fun extract_record/2,
+                                     fun extract_behaviours/2,
                                      fun extract_hidden_types0/2,
                                      fun extract_type_defs0/2,
                                      fun extract_type_dependencies/2],
@@ -363,8 +386,8 @@ extract_deprecated(_, State) ->
 
 extract_exported_types0({attribute,_ANNO,export_type,ExportedTypes}, State) ->
    update_export_types(State, ExportedTypes);
-extract_exported_types0({attribute,_ANNO,module, Module}, State) ->
-    State#docs{ module = Module };
+extract_exported_types0({attribute,Anno,module, Module}, State) ->
+    State#docs{ module = Module, anno = Anno };
 extract_exported_types0({attribute,_ANNO,compile, export_all}, State) ->
    update_export_all(State, true);
 extract_exported_types0(_AST, State) ->
@@ -416,17 +439,8 @@ update_signature0(#docs{signatures = Signatures}=State, _Anno, {FunName, Vars, A
 %% Documentation tracking is a two-step (stateful phase).
 %% First phase (this one) saves documentation attributes to fields
 %% until reaching a terminal element where the docs are gathered globally.
-track_documentation({attribute, _Anno, doc, Meta0}, State) when is_map(Meta0) ->
-   Meta1 = case Meta0 of
-              #{ equiv := {call,_,_Equiv,_Args}=Equiv} ->
-                 Meta0#{ equiv := unicode:characters_to_binary(erl_pp:expr(Equiv)) };
-              #{ equiv := {Func,Arity}} ->
-                 Meta0#{ equiv := unicode:characters_to_binary(io_lib:format("~p/~p",[Func,Arity])) };
-              _ ->
-                 Meta0
-           end,
-   State1 = update_meta(State, Meta1),
-   update_doc(State1, none);
+track_documentation({attribute, Anno, doc, Meta}, State) when is_map(Meta) ->
+    update_doc(update_meta(doc, State, Anno, Meta), none);
 track_documentation({attribute, Anno, doc, DocStatus}, State)
   when DocStatus =:= hidden; DocStatus =:= false ->
    update_docstatus(State, {hidden, set_file_anno(Anno, State)});
@@ -437,27 +451,28 @@ track_documentation({attribute, Anno, doc, Doc}, State) when is_binary(Doc) ->
 track_documentation(_, State) ->
    State.
 
-upsert_documentation_from_terminal_item({function, _Anno, F, Arity, _}, State) ->
-   upsert_documentation(function, F, Arity, State);
-upsert_documentation_from_terminal_item({attribute, _Anno, TypeOrOpaque, {TypeName, _TypeDef, TypeArgs}},State)
-  when TypeOrOpaque =:= type; TypeOrOpaque =:= opaque ->
+upsert_documentation_from_terminal_item({function, Anno, F, Arity, _}, State) ->
+   upsert_documentation(function, F, Arity, Anno, State);
+upsert_documentation_from_terminal_item({attribute, Anno, TypeOrOpaque, {TypeName, _TypeDef, TypeArgs}},State)
+  when TypeOrOpaque =:= type; TypeOrOpaque =:= opaque; TypeOrOpaque =:= nominal ->
    Arity = length(fun_to_varargs(TypeArgs)),
-   upsert_documentation(type, TypeName, Arity, State);
-upsert_documentation_from_terminal_item({attribute, _Anno, callback, {{CB, Arity}, _Form}}, State) ->
-   upsert_documentation(callback, CB, Arity, State);
+   upsert_documentation(type, TypeName, Arity, Anno, State);
+upsert_documentation_from_terminal_item({attribute, Anno, callback, {{CB, Arity}, _Form}}, State) ->
+   upsert_documentation(callback, CB, Arity, Anno, State);
 upsert_documentation_from_terminal_item(_, State) ->
    State.
 
-upsert_documentation(Tag, Name, Arity, State) when Tag =:= function;
-                                                   Tag =:= type;
-                                                   Tag =:= opaque;
-                                                   Tag =:= callback ->
+upsert_documentation(Tag, Name, Arity, Anno, State) when Tag =:= function;
+                                                         Tag =:= type;
+                                                         Tag =:= opaque;
+                                                         Tag =:= nominal;
+                                                         Tag =:= callback ->
    Docs = State#docs.docs,
    State1 = case maps:get({Tag, Name, Arity}, Docs, none) of
                none ->
                   Status = State#docs.doc_status,
                   Doc = State#docs.doc,
-                  Meta = State#docs.meta,
+                  Meta = (State#docs.meta)#{source_anno => Anno},
                   State#docs{docs = Docs#{{Tag, Name, Arity} => {Status, Doc, Meta}}};
                {Status, Documentation, Meta} ->
                   Status1 = upsert_state(Status, State#docs.doc_status),
@@ -489,15 +504,6 @@ upsert_meta(Meta0, Meta1) ->
    maps:merge(Meta0, Meta1).
 
 
-extract_docformat0({attribute, _ModuleDocAnno, moduledoc, MetaFormat}, State) when is_map(MetaFormat) ->
-    case maps:get(format, MetaFormat, not_found) of
-        not_found -> State;
-        Format when is_list(Format) -> State#docs{docformat = unicode:characters_to_binary(Format)};
-        Format when is_binary(Format) -> State#docs{docformat = Format}
-    end;
-extract_docformat0(_, State) ->
-    State.
-
 %%
 %% Sets module documentation attributes
 %%
@@ -508,12 +514,9 @@ extract_moduledoc0({attribute, ModuleDocAnno, moduledoc, hidden}, State) ->
 extract_moduledoc0({attribute, ModuleDocAnno, moduledoc, ModuleDoc}, State) when is_list(ModuleDoc) ->
    Doc = unicode:characters_to_binary(string:trim(ModuleDoc)),
    State#docs{moduledoc = {set_file_anno(ModuleDocAnno, State), create_module_doc(Doc)}};
+extract_moduledoc0({attribute, ModuleDocAnno, moduledoc, Meta}, State) when is_map(Meta) ->
+    update_meta(moduledoc, State, ModuleDocAnno, Meta);
 extract_moduledoc0(_, State) ->
-   State.
-
-extract_module_meta({attribute, _ModuleDocAnno, moduledoc, MetaDoc}, State) when is_map(MetaDoc) ->
-   State#docs{moduledoc_meta = maps:merge(State#docs.moduledoc_meta, MetaDoc)};
-extract_module_meta(_, State) ->
    State.
 
 extract_exported_funs({attribute,_ANNO,export,ExportedFuns}, State) ->
@@ -539,6 +542,11 @@ extract_record({attribute, Anno, record, {Name, Fields}}, State) ->
 extract_record(_, State) ->
    State.
 
+extract_behaviours({attribute, _Anno, behaviour, Behaviour}, State) ->
+    State#docs{ behaviours = [Behaviour | State#docs.behaviours] };
+extract_behaviours(_, State) ->
+   State.
+
 %%
 %% Extracts types with documentation attribute set to `hidden` or `false`.
 %%
@@ -555,7 +563,7 @@ extract_hidden_types0({attribute, _Anno, doc, _}, State) ->
 extract_hidden_types0({attribute, _Anno, TypeOrOpaque, {Name, _Type, Args}},
                       #docs{hidden_status = hidden,
                             hidden_types = HiddenTypes}=State)
-  when TypeOrOpaque =:= type; TypeOrOpaque =:= opaque ->
+  when TypeOrOpaque =:= type; TypeOrOpaque =:= opaque; TypeOrOpaque =:= nominal ->
    State#docs{hidden_status = none,
               hidden_types = sets:add_element({Name, length(Args)}, HiddenTypes)};
 extract_hidden_types0(_, State) ->
@@ -569,7 +577,7 @@ extract_hidden_types0(_, State) ->
 %% #{{TypeName, length(Args)} => Anno}.
 %%
 extract_type_defs0({attribute, Anno, TypeOrOpaque, {TypeName, _TypeDef, TypeArgs}}, #docs{type_defs = TypeDefs}=State)
-  when TypeOrOpaque =:= type; TypeOrOpaque =:= opaque ->
+  when TypeOrOpaque =:= type; TypeOrOpaque =:= opaque; TypeOrOpaque =:= nominal ->
    Args = fun_to_varargs(TypeArgs),
    Type = {TypeName, length(Args)},
    State#docs{type_defs = TypeDefs#{Type => Anno}};
@@ -619,7 +627,8 @@ create_module_doc(Lang, ModuleDoc) ->
                 Opts :: [opt()]) -> internal_docs().
 new_state(Dirname, Filename, Opts) ->
     DocsV1 = #docs_v1{},
-    reset_state(#docs{cwd = Dirname, filename = Filename,
+    reset_state(#docs{docformat = ?DEFAULT_FORMAT,
+                      cwd = Dirname, filename = Filename,
                       curr_filename = Filename, opts = Opts,
                       moduledoc_meta = DocsV1#docs_v1.metadata}).
 
@@ -636,14 +645,47 @@ update_docstatus(State, V) ->
 
 update_ast(function, #docs{ast_fns=AST}=State, Fn) ->
     State#docs{ast_fns = [Fn | AST]};
-update_ast(Type,#docs{ast_types=AST}=State, Fn) when Type =:= type; Type =:= opaque->
+update_ast(Type,#docs{ast_types=AST}=State, Fn) when Type =:= type; Type =:= opaque; Type =:= nominal->
     State#docs{ast_types = [Fn | AST]};
 update_ast(callback, #docs{ast_callbacks = AST}=State, Fn) ->
     State#docs{ast_callbacks = [Fn | AST]}.
 
--spec update_meta(State :: internal_docs(), Meta :: map()) -> internal_docs().
-update_meta(#docs{meta = Meta0}=State, Meta1) ->
-    State#docs{meta = maps:merge(Meta0, Meta1)}.
+-spec update_meta(doc | moduledoc, State :: internal_docs(), Anno :: erl_anno:anno(), Meta :: map()) -> internal_docs().
+update_meta(Scope, State0, Anno, Meta1) ->
+    {Meta2, State1} =
+        maps:fold(fun(equiv, {call,_,_Equiv,_Args}=Equiv, {Meta, State}) when Scope =:= doc ->
+                          {Meta#{ equiv := unicode:characters_to_binary(erl_pp:expr(Equiv))}, State};
+                     (equiv, {Func, Arity}, {Meta, State}) when Scope =:= doc->
+                          {Meta#{ equiv := unicode:characters_to_binary(io_lib:format("~p/~p",[Func,Arity]))}, State};
+                     (authors, Authors, {Meta, State}) when Scope =:= moduledoc ->
+                          try
+                              BinaryAuthors = lists:map(fun unicode:characters_to_binary/1, Authors),
+                              {Meta#{ authors := BinaryAuthors }, State}
+                          catch _:_ ->
+                                  Warning = {invalid_metadata, authors},
+                                  {Meta, add_warning(Anno, Warning, State)}
+                          end;
+                     (Key, Value, {Meta, State}) ->
+                          Keys = if Scope =:= doc ->
+                                         [group, since, deprecated, equiv];
+                                    Scope =:= moduledoc ->
+                                         [since, deprecated, format]
+                                 end,
+                          case lists:member(Key, Keys) of
+                              true ->
+                                  try {Meta#{ Key := unicode:characters_to_binary(Value) }, State}
+                                  catch _:_ ->
+                                          Warning = {invalid_metadata, Key},
+                                          {Meta, add_warning(Anno, Warning, State)}
+                                  end;
+                              false -> {Meta, State}
+                          end
+                  end, {Meta1, State0}, Meta1),
+    if Scope =:= doc ->
+            State1#docs{meta = maps:merge(State0#docs.meta, Meta2)};
+       Scope =:= moduledoc ->
+            State1#docs{moduledoc_meta = maps:merge(State0#docs.moduledoc_meta, Meta2)}
+    end.
 
 -spec update_user_defined_types({type | callback | function, term(), integer()},
                                 State :: internal_docs()) -> internal_docs().
@@ -666,7 +708,7 @@ update_doc(#docs{doc_status = DocStatus}=State, Doc0) ->
     %% This is because we need to export private types that are used on public
     %% functions, or the documentation will create dead links.
     State1 = update_docstatus(State, set_doc_status(DocStatus)),
-    State2 = update_meta(State1, #{exported => true}),
+    State2 = update_meta(doc, State1, erl_anno:new(0), #{exported => true}),
     case Doc0 of
         none ->
             State2;
@@ -765,8 +807,7 @@ warn_hidden_callback(State) ->
                           case member({Name, Arity}, NoWarn) of
                               false ->
                                   Warning = {hidden_callback, {Name, Arity}},
-                                  W = create_warning(Anno, Warning, State0),
-                                  State0#docs{ warnings = [W | State0#docs.warnings] };
+                                  add_warning(Anno, Warning, State0);
                               true ->
                                   State0
                           end;
@@ -811,12 +852,16 @@ create_warning(Anno, Warning, State) ->
    Location = erl_anno:location(Anno),
    {Filename, [{Location, ?MODULE, Warning}]}.
 
+add_warning(Anno, Warning, State) ->
+   W = create_warning(Anno, Warning, State),
+   State#docs{ warnings = [W | State#docs.warnings] }.
+
 warn_missing_docs({{Kind, _, _} = KFA, Anno, _, Doc, MD}, State)
   when Doc =:= none, not is_map_key(equiv, MD) ->
     case lists:member(Kind, proplists:get_value(warn_missing_doc, State#docs.opts, [])) of
         true ->
             Warning = {missing_doc, KFA},
-            State#docs{ warnings = [create_warning(Anno, Warning, State) | State#docs.warnings] };
+            add_warning(Anno, Warning, State);
         false ->
             State
     end;
@@ -830,7 +875,7 @@ warn_missing_moduledoc(State) ->
       [_|_] when ModuleDoc =:= none ->
          Anno = erl_anno:new(?DEFAULT_MODULE_DOC_LOC),
          Warning = missing_moduledoc,
-         State#docs{ warnings = [create_warning(Anno, Warning, State) | State#docs.warnings] };
+         add_warning(Anno, Warning, State);
       _false ->
          State
    end.
@@ -849,7 +894,7 @@ extract_documentation0({function, _Anno, F, A, _Body}=AST, State) ->
     State1 = remove_exported_type_info({function, F, A}, State),
     extract_documentation_from_funs(AST, State1);
 extract_documentation0({attribute, _Anno, TypeOrOpaque, _}=AST,State)
-  when TypeOrOpaque =:= type; TypeOrOpaque =:= opaque ->
+  when TypeOrOpaque =:= type; TypeOrOpaque =:= opaque; TypeOrOpaque =:= nominal ->
     extract_documentation_from_type(AST, State);
 extract_documentation0({attribute, _Anno, callback, {{CB, A}, _Form}}=AST, State) ->
     State1 = remove_exported_type_info({callback, CB, A}, State),
@@ -932,7 +977,7 @@ extract_user_types(_Else, Acc) ->
 
 extract_documentation_from_type({attribute, Anno, TypeOrOpaque, {TypeName, _TypeDef, TypeArgs}=Types},
                       #docs{docs = Docs, exported_types=ExpTypes}=State)
-  when TypeOrOpaque =:= type; TypeOrOpaque =:= opaque ->
+  when TypeOrOpaque =:= type; TypeOrOpaque =:= opaque; TypeOrOpaque =:= nominal ->
    Args = fun_to_varargs(TypeArgs),
    Key =  {type, TypeName, length(TypeArgs)},
 
@@ -955,9 +1000,9 @@ add_last_read_user_type(_Anno, {_TypeName, TypeDef, TypeArgs}, State) ->
    Types = extract_user_types([TypeArgs, TypeDef], State),
    set_last_read_user_types(State, Types).
 
-%% NOTE: Terminal elements for the documentation, such as `-type`, `-opaque`, `-callback`,
-%%       and functions always need to reset the state when they finish, so that new
-%%       new AST items start with a clean slate.
+%% NOTE: Terminal elements for the documentation, such as `-type`, `-opaque`,
+%% `-nominal`, `-callback`, and functions always need to reset the state when
+%% they finish, so that new AST items start with a clean slate.
 extract_documentation_from_funs({function, Anno, F, A, [{clause, _, ClauseArgs, _, _}]},
                       #docs{exported_functions = ExpFuns}=State) ->
     case (sets:is_element({F, A}, ExpFuns) orelse State#docs.export_all) of
@@ -1020,8 +1065,8 @@ maybe_add_since(Meta, #docs{ moduledoc_meta = #{ since := ModuleDocSince } }) ->
 maybe_add_since(Meta, _State) ->
     Meta.
 
-maybe_add_deprecation(_KNA, #{ deprecated := Deprecated } = Meta, _State) ->
-    Meta#{ deprecated := unicode:characters_to_binary(Deprecated) };
+maybe_add_deprecation(_KNA, #{ deprecated := _ } = Meta, _) ->
+    Meta;
 maybe_add_deprecation({Kind, Name, Arity}, Meta, #docs{ module = Module,
                                                         deprecated = Deprecations }) ->
     maybe

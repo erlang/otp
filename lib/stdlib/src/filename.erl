@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1997-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1125,8 +1127,8 @@ filename_string_to_binary(List) ->
                           version => string() | binary()}.
 
 -doc """
-Equivalent to [basedir(PathType, Application, #\{\})](`m:filename#basedir_3_1`)
-or [basedir(PathsType, Application, #\{\})](`m:filename#basedir_3_2`).
+Equivalent to [basedir(PathType, Application, #\{\})](`basedir/3`)
+or [basedir(PathsType, Application, #\{\})](`basedir/3`).
 """.
 -doc(#{since => <<"OTP 19.0">>}).
 -spec basedir(PathType,Application) -> file:filename_all() when
@@ -1141,12 +1143,11 @@ basedir(Type,Application) when is_atom(Type), is_list(Application) orelse
     basedir(Type, Application, #{}).
 
 -doc """
-[](){: #basedir_3_1 } [](){: #basedir_3_2 }
+Returns a suitable path, or paths, for a given type.
 
-Returns a suitable path, or paths, for a given type. If `os` is not set in
-`Opts` the function will default to the native option, that is `'linux'`,
-`'darwin'` or `'windows'`, as understood by `os:type/0`. Anything not recognized
-as `'darwin'` or `'windows'` is interpreted as `'linux'`.
+If `os` is not set in `Opts` the function will default to the native option, that
+is `'linux'`, `'darwin'` or `'windows'`, as understood by `os:type/0`.
+Anything not recognized as `'darwin'` or `'windows'` is interpreted as `'linux'`.
 
 The options `'author'` and `'version'` are only used with `'windows'` option
 mode.

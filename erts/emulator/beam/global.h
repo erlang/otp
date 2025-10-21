@@ -1,6 +1,8 @@
 /*
  * %CopyrightBegin%
  *
+ * SPDX-License-Identifier: Apache-2.0
+ *
  * Copyright Ericsson AB 1996-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -132,17 +134,17 @@ extern void erts_nif_sched_init(ErtsSchedulerData *esdp);
 extern void erts_nif_execute_on_halt(void);
 extern void erts_nif_notify_halt(void);
 extern void erts_nif_wait_calls(void);
-extern int erts_nif_get_funcs(struct erl_module_nif*,
+extern int erts_nif_get_funcs(const struct erl_module_nif*,
                               struct enif_func_t **funcs);
-extern Module *erts_nif_get_module(struct erl_module_nif*);
+extern Module *erts_nif_get_module(const struct erl_module_nif*);
 extern Eterm erts_nif_call_function(Process *p, Process *tracee,
                                     struct erl_module_nif*,
                                     struct enif_func_t *,
                                     int argc, Eterm *argv);
 
 int erts_call_dirty_nif(ErtsSchedulerData *esdp, Process *c_p,
-                        ErtsCodePtr I, Eterm *reg);
-ErtsMessage* erts_create_message_from_nif_env(ErlNifEnv* msg_env);
+                        ErtsCodePtr I, const Eterm *reg);
+ErtsMessage* erts_create_message_from_nif_env(ErlNifEnv* msg_env, Uint extra);
 
 
 /* Driver handle (wrapper for old plain handle) */
@@ -988,6 +990,9 @@ Eterm erts_preload_module(Process *c_p, ErtsProcLocks c_p_locks,
                           const byte *code, Uint size);
 void init_load(void);
 const ErtsCodeMFA* erts_find_function_from_pc(ErtsCodePtr pc);
+ErtsCodePtr erts_find_next_code_for_line(const BeamCodeHeader* code_hdr,
+                                         unsigned int line,
+                                         unsigned int *start_from);
 Eterm* erts_build_mfa_item(FunctionInfo* fi, Eterm* hp,
 			   Eterm args, Eterm* mfa_p, Eterm loc_tail);
 void erts_set_current_function(FunctionInfo* fi, const ErtsCodeMFA* mfa);
@@ -1216,7 +1221,8 @@ void erts_dirty_process_main(ErtsSchedulerData *);
 Eterm build_stacktrace(Process* c_p, Eterm exc);
 Eterm expand_error_value(Process* c_p, Uint freason, Eterm Value);
 void erts_save_stacktrace(Process* p, struct StackTrace* s);
-ErtsCodePtr erts_printable_return_address(Process* p, Eterm *E) ERTS_NOINLINE;
+ErtsCodePtr erts_printable_return_address(const Process* p,
+                                          const Eterm *E) ERTS_NOINLINE;
 
 /* erl_init.c */
 
@@ -1319,7 +1325,7 @@ void erts_cleanup_offheap(ErlOffHeap *offheap);
 
 Uint64 erts_timestamp_millis(void);
 
-Export* erts_find_function(Eterm, Eterm, unsigned int, ErtsCodeIndex);
+const Export *erts_find_function(Eterm, Eterm, unsigned int, ErtsCodeIndex);
 
 /* ERTS_NOINLINE prevents link-time optimization across modules */
 const void *erts_get_stacklimit(void);
@@ -1491,7 +1497,7 @@ char *erts_convert_filename_to_wchar(const byte* bytes, Uint size,
                                      ErtsAlcType_t alloc_type, Sint* used,
                                      Uint extra_wchars);
 Eterm erts_convert_native_to_filename(Process *p, size_t size, byte *bytes);
-Eterm erts_utf8_to_list(Process *p, Uint num, byte *bytes, Uint sz, Uint left,
+Eterm erts_utf8_to_list(Process *p, Uint num, const byte *bytes, Uint sz, Uint left,
 			Uint *num_built, Uint *num_eaten, Eterm tail);
 Eterm
 erts_make_list_from_utf8_buf(Eterm **hpp, Uint num,
@@ -1552,7 +1558,7 @@ Uint erts_current_reductions(Process* current, Process *p);
 
 int erts_print_system_version(fmtfn_t to, void *arg, Process *c_p);
 
-int erts_hibernate(Process* c_p, Eterm* reg);
+void erts_hibernate(Process *c_p, Eterm *regs, int arity);
 
 ERTS_GLB_FORCE_INLINE int erts_is_literal(Eterm tptr, Eterm *ptr);
 

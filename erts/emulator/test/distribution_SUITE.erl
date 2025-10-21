@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2023. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1997-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -77,8 +79,8 @@
          message_latency_large_exit2/0,
          dist_entry_refc_race/1,
          system_limit/1,
-         hopefull_data_encoding/1,
-         hopefull_export_fun_bug/1,
+         hopeful_data_encoding/1,
+         hopeful_export_fun_bug/1,
          huge_iovec/1,
          is_alive/1,
          dyn_node_name_monitor_node/1,
@@ -119,7 +121,7 @@ all() ->
      {group, bad_dist}, {group, bad_dist_ext},
      dist_entry_refc_race,
      start_epmd_false, no_epmd, epmd_module, system_limit,
-     hopefull_data_encoding, hopefull_export_fun_bug,
+     hopeful_data_encoding, hopeful_export_fun_bug,
      huge_iovec, is_alive, dyn_node_name_monitor_node, dyn_node_name_monitor,
      {group, async_dist}, creation_selection].
 
@@ -3094,21 +3096,21 @@ address_please(_Name, "dummy", inet) ->
 address_please(_Name, "dummy", inet6) ->
     {ok, {0,0,0,0,0,0,0,1}}.
 
-hopefull_data_encoding(Config) when is_list(Config) ->
-    MkHopefullData = fun(Ref,Pid) -> mk_hopefull_data(Ref,Pid) end,
-    test_hopefull_data_encoding(MkHopefullData),
+hopeful_data_encoding(Config) when is_list(Config) ->
+    MkHopefulData = fun(Ref,Pid) -> mk_hopeful_data(Ref,Pid) end,
+    test_hopeful_data_encoding(MkHopefulData),
 
     %% Test funs with hopefully encoded term in environment
     MkBitstringInFunEnv = fun(_,_) -> [mk_fun_with_env(<<5:7>>)] end,
-    test_hopefull_data_encoding(MkBitstringInFunEnv),
+    test_hopeful_data_encoding(MkBitstringInFunEnv),
     MkExpFunInFunEnv = fun(_,_) -> [mk_fun_with_env(fun a:a/0)] end,
-    test_hopefull_data_encoding(MkExpFunInFunEnv),
+    test_hopeful_data_encoding(MkExpFunInFunEnv),
     ok.
 
 mk_fun_with_env(Term) ->
     fun() -> Term end.
 
-test_hopefull_data_encoding(MkDataFun) ->
+test_hopeful_data_encoding(MkDataFun) ->
     {ok, PeerProxy, ProxyNode} = ?CT_PEER(),
     {ok, PeerBouncer, BouncerNode} = ?CT_PEER(["-hidden"]),
     Tester = self(),
@@ -3161,18 +3163,18 @@ bounce_loop() ->
     end,
     bounce_loop().
 
-mk_hopefull_data(RemoteRef, RemotePid) ->
+mk_hopeful_data(RemoteRef, RemotePid) ->
     HugeBs = list_to_bitstring([lists:duplicate(12*1024*1024, 85), <<6:6>>]),
     <<_:1/bitstring,HugeBs2/bitstring>> = HugeBs,
-    mk_hopefull_data(list_to_binary(lists:seq(1,255))) ++
+    mk_hopeful_data(list_to_binary(lists:seq(1,255))) ++
         [1234567890, HugeBs, fun gurka:banan/3, fun erlang:node/1,
          RemotePid, self(), fun erlang:self/0] ++
-        mk_hopefull_data(list_to_binary(lists:seq(1,32))) ++
+        mk_hopeful_data(list_to_binary(lists:seq(1,32))) ++
         [an_atom,
          fun lists:reverse/1, RemoteRef, make_ref(), HugeBs2,
          fun blipp:blapp/7].
 
-mk_hopefull_data(BS) ->
+mk_hopeful_data(BS) ->
     BSsz = bit_size(BS),
     lists:concat(
       [lists:map(fun (Offset) ->
@@ -3211,7 +3213,7 @@ mk_hopefull_data(BS) ->
                  end, lists:seq(BSsz-32, BSsz-17))]).
 
 %% ERL-1254
-hopefull_export_fun_bug(Config) when is_list(Config) ->
+hopeful_export_fun_bug(Config) when is_list(Config) ->
     Msg = [1, fun blipp:blapp/7,
            2, fun blipp:blapp/7],
     {dummy, dummy@dummy} ! Msg.  % Would crash on debug VM

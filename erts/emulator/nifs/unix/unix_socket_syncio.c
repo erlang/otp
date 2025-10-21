@@ -1,6 +1,8 @@
 /*
  * %CopyrightBegin%
  *
+ * SPDX-License-Identifier: Apache-2.0
+ *
  * Copyright Ericsson AB 2022-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -323,68 +325,62 @@ static ERL_NIF_TERM essio_sendfile_ok(ErlNifEnv*       env,
                                       size_t           count);
 #endif
 
-static ERL_NIF_TERM recv_check_result(ErlNifEnv*       env,
-                                      ESockDescriptor* descP,
-                                      ssize_t          toRead,
-                                      int              saveErrno,
-                                      ssize_t          readResult,
-                                      ERL_NIF_TERM     sockRef,
-                                      ERL_NIF_TERM     recvRef);
-static ERL_NIF_TERM recvfrom_check_result(ErlNifEnv*       env,
-                                          ESockDescriptor* descP,
-                                          ssize_t          read,
-                                          int              saveErrno,
-                                          ErlNifBinary*    bufP,
-                                          ESockAddress*    fromAddrP,
-                                          SOCKLEN_T        fromAddrLen,
-                                          ERL_NIF_TERM     sockRef,
-                                          ERL_NIF_TERM     recvRef);
-static BOOLEAN_T recv_check_reader(ErlNifEnv*       env,
-                                   ESockDescriptor* descP,
-                                   ERL_NIF_TERM     ref,
-                                   ERL_NIF_TERM*    checkResult);
+static BOOLEAN_T recv_alloc_buf(size_t          size,
+                                ErlNifBinary   *bufP);
+static BOOLEAN_T recv_create_bin(ErlNifBinary *bufP,
+                                 size_t        size,
+                                 ErlNifBinary *binP);
+
+static BOOLEAN_T recv_check_entry(ErlNifEnv       *env,
+                                  ESockDescriptor *descP,
+                                  ERL_NIF_TERM     recvRef,
+                                  ERL_NIF_TERM    *retP);
+static BOOLEAN_T recv_check_result(ErlNifEnv       *env,
+                                   ESockDescriptor *descP,
+                                   ERL_NIF_TERM     sockRef,
+                                   ERL_NIF_TERM     recvRef,
+                                   ssize_t          readResult,
+                                   int              saveErrno,
+                                   ERL_NIF_TERM    *retP);
 static ERL_NIF_TERM recv_check_full(ErlNifEnv*       env,
                                     ESockDescriptor* descP,
-                                    ssize_t          toRead,
                                     ERL_NIF_TERM     sockRef,
-                                    ERL_NIF_TERM     recvRef);
+                                    ERL_NIF_TERM     recvRef,
+                                    ssize_t          len,
+                                    ErlNifBinary    *bufP);
 static ERL_NIF_TERM recv_check_full_maybe_done(ErlNifEnv*       env,
                                                ESockDescriptor* descP,
                                                ERL_NIF_TERM     sockRef,
-                                               ERL_NIF_TERM     recvRef);
+                                               ERL_NIF_TERM     recvRef,
+                                               ErlNifBinary    *bufP);
 static ERL_NIF_TERM recv_check_full_done(ErlNifEnv*       env,
                                          ESockDescriptor* descP,
-                                         ERL_NIF_TERM     sockRef);
+                                         ERL_NIF_TERM     sockRef,
+                                         ERL_NIF_TERM     recvRef,
+                                         ErlNifBinary    *bufP);
 static ERL_NIF_TERM recv_check_fail(ErlNifEnv*       env,
                                     ESockDescriptor* descP,
-                                    int              saveErrno,
                                     ERL_NIF_TERM     sockRef,
-                                    ERL_NIF_TERM     recvRef);
+                                    ERL_NIF_TERM     recvRef,
+                                    int              saveErrno);
 static ERL_NIF_TERM recv_check_fail_gen(ErlNifEnv*       env,
                                         ESockDescriptor* descP,
-                                        int              saveErrno,
-                                        ERL_NIF_TERM     sockRef);
+                                        ERL_NIF_TERM     sockRef,
+                                        int              saveErrno);
 static ERL_NIF_TERM recv_check_fail_econnreset(ErlNifEnv*       env,
                                                ESockDescriptor* descP,
-                                               ERL_NIF_TERM     sockRef,
-                                               ERL_NIF_TERM     recvRef);
-static ERL_NIF_TERM recv_check_retry(ErlNifEnv*       env,
-                                     ESockDescriptor* descP,
-                                     ERL_NIF_TERM     sockRef,
-                                     ERL_NIF_TERM     recvRef);
+                                               ERL_NIF_TERM     sockRef);
+static ERL_NIF_TERM recv_check_select(ErlNifEnv*       env,
+                                      ESockDescriptor* descP,
+                                      ERL_NIF_TERM     sockRef,
+                                      ERL_NIF_TERM     recvRef,
+                                      ERL_NIF_TERM     msg);
 static ERL_NIF_TERM recv_check_partial(ErlNifEnv*       env,
                                        ESockDescriptor* descP,
-                                       ssize_t          toRead,
                                        ERL_NIF_TERM     sockRef,
-                                       ERL_NIF_TERM     recvRef);
-static ERL_NIF_TERM recv_check_partial_done(ErlNifEnv*       env,
-                                            ESockDescriptor* descP,
-                                            ERL_NIF_TERM     sockRef,
-                                            ERL_NIF_TERM     returnTag);
-static ERL_NIF_TERM recv_check_partial_part(ErlNifEnv*       env,
-                                            ESockDescriptor* descP,
-                                            ERL_NIF_TERM     sockRef,
-                                            ERL_NIF_TERM     recvRef);
+                                       ERL_NIF_TERM     recvRef,
+                                       ssize_t          len,
+                                       ErlNifBinary    *bufP);
 static void recv_init_current_reader(ErlNifEnv*       env,
                                      ESockDescriptor* descP,
                                      ERL_NIF_TERM     recvRef);
@@ -395,24 +391,6 @@ static void recv_error_current_reader(ErlNifEnv*       env,
                                       ESockDescriptor* descP,
                                       ERL_NIF_TERM     sockRef,
                                       ERL_NIF_TERM     reason);
-
-static ERL_NIF_TERM recvmsg_check_result(ErlNifEnv*       env,
-                                         ESockDescriptor* descP,
-                                         ssize_t          read,
-                                         int              saveErrno,
-                                         struct msghdr*   msgHdrP,
-                                         ErlNifBinary*    dataBufP,
-                                         ErlNifBinary*    ctrlBufP,
-                                         ERL_NIF_TERM     sockRef,
-                                         ERL_NIF_TERM     recvRef);
-static ERL_NIF_TERM recvmsg_check_msg(ErlNifEnv*       env,
-                                      ESockDescriptor* descP,
-                                      ssize_t          read,
-                                      struct msghdr*   msgHdrP,
-                                      ErlNifBinary*    dataBufP,
-                                      ErlNifBinary*    ctrlBufP,
-                                      ERL_NIF_TERM     sockRef);
-
 
 static ERL_NIF_TERM essio_ioctl_gifconf(ErlNifEnv*       env,
 					ESockDescriptor* descP);
@@ -832,7 +810,7 @@ ERL_NIF_TERM essio_open_with_fd(ErlNifEnv*       env,
     ESOCK_ASSERT( enif_self(env, &self) != NULL );
 
     SSDBG2( dbg,
-            ("UNIX-ESSIO", "essio_open2 -> entry with"
+            ("UNIX-ESSIO", "essio_open_with_fd -> entry with"
              "\r\n   fd:    %d"
              "\r\n   eopts: %T"
              "\r\n", fd, eopts) );
@@ -851,7 +829,7 @@ ERL_NIF_TERM essio_open_with_fd(ErlNifEnv*       env,
     if (! open_which_domain(fd, &domain)) {
         SSDBG2( dbg,
                 ("UNIX-ESSIO",
-                 "essio_open2 -> failed get domain from system\r\n") );
+                 "essio_open_with_fd -> failed get domain from system\r\n") );
 
         if (! open_get_domain(env, eopts, &domain)) {
             return esock_make_invalid(env, esock_atom_domain);
@@ -861,7 +839,7 @@ ERL_NIF_TERM essio_open_with_fd(ErlNifEnv*       env,
     if (! open_which_type(fd, &type)) {
         SSDBG2( dbg,
                 ("UNIX-ESSIO",
-                 "essio_open2 -> failed get type from system\r\n") );
+                 "essio_open_with_fd -> failed get type from system\r\n") );
 
         if (! open_get_type(env, eopts, &type))
             return esock_make_invalid(env, esock_atom_type);
@@ -870,12 +848,12 @@ ERL_NIF_TERM essio_open_with_fd(ErlNifEnv*       env,
     if (! esock_open_which_protocol(fd, &protocol)) {
         SSDBG2( dbg,
                 ("UNIX-ESSIO",
-                 "essio_open2 -> failed get protocol from system\r\n") );
+                 "essio_open_with_fd -> failed get protocol from system\r\n") );
 
         if (! open_get_protocol(env, eopts, &protocol)) {
             SSDBG2( dbg,
                     ("UNIX-ESSIO",
-                     "essio_open2 -> "
+                     "essio_open_with_fd -> "
                      "failed get protocol => try protocol 0\r\n") );
             protocol = 0;
         }
@@ -884,11 +862,14 @@ ERL_NIF_TERM essio_open_with_fd(ErlNifEnv*       env,
 
     SSDBG2( dbg,
             ("UNIX-ESSIO",
-             "essio_open2 -> "
-             "\r\n   domain:   %d"
-             "\r\n   type:     %d"
-             "\r\n   protocol: %d"
-             "\r\n", domain, type, protocol) );
+             "essio_open_with_fd -> "
+             "\r\n   domain:   %d (%s)"
+             "\r\n   type:     %d (%s)"
+             "\r\n   protocol: %d (%s)"
+             "\r\n",
+             domain,   DOM2STR(domain),
+             type,     TYPE2STR(type),
+             protocol, PROTO2STR(protocol)) );
 
 
     if (open_todup(env, eopts)) {
@@ -898,7 +879,7 @@ ERL_NIF_TERM essio_open_with_fd(ErlNifEnv*       env,
 
             SSDBG2( dbg,
                     ("UNIX-ESSIO",
-                     "essio_open2 -> dup failed: %d\r\n",
+                     "essio_open_with_fd -> dup failed: %d\r\n",
                      save_errno) );
 
             return esock_make_error_errno(env, save_errno);
@@ -929,10 +910,12 @@ ERL_NIF_TERM essio_open_with_fd(ErlNifEnv*       env,
         if (sock_peer(descP->sock,
                       (struct sockaddr*) &remote,
                       &addrLen) == 0) {
-            SSDBG2( dbg, ("UNIX-ESSIO", "essio_open2 -> connected\r\n") );
+            SSDBG2( dbg, ("UNIX-ESSIO",
+                          "essio_open_with_fd -> connected\r\n") );
             descP->writeState |= ESOCK_STATE_CONNECTED;
         } else {
-            SSDBG2( dbg, ("UNIX-ESSIO", "essio_open2 -> not connected\r\n") );
+            SSDBG2( dbg, ("UNIX-ESSIO",
+                          "essio_open_with_fd -> not connected\r\n") );
         }
     }
 
@@ -940,7 +923,7 @@ ERL_NIF_TERM essio_open_with_fd(ErlNifEnv*       env,
     sockRef = enif_make_resource(env, descP);
     enif_release_resource(descP);
 
-    ESOCK_ASSERT( MONP("essio_open2 -> ctrl",
+    ESOCK_ASSERT( MONP("essio_open_with_fd -> ctrl",
                        env, descP,
                        &descP->ctrlPid,
                        &descP->ctrlMon) == 0 );
@@ -955,7 +938,7 @@ ERL_NIF_TERM essio_open_with_fd(ErlNifEnv*       env,
     if (descP->useReg) esock_send_reg_add_msg(env, descP, sockRef);
 
     SSDBG2( dbg,
-            ("UNIX-ESSIO", "essio_open2 -> done: %T\r\n", sockRef) );
+            ("UNIX-ESSIO", "essio_open_with_fd -> done: %T\r\n", sockRef) );
 
     return esock_make_ok2(env, sockRef);
 }
@@ -1071,11 +1054,15 @@ ERL_NIF_TERM essio_open_plain(ErlNifEnv*       env,
 
     SSDBG2( dbg,
             ("UNIX-ESSIO", "essio_open4 -> entry with"
-             "\r\n   domain:   %d"
-             "\r\n   type:     %d"
-             "\r\n   protocol: %d"
+             "\r\n   domain:   %d (%s)"
+             "\r\n   type:     %d (%s)"
+             "\r\n   protocol: %d (%s)"
              "\r\n   eopts:    %T"
-             "\r\n", domain, type, protocol, eopts) );
+             "\r\n",
+             domain,   DOM2STR(domain),
+             type,     TYPE2STR(type),
+             protocol, PROTO2STR(protocol),
+             eopts) );
 
 
 #ifdef HAVE_SETNS
@@ -2743,192 +2730,68 @@ ERL_NIF_TERM essio_recv(ErlNifEnv*       env,
                         ssize_t          len,
                         int              flags)
 {
-    ERL_NIF_TERM readerCheck;
-    int          save_errno;
+    int          saveErrno;
+    ErlNifBinary bin, *bufP;
     ssize_t      readResult;
-    /* Receive as much as requested, or if 0 is requested use
-     * the default size (configured)
-     */
-    size_t       recvLen = (len != 0 ? len : descP->rBufSz);
+    size_t       bufSz = (len != 0 ? len : descP->rBufSz); // 0 means default
+    ERL_NIF_TERM ret;
 
     SSDBG( descP, ("UNIX-ESSIO", "essio_recv {%d} -> entry with"
-                   "\r\n   count,size: (%ld:%u:%lu)"
+                   "\r\n   bufSz: %lu"
+                   "\r\n   count: %u"
+                   "\r\n   len:   %ld"
                    "\r\n", descP->sock,
-                   (long) len, descP->rNumCnt, (unsigned long) recvLen) );
+                   (unsigned long) bufSz, descP->rNumCnt, (long) len) );
 
-    if (! IS_OPEN(descP->readState))
-        return esock_make_error_closed(env);
 
-    /* Accept and Read uses the same select flag
-     * so they can not be simultaneous
-     */
-    if (descP->currentAcceptorP != NULL)
-        return esock_make_error_invalid(env, esock_atom_state);
-
-    /* Ensure that we either have no current reader or that we are it,
-     * or enqueue this process if there is a current reader */
-    if (! recv_check_reader(env, descP, recvRef, &readerCheck)) {
+    /* Check basic state and current reader */
+    if (! recv_check_entry(env, descP, recvRef, &ret)) {
         SSDBG( descP,
-               ("UNIX-ESSIO", "essio_recv {%d} -> reader check failed: "
-                "\r\n   %T"
-                "\r\n", descP->sock, readerCheck) );
-        return readerCheck;
+               ("UNIX-ESSIO", "essio_recv {%d} -> entry failed: "
+                "\r\n   %T\r\n", descP->sock, ret) );
+        return ret;
     }
 
+    bufP = &descP->buf;
+    ESOCK_ASSERT( recv_alloc_buf(bufSz, bufP) );
 
-    /* Allocate the receive buffer */
-    if (descP->readBuf.data == NULL) {
-        ESOCK_ASSERT( ALLOC_BIN(recvLen, &descP->readBuf) );
-        descP->readResult = 0;
-    } else {
-        /* We already have a buffer.
-         * Only happens for SOCK_STREAM when a recv didn't
-         * fill the buffer (partial recv).
-         */
-        if ((len == 0) && (0 < descP->readResult)) {
-            /* The request is for any amount of data
-             * - deliver what we have
-             */
-            ESOCK_ASSERT( REALLOC_BIN(&descP->readBuf, descP->readResult) );
-            return recv_check_full_done(env, descP, sockRef);
-        } else if (descP->readBuf.size < recvLen) {
-            /* Our buffer is too small */
-            ESOCK_ASSERT( REALLOC_BIN(&descP->readBuf, recvLen) );
-        } else if (recvLen < descP->readResult) {
-            /* We have more buffered than what is requested
-             * - deliver the start of the buffer
-             *   and copy the rest to a new buffer */
-            ErlNifBinary buf;
-            ERL_NIF_TERM ret;
-            size_t keepLen = descP->readResult - recvLen;
-            ESOCK_ASSERT( ALLOC_BIN(keepLen, &buf) );
-            sys_memcpy(buf.data, descP->readBuf.data + recvLen,
-                       keepLen);
-            ESOCK_ASSERT( REALLOC_BIN(&descP->readBuf, recvLen) );
-            ret = recv_check_full_done(env, descP, sockRef);
-            descP->readBuf    = buf;
-            descP->readResult = keepLen;
-            return ret;
-        } else if (descP->readResult < recvLen) {
-            /* The request is for more data than we have buffered
-             * - we need to receive more data */
-            if (recvLen < descP->readBuf.size) {
-                /* Our buffer is too large */
-                ESOCK_ASSERT( REALLOC_BIN(&descP->readBuf, recvLen) );
-            } /* else our buffer is just the right size */
-        } else {
-            /* Our buffer contains exactly what is requested
-             * - just deliver it all
-             */
-            return recv_check_full_done(env, descP, sockRef);
-        }
-    }
-    ESOCK_ASSERT( recvLen == descP->readBuf.size );
-    recvLen = descP->readBuf.size - descP->readResult;
-
-    // If it fails (read = -1), we need errno...
     SSDBG( descP, ("UNIX-ESSIO", "essio_recv {%d} -> try read (%lu)\r\n",
-                   descP->sock, (unsigned long) recvLen) );
+                   descP->sock, (unsigned long) len) );
 
     ESOCK_CNT_INC(env, descP, sockRef,
                   esock_atom_read_tries, &descP->readTries, 1);
 
-    readResult =
-        sock_recv(descP->sock,
-                  descP->readBuf.data + descP->readResult, recvLen,
-                  flags);
-    if (ESOCK_IS_ERROR(readResult)) {
-        save_errno = sock_errno();
-    } else {
-        save_errno = 0; // The value does not actually matter in this case
-    }
+    /* recv() */
+    readResult = sock_recv(descP->sock, bufP->data, bufP->size, flags);
+    saveErrno  = ESOCK_IS_ERROR(readResult) ? sock_errno() : 0;
 
     SSDBG( descP, ("UNIX-ESSIO",
                    "essio_recv {%d} -> readResult: %ld (%d)\r\n",
-                   descP->sock, (long) readResult, save_errno) );
+                   descP->sock, (long) readResult, saveErrno) );
 
-    return recv_check_result(env, descP, len, save_errno, readResult,
-                             sockRef, recvRef);
-}
+    /* Check for errors and end of stream */
+    if (! recv_check_result(env, descP, sockRef, recvRef,
+                            readResult, saveErrno, &ret) ) {
+        /* Keep the buffer */
+        return ret;
+    }
+    /* readResult >= 0 */
 
+    ESOCK_ASSERT( recv_create_bin(bufP, readResult, &bin) );
 
-/* *** recv_check_result ***
- *
- * Process the result of a call to recv.
- */
-static
-ERL_NIF_TERM recv_check_result(ErlNifEnv*       env,
-                               ESockDescriptor* descP,
-                               ssize_t          toRead,
-                               int              saveErrno,
-                               ssize_t          readResult,
-                               ERL_NIF_TERM     sockRef,
-                               ERL_NIF_TERM     recvRef)
-{
-    ERL_NIF_TERM res;
-
-    SSDBG( descP,
-           ("UNIX-ESSIO", "recv_check_result(%T) {%d} -> entry with"
-            "\r\n   toRead:     %ld"
-            "\r\n   saveErrno:  %d"
-            "\r\n   readResult: %ld"
-            "\r\n   recvRef:    %T"
-            "\r\n", sockRef, descP->sock,
-            (long) toRead, saveErrno, (long) readResult, recvRef) );
-
-
-    /* <KOLLA>
-     *
-     * We need to handle readResult = 0 for other type(s) (DGRAM) when
-     * its actually valid to read 0 bytes.
-     *
-     * </KOLLA>
-     */
-
-    if ((readResult == 0) && (descP->type == SOCK_STREAM)) {
-        ERL_NIF_TERM reason = esock_atom_closed;
-
-        /* Stream closed from other side
-         *
-         * When a stream socket peer has performed an orderly shutdown,
-         * the return value will be 0 (the traditional "end-of-file" return).
-         *
-         * *We* do never actually try to read 0 bytes!
-         *
-         * We must also notify any waiting readers!
-         */
-
-        if (0 < descP->readResult) {
-            ERL_NIF_TERM data;
-            /* We had data buffered */
-            ESOCK_ASSERT( REALLOC_BIN(&descP->readBuf, descP->readResult) );
-            data = MKBIN(env, &descP->readBuf);
-            descP->readBuf.data = NULL;
-            res = esock_make_error(env, MKT2(env, reason, data));
-        } else {
-            res = esock_make_error(env, reason);
-        }
-
-        recv_error_current_reader(env, descP, sockRef, reason);
-
-    } else if (readResult < 0) {
-
-        /* +++ Error handling +++ */
-
-        res = recv_check_fail(env, descP, saveErrno, sockRef, recvRef);
-
-    } else if ((descP->readResult += readResult) < descP->readBuf.size) {
+    if (bin.size < bufP->size) {
 
         /* +++ We did not fill the buffer +++ */
 
         SSDBG( descP,
                ("UNIX-ESSIO",
-                "recv_check_result(%T) {%d} -> [%lu] "
+                "essio_recv {%d} -> [%lu] "
                 "did not fill the buffer (%ld)\r\n",
-                sockRef, descP->sock, (unsigned long) descP->readBuf.size,
-                (long) descP->readResult) );
+                descP->sock, (unsigned long) bufP->size,
+                (unsigned long) bin.size) );
 
-        res = recv_check_partial(env, descP, toRead, sockRef, recvRef);
+        /* Return {ok|timeout|select|select_read, Bin} */
+        return recv_check_partial(env, descP, sockRef, recvRef, len, &bin);
 
     } else {
 
@@ -2936,16 +2799,13 @@ ERL_NIF_TERM recv_check_result(ErlNifEnv*       env,
 
         SSDBG( descP,
                ("UNIX-ESSIO",
-                "recv_check_result(%T) {%d} -> [%lu] filled the buffer\r\n",
-                sockRef, descP->sock,
-                (unsigned long) descP->readBuf.size) );
+                "essio_recv {%d} -> [%lu] filled the buffer\r\n",
+                descP->sock, (unsigned long) bin.size) );
 
-        res = recv_check_full(env, descP, toRead, sockRef, recvRef);
+        /* Return {more|ok|select_read, Bin} */
+        return recv_check_full(env, descP, sockRef, recvRef, len, &bin);
     }
-
-    return res;
 }
-
 
 
 /* ========================================================================
@@ -2963,149 +2823,88 @@ ERL_NIF_TERM essio_recvfrom(ErlNifEnv*       env,
                             int              flags)
 {
     ESockAddress  fromAddr;
-    SOCKLEN_T     addrLen;
-    ssize_t       read;
-    int           save_errno;
-    ErlNifBinary  buf;
-    ERL_NIF_TERM  readerCheck;
-    size_t        bufSz = (len != 0 ? len : descP->rBufSz);
+    SOCKLEN_T     fromAddrLen;
+    ssize_t       readResult;
+    int           saveErrno;
+    ErlNifBinary  bin, *bufP;
+    size_t        bufSz = (len != 0 ? len : descP->rBufSz); // 0 means default
+    ERL_NIF_TERM  ret;
 
     SSDBG( descP, ("UNIX-ESSIO", "essio_recvfrom {%d} -> entry with"
-                   "\r\n   bufSz: %d"
-                   "\r\n", descP->sock, bufSz) );
+                   "\r\n   bufSz: %lu (%ld)"
+                   "\r\n", descP->sock,
+                   (unsigned long) bufSz, (long) len) );
 
-    if (! IS_OPEN(descP->readState))
-        return esock_make_error_closed(env);
-
-    /* Accept and Read uses the same select flag
-     * so they can not be simultaneous
-     */
-    if (descP->currentAcceptorP != NULL)
-        return esock_make_error_invalid(env, esock_atom_state);
-
-    /* Ensure that we either have no current reader or that we are it,
-     * or enqueue this process if there is a current reader */
-    if (! recv_check_reader(env, descP, recvRef, &readerCheck)) {
+    /* Check basic state and current reader */
+    if (! recv_check_entry(env, descP, recvRef, &ret)) {
         SSDBG( descP,
-               ("UNIX-ESSIO", "essio_recv {%d} -> reader check failed: "
-                "\r\n   %T\r\n", descP->sock, readerCheck) );
-        return readerCheck;
+               ("UNIX-ESSIO", "essio_recvfrom {%d} -> entry failed: "
+                "\r\n   %T\r\n", descP->sock, ret) );
+        return ret;
     }
 
-    /* Allocate a buffer:
-     * Either as much as we want to read or (if zero (0)) use the "default"
-     * size (what has been configured).
-     */
-    ESOCK_ASSERT( ALLOC_BIN(bufSz, &buf) );
+    bufP = &descP->buf;
+    ESOCK_ASSERT( recv_alloc_buf(bufSz, bufP) );
 
     ESOCK_CNT_INC(env, descP, sockRef,
                   esock_atom_read_tries, &descP->readTries, 1);
 
-    addrLen = sizeof(fromAddr);
-    sys_memzero((char*) &fromAddr, addrLen);
+    fromAddrLen = sizeof(fromAddr);
+    sys_memzero((char*) &fromAddr, fromAddrLen);
 
-    read = sock_recvfrom(descP->sock, buf.data, buf.size, flags,
-                         &fromAddr.sa, &addrLen);
-    if (ESOCK_IS_ERROR(read))
-        save_errno = sock_errno();
-    else
-        save_errno = 0; // The value does not actually matter in this case
+    /* recvfrom() */
+    readResult = sock_recvfrom(descP->sock, bufP->data, bufP->size, flags,
+                               &fromAddr.sa, &fromAddrLen);
+    saveErrno = ESOCK_IS_ERROR(readResult) ? sock_errno() : 0;
 
-    return recvfrom_check_result(env, descP, read, save_errno,
-                                 &buf, &fromAddr, addrLen,
-                                 sockRef, recvRef);
-}
+    /* Check for errors and end of stream */
+    if (! recv_check_result(env, descP, sockRef, recvRef,
+                            readResult, saveErrno, &ret) ) {
+        /* Keep the buffer */
+        return ret;
+    }
+    /* readResult >= 0 */
 
+    ESOCK_ASSERT( recv_create_bin(bufP, readResult, &bin) );
 
-/* The recvfrom function delivers one (1) message. If our buffer
- * is too small, the message will be truncated. So, regardless
- * if we filled the buffer or not, we have got what we are going
- * to get regarding this message.
- */
-
-static
-ERL_NIF_TERM recvfrom_check_result(ErlNifEnv*       env,
-                                   ESockDescriptor* descP,
-                                   ssize_t          read,
-                                   int              saveErrno,
-                                   ErlNifBinary*    bufP,
-                                   ESockAddress*    fromAddrP,
-                                   SOCKLEN_T        fromAddrLen,
-                                   ERL_NIF_TERM     sockRef,
-                                   ERL_NIF_TERM     recvRef)
-{
-    ERL_NIF_TERM data, res;
-
-    SSDBG( descP,
-           ("UNIX-ESSIO", "recvfrom_check_result(%T) {%d} -> entry with"
-            "\r\n   read:      %ld"
-            "\r\n   saveErrno: %d"
-            "\r\n   recvRef:   %T"
-            "\r\n", sockRef, descP->sock,
-            (long) read, saveErrno, recvRef) );
-
-    /* <KOLLA>
+    /* The recvfrom function delivers one (1) message. If our buffer
+     * is too small, the message will be truncated. So, regardless
+     * if we filled the buffer or not, we have got what we are going
+     * to get regarding this message.
      *
-     * We need to handle read = 0 for non_stream socket type(s) when
-     * its actually valid to read 0 bytes.
-     *
-     * </KOLLA>
+     * Encode the message and source address
      */
 
-    if ((read == 0) && (descP->type == SOCK_STREAM)) {
+    descP->rNumCnt = 0;
 
-        /*
-         * When a stream socket peer has performed an orderly shutdown,
-         * the return value will be 0 (the traditional "end-of-file" return).
-         *
-         * *We* do never actually try to read 0 bytes!
-         */
+    ESOCK_CNT_INC(env, descP, sockRef, esock_atom_read_pkg,
+                  &descP->readPkgCnt, 1);
+    ESOCK_CNT_INC(env, descP, sockRef, esock_atom_read_byte,
+                  &descP->readByteCnt, bin.size);
+    if (bin.size > descP->readPkgMax)
+        descP->readPkgMax = bin.size;
 
-        ESOCK_CNT_INC(env, descP, sockRef,
-                      esock_atom_read_fails, &descP->readFails, 1);
+    esock_encode_sockaddr(env,
+                          &fromAddr, fromAddrLen,
+                          &ret);
 
-        FREE_BIN(bufP);
+    /* MKBIN transfers "ownership" of the *allocated* binary to an
+     * erlang term in env (no need to free; it will be GC:ed).
+     */
+    /* {FromAddr, Bin} */
+    ret = MKT2(env, ret, MKBIN(env, &bin));
 
-        return esock_make_error_closed(env);
+    if (descP->selectRead && (COMPARE(recvRef, esock_atom_zero) != 0)) {
+        /* Return {select_read, {FromAddr, Bin}} */
+        ret = MKT2(env, esock_atom_select_read, ret);
+        return recv_check_select(env, descP, sockRef, recvRef, ret);
     }
-
-    if (read < 0) {
-
-        /* +++ Error handling +++ */
-
-        res = recv_check_fail(env, descP, saveErrno, sockRef, recvRef);
-        FREE_BIN(bufP);
-
-    } else {
-
-        /* +++ We successfully got a message - time to encode the address +++ */
-
-        ERL_NIF_TERM eSockAddr;
-
-        esock_encode_sockaddr(env,
-                              fromAddrP, fromAddrLen,
-                              &eSockAddr);
-
-        if (read != bufP->size) {
-            ESOCK_ASSERT( REALLOC_BIN(bufP, read) );
-        }
-        data = MKBIN(env, bufP);
-
-        ESOCK_CNT_INC(env, descP, sockRef, esock_atom_read_pkg,
-                      &descP->readPkgCnt, 1);
-        ESOCK_CNT_INC(env, descP, sockRef, esock_atom_read_byte,
-                      &descP->readByteCnt, read);
-
+    else {
         recv_update_current_reader(env, descP, sockRef);
-
-        res = esock_make_ok2(env, MKT2(env, eSockAddr, data));
-
+        /* Return {ok, {FromAddr, Bin}} */
+        return esock_make_ok2(env, ret);
     }
-
-    return res;
-
 }
-
 
 
 /* ========================================================================
@@ -3124,15 +2923,14 @@ ERL_NIF_TERM essio_recvmsg(ErlNifEnv*       env,
                            int              flags)
 {
     SOCKLEN_T     addrLen;
-    ssize_t       read;
-    int           save_errno;
+    ssize_t       readResult;
+    int           saveErrno;
     size_t        bufSz  = (bufLen  != 0 ? bufLen  : descP->rBufSz);
     size_t        ctrlSz = (ctrlLen != 0 ? ctrlLen : descP->rCtrlSz);
     struct msghdr msgHdr;
     SysIOVec      iov[1];  // Shall we always use 1?
-    ErlNifBinary  data[1]; // Shall we always use 1?
-    ErlNifBinary  ctrl;
-    ERL_NIF_TERM  readerCheck;
+    ErlNifBinary  ctrl, bin, *bufP;
+    ERL_NIF_TERM  ret;
     ESockAddress  addr;
 
     SSDBG( descP, ("UNIX-ESSIO", "essio_recvmsg {%d} -> entry with"
@@ -3142,27 +2940,18 @@ ERL_NIF_TERM essio_recvmsg(ErlNifEnv*       env,
                    (unsigned long) bufSz, (long) bufLen,
                    (unsigned long) ctrlSz, (long) ctrlLen) );
 
-    if (! IS_OPEN(descP->readState))
-        return esock_make_error_closed(env);
-
-    /* Accept and Read uses the same select flag
-     * so they can not be simultaneous
-     */
-    if (descP->currentAcceptorP != NULL)
-        return esock_make_error_invalid(env, esock_atom_state);
-
-    /* Ensure that we either have no current reader or that we are it,
-     * or enqueue this process if there is a current reader */
-    if (! recv_check_reader(env, descP, recvRef, &readerCheck)) {
+    /* Check basic state and current reader */
+    if (! recv_check_entry(env, descP, recvRef, &ret)) {
         SSDBG( descP,
-               ("UNIX-ESSIO", "essio_recvmsg {%d} -> reader check failed: "
-                "\r\n   %T\r\n", descP->sock, readerCheck) );
-        return readerCheck;
+               ("UNIX-ESSIO", "essio_recvmsg {%d} -> entry failed: "
+                "\r\n   %T\r\n", descP->sock, ret) );
+        return ret;
     }
 
-    /* Allocate the (msg) data buffer:
+    /* Allocate the data buffer
      */
-    ESOCK_ASSERT( ALLOC_BIN(bufSz, &data[0]) );
+    bufP = &descP->buf;
+    ESOCK_ASSERT( recv_alloc_buf(bufSz, bufP) );
 
     /* Allocate the ctrl (buffer):
      */
@@ -3175,8 +2964,8 @@ ERL_NIF_TERM essio_recvmsg(ErlNifEnv*       env,
     sys_memzero((char*) &addr,   addrLen);
     sys_memzero((char*) &msgHdr, sizeof(msgHdr));
 
-    iov[0].iov_base = data[0].data;
-    iov[0].iov_len  = data[0].size;
+    iov[0].iov_base = bufP->data;
+    iov[0].iov_len  = bufP->size;
 
     msgHdr.msg_name       = &addr;
     msgHdr.msg_namelen    = addrLen;
@@ -3185,110 +2974,26 @@ ERL_NIF_TERM essio_recvmsg(ErlNifEnv*       env,
     msgHdr.msg_control    = ctrl.data;
     msgHdr.msg_controllen = ctrl.size;
 
-    read = sock_recvmsg(descP->sock, &msgHdr, flags);
-    if (ESOCK_IS_ERROR(read))
-        save_errno = sock_errno();
-    else
-        save_errno = 0; // The value does not actually matter in this case
+    /* recvmsg() */
+    readResult = sock_recvmsg(descP->sock, &msgHdr, flags);
+    saveErrno = ESOCK_IS_ERROR(readResult) ? sock_errno() : 0;
 
-    return recvmsg_check_result(env, descP, read, save_errno,
-                                &msgHdr,
-                                data,  // Needed for iov encode
-                                &ctrl, // Needed for ctrl header encode
-                                sockRef, recvRef);
-}
+    /* Check for errors and end of stream */
+    if (! recv_check_result(env, descP, sockRef, recvRef,
+                            readResult, saveErrno, &ret) ) {
+        /* Keep the data buffer */
+        FREE_BIN(&ctrl);
+        return ret;
+    }
+    /* readResult >= 0 */
 
+    ESOCK_ASSERT( recv_create_bin(bufP, readResult, &bin) );
 
-/* *** recvmsg_check_result ***
- *
- * The recvmsg function delivers one (1) message. If our buffer
- * is to small, the message will be truncated. So, regardless
- * if we filled the buffer or not, we have got what we are going
- * to get regarding this message.
- */
-static
-ERL_NIF_TERM recvmsg_check_result(ErlNifEnv*       env,
-                                  ESockDescriptor* descP,
-                                  ssize_t          read,
-                                  int              saveErrno,
-                                  struct msghdr*   msgHdrP,
-                                  ErlNifBinary*    dataBufP,
-                                  ErlNifBinary*    ctrlBufP,
-                                  ERL_NIF_TERM     sockRef,
-                                  ERL_NIF_TERM     recvRef)
-{
-    ERL_NIF_TERM res;
-
-    SSDBG( descP,
-           ("UNIX-ESSIO", "recvmsg_check_result(%T) {%d} -> entry with"
-            "\r\n   read:      %ld"
-            "\r\n   saveErrno: %d"
-            "\r\n   recvRef:   %T"
-            "\r\n", sockRef, descP->sock,
-            (long) read, saveErrno, recvRef) );
-
-
-    /* <KOLLA>
-     *
-     * We need to handle read = 0 for non_stream socket type(s) when
-     * its actually valid to read 0 bytes.
-     *
-     * </KOLLA>
+    /* The recvmsg function delivers one (1) message. If our buffer
+     * is to small, the message will be truncated. So, regardless
+     * if we filled the buffer or not, we have got what we are going
+     * to get regarding this message.
      */
-
-    if ((read == 0) && (descP->type == SOCK_STREAM)) {
-        
-        /*
-         * When a stream socket peer has performed an orderly shutdown,
-         * the return value will be 0 (the traditional "end-of-file" return).
-         *
-         * *We* do never actually try to read 0 bytes!
-         */
-
-        ESOCK_CNT_INC(env, descP, sockRef,
-                      esock_atom_read_fails, &descP->readFails, 1);
-
-        FREE_BIN(dataBufP); FREE_BIN(ctrlBufP);
-
-        return esock_make_error_closed(env);
-    }
-
-
-    if (read < 0) {
-
-        /* +++ Error handling +++ */
-
-        res = recv_check_fail(env, descP, saveErrno, sockRef, recvRef);
-        FREE_BIN(dataBufP); FREE_BIN(ctrlBufP);
-
-    } else {
-
-        /* +++ We successfully got a message - time to encode it +++ */
-
-        res = recvmsg_check_msg(env, descP, read, msgHdrP,
-                                dataBufP, ctrlBufP, sockRef);
-
-    }
-
-    return res;
-
-}
-
-
-/* *** recvmsg_check_msg ***
- *
- * We successfully read one message. Time to process.
- */
-static
-ERL_NIF_TERM recvmsg_check_msg(ErlNifEnv*       env,
-                               ESockDescriptor* descP,
-                               ssize_t          read,
-                               struct msghdr*   msgHdrP,
-                               ErlNifBinary*    dataBufP,
-                               ErlNifBinary*    ctrlBufP,
-                               ERL_NIF_TERM     sockRef)
-{
-    ERL_NIF_TERM eMsg;
 
     /*
      * <KOLLA>
@@ -3300,24 +3005,34 @@ ERL_NIF_TERM recvmsg_check_msg(ErlNifEnv*       env,
      * </KOLLA>
      */
 
-    encode_msg(env, descP,
-               read, msgHdrP, dataBufP, ctrlBufP,
-               &eMsg);
-
     SSDBG( descP,
-           ("UNIX-ESSIO", "recvmsg_check_result(%T) {%d} -> ok\r\n",
-            sockRef, descP->sock) );
+           ("UNIX-ESSIO", "essio_recvmsg {%d} -> ok\r\n",
+            descP->sock) );
+
+    descP->rNumCnt = 0;
 
     ESOCK_CNT_INC(env, descP, sockRef,
                   esock_atom_read_pkg, &descP->readPkgCnt, 1);
     ESOCK_CNT_INC(env, descP, sockRef, esock_atom_read_byte,
-                  &descP->readByteCnt, read);
+                  &descP->readByteCnt, readResult);
+    if (readResult > descP->readPkgMax)
+        descP->readPkgMax = readResult;
 
-    recv_update_current_reader(env, descP, sockRef);
+    encode_msg(env, descP,
+               readResult, &msgHdr, &bin, &ctrl,
+               &ret);
 
-    return esock_make_ok2(env, eMsg);
+    if (descP->selectRead && (COMPARE(recvRef, esock_atom_zero) != 0)) {
+        /* Return {select_read, Msg} */
+        ret = MKT2(env, esock_atom_select_read, ret);
+        return recv_check_select(env, descP, sockRef, recvRef, ret);
+    }
+    else {
+        recv_update_current_reader(env, descP, sockRef);
+        /* Return {ok, Msg} */
+        return esock_make_ok2(env, ret);
+    }
 }
-
 
 
 /* ========================================================================
@@ -6841,9 +6556,8 @@ void essio_dtor(ErlNifEnv*       env,
     descP->writeState |= (ESOCK_STATE_DTOR | ESOCK_STATE_CLOSED);
     descP->pattern     = (ESOCK_DESC_PATTERN_DTOR | ESOCK_STATE_CLOSED);
 
-    if (descP->readBuf.data != NULL) {
-        FREE_BIN(&descP->readBuf);
-        descP->readBuf.data = NULL;
+    if (descP->buf.data != NULL) {
+        FREE_BIN(&descP->buf);
     }
 
     esock_free_env("dtor reader", descP->currentReader.env);
@@ -7128,25 +6842,84 @@ void essio_down(ErlNifEnv*           env,
 
 /* *** Recv/recvfrom/recvmsg utility functions *** */
 
-/* *** recv_check_reader ***
- *
- * Checks if we have a current reader and if that is us. If not,
- * then we must be made to wait for our turn. This is done by pushing
- * us unto the reader queue.
- * Note that we do *not* actually initiate the currentReader structure
- * here, since we do not actually know yet if we need to! We do that in
- * the [recv|recvfrom|recvmsg]_check_result function.
- */
+static
+BOOLEAN_T recv_alloc_buf(size_t           size,
+                         ErlNifBinary    *bufP)
+{
+    if (bufP->data == NULL) {
+        return ALLOC_BIN(size, bufP);
+    }
+    else {
+        if (size != bufP->size)
+            return REALLOC_BIN(bufP, size);
+        else
+            return TRUE;
+    }
+}
 
 static
-BOOLEAN_T recv_check_reader(ErlNifEnv*       env,
-                            ESockDescriptor* descP,
-                            ERL_NIF_TERM     ref,
-                            ERL_NIF_TERM*    checkResult)
+BOOLEAN_T recv_create_bin(ErlNifBinary *bufP, size_t size, ErlNifBinary *binP)
 {
+    /* Don't touch bufP->size
+     */
+    if (size >= bufP->size) {
+        /* Buffer full
+         * - use it as return binary and drop buffer
+         */
+        ESOCK_ASSERT( bufP->size >= size );
+        *binP = *bufP;
+        bufP->data = NULL;
+        return TRUE;
+    }
+    else if (size >= (bufP->size & ~4095) ||
+             size >= (bufP->size >> 1) + (bufP->size >> 2)) {
+        /* Less than a 4 K page shrink or less than 25% shrink
+         * - reallocate and drop buffer
+         */
+        *binP = *bufP;
+        bufP->data = NULL;
+        return REALLOC_BIN(binP, size);
+    }
+    else {
+        BOOLEAN_T ret;
+        /* Keep buffer, copy content to new allocated binary
+         */
+        ret = ALLOC_BIN(size, binP);
+        if (ret)
+            sys_memcpy(binP->data, bufP->data, size);
+        return ret;
+    }
+}
+
+static
+BOOLEAN_T recv_check_entry(ErlNifEnv       *env,
+                           ESockDescriptor *descP,
+                           ERL_NIF_TERM     recvRef,
+                           ERL_NIF_TERM    *retP)
+{
+    if (! IS_OPEN(descP->readState)) {
+        *retP = esock_make_error_closed(env);
+        return FALSE;
+    }
+
+    /* Accept and Read uses the same select flag
+     * so they can not be simultaneous
+     */
+    if (descP->currentAcceptorP != NULL) {
+        *retP = esock_make_error_invalid(env, esock_atom_state);
+        return FALSE;
+    }
+
+    /* Check if we have a current reader and if that is us. If not,
+     * then we must be made to wait for our turn. This is done by pushing
+     * us unto the reader queue.
+     * Note that we do *not* actually initiate the currentReader structure
+     * here, since we do not actually know yet if we need to! We do that in
+     * the [recv|recvfrom|recvmsg]_check_result function.
+     */
     if (descP->currentReaderP != NULL) {
         ErlNifPid caller;
-        
+
         ESOCK_ASSERT( enif_self(env, &caller) != NULL );
 
         if (COMPARE_PIDS(&descP->currentReader.pid, &caller) != 0) {
@@ -7155,31 +6928,80 @@ BOOLEAN_T recv_check_reader(ErlNifEnv*       env,
             SSDBG( descP,
                    ("UNIX-ESSIO",
                     "recv_check_reader {%d} -> not (current) reader"
-                    "\r\n   ref: %T"
-                    "\r\n", descP->sock, ref) );
+                    "\r\n   recvRef: %T"
+                    "\r\n", descP->sock, recvRef) );
 
             if (! esock_reader_search4pid(env, descP, &caller)) {
-                if (COMPARE(ref, esock_atom_zero) == 0)
-                    goto done_ok;
-                esock_reader_push(env, descP, caller, ref, NULL);
-                *checkResult = esock_atom_select;
+                if (COMPARE(recvRef, esock_atom_zero) == 0) {
+                    *retP = esock_atom_timeout;
+                }
+                else {
+                    esock_reader_push(env, descP, caller, recvRef, NULL);
+                    *retP = esock_atom_select;
+                }
             } else {
                 /* Reader already in queue */
-                *checkResult = esock_raise_invalid(env, esock_atom_state);
+                *retP = esock_raise_invalid(env, esock_atom_state);
             }
-            
+
             SSDBG( descP,
                    ("UNIX-ESSIO",
                     "recv_check_reader {%d} -> queue (push) result: %T\r\n",
-                    descP->sock, *checkResult) );
+                    descP->sock, *retP) );
 
             return FALSE;
         }
     }
+    *retP = esock_atom_ok; /* Ignored */
+    return TRUE;
+}
 
- done_ok:
-    // Does not actually matter in this case, but ...
-    *checkResult = esock_atom_ok;
+
+/* *** recv_check_result ***
+ *
+ * Common for all recv* functions; check for end of stream
+ * and recv error, set the result term and return TRUE.
+ * If neither return FALSE and let the caller handle the message.
+ */
+static
+BOOLEAN_T recv_check_result(ErlNifEnv       *env,
+                            ESockDescriptor *descP,
+                            ERL_NIF_TERM     sockRef,
+                            ERL_NIF_TERM     recvRef,
+                            ssize_t          readResult,
+                            int              saveErrno,
+                            ERL_NIF_TERM    *retP)
+{
+    if ((readResult == 0) && (descP->type == SOCK_STREAM)) {
+        ERL_NIF_TERM reason = esock_atom_closed;
+
+        /* Stream closed from other side
+         *
+         * When a stream socket peer has performed an orderly shutdown,
+         * the return value will be 0 (the traditional "end-of-file" return).
+         *
+         * *We* do never actually try to read 0 bytes!
+         *
+         * We must also notify any waiting readers!
+         */
+
+        ESOCK_CNT_INC(env, descP, sockRef,
+                      esock_atom_read_fails, &descP->readFails, 1);
+
+        recv_error_current_reader(env, descP, sockRef, reason);
+        /* Return {error, closed} */
+        *retP = esock_make_error(env, reason);
+        return FALSE;
+    }
+    else if (readResult < 0) {
+
+        /* +++ Error handling +++ */
+
+        /* 'timeout' | {error, SaveErrno} */
+        *retP = recv_check_fail(env, descP, sockRef, recvRef, saveErrno);
+        return FALSE;
+    }
+
     return TRUE;
 }
 
@@ -7189,46 +7011,39 @@ BOOLEAN_T recv_check_reader(ErlNifEnv*       env,
  * This function is called if we filled the allocated buffer.
  * But are we done yet?
  *
- * toRead = 0 means: Give me everything you have => maybe
- * toRead > 0 means: Yes
+ * len = 0 means: Give me everything you have => maybe
+ * len > 0 means: Yes
+ *
+ * Return {more|ok|select_read, Bin}
  */
-
 static
 ERL_NIF_TERM recv_check_full(ErlNifEnv*       env,
                              ESockDescriptor* descP,
-                             ssize_t          toRead,
                              ERL_NIF_TERM     sockRef,
-                             ERL_NIF_TERM     recvRef)
+                             ERL_NIF_TERM     recvRef,
+                             ssize_t          len,
+                             ErlNifBinary    *bufP)
 {
     ERL_NIF_TERM res;
 
-    if ((toRead == 0) &&
+    if ((len == 0) &&
         (descP->type == SOCK_STREAM)) {
 
         /* +++ Give us everything you have got =>     *
          *     (maybe) needs to continue          +++ */
 
-        /* Send up each chunk of data for each of the read
-         * and let the erlang code assemble it: {more, Bin}
-         * (when complete it should return {ok, Bin}).
-         * We need to read at least one more time to be sure if its
-         * done...
-         *
-         * Also, we need to check if the rNumCnt has reached its max (rNum),
-         * in which case we will assume the read to be done!
-         */
-
         SSDBG( descP,
                ("UNIX-ESSIO",
                 "recv_check_full(%T) {%d} -> shall we continue reading?"
-                "\r\n   readResult: %ld"
-                "\r\n   rNum:       %u"
-                "\r\n   rNumCnt:    %u"
+                "\r\n   bufSz:    %ld"
+                "\r\n   rNum:     %u"
+                "\r\n   rNumCnt:  %u"
                 "\r\n", sockRef, descP->sock,
-                (unsigned long) descP->readResult, descP->rNum,
+                (unsigned long) bufP->size, descP->rNum,
                 descP->rNumCnt) );
 
-        res = recv_check_full_maybe_done(env, descP, sockRef, recvRef);
+        /* Res = {more|ok|select_read, Bin} */
+        res = recv_check_full_maybe_done(env, descP, sockRef, recvRef, bufP);
 
     } else {
 
@@ -7238,10 +7053,10 @@ ERL_NIF_TERM recv_check_full(ErlNifEnv*       env,
                ("UNIX-ESSIO",
                 "recv_check_full(%T) {%d} -> [%ld] "
                 "we got exactly what we could fit\r\n",
-                sockRef, descP->sock, (long) toRead) );
+                sockRef, descP->sock, (long) len) );
 
-        res = recv_check_full_done(env, descP, sockRef);
-
+        /* Res = {ok|select_read, Bin} */
+        res = recv_check_full_done(env, descP, sockRef, recvRef, bufP);
     }
 
     return res;
@@ -7251,48 +7066,32 @@ ERL_NIF_TERM recv_check_full(ErlNifEnv*       env,
 
 /* *** recv_check_full_maybe_done ***
  *
- * Send up each chunk of data for each of the read
- * and let the erlang code assemble it: {more, Bin}
- * (when complete it should return {ok, Bin}).
- * We need to read at least one more time to be sure if its
- * done...
- *
- * Also, we need to check if the rNumCnt has reached its max (rNum),
- * in which case we will assume the read to be done!
- */
-
+ * Increment and check rNumCnt.  If it hasn't reached its max
+ * (rNum); return       {more, Bin},
+ * then more reads should be done,
+ * otherwise return     {ok|select_read, Bin}
+ * depending on selectRead.
+*/
 static
 ERL_NIF_TERM recv_check_full_maybe_done(ErlNifEnv*       env,
                                         ESockDescriptor* descP,
                                         ERL_NIF_TERM     sockRef,
-                                        ERL_NIF_TERM     recvRef)
+                                        ERL_NIF_TERM     recvRef,
+                                        ErlNifBinary    *bufP)
 {
     ERL_NIF_TERM ret;
 
     ESOCK_CNT_INC(env, descP, sockRef,
                   esock_atom_read_byte, &descP->readByteCnt,
-                  descP->readResult);
-    descP->readPkgMaxCnt += descP->readResult;
+                  bufP->size);
+    descP->readPkgMaxCnt += bufP->size;
 
     descP->rNumCnt++;
     if (descP->rNumCnt >= descP->rNum) {
 
-        descP->rNumCnt = 0;
+        /* Ret = {ok|select_read, Bin} */
+        ret = recv_check_full_done(env, descP, sockRef, recvRef, bufP);
 
-        ESOCK_CNT_INC(env, descP, sockRef,
-                      esock_atom_read_pkg, &descP->readPkgCnt, 1);
-        if (descP->readPkgMaxCnt > descP->readPkgMax)
-            descP->readPkgMax = descP->readPkgMaxCnt;
-        descP->readPkgMaxCnt = 0;
-
-        recv_update_current_reader(env, descP, sockRef);
-
-        /* This transfers "ownership" of the *allocated* binary to an
-         * erlang term (no need for an explicit free).
-         */
-
-        ret = esock_make_ok2(env, MKBIN(env, &descP->readBuf));
-        descP->readBuf.data = NULL;
     } else {
 
         /* Yes, we *do* need to continue reading */
@@ -7307,10 +7106,10 @@ ERL_NIF_TERM recv_check_full_maybe_done(ErlNifEnv*       env,
                ("UNIX-ESSIO",
                 "recv_check_full_maybe_done(%T) {%d} -> [%lu] "
                 "we are done for now - read more\r\n",
-                sockRef, descP->sock, (unsigned long) descP->readBuf.size) );
+                sockRef, descP->sock, (unsigned long) bufP->size) );
 
-        ret = MKT2(env, esock_atom_more, MKBIN(env, &descP->readBuf));
-        descP->readBuf.data = NULL;
+        /* Ret =  {more, Bin} */
+        ret = MKT2(env, esock_atom_more, MKBIN(env, bufP));
     }
 
     return ret;
@@ -7321,54 +7120,59 @@ ERL_NIF_TERM recv_check_full_maybe_done(ErlNifEnv*       env,
 /* *** recv_check_full_done ***
  *
  * A successful recv and we filled the buffer.
- *
- * Deliver the whole buffer as a binary.
+ * - return {ok|select_read, Bin}
  */
-
 static
 ERL_NIF_TERM recv_check_full_done(ErlNifEnv*       env,
                                   ESockDescriptor* descP,
-                                  ERL_NIF_TERM     sockRef)
+                                  ERL_NIF_TERM     sockRef,
+                                  ERL_NIF_TERM     recvRef,
+                                  ErlNifBinary    *bufP)
 {
-    ERL_NIF_TERM data;
+    ERL_NIF_TERM res;
+
+    descP->rNumCnt = 0;
+
+    res = MKBIN(env, bufP);
 
     ESOCK_CNT_INC(env, descP, sockRef,
                   esock_atom_read_pkg, &descP->readPkgCnt, 1);
     ESOCK_CNT_INC(env, descP, sockRef,
-                  esock_atom_read_byte, &descP->readByteCnt,
-                  descP->readResult);
+                  esock_atom_read_byte, &descP->readByteCnt, bufP->size);
 
-    descP->rNumCnt = 0;
-
-    descP->readPkgMaxCnt += descP->readResult;
+    descP->readPkgMaxCnt += bufP->size;
     if (descP->readPkgMaxCnt > descP->readPkgMax)
         descP->readPkgMax = descP->readPkgMaxCnt;
     descP->readPkgMaxCnt = 0;
 
-    recv_update_current_reader(env, descP, sockRef);
+    if (descP->selectRead && (COMPARE(recvRef, esock_atom_zero) != 0)) {
+        /* {select_read, Bin} */
+        res = MKT2(env, esock_atom_select_read, res);
+        return recv_check_select(env, descP, sockRef, recvRef, res);
+    }
+    else {
+        recv_update_current_reader(env, descP, sockRef);
 
-    /* This transfers "ownership" of the *allocated* binary to an
-     * erlang term (no need for an explicit free).
-     */
-    data = MKBIN(env, &descP->readBuf);
-    descP->readBuf.data = NULL;
+        /* This transfers "ownership" of the *allocated* binary to an
+         * erlang term (no need for an explicit free).
+         */
 
-    return esock_make_ok2(env, data);
+        /* Return {ok, Bin} */
+        return esock_make_ok2(env, res);
+    }
 }
-
 
 
 /* *** recv_check_fail ***
  *
  * Handle recv failure.
  */
-
 static
 ERL_NIF_TERM recv_check_fail(ErlNifEnv*       env,
                              ESockDescriptor* descP,
-                             int              saveErrno,
                              ERL_NIF_TERM     sockRef,
-                             ERL_NIF_TERM     recvRef)
+                             ERL_NIF_TERM     recvRef,
+                             int              saveErrno)
 {
     ERL_NIF_TERM res;
 
@@ -7388,7 +7192,8 @@ ERL_NIF_TERM recv_check_fail(ErlNifEnv*       env,
         ESOCK_CNT_INC(env, descP, sockRef, esock_atom_read_fails,
                       &descP->readFails, 1);
 
-        res = recv_check_fail_econnreset(env, descP, sockRef, recvRef);
+        /* Res = {error, econnreset} */
+        res = recv_check_fail_econnreset(env, descP, sockRef);
 
     } else if ((saveErrno == ERRNO_BLOCK) ||
                (saveErrno == EAGAIN)) {
@@ -7399,10 +7204,20 @@ ERL_NIF_TERM recv_check_fail(ErlNifEnv*       env,
                 "\r\n   recvRef: %T"
                 "\r\n", sockRef, descP->sock, recvRef) );
 
-        if (COMPARE(recvRef, esock_atom_zero) == 0)
+        if (COMPARE(recvRef, esock_atom_zero) == 0) {
+
+            recv_update_current_reader(env, descP, sockRef);
+
+            /* Would block and zero time-out - this is a time-out
+             * Res = 'timeout'
+             */
             res = esock_atom_timeout;
-        else
-            res = recv_check_retry(env, descP, sockRef, recvRef);
+        }
+        else {
+            /* Res = 'select' */
+            res = recv_check_select(env, descP, sockRef, recvRef,
+                                    esock_atom_select);
+        }
 
     } else {
 
@@ -7415,7 +7230,8 @@ ERL_NIF_TERM recv_check_fail(ErlNifEnv*       env,
         ESOCK_CNT_INC(env, descP, sockRef, esock_atom_read_fails,
                       &descP->readFails, 1);
 
-        res = recv_check_fail_gen(env, descP, saveErrno, sockRef);
+        /* Res = {error, SaveErrno} */
+        res = recv_check_fail_gen(env, descP, sockRef, saveErrno);
     }
 
     return res;
@@ -7426,17 +7242,17 @@ ERL_NIF_TERM recv_check_fail(ErlNifEnv*       env,
  *
  * The recv call had a "general" failure.
  */
-
 static
 ERL_NIF_TERM recv_check_fail_gen(ErlNifEnv*       env,
                                  ESockDescriptor* descP,
-                                 int              saveErrno,
-                                 ERL_NIF_TERM     sockRef)
+                                 ERL_NIF_TERM     sockRef,
+                                 int              saveErrno)
 {
     ERL_NIF_TERM reason = MKA(env, erl_errno_id(saveErrno));
 
     recv_error_current_reader(env, descP, sockRef, reason);
 
+    /* Return {error, SaveErrno} */
     return esock_make_error(env, reason);
 }
 
@@ -7446,12 +7262,10 @@ ERL_NIF_TERM recv_check_fail_gen(ErlNifEnv*       env,
  * We detected that the socket was closed while reading.
  * Inform current and waiting readers.
  */
-
 static
 ERL_NIF_TERM recv_check_fail_econnreset(ErlNifEnv*       env,
                                         ESockDescriptor* descP,
-                                        ERL_NIF_TERM     sockRef,
-                                        ERL_NIF_TERM     recvRef)
+                                        ERL_NIF_TERM     sockRef)
 {
     ERL_NIF_TERM reason = MKA(env, erl_errno_id(ECONNRESET));
     ERL_NIF_TERM res = esock_make_error(env, reason);
@@ -7473,32 +7287,26 @@ ERL_NIF_TERM recv_check_fail_econnreset(ErlNifEnv*       env,
 
     recv_error_current_reader(env, descP, sockRef, reason);
 
+    /* Return {error, econnreset} */
     return res;
 }
 
 
-/* *** recv_check_retry ***
+/* *** recv_check_select ***
  *
- * The recv call would have blocked, so retry.
+ * The recv call should be retried
+ * - initiate select read and return Msg or an exception
  */
-
 static
-ERL_NIF_TERM recv_check_retry(ErlNifEnv*       env,
-                              ESockDescriptor* descP,
-                              ERL_NIF_TERM     sockRef,
-                              ERL_NIF_TERM     recvRef)
+ERL_NIF_TERM recv_check_select(ErlNifEnv*       env,
+                               ESockDescriptor* descP,
+                               ERL_NIF_TERM     sockRef,
+                               ERL_NIF_TERM     recvRef,
+                               ERL_NIF_TERM     msg)
 {
     int          sres;
-    ERL_NIF_TERM res;
 
-    descP->rNumCnt = 0;
-    recv_init_current_reader(env, descP, recvRef);
-
-    SSDBG( descP,
-           ("UNIX-ESSIO",
-            "recv_check_retry(%T) {%d} -> SELECT for more"
-            "\r\n   recvRef: %T"
-            "\r\n", sockRef, descP->sock, recvRef) );
+    /* SELECT for more data */
 
     if ((sres = esock_select_read(env, descP->sock, descP, NULL,
                                   sockRef, recvRef)) < 0) {
@@ -7507,38 +7315,58 @@ ERL_NIF_TERM recv_check_retry(ErlNifEnv*       env,
          */
         recv_update_current_reader(env, descP, sockRef);
 
-        res = enif_raise_exception(env,
-                                   MKT2(env, esock_atom_select_read,
-                                        MKI(env, sres)));
+        /* Return error({select_read, SRes}) */
+        return enif_raise_exception(env,
+                                    MKT2(env, esock_atom_select_read,
+                                         MKI(env, sres)));
     } else {
+
+        recv_init_current_reader(env, descP, recvRef);
+
+        SSDBG( descP,
+               ("UNIX-ESSIO",
+                "recv_check_select(%T) {%d} -> SELECT for more"
+                "\r\n   recvRef: %T"
+                "\r\n   msg:     %T"
+                "\r\n", sockRef, descP->sock, recvRef, msg) );
+
         descP->readState |= ESOCK_STATE_SELECTED;
-        res = esock_atom_select;
+        return msg;
     }
-
-    return res;
 }
-
 
 
 /* *** recv_check_partial ***
  *
  * Handle a successful recv which only partly filled the specified buffer.
+ *
+ * Return {ok|timeout|select|select_read, Bin}
  */
-
 static
 ERL_NIF_TERM recv_check_partial(ErlNifEnv*       env,
                                 ESockDescriptor* descP,
-                                ssize_t          toRead,
                                 ERL_NIF_TERM     sockRef,
-                                ERL_NIF_TERM     recvRef)
+                                ERL_NIF_TERM     recvRef,
+                                ssize_t          len,
+                                ErlNifBinary    *bufP)
 {
     ERL_NIF_TERM res;
 
-    descP->rNumCnt = 0;
-
     /* Buffer not filled */
 
-    if ((descP->type == SOCK_STREAM) && (toRead > 0)) {
+    descP->rNumCnt = 0;
+
+    ESOCK_CNT_INC(env, descP, sockRef,
+                  esock_atom_read_byte, &descP->readByteCnt, bufP->size);
+
+    descP->readPkgMaxCnt += bufP->size;
+    if (descP->readPkgMaxCnt > descP->readPkgMax)
+        descP->readPkgMax = descP->readPkgMaxCnt;
+    descP->readPkgMaxCnt = 0;
+
+    res = MKBIN(env, bufP);
+
+    if ((descP->type == SOCK_STREAM) && (len > 0)) {
 
         /* A stream socket with specified read size
          * - more data is needed
@@ -7546,130 +7374,63 @@ ERL_NIF_TERM recv_check_partial(ErlNifEnv*       env,
 
         if (COMPARE(recvRef, esock_atom_zero) == 0) {
 
-            /* Polling read - deliver as {timeout,Data} */
+            /* Polling read */
 
+            ESOCK_CNT_INC(env, descP, sockRef,
+                          esock_atom_read_pkg, &descP->readPkgCnt, 1);
             SSDBG( descP,
                    ("UNIX-ESSIO",
                     "recv_check_partial(%T) {%d} -> [%ld] split buffer time-out"
                     "\r\n   recvRef: %T"
-                    "\r\n", sockRef, descP->sock, (long) toRead,
+                    "\r\n", sockRef, descP->sock, (long) len,
                     recvRef) );
 
-            res = recv_check_partial_done(env, descP, sockRef,
-                                          esock_atom_timeout);
+            recv_update_current_reader(env, descP, sockRef);
+            /* Res = {timeout, Bin} */
+            res = MKT2(env, esock_atom_timeout, res);
         } else {
 
-            /* Incomplete data
-             * - return a select result to initiate a retry
-             */
+            /* Incomplete data */
 
             SSDBG( descP,
                    ("UNIX-ESSIO",
                     "recv_check_partial(%T) {%d} -> [%ld]"
                     " only part of message - expect more"
                     "\r\n   recvRef: %T"
-                    "\r\n", sockRef, descP->sock, (long) toRead,
+                    "\r\n", sockRef, descP->sock, (long) len,
                     recvRef) );
 
-            res = recv_check_partial_part(env, descP, sockRef, recvRef);
+
+            /* Res = {select, Bin} */
+            res = MKT2(env, esock_atom_select, res);
+            res = recv_check_select(env, descP, sockRef, recvRef, res);
+
         }
     } else {
 
-        /* No more data is needed - deliver as {ok,Data} */
+        /* No more data is needed */
+
+        ESOCK_CNT_INC(env, descP, sockRef,
+                      esock_atom_read_pkg, &descP->readPkgCnt, 1);
 
         SSDBG( descP,
                ("UNIX-ESSIO",
                 "recv_check_partial(%T) {%d} -> [%ld] split buffer"
                 "\r\n   recvRef: %T"
-                "\r\n", sockRef, descP->sock, (long) toRead,
+                "\r\n", sockRef, descP->sock, (long) len,
                 recvRef) );
 
-        res = recv_check_partial_done(env, descP, sockRef, esock_atom_ok);
+        if (descP->selectRead && (COMPARE(recvRef, esock_atom_zero) != 0)) {
+            /* Res = {select_read, Bin} */
+            res = MKT2(env, esock_atom_select_read, res);
+            res = recv_check_select(env, descP, sockRef, recvRef, res);
+        }
+        else {
+            /* Res = {ok, Bin} */
+            recv_update_current_reader(env, descP, sockRef);
+            res = esock_make_ok2(env, res);
+        }
     }
-
-    return res;
-}
-
-
-/* *** recv_check_partial_done ***
- *
- * A successful but only partial recv, which fulfilled the required read.
- */
-
-static
-ERL_NIF_TERM recv_check_partial_done(ErlNifEnv*       env,
-                                     ESockDescriptor* descP,
-                                     ERL_NIF_TERM     sockRef,
-                                     ERL_NIF_TERM     returnTag)
-{
-    ERL_NIF_TERM data;
-
-    descP->rNumCnt = 0;
-    ESOCK_CNT_INC(env, descP, sockRef,
-                  esock_atom_read_pkg, &descP->readPkgCnt, 1);
-    ESOCK_CNT_INC(env, descP, sockRef,
-                  esock_atom_read_byte, &descP->readByteCnt, descP->readResult);
-
-    descP->readPkgMaxCnt += descP->readResult;
-    if (descP->readPkgMaxCnt > descP->readPkgMax)
-        descP->readPkgMax = descP->readPkgMaxCnt;
-    descP->readPkgMaxCnt = 0;
-
-    recv_update_current_reader(env, descP, sockRef);
-
-    /* This transfers "ownership" of the *allocated* binary to an
-     * erlang term (no need for an explicit free).
-     */
-    ESOCK_ASSERT( REALLOC_BIN(&descP->readBuf, descP->readResult) );
-    data = MKBIN(env, &descP->readBuf);
-    descP->readBuf.data = NULL;
-
-    SSDBG( descP,
-           ("UNIX-ESSIO", "recv_check_partial_done(%T) {%d} -> [%ld] done\r\n",
-            sockRef, descP->sock, (long) descP->readResult) );
-
-    return MKT2(env, returnTag, data);
-}
-
-
-/* *** recv_check_partial_part ***
- *
- * A successful but only partial recv, which only partly fulfilled
- * the required read.
- */
-
-static
-ERL_NIF_TERM recv_check_partial_part(ErlNifEnv*       env,
-                                     ESockDescriptor* descP,
-                                     ERL_NIF_TERM     sockRef,
-                                     ERL_NIF_TERM     recvRef)
-{
-    ERL_NIF_TERM res;
-    int          sres;
-
-    ESOCK_CNT_INC(env, descP, sockRef,
-                  esock_atom_read_byte, &descP->readByteCnt, descP->readResult);
-
-    recv_init_current_reader(env, descP, recvRef);
-
-    /* SELECT for more data */
-
-    sres = esock_select_read(env, descP->sock, descP, NULL,
-                             sockRef, recvRef);
-    if (sres < 0) {
-        /* Unlikely that any next reader will have better luck,
-         * but why not give them a shot - the queue will be cleared
-         */
-        recv_update_current_reader(env, descP, sockRef);
-
-        res = enif_raise_exception(env,
-                                   MKT2(env, esock_atom_select_read,
-                                        MKI(env, sres)));
-    } else {
-        descP->readState |= ESOCK_STATE_SELECTED;
-	res  = esock_atom_select;
-    }
-    /* Keep the buffer binary */;
 
     return res;
 }

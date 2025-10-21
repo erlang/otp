@@ -2,6 +2,8 @@ dnl Process this file with autoconf to produce a configure script. -*-Autoconf-*
 
 dnl %CopyrightBegin%
 dnl
+dnl SPDX-License-Identifier: Apache-2.0
+dnl
 dnl Copyright Ericsson AB 1997-2025. All Rights Reserved.
 dnl
 dnl Licensed under the Apache License, Version 2.0 (the "License");
@@ -29,14 +31,7 @@ m4_include([otp.m4])
 
 LM_PRECIOUS_VARS
 
-dnl We check if -Werror was given on command line and if so
-dnl we disable it for the configure and only use it when
-dnl actually building erts
-no_werror_CFLAGS=$(echo " $CFLAGS " | sed 's/ -Werror / /g')
-if test "X $CFLAGS " != "X$no_werror_CFLAGS"; then
-   CFLAGS="$no_werror_CFLAGS"
-   WERRORFLAGS=-Werror
-fi
+ERL_PUSH_WERROR
 
 dnl How to set srcdir absolute is taken from the GNU Emacs distribution
 #### Make srcdir absolute, if it isn't already.  It's important to
@@ -92,6 +87,35 @@ fi
 AC_SUBST(CROSS_COMPILING)
 
 ERL_XCOMP_SYSROOT_INIT
+
+dnl ----------------------------------------------------------------------
+dnl Checks for programs.
+dnl ----------------------------------------------------------------------
+
+AC_LANG([C])
+
+AC_PROG_CC
+AC_PROG_CXX
+LM_PROG_LD
+
+AC_SUBST(GCC)
+AC_SUBST(CXXFLAGS)
+
+AC_PROG_EGREP
+AC_PROG_CPP
+AC_PROG_RANLIB
+AC_PROG_YACC
+LM_PROG_PERL5
+if test "$ac_cv_path_PERL" = false; then
+  AC_MSG_ERROR([Perl version 5 is required to build the emulator!])
+fi
+AC_PROG_LN_S
+AC_CHECK_TOOL([AR], [ar], [false])
+if test "$ac_cv_prog_AR" = false; then
+  AC_MSG_ERROR([No 'ar' command found in PATH])
+fi
+
+ERL_OSSF_FLAGS
 
 AC_SEARCH_LIBS([strerror],[cposix])
 
@@ -436,33 +460,6 @@ AC_DEFINE_UNQUOTED(ERTS_NO_RETPOLINE, $i_noretpoline_attr,
 # Next line should be before first output to CONF_INFO.
 rm -f "$ERL_TOP/erts/CONF_INFO"
 
-dnl ----------------------------------------------------------------------
-dnl Checks for programs.
-dnl ----------------------------------------------------------------------
-
-AC_LANG([C])
-
-AC_PROG_CC
-AC_SUBST(GCC)
-
-AC_PROG_CXX
-AC_SUBST(CXXFLAGS)
-
-AC_PROG_EGREP
-AC_PROG_CPP
-AC_PROG_RANLIB
-AC_PROG_YACC
-LM_PROG_PERL5
-if test "$ac_cv_path_PERL" = false; then
-  AC_MSG_ERROR([Perl version 5 is required to build the emulator!])
-fi
-AC_PROG_LN_S
-AC_CHECK_TOOL([AR], [ar], [false])
-if test "$ac_cv_prog_AR" = false; then
-  AC_MSG_ERROR([No 'ar' command found in PATH])
-fi
-
-
 #
 # Get programs needed for building the documentation 
 #
@@ -609,13 +606,17 @@ AS_IF([test "x$GCC" = xyes],
   # Until version 10, gcc has had -fcommon as default, which allows and merges
   # such dubious duplicates.
   LM_TRY_ENABLE_CFLAG([-fno-common], [CFLAGS])
-  
-  LM_TRY_ENABLE_CFLAG([-fno-strict-aliasing], [CFLAGS])
+
+  # Make -fvisibility=hidden usable if supported. Currently only used by
+  # our PCRE2 to avoid symbol clashes with real PCRE2 if dynamically loaded.
+  LM_TRY_ENABLE_CFLAG([-fvisibility=hidden], [VISIBILITY_HIDDEN])
  ],
  [
   WFLAGS=""
   WERRORFLAGS=${WERRORFLAGS:-""}
+  VISIBILITY_HIDDEN=""
  ])
+AC_SUBST(VISIBILITY_HIDDEN)
 
 AC_MSG_CHECKING([C99 support])
 
@@ -630,7 +631,6 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[]],[[
 dnl DEBUG_FLAGS is obsolete (I hope)
 AC_SUBST(DEBUG_FLAGS)
 AC_SUBST(WFLAGS)
-AC_SUBST(WERRORFLAGS)
 
 ## Check if we can do profile guided optimization of beam_emu
 LM_CHECK_RUN_CFLAG([-fprofile-generate -Werror],[PROFILE_GENERATE])
@@ -1315,8 +1315,8 @@ dnl esock
 dnl -------------
 
 AC_ARG_ENABLE(esock,
-AS_HELP_STRING([--enable-esock], [enable builtin experimental socket (as a nif) support (default)])
-AS_HELP_STRING([--disable-esock], [disable builtin experimental socket (as a nif) support]),
+AS_HELP_STRING([--enable-esock], [enable builtin socket (as a nif) support (default)])
+AS_HELP_STRING([--disable-esock], [disable builtin socket (as a nif) support]),
   [ case "$enableval" in
     no) enable_esock=no ;;
     *)  enable_esock=yes ;;
@@ -1865,10 +1865,6 @@ AC_CHECK_HEADERS([linux/types.h linux/errqueue.h], [], [],
 #endif
 ]])
 
-HAVE_VALGRIND=no
-AC_CHECK_HEADER(valgrind/valgrind.h, HAVE_VALGRIND=yes)
-AC_SUBST(HAVE_VALGRIND)
-
 LM_DECL_SO_BSDCOMPAT
 LM_DECL_INADDR_LOOPBACK
 LM_DECL_SYS_ERRLIST
@@ -1913,6 +1909,18 @@ AC_CHECK_SIZEOF(off_t)
 AC_CHECK_SIZEOF(time_t)
 AC_CHECK_SIZEOF(suseconds_t)
 AC_CHECK_SIZEOF(_Float16)
+
+dnl Check that _Float16 is not only exists but also is usable. The check is
+dnl mainly for x86 platform which requires -msse2 flag.
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[_Float16 x = 0.0;]],[[]])],
+	[AC_MSG_CHECKING([for _Float16 convertible])
+	AC_MSG_RESULT([yes])
+	AC_DEFINE([FLOAT16_IS_CONVERTIBLE],[1],
+		  [Define to 1 if _Float16 can be converted from/to double.])
+	],
+	[AC_MSG_CHECKING([for _Float16 convertible])
+	AC_MSG_RESULT([no])
+	])
 
 BITS64=
 
@@ -2265,6 +2273,7 @@ case $host_os in
 esac
 
 AC_CHECK_DECLS([posix2time, time2posix],,,[#include <time.h>])
+AC_CHECK_DECLS([daylight],,,[#include <time.h>])
 
 AC_FUNC_VPRINTF
 
@@ -3635,14 +3644,27 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[]], [[_Pragma("GCC diagnostic push")
            define if compiler support _Pragma('GCC diagnostic ignored '-Waddress-of-packed-member''))],[])
 CFLAGS="$saved_CFLAGS"
 
+dnl ----------------------------------------------------------------------
+dnl Check for GCC diagnostic ignored "-Wformat-nonliteral"
+dnl ----------------------------------------------------------------------
+saved_CFLAGS="$CFLAGS"
+CFLAGS="-Werror $CFLAGS"
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[]], [[_Pragma("GCC diagnostic push")
+         _Pragma("GCC diagnostic ignored \"-Wformat-nonliteral\"")
+         _Pragma("GCC diagnostic pop")
+         ]])],[AC_DEFINE(HAVE_GCC_DIAG_IGNORE_WFORMAT_NONLITERAL,1,
+           define if compiler support _Pragma('GCC diagnostic ignored '-Wformat-nonliteral''))],[])
+CFLAGS="$saved_CFLAGS"
+
+NO_MAYBE_UNINITIALIZED=""
+LM_TRY_ENABLE_CFLAG([-Wno-maybe-uninitialized], [NO_MAYBE_UNINITIALIZED])
+AC_SUBST(NO_MAYBE_UNINITIALIZED)
 
 dnl ----------------------------------------------------------------------
 dnl Enable any -Werror flags
 dnl ----------------------------------------------------------------------
 
-if test "x$GCC" = xyes; then
-  CFLAGS="$WERRORFLAGS $CFLAGS"
-fi
+ERL_POP_WERROR
 
 dnl ----------------------------------------------------------------------
 dnl Enable build determinism flag
@@ -3667,11 +3689,11 @@ if test "X $CFLAGS" = "X$no_opt_CFLAGS"; then
 	If you want to build ERTS without any optimization, pass -O0 to CFLAGS.])
 fi
 AC_MSG_RESULT([yes])
-DEBUG_CFLAGS="-g -O0 $no_opt_CFLAGS"
+DEBUG_CFLAGS="-g -Og $no_opt_CFLAGS"
 AC_SUBST(DEBUG_CFLAGS)
 
 no_opt_CXXFLAGS=$(echo " $CXXFLAGS" | sed 's/ -O[[^ ]]*/ /g')
-DEBUG_CXXFLAGS="-g -O0 $no_opt_CXXFLAGS"
+DEBUG_CXXFLAGS="-g -Og $no_opt_CXXFLAGS"
 AC_SUBST(DEBUG_CXXFLAGS)
 
 dnl
@@ -3683,7 +3705,8 @@ dnl
 
 AC_DEFINE_UNQUOTED(ERTS_EMU_CMDLINE_FLAGS,
 "$STATIC_CFLAGS $CFLAGS $CXXFLAGS $DEBUG_CFLAGS $DEBUG_CXXFLAGS $EMU_THR_DEFS $DEFS $WERRORFLAGS $WFLAGS",
-[The only reason ERTS_EMU_CMDLINE_FLAGS exists is to force modification of config.h when the emulator command line flags are modified by configure])
+[The only reason ERTS_EMU_CMDLINE_FLAGS exists is to force modification
+ of config.h when the emulator command line flags are modified by configure])
 
 dnl ----------------------------------------------------------------------
 dnl Output the result.

@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2012-2024. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2012-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -192,7 +194,7 @@ ERTS_GLB_INLINE int erts_cmp_atoms(Eterm a, Eterm b) {
     Atom *aa = atom_tab(atom_val(a));
     Atom *bb = atom_tab(atom_val(b));
 
-    byte *name_a, *name_b;
+    const byte *name_a, *name_b;
     int len_a, len_b, diff;
 
     diff = aa->ord0 - bb->ord0;
@@ -201,8 +203,8 @@ ERTS_GLB_INLINE int erts_cmp_atoms(Eterm a, Eterm b) {
         return diff;
     }
 
-    name_a = &aa->name[3];
-    name_b = &bb->name[3];
+    name_a = &erts_atom_get_name(aa)[3];
+    name_b = &erts_atom_get_name(bb)[3];
     len_a = aa->len-3;
     len_b = bb->len-3;
 

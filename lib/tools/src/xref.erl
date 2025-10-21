@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
 %% 
-%% Copyright Ericsson AB 2000-2024. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2025. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -406,7 +408,7 @@ There are also unary set operators:
 Recall that a call is a pair (From, To). `domain` applied to a set of calls is
 interpreted as the set of all vertices From, and `range` as the set of all
 vertices To. The interpretation of the `strict` operator is the operand with all
-calls on the form (A, A) removed.
+calls of the form (A, A) removed.
 
 The interpretation of the _restriction operators_{: #restriction } is a subset
 of the first operand, a set of calls. The second operand, a set of vertices, is
@@ -1529,7 +1531,7 @@ analyze(Name, What) ->
     gen_server:call(Name, {analyze, What}, infinity).
 
 -doc """
-[](){: #analyze } Evaluates a predefined analysis.
+Evaluates a predefined analysis.
 
 Returns a sorted list without duplicates of `t:call/0` or
 `t:constant/0`, depending on the chosen analysis.  The predefined

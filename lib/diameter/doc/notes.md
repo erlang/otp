@@ -1,7 +1,9 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023-2024. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Copyright Ericsson AB 2023-2025. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -20,6 +22,73 @@ limitations under the License.
 # Release Notes
 
 Releases are listed in reverse chronological order, most recent first.
+
+## diameter 2.5.2
+
+### Fixed Bugs and Malfunctions
+
+- Added documentation about 'proxy' and 'resend' options in diameter:handle_request/3
+
+  Own Id: OTP-19768 Aux Id: [GH-10150], [PR-10182]
+
+[GH-10150]: https://github.com/erlang/otp/issues/10150
+[PR-10182]: https://github.com/erlang/otp/pull/10182
+
+## diameter 2.5.1
+
+### Fixed Bugs and Malfunctions
+
+- With this change message_cb callback will be called with updated state for processing 'ack' after 'send'.
+
+  Own Id: OTP-19753 Aux Id: [PR-9815]
+
+[PR-9815]: https://github.com/erlang/otp/pull/9815
+
+## diameter 2.5
+
+### Fixed Bugs and Malfunctions
+
+- With this change diameter will not crash when decoding a DiameterURI without port number.
+
+  Own Id: OTP-19620 Aux Id: [PR-9321]
+
+[PR-9321]: https://github.com/erlang/otp/pull/9321
+
+### Improvements and New Features
+
+- [EEP-69: Nominal Types](https://www.erlang.org/eeps/eep-0069) has been implemented. As a side effect, nominal types can encode opaque types. We changed all opaque-handling logic and improved opaque warnings in Dialyzer.
+  
+  All existing Erlang type systems are structural: two types are seen as equivalent if their structures are the same. Type comparisons are based on the structures of the types, not on how the user explicitly defines them. For example, in the following example, `meter()` and `foot()` are equivalent. The two types can be used interchangeably. Neither of them differ from the basic type `integer()`.
+  
+  ````
+  -type meter() :: integer().
+  -type foot() :: integer().
+  ````
+  
+  Nominal typing is an alternative type system, where two types are equivalent if and only if they are declared with the same type name. The EEP proposes one new syntax -nominal for declaring nominal types. Under nominal typing, `meter()` and `foot()` are no longer compatible. Whenever a function expects type `meter()`, passing in type `foot()` would result in a Dialyzer error.
+  
+  ````
+  -nominal meter() :: integer().
+  -nominal foot() :: integer().
+  ````
+  
+  More nominal type-checking rules can be found in the EEP. It is worth noting that most work for adding nominal types and type-checking is in `erl_types.erl`. The rest are changes that removed the previous opaque type-checking, and added an improved version of it using nominal type-checking with reworked warnings.
+  
+  Backwards compatibility for opaque type-checking is not preserved by this PR. Previous opaque warnings can appear with slightly different wordings. A new kind of opaque warning `opaque_union` is added, together with a Dialyzer option `no_opaque_union` to turn this kind of warnings off.
+
+  Own Id: OTP-19364 Aux Id: [PR-9079]
+
+- The license and copyright header has changed format to include an `SPDX-License-Identifier`. At the same time, most files have been updated to follow a uniform standard for license headers.
+
+  Own Id: OTP-19575 Aux Id: [PR-9670]
+
+- With this change diameter will not use slave terminology
+
+  Own Id: OTP-19621 Aux Id: [PR-9786]
+
+[PR-9079]: https://github.com/erlang/otp/pull/9079
+[PR-9670]: https://github.com/erlang/otp/pull/9670
+[PR-9786]: https://github.com/erlang/otp/pull/9786
 
 ## diameter 2.4.1
 

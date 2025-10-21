@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2024. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 1998-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -214,23 +216,50 @@ end_per_suite(Config0) ->
 
 
 init_per_group(inet_backend_default = _GroupName, Config) ->
-    [{socket_create_opts, []} | Config];
+    ?P("~w(~w) -> check explicit inet-backend when"
+       "~n   Config: ~p", [?FUNCTION_NAME, _GroupName, Config]),
+    case ?EXPLICIT_INET_BACKEND(Config) of
+        undefined ->
+            [{socket_create_opts, []} | Config];
+        inet ->
+            {skip, "explicit inet-backend = inet"};
+        socket ->
+            {skip, "explicit inet-backend = socket"}
+    end;
 init_per_group(inet_backend_inet = _GroupName, Config) ->
-    case ?EXPLICIT_INET_BACKEND() of
-        true ->
-            %% The environment trumps us,
-            %% so only the default group should be run!
-            {skip, "explicit inet backend"};
-        false ->
-            [{socket_create_opts, [{inet_backend, inet}]} | Config]
+    ?P("~w(~w) -> check explicit inet-backend when"
+       "~n   Config: ~p", [?FUNCTION_NAME, _GroupName, Config]),
+    case ?EXPLICIT_INET_BACKEND(Config) of
+        undefined ->
+            case ?EXPLICIT_INET_BACKEND() of
+                true ->
+                    %% The environment trumps us,
+                    %% so only the default group should be run!
+                    {skip, "explicit inet backend"};
+                false ->
+                    [{socket_create_opts, [{inet_backend, inet}]} | Config]
+            end;
+        inet ->
+            [{socket_create_opts, [{inet_backend, inet}]} | Config];
+        socket ->
+            {skip, "explicit inet-backend = socket"}
     end;
 init_per_group(inet_backend_socket = _GroupName, Config) ->
-    case ?EXPLICIT_INET_BACKEND() of
-        true ->
-            %% The environment trumps us,
-            %% so only the default group should be run!
-            {skip, "explicit inet backend"};
-        false ->
+    ?P("~w(~w) -> check explicit inet-backend when"
+       "~n   Config: ~p", [?FUNCTION_NAME, _GroupName, Config]),
+    case ?EXPLICIT_INET_BACKEND(Config) of
+        undefined ->
+            case ?EXPLICIT_INET_BACKEND() of
+                true ->
+                    %% The environment trumps us,
+                    %% so only the default group should be run!
+                    {skip, "explicit inet backend"};
+                false ->
+                    [{socket_create_opts, [{inet_backend, socket}]} | Config]
+            end;
+        inet ->
+            {skip, "explicit inet-backend = inet"};
+        socket ->
             [{socket_create_opts, [{inet_backend, socket}]} | Config]
     end;
 init_per_group(t_local = _GroupName, Config) ->
@@ -1440,36 +1469,38 @@ t_simple_link_local_sockaddr_in6_send_recv(Config) when is_list(Config) ->
 %% socket(s).
 %%
 t_simple_local_sockaddr_in_send_recv(Config) when is_list(Config) ->
-    ?TC_TRY(?FUNCTION_NAME,
-            fun() -> ok end,
-            fun() ->
-                    Domain = inet,
-                    {ok, LocalAddr} = ?LIB:which_local_addr(Domain),
-                    SockAddr = #{family   => Domain,
-                                 addr     => LocalAddr,
-                                 port     => 0},
-                    do_simple_sockaddr_send_recv(SockAddr, Config)
-            end).
-
+    Cond = fun() -> ok end,
+    Pre  = fun() ->
+                   Domain = inet,
+                   case ?LIB:which_local_addr(Domain) of
+                       {ok, LocalAddr} ->                       
+                           #{family   => Domain,
+                             addr     => LocalAddr,
+                             port     => 0};
+                       {error, Reason} ->
+                           skip({failed_get_local_address, Reason})
+                   end
+           end,
+    TC   = fun(SA) -> do_simple_sockaddr_send_recv(SA, Config) end,
+    Post = fun(_) -> ok end,
+    ?TC_TRY(?FUNCTION_NAME, Cond, Pre, TC, Post).
 
 t_simple_link_local_sockaddr_in_send_recv(Config) when is_list(Config) ->
-    ?TC_TRY(?FUNCTION_NAME,
-            fun() -> ok end,
-            fun() ->
-                    Domain = inet,
-                    LinkLocalAddr =
-                        case ?LIB:which_link_local_addr(Domain) of
-                            {ok, LLA} ->
-                                LLA;
-                            {error, _} ->
-                                skip("No link local address")
-                        end,
-                    SockAddr = #{family => Domain,
-                                 addr   => LinkLocalAddr,
-                                 port   => 0},
-                    do_simple_sockaddr_send_recv(SockAddr, Config)
-            end).
-
+    Cond = fun() -> ok end,
+    Pre  = fun() ->
+                   Domain = inet,
+                   case ?LIB:which_link_local_addr(Domain) of
+                       {ok, LLA} ->
+                           #{family => Domain,
+                             addr   => LLA,
+                             port   => 0};
+                       {error, Reason} ->
+                           skip(?F("No link local address: ~p", [Reason]))
+                   end
+           end,
+    TC   = fun(SA) -> do_simple_sockaddr_send_recv(SA, Config) end,
+    Post = fun(_) -> ok end,
+    ?TC_TRY(?FUNCTION_NAME, Cond, Pre, TC, Post).
 
 do_simple_sockaddr_send_recv(SockAddr, _) ->
     %% Create the server

@@ -1,7 +1,9 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2020-2024. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright Ericsson AB 2020-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,6 +31,7 @@
 #include "beam_load.h"
 #include "erl_version.h"
 #include "beam_bp.h"
+#include "erl_debugger.h"
 
 #include "beam_asm.h"
 
@@ -68,6 +71,7 @@ int beam_load_prepare_emit(LoaderState *stp) {
     hdr->literal_area = NULL;
     hdr->md5_ptr = NULL;
     hdr->are_nifs = NULL;
+    hdr->debugger_flags = erts_debugger_flags;
 
     stp->coverage = hdr->coverage = NULL;
     stp->line_coverage_valid = hdr->line_coverage_valid = NULL;
@@ -139,15 +143,15 @@ int beam_load_prepare_emit(LoaderState *stp) {
         init_label(&stp->labels[i]);
     }
 
-    stp->fun_refs = erts_alloc(ERTS_ALC_T_PREPARED_CODE,
-                               stp->beam.lambdas.count * sizeof(SWord));
+    stp->lambda_literals = erts_alloc(ERTS_ALC_T_PREPARED_CODE,
+                                      stp->beam.lambdas.count * sizeof(SWord));
 
     for (i = 0; i < stp->beam.lambdas.count; i++) {
         BeamFile_LambdaEntry *lambda = &stp->beam.lambdas.entries[i];
 
         if (stp->labels[lambda->label].lambda_index == INVALID_LAMBDA_INDEX) {
             stp->labels[lambda->label].lambda_index = i;
-            stp->fun_refs[i] = ERTS_SWORD_MAX;
+            stp->lambda_literals[i] = ERTS_SWORD_MAX;
         } else {
             beam_load_report_error(__LINE__,
                                    stp,
@@ -166,7 +170,7 @@ int beam_load_prepare_emit(LoaderState *stp) {
 
     for (i = 0; i < stp->beam.imports.count; i++) {
         BeamFile_ImportEntry *import;
-        Export *export;
+        const Export *export;
         int bif_number;
 
         import = &stp->beam.imports.entries[i];
@@ -256,9 +260,9 @@ int beam_load_prepared_dtor(Binary *magic) {
         stp->labels = NULL;
     }
 
-    if (stp->fun_refs) {
-        erts_free(ERTS_ALC_T_PREPARED_CODE, (void *)stp->fun_refs);
-        stp->fun_refs = NULL;
+    if (stp->lambda_literals) {
+        erts_free(ERTS_ALC_T_PREPARED_CODE, (void *)stp->lambda_literals);
+        stp->lambda_literals = NULL;
     }
 
     if (stp->bif_imports) {
@@ -706,6 +710,24 @@ int beam_load_emit_op(LoaderState *stp, BeamOp *tmp_op) {
         }
         break;
     }
+    case op_i_debug_line_IIt: {
+        BeamFile_DebugItem *items = stp->beam.debug.items;
+        Uint location_index = tmp_op->a[0].val;
+        Sint index = tmp_op->a[1].val - 1;
+
+        /* Each i_debug_line is a distinct instrumentation point and we don't
+         * want to miss a single one of them (so they all can be selected),
+         * so allow duplicates here.
+         */
+        if (add_line_entry(stp, location_index, 1)) {
+            goto load_error;
+        }
+
+        ASSERT(items[index].location_index == -1);
+        items[index].location_index = stp->current_li - 1;
+
+        break;
+    }
     case op_int_code_end:
         /* End of code found. */
         if (stp->function_number != stp->beam.code.function_count) {
@@ -859,6 +881,58 @@ static const BeamCodeLineTab *finish_line_table(LoaderState *stp,
     return line_tab_ro;
 }
 
+static const BeamDebugTab *finish_debug_table(LoaderState *stp,
+                                              char *module_base,
+                                              size_t module_size) {
+    BeamFile_DebugTable *debug = &stp->beam.debug;
+    const BeamDebugTab *debug_tab_ro;
+    byte *debug_tab_rw_base;
+    BeamDebugTab *debug_tab_top;
+    Eterm *debug_tab_terms;
+    BeamDebugItem *debug_tab_items;
+    Uint item_count = debug->item_count;
+    Uint term_count = debug->term_count;
+    Uint i;
+
+    if (item_count == 0) {
+        return NULL;
+    }
+
+    debug_tab_ro = (const BeamDebugTab *)beamasm_get_rodata(stp->ba, "debug");
+    debug_tab_rw_base = get_writable_ptr(stp->executable_region,
+                                         stp->writable_region,
+                                         debug_tab_ro);
+    debug_tab_top = (BeamDebugTab *)debug_tab_rw_base;
+    debug_tab_terms = (Eterm *)&debug_tab_top[1];
+    debug_tab_items = (BeamDebugItem *)&debug_tab_terms[term_count];
+
+    debug_tab_top->item_count = debug->item_count;
+    debug_tab_top->items = debug_tab_items;
+
+    for (i = 0; i < term_count; i++) {
+        if (debug->is_literal[i]) {
+            ASSERT(debug->is_literal[i] == 1);
+            debug_tab_terms[i] =
+                    beamfile_get_literal(&stp->beam, debug->terms[i]);
+        } else {
+            ASSERT(debug->is_literal[i] == 0);
+            debug_tab_terms[i] = debug->terms[i];
+        }
+    }
+
+    for (i = 0; i < item_count; i++) {
+        Uint num_vars = debug->items[i].num_vars;
+
+        debug_tab_items[i].location_index = debug->items[i].location_index;
+        debug_tab_items[i].frame_size = debug->items[i].frame_size;
+        debug_tab_items[i].num_vars = num_vars;
+        debug_tab_items[i].first = debug_tab_terms;
+        debug_tab_terms += 2 * num_vars;
+    }
+
+    return debug_tab_ro;
+}
+
 int beam_load_finish_emit(LoaderState *stp) {
     const BeamCodeHeader *code_hdr_ro = NULL;
     BeamCodeHeader *code_hdr_rw = NULL;
@@ -886,6 +960,17 @@ int beam_load_finish_emit(LoaderState *stp) {
         line_size += (stp->current_li + 1) * stp->beam.lines.location_size;
 
         beamasm_embed_bss(stp->ba, "line", line_size);
+    }
+
+    /* Calculate size of the load BEAM debug information. */
+    if (stp->beam.debug.item_count > 0) {
+        BeamFile_DebugTable *debug = &stp->beam.debug;
+        Uint debug_size;
+
+        debug_size = sizeof(BeamDebugTab);
+        debug_size += (Uint)debug->item_count * sizeof(BeamFile_DebugItem);
+        debug_size += (Uint)debug->term_count * sizeof(Eterm);
+        beamasm_embed_bss(stp->ba, "debug", debug_size);
     }
 
     /* Place the string table and, optionally, attributes here. */
@@ -977,6 +1062,10 @@ int beam_load_finish_emit(LoaderState *stp) {
     /* Line information must be added after moving literals, since source file
      * names are literal lists. */
     code_hdr_rw->line_table = finish_line_table(stp, module_base, module_size);
+
+    /* Debug information must be added after moving literals, since literals
+     * are used extensively. */
+    code_hdr_rw->debug = finish_debug_table(stp, module_base, module_size);
 
     if (stp->beam.attributes.size) {
         const byte *attr = beamasm_get_rodata(stp->ba, "attr");
@@ -1100,10 +1189,9 @@ void beam_load_finalize_code(LoaderState *stp,
      * the module may remote-call itself*/
     for (int i = 0; i < stp->beam.imports.count; i++) {
         BeamFile_ImportEntry *entry = &stp->beam.imports.entries[i];
-        Export *import;
+        const Export *import;
 
         import = erts_export_put(entry->module, entry->function, entry->arity);
-
         beamasm_patch_import(stp->ba, stp->writable_region, i, import);
     }
 
@@ -1114,43 +1202,27 @@ void beam_load_finalize_code(LoaderState *stp,
         for (int i = 0; i < lambda_table->count; i++) {
             BeamFile_LambdaEntry *lambda;
             ErlFunEntry *fun_entry;
-            FunRef *fun_refp;
-            Eterm fun_ref;
 
             lambda = &lambda_table->entries[i];
 
-            fun_entry = erts_put_fun_entry2(stp->module,
-                                            lambda->old_uniq,
-                                            i,
-                                            stp->beam.checksum,
-                                            lambda->index,
-                                            lambda->arity - lambda->num_free);
+            fun_entry = erts_fun_entry_put(stp->module,
+                                           lambda->old_uniq,
+                                           i,
+                                           stp->beam.checksum,
+                                           lambda->index,
+                                           lambda->arity - lambda->num_free);
 
-            ASSERT(stp->fun_refs[i] != ERTS_SWORD_MAX);
-            fun_ref = beamfile_get_literal(&stp->beam, stp->fun_refs[i]);
-
-            /* If there are no free variables, the literal refers to an
-             * ErlFunThing that needs to be fixed up before we process the
-             * FunRef. */
+            /* If there are no free variables, the loader has created a literal
+             * for this lambda and we need to set its fun entry. */
             if (lambda->num_free == 0) {
-                ErlFunThing *funp = (ErlFunThing *)boxed_val(fun_ref);
-                ASSERT(fun_env_size(funp) == 1 && funp->entry.fun == NULL);
+                ErlFunThing *funp;
+                Eterm fun;
+
+                ASSERT(stp->lambda_literals[i] != ERTS_SWORD_MAX);
+                fun = beamfile_get_literal(&stp->beam, stp->lambda_literals[i]);
+                funp = (ErlFunThing *)boxed_val(fun);
+                ASSERT(funp->entry.fun == NULL);
                 funp->entry.fun = fun_entry;
-                fun_ref = funp->env[0];
-            }
-
-            fun_refp = (FunRef *)boxed_val(fun_ref);
-            fun_refp->entry = fun_entry;
-
-            /* Bump the reference count: this could not be done when copying
-             * the literal as we had no idea which entry it belonged to.
-             *
-             * We also need to parry an annoying wrinkle: when reloading a
-             * module over itself, we inherit the old instance's fun entries,
-             * and thus have to cancel the reference bump in
-             * `erts_put_fun_entry2` to make fun purging work. */
-            if (!erts_is_fun_loaded(fun_entry, staging_ix)) {
-                erts_refc_inctest(&fun_entry->refc, 1);
             }
 
             erts_set_fun_code(fun_entry,
