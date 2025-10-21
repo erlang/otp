@@ -191,11 +191,11 @@ Adds two numbers.
 ### Example:
 
 ```
-1> arith:add(arith:number(1), arith:number(2)). {number, 3}
+1> arith:add(arith:number(1), arith:number(2)). {arith, 3}
 ```
 """.
 -spec add(number(), number()) -> number().
-add({number, One}, {number, Two}) -> {number, One + Two}.
+add({arith, One}, {arith, Two}) -> {arith, One + Two}.
 ````
 
 ### Doc metadata
@@ -256,10 +256,10 @@ For types or callbacks, the signature is derived from the type or callback
 specification. For example:
 
 ```erlang
--type number(Value) :: {number, Value}.
+-type number(Value) :: {arith, Value}.
 %% signature will be `number(Value)`
 
--opaque number() :: {number, number()}.
+-opaque number() :: {arith, number()}.
 %% signature will be `number()`
 
 -callback increment(In :: number()) -> Out.
