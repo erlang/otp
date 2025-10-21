@@ -832,7 +832,7 @@ count_children(Supervisor) ->
     call(Supervisor, count_children).
 
 -doc(#{equiv => stop(SupRef, normal, infinity)}).
--doc(#{since => <<"OTP 28.0">>}).
+-doc(#{since => <<"OTP 29.0">>}).
 -spec stop(SupRef :: sup_ref()) -> ok.
 stop(Supervisor) ->
     gen_server:stop(Supervisor).
@@ -865,7 +865,7 @@ if the connection fails to the remote `Node` where the supervisor runs.
 > will result in a deadlock which will last until either the shutdown timeout
 > of the child or the timeout given to `stop/3` has expired.
 """.
--doc(#{since => <<"OTP 28.0">>}).
+-doc(#{since => <<"OTP 29.0">>}).
 -spec stop(SupRef :: sup_ref(), Reason :: term(), Timeout :: timeout()) -> ok.
 stop(Supervisor, Reason, Timeout) ->
     gen_server:stop(Supervisor, Reason, Timeout).
