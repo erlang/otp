@@ -256,10 +256,10 @@ For types or callbacks, the signature is derived from the type or callback
 specification. For example:
 
 ```erlang
--type number(Value) :: {number, Value}.
+-type number(Value) :: {arith, Value}.
 %% signature will be `number(Value)`
 
--opaque number() :: {number, number()}.
+-opaque number() :: {arith, number()}.
 %% signature will be `number()`
 
 -callback increment(In :: number()) -> Out.
