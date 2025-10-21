@@ -1068,12 +1068,15 @@ get_primary_config() ->
       Config :: logger_handler:config().
 get_handler_config(HandlerId) ->
     case logger_config:get(?LOGGER_TABLE,HandlerId) of
-        {ok,#{module:=Module}=Config} ->
-            {ok,try Module:filter_config(Config)
-                catch _:_ -> Config
-                end};
+        {ok, Config} ->
+            {ok, filter_config(Config)};
         Error ->
             Error
+    end.
+
+filter_config(#{module:=Module}=Config) ->
+    try Module:filter_config(Config)
+    catch _:_ -> Config
     end.
 
 -doc "Look up the current configuration for all handlers.".
@@ -1081,10 +1084,8 @@ get_handler_config(HandlerId) ->
 -spec get_handler_config() -> [Config] when
       Config :: logger_handler:config().
 get_handler_config() ->
-    [begin
-         {ok,Config} = get_handler_config(HandlerId),
-         Config
-     end || HandlerId <- get_handler_ids()].
+    Configs = logger_config:get(?LOGGER_TABLE),
+    [filter_config(Config) || Config <- Configs].
 
 -doc "Look up the identities for all installed handlers.".
 -doc(#{title => <<"Configuration API functions">>,since => <<"OTP 21.0">>}).
@@ -1523,7 +1524,7 @@ reconfigure() ->
         [case logger:remove_handler(Id) of
              ok -> ok;
              {error, Reason} -> throw({remove, Id, Reason})
-         end || #{id := Id} <- logger:get_handler_config()],
+         end || Id <- logger:get_handler_ids()],
         ok=logger:add_handler(simple,logger_simple_h,
                               #{filter_default=>stop,
                                 filters=>?DEFAULT_HANDLER_FILTERS}),
