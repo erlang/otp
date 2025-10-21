@@ -35,7 +35,8 @@
          deterministic_include/1, nondeterministic_include/1,
          gh_8268/1,
          moduledoc_include/1,
-         stringify/1
+         stringify/1,
+         fun_type_arg/1
         ]).
 
 -export([epp_parse_erl_form/2]).
@@ -82,7 +83,8 @@ all() ->
      deterministic_include, nondeterministic_include,
      gh_8268,
      moduledoc_include,
-     stringify].
+     stringify,
+     fun_type_arg].
 
 groups() ->
     [{upcase_mac, [], [upcase_mac_1, upcase_mac_2]},
@@ -2138,6 +2140,49 @@ stringify(Config) ->
            ok}],
     [] = run(Config, Ts),
     ok.
+
+%% GH-10280. A fun type could not be used as a macro argument.
+fun_type_arg(Config) ->
+    Ts = [{fun_type_1,
+           ~"""
+            -define(FOO(X), X).
+            -define(BAR(X, Y), {X,Y}).
+
+            -type foo() :: ?FOO(fun(() -> 'ok')).
+            -type bar() :: ?BAR(fun((integer()) -> integer()), integer()).
+            -type frotz() :: ?FOO(fun((integer()) -> {atom(),integer()})).
+
+            -define(mk_fun_var(Fun, Vars), mk_fun_var(Fun, Vars)).
+
+            t() ->
+                ok = f(fun() -> ok end),
+                42 = g({fun(I) -> 2 * I end, 21}),
+                {ok,7} = h(fun(I) -> {ok,I} end),
+                #{a := 1, b := 2} =
+                    ?mk_fun_var(fun(Map0) ->
+                       Map1 = Map0#{a => 1},
+                       Map1#{b => 2}
+                    end, #{}),
+                42 = ?FOO(fun(((I))) -> I + 1 end)(41),
+                true = (?FOO(fun (_) when true, true -> true end))(0),
+                ok.
+
+            -spec f(foo()) -> 'ok'.
+            f(F) -> F().
+
+            -spec g(bar()) -> integer().
+            g({F,I}) -> F(I).
+
+            -spec h(frotz()) -> {atom(),integer()}.
+            h(H) -> H(7).
+
+            mk_fun_var(Fun, Vars) -> Fun(Vars).
+            """,
+           [],
+           ok}],
+    [] = run(Config, Ts),
+    ok.
+
 
 %% Start location is 1.
 check(Config, Tests) ->
