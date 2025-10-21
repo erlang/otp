@@ -190,6 +190,9 @@
 -define(DATA,       <<"HOPPSAN">>). % Temporary
 -define(FAIL(R),    exit(R)).
 
+-define(ENABLE_DEBUG(S),  socket:setopt(S, {otp, debug}, true)).
+-define(DISABLE_DEBUG(S), socket:setopt(S, {otp, debug}, false)).
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -6417,16 +6420,15 @@ sc_lc_receive_response_tcp(InitState) ->
                            case socket:accept(LSock) of
                                {ok, Sock} ->
                                    ?SEV_IPRINT("connection accepted: "
-                                               "~n   ~p", [socket:sockname(Sock)]),
+                                               "~n   ~p",
+					       [case socket:sockname(Sock) of
+						    {ok, SA} -> SA;
+						    {error, _} -> undefined
+						end]),
                                    {ok, State#{csock => Sock}};
                                {error, _} = ERROR ->
                                    ERROR
                            end
-                   end},
-         #{desc => "announce ready (accept)",
-           cmd  => fun(#{tester := Tester}) ->
-                           ?SEV_ANNOUNCE_READY(Tester, accept),
-                           ok
                    end},
          #{desc => "transfer connection to handler 1",
            cmd  => fun(#{handler1 := Handler, csock := Sock}) ->
@@ -6441,6 +6443,11 @@ sc_lc_receive_response_tcp(InitState) ->
          #{desc => "transfer connection to handler 3",
            cmd  => fun(#{handler3 := Handler, csock := Sock}) ->
                            ?SEV_ANNOUNCE_CONTINUE(Handler, transfer, Sock),
+                           ok
+                   end},
+         #{desc => "announce ready (accept)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, accept),
                            ok
                    end},
          #{desc => "await continue (close)",
@@ -6530,8 +6537,10 @@ sc_lc_receive_response_tcp(InitState) ->
          %% The actual test
          #{desc => "await continue (transfer)",
            cmd  => fun(#{acceptor := Pid} = State) ->
+			   ?SEV_IPRINT("wait for socket transfer"),
                            case ?SEV_AWAIT_CONTINUE(Pid, acceptor, transfer) of
                                {ok, Sock} ->
+				   ?SEV_IPRINT("socket transfered"),
                                    {ok, State#{sock => Sock}};
                                {error, _} = ERROR ->
                                    ERROR
@@ -6544,17 +6553,20 @@ sc_lc_receive_response_tcp(InitState) ->
                    end},
          #{desc => "attempt recv (=> closed)",
            cmd  => fun(#{sock := Sock, recv := Recv} = State) ->
-                           %% ok = socket:setopt(Sock, otp, debug, true),
+                           %% ok = ?ENABLE_DEBUG(Sock),
                            case Recv(Sock) of
                                {ok, _Data} ->
+				   %% ok = ?DISABLE_DEBUG(Sock),
                                    ?SEV_EPRINT("Unexpected data received"),
                                    {error, unexpected_success};
                                {error, closed} ->
+				   %% ok = ?DISABLE_DEBUG(Sock),
                                    ?SEV_IPRINT("received expected 'closed' "
                                                "result"),
                                    State1 = maps:remove(sock, State),
                                    {ok, State1};
                                {error, Reason} = ERROR ->
+				   %% ok = ?DISABLE_DEBUG(Sock),
                                    ?SEV_EPRINT("Unexpected read failure: "
                                                "~n   ~p", [Reason]),
                                    ERROR
@@ -6655,7 +6667,20 @@ sc_lc_receive_response_tcp(InitState) ->
                    end},
          #{desc => "connect to server",
            cmd  => fun(#{sock := Sock, server_sa := ServerSA}) ->
-                           socket:connect(Sock, ServerSA)
+			   ?SEV_IPRINT("try connect to: "
+				       "~n   ~p", [ServerSA]),
+			   %% ?ENABLE_DEBUG(Sock),
+                           case socket:connect(Sock, ServerSA) of
+			       ok ->
+				   %% ?DISABLE_DEBUG(Sock),
+				   ?SEV_IPRINT("connected"),
+				   ok;
+			       {error, Reason} = ERROR ->
+				   %% ?DISABLE_DEBUG(Sock),
+				   ?SEV_EPRINT("connect failed: "
+					       "~n   ~p", [Reason]),
+				   ERROR
+			   end
                    end},
          #{desc => "announce ready (connect)",
            cmd  => fun(#{tester := Tester} = _State) ->
