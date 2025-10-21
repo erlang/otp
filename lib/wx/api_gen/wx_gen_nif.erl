@@ -977,8 +977,13 @@ return_res1(#type{name="wxCharBuffer", base={binary,_},single=true,by_val=true})
     {"char * Result = ", ".data()"};
 return_res1(#type{name=Type,single=array,ref=reference}) ->
     {Type ++ " Result = ", ""};
-return_res1(#type{name=Type,single=true,by_val=true}) ->
-    {Type ++ " Result = ", ""}.
+return_res1(#type{name=Type,single=true,by_val=true, mod=Mods}) ->
+    case lists:member(unsigned, Mods) of
+        true ->
+            {io_lib:format("unsigned ~s Result = ", [Type]), ""};
+        false ->
+            {Type ++ " Result = ", ""}
+    end.
 
 filter(Ps) ->
     lists:filter(fun filter_arg/1, Ps).
