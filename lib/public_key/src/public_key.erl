@@ -987,12 +987,15 @@ Decodes an ASN.1 DER-encoded PKIX certificate.
 
 Option `otp` uses the customized ASN.1 specification OTP-PKIX.asn1 for
 decoding and also recursively decode most of the standard parts.
+
+Option `relaxed` is similar to option `otp` but also allows for empty
+RDNs in issuer and subject.
 """.
 
 -spec pkix_decode_cert(Cert, Type) ->
           #'Certificate'{} | #'OTPCertificate'{}
               when Cert :: der_encoded(),
-                   Type :: plain | otp .
+                   Type :: plain | otp | relaxed.
 %%
 %% Description: Decodes an asn1 der encoded pkix certificate. The otp
 %% option will use the customized asn1 specification OTP-PKIX.asn1 for
@@ -1001,10 +1004,11 @@ decoding and also recursively decode most of the standard parts.
 %% --------------------------------------------------------------------
 pkix_decode_cert(DerCert, plain)  when is_binary(DerCert) ->
     der_decode('Certificate', DerCert);
-pkix_decode_cert(DerCert, otp) when is_binary(DerCert) ->
+pkix_decode_cert(DerCert, Type) when is_binary(DerCert),
+				     Type =:= otp orelse Type =:= relaxed ->
     try 
 	{ok, #'OTPCertificate'{}= Cert} = 
-	    pubkey_cert_records:decode_cert(DerCert),
+	    pubkey_cert_records:decode_cert(DerCert, Type),
 	Cert
     catch
 	error:{badmatch, {error, _}} = Error ->

@@ -60,6 +60,7 @@ ASN_MODULES = \
 	  X509-ML-DSA-2025 \
           OCSP-2024-08 \
           OTP-PKIX \
+	  OTP-PKIX-Relaxed \
           PKCS-1 PKCS-3 PKCS-10 \
           PKIX-CommonTypes-2009 \
           PKIX-X400Address-2009 \
@@ -77,7 +78,7 @@ ASN_MODULES = \
 ASN_ASNS = $(ASN_MODULES:%=%.asn1)
 ASN_ERLS = $(ASN_TOP:%=$(ESRC)/%.erl)
 ASN_HRLS = PKCS-FRAME.hrl
-ASN_CONFIGS = OTP-PKIX.asn1config PKIX1Explicit-2009.asn1config
+ASN_CONFIGS = OTP-PKIX.asn1config OTP-PKIX-Relaxed.asn1config PKIX1Explicit-2009.asn1config
 ASN_DBS = $(ASN_MODULES:%=%.asn1db)
 ASN_TABLES = $(ASN_MODULES:%=%.table)
 

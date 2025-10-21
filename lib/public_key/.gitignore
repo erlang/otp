@@ -27,6 +27,8 @@ src/OCSP-2024-08.erl
 src/OCSP-2024-08.hrl
 src/OTP-PKIX.erl
 src/OTP-PKIX.hrl
+src/OTP-PKIX-Relaxed.erl
+src/OTP-PKIX-Relaxed.hrl
 src/PKCS-1.erl
 src/PKCS-1.hrl
 src/PKCS-10.erl
