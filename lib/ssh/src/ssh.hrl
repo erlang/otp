@@ -1299,8 +1299,6 @@ Experimental options that should not to be used in products.
 	  authenticated = false,
 	  userauth_banner_sent = false,
           %% Keep-alive
-          alive_interval = infinity           :: non_neg_integer() | infinity,
-          alive_count = 0                     :: non_neg_integer(),
           alive_last_sent_at = 0              :: non_neg_integer(),
           alive_awaiting_response = false     :: boolean(),
           alive_probes_sent = 0               :: non_neg_integer()

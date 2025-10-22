@@ -440,18 +440,11 @@ init_ssh_record(Role, Socket, Opts) ->
 
 init_ssh_record(Role, Socket, PeerAddr, Opts) ->
     AuthMethods = ?GET_OPT(auth_methods, Opts),
-    {AliveCount, AliveIntervalSeconds} = ?GET_OPT(alive_params, Opts),
-    AliveInterval = case AliveIntervalSeconds of
-                        V when is_integer(V) -> V * 1000;
-                        infinity -> infinity
-                    end,
     S0 = #ssh{role = Role,
 	      opts = Opts,
 	      userauth_supported_methods = AuthMethods,
 	      available_host_keys = available_hkey_algorithms(Role, Opts),
-	      random_length_padding = ?GET_OPT(max_random_length_padding, Opts),
-	      alive_interval = AliveInterval,
-	      alive_count = AliveCount
+	      random_length_padding = ?GET_OPT(max_random_length_padding, Opts)
 	   },
 
     {Vsn, Version} = ssh_transport:versions(Role, Opts),
@@ -2187,8 +2180,8 @@ update_inet_buffers(Socket) ->
 
 %% Reset the last_alive timer on #data{ssh_params=#ssh{}} record
 reset_alive(D = #data{ssh_params = Ssh0}) ->
-    case Ssh0 of
-        #ssh{alive_interval = AliveInterval} when is_integer(AliveInterval) ->
+    case ?GET_OPT(alive_params, Ssh0#ssh.opts) of
+        {_AliveCount, AliveInterval} when is_integer(AliveInterval) ->
             Now = erlang:monotonic_time(milli_seconds),
             Ssh = Ssh0#ssh{alive_probes_sent = 0, alive_last_sent_at = Now},
             D#data{ssh_params = Ssh};
@@ -2198,48 +2191,52 @@ reset_alive(D = #data{ssh_params = Ssh0}) ->
 %% Returns a pair of {TriggerFlag, Actions} where trigger flag indicates that
 %% the timeout has been triggered already and it is time to disconnect, and
 %% Actions may contain a new timeout action to check for the timeout again.
-get_next_alive_timeout(#ssh{alive_interval = AliveInterval,
-                            alive_last_sent_at  = LastAlive})
-    when erlang:is_integer(AliveInterval) ->
-    TimeToNextAlive = AliveInterval - (erlang:monotonic_time(milli_seconds) - LastAlive),
-    case TimeToNextAlive =< 0 of
-        true ->
-            %% Already it is time to disconnect, or to ping
-            {true, [{{timeout, alive}, AliveInterval, none}]};
-        false ->
-            {false, [{{timeout, alive}, TimeToNextAlive, none}]}
-    end;
-get_next_alive_timeout(_) ->
-    {false, []}.
+get_next_alive_timeout(#ssh{alive_last_sent_at  = LastAlive, opts = Opts}) ->
+    case ?GET_OPT(alive_params, Opts) of
+        {_AliveCount, AliveInterval} when erlang:is_integer(AliveInterval) ->
+            TimeToNextAlive =
+                AliveInterval - (erlang:monotonic_time(milli_seconds) - LastAlive),
+            case TimeToNextAlive =< 0 of
+                true ->
+                    %% Already it is time to disconnect, or to ping
+                    {true, [{{timeout, alive}, AliveInterval, none}]};
+                false ->
+                    {false, [{{timeout, alive}, TimeToNextAlive, none}]}
+            end;
+        _ ->
+            {false, []}
+    end.
 
 triggered_alive(StateName, D0 = #data{},
-                #ssh{alive_count       = Count,
-                     alive_probes_sent = SentProbesCount}, _Actions)
-    when SentProbesCount >= Count ->
-    %% Max probes count reached (equal to `alive_count`), we disconnect
-    Details = "Alive timeout triggered",
-    {Shutdown, D} = ?send_disconnect(?SSH_DISCONNECT_CONNECTION_LOST, Details, StateName, D0),
-    {stop, Shutdown, D};
-triggered_alive(_StateName, Data, _Ssh = #ssh{alive_probes_sent = SentProbes}, Actions) ->
-    Data1 = send_msg({ssh_msg_global_request,"keepalive@erlang.org", true,<<>>},
-                     Data),
-    Ssh = Data1#data.ssh_params,
-    Now = erlang:monotonic_time(milli_seconds),
-    Ssh1 = Ssh#ssh{alive_probes_sent = SentProbes + 1,
-                   alive_awaiting_response = true,
-                   alive_last_sent_at = Now},
-    {keep_state, Data1#data{ssh_params = Ssh1}, Actions}.
+                #ssh{opts = Opts, alive_probes_sent = SentProbes}, Actions) ->
+    case ?GET_OPT(alive_params, Opts) of
+          {AliveCount, _AliveInterval} when SentProbes >= AliveCount ->
+            %% Max probes count reached (equal to `alive_count`), we disconnect
+            Details = "Alive timeout triggered",
+            {Shutdown, D} =
+                ?send_disconnect(?SSH_DISCONNECT_CONNECTION_LOST, Details, StateName, D0),
+            {stop, Shutdown, D};
+        _ ->
+            D = send_msg({ssh_msg_global_request,"keepalive@erlang.org", true, <<>>},
+                             D0),
+            Ssh = D#data.ssh_params,
+            Now = erlang:monotonic_time(milli_seconds),
+            Ssh1 = Ssh#ssh{alive_probes_sent = SentProbes + 1,
+                           alive_awaiting_response = true,
+                           alive_last_sent_at = Now},
+            {keep_state, D#data{ssh_params = Ssh1}, Actions}
+    end.
 
 %% Keep-alive messages can't be sent during renegotiation, but since this
 %% feature acts as a keep-alive and a timeout, an equivalent timeout is
 %% established for the renegotiation procedure if alive is enabled.
 %% For simplicity the timeout value is derived from alive_interval and
 %% alive_count.
-renegotiation_alive_timeout(#ssh{alive_interval = infinity}) ->
-    infinity;
-renegotiation_alive_timeout(#ssh{alive_interval = Interval, alive_count = Count}) ->
-    Interval * Count.
-
+renegotiation_alive_timeout(#ssh{opts = Opts}) ->
+    case ?GET_OPT(alive_params, Opts) of
+        {_AliveCount, infinity} -> infinity;
+        {AliveCount, AliveInterval} -> AliveCount * AliveInterval
+    end.
 
 %%%################################################################
 %%%#
@@ -2306,7 +2303,7 @@ ssh_dbg_off(connections) -> dbg:ctpg(?MODULE, init, 1),
         io_lib:format("~p:~p/~p [Alive event] ~s", [_MOD, _FUN, _ARITY, _DATA])).
 
 ssh_dbg_format(alive, {return_from, {?MODULE, F=init_ssh_record, A=4}, Ssh}) ->
-    #ssh{alive_interval = AliveInterval, alive_count = AliveCount} = Ssh,
+    {AliveCount, AliveInterval} = ?GET_OPT(alive_params, Ssh#ssh.opts),
     Str = io_lib:format("Interval=~p Count=~p", [AliveInterval, AliveCount]),
     ?PRINT_ALIVE_EVENT(?MODULE, F, A, Str);
 ssh_dbg_format(alive, {call, {?MODULE,F=handle_event,
@@ -2322,9 +2319,9 @@ ssh_dbg_format(alive, {call, {?MODULE,F=handle_event,
     ?PRINT_ALIVE_EVENT(?MODULE, F, 4, Str);
 ssh_dbg_format(alive, {call, {?MODULE,F=triggered_alive,
                               [State, _,
-                               #ssh{alive_count       = Count,
-                                    alive_probes_sent = SentProbesCount}, _]
+                               #ssh{opts = Opts, alive_probes_sent = SentProbesCount}, _]
                              }}) ->
+    {Count, _AliveInterval} = ?GET_OPT(alive_params, Opts),
     Str = io_lib:format("~n~p out ~p alive probes sent (state: ~w)", [SentProbesCount, Count, State]),
     ?PRINT_ALIVE_EVENT(?MODULE, F, 4, Str);
 ssh_dbg_format(alive, {return_from, {?MODULE, F=triggered_alive, 4}, {stop, Details, _}}) ->
