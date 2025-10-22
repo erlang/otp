@@ -77,10 +77,9 @@ handle_event(internal,
                 {authorized, User, {Reply, Ssh1}} ->
                     D = connected_state(Reply, Ssh1, User, Method, D1),
                     {next_state, {connected,server}, D,
-                     start_alive(D,
-                                 [set_max_initial_idle_timeout(D),
-                                  {change_callback_module,ssh_connection_handler}
-                                 ])}
+                     [set_alive_timeout(D), set_max_initial_idle_timeout(D),
+                      {change_callback_module,ssh_connection_handler}
+                     ]}
             end;
 	
 	{"ssh-connection", "ssh-connection", Method} ->
@@ -92,9 +91,9 @@ handle_event(internal,
 			{authorized, User, {Reply, Ssh1}} ->
                             D = connected_state(Reply, Ssh1, User, Method, D1),
                             {next_state, {connected,server}, D,
-                             start_alive(D, [set_max_initial_idle_timeout(D),
+                             [set_alive_timeout(D), set_max_initial_idle_timeout(D),
                               {change_callback_module,ssh_connection_handler}
-                             ])};
+                             ]};
 			{not_authorized, {User, Reason}, {Reply, Ssh}} when Method == "keyboard-interactive" ->
 			    retry_fun(User, Reason, D1),
                             D = ssh_connection_handler:send_msg(Reply, D1#data{ssh_params = Ssh}),
@@ -128,9 +127,9 @@ handle_event(internal, #ssh_msg_userauth_info_response{} = Msg, {userauth_keyboa
 	{authorized, User, {Reply, Ssh1}} ->
             D = connected_state(Reply, Ssh1, User, "keyboard-interactive", D0),
             {next_state, {connected,server}, D,
-             start_alive(D, [set_max_initial_idle_timeout(D),
+             [set_alive_timeout(D), set_max_initial_idle_timeout(D),
               {change_callback_module,ssh_connection_handler}
-             ])};
+             ]};
 	{not_authorized, {User, Reason}, {Reply, Ssh}} ->
 	    retry_fun(User, Reason, D0),
             D = ssh_connection_handler:send_msg(Reply, D0#data{ssh_params = Ssh}),
@@ -146,10 +145,9 @@ handle_event(internal, #ssh_msg_userauth_info_response{} = Msg, {userauth_keyboa
         ssh_auth:handle_userauth_info_response({extra,Msg}, D0#data.ssh_params),
     D = connected_state(Reply, Ssh1, User, "keyboard-interactive", D0),
     {next_state, {connected,server}, D,
-     start_alive(D, [set_max_initial_idle_timeout(D),
+     [set_alive_timeout(D), set_max_initial_idle_timeout(D),
       {change_callback_module,ssh_connection_handler}
-     ])
-    };
+     ]};
 
 
 %%% ######## UNHANDLED EVENT!
@@ -182,6 +180,8 @@ connected_state(Reply, Ssh1, User, Method, D0) ->
             %% before send_msg!
             ssh_params = Ssh#ssh{authenticated = true}}.
 
+set_alive_timeout(#data{ssh_params = #ssh{alive_interval = AliveInterval}}) ->
+    {{timeout, alive}, AliveInterval, none}.
 
 set_max_initial_idle_timeout(#data{ssh_params = #ssh{opts=Opts}}) ->
     {{timeout,max_initial_idle_time}, ?GET_OPT(max_initial_idle_time,Opts), none}.
@@ -229,7 +229,3 @@ maybe_send_banner(D0 = #data{ssh_params = #ssh{userauth_banner_sent = false} = S
     end;
 maybe_send_banner(D, _) ->
     D.
-
-start_alive(#data{ssh_params = #ssh{alive_interval = AliveInterval}},
-            Actions) ->
-    [{{timeout, alive}, AliveInterval, none} | Actions].
