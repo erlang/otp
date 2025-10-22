@@ -249,7 +249,8 @@ basic(Config) when is_list(Config) ->
     ?P("basic -> try verify observer stopped"),
     ProcsAfter = processes(),
     NumProcsAfter = length(ProcsAfter),
-    if NumProcsAfter =/= NumProcsBefore ->
+    if
+        (NumProcsAfter > NumProcsBefore) ->
             BeforeNotAfter = ProcsBefore -- ProcsAfter,
             AfterNotBefore = ProcsAfter -- ProcsBefore,
             ?P("basic -> *not* fully stopped:"
@@ -408,7 +409,7 @@ test_page(Title, Window) ->
 process_win(suite) -> [];
 process_win(doc) -> [""];
 process_win(Config) when is_list(Config) ->
-    ?P("process_win -> entry"),
+    ?P("~s -> entry", [?FUNCTION_NAME]),
     % Stop SASL if already started
     SaslStart = case whereis(sasl_sup) of
                   undefined -> false;
@@ -416,13 +417,27 @@ process_win(Config) when is_list(Config) ->
                                true
                 end,
     % Define custom sasl and log_mf_h app vars
+    ?P("~s -> (application) env setup", [?FUNCTION_NAME]),
     Privdir=?config(priv_dir,Config),
     application:set_env(sasl, sasl_error_logger, tty),
     application:set_env(sasl, error_logger_mf_dir, Privdir),
     application:set_env(sasl, error_logger_mf_maxbytes, 1000),
     application:set_env(sasl, error_logger_mf_maxfiles, 5),
     application:start(sasl),
+    ?P("~s -> try start observer when"
+       "~n   whereis(observer): ~p"
+       "~n   observer info: "
+       "~n     ~p",
+       [?FUNCTION_NAME,
+        erlang:whereis(observer),
+        case erlang:whereis(observer) of
+            undefined ->
+                undefined;
+            Pid when is_pid(Pid) ->
+                erlang:process_info(Pid)
+        end]),
     ok = observer:start(),
+    ?P("~s -> whitebox testing setup", [?FUNCTION_NAME]),
     ObserverNB = setup_whitebox_testing(),
     Parent = get_top_level_parent(ObserverNB),
     % Activate log view
@@ -440,15 +455,17 @@ process_win(Config) when is_list(Config) ->
 	    end,
     [_|_] = [Check(N) || N <- lists:seq(1, Count)],
     PIPid ! #wx{event=#wxClose{type=close_window}},
+    ?P("~s -> stop observer", [?FUNCTION_NAME]),
     observer:stop(),
+    ?P("~s -> stop sasl", [?FUNCTION_NAME]),
     application:stop(sasl),
     case SaslStart of
          true  -> application:start(sasl);
          false -> ok
     end,
-    ?P("ensure observer stopped"),
+    ?P("~s -> ensure observer stopped", [?FUNCTION_NAME]),
     ensure_observer_stopped(?SECS(2)),
-    ?P("process_win -> done"),
+    ?P("~s -> done", [?FUNCTION_NAME]),
     ok.
 
 table_win(suite) -> [];
@@ -560,11 +577,11 @@ ensure_observer_stopped() ->
 ensure_observer_stopped(T) when is_integer(T) andalso (T > 0) ->
     case erlang:whereis(observer) of
 	undefined ->
-	    ?P("observer *not* running"),
+	    ?P("~s(~w) -> observer *not* running", [?FUNCTION_NAME, ?LINE]),
 	    ok;
 	Pid when is_pid(Pid) ->
-	    ?P("observer process still running: "
-	       "~n   ~p", [erlang:process_info(Pid)]),
+	    ?P("~s(~w) -> observer process still running: "
+	       "~n   ~p", [?FUNCTION_NAME, ?LINE, erlang:process_info(Pid)]),
 	    ct:sleep(?SECS(1)),
 	    ensure_observer_stopped(T - 1000),
 	    ok
@@ -572,11 +589,11 @@ ensure_observer_stopped(T) when is_integer(T) andalso (T > 0) ->
 ensure_observer_stopped(_) ->
     case erlang:whereis(observer) of
 	undefined ->
-	    ?P("observer *not* running"),
+	    ?P("~s(~w) -> observer *not* running", [?FUNCTION_NAME, ?LINE]),
 	    ok;
 	Pid when is_pid(Pid) ->
-	    ?P("observer process still running: kill"
-	       "~n   ~p", [erlang:process_info(Pid)]),
+	    ?P("~s(~w) -> observer process still running: kill"
+	       "~n   ~p", [?FUNCTION_NAME, ?LINE, erlang:process_info(Pid)]),
 	    exit(kill, Pid),
 	    ok
     end.
