@@ -2202,11 +2202,11 @@ get_next_alive_timeout(#ssh{alive_interval = AliveInterval,
                             last_alive_at  = LastAlive})
     when erlang:is_integer(AliveInterval) ->
     TimeToNextAlive = AliveInterval - (erlang:monotonic_time(milli_seconds) - LastAlive),
-    case TimeToNextAlive of
-        Trigger when Trigger =< 0 ->
+    case TimeToNextAlive =< 0 of
+        true ->
             %% Already it is time to disconnect, or to ping
             {true, [{{timeout, alive}, AliveInterval, none}]};
-        TimeToNextAlive ->
+        false ->
             {false, [{{timeout, alive}, TimeToNextAlive, none}]}
     end;
 get_next_alive_timeout(_) ->
