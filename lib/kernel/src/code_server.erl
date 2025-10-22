@@ -843,6 +843,8 @@ insert_name(Name, Dir, Db) ->
     AppDir = del_ebin(Dir),
     do_insert_name(Name, AppDir, Db).
 
+do_insert_name(".", _, _) ->
+    true;
 do_insert_name(Name, AppDir, Db) ->
     {Base, SubDirs} = archive_subdirs(AppDir),
     ets:insert(Db, {Name, AppDir, Base, SubDirs}),
