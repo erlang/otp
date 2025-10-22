@@ -1301,9 +1301,9 @@ Experimental options that should not to be used in products.
           %% Keep-alive
           alive_interval = infinity           :: non_neg_integer() | infinity,
           alive_count = 0                     :: non_neg_integer(),
-          last_alive_at = 0                   :: non_neg_integer(),
-          awaiting_keepalive_response = false :: boolean(),
-          alive_sent_probes = 0               :: non_neg_integer()
+          alive_last_sent_at = 0              :: non_neg_integer(),
+          alive_awaiting_response = false     :: boolean(),
+          alive_probes_sent = 0               :: non_neg_integer()
 	 }).
 
 -record(alg,
