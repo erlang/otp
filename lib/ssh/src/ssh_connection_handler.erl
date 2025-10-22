@@ -727,7 +727,11 @@ handle_event(internal, {#ssh_msg_kexinit{},_}, {connected,Role}, D0) ->
     D = D0#data{ssh_params = Ssh,
 		key_exchange_init_msg = KeyInitMsg},
     send_bytes(SshPacket, D),
-    {next_state, {kexinit,Role,renegotiate}, D, [postpone, {change_callback_module,ssh_fsm_kexinit}]};
+    {next_state, {kexinit,Role,renegotiate}, D,
+     [postpone,
+      {change_callback_module,ssh_fsm_kexinit},
+      {{timeout, alive}, cancel},
+      {{timeout, renegotiation_alive}, renegotiation_alive_timeout(Ssh), none}]};
 
 handle_event(internal, #ssh_msg_disconnect{description=Desc} = Msg, StateName, D0) ->
     {disconnect, _, RepliesCon} =
@@ -2258,6 +2262,7 @@ ssh_dbg_flags(disconnect) -> [c].
 ssh_dbg_on(alive) ->
     dbg:tp(?MODULE,  handle_event, 4, x),
     dbg:tpl(?MODULE, init_ssh_record, 4, x),
+    dbg:tpl(?MODULE, start_rekeying, 2, x),
     dbg:tpl(?MODULE, triggered_alive, 4, x);
 ssh_dbg_on(connections) -> dbg:tp(?MODULE,  init, 1, x),
                            ssh_dbg_on(terminate);
@@ -2282,6 +2287,7 @@ ssh_dbg_on(disconnect) -> dbg:tpl(?MODULE,  send_disconnect, 7, x).
 
 ssh_dbg_off(alive) ->
     dbg:ctpg(?MODULE, handle_event, 4),
+    dbg:ctpl(?MODULE, start_rekeying, 2),
     dbg:ctpl(?MODULE, init_ssh_record, 4),
     dbg:ctpl(?MODULE, triggered_alive, 4);
 ssh_dbg_off(disconnect) -> dbg:ctpl(?MODULE, send_disconnect, 7);
@@ -2327,9 +2333,20 @@ ssh_dbg_format(alive, {call, {?MODULE,F=triggered_alive,
 ssh_dbg_format(alive, {return_from, {?MODULE, F=triggered_alive, 4}, {stop, Details, _}}) ->
     Str = io_lib:format("~n0 alive probes left {stop, ~p, _}", [Details]),
     ?PRINT_ALIVE_EVENT(?MODULE, F, 4, Str);
+ssh_dbg_format(alive, {return_from, {?MODULE, Function, Arity},
+                       _Return = {next_state, {kexinit, _Role_, renegotiate}, _, Actions}})
+  when (Function == handle_event andalso Arity == 4) orelse
+       (Function == start_rekeying andalso Arity == 2)->
+    case lists:keyfind({timeout, renegotiation_alive}, 1, Actions) of
+        false ->
+            skip;
+        {{timeout, renegotiation_alive}, Timeout, _} ->
+            Str = io_lib:format("~nRenegotiation timeout set to ~p ms", [Timeout]),
+            ?PRINT_ALIVE_EVENT(?MODULE, Function, Arity, Str)
+    end;
 ssh_dbg_format(alive, {call, {?MODULE, _, _}}) ->
     skip;
-ssh_dbg_format(alive, {return_from, {?MODULE, _, _}, _Ret}) ->
+ssh_dbg_format(alive, {return_from, {?MODULE, _, _}, _Return}) ->
     skip;
 
 ssh_dbg_format(connections, {call, {?MODULE,init, [[Role, Sock, Opts]]}}) ->
