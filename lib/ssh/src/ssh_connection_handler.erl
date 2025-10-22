@@ -758,12 +758,12 @@ handle_event(internal, #ssh_msg_debug{} = Msg, _StateName, D) ->
     keep_state_and_data;
 
 handle_event(internal, {conn_msg, #ssh_msg_request_failure{}}, _, D = #data{ssh_params = Ssh})
-  when Ssh#ssh.awaiting_keepalive_response ->
-    {keep_state, D#data{ssh_params = Ssh#ssh{awaiting_keepalive_response = false}}};
+  when Ssh#ssh.alive_awaiting_response ->
+    {keep_state, D#data{ssh_params = Ssh#ssh{alive_awaiting_response = false}}};
 
 handle_event(internal, {conn_msg, #ssh_msg_request_success{}}, _, D = #data{ssh_params = Ssh})
-  when Ssh#ssh.awaiting_keepalive_response ->
-    {keep_state, D#data{ssh_params = Ssh#ssh{awaiting_keepalive_response = false}}};
+  when Ssh#ssh.alive_awaiting_response ->
+    {keep_state, D#data{ssh_params = Ssh#ssh{alive_awaiting_response = false}}};
 
 handle_event(internal, {conn_msg,Msg}, StateName, #data{connection_state = Connection0,
                                                         event_queue = Qev0} = D0) ->
@@ -2190,7 +2190,7 @@ reset_alive(D = #data{ssh_params = Ssh0}) ->
     case Ssh0 of
         #ssh{alive_interval = AliveInterval} when is_integer(AliveInterval) ->
             Now = erlang:monotonic_time(milli_seconds),
-            Ssh = Ssh0#ssh{alive_sent_probes = 0, last_alive_at = Now},
+            Ssh = Ssh0#ssh{alive_probes_sent = 0, alive_last_sent_at = Now},
             D#data{ssh_params = Ssh};
         _ -> D
     end.
@@ -2199,7 +2199,7 @@ reset_alive(D = #data{ssh_params = Ssh0}) ->
 %% the timeout has been triggered already and it is time to disconnect, and
 %% Actions may contain a new timeout action to check for the timeout again.
 get_next_alive_timeout(#ssh{alive_interval = AliveInterval,
-                            last_alive_at  = LastAlive})
+                            alive_last_sent_at  = LastAlive})
     when erlang:is_integer(AliveInterval) ->
     TimeToNextAlive = AliveInterval - (erlang:monotonic_time(milli_seconds) - LastAlive),
     case TimeToNextAlive =< 0 of
@@ -2214,20 +2214,20 @@ get_next_alive_timeout(_) ->
 
 triggered_alive(StateName, D0 = #data{},
                 #ssh{alive_count       = Count,
-                     alive_sent_probes = SentProbesCount}, _Actions)
+                     alive_probes_sent = SentProbesCount}, _Actions)
     when SentProbesCount >= Count ->
     %% Max probes count reached (equal to `alive_count`), we disconnect
     Details = "Alive timeout triggered",
     {Shutdown, D} = ?send_disconnect(?SSH_DISCONNECT_CONNECTION_LOST, Details, StateName, D0),
     {stop, Shutdown, D};
-triggered_alive(_StateName, Data, _Ssh = #ssh{alive_sent_probes = SentProbes}, Actions) ->
+triggered_alive(_StateName, Data, _Ssh = #ssh{alive_probes_sent = SentProbes}, Actions) ->
     Data1 = send_msg({ssh_msg_global_request,"keepalive@erlang.org", true,<<>>},
                      Data),
     Ssh = Data1#data.ssh_params,
     Now = erlang:monotonic_time(milli_seconds),
-    Ssh1 = Ssh#ssh{alive_sent_probes = SentProbes + 1,
-                   awaiting_keepalive_response = true,
-                   last_alive_at = Now},
+    Ssh1 = Ssh#ssh{alive_probes_sent = SentProbes + 1,
+                   alive_awaiting_response = true,
+                   alive_last_sent_at = Now},
     {keep_state, Data1#data{ssh_params = Ssh1}, Actions}.
 
 %% Keep-alive messages can't be sent during renegotiation, but since this
@@ -2323,7 +2323,7 @@ ssh_dbg_format(alive, {call, {?MODULE,F=handle_event,
 ssh_dbg_format(alive, {call, {?MODULE,F=triggered_alive,
                               [State, _,
                                #ssh{alive_count       = Count,
-                                    alive_sent_probes = SentProbesCount}, _]
+                                    alive_probes_sent = SentProbesCount}, _]
                              }}) ->
     Str = io_lib:format("~n~p out ~p alive probes sent (state: ~w)", [SentProbesCount, Count, State]),
     ?PRINT_ALIVE_EVENT(?MODULE, F, 4, Str);
