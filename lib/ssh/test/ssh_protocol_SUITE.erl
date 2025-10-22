@@ -1607,60 +1607,60 @@ keep_alive_sent_server(Config) ->
 
     Parent = self(),
     %% Start a process handling one connection on the server side:
-    spawn_link(
-      fun() ->
-	      Result =
-		  ssh_trpt_test_lib:exec(
-		    [{set_options, [print_ops, print_messages]},
-		     {accept, [{system_dir, system_dir(Config)},
-			       {user_dir, user_dir(Config)}]},
-		     receive_hello,
-		     {send, hello},
+    Pid = spawn_link(
+            fun() ->
+                    Result =
+                        ssh_trpt_test_lib:exec(
+                          [{set_options, [print_ops, print_messages]},
+                           {accept, [{system_dir, system_dir(Config)},
+                                     {user_dir, user_dir(Config)}]},
+                           receive_hello,
+                           {send, hello},
 
-		     {send, ssh_msg_kexinit},
-		     {match, #ssh_msg_kexinit{_='_'}, receive_msg},
+                           {send, ssh_msg_kexinit},
+                           {match, #ssh_msg_kexinit{_='_'}, receive_msg},
 
-		     {match, #ssh_msg_kexdh_init{_='_'}, receive_msg},
-		     {send, ssh_msg_kexdh_reply},
+                           {match, #ssh_msg_kexdh_init{_='_'}, receive_msg},
+                           {send, ssh_msg_kexdh_reply},
 
-		     {send, #ssh_msg_newkeys{}},
-		     {match,  #ssh_msg_newkeys{_='_'}, receive_msg},
+                           {send, #ssh_msg_newkeys{}},
+                           {match,  #ssh_msg_newkeys{_='_'}, receive_msg},
 
-		     {match, #ssh_msg_service_request{name="ssh-userauth"}, receive_msg},
-		     {send, #ssh_msg_service_accept{name="ssh-userauth"}},
+                           {match, #ssh_msg_service_request{name="ssh-userauth"}, receive_msg},
+                           {send, #ssh_msg_service_accept{name="ssh-userauth"}},
 
-		     {match, #ssh_msg_userauth_request{service="ssh-connection",
-						       method="none",
-						       user=User,
-						       _='_'}, receive_msg},
+                           {match, #ssh_msg_userauth_request{service="ssh-connection",
+                                                             method="none",
+                                                             user=User,
+                                                             _='_'}, receive_msg},
 
-		     {send, #ssh_msg_userauth_failure{authentications = "password",
-						      partial_success = false}},
+                           {send, #ssh_msg_userauth_failure{authentications = "password",
+                                                            partial_success = false}},
 
-		     {match, #ssh_msg_userauth_request{service="ssh-connection",
-						       method="password",
-						       user=User,
-						       _='_'}, receive_msg},
-		     {send, #ssh_msg_userauth_success{}},
-                     %% Keep-alive matching
-                     {match, #ssh_msg_global_request{name = <<"keepalive@erlang.org">>,
-                                                     want_reply = true,
-                                                     data = <<>>}, receive_msg},
-                     {send, #ssh_msg_request_failure{}},
-                     {match, #ssh_msg_global_request{name = <<"keepalive@erlang.org">>,
-                                                     want_reply = true,
-                                                     data = <<>>}, receive_msg},
-                     %% Send success just to check that it works as well
-                     {send, #ssh_msg_request_success{data = <<>>}},
-                     {match, #ssh_msg_global_request{name = <<"keepalive@erlang.org">>,
-                                                     want_reply = true,
-                                                     data = <<>>}, receive_msg},
-		     close_socket,
-		     print_state
-		    ],
-		    InitialState),
-              Parent ! {result, self(), Result}
-      end),
+                           {match, #ssh_msg_userauth_request{service="ssh-connection",
+                                                             method="password",
+                                                             user=User,
+                                                             _='_'}, receive_msg},
+                           {send, #ssh_msg_userauth_success{}},
+                           %% Keep-alive matching
+                           {match, #ssh_msg_global_request{name = <<"keepalive@erlang.org">>,
+                                                           want_reply = true,
+                                                           data = <<>>}, receive_msg},
+                           {send, #ssh_msg_request_failure{}},
+                           {match, #ssh_msg_global_request{name = <<"keepalive@erlang.org">>,
+                                                           want_reply = true,
+                                                           data = <<>>}, receive_msg},
+                           %% Send success just to check that it works as well
+                           {send, #ssh_msg_request_success{data = <<>>}},
+                           {match, #ssh_msg_global_request{name = <<"keepalive@erlang.org">>,
+                                                           want_reply = true,
+                                                           data = <<>>}, receive_msg},
+                           close_socket,
+                           print_state
+                          ],
+                          InitialState),
+                    Parent ! {result, self(), Result}
+            end),
 
     %% and finally connect to it with a regular Erlang SSH client:
     {ok,_} = std_connect(HostPort, Config,
@@ -1673,7 +1673,7 @@ keep_alive_sent_server(Config) ->
     %% Check that the daemon got expected result:
     receive
         {result, Pid, {ok,_}} -> ok;
-        {result, Pid, Error} -> ct:fail("Error: ~p",[Error])
+        {result, _Pid, Error} -> ct:fail("Error: ~p",[Error])
     end.
 
 keep_alive_maxcount_exceeded_server(Config) ->
@@ -1685,55 +1685,55 @@ keep_alive_maxcount_exceeded_server(Config) ->
 
     Parent = self(),
     %% Start a process handling one connection on the server side:
-    spawn_link(
-      fun() ->
-	      Result =
-		  ssh_trpt_test_lib:exec(
-		    [{set_options, [print_ops, print_messages]},
-		     {accept, [{system_dir, system_dir(Config)},
-			       {user_dir, user_dir(Config)}]},
-		     receive_hello,
-		     {send, hello},
+    Pid = spawn_link(
+            fun() ->
+                    Result =
+                        ssh_trpt_test_lib:exec(
+                          [{set_options, [print_ops, print_messages]},
+                           {accept, [{system_dir, system_dir(Config)},
+                                     {user_dir, user_dir(Config)}]},
+                           receive_hello,
+                           {send, hello},
 
-		     {send, ssh_msg_kexinit},
-		     {match, #ssh_msg_kexinit{_='_'}, receive_msg},
+                           {send, ssh_msg_kexinit},
+                           {match, #ssh_msg_kexinit{_='_'}, receive_msg},
 
-		     {match, #ssh_msg_kexdh_init{_='_'}, receive_msg},
-		     {send, ssh_msg_kexdh_reply},
+                           {match, #ssh_msg_kexdh_init{_='_'}, receive_msg},
+                           {send, ssh_msg_kexdh_reply},
 
-		     {send, #ssh_msg_newkeys{}},
-		     {match,  #ssh_msg_newkeys{_='_'}, receive_msg},
+                           {send, #ssh_msg_newkeys{}},
+                           {match,  #ssh_msg_newkeys{_='_'}, receive_msg},
 
-		     {match, #ssh_msg_service_request{name="ssh-userauth"}, receive_msg},
-		     {send, #ssh_msg_service_accept{name="ssh-userauth"}},
+                           {match, #ssh_msg_service_request{name="ssh-userauth"}, receive_msg},
+                           {send, #ssh_msg_service_accept{name="ssh-userauth"}},
 
-		     {match, #ssh_msg_userauth_request{service="ssh-connection",
-						       method="none",
-						       user=User,
-						       _='_'}, receive_msg},
+                           {match, #ssh_msg_userauth_request{service="ssh-connection",
+                                                             method="none",
+                                                             user=User,
+                                                             _='_'}, receive_msg},
 
-		     {send, #ssh_msg_userauth_failure{authentications = "password",
-						      partial_success = false}},
+                           {send, #ssh_msg_userauth_failure{authentications = "password",
+                                                            partial_success = false}},
 
-		     {match, #ssh_msg_userauth_request{service="ssh-connection",
-						       method="password",
-						       user=User,
-						       _='_'}, receive_msg},
-		     {send, #ssh_msg_userauth_success{}},
-                     %% Keep-alive matching
-                     {match, #ssh_msg_global_request{name = <<"keepalive@erlang.org">>,
-                                                     want_reply = true,
-                                                     data = <<>>}, receive_msg},
-                     {match, #ssh_msg_global_request{name = <<"keepalive@erlang.org">>,
-                                                     want_reply = true,
-                                                     data = <<>>}, receive_msg},
-                     {match, #ssh_msg_disconnect{_='_'}, receive_msg},
-		     close_socket,
-		     print_state
-		    ],
-		    InitialState),
-              Parent ! {result, self(), Result}
-      end),
+                           {match, #ssh_msg_userauth_request{service="ssh-connection",
+                                                             method="password",
+                                                             user=User,
+                                                             _='_'}, receive_msg},
+                           {send, #ssh_msg_userauth_success{}},
+                           %% Keep-alive matching
+                           {match, #ssh_msg_global_request{name = <<"keepalive@erlang.org">>,
+                                                           want_reply = true,
+                                                           data = <<>>}, receive_msg},
+                           {match, #ssh_msg_global_request{name = <<"keepalive@erlang.org">>,
+                                                           want_reply = true,
+                                                           data = <<>>}, receive_msg},
+                           {match, #ssh_msg_disconnect{_='_'}, receive_msg},
+                           close_socket,
+                           print_state
+                          ],
+                          InitialState),
+                    Parent ! {result, self(), Result}
+            end),
 
     %% and finally connect to it with a regular Erlang SSH client:
     {ok,_} = std_connect(HostPort, Config,
@@ -1746,7 +1746,7 @@ keep_alive_maxcount_exceeded_server(Config) ->
     %% Check that the daemon got expected result:
     receive
         {result, Pid, {ok,_}} -> ok;
-        {result, Pid, Error} -> ct:fail("Error: ~p",[Error])
+        {result, _Pid, Error} -> ct:fail("Error: ~p",[Error])
     end.
 
 %%%================================================================
