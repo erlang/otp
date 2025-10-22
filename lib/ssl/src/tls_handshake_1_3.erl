@@ -1832,28 +1832,11 @@ create_binders(Context, [#ticket_data{
 %% } OfferedPsks;
 truncate_client_hello(HelloBin0) ->
     <<?BYTE(Type), ?UINT24(_Length), Body/binary>> = HelloBin0,
-    CH0 = #client_hello{
-             extensions = #{pre_shared_key := PSK0} = Extensions0} =
+    #client_hello{
+       extensions = #{pre_shared_key := PSK0}} =
         tls_handshake:decode_handshake(?TLS_1_3, Type, Body),
-    #pre_shared_key_client_hello{offered_psks = OfferedPsks0} = PSK0,
-    OfferedPsks = OfferedPsks0#offered_psks{binders = []},
-    PSK = PSK0#pre_shared_key_client_hello{offered_psks = OfferedPsks},
-    Extensions = Extensions0#{pre_shared_key => PSK},
-    CH = CH0#client_hello{extensions = Extensions},
-
-    %% Decoding a ClientHello from an another TLS implementation can contain
-    %% unsupported extensions and thus executing decoding and encoding on
-    %% the input can result in a different handshake binary.
-    %% The original length of the binders can still be determined by
-    %% re-encoding the original ClientHello and using its size as reference
-    %% when we subtract the size of the truncated binary.
-    TruncatedSize = iolist_size(tls_handshake:encode_handshake(CH, ?TLS_1_3)),
-    RefSize = iolist_size(tls_handshake:encode_handshake(CH0, ?TLS_1_3)),
-    BindersSize = RefSize - TruncatedSize,
-
-    %% Return the truncated ClientHello by cutting of the binders from the original
-    %% ClientHello binary.
-    {Truncated, _} = split_binary(HelloBin0, byte_size(HelloBin0) - BindersSize - 2),
+    #pre_shared_key_client_hello{binder_length = BinderLen} = PSK0,
+    {Truncated, _} = split_binary(HelloBin0, byte_size(HelloBin0) - BinderLen),
     Truncated.
 
 maybe_add_early_data_indication(#client_hello{
