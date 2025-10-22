@@ -863,8 +863,12 @@ default(common) ->
       alive_params =>
           #{default => {3, infinity},
             chk => fun({AliveCount, AliveIntervalSeconds}) ->
-                        check_pos_integer(AliveCount) andalso
-                               check_timeout(AliveIntervalSeconds)
+                        case check_pos_integer(AliveCount) andalso
+                               check_timeout(AliveIntervalSeconds) of
+                            true when is_integer(AliveIntervalSeconds) ->
+                                {true, {AliveCount, AliveIntervalSeconds * 1000}};
+                            R -> R
+                     end
                    end,
             class => user_option
            },
