@@ -84,6 +84,7 @@ all() ->
      multiple_handlers,
      add_remove_filter,
      change_config,
+     get_config_error,
      set_formatter,
      log_no_levels,
      log_all_levels_api,
@@ -296,6 +297,30 @@ change_config(cleanup,Config) ->
     logger:remove_handler(h1),
     PC = ?config(logger_config,Config),
     logger:set_primary_config(PC),
+    ok.
+
+get_config_error(_Config) ->
+    Self = self(),
+    register(callback_receiver,Self),
+    HandlerCnt = 2000,
+    HandlerIds = [list_to_atom("handler-"++integer_to_list(Idx)) || Idx <- lists:seq(1,HandlerCnt)],
+    [ok = logger:add_handler(HId,?MODULE,#{}) || HId <- HandlerIds],
+    RemoveFun = fun () ->
+                    Self ! started,
+                    [ok = logger:remove_handler(HId) || HId <- HandlerIds],
+                    Self ! removed
+                end,
+    Remove = spawn(RemoveFun),
+    receive
+        started -> ok
+    end,
+    ?assertNotException(_, _, logger:get_handler_config()),
+    %% Just to make sure RemoveFun did not die before.
+    %% If line below fails please raise HandlerCnt by factor of 2
+    ?assert(erlang:is_process_alive(Remove)),
+    receive
+        removed -> ok
+    end,
     ok.
 
 set_formatter(_Config) ->
