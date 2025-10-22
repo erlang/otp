@@ -549,12 +549,11 @@ from the peer. If this threshold is reached the connection will be terminated.
 The second value of the tuple sets the timeout interval, in seconds, after which, if no data
 has been received from the peer, a message to request a response from the peer is sent.
 
-The default is {3, infinity}, which means that alive messages will not be sent to the peer,
+The default is `{3, infinity}`, which means that alive messages will not be sent to the peer,
 since the `AliveInterval` is set to `infinity`.
 
 No alive messages are sent during renegotiation, however, a timeout derived from the alive parameters
-is set to ensure that if the connection becomes unresponsive during renegotiation, the client/server
-disconnect.
+is set to ensure that unresponsive connections are terminated.
 """.
 -doc(#{group => <<"Common Options">>}).
 -type alive_common_option() :: {alive_params, {AliveCountMax::pos_integer(), AliveInterval::timeout()}}.
