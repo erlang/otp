@@ -861,14 +861,10 @@ default(common) ->
             },
 
       alive =>
-          #{default => {3, infinity},
-            chk => fun({AliveCount, AliveIntervalSeconds}) ->
-                        case check_pos_integer(AliveCount) andalso
-                               check_timeout(AliveIntervalSeconds) of
-                            true when is_integer(AliveIntervalSeconds) ->
-                                {true, {AliveCount, AliveIntervalSeconds * 1000}};
-                            R -> R
-                     end
+          #{default => #{count_max => 3, interval => infinity},
+            chk => fun(#{count_max := Count, interval := IntervalSeconds}) ->
+                           check_pos_integer(Count) andalso
+                               check_timeout(IntervalSeconds)
                    end,
             class => user_option
            },

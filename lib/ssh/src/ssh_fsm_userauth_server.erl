@@ -181,7 +181,7 @@ connected_state(Reply, Ssh1, User, Method, D0) ->
             ssh_params = Ssh#ssh{authenticated = true}}.
 
 set_alive_timeout(#data{ssh_params = #ssh{opts=Opts}}) ->
-    {_AliveCount, AliveInterval} = ?GET_OPT(alive,Opts),
+    {_AliveCount, AliveInterval} = ?GET_ALIVE_OPT(Opts),
     {{timeout, alive}, AliveInterval, none}.
 
 set_max_initial_idle_timeout(#data{ssh_params = #ssh{opts=Opts}}) ->

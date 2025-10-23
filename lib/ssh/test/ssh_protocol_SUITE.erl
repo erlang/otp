@@ -1510,7 +1510,7 @@ alive_eserver_tclient(Config) ->
 					     {user_dir, UserDir},
 					     {password, Pwd},
 					     {failfun, fun ssh_test_lib:failfun/2},
-					     {alive, {3,1}}]),
+					     {alive, #{count_max => 3, interval => 1000}}]),
     {ok,AfterUserAuthReqState} = connect_and_userauth_request(Host, Port, User, Pwd, UserDir),
     {ok, AliveOkState} =
 	ssh_trpt_test_lib:exec(
@@ -1591,7 +1591,7 @@ alive_tserver_eclient(Config) ->
 			 [{preferred_algorithms,[{kex,[?DEFAULT_KEX]},
                                                  {cipher,?DEFAULT_CIPHERS}
                                                 ]},
-                          {alive, {3,1}}
+                          {alive, #{count_max => 3, interval => 1000}}
                          ]
 			),
     %% Check that the daemon got expected result:
@@ -1609,7 +1609,7 @@ alive_reneg_eserver_tclient(Config) ->
                                                    {password, Pwd},
                                                    {max_log_item_len, 20000},
                                                    {failfun, fun ssh_test_lib:failfun/2},
-                                                   {alive, {3,1}}]),
+                                                   {alive, #{count_max => 3, interval => 1000}}]),
     ?CT_LOG("[starting] Alive feature - normal conditions"),
     {ok, TrptState0} = connect_and_userauth_request(Host, Port, User, Pwd, UserDir),
     CheckAlive =
@@ -1697,7 +1697,7 @@ alive_reneg_tserver_eclient(Config) ->
 			 [{preferred_algorithms,[{kex,[?DEFAULT_KEX]},
                                                  {cipher,?DEFAULT_CIPHERS}
                                                 ]},
-                          {alive, {3,1}}
+                          {alive, #{count_max => 3, interval => 1000}}
                          ]
 			),
     %% Check that the daemon got expected result:
@@ -1731,7 +1731,7 @@ alive_reneg_tserver_eclient(Config) ->
 			 [{preferred_algorithms,[{kex,[?DEFAULT_KEX]},
                                                  {cipher,?DEFAULT_CIPHERS}
                                                 ]},
-                          {alive, {3,1}}]),
+                          {alive, #{count_max => 3, interval => 1000}}]),
     ?CT_LOG("~n~s", [ssh_info:string()]),
     ?CT_LOG("Client side connection handler PID: ~p", [CHandlerPid]),
     ssh_connection_handler:renegotiate(CHandlerPid),
