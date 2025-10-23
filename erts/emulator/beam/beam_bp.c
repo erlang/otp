@@ -299,8 +299,34 @@ erts_bp_free_matched_functions(BpFunctions* f)
     else ASSERT(f->matched == 0);
 }
 
-void
-erts_consolidate_export_bp_data(BpFunctions* f)
+/*
+ * Set Export.is_bif_traced for BIFs
+ * to true if breakpoint exist in either export trampoline or code
+ * to false otherwise.
+*/
+void erts_update_export_is_bif_traced(Export *ep)
+{
+    if (ep->bif_number < 0) {
+        ASSERT(!ep->is_bif_traced);
+        return;
+    }
+
+    if (ep->info.gen_bp) {
+        ep->is_bif_traced = 1;
+    }
+    else {
+        ErtsCodePtr code = ep->dispatch.addresses[erts_active_code_ix()];
+        const ErtsCodeInfo *ci = erts_code_to_codeinfo(code);
+        ASSERT(ci->mfa.module == ep->info.mfa.module);
+        ASSERT(ci->mfa.function == ep->info.mfa.function);
+        ASSERT(ci->mfa.arity == ep->info.mfa.arity);
+
+        ep->is_bif_traced = (ci->gen_bp != NULL);
+    }
+}
+
+static void
+consolidate_export_bp_data(BpFunctions* f)
 {
     BpFunction* fs = f->matching;
     Uint i, n;
@@ -366,6 +392,19 @@ erts_consolidate_local_bp_data(BpFunctions* f)
 }
 
 void
+erts_consolidate_all_bp_data(BpFunctions* f, BpFunctions* e)
+{
+    erts_consolidate_local_bp_data(f);
+    /*
+     * Must do export entries *after* module code
+     * so breakpoints in code have been cleared and
+     * Export.is_bif_traced can be updated accordingly.
+     */
+    consolidate_export_bp_data(e);
+}
+
+
+void
 erts_free_breakpoints(void)
 {
     while (breakpoint_free_list) {
@@ -387,7 +426,7 @@ consolidate_bp_data(struct erl_module_instance *mi,
 
     g = ci_rw->gen_bp;
     if (!g) {
-	return;
+        return;
     }
 
     prev_p = &ci_rw->gen_bp;
@@ -423,7 +462,9 @@ consolidate_bp_data(struct erl_module_instance *mi,
         }
 #endif
     }
-
+    if (!local) {
+        erts_update_export_is_bif_traced(ErtsContainerStruct(ci_rw, Export, info));
+    }
 }
 
 
@@ -710,9 +751,10 @@ erts_set_mtrace_break(BpFunctions* f, Binary *match_spec, ErtsTracer tracer)
 }
 
 void
-erts_set_export_trace(ErtsCodeInfo *ci, Binary *match_spec)
+erts_set_export_trace(Export* ep, Binary *match_spec)
 {
-    set_function_break(ci, match_spec, ERTS_BPF_GLOBAL_TRACE, 0, erts_tracer_nil);
+    set_function_break(&ep->info, match_spec, ERTS_BPF_GLOBAL_TRACE, 0,
+                       erts_tracer_nil);
 }
 
 void
