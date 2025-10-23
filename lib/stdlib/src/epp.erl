@@ -2024,7 +2024,8 @@ macro_arg([{'if',Li}|Toks], E, Arg) ->
 macro_arg([{'case',Lc}|Toks], E, Arg) ->
     macro_arg(Toks, ['end'|E], [{'case',Lc}|Arg]);
 macro_arg([{'fun',Lc}|[{'(',_}|_]=Toks], E, Arg) ->
-    macro_arg(Toks, ['end'|E], [{'fun',Lc}|Arg]);
+    %% This can be either a fun definition or a fun type.
+    macro_arg(Toks, [fun_end|E], [{'fun',Lc}|Arg]);
 macro_arg([{'fun',_}=Fun,{var,_,_}=Name|[{'(',_}|_]=Toks], E, Arg) ->
     macro_arg(Toks, ['end'|E], [Name,Fun|Arg]);
 macro_arg([{'maybe',Lb}|Toks], E, Arg) ->
@@ -2035,6 +2036,23 @@ macro_arg([{'try',Lr}|Toks], E, Arg) ->
     macro_arg(Toks, ['end'|E], [{'try',Lr}|Arg]);
 macro_arg([{'cond',Lr}|Toks], E, Arg) ->
     macro_arg(Toks, ['end'|E], [{'cond',Lr}|Arg]);
+macro_arg([{'when',_}|_]=Toks, [fun_end|E], Arg) ->
+    %% This is the `when` inside a fun definition such as:
+    %%   fun() when true, true -> true end.
+    macro_arg(Toks, ['end'|E], Arg);
+macro_arg([{'->',_}|_]=Toks, [fun_end|E], Arg) ->
+    %% This is the `->` inside a fun definition such as:
+    %%   fun() -> ok end.
+    macro_arg(Toks, ['end'|E], Arg);
+macro_arg([{Rb,_Lrb}=T|Toks], [fun_end|E], Arg) ->
+    case Rb of
+        Eb when Eb =:= ','; Eb =:= ')'  ->
+            %% This is the end of a fun type such as:
+            %%    fun(() -> 'ok').
+            macro_arg([T|Toks], E, Arg);
+        _ ->
+            macro_arg(Toks, [fun_end|E], [T|Arg])
+    end;
 macro_arg([{Rb,Lrb}|Toks], [Rb|E], Arg) ->	%Found matching close
     macro_arg(Toks, E, [{Rb,Lrb}|Arg]);
 macro_arg([T|Toks], E, Arg) ->
