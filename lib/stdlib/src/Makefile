@@ -103,6 +103,7 @@ MODULES= \
 	json \
 	lists \
 	log_mf_h \
+	man_docs \
 	maps \
 	math \
 	ms_transform \

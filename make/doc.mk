@@ -50,9 +50,39 @@ endif
 # ----------------------------------------------------
 # Man dependencies
 # ----------------------------------------------------
+ERL_FILES := $(wildcard $(APP_SRC_DIR)/*.erl) $(wildcard $(APP_SRC_DIR)/*/*.erl) $(wildcard $(APP_DIR)/preloaded/src/*.erl)
+ERL_STRIP := $(strip $(ERL_FILES))
+ifneq ($(ERL_STRIP),)
+  ERL_FILES_WITH_DOC := $(shell grep -L "moduledoc false." $(ERL_FILES))
+else
+  ERL_FILES_WITH_DOC :=
+endif
+ERL_FILENAMES_ONLY := $(notdir $(ERL_FILES_WITH_DOC))
 MAN1_DEPS?=$(wildcard */*_cmd.md)
-
+MAN3_DEPS_UNFILTERED?=$(wildcard */src/*.md) $(wildcard src/*.md) \
+ $(wildcard */references/*.md) $(wildcard references/*.md) \
+ $(ERL_FILENAMES_ONLY)
+MAN4_DEPS=$(wildcard references/app.md references/config.md references/appup.md references/rel.md \
+ references/relup.md references/script.md references/diameter_dict.md references/erlang.el.md)
+MAN3_DEPS=$(filter-out $(wildcard */references/*_cmd.md) $(wildcard references/*_cmd.md) $(MAN4_DEPS),$(MAN3_DEPS_UNFILTERED))
+MAN6_DEPS=$(wildcard *_app.md)
+MAN7_DEPS=$(wildcard $(APP_DIR)/mibs/*.mib)
 MAN1_PAGES=$(MAN1_DEPS:references/%_cmd.md=$(MAN1DIR)/%.1)
+MAN3_PAGES=$(MAN3_DEPS:%.erl=$(MAN3DIR)/%.3)
+MAN3_PAGES+=$(MAN3_DEPS:src/%.md=$(MAN3DIR)/%.3)
+MAN3_PAGES+=$(MAN3_DEPS:references/%.md=$(MAN3DIR)/%.3)
+MAN4_PAGES=$(MAN4_DEPS:references/%.md=$(MAN4DIR)/%.4)
+MAN6_PAGES=$(MAN6_DEPS:%_app.md=$(MAN6DIR)/%.6)
+MAN7_PAGES=$(MAN7_DEPS:$(APP_DIR)/mibs/%.mib=$(MAN7DIR)/%.7)
+
+# 1. Find all possible source directories recursively
+ifneq ($(wildcard $(APP_SRC_DIR)),)
+ERL_SRC_DIRS := $(shell find $(APP_SRC_DIR) -type d)
+else
+ERL_SRC_DIRS :=
+endif
+# 2. Tell make to search for .erl files in all those directories
+vpath %.erl $(ERL_SRC_DIRS) $(APP_DIR)/preloaded/src
 
 # ----------------------------------------------------
 # Targets
@@ -64,6 +94,19 @@ endif
 ifneq ($(MAN1_DEPS),)
 DEFAULT_DOC_TARGETS+=man
 endif
+ifneq ($(MAN3_DEPS),)
+DEFAULT_DOC_TARGETS+=man
+endif
+ifneq ($(MAN4_DEPS),)
+DEFAULT_DOC_TARGETS+=man
+endif
+ifneq ($(MAN6_DEPS),)
+DEFAULT_DOC_TARGETS+=man
+endif
+ifneq ($(MAN7_DEPS),)
+DEFAULT_DOC_TARGETS+=man
+endif
+
 DOC_TARGETS?=$(DEFAULT_DOC_TARGETS)
 
 EX_DOC_WARNINGS_AS_ERRORS?=default
@@ -80,12 +123,38 @@ $(HTMLDIR)/index.html: $(HTML_DEPS) docs.exs $(ERL_TOP)/make/ex_doc.exs
 
 html: $(HTMLDIR)/index.html
 
-man: $(MAN1_PAGES)
+man: $(MAN1_PAGES) $(MAN3_PAGES) $(MAN4_PAGES) $(MAN6_PAGES) $(MAN7_PAGES)
 
 MARKDOWN_TO_MAN=$(ERL_TOP)/make/markdown_to_man.escript
 
 man1/%.1: references/%_cmd.md $(MARKDOWN_TO_MAN)
-	escript$(EXEEXT) $(MARKDOWN_TO_MAN) -o $(MAN1DIR) $<
+	@escript$(EXEEXT) $(MARKDOWN_TO_MAN) -o $(MAN1DIR) $<
+
+man3/%.3: src/%.md $(MARKDOWN_TO_MAN)
+	@escript$(EXEEXT) $(MARKDOWN_TO_MAN) -o $(MAN3DIR) $<
+
+man3/%.3: references/%.md $(MARKDOWN_TO_MAN)
+	@escript$(EXEEXT) $(MARKDOWN_TO_MAN) -o $(MAN3DIR) $<
+
+man3/%.3: %.erl $(MARKDOWN_TO_MAN)
+	@escript$(EXEEXT) $(MARKDOWN_TO_MAN) -o $(MAN3DIR) $<
+
+man4/%.4: references/%.md $(MARKDOWN_TO_MAN)
+	@escript$(EXEEXT) $(MARKDOWN_TO_MAN) -o $(MAN4DIR) -s 4 $<
+
+man6/%.6: %_app.md $(MARKDOWN_TO_MAN)
+	@escript$(EXEEXT) $(MARKDOWN_TO_MAN) -o $(MAN6DIR) $<
+
+man7/%.7: $(APP_DIR)/mibs/%.mib
+	@mkdir -p man7
+	$(eval REL_PATH := $(patsubst $(ERL_TOP)/lib/%,%,$(abspath $<)))
+	$(eval APP_NAME := $(shell echo $(firstword $(subst /, ,$(REL_PATH))) |  tr '[:lower:]' '[:upper:]'))
+	$(eval MIB_NAME := $(basename $(notdir $<)))
+	@echo .TH $(MIB_NAME) 7 \"$(APP_NAME)\" \"Erlang/OTP\" \"MIB\" > $@
+	@echo .nf >> $@
+	@grep -v '^--' $< >> $@
+
+# ----------------------------------------------------
 
 $(TYPES):
 
@@ -113,6 +182,24 @@ ifneq ($(MAN1_DEPS),)
 	$(INSTALL_DIR) "$(RELSYS_MANDIR)/man1"
 	$(INSTALL_DIR_DATA) "$(MAN1DIR)" "$(RELSYS_MANDIR)/man1"
 endif
+ifneq ($(MAN3_DEPS),)
+	$(INSTALL_DIR) "$(RELSYS_MANDIR)/man3"
+	$(INSTALL_DIR_DATA) "$(MAN3DIR)" "$(RELSYS_MANDIR)/man3"
+endif
+ifneq ($(MAN4_DEPS),)
+	$(INSTALL_DIR) "$(RELSYS_MANDIR)/man4"
+	$(INSTALL_DIR_DATA) "$(MAN4DIR)" "$(RELSYS_MANDIR)/man4"
+endif
+ifneq ($(MAN6_DEPS),)
+	$(INSTALL_DIR) "$(RELSYS_MANDIR)/man6"
+	$(INSTALL_DIR_DATA) "$(MAN6DIR)" "$(RELSYS_MANDIR)/man6"
+endif
+ifneq ($(MAN7_DEPS),)
+	$(INSTALL_DIR) "$(RELSYS_MANDIR)/man7"
+	$(INSTALL_DIR_DATA) "$(MAN7DIR)" "$(RELSYS_MANDIR)/man7"
+endif
+
+
 
 release_docs_spec: $(DOC_TARGETS:%=release_%_spec)
 ifneq ($(STANDARDS),)
