@@ -860,7 +860,7 @@ default(common) ->
              class => user_option
             },
 
-      alive_params =>
+      alive =>
           #{default => {3, infinity},
             chk => fun({AliveCount, AliveIntervalSeconds}) ->
                         case check_pos_integer(AliveCount) andalso
