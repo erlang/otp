@@ -154,12 +154,12 @@ static struct cipher_type_t cipher_types[] =
 #endif
 
 #if defined(HAVE_GCM_SIV)
-    {{"aes_128_gcm_siv"}, "AES-128-GCM_SIV", {&EVP_aes_128_gcm}, 16, AEAD_CIPHER|GCM_MODE|GCM_SIV_MODE, AEAD_CTRL},
-    {{"aes_192_gcm_siv"}, "AES-192-GCM_SIV", {&EVP_aes_192_gcm}, 24, AEAD_CIPHER|GCM_MODE|GCM_SIV_MODE, AEAD_CTRL},
+    {{"aes_128_gcm_siv"}, "AES-128-GCM-SIV", {&EVP_aes_128_gcm}, 16, AEAD_CIPHER|GCM_MODE|GCM_SIV_MODE, AEAD_CTRL},
+    {{"aes_192_gcm_siv"}, "AES-192-GCM-SIV", {&EVP_aes_192_gcm}, 24, AEAD_CIPHER|GCM_MODE|GCM_SIV_MODE, AEAD_CTRL},
     {{"aes_256_gcm_siv"}, "AES-256-GCM-SIV", {&EVP_aes_256_gcm}, 32, AEAD_CIPHER|GCM_MODE|GCM_SIV_MODE, AEAD_CTRL},
 #else
-    {{"aes_128_gcm_siv"}, "AES-128-GCM_SIV", {NULL}, 16, AEAD_CIPHER|GCM_MODE|GCM_SIV_MODE, {{0,0,0}}},
-    {{"aes_192_gcm_siv"}, "AES-192-GCM_SIV", {NULL}, 24, AEAD_CIPHER|GCM_MODE|GCM_SIV_MODE, {{0,0,0}}},
+    {{"aes_128_gcm_siv"}, "AES-128-GCM-SIV", {NULL}, 16, AEAD_CIPHER|GCM_MODE|GCM_SIV_MODE, {{0,0,0}}},
+    {{"aes_192_gcm_siv"}, "AES-192-GCM-SIV", {NULL}, 24, AEAD_CIPHER|GCM_MODE|GCM_SIV_MODE, {{0,0,0}}},
     {{"aes_256_gcm_siv"}, "AES-256-GCM-SIV", {NULL}, 32, AEAD_CIPHER|GCM_MODE|GCM_SIV_MODE, {{0,0,0}}},
 #endif
 

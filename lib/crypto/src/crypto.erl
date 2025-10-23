@@ -682,6 +682,30 @@ support all of them.
 
                      | chacha20_poly1305 .
 
+-doc(#{group => <<"Ciphers">>}).
+-type cipher_info() :: #{
+    key_length := integer(),
+    iv_length := integer(),
+    block_size := integer(),
+    mode := undefined | cipher_mode(),
+    type := undefined | integer(),
+    prop_aead := boolean()
+}.
+
+-doc(#{group => <<"Ciphers">>}).
+-type cipher_mode() :: cbc_mode
+                     | ccm_mode
+                     | cfb_mode
+                     | ctr_mode
+                     | ecb_mode
+                     | gcm_mode
+                     | gcm_siv_mode
+                     | ige_mode
+                     | ocb_mode
+                     | ofb_mode
+                     | wrap_mode
+                     | xts_mode
+                       .
 
 %%%----------------------------------------------------------------
 
@@ -1448,51 +1472,56 @@ For a list of supported cipher algorithms, see
 """.
 -doc(#{group => <<"Utility Functions">>,
        since => <<"OTP 22.0">>}).
--spec cipher_info(Type) -> Result
-                               when Type :: cipher(),
-                                    Result :: #{key_length := integer(),
-                                                iv_length := integer(),
-                                                block_size := integer(),
-                                                mode := CipherModes,
-                                                type := undefined | integer(),
-                                                prop_aead := boolean()
-                                               },
-                                    CipherModes :: undefined
-                                                 | cbc_mode
-                                                 | ccm_mode
-                                                 | cfb_mode
-                                                 | ctr_mode
-                                                 | ecb_mode
-                                                 | gcm_mode
-                                                 | ige_mode
-                                                 | ocb_mode
-                                                 | ofb_mode
-                                                 | wrap_mode
-                                                 | xts_mode
-                                                   .
-
+-spec cipher_info(Type) -> CipherInfo when
+    Type :: cipher(),
+    CipherInfo :: cipher_info().
 cipher_info(Type) ->
+    case cipher_info_compat([Type], badarg) of
+        badarg ->
+            %% Maybe an alias: we don't know the key length...
+            Aliases = [alias1(Type, KeyLength) || KeyLength <- [16, 24, 32]],
+            Candidates = [Alias || Alias <- Aliases, Alias =/= Type],
+            case cipher_info_compat(Candidates, badarg) of
+                badarg ->
+                    %% Not found, propagate
+                    error(badarg, [Type]);
+                notsup ->
+                    %% Not supported, propagate
+                    error(notsup, [Type]);
+                CipherInfo ->
+                    CipherInfo
+            end;
+        notsup ->
+            %% Not supported, propagate
+            error(notsup, [Type]);
+        CipherInfo ->
+            CipherInfo
+    end.
+
+-spec cipher_info_compat([Type], ErrorKind) -> ErrorKind | CipherInfo when
+    Type :: cipher(),
+    ErrorKind :: badarg | notsup,
+    CipherInfo :: cipher_info().
+cipher_info_compat([], ErrorKind) ->
+    ErrorKind;
+cipher_info_compat([Type | Types], ErrorKind) ->
     try cipher_info_nif(Type)
     catch
         %% These ciphers are not available via the EVP interface on older cryptolibs.
         error:notsup when Type == aes_128_ctr ->
-            #{block_size => 1,iv_length => 16,key_length => 16,mode => ctr_mode,type => undefined};
+            #{block_size => 1, iv_length => 16, key_length => 16, mode => ctr_mode, prop_aead => false, type => undefined};
 
         error:notsup when Type == aes_192_ctr ->
-            #{block_size => 1,iv_length => 16,key_length => 24,mode => ctr_mode,type => undefined};
+            #{block_size => 1, iv_length => 16, key_length => 24, mode => ctr_mode, prop_aead => false, type => undefined};
 
         error:notsup when Type == aes_256_ctr ->
-            #{block_size => 1,iv_length => 16,key_length => 32,mode => ctr_mode,type => undefined};
+            #{block_size => 1, iv_length => 16, key_length => 32, mode => ctr_mode, prop_aead => false, type => undefined};
 
         error:badarg ->
-            %% Maybe an alias: we don't know the key length..
-            case alias1(Type, 16) of
-                Type ->
-                    %% Not found, propagate
-                    error(badarg);
-                NewType ->
-                    cipher_info(NewType)
-            end
+            cipher_info_compat(Types, ErrorKind);
+
+        error:notsup ->
+            cipher_info_compat(Types, notsup)
     end.
 
 %%%================================================================

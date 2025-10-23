@@ -145,6 +145,7 @@
          aes_128_ctr/1,
          aes_128_ecb/1,
          aes_128_gcm/1,
+         aes_128_gcm_siv/1,
          aes_128_ofb/1,
          aes_192_cbc/1,
          aes_192_ccm/1,
@@ -153,6 +154,7 @@
          aes_192_ctr/1,
          aes_192_ecb/1,
          aes_192_gcm/1,
+         aes_192_gcm_siv/1,
          aes_192_ofb/1,
          aes_256_cbc/1,
          aes_256_ccm/1,
@@ -161,6 +163,7 @@
          aes_256_ctr/1,
          aes_256_ecb/1,
          aes_256_gcm/1,
+         aes_256_gcm_siv/1,
          aes_256_ofb/1,
          aes_cbc/1,
          aes_cbc128/1,
@@ -310,6 +313,9 @@ groups() ->
                      {group, aes_128_gcm},
                      {group, aes_192_gcm},
                      {group, aes_256_gcm},
+                     {group, aes_128_gcm_siv},
+                     {group, aes_192_gcm_siv},
+                     {group, aes_256_gcm_siv},
                      {group, des_ede3_cbc},
                      {group, des_ede3_cfb},
                      {group, aes_128_cfb128},
@@ -517,6 +523,9 @@ groups() ->
      {aes_128_gcm,  [], [aead_ng, aead_bad_tag]},
      {aes_192_gcm,  [], [aead_ng, aead_bad_tag]},
      {aes_256_gcm,  [], [aead_ng, aead_bad_tag]},
+     {aes_128_gcm_siv, [], [aead_ng, aead_bad_tag]},
+     {aes_192_gcm_siv, [], [aead_ng, aead_bad_tag]},
+     {aes_256_gcm_siv, [], [aead_ng, aead_bad_tag]},
      {aes_128_ofb,  [], [api_ng, api_ng_one_shot]},
      {aes_192_ofb,  [], [api_ng, api_ng_one_shot]},
      {aes_256_ofb,  [], [api_ng, api_ng_one_shot]}
@@ -529,6 +538,7 @@ init_per_suite(Config) ->
     {ok, _} = zip:unzip("aesmmt.zip"),
     {ok, _} = zip:unzip("cmactestvectors.zip"),
     {ok, _} = zip:unzip("gcmtestvectors.zip"),
+    {ok, _} = zip:unzip("gcmsivtestvectors.zip"),
 
     try is_ok(application:start(crypto)) of
 	ok ->
@@ -720,6 +730,7 @@ enc_dec(Cipher, Key, 0, _Mode, Plain) ->
 
 enc_dec(Cipher, Key, IV, Mode, Plain) when Mode == ccm_mode ;
                                            Mode == gcm_mode ;
+                                           Mode == gcm_siv_mode ;
                                            Cipher == chacha20_poly1305 ->
     AAD = aad(Cipher, Mode),
     case crypto:crypto_one_time_aead(Cipher, Key, IV, Plain, AAD, true) of
@@ -953,7 +964,8 @@ spec_0_bytes(Config) ->
 spec_0_bytes(chacha20_poly1305, _, _, _) ->
     [];
 spec_0_bytes(Type, Key, IV, #{mode := M}) when M == ccm_mode ;
-                                               M == gcm_mode ->
+                                               M == gcm_mode ;
+                                               M == gcm_siv_mode ->
     AAD = <<>>,
     Plain = <<>>,
     {_, Tag} = crypto:crypto_one_time_aead(Type, Key, IV, Plain, AAD, true),
@@ -1006,6 +1018,7 @@ cipher_padding(_Config) ->
                   case crypto:cipher_info(C) of
                       #{mode := ccm_mode} -> false;
                       #{mode := gcm_mode} -> false;
+                      #{mode := gcm_siv_mode} -> false;
                       _ -> true
                   end],
     lists:foreach(fun cipher_padding_test/1, Ciphers).
@@ -3804,6 +3817,17 @@ aes_256_gcm(Config) ->
             ["gcmDecrypt256.rsp",
              "gcmEncryptExtIV256.rsp"]).
 
+%% https://www.rfc-editor.org/rfc/rfc8452.html#appendix-C.1
+aes_128_gcm_siv(Config) ->
+    read_rsp(Config, aes_128_gcm_siv, ["aes-128-gcm-siv.rsp"]).
+
+%% https://github.com/pyca/cryptography/blob/6359dc0e0483b123bb81a329e393314786cb7dff/vectors/cryptography_vectors/ciphers/AES/GCM-SIV/aes-192-gcm-siv.txt
+aes_192_gcm_siv(Config) ->
+    read_rsp(Config, aes_192_gcm_siv, ["aes-192-gcm-siv.rsp"]).
+
+%% https://www.rfc-editor.org/rfc/rfc8452.html#appendix-C.2
+aes_256_gcm_siv(Config) ->
+    read_rsp(Config, aes_256_gcm_siv, ["aes-256-gcm-siv.rsp"]).
 
 aes_ccm(Config) ->
     %% RETIRED aes_*_ccm
@@ -4883,6 +4907,43 @@ parse_rsp(Type, [<<"Count = ", Count/binary>>,
                  <<"AAD = ", AAD/binary>>,
                  <<"CT = ",  CipherText/binary>>,
                  <<"Tag = ", CipherTag0/binary>>|Next], #{file:=File}=State, Acc) ->
+    CipherTag = hexstr2bin(CipherTag0),
+    TestCase = {Type,
+                hexstr2bin(Key),
+                hexstr2bin(PlainText),
+                hexstr2bin(IV),
+                hexstr2bin(AAD),
+                hexstr2bin(CipherText),
+                CipherTag,
+                size(CipherTag),
+                {File,decstr2int(Count)}},
+    parse_rsp(Type, Next, State, [TestCase|Acc]);
+%% GCM-SIV format
+parse_rsp(Type, [<<"COUNT = ", Count/binary>>,
+                 <<"Key = ", Key/binary>>,
+                 <<"IV = ", IV/binary>>,
+                 <<"Plaintext = ", PlainText/binary>>,
+                 <<"Tag = ", CipherTag0/binary>>,
+                 <<"Ciphertext = ", CipherText/binary>>|Next], #{file:=File}=State, Acc) ->
+    AAD = <<>>,
+    CipherTag = hexstr2bin(CipherTag0),
+    TestCase = {Type,
+                hexstr2bin(Key),
+                hexstr2bin(PlainText),
+                hexstr2bin(IV),
+                AAD,
+                hexstr2bin(CipherText),
+                CipherTag,
+                size(CipherTag),
+                {File,decstr2int(Count)}},
+    parse_rsp(Type, Next, State, [TestCase|Acc]);
+parse_rsp(Type, [<<"COUNT = ", Count/binary>>,
+                 <<"Key = ", Key/binary>>,
+                 <<"IV = ", IV/binary>>,
+                 <<"Plaintext = ", PlainText/binary>>,
+                 <<"AAD = ", AAD/binary>>,
+                 <<"Tag = ", CipherTag0/binary>>,
+                 <<"Ciphertext = ", CipherText/binary>>|Next], #{file:=File}=State, Acc) ->
     CipherTag = hexstr2bin(CipherTag0),
     TestCase = {Type,
                 hexstr2bin(Key),

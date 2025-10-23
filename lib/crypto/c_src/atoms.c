@@ -89,6 +89,9 @@ ERL_NIF_TERM atom_aes_cfb128;
 #ifdef HAVE_GCM
 ERL_NIF_TERM atom_aes_gcm;
 #endif
+#ifdef HAVE_GCM_SIV
+ERL_NIF_TERM atom_aes_gcm_siv;
+#endif
 #ifdef HAVE_CCM
 ERL_NIF_TERM atom_aes_ccm;
 #endif
@@ -231,6 +234,9 @@ int init_atoms(ErlNifEnv *env) {
     atom_aes_cfb128 = enif_make_atom(env, "aes_cfb128");
 #ifdef HAVE_GCM
     atom_aes_gcm = enif_make_atom(env, "aes_gcm");
+#endif
+#ifdef HAVE_GCM_SIV
+    atom_aes_gcm_siv = enif_make_atom(env, "aes_gcm_siv");
 #endif
 #ifdef HAVE_CCM
     atom_aes_ccm = enif_make_atom(env, "aes_ccm");
