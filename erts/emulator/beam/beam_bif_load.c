@@ -2237,10 +2237,8 @@ delete_code(Module* modp)
                 }
             }
 
-            if (ep->bif_number != -1 && ep->is_bif_traced) {
-                /* Code unloading kills both global and local call tracing. */
-                ep->is_bif_traced = 0;
-            }
+            ASSERT(!erts_export_is_bif_traced(ep));
+            ep->is_bif_traced = 0;
 
             ep->trampoline.common.op = BeamOpCodeAddr(op_call_error_handler);
             ep->trampoline.not_loaded.deferred = 0;

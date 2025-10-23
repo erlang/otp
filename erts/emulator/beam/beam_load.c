@@ -281,6 +281,8 @@ erts_finish_loading(Binary* magic, Process* c_p,
 
                 ASSERT(ep->trampoline.breakpoint.address == 0);
             }
+            ASSERT(!erts_export_is_bif_traced(ep));
+            ep->is_bif_traced = 0;
         }
         ASSERT(mod_tab_p->curr.num_breakpoints == 0);
         ASSERT(mod_tab_p->curr.num_traced_exports == 0);
