@@ -412,6 +412,10 @@ consolidate_bp_data(struct erl_module_instance *mi,
         if (local) {
             mi->num_breakpoints--;
         } else {
+            Export *ep = ErtsContainerStruct(ci_rw, Export, info);
+            if (ep->bif_number != -1) {
+                ep->is_bif_traced = 0;
+            }
             mi->num_traced_exports--;
         }
         ASSERT(mi->num_breakpoints >= 0);
@@ -710,9 +714,17 @@ erts_set_mtrace_break(BpFunctions* f, Binary *match_spec, ErtsTracer tracer)
 }
 
 void
-erts_set_export_trace(ErtsCodeInfo *ci, Binary *match_spec)
+erts_set_export_trace(Export* ep, Binary *match_spec)
 {
-    set_function_break(ci, match_spec, ERTS_BPF_GLOBAL_TRACE, 0, erts_tracer_nil);
+    set_function_break(&ep->info, match_spec, ERTS_BPF_GLOBAL_TRACE, 0,
+                       erts_tracer_nil);
+
+    if (ep->info.gen_bp && ep->bif_number != -1) {
+        ep->is_bif_traced = 1;
+    }
+    else {
+        ASSERT(!ep->is_bif_traced);
+    }
 }
 
 void

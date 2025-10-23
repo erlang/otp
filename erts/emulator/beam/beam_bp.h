@@ -148,7 +148,7 @@ void erts_free_breakpoints(void);
 void erts_set_trace_break(BpFunctions *f, Binary *match_spec);
 void erts_clear_trace_break(BpFunctions *f);
 
-void erts_set_export_trace(ErtsCodeInfo *ci, Binary *match_spec);
+void erts_set_export_trace(Export *ep, Binary *match_spec);
 void erts_clear_export_trace(ErtsCodeInfo *ci);
 
 void erts_set_mtrace_break(BpFunctions *f, Binary *match_spec, ErtsTracer tracer);

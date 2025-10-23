@@ -2404,10 +2404,6 @@ erts_set_trace_pattern(ErtsCodeMFA *mfa, int specified,
         ci_rw = (ErtsCodeInfo *)fp[i].code_info;
         ep = ErtsContainerStruct(ci_rw, Export, info);
 
-        if (ep->bif_number != -1) {
-            ep->is_bif_traced = !!on;
-        }
-
         if (on && !flags.breakpoint) {
             /* Turn on global call tracing */
             if (!erts_is_export_trampoline_active(ep, code_ix)) {
@@ -2419,7 +2415,7 @@ erts_set_trace_pattern(ErtsCodeMFA *mfa, int specified,
                 ep->trampoline.breakpoint.address =
                     (BeamInstr) ep->dispatch.addresses[code_ix];
             }
-            erts_set_export_trace(ci_rw, match_prog_set);
+            erts_set_export_trace(ep, match_prog_set);
 
 	} else if (!on && flags.breakpoint) {
 	    /* Turn off breakpoint tracing -- nothing to do here. */
@@ -2515,15 +2511,10 @@ prepare_clear_all_trace_pattern(ErtsTraceSession* session)
 
     for (i = 0; i < n; i++) {
         ErtsCodeInfo *ci_rw;
-        Export* ep;
 
         /* Export entries are always writable, discard const. */
         ci_rw = (ErtsCodeInfo *)fp[i].code_info;
-        ep = ErtsContainerStruct(ci_rw, Export, info);
 
-        if (ep->bif_number != -1) {
-            ep->is_bif_traced = 0; // ToDo: multi sessions?
-        }
         erts_clear_export_trace(ci_rw);
     }
 
