@@ -550,13 +550,13 @@ The second value of the tuple sets the timeout interval, in seconds, after which
 has been received from the peer, a message to request a response from the peer is sent.
 
 The default is `{3, infinity}`, which means that alive messages will not be sent to the peer,
-since the `AliveInterval` is set to `infinity`.
+since the `Interval` is set to `infinity`.
 
 No alive messages are sent during renegotiation, however, a timeout derived from the alive parameters
 is set to ensure that unresponsive connections are terminated.
 """.
 -doc(#{group => <<"Common Options">>}).
--type alive_common_option() :: {alive_params, {AliveCountMax::pos_integer(), AliveInterval::timeout()}}.
+-type alive_common_option() :: {alive, {CountMax::pos_integer(), Interval::timeout()}}.
 
 -doc """
 Experimental options that should not to be used in products.
