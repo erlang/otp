@@ -309,7 +309,7 @@ export(Config) ->
     {ok, B} = file:read_file(TestFile),
     ok.
 
-export_cdata(Config) ->
+export_cdata(_Config) ->
     InData = <<"<?xml version=\"1.0\" encoding=\"UTF-8\"?>
 <doc>
    <a>Test...</a>
