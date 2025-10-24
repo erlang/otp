@@ -1159,7 +1159,7 @@ server_select_cert_key_pair_and_params(CipherSuites, [#{private_key := Key, cert
         no_suite ->
             server_select_cert_key_pair_and_params(CipherSuites, Rest, HashSigns, ECCCurve0, Opts, Version);
         CipherSuite0 ->
-            case is_acceptable_cert(Cert, HashSigns, ssl:tls_version(Version)) of
+            case is_acceptable_cert(CipherSuite0, Cert, HashSigns, ssl:tls_version(Version)) of
                 true ->
                     CurveAndSuite = cert_curve(Cert, ECCCurve0, CipherSuite0),
                     {Certs, Key, CurveAndSuite};
@@ -1168,15 +1168,35 @@ server_select_cert_key_pair_and_params(CipherSuites, [#{private_key := Key, cert
             end
     end.
 
-is_acceptable_cert(Cert, HashSigns, Version)
+is_acceptable_cert(CipherSuite, Cert, HashSigns, Version)
   when ?TLS_1_X(Version),
        ?TLS_GTE(Version, ?TLS_1_2) ->
     {SignAlgo0, Param, _, _, _} = get_cert_params(Cert),
     SignAlgo = sign_algo(SignAlgo0, Param),
-    is_acceptable_hash_sign(SignAlgo, HashSigns);
-is_acceptable_cert(_,_,_) ->
+    is_acceptable_hash_sign(SignAlgo, acceptable_hash_signs(CipherSuite, HashSigns));
+is_acceptable_cert(_, _,_,_) ->
     %% Not negotiable pre TLS-1.2. So if cert is available for version it is acceptable
     true.
+
+acceptable_hash_signs(CipherSuite, HashSigns) ->
+    #{key_exchange := Kex} = ssl_cipher_format:suite_bin_to_map(CipherSuite),
+    Filter = fun({_, rsa}) when Kex == ecdh_rsa;
+                                Kex == dhe_rsa;
+                                Kex == srp_rsa;
+                                Kex == rsa ->
+                     true;
+                ({_, ecdsa}) when Kex == ecdh_ecdsa;
+                                  Kex == ecdhe_ecdsa ->
+                     true;
+                ({_, dsa}) when Kex == dhe_dss;
+                                Kex == srp_dss ->
+                     true;
+                (_) when Kex == any ->
+                     true;
+                (_) ->
+                     false
+             end,
+    [HS || HS <- HashSigns, Filter(HS)].
 
 premaster_secret(OtherPublicDhKey, MyPrivateKey, #'DHParameter'{} = Params) ->
     try
