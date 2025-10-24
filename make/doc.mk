@@ -50,10 +50,10 @@ endif
 # ----------------------------------------------------
 # Man dependencies
 # ----------------------------------------------------
-ERL_FILES := $(wildcard $(APP_SRC_DIR)/*.erl) $(wildcard $(APP_SRC_DIR)/*/*.erl) $(wildcard $(APP_DIR)/preloaded/src/*.erl)
-ERL_STRIP := $(strip $(ERL_FILES))
+ERL_FILES0 := $(wildcard $(APP_SRC_DIR)/*.erl) $(wildcard $(APP_SRC_DIR)/*/*.erl) $(wildcard $(APP_DIR)/preloaded/src/*.erl)
+ERL_STRIP := $(strip $(ERL_FILES0))
 ifneq ($(ERL_STRIP),)
-  ERL_FILES_WITH_DOC := $(shell grep -L "moduledoc false." $(ERL_FILES))
+  ERL_FILES_WITH_DOC := $(shell grep -L "moduledoc false." $(ERL_FILES0))
 else
   ERL_FILES_WITH_DOC :=
 endif
