@@ -577,7 +577,7 @@ renegotiation(_) -> false.
 
 -define(CONNECTION_MSG(Msg),
         [{next_event, internal, prepare_next_packet},
-         {next_event,internal,{conn_msg,Msg}}]).
+         {next_event, internal, {conn_msg,Msg}}]).
 
 %% . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 callback_mode() ->
@@ -754,16 +754,8 @@ handle_event(internal, #ssh_msg_debug{} = Msg, _StateName, D) ->
     debug_fun(Msg, D),
     keep_state_and_data;
 
-handle_event(internal, {conn_msg, #ssh_msg_request_failure{}}, _, D = #data{ssh_params = Ssh})
-  when Ssh#ssh.alive_awaiting_response ->
-    {keep_state, D#data{ssh_params = Ssh#ssh{alive_awaiting_response = false}}};
-
-handle_event(internal, {conn_msg, #ssh_msg_request_success{}}, _, D = #data{ssh_params = Ssh})
-  when Ssh#ssh.alive_awaiting_response ->
-    {keep_state, D#data{ssh_params = Ssh#ssh{alive_awaiting_response = false}}};
-
-handle_event(internal, {conn_msg,Msg}, StateName, #data{connection_state = Connection0,
-                                                        event_queue = Qev0} = D0) ->
+handle_event(internal, {conn_msg, Msg}, StateName, #data{connection_state = Connection0,
+                                                         event_queue = Qev0} = D0) ->
     Role = ?role(StateName),
     Rengotation = renegotiation(StateName),
     try ssh_connection:handle_msg(Msg, Connection0, Role, D0#data.ssh_params) of
@@ -2226,7 +2218,6 @@ triggered_alive(StateName, D0 = #data{},
             Ssh = D#data.ssh_params,
             Now = erlang:monotonic_time(milli_seconds),
             Ssh1 = Ssh#ssh{alive_probes_sent = SentProbes + 1,
-                           alive_awaiting_response = true,
                            alive_last_sent_at = Now},
             {keep_state, D#data{ssh_params = Ssh1}, Actions}
     end.
@@ -2263,6 +2254,7 @@ ssh_dbg_on(alive) ->
     dbg:tp(?MODULE,  handle_event, 4, x),
     dbg:tpl(?MODULE, init_ssh_record, 4, x),
     dbg:tpl(?MODULE, start_rekeying, 2, x),
+    dbg:tpl(?MODULE, reset_alive, 1, x),
     dbg:tpl(?MODULE, triggered_alive, 4, x);
 ssh_dbg_on(connections) -> dbg:tp(?MODULE,  init, 1, x),
                            ssh_dbg_on(terminate);
@@ -2288,6 +2280,7 @@ ssh_dbg_on(disconnect) -> dbg:tpl(?MODULE,  send_disconnect, 7, x).
 ssh_dbg_off(alive) ->
     dbg:ctpg(?MODULE, handle_event, 4),
     dbg:ctpl(?MODULE, start_rekeying, 2),
+    dbg:ctpl(?MODULE, reset_alive, 1, x),
     dbg:ctpl(?MODULE, init_ssh_record, 4),
     dbg:ctpl(?MODULE, triggered_alive, 4);
 ssh_dbg_off(disconnect) -> dbg:ctpl(?MODULE, send_disconnect, 7);
@@ -2312,12 +2305,9 @@ ssh_dbg_format(alive, {return_from, {?MODULE, F=init_ssh_record, A=4}, Ssh}) ->
     {AliveCount, AliveInterval} = ?GET_ALIVE_OPT(Ssh#ssh.opts),
     Str = io_lib:format("Interval=~p Count=~p", [AliveInterval, AliveCount]),
     ?PRINT_ALIVE_EVENT(?MODULE, F, A, Str);
-ssh_dbg_format(alive, {call, {?MODULE,F=handle_event,
-                              [EventType, EventContent = {conn_msg, Msg}, State, _Data]}})
-  when is_record(Msg, ssh_msg_request_failure) orelse
-       is_record(Msg, ssh_msg_request_success) ->
-    Str = io_lib:format("~n~p ~p (state: ~p)", [EventType, EventContent, State]),
-    ?PRINT_ALIVE_EVENT(?MODULE, F, 4, Str);
+ssh_dbg_format(alive, {call, {?MODULE,F=reset_alive, [_Data]}}) ->
+    Str = io_lib:format("", []),
+    ?PRINT_ALIVE_EVENT(?MODULE, F, 1, Str);
 ssh_dbg_format(alive, {call, {?MODULE,F=handle_event,
                               [EventType, EventContent, State, _Data]}})
   when EventType == {timeout, alive} orelse EventType == {timeout, renegotiation_alive} ->
@@ -2328,7 +2318,7 @@ ssh_dbg_format(alive, {call, {?MODULE,F=triggered_alive,
                                #ssh{opts = Opts, alive_probes_sent = SentProbesCount}, _]
                              }}) ->
     {Count, _AliveInterval} = ?GET_ALIVE_OPT(Opts),
-    Str = io_lib:format("~n~p out ~p alive probes sent (state: ~w)", [SentProbesCount, Count, State]),
+    Str = io_lib:format("~nsending alive probe ~p/~p (state: ~w)", [SentProbesCount+1, Count, State]),
     ?PRINT_ALIVE_EVENT(?MODULE, F, 4, Str);
 ssh_dbg_format(alive, {return_from, {?MODULE, F=triggered_alive, 4}, {stop, Details, _}}) ->
     Str = io_lib:format("~n0 alive probes left {stop, ~p, _}", [Details]),
