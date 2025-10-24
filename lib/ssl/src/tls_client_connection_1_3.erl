@@ -632,7 +632,7 @@ do_handle_exlusive_1_3_hello_or_hello_retry_request(
          connection_states = ConnectionStates0
         } = State0) ->
     {Ref,Maybe} = tls_gen_connection_1_3:do_maybe(),
-                                              try
+    try
         ClientGroups =
             Maybe(tls_handshake_1_3:get_supported_groups(ClientGroups0)),
         Cookie = maps:get(cookie, Extensions, undefined),
