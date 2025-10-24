@@ -24,6 +24,7 @@
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/file.hrl").
+-include_lib("stdlib/include/assert.hrl").
 
 -export([all/0, suite/0, init_per_testcase/2, end_per_testcase/2]).
 
@@ -46,7 +47,7 @@
          test_length/1,
          fixed_apply_badarg/1,
          external_fun_apply3/1,
-         node_1/1,doctests/1]).
+         node_1/1,doctests/1,is_integer_3_test/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -64,7 +65,7 @@ all() ->
      is_process_alive, is_process_alive_signal_from,
      process_info_blast, os_env_case_sensitivity,
      verify_middle_queue_save, test_length,fixed_apply_badarg,
-     external_fun_apply3, node_1, doctests].
+     external_fun_apply3, node_1, doctests, is_integer_3_test].
 
 init_per_testcase(guard_bifs_in_erl_bif_types, Config) when is_list(Config) ->
     skip_missing_erl_bif_types(Config);
@@ -1779,6 +1780,72 @@ node_error(E0) ->
 
 doctests(_Config) ->
     shell_docs:test(erlang, []).
+
+is_integer_3_test(_Config) ->
+    _ = [is_between_ten(X) || X <- lists:seq(-2, 12)],
+
+    false = is_between_ten(0),
+    true = is_between_ten(1),
+    true = is_between_ten(10),
+    false = is_between_ten(11),
+
+    false = is_between_ten(a),
+    false = is_between_ten(5.0),
+    false = is_between_ten(-7.0),
+    false = is_between_ten([1]),
+
+    _ = [begin
+             is_between_negative(X),
+             false = is_between_negative(-X)
+         end || X <- lists:seq(-100, -70)],
+
+    _ = [is_between_mixed(X) || X <- lists:seq(-10, 10)],
+
+    _ = [begin
+             is_between_bignum(X),
+             false = is_between_bignum(-X),
+             false = is_between_bignum(X - (1 bsl 64))
+         end || X <- lists:seq((1 bsl 64) - 3, (1 bsl 64) + 10)],
+
+    is_between_badarg(2, 1.5, 10.0),
+    is_between_badarg(2, 10.0, 1.5),
+    is_between_badarg(2, 1.5, 10),
+    is_between_badarg(2, 1, 10.0),
+    is_between_badarg(2, lower, upper),
+
+    ok.
+
+-define(IS_BETWEEN_TEST(Name, LB, UB),
+Name(X0) ->
+    F = id(is_integer),
+    Lower0 = LB,
+    Upper0 = UB,
+    Lower = id(Lower0),
+    Upper = id(Upper0),
+
+    X1 = id(X0),
+    Result = is_integer(X1, Lower0, Upper0),
+    Result = is_integer(X1, Lower, Upper),
+    Result = apply(erlang, F, id([X1, Lower, Upper])),
+    Result = erlang:F(X1, Lower, Upper),
+
+    false = is_integer(id(X1), Upper, Lower),
+
+    X = id(X1),
+    Result = is_integer(X) andalso Lower =< X andalso X =< Upper,
+    Result).
+
+?IS_BETWEEN_TEST(is_between_ten, 1, 10).
+?IS_BETWEEN_TEST(is_between_negative, -89, -77).
+?IS_BETWEEN_TEST(is_between_mixed, -7, 7).
+?IS_BETWEEN_TEST(is_between_bignum, 1 bsl 64, (1 bsl 64) + 7).
+
+is_between_badarg(X, A, B) ->
+    F = id(is_integer),
+
+    ?assertError(badarg, is_integer(id(X), id(A), id(B))),
+    ?assertError(badarg, erlang:F(X, A, B)),
+    ?assertError(badarg, apply(erlang, F, id([X, A, B]))).
 
 %% helpers
 

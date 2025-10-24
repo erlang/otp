@@ -2822,6 +2822,7 @@ use_zreg(wait_timeout) -> yes;
 %% avoid using a z register if their result is used directly in a branch.
 use_zreg(call) -> no;
 use_zreg({bif,element}) -> no;
+use_zreg({bif,is_integer}) -> no;
 use_zreg({bif,is_map_key}) -> no;
 use_zreg({bif,is_record}) -> no;
 use_zreg({bif,map_get}) -> no;

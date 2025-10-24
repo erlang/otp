@@ -2721,6 +2721,15 @@ make_number({'-inf','+inf'}) ->
 make_number({_,_}=R) ->
     #t_number{elements=R}.
 
+make_integer({'-inf','+inf'}) ->
+    #t_integer{};
+make_integer({'-inf',_}=R) ->
+    #t_integer{elements=R};
+make_integer({Min,Max}=R) when is_integer(Min), Min =< Max ->
+    #t_integer{elements=R};
+make_integer(_) ->
+    #t_integer{}.
+
 inv_relop({bif,Op}) -> inv_relop_1(Op);
 inv_relop(_) -> none.
 
@@ -2735,6 +2744,14 @@ inv_relop_1(_) -> none.
 infer_get_range(#t_integer{elements=R}) -> R;
 infer_get_range(#t_number{elements=R}) -> R;
 infer_get_range(_) -> unknown.
+
+infer_integer_get_range(Arg, Ts) ->
+    case concrete_type(Arg, Ts) of
+        #t_integer{elements={_,_}=R} ->
+            R;
+        _ ->
+            {'-inf','+inf'}
+    end.
 
 infer_br_value(_V, _Bool, none) ->
     none;
@@ -2814,6 +2831,18 @@ infer_type({bif,is_function}, [#b_var{}=Arg, Arity], _Ts, _Ds) ->
 infer_type({bif,is_integer}, [#b_var{}=Arg], _Ts, _Ds) ->
     T = {Arg, #t_integer{}},
     {[T], [T]};
+infer_type({bif,is_integer}, [#b_var{}=Arg,
+                              #b_literal{val=Min},
+                              #b_literal{val=Max}], _Ts, _Ds) when Min =< Max ->
+    T = {Arg, beam_types:make_integer(Min, Max)},
+    {[T], [T]};
+infer_type({bif,is_integer}, [#b_var{}=Arg,Min0,Max0], Ts, _Ds) ->
+    {Min,_} = infer_integer_get_range(Min0, Ts),
+    {_,Max} = infer_integer_get_range(Max0, Ts),
+    T = {Arg, make_integer({Min,Max})},
+    %% Conservatively never attempt to subtract the type; subtraction
+    %% will most likely be incorrect or useless.
+    {[T], []};
 infer_type({bif,is_list}, [#b_var{}=Arg], _Ts, _Ds) ->
     T = {Arg, #t_list{}},
     {[T], [T]};

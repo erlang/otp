@@ -2288,6 +2288,22 @@ infer_types_1(#value{op={bif,is_function},args=[Src]}, Val, Op, Vst) ->
     infer_type_test_bif(#t_fun{}, Src, Val, Op, Vst);
 infer_types_1(#value{op={bif,is_integer},args=[Src]}, Val, Op, Vst) ->
     infer_type_test_bif(#t_integer{}, Src, Val, Op, Vst);
+infer_types_1(#value{op={bif,is_integer},args=[Src,
+                                               {integer, Min},
+                                               {integer, Max}]}, Val, Op, Vst) ->
+    infer_type_test_bif(beam_types:make_integer(Min, Max), Src, Val, Op, Vst);
+infer_types_1(#value{op={bif,is_integer},args=[Src,Min0,Max0]}, Val, Op, Vst) ->
+    %% If there is at least one unknown bound, we cannot subtract
+    %% when 'false'.
+    {Min,_} = infer_integer_get_range(Min0, Vst),
+    {_,Max} = infer_integer_get_range(Max0, Vst),
+    Type = make_integer({Min, Max}),
+    case Val of
+        {atom, Bool} when Op =:= eq_exact, Bool; Op =:= ne_exact, not Bool ->
+            update_type(fun meet/2, Type, Src, Vst);
+        _ ->
+            Vst
+    end;
 infer_types_1(#value{op={bif,is_list},args=[Src]}, Val, Op, Vst) ->
     infer_type_test_bif(#t_list{}, Src, Val, Op, Vst);
 infer_types_1(#value{op={bif,is_map},args=[Src]}, Val, Op, Vst) ->
@@ -2353,6 +2369,23 @@ invert_relop('<') -> '>=';
 invert_relop('=<') -> '>';
 invert_relop('>=') -> '<';
 invert_relop('>') -> '=<'.
+
+infer_integer_get_range(Arg, Vst) ->
+    case get_term_type(Arg, Vst) of
+        #t_integer{elements={_,_}=R} ->
+            R;
+        _ ->
+            {'-inf','+inf'}
+    end.
+
+make_integer({'-inf','+inf'}) ->
+    #t_integer{};
+make_integer({'-inf',_}=R) ->
+    #t_integer{elements=R};
+make_integer({Min,Max}=R) when is_integer(Min), Min =< Max ->
+    #t_integer{elements=R};
+make_integer(_) ->
+    #t_integer{}.
 
 %%%
 %%% Keeping track of types.
