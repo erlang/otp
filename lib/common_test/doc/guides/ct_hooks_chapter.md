@@ -281,6 +281,49 @@ After any post hook has been executed for all installed CTHs,
 skipped, respectively. You cannot affect the outcome of the tests any further at
 this point.
 
+[](){: #comment }
+
+### Comment in hooks
+
+As mentioned in `ct:comment/1` same limitation regarding calling `ct:comment/1-2`
+exists in hook functions. Calling `ct:comment/1-2` should only be done directly from
+the process executing hook function, or it's descendant.
+
+Be aware that if you spawn a process in one hook function and keep it alive
+while common_test has moved to calling another hook function, and you try to
+execute `ct:comment/1-2` from this process the comment may not be printed in
+correct place in html logs, or at all.
+
+Calling this function from process that is neither a common_test process, nor it's
+descendant is no-op.
+
+This table presents information where `ct:comment/1-2` prints to, depending on how hook was installed:
+
+| Hook function              | Install in: `ct_run`, `ct:run_test/1`, Test Specification | Install in: suite/0, init_per_suite/1, init_per_group/2 |
+| -------------------------- | --------------------------------------------------------- | ------------------------------------------------------- |
+| id/1                       | init_per_suite row                                        | init_per_suite row                                      |
+| init/2                     | nowhere                                                   | init_per_suite row                                      |
+| post_all/3                 | nowhere                                                   | nowhere                                                 |
+| post_groups/4              | nowhere                                                   | nowhere                                                 |
+| pre_init_per_suite/3       | init_per_suite row                                        | init_per_suite row                                      |
+| post_init_per_suite/4      | init_per_suite row                                        | init_per_suite row                                      |
+| pre_init_per_group/3,4     | init_per_group row                                        | init_per_group row                                      |
+| post_init_per_group/4,5    | init_per_group row                                        | init_per_group row                                      |
+| pre_init_per_testcase/3,4  | testcase row                                              | testcase row                                            |
+| post_init_per_testcase/4,5 | testcase row                                              | testcase row                                            |
+| post_init_per_testcase/4,5 | testcase row                                              | testcase row                                            |
+| pre_end_per_testcase/3,4   | testcase row                                              | testcase row                                            |
+| post_end_per_testcase/4,5  | testcase row                                              | testcase row                                            |
+| pre_end_per_group/3,4      | end_per_group row                                         | end_per_group row                                       |
+| post_end_per_group/4,5     | end_per_group row                                         | end_per_group row                                       |
+| pre_end_per_suite/3        | end_per_suite row                                         | end_per_suite row                                       |
+| post_end_per_suite/4       | end_per_suite row                                         | end_per_suite row                                       |
+| on_tc_skip/4               | testcase row                                              | testcase row                                            |
+| on_tc_fail/4               | nowhere                                                   | nowhere                                                 |
+| terminate/1                | nowhere                                                   | end_per_suite row                                       |
+
+_Table: Behavior of `ct:comment/1-2` depending on hook installation method_
+
 [](){: #synchronizing }
 
 ## Synchronizing External User Applications with Common Test
