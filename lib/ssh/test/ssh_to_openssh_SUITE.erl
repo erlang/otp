@@ -58,7 +58,7 @@
         ]).
 
 -define(REKEY_DATA_TMO, 65000).
-
+-define(ALIVE, {alive, #{count_max => 3, interval => 100}}).
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
@@ -207,6 +207,7 @@ eclient_oserver_helper2({Shell, Prev, IO}, Config) ->
 exec_with_io_in_sshc(Config) when is_list(Config) ->
     SystemDir = proplists:get_value(data_dir, Config),
     {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
+                                             ?ALIVE,
                                              {failfun, fun ssh_test_lib:failfun/2}]),
     ct:sleep(500),
 
@@ -216,6 +217,8 @@ exec_with_io_in_sshc(Config) when is_list(Config) ->
                                                           [" -o UserKnownHostsFile=", "/dev/null",
                                                            " -o CheckHostIP=no"
                                                            " -o StrictHostKeyChecking=no"
+                                                           " -o ServerAliveCountMax=3"
+                                                           " -o ServerAliveInterval=100"
                                                            " -q"
                                                            " -x" % Disable X forwarding
                                                           ],
@@ -236,6 +239,7 @@ exec_direct_with_io_in_sshc(Config) when is_list(Config) ->
     SystemDir = proplists:get_value(data_dir, Config),
     {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
                                              {failfun, fun ssh_test_lib:failfun/2},
+                                             ?ALIVE,
                                              {exec,{direct,fun(Cmnd) ->
                                                                    {ok,X} = io:read(Cmnd),
                                                                    {ok,{X,lists:reverse(atom_to_list(X))}}
@@ -248,6 +252,8 @@ exec_direct_with_io_in_sshc(Config) when is_list(Config) ->
                                                           [" -o UserKnownHostsFile=", "/dev/null",
                                                            " -o CheckHostIP=no"
                                                            " -o StrictHostKeyChecking=no"
+                                                           " -o ServerAliveCountMax=3"
+                                                           " -o ServerAliveInterval=100"
                                                            " -q"
                                                            " -x" % Disable X forwarding
                                                           ],
@@ -296,6 +302,7 @@ eserver_oclient_renegotiate_helper1(Config) ->
 
     {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
                                              {failfun, fun ssh_test_lib:failfun/2},
+                                             ?ALIVE,
                                              {bannerfun, BannerFun}]),
     ct:sleep(500),
 
@@ -308,6 +315,8 @@ eserver_oclient_renegotiate_helper1(Config) ->
                                      [" -o UserKnownHostsFile=", "/dev/null",
                                       " -o CheckHostIP=no"
                                       " -o StrictHostKeyChecking=no"
+                                      " -o ServerAliveCountMax=3"
+                                      " -o ServerAliveInterval=100"
                                       " -q"
                                       " -x",
                                       " -o RekeyLimit=",integer_to_list(RenegLimitK),"K"]),
@@ -354,6 +363,7 @@ tunnel_out_non_erlclient_erlserver(Config) ->
 
     {_Pid, Host, Port} = ssh_test_lib:daemon([{tcpip_tunnel_out, true},
                                              {system_dir, SystemDir},
+                                              ?ALIVE,
                                              {failfun, fun ssh_test_lib:failfun/2}]),
     {ToSock, _ToHost, ToPort} = tunneling_listner(),
 
@@ -364,6 +374,8 @@ tunnel_out_non_erlclient_erlserver(Config) ->
                                      [" -o UserKnownHostsFile=", "/dev/null",
                                       " -o CheckHostIP=no"
                                       " -o StrictHostKeyChecking=no"
+                                      " -o ServerAliveCountMax=3"
+                                      " -o ServerAliveInterval=100"
                                       " -q"
                                       " -x",
                                       " -R ",integer_to_list(ListenPort),":127.0.0.1:",integer_to_list(ToPort)]),
@@ -382,6 +394,7 @@ tunnel_in_non_erlclient_erlserver(Config) ->
     _UserDir = proplists:get_value(priv_dir, Config),
     {_Pid, Host, Port} = ssh_test_lib:daemon([{tcpip_tunnel_in, true},
                                               {system_dir, SystemDir},
+                                              ?ALIVE,
                                               {failfun, fun ssh_test_lib:failfun/2}]),
     {ToSock, _ToHost, ToPort} = tunneling_listner(),
     
@@ -393,6 +406,8 @@ tunnel_in_non_erlclient_erlserver(Config) ->
                                    [" -o UserKnownHostsFile=", "/dev/null",
                                     " -o CheckHostIP=no"
                                     " -o StrictHostKeyChecking=no"
+                                    " -o ServerAliveCountMax=3"
+                                    " -o ServerAliveInterval=100"
                                     " -q"
                                     " -x",
                                     " -L ",integer_to_list(ListenPort),":127.0.0.1:",integer_to_list(ToPort)]),
@@ -411,10 +426,12 @@ tunnel_in_erlclient_erlserver(Config) ->
     {_Pid, Host, Port} = ssh_test_lib:daemon([{tcpip_tunnel_in, true},
                                               {system_dir, SystemDir},
                                               {user_dir, UserDir},
+                                              ?ALIVE,
                                               {user_passwords, [{"foo", "bar"}]},
                                               {failfun, fun ssh_test_lib:failfun/2}]),
     C = ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
                                           {user_dir, UserDir},
+                                          ?ALIVE,
                                           {user,"foo"},{password,"bar"},
                                           {user_interaction, false}]),
     {ToSock, ToHost, ToPort} = tunneling_listner(),
@@ -437,10 +454,12 @@ tunnel_in_erlclient_erlserver_allowed(Config) ->
     {_Pid, Host, Port} = ssh_test_lib:daemon([{tcpip_tunnel_in, AllowedFun},
                                               {system_dir, SystemDir},
                                               {user_dir, UserDir},
+                                              ?ALIVE,
                                               {user_passwords, [{"foo", "bar"}]},
                                               {failfun, fun ssh_test_lib:failfun/2}]),
     C = ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
                                           {user_dir, UserDir},
+                                          ?ALIVE,
                                           {user,"foo"},{password,"bar"},
                                           {user_interaction, false}]),
 
@@ -464,9 +483,11 @@ tunnel_in_erlclient_erlserver_denied(Config) ->
                                               {system_dir, SystemDir},
                                               {user_dir, UserDir},
                                               {user_passwords, [{"foo", "bar"}]},
+                                              ?ALIVE,
                                               {failfun, fun ssh_test_lib:failfun/2}]),
     C = ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
                                           {user_dir, UserDir},
+                                          ?ALIVE,
                                           {user,"foo"},{password,"bar"},
                                           {user_interaction, false}]),
 
@@ -479,7 +500,7 @@ tunnel_in_erlclient_erlserver_denied(Config) ->
 
 %%--------------------------------------------------------------------
 tunnel_in_erlclient_openssh_server(_Config) ->
-    C = ssh_test_lib:connect(?SSH_DEFAULT_PORT, []),
+    C = ssh_test_lib:connect(?SSH_DEFAULT_PORT, [?ALIVE]),
     {ToSock, ToHost, ToPort} = tunneling_listner(),
     
     ListenHost = {127,0,0,1},
@@ -495,10 +516,12 @@ tunnel_out_erlclient_erlserver(Config) ->
                                               {system_dir, SystemDir},
                                               {user_dir, UserDir},
                                               {user_passwords, [{"foo", "bar"}]},
+                                              ?ALIVE,
                                               {failfun, fun ssh_test_lib:failfun/2}]),
     C = ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
                                           {user_dir, UserDir},
                                           {user,"foo"},{password,"bar"},
+                                              ?ALIVE,
                                           {user_interaction, false}]),
     {ToSock, ToHost, ToPort} = tunneling_listner(),
     
@@ -509,7 +532,7 @@ tunnel_out_erlclient_erlserver(Config) ->
 
 %%--------------------------------------------------------------------
 tunnel_out_erlclient_openssh_server(_Config) ->
-    C = ssh_test_lib:connect(?SSH_DEFAULT_PORT, []),
+    C = ssh_test_lib:connect(?SSH_DEFAULT_PORT, [?ALIVE]),
     {ToSock, ToHost, ToPort} = tunneling_listner(),
     
     ListenHost = {127,0,0,1},
