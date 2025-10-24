@@ -91,8 +91,11 @@ ERL_NIF_TERM dh_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
         ret = EXCP_BADARG_N(env, 3, "Bad value of length element");
         goto done;
     }
-    else if (len)
-        params[i++] = OSSL_PARAM_construct_uint64("priv_len", &len);
+    if (len) {
+        /* ErlNifUint64 is defined as unsigned long while uint64_t is defined as unsigned long long */
+        uint64_t len_u64 = len;
+        params[i++] = OSSL_PARAM_construct_uint64("priv_len", &len_u64);
+    }
 
     /* End of parameter fetching */
     params[i++] = OSSL_PARAM_construct_end();

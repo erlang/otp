@@ -30,21 +30,21 @@
 static struct cipher_type_t cipher_types[] =
 {
 #ifdef HAVE_RC2
-    {{"rc2_cbc"}, "rc2-cbc", {&EVP_rc2_cbc}, 0, NO_FIPS_CIPHER, NOT_AEAD},
+    {{"rc2_cbc"}, "rc2-cbc", {&EVP_rc2_cbc}, 0, FIPS_FORBIDDEN_CIPHER, NOT_AEAD},
 #else
-    {{"rc2_cbc"}, "rc2-cbc", {NULL}, 0, NO_FIPS_CIPHER, NOT_AEAD},
+    {{"rc2_cbc"}, "rc2-cbc", {NULL}, 0, FIPS_FORBIDDEN_CIPHER, NOT_AEAD},
 #endif
 
 #ifdef HAVE_RC4
-    {{"rc4"}, "rc4", {&EVP_rc4}, 0, NO_FIPS_CIPHER, NOT_AEAD},
+    {{"rc4"}, "rc4", {&EVP_rc4}, 0, FIPS_FORBIDDEN_CIPHER, NOT_AEAD},
 #else
-    {{"rc4"}, "rc4", {NULL}, 0, NO_FIPS_CIPHER, NOT_AEAD},
+    {{"rc4"}, "rc4", {NULL}, 0, FIPS_FORBIDDEN_CIPHER, NOT_AEAD},
 #endif
 
 #ifdef HAVE_DES
-    {{"des_cbc"}, "des-cbc", {&EVP_des_cbc},  0, NO_FIPS_CIPHER},
-    {{"des_cfb"}, "des-cfb", {&EVP_des_cfb8}, 0, NO_FIPS_CIPHER},
-    {{"des_ecb"}, "des-ecb", {&EVP_des_ecb},  0, NO_FIPS_CIPHER | ECB_BUG_0_9_8L},
+    {{"des_cbc"}, "des-cbc", {&EVP_des_cbc},  0, FIPS_FORBIDDEN_CIPHER},
+    {{"des_cfb"}, "des-cfb", {&EVP_des_cfb8}, 0, FIPS_FORBIDDEN_CIPHER},
+    {{"des_ecb"}, "des-ecb", {&EVP_des_ecb},  0, FIPS_FORBIDDEN_CIPHER | ECB_BUG_0_9_8L},
 #else
     {{"des_cbc"}, "des-cbc", {NULL}, 0, 0},
     {{"des_cfb"}, "des-cfb", {NULL}, 0, 0},
@@ -64,10 +64,10 @@ static struct cipher_type_t cipher_types[] =
 #endif
 
 #ifdef HAVE_BF
-    {{"blowfish_cbc"},   "BF-CBC", {&EVP_bf_cbc},   0, NO_FIPS_CIPHER, NOT_AEAD},
-    {{"blowfish_cfb64"}, "BF-CFB", {&EVP_bf_cfb64}, 0, NO_FIPS_CIPHER, NOT_AEAD},
-    {{"blowfish_ofb64"}, "BF-OFB", {&EVP_bf_ofb},   0, NO_FIPS_CIPHER, NOT_AEAD},
-    {{"blowfish_ecb"},   "BF-ECB", {&EVP_bf_ecb},   0, NO_FIPS_CIPHER | ECB_BUG_0_9_8L, NOT_AEAD},
+    {{"blowfish_cbc"},   "BF-CBC", {&EVP_bf_cbc},   0, FIPS_FORBIDDEN_CIPHER, NOT_AEAD},
+    {{"blowfish_cfb64"}, "BF-CFB", {&EVP_bf_cfb64}, 0, FIPS_FORBIDDEN_CIPHER, NOT_AEAD},
+    {{"blowfish_ofb64"}, "BF-OFB", {&EVP_bf_ofb},   0, FIPS_FORBIDDEN_CIPHER, NOT_AEAD},
+    {{"blowfish_ecb"},   "BF-ECB", {&EVP_bf_ecb},   0, FIPS_FORBIDDEN_CIPHER | ECB_BUG_0_9_8L, NOT_AEAD},
 #else
     {{"blowfish_cbc"},   "BF-CBC", {NULL}, 0, 0, NOT_AEAD},
     {{"blowfish_cfb64"}, "BF-CFB", {NULL}, 0, 0, NOT_AEAD},
@@ -76,17 +76,17 @@ static struct cipher_type_t cipher_types[] =
 #endif
 
 #ifdef HAVE_SM4
-    {{"sm4_cbc"},   "sm4-cbc", {&EVP_sm4_cbc},   16, NO_FIPS_CIPHER, NOT_AEAD},
-    {{"sm4_ecb"},   "sm4-ecb", {&EVP_sm4_ecb},   16, NO_FIPS_CIPHER, NOT_AEAD},
-    {{"sm4_cfb"},   "sm4-cfb", {&EVP_sm4_cfb},   16, NO_FIPS_CIPHER, NOT_AEAD},
-    {{"sm4_ofb"},   "sm4-ofb", {&EVP_sm4_ofb},   16, NO_FIPS_CIPHER, NOT_AEAD},
-    {{"sm4_ctr"},   "sm4-ctr", {&EVP_sm4_ctr},   16, NO_FIPS_CIPHER, NOT_AEAD},
+    {{"sm4_cbc"},   "sm4-cbc", {&EVP_sm4_cbc},   16, FIPS_FORBIDDEN_CIPHER, NOT_AEAD},
+    {{"sm4_ecb"},   "sm4-ecb", {&EVP_sm4_ecb},   16, FIPS_FORBIDDEN_CIPHER, NOT_AEAD},
+    {{"sm4_cfb"},   "sm4-cfb", {&EVP_sm4_cfb},   16, FIPS_FORBIDDEN_CIPHER, NOT_AEAD},
+    {{"sm4_ofb"},   "sm4-ofb", {&EVP_sm4_ofb},   16, FIPS_FORBIDDEN_CIPHER, NOT_AEAD},
+    {{"sm4_ctr"},   "sm4-ctr", {&EVP_sm4_ctr},   16, FIPS_FORBIDDEN_CIPHER, NOT_AEAD},
 #else
-    {{"sm4_cbc"},   "sm4-cbc", {NULL},   16, NO_FIPS_CIPHER, NOT_AEAD},
-    {{"sm4_ecb"},   "sm4-ecb", {NULL},   16, NO_FIPS_CIPHER, NOT_AEAD},
-    {{"sm4_cfb"},   "sm4-cfb", {NULL},   16, NO_FIPS_CIPHER, NOT_AEAD},
-    {{"sm4_ofb"},   "sm4-ofb", {NULL},   16, NO_FIPS_CIPHER, NOT_AEAD},
-    {{"sm4_ctr"},   "sm4-ctr", {NULL},   16, NO_FIPS_CIPHER, NOT_AEAD},
+    {{"sm4_cbc"},   "sm4-cbc", {NULL},   16, FIPS_FORBIDDEN_CIPHER, NOT_AEAD},
+    {{"sm4_ecb"},   "sm4-ecb", {NULL},   16, FIPS_FORBIDDEN_CIPHER, NOT_AEAD},
+    {{"sm4_cfb"},   "sm4-cfb", {NULL},   16, FIPS_FORBIDDEN_CIPHER, NOT_AEAD},
+    {{"sm4_ofb"},   "sm4-ofb", {NULL},   16, FIPS_FORBIDDEN_CIPHER, NOT_AEAD},
+    {{"sm4_ctr"},   "sm4-ctr", {NULL},   16, FIPS_FORBIDDEN_CIPHER, NOT_AEAD},
 #endif
 
     {{"aes_128_cbc"}, "aes-128-cbc", {&EVP_aes_128_cbc}, 16, 0, NOT_AEAD},
@@ -120,23 +120,23 @@ static struct cipher_type_t cipher_types[] =
 #endif
 
 #if defined(HAVE_CHACHA20)
-    {{"chacha20"}, "chacha20", {&EVP_chacha20}, 32, NO_FIPS_CIPHER, NOT_AEAD},
+    {{"chacha20"}, "chacha20", {&EVP_chacha20}, 32, FIPS_FORBIDDEN_CIPHER, NOT_AEAD},
 #else
-    {{"chacha20"}, "chacha20", {NULL}, 0, NO_FIPS_CIPHER, NOT_AEAD},
+    {{"chacha20"}, "chacha20", {NULL}, 0, FIPS_FORBIDDEN_CIPHER, NOT_AEAD},
 #endif
 
     /*==== AEAD ciphers ====*/
 #if defined(HAVE_CHACHA20_POLY1305)
-    {{"chacha20_poly1305"}, "chacha20-poly1305", {&EVP_chacha20_poly1305}, 0, NO_FIPS_CIPHER | AEAD_CIPHER, AEAD_CTRL},
+    {{"chacha20_poly1305"}, "chacha20-poly1305", {&EVP_chacha20_poly1305}, 0, FIPS_FORBIDDEN_CIPHER | AEAD_CIPHER, AEAD_CTRL},
 #else
-    {{"chacha20_poly1305"}, "chacha20-poly1305", {NULL}, 0, NO_FIPS_CIPHER | AEAD_CIPHER, {{0,0,0}}},
+    {{"chacha20_poly1305"}, "chacha20-poly1305", {NULL}, 0, FIPS_FORBIDDEN_CIPHER | AEAD_CIPHER, {{0,0,0}}},
 #endif
 
 #if defined(HAVE_SM4_GCM)
-    {{"sm4_gcm"}, "sm4-gcm", {NULL}, 16, NO_FIPS_CIPHER | AEAD_CIPHER | GCM_MODE, AEAD_CTRL},
+    {{"sm4_gcm"}, "sm4-gcm", {NULL}, 16, FIPS_FORBIDDEN_CIPHER | AEAD_CIPHER | GCM_MODE, AEAD_CTRL},
 #endif
 #if defined(HAVE_SM4_CCM)
-    {{"sm4_ccm"}, "sm4-ccm", {NULL}, 16, NO_FIPS_CIPHER | AEAD_CIPHER | CCM_MODE, AEAD_CTRL},
+    {{"sm4_ccm"}, "sm4-ccm", {NULL}, 16, FIPS_FORBIDDEN_CIPHER | AEAD_CIPHER | CCM_MODE, AEAD_CTRL},
 #endif
 
 #if defined(HAVE_GCM) && defined(HAS_3_0_API)
@@ -205,6 +205,29 @@ int init_cipher_ctx(ErlNifEnv *env, ErlNifBinary* rt_buf) {
     return 0;
 }
 
+#ifdef HAS_3_0_API
+#ifdef FIPS_SUPPORT
+/* Initialize an algorithm to check that all its dependencies are valid in FIPS */
+static int is_valid_in_fips(const EVP_CIPHER *cipher)
+{
+    EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
+    int usable = 0;
+
+    if (cipher) {
+        unsigned char key[64] = {0};
+        unsigned char iv[32]  = {0};
+        /* Try to initialize the cipher in encryption mode */
+        if (EVP_CipherInit_ex(ctx, cipher, NULL, key, iv, 1) == 1) {
+            usable = 1;
+        }
+    }
+
+    EVP_CIPHER_CTX_free(ctx);
+    return usable;
+}
+#endif /* FIPS_SUPPORT */
+#endif /* HAS_3_0_API */
+
 void init_cipher_types(ErlNifEnv* env)
 {
     struct cipher_type_t* p = cipher_types;
@@ -212,21 +235,21 @@ void init_cipher_types(ErlNifEnv* env)
     num_cipher_types = 0;
     for (p = cipher_types; p->type.str; p++) {
         num_cipher_types++;
-	p->type.atom = enif_make_atom(env, p->type.str);
+        p->type.atom = enif_make_atom(env, p->type.str);
 #ifdef HAS_3_0_API
         if (p->str_v3) {
-            p->cipher.p = EVP_CIPHER_fetch(NULL, p->str_v3, "");
 # ifdef FIPS_SUPPORT
-            /* Try if valid in FIPS */
-            {
-                EVP_CIPHER *tmp = EVP_CIPHER_fetch(NULL, p->str_v3, "fips=yes");
-
-                if (tmp) {
-                    EVP_CIPHER_free(tmp);
-                    p->flags &= ~NO_FIPS_CIPHER;
-                } else
-                    p->flags |= NO_FIPS_CIPHER;
+            EVP_CIPHER* fetched_cipher = EVP_CIPHER_fetch(NULL, p->str_v3, "fips=yes");
+            /* Deeper check for validity in FIPS, also checks for NULL */
+            if (is_valid_in_fips(fetched_cipher)) {
+                p->flags &= ~FIPS_FORBIDDEN_CIPHER;
+                p->cipher.p = fetched_cipher;
+            } else {
+                p->flags |= FIPS_FORBIDDEN_CIPHER;
+                EVP_CIPHER_free(fetched_cipher); /* NULL is allowed */
             }
+#else
+            p->cipher.p = EVP_CIPHER_fetch(NULL, p->str_v3, "");
 # endif /* FIPS_SUPPORT and >=3.0.0 */
         }
 #else
@@ -277,7 +300,7 @@ ERL_NIF_TERM cipher_info_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
     if ((cipherp = get_cipher_type_no_key(argv[0])) == NULL)
         return enif_make_badarg(env);
 
-    if (CIPHER_FORBIDDEN_IN_FIPS(cipherp))
+    if (IS_CIPHER_FORBIDDEN_IN_FIPS(cipherp))
         return enif_raise_exception(env, atom_notsup);
     if ((cipher = cipherp->cipher.p) == NULL)
         return enif_raise_exception(env, atom_notsup);
@@ -391,26 +414,19 @@ int cmp_cipher_types_no_key(const void *keyp, const void *elemp) {
     return ret;
 }
 
-
-ERL_NIF_TERM cipher_types_as_list(ErlNifEnv* env)
+/* Argument fips_forbidden partitions the results by invoking IS_CIPHER_FORBIDDEN_IN_FIPS(p) */
+ERL_NIF_TERM cipher_types_as_list(ErlNifEnv* env, const bool fips_forbidden)
 {
-    struct cipher_type_t* p;
-    ERL_NIF_TERM prev, hd;
+    ERL_NIF_TERM hd = enif_make_list(env, 0);
+    ERL_NIF_TERM prev = atom_undefined;
 
-    hd = enif_make_list(env, 0);
-    prev = atom_undefined;
-
-    for (p = cipher_types; (p->type.atom & (p->type.atom != atom_false)); p++) {
-        if ((prev == p->type.atom) ||
-            CIPHER_FORBIDDEN_IN_FIPS(p) )
+    for (struct cipher_type_t *p = cipher_types; p->type.atom && (p->type.atom != atom_false); p++) {
+        if (prev == p->type.atom || IS_CIPHER_FORBIDDEN_IN_FIPS(p) != fips_forbidden) {
             continue;
-
-        if ((p->cipher.p != NULL) ||
-            (p->flags & AES_CTR_COMPAT))
-            {
-                hd = enif_make_list_cell(env, p->type.atom, hd);
-            }
+        }
+        if (p->cipher.p != NULL || p->flags & AES_CTR_COMPAT) {
+            hd = enif_make_list_cell(env, p->type.atom, hd);
+        }
     }
-
     return hd;
 }

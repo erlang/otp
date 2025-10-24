@@ -26,33 +26,32 @@
 #include "common.h"
 
 struct digest_type_t {
-    const char*  str;        /* before init, NULL for end-of-table */
+    const char* str;         /* before init, NULL for end-of-table */
     const char* str_v3;      /* the algorithm name as in OpenSSL 3.x */
     ERL_NIF_TERM atom;       /* after init, 'false' for end-of-table */
-    unsigned flags;
+    unsigned flags;          /* combination of DIGEST_TYPE_FLAGS */
     struct {
-        const EVP_MD* (*funcp)(void);  /* before init, NULL if notsup */
+        const EVP_MD* (*funcp)(void); /* before init, NULL if notsup */
         const EVP_MD* p;              /* after init, NULL if notsup */
-    }md;
+    } md;
     unsigned int xof_default_length;  /* 0 or default digest length for XOF digests */
 };
 
-/* masks in the flags field if digest_type_t */
-#define NO_FIPS_DIGEST 1
-#define PBKDF2_ELIGIBLE_DIGEST 2
+/* masks in the `flags` field of digest_type_t */
+enum DIGEST_TYPE_FLAGS {
+    FIPS_FORBIDDEN_DIGEST = 1, /* no support in FIPS for digest */
+    PBKDF2_ELIGIBLE_DIGEST = 2
+};
 
 #ifdef FIPS_SUPPORT
-# define DIGEST_FORBIDDEN_IN_FIPS(P) (((P)->flags & NO_FIPS_DIGEST) && FIPS_MODE())
+# define IS_DIGEST_FORBIDDEN_IN_FIPS(p) (((p)->flags & FIPS_FORBIDDEN_DIGEST) && FIPS_MODE())
 #else
-# define DIGEST_FORBIDDEN_IN_FIPS(P) 0
+# define IS_DIGEST_FORBIDDEN_IN_FIPS(P) false
 #endif
-
 
 void init_digest_types(ErlNifEnv* env);
 struct digest_type_t* get_digest_type(ERL_NIF_TERM type);
 
-#ifdef HAS_3_0_API
-ERL_NIF_TERM digest_types_as_list(ErlNifEnv* env);
-#endif
+ERL_NIF_TERM digest_types_as_list(ErlNifEnv* env, bool fips_forbidden);
 
 #endif /* E_DIGEST_H__ */

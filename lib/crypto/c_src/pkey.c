@@ -185,7 +185,7 @@ static int get_pkey_digest_type(ErlNifEnv *env, ERL_NIF_TERM algorithm,
     if ((digp = get_digest_type(type)) == NULL)
         assign_goto(*err_return, notsup, EXCP_BADARG_N(env, type_arg_num, "Bad digest type"));
 
-    if (DIGEST_FORBIDDEN_IN_FIPS(digp))
+    if (IS_DIGEST_FORBIDDEN_IN_FIPS(digp))
         assign_goto(*err_return, notsup, EXCP_BADARG_N(env, type_arg_num, "Digest type forbidden in FIPS"));
 
     if (digp->md.p == NULL)
