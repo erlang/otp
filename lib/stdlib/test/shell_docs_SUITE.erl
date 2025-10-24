@@ -26,7 +26,7 @@
 -export([all/0, suite/0, groups/0, init_per_suite/1, end_per_suite/1,
    init_per_group/2, end_per_group/2, init_per_testcase/2, end_per_testcase/2]).
 
--export([render/1, links/1, normalize/1, render_prop/1,render_non_native/1, ansi/1, columns/1]).
+-export([render/1, links/1, normalize/1, render_prop/1,render_non_native/1, ansi/1, columns/1, render_man/1]).
 -export([render_function/1, render_type/1, render_callback/1, doctests/1]).
 
 -export([render_all/1, update_render/0, update_render/1]).
@@ -50,7 +50,7 @@ all() ->
 
 groups() ->
     [ {prop,[],[render_prop]},
-      {render, [], [render, render_non_native, links, normalize]},
+      {render, [], [render, render_non_native, links, normalize, render_man]},
       {render_smoke, [], [render_function, render_type, render_callback]}
     ].
 
@@ -316,6 +316,23 @@ render_callback(_Config) ->
                         end
                 end, format_configurations())
       end),
+    ok.
+
+render_man(_Config) ->
+    docsmap(
+        fun(Mod, #docs_v1{metadata = Metadata} = D) ->
+            try
+                Path1 = case Metadata of
+                    #{source_path := Path} -> Path;
+                    #{} -> proplists:get_value(source, proplists:get_value(compile, Mod:module_info()))
+                end,
+                man_docs:module_to_manpage(Mod, Path1, D, "3")
+            catch _E:R:ST ->
+                io:format("Failed to render man page for ~p~n~p:~p~n~p~n",
+                          [Mod,R,ST,D]),
+                exit(R)
+            end
+        end),
     ok.
 
 docsmap(Fun) ->
