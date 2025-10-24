@@ -862,9 +862,9 @@ default(common) ->
 
       alive =>
           #{default => #{count_max => 3, interval => infinity},
-            chk => fun(#{count_max := Count, interval := IntervalSeconds}) ->
+            chk => fun(#{count_max := Count, interval := Interval}) ->
                            check_pos_integer(Count) andalso
-                               check_timeout(IntervalSeconds)
+                               check_timeout(Interval)
                    end,
             class => user_option
            },
