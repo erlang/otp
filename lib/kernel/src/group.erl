@@ -174,13 +174,26 @@ init(internal, [Shell, Options], State = #state{ dumb = Dumb }) ->
 
 -spec whereis_shell() -> undefined | pid().
 whereis_shell() ->
-    case node(group_leader()) of
+    GroupLeaderPid = group_leader(),
+    case node(GroupLeaderPid) of
         Node when Node =:= node() ->
-            case user_drv:whereis_group() of
-                undefined -> undefined;
-                GroupPid ->
-                    {dictionary, Dict} = erlang:process_info(GroupPid, dictionary),
-                    proplists:get_value(shell, Dict)
+            Key = {dictionary, shell},
+            maybe
+                {Key, GroupLeaderShellPid} ?= erlang:process_info(GroupLeaderPid, Key),
+                true ?= is_pid(GroupLeaderShellPid),
+                GroupLeaderShellPid
+            else
+                _ ->
+                    maybe
+                        GroupPid ?= user_drv:whereis_group(),
+                        true ?= is_pid(GroupPid),
+                        {Key, GroupShellPid} ?= erlang:process_info(GroupPid, Key),
+                        true ?= is_pid(GroupShellPid),
+                        GroupShellPid
+                    else
+                        _ ->
+                            undefined
+                    end
             end;
         OtherNode ->
             erpc:call(OtherNode, group, whereis_shell, [])
