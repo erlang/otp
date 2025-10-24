@@ -397,8 +397,11 @@ get_command(Prompt, Eval, Bs, RT, FT, Ds) ->
     Parse =
         fun() ->
                 put('$ancestors', Ancestors),
-                PreviousHistory = proplists:get_value(line_history, io:getopts()),
-                [ok = io:setopts([{line_history, true}]) || PreviousHistory =/= undefined],
+                PreviousHistory = case io:getopts() of
+                        {error,_} -> undefined;
+                        Opts0 -> proplists:get_value(line_history, Opts0)
+                    end,
+                _ = [io:setopts([{line_history, true}]) || PreviousHistory =/= undefined],
                 Res = io:scan_erl_exprs(group_leader(), Prompt, {1,1},
                                         [text,{reserved_word_fun,ResWordFun}]),
                 _ = [io:setopts([{line_history, PreviousHistory}]) || PreviousHistory =/= undefined],
