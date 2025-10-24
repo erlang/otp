@@ -125,7 +125,10 @@
 %%     [{ct_hooks,[ts_install_cth]}].
 
 suite() ->
-    [{timetrap,{seconds,40}}].
+    [{ct_hooks,[ts_install_cth,
+                {cth_events,
+                 [{verify_fun, fun verify_events/2}]}]},
+     {timetrap,{seconds,40}}].
 
 all() ->
     [
@@ -235,21 +238,14 @@ end_per_group(_, Config) ->
     Config.
 
 %%--------------------------------------------------------------------
-init_per_testcase(TestCase, Config) ->
+init_per_testcase(_TestCase, Config) ->
     ssh:stop(),
     ssh:start(),
     ssh_test_lib:verify_sanity_check(Config),
-    ssh_test_lib:add_log_handler(TestCase, Config).
+    Config.
 
-end_per_testcase(TestCase, Config) ->
-    {ok, Events} = ssh_test_lib:get_log_events(
-                     proplists:get_value(log_handler_ref, Config)),
-    EventCnt = length(Events),
-    {ok, InterestingEventCnt} = ssh_test_lib:analyze_events(Events, EventCnt),
-    VerificationResult = verify_events(TestCase, InterestingEventCnt),
-    ssh_test_lib:rm_log_handler(TestCase),
-    ssh:stop(),
-    VerificationResult.
+end_per_testcase(_TestCase, _Config) ->
+    ssh:stop().
 
 verify_events(_TestCase, 0) -> ok;
 verify_events(no_sensitive_leak, 1) -> ok;
