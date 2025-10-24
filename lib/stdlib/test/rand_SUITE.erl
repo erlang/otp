@@ -410,7 +410,7 @@ shuffle_elements(Config) when is_list(Config) ->
 shuffle_reference(Config) when is_list(Config) ->
     M = 20,
     Seed = {1,2,3},
-    MD5 = <<166,133,163,222,78,217,48,181,13,208,232,157,114,6,177,15>>,
+    MD5 = <<56,202,188,237,192,69,132,182,227,54,33,68,45,74,208,89>>,
     %%
     SortedList = lists:seq(0, (1 bsl M) - 1),
     S = rand:seed_s(default, Seed),

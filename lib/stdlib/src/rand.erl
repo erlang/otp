@@ -1426,14 +1426,15 @@ shuffle_s(List, {#{max:=_, next:=Next} = AlgHandler, R0})
 %%
 %% As an optimization, since the algorithm is equivalent to its objective
 %% to randomly permute a list, we can when reaching a small enough list
-%% as in 4 or less instead do an explicit random permutation of the list.
+%% as in 3 or 2 instead do an explicit random permutation of the list.
 %%
 %% The `random_bit()` can be generated with small overhead by generating
 %% a random word and cache it, then shift out one bit at the time.
 %%
-%% Also, it is faster to do a 4-way split instead of a 2-way.
+%% Also, it is faster to do a 4-way split by 2 bits instead of,
+%% as described above, a 2-way split by 1 bit.
 
-%% Leaf cases - random permutations for 0..4 elements
+%% Leaf cases - random permutations for 0..3 elements
 shuffle_r([], Acc, P, S) ->
     {Acc, P, S};
 shuffle_r([X], Acc, P, S) ->
@@ -1442,10 +1443,8 @@ shuffle_r([X, Y], Acc, P, S) ->
     shuffle_r_2(X, Acc, P, S, Y);
 shuffle_r([X, Y, Z], Acc, P, S) ->
     shuffle_r_3(X, Acc, P, S, Y, Z);
-shuffle_r([X, Y, Z, Q], Acc, P, S) ->
-    shuffle_r_4(X, Acc, P, S, Y, Z, Q);
 %% General case - split and recursive shuffle
-shuffle_r([_, _, _, _ | _] = List, Acc, P, S) ->
+shuffle_r([_, _, _ | _] = List, Acc, P, S) ->
     %% P and S is bitstream cache and state
     shuffle_r(List, Acc, P, S, [], [], [], []).
 %%
@@ -1481,17 +1480,15 @@ shuffle_r_2(X, Acc, _P, S0, Y) ->
     [P|S1] = shuffle_new_bits(S0),
     shuffle_r_2(X, Acc, P, S1, Y).
 
-%% shuffle_r_3 and shuffle_r_4 below use a small and simple uniform range
-%% algorithm that draws 2 extra bits from the bitstream to lower the risk
-%% of getting V in the truncated high top range of the random bits.
-
 %% Permute 3 elements
+%%
+%% Uses 3 random bits per iteration with a probability of 1/4
+%% to reject and retry, which on average is 3 * 4/3
+%% (infinite sum of (1/4)^k) = 4 bits per permutation
 shuffle_r_3(X, Acc, P0, S, Y, Z)
-  when is_integer(P0), 31 < P0, P0 < 1 bsl 57 ->
-    V = P0 band 31,
-    P1 = P0 bsr 5,
-    case V div 5 of
-        %% Range 6 repeated 5 times uses V = 0..29 of 0..31
+  when is_integer(P0), 7 < P0, P0 < 1 bsl 57 ->
+    P1 = P0 bsr 3,
+    case P0 band 7 of
         0 -> {[Z, Y, X | Acc], P1, S};
         1 -> {[Y, Z, X | Acc], P1, S};
         2 -> {[Z, X, Y | Acc], P1, S};
@@ -1504,44 +1501,6 @@ shuffle_r_3(X, Acc, P0, S, Y, Z)
 shuffle_r_3(X, Acc, _P, S0, Y, Z) ->
     [P|S1] = shuffle_new_bits(S0),
     shuffle_r_3(X, Acc, P, S1, Y, Z).
-
-%% Permute 4 elements
-shuffle_r_4(X, Acc, P0, S, Y, Z, Q)
-  when is_integer(P0), 127 < P0, P0 < 1 bsl 57 ->
-    V = P0 band 127,
-    P1 = P0 bsr 7,
-    case V div 5 of
-        %% Range 24 repeated 5 times uses V = 0..119 of 0..127
-        0  -> {[Q, Z, Y, X | Acc], P1, S};
-        1  -> {[Z, Q, Y, X | Acc], P1, S};
-        2  -> {[Q, Y, Z, X | Acc], P1, S};
-        3  -> {[Y, Q, Z, X | Acc], P1, S};
-        4  -> {[Z, Y, Q, X | Acc], P1, S};
-        5  -> {[Y, Z, Q, X | Acc], P1, S};
-        6  -> {[Q, Z, X, Y | Acc], P1, S};
-        7  -> {[Z, Q, X, Y | Acc], P1, S};
-        8  -> {[Q, X, Z, Y | Acc], P1, S};
-        9  -> {[X, Q, Z, Y | Acc], P1, S};
-        10 -> {[Z, X, Q, Y | Acc], P1, S};
-        11 -> {[X, Z, Q, Y | Acc], P1, S};
-        12 -> {[Q, Y, X, Z | Acc], P1, S};
-        13 -> {[Y, Q, X, Z | Acc], P1, S};
-        14 -> {[Q, X, Y, Z | Acc], P1, S};
-        15 -> {[X, Q, Y, Z | Acc], P1, S};
-        16 -> {[Y, X, Q, Z | Acc], P1, S};
-        17 -> {[X, Y, Q, Z | Acc], P1, S};
-        18 -> {[Z, Y, X, Q | Acc], P1, S};
-        19 -> {[Y, Z, X, Q | Acc], P1, S};
-        20 -> {[Z, X, Y, Q | Acc], P1, S};
-        21 -> {[X, Z, Y, Q | Acc], P1, S};
-        22 -> {[Y, X, Z, Q | Acc], P1, S};
-        23 -> {[X, Y, Z, Q | Acc], P1, S};
-        _  -> % Reject and retry
-            shuffle_r_4(X, Acc, P1, S, Y, Z, Q)
-    end;
-shuffle_r_4(X, Acc, _P, S0, Y, Z, Q) ->
-    [P|S1] = shuffle_new_bits(S0),
-    shuffle_r_4(X, Acc, P, S1, Y, Z, Q).
 
 shuffle_init_bitstream(R, Next, WeakLowBits) ->
     P = 1,                      % Marker for out of random bits
