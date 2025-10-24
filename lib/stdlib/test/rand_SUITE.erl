@@ -27,7 +27,26 @@
 
 -include_lib("common_test/include/ct.hrl").
 
--define(LOOP, 1000000).
+%% Testcases
+-export(
+   [seed/1, interval_int/1, interval_float/1,
+    bytes_count/1,
+    shuffle_elements/1, shuffle_reference/1,
+    basic_stats_shuffle/1, measure_shuffle/1,
+    api_eq/1,
+    mwc59_api/1,
+    exsp_next_api/1, exsp_jump_api/1,
+    splitmix64_next_api/1,
+    reference/1,
+    uniform_real_conv/1,
+    plugin/1, measure/1,
+    short_jump/1
+   ]).
+
+%% Manual test functions
+-export([measure_shuffle/2, measure_shuffle/4]).
+
+-define(LOOP, 1000_000).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -499,54 +518,44 @@ measure_shuffle(Effort) when is_integer(Effort) ->
     Algs =
         [default, exs1024 |
          case crypto_support() of
-             ok -> [crypto_cache, crypto];
+             ok -> [crypto];
              _  -> []
          end],
     measure_shuffle(Effort, Algs).
 
-measure_shuffle(Effort, Algs) ->
-    ct:log("~nrand:shuffle 100 performance~n",[]),
-    Iterations100 = {10000 * Effort, 1000_000, "µs"},
-    [_TMark100,_Overhead100 | _] =
-        measure_1(
-          fun (_Mod, _State) ->
-                  List = lists:seq(1, 100),
-                  fun (St0) ->
-                          case rand:shuffle_s(List, St0) of
-                              {L, St1} when is_list(L) ->
-                                  St1
-                          end
-                  end
-          end, Algs, Iterations100),
-    %%
-    ct:log("~nrand:shuffle 10k performance~n",[]),
-    Iterations10k = {100 * Effort, 1000, "ms"},
-    [_TMark10k, _Overhead10k | _] =
-        measure_1(
-          fun (_Mod, _State) ->
-                  List = lists:seq(1, 10_000),
-                  fun (St0) ->
-                          case rand:shuffle_s(List, St0) of
-                              {L, St1} when is_list(L) ->
-                                  St1
-                          end
-                  end
-           end, Algs, Iterations10k),
-    %%
-    ct:log("~nrand:shuffle 1M performance~n",[]),
-    Iterations1M = {Effort, 1000, "ms"},
-    [_TMark1M, _Overhead1M | _] =
-        measure_1(
-          fun (_Mod, _State) ->
-                  List = lists:seq(1, 1000_000),
-                  fun (St0) ->
-                          case rand:shuffle_s(List, St0) of
-                              {L, St1} when is_list(L) ->
-                                  St1
-                          end
-                  end
-           end, Algs, Iterations1M),
+measure_shuffle(Effort, Algs)
+  when is_integer(Effort), is_list(Algs) ->
+    _ = measure_shuffle(100, us, Algs, 10000 * Effort),
+    _ = measure_shuffle(10_000, ms, Algs, 100 * Effort),
+    _ = measure_shuffle(1000_000, ms, Algs, Effort),
     ok.
+
+measure_shuffle(Size, Unit, Algs, I)
+  when is_integer(Size), is_atom(Unit), is_list(Algs), is_integer(I) ->
+    ct:log("~nShuffle ~w performance~n", [Size]),
+    [TMark, Overhead | _] = RandResults =
+        measure_1(
+          fun (_Mod, _State) ->
+                  List = lists:seq(1, Size),
+                  fun (St0) ->
+                          case rand:shuffle_s(List, St0) of
+                              {L, St1} when is_list(L) ->
+                                  St1
+                          end
+                  end
+          end, Algs, {I, Unit}),
+    RandResults ++
+        [measure_1(
+           fun (_Mod, _State) ->
+                   List = lists:seq(1, Size),
+                   fun (St0) ->
+                           case shuffle_ref(List, St0) of
+                               {L, St1} when is_list(L) ->
+                                   St1
+                           end
+                   end
+           end, {shuffle_ref,Alg}, {I, Unit}, TMark, Overhead)
+         || Alg <- Algs].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -1262,8 +1271,8 @@ measure(Config) when is_list(Config) ->
             {skip,{will_not_run_in_scaled_time,Scale}}
     end;
 measure(Effort) when is_integer(Effort) ->
-    Iterations = ?LOOP div 5,
-    do_measure(Iterations * Effort).
+    I = ?LOOP div 5,
+    do_measure(I * Effort).
 
 
 -define(CHECK_UNIFORM_RANGE(Gen, Range, X, St),
@@ -1293,7 +1302,7 @@ measure(Effort) when is_integer(Effort) ->
         end).
 
 do_measure(I) ->
-    Iterations = {I, 1000_000_000, "ns"},
+    Iterations = {I, ns},
     Algs =
         case crypto_support() of
             ok ->
@@ -1954,7 +1963,8 @@ measure_1(InitFun, Algs, Iterations) ->
         [measure_1(InitFun, Alg, Iterations, TMark, Overhead)
          || Alg <- tl(Algs)].
 
-measure_1(InitFun, Alg, {I,Scale,Unit}, TMark, Overhead) when is_integer(I) ->
+measure_1(InitFun, Alg, {I,Unit}, TMark, Overhead)
+  when is_integer(I), is_atom(Unit) ->
     Parent = self(),
     MeasureFun =
         fun () ->
@@ -1974,11 +1984,12 @@ measure_1(InitFun, Alg, {I,Scale,Unit}, TMark, Overhead) when is_integer(I) ->
                             io_lib:format(
                               "~8.1f%", [(Time * 100 + 50) / TMark])
                     end,
+                {Scale, UnitStr} = scale(Unit),
                 io:format(
                   "~.24w: ~8.1f ~s ~s~n",
                   [Alg,
-                   (Time + 0.5) * 1.0e-6 * Scale / I,
-                   Unit, Percent]),
+                   (Time + 0.5) / 1000_000 * Scale / I,
+                   UnitStr, Percent]),
                 Parent ! {self(), Time},
                 ok
         end,
@@ -1986,6 +1997,11 @@ measure_1(InitFun, Alg, {I,Scale,Unit}, TMark, Overhead) when is_integer(I) ->
     receive
 	{Pid, Msg} -> Msg
     end.
+
+scale(s)  -> {1, "s"};
+scale(ms) -> {1000, "ms"};
+scale(us) -> {1000_000, "µs"};
+scale(ns) -> {1000_000_000, "ns"}.
 
 measure_init(Alg) ->
     case Alg of
@@ -2024,7 +2040,9 @@ measure_init(Alg) ->
                     {_, S} = rand:seed_s(exsp),
                     {rand, S};
                 splitmix64 ->
-                    {rand, erlang:unique_integer()}
+                    {rand, erlang:unique_integer()};
+                shuffle_ref ->
+                    measure_init(Tag)
             end;
         _ ->
             {rand, rand:seed_s(Alg)}
@@ -2681,3 +2699,50 @@ half_range({#{bits:=Bits}, _}) -> 1 bsl (Bits - 1);
 half_range({#{max:=Max}, _}) -> (Max bsr 1) + 1;
 half_range({#{}, _}) -> 1 bsl 63; % crypto
 half_range({_, _, _}) -> 1 bsl 50. % random
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Reference shuffle algorithm
+%%
+%% Decorate, sort, undecorate and shuffle duplicates.
+%% O(N) random number generations if there are no duplicates.
+%% O(N log N) for the whole algorithm due to the sort,
+%% which is as good as it gets.
+
+shuffle_ref([],        State) -> {[], State};
+shuffle_ref([_] = L,   State) -> {L,  State};
+shuffle_ref([_|_] = L, State) -> shuffle_r(L, State, []).
+
+%% Recursion entry point
+shuffle_r([X, Y], State0, Acc) ->
+    %% Optimization for 2 elements; the most common case for duplicates
+    {V, State1} = rand:uniform_s(2, State0),
+    {case V of
+         1 -> [Y, X | Acc];
+         2 -> [X, Y | Acc]
+     end, State1};
+shuffle_r([_, _ | _] = L, State, Acc) ->
+    shuffle_tag(L, State, Acc, []).
+
+%% Tag elements with random integers
+shuffle_tag([X | L], State0, Acc, TL) ->
+    {T, State1} = rand:uniform_s(1 bsl 56, State0),
+    shuffle_tag(L, State1, Acc, [{T,X} | TL]);
+shuffle_tag([], State, Acc, TL) ->
+    shuffle_untag(lists:keysort(1, TL), State, Acc).
+
+%% Strip the tag integers
+shuffle_untag([{T,X}, {T,Y} | TL], State, Acc) ->
+    shuffle_duplicates(TL, State, Acc, T, [Y, X]);
+shuffle_untag([{_,X} | TL], State, Acc) ->
+    shuffle_untag(TL, State, [X | Acc]);
+shuffle_untag([], State, Acc) ->
+    {Acc, State}.
+%%
+%% Collect duplicates
+shuffle_duplicates([{T,Z} | TL], State, Acc, T, Dups) ->
+    shuffle_duplicates(TL, State, Acc, T, [Z | Dups]);
+shuffle_duplicates(TL, State0, Acc0, _T, Dups) when is_list(TL) ->
+    %% Shuffle duplicates onto the result
+    {Acc1, State1} = shuffle_r(Dups, State0, Acc0),
+    shuffle_untag(TL, State1, Acc1).
