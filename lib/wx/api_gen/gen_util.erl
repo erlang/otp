@@ -304,8 +304,8 @@ append_license(_) ->
 c_copyright() ->
     {CurrentYear,_,_}   = erlang:date(),
     w("/*~n",[]),
-    w(" * %CopyrightBegin%
-    w(" *
+    w(" * %CopyrightBegin%~n",[]),
+    w(" *~n",[]),
     w(" * SPDX-License-Identifier: Apache-2.0~n",[]),
     w(" *~n",[]),
     w(" * Copyright Ericsson AB 2008-~p. All Rights Reserved.~n",[CurrentYear]),
