@@ -425,6 +425,7 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(min_rtt);                  \
     GLOBAL_ATOM_DEF(monitor);		       \
     GLOBAL_ATOM_DEF(more);                     \
+    GLOBAL_ATOM_DEF(mptcp);                    \
     GLOBAL_ATOM_DEF(msfilter);                 \
     GLOBAL_ATOM_DEF(mss);                      \
     GLOBAL_ATOM_DEF(mtu);                      \
