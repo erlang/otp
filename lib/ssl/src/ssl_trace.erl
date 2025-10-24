@@ -489,7 +489,7 @@ trace_profiles() ->
       fun(M, F, A) -> dbg:ctpl(M, F, A) end,
       [{tls_gen_connection_1_3, [{handle_key_update, 2}]},
        {tls_sender, [{init, 3}, {time_to_rekey, 6},
-                     {send_post_handshake_data, 4}]},
+                     {send_post_handshake_data, 5}]},
        {tls_v1, [{update_traffic_secret, 2}]}]},
      {rle, %% role
       fun(M, F, A) -> dbg:tpl(M, F, A, x) end,
