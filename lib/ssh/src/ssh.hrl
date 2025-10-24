@@ -546,13 +546,14 @@ protocol).
 -type fd_common_option() :: {fd, gen_tcp:socket()} .
 
 -doc """
-This option is used to configure the alive messages. Alive messages are sent through the encrypted
-channel and are typically used to detect that a connection became unresponsive.
+This option is used to configure the alive messages. Alive messages are sent
+through the encrypted channel and are typically used to detect that a
+connection became unresponsive.
 
-The `count_max` sets the maximum number
+`count_max` sets the maximum number
 of alive messages which may be sent without receiving any messages back
 from the peer. If this threshold is reached the connection will be terminated.
-The second value of the tuple sets the timeout interval, in seconds, after which, if no data
+`interval` sets a timeout interval, in milliseconds, after which, if no data
 has been received from the peer, a message to request a response from the peer is sent.
 
 The default is `#{count_max => 3, interval => infinity}`, which means that alive
