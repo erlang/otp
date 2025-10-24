@@ -341,7 +341,8 @@ start_shell(Port, IOServer, ExtraOptions) ->
                      [?MODULE,?LINE,self(), Port, IOServer, ExtraOptions]),
 	      Options = [{user_interaction, false},
 			 {silently_accept_hosts,true},
-                         {save_accepted_host,false}
+                         {save_accepted_host,false},
+                         {alive, #{count_max => 3, interval => 100}}
                          | ExtraOptions],
               try
                   group_leader(IOServer, self()),

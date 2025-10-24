@@ -1310,7 +1310,17 @@ handle_msg(#ssh_msg_request_success{data = Data},
 	   #connection{requests = [{_, From, Fun} | Rest]} = Connection0, _, _SSH) ->
     Connection = Fun({success,Data}, Connection0),
     {[{channel_request_reply, From, {success, Data}}],
-     Connection#connection{requests = Rest}}.
+     Connection#connection{requests = Rest}};
+
+%% alive responses
+handle_msg(#ssh_msg_request_success{},
+	   #connection{requests = []} = Connection, _, _SSH) ->
+    {[], Connection};
+
+handle_msg(#ssh_msg_request_failure{},
+	   #connection{requests = []} = Connection, _, _SSH) ->
+    {[], Connection}.
+
 
 
 %%%----------------------------------------------------------------

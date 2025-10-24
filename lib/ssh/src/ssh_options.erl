@@ -860,6 +860,15 @@ default(common) ->
              class => user_option
             },
 
+      alive =>
+          #{default => #{count_max => 3, interval => infinity},
+            chk => fun(#{count_max := Count, interval := Interval}) ->
+                           check_pos_integer(Count) andalso
+                               check_timeout(Interval)
+                   end,
+            class => user_option
+           },
+
 %%%%% Undocumented
        transport =>
            #{default => ?DEFAULT_TRANSPORT,

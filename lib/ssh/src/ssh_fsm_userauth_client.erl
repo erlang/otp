@@ -69,7 +69,11 @@ handle_event(internal, #ssh_msg_userauth_success{}, {userauth,client}, D0=#data{
     ssh_auth:ssh_msg_userauth_result(success),
     ssh_connection_handler:handshake(ssh_connected, D0),
     D = D0#data{ssh_params=Ssh#ssh{authenticated = true}},
-    {next_state, {connected,client}, D, {change_callback_module,ssh_connection_handler}};
+    {_AliveCount, AliveInterval} = ?GET_ALIVE_OPT(Ssh#ssh.opts),
+    {next_state, {connected,client}, D,
+     [{{timeout, alive}, AliveInterval, none},
+      {change_callback_module,ssh_connection_handler}]};
+
 
 
 %%---- userauth failure response to clientfrom the server
