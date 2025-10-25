@@ -104,6 +104,18 @@ hs_data_inet_tcp(Driver, Socket) ->
           end}.
 
 hs_data_ssl(Family, #sslsocket{payload_sender = DistCtrl} = SslSocket) ->
+    %% The distribution controller (output controller) needs to be linked
+    %% to the caller, which becomes the distribution ticker
+    %% after distribution handshake.
+    %%
+    %% net_kernel takes down either the distribution controller
+    %% or the ticker, but all processes involved in the channel
+    %% must be taken down when the channel goes down.
+    %%
+    %% The SSL socket receiver and payload sender will go down
+    %% together thanks to their supervisor.
+    %%
+    link(DistCtrl),
     {ok, Address} =
         maybe
             {error, einval} ?= ssl:peername(SslSocket),
@@ -513,15 +525,13 @@ do_accept(
             Timer = dist_util:start_timer(SetupTime),
             {HSData0, NewAllowed} =
                 case DistSocket of
-                    SslSocket = #sslsocket{payload_sender = Sender} ->
-                        link(Sender),
-                        {hs_data_ssl(Family, SslSocket),
-                         allowed_nodes(SslSocket, Allowed)};
+                    SslSocket = #sslsocket{} ->
+                        HSDataSsl = hs_data_ssl(Family, SslSocket),
+                        {HSDataSsl, allowed_nodes(SslSocket, Allowed)};
                     PortSocket when is_port(DistSocket) ->
                         %%% XXX Breaking abstraction barrier
                         Driver = erlang:port_get_data(PortSocket),
-                        {hs_data_inet_tcp(Driver, PortSocket),
-                         Allowed}
+                        {hs_data_inet_tcp(Driver, PortSocket), Allowed}
                 end,
             HSData =
                 HSData0#hs_data{
@@ -648,13 +658,14 @@ do_setup(
     KTLS = proplists:get_value(ktls, Opts, false),
     dist_util:reset_timer(Timer),
     maybe
-        {ok, #sslsocket{connection_handler = Receiver, payload_sender = Sender} = SslSocket} ?=
+        {ok, SslSocket} ?=
             ssl:connect(IP, PortNum, Opts, net_kernel:connecttime()),
         HSData =
             case KTLS of
                 true ->
                     {ok, KtlsInfo} =
-                        ssl_gen_statem:ktls_handover(Receiver),
+                        ssl_gen_statem:ktls_handover(
+                          SslSocket#sslsocket.connection_handler),
                     Socket = maps:get(socket, KtlsInfo),
                     case inet_set_ktls(KtlsInfo) of
                         ok when is_port(Socket) ->
@@ -667,9 +678,7 @@ do_setup(
                                trace({set_ktls_failed, KtlsReason}))
                     end;
                 false ->
-                    _ = monitor_pid(Sender),
                     ok = ssl:controlling_process(SslSocket, self()),
-                    link(Sender),
                     hs_data_ssl(Family, SslSocket)
             end
             #hs_data{
@@ -1011,26 +1020,13 @@ set_ktls_cipher(
          cipher_suite := CipherSuite,
          %%
          socket := Socket,
-         setopt_fun := SetoptFun,
-         getopt_fun := GetoptFun },
+         setopt_fun := SetoptFun },
   OS, CipherState, CipherSeq, TxRx) ->
     maybe
         {ok, {Option, Value}} ?=
             ktls_opt_cipher(
               OS, TLS_version, CipherSuite, CipherState, CipherSeq, TxRx),
-        _ = SetoptFun(Socket, Option, Value),
-        case TxRx of
-            tx ->
-                Size = byte_size(Value),
-                case GetoptFun(Socket, Option, Size) of
-                    {ok, Value} ->
-                        ok;
-                    Other ->
-                        {error, {ktls_set_cipher_failed, Other}}
-                end;
-            rx ->
-                ok
-        end
+        SetoptFun(Socket, Option, Value)
     end.
 
 ktls_os() ->
