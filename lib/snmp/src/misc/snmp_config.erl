@@ -1678,7 +1678,7 @@ print_q(Q, Default) when is_list(Default) ->
 %% Defval = string() | mandatory
 ask(Q, Default, Verify) when is_list(Q) andalso is_function(Verify) ->
     print_q(Q, Default),
-    PrelAnsw = io:get_line(''),
+    PrelAnsw = conv_bin_to_list(io:get_line('')),
     Answer = 
 	case remove_newline(PrelAnsw) of
 	    "" when Default =/= mandatory -> Default;
@@ -1741,7 +1741,12 @@ guess_engine_name() ->
 % 	{_,_} -> "user_id"
 %     end.
 
-    
+% This is neccessary as in Elixir io:get_line returns a binary
+conv_bin_to_list(Bin) when is_binary(Bin) ->
+	binary:bin_to_list(Bin);
+conv_bin_to_list(Str) ->
+	Str.
+
 remove_newline(Str) -> 
     lists:delete($\n, Str).
 
