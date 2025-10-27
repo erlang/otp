@@ -1280,10 +1280,14 @@ beam_bounds_type(Op, Type, [LHS, RHS]) ->
 get_range(LHS, RHS, Type) ->
     get_range(meet(LHS, Type), meet(RHS, Type)).
 
-get_range(#t_float{}=LHS, #t_float{}=RHS) ->
-    {float, get_range(LHS), get_range(RHS)};
 get_range(#t_integer{}=LHS, #t_integer{}=RHS) ->
     {integer, get_range(LHS), get_range(RHS)};
+get_range(#t_float{}=LHS, #t_float{}=RHS) ->
+    {float, get_range(LHS), get_range(RHS)};
+get_range(#t_float{}=LHS, RHS) ->
+    {float, get_range(LHS), get_range(RHS)};
+get_range(LHS, #t_float{}=RHS) ->
+    {float, get_range(LHS), get_range(RHS)};
 get_range(LHS, RHS) ->
     {number, get_range(LHS), get_range(RHS)}.
 

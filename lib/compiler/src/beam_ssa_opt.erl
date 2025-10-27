@@ -272,6 +272,7 @@ module_passes(Opts) ->
 %% are repeated as required.
 repeated_passes(Opts) ->
     Ps = [?PASS(ssa_opt_live),
+          ?PASS(ssa_opt_sw),
           ?PASS(ssa_opt_is_between),
           ?PASS(ssa_opt_ne),
           ?PASS(ssa_opt_bs_create_bin),
@@ -301,7 +302,6 @@ epilogue_module_passes(Opts) ->
 early_epilogue_passes(Opts) ->
     Ps = [?PASS(ssa_opt_type_finish),
           ?PASS(ssa_opt_float),
-          ?PASS(ssa_opt_sw),
           ?PASS(ssa_opt_no_reuse),
           ?PASS(ssa_opt_deoptimize_update_tuple)],
     passes_1(Ps, Opts).

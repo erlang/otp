@@ -133,11 +133,15 @@ opt_start_1([], _CommittedArgs, StMap, FuncDb, _MetaCache) ->
 %% [1] http://www.it.uu.se/research/group/hipe/papers/succ_types.pdf
 %%
 
+-type uvs() :: #{beam_ssa:b_var() => {_,non_neg_integer()}}.
+
 -record(sig_st,
         { wl = wl_new() :: worklist(),
           committed = #{} :: #{ func_id() => [type()] },
           updates = #{} :: #{ func_id() => [type()] },
-          meta_cache = #{} :: meta_cache()}).
+          meta_cache = #{} :: meta_cache(),
+          unstable = #{} :: #{beam_ssa:label() => uvs()},
+          uvs = #{} :: uvs()}).
 
 signatures(StMap, FuncDb0) ->
     State0 = init_sig_st(StMap, FuncDb0),
@@ -220,7 +224,15 @@ sig_function_1(Id, StMap, State0, FuncDb) ->
 
     Wl0 = State1#sig_st.wl,
 
-    {State, SuccTypes} = sig_bs(Linear, Ds, Ls, FuncDb, #{}, [], Meta, State2),
+    Unstable0 = State1#sig_st.unstable,
+    Uvs0 = maps:get(Id, Unstable0, #{}),
+    State3 = State2#sig_st{uvs=Uvs0},
+
+    {State4, SuccTypes} = sig_bs(Linear, Ds, Ls, FuncDb, #{}, [], Meta, State3),
+
+    Uvs = State4#sig_st.uvs,
+    Unstable = Unstable0#{Id => Uvs},
+    State = State4#sig_st{unstable=Unstable,uvs=#{}},
 
     WlChanged = wl_changed(Wl0, State#sig_st.wl),
     #{ Id := #func_info{succ_types=SuccTypes0}=Entry0 } = FuncDb,
@@ -307,12 +319,16 @@ sig_is([#b_set{op=make_fun,args=Args0,dst=Dst}=I0|Is],
     Ts = update_types(I, Ts0, Ds0),
     Ds = Ds0#{ Dst => I },
     sig_is(Is, Ts, Ds, Ls, Fdb, Sub0, State);
-sig_is([I0 | Is], Ts0, Ds0, Ls, Fdb, Sub0, State) ->
-    case simplify(I0, Ts0, Ds0, Ls, Sub0) of
+sig_is([I0 | Is], Ts0, Ds0, Ls, Fdb, Sub0, State0) ->
+    Uvs0 = State0#sig_st.uvs,
+    case simplify(I0, Uvs0, Ts0, Ds0, Ls, Sub0) of
         {#b_set{}, Ts, Ds} ->
+            sig_is(Is, Ts, Ds, Ls, Fdb, Sub0, State0);
+        {#b_set{}, Ts, Ds, Uvs} ->
+            State = State0#sig_st{uvs=Uvs},
             sig_is(Is, Ts, Ds, Ls, Fdb, Sub0, State);
         Sub when is_map(Sub) ->
-            sig_is(Is, Ts0, Ds0, Ls, Fdb, Sub, State)
+            sig_is(Is, Ts0, Ds0, Ls, Fdb, Sub, State0)
     end;
 sig_is([], Ts, Ds, _Ls, _Fdb, Sub, State) ->
     {Ts, Ds, Sub, State}.
@@ -579,8 +595,11 @@ opt_is([#b_set{op=make_fun,args=Args0,dst=Dst}=I0|Is],
     Ds = Ds0#{ Dst => I },
     opt_is(Is, Ts, Ds, Ls, Fdb, Sub0, Meta, [I|Acc]);
 opt_is([I0 | Is], Ts0, Ds0, Ls, Fdb, Sub0, Meta, Acc) ->
-    case simplify(I0, Ts0, Ds0, Ls, Sub0) of
+    case simplify(I0, none, Ts0, Ds0, Ls, Sub0) of
         {#b_set{}=I1, Ts, Ds} ->
+            I = opt_anno_types(I1, Ts),
+            opt_is(Is, Ts, Ds, Ls, Fdb, Sub0, Meta, [I | Acc]);
+        {#b_set{}=I1, Ts, Ds, _} ->
             I = opt_anno_types(I1, Ts),
             opt_is(Is, Ts, Ds, Ls, Fdb, Sub0, Meta, [I | Acc]);
         Sub when is_map(Sub) ->
@@ -1012,7 +1031,7 @@ simplify_terminator(#b_ret{arg=Arg,anno=Anno0}=Ret0, Ts, Ds, Sub) ->
 %% was redundant.
 %%
 
-simplify(#b_set{op=phi,dst=Dst,args=Args0}=I0, Ts0, Ds0, Ls, Sub) ->
+simplify(#b_set{op=phi,dst=Dst,args=Args0}=I0, _Uvs, Ts0, Ds0, Ls, Sub) ->
     %% Simplify the phi node by removing all predecessor blocks that no
     %% longer exists or no longer branches to this block.
     {Type, Args} = simplify_phi_args(Args0, Ls, Sub, none, []),
@@ -1030,7 +1049,7 @@ simplify(#b_set{op=phi,dst=Dst,args=Args0}=I0, Ts0, Ds0, Ls, Sub) ->
             {I, Ts, Ds}
     end;
 simplify(#b_set{op={succeeded,Kind},args=[Arg],dst=Dst}=I,
-         Ts0, Ds0, _Ls, Sub) ->
+         _Uvs, Ts0, Ds0, _Ls, Sub) ->
     Type = case will_succeed(I, Ts0, Ds0, Sub) of
                yes -> beam_types:make_atom(true);
                no -> beam_types:make_atom(false);
@@ -1056,7 +1075,7 @@ simplify(#b_set{op={succeeded,Kind},args=[Arg],dst=Dst}=I,
             Ds = Ds0#{ Dst => I },
             {I, Ts, Ds}
     end;
-simplify(#b_set{op=bs_match,dst=Dst,args=Args0}=I0, Ts0, Ds0, _Ls, Sub) ->
+simplify(#b_set{op=bs_match,dst=Dst,args=Args0}=I0, _Uvs, Ts0, Ds0, _Ls, Sub) ->
     Args = simplify_args(Args0, Ts0, Sub),
     I1 = I0#b_set{args=Args},
     I2 = case {Args0,Args} of
@@ -1075,7 +1094,7 @@ simplify(#b_set{op=bs_match,dst=Dst,args=Args0}=I0, Ts0, Ds0, _Ls, Sub) ->
     Ds = Ds0#{ Dst => I },
     {I, Ts, Ds};
 simplify(#b_set{op=bs_create_bin=Op,dst=Dst,args=Args0,anno=Anno}=I0,
-         Ts0, Ds0, _Ls, Sub) ->
+         _Uvs, Ts0, Ds0, _Ls, Sub) ->
     Args = simplify_args(Args0, Ts0, Sub),
 
     case Args of
@@ -1099,10 +1118,15 @@ simplify(#b_set{op=bs_create_bin=Op,dst=Dst,args=Args0,anno=Anno}=I0,
             Ds = Ds0#{ Dst => I },
             {I, Ts, Ds}
     end;
-simplify(#b_set{dst=Dst,args=Args0}=I0, Ts0, Ds0, _Ls, Sub) ->
+simplify(#b_set{dst=Dst,args=Args0}=I0, Uvs0, Ts0, Ds0, _Ls, Sub) ->
     Args = simplify_args(Args0, Ts0, Sub),
     I1 = beam_ssa:normalize(I0#b_set{args=Args}),
     case simplify(I1, Ts0, Ds0) of
+        #b_set{op={bif,Op}}=I when Op =:= '+'; Op =:= '-';
+                                   Op =:= '*'; Op =:= 'bnot' ->
+            {Ts,Uvs} = update_arith_types(I, Ts0, Ds0, Uvs0),
+            Ds = Ds0#{ Dst => I },
+            {I, Ts, Ds, Uvs};
         #b_set{}=I ->
             Ts = update_types(I, Ts0, Ds0),
             Ds = Ds0#{ Dst => I },
@@ -1111,6 +1135,140 @@ simplify(#b_set{dst=Dst,args=Args0}=I0, Ts0, Ds0, _Ls, Sub) ->
             Sub#{ Dst => Lit };
         #b_var{}=Var ->
             Sub#{ Dst => Var }
+    end.
+
+update_arith_types(#b_set{dst=Dst}=I, Ts0, Ds, UnstableVars0) ->
+    %% "Arith types" can be more exact, but can diverge if used for
+    %% computing the range for one of `+`, `-`, '*`, or `bnot` in a
+    %% recursive function. For example:
+    %%
+    %%    len(L) -> len(L, 0).
+    %%
+    %%    len([], N) -> N;
+    %%    len([_|T], N) -> len(N + 1).
+    %%
+    %% The initial range for `N` will be {0,0}. The range after
+    %% evaluating `N + 1` when using arith types will be {1,1}, then
+    %% {2,2}, and so on forever.
+    %%
+    %% The conservative range calculation done by update_types/3 will
+    %% set the range to {1,'+inf'}.
+    %%
+    %% Arith types will work when the new range is not fed back to
+    %% the operation, or if there is some constraint that prevents
+    %% the range from growing forever. For example:
+    %%
+    %%     intsum(N) when is_integer(N, 0, 1 bsl 59) ->
+    %%         {sum,intsum(0, N, 0)}.
+    %%
+    %%     intsum(I, N, Sum) when I < N ->
+    %%         intsum(I + 1, N, Sum + I);
+    %%     intsum(_, _, Sum) ->
+    %%         Sum.
+    %%
+    case update_arith_types_1(I, Ts0, UnstableVars0) of
+        {any,UnstableVars} ->
+            %% The arithmetic type is either `any` or diverging.
+            Ts = update_types(I, Ts0, Ds),
+            {Ts,UnstableVars};
+        {Type,UnstableVars} ->
+            %% The arithmetic type is stable.
+            Ts = Ts0#{Dst => Type},
+            {Ts,UnstableVars}
+    end.
+
+update_arith_types_1(#b_set{op={bif,_}=Op,args=BifArgs}=I,
+                     Ts0, UnstableVars0) ->
+    ArgTypes = concrete_types(BifArgs, Ts0),
+    case beam_call_types:arith_type(Op, ArgTypes) of
+        any ->
+            {any,UnstableVars0};
+        #t_float{elements=any} ->
+            {any,UnstableVars0};
+        #t_integer{elements=any} ->
+            {any,UnstableVars0};
+        #t_number{elements=any} ->
+            {any,UnstableVars0};
+        Type ->
+            case update_arith_types_safe(I, ArgTypes, Type, UnstableVars0) of
+                {safe,UnstableVars} ->
+                    %% Safe (permanently or temporarily).
+                    {Type,UnstableVars};
+                {unsafe,UnstableVars} ->
+                    %% This variable doesn't seem to converge to a
+                    %% stable range.
+                    {update_arith_types_2(I, ArgTypes),UnstableVars}
+            end
+    end.
+
+update_arith_types_2(#b_set{op={bif,'-'}=Op,args=[_,#b_literal{val=1}]},
+                     [#t_integer{elements={Min,_Max}}=ArgType|_])
+  when is_integer(Min), Min > 0 ->
+    %% We have almost given up on this operation. As a final attempt,
+    %% subtract a number that will set the minimum value to 0.
+    Args = [ArgType,#t_integer{elements={Min,Min}}],
+    beam_call_types:arith_type(Op, Args);
+update_arith_types_2(#b_set{}, _) ->
+    %% Fall back to using more conservative update_types/3 approach
+    %% (setting one end of the range to infinity).
+    any.
+
+update_arith_types_safe(#b_set{}, _ArgTypes, _Type, none) ->
+    %% Not running the signatures sub pass; it is always safe to
+    %% propagate types, because they will only be propagated within
+    %% the current function.
+    {safe,none};
+update_arith_types_safe(#b_set{dst=Dst}=I, ArgTypes, Type, UnstableVars0) ->
+    case UnstableVars0 of
+        #{Dst := {Type,_}} ->
+            %% No change since last time.
+            {safe,UnstableVars0};
+        #{Dst := {_,0}} ->
+            %% The counter has run down. Give up on using the more
+            %% exact arith types.
+            {unsafe,UnstableVars0};
+        #{Dst := {_,Count}} when is_integer(Count) ->
+            %% Try using this type.
+            UnstableVars = UnstableVars0#{Dst := {Type,Count-1}},
+            {safe,UnstableVars};
+        #{} ->
+            %% We have not seen this variable before. Initialize
+            %% a counter for the number of times to try.
+            Counter = init_counter(I, ArgTypes),
+            UnstableVars = UnstableVars0#{Dst => {Type,Counter}},
+            {safe,UnstableVars}
+    end.
+
+init_counter(#b_set{op=Op}, ArgTypes) ->
+    case Op of
+        {bif,'+'} -> 64;
+        {bif,'-'} ->
+            Def = 64,
+            case ArgTypes of
+                [#t_integer{elements={_Min,Max}},
+                 #t_integer{elements={1,1}}] ->
+                    %% Avoid passing zero because it is unlikely to
+                    %% improve the range.
+                    max(1, min(Def, Max));
+                _ ->
+                    Def
+            end;
+        {bif,'bnot'} -> 60;
+        {bif,'*'} ->
+            case ArgTypes of
+                [_,#t_integer{elements={_,Max}}] when Max > 0 ->
+                    %% Use a conservative number of attempts to
+                    %% avoid overflowing a small.
+                    try floor(32.0 / math:log2(abs(Max))) of
+                        Log ->
+                            max(1, min(32, Log))
+                    catch
+                        _:_ ->
+                            1
+                    end;
+                _ ->
+                    1
+            end
     end.
 
 simplify(#b_set{op={bif,'band'},args=Args}=I, Ts, Ds) ->
