@@ -1803,17 +1803,14 @@ if ((xclass_props & XCLASS_REQUIRED) != 0)
       PUT(code, 0, (uint32_t)(char_lists_size >> 1));
       code += LINK_SIZE;
 
-#if defined PCRE2_DEBUG || defined SUPPORT_VALGRIND
+      /* If we added padding to align the list, initialize the bytes to
+      defined values, so the library is valgrind-clean. It could also
+      be a security concern for clients calling into PCRE2 via bindings
+      from a memory-safe language, if pcre2_serialize_encode() exposes
+      uninitialized memory that may contain sensitive information. */
+
       if ((char_lists_size & 0x2) != 0)
-        {
-        /* In debug the unused 16 bit value is set
-        to a fixed value and marked unused. */
-        ((uint16_t*)data)[-1] = 0x5555;
-#ifdef SUPPORT_VALGRIND
-        VALGRIND_MAKE_MEM_NOACCESS(data - 2, 2);
-#endif
-        }
-#endif
+        ((uint16_t*)data)[-1] = 0xdead;
 
       cb->char_lists_size =
         CLIST_ALIGN_TO(char_lists_size, sizeof(uint32_t));
