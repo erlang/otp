@@ -102,6 +102,16 @@ This document describes the changes made to the Syntax_Tools application.
 [PR-9819]: https://github.com/erlang/otp/pull/9819
 [PR-9670]: https://github.com/erlang/otp/pull/9670
 
+## Syntax_Tools 3.2.2.2
+
+### Fixed Bugs and Malfunctions
+
+- Annotate map comprehensions and generators
+
+  Own Id: OTP-19817 Aux Id: [GH-10119]
+
+[GH-10119]: https://github.com/erlang/otp/issues/10119
+
 ## Syntax_Tools 3.2.2.1
 
 ### Fixed Bugs and Malfunctions
