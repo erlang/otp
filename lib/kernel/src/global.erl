@@ -2108,7 +2108,7 @@ can_set_lock({ResourceId, LockRequesterId}) ->
     end.
 
 insert_lock({ResourceId, LockRequesterId}=Id, Pid, PidRefs, S) ->
-    Ref = erlang:monitor(process, Pid),
+    Ref = erlang:monitor(process, Pid, [priority]),
     save_node_resource_info(node(Pid), Ref),
     true = ets:insert(global_pid_ids, {Pid, ResourceId}),
     true = ets:insert(global_pid_ids, {Ref, ResourceId}),
@@ -2226,7 +2226,7 @@ sync_other(Node, N) ->
     % exit(normal).
 
 insert_global_name(Name, Pid, Method, FromPidOrNode, ExtraInfo, S) ->
-    Ref = erlang:monitor(process, Pid),
+    Ref = erlang:monitor(process, Pid, [priority]),
     save_node_resource_info(node(Pid), Ref),
     true = ets:insert(global_names, {Name, Pid, Method, Ref}),
     true = ets:insert(global_pid_names, {Pid, Name}),
