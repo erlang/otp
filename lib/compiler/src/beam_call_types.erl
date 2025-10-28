@@ -492,9 +492,7 @@ types(erlang, 'bnot', [_]) ->
     %% between the ranges calculated by the type pass and by
     %% beam_validator.
     %%
-    %% Therefore, don't attempt to calculate a range now. Save the
-    %% range calculation for the opt_ranges pass (arith_type/2), which
-    %% is only run once.
+    %% Therefore, don't attempt to calculate a range now.
     sub_unsafe(#t_integer{}, [#t_integer{}]);
 
 %% Fixed-type arithmetic
