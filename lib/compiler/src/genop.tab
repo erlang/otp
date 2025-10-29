@@ -710,3 +710,11 @@ BEAM_FORMAT_NUMBER=0
 ##       * {atom,entry}       - Function entry.
 ##       * {atom,line}        - Any other line in the function.
 184: debug_line/4
+
+# OTP 29
+
+## @spec bif3 Lbl Bif Arg1 Arg2 Arg3 Reg
+## @doc Call the bif Bif with the arguments Arg1, Arg2, and Arg3,
+##      and store the result in Reg.
+##      On failure jump to Lbl.
+185: bif3/6
