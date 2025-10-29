@@ -2280,7 +2280,7 @@ ssh_dbg_on(disconnect) -> dbg:tpl(?MODULE,  send_disconnect, 7, x).
 ssh_dbg_off(alive) ->
     dbg:ctpg(?MODULE, handle_event, 4),
     dbg:ctpl(?MODULE, start_rekeying, 2),
-    dbg:ctpl(?MODULE, reset_alive, 1, x),
+    dbg:ctpl(?MODULE, reset_alive, 1),
     dbg:ctpl(?MODULE, init_ssh_record, 4),
     dbg:ctpl(?MODULE, triggered_alive, 4);
 ssh_dbg_off(disconnect) -> dbg:ctpl(?MODULE, send_disconnect, 7);
