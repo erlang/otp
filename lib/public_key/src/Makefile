@@ -54,7 +54,8 @@ MODULES = \
 	pubkey_cert \
 	pubkey_policy_tree
 
-HRL_FILES = $(INCLUDE)/public_key.hrl $(INCLUDE)/OTP-PUB-KEY.hrl
+HRL_FILES = $(INCLUDE)/public_key.hrl $(INCLUDE)/OTP-PUB-KEY.hrl \
+	$(INCLUDE)/PKIXCMP.hrl $(INCLUDE)/PKIXCRMF.hrl
 
 INTERNAL_HRL_FILES = pubkey_moduli.hrl public_key_internal.hrl
 
