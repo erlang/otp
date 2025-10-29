@@ -404,7 +404,8 @@ the generator's range:
          uniform_real/0, uniform_real_s/1,
          bytes/1, bytes_s/2,
          jump/0, jump/1,
-         normal/0, normal/2, normal_s/1, normal_s/3
+         normal/0, normal/2, normal_s/1, normal_s/3,
+         shuffle/1, shuffle_s/2
 	]).
 
 %% Utilities
@@ -1314,6 +1315,211 @@ Returns [`X`](`t:float/0`) and the [`NewState`](`t:state/0`).
 normal_s(Mean, Variance, State0) when 0 =< Variance ->
     {X, State} = normal_s(State0),
     {Mean + (math:sqrt(Variance) * X), State}.
+
+
+-doc """
+Shuffle a list.
+
+Like `shuffle_s/2` but operates on the state stored in
+the process dictionary.  Returns the shuffled list.
+""".
+-doc(#{group => <<"Plug-in framework API">>,since => <<"OTP 29.0">>}).
+-spec shuffle(List :: list()) -> ShuffledList :: list().
+shuffle(List) ->
+    {ShuffledList, State} = shuffle_s(List, seed_get()),
+    _ = seed_put(State),
+    ShuffledList.
+
+-doc """
+Shuffle a list.
+
+From the specified `State` shuffles the elements in argument `List` so that,
+given that the [PRNG algorithm](#algorithms) in `State` is perfect,
+every possible permutation of the elements in the returned `ShuffledList`
+has the same probability.
+
+In other words, the quality of the shuffling depends only on
+the quality of the backend [random number generator](#algorithms)
+and [seed](`seed_s/1`).  If a cryptographically unpredictable
+shuffling is needed, use for example `crypto:rand_seed_alg_s/1`
+to initialize the random number generator.
+
+Returns the shuffled list [`ShuffledList`](`t:list/0`)
+and the [`NewState`](`t:state/0`).
+""".
+-doc(#{group => <<"Plug-in framework API">>,since => <<"OTP 29.0">>}).
+-spec shuffle_s(List, State) ->
+          {ShuffledList :: list(), NewState :: state()}
+              when
+      List         :: list(),
+      State        :: state().
+shuffle_s(List, {#{bits:=_, next:=Next} = AlgHandler, R0})
+  when is_list(List) ->
+    WeakLowBits = maps:get(weak_low_bits, AlgHandler, 0),
+    [P0|S0] = shuffle_init_bitstream(R0, Next, WeakLowBits),
+    {ShuffledList, _P1, [R1|_]=_S1} = shuffle_r(List, [], P0, S0),
+    {ShuffledList, {AlgHandler, R1}};
+shuffle_s(List, {#{max:=_, next:=Next} = AlgHandler, R0})
+  when is_list(List) ->
+    %% Old spec - assume 2 weak low bits
+    WeakLowBits = 2,
+    [P0|S0] = shuffle_init_bitstream(R0, Next, WeakLowBits),
+    {ShuffledList, _P1, [R1|_]=_S1} = shuffle_r(List, [], P0, S0),
+    {ShuffledList, {AlgHandler, R1}}.
+
+%% Random-split-and-shuffle algorithm suggested by Richard A. O'Keefe
+%% on ErlangForums, as I interpreted it...  "basically a randomized
+%% quicksort", shall we name it Quickshuffle?
+%%
+%% Randomly split the list in two lists, and recursively shuffle
+%% the two smaller lists.
+%%
+%% How the algorithm works and why it is correct can be explained like this:
+%%
+%% The objective is, given a list of elements, to return a random
+%% permutation of those elements so that every possible permutation
+%% has the same probability to be returned.
+%%
+%% One of the two correct and bias free algorithms described on the Wikipedia
+%% page for Fisher-Yates shuffling is to assign a random number to each
+%% element in the list and order the elements according to the numbers.
+%% For this to be correct the generated numbers must not have duplicates.
+%%
+%% This algorithm does that, but assigning a number and ordering
+%% the elements is more or less the same step, which is taken
+%% one binary bit at the time.
+%%
+%% It can be seen as, to each element, assign a fixpoint number
+%% of infinite length starting with bit weight 1/2, continuing with 1/4,
+%% and so on..., but reveal it incrementally.
+%%
+%% The list to shuffle is traversed, and a random bit is generated
+%% for each element.  If it is a 0, the element is assigned the zero bit
+%% by moving it to the head of the list Zero, and if it is a 1,
+%% to the head of the list One.
+%%
+%% Then the list Zero is recursively shuffled onto the accumulator list Acc,
+%% after that the list One.  By that all elements in Zero are ordered
+%% before the ones in One, according to the generated numbers.
+%% The order is actually not important as long as it is consistent.
+%%
+%% The algorithm recurses until the Zero or One list has length
+%% 0 or 1, which is when the generated fixpoint number has no duplicate.
+%% The fixpoint number in itself only exists in the guise of the
+%% recursion call stack, that is whether an element belongs to list
+%% Zero or One on each recursion level.
+%% Here is the bare algorithm:
+%%
+%% quickshuffle([], Acc) -> Acc;
+%% quickshuffle([X], Acc) -> [X | Acc];
+%% quickshuffle([_|_] = L, Acc) ->
+%%     {Zero, One} = quickshuffle_split(L, [], []),
+%%     quickshuffle(One, quickshuffle(Zero, Acc)).
+%%
+%% quickshuffle_split([], Zero, One) ->
+%%     {Zero, One};
+%% quickshuffle_split([X | L], Zero, One) ->
+%%     case random_bit() of
+%%         0 -> quickshuffle_split(L, [X | Zero], One);
+%%         1 -> quickshuffle_split(L, Zero, [X | One])
+%%     end.
+%%
+%% As an optimization, since the algorithm is equivalent to its objective
+%% to randomly permute a list, we can when reaching a small enough list
+%% as in 3 or 2 instead do an explicit random permutation of the list.
+%%
+%% The `random_bit()` can be generated with small overhead by generating
+%% a random word and cache it, then shift out one bit at the time.
+%%
+%% Also, it is faster to do a 4-way split by 2 bits instead of,
+%% as described above, a 2-way split by 1 bit.
+
+%% Leaf cases - random permutations for 0..3 elements
+shuffle_r([], Acc, P, S) ->
+    {Acc, P, S};
+shuffle_r([X], Acc, P, S) ->
+    {[X | Acc], P, S};
+shuffle_r([X, Y], Acc, P, S) ->
+    shuffle_r_2(X, Acc, P, S, Y);
+shuffle_r([X, Y, Z], Acc, P, S) ->
+    shuffle_r_3(X, Acc, P, S, Y, Z);
+%% General case - split and recursive shuffle
+shuffle_r([_, _, _ | _] = List, Acc, P, S) ->
+    %% P and S is bitstream cache and state
+    shuffle_r(List, Acc, P, S, [], [], [], []).
+%%
+%% Split L into 4 random subsets
+%%
+shuffle_r([], Acc0, P0, S0, Zero, One, Two, Three) ->
+    %% Split done, recursively shuffle the splitted lists onto Acc
+    {Acc1, P1, S1} = shuffle_r(Zero, Acc0, P0, S0),
+    {Acc2, P2, S2} = shuffle_r(One, Acc1, P1, S1),
+    {Acc3, P3, S3} = shuffle_r(Two, Acc2, P2, S2),
+    shuffle_r(Three, Acc3, P3, S3);
+shuffle_r([X | L], Acc, P0, S, Zero, One, Two, Three)
+  when is_integer(P0), 3 < P0, P0 < 1 bsl 57 ->
+    P1 = P0 bsr 2,
+    case P0 band 3 of
+        0 -> shuffle_r(L, Acc, P1, S, [X | Zero], One, Two, Three);
+        1 -> shuffle_r(L, Acc, P1, S, Zero, [X | One], Two, Three);
+        2 -> shuffle_r(L, Acc, P1, S, Zero, One, [X | Two], Three);
+        3 -> shuffle_r(L, Acc, P1, S, Zero, One, Two, [X | Three])
+    end;
+shuffle_r([_ | _] = L, Acc, _P, S0, Zero, One, Two, Three) ->
+    [P|S1] = shuffle_new_bits(S0),
+    shuffle_r(L, Acc, P, S1, Zero, One, Two, Three).
+
+%% Permute 2 elements
+shuffle_r_2(X, Acc, P, S, Y)
+  when is_integer(P), 1 < P, P < 1 bsl 57 ->
+    {case P band 1 of
+         0 -> [Y, X | Acc];
+         1 -> [X, Y | Acc]
+     end, P bsr 1, S};
+shuffle_r_2(X, Acc, _P, S0, Y) ->
+    [P|S1] = shuffle_new_bits(S0),
+    shuffle_r_2(X, Acc, P, S1, Y).
+
+%% Permute 3 elements
+%%
+%% Uses 3 random bits per iteration with a probability of 1/4
+%% to reject and retry, which on average is 3 * 4/3
+%% (infinite sum of (1/4)^k) = 4 bits per permutation
+shuffle_r_3(X, Acc, P0, S, Y, Z)
+  when is_integer(P0), 7 < P0, P0 < 1 bsl 57 ->
+    P1 = P0 bsr 3,
+    case P0 band 7 of
+        0 -> {[Z, Y, X | Acc], P1, S};
+        1 -> {[Y, Z, X | Acc], P1, S};
+        2 -> {[Z, X, Y | Acc], P1, S};
+        3 -> {[X, Z, Y | Acc], P1, S};
+        4 -> {[Y, X, Z | Acc], P1, S};
+        5 -> {[X, Y, Z | Acc], P1, S};
+        _ -> % Reject and retry
+            shuffle_r_3(X, Acc, P1, S, Y, Z)
+    end;
+shuffle_r_3(X, Acc, _P, S0, Y, Z) ->
+    [P|S1] = shuffle_new_bits(S0),
+    shuffle_r_3(X, Acc, P, S1, Y, Z).
+
+-dialyzer({no_improper_lists, shuffle_init_bitstream/3}).
+%%
+shuffle_init_bitstream(R, Next, WeakLowBits) ->
+    P = 1,                      % Marker for out of random bits
+    W = {Next,WeakLowBits},     % Generator
+    S = [R|W],                  % Generator state
+    [P|S].                      % Bit cash and state
+
+-dialyzer({no_improper_lists, shuffle_new_bits/1}).
+%%
+shuffle_new_bits([R0|{Next,WeakLowBits}=W]) ->
+    {V, R1} = Next(R0),
+    %% Setting the top bit M here provides the marker
+    %% for when we are out of random bits: P =:= 1
+    M = 1 bsl 56,
+    P = ((V bsr WeakLowBits) band (M-1)) bor M,
+    S = [R1|W],
+    [P|S].
 
 %% =====================================================================
 %% Internal functions
