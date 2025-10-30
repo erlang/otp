@@ -238,7 +238,7 @@ erl_copyright_template(License) ->
     w("%%~n",[]),
     w("%% %CopyrightBegin%~n",[]),
     w("%%~n",[]),
-    w("%% SPDX-License-Identifier: ~n",[License]),
+    w("%% SPDX-License-Identifier: ~ts~n",[License]),
     w("%%~n",[]),
     w("%% Copyright Ericsson AB ~p-~p. All Rights Reserved.~n",
       [StartYear, CurrentYear]),
@@ -304,8 +304,8 @@ append_license(_) ->
 c_copyright() ->
     {CurrentYear,_,_}   = erlang:date(),
     w("/*~n",[]),
-    w(" * %CopyrightBegin%
-    w(" *
+    w(" * %CopyrightBegin%~n",[]),
+    w(" *~n",[]),
     w(" * SPDX-License-Identifier: Apache-2.0~n",[]),
     w(" *~n",[]),
     w(" * Copyright Ericsson AB 2008-~p. All Rights Reserved.~n",[CurrentYear]),

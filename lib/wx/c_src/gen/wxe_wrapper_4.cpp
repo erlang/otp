@@ -1842,7 +1842,7 @@ void wxImage_GetAlpha_2(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   int y;
   if(!enif_get_int(env, argv[2], &y)) Badarg("y"); // int
   if(!This) throw wxe_badarg("This");
-  char Result = This->GetAlpha(x,y);
+  unsigned char Result = This->GetAlpha(x,y);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_uint(Result));
 
@@ -1860,7 +1860,7 @@ void wxImage_GetBlue(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   int y;
   if(!enif_get_int(env, argv[2], &y)) Badarg("y"); // int
   if(!This) throw wxe_badarg("This");
-  char Result = This->GetBlue(x,y);
+  unsigned char Result = This->GetBlue(x,y);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_uint(Result));
 
@@ -1892,7 +1892,7 @@ void wxImage_GetGreen(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   int y;
   if(!enif_get_int(env, argv[2], &y)) Badarg("y"); // int
   if(!This) throw wxe_badarg("This");
-  char Result = This->GetGreen(x,y);
+  unsigned char Result = This->GetGreen(x,y);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_uint(Result));
 
@@ -1948,7 +1948,7 @@ void wxImage_GetMaskBlue(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   wxImage *This;
   This = (wxImage *) memenv->getPtr(env, argv[0], "This");
   if(!This) throw wxe_badarg("This");
-  char Result = This->GetMaskBlue();
+  unsigned char Result = This->GetMaskBlue();
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_uint(Result));
 
@@ -1962,7 +1962,7 @@ void wxImage_GetMaskGreen(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   wxImage *This;
   This = (wxImage *) memenv->getPtr(env, argv[0], "This");
   if(!This) throw wxe_badarg("This");
-  char Result = This->GetMaskGreen();
+  unsigned char Result = This->GetMaskGreen();
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_uint(Result));
 
@@ -1976,7 +1976,7 @@ void wxImage_GetMaskRed(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   wxImage *This;
   This = (wxImage *) memenv->getPtr(env, argv[0], "This");
   if(!This) throw wxe_badarg("This");
-  char Result = This->GetMaskRed();
+  unsigned char Result = This->GetMaskRed();
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_uint(Result));
 
@@ -2030,7 +2030,7 @@ void wxImage_GetRed(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   int y;
   if(!enif_get_int(env, argv[2], &y)) Badarg("y"); // int
   if(!This) throw wxe_badarg("This");
-  char Result = This->GetRed(x,y);
+  unsigned char Result = This->GetRed(x,y);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_uint(Result));
 
