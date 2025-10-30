@@ -19,7 +19,6 @@
       WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
       See the License for the specific language governing permissions and
       limitations under the License.
-
     </legalnotice>
     <title>ssl</title>
     <prepared></prepared>
@@ -1401,7 +1400,8 @@ fun(srp, Username :: binary(), UserState :: term()) ->
 	the client does not have a certificate to send, that is, sends
 	an empty certificate. If set to <c>false</c>, it fails only if
 	the client sends an invalid certificate (an empty certificate
-	is considered valid). Defaults to false.</p>
+	is considered valid). Defaults to `true`, the default value was changed in OTP-26.0.
+      </p>
 	</desc>
       </datatype>
       
