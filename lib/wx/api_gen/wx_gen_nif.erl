@@ -977,8 +977,13 @@ return_res1(#type{name="wxCharBuffer", base={binary,_},single=true,by_val=true})
     {"char * Result = ", ".data()"};
 return_res1(#type{name=Type,single=array,ref=reference}) ->
     {Type ++ " Result = ", ""};
-return_res1(#type{name=Type,single=true,by_val=true}) ->
-    {Type ++ " Result = ", ""}.
+return_res1(#type{name=Type,single=true,by_val=true, mod=Mods}) ->
+    case lists:member(unsigned, Mods) of
+        true ->
+            {io_lib:format("unsigned ~s Result = ", [Type]), ""};
+        false ->
+            {Type ++ " Result = ", ""}
+    end.
 
 filter(Ps) ->
     lists:filter(fun filter_arg/1, Ps).
@@ -1458,9 +1463,11 @@ gen_macros() ->
     w("#include <wx/sysopt.h>~n"),
     w("#include <wx/overlay.h>~n"),
     w("#include <wx/notifmsg.h>~n"),
+    w("#if WXE_WEBVIEW~n"),
     w("#include <wx/webview.h>~n"),
     w("#if wxUSE_WEBVIEW && wxUSE_WEBVIEW_IE~n"),
     w("#include <wx/msw/webview_ie.h>~n"),
+    w("#endif~n"),
     w("#endif~n"),
     w("#if wxUSE_GLCANVAS_EGL && !wxCHECK_VERSION(3,2,3)~n"),
     w("#include <EGL/egl.h>~n"),
