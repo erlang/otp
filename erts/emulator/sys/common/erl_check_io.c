@@ -90,10 +90,12 @@ typedef enum {
     ERTS_EV_FLAG_IN_SCHEDULER  = 0x4,   /* Set when the fd is currently in
                                            scheduler pollset */
     ERTS_EV_FLAG_NIF_SELECT    = 0x8,   /* Set if a nif select message is in-flight */
+    ERTS_EV_FLAG_NO_SCHEDULER_POLLSET = 0x40, /* Disable scheduler pollset migration */
 #else
     ERTS_EV_FLAG_SCHEDULER     = ERTS_EV_FLAG_CLEAR,
     ERTS_EV_FLAG_IN_SCHEDULER  = ERTS_EV_FLAG_CLEAR,
     ERTS_EV_FLAG_NIF_SELECT    = ERTS_EV_FLAG_CLEAR,
+    ERTS_EV_FLAG_NO_SCHEDULER_POLLSET = ERTS_EV_FLAG_CLEAR,
 #endif
 #ifdef ERTS_POLL_USE_FALLBACK
     ERTS_EV_FLAG_FALLBACK      = 0x10,  /* Set when kernel poll rejected fd
@@ -1351,10 +1353,18 @@ enif_select_x(ErlNifEnv* env,
         if (state->type == ERTS_EV_TYPE_NONE)
             ctl_op = ERTS_POLL_OP_ADD;
 #if ERTS_POLL_USE_SCHEDULER_POLLING
-        else if (ctl_events & ERTS_POLL_EV_IN) {
+        /* Handle the NO_SCHEDULER_POLLSET flag */
+        if (mode & ERL_NIF_SELECT_NO_SCHEDULER_POLLSET) {
+            state->flags |= ERTS_EV_FLAG_NO_SCHEDULER_POLLSET;
+        } else {
+            state->flags &= ~ERTS_EV_FLAG_NO_SCHEDULER_POLLSET;
+        }
+
+        if (ctl_events & ERTS_POLL_EV_IN) {
             if ((state->flags & (ERTS_EV_FLAG_SCHEDULER |
                                  ERTS_EV_FLAG_FALLBACK |
-                                 ERTS_EV_FLAG_NIF_SELECT)) == ERTS_EV_FLAG_NIF_SELECT
+                                 ERTS_EV_FLAG_NIF_SELECT |
+                                 ERTS_EV_FLAG_NO_SCHEDULER_POLLSET)) == ERTS_EV_FLAG_NIF_SELECT
                 && erts_sched_poll_enabled()) {
                 /* Check if this is a different process than last time.
                  * If so, reset the counter to prevent scheduler pollset migration

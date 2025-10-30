@@ -39,6 +39,7 @@ typedef struct {
     int nif_major_version;
     int nif_minor_version;
     int dirty_scheduler_support;
+    int scheduler_polling_support;
 }  ErlDrvSysInfo;
 
 typedef struct {
@@ -58,7 +59,8 @@ enum ErlNifSelectFlags {
     ERL_NIF_SELECT_STOP      = (1 << 2),
     ERL_NIF_SELECT_CANCEL    = (1 << 3),
     ERL_NIF_SELECT_CUSTOM_MSG= (1 << 4),
-    ERL_NIF_SELECT_ERROR     = (1 << 5)
+    ERL_NIF_SELECT_ERROR     = (1 << 5),
+    ERL_NIF_SELECT_NO_SCHEDULER_POLLSET = (1 << 6)
 };
 
 /*

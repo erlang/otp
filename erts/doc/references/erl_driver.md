@@ -433,6 +433,7 @@ first:
      int nif_major_version;
      int nif_minor_version;
      int dirty_scheduler_support;
+     int scheduler_polling_support;
   } ErlDrvSysInfo;
   ```
 
@@ -486,6 +487,12 @@ first:
 
   - **`dirty_scheduler_support`** - A value `!= 0` if the runtime system has
     support for dirty scheduler threads; otherwise `0`.
+
+  - **`scheduler_polling_support`** - A value `!= 0` if the runtime system has
+    support for scheduler pollset migration (available on platforms with epoll
+    or kqueue); otherwise `0`. When supported, file descriptors used by NIFs
+    may be automatically migrated to scheduler-specific pollsets after repeated
+    use from the same process.
 
 - **`ErlDrvBinary`{: #ErlDrvBinary }**
 

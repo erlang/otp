@@ -869,6 +869,7 @@ const int esock_ioctl_flags_length = NUM(esock_ioctl_flags);
 #define ESOCK_OPT_OTP_META         1009
 #define ESOCK_OPT_OTP_USE_REGISTRY 1010
 #define ESOCK_OPT_OTP_SELECT_READ  1011
+#define ESOCK_OPT_OTP_SCHEDULER_POLLING 1012
 /**/
 #define ESOCK_OPT_OTP_DOMAIN       1999 // INTERNAL AND ONLY GET
 #if 0
@@ -1243,6 +1244,7 @@ static ERL_NIF_TERM esock_setopt_otp(ErlNifEnv*       env,
     ESOCK_SETOPT_OTP_FUNC_DEF(iow);             \
     ESOCK_SETOPT_OTP_FUNC_DEF(ctrl_proc);       \
     ESOCK_SETOPT_OTP_FUNC_DEF(select_read);     \
+    ESOCK_SETOPT_OTP_FUNC_DEF(scheduler_polling); \
     ESOCK_SETOPT_OTP_FUNC_DEF(rcvbuf);          \
     ESOCK_SETOPT_OTP_FUNC_DEF(rcvctrlbuf);      \
     ESOCK_SETOPT_OTP_FUNC_DEF(sndctrlbuf);      \
@@ -1278,6 +1280,7 @@ static ERL_NIF_TERM esock_getopt_otp(ErlNifEnv*       env,
     ESOCK_GETOPT_OTP_FUNC_DEF(iow);             \
     ESOCK_GETOPT_OTP_FUNC_DEF(ctrl_proc);       \
     ESOCK_GETOPT_OTP_FUNC_DEF(select_read);     \
+    ESOCK_GETOPT_OTP_FUNC_DEF(scheduler_polling); \
     ESOCK_GETOPT_OTP_FUNC_DEF(rcvbuf);          \
     ESOCK_GETOPT_OTP_FUNC_DEF(rcvctrlbuf);      \
     ESOCK_GETOPT_OTP_FUNC_DEF(sndctrlbuf);      \
@@ -6792,6 +6795,12 @@ ERL_NIF_TERM esock_setopt_otp(ErlNifEnv*       env,
         MUNLOCK(descP->readMtx);
         break;
 
+    case ESOCK_OPT_OTP_SCHEDULER_POLLING:
+        MLOCK(descP->readMtx);
+        result = esock_setopt_otp_scheduler_polling(env, descP, eVal);
+        MUNLOCK(descP->readMtx);
+        break;
+
     case ESOCK_OPT_OTP_RCVBUF:
         MLOCK(descP->readMtx);
         result = esock_setopt_otp_rcvbuf(env, descP, eVal);
@@ -6921,6 +6930,51 @@ ERL_NIF_TERM esock_setopt_otp_select_read(ErlNifEnv*       env,
 
     SSDBG( descP,
            ("SOCKET", "esock_setopt_otp_select_read {%d} -> ok"
+            "\r\n   eVal: %T"
+            "\r\n", descP->sock, eVal) );
+
+    return esock_atom_ok;
+}
+
+
+
+/* esock_setopt_otp_scheduler_polling - Handle the OTP (level) scheduler_polling option
+ */
+
+static
+ERL_NIF_TERM esock_setopt_otp_scheduler_polling(ErlNifEnv*       env,
+                                                ESockDescriptor* descP,
+                                                ERL_NIF_TERM     eVal)
+{
+    BOOLEAN_T schedulerPolling;
+
+    if (! IS_OPEN(descP->readState)) {
+        SSDBG( descP,
+               ("SOCKET", "esock_setopt_otp_scheduler_polling {%d} -> closed\r\n",
+                descP->sock) );
+        return esock_make_error_closed(env);
+    }
+
+    if (! esock_decode_bool(eVal, &schedulerPolling))
+      return esock_make_invalid(env, esock_atom_value);
+
+    /* Check if scheduler polling is supported on this platform */
+    {
+        ErlNifSysInfo si;
+        enif_system_info(&si, sizeof(ErlNifSysInfo));
+        if (!si.scheduler_polling_support && schedulerPolling) {
+            SSDBG( descP,
+                   ("SOCKET", "esock_setopt_otp_scheduler_polling {%d} -> notsup"
+                    "\r\n   scheduler polling not available on this platform"
+                    "\r\n", descP->sock) );
+            return esock_make_error(env, esock_atom_enotsup);
+        }
+    }
+
+    descP->schedulerPolling = schedulerPolling;
+
+    SSDBG( descP,
+           ("SOCKET", "esock_setopt_otp_scheduler_polling {%d} -> ok"
             "\r\n   eVal: %T"
             "\r\n", descP->sock, eVal) );
 
@@ -8589,6 +8643,12 @@ ERL_NIF_TERM esock_getopt_otp(ErlNifEnv*       env,
         MUNLOCK(descP->readMtx);
         break;
 
+    case ESOCK_OPT_OTP_SCHEDULER_POLLING:
+        MLOCK(descP->readMtx);
+        result = esock_getopt_otp_scheduler_polling(env, descP);
+        MUNLOCK(descP->readMtx);
+        break;
+
     case ESOCK_OPT_OTP_RCVBUF:
         MLOCK(descP->readMtx);
         result = esock_getopt_otp_rcvbuf(env, descP);
@@ -8743,6 +8803,34 @@ ERL_NIF_TERM esock_getopt_otp_select_read(ErlNifEnv*       env,
 
     SSDBG( descP,
            ("SOCKET", "esock_getopt_otp_select_read {%d} ->"
+            "\r\n   eVal: %T"
+            "\r\n", descP->sock, eVal) );
+
+    return esock_make_ok2(env, eVal);
+}
+
+
+
+/* esock_getopt_otp_scheduler_polling - Handle the OTP (level) scheduler_polling option
+ */
+
+static
+ERL_NIF_TERM esock_getopt_otp_scheduler_polling(ErlNifEnv*       env,
+                                                ESockDescriptor* descP)
+{
+    ERL_NIF_TERM eVal;
+
+    if (! IS_OPEN(descP->readState)) {
+        SSDBG( descP,
+               ("SOCKET", "esock_getopt_otp_scheduler_polling {%d} -> done closed\r\n",
+                descP->sock) );
+        return esock_make_error_closed(env);
+    }
+
+    eVal = esock_encode_bool(descP->schedulerPolling);
+
+    SSDBG( descP,
+           ("SOCKET", "esock_getopt_otp_scheduler_polling {%d} ->"
             "\r\n   eVal: %T"
             "\r\n", descP->sock, eVal) );
 
@@ -12057,6 +12145,12 @@ ESockDescriptor* esock_alloc_descriptor(SOCKET sock)
     descP->iow              = FALSE;
     descP->dbg              = ESOCK_DEBUG_DEFAULT;      // Overwritten by caller
     descP->selectRead       = FALSE;
+    {
+        /* Query scheduler polling support at runtime */
+        ErlNifSysInfo si;
+        enif_system_info(&si, sizeof(ErlNifSysInfo));
+        descP->schedulerPolling = si.scheduler_polling_support ? TRUE : FALSE;
+    }
     descP->useReg           = ESOCK_USE_SOCKET_REGISTRY;// Overwritten by caller
     descP->meta.env         = esock_alloc_env("esock_alloc_descriptor - "
                                               "meta-env");
@@ -12692,9 +12786,15 @@ int esock_select_read(ErlNifEnv*       env,
                       ERL_NIF_TERM     sockRef,   // Socket
                       ERL_NIF_TERM     selectRef) // "ID" of the operation
 {
+    ESockDescriptor* descP = (ESockDescriptor*) obj;
     ERL_NIF_TERM selectMsg = mk_select_msg(env, sockRef, selectRef);
+    enum ErlNifSelectFlags flags = ERL_NIF_SELECT_READ | ERL_NIF_SELECT_CUSTOM_MSG;
 
-    return enif_select_read(env, event, obj, pidP, selectMsg, NULL);
+    if (!descP->schedulerPolling) {
+        flags |= ERL_NIF_SELECT_NO_SCHEDULER_POLLSET;
+    }
+
+    return enif_select_x(env, event, flags, obj, pidP, selectMsg, NULL);
 
 }
 #endif // #ifndef __WIN32__
@@ -12716,9 +12816,15 @@ int esock_select_write(ErlNifEnv*       env,
                        ERL_NIF_TERM     sockRef,   // Socket
                        ERL_NIF_TERM     selectRef) // "ID" of the operation
 {
+    ESockDescriptor* descP = (ESockDescriptor*) obj;
     ERL_NIF_TERM selectMsg = mk_select_msg(env, sockRef, selectRef);
+    enum ErlNifSelectFlags flags = ERL_NIF_SELECT_WRITE | ERL_NIF_SELECT_CUSTOM_MSG;
 
-    return enif_select_write(env, event, obj, pidP, selectMsg, NULL);
+    if (!descP->schedulerPolling) {
+        flags |= ERL_NIF_SELECT_NO_SCHEDULER_POLLSET;
+    }
+
+    return enif_select_x(env, event, flags, obj, pidP, selectMsg, NULL);
 }
 #endif // #ifndef __WIN32__
 

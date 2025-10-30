@@ -7486,6 +7486,17 @@ driver_system_info(ErlDrvSysInfo *sip, size_t si_size)
 	    1
 	    ;
     }
+    /*
+     * 'scheduler_polling_support' is the last field in the 5th version
+     * (driver version 3.2, NIF version 2.18)
+     */
+    if (si_size >= ERL_DRV_SYS_INFO_SIZE(scheduler_polling_support)) {
+#if ERTS_POLL_USE_SCHEDULER_POLLING
+	sip->scheduler_polling_support = 1;
+#else
+	sip->scheduler_polling_support = 0;
+#endif
+    }
 
 }
 

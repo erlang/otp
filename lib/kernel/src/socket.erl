@@ -932,6 +932,19 @@ hence above all OS protocol levels.
   since the current process continues its operation, so it effectively
   disables receive operation queuing.
 
+- **`scheduler_polling`** - `t:boolean/0` \-
+  On platforms with scheduler polling support, controls whether this socket's
+  file descriptor may be automatically migrated to a scheduler-specific pollset
+  after 10+ consecutive select operations from the same process.
+
+  Default: `true` on platforms with support, `false` otherwise.
+
+  Set to `false` to disable migration for sockets accessed by multiple processes
+  (e.g., listening socket with multiple acceptor processes).
+
+  On platforms without scheduler polling support, attempting to set to `true`
+  returns `{error, enotsup}`. Setting to `false` is always allowed.
+
 - **`fd`** - `t:integer/0` \- Only valid to _get_. The OS protocol levels'
   socket descriptor. Functions [`open/1,2`](`open/1`) can be used to create a
   socket according to this module from an existing OS socket descriptor.
@@ -950,6 +963,7 @@ internal use only.
         rcvctrlbuf |
         sndctrlbuf |
         select_read |
+        scheduler_polling |
         meta |
         use_registry |
         fd |
