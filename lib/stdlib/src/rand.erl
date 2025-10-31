@@ -31,46 +31,185 @@
 -moduledoc """
 Pseudo random number generation
 
-This module provides pseudo random number generation and implements
-a number of base generator algorithms.  Most are provided through
-a [plug-in framework](#plug-in-framework) that adds
-features to the base generators.
+This module provides Pseudo Random Number Generation and implements
+a number of [base generator algorithms](#algorithms).  Most are provided
+through a [plug-in framework](#plug-in-framework)
+that adds essential features to the base generators.
+
+PRNGs in general, and so the algorithms in this module, are mostly used
+for test and simulation.  They are designed for good statistical
+quality and high generation speed.
+
+An generator algorithm, for each iteration, takes a state as input
+and produces a raw pseudo random number and a new state to be used
+for the next iteration.
+
+A particular state always produces the same number and new state.
+The initial state is produced from a [seed](`seed/1`).
+This makes it possible to repeat for example a simulation with the same
+random number sequence, by re-using the same seed.
+
+This property, and others, make the algorithms in this module
+unsuitable for cryptographical applications, but in the `m:crypto` module
+there are suitable generators, for this module's
+[plug-in framework](#plug-in-framework).
+See `crypto:rand_seed_s/0` and `crypto:rand_seed_alg_s/1`.
 
 At the end of this module documentation there are some
-[niche algorithms](#niche-algorithms) that don't use
+[niche algorithms](#niche-algorithms) that does not use
 this module's normal [plug-in framework](#plug-in-framework).
-They may be useful for special purposes like short generation time
+They may be useful for special purposes like fast generation
 when quality is not essential, for seeding other generators, and such.
 
 [](){: #plug-in-framework } Plug-in framework
 ---------------------------------------------
 
-The [plug-in framework](#plug-in-framework-api) implements
-a common [API](#plug-in-framework-api) to, and enhancements
-of the base generators:
+The raw pseudo random numbers produced by the base generators
+are only suitable in some cases such as power of two ranges
+less than the generator size, and some have quirks,
+for example weak low bits.  Therefore, the Plug-in Framework
+implements a common [API](#plug-in-framework-api) to all base generator,
+that add essential or useful funcionality:
 
-* Operating on a generator state in the
-  [process dictionary](#generator-state).
-* [Automatic](#generator-state) [seeding](`seed/1`).
-* Manual [seeding support](`seed/2`) to avoid common pitfalls.
-* Generating [integers](`t:integer/0`) in any range, with
-  [uniform distribution](`uniform/1`), without noticable bias.
-* Generating [integers](`t:integer/0`) in any range, larger than
-  the base generator's, with [uniform distribution](`uniform/1`).
+* Keeping the generator [state](`seed/1`) in the process dictionary.
+* Automatic [seeding](`seed/1`).
+* Seeding support for [manual seeding](`seed/2`) to avoid common pitfalls.
+* Generating [integers](`t:integer/0`) with
+  [uniform distribution](`uniform/1`), in *any* range, without bias.
+  The range is not limited; it may be larger than
+  the base generator's size (but that costs some performance).
 * Generating [floating-point numbers](`t:float/0`) with
   [uniform distribution](`uniform/0`).
 * Generating [floating-point numbers](`t:float/0`) with
-  [normal distribution](`normal/0`).
+  [normal distribution](`normal/0`), standard normal distribution
+  or [specified mean and variance](`normal/2`).
 * Generating any number of [bytes](`bytes/1`).
+* [Jumping](`jump/1`) the generator ahead, in algorithms that support that.
 
-The base generator algorithms implements the
+[](){: #usage }
+#### Usage and examples
+
+A generator has to be initialized.  This is done by one of the
+`seed/1` or `seed_s/1` functions, which also select which
+[algorithm](#algorithms) to use.  The `seed/1` functions
+store the generator and state in the process dictionary,
+while the `seed_s/1` functions do not, which requires
+the calling code to handle the state and updates to it.
+
+The seed functions that do not have a `Seed` value as an argument
+create an automatic seed that should be unique to the created
+generator instance; see `seed_s/1`.
+
+If an automatic seed is not desired, the seed functions that have a
+[`Seed`](`t:seed/0`) argument can be used.  The argument has
+3 possible formats; see the `t:seed/0` type description.
+
+[Plug-in framework API](#plug-in-framework-api) functions
+named with the suffix `_s` take an explicit state as the last argument
+and return the new state as the last element in the returned tuple.
+The process dictionary is not used.
+
+Sibling functions without that suffix take an implicit state from
+and store the new state in the process dictionary, and only return
+their "interesting " output value.  If the process dictionary
+does not contain a state, [`seed(default)`](`seed/1`)
+is implicitly called to create an automatic seed as initial state.
+
+#### _Usage_
+
+First initialize a generator by calling one of the [seed](`seed/1`)
+functions, which also selects a PRNG algorithm.
+
+Then call a [Plug-in framework API](#plug-in-framework-api) function
+either with an explicit state from the seed function
+and use the returned new state in the next call,
+or call an API function without an explicit state
+to operate on the state in the process dictionary.
+
+#### _Examples_
+
+Generate two uniformly distibuted floating point numbers.
+
+By not calling a [seed](`seed/1`) function, this uses the genarator state
+(and [algorithm](#algorithms)) in the process dictinary.
+If there is no state there, [`seed(default)`](`seed/1`)
+is implicitly called first:
+
+```erlang
+R0 = rand:uniform(),
+R1 = rand:uniform(),
+```
+
+Generate a uniformly distributed integer in the range 1..4711:
+
+```erlang
+K0 = rand:uniform(4711),
+```
+
+Generate a binary with 16 bytes, uniformly distributed:
+
+```erlang
+B0 = rand:bytes(16),
+```
+
+Select and initialize a specified algorithm, with an automatic default seed,
+then generate a floating point number:
+
+```erlang
+_ = rand:seed(exro928ss),
+R2 = rand:uniform(),
+```
+
+Select and initialize a specified algorithm with a specified seed,
+then generate a floating point number:
+
+```erlang
+_ = rand:seed(exro928ss, 123456789),
+R3 = rand:uniform(),
+```
+
+Select and initialize a specified algorithm, with an automatic default seed,
+using the functional API with explicit generator state,
+then generate a floating point number.
+
+```erlang
+S0 = rand:seed_s(exsss),
+{R4, S1} = rand:uniform_s(S0),
+```
+
+Generate a standard normal distribution number using the built-in
+fast Ziggurat Method:
+
+```erlang
+{SND1, S2} = rand:normal_s(S1),
+```
+
+Generate a normal distribution number with with mean -3 and variance 0.5:
+
+```erlang
+{ND0, S3} = rand:normal_s(-3, 0.5, S2),
+```
+
+Generate a textbook basic form Box-Muller standard normal distribution number,
+which has the same distribution as the built-in Ziggurat mathod above,
+but is much slower:
+
+```erlang
+R5 = rand:uniform_real(),
+R6 = rand:uniform(),
+SND0 = math:sqrt(-2 * math:log(R5)) * math:cos(math:pi() * R6)
+```
+
+[](){: #algorithms } Algorithms
+-------------------------------
+
+The base generator algorithms implement the
 [Xoroshiro and Xorshift algorithms](http://xorshift.di.unimi.it)
-by Sebastiano Vigna.  During an iteration they generate a large integer
-(at least 58-bit) and operate on a state of several large integers.
-
-To create numbers with normal distribution the
-[Ziggurat Method by Marsaglia and Tsang](http://www.jstatsoft.org/v05/i08)
-is used on the output from a base generator.
+by Sebastiano Vigna.  During an iteration they generate an integer
+(at least 58-bit) and operate on a state of several integers.
+The size of these integers is chosen to not require bignum arithmetic
+on 64-bit platforms, which facilitates fast integer operations,
+in particular when handled by the JIT VM.
 
 For most algorithms, jump functions are provided for generating
 non-overlapping sequences. A jump function perform a calculation
@@ -78,7 +217,17 @@ equivalent to a large number of repeated state iterations,
 but execute in a time roughly equivalent to one regular iteration
 per generator bit.
 
-[](){: #algorithms } The following algorithms are provided:
+By using a jump function instead of starting several generators
+from different seeds it is assured that the generated sequences
+does not overlap.  Two different seeds may accidentally start
+the generators in sequence positions that are close to each other,
+but a jump function jumps to a sequence position very far ahead.
+
+To create numbers with normal distribution the
+[Ziggurat Method by Marsaglia and Tsang](http://www.jstatsoft.org/v05/i08)
+is used on the output from a base generator.
+
+The following algorithms are provided:
 
 - **`exsss`**, the [_default algorithm_](#default-algorithm)
   *(Since OTP 22.0)*  
@@ -90,9 +239,9 @@ per generator bit.
   the 2018 paper by David Blackman and Sebastiano Vigna:
   [Scrambled Linear Pseudorandom Number Generators](http://vigna.di.unimi.it/ftp/papers/ScrambledLinear.pdf)
 
-  The generator doesn't use 58-bit rotates so it is faster than the
+  The generator does not use 58-bit rotates so it is faster than the
   Xoroshiro116 generator, and when combined with the StarStar scrambler
-  it doesn't have any weak low bits like `exrop` (Xoroshiro116+).
+  it does not have any weak low bits like `exrop` (Xoroshiro116+).
 
   Alas, this combination is about 10% slower than `exrop`, but despite that
   it is the [_default algorithm_](#default-algorithm) thanks to
@@ -131,7 +280,7 @@ per generator bit.
   This is a corrected version of a previous
   [_default algorithm_](#default-algorithm) (`exsplus`, _deprecated_),
   that was superseded by Xoroshiro116+ (`exrop`).  Since this algorithm
-  doesn't use rotate it executes a little (say < 15%) faster than `exrop`
+  does not use rotate it executes a little (say < 15%) faster than `exrop`
   (that has to do a 58 bit rotate, for which there is no native instruction).
   See the [algorithms' homepage](http://xorshift.di.unimi.it).
 
@@ -165,7 +314,7 @@ relying on them will produce the same pseudo random sequences as before.
 > Uniform integer ranges larger than or equal to the generator's precision
 > used a floating point fallback that only calculated with 52 bits
 > which is smaller than the requested range and therefore all numbers
-> in the requested range weren't even possible to produce.
+> in the requested range were not even possible to produce.
 >
 > Uniform floats had a non-uniform density so small values for example
 > less than 0.5 had got smaller intervals decreasing as the generated value
@@ -173,81 +322,13 @@ relying on them will produce the same pseudo random sequences as before.
 > subranges. The new algorithms produces uniformly distributed floats
 > of the form `N * 2.0^(-53)` hence they are equally spaced.
 
-[](){: #generator-state }
-#### Generator State
-
-Every time a random number is generated, a state is used to calculate it,
-producing a new state. The state can either be implicit
-or be an explicit argument and return value.
-
-The functions with implicit state operates on a state stored
-in the process dictionary under the key `rand_seed`.  If that key
-doesn't exist when the function is called, `seed/1` is called automatically
-with the [_default algorithm_](#default-algorithm) and creates
-a reasonably unpredictable seed.
-
-The functions with explicit state don't use the process dictionary.
-
-#### _Examples_
-
-Simple use; create and seed the
-[_default algorithm_](#default-algorithm) with a non-fixed seed,
-if not already done, and generate two uniformly distibuted
-floating point numbers.
-
-```erlang
-R0 = rand:uniform(),
-R1 = rand:uniform(),
-```
-
-Use a specified algorithm:
-
-```erlang
-_ = rand:seed(exro928ss),
-R2 = rand:uniform(),
-```
-
-Use a specified algorithm with a fixed seed:
-
-```erlang
-_ = rand:seed(exro928ss, {123, 123534, 345345}),
-R3 = rand:uniform(),
-```
-
-Use the functional API with a non-fixed seed:
-
-```erlang
-S0 = rand:seed_s(exsss),
-{R4, S1} = rand:uniform_s(S0),
-```
-
-Generate a textbook basic form Box-Muller standard normal distribution number:
-
-```erlang
-R5 = rand:uniform_real(),
-R6 = rand:uniform(),
-SND0 = math:sqrt(-2 * math:log(R5)) * math:cos(math:pi() * R6)
-```
-
-Generate a standard normal distribution number:
-
-```erlang
-{SND1, S2} = rand:normal_s(S1),
-```
-
-Generate a normal distribution number with with mean -3 and variance 0.5:
-
-```erlang
-{ND0, S3} = rand:normal_s(-3, 0.5, S2),
-```
-
 #### Quality of the Generated Numbers
 
 > #### Note {: .info }
 >
 > The builtin random number generator algorithms are not cryptographically
 > strong. If a cryptographically strong random number generator is needed,
-> use something like `crypto:rand_seed/0`.
+> use for example `crypto:rand_seed_s/0` or `crypto:rand_seed_alg_s/1`.
 
 For all these generators except `exro928ss` and `exsss` the lowest bit(s)
 have got a slightly less random behaviour than all other bits.
@@ -286,7 +367,7 @@ when converting from an integer so they avoid this snag.
 -------------------------------------------
 
 The [niche algorithms API](#niche-algorithms-api) contains
-special purpose algorithms that don't use the
+special purpose algorithms that do not use the
 [plug-in framework](#plug-in-framework), mainly for performance reasons.
 
 Since these algorithms lack the plug-in framework support, generating numbers
@@ -520,18 +601,22 @@ the generator's range:
 -doc """
 Generator seed value.
 
+A single integer is the easiest to use.  It is set as the initial state
+of a [SplitMix64](`splitmix64_next/1`) generator.  The sequential
+output values of that generator are then used for setting the actual
+generator's internal state, after masking to the proper word size
+and avoiding zero values, if necessary.
+
 A list of integers sets the generator's internal state directly, after
 algorithm-dependent checks of the value and masking to the proper word size.
 The number of integers must be equal to the number of state words
-in the generator.
+in the generator.  This format would only be needed in special cases.
 
-A single integer is used as the initial state for a SplitMix64 generator.
-The sequential output values of that is then used for setting
-the generator's internal state after masking to the proper word size
-and if needed avoiding zero values.
-
-A traditional 3-tuple of integers seed is passed through algorithm-dependent
-hashing functions to create the generator's initial state.
+A traditional 3-tuple of integers is passed through algorithm-dependent
+hashing functions to create the generator's initial state.  This format is
+inherited from this module's predecessor, the `m:random` module,
+where the 3-tuple from `erlang:now/0` (also now deprectated) was often used
+for seeding to get some uniqueness.
 """.
 -type seed() :: [integer()] | integer() | {integer(), integer(), integer()}.
 -export_type(
@@ -673,7 +758,9 @@ The argument `default` is an alias for the
 that has been implemented *(Since OTP 24.0)*.
 """.
 -doc(#{group => <<"Plug-in framework API">>,since => <<"OTP 18.0">>}).
--spec seed(Alg_or_State :: term()) -> state().
+-spec seed(Alg | State) -> state() when
+      Alg   :: builtin_alg() | 'default',
+      State :: state() | export_state().
 seed(Alg_or_State) ->
     seed_put(seed_s(Alg_or_State)).
 
@@ -681,7 +768,11 @@ seed(Alg_or_State) ->
 Seed the random number generator and select algorithm.
 
 With the argument `Alg`, select that algorithm and seed random number
-generation with reasonably unpredictable time dependent data.
+generation with reasonably unpredictable time dependent data
+that should be unique to the created generator instance.
+It is (for now) based on the node name, the calling `t:pid/0`,
+the system time, and a system unique integer.  This set of
+fairly unique items may change in the future, if necessary.
 
 `Alg = default` is an alias for the
 [_default algorithm_](#default-algorithm)
@@ -694,13 +785,16 @@ See also `export_seed/0`.
 -spec seed_s(Alg | State) -> state() when
       Alg   :: builtin_alg() | 'default',
       State :: state() | export_state().
-seed_s({AlgHandler, _AlgState} = State) when is_map(AlgHandler) ->
-    State;
-seed_s({Alg, AlgState}) when is_atom(Alg) ->
-    {AlgHandler,_SeedFun} = mk_alg(Alg),
-    {AlgHandler,AlgState};
-seed_s(Alg) ->
-    seed_s(Alg, default_seed()).
+seed_s(Alg_or_State) ->
+    case Alg_or_State of
+        {AlgHandler, _AlgState} = State when is_map(AlgHandler) ->
+            State;
+        {Alg, AlgState} when is_atom(Alg) ->
+            {AlgHandler,_SeedFun} = mk_alg(Alg),
+            {AlgHandler,AlgState};
+        Alg ->
+            seed_s(Alg, default_seed())
+    end.
 
 default_seed() ->
     {erlang:phash2([{node(),self()}]),
@@ -721,7 +815,9 @@ but also stores the generated state in the process dictionary.
 that has been implemented *(Since OTP 24.0)*.
 """.
 -doc(#{group => <<"Plug-in framework API">>,since => <<"OTP 18.0">>}).
--spec seed(Alg :: term(), Seed :: term()) -> state().
+-spec seed(Alg, Seed) -> state() when
+      Alg  :: builtin_alg() | 'default',
+      Seed :: seed().
 seed(Alg, Seed) ->
     seed_put(seed_s(Alg, Seed)).
 
@@ -885,10 +981,10 @@ uniform_real() ->
 %% returns a random float X where 0.0 < X =< 1.0,
 %% and a new state.
 %%
-%% This function doesn't use the same form of uniformity
+%% This function does not use the same form of uniformity
 %% as the uniform_s/1 function.
 %%
-%% Instead, this function doesn't generate numbers with equal
+%% Instead, this function does not generate numbers with equal
 %% distance in the interval, but rather tries to keep all mantissa
 %% bits random also for small numbers, meaning that the distance
 %% between possible numbers decreases when the numbers
@@ -906,7 +1002,7 @@ uniform_real() ->
 %% This concept of uniformity should work better for applications
 %% where you need to calculate 1.0/X or math:log(X) since those
 %% operations benefits from larger precision approaching 0.0,
-%% and that this function doesn't return 0.0 nor denormalized
+%% and that this function does not return 0.0 nor denormalized
 %% numbers very close to 0.0.  The log() operation in The Box-Muller
 %% transformation for normal distribution is an example of this.
 %%
@@ -935,18 +1031,22 @@ normalized number in the IEEE 754 Double Precision Format is returned.
 
 The concept implicates that the probability to get exactly zero is extremely
 low; so low that this function in fact never returns `0.0`.
-The smallest number that it might return is `DBL_MIN`,
-which is `2.0^(-1022)`.
+The smallest number that it *might* return is `DBL_MIN`,
+which is `2.0^(-1022)`.  However, the generators in this module
+has thechnical limitations on how many zero words in a row they
+*can* return, which limits the number of leading zeros
+that *can* be generated, which sets an upper limit for the smallest
+generated number, that is still extremely small.
 
 The value range stated at the top of this function description is
 technically correct, but `0.0 =< X < 1.0` is a better description
-of the generated numbers' statistical distribution, and that
-this function never returns exactly `0.0` is impossible to observe.
+of the generated numbers' statistical distribution.  That this function
+never returns exactly `0.0` is impossible to observe.
 
 For all sub ranges `N*2.0^(-53) =< X < (N+1)*2.0^(-53)` where
 `0 =< integer(N) < 2.0^53`, the probability to generate a number
-in the range is the same.  Compare with the numbers
-generated by `uniform_s/1`.
+in a sub range range is the same, very much like the numbers generated by
+`uniform_s/1`.
 
 Having to generate extra random bits for occasional small numbers
 costs a little performance. This function is about 20% slower
@@ -1129,6 +1229,27 @@ with that number of random bytes.
 The selected algorithm is used to generate as many random numbers
 as required to compose the `t:binary/0`.  Returns the generated
 [`Bytes`](`t:binary/0`) and a [`NewState`](`t:state/0`).
+
+> ### Note {: .info }
+>
+> The `m:crypto` module contains a function `crypto:strong_rand_bytes/1`
+> that does the same thing, but cryptographically secure.
+> It is pretty fast and effective on modern systems.
+>
+> This function, however, offers the possibility to reproduce
+> a byte sequence by re-using seed, which a cryptographically secure
+> function cannot do.
+>
+> Alas, because this function is based on a PRNG that produces
+> random integers, thus has to create bytes from integers,
+> it becomes rather slow.
+>
+> Particularly ineffective and slow is to use
+> a [`rand` plug-in generator](#plug-in-framework) from `m:crypto`
+> such as `crypto:rand_seed_s/0` to call this function for generating
+> bytes.  Since it in that case is not possible to reproduce
+> the byte sequence anyway; it is better to use
+> `crypto:strong_rand_bytes/1` directly.
 """.
 -doc(#{group => <<"Plug-in framework API">>,since => <<"OTP 24.0">>}).
 -spec bytes_s(N :: non_neg_integer(), State :: state()) ->
@@ -1204,7 +1325,9 @@ See this module's [algorithms list](#algorithms).
 Returns the [`NewState`](`t:state/0`).
 
 This feature can be used to create many non-overlapping
-random number sequences from one start state.
+random number sequences from one start state;
+see the start of section [Algorithms](#algorithms)
+describing jump functions.
 
 This function raises a `not_implemented` error exception if there is
 no jump function implemented for the [`State`](`t:state/0`)'s algorithm.

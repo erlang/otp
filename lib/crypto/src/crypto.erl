@@ -330,7 +330,9 @@ end
 	 get_test_engine/0]).
 -export([rand_plugin_aes_jump_2pow20/1]).
 
--deprecated({rand_uniform, 2, "use rand:uniform/1 instead"}).
+-deprecated(
+   {rand_uniform, 2,
+    "use rand_seed_s/0 with rand:uniform_s/2 instead"}).
 
 %% This should correspond to the similar macro in crypto.c
 -define(MAX_BYTES_TO_NIF, 20000). %%  Current value is: erlang:system_info(context_reductions) * 10
@@ -2024,25 +2026,33 @@ strong_rand_bytes_nif(_Bytes) -> ?nif_stub.
 
 
 -doc """
-Create a state object for [random number generation](`m:rand`), in order to
-generate cryptographically strong random numbers (based on OpenSSL's
-`BN_rand_range`).
+Equivalent to `rand_seed_s/0` but also saves the returned
+state object (generator) in the process dictionary.  That is,
+it is equivalent to `rand:seed(rand_seed_s())`.
 
-Saves the state in the process dictionary before returning it as
-well. See also `rand:seed/1` and `rand_seed_s/0`.
+See `rand:seed/1` and `rand_seed_s/0`.
 
-When using the state object from this function the `m:rand` functions using it
-may raise exception `error:low_entropy` in case the random generator failed due
-to lack of secure "randomness".
-
-_Example_
+#### _Example_
 
 ```erlang
 _ = crypto:rand_seed(),
-_IntegerValue = rand:uniform(42), % [1; 42]
-_FloatValue = rand:uniform().     % [0.0; 1.0[
+IntegerValue = rand:uniform(42), % 1 .. 42
+FloatValue = rand:uniform().     % [0.0; 1.0)
 ```
+
+> ### Note {: .info }
+>
+> Note that when using the process dictionary for cryptographically
+> secure random numbers one has to ensure that no code called
+> between initializing the generator and between generating numbers
+> accidentally alters the generator state in the process dictionary.
+>
+> The safe approach is to use the `m:rand` functions that
+> do not use the process dictionary but take an explicit state argument:
+> the ones suffixed `_s`.  Thereby it is rather `rand_seed_s/0`
+> that should be used instead of this function.
 """.
+
 -doc(#{group => <<"Random API">>,
        since => <<"OTP 20.0">>}).
 -spec rand_seed() -> rand:state().
@@ -2050,22 +2060,30 @@ rand_seed() ->
     rand:seed(rand_seed_s()).
 
 -doc """
-Create a state object for [random number generation](`m:rand`), in order to
-generate cryptographically strongly random numbers (based on OpenSSL's
-`BN_rand_range`). See also `rand:seed_s/1`.
+Create a state object (generator) for [random number generation](`m:rand`),
+which when used by the `m:rand` functions produce
+**cryptographically strong** random numbers (based on OpenSSL's
+`BN_rand_range` function). See also `rand:seed_s/1`, and for example
+`rand:uniform_s/2`.
 
-When using the state object from this function the `m:rand` functions using it
-may raise exception `error:low_entropy` in case the random generator failed due
-to lack of secure "randomness".
+#### _Example_
+
+``` erlang
+S0 = crypto:rand_seed_s(),
+{RandomInteger, S1} = rand:uniform_s(1000, S0).
+```
+
+May cause the `m:rand` functions using this state object
+to raise the exception `error:low_entropy` in case
+the random generator failed due to lack of secure "randomness".
 
 > #### Note {: .info }
 >
 > The state returned from this function cannot be used to get a reproducible
-> random sequence as from the other `m:rand` functions, since reproducibility
-> does not match cryptographically safe.
+> random sequence as from the other `m:rand` functions, since that would
+> not be cryptographically safe.
 >
-> The only supported usage is to generate one distinct random sequence from this
-> start state.
+> The only supported usage is to generate one distinct random sequence.
 """.
 -doc(#{group => <<"Random API">>,
        since => <<"OTP 20.0">>}).
@@ -2074,45 +2092,43 @@ rand_seed_s() ->
     rand_seed_alg_s(?MODULE).
 
 -doc """
-Create a state object for [random number generation](`m:rand`), in order to
-generate cryptographically strong random numbers.
+Equivalent `rand_seed_alg_s/1` but also saves the returned
+state object (generator) in the process dictionary.  That is,
+it is equivalent to `rand:seed(rand_seed_alg_s(Alg))`.
 
-Saves the state in the process dictionary before returning it as well. See also
-`rand:seed/1` and `rand_seed_alg_s/1`.
+See `rand:seed/1` and `rand_seed_alg_s/1`.
+Note the warning about the usage of the process dictionary in `rand_seed/0`.
 
-When using the state object from this function the `m:rand` functions using it
-may raise exception `error:low_entropy` in case the random generator failed due
-to lack of secure "randomness".
-
-_Example_
+#### _Example_
 
 ```erlang
 _ = crypto:rand_seed_alg(crypto_cache),
-_IntegerValue = rand:uniform(42), % [1; 42]
-_FloatValue = rand:uniform().     % [0.0; 1.0[
+IntegerValue = rand:uniform(42), % 1 .. 42
+FloatValue = rand:uniform().     % [0.0; 1.0)
 ```
 """.
 -doc(#{group => <<"Random API">>,
        since => <<"OTP 21.0">>}).
--spec rand_seed_alg(Alg :: atom()) ->
-                           {rand:alg_handler(),
-                            atom() | rand_cache_seed()}.
+-spec rand_seed_alg(Alg :: 'crypto' | 'crypto_cache') ->
+          {rand:alg_handler(),
+           atom() | rand_cache_seed()}.
 rand_seed_alg(Alg) ->
     rand:seed(rand_seed_alg_s(Alg)).
 
 -doc """
-Creates a state object for [random number generation](`m:rand`), in order to
-generate cryptographically unpredictable random numbers.
+Equivalent to `rand_seed_alg_s/2` but also saves the returned
+state object (generator) in the process dictionary.  That is,
+it is equivalent to `rand:seed(rand_seed_alg_s(Alg, Seed))`.
 
-Saves the state in the process dictionary before returning it as well. See also
-`rand_seed_alg_s/2`.
+See `rand:seed/1` and `rand_seed_alg_s/2`.
+Note the warning about the usage of the process dictionary in `rand_seed/0`.
 
-_Example_
+#### _Example_
 
 ```erlang
 _ = crypto:rand_seed_alg(crypto_aes, "my seed"),
-IntegerValue = rand:uniform(42), % [1; 42]
-FloatValue = rand:uniform(),     % [0.0; 1.0[
+IntegerValue = rand:uniform(42), % 1 .. 42
+FloatValue = rand:uniform(),     % [0.0; 1.0)
 _ = crypto:rand_seed_alg(crypto_aes, "my seed"),
 IntegerValue = rand:uniform(42), % Same values
 FloatValue = rand:uniform().     % again
@@ -2120,9 +2136,9 @@ FloatValue = rand:uniform().     % again
 """.
 -doc(#{group => <<"Random API">>,
        since => <<"OTP-22.0">>}).
--spec rand_seed_alg(Alg :: atom(), Seed :: term()) ->
-                           {rand:alg_handler(),
-                            atom() | rand_cache_seed()}.
+-spec rand_seed_alg(Alg :: 'crypto_aes', Seed :: term()) ->
+          {rand:alg_handler(),
+           atom() | rand_cache_seed()}.
 rand_seed_alg(Alg, Seed) ->
     rand:seed(rand_seed_alg_s(Alg, Seed)).
 
@@ -2131,20 +2147,29 @@ rand_seed_alg(Alg, Seed) ->
 
 -doc(#{group => <<"Random API">>}).
 -doc """
-Create a state object for [random number generation](`m:rand`), in order to
-generate cryptographically strongly random numbers.
+Create a state object (generator) for [random number generation](`m:rand`),
+which when used by the `m:rand` functions produce
+**cryptographically strong** random number.
 
-See also `rand:seed_s/1`.
+See also `rand:seed_s/1` and for example `rand:uniform_s/2`.
 
-If `Alg` is `crypto` this function behaves exactly like `rand_seed_s/0`.
+If `Alg` is `crypto` this function is equivalent to `rand_seed_s/0`.
 
-If `Alg` is `crypto_cache` this function fetches random data with OpenSSL's
-`RAND_bytes` and caches it for speed using an internal word size of 56 bits that
-makes calculations fast on 64 bit machines.
+If `Alg` is `crypto_cache` the returned generator fetches random data
+ with OpenSSL's `RAND_bytes` and caches it as 56 bit numbers
+which makes calculations fast on 64 bit machines.
 
-When using the state object from this function the `m:rand` functions using it
-may raise exception `error:low_entropy` in case the random generator failed due
-to lack of secure "randomness".
+#### _Example_
+
+```erlang
+S0 = crypto:rand_seed_alg_s(crypto_cache),
+{IntegerValue, S1} = rand:uniform(42, S0), % 1 .. 42
+{FloatValue, S2} = rand:uniform(S1).       % [0.0; 1.0)
+```
+
+May cause the `m:rand` functions using this state object
+to raise the exception `error:low_entropy` in case
+the random generator failed due to lack of secure "randomness".
 
 The cache size can be changed from its default value using the
 [crypto app's ](crypto_app.md)configuration parameter `rand_cache_size`.
@@ -2152,31 +2177,32 @@ The cache size can be changed from its default value using the
 > #### Note {: .info }
 >
 > The state returned from this function cannot be used to get a reproducible
-> random sequence as from the other `m:rand` functions, since reproducibility
-> does not match cryptographically safe.
+> random sequence as from the other `m:rand` functions, since that would
+> not be cryptographically safe.
 >
-> In fact since random data is cached some numbers may get reproduced if you
-> try, but this is unpredictable.
+> In fact when random data is cached some numbers may get reproduced
+> occasionally, but this is unpredictable.
 >
-> The only supported usage is to generate one distinct random sequence from this
-> start state.
+> The only supported usage is to generate one distinct random sequence.
 """.
 -doc(#{since => <<"OTP 21.0">>}).
--spec rand_seed_alg_s(Alg :: atom()) ->
-                             {rand:alg_handler(),
-                              atom() | rand_cache_seed()}.
+-spec rand_seed_alg_s(Alg :: 'crypto' | 'crypto_cache') ->
+          {rand:alg_handler(),
+           atom() | rand_cache_seed()}.
 rand_seed_alg_s({AlgHandler, _AlgState} = State) when is_map(AlgHandler) ->
     State;
 rand_seed_alg_s({Alg, AlgState}) when is_atom(Alg) ->
     {mk_alg_handler(Alg),AlgState};
- rand_seed_alg_s(Alg) when is_atom(Alg) ->
+rand_seed_alg_s(Alg) when is_atom(Alg) ->
     {mk_alg_handler(Alg),mk_alg_state(Alg)}.
-%%
--doc """
-Create a state object for [random number generation](`m:rand`), in order to
-generate cryptographically unpredictable random numbers.
 
-See also `rand_seed_alg/1`.
+-doc """
+Create a state object (generator) for [random number generation](`m:rand`),
+which when used by the `m:rand` functions produce
+**cryptographically unpredictable** random numbers
+
+See also `rand:seed_s/1`, and for example `rand:uniform_s/2`.
+Compare to `rand_seed_alg/1`.
 
 To get a long period the Xoroshiro928 generator from the `m:rand` module is used
 as a counter (with period 2^928 - 1) and the generator states are scrambled
@@ -2185,13 +2211,26 @@ through AES to create 58-bit pseudo random values.
 The result should be statistically completely unpredictable random values, since
 the scrambling is cryptographically strong and the period is ridiculously long.
 But the generated numbers are not to be regarded as cryptographically strong
-since there is no re-keying schedule.
+since there is no re-keying schedule, and since the sequence is repeated
+for the same seed.
 
 - If you need cryptographically strong random numbers use `rand_seed_alg_s/1`
   with `Alg =:= crypto` or `Alg =:= crypto_cache`.
-- If you need to be able to repeat the sequence use this function.
+- If you need to be able to repeat the sequence use this function
+  with `Alg =:= crypto_aes`.
 - If you do not need the statistical quality of this function, there are faster
   algorithms in the `m:rand` module.
+
+#### _Example_
+
+```erlang
+S0 = crypto:rand_seed_alg_s(crypto_aes, "my seed"),
+{IntegerValue, S1} = rand:uniform(42, S0), % 1 .. 42
+{FloatValue, S2 = rand:uniform(S1),        % [0.0; 1.0)
+S3 = crypto:rand_seed_alg_s(crypto_aes, "my seed"),
+{IntegerValue, S4} = rand:uniform(42, S3), % Same values
+{FloatValue, S5} = rand:uniform(S4).       % again
+```
 
 Thanks to the used generator the state object supports the
 [`rand:jump/0,1`](`rand:jump/0`) function with distance 2^512.
@@ -2202,9 +2241,9 @@ can be changed from its default value using the
 """.
 -doc(#{group => <<"Random API">>,
        since => <<"OTP 22.0">>}).
--spec rand_seed_alg_s(Alg :: atom(), Seed :: term()) ->
-                             {rand:alg_handler(),
-                              atom() | rand_cache_seed()}.
+-spec rand_seed_alg_s(Alg :: 'crypto_aes', Seed :: term()) ->
+          {rand:alg_handler(),
+           atom() | rand_cache_seed()}.
 rand_seed_alg_s(Alg, Seed) when is_atom(Alg) ->
     {mk_alg_handler(Alg),mk_alg_state({Alg,Seed})}.
 
@@ -2302,7 +2341,7 @@ block_encrypt(Key, Data) ->
                  32 -> aes_256_ecb;
                  _ -> error(badarg)
              end,
-    try 
+    try
         crypto_one_time(Cipher, Key, Data, true)
     catch
         error:{error, {_File,_Line}, _Reason} ->
@@ -2398,6 +2437,23 @@ Generate a random integer number.
 
 The interval is `From =< N < To`. Uses the `crypto` library
 pseudo-random number generator. `To` must be larger than `From`.
+
+> #### Note {: .info }
+>
+> This function is deprecated because it originally used
+> the OpenSSL method BN_pseudo_rand_range that was not
+> cryptographically strong and could not run out of entropy.
+> Although that function has been deprecated in later versions of OpenSSL,
+> this function cannot be fixed without making it possibly raise
+> `error:low_entropy`, which is not backwards compatible.
+>
+> Instead use for example:
+>
+> ``` erlang
+> S0 = crypto:rand_seed_s(),
+> {Int, S1} = rand:uniform(To - From, S0),
+> From + Int - 1.
+> ```
 """.
 -spec rand_uniform(crypto_integer(), crypto_integer()) ->
 			  crypto_integer().
@@ -2431,11 +2487,13 @@ rand_uniform_nif(_From,_To) -> ?nif_stub.
 
 
 -doc """
-Set the seed for PRNG to the given binary.
+Mixes in the bytes of the given binary into the internal state
+of openssl's random number generator.
 
-This calls the RAND_seed function from openssl. Only use this if the system you
-are running on does not have enough "randomness" built in. Normally this is when
-`strong_rand_bytes/1` raises `error:low_entropy`.
+This calls the RAND_seed function from openssl. Only use this if
+the system you are running on does not have enough "randomness" built in.
+Normally this is when `strong_rand_bytes/1` or a generator
+from `rand_seed_alg_s/1` raises `error:low_entropy`.
 """.
 -doc(#{group => <<"Random API">>,
        since => <<"OTP 17.0">>}).
@@ -3147,8 +3205,8 @@ engine_get_all_methods() ->
 Load an OpenSSL engine.
 
 Loads the OpenSSL engine given by `EngineId` if it is available and intialize
-it. Returns `ok` and an engine handle, or if the engine can't be loaded an error
-tuple is returned.
+it. Returns `ok` and an engine handle, or if the engine cannot be loaded
+an error tuple is returned.
 
 The function raises a `error:badarg` if the parameters are in wrong format. It
 may also raise the exception `error:notsup` in case there is no engine support
@@ -3226,7 +3284,7 @@ engine_load_2(Engine, PostCmds) ->
 Unload an OpenSSL engine.
 
 Unloads the OpenSSL engine given by `Engine`. An error tuple is returned if the
-engine can't be unloaded.
+engine cannot be unloaded.
 
 The function raises a `error:badarg` if the parameter is in wrong format. It may
 also raise the exception `error:notsup` in case there is no engine support in
@@ -3259,7 +3317,7 @@ engine_unload(Engine, _EngineMethods) ->
 %%----------------------------------------------------------------------
 -doc """
 Get a reference to an already loaded engine with `EngineId`. An error tuple is
-returned if the engine can't be unloaded.
+returned if the engine cannot be unloaded.
 
 The function raises a `error:badarg` if the parameter is in wrong format. It may
 also raise the exception `error:notsup` in case there is no engine support in
@@ -3339,7 +3397,7 @@ engine_register(Engine, EngineMethods) when is_list(EngineMethods) ->
 %% Function: engine_unregister/2
 %%----------------------------------------------------------------------
 -doc """
-Unregister engine so it don't handle some type of methods.
+Unregister engine so it does not handle some type of methods.
 
 The function raises a `error:badarg` if the parameters are in wrong format. It
 may also raise the exception `error:notsup` in case there is no engine support
@@ -3465,7 +3523,7 @@ Send ctrl commands to an OpenSSL engine.
 `Optional` is a
 boolean argument that can relax the semantics of the function. If set to `true`
 it will only return failure if the ENGINE supported the given command name but
-failed while executing it, if the ENGINE doesn't support the command name it
+failed while executing it, if the ENGINE does not support the command name it
 will simply return success without doing anything. In this case we assume the
 user is only supplying commands specific to the given ENGINE so we set this to
 `false`.
@@ -3499,8 +3557,8 @@ engine_ctrl_cmd_string(Engine, CmdName, CmdArg, Optional) ->
 Load a dynamic engine if not already done.
 
 Loada the engine given by `EngineId` and the path to the dynamic library
-implementing the engine. An error tuple is returned if the engine can't be
-loaded.
+implementing the engine. An error tuple is returned if the engine cannot
+be loaded.
 
 This function differs from the normal engine_load in the sense that it also add
 the engine id to OpenSSL's internal engine list. The difference between the
