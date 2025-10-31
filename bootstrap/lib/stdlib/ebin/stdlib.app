@@ -22,7 +22,7 @@
 %%
 {application, stdlib,
  [{description, "ERTS  CXC 138 10"},
-  {vsn, "6.2"},
+  {vsn, "7.1"},
   {modules, [argparse,
 	     array,
 	     base64,
@@ -83,6 +83,7 @@
              json,
 	     lists,
 	     log_mf_h,
+	     man_docs,
 	     maps,
 	     math,
 	     ms_transform,
@@ -116,11 +117,12 @@
              unicode_util,
 	     uri_string,
 	     win32reg,
-	     zip]},
+	     zip,
+             zstd]},
   {registered,[timer_server,rsh_starter,take_over_monitor,pool_master,
                dets]},
   {applications, [kernel]},
   {env, []},
-  {runtime_dependencies, ["sasl-3.0","kernel-10.0","erts-15.0","crypto-4.5",
+  {runtime_dependencies, ["sasl-3.0","kernel-10.0","erts-16.0.3","crypto-4.5",
 			  "compiler-5.0", "syntax_tools-3.2.1"]}
 ]}.
