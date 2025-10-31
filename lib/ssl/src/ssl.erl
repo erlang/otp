@@ -1822,7 +1822,7 @@ Certificate related options for a server.
   `true`, the server fails if the client does not have a certificate to send, that
   is, sends an empty certificate. If set to `false`, it fails only if the client
   sends an invalid certificate (an empty certificate is considered valid).
-  Defaults to `false`.
+  Defaults to `true`, the default value was changed in OTP-26.0.
 
 - **`{certificate_authorities, ServerCertAuth}`** - Inter-operate hint option
 
