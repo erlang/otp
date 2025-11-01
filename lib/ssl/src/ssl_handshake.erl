@@ -3911,9 +3911,10 @@ empty_extensions() ->
 
 empty_extensions(?TLS_1_3, client_hello) ->
     #{
+      %% Commented are not currently implemented
       sni => undefined,
-      %% max_frag_enum => undefined,
-      %% status_request => undefined,
+      max_frag_enum => undefined,
+      status_request => undefined,
       elliptic_curves => undefined,
       signature_algs => undefined,
       use_srtp => undefined,
@@ -3926,10 +3927,11 @@ empty_extensions(?TLS_1_3, client_hello) ->
       key_share => undefined,
       pre_shared_key => undefined,
       psk_key_exchange_modes => undefined,
-      %% early_data => undefined,
+      early_data => undefined,
       cookie => undefined,
       client_hello_versions => undefined,
       certificate_authorities => undefined,
+      %% oid_filters => undefined
       %% post_handshake_auth => undefined,
       signature_algs_cert => undefined
      };
@@ -3945,21 +3947,33 @@ empty_extensions(_, client_hello) ->
       elliptic_curves => undefined,
       sni => undefined};
 empty_extensions(?TLS_1_3, server_hello) ->
-    #{server_hello_selected_version => undefined,
+    #{
       key_share => undefined,
-      pre_shared_key => undefined
+      pre_shared_key => undefined,
+      server_hello_selected_version => undefined
      };
 empty_extensions(?TLS_1_3, hello_retry_request) ->
-    #{server_hello_selected_version => undefined,
-      key_share => undefined,
-      pre_shared_key => undefined, %% TODO remove!
-      cookie => undefined
+    #{key_share => undefined,
+      cookie => undefined,
+      server_hello_selected_version => undefined
      };
 empty_extensions(_, server_hello) ->
     #{renegotiation_info => undefined,
       alpn => undefined,
       next_protocol_negotiation => undefined,
-      ec_point_formats => undefined}.
+      ec_point_formats => undefined};
+empty_extensions(?TLS_1_3, encrypted_extensions) ->
+    #{
+      sni => undefined,
+      max_frag_enum => undefined,
+      elliptic_curves => undefined,
+      use_srtp => undefined,
+      %% heartbeat => undefined,
+      alpn => undefined,
+      %% client_cert_type => undefined,
+      %% server_cert_type => undefined,
+      early_data => undefined
+     }.
 
 handle_log(Level, {LogLevel, ReportMap, Meta}) ->
     ssl_logger:log(Level, LogLevel, ReportMap, Meta).
