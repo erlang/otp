@@ -335,7 +335,7 @@ log(File) ->
 start_profiling(Rootset) ->
     start_profiling(Rootset, ?default_pattern).
 
--doc #{equiv => start_profiling(Rootset, Pattern, {'_','_','_'})}.
+-doc #{equiv => start_profiling(Rootset, Pattern, [{set_on_spawn, true}])}.
 -doc(#{since => <<"OTP R14B">>}).
 -spec start_profiling(Rootset, Pattern) -> 'profiling' | {'error', Reason} when
       Rootset :: [atom() | pid()],
