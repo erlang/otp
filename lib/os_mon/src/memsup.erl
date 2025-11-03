@@ -94,7 +94,7 @@ for time intervals and thresholds:
   meaning that information regarding both system memory usage and Erlang process
   memory usage is collected.
 
-  It is recommended to set this parameter to `false` on systems with many
+  It is recommended to set this parameter to `true` on systems with many
   concurrent processes, as each process memory check makes a traversal of the
   entire list of processes.
 
