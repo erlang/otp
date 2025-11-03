@@ -212,7 +212,27 @@ l(I_13, I_big1) ->
      %% Test non-byte sizes and also that the value does not bleed
      %% into the previous segment.
      ?T(<<17, I_big1:33>>, <<17, 197,49,128,73,1:1>>),
-     ?T(<<19, I_big1:39>>, <<19, 11,20,198,1,19:7>>)
+     ?T(<<19, I_big1:39>>, <<19, 11,20,198,1,19:7>>),
+
+     %% Test multiple little-endian segments.
+     ?T(<<I_big1:16/little, I_13:24/little>>,
+        [147,0,13,0,0]),
+     ?T(<<I_big1:13/little, I_13:3/little, I_big1:16/little>>,
+        [147,5,147,0]),
+     ?T(<<I_big1:16/little, I_13:24/little, I_big1:80/little>>,
+        [147,0,13,0,0,147,0,99,138,5,229,249,42,184,98]),
+     ?T(<<I_big1:48/little, (I_big1 bsr 17):16/little>>,
+        [147,0,99,138,5,229,49,197]),
+     ?T(<<I_big1:16/little, (I_big1 bsr 13):16/little,
+          (I_big1 bsr 15):16/little, (I_big1 bsr 23):16/little>>,
+        [147,0,24,83,198,20,20,11]),
+     ?T(<<I_big1:24/little, (I_big1 bsr 11):16/little,
+          (I_big1 bsr 18):16/little, (I_big1 bsr 26):32/little>>,
+        [147,0,99,96,76,152,98,98,65,121,190]),
+     ?T(<<0:5,I_big1:16/little, I_13:3/little>>,
+        [4,152,5]),
+     ?T(<<0:5,I_big1:16/little, (I_big1 bsr 15):19/little>>,
+        [4,152,6,48,163])
     ].
 
 native_3798() ->
@@ -842,6 +862,7 @@ dynamic_little(Bef, N, Int, Lpad, Rpad) ->
     Bin = <<Lpad:Bef/little,Int:N/little,Rpad:(128-Bef-N)/little>>,
 
     if
+        %% Test unusual units.
         Bef rem 8 =:= 0 ->
             Bin = <<Lpad:(Bef div 8)/little-unit:8,
                     Int:N/little,Rpad:(128-Bef-N)/little>>;
@@ -851,6 +872,16 @@ dynamic_little(Bef, N, Int, Lpad, Rpad) ->
         (128-Bef-N) rem 17 =:= 0 ->
             Aft = (128 - Bef - N) div 17,
             Bin = <<Lpad:Bef/little,Int:N/little,Rpad:Aft/little-unit:17>>;
+
+        %% Test combinations of little-integer segments of fixed size.
+        Bef =:= 33, N =:= 45 ->
+            Bin = <<Lpad:Bef/little,Int:N/little,Rpad:50/little>>;
+        Bef =:= 16, N =:= 40 ->
+            Bin = <<Lpad:Bef/little,Int:N/little,Rpad:72/little>>;
+        Bef =:= 16, N =:= 48 ->
+            Bin = <<Lpad:Bef/little,Int:N/little,Rpad:64/little>>;
+        Bef =:= 65, N =:= 32 ->
+            Bin = <<Lpad:Bef/little,Int:N/little,Rpad:31/little>>;
         true ->
             ok
     end,
