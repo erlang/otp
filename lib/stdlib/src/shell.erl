@@ -1159,7 +1159,7 @@ not_restricted(exit, []) ->
     true;
 not_restricted(fl, []) ->
     true;
-not_restricted(fd, [_,_]) ->
+not_restricted(fd, [_,_,_]) ->
     true;
 not_restricted(ft, [_]) ->
     true;
