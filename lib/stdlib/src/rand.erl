@@ -128,76 +128,93 @@ to operate on the state in the process dictionary.
 
 #### _Examples_
 
-Generate two uniformly distibuted floating point numbers.
-
-By not calling a [seed](`seed/1`) function, this uses the genarator state
-(and [algorithm](#algorithms)) in the process dictinary.
-If there is no state there, [`seed(default)`](`seed/1`)
-is implicitly called first:
-
 ```erlang
-R0 = rand:uniform(),
-R1 = rand:uniform(),
-```
+%% Generate two uniformly distibuted floating point numbers.
+%%
+%% By not calling a [seed](`seed/1`) function, this uses
+%% the genarator state and algorithm in the process dictinary.
+%% If there is no state there, [`seed(default)`](`seed/1`)
+%% is implicitly called first:
+%%
+1> R0 = rand:uniform(),
+   is_float(R0) andalso 0.0 =< R0 andalso R0 < 1.0.
+true
+2> R1 = rand:uniform(),
+   is_float(R1) andalso 0.0 =< R1 andalso R1 < 1.0.
+true
 
-Generate a uniformly distributed integer in the range 1..4711:
+%% Generate a uniformly distributed integer in the range 1..4711:
+%%
+3> K0 = rand:uniform(4711),
+   is_integer(K0) andalso 1 =< K0 andalso K0 =< 4711.
+true
 
-```erlang
-K0 = rand:uniform(4711),
-```
+%% Generate a binary with 16 bytes, uniformly distributed:
+%%
+4> B0 = rand:bytes(16),
+   byte_size(B0) == 16.
+true
 
-Generate a binary with 16 bytes, uniformly distributed:
+%% Select and initialize a specified algorithm,
+%% with an automatic default seed, then generate
+%% a floating point number:
+%%
+5> _ = rand:seed(exro928ss).
+6> R2 = rand:uniform(),
+   is_float(R2) andalso 0.0 =< R2 andalso R2 < 1.0.
+true
 
-```erlang
-B0 = rand:bytes(16),
-```
+%% Select and initialize a specified algorithm
+%% with a specified seed, then generate
+%% a floating point number:
+%%
+7> _ = rand:seed(exro928ss, 123456789).
+8> R3 = rand:uniform(),
+   is_float(R3) andalso 0.0 =< R3 andalso R3 < 1.0.
+true
 
-Select and initialize a specified algorithm, with an automatic default seed,
-then generate a floating point number:
+%% Select and initialize a specified algorithm,
+%% with an automatic default seed, using the functional API
+%% with explicit generator state, then generate
+%% two floating point numbers.
+%%
+9>  S0 = rand:seed_s(exsss).
+10> {R4, S1} = rand:uniform_s(S0),
+    is_float(R4) andalso 0.0 =< R4 andalso R4 < 1.0.
+true
+11> {R5, S2} = rand:uniform_s(S1),
+    is_float(R5) andalso 0.0 =< R5 andalso R5 < 1.0.
+true
+%% Repeat the first after seed
+12> {R4, _} = rand:uniform_s(S0).
 
-```erlang
-_ = rand:seed(exro928ss),
-R2 = rand:uniform(),
-```
+%% Generate a standard normal distribution number
+%% using the built-in fast Ziggurat Method:
+%%
+13> {SND0, S3} = rand:normal_s(S2),
+    is_float(SND0).
+true
 
-Select and initialize a specified algorithm with a specified seed,
-then generate a floating point number:
+%% Generate a normal distribution number
+%% with with mean -3 and variance 0.5:
+%%
+14> {ND0, S4} = rand:normal_s(-3, 0.5, S3),
+    is_float(ND0).
+true
 
-```erlang
-_ = rand:seed(exro928ss, 123456789),
-R3 = rand:uniform(),
-```
-
-Select and initialize a specified algorithm, with an automatic default seed,
-using the functional API with explicit generator state,
-then generate a floating point number.
-
-```erlang
-S0 = rand:seed_s(exsss),
-{R4, S1} = rand:uniform_s(S0),
-```
-
-Generate a standard normal distribution number using the built-in
-fast Ziggurat Method:
-
-```erlang
-{SND1, S2} = rand:normal_s(S1),
-```
-
-Generate a normal distribution number with with mean -3 and variance 0.5:
-
-```erlang
-{ND0, S3} = rand:normal_s(-3, 0.5, S2),
-```
-
-Generate a textbook basic form Box-Muller standard normal distribution number,
-which has the same distribution as the built-in Ziggurat mathod above,
-but is much slower:
-
-```erlang
-R5 = rand:uniform_real(),
-R6 = rand:uniform(),
-SND0 = math:sqrt(-2 * math:log(R5)) * math:cos(math:pi() * R6)
+%% Generate a textbook basic form Box-Muller
+%% standard normal distribution number, which has the same
+%% distribution as the built-in Ziggurat method above,
+%% but is much slower:
+%%
+15> R6 = rand:uniform_real(),
+    is_float(R6) andalso 0.0 < R6 andalso R6 < 1.0.
+true
+16> R7 = rand:uniform(),
+    is_float(R7) andalso 0.0 =< R7 andalso R7 < 1.0.
+true
+%% R6 cannot be equal to 0.0 so math:log/1 will never fail
+17> SND1 = math:sqrt(-2 * math:log(R6)) * math:cos(math:pi() * R7).
 ```
 
 [](){: #algorithms } Algorithms
