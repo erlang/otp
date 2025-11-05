@@ -2012,11 +2012,15 @@ tokens_fixup([T|Ts]=Ts0) ->
     end.
 
 token_fixup(Ts) ->
-    {AnnoL, NewTs, FixupTag} = unscannable(Ts),
-    String = lists:append([erl_anno:text(A) || A <- AnnoL]),
-    _ = validate_tag(FixupTag, String),
-    NewAnno = erl_anno:set_text(fixup_text(FixupTag), hd(AnnoL)),
-    {{string, NewAnno, String}, NewTs}.
+    case unscannable(Ts) of
+        {AnnoL, NewTs, FixupTag} ->
+            String = lists:append([erl_anno:text(A) || A <- AnnoL]),
+            _ = validate_tag(FixupTag, String),
+            NewAnno = erl_anno:set_text(fixup_text(FixupTag), hd(AnnoL)),
+            {{string, NewAnno, String}, NewTs};
+        false ->
+            {hd(Ts), tl(Ts)}
+    end.
 
 unscannable([{'#', A1}, {var, A2, 'Fun'}, {'<', A3}, {atom, A4, _},
              {'.', A5}, {float, A6, _}, {'>', A7}|Ts]) ->
@@ -2033,7 +2037,9 @@ unscannable([{'#', A1}, {var, A2, 'Port'}, {'<', A3}, {float, A4, _},
     {[A1, A2, A3, A4, A5], Ts, port};
 unscannable([{'#', A1}, {var, A2, 'Ref'}, {'<', A3}, {float, A4, _},
              {'.', A5}, {float, A6, _}, {'>', A7}|Ts]) ->
-    {[A1, A2, A3, A4, A5, A6, A7], Ts, reference}.
+    {[A1, A2, A3, A4, A5, A6, A7], Ts, reference};
+unscannable(_) ->
+    false.
 
 expr_fixup({string,A,S}=T) ->
     try string_fixup(A, S, T) of
