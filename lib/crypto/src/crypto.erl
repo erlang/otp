@@ -1996,11 +1996,9 @@ alias1_rev(C) -> C.
 
 %%%================================================================
 %%%
-%%% RAND - pseudo random numbers using RN_ and BN_ functions in crypto lib
+%%% RANDOM - pseudo random numbers using RN_ and BN_ functions in crypto lib
 %%%
 %%%================================================================
--type rand_cache_seed() ::
-        nonempty_improper_list(non_neg_integer(), binary()).
 
 -doc """
 Generate bytes with randomly uniform values 0..255.
@@ -2025,7 +2023,93 @@ strong_rand_bytes(Bytes) ->
 strong_rand_bytes_nif(_Bytes) -> ?nif_stub.
 
 
+-doc(#{group => <<"Random API">>}).
 -doc """
+Generate a random integer number.
+
+The interval is `From =< N < To`. Uses the `crypto` library
+pseudo-random number generator. `To` must be larger than `From`.
+
+> #### Note {: .info }
+>
+> This function is deprecated because it originally used
+> the OpenSSL method BN_pseudo_rand_range that was not
+> cryptographically strong and could not run out of entropy.
+> That behaviour changed in OpenSSL and this function
+> cannot be fixed without making it raise `error:low_entropy`,
+> which is not backwards compatible.
+>
+> Instead, use for example:
+>
+> ``` erlang
+> S0 = crypto:rand_seed_s(),
+> {Int, S1} = rand:uniform(To - From, S0),
+> From + Int - 1.
+> ```
+>
+> Beware of the possible `error:low_entropy` exception.
+""".
+-spec rand_uniform(crypto_integer(), crypto_integer()) ->
+			  crypto_integer().
+rand_uniform(From, To) when is_binary(From), is_binary(To) ->
+    case rand_uniform_nif(From,To) of
+	<<Len:32/integer, MSB, Rest/binary>> when MSB > 127 ->
+	    <<(Len + 1):32/integer, 0, MSB, Rest/binary>>;
+	Whatever ->
+	    Whatever
+    end;
+rand_uniform(From,To) when is_integer(From),is_integer(To) ->
+    if From < 0 ->
+	    rand_uniform_pos(0, To - From) + From;
+       true ->
+	    rand_uniform_pos(From, To)
+    end.
+
+rand_uniform_pos(From,To) when From < To ->
+    BinFrom = mpint(From),
+    BinTo = mpint(To),
+    case rand_uniform(BinFrom, BinTo) of
+        Result when is_binary(Result) ->
+            erlint(Result);
+        Other ->
+            Other
+    end;
+rand_uniform_pos(_,_) ->
+    error(badarg).
+
+rand_uniform_nif(_From,_To) -> ?nif_stub.
+
+
+-doc """
+Mixes in the bytes of the given binary into the internal state
+of OpenSSL's random number generator.
+
+This calls the RAND_seed function from OpenSSL. Only use this if
+the system you are running on does not have enough "randomness" built in.
+Normally this is when `strong_rand_bytes/1` or a generator
+from `rand_seed_alg_s/1` raises `error:low_entropy`.
+""".
+-doc(#{group => <<"Random API">>,
+       since => <<"OTP 17.0">>}).
+-spec rand_seed(binary()) -> ok.
+rand_seed(Seed) when is_binary(Seed) ->
+    rand_seed_nif(Seed).
+
+rand_seed_nif(_Seed) -> ?nif_stub.
+
+
+%%%================================================================
+%%%
+%%% RAND - Plug-In Generators for the `rand` module
+%%%
+%%%================================================================
+
+-type rand_cache_seed() ::
+        nonempty_improper_list(non_neg_integer(), binary()).
+
+-doc """
+Create a generator for `m:rand` and save it in the process dictionary.
+
 Equivalent to `rand_seed_s/0` but also saves the returned
 state object (generator) in the process dictionary.  That is,
 it is equivalent to `rand:seed(rand_seed_s())`.
@@ -2053,13 +2137,15 @@ FloatValue = rand:uniform().     % [0.0; 1.0)
 > that should be used instead of this function.
 """.
 
--doc(#{group => <<"Random API">>,
+-doc(#{group => <<"Plug-In Generators">>,
        since => <<"OTP 20.0">>}).
 -spec rand_seed() -> rand:state().
 rand_seed() ->
     rand:seed(rand_seed_s()).
 
 -doc """
+Create a generator for `m:rand`.
+
 Create a state object (generator) for [random number generation](`m:rand`),
 which when used by the `m:rand` functions produce
 **cryptographically strong** random numbers (based on OpenSSL's
@@ -2085,13 +2171,16 @@ the random generator failed due to lack of secure "randomness".
 >
 > The only supported usage is to generate one distinct random sequence.
 """.
--doc(#{group => <<"Random API">>,
+-doc(#{group => <<"Plug-In Generators">>,
        since => <<"OTP 20.0">>}).
 -spec rand_seed_s() -> rand:state().
 rand_seed_s() ->
     rand_seed_alg_s(?MODULE).
 
 -doc """
+Create a generator for `m:rand` with specified algorithm,
+and save it in the process dictionary.
+
 Equivalent `rand_seed_alg_s/1` but also saves the returned
 state object (generator) in the process dictionary.  That is,
 it is equivalent to `rand:seed(rand_seed_alg_s(Alg))`.
@@ -2107,7 +2196,7 @@ IntegerValue = rand:uniform(42), % 1 .. 42
 FloatValue = rand:uniform().     % [0.0; 1.0)
 ```
 """.
--doc(#{group => <<"Random API">>,
+-doc(#{group => <<"Plug-In Generators">>,
        since => <<"OTP 21.0">>}).
 -spec rand_seed_alg(Alg :: 'crypto' | 'crypto_cache') ->
           {rand:alg_handler(),
@@ -2116,6 +2205,9 @@ rand_seed_alg(Alg) ->
     rand:seed(rand_seed_alg_s(Alg)).
 
 -doc """
+Create and seed a generator for `m:rand` with specified algorithm,
+and save it in the process dictionary.
+
 Equivalent to `rand_seed_alg_s/2` but also saves the returned
 state object (generator) in the process dictionary.  That is,
 it is equivalent to `rand:seed(rand_seed_alg_s(Alg, Seed))`.
@@ -2134,7 +2226,7 @@ IntegerValue = rand:uniform(42), % Same values
 FloatValue = rand:uniform().     % again
 ```
 """.
--doc(#{group => <<"Random API">>,
+-doc(#{group => <<"Plug-In Generators">>,
        since => <<"OTP-22.0">>}).
 -spec rand_seed_alg(Alg :: 'crypto_aes', Seed :: term()) ->
           {rand:alg_handler(),
@@ -2145,8 +2237,10 @@ rand_seed_alg(Alg, Seed) ->
 -define(CRYPTO_CACHE_BITS, 56).
 -define(CRYPTO_AES_BITS, 58).
 
--doc(#{group => <<"Random API">>}).
+-doc(#{group => <<"Plug-In Generators">>}).
 -doc """
+Create a generator for `m:rand` with specified algorithm.
+
 Create a state object (generator) for [random number generation](`m:rand`),
 which when used by the `m:rand` functions produce
 **cryptographically strong** random number.
@@ -2197,6 +2291,8 @@ rand_seed_alg_s(Alg) when is_atom(Alg) ->
     {mk_alg_handler(Alg),mk_alg_state(Alg)}.
 
 -doc """
+Create and seed a generator for `m:rand` with specified algorithm.
+
 Create a state object (generator) for [random number generation](`m:rand`),
 which when used by the `m:rand` functions produce
 **cryptographically unpredictable** random numbers
@@ -2239,7 +2335,7 @@ Numbers are generated in batches and cached for speed reasons. The cache size
 can be changed from its default value using the
 [crypto app's ](crypto_app.md)configuration parameter `rand_cache_size`.
 """.
--doc(#{group => <<"Random API">>,
+-doc(#{group => <<"Plug-In Generators">>,
        since => <<"OTP 22.0">>}).
 -spec rand_seed_alg_s(Alg :: 'crypto_aes', Seed :: term()) ->
           {rand:alg_handler(),
@@ -2430,78 +2526,6 @@ strong_rand_range_nif(_BinRange) -> ?nif_stub.
 strong_rand_float() ->
     WholeRange = strong_rand_range(1 bsl 53),
     ?HALF_DBL_EPSILON * bytes_to_integer(WholeRange).
-
--doc(#{group => <<"Random API">>}).
--doc """
-Generate a random integer number.
-
-The interval is `From =< N < To`. Uses the `crypto` library
-pseudo-random number generator. `To` must be larger than `From`.
-
-> #### Note {: .info }
->
-> This function is deprecated because it originally used
-> the OpenSSL method BN_pseudo_rand_range that was not
-> cryptographically strong and could not run out of entropy.
-> Although that function has been deprecated in later versions of OpenSSL,
-> this function cannot be fixed without making it possibly raise
-> `error:low_entropy`, which is not backwards compatible.
->
-> Instead use for example:
->
-> ``` erlang
-> S0 = crypto:rand_seed_s(),
-> {Int, S1} = rand:uniform(To - From, S0),
-> From + Int - 1.
-> ```
-""".
--spec rand_uniform(crypto_integer(), crypto_integer()) ->
-			  crypto_integer().
-rand_uniform(From, To) when is_binary(From), is_binary(To) ->
-    case rand_uniform_nif(From,To) of
-	<<Len:32/integer, MSB, Rest/binary>> when MSB > 127 ->
-	    <<(Len + 1):32/integer, 0, MSB, Rest/binary>>;
-	Whatever ->
-	    Whatever
-    end;
-rand_uniform(From,To) when is_integer(From),is_integer(To) ->
-    if From < 0 ->
-	    rand_uniform_pos(0, To - From) + From;
-       true ->
-	    rand_uniform_pos(From, To)
-    end.
-
-rand_uniform_pos(From,To) when From < To ->
-    BinFrom = mpint(From),
-    BinTo = mpint(To),
-    case rand_uniform(BinFrom, BinTo) of
-        Result when is_binary(Result) ->
-            erlint(Result);
-        Other ->
-            Other
-    end;
-rand_uniform_pos(_,_) ->
-    error(badarg).
-
-rand_uniform_nif(_From,_To) -> ?nif_stub.
-
-
--doc """
-Mixes in the bytes of the given binary into the internal state
-of openssl's random number generator.
-
-This calls the RAND_seed function from openssl. Only use this if
-the system you are running on does not have enough "randomness" built in.
-Normally this is when `strong_rand_bytes/1` or a generator
-from `rand_seed_alg_s/1` raises `error:low_entropy`.
-""".
--doc(#{group => <<"Random API">>,
-       since => <<"OTP 17.0">>}).
--spec rand_seed(binary()) -> ok.
-rand_seed(Seed) when is_binary(Seed) ->
-    rand_seed_nif(Seed).
-
-rand_seed_nif(_Seed) -> ?nif_stub.
 
 %%%================================================================
 %%%
