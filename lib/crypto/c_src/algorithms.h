@@ -25,15 +25,12 @@
 
 #include "common.h"
 
-int create_curve_mutex(void);
+int create_algorithm_mutexes(void);
 void destroy_curve_mutex(void);
 void init_algorithms_types(ErlNifEnv* env);
 
 ERL_NIF_TERM hash_algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-
-#ifdef FIPS_SUPPORT
 ERL_NIF_TERM fips_forbidden_hash_algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-#endif
 
 ERL_NIF_TERM pubkey_algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 ERL_NIF_TERM fips_forbidden_pubkey_algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);

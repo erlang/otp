@@ -63,9 +63,12 @@ enum PKEY_AVAIL_FLAGS {
 
 /* Stores all known public key algorithms with their FIPS unavailability flag if FIPS is enabled */
 static struct pkey_availability_array_t {
-    size_t count;
+    ssize_t count;
     struct pkey_availability_t algorithm[12]; /* increase when extending the list */
-} algo_pubkey;
+    ErlNifMutex* mutex;
+} algo_pubkey = {.count = -1, .algorithm = {{0}}, .mutex = NULL};
+
+static ssize_t pubkey_algorithms_lazy_init(ErlNifEnv* env, bool fips_enabled);
 
 struct kem_availability_t {
     const char* str_v3;  /* the algorithm name as in OpenSSL 3.x */
@@ -90,7 +93,6 @@ static struct kem_availability_array_t {
     struct kem_availability_t algorithm[3]; /* increase when extending the list */
 } algo_kem;
 
-void init_pubkey_types(ErlNifEnv* env);
 void init_kem_types(void);
 
 struct curve_availability_t {
@@ -114,8 +116,8 @@ static struct curve_availability_array_t {
 
     /* [0] contains non-FIPS, and [1] contains FIPS curve details */
     struct curve_availability_t algorithms[89]; /* increase when extending the list */
-    ErlNifMutex* mtx_init_curve_types;
-} algo_curve = {-1, {0}, NULL};
+    ErlNifMutex* mutex;
+} algo_curve = {.count = -1, .algorithms = {{0}}, .mutex = NULL};
 
 static size_t curves_lazy_init(ErlNifEnv* env, bool fips_enabled);
 
@@ -130,26 +132,33 @@ void init_algorithms_types(ErlNifEnv* env)
 #else
     init_hash_types(env);
 #endif
-    init_pubkey_types(env);
     init_kem_types();
     init_rsa_opts_types(env);
     /* ciphers and macs are initiated statically */
 }
 
 
-int create_curve_mutex(void)
+int create_algorithm_mutexes(void)
 {
-    if (!algo_curve.mtx_init_curve_types) {
-        algo_curve.mtx_init_curve_types =  enif_mutex_create("init_curve_types");
+    if (!algo_curve.mutex) {
+        algo_curve.mutex =  enif_mutex_create("init_curve_types");
     }
-    return !!algo_curve.mtx_init_curve_types;
+    if (!algo_pubkey.mutex) {
+        algo_pubkey.mutex =  enif_mutex_create("init_pkey_algorithms");
+    }
+    return (algo_curve.mutex != NULL)
+        && (algo_pubkey.mutex != NULL);
 }
 
 void destroy_curve_mutex(void)
 {
-    if (algo_curve.mtx_init_curve_types) {
-        enif_mutex_destroy(algo_curve.mtx_init_curve_types);
-        algo_curve.mtx_init_curve_types = NULL;
+    if (algo_curve.mutex) {
+        enif_mutex_destroy(algo_curve.mutex);
+        algo_curve.mutex = NULL;
+    }
+    if (algo_pubkey.mutex) {
+        enif_mutex_destroy(algo_pubkey.mutex);
+        algo_pubkey.mutex = NULL;
     }
 }
 
@@ -249,6 +258,7 @@ static ERL_NIF_TERM pubkey_algorithms_as_list(ErlNifEnv* env, const bool fips_fo
 
 ERL_NIF_TERM pubkey_algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
+    pubkey_algorithms_lazy_init(env, FIPS_MODE());
     /* Filter the results by IS_PUBKEY_FORBIDDEN_IN_FIPS() == false */
     return pubkey_algorithms_as_list(env, false);
 }
@@ -271,8 +281,12 @@ static void add_pubkey_algorithm(ErlNifEnv* env, const char* str_v3,
  * algorithm is allowed, for non-FIPS the old behavior - always allow.
  * Pass 0 for atom to create one right here.
  */
-static void probe_pubkey_algorithm(ErlNifEnv* env, const char* str_v3, ERL_NIF_TERM atom) {
+static void probe_pubkey_algorithm(ErlNifEnv *env, const char *str_v3,
+                                   ERL_NIF_TERM atom, const bool fips_enabled) {
     unsigned unavailable = 0;
+    if (!fips_enabled) { /* No check for non-fips, all algorithms are welcome */
+        return add_pubkey_algorithm(env, str_v3, unavailable, atom);
+    }
 #if defined(FIPS_SUPPORT) && defined(HAS_3_0_API)
     EVP_PKEY_CTX *ctx = EVP_PKEY_CTX_new_from_name(NULL, str_v3, "fips=yes");
     /* failed: algorithm not available, do not add */
@@ -312,42 +326,58 @@ static void probe_pubkey_algorithm(ErlNifEnv* env, const char* str_v3, ERL_NIF_T
     add_pubkey_algorithm(env, str_v3, unavailable, atom);
 }
 
-void init_pubkey_types(ErlNifEnv* env) {
+/* Must be invoked under algo_pubkey.mutex protection */
+static void init_pubkey_types(ErlNifEnv* env, const bool fips_enabled) {
     // Validated algorithms first
     algo_pubkey.count = 0;
-    probe_pubkey_algorithm(env, "rsa", 0);
+    probe_pubkey_algorithm(env, "rsa", 0, fips_enabled);
 #ifdef HAVE_DSA
-    probe_pubkey_algorithm(env, "dss", 0);
+    probe_pubkey_algorithm(env, "dss", 0, fips_enabled);
 #endif
 
 #ifdef HAVE_DH
-    probe_pubkey_algorithm(env, "dh", 0);
+    probe_pubkey_algorithm(env, "dh", 0, fips_enabled);
 #endif
 
 #if defined(HAVE_EC)
 #if !defined(OPENSSL_NO_EC2M)
-    probe_pubkey_algorithm(env, "ec_gf2m", 0);
+    probe_pubkey_algorithm(env, "ec_gf2m", 0, fips_enabled);
 #endif
-    probe_pubkey_algorithm(env, "ecdsa", 0);
-    probe_pubkey_algorithm(env, "ecdh", 0);
+    probe_pubkey_algorithm(env, "ecdsa", 0, fips_enabled);
+    probe_pubkey_algorithm(env, "ecdh", 0, fips_enabled);
 #endif
 
     // Non-validated algorithms follow
     // Don't know if Edward curves are fips validated
 #if defined(HAVE_EDDSA)
-    probe_pubkey_algorithm(env, "eddsa", 0);
+    probe_pubkey_algorithm(env, "eddsa", 0, fips_enabled);
 #endif
 #if defined(HAVE_EDDH)
-    probe_pubkey_algorithm(env, "eddh", 0);
+    probe_pubkey_algorithm(env, "eddh", 0, fips_enabled);
 #endif
-    probe_pubkey_algorithm(env, "srp", 0);
+    probe_pubkey_algorithm(env, "srp", 0, fips_enabled);
 #ifdef HAVE_ML_DSA
-    probe_pubkey_algorithm(env, "mldsa44", atom_mldsa44);
-    probe_pubkey_algorithm(env, "mldsa65", atom_mldsa65);
-    probe_pubkey_algorithm(env, "mldsa87", atom_mldsa87);
+    probe_pubkey_algorithm(env, "mldsa44", atom_mldsa44, fips_enabled);
+    probe_pubkey_algorithm(env, "mldsa65", atom_mldsa65, fips_enabled);
+    probe_pubkey_algorithm(env, "mldsa87", atom_mldsa87, fips_enabled);
 #endif
     /* When adding a new algorithm, update the size of algo_pubkey.algorithm array */
     ASSERT(algo_pubkey.count <= sizeof(algo_pubkey.algorithm)/sizeof(algo_pubkey.algorithm[0]));
+}
+
+/* Perform late lazy init of pubkey algorithms, hence the need for mutex */
+static ssize_t pubkey_algorithms_lazy_init(ErlNifEnv* env, const bool fips_enabled) {
+    size_t result = 0;
+    if (algo_pubkey.count >= 0) return algo_pubkey.count;
+
+    enif_mutex_lock(algo_pubkey.mutex);
+    if (algo_pubkey.count < 0) {
+        init_pubkey_types(env, fips_enabled); /* also updates algo_curve.count[0] or [1] */
+        result = algo_curve.count;
+    }
+    enif_mutex_unlock(algo_curve.mutex);
+
+    return result;
 }
 
 #ifdef HAVE_ML_KEM
@@ -481,12 +511,12 @@ static size_t curves_lazy_init(ErlNifEnv* env, const bool fips_enabled) {
     size_t result = 0;
     if (algo_curve.count >= 0) return algo_curve.count;
 
-    enif_mutex_lock(algo_curve.mtx_init_curve_types);
+    enif_mutex_lock(algo_curve.mutex);
     if (algo_curve.count < 0) {
         init_curves(env, fips_enabled); /* also updates algo_curve.count[0] or [1] */
         result = algo_curve.count;
     }
-    enif_mutex_unlock(algo_curve.mtx_init_curve_types);
+    enif_mutex_unlock(algo_curve.mutex);
 
     return result;
 }
@@ -542,7 +572,7 @@ static void add_curve_if_supported(const int nid, ErlNifEnv* env, bool fips_enab
         EVP_PKEY_CTX_free(pctx); /* NULL is allowed */
     }
 #else
-    add_curve(env, fips_enabled, str_v3, 0);
+    add_curve(env, str_v3, 0);
 #endif
 }
 
@@ -1010,6 +1040,7 @@ ERL_NIF_TERM fips_forbidden_hash_algorithms(ErlNifEnv* env, int argc, const ERL_
 
 ERL_NIF_TERM fips_forbidden_pubkey_algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
 #ifdef FIPS_SUPPORT
+    pubkey_algorithms_lazy_init(env, 1);
     /* Filter the results by IS_PUBKEY_FORBIDDEN_IN_FIPS() == true */
     return pubkey_algorithms_as_list(env, true);
 #else
