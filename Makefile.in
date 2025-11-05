@@ -424,8 +424,10 @@ endif
 	    $(MAKE) BUILD_ALL=1 PROFILE=$(PROFILE) TESTROOT="$(RELEASE_ROOT)" release
 ifeq ($(RELEASE_ROOT),)
 	$(INSTALL_DATA) "$(ERL_TOP)/OTP_VERSION" "$(OTP_DEFAULT_RELEASE_PATH)/releases/@OTP_REL@"
+	$(INSTALL_DATA) sys.config "$(OTP_DEFAULT_RELEASE_PATH)/releases/@OTP_REL@"
 else
 	$(INSTALL_DATA) "$(ERL_TOP)/OTP_VERSION" "$(RELEASE_ROOT)/releases/@OTP_REL@"
+	$(INSTALL_DATA) sys.config "$(RELEASE_ROOT)/releases/@OTP_REL@"
 endif
 
 # ---------------------------------------------------------------
@@ -855,7 +857,7 @@ $(TEST_DIRS):
 #
 # Order is important here, don't change it!
 #
-INST_DEP += install.dirs install.emulator install.libs install.Install install.otp_version install.bin
+INST_DEP += sys.config install.dirs install.emulator install.libs install.Install install.otp_version install.config install.bin
 
 install: $(INST_DEP)
 
@@ -889,6 +891,13 @@ ifeq ($(ERLANG_LIBDIR),)
 	$(INSTALL_DATA) "$(ERL_TOP)/OTP_VERSION" "$(OTP_DEFAULT_RELEASE_PATH)/releases/@OTP_REL@"
 else
 	$(INSTALL_DATA) "$(ERL_TOP)/OTP_VERSION" "$(ERLANG_LIBDIR)/releases/@OTP_REL@"
+endif
+
+install.config:	sys.config
+ifeq ($(ERLANG_LIBDIR),)
+	$(INSTALL_DATA) $< "$(OTP_DEFAULT_RELEASE_PATH)/releases/@OTP_REL@"
+else
+	$(INSTALL_DATA) $< "$(ERLANG_LIBDIR)/releases/@OTP_REL@"
 endif
 
 #
