@@ -142,7 +142,7 @@ Uint erts_sum_all_session_flags(ErtsCodeInfo *ci_rw);
 void erts_uninstall_breakpoints(BpFunctions* f);
 
 void erts_consolidate_local_bp_data(BpFunctions* f);
-void erts_consolidate_export_bp_data(BpFunctions* f);
+void erts_consolidate_all_bp_data(BpFunctions* f, BpFunctions* e);
 void erts_free_breakpoints(void);
 
 void erts_set_trace_break(BpFunctions *f, Binary *match_spec);
