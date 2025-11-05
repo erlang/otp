@@ -1018,7 +1018,18 @@ about how to enable FIPS mode.
 info_fips() -> ?nif_stub.
 
 -doc """
-Enable or disable FIPs mode.
+Enable or disable FIPS mode of the OpenSSL library.
+
+---
+Do not use this function in your code, it is designed to only be used by the crypto
+library or by Erlang self-tests. This function is called automatically on first load
+of the crypto NIF with the value `fips_mode :: true | false` from crypto app environment.
+
+This operation is not thread-safe, it should only be called once (by the Erlang crypto
+library) and user code calling it, while there are SSL operations running, might get
+undesired consequences, because the attached OpenSSL library structures will switch
+on the fly. Unintended non-FIPS algorithms might become enabled in your FIPS-only code.
+---
 
 Argument `Enable` should be `true` to enable and `false` to disable FIPS mode.
 Returns `true` if the operation was successful or `false` otherwise.
