@@ -27,7 +27,8 @@
          revert_map_type/1,wrapped_subtrees/1,
          t_abstract_type/1,t_erl_parse_type/1,t_type/1,
          t_epp_dodger/1,t_epp_dodger_clever/1,
-         t_comment_scan/1,t_prettypr/1,test_named_fun_bind_ann/1]).
+         t_comment_scan/1,t_prettypr/1,test_named_fun_bind_ann/1,
+         test_mc_ann/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -36,7 +37,8 @@ all() ->
      wrapped_subtrees,
      t_abstract_type,t_erl_parse_type,t_type,
      t_epp_dodger,t_epp_dodger_clever,
-     t_comment_scan,t_prettypr,test_named_fun_bind_ann].
+     t_comment_scan,t_prettypr,test_named_fun_bind_ann,
+     test_mc_ann].
 
 groups() -> 
     [].
@@ -314,6 +316,8 @@ t_erl_parse_type(Config) when is_list(Config) ->
 		     {"[catch V||V <- Vs]", list_comp,false},
 		     {"<< <<B>> || <<B>> <= Bs>>", binary_comp,false},
 		     {"<< (catch <<B>>) || <<B>> <= Bs>>", binary_comp,false},
+		     {"#{K => V || {K,V} <- KVs}", map_comp,false},
+		     {"#{K => (catch V) || {K,V} <- KVs}", map_comp,false},
 		     {"#state{ a = A, b = B}", record_expr,false},
 		     {"#state{}", record_expr,false},
 		     {"#s{ a = #def{ a=A }, b = B}", record_expr,false},
@@ -381,6 +385,19 @@ test_named_fun_bind_ann(Config) when is_list(Config) ->
     {'env',[Name]} = CEnv,
     {'bound',['Test']} = CBound,
     {'free', []} = CFree.
+
+test_mc_ann(Config) when is_list(Config) ->
+    Expr = {mc,1,
+            {map_field_assoc,1,{var,1,'X'},{var,1,'Y'}},
+            [{generate,1,
+                        {tuple,1,[{var,1,'X'},{var,1,'Y'}]},
+                        {var,1,'Pairs'}}]},
+    ZipAnn = erl_syntax_lib:annotate_bindings(Expr, []),
+    [Env, Bound, Free] = erl_syntax:get_ann(ZipAnn),
+    {'env',[]} = Env,
+    {'bound',[]} = Bound,
+    {'free',['Pairs']} = Free,
+    ok.
 
 test_files(Config) ->
     DataDir = ?config(data_dir, Config),
