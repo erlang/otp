@@ -319,6 +319,11 @@ render_callback(_Config) ->
     ok.
 
 render_man(_Config) ->
+    Old_ERL_TOP = os:getenv("ERL_TOP"),
+    case Old_ERL_TOP of
+        false -> os:putenv("ERL_TOP", code:root_dir());
+        _ -> ok
+    end,
     docsmap(
         fun(Mod, #docs_v1{metadata = Metadata} = D) ->
             try
@@ -333,6 +338,10 @@ render_man(_Config) ->
                 exit(R)
             end
         end),
+    case Old_ERL_TOP of
+        false -> os:unsetenv("ERL_TOP");
+        _ -> os:putenv("ERL_TOP", Old_ERL_TOP)
+    end,
     ok.
 
 docsmap(Fun) ->
