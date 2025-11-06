@@ -228,34 +228,40 @@ static int is_valid_in_fips(const EVP_CIPHER *cipher)
 #endif /* FIPS_SUPPORT */
 #endif /* HAS_3_0_API */
 
+static void update_cipher_type_availability(struct cipher_type_t* p)
+{
+#ifdef HAS_3_0_API
+    if (p->str_v3) {
+# ifdef FIPS_SUPPORT
+        EVP_CIPHER* fetched_cipher = EVP_CIPHER_fetch(NULL, p->str_v3, "fips=yes");
+        /* Deeper check for validity in FIPS, also checks for NULL */
+        if (is_valid_in_fips(fetched_cipher)) {
+            p->flags &= ~FIPS_FORBIDDEN_CIPHER;
+            p->cipher.p = fetched_cipher;
+        } else {
+            p->flags |= FIPS_FORBIDDEN_CIPHER;
+            EVP_CIPHER_free(fetched_cipher); /* NULL is allowed */
+        }
+# else
+        p->cipher.p = EVP_CIPHER_fetch(NULL, p->str_v3, "");
+# endif /* FIPS_SUPPORT and >=3.0.0 */
+    }
+#else
+    if (p->cipher.funcp) {
+        p->cipher.p = p->cipher.funcp();
+    }
+#endif
+}
+
 void init_cipher_types(ErlNifEnv* env)
 {
     struct cipher_type_t* p = cipher_types;
 
     num_cipher_types = 0;
-    for (p = cipher_types; p->type.str; p++) {
+    for (/* p = cipher_types */; p->type.str; p++) {
         num_cipher_types++;
         p->type.atom = enif_make_atom(env, p->type.str);
-#ifdef HAS_3_0_API
-        if (p->str_v3) {
-# ifdef FIPS_SUPPORT
-            EVP_CIPHER* fetched_cipher = EVP_CIPHER_fetch(NULL, p->str_v3, "fips=yes");
-            /* Deeper check for validity in FIPS, also checks for NULL */
-            if (is_valid_in_fips(fetched_cipher)) {
-                p->flags &= ~FIPS_FORBIDDEN_CIPHER;
-                p->cipher.p = fetched_cipher;
-            } else {
-                p->flags |= FIPS_FORBIDDEN_CIPHER;
-                EVP_CIPHER_free(fetched_cipher); /* NULL is allowed */
-            }
-#else
-            p->cipher.p = EVP_CIPHER_fetch(NULL, p->str_v3, "");
-# endif /* FIPS_SUPPORT and >=3.0.0 */
-        }
-#else
-	if (p->cipher.funcp)
-	    p->cipher.p = p->cipher.funcp();
-#endif
+        update_cipher_type_availability(p);
     }
     p->type.atom = atom_false; /* end marker */
 

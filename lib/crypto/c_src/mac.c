@@ -157,29 +157,33 @@ static int is_valid_in_fips(EVP_MAC* mac)
 #endif /* FIPS_SUPPORT */
 #endif /* HAS_3_0_API */
 
+static void update_mac_type_fips_flags(struct mac_type_t* p) {
+#if defined(HAS_3_0_API)
+# ifdef FIPS_SUPPORT
+    {
+        EVP_MAC* fetched_mac = EVP_MAC_fetch(NULL, p->fetch_name, "fips=yes");
+        const int unavail_flags = is_valid_in_fips(fetched_mac); /* Also tests for NULL */
+        if (unavail_flags == 0) {
+            p->unavail_flags = 0; /* mark available */
+            p->evp_mac = fetched_mac;
+        } else {
+            p->unavail_flags |= unavail_flags;
+            EVP_MAC_free(fetched_mac);
+        }
+    }
+# else
+    p->evp_mac = EVP_MAC_fetch(NULL, p->fetch_name, NULL);
+# endif
+#endif
+}
+
 void init_mac_types(ErlNifEnv* env)
 {
     struct mac_type_t* p = mac_types;
 
     for (/* p = mac_types */; p->name.str; p++) {
         p->name.atom = enif_make_atom(env, p->name.str);
-#if defined(HAS_3_0_API)
-# ifdef FIPS_SUPPORT
-        {
-            EVP_MAC* fetched_mac = EVP_MAC_fetch(NULL, p->fetch_name, "fips=yes");
-            const int unavail_flags = is_valid_in_fips(fetched_mac); /* Also tests for NULL */
-            if (unavail_flags == 0) {
-                p->unavail_flags = 0; /* mark available */
-                p->evp_mac = fetched_mac;
-            } else {
-                p->unavail_flags |= unavail_flags;
-                EVP_MAC_free(fetched_mac);
-            }
-        }
-# else
-        p->evp_mac = EVP_MAC_fetch(NULL, p->fetch_name, NULL);
-# endif
-#endif
+        update_mac_type_fips_flags(p);
     }
     p->name.atom = atom_false;  /* end marker */
 }

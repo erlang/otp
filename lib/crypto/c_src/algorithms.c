@@ -367,7 +367,7 @@ static void init_pubkey_types(ErlNifEnv* env, const bool fips_enabled) {
 
 /* Perform late lazy init of pubkey algorithms, hence the need for mutex */
 static ssize_t pubkey_algorithms_lazy_init(ErlNifEnv* env, const bool fips_enabled) {
-    size_t result = 0;
+    ssize_t result = 0;
     if (algo_pubkey.count >= 0) return algo_pubkey.count;
 
     enif_mutex_lock(algo_pubkey.mutex);

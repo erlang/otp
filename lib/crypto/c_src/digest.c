@@ -199,30 +199,41 @@ static int is_valid_in_fips(const EVP_MD* md)
 #endif /* FIPS_SUPPORT */
 #endif /* HAS_3_0_API */
 
+static void update_digest_type_fips_flags(struct digest_type_t* p)
+{
+#ifdef FIPS_SUPPORT
+    EVP_MD *fetched_md = EVP_MD_fetch(NULL, p->str_v3, "fips=yes");
+    /* Deeper check for validity in FIPS, also checks for NULL */
+    if (is_valid_in_fips(fetched_md)) {
+        p->flags &= ~FIPS_FORBIDDEN_DIGEST;
+        p->md.p = fetched_md;
+    } else {
+        p->flags |= FIPS_FORBIDDEN_DIGEST;
+        EVP_MD_free(fetched_md); /* NULL is allowed */
+    }
+#else
+    p->md.p = EVP_MD_fetch(NULL, p->str_v3, "");
+#endif /* FIPS_SUPPORT and >=3.0.0 */
+}
+
+static void update_digest_type_availability(struct digest_type_t* p)
+{
+#ifdef HAS_3_0_API
+  if (p->str_v3) {
+    update_digest_type_fips_flags(p);
+  }
+#else
+  if (p->md.funcp) {
+    p->md.p = p->md.funcp();
+  }
+#endif
+}
+
 void init_digest_types(ErlNifEnv* env)
 {
     struct digest_type_t* p = digest_types;
     for (/* p = digest_types */; p->str; p++) {
-#ifdef HAS_3_0_API
-        if (p->str_v3) {
-# ifdef FIPS_SUPPORT
-            EVP_MD* fetched_md = EVP_MD_fetch(NULL, p->str_v3, "fips=yes");
-            /* Deeper check for validity in FIPS, also checks for NULL */
-            if (is_valid_in_fips(fetched_md)) {
-                p->flags &= ~FIPS_FORBIDDEN_DIGEST;
-                p->md.p = fetched_md;
-            } else {
-                p->flags |= FIPS_FORBIDDEN_DIGEST;
-                EVP_MD_free(fetched_md); /* NULL is allowed */
-            }
-# else
-            p->md.p = EVP_MD_fetch(NULL, p->str_v3, "");
-# endif /* FIPS_SUPPORT and >=3.0.0 */
-        }
-#else
-        if (p->md.funcp)
-            p->md.p = p->md.funcp();
-#endif
+        update_digest_type_availability(p);
         p->atom = enif_make_atom(env, p->str);
     }
 
