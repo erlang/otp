@@ -36,15 +36,25 @@ enum PKEY_AVAIL_FLAGS {
                               FIPS_FORBIDDEN_PKEY_ENCRYPT | FIPS_FORBIDDEN_PKEY_DERIVE
 };
 
+enum CURVE_AVAIL_FLAGS {
+    FIPS_CURVE_INIT_FAILED = 1 /* could not find by name or initialize */
+};
+
 /* C bool is int */
 bool create_algorithm_mutexes(void);
 void free_algorithm_mutexes(void);
+void algorithms_reset_cache(void); // Called on fips mode change to reinitialize the algorithm lists
 
 typedef void (*init_algorithms_fn)(ErlNifEnv *env, bool fips_enabled);
 
-void pubkey_algorithms_reset_cache(void);
-size_t pubkey_algorithms_lazy_init(ErlNifEnv *env, bool fips_enabled, init_algorithms_fn init_algorithms);
+/* Pubkey Algorithms storage API */
+size_t pubkey_algorithms_lazy_init(ErlNifEnv *env, bool fips_enabled, init_algorithms_fn delayed_init_fn);
 ERL_NIF_TERM pubkey_algorithms_as_list(ErlNifEnv *env, bool fips_enabled);
 void pubkey_add_algorithm(ErlNifEnv *env, const char *str_v3, unsigned unavailable, ERL_NIF_TERM atom);
+
+/* Curve Algorithms storage API */
+size_t curve_algorithms_lazy_init(ErlNifEnv *env, bool fips_enabled, init_algorithms_fn delayed_init_fn);
+void curve_add_algorithm(ErlNifEnv *env, const char *str_v3, unsigned unavail_flags);
+ERL_NIF_TERM curve_algorithms_as_list(ErlNifEnv *env, bool fips_enabled);
 
 #endif /* E_ALGORITHMS_STORE_H */

@@ -64,32 +64,6 @@ static struct kem_availability_array_t {
 
 void init_kem_types(void);
 
-struct curve_availability_t {
-    const char* str_v3;         /* the algorithm name as in OpenSSL 3.x */
-    unsigned flags;             /* combination of CURVE_AVAIL_FLAGS */
-    ERL_NIF_TERM atom;          /* as returned to the library user on a query */
-};
-
-enum CURVE_AVAIL_FLAGS {
-    FIPS_CURVE_INIT_FAILED = 1,   /* could not find by name or initialize */
-};
-
-#ifdef FIPS_SUPPORT
-# define IS_CURVE_FORBIDDEN_IN_FIPS(p) ((p)->flags != 0 && FIPS_MODE())
-#else
-# define IS_CURVE_FORBIDDEN_IN_FIPS(P) false
-#endif
-
-static struct curve_availability_array_t {
-    ssize_t count; /* Negative -1 serves as a flag for lazy initiazlilization */
-
-    /* [0] contains non-FIPS, and [1] contains FIPS curve details */
-    struct curve_availability_t algorithms[89]; /* increase when extending the list */
-    ErlNifMutex* mutex;
-} algo_curve = {.count = -1, .algorithms = {{0}}, .mutex = NULL};
-
-static size_t curves_lazy_init(ErlNifEnv* env, bool fips_enabled);
-
 static size_t algo_rsa_opts_cnt, algo_rsa_opts_fips_cnt;
 static ERL_NIF_TERM algo_rsa_opts[11]; /* increase when extending the list */
 void init_rsa_opts_types(ErlNifEnv* env);
@@ -382,56 +356,10 @@ ERL_NIF_TERM mac_algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
   Curves
 */
 
-static ERL_NIF_TERM curve_algorithms_as_list(ErlNifEnv* env, const bool fips_forbidden)
-{
-    ERL_NIF_TERM hd = enif_make_list(env, 0);
-
-    for (size_t i = 0; i < algo_curve.count; i++) {
-        struct curve_availability_t *p = &algo_curve.algorithms[i];
-
-        if (IS_CURVE_FORBIDDEN_IN_FIPS(p) == fips_forbidden) {
-            hd = enif_make_list_cell(env, p->atom, hd);
-        }
-    }
-
-    return hd;
-}
-
-ERL_NIF_TERM curve_algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{
-    curves_lazy_init(env, FIPS_MODE());
-    return curve_algorithms_as_list(env, false);
-}
-
-static void init_curves(ErlNifEnv* env, bool fips);
+void curve_algorithms_delayed_init(ErlNifEnv* env, bool fips);
 #if defined(HAVE_EC)
 static bool is_curve_valid_by_nid(int nid);
 #endif
-
-/* Perform late lazy init of curve algorithms, hence the need for mutex */
-static size_t curves_lazy_init(ErlNifEnv* env, const bool fips_enabled) {
-    size_t result = 0;
-    if (algo_curve.count >= 0) return algo_curve.count;
-
-    enif_mutex_lock(algo_curve.mutex);
-    if (algo_curve.count < 0) {
-        init_curves(env, fips_enabled); /* also updates algo_curve.count[0] or [1] */
-        result = algo_curve.count;
-    }
-    enif_mutex_unlock(algo_curve.mutex);
-
-    return result;
-}
-
-static void add_curve(ErlNifEnv* env, const char* str_v3,
-                      const unsigned unavail_flags)
-{
-    struct curve_availability_t* curve = &algo_curve.algorithms[algo_curve.count];
-    curve->str_v3 = str_v3;
-    curve->atom = enif_make_atom(env, str_v3);
-    curve->flags = unavail_flags;
-    algo_curve.count++;
-}
 
 static void add_curve_if_supported(const int nid, ErlNifEnv* env, bool fips_enabled, const char* str_v3) {
     /* Some curves can be pre-checked by their NID */
@@ -468,20 +396,18 @@ static void add_curve_if_supported(const int nid, ErlNifEnv* env, bool fips_enab
                 unavail_flags |= FIPS_CURVE_INIT_FAILED;
             }
         }
-        add_anyway:
-            add_curve(env, str_v3, unavail_flags);
+add_anyway:
+        curve_add_algorithm(env, str_v3, unavail_flags);
         EVP_PKEY_free(pkey); /* NULL is allowed */
         EVP_PKEY_CTX_free(pctx); /* NULL is allowed */
     }
 #else
-    add_curve(env, str_v3, 0);
+    curve_add_algorithm(env, str_v3, 0);
 #endif
 }
 
-void init_curves(ErlNifEnv* env, const bool fips) {
+void curve_algorithms_delayed_init(ErlNifEnv* env, const bool fips) {
 #if defined(HAVE_EC)
-    algo_curve.count = 0;
-
 #ifdef NID_secp160k1
     add_curve_if_supported(NID_secp160k1, env, fips, "secp160k1");
 #else
@@ -826,9 +752,6 @@ void init_curves(ErlNifEnv* env, const bool fips) {
         add_curve_if_supported(0, env, fips, "x448");
 #endif
     }
-
-    /* Check buffer overrun just in case */
-    ASSERT(algo_curve.count <= sizeof(algo_curve.algorithms)/sizeof(algo_curve.algorithms[0]));
 #endif
 }
 
@@ -890,6 +813,12 @@ bool is_curve_valid_by_nid(const int nid) {
     return ret;
 }
 #endif /* HAVE_EC */
+
+ERL_NIF_TERM curve_algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    curve_algorithms_lazy_init(env, FIPS_MODE(), &curve_algorithms_delayed_init);
+    return curve_algorithms_as_list(env, false);
+}
 
 /*================================================================
   RSA Options
@@ -976,6 +905,6 @@ ERL_NIF_TERM fips_forbidden_mac_algorithms(ErlNifEnv* env, int argc, const ERL_N
 }
 
 ERL_NIF_TERM fips_forbidden_curve_algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
-    curves_lazy_init(env, FIPS_MODE());
+    curve_algorithms_lazy_init(env, FIPS_MODE(), &curve_algorithms_delayed_init);
     return curve_algorithms_as_list(env, true);
 }

@@ -25,21 +25,13 @@ extern "C" {
 #include "common.h"
 }
 
-// extern "C" {
-// #include "algorithms.h"
-// #include "cipher.h"
-// #include "common.h"
-// #include "mac.h"
-// #include "pkey.h"
-//
-// #include <openssl/core_names.h>
-// #ifdef HAS_3_0_API
-// #include "digest.h"
-// #endif
-// }
-
 #include <vector>
 
+// RAII enif_mutex wrapper, auto releases the execution has left the scope
+// {
+//   mutex_lock_and_auto_release x(mutex_ptr);
+//   ... protected code
+// } <- auto released here
 struct mutex_lock_and_auto_release {
     ErlNifMutex *mutex;
 
@@ -74,7 +66,6 @@ struct algorithm_collection_t {
             this->mutex = nullptr;
         }
     }
-
 
     void reset() {
         mutex_lock_and_auto_release critical_section(this->mutex);
@@ -129,29 +120,84 @@ struct pkey_availability_t {
 
 static algorithm_collection_t<pkey_availability_t> pkey_collection("crypto.pkey_collection");
 
-extern "C" bool create_algorithm_mutexes() { return pkey_collection.create_mutex(); }
-extern "C" void free_algorithm_mutexes(void) { pkey_collection.destroy_mutex(); }
+struct curve_availability_t {
+    const char *str_v3; // the algorithm name as in OpenSSL 3.x
+    unsigned flags; // combination of CURVE_AVAIL_FLAGS
+    ERL_NIF_TERM atom; // as returned to the library user on a query
+
+    bool is_forbidden_in_fips() const {
+#ifdef FIPS_SUPPORT
+        return this->flags != 0 && FIPS_MODE();
+#else
+        return false;
+#endif
+    }
+    ERL_NIF_TERM get_atom() const { return this->atom; }
+};
+
+static algorithm_collection_t<curve_availability_t> curve_collection("crypto.curve_collection");
+
+extern "C" bool create_algorithm_mutexes() { return pkey_collection.create_mutex() && curve_collection.create_mutex(); }
+
+extern "C" void free_algorithm_mutexes(void) {
+    pkey_collection.destroy_mutex();
+    curve_collection.destroy_mutex();
+}
+
+extern "C" void algorithms_reset_cache() {
+    pkey_collection.reset();
+    curve_collection.reset();
+}
+
+//
+// Implementation of Pubkey Algorithm storage API
+//
 
 extern "C" size_t pubkey_algorithms_lazy_init(ErlNifEnv *env, const bool fips_enabled,
-                                              const init_algorithms_fn init_algorithms) {
-    return pkey_collection.lazy_init(env, fips_enabled, init_algorithms);
+                                              const init_algorithms_fn delayed_init_fn) {
+    return pkey_collection.lazy_init(env, fips_enabled, delayed_init_fn);
 }
+
 extern "C" ERL_NIF_TERM pubkey_algorithms_as_list(ErlNifEnv *env, const bool fips_enabled) {
     return pkey_collection.to_list(env, fips_enabled);
 }
-extern "C" void pubkey_add_algorithm(ErlNifEnv *env, const char *str_v3, const unsigned unavailable,
-                                     ERL_NIF_TERM atom) {
-    // Ensure atoms are not created repeatedly
+
+// Ensure atoms are not created repeatedly
+static ERL_NIF_TERM create_or_existing_atom(ErlNifEnv *env, const char *atom_name, ERL_NIF_TERM atom = 0) {
     if (!atom) {
-        enif_make_existing_atom(env, str_v3, &atom, ERL_NIF_UTF8);
+        enif_make_existing_atom(env, atom_name, &atom, ERL_NIF_UTF8);
         if (!atom) {
-            atom = enif_make_atom(env, str_v3);
+            atom = enif_make_atom(env, atom_name);
         }
     }
+    return atom;
+}
+
+extern "C" void pubkey_add_algorithm(ErlNifEnv *env, const char *str_v3, const unsigned unavailable,
+                                     ERL_NIF_TERM atom) {
     const pkey_availability_t algo = {
             .str_v3 = str_v3,
             .flags = unavailable,
-            .atom = atom,
+            .atom = create_or_existing_atom(env, str_v3, atom),
     };
     pkey_collection.algorithms.push_back(algo);
+}
+
+//
+// Implementation of Curve Algorithm storage API
+//
+
+extern "C" size_t curve_algorithms_lazy_init(ErlNifEnv *env, const bool fips_enabled,
+                                             const init_algorithms_fn delayed_init_fn) {
+    return curve_collection.lazy_init(env, fips_enabled, delayed_init_fn);
+}
+
+extern "C" void curve_add_algorithm(ErlNifEnv *env, const char *str_v3, const unsigned unavail_flags) {
+    const curve_availability_t curve = {
+            .str_v3 = str_v3, .flags = unavail_flags, .atom = create_or_existing_atom(env, str_v3)};
+    curve_collection.algorithms.push_back(curve);
+}
+
+extern "C" ERL_NIF_TERM curve_algorithms_as_list(ErlNifEnv *env, const bool fips_enabled) {
+    return curve_collection.to_list(env, fips_enabled);
 }

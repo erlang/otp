@@ -22,7 +22,7 @@
 
 #include "fips.h"
 #include "digest.h"
-
+#include "algorithms_store.h"
 
 ERL_NIF_TERM info_fips(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
@@ -53,6 +53,7 @@ ERL_NIF_TERM enable_fips_mode(ErlNifEnv* env, ERL_NIF_TERM fips_mode_to_set)
     bool result = FIPS_mode_set(fips_mode) ? atom_true : atom_false;
     if (result && previous_setting != fips_mode) {
         /* Reinitialize the algorithms which may disappear or reappear when FIPS mode changes */
+        algorithms_reset_cache();
     }
     return result;
 }
