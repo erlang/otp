@@ -37,7 +37,7 @@
 						 | undefined,
 	  last_size_rekey           = 0         :: non_neg_integer(),
 	  event_queue               = []        :: list(),
-	  inet_initial_recbuf_size              :: pos_integer()
+	  inet_initial_buffer_size              :: pos_integer()
 						 | undefined
 	 }).
 

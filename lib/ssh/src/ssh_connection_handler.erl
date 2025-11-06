@@ -609,17 +609,18 @@ handle_event(cast, socket_control, {wait_for_socket, Role},
 handle_event(internal, socket_ready, {hello,_}=StateName, #data{ssh_params = Ssh0} = D) ->
     VsnMsg = ssh_transport:hello_version_msg(string_version(Ssh0)),
     send_bytes(VsnMsg, D),
-    case inet:getopts(Socket=D#data.socket, [recbuf]) of
-	{ok, [{recbuf,Size}]} ->
+    case inet:getopts(Socket=D#data.socket, [buffer]) of
+	{ok, [{buffer,Size}]} ->
 	    %% Set the socket to the hello text line handling mode:
 	    inet:setopts(Socket, [{packet, line},
 				  {active, once},
 				  % Expecting the version string which might
 				  % be max ?MAX_PROTO_VERSION bytes:
-				  {recbuf, ?MAX_PROTO_VERSION},
+				  {buffer, ?MAX_PROTO_VERSION},
+				  {packet_size, ?MAX_PROTO_VERSION},
 				  {nodelay,true}]),
             Time = ?GET_OPT(hello_timeout, Ssh0#ssh.opts, infinity),
-	    {keep_state, D#data{inet_initial_recbuf_size=Size}, [{state_timeout,Time,no_hello_received}] };
+	    {keep_state, D#data{inet_initial_buffer_size=Size}, [{state_timeout,Time,no_hello_received}] };
 
 	Other ->
             ?call_disconnectfun_and_log_cond("Option return", 
@@ -648,11 +649,12 @@ handle_event(internal, {version_exchange,Version}, {hello,Role}, D0) ->
     case handle_version(NumVsn, StrVsn, D0#data.ssh_params) of
 	{ok, Ssh1} ->
 	    %% Since the hello part is finished correctly, we set the
-	    %% socket to the packet handling mode (including recbuf size):
+	    %% socket to the packet handling mode (including buffer size):
 	    inet:setopts(D0#data.socket, [{packet,0},
 					 {mode,binary},
 					 {active, once},
-					 {recbuf, D0#data.inet_initial_recbuf_size}]),
+					 {buffer, D0#data.inet_initial_buffer_size},
+					 {packet_size, 0}]),
 	    {KeyInitMsg, SshPacket, Ssh} = ssh_transport:key_exchange_init_msg(Ssh1),
 	    send_bytes(SshPacket, D0),
             D = D0#data{ssh_params = Ssh,
