@@ -158,7 +158,7 @@ end
 -export([sign/4, sign/5, verify/5, verify/6]).
 -export([generate_key/2, generate_key/3, compute_key/4]).
 -export([encapsulate_key/2, decapsulate_key/3]).
--export([exor/2, strong_rand_bytes/1, mod_pow/3]).
+-export([exor/2, strong_rand_bytes/1, strong_rand_range/1, mod_pow/3]).
 -export([rand_seed/0, rand_seed_alg/1, rand_seed_alg/2]).
 -export([rand_seed_s/0, rand_seed_alg_s/1, rand_seed_alg_s/2]).
 -export([rand_plugin_next/1]).
@@ -331,13 +331,12 @@ end
 -export([rand_plugin_aes_jump_2pow20/1]).
 
 -deprecated(
-   {rand_uniform, 2,
-    "use rand_seed_s/0 with rand:uniform_s/2 instead"}).
+   {rand_uniform, 2, "use strong_rand_range/1 instead"}).
 
 %% This should correspond to the similar macro in crypto.c
 -define(MAX_BYTES_TO_NIF, 20000). %%  Current value is: erlang:system_info(context_reductions) * 10
 
-%% Used by strong_rand_float/0
+%% Used by rand_plugin_uniform/1
 -define(HALF_DBL_EPSILON, 1.1102230246251565e-16). % math:pow(2, -53)
 
 
@@ -2020,6 +2019,7 @@ strong_rand_bytes(Bytes) ->
         false -> erlang:error(low_entropy);
         Bin -> Bin
     end.
+
 strong_rand_bytes_nif(_Bytes) -> ?nif_stub.
 
 
@@ -2039,15 +2039,9 @@ pseudo-random number generator. `To` must be larger than `From`.
 > cannot be fixed without making it raise `error:low_entropy`,
 > which is not backwards compatible.
 >
-> Instead, use for example:
+> Instead, use `strong_rand_range(To - From) + From`
 >
-> ``` erlang
-> S0 = crypto:rand_seed_s(),
-> {Int, S1} = rand:uniform(To - From, S0),
-> From + Int - 1.
-> ```
->
-> Beware of the possible `error:low_entropy` exception.
+> Be aware of the possible `error:low_entropy` exception.
 """.
 -spec rand_uniform(crypto_integer(), crypto_integer()) ->
 			  crypto_integer().
@@ -2097,6 +2091,45 @@ rand_seed(Seed) when is_binary(Seed) ->
 
 rand_seed_nif(_Seed) -> ?nif_stub.
 
+
+-doc(#{group => <<"Random API">>,
+       since => <<"OTP @OTP-19841@">>}).
+-doc """
+Generate a random integer in a specified range.
+
+The returned random integer is in the interval is `0` =< `N` < `Range`.
+
+Uses the `crypto` library random number generator BN_rand_range.
+
+If the `Range` argument is a `pos_integer/0` the return value
+is a `non_neg_integer/0`.  If the `Range` argument is a positive integer
+in a `binary/0`, the return value is a non-negative integer in a `binary/0`.
+
+May raise exception `error:low_entropy` in case the random generator failed due
+to lack of secure "randomness".
+""".
+-spec strong_rand_range(Range :: pos_integer()) -> N :: non_neg_integer();
+                       (Range :: binary()) ->      N :: binary().
+%% BN_rand_range
+strong_rand_range(Range) when is_integer(Range), Range > 0 ->
+    bin_to_int(strong_rand_range(int_to_bin(Range)));
+strong_rand_range(BinRange) when is_binary(BinRange) ->
+    case strong_rand_range_nif(BinRange) of
+        false ->
+            V = bin_to_int(BinRange),
+            if
+                0 < V ->
+                    erlang:error(low_entropy);
+                true ->
+                    error(badarg, [BinRange])
+            end;
+        <<BinResult/binary>> ->
+            BinResult
+    end;
+strong_rand_range(Range) ->
+    error(badarg, [Range]).
+
+strong_rand_range_nif(_BinRange) -> ?nif_stub.
 
 %%%================================================================
 %%%
@@ -2388,15 +2421,16 @@ rand_cache_size() ->
 
 -doc false.
 rand_plugin_next(Seed) ->
-    {bytes_to_integer(strong_rand_range(1 bsl 64)), Seed}.
+    {strong_rand_range(1 bsl 64), Seed}.
 
 -doc false.
 rand_plugin_uniform(State) ->
-    {strong_rand_float(), State}.
+    Value = ?HALF_DBL_EPSILON * strong_rand_range(1 bsl 53),
+    {Value, State}.
 
 -doc false.
 rand_plugin_uniform(Max, State) ->
-    {bytes_to_integer(strong_rand_range(Max)) + 1, State}.
+    {strong_rand_range(Max) + 1, State}.
 
 
 -doc false.
@@ -2510,22 +2544,6 @@ aes_cache(
   Cache) ->
     [V|aes_cache(Encrypted, Cache)].
 
-
-strong_rand_range(Range) when is_integer(Range), Range > 0 ->
-    BinRange = int_to_bin(Range),
-    strong_rand_range(BinRange);
-strong_rand_range(BinRange) when is_binary(BinRange) ->
-    case strong_rand_range_nif(BinRange) of
-        false ->
-            erlang:error(low_entropy);
-        <<BinResult/binary>> ->
-            BinResult
-    end.
-strong_rand_range_nif(_BinRange) -> ?nif_stub.
-
-strong_rand_float() ->
-    WholeRange = strong_rand_range(1 bsl 53),
-    ?HALF_DBL_EPSILON * bytes_to_integer(WholeRange).
 
 %%%================================================================
 %%%
