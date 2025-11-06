@@ -7318,6 +7318,7 @@ false
 
 Failure: `badarg` if `LB` or `UB` does not evaluate to an integer.
 """.
+-doc(#{since => ~"OTP @OTP-19809@"}).
 -doc #{ category => terms }.
 -spec is_integer(Term, LB, UB) -> boolean() when
       Term :: integer(),

@@ -1002,6 +1002,7 @@ bif2 p Bif S1 S2 Dst      => i_bif2_body S2 S1 Bif Dst
 bif2 Fail=f Bif S1 S2 Dst => i_bif2 S2 S1 Fail Bif Dst
 
 bif3 p Bif S1 S2 S3 Dst      => i_bif3_body S3 S2 S1 Bif Dst
+bif3 Fail=f Bif S1 S2 S3 Dst => i_bif3 S3 S2 S1 Fail Bif Dst
 
 i_get_hash c W d
 i_get s d
