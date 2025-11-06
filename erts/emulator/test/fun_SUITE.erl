@@ -28,9 +28,13 @@
 	 fun_to_port/1,t_phash/1,t_phash2/1,md5/1,
 	 refc/1,refc_ets/1,refc_dist/1,
 	 const_propagation/1,t_arity/1,t_is_function2/1,
-	 t_fun_info/1,t_fun_info_mfa/1,t_fun_to_list/1]).
+	 t_fun_info/1,t_fun_info_mfa/1,t_fun_to_list/1,
+         spurious_badfun/1]).
 
 -export([nothing/0]).
+
+%% Callback for a process that uses this module as an error_handler module.
+-export([undefined_lambda/3]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -45,7 +49,8 @@ all() ->
      equality, ordering, fun_to_port, t_phash,
      t_phash2, md5, refc, refc_ets, refc_dist,
      const_propagation, t_arity, t_is_function2, t_fun_info,
-     t_fun_info_mfa,t_fun_to_list].
+     t_fun_info_mfa,t_fun_to_list,
+     spurious_badfun].
 
 init_per_testcase(_TestCase, Config) ->
     Config.
@@ -833,6 +838,73 @@ verify_not_undef(Fun, Tag) ->
 	    ct:fail("tag ~w not defined in fun_info", [Tag]);
 	{Tag,_} -> ok
     end.
+
+%% Test for a race condition that occurred when multiple processes
+%% attempted to a call a fun whose defining module was not loaded.
+spurious_badfun(Config) ->
+    Mod = ?FUNCTION_NAME,
+    Dir = proplists:get_value(priv_dir, Config),
+    File = filename:join(Dir, atom_to_list(Mod) ++ ".erl"),
+
+    Code = <<"
+    -module(spurious_badfun).
+    -export([factory/0]).
+    factory() ->
+        fun() -> ok end.
+    ">>,
+
+    ok = file:write_file(File, Code),
+
+    {ok,Mod,Bin} = compile:file(File, [binary]),
+    {module,Mod} = erlang:load_module(Mod, Bin),
+    Fun = Mod:factory(),
+
+    do_spurious_badfun(1000, Mod, Bin, Fun).
+
+do_spurious_badfun(0, _Mod, _Bin, _Fun) ->
+    ok;
+do_spurious_badfun(N, Mod, Bin, Fun) ->
+    _ = catch erlang:purge_module(Mod),
+    _ = erlang:delete_module(Mod),
+    _ = catch erlang:purge_module(Mod),
+
+    Prepared = erlang:prepare_loading(Mod, Bin),
+
+    {Pid,Ref} = spawn_monitor(fun() -> call_fun(Fun) end),
+
+    ok = erlang:finish_loading([Prepared]),
+
+    receive
+        {'DOWN',Ref,process,Pid,Result} ->
+            normal = Result,
+            do_spurious_badfun(N-1, Mod, Bin, Fun)
+    end.
+
+call_fun(Fun) ->
+    %% Set up the current module as the error_handler for the current
+    %% process.
+    process_flag(error_handler, ?MODULE),
+
+    %% With the JIT, the following call would sometimes fail with a
+    %% `badfun` exeception. The reason is that the native code and the
+    %% C function beam_jit_handle_unloaded_fun() handling an unloaded
+    %% fun would use different code indexes. The native code would
+    %% "think" that the module for the fun was not loaded, while
+    %% beam_jit_handle_unloaded_fun() function would "think" that the
+    %% module was loaded and raise a badfun exception.
+    Fun().
+
+%% This is the error_handler callback for the process that is calling
+%% the fun.
+undefined_lambda(_Module, Fun, Args) ->
+    %% If the parent process has finished loading the module, the
+    %% following apply/2 call will succeed. Otherwise, this function
+    %% will be called again.
+    apply(Fun, Args).
+
+%%%
+%%% Common utilities.
+%%%
 
 id(X) ->
     X.

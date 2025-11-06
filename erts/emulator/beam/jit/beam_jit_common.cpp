@@ -1297,8 +1297,8 @@ Eterm beam_jit_build_argument_list(Process *c_p, const Eterm *regs, int arity) {
 Export *beam_jit_handle_unloaded_fun(Process *c_p,
                                      Eterm *reg,
                                      int arity,
-                                     Eterm fun_thing) {
-    ErtsCodeIndex code_ix = erts_active_code_ix();
+                                     Eterm fun_thing,
+                                     ErtsCodeIndex code_ix) {
     Eterm module, args;
     ErlFunThing *funp;
     ErlFunEntry *fe;
