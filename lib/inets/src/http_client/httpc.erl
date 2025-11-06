@@ -154,8 +154,8 @@ profile_name(_Prefix, Profile) when is_pid(Profile) ->
                 , HttpBodyResult}
               | RequestId
               | saved_to_file,
-      HttpBodyResult :: uri_string:uri_string() | binary(),
-      HttpVersion :: uri_string:uri_string(),
+      HttpBodyResult :: string() | binary(),
+      HttpVersion :: string(),
       StatusCode :: non_neg_integer(),
       HttpHeader :: { Field :: [byte()]
                     , Value :: binary() | iolist()},
@@ -174,11 +174,11 @@ request(Url) ->
               | saved_to_file,
       HttpHeader :: { Field :: [byte()]
                     , Value :: binary() | iolist()},
-      HttpBodyResult :: uri_string:uri_string() | binary(),
+      HttpBodyResult :: string() | binary(),
       StatusLine :: { HttpVersion
                     , StatusCode
                     , string()},
-      HttpVersion :: uri_string:uri_string(),
+      HttpVersion :: string(),
       StatusCode  :: non_neg_integer(),
       RequestId :: any().
 request(Url, Profile) ->
@@ -198,7 +198,7 @@ request(Url, Profile) ->
                  , [HttpHeader] }
                | { uri_string:uri_string()
                  , [ HttpHeader ]
-                 , ContentType::uri_string:uri_string()
+                 , ContentType::string()
                  , HttpBody},
       HttpBody :: iolist()
                 | binary()
@@ -240,10 +240,10 @@ request(Url, Profile) ->
       StatusLine :: { HttpVersion
                     , StatusCode
                     , string()},
-      HttpVersion :: uri_string:uri_string(),
+      HttpVersion :: string(),
       HttpHeader :: { Field :: [byte()]
                     , Value :: binary() | iolist()},
-      HttpBodyResult :: uri_string:uri_string() | binary(),
+      HttpBodyResult :: string() | binary(),
       RequestId :: any().
 request(Method, Request, HttpOptions, Options) ->
     request(Method, Request, HttpOptions, Options, default_profile()).
@@ -415,7 +415,7 @@ Options details:
                  , [HttpHeader] }
                | { uri_string:uri_string()
                  , [ HttpHeader ]
-                 , ContentType::uri_string:uri_string()
+                 , ContentType::string()
                  , HttpBody},
       HttpBody :: iolist()
                 | binary()
@@ -452,7 +452,7 @@ Options details:
                     , ReceiverFunction::atom()
                     , ReceiverArgs::list()},
       Profile :: atom() | pid(),
-      HttpVersion :: uri_string:uri_string(),
+      HttpVersion :: string(),
       Result :: {StatusLine
                 , [HttpHeader]
                 , HttpBodyResult}
@@ -462,7 +462,7 @@ Options details:
               | saved_to_file,
       StatusLine :: { HttpVersion, StatusCode, string()},
       StatusCode  :: non_neg_integer(),
-      HttpBodyResult :: uri_string:uri_string() | binary(),
+      HttpBodyResult :: string() | binary(),
       RequestId :: any().
 request(Method, Request, HTTPOptions, Options, Profile)
   when is_atom(Profile) orelse is_pid(Profile) ->
@@ -568,7 +568,7 @@ cancel_request(RequestId, Profile)
       PipelineTimeout :: integer(),
       CookieMode :: enabled | disabled | verify,
       IpFamily :: inet | inet6 | local | inet6fb4,
-      IpAddressDesc :: uri_string:uri_string(),
+      IpAddressDesc :: string(),
       IpAddress :: inet:ip_address(),
       VerboseMode :: false | verbose | debug | trace,
       SocketOpts :: [SocketOpt],
@@ -576,7 +576,7 @@ cancel_request(RequestId, Profile)
       UnixSocket :: file:name_all(),
       Reason :: term(),
       DomainDesc :: string(),
-      HostName :: uri_string:uri_string().
+      HostName :: string().
 set_options(Options) ->
     set_options(Options, default_profile()).
 
@@ -690,13 +690,13 @@ Sets options to be used for subsequent requests.
       PipelineTimeout :: integer(),
       CookieMode :: enabled | disabled | verify,
       IpFamily :: inet | inet6 | local | inet6fb4,
-      IpAddressDesc :: uri_string:uri_string(),
+      IpAddressDesc :: string(),
       IpAddress :: inet:ip_address(),
       VerboseMode :: false | verbose | debug | trace,
       UnixSocket :: string(),
       Reason :: term(),
       DomainDesc :: string(),
-      HostName :: uri_string:uri_string().
+      HostName :: string().
 set_options(Options, Profile) when is_atom(Profile) orelse is_pid(Profile) ->
     IsInetsRunning = [Application || {inets, _, _} = Application <- application:which_applications()] =/= [],
     case IsInetsRunning of
