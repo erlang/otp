@@ -19,6 +19,16 @@ limitations under the License.
 -->
 # Inets Release Notes
 
+## Inets 9.3.2.2
+
+### Fixed Bugs and Malfunctions
+
+- Fixed uri_string:uri_string() to string() type specs inside httpc.erl module.
+
+  Own Id: OTP-19835 Aux Id: [PR-10242]
+
+[PR-10242]: https://github.com/erlang/otp/pull/10242
+
 ## Inets 9.3.2.1
 
 ### Fixed Bugs and Malfunctions

@@ -21,6 +21,16 @@ limitations under the License.
 
 This document describes the changes made to the SSL application.
 
+## SSL 11.2.12.4
+
+### Fixed Bugs and Malfunctions
+
+- Correct documentation for fail_if_no_peer_cert option.
+
+  Own Id: OTP-19828 Aux Id: [PR-10333]
+
+[PR-10333]: https://github.com/erlang/otp/pull/10333
+
 ## SSL 11.2.12.3
 
 ### Fixed Bugs and Malfunctions
