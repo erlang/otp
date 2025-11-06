@@ -32,6 +32,20 @@
   <p>This document describes the changes made to the Syntax_Tools
     application.</p>
 
+<section><title>Syntax_Tools 3.1.0.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Annotate map comprehensions and generators</p>
+          <p>
+	    Own Id: OTP-19817 Aux Id: GH-10119 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Syntax_Tools 3.1</title>
 
     <section><title>Improvements and New Features</title>

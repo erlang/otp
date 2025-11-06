@@ -30,6 +30,21 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 5.1.4.13</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>With this change user space buffers are used to limit
+	    ssh hello message size instead of kernel buffers</p>
+          <p>
+	    Own Id: OTP-19839 Aux Id: ERIERL-1273, PR-10350 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 5.1.4.12</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

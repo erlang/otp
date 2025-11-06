@@ -33,7 +33,22 @@
     <file>notes.xml</file>
   </header>
   
-  <section><title>Inets 9.1.0.3</title>
+  <section><title>Inets 9.1.0.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fixed uri_string:uri_string() to string() type specs
+	    inside httpc.erl module.</p>
+          <p>
+	    Own Id: OTP-19835 Aux Id: PR-10242 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 9.1.0.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
