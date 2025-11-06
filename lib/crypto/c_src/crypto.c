@@ -54,6 +54,8 @@
 #include "rsa.h"
 #include "srp.h"
 
+#include "algorithms_store.h"
+
 /* NIF interface declarations */
 static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info);
 static int upgrade(ErlNifEnv* env, void** priv_data, void** old_priv_data, ERL_NIF_TERM load_info);
@@ -351,9 +353,6 @@ static int initialize(ErlNifEnv* env, ERL_NIF_TERM load_info)
 #endif /* OPENSSL_THREADS */
 #endif
 
-    init_digest_types(env);
-    init_mac_types(env);
-    init_cipher_types(env);
     init_algorithms_types(env);
 
     library_initialized = 1;
@@ -410,7 +409,7 @@ static void unload_thread(void* priv_data)
 static void unload(ErlNifEnv* env, void* priv_data)
 {
     if (--library_refc == 0) {
-        destroy_curve_mutex();
+        free_algorithm_mutexes();
         destroy_engine_mutex(env);
 
         /*

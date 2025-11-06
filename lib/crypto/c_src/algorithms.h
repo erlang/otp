@@ -25,8 +25,6 @@
 
 #include "common.h"
 
-int create_algorithm_mutexes(void);
-void destroy_curve_mutex(void);
 void init_algorithms_types(ErlNifEnv* env);
 
 ERL_NIF_TERM hash_algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);

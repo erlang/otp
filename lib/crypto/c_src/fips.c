@@ -43,7 +43,7 @@ ERL_NIF_TERM enable_fips_mode(ErlNifEnv* env, ERL_NIF_TERM fips_mode_to_set)
 #ifdef FIPS_SUPPORT
 {
     bool previous_setting = FIPS_MODE();
-    bool fips_mode = fips_mode_to_set == atom_true
+    bool fips_mode = fips_mode_to_set == atom_true;
 
     /* Badarg if not atom 'true' and the false value is not coming from atom 'false' */
     if (!fips_mode && fips_mode_to_set != atom_false) {

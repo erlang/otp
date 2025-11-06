@@ -36,7 +36,7 @@ CC = @DED_CC@
 LD = @DED_LD@
 SHELL = /bin/sh
 LIBS = @DED_LIBS@
-LDFLAGS += @DED_LDFLAGS@
+LDFLAGS += @DED_LDFLAGS@ -lstdc++
 CFLAGS = @DED_CFLAGS@ @SSL_FLAGS@ @DEFS@
 
 # From configure
@@ -91,6 +91,7 @@ CRYPTO_OBJS = $(OBJDIR)/crypto$(TYPEMARKER).o \
 	$(OBJDIR)/aead$(TYPEMARKER).o \
 	$(OBJDIR)/aes$(TYPEMARKER).o \
 	$(OBJDIR)/algorithms$(TYPEMARKER).o \
+	$(OBJDIR)/algorithms_store$(TYPEMARKER).cpp.o \
 	$(OBJDIR)/api_ng$(TYPEMARKER).o \
 	$(OBJDIR)/atoms$(TYPEMARKER).o \
 	$(OBJDIR)/bn$(TYPEMARKER).o \
@@ -119,7 +120,8 @@ CRYPTO_OBJS = $(OBJDIR)/crypto$(TYPEMARKER).o \
 	$(OBJDIR)/pbkdf2_hmac$(TYPEMARKER).o
 
 CALLBACK_OBJS = $(OBJDIR)/crypto_callback$(TYPEMARKER).o
-CRYPTO_STATIC_OBJS = $(patsubst $(OBJDIR)/%$(TYPEMARKER).o,$(OBJDIR)/%_static$(TYPEMARKER).o,$(CRYPTO_OBJS) $(CALLBACK_OBJS))
+CRYPTO_STATIC_OBJS = $(patsubst $(OBJDIR)/%$(TYPEMARKER).o,$(OBJDIR)/%_static$(TYPEMARKER).o,$(CRYPTO_OBJS) $(CALLBACK_OBJS)) \
+    $(patsubst $(OBJDIR)/%$(TYPEMARKER).cpp.o,$(OBJDIR)/%_static$(TYPEMARKER).cpp.o,$(CRYPTO_OBJS) $(CALLBACK_OBJS))
 
 NIF_ARCHIVE = $(LIBDIR)/crypto$(TYPEMARKER).a
 
@@ -180,6 +182,7 @@ endif
 CONFIGURE_ARGS = -DDISABLE_EVP_DH=@DISABLE_EVP_DH@ -DDISABLE_EVP_HMAC=@DISABLE_EVP_HMAC@
 
 ALL_CFLAGS = $(TYPE_FLAGS) $(EXTRA_FLAGS) $(CONFIGURE_ARGS) $(INCLUDES)
+ALL_CXXFLAGS = $(TYPE_FLAGS) $(EXTRA_FLAGS) $(CONFIGURE_ARGS) $(INCLUDES)
 ALL_STATIC_CFLAGS = @DED_STATIC_CFLAGS@ $(TYPE_EXTRA_CFLAGS) $(CONFIGURE_ARGS) $(INCLUDES)
 
 # ----------------------------------------------------
@@ -221,6 +224,10 @@ $(OBJDIR)/pkey$(TYPEMARKER).o: pkey.c
 	$(V_CC) -c -o $@ $(ALL_CFLAGS) $(CRYPTO_NO_DEPRECATE_WARN) $<
 
 # ---- End of Hard-coded removal of deprecated warning for ENGINE function calls
+
+$(OBJDIR)/%$(TYPEMARKER).cpp.o: %.cpp
+	$(V_at)$(INSTALL_DIR) $(OBJDIR)
+	$(V_CXX) -MMD -c -o $@ $(ALL_CXXFLAGS) $<
 
 $(OBJDIR)/%$(TYPEMARKER).o: %.c
 	$(V_at)$(INSTALL_DIR) $(OBJDIR)

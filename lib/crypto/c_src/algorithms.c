@@ -25,6 +25,7 @@
 #include "common.h"
 #include "mac.h"
 #include "pkey.h"
+#include "algorithms_store.h"
 
 #include <openssl/core_names.h>
 #ifdef HAS_3_0_API
@@ -37,38 +38,6 @@ static size_t algo_hash_cnt, algo_hash_fips_cnt;
 static ERL_NIF_TERM algo_hash[17];   /* increase when extending the list */
 void init_hash_types(ErlNifEnv* env);
 #endif
-
-struct pkey_availability_t {
-    const char* str_v3; /* the algorithm name as in OpenSSL 3.x */
-    unsigned flags;     /* combination of PKEY_AVAIL_FLAGS */
-    ERL_NIF_TERM atom;  /* added to results when the user is querying */
-};
-
-enum PKEY_AVAIL_FLAGS {
-    FIPS_PKEY_NOT_AVAIL = 1,
-    FIPS_FORBIDDEN_PKEY_KEYGEN = 2,   /* not available by name */
-    FIPS_FORBIDDEN_PKEY_SIGN = 4,     /* not available for signing */
-    FIPS_FORBIDDEN_PKEY_VERIFY = 8,   /* not available for verification */
-    FIPS_FORBIDDEN_PKEY_ENCRYPT = 16, /* not available for encryption */
-    FIPS_FORBIDDEN_PKEY_DERIVE = 32,  /* not available for key derivation */
-    FIPS_FORBIDDEN_PKEY_ALL = FIPS_FORBIDDEN_PKEY_KEYGEN | FIPS_FORBIDDEN_PKEY_SIGN |
-        FIPS_FORBIDDEN_PKEY_VERIFY | FIPS_FORBIDDEN_PKEY_ENCRYPT | FIPS_FORBIDDEN_PKEY_DERIVE
-};
-
-#ifdef FIPS_SUPPORT
-# define IS_PUBKEY_FORBIDDEN_IN_FIPS(p) (((p)->flags == FIPS_FORBIDDEN_PKEY_ALL || (p)->flags == FIPS_PKEY_NOT_AVAIL) && FIPS_MODE())
-#else
-# define IS_PUBKEY_FORBIDDEN_IN_FIPS(P) false
-#endif
-
-/* Stores all known public key algorithms with their FIPS unavailability flag if FIPS is enabled */
-static struct pkey_availability_array_t {
-    ssize_t count;
-    struct pkey_availability_t algorithm[12]; /* increase when extending the list */
-    ErlNifMutex* mutex;
-} algo_pubkey = {.count = -1, .algorithm = {{0}}, .mutex = NULL};
-
-static ssize_t pubkey_algorithms_lazy_init(ErlNifEnv* env, bool fips_enabled);
 
 struct kem_availability_t {
     const char* str_v3;  /* the algorithm name as in OpenSSL 3.x */
@@ -128,6 +97,9 @@ void init_rsa_opts_types(ErlNifEnv* env);
 
 void init_algorithms_types(ErlNifEnv* env)
 {
+    init_digest_types(env);
+    init_mac_types(env);
+    init_cipher_types(env);
 #ifdef HAS_3_0_API
 #else
     init_hash_types(env);
@@ -135,31 +107,6 @@ void init_algorithms_types(ErlNifEnv* env)
     init_kem_types();
     init_rsa_opts_types(env);
     /* ciphers and macs are initiated statically */
-}
-
-
-int create_algorithm_mutexes(void)
-{
-    if (!algo_curve.mutex) {
-        algo_curve.mutex =  enif_mutex_create("init_curve_types");
-    }
-    if (!algo_pubkey.mutex) {
-        algo_pubkey.mutex =  enif_mutex_create("init_pkey_algorithms");
-    }
-    return (algo_curve.mutex != NULL)
-        && (algo_pubkey.mutex != NULL);
-}
-
-void destroy_curve_mutex(void)
-{
-    if (algo_curve.mutex) {
-        enif_mutex_destroy(algo_curve.mutex);
-        algo_curve.mutex = NULL;
-    }
-    if (algo_pubkey.mutex) {
-        enif_mutex_destroy(algo_pubkey.mutex);
-        algo_pubkey.mutex = NULL;
-    }
 }
 
 /*================================================================
@@ -242,40 +189,6 @@ void init_hash_types(ErlNifEnv* env) {
   Public key algorithms
 */
 
-static ERL_NIF_TERM pubkey_algorithms_as_list(ErlNifEnv* env, const bool fips_forbidden) {
-    ERL_NIF_TERM hd = enif_make_list(env, 0);
-
-    for (size_t i = 0; i < algo_pubkey.count; i++) {
-        struct pkey_availability_t* algo = &algo_pubkey.algorithm[i];
-
-        /* Any of the forbidden flags is not set, then something is available */
-        if (IS_PUBKEY_FORBIDDEN_IN_FIPS(algo) == fips_forbidden) {
-            hd = enif_make_list_cell(env, algo->atom, hd);
-        }
-    }
-    return hd;
-}
-
-ERL_NIF_TERM pubkey_algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{
-    pubkey_algorithms_lazy_init(env, FIPS_MODE());
-    /* Filter the results by IS_PUBKEY_FORBIDDEN_IN_FIPS() == false */
-    return pubkey_algorithms_as_list(env, false);
-}
-
-static void add_pubkey_algorithm(ErlNifEnv* env, const char* str_v3,
-    const unsigned unavailable, ERL_NIF_TERM atom)
-{
-    struct pkey_availability_t* algo = &algo_pubkey.algorithm[algo_pubkey.count];
-    algo->str_v3 = str_v3;
-    algo->flags = unavailable;
-
-    if (!atom) atom = enif_make_atom(env, str_v3);
-    algo->atom = atom;
-
-    algo_pubkey.count++;
-}
-
 /*
  * for FIPS will attempt to initialize the pubkey context to verify whether the
  * algorithm is allowed, for non-FIPS the old behavior - always allow.
@@ -283,53 +196,52 @@ static void add_pubkey_algorithm(ErlNifEnv* env, const char* str_v3,
  */
 static void probe_pubkey_algorithm(ErlNifEnv *env, const char *str_v3,
                                    ERL_NIF_TERM atom, const bool fips_enabled) {
-    unsigned unavailable = 0;
+    unsigned flags = 0;
     if (!fips_enabled) { /* No check for non-fips, all algorithms are welcome */
-        return add_pubkey_algorithm(env, str_v3, unavailable, atom);
+        return pubkey_add_algorithm(env, str_v3, flags, atom);
     }
 #if defined(FIPS_SUPPORT) && defined(HAS_3_0_API)
     EVP_PKEY_CTX *ctx = EVP_PKEY_CTX_new_from_name(NULL, str_v3, "fips=yes");
     /* failed: algorithm not available, do not add */
     if (ctx) {
         if (EVP_PKEY_keygen_init(ctx) <= 0) { /* can't generate keys */
-            unavailable |= FIPS_FORBIDDEN_PKEY_KEYGEN;
+            flags |= FIPS_FORBIDDEN_PKEY_KEYGEN;
         }
         EVP_PKEY_CTX_free(ctx);
 
         ctx = EVP_PKEY_CTX_new_from_name(NULL, str_v3, NULL);
         if (EVP_PKEY_sign_init(ctx) <= 0) { /* can't sign */
-            unavailable |= FIPS_FORBIDDEN_PKEY_SIGN;
+            flags |= FIPS_FORBIDDEN_PKEY_SIGN;
         }
         EVP_PKEY_CTX_free(ctx);
 
         ctx = EVP_PKEY_CTX_new_from_name(NULL, str_v3, NULL);
         if (EVP_PKEY_verify_init(ctx) <= 0) { /* can't verify */
-            unavailable |= FIPS_FORBIDDEN_PKEY_VERIFY;
+            flags |= FIPS_FORBIDDEN_PKEY_VERIFY;
         }
         EVP_PKEY_CTX_free(ctx);
 
         ctx = EVP_PKEY_CTX_new_from_name(NULL, str_v3, NULL);
         if (EVP_PKEY_encrypt_init(ctx) <= 0) { /* can't encrypt/decrypt */
-            unavailable |= FIPS_FORBIDDEN_PKEY_ENCRYPT;
+            flags |= FIPS_FORBIDDEN_PKEY_ENCRYPT;
         }
         EVP_PKEY_CTX_free(ctx);
 
         ctx = EVP_PKEY_CTX_new_from_name(NULL, str_v3, NULL);
         if (EVP_PKEY_derive_init(ctx) <= 0) { /* can't derive */
-            unavailable |= FIPS_FORBIDDEN_PKEY_DERIVE;
+            flags |= FIPS_FORBIDDEN_PKEY_DERIVE;
         }
         EVP_PKEY_CTX_free(ctx);
     } else {
-        unavailable |= FIPS_PKEY_NOT_AVAIL;
+        flags |= FIPS_PKEY_NOT_AVAIL;
     }
 #endif /* FIPS_SUPPORT && HAS_3_0_API */
-    add_pubkey_algorithm(env, str_v3, unavailable, atom);
+    pubkey_add_algorithm(env, str_v3, flags, atom);
 }
 
-/* Must be invoked under algo_pubkey.mutex protection */
-static void init_pubkey_types(ErlNifEnv* env, const bool fips_enabled) {
+/* Invoked via pubkey_algorithms_lazy_init */
+static void pubkey_algorithms_delayed_init(ErlNifEnv* env, const bool fips_enabled) {
     // Validated algorithms first
-    algo_pubkey.count = 0;
     probe_pubkey_algorithm(env, "rsa", 0, fips_enabled);
 #ifdef HAVE_DSA
     probe_pubkey_algorithm(env, "dss", 0, fips_enabled);
@@ -361,23 +273,13 @@ static void init_pubkey_types(ErlNifEnv* env, const bool fips_enabled) {
     probe_pubkey_algorithm(env, "mldsa65", atom_mldsa65, fips_enabled);
     probe_pubkey_algorithm(env, "mldsa87", atom_mldsa87, fips_enabled);
 #endif
-    /* When adding a new algorithm, update the size of algo_pubkey.algorithm array */
-    ASSERT(algo_pubkey.count <= sizeof(algo_pubkey.algorithm)/sizeof(algo_pubkey.algorithm[0]));
 }
 
-/* Perform late lazy init of pubkey algorithms, hence the need for mutex */
-static ssize_t pubkey_algorithms_lazy_init(ErlNifEnv* env, const bool fips_enabled) {
-    ssize_t result = 0;
-    if (algo_pubkey.count >= 0) return algo_pubkey.count;
-
-    enif_mutex_lock(algo_pubkey.mutex);
-    if (algo_pubkey.count < 0) {
-        init_pubkey_types(env, fips_enabled); /* also updates algo_curve.count[0] or [1] */
-        result = algo_curve.count;
-    }
-    enif_mutex_unlock(algo_curve.mutex);
-
-    return result;
+ERL_NIF_TERM pubkey_algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    pubkey_algorithms_lazy_init(env, FIPS_MODE(), &pubkey_algorithms_delayed_init);
+    /* Filter the results by IS_PUBKEY_FORBIDDEN_IN_FIPS() == false */
+    return pubkey_algorithms_as_list(env, false);
 }
 
 #ifdef HAVE_ML_KEM
@@ -1040,7 +942,7 @@ ERL_NIF_TERM fips_forbidden_hash_algorithms(ErlNifEnv* env, int argc, const ERL_
 
 ERL_NIF_TERM fips_forbidden_pubkey_algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
 #ifdef FIPS_SUPPORT
-    pubkey_algorithms_lazy_init(env, 1);
+    pubkey_algorithms_lazy_init(env, 1, &pubkey_algorithms_delayed_init);
     /* Filter the results by IS_PUBKEY_FORBIDDEN_IN_FIPS() == true */
     return pubkey_algorithms_as_list(env, true);
 #else
