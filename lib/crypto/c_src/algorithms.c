@@ -24,7 +24,6 @@
 #include "cipher.h"
 #include "common.h"
 #include "mac.h"
-#include "pkey.h"
 #include "algorithms_store.h"
 
 #include <openssl/core_names.h>
