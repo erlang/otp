@@ -962,7 +962,7 @@ start_compile_server(char* node_name, char** argv)
     while (strcmp(argv[0], "-mode") != 0) {
         eargv[eargc++] = *argv++;
     }
-    PUSH2("-boot", "no_dot_erlang");
+    PUSH2("-boot", "$ROOT/no_dot_erlang");
     PUSH2("-sname", node_name);
     PUSH2("-setcookie", "erlc_compile_server_cookie");
     PUSH("-hidden");
