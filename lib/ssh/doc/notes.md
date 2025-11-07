@@ -401,6 +401,14 @@ limitations under the License.
 [PR-7845]: https://github.com/erlang/otp/pull/7845
 [PR-8026]: https://github.com/erlang/otp/pull/8026
 
+## Ssh 5.1.4.13
+
+### Fixed Bugs and Malfunctions
+
+* With this change user space buffers are used to limit ssh hello message size instead of kernel buffers
+
+  Own Id: OTP-19839 Aux Id: ERIERL-1273, PR-10350
+
 ## Ssh 5.1.4.12
 
 ### Fixed Bugs and Malfunctions

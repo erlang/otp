@@ -567,6 +567,23 @@ This document describes the changes made to the SSL application.
 [PR-8250]: https://github.com/erlang/otp/pull/8250
 [PR-8255]: https://github.com/erlang/otp/pull/8255
 
+## SSL 11.1.4.10
+
+### Fixed Bugs and Malfunctions
+
+* Assert that hello extensions are unique and send an illegal parameter alert if they are not.
+
+  Own Id: OTP-19791 Aux Id: PR-10245
+* Avoid sending an internal message to the user process in conjunction with handling a key update.
+
+  Own Id: OTP-19806 Aux Id: PR-10274
+* Make sure TLS-1.3 protocol spec is followed, that is psk-hello extension is guaranteed to be included as the last extension in the list of client hello extensions and internal hello message truncation in handshake history is handled correctly, the previous handling could cause interoperability issues.
+
+  Own Id: OTP-19825 Aux Id: PR-10296
+* Correct documentation for fail_if_no_peer_cert option.
+
+  Own Id: OTP-19828 Aux Id: PR-10333
+
 ## SSL 11.1.4.9
 
 ### Fixed Bugs and Malfunctions
