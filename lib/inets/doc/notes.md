@@ -213,6 +213,14 @@ limitations under the License.
 [PR-8029]: https://github.com/erlang/otp/pull/8029
 [PR-8026]: https://github.com/erlang/otp/pull/8026
 
+## Inets 9.1.0.4
+
+### Fixed Bugs and Malfunctions
+
+* Fixed uri_string:uri_string() to string() type specs inside httpc.erl module.
+
+  Own Id: OTP-19835 Aux Id: PR-10242
+
 ## Inets 9.1.0.3
 
 ### Fixed Bugs and Malfunctions
