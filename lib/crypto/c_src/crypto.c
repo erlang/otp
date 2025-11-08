@@ -30,12 +30,11 @@
 #include "aead.h"
 #include "aes.h"
 #include "algorithms.h"
+#include "algorithms_digest.h"
 #include "api_ng.h"
 #include "bn.h"
 #include "cipher.h"
-#include "mac.h"
 #include "dh.h"
-#include "digest.h"
 #include "dss.h"
 #include "ec.h"
 #include "ecdh.h"
@@ -47,6 +46,7 @@
 #include "hash_equals.h"
 #include "hmac.h"
 #include "info.h"
+#include "mac.h"
 #include "math.h"
 #include "pbkdf2_hmac.h"
 #include "pkey.h"
@@ -54,7 +54,7 @@
 #include "rsa.h"
 #include "srp.h"
 
-#include "algorithms_store.h"
+#include "algorithms_collection.h"
 
 /* NIF interface declarations */
 static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info);

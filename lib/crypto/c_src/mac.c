@@ -20,12 +20,12 @@
  * %CopyrightEnd%
  */
 
-#include "common.h"
-#include "cipher.h"
-#include "digest.h"
-#include "cmac.h"
-#include "hmac.h"
 #include "mac.h"
+#include "algorithms_digest.h"
+#include "cipher.h"
+#include "cmac.h"
+#include "common.h"
+#include "hmac.h"
 #include "info.h"
 
 /***************************
@@ -324,7 +324,7 @@ ERL_NIF_TERM mac_one_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
          ********/
     case HMAC_mac:
         {
-            struct digest_type_t *digp;
+            struct digest_availability_t *digp;
 
             if ((digp = get_digest_type(argv[1])) == NULL)
                 {
@@ -676,7 +676,7 @@ ERL_NIF_TERM mac_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
          ********/
     case HMAC_mac:
         {
-            struct digest_type_t *digp;
+            struct digest_availability_t *digp;
 
             if ((digp = get_digest_type(argv[1])) == NULL)
                 {

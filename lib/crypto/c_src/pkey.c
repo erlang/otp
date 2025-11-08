@@ -21,8 +21,8 @@
  */
 
 #include "pkey.h"
+#include "algorithms_digest.h"
 #include "bn.h"
-#include "digest.h"
 #include "dss.h"
 #include "ec.h"
 #include "eddsa.h"
@@ -161,7 +161,7 @@ static int get_pkey_digest_type(ErlNifEnv *env, ERL_NIF_TERM algorithm,
 				const EVP_MD **md,
                                 ERL_NIF_TERM *err_return)
 {
-    struct digest_type_t *digp = NULL;
+    struct digest_availability_t *digp = NULL;
     *md = NULL;
 
     if (type == atom_none) {

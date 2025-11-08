@@ -21,7 +21,7 @@
  */
 
 #include "hash.h"
-#include "digest.h"
+#include "algorithms_digest.h"
 #include "info.h"
 
 #ifdef HAVE_MD5
@@ -73,7 +73,7 @@ int init_hash_ctx(ErlNifEnv* env, ErlNifBinary* rt_buf) {
 
 ERL_NIF_TERM hash_info_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Type) */
-    struct digest_type_t *digp = NULL;
+    struct digest_availability_t *digp = NULL;
     const EVP_MD         *md;
     ERL_NIF_TERM keys[3] = { atom_type, atom_size, atom_block_size };
     ERL_NIF_TERM values[3];
@@ -100,7 +100,7 @@ ERL_NIF_TERM hash_info_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
 ERL_NIF_TERM hash_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Type, Data) */
-    struct digest_type_t *digp = NULL;
+    struct digest_availability_t *digp = NULL;
     const EVP_MD         *md;
     ErlNifBinary         data;
     ERL_NIF_TERM         ret;
@@ -167,7 +167,7 @@ ERL_NIF_TERM hash_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
 ERL_NIF_TERM hash_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Type) */
-    struct digest_type_t *digp = NULL;
+    struct digest_availability_t *digp = NULL;
     struct evp_md_ctx    *ctx = NULL;
     ERL_NIF_TERM         ret;
 
@@ -277,7 +277,7 @@ ERL_NIF_TERM hash_final_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 ERL_NIF_TERM hash_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Type) */
     typedef int (*init_fun)(unsigned char*);
-    struct digest_type_t *digp = NULL;
+    struct digest_availability_t *digp = NULL;
     ERL_NIF_TERM         ctx;
     size_t               ctx_size = 0;
     init_fun             ctx_init = 0;
@@ -363,7 +363,7 @@ ERL_NIF_TERM hash_update_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
     ErlNifBinary         ctx, data;
     const ERL_NIF_TERM   *tuple;
     int                  arity;
-    struct digest_type_t *digp = NULL;
+    struct digest_availability_t *digp = NULL;
     unsigned char        *ctx_buff;
     size_t               ctx_size   = 0;
     update_fun           ctx_update = 0;
@@ -460,7 +460,7 @@ ERL_NIF_TERM hash_final_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     ErlNifBinary         ctx;
     const ERL_NIF_TERM   *tuple;
     int                  arity;
-    struct digest_type_t *digp = NULL;
+    struct digest_availability_t *digp = NULL;
     const EVP_MD         *md;
     void                 *new_ctx = NULL;
     size_t               ctx_size  = 0;

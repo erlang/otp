@@ -91,7 +91,10 @@ CRYPTO_OBJS = $(OBJDIR)/crypto$(TYPEMARKER).o \
 	$(OBJDIR)/aead$(TYPEMARKER).o \
 	$(OBJDIR)/aes$(TYPEMARKER).o \
 	$(OBJDIR)/algorithms$(TYPEMARKER).o \
-	$(OBJDIR)/algorithms_store$(TYPEMARKER).cpp.o \
+	$(OBJDIR)/algorithms_collection$(TYPEMARKER).cpp.o \
+	$(OBJDIR)/algorithms_digest$(TYPEMARKER).cpp.o \
+	$(OBJDIR)/algorithms_pubkey$(TYPEMARKER).cpp.o \
+	$(OBJDIR)/algorithms_curve$(TYPEMARKER).cpp.o \
 	$(OBJDIR)/api_ng$(TYPEMARKER).o \
 	$(OBJDIR)/atoms$(TYPEMARKER).o \
 	$(OBJDIR)/bn$(TYPEMARKER).o \
@@ -99,7 +102,6 @@ CRYPTO_OBJS = $(OBJDIR)/crypto$(TYPEMARKER).o \
 	$(OBJDIR)/cmac$(TYPEMARKER).o \
 	$(OBJDIR)/common$(TYPEMARKER).o \
 	$(OBJDIR)/dh$(TYPEMARKER).o \
-	$(OBJDIR)/digest$(TYPEMARKER).o \
 	$(OBJDIR)/dss$(TYPEMARKER).o \
 	$(OBJDIR)/ec$(TYPEMARKER).o \
 	$(OBJDIR)/ecdh$(TYPEMARKER).o \
@@ -182,7 +184,7 @@ endif
 CONFIGURE_ARGS = -DDISABLE_EVP_DH=@DISABLE_EVP_DH@ -DDISABLE_EVP_HMAC=@DISABLE_EVP_HMAC@
 
 ALL_CFLAGS = $(TYPE_FLAGS) $(EXTRA_FLAGS) $(CONFIGURE_ARGS) $(INCLUDES)
-ALL_CXXFLAGS = $(TYPE_FLAGS) $(EXTRA_FLAGS) $(CONFIGURE_ARGS) $(INCLUDES)
+ALL_CXXFLAGS = $(TYPE_FLAGS) $(EXTRA_FLAGS) $(CONFIGURE_ARGS) $(INCLUDES) -std=c++14
 ALL_STATIC_CFLAGS = @DED_STATIC_CFLAGS@ $(TYPE_EXTRA_CFLAGS) $(CONFIGURE_ARGS) $(INCLUDES)
 
 # ----------------------------------------------------

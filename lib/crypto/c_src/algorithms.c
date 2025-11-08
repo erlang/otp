@@ -21,22 +21,20 @@
  */
 
 #include "algorithms.h"
+#include "algorithms_collection.h"
 #include "cipher.h"
 #include "common.h"
 #include "mac.h"
-#include "algorithms_store.h"
 
 #include <openssl/core_names.h>
-#ifdef HAS_3_0_API
-#include "digest.h"
-#endif
+#include "algorithms_digest.h"
 
-#ifdef HAS_3_0_API
-#else
-static size_t algo_hash_cnt, algo_hash_fips_cnt;
-static ERL_NIF_TERM algo_hash[17];   /* increase when extending the list */
-void init_hash_types(ErlNifEnv* env);
-#endif
+// #ifdef HAS_3_0_API
+// #else
+// static size_t algo_hash_cnt, algo_hash_fips_cnt;
+// static ERL_NIF_TERM algo_hash[17];   /* increase when extending the list */
+// void init_hash_types(ErlNifEnv* env);
+// #endif
 
 struct kem_availability_t {
     const char* str_v3;  /* the algorithm name as in OpenSSL 3.x */
@@ -70,13 +68,8 @@ void init_rsa_opts_types(ErlNifEnv* env);
 
 void init_algorithms_types(ErlNifEnv* env)
 {
-    init_digest_types(env);
     init_mac_types(env);
     init_cipher_types(env);
-#ifdef HAS_3_0_API
-#else
-    init_hash_types(env);
-#endif
     init_kem_types();
     init_rsa_opts_types(env);
     /* ciphers and macs are initiated statically */
@@ -88,14 +81,8 @@ void init_algorithms_types(ErlNifEnv* env)
 
 ERL_NIF_TERM hash_algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-#ifdef HAS_3_0_API
+    digest_types_lazy_init(env, FIPS_MODE());
     return digest_types_as_list(env, false);
-#else
-    unsigned int cnt  =
-        FIPS_MODE() ? algo_hash_fips_cnt : algo_hash_cnt;
-
-    return enif_make_list_from_array(env, algo_hash, cnt);
-#endif
 }
 
 #ifdef HAS_3_0_API
@@ -157,96 +144,6 @@ void init_hash_types(ErlNifEnv* env) {
     ASSERT(algo_hash_cnt <= sizeof(algo_hash)/sizeof(algo_hash[0]));
 }
 #endif
-
-/*================================================================
-  Public key algorithms
-*/
-
-/*
- * for FIPS will attempt to initialize the pubkey context to verify whether the
- * algorithm is allowed, for non-FIPS the old behavior - always allow.
- * Pass 0 for atom to create one right here.
- */
-static void probe_pubkey_algorithm(ErlNifEnv *env, const char *str_v3,
-                                   ERL_NIF_TERM atom, const bool fips_enabled) {
-    unsigned flags = 0;
-    if (!fips_enabled) { /* No check for non-fips, all algorithms are welcome */
-        return pubkey_add_algorithm(env, str_v3, flags, atom);
-    }
-#if defined(FIPS_SUPPORT) && defined(HAS_3_0_API)
-    EVP_PKEY_CTX *ctx = EVP_PKEY_CTX_new_from_name(NULL, str_v3, "fips=yes");
-    /* failed: algorithm not available, do not add */
-    if (ctx) {
-        if (EVP_PKEY_keygen_init(ctx) <= 0) { /* can't generate keys */
-            flags |= FIPS_FORBIDDEN_PKEY_KEYGEN;
-        }
-        EVP_PKEY_CTX_free(ctx);
-
-        ctx = EVP_PKEY_CTX_new_from_name(NULL, str_v3, NULL);
-        if (EVP_PKEY_sign_init(ctx) <= 0) { /* can't sign */
-            flags |= FIPS_FORBIDDEN_PKEY_SIGN;
-        }
-        EVP_PKEY_CTX_free(ctx);
-
-        ctx = EVP_PKEY_CTX_new_from_name(NULL, str_v3, NULL);
-        if (EVP_PKEY_verify_init(ctx) <= 0) { /* can't verify */
-            flags |= FIPS_FORBIDDEN_PKEY_VERIFY;
-        }
-        EVP_PKEY_CTX_free(ctx);
-
-        ctx = EVP_PKEY_CTX_new_from_name(NULL, str_v3, NULL);
-        if (EVP_PKEY_encrypt_init(ctx) <= 0) { /* can't encrypt/decrypt */
-            flags |= FIPS_FORBIDDEN_PKEY_ENCRYPT;
-        }
-        EVP_PKEY_CTX_free(ctx);
-
-        ctx = EVP_PKEY_CTX_new_from_name(NULL, str_v3, NULL);
-        if (EVP_PKEY_derive_init(ctx) <= 0) { /* can't derive */
-            flags |= FIPS_FORBIDDEN_PKEY_DERIVE;
-        }
-        EVP_PKEY_CTX_free(ctx);
-    } else {
-        flags |= FIPS_PKEY_NOT_AVAIL;
-    }
-#endif /* FIPS_SUPPORT && HAS_3_0_API */
-    pubkey_add_algorithm(env, str_v3, flags, atom);
-}
-
-/* Invoked via pubkey_algorithms_lazy_init */
-static void pubkey_algorithms_delayed_init(ErlNifEnv* env, const bool fips_enabled) {
-    // Validated algorithms first
-    probe_pubkey_algorithm(env, "rsa", 0, fips_enabled);
-#ifdef HAVE_DSA
-    probe_pubkey_algorithm(env, "dss", 0, fips_enabled);
-#endif
-
-#ifdef HAVE_DH
-    probe_pubkey_algorithm(env, "dh", 0, fips_enabled);
-#endif
-
-#if defined(HAVE_EC)
-#if !defined(OPENSSL_NO_EC2M)
-    probe_pubkey_algorithm(env, "ec_gf2m", 0, fips_enabled);
-#endif
-    probe_pubkey_algorithm(env, "ecdsa", 0, fips_enabled);
-    probe_pubkey_algorithm(env, "ecdh", 0, fips_enabled);
-#endif
-
-    // Non-validated algorithms follow
-    // Don't know if Edward curves are fips validated
-#if defined(HAVE_EDDSA)
-    probe_pubkey_algorithm(env, "eddsa", 0, fips_enabled);
-#endif
-#if defined(HAVE_EDDH)
-    probe_pubkey_algorithm(env, "eddh", 0, fips_enabled);
-#endif
-    probe_pubkey_algorithm(env, "srp", 0, fips_enabled);
-#ifdef HAVE_ML_DSA
-    probe_pubkey_algorithm(env, "mldsa44", atom_mldsa44, fips_enabled);
-    probe_pubkey_algorithm(env, "mldsa65", atom_mldsa65, fips_enabled);
-    probe_pubkey_algorithm(env, "mldsa87", atom_mldsa87, fips_enabled);
-#endif
-}
 
 ERL_NIF_TERM pubkey_algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
@@ -861,11 +758,8 @@ void init_rsa_opts_types(ErlNifEnv* env) {
 }
 
 ERL_NIF_TERM fips_forbidden_hash_algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
-#ifdef FIPS_SUPPORT
+    digest_types_lazy_init(env, FIPS_MODE());
     return digest_types_as_list(env, true);
-#else
-    return enif_make_list(env, 0); /* nothing is forbidden */
-#endif
 }
 
 ERL_NIF_TERM fips_forbidden_pubkey_algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {

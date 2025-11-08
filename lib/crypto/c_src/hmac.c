@@ -31,7 +31,7 @@
  ****************************************************************/
 
 #include "hmac.h"
-#include "digest.h"
+#include "algorithms_digest.h"
 #include "info.h"
 
 #if !defined(HAS_EVP_PKEY_CTX) || DISABLE_EVP_HMAC
@@ -80,7 +80,7 @@ static void hmac_context_dtor(ErlNifEnv* env, struct hmac_context *obj)
 
 ERL_NIF_TERM hmac_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (hmac, Type, Key) */
-    struct digest_type_t *digp = NULL;
+    struct digest_availability_t *digp = NULL;
     ErlNifBinary         key;
     ERL_NIF_TERM         ret;
     struct hmac_context  *obj = NULL;

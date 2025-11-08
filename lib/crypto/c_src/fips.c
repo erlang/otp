@@ -21,8 +21,8 @@
  */
 
 #include "fips.h"
-#include "digest.h"
-#include "algorithms_store.h"
+#include "algorithms_collection.h"
+#include "algorithms_digest.h"
 
 ERL_NIF_TERM info_fips(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
