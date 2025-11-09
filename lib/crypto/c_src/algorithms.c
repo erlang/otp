@@ -21,20 +21,14 @@
  */
 
 #include "algorithms.h"
-#include "algorithms_collection.h"
+#include "algorithms_pubkey.h"
+#include "algorithms_digest.h"
 #include "cipher.h"
 #include "common.h"
 #include "mac.h"
 
 #include <openssl/core_names.h>
 #include "algorithms_digest.h"
-
-// #ifdef HAS_3_0_API
-// #else
-// static size_t algo_hash_cnt, algo_hash_fips_cnt;
-// static ERL_NIF_TERM algo_hash[17];   /* increase when extending the list */
-// void init_hash_types(ErlNifEnv* env);
-// #endif
 
 struct kem_availability_t {
     const char* str_v3;  /* the algorithm name as in OpenSSL 3.x */
@@ -85,70 +79,10 @@ ERL_NIF_TERM hash_algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
     return digest_types_as_list(env, false);
 }
 
-#ifdef HAS_3_0_API
-#else
-void init_hash_types(ErlNifEnv* env) {
-    // Validated algorithms first
-    algo_hash_cnt = 0;
-    algo_hash[algo_hash_cnt++] = atom_sha;
-#ifdef HAVE_SHA224
-    algo_hash[algo_hash_cnt++] = enif_make_atom(env, "sha224");
-#endif
-#ifdef HAVE_SHA256
-    algo_hash[algo_hash_cnt++] = enif_make_atom(env, "sha256");
-#endif
-#ifdef HAVE_SHA384
-    algo_hash[algo_hash_cnt++] = enif_make_atom(env, "sha384");
-#endif
-#ifdef HAVE_SHA512
-    algo_hash[algo_hash_cnt++] = enif_make_atom(env, "sha512");
-#endif
-#ifdef HAVE_SHA3_224
-    algo_hash[algo_hash_cnt++] = enif_make_atom(env, "sha3_224");
-#endif
-#ifdef HAVE_SHA3_256
-    algo_hash[algo_hash_cnt++] = enif_make_atom(env, "sha3_256");
-#endif
-#ifdef HAVE_SHA3_384
-    algo_hash[algo_hash_cnt++] = enif_make_atom(env, "sha3_384");
-#endif
-#ifdef HAVE_SHA3_512
-    algo_hash[algo_hash_cnt++] = enif_make_atom(env, "sha3_512");
-#endif
-#ifdef HAVE_SHAKE128
-    algo_hash[algo_hash_cnt++] = enif_make_atom(env, "shake128");
-#endif
-#ifdef HAVE_SHAKE256
-    algo_hash[algo_hash_cnt++] = enif_make_atom(env, "shake256");
-#endif
-#ifdef HAVE_SM3
-    algo_hash[algo_hash_cnt++] = enif_make_atom(env, "sm3");
-#endif
-#ifdef HAVE_BLAKE2
-    algo_hash[algo_hash_cnt++] = enif_make_atom(env, "blake2b");
-    algo_hash[algo_hash_cnt++] = enif_make_atom(env, "blake2s");
-#endif
-
-    // Non-validated algorithms follow
-    algo_hash_fips_cnt = algo_hash_cnt;
-#ifdef HAVE_MD4
-    algo_hash[algo_hash_cnt++] = enif_make_atom(env, "md4");
-#endif
-#ifdef HAVE_MD5
-    algo_hash[algo_hash_cnt++] = enif_make_atom(env, "md5");
-#endif
-#ifdef HAVE_RIPEMD160
-    algo_hash[algo_hash_cnt++] = enif_make_atom(env, "ripemd160");
-#endif
-
-    ASSERT(algo_hash_cnt <= sizeof(algo_hash)/sizeof(algo_hash[0]));
-}
-#endif
-
 ERL_NIF_TERM pubkey_algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-    pubkey_algorithms_lazy_init(env, FIPS_MODE(), &pubkey_algorithms_delayed_init);
-    /* Filter the results by IS_PUBKEY_FORBIDDEN_IN_FIPS() == false */
+    pubkey_algorithms_lazy_init(env, FIPS_MODE());
+    // Filter the results by IS_PUBKEY_FORBIDDEN_IN_FIPS() == false
     return pubkey_algorithms_as_list(env, false);
 }
 

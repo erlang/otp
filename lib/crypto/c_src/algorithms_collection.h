@@ -83,6 +83,16 @@ public:
 
     ~algorithm_collection_t() { destroy_mutex(); }
 
+    // Const pointer to start of algorithms
+    auto cbegin() const { return this->algorithms.cbegin(); }
+    // Const pointer to one after last of the algorithms
+    auto cend() const { return this->algorithms.cend(); }
+
+    // Mutable pointer to start of algorithms
+    auto begin() { return this->algorithms.begin(); }
+    // Mutable pointer to one after last of the algorithms
+    auto end() { return this->algorithms.end(); }
+
     bool create_mutex() {
         this->mutex = enif_mutex_create(const_cast<char *>(debug_name));
         return this->mutex != nullptr;
