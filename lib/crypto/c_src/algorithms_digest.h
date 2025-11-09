@@ -49,7 +49,7 @@ ERL_NIF_TERM digest_types_as_list(ErlNifEnv *env, bool fips_forbidden);
 // created again.
 struct digest_availability_t {
     // The definition used to create this record
-    const struct digest_probe_t *init;
+    const struct digest_probe_t *init = nullptr;
     // combination of DIGEST_TYPE_FLAGS from init + detected in runtime
     size_t flags = 0;
     // after init will contain the algorithm pointer, NULL if not supported. Frees automatically.

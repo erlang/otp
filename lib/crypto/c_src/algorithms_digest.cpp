@@ -128,11 +128,12 @@ void digest_availability_t::create_md_resource(bool fips_mode) {
 #endif // HAS_3_0_API
 }
 
-void digest_probe_t::probe(ErlNifEnv *env, const bool fips_mode, std::vector<digest_availability_t> &output) {
+void digest_probe_t::probe(ErlNifEnv *, const bool fips_mode, std::vector<digest_availability_t> &output) {
     digest_availability_t algo = {.init = this, .flags = this->flags_hint, .xof_default_length = this->xof_default_length};
+    // Unavailable are skipped. Available are added. Forbidden are added, but flagged with FIPS_FORBIDDEN_DIGEST.
     algo.create_md_resource(fips_mode);
     if (algo.md) {
-        output.push_back(algo);
+        output.push_back(std::move(algo));
     }
 }
 
@@ -148,9 +149,8 @@ extern "C" digest_availability_t *get_digest_type(ERL_NIF_TERM type) {
 digest_availability_t::~digest_availability_t() {
     if (this->md) {
 #if defined(HAS_3_0_API)
-        EVP_MD_free(this->md);
+        EVP_MD_free(const_cast<EVP_MD *>(this->md));
 #else
-        // Old API creates it as const and deletes as mutable, hence the const_cast
         EVP_MD_meth_free(const_cast<EVP_MD *>(this->md));
 #endif // HAS_3_0_API
         this->md = nullptr;

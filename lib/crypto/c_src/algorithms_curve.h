@@ -33,7 +33,6 @@ extern "C" {
 // Curve Algorithms storage API
 //
 size_t curve_algorithms_lazy_init(ErlNifEnv *env, bool fips_enabled);
-void curve_add_algorithm(ErlNifEnv *env, const char *str_v3, unsigned unavail_flags);
 ERL_NIF_TERM curve_algorithms_as_list(ErlNifEnv *env, bool fips_enabled);
 
 #ifdef __cplusplus
@@ -41,10 +40,10 @@ ERL_NIF_TERM curve_algorithms_as_list(ErlNifEnv *env, bool fips_enabled);
 #endif
 
 #ifdef __cplusplus
+struct curve_probe_t;
 struct curve_availability_t {
-    const char *str_v3; // the algorithm name as in OpenSSL 3.x
+    const curve_probe_t *init; // the probe which created this record, contains name, atom, etc.
     unsigned flags; // combination of CURVE_AVAIL_FLAGS
-    ERL_NIF_TERM atom; // as returned to the library user on a query
 
     bool is_forbidden_in_fips() const {
 #ifdef FIPS_SUPPORT
@@ -54,7 +53,7 @@ struct curve_availability_t {
 #endif
     }
     // Return the atom which goes to the Erlang caller
-    ERL_NIF_TERM get_atom() const { return this->atom; }
+    ERL_NIF_TERM get_atom() const;
 };
 
 enum CURVE_AVAIL_FLAGS {
@@ -62,8 +61,15 @@ enum CURVE_AVAIL_FLAGS {
 };
 
 struct curve_probe_t {
+    size_t nid = 0; // NID_xxxx value of OpenSSL
+    const char *sn = nullptr; // serves as Erlang atom name, also equal to SN_xxxxx macro of OpenSSL
+    ERL_NIF_TERM atom = 0; // Atom for this->sn is cached here
+
     // Perform probe on the algorithm. In case of success, fill the struct and push into the 'output'
     void probe(ErlNifEnv *env, bool fips_mode, std::vector<curve_availability_t> &output);
+
+private:
+    bool is_curve_valid_by_nid(); // used by the probe() to check this->nid
 };
 
 // Forward declaration, find
