@@ -85,6 +85,8 @@ protected:
     BeamAssemblerCommon(BaseAssembler &assembler);
     ~BeamAssemblerCommon();
 
+    void lateInit();
+
     void codegen(JitAllocator *allocator,
                  const void **executable_ptr,
                  void **writable_ptr);
