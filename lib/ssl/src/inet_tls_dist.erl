@@ -1020,26 +1020,13 @@ set_ktls_cipher(
          cipher_suite := CipherSuite,
          %%
          socket := Socket,
-         setopt_fun := SetoptFun,
-         getopt_fun := GetoptFun },
+         setopt_fun := SetoptFun },
   OS, CipherState, CipherSeq, TxRx) ->
     maybe
         {ok, {Option, Value}} ?=
             ktls_opt_cipher(
               OS, TLS_version, CipherSuite, CipherState, CipherSeq, TxRx),
-        _ = SetoptFun(Socket, Option, Value),
-        case TxRx of
-            tx ->
-                Size = byte_size(Value),
-                case GetoptFun(Socket, Option, Size) of
-                    {ok, Value} ->
-                        ok;
-                    Other ->
-                        {error, {ktls_set_cipher_failed, Other}}
-                end;
-            rx ->
-                ok
-        end
+        SetoptFun(Socket, Option, Value)
     end.
 
 ktls_os() ->
