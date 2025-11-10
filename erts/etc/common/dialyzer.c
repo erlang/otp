@@ -252,7 +252,7 @@ int main(int argc, char** argv)
     }
 
     PUSH("+B");
-    PUSH2("-boot", "no_dot_erlang");
+    PUSH2("-boot", "$ROOT/no_dot_erlang");
     PUSH3("-run", "dialyzer", "plain_cl");
     PUSH("-extra");
 
