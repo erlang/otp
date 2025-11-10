@@ -39,11 +39,12 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [make_all, make_files, load, netload, recompile_on_changed_include,
-     emake_opts, {group, otp_6057}].
+     emake_opts, {group, otp_6057}, {group, non_erl}].
 
 groups() -> 
     [{otp_6057,[],[otp_6057_a, otp_6057_b,
-                   otp_6057_c]}].
+                   otp_6057_c]},
+     {non_erl, [], [erlc_parsetools]}].
 
 init_per_suite(Config) ->
     Config.
@@ -51,8 +52,10 @@ init_per_suite(Config) ->
 end_per_suite(_Config) ->
     ok.
 
+init_per_group(otp_6057, Config) ->
+    otp_6057_init(Config);
 init_per_group(_GroupName, Config) ->
-    otp_6057_init(Config).
+    Config.
 
 end_per_group(_GroupName, Config) ->
     otp_6057_end(Config).
@@ -173,7 +176,9 @@ prepare_data_dir(Config) ->
     {value, {data_dir, Dir}} = lists:keysearch(data_dir, 1, Config),
     file:set_cwd(Dir),
     {ok, Files} = file:list_dir("."),
+    NonErl = filelib:wildcard("./non_erl/out/*"),
     delete_obj(Files, code:objfile_extension()),
+    delete_obj(NonErl, ".erl"),
     ensure_no_messages(),
     Current.
 
@@ -359,6 +364,41 @@ otp_6057_c(Config) when is_list(Config) ->
 
 otp_6057_end(Config) when is_list(Config) ->
     Config.
+
+erlc_parsetools(Config) when is_list(Config) ->
+    _Current = prepare_data_dir(Config),
+    {value, {data_dir, Dir}} = lists:keysearch(data_dir, 1, Config),
+
+    {ok, CWD} = file:get_cwd(),
+    NonErl = filename:join(Dir, "non_erl"),
+    Scanner = filename:join(Dir, "calx_lexer.xrl"),
+    Parser  = filename:join(Dir, "calx_parser.yrl"),
+    [] = [F || F <- [Scanner, Parser], not filelib:is_regular(F)],
+    [] = filelib:wildcard(NonErl ++ "/out/*"),
+
+    file:set_cwd(NonErl),
+    up_to_date = make:all(),
+    OutFiles = ["out/calx_lexer.erl", "out/calx_parser.erl"],
+    [] = [F || F <- OutFiles, not filelib:is_regular(F)],
+    MTimes = [mtime(F) || F <- OutFiles],
+
+    %% Ensure that they are not compiled again
+    timer:sleep(2000),
+    up_to_date = make:all(),
+    MTimes = [mtime(F) || F <- OutFiles],
+
+    %% Remove the output files
+    ok = ensure_removed(OutFiles),
+
+    %% Return to original CWD
+    ok = file:set_cwd(CWD),
+
+    ensure_no_messages(),
+    ok.
+
+mtime(F) ->
+    {ok, FInfo} = file:read_file_info(F),
+    FInfo#file_info.mtime.
 
 ensure_removed([File|Files]) ->
     file:delete(File),

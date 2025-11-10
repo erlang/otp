@@ -1,0 +1,1 @@
+{"../calx_{lexer,parser}.?rl", [{erlc, "-o out"}]}.

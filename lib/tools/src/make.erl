@@ -77,7 +77,7 @@ all other files in the current directory should be compiled with only the
 
 -doc false.
 all_or_nothing() ->
-    case all() of
+    case all([autoload]) of
         up_to_date ->
             up_to_date;
         error ->
@@ -94,8 +94,11 @@ all() ->
 This function determines the set of modules to compile and the compile options
 to use, by first looking for the `emake` make option, if not present reads the
 configuration from a file named `Emakefile` (see below). If no such file is
-found, the set of modules to compile defaults to all modules in the current
+found, the set of modules to compile defaults to all `.erl` modules in the current
 working directory.
+
+If no file extension is given, `.erl` is assumed. Most of the source file types
+supported by `erlc` are accepted, but then the extension must be specified.
 
 Traversing the set of modules, it then recompiles every module for which at
 least one of the following conditions apply:
@@ -118,21 +121,30 @@ is returned.
   Load mode. Loads all recompiled modules.
 - `netload`
   Net load mode. Loads all recompiled modules on all known nodes.
+- `autoload`
+  Auto-load mode. If a line in the configuration specifies `load` or `netload`,
+  use that for the specific line. This can be used e.g. to load parse-transform
+  modules for later steps even when using `erl -make` (where this is the default).
 - `{emake, Emake}`
   Rather than reading the `Emakefile` specify configuration explicitly.
 
-All items in `Options` that are not make options are assumed to be compiler
-options and are passed as-is to `compile:file/2`.
+All items in `Options` that are not make options or `{erlc,Args}` are assumed to be
+compiler options and are passed as-is to `compile:file/2`.
+
+For source files compiled using `erlc`, the option `{erlc, Args}` is expected,
+where `Args` is a string with arguments as they would have been given to `erlc`
+(e.g. `"-W -I include -o ebin"`).
 """.
 -spec all(Options) -> 'up_to_date' | 'error' when
       Options :: [Option],
       Option :: 'noexec'
               | 'load'
               | 'netload'
+              | 'autoload'
               | {'emake', Emake}
               | compile:option(),
       Emake :: [EmakeElement],
-      EmakeElement :: Modules | {Modules, [compile:option()]},
+      EmakeElement :: Modules | {Modules, [{erlc, string()} | compile:option()]},
       Modules :: atom() | [atom()].
 
 all(Options) ->
@@ -161,11 +173,13 @@ options for each module. If a given module does not exist in `Emakefile` or if
       Option :: 'noexec'
               | 'load'
               | 'netload'
+              | 'autoload'
+              | {'erlc', string()}
               | compile:option().
 
 files(Fs0, Options) ->
-    Fs = [filename:rootname(F,".erl") || F <- Fs0],
-    run_emake(Fs, Options).
+    %% Fs = [filename:rootname(F,".erl") || F <- Fs0],
+    run_emake(Fs0, Options).
 
 run_emake(Mods, Options) ->
     {MakeOpts,CompileOpts} = sort_options(Options,[],[]),
@@ -212,7 +226,7 @@ normalize_emake(EmakeRaw, Mods, Opts) ->
 	    transform(Emake,Opts,[],[]);
 	{ok, Emake} when is_list(Mods) ->
 	    ModsOpts = transform(Emake,Opts,[],[]),
-	    ModStrings = [coerce_2_list(M) || M <- Mods],
+	    ModStrings = [coerce_2_list(M) || M <- expand(Mods, [])],
 	    get_opts_from_emakefile(ModsOpts,ModStrings,Opts,[]); 
 	{error,enoent} when Mods =:= undefined ->
 	    %% No Emakefile found - return all modules in current 
@@ -256,23 +270,47 @@ expand(Mod,Already) when is_atom(Mod) ->
 expand(Mods,Already) when is_list(Mods), not is_integer(hd(Mods)) ->
     lists:concat([expand(Mod,Already) || Mod <- Mods]);
 expand(Mod,Already) ->
-    case lists:member($*,Mod) of
-	true -> 
-	    Fun = fun(F,Acc) -> 
-			  M = filename:rootname(F),
-			  case lists:member(M,Already) of
-			      true -> Acc;
-			      false -> [M|Acc]
-			  end
-		  end,
-	    lists:foldl(Fun, [], filelib:wildcard(Mod++".erl"));
-	false ->
-	    Mod2 = filename:rootname(Mod, ".erl"),
-	    case lists:member(Mod2,Already) of
-		true -> [];
-		false -> [Mod2]
-	    end
-    end.
+    Mods = case {contains_wildcard(Mod), filename:extension(Mod)} of
+               {true, []} ->
+                   filelib:wildcard(Mod ++ ".erl");
+               {true, _} ->
+                   filelib:wildcard(Mod);
+               {false, []} ->
+                   [Mod ++ ".erl"];
+               {false, _} ->
+                   [Mod]
+           end,
+    Fun = fun(F,Acc) ->
+                  case lists:member(F,Already) of
+                      true -> Acc;
+                      false -> [F|Acc]
+                  end
+          end,
+    lists:foldl(Fun, [], Mods).
+
+contains_wildcard(Str) ->
+    contains_wildcard_(unicode:characters_to_list(Str)).
+
+contains_wildcard_("\\" ++ [_|T]) ->
+    contains_wildcard_(T);
+contains_wildcard_([H|T]) ->
+    case is_wildcard(H) of
+        true ->
+            true;
+        false ->
+            contains_wildcard_(T)
+    end;
+contains_wildcard_([]) ->
+    false.
+
+is_wildcard($*) -> true;
+is_wildcard($?) -> true;
+is_wildcard($[) -> true;
+is_wildcard($]) -> true;
+is_wildcard(${) -> true;
+is_wildcard($}) -> true;
+is_wildcard($+) -> true;
+is_wildcard(_)  -> false.
 
 %%% Reads the given Emake to see if there are any specific compile 
 %%% options given for the modules.
@@ -314,7 +352,12 @@ load_opt(Opts) ->
 		true ->
 		    load;
 		_ ->
-		    noload
+                    case lists:member(autoload, Opts) of
+                        true ->
+                            autoload;
+                        false ->
+                            noload
+                    end
 	    end
     end.
 
@@ -331,42 +374,79 @@ process([{[H|T],Opts}|Rest], NoExec, Load) ->
 process([], _NoExec, _Load) ->
     up_to_date.
 
-recompilep(File, NoExec, Load, Opts) ->
-    ObjName = lists:append(filename:basename(File),
-			   code:objfile_extension()),
-    ObjFile = case lists:keysearch(outdir,1,Opts) of
-		  {value,{outdir,OutDir}} ->
-		      filename:join(coerce_2_list(OutDir),ObjName);
-		  false ->
-		      ObjName
-	      end,
-    case exists(ObjFile) of
-	true ->
-	    recompilep1(File, NoExec, Load, Opts, ObjFile);
-	false ->
-	    recompile(File, NoExec, Load, Opts)
+recompilep(File0, NoExec, Load, Opts) ->
+    case check_extensions(File0) of
+        {File, OutExt} ->
+            RootF = filename:rootname(File),
+            ObjName = lists:append(filename:basename(RootF), OutExt),
+            OutDir = outdir(Opts),
+            ObjFile = filename:join(coerce_2_list(OutDir),ObjName),
+            case exists(ObjFile) of
+                true ->
+                    recompilep1(File, NoExec, Load, Opts, ObjFile);
+                false ->
+                    recompile(File, NoExec, Load, Opts)
+            end;
+        error ->
+            error
     end.
- 
+
+outdir(Opts) ->
+    case lists:keyfind(erlc, 1, Opts) of
+        {_, Args} ->
+            case lists:dropwhile(fun(X) -> X =/= "-o" end,
+                                 split_erlc_args(Args)) of
+                ["-o", Out|_] ->
+                    Out;
+                [] ->
+                    "."
+            end;
+        false ->
+            proplists:get_value(outdir, Opts, ".")
+    end.
+
+check_extensions(F) ->
+    case filename:extension(F) of
+        [] ->
+            {F ++ ".erl", code:objfile_extension()};
+        ".erl" ->
+            {F, code:objfile_extension()};
+        Ext ->
+            case lists:keyfind(Ext, 1, erl_compile:extensions()) of
+                false ->
+                    error;
+                {_, OutExt} ->
+                    {F, OutExt}
+            end
+    end.
+
+%% File now has the right extension.
 recompilep1(File, NoExec, Load, Opts, ObjFile) ->
-    {ok, Erl} = file:read_file_info(lists:append(File, ".erl")),
-    {ok, Obj} = file:read_file_info(ObjFile),
-	 recompilep1(Erl, Obj, File, NoExec, Load, Opts).
+    {ok, InInfo} = file:read_file_info(File),
+    {ok, ObjInfo} = file:read_file_info(ObjFile),
+    recompilep1(InInfo, ObjInfo, File, NoExec, Load, Opts).
 
 recompilep1(#file_info{mtime=Te},
 	    #file_info{mtime=To}, File, NoExec, Load, Opts) when Te>To ->
     recompile(File, NoExec, Load, Opts);
-recompilep1(_Erl, #file_info{mtime=To}, File, NoExec, Load, Opts) ->
+recompilep1(_InInfo, #file_info{mtime=To}, File, NoExec, Load, Opts) ->
     recompile2(To, File, NoExec, Load, Opts).
 
 %% recompile2(ObjMTime, File, NoExec, Load, Opts)
 %% Check if file is of a later date than include files.
 recompile2(ObjMTime, File, NoExec, Load, Opts) ->
-    IncludePath = include_opt(Opts),
-    case check_includes(lists:append(File, ".erl"), IncludePath, ObjMTime) of
-	true ->
-	    recompile(File, NoExec, Load, Opts);
-	false ->
-	    false
+    case filename:extension(File) of
+        ".erl" ->
+            %% Only check includes for .erl files
+            IncludePath = include_opt(Opts),
+            case check_includes(File, IncludePath, ObjMTime) of
+                true ->
+                    recompile(File, NoExec, Load, Opts);
+                false ->
+                    false
+            end;
+        _ ->
+            false
     end.
 
 include_opt([{i,Path}|Rest]) ->
@@ -378,21 +458,83 @@ include_opt([]) ->
 
 %% recompile(File, NoExec, Load, Opts)
 %% Actually recompile and load the file, depending on the flags.
-%% Where load can be netload | load | noload
+%% Where load can be netload | load | autoload | noload
 
 recompile(File, true, _Load, _Opts) ->
     io:format("Out of date: ~ts\n",[File]);
 recompile(File, false, Load, Opts) ->
     io:format("Recompile: ~ts\n",[File]),
-    case compile:file(File, [report_errors, report_warnings |Opts]) of
+    recompile_(filename:extension(File), File, Load, Opts).
+
+recompile_(".erl", File, Load, Opts) ->
+    case compile:file(File, [report_errors, report_warnings
+                            | compile_opts(Opts)]) of
         Ok when is_tuple(Ok), element(1,Ok)==ok ->
             maybe_load(element(2,Ok), Load, Opts);
         _Error ->
             error
+    end;
+recompile_(Ext, File, Load, Opts) ->
+    case erl_compile:compiler(Ext) of
+        no ->
+            error;
+        {_, _} ->
+            Args = erlc_args(Opts, File),
+            {ok, Cwd} = file:get_cwd(),
+            case erl_compile:compile(Args, Cwd) of
+                ok ->
+                    case can_load(Ext) of
+                        false ->
+                            ok;
+                        {true, Mod} ->
+                            maybe_load(Mod, Load, Opts)
+                    end;
+                _ ->
+                    error
+            end
+    end.
+
+compile_opts(Opts) ->
+    lists:filter(
+      fun({erlc,_}) ->
+              false;
+         ({emake, _}) ->
+              false;
+         (L) when L==load; L==netload; L==autoload ->
+              false;
+         (_) ->
+              true
+      end, Opts).
+
+erlc_args(Opts, File) ->
+    case lists:keyfind(erlc, 1, Opts) of
+        false ->
+            [File];
+        {_, Args} ->
+            List = split_erlc_args(Args),
+            List ++ [File]
+    end.
+
+split_erlc_args(Args) ->
+    string:lexemes(Args, " ").
+
+can_load(".erl") -> true;
+can_load(Ext) ->
+    ObjExt = code:objfile_extension(),
+    case lists:keyfind(Ext, 1, erl_compile:extensions()) of
+        {_, OutExt} ->
+            OutExt =:= ObjExt
     end.
 
 maybe_load(_Mod, noload, _Opts) ->
     ok;
+maybe_load(Mod, autoload, Opts) ->
+    case [O || O <- [netload, load], lists:member(O, Opts)] of
+        [Load|_] ->
+            maybe_load(Mod, Load, Opts);
+        [] ->
+            ok
+    end;
 maybe_load(Mod, Load, Opts) ->
     %% We have compiled File with options Opts. Find out where the
     %% output file went to, and load it.
