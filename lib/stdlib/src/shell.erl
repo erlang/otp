@@ -414,9 +414,9 @@ get_command(Prompt, Eval, Bs, RT, FT, Ds) ->
                           LocalFunFixer = fun F([{'fun',Anno}=A,{atom,_,Func}=B,{'/',_}=C,{integer,_,Arity}=D| Rest],Acc) ->
                               case erl_internal:bif(Func, Arity) of
                                   true ->
-                                      F(Rest, [D,C,B,{':',A},{atom,Anno,'erlang'},A | Acc]);
+                                      F(Rest, [D,C,B,{':',Anno},{atom,Anno,'erlang'},A | Acc]);
                                   false ->
-                                      F(Rest, [D,C,B,{':',A},{atom,Anno,'shell_default'},A | Acc])
+                                      F(Rest, [D,C,B,{':',Anno},{atom,Anno,'shell_default'},A | Acc])
                               end;
                               F([H|Rest], Acc) ->
                                   F(Rest, [H | Acc]);
