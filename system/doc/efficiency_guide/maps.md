@@ -321,7 +321,7 @@ function is:
 `maps:filter/2` is implemented in Erlang. It creates a new map using
 `maps:from_list/1`. If it is known that only a minority of the values will be
 removed, it can be more efficient to avoid `maps:filter/2` and write a function
-that will use [maps:remove/3](`maps:remove/2`) to remove the unwanted values.
+that will use [maps:remove/2](`maps:remove/2`) to remove the unwanted values.
 
 ### maps:filtermap/2
 
