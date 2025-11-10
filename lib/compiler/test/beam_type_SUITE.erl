@@ -25,7 +25,8 @@
          cons/1,tuple/1,
          record_float/1,binary_float/1,float_compare/1,float_overflow/1,
 	 arity_checks/1,elixir_binaries/1,find_best/1,
-         test_size/1,cover_lists_functions/1,list_append/1,bad_binary_unit/1,
+         test_size/1,cover_lists_functions/1,list_append/1,lists_mapfold/1,
+         bad_binary_unit/1,
          none_argument/1,success_type_oscillation/1,type_subtraction/1,
          container_subtraction/1,is_list_opt/1,connected_tuple_elements/1,
          switch_fail_inference/1,failures/1,
@@ -60,6 +61,7 @@ groups() ->
        test_size,
        cover_lists_functions,
        list_append,
+       lists_mapfold,
        bad_binary_unit,
        none_argument,
        success_type_oscillation,
@@ -977,6 +979,27 @@ list_append(_Config) ->
     %% the left-hand is [].
     hello = id([]) ++ id(hello),
     ok.
+
+%% GH-10354: Type inference broke when the fun passed to mapfoldl/mapfoldr
+%% returned a union of 2-tuples.
+lists_mapfold(_Config) ->
+    expected_result = id(lists_mapfold_1()),
+    ok.
+
+lists_mapfold_1() ->
+    List = [{key,[{number,1}]}],
+    {_, FinalAcc} =
+        lists:mapfoldl(
+            fun({_, PropListItem}, Acc) ->
+                Number = proplists:get_value(number, PropListItem),
+                case Number > 0 of
+                    true ->
+                        {false, Acc ++ [expected_result]};
+                    _ ->
+                        {true, Acc}
+                end
+            end, [], List),
+    hd(FinalAcc).
 
 %% OTP-15872: The compiler would treat the "Unit" of bs_init instructions as
 %% the unit of the result instead of the required unit of the input, causing
