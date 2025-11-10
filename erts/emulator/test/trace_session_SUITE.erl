@@ -41,6 +41,8 @@
          destroy/1,
          negative/1,
          error_info/1,
+         is_bif_traced/1,
+
          end_of_list/1]).
 
 -include_lib("common_test/include/ct.hrl").
@@ -78,6 +80,8 @@ all() ->
      destroy,
      negative,
      error_info,
+     is_bif_traced,
+
      end_of_list].
 
 init_per_suite(Config) ->
@@ -1840,6 +1844,78 @@ tracer_loop(Name, Tester) ->
             Tester ! {self(), M}
     end,
     tracer_loop(Name, Tester).
+
+
+%% OTP-19840: Verify setting/clearing of 'is_bif_traced' in export entry
+%% works correctly for multiple sessions.
+is_bif_traced(_Config) ->
+    CallTypes = [global, local],
+    [is_bif_traced_do(CT1, CT2, CT3)
+     || CT1 <- CallTypes, CT2 <- CallTypes, CT3 <- CallTypes],
+    ok.
+
+is_bif_traced_do(CT1, CT2, CT3) ->
+    Tester = self(),
+    TracerFun = fun F() -> receive M -> Tester ! {self(), M} end, F() end,
+    T1 = spawn_link(TracerFun),
+    S1 = trace:session_create(one, T1, []),
+    trace:function(S1, {erlang,display,1}, true, [CT1]),
+    trace:process(S1, self(), true, [call]),
+
+    erlang:display("S1"),
+    {T1, {trace,Tester,call,{erlang,display,["S1"]}}} = receive_any(),
+
+    T2 = spawn_link(TracerFun),
+    S2 = trace:session_create(two, T2, []),
+    trace:function(S2, {erlang,display,1}, true, [CT2]),
+    trace:process(S2, self(), true, [call]),
+
+    erlang:display("S1 & S2"),
+    receive_parallel_list(
+      [[{T1, {trace,Tester,call,{erlang,display,["S1 & S2"]}}}],
+       [{T2, {trace,Tester,call,{erlang,display,["S1 & S2"]}}}]]),
+
+    T3 = spawn_link(TracerFun),
+    S3 = trace:session_create(three, T3, []),
+    trace:function(S3, {erlang,display,1}, true, [CT3]),
+    trace:process(S3, self(), true, [call]),
+
+    erlang:display("S1 & S2 & S3"),
+    receive_parallel_list(
+      [[{T1, {trace,Tester,call,{erlang,display,["S1 & S2 & S3"]}}}],
+       [{T2, {trace,Tester,call,{erlang,display,["S1 & S2 & S3"]}}}],
+       [{T3, {trace,Tester,call,{erlang,display,["S1 & S2 & S3"]}}}]]),
+
+    %% Remove not last BIF trace nicely
+    trace:function(S1, {erlang,display,1}, false, [CT1]),
+    erlang:display("S2 & S3"),
+    receive_parallel_list(
+      [[{T2, {trace,Tester,call,{erlang,display,["S2 & S3"]}}}],
+       [{T3, {trace,Tester,call,{erlang,display,["S2 & S3"]}}}]]),
+
+    %% Remove not last BIF trace by session destruction
+    trace:session_destroy(S2),
+    erlang:display("S3"),
+    receive_parallel_list(
+      [[{T3, {trace,Tester,call,{erlang,display,["S3"]}}}]]),
+
+    %% Remove last BIF trace nicely
+    trace:function(S3, {erlang,display,1}, false, [CT3]),
+    erlang:display("no trace"),
+    timeout = receive_any(),
+
+    trace:function(S1, {erlang,display,1}, true, [CT1]),
+    erlang:display("S1"),
+    receive_parallel_list(
+      [[{T1, {trace,Tester,call,{erlang,display,["S1"]}}}]]),
+
+    %% Remove last BIF trace by session destruction
+    trace:session_destroy(S1),
+    erlang:display("no trace"),
+    timeout = receive_any(),
+
+    trace:session_destroy(S3),
+    ok.
 
 
 receive_any() ->
