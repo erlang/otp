@@ -73,7 +73,7 @@ all other files in the current directory should be compiled with only the
 
 -include_lib("kernel/include/file.hrl").
 
--define(MakeOpts,[noexec,load,netload,noload,emake]).
+-define(MakeOpts,[noexec,load,netload,autoload,noload,emake]).
 
 -doc false.
 all_or_nothing() ->
@@ -467,8 +467,7 @@ recompile(File, false, Load, Opts) ->
     recompile_(filename:extension(File), File, Load, Opts).
 
 recompile_(".erl", File, Load, Opts) ->
-    case compile:file(File, [report_errors, report_warnings
-                            | compile_opts(Opts)]) of
+    case compile:file(File, [report_errors, report_warnings | Opts]) of
         Ok when is_tuple(Ok), element(1,Ok)==ok ->
             maybe_load(element(2,Ok), Load, Opts);
         _Error ->
@@ -493,18 +492,6 @@ recompile_(Ext, File, Load, Opts) ->
                     error
             end
     end.
-
-compile_opts(Opts) ->
-    lists:filter(
-      fun({erlc,_}) ->
-              false;
-         ({emake, _}) ->
-              false;
-         (L) when L==load; L==netload; L==autoload ->
-              false;
-         (_) ->
-              true
-      end, Opts).
 
 erlc_args(Opts, File) ->
     case lists:keyfind(erlc, 1, Opts) of

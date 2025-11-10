@@ -38,7 +38,7 @@
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [make_all, make_files, load, netload, recompile_on_changed_include,
+    [make_all, make_files, load, netload, autoload, recompile_on_changed_include,
      emake_opts, {group, otp_6057}, {group, non_erl}].
 
 groups() -> 
@@ -117,6 +117,25 @@ netload(Config) ->
     peer:stop(Peer),
     file:set_cwd(Current),
     ensure_no_messages(),
+    ok.
+
+autoload(Config) ->
+    Current = prepare_data_dir(Config),
+    code:purge(test1),
+    code:delete(test1),
+    code:purge(test2),
+    code:delete(test2),
+    false = code:is_loaded(test1),
+    false = code:is_loaded(test2),
+
+    {value, {data_dir, Dir}} = lists:keysearch(data_dir, 1, Config),
+
+    AutoLoad = filename:join(Dir, "autoload"),
+    ok = file:set_cwd(AutoLoad),
+    up_to_date = make:all([autoload]),
+    {file,_} = code:is_loaded(test1),
+    false = code:is_loaded(test2),
+    file:set_cwd(Current),
     ok.
 
 recompile_on_changed_include(Config) ->
