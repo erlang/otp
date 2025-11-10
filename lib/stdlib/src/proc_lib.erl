@@ -144,7 +144,7 @@ of `Class`, `Reason` and `Stacktrace`.
 
 %%-----------------------------------------------------------------------------
 
--doc(#{equiv => spawn(erlang, apply, [Fun])}).
+-doc(#{equiv => spawn(erlang, apply, [Fun, []])}).
 -spec spawn(Fun) -> pid() when
       Fun :: function().
 
@@ -164,7 +164,7 @@ spawn(M,F,A) when is_atom(M), is_atom(F), is_list(A) ->
     Ancestors = get_ancestors(),
     erlang:spawn(?MODULE, init_p, [Parent,Ancestors,M,F,A]).
 
--doc(#{equiv => spawn_link(erlang, apply, [Fun])}).
+-doc(#{equiv => spawn_link(erlang, apply, [Fun, []])}).
 -spec spawn_link(Fun) -> pid() when
       Fun :: function().
 
@@ -184,7 +184,7 @@ spawn_link(M,F,A) when is_atom(M), is_atom(F), is_list(A) ->
     Ancestors = get_ancestors(),
     erlang:spawn_link(?MODULE, init_p, [Parent,Ancestors,M,F,A]).
 
--doc(#{equiv => spawn(Node, apply, erlang, [Fun])}).
+-doc(#{equiv => spawn(Node, erlang, apply, [Fun, []])}).
 -spec spawn(Node, Fun) -> pid() when
       Node :: node(),
       Fun :: function().
@@ -209,7 +209,7 @@ spawn(Node, M, F, A) when is_atom(M), is_atom(F), is_list(A) ->
     Ancestors = get_ancestors(),
     erlang:spawn(Node, ?MODULE, init_p, [Parent,Ancestors,M,F,A]).
 
--doc(#{equiv => spawn_link(Node, erlang, apply, [Fun])}).
+-doc(#{equiv => spawn_link(Node, erlang, apply, [Fun, []])}).
 -spec spawn_link(Node, Fun) -> pid() when
       Node :: node(),
       Fun :: function().
@@ -235,7 +235,7 @@ spawn_link(Node, M, F, A) when is_atom(M), is_atom(F), is_list(A) ->
     Ancestors = get_ancestors(),
     erlang:spawn_link(Node, ?MODULE, init_p, [Parent,Ancestors,M,F,A]).
 
--doc(#{equiv => spawn_opt(erlang, apply, [Fun], SpawnOpts)}).
+-doc(#{equiv => spawn_opt(erlang, apply, [Fun, []], SpawnOpts)}).
 -spec spawn_opt(Fun, SpawnOpts) -> pid() | {pid(), reference()} when
       Fun :: function(),
       SpawnOpts :: [erlang:spawn_opt_option()].
@@ -245,7 +245,7 @@ spawn_opt(F, Opts) when is_function(F) ->
     Ancestors = get_ancestors(),
     erlang:spawn_opt(?MODULE, init_p, [Parent,Ancestors,F],Opts).
 
--doc(#{equiv => spawn_opt(Node, erlang, apply, [Fun], SpawnOpts)}).
+-doc(#{equiv => spawn_opt(Node, erlang, apply, [Fun, []], SpawnOpts)}).
 -spec spawn_opt(Node, Fun, SpawnOpts) -> pid() | {pid(), reference()} when
       Node :: node(),
       Fun :: function(),
