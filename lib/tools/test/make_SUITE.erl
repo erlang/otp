@@ -194,10 +194,14 @@ prepare_data_dir(Config) ->
     {ok, Current} = file:get_cwd(),
     {value, {data_dir, Dir}} = lists:keysearch(data_dir, 1, Config),
     file:set_cwd(Dir),
+    ObjExt = code:objfile_extension(),
     {ok, Files} = file:list_dir("."),
+    delete_obj(Files, ObjExt),
+    filelib:ensure_dir("./non_erl/out/dummy"),
     NonErl = filelib:wildcard("./non_erl/out/*"),
-    delete_obj(Files, code:objfile_extension()),
     delete_obj(NonErl, ".erl"),
+    AutoLoad = filelib:wildcard("./autoload/*" ++ ObjExt),
+    delete_obj(AutoLoad, ObjExt),
     ensure_no_messages(),
     Current.
 
