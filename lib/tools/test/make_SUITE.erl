@@ -389,10 +389,9 @@ otp_6057_end(Config) when is_list(Config) ->
     Config.
 
 erlc_parsetools(Config) when is_list(Config) ->
-    _Current = prepare_data_dir(Config),
+    Current = prepare_data_dir(Config),
     {value, {data_dir, Dir}} = lists:keysearch(data_dir, 1, Config),
 
-    {ok, CWD} = file:get_cwd(),
     NonErl = filename:join(Dir, "non_erl"),
     Scanner = filename:join(Dir, "calx_lexer.xrl"),
     Parser  = filename:join(Dir, "calx_parser.yrl"),
@@ -413,8 +412,8 @@ erlc_parsetools(Config) when is_list(Config) ->
     %% Remove the output files
     ok = ensure_removed(OutFiles),
 
-    %% Return to original CWD
-    ok = file:set_cwd(CWD),
+    %% Return to original dir
+    ok = file:set_cwd(Current),
 
     ensure_no_messages(),
     ok.
