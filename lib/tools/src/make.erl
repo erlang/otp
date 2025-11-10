@@ -385,7 +385,7 @@ recompilep(File0, NoExec, Load, Opts) ->
                 true ->
                     recompilep1(File, NoExec, Load, Opts, ObjFile);
                 false ->
-                    recompile(File, NoExec, Load, Opts)
+                    recompile(File, ObjFile, NoExec, Load, Opts)
             end;
         error ->
             error
@@ -424,24 +424,24 @@ check_extensions(F) ->
 recompilep1(File, NoExec, Load, Opts, ObjFile) ->
     {ok, InInfo} = file:read_file_info(File),
     {ok, ObjInfo} = file:read_file_info(ObjFile),
-    recompilep1(InInfo, ObjInfo, File, NoExec, Load, Opts).
+    recompilep1(InInfo, ObjInfo, File, ObjFile, NoExec, Load, Opts).
 
 recompilep1(#file_info{mtime=Te},
-	    #file_info{mtime=To}, File, NoExec, Load, Opts) when Te>To ->
-    recompile(File, NoExec, Load, Opts);
-recompilep1(_InInfo, #file_info{mtime=To}, File, NoExec, Load, Opts) ->
-    recompile2(To, File, NoExec, Load, Opts).
+	    #file_info{mtime=To}, File, ObjFile, NoExec, Load, Opts) when Te>To ->
+    recompile(File, ObjFile, NoExec, Load, Opts);
+recompilep1(_InInfo, #file_info{mtime=To}, File, ObjFile, NoExec, Load, Opts) ->
+    recompile2(To, File, ObjFile, NoExec, Load, Opts).
 
 %% recompile2(ObjMTime, File, NoExec, Load, Opts)
 %% Check if file is of a later date than include files.
-recompile2(ObjMTime, File, NoExec, Load, Opts) ->
+recompile2(ObjMTime, File, ObjFile, NoExec, Load, Opts) ->
     case filename:extension(File) of
         ".erl" ->
             %% Only check includes for .erl files
             IncludePath = include_opt(Opts),
             case check_includes(File, IncludePath, ObjMTime) of
                 true ->
-                    recompile(File, NoExec, Load, Opts);
+                    recompile(File, ObjFile, NoExec, Load, Opts);
                 false ->
                     false
             end;
@@ -460,20 +460,20 @@ include_opt([]) ->
 %% Actually recompile and load the file, depending on the flags.
 %% Where load can be netload | load | autoload | noload
 
-recompile(File, true, _Load, _Opts) ->
+recompile(File, _ObjFile, true, _Load, _Opts) ->
     io:format("Out of date: ~ts\n",[File]);
-recompile(File, false, Load, Opts) ->
+recompile(File, ObjFile, false, Load, Opts) ->
     io:format("Recompile: ~ts\n",[File]),
-    recompile_(filename:extension(File), File, Load, Opts).
+    recompile_(filename:extension(File), File, ObjFile, Load, Opts).
 
-recompile_(".erl", File, Load, Opts) ->
+recompile_(".erl", File, _ObjFile, Load, Opts) ->
     case compile:file(File, [report_errors, report_warnings | Opts]) of
         Ok when is_tuple(Ok), element(1,Ok)==ok ->
             maybe_load(element(2,Ok), Load, Opts);
         _Error ->
             error
     end;
-recompile_(Ext, File, Load, Opts) ->
+recompile_(Ext, File, ObjFile, Load, Opts) ->
     case erl_compile:compiler(Ext) of
         no ->
             error;
@@ -485,12 +485,26 @@ recompile_(Ext, File, Load, Opts) ->
                     case can_load(Ext) of
                         false ->
                             ok;
-                        {true, Mod} ->
+                        true ->
+                            Mod = get_module(ObjFile),
                             maybe_load(Mod, Load, Opts)
                     end;
                 _ ->
                     error
             end
+    end.
+
+get_module(ObjFile) ->
+    case filename:extension(ObjFile) of
+        ".beam" ->
+            case beam_lib:chunks(ObjFile, [compile_info]) of
+                {ok, {Mod, _}} ->
+                    Mod;
+                _ ->
+                    undefined
+            end;
+        _ ->
+            undefined
     end.
 
 erlc_args(Opts, File) ->
@@ -510,10 +524,14 @@ can_load(Ext) ->
     ObjExt = code:objfile_extension(),
     case lists:keyfind(Ext, 1, erl_compile:extensions()) of
         {_, OutExt} ->
-            OutExt =:= ObjExt
+            OutExt =:= ObjExt;
+        false ->
+            false
     end.
 
 maybe_load(_Mod, noload, _Opts) ->
+    ok;
+maybe_load(undefined, _, _) ->
     ok;
 maybe_load(Mod, autoload, Opts) ->
     case [O || O <- [netload, load], lists:member(O, Opts)] of

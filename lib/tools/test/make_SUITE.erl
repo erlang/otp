@@ -125,8 +125,11 @@ autoload(Config) ->
     code:delete(test1),
     code:purge(test2),
     code:delete(test2),
+    code:purge(testc),
+    code:delete(testc),
     false = code:is_loaded(test1),
     false = code:is_loaded(test2),
+    false = code:is_loaded(testc),
 
     {value, {data_dir, Dir}} = lists:keysearch(data_dir, 1, Config),
 
@@ -135,6 +138,10 @@ autoload(Config) ->
     up_to_date = make:all([autoload]),
     {file,_} = code:is_loaded(test1),
     false = code:is_loaded(test2),
+    Core = filename:join(Dir, "core"),
+    ok = file:set_cwd(Core),
+    up_to_date = make:all([autoload]),
+    {file,_} = code:is_loaded(testc),
     file:set_cwd(Current),
     ok.
 
@@ -202,6 +209,8 @@ prepare_data_dir(Config) ->
     delete_obj(NonErl, ".erl"),
     AutoLoad = filelib:wildcard("./autoload/*" ++ ObjExt),
     delete_obj(AutoLoad, ObjExt),
+    Core = filelib:wildcard("./core/*" ++ ObjExt),
+    delete_obj(Core, ObjExt),
     ensure_no_messages(),
     Current.
 
