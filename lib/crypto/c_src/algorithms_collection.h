@@ -58,8 +58,8 @@ struct mutex_lock_and_auto_release {
     ~mutex_lock_and_auto_release() { enif_mutex_unlock(mutex); }
 };
 
-// Stores array of algorithms for detected algorithms of type AlgorithmT and to
-// populate the array, a second type is provided: ProbeT, this is a struct containing
+// Stores a static array of algorithms for detected algorithms of type AlgorithmT and to
+// populate the array, a second type is provided: ProbeT, this is a type of struct containing
 // logic to detect algorithm availability and create AlgorithmT.
 //
 // The collections for all types of algorithms are statically created before the crypto
@@ -78,7 +78,7 @@ private:
     const char *debug_name;
 
 public:
-    explicit algorithm_collection_t(const char *debug_name, ProbeT *probes_, const size_t probe_count_) :
+    explicit algorithm_collection_t(const char* debug_name, ProbeT* probes_, const size_t probe_count_) :
         lazy_init_done(false), probes(probes_), probe_count(probe_count_), mutex(nullptr), debug_name(debug_name) {}
 
     ~algorithm_collection_t() { destroy_mutex(); }

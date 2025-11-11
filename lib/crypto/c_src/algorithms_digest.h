@@ -50,8 +50,10 @@ ERL_NIF_TERM digest_types_as_list(ErlNifEnv *env, bool fips_forbidden);
 struct digest_availability_t {
     // The definition used to create this record
     const struct digest_probe_t *init = nullptr;
-    // combination of DIGEST_TYPE_FLAGS from init + detected in runtime
-    size_t flags = 0;
+    struct {
+        bool fips_forbidden: 1;
+        bool pbkdf2_eligible: 1;
+    } flags;
     // after init will contain the algorithm pointer, NULL if not supported. Frees automatically.
     const EVP_MD *md = nullptr;
     // 0 or default digest length for XOF digests
@@ -61,7 +63,7 @@ struct digest_availability_t {
 
     bool is_forbidden_in_fips() const {
 #ifdef FIPS_SUPPORT
-        return (this->flags & FIPS_FORBIDDEN_DIGEST) && FIPS_MODE();
+        return this->flags.fips_forbidden && FIPS_MODE();
 #else
         return false;
 #endif
@@ -71,16 +73,10 @@ struct digest_availability_t {
 
     // Fetches the algorithm and sets the initial flags
     void create_md_resource(bool fips_mode);
-    // Attempts to instantiate the algorithm (forbidden algorithms will fail)
-#if defined(HAS_3_0_API)
-    bool is_usable_algorithm(const EVP_MD *md) const;
-#endif // HAS_3_0_API
-};
-
-// masks in the `flags` field of digest_type_t
-enum DIGEST_TYPE_FLAGS {
-    FIPS_FORBIDDEN_DIGEST = 1, /* no support in FIPS for digest */
-    PBKDF2_ELIGIBLE_DIGEST = 2
+#if defined(FIPS_SUPPORT) && defined(HAS_3_0_API)
+    // Initialize an algorithm to check that all its dependencies are valid in FIPS
+    static bool check_valid_in_fips(const EVP_MD *md);
+#endif
 };
 
 // This runs for each algorithm at library start and every time FIPS mode changes.
@@ -93,9 +89,9 @@ struct digest_probe_t {
     const char *str_v3 = nullptr;
     // This will be updated to created atomfound exi
     ERL_NIF_TERM atom = 0;
-    // initial DIGEST_TYPE_FLAGS value for digest_type_t::flags
-    const size_t flags_hint = 0;
-    // OpenSSL 1.0 API to create resource for this digest algorithm (not used in 3.0 API)
+    // Hints that the algorithm is eligible for PBKDF2
+    const bool pbkdf2 = false;
+    // OpenSSL 1.0 API to create a resource for this digest algorithm (not used in 3.0 API)
     const EVP_MD *(*v1_ctor)() = nullptr;
     size_t xof_default_length = 0;
 

@@ -33,30 +33,24 @@ static digest_probe_t digest_probes[] = {
 #ifdef HAVE_RIPEMD160
         {.str = "ripemd160", .str_v3 = "RIPEMD160", .v1_ctor = &EVP_ripemd160},
 #endif
-        {.str = "sha", .str_v3 = "SHA1", .flags_hint = PBKDF2_ELIGIBLE_DIGEST, .v1_ctor = &EVP_sha1},
+        {.str = "sha", .str_v3 = "SHA1", .pbkdf2 = true, .v1_ctor = &EVP_sha1},
 #ifdef HAVE_SHA224
-        {.str = "sha224", .str_v3 = "SHA2-224", .flags_hint = PBKDF2_ELIGIBLE_DIGEST, .v1_ctor = &EVP_sha224},
+        {.str = "sha224", .str_v3 = "SHA2-224", .pbkdf2 = true, .v1_ctor = &EVP_sha224},
 #endif
 #ifdef HAVE_SHA256
-        {.str = "sha256", .str_v3 = "SHA2-256", .flags_hint = PBKDF2_ELIGIBLE_DIGEST, .v1_ctor = &EVP_sha256},
+        {.str = "sha256", .str_v3 = "SHA2-256", .pbkdf2 = true, .v1_ctor = &EVP_sha256},
 #endif
 #ifdef HAVE_SHA384
-        {.str = "sha384", .str_v3 = "SHA2-384", .flags_hint = PBKDF2_ELIGIBLE_DIGEST, .v1_ctor = &EVP_sha384},
+        {.str = "sha384", .str_v3 = "SHA2-384", .pbkdf2 = true, .v1_ctor = &EVP_sha384},
 #endif
 #ifdef HAVE_SHA512
-        {.str = "sha512", .str_v3 = "SHA2-512", .flags_hint = PBKDF2_ELIGIBLE_DIGEST, .v1_ctor = &EVP_sha512},
+        {.str = "sha512", .str_v3 = "SHA2-512", .pbkdf2 = true, .v1_ctor = &EVP_sha512},
 #endif
 #ifdef HAVE_SHA512_224
-        {.str = "sha512_224",
-         .str_v3 = "SHA2-512/224",
-         .flags_hint = PBKDF2_ELIGIBLE_DIGEST,
-         .v1_ctor = &EVP_sha512_224},
+    {.str = "sha512_224", .str_v3 = "SHA2-512/224", .pbkdf2 = true, .v1_ctor = &EVP_sha512_224},
 #endif
 #ifdef HAVE_SHA512_256
-        {.str = "sha512_256",
-         .str_v3 = "SHA2-512/256",
-         .flags_hint = PBKDF2_ELIGIBLE_DIGEST,
-         .v1_ctor = &EVP_sha512_256},
+    {.str = "sha512_256", .str_v3 = "SHA2-512/256", .pbkdf2 = true, .v1_ctor = &EVP_sha512_256},
 #endif
 #ifdef HAVE_SHA3_224
         {.str = "sha3_224", .str_v3 = "SHA3-224", .v1_ctor = &EVP_sha3_224},
@@ -88,19 +82,19 @@ static digest_probe_t digest_probes[] = {
 };
 
 digest_collection_t digest_collection("crypto.digest.digest_collection", digest_probes,
-                                      sizeof(digest_probes) / sizeof(digest_probes[0]));
+                                      std::size(digest_probes));
 
 ERL_NIF_TERM digest_availability_t::get_atom() const { return this->init->atom; }
 
 #if defined(FIPS_SUPPORT) && defined(HAS_3_0_API)
 // Initialize an algorithm to check that all its dependencies are valid in FIPS
-bool digest_availability_t::is_valid_in_fips(const EVP_MD *md) const {
+bool digest_availability_t::check_valid_in_fips(const EVP_MD *md) {
     EVP_MD_CTX *ctx = EVP_MD_CTX_new();
     int usable = 0;
 
     if (md) {
         // Try to initialize the digest algorithm for use, this will check the dependencies
-        if (EVP_DigestInit_ex(ctx, md, NULL) == 1) {
+        if (EVP_DigestInit_ex(ctx, md, nullptr) == 1) {
             usable = 1;
         }
     }
@@ -112,14 +106,14 @@ bool digest_availability_t::is_valid_in_fips(const EVP_MD *md) const {
 
 void digest_availability_t::create_md_resource(bool fips_mode) {
 #ifdef HAS_3_0_API
-    EVP_MD *fetched_md = EVP_MD_fetch(NULL, this->init->str_v3, NULL);
+    EVP_MD *fetched_md = EVP_MD_fetch(nullptr, this->init->str_v3, nullptr);
 
     // Record failed algorithm instantiation for FIPS enabled & OpenSSL API 3.0 only
-    if (fips_mode && !is_usable_algorithm(fetched_md)) {
-        flags |= FIPS_FORBIDDEN_DIGEST;
+    if (fips_mode && !check_valid_in_fips(fetched_md)) {
+        flags.fips_forbidden = true;
         EVP_MD_free(fetched_md); // NULL is allowed
     } else {
-        this->flags &= ~FIPS_FORBIDDEN_DIGEST;
+        this->flags.fips_forbidden = false;
         this->md = fetched_md;
     }
 #else
@@ -129,7 +123,8 @@ void digest_availability_t::create_md_resource(bool fips_mode) {
 }
 
 void digest_probe_t::probe(ErlNifEnv *, const bool fips_mode, std::vector<digest_availability_t> &output) {
-    digest_availability_t algo = {.init = this, .flags = this->flags_hint, .xof_default_length = this->xof_default_length};
+    digest_availability_t algo = {
+        .init = this, .flags = {.pbkdf2_eligible = this->pbkdf2}, .xof_default_length = this->xof_default_length};
     // Unavailable are skipped. Available are added. Forbidden are added, but flagged with FIPS_FORBIDDEN_DIGEST.
     algo.create_md_resource(fips_mode);
     if (algo.md) {

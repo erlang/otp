@@ -33,11 +33,9 @@ ERL_NIF_TERM info_fips(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 #endif
 }
 
-ERL_NIF_TERM enable_fips_mode_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (Boolean) */
+ERL_NIF_TERM enable_fips_mode_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
     return enable_fips_mode(env, argv[0]);
 }
-
 
 ERL_NIF_TERM enable_fips_mode(ErlNifEnv* env, ERL_NIF_TERM fips_mode_to_set)
 #ifdef FIPS_SUPPORT
@@ -59,9 +57,10 @@ ERL_NIF_TERM enable_fips_mode(ErlNifEnv* env, ERL_NIF_TERM fips_mode_to_set)
 }
 #else
 {
+    // Can't set FIPS mode if no FIPS support in the OpenSSL library, fail any attempt to enable it
     if (fips_mode_to_set == atom_true) return atom_false;
-    else if (fips_mode_to_set == atom_false) return atom_true;
-    else return enif_make_badarg(env);
+    if (fips_mode_to_set == atom_false) return atom_true;
+    return enif_make_badarg(env);
 }
 #endif    
 

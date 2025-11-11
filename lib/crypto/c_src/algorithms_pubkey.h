@@ -32,9 +32,9 @@ extern "C" {
 //
 // Pubkey Algorithms storage C API
 //
-size_t pubkey_algorithms_lazy_init(ErlNifEnv *env, bool fips_enabled);
-ERL_NIF_TERM pubkey_algorithms_as_list(ErlNifEnv *env, bool fips_enabled);
-void pubkey_add_algorithm(ErlNifEnv *env, const char *str_v3, unsigned unavailable, ERL_NIF_TERM atom);
+size_t pubkey_algorithms_lazy_init(ErlNifEnv* env, bool fips_enabled);
+ERL_NIF_TERM pubkey_algorithms_as_list(ErlNifEnv* env, bool fips_enabled);
+void pubkey_add_algorithm(ErlNifEnv* env, const char* str_v3, unsigned unavailable, ERL_NIF_TERM atom);
 
 #ifdef __cplusplus
 }
@@ -44,10 +44,10 @@ void pubkey_add_algorithm(ErlNifEnv *env, const char *str_v3, unsigned unavailab
 struct pubkey_probe_t;
 
 struct pubkey_availability_t {
-    const pubkey_probe_t *init; // the pubkey_probe_t used to create this record
+    const pubkey_probe_t* init; // the pubkey_probe_t used to create this record
 
     struct {
-        bool not_available : 1;
+        bool not_available : 1; // algorithm init failed
         bool fips_forbidden_keygen : 1;
         bool fips_forbidden_sign : 1;
         bool fips_forbidden_verify : 1;
@@ -58,30 +58,29 @@ struct pubkey_availability_t {
     bool is_forbidden_in_fips() const {
 #ifdef FIPS_SUPPORT
         // Forbidden in FIPS if all operations are forbidden, or if algorithm is not available at all
-        return ((this->flags.fips_forbidden_keygen && this->flags.fips_forbidden_sign &&
-                 this->flags.fips_forbidden_verify && this->flags.fips_forbidden_encrypt &&
-                 this->flags.fips_forbidden_derive) ||
-                this->flags.not_available) &&
-               FIPS_MODE();
+        return (this->flags.not_available ||
+                this->flags.fips_forbidden_keygen && this->flags.fips_forbidden_sign &&
+                    this->flags.fips_forbidden_verify && this->flags.fips_forbidden_encrypt &&
+                    this->flags.fips_forbidden_derive) &&
+            FIPS_MODE();
 #else
         return false;
 #endif
     }
     // Return the atom which goes to the Erlang caller
     ERL_NIF_TERM get_atom() const;
-    // Update this->flags for FIPS compatibility
 #if defined(FIPS_SUPPORT) && defined(HAS_3_0_API)
-    void probe_algorithm_against_fips(); // fips is supported AND enabled here
+    void check_against_fips(); // Result: flags set if FIPS is not supported
 #endif // FIPS_SUPPORT && HAS_3_0_API
 };
 
 struct pubkey_probe_t {
-    const char *str = nullptr;
-    const char *str_v3 = nullptr; // if this is nullptr, .str will be used instead
+    const char* str = nullptr;
+    const char* str_v3 = nullptr; // if this is nullptr, .str will be used instead
     ERL_NIF_TERM atom = 0;
 
     // Perform probe on the algorithm. In case of success, fill the struct and push into the 'output'
-    void probe(ErlNifEnv *env, bool fips_enabled, std::vector<pubkey_availability_t> &output);
+    void probe(ErlNifEnv* env, bool fips_enabled, std::vector<pubkey_availability_t>& output);
 };
 
 using pubkey_collection_t = algorithm_collection_t<pubkey_availability_t, pubkey_probe_t>;

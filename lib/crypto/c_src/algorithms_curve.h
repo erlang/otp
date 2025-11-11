@@ -41,23 +41,26 @@ ERL_NIF_TERM curve_algorithms_as_list(ErlNifEnv *env, bool fips_enabled);
 
 #ifdef __cplusplus
 struct curve_probe_t;
+
 struct curve_availability_t {
     const curve_probe_t *init; // the probe which created this record, contains name, atom, etc.
-    unsigned flags; // combination of CURVE_AVAIL_FLAGS
+    struct {
+        bool fips_forbidden: 1;
+        bool curve_init_failed: 1; // not possible to create with fips=yes
+    } flags;
 
     bool is_forbidden_in_fips() const {
 #ifdef FIPS_SUPPORT
-        return this->flags != 0 && FIPS_MODE();
+        // Available if not forbidden with fips=yes, and if curve init did not fail
+        return (this->flags.fips_forbidden || this->flags.curve_init_failed) && FIPS_MODE();
 #else
         return false;
 #endif
     }
     // Return the atom which goes to the Erlang caller
     ERL_NIF_TERM get_atom() const;
-};
-
-enum CURVE_AVAIL_FLAGS {
-    FIPS_CURVE_INIT_FAILED = 1 // could not find by name or initialize
+    // Instantiate the algorithm (if FIPS is enabled) and set flags if not available
+    void probe_under_fips(bool fips_mode);
 };
 
 struct curve_probe_t {
@@ -65,7 +68,7 @@ struct curve_probe_t {
     const char *sn = nullptr; // serves as Erlang atom name, also equal to SN_xxxxx macro of OpenSSL
     ERL_NIF_TERM atom = 0; // Atom for this->sn is cached here
 
-    // Perform probe on the algorithm. In case of success, fill the struct and push into the 'output'
+    // Perform a probe on the algorithm. In case of success, fill the struct and push into the 'output'
     void probe(ErlNifEnv *env, bool fips_mode, std::vector<curve_availability_t> &output);
 
 private:
