@@ -70,9 +70,21 @@ test_files() -> ["test1", "test2", "test3", "test4"].
 
 make_all(Config) when is_list(Config) ->
     Current = prepare_data_dir(Config),
+
     up_to_date = make:all(),
+
     ok = ensure_exists(test_files()),
     ok = ensure_exists(["test5"],".S"), % Emakefile: [{test5,['S']}
+
+    %% Ensure that other sources aren't built, since extensions
+    %% were not specified in Emakefile.
+    NonErl = [_|_] = filelib:wildcard("./*.[xy]rl"),
+    ct:log("NonErl = ~p", [NonErl]),
+    NonErlOut = [filename:rootname(F) ++ ".erl" || F <- NonErl],
+    ct:log("NonErlOut = ~p", [NonErlOut]),
+    [] = [F || F <- NonErlOut, filelib:is_regular(F)],
+
+    %% Restore CWD
     file:set_cwd(Current),
     ensure_no_messages(),
     ok.
@@ -138,10 +150,16 @@ autoload(Config) ->
     up_to_date = make:all([autoload]),
     {file,_} = code:is_loaded(test1),
     false = code:is_loaded(test2),
+
+    %% Make sure autoload also works when going via erlc
     Core = filename:join(Dir, "core"),
     ok = file:set_cwd(Core),
     up_to_date = make:all([autoload]),
     {file,_} = code:is_loaded(testc),
+
+    %% Clean up
+    code:purge(testc),
+    code:delete(testc),
     file:set_cwd(Current),
     ok.
 
