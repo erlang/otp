@@ -296,6 +296,12 @@ int main(int argc, char** argv)
 
     PUSH("+sbtu");
     PUSH("+A0");
+
+    /* Avoid wasting memory for processes and ports that will never be
+     * used. */
+    PUSH2("+P", "65536");
+    PUSH2("+Q", "1024");
+
     PUSH("-noinput");
     PUSH2("-mode", "minimal");
     PUSH2("-boot", "no_dot_erlang");
@@ -960,7 +966,13 @@ start_compile_server(char* node_name, char** argv)
     char* progname = argv[0];
 
     while (strcmp(argv[0], "-mode") != 0) {
-        eargv[eargc++] = *argv++;
+        if (strcmp(argv[0], "+P") == 0 || strcmp(argv[0], "+Q") == 0) {
+            /* We don't want to limit the number of ports and
+             * processes for the compile server. */
+            argv += 2;
+        } else {
+            eargv[eargc++] = *argv++;
+        }
     }
     PUSH2("-boot", "no_dot_erlang");
     PUSH2("-sname", node_name);
