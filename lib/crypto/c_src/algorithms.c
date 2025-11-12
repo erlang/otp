@@ -24,48 +24,19 @@
 #include "algorithms_pubkey.h"
 #include "algorithms_digest.h"
 #include "algorithms_curve.h"
+#include "algorithms_kem.h"
 #include "cipher.h"
 #include "common.h"
 #include "mac.h"
-
-#include <openssl/core_names.h>
-#include "algorithms_digest.h"
-
-struct kem_availability_t {
-    const char* str_v3;  /* the algorithm name as in OpenSSL 3.x */
-    unsigned flags;      /* combination of KEM_AVAIL_FLAGS */
-    ERL_NIF_TERM atom;   /* as returned to the library user on a query */
-};
-
-enum KEM_AVAIL_FLAGS {
-    FIPS_KEM_NOT_AVAIL = 1,
-};
-
-#ifdef FIPS_SUPPORT
-# define IS_KEM_FORBIDDEN_IN_FIPS(p) (((p)->flags & FIPS_KEM_NOT_AVAIL) == FIPS_KEM_NOT_AVAIL && FIPS_MODE())
-#else
-# define IS_KEM_FORBIDDEN_IN_FIPS(P) false
-#endif
-
-/* Stores all known KEM algorithms with their FIPS unavailability flag if
- * FIPS is enabled */
-static struct kem_availability_array_t {
-    size_t count;
-    struct kem_availability_t algorithm[3]; /* increase when extending the list */
-} algo_kem;
-
-void init_kem_types(void);
 
 static size_t algo_rsa_opts_cnt, algo_rsa_opts_fips_cnt;
 static ERL_NIF_TERM algo_rsa_opts[11]; /* increase when extending the list */
 void init_rsa_opts_types(ErlNifEnv* env);
 
-
 void init_algorithms_types(ErlNifEnv* env)
 {
     init_mac_types(env);
     init_cipher_types(env);
-    init_kem_types();
     init_rsa_opts_types(env);
     /* ciphers and macs are initiated statically */
 }
@@ -87,78 +58,9 @@ ERL_NIF_TERM pubkey_algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
     return pubkey_algorithms_as_list(env, false);
 }
 
-#ifdef HAVE_ML_KEM
-static void add_kem_algorithm(const char* str_v3, const unsigned unavail_flags, ERL_NIF_TERM atom) {
-    struct kem_availability_t* algo = &algo_kem.algorithm[algo_kem.count];
-    algo->str_v3 = str_v3;
-    algo->flags = unavail_flags;
-    algo->atom = atom;
-    algo_kem.count++;
-}
-#endif
-
-#ifdef HAVE_ML_KEM
-/*
- * for FIPS will attempt to initialize the KEM context to verify whether the
- * algorithm is allowed, for non-FIPS the old behavior - always allow.
- */
-static void probe_kem_algorithm(const char* str_v3, ERL_NIF_TERM atom) {
-    unsigned unavailable = 0;
-#if defined(FIPS_SUPPORT) && defined(HAS_3_0_API)
-    EVP_KEM *kem = EVP_KEM_fetch(NULL, str_v3, "fips=yes");
-    if (!kem) {
-        return; /* not available by name */
-    }
-
-    EVP_PKEY_CTX *ctx = EVP_PKEY_CTX_new_from_name(NULL, str_v3, "fips=yes");
-    /* failed: algorithm not available, do not add */
-    if (ctx) {
-        if (EVP_PKEY_encapsulate_init(ctx, NULL) == 1) {
-            EVP_PKEY_CTX_free(ctx);
-        } else {
-            unavailable |= FIPS_KEM_NOT_AVAIL;
-        }
-    }
-
-    EVP_KEM_free(kem);
-#endif /* FIPS_SUPPORT && HAS_3_0_API */
-
-    add_kem_algorithm(str_v3, unavailable, atom);
-}
-#endif
-
-void init_kem_types(void) {
-    algo_kem.count = 0;
-#ifdef HAVE_ML_KEM
-    probe_kem_algorithm("mlkem512", atom_mlkem512);
-    probe_kem_algorithm("mlkem768", atom_mlkem768);
-    probe_kem_algorithm("mlkem1024", atom_mlkem1024);
-    /* When adding a new algorithm, update the size of algo_kem.algorithm array */
-#endif
-    ASSERT(algo_kem.count <= sizeof(algo_kem.algorithm)/sizeof(algo_kem.algorithm[0]));
-}
-
-static ERL_NIF_TERM kem_algorithms_as_list(ErlNifEnv* env, const bool fips_forbidden)
-{
-    ERL_NIF_TERM hd = enif_make_list(env, 0);
-
-    for (size_t i = 0; i < algo_kem.count; i++) {
-        struct kem_availability_t* p = &algo_kem.algorithm[i];
-        if (IS_KEM_FORBIDDEN_IN_FIPS(p) == fips_forbidden) {
-            hd = enif_make_list_cell(env, p->atom, hd);
-        }
-    }
-
-    return hd;
-}
-
 ERL_NIF_TERM kem_algorithms_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-#ifdef HAVE_ML_KEM
     return kem_algorithms_as_list(env, false);
-#else
-    return enif_make_list(env, 0);
-#endif
 }
 
 

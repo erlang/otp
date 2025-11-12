@@ -20,8 +20,9 @@
  * %CopyrightEnd%
  */
 
-#include "pkey.h"
 #include "algorithms_digest.h"
+
+#include "pkey.h"
 #include "bn.h"
 #include "dss.h"
 #include "ec.h"
@@ -156,11 +157,8 @@ static int check_pkey_algorithm_type(ErlNifEnv *env,
 }
 
 
-static int get_pkey_digest_type(ErlNifEnv *env, ERL_NIF_TERM algorithm,
-                                int type_arg_num, ERL_NIF_TERM type,
-				const EVP_MD **md,
-                                ERL_NIF_TERM *err_return)
-{
+ static int get_pkey_digest_type(ErlNifEnv* env, ERL_NIF_TERM algorithm, const int type_arg_num, ERL_NIF_TERM type,
+                                 const EVP_MD** md, ERL_NIF_TERM* err_return) {
     struct digest_availability_t *digp = NULL;
     *md = NULL;
 
@@ -185,13 +183,13 @@ static int get_pkey_digest_type(ErlNifEnv *env, ERL_NIF_TERM algorithm,
     if ((digp = get_digest_type(type)) == NULL)
         assign_goto(*err_return, notsup, EXCP_BADARG_N(env, type_arg_num, "Bad digest type"));
 
-    if (IS_DIGEST_FORBIDDEN_IN_FIPS(digp))
+    if (is_digest_forbidden_in_fips(digp))
         assign_goto(*err_return, notsup, EXCP_BADARG_N(env, type_arg_num, "Digest type forbidden in FIPS"));
 
-    if (digp->md.p == NULL)
+    if (get_digest_availability_field_md(digp) == NULL)
         assign_goto(*err_return, notsup, EXCP_BADARG_N(env, type_arg_num, "Digest type not supported"));
 
-    *md = digp->md.p;
+    *md = get_digest_availability_field_md(digp);
     return 1;
 
  notsup:
@@ -203,7 +201,7 @@ static int get_pkey_sign_digest(ErlNifEnv *env,
                                 int algorithm_arg_num, int type_arg_num, int data_arg_num,
 				unsigned char *md_value, const EVP_MD **mdp,
 				unsigned char **tbsp, size_t *tbslenp,
-                                ERL_NIF_TERM *err_return)
+                                ERL_NIF_TERM * err_return)
 {
     int ret;
     const ERL_NIF_TERM *tpl_terms;

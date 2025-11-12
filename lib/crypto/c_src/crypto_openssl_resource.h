@@ -69,4 +69,17 @@ struct auto_ec_key_t : auto_openssl_resource_t<EC_KEY> {
     }
 };
 
+#ifdef HAVE_ML_KEM
+struct auto_evp_kem_t : auto_openssl_resource_t<EVP_KEM> {
+    explicit auto_evp_kem_t(EVP_KEM* kem) : auto_openssl_resource_t(kem) {}
+    ~auto_evp_kem_t() { reset(nullptr); }
+    void reset(EVP_KEM* new_value) {
+        if (this->pointer) {
+            EVP_KEM_free(this->pointer);
+        }
+        this->pointer = new_value;
+    }
+};
+#endif
+
 #endif // __cplusplus

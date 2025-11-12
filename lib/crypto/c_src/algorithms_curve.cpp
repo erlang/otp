@@ -24,8 +24,6 @@
 #include "algorithms_curve.h"
 #include "crypto_openssl_resource.h"
 
-#include <iterator>
-
 curve_probe_t curve_probes[] = {
 #if defined(HAVE_EC)
 #ifdef NID_secp160k1

@@ -95,6 +95,7 @@ CRYPTO_OBJS = $(OBJDIR)/crypto$(TYPEMARKER).o \
 	$(OBJDIR)/algorithms_digest$(TYPEMARKER).cpp.o \
 	$(OBJDIR)/algorithms_pubkey$(TYPEMARKER).cpp.o \
 	$(OBJDIR)/algorithms_curve$(TYPEMARKER).cpp.o \
+	$(OBJDIR)/algorithms_kem$(TYPEMARKER).cpp.o \
 	$(OBJDIR)/api_ng$(TYPEMARKER).o \
 	$(OBJDIR)/atoms$(TYPEMARKER).o \
 	$(OBJDIR)/bn$(TYPEMARKER).o \

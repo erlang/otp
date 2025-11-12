@@ -24,8 +24,6 @@
 #include "algorithms_collection.h"
 #include "crypto_openssl_resource.h"
 
-#include <iterator>
-
 pubkey_probe_t pubkey_probes[] = {
     {.str = "rsa"},
 #ifdef HAVE_DSA
