@@ -40,7 +40,7 @@ PRNGs in general, and so the algorithms in this module, are mostly used
 for test and simulation.  They are designed for good statistical
 quality and high generation speed.
 
-An generator algorithm, for each iteration, takes a state as input
+A generator algorithm, for each iteration, takes a state as input
 and produces a raw pseudo random number and a new state to be used
 for the next iteration.
 
@@ -48,6 +48,9 @@ A particular state always produces the same number and new state.
 The initial state is produced from a [seed](`seed/1`).
 This makes it possible to repeat for example a simulation with the same
 random number sequence, by re-using the same seed.
+There are also the functions `export_seed/0` and `export_seed_s/1`
+that capture the PRNG state in an `t:export_state/0`,
+that can be used to start from a known state.
 
 This property, and others, make the algorithms in this module
 unsuitable for cryptographical applications, but in the `m:crypto` module
@@ -56,19 +59,19 @@ there are suitable generators, for this module's
 See `crypto:rand_seed_s/0` and `crypto:rand_seed_alg_s/1`.
 
 At the end of this module documentation there are some
-[niche algorithms](#niche-algorithms) that does not use
+[niche algorithms](#niche-algorithms) that do not use
 this module's normal [plug-in framework](#plug-in-framework).
-They may be useful for special purposes like fast generation
+They are useful for special purposes like fast generation
 when quality is not essential, for seeding other generators, and such.
 
 [](){: #plug-in-framework } Plug-in framework
 ---------------------------------------------
 
 The raw pseudo random numbers produced by the base generators
-are only suitable in some cases such as power of two ranges
+are only appropriate in some cases such as power of two ranges
 less than the generator size, and some have quirks,
 for example weak low bits.  Therefore, the Plug-in Framework
-implements a common [API](#plug-in-framework-api) to all base generator,
+implements a common [API](#plug-in-framework-api) for all base generators,
 that add essential or useful funcionality:
 
 * Keeping the generator [state](`seed/1`) in the process dictionary.
@@ -93,7 +96,7 @@ A generator has to be initialized.  This is done by one of the
 `seed/1` or `seed_s/1` functions, which also select which
 [algorithm](#algorithms) to use.  The `seed/1` functions
 store the generator and state in the process dictionary,
-while the `seed_s/1` functions do not, which requires
+while the `seed_s/1` functions only return the state, which requires
 the calling code to handle the state and updates to it.
 
 The seed functions that do not have a `Seed` value as an argument
@@ -113,7 +116,8 @@ Sibling functions without that suffix take an implicit state from
 and store the new state in the process dictionary, and only return
 their "interesting " output value.  If the process dictionary
 does not contain a state, [`seed(default)`](`seed/1`)
-is implicitly called to create an automatic seed as initial state.
+is implicitly called to create an automatic seed for the
+[_default algorithm_](#default-algorithm) as initial state.
 
 #### _Usage_
 
@@ -123,7 +127,7 @@ functions, which also selects a PRNG algorithm.
 Then call a [Plug-in framework API](#plug-in-framework-api) function
 either with an explicit state from the seed function
 and use the returned new state in the next call,
-or call an API function without an explicit state
+or call an API function without an explicit state argument
 to operate on the state in the process dictionary.
 
 #### _Examples_
@@ -132,7 +136,7 @@ to operate on the state in the process dictionary.
 %% Generate two uniformly distibuted floating point numbers.
 %%
 %% By not calling a [seed](`seed/1`) function, this uses
-%% the genarator state and algorithm in the process dictinary.
+%% the generator state and algorithm in the process dictionary.
 %% If there is no state there, [`seed(default)`](`seed/1`)
 %% is implicitly called first:
 %%
@@ -159,7 +163,7 @@ true
 %% with an automatic default seed, then generate
 %% a floating point number:
 %%
-5> _ = rand:seed(exro928ss).
+5> rand:seed(exro928ss).
 6> R2 = rand:uniform(),
    is_float(R2) andalso 0.0 =< R2 andalso R2 < 1.0.
 true
@@ -168,12 +172,11 @@ true
 %% with a specified seed, then generate
 %% a floating point number:
 %%
-7> _ = rand:seed(exro928ss, 123456789).
-8> R3 = rand:uniform(),
-   is_float(R3) andalso 0.0 =< R3 andalso R3 < 1.0.
-true
+7> rand:seed(exro928ss, 123456789).
+8> R3 = rand:uniform().
+0.48303622772415256
 
-%% Select and initialize a specified algorithm,
+%% Select and initialize a specific algorithm,
 %% with an automatic default seed, using the functional API
 %% with explicit generator state, then generate
 %% two floating point numbers.
@@ -196,7 +199,7 @@ true
 true
 
 %% Generate a normal distribution number
-%% with with mean -3 and variance 0.5:
+%% with mean -3 and variance 0.5:
 %%
 14> {ND0, S4} = rand:normal_s(-3, 0.5, S3),
     is_float(ND0).
@@ -236,9 +239,10 @@ per generator bit.
 
 By using a jump function instead of starting several generators
 from different seeds it is assured that the generated sequences
-does not overlap.  Two different seeds may accidentally start
-the generators in sequence positions that are close to each other,
-but a jump function jumps to a sequence position very far ahead.
+do not overlap.  The alternative of using different seeds
+may accidentally start the generators in sequence positions
+that are close to each other, but a jump function jumps
+to a sequence position very far ahead.
 
 To create numbers with normal distribution the
 [Ziggurat Method by Marsaglia and Tsang](http://www.jstatsoft.org/v05/i08)
@@ -248,9 +252,9 @@ The following algorithms are provided:
 
 - **`exsss`**, the [_default algorithm_](#default-algorithm)
   *(Since OTP 22.0)*  
-  Xorshift116\*\*, 58 bits precision and period of 2^116-1
+  Xorshift116\*\*, 58 bits precision and period of 2^116-1.
 
-  Jump function: equivalent to 2^64 calls
+  Jump function: equivalent to 2^64 calls.
 
   This is the Xorshift116 generator combined with the StarStar scrambler from
   the 2018 paper by David Blackman and Sebastiano Vigna:
@@ -265,9 +269,9 @@ The following algorithms are provided:
   its statistical qualities.
 
 - **`exro928ss`** *(Since OTP 22.0)*  
-  Xoroshiro928\*\*, 58 bits precision and a period of 2^928-1
+  Xoroshiro928\*\*, 58 bits precision and a period of 2^928-1.
 
-  Jump function: equivalent to 2^512 calls
+  Jump function: equivalent to 2^512 calls.
 
   This is a 58 bit version of Xoroshiro1024\*\*, from the 2018 paper by
   David Blackman and Sebastiano Vigna:
@@ -280,25 +284,29 @@ The following algorithms are provided:
   Many thanks to Sebastiano Vigna for his help with the 58 bit adaption.
 
 - **`exrop`** *(Since OTP 20.0)*  
-  Xoroshiro116+, 58 bits precision and period of 2^116-1
+  Xoroshiro116+, 58 bits precision and period of 2^116-1.
 
-  Jump function: equivalent to 2^64 calls
+  Jump function: equivalent to 2^64 calls.
 
 - **`exs1024s`** *(Since OTP 20.0)*  
   Xorshift1024\*, 64 bits precision and a period of 2^1024-1
 
-  Jump function: equivalent to 2^512 calls
+  Jump function: equivalent to 2^512 calls.
+
+  Since this generator operates on 64-bit integers that are bignums
+  on 64 bit platforms, it is much slower than `exro928ss` above.
 
 - **`exsp`** *(Since OTP 20.0)*  
   Xorshift116+, 58 bits precision and period of 2^116-1
 
-  Jump function: equivalent to 2^64 calls
+  Jump function: equivalent to 2^64 calls.
 
   This is a corrected version of a previous
   [_default algorithm_](#default-algorithm) (`exsplus`, _deprecated_),
   that was superseded by Xoroshiro116+ (`exrop`).  Since this algorithm
-  does not use rotate it executes a little (say < 15%) faster than `exrop`
-  (that has to do a 58 bit rotate, for which there is no native instruction).
+  does not use rotate operations it executes a little (say < 15%) faster
+  than `exrop` (that has to do a 58 bit rotate,
+  for which there is no native instruction).
   See the [algorithms' homepage](http://xorshift.di.unimi.it).
 
 [](){: #default-algorithm }
@@ -310,7 +318,9 @@ required, ensure to always use `seed/1` to initialize the state.
 
 Which algorithm that is the default may change between Erlang/OTP releases,
 and is selected to be one with high speed, small state and "good enough"
-statistical properties.
+statistical properties.  So to ensure that the same sequence is reproduced
+on a later Erlang/OTP release, use a `seed/2` or `seed_s/2` to select
+both a specific algorithm and the seed value.
 
 #### Old Algorithms
 
@@ -1050,7 +1060,7 @@ The concept implicates that the probability to get exactly zero is extremely
 low; so low that this function in fact never returns `0.0`.
 The smallest number that it *might* return is `DBL_MIN`,
 which is `2.0^(-1022)`.  However, the generators in this module
-has thechnical limitations on how many zero words in a row they
+have technical limitations on how many zero words in a row they
 *can* return, which limits the number of leading zeros
 that *can* be generated, which sets an upper limit for the smallest
 generated number, that is still extremely small.
@@ -1062,7 +1072,7 @@ never returns exactly `0.0` is impossible to observe.
 
 For all sub ranges `N*2.0^(-53) =< X < (N+1)*2.0^(-53)` where
 `0 =< integer(N) < 2.0^53`, the probability to generate a number
-in a sub range range is the same, very much like the numbers generated by
+in a sub range is the same, very much like the numbers generated by
 `uniform_s/1`.
 
 Having to generate extra random bits for occasional small numbers
@@ -1251,7 +1261,7 @@ as required to compose the `t:binary/0`.  Returns the generated
 >
 > The `m:crypto` module contains a function `crypto:strong_rand_bytes/1`
 > that does the same thing, but cryptographically secure.
-> It is pretty fast and effective on modern systems.
+> It is pretty fast and efficient on modern systems.
 >
 > This function, however, offers the possibility to reproduce
 > a byte sequence by re-using seed, which a cryptographically secure
@@ -1261,10 +1271,10 @@ as required to compose the `t:binary/0`.  Returns the generated
 > random integers, thus has to create bytes from integers,
 > it becomes rather slow.
 >
-> Particularly ineffective and slow is to use
+> Particularly inefficient and slow is to use
 > a [`rand` plug-in generator](#plug-in-framework) from `m:crypto`
 > such as `crypto:rand_seed_s/0` to call this function for generating
-> bytes.  Since it in that case is not possible to reproduce
+> bytes.  Since in that case it is not possible to reproduce
 > the byte sequence anyway; it is better to use
 > `crypto:strong_rand_bytes/1` directly.
 """.
@@ -2462,9 +2472,14 @@ adding up to 59 bits, which is not a bignum (on a 64-bit VM ):
 """.
 -doc(#{group => <<"Niche algorithms API">>,since => <<"OTP 25.0">>}).
 -spec mwc59_value(CX :: mwc59_state()) -> V :: 0..?MASK(59).
-mwc59_value(CX) when is_integer(CX), 1 =< CX, CX < ?MWC59_P ->
-    CX2 = CX bxor ?BSL(59, CX, ?MWC59_XS1),
-    CX2 bxor ?BSL(59, CX2, ?MWC59_XS2).
+-define(
+   mwc59_value(CX0, CX1),
+   begin
+       CX1 = (CX0) bxor ?BSL(59, (CX0), ?MWC59_XS1),
+       CX1 bxor ?BSL(59, CX1, ?MWC59_XS2)
+   end).
+mwc59_value(CX0) when is_integer(CX0), 1 =< CX0, CX0 < ?MWC59_P ->
+    ?mwc59_value(CX0, CX1).
 
 -doc """
 Calculate a scrambled `t:float/0` from a [MWC59 state](`t:mwc59_state/0`).
@@ -2477,11 +2492,8 @@ The generator state is scrambled as with
 """.
 -doc(#{group => <<"Niche algorithms API">>,since => <<"OTP 25.0">>}).
 -spec mwc59_float(CX :: mwc59_state()) -> V :: float().
-mwc59_float(CX1) when is_integer(CX1), 1 =< CX1, CX1 < ?MWC59_P ->
-    CX = ?MASK(53, CX1),
-    CX2 = CX bxor ?BSL(53, CX, ?MWC59_XS1),
-    CX3 = CX2 bxor ?BSL(53, CX2, ?MWC59_XS2),
-    CX3 * ?TWO_POW_MINUS53.
+mwc59_float(CX0) when is_integer(CX0), 1 =< CX0, CX0 < ?MWC59_P ->
+    ?MASK(53, ?mwc59_value(CX0, CX1)) * ?TWO_POW_MINUS53.
 
 -doc """
 Create a [MWC59 generator state](`t:mwc59_state/0`).
