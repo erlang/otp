@@ -23,6 +23,8 @@
 #include "algorithms_digest.h"
 #include "algorithms_collection.h"
 
+#include <iterator>
+
 static digest_probe_t digest_probes[] = {
 #ifdef HAVE_MD4
         {.str = "md4", .str_v3 = "MD4", .v1_ctor = &EVP_md4},
@@ -82,7 +84,7 @@ static digest_probe_t digest_probes[] = {
 };
 
 digest_collection_t digest_collection("crypto.digest.digest_collection", digest_probes,
-                                      std::size(digest_probes));
+                                      sizeof(digest_probes)/sizeof(digest_probes[0]));
 
 ERL_NIF_TERM digest_availability_t::get_atom() const { return this->init->atom; }
 

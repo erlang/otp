@@ -24,6 +24,8 @@
 #include "algorithms_collection.h"
 #include "crypto_openssl_resource.h"
 
+#include <iterator>
+
 pubkey_probe_t pubkey_probes[] = {
     {.str = "rsa"},
 #ifdef HAVE_DSA
@@ -53,7 +55,7 @@ pubkey_probe_t pubkey_probes[] = {
 };
 
 pubkey_collection_t pubkey_collection("crypto.pkey_collection", pubkey_probes,
-                                      std::size(pubkey_probes));
+                                      sizeof(pubkey_probes)/sizeof(pubkey_probes[0]));
 
 //
 // Implementation of Pubkey Algorithm storage API

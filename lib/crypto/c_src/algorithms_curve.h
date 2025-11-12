@@ -43,11 +43,11 @@ ERL_NIF_TERM curve_algorithms_as_list(ErlNifEnv *env, bool fips_enabled);
 struct curve_probe_t;
 
 struct curve_availability_t {
-    const curve_probe_t *init; // the probe which created this record, contains name, atom, etc.
+    const curve_probe_t *init = nullptr; // the probe which created this record, contains name, atom, etc.
     struct {
         bool fips_forbidden: 1;
         bool curve_init_failed: 1; // not possible to create with fips=yes
-    } flags;
+    } flags = {};
 
     bool is_forbidden_in_fips() const {
 #ifdef FIPS_SUPPORT
@@ -63,6 +63,9 @@ struct curve_availability_t {
     void probe_under_fips(bool fips_mode);
 };
 
+// A probe contains data required for creating the algorithm description structure and testing
+// its availability. Each probe() call done by the algorithm_collection_t might or might not
+// result in a new available algorithm creation.
 struct curve_probe_t {
     size_t nid = 0; // NID_xxxx value of OpenSSL
     const char *sn = nullptr; // serves as Erlang atom name, also equal to SN_xxxxx macro of OpenSSL

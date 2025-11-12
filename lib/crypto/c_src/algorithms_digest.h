@@ -53,7 +53,7 @@ struct digest_availability_t {
     struct {
         bool fips_forbidden: 1;
         bool pbkdf2_eligible: 1;
-    } flags;
+    } flags = {};
     // after init will contain the algorithm pointer, NULL if not supported. Frees automatically.
     const EVP_MD *md = nullptr;
     // 0 or default digest length for XOF digests
@@ -79,9 +79,9 @@ struct digest_availability_t {
 #endif
 };
 
-// This runs for each algorithm at library start and every time FIPS mode changes.
-// Describes data required by digest availability probing algorithm (separate branches for
-// OpenSSL API < 3.0, 3.0, and for FIPS enabled/disabled).
+// A probe contains data required for creating the algorithm description structure and testing
+// its availability. Each probe() call done by the algorithm_collection_t might or might not
+// result in a new available algorithm creation.
 struct digest_probe_t {
     // the algorithm name as in OpenSSL < 3, also atom used by Erlang API
     const char *str = nullptr;

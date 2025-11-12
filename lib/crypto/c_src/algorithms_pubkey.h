@@ -44,7 +44,7 @@ void pubkey_add_algorithm(ErlNifEnv* env, const char* str_v3, unsigned unavailab
 struct pubkey_probe_t;
 
 struct pubkey_availability_t {
-    const pubkey_probe_t* init; // the pubkey_probe_t used to create this record
+    const pubkey_probe_t* init = nullptr; // the pubkey_probe_t used to create this record
 
     struct {
         bool not_available : 1; // algorithm init failed
@@ -53,7 +53,7 @@ struct pubkey_availability_t {
         bool fips_forbidden_verify : 1;
         bool fips_forbidden_encrypt : 1;
         bool fips_forbidden_derive : 1;
-    } flags;
+    } flags = {};
 
     bool is_forbidden_in_fips() const {
 #ifdef FIPS_SUPPORT
@@ -74,12 +74,15 @@ struct pubkey_availability_t {
 #endif // FIPS_SUPPORT && HAS_3_0_API
 };
 
+// A probe contains data required for creating the algorithm description structure and testing
+// its availability. Each probe() call done by the algorithm_collection_t might or might not
+// result in a new available algorithm creation.
 struct pubkey_probe_t {
     const char* str = nullptr;
     const char* str_v3 = nullptr; // if this is nullptr, .str will be used instead
     ERL_NIF_TERM atom = 0;
 
-    // Perform probe on the algorithm. In case of success, fill the struct and push into the 'output'
+    // Perform a probe on the algorithm. In case of success, fill the struct and push into the 'output'
     void probe(ErlNifEnv* env, bool fips_enabled, std::vector<pubkey_availability_t>& output);
 };
 

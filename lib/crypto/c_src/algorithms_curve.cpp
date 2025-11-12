@@ -24,6 +24,8 @@
 #include "algorithms_curve.h"
 #include "crypto_openssl_resource.h"
 
+#include <iterator>
+
 curve_probe_t curve_probes[] = {
 #if defined(HAVE_EC)
 #ifdef NID_secp160k1
@@ -374,7 +376,7 @@ curve_probe_t curve_probes[] = {
 };
 
 curve_collection_t curve_collection("crypto.curve_collection", curve_probes,
-                                    std::size(curve_probes));
+                                    sizeof(curve_probes)/sizeof(curve_probes[0]));
 
 //
 // Implementation of Curve Algorithm storage API

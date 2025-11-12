@@ -23,6 +23,7 @@
 #include "algorithms.h"
 #include "algorithms_pubkey.h"
 #include "algorithms_digest.h"
+#include "algorithms_curve.h"
 #include "cipher.h"
 #include "common.h"
 #include "mac.h"
@@ -230,25 +231,26 @@ void init_rsa_opts_types(ErlNifEnv* env) {
 
 ERL_NIF_TERM fips_forbidden_hash_algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
     digest_types_lazy_init(env, FIPS_MODE());
+    // Filter the results by the result of algorithm.is_forbidden_in_fips() == true
     return digest_types_as_list(env, true);
 }
 
 ERL_NIF_TERM fips_forbidden_pubkey_algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
 #ifdef FIPS_SUPPORT
-    pubkey_algorithms_lazy_init(env, 1, &pubkey_algorithms_delayed_init);
-    /* Filter the results by IS_PUBKEY_FORBIDDEN_IN_FIPS() == true */
+    pubkey_algorithms_lazy_init(env, 1);
+    // Filter the results by the result of algorithm.is_forbidden_in_fips() == true
     return pubkey_algorithms_as_list(env, true);
 #else
-    return enif_make_list(env, 0); /* nothing is forbidden */
+    return enif_make_list(env, 0); // nothing is forbidden
 #endif
 }
 
 ERL_NIF_TERM fips_forbidden_cipher_algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
 #ifdef FIPS_SUPPORT
-    /* Filter the results by IS_CIPHER_FORBIDDEN_IN_FIPS() == true */
+    // Filter the results by the result of algorithm.is_forbidden_in_fips() == true
     return cipher_types_as_list(env, true);
 #else
-    return enif_make_list(env, 0); /* nothing is forbidden */
+    return enif_make_list(env, 0); // nothing is forbidden
 #endif
 }
 
@@ -269,6 +271,6 @@ ERL_NIF_TERM fips_forbidden_mac_algorithms(ErlNifEnv* env, int argc, const ERL_N
 }
 
 ERL_NIF_TERM fips_forbidden_curve_algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
-    curve_algorithms_lazy_init(env, FIPS_MODE(), &curve_algorithms_delayed_init);
+    curve_algorithms_lazy_init(env, FIPS_MODE());
     return curve_algorithms_as_list(env, true);
 }

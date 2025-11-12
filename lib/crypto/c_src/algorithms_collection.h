@@ -122,7 +122,7 @@ public:
         mutex_lock_and_auto_release critical_section(this->mutex);
 
         this->algorithms.clear();
-        for (auto i = 0; i < probe_count; i++) {
+        for (size_t i = 0; i < probe_count; i++) {
             // For each probe, call probe() member function, in case of success the probe code
             // will use the passed 'this->algorithms' reference to add an algorithm to the collection.
             probes[i].probe(env, fips_enabled, this->algorithms);
