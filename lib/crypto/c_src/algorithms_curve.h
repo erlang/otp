@@ -21,7 +21,6 @@
  */
 
 #pragma once
-#include "algorithms_collection.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -40,23 +39,28 @@ ERL_NIF_TERM curve_algorithms_as_list(ErlNifEnv *env, bool fips_enabled);
 #endif
 
 #ifdef __cplusplus
+#include "algorithms_collection.h"
 struct curve_probe_t;
 
+// Describes a curve algorithm added by the collection's probe function, and checked for compatibility
+// with FIPS if FIPS mode was on. If the FIPS mode changes this will be destroyed and
+// created again.
 struct curve_availability_t {
     const curve_probe_t *init = nullptr; // the probe which created this record, contains name, atom, etc.
     struct {
         bool fips_forbidden: 1;
-        bool curve_init_failed: 1; // not possible to create with fips=yes
+        bool algorithm_init_failed: 1; // not possible to create with fips=yes
     } flags = {};
 
     bool is_forbidden_in_fips() const {
 #ifdef FIPS_SUPPORT
         // Available if not forbidden with fips=yes, and if curve init did not fail
-        return (this->flags.fips_forbidden || this->flags.curve_init_failed) && FIPS_MODE();
+        return (this->flags.fips_forbidden || this->flags.algorithm_init_failed) && FIPS_MODE();
 #else
         return false;
 #endif
     }
+    bool is_available() const { return !this->flags.algorithm_init_failed; }
     // Return the atom which goes to the Erlang caller
     ERL_NIF_TERM get_atom() const;
     // Instantiate the algorithm (if FIPS is enabled) and set flags if not available
@@ -67,7 +71,7 @@ struct curve_availability_t {
 // its availability. Each probe() call done by the algorithm_collection_t might or might not
 // result in a new available algorithm creation.
 struct curve_probe_t {
-    size_t nid = 0; // NID_xxxx value of OpenSSL
+    int nid = 0; // NID_xxxx value (an OpenSSL macro)
     const char *sn = nullptr; // serves as Erlang atom name, also equal to SN_xxxxx macro of OpenSSL
     ERL_NIF_TERM atom = 0; // Atom for this->sn is cached here
 

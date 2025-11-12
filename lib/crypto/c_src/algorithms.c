@@ -21,63 +21,59 @@
  */
 
 #include "algorithms.h"
-#include "algorithms_pubkey.h"
-#include "algorithms_digest.h"
-#include "algorithms_curve.h"
-#include "algorithms_kem.h"
 #include "cipher.h"
 #include "common.h"
 #include "mac.h"
 
-static size_t algo_rsa_opts_cnt, algo_rsa_opts_fips_cnt;
-static ERL_NIF_TERM algo_rsa_opts[11]; /* increase when extending the list */
+#include "algorithms_cipher.h"
+#include "algorithms_curve.h"
+#include "algorithms_digest.h"
+#include "algorithms_kem.h"
+#include "algorithms_mac.h"
+#include "algorithms_pubkey.h"
 
-void init_algorithms_types(ErlNifEnv* env)
-{
-    init_mac_types(env);
-    init_cipher_types(env);
-    /* ciphers and macs are initiated statically */
-}
+//
+// Supported Algorithms (filter on fips_forbidden == false)
+//
 
-ERL_NIF_TERM hash_algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{
+ERL_NIF_TERM hash_algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
     digest_types_lazy_init(env, FIPS_MODE());
     return digest_types_as_list(env, false);
 }
 
-ERL_NIF_TERM pubkey_algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{
+ERL_NIF_TERM pubkey_algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
     pubkey_algorithms_lazy_init(env, FIPS_MODE());
     return pubkey_algorithms_as_list(env, false);
 }
 
-ERL_NIF_TERM kem_algorithms_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{
+ERL_NIF_TERM kem_algorithms_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
     kem_algorithms_lazy_init(env, FIPS_MODE());
     return kem_algorithms_as_list(env, false);
 }
 
-ERL_NIF_TERM cipher_algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{
+ERL_NIF_TERM cipher_algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
+    cipher_algorithms_lazy_init(env, FIPS_MODE());
     return cipher_types_as_list(env, false);
 }
 
-ERL_NIF_TERM mac_algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{
-    return mac_types_as_list(env, false);
+ERL_NIF_TERM mac_algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
+    mac_algorithms_lazy_init(env, FIPS_MODE());
+    return mac_algorithms_as_list(env, false);
 }
 
-ERL_NIF_TERM curve_algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{
+ERL_NIF_TERM curve_algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
     curve_algorithms_lazy_init(env, FIPS_MODE());
     return curve_algorithms_as_list(env, false);
 }
 
-ERL_NIF_TERM rsa_opts_algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{
-    const size_t cnt = FIPS_MODE() ? algo_rsa_opts_fips_cnt : algo_rsa_opts_cnt;
-    return enif_make_list_from_array(env, algo_rsa_opts, cnt);
+ERL_NIF_TERM rsa_opts_algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
+    mac_algorithms_lazy_init(env, FIPS_MODE());
+    return mac_algorithms_as_list(env, false);
 }
+
+//
+// Forbidden Algorithms (filter on fips_forbidden == true)
+//
 
 ERL_NIF_TERM fips_forbidden_hash_algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
     digest_types_lazy_init(env, FIPS_MODE());
@@ -90,12 +86,8 @@ ERL_NIF_TERM fips_forbidden_pubkey_algorithms(ErlNifEnv* env, int argc, const ER
 }
 
 ERL_NIF_TERM fips_forbidden_cipher_algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
-#ifdef FIPS_SUPPORT
-    // Filter the results by the result of algorithm.is_forbidden_in_fips() == true
+    cipher_algorithms_lazy_init(env, FIPS_MODE());
     return cipher_types_as_list(env, true);
-#else
-    return enif_make_list(env, 0); // nothing is forbidden
-#endif
 }
 
 ERL_NIF_TERM fips_forbidden_kem_algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
@@ -104,11 +96,8 @@ ERL_NIF_TERM fips_forbidden_kem_algorithms(ErlNifEnv* env, int argc, const ERL_N
 }
 
 ERL_NIF_TERM fips_forbidden_mac_algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
-#ifdef FIPS_SUPPORT
-    return mac_types_as_list(env, true);
-#else
-    return enif_make_list(env, 0); /* not forbidden */
-#endif
+    mac_algorithms_lazy_init(env, FIPS_MODE());
+    return mac_algorithms_as_list(env, true);
 }
 
 ERL_NIF_TERM fips_forbidden_curve_algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {

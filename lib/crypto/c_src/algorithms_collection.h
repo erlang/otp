@@ -25,10 +25,11 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+
 #include "common.h"
 
 //
-// C API which affect all collections at once
+// C API which affects all collections at once
 //
 
 // Creates protective mutex for each collection to allow for safe lazy init and reinit
@@ -52,9 +53,9 @@ void algorithms_reset_cache(void);
 //   ... protected code
 // } <- auto released here
 struct mutex_lock_and_auto_release {
-    ErlNifMutex *mutex;
+    ErlNifMutex* mutex;
 
-    explicit mutex_lock_and_auto_release(ErlNifMutex *m) : mutex(m) { enif_mutex_lock(m); }
+    explicit mutex_lock_and_auto_release(ErlNifMutex* m) : mutex(m) { enif_mutex_lock(m); }
     ~mutex_lock_and_auto_release() { enif_mutex_unlock(mutex); }
 };
 
@@ -64,18 +65,18 @@ struct mutex_lock_and_auto_release {
 //
 // The collections for all types of algorithms are statically created before the crypto
 // library is initialized, but the mutex must be additionally constructed (call only once).
-template<typename AlgorithmT, typename ProbeT>
+template <typename AlgorithmT, typename ProbeT>
 struct algorithm_collection_t {
 private:
     bool lazy_init_done;
     // each probe is executed every time we reset and repopulate algorithms list. Probes are not const, because
     // their implementations might want to cache something like found existing atoms by string
-    ProbeT *probes;
+    ProbeT* probes;
     const size_t probe_count;
     // contains detected and supported algorithms
     std::vector<AlgorithmT> algorithms;
-    ErlNifMutex *mutex;
-    const char *debug_name;
+    ErlNifMutex* mutex;
+    const char* debug_name;
 
 public:
     explicit algorithm_collection_t(const char* debug_name, ProbeT* probes_, const size_t probe_count_) :
@@ -94,7 +95,7 @@ public:
     auto end() { return this->algorithms.end(); }
 
     bool create_mutex() {
-        this->mutex = enif_mutex_create(const_cast<char *>(debug_name));
+        this->mutex = enif_mutex_create(const_cast<char*>(debug_name));
         return this->mutex != nullptr;
     }
 
@@ -113,7 +114,7 @@ public:
     }
 
     // Checks whether the init has already been done for the array, otherwise will invoke init_fn
-    size_t lazy_init(ErlNifEnv *env, const bool fips_enabled) {
+    size_t lazy_init(ErlNifEnv* env, const bool fips_enabled) {
         size_t result = 0;
         if (this->lazy_init_done) {
             return this->algorithms.size();
@@ -133,12 +134,12 @@ public:
         return result;
     }
 
-    ERL_NIF_TERM to_list(ErlNifEnv *env, const bool fips_forbidden) const {
+    ERL_NIF_TERM to_list(ErlNifEnv* env, const bool fips_forbidden) const {
         ERL_NIF_TERM hd = enif_make_list(env, 0);
 
-        for (const auto &algo: this->algorithms) {
+        for (const auto& algo : this->algorithms) {
             // Any of the forbidden flags is not set, then something is available
-            if (algo.is_forbidden_in_fips() == fips_forbidden) {
+            if (algo.is_available() && algo.is_forbidden_in_fips() == fips_forbidden) {
                 hd = enif_make_list_cell(env, algo.get_atom(), hd);
             }
         }
@@ -146,7 +147,7 @@ public:
     }
 };
 
-// Ensure atoms are not created repeatedly
-ERL_NIF_TERM create_or_existing_atom(ErlNifEnv *env, const char *atom_name, ERL_NIF_TERM atom = 0);
+// Helper: Ensure atoms are not created repeatedly
+ERL_NIF_TERM create_or_existing_atom(ErlNifEnv* env, const char* atom_name, ERL_NIF_TERM atom = 0);
 
 #endif

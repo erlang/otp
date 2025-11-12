@@ -21,7 +21,6 @@
  */
 
 #pragma once
-#include "algorithms_collection.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -41,13 +40,17 @@ void pubkey_add_algorithm(ErlNifEnv* env, const char* str_v3, unsigned unavailab
 #endif
 
 #ifdef __cplusplus
+#include "algorithms_collection.h"
 struct pubkey_probe_t;
 
+// Describes a public key algorithm added by the collection's probe function, and checked for compatibility
+// with FIPS if FIPS mode was on. If the FIPS mode changes this will be destroyed and
+// created again.
 struct pubkey_availability_t {
     const pubkey_probe_t* init = nullptr; // the pubkey_probe_t used to create this record
 
     struct {
-        bool not_available : 1; // algorithm init failed
+        bool algorithm_init_failed : 1; // algorithm init failed
         bool fips_forbidden_keygen : 1;
         bool fips_forbidden_sign : 1;
         bool fips_forbidden_verify : 1;
@@ -58,7 +61,7 @@ struct pubkey_availability_t {
     bool is_forbidden_in_fips() const {
 #ifdef FIPS_SUPPORT
         // Forbidden in FIPS if all operations are forbidden, or if algorithm is not available at all
-        return (this->flags.not_available ||
+        return (this->flags.algorithm_init_failed ||
                 this->flags.fips_forbidden_keygen && this->flags.fips_forbidden_sign &&
                     this->flags.fips_forbidden_verify && this->flags.fips_forbidden_encrypt &&
                     this->flags.fips_forbidden_derive) &&
@@ -67,6 +70,7 @@ struct pubkey_availability_t {
         return false;
 #endif
     }
+    bool is_available() const { return !this->flags.algorithm_init_failed; }
     // Return the atom which goes to the Erlang caller
     ERL_NIF_TERM get_atom() const;
 #if defined(FIPS_SUPPORT) && defined(HAS_3_0_API)

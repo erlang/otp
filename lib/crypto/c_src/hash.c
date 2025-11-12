@@ -86,7 +86,7 @@ ERL_NIF_TERM hash_info_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
             return enif_make_badarg(env);
         if (is_digest_forbidden_in_fips(digp))
             return RAISE_NOTSUP(env);
-        if ((md = digest_availability_md(digp)) == NULL)
+        if ((md = get_digest_availability_md(digp)) == NULL)
             return RAISE_NOTSUP(env);
     }
 
@@ -114,7 +114,7 @@ ERL_NIF_TERM hash_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
         return EXCP_BADARG_N(env, 0, "Bad digest type");
     if (is_digest_forbidden_in_fips(digp))
         return EXCP_NOTSUP_N(env, 0, "Bad digest type in FIPS");
-    if ((md = digest_availability_md(digp)) == NULL)
+    if ((md = get_digest_availability_md(digp)) == NULL)
         return EXCP_NOTSUP_N(env, 0, "Digest type not supported in this cryptolib");
 
     if (!enif_inspect_iolist_as_binary(env, argv[1], &data))
@@ -122,7 +122,7 @@ ERL_NIF_TERM hash_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
 #if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(3,4,0)
     /* Set xoflen for SHAKE digests if needed */
-    unsigned xof_default_length = digest_availability_xof_default_length(digp);
+    unsigned xof_default_length = get_digest_availability_xof_default_length(digp);
     if (xof_default_length) {
         EVP_MD_CTX *ctx = EVP_MD_CTX_new();
         OSSL_PARAM params[2];
@@ -180,14 +180,14 @@ ERL_NIF_TERM hash_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
     if (is_digest_forbidden_in_fips(digp))
         return EXCP_NOTSUP_N(env, 0, "Digest type not supported in FIPS");
-    if (digest_availability_md(digp) == NULL)
+    if (get_digest_availability_md(digp) == NULL)
         return EXCP_NOTSUP_N(env, 0, "Unsupported digest type");
 
     if ((ctx = enif_alloc_resource(evp_md_ctx_rtype, sizeof(struct evp_md_ctx))) == NULL)
         return EXCP_ERROR(env, "Can't allocate nif resource");
     if ((ctx->ctx = EVP_MD_CTX_new()) == NULL)
         assign_goto(ret, done, EXCP_ERROR(env, "Low-level call EVP_MD_CTX_new failed"));
-    if (EVP_DigestInit(ctx->ctx, digest_availability_md(digp)) != 1)
+    if (EVP_DigestInit(ctx->ctx, get_digest_availability_md(digp)) != 1)
         assign_goto(ret, done, EXCP_ERROR(env, "Low-level call EVP_DigestInit failed"));
 
 #if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(3,4,0)
@@ -195,7 +195,7 @@ ERL_NIF_TERM hash_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
      * The default digest length for shake128 and shake256 was removed
      * in OpenSSL 3.4, so we set them to be backward compatible with ourself.
      */
-    unsigned xof_default_length = digest_availability_xof_default_length(digp);
+    unsigned xof_default_length = get_digest_availability_xof_default_length(digp);
     if (xof_default_length) {
         OSSL_PARAM params[2];
         params[0] = OSSL_PARAM_construct_uint("xoflen", &xof_default_length);

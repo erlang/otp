@@ -159,7 +159,7 @@ static int check_pkey_algorithm_type(ErlNifEnv *env,
 
  static int get_pkey_digest_type(ErlNifEnv* env, ERL_NIF_TERM algorithm, const int type_arg_num, ERL_NIF_TERM type,
                                  const EVP_MD** md, ERL_NIF_TERM* err_return) {
-    struct digest_availability_t *digp = NULL;
+    struct digest_availability_Cptr digp;
     *md = NULL;
 
     if (type == atom_none) {
@@ -179,17 +179,18 @@ static int check_pkey_algorithm_type(ErlNifEnv *env,
                                     For eddsa the RFC 8032 mandates sha512 in
                                     the algorithm */
         return 1;
-    
-    if ((digp = get_digest_type(type)) == NULL)
+
+    digp = get_digest_type(type);
+    if (digp.ptr == NULL)
         assign_goto(*err_return, notsup, EXCP_BADARG_N(env, type_arg_num, "Bad digest type"));
 
     if (is_digest_forbidden_in_fips(digp))
         assign_goto(*err_return, notsup, EXCP_BADARG_N(env, type_arg_num, "Digest type forbidden in FIPS"));
 
-    if (get_digest_availability_field_md(digp) == NULL)
+    if (get_digest_availability_md(digp) == NULL)
         assign_goto(*err_return, notsup, EXCP_BADARG_N(env, type_arg_num, "Digest type not supported"));
 
-    *md = get_digest_availability_field_md(digp);
+    *md = get_digest_availability_md(digp);
     return 1;
 
  notsup:

@@ -21,7 +21,6 @@
  */
 
 #pragma once
-#include "algorithms_collection.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -40,8 +39,12 @@ ERL_NIF_TERM kem_algorithms_as_list(ErlNifEnv* env, bool fips_enabled);
 #endif
 
 #ifdef __cplusplus
+#include "algorithms_collection.h"
 struct kem_probe_t;
 
+// Describes a KEM algorithm added by the collection's probe function, and checked for compatibility
+// with FIPS if FIPS mode was on. If the FIPS mode changes this will be destroyed and
+// created again.
 struct kem_availability_t {
     const kem_probe_t* init = nullptr; // the rsaopt_probe_t used to create this record
 
@@ -56,6 +59,7 @@ struct kem_availability_t {
         return false;
 #endif
     }
+    bool is_available() const { return true; }
     // Return the atom which goes to the Erlang caller
     ERL_NIF_TERM get_atom() const;
     bool check_kem_algorithm(bool fips_enabled);

@@ -21,8 +21,7 @@
  */
 
 #include "algorithms_kem.h"
-#include "algorithms_collection.h"
-#include "crypto_openssl_resource.h"
+#include "auto_openssl_resource.h"
 
 kem_probe_t kem_probes[] = {
 #ifdef HAVE_ML_KEM

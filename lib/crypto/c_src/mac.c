@@ -21,213 +21,22 @@
  */
 
 #include "mac.h"
-#include "algorithms_digest.h"
 #include "cipher.h"
 #include "cmac.h"
 #include "common.h"
 #include "hmac.h"
 #include "info.h"
 
-/***************************
-     MAC type declaration
-***************************/
-
-struct mac_type_t {
-    union {
-        const char*  str;        /* before init, NULL for end-of-table */
-        ERL_NIF_TERM atom;       /* after init, 'false' for end-of-table */
-    } name;
-    unsigned unavail_flags;      /* MAC_UNAVAIL_FLAGS: reasons why not available */
-    union {
-        const int pkey_type;
-    } alg;
-    int type;               /* MAC_TYPE */
-    size_t key_len;         /* != 0 to also match on key_len */
-#if defined(HAS_3_0_API)
-    const char* fetch_name;
-    EVP_MAC *evp_mac;
-#endif
-};
-
-/* masks in the flags field if mac_type_t */
-enum MAC_UNAVAIL_FLAGS {
-    FIPS_MAC_NOT_AVAIL = 1,
-    FIPS_FORBIDDEN_MAC = 2,
-};
-
-enum MAC_TYPE {
-    NO_mac = 0,
-    HMAC_mac = 1,
-    CMAC_mac = 2,
-    POLY1305_mac = 3,
-};
-
-static struct mac_type_t mac_types[] =
-{
-    {{"poly1305"}, FIPS_FORBIDDEN_MAC,
-#ifdef HAVE_POLY1305
-     /* If we have POLY then we have EVP_PKEY */
-     {EVP_PKEY_POLY1305}, POLY1305_mac, 32
-#else
-     {EVP_PKEY_NONE}, NO_mac, 0
-#endif
-#if defined(HAS_3_0_API)
-     ,"POLY1305"
-#endif
-    },
-
-    {{"hmac"}, 0,
-#if defined(HAS_EVP_PKEY_CTX) && (! DISABLE_EVP_HMAC)
-     {EVP_PKEY_HMAC}, HMAC_mac, 0
-#else
-     /* HMAC is always supported, but possibly with low-level routines */
-     {EVP_PKEY_NONE}, HMAC_mac, 0
-#endif
-#if defined(HAS_3_0_API)
-     ,"HMAC"
-#endif
-    },
-
-    {{"cmac"}, 0,
-#ifdef HAVE_CMAC
-     /* If we have CMAC then we have EVP_PKEY */
-     {EVP_PKEY_CMAC}, CMAC_mac, 0
-#else
-     {EVP_PKEY_NONE}, NO_mac, 0
-#endif
-#if defined(HAS_3_0_API)
-     ,"CMAC"
-#endif
-    },
-
-    /*==== End of list ==== */
-    {{NULL}, 0,
-     {0}, NO_mac, 0
-    }
-};
-
-#ifdef FIPS_SUPPORT
-# define IS_MAC_FORBIDDEN_IN_FIPS(p) (((p)->unavail_flags & FIPS_FORBIDDEN_MAC) && FIPS_MODE())
-#else
-# define IS_MAC_FORBIDDEN_IN_FIPS(P) 0
-#endif
+#include "algorithms_digest.h"
+#include "algorithms_mac.h"
 
 /***************************
  Mandatory prototypes
 ***************************/
 
-struct mac_type_t* get_mac_type(ERL_NIF_TERM type, size_t key_len);
-struct mac_type_t* get_mac_type_no_key(ERL_NIF_TERM type);
-
 ERL_NIF_TERM mac_one_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 
 ERL_NIF_TERM mac_update(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-
-
-/********************************
- Support functions for type array
-*********************************/
-
-#ifdef HAS_3_0_API
-#ifdef FIPS_SUPPORT
-/* Initialize an algorithm to check that all its dependencies are valid in FIPS */
-static int is_valid_in_fips(EVP_MAC* mac)
-{
-    int usable = 0;
-    if (mac) {
-        EVP_MAC_CTX *ctx = EVP_MAC_CTX_new(mac);
-
-        /* Dummy key and parameters. */
-        unsigned char key[64] = {0};
-        OSSL_PARAM params[2];
-        params[0] = OSSL_PARAM_construct_utf8_string("digest", "SHA256", 0);
-        params[1] = OSSL_PARAM_construct_end();
-
-        /* Try to initialize the digest algorithm for use, this will check the dependencies */
-        if (EVP_MAC_init(ctx, key, sizeof(key), params) == 1) {
-            usable |= FIPS_FORBIDDEN_MAC;
-        }
-
-        EVP_MAC_CTX_free(ctx);
-    } else {
-        return FIPS_MAC_NOT_AVAIL;
-    }
-    return usable;
-}
-#endif /* FIPS_SUPPORT */
-#endif /* HAS_3_0_API */
-
-static void update_mac_type_fips_flags(struct mac_type_t* p) {
-#if defined(HAS_3_0_API)
-# ifdef FIPS_SUPPORT
-    {
-        EVP_MAC* fetched_mac = EVP_MAC_fetch(NULL, p->fetch_name, "fips=yes");
-        const int unavail_flags = is_valid_in_fips(fetched_mac); /* Also tests for NULL */
-        if (unavail_flags == 0) {
-            p->unavail_flags = 0; /* mark available */
-            p->evp_mac = fetched_mac;
-        } else {
-            p->unavail_flags |= unavail_flags;
-            EVP_MAC_free(fetched_mac);
-        }
-    }
-# else
-    p->evp_mac = EVP_MAC_fetch(NULL, p->fetch_name, NULL);
-# endif
-#endif
-}
-
-void init_mac_types(ErlNifEnv* env)
-{
-    struct mac_type_t* p = mac_types;
-
-    for (/* p = mac_types */; p->name.str; p++) {
-        p->name.atom = enif_make_atom(env, p->name.str);
-        update_mac_type_fips_flags(p);
-    }
-    p->name.atom = atom_false;  /* end marker */
-}
-
-ERL_NIF_TERM mac_types_as_list(ErlNifEnv* env, const bool fips_forbidden)
-{
-    ERL_NIF_TERM prev = atom_undefined;
-    ERL_NIF_TERM hd = enif_make_list(env, 0);
-
-    for (struct mac_type_t *p = mac_types; p->name.atom != atom_false; p++)
-    {
-        if (prev == p->name.atom || IS_MAC_FORBIDDEN_IN_FIPS(p) != fips_forbidden) {
-            continue;
-        }
-        if (p->type != NO_mac) {
-            hd = enif_make_list_cell(env, p->name.atom, hd);
-        }
-    }
-
-    return hd;
-}
-
-struct mac_type_t* get_mac_type(ERL_NIF_TERM type, size_t key_len)
-{
-    struct mac_type_t* p = NULL;
-    for (p = mac_types; p->name.atom != atom_false; p++) {
-        if (type == p->name.atom) {
-            if (p->key_len == 0 || p->key_len == key_len)
-                return p;
-        }
-    }
-    return NULL;
-}
-
-struct mac_type_t* get_mac_type_no_key(ERL_NIF_TERM type)
-{
-    struct mac_type_t* p = NULL;
-    for (p = mac_types; p->name.atom != atom_false; p++) {
-        if (type == p->name.atom) {
-            return p;
-        }
-    }
-    return NULL;
-}
 
 /*******************************************************************
  *
@@ -259,7 +68,7 @@ ERL_NIF_TERM mac_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 ERL_NIF_TERM mac_one_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (MacType, SubType, Key, Text) */
 
-    struct mac_type_t *macp;
+    struct mac_availability_Cptr macp;
     ErlNifBinary key_bin, text;
     int ret_bin_alloc = 0;
     ERL_NIF_TERM return_term;
@@ -282,33 +91,30 @@ ERL_NIF_TERM mac_one_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     /*---------------------------------
       Get common indata and validate it
     */
-    if (!enif_inspect_iolist_as_binary(env, argv[2], &key_bin))
-        {
-            return_term = EXCP_BADARG_N(env, 2, "Bad key");
-            goto err;
-        }
+    if (!enif_inspect_iolist_as_binary(env, argv[2], &key_bin)) {
+        return_term = EXCP_BADARG_N(env, 2, "Bad key");
+        goto err;
+    }
 
-    if (!enif_inspect_iolist_as_binary(env, argv[3], &text))
-        {
-            return_term = EXCP_BADARG_N(env, 3, "Bad text");
-            goto err;
-        }
+    if (!enif_inspect_iolist_as_binary(env, argv[3], &text)) {
+        return_term = EXCP_BADARG_N(env, 3, "Bad text");
+        goto err;
+    }
 
     macp = get_mac_type(argv[0], key_bin.size);
-    if (!macp)
-        {
-            if (!get_mac_type_no_key(argv[0]))
-                return_term = EXCP_BADARG_N(env, 0, "Unknown mac algorithm");
-            else
-                return_term = EXCP_BADARG_N(env, 2, "Bad key length");
-            goto err;
-        }
+    if (!macp.ptr) {
+        struct mac_availability_Cptr macp2 = get_mac_type_no_key(argv[0]);
+        if (!macp2.ptr)
+            return_term = EXCP_BADARG_N(env, 0, "Unknown mac algorithm");
+        else
+            return_term = EXCP_BADARG_N(env, 2, "Bad key length");
+        goto err;
+    }
 
-    if (IS_MAC_FORBIDDEN_IN_FIPS(macp))
-        {
-            return_term = EXCP_NOTSUP_N(env, 0, "MAC algorithm forbidden in FIPS");
-            goto err;
-        }
+    if (is_mac_forbidden_in_fips(macp)) {
+        return_term = EXCP_NOTSUP_N(env, 0, "MAC algorithm forbidden in FIPS");
+        goto err;
+    }
 
     /*--------------------------------------------------
       Algorithm dependent indata checking and computation.
@@ -317,8 +123,7 @@ ERL_NIF_TERM mac_one_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
       If not available, do the low-level calls in the 
       corresponding case part
     */
-    switch (macp->type) {
-
+    switch (get_mac_availability_type(macp)) {
         /********
          * HMAC *
          ********/
@@ -339,15 +144,15 @@ ERL_NIF_TERM mac_one_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
 #if defined(HAS_3_0_API)
             name = "HMAC";
-            subalg = digest_availability_str_v3(digp);
+            subalg = get_digest_availability_str_v3(digp);
 #else
             /* Old style */
-            if (digest_availability_md(digp) == NULL)
+            if (get_digest_availability_md(digp) == NULL)
                 {
                     return_term = EXCP_NOTSUP_N(env, 1, "Unsupported digest algorithm");
                     goto err;
                 }
-            md = digest_availability_md(digp);
+            md = get_digest_availability_md(digp);
 # if defined(HAS_EVP_PKEY_CTX) && (! DISABLE_EVP_HMAC)
 #  ifdef HAVE_PKEY_new_raw_private_key
             /* Preferred for new applications according to EVP_PKEY_new_mac_key(3) */
@@ -624,7 +429,7 @@ ERL_NIF_TERM mac_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 #else
     /* EVP_PKEY_CTX is available or even the 3.0 API */
     struct mac_context  *obj = NULL;
-    struct mac_type_t *macp;
+    struct mac_availability_Cptr macp;
     ErlNifBinary key_bin;
     ERL_NIF_TERM return_term;
 # if defined(HAS_3_0_API)
@@ -641,26 +446,24 @@ ERL_NIF_TERM mac_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     /*---------------------------------
       Get common indata and validate it
     */
-    if (!enif_inspect_iolist_as_binary(env, argv[2], &key_bin))
-        {
-            return_term = EXCP_BADARG_N(env, 2, "Bad key");
-            goto err;
-        }
+    if (!enif_inspect_iolist_as_binary(env, argv[2], &key_bin)) {
+        return_term = EXCP_BADARG_N(env, 2, "Bad key");
+        goto err;
+    }
 
-    if (!(macp = get_mac_type(argv[0], key_bin.size)))
-        {
-            if (!get_mac_type_no_key(argv[0]))
-                return_term = EXCP_BADARG_N(env, 0, "Unknown mac algorithm");
-            else
-                return_term = EXCP_BADARG_N(env, 2, "Bad key length");
-            goto err;
-        }
+    macp = get_mac_type(argv[0], key_bin.size);
+    if (!macp.ptr) {
+        if (get_mac_type_no_key(argv[0]).ptr == NULL)
+            return_term = EXCP_BADARG_N(env, 0, "Unknown mac algorithm");
+        else
+            return_term = EXCP_BADARG_N(env, 2, "Bad key length");
+        goto err;
+    }
 
-    if (IS_MAC_FORBIDDEN_IN_FIPS(macp))
-        {
-            return_term = EXCP_NOTSUP_N(env, 0, "MAC algorithm forbidden in FIPS");
-            goto err;
-        }
+    if (is_mac_forbidden_in_fips(macp)) {
+        return_term = EXCP_NOTSUP_N(env, 0, "MAC algorithm forbidden in FIPS");
+        goto err;
+    }
 
     /*--------------------------------------------------
       Algorithm dependent indata checking and computation.
@@ -669,8 +472,7 @@ ERL_NIF_TERM mac_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
       If not available, do the low-level calls in the 
       corresponding case part
     */
-    switch (macp->type) {
-
+    switch (get_mac_availability_type(macp)) {
         /********
          * HMAC *
          ********/
@@ -688,14 +490,14 @@ ERL_NIF_TERM mac_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
                     goto err;
                 }
 # if defined(HAS_3_0_API)
-            digest = digest_availability_str_v3(digp);
+            digest = get_digest_availability_str_v3(digp);
 # else
-            if (digest_availability_md(digp) == NULL)
+            if (get_digest_availability_md(digp) == NULL)
                 {
                     return_term = EXCP_NOTSUP_N(env, 1, "Unsupported digest algorithm");
                     goto err;
                 }
-            md = digest_availability_md(digp);
+            md = get_digest_availability_md(digp);
 
 #  ifdef HAVE_PKEY_new_raw_private_key
             /* Preferred for new applications according to EVP_PKEY_new_mac_key(3) */
@@ -777,7 +579,7 @@ ERL_NIF_TERM mac_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     /*-----------------------------------------
       Common computations when we have 3.0 API
     */
-    if (!macp->evp_mac) {
+    if (!get_mac_availability_resource(macp)) {
         assign_goto(return_term, err, EXCP_NOTSUP_N(env, 0, "Unsupported mac algorithm"));
     }
 
@@ -792,7 +594,8 @@ ERL_NIF_TERM mac_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     if ((obj = enif_alloc_resource(mac_context_rtype, sizeof(struct mac_context))) == NULL)
         assign_goto(return_term, err, EXCP_ERROR(env, "Can't allocate mac_context_rtype"));
 
-    if (!(obj->ctx = EVP_MAC_CTX_new(macp->evp_mac)))
+    obj->ctx = EVP_MAC_CTX_new(get_mac_availability_resource(macp));
+    if (!obj->ctx)
         assign_goto(return_term, err, EXCP_ERROR(env, "Can't create EVP_MAC_CTX"));
     
     if (!EVP_MAC_init(obj->ctx, key_bin.data, key_bin.size, params))

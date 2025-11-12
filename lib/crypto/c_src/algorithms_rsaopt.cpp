@@ -21,7 +21,6 @@
  */
 
 #include "algorithms_rsaopt.h"
-#include "algorithms_collection.h"
 
 rsaopt_probe_t rsaopt_probes[] = {
 #ifdef HAS_EVP_PKEY_CTX

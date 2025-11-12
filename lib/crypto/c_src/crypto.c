@@ -353,8 +353,6 @@ static int initialize(ErlNifEnv* env, ERL_NIF_TERM load_info)
 #endif /* OPENSSL_THREADS */
 #endif
 
-    init_algorithms_types(env);
-
     library_initialized = 1;
     ret = 0;
 

@@ -20,9 +20,12 @@
  * %CopyrightEnd%
  */
 
+extern "C" {
 #include <openssl/core_names.h>
+}
+
 #include "algorithms_curve.h"
-#include "crypto_openssl_resource.h"
+#include "auto_openssl_resource.h"
 
 curve_probe_t curve_probes[] = {
 #if defined(HAVE_EC)
@@ -374,7 +377,7 @@ curve_probe_t curve_probes[] = {
 };
 
 curve_collection_t curve_collection("crypto.curve_collection", curve_probes,
-                                    sizeof(curve_probes)/sizeof(curve_probes[0]));
+                                    sizeof(curve_probes) / sizeof(curve_probes[0]));
 
 //
 // Implementation of Curve Algorithm storage API
@@ -400,10 +403,10 @@ bool curve_probe_t::is_curve_valid_by_nid() {
 #ifdef HAVE_EC
 #if defined(HAVE_DH)
 #if defined(HAS_EVP_PKEY_CTX) && (!DISABLE_EVP_DH)
-    auto_evp_pkey_t pkey(nullptr);
-    auto_evp_pkey_t params(nullptr);
+    auto_evp_pkey_t pkey;
+    auto_evp_pkey_t params;
 
-    auto_evp_pkey_ctx_t pctx(EVP_PKEY_CTX_new_id(EVP_PKEY_EC, nullptr));
+    const auto_evp_pkey_ctx_t pctx(EVP_PKEY_CTX_new_id(EVP_PKEY_EC, nullptr));
     if (!pctx)
         return false;
     if (1 != EVP_PKEY_paramgen_init(pctx.pointer))
@@ -413,7 +416,7 @@ bool curve_probe_t::is_curve_valid_by_nid() {
     if (!EVP_PKEY_paramgen(pctx.pointer, &params.pointer))
         return false;
 
-    auto_evp_pkey_ctx_t kctx(EVP_PKEY_CTX_new(params.pointer, nullptr));
+    const auto_evp_pkey_ctx_t kctx(EVP_PKEY_CTX_new(params.pointer, nullptr));
     if (!kctx)
         return false;
 
@@ -463,24 +466,24 @@ void curve_availability_t::probe_under_fips(bool fips_mode) {
 
     OSSL_PARAM params[2];
 
-    auto_evp_pkey_ctx_t pctx(EVP_PKEY_CTX_new_from_name(nullptr, "EC", "fips=yes"));
+    const auto_evp_pkey_ctx_t pctx(EVP_PKEY_CTX_new_from_name(nullptr, "EC", "fips=yes"));
     if (!pctx) {
-        this->flags.curve_init_failed = true;
-        return; /* EC keygen context not available */
+        this->flags.algorithm_init_failed = true;
+        return; // EC keygen context not available
     }
     if (EVP_PKEY_keygen_init(pctx.pointer) <= 0) {
-        this->flags.curve_init_failed = true;
+        this->flags.algorithm_init_failed = true;
         return;
     }
     params[0] = OSSL_PARAM_construct_utf8_string(OSSL_PKEY_PARAM_GROUP_NAME, const_cast<char*>(this->init->sn), 0);
     params[1] = OSSL_PARAM_construct_end();
     if (EVP_PKEY_CTX_set_params(pctx.pointer, params) <= 0) {
-        this->flags.curve_init_failed = true;
+        this->flags.algorithm_init_failed = true;
         return;
     }
     auto_evp_pkey_t pkey(nullptr);
     if (EVP_PKEY_generate(pctx.pointer, &pkey.pointer) <= 0) {
-        this->flags.curve_init_failed = true;
+        this->flags.algorithm_init_failed = true;
     }
 #endif
 }

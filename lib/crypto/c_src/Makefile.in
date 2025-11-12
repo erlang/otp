@@ -97,6 +97,9 @@ CRYPTO_OBJS = $(OBJDIR)/crypto$(TYPEMARKER).o \
 	$(OBJDIR)/algorithms_curve$(TYPEMARKER).cpp.o \
 	$(OBJDIR)/algorithms_kem$(TYPEMARKER).cpp.o \
 	$(OBJDIR)/algorithms_rsaopt$(TYPEMARKER).cpp.o \
+	$(OBJDIR)/algorithms_mac$(TYPEMARKER).cpp.o \
+	$(OBJDIR)/algorithms_cipher$(TYPEMARKER).cpp.o \
+	$(OBJDIR)/auto_openssl_resource(TYPEMARKER).cpp.o \
 	$(OBJDIR)/api_ng$(TYPEMARKER).o \
 	$(OBJDIR)/atoms$(TYPEMARKER).o \
 	$(OBJDIR)/bn$(TYPEMARKER).o \

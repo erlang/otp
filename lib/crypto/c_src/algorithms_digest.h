@@ -22,8 +22,6 @@
 
 #pragma once
 
-#include "algorithms_collection.h"
-
 struct digest_availability_t;
 
 #ifdef __cplusplus
@@ -47,16 +45,17 @@ ERL_NIF_TERM digest_types_as_list(ErlNifEnv* env, bool fips_forbidden);
 // Lookup and access fields
 struct digest_availability_Cptr get_digest_type(ERL_NIF_TERM type); // linear lookup by atom
 bool is_digest_forbidden_in_fips(struct digest_availability_Cptr p); // access C++ member from C
-const EVP_MD* digest_availability_md(struct digest_availability_Cptr p); // access field
-size_t digest_availability_xof_default_length(struct digest_availability_Cptr p); // access field
-const char* digest_availability_str_v3(struct digest_availability_Cptr p); // access str_v3 name (field of probe)
-int is_digest_eligible_for_pbkdf2(struct digest_availability_Cptr p); // check PBKDF2 availability bit
+const EVP_MD* get_digest_availability_md(struct digest_availability_Cptr p); // access field
+size_t get_digest_availability_xof_default_length(struct digest_availability_Cptr p); // access field
+const char* get_digest_availability_str_v3(struct digest_availability_Cptr p); // access str_v3 name (field of probe)
+bool is_digest_eligible_for_pbkdf2(struct digest_availability_Cptr p); // check PBKDF2 availability bit
 
 #ifdef __cplusplus
 }
 #endif
 
 #ifdef __cplusplus
+#include "algorithms_collection.h"
 
 // Describes a digest method added by the init function, and checked for compatibility
 // with FIPS if FIPS mode was on. If the FIPS mode changes this will be destroyed and
@@ -82,6 +81,7 @@ struct digest_availability_t {
         return false;
 #endif
     }
+    bool is_available() const { return true; }
     // Return the atom which goes to the Erlang caller
     ERL_NIF_TERM get_atom() const;
 

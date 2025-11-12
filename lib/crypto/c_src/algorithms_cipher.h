@@ -29,10 +29,10 @@ extern "C" {
 #include "common.h"
 
 //
-// Supported RSA Options storage C API
+// Supported Cipher Algorithms storage C API
 //
-size_t rsaopts_lazy_init(ErlNifEnv* env, bool fips_enabled);
-ERL_NIF_TERM rsaopts_as_list(ErlNifEnv* env, bool fips_enabled);
+size_t cipher_algorithms_lazy_init(ErlNifEnv* env, bool fips_enabled);
+ERL_NIF_TERM cipher_algorithms_as_list(ErlNifEnv* env, bool fips_enabled);
 
 #ifdef __cplusplus
 }
@@ -40,13 +40,14 @@ ERL_NIF_TERM rsaopts_as_list(ErlNifEnv* env, bool fips_enabled);
 
 #ifdef __cplusplus
 #include "algorithms_collection.h"
-struct rsaopt_probe_t;
 
-// Describes a RSA option added by the collection's probe function, and checked for compatibility
+struct cipher_probe_t;
+
+// Describes a cipher algorithm added by the collection's probe function, and checked for compatibility
 // with FIPS if FIPS mode was on. If the FIPS mode changes this will be destroyed and
 // created again.
-struct rsaopt_availability_t {
-    const rsaopt_probe_t* init = nullptr; // the rsaopt_probe_t used to create this record
+struct cipher_availability_t {
+    const cipher_probe_t* init = nullptr; // the cipher_probe_t used to create this record
 
     struct {
         bool fips_forbidden : 1;
@@ -67,15 +68,15 @@ struct rsaopt_availability_t {
 // A probe contains data required for creating the algorithm description structure and testing
 // its availability. Each probe() call done by the algorithm_collection_t might or might not
 // result in a new available algorithm creation.
-struct rsaopt_probe_t {
+struct cipher_probe_t {
     const char* str_v3 = nullptr;
     ERL_NIF_TERM atom = 0;
 
-    // Attempt to add a new known RSA option. In case of success, fill the struct and push into the 'output'
-    void probe(ErlNifEnv* env, bool fips_enabled, std::vector<rsaopt_availability_t>& output);
+    // Attempt to add a new known Cipher algorithm. In case of success, fill the struct and push into the 'output'
+    void probe(ErlNifEnv* env, bool fips_enabled, std::vector<cipher_availability_t>& output);
 };
 
-using rsaopt_collection_t = algorithm_collection_t<rsaopt_availability_t, rsaopt_probe_t>;
-extern rsaopt_collection_t rsaopt_collection;
+using cipher_collection_t = algorithm_collection_t<cipher_availability_t, cipher_probe_t>;
+extern cipher_collection_t cipher_collection;
 
 #endif // __cplusplus

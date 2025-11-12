@@ -21,8 +21,7 @@
  */
 
 #include "algorithms_pubkey.h"
-#include "algorithms_collection.h"
-#include "crypto_openssl_resource.h"
+#include "auto_openssl_resource.h"
 
 pubkey_probe_t pubkey_probes[] = {
     {.str = "rsa"},
@@ -78,7 +77,7 @@ void pubkey_availability_t::check_against_fips() {
 
     // failed: algorithm not available, do not add
     if (!ctx) {
-        this->flags.not_available = true;
+        this->flags.algorithm_init_failed = true;
         return;
     }
     if (EVP_PKEY_keygen_init(ctx.pointer) <= 0) { // can't generate keys?
