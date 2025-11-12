@@ -159,7 +159,16 @@ extern "C" bool is_digest_forbidden_in_fips(const digest_availability_Cptr p) {
     if (p.ptr == nullptr) {
         return true; // "forbidden" when there's no digest
     }
-    return static_cast<digest_availability_t*>(p.ptr)->is_forbidden_in_fips();
+    const auto algo = static_cast<digest_availability_t*>(p.ptr);
+    return algo->is_forbidden_in_fips();
+}
+
+extern "C" const char* digest_availability_str_v3(const digest_availability_Cptr p) {
+    if (p.ptr == nullptr) {
+        return ""; // "no name" when there's no digest
+    }
+    const auto algo = static_cast<digest_availability_t*>(p.ptr);
+    return algo->init->str_v3;
 }
 
 extern "C" const EVP_MD* digest_availability_md(const digest_availability_Cptr p) {
@@ -173,5 +182,15 @@ extern "C" size_t digest_availability_xof_default_length(const digest_availabili
     if (p.ptr == nullptr) {
         return 0; // "no xof default length" when there's no digest
     }
-    return static_cast<digest_availability_t*>(p.ptr)->xof_default_length;
+    const auto algo = static_cast<digest_availability_t*>(p.ptr);
+    return algo->xof_default_length;
+}
+
+extern "C" int is_digest_eligible_for_pbkdf2(struct digest_availability_Cptr p) {
+    if (p.ptr == nullptr) {
+        return 0; // "no digest" is not eligible
+    }
+    const auto algo = static_cast<digest_availability_t*>(p.ptr);
+    const auto eligible = algo->flags.pbkdf2_eligible;
+    return eligible ? 1 : 0;
 }

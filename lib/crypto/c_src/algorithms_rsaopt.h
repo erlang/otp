@@ -30,20 +30,20 @@ extern "C" {
 #include "common.h"
 
 //
-// KEM Algorithms storage C API
+// Supported RSA Options storage C API
 //
-size_t kem_algorithms_lazy_init(ErlNifEnv* env, bool fips_enabled);
-ERL_NIF_TERM kem_algorithms_as_list(ErlNifEnv* env, bool fips_enabled);
+size_t rsaopts_lazy_init(ErlNifEnv* env, bool fips_enabled);
+ERL_NIF_TERM rsaopts_as_list(ErlNifEnv* env, bool fips_enabled);
 
 #ifdef __cplusplus
 }
 #endif
 
 #ifdef __cplusplus
-struct kem_probe_t;
+struct rsaopt_probe_t;
 
-struct kem_availability_t {
-    const kem_probe_t* init = nullptr; // the rsaopt_probe_t used to create this record
+struct rsaopt_availability_t {
+    const rsaopt_probe_t* init = nullptr; // the rsaopt_probe_t used to create this record
 
     struct {
         bool fips_forbidden : 1;
@@ -58,21 +58,20 @@ struct kem_availability_t {
     }
     // Return the atom which goes to the Erlang caller
     ERL_NIF_TERM get_atom() const;
-    bool check_kem_algorithm(bool fips_enabled);
 };
 
 // A probe contains data required for creating the algorithm description structure and testing
 // its availability. Each probe() call done by the algorithm_collection_t might or might not
 // result in a new available algorithm creation.
-struct kem_probe_t {
+struct rsaopt_probe_t {
     const char* str_v3 = nullptr;
     ERL_NIF_TERM atom = 0;
 
-    // Perform a probe on the algorithm. In case of success, fill the struct and push into the 'output'
-    void probe(ErlNifEnv* env, bool fips_enabled, std::vector<kem_availability_t>& output);
+    // Attempt to add a new known RSA option. In case of success, fill the struct and push into the 'output'
+    void probe(ErlNifEnv* env, bool fips_enabled, std::vector<rsaopt_availability_t>& output);
 };
 
-using kem_collection_t = algorithm_collection_t<kem_availability_t, kem_probe_t>;
-extern kem_collection_t kem_collection;
+using rsaopt_collection_t = algorithm_collection_t<rsaopt_availability_t, rsaopt_probe_t>;
+extern rsaopt_collection_t rsaopt_collection;
 
 #endif // __cplusplus

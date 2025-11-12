@@ -324,14 +324,14 @@ ERL_NIF_TERM mac_one_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
          ********/
     case HMAC_mac:
         {
-            struct digest_availability_t *digp;
+            struct digest_availability_Cptr digp = get_digest_type(argv[1]);
 
-            if ((digp = get_digest_type(argv[1])) == NULL)
+            if (digp.ptr == NULL)
                 {
                     return_term = EXCP_BADARG_N(env, 1, "Bad digest algorithm for HMAC");
                     goto err;
                 }
-            if (IS_DIGEST_FORBIDDEN_IN_FIPS(digp))
+            if (is_digest_forbidden_in_fips(digp))
                 {
                     return_term = EXCP_NOTSUP_N(env, 1, "Digest algorithm for HMAC forbidden in FIPS");
                     goto err;
@@ -339,15 +339,15 @@ ERL_NIF_TERM mac_one_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
 #if defined(HAS_3_0_API)
             name = "HMAC";
-            subalg = digp->str_v3;
+            subalg = digest_availability_str_v3(digp);
 #else
             /* Old style */
-            if (digp->md.p == NULL)
+            if (digest_availability_md(digp) == NULL)
                 {
                     return_term = EXCP_NOTSUP_N(env, 1, "Unsupported digest algorithm");
                     goto err;
                 }
-            md = digp->md.p;
+            md = digest_availability_md(digp);
 # if defined(HAS_EVP_PKEY_CTX) && (! DISABLE_EVP_HMAC)
 #  ifdef HAVE_PKEY_new_raw_private_key
             /* Preferred for new applications according to EVP_PKEY_new_mac_key(3) */
@@ -676,27 +676,26 @@ ERL_NIF_TERM mac_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
          ********/
     case HMAC_mac:
         {
-            struct digest_availability_t *digp;
-
-            if ((digp = get_digest_type(argv[1])) == NULL)
+            struct digest_availability_Cptr digp = get_digest_type(argv[1]);
+            if (digp.ptr == NULL)
                 {
                     return_term = EXCP_BADARG_N(env, 1, "Bad digest algorithm for HMAC");
                     goto err;
                 }
-            if (IS_DIGEST_FORBIDDEN_IN_FIPS(digp))
+            if (is_digest_forbidden_in_fips(digp))
                 {
                     return_term = EXCP_NOTSUP_N(env, 1, "Digest algorithm for HMAC forbidden in FIPS");
                     goto err;
                 }
 # if defined(HAS_3_0_API)
-            digest = digp->str_v3;
+            digest = digest_availability_str_v3(digp);
 # else
-            if (digp->md.p == NULL)
+            if (digest_availability_md(digp) == NULL)
                 {
                     return_term = EXCP_NOTSUP_N(env, 1, "Unsupported digest algorithm");
                     goto err;
                 }
-            md = digp->md.p;
+            md = digest_availability_md(digp);
 
 #  ifdef HAVE_PKEY_new_raw_private_key
             /* Preferred for new applications according to EVP_PKEY_new_mac_key(3) */

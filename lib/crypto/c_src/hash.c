@@ -80,21 +80,24 @@ ERL_NIF_TERM hash_info_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
     ASSERT(argc == 1);
 
-    struct digest_availability_Cptr digp = get_digest_type(argv[0]);
-    if (digp.ptr == NULL)
-        return enif_make_badarg(env);
-    if (is_digest_forbidden_in_fips(digp))
-        return RAISE_NOTSUP(env);
-
-    if ((md = digest_availability_md(digp)) == NULL)
-        return RAISE_NOTSUP(env);
+    {
+        struct digest_availability_Cptr digp = get_digest_type(argv[0]);
+        if (digp.ptr == NULL)
+            return enif_make_badarg(env);
+        if (is_digest_forbidden_in_fips(digp))
+            return RAISE_NOTSUP(env);
+        if ((md = digest_availability_md(digp)) == NULL)
+            return RAISE_NOTSUP(env);
+    }
 
     values[0] = enif_make_int(env, EVP_MD_type(md));
     values[1] = enif_make_int(env, EVP_MD_size(md));
     values[2] = enif_make_int(env, EVP_MD_block_size(md));
 
-    int ok = enif_make_map_from_arrays(env, keys, values, 3, &ret);
-    ASSERT(ok); (void)ok;
+    {
+        int ok = enif_make_map_from_arrays(env, keys, values, 3, &ret);
+        ASSERT(ok); (void)ok;
+    }
     return ret;
 }
 

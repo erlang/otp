@@ -49,6 +49,8 @@ struct digest_availability_Cptr get_digest_type(ERL_NIF_TERM type); // linear lo
 bool is_digest_forbidden_in_fips(struct digest_availability_Cptr p); // access C++ member from C
 const EVP_MD* digest_availability_md(struct digest_availability_Cptr p); // access field
 size_t digest_availability_xof_default_length(struct digest_availability_Cptr p); // access field
+const char* digest_availability_str_v3(struct digest_availability_Cptr p); // access str_v3 name (field of probe)
+int is_digest_eligible_for_pbkdf2(struct digest_availability_Cptr p); // check PBKDF2 availability bit
 
 #ifdef __cplusplus
 }
