@@ -492,6 +492,9 @@ They have the following names in the OS header files:
 
 - **`tcp`** - `IPPROTO_TCP` with options named `TCP_`\*.
 
+- **`mptcp`** - `IPPROTO_MPTCP` with a few options named `MPTCP_`\*.
+  Most `TCP_`\* options apply which is the purpose of Multi-Path TCP.
+
 - **`udp`** - `IPPROTO_UDP` with options named `UDP_`\*.
 
 - **`sctp`** - `IPPROTO_SCTP` with options named `SCTP_`\*.
@@ -504,10 +507,11 @@ through the `C` library call `getprotoent()`. See the OS man page for
 protocols(5). Those in the list above are valid if supported by the platform,
 even if they aren't enumerated.
 
-The calls [`is_supported(ipv6)` ](`is_supported/1`)
-and [`is_supported(sctp)` ](`is_supported/1`) can be used to find out
-if the protocols `ipv6` and `sctp` are supported on the platform
-as in appropriate header file and library exists.
+The calls [`is_supported(ipv6)` ](`is_supported/1`),
+[`is_supported(sctp)` ](`is_supported/1`) and
+[`is_supported(mptcp)` ](`is_supported/1`) can be used to find out
+if the protocols `ipv6`, `sctp` and `mptcp` are supported on the platform
+as in; appropriate header file and libraries exist.
 
 The call [`is_supported(protocols, Protocol)` ](`is_supported/2`)
 can only be used to find out if the platform knows the protocol number

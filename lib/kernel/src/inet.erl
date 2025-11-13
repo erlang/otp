@@ -3170,6 +3170,11 @@ con_opt([Opt | Opts], #connect_opts{ifaddr = IfAddr} = R, As) ->
 	{line_delimiter,C} when is_integer(C), C >= 0, C =< 255 ->
 	    con_add(line_delimiter, C, R, Opts, As);
 
+        {protocol, Proto}
+          when Proto =:= tcp;
+               Proto =:= mptcp ->
+            con_opt(Opts, R#connect_opts { protocol = Proto }, As);
+
 	{Name,Val} when is_atom(Name) -> con_add(Name, Val, R, Opts, As);
 
 	_ -> {error, badarg}
@@ -3254,6 +3259,10 @@ list_opt([Opt | Opts], #listen_opts{ifaddr = IfAddr} = R, As) ->
         {active,N} when is_integer(N), N < 32768, N >= -32768 ->
             NOpts = lists:keydelete(active, 1, R#listen_opts.opts),
             list_opt(Opts, R#listen_opts { opts = [{active,N}|NOpts] }, As);
+        {protocol, Proto}
+          when Proto =:= tcp;
+               Proto =:= mptcp ->
+            list_opt(Opts, R#listen_opts { protocol = Proto }, As);
 	{Name,Val} when is_atom(Name) -> list_add(Name, Val, R, Opts, As);
 	_ -> {error, badarg}
     end;
@@ -3920,7 +3929,7 @@ gethostbyaddr_tm_native(Addr, Timer, Opts) ->
 	     undefined, % Internal - no bind()
 	   BPort :: port_number(),
 	   Opts :: [socket_setopt()],
-	   Protocol :: socket_protocol(),
+	   Protocol :: socket_protocol() | 'mptcp',
 	   Family :: address_family(),
 	   Type :: socket_type(),
 	   Module :: atom()) ->
@@ -3975,7 +3984,7 @@ open(Fd_or_OpenOpts, BAddr, BPort, Opts, Protocol, Family, Type, Module) ->
                   undefined, % Internal - translated to 'any'
                 BPort :: port_number(),
                 Opts :: [socket_setopt()],
-                Protocol :: socket_protocol(),
+                Protocol :: socket_protocol() | 'mptcp',
                 Family :: address_family(),
                 Type :: socket_type(),
                 Module :: atom()) ->

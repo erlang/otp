@@ -38,6 +38,8 @@
 
 %% -define(DBG(T), erlang:display({{self(), ?MODULE, ?LINE, ?FUNCTION_NAME}, T})).
 
+proto(undefined) -> ?PROTO;
+proto(Proto) -> Proto.
 
 %% my address family
 family() -> ?FAMILY.
@@ -132,17 +134,18 @@ do_connect2(SockAddr, Opts, Time) ->
     case inet:connect_options(Opts, ?MODULE) of
 	{error, Reason} -> exit(Reason);
 	{ok,
-	 #connect_opts{fd     = Fd,
-                       ifaddr = BAddr,
-                       port   = BPort,
-                       opts   = SockOpts}}
+	 #connect_opts{fd       = Fd,
+                       ifaddr   = BAddr,
+                       port     = BPort,
+                       opts     = SockOpts,
+                       protocol = Protocol}}
           when is_map(BAddr); % sockaddr_in6()
                ?port(BPort), ?ip6(BAddr);
                ?port(BPort), BAddr =:= undefined ->
 	    case
                 inet:open(
                   Fd, BAddr, BPort, SockOpts,
-                  ?PROTO, ?FAMILY, ?TYPE, ?MODULE)
+                  proto(Protocol), ?FAMILY, ?TYPE, ?MODULE)
             of
 		{ok, S} ->
 		    case prim_inet:connect(S, SockAddr, Time) of
@@ -163,13 +166,14 @@ do_connect(Addr = {A,B,C,D,E,F,G,H}, Port, Opts, Time)
 	    fd = Fd,
 	    ifaddr = BAddr,
 	    port = BPort,
-	    opts = SockOpts}}
+	    opts = SockOpts,
+            protocol = Protocol}}
           when ?port(BPort), ?ip6(BAddr);
                ?port(BPort), BAddr =:= undefined ->
 	    case
                 inet:open(
                   Fd, BAddr, BPort, SockOpts,
-                  ?PROTO, ?FAMILY, ?TYPE, ?MODULE)
+                  proto(Protocol), ?FAMILY, ?TYPE, ?MODULE)
             of
 		{ok, S} ->
 		    case prim_inet:connect(S, Addr, Port, Time) of
@@ -196,7 +200,8 @@ listen(Port, Opts) ->
 	    fd = Fd,
 	    ifaddr = BAddr,
 	    port = BPort,
-	    opts = SockOpts} = R}
+	    opts = SockOpts,
+            protocol = Protocol} = R}
           when is_map(BAddr); % sockaddr_in6()
                ?ip6(BAddr), ?port(BPort);
                BAddr =:= undefined, ?port(BPort) ->
@@ -207,7 +212,7 @@ listen(Port, Opts) ->
 	    case
                 inet:open_bind(
                   Fd, BAddr, BPort, SockOpts,
-                  ?PROTO, ?FAMILY, ?TYPE, ?MODULE)
+                  proto(Protocol), ?FAMILY, ?TYPE, ?MODULE)
             of
 		{ok, S} ->
 		    case prim_inet:listen(S, R#listen_opts.backlog) of

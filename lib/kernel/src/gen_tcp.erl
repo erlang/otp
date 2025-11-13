@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2024. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -510,6 +510,12 @@ on the host with IP address `Address`, that may also be a hostname.
 - **`{tcp_module, module()}`** - Overrides which callback module is used.
   Defaults to `inet_tcp` for IPv4 and `inet6_tcp` for IPv6.
 
+- **`{protocol, tcp|mptcp}`** - With `mptcp` creates the socket
+  with protocol IPPROTO_MPTCP, if that is defined on the system.
+  Other than that the socket is regarded as a `tcp` socket.
+  If IPPROTO_MPTCP is not defined, `{error, eprotonosupport}`
+  is returned. `tcp` is the default value.
+
 - **`t:option/0`** - See `inet:setopts/2`.
 
 ### Socket Data
@@ -656,6 +662,12 @@ The following options are available:
 
 - **`{tcp_module, module()}`** - Overrides which callback module is used.
   Defaults to `inet_tcp` for IPv4 and `inet6_tcp` for IPv6.
+
+- **`{protocol, tcp|mptcp}`** - With `mptcp` creates the socket
+  with protocol IPPROTO_MPTCP, if that is defined on the system.
+  Other than that the socket is regarded as a `tcp` socket.
+  If IPPROTO_MPTCP is not defined, `{error, eprotonosupport}`
+  is returned. `tcp` is the default value.
 
 - **`t:option/0`** - See `inet:setopts/2`.
 
