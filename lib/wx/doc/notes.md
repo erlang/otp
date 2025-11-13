@@ -21,6 +21,16 @@ limitations under the License.
 
 This document describes the changes made to the Wx application.
 
+## Wx 2.4.3.1
+
+### Fixed Bugs and Malfunctions
+
+- Fixed reading out of array bounds and potential memory leaks.
+
+  Own Id: OTP-19843 Aux Id: [PR-10353]
+
+[PR-10353]: https://github.com/erlang/otp/pull/10353
+
 ## Wx 2.4.3
 
 ### Fixed Bugs and Malfunctions
