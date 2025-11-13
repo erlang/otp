@@ -128,9 +128,10 @@ typedef struct {
 } ErtsPersistentTermPutContext;
 
 typedef enum {
+    TRAPPING = THE_NON_VALUE,
     QUICK_UPDATE,
     BAD_KEY,
-    OK_UPDATE,
+    UPDATE_OK,
     SEIZE_UPDATE
 } ErtsPersistentTermPutCommonResult;
 
@@ -325,18 +326,26 @@ BIF_RETTYPE persistent_term_put_2(BIF_ALIST_2)
     ErtsPersistentTermPutCommonResult result =
         put_common(BIF_P, BIF_ARG_1, BIF_ARG_2, false);
 
-    switch (result) {
-        case QUICK_UPDATE: {
-            BIF_RET(am_ok);
-        }
-        case SEIZE_UPDATE: {
-            ERTS_BIF_YIELD3(&persistent_term_put_common_export,
-                    BIF_P, BIF_ARG_1, BIF_ARG_2, false);
-        }
-       default: {
-            ERTS_BIF_YIELD_RETURN(BIF_P, am_ok);
-        }
+    #define HANDLE_PUT_COMMON_RESULT                            \
+    switch (result) {                                           \
+        case QUICK_UPDATE: {                                    \
+            BIF_RET(am_ok);                                     \
+        }                                                       \
+        case BAD_KEY: {                                         \
+            BIF_ERROR(BIF_P, BADARG);                           \
+        }                                                       \
+        case UPDATE_OK: {                                       \
+           ERTS_BIF_YIELD_RETURN(BIF_P, am_ok);                 \
+        }                                                       \
+        case SEIZE_UPDATE:                                      \
+        case TRAPPING:                                          \
+        default: {                                              \
+            ERTS_BIF_YIELD3(&persistent_term_put_common_export, \
+                    BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);    \
+        }                                                       \
     }
+
+    HANDLE_PUT_COMMON_RESULT
 }
 
 BIF_RETTYPE persistent_term_put_new_2(BIF_ALIST_2)
@@ -344,21 +353,7 @@ BIF_RETTYPE persistent_term_put_new_2(BIF_ALIST_2)
     ErtsPersistentTermPutCommonResult result =
         put_common(BIF_P, BIF_ARG_1, BIF_ARG_2, true);
 
-    switch (result) {
-        case QUICK_UPDATE: {
-            BIF_RET(am_ok);
-        }
-        case BAD_KEY: {
-            BIF_ERROR(BIF_P, BADARG);
-        }
-        case SEIZE_UPDATE: {
-            ERTS_BIF_YIELD3(&persistent_term_put_common_export,
-                    BIF_P, BIF_ARG_1, BIF_ARG_2, true);
-        }
-       default: {
-            ERTS_BIF_YIELD_RETURN(BIF_P, am_ok);
-        }
-    }
+    HANDLE_PUT_COMMON_RESULT    
 }
 
 BIF_RETTYPE persistent_term_get_0(BIF_ALIST_0)
@@ -723,22 +718,7 @@ persistent_term_put_common_trap(BIF_ALIST_3)
     ErtsPersistentTermPutCommonResult result;
     result = put_common(BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
 
-    switch (result) {
-        case QUICK_UPDATE: {
-            BIF_RET(am_ok);
-        }
-        case BAD_KEY: {
-            BIF_ERROR(BIF_P, BADARG);
-        }
-        case SEIZE_UPDATE: {
-            ERTS_BIF_YIELD3(&persistent_term_put_common_export,
-                    BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
-        }
-       default: {
-           ERTS_BIF_YIELD_RETURN(BIF_P, am_ok);
-        }
-    }
-
+    HANDLE_PUT_COMMON_RESULT
 }
 
 static ErtsPersistentTermPutCommonResult put_common
@@ -841,7 +821,7 @@ static ErtsPersistentTermPutCommonResult put_common
     suspend_updater(c_p);
 
     BUMP_REDS(c_p, (max_iterations - iterations_until_trap) / ITERATIONS_PER_RED);
-    return OK_UPDATE;
+    return UPDATE_OK;
 }
 
 static HashTable*
