@@ -953,15 +953,20 @@ gen_gc(Fd, GBP) ->
     io:put_chars(Fd, "gc_h_lv_lvt(R1, R0, Acc) -> gc_extend2(R1, R0, Acc).\n\n"),
 
     %% Indic
-    io:put_chars(Fd, "\n%% Handle Indic Conjunt Break\n"),
+    %% See tr44 5.3.1 Derivation of Indic_Conjunct_Break
+    %%  and IndicSyllabicCategory.txt  also tr29 conjunctCluster
+    io:put_chars(Fd, "\n%% Handle Indic Conjunct Break\n"),
+    Consonants = maps:get(consonant, GBP) ++
+        maps:get(vowel_independent, GBP) ++
+        [{16#1B0B, 16#1B0C}],
     GenIndicC = fun(Range) -> io:format(Fd, "is_indic_consonant~s true;\n", [gen_single_clause(Range)]) end,
-    [GenIndicC(CP) || CP <- merge_ranges(maps:get(consonant, GBP))],
+    [GenIndicC(CP) || CP <- merge_ranges(Consonants)],
     io:format(Fd, "is_indic_consonant(_) -> false.\n\n", []),
 
     GenIndicL = fun(Range) -> io:format(Fd, "is_indic_linker~s true;\n", [gen_single_clause(Range)]) end,
-    [GenIndicL(CP) || CP <- merge_ranges(maps:get(virama, GBP))],
+    Linkers = maps:get(virama, GBP) ++ maps:get(invisible_stacker, GBP),
+    [GenIndicL(CP) || CP <- merge_ranges(Linkers)],
     io:format(Fd, "is_indic_linker(_) -> false.\n\n", []),
-    %% io:format("Consonants: ~p~n", [merge_ranges(maps:get(consonant, GBP))]),
 
     io:put_chars(Fd,
                  """
