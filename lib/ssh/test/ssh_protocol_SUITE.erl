@@ -1424,7 +1424,7 @@ client_close_after_hello(Config0) ->
             length(Handshakers), Handshakers,
             length(Parents), Parents]),
     if
-        length(Handshakers)>0 ->
+        length(Handshakers) == 0 -> % no handshakers are created after parallel_login rewrite
             lists:foreach(fun(P) -> exit(P,some_reason) end, Parents),
             ct:log("After sending exits; now going to sleep", []),
             timer:sleep((SleepSec+15)*1000),
@@ -1453,7 +1453,7 @@ client_close_after_hello(Config0) ->
             end;
 
         true ->
-            {fail, no_handshakers}
+            {fail, handshakers_found}
     end.
 
 %%% Connect to an erlang server and pretend client sending extra

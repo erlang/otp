@@ -78,12 +78,11 @@ handle_event(internal,
                     D = connected_state(Reply, Ssh1, User, Method, D1),
                     {next_state, {connected,server}, D,
                      [set_max_initial_idle_timeout(D),
+                      {{timeout, negotiation}, cancel},
                       {change_callback_module,ssh_connection_handler}
                      ]
                     }
-                     
             end;
-	
 	{"ssh-connection", "ssh-connection", Method} ->
 	    %% Userauth request with a method like "password" or so
 	    case lists:member(Method, Ssh0#ssh.userauth_methods) of
@@ -94,6 +93,7 @@ handle_event(internal,
                             D = connected_state(Reply, Ssh1, User, Method, D1),
                             {next_state, {connected,server}, D,
                              [set_max_initial_idle_timeout(D),
+                              {{timeout, negotiation}, cancel},
                               {change_callback_module,ssh_connection_handler}
                              ]};
 			{not_authorized, {User, Reason}, {Reply, Ssh}} when Method == "keyboard-interactive" ->
@@ -130,6 +130,7 @@ handle_event(internal, #ssh_msg_userauth_info_response{} = Msg, {userauth_keyboa
             D = connected_state(Reply, Ssh1, User, "keyboard-interactive", D0),
             {next_state, {connected,server}, D,
              [set_max_initial_idle_timeout(D),
+              {{timeout, negotiation}, cancel},
               {change_callback_module,ssh_connection_handler}
              ]};
 	{not_authorized, {User, Reason}, {Reply, Ssh}} ->
@@ -148,6 +149,7 @@ handle_event(internal, #ssh_msg_userauth_info_response{} = Msg, {userauth_keyboa
     D = connected_state(Reply, Ssh1, User, "keyboard-interactive", D0),
     {next_state, {connected,server}, D,
      [set_max_initial_idle_timeout(D),
+      {{timeout, negotiation}, cancel},
       {change_callback_module,ssh_connection_handler}
      ]
     };
@@ -176,7 +178,13 @@ code_change(_OldVsn, StateName, State, _Extra) ->
 connected_state(Reply, Ssh1, User, Method, D0) ->
     D1 = #data{ssh_params=Ssh} =
         ssh_connection_handler:send_msg(Reply, D0#data{ssh_params = Ssh1}),
-    ssh_connection_handler:handshake(ssh_connected, D1),
+    ParallelLogin = ?GET_OPT(parallel_login, Ssh#ssh.opts, disabled),
+    case ParallelLogin of
+        true ->
+            ok;
+        _ ->
+            ssh_connection_handler:notify_handshaker(ssh_connected, D1)
+    end,
     connected_fun(User, Method, D1),
     D1#data{auth_user=User,
             %% Note: authenticated=true MUST NOT be sent

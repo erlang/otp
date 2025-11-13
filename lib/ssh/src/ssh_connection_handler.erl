@@ -53,7 +53,7 @@
 -export([available_hkey_algorithms/2,
 	 open_channel/6,
          start_channel/5,
-         handshake/2,
+         notify_handshaker/2,
          handle_direct_tcpip/6,
 	 request/6, request/7,
 	 reply_request/3,
@@ -129,16 +129,20 @@ takeover(ConnPid, Role, Socket, Options) ->
             ok
     end,
     {_, Callback, _} = ?GET_OPT(transport, Options),
-    case Callback:controlling_process(Socket, ConnPid) of
-        ok ->
+    ParallelLogin = ?GET_OPT(parallel_login, Options, disabled),
+    case {Callback:controlling_process(Socket, ConnPid), ParallelLogin} of
+        {ok, true} ->
+            gen_statem:cast(ConnPid, socket_control),
+            {ok, ConnPid};
+        {ok, _} ->
             Ref = erlang:monitor(process, ConnPid),
             gen_statem:cast(ConnPid, socket_control),
             NegTimeout = ?GET_INTERNAL_OPT(negotiation_timeout,
                                            Options,
                                            ?GET_OPT(negotiation_timeout, Options)
                                           ),
-            handshake(ConnPid, Role, Ref, NegTimeout);
-        {error, Reason}	->
+            monitor_handshake(ConnPid, Ref, NegTimeout);
+        {{error, Reason}, _} ->
             {error, Reason}
     end.
 
@@ -408,7 +412,16 @@ init([Role, Socket, Opts]) when Role==client ; Role==server ->
     %% ssh_params will be updated after receiving socket_control event
     %% in wait_for_socket state;
     D = #data{socket = Socket, ssh_params = #ssh{role = Role, opts = Opts}},
-    {ok, {wait_for_socket, Role}, D}.
+    ParallelLogin = ?GET_OPT(parallel_login, Opts, disabled),
+    case ParallelLogin of
+        true ->
+            NegTimeout = ?GET_INTERNAL_OPT(negotiation_timeout, Opts,
+                                           ?GET_OPT(negotiation_timeout, Opts)),
+            {ok, {wait_for_socket, Role}, D,
+             [{{timeout, negotiation}, NegTimeout, close_connection}]};
+        _ ->
+            {ok, {wait_for_socket, Role}, D}
+    end.
 
 %%%----------------------------------------------------------------
 %%% Connection start and initialization helpers
@@ -492,27 +505,7 @@ init_ssh_record(Role, Socket, PeerAddr, Opts) ->
 		  }
     end.
 
-handshake(ConnPid, server, Ref, Timeout) ->
-    receive
-	{ConnPid, ssh_connected} ->
-	    erlang:demonitor(Ref, [flush]),
-	    {ok, ConnPid};
-	{ConnPid, {not_connected, Reason}} ->
-	    erlang:demonitor(Ref, [flush]),
-	    {error, Reason};
-	{'DOWN', Ref, process, ConnPid, {shutdown, Reason}} ->
-	    {error, Reason};
-	{'DOWN', Ref, process, ConnPid, Reason} ->
-	    {error, Reason};
-        {'EXIT',_,Reason} ->
-            stop(ConnPid),
-            {error, {exit,Reason}}
-    after Timeout ->
-	    erlang:demonitor(Ref, [flush]),
-	    ssh_connection_handler:stop(ConnPid),
-	    {error, timeout}
-    end;
-handshake(ConnPid, client, Ref, Timeout) ->
+monitor_handshake(ConnPid, Ref, Timeout) ->
     receive
 	{ConnPid, ssh_connected} ->
 	    erlang:demonitor(Ref, [flush]),
@@ -530,7 +523,7 @@ handshake(ConnPid, client, Ref, Timeout) ->
 	    {error, timeout}
     end.
 
-handshake(Msg, #data{starter = User}) ->
+notify_handshaker(Msg, #data{starter = User}) ->
     User ! {self(), Msg}.
 
 %%====================================================================
@@ -731,6 +724,9 @@ handle_event(internal, {#ssh_msg_kexinit{},_}, {connected,Role}, D0) ->
     send_bytes(SshPacket, D),
     {next_state, {kexinit,Role,renegotiate}, D, [postpone, {change_callback_module,ssh_fsm_kexinit}]};
 
+handle_event({timeout, negotiation}, close_connection, _StateName, _D) ->
+    {stop, {shutdown,"Negotiation timeout."}};
+
 handle_event(internal, #ssh_msg_disconnect{description=Desc} = Msg, StateName, D0) ->
     {disconnect, _, RepliesCon} =
 	ssh_connection:handle_msg(Msg, D0#data.connection_state, ?role(StateName), D0#data.ssh_params),
@@ -762,7 +758,7 @@ handle_event(internal, {conn_msg,Msg}, StateName, #data{connection_state = Conne
             case {Reason0,Role} of
                 {{_, Reason}, client} when ((StateName =/= {connected,client})
                                             and (not Rengotation)) ->
-                    handshake({not_connected,Reason}, D);
+                    notify_handshaker({not_connected,Reason}, D);
                 _ ->
                     ok
             end,
@@ -2169,7 +2165,7 @@ ssh_dbg_flags(disconnect) -> [c].
 ssh_dbg_on(connections) -> dbg:tp(?MODULE,  init, 1, x),
                            ssh_dbg_on(terminate);
 ssh_dbg_on(connection_events) -> dbg:tp(?MODULE,   handle_event, 4, x);
-ssh_dbg_on(connection_handshake) -> dbg:tpl(?MODULE, handshake, 3, x);
+ssh_dbg_on(connection_handshake) -> dbg:tpl(?MODULE, monitor_handshake, 3, x);
 ssh_dbg_on(renegotiation) -> dbg:tpl(?MODULE,   init_renegotiate_timers, 3, x),
                              dbg:tpl(?MODULE,   pause_renegotiate_timers, 3, x),
                              dbg:tpl(?MODULE,   check_data_rekeying_dbg, 2, x),
@@ -2198,7 +2194,7 @@ ssh_dbg_off(renegotiation) -> dbg:ctpl(?MODULE,   init_renegotiate_timers, 3),
                               dbg:ctpl(?MODULE,   start_rekeying, 2),
                               dbg:ctpg(?MODULE,   renegotiate, 1);
 ssh_dbg_off(connection_events) -> dbg:ctpg(?MODULE, handle_event, 4);
-ssh_dbg_off(connection_handshake) -> dbg:ctpl(?MODULE, handshake, 3);
+ssh_dbg_off(connection_handshake) -> dbg:ctpl(?MODULE, monitor_handshake, 3);
 ssh_dbg_off(connections) -> dbg:ctpg(?MODULE, init, 1),
                             ssh_dbg_off(terminate).
 
@@ -2369,14 +2365,14 @@ ssh_dbg_format(renegotiation, {return_from, {?MODULE,send_disconnect,7}, _Ret}) 
     skip.
 
 
-ssh_dbg_format(connection_handshake, {call, {?MODULE,handshake,[Pid, Ref, Timeout]}}, Stack) ->
+ssh_dbg_format(connection_handshake, {call, {?MODULE,monitor_handshake,[Pid, Ref, Timeout]}}, Stack) ->
     {["Connection handshake\n",
       io_lib:format("Connection Child: ~p~nReg: ~p~nTimeout: ~p~n",
                    [Pid, Ref, Timeout])
      ],
      [Pid|Stack]
     };
-ssh_dbg_format(connection_handshake, {Tag, {?MODULE,handshake,3}, Ret}, [Pid|Stack]) ->
+ssh_dbg_format(connection_handshake, {Tag, {?MODULE,monitor_handshake,3}, Ret}, [Pid|Stack]) ->
     {[lists:flatten(io_lib:format("Connection handshake result ~p\n", [Tag])),
       io_lib:format("Connection Child: ~p~nRet: ~p~n",
                     [Pid, Ret])
