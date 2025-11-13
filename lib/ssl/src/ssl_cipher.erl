@@ -1165,7 +1165,6 @@ dss_dhe_suites(Ciphers) ->
 %% Certs key is an ECC key
 ec_keyed_suites(Ciphers) ->
     filter_kex(Ciphers, fun (ecdh_ecdsa)  -> true;
-                            (ecdh_rsa)    -> true;
                             (ecdhe_ecdsa) -> true;
                             (_)           -> false
                         end).

@@ -3894,8 +3894,7 @@ cert_curve(_, _, no_suite) ->
     {no_curve, no_suite};
 cert_curve(Cert, ECCCurve0, CipherSuite) ->
     case ssl_cipher_format:suite_bin_to_map(CipherSuite) of
-        #{key_exchange := Kex} when Kex == ecdh_ecdsa; 
-                                    Kex == ecdh_rsa ->
+        #{key_exchange := Kex} when Kex == ecdh_ecdsa  ->
             OtpCert = public_key:pkix_decode_cert(Cert, otp),
             TBSCert = OtpCert#'OTPCertificate'.tbsCertificate,
             #'OTPSubjectPublicKeyInfo'{algorithm = AlgInfo} 
