@@ -32,9 +32,9 @@
        ).
 
 -include_lib("common_test/include/ct.hrl").
--include("ssh.hrl").		% ?UINT32, ?BYTE, #ssh{} ...
--include("ssh_transport.hrl").
--include("ssh_auth.hrl").
+-include_lib("ssh/src/ssh.hrl").		% ?UINT32, ?BYTE, #ssh{} ...
+-include_lib("ssh/src/ssh_transport.hrl").
+-include_lib("ssh/src/ssh_auth.hrl").
 
 %%%----------------------------------------------------------------
 -record(s, {
@@ -336,6 +336,10 @@ send(S0, ssh_msg_kexinit) ->
     {Msg, _Bytes, _C0} = ssh_transport:key_exchange_init_msg(S0#s.ssh),
     send(S0, Msg);
 
+send(S0, start_incomplete_renegotiation) ->
+    {_Msg, Bytes, Ssh} = ssh_transport:key_exchange_init_msg(S0#s.ssh),
+    send(S0#s{ssh = Ssh}, Bytes);
+
 send(S0, ssh_msg_ignore) ->
     Msg = #ssh_msg_ignore{data = "unexpected_ignore_message"},
     send(S0, Msg);
@@ -483,9 +487,15 @@ recv(S0 = #s{}) ->
 
 			{undefined,_} ->
 			    fail("2 kexint received!!", S);
-					
 			{OwnMsg, _} ->
-			    try ssh_transport:handle_kexinit_msg(PeerMsg, OwnMsg, S#s.ssh, init) of
+                            ReNeg =
+                                case S#s.alg of
+                                    undefined ->
+                                        init;
+                                    _ ->
+                                        renegotiate
+                                end,
+			    try ssh_transport:handle_kexinit_msg(PeerMsg, OwnMsg, S#s.ssh, ReNeg) of
 				{ok,C} when ?role(S) == server ->
 				    S#s{alg_neg = {OwnMsg, PeerMsg},
 					alg = C#ssh.algorithms,
@@ -494,9 +504,9 @@ recv(S0 = #s{}) ->
 				    S#s{alg_neg = {OwnMsg, PeerMsg},
 					alg = C#ssh.algorithms}
 			    catch
-				Class:Exc ->
-				    save_prints({"Algorithm negotiation failed at line ~p:~p~n~p:~s~nPeer: ~s~n Own: ~s~n",
-						 [?MODULE,?LINE,Class,format_msg(Exc),format_msg(PeerMsg),format_msg(OwnMsg)]},
+				Class:Exc:Stacktrace ->
+				    save_prints({"Algorithm negotiation failed at line ~p:~p~n~p:~s~nPeer: ~s~n Own: ~s~nStacktrace: ~p~n",
+						 [?MODULE,?LINE,Class,format_msg(Exc),format_msg(PeerMsg),format_msg(OwnMsg), Stacktrace]},
 						S#s{alg_neg = {OwnMsg, PeerMsg}})
 			    end
 		    end;

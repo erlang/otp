@@ -30,7 +30,8 @@
 
 -export([print/0,
 	 print/1,
-	 string/0
+	 string/0,
+         get_subs_tree/1
 	]).
 
 -include("ssh.hrl").
@@ -66,6 +67,10 @@ string() ->
 	    io_lib:format("Ssh not found~n",[])
     end.
 
+get_subs_tree(StartPid) ->
+    lists:foldl(fun({Id,_,worker,_}=C, Acc) -> [{C,chspec(StartPid,Id)}|Acc];
+                   ({Id,Pid,supervisor,_}=C, Acc) -> [{C,chspec(StartPid,Id),get_subs_tree(Pid)}|Acc]
+                end, [], children(StartPid)).
 
 %%%================================================================
 -define(inc(N), (N+4)).
@@ -82,10 +87,6 @@ print_sups(Role, StartPid) ->
     walk_tree(Role, get_subs_tree(StartPid)).
 
 %%%================================================================
-get_subs_tree(StartPid) ->
-    lists:foldl(fun({Id,_,worker,_}=C, Acc) -> [{C,chspec(StartPid,Id)}|Acc];
-                   ({Id,Pid,supervisor,_}=C, Acc) -> [{C,chspec(StartPid,Id),get_subs_tree(Pid)}|Acc]
-                end, [], children(StartPid)).
 
 chspec(Sup, Id) ->
     try supervisor:get_childspec(Sup, Id)

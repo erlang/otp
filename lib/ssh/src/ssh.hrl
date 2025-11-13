@@ -113,6 +113,12 @@
 -define(GET_SOCKET_OPT(Key,Opts),       ?do_get_opt(socket_options,  Key,Opts    ) ).
 -define(GET_SOCKET_OPT(Key,Opts,Def),   ?do_get_opt(socket_options,  Key,Opts,Def) ).
 
+-define(GET_ALIVE_OPT(Opts),
+        begin
+            #{count_max := C, interval := I} = ?do_get_opt(user_options, alive, Opts),
+            {C, I}
+        end).
+
 -define(do_put_opt(C,KV,O),  ssh_options:put_value(C,KV,O, ?MODULE,?LINE)).
 
 -define(PUT_OPT(KeyVal,Opts),           ?do_put_opt(user_options,    KeyVal,Opts) ).
@@ -378,6 +384,7 @@ further explained below.
       | auth_methods_common_option()
       | inet_common_option()
       | fd_common_option()
+      | alive_common_option()
         .
 
 -doc """
@@ -538,6 +545,26 @@ protocol).
 -doc(#{group => <<"Common Options">>}).
 -type fd_common_option() :: {fd, gen_tcp:socket()} .
 
+-doc """
+This option is used to configure the alive messages. Alive messages are sent
+through the encrypted channel and are typically used to detect that a
+connection became unresponsive.
+
+`count_max` sets the maximum number
+of alive messages which may be sent without receiving any messages back
+from the peer. If this threshold is reached the connection will be terminated.
+`interval` sets a timeout interval, in milliseconds, after which, if no data
+has been received from the peer, a message to request a response from the peer is sent.
+
+The default is `#{count_max => 3, interval => infinity}`, which means that alive
+messages will not be sent to the peer, since the `interval` is set to `infinity`.
+
+No alive messages are sent during renegotiation, however, a timeout derived from
+the alive parameters is set to ensure that unresponsive connections are terminated.
+""".
+-doc(#{group => <<"Common Options">>}).
+-type alive_common_option() :: {alive, #{count_max := CountMax::pos_integer(),
+                                         interval := Interval::timeout()}}.
 
 -doc """
 Experimental options that should not to be used in products.
@@ -1278,7 +1305,10 @@ Experimental options that should not to be used in products.
 	  available_host_keys,
 	  pwdfun_user_state,
 	  authenticated = false,
-	  userauth_banner_sent = false
+	  userauth_banner_sent = false,
+          %% Keep-alive
+          alive_last_sent_at = 0              :: non_neg_integer(),
+          alive_probes_sent = 0               :: non_neg_integer()
 	 }).
 
 -record(alg,

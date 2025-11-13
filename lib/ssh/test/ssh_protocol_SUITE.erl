@@ -60,6 +60,10 @@
          empty_service_name/1,
          ext_info_c/1,
          ext_info_s/1,
+         alive_eserver_tclient/1,
+         alive_tserver_eclient/1,
+         alive_reneg_eserver_tclient/1,
+         alive_reneg_tserver_eclient/1,
          kex_strict_negotiated/1,
          kex_strict_violation_key_exchange/1,
          kex_strict_violation_new_keys/1,
@@ -138,7 +142,8 @@ all() ->
      {group,ext_info},
      {group,preferred_algorithms},
      {group,client_close_early},
-     {group,channel_close}
+     {group,channel_close},
+     {group,alive}
     ].
 
 groups() ->
@@ -190,9 +195,11 @@ groups() ->
                                  modify_combo
                                 ]},
      {client_close_early, [], [client_close_after_hello]},
-     {channel_close, [], [channel_close_timeout]}
-    ].
-
+     {channel_close, [], [channel_close_timeout]},
+     {alive, [], [alive_eserver_tclient,
+                  alive_tserver_eclient,
+                  alive_reneg_eserver_tclient,
+                  alive_reneg_tserver_eclient]}].
 
 init_per_suite(Config) ->
     ?CHECK_CRYPTO(start_std_daemon( setup_dirs( start_apps(Config)))).
@@ -1495,6 +1502,247 @@ extra_ssh_msg_service_request(Config) ->
 	  ], EndState),
     ok.
 
+alive_eserver_tclient(Config) ->
+    User = "foo",
+    Pwd = "morot",
+    UserDir = user_dir(Config),
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, system_dir(Config)},
+					     {user_dir, UserDir},
+					     {password, Pwd},
+					     {failfun, fun ssh_test_lib:failfun/2},
+					     {alive, #{count_max => 3, interval => 1000}}]),
+    {ok,AfterUserAuthReqState} = connect_and_userauth_request(Host, Port, User, Pwd, UserDir),
+    {ok, AliveOkState} =
+	ssh_trpt_test_lib:exec(
+	  [{match, #ssh_msg_userauth_success{_='_'}, receive_msg},
+           {match, #ssh_msg_global_request{name = <<"keepalive@erlang.org">>,
+                                           want_reply = true,
+                                           data = <<>>}, receive_msg},
+           {send, #ssh_msg_request_failure{}},
+           {match, #ssh_msg_global_request{name = <<"keepalive@erlang.org">>,
+                                           want_reply = true,
+                                           data = <<>>}, receive_msg},
+           %% Send success just to check that it works as well
+           {send, #ssh_msg_request_success{data = <<>>}}
+	  ], AfterUserAuthReqState),
+    ?CT_LOG("[OK] Alive feature - normal conditions"),
+    {ok, _} =
+	ssh_trpt_test_lib:exec(
+	  [
+           {match, #ssh_msg_global_request{name = <<"keepalive@erlang.org">>,
+                                           want_reply = true,
+                                           data = <<>>}, receive_msg},
+           {match, #ssh_msg_global_request{name = <<"keepalive@erlang.org">>,
+                                           want_reply = true,
+                                           data = <<>>}, receive_msg},
+           {match, #ssh_msg_global_request{name = <<"keepalive@erlang.org">>,
+                                           want_reply = true,
+                                           data = <<>>}, receive_msg},
+           {match, #ssh_msg_disconnect{_='_'}, receive_msg}
+	  ], AliveOkState),
+    ?CT_LOG("[OK] Alive feature - maxcount exceeded"),
+    ssh:stop_daemon(Pid),
+    ok.
+
+alive_tserver_eclient(Config) ->
+    %% Create a listening socket as server socket:
+    {ok, InitialState} = ssh_trpt_test_lib:exec(listen),
+    HostPort = ssh_trpt_test_lib:server_host_port(InitialState),
+    Parent = self(),
+    %% Start a process handling one connection on the server side:
+    Pid = spawn_link(
+            fun() ->
+                    ConnectedState =
+                        ssh_trpt_test_lib:exec(
+                          connect_and_userauth_server(Config), InitialState),
+                    AliveOkState =
+                        ssh_trpt_test_lib:exec(
+                          [%% Keep-alive matching
+                           {match, #ssh_msg_global_request{name = <<"keepalive@erlang.org">>,
+                                                           want_reply = true,
+                                                           data = <<>>}, receive_msg},
+                           {send, #ssh_msg_request_failure{}},
+                           {match, #ssh_msg_global_request{name = <<"keepalive@erlang.org">>,
+                                                           want_reply = true,
+                                                           data = <<>>}, receive_msg},
+                           %% Send success just to check that it works as well
+                           {send, #ssh_msg_request_success{data = <<>>}}],
+                          ConnectedState),
+                    ?CT_LOG("[OK] Alive feature - normal conditions"),
+                    AliveNokState =
+                        ssh_trpt_test_lib:exec(
+                          [%% Keep-alive matching
+                           {match, #ssh_msg_global_request{name = <<"keepalive@erlang.org">>,
+                                                           want_reply = true,
+                                                           data = <<>>}, receive_msg},
+                           {match, #ssh_msg_global_request{name = <<"keepalive@erlang.org">>,
+                                                           want_reply = true,
+                                                           data = <<>>}, receive_msg},
+                           {match, #ssh_msg_global_request{name = <<"keepalive@erlang.org">>,
+                                                           want_reply = true,
+                                                           data = <<>>}, receive_msg},
+                           {match, #ssh_msg_disconnect{_='_'}, receive_msg}],
+                          AliveOkState),
+                    ?CT_LOG("[OK] Alive feature - max_count exceeded"),
+                    Parent ! {result, self(), AliveNokState}
+            end),
+    %% and finally connect to it with a regular Erlang SSH client:
+    {ok,_} = std_connect(HostPort, Config,
+			 [{preferred_algorithms,[{kex,[?DEFAULT_KEX]},
+                                                 {cipher,?DEFAULT_CIPHERS}
+                                                ]},
+                          {alive, #{count_max => 3, interval => 1000}}
+                         ]
+			),
+    %% Check that the daemon got expected result:
+    receive
+        {result, Pid, {ok,_}} -> ok;
+        {result, Pid, Error} -> ct:fail("Error: ~p",[Error])
+    end.
+
+alive_reneg_eserver_tclient(Config) ->
+    User = "foo",
+    Pwd = "morot",
+    UserDir = user_dir(Config),
+    {DaemonPid, Host, Port} = ssh_test_lib:daemon([{system_dir, system_dir(Config)},
+                                                   {user_dir, UserDir},
+                                                   {password, Pwd},
+                                                   {max_log_item_len, 20000},
+                                                   {failfun, fun ssh_test_lib:failfun/2},
+                                                   {alive, #{count_max => 3, interval => 1000}}]),
+    ?CT_LOG("[starting] Alive feature - normal conditions"),
+    {ok, TrptState0} = connect_and_userauth_request(Host, Port, User, Pwd, UserDir),
+    CheckAlive =
+        fun(State) ->
+                ssh_trpt_test_lib:exec(
+                  [{match, #ssh_msg_userauth_success{_='_'}, receive_msg},
+                   {match, #ssh_msg_global_request{name = <<"keepalive@erlang.org">>,
+                                                   want_reply = true,
+                                                   data = <<>>}, receive_msg},
+                   {send, #ssh_msg_request_failure{}}],
+                  State)
+        end,
+    {ok, TrptState1} = CheckAlive(TrptState0),
+    ?CT_LOG("[OK] Alive feature - normal conditions"),
+    ?CT_LOG("[starting] triggering incomplete, client triggered remotely key renegotiation"),
+    {ok, _} =
+        ssh_trpt_test_lib:exec(
+          [{send, start_incomplete_renegotiation},
+           {match, #ssh_msg_kexinit{_='_'}, receive_msg},
+           {match, disconnect(), receive_msg}],
+          TrptState1),
+    ?CT_LOG("[OK] triggering incomplete, client triggered remotely key renegotiation"),
+    ?CT_LOG("[starting] Alive feature - normal conditions 2"),
+    {ok, TrptState2} = connect_and_userauth_request(Host, Port, User, Pwd, UserDir),
+    {ok, TrptState3} = CheckAlive(TrptState2),
+    ?CT_LOG("[OK] Alive feature - normal conditions 2"),
+    ?CT_LOG("[starting] triggering incomplete, server triggered locally key renegotiation"),
+    ?CT_LOG("~n~s", [ssh_info:string()]),
+    CHandler =
+        fun F([], Acc) ->
+                lists:flatten(Acc);
+            F([{{_, CRefPid, worker, [ssh_connection_handler]}, _} | Tail], Acc) ->
+                F(Tail, [CRefPid | Acc]);
+            F([{{_, _, worker, _}, _} | Tail], Acc) ->
+                F(Tail, [Acc]);
+            F([{{_, _, supervisor, _}, _, SubTree} | Tail], Acc) ->
+                F(Tail, F(SubTree, Acc))
+        end,
+    [CHandlerPid] = CHandler(ssh_info:get_subs_tree(sshd_sup), []),
+    ?CT_LOG("Server side connection handler PID: ~p", [CHandlerPid]),
+    ssh_connection_handler:renegotiate(CHandlerPid),
+    {ok, _} =
+        ssh_trpt_test_lib:exec(
+          [{match, #ssh_msg_kexinit{_='_'}, receive_msg},
+           {match, disconnect(), receive_msg}],
+          TrptState3),
+    ?CT_LOG("[OK] triggering incomplete, server triggered locally key renegotiation"),
+    ssh:stop_daemon(DaemonPid),
+    ?CT_LOG("[OK] test case finished"),
+    ok.
+
+alive_reneg_tserver_eclient(Config) ->
+    %% Create a listening socket as server socket:
+    {ok, TrptState0} = ssh_trpt_test_lib:exec(listen),
+    HostPort0 = ssh_trpt_test_lib:server_host_port(TrptState0),
+    Parent = self(),
+    %% Start a process handling one connection on the server side:
+    TDaemonPid0 = spawn_link(
+            fun() ->
+                    ?CT_LOG("[starting] Alive feature - normal conditions"),
+                    TrptState1 =
+                        ssh_trpt_test_lib:exec(
+                          connect_and_userauth_server(Config), TrptState0),
+                    TrptState2 =
+                        ssh_trpt_test_lib:exec(
+                          [{match, #ssh_msg_global_request{name = <<"keepalive@erlang.org">>,
+                                                           want_reply = true,
+                                                           data = <<>>}, receive_msg},
+                           {send, #ssh_msg_request_failure{}}],
+                          TrptState1),
+                    ?CT_LOG("[OK] Alive feature - normal conditions"),
+
+                    ?CT_LOG("[starting] triggering incomplete, server triggered remotely key renegotiation"),
+                    TrptState3 =
+                        ssh_trpt_test_lib:exec(
+                          [{send, start_incomplete_renegotiation},
+                           {match, #ssh_msg_kexinit{_='_'}, receive_msg},
+                           {match, #ssh_msg_kexdh_init{_='_'}, receive_msg},
+                           {match, disconnect(), receive_msg}], TrptState2),
+                    ?CT_LOG("[OK] triggering incomplete, server triggered remotely key renegotiation"),
+                    Parent ! {result, self(), TrptState3}
+            end),
+    %% and finally connect to it with a regular Erlang SSH client:
+    {ok,_} = std_connect(HostPort0, Config,
+			 [{preferred_algorithms,[{kex,[?DEFAULT_KEX]},
+                                                 {cipher,?DEFAULT_CIPHERS}
+                                                ]},
+                          {alive, #{count_max => 3, interval => 1000}}
+                         ]
+			),
+    %% Check that the daemon got expected result:
+    receive
+        {result, TDaemonPid0, {ok,_}} -> ok;
+        {result, TDaemonPid0, Error0} -> ct:fail("Error: ~p",[Error0])
+    end,
+
+    %% Create a listening socket as server socket:
+    {ok, TrptState4} = ssh_trpt_test_lib:exec(listen),
+    HostPort1 = ssh_trpt_test_lib:server_host_port(TrptState4),
+    %% Start a process handling one connection on the server side:
+    TDaemonPid1 = spawn_link(
+            fun() ->
+                    ?CT_LOG("[starting] Alive feature - normal conditions 2"),
+                    TrptState5 =
+                        ssh_trpt_test_lib:exec(
+                          connect_and_userauth_server(Config), TrptState4),
+                    ?CT_LOG("[OK] Alive feature - normal conditions 2"),
+                    ?CT_LOG("[starting] triggering incomplete, client triggered locally key renegotiation"),
+                    TrptState6 =
+                        ssh_trpt_test_lib:exec(
+                          [{match, #ssh_msg_kexinit{_='_'}, receive_msg},
+                           {match, disconnect(), receive_msg}
+                          ], TrptState5),
+                    ?CT_LOG("[OK] triggering incomplete, client triggered locally key renegotiation"),
+                    Parent ! {result, self(), TrptState6}
+            end),
+    %% and finally connect to it with a regular Erlang SSH client:
+    {ok, CHandlerPid} = std_connect(HostPort1, Config,
+			 [{preferred_algorithms,[{kex,[?DEFAULT_KEX]},
+                                                 {cipher,?DEFAULT_CIPHERS}
+                                                ]},
+                          {alive, #{count_max => 3, interval => 1000}}]),
+    ?CT_LOG("~n~s", [ssh_info:string()]),
+    ?CT_LOG("Client side connection handler PID: ~p", [CHandlerPid]),
+    ssh_connection_handler:renegotiate(CHandlerPid),
+    %% Check that the daemon got expected result:
+    receive
+        {result, TDaemonPid1, {ok,_}} -> ok;
+        {result, TDaemonPid1, Error1} -> ct:fail("Error: ~p",[Error1])
+    end,
+    ?CT_LOG("[OK] test case finished"),
+    ok.
+
 %%%================================================================
 %%%==== Internal functions ========================================
 %%%================================================================
@@ -1788,3 +2036,30 @@ trpt_test_lib_send_disconnect(State) ->
                                  }},
        close_socket
       ], State).
+
+connect_and_userauth_server(Config) ->
+    {User,_Pwd} = server_user_password(Config),
+    [{set_options, [print_ops, print_messages]},
+     {accept, [{system_dir, system_dir(Config)},
+               {user_dir, user_dir(Config)}]},
+     receive_hello,
+     {send, hello},
+     {send, ssh_msg_kexinit},
+     {match, #ssh_msg_kexinit{_='_'}, receive_msg},
+     {match, #ssh_msg_kexdh_init{_='_'}, receive_msg},
+     {send, ssh_msg_kexdh_reply},
+     {send, #ssh_msg_newkeys{}},
+     {match,  #ssh_msg_newkeys{_='_'}, receive_msg},
+     {match, #ssh_msg_service_request{name="ssh-userauth"}, receive_msg},
+     {send, #ssh_msg_service_accept{name="ssh-userauth"}},
+     {match, #ssh_msg_userauth_request{service="ssh-connection",
+                                       method="none",
+                                       user=User,
+                                       _='_'}, receive_msg},
+     {send, #ssh_msg_userauth_failure{authentications = "password",
+                                      partial_success = false}},
+     {match, #ssh_msg_userauth_request{service="ssh-connection",
+                                       method="password",
+                                       user=User,
+                                       _='_'}, receive_msg},
+     {send, #ssh_msg_userauth_success{}}].

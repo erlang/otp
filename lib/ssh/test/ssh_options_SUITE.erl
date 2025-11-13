@@ -606,6 +606,7 @@ auth_none(Config) ->
 			     {user_dir, UserDir},
 			     {auth_methods, "password"}, % to make even more sure we don't use public-key-auth
 			     {user_passwords, [{"foo","somepwd"}]}, % Not to be used
+                             {alive, #{count_max => 1, interval => 2000}},
                              {no_auth_needed, true} % we test this
 			    ]),
     ClientConnRef1 =
