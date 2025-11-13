@@ -2155,6 +2155,7 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(min_rtt);                         \
     GLOBAL_ATOM_DECL(monitor);			       \
     GLOBAL_ATOM_DECL(more);                            \
+    GLOBAL_ATOM_DECL(mptcp);                           \
     GLOBAL_ATOM_DECL(msfilter);                        \
     GLOBAL_ATOM_DECL(mss);                             \
     GLOBAL_ATOM_DECL(mtu);                             \
@@ -4911,6 +4912,13 @@ ERL_NIF_TERM esock_supports_protocols(ErlNifEnv* env)
       MKC(env,
           MKT2(env, MKL1(env, esock_atom_igmp), MKI(env, IPPROTO_IGMP)),
           protocols);
+
+#ifdef IPPROTO_MPTCP
+  protocols =
+      MKC(env,
+          MKT2(env, MKL1(env, esock_atom_mptcp), MKI(env, IPPROTO_MPTCP)),
+          protocols);
+#endif
 
   return protocols;
 }
@@ -12143,7 +12151,11 @@ void esock_dec_socket(int domain, int type, int protocol)
     /* *** Protocol counter *** */
     if (protocol == IPPROTO_IP)
         esock_cnt_dec(&data.numProtoIP, 1);
-    else if (protocol == IPPROTO_TCP)
+    else if (protocol == IPPROTO_TCP
+#ifdef IPPROTO_MPTCP
+             || protocol == IPPROTO_MPTCP
+#endif
+             )
         esock_cnt_dec(&data.numProtoTCP, 1);
     else if (protocol == IPPROTO_UDP)
         esock_cnt_dec(&data.numProtoUDP, 1);
@@ -12188,7 +12200,11 @@ void esock_inc_socket(int domain, int type, int protocol)
     /* *** Protocol counter *** */
     if (protocol == IPPROTO_IP)
         esock_cnt_inc(&data.numProtoIP, 1);
-    else if (protocol == IPPROTO_TCP)
+    else if (protocol == IPPROTO_TCP
+#ifdef IPPROTO_MPTCP
+             || protocol == IPPROTO_MPTCP
+#endif
+             )
         esock_cnt_inc(&data.numProtoTCP, 1);
     else if (protocol == IPPROTO_UDP)
         esock_cnt_inc(&data.numProtoUDP, 1);
