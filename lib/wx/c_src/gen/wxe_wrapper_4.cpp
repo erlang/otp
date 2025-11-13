@@ -1293,11 +1293,11 @@ void wxImage_new_4(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   unsigned char * data;
   ErlNifBinary data_bin;
   if(!enif_inspect_binary(env, argv[2], &data_bin)) Badarg("data");
-  data = (unsigned char *) malloc(data_bin.size);
-  memcpy(data,data_bin.data,data_bin.size);
   unsigned char * alpha;
   ErlNifBinary alpha_bin;
   if(!enif_inspect_binary(env, argv[3], &alpha_bin)) Badarg("alpha");
+  data = (unsigned char *) malloc(data_bin.size);
+  memcpy(data,data_bin.data,data_bin.size);
   alpha = (unsigned char *) malloc(alpha_bin.size);
   memcpy(alpha,alpha_bin.data,alpha_bin.size);
   wxImage * Result = new EwxImage(width,height,data,alpha);
@@ -1323,11 +1323,11 @@ void wxImage_new_3_3(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   unsigned char * data;
   ErlNifBinary data_bin;
   if(!enif_inspect_binary(env, argv[1], &data_bin)) Badarg("data");
-  data = (unsigned char *) malloc(data_bin.size);
-  memcpy(data,data_bin.data,data_bin.size);
   unsigned char * alpha;
   ErlNifBinary alpha_bin;
   if(!enif_inspect_binary(env, argv[2], &alpha_bin)) Badarg("alpha");
+  data = (unsigned char *) malloc(data_bin.size);
+  memcpy(data,data_bin.data,data_bin.size);
   alpha = (unsigned char *) malloc(alpha_bin.size);
   memcpy(alpha,alpha_bin.data,alpha_bin.size);
   wxImage * Result = new EwxImage(sz,data,alpha);
@@ -1658,9 +1658,9 @@ void wxImage_Create_3_0(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   unsigned char * data;
   ErlNifBinary data_bin;
   if(!enif_inspect_binary(env, argv[3], &data_bin)) Badarg("data");
+  if(!This) throw wxe_badarg("This");
   data = (unsigned char *) malloc(data_bin.size);
   memcpy(data,data_bin.data,data_bin.size);
-  if(!This) throw wxe_badarg("This");
   bool Result = This->Create(width,height,data);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_bool(Result));
@@ -1685,9 +1685,9 @@ void wxImage_Create_2_0(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   unsigned char * data;
   ErlNifBinary data_bin;
   if(!enif_inspect_binary(env, argv[2], &data_bin)) Badarg("data");
+  if(!This) throw wxe_badarg("This");
   data = (unsigned char *) malloc(data_bin.size);
   memcpy(data,data_bin.data,data_bin.size);
-  if(!This) throw wxe_badarg("This");
   bool Result = This->Create(sz,data);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_bool(Result));
@@ -1708,14 +1708,14 @@ void wxImage_Create_4(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   unsigned char * data;
   ErlNifBinary data_bin;
   if(!enif_inspect_binary(env, argv[3], &data_bin)) Badarg("data");
-  data = (unsigned char *) malloc(data_bin.size);
-  memcpy(data,data_bin.data,data_bin.size);
   unsigned char * alpha;
   ErlNifBinary alpha_bin;
   if(!enif_inspect_binary(env, argv[4], &alpha_bin)) Badarg("alpha");
+  if(!This) throw wxe_badarg("This");
+  data = (unsigned char *) malloc(data_bin.size);
+  memcpy(data,data_bin.data,data_bin.size);
   alpha = (unsigned char *) malloc(alpha_bin.size);
   memcpy(alpha,alpha_bin.data,alpha_bin.size);
-  if(!This) throw wxe_badarg("This");
   bool Result = This->Create(width,height,data,alpha);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_bool(Result));
@@ -1740,14 +1740,14 @@ void wxImage_Create_3_2(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   unsigned char * data;
   ErlNifBinary data_bin;
   if(!enif_inspect_binary(env, argv[2], &data_bin)) Badarg("data");
-  data = (unsigned char *) malloc(data_bin.size);
-  memcpy(data,data_bin.data,data_bin.size);
   unsigned char * alpha;
   ErlNifBinary alpha_bin;
   if(!enif_inspect_binary(env, argv[3], &alpha_bin)) Badarg("alpha");
+  if(!This) throw wxe_badarg("This");
+  data = (unsigned char *) malloc(data_bin.size);
+  memcpy(data,data_bin.data,data_bin.size);
   alpha = (unsigned char *) malloc(alpha_bin.size);
   memcpy(alpha,alpha_bin.data,alpha_bin.size);
-  if(!This) throw wxe_badarg("This");
   bool Result = This->Create(sz,data,alpha);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_bool(Result));
@@ -2675,9 +2675,9 @@ void wxImage_SetAlpha_1(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   unsigned char * alpha;
   ErlNifBinary alpha_bin;
   if(!enif_inspect_binary(env, argv[1], &alpha_bin)) Badarg("alpha");
+  if(!This) throw wxe_badarg("This");
   alpha = (unsigned char *) malloc(alpha_bin.size);
   memcpy(alpha,alpha_bin.data,alpha_bin.size);
-  if(!This) throw wxe_badarg("This");
   This->SetAlpha(alpha);
 
 }
@@ -2710,9 +2710,9 @@ void wxImage_SetData_1(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   unsigned char * data;
   ErlNifBinary data_bin;
   if(!enif_inspect_binary(env, argv[1], &data_bin)) Badarg("data");
+  if(!This) throw wxe_badarg("This");
   data = (unsigned char *) malloc(data_bin.size);
   memcpy(data,data_bin.data,data_bin.size);
-  if(!This) throw wxe_badarg("This");
   This->SetData(data);
 
 }
@@ -2727,13 +2727,13 @@ void wxImage_SetData_3(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   unsigned char * data;
   ErlNifBinary data_bin;
   if(!enif_inspect_binary(env, argv[1], &data_bin)) Badarg("data");
-  data = (unsigned char *) malloc(data_bin.size);
-  memcpy(data,data_bin.data,data_bin.size);
   int new_width;
   if(!enif_get_int(env, argv[2], &new_width)) Badarg("new_width"); // int
   int new_height;
   if(!enif_get_int(env, argv[3], &new_height)) Badarg("new_height"); // int
   if(!This) throw wxe_badarg("This");
+  data = (unsigned char *) malloc(data_bin.size);
+  memcpy(data,data_bin.data,data_bin.size);
   This->SetData(data,new_width,new_height);
 
 }

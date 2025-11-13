@@ -577,7 +577,7 @@ renegotiation(_) -> false.
 
 -define(CONNECTION_MSG(Msg),
         [{next_event, internal, prepare_next_packet},
-         {next_event,internal,{conn_msg,Msg}}]).
+         {next_event, internal, {conn_msg,Msg}}]).
 
 %% . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 callback_mode() ->
@@ -729,7 +729,11 @@ handle_event(internal, {#ssh_msg_kexinit{},_}, {connected,Role}, D0) ->
     D = D0#data{ssh_params = Ssh,
 		key_exchange_init_msg = KeyInitMsg},
     send_bytes(SshPacket, D),
-    {next_state, {kexinit,Role,renegotiate}, D, [postpone, {change_callback_module,ssh_fsm_kexinit}]};
+    {next_state, {kexinit,Role,renegotiate}, D,
+     [postpone,
+      {change_callback_module,ssh_fsm_kexinit},
+      {{timeout, alive}, cancel},
+      {{timeout, renegotiation_alive}, renegotiation_alive_timeout(Ssh), none}]};
 
 handle_event(internal, #ssh_msg_disconnect{description=Desc} = Msg, StateName, D0) ->
     {disconnect, _, RepliesCon} =
@@ -752,8 +756,8 @@ handle_event(internal, #ssh_msg_debug{} = Msg, _StateName, D) ->
     debug_fun(Msg, D),
     keep_state_and_data;
 
-handle_event(internal, {conn_msg,Msg}, StateName, #data{connection_state = Connection0,
-                                                        event_queue = Qev0} = D0) ->
+handle_event(internal, {conn_msg, Msg}, StateName, #data{connection_state = Connection0,
+                                                         event_queue = Qev0} = D0) ->
     Role = ?role(StateName),
     Rengotation = renegotiation(StateName),
     try ssh_connection:handle_msg(Msg, Connection0, Role, D0#data.ssh_params) of
@@ -832,6 +836,21 @@ handle_event({timeout,check_data_size}, _, StateName, D0) ->
             %% Wrong state for starting a renegotiation, must be in re-negotiation
             keep_state_and_data
     end;
+
+handle_event({timeout, alive}, _, StateName, D = #data{ssh_params=Ssh}) ->
+    {TriggerFlag, Actions} = get_next_alive_timeout(Ssh),
+    case TriggerFlag of
+        true -> % timeout occured
+            triggered_alive(StateName, D, Ssh, Actions);
+        false -> % no timeout, check later
+            {keep_state, D, Actions}
+    end;
+
+handle_event({timeout, renegotiation_alive}, _, StateName, D) ->
+    Details = "Renegotiation alive timeout reached.",
+    {Shutdown, D1} = ?send_disconnect(?SSH_DISCONNECT_CONNECTION_LOST, Details, StateName, D),
+    {stop, Shutdown, D1};
+
 
 handle_event({call,From}, get_alg, _, D) ->
     #ssh{algorithms=Algs} = D#data.ssh_params,
@@ -1142,15 +1161,16 @@ handle_event(info, {Proto, Sock, NewData}, StateName,
              D0 = #data{socket = Sock,
                         transport_protocol = Proto,
                         ssh_params = SshParams}) ->
+    D1 = reset_alive(D0),
     try ssh_transport:handle_packet_part(
-	  D0#data.decrypted_data_buffer,
-	  <<(D0#data.encrypted_data_buffer)/binary, NewData/binary>>,
-          D0#data.aead_data,
-          D0#data.undecrypted_packet_length,
-	  D0#data.ssh_params)
+	  D1#data.decrypted_data_buffer,
+	  <<(D1#data.encrypted_data_buffer)/binary, NewData/binary>>,
+          D1#data.aead_data,
+          D1#data.undecrypted_packet_length,
+	  D1#data.ssh_params)
     of
 	{packet_decrypted, DecryptedBytes, EncryptedDataRest, Ssh1} ->
-	    D1 = D0#data{ssh_params =
+	    D2 = D1#data{ssh_params =
                              Ssh1#ssh{recv_sequence =
                                           ssh_transport:next_seqnum(StateName,
                                                                     Ssh1#ssh.recv_sequence,
@@ -1160,33 +1180,33 @@ handle_event(info, {Proto, Sock, NewData}, StateName,
                          aead_data = <<>>,
                          encrypted_data_buffer = EncryptedDataRest},
 	    try
-		ssh_message:decode(set_kex_overload_prefix(DecryptedBytes,D1))
+		ssh_message:decode(set_kex_overload_prefix(DecryptedBytes,D2))
 	    of
 		#ssh_msg_kexinit{} = Msg ->
-		    {keep_state, D1, [{next_event, internal, prepare_next_packet},
+		    {keep_state, D2, [{next_event, internal, prepare_next_packet},
 				     {next_event, internal, {Msg,DecryptedBytes}}
 				    ]};
 
-                #ssh_msg_global_request{}            = Msg -> {keep_state, D1, ?CONNECTION_MSG(Msg)};
-                #ssh_msg_request_success{}           = Msg -> {keep_state, D1, ?CONNECTION_MSG(Msg)};
-                #ssh_msg_request_failure{}           = Msg -> {keep_state, D1, ?CONNECTION_MSG(Msg)};
-                #ssh_msg_channel_open{}              = Msg -> {keep_state, D1,
+                #ssh_msg_global_request{}            = Msg -> {keep_state, D2, ?CONNECTION_MSG(Msg)};
+                #ssh_msg_request_success{}           = Msg -> {keep_state, D2, ?CONNECTION_MSG(Msg)};
+                #ssh_msg_request_failure{}           = Msg -> {keep_state, D2, ?CONNECTION_MSG(Msg)};
+                #ssh_msg_channel_open{}              = Msg -> {keep_state, D2,
                                                                [{{timeout, max_initial_idle_time}, cancel} |
                                                                 ?CONNECTION_MSG(Msg)
                                                                ]};
-                #ssh_msg_channel_open_confirmation{} = Msg -> {keep_state, D1, ?CONNECTION_MSG(Msg)};
-                #ssh_msg_channel_open_failure{}      = Msg -> {keep_state, D1, ?CONNECTION_MSG(Msg)};
-                #ssh_msg_channel_window_adjust{}     = Msg -> {keep_state, D1, ?CONNECTION_MSG(Msg)};
-                #ssh_msg_channel_data{}              = Msg -> {keep_state, D1, ?CONNECTION_MSG(Msg)};
-                #ssh_msg_channel_extended_data{}     = Msg -> {keep_state, D1, ?CONNECTION_MSG(Msg)};
-                #ssh_msg_channel_eof{}               = Msg -> {keep_state, D1, ?CONNECTION_MSG(Msg)};
-                #ssh_msg_channel_close{}             = Msg -> {keep_state, D1, ?CONNECTION_MSG(Msg)};
-                #ssh_msg_channel_request{}           = Msg -> {keep_state, D1, ?CONNECTION_MSG(Msg)};
-                #ssh_msg_channel_failure{}           = Msg -> {keep_state, D1, ?CONNECTION_MSG(Msg)};
-                #ssh_msg_channel_success{}           = Msg -> {keep_state, D1, ?CONNECTION_MSG(Msg)};
+                #ssh_msg_channel_open_confirmation{} = Msg -> {keep_state, D2, ?CONNECTION_MSG(Msg)};
+                #ssh_msg_channel_open_failure{}      = Msg -> {keep_state, D2, ?CONNECTION_MSG(Msg)};
+                #ssh_msg_channel_window_adjust{}     = Msg -> {keep_state, D2, ?CONNECTION_MSG(Msg)};
+                #ssh_msg_channel_data{}              = Msg -> {keep_state, D2, ?CONNECTION_MSG(Msg)};
+                #ssh_msg_channel_extended_data{}     = Msg -> {keep_state, D2, ?CONNECTION_MSG(Msg)};
+                #ssh_msg_channel_eof{}               = Msg -> {keep_state, D2, ?CONNECTION_MSG(Msg)};
+                #ssh_msg_channel_close{}             = Msg -> {keep_state, D2, ?CONNECTION_MSG(Msg)};
+                #ssh_msg_channel_request{}           = Msg -> {keep_state, D2, ?CONNECTION_MSG(Msg)};
+                #ssh_msg_channel_failure{}           = Msg -> {keep_state, D2, ?CONNECTION_MSG(Msg)};
+                #ssh_msg_channel_success{}           = Msg -> {keep_state, D2, ?CONNECTION_MSG(Msg)};
 
 		Msg ->
-		    {keep_state, D1, [{next_event, internal, prepare_next_packet},
+		    {keep_state, D2, [{next_event, internal, prepare_next_packet},
                                       {next_event, internal, Msg}
 				    ]}
 	    catch
@@ -1205,7 +1225,7 @@ handle_event(info, {Proto, Sock, NewData}, StateName,
                     {Shutdown, D} =
                         ?send_disconnect(?SSH_DISCONNECT_PROTOCOL_ERROR,
                                          ?SELECT_MSG(MsgFun),
-                                         StateName, D1),
+                                         StateName, D2),
                     {stop, Shutdown, D}
 	    end;
 
@@ -1213,7 +1233,7 @@ handle_event(info, {Proto, Sock, NewData}, StateName,
 	    %% Here we know that there are not enough bytes in
 	    %% EncryptedDataRest to use. We must wait for more.
 	    inet:setopts(Sock, [{active, once}]),
-	    {keep_state, D0#data{encrypted_data_buffer = EncryptedDataRest,
+	    {keep_state, D1#data{encrypted_data_buffer = EncryptedDataRest,
 				 decrypted_data_buffer = DecryptedBytes,
                                  undecrypted_packet_length = RemainingSshPacketLen,
                                  aead_data = AeadData,
@@ -1223,7 +1243,7 @@ handle_event(info, {Proto, Sock, NewData}, StateName,
             {Shutdown, D} =
                 ?send_disconnect(?SSH_DISCONNECT_PROTOCOL_ERROR,
                                  "Bad packet: bad mac",
-                                 StateName, D0#data{ssh_params=Ssh1}),
+                                 StateName, D1#data{ssh_params=Ssh1}),
             {stop, Shutdown, D};
 
 	{error, {exceeds_max_size,PacketLen}} ->
@@ -1231,7 +1251,7 @@ handle_event(info, {Proto, Sock, NewData}, StateName,
                 ?send_disconnect(?SSH_DISCONNECT_PROTOCOL_ERROR,
                                  io_lib:format("Bad packet: Size (~p bytes) exceeds max size",
                                                [PacketLen]),
-                                 StateName, D0),
+                                 StateName, D1),
             {stop, Shutdown, D}
     catch
 	Class:Reason0:Stacktrace ->
@@ -1248,7 +1268,7 @@ handle_event(info, {Proto, Sock, NewData}, StateName,
                 end,
             {Shutdown, D} =
                 ?send_disconnect(?SSH_DISCONNECT_PROTOCOL_ERROR, ?SELECT_MSG(MsgFun),
-                                 StateName, D0),
+                                 StateName, D1),
             {stop, Shutdown, D}
     end;
 
@@ -1804,7 +1824,10 @@ start_rekeying(Role, D0) ->
     send_bytes(SshPacket, D0),
     D = D0#data{ssh_params = Ssh,
                 key_exchange_init_msg = KeyInitMsg},
-    {next_state, {kexinit,Role,renegotiate}, D, {change_callback_module,ssh_fsm_kexinit}}.
+    {next_state, {kexinit,Role,renegotiate}, D,
+     [{change_callback_module,ssh_fsm_kexinit},
+      {{timeout, alive}, cancel},
+      {{timeout, renegotiation_alive}, renegotiation_alive_timeout(Ssh), none}]}.
 
 
 init_renegotiate_timers(_OldState, NewState, D) ->
@@ -2150,14 +2173,77 @@ update_inet_buffers(Socket) ->
         _:_ -> ok
     end.
 
+%%%----------------------------------------------------------------
+%%% Keep-alive
+
+%% Reset the last_alive timer on #data{ssh_params=#ssh{}} record
+reset_alive(D = #data{ssh_params = Ssh0}) ->
+    case ?GET_ALIVE_OPT(Ssh0#ssh.opts) of
+        {_AliveCount, AliveInterval} when is_integer(AliveInterval) ->
+            Now = erlang:monotonic_time(milli_seconds),
+            Ssh = Ssh0#ssh{alive_probes_sent = 0, alive_last_sent_at = Now},
+            D#data{ssh_params = Ssh};
+        _ -> D
+    end.
+
+%% Returns a pair of {TriggerFlag, Actions} where trigger flag indicates that
+%% the timeout has been triggered already and it is time to disconnect, and
+%% Actions may contain a new timeout action to check for the timeout again.
+get_next_alive_timeout(#ssh{alive_last_sent_at  = LastAlive, opts = Opts}) ->
+    case ?GET_ALIVE_OPT(Opts) of
+        {_AliveCount, AliveInterval} when erlang:is_integer(AliveInterval) ->
+            TimeToNextAlive =
+                AliveInterval - (erlang:monotonic_time(milli_seconds) - LastAlive),
+            case TimeToNextAlive =< 0 of
+                true ->
+                    %% Already it is time to disconnect, or to ping
+                    {true, [{{timeout, alive}, AliveInterval, none}]};
+                false ->
+                    {false, [{{timeout, alive}, TimeToNextAlive, none}]}
+            end;
+        _ ->
+            {false, []}
+    end.
+
+triggered_alive(StateName, D0 = #data{},
+                #ssh{opts = Opts, alive_probes_sent = SentProbes}, Actions) ->
+    case ?GET_ALIVE_OPT(Opts) of
+          {AliveCount, _AliveInterval} when SentProbes >= AliveCount ->
+            %% Max probes count reached (equal to `alive_count`), we disconnect
+            Details = "Alive timeout triggered",
+            {Shutdown, D} =
+                ?send_disconnect(?SSH_DISCONNECT_CONNECTION_LOST, Details, StateName, D0),
+            {stop, Shutdown, D};
+        _ ->
+            D = send_msg({ssh_msg_global_request,"keepalive@erlang.org", true, <<>>},
+                             D0),
+            Ssh = D#data.ssh_params,
+            Now = erlang:monotonic_time(milli_seconds),
+            Ssh1 = Ssh#ssh{alive_probes_sent = SentProbes + 1,
+                           alive_last_sent_at = Now},
+            {keep_state, D#data{ssh_params = Ssh1}, Actions}
+    end.
+
+%% Keep-alive messages can't be sent during renegotiation, but since this
+%% feature acts as a keep-alive and a timeout, an equivalent timeout is
+%% established for the renegotiation procedure if alive is enabled.
+%% For simplicity the timeout value is derived from alive_interval and
+%% alive_count.
+renegotiation_alive_timeout(#ssh{opts = Opts}) ->
+    case ?GET_ALIVE_OPT(Opts) of
+        {_AliveCount, infinity} -> infinity;
+        {AliveCount, AliveInterval} -> AliveCount * AliveInterval
+    end.
+
 %%%################################################################
 %%%#
 %%%# Tracing
 %%%#
 
 ssh_dbg_trace_points() -> [terminate, disconnect, connections, connection_events, renegotiation,
-                           tcp, connection_handshake].
+                           tcp, connection_handshake, alive].
 
+ssh_dbg_flags(alive) -> [c];
 ssh_dbg_flags(connections) -> [c | ssh_dbg_flags(terminate)];
 ssh_dbg_flags(renegotiation) -> [c];
 ssh_dbg_flags(connection_events) -> [c];
@@ -2166,6 +2252,12 @@ ssh_dbg_flags(terminate) -> [c];
 ssh_dbg_flags(tcp) -> [c];
 ssh_dbg_flags(disconnect) -> [c].
 
+ssh_dbg_on(alive) ->
+    dbg:tp(?MODULE,  handle_event, 4, x),
+    dbg:tpl(?MODULE, init_ssh_record, 4, x),
+    dbg:tpl(?MODULE, start_rekeying, 2, x),
+    dbg:tpl(?MODULE, reset_alive, 1, x),
+    dbg:tpl(?MODULE, triggered_alive, 4, x);
 ssh_dbg_on(connections) -> dbg:tp(?MODULE,  init, 1, x),
                            ssh_dbg_on(terminate);
 ssh_dbg_on(connection_events) -> dbg:tp(?MODULE,   handle_event, 4, x);
@@ -2187,6 +2279,12 @@ ssh_dbg_on(tcp) -> dbg:tp(?MODULE, handle_event, 4,
 ssh_dbg_on(disconnect) -> dbg:tpl(?MODULE,  send_disconnect, 7, x).
 
 
+ssh_dbg_off(alive) ->
+    dbg:ctpg(?MODULE, handle_event, 4),
+    dbg:ctpl(?MODULE, start_rekeying, 2),
+    dbg:ctpl(?MODULE, reset_alive, 1),
+    dbg:ctpl(?MODULE, init_ssh_record, 4),
+    dbg:ctpl(?MODULE, triggered_alive, 4);
 ssh_dbg_off(disconnect) -> dbg:ctpl(?MODULE, send_disconnect, 7);
 ssh_dbg_off(terminate) -> dbg:ctpg(?MODULE, terminate, 3);
 ssh_dbg_off(tcp) -> dbg:ctpg(?MODULE, handle_event, 4), % How to avoid cancelling 'connection_events' ?
@@ -2202,6 +2300,46 @@ ssh_dbg_off(connection_handshake) -> dbg:ctpl(?MODULE, handshake, 3);
 ssh_dbg_off(connections) -> dbg:ctpg(?MODULE, init, 1),
                             ssh_dbg_off(terminate).
 
+-define(PRINT_ALIVE_EVENT(_MOD, _FUN, _ARITY, _DATA),
+        io_lib:format("~p:~p/~p [Alive event] ~s", [_MOD, _FUN, _ARITY, _DATA])).
+
+ssh_dbg_format(alive, {return_from, {?MODULE, F=init_ssh_record, A=4}, Ssh}) ->
+    {AliveCount, AliveInterval} = ?GET_ALIVE_OPT(Ssh#ssh.opts),
+    Str = io_lib:format("Interval=~p Count=~p", [AliveInterval, AliveCount]),
+    ?PRINT_ALIVE_EVENT(?MODULE, F, A, Str);
+ssh_dbg_format(alive, {call, {?MODULE,F=reset_alive, [_Data]}}) ->
+    Str = io_lib:format("", []),
+    ?PRINT_ALIVE_EVENT(?MODULE, F, 1, Str);
+ssh_dbg_format(alive, {call, {?MODULE,F=handle_event,
+                              [EventType, EventContent, State, _Data]}})
+  when EventType == {timeout, alive} orelse EventType == {timeout, renegotiation_alive} ->
+    Str = io_lib:format("~n~p ~p (state: ~p)", [EventType, EventContent, State]),
+    ?PRINT_ALIVE_EVENT(?MODULE, F, 4, Str);
+ssh_dbg_format(alive, {call, {?MODULE,F=triggered_alive,
+                              [State, _,
+                               #ssh{opts = Opts, alive_probes_sent = SentProbesCount}, _]
+                             }}) ->
+    {Count, _AliveInterval} = ?GET_ALIVE_OPT(Opts),
+    Str = io_lib:format("~nsending alive probe ~p/~p (state: ~w)", [SentProbesCount+1, Count, State]),
+    ?PRINT_ALIVE_EVENT(?MODULE, F, 4, Str);
+ssh_dbg_format(alive, {return_from, {?MODULE, F=triggered_alive, 4}, {stop, Details, _}}) ->
+    Str = io_lib:format("~n0 alive probes left {stop, ~p, _}", [Details]),
+    ?PRINT_ALIVE_EVENT(?MODULE, F, 4, Str);
+ssh_dbg_format(alive, {return_from, {?MODULE, Function, Arity},
+                       _Return = {next_state, {kexinit, _Role_, renegotiate}, _, Actions}})
+  when (Function == handle_event andalso Arity == 4) orelse
+       (Function == start_rekeying andalso Arity == 2)->
+    case lists:keyfind({timeout, renegotiation_alive}, 1, Actions) of
+        false ->
+            skip;
+        {{timeout, renegotiation_alive}, Timeout, _} ->
+            Str = io_lib:format("~nRenegotiation timeout set to ~p ms", [Timeout]),
+            ?PRINT_ALIVE_EVENT(?MODULE, Function, Arity, Str)
+    end;
+ssh_dbg_format(alive, {call, {?MODULE, _, _}}) ->
+    skip;
+ssh_dbg_format(alive, {return_from, {?MODULE, _, _}, _Return}) ->
+    skip;
 
 ssh_dbg_format(connections, {call, {?MODULE,init, [[Role, Sock, Opts]]}}) ->
     DefaultOpts = ssh_options:handle_options(Role,[]),

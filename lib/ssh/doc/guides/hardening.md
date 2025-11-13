@@ -91,6 +91,11 @@ increase the resilence. The options to use are:
   the connection. The timeout is started when the authentication phase is
   completed. It defaults to infinity.
 
+- **[alive](`t:ssh:alive_common_option/0`)** -
+  Sets the interval and the maximum number of alive messages that may be sent without
+  receiving any message back. Alive messages are typically used to detect that a connection
+  became unresponsive.
+
 A figure clarifies when a timeout is started and when it triggers:
 
 ![SSH server timeouts](assets/ssh_timeouts.jpg "SSH server timeouts")

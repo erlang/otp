@@ -150,6 +150,9 @@ treeCtrl(Config) ->
     ?m({0, _}, wxTreeCtrl:hitTest(Tree, {X0+W0+W0, Y0+H0+4*H0})),
     ?m(false, wxTreeCtrl:isTreeItemIdOk(0)),
 
+    {N, Sels} = wxTreeCtrl:getSelections(Tree),
+    N = length(Sels),
+
     wxFrame:connect(Tree, command_tree_item_expanded),
     wxFrame:connect(Tree, command_tree_item_collapsed),
     wxFrame:connect(Frame, close_window),
