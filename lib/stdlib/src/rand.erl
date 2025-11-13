@@ -130,7 +130,7 @@ and use the returned new state in the next call,
 or call an API function without an explicit state argument
 to operate on the state in the process dictionary.
 
-#### _Examples_
+#### _Shell Examples_
 
 ```erlang
 %% Generate two uniformly distibuted floating point numbers.
@@ -147,7 +147,7 @@ true
    is_float(R1) andalso 0.0 =< R1 andalso R1 < 1.0.
 true
 
-%% Generate a uniformly distributed integer in the range 1..4711:
+%% Generate a uniformly distributed integer in the range 1 .. 4711:
 %%
 3> K0 = rand:uniform(4711),
    is_integer(K0) andalso 1 =< K0 andalso K0 =< 4711.
@@ -218,6 +218,28 @@ true
 true
 %% R6 cannot be equal to 0.0 so math:log/1 will never fail
 17> SND1 = math:sqrt(-2 * math:log(R6)) * math:cos(math:pi() * R7).
+
+%% Shuffle a deck of cards from a fixed seed,
+%% with a cryptographically unpredictable algorithm:
+18> Deck0 = [{Rank,Suit} ||
+     Rank <- lists:seq(2, 14),
+     Suit <- [clubs,diamonds,hearts,spades]]
+19> S5 = crypto:rand_seed_alg(crypto_aes, "Nothing up my sleeve")
+20> {Deck, S6} = rand:shuffle_s(Deck0, S5).
+21> Deck.
+[{2,spades},    {12,spades},   {14,diamonds}, {11,clubs},
+ {6,spades},    {2,hearts},    {13,diamonds}, {12,hearts},
+ {10,clubs},    {7,diamonds},  {2,diamonds},  {9,diamonds},
+ {4,hearts},    {9,hearts},    {6,clubs},     {3,spades},
+ {3,diamonds},  {14,clubs},    {9,spades},    {10,hearts},
+ {3,hearts},    {4,spades},    {13,hearts},   {5,hearts},
+ {7,hearts},    {7,clubs},     {8,spades},    {14,spades},
+ {11,spades},   {12,clubs},    {5,diamonds},  {12,diamonds},
+ {4,diamonds},  {9,clubs},     {14,hearts},   {2,clubs},
+ {10,diamonds}, {13,spades},   {6,hearts},    {4,clubs},
+ {7,spades},    {5,spades},    {10,spades},   {5,clubs},
+ {8,diamonds},  {6,diamonds},  {8,clubs},     {11,hearts},
+ {13,clubs},    {11,diamonds}, {3,clubs},     {8,hearts}]
 ```
 
 [](){: #algorithms } Algorithms
@@ -334,7 +356,7 @@ relying on them will produce the same pseudo random sequences as before.
 > The new algorithms are a bit slower but do not have these problems:
 >
 > Uniform integer ranges had a skew in the probability distribution
-> that was not noticable for small ranges but for large ranges
+> that was not noticeable for small ranges but for large ranges
 > less than the generator's precision the probability to produce
 > a low number could be twice the probability for a high.
 >
@@ -405,7 +427,7 @@ the generator's range:
 
 [](){: #modulo-method }
 - **Modulo**  
-  To generate a number `V` in the range `0..Range-1`:
+  To generate a number `V` in the range `0 .. Range-1`:
 
   > Generate a number `X`.  
   > Use `V = X rem Range` as your value.
@@ -421,12 +443,12 @@ the generator's range:
   have a bias.  Example:
 
   Say the generator generates a byte, that is, the generator range
-  is `0..255`, and the desired range is `0..99` (`Range = 100`).
+  is `0 .. 255`, and the desired range is `0 .. 99` (`Range = 100`).
   Then there are 3 generator outputs that produce the value `0`,
   these are; `0`, `100` and `200`.
   But there are only 2 generator outputs that produce the value `99`,
-  which are; `99` and `199`. So the probability for a value `V` in `0..55`
-  is 3/2 times the probability for the other values `56..99`.
+  which are; `99` and `199`. So the probability for a value `V` in `0 .. 55`
+  is 3/2 times the probability for the other values `56 .. 99`.
 
   If `Range` is much smaller than the generator range, then this bias
   gets hard to detect. The rule of thumb is that if `Range` is smaller
@@ -442,8 +464,8 @@ the generator's range:
 
 [](){: #truncated-multiplication-method }
 - **Truncated multiplication**  
-  To generate a number `V` in the range `0..Range-1`, when you have
-  a generator with a power of 2 range (`0..2^Bits-1`):
+  To generate a number `V` in the range `0 .. Range-1`, when you have
+  a generator with a power of 2 range (`0 .. 2^Bits-1`):
 
   > Generate a number `X`.  
   > Use `V = X * Range bsr Bits` as your value.
@@ -460,8 +482,8 @@ the generator's range:
 
 [](){: #shift-or-mask-method }
 - **Shift or mask**  
-  To generate a number in a power of 2 range (`0..2^RBits-1`),
-  when you have a generator with a power of 2 range (`0..2^Bits`):
+  To generate a number in a power of 2 range (`0 .. 2^RBits-1`),
+  when you have a generator with a power of 2 range (`0 .. 2^Bits`):
 
   > Generate a number `X`.  
   > Use `V = X band ((1 bsl RBits)-1)` or `V = X bsr (Bits-RBits)`
@@ -489,20 +511,20 @@ the generator's range:
   Also, since the base generator is a full length generator,
   a value that will break the loop must eventually be generated.
 
-  These methods can be combined, such as using
-  the [Modulo](#modulo-method) method and only if the generator value
-  would create bias use [Rejection](#rejection-method).
-  Or using [Shift or mask](#shift-or-mask-method) to reduce the size
-  of a generator value so that
-  [Truncated multiplication](#truncated-multiplication-method)
-  will not create a bignum.
+These methods can be combined, such as using
+the [Modulo](#modulo-method) method and only if the generator value
+would create bias use [Rejection](#rejection-method).
+Or using [Shift or mask](#shift-or-mask-method) to reduce the size
+of a generator value so that
+[Truncated multiplication](#truncated-multiplication-method)
+will not create a bignum.
 
-  The recommended way to generate a floating point number
-  (IEEE 745 Double, that has got a 53-bit mantissa) in the range
-  `0..1`, that is `0.0 =< V < 1.0` is to generate a 53-bit number `X`
-  and then use `V = X * (1.0/((1 bsl 53)))` as your value.
-  This will create a value of the form N*2^-53 with equal probability
-  for every possible N for the range.
+The recommended way to generate a floating point number
+(IEEE 745 Double, that has got a 53-bit mantissa) in the range
+`0 .. 1`, that is `0.0 =< V < 1.0` is to generate a 53-bit number `X`
+and then use `V = X * (1.0/((1 bsl 53)))` as your value.
+This will create a value of the form N*2^-53 with equal probability
+for every possible N for the range.
 """.
 -moduledoc(#{since => "OTP 18.0"}).
 
@@ -750,6 +772,27 @@ Export the seed value.
 
 Returns the random number state in an external format.
 To be used with `seed/1`.
+
+#### _Shell Example_
+
+```erlang
+%% Initialize a predictable PRNG sequence
+1> S = rand:seed(exsss, 4711).
+%% Export the (initial) state
+2> E = rand:export_seed().
+%% Generate an integer N in the interval 1 .. 1000000
+3> rand:uniform(1000000).
+334013
+%% Start over with E that may have been stored
+%% in ETS, on file, etc...
+4> rand:seed(E).
+5> rand:uniform(1000000).
+334013
+%% Within the same node this works just as well
+6> rand:seed(S).
+7> rand:uniform(1000000).
+334013
+```
 """.
 -doc(#{group => <<"Plug-in framework API">>,since => <<"OTP 18.0">>}).
 -spec export_seed() -> 'undefined' | export_state().
@@ -764,6 +807,32 @@ Export the seed value.
 
 Returns the random number generator state in an external format.
 To be used with `seed/1`.
+
+#### _Shell Example_
+
+```erlang
+%% Initialize a predictable PRNG sequence
+1> S0 = rand:seed_s(exsss, 4711).
+%% Export the (initial) state
+2> E = rand:export_seed_s(S0).
+%% Generate an integer N in the interval 1 .. 1000000
+3> {N, S1} = rand:uniform_s(1000000, S0).
+4> N.
+334013
+%% Start over with E that may have been stored
+%% in ETS, on file, etc...
+5> S2 = rand:seed_s(E).
+%% S2 is equivalent to S0
+6> {N, S3} = rand:uniform_s(1000000, S2).
+%% S3 is equivalent to S1
+7> N.
+334013
+%% Within the same node this works just as well
+6> {N, S4} = rand:uniform_s(1000000, S0).
+%% S4 is equivalent to S1
+7> N.
+334013
+```
 """.
 -doc(#{group => <<"Plug-in framework API">>,since => <<"OTP 18.0">>}).
 -spec export_seed_s(State :: state()) -> export_state().
@@ -785,6 +854,24 @@ but also stores the generated state in the process dictionary.
 The argument `default` is an alias for the
 [_default algorithm_](#default-algorithm)
 that has been implemented *(Since OTP 24.0)*.
+
+#### _Shell Example_
+
+```erlang
+%% Initialize a PRNG sequence
+%% with the default algorithm and automatic seed.
+%% The return value from rand:seed/1 is normally
+%% not used, but here we use it to verify equality
+1> S = rand:seed(default).
+%% Start from a state exported from
+%% the process dictionary is equivalent
+2> S = rand:seed(rand:export_seed()).
+%% A state can also be used as a start state
+3> S = rand:seed(S).
+%% With a heavier algorithm
+4> SS = rand:seed(exro928ss).
+5> SS = rand:seed(rand:export_seed()).
+```
 """.
 -doc(#{group => <<"Plug-in framework API">>,since => <<"OTP 18.0">>}).
 -spec seed(Alg | State) -> state() when
@@ -809,6 +896,21 @@ fairly unique items may change in the future, if necessary.
 
 With the argument `State`, re-creates the state and returns it.
 See also `export_seed/0`.
+
+#### _Shell Example_
+
+```erlang
+%% Initialize a PRNG sequence
+%% with the default algorithm and automatic seed
+1> S = rand:seed_s(default).
+%% Start from an exported state is equivalent
+2> S = rand:seed_s(rand:export_seed_s(S)).
+%% A state can also be used as a start state
+3> S = rand:seed_s(S).
+%% With a heavier algorithm
+4> SS = rand:seed_s(exro928ss).
+5> SS = rand:seed_s(rand:export_seed_s(SS)).
+```
 """.
 -doc(#{group => <<"Plug-in framework API">>,since => <<"OTP 18.0">>}).
 -spec seed_s(Alg | State) -> state() when
@@ -842,6 +944,20 @@ but also stores the generated state in the process dictionary.
 `Alg = default` is an alias for the
 [_default algorithm_](#default-algorithm)
 that has been implemented *(Since OTP 24.0)*.
+
+#### _Shell Example_
+
+```erlang
+%% Create a predictable PRNG sequence initial state,
+%% in the process dictionary
+1> rand:seed(exsss, 4711).
+```
+
+> #### Note {: .info }
+>
+> Using `Alg = default` is *not* perfectly predictable since
+> which algorithm that is the default may change in a future
+> OTP release.
 """.
 -doc(#{group => <<"Plug-in framework API">>,since => <<"OTP 18.0">>}).
 -spec seed(Alg, Seed) -> state() when
@@ -858,6 +974,19 @@ from the specified `t:seed/0` integers.
 
 `Alg = default` is an alias for the [_default algorithm_](#default-algorithm)
 that has been implemented *since OTP 24.0*.
+
+#### _Shell Example_
+
+```erlang
+%% Create a predictable PRNG sequence initial state
+1> S = rand:seed(exsss, 4711).
+```
+
+> #### Note {: .info }
+>
+> Using `Alg = default` is *not* perfectly predictable since
+> which algorithm that is the default may change in a future
+> OTP release.
 """.
 -doc(#{group => <<"Plug-in framework API">>,since => <<"OTP 18.0">>}).
 -spec seed_s(Alg, Seed) -> state() when
@@ -881,6 +1010,16 @@ using the state in the process dictionary.
 
 Like `uniform_s/1` but operates on the state stored in
 the process dictionary.  Returns the generated number `X`.
+
+#### _Shell Example_
+
+```erlang
+%% Initialize a predictable PRNG sequence
+1> rand:seed(exsss, 4711).
+%% Generate a float() in [0.0, 1.0)
+2> rand:uniform().
+0.28480361525506226
+```
 """.
 -doc(#{group => <<"Plug-in framework API">>,since => <<"OTP 18.0">>}).
 -spec uniform() -> X :: float().
@@ -899,6 +1038,16 @@ using the state in the process dictionary.
 
 Like `uniform_s/2` but operates on the state stored in
 the process dictionary.  Returns the generated number `X`.
+
+#### _Shell Example_
+
+```erlang
+%% Initialize a predictable PRNG sequence
+1> rand:seed(exsss, 4711).
+%% Generate an integer in the interval 1 .. 1000000
+2> rand:uniform(1000000).
+334013
+```
 """.
 -doc(#{group => <<"Plug-in framework API">>,since => <<"OTP 18.0">>}).
 -spec uniform(N :: pos_integer()) -> X :: pos_integer().
@@ -937,6 +1086,17 @@ equally spaced in the interval.
 >         _ -> my_uniform()
 >     end.
 > ```
+
+#### _Shell Example_
+
+```erlang
+%% Initialize a predictable PRNG sequence
+1> S0 = rand:seed_s(exsss, 4711).
+%% Generate a float() F in [0.0, 1.0)
+2> {F, S1} = rand:uniform_s(S0).
+3> F.
+0.28480361525506226
+```
 """.
 -doc(#{group => <<"Plug-in framework API">>,since => <<"OTP 18.0">>}).
 -spec uniform_s(State :: state()) -> {X :: float(), NewState :: state()}.
@@ -962,6 +1122,17 @@ Generate a uniformly distributed random integer `1 =< X =< N`.
 From the specified `State`, generates a random number `X ::` `t:integer/0`,
 uniformly distributed in the specified range `1 =< X =< N`.
 Returns the number `X` and the updated `NewState`.
+
+#### _Shell Example_
+
+```erlang
+%% Initialize a predictable PRNG sequence
+1> S0 = rand:seed_s(exsss, 4711).
+%% Generate an integer N in the interval 1 .. 1000000
+2> {N, S1} = rand:uniform_s(1000000, S0).
+3> N.
+334013
+```
 """.
 -doc(#{group => <<"Plug-in framework API">>,since => <<"OTP 18.0">>}).
 -spec uniform_s(N :: pos_integer(), State :: state()) ->
@@ -998,6 +1169,21 @@ Like `uniform_real_s/1` but operates on the state stored in
 the process dictionary.  Returns the generated number `X`.
 
 See `uniform_real_s/1`.
+
+#### _Shell Example_
+
+```erlang
+%% Initialize a predictable PRNG sequence (bad seed)
+1> S = rand:seed(exsss, [4711,0]).
+%% Generate a float() in [0.0, 1.0)
+2> rand:uniform().
+0.0
+%% But, with uniform_real/1 we get better precision;
+%% generate a float() with distribution [0.0, 1.0) in (0.0, 1.0)
+3> rand:seed(S).
+3> rand:uniform_real().
+2.1911861999281885e-20
+```
 """.
 -doc(#{group => <<"Plug-in framework API">>,since => <<"OTP 21.0">>}).
 -spec uniform_real() -> X :: float().
@@ -1080,6 +1266,22 @@ in a sub range is the same, very much like the numbers generated by
 Having to generate extra random bits for occasional small numbers
 costs a little performance. This function is about 20% slower
 than the regular `uniform_s/1`
+
+#### _Shell Example_
+
+```erlang
+%% Initialize a predictable PRNG sequence (bad seed)
+1> S0 = rand:seed_s(exsss, [4711,0]).
+%% Generate a float() F in [0.0, 1.0)
+2> {F, S1} = rand:uniform_s(S0).
+3> F.
+0.0
+%% But, with uniform_real/1 we get better precision;
+%% generate a float() R with distribution [0.0, 1.0) in (0.0, 1.0)
+3> {R, S2} = rand:uniform_real_s(S0).
+5> R.
+2.1911861999281885e-20
+```
 """.
 -doc(#{group => <<"Plug-in framework API">>,since => <<"OTP 21.0">>}).
 -spec uniform_real_s(State :: state()) -> {X :: float(), NewState :: state()}.
@@ -1237,6 +1439,16 @@ using the state in the process dictionary.
 
 Like `bytes_s/2` but operates on the state stored in
 the process dictionary.  Returns the generated [`Bytes`](`t:binary/0`).
+
+#### _Shell Example_
+
+```erlang
+%% Initialize a predictable PRNG sequence
+1> rand:seed(exsss, 4711).
+%% Generate 10 bytes
+2> rand:bytes(10).
+<<72,232,227,197,77,149,79,57,9,136>>
+```
 """.
 -doc(#{group => <<"Plug-in framework API">>,since => <<"OTP 24.0">>}).
 -spec bytes(N :: non_neg_integer()) -> Bytes :: binary().
@@ -1275,10 +1487,21 @@ as required to compose the `t:binary/0`.  Returns the generated
 >
 > Particularly inefficient and slow is to use
 > a [`rand` plug-in generator](#plug-in-framework) from `m:crypto`
-> such as `crypto:rand_seed_s/0` to call this function for generating
-> bytes.  Since in that case it is not possible to reproduce
-> the byte sequence anyway; it is better to use
+> such as `crypto:rand_seed_s/0` when calling this function
+> for generating bytes.  Since in that case it is not possible
+> to reproduce the byte sequence anyway; it is better to use
 > `crypto:strong_rand_bytes/1` directly.
+
+#### _Shell Example_
+
+```erlang
+%% Initialize a predictable PRNG sequence
+1> S0 = rand:seed_s(exsss, 4711).
+%% Generate 10 bytes
+2> {Bytes, S1} = rand:bytes_s(10, S0).
+3> Bytes.
+<<72,232,227,197,77,149,79,57,9,136>>
+```
 """.
 -doc(#{group => <<"Plug-in framework API">>,since => <<"OTP 24.0">>}).
 -spec bytes_s(N :: non_neg_integer(), State :: state()) ->
@@ -1360,6 +1583,22 @@ describing jump functions.
 
 This function raises a `not_implemented` error exception if there is
 no jump function implemented for the [`State`](`t:state/0`)'s algorithm.
+
+#### _Shell Example_
+
+```erlang
+%% Initialize a predictable PRNG sequence
+1> Sa0 = rand:seed_s(exsss, 4711).
+2> Sb0 = rand:jump(Sa0).
+%% Sa and Sb can now be used for surely
+%% non-overlapping PRNG sequences
+3> {BytesA, Sa1} = rand:bytes_s(10, Sa0).
+4> {BytesB, Sb1} = rand:bytes_s(10, Sb0).
+5> BytesA.
+<<72,232,227,197,77,149,79,57,9,136>>
+6> BytesB.
+<<105,25,180,32,189,44,213,220,254,22>>
+```
 """.
 -doc(#{group => <<"Plug-in framework API">>,since => <<"OTP 20.0">>}).
 -spec jump(State :: state()) -> NewState :: state().
@@ -1379,6 +1618,26 @@ Jump the generator state forward.
 
 Like `jump/1` but operates on the state stored in
 the process dictionary.  Returns the [`NewState`](`t:state/0`).
+
+#### _Shell Example_
+
+```erlang
+%% Initialize a predictable PRNG sequence
+1> S = rand:seed(exsss, 4711).
+2> Parent = self().
+3> Pid = spawn(
+     fun() ->
+       rand:seed(S),
+       rand:jump(),
+       Parent ! {self(), rand:bytes(10)}
+     end).
+%% Parent and Pid now produce surely
+%% non-overlapping PRNG sequences
+4> rand:bytes(10).
+<<72,232,227,197,77,149,79,57,9,136>>
+5> receive {Pid, Bytes} -> Bytes end.
+<<105,25,180,32,189,44,213,220,254,22>>
+```
 """.
 -doc(#{group => <<"Plug-in framework API">>,since => <<"OTP 20.0">>}).
 -spec jump() -> NewState :: state().
@@ -1393,6 +1652,16 @@ Generate a random number with standard normal distribution.
 
 Like `normal_s/1` but operates on the state stored in
 the process dictionary.  Returns the generated number `X`.
+
+#### _Shell Example_
+
+```erlang
+%% Initialize a predictable PRNG sequence
+1> rand:seed(exsss, 4711).
+%% Generate a float() with distribution 𝒩 (0.0, 1.0)
+2> rand:normal().
+0.5235119324419965
+```
 """.
 -doc(#{group => <<"Plug-in framework API">>,since => <<"OTP 18.0">>}).
 -spec normal() -> X :: float().
@@ -1409,6 +1678,16 @@ Generate a random number with specified normal distribution 𝒩 *(μ, σ²)*.
 
 Like `normal_s/3` but operates on the state stored in
 the process dictionary.  Returns the generated number `X`.
+
+#### _Shell Example_
+
+```erlang
+%% Initialize a predictable PRNG sequence
+1> rand:seed(exsss, 4711).
+%% Generate a float() with distribution 𝒩 (-3.0, 0.5)
+2> rand:normal(-3.0, 0.5).
+-2.6298211625381906
+```
 """.
 -doc(#{group => <<"Plug-in framework API">>,since => <<"OTP 20.0">>}).
 -spec normal(Mean :: number(), Variance :: number()) -> X :: float().
@@ -1428,6 +1707,17 @@ and variance `1.0`.
 
 Returns the generated number [`X`](`t:float/0`)
 and the [`NewState`](`t:state/0`).
+
+#### _Shell Example_
+
+```erlang
+%% Initialize a predictable PRNG sequence
+1> S0 = rand:seed_s(exsss, 4711).
+%% Generate a float() F with distribution 𝒩 (0.0, 1.0)
+2> {F, S1} = rand:normal_s(S0).
+3> F.
+0.5235119324419965
+```
 """.
 -doc(#{group => <<"Plug-in framework API">>,since => <<"OTP 18.0">>}).
 -spec normal_s(State :: state()) -> {X :: float(), NewState :: state()}.
@@ -1456,6 +1746,17 @@ with normal distribution 𝒩 *(μ, σ²)*, that is 𝒩 (Mean, Variance)
 where `Variance >= 0.0`.
 
 Returns [`X`](`t:float/0`) and the [`NewState`](`t:state/0`).
+
+#### _Shell Example_
+
+```erlang
+%% Initialize a predictable PRNG sequence
+1> S0 = rand:seed_s(exsss, 4711).
+%% Generate a float() F with distribution 𝒩 (-3.0, 0.5)
+2> {F, S1} = rand:normal_s(-3.0, 0.5, S0).
+3> F.
+-2.6298211625381906
+```
 """.
 -doc(#{group => <<"Plug-in framework API">>,since => <<"OTP 20.0">>}).
 -spec normal_s(Mean, Variance, State) -> {X :: float(), NewState :: state()}
@@ -1473,6 +1774,19 @@ Shuffle a list.
 
 Like `shuffle_s/2` but operates on the state stored in
 the process dictionary.  Returns the shuffled list.
+
+#### _Shell Example_
+
+```erlang
+%% Initialize a predictable PRNG sequence
+1> rand:seed(exsss, 4711).
+%% Create a list
+2> L = lists:seq($A, $Z).
+"ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+%% Shuffle the list
+3> rand:shuffle(L).
+"KRCYQBUXTIWHMEJGFNODAZPSLV"
+```
 """.
 -doc(#{group => <<"Plug-in framework API">>,since => <<"OTP 29.0">>}).
 -spec shuffle(List :: list()) -> ShuffledList :: list().
@@ -1497,6 +1811,20 @@ to initialize the random number generator.
 
 Returns the shuffled list [`ShuffledList`](`t:list/0`)
 and the [`NewState`](`t:state/0`).
+
+#### _Shell Example_
+
+```erlang
+%% Initialize a predictable PRNG sequence
+1> S0 = rand:seed_s(exsss, 4711).
+%% Create a list
+2> L0 = lists:seq($A, $Z).
+"ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+%% Shuffle the list
+3> {L1, S1} = rand:shuffle_s(L0, S0).
+4> L1.
+"KRCYQBUXTIWHMEJGFNODAZPSLV"
+```
 """.
 -doc(#{group => <<"Plug-in framework API">>,since => <<"OTP 29.0">>}).
 -spec shuffle_s(List, State) ->
@@ -1863,6 +2191,11 @@ exsss_seed({A1, A2, A3}) ->
        ?MASK(58, V_b + ?BSL(58, V_b, 3))                     % * 9
    end).
 
+%% Just noted.  Multiplicative inverses:
+%% (9 * 16#238e38e38e38e39) band ((1 bsl 58) - 1) == 1
+%% (5 * 16#cccccccccccccd) band ((1 bsl 58) - 1) == 1
+
+
 %% Advance state and generate 58bit unsigned integer
 %%
 -dialyzer({no_improper_lists, exsp_next/1}).
@@ -1891,12 +2224,22 @@ with a specific [`Seed`](`t:seed/0`).
 > nor in generating floating point numbers.  It is easy to accidentally
 > mess up the statistical properties of this generator or to loose
 > the performance advantage when doing either.
-> See the recipes at the start of this
-> [Niche algorithms API](#niche-algorithms-api) description.
+> See the recipes in section [Niche algorithms](#niche-algorithms).
 >
 > Note also the caveat about weak low bits that this generator suffers from.
 >
 > The generator is exported in this form primarily for performance reasons.
+
+#### _Shell Example_
+
+```erlang
+%% Initialize a predictable PRNG sequence
+1> {_, R0} = rand:seed(exsp, 4711).
+%% Generate a 32-bit random integer
+2> {X, R1} = rand:exsp_next(R0).
+3> V = X bsr (58 - 32).
+2183156113
+```
 """.
 -doc(#{group => <<"Niche algorithms API">>,since => <<"OTP 25.0">>}).
 -spec exsp_next(AlgState :: exsplus_state()) ->
@@ -1996,6 +2339,21 @@ See the description of jump functions at the top of this module description.
 
 See `exsp_next/1` about why this internal implementation function
 has been exposed.
+
+#### _Shell Example_
+
+```erlang
+%% Initialize an 'exsp' PRNG
+1> {_, Ra0} = rand:seed_s(exsp, 4711).
+2> Rb0 = rand:exsp_jump(Ra0).
+3> {A1, Ra1} = rand:exsp_next(Ra0).
+4> {B1, Rb1} = rand:exsp_next(Rb0).
+%% A1 and B1 are the start of two non-overlapping PRNG sequences
+5> A1.
+146509126700279260
+6> B1.
+141632021409309024
+```
 """.
 -doc(#{group => <<"Niche algorithms API">>,since => <<"OTP 25.0">>}).
 -spec exsp_jump(AlgState :: exsplus_state()) ->
@@ -2592,8 +2950,7 @@ The low bits of the base generator are surprisingly good, so the lowest
 weaknesses that lie in the high bits of the 32-bit MWC "digit".
 It is recommended to use `rem` on the the generator state, or bit mask
 extracting the lowest bits to produce numbers in a range 16 bits or less.
-See the recipes at the start of this
-[Niche algorithms API](#niche-algorithms-api) description.
+See the recipes in section [Niche algorithms](#niche-algorithms).
 
 On a typical 64 bit Erlang VM this generator executes in below 8% (1/13)
 of the time for the default algorithm in the
@@ -2611,6 +2968,21 @@ is 60% of the time for the default algorithm generating a `t:float/0`.
 > is a quality concern, although when used with the value scramblers
 > it passes strict PRNG tests.  The generator is much faster than
 > `exsp_next/1` but with a bit lower quality and much shorter period.
+
+#### _Shell Example_
+
+```erlang
+%% Initialize a predictable PRNG sequence
+1> CX0 = rand:mwc59_seed(4711).
+%% Generate a 16 bit integer
+2> CX1 = rand:mwc59(CX0).
+3> CX1 band 65535.
+7714
+%% Generate an integer 0 .. 999 with not noticeable bias
+2> CX2 = rand:mwc59(CX1).
+3> CX2 rem 1000.
+86
+```
 """.
 -doc(#{group => <<"Niche algorithms API">>,since => <<"OTP 25.0">>}).
 -spec mwc59(CX0 :: mwc59_state()) -> CX1 :: mwc59_state().
@@ -2644,16 +3016,30 @@ When using this scrambler it is in general better to use the high bits of the
 value than the low. The lowest 8 bits are of good quality and are passed
 right through from the base generator. They are combined with the next 8
 in the xorshift making the low 16 good quality, but in the range
-16..31 bits there are weaker bits that should not become high bits
+16 .. 31 bits there are weaker bits that should not become high bits
 of the generated values.
 
-Therefore it is in general safer to shift out low bits. See the recipes
-at the start of this [Niche algorithms API](#niche-algorithms-api)
-description.
+Therefore it is in general safer to shift out low bits.
+See the recipes in section [Niche algorithms](#niche-algorithms).
 
 For a non power of 2 range less than about 16 bits (to not get
 too much bias and to avoid bignums) truncated multiplication can be used,
 that is: `(Range*V) bsr 32`, which is much faster than using `rem`.
+
+#### _Shell Example_
+
+```erlang
+%% Initialize a predictable PRNG sequence
+1> CX0 = rand:mwc59_seed(4711).
+%% Generate a 32 bit integer
+2> CX1 = rand:mwc59(CX0).
+3> rand:mwc59_value32(CX1).
+2935831586
+%% Generate an integer 0 .. 999 with not noticeable bias
+2> CX2 = rand:mwc59(CX1).
+3> (rand:mwc59_value32(CX2) * 1000) bsr 32.
+540
+```
 """.
 -doc(#{group => <<"Niche algorithms API">>,since => <<"OTP 25.0">>}).
 -spec mwc59_value32(CX :: mwc59_state()) -> V :: 0..?MASK(32).
@@ -2672,15 +3058,33 @@ base generator enough that all 59 bits are of very good quality.
 Be careful to not accidentaly create a bignum when handling the value `V`.
 
 It is in general general better to use the high bits from this scrambler than
-the low. See the recipes at the start of this
-[Niche algorithms API](#niche-algorithms-api) description.
+the low.  See the recipes in section [Niche algorithms](#niche-algorithms).
 
-For a non power of 2 range less than about 29 bits (to not get
+For a non power of 2 range less than about 20 bits (to not get
 too much bias and to avoid bignums) truncated multiplication can be used,
-which is much faster than using `rem`. Example for range 1'000'000'000;
-the range is 30 bits, we use 29 bits from the generator,
+which is much faster than using `rem`. Example for range 1'000'000;
+the range is 20 bits, we use 39 bits from the generator,
 adding up to 59 bits, which is not a bignum (on a 64-bit VM ):
-`(1000000000 * (V bsr (59-29))) bsr 29`.
+`(1000_000 * (V bsr (59-39))) bsr 39`.
+
+#### _Shell Example_
+
+```erlang
+%% Initialize a predictable PRNG sequence
+1> CX0 = rand:mwc59_seed(4711).
+%% Generate a 48 bit integer
+2> CX1 = rand:mwc59(CX0).
+3> rand:mwc59_value(CX1) bsr (59-48).
+247563052677727
+%% Generate an integer 0 .. 1'000'000 with not noticeable bias
+4> CX2 = rand:mwc59(CX1).
+5> ((rand:mwc59_value(CX2) bsr (59-39)) * 1000_000) bsr 39.
+144457
+%% Generate an integer 0 .. 1'000'000'000 with not noticeable bias
+4> CX3 = rand:mwc59(CX2).
+5> rand:mwc59_value(CX3) rem 1000_000_000.
+949193925
+```
 """.
 -doc(#{group => <<"Niche algorithms API">>,since => <<"OTP 25.0">>}).
 -spec mwc59_value(CX :: mwc59_state()) -> V :: 0..?MASK(59).
@@ -2701,6 +3105,17 @@ in the range `0.0 =< V < 1.0` like for example `uniform_s/1`.
 
 The generator state is scrambled as with
 [`mwc59_value/1`](`mwc59_value/1`) before converted to a `t:float/0`.
+
+#### _Shell Example_
+
+```erlang
+%% Initialize a predictable PRNG sequence
+1> CX0 = rand:mwc59_seed(4711).
+%% Generate a float() F in [0.0, 1.0)
+2> CX1 = rand:mwc59(CX0).
+3> rand:mwc59_float(CX1).
+0.28932119128137423
+```
 """.
 -doc(#{group => <<"Niche algorithms API">>,since => <<"OTP 25.0">>}).
 -spec mwc59_float(CX :: mwc59_state()) -> V :: float().
@@ -2710,8 +3125,18 @@ mwc59_float(CX0) when is_integer(CX0), 1 =< CX0, CX0 < ?MWC59_P ->
 -doc """
 Create a [MWC59 generator state](`t:mwc59_state/0`).
 
-Like `mwc59_seed/1` but it hashes the default seed value
-of [`seed_s(atom())`](`seed_s/1`).
+Like `mwc59_seed/1` but creates a reasonably unpredictable seed
+just like [`seed_s(atom())`](`seed_s/1`).
+
+#### _Shell Example_
+
+```erlang
+%% Initialize the 'mwc59' PRNG
+1> CX0 = rand:mwc59_seed().
+%% Generate an integer 0 .. 999 with not noticeable bias
+2> CX1 = rand:mwc59(CX0).
+3> CX1 rem 1000.
+```
 """.
 -doc(#{group => <<"Niche algorithms API">>,since => <<"OTP 25.0">>}).
 -spec mwc59_seed() -> CX :: mwc59_state().
@@ -2728,6 +3153,17 @@ Create a [MWC59 generator state](`t:mwc59_state/0`).
 Returns a generator state [`CX`](`t:mwc59_state/0`).
 The 58-bit seed value `S` is hashed to create the generator state,
 to avoid that similar seeds create similar sequences.
+
+#### _Shell Example_
+
+```erlang
+%% Initialize a predictable PRNG sequence
+1> CX0 = rand:mwc59_seed(4711).
+%% Generate a 16 bit integer
+2> CX1 = rand:mwc59(CX0).
+3> CX1 band 65535.
+7714
+```
 """.
 -doc(#{group => <<"Niche algorithms API">>,since => <<"OTP 25.0">>}).
 -spec mwc59_seed(S :: 0..?MASK(58)) -> CX :: mwc59_state().
@@ -2835,6 +3271,17 @@ according to the SplitMix64 algorithm.
 This generator is used internally in the `rand` module for seeding other
 generators since it is of a quite different breed which reduces
 the probability for creating an accidentally bad seed.
+
+#### _Shell Example_
+
+```erlang
+%% Initialize a predictable PRNG sequence
+1> {_, R0} = rand:splitmix64_next(erlang:phash2(4711)).
+%% Generate a 64 bit integer
+2> {X, R1} = rand:splitmix64_next(R0).
+3> X.
+8700325640925601664
+```
 """.
 -doc(#{group => <<"Niche algorithms API">>,since => <<"OTP 25.0">>}).
 -spec splitmix64_next(AlgState :: integer()) ->
