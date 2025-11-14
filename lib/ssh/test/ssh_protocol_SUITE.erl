@@ -123,7 +123,25 @@
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
 suite() ->
-    [{ct_hooks,[ts_install_cth]},
+    VerifyFun =
+        fun(_, 0) ->
+                ok;
+           (client_close_after_hello, 1) ->
+                ok;
+           (extra_ssh_msg_service_request, 1) ->
+                ok;
+           (_, EventNumber) ->
+                {fail, lists:flatten(
+                         io_lib:format("unexpected event cnt: ~s",
+                                       [integer_to_list(EventNumber)]))}
+        end,
+    SkipTc = [kex_strict_negotiated,
+              kex_strict_violation,
+              kex_strict_violation_2],
+    [{ct_hooks,[ts_install_cth,
+                {cth_events,
+                 [{verify_fun, VerifyFun},
+                  {skip_tc, SkipTc}]}]},
      {timetrap,{seconds,40}}].
 
 all() -> 
@@ -550,7 +568,7 @@ no_common_alg_client_disconnects(Config) ->
 	    ct:log("ERROR!~nOp = ~p~nExecResult = ~p~nState =~n~s",
 		   [Op,ExecResult,ssh_trpt_test_lib:format_msg(S)]),
 	    {fail, ExecResult};
-	X -> 
+	{result, Pid, X} ->
 	    ct:log("¤¤¤¤¤"),
 	    ct:fail(X)
     after 

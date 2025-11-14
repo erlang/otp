@@ -109,7 +109,9 @@
 %%--------------------------------------------------------------------
 
 suite() ->
-    [{ct_hooks,[ts_install_cth]},
+    [{ct_hooks,[ts_install_cth,
+                {cth_events,
+                 [{verify_fun, fun verify_events/2}]}]},
      {timetrap,{seconds,90}}].
 
 all() -> 
@@ -190,10 +192,9 @@ init_per_group(_, Config) ->
 end_per_group(_, Config) ->
     Config.
 %%--------------------------------------------------------------------
-init_per_testcase(TestCase, Config0)
+init_per_testcase(TestCase, Config)
   when TestCase==shell_no_unicode;
        TestCase==shell_unicode_string ->
-    Config = ssh_test_lib:add_log_handler(TestCase, Config0),
     PrivDir = proplists:get_value(priv_dir, Config),
     UserDir = proplists:get_value(priv_dir, Config),
     SysDir =  proplists:get_value(data_dir, Config),
@@ -210,8 +211,7 @@ init_per_testcase(TestCase, Config0)
     ct:log("file:native_name_encoding() = ~p,~nio:getopts() = ~p",
 	   [file:native_name_encoding(),io:getopts()]),
     wait_for_erlang_first_line([{io,IO}, {shell,Shell}, {sftpd, Sftpd}  | Config]);
-init_per_testcase(TestCase = inet6_option, Config0) ->
-    Config = ssh_test_lib:add_log_handler(TestCase, Config0),
+init_per_testcase(inet6_option, Config) ->
     case ssh_test_lib:has_inet6_address() of
 	true ->
 	    init_per_testcase('__default__', Config);
@@ -226,26 +226,13 @@ end_per_testcase(TestCase, Config)
        TestCase==shell_unicode_string ->
     case proplists:get_value(sftpd, Config) of
 	{Pid, _, _} ->
-	    catch ssh:stop_daemon(Pid);
+	    catch ssh:stop_daemon(Pid),
+            ok;
 	_ ->
 	    ok
-    end,
-    process_events(TestCase, Config);
-end_per_testcase(TestCase, Config) ->
-    process_events(TestCase, Config).
-
-%% FIXME in parallel executions (p_basic group) this setup does not
-%% work log handlers are uniq per testcase, but they all receive same
-%% logger events; so if one testcase fails due to logger events, rest
-%% of group might fail as well
-process_events(TestCase, Config) ->
-    {ok, Events} = ssh_test_lib:get_log_events(
-                     proplists:get_value(log_handler_ref, Config)),
-    EventCnt = length(Events),
-    {ok, InterestingEventCnt} = ssh_test_lib:analyze_events(Events, EventCnt),
-    VerificationResult = verify_events(TestCase, InterestingEventCnt),
-    ssh_test_lib:rm_log_handler(TestCase),
-    VerificationResult.
+    end;
+end_per_testcase(_TestCase, _Config) ->
+    ok.
 
 verify_events(_TestCase, 0) ->
     ok;
