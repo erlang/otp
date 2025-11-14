@@ -169,12 +169,15 @@ should not be tested
 """.
 -spec module(#docs_v1{}, erl_eval:binding_struct()) -> _.
 module(#docs_v1{ docs = Docs, module_doc = MD }, Bindings) ->
-    MDRes = [parse_and_run(module_doc, MD, Bindings)],
-    Res0 = [parse_and_run(KFA, EntryDocs, Bindings) ||
-               {KFA, _Anno, _Sig, EntryDocs, _Meta} <- Docs,
-               is_map(EntryDocs)] ++ MDRes,
-    Res = lists:append(Res0),
-    Errors = [{{F,A},E} || {{function,F,A},[{error,E}]} <- Res],
+    MDRes = lists:append([parse_and_run(module_doc, MD, Bindings)]),
+    Res =
+        lists:append(
+          [parse_and_run(KFA, EntryDocs, Bindings) ||
+              {KFA, _Anno, _Sig, EntryDocs, _Meta} <- Docs,
+              is_map(EntryDocs)]),
+    Errors =
+        [{{F,A},E} || {{function,F,A},[{error,E}]} <- Res]
+        ++ [{module_doc,E} || {module_doc,[{error,E}]} <- MDRes],
     _ = [print_error(E) || E <- Errors],
     case length(Errors) of
         0 ->
@@ -193,6 +196,8 @@ module(#docs_v1{ docs = Docs, module_doc = MD }, Bindings) ->
             error({N,errors})
     end.
 
+print_error({module_doc,{Message,Context}}) ->
+    io:format("Module Doc: ~ts~n~ts~n", [Context,Message]);
 print_error({{Name,Arity},{Message,Context}}) ->
     io:format("~p/~p: ~ts~n~ts~n", [Name,Arity,Context,Message]).
 
