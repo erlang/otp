@@ -53,7 +53,7 @@
 -import(edoc_report, [report/2, warning/2]).
 
 %% @headerfile "../include/edoc_doclet.hrl"
--include("../include/edoc_doclet.hrl").
+-include_lib("edoc/include/edoc_doclet.hrl").
 
 -define(EDOC_APP, edoc).
 -define(DEFAULT_FILE_SUFFIX, ".html").

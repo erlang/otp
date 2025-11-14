@@ -47,7 +47,7 @@
 -define(log(S,A), log(?MODULE_STRING,?LINE,S,A)).
 
 -include("wxe.hrl").
--include("../include/wx.hrl").
+-include_lib("wx/include/wx.hrl").
 
 %%====================================================================
 %% API
