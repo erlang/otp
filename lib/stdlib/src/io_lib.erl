@@ -478,7 +478,8 @@ longer than one line into many lines and indents each line sensibly.
 Also tries to detect and output lists of printable characters as strings.
 
 - `Column` is the starting column; defaults to 1.
-- `LineLength` is the maximum line length; defaults to 80.
+- `LineLength` is the maximum line length; defaults to 80. The value 0 can be used
+   to specify infinite length, meaning that no line breaks are inserted.
 - `Depth` is the maximum print depth; defaults to -1, which means no limitation.
 """.
 -spec print(Term, Column, LineLength, Depth) -> chars() when
