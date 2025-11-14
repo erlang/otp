@@ -47,13 +47,14 @@ ERL_NIF_TERM enable_fips_mode(ErlNifEnv* env, ERL_NIF_TERM fips_mode_to_set)
     if (!fips_mode && fips_mode_to_set != atom_false) {
         return enif_make_badarg(env);
     }
-
-    bool result = FIPS_mode_set(fips_mode) ? atom_true : atom_false;
-    if (result && previous_setting != fips_mode) {
-        /* Reinitialize the algorithms which may disappear or reappear when FIPS mode changes */
-        algorithms_reset_cache();
+    else {
+        bool result = FIPS_mode_set(fips_mode) ? atom_true : atom_false;
+        if (result && previous_setting != fips_mode) {
+            /* Reinitialize the algorithms which may disappear or reappear when FIPS mode changes */
+            algorithms_reset_cache();
+        }
+        return result;
     }
-    return result;
 }
 #else
 {

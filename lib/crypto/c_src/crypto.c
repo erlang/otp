@@ -190,6 +190,8 @@ static int verify_lib_version(void)
     return 1;
 }
 
+#define REPORT_FAILURE(M) error_message = (M); ret = __LINE__; goto done
+#define REPORT_FAILURE_NO_MESSAGE() error_message = NULL; ret = __LINE__; goto done
 
 static int initialize(ErlNifEnv* env, ERL_NIF_TERM load_info)
 {
@@ -206,6 +208,7 @@ static int initialize(ErlNifEnv* env, ERL_NIF_TERM load_info)
     int vernum;
     ErlNifBinary rt_buf = { 0, NULL };
     ErlNifBinary lib_bin;
+    const char* error_message = NULL; // To be printed before failing library init
 #ifdef HAVE_DYNAMIC_CRYPTO_LIB
     char lib_buf[1000];
     void *handle;
@@ -213,7 +216,7 @@ static int initialize(ErlNifEnv* env, ERL_NIF_TERM load_info)
     int ret = -1;
 
     if (!verify_lib_version()) {
-        ret = __LINE__; goto done;
+        REPORT_FAILURE("Incompatible OpenSSL version found");
     }
     /* load_info: {302, <<"/full/path/of/this/library">>,true|false} */
     if (!enif_get_tuple(env, load_info, &tpl_arity, &tpl_array)) {
@@ -282,10 +285,10 @@ static int initialize(ErlNifEnv* env, ERL_NIF_TERM load_info)
     fips_provider = OSSL_PROVIDER_load(NULL, "fips");
 # endif
     if (!(prov[prov_cnt++] = OSSL_PROVIDER_load(NULL, "default"))) {
-        ret = __LINE__; goto done;
+        REPORT_FAILURE("Attempt to load OpenSSL 'default' provider failed");
     }
     if (!(prov[prov_cnt++] = OSSL_PROVIDER_load(NULL, "base"))) {
-            ret = __LINE__; goto done;
+        REPORT_FAILURE("Attempt to load OpenSSL 'base' provider failed");
     }
     if ((prov[prov_cnt] = OSSL_PROVIDER_load(NULL, "legacy"))) {
         /* Don't fail loading if the legacy provider is missing */
@@ -300,18 +303,19 @@ static int initialize(ErlNifEnv* env, ERL_NIF_TERM load_info)
     }
     /* Check if enter FIPS mode at module load (happening now) */
     if (enable_fips_mode(env, tpl_array[2]) != atom_true) {
-        ret = __LINE__; goto done;
+        REPORT_FAILURE("Attempt to enable FIPS mode failed. "\
+            "Are OpenSSL and OS environment configured properly for FIPS?");
     }
 #ifdef HAVE_DYNAMIC_CRYPTO_LIB
     if (!change_basename(&lib_bin, lib_buf, sizeof(lib_buf), crypto_callback_name)) {
         ret = __LINE__; goto done;
     }
     if ((handle = enif_dlopen(lib_buf, &error_handler, NULL)) == NULL) {
-        ret = __LINE__; goto done;
+        REPORT_FAILURE("Attempt to load OpenSSL dynamic library failed");
     }
     if ((funcp = (get_crypto_callbacks_t*) enif_dlsym(handle, "get_crypto_callbacks",
                                                        &error_handler, NULL)) == NULL) {
-        ret = __LINE__; goto done;
+        REPORT_FAILURE("Attempt to load OpenSSL dynamic library succeeded but finding crypto callbacks in it failed");
     }
 #else /* !HAVE_DYNAMIC_CRYPTO_LIB */
     funcp = &get_crypto_callbacks;
@@ -331,7 +335,7 @@ static int initialize(ErlNifEnv* env, ERL_NIF_TERM load_info)
 
     if (!ccb || ccb->sizeof_me != sizeof(*ccb)) {
 	PRINTF_ERR0("Invalid 'crypto_callbacks'");
-	ret = __LINE__; goto done;
+        REPORT_FAILURE("Finding crypto callbacks in the OpenSSL library failed");
     }
 
 #ifdef HAS_CRYPTO_MEM_FUNCTIONS
@@ -359,8 +363,12 @@ static int initialize(ErlNifEnv* env, ERL_NIF_TERM load_info)
 done:
     ASSERT(ret >= 0);
 
-    if (rt_buf.data)
+    if (rt_buf.data) {
         enif_release_binary(&rt_buf);
+    }
+    if (ret > 0 && error_message != NULL) {
+        fprintf(stderr, "crypto initialization failed: %s\r\n", error_message);
+    }
 
     return ret;
 }

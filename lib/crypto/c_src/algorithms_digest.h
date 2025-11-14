@@ -31,24 +31,21 @@ extern "C" {
 #include "common.h"
 
 // Wraps a pointer to digest_availability_t which is a C++ struct with C++ features, for use in C API
-struct digest_availability_Cptr {
-    void* ptr;
-};
+typedef struct digest_availability_t digest_availability_C;
 
 //
 // C Digest storage API
 //
-void digest_types_lazy_init(ErlNifEnv* env, bool fips_mode);
-void digest_types_delayed_init(ErlNifEnv* env);
+void digest_types_lazy_init(ErlNifEnv* env, bool fips_enabled);
 ERL_NIF_TERM digest_types_as_list(ErlNifEnv* env, bool fips_forbidden);
 
 // Lookup and access fields
-struct digest_availability_Cptr get_digest_type(ERL_NIF_TERM type); // linear lookup by atom
-bool is_digest_forbidden_in_fips(struct digest_availability_Cptr p); // access C++ member from C
-const EVP_MD* get_digest_availability_md(struct digest_availability_Cptr p); // access field
-size_t get_digest_availability_xof_default_length(struct digest_availability_Cptr p); // access field
-const char* get_digest_availability_str_v3(struct digest_availability_Cptr p); // access str_v3 name (field of probe)
-bool is_digest_eligible_for_pbkdf2(struct digest_availability_Cptr p); // check PBKDF2 availability bit
+digest_availability_C* get_digest_type(ERL_NIF_TERM type); // linear lookup by atom
+bool is_digest_forbidden_in_fips(const digest_availability_C* p); // access C++ member from C
+const EVP_MD* get_digest_availability_md(const digest_availability_C* p); // access field
+size_t get_digest_availability_xof_default_length(const digest_availability_C* p); // access field
+const char* get_digest_availability_str_v3(const digest_availability_C* p); // access str_v3 name (field of probe)
+bool is_digest_eligible_for_pbkdf2(const digest_availability_C* p); // check PBKDF2 availability bit
 
 #ifdef __cplusplus
 }

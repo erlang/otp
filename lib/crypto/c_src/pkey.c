@@ -159,7 +159,7 @@ static int check_pkey_algorithm_type(ErlNifEnv *env,
 
  static int get_pkey_digest_type(ErlNifEnv* env, ERL_NIF_TERM algorithm, const int type_arg_num, ERL_NIF_TERM type,
                                  const EVP_MD** md, ERL_NIF_TERM* err_return) {
-    struct digest_availability_Cptr digp;
+    digest_availability_C* digp;
     *md = NULL;
 
     if (type == atom_none) {
@@ -181,7 +181,7 @@ static int check_pkey_algorithm_type(ErlNifEnv *env,
         return 1;
 
     digp = get_digest_type(type);
-    if (digp.ptr == NULL)
+    if (digp == NULL)
         assign_goto(*err_return, notsup, EXCP_BADARG_N(env, type_arg_num, "Bad digest type"));
 
     if (is_digest_forbidden_in_fips(digp))

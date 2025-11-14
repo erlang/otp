@@ -42,7 +42,7 @@ struct evp_md_ctx {
 /* Define resource types for OpenSSL context structures. */
 static ErlNifResourceType* evp_md_ctx_rtype;
 
-static void evp_md_ctx_dtor(ErlNifEnv* env, struct evp_md_ctx *ctx) {
+static void evp_md_ctx_dtor(ErlNifEnv* env, const struct evp_md_ctx *ctx) {
     if (ctx == NULL)
         return;
 
@@ -81,8 +81,8 @@ ERL_NIF_TERM hash_info_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     ASSERT(argc == 1);
 
     {
-        struct digest_availability_Cptr digp = get_digest_type(argv[0]);
-        if (digp.ptr == NULL)
+        digest_availability_C* digp = get_digest_type(argv[0]);
+        if (digp == NULL)
             return enif_make_badarg(env);
         if (is_digest_forbidden_in_fips(digp))
             return RAISE_NOTSUP(env);
@@ -109,8 +109,8 @@ ERL_NIF_TERM hash_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     unsigned             ret_size;
     unsigned char        *outp;
 
-    struct digest_availability_Cptr digp = get_digest_type(argv[0]);
-    if (digp.ptr == NULL)
+    digest_availability_C* digp = get_digest_type(argv[0]);
+    if (digp == NULL)
         return EXCP_BADARG_N(env, 0, "Bad digest type");
     if (is_digest_forbidden_in_fips(digp))
         return EXCP_NOTSUP_N(env, 0, "Bad digest type in FIPS");
@@ -174,8 +174,8 @@ ERL_NIF_TERM hash_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     struct evp_md_ctx    *ctx = NULL;
     ERL_NIF_TERM         ret;
 
-    struct digest_availability_Cptr digp = get_digest_type(argv[0]);
-    if (digp.ptr == NULL)
+    digest_availability_C* digp = get_digest_type(argv[0]);
+    if (digp == NULL)
         return EXCP_BADARG_N(env, 0, "Bad digest type");
 
     if (is_digest_forbidden_in_fips(digp))

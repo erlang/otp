@@ -52,6 +52,7 @@ struct auto_openssl_resource_t {
     }
 };
 
+#ifdef HAS_3_0_API
 struct auto_evp_pkey_t : auto_openssl_resource_t<EVP_PKEY*, auto_evp_pkey_t> {
     auto_evp_pkey_t() = default;
     explicit auto_evp_pkey_t(EVP_PKEY* p) : auto_openssl_resource_t(p) {}
@@ -63,12 +64,13 @@ struct auto_evp_pkey_ctx_t : auto_openssl_resource_t<EVP_PKEY_CTX*, auto_evp_pke
     explicit auto_evp_pkey_ctx_t(EVP_PKEY_CTX* p) : auto_openssl_resource_t(p) {}
     static void free_resource(EVP_PKEY_CTX* p);
 };
-
+#else
 struct auto_ec_key_t : auto_openssl_resource_t<EC_KEY*, auto_ec_key_t> {
     auto_ec_key_t() = default;
     explicit auto_ec_key_t(EC_KEY* p) : auto_openssl_resource_t(p) {}
     static void free_resource(EC_KEY* p);
 };
+#endif // HAS_3_0_API
 
 #ifdef HAVE_ML_KEM
 struct auto_evp_kem_t : auto_openssl_resource_t<EVP_KEM*, auto_evp_kem_t> {

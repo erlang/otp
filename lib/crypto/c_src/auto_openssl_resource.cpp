@@ -21,41 +21,42 @@
  */
 #include "auto_openssl_resource.h"
 
-void auto_evp_pkey_t::free_resource(EVP_PKEY* p) {
+#ifdef HAS_3_0_API
+void auto_evp_pkey_t::free_resource(EVP_PKEY *p) {
     if (p) {
         EVP_PKEY_free(p);
     }
 }
 
-void auto_evp_pkey_ctx_t::free_resource(EVP_PKEY_CTX* p) {
+void auto_evp_pkey_ctx_t::free_resource(EVP_PKEY_CTX *p) {
     if (p) {
         EVP_PKEY_CTX_free(p);
     }
 }
-
-void auto_ec_key_t::free_resource(EC_KEY* p) {
+#else
+void auto_ec_key_t::free_resource(EC_KEY *p) {
     if (p) {
-        // TODO: EC_KEY_free is deprecated since OpenSSL 3.0
         EC_KEY_free(p);
     }
 }
+#endif // HAS_3_0_API
 
 #ifdef HAVE_ML_KEM
-void auto_evp_kem_t::free_resource(EVP_KEM* p) {
+void auto_evp_kem_t::free_resource(EVP_KEM *p) {
     if (p) {
         EVP_KEM_free(p);
     }
 }
 #endif
 
-void auto_evp_mac_t::free_resource(EVP_MAC* p) {
+void auto_evp_mac_t::free_resource(EVP_MAC *p) {
     if (p) {
         EVP_MAC_free(p);
     }
 }
 
 
-void auto_evp_mac_ctx_t::free_resource(EVP_MAC_CTX* p) {
+void auto_evp_mac_ctx_t::free_resource(EVP_MAC_CTX *p) {
     if (p) {
         EVP_MAC_CTX_free(p);
     }

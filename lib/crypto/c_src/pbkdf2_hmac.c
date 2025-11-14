@@ -31,8 +31,8 @@ static ERL_NIF_TERM pbkdf2_hmac(ErlNifEnv* env, int argc,
     ErlNifBinary pass, salt, out;
     ErlNifUInt64 iter, keylen;
 
-    struct digest_availability_Cptr digp = get_digest_type(argv[0]);
-    if (digp.ptr == NULL)
+    digest_availability_C* digp = get_digest_type(argv[0]);
+    if (digp == NULL)
         return EXCP_BADARG_N(env, 0, "Bad digest type");
     if (get_digest_availability_md(digp) == NULL)
         return EXCP_BADARG_N(env, 0, "md.p is not NULL");

@@ -68,7 +68,7 @@ ERL_NIF_TERM mac_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 ERL_NIF_TERM mac_one_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (MacType, SubType, Key, Text) */
 
-    struct mac_availability_Cptr macp;
+    mac_availability_C* macp;
     ErlNifBinary key_bin, text;
     int ret_bin_alloc = 0;
     ERL_NIF_TERM return_term;
@@ -102,9 +102,9 @@ ERL_NIF_TERM mac_one_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     }
 
     macp = get_mac_type(argv[0], key_bin.size);
-    if (!macp.ptr) {
-        struct mac_availability_Cptr macp2 = get_mac_type_no_key(argv[0]);
-        if (!macp2.ptr)
+    if (!macp) {
+        mac_availability_C* macp2 = get_mac_type_no_key(argv[0]);
+        if (!macp2)
             return_term = EXCP_BADARG_N(env, 0, "Unknown mac algorithm");
         else
             return_term = EXCP_BADARG_N(env, 2, "Bad key length");
@@ -129,9 +129,9 @@ ERL_NIF_TERM mac_one_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
          ********/
     case HMAC_mac:
         {
-            struct digest_availability_Cptr digp = get_digest_type(argv[1]);
+            digest_availability_C* digp = get_digest_type(argv[1]);
 
-            if (digp.ptr == NULL)
+            if (digp == NULL)
                 {
                     return_term = EXCP_BADARG_N(env, 1, "Bad digest algorithm for HMAC");
                     goto err;
@@ -429,7 +429,7 @@ ERL_NIF_TERM mac_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 #else
     /* EVP_PKEY_CTX is available or even the 3.0 API */
     struct mac_context  *obj = NULL;
-    struct mac_availability_Cptr macp;
+    mac_availability_C* macp;
     ErlNifBinary key_bin;
     ERL_NIF_TERM return_term;
 # if defined(HAS_3_0_API)
@@ -452,8 +452,8 @@ ERL_NIF_TERM mac_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     }
 
     macp = get_mac_type(argv[0], key_bin.size);
-    if (!macp.ptr) {
-        if (get_mac_type_no_key(argv[0]).ptr == NULL)
+    if (!macp) {
+        if (get_mac_type_no_key(argv[0]) == NULL)
             return_term = EXCP_BADARG_N(env, 0, "Unknown mac algorithm");
         else
             return_term = EXCP_BADARG_N(env, 2, "Bad key length");
@@ -478,8 +478,8 @@ ERL_NIF_TERM mac_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
          ********/
     case HMAC_mac:
         {
-            struct digest_availability_Cptr digp = get_digest_type(argv[1]);
-            if (digp.ptr == NULL)
+            digest_availability_C* digp = get_digest_type(argv[1]);
+            if (digp == NULL)
                 {
                     return_term = EXCP_BADARG_N(env, 1, "Bad digest algorithm for HMAC");
                     goto err;

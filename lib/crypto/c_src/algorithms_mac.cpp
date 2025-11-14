@@ -23,41 +23,41 @@
 #include "algorithms_mac.h"
 
 mac_probe_t mac_probes[] = {
-    {
-        .str = "poly1305",
-        .str_v3 = "POLY1305",
-        .fips_forbidden_hint = true,
+        {
+                .str = "poly1305",
+                .str_v3 = "POLY1305",
+                .fips_forbidden_hint = true,
 #ifdef HAVE_POLY1305
-        // If we have POLY then we have EVP_PKEY
-        .pkey_type = EVP_PKEY_POLY1305,
-        .type = POLY1305_mac,
-        .key_len = 32,
+                // If we have POLY then we have EVP_PKEY
+                .pkey_type = EVP_PKEY_POLY1305,
+                .type = POLY1305_mac,
+                .key_len = 32,
 #else
-        .pkey_type = EVP_PKEY_NONE,
+                .pkey_type = EVP_PKEY_NONE,
 #endif
-    },
+        },
 
-    {.str = "hmac",
-     .str_v3 = "HMAC",
+        {.str = "hmac",
+         .str_v3 = "HMAC",
 #if defined(HAS_EVP_PKEY_CTX) && (!DISABLE_EVP_HMAC)
-     .pkey_type = EVP_PKEY_HMAC,
+         .pkey_type = EVP_PKEY_HMAC,
 #else
-     // HMAC is always supported, but possibly with low-level routines
-     .pkey_type = EVP_PKEY_NONE,
+         // HMAC is always supported, but possibly with low-level routines
+         .pkey_type = EVP_PKEY_NONE,
 #endif
-     .type = HMAC_mac},
+         .type = HMAC_mac},
 
-    {
-        .str = "cmac",
-        .str_v3 = "CMAC",
+        {
+                .str = "cmac",
+                .str_v3 = "CMAC",
 #ifdef HAVE_CMAC
-        // If we have CMAC then we have EVP_PKEY
-        .pkey_type = EVP_PKEY_CMAC,
-        .type = CMAC_mac,
+                // If we have CMAC then we have EVP_PKEY
+                .pkey_type = EVP_PKEY_CMAC,
+                .type = CMAC_mac,
 #else
-        .pkey_type = EVP_PKEY_NONE
+                .pkey_type = EVP_PKEY_NONE
 #endif
-    },
+        },
 };
 
 mac_collection_t mac_collection("crypto.mac_collection", mac_probes, sizeof(mac_probes) / sizeof(mac_probes[0]));
@@ -67,12 +67,12 @@ mac_collection_t mac_collection("crypto.mac_collection", mac_probes, sizeof(mac_
 //
 
 // C API: Proxy the call to generic algorithm_collection_t
-extern "C" size_t mac_algorithms_lazy_init(ErlNifEnv* env, const bool fips_enabled) {
+extern "C" size_t mac_algorithms_lazy_init(ErlNifEnv *env, const bool fips_enabled) {
     return mac_collection.lazy_init(env, fips_enabled);
 }
 
 // C API: Proxy the call to generic algorithm_collection_t
-extern "C" ERL_NIF_TERM mac_algorithms_as_list(ErlNifEnv* env, const bool fips_enabled) {
+extern "C" ERL_NIF_TERM mac_algorithms_as_list(ErlNifEnv *env, const bool fips_enabled) {
     return mac_collection.to_list(env, fips_enabled);
 }
 
@@ -90,7 +90,7 @@ void mac_availability_t::check_fips_availability(const bool fips_enabled) {
         // Dummy key and parameters.
         constexpr unsigned char key[64] = {};
         OSSL_PARAM params[2];
-        params[0] = OSSL_PARAM_construct_utf8_string("digest", const_cast<char*>("SHA256"), 0);
+        params[0] = OSSL_PARAM_construct_utf8_string("digest", const_cast<char *>("SHA256"), 0);
         params[1] = OSSL_PARAM_construct_end();
 
         // Try to initialize the digest algorithm for use, this will check the dependencies
@@ -122,38 +122,35 @@ void mac_availability_t::update_flags(const bool fips_enabled) {
 
 // for FIPS we will attempt to initialize the pubkey context to verify whether the
 // algorithm is allowed, for non-FIPS keeping the old behavior - always allow the algorithm.
-void mac_probe_t::probe(ErlNifEnv* env, const bool fips_enabled, std::vector<mac_availability_t>& output) {
+void mac_probe_t::probe(ErlNifEnv *env, const bool fips_enabled, std::vector<mac_availability_t> &output) {
     this->atom = create_or_existing_atom(env, this->str_v3, this->atom);
-    mac_availability_t algo = {.init = this, .flags = {.fips_forbidden = this->fips_forbidden_hint}};
-    algo.check_fips_availability(fips_enabled);
     // No extra checks, just convert name to atom and add
-    return output.push_back(algo);
+    output.emplace_back(mac_availability_t{.init = this, .flags = {.fips_forbidden = this->fips_forbidden_hint}});
+    output.back().check_fips_availability(fips_enabled);
 }
 
-extern "C" struct mac_availability_Cptr get_mac_type(ERL_NIF_TERM type, const size_t key_len)
-{
-    for (auto& p : mac_collection) {
+extern "C" mac_availability_C *get_mac_type(ERL_NIF_TERM type, const size_t key_len) {
+    for (auto &p: mac_collection) {
         if (type == p.get_atom() && key_len == p.init->key_len) {
-            return mac_availability_Cptr{.ptr = &p};
+            return &p;
         }
     }
-    return mac_availability_Cptr{}; // nullptr
+    return nullptr;
 }
 
-extern "C" struct mac_availability_Cptr get_mac_type_no_key(ERL_NIF_TERM type)
-{
-    for (auto& p : mac_collection) {
-        if (type == p.get_atom() ) {
-            return mac_availability_Cptr{.ptr = &p};
+extern "C" mac_availability_C *get_mac_type_no_key(ERL_NIF_TERM type) {
+    for (auto &p: mac_collection) {
+        if (type == p.get_atom()) {
+            return &p;
         }
     }
-    return mac_availability_Cptr{}; // nullptr
+    return nullptr;
 }
 
-extern "C" bool is_mac_forbidden_in_fips(const mac_availability_Cptr p) {
-    if (p.ptr == nullptr) {
-        return true; // "forbidden" when there's no digest
-    }
-    const auto algo = static_cast<mac_availability_t*>(p.ptr);
-    return algo->is_forbidden_in_fips();
+extern "C" bool is_mac_forbidden_in_fips(const mac_availability_C *p) {
+    return p ? p->is_forbidden_in_fips() : true; // forbidden if null
 }
+
+extern "C" int get_mac_availability_type(mac_availability_C *p) { return p ? p->init->type : NO_mac; }
+
+extern "C" EVP_MAC *get_mac_availability_resource(mac_availability_C *p) { return p ? p->evp_mac.pointer : nullptr; }

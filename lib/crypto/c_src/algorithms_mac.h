@@ -29,20 +29,18 @@ extern "C" {
 #include "common.h"
 
 // Wraps a pointer to mac_availability_t which is a C++ struct with C++ features, for use in C API
-struct mac_availability_Cptr {
-    void* ptr;
-};
+typedef struct mac_availability_t mac_availability_C;
 
 //
 // Supported MAC Options storage C API
 //
 size_t mac_algorithms_lazy_init(ErlNifEnv* env, bool fips_enabled);
 ERL_NIF_TERM mac_algorithms_as_list(ErlNifEnv* env, bool fips_enabled);
-struct mac_availability_Cptr get_mac_type(ERL_NIF_TERM type, size_t key_len);
-struct mac_availability_Cptr get_mac_type_no_key(ERL_NIF_TERM type);
-bool is_mac_forbidden_in_fips(struct mac_availability_Cptr p);
-int get_mac_availability_type(struct mac_availability_Cptr p); // access field
-EVP_MAC* get_mac_availability_resource(struct mac_availability_Cptr p); // access field evp_mac (OpenSSL resource)
+mac_availability_C* get_mac_type(ERL_NIF_TERM type, size_t key_len);
+mac_availability_C* get_mac_type_no_key(ERL_NIF_TERM type);
+bool is_mac_forbidden_in_fips(const mac_availability_C* p);
+int get_mac_availability_type(mac_availability_C* p); // access field
+EVP_MAC* get_mac_availability_resource(mac_availability_C* p); // access field evp_mac (OpenSSL resource)
 
 #ifdef __cplusplus
 } // end extern "C"

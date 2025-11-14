@@ -61,11 +61,11 @@ struct pubkey_availability_t {
     bool is_forbidden_in_fips() const {
 #ifdef FIPS_SUPPORT
         // Forbidden in FIPS if all operations are forbidden, or if algorithm is not available at all
-        return (this->flags.algorithm_init_failed ||
-                this->flags.fips_forbidden_keygen && this->flags.fips_forbidden_sign &&
-                    this->flags.fips_forbidden_verify && this->flags.fips_forbidden_encrypt &&
-                    this->flags.fips_forbidden_derive) &&
-            FIPS_MODE();
+        const auto all_ops_forbidden =
+            this->flags.fips_forbidden_keygen && this->flags.fips_forbidden_sign &&
+            this->flags.fips_forbidden_verify && this->flags.fips_forbidden_encrypt &&
+            this->flags.fips_forbidden_derive;
+        return (this->flags.algorithm_init_failed || all_ops_forbidden) && FIPS_MODE();
 #else
         return false;
 #endif
