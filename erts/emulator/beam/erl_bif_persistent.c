@@ -158,7 +158,7 @@ typedef struct {
 
 static void do_update(ErtsPersistentTermPutContext* ctx);
 static ErtsPersistentTermPutCommonResult put_common
-(Process* process, Eterm key, Eterm term, bool new);
+(Process* process, Eterm key, Eterm term, Eterm new);
 static HashTable* create_initial_table(void);
 static Uint lookup(HashTable* hash_table, Eterm key, Eterm *bucket);
 static int is_erasable(HashTable* hash_table, Uint idx);
@@ -324,7 +324,7 @@ static int persistent_term_put_2_ctx_bin_dtor(Binary *context_bin)
 BIF_RETTYPE persistent_term_put_2(BIF_ALIST_2)
 {
     ErtsPersistentTermPutCommonResult result =
-        put_common(BIF_P, BIF_ARG_1, BIF_ARG_2, false);
+        put_common(BIF_P, BIF_ARG_1, BIF_ARG_2, am_false);
 
     #define HANDLE_PUT_COMMON_RESULT                            \
     switch (result) {                                           \
@@ -337,8 +337,10 @@ BIF_RETTYPE persistent_term_put_2(BIF_ALIST_2)
         case UPDATE_OK: {                                       \
            ERTS_BIF_YIELD_RETURN(BIF_P, am_ok);                 \
         }                                                       \
+        case TRAPPING: {                                        \
+        return THE_NON_VALUE;                                   \
+        }                                                       \
         case SEIZE_UPDATE:                                      \
-        case TRAPPING:                                          \
         default: {                                              \
             ERTS_BIF_YIELD3(&persistent_term_put_common_export, \
                     BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);    \
@@ -351,7 +353,7 @@ BIF_RETTYPE persistent_term_put_2(BIF_ALIST_2)
 BIF_RETTYPE persistent_term_put_new_2(BIF_ALIST_2)
 {
     ErtsPersistentTermPutCommonResult result =
-        put_common(BIF_P, BIF_ARG_1, BIF_ARG_2, true);
+        put_common(BIF_P, BIF_ARG_1, BIF_ARG_2, am_true);
 
     HANDLE_PUT_COMMON_RESULT    
 }
@@ -722,7 +724,7 @@ persistent_term_put_common_trap(BIF_ALIST_3)
 }
 
 static ErtsPersistentTermPutCommonResult put_common
-(Process* c_p, Eterm key, Eterm term, bool new)
+(Process* c_p, Eterm key, Eterm term, Eterm new)
 {
     static const Uint ITERATIONS_PER_RED = 32;
     ErtsPersistentTermPutContext* ctx;
@@ -810,7 +812,7 @@ static ErtsPersistentTermPutCommonResult put_common
             /* Same value. No need to update anything. */
             release_update_permission(0);
             return QUICK_UPDATE;
-        } else if (new) {
+        } else if (new == am_true) {
             /* Different value. Raise badarg. */
             release_update_permission(0);
             return BAD_KEY;
