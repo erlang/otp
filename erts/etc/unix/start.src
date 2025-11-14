@@ -44,6 +44,19 @@ else
     dyn_rootdir=""
 fi
 
+if touch /var/log 2>/dev/null;
+then
+	LOGDIR="/var/log"
+else
+	if [ -z "$XDG_STATE_HOME" ];
+	then
+		LOGDIR="$HOME/.local/state/erlang"
+	else
+		LOGDIR="$XDG_STATE_HOME/erlang"
+	fi
+	mkdir -p $LOGDIR
+fi
+
 if [ -z "$ERL_ROOTDIR" ]
 then
     ROOTDIR="%FINAL_ROOTDIR%"
@@ -63,4 +76,4 @@ fi
 
 START_ERL_DATA=${1:-$RELDIR/start_erl.data}
 
-$ROOTDIR/bin/run_erl -daemon /tmp/ $ROOTDIR/log "exec $ROOTDIR/bin/start_erl $ROOTDIR $RELDIR $START_ERL_DATA" 
+$ROOTDIR/bin/run_erl -daemon /tmp/ $LOGDIR "exec $ROOTDIR/bin/start_erl $ROOTDIR $RELDIR $START_ERL_DATA"
