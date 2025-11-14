@@ -28,7 +28,10 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 # ----------------------------------------------------
 APPLICATION=Erlang/OTP
 VSN=$(shell cat $(ERL_TOP)/OTP_VERSION)
-SKIP_APPLICATIONS=$(shell cat $(ERL_TOP)/lib/SKIP-APPLICATIONS)
+
+SKIP_FILE := $(wildcard $(ERL_TOP)/lib/SKIP-APPLICATIONS)
+SKIP_APPLICATIONS := $(if $(SKIP_FILE),$(shell cat $(SKIP_FILE)),)
+
 APP_DIR=../../../lib/erl_interface
 INDEX_DIR=.
 HTMLDIR=../../../doc
