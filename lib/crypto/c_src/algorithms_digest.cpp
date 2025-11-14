@@ -118,7 +118,7 @@ bool digest_availability_t::check_valid_in_fips(const EVP_MD *md) {
 #endif // FIPS_SUPPORT && HAS_3_0_API
 
 void digest_availability_t::create_md_resource(bool fips_mode) {
-#ifdef HAS_3_0_API
+#if defined(FIPS_SUPPORT) && defined(HAS_3_0_API)
     EVP_MD *fetched_md = EVP_MD_fetch(nullptr, this->init->str_v3, nullptr);
 
     // Record failed algorithm instantiation for FIPS enabled & OpenSSL API 3.0 only
@@ -132,7 +132,7 @@ void digest_availability_t::create_md_resource(bool fips_mode) {
 #else
     // construct from the old API, each probe has a constructor function
     this->md = this->init->v1_ctor();
-#endif // HAS_3_0_API
+#endif // HAS_3_0_API && FIPS_SUPPORT
 }
 
 void digest_probe_t::probe(ErlNifEnv *, const bool fips_mode, std::vector<digest_availability_t> &output) {

@@ -283,6 +283,9 @@ static int initialize(ErlNifEnv* env, ERL_NIF_TERM load_info)
     prov_cnt = 0;
 # ifdef FIPS_SUPPORT
     fips_provider = OSSL_PROVIDER_load(NULL, "fips");
+    if (!fips_provider) {
+        enif_fprintf(stderr, "crypto: With FIPS enabled, attempt to load OpenSSL 'fips' provider has failed.\r\n");
+    }
 # endif
     if (!(prov[prov_cnt++] = OSSL_PROVIDER_load(NULL, "default"))) {
         REPORT_FAILURE("Attempt to load OpenSSL 'default' provider failed");
@@ -303,7 +306,7 @@ static int initialize(ErlNifEnv* env, ERL_NIF_TERM load_info)
     }
     /* Check if enter FIPS mode at module load (happening now) */
     if (enable_fips_mode(env, tpl_array[2]) != atom_true) {
-        REPORT_FAILURE("Attempt to enable FIPS mode failed. "\
+        REPORT_FAILURE("Attempt to set FIPS mode failed. "\
             "Are OpenSSL and OS environment configured properly for FIPS?");
     }
 #ifdef HAVE_DYNAMIC_CRYPTO_LIB
@@ -367,7 +370,7 @@ done:
         enif_release_binary(&rt_buf);
     }
     if (ret > 0 && error_message != NULL) {
-        fprintf(stderr, "crypto initialization failed: %s\r\n", error_message);
+        fprintf(stderr, "crypto NIF initialization failed: %s\r\n", error_message);
     }
 
     return ret;
