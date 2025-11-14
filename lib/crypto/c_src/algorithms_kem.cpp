@@ -25,25 +25,26 @@
 
 kem_probe_t kem_probes[] = {
 #ifdef HAVE_ML_KEM
-    {.str_v3 = "mlkem512"},
-    {.str_v3 = "mlkem768"},
-    {.str_v3 = "mlkem1024"},
+        {.str_v3 = "mlkem512"},
+        {.str_v3 = "mlkem768"},
+        {.str_v3 = "mlkem1024"},
+        {}, // stopper record
 #endif
 };
 
-kem_collection_t kem_collection("crypto.kem_collection", kem_probes, sizeof(kem_probes) / sizeof(kem_probes[0]));
+kem_collection_t kem_collection("crypto.kem_collection", kem_probes);
 
 //
 // Implementation of KEM Algorithm storage API
 //
 
 // C API: Proxy the call to generic algorithm_collection_t
-extern "C" size_t kem_algorithms_lazy_init(ErlNifEnv* env, const bool fips_enabled) {
+extern "C" size_t kem_algorithms_lazy_init(ErlNifEnv *env, const bool fips_enabled) {
     return kem_collection.lazy_init(env, fips_enabled);
 }
 
 // C API: Proxy the call to generic algorithm_collection_t
-extern "C" ERL_NIF_TERM kem_algorithms_as_list(ErlNifEnv* env, const bool fips_enabled) {
+extern "C" ERL_NIF_TERM kem_algorithms_as_list(ErlNifEnv *env, const bool fips_enabled) {
     return kem_collection.to_list(env, fips_enabled);
 }
 
@@ -77,7 +78,7 @@ bool kem_availability_t::check_kem_algorithm(bool fips_enabled) {
 
 // for FIPS we will attempt to initialize the pubkey context to verify whether the
 // algorithm is allowed, for non-FIPS keeping the old behavior - always allow the algorithm.
-void kem_probe_t::probe(ErlNifEnv* env, const bool fips_enabled, std::vector<kem_availability_t>& output) {
+void kem_probe_t::probe(ErlNifEnv *env, const bool fips_enabled, std::vector<kem_availability_t> &output) {
     // Nothing will happen if HAVE_ML_KEM is not defined, the output will remain empty
 #ifdef HAVE_ML_KEM
     this->atom = create_or_existing_atom(env, this->str_v3, this->atom);

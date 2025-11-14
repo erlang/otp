@@ -21,6 +21,7 @@
  */
 
 #include "algorithms_digest.h"
+#include <array>
 
 static digest_probe_t digest_probes[] = {
 #ifdef HAVE_MD4
@@ -78,22 +79,22 @@ static digest_probe_t digest_probes[] = {
 #ifdef HAVE_BLAKE2
         {.str = "blake2s", .str_v3 = "BLAKE2s256", .v1_ctor = &EVP_blake2s256},
 #endif
+        {} // stopper record
 };
 
-digest_collection_t digest_collection("crypto.digest.digest_collection", digest_probes,
-                                      sizeof(digest_probes) / sizeof(digest_probes[0]));
+digest_collection_t digest_collection("crypto.digest.digest_collection", digest_probes);
 
 //
 // Implementation of Pubkey Algorithm storage API
 //
 
 // C API: Proxy the call to generic algorithm_collection_t
-extern "C" void digest_types_lazy_init(ErlNifEnv* env, const bool fips_enabled) {
+extern "C" void digest_types_lazy_init(ErlNifEnv *env, const bool fips_enabled) {
     digest_collection.lazy_init(env, fips_enabled);
 }
 
 // C API: Proxy the call to generic algorithm_collection_t
-extern "C" ERL_NIF_TERM digest_types_as_list(ErlNifEnv* env, const bool fips_forbidden) {
+extern "C" ERL_NIF_TERM digest_types_as_list(ErlNifEnv *env, const bool fips_forbidden) {
     return digest_collection.to_list(env, fips_forbidden);
 }
 
@@ -135,12 +136,16 @@ void digest_availability_t::create_md_resource(bool fips_mode) {
 #endif // HAS_3_0_API && FIPS_SUPPORT
 }
 
-void digest_probe_t::probe(ErlNifEnv *, const bool fips_mode, std::vector<digest_availability_t> &output) {
+void digest_probe_t::probe(ErlNifEnv *env, const bool fips_mode, std::vector<digest_availability_t> &output) {
     digest_availability_t algo = {
             .init = this, .flags = {.pbkdf2_eligible = this->pbkdf2}, .xof_default_length = this->xof_default_length};
-    // Unavailable are skipped. Available are added. Forbidden are added, but flagged with FIPS_FORBIDDEN_DIGEST.
+    // Unavailable are skipped.
+    // Available are added.
+    // Forbidden are added, but with flags.fips_forbidden=true.
     algo.create_md_resource(fips_mode);
     if (algo.md) {
+        // Avoid creating atoms for algorithms we will not support
+        this->atom = create_or_existing_atom(env, this->str, this->atom);
         output.push_back(std::move(algo));
     }
 }

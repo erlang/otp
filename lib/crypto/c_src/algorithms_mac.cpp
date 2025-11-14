@@ -58,9 +58,10 @@ mac_probe_t mac_probes[] = {
                 .pkey_type = EVP_PKEY_NONE
 #endif
         },
+        {} // stopper record
 };
 
-mac_collection_t mac_collection("crypto.mac_collection", mac_probes, sizeof(mac_probes) / sizeof(mac_probes[0]));
+mac_collection_t mac_collection("crypto.mac_collection", mac_probes);
 
 //
 // Implementation of Known MAC Algorithms storage API

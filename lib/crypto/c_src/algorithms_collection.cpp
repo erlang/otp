@@ -30,33 +30,35 @@
 #include "algorithms_rsaopt.h"
 
 extern "C" bool create_algorithm_mutexes() {
-    return pubkey_collection.create_mutex() && curve_collection.create_mutex() && digest_collection.create_mutex() &&
-        kem_collection.create_mutex() && rsaopt_collection.create_mutex() && mac_collection.create_mutex() &&
-        cipher_collection.create_mutex();
+    return cipher_collection.create_mutex() && curve_collection.create_mutex() && digest_collection.create_mutex() &&
+           kem_collection.create_mutex() && mac_collection.create_mutex() && pubkey_collection.create_mutex() &&
+           rsaopt_collection.create_mutex();
 }
 
 extern "C" void free_algorithm_mutexes(void) {
-    pubkey_collection.destroy_mutex();
+    cipher_collection.destroy_mutex();
     curve_collection.destroy_mutex();
     digest_collection.destroy_mutex();
     kem_collection.destroy_mutex();
-    rsaopt_collection.destroy_mutex();
     mac_collection.destroy_mutex();
-    cipher_collection.destroy_mutex();
+    pubkey_collection.destroy_mutex();
+    rsaopt_collection.destroy_mutex();
 }
 
 extern "C" void algorithms_reset_cache() {
-    pubkey_collection.reset();
+    cipher_collection.reset();
     curve_collection.reset();
     digest_collection.reset();
     kem_collection.reset();
-    rsaopt_collection.reset();
     mac_collection.reset();
-    cipher_collection.reset();
+    pubkey_collection.reset();
+    rsaopt_collection.reset();
 }
 
 // Ensure atoms are not created repeatedly. Pass atom=0 to attempt creating an existing atom (then a new atom).
-ERL_NIF_TERM create_or_existing_atom(ErlNifEnv* env, const char* atom_name, ERL_NIF_TERM atom) {
+ERL_NIF_TERM create_or_existing_atom(ErlNifEnv *env, const char *atom_name, ERL_NIF_TERM atom) {
+    ASSERT(atom_name != nullptr);
+    ASSERT(std::strlen(atom_name) > 0);
     if (!atom) {
         enif_make_existing_atom(env, atom_name, &atom, ERL_NIF_UTF8);
         if (!atom) {

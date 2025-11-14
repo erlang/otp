@@ -49,10 +49,10 @@ pubkey_probe_t pubkey_probes[] = {
 #ifdef HAVE_ML_DSA
     {.str = "mldsa44"}, {.str = "mldsa65"}, {.str = "mldsa87"},
 #endif
+    {} // stopper record
 };
 
-pubkey_collection_t pubkey_collection("crypto.pkey_collection", pubkey_probes,
-                                      sizeof(pubkey_probes)/sizeof(pubkey_probes[0]));
+pubkey_collection_t pubkey_collection("crypto.pkey_collection", pubkey_probes);
 
 //
 // Implementation of Pubkey Algorithm storage API

@@ -31,9 +31,9 @@ extern "C" {
 //
 // Pubkey Algorithms storage C API
 //
-size_t pubkey_algorithms_lazy_init(ErlNifEnv* env, bool fips_enabled);
-ERL_NIF_TERM pubkey_algorithms_as_list(ErlNifEnv* env, bool fips_enabled);
-void pubkey_add_algorithm(ErlNifEnv* env, const char* str_v3, unsigned unavailable, ERL_NIF_TERM atom);
+size_t pubkey_algorithms_lazy_init(ErlNifEnv *env, bool fips_enabled);
+ERL_NIF_TERM pubkey_algorithms_as_list(ErlNifEnv *env, bool fips_enabled);
+void pubkey_add_algorithm(ErlNifEnv *env, const char *str_v3, unsigned unavailable, ERL_NIF_TERM atom);
 
 #ifdef __cplusplus
 }
@@ -47,7 +47,7 @@ struct pubkey_probe_t;
 // with FIPS if FIPS mode was on. If the FIPS mode changes this will be destroyed and
 // created again.
 struct pubkey_availability_t {
-    const pubkey_probe_t* init = nullptr; // the pubkey_probe_t used to create this record
+    const pubkey_probe_t *init = nullptr; // the pubkey_probe_t used to create this record
 
     struct {
         bool algorithm_init_failed : 1; // algorithm init failed
@@ -61,10 +61,9 @@ struct pubkey_availability_t {
     bool is_forbidden_in_fips() const {
 #ifdef FIPS_SUPPORT
         // Forbidden in FIPS if all operations are forbidden, or if algorithm is not available at all
-        const auto all_ops_forbidden =
-            this->flags.fips_forbidden_keygen && this->flags.fips_forbidden_sign &&
-            this->flags.fips_forbidden_verify && this->flags.fips_forbidden_encrypt &&
-            this->flags.fips_forbidden_derive;
+        const auto all_ops_forbidden = this->flags.fips_forbidden_keygen && this->flags.fips_forbidden_sign &&
+                                       this->flags.fips_forbidden_verify && this->flags.fips_forbidden_encrypt &&
+                                       this->flags.fips_forbidden_derive;
         return (this->flags.algorithm_init_failed || all_ops_forbidden) && FIPS_MODE();
 #else
         return false;
@@ -82,12 +81,14 @@ struct pubkey_availability_t {
 // its availability. Each probe() call done by the algorithm_collection_t might or might not
 // result in a new available algorithm creation.
 struct pubkey_probe_t {
-    const char* str = nullptr;
-    const char* str_v3 = nullptr; // if this is nullptr, .str will be used instead
+    const char *str = nullptr;
+    const char *str_v3 = nullptr; // if this is nullptr, .str will be used instead
     ERL_NIF_TERM atom = 0;
 
     // Perform a probe on the algorithm. In case of success, fill the struct and push into the 'output'
-    void probe(ErlNifEnv* env, bool fips_enabled, std::vector<pubkey_availability_t>& output);
+    void probe(ErlNifEnv *env, bool fips_enabled, std::vector<pubkey_availability_t> &output);
+    // Used as a stopper by the algorithm_collection_t
+    bool is_last() const { return this->str == nullptr; }
 };
 
 using pubkey_collection_t = algorithm_collection_t<pubkey_availability_t, pubkey_probe_t>;

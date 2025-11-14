@@ -77,6 +77,8 @@ struct curve_probe_t {
 
     // Perform a probe on the algorithm. In case of success, fill the struct and push into the 'output'
     void probe(ErlNifEnv *env, bool fips_mode, std::vector<curve_availability_t> &output);
+    // Used as a stopper by the algorithm_collection_t
+    bool is_last() const { return this->sn == nullptr; }
 
 private:
     bool is_curve_valid_by_nid(); // used by the probe() to check this->nid

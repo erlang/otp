@@ -74,6 +74,8 @@ struct cipher_probe_t {
 
     // Attempt to add a new known Cipher algorithm. In case of success, fill the struct and push into the 'output'
     void probe(ErlNifEnv* env, bool fips_enabled, std::vector<cipher_availability_t>& output);
+    // Used as a stopper by the algorithm_collection_t
+    bool is_last() const { return this->str_v3 == nullptr; }
 };
 
 using cipher_collection_t = algorithm_collection_t<cipher_availability_t, cipher_probe_t>;

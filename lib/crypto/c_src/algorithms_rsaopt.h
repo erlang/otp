@@ -31,8 +31,8 @@ extern "C" {
 //
 // Supported RSA Options storage C API
 //
-size_t rsaopts_lazy_init(ErlNifEnv* env, bool fips_enabled);
-ERL_NIF_TERM rsaopts_as_list(ErlNifEnv* env, bool fips_enabled);
+size_t rsaopts_lazy_init(ErlNifEnv *env, bool fips_enabled);
+ERL_NIF_TERM rsaopts_as_list(ErlNifEnv *env, bool fips_enabled);
 
 #ifdef __cplusplus
 }
@@ -46,7 +46,7 @@ struct rsaopt_probe_t;
 // with FIPS if FIPS mode was on. If the FIPS mode changes this will be destroyed and
 // created again.
 struct rsaopt_availability_t {
-    const rsaopt_probe_t* init = nullptr; // the rsaopt_probe_t used to create this record
+    const rsaopt_probe_t *init = nullptr; // the rsaopt_probe_t used to create this record
 
     struct {
         bool fips_forbidden : 1;
@@ -68,11 +68,13 @@ struct rsaopt_availability_t {
 // its availability. Each probe() call done by the algorithm_collection_t might or might not
 // result in a new available algorithm creation.
 struct rsaopt_probe_t {
-    const char* str_v3 = nullptr;
+    const char *str_v3 = nullptr;
     ERL_NIF_TERM atom = 0;
 
     // Attempt to add a new known RSA option. In case of success, fill the struct and push into the 'output'
-    void probe(ErlNifEnv* env, bool fips_enabled, std::vector<rsaopt_availability_t>& output);
+    void probe(ErlNifEnv *env, bool fips_enabled, std::vector<rsaopt_availability_t> &output);
+    // Used as a stopper by the algorithm_collection_t
+    bool is_last() const { return this->str_v3 == nullptr; }
 };
 
 using rsaopt_collection_t = algorithm_collection_t<rsaopt_availability_t, rsaopt_probe_t>;

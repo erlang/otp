@@ -21,6 +21,7 @@
  */
 
 #pragma once
+#include <assert.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -72,15 +73,14 @@ private:
     // each probe is executed every time we reset and repopulate algorithms list. Probes are not const, because
     // their implementations might want to cache something like found existing atoms by string
     ProbeT* probes;
-    const size_t probe_count;
     // contains detected and supported algorithms
     std::vector<AlgorithmT> algorithms;
     ErlNifMutex* mutex;
     const char* debug_name;
 
 public:
-    explicit algorithm_collection_t(const char* debug_name, ProbeT* probes_, const size_t probe_count_) :
-        lazy_init_done(false), probes(probes_), probe_count(probe_count_), mutex(nullptr), debug_name(debug_name) {}
+    explicit algorithm_collection_t(const char* debug_name, ProbeT* probes_) :
+        lazy_init_done(false), probes(probes_), mutex(nullptr), debug_name(debug_name) {}
 
     ~algorithm_collection_t() { destroy_mutex(); }
 
@@ -123,11 +123,15 @@ public:
         mutex_lock_and_auto_release critical_section(this->mutex);
 
         this->algorithms.clear();
-        for (size_t i = 0; i < probe_count; i++) {
+
+        auto *probe_ptr = probes;
+        while (!probe_ptr->is_last()) {
             // For each probe, call probe() member function, in case of success the probe code
             // will use the passed 'this->algorithms' reference to add an algorithm to the collection.
-            probes[i].probe(env, fips_enabled, this->algorithms);
+            probe_ptr->probe(env, fips_enabled, this->algorithms);
+            ++probe_ptr;
         }
+
         result = this->algorithms.size();
         this->lazy_init_done = true;
 
@@ -140,7 +144,9 @@ public:
         for (const auto& algo : this->algorithms) {
             // Any of the forbidden flags is not set, then something is available
             if (algo.is_available() && algo.is_forbidden_in_fips() == fips_forbidden) {
-                hd = enif_make_list_cell(env, algo.get_atom(), hd);
+                const auto atom = algo.get_atom();
+                ASSERT(atom != 0);
+                hd = enif_make_list_cell(env, atom, hd);
             }
         }
         return hd;

@@ -108,6 +108,8 @@ struct digest_probe_t {
 
     // Perform probe on the algorithm. In case of success, fill the struct and push into the 'output'
     void probe(ErlNifEnv* env, bool fips_mode, std::vector<digest_availability_t>& output);
+    // Used as a stopper by the algorithm_collection_t
+    bool is_last() const { return this->str == nullptr; }
 };
 
 using digest_collection_t = algorithm_collection_t<digest_availability_t, digest_probe_t>;

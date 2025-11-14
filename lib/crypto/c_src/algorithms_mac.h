@@ -34,13 +34,13 @@ typedef struct mac_availability_t mac_availability_C;
 //
 // Supported MAC Options storage C API
 //
-size_t mac_algorithms_lazy_init(ErlNifEnv* env, bool fips_enabled);
-ERL_NIF_TERM mac_algorithms_as_list(ErlNifEnv* env, bool fips_enabled);
-mac_availability_C* get_mac_type(ERL_NIF_TERM type, size_t key_len);
-mac_availability_C* get_mac_type_no_key(ERL_NIF_TERM type);
-bool is_mac_forbidden_in_fips(const mac_availability_C* p);
-int get_mac_availability_type(mac_availability_C* p); // access field
-EVP_MAC* get_mac_availability_resource(mac_availability_C* p); // access field evp_mac (OpenSSL resource)
+size_t mac_algorithms_lazy_init(ErlNifEnv *env, bool fips_enabled);
+ERL_NIF_TERM mac_algorithms_as_list(ErlNifEnv *env, bool fips_enabled);
+mac_availability_C *get_mac_type(ERL_NIF_TERM type, size_t key_len);
+mac_availability_C *get_mac_type_no_key(ERL_NIF_TERM type);
+bool is_mac_forbidden_in_fips(const mac_availability_C *p);
+int get_mac_availability_type(mac_availability_C *p); // access field
+EVP_MAC *get_mac_availability_resource(mac_availability_C *p); // access field evp_mac (OpenSSL resource)
 
 #ifdef __cplusplus
 } // end extern "C"
@@ -64,7 +64,7 @@ struct mac_probe_t;
 // with FIPS if FIPS mode was on. If the FIPS mode changes this will be destroyed and
 // created again.
 struct mac_availability_t {
-    const mac_probe_t* init = nullptr; // the mac_probe_t used to create this record
+    const mac_probe_t *init = nullptr; // the mac_probe_t used to create this record
 #if defined(HAS_3_0_API)
     auto_evp_mac_t evp_mac; // OpenSSL resource, frees automatically
 #endif
@@ -93,8 +93,8 @@ struct mac_availability_t {
 // its availability. Each probe() call done by the algorithm_collection_t might or might not
 // result in a new available algorithm creation.
 struct mac_probe_t {
-    const char* str = nullptr;
-    const char* str_v3 = nullptr;
+    const char *str = nullptr;
+    const char *str_v3 = nullptr;
     ERL_NIF_TERM atom = 0;
     // Suggests that the algorithm is not available in FIPS to skip the probe
     bool fips_forbidden_hint = false;
@@ -103,7 +103,9 @@ struct mac_probe_t {
     size_t key_len = 0;
 
     // Attempt to add a new MAC algorithm. In case of success, fill the struct and push into the 'output'
-    void probe(ErlNifEnv* env, bool fips_enabled, std::vector<mac_availability_t>& output);
+    void probe(ErlNifEnv *env, bool fips_enabled, std::vector<mac_availability_t> &output);
+    // Used as a stopper by the algorithm_collection_t
+    bool is_last() const { return this->str == nullptr; }
 };
 
 using mac_collection_t = algorithm_collection_t<mac_availability_t, mac_probe_t>;
