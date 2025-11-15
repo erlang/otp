@@ -1294,18 +1294,22 @@ lists_map_type_1(_, ElementType) ->
 
 lists_mapfold_type(Fun, Init, List) ->
     case {meet(Fun, #t_fun{type=#t_tuple{size=2}}), meet(List, #t_list{})} of
-        {_, nil} ->
-            make_two_tuple(nil, Init);
-        {#t_fun{type=#t_tuple{elements=Es}}, ListType} ->
+        {#t_fun{type=T}, ListType} when T =/= none ->
+            #t_tuple{elements=Es} = normalize(T),
             ElementType = beam_types:get_tuple_element(1, Es),
             AccType = beam_types:get_tuple_element(2, Es),
             lists_mapfold_type_1(ListType, ElementType, Init, AccType);
-        {#t_fun{type=none}, #t_list{}} ->
-            %% The fun never returns, so the only way we could return normally
-            %% is if the list is empty, in which case we'll return [] and the
-            %% initial value.
+        {_, #t_list{}} ->
+            %% The fun never returns, or is not a fun. The only way this can
+            %% succeed is if the given list is empty, in which case we'll
+            %% return [] and the initial value.
             make_two_tuple(nil, Init);
-        _ ->
+        {_, nil} ->
+            make_two_tuple(nil, Init);
+        {_, _} ->
+            %% The fun never returns, or is not a fun, and the list is either
+            %% not a list or is guaranteed not to be empty. This will never
+            %% return.
             none
     end.
 
