@@ -92,4 +92,10 @@ struct auto_evp_mac_ctx_t : auto_openssl_resource_t<EVP_MAC_CTX*, auto_evp_mac_c
     static void free_resource(EVP_MAC_CTX* p);
 };
 
+struct auto_cipher_t : auto_openssl_resource_t<EVP_CIPHER*, auto_cipher_t> {
+    auto_cipher_t() = default;
+    explicit auto_cipher_t(EVP_CIPHER* p) : auto_openssl_resource_t(p) {}
+    static void free_resource(EVP_CIPHER* p);
+};
+
 #endif // __cplusplus

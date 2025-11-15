@@ -29,6 +29,8 @@
 #include "algorithms_pubkey.h"
 #include "algorithms_rsaopt.h"
 
+#include <cstring>
+
 extern "C" bool create_algorithm_mutexes() {
     return cipher_collection.create_mutex() && curve_collection.create_mutex() && digest_collection.create_mutex() &&
            kem_collection.create_mutex() && mac_collection.create_mutex() && pubkey_collection.create_mutex() &&

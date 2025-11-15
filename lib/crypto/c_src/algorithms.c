@@ -53,7 +53,7 @@ ERL_NIF_TERM kem_algorithms_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
 
 ERL_NIF_TERM cipher_algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
     cipher_algorithms_lazy_init(env, FIPS_MODE());
-    return cipher_types_as_list(env, false);
+    return cipher_algorithms_as_list(env, false);
 }
 
 ERL_NIF_TERM mac_algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
@@ -87,7 +87,7 @@ ERL_NIF_TERM fips_forbidden_pubkey_algorithms(ErlNifEnv* env, int argc, const ER
 
 ERL_NIF_TERM fips_forbidden_cipher_algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
     cipher_algorithms_lazy_init(env, FIPS_MODE());
-    return cipher_types_as_list(env, true);
+    return cipher_algorithms_as_list(env, true);
 }
 
 ERL_NIF_TERM fips_forbidden_kem_algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {

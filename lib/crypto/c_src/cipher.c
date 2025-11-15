@@ -419,20 +419,3 @@ int cmp_cipher_types_no_key(const void *keyp, const void *elemp) {
 
     return ret;
 }
-
-/* Argument fips_forbidden partitions the results by invoking IS_CIPHER_FORBIDDEN_IN_FIPS(p) */
-ERL_NIF_TERM cipher_types_as_list(ErlNifEnv* env, const bool fips_forbidden)
-{
-    ERL_NIF_TERM hd = enif_make_list(env, 0);
-    ERL_NIF_TERM prev = atom_undefined;
-
-    for (struct cipher_type_t *p = cipher_types; p->type.atom && (p->type.atom != atom_false); p++) {
-        if (prev == p->type.atom || IS_CIPHER_FORBIDDEN_IN_FIPS(p) != fips_forbidden) {
-            continue;
-        }
-        if (p->cipher.p != NULL || p->flags & AES_CTR_COMPAT) {
-            hd = enif_make_list_cell(env, p->type.atom, hd);
-        }
-    }
-    return hd;
-}

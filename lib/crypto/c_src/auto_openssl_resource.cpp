@@ -55,9 +55,14 @@ void auto_evp_mac_t::free_resource(EVP_MAC *p) {
     }
 }
 
-
 void auto_evp_mac_ctx_t::free_resource(EVP_MAC_CTX *p) {
     if (p) {
         EVP_MAC_CTX_free(p);
+    }
+}
+
+void auto_cipher_t::free_resource(EVP_CIPHER *p) {
+    if (p) {
+        EVP_CIPHER_free(p);
     }
 }

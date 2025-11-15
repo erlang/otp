@@ -86,6 +86,4 @@ const struct cipher_type_t* get_cipher_type(ERL_NIF_TERM type, size_t key_len);
 int cmp_cipher_types(const void *keyp, const void *elemp);
 int cmp_cipher_types_no_key(const void *keyp, const void *elemp);
 
-ERL_NIF_TERM cipher_types_as_list(ErlNifEnv* env, bool fips_forbidden);
-
 #endif /* E_CIPHER_H__ */
