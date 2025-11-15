@@ -23,6 +23,7 @@
 #include "api_ng.h"
 #include "aes.h"
 #include "cipher.h"
+#include "algorithms_cipher.h"
 
 /*
  * A unified set of functions for encryption/decryption.
@@ -38,7 +39,7 @@ ERL_NIF_TERM ng_crypto_one_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
     /* <= 0.9.8l returns faulty ivec length */
 # define GET_IV_LEN(Ciph) ((Ciph)->flags & ECB_BUG_0_9_8L) ? 0 : EVP_CIPHER_iv_length((Ciph)->cipher.p)
 #else
-# define GET_IV_LEN(Ciph) EVP_CIPHER_iv_length((Ciph)->cipher.p)
+# define GET_IV_LEN(Ciph) EVP_CIPHER_iv_length(cipher_type_resource(Ciph))
 #endif
 
 #if !defined(HAVE_EVP_CIPHER_CTX_COPY)
@@ -198,7 +199,7 @@ static int get_init_args(ErlNifEnv* env,
                          int key_arg_num,
                          int ivec_arg_num,
                          int opts_arg_num,
-                         const struct cipher_type_t **cipherp,
+                         const cipher_type_C **cipherp,
                          ERL_NIF_TERM *return_term)
 {
     int ivec_len;
@@ -247,14 +248,14 @@ static int get_init_args(ErlNifEnv* env,
             goto err;
         }
 
-    if ((*cipherp)->flags &  AEAD_CIPHER)
+    if (cipher_type_flags(*cipherp).aead_cipher)
         {
             *return_term = EXCP_BADARG_N(env, cipher_arg_num, "Missing arguments for this cipher");
             goto err;
         }
 
 
-    if (CIPHER_FORBIDDEN_IN_FIPS(*cipherp))
+    if (is_cipher_forbidden_in_fips(*cipherp))
         {
             *return_term = EXCP_NOTSUP_N(env, cipher_arg_num, "Forbidden in FIPS");
             goto err;
@@ -281,9 +282,8 @@ static int get_init_args(ErlNifEnv* env,
     }
 #else
     /* Normal code */
-    if (!((*cipherp)->cipher.p)) {
-        *return_term =
-            EXCP_NOTSUP_N(env, cipher_arg_num, "Cipher not supported in this libcrypto version");
+    if (!cipher_type_resource(*cipherp)) {
+        *return_term = EXCP_NOTSUP_N(env, cipher_arg_num, "Cipher not supported in this libcrypto version");
         goto err;
     }
     ivec_len = GET_IV_LEN(*cipherp);
@@ -351,7 +351,7 @@ static int get_init_args(ErlNifEnv* env,
             goto err;
         }
 
-    if (!EVP_CipherInit_ex(ctx_res->ctx, (*cipherp)->cipher.p, NULL, NULL, NULL, ctx_res->encflag))
+    if (!EVP_CipherInit_ex(ctx_res->ctx, cipher_type_resource(*cipherp), NULL, NULL, NULL, ctx_res->encflag))
         {
             *return_term = EXCP_ERROR(env, "Can't initialize context, step 1");
             goto err;
@@ -364,7 +364,7 @@ static int get_init_args(ErlNifEnv* env,
         }
 
 #ifdef HAVE_RC2
-    if (EVP_CIPHER_type((*cipherp)->cipher.p) == NID_rc2_cbc) {
+    if (EVP_CIPHER_type(cipher_type_resource(*cipherp)) == NID_rc2_cbc) {
         if (ctx_res->key_bin.size > INT_MAX / 8) {
             *return_term = EXCP_BADARG_N(env, key_arg_num, "To large rc2_cbc key");
             goto err;

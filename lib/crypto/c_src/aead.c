@@ -24,12 +24,12 @@
 #include "aes.h"
 #include "cipher.h"
 #include "info.h"
-
+#include "algorithms_cipher.h"
 
 ErlNifResourceType* aead_cipher_ctx_rtype;
 
 struct aead_cipher_ctx {
-    const struct cipher_type_t *cipherp;
+    const cipher_type_C *cipherp;
     EVP_CIPHER_CTX *ctx;
 
     ERL_NIF_TERM key;
@@ -106,13 +106,22 @@ ERL_NIF_TERM aead_cipher_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
         {ret = EXCP_BADARG_N(env, 1, "key or tag too long"); goto done;}
 
     if ((ctx_res->cipherp = get_cipher_type(type, key.size)) == NULL)
-        {ret = EXCP_BADARG_N(env, 0, "Unknown cipher or invalid key size"); goto done;}
-    if (ctx_res->cipherp->flags & NON_EVP_CIPHER)
-        {ret = EXCP_BADARG_N(env, 0, "Bad cipher"); goto done;}
-    if (! (ctx_res->cipherp->flags & AEAD_CIPHER) )
-        {ret = EXCP_BADARG_N(env, 0, "Not aead cipher"); goto done;}
-    if (CIPHER_FORBIDDEN_IN_FIPS(ctx_res->cipherp))
-        {ret = EXCP_NOTSUP_N(env, 0, "Forbidden in FIPS"); goto done;}
+        {ret = EXCP_BADARG_N(env, 0, "Unknown cipher or invalid key size"); goto done;
+    }
+
+    const struct cipher_type_flags_t flags = cipher_type_flags(ctx_res->cipherp);
+    if (flags.non_evp_cipher) {
+        ret = EXCP_BADARG_N(env, 0, "Bad cipher");
+        goto done;
+    }
+    if (!flags.aead_cipher) {
+        ret = EXCP_BADARG_N(env, 0, "Not aead cipher");
+        goto done;
+    }
+    if (is_cipher_forbidden_in_fips(ctx_res->cipherp)) {
+        ret = EXCP_NOTSUP_N(env, 0, "Forbidden in FIPS");
+        goto done;
+    }
 
 #if defined(HAVE_GCM_EVP_DECRYPT_BUG)
     if ( !ctx_res->encflg && (ctx_res->cipherp->flags & GCM_MODE)) {
@@ -120,13 +129,19 @@ ERL_NIF_TERM aead_cipher_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
     }
 #endif
 
-    if (ctx_res->cipherp->cipher.p == NULL)
-        {ret = EXCP_NOTSUP_N(env, 0, "The cipher is not supported in this libcrypto version"); goto done;}
-
-    if ((ctx_res->ctx = EVP_CIPHER_CTX_new()) == NULL)
-        {ret = EXCP_ERROR(env, "Can't allocate ctx"); goto done;}
-    if (EVP_CipherInit_ex(ctx_res->ctx, ctx_res->cipherp->cipher.p, NULL, NULL, NULL, ctx_res->encflg) != 1)
-        {ret = EXCP_ERROR(env, "CipherInit failed"); goto done;}
+    if (cipher_type_resource(ctx_res->cipherp) == NULL) {
+        ret = EXCP_NOTSUP_N(env, 0, "The cipher is not supported in this libcrypto version");
+        goto done;
+    }
+    if ((ctx_res->ctx = EVP_CIPHER_CTX_new()) == NULL) {
+        ret = EXCP_ERROR(env, "Can't allocate ctx");
+        goto done;
+    }
+    if (EVP_CipherInit_ex(ctx_res->ctx, cipher_type_resource(ctx_res->cipherp),
+        NULL, NULL, NULL, ctx_res->encflg) != 1) {
+        ret = EXCP_ERROR(env, "CipherInit failed");
+        goto done;
+    }
 
     ret = enif_make_resource(env, ctx_res);
 
@@ -202,29 +217,45 @@ ERL_NIF_TERM aead_cipher_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
             || iv.size > INT_MAX
             || in.size > INT_MAX
             || aad.size > INT_MAX)
-            {ret = EXCP_BADARG_N(env, 5, "binary too long"); goto done;}
+            {ret = EXCP_BADARG_N(env, 5, "binary too long"); goto done;
+        }
 
-        if ((cipherp = get_cipher_type(type, key.size)) == NULL)
-            {ret = EXCP_BADARG_N(env, 0, "Unknown cipher or invalid key size"); goto done;}
-        if (cipherp->flags & NON_EVP_CIPHER)
-            {ret = EXCP_BADARG_N(env, 0, "Bad cipher"); goto done;}
-        if (! (cipherp->flags & AEAD_CIPHER) )
-            {ret = EXCP_BADARG_N(env, 0, "Not aead cipher"); goto done;}
-        if (CIPHER_FORBIDDEN_IN_FIPS(cipherp))
-            {ret = EXCP_NOTSUP_N(env, 0, "Forbidden in FIPS"); goto done;}
+        if ((cipherp = get_cipher_type(type, key.size)) == NULL) {
+            ret = EXCP_BADARG_N(env, 0, "Unknown cipher or invalid key size");
+            goto done;
+        }
+
+        const struct cipher_type_flags_t flags = cipher_type_flags(cipherp);
+        if (flags.non_evp_cipher) {
+            ret = EXCP_BADARG_N(env, 0, "Bad cipher");
+            goto done;
+        }
+        if (!flags.aead_cipher) {
+            ret = EXCP_BADARG_N(env, 0, "Not aead cipher");
+            goto done;
+        }
+        if (is_cipher_forbidden_in_fips(cipherp)) {
+            ret = EXCP_NOTSUP_N(env, 0, "Forbidden in FIPS");
+            goto done;
+        }
 
 #if defined(HAVE_GCM_EVP_DECRYPT_BUG)
         if ( !encflg && (cipherp->flags & GCM_MODE)) {
             return aes_gcm_decrypt_NO_EVP(env, argc, argv);
         }
 #endif
-        if ((cipher = cipherp->cipher.p) == NULL)
-            {ret = EXCP_NOTSUP_N(env, 0, "The cipher is not supported in this libcrypto version"); goto done;}
-
-        if ((ctx = EVP_CIPHER_CTX_new()) == NULL)
-            {ret = EXCP_ERROR(env, "Can't allocate ctx"); goto done;}
-        if (EVP_CipherInit_ex(ctx, cipher, NULL, NULL, NULL, encflg) != 1)
-            {ret = EXCP_ERROR(env, "CipherInit failed"); goto done;}
+        if ((cipher = cipher_type_resource(cipherp)) == NULL) {
+            ret = EXCP_NOTSUP_N(env, 0, "The cipher is not supported in this libcrypto version");
+            goto done;
+        }
+        if ((ctx = EVP_CIPHER_CTX_new()) == NULL) {
+            ret = EXCP_ERROR(env, "Can't allocate ctx");
+            goto done;
+        }
+        if (EVP_CipherInit_ex(ctx, cipher, NULL, NULL, NULL, encflg) != 1) {
+            ret = EXCP_ERROR(env, "CipherInit failed");
+            goto done;
+        }
 
     } else {
         /* argc = 4  {state, IV, InData, AAD }  */
@@ -258,17 +289,20 @@ ERL_NIF_TERM aead_cipher_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
         }
 
         cipherp = ctx_res->cipherp;
-        cipher = cipherp->cipher.p;
+        cipher = cipher_type_resource(cipherp);
         ctx = ctx_res->ctx;
     }
     /* Init done */
 
-    if (EVP_CIPHER_CTX_ctrl(ctx, cipherp->extra.aead.ctx_ctrl_set_ivlen, (int)iv.size, NULL) != 1)
+    struct cipher_type_aead_t aead = cipher_type_aead(cipherp);
+    struct cipher_type_flags_t flags = cipher_type_flags(cipherp);
+
+    if (EVP_CIPHER_CTX_ctrl(ctx, aead.ctx_ctrl_set_ivlen, (int)iv.size, NULL) != 1)
         {ret = EXCP_BADARG_N(env, 2, "Bad IV length"); goto done;}
 
 #if defined(HAVE_CCM)
-    if (cipherp->flags & CCM_MODE) {
-        if (EVP_CIPHER_CTX_ctrl(ctx, cipherp->extra.aead.ctx_ctrl_set_tag, (int)tag_len, tag_data) != 1)
+    if (flags.ccm_mode) {
+        if (EVP_CIPHER_CTX_ctrl(ctx, aead.ctx_ctrl_set_tag, (int)tag_len, tag_data) != 1)
             {ret = EXCP_BADARG_N(env, 5, "Can't set tag"); goto done;}
         if (EVP_CipherInit_ex(ctx, NULL, NULL, key.data, iv.data, -1) != 1)
             {ret = EXCP_ERROR(env, "Can't set key or iv"); goto done;}
@@ -314,7 +348,7 @@ ERL_NIF_TERM aead_cipher_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
                 /* Get the tag */
                 if ((tagp = enif_make_new_binary(env, tag_len, &out_tag)) == NULL)
                     {ret = EXCP_ERROR(env, "Can't make 'Out' binary"); goto done;}
-                if (EVP_CIPHER_CTX_ctrl(ctx, cipherp->extra.aead.ctx_ctrl_get_tag, (int)tag_len, tagp) != 1)
+                if (EVP_CIPHER_CTX_ctrl(ctx, aead.ctx_ctrl_get_tag, (int)tag_len, tagp) != 1)
                     {ret = EXCP_ERROR(env, "Can't get Tag"); goto done;}
 
                 /* Make the return value (the tuple with binary crypto text and the tag) */
@@ -324,7 +358,7 @@ ERL_NIF_TERM aead_cipher_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
                     {ret = EXCP_ERROR(env, "Encrypt error"); goto done;}
                 /* Add tag to output end */
                 tagp = outp + in_len;
-                if (EVP_CIPHER_CTX_ctrl(ctx, cipherp->extra.aead.ctx_ctrl_get_tag, (int)tag_len, tagp) != 1)
+                if (EVP_CIPHER_CTX_ctrl(ctx, aead.ctx_ctrl_get_tag, (int)tag_len, tagp) != 1)
                     {ret = EXCP_ERROR(env, "Can't get Tag"); goto done;}
                 ret = out;
             }
@@ -333,8 +367,8 @@ ERL_NIF_TERM aead_cipher_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
         {
 #if defined(HAVE_GCM) || defined(HAVE_CHACHA20_POLY1305)
             /* Check the Tag before returning. CCM_MODE does this previously. */
-            if (!(cipherp->flags & CCM_MODE)) { /* That is, CHACHA20_POLY1305 or GCM_MODE */ 
-                if (EVP_CIPHER_CTX_ctrl(ctx, cipherp->extra.aead.ctx_ctrl_set_tag, (int)tag_len, tag_data) != 1)
+            if (!flags.ccm_mode) { /* That is, CHACHA20_POLY1305 or GCM_MODE */
+                if (EVP_CIPHER_CTX_ctrl(ctx, aead.ctx_ctrl_set_tag, (int)tag_len, tag_data) != 1)
                     /* Decrypt error */
                     {ret = atom_error; goto done;}
                 /* CCM dislikes EVP_DecryptFinal_ex on decrypting for pre 1.1.1, so we do it only here */

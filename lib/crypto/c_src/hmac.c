@@ -31,7 +31,7 @@
  ****************************************************************/
 
 #include "hmac.h"
-#include "digest.h"
+#include "algorithms_digest.h"
 #include "info.h"
 
 #if !defined(HAS_EVP_PKEY_CTX) || DISABLE_EVP_HMAC

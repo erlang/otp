@@ -20,9 +20,10 @@
  * %CopyrightEnd%
  */
 
+#include "algorithms_digest.h"
+
 #include "pkey.h"
 #include "bn.h"
-#include "digest.h"
 #include "dss.h"
 #include "ec.h"
 #include "eddsa.h"
@@ -156,12 +157,9 @@ static int check_pkey_algorithm_type(ErlNifEnv *env,
 }
 
 
-static int get_pkey_digest_type(ErlNifEnv *env, ERL_NIF_TERM algorithm,
-                                int type_arg_num, ERL_NIF_TERM type,
-				const EVP_MD **md,
-                                ERL_NIF_TERM *err_return)
-{
-    struct digest_type_t *digp = NULL;
+ static int get_pkey_digest_type(ErlNifEnv* env, ERL_NIF_TERM algorithm, const int type_arg_num, ERL_NIF_TERM type,
+                                 const EVP_MD** md, ERL_NIF_TERM* err_return) {
+    digest_type_C* digp;
     *md = NULL;
 
     if (type == atom_none) {
@@ -181,17 +179,18 @@ static int get_pkey_digest_type(ErlNifEnv *env, ERL_NIF_TERM algorithm,
                                     For eddsa the RFC 8032 mandates sha512 in
                                     the algorithm */
         return 1;
-    
-    if ((digp = get_digest_type(type)) == NULL)
+
+    digp = get_digest_type(type);
+    if (digp == NULL)
         assign_goto(*err_return, notsup, EXCP_BADARG_N(env, type_arg_num, "Bad digest type"));
 
-    if (DIGEST_FORBIDDEN_IN_FIPS(digp))
+    if (is_digest_forbidden_in_fips(digp))
         assign_goto(*err_return, notsup, EXCP_BADARG_N(env, type_arg_num, "Digest type forbidden in FIPS"));
 
-    if (digp->md.p == NULL)
+    if (get_digest_type_resource(digp) == NULL)
         assign_goto(*err_return, notsup, EXCP_BADARG_N(env, type_arg_num, "Digest type not supported"));
 
-    *md = digp->md.p;
+    *md = get_digest_type_resource(digp);
     return 1;
 
  notsup:
@@ -203,7 +202,7 @@ static int get_pkey_sign_digest(ErlNifEnv *env,
                                 int algorithm_arg_num, int type_arg_num, int data_arg_num,
 				unsigned char *md_value, const EVP_MD **mdp,
 				unsigned char **tbsp, size_t *tbslenp,
-                                ERL_NIF_TERM *err_return)
+                                ERL_NIF_TERM * err_return)
 {
     int ret;
     const ERL_NIF_TERM *tpl_terms;
