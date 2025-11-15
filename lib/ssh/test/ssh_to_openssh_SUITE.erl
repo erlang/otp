@@ -138,8 +138,7 @@ end_per_group(_, Config) ->
 init_per_testcase(erlang_server_openssh_client_renegotiate, Config) ->
     case os:type() of
 	{unix,_} ->
-            ssh:start(),
-            ssh_test_lib:verify_sanity_check(Config);
+            init_per_testcase(default, Config);
 	Type ->
             {skip, io_lib:format("Unsupported test on ~p",[Type])}
     end;
