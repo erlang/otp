@@ -3540,7 +3540,7 @@ erts_proc_sig_init_flush_signals(Process *c_p, int flags, Eterm id)
     case ERTS_PROC_SIG_FLUSH_FLG_FROM_ALL:
         id = c_p->common.id;
         force_flush_buffers = !0;
-        /* Fall through... */
+        ERTS_FALLTHROUGH();
     case ERTS_PROC_SIG_FLUSH_FLG_FROM_ID:
         if (!proc_queue_signal(NULL, id, c_p->common.id, sig,
                                force_flush_buffers, ERTS_SIG_Q_OP_FLUSH))

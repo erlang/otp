@@ -484,7 +484,7 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount) {
 	case REF_DEF:
             if (!ERTS_IS_CRASH_DUMPING)
                 erts_magic_ref_save_bin(obj);
-            /* fall through... */
+            ERTS_FALLTHROUGH();
 	case EXTERNAL_REF_DEF:
 	    PRINT_STRING(res, fn, arg, "#Ref<");
 	    PRINT_UWORD(res, fn, arg, 'u', 0, 1,
@@ -720,7 +720,7 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount) {
                     PRINT_STRING(res, fn, arg, "#{");
                     WSTACK_PUSH(s, PRT_CLOSE_TUPLE);
                     head++;
-                    /* fall through */
+                    ERTS_FALLTHROUGH();
                 case MAP_HEADER_TAG_HAMT_NODE_BITMAP:
                     n = hashmap_bitcount(mapval);
                     ASSERT(0 < n && n < 17);
