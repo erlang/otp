@@ -186,31 +186,9 @@ guard_tests1([], St) -> {[],St}.
 
 guard_test(G0, St0) ->
     in_guard(fun() ->
-                     {G1,St1} = guard_test1(G0, St0),
+                     {G1,St1} = expr(G0, St0),
                      strict_record_access(G1, St1)
              end).
-
-%% Normalising guard tests ensures that none of the Boolean operands
-%% created by strict_record_access/2 calls any of the old guard tests.
-guard_test1({call,Anno,{atom,Tanno,Tname},As}, St) ->
-    Test = {atom,Tanno,normalise_test(Tname, length(As))},
-    expr({call,Anno,Test,As}, St);
-guard_test1(Test, St) ->
-    expr(Test, St).
-
-normalise_test(atom, 1)      -> is_atom;
-normalise_test(binary, 1)    -> is_binary;
-normalise_test(float, 1)     -> is_float;
-normalise_test(function, 1)  -> is_function;
-normalise_test(integer, 1)   -> is_integer;
-normalise_test(list, 1)      -> is_list;
-normalise_test(number, 1)    -> is_number;
-normalise_test(pid, 1)       -> is_pid;
-normalise_test(port, 1)      -> is_port;
-normalise_test(record, 2)    -> is_record;
-normalise_test(reference, 1) -> is_reference;
-normalise_test(tuple, 1)     -> is_tuple;
-normalise_test(Name, _) -> Name.
 
 is_in_guard() ->
     get(erl_expand_records_in_guard).
