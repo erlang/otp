@@ -93,6 +93,10 @@ all() ->
           end,
     lists:sort(maps:keys(Map)).
 
+approved() ->
+    [Ftr || Ftr <- all(),
+            maps:get(status, info(Ftr)) =:= approved].
+
 -doc """
 Return a list of all configurable features, that is, features with status
 `experimental` or `approved`. These are the features that can be enabled or
@@ -228,8 +232,7 @@ keyword_fun(Opts, KeywordFun) ->
                (_) -> false
             end,
     FeatureOps = lists:filter(IsFtr, Opts),
-    {AddFeatures, DelFeatures, RawFtrs} = collect_features(FeatureOps),
-
+    {AddFeatures, DelFeatures, RawFtrs} = collect_features(FeatureOps, enabled()),
     case configurable_features(RawFtrs) of
         ok ->
             {ok, Fun} = add_features_fun(AddFeatures, KeywordFun),
@@ -401,7 +404,7 @@ init_features() ->
                 end
         end,
     FOps = lists:filtermap(F, FeatureOps),
-    {Features, _, _} = collect_features(FOps),
+    {Features, _, _} = collect_features(FOps, approved()),
     {Enabled0, Keywords} =
         lists:foldl(fun(Ftr, {Ftrs, Keys}) ->
                             case lists:member(Ftr, Ftrs) of
@@ -492,13 +495,10 @@ features_in(NameOrBin) ->
     end.
 
 %% Interpret feature ops (enable or disable) to build the full set of
-%% features.  The meta feature 'all' is expanded to all known
-%% features.
-collect_features(FOps) ->
-    %% Features enabled by default
-    Enabled = [Ftr || Ftr <- all(),
-            maps:get(status, info(Ftr)) == approved],
-    collect_features(FOps, Enabled, [], []).
+%% features, starting from the given set. The meta feature 'all' is
+%% expanded to all known features.
+collect_features(FOps, Inital) ->
+    collect_features(FOps, Inital, [], []).
 
 collect_features([], Add, Del, Raw) ->
     {Add, Del, Raw};
