@@ -452,6 +452,7 @@ classify_heap_need(recv_marker_clear) -> neutral;
 classify_heap_need(recv_marker_reserve) -> gc;
 classify_heap_need(recv_next) -> gc;
 classify_heap_need(remove_message) -> neutral;
+classify_heap_need(require_stack) -> neutral;
 classify_heap_need(resume) -> gc;
 classify_heap_need(set_tuple_element) -> gc;
 classify_heap_need(succeeded) -> neutral;
@@ -527,6 +528,8 @@ prefer_xregs_is([#cg_set{op=Op}=I|Is], St, Copies0, Acc)
        Op =:= bs_ensured_match_string;
        Op =:= bs_match_string ->
     Copies = prefer_xregs_prune(I, Copies0, St),
+    prefer_xregs_is(Is, St, Copies, [I|Acc]);
+prefer_xregs_is([#cg_set{op=require_stack}=I|Is], St, Copies, Acc) ->
     prefer_xregs_is(Is, St, Copies, [I|Acc]);
 prefer_xregs_is([#cg_set{args=Args0}=I0|Is], St, Copies0, Acc) ->
     Args = [do_prefer_xreg(A, Copies0, St) || A <- Args0],
@@ -2210,6 +2213,8 @@ cg_instr(recv_marker_reserve, [], Dst) ->
     [{recv_marker_reserve, Dst}];
 cg_instr(remove_message, [], _Dst) ->
     [remove_message];
+cg_instr(require_stack, _Args, _Dst) ->
+    [];
 cg_instr(resume, [A,B], _Dst) ->
     [{bif,raise,{f,0},[A,B],{x,0}}].
 
