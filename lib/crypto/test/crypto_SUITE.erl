@@ -1283,7 +1283,7 @@ sign_verify_oqs(_Config) ->
                  true = lists:member(Alg, Supported),
                  sign_verify_oqs_do(Alg)
              end
-             || Alg <- mldsa_sign_ciphers()],
+             || Alg <- quantum_sign_ciphers()],
             ok
     end.
 
@@ -1301,8 +1301,23 @@ sign_verify_oqs_do(Alg) ->
     ok.
 
 %% Supported by OpenSSL 3.5
-mldsa_sign_ciphers() ->
-    [mldsa44, mldsa65, mldsa87].
+quantum_sign_ciphers() ->
+    [mldsa44, mldsa65, mldsa87,
+
+     slh_dsa_shake_128s,
+     slh_dsa_shake_128f,
+     slh_dsa_sha2_128s,
+     slh_dsa_sha2_128f,
+
+     slh_dsa_shake_192s,
+     slh_dsa_shake_192f,
+     slh_dsa_sha2_192s,
+     slh_dsa_sha2_192f,
+
+     slh_dsa_shake_256s,
+     slh_dsa_shake_256f,
+     slh_dsa_sha2_256s,
+     slh_dsa_sha2_256f].
 
 %%--------------------------------------------------------------------
 use_all_ec_sign_verify(_Config) ->
