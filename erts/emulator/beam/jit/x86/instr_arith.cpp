@@ -1068,13 +1068,13 @@ void BeamModuleAssembler::emit_i_mul_add(const ArgLabel &Fail,
             p = ptr(RET, RET, 1, increment);
             break;
         case 4:
-            p = ptr(x86::Gp(), RET, 2, increment);
+            p = ptr_abs(increment, RET, 2);
             break;
         case 5:
             p = ptr(RET, RET, 2, increment);
             break;
         case 8:
-            p = ptr(x86::Gp(), RET, 3, increment);
+            p = ptr_abs(increment, RET, 3);
             break;
         case 9:
             p = ptr(RET, RET, 3, increment);
