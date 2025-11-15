@@ -22,7 +22,7 @@
 
 #pragma once
 
-struct digest_availability_t;
+struct digest_type_t;
 
 #ifdef __cplusplus
 extern "C" {
@@ -31,7 +31,7 @@ extern "C" {
 #include "common.h"
 
 // Wraps a pointer to digest_availability_t which is a C++ struct with C++ features, for use in C API
-typedef struct digest_availability_t digest_availability_C;
+typedef struct digest_type_t digest_type_C;
 
 //
 // C Digest storage API
@@ -40,12 +40,12 @@ void digest_types_lazy_init(ErlNifEnv* env, bool fips_enabled);
 ERL_NIF_TERM digest_types_as_list(ErlNifEnv* env, bool fips_forbidden);
 
 // Lookup and access fields
-digest_availability_C* get_digest_type(ERL_NIF_TERM type); // linear lookup by atom
-bool is_digest_forbidden_in_fips(const digest_availability_C* p); // access C++ member from C
-const EVP_MD* get_digest_availability_md(const digest_availability_C* p); // access field
-size_t get_digest_availability_xof_default_length(const digest_availability_C* p); // access field
-const char* get_digest_availability_str_v3(const digest_availability_C* p); // access str_v3 name (field of probe)
-bool is_digest_eligible_for_pbkdf2(const digest_availability_C* p); // check PBKDF2 availability bit
+digest_type_C* get_digest_type(ERL_NIF_TERM type); // linear lookup by atom
+bool is_digest_forbidden_in_fips(const digest_type_C* p); // access C++ member from C
+const EVP_MD* get_digest_type_resource(const digest_type_C* p); // access field
+size_t get_digest_type_xof_default_length(const digest_type_C* p); // access field
+const char* get_digest_type_str_v3(const digest_type_C* p); // access str_v3 name (field of probe)
+bool is_digest_eligible_for_pbkdf2(const digest_type_C* p); // check PBKDF2 availability bit
 
 #ifdef __cplusplus
 }
@@ -57,7 +57,7 @@ bool is_digest_eligible_for_pbkdf2(const digest_availability_C* p); // check PBK
 // Describes a digest method added by the init function, and checked for compatibility
 // with FIPS if FIPS mode was on. If the FIPS mode changes this will be destroyed and
 // created again.
-struct digest_availability_t {
+struct digest_type_t {
     // The definition used to create this record
     const struct digest_probe_t* init = nullptr;
     struct {
@@ -69,7 +69,7 @@ struct digest_availability_t {
     // 0 or default digest length for XOF digests
     size_t xof_default_length = 0;
 
-    ~digest_availability_t();
+    ~digest_type_t();
 
     bool is_forbidden_in_fips() const {
 #ifdef FIPS_SUPPORT
@@ -107,12 +107,12 @@ struct digest_probe_t {
     size_t xof_default_length = 0;
 
     // Perform probe on the algorithm. In case of success, fill the struct and push into the 'output'
-    void probe(ErlNifEnv* env, bool fips_mode, std::vector<digest_availability_t>& output);
+    void probe(ErlNifEnv* env, bool fips_mode, std::vector<digest_type_t>& output);
     // Used as a stopper by the algorithm_collection_t
     bool is_last() const { return this->str == nullptr; }
 };
 
-using digest_collection_t = algorithm_collection_t<digest_availability_t, digest_probe_t>;
+using digest_collection_t = algorithm_collection_t<digest_type_t, digest_probe_t>;
 extern digest_collection_t digest_collection;
 
 #endif // __cplusplus

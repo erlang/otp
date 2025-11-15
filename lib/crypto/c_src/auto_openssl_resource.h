@@ -28,19 +28,28 @@ extern "C" {
 
 // A generic struct holding a pointer, constructable with a pointer or as null, and auto-destructable.
 // The bool operator allows using the struct in if() conditions
-// When inheriting: implement the destructor with the call to the corresponding OpenSSL free function
-template <typename ResourceT, typename ImplementingT>
+// When inheriting: implement the resource destructor as a static free_resource function with a call
+// to a corresponding OpenSSL free function.
+template<typename ResourceT, typename ImplementingT>
 struct auto_openssl_resource_t {
     ResourceT pointer = nullptr;
 
     auto_openssl_resource_t() = default;
     explicit auto_openssl_resource_t(ResourceT p) : pointer(p) {}
 
-    auto_openssl_resource_t(auto_openssl_resource_t const& other) = delete; // no copy
-    auto_openssl_resource_t& operator=(auto_openssl_resource_t const&) = delete; // no copy assign
+    auto_openssl_resource_t(auto_openssl_resource_t const &other) = delete; // no copy
+    auto_openssl_resource_t &operator=(auto_openssl_resource_t const &) = delete; // no copy assign
 
-    auto_openssl_resource_t(auto_openssl_resource_t&& other) = default; // allow move
-    auto_openssl_resource_t& operator=(auto_openssl_resource_t&&) = default; // allow move assign
+    // allow move and move assign
+    auto_openssl_resource_t(auto_openssl_resource_t &&other) noexcept {
+        this->pointer = other.pointer;
+        other.pointer = nullptr;
+    }
+    auto_openssl_resource_t &operator=(auto_openssl_resource_t &&other) noexcept {
+        this->pointer = other.pointer;
+        other.pointer = nullptr;
+        return *this;
+    }
 
     ~auto_openssl_resource_t() { ImplementingT::free_resource(this->pointer); }
 
@@ -53,49 +62,56 @@ struct auto_openssl_resource_t {
 };
 
 #ifdef HAS_3_0_API
-struct auto_evp_pkey_t : auto_openssl_resource_t<EVP_PKEY*, auto_evp_pkey_t> {
-    auto_evp_pkey_t() = default;
-    explicit auto_evp_pkey_t(EVP_PKEY* p) : auto_openssl_resource_t(p) {}
-    static void free_resource(EVP_PKEY* p);
+struct auto_pkey_t : auto_openssl_resource_t<EVP_PKEY *, auto_pkey_t> {
+    auto_pkey_t() = default;
+    explicit auto_pkey_t(EVP_PKEY *p) : auto_openssl_resource_t(p) {}
+    static void free_resource(EVP_PKEY *p);
 };
 
-struct auto_evp_pkey_ctx_t : auto_openssl_resource_t<EVP_PKEY_CTX*, auto_evp_pkey_ctx_t> {
-    auto_evp_pkey_ctx_t() = default;
-    explicit auto_evp_pkey_ctx_t(EVP_PKEY_CTX* p) : auto_openssl_resource_t(p) {}
-    static void free_resource(EVP_PKEY_CTX* p);
+struct auto_pkey_ctx_t : auto_openssl_resource_t<EVP_PKEY_CTX *, auto_pkey_ctx_t> {
+    auto_pkey_ctx_t() = default;
+    explicit auto_pkey_ctx_t(EVP_PKEY_CTX *p) : auto_openssl_resource_t(p) {}
+    static void free_resource(EVP_PKEY_CTX *p);
 };
 #else
-struct auto_ec_key_t : auto_openssl_resource_t<EC_KEY*, auto_ec_key_t> {
-    auto_ec_key_t() = default;
-    explicit auto_ec_key_t(EC_KEY* p) : auto_openssl_resource_t(p) {}
-    static void free_resource(EC_KEY* p);
+// Pre-SSL 3.0 Key resource
+struct auto_key_v1_t : auto_openssl_resource_t<EC_KEY *, auto_key_v1_t> {
+    auto_key_v1_t() = default;
+    explicit auto_key_v1_t(EC_KEY *p) : auto_openssl_resource_t(p) {}
+    static void free_resource(EC_KEY *p);
 };
 #endif // HAS_3_0_API
 
 #ifdef HAVE_ML_KEM
-struct auto_evp_kem_t : auto_openssl_resource_t<EVP_KEM*, auto_evp_kem_t> {
-    auto_evp_kem_t() = default;
-    explicit auto_evp_kem_t(EVP_KEM* p) : auto_openssl_resource_t(p) {}
-    static void free_resource(EVP_KEM* p);
+struct auto_kem_t : auto_openssl_resource_t<EVP_KEM *, auto_kem_t> {
+    auto_kem_t() = default;
+    explicit auto_kem_t(EVP_KEM *p) : auto_openssl_resource_t(p) {}
+    static void free_resource(EVP_KEM *p);
 };
 #endif
 
-struct auto_evp_mac_t : auto_openssl_resource_t<EVP_MAC*, auto_evp_mac_t> {
-    auto_evp_mac_t() = default;
-    explicit auto_evp_mac_t(EVP_MAC* p) : auto_openssl_resource_t(p) {}
-    static void free_resource(EVP_MAC* p);
+struct auto_mac_t : auto_openssl_resource_t<EVP_MAC *, auto_mac_t> {
+    auto_mac_t() = default;
+    explicit auto_mac_t(EVP_MAC *p) : auto_openssl_resource_t(p) {}
+    static void free_resource(EVP_MAC *p);
 };
 
-struct auto_evp_mac_ctx_t : auto_openssl_resource_t<EVP_MAC_CTX*, auto_evp_mac_ctx_t> {
-    auto_evp_mac_ctx_t() = default;
-    explicit auto_evp_mac_ctx_t(EVP_MAC_CTX* p) : auto_openssl_resource_t(p) {}
-    static void free_resource(EVP_MAC_CTX* p);
+struct auto_mac_ctx_t : auto_openssl_resource_t<EVP_MAC_CTX *, auto_mac_ctx_t> {
+    auto_mac_ctx_t() = default;
+    explicit auto_mac_ctx_t(EVP_MAC_CTX *p) : auto_openssl_resource_t(p) {}
+    static void free_resource(EVP_MAC_CTX *p);
 };
 
-struct auto_cipher_t : auto_openssl_resource_t<EVP_CIPHER*, auto_cipher_t> {
+struct auto_cipher_t : auto_openssl_resource_t<const EVP_CIPHER *, auto_cipher_t> {
     auto_cipher_t() = default;
-    explicit auto_cipher_t(EVP_CIPHER* p) : auto_openssl_resource_t(p) {}
-    static void free_resource(EVP_CIPHER* p);
+    explicit auto_cipher_t(const EVP_CIPHER *p) : auto_openssl_resource_t(p) {}
+    static void free_resource(const EVP_CIPHER *p);
+};
+
+struct auto_cipher_ctx_t : auto_openssl_resource_t<EVP_CIPHER_CTX *, auto_cipher_ctx_t> {
+    auto_cipher_ctx_t() = default;
+    explicit auto_cipher_ctx_t(EVP_CIPHER_CTX *p) : auto_openssl_resource_t(p) {}
+    static void free_resource(EVP_CIPHER_CTX *p);
 };
 
 #endif // __cplusplus

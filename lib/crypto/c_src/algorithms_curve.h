@@ -45,7 +45,7 @@ struct curve_probe_t;
 // Describes a curve algorithm added by the collection's probe function, and checked for compatibility
 // with FIPS if FIPS mode was on. If the FIPS mode changes this will be destroyed and
 // created again.
-struct curve_availability_t {
+struct curve_type_t {
     const curve_probe_t *init = nullptr; // the probe which created this record, contains name, atom, etc.
     struct {
         bool fips_forbidden: 1;
@@ -76,7 +76,7 @@ struct curve_probe_t {
     ERL_NIF_TERM atom = 0; // Atom for this->sn is cached here
 
     // Perform a probe on the algorithm. In case of success, fill the struct and push into the 'output'
-    void probe(ErlNifEnv *env, bool fips_mode, std::vector<curve_availability_t> &output);
+    void probe(ErlNifEnv *env, bool fips_mode, std::vector<curve_type_t> &output);
     // Used as a stopper by the algorithm_collection_t
     bool is_last() const { return this->sn == nullptr; }
 
@@ -85,7 +85,7 @@ private:
 };
 
 // Forward declaration, find
-using curve_collection_t = algorithm_collection_t<curve_availability_t, curve_probe_t>;
+using curve_collection_t = algorithm_collection_t<curve_type_t, curve_probe_t>;
 extern curve_collection_t curve_collection;
 
 #endif // __cplusplus

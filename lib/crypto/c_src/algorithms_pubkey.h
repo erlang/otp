@@ -46,7 +46,7 @@ struct pubkey_probe_t;
 // Describes a public key algorithm added by the collection's probe function, and checked for compatibility
 // with FIPS if FIPS mode was on. If the FIPS mode changes this will be destroyed and
 // created again.
-struct pubkey_availability_t {
+struct pubkey_type_t {
     const pubkey_probe_t *init = nullptr; // the pubkey_probe_t used to create this record
 
     struct {
@@ -86,12 +86,12 @@ struct pubkey_probe_t {
     ERL_NIF_TERM atom = 0;
 
     // Perform a probe on the algorithm. In case of success, fill the struct and push into the 'output'
-    void probe(ErlNifEnv *env, bool fips_enabled, std::vector<pubkey_availability_t> &output);
+    void probe(ErlNifEnv *env, bool fips_enabled, std::vector<pubkey_type_t> &output);
     // Used as a stopper by the algorithm_collection_t
     bool is_last() const { return this->str == nullptr; }
 };
 
-using pubkey_collection_t = algorithm_collection_t<pubkey_availability_t, pubkey_probe_t>;
+using pubkey_collection_t = algorithm_collection_t<pubkey_type_t, pubkey_probe_t>;
 extern pubkey_collection_t pubkey_collection;
 
 #endif // __cplusplus

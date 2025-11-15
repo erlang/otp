@@ -45,7 +45,7 @@ struct rsaopt_probe_t;
 // Describes a RSA option added by the collection's probe function, and checked for compatibility
 // with FIPS if FIPS mode was on. If the FIPS mode changes this will be destroyed and
 // created again.
-struct rsaopt_availability_t {
+struct rsaopt_type_t {
     const rsaopt_probe_t *init = nullptr; // the rsaopt_probe_t used to create this record
 
     struct {
@@ -72,12 +72,12 @@ struct rsaopt_probe_t {
     ERL_NIF_TERM atom = 0;
 
     // Attempt to add a new known RSA option. In case of success, fill the struct and push into the 'output'
-    void probe(ErlNifEnv *env, bool fips_enabled, std::vector<rsaopt_availability_t> &output);
+    void probe(ErlNifEnv *env, bool fips_enabled, std::vector<rsaopt_type_t> &output);
     // Used as a stopper by the algorithm_collection_t
     bool is_last() const { return this->str_v3 == nullptr; }
 };
 
-using rsaopt_collection_t = algorithm_collection_t<rsaopt_availability_t, rsaopt_probe_t>;
+using rsaopt_collection_t = algorithm_collection_t<rsaopt_type_t, rsaopt_probe_t>;
 extern rsaopt_collection_t rsaopt_collection;
 
 #endif // __cplusplus

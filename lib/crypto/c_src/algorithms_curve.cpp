@@ -403,10 +403,10 @@ bool curve_probe_t::is_curve_valid_by_nid() {
 #ifdef HAVE_EC
 #if defined(HAVE_DH)
 #if defined(HAS_EVP_PKEY_CTX) && (!DISABLE_EVP_DH)
-    auto_evp_pkey_t pkey;
-    auto_evp_pkey_t params;
+    auto_pkey_t pkey;
+    auto_pkey_t params;
 
-    const auto_evp_pkey_ctx_t pctx(EVP_PKEY_CTX_new_id(EVP_PKEY_EC, nullptr));
+    const auto_pkey_ctx_t pctx(EVP_PKEY_CTX_new_id(EVP_PKEY_EC, nullptr));
     if (!pctx)
         return false;
     if (1 != EVP_PKEY_paramgen_init(pctx.pointer))
@@ -416,7 +416,7 @@ bool curve_probe_t::is_curve_valid_by_nid() {
     if (!EVP_PKEY_paramgen(pctx.pointer, &params.pointer))
         return false;
 
-    const auto_evp_pkey_ctx_t kctx(EVP_PKEY_CTX_new(params.pointer, nullptr));
+    const auto_pkey_ctx_t kctx(EVP_PKEY_CTX_new(params.pointer, nullptr));
     if (!kctx)
         return false;
 
@@ -427,7 +427,7 @@ bool curve_probe_t::is_curve_valid_by_nid() {
 
     return true;
 #else
-    auto_ec_key_t key(EC_KEY_new_by_curve_name(nid));
+    auto_key_v1_t key(EC_KEY_new_by_curve_name(nid));
 
     if (!key)
         return false;
@@ -443,9 +443,9 @@ bool curve_probe_t::is_curve_valid_by_nid() {
 #endif // HAVE_EC
 }
 
-void curve_probe_t::probe(ErlNifEnv *env, const bool fips_mode, std::vector<curve_availability_t> &output) {
+void curve_probe_t::probe(ErlNifEnv *env, const bool fips_mode, std::vector<curve_type_t> &output) {
     this->atom = create_or_existing_atom(env, this->sn, this->atom);
-    curve_availability_t algo = {.init = this};
+    curve_type_t algo = {.init = this};
 
     // Some curves can be pre-checked by their NID. Passing NID=0 will skip this check
     if (nid && !this->is_curve_valid_by_nid()) {
@@ -456,9 +456,9 @@ void curve_probe_t::probe(ErlNifEnv *env, const bool fips_mode, std::vector<curv
     output.push_back(algo);
 }
 
-ERL_NIF_TERM curve_availability_t::get_atom() const { return this->init->atom; }
+ERL_NIF_TERM curve_type_t::get_atom() const { return this->init->atom; }
 
-void curve_availability_t::probe_under_fips(bool fips_mode) {
+void curve_type_t::probe_under_fips(bool fips_mode) {
 #if defined(FIPS_SUPPORT) && defined(HAS_3_0_API)
     // This checking code only runs under FIPS and OpenSSL 3+, other cases algorithm is always added
     if (!fips_mode)
@@ -466,7 +466,7 @@ void curve_availability_t::probe_under_fips(bool fips_mode) {
 
     OSSL_PARAM params[2];
 
-    const auto_evp_pkey_ctx_t pctx(EVP_PKEY_CTX_new_from_name(nullptr, "EC", "fips=yes"));
+    const auto_pkey_ctx_t pctx(EVP_PKEY_CTX_new_from_name(nullptr, "EC", "fips=yes"));
     if (!pctx) {
         this->flags.algorithm_init_failed = true;
         return; // EC keygen context not available
@@ -481,7 +481,7 @@ void curve_availability_t::probe_under_fips(bool fips_mode) {
         this->flags.algorithm_init_failed = true;
         return;
     }
-    auto_evp_pkey_t pkey(nullptr);
+    auto_pkey_t pkey(nullptr);
     if (EVP_PKEY_generate(pctx.pointer, &pkey.pointer) <= 0) {
         this->flags.algorithm_init_failed = true;
     }

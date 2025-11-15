@@ -22,19 +22,19 @@
 #include "auto_openssl_resource.h"
 
 #ifdef HAS_3_0_API
-void auto_evp_pkey_t::free_resource(EVP_PKEY *p) {
+void auto_pkey_t::free_resource(EVP_PKEY *p) {
     if (p) {
         EVP_PKEY_free(p);
     }
 }
 
-void auto_evp_pkey_ctx_t::free_resource(EVP_PKEY_CTX *p) {
+void auto_pkey_ctx_t::free_resource(EVP_PKEY_CTX *p) {
     if (p) {
         EVP_PKEY_CTX_free(p);
     }
 }
 #else
-void auto_ec_key_t::free_resource(EC_KEY *p) {
+void auto_key_v1_t::free_resource(EC_KEY *p) {
     if (p) {
         EC_KEY_free(p);
     }
@@ -42,27 +42,33 @@ void auto_ec_key_t::free_resource(EC_KEY *p) {
 #endif // HAS_3_0_API
 
 #ifdef HAVE_ML_KEM
-void auto_evp_kem_t::free_resource(EVP_KEM *p) {
+void auto_kem_t::free_resource(EVP_KEM *p) {
     if (p) {
         EVP_KEM_free(p);
     }
 }
 #endif
 
-void auto_evp_mac_t::free_resource(EVP_MAC *p) {
+void auto_mac_t::free_resource(EVP_MAC *p) {
     if (p) {
         EVP_MAC_free(p);
     }
 }
 
-void auto_evp_mac_ctx_t::free_resource(EVP_MAC_CTX *p) {
+void auto_mac_ctx_t::free_resource(EVP_MAC_CTX *p) {
     if (p) {
         EVP_MAC_CTX_free(p);
     }
 }
 
-void auto_cipher_t::free_resource(EVP_CIPHER *p) {
+void auto_cipher_t::free_resource(const EVP_CIPHER *p) {
     if (p) {
-        EVP_CIPHER_free(p);
+        EVP_CIPHER_free(const_cast<EVP_CIPHER*>(p));
+    }
+}
+
+void auto_cipher_ctx_t::free_resource(EVP_CIPHER_CTX *p) {
+    if (p) {
+        EVP_CIPHER_CTX_free(p);
     }
 }

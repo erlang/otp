@@ -28,11 +28,34 @@ extern "C" {
 
 #include "common.h"
 
+typedef struct cipher_type_t cipher_type_C;
+struct cipher_type_flags_t {
+    bool fips_forbidden : 1;
+    bool algorithm_init_failed : 1;
+    bool aes_cfbx : 1;
+    bool ecb_bug_0_9_8l : 1;
+    bool aead_cipher : 1;
+    bool non_evp_cipher : 1;
+    bool aes_ctr_compat : 1;
+    bool ccm_mode : 1;
+    bool gcm_mode : 1;
+};
+struct cipher_type_aead_t {
+    int ctx_ctrl_set_ivlen, ctx_ctrl_get_tag, ctx_ctrl_set_tag;
+};
+
 //
 // Supported Cipher Algorithms storage C API
 //
 size_t cipher_algorithms_lazy_init(ErlNifEnv *env, bool fips_enabled);
 ERL_NIF_TERM cipher_algorithms_as_list(ErlNifEnv *env, bool fips_enabled);
+const cipher_type_C *get_cipher_type(ERL_NIF_TERM type, size_t key_len);
+const cipher_type_C *get_cipher_type_no_key(ERL_NIF_TERM type);
+struct cipher_type_flags_t cipher_type_flags(const cipher_type_C *p);
+struct cipher_type_aead_t cipher_type_aead(const cipher_type_C *p);
+bool is_cipher_forbidden_in_fips(const cipher_type_C *p);
+const EVP_CIPHER *cipher_type_resource(const cipher_type_C *p);
+const char *cipher_type_str_v3(const cipher_type_C *p);
 
 #ifdef __cplusplus
 }
@@ -44,26 +67,22 @@ ERL_NIF_TERM cipher_algorithms_as_list(ErlNifEnv *env, bool fips_enabled);
 
 struct cipher_probe_t;
 
-struct cipher_availability_flags_t {
-    bool fips_forbidden : 1;
-    bool aes_cfbx: 1;
-    bool ecb_bug_0_9_8l: 1;
-    bool aead_cipher: 1;
-    bool non_evp_cipher: 1;
-    bool aes_ctr_compat: 1;
-    bool ccm_mode: 1;
-    bool gcm_mode: 1;
-};
-
 // Describes a cipher algorithm added by the collection's probe function, and checked for compatibility
 // with FIPS if FIPS mode was on. If the FIPS mode changes this will be destroyed and
 // created again.
-struct cipher_availability_t {
+struct cipher_type_t {
     const cipher_probe_t *init = nullptr; // the cipher_probe_t used to create this record
-    auto_cipher_t resource;
-    struct { int ctx_ctrl_set_ivlen, ctx_ctrl_get_tag, ctx_ctrl_set_tag; } aead;
+    auto_cipher_t resource{};
+    cipher_type_aead_t aead{};
+    ERL_NIF_TERM atom = 0; // copy of init->atom
+    size_t key_len = 0; // copy of init->key_len
 
-    cipher_availability_flags_t flags = {};
+    cipher_type_flags_t flags{};
+
+    cipher_type_t(const cipher_probe_t *init_, ERL_NIF_TERM atom, const size_t key_len, cipher_type_flags_t flags_) :
+        init(init_), atom(atom), key_len(key_len), flags(flags_) {}
+    cipher_type_t(ERL_NIF_TERM atom, const size_t key_len=0) :
+        atom(atom), key_len(key_len) {}
 
     bool is_forbidden_in_fips() const {
 #ifdef FIPS_SUPPORT
@@ -72,10 +91,23 @@ struct cipher_availability_t {
         return false;
 #endif
     }
-    bool is_available() const { return this->resource || this->flags.aes_ctr_compat; }
+    bool is_available() const {
+        // Available if cipher could be initialized, and (has a EVP_CIPHER resource, or is AES_CTR compatible)
+        return !this->flags.algorithm_init_failed && (this->resource || this->flags.aes_ctr_compat);
+    }
     // Return the atom which goes to the Erlang caller
     ERL_NIF_TERM get_atom() const;
     void setup_cipher(bool fips_enabled);
+    // Partial order compare, returns a.atom < b.atom && a.key < b.key
+    static bool compare_function(const cipher_type_t &a, const cipher_type_t &b);
+    // Partial order compare, returns a.atom < b.atom
+    static bool compare_function_no_key(const cipher_type_t &a, const cipher_type_t &b);
+    bool eq(const cipher_type_t &other) const { return this->atom == other.atom && this->key_len == other.key_len; }
+    bool eq_no_key(const cipher_type_t &other) const { return this->atom == other.atom; }
+
+private:
+    void update_availability(bool fips_enabled);
+    bool can_cipher_be_instantiated() const;
 };
 
 enum AEAD_CTRL_TYPE {
@@ -92,25 +124,28 @@ enum AEAD_CTRL_TYPE {
     AEAD_CTRL_CCM,
 };
 
+// A 0-argument function returning EVP_CIPHER used to construct supported ciphers
+using cipher_constructor_fn_t = const EVP_CIPHER *(*) ();
+
 // A probe contains data required for creating the algorithm description structure and testing
 // its availability. Each probe() call done by the algorithm_collection_t might or might not
 // result in a new available algorithm creation.
 struct cipher_probe_t {
     const char *str = nullptr;
-    const char *v3 = nullptr;
-    const EVP_CIPHER *(*ctor)(void) = nullptr; // constructor function (can be null)
+    const char *str_v3 = nullptr;
+    cipher_constructor_fn_t ctor_v1 = nullptr; // constructor for OpenSSL < 3.0 (can be null)
     ERL_NIF_TERM atom = 0;
     size_t key_len = 0;
-    cipher_availability_flags_t flags; // initial value for the flags
+    cipher_type_flags_t flags; // initial value for the flags
     AEAD_CTRL_TYPE aead_ctrl_type = NOT_AEAD; // determines which value goes into cipher_availability_t::aead
 
     // Attempt to add a new known Cipher algorithm. In case of success, fill the struct and push into the 'output'
-    void probe(ErlNifEnv *env, bool fips_enabled, std::vector<cipher_availability_t> &output);
+    void probe(ErlNifEnv *env, bool fips_enabled, std::vector<cipher_type_t> &output);
     // Used as a stopper by the algorithm_collection_t
-    bool is_last() const { return this->v3 == nullptr; }
+    bool is_last() const { return this->str_v3 == nullptr; }
 };
 
-using cipher_collection_t = algorithm_collection_t<cipher_availability_t, cipher_probe_t>;
+using cipher_collection_t = algorithm_collection_t<cipher_type_t, cipher_probe_t>;
 extern cipher_collection_t cipher_collection;
 
 #endif // __cplusplus

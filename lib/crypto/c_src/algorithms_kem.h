@@ -45,7 +45,7 @@ struct kem_probe_t;
 // Describes a KEM algorithm added by the collection's probe function, and checked for compatibility
 // with FIPS if FIPS mode was on. If the FIPS mode changes this will be destroyed and
 // created again.
-struct kem_availability_t {
+struct kem_type_t {
     const kem_probe_t *init = nullptr; // the rsaopt_probe_t used to create this record
 
     struct {
@@ -73,12 +73,12 @@ struct kem_probe_t {
     ERL_NIF_TERM atom = 0;
 
     // Perform a probe on the algorithm. In case of success, fill the struct and push into the 'output'
-    void probe(ErlNifEnv *env, bool fips_enabled, std::vector<kem_availability_t> &output);
+    void probe(ErlNifEnv *env, bool fips_enabled, std::vector<kem_type_t> &output);
     // Used as a stopper by the algorithm_collection_t
     bool is_last() const { return this->str_v3 == nullptr; }
 };
 
-using kem_collection_t = algorithm_collection_t<kem_availability_t, kem_probe_t>;
+using kem_collection_t = algorithm_collection_t<kem_type_t, kem_probe_t>;
 extern kem_collection_t kem_collection;
 
 #endif // __cplusplus

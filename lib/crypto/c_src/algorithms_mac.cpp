@@ -77,16 +77,16 @@ extern "C" ERL_NIF_TERM mac_algorithms_as_list(ErlNifEnv *env, const bool fips_e
     return mac_collection.to_list(env, fips_enabled);
 }
 
-ERL_NIF_TERM mac_availability_t::get_atom() const { return this->init->atom; }
+ERL_NIF_TERM mac_type_t::get_atom() const { return this->init->atom; }
 
-bool mac_availability_t::is_available() const { return this->init->type != NO_mac; }
+bool mac_type_t::is_available() const { return this->init->type != NO_mac; }
 
-void mac_availability_t::check_fips_availability(const bool fips_enabled) {
+void mac_type_t::check_fips_availability(const bool fips_enabled) {
 #ifdef HAS_3_0_API
 #ifdef FIPS_SUPPORT
     // Initialize an algorithm to check that all its dependencies are valid in FIPS
     if (this->evp_mac) {
-        auto_evp_mac_ctx_t ctx(EVP_MAC_CTX_new(this->evp_mac.pointer));
+        auto_mac_ctx_t ctx(EVP_MAC_CTX_new(this->evp_mac.pointer));
 
         // Dummy key and parameters.
         constexpr unsigned char key[64] = {};
@@ -103,7 +103,7 @@ void mac_availability_t::check_fips_availability(const bool fips_enabled) {
 #endif /* HAS_3_0_API */
 }
 
-void mac_availability_t::update_flags(const bool fips_enabled) {
+void mac_type_t::update_flags(const bool fips_enabled) {
 #if defined(HAS_3_0_API)
     this->evp_mac.reset(EVP_MAC_fetch(nullptr, this->init->str_v3, nullptr));
     if (!this->evp_mac) {
@@ -123,14 +123,14 @@ void mac_availability_t::update_flags(const bool fips_enabled) {
 
 // for FIPS we will attempt to initialize the pubkey context to verify whether the
 // algorithm is allowed, for non-FIPS keeping the old behavior - always allow the algorithm.
-void mac_probe_t::probe(ErlNifEnv *env, const bool fips_enabled, std::vector<mac_availability_t> &output) {
+void mac_probe_t::probe(ErlNifEnv *env, const bool fips_enabled, std::vector<mac_type_t> &output) {
     this->atom = create_or_existing_atom(env, this->str_v3, this->atom);
     // No extra checks, just convert name to atom and add
-    output.emplace_back(mac_availability_t{.init = this, .flags = {.fips_forbidden = this->fips_forbidden_hint}});
+    output.emplace_back(this, mac_type_flags_t {.fips_forbidden = this->fips_forbidden_hint});
     output.back().check_fips_availability(fips_enabled);
 }
 
-extern "C" mac_availability_C *get_mac_type(ERL_NIF_TERM type, const size_t key_len) {
+extern "C" mac_type_C *get_mac_type(ERL_NIF_TERM type, const size_t key_len) {
     for (auto &p: mac_collection) {
         if (type == p.get_atom() && key_len == p.init->key_len) {
             return &p;
@@ -139,7 +139,7 @@ extern "C" mac_availability_C *get_mac_type(ERL_NIF_TERM type, const size_t key_
     return nullptr;
 }
 
-extern "C" mac_availability_C *get_mac_type_no_key(ERL_NIF_TERM type) {
+extern "C" mac_type_C *get_mac_type_no_key(ERL_NIF_TERM type) {
     for (auto &p: mac_collection) {
         if (type == p.get_atom()) {
             return &p;
@@ -148,10 +148,10 @@ extern "C" mac_availability_C *get_mac_type_no_key(ERL_NIF_TERM type) {
     return nullptr;
 }
 
-extern "C" bool is_mac_forbidden_in_fips(const mac_availability_C *p) {
+extern "C" bool is_mac_forbidden_in_fips(const mac_type_C *p) {
     return p ? p->is_forbidden_in_fips() : true; // forbidden if null
 }
 
-extern "C" int get_mac_availability_type(mac_availability_C *p) { return p ? p->init->type : NO_mac; }
+extern "C" int get_mac_type_mactype(mac_type_C *p) { return p ? p->init->type : NO_mac; }
 
-extern "C" EVP_MAC *get_mac_availability_resource(mac_availability_C *p) { return p ? p->evp_mac.pointer : nullptr; }
+extern "C" EVP_MAC *get_mac_type_resource(mac_type_C *p) { return p ? p->evp_mac.pointer : nullptr; }

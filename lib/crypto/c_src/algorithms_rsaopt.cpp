@@ -65,13 +65,13 @@ extern "C" ERL_NIF_TERM rsaopt_as_list(ErlNifEnv *env, const bool fips_enabled) 
     return rsaopt_collection.to_list(env, fips_enabled);
 }
 
-ERL_NIF_TERM rsaopt_availability_t::get_atom() const { return this->init->atom; }
+ERL_NIF_TERM rsaopt_type_t::get_atom() const { return this->init->atom; }
 
 // for FIPS we will attempt to initialize the pubkey context to verify whether the
 // algorithm is allowed, for non-FIPS keeping the old behavior - always allow the algorithm.
-void rsaopt_probe_t::probe(ErlNifEnv *env, const bool fips_enabled, std::vector<rsaopt_availability_t> &output) {
+void rsaopt_probe_t::probe(ErlNifEnv *env, const bool fips_enabled, std::vector<rsaopt_type_t> &output) {
     this->atom = create_or_existing_atom(env, this->str_v3, this->atom);
-    const rsaopt_availability_t algo = {.init = this};
+    const rsaopt_type_t algo = {.init = this};
     // No extra checks, just convert name to atom and add
     return output.push_back(algo);
 }

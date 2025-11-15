@@ -98,11 +98,11 @@ extern "C" ERL_NIF_TERM digest_types_as_list(ErlNifEnv *env, const bool fips_for
     return digest_collection.to_list(env, fips_forbidden);
 }
 
-ERL_NIF_TERM digest_availability_t::get_atom() const { return this->init->atom; }
+ERL_NIF_TERM digest_type_t::get_atom() const { return this->init->atom; }
 
 #if defined(FIPS_SUPPORT) && defined(HAS_3_0_API)
 // Initialize an algorithm to check that all its dependencies are valid in FIPS
-bool digest_availability_t::check_valid_in_fips(const EVP_MD *md) {
+bool digest_type_t::check_valid_in_fips(const EVP_MD *md) {
     EVP_MD_CTX *ctx = EVP_MD_CTX_new();
     int usable = 0;
 
@@ -118,7 +118,7 @@ bool digest_availability_t::check_valid_in_fips(const EVP_MD *md) {
 }
 #endif // FIPS_SUPPORT && HAS_3_0_API
 
-void digest_availability_t::create_md_resource(bool fips_mode) {
+void digest_type_t::create_md_resource(bool fips_mode) {
 #if defined(FIPS_SUPPORT) && defined(HAS_3_0_API)
     EVP_MD *fetched_md = EVP_MD_fetch(nullptr, this->init->str_v3, nullptr);
 
@@ -136,8 +136,8 @@ void digest_availability_t::create_md_resource(bool fips_mode) {
 #endif // HAS_3_0_API && FIPS_SUPPORT
 }
 
-void digest_probe_t::probe(ErlNifEnv *env, const bool fips_mode, std::vector<digest_availability_t> &output) {
-    digest_availability_t algo = {
+void digest_probe_t::probe(ErlNifEnv *env, const bool fips_mode, std::vector<digest_type_t> &output) {
+    digest_type_t algo = {
             .init = this, .flags = {.pbkdf2_eligible = this->pbkdf2}, .xof_default_length = this->xof_default_length};
     // Unavailable are skipped.
     // Available are added.
@@ -151,7 +151,7 @@ void digest_probe_t::probe(ErlNifEnv *env, const bool fips_mode, std::vector<dig
 }
 
 // Array lookup
-extern "C" digest_availability_C *get_digest_type(ERL_NIF_TERM type) {
+extern "C" digest_type_C *get_digest_type(ERL_NIF_TERM type) {
     for (auto &p: digest_collection) {
         if (type == p.get_atom()) {
             return &p;
@@ -161,7 +161,7 @@ extern "C" digest_availability_C *get_digest_type(ERL_NIF_TERM type) {
 }
 
 // Free the OpenSSL resource
-digest_availability_t::~digest_availability_t() {
+digest_type_t::~digest_type_t() {
     if (this->md) {
 #if defined(HAS_3_0_API)
         EVP_MD_free(const_cast<EVP_MD *>(this->md));
@@ -172,20 +172,20 @@ digest_availability_t::~digest_availability_t() {
     }
 }
 
-extern "C" bool is_digest_forbidden_in_fips(const digest_availability_C *p) {
+extern "C" bool is_digest_forbidden_in_fips(const digest_type_C *p) {
     return p ? p->is_forbidden_in_fips() : true; // forbidden if p is null
 }
 
-extern "C" const char *get_digest_availability_str_v3(const digest_availability_C *p) {
+extern "C" const char *get_digest_type_str_v3(const digest_type_C *p) {
     return p ? p->init->str_v3 : "";
 }
 
-extern "C" const EVP_MD *get_digest_availability_md(const digest_availability_C *p) { return p ? p->md : nullptr; }
+extern "C" const EVP_MD *get_digest_type_resource(const digest_type_C *p) { return p ? p->md : nullptr; }
 
-extern "C" size_t get_digest_availability_xof_default_length(const digest_availability_C *p) {
+extern "C" size_t get_digest_type_xof_default_length(const digest_type_C *p) {
     return p ? p->xof_default_length : 0;
 }
 
-extern "C" bool is_digest_eligible_for_pbkdf2(const digest_availability_C *p) {
+extern "C" bool is_digest_eligible_for_pbkdf2(const digest_type_C *p) {
     return p ? p->flags.pbkdf2_eligible : false;
 }

@@ -81,12 +81,12 @@ ERL_NIF_TERM hash_info_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     ASSERT(argc == 1);
 
     {
-        digest_availability_C* digp = get_digest_type(argv[0]);
+        digest_type_C* digp = get_digest_type(argv[0]);
         if (digp == NULL)
             return enif_make_badarg(env);
         if (is_digest_forbidden_in_fips(digp))
             return RAISE_NOTSUP(env);
-        if ((md = get_digest_availability_md(digp)) == NULL)
+        if ((md = get_digest_type_resource(digp)) == NULL)
             return RAISE_NOTSUP(env);
     }
 
@@ -109,12 +109,12 @@ ERL_NIF_TERM hash_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     unsigned             ret_size;
     unsigned char        *outp;
 
-    digest_availability_C* digp = get_digest_type(argv[0]);
+    digest_type_C* digp = get_digest_type(argv[0]);
     if (digp == NULL)
         return EXCP_BADARG_N(env, 0, "Bad digest type");
     if (is_digest_forbidden_in_fips(digp))
         return EXCP_NOTSUP_N(env, 0, "Bad digest type in FIPS");
-    if ((md = get_digest_availability_md(digp)) == NULL)
+    if ((md = get_digest_type_resource(digp)) == NULL)
         return EXCP_NOTSUP_N(env, 0, "Digest type not supported in this cryptolib");
 
     if (!enif_inspect_iolist_as_binary(env, argv[1], &data))
@@ -122,7 +122,7 @@ ERL_NIF_TERM hash_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
 #if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(3,4,0)
     /* Set xoflen for SHAKE digests if needed */
-    unsigned xof_default_length = get_digest_availability_xof_default_length(digp);
+    unsigned xof_default_length = get_digest_type_xof_default_length(digp);
     if (xof_default_length) {
         EVP_MD_CTX *ctx = EVP_MD_CTX_new();
         OSSL_PARAM params[2];
@@ -174,20 +174,20 @@ ERL_NIF_TERM hash_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     struct evp_md_ctx    *ctx = NULL;
     ERL_NIF_TERM         ret;
 
-    digest_availability_C* digp = get_digest_type(argv[0]);
+    digest_type_C* digp = get_digest_type(argv[0]);
     if (digp == NULL)
         return EXCP_BADARG_N(env, 0, "Bad digest type");
 
     if (is_digest_forbidden_in_fips(digp))
         return EXCP_NOTSUP_N(env, 0, "Digest type not supported in FIPS");
-    if (get_digest_availability_md(digp) == NULL)
+    if (get_digest_type_resource(digp) == NULL)
         return EXCP_NOTSUP_N(env, 0, "Unsupported digest type");
 
     if ((ctx = enif_alloc_resource(evp_md_ctx_rtype, sizeof(struct evp_md_ctx))) == NULL)
         return EXCP_ERROR(env, "Can't allocate nif resource");
     if ((ctx->ctx = EVP_MD_CTX_new()) == NULL)
         assign_goto(ret, done, EXCP_ERROR(env, "Low-level call EVP_MD_CTX_new failed"));
-    if (EVP_DigestInit(ctx->ctx, get_digest_availability_md(digp)) != 1)
+    if (EVP_DigestInit(ctx->ctx, get_digest_type_resource(digp)) != 1)
         assign_goto(ret, done, EXCP_ERROR(env, "Low-level call EVP_DigestInit failed"));
 
 #if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(3,4,0)
@@ -195,7 +195,7 @@ ERL_NIF_TERM hash_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
      * The default digest length for shake128 and shake256 was removed
      * in OpenSSL 3.4, so we set them to be backward compatible with ourself.
      */
-    unsigned xof_default_length = get_digest_availability_xof_default_length(digp);
+    unsigned xof_default_length = get_digest_type_xof_default_length(digp);
     if (xof_default_length) {
         OSSL_PARAM params[2];
         params[0] = OSSL_PARAM_construct_uint("xoflen", &xof_default_length);
@@ -282,7 +282,7 @@ ERL_NIF_TERM hash_final_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 ERL_NIF_TERM hash_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Type) */
     typedef int (*init_fun)(unsigned char*);
-    struct digest_availability_t *digp = NULL;
+    struct digest_type_t *digp = NULL;
     ERL_NIF_TERM         ctx;
     size_t               ctx_size = 0;
     init_fun             ctx_init = 0;
@@ -368,7 +368,7 @@ ERL_NIF_TERM hash_update_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
     ErlNifBinary         ctx, data;
     const ERL_NIF_TERM   *tuple;
     int                  arity;
-    struct digest_availability_t *digp = NULL;
+    struct digest_type_t *digp = NULL;
     unsigned char        *ctx_buff;
     size_t               ctx_size   = 0;
     update_fun           ctx_update = 0;
@@ -465,7 +465,7 @@ ERL_NIF_TERM hash_final_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     ErlNifBinary         ctx;
     const ERL_NIF_TERM   *tuple;
     int                  arity;
-    struct digest_availability_t *digp = NULL;
+    struct digest_type_t *digp = NULL;
     const EVP_MD         *md;
     void                 *new_ctx = NULL;
     size_t               ctx_size  = 0;

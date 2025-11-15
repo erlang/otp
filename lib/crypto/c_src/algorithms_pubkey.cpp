@@ -68,12 +68,12 @@ extern "C" ERL_NIF_TERM pubkey_algorithms_as_list(ErlNifEnv* env, const bool fip
     return pubkey_collection.to_list(env, fips_enabled);
 }
 
-ERL_NIF_TERM pubkey_availability_t::get_atom() const { return this->init->atom; }
+ERL_NIF_TERM pubkey_type_t::get_atom() const { return this->init->atom; }
 
 // Result: flags set if FIPS is not supported
 #if defined(FIPS_SUPPORT) && defined(HAS_3_0_API)
-void pubkey_availability_t::check_against_fips() {
-    auto_evp_pkey_ctx_t ctx(EVP_PKEY_CTX_new_from_name(nullptr, this->init->str_v3, nullptr));
+void pubkey_type_t::check_against_fips() {
+    auto_pkey_ctx_t ctx(EVP_PKEY_CTX_new_from_name(nullptr, this->init->str_v3, nullptr));
 
     // failed: algorithm not available, do not add
     if (!ctx) {
@@ -110,9 +110,9 @@ void pubkey_availability_t::check_against_fips() {
 
 // for FIPS we will attempt to initialize the pubkey context to verify whether the
 // algorithm is allowed, for non-FIPS keeping the old behavior - always allow the algorithm.
-void pubkey_probe_t::probe(ErlNifEnv* env, bool fips_enabled, std::vector<pubkey_availability_t>& output) {
+void pubkey_probe_t::probe(ErlNifEnv* env, bool fips_enabled, std::vector<pubkey_type_t>& output) {
     this->atom = create_or_existing_atom(env, this->str, this->atom);
-    pubkey_availability_t algo = {.init = this};
+    pubkey_type_t algo = {.init = this};
 #if defined(FIPS_SUPPORT) && defined(HAS_3_0_API)
     if (fips_enabled) { // attempt to instantiate the algorithm and set availability flags
         algo.check_against_fips();
