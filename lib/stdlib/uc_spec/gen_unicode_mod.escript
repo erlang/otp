@@ -259,7 +259,7 @@ gen_file(Fd, Data, ExclData, Props, WideCs, UpdateTests) ->
     gen_header(Fd),
     gen_static(Fd),
     gen_norm(Fd),
-    gen_ws(Fd, Props),
+    gen_props(Fd, Props, Data),
     gen_cp(Fd),
     gen_gc(Fd, Props),
     gen_compose_pairs(Fd, ExclData, Data),
@@ -269,30 +269,80 @@ gen_file(Fd, Data, ExclData, Props, WideCs, UpdateTests) ->
     ok.
 
 gen_header(Fd) ->
-    io:put_chars(Fd, "%%\n%% this file is generated do not modify\n"),
-    io:put_chars(Fd, "%% see ../uc_spec/gen_unicode_mod.escript\n\n"),
-    io:put_chars(Fd, "-module(" ++ ?MOD ++").\n"),
-    io:put_chars(Fd, "-moduledoc false.\n"),
-    io:put_chars(Fd, "-export([cp/1, gc/1]).\n"),
-    io:put_chars(Fd, "-export([nfd/1, nfc/1, nfkd/1, nfkc/1]).\n"),
-    io:put_chars(Fd, "-export([whitespace/0, is_whitespace/1]).\n"),
-    io:put_chars(Fd, "-export([uppercase/1, lowercase/1, titlecase/1, casefold/1]).\n\n"),
-    io:put_chars(Fd, "-export([spec_version/0, lookup/1, get_case/1]).\n"),
-    io:put_chars(Fd, "-export([is_wide/1]).\n"),
-    io:put_chars(Fd, "-compile({inline, [class/1]}).\n"),
-    io:put_chars(Fd, "-compile(nowarn_unused_vars).\n"),
-    io:put_chars(Fd, "-dialyzer({no_improper_lists, [cp/1, gc/1, gc_prepend/2]}).\n"),
-    io:put_chars(Fd, "-type gc() :: char()|[char()].\n\n"),
-    io:put_chars(Fd, "-define(IS_CP(CP), (is_integer(CP) andalso 0 =< CP andalso CP < 16#110000)).\n\n\n"),
-    ok.
+    io:put_chars(Fd,"""
+%%
+%% this file is generated do not modify
+%% see ../uc_spec/gen_unicode_mod.escript
+
+-module(unicode_util).
+-moduledoc false.
+-export([cp/1, gc/1]).
+-export([nfd/1, nfc/1, nfkd/1, nfkc/1]).
+-export([whitespace/0, is_whitespace/1]).
+-export([uppercase/1, lowercase/1, titlecase/1, casefold/1]).
+
+-export([spec_version/0, lookup/1, category/1, get_case/1]).
+-export([is_wide/1]).
+-export([is_other_id_start/1, is_other_id_continue/1, is_letter_not_pattern_syntax/1]).
+-compile({inline, [class/1]}).
+-compile(nowarn_unused_vars).
+-dialyzer({no_improper_lists, [cp/1, gc/1, gc_prepend/2]}).
+-type gc() :: char()|[char()].
+-type category() ::
+     {letter,uppercase} |
+     {letter,lowercase} |
+     {letter,titlecase} |
+     {mark,non_spacing} |
+     {mark,spacing_combining} |
+     {mark,enclosing} |
+     {number,decimal} |
+     {number,letter} |
+     {number,other} |
+     {separator,space} |
+     {separator,line} |
+     {separator,paragraph} |
+     {other,control} |
+     {other,format} |
+     {other,surrogate} |
+     {other,private} |
+     {other,not_assigned} |
+     {letter,modifier} |
+     {letter,other} |
+     {punctuation,connector} |
+     {punctuation,dash} |
+     {punctuation,open} |
+     {punctuation,close} |
+     {punctuation,initial} |
+     {punctuation,final} |
+     {punctuation,other} |
+     {symbol,math} |
+     {symbol,currency} |
+     {symbol,modifier} |
+     {symbol,other}.
+
+-define(IS_CP(CP), (is_integer(CP) andalso 0 =< CP andalso CP < 16#110000)).
+
+"""),
+   ok.
 
 gen_static(Fd) ->
-    io:put_chars(Fd, "-spec lookup(char()) -> #{'canon':=[{byte(),char()}], 'ccc':=byte(), "
-                 "'compat':=[] | {atom(),[{byte(),char()}]}, 'category':={atom(),atom()}}.\n"),
-    io:put_chars(Fd, "lookup(Codepoint) when ?IS_CP(Codepoint) ->\n"
-                 "    {CCC,Can,Comp,Cat} = unicode_table(Codepoint),\n"
-                 "    #{ccc=>CCC, canon=>Can, compat=>Comp, category=>category(Codepoint,Cat)}.\n\n"),
+    io:put_chars(Fd, """
+-spec lookup(char()) ->
+     #{'canon':= [{byte(),char()}],
+       'ccc':= byte(),
+       'compat':= [] | {atom(),[{byte(),char()}]},
+       'category':= category()}.
+lookup(Codepoint) when ?IS_CP(Codepoint) ->
+    {CCC,Can,Comp,Cat} = unicode_table(Codepoint),
+    #{ccc=>CCC, canon=>Can, compat=>Comp, category=>category(Codepoint,Cat)}.
 
+-spec category(char()) -> category().
+category(Codepoint) when ?IS_CP(Codepoint) ->
+    {_,_,_,Cat} = unicode_table(Codepoint),
+    category(Codepoint,Cat).
+
+
+"""),
     io:put_chars(Fd, "-spec get_case(char()) -> #{'fold':=gc(), 'lower':=gc(), 'title':=gc(), 'upper':=gc()}.\n"),
     io:put_chars(Fd, "get_case(Codepoint) when ?IS_CP(Codepoint) ->\n"
                  "    case case_table(Codepoint) of\n"
@@ -601,7 +651,7 @@ gen_norm(Fd) ->
 
     ok.
 
-gen_ws(Fd, Props) ->
+gen_props(Fd, Props, Data) ->
     WS0 = maps:get(pattern_white_space, Props),
     WS = merge_ranges(WS0, split),
     io:put_chars(Fd, "%% Useful non-breakable whitespace chars\n"
@@ -615,6 +665,36 @@ gen_ws(Fd, Props) ->
     io:format(Fd, "is_whitespace([13,10]) -> true;\n", []),
     [IsWS(CP) || CP <- WS],
     io:put_chars(Fd, "is_whitespace(_) -> false.\n\n"),
+
+    OIDS = maps:get(other_id_start, Props),
+    io:put_chars(Fd, "-spec is_other_id_start(gc()) -> boolean().\n"),
+    IsODIS = fun(Range) -> io:format(Fd, "is_other_id_start~s true;\n", [gen_single_clause(Range)]) end,
+    [IsODIS(CP) || CP <- OIDS],
+    io:put_chars(Fd, "is_other_id_start(_) -> false.\n\n"),
+
+    OICS = maps:get(other_id_continue, Props),
+    io:put_chars(Fd, "-spec is_other_id_continue(gc()) -> boolean().\n"),
+    IsOICS = fun(Range) -> io:format(Fd, "is_other_id_continue~s true;\n", [gen_single_clause(Range)]) end,
+    [IsOICS(CP) || CP <- OICS],
+    io:put_chars(Fd, "is_other_id_continue(_) -> false.\n\n"),
+
+    PS0 = maps:get(pattern_syntax, Props),
+    io:put_chars(Fd, "-spec is_letter_not_pattern_syntax(gc()) -> boolean().\n"),
+    IsNLPS = fun(Range) -> io:format(Fd, "is_letter_not_pattern_syntax~s false;\n", [gen_single_clause(Range)]) end,
+    KeepCat = fun(CP) ->
+                      case array:get(CP, Data) of
+                          #cp{cat = [$P,_]} -> false;
+                          #cp{cat = [$S,_]} -> false;
+                          #cp{cat = [$C,_]} -> false;
+                          undefined -> false;
+                          _ -> true
+                      end
+              end,
+    PS = [{PSC, undefined} || {PSC, undefined} <:- split_ranges(PS0, []), KeepCat(PSC)],
+    %% [io:format("~p ~p~n", [P, (array:get(P, Data))#cp.cat]) || {P,_} <- PS],
+    [IsNLPS(CP) || CP <- PS],
+    io:put_chars(Fd, "is_letter_not_pattern_syntax(_) -> true.\n\n"),
+
     ok.
 
 gen_cp(Fd) ->
