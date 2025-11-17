@@ -107,7 +107,7 @@ init(Ref, Parent, [Root,Mode]) ->
 		{ok,Dirs} = erl_prim_loader:list_dir(LibDir),
 		Paths = make_path(LibDir, Dirs),
 		UserLibPaths = get_user_lib_dirs(),
-		["."] ++ UserLibPaths ++ Paths;
+		UserLibPaths ++ Paths ++ ["."];
 	    _ ->
 		[]
 	end,

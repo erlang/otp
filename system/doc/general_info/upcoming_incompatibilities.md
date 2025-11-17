@@ -267,3 +267,8 @@ occurrences of `maybe` without quotes.
 
 As of OTP 29, the `cprof` and `eprof` will be removed in favor of `m:tprof`
 added in OTP 27.
+
+### CWD or '.' is now placed last in code path
+
+As of OTP 29, the CWD is added last instead of first in code path. It can be added first with
+-pa '.' if needed.
