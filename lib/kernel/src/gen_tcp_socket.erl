@@ -1284,7 +1284,11 @@ socket_opts() ->
 
           %%
           %% Level: tcp
-          nodelay => {tcp, nodelay},
+          keepcnt      => {tcp, keepcnt},
+          keepidle     => {tcp, keepidle},
+          keepintvl    => {tcp, keepintvl},
+          nodelay      => {tcp, nodelay},
+          user_timeout => {tcp, user_timeout},
 
           %%
           %% Level: ip

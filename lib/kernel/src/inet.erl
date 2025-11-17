@@ -1115,6 +1115,12 @@ The following options are available:
   other end does not respond, the connection is considered broken and an error
   message is sent to the controlling process. Defaults to `false`.
 
+- **`{keepcnt, Integer}` (TCP/IP sockets)** - Linux specific `TCP_KEEPCNT`.
+
+- **`{keepidle, Integer}` (TCP/IP sockets)** - Linux specific `TCP_KEEPIDLE`.
+
+- **`{keepintvl, Integer}` (TCP/IP sockets)** - Linux specific `TCP_KEEPINTVL`.
+
 - **`{linger, {true|false, Seconds}}`** [](){: #option-linger } -
   Determines the time-out, in seconds, for flushing unsent data
   in the [`close/1`](`close/1`) socket call.
@@ -1512,6 +1518,9 @@ The following options are available:
   where this is implemented. The behavior and allowed range varies between
   different systems. The option is ignored on platforms where it is not
   implemented. Use with caution.
+
+- **`{user_timeout, Integer}` (TCP/IP sockets)** - Linux specific
+  `TCP_USER_TIMEOUT`.
 
 In addition to these options, _raw_ option specifications can be used. The raw
 options are specified as a tuple of arity four, beginning with tag `raw`,
@@ -3101,7 +3110,8 @@ connect_options() ->
      header, active, packet, packet_size, buffer, mode, deliver, line_delimiter,
      exit_on_close, high_watermark, low_watermark, high_msgq_watermark,
      low_msgq_watermark, send_timeout, send_timeout_close, delay_send, raw,
-     show_econnreset, bind_to_device, read_ahead].
+     show_econnreset, bind_to_device, read_ahead,
+     keepcnt, keepidle, keepintvl, user_timeout].
 
 -doc false.
 connect_options(Opts, Mod) ->
@@ -3197,7 +3207,8 @@ listen_options() ->
      header, active, packet, buffer, mode, deliver, backlog, ipv6_v6only,
      exit_on_close, high_watermark, low_watermark, high_msgq_watermark,
      low_msgq_watermark, send_timeout, send_timeout_close, delay_send,
-     packet_size, raw, show_econnreset, bind_to_device, read_ahead].
+     packet_size, raw, show_econnreset, bind_to_device, read_ahead,
+     keepcnt, keepidle, keepintvl, user_timeout].
 
 -doc false.
 listen_options(Opts, Mod) ->
