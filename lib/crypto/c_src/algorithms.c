@@ -26,6 +26,7 @@
 #include "mac.h"
 #ifdef HAS_3_0_API
 #include "digest.h"
+#include "pkey.h"
 #endif
 
 #ifdef HAS_3_0_API
@@ -160,10 +161,14 @@ void init_hash_types(ErlNifEnv* env) {
 
 ERL_NIF_TERM pubkey_algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-    unsigned int cnt  =
-        FIPS_MODE() ? algo_pubkey_fips_cnt : algo_pubkey_cnt;
+    const bool fips = FIPS_MODE();
+    unsigned int cnt  = fips ? algo_pubkey_fips_cnt : algo_pubkey_cnt;
+    ERL_NIF_TERM list = enif_make_list_from_array(env, algo_pubkey, cnt);
 
-    return enif_make_list_from_array(env, algo_pubkey, cnt);
+#ifdef HAS_3_0_API
+    list = build_pkey_type_list(env, list, fips);
+#endif
+    return list;
 }
 
 void init_pubkey_types(ErlNifEnv* env) {
@@ -193,11 +198,6 @@ void init_pubkey_types(ErlNifEnv* env) {
     algo_pubkey[algo_pubkey_cnt++] = enif_make_atom(env, "eddh");
 #endif
     algo_pubkey[algo_pubkey_cnt++] = enif_make_atom(env, "srp");
-#ifdef HAVE_ML_DSA
-    algo_pubkey[algo_pubkey_cnt++] = atom_mldsa44;
-    algo_pubkey[algo_pubkey_cnt++] = atom_mldsa65;
-    algo_pubkey[algo_pubkey_cnt++] = atom_mldsa87;
-#endif
     ASSERT(algo_pubkey_cnt <= sizeof(algo_pubkey)/sizeof(ERL_NIF_TERM));
 }
 

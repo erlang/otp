@@ -38,7 +38,7 @@ ERL_NIF_TERM encapsulate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
     ERL_NIF_TERM ret;
 
     if (!get_pkey_from_octet_string(env, argv[0], argv[1], PKEY_PUB,
-                                    &peer_pkey, &ret)) {
+                                    NULL, &peer_pkey, &ret)) {
         goto err;
     }
 
@@ -92,7 +92,7 @@ ERL_NIF_TERM decapsulate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
         assign_goto(ret, err, EXCP_ERROR_N(env, 2, "Invalid encapsulated secret"));
     }
     if (!get_pkey_from_octet_string(env, argv[0], argv[1], PKEY_PRIV,
-                                    &my_pkey, &ret)) {
+                                    NULL, &my_pkey, &ret)) {
         goto err;
     }
 
@@ -229,8 +229,12 @@ ERL_NIF_TERM evp_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
     ErlNifBinary prv_key;
     size_t key_len;
     unsigned char *out_pub = NULL, *out_priv = NULL;
+    struct pkey_type_t *pkey_type = get_pkey_type(argv[0]);
 
-    if (argv[0] == atom_x25519)
+    if (pkey_type) {
+        type = pkey_type->evp_pkey_id;
+    }
+    else if (argv[0] == atom_x25519)
         type = EVP_PKEY_X25519;
 #ifdef HAVE_X448
     else if (argv[0] == atom_x448)
@@ -241,15 +245,6 @@ ERL_NIF_TERM evp_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
 #ifdef HAVE_ED448
     else if (argv[0] == atom_ed448)
         type = EVP_PKEY_ED448;
-#endif
-#ifdef HAVE_ML_DSA
-    else if (argv[0] == atom_mldsa44) {
-        type = EVP_PKEY_ML_DSA_44;
-    } else if (argv[0] == atom_mldsa65) {
-        type = EVP_PKEY_ML_DSA_65;
-    } else if (argv[0] == atom_mldsa87) {
-        type = EVP_PKEY_ML_DSA_87;
-    }
 #endif
 #ifdef HAVE_ML_KEM
     else if (argv[0] == atom_mlkem512) {
