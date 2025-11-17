@@ -1100,8 +1100,9 @@ filter_config(#{module:=Module}=Config) ->
 -spec get_handler_config() -> [Config] when
       Config :: logger_handler:config().
 get_handler_config() ->
-    Configs = logger_config:get(?LOGGER_TABLE),
-    [filter_config(Config) || Config <- Configs].
+    Configs0 = logger_config:get(?LOGGER_TABLE),
+    Configs = [filter_config(Config) || Config <- Configs0],
+    lists:sort(fun(#{ id := LHS }, #{ id := RHS }) -> LHS =< RHS end, Configs).
 
 -doc "Look up the identities for all installed handlers.".
 -doc(#{group => <<"Configuration API functions">>,since => <<"OTP 21.0">>}).
@@ -1109,7 +1110,7 @@ get_handler_config() ->
       HandlerId :: logger_handler:id().
 get_handler_ids() ->
     {ok,#{handlers:=HandlerIds}} = logger_config:get(?LOGGER_TABLE,primary),
-    HandlerIds.
+    lists:sort(HandlerIds).
 
 -doc """
 Look up the current configuration for the Logger proxy.
