@@ -72,7 +72,8 @@
          remsh_expand_compatibility_25/1, remsh_expand_compatibility_later_version/1,
          external_editor/1, external_editor_visual/1,
          external_editor_unicode/1, shell_ignore_pager_commands/1,
-         shell_escape_sequence_end_of_prompt_followed_by_unicode/1]).
+         shell_escape_sequence_end_of_prompt_followed_by_unicode/1,
+         shell_output_automatic_newline_ansi_escape_sequence/1]).
 
 -export([get_until/2]).
 
@@ -159,6 +160,7 @@ groups() ->
       [{group,tty_tests},
        shell_invalid_unicode,
        shell_escape_sequence_end_of_prompt_followed_by_unicode,
+       shell_output_automatic_newline_ansi_escape_sequence,
        external_editor_unicode
        %% unicode wrapping does not work right yet
        %% shell_unicode_wrap,
@@ -1418,7 +1420,17 @@ shell_escape_sequence_end_of_prompt_followed_by_unicode(Config) ->
         shell_test_lib:stop_tty(Term),
         ok
     end.
+shell_output_automatic_newline_ansi_escape_sequence(Config) ->
+    Term = start_tty(Config),
 
+    try
+        shell_test_lib:send_tty(Term,"spawn(fun() -> receive after 1000 -> ok end, io:put_chars([\"omg\\n\", <<27,91,48,109>>]) end).\n"),
+        shell_test_lib:check_content(Term, "omg\n\\("),
+        ok
+    after
+        shell_test_lib:stop_tty(Term),
+        ok
+    end.
 %% Test the we can handle invalid ansi escape chars.
 %%   tmux cannot handle this... so we test this using to_erl
 shell_invalid_ansi(_Config) ->

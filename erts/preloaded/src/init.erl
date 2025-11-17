@@ -1259,7 +1259,10 @@ path_flags(Flags) ->
     {bs2ss(Pa),bs2ss(Pz)}.
 
 get_boot(BootFile0,Root) ->
-    BootFile = BootFile0 ++ ".boot",
+    BootFile = case BootFile0 of
+        "$ROOT/" ++ BootFile1 -> Root ++ "/bin/" ++ BootFile1 ++ ".boot";
+        _ -> BootFile0 ++ ".boot"
+    end,
     
     case get_boot(BootFile) of
 	{ok, CmdList} ->

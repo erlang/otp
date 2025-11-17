@@ -513,7 +513,7 @@ main(int argc, char** argv)
 
     PUSH("+B");
     PUSH("-noshell");
-    PUSH2("-boot", "no_dot_erlang");
+    PUSH2("-boot", "$ROOT/no_dot_erlang");
 
     /*
      * Read options from the %%! row in the script and add them as args
