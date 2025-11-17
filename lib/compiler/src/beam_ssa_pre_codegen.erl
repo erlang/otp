@@ -117,6 +117,8 @@ functions([], _Ps) -> [].
 passes(Opts) ->
     AddPrecgAnnos = proplists:get_bool(dprecg, Opts),
     BeamDebugInfo = proplists:get_bool(beam_debug_info, Opts),
+    BeamDebugStack = BeamDebugInfo andalso
+        is_enabled(Opts, beam_debug_stack, no_beam_debug_stack, false),
 
     Ps = [?PASS(assert_no_critical_edges),
 
@@ -129,6 +131,11 @@ passes(Opts) ->
           case BeamDebugInfo of
               false -> ignore;
               true -> ?PASS(break_out_debug_line)
+          end,
+
+          case BeamDebugStack of
+              false -> ignore;
+              true -> ?PASS(stack_vars)
           end,
 
           ?PASS(place_frames),
@@ -162,6 +169,16 @@ passes(Opts) ->
 
           ?PASS(assert_no_critical_edges)],
     [P || P <- Ps, P =/= ignore].
+
+is_enabled([Opt|Opts], Enable, Disable, Bool0) ->
+    Bool = is_enabled(Opts, Enable, Disable, Bool0),
+    case Opt of
+        Enable -> true;
+        Disable -> false;
+        _ -> Bool
+    end;
+is_enabled([], _, _, Bool) ->
+    Bool.
 
 function(#b_function{anno=Anno,args=Args,bs=Blocks0,cnt=Count0}=F0, Ps) ->
     try
@@ -1328,6 +1345,104 @@ break_out_debug_line(#st{ssa=Blocks0,cnt=Count0}=St) ->
     {Blocks,Count} = beam_ssa:split_blocks_after(RPO, P, Blocks0, Count0),
 
     St#st{ssa=Blocks,cnt=Count}.
+
+
+%%%
+%%% This pass is only run when the `beam_debug_stack` option has been
+%%% given. It makes it possible to inspect most variables. Variables
+%%% are saved to the stack by adding an instruction that refers to
+%%% them before `return` instructions.
+%%%
+
+stack_vars(#st{ssa=Blocks0,cnt=Count0,args=Args}=St) ->
+    RPO = beam_ssa:rpo(Blocks0),
+    VarsToStack = vars_to_stack(RPO, Blocks0),
+    {Blocks1, Count1} = stack_vars(RPO,VarsToStack,
+                                   Blocks0, Count0,
+                                   #{0 => ordsets:from_list(Args)}),
+    St#st{ssa=Blocks1,cnt=Count1}.
+
+stack_vars([?EXCEPTION_BLOCK|Ls], VarsToStack, Blocks,
+           Count, Defined) ->
+    stack_vars(Ls, VarsToStack, Blocks, Count, Defined);
+stack_vars([L|Ls], VarsToStack, Blocks, Count0, Defined0) ->
+    #b_blk{is=Is0,last=Last} = Blk0 = map_get(L, Blocks),
+    Defined1 = update_defined(L, Blocks, VarsToStack, Defined0),
+    Def0 = map_get(L, Defined1),
+    {Blk, Count1} =
+        case Last of
+            #b_ret{} ->
+                {Dst, Count} = new_var(Count0),
+                case reverse(Is0) of
+                    [#b_set{op=call,dst=Dst0}=I|Prec] ->
+                        %% Preserve tail call.
+                        Def = ordsets:del_element(Dst0, Def0),
+                        Instr = #b_set{op=require_stack,
+                                       dst=Dst,args=Def},
+                        Is = reverse(Prec, [Instr,I]),
+                        {Blk0#b_blk{is=Is}, Count};
+                    _ ->
+                        Instr = #b_set{op=require_stack,
+                                       dst=Dst,args=Def0},
+                        {Blk0#b_blk{is=Is0 ++ [Instr]}, Count}
+                end;
+            _ ->
+                {Blk0, Count0}
+        end,
+    stack_vars(Ls, VarsToStack, Blocks#{L := Blk}, Count1, Defined1);
+stack_vars([], _VarsToStack, Blocks, Count, _) ->
+    {Blocks, Count}.
+
+%% Calculate the "interesting" defined variables for the current block
+%% and its successors. Interesting variables are variables in the
+%% Erlang source code or is a copies of variables in the source code.
+update_defined(L, Blocks, VarsToStack, Defined0) ->
+    %% Earlier passes should have removed all unreachable blocks,
+    %% so there must be an entry with key L in the map.
+    Def0 = map_get(L, Defined0),
+    #b_blk{is=Is0,last=Last} = Blk = map_get(L, Blocks),
+    Def1 = [K || #b_set{dst=#b_var{name=N}=K} <:- Is0,
+                 sets:is_element(N, VarsToStack)],
+    Def2 = ordsets:union(Def0, ordsets:from_list(Def1)),
+    Defined1 = Defined0#{L => Def2},
+
+    %% According to defined variables for the current block, calculate
+    %% variables that will still be defined for the successors.
+    case {reverse(Is0), Last} of
+        {[#b_set{op=succeeded,args=[Var]}|_], #b_br{succ=Succ,fail=Fail}} ->
+            Defined2 = def_intersection(Succ, Def2, Defined1),
+            Def3 = ordsets:del_element(Var, Def2),
+            def_intersection(Fail, Def3, Defined2);
+        {_, _} ->
+            Successors = beam_ssa:successors(Blk),
+            %% All defined vars are carried over to successors.
+            foldl(fun(Lbl, Defined) ->
+                          def_intersection(Lbl, Def2, Defined)
+                  end, Defined1, Successors)
+    end.
+
+def_intersection(L, Def0, Defined) ->
+    case Defined of
+        #{L := Def1} ->
+            Defined#{L := ordsets:intersection(Def0, Def1)};
+        #{} ->
+            Defined#{L => Def0}
+    end.
+
+vars_to_stack(RPO, Blocks) ->
+    F = fun(#b_set{anno=#{alias := Aliases},op=debug_line}, Vs0) ->
+                IsOriginal = fun beam_ssa_codegen:is_original_variable/1,
+                L = [V || V := Vars <- Aliases, any(IsOriginal, Vars)],
+                sets:union(Vs0, sets:from_list(L));
+           (#b_set{dst=#b_var{name=Var}}, Vs0) ->
+                case beam_ssa_codegen:is_original_variable(Var) of
+                    true -> sets:add_element(Var, Vs0);
+                    false -> Vs0
+                end;
+           (_Last, Vs) ->
+                Vs
+        end,
+    beam_ssa:fold_instrs(F, RPO, sets:new(), Blocks).
 
 %%%
 %%% Find out where frames should be placed.
@@ -2815,6 +2930,7 @@ use_zreg(nif_start) -> yes;
 use_zreg(recv_marker_bind) -> yes;
 use_zreg(recv_marker_clear) -> yes;
 use_zreg(remove_message) -> yes;
+use_zreg(require_stack) -> yes;
 use_zreg(set_tuple_element) -> yes;
 use_zreg(succeeded) -> yes;
 use_zreg(wait_timeout) -> yes;
