@@ -2195,7 +2195,11 @@ parallell_gen_key(Ssh = #ssh{keyex_key = {x, {G, P}},
 generate_key(ecdh, Args) ->
     crypto:generate_key(ecdh, Args);
 generate_key(dh, [P,G,Sz2]) ->
-    {Public,Private} = crypto:generate_key(dh, [P, G, max(Sz2,?MIN_DH_KEY_SIZE)] ),
+    BitSize = fun(N) -> bit_size(binary:encode_unsigned(N)) end,
+    {Public,Private} =
+        crypto:generate_key(dh,
+                            [P, G, max(min(BitSize(P)-1, Sz2),
+                                       ?MIN_DH_KEY_SIZE)]),
     {crypto:bytes_to_integer(Public), crypto:bytes_to_integer(Private)}.
 
 
