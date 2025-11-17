@@ -831,7 +831,8 @@ handle_request(State = #state{ unicode = U }, {putc, Binary}) ->
                     end,
                     Moves = move_cursor(State, State#state.cols, ToCol)
             end,
-            Binary1 = if PutcBufferState#state.putc_buffer =:= <<>> ->
+            BinaryNoAnsi = remove_ansi_sequences(PutcBufferState#state.putc_buffer),
+            Binary1 = if BinaryNoAnsi =:= <<>> ->
                     %% Binary has a real new line at the end
                     Binary;
                 true ->
@@ -1013,6 +1014,19 @@ handle_request(State, clear) ->
 handle_request(State, Req) ->
     erlang:display({unhandled_request, Req}),
     {"", State}.
+
+remove_ansi_sequences(<<27,Bin/binary>>) ->
+    Bins = binary:split(Bin, <<27>>, [global]),
+    remove_ansi_sequences1([<<27,B/binary>> || B <- Bins],[]);
+remove_ansi_sequences(Bin) ->
+    [Acc|Bins] = binary:split(Bin, <<27>>, [global]),
+    remove_ansi_sequences1([<<27,B/binary>> || B <- Bins],[Acc]).
+remove_ansi_sequences1([Bin|Bins], Acc) ->
+    {match, [{0, N}]} = re:run(Bin, ansi_regexp()),
+    <<_:N/binary, AnsiRest/binary>> = Bin,
+    remove_ansi_sequences1(Bins, [AnsiRest|Acc]);
+remove_ansi_sequences1([], Acc) ->
+    list_to_binary(lists:reverse(Acc)).
 
 last_or_empty([]) -> [];
 last_or_empty([H]) -> H;
