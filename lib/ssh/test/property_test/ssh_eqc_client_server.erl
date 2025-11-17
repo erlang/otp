@@ -22,9 +22,36 @@
 %%
 
 -module(ssh_eqc_client_server).
+-compile(nowarn_unused_function).
+-export([
+         prop_seq/0,
+         prop_seq/1,
+         do_prop_seq/2,
+         prop_parallel/0,
+         prop_parallel/1,
+         initial_state/0,
+         initial_state/1,
+         command/1,
+         initial_state_pre/1,
+         initial_state_args/1,
+         initial_state_next/3,
+         ssh_server/3,
+         ssh_server_pre/1,
+         ssh_server_args/1,
+         ssh_client/0,
+         ssh_client_pre/1,
+         ssh_client_args/1,
+         ssh_open_connection_pre/1,
+         ssh_close_connection_pre/1,
+         ssh_open_channel_pre/1,
+         ssh_close_channel_pre/1,
+         ssh_start_subsyst_pre/1,
+         ssh_send_pre/1,
+         precondition/2,
+         next_state/3,
+         postcondition/3
+        ]).
 
--compile(export_all).
- 
 -ifndef(PROPER).
 -else.
 %% Only use proper
@@ -164,7 +191,7 @@ initial_state() ->
   #state{}.
 
 %%% called when using commands/2
-initial_state(DataDir) ->
+initial_state(_DataDir) ->
     application:stop(ssh),
     ssh:start().
 
@@ -260,11 +287,11 @@ ssh_server(IP0, DataDir, ExtraOptions) ->
             Other
     end.
 
-ssh_server_post(_S, _Args, #srvr{port=Port}) -> (0 < Port) andalso (Port < 65536);
-ssh_server_post(_S, _Args, _) -> false.
+%% ssh_server_post(_S, _Args, #srvr{port=Port}) -> (0 < Port) andalso (Port < 65536);
+%% ssh_server_post(_S, _Args, _) -> false.
 
-ssh_server_next(S, Srvr, _) ->
-    S#state{servers=[Srvr | S#state.servers]}.
+%% ssh_server_next(S, Srvr, _) ->
+%%     S#state{servers=[Srvr | S#state.servers]}.
 
 %%%----------------
 %%% Start a new client
@@ -277,7 +304,7 @@ ssh_client_args(_S) -> [].
 
 ssh_client() -> spawn(fun client_init/0).
 
-ssh_client_next(S, Pid, _) -> S#state{clients=[Pid|S#state.clients]}.
+%% ssh_client_next(S, Pid, _) -> S#state{clients=[Pid|S#state.clients]}.
 
 
 client_init() -> client_loop().
@@ -305,20 +332,20 @@ do(Pid, Fun, Timeout) when is_function(Fun,0) ->
 
 ssh_open_connection_pre(S) -> S#state.servers /= [].
     
-ssh_open_connection_args(S) -> [oneof(S#state.servers), {var,data_dir}].
+%% ssh_open_connection_args(S) -> [oneof(S#state.servers), {var,data_dir}].
     
-ssh_open_connection(#srvr{address=Ip, port=Port}, DataDir) ->
-    ok(ssh:connect(ensure_string(Ip), Port, 
-		   [
-		    {silently_accept_hosts, true},
-		    {user_dir, user_dir(DataDir)},
-		    {user_interaction, false},
-		    {connect_timeout, 2000}
-		   ], 2000)).
+%% ssh_open_connection(#srvr{address=Ip, port=Port}, DataDir) ->
+%%     ok(ssh:connect(ensure_string(Ip), Port, 
+%% 		   [
+%% 		    {silently_accept_hosts, true},
+%% 		    {user_dir, user_dir(DataDir)},
+%% 		    {user_interaction, false},
+%% 		    {connect_timeout, 2000}
+%% 		   ], 2000)).
 
-ssh_open_connection_post(_S, _Args, Result) -> is_ok(Result).
+%% ssh_open_connection_post(_S, _Args, Result) -> is_ok(Result).
 
-ssh_open_connection_next(S, ConnRef, [_,_]) -> S#state{connections=[ConnRef|S#state.connections]}.
+%% ssh_open_connection_next(S, ConnRef, [_,_]) -> S#state{connections=[ConnRef|S#state.connections]}.
 
 %%%----------------
 %%% Stop a new connection
@@ -326,15 +353,15 @@ ssh_open_connection_next(S, ConnRef, [_,_]) -> S#state{connections=[ConnRef|S#st
 
 ssh_close_connection_pre(S) -> S#state.connections /= [].
 
-ssh_close_connection_args(S) -> [oneof(S#state.connections)].
+%% ssh_close_connection_args(S) -> [oneof(S#state.connections)].
     
-ssh_close_connection(ConnectionRef) -> ssh:close(ConnectionRef).
+%% ssh_close_connection(ConnectionRef) -> ssh:close(ConnectionRef).
 
-ssh_close_connection_next(S, _, [ConnRef]) ->
-    S#state{connections = S#state.connections--[ConnRef],
-            channels = [C || C <- S#state.channels,
-                             C#chan.conn_ref /= ConnRef]
-	       }.
+%% ssh_close_connection_next(S, _, [ConnRef]) ->
+%%     S#state{connections = S#state.connections--[ConnRef],
+%%             channels = [C || C <- S#state.channels,
+%%                              C#chan.conn_ref /= ConnRef]
+%% 	       }.
 
 %%%----------------
 %%% Start a new channel without a sub system
@@ -342,7 +369,7 @@ ssh_close_connection_next(S, _, [ConnRef]) ->
 
 ssh_open_channel_pre(S) -> S#state.connections /= [].
 
-ssh_open_channel_args(S) -> [oneof(S#state.connections)].
+%% ssh_open_channel_args(S) -> [oneof(S#state.connections)].
 
 %%% For re-arrangement in parallel tests. 
 ssh_open_channel_pre(S,[C]) when is_record(S,state) -> lists:member(C,S#state.connections).
@@ -432,18 +459,18 @@ ssh_send(C=#chan{conn_ref=ConnectionRef, ref=ChannelRef, client_pid=Pid}, Type, 
 	       end
        end).
 
-ssh_send_blocking(_S, _Args) ->
-   true.
+%% ssh_send_blocking(_S, _Args) ->
+%%    true.
 
-ssh_send_post(_S, [C,_,Msg], Response) when is_binary(Response) ->
-   Expected = ssh_eqc_subsys:response(modify_msg(C,Msg), C#chan.subsystem),
-    case Response of
-	Expected -> true;
-	_ -> {send_failed, size(Response), size(Expected)}
-    end;
+%% ssh_send_post(_S, [C,_,Msg], Response) when is_binary(Response) ->
+%%    Expected = ssh_eqc_subsys:response(modify_msg(C,Msg), C#chan.subsystem),
+%%     case Response of
+%% 	Expected -> true;
+%% 	_ -> {send_failed, size(Response), size(Expected)}
+%%     end;
 	    
-ssh_send_post(_S, _Args, Response) ->
-   {error,Response}.
+%% ssh_send_post(_S, _Args, Response) ->
+%%    {error,Response}.
     
 
 modify_msg(_, <<>>) -> <<>>;
@@ -472,8 +499,8 @@ ok({error,Err}) -> {error,Err}.
 is_ok({error,_}) -> false;
 is_ok(_) -> true.
 
-ensure_string({A,B,C,D}) -> lists:flatten(io_lib:format("~w.~w.~w.~w",[A,B,C,D]));
-ensure_string(X) -> X.
+%% ensure_string({A,B,C,D}) -> lists:flatten(io_lib:format("~w.~w.~w.~w",[A,B,C,D]));
+%% ensure_string(X) -> X.
 
 %%%================================================================
 %%% The rest is taken and modified from ssh_test_lib.erl
@@ -486,7 +513,7 @@ setup_rsa(Dir) ->
            [Dir,data_dir(Dir),system_dir(Dir),user_dir(Dir)]),
     ssh_test_lib:setup_all_user_host_keys( data_dir(Dir), user_dir(Dir), system_dir(Dir)).
 
-data_dir(Dir, File) ->   filename:join(Dir, File).
+%% data_dir(Dir, File) ->   filename:join(Dir, File).
 system_dir(Dir, File) -> filename:join([Dir, "system", File]).
 user_dir(Dir, File) ->   filename:join([Dir, "user", File]).
 
