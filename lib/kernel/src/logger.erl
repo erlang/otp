@@ -598,7 +598,7 @@ allow(Level,Module) when is_atom(Module) ->
 
 -doc false.
 -spec macro_log(Location,Level,StringOrReport)  -> ok when
-      Location :: location(),
+      Location :: location() | #{},
       Level :: level(),
       StringOrReport :: unicode:chardata() | report().
 macro_log(Location,Level,StringOrReport) ->
@@ -606,17 +606,17 @@ macro_log(Location,Level,StringOrReport) ->
 
 -doc false.
 -spec macro_log(Location,Level,StringOrReport,Meta)  -> ok when
-      Location :: location(),
+      Location :: location() | #{},
       Level :: level(),
       StringOrReport :: unicode:chardata() | report(),
       Meta :: metadata();
                (Location,Level,Format,Args) -> ok when
-      Location :: location(),
+      Location :: location() | #{},
       Level :: level(),
       Format :: io:format(),
       Args ::[term()];
                (Location,Level,Fun,FunArgs) -> ok when
-      Location :: location(),
+      Location :: location() | #{},
       Level :: level(),
       Fun :: msg_fun(),
       FunArgs :: term().
@@ -628,7 +628,7 @@ macro_log(Location,Level,FunOrFormat,Args) ->
 
 -doc false.
 -spec macro_log(Location,Level,Format,Args,Meta)  -> ok when
-      Location :: location(),
+      Location :: location() | #{},
       Level :: level(),
       Format :: io:format(),
       Args ::[term()],
