@@ -626,16 +626,19 @@ _Table: ipv6 options_
 [](){: #socket_options_tcp }
 Options for level `tcp`:
 
-| Option Name | Value Type | Set | Get | Other Requirements and comments                                                                          |
-| ----------- | ---------- | --- | --- | -------------------------------------------------------------------------------------------------------- |
-| congestion  | string()   | yes | yes | none                                                                                                     |
-| cork        | boolean()  | yes | yes | 'nopush' one some platforms (FreeBSD)                                                                    |
-| keepcnt     | integer()  | yes | yes | On Windows (at least), it is illegal to set to a value greater than 255.                                 |
-| keepidle    | integer()  | yes | yes | none                                                                                                     |
-| keepintvl   | integer()  | yes | yes | none                                                                                                     |
-| maxseg      | integer()  | yes | yes | Set not allowed on all platforms.                                                                        |
-| nodelay     | boolean()  | yes | yes | none                                                                                                     |
-| nopush      | boolean()  | yes | yes | 'cork' on some platforms (Linux). On Darwin this has a different meaning than on, for instance, FreeBSD. |
+| Option Name  | Value Type     | Set | Get | Other Requirements and comments                      |
+| ------------ | -------------- | --- | --- | ---------------------------------------------------- |
+| congestion   | string()       | yes | yes | none                                                 |
+| cork         | boolean()      | yes | yes | 'nopush' one some platforms (FreeBSD)                |
+| keepcnt      | integer()      | yes | yes | On Windows (at least), it is illegal to set to       |
+|              |                |     |     | a value greater than 255.                            |
+| keepidle     | integer()      | yes | yes | none                                                 |
+| keepintvl    | integer()      | yes | yes | none                                                 |
+| maxseg       | integer()      | yes | yes | Set not allowed on all platforms.                    |
+| nodelay      | boolean()      | yes | yes | none                                                 |
+| nopush       | boolean()      | yes | yes | 'cork' on some platforms (Linux). On Darwin this has |
+|              |                |     |     | a different meaning than on, for instance, FreeBSD.  |
+| user_timeout | integer() >= 0 | yes | yes | none                                                 |
 
 _Table: tcp options_
 

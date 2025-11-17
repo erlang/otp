@@ -567,6 +567,11 @@ extern BOOLEAN_T esock_getopt_int(SOCKET sock,
                                   int    opt,
                                   int*   valP);
 
+extern BOOLEAN_T esock_getopt_uint(SOCKET        sock,
+                                   int           level,
+                                   int           opt,
+                                   unsigned int *valP);
+
 
 /* ** Socket Registry functions *** */
 extern void esock_send_reg_add_msg(ErlNifEnv*   env,
