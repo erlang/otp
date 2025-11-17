@@ -720,7 +720,7 @@ The options in `OptionList` modify the defaults as follows:
 -spec create(file:filename_all(), filelist(), [create_opt()]) ->
                     ok | {error, term()} | {error, {string(), term()}}.
 create(Name, FileList, Options) when is_list(Name); is_binary(Name) ->
-    Mode = lists:filter(fun(X) -> (X=:=compressed) or (X=:=cooked)
+    Mode = lists:filter(fun(X) -> (X=:=compressed) orelse (X=:=cooked)
                         end, Options),
     case open(Name, [write|Mode]) of
         {ok, TarFile} ->

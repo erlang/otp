@@ -3147,7 +3147,7 @@ handle_disconnect_callback(ConnData, UserReason)
 %% 
 test_request(ConnHandle, Actions, 
 	     Version, EncodingMod, EncodingConfig)
-  when is_record(ConnHandle, megaco_conn_handle) and
+  when is_record(ConnHandle, megaco_conn_handle) andalso
        is_integer(Version) andalso is_atom(EncodingMod) ->
     %% Create a fake conn_data structure
     ConnData = #conn_data{serial           = 1, 
@@ -4121,8 +4121,8 @@ format_encode_error_reason(Reason) ->
 	case Reason of
 	    {Mod, Func, [EC, Msg], {AE, CS}} when is_atom(Mod)  andalso 
 						  is_atom(Func) andalso
-						  is_list(EC)   and
-						  is_tuple(Msg) and
+						  is_list(EC)   andalso
+						  is_tuple(Msg) andalso
 						  is_list(CS) ->
 		io_lib:format("~n   Encode module: ~w"
 			      "~n   Func:          ~w"
