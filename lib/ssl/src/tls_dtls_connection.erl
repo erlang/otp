@@ -321,6 +321,7 @@ certify(internal, #certificate{asn1_certificates = []},
 certify(internal, #certificate{asn1_certificates = []},
 	#state{static_env = #static_env{role = server,
                                         protocol_cb = Connection},
+               client_certificate_status = requested,
 	       ssl_options = #{verify := verify_peer,
                                fail_if_no_peer_cert := false}} =
 	State0) ->
@@ -330,9 +331,10 @@ certify(internal, #certificate{},
 	       ssl_options = #{verify := verify_none}}) ->
     throw(?ALERT_REC(?FATAL,?UNEXPECTED_MESSAGE, unrequested_certificate));
 certify(internal, #certificate{},
-        #state{static_env = #static_env{protocol_cb = Connection},
-               handshake_env = #handshake_env{
-                              ocsp_stapling_state = #{ocsp_expect := staple}}} = State) ->
+        #state{client_certificate_status = requested,
+               static_env = #static_env{protocol_cb = Connection},
+               handshake_env =
+                   #handshake_env{ocsp_stapling_state = #{ocsp_expect := staple}}} = State) ->
     Connection:next_event(wait_ocsp_stapling, no_record, State, [{postpone, true}]);
 certify(internal, #certificate{asn1_certificates = [Peer|_]} = Cert,
         #state{static_env = #static_env{
