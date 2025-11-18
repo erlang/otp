@@ -326,26 +326,27 @@ BIF_RETTYPE persistent_term_put_2(BIF_ALIST_2)
     ErtsPersistentTermPutCommonResult result =
         put_common(BIF_P, BIF_ARG_1, BIF_ARG_2, am_false);
 
-    #define HANDLE_PUT_COMMON_RESULT                            \
-    switch (result) {                                           \
-        case QUICK_UPDATE: {                                    \
-            BIF_RET(am_ok);                                     \
-        }                                                       \
-        case BAD_KEY: {                                         \
-            BIF_ERROR(BIF_P, BADARG);                           \
-        }                                                       \
-        case UPDATE_OK: {                                       \
-           ERTS_BIF_YIELD_RETURN(BIF_P, am_ok);                 \
-        }                                                       \
-        case TRAPPING: {                                        \
-        return THE_NON_VALUE;                                   \
-        }                                                       \
-        case SEIZE_UPDATE:                                      \
-        default: {                                              \
-            ERTS_BIF_YIELD3(&persistent_term_put_common_export, \
-                    BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);    \
-        }                                                       \
-    }
+    #define HANDLE_PUT_COMMON_RESULT                                         \
+    switch (result) {                                                        \
+        case QUICK_UPDATE: {                                                 \
+            BIF_RET(am_ok);                                                  \
+        }                                                                    \
+        case UPDATE_OK: {                                                    \
+           ERTS_BIF_YIELD_RETURN(BIF_P, am_ok);                              \
+        }                                                                    \
+        case SEIZE_UPDATE:                                                   \
+            ERTS_BIF_YIELD3(&persistent_term_put_common_export,              \
+                    BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);                 \
+        case BAD_KEY: {                                                      \
+            BIF_ERROR(BIF_P, BADARG);                                        \
+        }                                                                    \
+        case TRAPPING: {                                                     \
+           return THE_NON_VALUE;                                             \
+        }                                                                    \
+        default: {                                                           \
+            ERTS_INTERNAL_ERROR("Invalid persistent term put_common result");\
+        }                                                                    \
+    }                                                                        \
 
     HANDLE_PUT_COMMON_RESULT
 }
