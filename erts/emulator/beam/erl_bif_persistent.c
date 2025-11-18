@@ -733,48 +733,49 @@ static Eterm put_common(Process* c_p, Eterm key, Eterm term, Eterm new)
             BIF_ERROR(c_p, BADARG);
         }
     }
+    
+    {
+        Uint term_size;
+        Uint lit_area_size;
+        ErlOffHeap code_off_heap;
+        ErtsLiteralArea* literal_area;
+        erts_shcopy_t info;
+        Eterm* ptr;
+        /*
+         * Preserve internal sharing in the term by using the
+         * sharing-preserving functions. However, literals must
+         * be copied in case the module holding them are unloaded.
+         */
+        INITIALIZE_SHCOPY(info);
+        info.copy_literals = 1;
+        term_size = copy_shared_calculate(ctx->tuple, &info);
+        ERTS_INIT_OFF_HEAP(&code_off_heap);
+        lit_area_size = ERTS_LITERAL_AREA_ALLOC_SIZE(term_size);
+        literal_area = erts_alloc(ERTS_ALC_T_LITERAL, lit_area_size);
+        ptr = &literal_area->start[0];
+        literal_area->end = ptr + term_size;
+        ctx->tuple = copy_shared_perform(ctx->tuple, term_size, &info, &ptr, &code_off_heap);
+        ASSERT(tuple_val(ctx->tuple) == literal_area->start);
+        literal_area->off_heap = code_off_heap.first;
+        DESTROY_SHCOPY(info);
+        erts_set_literal_tag(&ctx->tuple, literal_area->start, term_size);
 
-    Uint term_size;
-    Uint lit_area_size;
-    ErlOffHeap code_off_heap;
-    ErtsLiteralArea* literal_area;
-    erts_shcopy_t info;
-    Eterm* ptr;
-    /*
-     * Preserve internal sharing in the term by using the
-     * sharing-preserving functions. However, literals must
-     * be copied in case the module holding them are unloaded.
-     */
-    INITIALIZE_SHCOPY(info);
-    info.copy_literals = 1;
-    term_size = copy_shared_calculate(ctx->tuple, &info);
-    ERTS_INIT_OFF_HEAP(&code_off_heap);
-    lit_area_size = ERTS_LITERAL_AREA_ALLOC_SIZE(term_size);
-    literal_area = erts_alloc(ERTS_ALC_T_LITERAL, lit_area_size);
-    ptr = &literal_area->start[0];
-    literal_area->end = ptr + term_size;
-    ctx->tuple = copy_shared_perform(ctx->tuple, term_size, &info, &ptr, &code_off_heap);
-    ASSERT(tuple_val(ctx->tuple) == literal_area->start);
-    literal_area->off_heap = code_off_heap.first;
-    DESTROY_SHCOPY(info);
-    erts_set_literal_tag(&ctx->tuple, literal_area->start, term_size);
+        if (ctx->hash_table == (HashTable *) erts_atomic_read_nob(&the_hash_table)) {
+            /* Schedule fast update in active hash table */
+            fast_update_index = ctx->entry_index;
+            fast_update_term = ctx->tuple;
+        }
+        else {
+            /* Do update in copied table */
+            set_bucket(ctx->hash_table, ctx->entry_index, ctx->tuple);
+        }
 
-    if (ctx->hash_table == (HashTable *) erts_atomic_read_nob(&the_hash_table)) {
-        /* Schedule fast update in active hash table */
-        fast_update_index = ctx->entry_index;
-        fast_update_term = ctx->tuple;
+        /*
+         * Now wait thread progress before making update visible to guarantee
+         * consistent view of table&term without memory barrier in every get/1.
+         */
+        erts_schedule_thr_prgr_later_op(table_updater, ctx->hash_table, &thr_prog_op);
     }
-    else {
-        /* Do update in copied table */
-        set_bucket(ctx->hash_table, ctx->entry_index, ctx->tuple);
-    }
-
-    /*
-     * Now wait thread progress before making update visible to guarantee
-     * consistent view of table&term without memory barrier in every get/1.
-     */
-    erts_schedule_thr_prgr_later_op(table_updater, ctx->hash_table, &thr_prog_op);
-
     suspend_updater(c_p);
 
     BUMP_REDS(c_p, (max_iterations - iterations_until_trap) / ITERATIONS_PER_RED);
