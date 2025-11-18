@@ -95,8 +95,10 @@ casefold(_) ->
 
 whitespace(_Config) ->
     %% Pattern whitespace
-    WS = unicode_util:whitespace(),
-    WS = lists:filter(fun unicode_util:is_whitespace/1, WS),
+    WS = lists:sort(unicode_util:pattern_whitespace()),
+    %% is_whitespace are an extended subset of pattern_whitespace
+    %% (more tested in the unicode module)
+    WS = lists:sort(lists:filter(fun unicode_util:is_whitespace/1, WS) ++ [8206,8207]),
     false = unicode_util:is_whitespace($A),
     ok.
 
