@@ -1304,8 +1304,8 @@ included in the private key structure. See also `crypto:generate_key/2`
 """.
 -doc(#{group => <<"Key API">>,
        since => <<"OTP R16B01">>}).
--spec generate_key(DHparams | ECparams | RSAparams) ->
-                          DHkeys | ECkey | RSAkey
+-spec generate_key(DHparams | ECparams | RSAparams | MLDSA | SLHDSA) ->
+                          DHkeys | ECkey | RSAkey | MLDSAKeys | SLHDSAKeys
                               when DHparams :: #'DHParameter'{},
                                    DHkeys :: {PublicDH::binary(), PrivateDH::binary()},
                                    ECparams :: {namedCurve, oid() | atom()} | #'ECParameters'{},
@@ -1313,7 +1313,11 @@ included in the private key structure. See also `crypto:generate_key/2`
                                    RSAparams :: {rsa, Size, PubExp},
                                    Size::pos_integer(),
                                    PubExp::pos_integer(),
-                                   RSAkey :: #'RSAPrivateKey'{} .
+                                   RSAkey :: #'RSAPrivateKey'{},
+                                   MLDSA :: crypto:mldsa(),
+                                   MLDSAKeys ::{#'ML-DSAPublicKey'{}, #'ML-DSAPrivateKey'{}},
+                                   SLHDSA :: crypto:slh_dsa(),
+                                   SLHDSAKeys :: {#'SLH-DSAPublicKey'{}, #'SLH-DSAPrivateKey'{}}.
 
 generate_key(#'DHParameter'{prime = P, base = G}) ->
     crypto:generate_key(dh, [P, G]);
