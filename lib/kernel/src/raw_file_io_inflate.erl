@@ -25,7 +25,7 @@
 -behavior(gen_statem).
 
 -export([init/1, callback_mode/0, terminate/3]).
--export([opening/3, opened_gzip/3, opened_passthrough/3]).
+-export([opening/3, opened_active/3, opened_passthrough/3]).
 
 -include("file_int.hrl").
 
@@ -37,41 +37,71 @@ callback_mode() -> state_functions.
 init({Owner, Secret, [compressed]}) ->
     %% 'reset mode', which resets the inflate state at the end of every stream,
     %% allowing us to read concatenated gzip files.
-    init(Owner, Secret, reset);
+    init_zlib(Owner, Secret, reset);
 init({Owner, Secret, [compressed_one]}) ->
     %% 'cut mode', which stops the inflate after one member
     %% allowing us to read gzipped tar files
-    init(Owner, Secret, cut).
+    init_zlib(Owner, Secret, cut);
+init({Owner, Secret, [{zstd, Parameters}]}) ->
+    %% 'cut mode', which stops the inflate after one member
+    %% allowing us to read gzipped tar files
+    init_zstd(Owner, Secret, Parameters).
 
-init(Owner, Secret, Mode) ->
+init_zlib(Owner, Secret, Mode) ->
     Monitor = monitor(process, Owner),
     %% We're using the undocumented inflateInit/3 to set the mode
     Z = zlib:open(),
     ok = zlib:inflateInit(Z, ?GZIP_WBITS, Mode),
+
     Data =
         #{ owner => Owner,
            monitor => Monitor,
            secret => Secret,
+           choose_state => fun(PrivateFd) ->
+                                   %% The old driver fell back to plain reads
+                                   %% if the file didn't start with the magic
+                                   %% gzip bytes.
+                                   State =
+                                       case ?CALL_FD(PrivateFd, read, [2]) of
+                                           {ok, <<16#1F, 16#8B>>} ->
+                                               opened_active;
+                                           _Other ->
+                                               opened_passthrough
+                                       end,
+                                   {ok, 0} = ?CALL_FD(PrivateFd, position, [0]),
+                                   State
+                           end,
            position => 0,
            buffer => prim_buffer:new(),
-           zlib => Z },
+           inflate => fun(Data) -> zlib:inflate(Z, Data) end,
+           reset => fun() -> zlib:inflateReset(Z) end },
     {ok, opening, Data}.
 
-%% The old driver fell back to plain reads if the file didn't start with the
-%% magic gzip bytes.
-choose_decompression_state(PrivateFd) ->
-    State =
-        case ?CALL_FD(PrivateFd, read, [2]) of
-            {ok, <<16#1F, 16#8B>>} -> opened_gzip;
-            _Other -> opened_passthrough
-        end,
-    {ok, 0} = ?CALL_FD(PrivateFd, position, [0]),
-    State.
+init_zstd(Owner, Secret, Parameters) ->
+    Monitor = monitor(process, Owner),
+    try zstd:context(decompress, Parameters) of
+        {ok, Z} ->
+            Data =
+                #{ owner => Owner,
+                   monitor => Monitor,
+                   secret => Secret,
+                   choose_state => fun(_) -> opened_active end,
+                   position => 0,
+                   buffer => prim_buffer:new(),
+                   inflate => fun(Data) -> zstd:decompress(Data, Z) end,
+                   reset => fun() -> zstd:reset(Z) end},
+            {ok, opening, Data}
+    catch
+        _:_ ->
+            {error, badarg}
+    end.
 
-opening({call, From}, {'$open', Secret, Filename, Modes}, #{ secret := Secret } = Data) ->
+opening({call, From},
+        {'$open', Secret, Filename, Modes},
+        #{ secret := Secret, choose_state := ChooseState } = Data) ->
     case raw_file_io:open(Filename, Modes) of
         {ok, PrivateFd} ->
-            NextState = choose_decompression_state(PrivateFd),
+            NextState = ChooseState(PrivateFd),
             NewData = Data#{ handle => PrivateFd },
             {next_state, NextState, NewData, [{reply, From, ok}]};
         Other ->
@@ -109,16 +139,16 @@ opened_passthrough(_Event, _Request, _Data) ->
 
 %%
 
-opened_gzip(info, {'DOWN', Monitor, process, _Owner, _Reason}, #{ monitor := Monitor }) ->
+opened_active(info, {'DOWN', Monitor, process, _Owner, _Reason}, #{ monitor := Monitor }) ->
     {stop, shutdown};
 
-opened_gzip(info, _Message, _Data) ->
+opened_active(info, _Message, _Data) ->
     keep_state_and_data;
 
-opened_gzip({call, {Owner, _Tag} = From}, [close], #{ owner := Owner } = Data) ->
+opened_active({call, {Owner, _Tag} = From}, [close], #{ owner := Owner } = Data) ->
     internal_close(From, Data);
 
-opened_gzip({call, {Owner, _Tag} = From}, [position, Mark], #{ owner := Owner } = Data) ->
+opened_active({call, {Owner, _Tag} = From}, [position, Mark], #{ owner := Owner } = Data) ->
     case position(Data, Mark) of
         {ok, NewData, Result} ->
             Response = {ok, Result},
@@ -127,7 +157,7 @@ opened_gzip({call, {Owner, _Tag} = From}, [position, Mark], #{ owner := Owner } 
             {keep_state_and_data, [{reply, From, Other}]}
     end;
 
-opened_gzip({call, {Owner, _Tag} = From}, [read, Size], #{ owner := Owner } = Data) ->
+opened_active({call, {Owner, _Tag} = From}, [read, Size], #{ owner := Owner } = Data) ->
     case read(Data, Size) of
         {ok, NewData, Result} ->
             Response = {ok, Result},
@@ -136,7 +166,7 @@ opened_gzip({call, {Owner, _Tag} = From}, [read, Size], #{ owner := Owner } = Da
             {keep_state_and_data, [{reply, From, Other}]}
     end;
 
-opened_gzip({call, {Owner, _Tag} = From}, [read_line], #{ owner := Owner } = Data) ->
+opened_active({call, {Owner, _Tag} = From}, [read_line], #{ owner := Owner } = Data) ->
     case read_line(Data) of
         {ok, NewData, Result} ->
             Response = {ok, Result},
@@ -145,20 +175,20 @@ opened_gzip({call, {Owner, _Tag} = From}, [read_line], #{ owner := Owner } = Dat
             {keep_state_and_data, [{reply, From, Other}]}
     end;
 
-opened_gzip({call, {Owner, _Tag} = From}, [write, _IOData], #{ owner := Owner }) ->
+opened_active({call, {Owner, _Tag} = From}, [write, _IOData], #{ owner := Owner }) ->
     Response = {error, ebadf},
     {keep_state_and_data, [{reply, From, Response}]};
 
-opened_gzip({call, {Owner, _Tag} = From}, _Request, #{ owner := Owner }) ->
+opened_active({call, {Owner, _Tag} = From}, _Request, #{ owner := Owner }) ->
     Response = {error, enotsup},
     {keep_state_and_data, [{reply, From, Response}]};
 
-opened_gzip({call, _From}, _Request, _Data) ->
+opened_active({call, _From}, _Request, _Data) ->
     %% The client functions filter this out, so we'll crash if the user does
     %% anything stupid on purpose.
     {shutdown, protocol_violation};
 
-opened_gzip(_Event, _Request, _Data) ->
+opened_active(_Event, _Request, _Data) ->
     keep_state_and_data.
 
 %%
@@ -178,8 +208,8 @@ read_1(Data, Buffer, BufferSize, ReadSize) when BufferSize < ReadSize ->
     #{ handle := PrivateFd } = Data,
     case ?CALL_FD(PrivateFd, read, [?INFLATE_CHUNK_SIZE]) of
         {ok, Compressed} ->
-            #{ zlib := Z } = Data,
-            Uncompressed = erlang:iolist_to_iovec(zlib:inflate(Z, Compressed)),
+            #{ inflate := Inflate } = Data,
+            Uncompressed = erlang:iolist_to_iovec(Inflate(Compressed)),
             prim_buffer:write(Buffer, Uncompressed),
             read_1(Data, Buffer, prim_buffer:size(Buffer), ReadSize);
         eof when BufferSize > 0 ->
@@ -198,10 +228,10 @@ read_line(#{ buffer := Buffer } = Data) ->
     end.
 
 read_line_1(Data, Buffer, not_found) ->
-    #{ handle := PrivateFd, zlib := Z } = Data,
+    #{ handle := PrivateFd, inflate := Inflate } = Data,
     case ?CALL_FD(PrivateFd, read, [?INFLATE_CHUNK_SIZE]) of
         {ok, Compressed} ->
-            Uncompressed = erlang:iolist_to_iovec(zlib:inflate(Z, Compressed)),
+            Uncompressed = erlang:iolist_to_iovec(Inflate(Compressed)),
             prim_buffer:write(Buffer, Uncompressed),
             read_line_1(Data, Buffer, prim_buffer:find_byte_index(Buffer, $\n));
         eof ->
@@ -257,10 +287,10 @@ position_1(#{ position := Current } = Data, Desired) when Current < Desired ->
         Other -> Other
     end;
 position_1(#{ position := Current } = Data, Desired) when Current > Desired ->
-    #{ handle := PrivateFd, buffer := Buffer, zlib := Z } = Data,
+    #{ handle := PrivateFd, buffer := Buffer, reset := Reset } = Data,
     case ?CALL_FD(PrivateFd, position, [bof]) of
         {ok, 0} ->
-            ok = zlib:inflateReset(Z),
+            ok = Reset(),
             prim_buffer:wipe(Buffer),
             position_1(Data#{ position => 0 }, Desired);
         Other ->
