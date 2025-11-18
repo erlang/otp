@@ -114,10 +114,10 @@ typedef struct {
 
 typedef enum {
     PUT_COMMON_TRAP_LOCATION_NEW_KEY,
-} ErtsPersistentTermPut2TrapLocation;
+} ErtsPersistentTermPutCommonTrapLocation;
 
 typedef struct {
-    ErtsPersistentTermPut2TrapLocation trap_location;
+    ErtsPersistentTermPutCommonTrapLocation trap_location;
     Eterm key;
     Eterm term;
     Uint entry_index;
@@ -125,7 +125,7 @@ typedef struct {
     Eterm heap[3];
     Eterm tuple;
     ErtsPersistentTermCpyTableCtx cpy_ctx;
-} ErtsPersistentTermPutContext;
+} ErtsPersistentTermPutCommonContext;
 
 typedef enum {
     ERASE1_TRAP_LOCATION_TMP_COPY,
@@ -292,9 +292,9 @@ void erts_init_bif_persistent_term(void)
         }                                                               \
     } while (0)
 
-static int persistent_term_put_2_ctx_bin_dtor(Binary *context_bin)
+static int persistent_term_put_common_bin_dtor(Binary *context_bin)
 {
-    ErtsPersistentTermPutContext* ctx = ERTS_MAGIC_BIN_DATA(context_bin);
+    ErtsPersistentTermPutCommonContext* ctx = ERTS_MAGIC_BIN_DATA(context_bin);
     if (ctx->cpy_ctx.new_table != NULL) {
         erts_free(ERTS_ALC_T_PERSISTENT_TERM, ctx->cpy_ctx.new_table);
         release_update_permission(0);
@@ -302,9 +302,9 @@ static int persistent_term_put_2_ctx_bin_dtor(Binary *context_bin)
     return 1;
 }
 /*
- * A linear congruential generator that is used in the debug emulator
- * to trap after a random number of iterations in
- * persistent_term_put_2 and persistent_term_erase_1.
+ * A linear congruential generator that is used in the debug emulator to trap
+ * after a random number of iterations in persistent_term_put_common and
+ * persistent_term_erase_1.
  *
  * https://en.wikipedia.org/wiki/Linear_congruential_generator
  */
@@ -642,7 +642,7 @@ persistent_term_put_common_trap(BIF_ALIST_3)
 static Eterm put_common(Process* c_p, Eterm key, Eterm term, Eterm new)
 {
     static const Uint ITERATIONS_PER_RED = 32;
-    ErtsPersistentTermPutContext* ctx;
+    ErtsPersistentTermPutCommonContext* ctx;
     Eterm state_mref = THE_NON_VALUE;
     Eterm old_bucket;
     long iterations_until_trap;
@@ -663,7 +663,7 @@ static Eterm put_common(Process* c_p, Eterm key, Eterm term, Eterm new)
 #endif
     if (is_internal_magic_ref(key) &&
         (ERTS_MAGIC_BIN_DESTRUCTOR(erts_magic_ref2bin(key)) ==
-         persistent_term_put_2_ctx_bin_dtor)) {
+         persistent_term_put_common_bin_dtor)) {
         /* Restore state after a trap */
         Binary* state_bin;
         state_mref = key;
@@ -676,14 +676,14 @@ static Eterm put_common(Process* c_p, Eterm key, Eterm term, Eterm new)
     } else {
         /* Save state in magic bin in case trapping is necessary */
         Eterm* hp;
-        Binary* state_bin = erts_create_magic_binary(sizeof(ErtsPersistentTermPutContext),
-                                                     persistent_term_put_2_ctx_bin_dtor);
+        Binary* state_bin = erts_create_magic_binary(sizeof(ErtsPersistentTermPutCommonContext),
+                                                     persistent_term_put_common_bin_dtor);
         hp = HAlloc(c_p, ERTS_MAGIC_REF_THING_SIZE);
         state_mref = erts_mk_magic_ref(&hp, &MSO(c_p), state_bin);
         ctx = ERTS_MAGIC_BIN_DATA(state_bin);
         /*
          * IMPORTANT: The following field is used to detect if
-         * persistent_term_put_2_ctx_bin_dtor needs to free memory
+         * persistent_term_put_common_ctx_bin_dtor needs to free memory
          */
         ctx->cpy_ctx.new_table = NULL;
     }
@@ -774,9 +774,10 @@ static Eterm put_common(Process* c_p, Eterm key, Eterm term, Eterm new)
          * Now wait thread progress before making update visible to guarantee
          * consistent view of table&term without memory barrier in every get/1.
          */
-        erts_schedule_thr_prgr_later_op(table_updater, ctx->hash_table, &thr_prog_op);
+        erts_schedule_thr_prgr_later_op(table_updater, ctx->hash_table,
+                                        &thr_prog_op);
+        suspend_updater(c_p);
     }
-    suspend_updater(c_p);
 
     BUMP_REDS(c_p, (max_iterations - iterations_until_trap) / ITERATIONS_PER_RED);
     ERTS_BIF_YIELD_RETURN(c_p, am_ok);
