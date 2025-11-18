@@ -106,22 +106,15 @@ ERL_NIF_TERM aead_cipher_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
         {ret = EXCP_BADARG_N(env, 1, "key or tag too long"); goto done;}
 
     if ((ctx_res->cipherp = get_cipher_type(type, key.size)) == NULL)
-        {ret = EXCP_BADARG_N(env, 0, "Unknown cipher or invalid key size"); goto done;
-    }
+        {ret = EXCP_BADARG_N(env, 0, "Unknown cipher or invalid key size"); goto done;}
 
     const struct cipher_type_flags_t flags = cipher_type_flags(ctx_res->cipherp);
-    if (flags.non_evp_cipher) {
-        ret = EXCP_BADARG_N(env, 0, "Bad cipher");
-        goto done;
-    }
-    if (!flags.aead_cipher) {
-        ret = EXCP_BADARG_N(env, 0, "Not aead cipher");
-        goto done;
-    }
-    if (is_cipher_forbidden_in_fips(ctx_res->cipherp)) {
-        ret = EXCP_NOTSUP_N(env, 0, "Forbidden in FIPS");
-        goto done;
-    }
+    if (flags.non_evp_cipher)
+        {ret = EXCP_BADARG_N(env, 0, "Bad cipher"); goto done;}
+    if (!flags.aead_cipher)
+        {ret = EXCP_BADARG_N(env, 0, "Not aead cipher"); goto done;}
+    if (is_cipher_forbidden_in_fips(ctx_res->cipherp))
+        {ret = EXCP_NOTSUP_N(env, 0, "Forbidden in FIPS"); goto done;}
 
 #if defined(HAVE_GCM_EVP_DECRYPT_BUG)
     if ( !ctx_res->encflg && (ctx_res->cipherp->flags & GCM_MODE)) {
