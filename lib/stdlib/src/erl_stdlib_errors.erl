@@ -428,7 +428,15 @@ format_unicode_error(characters_to_nfkc_list, [_]) ->
 format_unicode_error(characters_to_nfkd_binary, [_]) ->
     [bad_char_data];
 format_unicode_error(characters_to_nfkd_list, [_]) ->
-    [bad_char_data].
+    [bad_char_data];
+format_unicode_error(category, [_]) ->
+    [bad_char];
+format_unicode_error(is_whitespace, [_]) ->
+    [bad_char];
+format_unicode_error(is_id_start, [_]) ->
+    [bad_char];
+format_unicode_error(is_id_continue, [_]) ->
+    [bad_char].
 
 unicode_char_data(Chars) ->
     try unicode:characters_to_binary(Chars) of
@@ -1121,6 +1129,8 @@ expand_error(bad_boolean) ->
     <<"not a boolean value">>;
 expand_error(bad_binary_list) ->
     <<"not a flat list of binaries">>;
+expand_error(bad_char) ->
+    <<"not a valid character">>;
 expand_error(bad_char_data) ->
     <<"not valid character data (an iodata term)">>;
 expand_error(bad_binary_pattern) ->
