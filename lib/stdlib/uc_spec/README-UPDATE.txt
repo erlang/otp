@@ -39,6 +39,7 @@ No subfolder should be created.
   - emoji/emoji-data.txt
   - EastAsianWidth.txt
   - IndicSyllabicCategory.txt
+  - DerivedCoreProperties.txt
 
 2. Copy the following test files to lib/stdlib/test/unicode_util_SUITE_data/
 replacing existing ones. No subfolder should be created.

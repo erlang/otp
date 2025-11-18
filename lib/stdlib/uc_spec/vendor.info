@@ -25,6 +25,7 @@
       "./lib/stdlib/uc_spec/PropList.txt",
       "./lib/stdlib/uc_spec/SpecialCasing.txt",
       "./lib/stdlib/uc_spec/UnicodeData.txt",
+      "./lib/stdlib/uc_spec/DerivedCoreProperties.txt",
       "./lib/stdlib/test/unicode_util_SUITE_data/GraphemeBreakTest.txt",
       "./lib/stdlib/test/unicode_util_SUITE_data/LineBreakTest.txt",
       "./lib/stdlib/test/unicode_util_SUITE_data/NormalizationTest.txt"
