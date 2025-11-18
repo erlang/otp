@@ -162,6 +162,7 @@ group_pairs([#{certs := []}]) ->
       rsa_pss_pss => [],
       rsa => [],
       mldsa => [],
+      slhdsa => [],
       dsa => []
      };
 group_pairs(Pairs) ->
@@ -170,6 +171,7 @@ group_pairs(Pairs) ->
                          rsa_pss_pss => [],
                          rsa => [],
                          mldsa => [],
+                         slhdsa => [],
                          dsa => []
                         }).
 
@@ -188,6 +190,8 @@ group_pairs([#{private_key := #'RSAPrivateKey'{}} = Pair | Rest], #{rsa := RSA} 
     group_pairs(Rest, Group#{rsa => [Pair | RSA]});
 group_pairs([#{private_key := #'ML-DSAPrivateKey'{}} = Pair | Rest], #{mldsa := MLDSA} = Group) ->
     group_pairs(Rest, Group#{mldsa => [Pair | MLDSA]});
+group_pairs([#{private_key := #'SLH-DSAPrivateKey'{}} = Pair | Rest], #{slhdsa := SLHDSA} = Group) ->
+    group_pairs(Rest, Group#{slhdsa => [Pair | SLHDSA]});
 group_pairs([#{private_key := #'DSAPrivateKey'{}} = Pair | Rest], #{dsa := DSA} = Group) ->
     group_pairs(Rest, Group#{dsa => [Pair | DSA]});
 group_pairs([#{private_key := #{algorithm := dss, engine := _}} = Pair | Rest], Group) ->
@@ -207,6 +211,7 @@ prioritize_groups(#{eddsa := EDDSA,
                     rsa_pss_pss := RSAPSS,
                     rsa := RSA,
                     mldsa := MLDSA,
+                    slhdsa := SLHDSA,
                     dsa := DSA} = CertKeyGroups, Opts) ->
     EC = ecdsa_support(Opts),
     CertKeyGroups#{eddsa => prio_eddsa(EDDSA),
@@ -214,6 +219,7 @@ prioritize_groups(#{eddsa := EDDSA,
                    rsa_pss_pss => prio_rsa_pss(RSAPSS),
                    rsa => prio_rsa(RSA),
                    mldsa => prio_mldsa(MLDSA),
+                   slhdsa => prio_slhdsa(SLHDSA),
                    dsa => prio_dsa(DSA)}.
 prio_eddsa(EDDSA) ->
     %% Engine not supported yet
@@ -276,6 +282,12 @@ prio_mldsa(MLDSA) ->
     SignFunPairs
         ++ lists:keysort(#'ML-DSAPrivateKey'.algorithm, MLDSA -- SignFunPairs).
 
+prio_slhdsa(SLHDSA) ->
+    %% Engine not supported yet
+    SignFunPairs = [Pair || Pair = #{private_key := #{sign_fun := _}} <- SLHDSA],
+    SignFunPairs
+        ++ lists:keysort(#'SLH-DSAPrivateKey'.algorithm, SLHDSA -- SignFunPairs).
+
 prio_dsa(DSA) ->
     Order = fun(#{key := #'DSAPrivateKey'{q = N}},
                 #{key := #'DSAPrivateKey'{q = M}}) when M > N ->
@@ -309,6 +321,22 @@ private_key(#'PrivateKeyInfo'{privateKeyAlgorithm =
                                   #'PrivateKeyInfo_privateKeyAlgorithm'{algorithm = ?'id-ml-dsa-87'},
                               privateKey = DerKey}) ->
     mldsa_priv_key_dec('ML-DSA-87-PrivateKey', DerKey,  #'ML-DSAPrivateKey'{algorithm = mldsa87});
+private_key(#'PrivateKeyInfo'{privateKeyAlgorithm =
+                                  #'PrivateKeyInfo_privateKeyAlgorithm'{
+                                     algorithm = Algorithm},
+                              privateKey = DerKey}) when  Algorithm == ?'id-slh-dsa-sha2-128f';
+                                                          Algorithm == ?'id-slh-dsa-sha2-128s';
+                                                          Algorithm == ?'id-slh-dsa-sha2-192f';
+                                                          Algorithm == ?'id-slh-dsa-sha2-192s';
+                                                          Algorithm == ?'id-slh-dsa-sha2-256f';
+                                                          Algorithm == ?'id-slh-dsa-sha2-256s';
+                                                          Algorithm == ?'id-slh-dsa-shake-128f';
+                                                          Algorithm == ?'id-slh-dsa-shake-128s';
+                                                          Algorithm == ?'id-slh-dsa-shake-192f';
+                                                          Algorithm == ?'id-slh-dsa-shake-192s';
+                                                          Algorithm == ?'id-slh-dsa-shake-256f';
+                                                          Algorithm == ?'id-slh-dsa-shake-256s' ->
+    public_key:der_decode('SLH-DSA-PrivateKey', DerKey);
 private_key(#'PrivateKeyInfo'{privateKeyAlgorithm = 
                                   #'PrivateKeyInfo_privateKeyAlgorithm'{algorithm = ?'id-ecPublicKey',
                                                                         parameters =  {asn1_OPENTYPE, Parameters}},
@@ -2239,6 +2267,8 @@ check_key(#'DSAPrivateKey'{}) ->
 check_key(#'ECPrivateKey'{}) ->
     ok;
 check_key(#'ML-DSAPrivateKey'{}) ->
+    ok;
+check_key(#'SLH-DSAPrivateKey'{}) ->
     ok;
 check_key(NotKey) ->
     {error, {unexpected_content, NotKey}}.
