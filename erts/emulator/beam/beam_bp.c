@@ -350,6 +350,8 @@ consolidate_export_bp_data(BpFunctions* f)
                            mi->code_length));
 
         consolidate_bp_data(mi, ci_rw, 0);
+
+        erts_update_export_is_bif_traced(ErtsContainerStruct(ci_rw, Export, info));
     }
 }
 
@@ -461,9 +463,6 @@ consolidate_bp_data(struct erl_module_instance *mi,
             ASSERT(!BeamIsOpCode(instr, op_i_generic_breakpoint));
         }
 #endif
-    }
-    if (!local) {
-        erts_update_export_is_bif_traced(ErtsContainerStruct(ci_rw, Export, info));
     }
 }
 
@@ -901,6 +900,7 @@ erts_clear_all_export_break(Module* modp, Export *ep)
     erts_commit_staged_bp();
 
     consolidate_bp_data(&modp->curr, ci, 0);
+    erts_update_export_is_bif_traced(ep);
     erts_free_breakpoints();
     ASSERT(ci->gen_bp == NULL);
 }
