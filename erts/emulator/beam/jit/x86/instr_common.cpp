@@ -1212,7 +1212,7 @@ void BeamModuleAssembler::emit_is_binary(const ArgLabel &Fail,
                 a.mov(RET,
                       emit_boxed_val(boxed_ptr, offsetof(ErlHeapBits, size)));
 
-                a.mov(ARG2d, emit_boxed_val(boxed_ptr));
+                a.mov(ARG2d, emit_boxed_val(boxed_ptr, 0, sizeof(Uint32)));
                 a.cmp(ARG2d, imm(HEADER_SUB_BITS));
                 a.short_().jne(not_sub_bits);
                 {
@@ -1871,7 +1871,7 @@ void BeamModuleAssembler::emit_is_eq_exact(const ArgLabel &Fail,
                 a.cmp(emit_boxed_val(boxed_ptr), imm(HEADER_SUB_BITS));
             } else {
                 a.mov(RETd, emit_boxed_val(boxed_ptr, 0, sizeof(Uint32)));
-                a.cmp(RETb, imm(HEADER_SUB_BITS));
+                a.cmp(RETd, imm(HEADER_SUB_BITS));
             }
             a.short_().jne(not_sub_bits);
 
@@ -2030,7 +2030,7 @@ void BeamModuleAssembler::emit_is_ne_exact(const ArgLabel &Fail,
                 a.cmp(emit_boxed_val(boxed_ptr), imm(HEADER_SUB_BITS));
             } else {
                 a.mov(RETd, emit_boxed_val(boxed_ptr, 0, sizeof(Uint32)));
-                a.cmp(RETb, imm(HEADER_SUB_BITS));
+                a.cmp(RETd, imm(HEADER_SUB_BITS));
             }
             a.short_().jne(not_sub_bits);
 
