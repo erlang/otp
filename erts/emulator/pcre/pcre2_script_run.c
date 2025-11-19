@@ -39,13 +39,12 @@ POSSIBILITY OF SUCH DAMAGE.
 */
 /* SPDX-License-Identifier: BSD-3-Clause */
 
+
 /* This module contains the function for checking a script run. */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
 
 #include "pcre2_internal.h"
+
 
 
 /*************************************************

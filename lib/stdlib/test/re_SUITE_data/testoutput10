@@ -7,18 +7,23 @@
 
 /[Ã]/utf
 Failed: error -8 at offset 1: UTF-8 error: byte 2 top bits not 0x80
+        here: [ |-->| Ã]
 
 /Ã/utf
 Failed: error -3 at offset 0: UTF-8 error: 1 byte missing at end
+        here: |-->| Ã
 
 /ÃÃÃxxx/utf
 Failed: error -8 at offset 0: UTF-8 error: byte 2 top bits not 0x80
+        here: |-->| ÃÃÃxxx
 
 /Ã‚‚‚‚‚‚‚‚Ã/utf
 Failed: error -22 at offset 2: UTF-8 error: isolated byte with 0x80 bit set
+        here: Ã‚ |-->| ‚‚‚‚‚‚‚Ã
 
 /Ã‚‚‚‚‚‚‚‚Ã/match_invalid_utf
 Failed: error -22 at offset 2: UTF-8 error: isolated byte with 0x80 bit set
+        here: Ã‚ |-->| ‚‚‚‚‚‚‚Ã
 
 # Now test subjects
 
@@ -714,6 +719,7 @@ Subject length lower bound = 2
 
 /^[\QÄ€\E-\QÅ\E/B,utf
 Failed: error 106 at offset 15: missing terminating ] for character class
+        here: ...QÄ€\E-\QÅ\E |<--|
 
 # This tests the stricter UTF-8 check according to RFC 3629.
 
@@ -1083,9 +1089,17 @@ Failed: error -14: UTF-8 error: 6-byte character is not allowed (RFC 3629) at of
 
 /(*UTF8)abc/never_utf
 Failed: error 174 at offset 7: using UTF is disabled by the application
+        here: (*UTF8) |<--| abc
 
 /abc/utf,never_utf
 Failed: error 174 at offset 0: using UTF is disabled by the application
+
+/(*UCP)abc/never_ucp
+Failed: error 175 at offset 6: using UCP is disabled by the application
+        here: (*UCP) |<--| abc
+
+/abc/ucp,never_ucp
+Failed: error 175 at offset 0: using UCP is disabled by the application
 
 /A\x{391}\x{10427}\x{ff3a}\x{1fb0}/IBi,utf
 ------------------------------------------------------------------
@@ -1525,8 +1539,17 @@ Failed: error -22: UTF-8 error: isolated byte with 0x80 bit set at offset 1
     123     
 No match
 
+/\p{  Aáˆ´}/utf
+Failed: error 146 at offset 9: malformed \P or \p sequence
+        here: \p{  Aáˆ´ |<--| }
+
+/\p{BC: Aáˆ´}/utf
+Failed: error 146 at offset 11: malformed \P or \p sequence
+        here: \p{BC: Aáˆ´ |<--| }
+
 /(*:*++++++++++++''''''''''''''''''''+''+++'+++x+++++++++++++++++++++++++++++++++++(++++++++++++++++++++:++++++%++:''''''''''''''''''''''''+++++++++++++++++++++++++++++++++++++++++++++++++++++-++++++++k+++++++''''+++'+++++++++++++++++++++++''''++++++++++++':Æ¿)/utf
 Failed: error 176 at offset 259: name is too long in (*MARK), (*PRUNE), (*SKIP), or (*THEN)
+        here: ...+++++++':Æ¿ |<--| )
 
 /[\s[:^ascii:]]/B,ucp
 ------------------------------------------------------------------
@@ -1603,14 +1626,25 @@ No match
 
 /(?'ABÃ¡C6789012345678901234567890123012345678901234567890123456789AB012345678901234567890123456789AB012345678901234567890123456789AB'...)/utf
 Failed: error 148 at offset 132: subpattern name is too long (maximum 128 code units)
+        here: ...23456789AB |<--| '...)
 
 /(?'ABZC6789012345678901234567890123012345678901234567890123456789AB012345678901234567890123456789AB012345678901234567890123456789AB'...)/utf
 
 /(?(n/utf
 Failed: error 142 at offset 4: syntax error in subpattern name (missing terminator?)
+        here: (?(n |<--|
 
 /(?(Ã¡/utf
 Failed: error 142 at offset 5: syntax error in subpattern name (missing terminator?)
+        here: (?(Ã¡ |<--|
+
+/^\cÄ£/utf
+Failed: error 168 at offset 5: \c must be followed by a printable ASCII character
+        here: ^\cÄ£ |<--|
+
+/(?'Ù ABC'...)/utf
+Failed: error 144 at offset 5: subpattern name must start with a non-digit
+        here: (?'Ù  |<--| ABC'...)
 
 # Invalid UTF-8 tests
 
@@ -1969,17 +2003,21 @@ Failed: error 205 at offset 0: PCRE2_EXTRA_TURKISH_CASING requires UTF in 8-bit 
 
 /\400/
 Failed: error 151 at offset 4: octal value is greater than \377 in 8-bit non-UTF-8 mode
+        here: \400 |<--|
 
 /abc/substitute_extended
     abc\=replace=\400
 Failed: error -57 at offset 4 in replacement: bad escape sequence in replacement string
+        here: \400 |<--|
 
 /\400/python_octal
 Failed: error 202 at offset 4: octal value given by \ddd is greater than \377 (forbidden by PCRE2_EXTRA_PYTHON_OCTAL)
+        here: \400 |<--|
 
 /abc/substitute_extended,python_octal
     abc\=replace=\400
 Failed: error -57 at offset 4 in replacement: bad escape sequence in replacement string
+        here: \400 |<--|
 
 /\400/utf
 
@@ -1989,10 +2027,12 @@ Failed: error -57 at offset 4 in replacement: bad escape sequence in replacement
 
 /\400/utf,python_octal
 Failed: error 202 at offset 4: octal value given by \ddd is greater than \377 (forbidden by PCRE2_EXTRA_PYTHON_OCTAL)
+        here: \400 |<--|
 
 /abc/utf,substitute_extended,python_octal
     abc\=replace=\400
 Failed: error -57 at offset 4 in replacement: bad escape sequence in replacement string
+        here: \400 |<--|
 
 /[\x00-\x2f\x11-\xff]+/B
 ------------------------------------------------------------------
