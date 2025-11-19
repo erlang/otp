@@ -12721,7 +12721,11 @@ static int packet_header_length(tcp_descriptor *desc) {
      * Set hlen to the minimal header bytes, for starters.
      */
     case TCP_PB_1:          hlen = 1; break;
+    case TCP_PB_2_LITTLE:   /* fall through */
     case TCP_PB_2:          hlen = 2; break;
+    case TCP_PB_3_LITTLE:   /* fall through */
+    case TCP_PB_3:          hlen = 3; break;
+    case TCP_PB_4_LITTLE:   /* fall through */
     case TCP_PB_4:          hlen = 4; break;
     case TCP_PB_RM:         hlen = 4; break;
     case TCP_PB_ASN1:       hlen = 2; break;
@@ -13563,8 +13567,24 @@ static int tcp_sendv(tcp_descriptor* desc, ErlIOVec* ev)
          put_int16(len, buf);
          h_len = 2;
          break;
+     case TCP_PB_2_LITTLE:
+         put_little_int16(len, buf);
+         h_len = 2;
+         break;
+     case TCP_PB_3:
+         put_int24(len, buf);
+         h_len = 3;
+         break;
+     case TCP_PB_3_LITTLE:
+         put_little_int24(len, buf);
+         h_len = 3;
+         break;
      case TCP_PB_4:
          put_int32(len, buf);
+         h_len = 4;
+         break;
+     case TCP_PB_4_LITTLE:
+         put_little_int32(len, buf);
          h_len = 4;
          break;
      default:
@@ -13679,9 +13699,25 @@ static int tcp_send(tcp_descriptor* desc, char* ptr, ErlDrvSizeT len)
 	put_int16(len, buf);
 	h_len = 2; 
 	break;
+    case TCP_PB_2_LITTLE:
+	put_little_int16(len, buf);
+	h_len = 2;
+	break;
+    case TCP_PB_3:
+	put_int24(len, buf);
+	h_len = 3;
+	break;
+    case TCP_PB_3_LITTLE:
+	put_little_int24(len, buf);
+	h_len = 3;
+	break;
     case TCP_PB_4: 
 	put_int32(len, buf);
 	h_len = 4; 
+	break;
+    case TCP_PB_4_LITTLE:
+	put_little_int32(len, buf);
+	h_len = 4;
 	break;
     default:
 	h_len = 0;
