@@ -452,11 +452,11 @@ Scrambler is `u` (optional will be generated if not provided) from
 -type dh_private() :: key_integer() .
 -doc """
 ```text
-dh_params() = [P, G] | [P, G, PrivateKeyBitLength]
+dh_params() = [P, G] | [P, G, MaxPrivateKeyBitLength]
 ```
 """.
 -doc(#{group => <<"Diffie-Hellman Keys and parameters">>}).
--type dh_params() :: [key_integer()] . % [P, G] | [P, G, PrivateKeyBitLength]
+-type dh_params() :: [key_integer()] . % [P, G] | [P, G, MaxPrivateKeyBitLength]
 
 -doc(#{group => <<"Diffie-Hellman Keys and parameters">>,
        equiv => ecdh_params()}).
@@ -2829,7 +2829,7 @@ Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
 > - and the `Type` is `dh` (diffie-hellman)
 > - and the parameter `P` (in `t:dh_params/0`) is one of the MODP groups (see
 >   [RFC 3526](https://tools.ietf.org/html/rfc3526))
-> - and the optional `PrivateKeyBitLength` parameter (in `t:dh_params/0`) is
+> - and the optional `MaxPrivateKeyBitLength` parameter (in `t:dh_params/0`) is
 >   present,
 >
 > then the optional key length parameter must be at least 224, 256, 302, 352 and
