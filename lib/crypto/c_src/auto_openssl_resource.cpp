@@ -49,22 +49,29 @@ void auto_kem_t::free_resource(EVP_KEM *p) {
 }
 #endif
 
+#if defined(HAS_3_0_API)
 void auto_mac_t::free_resource(EVP_MAC *p) {
     if (p) {
         EVP_MAC_free(p);
     }
 }
+#endif
 
+#if defined(HAS_3_0_API)
 void auto_mac_ctx_t::free_resource(EVP_MAC_CTX *p) {
     if (p) {
         EVP_MAC_CTX_free(p);
     }
 }
+#endif
 
 void auto_cipher_t::free_resource(const EVP_CIPHER *p) {
+#if defined(HAS_3_0_API)
     if (p) {
         EVP_CIPHER_free(const_cast<EVP_CIPHER*>(p));
     }
+#endif
+    // in pre-3.0 the CIPHER object is const and cannot be freed
 }
 
 void auto_cipher_ctx_t::free_resource(EVP_CIPHER_CTX *p) {

@@ -81,7 +81,7 @@ struct cipher_type_t {
 
     cipher_type_t(const cipher_probe_t *init_, ERL_NIF_TERM atom, const size_t key_len, cipher_type_flags_t flags_) :
         init(init_), atom(atom), key_len(key_len), flags(flags_) {}
-    cipher_type_t(ERL_NIF_TERM atom, const size_t key_len=0) :
+    explicit cipher_type_t(ERL_NIF_TERM atom, const size_t key_len=0) :
         atom(atom), key_len(key_len) {}
 
     bool is_forbidden_in_fips() const {
@@ -131,13 +131,16 @@ using cipher_constructor_fn_t = const EVP_CIPHER *(*) ();
 // its availability. Each probe() call done by the algorithm_collection_t might or might not
 // result in a new available algorithm creation.
 struct cipher_probe_t {
-    const char *str = nullptr;
-    const char *str_v3 = nullptr;
-    cipher_constructor_fn_t ctor_v1 = nullptr; // constructor for OpenSSL < 3.0 (can be null)
-    ERL_NIF_TERM atom = 0;
-    size_t key_len = 0;
-    cipher_type_flags_t flags; // initial value for the flags
-    AEAD_CTRL_TYPE aead_ctrl_type = NOT_AEAD; // determines which value goes into cipher_availability_t::aead
+    const char *str;
+    const char *str_v3;
+    // constructor for OpenSSL < 3.0 (can be null)
+    cipher_constructor_fn_t ctor_v1;
+    ERL_NIF_TERM atom;
+    size_t key_len;
+    // initial value for the flags
+    cipher_type_flags_t flags;
+    // determines which value goes into cipher_availability_t::aead
+    AEAD_CTRL_TYPE aead_ctrl_type;
 
     // Attempt to add a new known Cipher algorithm. In case of success, fill the struct and push into the 'output'
     void probe(ErlNifEnv *env, bool fips_enabled, std::vector<cipher_type_t> &output);

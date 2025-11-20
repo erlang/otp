@@ -23,23 +23,24 @@
 #pragma once
 
 #ifdef __cplusplus
-extern "C" {
+extern "C"
+{
 #endif
 
 #include "common.h"
 
-//
-// KEM Algorithms storage C API
-//
-size_t kem_algorithms_lazy_init(ErlNifEnv *env, bool fips_enabled);
-ERL_NIF_TERM kem_algorithms_as_list(ErlNifEnv *env, bool fips_enabled);
+    //
+    // KEM Algorithms storage C API
+    //
+    size_t kem_algorithms_lazy_init(ErlNifEnv *env, bool fips_enabled);
+    ERL_NIF_TERM kem_algorithms_as_list(ErlNifEnv *env, bool fips_enabled);
 
 #ifdef __cplusplus
 }
 #endif
 
 #ifdef __cplusplus
-#include "algorithms_collection.h"
+#    include "algorithms_collection.h"
 struct kem_probe_t;
 
 // Describes a KEM algorithm added by the collection's probe function, and checked for compatibility
@@ -53,13 +54,15 @@ struct kem_type_t {
     } flags = {};
 
     bool is_forbidden_in_fips() const {
-#ifdef FIPS_SUPPORT
+#    ifdef FIPS_SUPPORT
         return this->flags.fips_forbidden && FIPS_MODE();
-#else
+#    else
         return false;
-#endif
+#    endif
     }
-    bool is_available() const { return true; }
+    bool is_available() const {
+        return true;
+    }
     // Return the atom which goes to the Erlang caller
     ERL_NIF_TERM get_atom() const;
     bool check_kem_algorithm(bool fips_enabled);
@@ -69,13 +72,15 @@ struct kem_type_t {
 // its availability. Each probe() call done by the algorithm_collection_t might or might not
 // result in a new available algorithm creation.
 struct kem_probe_t {
-    const char *str_v3 = nullptr;
-    ERL_NIF_TERM atom = 0;
+    const char *str_v3;
+    ERL_NIF_TERM atom;
 
     // Perform a probe on the algorithm. In case of success, fill the struct and push into the 'output'
     void probe(ErlNifEnv *env, bool fips_enabled, std::vector<kem_type_t> &output);
     // Used as a stopper by the algorithm_collection_t
-    bool is_last() const { return this->str_v3 == nullptr; }
+    bool is_last() const {
+        return this->str_v3 == nullptr;
+    }
 };
 
 using kem_collection_t = algorithm_collection_t<kem_type_t, kem_probe_t>;

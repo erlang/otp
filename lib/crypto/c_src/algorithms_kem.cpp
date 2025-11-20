@@ -28,11 +28,10 @@ kem_probe_t kem_probes[] = {
         {.str_v3 = "mlkem512"},
         {.str_v3 = "mlkem768"},
         {.str_v3 = "mlkem1024"},
-        {}, // stopper record
 #endif
 };
 
-kem_collection_t kem_collection("crypto.kem_collection", kem_probes);
+kem_collection_t kem_collection("crypto.kem_collection", kem_probes,sizeof(kem_probes)/sizeof(kem_probes[0]));
 
 //
 // Implementation of KEM Algorithm storage API

@@ -74,12 +74,14 @@ struct auto_pkey_ctx_t : auto_openssl_resource_t<EVP_PKEY_CTX *, auto_pkey_ctx_t
     static void free_resource(EVP_PKEY_CTX *p);
 };
 #else
+#ifdef HAVE_EC
 // Pre-SSL 3.0 Key resource
 struct auto_key_v1_t : auto_openssl_resource_t<EC_KEY *, auto_key_v1_t> {
     auto_key_v1_t() = default;
     explicit auto_key_v1_t(EC_KEY *p) : auto_openssl_resource_t(p) {}
     static void free_resource(EC_KEY *p);
 };
+#endif // HAVE_EC
 #endif // HAS_3_0_API
 
 #ifdef HAVE_ML_KEM
@@ -90,17 +92,21 @@ struct auto_kem_t : auto_openssl_resource_t<EVP_KEM *, auto_kem_t> {
 };
 #endif
 
+#if defined(HAS_3_0_API)
 struct auto_mac_t : auto_openssl_resource_t<EVP_MAC *, auto_mac_t> {
     auto_mac_t() = default;
     explicit auto_mac_t(EVP_MAC *p) : auto_openssl_resource_t(p) {}
     static void free_resource(EVP_MAC *p);
 };
+#endif
 
+#if defined(HAS_3_0_API)
 struct auto_mac_ctx_t : auto_openssl_resource_t<EVP_MAC_CTX *, auto_mac_ctx_t> {
     auto_mac_ctx_t() = default;
     explicit auto_mac_ctx_t(EVP_MAC_CTX *p) : auto_openssl_resource_t(p) {}
     static void free_resource(EVP_MAC_CTX *p);
 };
+#endif
 
 struct auto_cipher_t : auto_openssl_resource_t<const EVP_CIPHER *, auto_cipher_t> {
     auto_cipher_t() = default;

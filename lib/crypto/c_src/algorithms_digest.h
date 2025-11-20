@@ -25,69 +25,72 @@
 struct digest_type_t;
 
 #ifdef __cplusplus
-extern "C" {
+extern "C"
+{
 #endif
 
 #include "common.h"
 
-// Wraps a pointer to digest_availability_t which is a C++ struct with C++ features, for use in C API
-typedef struct digest_type_t digest_type_C;
+    // Wraps a pointer to digest_availability_t which is a C++ struct with C++ features, for use in C API
+    typedef struct digest_type_t digest_type_C;
 
-//
-// C Digest storage API
-//
-void digest_types_lazy_init(ErlNifEnv* env, bool fips_enabled);
-ERL_NIF_TERM digest_types_as_list(ErlNifEnv* env, bool fips_forbidden);
+    //
+    // C Digest storage API
+    //
+    void digest_types_lazy_init(ErlNifEnv *env, bool fips_enabled);
+    ERL_NIF_TERM digest_types_as_list(ErlNifEnv *env, bool fips_forbidden);
 
-// Lookup and access fields
-digest_type_C* get_digest_type(ERL_NIF_TERM type); // linear lookup by atom
-bool is_digest_forbidden_in_fips(const digest_type_C* p); // access C++ member from C
-const EVP_MD* get_digest_type_resource(const digest_type_C* p); // access field
-size_t get_digest_type_xof_default_length(const digest_type_C* p); // access field
-const char* get_digest_type_str_v3(const digest_type_C* p); // access str_v3 name (field of probe)
-bool is_digest_eligible_for_pbkdf2(const digest_type_C* p); // check PBKDF2 availability bit
+    // Lookup and access fields
+    digest_type_C *get_digest_type(ERL_NIF_TERM type);                 // linear lookup by atom
+    bool is_digest_forbidden_in_fips(const digest_type_C *p);          // access C++ member from C
+    const EVP_MD *get_digest_type_resource(const digest_type_C *p);    // access field
+    size_t get_digest_type_xof_default_length(const digest_type_C *p); // access field
+    const char *get_digest_type_str_v3(const digest_type_C *p);        // access str_v3 name (field of probe)
+    bool is_digest_eligible_for_pbkdf2(const digest_type_C *p);        // check PBKDF2 availability bit
 
 #ifdef __cplusplus
 }
 #endif
 
 #ifdef __cplusplus
-#include "algorithms_collection.h"
+#    include "algorithms_collection.h"
 
 // Describes a digest method added by the init function, and checked for compatibility
 // with FIPS if FIPS mode was on. If the FIPS mode changes this will be destroyed and
 // created again.
 struct digest_type_t {
     // The definition used to create this record
-    const struct digest_probe_t* init = nullptr;
+    const struct digest_probe_t *init = nullptr;
     struct {
         bool fips_forbidden : 1;
         bool pbkdf2_eligible : 1;
     } flags = {};
     // after init will contain the algorithm pointer, NULL if not supported. Frees automatically.
-    const EVP_MD* md = nullptr;
+    const EVP_MD *md = nullptr;
     // 0 or default digest length for XOF digests
     size_t xof_default_length = 0;
 
     ~digest_type_t();
 
     bool is_forbidden_in_fips() const {
-#ifdef FIPS_SUPPORT
+#    ifdef FIPS_SUPPORT
         return this->flags.fips_forbidden && FIPS_MODE();
-#else
+#    else
         return false;
-#endif
+#    endif
     }
-    bool is_available() const { return true; }
+    bool is_available() const {
+        return true;
+    }
     // Return the atom which goes to the Erlang caller
     ERL_NIF_TERM get_atom() const;
 
     // Fetches the algorithm and sets the initial flags
     void create_md_resource(bool fips_mode);
-#if defined(FIPS_SUPPORT) && defined(HAS_3_0_API)
+#    if defined(FIPS_SUPPORT) && defined(HAS_3_0_API)
     // Initialize an algorithm to check that all its dependencies are valid in FIPS
-    static bool check_valid_in_fips(const EVP_MD* md);
-#endif
+    static bool check_valid_in_fips(const EVP_MD *md);
+#    endif
 };
 
 // A probe contains data required for creating the algorithm description structure and testing
@@ -95,21 +98,23 @@ struct digest_type_t {
 // result in a new available algorithm creation.
 struct digest_probe_t {
     // the algorithm name as in OpenSSL < 3, also atom used by Erlang API
-    const char* str = nullptr;
+    const char *str;
     // the algorithm name as in OpenSSL 3.x
-    const char* str_v3 = nullptr;
+    const char *str_v3;
     // This will be updated to created atomfound exi
-    ERL_NIF_TERM atom = 0;
+    ERL_NIF_TERM atom;
     // Hints that the algorithm is eligible for PBKDF2
-    const bool pbkdf2 = false;
+    const bool pbkdf2;
     // OpenSSL 1.0 API to create a resource for this digest algorithm (not used in 3.0 API)
-    const EVP_MD* (*v1_ctor)() = nullptr;
-    size_t xof_default_length = 0;
+    const EVP_MD *(*v1_ctor)();
+    size_t xof_default_length;
 
     // Perform probe on the algorithm. In case of success, fill the struct and push into the 'output'
-    void probe(ErlNifEnv* env, bool fips_mode, std::vector<digest_type_t>& output);
+    void probe(ErlNifEnv *env, bool fips_mode, std::vector<digest_type_t> &output);
     // Used as a stopper by the algorithm_collection_t
-    bool is_last() const { return this->str == nullptr; }
+    bool is_last() const {
+        return this->str == nullptr;
+    }
 };
 
 using digest_collection_t = algorithm_collection_t<digest_type_t, digest_probe_t>;

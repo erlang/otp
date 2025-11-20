@@ -26,29 +26,29 @@
 
 cipher_probe_t cipher_probes[] = {
 #ifdef HAVE_RC2
-#define CIPHER_RC2_CTOR &EVP_rc2_cbc
+#    define CIPHER_RC2_CTOR &EVP_rc2_cbc
 #else
-#define CIPHER_RC2_CTOR nullptr
+#    define CIPHER_RC2_CTOR nullptr
 #endif
         {.str = "rc2_cbc", .str_v3 = "rc2-cbc", .ctor_v1 = CIPHER_RC2_CTOR, .flags = {.fips_forbidden = true}},
 #undef CIPHER_RC2_CTOR
 // --------------------------
 #ifdef HAVE_RC4
-#define CIPHER_RC4_CTOR &EVP_rc4
+#    define CIPHER_RC4_CTOR &EVP_rc4
 #else
-#define CIPHER_RC4_CTOR nullptr
+#    define CIPHER_RC4_CTOR nullptr
 #endif
         {.str = "rc4", .str_v3 = "rc4", .ctor_v1 = CIPHER_RC4_CTOR, .flags = {.fips_forbidden = true}},
 #undef CIPHER_RC4_CTOR
 // --------------------------
 #ifdef HAVE_DES
-#define CIPHER_DES_CBC_CTOR &EVP_des_cbc
-#define CIPHER_DES_CFB8_CTOR &EVP_des_cfb8
-#define CIPHER_DES_ECB_CTOR &EVP_des_ecb
+#    define CIPHER_DES_CBC_CTOR &EVP_des_cbc
+#    define CIPHER_DES_CFB8_CTOR &EVP_des_cfb8
+#    define CIPHER_DES_ECB_CTOR &EVP_des_ecb
 #else
-#define CIPHER_DES_CBC_CTOR nullptr
-#define CIPHER_DES_CFB8_CTOR nullptr
-#define CIPHER_DES_ECB_CTOR nullptr
+#    define CIPHER_DES_CBC_CTOR nullptr
+#    define CIPHER_DES_CFB8_CTOR nullptr
+#    define CIPHER_DES_ECB_CTOR nullptr
 #endif
         {.str = "des_cbc", .str_v3 = "des-cbc", .ctor_v1 = CIPHER_DES_CBC_CTOR, .flags = {.fips_forbidden = true}},
         {.str = "des_cfb", .str_v3 = "des-cfb", .ctor_v1 = CIPHER_DES_CFB8_CTOR, .flags = {.fips_forbidden = true}},
@@ -61,31 +61,31 @@ cipher_probe_t cipher_probes[] = {
 #undef CIPHER_DES_ECB_CTOR
 // --------------------------
 #ifdef HAVE_DES_ede3_cbc
-#define CIPHER_DES_EDE3_CBC_CTOR &EVP_des_ede3_cbc
+#    define CIPHER_DES_EDE3_CBC_CTOR &EVP_des_ede3_cbc
 #else
-#define CIPHER_DES_EDE3_CBC_CTOR nullptr
+#    define CIPHER_DES_EDE3_CBC_CTOR nullptr
 #endif
         {.str = "des_ede3_cbc", .str_v3 = "des-ede3-cbc", .ctor_v1 = CIPHER_DES_EDE3_CBC_CTOR},
 #undef CIPHER_DES_EDE3_CBC_CTOR
 // --------------------------
 #ifdef HAVE_DES_ede3_cfb
-#define CIPHER_DES_EDE3_CFB_CTOR &EVP_des_ede3_cfb8
+#    define CIPHER_DES_EDE3_CFB_CTOR &EVP_des_ede3_cfb8
 #else
-#define CIPHER_DES_EDE3_CFB_CTOR nullptr
+#    define CIPHER_DES_EDE3_CFB_CTOR nullptr
 #endif
         {.str = "des_ede3_cfb", .str_v3 = "des-ede3-cfb", .ctor_v1 = CIPHER_DES_EDE3_CFB_CTOR},
 #undef CIPHER_DES_EDE3_CFB_CTOR
 // --------------------------
 #ifdef HAVE_BF
-#define CIPHER_BF_CBC_CTOR &EVP_bf_cbc
-#define CIPHER_BF_CFB64_CTOR &EVP_bf_cfb64
-#define CIPHER_BF_OFB_CTOR &EVP_bf_ofb
-#define CIPHER_BF_ECB_CTOR &EVP_bf_ecb
+#    define CIPHER_BF_CBC_CTOR &EVP_bf_cbc
+#    define CIPHER_BF_CFB64_CTOR &EVP_bf_cfb64
+#    define CIPHER_BF_OFB_CTOR &EVP_bf_ofb
+#    define CIPHER_BF_ECB_CTOR &EVP_bf_ecb
 #else
-#define CIPHER_BF_CBC_CTOR nullptr
-#define CIPHER_BF_CFB64_CTOR nullptr
-#define CIPHER_BF_OFB_CTOR nullptr
-#define CIPHER_BF_ECB_CTOR nullptr
+#    define CIPHER_BF_CBC_CTOR nullptr
+#    define CIPHER_BF_CFB64_CTOR nullptr
+#    define CIPHER_BF_OFB_CTOR nullptr
+#    define CIPHER_BF_ECB_CTOR nullptr
 #endif
         {.str = "blowfish_cbc", .str_v3 = "BF-CBC", .ctor_v1 = CIPHER_BF_CBC_CTOR, .flags = {.fips_forbidden = true}},
         {.str = "blowfish_cfb64",
@@ -103,17 +103,17 @@ cipher_probe_t cipher_probes[] = {
 #undef CIPHER_BF_ECB_CTOR
 // --------------------------
 #ifdef HAVE_SM4
-#define CIPHER_SM4_CBC_CTOR &EVP_sm4_cbc
-#define CIPHER_SM4_ECB_CTOR &EVP_sm4_ecb
-#define CIPHER_SM4_CFB_CTOR &EVP_sm4_cfb
-#define CIPHER_SM4_OFB_CTOR &EVP_sm4_ofb
-#define CIPHER_SM4_CTR_CTOR &EVP_sm4_ctr
+#    define CIPHER_SM4_CBC_CTOR &EVP_sm4_cbc
+#    define CIPHER_SM4_ECB_CTOR &EVP_sm4_ecb
+#    define CIPHER_SM4_CFB_CTOR &EVP_sm4_cfb
+#    define CIPHER_SM4_OFB_CTOR &EVP_sm4_ofb
+#    define CIPHER_SM4_CTR_CTOR &EVP_sm4_ctr
 #else
-#define CIPHER_SM4_CBC_CTOR nullptr
-#define CIPHER_SM4_ECB_CTOR nullptr
-#define CIPHER_SM4_CFB_CTOR nullptr
-#define CIPHER_SM4_OFB_CTOR nullptr
-#define CIPHER_SM4_CTR_CTOR nullptr
+#    define CIPHER_SM4_CBC_CTOR nullptr
+#    define CIPHER_SM4_ECB_CTOR nullptr
+#    define CIPHER_SM4_CFB_CTOR nullptr
+#    define CIPHER_SM4_OFB_CTOR nullptr
+#    define CIPHER_SM4_CTR_CTOR nullptr
 #endif
         {.str = "sm4_cbc",
          .str_v3 = "sm4-cbc",
@@ -203,13 +203,13 @@ cipher_probe_t cipher_probes[] = {
          .flags = {.ecb_bug_0_9_8l = true}},
 // --------------------------
 #if defined(HAVE_EVP_AES_CTR)
-#define CIPHER_AES128_CTR_CTOR &EVP_aes_128_ctr
-#define CIPHER_AES192_CTR_CTOR &EVP_aes_192_ctr
-#define CIPHER_AES256_CTR_CTOR &EVP_aes_256_ctr
+#    define CIPHER_AES128_CTR_CTOR &EVP_aes_128_ctr
+#    define CIPHER_AES192_CTR_CTOR &EVP_aes_192_ctr
+#    define CIPHER_AES256_CTR_CTOR &EVP_aes_256_ctr
 #else
-#define CIPHER_AES128_CTR_CTOR nullptr
-#define CIPHER_AES192_CTR_CTOR nullptr
-#define CIPHER_AES256_CTR_CTOR nullptr
+#    define CIPHER_AES128_CTR_CTOR nullptr
+#    define CIPHER_AES192_CTR_CTOR nullptr
+#    define CIPHER_AES256_CTR_CTOR nullptr
 #endif
         {.str = "aes_128_ctr", .str_v3 = "aes-128-ctr", .ctor_v1 = CIPHER_AES128_CTR_CTOR, .key_len = 16},
         {.str = "aes_192_ctr", .str_v3 = "aes-192-ctr", .ctor_v1 = CIPHER_AES192_CTR_CTOR, .key_len = 24},
@@ -219,9 +219,9 @@ cipher_probe_t cipher_probes[] = {
 #undef CIPHER_AES256_CTR_CTOR
 // --------------------------
 #if defined(HAVE_CHACHA20)
-#define CIPHER_CHACHA20_CTOR &EVP_chacha20
+#    define CIPHER_CHACHA20_CTOR &EVP_chacha20
 #else
-#define CIPHER_CHACHA20_CTOR nullptr
+#    define CIPHER_CHACHA20_CTOR nullptr
 #endif
         {.str = "chacha20", .ctor_v1 = CIPHER_CHACHA20_CTOR, .key_len = 32, .flags = {.fips_forbidden = true}},
 #undef CIPHER_CHACHA20_CTOR
@@ -231,11 +231,11 @@ cipher_probe_t cipher_probes[] = {
 // --------------------------
 
 #if defined(HAVE_CHACHA20_POLY1305)
-#define CIPHER_CHACHA20_POLY1305_CTOR &EVP_chacha20_poly1305
-#define CIPHER_CHACHA20_POLY1305_AEADCTRL AEAD_CTRL
+#    define CIPHER_CHACHA20_POLY1305_CTOR &EVP_chacha20_poly1305
+#    define CIPHER_CHACHA20_POLY1305_AEADCTRL AEAD_CTRL
 #else
-#define CIPHER_CHACHA20_POLY1305_CTOR nullptr
-#define CIPHER_CHACHA20_POLY1305_AEADCTRL NOT_AEAD
+#    define CIPHER_CHACHA20_POLY1305_CTOR nullptr
+#    define CIPHER_CHACHA20_POLY1305_AEADCTRL NOT_AEAD
 #endif
         {.str = "chacha20_poly1305",
          .str_v3 = "chacha20-poly1305",
@@ -262,19 +262,19 @@ cipher_probe_t cipher_probes[] = {
 #endif
 // --------------------------
 #if defined(HAVE_GCM)
-#define CIPHER_AES128_GCM_CTOR &EVP_aes_128_gcm
-#define CIPHER_AES192_GCM_CTOR &EVP_aes_192_gcm
-#define CIPHER_AES256_GCM_CTOR &EVP_aes_256_gcm
-#if defined(HAS_3_0_API)
-#define CIPHER_AES_GCM_AEADCTRL AEAD_CTRL
-#else
-#define CIPHER_AES_GCM_AEADCTRL AEAD_CTRL_GCM
-#endif
+#    define CIPHER_AES128_GCM_CTOR &EVP_aes_128_gcm
+#    define CIPHER_AES192_GCM_CTOR &EVP_aes_192_gcm
+#    define CIPHER_AES256_GCM_CTOR &EVP_aes_256_gcm
+#    if defined(HAS_3_0_API)
+#        define CIPHER_AES_GCM_AEADCTRL AEAD_CTRL
+#    else
+#        define CIPHER_AES_GCM_AEADCTRL AEAD_CTRL_GCM
+#    endif
 #else // not HAVE_GCM
-#define CIPHER_AES128_GCM_CTOR nullptr
-#define CIPHER_AES192_GCM_CTOR nullptr
-#define CIPHER_AES256_GCM_CTOR nullptr
-#define CIPHER_AES_GCM_AEADCTRL NOT_AEAD
+#    define CIPHER_AES128_GCM_CTOR nullptr
+#    define CIPHER_AES192_GCM_CTOR nullptr
+#    define CIPHER_AES256_GCM_CTOR nullptr
+#    define CIPHER_AES_GCM_AEADCTRL NOT_AEAD
 #endif
         {.str = "aes_128_gcm",
          .str_v3 = "aes-128-gcm",
@@ -300,19 +300,19 @@ cipher_probe_t cipher_probes[] = {
 #undef CIPHER_AES_GCM_AEADCTRL
 // --------------------------
 #if defined(HAVE_CCM)
-#define CIPHER_AES128_CCM_CTOR &EVP_aes_128_ccm
-#define CIPHER_AES192_CCM_CTOR &EVP_aes_192_ccm
-#define CIPHER_AES256_CCM_CTOR &EVP_aes_256_ccm
-#if defined(HAS_3_0_API)
-#define CIPHER_AES_CCM_AEADCTRL AEAD_CTRL
-#else
-#define CIPHER_AES_CCM_AEADCTRL AEAD_CTRL_CCM
-#endif
+#    define CIPHER_AES128_CCM_CTOR &EVP_aes_128_ccm
+#    define CIPHER_AES192_CCM_CTOR &EVP_aes_192_ccm
+#    define CIPHER_AES256_CCM_CTOR &EVP_aes_256_ccm
+#    if defined(HAS_3_0_API)
+#        define CIPHER_AES_CCM_AEADCTRL AEAD_CTRL
+#    else
+#        define CIPHER_AES_CCM_AEADCTRL AEAD_CTRL_CCM
+#    endif
 #else // not HAVE_GCM
-#define CIPHER_AES128_CCM_CTOR nullptr
-#define CIPHER_AES192_CCM_CTOR nullptr
-#define CIPHER_AES256_CCM_CTOR nullptr
-#define CIPHER_AES_CCM_AEADCTRL NOT_AEAD
+#    define CIPHER_AES128_CCM_CTOR nullptr
+#    define CIPHER_AES192_CCM_CTOR nullptr
+#    define CIPHER_AES256_CCM_CTOR nullptr
+#    define CIPHER_AES_CCM_AEADCTRL NOT_AEAD
 #endif
         {.str = "aes_128_ccm",
          .str_v3 = "aes-128-ccm",
@@ -336,11 +336,11 @@ cipher_probe_t cipher_probes[] = {
 #undef CIPHER_AES192_CCM_CTOR
 #undef CIPHER_AES256_CCM_CTOR
 #undef CIPHER_AES_CCM_AEADCTRL
-        // --------------------------
-        {} // stopper record
 };
 
-cipher_collection_t cipher_collection("crypto.cipher_collection", cipher_probes);
+cipher_collection_t cipher_collection("crypto.cipher_collection",
+                                      cipher_probes,
+                                      sizeof(cipher_probes) / sizeof(cipher_probes[0]));
 
 //
 // Implementation of Known Cipher Algorithms storage API
@@ -359,14 +359,18 @@ bool cipher_type_t::compare_function(const cipher_type_t &a, const cipher_type_t
 }
 
 // Partial order compare, returns a.atom < b.atom
-bool cipher_type_t::compare_function_no_key(const cipher_type_t &a, const cipher_type_t &b) { return a.atom < b.atom; }
+bool cipher_type_t::compare_function_no_key(const cipher_type_t &a, const cipher_type_t &b) {
+    return a.atom < b.atom;
+}
 
 // C API: Proxy the call to generic algorithm_collection_t
 extern "C" ERL_NIF_TERM cipher_algorithms_as_list(ErlNifEnv *env, const bool fips_enabled) {
     return cipher_collection.to_list(env, fips_enabled);
 }
 
-ERL_NIF_TERM cipher_type_t::get_atom() const { return this->init->atom; }
+ERL_NIF_TERM cipher_type_t::get_atom() const {
+    return this->init->atom;
+}
 
 #if defined(HAS_3_0_API)
 // Initialize an algorithm to check that all its dependencies are valid
@@ -385,10 +389,10 @@ bool cipher_type_t::can_cipher_be_instantiated() const {
 }
 #endif // HAS_3_0_API
 
-void cipher_type_t::update_availability(bool fips_enabled) {
+void cipher_type_t::update_availability(const bool fips_enabled) {
 #ifdef HAS_3_0_API
     if (this->init->str_v3) {
-#ifdef FIPS_SUPPORT
+#    ifdef FIPS_SUPPORT
         if (fips_enabled) {
             if (this->flags.fips_forbidden) {
                 // Shortcut when the fips_forbidden flag is already set from the probe data
@@ -403,17 +407,18 @@ void cipher_type_t::update_availability(bool fips_enabled) {
                 this->resource.reset(nullptr); // free the resource
             }
         }
-#else
+#    else
         this->resource.reset(EVP_CIPHER_fetch(nullptr, this->init->str_v3, ""));
         if (!this->can_cipher_be_instantiated()) {
             this->flags.algorithm_init_failed = true;
             this->resource.reset(nullptr); // free the resource
         }
-#endif // FIPS_SUPPORT and >=3.0.0
+#    endif // FIPS_SUPPORT and >=3.0.0
     }
 #else
     if (this->init->ctor_v1) {
-        p->cipher.p = p->cipher.funcp();
+        // Construct from the provided function
+        this->resource.reset(this->init->ctor_v1());
     }
 #endif
 }
@@ -423,18 +428,18 @@ void cipher_type_t::setup_cipher(bool fips_enabled) {
         this->resource.reset(this->init->ctor_v1()); // take ownership on the cipher
     }
     switch (this->init->aead_ctrl_type) {
-        case NOT_AEAD:
-            this->aead = {0, 0, 0};
-            break;
-        case AEAD_CTRL:
-            this->aead = {EVP_CTRL_AEAD_SET_IVLEN, EVP_CTRL_AEAD_GET_TAG, EVP_CTRL_AEAD_SET_TAG};
-            break;
-        case AEAD_CTRL_GCM:
-            this->aead = {EVP_CTRL_GCM_SET_IVLEN, EVP_CTRL_GCM_GET_TAG, EVP_CTRL_GCM_SET_TAG};
-            break;
-        case AEAD_CTRL_CCM:
-            this->aead = {EVP_CTRL_CCM_SET_IVLEN, EVP_CTRL_CCM_GET_TAG, EVP_CTRL_CCM_SET_TAG};
-            break;
+    case NOT_AEAD:
+        this->aead = {0, 0, 0};
+        break;
+    case AEAD_CTRL:
+        this->aead = {EVP_CTRL_AEAD_SET_IVLEN, EVP_CTRL_AEAD_GET_TAG, EVP_CTRL_AEAD_SET_TAG};
+        break;
+    case AEAD_CTRL_GCM:
+        this->aead = {EVP_CTRL_GCM_SET_IVLEN, EVP_CTRL_GCM_GET_TAG, EVP_CTRL_GCM_SET_TAG};
+        break;
+    case AEAD_CTRL_CCM:
+        this->aead = {EVP_CTRL_CCM_SET_IVLEN, EVP_CTRL_CCM_GET_TAG, EVP_CTRL_CCM_SET_TAG};
+        break;
     }
     // We do not know for sure that the algorithm is unavailable (normal or FIPS)
     this->update_availability(fips_enabled);
@@ -452,7 +457,9 @@ void cipher_probe_t::probe(ErlNifEnv *env, const bool fips_enabled, std::vector<
 
 extern "C" const cipher_type_C *get_cipher_type(ERL_NIF_TERM type, size_t key_len) {
     cipher_type_t sample(type, key_len);
-    auto result = std::lower_bound(cipher_collection.cbegin(), cipher_collection.cend(), sample,
+    auto result = std::lower_bound(cipher_collection.cbegin(),
+                                   cipher_collection.cend(),
+                                   sample,
                                    cipher_type_t::compare_function);
     if (result != cipher_collection.cend() && result->eq(sample)) {
         return &*result;
@@ -462,7 +469,9 @@ extern "C" const cipher_type_C *get_cipher_type(ERL_NIF_TERM type, size_t key_le
 
 extern "C" const cipher_type_C *get_cipher_type_no_key(ERL_NIF_TERM type) {
     cipher_type_t sample(type);
-    auto result = std::lower_bound(cipher_collection.cbegin(), cipher_collection.cend(), sample,
+    auto result = std::lower_bound(cipher_collection.cbegin(),
+                                   cipher_collection.cend(),
+                                   sample,
                                    cipher_type_t::compare_function_no_key);
     if (result != cipher_collection.cend() && result->eq_no_key(sample)) {
         return &*result;
@@ -470,8 +479,18 @@ extern "C" const cipher_type_C *get_cipher_type_no_key(ERL_NIF_TERM type) {
     return nullptr;
 }
 
-extern "C" cipher_type_flags_t cipher_type_flags(const cipher_type_C *p) { return p->flags; }
-extern "C" cipher_type_aead_t cipher_type_aead(const cipher_type_C *p) { return p->aead; }
-extern "C" bool is_cipher_forbidden_in_fips(const cipher_type_C *p) { return p->is_forbidden_in_fips(); }
-extern "C" const EVP_CIPHER *cipher_type_resource(const cipher_type_C *p) { return p->resource.pointer; }
-extern "C" const char *cipher_type_str_v3(const cipher_type_C *p) { return p->init->str_v3; }
+extern "C" cipher_type_flags_t cipher_type_flags(const cipher_type_C *p) {
+    return p->flags;
+}
+extern "C" cipher_type_aead_t cipher_type_aead(const cipher_type_C *p) {
+    return p->aead;
+}
+extern "C" bool is_cipher_forbidden_in_fips(const cipher_type_C *p) {
+    return p->is_forbidden_in_fips();
+}
+extern "C" const EVP_CIPHER *cipher_type_resource(const cipher_type_C *p) {
+    return p->resource.pointer;
+}
+extern "C" const char *cipher_type_str_v3(const cipher_type_C *p) {
+    return p->init->str_v3;
+}

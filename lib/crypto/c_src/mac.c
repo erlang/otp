@@ -178,8 +178,7 @@ ERL_NIF_TERM mac_one_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
          * CMAC *
          ********/
 #ifdef HAVE_CMAC
-    case CMAC_mac:
-        {
+    case CMAC_mac: {
             const cipher_type_C *cipherp;
             if (!(cipherp = get_cipher_type(argv[1], key_bin.size)))
                 { /* Something went wrong. Find out what by retrying in another way. */
@@ -207,11 +206,11 @@ ERL_NIF_TERM mac_one_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
             name = "CMAC";
             subalg = cipher_type_str_v3(cipherp);
 # else
-            /* Old style */
+            /* Old style, pre 3.0 */
 #  ifdef HAVE_EVP_PKEY_new_CMAC_key
-            pkey = EVP_PKEY_new_CMAC_key(/*engine*/ NULL, key_bin.data,  key_bin.size, cipherp->cipher.p);
+            pkey = EVP_PKEY_new_CMAC_key(/*engine*/ NULL, key_bin.data,  key_bin.size, cipher_type_resource(cipherp));
 #  else
-            if (!cmac_low_level(env, key_bin, cipherp->cipher.p, text, &ret_bin, &ret_bin_alloc, &return_term))
+            if (!cmac_low_level(env, key_bin, cipher_type_resource(cipherp), text, &ret_bin, &ret_bin_alloc, &return_term))
                 goto err;
             else
                 goto success;
@@ -545,7 +544,7 @@ ERL_NIF_TERM mac_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
             cipher = cipher_type_str_v3(cipherp);
 #  else
             /* Old style */
-            pkey = EVP_PKEY_new_CMAC_key(/*engine*/ NULL, key_bin.data,  key_bin.size, cipherp->cipher.p);
+            pkey = EVP_PKEY_new_CMAC_key(/*engine*/ NULL, key_bin.data,  key_bin.size, cipher_type_resource(cipherp));
 #  endif
         }
         break;

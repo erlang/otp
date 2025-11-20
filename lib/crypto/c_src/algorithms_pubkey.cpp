@@ -24,51 +24,57 @@
 #include "auto_openssl_resource.h"
 
 pubkey_probe_t pubkey_probes[] = {
-    {.str = "rsa"},
+        {.str = "rsa"},
 #ifdef HAVE_DSA
-    {.str = "dss"},
+        {.str = "dss"},
 #endif
 #ifdef HAVE_DH
-    {.str = "dh"},
+        {.str = "dh"},
 #endif
 #if defined(HAVE_EC)
-#if !defined(OPENSSL_NO_EC2M)
-    {.str = "ec_gf2m"},
-#endif
-    {.str = "ecdsa"},   {.str = "ecdh"},
+#    if !defined(OPENSSL_NO_EC2M)
+        {.str = "ec_gf2m"},
+#    endif
+        {.str = "ecdsa"},
+        {.str = "ecdh"},
 #endif
 // Non-validated algorithms follow
 // Don't know if Edward curves are fips validated
 #if defined(HAVE_EDDSA)
-    {.str = "eddsa"},
+        {.str = "eddsa"},
 #endif
 #if defined(HAVE_EDDH)
-    {.str = "eddh"},
+        {.str = "eddh"},
 #endif
-    {.str = "srp"},
+        {.str = "srp"},
 #ifdef HAVE_ML_DSA
-    {.str = "mldsa44"}, {.str = "mldsa65"}, {.str = "mldsa87"},
+        {.str = "mldsa44"},
+        {.str = "mldsa65"},
+        {.str = "mldsa87"},
 #endif
-    {} // stopper record
 };
 
-pubkey_collection_t pubkey_collection("crypto.pkey_collection", pubkey_probes);
+pubkey_collection_t pubkey_collection("crypto.pkey_collection",
+                                      pubkey_probes,
+                                      sizeof(pubkey_probes) / sizeof(pubkey_probes[0]));
 
 //
 // Implementation of Pubkey Algorithm storage API
 //
 
 // C API: Proxy the call to generic algorithm_collection_t
-extern "C" size_t pubkey_algorithms_lazy_init(ErlNifEnv* env, const bool fips_enabled) {
+extern "C" size_t pubkey_algorithms_lazy_init(ErlNifEnv *env, const bool fips_enabled) {
     return pubkey_collection.lazy_init(env, fips_enabled);
 }
 
 // C API: Proxy the call to generic algorithm_collection_t
-extern "C" ERL_NIF_TERM pubkey_algorithms_as_list(ErlNifEnv* env, const bool fips_enabled) {
+extern "C" ERL_NIF_TERM pubkey_algorithms_as_list(ErlNifEnv *env, const bool fips_enabled) {
     return pubkey_collection.to_list(env, fips_enabled);
 }
 
-ERL_NIF_TERM pubkey_type_t::get_atom() const { return this->init->atom; }
+ERL_NIF_TERM pubkey_type_t::get_atom() const {
+    return this->init->atom;
+}
 
 // Result: flags set if FIPS is not supported
 #if defined(FIPS_SUPPORT) && defined(HAS_3_0_API)
@@ -110,7 +116,7 @@ void pubkey_type_t::check_against_fips() {
 
 // for FIPS we will attempt to initialize the pubkey context to verify whether the
 // algorithm is allowed, for non-FIPS keeping the old behavior - always allow the algorithm.
-void pubkey_probe_t::probe(ErlNifEnv* env, bool fips_enabled, std::vector<pubkey_type_t>& output) {
+void pubkey_probe_t::probe(ErlNifEnv *env, bool fips_enabled, std::vector<pubkey_type_t> &output) {
     this->atom = create_or_existing_atom(env, this->str, this->atom);
     pubkey_type_t algo = {.init = this};
 #if defined(FIPS_SUPPORT) && defined(HAS_3_0_API)
