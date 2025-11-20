@@ -697,7 +697,8 @@ is_disjoint_1(Set, Iter) ->
     end.
 
 -doc """
-Returns the elements of `Set1` that are not elements in `Set2`.
+Returns a new set containing the elements of `Set1`
+that are not elements in `Set2`.
 
 ## Examples
 
