@@ -99,7 +99,7 @@
 	 dump_and_reply/2,
 	 load_and_reply/2,
 	 send_and_reply/2,
-	 wait_for_tables_init/2,
+	 wait_for_tables_init/3,
 	 connect_nodes2/3
 	]).
 
@@ -232,13 +232,16 @@ wait_for_tables(Tabs, Timeout) ->
 do_wait_for_tables(Tabs, 0) ->
     reply_wait(Tabs);
 do_wait_for_tables(Tabs, Timeout) ->
-    Pid = spawn_link(?MODULE, wait_for_tables_init, [self(), Tabs]),
+    Alias = alias([reply]),
+    Pid = spawn_link(?MODULE, wait_for_tables_init, [self(), Alias, Tabs]),
     receive
-	{?SERVER_NAME, Pid, Res} ->
+	{?SERVER_NAME, Alias, Res} ->
 	    Res;
 	{'EXIT', Pid, _} ->
+	    unalias(Alias),
 	    reply_wait(Tabs)
     after Timeout ->
+	    ?unalias_and_flush_msg(Alias, {?SERVER_NAME, Alias, _}),
 	    unlink(Pid),
 	    exit(Pid, timeout),
 	    reply_wait(Tabs)
@@ -256,10 +259,10 @@ reply_wait(Tabs) ->
     catch exit:_ -> {error, {node_not_running, node()}}
     end.
 
-wait_for_tables_init(From, Tabs) ->
+wait_for_tables_init(From, Alias, Tabs) ->
     process_flag(trap_exit, true),
     Res = wait_for_init(From, Tabs, whereis(?SERVER_NAME)),
-    From ! {?SERVER_NAME, self(), Res},
+    Alias ! {?SERVER_NAME, Alias, Res},
     unlink(From),
     exit(normal).
 
@@ -1306,7 +1309,7 @@ handle_info(Msg = {'EXIT', Pid, R}, State) when R /= wait_for_tables_timeout ->
     end;
 
 handle_info({From, get_state}, State) ->
-    From ! {?SERVER_NAME, State},
+    From ! {?SERVER_NAME, From, State},
     noreply(State);
 
 %% No real need for buffering
@@ -1860,12 +1863,14 @@ get_info(Timeout) ->
 	undefined ->
 	    {timeout, Timeout};
 	Pid ->
-	    Pid ! {self(), get_state},
+	    Alias = alias([reply]),
+	    Pid ! {Alias, get_state},
 	    receive
-		{?SERVER_NAME, State = #state{loader_queue=LQ,late_loader_queue=LLQ}} ->
+		{?SERVER_NAME, Alias, State = #state{loader_queue=LQ,late_loader_queue=LLQ}} ->
 		    {info,State#state{loader_queue=gb_trees:to_list(LQ),
 				      late_loader_queue=gb_trees:to_list(LLQ)}}
 	    after Timeout ->
+		    ?unalias_and_flush_msg(Alias, {?SERVER_NAME, Alias, _}),
 		    {timeout, Timeout}
 	    end
     end.
@@ -1875,11 +1880,13 @@ get_workers(Timeout) ->
 	undefined ->
 	    {timeout, Timeout};
 	Pid ->
-	    Pid ! {self(), get_state},
+	    Alias = alias([reply]),
+	    Pid ! {Alias, get_state},
 	    receive
-		{?SERVER_NAME, State = #state{}} ->
+		{?SERVER_NAME, Alias, State = #state{}} ->
 		    {workers, get_loaders(State), get_senders(State), State#state.dumper_pid}
 	    after Timeout ->
+		    ?unalias_and_flush_msg(Alias, {?SERVER_NAME, Alias, _}),
 		    {timeout, Timeout}
 	    end
     end.

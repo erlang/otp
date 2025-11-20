@@ -1108,8 +1108,12 @@ intercept_best_friend([{stop,Fun} | R],Ignore) ->
     ?CATCH(Fun()),
     intercept_best_friend(R,Ignore);
 intercept_best_friend([Pid | R],false) ->
-    Pid ! {activity_ended, undefined, self()},
+    Alias = alias([reply]),
+    Pid ! {activity_ended, undefined, Alias},
     wait_for_best_friend(Pid, 0),
+    unalias(Alias),
+    ?flush_msg({activity_ended, _, Pid}),
+    ?flush_msg({'EXIT', Pid, _}),
     intercept_best_friend(R,true);
 intercept_best_friend([_|R],true) ->
     intercept_best_friend(R,true).
@@ -2049,8 +2053,9 @@ sync_send_dirty(Tid, [Head | Tail], Tab, WaitFor) ->
 	    Res =  do_dirty(Tid, Head),
 	    {WF, Res};
 	true ->
-	    {?MODULE, Node} ! {self(), {sync_dirty, Tid, Head, Tab}},
-	    sync_send_dirty(Tid, Tail, Tab, [Node | WaitFor])
+	    Alias = alias([reply]),
+	    {?MODULE, Node} ! {Alias, {sync_dirty, Tid, Head, Tab}},
+	    sync_send_dirty(Tid, Tail, Tab, [{Node, Alias} | WaitFor])
     end;
 sync_send_dirty(_Tid, [], _Tab, WaitFor) ->
     {WaitFor, {'EXIT', {aborted, {node_not_running, WaitFor}}}}.
@@ -2068,9 +2073,10 @@ async_send_dirty(Tid, [Head | Tail], Tab, ReadNode, WaitFor, Res) ->
 	    NewRes =  do_dirty(Tid, Head),
 	    async_send_dirty(Tid, Tail, Tab, ReadNode, WaitFor, NewRes);
 	ReadNode == Node ->
-	    {?MODULE, Node} ! {self(), {sync_dirty, Tid, Head, Tab}},
+	    Alias = alias([reply]),
+	    {?MODULE, Node} ! {Alias, {sync_dirty, Tid, Head, Tab}},
 	    NewRes = {'EXIT', {aborted, {node_not_running, Node}}},
-	    async_send_dirty(Tid, Tail, Tab, ReadNode, [Node | WaitFor], NewRes);
+	    async_send_dirty(Tid, Tail, Tab, ReadNode, [{Node, Alias} | WaitFor], NewRes);
 	true ->
 	    {?MODULE, Node} ! {self(), {async_dirty, Tid, Head, Tab}},
 	    async_send_dirty(Tid, Tail, Tab, ReadNode, WaitFor, Res)
@@ -2078,8 +2084,16 @@ async_send_dirty(Tid, [Head | Tail], Tab, ReadNode, WaitFor, Res) ->
 async_send_dirty(_Tid, [], _Tab, _ReadNode, WaitFor, Res) ->
     {WaitFor, Res}.
 
-rec_dirty([Node | Tail], Res) when Node /= node() ->
-    NewRes = get_dirty_reply(Node, Res),
+rec_dirty([{Node, Alias} | Tail], Res) when Node /= node() ->
+    NewRes =
+        try
+            get_dirty_reply(Node, Res)
+        after
+            unalias(Alias),
+            ?flush_msg({?MODULE, Node, {'EXIT', _}}),
+            ?flush_msg({?MODULE, Node, {dirty_res, _}}),
+            ?flush_msg({mnesia_down, Node})
+        end,
     rec_dirty(Tail, NewRes);
 rec_dirty([], Res) ->
     Res.
@@ -2203,11 +2217,13 @@ get_info(Timeout) ->
 	undefined ->
 	    {timeout, Timeout};
 	Pid ->
-	    Pid ! {self(), info},
+	    Alias = alias([reply]),
+	    Pid ! {Alias, info},
 	    receive
 		{?MODULE, _, {info, Part, Coord}} ->
 		    {info, Part, Coord}
 	    after Timeout ->
+		    ?unalias_and_flush_msg(Alias, {?MODULE, _, {info, _, _}}),
 		    {timeout, Timeout}
 	    end
     end.
