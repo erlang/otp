@@ -1059,7 +1059,14 @@ split_open_opts([], OpenOpts, OtherOpts) ->
 split_open_opts([{debug, _} = Opt|Opts], OpenOpts, OtherOpts) ->
     split_open_opts(Opts, [Opt|OpenOpts], OtherOpts);
 split_open_opts([Opt|Opts], OpenOpts, OtherOpts) ->
-    split_open_opts(Opts, OpenOpts, [Opt|OtherOpts]).
+    case Opt of
+        {debug, _} ->
+            split_open_opts(Opts, [Opt|OpenOpts], OtherOpts);
+        {protocol, _} ->
+            split_open_opts(Opts, [Opt|OpenOpts], OtherOpts);
+        _ ->
+            split_open_opts(Opts, OpenOpts, [Opt|OtherOpts])
+    end.
 
 
 %%
@@ -1277,7 +1284,11 @@ socket_opts() ->
 
           %%
           %% Level: tcp
-          nodelay => {tcp, nodelay},
+          keepcnt      => {tcp, keepcnt},
+          keepidle     => {tcp, keepidle},
+          keepintvl    => {tcp, keepintvl},
+          nodelay      => {tcp, nodelay},
+          user_timeout => {tcp, user_timeout},
 
           %%
           %% Level: ip
@@ -1585,9 +1596,10 @@ socket_open(Domain, #{fd := FD} = ExtraOpts, Extra) ->
     %% ?DBG([{fd, FD}, {opts, Opts}]),
     socket:open(FD, Opts);
 socket_open(Domain, ExtraOpts, Extra) ->
+    Proto = maps:get(protocol, ExtraOpts, proto(Domain)),
     Opts = maps:merge(Extra, ExtraOpts),
     %% ?DBG([{domain, Domain}, {extra_opts, ExtraOpts}, {extra, Extra}]),
-    socket:open(Domain, stream, proto(Domain), Opts).
+    socket:open(Domain, stream, Proto, Opts).
 
 proto(Domain) ->
     case Domain of

@@ -1585,7 +1585,11 @@ enc_opt(line_delimiter)  -> ?INET_LOPT_LINE_DELIM;
 enc_opt(raw)             -> ?INET_OPT_RAW;
 enc_opt(bind_to_device)  -> ?INET_OPT_BIND_TO_DEVICE;
 enc_opt(read_ahead)      -> ?INET_LOPT_TCP_READ_AHEAD;
-enc_opt(non_block_send)  -> ?INET_OPT_NON_BLOCK_SEND;
+enc_opt(non_block_send)  -> ?INET_LOPT_NON_BLOCK_SEND;
+enc_opt(keepcnt)         -> ?TCP_OPT_KEEPCNT;
+enc_opt(keepidle)        -> ?TCP_OPT_KEEPIDLE;
+enc_opt(keepintvl)       -> ?TCP_OPT_KEEPINTVL;
+enc_opt(user_timeout)    -> ?TCP_OPT_USER_TIMEOUT;
 enc_opt(debug)           -> ?INET_OPT_DEBUG;
 % Names of SCTP opts:
 enc_opt(sctp_rtoinfo)	 	   -> ?SCTP_OPT_RTOINFO;
@@ -1658,7 +1662,11 @@ dec_opt(?INET_LOPT_LINE_DELIM)      -> line_delimiter;
 dec_opt(?INET_OPT_RAW)              -> raw;
 dec_opt(?INET_OPT_BIND_TO_DEVICE) -> bind_to_device;
 dec_opt(?INET_LOPT_TCP_READ_AHEAD) -> read_ahead;
-dec_opt(?INET_OPT_NON_BLOCK_SEND) -> non_block_send;
+dec_opt(?INET_LOPT_NON_BLOCK_SEND) -> non_block_send;
+dec_opt(?TCP_OPT_KEEPCNT)         -> keepcnt;
+dec_opt(?TCP_OPT_KEEPIDLE)        -> keepidle;
+dec_opt(?TCP_OPT_KEEPINTVL)       -> keepintvl;
+dec_opt(?TCP_OPT_USER_TIMEOUT)    -> user_timeout;
 dec_opt(?INET_OPT_DEBUG)          -> debug;
 dec_opt(I) when is_integer(I)     -> undefined.
 
@@ -1773,6 +1781,10 @@ type_opt_1(show_econnreset) -> bool;
 type_opt_1(bind_to_device)  -> binary;
 type_opt_1(read_ahead)      -> bool;
 type_opt_1(non_block_send)  -> bool;
+type_opt_1(keepcnt)         -> int;
+type_opt_1(keepidle)        -> int;
+type_opt_1(keepintvl)       -> int;
+type_opt_1(user_timeout)    -> uint;
 type_opt_1(debug)           -> bool;
 %% 
 %% SCTP options (to be set). If the type is a record type, the corresponding

@@ -177,8 +177,13 @@
 -define(INET_OPT_RECVTTL,         47).
 -define(TCP_OPT_NOPUSH,           48).
 -define(INET_LOPT_TCP_READ_AHEAD, 49).
--define(INET_OPT_NON_BLOCK_SEND,  50).
+-define(INET_LOPT_NON_BLOCK_SEND, 50).
+-define(TCP_OPT_KEEPCNT,          51).
+-define(TCP_OPT_KEEPIDLE,         52).
+-define(TCP_OPT_KEEPINTVL,        53).
+-define(TCP_OPT_USER_TIMEOUT,     54).
 -define(INET_OPT_DEBUG,           99).
+
 % Specific SCTP options: separate range:
 -define(SCTP_OPT_RTOINFO,	 	100).
 -define(SCTP_OPT_ASSOCINFO,	 	101).

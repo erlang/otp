@@ -1266,9 +1266,19 @@ _Options for protocol level_ [_`tcp`:_](`t:level/0`)
 
 - **`{tcp, cork}`** - `Value = boolean()`
 
+- **`{tcp, keepcnt}`** - `Value = integer()`
+
+- **`{tcp, keepidle}`** - `Value = integer()`
+
+- **`{tcp, keepintvl}`** - `Value = integer()`
+
 - **`{tcp, maxseg}`** - `Value = integer()`
 
 - **`{tcp, nodelay}`** - `Value = boolean()`
+
+- **`{tcp, nopush}`** - `Value = boolean()`
+
+- **`{tcp, user_timeout}`** - `Value = non_neg_integer()`
 
 _Options for protocol level_ [_`udp`:_](`t:level/0`)
 

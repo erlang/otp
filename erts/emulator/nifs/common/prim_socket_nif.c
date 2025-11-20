@@ -1310,6 +1310,10 @@ static ERL_NIF_TERM esock_getopt_int_opt(ErlNifEnv*       env,
                                          ESockDescriptor* descP,
                                          int              level,
                                          int              opt);
+static ERL_NIF_TERM esock_getopt_uint_opt(ErlNifEnv*       env,
+                                          ESockDescriptor* descP,
+                                          int              level,
+                                          int              opt);
 static ERL_NIF_TERM esock_getopt_size_opt(ErlNifEnv*       env,
                                           ESockDescriptor* descP,
                                           int              level,
@@ -1719,6 +1723,11 @@ static ERL_NIF_TERM esock_setopt_int_opt(ErlNifEnv*       env,
                                          int              level,
                                          int              opt,
                                          ERL_NIF_TERM     eVal);
+static ERL_NIF_TERM esock_setopt_uint_opt(ErlNifEnv*       env,
+                                          ESockDescriptor* descP,
+                                          int              level,
+                                          int              opt,
+                                          ERL_NIF_TERM     eVal);
 #if (defined(SO_RCVTIMEO) || defined(SO_SNDTIMEO))      \
     && defined(ESOCK_USE_RCVSNDTIMEO)
 static ERL_NIF_TERM esock_setopt_timeval_opt(ErlNifEnv*       env,
@@ -3762,7 +3771,14 @@ static struct ESockOpt optLevelTCP[] =
 #endif
         &esock_atom_nopush},
         {0, NULL, NULL, &esock_atom_syncnt},
-        {0, NULL, NULL, &esock_atom_user_timeout}
+        {
+#ifdef TCP_USER_TIMEOUT
+            TCP_USER_TIMEOUT,
+            esock_setopt_uint_opt, esock_getopt_uint_opt,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_user_timeout}
 
     };
 
@@ -8302,6 +8318,31 @@ ERL_NIF_TERM esock_setopt_int_opt(ErlNifEnv*       env,
 
 
 
+/* esock_setopt_uint_opt - set an option that has an unsigned integer value
+ */
+
+static
+ERL_NIF_TERM esock_setopt_uint_opt(ErlNifEnv*       env,
+                                   ESockDescriptor* descP,
+                                   int              level,
+                                   int              opt,
+                                   ERL_NIF_TERM     eVal)
+{
+    ERL_NIF_TERM result;
+    unsigned int val;
+
+    if (GET_UINT(env, eVal, &val)) {
+        result =
+            esock_setopt_level_opt(env, descP, level, opt,
+                                   &val, sizeof(val));
+    } else {
+        result = esock_make_invalid(env, esock_atom_value);
+    }
+    return result;
+}
+
+
+
 /* esock_setopt_str_opt - set an option that has an string value
  */
 
@@ -9908,6 +9949,24 @@ ERL_NIF_TERM esock_getopt_int_opt(ErlNifEnv*       env,
 
 
 
+/* esock_getopt_uint_opt - get an unsigned integer option
+ */
+static
+ERL_NIF_TERM esock_getopt_uint_opt(ErlNifEnv*       env,
+                                   ESockDescriptor* descP,
+                                   int              level,
+                                   int              opt)
+{
+    unsigned int val;
+
+    if (! esock_getopt_uint(descP->sock, level, opt, &val))
+        return esock_make_error_errno(env, sock_errno());
+
+    return esock_make_ok2(env, MKUI(env, val));
+}
+
+
+
 /* esock_getopt_int - get an integer option
  */
 extern
@@ -9917,6 +9976,30 @@ BOOLEAN_T esock_getopt_int(SOCKET           sock,
                            int*             valP)
 {
     int          val = 0;
+    SOCKOPTLEN_T valSz = sizeof(val);
+
+#ifdef __WIN32__
+    if (sock_getopt(sock, level, opt, (char*) &val, &valSz) != 0)
+#else
+    if (sock_getopt(sock, level, opt, &val, &valSz) != 0)
+#endif
+        return FALSE;
+
+    *valP = val;
+    return TRUE;
+}
+
+
+
+/* esock_getopt_uint - get an unsigned integer option
+ */
+extern
+BOOLEAN_T esock_getopt_uint(SOCKET           sock,
+                            int              level,
+                            int              opt,
+                            unsigned int    *valP)
+{
+    unsigned int val = 0;
     SOCKOPTLEN_T valSz = sizeof(val);
 
 #ifdef __WIN32__
