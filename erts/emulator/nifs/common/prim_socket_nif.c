@@ -6040,7 +6040,7 @@ nif_sendfile(ErlNifEnv*         env,
 
         if ((! (a2ok = GET_INT64(env, argv[2], &offset64))) ||
             (! GET_UINT64(env, argv[3], &count64u))) {
-            if ((! IS_INTEGER(env, argv[3])) ||
+            if ((! IS_INTEGER(env, argv[2])) ||
                 (! IS_INTEGER(env, argv[3])))
                 return enif_make_badarg(env);
             if (! a2ok)

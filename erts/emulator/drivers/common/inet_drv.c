@@ -13527,7 +13527,7 @@ static int tcp_send_error(tcp_descriptor* desc, int err)
      * show_econnreset socket option enabled to receive {error, econnreset} on
      * both send and recv operations to indicate that an RST has been received.
      */
-#ifdef __WIN_32__
+#ifdef __WIN32__
     if (err == ECONNABORTED)
 	err = ECONNRESET;
 #endif
