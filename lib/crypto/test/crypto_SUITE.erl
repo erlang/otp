@@ -2170,19 +2170,24 @@ rand_uniform_aux_test(0) ->
 rand_uniform_aux_test(N) ->
     L = N*1000,
     H = N*100000+1,
-    crypto_rand_uniform(L, H),
-    crypto_rand_uniform(-L, L),
-    crypto_rand_uniform(-H, -L),
-    crypto_rand_uniform(-H, L),
+    crypto_rand_range(L, H),
+    crypto_rand_range(-L, L),
+    crypto_rand_range(-H, -L),
+    crypto_rand_range(-H, L),
     rand_uniform_aux_test(N-1).
 
-crypto_rand_uniform(L,H) ->
-    R1 = (L-1) + rand:uniform(H-L),
-    case (R1 >= L) and (R1 < H) of
-	true  ->
-	    ok;
-	false ->
-	    ct:fail({"Not in interval", R1, L, H})
+crypto_rand_range(L,H) ->
+    Range = H-L,
+    R1 = crypto:strong_rand_range(Range),
+    case crypto:strong_rand_range(<<Range:32>>) of
+        Bin when is_binary(Bin) ->
+            <<R2:(bit_size(Bin))/integer>> = Bin,
+            if
+                is_integer(R1), 0 =< R1, R1 < Range, 0 =< R2, R2 < Range ->
+                    ok;
+                true ->
+                    ct:fail({"Not in range", R1, R2, Range})
+            end
     end.
 
 foldallmap(_Fun, AccN, []) ->
