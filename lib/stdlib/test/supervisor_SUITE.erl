@@ -2187,7 +2187,7 @@ dont_save_start_parameters_for_temporary_children(simple_one_for_one = Type) ->
     Size2 = erts_debug:flat_size(sys:get_status(Sup2)),
     Size3 = erts_debug:flat_size(sys:get_status(Sup3)),
 
-    true = (Size3 < Size1)  and  (Size3 < Size2),
+    true = Size3 < Size1 andalso Size3 < Size2,
 
     terminate(Sup1, shutdown),
     terminate(Sup2, shutdown),
@@ -2215,7 +2215,7 @@ dont_save_start_parameters_for_temporary_children(Type) ->
     Size2 = erts_debug:flat_size(sys:get_status(Sup2)),
     Size3 = erts_debug:flat_size(sys:get_status(Sup3)),
 
-    true = (Size3 < Size1)  and  (Size3 < Size2),
+    true = Size3 < Size1 andalso Size3 < Size2,
 
     terminate(Sup1, shutdown),
     terminate(Sup2, shutdown),

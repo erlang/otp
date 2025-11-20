@@ -316,8 +316,8 @@ use_dir() ->
 %% Returns true if the Mnesia directory contains
 %% important files
 non_empty_dir() ->
-    mnesia_lib:exists(mnesia_bup:fallback_bup()) or
-    mnesia_lib:exists(mnesia_lib:tab2dmp(schema)) or
+    mnesia_lib:exists(mnesia_bup:fallback_bup()) orelse
+    mnesia_lib:exists(mnesia_lib:tab2dmp(schema)) orelse
     mnesia_lib:exists(mnesia_lib:tab2dat(schema)).
 
 %%----------------------------------------------------------------------

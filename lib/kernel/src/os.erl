@@ -707,7 +707,7 @@ validate2([0|Rest]) ->
 validate2([C|Rest]) when is_integer(C), C > 0 ->
     validate2(Rest);
 validate2([List|Rest]) when is_list(List) ->
-    validate2(List) or validate2(Rest);
+    validate2(List) orelse validate2(Rest);
 validate2([]) ->
     false.
 

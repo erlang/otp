@@ -5436,8 +5436,8 @@ info_do(Opts) ->
                   end, set, Opts),
     PublicOrCurr =
         fun(Curr) ->
-                case lists:member({write_concurrency, false}, Opts) or
-                    lists:member(private, Opts) or
+                case lists:member({write_concurrency, false}, Opts) orelse
+                    lists:member(private, Opts) orelse
                     lists:member(protected, Opts) of
                     true -> Curr;
                     false -> public
