@@ -1832,6 +1832,9 @@ and the [`NewState`](`t:state/0`).
               when
       List         :: list(),
       State        :: state().
+shuffle_s(List, {#{type:=mwc59} = AlgHandler, CX0}) ->
+    {ShuffledList, _P1, CX1} = shuffle_s_mwc59(List, CX0),
+    {ShuffledList, {AlgHandler, CX1}};
 shuffle_s(List, {AlgHandler, R0})
   when is_list(List) ->
     [P0|S0] = shuffle_init_bitstream(R0, AlgHandler),
@@ -3238,6 +3241,83 @@ hash58(X) ->
     X1 = ?MASK(58, (X0 bxor (X0 bsr 29)) * 16#351afd7ed558ccd),
     X2 = ?MASK(58, (X1 bxor (X1 bsr 29)) * 16#0ceb9fe1a85ec53),
     X2 bxor (X2 bsr 29).
+
+%% -------
+
+shuffle_s_mwc59(List, S) ->
+    shuffle_mwc59_r(List, [], 1, S).
+
+%% Leaf cases - random permutations for 0..3 elements
+shuffle_mwc59_r([], Acc, P, S) ->
+    {Acc, P, S};
+shuffle_mwc59_r([X], Acc, P, S) ->
+    {[X | Acc], P, S};
+shuffle_mwc59_r([X, Y], Acc, P, S) ->
+    shuffle_mwc59_r_2(X, Acc, P, S, Y);
+shuffle_mwc59_r([X, Y, Z], Acc, P, S) ->
+    shuffle_mwc59_r_3(X, Acc, P, S, Y, Z);
+%% General case - split and recursive shuffle
+shuffle_mwc59_r([_, _, _ | _] = List, Acc, P, S) ->
+    %% P and S is bitstream cache and state
+    shuffle_mwc59_r(List, Acc, P, S, [], [], [], []).
+%%
+%% Split L into 4 random subsets
+%%
+shuffle_mwc59_r([], Acc0, P0, S0, Zero, One, Two, Three) ->
+    %% Split done, recursively shuffle the splitted lists onto Acc
+    {Acc1, P1, S1} = shuffle_mwc59_r(Zero, Acc0, P0, S0),
+    {Acc2, P2, S2} = shuffle_mwc59_r(One, Acc1, P1, S1),
+    {Acc3, P3, S3} = shuffle_mwc59_r(Two, Acc2, P2, S2),
+    shuffle_mwc59_r(Three, Acc3, P3, S3);
+shuffle_mwc59_r([X | L], Acc, P0, S, Zero, One, Two, Three)
+  when is_integer(P0), 3 < P0, P0 =< ?MASK(59) ->
+    P1 = P0 bsr 2,
+    case P0 band 3 of
+        0 -> shuffle_mwc59_r(L, Acc, P1, S, [X | Zero], One, Two, Three);
+        1 -> shuffle_mwc59_r(L, Acc, P1, S, Zero, [X | One], Two, Three);
+        2 -> shuffle_mwc59_r(L, Acc, P1, S, Zero, One, [X | Two], Three);
+        3 -> shuffle_mwc59_r(L, Acc, P1, S, Zero, One, Two, [X | Three])
+    end;
+shuffle_mwc59_r([_ | _] = L, Acc, _P, S0, Zero, One, Two, Three) ->
+    S1 = ?mwc59(S0, C, D),
+    P = ?mwc59_value(S1, Tmp) bor ?BIT(58),
+    shuffle_mwc59_r(L, Acc, P, S1, Zero, One, Two, Three).
+
+%% Permute 2 elements
+shuffle_mwc59_r_2(X, Acc, P, S, Y)
+  when is_integer(P), 1 < P, P =< ?MASK(59) ->
+    {case P band 1 of
+         0 -> [Y, X | Acc];
+         1 -> [X, Y | Acc]
+     end, P bsr 1, S};
+shuffle_mwc59_r_2(X, Acc, _P, S0, Y) ->
+    S1 = ?mwc59(S0, C, D),
+    P = ?mwc59_value(S1, Tmp) bor ?BIT(58),
+    shuffle_mwc59_r_2(X, Acc, P, S1, Y).
+
+%% Permute 3 elements
+%%
+%% Uses 3 random bits per iteration with a probability of 1/4
+%% to reject and retry, which on average is 3 * 4/3
+%% (infinite sum of (1/4)^k) = 4 bits per permutation
+shuffle_mwc59_r_3(X, Acc, P0, S, Y, Z)
+  when is_integer(P0), 7 < P0, P0 =< ?MASK(59) ->
+    P1 = P0 bsr 3,
+    case P0 band 7 of
+        0 -> {[Z, Y, X | Acc], P1, S};
+        1 -> {[Y, Z, X | Acc], P1, S};
+        2 -> {[Z, X, Y | Acc], P1, S};
+        3 -> {[X, Z, Y | Acc], P1, S};
+        4 -> {[Y, X, Z | Acc], P1, S};
+        5 -> {[X, Y, Z | Acc], P1, S};
+        _ -> % Reject and retry
+            shuffle_mwc59_r_3(X, Acc, P1, S, Y, Z)
+    end;
+shuffle_mwc59_r_3(X, Acc, _P, S0, Y, Z) ->
+    S1 = ?mwc59(S0, C, D),
+    P = ?mwc59_value(S1, Tmp) bor ?BIT(58),
+    shuffle_mwc59_r_3(X, Acc, P, S1, Y, Z).
+
 
 %% =====================================================================
 %% Mask and fill state list, ensure not all zeros
