@@ -1,6 +1,6 @@
-# CompositionExclusions-16.0.0.txt
-# Date: 2024-02-02
-# © 2024 Unicode®, Inc.
+# CompositionExclusions-17.0.0.txt
+# Date: 2025-08-01
+# © 2025 Unicode®, Inc.
 # Unicode and the Unicode Logo are registered trademarks of Unicode, Inc. in the U.S. and other countries.
 # For terms of use and license, see https://www.unicode.org/terms_of_use.html
 #

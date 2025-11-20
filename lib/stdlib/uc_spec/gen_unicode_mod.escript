@@ -259,7 +259,7 @@ gen_file(Fd, Data, ExclData, Props, WideCs, UpdateTests) ->
     gen_header(Fd),
     gen_static(Fd),
     gen_norm(Fd),
-    gen_ws(Fd, Props),
+    gen_props(Fd, Props, Data),
     gen_cp(Fd),
     gen_gc(Fd, Props),
     gen_compose_pairs(Fd, ExclData, Data),
@@ -269,30 +269,83 @@ gen_file(Fd, Data, ExclData, Props, WideCs, UpdateTests) ->
     ok.
 
 gen_header(Fd) ->
-    io:put_chars(Fd, "%%\n%% this file is generated do not modify\n"),
-    io:put_chars(Fd, "%% see ../uc_spec/gen_unicode_mod.escript\n\n"),
-    io:put_chars(Fd, "-module(" ++ ?MOD ++").\n"),
-    io:put_chars(Fd, "-moduledoc false.\n"),
-    io:put_chars(Fd, "-export([cp/1, gc/1]).\n"),
-    io:put_chars(Fd, "-export([nfd/1, nfc/1, nfkd/1, nfkc/1]).\n"),
-    io:put_chars(Fd, "-export([whitespace/0, is_whitespace/1]).\n"),
-    io:put_chars(Fd, "-export([uppercase/1, lowercase/1, titlecase/1, casefold/1]).\n\n"),
-    io:put_chars(Fd, "-export([spec_version/0, lookup/1, get_case/1]).\n"),
-    io:put_chars(Fd, "-export([is_wide/1]).\n"),
-    io:put_chars(Fd, "-compile({inline, [class/1]}).\n"),
-    io:put_chars(Fd, "-compile(nowarn_unused_vars).\n"),
-    io:put_chars(Fd, "-dialyzer({no_improper_lists, [cp/1, gc/1, gc_prepend/2]}).\n"),
-    io:put_chars(Fd, "-type gc() :: char()|[char()].\n\n"),
-    io:put_chars(Fd, "-define(IS_CP(CP), (is_integer(CP) andalso 0 =< CP andalso CP < 16#110000)).\n\n\n"),
-    ok.
+    io:put_chars(Fd,"""
+%%
+%% this file is generated do not modify
+%% see ../uc_spec/gen_unicode_mod.escript
+
+-module(unicode_util).
+-moduledoc false.
+-export([cp/1, gc/1]).
+-export([nfd/1, nfc/1, nfkd/1, nfkc/1]).
+-export([whitespace/0, is_whitespace/1]).
+-export([uppercase/1, lowercase/1, titlecase/1, casefold/1]).
+
+-export([spec_version/0, lookup/1, category/1, get_case/1]).
+-export([is_wide/1]).
+-export([is_other_id_start/1, is_other_id_continue/1, is_letter_not_pattern_syntax/1]).
+-compile({inline, [class/1]}).
+-compile(nowarn_unused_vars).
+-dialyzer({no_improper_lists, [cp/1, gc/1, gc_prepend/2]}).
+-type gc() :: char()|[char()].
+-type category() ::
+     {letter,uppercase} |
+     {letter,lowercase} |
+     {letter,titlecase} |
+     {mark,non_spacing} |
+     {mark,spacing_combining} |
+     {mark,enclosing} |
+     {number,decimal} |
+     {number,letter} |
+     {number,other} |
+     {separator,space} |
+     {separator,line} |
+     {separator,paragraph} |
+     {other,control} |
+     {other,format} |
+     {other,surrogate} |
+     {other,private} |
+     {other,not_assigned} |
+     {letter,modifier} |
+     {letter,other} |
+     {punctuation,connector} |
+     {punctuation,dash} |
+     {punctuation,open} |
+     {punctuation,close} |
+     {punctuation,initial} |
+     {punctuation,final} |
+     {punctuation,other} |
+     {symbol,math} |
+     {symbol,currency} |
+     {symbol,modifier} |
+     {symbol,other}.
+
+-define(IS_CP(CP), is_integer(CP, 0, 16#110000)).
+-define(IS_ASCII(CP), is_integer(CP, 0, 127)).
+-define(IS_LATIN1(CP), is_integer(CP, 0, 255)).
+
+
+"""),
+   ok.
 
 gen_static(Fd) ->
-    io:put_chars(Fd, "-spec lookup(char()) -> #{'canon':=[{byte(),char()}], 'ccc':=byte(), "
-                 "'compat':=[] | {atom(),[{byte(),char()}]}, 'category':={atom(),atom()}}.\n"),
-    io:put_chars(Fd, "lookup(Codepoint) when ?IS_CP(Codepoint) ->\n"
-                 "    {CCC,Can,Comp,Cat} = unicode_table(Codepoint),\n"
-                 "    #{ccc=>CCC, canon=>Can, compat=>Comp, category=>category(Codepoint,Cat)}.\n\n"),
+    io:put_chars(Fd, """
+-spec lookup(char()) ->
+     #{'canon':= [{byte(),char()}],
+       'ccc':= byte(),
+       'compat':= [] | {atom(),[{byte(),char()}]},
+       'category':= category()}.
+lookup(Codepoint) when ?IS_CP(Codepoint) ->
+    {CCC,Can,Comp,Cat} = unicode_table(Codepoint),
+    #{ccc=>CCC, canon=>Can, compat=>Comp, category=>category(Codepoint,Cat)}.
 
+-spec category(char()) -> category().
+category(Codepoint) when ?IS_CP(Codepoint) ->
+    {_,_,_,Cat} = unicode_table(Codepoint),
+    category(Codepoint,Cat).
+
+
+"""),
     io:put_chars(Fd, "-spec get_case(char()) -> #{'fold':=gc(), 'lower':=gc(), 'title':=gc(), 'upper':=gc()}.\n"),
     io:put_chars(Fd, "get_case(Codepoint) when ?IS_CP(Codepoint) ->\n"
                  "    case case_table(Codepoint) of\n"
@@ -300,7 +353,7 @@ gen_static(Fd) ->
                  "        {U,L,T,F} -> #{upper=>U,lower=>L,title=>T,fold=>F}\n"
                  "    end.\n\n"),
 
-    io:put_chars(Fd, "spec_version() -> {16,0}.\n\n\n"),
+    io:put_chars(Fd, "spec_version() -> {17,0}.\n\n\n"),
     io:put_chars(Fd, "class(Codepoint) when ?IS_CP(Codepoint) -> \n"
                  "    {CCC,_,_,_} = unicode_table(Codepoint),\n    CCC.\n\n"),
 
@@ -357,6 +410,8 @@ gen_static(Fd) ->
 
     io:put_chars(Fd, "%% Returns true if the character is considered wide in non east asian context.\n"),
     io:put_chars(Fd, "-spec is_wide(gc()) -> boolean().\n"),
+    io:put_chars(Fd, "is_wide(C) when ?IS_ASCII(C) ->\n"),
+    io:put_chars(Fd, "    false;\n"),
     io:put_chars(Fd, "is_wide(C) when ?IS_CP(C) ->\n"),
     io:put_chars(Fd, "    is_wide_cp(C);\n"),
     io:put_chars(Fd, "is_wide([_, 16#FE0E|Cs]) -> true; %% Presentation sequence\n"),
@@ -375,7 +430,7 @@ gen_norm(Fd) ->
                  "-spec nfd(unicode:chardata()) -> maybe_improper_list(gc(),unicode:chardata()) | {error, unicode:chardata()}.\n"
                  "nfd(Str0) ->\n"
                  "    case gc(Str0) of\n"
-                 "        [GC|R] when is_integer(GC), 0 =< GC, GC < 128 -> [GC|R];\n"
+                 "        [GC|R] when ?IS_ASCII(GC) -> [GC|R];\n"
                  "        [GC|Str] -> [decompose(GC)|Str];\n"
                  "        [] -> [];\n"
                  "        {error,_}=Error -> Error\n    end.\n\n"
@@ -385,7 +440,7 @@ gen_norm(Fd) ->
                  "-spec nfkd(unicode:chardata()) -> maybe_improper_list(gc(),unicode:chardata()) | {error, unicode:chardata()}.\n"
                  "nfkd(Str0) ->\n"
                  "    case gc(Str0) of\n"
-                 "        [GC|R] when is_integer(GC), 0 =< GC, GC < 128 -> [GC|R];\n"
+                 "        [GC|R] when ?IS_ASCII(GC) -> [GC|R];\n"
                  "        [GC|Str] -> [decompose_compat(GC)|Str];\n"
                  "        [] -> [];\n"
                  "        {error,_}=Error -> Error\n    end.\n\n"
@@ -395,7 +450,7 @@ gen_norm(Fd) ->
                  "-spec nfc(unicode:chardata()) -> maybe_improper_list(gc(),unicode:chardata()) | {error, unicode:chardata()}.\n"
                  "nfc(Str0) ->\n"
                  "    case gc(Str0) of\n"
-                 "        [GC|R] when is_integer(GC), 0 =< GC, GC < 256 -> [GC|R];\n"
+                 "        [GC|R] when ?IS_LATIN1(GC) -> [GC|R];\n"
                  "        [GC|Str] -> [compose(decompose(GC))|Str];\n"
                  "        [] -> [];\n"
                  "        {error,_}=Error -> Error\n    end.\n\n"
@@ -405,7 +460,7 @@ gen_norm(Fd) ->
                  "-spec nfkc(unicode:chardata()) -> maybe_improper_list(gc(),unicode:chardata()) | {error, unicode:chardata()}.\n"
                  "nfkc(Str0) ->\n"
                  "    case gc(Str0) of\n"
-                 "        [GC|R] when is_integer(GC), 0 =< GC, GC < 128 -> [GC|R];\n"
+                 "        [GC|R] when ?IS_ASCII(GC) -> [GC|R];\n"
                  "        [GC|Str] -> [compose_compat_0(decompose_compat(GC))|Str];\n"
                  "        [] -> [];\n"
                  "        {error,_}=Error -> Error\n    end.\n\n"
@@ -420,7 +475,7 @@ gen_norm(Fd) ->
                  "decompose(CP) ->\n"
                  "   canonical_order(decompose_1(CP)).\n"
                  "\n"
-                 "decompose_1(CP) when is_integer(CP), 16#AC00 =< CP, CP =< 16#D7A3 ->\n"
+                 "decompose_1(CP) when is_integer(CP, 16#AC00, 16#D7A3) ->\n"
                  "    Syll = CP-16#AC00,\n"
                  "    T = 28,\n"
                  "    N = 588,\n"
@@ -464,7 +519,7 @@ gen_norm(Fd) ->
                  "decompose_compat(CP) ->\n"
                  "   canonical_order(decompose_compat_1(CP)).\n"
                  "\n"
-                 "decompose_compat_1(CP) when is_integer(CP), 16#AC00 =< CP, CP =< 16#D7A3 ->\n"
+                 "decompose_compat_1(CP) when is_integer(CP, 16#AC00, 16#D7A3) ->\n"
                  "    Syll = CP-16#AC00,\n"
                  "    T = 28,\n"
                  "    N = 588,\n"
@@ -491,11 +546,11 @@ gen_norm(Fd) ->
                  """
                  compose(CP) when is_integer(CP) -> CP;
                  compose([Lead,Vowel|Trail]) %% Hangul
-                   when is_integer(Lead), 16#1100 =< Lead, Lead =< 16#1112, is_integer(Vowel) ->
+                   when is_integer(Lead, 16#1100, 16#1112), is_integer(Vowel) ->
                      if 16#1161 =< Vowel, Vowel =< 16#1175 ->
                              CP = 16#AC00 + ((Lead - 16#1100) * 588) + ((Vowel - 16#1161) * 28),
                              case Trail of
-                                 [T|Acc] when is_integer(T), 16#11A7 =< T, T =< 16#11C2 ->
+                                 [T|Acc] when is_integer(T, 16#11A7, 16#11C2) ->
                                       nolist(CP+T-16#11A7,Acc);
                                  Acc -> nolist(CP,Acc)
                              end;
@@ -553,11 +608,11 @@ gen_norm(Fd) ->
 
                  compose_compat(CP) when is_integer(CP) -> CP;
                  compose_compat([Lead,Vowel|Trail]) %% Hangul
-                   when is_integer(Lead), 16#1100 =< Lead, Lead =< 16#1112, is_integer(Vowel) ->
+                   when is_integer(Lead, 16#1100, 16#1112), is_integer(Vowel) ->
                      if 16#1161 =< Vowel, Vowel =< 16#1175 ->
                              CP = 16#AC00 + ((Lead - 16#1100) * 588) + ((Vowel - 16#1161) * 28),
                              case Trail of
-                                 [T|Acc] when is_integer(T), 16#11A7 =< T, T =< 16#11C2 ->
+                                 [T|Acc] when is_integer(T, 16#11A7, 16#11C2) ->
                                      nolist(CP+T-16#11A7,Acc);
                                  Acc -> nolist(CP,Acc)
                              end;
@@ -601,7 +656,7 @@ gen_norm(Fd) ->
 
     ok.
 
-gen_ws(Fd, Props) ->
+gen_props(Fd, Props, Data) ->
     WS0 = maps:get(pattern_white_space, Props),
     WS = merge_ranges(WS0, split),
     io:put_chars(Fd, "%% Useful non-breakable whitespace chars\n"
@@ -615,6 +670,36 @@ gen_ws(Fd, Props) ->
     io:format(Fd, "is_whitespace([13,10]) -> true;\n", []),
     [IsWS(CP) || CP <- WS],
     io:put_chars(Fd, "is_whitespace(_) -> false.\n\n"),
+
+    OIDS = maps:get(other_id_start, Props),
+    io:put_chars(Fd, "-spec is_other_id_start(gc()) -> boolean().\n"),
+    IsODIS = fun(Range) -> io:format(Fd, "is_other_id_start~s true;\n", [gen_single_clause(Range)]) end,
+    [IsODIS(CP) || CP <- OIDS],
+    io:put_chars(Fd, "is_other_id_start(_) -> false.\n\n"),
+
+    OICS = maps:get(other_id_continue, Props),
+    io:put_chars(Fd, "-spec is_other_id_continue(gc()) -> boolean().\n"),
+    IsOICS = fun(Range) -> io:format(Fd, "is_other_id_continue~s true;\n", [gen_single_clause(Range)]) end,
+    [IsOICS(CP) || CP <- OICS],
+    io:put_chars(Fd, "is_other_id_continue(_) -> false.\n\n"),
+
+    PS0 = maps:get(pattern_syntax, Props),
+    io:put_chars(Fd, "-spec is_letter_not_pattern_syntax(gc()) -> boolean().\n"),
+    IsNLPS = fun(Range) -> io:format(Fd, "is_letter_not_pattern_syntax~s false;\n", [gen_single_clause(Range)]) end,
+    KeepCat = fun(CP) ->
+                      case array:get(CP, Data) of
+                          #cp{cat = [$P,_]} -> false;
+                          #cp{cat = [$S,_]} -> false;
+                          #cp{cat = [$C,_]} -> false;
+                          undefined -> false;
+                          _ -> true
+                      end
+              end,
+    PS = [{PSC, undefined} || {PSC, undefined} <:- split_ranges(PS0, []), KeepCat(PSC)],
+    %% [io:format("~p ~p~n", [P, (array:get(P, Data))#cp.cat]) || {P,_} <- PS],
+    [IsNLPS(CP) || CP <- PS],
+    io:put_chars(Fd, "is_letter_not_pattern_syntax(_) -> true.\n\n"),
+
     ok.
 
 gen_cp(Fd) ->
@@ -706,12 +791,12 @@ gen_gc(Fd, GBP) ->
                  "        [$\\n|R1] -> [[$\\r,$\\n]|R1];\n"
                  "        T -> [CP|T]\n"
                  "    end;\n"
-                 "gc([CP1|T1]=T) when ?IS_CP(CP1), CP1 < 256 ->\n"
+                 "gc([CP1|T1]=T) when ?IS_LATIN1(CP1) ->\n"
                  "    case T1 of\n"
-                 "        [CP2|_] when is_integer(CP2), 0 =< CP2, CP2 < 256 -> T; %% Ascii Fast path\n"
+                 "        [CP2|_] when ?IS_LATIN1(CP2) -> T; %% Ascii Fast path\n"
                  "        _ -> %% Keep the tail binary.\n"
                  "            case cp_no_bin(T1) of\n"
-                 "                [CP2|_]=T3 when is_integer(CP2), 0 =< CP2, CP2 < 256 -> [CP1|T3]; %% Asciii Fast path\n"
+                 "                [CP2|_]=T3 when ?IS_LATIN1(CP2) -> [CP1|T3]; %% Asciii Fast path\n"
                  "                binary_found -> gc_1(T);\n"
                  "                T4 -> gc_1([CP1|T4])\n"
                  "            end\n"
@@ -755,9 +840,9 @@ gen_gc(Fd, GBP) ->
     [GenExtP(CP) || CP <- merge_ranges(ExtendedPictographicLow)],
 
     io:put_chars(Fd,
-                 "gc_1([CP|R]=R0) when is_integer(CP), 0 =< CP, CP < 256 ->\n"
+                 "gc_1([CP|R]=R0) when ?IS_LATIN1(CP) ->\n"
                  "    case R of\n"
-                 "        [CP2|_] when is_integer(CP2), 0 =< CP2, CP2 < 256 -> R0;\n"
+                 "        [CP2|_] when ?IS_LATIN1(CP2) -> R0;\n"
                  "        _ -> gc_extend(cp(R), R, CP)\n"
                  "    end;\n"
                  "gc_1([CP|_]) when not ?IS_CP(CP) ->\n"
@@ -782,7 +867,7 @@ gen_gc(Fd, GBP) ->
     GenHangulT = fun(Range) -> io:format(Fd, "gc_1~s gc_h_T(R1,[CP]);\n", [gen_clause(Range)]) end,
     [GenHangulT(CP) || CP <- merge_ranges(maps:get(t,GBP))],
     io:put_chars(Fd, "%% Handle Hangul LV and LVT special, since they are large\n"),
-    io:put_chars(Fd, "gc_1([CP|_]=R0) when is_integer(CP), 44000 < CP, CP < 56000 -> gc_h_lv_lvt(R0, R0, []);\n"),
+    io:put_chars(Fd, "gc_1([CP|_]=R0) when is_integer(CP, 44000, 56000) -> gc_h_lv_lvt(R0, R0, []);\n"),
 
     io:put_chars(Fd, "\n%% Handle Regional\n"),
     GenRegional = fun(Range) -> io:format(Fd, "gc_1~s gc_regional(R1,CP);\n", [gen_clause(Range)]) end,
@@ -896,7 +981,7 @@ gen_gc(Fd, GBP) ->
     [{RLess,RLarge}] = merge_ranges(maps:get(regional_indicator,GBP)),
     io:put_chars(Fd,"gc_regional(R0, CP0) ->\n"
                  "    case cp(R0) of\n"),
-    io:format(Fd,   "        [CP|R1] when is_integer(CP), ~w =< CP, CP =< ~w ->\n"
+    io:format(Fd,   "        [CP|R1] when is_integer(CP, ~w, ~w) ->\n"
               "             gc_extend2(cp(R1),R1,[CP,CP0]);~n",
               [RLess, RLarge]),
     io:put_chars(Fd,"        R1 -> gc_extend(R1, R0, CP0)\n"
@@ -953,15 +1038,20 @@ gen_gc(Fd, GBP) ->
     io:put_chars(Fd, "gc_h_lv_lvt(R1, R0, Acc) -> gc_extend2(R1, R0, Acc).\n\n"),
 
     %% Indic
-    io:put_chars(Fd, "\n%% Handle Indic Conjunt Break\n"),
+    %% See tr44 5.3.1 Derivation of Indic_Conjunct_Break
+    %%  and IndicSyllabicCategory.txt  also tr29 conjunctCluster
+    io:put_chars(Fd, "\n%% Handle Indic Conjunct Break\n"),
+    Consonants = maps:get(consonant, GBP) ++
+        maps:get(vowel_independent, GBP) ++
+        [{16#1B0B, 16#1B0C}],
     GenIndicC = fun(Range) -> io:format(Fd, "is_indic_consonant~s true;\n", [gen_single_clause(Range)]) end,
-    [GenIndicC(CP) || CP <- merge_ranges(maps:get(consonant, GBP))],
+    [GenIndicC(CP) || CP <- merge_ranges(Consonants)],
     io:format(Fd, "is_indic_consonant(_) -> false.\n\n", []),
 
     GenIndicL = fun(Range) -> io:format(Fd, "is_indic_linker~s true;\n", [gen_single_clause(Range)]) end,
-    [GenIndicL(CP) || CP <- merge_ranges(maps:get(virama, GBP))],
+    Linkers = maps:get(virama, GBP) ++ maps:get(invisible_stacker, GBP),
+    [GenIndicL(CP) || CP <- merge_ranges(Linkers)],
     io:format(Fd, "is_indic_linker(_) -> false.\n\n", []),
-    %% io:format("Consonants: ~p~n", [merge_ranges(maps:get(consonant, GBP))]),
 
     io:put_chars(Fd,
                  """
@@ -1130,12 +1220,12 @@ gen_category(Fd, [{CP, {_, _, _, NextCat}}|Rest], Cat, Start, End, All, Acc)
        true ->
             case Cat of
                 letter ->
-                    io:format(Fd, "lookup_category(CP) when ~w =< CP, CP =< ~w -> subcat_letter(CP);~n",
+                    io:format(Fd, "lookup_category(CP) when is_integer(CP, ~w, ~w) -> subcat_letter(CP);~n",
                               [Start, End]),
                     gen_category(Fd, Rest, NextCat, CP, CP, All,
                                  lists:reverse(lists:seq(Start, End)) ++ Acc);
                 _ ->
-                    io:format(Fd, "lookup_category(CP) when ~w =< CP, CP =< ~w -> ~w;~n", [Start, End, Cat]),
+                    io:format(Fd, "lookup_category(CP) when is_integer(CP, ~w, ~w) -> ~w;~n", [Start, End, Cat]),
                     gen_category(Fd, Rest, NextCat, CP, CP, All, Acc)
             end
     end;
@@ -1148,12 +1238,12 @@ gen_category(Fd, [{CP, {_, _, _, NewCat}}|Rest]=Cont, Cat, Start, End, All, Acc)
                true ->
                     case Cat of
                         letter ->
-                            io:format(Fd, "lookup_category(CP) when ~w =< CP, CP =< ~w -> subcat_letter(CP);~n",
+                            io:format(Fd, "lookup_category(CP) when is_integer(CP, ~w, ~w) -> subcat_letter(CP);~n",
                                       [Start, End]),
                             gen_category(Fd, Rest, NewCat, CP, CP, All,
                                          lists:reverse(lists:seq(Start, End)) ++ Acc);
                         _ ->
-                            io:format(Fd, "lookup_category(CP) when ~w =< CP, CP =< ~w -> ~w;~n",
+                            io:format(Fd, "lookup_category(CP) when is_integer(CP, ~w, ~w) -> ~w;~n",
                                       [Start, End, Cat]),
                             gen_category(Fd, Rest, NewCat, CP, CP, All, Acc)
                     end
@@ -1166,7 +1256,7 @@ gen_category(Fd, [], Cat, Start, End, All, Acc) ->
         true ->
             io:format(Fd, "lookup_category(~w) -> ~w;~n", [Start, Cat]);
         false ->
-            io:format(Fd, "lookup_category(CP) when ~w =< CP, CP =< ~w -> ~w;~n", [Start, End, Cat])
+            io:format(Fd, "lookup_category(CP) when is_integer(CP, ~w, ~w) -> ~w;~n", [Start, End, Cat])
     end,
     io:put_chars(Fd, "lookup_category(Cp) -> cn.\n\n"),
     gen_letter(Fd, lists:reverse(Acc), All),
@@ -1226,7 +1316,7 @@ subcat_letter(Fd, Rest, Start, Start, Cat) ->
         [{CP, NewCat}|R] -> subcat_letter(Fd, R, CP, CP, NewCat)
     end;
 subcat_letter(Fd, Rest, Start, End, Cat) ->
-    io:format(Fd, "subcat_letter(CP) when ~w =< CP, CP =< ~w -> ~w;\n",[Start,End,Cat]),
+    io:format(Fd, "subcat_letter(CP) when is_integer(CP, ~w, ~w) -> ~w;\n",[Start,End,Cat]),
     case Rest of
         [] -> ok;
         [{CP, NewCat}|R] -> subcat_letter(Fd, R, CP, CP, NewCat)
@@ -1287,23 +1377,23 @@ gen_width_table(Fd, WideChars) ->
 gen_clause({R0, undefined}) ->
     io_lib:format("([~w=CP|R1]=R0) ->", [R0]);
 gen_clause({R0, R1}) ->
-    io_lib:format("([CP|R1]=R0) when is_integer(CP), ~w =< CP, CP =< ~w ->", [R0,R1]).
+    io_lib:format("([CP|R1]=R0) when is_integer(CP, ~w, ~w) ->", [R0,R1]).
 
 gen_clause2({R0, undefined}) ->
     io_lib:format("([~w=CP|R1], R0, Acc) ->", [R0]);
 gen_clause2({R0, R1}) ->
-    io_lib:format("([CP|R1], R0, Acc) when is_integer(CP), ~w =< CP, CP =< ~w ->", [R0,R1]).
+    io_lib:format("([CP|R1], R0, Acc) when is_integer(CP, ~w, ~w) ->", [R0,R1]).
 
 gen_case_clause({R0, undefined}) ->
     io_lib:format("[~w=CP|R1] ->", [R0]);
 gen_case_clause({R0, R1}) ->
-    io_lib:format("[CP|R1] when is_integer(CP), ~w =< CP, CP =< ~w ->", [R0,R1]).
+    io_lib:format("[CP|R1] when is_integer(CP, ~w, ~w) ->", [R0,R1]).
 
 
 gen_single_clause({R0, undefined}) ->
     io_lib:format("(~w) ->", [R0]);
 gen_single_clause({R0, R1}) ->
-    io_lib:format("(CP) when is_integer(CP), ~w =< CP, CP =< ~w ->", [R0,R1]).
+    io_lib:format("(CP) when is_integer(CP, ~w, ~w) ->", [R0,R1]).
 
 
 merge_ranges(List) ->

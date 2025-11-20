@@ -29,7 +29,7 @@
          nfd/1, nfc/1, nfkd/1, nfkc/1,
          whitespace/1,
          get/1,
-         lookup/1,
+         lookup/1, category/1, is_id_func/1,
          count/1]).
 
 -export([debug/0, id/1, bin_split/1, uc_loaded_size/0,
@@ -47,6 +47,8 @@ all() ->
      cp, gc,
      nfd, nfc, nfkd, nfkc,
      whitespace,
+     category,
+     is_id_func,
      get,
      lookup,
      count
@@ -91,7 +93,8 @@ casefold(_) ->
     [[$s,$s]] = unicode_util:casefold([$ẞ]),
     ok.
 
-whitespace(_) ->
+whitespace(_Config) ->
+    %% Pattern whitespace
     WS = unicode_util:whitespace(),
     WS = lists:filter(fun unicode_util:is_whitespace/1, WS),
     false = unicode_util:is_whitespace($A),
@@ -368,6 +371,28 @@ check_category(Id, [{Next,_}|_] = Rest, Es) ->
 check_category(_Id, [], Es) ->
     Es.
 
+category(_Config) ->
+    Check = fun(Id) ->
+                    LC = maps:get(category, unicode_util:lookup(Id)),
+                    LC == unicode_util:category(Id)
+            end,
+    [] = [Id || Id <- lists:seq(1, 200000), not Check(Id)],
+    {'EXIT', _} = catch unicode_util:category(-1),
+    {'EXIT', _} = catch unicode_util:category(5000000),
+    {'EXIT', _} = catch unicode_util:category(foobar),
+    ok.
+
+is_id_func(_Config) ->
+    %% Basic tests more tests in unicode tests
+    false = unicode_util:is_other_id_start($a),
+    true = unicode_util:is_other_id_start(6277),
+
+    false = unicode_util:is_other_id_continue($a),
+    true = unicode_util:is_other_id_continue(183),
+
+    false = unicode_util:is_letter_not_pattern_syntax(11823),
+    true = unicode_util:is_letter_not_pattern_syntax($a),
+    ok.
 
 count(Config) ->
     Parent = self(),
