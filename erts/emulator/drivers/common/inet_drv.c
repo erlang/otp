@@ -8839,7 +8839,12 @@ static int sctp_set_opts(inet_descriptor* desc, char* ptr, int len)
 	    proto   = IPPROTO_SCTP;
 	    type    = SCTP_EVENTS;
 	    arg_ptr = (char*) (&arg.es);
+#if defined(__linux__)
+            arg_sz  = offsetof(struct sctp_event_subscribe,
+                               sctp_adaptation_layer_event) + 1;
+#else
 	    arg_sz  = sizeof  ( arg.es);
+#endif
 	    break;
 	}
 	/* The following is not available on
