@@ -65,6 +65,7 @@
 -define(HAS_SUPPORT_IPV4(),      ?LIB:has_support_ipv4()).
 -define(HAS_SUPPORT_IPV6(),      ?LIB:has_support_ipv6()).
 -define(WHICH_LOCAL_ADDR(D),     ?LIB:which_local_addr((D))).
+-define(WHICH_LOCAL_ADDRS(D,N),  ?LIB:which_local_addrs((D), (N))).
 
 -define(SZ(X),                   ?LIB:sz((X))).
 
@@ -80,9 +81,6 @@
 
 -define(STOP_NODE(__N__),        ?LIB:stop_node((__N__))).
 
--define(MQ(),                    ?LIB:mq()).
--define(MQ(P),                   ?LIB:mq((P))).
-               
 -define(F(FORMAT, ARGS),         ?LIB:f((FORMAT), (ARGS))).
 -define(P(F),                    ?LIB:print(F)).
 -define(P(F,A),                  ?LIB:print(F, A)).
@@ -96,5 +94,8 @@
 
 -define(TS(),                    ?LIB:ts()).
 -define(TS(TU),                  ?LIB:ts((TU))).
+
+-define(MQ(),                    ?LIB:mq(self())).
+-define(MQ(P),                   ?LIB:mq((P))).
 
 -endif. % -ifdef(kernel_test_lib_hrl).

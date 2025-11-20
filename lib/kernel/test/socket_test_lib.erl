@@ -45,6 +45,22 @@
          %% Generic 'has support' test function(s)
          has_support_ipv4/0,
          has_support_ipv6/0,
+         has_support_socket_option/2,
+         has_support_socket_option_sock/1,
+         has_support_socket_option_ip/1,
+         has_support_socket_option_ipv6/1,
+         has_support_socket_option_tcp/1,
+         has_support_socket_option_udp/1,
+         has_support_socket_option_sctp/1,
+         is_any_options_supported/1,
+
+         %% OS/Platform checks
+         is_good_enough_platform/3,
+         is_not_freebsd/0,
+         is_not_openbsd/0,
+         is_not_netbsd/0,
+         is_not_darwin/0,
+         is_not_platform/2,
 
 	 mk_unique_path/0,
          which_local_host_info/1,
@@ -211,6 +227,82 @@ has_support_ipv6() ->
     end.
 
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% --- General purpose socket option test functions ---
+
+has_support_socket_option_sock(Opt) ->
+    has_support_socket_option(socket, Opt).
+
+has_support_socket_option_ip(Opt) ->
+    has_support_socket_option(ip, Opt).
+
+has_support_socket_option_ipv6(Opt) ->
+    has_support_socket_option(ipv6, Opt).
+
+has_support_socket_option_tcp(Opt) ->
+    has_support_socket_option(tcp, Opt).
+
+has_support_socket_option_udp(Opt) ->
+    has_support_socket_option(udp, Opt).
+
+has_support_socket_option_sctp(Opt) ->
+    has_support_socket_option(sctp, Opt).
+
+
+has_support_socket_option(Level, Option) ->
+    case socket:is_supported(options, Level, Option) of
+        true ->
+            ok;
+        false ->
+            skip(f("Not Supported: ~w option ~w", [Level, Option]))
+    end.
+
+is_any_options_supported(Options) ->
+    Pred = fun({Level, Option}) ->
+                   socket:is_supported(options, Level, Option)
+           end,
+    lists:any(Pred, Options).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+is_good_enough_platform(Family, Name, CondVsn) ->
+    case os:type() of
+	{Family, Name} ->
+	    ID = fun() -> f("~w:~w", [Family, Name]) end,
+	    is_good_enough_platform2(os:version(), CondVsn, ID);
+	_ ->
+	    ok
+    end.
+
+is_good_enough_platform2(Vsn, CondVsn, _) when (Vsn > CondVsn) ->
+    ok;
+is_good_enough_platform2(Vsn, CondVsn, ID) ->
+    skip(f("Not 'good enough' ~s (~p <= ~p)", [ID(), Vsn, CondVsn])).
+
+
+is_not_freebsd() ->
+    is_not_platform(freebsd, "FreeBSD").
+
+is_not_openbsd() ->
+    is_not_platform(openbsd, "OpenBSD").
+
+is_not_netbsd() ->
+    is_not_platform(netbsd, "NetBSD").
+
+is_not_darwin() ->
+    is_not_platform(darwin, "Darwin").
+
+is_not_platform(Platform, PlatformStr)
+  when is_atom(Platform) andalso is_list(PlatformStr) ->
+      case os:type() of
+          {unix, Platform} ->
+              skip("This does not work on " ++ PlatformStr);
+        _ ->
+            ok
+    end.
+  
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 

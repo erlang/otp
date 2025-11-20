@@ -45,13 +45,17 @@ SOCKET_MODULES = \
 	socket_test_ttest_tcp_server_gen \
 	socket_test_ttest_tcp_server_gs \
 	socket_test_ttest_tcp_server_socket \
+	socket_sctp_traffic_lib \
+	socket_sctp_traffic_client \
+	socket_sctp_traffic_server \
 	socket_suites \
-	socket_SUITE \
 	socket_api_SUITE \
+	socket_sctp_SUITE \
 	socket_traffic_SUITE \
-	socket_ttest_SUITE
+	socket_ttest_SUITE \
+	socket_SUITE
 
-MODULES= \
+MODULES = \
 	kernel_test_lib \
 	kernel_test_global_sys_monitor \
 	kernel_test_sys_monitor \
@@ -164,6 +168,7 @@ HRL_FILES= \
 	socket_test_evaluator.hrl \
 	socket_test_ttest.hrl \
 	socket_test_ttest_client.hrl \
+	socket_sctp_traffic_lib.hrl \
 	shell_test_lib.hrl
 
 EXTRA_FILES= $(ERL_TOP)/otp_versions.table
