@@ -67,7 +67,8 @@ all() ->
      uniform_real_conv,
      plugin, measure,
      {group, reference_jump},
-     short_jump
+     short_jump,
+     doctests
     ].
 
 groups() ->
@@ -2260,6 +2261,11 @@ check(N, Range, StateA, StateB) ->
 	{Wrong,_} ->
 	    ct:fail({Wrong,neq,V,for,N})
     end.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+doctests(Config) when is_list(Config) ->
+    shell_docs:test(rand, []).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Data
