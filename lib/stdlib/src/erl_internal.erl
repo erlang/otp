@@ -57,7 +57,7 @@ of interest to programmers who manipulate Erlang code.
 %%
 
 -export([bif/2,bif/3,guard_bif/2,
-	 type_test/2,new_type_test/2,old_type_test/2]).
+	 type_test/2,new_type_test/2]).
 -export([arith_op/2,bool_op/2,comp_op/2,list_op/2,send_op/2,op_type/2]).
 
 -export([is_type/2]).
@@ -110,7 +110,7 @@ guard_bif(Name, A) -> new_type_test(Name, A).
       Arity :: arity().
 
 type_test(Name, Arity) ->
-    new_type_test(Name, Arity) orelse old_type_test(Name, Arity).
+    new_type_test(Name, Arity).
 
 %%  Erlang new-style type tests.
 -doc false.
@@ -135,24 +135,6 @@ new_type_test(is_record, 3) -> true;
 new_type_test(is_reference, 1) -> true;
 new_type_test(is_tuple, 1) -> true;
 new_type_test(Name, A) when is_atom(Name), is_integer(A) -> false.
-
-%%  Erlang old-style type tests.
--doc false.
--spec old_type_test(Name::atom(), Arity::arity()) -> boolean().
-
-old_type_test(integer, 1) -> true;
-old_type_test(float, 1) -> true;
-old_type_test(number, 1) -> true;
-old_type_test(atom, 1) -> true;
-old_type_test(list, 1) -> true;
-old_type_test(tuple, 1) -> true;
-old_type_test(pid, 1) -> true;
-old_type_test(reference, 1) -> true;
-old_type_test(port, 1) -> true;
-old_type_test(binary, 1) -> true;
-old_type_test(record, 2) -> true;
-old_type_test(function, 1) -> true;
-old_type_test(Name, A) when is_atom(Name), is_integer(A) -> false.
 
 -doc "Returns `true` if `OpName/Arity` is an arithmetic operator, otherwise `false`.".
 -spec arith_op(OpName, Arity) -> boolean() when
