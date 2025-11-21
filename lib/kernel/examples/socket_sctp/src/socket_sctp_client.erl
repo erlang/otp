@@ -28,51 +28,208 @@
 
 -module(socket_sctp_client).
 
--export([start/2, start/3]).
+-export([start_monitor/3, start_monitor/4, start_monitor/5,
+         start/3, start/4, start/5,
+         stop/1]).
+
+-export([start_it/5]).
 
 -include("socket_sctp_lib.hrl").
 
--define(MAX_RESEND,   5).
--define(ECHO_TIMEOUT, timer:seconds(1)).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+-define(MAX_RESEND,    5).
+-define(ECHO_TIMEOUT,  timer:seconds(1)).
+-define(DEFAULT_DEBUG, false).
+-define(DEFAULT_OPTS,  #{debug        => ?DEFAULT_DEBUG,
+                         max_resend   => ?MAX_RESEND,
+                         echo_timeout => timer:seconds(1)}).
 
 
--spec start(ServerSA          :: socket:sockaddr(),
-            MessageOrMessages :: string() | [string() | {string(), pos_integer()}]) ->
-          any().
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-start(ServerSA, MessageOrMessages) when is_list(MessageOrMessages) ->
-    start(ServerSA, MessageOrMessages, false).
+-type opts() :: #{debug        := boolean(),
+                  max_resend   := pos_integer(),
+                  echo_timeout := pos_integer()}.
 
-start(ServerSA, MessageOrMessages, Debug)
-  when is_list(MessageOrMessages) andalso is_boolean(Debug) ->
-    do_start(ServerSA, process_messages(MessageOrMessages), Debug).
 
-do_start(#{family := _,
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+start_monitor(ID,
+              ServerSA, MessageOrMessages) ->
+    start_monitor(node(), ID, ServerSA, MessageOrMessages, #{}).
+
+start_monitor(Node,
+              ID, ServerSA, MessageOrMessages) ->
+    start_monitor(Node, ID, ServerSA, MessageOrMessages, #{}).
+
+-spec start_monitor(Node,
+                    ID,
+                    ServerSA,
+                    MessageOrMessages,
+                    Opts) -> {ok, Client} | {error, Reason} when
+      Node              :: node(),
+      ID                :: pos_integer(),
+      ServerSA          :: socket:sockaddr(),
+      MessageOrMessages :: Message | [Message | {Message, PostSendTimeout}],
+      Message           :: string(),
+      PostSendTimeout   :: pos_integer(),
+      Opts              :: opts(),
+      Client            :: {Pid, MRef, SA},
+      Pid               :: pid(),
+      MRef              :: reference(),
+      SA                :: socket:sockaddr(),
+      Reason            :: term().
+
+start_monitor(Node,
+              ID,
+              ServerSA,
+              MessageOrMessages, Opts)
+  when is_atom(Node) andalso is_list(MessageOrMessages) andalso is_map(Opts) ->
+    do_start_monitor(Node, ID, ServerSA, MessageOrMessages, ensure_opts(Opts)).
+
+
+do_start_monitor(Node, ID, ServerSA, MessageOrMessages, Opts) ->
+    case do_start(Node, ID, ServerSA, MessageOrMessages, Opts) of
+        {ok, {Pid, SA}} when is_pid(Pid) ->
+            MRef = erlang:monitor(process, Pid),
+            {ok, {Pid, MRef, SA}};
+        {error, _} = ERROR ->
+            ERROR
+    end.
+
+
+
+start(ID, ServerSA, MessageOrMessages) ->
+    start(node(), ID, ServerSA, MessageOrMessages, #{}).
+
+start(Node, ID, ServerSA, MessageOrMessages) ->
+    start(Node, ID, ServerSA, MessageOrMessages, #{}).
+
+-spec start(Node,
+            ID,
+            ServerSA,
+            MessageOrMessages,
+            Opts) -> {ok, Client} | {error, Reason} when
+      Node              :: node(),
+      ID                :: pos_integer(),
+      ServerSA          :: socket:sockaddr(),
+      MessageOrMessages :: Message | [Message | {Message, PostSendTimeout}],
+      Message           :: string(),
+      PostSendTimeout   :: pos_integer(),
+      Opts              :: opts(),
+      Client            :: {Pid, SA},
+      Pid               :: pid(),
+      SA                :: socket:sockaddr(),
+      Reason            :: term().
+
+start(Node,
+      ID,
+      ServerSA,
+      MessageOrMessages, Opts)
+  when is_atom(Node) andalso is_list(MessageOrMessages) andalso is_map(Opts) ->
+    do_start(Node, ID, ServerSA, MessageOrMessages, ensure_opts(Opts)).
+
+
+do_start(Node,
+         ID,
+         #{family := Fam,
            addr   := _,
-           port   := _} = ServerSA, Messages, Debug) ->
+           port   := _} = ServerSA,
+         MessageOrMessages,
+         #{debug        := Debug,
+           max_resend   := MaxResend,
+           echo_timeout := EchoTimeout} = Opts)
+  when is_atom(Node) andalso (Node =/= node()) andalso
+       is_integer(ID) andalso (ID > 0) andalso
+       ((Fam =:= inet) orelse (Fam =:= inet6)) andalso
+       is_list(MessageOrMessages) andalso
+       is_boolean(Debug) andalso
+       is_integer(MaxResend) andalso (MaxResend >= 0) andalso
+       is_integer(EchoTimeout) andalso (EchoTimeout >= 0) ->
+    Messages = process_messages(MessageOrMessages),
+    Args     = [ID, self(), ServerSA, Messages, Opts],
+    case rpc:call(Node, ?MODULE, start_it, Args) of
+        {badrpc, _} = Reason ->
+            {error, Reason};
+        {ok, {Pid, _}} = OK when is_pid(Pid) ->
+            OK;
+        {error, _} = ERROR ->
+            ERROR
+    end;
+do_start(_,
+         ID,
+         #{family := Fam,
+           addr   := _,
+           port   := _} = ServerSA,
+         MessageOrMessages,
+         #{debug        := Debug,
+           max_resend   := MaxResend,
+           echo_timeout := EchoTimeout} = Opts)
+  when ((Fam =:= inet) orelse (Fam =:= inet6)) andalso
+       is_integer(ID) andalso (ID > 0) andalso
+       is_list(MessageOrMessages) andalso
+       is_boolean(Debug) andalso
+       is_integer(MaxResend) andalso (MaxResend >= 0) andalso
+       is_integer(EchoTimeout) andalso (EchoTimeout >= 0) ->
+    Messages = process_messages(MessageOrMessages),
+    start_it(ID, self(), ServerSA, Messages, Opts).
 
-    put(sname, "client-starter"),
+
+stop(Pid) when is_pid(Pid) ->
+    MRef = erlang:monitor(process, Pid),
+    Pid ! {?MODULE, self(), stop},
+    receive
+        {'DOWN', MRef, process, Pid, _} ->
+            ok
+    end.
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+start_it(ID,
+         Parent,
+         ServerSA,
+         Messages,
+         #{debug        := Debug,
+           max_resend   := MaxResend,
+           echo_timeout := EchoTimeout} = _Opts) ->
+
+    put(sname, ?F("client-starter[~w]", [ID])),
     put(dbg, Debug),
 
     Self = self(),
+    ?DEBUG("~s -> try start client ~w", [?FUNCTION_NAME, ID]),
     {Client, MRef} =
         spawn_monitor(
           fun() ->
-                  init(#{parent => Self,
-		         server_sa => ServerSA,
-			 msgs      => Messages,
-			 dbg       => Debug})
+                  init(#{id           => ID,
+                         starter      => Self,
+                         parent       => Parent,
+		         server_sa    => ServerSA,
+			 msgs         => Messages,
+			 dbg          => Debug,
+                         max_resend   => MaxResend,
+                         echo_timeout => EchoTimeout})
           end),
+    ?DEBUG("~s -> await client ~w start response", [?FUNCTION_NAME, ID]),
     receive
         {'DOWN', MRef, process, Client, Reason} ->
             ?ERROR("Client start failure: "
                    "~n   ~p", [Reason]),
             {error, {client_start_failed, Reason}};
 
-        {?MODULE, Client, started} ->
-            ?INFO("Client (~p) started", [Client]),
-            {ok, Client}
+        {?MODULE, Client, {started, SA}} ->
+            ?INFO("Client (~p) started:"
+                  "~n   SA: ~p", [Client, SA]),
+            {ok, {Client, SA}}
     end.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 process_messages(MessageOrMessages) ->
     case ?IS_STR(MessageOrMessages) of
@@ -128,12 +285,18 @@ process_messages2([Message|Messages]) ->
     process_messages2(Messages).
 
 
-init(#{parent    := Parent,
-       server_sa := #{family := Domain} = ServerSA,
-       msgs      := Messages,
-       dbg       := Debug}) ->
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-    put(sname, "client"),
+init(#{id           := ID,
+       starter      := Starter,
+       parent       := Parent,
+       server_sa    := #{family := Domain} = ServerSA,
+       msgs         := Messages,
+       dbg          := Debug,
+       max_resend   := MaxResend,
+       echo_timeout := EchoTimeout}) ->
+
+    put(sname, ?F("client[~w]", [ID])),
     put(dbg,   Debug),
 
     ?DEBUG("~s -> try open (~w) socket", [?FUNCTION_NAME, Domain]),
@@ -157,10 +320,10 @@ init(#{parent    := Parent,
            end,
 
     ?DEBUG("~s -> try bind socket (to ~p)", [?FUNCTION_NAME, Addr]),
-    OwnSA = #{family => Domain,
+    RawSA = #{family => Domain,
 	      addr   => Addr,
 	      port   => 0},
-    case socket:bind(Sock, OwnSA) of
+    case socket:bind(Sock, RawSA) of
 	ok ->
 	    ok;
 	{error, BReason} ->
@@ -168,6 +331,15 @@ init(#{parent    := Parent,
                    "~n   ~p", [BReason]),
 	    ?STOP()
     end,
+
+    OwnSA = case socket:sockname(Sock) of
+                {ok, OSA} ->
+                    OSA;
+                {error, OSReason} ->
+                    ?ERROR("Failed get sockname: "
+                           "~n   ~p", [OSReason]),
+                    ?STOP()
+            end,                    
 
     ?DEBUG("~s -> try subscribe to events", [?FUNCTION_NAME]),
     ok = socket:setopt(Sock, ?MK_SCTP_SOCKOPT(events), ?SCTP_EVENTS(true)),
@@ -222,19 +394,24 @@ init(#{parent    := Parent,
     ?DEBUG("~s -> monitor parent", [?FUNCTION_NAME]),
     MRef = erlang:monitor(process, Parent),
 
-    Parent ! {?MODULE, self(), started},
+    Starter ! {?MODULE, self(), {started, OwnSA}},
 
-    loop(#{mode        => send,
-           parent      => Parent,
-           parent_mref => MRef,
-           sock        => Sock,
-           assoc_id    => AssocID,
-           stream      => 0,
-           ostream     => OutStreams,
-           istreams    => InStreams,
-           select      => undefined,
-	   resend      => {0, undefined}},
+    loop(#{mode         => send,
+           parent       => Parent,
+           parent_mref  => MRef,
+           sock         => Sock,
+           assoc_id     => AssocID,
+           stream       => 0,
+           ostream      => OutStreams,
+           istreams     => InStreams,
+           select       => undefined,
+	   resend       => {0, undefined},
+           max_resend   => MaxResend,
+           echo_timeout => EchoTimeout},
          Messages).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 loop(#{mode     := shutdown,
        sock     := Sock,
@@ -405,14 +582,17 @@ loop(#{mode        := Mode,
     end.
 		   
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 next_stream_id(Stream, NumStreams) when Stream < NumStreams ->
     Stream + 1;
 next_stream_id(_, _) ->
     0.
 
 %% This timer is used to handle that we do not get an echo in time
-start_echo_timer(#{resend := {NumResend, undefined}} = State) ->
-    TRef = erlang:start_timer(?ECHO_TIMEOUT, self(), echo_timeout),
+start_echo_timer(#{resend       := {NumResend, undefined},
+                   echo_timeout := EchoTimeout} = State) ->
+    TRef = erlang:start_timer(EchoTimeout, self(), echo_timeout),
     State#{resend => {NumResend+1, TRef}}.
 
 cancel_echo_timer(#{resend := {_, TRef}} = State) ->
@@ -420,11 +600,12 @@ cancel_echo_timer(#{resend := {_, TRef}} = State) ->
     State#{resend => {0, undefined}}.
 
 %% We are waiting for an echo, but got a echo timeout: resend
-handle_echo_timeout(#{mode   := recv,
-                      resend := {NumResend, TRef},
-                      sock   := Sock,
-		      select := SelectInfo} = State, TRef)
-    when (NumResend < ?MAX_RESEND) andalso (SelectInfo =/= undefined) ->
+handle_echo_timeout(#{mode       := recv,
+                      resend     := {NumResend, TRef},
+                      max_resend := MaxResend,
+                      sock       := Sock,
+		      select     := SelectInfo} = State, TRef)
+    when (NumResend < MaxResend) andalso (SelectInfo =/= undefined) ->
     ?WARNING("echo timeout - issue resend"),
     (catch socket:cancel(Sock, SelectInfo)),
     State#{mode   => send,
@@ -435,7 +616,13 @@ handle_echo_timeout(State, _TRef) ->
     State#{mode => shutdown, resend => timeout}.
 
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 maybe_sleep(TO) when (TO > 0) ->
     ?SLEEP(TO);
 maybe_sleep(_) ->
     ok.
+
+ensure_opts(Opts) ->
+    maps:merge(?DEFAULT_OPTS, Opts).
+
