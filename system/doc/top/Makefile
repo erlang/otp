@@ -28,6 +28,7 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 # ----------------------------------------------------
 APPLICATION=Erlang/OTP
 VSN=$(shell cat $(ERL_TOP)/OTP_VERSION)
+SKIP_APPLICATIONS=$(shell cat $(ERL_TOP)/lib/SKIP-APPLICATIONS)
 APP_DIR=../../../lib/erl_interface
 INDEX_DIR=.
 HTMLDIR=../../../doc
@@ -44,13 +45,13 @@ DOCUMENTATION=edoc
 SYSTEM:=$(shell awk -F: '{print $$1}' ../guides)
 
 REDIRECTS=$(foreach guide,$(SYSTEM),system/$(guide).md) \
-	$(foreach app,$(CORE),core/$(app).md) \
-	$(foreach app,$(DATABASE),database/$(app).md) \
-	$(foreach app,$(OAM),oam/$(app).md) \
-	$(foreach app,$(INTERFACES),interfaces/$(app).md) \
-	$(foreach app,$(TOOLS),tools/$(app).md) \
-	$(foreach app,$(TESTING),testing/$(app).md) \
-	$(foreach app,$(DOCUMENTATION),documentation/$(app).md)
+	$(foreach app, $(filter-out,$(SKIP_APPLICATIONS),$(CORE)),          core/$(app).md) \
+	$(foreach app, $(filter-out,$(SKIP_APPLICATIONS),$(DATABASE)),      database/$(app).md) \
+	$(foreach app, $(filter-out,$(SKIP_APPLICATIONS),$(OAM)),           oam/$(app).md) \
+	$(foreach app, $(filter-out,$(SKIP_APPLICATIONS),$(INTERFACES)),    interfaces/$(app).md) \
+	$(foreach app, $(filter-out,$(SKIP_APPLICATIONS),$(TOOLS)),         tools/$(app).md) \
+	$(foreach app, $(filter-out,$(SKIP_APPLICATIONS),$(TESTING)),       testing/$(app).md) \
+	$(foreach app, $(filter-out,$(SKIP_APPLICATIONS),$(DOCUMENTATION)), documentation/$(app).md)
 
 # ----------------------------------------------------
 # Targets
