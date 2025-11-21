@@ -361,6 +361,12 @@
         }).
 
 
+-record('Certificate_algorithmIdentifier',
+        {
+         algorithm,
+         parameters = asn1_NOVALUE
+        }).
+
 -record('AttributeTypeAndValue',
         {
          type,

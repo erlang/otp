@@ -25,6 +25,8 @@
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("public_key/include/public_key.hrl").
+-include_lib("public_key/include/PKIXCMP.hrl").
+-include_lib("public_key/include/PKIXCRMF.hrl").
 
 -export([
          suite/0,
@@ -101,6 +103,7 @@
          custom_sign_fun_verify/1,
          pkix/0,
          pkix/1,
+         pkix_cmp/1,
          pkix_countryname/0,
          pkix_countryname/1,
          pkix_emailaddress/0,
@@ -189,9 +192,10 @@ all() ->
      encrypt_decrypt,
      encrypt_decrypt_sign_fun,
      {group, sign_verify},
-     pkix, 
-     pkix_countryname, 
-     pkix_emailaddress, 
+     pkix,
+     pkix_cmp,
+     pkix_countryname,
+     pkix_emailaddress,
      pkix_decode_cert,
      pkix_path_validation,
      pkix_path_validation_root_expired,
@@ -1262,6 +1266,56 @@ pkix_path_validation_bad_date(Config) when is_list(Config) ->
             end, []}
         }
     ]).
+
+pkix_cmp(Config) when is_list(Config) ->
+    Datadir = proplists:get_value(data_dir, Config),
+    {ok, PemCert} = file:read_file(filename:join(Datadir, "rsa_md2.pem")),
+    [{_, CertDer, _}] = public_key:pem_decode(PemCert),
+    Cert = public_key:pkix_decode_cert(CertDer, plain),
+
+    Sender = {directoryName,
+              {rdnSequence,
+               [[{'AttributeTypeAndValue',{2,5,4,10},
+                  {utf8String,~"myname"}}]]}},
+    Recipient = {rfc822Name, "yourname"},
+    Header =
+        #'PKIHeader'{
+           pvno          = cmp2000,
+           sender        = Sender,
+           recipient     = Recipient,
+           messageTime   = ~"20251101000000Z",
+           transactionID = ~"9876541234567890",
+           senderNonce   = ~"1234567890123456"},
+
+    %% We take something random to ensure that it works with combining
+    %% stuff from different specs.
+    TbsCert = Cert#'Certificate'.'tbsCertificate',
+    Subject = TbsCert#'TBSCertificate'.subject,
+    Issuer  = TbsCert#'TBSCertificate'.issuer,
+    SubPKInfo  = TbsCert#'TBSCertificate'.subjectPublicKeyInfo,
+
+    CertReq =
+        #'CertRequest'{
+           certReqId = 123456,
+           certTemplate =
+               #'CertTemplate'{
+                  subject    = Subject,
+                  issuer     = Issuer,
+                  publicKey  = SubPKInfo
+                 }},
+
+    CertReqMsg = [#'CertReqMsg'{certReq = CertReq}],
+
+    PKIMessage =
+        #'PKIMessage'{header     = Header,
+                      body       = {ir, CertReqMsg},
+                      protection = <<"bitstring">>,
+                      extraCerts = [{x509v3PKCert, Cert}]},
+
+    Der = public_key:der_encode('PKIMessage', PKIMessage),
+    #'PKIMessage'{} = public_key:der_decode('PKIMessage', Der),
+
+    ok.
 
 %%--------------------------------------------------------------------
 %% To generate the PEM file contents:

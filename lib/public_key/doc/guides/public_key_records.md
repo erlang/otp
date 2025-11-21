@@ -358,6 +358,38 @@ _Table: Public-Key Algorithm OIDs_
 [CRL Extensions](public_key_records.md#CRLCertExt) and
 [CRL Entry Extensions](public_key_records.md#CRLEntryExt).
 
+### PKIXCMP Certificate Management Protocol
+
+Erlang representation of PKIXCMP see `PKIXCMP.hrl`,
+some of the records defined.
+
+```erlang
+-record('PKIMessage', {
+   header,     % #'PKIHeader'{}
+   body,       % #'PKIBody'{}
+   protection, % Optional #'PKIProtection'{}
+   extraCerts  % Optional [#'CMPCertificate'{}]
+  }).
+```
+
+### PKIXCRMF Certificate Request Message Format
+Erlang representation of PKIXCRMF see `PKIXCRMF.hrl`,
+some of the records defined.
+
+```erlang
+-record('CertReqMsg', {
+    certReq,     % #'CertRequest'{}
+    popo,        % Optional choice
+    regInfo      % [#'CertReqMsg_reginfo_SEQOF'{}]
+   }).
+
+-record('CertRequest', {
+    certReqId    % integer,
+    certTemplate % #'CertTemplate'{}
+    controls     % #'Controls_SEQOF'{}
+   }).
+```
+
 [](){: #StdCertExt }
 
 ## Standard Certificate Extensions
