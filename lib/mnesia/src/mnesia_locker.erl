@@ -1129,8 +1129,15 @@ rec_requests([], _Oid, _Store) ->
     ok.
 
 get_held_locks() ->
-    ?MODULE ! {get_table, self(), mnesia_held_locks},
-    Locks = receive {mnesia_held_locks, Ls} -> Ls after 5000 -> [] end,
+    Alias = alias([reply]),
+    ?MODULE ! {get_table, Alias, mnesia_held_locks},
+    Locks = receive
+                {mnesia_held_locks, Ls} ->
+                    Ls
+            after 5000 ->
+                    ?unalias_and_flush_msg(Alias, {mnesia_held_locks, _}),
+                    []
+            end,
     rewrite_locks(Locks, []).
 
 %% Mnesia internal usage only
@@ -1151,8 +1158,15 @@ rewrite_locks([], Acc) ->
     lists:reverse(Acc).
 
 get_lock_queue() ->
-    ?MODULE ! {get_table, self(), mnesia_lock_queue},
-    Q = receive {mnesia_lock_queue, Locks} -> Locks after 5000 -> [] end,
+    Alias = alias([reply]),
+    ?MODULE ! {get_table, Alias, mnesia_lock_queue},
+    Q = receive
+            {mnesia_lock_queue, Locks} ->
+                Locks
+        after 5000 ->
+                ?unalias_and_flush_msg(Alias, {mnesia_lock_queue, _}),
+                []
+        end,
     [{Oid, Op, Pid, Tid, WFT} || {queue, Oid, Tid, Op, Pid, WFT} <- Q].
 
 do_stop() ->
