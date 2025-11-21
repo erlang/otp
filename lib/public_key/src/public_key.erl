@@ -703,7 +703,15 @@ get_asn1_module('IssuerAndSerialNumber') -> 'CryptographicMessageSyntax-2009';
 get_asn1_module('BasicOCSPResponse') -> 'OCSP-2024-08';
 get_asn1_module('Nonce') -> 'OCSP-2024-08';
 get_asn1_module('OCSPResponse') -> 'OCSP-2024-08';
-get_asn1_module('ResponseData') -> 'OCSP-2024-08'.
+get_asn1_module('ResponseData') -> 'OCSP-2024-08';
+%% PKIXCMP RFC 9810
+get_asn1_module('PKIMessage') -> 'PKIXCMP-2023';
+get_asn1_module('PBMParameter') -> 'PKIXCMP-2023';
+get_asn1_module('ProtectedPart') -> 'PKIXCMP-2023';
+%% PKIXCRMF 
+get_asn1_module('OldCertId') -> 'PKIXCRMF-2009';
+get_asn1_module('CertRequest') -> 'PKIXCRMF-2009'.
+
 
 handle_pkcs_frame_error('PrivateKeyInfo', Der, _) ->
     try

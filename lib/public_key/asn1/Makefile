@@ -57,6 +57,7 @@ ASN_MODULES = \
           CMSAesRsaesOaep-2009 \
           DSS \
           ECPrivateKey \
+	  KEMAlgorithmInformation-2023 \
 	  X509-ML-DSA-2025 \
           OCSP-2024-08 \
           OTP-PKIX \
@@ -68,6 +69,7 @@ ASN_MODULES = \
           PKIX1Explicit-2009 \
           PKIX1Implicit-2009 \
           PKIXAlgs-2009 \
+	  PKIXCMP-2023 \
 	  PKIXCRMF-2009 \
           EnrollmentMessageSyntax-2009 \
           PKIXAttributeCertificate-2009 \

@@ -21,6 +21,7 @@ src/EnrollmentMessageSyntax-2009.erl
 src/EnrollmentMessageSyntax-2009.hrl
 src/ECPrivateKey.erl
 src/ECPrivateKey.hrl
+src/KEMAlgorithmInformation-2023.erl
 src/X509-ML-DSA-2025.erl
 src/X509-ML-DSA-2025.hrl
 src/OCSP-2024-08.erl
@@ -37,6 +38,8 @@ src/PKCS-3.erl
 src/PKCS-3.hrl
 src/PKIX-CommonTypes-2009.erl
 src/PKIX-CommonTypes-2009.hrl
+src/PKIXCMP-2023.hrl
+src/PKIXCMP-2023.erl
 src/PKIX-X400Address-2009.erl
 src/PKIX-X400Address-2009.hrl
 src/PKIX1-PSS-OAEP-Algorithms-2009.erl

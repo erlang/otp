@@ -51,6 +51,8 @@ that reads files.
   Information Syntax Standard
 - Supports [PKCS-10](http://www.ietf.org/rfc/rfc5967.txt) \- Certification
   Request Syntax Standard
+- Supports [PKIXCMP](http://www.ietf.org/rfc/rfc9810.txt) \- Certificate Management Protocol
+- Supports [PKIXCRMF](http://www.ietf.org/rfc/rfc5912.txt) \- Certificate Request Message Format
 
 ## Dependencies
 
