@@ -599,6 +599,18 @@ signature_scheme(ecdsa_sha1) -> ?ECDSA_SHA1;
 signature_scheme(mldsa44) -> ?MLDSA44;
 signature_scheme(mldsa65) -> ?MLDSA65;
 signature_scheme(mldsa87) -> ?MLDSA87;
+signature_scheme(slh_dsa_sha2_128f) -> ?SLHDSA_SHA2_128F;
+signature_scheme(slh_dsa_sha2_128s) -> ?SLHDSA_SHA2_128S;
+signature_scheme(slh_dsa_sha2_192f) -> ?SLHDSA_SHA2_192F;
+signature_scheme(slh_dsa_sha2_192s) -> ?SLHDSA_SHA2_192S;
+signature_scheme(slh_dsa_sha2_256f) -> ?SLHDSA_SHA2_256F;
+signature_scheme(slh_dsa_sha2_256s) -> ?SLHDSA_SHA2_256S;
+signature_scheme(slh_dsa_shake_128f) -> ?SLHDSA_SHAKE_128F;
+signature_scheme(slh_dsa_shake_128s) -> ?SLHDSA_SHAKE_128S;
+signature_scheme(slh_dsa_shake_192f) -> ?SLHDSA_SHAKE_192F;
+signature_scheme(slh_dsa_shake_192s) -> ?SLHDSA_SHAKE_192S;
+signature_scheme(slh_dsa_shake_256f) -> ?SLHDSA_SHAKE_256F;
+signature_scheme(slh_dsa_shake_256s) -> ?SLHDSA_SHAKE_256S;
 
 %% New algorithms on legacy format
 signature_scheme({sha512, rsa_pss_pss}) ->
@@ -641,6 +653,18 @@ signature_scheme(?ECDSA_SHA1) -> ecdsa_sha1;
 signature_scheme(?MLDSA44) -> mldsa44;
 signature_scheme(?MLDSA65) -> mldsa65;
 signature_scheme(?MLDSA87) -> mldsa87;
+signature_scheme(?SLHDSA_SHA2_128F) -> slh_dsa_sha2_128f;
+signature_scheme(?SLHDSA_SHA2_128S) -> slh_dsa_sha2_128s;
+signature_scheme(?SLHDSA_SHA2_192F) -> slh_dsa_sha2_192f;
+signature_scheme(?SLHDSA_SHA2_192S) -> slh_dsa_sha2_192s;
+signature_scheme(?SLHDSA_SHA2_256F) -> slh_dsa_sha2_256f;
+signature_scheme(?SLHDSA_SHA2_256S) -> slh_dsa_sha2_256s;
+signature_scheme(?SLHDSA_SHAKE_128F) -> slh_dsa_shake_128f;
+signature_scheme(?SLHDSA_SHAKE_128S) -> slh_dsa_shake_128s;
+signature_scheme(?SLHDSA_SHAKE_192F) -> slh_dsa_shake_192f;
+signature_scheme(?SLHDSA_SHAKE_192S) -> slh_dsa_shake_192s;
+signature_scheme(?SLHDSA_SHAKE_256F) -> slh_dsa_shake_256f;
+signature_scheme(?SLHDSA_SHAKE_256S) -> slh_dsa_shake_256s;
 
 %% Handling legacy signature algorithms for logging purposes. These algorithms
 %% cannot be used in TLS 1.3 handshakes.
@@ -712,6 +736,18 @@ scheme_to_components(ecdsa_sha1) -> {sha, ecdsa, undefined};
 scheme_to_components(mldsa44) -> {none, mldsa44, undefined};
 scheme_to_components(mldsa65) -> {none, mldsa65, undefined};
 scheme_to_components(mldsa87) -> {none, mldsa87, undefined};
+scheme_to_components(slh_dsa_sha2_128f = Scheme) -> {Scheme, slhdsa, undefined};
+scheme_to_components(slh_dsa_sha2_128s = Scheme) -> {Scheme, slhdsa, undefined};
+scheme_to_components(slh_dsa_sha2_192f = Scheme) -> {Scheme, slhdsa, undefined};
+scheme_to_components(slh_dsa_sha2_192s = Scheme) -> {Scheme, slhdsa, undefined};
+scheme_to_components(slh_dsa_sha2_256f = Scheme) -> {Scheme, slhdsa, undefined};
+scheme_to_components(slh_dsa_sha2_256s = Scheme) -> {Scheme, slhdsa, undefined};
+scheme_to_components(slh_dsa_shake_128f = Scheme) -> {Scheme, slhdsa, undefined};
+scheme_to_components(slh_dsa_shake_128s = Scheme) -> {Scheme, slhdsa, undefined};
+scheme_to_components(slh_dsa_shake_192f = Scheme) -> {Scheme, slhdsa, undefined};
+scheme_to_components(slh_dsa_shake_192s = Scheme) -> {Scheme, slhdsa, undefined};
+scheme_to_components(slh_dsa_shake_256f = Scheme) -> {Scheme, slhdsa, undefined};
+scheme_to_components(slh_dsa_shake_256s = Scheme) -> {Scheme, slhdsa, undefined};
 %% Handling legacy signature algorithms
 scheme_to_components({Hash,Sign}) -> {Hash, Sign, undefined}.
 
@@ -890,6 +926,30 @@ signature_algorithm_to_scheme(#'SignatureAlgorithm'{algorithm = ?'id-ml-dsa-65'}
     mldsa65;
 signature_algorithm_to_scheme(#'SignatureAlgorithm'{algorithm = ?'id-ml-dsa-87'}) ->
     mldsa87;
+signature_algorithm_to_scheme(#'SignatureAlgorithm'{algorithm = ?'id-slh-dsa-shake-256f'}) ->
+    slh_dsa_shake_256f;
+signature_algorithm_to_scheme(#'SignatureAlgorithm'{algorithm = ?'id-slh-dsa-shake-192f'}) ->
+    slh_dsa_shake_192f;
+signature_algorithm_to_scheme(#'SignatureAlgorithm'{algorithm = ?'id-slh-dsa-shake-128f'}) ->
+    slh_dsa_shake_128f;
+signature_algorithm_to_scheme(#'SignatureAlgorithm'{algorithm = ?'id-slh-dsa-shake-256s'}) ->
+    slh_dsa_shake_256s;
+signature_algorithm_to_scheme(#'SignatureAlgorithm'{algorithm = ?'id-slh-dsa-shake-192s'}) ->
+    slh_dsa_shake_192s;
+signature_algorithm_to_scheme(#'SignatureAlgorithm'{algorithm = ?'id-slh-dsa-shake-128s'}) ->
+    slh_dsa_shake_128s;
+signature_algorithm_to_scheme(#'SignatureAlgorithm'{algorithm = ?'id-slh-dsa-sha2-256f'}) ->
+    slh_dsa_sha2_256f;
+signature_algorithm_to_scheme(#'SignatureAlgorithm'{algorithm = ?'id-slh-dsa-sha2-192f'}) ->
+    slh_dsa_sha2_192f;
+signature_algorithm_to_scheme(#'SignatureAlgorithm'{algorithm = ?'id-slh-dsa-sha2-128f'}) ->
+    slh_dsa_sha2_128f;
+signature_algorithm_to_scheme(#'SignatureAlgorithm'{algorithm = ?'id-slh-dsa-sha2-256s'}) ->
+    slh_dsa_sha2_256s;
+signature_algorithm_to_scheme(#'SignatureAlgorithm'{algorithm = ?'id-slh-dsa-sha2-192s'}) ->
+    slh_dsa_sha2_192s;
+signature_algorithm_to_scheme(#'SignatureAlgorithm'{algorithm = ?'id-slh-dsa-sha2-128s'}) ->
+    slh_dsa_sha2_128s;
 signature_algorithm_to_scheme(#'SignatureAlgorithm'{algorithm = ?sha256WithRSAEncryption}) ->
     rsa_pkcs1_sha256;
 signature_algorithm_to_scheme(#'SignatureAlgorithm'{algorithm = ?sha384WithRSAEncryption}) ->

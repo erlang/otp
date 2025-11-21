@@ -117,20 +117,51 @@
 %%%
 -record('ML-DSAPrivateKey',
         {
-         algorithm :: mldsa44 | mldsa65 | mldsa87,
+         algorithm :: crypto:mldsa(),
          seed = <<>>   :: binary(),
          expandedkey = <<>> :: binary()
         }).
 
 -record('ML-DSAPublicKey',
         {
-         algorithm :: mldsa44 | mldsa65 | mldsa87,
+         algorithm :: crypto:mldsa(),
          key  :: binary()
         }).
 
 -define('id-ml-dsa-44', {2,16,840,1,101,3,4,3,17}).
 -define('id-ml-dsa-65', {2,16,840,1,101,3,4,3,18}).
 -define('id-ml-dsa-87', {2,16,840,1,101,3,4,3,19}).
+
+
+
+%%%
+%%% SLH-DSA
+%%%
+-record('SLH-DSAPrivateKey',
+        {
+         algorithm :: crypto:slh_dsa(),
+         key       :: binary()
+        }).
+
+-record('SLH-DSAPublicKey',
+        {
+         algorithm :: crypto:slh_dsa(),
+         key       :: binary()
+        }).
+
+-define('id-slh-dsa-sha2-128s', {2,16,840,1,101,3,4,3,20}).
+-define('id-slh-dsa-sha2-128f', {2,16,840,1,101,3,4,3,21}).
+-define('id-slh-dsa-sha2-192s', {2,16,840,1,101,3,4,3,22}).
+-define('id-slh-dsa-sha2-192f', {2,16,840,1,101,3,4,3,23}).
+-define('id-slh-dsa-sha2-256s', {2,16,840,1,101,3,4,3,24}).
+-define('id-slh-dsa-sha2-256f', {2,16,840,1,101,3,4,3,25}).
+-define('id-slh-dsa-shake-128s', {2,16,840,1,101,3,4,3,26}).
+-define('id-slh-dsa-shake-128f', {2,16,840,1,101,3,4,3,27}).
+-define('id-slh-dsa-shake-192s', {2,16,840,1,101,3,4,3,28}).
+-define('id-slh-dsa-shake-192f', {2,16,840,1,101,3,4,3,29}).
+-define('id-slh-dsa-shake-256s', {2,16,840,1,101,3,4,3,30}).
+-define('id-slh-dsa-shake-256f', {2,16,840,1,101,3,4,3,31}).
+
 
 
 %%%

@@ -64,6 +64,7 @@
          legacy_signature_algs_pre_13/0,
          signature_algs/2,
          signature_schemes/2,
+         slh_dsa_schemes/0,
          rsa_schemes/0,
          groups/0,
          groups/1,
@@ -967,7 +968,31 @@ signature_schemes(Version, [_|_] =SignatureSchemes) when is_tuple(Version)
                   [Scheme | Acc];
              (mldsa87 = Scheme, Acc)->
                   [Scheme | Acc];
-              (Scheme, Acc) when is_atom(Scheme) ->
+             (slh_dsa_shake_256f = Scheme, Acc)->
+                  [Scheme | Acc];
+             (slh_dsa_shake_256s = Scheme, Acc)->
+                  [Scheme | Acc];
+             (slh_dsa_shake_192f = Scheme, Acc)->
+                  [Scheme | Acc];
+             (slh_dsa_shake_192s = Scheme, Acc)->
+                  [Scheme | Acc];
+             (slh_dsa_shake_128f = Scheme, Acc)->
+                  [Scheme | Acc];
+             (slh_dsa_shake_128s = Scheme, Acc)->
+                  [Scheme | Acc];
+             (slh_dsa_sha2_256f = Scheme, Acc)->
+                  [Scheme | Acc];
+             (slh_dsa_sha2_256s = Scheme, Acc)->
+                  [Scheme | Acc];
+             (slh_dsa_sha2_192f = Scheme, Acc)->
+                  [Scheme | Acc];
+             (slh_dsa_sha2_192s = Scheme, Acc)->
+                  [Scheme | Acc];
+             (slh_dsa_sha2_128f = Scheme, Acc)->
+                  [Scheme | Acc];
+             (slh_dsa_sha2_128s = Scheme, Acc)->
+                  [Scheme | Acc];
+             (Scheme, Acc) when is_atom(Scheme) ->
                   {Hash, Sign0, Curve} =
                       ssl_cipher:scheme_to_components(Scheme),
                   Sign = case Sign0 of
@@ -1072,6 +1097,20 @@ rsa_schemes() ->
         false ->
             []
     end.
+
+slh_dsa_schemes() ->
+    [slh_dsa_shake_256f,
+     slh_dsa_shake_256s,
+     slh_dsa_sha2_256f,
+     slh_dsa_sha2_256s,
+     slh_dsa_shake_192f,
+     slh_dsa_shake_192s,
+     slh_dsa_sha2_192f,
+     slh_dsa_sha2_192s,
+     slh_dsa_shake_128f,
+     slh_dsa_shake_128s,
+     slh_dsa_sha2_128f,
+     slh_dsa_sha2_128s].
 
 %%--------------------------------------------------------------------
 %%% Internal functions

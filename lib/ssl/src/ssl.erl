@@ -424,6 +424,7 @@ still disallow sha1 use in the TLS protocol, since 27.0.1 and 26.2.5.2.
                                  | ecdsa_brainpoolP512r1tls13_sha512
                                  | ecdsa_brainpoolP384r1tls13_sha384
                                  | ecdsa_brainpoolP256r1tls13_sha256
+                                 | post_quantum_schemes()
                                  | rsassa_pss_scheme()
                                  | legacy_sign_scheme() . % exported
 
@@ -438,6 +439,13 @@ Supported in TLS-1.3 and TLS-1.2.
                                  | rsa_pss_pss_sha512
                                  | rsa_pss_pss_sha384
                                  | rsa_pss_pss_sha256.
+
+-doc(#{group => <<"Algorithms">>}).
+-doc """
+Supported in TLS-1.3 only. ML-DSA since 28.1, SLH-DSA since 28.3.
+""".
+-type post_quantum_schemes()       :: crypto:mldsa() | crypto:slh_dsa().
+
 
 -doc(#{group => <<"Algorithms Legacy">>}).
 -doc """
@@ -3051,19 +3059,21 @@ rsa_pss_rsae_sha512,rsa_pss_rsae_sha384,rsa_pss_rsae_sha256]
 %%--------------------------------------------------------------------
 
 signature_algs(default, 'tlsv1.3') ->
-    tls_v1:default_signature_algs([tls_record:protocol_version_name('tlsv1.3'), 
+    tls_v1:default_signature_algs([tls_record:protocol_version_name('tlsv1.3'),
                                    tls_record:protocol_version_name('tlsv1.2')]);
 signature_algs(default, 'tlsv1.2') ->
     tls_v1:default_signature_algs([tls_record:protocol_version_name('tlsv1.2')]);
 signature_algs(all, 'tlsv1.3') ->
     tls_v1:default_signature_algs([tls_record:protocol_version_name('tlsv1.3'),
                                    tls_record:protocol_version_name('tlsv1.2')]) ++
-        [ecdsa_sha1, rsa_pkcs1_sha1 | tls_v1:legacy_signature_algs_pre_13()] -- [{sha, ecdsa}, {sha, rsa}];
+        [ecdsa_sha1, rsa_pkcs1_sha1 | tls_v1:legacy_signature_algs_pre_13()] --
+        [{sha, ecdsa}, {sha, rsa}];
 signature_algs(all, 'tlsv1.2') ->
-    tls_v1:default_signature_algs([tls_record:protocol_version_name('tlsv1.2')]) ++ 
+    tls_v1:default_signature_algs([tls_record:protocol_version_name('tlsv1.2')]) ++
         tls_v1:legacy_signature_algs_pre_13();
 signature_algs(exclusive, 'tlsv1.3') ->
-    tls_v1:default_signature_algs([tls_record:protocol_version_name('tlsv1.3')]);
+    tls_v1:default_signature_algs([tls_record:protocol_version_name('tlsv1.3')]) ++
+        tls_v1:slh_dsa_schemes();
 signature_algs(exclusive, 'tlsv1.2') ->
     Algs = tls_v1:default_signature_algs([tls_record:protocol_version_name('tlsv1.2')]),
     Algs ++ tls_v1:legacy_signature_algs_pre_13();
