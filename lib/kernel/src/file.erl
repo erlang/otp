@@ -282,7 +282,9 @@ An IO device as returned by `open/2`.
                       Size :: non_neg_integer(),
                       Delay :: non_neg_integer()}
 		   | 'delayed_write' | {'read_ahead', Size :: pos_integer()}
-		   | 'read_ahead' | 'compressed' | 'compressed_one'
+		   | 'read_ahead' | 'compressed' | 'compressed_one' |
+		     {zstd, zstd:compress_parameters() |
+		            zstd:decompress_parameters()}
 		   | {'encoding', unicode:encoding()}
 		   | sync.
 -type deep_list() :: [char() | atom() | deep_list()].

@@ -71,7 +71,8 @@
 	  read_compressed_cooked/1, read_compressed_cooked_binary/1,
 	  read_cooked_tar_problem/1,
 	  write_compressed/1, compress_errors/1, catenated_gzips/1,
-	  compress_async_crash/1]).
+	  compress_async_crash/1,
+          zstd/1]).
 
 -export([ make_link/1, read_link_info_for_non_link/1, symlinks/1]).
 
@@ -171,7 +172,8 @@ groups() ->
       [read_compressed_cooked, read_compressed_cooked_binary,
        read_cooked_tar_problem, read_not_really_compressed,
        write_compressed, compress_errors, catenated_gzips,
-       compress_async_crash]},
+       compress_async_crash,
+       zstd]},
      {links, [],
       [make_link, read_link_info_for_non_link, symlinks]},
      {bench, [],
@@ -3025,6 +3027,25 @@ compress_async_crash_loop(N, Path, ExpectedData) ->
             ct:fail(worker_timeout)
     end,
     compress_async_crash_loop(N - 1, Path, ExpectedData).
+
+zstd(Config) when is_list(Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+    Path = filename:join(DataDir, "test.zstd"),
+    ExpectedData = <<"qwerty">>,
+
+    _ = ?FILE_MODULE:delete(Path),
+    {ok, FdW} = ?FILE_MODULE:open(Path, [write, binary, {zstd, #{}}]),
+    ok = ?FILE_MODULE:write(FdW, ExpectedData),
+    ok = ?FILE_MODULE:close(FdW),
+
+    {ok, FdR} = ?FILE_MODULE:open(Path, [read, binary, {zstd, #{}}]),
+    {ok, ExpectedData} = ?FILE_MODULE:read(FdR, 1 bsl 10),
+    ok = ?FILE_MODULE:close(FdR),
+
+    {ok, Compressed} = ?FILE_MODULE:read_file(Path),
+    ExpectedData = iolist_to_binary(zstd:decompress(Compressed)),
+
+    ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
