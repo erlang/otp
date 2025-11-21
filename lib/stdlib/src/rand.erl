@@ -533,6 +533,7 @@ the generator's range:
 		   exs1024_next/1, exs1024_calc/2,
                    exro928_next_state/4,
                    exrop_next/1, exrop_next_s/2,
+                   shuffle_new_bits/1,
                    mwc59_value/1,
 		   get_52/1, normal_kiwi/1]}).
 
@@ -606,7 +607,7 @@ the generator's range:
 -type alg_handler() ::
         #{type := alg(),
           bits => non_neg_integer(),
-          weak_low_bits => non_neg_integer(),
+          weak_low_bits => 0..3,
           max => non_neg_integer(), % Deprecated
           next :=
               fun ((alg_state()) -> {non_neg_integer(), alg_state()}),
@@ -1503,17 +1504,9 @@ and the [`NewState`](`t:state/0`).
               when
       List         :: list(),
       State        :: state().
-shuffle_s(List, {#{bits:=_, next:=Next} = AlgHandler, R0})
+shuffle_s(List, {AlgHandler, R0})
   when is_list(List) ->
-    WeakLowBits = maps:get(weak_low_bits, AlgHandler, 0),
-    [P0|S0] = shuffle_init_bitstream(R0, Next, WeakLowBits),
-    {ShuffledList, _P1, [R1|_]=_S1} = shuffle_r(List, [], P0, S0),
-    {ShuffledList, {AlgHandler, R1}};
-shuffle_s(List, {#{max:=_, next:=Next} = AlgHandler, R0})
-  when is_list(List) ->
-    %% Old spec - assume 2 weak low bits
-    WeakLowBits = 2,
-    [P0|S0] = shuffle_init_bitstream(R0, Next, WeakLowBits),
+    [P0|S0] = shuffle_init_bitstream(R0, AlgHandler),
     {ShuffledList, _P1, [R1|_]=_S1} = shuffle_r(List, [], P0, S0),
     {ShuffledList, {AlgHandler, R1}}.
 
@@ -1607,9 +1600,9 @@ shuffle_r([], Acc0, P0, S0, Zero, One, Two, Three) ->
     {Acc3, P3, S3} = shuffle_r(Two, Acc2, P2, S2),
     shuffle_r(Three, Acc3, P3, S3);
 shuffle_r([X | L], Acc, P0, S, Zero, One, Two, Three)
-  when is_integer(P0), 3 < P0, P0 < 1 bsl 57 ->
+  when is_integer(P0), ?BIT(2) =< P0, P0 =< ?MASK(59) ->
     P1 = P0 bsr 2,
-    case P0 band 3 of
+    case ?MASK(2, P0) of
         0 -> shuffle_r(L, Acc, P1, S, [X | Zero], One, Two, Three);
         1 -> shuffle_r(L, Acc, P1, S, Zero, [X | One], Two, Three);
         2 -> shuffle_r(L, Acc, P1, S, Zero, One, [X | Two], Three);
@@ -1621,8 +1614,8 @@ shuffle_r([_ | _] = L, Acc, _P, S0, Zero, One, Two, Three) ->
 
 %% Permute 2 elements
 shuffle_r_2(X, Acc, P, S, Y)
-  when is_integer(P), 1 < P, P < 1 bsl 57 ->
-    {case P band 1 of
+  when is_integer(P), ?BIT(1) =< P, P =< ?MASK(59) ->
+    {case ?MASK(1, P) of
          0 -> [Y, X | Acc];
          1 -> [X, Y | Acc]
      end, P bsr 1, S};
@@ -1636,9 +1629,9 @@ shuffle_r_2(X, Acc, _P, S0, Y) ->
 %% to reject and retry, which on average is 3 * 4/3
 %% (infinite sum of (1/4)^k) = 4 bits per permutation
 shuffle_r_3(X, Acc, P0, S, Y, Z)
-  when is_integer(P0), 7 < P0, P0 < 1 bsl 57 ->
+  when is_integer(P0), ?BIT(3) =< P0, P0 =< ?MASK(59) ->
     P1 = P0 bsr 3,
-    case P0 band 7 of
+    case ?MASK(3, P0) of
         0 -> {[Z, Y, X | Acc], P1, S};
         1 -> {[Y, Z, X | Acc], P1, S};
         2 -> {[Z, X, Y | Acc], P1, S};
@@ -1652,24 +1645,37 @@ shuffle_r_3(X, Acc, _P, S0, Y, Z) ->
     [P|S1] = shuffle_new_bits(S0),
     shuffle_r_3(X, Acc, P, S1, Y, Z).
 
--dialyzer({no_improper_lists, shuffle_init_bitstream/3}).
 %%
-shuffle_init_bitstream(R, Next, WeakLowBits) ->
+shuffle_init_bitstream(R, #{bits:=Bits, next:=Next} = AlgHandler) ->
+    Mask = ?MASK(Bits),
+    Shift = maps:get(weak_low_bits, AlgHandler, 0),
+    shuffle_init_bitstream(R, Next, Shift, Mask);
+shuffle_init_bitstream(R, #{max:=Mask, next:=Next}) ->
+    %% Old spec - assume 2 weak low bits
+    Shift = 2,
+    shuffle_init_bitstream(R, Next, Shift, Mask).
+%%
+-dialyzer({no_improper_lists, shuffle_init_bitstream/4}).
+shuffle_init_bitstream(R, Next, Shift, Mask0) ->
+    Mask = ?MASK(58, Mask0),    % Limit the mask to avoid bignum
     P = 1,                      % Marker for out of random bits
-    W = {Next,WeakLowBits},     % Generator
+    W = {Next,Shift,Mask},      % Generator
     S = [R|W],                  % Generator state
     [P|S].                      % Bit cash and state
 
 -dialyzer({no_improper_lists, shuffle_new_bits/1}).
 %%
-shuffle_new_bits([R0|{Next,WeakLowBits}=W]) ->
-    {V, R1} = Next(R0),
-    %% Setting the top bit M here provides the marker
-    %% for when we are out of random bits: P =:= 1
-    M = 1 bsl 56,
-    P = ((V bsr WeakLowBits) band (M-1)) bor M,
-    S = [R1|W],
-    [P|S].
+shuffle_new_bits([R0|{Next,Shift,Mask}=W])
+  when is_integer(Shift), 0 =< Shift, Shift =< 3,
+       is_integer(Mask), 0 < Mask, Mask =< ?MASK(58) ->
+    case Next(R0) of
+        {V, R1} when is_integer(V) ->
+            %% Setting the top bit here provides the marker
+            %% for when we are out of random bits: P =:= 1
+            P = ((V bsr Shift) band Mask) bor (Mask + 1),
+            S = [R1|W],
+            [P|S]
+    end.
 
 %% =====================================================================
 %% Internal functions
