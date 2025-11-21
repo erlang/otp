@@ -822,7 +822,7 @@ gen_gc(Fd, GBP) ->
     GenExtP = fun(Range) -> io:format(Fd, "gc_1~s gc_ext_pict(R1,[CP]);\n", [gen_clause(Range)]) end,
     ExtendedPictographic0 = merge_ranges(maps:get(extended_pictographic,GBP)),
     %% Pick codepoints below 256 (some data knowledge here)
-    {ExtendedPictographicLow,ExtendedPictographicHigh} =
+    {ExtendedPictographicLow,_ExtendedPictographicHigh} =
         lists:splitwith(fun({Start,undefined}) -> Start < 256 end,ExtendedPictographic0),
     io:put_chars(Fd,
                  "\ngc_1([$\\r|R0] = R) ->\n"
@@ -879,21 +879,23 @@ gen_gc(Fd, GBP) ->
     %% GenEBG = fun(Range) -> io:format(Fd, "gc_1~s gc_e_cont(R1,[CP]);\n", [gen_clause(Range)]) end,
     %% [GenEBG(CP) || CP <- merge_ranges(maps:get(e_base_gaz,GBP))],
 
-    io:put_chars(Fd, "\n%% Handle extended_pictographic\n"),
-    [GenExtP(CP) || CP <- merge_ranges(ExtendedPictographicHigh)],
+    %% io:put_chars(Fd, "\n%% Handle extended_pictographic\n"),
+    %% [GenExtP(CP) || CP <- merge_ranges(ExtendedPictographicHigh)],
 
     io:put_chars(Fd, "\n%% default clauses\n"),
-    io:put_chars(Fd,
-                 """
-                 gc_1([CP|R]) ->
-                     case is_indic_consonant(CP) of
-                         true ->
-                             gc_indic(cp(R), R, false, [CP]);
-                         false ->
-                             gc_extend(cp(R), R, CP)
-                     end.
+    io:put_chars(Fd, """
+ gc_1([CP|R]) ->
+     case is_ext_pict(CP) of
+         true -> gc_ext_pict(R, [CP]);
+         false ->
+             case is_indic_consonant(CP) of
+                 true -> gc_indic(cp(R), R, false, [CP]);
+                 false -> gc_extend(cp(R), R, CP)
+             end
+     end.
 
-                 """),
+
+ """),
 
     io:put_chars(Fd, "%% Handle Prepend\n"),
     io:put_chars(Fd,
@@ -1341,7 +1343,6 @@ decompose([CP|CPs], Data) when is_integer(CP) ->
         #cp{dec=Dec} -> decompose(Dec, Data) ++ decompose(CPs,Data)
     end.
 
-
 decompose_compat(Canon, [], Data) ->
     case decompose_compat(Canon, Data) of
         Canon -> [];
@@ -1405,7 +1406,7 @@ merge_ranges(List, Opt) ->
         split ->
             split_ranges(Res0,[]);     % One clause per CP
         true ->
-            Res = Res0,
+            Res = split_small_ranges(Res0, []),
             OptRes = optimize_ranges(Res),
             true = lists:sort(Res) =:= lists:sort(OptRes), %Assertion.
             OptRes;
@@ -1423,11 +1424,6 @@ merge_ranges_1([{Next, Stop}|R], [{Start,Prev}|Acc]) when Prev+1 =:= Next ->
         undefined -> merge_ranges_1(R, [{Start, Next}|Acc]);
         _ -> merge_ranges_1(R, [{Start,Stop}|Acc])
     end;
-merge_ranges_1([{Next, Stop}|R], [{Start,undefined}|Acc]) when Start+1 =:= Next ->
-    case Stop of
-        undefined -> merge_ranges_1(R, [{Start, Next}|Acc]);
-        _ -> merge_ranges_1(R, [{Start,Stop}|Acc])
-    end;
 merge_ranges_1([Next|R], Acc) ->
     merge_ranges_1(R, [Next|Acc]);
 merge_ranges_1([], Acc) ->
@@ -1441,6 +1437,21 @@ split_ranges([{L,L}|Rs], Acc) ->
     split_ranges(Rs,[{L, undefined}|Acc]);
 split_ranges([], Acc) ->
     lists:reverse(Acc).
+
+split_small_ranges([{_,undefined}=CP|Rs], Acc) ->
+    split_small_ranges(Rs,[CP|Acc]);
+split_small_ranges([{L,L}|Rs], Acc) ->
+    split_small_ranges(Rs,[{L, undefined}|Acc]);
+split_small_ranges([{F,L}=Range|Rs], Acc) ->
+    case L - F of
+        1 ->
+            split_small_ranges(Rs, [{L, undefined}, {F, undefined}|Acc]);
+        N when N > 1 ->
+            split_small_ranges(Rs, [Range|Acc])
+    end;
+split_small_ranges([], Acc) ->
+    lists:reverse(Acc).
+
 
 optimize_ranges(Rs0) ->
     PF = fun({N,undefined}) when is_integer(N) -> true;
