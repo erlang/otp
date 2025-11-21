@@ -4883,14 +4883,35 @@ dec_term_atom_common:
                                                  NBITS(ep - data),
                                                  size_in_bits);
                     hp = factory->hp;
+                } else if (size_in_bits <= ERL_ONHEAP_BITS_LIMIT) {
+                    ErlHeapBits *hb;
+
+                    if (ctx) {
+                        /* Count reductions but don't bother trying to trap in
+                         * the middle, it's short enough not to matter. */
+                        reds -= MIN(reds, (SWord)nu / B2T_MEMCPY_FACTOR);
+                    }
+
+                    hb = (ErlHeapBits*)hp;
+                    hb->thing_word = header_heap_bits(size_in_bits);
+                    hb->size = size_in_bits;
+
+                    sys_memcpy((byte*)hb->data, ep, nu);
+                    hp += heap_bits_size(size_in_bits);
+
+                    *objp = make_bitstring(hb);
                 } else {
-                    byte *data;
+                    Binary *refc_binary = erts_bin_nrml_alloc(NBYTES(size_in_bits));
+                    byte *data = (byte*)refc_binary->orig_bytes;
 
                     factory->hp = hp;
-                    *objp = erts_hfact_new_bitstring(factory,
+                    *objp = erts_wrap_refc_bitstring(&(factory->off_heap)->first,
+                                                     &(factory->off_heap)->overhead,
+                                                     &factory->hp,
+                                                     refc_binary,
+                                                     data,
                                                      0,
-                                                     size_in_bits,
-                                                     &data);
+                                                     size_in_bits);
                     hp = factory->hp;
 
                     if (ctx) {
