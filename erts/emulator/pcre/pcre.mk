@@ -25,6 +25,7 @@ pcre2_auto_possess.o \
 pcre2_chartables.o \
 pcre2_chkdint.o \
 pcre2_compile.o \
+pcre2_compile_cgroup.o \
 pcre2_compile_class.o \
 pcre2_config.o \
 pcre2_context.o \
@@ -149,11 +150,10 @@ $(PCRE_OBJDIR)/pcre2_substring.o: $(PCRE_DIR)/pcre2_substring.c \
 $(PCRE_OBJDIR)/pcre2_tables.o: $(PCRE_DIR)/pcre2_tables.c \
  $(PCRE_DIR)/pcre2_internal.h $(PCRE_DIR)/local_config.h $(PCRE_DIR)/pcre2.h $(PCRE_DIR)/pcre2_ucp.h $(PCRE_DIR)/pcre2_intmodedep.h \
  $(PCRE_DIR)/pcre2_util.h \
- $(PCRE_DIR)/pcre2_ucptables.c
+ $(PCRE_DIR)/pcre2_ucptables_inc.h
 $(PCRE_OBJDIR)/pcre2_ucd.o: $(PCRE_DIR)/pcre2_ucd.c \
  $(PCRE_DIR)/pcre2_internal.h $(PCRE_DIR)/local_config.h $(PCRE_DIR)/pcre2.h $(PCRE_DIR)/pcre2_ucp.h $(PCRE_DIR)/pcre2_intmodedep.h \
  $(PCRE_DIR)/pcre2_util.h
-$(PCRE_OBJDIR)/pcre2_ucptables.o: $(PCRE_DIR)/pcre2_ucptables.c
 $(PCRE_OBJDIR)/pcre2_valid_utf.o: $(PCRE_DIR)/pcre2_valid_utf.c \
  $(PCRE_DIR)/pcre2_internal.h $(PCRE_DIR)/local_config.h $(PCRE_DIR)/pcre2.h $(PCRE_DIR)/pcre2_ucp.h $(PCRE_DIR)/pcre2_intmodedep.h \
  $(PCRE_DIR)/pcre2_util.h
