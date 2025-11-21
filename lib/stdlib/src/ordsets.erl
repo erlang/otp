@@ -422,7 +422,8 @@ is_disjoint(_, []) ->
     true.
 
 -doc """
-Returns the elements of `Ordset1` that are not elements in `Ordset2`.
+Returns a new ordered set containing the elements of `Ordset1`
+that are not elements in `Ordset2`.
 
 ## Examples
 

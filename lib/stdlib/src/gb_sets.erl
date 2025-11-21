@@ -1267,7 +1267,8 @@ is_disjoint_1(_, nil) ->
 %% traverse the whole element list of the left operand.
 
 -doc """
-Returns the elements of `Set1` that are not elements in `Set2`.
+Returns a new set containing the elements of `Set1`
+that are not elements in `Set2`.
 
 ## Examples
 
