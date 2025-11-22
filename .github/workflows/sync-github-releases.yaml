@@ -22,7 +22,7 @@ jobs:
         ## Needed to create releases
         contents: write
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # ratchet:actions/checkout@v4.2.2
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
       ## We need to login to the package registry in order to pull
       ## the base debian image.
       - name: Docker login
