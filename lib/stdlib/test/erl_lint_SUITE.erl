@@ -1317,12 +1317,13 @@ unsafe_vars(Config) when is_list(Config) ->
            {error,[{{3,19},erl_lint,{unsafe_var,'Y',{'orelse',{2,29}}}}],
             [{{2,19},erl_lint,{unused_var,'X'}}]}},
           {unsafe2,
-           <<"-compile(nowarn_export_var_subexpr). t2() ->
+           <<"t2() ->
                   (X = true) orelse (Y = false),
                   X.
            ">>,
            [warn_unused_vars],
-           {warnings,[{{2,38},erl_lint,{unused_var,'Y'}}]}},
+           {warnings,[{{2,38},erl_lint,{unused_var,'Y'}},
+                      {{3,19},erl_lint,{export_var_subexpr,'X',{'orelse',{2,30}}}}]}},
           {unsafe3,
            <<"t3() ->
                   (X = true) andalso (Y = false),
@@ -1332,20 +1333,22 @@ unsafe_vars(Config) when is_list(Config) ->
            {error,[{{3,19},erl_lint,{unsafe_var,'Y',{'andalso',{2,30}}}}],
             [{{2,20},erl_lint,{unused_var,'X'}}]}},
           {unsafe4,
-           <<"-compile(nowarn_export_var_subexpr). t4() ->
+           <<"t4() ->
                   (X = true) andalso (true = X),
                   X.
            ">>,
            [warn_unused_vars],
-           []},
+           {warnings,[{{2,46},erl_lint,{export_var_subexpr,'X',{'andalso',{2,30}}}},
+                      {{3,19},erl_lint,{export_var_subexpr,'X',{'andalso',{2,30}}}}]}},
           {unsafe5,
-           <<"-compile(nowarn_export_var_subexpr). t5() ->
+           <<"t5() ->
                   Y = 3,
                   (X = true) andalso (X = true),
                   {X,Y}.
            ">>,
            [warn_unused_vars],
-           []},
+           {warnings,[{{3,39},erl_lint,{export_var_subexpr,'X',{'andalso',{3,30}}}},
+                      {{4,20},erl_lint,{export_var_subexpr,'X',{'andalso',{3,30}}}}]}},
           {unsafe6,
            <<"t6() ->
                   X = true,
