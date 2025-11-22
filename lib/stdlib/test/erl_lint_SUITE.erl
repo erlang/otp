@@ -1322,7 +1322,8 @@ unsafe_vars(Config) when is_list(Config) ->
                   X.
            ">>,
            [warn_unused_vars],
-           {warnings,[{{2,38},erl_lint,{unused_var,'Y'}}]}},
+           {warnings,[{{2,38},erl_lint,{unused_var,'Y'}},
+                      {{3,19},erl_lint,{exported_subexpr_var,'X',{'orelse',{2,30}}}}]}},
           {unsafe3,
            <<"t3() ->
                   (X = true) andalso (Y = false),
@@ -1337,7 +1338,8 @@ unsafe_vars(Config) when is_list(Config) ->
                   X.
            ">>,
            [warn_unused_vars],
-           []},
+           {warnings,[{{2,46},erl_lint,{exported_subexpr_var,'X',{'andalso',{2,30}}}},
+                      {{3,19},erl_lint,{exported_subexpr_var,'X',{'andalso',{2,30}}}}]}},
           {unsafe5,
            <<"t5() ->
                   Y = 3,
@@ -1345,7 +1347,8 @@ unsafe_vars(Config) when is_list(Config) ->
                   {X,Y}.
            ">>,
            [warn_unused_vars],
-           []},
+           {warnings,[{{3,39},erl_lint,{exported_var,'X',{'andalso',{3,30}}}},
+                      {{4,20},erl_lint,{exported_subexpr_var,'X',{'andalso',{3,30}}}}]}},
           {unsafe6,
            <<"t6() ->
                   X = true,
