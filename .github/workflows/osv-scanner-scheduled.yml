@@ -40,7 +40,7 @@ jobs:
     outputs:
        versions: ${{ steps.get-versions.outputs.versions }}
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # ratchet:actions/checkout@v4.2.2
+      - uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
       - id: get-versions
         name: Fetch latest 3 OTP versions
         run: |
@@ -60,7 +60,7 @@ jobs:
     permissions:
       actions: write
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # ratchet:actions/checkout@v4.2.2
+      - uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
         with:
           ref: ${{ matrix.type }}
 
