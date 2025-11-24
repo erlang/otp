@@ -299,9 +299,9 @@ abbreviated({call, From}, Msg, State) ->
     handle_call(Msg, From, ?STATE(abbreviated), State);
 abbreviated(internal,
 	    #change_cipher_spec{type = <<1>>},
-            #state{static_env = #static_env{protocol_cb = Connection},
-                   connection_states = ConnectionStates0,
-                   handshake_env = HsEnv} = State) ->
+            #state{handshake_env = #handshake_env{expecting_finished = false} = HsEnv,
+                   static_env = #static_env{protocol_cb = Connection},
+                   connection_states = ConnectionStates0} = State) ->
     ConnectionStates1 =
 	ssl_record:activate_pending_connection_state(ConnectionStates0, read, Connection),
     Connection:next_event(?STATE(abbreviated), no_record,
@@ -333,7 +333,7 @@ certify(Type, Event, State) ->
 cipher({call, From}, Msg, State) ->
     handle_call(Msg, From, ?STATE(cipher), State);
 cipher(internal, #change_cipher_spec{type = <<1>>},
-       #state{handshake_env = HsEnv,
+       #state{handshake_env = #handshake_env{expecting_finished = false} = HsEnv,
               static_env = #static_env{protocol_cb = Connection},
               connection_states = ConnectionStates0} = State) ->
     ConnectionStates =
