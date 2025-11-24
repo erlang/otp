@@ -300,7 +300,7 @@ wait_cert_verify(internal, #certificate_verify{signature = Signature,
 				  State#state{handshake_env = HsEnv,
                                               session = Session0#session{sign_alg = HashSign}});
 	#alert{} = Alert ->
-            throw(Alert)
+            ssl_gen_statem:handle_own_alert(Alert, ?STATE(wait_cert_verify), State)
     end;
 wait_cert_verify(Type, Event, State) ->
     ssl_gen_statem:handle_common_event(Type, Event, ?STATE(wait_cert_verify), State).
