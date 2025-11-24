@@ -36,7 +36,6 @@ Z_LIB=@Z_LIB@
 CROSS_COMPILING = @CROSS_COMPILING@
 NO_INLINE_FUNCTIONS=false
 USING_VC=@MIXED_VC@
-VISIBILITY_HIDDEN=@VISIBILITY_HIDDEN@
 
 OPCODE_TABLES = \
     $(ERL_TOP)/lib/compiler/src/genop.tab \
@@ -550,6 +549,9 @@ include $(ERL_TOP)/make/otp_release_targets.mk
 RELSYSDIR = $(RELEASE_PATH)/erts-$(VSN)
 
 RELEASE_INCLUDES = beam/erl_driver.h sys/$(ERLANG_OSTYPE)/driver_int.h beam/erl_nif.h beam/erl_nif_api_funcs.h beam/erl_drv_nif.h
+
+INTERNAL_RELEASE_INCLUDES = beam/erl_internal_test.h
+
 ifeq ($(TARGET),win32)
 RELEASE_INCLUDES += sys/$(ERLANG_OSTYPE)/erl_win_dyn_driver.h
 endif
@@ -563,12 +565,14 @@ release_spec: all
 	$(INSTALL_DIR) "$(RELSYSDIR)"
 	$(INSTALL_DIR) "$(RELSYSDIR)/src"
 	$(INSTALL_DIR) "$(RELSYSDIR)/include"
+	$(INSTALL_DIR) "$(RELSYSDIR)/include/internal"
 	$(INSTALL_DIR) "$(RELSYSDIR)/man"
 	$(INSTALL_DIR) "$(RELSYSDIR)/doc"
 	$(INSTALL_DIR) "$(RELSYSDIR)/bin"
 	$(INSTALL_DIR) "$(RELEASE_PATH)/usr/include"
 	$(INSTALL_DATA) $(RELEASE_INCLUDES) "$(RELEASE_PATH)/usr/include"
 	$(INSTALL_DATA) $(RELEASE_INCLUDES) "$(RELSYSDIR)/include"
+	$(INSTALL_DATA) $(INTERNAL_RELEASE_INCLUDES) "$(RELSYSDIR)/include/internal"
 	$(INSTALL_PROGRAM) $(BINDIR)/$(EMULATOR_EXECUTABLE) "$(RELSYSDIR)/bin"
 ifeq ($(TARGET),win32)
 	$(INSTALL_DATA) $(BINDIR)/$(EMULATOR_EXECUTABLE:.dll=.pdb) "$(RELSYSDIR)/bin"
@@ -1161,7 +1165,8 @@ RUN_OBJS += \
 	$(OBJDIR)/erl_term_hashing.o \
 	$(OBJDIR)/erl_bif_coverage.o \
 	$(OBJDIR)/erl_iolist.o \
-	$(OBJDIR)/erl_etp.o
+	$(OBJDIR)/erl_etp.o \
+	$(OBJDIR)/erl_internal_test.o
 
 LTTNG_OBJS = $(OBJDIR)/erlang_lttng.o
 
