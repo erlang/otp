@@ -812,7 +812,7 @@ When the socket is in [passive](#option-active) mode,
 data can be received through the [`recv/1,2`](`recv/1`) calls.
 
 When the socket is in [active](#option-active) mode,
-data received data is delivered to the controlling process as messages:
+received data is delivered to the controlling process as messages:
 
 ```erlang
 {sctp, Socket, FromIP, FromPort, {AncData, Data}}
