@@ -55,6 +55,8 @@
          x509_pkix_sign_types/1,
          root_cert/2]).
 
+-compile(nowarn_obsolete_bool_op).
+
 -include("public_key_internal.hrl").
 
 %%====================================================================

@@ -27,6 +27,8 @@
 -module('megaco_text_scanner').
 -moduledoc false.
 
+-compile(nowarn_obsolete_bool_op).
+
 -export([scan/1, skip_sep_chars/2]).
 
 -include_lib("megaco/include/megaco.hrl").

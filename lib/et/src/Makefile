@@ -23,7 +23,7 @@
 #
 include $(ERL_TOP)/make/target.mk
 
-ERL_COMPILE_FLAGS += -W +warn_unused_vars
+ERL_COMPILE_FLAGS += -W +warn_unused_vars +warn_obsolete_bool_op
 
 ifeq ($(TYPE),debug)
 ERL_COMPILE_FLAGS += -Ddebug

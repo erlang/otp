@@ -64,6 +64,8 @@ For details about applications and behaviours, see
 
 -export_type([start_type/0, restart_type/0]).
 
+-compile(nowarn_obsolete_bool_op).
+
 %%%-----------------------------------------------------------------
 
 -doc "The reason for the application to be started on the current node.".

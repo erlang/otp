@@ -23,6 +23,8 @@
 -module(pubkey_crl).
 -moduledoc false.
 
+-compile(nowarn_obsolete_bool_op).
+
 -include("public_key_internal.hrl").
 
 -export([validate/7, init_revokation_state/0, fresh_crl/3, verify_crl_signature/4,

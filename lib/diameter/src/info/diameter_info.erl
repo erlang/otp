@@ -28,6 +28,8 @@
 -module(diameter_info).
 -moduledoc false.
 
+-compile(nowarn_obsolete_bool_op).
+
 -export([usage/1,
          format/1,
          format/2,

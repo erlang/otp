@@ -24,6 +24,8 @@
 -module(mnesia_tm).
 -moduledoc false.
 
+-compile(nowarn_obsolete_bool_op).
+
 -export([
 	 start/0,
 	 init/1,

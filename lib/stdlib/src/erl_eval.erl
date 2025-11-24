@@ -127,6 +127,7 @@ the local function handler argument. A possible use is to call
 to be called.
 """.
 
+-compile(nowarn_obsolete_bool_op).
 -compile(nowarn_deprecated_catch).
 
 %% An evaluator for Erlang abstract syntax.

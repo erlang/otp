@@ -30,6 +30,8 @@
 -module(megaco_messenger_misc).
 -moduledoc false.
 
+-compile(nowarn_obsolete_bool_op).
+
 %% Application internal export
 -export([encode_body/3,
 	 encode_trans_request/2,

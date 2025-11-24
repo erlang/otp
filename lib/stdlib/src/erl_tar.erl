@@ -109,6 +109,8 @@ opens a tar file on a remote machine using an SFTP channel.
          add/3, add/4,
          format_error/1]).
 
+-compile(nowarn_obsolete_bool_op).
+
 -include_lib("kernel/include/file.hrl").
 -include("erl_tar.hrl").
 

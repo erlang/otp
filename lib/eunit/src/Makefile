@@ -53,7 +53,7 @@ EBIN = ../ebin
 INCLUDE=../include
 
 ERL_COMPILE_FLAGS += -pa $(EBIN) -pa ../../stdlib/ebin -I$(INCLUDE) \
-	 +warn_deprecated_catch +warn_unused_import -Werror
+	+warn_deprecated_catch +warn_obsolete_bool_op +warn_unused_import -Werror
 
 PARSE_TRANSFORM = eunit_autoexport.erl
 

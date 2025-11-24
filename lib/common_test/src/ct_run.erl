@@ -33,6 +33,8 @@
 %% Misc internal API functions
 -export([variables_file_name/1,script_start1/2,run_test2/1, run_make/3]).
 
+-compile(nowarn_obsolete_bool_op).
+
 -include("ct.hrl").
 -include("ct_event.hrl").
 -include("ct_util.hrl").

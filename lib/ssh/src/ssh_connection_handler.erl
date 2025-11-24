@@ -31,6 +31,8 @@
 -module(ssh_connection_handler).
 -moduledoc false.
 
+-compile(nowarn_obsolete_bool_op).
+
 -behaviour(gen_statem).
 
 -include("ssh.hrl").

@@ -36,6 +36,8 @@
 -export([error_in_suite/1, init_per_suite/1, end_per_suite/1,
 	 init_per_group/2, end_per_group/2]).
 
+-compile(nowarn_obsolete_bool_op).
+
 -include("ct.hrl").
 -include("ct_event.hrl").
 -include("ct_util.hrl").

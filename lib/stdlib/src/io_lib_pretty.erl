@@ -22,6 +22,8 @@
 -module(io_lib_pretty).
 -moduledoc false.
 
+-compile(nowarn_obsolete_bool_op).
+
 %%% Pretty printing Erlang terms
 %%%
 %%% In this module "print" means the formatted printing while "write"

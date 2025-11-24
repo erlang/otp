@@ -53,7 +53,7 @@ INCLUDE=../include
 
 ERL_COMPILE_FLAGS += -pa $(EBIN) -pa ./ -I$(INCLUDE)
 
-ERL_COMPILE_FLAGS += +warn_deprecated_catch +warn_unused_import -Werror # +warn_missing_spec +warn_untyped_record
+ERL_COMPILE_FLAGS += +warn_deprecated_catch +warn_obsolete_bool_op +warn_unused_import -Werror # +warn_missing_spec +warn_untyped_record
 
 ERL_FILES=erl_syntax.erl erl_prettypr.erl erl_syntax_lib.erl	\
 	erl_comment_scan.erl erl_recomment.erl epp_dodger.erl	\

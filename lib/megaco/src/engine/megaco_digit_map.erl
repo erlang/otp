@@ -70,6 +70,8 @@ but as of 27.0, its also documented.
 """.
 -moduledoc(#{since => "OTP 27.0"}).
 
+-compile(nowarn_obsolete_bool_op).
+
 -export([parse/1, eval/1, eval/2, report/2, test/2]). % Public
 -export([test_eval/2]).                               % Internal
 

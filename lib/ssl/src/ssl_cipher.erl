@@ -29,6 +29,8 @@
 -module(ssl_cipher).
 -moduledoc false.
 
+-compile(nowarn_obsolete_bool_op).
+
 -include("ssl_internal.hrl").
 -include("ssl_record.hrl").
 -include("ssl_cipher.hrl").

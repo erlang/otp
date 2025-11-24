@@ -36,6 +36,8 @@ term in the Test Specification.
 """.
 -moduledoc(#{since => "OTP R14B"}).
 
+-compile(nowarn_obsolete_bool_op).
+
 -export([start/1, start/2, start/3, stop/1, stop/2]).
 
 -export([slave_started/2, slave_ready/2, monitor_master/1]).

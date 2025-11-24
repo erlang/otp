@@ -173,6 +173,8 @@ suite() ->
 	 format_data/2]).
 -export([start_gen_log/1, end_gen_log/0, log/3, log/4]).
 
+-compile(nowarn_obsolete_bool_op).
+
 -define(RECONNS,3).
 -define(RECONN_TIMEOUT,5000).
 -define(DEFAULT_TIMEOUT,10000).

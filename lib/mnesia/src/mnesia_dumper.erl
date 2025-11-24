@@ -57,6 +57,8 @@
 
 -import(mnesia_lib, [fatal/2, dbg_out/2]).
 
+-compile(nowarn_obsolete_bool_op).
+
 -define(REGULATOR_NAME, mnesia_dumper_load_regulator).
 -define(DumpToEtsMultiplier, 4).
 

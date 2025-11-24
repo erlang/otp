@@ -33,6 +33,8 @@ for more details on how to use escripts.
 %% Internal API.
 -export([start/0, start/1, parse_file/1]).
 
+-compile(nowarn_obsolete_bool_op).
+
 %%-----------------------------------------------------------------------
 
 -define(SHEBANG,  "/usr/bin/env escript").

@@ -41,6 +41,8 @@
 -include_lib("stdlib/include/zip.hrl").  % #zip_file, #zip_comment
 -include("zip_internal.hrl").            % #cd_file_header etc
 
+-compile(nowarn_obsolete_bool_op).
+
 %% max bytes read from files and archives (and fed to zlib)
 -define(READ_BLOCK_SIZE, 16*1024).
 

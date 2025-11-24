@@ -28,6 +28,8 @@
 -module(megaco_messenger).
 -moduledoc false.
 
+-compile(nowarn_obsolete_bool_op).
+
 %% Application internal export
 -export([
          process_received_message/4, process_received_message/5,

@@ -25,6 +25,8 @@
 -module(xmerl_xpath_pred).
 -moduledoc false.
 
+-compile(nowarn_obsolete_bool_op).
+
 %% API
 -export([eval/2]).
 

@@ -22,6 +22,7 @@
 -module(ms_transform).
 -moduledoc({file, "../doc/src/ms_transform.md"}).
 
+-compile(nowarn_obsolete_bool_op).
 -compile(nowarn_deprecated_catch).
 
 -export([format_error/1,transform_from_shell/3,

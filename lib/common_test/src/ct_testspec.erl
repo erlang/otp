@@ -35,6 +35,8 @@ This module exports help functions for parsing of test specifications.
 
 -export([testspec_rec2list/1, testspec_rec2list/2]).
 
+-compile(nowarn_obsolete_bool_op).
+
 -include("ct_util.hrl").
 -define(testspec_fields, record_info(fields, testspec)).
 

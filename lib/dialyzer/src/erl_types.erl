@@ -36,6 +36,8 @@
 -module(erl_types).
 -moduledoc false.
 
+-compile(nowarn_obsolete_bool_op).
+
 -export([any_none/1,
 	 any_none_or_unit/1,
 	 lookup_record/3,

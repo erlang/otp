@@ -25,6 +25,8 @@
 -module(http_chunk).
 -moduledoc false.
 
+-compile(nowarn_obsolete_bool_op).
+
 -include("http_internal.hrl").
 
 %% API
