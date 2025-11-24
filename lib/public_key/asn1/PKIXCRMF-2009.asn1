@@ -128,7 +128,8 @@ PKIXCRMF-2009
 
   Controls  ::= SEQUENCE SIZE(1..MAX) OF SingleAttribute
                     {{RegControlSet}}
-		    ProofOfPossession ::= CHOICE {
+
+  ProofOfPossession ::= CHOICE {
       raVerified        [0] NULL,
       -- used if the RA has already verified that the requester is in
       -- possession of the private key
