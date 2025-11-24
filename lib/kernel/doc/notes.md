@@ -23,6 +23,16 @@ limitations under the License.
 
 This document describes the changes made to the Kernel application.
 
+## Kernel 10.4.2
+
+### Fixed Bugs and Malfunctions
+
+- Fixed a race condition when registering the standard error process.
+
+  Own Id: OTP-19832 Aux Id: [PR-10290]
+
+[PR-10290]: https://github.com/erlang/otp/pull/10290
+
 ## Kernel 10.4.1
 
 ### Fixed Bugs and Malfunctions

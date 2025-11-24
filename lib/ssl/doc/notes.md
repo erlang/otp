@@ -23,6 +23,31 @@ limitations under the License.
 
 This document describes the changes made to the SSL application.
 
+## SSL 11.4.2
+
+### Fixed Bugs and Malfunctions
+
+- Graceful error handling added in negative test scenario.
+
+  Own Id: OTP-19813 Aux Id: [PR-10284]
+
+- Handle duplicate change_cipher_spec message with an unexpected message alert instead of failing later in corrupted state.
+
+  Own Id: OTP-19818 Aux Id: [PR-10296]
+
+- Make sure TLS-1.3 protocol spec is followed, that is psk-hello extension is guaranteed to be included as the last extension in the list of client hello extensions and internal hello message truncation in handshake history is handled correctly, the previous handling could cause interoperability issues.
+
+  Own Id: OTP-19825 Aux Id: [PR-10296]
+
+- If two certificate massages are sent to the server generate an unexpected message alert for the second one.
+
+  Own Id: OTP-19830 Aux Id: [PR-10339]
+
+[PR-10284]: https://github.com/erlang/otp/pull/10284
+[PR-10296]: https://github.com/erlang/otp/pull/10296
+[PR-10296]: https://github.com/erlang/otp/pull/10296
+[PR-10339]: https://github.com/erlang/otp/pull/10339
+
 ## SSL 11.4.1
 
 ### Fixed Bugs and Malfunctions
