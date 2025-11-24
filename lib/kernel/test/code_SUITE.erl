@@ -1150,7 +1150,7 @@ mult_lib_roots(Config) when is_list(Config) ->
     Path0 = rpc:call(Node, code, get_path, []),
     %% ?CT_PEER adds extra path to this module folder
     PathToSelf = filename:dirname(code:which(?MODULE)),
-    [PathToSelf, "."|Path1] = Path0,
+    [PathToSelf|Path1] = Path0,
     [Kernel|Path2] = Path1,
     [Stdlib|Path3] = Path2,
     mult_lib_verify_lib(Kernel, "kernel"),
