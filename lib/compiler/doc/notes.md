@@ -23,6 +23,17 @@ limitations under the License.
 
 This document describes the changes made to the Compiler application.
 
+## Compiler 9.0.3
+
+### Fixed Bugs and Malfunctions
+
+- Fixed broken type inference for lists:mapfoldl/r.
+
+  Own Id: OTP-19845 Aux Id: [GH-10354], [PR-10358]
+
+[GH-10354]: https://github.com/erlang/otp/issues/10354
+[PR-10358]: https://github.com/erlang/otp/pull/10358
+
 ## Compiler 9.0.2
 
 ### Fixed Bugs and Malfunctions

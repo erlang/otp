@@ -21,6 +21,16 @@ limitations under the License.
 -->
 # Public_Key Release Notes
 
+## Public_Key 1.19
+
+### Improvements and New Features
+
+- Added support for the Public-Key Infrastructure Certificate Management Protocol (PKICMP) ASN.1 specification.
+
+  Own Id: OTP-19861 Aux Id: [PR-10386]
+
+[PR-10386]: https://github.com/erlang/otp/pull/10386
+
 ## Public_Key 1.18.3
 
 ### Fixed Bugs and Malfunctions
