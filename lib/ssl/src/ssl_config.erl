@@ -27,11 +27,11 @@
 
 -include("ssl_internal.hrl").
 -include("ssl_connection.hrl").
--include_lib("public_key/include/public_key.hrl"). 
+-include_lib("public_key/include/public_key.hrl").
 
 -define(DEFAULT_MAX_SESSION_CACHE, 1000).
 -define(TWO_HOURS, 7200).
--define(SEVEN_DAYS, 604800). 
+-define(SEVEN_DAYS, 604800).
 
 %% Connection parameter configuration
 -export([init/2,
@@ -175,22 +175,25 @@ group_pairs(Pairs) ->
                          dsa => []
                         }).
 
-group_pairs([#{private_key := #'ECPrivateKey'{parameters = {namedCurve, ?'id-Ed25519'}}} = Pair | Rest], 
+group_pairs([#{private_key :=
+                   #'ECPrivateKey'{parameters = {namedCurve, ?'id-Ed25519'}}} = Pair | Rest],
             #{eddsa := EDDSA} = Group) ->
     group_pairs(Rest, Group#{eddsa => [Pair | EDDSA]});
-group_pairs([#{private_key := #'ECPrivateKey'{parameters = {namedCurve, ?'id-Ed448'}}} = Pair | Rest], 
+group_pairs([#{private_key :=
+                   #'ECPrivateKey'{parameters = {namedCurve, ?'id-Ed448'}}} = Pair | Rest],
             #{eddsa := EDDSA} = Group) ->
     group_pairs(Rest, Group#{eddsa => [Pair | EDDSA]});
 group_pairs([#{private_key := #'ECPrivateKey'{}} = Pair | Rest], #{ecdsa := ECDSA} = Group) ->
     group_pairs(Rest, Group#{ecdsa => [Pair | ECDSA]});
-group_pairs([#{private_key := {#'RSAPrivateKey'{}, #'RSASSA-PSS-params'{}}} = Pair | Rest], 
+group_pairs([#{private_key := {#'RSAPrivateKey'{}, #'RSASSA-PSS-params'{}}} = Pair | Rest],
             #{rsa_pss_pss := RSAPSS} = Group) ->
     group_pairs(Rest, Group#{rsa_pss_pss => [Pair | RSAPSS]});
 group_pairs([#{private_key := #'RSAPrivateKey'{}} = Pair | Rest], #{rsa := RSA} = Group) ->
     group_pairs(Rest, Group#{rsa => [Pair | RSA]});
 group_pairs([#{private_key := #'ML-DSAPrivateKey'{}} = Pair | Rest], #{mldsa := MLDSA} = Group) ->
     group_pairs(Rest, Group#{mldsa => [Pair | MLDSA]});
-group_pairs([#{private_key := #'SLH-DSAPrivateKey'{}} = Pair | Rest], #{slhdsa := SLHDSA} = Group) ->
+group_pairs([#{private_key :=
+                   #'SLH-DSAPrivateKey'{}} = Pair | Rest], #{slhdsa := SLHDSA} = Group) ->
     group_pairs(Rest, Group#{slhdsa => [Pair | SLHDSA]});
 group_pairs([#{private_key := #'DSAPrivateKey'{}} = Pair | Rest], #{dsa := DSA} = Group) ->
     group_pairs(Rest, Group#{dsa => [Pair | DSA]});
@@ -337,10 +340,11 @@ private_key(#'PrivateKeyInfo'{privateKeyAlgorithm =
                                                           Algorithm == ?'id-slh-dsa-shake-256f';
                                                           Algorithm == ?'id-slh-dsa-shake-256s' ->
     public_key:der_decode('SLH-DSA-PrivateKey', DerKey);
-private_key(#'PrivateKeyInfo'{privateKeyAlgorithm = 
-                                  #'PrivateKeyInfo_privateKeyAlgorithm'{algorithm = ?'id-ecPublicKey',
-                                                                        parameters =  {asn1_OPENTYPE, Parameters}},
-                              privateKey = Key}) ->
+private_key(#'PrivateKeyInfo'{
+               privateKeyAlgorithm =
+                   #'PrivateKeyInfo_privateKeyAlgorithm'{algorithm = ?'id-ecPublicKey',
+                                                         parameters =  {asn1_OPENTYPE, Parameters}},
+               privateKey = Key}) ->
     ECKey = public_key:der_decode('ECPrivateKey',  iolist_to_binary(Key)),
     ECParameters = public_key:der_decode('EcpkParameters', Parameters),
     ECKey#'ECPrivateKey'{parameters = ECParameters};
@@ -476,7 +480,7 @@ dh_file(DbHandle, DHParamFile) ->
         end
     catch
         _:Reason ->
-            file_error(DHParamFile, {dhfile, Reason}) 
+            file_error(DHParamFile, {dhfile, Reason})
     end.
 
 %%====================================================================
@@ -815,7 +819,8 @@ opt_certs(UserOpts, #{log_level := LogLevel, versions := Versions} = Opts0, Env)
         {old, [CertKey]} ->
             opt_old_certs(UserOpts, CertKey, Opts0, Env);
         {Where, CKs0} when is_list(CKs0) ->
-            warn_override(Where, UserOpts, certs_keys, [cert,certfile,key,keyfile,password], LogLevel),
+            warn_override(Where, UserOpts, certs_keys,
+                          [cert,certfile,key,keyfile,password], LogLevel),
             CKs = lists:foldl(fun(CK0, Acc) ->
                                       CK = check_legacy_cert_key(Versions, CK0, #{}, LogLevel),
                                       case maps:size(CK) =:= 0 of
@@ -839,7 +844,7 @@ opt_old_certs(UserOpts, CertKeys, #{log_level := LogLevel, versions := Versions}
 
 check_legacy_cert_key(Versions, UserOpts, CertKeys0, LogLevel) ->
     CertKeys1 = handle_legacy_cert_opt(UserOpts, CertKeys0, LogLevel),
-    CertKeys = handle_legacy_key_opt(Versions, UserOpts, CertKeys1), 
+    CertKeys = handle_legacy_key_opt(Versions, UserOpts, CertKeys1),
     handle_possible_legacy_key_password(UserOpts, CertKeys).
 
 handle_legacy_cert_opt(UserOpts, CertKeys, LogLevel) ->
@@ -1136,7 +1141,7 @@ valid_signature_algs(AlgCertSchemes0, #{versions := Versions} = Opts, UserOpts, 
         {old, Algs} ->
             {Algs, AlgCertSchemes0}
     end.
-    
+
 opt_signature_algs_not_valid(UserOpts, #{versions := Versions} = Opts0) ->
     Opts =
         case get_opt_list(signature_algs, undefined, UserOpts, Opts0) of
@@ -1167,7 +1172,8 @@ opt_alpn(UserOpts, #{versions := Versions} = Opts, #{role := server}) ->
 
     {Where, NPA} = get_opt_list(next_protocols_advertised, undefined, UserOpts, Opts),
     validate_protocols(is_list(NPA), next_protocols_advertised, NPA),
-    assert_version_dep(is_list(NPA), next_protocols_advertised, Versions, ['tlsv1','tlsv1.1','tlsv1.2']),
+    assert_version_dep(is_list(NPA), next_protocols_advertised, Versions,
+                       ['tlsv1','tlsv1.1','tlsv1.2']),
 
     assert_client_only(alpn_advertised_protocols, UserOpts),
     assert_client_only(client_preferred_next_protocols, UserOpts),
@@ -1203,10 +1209,11 @@ make_next_protocol_selector({Precedence, PrefProtcol} = V) ->
     make_next_protocol_selector({Precedence, PrefProtcol, ?NO_PROTOCOL});
 make_next_protocol_selector({Precedence, AllProtocols, DefP} = V) ->
     option_error(not is_list(AllProtocols), client_preferred_next_protocols, V),
-    option_error(not (is_binary(DefP) andalso byte_size(DefP) < 256), client_preferred_next_protocols, V),
+    option_error(not (is_binary(DefP) andalso byte_size(DefP) < 256),
+                 client_preferred_next_protocols, V),
     validate_protocols(true, client_preferred_next_protocols, AllProtocols),
     case Precedence of
-        client ->                 
+        client ->
             fun(Advertised) ->
                     Search = fun(P) -> lists:member(P, Advertised) end,
                     case lists:search(Search, AllProtocols) of
@@ -1398,7 +1405,7 @@ handle_user_lookup(UserOpts, #{versions := Versions} = Opts) ->
         {_, Lookup} ->
             Lookup
     end.
-    
+
 
 opt_supported_groups(UserOpts, #{versions := TlsVsns} = Opts, Env) ->
     SG = case get_opt_list(supported_groups,  undefined, UserOpts, Opts) of
@@ -1421,7 +1428,7 @@ opt_supported_groups(UserOpts, #{versions := TlsVsns} = Opts, Env) ->
                {old, CPS0} -> CPS0;
                {_, CPS0} -> handle_cipher_option(CPS0, TlsVsns)
            end,
-  
+
     ECCS =  try assert_version_dep(eccs, TlsVsns, ['tlsv1.2', 'tlsv1.1', 'tlsv1']) of
                 _ ->
                     case get_opt_list(eccs, undefined, UserOpts, Opts) of
@@ -1468,10 +1475,29 @@ opt_crl(UserOpts, Opts, _Env) ->
 opt_handshake(UserOpts, Opts, _Env) ->
     {_, HS} = get_opt_of(handshake, [hello, full], full, UserOpts, Opts),
 
-    {_, MHSS} = get_opt_int(max_handshake_size, 1, ?MAX_UNIT24, ?DEFAULT_MAX_HANDSHAKE_SIZE,
+    DefaultMaxHS = default_max_hs(Opts),
+
+    {_, MHSS} = get_opt_int(max_handshake_size, 1, ?MAX_UNIT24 , DefaultMaxHS,
                             UserOpts, Opts),
 
     Opts#{handshake => HS, max_handshake_size => MHSS}.
+
+default_max_hs(#{signature_algs:= undefined}) ->
+    ?DEFAULT_MAX_EARLY_DATA_SIZE;
+default_max_hs(#{signature_algs:= Algs}) ->
+    %%% In OTP-26 max handshake_size was lowered by half for most
+    %%% handshakes would fit that size and OpenSSL had a lower default
+    Set = sets:intersection(sets:from_list(Algs, [{version, 2}]),
+                            sets:from_list(tls_v1:slh_dsa_schemes(),
+                                           [{version, 2}])),
+    case sets:is_empty(Set) of
+        true ->
+            ?DEFAULT_MAX_HANDSHAKE_SIZE;
+        false ->
+            %% SLH_DSA creates fairly big handshake sizes so raise limit back
+            %% if these algorithms are supported,
+            ?DEFAULT_MAX_HANDSHAKE_SIZE * 2
+    end.
 
 opt_use_srtp(UserOpts, #{protocol := Protocol} = Opts, _Env) ->
     UseSRTP = case get_opt_map(use_srtp, undefined, UserOpts, Opts) of
@@ -1788,7 +1814,8 @@ validate_server_cert_opts(#{handshake := hello}, _) ->
     %% This verification should be done only when handshake := full, as options
     %% to fulfill the requirement can be supplied at that time.
     ok;
-validate_server_cert_opts(#{certs_keys := [_|_]=CertsKeys, ciphers := CPHS, versions := Versions}, _) ->
+validate_server_cert_opts(#{certs_keys := [_|_]=CertsKeys,
+                            ciphers := CPHS, versions := Versions}, _) ->
     validate_certs_or_anon_ciphers(CertsKeys, CPHS, Versions);
 validate_server_cert_opts(#{ciphers := CPHS, versions := Versions}, _) ->
     validate_anon_ciphers(CPHS, Versions).
@@ -1872,7 +1899,7 @@ binary_cipher_suites([?TLS_1_3], []) ->
     %% not require explicit configuration TLS-1.3
     %% only mode.
     default_binary_suites(exclusive, ?TLS_1_3);
-binary_cipher_suites([Version| _], []) -> 
+binary_cipher_suites([Version| _], []) ->
     %% Defaults to all supported suites that does
     %% not require explicit configuration
     default_binary_suites(default, Version);
@@ -1928,9 +1955,9 @@ tuple_to_map({Kex, Cipher, Mac, Prf}) ->
       prf => Prf}.
 
 %% Backwards compatible
-tuple_to_map_mac(aes_128_gcm, _) -> 
+tuple_to_map_mac(aes_128_gcm, _) ->
     aead;
-tuple_to_map_mac(aes_256_gcm, _) -> 
+tuple_to_map_mac(aes_256_gcm, _) ->
     aead;
 tuple_to_map_mac(chacha20_poly1305, _) ->
     aead;
@@ -1974,20 +2001,20 @@ unambiguous_path(Value) ->
     validate_filename(UP, cacertfile).
 
 %% Assert that basic options are on the format {Key, Value}
-%% with a few exceptions and phase out log_alert 
+%% with a few exceptions and phase out log_alert
 handle_option_format([], Acc) ->
     lists:reverse(Acc);
 handle_option_format([{log_alert, Bool} | Rest], Acc) when is_boolean(Bool) ->
     case proplists:get_value(log_level, Acc ++ Rest, undefined) of
         undefined ->
-            handle_option_format(Rest, [{log_level, 
+            handle_option_format(Rest, [{log_level,
                                          map_log_level(Bool)} | Acc]);
         _ ->
             handle_option_format(Rest, Acc)
     end;
 handle_option_format([{Key,_} = Opt | Rest], Acc) when is_atom(Key) ->
     handle_option_format(Rest, [Opt | Acc]);
-%% Handle exceptions 
+%% Handle exceptions
 handle_option_format([{raw,_,_,_} = Opt | Rest], Acc) ->
     handle_option_format(Rest,  [Opt | Acc]);
 handle_option_format([inet = Opt | Rest], Acc) ->
@@ -2074,11 +2101,11 @@ connection_cb(tls) ->
 connection_cb(dtls) ->
     dtls_gen_connection.
 
-handle_possible_version_change([Version|_], [Version|_] = VersionOpt, OrigSSLOpts, _) ->   
+handle_possible_version_change([Version|_], [Version|_] = VersionOpt, OrigSSLOpts, _) ->
     filter_for_versions(VersionOpt, OrigSSLOpts);
 handle_possible_version_change(_, [], OrigSSLOpts, _) ->
     OrigSSLOpts;
-handle_possible_version_change(_, VersionsOpt, #{ciphers := Suites} = OrigSSLOpts, Record) ->   
+handle_possible_version_change(_, VersionsOpt, #{ciphers := Suites} = OrigSSLOpts, Record) ->
     FallbackSuites = ciphers_for_version(VersionsOpt, Suites, Record),
     filter_for_versions(VersionsOpt, OrigSSLOpts#{ciphers => FallbackSuites}).
 
@@ -2167,7 +2194,7 @@ validate_cert_keys_pems(#{certs_keys := CertKeys}, PemCacheName) ->
                         case handle_key_file(CertKey, PemCacheName) of
                             ok ->
                                 true;
-                            {error, Reason} ->                                
+                            {error, Reason} ->
                                 #{keyfile := KeyFile} = CertKey,
                                 option_error(keyfile, {binary_to_list(KeyFile), Reason})
                         end
@@ -2177,7 +2204,7 @@ validate_cert_keys_pems(#{certs_keys := CertKeys}, PemCacheName) ->
 validate_cert_keys_pems(_, _) ->
     %% Needs validation when called from listen, to
     %% provide early failure.
-    true. 
+    true.
 
 validate_cacerts_pem(#{cacertfile := Cacertfile}, PemCacheName) ->
     case do_handle_cert_file(Cacertfile, PemCacheName) of
@@ -2195,7 +2222,7 @@ validate_dh_pem(#{dhfile := DHFile}, PemCacheName) ->
             true;
         {error, Reason} ->
             option_error(dhfile, Reason)
-    end;       
+    end;
 validate_dh_pem(_, _) ->
     true.
 
@@ -2207,7 +2234,7 @@ handle_cert_file(_,_) ->
 
 do_handle_cert_file(File, PemCacheName) ->
     case file:read_file(File) of
-        {ok, Pem} ->         
+        {ok, Pem} ->
             Entries = public_key:pem_decode(Pem),
             case lists:keyfind('Certificate', 1, Entries) of
                 false ->

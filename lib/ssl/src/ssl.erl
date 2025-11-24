@@ -660,13 +660,13 @@ Options common to both client and server side.
 
   The `keep_secrets` functionality is disabled (`false`) by default.
   If set to legacy value `true` keylog information can be retrieved from the connection
-  using connection_information/2. 
+  using connection_information/2.
 
   Added in OTP 23.2.
 
   > #### Note {: .info }
   > Note that having to ask the connection has some drawbacks
-  > as for instance you can not get keylog information for 
+  > as for instance you can not get keylog information for
   > failed connections, and other keylog items have
   > to be retrieved in a polling manner and are not correctly
   > formatted for key_updates.
@@ -692,7 +692,8 @@ Options common to both client and server side.
   Used to limit the size of valid TLS handshake packets to avoid DoS
   attacks.
 
-  Integer (24 bits, unsigned). Defaults to `256*1024`.
+  Integer (24 bits, unsigned). Defaults to `256*1024` before OTP-26 or if SLH-DSA algorithms
+  are configured, otherwise the default is `256*1024`/2.
 
 - **`{hibernate_after, HibernateTimeout}`** - Hibernate inactive connection processes.
 
@@ -723,9 +724,10 @@ Options common to both client and server side.
                                 {ciphers, cipher_suites()} |
                                 {signature_algs, signature_algs()} |
                                 {signature_algs_cert, [sign_scheme()]} |
-                                {keep_secrets, KeepSecrets:: boolean() |
-                                                             {keylog_hs, fun((Info::keylog_info()) -> any())} |
-                                                             {keylog, fun((Info::keylog_info()) -> any())}} |
+                                {keep_secrets,
+                                 KeepSecrets:: boolean() |
+                                               {keylog_hs, fun((Info::keylog_info()) -> any())} |
+                                               {keylog, fun((Info::keylog_info()) -> any())}} |
                                 {max_handshake_size, HandshakeSize::pos_integer()} |
                                 {versions, [protocol_version()]} |
                                 {log_level, Level::logger:level() | none | all} |
@@ -734,7 +736,7 @@ Options common to both client and server side.
                                 {sender_spawn_opts, SpawnOpts::[erlang:spawn_opt_option()]}.
 
 
--doc(#{group => 
+-doc(#{group =>
            <<"Client and Server Options">>}).
 -doc """
 Common certificate related options to both client and server.
