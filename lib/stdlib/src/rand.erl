@@ -2056,11 +2056,6 @@ mk_alg(exro928ss) ->
        uniform_n=>fun exro928ss_uniform/2,
        jump=>fun exro928_jump/1},
      fun exro928_seed/1};
-mk_alg(mwc59) ->
-    {#{type=>mwc59, bits=>58, next=>fun mwc59_plugin_next/1,
-       uniform=>fun mwc59_plugin_uniform/1,
-       uniform_n=>fun mwc59_plugin_uniform/2},
-     fun mwc59_plugin_seed/1};
 mk_alg(dummy=Name) ->
     {#{type=>Name, bits=>58, next=>fun dummy_next/1,
        uniform=>fun dummy_uniform/1,
@@ -2991,15 +2986,10 @@ is 60% of the time for the default algorithm generating a `t:float/0`.
 """.
 -doc(#{group => <<"Niche algorithms API">>,since => <<"OTP 25.0">>}).
 -spec mwc59(CX0 :: mwc59_state()) -> CX1 :: mwc59_state().
--define(
-   mwc59(CX, C, X),
-   begin
-       C = (CX) bsr ?MWC59_B,
-       X = ?MASK(?MWC59_B, (CX)),
-       ?MWC59_A * X + C
-   end).
 mwc59(CX) when is_integer(CX), 1 =< CX, CX < ?MWC59_P ->
-    ?mwc59(CX, C, X).
+    C = CX bsr ?MWC59_B,
+    X = ?MASK(?MWC59_B, CX),
+    ?MWC59_A * X + C.
 
 %%% %% Verification by equivalent MCG generator
 %%% mwc59_r(CX1) ->
@@ -3099,10 +3089,10 @@ adding up to 59 bits, which is not a bignum (on a 64-bit VM ):
 -doc(#{group => <<"Niche algorithms API">>,since => <<"OTP 25.0">>}).
 -spec mwc59_value(CX :: mwc59_state()) -> V :: 0..?MASK(59).
 -define(
-   mwc59_value(CX0, Tmp),
+   mwc59_value(CX0, CX1),
    begin
-       Tmp = (CX0) bxor ?BSL(59, (CX0), ?MWC59_XS1),
-       Tmp bxor ?BSL(59, Tmp, ?MWC59_XS2)
+       CX1 = (CX0) bxor ?BSL(59, (CX0), ?MWC59_XS1),
+       CX1 bxor ?BSL(59, CX1, ?MWC59_XS2)
    end).
 mwc59_value(CX0) when is_integer(CX0), 1 =< CX0, CX0 < ?MWC59_P ->
     ?mwc59_value(CX0, CX1).
@@ -3151,8 +3141,11 @@ just like [`seed_s(atom())`](`seed_s/1`).
 -doc(#{group => <<"Niche algorithms API">>,since => <<"OTP 25.0">>}).
 -spec mwc59_seed() -> CX :: mwc59_state().
 mwc59_seed() ->
-    mwc59_plugin_seed(default_seed()).
-
+    {A1, A2, A3} = default_seed(),
+    X1 = hash58(A1),
+    X2 = hash58(A2),
+    X3 = hash58(A3),
+    (X1 bxor X2 bxor X3) + 1.
 
 -doc """
 Create a [MWC59 generator state](`t:mwc59_state/0`).
@@ -3177,57 +3170,6 @@ to avoid that similar seeds create similar sequences.
 mwc59_seed(S) when is_integer(S), 0 =< S, S =< ?MASK(58) ->
     hash58(S) + 1.
 
-
-%% -------
-
-mwc59_plugin_seed([]) ->
-    erlang:error(zero_seed);
-mwc59_plugin_seed([S]) ->
-    if
-        is_integer(S) ->
-            case ?MASK(59, S) of
-                0 ->
-                    erlang:error(zero_seed);
-                R ->
-                    R
-            end;
-        true ->
-            erlang:error(non_integer_seed)
-    end;
-mwc59_plugin_seed([_ | _]) ->
-    erlang:error(too_many_seed_integers);
-%%
-mwc59_plugin_seed(S) when is_integer(S) ->
-    hash58(S) + 1;
-%%
-mwc59_plugin_seed({A1, A2, A3}) ->
-    X1 = hash58(A1),
-    X2 = hash58(A2),
-    X3 = hash58(A3),
-    (X1 bxor X2 bxor X3) + 1.
-
-mwc59_plugin_next(CX0)
-  when is_integer(CX0), 1 =< CX0, CX0 < ?MWC59_P ->
-    CX1 = ?mwc59(CX0, C, X),
-    V = ?MASK(58, ?mwc59_value(CX1, Tmp)),
-    {V, CX1}.
-
-mwc59_plugin_uniform({AlgHandler, CX0})
-  when is_integer(CX0), 1 =< CX0, CX0 < ?MWC59_P ->
-    CX1 = ?mwc59(CX0, C, X),
-    V = ?MASK(53, ?mwc59_value(CX1, Tmp)) * ?TWO_POW_MINUS53,
-    {V, {AlgHandler, CX1}}.
-
-mwc59_plugin_uniform(Range, {AlgHandler, CX0})
-  when is_integer(Range), 0 < Range,
-       is_integer(CX0), 1 =< CX0, CX0 < ?MWC59_P ->
-    CX1 = ?mwc59(CX0, C, X),
-    V = ?MASK(58, ?mwc59_value(CX1, Tmp)),
-    MaxMinusRange = ?BIT(58) - Range,
-    ?uniform_range(Range, AlgHandler, CX1, V, MaxMinusRange, I).
-
-%% -------
-
 %% Constants a'la SplitMix64, MurMurHash, etc.
 %% Not that critical, just mix the bits using bijections
 %% (reversible mappings) to not have any two user input seeds
@@ -3238,6 +3180,7 @@ hash58(X) ->
     X1 = ?MASK(58, (X0 bxor (X0 bsr 29)) * 16#351afd7ed558ccd),
     X2 = ?MASK(58, (X1 bxor (X1 bsr 29)) * 16#0ceb9fe1a85ec53),
     X2 bxor (X2 bsr 29).
+
 
 %% =====================================================================
 %% Mask and fill state list, ensure not all zeros

@@ -112,7 +112,7 @@ test() ->
       end, Tests).
 
 algs() ->
-    [exsss, exrop, exsp, mwc59, exs1024s, exs64, exsplus, exs1024, exro928ss].
+    [exsss, exrop, exsp, exs1024s, exs64, exsplus, exs1024, exro928ss].
 
 crypto_support() ->
     try crypto:strong_rand_bytes(1) of
@@ -538,7 +538,7 @@ measure_shuffle(Config) when is_list(Config) ->
     end;
 measure_shuffle(Effort) when is_integer(Effort) ->
     Algs =
-        [exsss, mwc59, exs1024 |
+        [exsss, exs1024 |
          case crypto_support() of
              ok -> [crypto];
              _  -> []
