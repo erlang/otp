@@ -319,17 +319,16 @@ render_callback(_Config) ->
     ok.
 
 render_man(_Config) ->
-    Old_ERL_TOP = os:getenv("ERL_TOP"),
-    case Old_ERL_TOP of
-        false -> os:putenv("ERL_TOP", code:root_dir());
-        _ -> ok
-    end,
     docsmap(
         fun(Mod, #docs_v1{metadata = Metadata} = D) ->
             try
                 Path1 = case Metadata of
                     #{source_path := Path} -> Path;
-                    #{} -> proplists:get_value(source, proplists:get_value(compile, Mod:module_info()))
+                    #{} -> try
+                            proplists:get_value(source, proplists:get_value(compile, Mod:module_info()))
+                        catch _:_ ->
+                            throw({error, no_path_to_source})
+                        end
                 end,
                 man_docs:module_to_manpage(Mod, Path1, D, "3")
             catch _E:R:ST ->
@@ -338,10 +337,6 @@ render_man(_Config) ->
                 exit(R)
             end
         end),
-    case Old_ERL_TOP of
-        false -> os:unsetenv("ERL_TOP");
-        _ -> os:putenv("ERL_TOP", Old_ERL_TOP)
-    end,
     ok.
 
 docsmap(Fun) ->
@@ -365,9 +360,11 @@ docsmap(Fun) ->
                 try
                   _ = Fun(Mod, Docs),
                   {ok, self(), Mod}
-                catch E:R:ST ->
-                    io:format("Failed to render ~p~n~p:~p:~p~n",[Mod,E,R,ST]),
-                    erlang:raise(E,R,ST)
+                catch throw:{error, no_path_to_source} ->
+                        ok;
+                    E:R:ST ->
+                        io:format("Failed to render ~p~n~p:~p:~p~n",[Mod,E,R,ST]),
+                        erlang:raise(E,R,ST)
                 end
             end
       end,
