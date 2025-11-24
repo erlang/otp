@@ -797,8 +797,8 @@ gen_gc(Fd, GBP) ->
                  "        _ -> %% Keep the tail binary.\n"
                  "            case cp_no_bin(T1) of\n"
                  "                [CP2|_]=T3 when ?IS_LATIN1(CP2) -> [CP1|T3]; %% Asciii Fast path\n"
-                 "                binary_found -> gc_1(T);\n"
-                 "                T4 -> gc_1([CP1|T4])\n"
+                 "                binary_found -> gc_1(T1, CP1);\n"
+                 "                T4 -> gc_1(T4, CP1)\n"
                  "            end\n"
                  "    end;\n"
                  "gc(<<>>) -> [];\n"
@@ -807,11 +807,11 @@ gen_gc(Fd, GBP) ->
                  "           case Rest of\n"
                  "               <<CP2/utf8, _/binary>> when CP2 < 256 -> %% Ascii Fast path\n"
                  "                   [CP1|Rest];\n"
-                 "               _ -> gc_1([CP1|Rest])\n"
+                 "               _ -> gc_1(Rest, CP1)\n"
                  "           end;\n"
-                 "      true -> gc_1([CP1|Rest])\n"
+                 "      true -> gc_1(Rest, CP1)\n"
                  "    end;\n"
-                 "gc([CP|_]=T) when ?IS_CP(CP) -> gc_1(T);\n"
+                 "gc([CP|T]) when ?IS_CP(CP) -> gc_1(T,CP);\n"
                  "gc(Str) ->\n"
                  "    case cp(Str) of\n"
                  "        {error,_}=Error -> Error;\n"
@@ -819,58 +819,60 @@ gen_gc(Fd, GBP) ->
                  "    end.\n"
                 ),
 
-    GenExtP = fun(Range) -> io:format(Fd, "gc_1~s gc_ext_pict(R1,[CP]);\n", [gen_clause(Range)]) end,
-    ExtendedPictographic0 = merge_ranges(maps:get(extended_pictographic,GBP)),
-    %% Pick codepoints below 256 (some data knowledge here)
-    {ExtendedPictographicLow,_ExtendedPictographicHigh} =
-        lists:splitwith(fun({Start,undefined}) -> Start < 256 end,ExtendedPictographic0),
     io:put_chars(Fd,
-                 "\ngc_1([$\\r|R0] = R) ->\n"
-                 "    case cp(R0) of % Don't break CRLF\n"
-                 "        [$\\n|R1] -> [[$\\r,$\\n]|R1];\n"
-                 "        _ -> R\n"
-                 "    end;\n"),
-    io:put_chars(Fd, "\n%% Handle control\n"),
-    GenControl = fun(Range) -> io:format(Fd, "gc_1~s R0;\n", [gen_clause(Range)]) end,
+                 """
+
+                 %% gc_1
+                 gc_1(R0, $\r) ->
+                      case cp(R0) of % Don't break CRLF
+                          [$\n|R1] -> [[$\r,$\n]|R1];
+                          _ -> [$\r|R0]
+                      end;
+                 %% Handle control
+
+                 """),
+    GenControl = fun(Range) -> io:format(Fd, "gc_1~s [CP|R0];\n", [gen_clause(Range)]) end,
     CRs0 = merge_ranges(maps:get(cr, GBP) ++ maps:get(lf, GBP) ++ maps:get(control, GBP), false),
     [R1,R2,R3|Crs] = CRs0,
     [GenControl(CP) || CP <- merge_ranges([R1,R2,R3], split), CP =/= {$\r, undefined}],
     %%GenControl(R1),GenControl(R2),GenControl(R3),
     io:put_chars(Fd, "\n%% Optimize Latin-1\n"),
+    GenExtP = fun(Range) -> io:format(Fd, "gc_1~s gc_ext_pict(R0,[CP]);\n", [gen_clause(Range)]) end,
+    ExtendedPictographic0 = merge_ranges(maps:get(extended_pictographic,GBP)),
+    %% Pick codepoints below 256 (some data knowledge here)
+    {ExtendedPictographicLow,_ExtendedPictographicHigh} =
+        lists:splitwith(fun({Start,undefined}) -> Start < 256 end,ExtendedPictographic0),
     [GenExtP(CP) || CP <- merge_ranges(ExtendedPictographicLow)],
 
     io:put_chars(Fd,
-                 "gc_1([CP|R]=R0) when ?IS_LATIN1(CP) ->\n"
-                 "    case R of\n"
-                 "        [CP2|_] when ?IS_LATIN1(CP2) -> R0;\n"
-                 "        _ -> gc_extend(cp(R), R, CP)\n"
+                 "gc_1(R0,CP) when ?IS_LATIN1(CP) ->\n"
+                 "    case R0 of\n"
+                 "        [CP2|_] when ?IS_LATIN1(CP2) -> [CP|R0];\n"
+                 "        _ -> gc_extend(cp(R0), R0, CP)\n"
                  "    end;\n"
-                 "gc_1([CP|_]) when not ?IS_CP(CP) ->\n"
+                 "gc_1(_, CP) when not ?IS_CP(CP) ->\n"
                  "    error({badarg,CP});\n"),
     io:put_chars(Fd, "\n%% Continue control\n"),
     [GenControl(CP) || CP <- merge_ranges(Crs)],
-    %% One clause per CP
-    %% CRs0 = merge_ranges(maps:get(cr, GBP) ++ maps:get(lf, GBP) ++ maps:get(control, GBP)),
-    %% [GenControl(CP) || CP <- CRs0, CP =/= {$\r, undefined}],
 
     io:put_chars(Fd, "\n%% Handle prepend\n"),
-    GenPrepend = fun(Range) -> io:format(Fd, "gc_1~s gc_prepend(R1, CP);\n", [gen_clause(Range)]) end,
+    GenPrepend = fun(Range) -> io:format(Fd, "gc_1~s gc_prepend(R0, CP);\n", [gen_clause(Range)]) end,
     [GenPrepend(CP) || CP <- merge_ranges(maps:get(prepend,GBP))],
 
     io:put_chars(Fd, "\n%% Handle Hangul L\n"),
-    GenHangulL = fun(Range) -> io:format(Fd, "gc_1~s gc_h_L(R1,[CP]);\n", [gen_clause(Range)]) end,
+    GenHangulL = fun(Range) -> io:format(Fd, "gc_1~s gc_h_L(R0,[CP]);\n", [gen_clause(Range)]) end,
     [GenHangulL(CP) || CP <- merge_ranges(maps:get(l,GBP))],
     io:put_chars(Fd, "%% Handle Hangul V\n"),
-    GenHangulV = fun(Range) -> io:format(Fd, "gc_1~s gc_h_V(R1,[CP]);\n", [gen_clause(Range)]) end,
+    GenHangulV = fun(Range) -> io:format(Fd, "gc_1~s gc_h_V(R0,[CP]);\n", [gen_clause(Range)]) end,
     [GenHangulV(CP) || CP <- merge_ranges(maps:get(v,GBP))],
     io:put_chars(Fd, "%% Handle Hangul T\n"),
-    GenHangulT = fun(Range) -> io:format(Fd, "gc_1~s gc_h_T(R1,[CP]);\n", [gen_clause(Range)]) end,
+    GenHangulT = fun(Range) -> io:format(Fd, "gc_1~s gc_h_T(R0,[CP]);\n", [gen_clause(Range)]) end,
     [GenHangulT(CP) || CP <- merge_ranges(maps:get(t,GBP))],
     io:put_chars(Fd, "%% Handle Hangul LV and LVT special, since they are large\n"),
-    io:put_chars(Fd, "gc_1([CP|_]=R0) when is_integer(CP, 44000, 56000) -> gc_h_lv_lvt(R0, R0, []);\n"),
+    io:put_chars(Fd, "gc_1(R0,CP) when is_integer(CP, 44000, 56000) -> R=[CP|R0], gc_h_lv_lvt(R, R, []);\n"),
 
     io:put_chars(Fd, "\n%% Handle Regional\n"),
-    GenRegional = fun(Range) -> io:format(Fd, "gc_1~s gc_regional(R1,CP);\n", [gen_clause(Range)]) end,
+    GenRegional = fun(Range) -> io:format(Fd, "gc_1~s gc_regional(R0,CP);\n", [gen_clause(Range)]) end,
     [GenRegional(CP) || CP <- merge_ranges(maps:get(regional_indicator,GBP))],
     %% io:put_chars(Fd, "%% Handle E_Base\n"),
     %% GenEBase = fun(Range) -> io:format(Fd, "gc_1~s gc_e_cont(R1,[CP]);\n", [gen_clause(Range)]) end,
@@ -884,7 +886,7 @@ gen_gc(Fd, GBP) ->
 
     io:put_chars(Fd, "\n%% default clauses\n"),
     io:put_chars(Fd, """
- gc_1([CP|R]) ->
+ gc_1(R,CP) ->
      case is_ext_pict(CP) of
          true -> gc_ext_pict(R, [CP]);
          false ->
@@ -901,11 +903,11 @@ gen_gc(Fd, GBP) ->
     io:put_chars(Fd,
                  "gc_prepend(R00, CP0) ->\n"
                  "    case cp(R00) of\n"
-                 "      [CP1|_] = R0 ->\n"
+                 "      [CP1|R0] ->\n"
                  "          case is_control(CP1) of\n"
                  "            true -> [CP0|R00];\n"
                  "            false ->\n"
-                 "                case gc_1(R0) of\n"
+                 "                case gc_1(R0, CP1) of\n"
                  "                    [GC|R1] when is_integer(GC) -> [[CP0,GC]|R1];\n"
                  "                    [GC|R1] -> [[CP0|GC]|R1]\n"
                  "                end\n"
@@ -1386,9 +1388,9 @@ gen_width_table(Fd, WideChars) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 gen_clause({R0, undefined}) ->
-    io_lib:format("([~w=CP|R1]=R0) ->", [R0]);
+    io_lib:format("(R0, ~w=CP) ->", [R0]);
 gen_clause({R0, R1}) ->
-    io_lib:format("([CP|R1]=R0) when is_integer(CP, ~w, ~w) ->", [R0,R1]).
+    io_lib:format("(R0, CP) when is_integer(CP, ~w, ~w) ->", [R0,R1]).
 
 gen_clause2({R0, undefined}) ->
     io_lib:format("([~w=CP|R1], R0, Acc) ->", [R0]);
