@@ -143,6 +143,7 @@ ci(Opts) ->
                       "lib/compiler/test/beam_ssa_check_SUITE_data/phis.erl",
                       "lib/compiler/test/beam_ssa_check_SUITE_data/ss_depth_limit.erl",
                       "lib/compiler/test/compile_SUITE_data/small.erl",
+                      "lib/crypto/test/crypto_SUITE_data/gcmsivtestvectors.zip",
                       "lib/dialyzer/test/behaviour_SUITE_data/results/gen_server_incorrect_args",
                       "lib/dialyzer/test/indent_SUITE_data/results/dict_use",
                       "lib/dialyzer/test/indent_SUITE_data/results/map_galore",
