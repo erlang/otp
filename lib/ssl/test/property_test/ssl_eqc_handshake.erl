@@ -720,7 +720,7 @@ elliptic_curves(Version) when ?TLS_LT(Version, ?TLS_1_3) ->
 
 %% RFC 8446 (TLS 1.3) renamed the "elliptic_curve" extension.
 supported_groups(Version) when ?TLS_GTE(Version, ?TLS_1_3) ->
-    SupportedGroups = tls_v1:groups(),
+    SupportedGroups = tls_v1:groups(),   
     #supported_groups{supported_groups = SupportedGroups}.
 
 
@@ -798,7 +798,12 @@ generate_public_key(Group)
     #'ECPrivateKey'{publicKey = PublicKey} =
         public_key:generate_key({namedCurve, group_to_curve(Group)}),
     PublicKey;
-
+generate_public_key(Group) when
+       Group =:= mlkem512 orelse
+       Group =:= mlkem768 orelse
+       Group =:= mlkem1024 ->
+    {PublicKey, _} = crypto:generate_key(Group, []),
+    PublicKey;
 generate_public_key(Group) ->
     {PublicKey, _} =
         public_key:generate_key(ssl_dh_groups:dh_params(Group)),
