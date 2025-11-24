@@ -131,6 +131,7 @@
          use_all_ec_sign_verify/1,
          use_all_ecdh_generate_compute/1,
          use_all_eddh_generate_compute/1,
+         ecdh_generate_explicit_curve/1,
          pbkdf2_hmac/0,
          pbkdf2_hmac/1,
          pbkdf2_hmac_invalid_input/0,
@@ -432,7 +433,8 @@ groups() ->
                                  generate
                                 ]},
      {dh,                   [], [generate_compute, compute_bug]},
-     {ecdh,                 [], [compute, generate, use_all_ecdh_generate_compute]},
+     {ecdh,                 [], [compute, generate, use_all_ecdh_generate_compute,
+                                 ecdh_generate_explicit_curve]},
      {eddh,                 [], [compute, generate, use_all_eddh_generate_compute]},
      {srp,                  [], [generate_compute]},
      {des_cbc,              [], [api_ng, api_ng_one_shot, cmac, cmac_update]},
@@ -1381,6 +1383,23 @@ use_all_ec_sign_verify(_Config) ->
                   ), 
             ct:fail("Bad curve(s)",[])
     end.
+
+%%--------------------------------------------------------------------
+ecdh_generate_explicit_curve(_Config) ->
+    {Generator, _} = crypto:generate_key(ecdh, secp256k1, 2),
+
+    %% use the secp256k1 curve parameter, but move the generator to 2*G
+    Curve = {{prime_field,
+              <<255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,254,255,255,252,47>>},
+             {<<0>>,<<7>>,none},
+             Generator,
+             <<255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,254,186,174,220,230,175,72,160,59,191,210,94,140,208,54,65,65>>,
+             <<1>>},
+
+    {Generator, <<1:256>>} = crypto:generate_key(ecdh, Curve, 1),
+    {Point2, _} = crypto:generate_key(ecdh, secp256k1, 4),
+    {Point2, <<2:256>>} = crypto:generate_key(ecdh, Curve, 2),
+    ok.
 
 %%--------------------------------------------------------------------
 use_all_ecdh_generate_compute(Config) ->
