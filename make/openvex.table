@@ -174,15 +174,6 @@
       }
     },
     {
-      "pkg:otp/ssh@5.1": "CVE-2023-48795",
-      "status": {
-        "affected": "Mitigation: If strict KEX availability cannot be ensured on both connection sides, affected encryption modes(CHACHA and CBC) can be disabled with standard ssh configuration. This will provide protection against vulnerability, but at a cost of affecting interoperability",
-        "fixed": [
-          "pkg:otp/ssh@5.1.1"
-        ]
-      }
-    },
-    {
       "pkg:otp/ssh@5.0": "CVE-2025-26618",
       "status": {
         "affected": "Update to the next version",
