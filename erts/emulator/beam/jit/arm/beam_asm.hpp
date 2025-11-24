@@ -69,6 +69,8 @@ struct BeamAssembler : public BeamAssemblerCommon {
     BeamAssembler() : BeamAssemblerCommon(a) {
         Error err = code.attach(&a);
         ERTS_ASSERT(!err && "Failed to attach codeHolder");
+
+        lateInit();
     }
 
     BeamAssembler(const std::string &log) : BeamAssembler() {
