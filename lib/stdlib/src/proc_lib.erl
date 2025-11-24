@@ -62,6 +62,7 @@ processes that terminate as a result of this process terminating.
 `m:logger`
 """.
 
+-compile(nowarn_obsolete_bool_op).
 -compile(nowarn_deprecated_catch).
 
 %% This module is used to set some initial information

@@ -40,6 +40,8 @@ them as common CGI scripts.
 
 -export_type([session_id/0]).
 
+-compile(nowarn_obsolete_bool_op).
+
 -include("httpd.hrl").
 -include("httpd_internal.hrl").
 -include_lib("kernel/include/logger.hrl").

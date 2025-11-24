@@ -31,6 +31,8 @@
 -module(dialyzer_utils).
 -moduledoc false.
 
+-compile(nowarn_obsolete_bool_op).
+
 -export([
 	 format_sig/1,
 	 format_sig/2,

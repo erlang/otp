@@ -40,6 +40,8 @@
 -moduledoc false.
 -export([module/2]).
 
+-compile(nowarn_obsolete_bool_op).
+
 -include("beam_ssa_opt.hrl").
 
 -import(lists, [all/2,append/1,droplast/1,duplicate/2,flatten/1,foldl/3,

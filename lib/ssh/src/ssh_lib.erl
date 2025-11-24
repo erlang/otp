@@ -27,6 +27,8 @@
 -module(ssh_lib).
 -moduledoc false.
 
+-compile(nowarn_obsolete_bool_op).
+
 -export([
          format_address_port/2, format_address_port/1,
          format_address/1,

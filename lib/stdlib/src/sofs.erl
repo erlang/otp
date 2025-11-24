@@ -22,6 +22,7 @@
 -module(sofs).
 -moduledoc({file, "../doc/src/sofs.md"}).
 
+-compile(nowarn_obsolete_bool_op).
 -compile(nowarn_deprecated_catch).
 
 -export([from_term/1, from_term/2, from_external/2, empty_set/0,

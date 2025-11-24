@@ -28,6 +28,8 @@
 -module(megaco_config).
 -moduledoc false.
 
+-compile(nowarn_obsolete_bool_op).
+
 -behaviour(gen_server).
 
 %% Application internal exports

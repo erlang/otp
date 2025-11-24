@@ -28,6 +28,8 @@
 -module(megaco_timer).
 -moduledoc false.
 
+-compile(nowarn_obsolete_bool_op).
+
 %% Application internal export
 -export([
 	 init/1,

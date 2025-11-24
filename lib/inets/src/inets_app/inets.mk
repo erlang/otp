@@ -38,5 +38,5 @@ INETS_APP_VSN_COMPILE_FLAGS = \
 
 INETS_ERL_COMPILE_FLAGS += \
 	-pa $(ERL_TOP)/lib/inets/ebin  \
-	$(INETS_APP_VSN_COMPILE_FLAGS)
+	$(INETS_APP_VSN_COMPILE_FLAGS) +warn_obsolete_bool_op
 

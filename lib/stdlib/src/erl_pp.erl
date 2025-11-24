@@ -59,6 +59,8 @@ expressions.
 -import(erl_parse, [inop_prec/1,preop_prec/1,func_prec/0,max_prec/0,
                     type_inop_prec/1, type_preop_prec/1]).
 
+-compile(nowarn_obsolete_bool_op).
+
 -define(DEFAULT_LINEWIDTH, 72).
 -define(DEFAULT_INDENT, 4).
 

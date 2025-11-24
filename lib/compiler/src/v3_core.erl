@@ -82,6 +82,8 @@
 -module(v3_core).
 -moduledoc false.
 
+-compile(nowarn_obsolete_bool_op).
+
 -export([module/2,format_error/1]).
 
 -import(lists, [all/2,any/2,append/1,droplast/1,duplicate/2,

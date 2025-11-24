@@ -26,6 +26,7 @@
 -module(httpd_request_handler).
 -moduledoc false.
 -compile(nowarn_deprecated_callback).
+-compile(nowarn_obsolete_bool_op).
 -behaviour(gen_server).
 
 %% Application internal API

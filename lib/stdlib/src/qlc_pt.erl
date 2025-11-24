@@ -22,6 +22,7 @@
 -module(qlc_pt).
 -moduledoc false.
 
+-compile(nowarn_obsolete_bool_op).
 -compile(nowarn_deprecated_catch).
 
 %%% Purpose: Implements the qlc Parse Transform.

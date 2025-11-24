@@ -38,6 +38,7 @@ but as of 27.0 its also documented.
 """.
 -moduledoc(#{since => "OTP 27.0"}).
 
+-compile(nowarn_obsolete_bool_op).
 
 %%----------------------------------------------------------------------
 %% Include files

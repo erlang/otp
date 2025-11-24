@@ -86,6 +86,8 @@ Module:format_error(ErrorDescriptor)
                 map/2,mapfoldl/3,member/2,
                 reverse/1]).
 
+-compile(nowarn_obsolete_bool_op).
+
 %% Removed functions
 
 -removed([{modify_line,2,"use erl_parse:map_anno/2 instead"}]).

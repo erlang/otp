@@ -45,6 +45,8 @@ these messages are handled by
 [handle_ssh_msg/2](`c:ssh_client_channel:handle_ssh_msg/2`).
 """.
 
+-compile(nowarn_obsolete_bool_op).
+
 -include_lib("kernel/include/logger.hrl").
 
 -include("ssh.hrl").
