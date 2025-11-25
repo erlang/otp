@@ -21,6 +21,8 @@
 %%
 -module(ets_SUITE).
 
+-compile(nowarn_obsolete_bool_op).
+
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1,
 	 init_per_group/2,end_per_group/2]).
 -export([default/1,setbag/1,badnew/1,verybadnew/1,named/1,keypos2/1,
