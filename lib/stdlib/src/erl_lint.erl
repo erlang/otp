@@ -366,11 +366,28 @@ format_error_1({redefine_bif_import,{F,A}}) ->
       import directive overrides auto-imported BIF ~w/~w --
       use "-compile({no_auto_import,[~w/~w]})." to resolve name clash
       """, [F,A,F,A]};
-format_error_1({deprecated, MFA, String, Rel}) ->
+format_error_1({obsolete_bool_op, OldOp, NewOp}) ->
+    String =
+        ("use the short circuiting " ++ NewOp ++ " instead.\nThe "
+         ++ OldOp ++ " "
+         ++ ~"""
+         operator, which always evaluates both sides, could be
+         removed in a future version of Erlang/OTP.
+         Note that the 'and' and 'or' operators have unexpected precedence, so
+         that e.g. `X > 3 or is_tuple(X)` parses as `X > (3 or is_tuple(X))`.
+         Compile directive 'nowarn_obsolete_bool_op' can be used to suppress
+         warnings in selected modules.
+         """),
+    format_error_1({deprecated, OldOp, String});
+format_error_1({deprecated, MFA, String, Rel}) when is_tuple(MFA) ->
+     format_error_1({deprecated, format_mfa(MFA), String, Rel});
+format_error_1({deprecated, Thing, String, Rel}) when is_list(String) ->
     {~"~s is deprecated and will be removed in ~s; ~s",
-     [format_mfa(MFA), Rel, String]};
-format_error_1({deprecated, MFA, String}) when is_list(String) ->
-    {~"~s is deprecated; ~s", [format_mfa(MFA), String]};
+     [Thing, Rel, String]};
+format_error_1({deprecated, MFA, String}) when is_tuple(MFA) ->
+    format_error_1({deprecated, format_mfa(MFA), String});
+format_error_1({deprecated, Thing, String}) when is_list(String) ->
+    {~"~s is deprecated; ~s", [Thing, String]};
 format_error_1({deprecated_type, {M1, F1, A1}, String, Rel}) ->
     {~"the type ~p:~p~s is deprecated and will be removed in ~s; ~s",
                   [M1, F1, gen_type_paren(A1), Rel, String]};
@@ -846,6 +863,7 @@ bool_options() ->
      {deprecated_callback,true},
      {deprecated_catch,false},
      {obsolete_guard,true},
+     {obsolete_bool_op,false},
      {untyped_record,false},
      {missing_spec,false},
      {missing_spec_documented,false},
@@ -2519,13 +2537,22 @@ gexpr({op,_Anno,EqOp,L,R}, Vt, St0) when EqOp =:= '=:='; EqOp =:= '=/=' ->
 gexpr({op,Anno,Op,L,R}, Vt, St0) ->
     {Avt,St1} = gexpr_list([L,R], Vt, St0),
     case is_gexpr_op(Op, 2) of
-        true -> {Avt,St1};
+        true -> {Avt,warn_obsolete_op(Op, 2, Anno, St1)};
         false -> {Avt,add_error(Anno, illegal_guard_expr, St1)}
     end;
 %% Everything else is illegal! You could put explicit tests here to
 %% better error diagnostics.
 gexpr(E, _Vt, St) ->
     {[],add_error(element(2, E), illegal_guard_expr, St)}.
+
+warn_obsolete_op(Op, A, Anno, St) ->
+    case {Op, A} of
+        {'and', 2} ->
+	    maybe_add_warning(Anno, {obsolete_bool_op, "'and'", "'andalso'"}, St);
+        {'or', 2} ->
+	    maybe_add_warning(Anno, {obsolete_bool_op, "'or'", "'orelse'"}, St);
+        _ -> St
+    end.
 
 %% gexpr_list(Expressions, VarTable, State) ->
 %%      {UsedVarTable,State'}
@@ -2922,7 +2949,8 @@ expr({op,Anno,EqOp,L,R}, Vt, St0) when EqOp =:= '=:='; EqOp =:= '=/=' ->
     St = expr_check_match_zero(R, expr_check_match_zero(L, St0)),
     vtupd_export_expr_list({EqOp, Anno}, [L, R], Vt, St); %They see the same variables
 expr({op,Anno,Op,L,R}, Vt, St) ->
-    vtupd_export_expr_list({Op, Anno}, [L, R], Vt, St); %They see the same variables
+    St1 = warn_obsolete_op(Op, 2, Anno, St),
+    vtupd_export_expr_list({Op, Anno}, [L, R], Vt, St1); %They see the same variables
 %% The following are not allowed to occur anywhere!
 expr({remote,_Anno,M,_F}, _Vt, St) ->
     {[],add_error(erl_parse:first_anno(M), illegal_expr, St)};
