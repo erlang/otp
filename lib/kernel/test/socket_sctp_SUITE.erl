@@ -6700,7 +6700,7 @@ t_exchange(Conf) ->
     put(sname, "TC"),
 
     ?P("~s -> start server", [?FUNCTION_NAME]),
-    {ok, {Server, ServerSA}} = t_exc_start_server(Conf),
+    {Server, ServerSA} = t_exc_start_server(Conf),
     
     ?P("~s -> start clients", [?FUNCTION_NAME]),
     Clients = t_exc_start_clients(Conf, ServerSA),
@@ -6708,7 +6708,7 @@ t_exchange(Conf) ->
     ?P("~s -> release clients", [?FUNCTION_NAME]),
     t_exc_release_clients(Clients, ?TRAFFIC_RUN_TIME),
     
-    ?P("~s -> release clients", [?FUNCTION_NAME]),
+    ?P("~s -> clients released - await clients done", [?FUNCTION_NAME]),
     Result = t_exc_await_clients(Server, Clients, ?TRAFFIC_RUN_TIME),
 
     ?P("~s -> stop server", [?FUNCTION_NAME]),
@@ -6724,11 +6724,11 @@ t_exc_start_clients(#{num_clients := NumClients}, ServerSA) ->
 
 t_exc_start_clients(N, ID, ServerSA, Acc) when (N > 0) ->
     ?P("~s -> try start client ~w", [?FUNCTION_NAME, ID]),
-    case socket_sctp_traffic_client:start(ID,
-                                          ServerSA,
-                                          ?TRAFFIC_DATA,
-                                          #{debug => false}) of
-        {ok, {{Pid, MRef}, {PortNo, AssocID}}} ->
+    case socket_sctp_traffic_client:start_monitor(ID,
+                                                  ServerSA,
+                                                  ?TRAFFIC_DATA,
+                                                  #{debug => false}) of
+        {ok, {Pid, MRef, #{port := PortNo} = _SA, AssocID}} ->
             ?P("~s -> client ~w started", [?FUNCTION_NAME, ID]),
             t_exc_start_clients(N-1, ID+1, ServerSA,
                                 [#{id       => ID,
@@ -6763,6 +6763,10 @@ t_exc_release_clients([#{id := ID,
     t_exc_release_clients(Clients, RunTime).
 
 t_exc_await_clients(Server, Clients, RunTime) ->
+    ?P("~s -> entry with"
+       "~n   length(Clients): ~p"
+       "~n   RunTime:         ~p",
+       [?FUNCTION_NAME, length(Clients), RunTime]),
     t_exc_await_clients(Server, Clients, RunTime, RunTime+?SECS(10), []).
 
 t_exc_await_clients(_Server, [], RunTime, _Timeout, Acc) ->
@@ -6776,6 +6780,13 @@ t_exc_await_clients(_Server, [], RunTime, _Timeout, Acc) ->
     TotCnt div RunTime;
 t_exc_await_clients({ServerPid, ServerMRef} = Server, Clients,
                     RunTime, Timeout, Acc) when (Timeout > 0) ->
+    ?P("~s -> await client completion when"
+       "~n   RunTime:         ~p"
+       "~n   Timeout:         ~p"
+       "~n   length(Clients): ~p"
+       "~n   length(Acc):     ~p",
+       [?FUNCTION_NAME,
+        RunTime, Timeout, length(Clients), length(Acc)]),
     T1 = ?TS(),
     receive
         {'DOWN', ServerMRef, process, ServerPid, Info} ->
@@ -6840,7 +6851,9 @@ t_exc_process_client_down(Clients, DownPid) ->
 
 
 t_exc_start_server(Conf) ->
-    socket_sctp_traffic_server:start(Conf#{debug => false}).
+    {ok, {Pid, MRef, SA}} =
+        socket_sctp_traffic_server:start_monitor(Conf#{debug => false}),
+    {{Pid, MRef}, SA}.
 
 t_exc_stop_server({Pid, _}) ->
     socket_sctp_traffic_server:stop(Pid).
