@@ -22,6 +22,8 @@
 -module(run_old_pcre1_tests).
 -export([test/1,gen_split_test/1,gen_repl_test/1]).
 
+-compile(nowarn_obsolete_bool_op).
+
 test(RootDir) ->
     put(verbose,false),
     erts_debug:set_internal_state(available_internal_state,true),
