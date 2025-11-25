@@ -21,7 +21,7 @@
  */
 #include "auto_openssl_resource.h"
 
-#ifdef HAS_3_0_API
+#ifdef HAVE_AUTO_PKEY_T
 void auto_pkey_t::free_resource(EVP_PKEY *p) {
     if (p) {
         EVP_PKEY_free(p);
@@ -33,13 +33,15 @@ void auto_pkey_ctx_t::free_resource(EVP_PKEY_CTX *p) {
         EVP_PKEY_CTX_free(p);
     }
 }
-#else
+#endif // HAVE_AUTO_PKEY_T
+
+#ifdef HAVE_AUTO_KEY_V1_T
 void auto_key_v1_t::free_resource(EC_KEY *p) {
     if (p) {
         EC_KEY_free(p);
     }
 }
-#endif // HAS_3_0_API
+#endif // HAVE_AUTO_KEY_V1_T
 
 #ifdef HAVE_ML_KEM
 void auto_kem_t::free_resource(EVP_KEM *p) {

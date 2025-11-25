@@ -148,13 +148,11 @@ public:
 
         this->algorithms.clear();
 
-        auto *probe_ptr = probes;
-        while (!probe_ptr->is_last()) {
+        for (auto i = 0; i < probes_count; ++i) {
             // For each probe, call probe() member function, in case of success
             // the probe code will use the passed 'this->algorithms' reference
             // to add an algorithm to the collection.
-            probe_ptr->probe(env, fips_enabled, this->algorithms);
-            ++probe_ptr;
+            probes[i].probe(env, fips_enabled, this->algorithms);
         }
 
         result = this->algorithms.size();

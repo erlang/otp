@@ -77,10 +77,6 @@ struct kem_probe_t {
 
     // Perform a probe on the algorithm. In case of success, fill the struct and push into the 'output'
     void probe(ErlNifEnv *env, bool fips_enabled, std::vector<kem_type_t> &output);
-    // Used as a stopper by the algorithm_collection_t
-    bool is_last() const {
-        return this->str_v3 == nullptr;
-    }
 };
 
 using kem_collection_t = algorithm_collection_t<kem_type_t, kem_probe_t>;

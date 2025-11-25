@@ -115,10 +115,6 @@ struct mac_probe_t {
     // Attempt to add a new MAC algorithm. In case of success, fill the struct
     // and push into the 'output'
     void probe(ErlNifEnv *env, bool fips_enabled, std::vector<mac_type_t> &output);
-    // Used as a stopper by the algorithm_collection_t
-    bool is_last() const {
-        return this->str == nullptr;
-    }
 };
 
 using mac_collection_t = algorithm_collection_t<mac_type_t, mac_probe_t>;

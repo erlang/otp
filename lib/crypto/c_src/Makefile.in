@@ -190,7 +190,10 @@ CONFIGURE_ARGS = -DDISABLE_EVP_DH=@DISABLE_EVP_DH@ -DDISABLE_EVP_HMAC=@DISABLE_E
 
 ALL_CFLAGS = $(TYPE_FLAGS) $(EXTRA_FLAGS) $(CONFIGURE_ARGS) $(INCLUDES) -std=gnu99
 ALL_CXXFLAGS = $(TYPE_FLAGS) $(EXTRA_FLAGS) $(CONFIGURE_ARGS) $(INCLUDES) -std=c++14
+
+# Removed: -Wdeclaration-after-statement, allowed in C99 and C++
 ALL_STATIC_CFLAGS = @DED_STATIC_CFLAGS@ $(TYPE_EXTRA_CFLAGS) $(CONFIGURE_ARGS) $(INCLUDES)
+ALL_STATIC_CFLAGS := $(filter-out -Wdeclaration-after-statement,$(ALL_STATIC_CFLAGS))
 
 # ----------------------------------------------------
 # Targets

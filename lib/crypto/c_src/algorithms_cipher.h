@@ -132,6 +132,7 @@ using cipher_constructor_fn_t = const EVP_CIPHER *(*) ();
 // result in a new available algorithm creation.
 struct cipher_probe_t {
     const char *str;
+    // can be null, then str is used
     const char *str_v3;
     // constructor for OpenSSL < 3.0 (can be null)
     cipher_constructor_fn_t ctor_v1;
@@ -142,10 +143,9 @@ struct cipher_probe_t {
     // determines which value goes into cipher_availability_t::aead
     AEAD_CTRL_TYPE aead_ctrl_type;
 
+    const char *get_v3_name() const { return this->str_v3 ? this->str_v3 : this->str; }
     // Attempt to add a new known Cipher algorithm. In case of success, fill the struct and push into the 'output'
     void probe(ErlNifEnv *env, bool fips_enabled, std::vector<cipher_type_t> &output);
-    // Used as a stopper by the algorithm_collection_t
-    bool is_last() const { return this->str_v3 == nullptr; }
 };
 
 using cipher_collection_t = algorithm_collection_t<cipher_type_t, cipher_probe_t>;

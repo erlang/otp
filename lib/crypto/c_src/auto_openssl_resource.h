@@ -61,7 +61,9 @@ struct auto_openssl_resource_t {
     }
 };
 
-#ifdef HAS_3_0_API
+#ifdef HAVE_EC
+#if defined(HAVE_DH) && defined(HAS_EVP_PKEY_CTX) && (!DISABLE_EVP_DH)
+#define HAVE_AUTO_PKEY_T 1
 struct auto_pkey_t : auto_openssl_resource_t<EVP_PKEY *, auto_pkey_t> {
     auto_pkey_t() = default;
     explicit auto_pkey_t(EVP_PKEY *p) : auto_openssl_resource_t(p) {}
@@ -74,15 +76,15 @@ struct auto_pkey_ctx_t : auto_openssl_resource_t<EVP_PKEY_CTX *, auto_pkey_ctx_t
     static void free_resource(EVP_PKEY_CTX *p);
 };
 #else
-#ifdef HAVE_EC
+#define HAVE_AUTO_KEY_V1_T 1
 // Pre-SSL 3.0 Key resource
 struct auto_key_v1_t : auto_openssl_resource_t<EC_KEY *, auto_key_v1_t> {
     auto_key_v1_t() = default;
     explicit auto_key_v1_t(EC_KEY *p) : auto_openssl_resource_t(p) {}
     static void free_resource(EC_KEY *p);
 };
+#endif // HAS_3_0_API && !DISABLE_EVP_DH && HAVE_DH
 #endif // HAVE_EC
-#endif // HAS_3_0_API
 
 #ifdef HAVE_ML_KEM
 struct auto_kem_t : auto_openssl_resource_t<EVP_KEM *, auto_kem_t> {

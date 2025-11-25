@@ -77,10 +77,6 @@ struct rsaopt_probe_t {
 
     // Attempt to add a new known RSA option. In case of success, fill the struct and push into the 'output'
     void probe(ErlNifEnv *env, bool fips_enabled, std::vector<rsaopt_type_t> &output);
-    // Used as a stopper by the algorithm_collection_t
-    bool is_last() const {
-        return this->str_v3 == nullptr;
-    }
 };
 
 using rsaopt_collection_t = algorithm_collection_t<rsaopt_type_t, rsaopt_probe_t>;

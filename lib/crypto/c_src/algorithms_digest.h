@@ -55,21 +55,24 @@ extern "C"
 #ifdef __cplusplus
 #    include "algorithms_collection.h"
 
+struct digest_type_flags_t {
+    bool fips_forbidden : 1;
+    bool pbkdf2_eligible : 1;
+};
+
 // Describes a digest method added by the init function, and checked for compatibility
 // with FIPS if FIPS mode was on. If the FIPS mode changes this will be destroyed and
 // created again.
 struct digest_type_t {
     // The definition used to create this record
     const struct digest_probe_t *init = nullptr;
-    struct {
-        bool fips_forbidden : 1;
-        bool pbkdf2_eligible : 1;
-    } flags = {};
+    digest_type_flags_t flags = {};
     // after init will contain the algorithm pointer, NULL if not supported. Frees automatically.
     const EVP_MD *md = nullptr;
     // 0 or default digest length for XOF digests
     size_t xof_default_length = 0;
 
+    digest_type_t(const digest_probe_t *init_);
     ~digest_type_t();
 
     bool is_forbidden_in_fips() const {
@@ -103,18 +106,14 @@ struct digest_probe_t {
     const char *str_v3;
     // This will be updated to created atomfound exi
     ERL_NIF_TERM atom;
-    // Hints that the algorithm is eligible for PBKDF2
-    const bool pbkdf2;
+    const digest_type_flags_t flags;
     // OpenSSL 1.0 API to create a resource for this digest algorithm (not used in 3.0 API)
     const EVP_MD *(*v1_ctor)();
     size_t xof_default_length;
 
+    const char *get_v3_name() const { return this->str_v3 ? this->str_v3 : this->str; }
     // Perform probe on the algorithm. In case of success, fill the struct and push into the 'output'
     void probe(ErlNifEnv *env, bool fips_mode, std::vector<digest_type_t> &output);
-    // Used as a stopper by the algorithm_collection_t
-    bool is_last() const {
-        return this->str == nullptr;
-    }
 };
 
 using digest_collection_t = algorithm_collection_t<digest_type_t, digest_probe_t>;

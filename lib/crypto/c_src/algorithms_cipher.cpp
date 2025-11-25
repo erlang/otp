@@ -448,7 +448,7 @@ void cipher_type_t::setup_cipher(bool fips_enabled) {
 // for FIPS we will attempt to initialize the pubkey context to verify whether the
 // algorithm is allowed, for non-FIPS keeping the old behavior - always allow the algorithm.
 void cipher_probe_t::probe(ErlNifEnv *env, const bool fips_enabled, std::vector<cipher_type_t> &output) {
-    this->atom = create_or_existing_atom(env, this->str_v3, this->atom);
+    this->atom = create_or_existing_atom(env, this->get_v3_name(), this->atom);
     if (this->ctor_v1 != nullptr) {
         output.emplace_back(this, this->atom, this->key_len, this->flags); // construct in place
         output.back().setup_cipher(fips_enabled);
