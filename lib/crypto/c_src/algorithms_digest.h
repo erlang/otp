@@ -54,6 +54,7 @@ extern "C"
 
 #ifdef __cplusplus
 #    include "algorithms_collection.h"
+#    include "auto_openssl_resource.h"
 
 struct digest_type_flags_t {
     bool fips_forbidden : 1;
@@ -68,12 +69,11 @@ struct digest_type_t {
     const struct digest_probe_t *init = nullptr;
     digest_type_flags_t flags = {};
     // after init will contain the algorithm pointer, NULL if not supported. Frees automatically.
-    const EVP_MD *md = nullptr;
+    auto_md_t resource;
     // 0 or default digest length for XOF digests
     size_t xof_default_length = 0;
 
-    digest_type_t(const digest_probe_t *init_);
-    ~digest_type_t();
+    explicit digest_type_t(const digest_probe_t *init_);
 
     bool is_forbidden_in_fips() const {
 #    ifdef FIPS_SUPPORT
@@ -82,7 +82,7 @@ struct digest_type_t {
         return false;
 #    endif
     }
-    bool is_available() const {
+    static bool is_available() {
         return true;
     }
     // Return the atom which goes to the Erlang caller
@@ -111,7 +111,9 @@ struct digest_probe_t {
     const EVP_MD *(*v1_ctor)();
     size_t xof_default_length;
 
-    const char *get_v3_name() const { return this->str_v3 ? this->str_v3 : this->str; }
+    const char *get_v3_name() const {
+        return this->str_v3 ? this->str_v3 : this->str;
+    }
     // Perform probe on the algorithm. In case of success, fill the struct and push into the 'output'
     void probe(ErlNifEnv *env, bool fips_mode, std::vector<digest_type_t> &output);
 };

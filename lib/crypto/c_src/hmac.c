@@ -94,7 +94,7 @@ ERL_NIF_TERM hmac_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     if (key.size > INT_MAX)
         goto bad_arg;
 
-    if (digp->md.p == NULL)
+    if (get_digest_type_resource(digp) == NULL)
         goto err;
 
     if ((obj = enif_alloc_resource(hmac_context_rtype, sizeof(struct hmac_context))) == NULL)
@@ -116,7 +116,7 @@ ERL_NIF_TERM hmac_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
         goto err;
 #else
     // In ancient versions of OpenSSL, this was a void function.
-    HMAC_Init_ex(obj->ctx, key.data, (int)key.size, digp->md.p, NULL);
+    HMAC_Init_ex(obj->ctx, key.data, (int)key.size, get_digest_type_resource(digp), NULL);
 #endif
 
     ret = enif_make_resource(env, obj);

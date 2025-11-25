@@ -71,6 +71,7 @@ ERL_NIF_TERM aead_cipher_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
     struct aead_cipher_ctx *ctx_res = NULL;
     ERL_NIF_TERM ret, encflg_arg, type;
     ErlNifBinary key;
+    struct cipher_type_flags_t flags;
 
     if ((ctx_res = enif_alloc_resource(aead_cipher_ctx_rtype, sizeof(struct aead_cipher_ctx))) == NULL)
         return EXCP_ERROR(env, "Can't allocate resource");
@@ -108,7 +109,7 @@ ERL_NIF_TERM aead_cipher_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
     if ((ctx_res->cipherp = get_cipher_type(type, key.size)) == NULL)
         {ret = EXCP_BADARG_N(env, 0, "Unknown cipher or invalid key size"); goto done;}
 
-    const struct cipher_type_flags_t flags = cipher_type_flags(ctx_res->cipherp);
+    flags = get_cipher_type_flags(ctx_res->cipherp);
     if (flags.non_evp_cipher)
         {ret = EXCP_BADARG_N(env, 0, "Bad cipher"); goto done;}
     if (!flags.aead_cipher)
@@ -122,7 +123,7 @@ ERL_NIF_TERM aead_cipher_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
     }
 #endif
 
-    if (cipher_type_resource(ctx_res->cipherp) == NULL) {
+    if (get_cipher_type_resource(ctx_res->cipherp) == NULL) {
         ret = EXCP_NOTSUP_N(env, 0, "The cipher is not supported in this libcrypto version");
         goto done;
     }
@@ -130,7 +131,7 @@ ERL_NIF_TERM aead_cipher_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
         ret = EXCP_ERROR(env, "Can't allocate ctx");
         goto done;
     }
-    if (EVP_CipherInit_ex(ctx_res->ctx, cipher_type_resource(ctx_res->cipherp),
+    if (EVP_CipherInit_ex(ctx_res->ctx, get_cipher_type_resource(ctx_res->cipherp),
         NULL, NULL, NULL, ctx_res->encflg) != 1) {
         ret = EXCP_ERROR(env, "CipherInit failed");
         goto done;
@@ -154,9 +155,11 @@ ERL_NIF_TERM aead_cipher_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
     const EVP_CIPHER *cipher = NULL;
     ErlNifBinary key, iv, aad, in, tag;
     unsigned int tag_len;
-    unsigned char *outp, *tagp, *tag_data, *in_data;
+    unsigned char *outp, *tag_data, *in_data;
     ERL_NIF_TERM type, out, out_tag, ret, encflg_arg;
     int len, encflg, in_len;
+    struct cipher_type_flags_t flags;
+    struct cipher_type_aead_t aead;
 
     if(argc == 7) {
         /*
@@ -218,7 +221,7 @@ ERL_NIF_TERM aead_cipher_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
             goto done;
         }
 
-        const struct cipher_type_flags_t flags = cipher_type_flags(cipherp);
+        flags = get_cipher_type_flags(cipherp);
         if (flags.non_evp_cipher) {
             ret = EXCP_BADARG_N(env, 0, "Bad cipher");
             goto done;
@@ -237,7 +240,7 @@ ERL_NIF_TERM aead_cipher_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
             return aes_gcm_decrypt_NO_EVP(env, argc, argv);
         }
 #endif
-        if ((cipher = cipher_type_resource(cipherp)) == NULL) {
+        if ((cipher = get_cipher_type_resource(cipherp)) == NULL) {
             ret = EXCP_NOTSUP_N(env, 0, "The cipher is not supported in this libcrypto version");
             goto done;
         }
@@ -282,13 +285,13 @@ ERL_NIF_TERM aead_cipher_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
         }
 
         cipherp = ctx_res->cipherp;
-        cipher = cipher_type_resource(cipherp);
+        cipher = get_cipher_type_resource(cipherp);
         ctx = ctx_res->ctx;
     }
     /* Init done */
 
-    struct cipher_type_aead_t aead = cipher_type_aead(cipherp);
-    struct cipher_type_flags_t flags = cipher_type_flags(cipherp);
+    aead = get_cipher_type_aead(cipherp);
+    flags = get_cipher_type_flags(cipherp);
 
     if (EVP_CIPHER_CTX_ctrl(ctx, aead.ctx_ctrl_set_ivlen, (int)iv.size, NULL) != 1)
         {ret = EXCP_BADARG_N(env, 2, "Bad IV length"); goto done;}
@@ -331,8 +334,8 @@ ERL_NIF_TERM aead_cipher_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
                 ret = atom_error;
             goto done;
         }
-    if (encflg)
-        {
+    if (encflg) {
+            unsigned char *tagp;
             if (argc == 7) {
                 /* Finalize the encrypted text */
                 if (EVP_CipherFinal_ex(ctx, outp, &len) != 1)

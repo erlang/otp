@@ -103,36 +103,31 @@ ERL_NIF_TERM digest_type_t::get_atom() const { return this->init->atom; }
 #if defined(FIPS_SUPPORT) && defined(HAS_3_0_API)
 // Initialize an algorithm to check that all its dependencies are valid in FIPS
 bool digest_type_t::check_valid_in_fips(const EVP_MD *md) {
-    EVP_MD_CTX *ctx = EVP_MD_CTX_new();
-    int usable = 0;
-
     if (md) {
+        const auto_md_ctx_t ctx(EVP_MD_CTX_new());
         // Try to initialize the digest algorithm for use, this will check the dependencies
-        if (EVP_DigestInit_ex(ctx, md, nullptr) == 1) {
-            usable = 1;
+        if (EVP_DigestInit_ex(ctx.pointer, md, nullptr) == 1) {
+            return true;
         }
     }
-
-    EVP_MD_CTX_free(ctx);
-    return usable;
+    return false;
 }
 #endif // FIPS_SUPPORT && HAS_3_0_API
 
-void digest_type_t::create_md_resource(bool fips_mode) {
+void digest_type_t::create_md_resource(const bool fips_mode) {
 #if defined(FIPS_SUPPORT) && defined(HAS_3_0_API)
-    EVP_MD *fetched_md = EVP_MD_fetch(nullptr, this->init->get_v3_name(), nullptr);
+    auto_md_t fetched_md(EVP_MD_fetch(nullptr, this->init->get_v3_name(), nullptr));
 
     // Record failed algorithm instantiation for FIPS enabled & OpenSSL API 3.0 only
-    if (fips_mode && !check_valid_in_fips(fetched_md)) {
-        flags.fips_forbidden = true;
-        EVP_MD_free(fetched_md); // NULL is allowed
+    if (fips_mode && !check_valid_in_fips(fetched_md.pointer)) {
+        this->flags.fips_forbidden = true;
     } else {
         this->flags.fips_forbidden = false;
-        this->md = fetched_md;
+        this->resource = std::move(fetched_md); // pass ownership and move data to this->md
     }
 #else
     // construct from the old API, each probe has a constructor function
-    this->md = this->init->v1_ctor();
+    this->resource = this->init->v1_ctor();
 #endif // HAS_3_0_API && FIPS_SUPPORT
 }
 
@@ -144,10 +139,6 @@ void digest_probe_t::probe(ErlNifEnv *env, const bool fips_mode, std::vector<dig
     // Unavailable are skipped. Available are added. Forbidden are added, but with flags.fips_forbidden=true.
     auto &algo = output.back();
     algo.create_md_resource(fips_mode);
-    if (!algo.md) {
-        output.pop_back(); // failed to init
-        return;
-    }
     this->atom = create_or_existing_atom(env, this->str, this->atom);
 }
 
@@ -161,25 +152,13 @@ extern "C" digest_type_C *get_digest_type(ERL_NIF_TERM type) {
     return nullptr;
 }
 
-// Free the OpenSSL resource
-digest_type_t::~digest_type_t() {
-    if (this->md) {
-#if defined(HAS_3_0_API)
-        EVP_MD_free(const_cast<EVP_MD *>(this->md));
-// #else
-// OpenSSL 1.x does not create new algorithm struct, merely returning existing as const, so we do not own them
-#endif // HAS_3_0_API
-        this->md = nullptr;
-    }
-}
-
 extern "C" bool is_digest_forbidden_in_fips(const digest_type_C *p) {
     return p ? p->is_forbidden_in_fips() : true; // forbidden if p is null
 }
 
-extern "C" const char *get_digest_type_str_v3(const digest_type_C *p) { return p ? p->init->str_v3 : ""; }
+extern "C" const char *get_digest_type_str_v3(const digest_type_C *p) { return p->init->get_v3_name(); }
 
-extern "C" const EVP_MD *get_digest_type_resource(const digest_type_C *p) { return p ? p->md : nullptr; }
+extern "C" const EVP_MD *get_digest_type_resource(const digest_type_C *p) { return p ? p->resource.pointer : nullptr; }
 
 extern "C" size_t get_digest_type_xof_default_length(const digest_type_C *p) { return p ? p->xof_default_length : 0; }
 

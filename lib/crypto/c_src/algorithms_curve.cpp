@@ -25,6 +25,11 @@
 // }
 
 #include "algorithms_curve.h"
+
+#if defined(FIPS_SUPPORT) && defined(HAS_3_0_API)
+#include <openssl/core_names.h>
+#endif // FIPS && OPENSSL 3.0
+
 #include "auto_openssl_resource.h"
 
 curve_probe_t curve_probes[] = {
@@ -454,7 +459,7 @@ void curve_probe_t::probe(ErlNifEnv *env, const bool fips_mode, std::vector<curv
 
 ERL_NIF_TERM curve_type_t::get_atom() const { return this->init->atom; }
 
-void curve_type_t::probe_under_fips(bool fips_mode) {
+void curve_type_t::probe_under_fips(const bool fips_mode) {
 #if defined(FIPS_SUPPORT) && defined(HAS_3_0_API)
     // This checking code only runs under FIPS and OpenSSL 3+, other cases algorithm is always added
     if (!fips_mode)

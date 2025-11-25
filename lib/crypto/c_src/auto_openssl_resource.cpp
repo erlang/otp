@@ -81,3 +81,15 @@ void auto_cipher_ctx_t::free_resource(EVP_CIPHER_CTX *p) {
         EVP_CIPHER_CTX_free(p);
     }
 }
+
+void auto_md_t::free_resource(EVP_MD *p) {
+    if (p) {
+        EVP_MD_free(p);
+    }
+}
+
+void auto_md_ctx_t::free_resource(EVP_MD_CTX *p) {
+    if (p) {
+        EVP_MD_CTX_free(p);
+    }
+}

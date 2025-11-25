@@ -72,7 +72,7 @@ ERL_NIF_TERM cipher_info_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
 
     if (is_cipher_forbidden_in_fips(cipherp))
         return enif_raise_exception(env, atom_notsup);
-    if ((cipher = cipher_type_resource(cipherp)) == NULL)
+    if ((cipher = get_cipher_type_resource(cipherp)) == NULL)
         return enif_raise_exception(env, atom_notsup);
 
     type = EVP_CIPHER_type(cipher);

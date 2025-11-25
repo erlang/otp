@@ -161,13 +161,14 @@ public:
         return result;
     }
 
-    ERL_NIF_TERM to_list(ErlNifEnv *env, const bool fips_forbidden) const {
+    // Search for algorithms which have is_forbidden_in_fips() return true for them.
+    ERL_NIF_TERM to_list(ErlNifEnv *env, const bool match_fips_forbidden) const {
         ERL_NIF_TERM hd = enif_make_list(env, 0);
 
         for (const auto &algo : this->algorithms) {
             // Any of the forbidden flags is not set, then something is
             // available
-            if (algo.is_available() && algo.is_forbidden_in_fips() == fips_forbidden) {
+            if (algo.is_available() && algo.is_forbidden_in_fips() == match_fips_forbidden) {
                 const auto atom = algo.get_atom();
                 ASSERT(atom != 0);
                 hd = enif_make_list_cell(env, atom, hd);

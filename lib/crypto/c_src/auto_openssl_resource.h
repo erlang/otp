@@ -122,4 +122,16 @@ struct auto_cipher_ctx_t : auto_openssl_resource_t<EVP_CIPHER_CTX *, auto_cipher
     static void free_resource(EVP_CIPHER_CTX *p);
 };
 
+struct auto_md_t : auto_openssl_resource_t<EVP_MD *, auto_md_t> {
+    auto_md_t() = default;
+    explicit auto_md_t(EVP_MD *p) : auto_openssl_resource_t(p) {}
+    static void free_resource(EVP_MD *p);
+};
+
+struct auto_md_ctx_t : auto_openssl_resource_t<EVP_MD_CTX *, auto_md_ctx_t> {
+    auto_md_ctx_t() = default;
+    explicit auto_md_ctx_t(EVP_MD_CTX *p) : auto_openssl_resource_t(p) {}
+    static void free_resource(EVP_MD_CTX *p);
+};
+
 #endif // __cplusplus

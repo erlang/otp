@@ -100,6 +100,7 @@ CRYPTO_OBJS = $(OBJDIR)/crypto$(TYPEMARKER).o \
 	$(OBJDIR)/algorithms_mac$(TYPEMARKER).cpp.o \
 	$(OBJDIR)/algorithms_cipher$(TYPEMARKER).cpp.o \
 	$(OBJDIR)/auto_openssl_resource$(TYPEMARKER).cpp.o \
+	$(OBJDIR)/evp_compat$(TYPEMARKER).cpp.o \
 	$(OBJDIR)/api_ng$(TYPEMARKER).o \
 	$(OBJDIR)/atoms$(TYPEMARKER).o \
 	$(OBJDIR)/bn$(TYPEMARKER).o \

@@ -293,12 +293,12 @@ ERL_NIF_TERM hash_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     if ((digp = get_digest_type(argv[0])) == NULL)
         return EXCP_BADARG_N(env, 0, "Bad digest type");
     
-    if (IS_DIGEST_FORBIDDEN_IN_FIPS(digp))
+    if (is_digest_forbidden_in_fips(digp))
         return EXCP_NOTSUP_N(env, 0, "Digest type not supported in FIPS");
-    if (digp->md.p == NULL)
+    if (!get_digest_type_resource(digp))
         return EXCP_NOTSUP_N(env, 0, "Unsupported digest type");
 
-    switch (EVP_MD_type(digp->md.p))
+    switch (EVP_MD_type(get_digest_type_resource(digp)))
     {
 #ifdef HAVE_MD4
     case NID_md4:
@@ -379,9 +379,9 @@ ERL_NIF_TERM hash_update_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
         return EXCP_BADARG_N(env, 0, "Bad state");
     if ((digp = get_digest_type(tuple[0])) == NULL)
         return EXCP_BADARG_N(env, 0, "Bad state");
-    if (IS_DIGEST_FORBIDDEN_IN_FIPS(digp))
+    if (is_digest_forbidden_in_fips(digp))
         return EXCP_BADARG_N(env, 0, "Bad state");
-    if (digp->md.p == NULL)
+    if (!get_digest_type_resource(digp))
         return EXCP_BADARG_N(env, 0, "Bad state");
     if (!enif_inspect_binary(env, tuple[1], &ctx))
         return EXCP_BADARG_N(env, 0, "Bad state");
@@ -389,7 +389,7 @@ ERL_NIF_TERM hash_update_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
     if (!enif_inspect_iolist_as_binary(env, argv[1], &data))
         return EXCP_BADARG_N(env, 0, "Bad data");
 
-    switch (EVP_MD_type(digp->md.p))
+    switch (EVP_MD_type(get_digest_type_resource(digp)))
     {
 #ifdef HAVE_MD4
     case NID_md4:
@@ -478,9 +478,9 @@ ERL_NIF_TERM hash_final_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
         return EXCP_BADARG_N(env, 0, "Bad state");
     if ((digp = get_digest_type(tuple[0])) == NULL)
         return EXCP_BADARG_N(env, 0, "Bad state");
-    if (IS_DIGEST_FORBIDDEN_IN_FIPS(digp))
+    if (is_digest_forbidden_in_fips(digp))
         return EXCP_BADARG_N(env, 0, "Bad state");
-    if ((md = digp->md.p) == NULL)
+    if ((md = get_digest_type_resource(digp)) == NULL)
         return EXCP_BADARG_N(env, 0, "Bad state");
 
     if (!enif_inspect_binary(env, tuple[1], &ctx))

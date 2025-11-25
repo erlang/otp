@@ -51,11 +51,11 @@ size_t cipher_algorithms_lazy_init(ErlNifEnv *env, bool fips_enabled);
 ERL_NIF_TERM cipher_algorithms_as_list(ErlNifEnv *env, bool fips_enabled);
 const cipher_type_C *get_cipher_type(ERL_NIF_TERM type, size_t key_len);
 const cipher_type_C *get_cipher_type_no_key(ERL_NIF_TERM type);
-struct cipher_type_flags_t cipher_type_flags(const cipher_type_C *p);
-struct cipher_type_aead_t cipher_type_aead(const cipher_type_C *p);
+struct cipher_type_flags_t get_cipher_type_flags(const cipher_type_C *p);
+struct cipher_type_aead_t get_cipher_type_aead(const cipher_type_C *p);
 bool is_cipher_forbidden_in_fips(const cipher_type_C *p);
-const EVP_CIPHER *cipher_type_resource(const cipher_type_C *p);
-const char *cipher_type_str_v3(const cipher_type_C *p);
+const EVP_CIPHER *get_cipher_type_resource(const cipher_type_C *p);
+const char *get_cipher_type_str_v3(const cipher_type_C *p);
 
 #ifdef __cplusplus
 }
@@ -93,11 +93,11 @@ struct cipher_type_t {
     }
     bool is_available() const {
         // Available if cipher could be initialized, and (has a EVP_CIPHER resource, or is AES_CTR compatible)
-        return !this->flags.algorithm_init_failed && (this->resource || this->flags.aes_ctr_compat);
+        return !this->flags.algorithm_init_failed;
     }
     // Return the atom which goes to the Erlang caller
     ERL_NIF_TERM get_atom() const;
-    void setup_cipher(bool fips_enabled);
+    void check_availability(bool fips_enabled);
     // Partial order compare, returns a.atom < b.atom && a.key < b.key
     static bool compare_function(const cipher_type_t &a, const cipher_type_t &b);
     // Partial order compare, returns a.atom < b.atom
@@ -106,10 +106,11 @@ struct cipher_type_t {
     bool eq_no_key(const cipher_type_t &other) const { return this->atom == other.atom; }
 
 private:
-    void update_availability(bool fips_enabled);
+    void check_fips_availability(bool fips_enabled);
     bool can_cipher_be_instantiated() const;
 };
 
+#ifdef HAVE_AEAD
 enum AEAD_CTRL_TYPE {
     // Writes {{0,0,0}} into cipher_availability_t::aead
     NOT_AEAD,
@@ -123,6 +124,7 @@ enum AEAD_CTRL_TYPE {
     // into cipher_availability_t::aead
     AEAD_CTRL_CCM,
 };
+#endif // HAVE_AEAD
 
 // A 0-argument function returning EVP_CIPHER used to construct supported ciphers
 using cipher_constructor_fn_t = const EVP_CIPHER *(*) ();
@@ -140,8 +142,10 @@ struct cipher_probe_t {
     size_t key_len;
     // initial value for the flags
     cipher_type_flags_t flags;
+#ifdef HAVE_AEAD
     // determines which value goes into cipher_availability_t::aead
     AEAD_CTRL_TYPE aead_ctrl_type;
+#endif // HAVE_AEAD
 
     const char *get_v3_name() const { return this->str_v3 ? this->str_v3 : this->str; }
     // Attempt to add a new known Cipher algorithm. In case of success, fill the struct and push into the 'output'

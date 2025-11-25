@@ -196,7 +196,7 @@ ERL_NIF_TERM mac_one_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
                     goto err;
                 }
 
-            if (cipher_type_resource(cipherp) == NULL)
+            if (get_cipher_type_resource(cipherp) == NULL)
                 {
                     return_term = EXCP_NOTSUP_N(env, 1, "Unsupported cipher algorithm");
                     goto err;
@@ -204,13 +204,13 @@ ERL_NIF_TERM mac_one_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
 # if defined(HAS_3_0_API)
             name = "CMAC";
-            subalg = cipher_type_str_v3(cipherp);
+            subalg = get_cipher_type_str_v3(cipherp);
 # else
             /* Old style, pre 3.0 */
 #  ifdef HAVE_EVP_PKEY_new_CMAC_key
-            pkey = EVP_PKEY_new_CMAC_key(/*engine*/ NULL, key_bin.data,  key_bin.size, cipher_type_resource(cipherp));
+            pkey = EVP_PKEY_new_CMAC_key(/*engine*/ NULL, key_bin.data,  key_bin.size, get_cipher_type_resource(cipherp));
 #  else
-            if (!cmac_low_level(env, key_bin, cipher_type_resource(cipherp), text, &ret_bin, &ret_bin_alloc, &return_term))
+            if (!cmac_low_level(env, key_bin, get_cipher_type_resource(cipherp), text, &ret_bin, &ret_bin_alloc, &return_term))
                 goto err;
             else
                 goto success;
@@ -534,17 +534,17 @@ ERL_NIF_TERM mac_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
                     goto err;
                 }
 
-            if (cipher_type_resource(cipherp) == NULL)
+            if (get_cipher_type_resource(cipherp) == NULL)
                 {
                     return_term = EXCP_NOTSUP_N(env, 1, "Unsupported cipher algorithm");
                     goto err;
                 }
 
 #  if defined(HAS_3_0_API)
-            cipher = cipher_type_str_v3(cipherp);
+            cipher = get_cipher_type_str_v3(cipherp);
 #  else
             /* Old style */
-            pkey = EVP_PKEY_new_CMAC_key(/*engine*/ NULL, key_bin.data,  key_bin.size, cipher_type_resource(cipherp));
+            pkey = EVP_PKEY_new_CMAC_key(/*engine*/ NULL, key_bin.data,  key_bin.size, get_cipher_type_resource(cipherp));
 #  endif
         }
         break;
