@@ -301,14 +301,13 @@ like this:
 
 And the according variables were removed together with dependencies
 from pcre.mk. Note that you will need to put things back in order in
-pcre.mk after all testing is done. Once a 'make' is successful, you
-can generate new dependencies:
+pcre.mk after all testing is done.
 
-    ~/tmp/pcre/epcre-8.33> gcc -MM -c -DERLANG_INTEGRATION *.c | sed ...
+Regenerate the make dependencies in `depend.mk` with:
 
-pcre.mk contains a full gcc command line with sed that adds $(PCRE\_OBJDIR)/
-to each object file and $(PCRE\_DIR)/ to each source file. Now your pcre.mk is
-fairly up to date and it's time to start patching in the changes...
+    ~/erts/emulator/pcre/> make -f pcre.mk depend
+
+Now your pcre.mk is fairly up to date and it's time to start patching in the changes...
 
 ## Updating pcre2_match.c
 
