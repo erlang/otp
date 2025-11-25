@@ -77,6 +77,7 @@
          encrypted_pem_pwdstring/1,
          encrypted_pem_pwdfun/0,
          encrypted_pem_pwdfun/1,
+         ext_encoding/1,
          dh_pem/0,
          dh_pem/1,
          pkcs10_pem/0,
@@ -191,6 +192,7 @@ all() ->
      {group, pem_decode_encode},
      encrypt_decrypt,
      encrypt_decrypt_sign_fun,
+     ext_encoding,
      {group, sign_verify},
      pkix,
      pkix_cmp,
@@ -776,6 +778,67 @@ cert_pem(Config) when is_list(Config) ->
     
     asn1_encode_decode(Entry1),
     asn1_encode_decode(Entry2).
+
+%%--------------------------------------------------------------------
+ext_encoding(_Config) ->
+    Exts = [
+            {'AuthorityKeyIdentifier',
+             #'AuthorityKeyIdentifier'{authorityCertIssuer = [{rfc822Name, "a name"}]}},
+            {'SubjectKeyIdentifier', "Octet String"},
+            {'KeyUsage', [keyEncipherment, encipherOnly]},
+            {'PrivateKeyUsagePeriod', #'PrivateKeyUsagePeriod'{notAfter = "20220127000000Z"}},
+            {'CertificatePolicies', [#'PolicyInformation'{policyIdentifier = ?'anyPolicy'}]},
+            {'PolicyMappings', [#'PolicyMappings_SEQOF'{issuerDomainPolicy = ?'anyPolicy',
+                                                        subjectDomainPolicy = ?'anyPolicy'}]},
+            {'SubjectAltName', [{rfc822Name, "a name"}]},
+            {'IssuerAltName', [{rfc822Name, "a name"}]},
+            {'SubjectDirectoryAttributes', [#'AttributeSet'{type = ?'id-at-name',
+                                                            values = [{utf8String, ~"a string"}]}]},
+            {'BasicConstraints', #'BasicConstraints'{cA = true}},
+            {'NameConstraints', #'NameConstraints'{}},
+            {'PolicyConstraints', #'PolicyConstraints'{requireExplicitPolicy = 5}},
+            {'ExtKeyUsageSyntax', [?anyPolicy]},
+            {'InhibitAnyPolicy', 42},
+            {'FreshestCRL', [#'DistributionPoint'{}]},
+            {'IssuingDistributionPoint',
+             #'IssuingDistributionPoint'{indirectCRL = true,
+                                         onlyContainsUserCerts = false,
+                                         onlyContainsCACerts = false,
+                                         onlyContainsAttributeCerts = false
+                                        }},
+            {'AuthorityInfoAccessSyntax',
+             [#'AccessDescription'{accessMethod = ?'id-at-name',
+                                   accessLocation = {rfc822Name, "a name"}}]},
+            {'SubjectInfoAccessSyntax',
+             [#'AccessDescription'{accessMethod = ?'id-at-name',
+                                   accessLocation = {rfc822Name, "a name"}}]},
+            {'CRLNumber', 4711},
+            {'BaseCRLNumber', 4710},
+            {'CRLReason', 'cessationOfOperation'},
+            {'CertificateIssuer', [{rfc822Name, "a name"}]},
+            {'HoldInstructionCode', ?'id-holdinstruction-callissuer'},
+            {'InvalidityDate', "20220127000000Z"},
+            {'CRLDistributionPoints', [#'DistributionPoint'{}]}
+           ],
+    Check = fun({Ext, Value}) ->
+                    try
+                        Der = public_key:der_encode(Ext, Value),
+                        true = is_binary(Der),
+                        case public_key:der_decode(Ext, Der) of
+                            Value -> false;
+                            Bin when is_binary(Bin) ->
+                                Value =/= binary_to_list(Bin)
+                        end
+                    catch Err:Reason:St ->
+                            {true, {fail, Ext, Value, Err, Reason, St}}
+                    end
+            end,
+    [] = lists:filtermap(Check, Exts),
+
+    Badarg = {badarg, {unknown_type, type_do_not_exist}},
+    {'EXIT', {Badarg,_}} = (catch public_key:der_encode(type_do_not_exist, 4711)),
+    {'EXIT', {Badarg,_}} = (catch public_key:der_decode(type_do_not_exist, <<47,11>>)),
+    ok.
 
 %%--------------------------------------------------------------------
 encrypt_decrypt() ->
