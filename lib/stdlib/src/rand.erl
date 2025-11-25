@@ -338,11 +338,15 @@ The current _default algorithm_ is
 [`exsss` (Xorshift116\*\*)](#algorithms). If a specific algorithm is
 required, ensure to always use `seed/1` to initialize the state.
 
-Which algorithm that is the default may change between Erlang/OTP releases,
-and is selected to be one with high speed, small state and "good enough"
-statistical properties.  So to ensure that the same sequence is reproduced
-on a later Erlang/OTP release, use a `seed/2` or `seed_s/2` to select
-both a specific algorithm and the seed value.
+In many API functions in this module, the atom `default` can be used
+instead of an algorithm name, and is currently an alias for `exsss`.
+In a future Erlang/OTP release this might be a different algorithm.
+The _default algorithm_ is selected to be one with high speed,
+small state and "good enough" statistical properties.
+
+If it is essential to reproduce the same PRNG sequence
+on a later Erlang/OTP release, use `seed/2` or `seed_s/2`
+to select *both* a specific algorithm and the seed value.
 
 #### Old Algorithms
 
@@ -956,7 +960,7 @@ that has been implemented *(Since OTP 24.0)*.
 > #### Note {: .info }
 >
 > Using `Alg = default` is *not* perfectly predictable since
-> which algorithm that is the default may change in a future
+>`default` may be an alias for a different algorithm in a future
 > OTP release.
 """.
 -doc(#{group => <<"Plug-in framework API">>,since => <<"OTP 18.0">>}).
@@ -985,7 +989,7 @@ that has been implemented *since OTP 24.0*.
 > #### Note {: .info }
 >
 > Using `Alg = default` is *not* perfectly predictable since
-> which algorithm that is the default may change in a future
+>`default` may be an alias for a different algorithm in a future
 > OTP release.
 """.
 -doc(#{group => <<"Plug-in framework API">>,since => <<"OTP 18.0">>}).
@@ -1928,7 +1932,7 @@ shuffle_r([], Acc0, P0, S0, Zero, One, Two, Three) ->
     {Acc3, P3, S3} = shuffle_r(Two, Acc2, P2, S2),
     shuffle_r(Three, Acc3, P3, S3);
 shuffle_r([X | L], Acc, P0, S, Zero, One, Two, Three)
-  when is_integer(P0), ?BIT(2) =< P0, P0 =< ?MASK(59) ->
+  when is_integer(P0, ?BIT(2), ?MASK(59)) ->
     P1 = P0 bsr 2,
     case ?MASK(2, P0) of
         0 -> shuffle_r(L, Acc, P1, S, [X | Zero], One, Two, Three);
@@ -1942,7 +1946,7 @@ shuffle_r([_ | _] = L, Acc, _P, S0, Zero, One, Two, Three) ->
 
 %% Permute 2 elements
 shuffle_r_2(X, Acc, P, S, Y)
-  when is_integer(P), ?BIT(1) =< P, P =< ?MASK(59) ->
+  when is_integer(P, ?BIT(1), ?MASK(59)) ->
     {case ?MASK(1, P) of
          0 -> [Y, X | Acc];
          1 -> [X, Y | Acc]
@@ -1957,7 +1961,7 @@ shuffle_r_2(X, Acc, _P, S0, Y) ->
 %% to reject and retry, which on average is 3 * 4/3
 %% (infinite sum of (1/4)^k) = 4 bits per permutation
 shuffle_r_3(X, Acc, P0, S, Y, Z)
-  when is_integer(P0), ?BIT(3) =< P0, P0 =< ?MASK(59) ->
+  when is_integer(P0, ?BIT(3), ?MASK(59)) ->
     P1 = P0 bsr 3,
     case ?MASK(3, P0) of
         0 -> {[Z, Y, X | Acc], P1, S};
@@ -1994,8 +1998,7 @@ shuffle_init_bitstream(R, Next, Shift, Mask0) ->
 -dialyzer({no_improper_lists, shuffle_new_bits/1}).
 %%
 shuffle_new_bits([R0|{Next,Shift,Mask}=W])
-  when is_integer(Shift), 0 =< Shift, Shift =< 3,
-       is_integer(Mask), 0 < Mask, Mask =< ?MASK(58) ->
+  when is_integer(Shift, 0, 3), is_integer(Mask, 0, ?MASK(58)) ->
     case Next(R0) of
         {V, R1} when is_integer(V) ->
             %% Setting the top bit here provides the marker
@@ -2986,7 +2989,7 @@ is 60% of the time for the default algorithm generating a `t:float/0`.
 """.
 -doc(#{group => <<"Niche algorithms API">>,since => <<"OTP 25.0">>}).
 -spec mwc59(CX0 :: mwc59_state()) -> CX1 :: mwc59_state().
-mwc59(CX) when is_integer(CX), 1 =< CX, CX < ?MWC59_P ->
+mwc59(CX) when is_integer(CX, 1, ?MWC59_P-1) ->
     C = CX bsr ?MWC59_B,
     X = ?MASK(?MWC59_B, CX),
     ?MWC59_A * X + C.
@@ -3043,7 +3046,7 @@ that is: `(Range*V) bsr 32`, which is much faster than using `rem`.
 """.
 -doc(#{group => <<"Niche algorithms API">>,since => <<"OTP 25.0">>}).
 -spec mwc59_value32(CX :: mwc59_state()) -> V :: 0..?MASK(32).
-mwc59_value32(CX1) when is_integer(CX1), 1 =< CX1, CX1 < ?MWC59_P ->
+mwc59_value32(CX1) when is_integer(CX1, 1, ?MWC59_P-1) ->
     CX = ?MASK(32, CX1),
     CX bxor ?BSL(32, CX, ?MWC59_XS).
 
@@ -3094,7 +3097,7 @@ adding up to 59 bits, which is not a bignum (on a 64-bit VM ):
        CX1 = (CX0) bxor ?BSL(59, (CX0), ?MWC59_XS1),
        CX1 bxor ?BSL(59, CX1, ?MWC59_XS2)
    end).
-mwc59_value(CX0) when is_integer(CX0), 1 =< CX0, CX0 < ?MWC59_P ->
+mwc59_value(CX0) when is_integer(CX0, 1, ?MWC59_P-1) ->
     ?mwc59_value(CX0, CX1).
 
 -doc """
@@ -3119,7 +3122,7 @@ The generator state is scrambled as with
 """.
 -doc(#{group => <<"Niche algorithms API">>,since => <<"OTP 25.0">>}).
 -spec mwc59_float(CX :: mwc59_state()) -> V :: float().
-mwc59_float(CX0) when is_integer(CX0), 1 =< CX0, CX0 < ?MWC59_P ->
+mwc59_float(CX0) when is_integer(CX0, 1, ?MWC59_P-1) ->
     ?MASK(53, ?mwc59_value(CX0, CX1)) * ?TWO_POW_MINUS53.
 
 -doc """
@@ -3167,7 +3170,7 @@ to avoid that similar seeds create similar sequences.
 """.
 -doc(#{group => <<"Niche algorithms API">>,since => <<"OTP 25.0">>}).
 -spec mwc59_seed(S :: 0..?MASK(58)) -> CX :: mwc59_state().
-mwc59_seed(S) when is_integer(S), 0 =< S, S =< ?MASK(58) ->
+mwc59_seed(S) when is_integer(S, 0, ?MASK(58)) ->
     hash58(S) + 1.
 
 %% Constants a'la SplitMix64, MurMurHash, etc.
