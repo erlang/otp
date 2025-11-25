@@ -391,7 +391,8 @@ bool cipher_type_t::can_cipher_be_instantiated() const {
 
 void cipher_type_t::update_availability(const bool fips_enabled) {
 #ifdef HAS_3_0_API
-    if (this->init->str_v3) {
+    auto name = this->init->get_v3_name();
+    if (name) {
 #    ifdef FIPS_SUPPORT
         if (fips_enabled) {
             if (this->flags.fips_forbidden) {
@@ -400,7 +401,7 @@ void cipher_type_t::update_availability(const bool fips_enabled) {
                 this->flags.algorithm_init_failed = true;
                 return;
             }
-            this->resource.reset(EVP_CIPHER_fetch(NULL, p->str_v3, "fips=yes"));
+            this->resource.reset(EVP_CIPHER_fetch(NULL, name, "fips=yes"));
             if (!this->can_cipher_be_instantiated()) {
                 this->flags.algorithm_init_failed = true;
                 this->flags.fips_forbidden = true;
@@ -408,7 +409,7 @@ void cipher_type_t::update_availability(const bool fips_enabled) {
             }
         }
 #    else
-        this->resource.reset(EVP_CIPHER_fetch(nullptr, this->init->str_v3, ""));
+        this->resource.reset(EVP_CIPHER_fetch(nullptr, name, ""));
         if (!this->can_cipher_be_instantiated()) {
             this->flags.algorithm_init_failed = true;
             this->resource.reset(nullptr); // free the resource
@@ -448,7 +449,7 @@ void cipher_type_t::setup_cipher(bool fips_enabled) {
 // for FIPS we will attempt to initialize the pubkey context to verify whether the
 // algorithm is allowed, for non-FIPS keeping the old behavior - always allow the algorithm.
 void cipher_probe_t::probe(ErlNifEnv *env, const bool fips_enabled, std::vector<cipher_type_t> &output) {
-    this->atom = create_or_existing_atom(env, this->get_v3_name(), this->atom);
+    this->atom = create_or_existing_atom(env, this->str, this->atom);
     if (this->ctor_v1 != nullptr) {
         output.emplace_back(this, this->atom, this->key_len, this->flags); // construct in place
         output.back().setup_cipher(fips_enabled);

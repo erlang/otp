@@ -31,6 +31,7 @@
 #include "algorithms_kem.h"
 #include "algorithms_mac.h"
 #include "algorithms_pubkey.h"
+#include "algorithms_rsaopt.h"
 
 //
 // Supported Algorithms (filter on fips_forbidden == false)
@@ -67,8 +68,8 @@ ERL_NIF_TERM curve_algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
 }
 
 ERL_NIF_TERM rsa_opts_algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
-    mac_algorithms_lazy_init(env, FIPS_MODE());
-    return mac_algorithms_as_list(env, false);
+    rsaopts_lazy_init(env, FIPS_MODE());
+    return rsaopts_as_list(env, false);
 }
 
 //

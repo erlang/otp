@@ -62,7 +62,7 @@ extern "C" size_t rsaopts_lazy_init(ErlNifEnv *env, const bool fips_enabled) {
 }
 
 // C API: Proxy the call to generic algorithm_collection_t
-extern "C" ERL_NIF_TERM rsaopt_as_list(ErlNifEnv *env, const bool fips_enabled) {
+extern "C" ERL_NIF_TERM rsaopts_as_list(ErlNifEnv *env, const bool fips_enabled) {
     return rsaopt_collection.to_list(env, fips_enabled);
 }
 
@@ -75,6 +75,5 @@ ERL_NIF_TERM rsaopt_type_t::get_atom() const {
 void rsaopt_probe_t::probe(ErlNifEnv *env, const bool fips_enabled, std::vector<rsaopt_type_t> &output) {
     this->atom = create_or_existing_atom(env, this->str_v3, this->atom);
     output.emplace_back(this);
-    auto & algo = output.back();
     // No extra checks, just convert name to atom and add
 }

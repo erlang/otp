@@ -132,7 +132,6 @@ void digest_type_t::create_md_resource(bool fips_mode) {
     }
 #else
     // construct from the old API, each probe has a constructor function
-    enif_fprintf(stderr, "Create md resource %s\n", this->init->get_v3_name());
     this->md = this->init->v1_ctor();
 #endif // HAS_3_0_API && FIPS_SUPPORT
 }

@@ -127,7 +127,7 @@ void mac_type_t::update_flags(const bool fips_enabled) {
 // for FIPS we will attempt to initialize the pubkey context to verify whether the
 // algorithm is allowed, for non-FIPS keeping the old behavior - always allow the algorithm.
 void mac_probe_t::probe(ErlNifEnv *env, const bool fips_enabled, std::vector<mac_type_t> &output) {
-    this->atom = create_or_existing_atom(env, this->str_v3, this->atom);
+    this->atom = create_or_existing_atom(env, this->str, this->atom);
     // No extra checks, just convert name to atom and add
     output.emplace_back(this, mac_type_flags_t{.fips_forbidden = this->fips_forbidden_hint});
     output.back().check_fips_availability(fips_enabled);
