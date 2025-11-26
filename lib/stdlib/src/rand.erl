@@ -431,7 +431,7 @@ the generator's range:
 
 [](){: #modulo-method }
 - **Modulo**  
-  To generate a number `V` in the range `0 .. Range-1`:
+  To generate a number `V` in the range `0 .. Range-1`:
 
   > Generate a number `X`.  
   > Use `V = X rem Range` as your value.
@@ -447,12 +447,12 @@ the generator's range:
   have a bias.  Example:
 
   Say the generator generates a byte, that is, the generator range
-  is `0 .. 255`, and the desired range is `0 .. 99` (`Range = 100`).
+  is `0 .. 255`, and the desired range is `0 .. 99` (`Range = 100`).
   Then there are 3 generator outputs that produce the value `0`,
-  these are; `0`, `100` and `200`.
+  these are `0`, `100` and `200`.
   But there are only 2 generator outputs that produce the value `99`,
-  which are; `99` and `199`. So the probability for a value `V` in `0 .. 55`
-  is 3/2 times the probability for the other values `56 .. 99`.
+  which are `99` and `199`. So the probability for a value `V` in `0 .. 55`
+  is 3/2 times the probability for the other values `56 .. 99`.
 
   If `Range` is much smaller than the generator range, then this bias
   gets hard to detect. The rule of thumb is that if `Range` is smaller
@@ -468,8 +468,8 @@ the generator's range:
 
 [](){: #truncated-multiplication-method }
 - **Truncated multiplication**  
-  To generate a number `V` in the range `0 .. Range-1`, when you have
-  a generator with a power of 2 range (`0 .. 2^Bits-1`):
+  To generate a number `V` in the range `0 .. Range-1`, when you have
+  a generator with a power of 2 range (`0 .. 2^Bits-1`):
 
   > Generate a number `X`.  
   > Use `V = X * Range bsr Bits` as your value.
@@ -486,8 +486,8 @@ the generator's range:
 
 [](){: #shift-or-mask-method }
 - **Shift or mask**  
-  To generate a number in a power of 2 range (`0 .. 2^RBits-1`),
-  when you have a generator with a power of 2 range (`0 .. 2^Bits`):
+  To generate a number in a power of 2 range (`0 .. 2^RBits-1`),
+  when you have a generator with a power of 2 range (`0 .. 2^Bits`):
 
   > Generate a number `X`.  
   > Use `V = X band ((1 bsl RBits)-1)` or `V = X bsr (Bits-RBits)`
@@ -525,7 +525,7 @@ will not create a bignum.
 
 The recommended way to generate a floating point number
 (IEEE 745 Double, that has got a 53-bit mantissa) in the range
-`0 .. 1`, that is `0.0 =< V < 1.0` is to generate a 53-bit number `X`
+`0 .. 1`, that is `0.0 =< V < 1.0` is to generate a 53-bit number `X`
 and then use `V = X * (1.0/((1 bsl 53)))` as your value.
 This will create a value of the form N*2^-53 with equal probability
 for every possible N for the range.
@@ -595,9 +595,9 @@ for every possible N for the range.
 %% Types
 %% =====================================================================
 
--doc "`0 .. (2^64 - 1)`".
+-doc "`0 .. (2^64 - 1)`".
 -type uint64() :: 0..?MASK(64).
--doc "`0 .. (2^58 - 1)`".
+-doc "`0 .. (2^58 - 1)`".
 -type uint58() :: 0..?MASK(58).
 
 %% This depends on the algorithm handler function
@@ -613,7 +613,7 @@ for every possible N for the range.
 %%
 %% The 'bits' field indicates how many bits the integer
 %% returned from 'next' has got, i.e 'next' shall return
-%% an random integer in the range 0..(2^Bits - 1).
+%% an random integer in the range 0 .. (2^Bits - 1).
 %% At least 55 bits is required for the floating point
 %% producing fallbacks, but 56 bits would be more future proof.
 %%
@@ -784,17 +784,17 @@ To be used with `seed/1`.
 1> S = rand:seed(exsss, 4711).
 %% Export the (initial) state
 2> E = rand:export_seed().
-%% Generate an integer N in the interval 1 .. 1000000
-3> rand:uniform(1000000).
+%% Generate an integer N in the interval 1 .. 1_000_000
+3> rand:uniform(1_000_000).
 334013
 %% Start over with E that may have been stored
 %% in ETS, on file, etc...
 4> rand:seed(E).
-5> rand:uniform(1000000).
+5> rand:uniform(1_000_000).
 334013
 %% Within the same node this works just as well
 6> rand:seed(S).
-7> rand:uniform(1000000).
+7> rand:uniform(1_000_000).
 334013
 ```
 """.
@@ -819,20 +819,20 @@ To be used with `seed/1`.
 1> S0 = rand:seed_s(exsss, 4711).
 %% Export the (initial) state
 2> E = rand:export_seed_s(S0).
-%% Generate an integer N in the interval 1 .. 1000000
-3> {N, S1} = rand:uniform_s(1000000, S0).
+%% Generate an integer N in the interval 1 .. 1_000_000
+3> {N, S1} = rand:uniform_s(1_000_000, S0).
 4> N.
 334013
 %% Start over with E that may have been stored
 %% in ETS, on file, etc...
 5> S2 = rand:seed_s(E).
 %% S2 is equivalent to S0
-6> {N, S3} = rand:uniform_s(1000000, S2).
+6> {N, S3} = rand:uniform_s(1_000_000, S2).
 %% S3 is equivalent to S1
 7> N.
 334013
 %% Within the same node this works just as well
-6> {N, S4} = rand:uniform_s(1000000, S0).
+6> {N, S4} = rand:uniform_s(1_000_000, S0).
 %% S4 is equivalent to S1
 7> N.
 334013
@@ -1048,8 +1048,8 @@ the process dictionary.  Returns the generated number `X`.
 ```erlang
 %% Initialize a predictable PRNG sequence
 1> rand:seed(exsss, 4711).
-%% Generate an integer in the interval 1 .. 1000000
-2> rand:uniform(1000000).
+%% Generate an integer in the interval 1 .. 1_000_000
+2> rand:uniform(1_000_000).
 334013
 ```
 """.
@@ -1132,8 +1132,8 @@ Returns the number `X` and the updated `NewState`.
 ```erlang
 %% Initialize a predictable PRNG sequence
 1> S0 = rand:seed_s(exsss, 4711).
-%% Generate an integer N in the interval 1 .. 1000000
-2> {N, S1} = rand:uniform_s(1000000, S0).
+%% Generate an integer N in the interval 1 .. 1_000_000
+2> {N, S1} = rand:uniform_s(1_000_000, S0).
 3> N.
 334013
 ```
@@ -1594,8 +1594,8 @@ no jump function implemented for the [`State`](`t:state/0`)'s algorithm.
 %% Initialize a predictable PRNG sequence
 1> Sa0 = rand:seed_s(exsss, 4711).
 2> Sb0 = rand:jump(Sa0).
-%% Sa and Sb can now be used for surely
-%% non-overlapping PRNG sequences
+%% Sa and Sb can now be used for non-overlapping PRNG
+%% sequences since they are separated by 2^64 iterations
 3> {BytesA, Sa1} = rand:bytes_s(10, Sa0).
 4> {BytesB, Sb1} = rand:bytes_s(10, Sb0).
 5> BytesA.
@@ -1635,8 +1635,8 @@ the process dictionary.  Returns the [`NewState`](`t:state/0`).
        rand:jump(),
        Parent ! {self(), rand:bytes(10)}
      end).
-%% Parent and Pid now produce surely
-%% non-overlapping PRNG sequences
+%% Parent and Pid now produce non-overlapping PRNG
+%% sequences since they are separated by 2^64 iterations
 4> rand:bytes(10).
 <<72,232,227,197,77,149,79,57,9,136>>
 5> receive {Pid, Bytes} -> Bytes end.
@@ -1909,7 +1909,7 @@ shuffle_s(List, {AlgHandler, R0})
 %% Also, it is faster to do a 4-way split by 2 bits instead of,
 %% as described above, a 2-way split by 1 bit.
 
-%% Leaf cases - random permutations for 0..3 elements
+%% Leaf cases - random permutations for 0 .. 3 elements
 shuffle_r([], Acc, P, S) ->
     {Acc, P, S};
 shuffle_r([X], Acc, P, S) ->
@@ -2439,7 +2439,7 @@ exs1024_next({[H], RL}) ->
 %% This is the jump function for the exs1024 generator, equivalent
 %% to 2^512 calls to next(); it can be used to generate 2^512
 %% non-overlapping subsequences for parallel computations.
-%% Note: the jump function takes ~2000 times of the execution time of
+%% Note: the jump function takes ~ 2 000 times of the execution time of
 %% next/1.
 
 %% Jump constant here split into 58 bits for speed
@@ -2910,7 +2910,7 @@ dummy_seed({A1, A2, A3}) ->
 -define(MWC59_XS2, 27).
 
 -doc """
-`1 .. (16#1ffb072 bsl 29) - 2`
+`1 .. (16#1ffb072 bsl 29) - 2`
 """.
 -type mwc59_state() :: 1..?MWC59_P-1.
 
@@ -2983,7 +2983,7 @@ is 60% of the time for the default algorithm generating a `t:float/0`.
 7714
 %% Generate an integer 0 .. 999 with not noticeable bias
 2> CX2 = rand:mwc59(CX1).
-3> CX2 rem 1000.
+3> CX2 rem 1_000.
 86
 ```
 """.
@@ -3019,7 +3019,7 @@ When using this scrambler it is in general better to use the high bits of the
 value than the low. The lowest 8 bits are of good quality and are passed
 right through from the base generator. They are combined with the next 8
 in the xorshift making the low 16 good quality, but in the range
-16 .. 31 bits there are weaker bits that should not become high bits
+16 .. 31 bits there are weaker bits that should not become high bits
 of the generated values.
 
 Therefore it is in general safer to shift out low bits.
@@ -3040,7 +3040,7 @@ that is: `(Range*V) bsr 32`, which is much faster than using `rem`.
 2935831586
 %% Generate an integer 0 .. 999 with not noticeable bias
 2> CX2 = rand:mwc59(CX1).
-3> (rand:mwc59_value32(CX2) * 1000) bsr 32.
+3> (rand:mwc59_value32(CX2) * 1_000) bsr 32.
 540
 ```
 """.
@@ -3065,10 +3065,10 @@ the low.  See the recipes in section [Niche algorithms](#niche-algorithms).
 
 For a non power of 2 range less than about 20 bits (to not get
 too much bias and to avoid bignums) truncated multiplication can be used,
-which is much faster than using `rem`. Example for range 1'000'000;
+which is much faster than using `rem`. Example for range 1 000 000;
 the range is 20 bits, we use 39 bits from the generator,
 adding up to 59 bits, which is not a bignum (on a 64-bit VM ):
-`(1000_000 * (V bsr (59-39))) bsr 39`.
+`(1_000_000 * (V bsr (59-39))) bsr 39`.
 
 #### _Shell Example_
 
@@ -3079,13 +3079,13 @@ adding up to 59 bits, which is not a bignum (on a 64-bit VM ):
 2> CX1 = rand:mwc59(CX0).
 3> rand:mwc59_value(CX1) bsr (59-48).
 247563052677727
-%% Generate an integer 0 .. 1'000'000 with not noticeable bias
+%% Generate an integer 0 .. 1_000_000 with not noticeable bias
 4> CX2 = rand:mwc59(CX1).
-5> ((rand:mwc59_value(CX2) bsr (59-39)) * 1000_000) bsr 39.
+5> ((rand:mwc59_value(CX2) bsr (59-39)) * 1_000_000) bsr 39.
 144457
-%% Generate an integer 0 .. 1'000'000'000 with not noticeable bias
+%% Generate an integer 0 .. 1_000_000_000 with not noticeable bias
 4> CX3 = rand:mwc59(CX2).
-5> rand:mwc59_value(CX3) rem 1000_000_000.
+5> rand:mwc59_value(CX3) rem 1_000_000_000.
 949193925
 ```
 """.
@@ -3138,7 +3138,7 @@ just like [`seed_s(atom())`](`seed_s/1`).
 1> CX0 = rand:mwc59_seed().
 %% Generate an integer 0 .. 999 with not noticeable bias
 2> CX1 = rand:mwc59(CX0).
-3> CX1 rem 1000.
+3> CX1 rem 1_000.
 ```
 """.
 -doc(#{group => <<"Niche algorithms API">>,since => <<"OTP 25.0">>}).
