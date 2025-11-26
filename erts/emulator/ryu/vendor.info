@@ -36,13 +36,13 @@
     "homepage": "https://github.com/microsoft/STL",
     "licenseDeclared": "Apache-2.0 WITH LLVM-exception AND BSL-1.0",
     "name": "STL",
-    "versionInfo": "vs-2022-17.13",
+    "versionInfo": "vs-2022-17.14",
     "path": [
       "./erts/emulator/ryu/to_chars.h"
     ],
     "supplier": "Organization: Microsoft Corporation",
     "purl": "pkg:github/microsoft/STL#stl/inc/xcharconv_ryu.h",
     "update": "./erts/emulator/ryu/update.sh",
-    "sha": "442029c6fa37f1b6f9203357de09672d5704077c"
+    "sha": "1f6e5b16ec02216665624c1e762f3732605cf2b4"
   }
 ]
