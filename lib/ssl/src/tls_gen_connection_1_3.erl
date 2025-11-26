@@ -46,6 +46,8 @@
          handle_resumption/2,
          send_key_update/2,
          update_cipher_key/2,
+         maybe_traffic_keylog_1_3/4,
+         maybe_forget_hs_secrets/2,
          do_maybe/0]).
 
 %%--------------------------------------------------------------------
@@ -140,13 +142,17 @@ connection(enter, _, State) ->
 connection(internal, #new_session_ticket{} = NewSessionTicket, State) ->
     handle_new_session_ticket(NewSessionTicket, State),
     tls_gen_connection:next_event(?FUNCTION_NAME, no_record, State);
-
-connection(internal, #key_update{} = KeyUpdate, State0) ->
+connection(internal, #key_update{} = KeyUpdate, #state{static_env = #static_env{role = Role},
+                                                       ssl_options = SslOpts} = State0) ->
     case handle_key_update(KeyUpdate, State0) of
-        {ok, State} ->
-            tls_gen_connection:next_event(?FUNCTION_NAME, no_record, State);
+        {ok, #state{connection_states = ConnectionStates, protocol_specific = PS} = State} ->
+            Keep = maps:get(keep_secrets, SslOpts, false),
+            N = maps:get(num_key_updates, PS, 0),
+            maybe_traffic_keylog_1_3(Keep, Role, ConnectionStates, N),
+            tls_gen_connection:next_event(?FUNCTION_NAME, no_record,
+                                          maybe_forget_hs_secrets(Role, N, Keep, State));
         {error, State, Alert} ->
-            ssl_gen_statem:handle_own_alert(Alert, connection, State),
+            ssl_gen_statem:handle_own_alert(Alert, ?FUNCTION_NAME, State),
             tls_gen_connection:next_event(?FUNCTION_NAME, no_record, State)
     end;
 connection({call, From}, negotiated_protocol,
@@ -225,6 +231,19 @@ handle_resumption(#state{handshake_env = HSEnv0} = State, _) ->
     HSEnv = HSEnv0#handshake_env{resumption = true},
     State#state{handshake_env = HSEnv}.
 
+maybe_forget_hs_secrets({keylog_hs, _}, #state{connection_states =
+                                                   #{current_read := Read0,
+                                                     current_write := Write0} = CS} = State) ->
+    %% Server finishes the handshake last and  is able to immediately forget
+    %% hs secrets used for handshake alert logging.
+    #{security_parameters := SecParams} = Read0,
+    Read1 = Read0#{security_parameters =>
+                       SecParams#security_parameters{client_early_data_secret = undefined}},
+    Read = maps:without([client_handshake_traffic_secret], Read1),
+    Write = maps:without([server_handshake_traffic_secret], Write0),
+    State#state{connection_states = CS#{current_read => Read, current_write => Write}};
+maybe_forget_hs_secrets(_, State) ->
+    State.
 do_maybe() ->
     Ref = erlang:make_ref(),
     Ok = fun(ok) -> ok;
@@ -299,6 +318,18 @@ update_cipher_key(ConnStateName, CS0) ->
                             cipher_state => CipherState,
                             sequence_number => 0},
     CS0#{ConnStateName => ConnState}.
+
+maybe_traffic_keylog_1_3({keylog, Fun}, Role, ConnectionStates, N) ->
+    #{security_parameters := #security_parameters{client_random = ClientRandom,
+                                                  prf_algorithm = Prf,
+                                                  application_traffic_secret = TrafficSecret}}
+        = ssl_record:current_connection_state(ConnectionStates, read),
+    KeyLog = ssl_logger:keylog_traffic_1_3(ssl_gen_statem:opposite_role(Role), ClientRandom,
+                                           Prf, TrafficSecret, N),
+    ssl_logger:keylog(KeyLog, ClientRandom, Fun);
+maybe_traffic_keylog_1_3(_,_,_,_) ->
+    ok.
+
 
 %%--------------------------------------------------------------------
 %% Internal functions
@@ -431,3 +462,12 @@ exporter(ExporterSecret, Context0, WantedLength, PRFAlgorithm) ->
     HashContext = tls_v1:transcript_hash(Context, PRFAlgorithm),
     tls_v1:hkdf_expand_label(ExporterSecret, <<"exporter">>, HashContext,
                              WantedLength, PRFAlgorithm).
+%% If a client has key_logging for failing handshakes we now know that
+%% it is now safe to clear them. Could be cleared earlier but as this
+%% is debugging functionality we choose not to make complicated
+%% timeout handling to save a little memory for the client.
+%% This is not a problem on the server side.
+maybe_forget_hs_secrets(client, 0, KeepSecrets, State) ->
+    maybe_forget_hs_secrets(KeepSecrets, State);
+maybe_forget_hs_secrets(_,_,_, State) ->
+    State.

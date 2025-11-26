@@ -1215,6 +1215,8 @@ early_data_basic(Config) when is_list(Config) ->
                                                 verify_active_session_resumption,
                                                 [false]}},
                                          {from, self()}, {options, ClientOpts1}]),
+    skip_keylogs(4), %% HS and two traffic secrets
+
     ssl_test_lib:check_result(Server0, ok, Client0, ok),
 
     Server0 ! {listen, {mfa, {ssl_test_lib,
@@ -1233,6 +1235,15 @@ early_data_basic(Config) when is_list(Config) ->
                                                 verify_active_session_resumption,
                                                 [true]}},
                                          {from, self()}, {options, ClientOpts2}]),
+    %% Check that we get the EARLY DATA keylog event
+    receive
+        {keylog, #{items := EarlyKeylog}} ->
+            ["CLIENT_EARLY_TRAFFIC_SECRET" ++ _| _] = EarlyKeylog
+    end,
+    skip_keylogs(4), %% HS and two traffic secrets so they do not end up
+                     %% in check_result
+
+
     ssl_test_lib:check_result(Server0, ok, Client1, ok),
 
     process_flag(trap_exit, false),
@@ -1432,3 +1443,11 @@ do_test_mixed(Config, COpts1, COpts2, SOpts1, SOpts2) when is_list(Config) ->
     process_flag(trap_exit, false),
     ssl_test_lib:close(Server1),
     ssl_test_lib:close(Client1).
+
+skip_keylogs(0) ->
+    ok;
+skip_keylogs(N) ->
+    receive
+        {keylog, _} ->
+            skip_keylogs(N-1)
+    end.
