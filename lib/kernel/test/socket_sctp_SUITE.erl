@@ -56,7 +56,11 @@
 %% T = fun(TC) -> ct:run_test([{suite, socket_sctp_SUITE}, {testcase, TC}]) end.
 %% T = fun(S, TC) -> ct:run_test([{suite, S}, {testcase, TC}]) end.
 %% T = fun(S, G, TC) -> ct:run_test([{suite, S}, {group, G}, {testcase, TC}]) end.
-
+%%
+%% There is a bench group in this (test) suite.
+%% It is functionally identical to the traffic group, but is intended to be
+%% used when benchmark runs are made.
+%% The difference is in how results are "published" and the run-time
 
 
 -module(socket_sctp_SUITE).
@@ -103,11 +107,11 @@
          m_recv_close/1,
          m_buffers/1,
 
-         %% *** Traffic ***
-         t_exchange_st_ipv4/1,
-         t_exchange_st_ipv6/1,
-         t_exchange_mt_ipv4/1,
-         t_exchange_mt_ipv6/1,
+         %% *** Traffic (and bench) ***
+         t_exchange_st_ipv4/1, bench_exchange_st_ipv4/1,
+         t_exchange_st_ipv6/1, bench_exchange_st_ipv6/1,
+         t_exchange_mt_ipv4/1, bench_exchange_mt_ipv4/1,
+         t_exchange_mt_ipv6/1, bench_exchange_mt_ipv6/1,
 
          %% *** Options ***
          o_default_sri_ipv4/1
@@ -165,7 +169,8 @@
 -define(ENABLE_SOCK_DEBUG(S),  socket:setopt(S, ?MK_OTP_SOCKOPT(debug), true)).
 -define(DISABLE_SOCK_DEBUG(S), socket:setopt(S, ?MK_OTP_SOCKOPT(debug), false)).
 
--define(TRAFFIC_RUN_TIME, ?MINS(1)).
+-define(BENCH_RUN_TIME,   ?MINS(1)).
+-define(TRAFFIC_RUN_TIME, ?SECS(10)).
 -define(TRAFFIC_DATA_M1, <<"The quick brown fox jumps over a lazy dog">>).
 -define(TRAFFIC_DATA_M2, <<"The quick brown fox jumps over a lazy dog."
                            "The quick brown fox jumps over a lazy dog."
@@ -188,9 +193,16 @@
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+%%======================================================================
+%% Common Test interface functions
+%%
+%% The difference between the bench cases and the meas cases is simply
+%% how the results are reported.
+%%======================================================================
+
 suite() ->
     [{ct_hooks, [ts_install_cth]},
-     {timetrap, {minutes,1}}].
+     {timetrap, {minutes,2}}].
 
 all() -> 
     Groups = [
@@ -229,7 +241,9 @@ groups() ->
      {misc,        [], misc_cases()},
      {homing,      [], homing_cases()},
      {traffic,     [], traffic_cases()},
-     {options,     [], options_cases()}
+     {options,     [], options_cases()},
+
+     {bench,       [], bench_cases()}
     ].
      
 basic_cases() ->
@@ -286,6 +300,16 @@ options_cases() ->
     [
      o_default_sri_ipv4
     ].
+
+
+bench_cases() ->
+    [
+     bench_exchange_st_ipv4,
+     bench_exchange_st_ipv6,
+     bench_exchange_mt_ipv4,
+     bench_exchange_mt_ipv6
+    ].
+
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -6636,29 +6660,65 @@ do_from_other_process(Fun) when is_function(Fun, 0) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 t_exchange_st_ipv4(Config) when is_list(Config) ->
-    HasDomainSupport = fun() -> has_support_ipv4() end,
-    t_exchange_st(HasDomainSupport, inet).
+    common_exchange_st_ipv4(?FUNCTION_NAME, false, ?TRAFFIC_RUN_TIME).
 
 t_exchange_st_ipv6(Config) when is_list(Config) ->
-    HasDomainSupport = fun() -> has_support_ipv6() end,
-    t_exchange_st(HasDomainSupport, inet6).
-
-t_exchange_st(HasDomainSupport, Domain) ->
-    t_exchange(HasDomainSupport, Domain, false).
+    common_exchange_st_ipv6(?FUNCTION_NAME, false, ?TRAFFIC_RUN_TIME).
 
 t_exchange_mt_ipv4(Config) when is_list(Config) ->
-    HasDomainSupport = fun() -> has_support_ipv4() end,
-    t_exchange_mt(HasDomainSupport, inet).
+    common_exchange_mt_ipv4(?FUNCTION_NAME, false, ?TRAFFIC_RUN_TIME).
 
 t_exchange_mt_ipv6(Config) when is_list(Config) ->
+    common_exchange_mt_ipv6(?FUNCTION_NAME, false, ?TRAFFIC_RUN_TIME).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+bench_exchange_st_ipv4(Config) when is_list(Config) ->
+    common_exchange_st_ipv4(?FUNCTION_NAME, true, ?BENCH_RUN_TIME).
+
+bench_exchange_st_ipv6(Config) when is_list(Config) ->
+    common_exchange_st_ipv6(?FUNCTION_NAME, true, ?BENCH_RUN_TIME).
+
+bench_exchange_mt_ipv4(Config) when is_list(Config) ->
+    common_exchange_mt_ipv4(?FUNCTION_NAME, true, ?BENCH_RUN_TIME).
+
+bench_exchange_mt_ipv6(Config) when is_list(Config) ->
+    common_exchange_mt_ipv6(?FUNCTION_NAME, true, ?BENCH_RUN_TIME).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+common_exchange_st_ipv4(Name, Bench, RunTime) ->
+    HasDomainSupport = fun() -> has_support_ipv4() end,
+    common_exchange_st(Name,
+                       Bench, RunTime, HasDomainSupport, inet).
+
+common_exchange_st_ipv6(Name, Bench, RunTime) ->
     HasDomainSupport = fun() -> has_support_ipv6() end,
-    t_exchange_mt(HasDomainSupport, inet6).
+    common_exchange_st(Name,
+                       Bench, RunTime, HasDomainSupport, inet6).
 
-t_exchange_mt(HasDomainSupport, Domain) ->
-    t_exchange(HasDomainSupport, Domain, true).
+common_exchange_mt_ipv4(Name, Bench, RunTime) ->
+    HasDomainSupport = fun() -> has_support_ipv4() end,
+    common_exchange_st(Name,
+                       Bench, RunTime, HasDomainSupport, inet).
 
-t_exchange(HasDomainSupport, Domain, Threaded)
-  when is_function(HasDomainSupport) andalso
+common_exchange_mt_ipv6(Name, Bench, RunTime) ->
+    HasDomainSupport = fun() -> has_support_ipv6() end,
+    common_exchange_mt(Name,
+                       Bench, RunTime, HasDomainSupport, inet6).
+
+common_exchange_st(Name, Bench, RunTime, HasDomainSupport, Domain) ->
+    common_exchange(Name, Bench, RunTime, HasDomainSupport, Domain, false).
+
+common_exchange_mt(Name, Bench, RunTime, HasDomainSupport, Domain) ->
+    common_exchange(Name, Bench, RunTime, HasDomainSupport, Domain, true).
+
+common_exchange(Name, Bench, RunTime, HasDomainSupport, Domain, Threaded)
+  when is_boolean(Bench) andalso
+       is_integer(RunTime) andalso (RunTime > 0) andalso
+       is_function(HasDomainSupport) andalso
        ((Domain =:= inet) orelse (Domain =:= inet6)) andalso
        is_boolean(Threaded) ->
     Cond = fun() ->
@@ -6678,7 +6738,9 @@ t_exchange(HasDomainSupport, Domain, Threaded)
                       "~n   ~p", [?FUNCTION_NAME, NodeNames]),
                    [ServerNode | ClientNodes] = start_nodes(NodeNames, ""),
                    ?P("~s:pre -> Nodes started", [?FUNCTION_NAME]),
-                   #{domain       => Domain,
+                   #{bench        => Bench,
+                     run_time     => RunTime,
+                     domain       => Domain,
                      threaded     => Threaded,
                      server_node  => ServerNode,
                      client_nodes => ClientNodes}
@@ -6693,13 +6755,13 @@ t_exchange(HasDomainSupport, Domain, Threaded)
                    stop_nodes([ServerNode | ClientNodes]),
                    ok
            end,
-    ?TC_TRY(?FUNCTION_NAME,
+    ?TC_TRY(Name,
             Cond, Pre, TC, Post).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-t_exchange(Conf) ->
+t_exchange(#{run_time := RunTime} = Conf) ->
     put(sname, "TC"),
 
     ?P("~s -> start server", [?FUNCTION_NAME]),
@@ -6709,18 +6771,37 @@ t_exchange(Conf) ->
     Clients = t_exc_start_clients(Conf, Server),
 
     ?P("~s -> release clients", [?FUNCTION_NAME]),
-    t_exc_release_clients(Clients, ?TRAFFIC_RUN_TIME),
+    t_exc_release_clients(Clients, RunTime),
     
     ?P("~s -> clients released - await clients done", [?FUNCTION_NAME]),
-    Result = t_exc_await_clients(Server, Clients, ?TRAFFIC_RUN_TIME),
+    Result = t_exc_await_clients(Server, Clients, RunTime),
 
     ?P("~s -> stop server", [?FUNCTION_NAME]),
     t_exc_stop_server(Server),
 
     ?P("~s -> done when"
        "~n   Result: ~p msgs/msec", [?FUNCTION_NAME, Result]),
+    publish_results(Conf, Result).
+
+
+publish_results(Conf, Result) ->
+    maybe_publish_bench_results(Conf, Result),
     {comment, ?F("~w msgs/msec", [Result])}.
 
+
+maybe_publish_bench_results(#{bench := true, threaded := Threaded}, Result) ->
+    Event = #event{name = bench_name(Threaded),
+                   data = [{suite, atom_to_list(?MODULE)},
+                           {value, Result}]},
+    ct_event:notify(Event);
+maybe_publish_bench_results(_, _Result) ->
+    ok.
+
+
+bench_name(true) ->
+    exchange_mt;
+bench_name(_) ->
+    exchange_st.
 
 
 t_exc_start_server(#{server_node  := Node,
@@ -6744,7 +6825,6 @@ t_exc_start_server(#{server_node  := Node,
 
 t_exc_stop_server(#{pid := Pid} = _Server) ->
     socket_sctp_traffic_server:stop(Pid).
-
 
 
 t_exc_start_clients(#{client_nodes := ClientNodes}, #{sa := ServerSA}) ->

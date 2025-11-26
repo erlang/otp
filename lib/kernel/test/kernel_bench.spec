@@ -24,4 +24,5 @@
 {groups,"../kernel_test",file_SUITE,[bench]}.
 {groups,"../kernel_test",socket_traffic_SUITE,[bench]}.
 {groups,"../kernel_test",socket_ttest_SUITE,[bench]}.
+{groups,"../kernel_test",socket_sctp_SUITE,[bench]}.
 {suites,"../kernel_test",[logger_stress_SUITE]}.
