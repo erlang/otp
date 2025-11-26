@@ -1226,7 +1226,7 @@ early_data_basic(Config) when is_list(Config) ->
                                                 verify_active_session_resumption,
                                                 [false]}},
                                          {from, self()}, {options, ClientOpts1}]),
-    skip_keylogs(3), %% HS and two traffic secrets
+    skip_keylogs(4), %% HS and two traffic secrets
 
     ssl_test_lib:check_result(Server0, ok, Client0, ok),
 
@@ -1251,7 +1251,7 @@ early_data_basic(Config) when is_list(Config) ->
         {keylog, #{items := EarlyKeylog}} ->
             ["CLIENT_EARLY_TRAFFIC_SECRET" ++ _| _] = EarlyKeylog
     end,
-    skip_keylogs(3), %% HS and two traffic secrets so they do not end up
+    skip_keylogs(4), %% HS and two traffic secrets so they do not end up
                      %% in check_result
 
     ssl_test_lib:check_result(Server0, ok, Client1, ok),
