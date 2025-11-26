@@ -1737,27 +1737,33 @@ Message returned by [`recvmsg/1,2,3,5`](`recvmsg/1`).
 -type msg_recv() :: msg_data_recv() | msg_notification_recv().
 
 
--type sctp_notification() :: sctp_notif_assoc_change()        |
-                             sctp_notif_paddr_change()        |
-                             sctp_notif_send_failed()         |
-                             sctp_notif_remote_error()        |
-                             sctp_notif_shutdown_event()      |
-                             sctp_notif_adapt_event()         |
-                             sctp_notif_pdapi_event()         |
-                             sctp_notif_authkey()             |
-                             sctp_notif_sender_dry()          |
-                             sctp_notif_stream_reset_event()  |
-                             sctp_notif_assoc_reset_event()   |
-                             sctp_notif_stream_change_event() |
-                             sctp_notif_generic()             |
-                             sctp_notif_send_failed_event().
+-doc """
+All possible notification types. All of them has *at least* two fields:
+'type' and 'flags' ('flags' are not allways used).
+
+C: `union sctp_notification`
+""".
+-type sctp_notification() :: sctp_assoc_change()        |
+                             sctp_paddr_change()        |
+                             sctp_send_failed()         |
+                             sctp_remote_error()        |
+                             sctp_shutdown_event()      |
+                             sctp_adapt_event()         |
+                             sctp_pdapi_event()         |
+                             sctp_authkey()             |
+                             sctp_sender_dry()          |
+                             sctp_stream_reset_event()  |
+                             sctp_assoc_reset_event()   |
+                             sctp_stream_change_event() |
+                             sctp_send_failed_event()   |
+                             sctp_notification_generic().
 
 -doc """
 An SCTP association has either begun or ended.
 
 C: `struct sctp_assoc_change`
 """.
--type sctp_notif_assoc_change() ::
+-type sctp_assoc_change() ::
         #{type             := assoc_change,
           flags            := integer(),
           state            := sctp_assoc_change_state(),
@@ -1797,7 +1803,7 @@ A destination address on a multi-homed peer has encountered a change.
 
 C: `struct sctp_paddr_change`
 """.
--type sctp_notif_paddr_change() ::
+-type sctp_paddr_change() ::
         #{type     := peer_addr_change,
           flags    := integer(),
           addr     := socket:sockaddr(),
@@ -1823,7 +1829,7 @@ C: `struct sctp_send_failed`
 
 Deprecated.
 """.
--type sctp_notif_send_failed() ::
+-type sctp_send_failed() ::
         #{type     := send_failed,
           flags    := 0..16#FFFF,
           error    := 0..16#FFFFFFFF,
@@ -1836,7 +1842,7 @@ A remote peer may send an operational error message to its peer.
 
 C: `struct sctp_remote_error`
 """.
--type sctp_notif_remote_error() ::
+-type sctp_remote_error() ::
         #{type          := remote_error,
           flags         := 0..16#FFFF, % Should be [flag()]
           error         := integer(),
@@ -1848,7 +1854,7 @@ A peer has sent a SHUTDOWN.
 
 C: `struct sctp_shutdown_event`
 """.
--type sctp_notif_shutdown_event() ::
+-type sctp_shutdown_event() ::
         #{type     := shutdown_event,
           flags    := 0..16#FFFF, % Should be [flag()]
           assoc_id := sctp_assoc_id()}.
@@ -1858,7 +1864,7 @@ A peer has sent a Adaptation Layer Indication parameter.
 
 C: `struct sctp_adaptation_event`
 """.
--type sctp_notif_adapt_event() ::
+-type sctp_adapt_event() ::
         #{type         := adaptation_event,
           flags        := 0..16#FFFF,
           adaption_ind := 0..16#FFFFFFFF,
@@ -1869,7 +1875,7 @@ A receiver is engaged in a partial delivery.
 
 C: `struct sctp_pdapi_event`
 """.
--type sctp_notif_pdapi_event() ::
+-type sctp_pdapi_event() ::
         #{type       := partial_delivery_event,
           flags      := 0..16#FFFF, % Should be [flag()]
           indication := 0..16#FFFFFFFF,
@@ -1883,7 +1889,7 @@ provided in this notification.
 
 C: `struct sctp_authkey_event`
 """.
--type sctp_notif_authkey() ::
+-type sctp_authkey() ::
         #{type         := authkey,
           flags        := 0..16#FFFF, % Should be [flag()]
           keynumber    := 0..16#FFFF,
@@ -1896,7 +1902,7 @@ The SCTP stack has no more user data to send or retransmit.
 
 C: `struct sctp_sender_dry_event`
 """.
--type sctp_notif_sender_dry() ::
+-type sctp_sender_dry() ::
         #{type     := sender_dry,
           flags    := integer(), % Should be [flag()]
           assoc_id := sctp_assoc_id()}.
@@ -1904,7 +1910,7 @@ C: `struct sctp_sender_dry_event`
 -doc """
 C: `struct sctp_stream_reset_event`
 """.
--type sctp_notif_stream_reset_event() ::
+-type sctp_stream_reset_event() ::
         #{type        := stream_reset,
           flags       := [incoming_ssn | outgoing_ssn | denied | failed],
           assoc_id    := sctp_assoc_id(),
@@ -1913,7 +1919,7 @@ C: `struct sctp_stream_reset_event`
 -doc """
 C: `struct sctp_assoc_reset_event`
 """.
--type sctp_notif_assoc_reset_event() ::
+-type sctp_assoc_reset_event() ::
         #{type       := assoc_reset,
           flags      := [denied | failed],
           assoc_id   := sctp_assoc_id(),
@@ -1923,7 +1929,7 @@ C: `struct sctp_assoc_reset_event`
 -doc """
 C: `struct sctp_stream_change_event`
 """.
--type sctp_notif_stream_change_event() ::
+-type sctp_stream_change_event() ::
         #{type             := stream_change,
           flags            := [denied | failed],
           assoc_id         := sctp_assoc_id(),
@@ -1931,24 +1937,27 @@ C: `struct sctp_stream_change_event`
           outbound_streams := 0..16#FFFF}.
 
 -doc """
-C: `union sctp_notification`
-""".
--type sctp_notif_generic() ::
-        #{type  := stream_reset_event | integer(),
-          flags := integer()}.
-
--doc """
 SCTP cannot deliver a message.
 
 C: `struct sctp_send_failed_event`
 """.
--type sctp_notif_send_failed_event() ::
+-type sctp_send_failed_event() ::
         #{type     := send_failed_event,
           flags    := [data_unsent | data_sent],
           error    := 0..16#FFFFFFFF,
           info     := sctp_snd_info(),
           assoc_id := sctp_assoc_id(),
           data     := binary()}.
+
+-doc """
+C: `union sctp_notification`
+
+This is intended as a fallback type for any notification
+we have not yet implemented.
+""".
+-type sctp_notification_generic() ::
+        #{type  := pos_integer(),
+          flags := pos_integer()}.
 
 -doc """
 C: `struct sctp_sndinfo`
