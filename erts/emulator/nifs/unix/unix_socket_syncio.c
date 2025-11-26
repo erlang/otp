@@ -936,6 +936,11 @@ static void essio_encode_sctp_notif_assoc_change(ErlNifEnv*                env,
                                                  struct sctp_assoc_change* acp,
                                                  ERL_NIF_TERM*             eEvent);
 #endif
+#if defined(SCTP_ASSOC_CHANGE) || defined(SCTP_REMOTE_ERROR)
+static ERL_NIF_TERM essio_encode_sctp_operation_error(ErlNifEnv*       env,
+                                                      ESockDescriptor* descP,
+                                                      uint16_t         error);
+#endif
 #if defined(SCTP_PEER_ADDR_CHANGE)
 static void essio_encode_sctp_notif_paddr_change(ErlNifEnv*                env,
                                                  ESockDescriptor*          descP,
@@ -7391,9 +7396,9 @@ void essio_encode_sctp_notification(ErlNifEnv*       env,
 /*
  * eEvent :: #{'$esock_name'    := sctp_notfication,
  *             type             := assoc_change,
- *             flags            := integer(),
+ *             flags            := pos_integer(),
  *             state            := assoc_change_state(),
- *             error            := atom() | integer(), %% RFC4960
+ *             error            := sctp_operation_error(), %% RFC4960
  *             outbound_streams := integer(),
  *             inbound_streams  := integer(),
  *             assoc_id         := assoc_id()}
@@ -7408,7 +7413,7 @@ void essio_encode_sctp_notif_assoc_change(ErlNifEnv*                env,
 {
     ERL_NIF_TERM eflags, estate, eerr, eouts, eins, eaid;
 
-    eflags = MKUI(env, acp->sac_flags); // We should translate this also...
+    eflags = MKUI(env, acp->sac_flags); // What are these?
 
     switch (acp->sac_state) {
     case SCTP_COMM_UP:
@@ -7431,8 +7436,44 @@ void essio_encode_sctp_notif_assoc_change(ErlNifEnv*                env,
         break;
     }
 
-    // We should translate this also...
-    switch (acp->sac_error) {
+    eerr   = essio_encode_sctp_operation_error(env, descP, acp->sac_error);
+    eouts  = MKUI(env, acp->sac_outbound_streams);
+    eins   = MKUI(env, acp->sac_inbound_streams);
+    eaid   = MKUI(env, acp->sac_assoc_id);
+
+    {
+        ERL_NIF_TERM keys[]  = {esock_atom_esock_name,
+            esock_atom_type, esock_atom_flags,
+            esock_atom_state, esock_atom_error, esock_atom_outbound_streams,
+            esock_atom_inbound_streams, esock_atom_assoc_id};
+        ERL_NIF_TERM vals[] = {esock_atom_sctp_notification,
+            esock_atom_assoc_change, eflags,
+            estate, eerr, eouts,
+            eins, eaid};
+        size_t       numKeys = NUM(keys);
+
+        ESOCK_ASSERT( numKeys == NUM(vals) );
+        ESOCK_ASSERT( MKMA(env, keys, vals, numKeys, eEvent) );
+    }
+}
+#endif
+
+
+#if defined(SCTP_ASSOC_CHANGE) || defined(SCTP_REMOTE_ERROR)
+
+/*
+ * SCTP Operation Error according to RFC 4960.
+ * 
+ */
+
+static
+ERL_NIF_TERM essio_encode_sctp_operation_error(ErlNifEnv*       env,
+                                               ESockDescriptor* descP,
+                                               uint16_t         error)
+{
+    ERL_NIF_TERM eerr;
+
+    switch (error) {
 #if defined(SCTP_ERR_UNKNOWN)
     case SCTP_ERR_UNKNOWN:
         eerr = esock_atom_unknown;
@@ -7534,31 +7575,13 @@ void essio_encode_sctp_notif_assoc_change(ErlNifEnv*                env,
         break;
 #endif
     default:
-        eerr = MKUI(env, acp->sac_error);
+        eerr = MKUI(env, error);
         break;
     }
-    
-    eouts  = MKUI(env, acp->sac_outbound_streams);
-    eins   = MKUI(env, acp->sac_inbound_streams);
-    eaid   = MKUI(env, acp->sac_assoc_id);
 
-    {
-        ERL_NIF_TERM keys[]  = {esock_atom_esock_name,
-            esock_atom_type, esock_atom_flags,
-            esock_atom_state, esock_atom_error, esock_atom_outbound_streams,
-            esock_atom_inbound_streams, esock_atom_assoc_id};
-        ERL_NIF_TERM vals[] = {esock_atom_sctp_notification,
-            esock_atom_assoc_change, eflags,
-            estate, eerr, eouts,
-            eins, eaid};
-        size_t       numKeys = NUM(keys);
-
-        ESOCK_ASSERT( numKeys == NUM(vals) );
-        ESOCK_ASSERT( MKMA(env, keys, vals, numKeys, eEvent) );
-    }
+    return eerr;
 }
 #endif
-
 
 /*
  * eEvent :: #{'$esock_name' := sctp_notfication,
@@ -7893,8 +7916,8 @@ void essio_encode_sctp_sndinfo(ErlNifEnv*           env,
 /*
  * eEvent :: #{'$esock_name' := sctp_notfication,
  *             type          := remote_error,
- *             flags         := integer(), % Should be [flag()]
- *             error         := integer(),
+ *             flags         := pos_integer(),
+ *             error         := sctp_operation_error(),
  *             assoc_id      := assoc_id(),
  *             remote_causes := [integer()]}
  */
@@ -7909,8 +7932,8 @@ void essio_encode_sctp_notif_remote_error(ErlNifEnv*                env,
     int          chunkLen;
     ERL_NIF_TERM eflags, eerr, eaid, eremcauses;
 
-    eflags = MKUI(env, p->sre_flags); // We should translate this also...
-    eerr   = MKUI(env, p->sre_error); // We should translate this also...
+    eflags = MKUI(env, p->sre_flags); // What are these?
+    eerr   = essio_encode_sctp_operation_error(env, descP, p->sre_error);
     eaid   = MKUI(env, p->sre_assoc_id);
 
 #if defined(HAVE_STRUCT_SCTP_REMOTE_ERROR_SRE_DATA)
