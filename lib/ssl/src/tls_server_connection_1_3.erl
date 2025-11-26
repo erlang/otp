@@ -308,14 +308,12 @@ wait_finished(internal,
     {Ref,Maybe} = tls_gen_connection_1_3:do_maybe(),
     try
         Maybe(tls_handshake_1_3:validate_finished(State0, VerifyData)),
-
-        State1 = tls_handshake_1_3:handle_secrets(State0),
-        %% Configure traffic keys
-        State2 = ssl_record:step_encryption_state(State1),
-
-        State3 = maybe_send_session_ticket(State2),
-
-        {Record, State} = ssl_gen_statem:prepare_connection(State3, tls_gen_connection),
+        State1 = tls_handshake_1_3:calculate_read_traffic_secrets(State0),
+        State2 = tls_handshake_1_3:maybe_calculate_resumption_master_secret(State1),
+        State3 = ssl_record:step_encryption_state_read(State2),
+        State4 = tls_handshake_1_3:prepare_connection(State3),
+        State5 = maybe_send_session_ticket(State4),
+        {Record, State} = ssl_gen_statem:prepare_connection(State5, tls_gen_connection),
         KeepSecrets = maps:get(keep_secrets, SSLOpts, false),
         tls_gen_connection_1_3:maybe_traffic_keylog_1_3(KeepSecrets, Role,
                                                         State#state.connection_states, 0),
@@ -583,8 +581,11 @@ send_hello_flight({start_handshake, PSK0},
         State9 = Connection:queue_handshake(Finished, State8),
 
         %% Send first flight
-        {State, _} = Connection:send_handshake_flight(State9),
+        {State10, _} = Connection:send_handshake_flight(State9),
 
+        State11 = tls_handshake_1_3:calculate_write_traffic_secrets(State10),
+        State = ssl_record:step_encryption_state_write(State11),
+        maybe_keylog(State),
         {State, NextState}
 
     catch
@@ -932,3 +933,23 @@ handle_alpn([ServerProtocol|T], ClientProtocols) ->
         false ->
             handle_alpn(T, ClientProtocols)
     end.
+
+maybe_keylog(#state{ssl_options = Options,
+                    connection_states = ConnectionStates,
+                    protocol_specific = PS})->
+    KeylogFun = maps:get(keep_secrets, Options, undefined),
+    maybe_keylog(KeylogFun, PS, ConnectionStates).
+
+maybe_keylog({Keylog, Fun}, ProtocolSpecific, ConnectionStates) when Keylog == keylog_hs;
+                                                                     Keylog == keylog ->
+    N = maps:get(num_key_updates, ProtocolSpecific, 0),
+    #{security_parameters := #security_parameters{client_random = ClientRandom,
+                                                  prf_algorithm = Prf,
+                                                  application_traffic_secret = TrafficSecret}}
+        = ssl_record:current_connection_state(ConnectionStates, write),
+    TrafficKeyLog = ssl_logger:keylog_traffic_1_3(server, ClientRandom,
+                                                  Prf, TrafficSecret, N),
+
+    ssl_logger:keylog(TrafficKeyLog, ClientRandom, Fun);
+maybe_keylog(_,_,_) ->
+    ok.

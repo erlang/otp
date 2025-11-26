@@ -65,7 +65,7 @@
          replace_ch1_with_message_hash/1,
          select_common_groups/2,
          verify_signature_algorithm/2,
-         handle_secrets/1,
+         prepare_connection/1,
          set_client_random/2,
          handle_pre_shared_key/3,
          update_start_state/2,
@@ -83,6 +83,9 @@
          calculate_traffic_secrets/1,
          calculate_client_early_traffic_secret/5,
          calculate_client_early_traffic_secret/2,
+         calculate_read_traffic_secrets/1,
+         calculate_write_traffic_secrets/1,
+         maybe_calculate_resumption_master_secret/1,
          early_data_secret/1,
          hs_traffic_secrets/1,
          encode_early_data/2,
@@ -437,10 +440,9 @@ process_certificate(#certificate_1_3{
 process_certificate(#certificate_1_3{
                        certificate_request_context = <<>>,
                        certificate_list = []},
-                    #state{static_env = #static_env{role = server = Role},
+                    #state{static_env = #static_env{role = server},
                            ssl_options =
-                               #{fail_if_no_peer_cert := true}} = State0) ->
-    State = handle_alert_encryption_state(Role, State0),
+                               #{fail_if_no_peer_cert := true}} = State) ->
     {error, {?ALERT_REC(?FATAL, ?CERTIFICATE_REQUIRED, certificate_required), State}};
 process_certificate(#certificate_1_3{certificate_list = CertEntries},
                     #state{ssl_options = SslOptions,
@@ -458,8 +460,7 @@ process_certificate(#certificate_1_3{certificate_list = CertEntries},
            CertEntries, CertDbHandle, CertDbRef, SslOptions, CRLDbHandle, Role,
            Host, StaplingState) of
         #alert{} = Alert ->
-            State = handle_alert_encryption_state(Role, State0),
-            {error, {Alert, State}};
+            {error, {Alert, State0}};
         {PeerCert, PublicKeyInfo} ->
             State = store_peer_cert(State0, PeerCert, PublicKeyInfo),
             {ok, {State, wait_cv}}
@@ -470,7 +471,7 @@ verify_certificate_verify(#state{static_env = #static_env{role = Role},
                                  handshake_env =
                                      #handshake_env{
                                         public_key_info = PublicKeyInfo,
-                                        tls_handshake_history = HHistory}} = State0,
+                                        tls_handshake_history = HHistory}} = State,
                           #certificate_verify_1_3{
                              algorithm = SignatureScheme,
                              signature = Signature}) ->
@@ -494,15 +495,11 @@ verify_certificate_verify(#state{static_env = #static_env{role = Role},
     %% scheme.
     case verify(THash, ContextString, HashAlgo, SignAlg, Signature, PublicKeyInfo) of
         {ok, true} ->
-            {ok, {State0, wait_finished}};
+            {ok, {State, wait_finished}};
         {ok, false} ->
-            State1 = calculate_traffic_secrets(State0),
-            State = ssl_record:step_encryption_state(State1),
             {error, {?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE,
                                 "Failed to verify CertificateVerify"), State}};
         {error, #alert{} = Alert} ->
-            State1 = calculate_traffic_secrets(State0),
-            State = ssl_record:step_encryption_state(State1),
             {error, {Alert, State}}
     end.
 
@@ -796,36 +793,6 @@ build_content(Context, THash) ->
     Prefix = binary:copy(<<32>>, 64),
     <<Prefix/binary,Context/binary,?BYTE(0),THash/binary>>.
 
-
-%% Sets correct encryption state when sending Alerts in shared states that use different secrets.
-%% - If server: use traffic secrets as by this time the client's state machine
-%%              already stepped into the 'connection' state.
-handle_alert_encryption_state(server, State0) ->
-    State1 = calculate_traffic_secrets(State0),
-    #state{ssl_options = Options,
-           connection_states = ConnectionStates,
-           protocol_specific = PS} = State = ssl_record:step_encryption_state(State1),
-    KeylogFun = maps:get(keep_secrets, Options, undefined),
-    maybe_keylog(KeylogFun, PS, ConnectionStates),
-    State;
-%% - If client: use handshake secrets.
-handle_alert_encryption_state(client, State) ->
-    State.
-
-maybe_keylog({Keylog, Fun}, ProtocolSpecific, ConnectionStates) when Keylog == keylog_hs;
-                                                                     Keylog == keylog ->
-    N = maps:get(num_key_updates, ProtocolSpecific, 0),
-    #{security_parameters := #security_parameters{client_random = ClientRandom,
-                                                  prf_algorithm = Prf,
-                                                  application_traffic_secret = TrafficSecret}}
-        = ssl_record:current_connection_state(ConnectionStates, write),
-    TrafficKeyLog = ssl_logger:keylog_traffic_1_3(server, ClientRandom,
-                                                  Prf, TrafficSecret, N),
-
-    ssl_logger:keylog(TrafficKeyLog, ClientRandom, Fun);
-maybe_keylog(_,_,_) ->
-    ok.
-
 validate_certificate_chain(CertEntries, CertDbHandle, CertDbRef,
                            SslOptions, CRLDbHandle, Role, Host, StaplingState) ->
     try split_cert_entries(CertEntries, StaplingState, [], #{}) of
@@ -906,12 +873,12 @@ message_hash(ClientHello1, HKDFAlgo) ->
      0,0,ssl_cipher:hash_size(HKDFAlgo),
      crypto:hash(HKDFAlgo, ClientHello1)].
 
-handle_secrets(State0) ->
-    State1 = calculate_traffic_secrets(State0),
-    State2 = #state{protocol_specific = PS} = maybe_calculate_resumption_master_secret(State1),
-    ExporterSecret = calculate_exporter_master_secret(State2),
-    State3 =  State2#state{protocol_specific = PS#{exporter_master_secret => ExporterSecret}},
-    forget_master_secret(State3).
+prepare_connection(State0) ->
+    %% Handle different secrets on transition to the connection state
+    State1 = #state{protocol_specific = PS} = maybe_calculate_resumption_master_secret(State0),
+    ExporterSecret = calculate_exporter_master_secret(State1),
+    State =  State0#state{protocol_specific = PS#{exporter_master_secret => ExporterSecret}},
+    forget_master_secret(State).
 
 calculate_handshake_secrets(PublicKey, PrivateKey, SelectedGroup, PSK,
                               #state{connection_states = ConnectionStates,
@@ -1134,6 +1101,72 @@ calculate_traffic_secrets(#state{
                                      ClientAppTrafficSecret0, ServerAppTrafficSecret0,
                                      ReadKey, ReadIV, undefined,
                                      WriteKey, WriteIV, undefined).
+
+
+calculate_read_traffic_secrets(#state{
+                             static_env = #static_env{role = Role},
+                                  connection_states = #{pending_read := PendingRead0} =
+                                      ConnectionStates,
+                                  handshake_env =
+                                      #handshake_env{
+                                         tls_handshake_history = HHistory}} = State0) ->
+    #{security_parameters := SecParamsR,
+      cipher_state := #cipher_state{finished_key = FinishedKey}} =
+        ssl_record:pending_connection_state(ConnectionStates, read),
+    #security_parameters{prf_algorithm = HKDFAlgo,
+                         cipher_suite = CipherSuite,
+                         master_secret = HandshakeSecret} = SecParamsR,
+
+    MasterSecret =
+        tls_v1:key_schedule(master_secret, HKDFAlgo, HandshakeSecret),
+
+    %% Get the correct list messages for the handshake context.
+    Messages = get_handshake_context(Role, HHistory),
+
+    %% Calculate [sender]_application_traffic_secret_0
+    ClientAppTrafficSecret0 =
+        tls_v1:client_application_traffic_secret_0(HKDFAlgo, MasterSecret, lists:reverse(Messages)),
+
+    %% Calculate traffic keys
+    KeyLength = tls_v1:key_length(CipherSuite),
+    {ReadKey, ReadIV} = tls_v1:calculate_traffic_keys(HKDFAlgo, KeyLength, ClientAppTrafficSecret0),
+    PendingRead = update_connection_state(PendingRead0, MasterSecret, undefined,
+                                          ClientAppTrafficSecret0,
+                                          ReadKey, ReadIV, FinishedKey),
+    State0#state{connection_states = ConnectionStates#{pending_read => PendingRead}}.
+
+calculate_write_traffic_secrets(#state{
+                                   static_env = #static_env{role = Role},
+                                   connection_states = #{pending_write := PendingWrite0} =
+                                       ConnectionStates,
+                             handshake_env =
+                                 #handshake_env{
+                                    tls_handshake_history = HHistory}} = State0) ->
+    #{security_parameters := SecParamsR,
+      cipher_state := #cipher_state{finished_key = FinishedKey}} =
+        ssl_record:pending_connection_state(ConnectionStates, write),
+    #security_parameters{prf_algorithm = HKDFAlgo,
+                         cipher_suite = CipherSuite,
+                         master_secret = HandshakeSecret} = SecParamsR,
+
+    MasterSecret =
+        tls_v1:key_schedule(master_secret, HKDFAlgo, HandshakeSecret),
+
+    %% Get the correct list messages for the handshake context.
+    Messages = get_handshake_context(Role, HHistory),
+
+    %% Calculate [sender]_application_traffic_secret_0
+    ServerAppTrafficSecret0 =
+        tls_v1:server_application_traffic_secret_0(HKDFAlgo, MasterSecret, lists:reverse(Messages)),
+
+    %% Calculate traffic keys
+    KeyLength = tls_v1:key_length(CipherSuite),
+    {WriteKey, WriteIV} = tls_v1:calculate_traffic_keys(HKDFAlgo, KeyLength, ServerAppTrafficSecret0),
+    PendingWrite = update_connection_state(PendingWrite0, MasterSecret, undefined,
+                                          ServerAppTrafficSecret0,
+                                          WriteKey, WriteIV, FinishedKey),
+    State0#state{connection_states = ConnectionStates#{pending_write => PendingWrite}}.
+
 
 %% X25519, X448
 calculate_shared_secret(OthersKey, MyKey, Group)
@@ -1443,14 +1476,12 @@ get_handshake_context_client(L) ->
 %% CertificateRequest message.
 verify_signature_algorithm(#state{
                               static_env = #static_env{role = Role},
-                              ssl_options = #{signature_algs := LocalSignAlgs}} = State0,
+                              ssl_options = #{signature_algs := LocalSignAlgs}} = State,
                            #certificate_verify_1_3{algorithm = PeerSignAlg}) ->
     case lists:member(PeerSignAlg, filter_tls13_algs(LocalSignAlgs)) of
         true ->
-            {ok, maybe_update_selected_sign_alg(State0, PeerSignAlg, Role)};
+            {ok, maybe_update_selected_sign_alg(State, PeerSignAlg, Role)};
         false ->
-            State1 = calculate_traffic_secrets(State0),
-            State = ssl_record:step_encryption_state(State1),
             {error, {?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE,
                                 "CertificateVerify uses unsupported signature algorithm"), State}}
     end.
@@ -1460,10 +1491,6 @@ maybe_update_selected_sign_alg(#state{session = Session} = State, SignAlg, clien
     State#state{session = Session#session{sign_alg = SignAlg}};
 maybe_update_selected_sign_alg(State, _, _) ->
     State.
-
-
-
-
 
 context_string(server) ->
     <<"TLS 1.3, server CertificateVerify">>;
