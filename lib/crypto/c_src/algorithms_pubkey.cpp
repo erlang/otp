@@ -79,7 +79,7 @@ ERL_NIF_TERM pubkey_type_t::get_atom() const {
 // Result: flags set if FIPS is not supported
 #if defined(FIPS_SUPPORT) && defined(HAS_3_0_API)
 void pubkey_type_t::check_against_fips() {
-    auto_pkey_ctx_t ctx(EVP_PKEY_CTX_new_from_name(nullptr, this->init->str_v3, nullptr));
+    auto_pkey_ctx_t ctx(EVP_PKEY_CTX_new_from_name(nullptr, this->init->get_v3_name(), nullptr));
 
     // failed: algorithm not available, do not add
     if (!ctx) {
@@ -91,23 +91,23 @@ void pubkey_type_t::check_against_fips() {
     }
 
     // Drop previous pkey_ctx, create new
-    ctx.reset(EVP_PKEY_CTX_new_from_name(nullptr, this->init->str_v3, nullptr));
+    ctx.reset(EVP_PKEY_CTX_new_from_name(nullptr, this->init->get_v3_name(), nullptr));
     if (EVP_PKEY_sign_init(ctx.pointer) <= 0) { // can't sign?
         this->flags.fips_forbidden_sign = true;
     }
 
     // Drop previous pkey_ctx, create new
-    ctx.reset(EVP_PKEY_CTX_new_from_name(nullptr, this->init->str_v3, nullptr));
+    ctx.reset(EVP_PKEY_CTX_new_from_name(nullptr, this->init->get_v3_name(), nullptr));
     if (EVP_PKEY_verify_init(ctx.pointer) <= 0) { // can't verify?
         flags.fips_forbidden_verify = true;
     }
 
-    ctx.reset(EVP_PKEY_CTX_new_from_name(nullptr, this->init->str_v3, nullptr));
+    ctx.reset(EVP_PKEY_CTX_new_from_name(nullptr, this->init->get_v3_name(), nullptr));
     if (EVP_PKEY_encrypt_init(ctx.pointer) <= 0) { // can't encrypt/decrypt?
         flags.fips_forbidden_encrypt = true;
     }
 
-    ctx.reset(EVP_PKEY_CTX_new_from_name(nullptr, this->init->str_v3, nullptr));
+    ctx.reset(EVP_PKEY_CTX_new_from_name(nullptr, this->init->get_v3_name(), nullptr));
     if (EVP_PKEY_derive_init(ctx.pointer) <= 0) { // can't derive?
         flags.fips_forbidden_derive = true;
     }
@@ -116,13 +116,13 @@ void pubkey_type_t::check_against_fips() {
 
 // for FIPS we will attempt to initialize the pubkey context to verify whether the
 // algorithm is allowed, for non-FIPS keeping the old behavior - always allow the algorithm.
-void pubkey_probe_t::probe(ErlNifEnv *env, bool fips_enabled, std::vector<pubkey_type_t> &output) {
+void pubkey_probe_t::probe(ErlNifEnv *env, const bool fips_enabled, std::vector<pubkey_type_t> &output) {
     this->atom = create_or_existing_atom(env, this->str, this->atom);
-    pubkey_type_t algo = {.init = this};
+    output.emplace_back(this);
+    auto &algo = output.back();
 #if defined(FIPS_SUPPORT) && defined(HAS_3_0_API)
     if (fips_enabled) { // attempt to instantiate the algorithm and set availability flags
         algo.check_against_fips();
     }
 #endif // FIPS_SUPPORT && HAS_3_0_API
-    return output.push_back(algo);
 }

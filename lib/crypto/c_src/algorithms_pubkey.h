@@ -44,20 +44,24 @@ extern "C"
 #    include "algorithms_collection.h"
 struct pubkey_probe_t;
 
+struct pubkey_type_flags_t {
+    bool algorithm_init_failed : 1; // algorithm init failed
+    bool fips_forbidden_keygen : 1;
+    bool fips_forbidden_sign : 1;
+    bool fips_forbidden_verify : 1;
+    bool fips_forbidden_encrypt : 1;
+    bool fips_forbidden_derive : 1;
+};
+
 // Describes a public key algorithm added by the collection's probe function, and checked for compatibility
 // with FIPS if FIPS mode was on. If the FIPS mode changes this will be destroyed and
 // created again.
 struct pubkey_type_t {
     const pubkey_probe_t *init = nullptr; // the pubkey_probe_t used to create this record
+    pubkey_type_flags_t flags = {};
 
-    struct {
-        bool algorithm_init_failed : 1; // algorithm init failed
-        bool fips_forbidden_keygen : 1;
-        bool fips_forbidden_sign : 1;
-        bool fips_forbidden_verify : 1;
-        bool fips_forbidden_encrypt : 1;
-        bool fips_forbidden_derive : 1;
-    } flags = {};
+    explicit pubkey_type_t(const pubkey_probe_t *probe) : init(probe) {
+    }
 
     bool is_forbidden_in_fips() const {
 #    ifdef FIPS_SUPPORT
@@ -88,6 +92,7 @@ struct pubkey_probe_t {
     const char *str_v3; // if this is nullptr, .str will be used instead
     ERL_NIF_TERM atom;
 
+    const char *get_v3_name() const { return this->str_v3 ? this->str_v3 : this->str; }
     // Perform a probe on the algorithm. In case of success, fill the struct and push into the 'output'
     void probe(ErlNifEnv *env, bool fips_enabled, std::vector<pubkey_type_t> &output);
 };

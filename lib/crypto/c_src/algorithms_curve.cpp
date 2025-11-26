@@ -443,23 +443,9 @@ bool curve_probe_t::is_curve_valid_by_nid() const {
     return false;
 }
 
-void curve_probe_t::probe(ErlNifEnv *env, const bool fips_mode, std::vector<curve_type_t> &output) {
-    this->atom = create_or_existing_atom(env, this->sn, this->atom);
-
-    // Some curves can be pre-checked by their NID. Passing NID=0 will skip this check
-    if (nid && !this->is_curve_valid_by_nid()) {
-        return; // invalid/unsupported curves are skipped
-    }
-
-    // Construct in the container directly, passing 'this' to the ctor
-    output.emplace_back(this);
-    auto &algo = output.back();
-    algo.probe_under_fips(fips_mode);
-}
-
 ERL_NIF_TERM curve_type_t::get_atom() const { return this->init->atom; }
 
-void curve_type_t::probe_under_fips(const bool fips_mode) {
+void curve_type_t::check_fips_availability(const bool fips_mode) {
 #if defined(FIPS_SUPPORT) && defined(HAS_3_0_API)
     // This checking code only runs under FIPS and OpenSSL 3+, other cases algorithm is always added
     if (!fips_mode)
@@ -487,4 +473,18 @@ void curve_type_t::probe_under_fips(const bool fips_mode) {
         this->flags.algorithm_init_failed = true;
     }
 #endif
+}
+
+void curve_probe_t::probe(ErlNifEnv *env, const bool fips_mode, std::vector<curve_type_t> &output) {
+    this->atom = create_or_existing_atom(env, this->sn, this->atom);
+
+    // Some curves can be pre-checked by their NID. Passing NID=0 will skip this check
+    if (nid && !this->is_curve_valid_by_nid()) {
+        return; // invalid/unsupported curves are skipped
+    }
+
+    // Construct in the container directly, passing 'this' to the ctor
+    output.emplace_back(this);
+    auto &algo = output.back();
+    algo.check_fips_availability(fips_mode);
 }

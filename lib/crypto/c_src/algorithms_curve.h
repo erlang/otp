@@ -65,7 +65,7 @@ struct curve_type_t {
     // Return the atom which goes to the Erlang caller
     ERL_NIF_TERM get_atom() const;
     // Instantiate the algorithm (if FIPS is enabled) and set flags if not available
-    void probe_under_fips(bool fips_mode);
+    void check_fips_availability(bool fips_mode);
 };
 
 // A probe contains data required for creating the algorithm description structure and testing
