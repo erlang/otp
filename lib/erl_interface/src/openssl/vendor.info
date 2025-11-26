@@ -14,12 +14,14 @@
     "homepage": "https://www.openssl.org/",
     "licenseDeclared": "Apache-2.0",
     "name": "openssl",
-    "versionInfo": "3.5",
-    "sha": "636dfadc70ce26f2473870570bfd9ec352806b1d",
+    "versionInfo": "3.6.0",
+    "sha": "7b371d80d959ec9ab4139d09d78e83c090de9779",
     "path": "./lib/erl_interface/src/openssl",
-    "exclude": ["./lib/erl_interface/src/openssl/vendor.info",
-                "./lib/erl_interface/src/openssl/README",
-                "./lib/erl_interface/src/openssl/openssl.mk"],
+    "exclude": [
+      "./lib/erl_interface/src/openssl/vendor.info",
+      "./lib/erl_interface/src/openssl/README",
+      "./lib/erl_interface/src/openssl/openssl.mk"
+    ],
     "supplier": "Organization: OpenSSL Mission",
     "purl": "pkg:generic/openssl"
   }
