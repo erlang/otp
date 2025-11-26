@@ -2237,6 +2237,7 @@ delete_code(Module* modp)
                 }
             }
 
+            erts_update_export_is_bif_traced(ep);
             ASSERT(!ep->is_bif_traced);
 
             ep->trampoline.common.op = BeamOpCodeAddr(op_call_error_handler);

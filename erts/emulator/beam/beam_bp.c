@@ -900,7 +900,6 @@ erts_clear_all_export_break(Module* modp, Export *ep)
     erts_commit_staged_bp();
 
     consolidate_bp_data(&modp->curr, ci, 0);
-    erts_update_export_is_bif_traced(ep);
     erts_free_breakpoints();
     ASSERT(ci->gen_bp == NULL);
 }
