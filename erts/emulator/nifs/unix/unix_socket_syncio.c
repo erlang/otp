@@ -8386,9 +8386,12 @@ void essio_encode_sctp_notif_stream_change_event(ErlNifEnv*                    e
 
 
 /*
+ * This is a fallback type for notifications we have not yet
+ * any encode.
+ *
  * eEvent :: #{'$esock_name' := sctp_notfication,
- *             type     := sender_dry,
- *             flags    := integer()}
+ *             type     := pos_integer(),
+ *             flags    := pos_integer()}
  */
 #if defined(HAVE_SCTP)
 static
@@ -8398,12 +8401,15 @@ void essio_encode_sctp_notif_generic(ErlNifEnv*               env,
                                      union sctp_notification* p,
                                      ERL_NIF_TERM*            eEvent)
 {
-    ERL_NIF_TERM eflags = MKUI(env, p->sn_header.sn_flags); // We should translate this also...
+    ERL_NIF_TERM eflags = MKUI(env, p->sn_header.sn_flags);
 
     {
         ERL_NIF_TERM keys[]  = {esock_atom_esock_name,
-            esock_atom_type, esock_atom_flags};
-        ERL_NIF_TERM vals[] = {esock_atom_sctp_notification, etype, eflags};
+                                esock_atom_type,
+                                esock_atom_flags};
+        ERL_NIF_TERM vals[]  = {esock_atom_sctp_notification,
+                                etype,
+                                eflags};
         size_t       numKeys = NUM(keys);
 
         ESOCK_ASSERT( numKeys == NUM(vals) );
