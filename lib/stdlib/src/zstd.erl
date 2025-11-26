@@ -644,7 +644,7 @@ decompress(Data) ->
 -doc """
 decompress(Data, CtxOrOptions)
 
-Decompress `Data` using the given `t:compress_parameters/0` or the `t:context/0`.
+Decompress `Data` using the given `t:decompress_parameters/0` or the `t:context/0`.
 
 Example:
 
