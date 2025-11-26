@@ -1767,7 +1767,7 @@ C: `struct sctp_assoc_change`
         #{type             := assoc_change,
           flags            := integer(),
           state            := sctp_assoc_change_state(),
-          error            := sctp_rfc4960_error(),
+          error            := sctp_operation_error(),
           outbound_streams := integer(),
           inbound_streams  := integer(),
           assoc_id         := sctp_assoc_id()}.
@@ -1779,24 +1779,28 @@ C: `struct sctp_assoc_change`
                                    cant_str_assoc |
                                    integer().
 
--type sctp_rfc4960_error() :: unknown           |
-                              bad_sid           |
-                              missing_parm      |
-                              stale_cookie      |
-                              no_resources      |
-                              bad_addr          |
-                              unrec_chunk       |
-                              bad_mandparm      |
-                              unrec_parm        |
-                              no_usr_data       |
-                              cookie_shut       |
-                              restart_new_addrs |
-                              user_abort        |
-                              delete_lastaddr   |
-                              resource_shortage |
-                              delete_srcaddr    |
-                              auth_err          |
-                              integer().
+-doc """
+These error codes are (currently) defined in RFC 4960,
+and named as *Operation Errors*.
+""".
+-type sctp_operation_error() :: unknown           |
+                                bad_sid           |
+                                missing_parm      |
+                                stale_cookie      |
+                                no_resources      |
+                                bad_addr          |
+                                unrec_chunk       |
+                                bad_mandparm      |
+                                unrec_parm        |
+                                no_usr_data       |
+                                cookie_shut       |
+                                restart_new_addrs |
+                                user_abort        |
+                                delete_lastaddr   |
+                                resource_shortage |
+                                delete_srcaddr    |
+                                auth_err          |
+                                pos_integer().
 
 -doc """
 A destination address on a multi-homed peer has encountered a change.
@@ -1805,10 +1809,10 @@ C: `struct sctp_paddr_change`
 """.
 -type sctp_paddr_change() ::
         #{type     := peer_addr_change,
-          flags    := integer(),
+          flags    := pos_integer(),
           addr     := socket:sockaddr(),
           state    := sctp_peer_addr_change_state(),
-          error    := integer(),
+          error    := pos_integer(),
           assoc_id := sctp_assoc_id()}.
 
 -type sctp_peer_addr_change_state() ::
@@ -1845,7 +1849,7 @@ C: `struct sctp_remote_error`
 -type sctp_remote_error() ::
         #{type          := remote_error,
           flags         := 0..16#FFFF, % Should be [flag()]
-          error         := integer(),
+          error         := sctp_operation_error(),
           assoc_id      := sctp_assoc_id(),
           remote_causes := [integer()]}.
 
