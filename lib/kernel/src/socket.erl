@@ -406,6 +406,7 @@ server(Addr, Port) ->
 %% We need #file_descriptor{} for sendfile/2,3,4,5
 -include("file_int.hrl").
 
+
 %% -define(DBG(T),
 %%         erlang:display({{self(), ?MODULE, ?LINE, ?FUNCTION_NAME}, T})).
 
@@ -415,6 +416,10 @@ server(Addr, Port) ->
 
 %% Also in prim_socket
 -define(REGISTRY, socket_registry).
+
+%% -type uint8()  :: 0..16#FF.
+-type uint16() :: 0..16#FFFF.
+-type uint32() :: 0..16#FFFFFFFF.
 
 -type invalid() :: {invalid, What :: term()}.
 
@@ -1835,8 +1840,8 @@ Deprecated.
 """.
 -type sctp_send_failed() ::
         #{type     := send_failed,
-          flags    := 0..16#FFFF,
-          error    := 0..16#FFFFFFFF,
+          flags    := uint16(),
+          error    := uint32(),
           info     := sctp_snd_rcv_info(),
           assoc_id := sctp_assoc_id(),
           data     := binary()}.
@@ -1848,7 +1853,7 @@ C: `struct sctp_remote_error`
 """.
 -type sctp_remote_error() ::
         #{type          := remote_error,
-          flags         := 0..16#FFFF, % Should be [flag()]
+          flags         := uint16(), % Should be [flag()]
           error         := sctp_operation_error(),
           assoc_id      := sctp_assoc_id(),
           remote_causes := [integer()]}.
@@ -1860,7 +1865,7 @@ C: `struct sctp_shutdown_event`
 """.
 -type sctp_shutdown_event() ::
         #{type     := shutdown_event,
-          flags    := 0..16#FFFF, % Should be [flag()]
+          flags    := uint16(), % Should be [flag()]
           assoc_id := sctp_assoc_id()}.
 
 -doc """
@@ -1870,8 +1875,8 @@ C: `struct sctp_adaptation_event`
 """.
 -type sctp_adapt_event() ::
         #{type         := adaptation_event,
-          flags        := 0..16#FFFF,
-          adaption_ind := 0..16#FFFFFFFF,
+          flags        := uint16(),
+          adaption_ind := uint32(),
           assoc_id     := sctp_assoc_id()}.
 
 -doc """
@@ -1881,11 +1886,11 @@ C: `struct sctp_pdapi_event`
 """.
 -type sctp_pdapi_event() ::
         #{type       := partial_delivery_event,
-          flags      := 0..16#FFFF, % Should be [flag()]
-          indication := 0..16#FFFFFFFF,
+          flags      := uint16(), % Should be [flag()]
+          indication := uint16(),
           assoc_id   := sctp_assoc_id(),
-          stream     := undefined | 0..16#FFFFFFFF,
-          seq        := undefined | 0..16#FFFFFFFF}.
+          stream     := undefined | uint32(),
+          seq        := undefined | uint32()}.
 
 -doc """
 When a receiver is using authentication, info about new keys and errors are
@@ -1895,10 +1900,10 @@ C: `struct sctp_authkey_event`
 """.
 -type sctp_authkey() ::
         #{type         := authkey,
-          flags        := 0..16#FFFF, % Should be [flag()]
-          keynumber    := 0..16#FFFF,
-          altkeynumber := 0..16#FFFF,
-          indication   := 0..16#FFFFFFFF,
+          flags        := uint16(), % Should be [flag()]
+          keynumber    := uint16(),
+          altkeynumber := uint16(),
+          indication   := uint32(),
           assoc_id     := sctp_assoc_id()}.
 
 -doc """
@@ -1908,7 +1913,7 @@ C: `struct sctp_sender_dry_event`
 """.
 -type sctp_sender_dry() ::
         #{type     := sender_dry,
-          flags    := integer(), % Should be [flag()]
+          flags    := uint16(), % Should be [flag()]
           assoc_id := sctp_assoc_id()}.
 
 -doc """
@@ -1918,7 +1923,7 @@ C: `struct sctp_stream_reset_event`
         #{type        := stream_reset,
           flags       := [incoming_ssn | outgoing_ssn | denied | failed],
           assoc_id    := sctp_assoc_id(),
-          stream_list := [0..16#FFFF]}.
+          stream_list := [uint16()]}.
 
 -doc """
 C: `struct sctp_assoc_reset_event`
@@ -1927,8 +1932,8 @@ C: `struct sctp_assoc_reset_event`
         #{type       := assoc_reset,
           flags      := [denied | failed],
           assoc_id   := sctp_assoc_id(),
-          local_tsn  := 0..16#FFFFFFFF,
-          remote_tsn := 0..16#FFFFFFFF}.
+          local_tsn  := uint32(),
+          remote_tsn := uint32()}.
 
 -doc """
 C: `struct sctp_stream_change_event`
@@ -1937,8 +1942,8 @@ C: `struct sctp_stream_change_event`
         #{type             := stream_change,
           flags            := [denied | failed],
           assoc_id         := sctp_assoc_id(),
-          inbound_streams  := 0..16#FFFF,
-          outbound_streams := 0..16#FFFF}.
+          inbound_streams  := uint16(),
+          outbound_streams := uint16()}.
 
 -doc """
 SCTP cannot deliver a message.
@@ -1948,7 +1953,7 @@ C: `struct sctp_send_failed_event`
 -type sctp_send_failed_event() ::
         #{type     := send_failed_event,
           flags    := [data_unsent | data_sent],
-          error    := 0..16#FFFFFFFF,
+          error    := uint32(),
           info     := sctp_snd_info(),
           assoc_id := sctp_assoc_id(),
           data     := binary()}.
@@ -1960,31 +1965,31 @@ This is intended as a fallback type for any notification
 we have not yet implemented.
 """.
 -type sctp_notification_generic() ::
-        #{type  := pos_integer(),
-          flags := pos_integer()}.
+        #{type  := uint16(),
+          flags := uint16()}.
 
 -doc """
 C: `struct sctp_sndinfo`
 """.
 -type sctp_snd_info() ::
-        #{sid      := 0..16#FFFF,
-          flags    := 0..16#FFFF, % Should be [flag()]
-          ppid     := 0..16#FFFF,
-          context  := 0..16#FFFFFFFF,
+        #{sid      := uint16(),
+          flags    := uint16(), % Should be [flag()]
+          ppid     := uint16(),
+          context  := uint32(),
           assic_id := sctp_assoc_id()}.
 
 -doc """
 C: `struct sctp_sndrcvinfo`
 """.
 -type sctp_snd_rcv_info() ::
-        #{stream       := 0..16#FFFF,
-          ssn          => 0..16#FFFF,
+        #{stream       := uint16(),
+          ssn          => uint16(),
           flags        => sctp_snd_rcv_info_flags(),
-          ppid         => 0..16#FFFFFFFF,
-          context      => 0..16#FFFFFFFF,
-          time_to_live => 0..16#FFFFFFFF,
-          tsn          => 0..16#FFFFFFFF,
-          cum_tsn      => 0..16#FFFFFFFF,
+          ppid         => uint32(),
+          context      => uint32(),
+          time_to_live => uint32(),
+          tsn          => uint32(),
+          cum_tsn      => uint32(),
           assoc_id     := sctp_assoc_id()}.
 
 -type sctp_snd_rcv_info_flags() :: [unordered | addr_over | abort | eof].
