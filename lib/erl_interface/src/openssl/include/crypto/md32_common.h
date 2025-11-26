@@ -1,5 +1,5 @@
 /*
- * Copyright 1999-2022 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 1999-2025 The OpenSSL Project Authors. All Rights Reserved.
  *
  * Licensed under the Apache License 2.0 (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
@@ -65,6 +65,19 @@
 
 #if !defined(ERLANG_OPENSSL_INTEGRATION)
 #include <openssl/crypto.h>
+/*
+ * For ossl_(un)likely
+ */
+# include <internal/common.h>
+#else
+/* Cut from <internal/common.h> */
+# if defined(__GNUC__) || defined(__clang__)
+#  define ossl_likely(x)     __builtin_expect(!!(x), 1)
+#  define ossl_unlikely(x)   __builtin_expect(!!(x), 0)
+# else
+#  define ossl_likely(x)     (x)
+#  define ossl_unlikely(x)   (x)
+# endif
 #endif
 
 #if !defined(DATA_ORDER_IS_BIG_ENDIAN) && !defined(DATA_ORDER_IS_LITTLE_ENDIAN)
@@ -156,18 +169,18 @@ int HASH_UPDATE(HASH_CTX *c, const void *data_, size_t len)
     HASH_LONG l;
     size_t n;
 
-    if (len == 0)
+    if (ossl_unlikely(len == 0))
         return 1;
 
     l = (c->Nl + (((HASH_LONG) len) << 3)) & 0xffffffffUL;
-    if (l < c->Nl)              /* overflow */
+    if (ossl_unlikely(l < c->Nl))              /* overflow */
         c->Nh++;
     c->Nh += (HASH_LONG) (len >> 29); /* might cause compiler warning on
                                        * 16-bit */
     c->Nl = l;
 
     n = c->num;
-    if (n != 0) {
+    if (ossl_likely(n != 0)) {
         p = (unsigned char *)c->data;
 
         if (len >= HASH_CBLOCK || len + n >= HASH_CBLOCK) {
