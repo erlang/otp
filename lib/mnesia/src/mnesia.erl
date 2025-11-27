@@ -2291,8 +2291,8 @@ Result = '$1',
 mnesia:select(Tab,[{MatchHead, [Guard], [Result]}]),
 ```
 """.
--spec select(Tab, Spec, LockKind) -> [Match] when
-      Tab::table(), Spec::ets:match_spec(),
+-spec select(Tab, MatchSpec, LockKind) -> [Match] when
+      Tab::table(), MatchSpec::ets:match_spec(),
       Match::term(),LockKind::lock_kind().
 select(Tab, Pat, LockKind)
   when is_atom(Tab), Tab /= schema, is_list(Pat) ->
@@ -2369,9 +2369,9 @@ operations are done on that table in the same transaction. That is, do not use
 `NObjects` is a recommendation only and the result can contain anything from an
 empty list to all available results.
 """.
--spec select(Tab, Spec, N, LockKind) -> {[Match], Cont} | '$end_of_table' when
-      Tab::table(), Spec::ets:match_spec(),
-      Match::term(), N::non_neg_integer(),
+-spec select(Tab, MatchSpec, NObjects, LockKind) -> {[Match], Cont} | '$end_of_table' when
+      Tab::table(), MatchSpec::ets:match_spec(),
+      Match::term(), NObjects::non_neg_integer(),
       LockKind::lock_kind(),
       Cont::select_continuation().
 select(Tab, Pat, NObjects, LockKind)
