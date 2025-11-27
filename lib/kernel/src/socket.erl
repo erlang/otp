@@ -1882,6 +1882,9 @@ C: `struct sctp_adaptation_event`
 -doc """
 A receiver is engaged in a partial delivery.
 
+Note that not all fields are available on all platforms.
+The *stream* and/or *seq* fields may not be present.
+
 C: `struct sctp_pdapi_event`
 """.
 -type sctp_pdapi_event() ::
@@ -1889,8 +1892,8 @@ C: `struct sctp_pdapi_event`
           flags      := uint16(), % Should be [flag()]
           indication := uint16(),
           assoc_id   := sctp_assoc_id(),
-          stream     := undefined | uint32(),
-          seq        := undefined | uint32()}.
+          stream     => uint32(),
+          seq        => uint32()}.
 
 -doc """
 When a receiver is using authentication, info about new keys and errors are
@@ -1979,6 +1982,9 @@ C: `struct sctp_sndinfo`
           assic_id := sctp_assoc_id()}.
 
 -doc """
+When sending, only the *stream* and *assoc_id* fields needs to be
+assigned. When receiving all values will be assigned.
+
 C: `struct sctp_sndrcvinfo`
 """.
 -type sctp_snd_rcv_info() ::
