@@ -29,11 +29,11 @@
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2, 
 	 crash/1, stacktrace/1, sync_start_nolink/1, sync_start_link/1,
-         sync_start_monitor/1, sync_start_monitor_link/1,
+         sync_start_monitor/1, sync_start_monitor_link/1, sync_start_monitor_monitor/1,
          sync_start_timeout/1, sync_start_link_timeout/1,
          sync_start_monitor_link_timeout/1,
          spawn_opt/1, sp1/0, sp1_with_label/0, sp2/0, sp3/1, sp4/2,
-         sp5/1, sp6/1, sp7/1, sp8/1, sp9/1, sp10/1,
+         sp5/1, sp6/1, sp7_link/1, sp7_monitor/1, sp8/1, sp9/1, sp10/1,
          '\x{447}'/0, hibernate/1, stop/1, t_format/1, t_format_arbitrary/1]).
 -export([ otp_6345/1, init_dont_hang/1]).
 
@@ -64,7 +64,7 @@ all() ->
 groups() -> 
     [{tickets, [], [otp_6345, init_dont_hang]},
      {sync_start, [], [sync_start_nolink, sync_start_link,
-                       sync_start_monitor, sync_start_monitor_link,
+                       sync_start_monitor, sync_start_monitor_link, sync_start_monitor_monitor,
                        sync_start_timeout, sync_start_link_timeout,
                        sync_start_monitor_link_timeout]}].
 
@@ -313,7 +313,7 @@ sync_start_monitor(Config) when is_list(Config) ->
     ok.
 
 sync_start_monitor_link(Config) when is_list(Config) ->
-    _Pid = spawn_link(?MODULE, sp7, [self()]),
+    _Pid = spawn_link(?MODULE, sp7_link, [self()]),
     receive
 	{sync_started, _} -> ct:fail(async_start)
     after 1000 -> ok
@@ -331,6 +331,25 @@ sync_start_monitor_link(Config) when is_list(Config) ->
     end,
     receive received_exit -> ok
     after 1000 -> ct:fail(no_exit)
+    end,
+    ok.
+
+sync_start_monitor_monitor(Config) when is_list(Config) ->
+    _Pid = spawn_link(?MODULE, sp7_monitor, [self()]),
+    receive
+	{sync_started, _} -> ct:fail(async_start)
+    after 1000 -> ok
+    end,
+    receive
+	{Pid2, init} ->
+	    Pid2 ! go_on
+    end,
+    receive
+	{sync_started, _} -> ok
+    after 1000 -> ct:fail(no_sync_start)
+    end,
+    receive received_down -> ok
+    after 1000 -> ct:fail(no_down)
     end,
     ok.
 
@@ -445,7 +464,7 @@ sp6(Tester) ->
             Tester ! received_down
     end.
 
-sp7(Tester) ->
+sp7_link(Tester) ->
     process_flag(trap_exit, true),
     {Pid, Mon} = proc_lib:start_monitor(?MODULE, sp4, [self(), Tester], infinity, [link]),
     Tester ! {sync_started, Pid},
@@ -455,6 +474,15 @@ sp7(Tester) ->
     end,
     receive
         {'DOWN', Mon, process, Pid, normal} ->
+            Tester ! received_down
+    end.
+
+sp7_monitor(Tester) ->
+    process_flag(trap_exit, true),
+    {Pid, Mon} = proc_lib:start_monitor(?MODULE, sp4, [self(), Tester], infinity, [{monitor, [{tag, sp7_monitor}]}]),
+    Tester ! {sync_started, Pid},
+    receive
+        {sp7_monitor, Mon, process, Pid, normal} ->
             Tester ! received_down
     end.
 
@@ -622,8 +650,12 @@ hib_receive_messages(N) ->
 otp_6345(Config) when is_list(Config) ->
     Opts = [link,monitor],
     try
-        blupp = proc_lib:start(?MODULE, otp_6345_init, [self()],
-                               1000, Opts)
+        proc_lib:start(?MODULE, otp_6345_init, [self()],
+                       1000, Opts)
+    of
+	{ok, Pid} ->
+	    exit(Pid, kill),
+	    ct:fail(monitor_option_accepted)
     catch
         error:badarg -> ok
     end.
