@@ -32,6 +32,8 @@
 -moduledoc false.
 -behaviour(gen_server).
 
+-compile(nowarn_export_var_subexpr).
+
 %% API
 -export([start/1, stop/0, register_me/1, set_debug/2]).
 

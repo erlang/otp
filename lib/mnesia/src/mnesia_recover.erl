@@ -24,6 +24,8 @@
 -module(mnesia_recover).
 -moduledoc false.
 
+-compile(nowarn_export_var_subexpr).
+
 -behaviour(gen_server).
 
 -export([

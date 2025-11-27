@@ -70,6 +70,7 @@ Module:format_error(ErrorDescriptor)
 `m:epp`, `m:erl_parse`
 """.
 
+-compile(nowarn_export_var_subexpr).
 
 -export([module/1,module/2,module/3,format_error/1]).
 -export([exprs/2,exprs_opt/3,used_vars/2]). % Used from erl_eval.erl.

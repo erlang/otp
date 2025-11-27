@@ -33,6 +33,8 @@
 
 -behaviour(gen_statem).
 
+-compile(nowarn_export_var_subexpr).
+
 -include("ssh.hrl").
 -include("ssh_transport.hrl").
 -include("ssh_auth.hrl").
