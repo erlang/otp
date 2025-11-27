@@ -300,19 +300,19 @@ erts_bp_free_matched_functions(BpFunctions* f)
 }
 
 /*
- * Set Export.is_bif_traced for BIFs
- * to true if breakpoint exist in either export trampoline or code
- * to false otherwise.
+ * Return correct value for Export.is_bif_traced.
+ * true if BIF and breakpoint exist in either export trampoline or code,
+ * false otherwise.
 */
-void erts_update_export_is_bif_traced(Export *ep)
+int erts_export_is_bif_traced(const Export *ep)
 {
     if (ep->bif_number < 0) {
         ASSERT(!ep->is_bif_traced);
-        return;
+        return 0;
     }
 
     if (ep->info.gen_bp) {
-        ep->is_bif_traced = 1;
+        return 1;
     }
     else {
         ErtsCodePtr code = ep->dispatch.addresses[erts_active_code_ix()];
@@ -321,7 +321,7 @@ void erts_update_export_is_bif_traced(Export *ep)
         ASSERT(ci->mfa.function == ep->info.mfa.function);
         ASSERT(ci->mfa.arity == ep->info.mfa.arity);
 
-        ep->is_bif_traced = (ci->gen_bp != NULL);
+        return (ci->gen_bp != NULL);
     }
 }
 
@@ -338,6 +338,7 @@ consolidate_export_bp_data(BpFunctions* f)
     for (i = 0; i < n; i++) {
         struct erl_module_instance *mi;
         ErtsCodeInfo *ci_rw;
+        Export* ep;
 
         mi = fs[i].mod ? &fs[i].mod->curr : NULL;
 
@@ -351,7 +352,8 @@ consolidate_export_bp_data(BpFunctions* f)
 
         consolidate_bp_data(mi, ci_rw, 0);
 
-        erts_update_export_is_bif_traced(ErtsContainerStruct(ci_rw, Export, info));
+        ep = ErtsContainerStruct(ci_rw, Export, info);
+        ep->is_bif_traced = erts_export_is_bif_traced(ep);
     }
 }
 

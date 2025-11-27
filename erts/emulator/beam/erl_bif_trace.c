@@ -2475,7 +2475,7 @@ erts_set_trace_pattern(ErtsCodeMFA *mfa, int specified,
             erts_clear_export_trace(ci_rw);
         }
 
-        erts_update_export_is_bif_traced(ep);
+        ep->is_bif_traced = erts_export_is_bif_traced(ep);
     }
 
     finish_bp.current = 0;

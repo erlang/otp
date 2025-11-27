@@ -150,7 +150,7 @@ void erts_clear_trace_break(BpFunctions *f);
 
 void erts_set_export_trace(Export *ep, Binary *match_spec);
 void erts_clear_export_trace(ErtsCodeInfo *ci);
-void erts_update_export_is_bif_traced(Export*);
+int erts_export_is_bif_traced(const Export*);
 
 void erts_set_mtrace_break(BpFunctions *f, Binary *match_spec, ErtsTracer tracer);
 void erts_clear_mtrace_break(BpFunctions *f);
