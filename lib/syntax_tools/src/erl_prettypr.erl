@@ -1568,7 +1568,7 @@ is_last_and_before_empty_line(H, [], #ctxt{empty_lines = EmptyLines}) ->
     catch error:badarith -> false
     end;
 is_last_and_before_empty_line(H, [H2 | _], #ctxt{empty_lines = EmptyLines}) ->
-    try ((get_line(H2) - get_line(H)) >= 2) and sets:is_element(get_line(H) + 1, EmptyLines)
+    try ((get_line(H2) - get_line(H)) >= 2) andalso sets:is_element(get_line(H) + 1, EmptyLines)
     catch error:badarith -> false
     end.
 
