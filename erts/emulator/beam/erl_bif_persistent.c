@@ -315,7 +315,7 @@ BIF_RETTYPE persistent_term_put_2(BIF_ALIST_2)
 {
     return put_common(BIF_P, BIF_ARG_1, BIF_ARG_2, am_false);
 }
-    
+
 BIF_RETTYPE persistent_term_put_new_2(BIF_ALIST_2)
 {
     return put_common(BIF_P, BIF_ARG_1, BIF_ARG_2, am_true);
@@ -432,120 +432,120 @@ BIF_RETTYPE persistent_term_erase_1(BIF_ALIST_1)
 #define ERASE_TRAP_CODE                                                 \
         BIF_TRAP1(BIF_TRAP_EXPORT(BIF_persistent_term_erase_1), BIF_P, state_mref);
 #define TRAPPING_COPY_TABLE_ERASE(TABLE_DEST, OLD_TABLE, NEW_SIZE, REHASH, LOC_NAME) \
-        TRAPPING_COPY_TABLE(TABLE_DEST, OLD_TABLE, NEW_SIZE, REHASH, LOC_NAME, ERASE_TRAP_CODE, BIF_P)
-if (is_internal_magic_ref(BIF_ARG_1) &&
-    (ERTS_MAGIC_BIN_DESTRUCTOR(erts_magic_ref2bin(BIF_ARG_1)) ==
-     persistent_term_erase_1_ctx_bin_dtor)) {
-    /* Restore the state after a trap */
-    Binary* state_bin;
-    state_mref = BIF_ARG_1;
-    state_bin = erts_magic_ref2bin(state_mref);
-    ctx = ERTS_MAGIC_BIN_DATA(state_bin);
-    ASSERT(BIF_P->flags & F_DISABLE_GC);
-    erts_set_gc_state(BIF_P, 1);
-    switch (ctx->trap_location) {
-    case ERASE1_TRAP_LOCATION_TMP_COPY:
-        goto L_ERASE1_TRAP_LOCATION_TMP_COPY;
-    case ERASE1_TRAP_LOCATION_FINAL_COPY:
-        goto L_ERASE1_TRAP_LOCATION_FINAL_COPY;
-    }
-} else {
-    /* Save state in magic bin in case trapping is necessary */
-    Eterm* hp;
-    Binary* state_bin = erts_create_magic_binary(sizeof(ErtsPersistentTermErase1Context),
-                                                 persistent_term_erase_1_ctx_bin_dtor);
-    hp = HAlloc(BIF_P, ERTS_MAGIC_REF_THING_SIZE);
-    state_mref = erts_mk_magic_ref(&hp, &MSO(BIF_P), state_bin);
-    ctx = ERTS_MAGIC_BIN_DATA(state_bin);
-    /*
-     * IMPORTANT: The following two fields are used to detect if
-     * persistent_term_erase_1_ctx_bin_dtor needs to free memory
-     */
-    ctx->cpy_ctx.new_table = NULL;
-    ctx->tmp_table = NULL;
-}
-if (!try_seize_update_permission(BIF_P)) {
-    ERTS_BIF_YIELD1(BIF_TRAP_EXPORT(BIF_persistent_term_erase_1),
-                    BIF_P, BIF_ARG_1);
-}
-
-ctx->key = BIF_ARG_1;
-ctx->old_table = (HashTable *) erts_atomic_read_nob(&the_hash_table);
-ctx->entry_index = lookup(ctx->old_table, ctx->key, &ctx->old_bucket);
-
-if (is_boxed(ctx->old_bucket)) {
-    ctx->must_shrink = MUST_SHRINK(ctx->old_table);
-    if (!ctx->must_shrink && is_erasable(ctx->old_table, ctx->entry_index)) {
-        /*
-         * Fast erase in active hash table.
-         * We schedule with thread progress even here (see put/2).
-         * It's not needed for read consistenty of the NIL word, BUT it's
-         * needed to guarantee sequential read consistenty of multiple
-         * updates. As we do thread progress between all updates, there is
-         * no risk seeing them out of order.
-         */
-        fast_update_index = ctx->entry_index;
-        fast_update_term = NIL;
-        ctx->old_table->num_entries--;
-        erts_schedule_thr_prgr_later_op(table_updater, ctx->old_table, &thr_prog_op);
-    }
-    else {
-        Uint new_size;
-        /*
-         * Since we don't use any delete markers, we must rehash the table
-         * to ensure that all terms can still be reached if there are
-         * hash collisions.
-         * We can't rehash in place and it would not be safe to modify
-         * the old table yet, so we will first need a new
-         * temporary table copy of the same size as the old one.
-         */
-
-        ASSERT(is_tuple_arity(ctx->old_bucket, 2));
-        TRAPPING_COPY_TABLE_ERASE(ctx->tmp_table,
-                                  ctx->old_table,
-                                  ctx->old_table->allocated,
-                                  ERTS_PERSISTENT_TERM_CPY_TEMP,
-                                  ERASE1_TRAP_LOCATION_TMP_COPY);
-
-        /*
-         * Delete the term from the temporary table. Then copy the
-         * temporary table to a new table, rehashing the entries
-         * while copying.
-         */
-
-        set_bucket(ctx->tmp_table, ctx->entry_index, NIL);
-        ctx->tmp_table->num_entries--;
-        new_size = ctx->tmp_table->allocated;
-        if (ctx->must_shrink) {
-            new_size /= 2;
+        TRAPPING_COPY_TABLE(TABLE_DEST, OLD_TABLE, NEW_SIZE, REHASH, LOC_NAME, ERASE_TRAP_CODE, BIF_P)    
+    if (is_internal_magic_ref(BIF_ARG_1) &&
+        (ERTS_MAGIC_BIN_DESTRUCTOR(erts_magic_ref2bin(BIF_ARG_1)) ==
+         persistent_term_erase_1_ctx_bin_dtor)) {
+        /* Restore the state after a trap */
+        Binary* state_bin;
+        state_mref = BIF_ARG_1;
+        state_bin = erts_magic_ref2bin(state_mref);
+        ctx = ERTS_MAGIC_BIN_DATA(state_bin);
+        ASSERT(BIF_P->flags & F_DISABLE_GC);
+        erts_set_gc_state(BIF_P, 1);
+        switch (ctx->trap_location) {
+        case ERASE1_TRAP_LOCATION_TMP_COPY:
+            goto L_ERASE1_TRAP_LOCATION_TMP_COPY;
+        case ERASE1_TRAP_LOCATION_FINAL_COPY:
+            goto L_ERASE1_TRAP_LOCATION_FINAL_COPY;
         }
-        TRAPPING_COPY_TABLE_ERASE(ctx->new_table,
-                                  ctx->tmp_table,
-                                  new_size,
-                                  ERTS_PERSISTENT_TERM_CPY_REHASH,
-                                  ERASE1_TRAP_LOCATION_FINAL_COPY);
-        erts_free(ERTS_ALC_T_PERSISTENT_TERM_TMP, ctx->tmp_table);
+    } else {
+        /* Save state in magic bin in case trapping is necessary */
+        Eterm* hp;
+        Binary* state_bin = erts_create_magic_binary(sizeof(ErtsPersistentTermErase1Context),
+                                                     persistent_term_erase_1_ctx_bin_dtor);
+        hp = HAlloc(BIF_P, ERTS_MAGIC_REF_THING_SIZE);
+        state_mref = erts_mk_magic_ref(&hp, &MSO(BIF_P), state_bin);
+        ctx = ERTS_MAGIC_BIN_DATA(state_bin);
         /*
-         * IMPORTANT: Memory management depends on that ctx->tmp_table
-         * is set to NULL on the line below
+         * IMPORTANT: The following two fields are used to detect if
+         * persistent_term_erase_1_ctx_bin_dtor needs to free memory
          */
+        ctx->cpy_ctx.new_table = NULL;
         ctx->tmp_table = NULL;
-
-        mark_for_deletion(ctx->old_table, ctx->entry_index);
-        erts_schedule_thr_prgr_later_op(table_updater, ctx->new_table, &thr_prog_op);
     }
-    suspend_updater(BIF_P);
-    BUMP_REDS(BIF_P, (max_iterations - iterations_until_trap) / ITERATIONS_PER_RED);
-    ERTS_BIF_YIELD_RETURN(BIF_P, am_true);
-}
+    if (!try_seize_update_permission(BIF_P)) {
+        ERTS_BIF_YIELD1(BIF_TRAP_EXPORT(BIF_persistent_term_erase_1),
+                        BIF_P, BIF_ARG_1);
+    }
 
-/*
- * Key is not present. Nothing to do.
- */
+    ctx->key = BIF_ARG_1;
+    ctx->old_table = (HashTable *) erts_atomic_read_nob(&the_hash_table);
+    ctx->entry_index = lookup(ctx->old_table, ctx->key, &ctx->old_bucket);
 
-ASSERT(is_nil(ctx->old_bucket));
-release_update_permission(0);
-BIF_RET(am_false);
+    if (is_boxed(ctx->old_bucket)) {
+        ctx->must_shrink = MUST_SHRINK(ctx->old_table);
+        if (!ctx->must_shrink && is_erasable(ctx->old_table, ctx->entry_index)) {
+            /*
+             * Fast erase in active hash table.
+             * We schedule with thread progress even here (see put/2).
+             * It's not needed for read consistenty of the NIL word, BUT it's
+             * needed to guarantee sequential read consistenty of multiple
+             * updates. As we do thread progress between all updates, there is
+             * no risk seeing them out of order.
+             */
+            fast_update_index = ctx->entry_index;
+            fast_update_term = NIL;
+            ctx->old_table->num_entries--;
+            erts_schedule_thr_prgr_later_op(table_updater, ctx->old_table, &thr_prog_op);
+        }
+        else {
+            Uint new_size;
+            /*
+             * Since we don't use any delete markers, we must rehash the table
+             * to ensure that all terms can still be reached if there are
+             * hash collisions.
+             * We can't rehash in place and it would not be safe to modify
+             * the old table yet, so we will first need a new
+             * temporary table copy of the same size as the old one.
+             */
+
+            ASSERT(is_tuple_arity(ctx->old_bucket, 2));
+            TRAPPING_COPY_TABLE_ERASE(ctx->tmp_table,
+                                      ctx->old_table,
+                                      ctx->old_table->allocated,
+                                      ERTS_PERSISTENT_TERM_CPY_TEMP,
+                                      ERASE1_TRAP_LOCATION_TMP_COPY);
+
+            /*
+             * Delete the term from the temporary table. Then copy the
+             * temporary table to a new table, rehashing the entries
+             * while copying.
+             */
+
+            set_bucket(ctx->tmp_table, ctx->entry_index, NIL);
+            ctx->tmp_table->num_entries--;
+            new_size = ctx->tmp_table->allocated;
+            if (ctx->must_shrink) {
+                new_size /= 2;
+            }
+            TRAPPING_COPY_TABLE_ERASE(ctx->new_table,
+                                      ctx->tmp_table,
+                                      new_size,
+                                      ERTS_PERSISTENT_TERM_CPY_REHASH,
+                                      ERASE1_TRAP_LOCATION_FINAL_COPY);
+            erts_free(ERTS_ALC_T_PERSISTENT_TERM_TMP, ctx->tmp_table);
+            /*
+             * IMPORTANT: Memory management depends on that ctx->tmp_table
+             * is set to NULL on the line below
+             */
+            ctx->tmp_table = NULL;
+
+            mark_for_deletion(ctx->old_table, ctx->entry_index);
+            erts_schedule_thr_prgr_later_op(table_updater, ctx->new_table, &thr_prog_op);
+        }
+        suspend_updater(BIF_P);
+        BUMP_REDS(BIF_P, (max_iterations - iterations_until_trap) / ITERATIONS_PER_RED);
+        ERTS_BIF_YIELD_RETURN(BIF_P, am_true);
+    }
+
+    /*
+     * Key is not present. Nothing to do.
+     */
+
+    ASSERT(is_nil(ctx->old_bucket));
+    release_update_permission(0);
+    BIF_RET(am_false);
 }
 
 BIF_RETTYPE erts_internal_erase_persistent_terms_0(BIF_ALIST_0)
@@ -733,7 +733,7 @@ static Eterm put_common(Process* c_p, Eterm key, Eterm term, Eterm new)
             BIF_ERROR(c_p, BADARG);
         }
     }
-    
+
     {
         Uint term_size;
         Uint lit_area_size;
