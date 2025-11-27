@@ -61,6 +61,8 @@ For details about how to get started with the Crashdump Viewer, see the
 %% wordsize: 4 | 8, the number of bytes in a word.
 %%
 
+-compile(nowarn_export_var_subexpr).
+
 %% User API
 -export([start/0,start/1,stop/0,script_start/0,script_start/1]).
 
