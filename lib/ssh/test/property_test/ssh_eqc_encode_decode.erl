@@ -23,8 +23,9 @@
 
 -module(ssh_eqc_encode_decode).
 
--compile(export_all).
-
+-export([prop_ssh_decode/0,
+         prop_ssh_decode_encode/0
+        ]).
 -include_lib("common_test/include/ct_property_test.hrl").
 
 %% Public key records:
@@ -147,11 +148,11 @@ gen_boolean() -> choose(0,1).
 
 gen_byte() -> choose(0,255).
 
-gen_uint16() -> gen_byte(2).
+%% gen_uint16() -> gen_byte(2).
 
 gen_uint32() -> gen_byte(4).
 
-gen_uint64() -> gen_byte(8).
+%% gen_uint64() -> gen_byte(8).
 
 gen_byte(N) when N>0 -> [gen_byte() || _ <- lists:seq(1,N)].
     
@@ -159,8 +160,8 @@ gen_char() -> choose($a,$z).
 
 gen_mpint() -> ?LET(I, largeint(), ssh_bits:mpint(I)).
 
-strip_0s([0|T]) -> strip_0s(T);
-strip_0s(X) -> X.
+%% strip_0s([0|T]) -> strip_0s(T);
+%% strip_0s(X) -> X.
     
 
 gen_string() -> 
@@ -209,6 +210,7 @@ msg_code(Num) -> Name
 ?MSG_CODE('SSH_MSG_USERAUTH_SUCCESS',   52);
 ?MSG_CODE('SSH_MSG_USERAUTH_BANNER',   53);
 ?MSG_CODE('SSH_MSG_USERAUTH_PK_OK',   60);
+%% FIXME Warning: this clause cannot match because a previous clause
 ?MSG_CODE('SSH_MSG_USERAUTH_PASSWD_CHANGEREQ',   60);
 ?MSG_CODE('SSH_MSG_DISCONNECT',   1);
 ?MSG_CODE('SSH_MSG_IGNORE',   2);
@@ -236,12 +238,14 @@ msg_code(Num) -> Name
 ?MSG_CODE('SSH_MSG_USERAUTH_INFO_RESPONSE',   61);
 ?MSG_CODE('SSH_MSG_KEXDH_INIT', 30);
 ?MSG_CODE('SSH_MSG_KEXDH_REPLY', 31);
+%% FIXME Warning: this clause cannot match because a previous clause
 ?MSG_CODE('SSH_MSG_KEX_DH_GEX_REQUEST_OLD',   30);
 ?MSG_CODE('SSH_MSG_KEX_DH_GEX_REQUEST',   34);
 ?MSG_CODE('SSH_MSG_KEX_DH_GEX_GROUP',   31);
 ?MSG_CODE('SSH_MSG_KEX_DH_GEX_INIT',   32);
 ?MSG_CODE('SSH_MSG_KEX_DH_GEX_REPLY', 33);
 ?MSG_CODE('SSH_MSG_KEX_ECDH_INIT', 30);
+%% FIXME Warning: this clause cannot match because a previous clause
 ?MSG_CODE('SSH_MSG_KEX_ECDH_REPLY', 31).
 
 %%%====================================================
