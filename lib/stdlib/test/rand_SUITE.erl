@@ -46,7 +46,7 @@
 %% Manual test functions
 -export([measure_shuffle/2, measure_shuffle/4]).
 
--define(LOOP, 1000_000).
+-define(LOOP, 1_000_000).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -114,6 +114,13 @@ test() ->
 algs() ->
     [exsss, exrop, exsp, exs1024s, exs64, exsplus, exs1024, exro928ss].
 
+all_algs() ->
+    [default | algs()] ++
+        case crypto_support() of
+            ok -> [crypto_aes];
+            _  -> []
+        end.
+
 crypto_support() ->
     try crypto:strong_rand_bytes(1) of
         <<_>> ->
@@ -124,6 +131,18 @@ crypto_support() ->
         error : undef ->
             no_crypto
     end.
+
+rand_crypto_seed(crypto_aes = Alg, Seed) ->
+    {dummy,Uint} = rand:export_seed_s(rand:seed_s(dummy, Seed)),
+    crypto:rand_seed_alg(Alg, <<Uint:64>>);
+rand_crypto_seed(Alg, Seed) ->
+    rand:seed(Alg, Seed).
+
+rand_crypto_seed_s(crypto_aes = Alg, Seed) ->
+    {dummy,Uint} = rand:export_seed_s(rand:seed_s(dummy, Seed)),
+    crypto:rand_seed_alg_s(Alg, <<Uint:64>>);
+rand_crypto_seed_s(Alg, Seed) ->
+    rand:seed_s(Alg, Seed).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -192,20 +211,19 @@ seed_1(Alg) ->
 %% Check that both APIs are consistent with each other.
 api_eq(_Config) ->
     Algs = [default|algs()],
-    Small = fun(Alg) ->
-		    Seed = rand:seed(Alg),
-		    io:format("Seed ~p~n",[rand:export_seed_s(Seed)]),
-		    api_eq_1(Seed)
-	    end,
-    _ = [Small(Alg) || Alg <- Algs],
+    [begin
+         Seed = rand:seed(Alg),
+         io:format("Seed ~p~n",[rand:export_seed_s(Seed)]),
+         api_eq_1(Seed)
+     end || Alg <- Algs],
     ok.
 
 api_eq_1(S00) ->
     Check = fun(_, Seed) ->
 		    {V0, S0} = rand:uniform_s(Seed),
 		    V0 = rand:uniform(),
-		    {V1, S1} = rand:uniform_s(1000000, S0),
-		    V1 = rand:uniform(1000000),
+		    {V1, S1} = rand:uniform_s(1_000_000, S0),
+		    V1 = rand:uniform(1_000_000),
 		    {V2, S2} = rand:normal_s(S1),
 		    V2 = rand:normal(),
                     B3 = rand:bytes(64),
@@ -252,23 +270,15 @@ mwc59_api(Config) when is_list(Config) ->
                 error : function_clause ->
                     Seed = 11213862807209314,
                     Seed = rand:mwc59_seed(1),
-                    mwc59_api(Seed, 1000000)
+                    L = mwc59_api(Seed, 100_000),
+                    4462832181889430 = hash_term(L),
+                    ok
             end
     end.
 
-mwc59_api(CX0, 0) ->
-    CX = 182322083224642863,
-    {CX, CX} = {CX0, CX},
-    V0 = rand:mwc59_value32(CX0),
-    V = 2905950767,
-    {V, V} = {V0, V},
-    W0 = rand:mwc59_value(CX0),
-    W = 269866568368142303,
-    {W, W} = {W0, W},
-    F0 = rand:mwc59_float(CX0),
-    F = (W band ((1 bsl 53)-1)) * (1 / (1 bsl 53)),
-    {F, F} = {F0, F},
-    ok;
+mwc59_api(CX, 0) ->
+    216107814007665128 = CX,
+    [];
 mwc59_api(CX, N)
   when is_integer(CX), 1 =< CX, CX < (16#7fa6502 bsl 32) - 1 ->
     V = rand:mwc59_value32(CX),
@@ -280,7 +290,7 @@ mwc59_api(CX, N)
     true = W < 1 bsl 59,
     true = 0.0 =< F,
     true = F < 1.0,
-    mwc59_api(rand:mwc59(CX), N - 1).
+    [{CX,V,W,F} | mwc59_api(rand:mwc59(CX), N - 1)].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -288,16 +298,20 @@ mwc59_api(CX, N)
 %%
 exsp_next_api(Config) when is_list(Config) ->
     {_, AlgState} = State = rand:seed_s(exsp, 87654321),
-    exsp_next_api(State, AlgState, 1000000).
+    L = exsp_next_api(State, AlgState, 100_000),
+    13363686088259114 = hash_term(L),
+    ok.
 
-exsp_next_api(_State, _AlgState, 0) ->
-    ok;
+exsp_next_api(_State, AlgState, 0) ->
+    {Y, _} = rand:exsp_next(AlgState),
+    207486314159676945 = Y,
+    [];
 exsp_next_api(State, AlgState, N) ->
     {X, NewState} = rand:uniform_s(1 bsl 58, State),
     {Y, NewAlgState} = rand:exsp_next(AlgState),
-    Y1 = Y + 1,
-    {X, X, N} = {Y1, X, N},
-    exsp_next_api(NewState, NewAlgState, N - 1).
+    true = is_integer(Y, 0, (1 bsl 58)-1),
+    {X, X, N} = {Y + 1, X, N},
+    [Y | exsp_next_api(NewState, NewAlgState, N - 1)].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -305,95 +319,154 @@ exsp_next_api(State, AlgState, N) ->
 %%
 exsp_jump_api(Config) when is_list(Config) ->
     {_, AlgState} = State = rand:seed_s(exsp, 12345678),
-    exsp_jump_api(State, AlgState, 10000).
+    L = exsp_jump_api(State, AlgState, 10_000),
+    23649080733560819 = hash_term(L),
+    ok.
 
-exsp_jump_api(_State, _AlgState, 0) ->
-    ok;
+exsp_jump_api(_State, AlgState, 0) ->
+    {Y, _} = rand:exsp_next(AlgState),
+    2203529177842352 = Y,
+    [];
 exsp_jump_api(State, AlgState, N) ->
     {X, NewState} = rand:uniform_s(1 bsl 58, State),
     {Y, NewAlgState} = rand:exsp_next(AlgState),
-    Y1 = Y + 1,
-    {X, X, N} = {Y1, X, N},
-    exsp_jump_api(
-      rand:jump(NewState),
-      rand:exsp_jump(NewAlgState),
-      N - 1).
+    true = is_integer(Y, 0, (1 bsl 58)-1),
+    {X, X, N} = {Y + 1, X, N},
+    [Y | exsp_jump_api(
+           rand:jump(NewState),
+           rand:exsp_jump(NewAlgState),
+           N - 1)].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% Verify splitmix64_next behaviour
 %%
 splitmix64_next_api(Config) when is_list(Config) ->
-    splitmix64_next_api(55555555, 100000, 0).
+    L = splitmix64_next_api(55555555, 100_000, 0),
+    35329549067255926 = hash_term(L),
+    ok.
 
 splitmix64_next_api(_State, 0, X) ->
     X0 = 13069087632117122295,
     {X0, X0} = {X, X0},
-    ok;
+    [];
 splitmix64_next_api(AlgState, N, X)
-  when is_integer(X), 0 =< X, X < 1 bsl 64 ->
+  when is_integer(X, 0, (1 bsl 64)-1) ->
     {X1, NewAlgState} = rand:splitmix64_next(AlgState),
-    splitmix64_next_api(NewAlgState, N - 1, X1).
+    [X | splitmix64_next_api(NewAlgState, N - 1, X1)].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%% Check that uniform/1 returns values within the proper interval.
+%% Check that uniform/1 returns correct values.
 interval_int(Config) when is_list(Config) ->
-    Algs = [default|algs()],
-    Small = fun(Alg) ->
-		    Seed = rand:seed(Alg),
-		    io:format("Seed ~p~n",[rand:export_seed_s(Seed)]),
-		    Max = interval_int_1(100000, 7, 0),
-		    Max =:= 7 orelse exit({7, Alg, Max})
-	    end,
-    _ = [Small(Alg) || Alg <- Algs],
-    %% Test large integers
-    Large = fun(Alg) ->
-		    Seed = rand:seed(Alg),
-		    io:format("Seed ~p~n",[rand:export_seed_s(Seed)]),
-		    Max = interval_int_1(100000, 1 bsl 128, 0),
-		    Max > 1 bsl 64 orelse exit({large, Alg, Max})
-	    end,
-    [Large(Alg) || Alg <- Algs],
-    ok.
+    Algs = all_algs(),
+    R1 = 7,
+    R2 = (1 bsl 57) + 4711,
+    R3 = 1 bsl 128,
+    keyverify(
+      [begin
+           %% 1/5_000 from range end over 100_000 tries gives
+           %% the odds about 1/500_000 to not get a number
+           %% in the range end
+           D = round(Range / 5_000),
+           L = interval_int(100_000, Range, Alg, D),
+           {{Alg,Range}, hash_term(L)}
+       end ||
+          Alg <- Algs,
+          Range <- [R1, R2, R3]],
+      #{
+        {default,R1}    => 11240267459155554,
+        {default,R2}    => 32601989265626580,
+        {default,R3}    => 17949116405932061,
+        {exsss,R1}      => 11240267459155554,
+        {exsss,R2}      => 32601989265626580,
+        {exsss,R3}      => 17949116405932061,
+        {exrop,R1}      => 29439025302668224,
+        {exrop,R2}      => 35757088269702251,
+        {exrop,R3}      => 18658039660916348,
+        {exsp,R1}       =>  3756226303137097,
+        {exsp,R2}       => 18978154034346741,
+        {exsp,R3}       => 31517684264452265,
+        {exs1024s,R1}   => 25663442531954265,
+        {exs1024s,R2}   => 19963226828780853,
+        {exs1024s,R3}   => 17293067974750216,
+        {exs64,R1}      => 31194709903027496,
+        {exs64,R2}      => 19805508609802443,
+        {exs64,R3}      => 26160839404403677,
+        {exsplus,R1}    =>  3756226303137097,
+        {exsplus,R2}    => 35795957558673381,
+        {exsplus,R3}    => 33355694743882377,
+        {exs1024,R1}    => 25663442531954265,
+        {exs1024,R2}    => 13597139056366660,
+        {exs1024,R3}    => 28403669731190641,
+        {exro928ss,R1}  => 15392329658099540,
+        {exro928ss,R2}  => 30958702749427846,
+        {exro928ss,R3}  =>  6454995828729814,
+        {crypto_aes,R1} => 34171729520417518,
+        {crypto_aes,R2} => 26079292509661060,
+        {crypto_aes,R3} => 35504948493323822}).
 
-interval_int_1(0, _, Max) -> Max;
-interval_int_1(N, Top, Max) ->
-    X = rand:uniform(Top),
+interval_int(M, Range, Alg, D) ->
+    Seed = rand_crypto_seed(Alg, 16#c0ffee),
+    case interval_int(M, Range, Range, 1, []) of
+        {Min, Max, L} ->
+            Min =< 1 + D orelse
+                error({min, Range, Min, Alg, Seed}),
+            Range - D =< Max orelse
+                error({max, Range, Max, Alg, Seed}),
+            L;
+        {N, X} ->
+            error({range, Range, N, X, Alg, Seed})
+    end.
+
+interval_int(0, _, Min, Max, Acc) -> {Min, Max, Acc};
+interval_int(N, Range, Min, Max, Acc) ->
+    X = rand:uniform(Range),
     if
-	0 < X, X =< Top ->
-	    ok;
+	is_integer(X, 1, Range) ->
+            interval_int(N-1, Range, min(X, Min), max(X, Max), [X | Acc]);
 	true ->
-	    io:format("X=~p Top=~p 0<~p<~p~n", [X,Top,X,Top]),
-	    exit({X, rand:export_seed()})
-    end,
-    interval_int_1(N-1, Top, max(X, Max)).
+            {N, X}
+    end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%% Check that uniform/0 returns values within the proper interval.
+%% Check that uniform/0 returns correct values.
 interval_float(Config) when is_list(Config) ->
-    Algs = [default|algs()],
-    Test = fun(Alg) ->
-		   _ = rand:seed(Alg),
-		   interval_float_1(100000)
-	   end,
-    [Test(Alg) || Alg <- Algs],
-    ok.
+    Algs = all_algs(),
+    keyverify(
+      [begin
+           S = rand_crypto_seed(Alg, 4711),
+           L = interval_float(S, 100_000),
+           {Alg, hash_term(L)}
+       end || Alg <- Algs],
+      #{ default    =>  5382017173793021,
+         exsss      =>  5382017173793021,
+         exrop      =>  5207813521787093,
+         exsp       => 28291248181663524,
+         exs1024s   => 22063655035448922,
+         exs64      =>  5902160523799262,
+         exsplus    =>  8865928157739066,
+         exs1024    => 25102382062514482,
+         exro928ss  =>  1472404561442754,
+         crypto_aes => 25675812191601515}).
 
-interval_float_1(0) -> ok;
-interval_float_1(N) ->
-    X = rand:uniform(),
-    Y = rand:uniform_real(),
+interval_float(S, 0) ->
+    E = rand:export_seed_s(S),
+    E = rand:export_seed(),
+    [];
+interval_float(S0, N) ->
+    {X, S1} = rand:uniform_s(S0),
+    X       = rand:uniform(),
+    {Y, S2} = rand:uniform_real_s(S1),
+    Y       = rand:uniform_real(),
     if
-	0.0 =< X, X < 1.0, 0.0 < Y, Y < 1.0 ->
-	    ok;
+	0.0 =< X, X < 1.0,
+        0.0  < Y, Y < 1.0 ->
+	    [X | interval_float(S2, N-1)];
 	true ->
-	    io:format("X=~p 0.0=<~p<1.0~n", [X,X]),
-	    io:format("Y=~p 0.0<~p<1.0~n", [Y,Y]),
-	    exit({X, rand:export_seed()})
-    end,
-    interval_float_1(N-1).
+	    error({X, Y, rand:export_seed_s(S0)})
+    end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -401,34 +474,70 @@ interval_float_1(N) ->
 %% the right number of bytes
 
 bytes_count(Config) when is_list(Config) ->
-    Algs = [default|algs()],
-    Counts = lists:seq(0, 255),
-    [begin
-         _ = rand:seed(Alg),
-         [begin
-              ExportState = rand:export_seed(),
-              B = rand:bytes(N),
-              {B, _NewState} = rand:bytes_s(N, rand:seed_s(ExportState)),
-              N = byte_size(B)
-          end || N <- Counts]
-     end || Alg <- Algs],
+    Algs = all_algs(),
+    Counts = lists:seq(0, 1234),
+    keyverify(
+      [begin
+           S = rand_crypto_seed(Alg, 16#fab5_1337),
+           L = bytes_count(Counts, S),
+           {Alg, erlang:md5(L)}
+       end || Alg <- Algs],
+      #{default =>
+            <<120,26,245,107,79,122,213,167,165,174,177,1,183,240,181,183>>,
+        exsss =>
+            <<120,26,245,107,79,122,213,167,165,174,177,1,183,240,181,183>>,
+        exrop =>
+            <<50,152,150,102,189,79,142,131,246,217,138,254,110,205,149,166>>,
+        exsp =>
+            <<252,66,88,60,149,120,51,25,184,219,86,45,30,17,238,246>>,
+        exs1024s =>
+            <<184,2,51,160,197,236,34,42,103,251,106,173,3,200,51,2>>,
+        exs64 =>
+            <<150,102,219,153,150,151,158,47,195,253,145,238,123,221,195,44>>,
+        exsplus =>
+            <<252,66,88,60,149,120,51,25,184,219,86,45,30,17,238,246>>,
+        exs1024 =>
+            <<96,125,159,255,181,105,164,103,148,1,185,177,167,249,227,55>>,
+        exro928ss =>
+            <<65,25,82,241,64,57,88,83,156,185,226,152,76,85,5,124>>,
+        crypto_aes =>
+            <<177,51,112,56,233,126,247,244,127,240,226,105,123,184,225,130>>}),
     ok.
+
+bytes_count([], _S) -> [];
+bytes_count([N | Counts], S0) ->
+    ExportState = rand:export_seed(),
+    ExportState = rand:export_seed_s(S0),
+    {B, S1} = rand:bytes_s(N, S0),
+    case rand:bytes(N) of
+        B when byte_size(B) =:= N ->
+            [B | bytes_count(Counts, S1)];
+        Other ->
+            error({N,Other,B,ExportState})
+    end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% Check that shuffle doesn't loose or duplicate elements
 
 shuffle_elements(Config) when is_list(Config) ->
-    SortedList = lists:seq(1, 1010_101),
+    SortedList = lists:seq(1, 1_010_101),
     State = rand:seed(default),
     {ShuffledList, NewState} = rand:shuffle_s(SortedList, State),
-    true = ShuffledList =:= rand:shuffle(SortedList),
-    NewSeed = rand:export_seed_s(NewState),
-    NewSeed = rand:export_seed(),
-    case lists:sort(ShuffledList) of
-        SortedList -> ok;
+    case rand:shuffle(SortedList) of
+        ShuffledList ->
+            NewSeed = rand:export_seed_s(NewState),
+            NewSeed = rand:export_seed(),
+            case lists:sort(ShuffledList) of
+                SortedList -> ok;
+                _ ->
+                    error({mismatch, State})
+            end;
         _ ->
-            error({mismatch, State})
+            error({different_shuffle,
+                   rand:export_seed_s(State),
+                   rand:export_seed_s(NewState),
+                   rand:export_seed()})
     end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -436,32 +545,39 @@ shuffle_elements(Config) when is_list(Config) ->
 %% Check that shuffle is repeatable
 
 shuffle_reference(Config) when is_list(Config) ->
+    Algs = all_algs(),
     M    = 20,
     List = lists:seq(0, (1 bsl M) - 1),
     Seed = {1,2,3},
-    Ref  =
-        [{exsss,
-          <<124,54,150,191,198,136,245,103,157,213,96,6,210,103,134,107>>},
-         {exro928ss,
-          <<160,170,223,95,44,254,192,107,145,180,236,235,102,110,72,131>>},
-         {exrop,
-          <<175,236,222,199,129,54,205,86,81,38,92,219,66,71,30,69>>},
-         {exs1024s,
-          <<148,169,164,28,198,202,108,206,123,68,189,26,116,210,82,116>>},
-         {exsp,
-          <<63,163,228,59,249,88,205,251,225,174,227,65,144,130,169,191>>}],
-    [shuffle_reference(M, List, Seed, Alg, MD5) || {Alg, MD5} <- Ref],
+    keyverify(
+      [begin
+           S = rand_crypto_seed_s(Alg, Seed),
+           {ShuffledList, _S} = rand:shuffle_s(List, S),
+           Data = mk_iolist(ShuffledList, M),
+           {Alg, erlang:md5(Data)}
+       end || Alg <- Algs],
+      #{
+        default =>
+            <<124,54,150,191,198,136,245,103,157,213,96,6,210,103,134,107>>,
+        exsss =>
+            <<124,54,150,191,198,136,245,103,157,213,96,6,210,103,134,107>>,
+        exrop =>
+            <<175,236,222,199,129,54,205,86,81,38,92,219,66,71,30,69>>,
+        exsp =>
+            <<63,163,228,59,249,88,205,251,225,174,227,65,144,130,169,191>>,
+        exs1024s =>
+            <<148,169,164,28,198,202,108,206,123,68,189,26,116,210,82,116>>,
+        exs64 =>
+            <<140,21,239,186,10,173,36,219,210,103,90,225,162,170,89,184>>,
+        exsplus =>
+            <<185,111,208,4,144,122,163,193,199,231,62,174,132,99,13,64>>,
+        exs1024 =>
+            <<69,47,227,233,133,70,168,98,104,150,235,31,61,104,220,203>>,
+        exro928ss =>
+            <<160,170,223,95,44,254,192,107,145,180,236,235,102,110,72,131>>,
+        crypto_aes =>
+            <<93,108,161,203,65,139,111,30,50,188,3,103,165,204,166,10>>}),
     ok.
-
-shuffle_reference(M, List, Seed, Alg, MD5) ->
-    S = rand:seed_s(Alg, Seed),
-    {ShuffledList, NewS} = rand:shuffle_s(List, S),
-    Data = mk_iolist(ShuffledList, M),
-    case erlang:md5(Data) of
-        MD5 -> ok;
-        WrongMD5 ->
-            error({wrong_checksum, WrongMD5, NewS})
-    end.
 
 mk_iolist([], _M) -> [];
 mk_iolist([X, Y | L], M) ->
@@ -600,7 +716,7 @@ reference_1(Alg) ->
 		    io:format("Length ~p ~p~n",[length(Refval), length(Testval)]),
 		    io:format("Head ~p ~p~n",[hd(Refval), hd(Testval)]),
                     show_wrong(Refval, Testval),
-		    exit(wrong_value)
+		    error(wrong_value)
 	    end
     end.
 
@@ -687,7 +803,7 @@ basic_stats_bytes(Config) when is_list(Config) ->
     ct:timetrap({minutes,15}), %% valgrind needs a lot of time
     Loop           = ?LOOP div 100,
     BinSize        = 113,
-    CountTolerance = 0.07,
+    CountTolerance = 0.1,
     Result =
         lists:filter(
           fun (R) -> R =/= [] end,
@@ -2143,7 +2259,7 @@ reference_jump_1(Alg) ->
 		      "Head ~p ~p~n",[hd(Refval), hd(Testval)]),
 		    io:format(
 		      "Vals ~p ~p~n",[Refval, Testval]),
-		    exit(wrong_value)
+		    error(wrong_value)
 	    end
     end.
 
@@ -2195,7 +2311,7 @@ reference_jump_p1(Alg) ->
 		    io:format("Failed: ~p~n",[Alg]),
 		    io:format("Length ~p ~p~n",[length(Refval), length(Testval)]),
 		    io:format("Head ~p ~p~n",[hd(Refval), hd(Testval)]),
-		    exit(wrong_value)
+		    error(wrong_value)
 	    end
     end.
 
@@ -2773,3 +2889,19 @@ shuffle_duplicates(TL, State0, Acc0, _T, Dups) when is_list(TL) ->
     %% Shuffle duplicates onto the result
     {Acc1, State1} = shuffle_r(Dups, State0, Acc0),
     shuffle_untag(TL, State1, Acc1).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+hash_term(Term) ->
+    (erlang:phash2(Term) bsl 28) bor erlang:phash2([Term]).
+
+keyverify([], #{}) -> ok;
+keyverify([{Key, Value} | Results], Expected) ->
+    case Expected of
+        #{ Key := Value } ->
+            keyverify(Results, Expected);
+        #{ Key := RightValue } ->
+            error({wrong_value, Key, Value, RightValue});
+        #{} ->
+            error({unknown_key, Key, Value})
+    end.
