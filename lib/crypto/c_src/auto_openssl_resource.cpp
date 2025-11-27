@@ -82,14 +82,18 @@ void auto_cipher_ctx_t::free_resource(EVP_CIPHER_CTX *p) {
     }
 }
 
-void auto_md_t::free_resource(EVP_MD *p) {
+void auto_md_t::free_resource(evp_md_pointer_type_t p) {
+#if defined(HAS_3_0_API)
     if (p) {
         EVP_MD_free(p);
     }
+#endif
 }
 
-void auto_md_ctx_t::free_resource(EVP_MD_CTX *p) {
+void auto_md_ctx_t::free_resource(evp_md_ctx_pointer_type_t p) {
+#if defined(HAS_3_0_API)
     if (p) {
         EVP_MD_CTX_free(p);
     }
+#endif
 }

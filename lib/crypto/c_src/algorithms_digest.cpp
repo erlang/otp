@@ -127,7 +127,7 @@ void digest_type_t::create_md_resource(const bool fips_mode) {
     }
 #else
     // construct from the old API, each probe has a constructor function
-    this->resource = this->init->v1_ctor();
+    this->resource.reset(this->init->v1_ctor());
 #endif // HAS_3_0_API && FIPS_SUPPORT
 }
 

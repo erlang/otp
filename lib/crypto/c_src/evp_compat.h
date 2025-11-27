@@ -24,7 +24,7 @@
 
 #include "common.h"
 
-#if OPENSSL_VERSION_NUMBER < PACKED_OPENSSL_VERSION_PLAIN(1,0,0)
+#if OPENSSL_VERSION_NUMBER < PACKED_OPENSSL_VERSION_PLAIN(1,1,0)
 
 #ifdef __cplusplus
 extern "C"

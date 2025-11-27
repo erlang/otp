@@ -22,7 +22,7 @@
 
 #include "evp_compat.h"
 
-#if OPENSSL_VERSION_NUMBER < PACKED_OPENSSL_VERSION_PLAIN(1,0,0)
+#if OPENSSL_VERSION_NUMBER < PACKED_OPENSSL_VERSION_PLAIN(1,1,0)
 
 extern "C" HMAC_CTX *HMAC_CTX_new() {
     const auto ctx = static_cast<HMAC_CTX *>(CRYPTO_malloc(sizeof(HMAC_CTX), __FILE__, __LINE__));

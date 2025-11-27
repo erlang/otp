@@ -112,7 +112,7 @@ ERL_NIF_TERM hmac_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 #if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,0,0)
     // Check the return value of HMAC_Init: it may fail in FIPS mode
     // for disabled algorithms
-    if (!HMAC_Init_ex(obj->ctx, key.data, (int)key.size, digp->md.p, NULL))
+    if (!HMAC_Init_ex(obj->ctx, key.data, (int)key.size, get_digest_type_resource(digp), NULL))
         goto err;
 #else
     // In ancient versions of OpenSSL, this was a void function.

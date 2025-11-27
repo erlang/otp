@@ -96,6 +96,8 @@ struct digest_type_t {
 #    endif
 };
 
+using digest_construction_fn_t = const EVP_MD *(*)();
+
 // A probe contains data required for creating the algorithm description structure and testing
 // its availability. Each probe() call done by the algorithm_collection_t might or might not
 // result in a new available algorithm creation.
@@ -108,7 +110,7 @@ struct digest_probe_t {
     ERL_NIF_TERM atom;
     const digest_type_flags_t flags;
     // OpenSSL 1.0 API to create a resource for this digest algorithm (not used in 3.0 API)
-    const EVP_MD *(*v1_ctor)();
+    digest_construction_fn_t v1_ctor;
     size_t xof_default_length;
 
     const char *get_v3_name() const {

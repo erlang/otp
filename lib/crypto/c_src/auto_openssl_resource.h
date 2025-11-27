@@ -122,16 +122,25 @@ struct auto_cipher_ctx_t : auto_openssl_resource_t<EVP_CIPHER_CTX *, auto_cipher
     static void free_resource(EVP_CIPHER_CTX *p);
 };
 
-struct auto_md_t : auto_openssl_resource_t<EVP_MD *, auto_md_t> {
+#if defined(HAS_3_0_API)
+using evp_md_pointer_type_t = EVP_MD *;
+using evp_md_ctx_pointer_type_t = EVP_MD_CTX *;
+#else
+// Same as auto_md_t but takes const EVP_MD* and does not free anything as its been loaned to us as const
+using evp_md_pointer_type_t = const EVP_MD *;
+using evp_md_ctx_pointer_type_t = const EVP_MD_CTX *;
+#endif
+
+struct auto_md_t : auto_openssl_resource_t<evp_md_pointer_type_t, auto_md_t> {
     auto_md_t() = default;
-    explicit auto_md_t(EVP_MD *p) : auto_openssl_resource_t(p) {}
-    static void free_resource(EVP_MD *p);
+    explicit auto_md_t(evp_md_pointer_type_t p) : auto_openssl_resource_t(p) {}
+    static void free_resource(evp_md_pointer_type_t p);
 };
 
-struct auto_md_ctx_t : auto_openssl_resource_t<EVP_MD_CTX *, auto_md_ctx_t> {
+struct auto_md_ctx_t : auto_openssl_resource_t<evp_md_ctx_pointer_type_t, auto_md_ctx_t> {
     auto_md_ctx_t() = default;
-    explicit auto_md_ctx_t(EVP_MD_CTX *p) : auto_openssl_resource_t(p) {}
-    static void free_resource(EVP_MD_CTX *p);
+    explicit auto_md_ctx_t(evp_md_ctx_pointer_type_t p) : auto_openssl_resource_t(p) {}
+    static void free_resource(evp_md_ctx_pointer_type_t p);
 };
 
 #endif // __cplusplus

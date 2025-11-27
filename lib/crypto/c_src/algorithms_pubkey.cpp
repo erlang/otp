@@ -119,8 +119,8 @@ void pubkey_type_t::check_against_fips() {
 void pubkey_probe_t::probe(ErlNifEnv *env, const bool fips_enabled, std::vector<pubkey_type_t> &output) {
     this->atom = create_or_existing_atom(env, this->str, this->atom);
     output.emplace_back(this);
-    auto &algo = output.back();
 #if defined(FIPS_SUPPORT) && defined(HAS_3_0_API)
+    auto &algo = output.back();
     if (fips_enabled) { // attempt to instantiate the algorithm and set availability flags
         algo.check_against_fips();
     }
