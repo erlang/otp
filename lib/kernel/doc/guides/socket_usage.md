@@ -499,6 +499,142 @@ which_family(Addr) when is_tuple(Addr) andalso (tuple_size(Addr) =:= 8) ->
     inet6.
 ```
 
+### Socket SCTP example snippets
+
+Here are couple of code snippets that attempts to explain
+some common use cases for socket SCTP.
+Note that this is in no way complete! Especially since the
+different implementations behaves slighly differently (different
+set of messages).
+
+#### Basic init
+
+This is an operation that *must* be performed before any
+active operations can be performed: *Subscribe to SCTP events*
+
+```erlang
+.
+.
+.
+%% data_io needs to be 'true' if data is to be exchanged
+Events = #{data_io          => true,
+           association      => true,
+           address          => true,
+           send_failure     => true,
+           peer_error       => true,
+           shutdown         => true,
+           partial_delivery => true,
+           adaptation_layer => false,
+           authentication   => false,
+           sender_dry       => false}),
+socket:setopt(Sock, {sctp, events}, Events),
+.
+.
+.
+```
+
+
+#### Accept
+
+There are basically two variants of this. The first is when the
+server attempts to handle all incoming connections itself
+(data_io = true).
+The second is when the server *only* handles the "accept" operation
+and then spawns a handler process (that does a peeloff) to handle
+the "work" (data_io = false).
+
+```erlang
+.
+.
+.
+case socket:recvmsg(Sock) of
+    {ok, #{notification := #{type := assoc_change,
+                             state := comm_up,
+                             assoc_id := AID}}} ->
+         %% Start the handler, that performs a peeloff
+         start_handler(Sock, AID);
+.
+.
+.
+```
+
+
+#### Connect
+
+This is a two step process. First perform connect and then await
+confirmation.
+
+```erlang
+.
+.
+.
+ServerSA = ...
+%% Issue a connect...
+ok = socket:connect(Sock, ServerSA),
+%% Wait for confirmation...
+AssocID = case socket:recvmsg(Sock) of
+              {ok, #{flags        := _,
+                     addr         := _,
+                     notification := #{type     := assoc_change,
+                                       state    := comm_up,
+                                       assoc_id := AID}}} ->
+	          AID;
+	      {error, Reason} ->
+	          exit(Reason)
+	  end,
+%% Ready for business...
+.
+.
+.
+```
+
+
+#### Graceful shutdown
+
+Perform a graceful shutdown by sending an message with the eof flag
+(in the SRI). On the "other end" a set of shutdown notification(s)
+will be received.
+
+```erlang
+.
+.
+.
+EofSRI = #{assoc_id => AssocID,
+           stream   => StreamID,
+           flags    => [eof]},
+EofMsg = #{iov  => [],
+           ctrl => [#{level => sctp,
+                      type  => sndrcv,
+                      value => EofSRI}]},
+ok = socket:sendmsg(Sock, EofMsg),
+.
+.
+.
+```
+
+
+#### Sending data
+
+When sending, a (sparse) SRI (send receive info) structure is needed.
+This identifies the Assoc and Stream.
+
+```erlang
+.
+.
+.
+SRI     = #{assoc_id => AssocID,
+            stream   => StreamID},
+CtrlSRI = #{level => sctp,
+            type  => sndrcv,
+            value => SRI},
+Msg     = #{iov => ... % List of binary()
+            ctrl => [CtrlSRI]},
+ok = socket:sendmsg(Sock, Msg),
+.
+.
+.
+```
+
 
 [](){: #socket_options }
 

@@ -1716,8 +1716,6 @@ Corresponds to a C `struct msghdr`, see your platform documentation for
 Notifications can be received on a SCTP socket (type = seqpacket and
 protocol = sctp).
 
-TBD.
-
 """.
 -type msg_notification_recv() ::
         #{
