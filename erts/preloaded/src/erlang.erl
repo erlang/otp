@@ -265,6 +265,7 @@ A timeout value that can be passed to a
 -export_type([priority_level/0]).
 -export_type([max_heap_size/0]).
 -export_type([message_queue_data/0]).
+-export_type([link_option/0]).
 -export_type([monitor_option/0]).
 -export_type([stacktrace/0]).
 -export_type([processes_iter_ref/0]).
@@ -4418,11 +4419,9 @@ module_loaded(_Module) ->
 -doc "See `monitor/3`.".
 -type monitor_option() :: {'alias', 'explicit_unalias' | 'demonitor' | 'reply_demonitor'}
                         | {'tag', term()} | priority.
--doc """
-See `link/2`.
 
-Since OTP 28.0"
-""".
+-doc(#{since => <<"OTP 28.0">>}).
+-doc "See `link/2`.".
 -type link_option() :: priority.
 
 %% monitor/2
