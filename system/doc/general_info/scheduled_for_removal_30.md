@@ -1,12 +1,35 @@
 <!--
-%CopyrightBegin%
-
-SPDX-License-Identifier: Apache-2.0
-
-Copyright Ericsson AB 2025. All Rights Reserved.
-
-%CopyrightEnd%
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2024-2025. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%%
+%% %CopyrightEnd%
 -->
+
+### Old aliases for type tests in guards
+
+The aliases `atom/1`, `tuple/1`, etc., for the respective type tests
+`is_atom/1`, `is_tuple/1`, etc., have been deprecated since before OTP R13
+and have been scheduled for removal in OTP 30. Note that these aliases only
+could be used as guard tests at the top level. For example, in `{X, Y} when
+float(X), X =:= float(Y) -> ...` the first use of `float/1` is a type test
+alias, but the second use is the normal integer-to-float conversion BIF,
+because it occurs inside the `=:=`. The aliases were never recognized
+outside guards.
 
 ### Distribution Control Messages
 
