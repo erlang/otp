@@ -312,8 +312,8 @@ gen_header(Fd) ->
      {punctuation,dash} |
      {punctuation,open} |
      {punctuation,close} |
-     {punctuation,initial} |
-     {punctuation,final} |
+     {punctuation,initial} | % Punctuation, Initial quote (may behave like open or close depending on usage)
+     {punctuation,final} |   % Punctuation, Final quote (may behave like open or close depending on usage)
      {punctuation,other} |
      {symbol,math} |
      {symbol,currency} |
@@ -337,12 +337,12 @@ gen_static(Fd) ->
        'category':= category()}.
 lookup(Codepoint) when ?IS_CP(Codepoint) ->
     {CCC,Can,Comp,Cat} = unicode_table(Codepoint),
-    #{ccc=>CCC, canon=>Can, compat=>Comp, category=>category(Codepoint,Cat)}.
+    #{ccc=>CCC, canon=>Can, compat=>Comp, category=>category(Cat,Codepoint)}.
 
 -spec category(char()) -> category().
 category(Codepoint) when ?IS_CP(Codepoint) ->
     {_,_,_,Cat} = unicode_table(Codepoint),
-    category(Codepoint,Cat).
+    category(Cat,Codepoint).
 
 
 """),
@@ -420,9 +420,9 @@ category(Codepoint) when ?IS_CP(Codepoint) ->
     io:put_chars(Fd, "    is_wide_cp(C) orelse is_wide(Cs);\n"),
     io:put_chars(Fd, "is_wide([]) ->\n    false.\n\n"),
 
-    io:put_chars(Fd, "category(CP, lookup_category) ->\n"
-                 "    cat_translate(lookup_category(CP));\n"
-                 "category(_, Def) -> cat_translate(Def).\n\n"),
+    io:put_chars(Fd, "category(lookup_category, Cp) ->\n"
+                 "    lookup_category(Cp);\n"
+                 "category(Def, _) -> Def.\n\n"),
     ok.
 
 gen_norm(Fd) ->
@@ -674,13 +674,13 @@ gen_props(Fd, Props, Data) ->
     OIDS = maps:get(other_id_start, Props),
     io:put_chars(Fd, "-spec is_other_id_start(gc()) -> boolean().\n"),
     IsODIS = fun(Range) -> io:format(Fd, "is_other_id_start~s true;\n", [gen_single_clause(Range)]) end,
-    [IsODIS(CP) || CP <- OIDS],
+    [IsODIS(CP) || CP <- merge_ranges(OIDS)],
     io:put_chars(Fd, "is_other_id_start(_) -> false.\n\n"),
 
     OICS = maps:get(other_id_continue, Props),
     io:put_chars(Fd, "-spec is_other_id_continue(gc()) -> boolean().\n"),
     IsOICS = fun(Range) -> io:format(Fd, "is_other_id_continue~s true;\n", [gen_single_clause(Range)]) end,
-    [IsOICS(CP) || CP <- OICS],
+    [IsOICS(CP) || CP <- merge_ranges(OICS)],
     io:put_chars(Fd, "is_other_id_continue(_) -> false.\n\n"),
 
     PS0 = maps:get(pattern_syntax, Props),
@@ -697,7 +697,7 @@ gen_props(Fd, Props, Data) ->
               end,
     PS = [{PSC, undefined} || {PSC, undefined} <:- split_ranges(PS0, []), KeepCat(PSC)],
     %% [io:format("~p ~p~n", [P, (array:get(P, Data))#cp.cat]) || {P,_} <- PS],
-    [IsNLPS(CP) || CP <- PS],
+    [IsNLPS(CP) || CP <- merge_ranges(PS)],
     io:put_chars(Fd, "is_letter_not_pattern_syntax(_) -> true.\n\n"),
 
     ok.
@@ -797,8 +797,8 @@ gen_gc(Fd, GBP) ->
                  "        _ -> %% Keep the tail binary.\n"
                  "            case cp_no_bin(T1) of\n"
                  "                [CP2|_]=T3 when ?IS_LATIN1(CP2) -> [CP1|T3]; %% Asciii Fast path\n"
-                 "                binary_found -> gc_1(T);\n"
-                 "                T4 -> gc_1([CP1|T4])\n"
+                 "                binary_found -> gc_1(T1, CP1);\n"
+                 "                T4 -> gc_1(T4, CP1)\n"
                  "            end\n"
                  "    end;\n"
                  "gc(<<>>) -> [];\n"
@@ -807,11 +807,11 @@ gen_gc(Fd, GBP) ->
                  "           case Rest of\n"
                  "               <<CP2/utf8, _/binary>> when CP2 < 256 -> %% Ascii Fast path\n"
                  "                   [CP1|Rest];\n"
-                 "               _ -> gc_1([CP1|Rest])\n"
+                 "               _ -> gc_1(Rest, CP1)\n"
                  "           end;\n"
-                 "      true -> gc_1([CP1|Rest])\n"
+                 "      true -> gc_1(Rest, CP1)\n"
                  "    end;\n"
-                 "gc([CP|_]=T) when ?IS_CP(CP) -> gc_1(T);\n"
+                 "gc([CP|T]) when ?IS_CP(CP) -> gc_1(T,CP);\n"
                  "gc(Str) ->\n"
                  "    case cp(Str) of\n"
                  "        {error,_}=Error -> Error;\n"
@@ -819,58 +819,60 @@ gen_gc(Fd, GBP) ->
                  "    end.\n"
                 ),
 
-    GenExtP = fun(Range) -> io:format(Fd, "gc_1~s gc_ext_pict(R1,[CP]);\n", [gen_clause(Range)]) end,
-    ExtendedPictographic0 = merge_ranges(maps:get(extended_pictographic,GBP)),
-    %% Pick codepoints below 256 (some data knowledge here)
-    {ExtendedPictographicLow,ExtendedPictographicHigh} =
-        lists:splitwith(fun({Start,undefined}) -> Start < 256 end,ExtendedPictographic0),
     io:put_chars(Fd,
-                 "\ngc_1([$\\r|R0] = R) ->\n"
-                 "    case cp(R0) of % Don't break CRLF\n"
-                 "        [$\\n|R1] -> [[$\\r,$\\n]|R1];\n"
-                 "        _ -> R\n"
-                 "    end;\n"),
-    io:put_chars(Fd, "\n%% Handle control\n"),
-    GenControl = fun(Range) -> io:format(Fd, "gc_1~s R0;\n", [gen_clause(Range)]) end,
+                 """
+
+                 %% gc_1
+                 gc_1(R0, $\r) ->
+                      case cp(R0) of % Don't break CRLF
+                          [$\n|R1] -> [[$\r,$\n]|R1];
+                          _ -> [$\r|R0]
+                      end;
+                 %% Handle control
+
+                 """),
+    GenControl = fun(Range) -> io:format(Fd, "gc_1~s [CP|R0];\n", [gen_clause(Range)]) end,
     CRs0 = merge_ranges(maps:get(cr, GBP) ++ maps:get(lf, GBP) ++ maps:get(control, GBP), false),
     [R1,R2,R3|Crs] = CRs0,
     [GenControl(CP) || CP <- merge_ranges([R1,R2,R3], split), CP =/= {$\r, undefined}],
     %%GenControl(R1),GenControl(R2),GenControl(R3),
     io:put_chars(Fd, "\n%% Optimize Latin-1\n"),
+    GenExtP = fun(Range) -> io:format(Fd, "gc_1~s gc_ext_pict(R0,[CP]);\n", [gen_clause(Range)]) end,
+    ExtendedPictographic0 = merge_ranges(maps:get(extended_pictographic,GBP)),
+    %% Pick codepoints below 256 (some data knowledge here)
+    {ExtendedPictographicLow,_ExtendedPictographicHigh} =
+        lists:splitwith(fun({Start,undefined}) -> Start < 256 end,ExtendedPictographic0),
     [GenExtP(CP) || CP <- merge_ranges(ExtendedPictographicLow)],
 
     io:put_chars(Fd,
-                 "gc_1([CP|R]=R0) when ?IS_LATIN1(CP) ->\n"
-                 "    case R of\n"
-                 "        [CP2|_] when ?IS_LATIN1(CP2) -> R0;\n"
-                 "        _ -> gc_extend(cp(R), R, CP)\n"
+                 "gc_1(R0,CP) when ?IS_LATIN1(CP) ->\n"
+                 "    case R0 of\n"
+                 "        [CP2|_] when ?IS_LATIN1(CP2) -> [CP|R0];\n"
+                 "        _ -> gc_extend(cp(R0), R0, CP)\n"
                  "    end;\n"
-                 "gc_1([CP|_]) when not ?IS_CP(CP) ->\n"
+                 "gc_1(_, CP) when not ?IS_CP(CP) ->\n"
                  "    error({badarg,CP});\n"),
     io:put_chars(Fd, "\n%% Continue control\n"),
-    [GenControl(CP) || CP <- Crs],
-    %% One clause per CP
-    %% CRs0 = merge_ranges(maps:get(cr, GBP) ++ maps:get(lf, GBP) ++ maps:get(control, GBP)),
-    %% [GenControl(CP) || CP <- CRs0, CP =/= {$\r, undefined}],
+    [GenControl(CP) || CP <- merge_ranges(Crs)],
 
     io:put_chars(Fd, "\n%% Handle prepend\n"),
-    GenPrepend = fun(Range) -> io:format(Fd, "gc_1~s gc_prepend(R1, CP);\n", [gen_clause(Range)]) end,
+    GenPrepend = fun(Range) -> io:format(Fd, "gc_1~s gc_prepend(R0, CP);\n", [gen_clause(Range)]) end,
     [GenPrepend(CP) || CP <- merge_ranges(maps:get(prepend,GBP))],
 
     io:put_chars(Fd, "\n%% Handle Hangul L\n"),
-    GenHangulL = fun(Range) -> io:format(Fd, "gc_1~s gc_h_L(R1,[CP]);\n", [gen_clause(Range)]) end,
+    GenHangulL = fun(Range) -> io:format(Fd, "gc_1~s gc_h_L(R0,[CP]);\n", [gen_clause(Range)]) end,
     [GenHangulL(CP) || CP <- merge_ranges(maps:get(l,GBP))],
     io:put_chars(Fd, "%% Handle Hangul V\n"),
-    GenHangulV = fun(Range) -> io:format(Fd, "gc_1~s gc_h_V(R1,[CP]);\n", [gen_clause(Range)]) end,
+    GenHangulV = fun(Range) -> io:format(Fd, "gc_1~s gc_h_V(R0,[CP]);\n", [gen_clause(Range)]) end,
     [GenHangulV(CP) || CP <- merge_ranges(maps:get(v,GBP))],
     io:put_chars(Fd, "%% Handle Hangul T\n"),
-    GenHangulT = fun(Range) -> io:format(Fd, "gc_1~s gc_h_T(R1,[CP]);\n", [gen_clause(Range)]) end,
+    GenHangulT = fun(Range) -> io:format(Fd, "gc_1~s gc_h_T(R0,[CP]);\n", [gen_clause(Range)]) end,
     [GenHangulT(CP) || CP <- merge_ranges(maps:get(t,GBP))],
     io:put_chars(Fd, "%% Handle Hangul LV and LVT special, since they are large\n"),
-    io:put_chars(Fd, "gc_1([CP|_]=R0) when is_integer(CP, 44000, 56000) -> gc_h_lv_lvt(R0, R0, []);\n"),
+    io:put_chars(Fd, "gc_1(R0,CP) when is_integer(CP, 44000, 56000) -> R=[CP|R0], gc_h_lv_lvt(R, R, []);\n"),
 
     io:put_chars(Fd, "\n%% Handle Regional\n"),
-    GenRegional = fun(Range) -> io:format(Fd, "gc_1~s gc_regional(R1,CP);\n", [gen_clause(Range)]) end,
+    GenRegional = fun(Range) -> io:format(Fd, "gc_1~s gc_regional(R0,CP);\n", [gen_clause(Range)]) end,
     [GenRegional(CP) || CP <- merge_ranges(maps:get(regional_indicator,GBP))],
     %% io:put_chars(Fd, "%% Handle E_Base\n"),
     %% GenEBase = fun(Range) -> io:format(Fd, "gc_1~s gc_e_cont(R1,[CP]);\n", [gen_clause(Range)]) end,
@@ -879,31 +881,33 @@ gen_gc(Fd, GBP) ->
     %% GenEBG = fun(Range) -> io:format(Fd, "gc_1~s gc_e_cont(R1,[CP]);\n", [gen_clause(Range)]) end,
     %% [GenEBG(CP) || CP <- merge_ranges(maps:get(e_base_gaz,GBP))],
 
-    io:put_chars(Fd, "\n%% Handle extended_pictographic\n"),
-    [GenExtP(CP) || CP <- merge_ranges(ExtendedPictographicHigh)],
+    %% io:put_chars(Fd, "\n%% Handle extended_pictographic\n"),
+    %% [GenExtP(CP) || CP <- merge_ranges(ExtendedPictographicHigh)],
 
     io:put_chars(Fd, "\n%% default clauses\n"),
-    io:put_chars(Fd,
-                 """
-                 gc_1([CP|R]) ->
-                     case is_indic_consonant(CP) of
-                         true ->
-                             gc_indic(cp(R), R, false, [CP]);
-                         false ->
-                             gc_extend(cp(R), R, CP)
-                     end.
+    io:put_chars(Fd, """
+ gc_1(R,CP) ->
+     case is_ext_pict(CP) of
+         true -> gc_ext_pict(R, [CP]);
+         false ->
+             case is_indic_consonant(CP) of
+                 true -> gc_indic(cp(R), R, false, [CP]);
+                 false -> gc_extend(cp(R), R, CP)
+             end
+     end.
 
-                 """),
+
+ """),
 
     io:put_chars(Fd, "%% Handle Prepend\n"),
     io:put_chars(Fd,
                  "gc_prepend(R00, CP0) ->\n"
                  "    case cp(R00) of\n"
-                 "      [CP1|_] = R0 ->\n"
+                 "      [CP1|R0] ->\n"
                  "          case is_control(CP1) of\n"
                  "            true -> [CP0|R00];\n"
                  "            false ->\n"
-                 "                case gc_1(R0) of\n"
+                 "                case gc_1(R0, CP1) of\n"
                  "                    [GC|R1] when is_integer(GC) -> [[CP0,GC]|R1];\n"
                  "                    [GC|R1] -> [[CP0|GC]|R1]\n"
                  "                end\n"
@@ -1151,8 +1155,7 @@ gen_unicode_table(Fd, Data, UpdateTests) ->
     case UpdateTests of
         true ->
             Dict1 = lists:map(fun({Id,{CCC, Canon, Compat, Cat}}) ->
-                                      {_, ECat} = lists:keyfind(Cat, 1, category_translate()),
-                                      {Id, {CCC, Canon, Compat, ECat}}
+                                      {Id, {CCC, Canon, Compat, Cat}}
                               end, Dict0),
             TestFile = "../test/unicode_util_SUITE_data/unicode_table.bin",
             io:format("Updating: ~s~n", [TestFile]),
@@ -1164,103 +1167,126 @@ gen_unicode_table(Fd, Data, UpdateTests) ->
     [io:format(Fd, "unicode_table(~w) -> ~w;~n", [CP, Map]) || {CP,Map} <- NonDef],
     io:format(Fd, "unicode_table(_) -> ~w.~n~n",[Def]),
 
-    [io:format(Fd, "cat_translate(~w) -> ~w;~n", [Cat, EC]) || {Cat,EC} <- category_translate()],
-    io:format(Fd, "cat_translate(Cat) -> error({internal_error, Cat}).~n~n",[]),
+    %% [io:format(Fd, "cat_translate(~w) -> ~w;~n", [Cat, EC]) || {Cat,EC} <- category_translate()],
+    %% io:format(Fd, "cat_translate(Cat) -> error({internal_error, Cat}).~n~n",[]),
     gen_category(Fd, CatTable, Data),
     ok.
 
 category([C,Sub]) ->
-    list_to_atom([C-$A+$a, Sub]).
+    Map = category_translate(),
+    maps:get(list_to_atom([C-$A+$a, Sub]), Map).
 
 category_translate() ->
-    [{lu, {letter, uppercase}},       % Letter, Uppercase
-     {ll, {letter, lowercase}},       % Letter, Lowercase
-     {lt, {letter, titlecase}},       % Letter, Titlecase
-     {mn, {mark, non_spacing}},       % Mark, Non-Spacing
-     {mc, {mark, spacing_combining}}, % Mark, Spacing Combining
-     {me, {mark, enclosing}},         % Mark, Enclosing
-     {nd, {number, decimal}},         % Number, Decimal Digit
-     {nl, {number, letter}},          % Number, Letter
-     {no, {number, other}},           % Number, Other
-     {zs, {separator, space}},        % Separator, Space
-     {zl, {separator, line}},         % Separator, Line
-     {zp, {separator, paragraph}},    % Separator, Paragraph
-     {cc, {other, control}},          % Other, Control
-     {cf, {other, format}},           % Other, Format
-     {cs, {other, surrogate}},        % Other, Surrogate
-     {co, {other, private}},          % Other, Private Use
-     {cn, {other, not_assigned}},     % Other, Not Assigned (no characters in the file have this property)
-     {lm, {letter, modifier}},        % Letter, Modifier
-     {lo, {letter, other}},           % Letter, Other
-     {pc, {punctuation, connector}},  % Punctuation, Connector
-     {pd, {punctuation, dash}},       % Punctuation, Dash
-     {ps, {punctuation, open}},       % Punctuation, Open
-     {pe, {punctuation, close}},      % Punctuation, Close
-     {pi, {punctuation, initial}},    % Punctuation, Initial quote (may behave like Ps or Pe depending on usage)
-     {pf, {punctuation, final}},      % Punctuation, Final quote (may behave like Ps or Pe depending on usage)
-     {po, {punctuation, other}},      % Punctuation, Other
-     {sm, {symbol, math}},            % Symbol, Math
-     {sc, {symbol, currency}},        % Symbol, Currency
-     {sk, {symbol, modifier}},        % Symbol, Modifier
-     {so, {symbol, other}}].          % Symbol, Other
+    #{lu => {letter, uppercase},       % Letter, Uppercase
+      ll => {letter, lowercase},       % Letter, Lowercase
+      lt => {letter, titlecase},       % Letter, Titlecase
+      mn => {mark, non_spacing},       % Mark, Non-Spacing
+      mc => {mark, spacing_combining}, % Mark, Spacing Combining
+      me => {mark, enclosing},         % Mark, Enclosing
+      nd => {number, decimal},         % Number, Decimal Digit
+      nl => {number, letter},          % Number, Letter
+      no => {number, other},           % Number, Other
+      zs => {separator, space},        % Separator, Space
+      zl => {separator, line},         % Separator, Line
+      zp => {separator, paragraph},    % Separator, Paragraph
+      cc => {other, control},          % Other, Control
+      cf => {other, format},           % Other, Format
+      cs => {other, surrogate},        % Other, Surrogate
+      co => {other, private},          % Other, Private Use
+      cn => {other, not_assigned},     % Other, Not Assigned (no characters in the file have this property)
+      lm => {letter, modifier},        % Letter, Modifier
+      lo => {letter, other},           % Letter, Other
+      pc => {punctuation, connector},  % Punctuation, Connector
+      pd => {punctuation, dash},       % Punctuation, Dash
+      ps => {punctuation, open},       % Punctuation, Open
+      pe => {punctuation, close},      % Punctuation, Close
+      pi => {punctuation, initial},    % Punctuation, Initial quote (may behave like Ps or Pe depending on usage)
+      pf => {punctuation, final},      % Punctuation, Final quote (may behave like Ps or Pe depending on usage)
+      po => {punctuation, other},      % Punctuation, Other
+      sm => {symbol, math},            % Symbol, Math
+      sc => {symbol, currency},        % Symbol, Currency
+      sk => {symbol, modifier},        % Symbol, Modifier
+      so => {symbol, other}            % Symbol, Other
+     }.
 
 gen_category(Fd, [{CP, {_, _, _, Cat}}|Rest], All) ->
-    gen_category(Fd, Rest, Cat, CP, CP, All, []).
+    {Single, Range, SubCat} = gen_category(Rest, Cat, CP, CP, All, [], [], []),
+    [io:format(Fd, "lookup_category(~w) -> ~w;~n", [X, C]) || {X,C} <:- Single],
 
-gen_category(Fd, [{CP, {_, _, _, NextCat}}|Rest], Cat, Start, End, All, Acc)
+    Fun = fun(subcat) -> "subcat_letter(CP)";
+             (Category) -> io_lib:format("~w", [Category])
+          end,
+    [io:format(Fd, "lookup_category(CP) when is_integer(CP, ~w, ~w) -> ~s;~n",
+               [S, E, Fun(C)]) || {S,E,C} <:- optimize_ranges_1(Range)],
+    io:put_chars(Fd, "lookup_category(Cp) -> {other, not_assigned}.\n\n"),
+
+    {SubSingle, SubRange} = gen_letter(SubCat, All),
+    [io:format(Fd, "subcat_letter(~w) -> ~w;~n", [X, C]) || {X,C} <:- SubSingle],
+    [io:format(Fd, "subcat_letter(CP) when is_integer(CP, ~w, ~w) -> ~w;~n",
+               [S, E, C]) || {S,E,C} <:- optimize_ranges_1(SubRange)],
+    io:put_chars(Fd,
+                 "subcat_letter(CP) ->\n"
+                 "    case case_table(CP) of\n"
+                 "        {CP, CP} -> {letter,other};\n"
+                 "        {CP, _}  -> {letter,uppercase};\n"
+                 "        {_, CP}  -> {letter,lowercase};\n"
+                 "        {_, _, CP, _} -> {letter,titlecase};\n"
+                 "        {CP, _, _, _} -> {letter,uppercase};\n"
+                 "        {_,CP,_,_} -> {letter,lowercase}\n"
+                 "    end.\n\n"),
+    ok.
+
+gen_category([{CP, {_, _, _, NextCat}}|Rest], Cat, Start, End, All, Single, Range, SubCats)
   when End+1 =:= CP ->
     IsLetterCat = letter_cat(NextCat, Cat),
     if NextCat =:= Cat ->
-            gen_category(Fd, Rest, Cat, Start, CP, All, Acc);
+            gen_category(Rest, Cat, Start, CP, All, Single, Range, SubCats);
        IsLetterCat ->
-            gen_category(Fd, Rest, letter, Start, CP, All, Acc);
+            gen_category(Rest, letter, Start, CP, All, Single, Range, SubCats);
        Start =:= End ->
-            io:format(Fd, "lookup_category(~w) -> ~w;~n", [Start, Cat]),
-            gen_category(Fd, Rest, NextCat, CP, CP, All, Acc);
+            gen_category(Rest, NextCat, CP, CP, All, [{Start, Cat}|Single], Range, SubCats);
        true ->
             case Cat of
                 letter ->
-                    io:format(Fd, "lookup_category(CP) when is_integer(CP, ~w, ~w) -> subcat_letter(CP);~n",
-                              [Start, End]),
-                    gen_category(Fd, Rest, NextCat, CP, CP, All,
-                                 lists:reverse(lists:seq(Start, End)) ++ Acc);
+                    gen_category(Rest, NextCat, CP, CP, All,
+                                 Single, [{Start, End, subcat}|Range],
+                                 lists:reverse(lists:seq(Start, End)) ++ SubCats);
                 _ ->
-                    io:format(Fd, "lookup_category(CP) when is_integer(CP, ~w, ~w) -> ~w;~n", [Start, End, Cat]),
-                    gen_category(Fd, Rest, NextCat, CP, CP, All, Acc)
+                    gen_category(Rest, NextCat, CP, CP, All,
+                                 Single, [{Start, End, Cat}|Range], SubCats)
             end
     end;
-gen_category(Fd, [{CP, {_, _, _, NewCat}}|Rest]=Cont, Cat, Start, End, All, Acc) ->
+gen_category([{CP, {_, _, _, NewCat}}|Rest]=Cont, Cat, Start, End, All, Single, Range, SubCats) ->
     case array:get(End+1, All) of
         undefined ->
             if Start =:= End ->
-                    io:format(Fd, "lookup_category(~w) -> ~w;~n", [Start, Cat]),
-                    gen_category(Fd, Rest, NewCat, CP, CP, All, Acc);
+                    gen_category(Rest, NewCat, CP, CP, All,
+                                 [{Start, Cat}|Single], Range, SubCats);
                true ->
                     case Cat of
                         letter ->
-                            io:format(Fd, "lookup_category(CP) when is_integer(CP, ~w, ~w) -> subcat_letter(CP);~n",
-                                      [Start, End]),
-                            gen_category(Fd, Rest, NewCat, CP, CP, All,
-                                         lists:reverse(lists:seq(Start, End)) ++ Acc);
+                            gen_category(Rest, NewCat, CP, CP, All,
+                                         Single, [{Start, End, subcat}|Range],
+                                         lists:reverse(lists:seq(Start, End)) ++ SubCats);
                         _ ->
-                            io:format(Fd, "lookup_category(CP) when is_integer(CP, ~w, ~w) -> ~w;~n",
-                                      [Start, End, Cat]),
-                            gen_category(Fd, Rest, NewCat, CP, CP, All, Acc)
+                            gen_category(Rest, NewCat, CP, CP, All,
+                                         Single, [{Start, End, Cat}|Range], SubCats)
                     end
             end;
         _ ->  %% We can make ranges larger by setting already assigned category
-            gen_category(Fd, Cont, Cat, Start, End+1, All, Acc)
+            gen_category(Cont, Cat, Start, End+1, All, Single, Range, SubCats)
     end;
-gen_category(Fd, [], Cat, Start, End, All, Acc) ->
+gen_category([], Cat, Start, End, _All, Single, Range, SubCats) ->
     case Start =:= End of
         true ->
-            io:format(Fd, "lookup_category(~w) -> ~w;~n", [Start, Cat]);
+            {lists:reverse([{Start, Cat}|Single]),
+             lists:reverse(Range),
+             lists:reverse(SubCats)};
         false ->
-            io:format(Fd, "lookup_category(CP) when is_integer(CP, ~w, ~w) -> ~w;~n", [Start, End, Cat])
-    end,
-    io:put_chars(Fd, "lookup_category(Cp) -> cn.\n\n"),
-    gen_letter(Fd, lists:reverse(Acc), All),
-    ok.
+            {lists:reverse(Single),
+             lists:reverse([{Start, End,Cat}|Range]),
+             lists:reverse(SubCats)}
+    end.
 
 letter_cat(lm, _) ->
     false;
@@ -1269,58 +1295,46 @@ letter_cat(_, lm) ->
 letter_cat(L1, L2) ->
     is_letter(L1) andalso (L2 =:= letter orelse is_letter(L2)).
 
-is_letter(LC) ->
-    lists:member(LC, [lu,ll,lt,lo,lm]).
+is_letter({letter, _}) -> true;
+is_letter(_) -> false.
 
-gen_letter(Fd, Letters, All) ->
-    gen_letter(Fd, Letters, All, []).
-gen_letter(Fd, [CP|Rest], All, Acc) ->
+gen_letter(Letters, All) ->
+    gen_letter(Letters, All, []).
+gen_letter([CP|Rest], All, Acc) ->
     case array:get(CP, All) of
         undefined ->
-            gen_letter(Fd, Rest, All, Acc);
+            gen_letter(Rest, All, Acc);
         #cp{cat=Cat0, cs=Cs} ->
             case {category(Cat0), case_table(CP,case_data(CP, Cs))} of
                 {Sub,Sub} ->
-                    gen_letter(Fd, Rest, All, Acc);
+                    gen_letter(Rest, All, Acc);
                 {lm,_} ->
-                    gen_letter(Fd, Rest, All, Acc);
+                    gen_letter(Rest, All, Acc);
                 {Cat, _Dbg} ->
                     case is_letter(Cat) of
                         true ->
-                            gen_letter(Fd, Rest, All, [{CP, Cat}|Acc]);
+                            gen_letter(Rest, All, [{CP, Cat}|Acc]);
                         false ->
-                            gen_letter(Fd, Rest, All, Acc)
+                            gen_letter(Rest, All, Acc)
                     end
             end
     end;
-gen_letter(Fd, [], _, Acc) ->
+gen_letter([], _, Acc) ->
     [{Start, Cat}|SCletters] = lists:reverse(Acc),
-    subcat_letter(Fd, SCletters, Start, Start, Cat),
-    io:put_chars(Fd,
-                 "subcat_letter(CP) ->\n"
-                 "    case case_table(CP) of\n"
-                 "        {CP, CP} -> lo;      %{letter,other};\n"
-                 "        {CP, _}  -> lu;      %{letter,uppercase};\n"
-                 "        {_, CP}  -> ll;      %{letter,lowercase};\n"
-                 "        {_, _, CP, _} -> lt; %{letter,titlecase};\n"
-                 "        {CP, _, _, _} -> lu; %{letter,uppercase};\n"
-                 "        {_,CP,_,_} -> ll     %{letter,lowercase}\n"
-                 "    end.\n\n").
+    subcat_letter(SCletters, Start, Start, Cat, [], []).
 
-subcat_letter(Fd, [{CP, Cat}|R], Start, End, Cat) when End+1 =:= CP ->
-    subcat_letter(Fd, R, Start, CP, Cat);
-subcat_letter(Fd, Rest, Start, Start, Cat) ->
-    io:format(Fd, "subcat_letter(~w) -> ~w;\n",[Start,Cat]),
-    case Rest of
-        [] -> ok;
-        [{CP, NewCat}|R] -> subcat_letter(Fd, R, CP, CP, NewCat)
-    end;
-subcat_letter(Fd, Rest, Start, End, Cat) ->
-    io:format(Fd, "subcat_letter(CP) when is_integer(CP, ~w, ~w) -> ~w;\n",[Start,End,Cat]),
-    case Rest of
-        [] -> ok;
-        [{CP, NewCat}|R] -> subcat_letter(Fd, R, CP, CP, NewCat)
+subcat_letter([{CP, Cat}|R], Start, End, Cat, Single, Range) when End+1 =:= CP ->
+    subcat_letter(R, Start, CP, Cat, Single, Range);
+subcat_letter([{CP, NewCat}|R], Start, Start, Cat, Single, Range) ->
+    subcat_letter(R, CP, CP, NewCat, [{Start, Cat}|Single], Range);
+subcat_letter([{CP, NewCat}|R], Start, End, Cat, Single, Range) ->
+    subcat_letter(R, CP, CP, NewCat, Single, [{Start, End, Cat}|Range]);
+subcat_letter([], Start, End, Cat, Single, Range) ->
+    case Start == End of
+        true -> {lists:reverse([{Start, Cat}|Single]), lists:reverse(Range)};
+        false -> {lists:reverse(Single), lists:reverse([{Start, End, Cat}|Range])}
     end.
+
 
 case_table(CP, CaseData) ->
     case CaseData of
@@ -1340,7 +1354,6 @@ decompose([CP|CPs], Data) when is_integer(CP) ->
         #cp{class=CCC, dec=[]} -> [{CCC,CP}|decompose(CPs,Data)];
         #cp{dec=Dec} -> decompose(Dec, Data) ++ decompose(CPs,Data)
     end.
-
 
 decompose_compat(Canon, [], Data) ->
     case decompose_compat(Canon, Data) of
@@ -1375,9 +1388,9 @@ gen_width_table(Fd, WideChars) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 gen_clause({R0, undefined}) ->
-    io_lib:format("([~w=CP|R1]=R0) ->", [R0]);
+    io_lib:format("(R0, ~w=CP) ->", [R0]);
 gen_clause({R0, R1}) ->
-    io_lib:format("([CP|R1]=R0) when is_integer(CP, ~w, ~w) ->", [R0,R1]).
+    io_lib:format("(R0, CP) when is_integer(CP, ~w, ~w) ->", [R0,R1]).
 
 gen_clause2({R0, undefined}) ->
     io_lib:format("([~w=CP|R1], R0, Acc) ->", [R0]);
@@ -1405,7 +1418,7 @@ merge_ranges(List, Opt) ->
         split ->
             split_ranges(Res0,[]);     % One clause per CP
         true ->
-            Res = Res0,
+            Res = split_small_ranges(Res0, []),
             OptRes = optimize_ranges(Res),
             true = lists:sort(Res) =:= lists:sort(OptRes), %Assertion.
             OptRes;
@@ -1423,11 +1436,6 @@ merge_ranges_1([{Next, Stop}|R], [{Start,Prev}|Acc]) when Prev+1 =:= Next ->
         undefined -> merge_ranges_1(R, [{Start, Next}|Acc]);
         _ -> merge_ranges_1(R, [{Start,Stop}|Acc])
     end;
-merge_ranges_1([{Next, Stop}|R], [{Start,undefined}|Acc]) when Start+1 =:= Next ->
-    case Stop of
-        undefined -> merge_ranges_1(R, [{Start, Next}|Acc]);
-        _ -> merge_ranges_1(R, [{Start,Stop}|Acc])
-    end;
 merge_ranges_1([Next|R], Acc) ->
     merge_ranges_1(R, [Next|Acc]);
 merge_ranges_1([], Acc) ->
@@ -1441,6 +1449,21 @@ split_ranges([{L,L}|Rs], Acc) ->
     split_ranges(Rs,[{L, undefined}|Acc]);
 split_ranges([], Acc) ->
     lists:reverse(Acc).
+
+split_small_ranges([{_,undefined}=CP|Rs], Acc) ->
+    split_small_ranges(Rs,[CP|Acc]);
+split_small_ranges([{L,L}|Rs], Acc) ->
+    split_small_ranges(Rs,[{L, undefined}|Acc]);
+split_small_ranges([{F,L}=Range|Rs], Acc) ->
+    case L - F of
+        1 ->
+            split_small_ranges(Rs, [{L, undefined}, {F, undefined}|Acc]);
+        N when N > 1 ->
+            split_small_ranges(Rs, [Range|Acc])
+    end;
+split_small_ranges([], Acc) ->
+    lists:reverse(Acc).
+
 
 optimize_ranges(Rs0) ->
     PF = fun({N,undefined}) when is_integer(N) -> true;
