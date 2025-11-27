@@ -608,28 +608,25 @@ der_decode('ExtensionRequest', Value) ->
 der_decode('AttributeTypeAndValue', Der) ->
     {ok, Decoded} = 'PKIX1Explicit-2009':decode('SingleAttribute', Der),
     pubkey_cert_records:transform(Decoded, decode);
-der_decode(Asn1ExtType, Der) when Asn1ExtType == 'SubjectAltName';
-                                  Asn1ExtType == 'IssuerAltName';
-                                  Asn1ExtType == 'ExtKeyUsage';
-                                  Asn1ExtType == 'InhibitAnyPolicy';
-                                  Asn1ExtType == 'FreshestCRL';
-                                  Asn1ExtType == 'AuthorityInfoAccess';
-                                  Asn1ExtType == 'DeltaCRLIndicator';
-                                  Asn1ExtType == 'CertificateIssuer';
-                                  Asn1ExtType == 'HoldInstructionCode';
-                                  Asn1ExtType == 'InvalidityDate' ->
-    Oid = pubkey_cert_records:ext_oid(Asn1ExtType),
-    [#'Extension'{extnValue = Value}]
-        = pubkey_cert_records:decode_extensions([#'Extension'{extnID = Oid, extnValue = Der}]),
-    Value;
 der_decode(Asn1Type, Der) when is_atom(Asn1Type), is_binary(Der) ->
-    Asn1Module = get_asn1_module(Asn1Type),
-    try
-	{ok, Decoded} = Asn1Module:decode(Asn1Type, Der),
-        pubkey_translation:decode(Decoded)
-    catch
-	error:{badmatch, {error, _}} = Error ->
-	    erlang:error(Error)
+    case get_asn1_module(Asn1Type) of
+        undefined ->
+            case pubkey_cert_records:ext_oid(Asn1Type) of
+                undefined ->
+                    error({badarg, {unknown_type, Asn1Type}});
+                ExtOid ->
+                    Ext = #'Extension'{extnID = ExtOid, extnValue = Der},
+                    [Res] = pubkey_cert_records:decode_extensions([Ext]),
+                    Res#'Extension'.extnValue
+            end;
+        Asn1Module when is_atom(Asn1Module) ->
+            try
+                {ok, Decoded} = Asn1Module:decode(Asn1Type, Der),
+                pubkey_translation:decode(Decoded)
+            catch
+                error:{badmatch, {error, _}} = Error ->
+                    erlang:error(Error)
+            end
     end.
 
 %% X509 RFC 5280
@@ -640,11 +637,9 @@ get_asn1_module('ExtKeyUsageSyntax') -> 'PKIX1Implicit-2009';
 get_asn1_module('KeyUsage') -> 'PKIX1Implicit-2009';
 get_asn1_module('Certificate') -> 'PKIX1Explicit-2009';
 get_asn1_module('TBSCertificate') -> 'PKIX1Explicit-2009';
-get_asn1_module('SubjectAltName') -> 'PKIX1Implicit-2009';
 get_asn1_module('CRLDistributionPoints') -> 'PKIX1Implicit-2009';
 get_asn1_module('CRLReason') ->  'PKIX1Implicit-2009';
 get_asn1_module('CRLNumber') ->  'PKIX1Implicit-2009';
-get_asn1_module('FreshestCRL') ->  'PKIX1Implicit-2009';
 get_asn1_module('IssuingDistributionPoint') ->  'PKIX1Implicit-2009';
 get_asn1_module('GeneralNames') -> 'PKIX1Implicit-2009';
 get_asn1_module('SubjectPublicKeyInfo') -> 'PKIX1Explicit-2009';
@@ -710,7 +705,8 @@ get_asn1_module('PBMParameter') -> 'PKIXCMP-2023';
 get_asn1_module('ProtectedPart') -> 'PKIXCMP-2023';
 %% PKIXCRMF 
 get_asn1_module('OldCertId') -> 'PKIXCRMF-2009';
-get_asn1_module('CertRequest') -> 'PKIXCRMF-2009'.
+get_asn1_module('CertRequest') -> 'PKIXCRMF-2009';
+get_asn1_module(_) -> undefined.
 
 
 handle_pkcs_frame_error('PrivateKeyInfo', Der, _) ->
@@ -963,29 +959,26 @@ der_encode('AttributeTypeAndValue', Value) ->
     Term = pubkey_cert_records:transform(Value, encode),
     {ok, Encoded} = 'PKIX1Explicit-2009':encode('SingleAttribute', Term),
     Encoded;
-der_encode(Asn1ExtType, Value) when Asn1ExtType == 'SubjectAltName';
-                                    Asn1ExtType == 'IssuerAltName';
-                                    Asn1ExtType == 'ExtKeyUsage';
-                                    Asn1ExtType == 'InhibitAnyPolicy';
-                                    Asn1ExtType == 'FreshestCRL';
-                                    Asn1ExtType == 'AuthorityInfoAccess';
-                                    Asn1ExtType == 'DeltaCRLIndicator';
-                                    Asn1ExtType == 'CertificateIssuer';
-                                    Asn1ExtType == 'HoldInstructionCode';
-                                    Asn1ExtType == 'InvalidityDate' ->
-    Oid = pubkey_cert_records:ext_oid(Asn1ExtType),
-    [#'Extension'{extnValue = Encoded}] =
-         pubkey_cert_records:encode_extensions([#'Extension'{extnID = Oid, extnValue = Value}]),
-     Encoded;
 der_encode(Asn1Type, Entity0) when is_atom(Asn1Type) ->
-    Asn1Module = get_asn1_module(Asn1Type),
-    try
-        Entity = pubkey_translation:encode(Entity0),
-	{ok, Encoded} = Asn1Module:encode(Asn1Type, Entity),
-	Encoded
-    catch
-	error:{badmatch, {error, _}} = Error ->
-	    erlang:error(Error)
+    case get_asn1_module(Asn1Type) of
+        undefined ->
+            case pubkey_cert_records:ext_oid(Asn1Type) of
+                undefined ->
+                    error({badarg, {unknown_type, Asn1Type}});
+                ExtOid ->
+                    Ext = #'Extension'{extnID = ExtOid, extnValue = Entity0},
+                    [Res] = pubkey_cert_records:encode_extensions([Ext]),
+                    Res#'Extension'.extnValue
+            end;
+        Asn1Module when is_atom(Asn1Module) ->
+            try
+                Entity = pubkey_translation:encode(Entity0),
+                {ok, Encoded} = Asn1Module:encode(Asn1Type, Entity),
+                Encoded
+            catch
+                error:{badmatch, {error, _}} = Error ->
+                    erlang:error(Error)
+            end
     end.
 
 %%--------------------------------------------------------------------

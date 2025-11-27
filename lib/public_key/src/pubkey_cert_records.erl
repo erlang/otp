@@ -365,34 +365,58 @@ encode_supportedPublicKey(#'OTPSubjectPublicKeyInfo'{
 
 %%% Extensions
 
-extension_id(?'id-ce-authorityKeyIdentifier') ->  'AuthorityKeyIdentifier';
-extension_id(?'id-ce-subjectKeyIdentifier') ->    'SubjectKeyIdentifier';
-extension_id(?'id-ce-keyUsage') -> 	          'KeyUsage';
-extension_id(?'id-ce-privateKeyUsagePeriod') ->   'PrivateKeyUsagePeriod';
-extension_id(?'id-ce-certificatePolicies') -> 	  'CertificatePolicies';
-extension_id(?'id-ce-policyMappings') -> 	  'PolicyMappings';
-extension_id(?'id-ce-subjectAltName') -> 	  'SubjectAltName';
-extension_id(?'id-ce-issuerAltName') -> 	  'IssuerAltName';
-extension_id(?'id-ce-subjectDirectoryAttributes') -> 	  'SubjectDirectoryAttributes';
-extension_id(?'id-ce-basicConstraints' ) -> 	  'BasicConstraints';
-extension_id(?'id-ce-nameConstraints') -> 	  'NameConstraints';
-extension_id(?'id-ce-policyConstraints') -> 	  'PolicyConstraints';
-extension_id(?'id-ce-extKeyUsage') -> 	          'ExtKeyUsageSyntax';
-extension_id(?'id-ce-inhibitAnyPolicy') -> 	  'InhibitAnyPolicy';
-extension_id(?'id-ce-freshestCRL') -> 	          'FreshestCRL';
-extension_id(?'id-ce-issuingDistributionPoint') -> 'IssuingDistributionPoint';
-%% Missing in public_key doc
-extension_id(?'id-pe-authorityInfoAccess') -> 	  'AuthorityInfoAccessSyntax';
-extension_id(?'id-pe-subjectInfoAccess') -> 	  'SubjectInfoAccessSyntax';
-extension_id(?'id-ce-cRLNumber') -> 	          'CRLNumber';
-extension_id(?'id-ce-deltaCRLIndicator') -> 	   'BaseCRLNumber';
-extension_id(?'id-ce-cRLReasons') -> 	          'CRLReason';
-extension_id(?'id-ce-certificateIssuer') -> 	  'CertificateIssuer';
-extension_id(?'id-ce-holdInstructionCode') -> 	  'HoldInstructionCode';
-extension_id(?'id-ce-invalidityDate') -> 	  'InvalidityDate';
-extension_id(?'id-ce-cRLDistributionPoints') ->   'CRLDistributionPoints';
+extension_id(?'id-ce-authorityKeyIdentifier') ->
+    {'PKIX1Implicit-2009', getdec_CrlExtensions, getenc_CrlExtensions, 'AuthorityKeyIdentifier'};
+extension_id(?'id-ce-subjectKeyIdentifier') ->
+    {'PKIX1Implicit-2009', getdec_CertExtensions, getenc_CertExtensions, 'SubjectKeyIdentifier'};
+extension_id(?'id-ce-keyUsage') ->
+    {'PKIX1Implicit-2009', getdec_CertExtensions, getenc_CertExtensions, 'KeyUsage'};
+extension_id(?'id-ce-privateKeyUsagePeriod') ->
+    {'PKIX1Implicit-2009', getdec_CertExtensions, getenc_CertExtensions, 'PrivateKeyUsagePeriod'};
+extension_id(?'id-ce-certificatePolicies') ->
+    {'PKIX1Implicit-2009', getdec_CertExtensions, getenc_CertExtensions, 'CertificatePolicies'};
+extension_id(?'id-ce-policyMappings') ->
+    {'PKIX1Implicit-2009', getdec_CertExtensions, getenc_CertExtensions, 'PolicyMappings'};
+extension_id(?'id-ce-subjectAltName') ->
+    {'PKIX1Implicit-2009', getdec_CertExtensions, getenc_CertExtensions, 'SubjectAltName'};
+extension_id(?'id-ce-issuerAltName') ->
+    {'PKIX1Implicit-2009', getdec_CrlExtensions, getenc_CrlExtensions, 'IssuerAltName'};
+extension_id(?'id-ce-subjectDirectoryAttributes') ->
+    {'PKIX1Implicit-2009', getdec_CertExtensions, getenc_CertExtensions, 'SubjectDirectoryAttributes'};
+extension_id(?'id-ce-basicConstraints' ) ->
+    {'PKIX1Implicit-2009', getdec_CertExtensions, getenc_CertExtensions, 'BasicConstraints'};
+extension_id(?'id-ce-nameConstraints') ->
+    {'PKIX1Implicit-2009', getdec_CertExtensions, getenc_CertExtensions, 'NameConstraints'};
+extension_id(?'id-ce-policyConstraints') ->
+    {'PKIX1Implicit-2009', getdec_CertExtensions, getenc_CertExtensions, 'PolicyConstraints'};
+extension_id(?'id-ce-extKeyUsage') ->
+    {'PKIX1Implicit-2009', getdec_CertExtensions, getenc_CertExtensions, 'ExtKeyUsageSyntax'};
+extension_id(?'id-ce-inhibitAnyPolicy') ->
+    {'PKIX1Implicit-2009', getdec_CertExtensions, getenc_CertExtensions, 'InhibitAnyPolicy'};
+extension_id(?'id-ce-freshestCRL') ->
+    {'PKIX1Implicit-2009', getdec_CrlExtensions, getenc_CrlExtensions, 'FreshestCRL'};
+extension_id(?'id-ce-issuingDistributionPoint') ->
+    {'PKIX1Implicit-2009', getdec_CrlExtensions, getenc_CrlExtensions, 'IssuingDistributionPoint'};
+extension_id(?'id-pe-authorityInfoAccess') ->
+    {'PKIX1Implicit-2009', getdec_CertExtensions, getenc_CertExtensions, 'AuthorityInfoAccessSyntax'};
+extension_id(?'id-pe-subjectInfoAccess') ->
+    {'PKIX1Implicit-2009', getdec_CertExtensions, getenc_CertExtensions, 'SubjectInfoAccessSyntax'};
+extension_id(?'id-ce-cRLNumber') ->
+    {'PKIX1Implicit-2009', getdec_CrlExtensions, getenc_CrlExtensions, 'CRLNumber'};
+extension_id(?'id-ce-deltaCRLIndicator') ->
+    {'PKIX1Implicit-2009', getdec_CrlExtensions, getenc_CrlExtensions, 'BaseCRLNumber'};
+extension_id(?'id-ce-cRLReasons') ->
+    {'PKIX1Implicit-2009', getdec_CrlEntryExtensions, getenc_CrlEntryExtensions, 'CRLReason'};
+extension_id(?'id-ce-certificateIssuer') ->
+    {'PKIX1Implicit-2009', getdec_CrlEntryExtensions, getenc_CrlEntryExtensions, 'CertificateIssuer'};
+extension_id(?'id-ce-holdInstructionCode') ->
+    {'PKIX1Implicit-2009', getdec_CrlEntryExtensions, getenc_CrlEntryExtensions, 'HoldInstructionCode'};
+extension_id(?'id-ce-invalidityDate') ->
+    {'PKIX1Implicit-2009', getdec_CrlEntryExtensions, getenc_CrlEntryExtensions, 'InvalidityDate'};
+extension_id(?'id-ce-cRLDistributionPoints') ->
+    {'PKIX1Implicit-2009', getdec_CertExtensions, getenc_CertExtensions, 'CRLDistributionPoints'};
 extension_id(_) ->
-    undefined.
+    {undefined, undefined, undefined, undefined}.
 
 ext_oid('AuthorityKeyIdentifier') ->     ?'id-ce-authorityKeyIdentifier';
 ext_oid('SubjectKeyIdentifier') ->       ?'id-ce-subjectKeyIdentifier';
@@ -432,10 +456,8 @@ decode_extensions(Exts, WhenCRL) ->
     lists:map(fun(Ext = #'Extension'{extnID=Id, extnValue=Value0}) ->
                       %% Some Extensions only has special decoding functions
                       %% with other naming-convention
-                      ExtId = extension_id(Id),
-		      case ExtId =/= undefined andalso
-                          'PKIX1Implicit-2009':getdec_CertExtensions(Id)
-                      of
+                      {Mod, DecLookup, _Enc, ExtId} = extension_id(Id),
+		      case ExtId =/= undefined andalso Mod:DecLookup(Id) of
 			  false ->
                               Ext;
                           DecodeExt when ExtId =:= 'CertificatePolicies',
@@ -486,10 +508,8 @@ encode_extensions(Exts) ->
     %% Some Extensions only has special decoding functions
     %% with other naming-convention
     lists:map(fun(Ext = #'Extension'{extnID=Id, extnValue=Value0}) ->
-                      ExtId = extension_id(Id),
-		      case ExtId =/= undefined andalso
-                          'PKIX1Implicit-2009':getenc_CertExtensions(Id)
-                      of
+                      {Mod, _Dec, EncLookup, ExtId} = extension_id(Id),
+		      case ExtId =/= undefined andalso Mod:EncLookup(Id) of
 			  false ->
                               Ext;
 			  EncodeExt when is_function(EncodeExt, 3) ->
