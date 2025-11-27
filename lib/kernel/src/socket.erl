@@ -1982,6 +1982,11 @@ C: `struct sctp_sndinfo`
           assic_id := sctp_assoc_id()}.
 
 -doc """
+SCTP options for 
+[`sendmsg()`](`socket:sendmsg/4`) and
+SCTP header information about a received message through
+[`recvmsg()`](`socket:recvmsg/5`).
+
 When sending, only the *stream* and *assoc_id* fields needs to be
 assigned. When receiving all values will be assigned.
 
