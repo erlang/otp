@@ -417,9 +417,10 @@ server(Addr, Port) ->
 %% Also in prim_socket
 -define(REGISTRY, socket_registry).
 
-%% -type uint8()  :: 0..16#FF.
+-type uint8()  :: 0..16#FF.
 -type uint16() :: 0..16#FFFF.
 -type uint32() :: 0..16#FFFFFFFF.
+-type uint64() :: 0..16#FFFFFFFFFFFFFFFF.
 
 -type invalid() :: {invalid, What :: term()}.
 
@@ -706,11 +707,11 @@ The value `default` is only valid to _set_ and is translated to the C value
 -doc "C: `struct sctp_assocparams`".
 -type sctp_assocparams() ::
         #{assoc_id                 := sctp_assoc_id(),
-          asocmaxrxt               := 0..16#ffff,
-          number_peer_destinations := 0..16#ffff,
-          peer_rwnd                := 0..16#ffffffff,
-          local_rwnd               := 0..16#ffffffff,
-          cookie_life              := 0..16#ffffffff}.
+          asocmaxrxt               := uint16(),
+          number_peer_destinations := uint16(),
+          peer_rwnd                := uint32(),
+          local_rwnd               := uint32(),
+          cookie_life              := uint32()}.
 
 -doc """
 C: `struct sctp_event_subscribe`.
@@ -735,17 +736,17 @@ have been stripped from the C struct field names, for convenience.
 
 -doc "C: `struct sctp_initmsg`.".
 -type sctp_initmsg() ::
-        #{num_ostreams   := 0..16#ffff,
-          max_instreams  := 0..16#ffff,
-          max_attempts   := 0..16#ffff,
-          max_init_timeo := 0..16#ffff}.
+        #{num_ostreams   := uint16(),
+          max_instreams  := uint16(),
+          max_attempts   := uint16(),
+          max_init_timeo := uint16()}.
 
 -doc "C: `struct sctp_rtoinfo`.".
 -type sctp_rtoinfo() ::
         #{assoc_id := sctp_assoc_id(),
-          initial  := 0..16#ffffffff,
-          max      := 0..16#ffffffff,
-          min      := 0..16#ffffffff}.
+          initial  := uint32(),
+          max      := uint32(),
+          min      := uint32()}.
 
 -doc "C: `struct sctp_setpeerprim`.".
 -type sctp_set_peer_primary_address() ::
@@ -759,19 +760,19 @@ have been stripped from the C struct field names, for convenience.
 
 -doc "C: `struct sctp_setadaptation`.".
 -type sctp_set_adaptation_layer_ind() ::
-        #{ind := 0..16#ffffffff}.
+        #{ind := uint32()}.
 
 -doc "C: `struct sctp_paddrparams`.".
 -type sctp_peer_address_parameters() ::
         #{assoc_id          := sctp_assoc_id(),
           addr              := sockaddr(),
-          heatbeat_interval := 0..16#FFFFFFFF,
-          path_max_rxt      := 0..16#FFFF,
-          path_mtu          := 0..16#FFFFFFFF,
-          sack_delay        := 0..16#FFFFFFFF,
+          heatbeat_interval := uint32(),
+          path_max_rxt      := uint16(),
+          path_mtu          := uint32(),
+          sack_delay        := uint32(),
           flags             := sctp_pap_flags(),
-          ipv6_flowlabel    := 0..16#FFFFFFFF,
-          dscp              := 0..16#FF}.
+          ipv6_flowlabel    := uint32(),
+          dscp              := uint8()}.
 
 -doc """
 There are three pairs of flags that cannot be both be set (maybe obviously) 
@@ -795,43 +796,43 @@ at the same time:
 -type sctp_status() ::
         #{assoc_id            := sctp_assoc_id(),
           state               := sctp_peer_address_state(),
-          rwnd                := 0..16#FFFFFFFF,
-          unacked_data        := 0..16#FFFF,
-          pending_data        := 0..16#FFFF,
-          in_streams          := 0..16#FFFF,
-          out_streams         := 0..16#FFFF,
-          fragmentation_point := 0..16#FFFFFFFF,
+          rwnd                := uint32(),
+          unacked_data        := uint16(),
+          pending_data        := uint16(),
+          in_streams          := uint16(),
+          out_streams         := uint16(),
+          fragmentation_point := uint32(),
           primary             := sctp_peer_address_info()}.
 
 -doc "C: `struct sctp_assoc_stats`.".
 -type sctp_assoc_stats() ::
         #{assoc_id             := sctp_assoc_id(),
           max_rto_addr         := sockaddr(),
-          max_rto              := 0..16#FFFFFFFFFFFFFFFF,
-          in_sacks             := 0..16#FFFFFFFFFFFFFFFF,
-          out_sacks            := 0..16#FFFFFFFFFFFFFFFF,
-          in_packets           := 0..16#FFFFFFFFFFFFFFFF,
-          out_packets          := 0..16#FFFFFFFFFFFFFFFF,
-          rtx_chunks           := 0..16#FFFFFFFFFFFFFFFF,
-          out_of_seq_tsns      := 0..16#FFFFFFFFFFFFFFFF,
-          in_dup_chunks        := 0..16#FFFFFFFFFFFFFFFF,
-          gap_ack_recv         := 0..16#FFFFFFFFFFFFFFFF,
-          in_unordered_chunks  := 0..16#FFFFFFFFFFFFFFFF,
-          out_unordered_chunks := 0..16#FFFFFFFFFFFFFFFF,
-          in_ordered_chunks    := 0..16#FFFFFFFFFFFFFFFF,
-          out_ordered_chunks   := 0..16#FFFFFFFFFFFFFFFF,
-          in_ctrl_chunks       := 0..16#FFFFFFFFFFFFFFFF,
-          out_ctrl_chunks      := 0..16#FFFFFFFFFFFFFFFF}.
+          max_rto              := uint64(),
+          in_sacks             := uint64(),
+          out_sacks            := uint64(),
+          in_packets           := uint64(),
+          out_packets          := uint64(),
+          rtx_chunks           := uint64(),
+          out_of_seq_tsns      := uint64(),
+          in_dup_chunks        := uint64(),
+          gap_ack_recv         := uint64(),
+          in_unordered_chunks  := uint64(),
+          out_unordered_chunks := uint64(),
+          in_ordered_chunks    := uint64(),
+          out_ordered_chunks   := uint64(),
+          in_ctrl_chunks       := uint64(),
+          out_ctrl_chunks      := uint64()}.
 
 -doc "C: `struct sctp_paddrinfo`.".
 -type sctp_peer_address_info() ::
         #{assoc_id := sctp_assoc_id(),
           address  := sockaddr(),
           state    := sctp_peer_address_state(),
-          cwnd     := 0..16#FFFFFFFF,
-          srtt     := 0..16#FFFFFFFF,
-          rto      := 0..16#FFFFFFFF,
-          mtu      := 0..16#FFFFFFFF}.
+          cwnd     := uint32(),
+          srtt     := uint32(),
+          rto      := uint32(),
+          mtu      := uint32()}.
 
 -doc "C: `enum sctp_spinfo_state`.".
 -type sctp_peer_address_state() :: inactive | potentially_failed |
