@@ -178,7 +178,7 @@ monitor_return({Error, Mon}) when is_reference(Mon) ->
     %% Failure; wait for spawned process to terminate
     %% and release resources, then return the error...
     receive
-        {'DOWN', Mon, process, _Pid, _Reason} ->
+        {_Tag, Mon, process, _Pid, _Reason} ->
             ok
     end,
     Error.
