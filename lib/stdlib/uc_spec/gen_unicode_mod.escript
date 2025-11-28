@@ -278,7 +278,7 @@ gen_header(Fd) ->
 -moduledoc false.
 -export([cp/1, gc/1]).
 -export([nfd/1, nfc/1, nfkd/1, nfkc/1]).
--export([whitespace/0, is_whitespace/1]).
+-export([pattern_whitespace/0, is_whitespace/1]).
 -export([uppercase/1, lowercase/1, titlecase/1, casefold/1]).
 
 -export([spec_version/0, lookup/1, category/1, get_case/1]).
@@ -320,7 +320,7 @@ gen_header(Fd) ->
      {symbol,modifier} |
      {symbol,other}.
 
--define(IS_CP(CP), is_integer(CP, 0, 16#110000)).
+-define(IS_CP(CP), is_integer(CP, 0, 16#10FFFF)).
 -define(IS_ASCII(CP), is_integer(CP, 0, 127)).
 -define(IS_LATIN1(CP), is_integer(CP, 0, 255)).
 
@@ -657,13 +657,16 @@ gen_norm(Fd) ->
     ok.
 
 gen_props(Fd, Props, Data) ->
-    WS0 = maps:get(pattern_white_space, Props),
-    WS = merge_ranges(WS0, split),
+    PWS0 = maps:get(pattern_white_space, Props),
+    PWS = merge_ranges(PWS0, split),
     io:put_chars(Fd, "%% Useful non-breakable whitespace chars\n"
                  "%% defined as Pattern White Space in Unicode Standard Annex #31\n"),
-    io:put_chars(Fd, "-spec whitespace() -> [gc()].\n"),
-    WsChars = [CP || {CP, undefined} <- WS],
-    io:format(Fd, "whitespace() -> ~w.\n\n", [[[$\r,$\n]|WsChars]]),
+    io:put_chars(Fd, "-spec pattern_whitespace() -> [gc()].\n"),
+    WsChars = [CP || {CP, undefined} <- PWS],
+    io:format(Fd, "pattern_whitespace() -> ~w.\n\n", [[[$\r,$\n]|WsChars]]),
+
+    WS0 = maps:get(white_space, Props),
+    WS = merge_ranges(WS0, split),
 
     io:put_chars(Fd, "-spec is_whitespace(gc()) -> boolean().\n"),
     IsWS = fun(Range) -> io:format(Fd, "is_whitespace~s true;\n", [gen_single_clause(Range)]) end,
