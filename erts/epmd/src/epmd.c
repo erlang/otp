@@ -21,6 +21,7 @@
  * %CopyrightEnd%
  */
 
+#include <unistd.h>
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
 #endif
@@ -39,6 +40,7 @@ static void run_daemon(EpmdVars*);
 static char* get_addresses(void);
 static int get_port_no(void);
 static int check_relaxed(void);
+static void init_ssl(EpmdVars *g);
 #ifdef __WIN32__
 static int has_console(void);
 #endif
@@ -127,6 +129,9 @@ int main(int argc, char** argv)
 
     g->silent         = 0; 
     g->is_daemon      = 0;
+    g->tls            = 0;
+    g->cert_path      = NULL;
+    g->key_path       = NULL;
     g->brutal_kill    = check_relaxed();
     g->packet_timeout = CLOSE_TIMEOUT; /* Default timeout */
     g->delay_accept   = 0;
@@ -168,6 +173,18 @@ int main(int argc, char** argv)
 	} else if (strcmp(argv[0], "-daemon") == 0) {
 	    g->is_daemon = 1;
 	    argv++; argc--;
+    } else if (strcmp(argv[0], "-tls") == 0) {
+        // if((argc < 3) || 
+        // (access(argv[1], F_OK) == 0) || 
+        // (access(argv[2], F_OK) == 0)){
+        //  fprintf(stderr, "argc: %d, argv[0] = %s,  argv[1] = %s,  argv[2] = %s, \
+        //     access1 = %d, access2 = %d\n", argc, argv[0], argv[1], argv[2], access(argv[1], F_OK), access(argv[2], F_OK));   
+        //  usage(g); //update usage
+        // }
+	    g->tls = 1;
+        g->cert_path = argv[1];
+        g->key_path = argv[2];
+	    argv += 3; argc -= 3;
 	} else if (strcmp(argv[0], "-relaxed_command_check") == 0) {
 	    g->brutal_kill = 1;
 	    argv++; argc--;
@@ -235,6 +252,8 @@ int main(int argc, char** argv)
     if (g->max_conn > FD_SETSIZE) {
       g->max_conn = FD_SETSIZE;
     }
+
+    init_ssl(g);
 
     if (g->is_daemon)  {
 	run_daemon(g);
@@ -570,3 +589,26 @@ static int check_relaxed(void)
     return (port_str != NULL) ? 1 : 0;
 }
 
+static void init_ssl(EpmdVars *g) {
+    if (!g->tls) return;
+
+    SSL_library_init();
+    SSL_load_error_strings();
+    OpenSSL_add_all_algorithms();
+
+    g->ctx = SSL_CTX_new(TLS_server_method());
+    if (!g->ctx) {
+        dbg_perror(g, "Unable to create SSL context");
+        epmd_cleanup_exit(g, 1);
+    }
+
+    if (SSL_CTX_use_certificate_file(g->ctx, g->cert_path, SSL_FILETYPE_PEM) <= 0) {
+        dbg_perror(g, "Failed to load certificate");
+        epmd_cleanup_exit(g, 1);
+    }
+
+    if (SSL_CTX_use_PrivateKey_file(g->ctx, g->key_path, SSL_FILETYPE_PEM) <= 0) {
+        dbg_perror(g, "Failed to load private key");
+        epmd_cleanup_exit(g, 1);
+    }
+}
