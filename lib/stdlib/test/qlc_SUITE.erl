@@ -8004,6 +8004,7 @@ compile(Config, Tests, Fun) ->
 compile_file(Config, Test0, Opts0) ->
     {File, Mod} = compile_file_mod(Config),
     Test = list_to_binary(["-module(", atom_to_list(Mod), "). "
+                           "-compile(nowarn_export_var_subexpr). "
                            "-import(qlc_SUITE, [i/1,i/2,format_info/2]). "
                            "-import(qlc_SUITE, [etsc/2, etsc/3]). "
                            "-import(qlc_SUITE, [create_ets/2]). "
