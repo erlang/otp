@@ -2264,7 +2264,7 @@ FloatValue = rand:uniform().     % again
 """.
 -doc(#{group => <<"Plug-In Generators">>,
        since => <<"OTP-22.0">>}).
--spec rand_seed_alg(Alg :: 'crypto_aes', Seed :: term()) ->
+-spec rand_seed_alg(Alg :: 'crypto_aes', Seed :: iodata()) ->
           {rand:alg_handler(),
            atom() | rand_cache_seed()}.
 rand_seed_alg(Alg, Seed) ->
@@ -2373,7 +2373,7 @@ can be changed from its default value using the
 """.
 -doc(#{group => <<"Plug-In Generators">>,
        since => <<"OTP 22.0">>}).
--spec rand_seed_alg_s(Alg :: 'crypto_aes', Seed :: term()) ->
+-spec rand_seed_alg_s(Alg :: 'crypto_aes', Seed :: iodata()) ->
           {rand:alg_handler(),
            atom() | rand_cache_seed()}.
 rand_seed_alg_s(Alg, Seed) when is_atom(Alg) ->
@@ -2423,8 +2423,8 @@ rand_cache_size() ->
     end.
 
 -doc false.
-rand_plugin_next(Seed) ->
-    {strong_rand_range(1 bsl 64), Seed}.
+rand_plugin_next(State) ->
+    {strong_rand_range(1 bsl 64), State}.
 
 -doc false.
 rand_plugin_uniform(State) ->
