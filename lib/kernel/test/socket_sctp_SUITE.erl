@@ -169,8 +169,14 @@
 -define(ENABLE_SOCK_DEBUG(S),  socket:setopt(S, ?MK_OTP_SOCKOPT(debug), true)).
 -define(DISABLE_SOCK_DEBUG(S), socket:setopt(S, ?MK_OTP_SOCKOPT(debug), false)).
 
+%% Number of clients per node
+-define(TRAFFIC_NUM_NODE_CLIENTS, 2).
+-define(BENCH_NUM_NODE_CLIENTS,   3).
+
+%%% For how long should the clients run
 -define(BENCH_RUN_TIME,   ?MINS(1)).
 -define(TRAFFIC_RUN_TIME, ?SECS(10)).
+
 -define(TRAFFIC_DATA_M1, <<"The quick brown fox jumps over a lazy dog">>).
 -define(TRAFFIC_DATA_M2, <<"The quick brown fox jumps over a lazy dog."
                            "The quick brown fox jumps over a lazy dog."
@@ -6660,63 +6666,86 @@ do_from_other_process(Fun) when is_function(Fun, 0) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 t_exchange_st_ipv4(Config) when is_list(Config) ->
-    common_exchange_st_ipv4(?FUNCTION_NAME, false, ?TRAFFIC_RUN_TIME).
+    common_exchange_st_ipv4(?FUNCTION_NAME, false,
+                            ?TRAFFIC_NUM_NODE_CLIENTS, ?TRAFFIC_RUN_TIME).
 
 t_exchange_st_ipv6(Config) when is_list(Config) ->
-    common_exchange_st_ipv6(?FUNCTION_NAME, false, ?TRAFFIC_RUN_TIME).
+    common_exchange_st_ipv6(?FUNCTION_NAME, false,
+                            ?TRAFFIC_NUM_NODE_CLIENTS, ?TRAFFIC_RUN_TIME).
 
 t_exchange_mt_ipv4(Config) when is_list(Config) ->
-    common_exchange_mt_ipv4(?FUNCTION_NAME, false, ?TRAFFIC_RUN_TIME).
+    common_exchange_mt_ipv4(?FUNCTION_NAME, false,
+                            ?TRAFFIC_NUM_NODE_CLIENTS, ?TRAFFIC_RUN_TIME).
 
 t_exchange_mt_ipv6(Config) when is_list(Config) ->
-    common_exchange_mt_ipv6(?FUNCTION_NAME, false, ?TRAFFIC_RUN_TIME).
+    common_exchange_mt_ipv6(?FUNCTION_NAME, false,
+                            ?TRAFFIC_NUM_NODE_CLIENTS, ?TRAFFIC_RUN_TIME).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 bench_exchange_st_ipv4(Config) when is_list(Config) ->
-    common_exchange_st_ipv4(?FUNCTION_NAME, true, ?BENCH_RUN_TIME).
+    common_exchange_st_ipv4(?FUNCTION_NAME, true,
+                            ?BENCH_NUM_NODE_CLIENTS, ?BENCH_RUN_TIME).
 
 bench_exchange_st_ipv6(Config) when is_list(Config) ->
-    common_exchange_st_ipv6(?FUNCTION_NAME, true, ?BENCH_RUN_TIME).
+    common_exchange_st_ipv6(?FUNCTION_NAME, true,
+                            ?BENCH_NUM_NODE_CLIENTS, ?BENCH_RUN_TIME).
 
 bench_exchange_mt_ipv4(Config) when is_list(Config) ->
-    common_exchange_mt_ipv4(?FUNCTION_NAME, true, ?BENCH_RUN_TIME).
+    common_exchange_mt_ipv4(?FUNCTION_NAME, true,
+                            ?BENCH_NUM_NODE_CLIENTS, ?BENCH_RUN_TIME).
 
 bench_exchange_mt_ipv6(Config) when is_list(Config) ->
-    common_exchange_mt_ipv6(?FUNCTION_NAME, true, ?BENCH_RUN_TIME).
+    common_exchange_mt_ipv6(?FUNCTION_NAME, true,
+                            ?BENCH_NUM_NODE_CLIENTS, ?BENCH_RUN_TIME).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-common_exchange_st_ipv4(Name, Bench, RunTime) ->
+common_exchange_st_ipv4(Name, Bench, NumClientsPerNode, RunTime) ->
     HasDomainSupport = fun() -> has_support_ipv4() end,
     common_exchange_st(Name,
-                       Bench, RunTime, HasDomainSupport, inet).
+                       Bench, NumClientsPerNode,
+                       RunTime, HasDomainSupport, inet).
 
-common_exchange_st_ipv6(Name, Bench, RunTime) ->
+common_exchange_st_ipv6(Name, Bench, NumClientsPerNode, RunTime) ->
     HasDomainSupport = fun() -> has_support_ipv6() end,
     common_exchange_st(Name,
-                       Bench, RunTime, HasDomainSupport, inet6).
+                       Bench, NumClientsPerNode,
+                       RunTime, HasDomainSupport, inet6).
 
-common_exchange_mt_ipv4(Name, Bench, RunTime) ->
+common_exchange_mt_ipv4(Name, Bench, NumClientsPerNode, RunTime) ->
     HasDomainSupport = fun() -> has_support_ipv4() end,
     common_exchange_st(Name,
-                       Bench, RunTime, HasDomainSupport, inet).
+                       Bench, NumClientsPerNode,
+                       RunTime, HasDomainSupport, inet).
 
-common_exchange_mt_ipv6(Name, Bench, RunTime) ->
+common_exchange_mt_ipv6(Name, Bench, NumClientsPerNode, RunTime) ->
     HasDomainSupport = fun() -> has_support_ipv6() end,
     common_exchange_mt(Name,
-                       Bench, RunTime, HasDomainSupport, inet6).
+                       Bench, NumClientsPerNode,
+                       RunTime, HasDomainSupport, inet6).
 
-common_exchange_st(Name, Bench, RunTime, HasDomainSupport, Domain) ->
-    common_exchange(Name, Bench, RunTime, HasDomainSupport, Domain, false).
+common_exchange_st(Name,
+                   Bench, NumClientsPerNode,
+                   RunTime, HasDomainSupport, Domain) ->
+    common_exchange(Name,
+                    Bench, NumClientsPerNode,
+                    RunTime, HasDomainSupport, Domain, false).
 
-common_exchange_mt(Name, Bench, RunTime, HasDomainSupport, Domain) ->
-    common_exchange(Name, Bench, RunTime, HasDomainSupport, Domain, true).
+common_exchange_mt(Name,
+                   Bench, NumClientsPerNode,
+                   RunTime, HasDomainSupport, Domain) ->
+    common_exchange(Name,
+                    Bench, NumClientsPerNode,
+                    RunTime, HasDomainSupport, Domain, true).
 
-common_exchange(Name, Bench, RunTime, HasDomainSupport, Domain, Threaded)
+common_exchange(Name,
+                Bench, NumClientsPerNode,
+                RunTime, HasDomainSupport, Domain, Threaded)
   when is_boolean(Bench) andalso
+       is_integer(NumClientsPerNode) andalso (NumClientsPerNode > 0) andalso
        is_integer(RunTime) andalso (RunTime > 0) andalso
        is_function(HasDomainSupport) andalso
        ((Domain =:= inet) orelse (Domain =:= inet6)) andalso
@@ -6739,6 +6768,7 @@ common_exchange(Name, Bench, RunTime, HasDomainSupport, Domain, Threaded)
                    [ServerNode | ClientNodes] = start_nodes(NodeNames, ""),
                    ?P("~s:pre -> Nodes started", [?FUNCTION_NAME]),
                    #{bench        => Bench,
+                     num_cpn      => NumClientsPerNode,
                      run_time     => RunTime,
                      domain       => Domain,
                      threaded     => Threaded,
@@ -6827,12 +6857,22 @@ t_exc_stop_server(#{pid := Pid} = _Server) ->
     socket_sctp_traffic_server:stop(Pid).
 
 
-t_exc_start_clients(#{client_nodes := ClientNodes}, #{sa := ServerSA}) ->
-    t_exc_start_clients(ClientNodes, 1, ServerSA, []).
+t_exc_start_clients(#{num_cpn      := NumClientsPerNode,
+                      client_nodes := ClientNodes}, #{sa := ServerSA}) ->
+    t_exc_start_clients(ClientNodes, NumClientsPerNode, 1, ServerSA, []).
 
-t_exc_start_clients([], _, _ServerSA, Acc) ->
+t_exc_start_clients([], _, _, _ServerSA, Acc) ->
     lists:reverse(Acc);
-t_exc_start_clients([Node|Nodes], ID, ServerSA, Acc) ->
+t_exc_start_clients([Node|Nodes], NumClientsPerNode, ID, ServerSA, Acc) ->
+    ?P("~s -> try start ~w client(s) on"
+       "~n   ~p", [?FUNCTION_NAME, NumClientsPerNode, Node]),
+    NewAcc = t_exc_start_per_node_clients(Node, NumClientsPerNode,
+                                          ID, ServerSA, Acc),
+    t_exc_start_clients(Nodes, NumClientsPerNode, ID + NumClientsPerNode,
+                        ServerSA, NewAcc).
+     
+t_exc_start_per_node_clients(Node, NumClients, ID, ServerSA, Acc)
+  when (NumClients > 0) ->
     ?P("~s -> try start client ~w on"
        "~n   ~p", [?FUNCTION_NAME, ID, Node]),
     case socket_sctp_traffic_client:start_monitor(Node,
@@ -6842,18 +6882,27 @@ t_exc_start_clients([Node|Nodes], ID, ServerSA, Acc) ->
                                                   #{debug => false}) of
         {ok, {Pid, MRef, #{port := PortNo} = _SA, AssocID}} ->
             ?P("~s -> client ~w started", [?FUNCTION_NAME, ID]),
-            t_exc_start_clients(Nodes, ID+1, ServerSA,
-                                [#{id       => ID,
-                                   pid      => Pid,
-                                   mref     => MRef,
-                                   port     => PortNo,
-                                   assoc_id => AssocID} | Acc]);
+            t_exc_start_per_node_clients(Node,
+                                         NumClients-1,
+                                         ID+1,
+                                         ServerSA,
+                                         [#{id       => ID,
+                                            pid      => Pid,
+                                            mref     => MRef,
+                                            port     => PortNo,
+                                            assoc_id => AssocID} | Acc]);
          {error, Reason} ->
             ?P("~s -> Failed starting client ~w: "
-               "~n   Reason: ~p", [?FUNCTION_NAME, ID, Reason]),
+               "~n   Node:   ~p"
+               "~n   Reason: ~p", [?FUNCTION_NAME, ID, Node, Reason]),
             t_exc_stop_clients(Acc),
             ct:fail("Failed starting client ~w", [ID])
-    end.
+    end;
+t_exc_start_per_node_clients(_Node, 0 = _NumClients, _ID, _ServerSA, Acc) ->
+    Acc.
+
+    
+    
 
 t_exc_stop_clients([]) ->
     ok;

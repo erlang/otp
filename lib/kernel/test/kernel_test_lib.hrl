@@ -70,10 +70,9 @@
 -define(SZ(X),                   ?LIB:sz((X))).
 
 -define(UNIQ_NODE_NAME,
-  list_to_atom(?MODULE_STRING ++ "__" ++
-               atom_to_list(?FUNCTION_NAME) ++ "_" ++
-               integer_to_list(erlang:unique_integer([positive])))).
-
+        list_to_atom(?MODULE_STRING ++ "__" ++
+                         atom_to_list(?FUNCTION_NAME) ++ "_" ++
+                         integer_to_list(erlang:unique_integer([positive])))).
 -define(UNIQ_NODE_NAME(ROLE),
         list_to_atom(?MODULE_STRING ++ "__" ++
                          atom_to_list(?FUNCTION_NAME) ++ "_" ++
