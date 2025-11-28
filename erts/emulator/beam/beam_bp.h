@@ -146,14 +146,15 @@ Uint erts_sum_all_session_flags(ErtsCodeInfo *ci_rw);
 void erts_uninstall_breakpoints(BpFunctions* f);
 
 void erts_consolidate_local_bp_data(BpFunctions* f);
-void erts_consolidate_export_bp_data(BpFunctions* f);
+void erts_consolidate_all_bp_data(BpFunctions* f, BpFunctions* e);
 void erts_free_breakpoints(void);
 
 void erts_set_trace_break(BpFunctions *f, Binary *match_spec);
 void erts_clear_trace_break(BpFunctions *f);
 
-void erts_set_export_trace(ErtsCodeInfo *ci, Binary *match_spec);
+void erts_set_export_trace(Export *ep, Binary *match_spec);
 void erts_clear_export_trace(ErtsCodeInfo *ci);
+int erts_export_is_bif_traced(const Export*);
 
 void erts_set_mtrace_break(BpFunctions *f, Binary *match_spec, ErtsTracer tracer);
 void erts_clear_mtrace_break(BpFunctions *f);
