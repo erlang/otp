@@ -1,0 +1,357 @@
+#!/usr/bin/env python3
+#
+# %CopyrightBegin%
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright Ericsson AB 2023-2025. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# %CopyrightEnd%
+#
+
+#
+# Performs a series of quick sanity checks for a Core OTP developer or an external contributor
+#
+# 1. Check that ERL_TOP is set. Suggest a fix
+# 2. Check that the pre-push hook is activated (support normal and worktree). Suggest a fix.
+# 3. Check that the email ends with [ericsson.se/com/erlang.org](http://ericsson.se/com/erlang.org). Suggest a fix.
+# 4. Check the branch name includes Ericsson EID and OTP-xxxx ticket number (optional warning)
+# 5. Check that upstream is called upstream and not origin. Suggest the commands to fix.
+# 6. Run `git fetch --all` and check that `master` and `maint` are in sync with upstream
+# 7. Check git automatic merge strategy to be fast-forward
+#
+
+import argparse
+import os
+import sys
+from typing import Callable, Optional
+from dataclasses import dataclass
+
+
+@dataclass
+class CheckResult:
+    passed: bool = False
+    extra_info: Optional[str] = None
+    suggested_fix: Optional[str] = None
+    fatal: bool = True
+
+
+# Check if terminal supports colors
+HAS_COLORS = sys.stdout.isatty()
+
+# Define colors with fallback to empty string if terminal doesn't support colors
+RED = '\033[31m' if HAS_COLORS else ''
+GREEN = '\033[32m' if HAS_COLORS else ''
+YELLOW = '\033[33m' if HAS_COLORS else ''
+BLUE = '\033[34m' if HAS_COLORS else ''
+MAGENTA = '\033[35m' if HAS_COLORS else ''
+CYAN = '\033[36m' if HAS_COLORS else ''
+BLACK = '\033[30m' if HAS_COLORS else ''
+WHITE = '\033[37m' if HAS_COLORS else ''
+BRIGHT_RED = '\033[91m' if HAS_COLORS else ''
+BRIGHT_GREEN = '\033[92m' if HAS_COLORS else ''
+BRIGHT_YELLOW = '\033[93m' if HAS_COLORS else ''
+BRIGHT_BLUE = '\033[94m' if HAS_COLORS else ''
+BRIGHT_MAGENTA = '\033[95m' if HAS_COLORS else ''
+BRIGHT_CYAN = '\033[96m' if HAS_COLORS else ''
+BRIGHT_BLACK = '\033[90m' if HAS_COLORS else ''
+BRIGHT_WHITE = '\033[97m' if HAS_COLORS else ''
+RESET = '\033[0m' if HAS_COLORS else ''
+
+
+def apply_check(func: Callable[[], CheckResult], exit_code=1):
+    """Run a check, and if failed, print the message and exit with the given code."""
+    result = func()  # returns a nonempty string on error
+    if not result.passed:
+        print(f"Check failed:  {BRIGHT_WHITE}{func.__doc__}{RESET}", file=sys.stderr)
+
+        if result.extra_info is not None:
+            print(f"Problem:       {BRIGHT_RED}{result.extra_info}{RESET}", file=sys.stderr)
+        if result.suggested_fix is not None:
+            print(f"Suggested fix: {BRIGHT_GREEN}{result.suggested_fix}{RESET}", file=sys.stderr)
+
+        if result.fatal:
+            sys.exit(exit_code)
+        print(f"{BRIGHT_YELLOW}This is not an error, but it is good to have it fixed.{RESET}\n", file=sys.stderr)
+
+
+def check__erl_top_env() -> CheckResult:
+    """ERL_TOP is set and a super-path for the current directory."""
+    erl_top = os.getenv("ERL_TOP")
+    if erl_top is None:
+        return CheckResult(
+            passed=False,
+            extra_info="ERL_TOP is not set",
+            suggested_fix="Run: export ERL_TOP=`pwd` in your project root."
+        )
+    if not os.path.commonpath([erl_top, os.getcwd()]) == erl_top:
+        return CheckResult(
+            passed=False,
+            extra_info="ERL_TOP is set but is not a super-path for the current directory",
+            suggested_fix="Run: export ERL_TOP=`pwd` in the CORRECT project root directory."
+        )
+    return CheckResult(True, None, None)
+
+
+def check__core_git_prepush_hook() -> CheckResult:
+    """Pre-push hook is activated."""
+    # Run shell command: ls -l $(git rev-parse --git-path hooks)/pre-push
+    # The output must contain `pre-push` file with executable bits set (like 0755 etc)
+    import subprocess
+    import os
+    import stat
+
+    try:
+        git_hooks_path = subprocess.check_output(['git', 'rev-parse', '--git-path', 'hooks'], text=True).strip()
+        pre_push_path = os.path.join(git_hooks_path, 'pre-push')
+
+        if not os.path.exists(pre_push_path):
+            return CheckResult(
+                extra_info="pre-push hook file does not exist in .git/hooks",
+                suggested_fix="""Copy scripts/pre-push from MASTER branch to your .git/hooks/ and set executable flag.
+               Suggested solution:
+               > git show upstream/master:scripts/pre-push > .git/hooks/pre-push
+               > chmod +x .git/hooks/pre-push"""
+            )
+
+        st = os.stat(pre_push_path)
+        if not bool(st.st_mode & stat.S_IXUSR):
+            return CheckResult(
+                extra_info="pre-push hook exists but is not executable",
+                suggested_fix=f"Run: chmod +x {pre_push_path}"
+            )
+
+        return CheckResult(passed=True)
+
+    except subprocess.CalledProcessError:
+        return CheckResult(
+            extra_info="Failed to get git hooks path",
+            suggested_fix="Ensure you are in a git repository (either normal or worktree)"
+        )
+
+def check__master_maint_sync() -> CheckResult:
+    """Master and maint branches are in sync with upstream."""
+    import subprocess
+    try:
+        # Check if remote pointing to github.com/erlang/otp exists and what's its name
+        remotes = subprocess.check_output(['git', 'remote', '-v'], text=True).strip().split('\n')
+        otp_remote = None
+        otp_remote_name = None
+        for remote in remotes:
+            if not remote:
+                continue
+            name, url, *_ = remote.split()
+            if 'github.com/erlang/otp' in url or 'github.com:erlang/otp' in url:
+                otp_remote = url
+                otp_remote_name = name
+                break
+
+        # Fetch all remotes
+        subprocess.check_output(['git', 'fetch', '--all'], text=True)
+
+        # Check master branch
+        master_diff = subprocess.check_output(
+            ['git', 'rev-list', '--left-right', '--count', f'master...remotes/{otp_remote_name}/master'],
+            text=True
+        ).strip().split('\t')
+
+        # Check maint branch
+        maint_diff = subprocess.check_output(
+            ['git', 'rev-list', '--left-right', '--count', f'maint...remotes/{otp_remote_name}/maint'],
+            text=True
+        ).strip().split('\t')
+
+        if master_diff != ['0', '0']:
+            return CheckResult(
+                extra_info=f"""Local master branch is not in sync with upstream: {otp_remote_name}/master,
+               the local diverged by {master_diff[0]} and the remote by {master_diff[1]} commits respectively""",
+                suggested_fix=f"""Sync your branch with upstream:
+               > git checkout master && git pull --ff-only {otp_remote_name} master"""
+            )
+
+        if maint_diff != ['0', '0']:
+            return CheckResult(
+                extra_info=f"""Local maint branch is not in sync with upstream: {otp_remote_name}/maint,"
+               the local diverged by {maint_diff[0]} and the remote by {maint_diff[1]} commits respectively""",
+                suggested_fix=f"""Sync your branch with upstream:
+               > git checkout maint && git pull --ff-only {otp_remote_name} maint"""
+            )
+
+        return CheckResult(passed=True)
+
+    except subprocess.CalledProcessError as e:
+        return CheckResult(
+            extra_info=f"Git command failed: {e}",
+            suggested_fix="Ensure you are in a git repository with valid upstream configuration"
+        )
+
+def check__ff_strategy() -> CheckResult:
+    """Fast-forward merge strategy is used."""
+    import subprocess
+    try:
+        # Check if merge.ff is set to only
+        ff_config = subprocess.check_output(['git', 'config', 'merge.ff'], text=True).strip()
+        if ff_config != 'only':
+            return CheckResult(
+                extra_info="Git merge strategy is not set to fast-forward only",
+                suggested_fix="Run: git config merge.ff only",
+                fatal=False
+            )
+        return CheckResult(passed=True)
+    except subprocess.CalledProcessError:
+        return CheckResult(
+            extra_info="Git merge.ff configuration is not set",
+            suggested_fix="Run: git config merge.ff only"
+        )
+
+
+def external_contrib():
+    """ Run all shared checks only. """
+    apply_check(check__erl_top_env)
+    apply_check(check__ff_strategy)
+
+
+def check__core_email() -> CheckResult:
+    """[Core Developer] Git email ends with approved domains."""
+    # Invoke git config user.email to get the current user's email address. Check that email has a domain part, and
+    # that the domain belongs to one of: "ericsson.se", "ericsson.com", or "erlang.org".
+    import subprocess
+    try:
+        email = subprocess.check_output(['git', 'config', 'user.email'], text=True).strip()
+        if '@' not in email:
+            return CheckResult(
+                extra_info=f"Invalid email format: {email}",
+                suggested_fix="Configure your git email: git config user.email your.name@domain"
+            )
+        domain = email.split('@')[1].lower()
+        allowed_domains = ["ericsson.se", "ericsson.com", "erlang.org"]
+        if domain not in allowed_domains:
+            return CheckResult(
+                extra_info=f"Email domain for {email} is not in allowed list: {', '.join(allowed_domains)}",
+                suggested_fix="Configure your git email with approved domain: git config user.email your.name@ericsson.com"
+            )
+        return CheckResult(passed=True)
+    except subprocess.CalledProcessError:
+        return CheckResult(
+            extra_info="Failed to get git user.email configuration",
+            suggested_fix="Configure your git email: git config user.email your.name@domain"
+        )
+
+
+def check__core_branch_name() -> CheckResult:
+    """[Core Developer] Branch name includes user ID and OTP-xxxx ticket number."""
+    import subprocess
+    import re
+
+    try:
+        branch = subprocess.check_output(['git', 'rev-parse', '--abbrev-ref', 'HEAD'], text=True).strip()
+        pattern = r'^[a-zA-Z]+/[^/\s]+/OTP-\d+$'
+
+        if not re.match(pattern, branch):
+            return CheckResult(
+                extra_info=f"Branch name '{branch}' does not match required format",
+                suggested_fix="""Branch name should be: <letters>/<text>/OTP-<digits> (example: john/feature/OTP-1234)
+               Run: git branch -M <new good name>""",
+                fatal=False
+            )
+        return CheckResult(passed=True)
+
+    except subprocess.CalledProcessError:
+        return CheckResult(
+            extra_info="Failed to get current branch name",
+            suggested_fix="Ensure you are in a git repository with at least one commit"
+        )
+
+def check__core_upstream_name() -> CheckResult:
+    """[Core Developer] Upstream name is `upstream` and not `origin` or any other."""
+    import subprocess
+    try:
+        # Get all remotes with their URLs
+        remotes = subprocess.check_output(['git', 'remote', '-v'], text=True).strip().split('\n')
+        otp_remote = None
+        otp_remote_name = None
+
+        # Find the remote that points to erlang/otp repository
+        for remote in remotes:
+            if not remote:
+                continue
+            name, url, *_ = remote.split()
+            if 'github.com/erlang/otp' in url or 'github.com:erlang/otp' in url:
+                otp_remote = url
+                otp_remote_name = name
+                break
+
+        if otp_remote is None:
+            return CheckResult(
+                extra_info="No remote pointing to github.com/erlang/otp repository found",
+                suggested_fix="Add upstream remote: git remote add upstream git@github.com:erlang/otp.git"
+            )
+
+        if otp_remote_name != 'upstream':
+            return CheckResult(
+                extra_info=f"Remote for erlang/otp is named '{otp_remote_name}' instead of 'upstream'",
+                suggested_fix=f"""Rename the remote to 'upstream':
+               > git remote rename {otp_remote_name} upstream""",
+                fatal=False
+            )
+
+        return CheckResult(passed=True)
+
+    except subprocess.CalledProcessError:
+        return CheckResult(
+            extra_info="Failed to get git remotes",
+            suggested_fix="Ensure you are in a git repository"
+        )
+
+
+def core_dev():
+    """ Run all shared checks + core dev checks (email, branch name). """
+    external_contrib()
+    apply_check(check__core_git_prepush_hook)
+    apply_check(check__core_email)
+    apply_check(check__core_branch_name)
+    apply_check(check__core_upstream_name)
+    apply_check(check__master_maint_sync)
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="""
+        OTP Developer Environment sanity checker.
+        Checks for ERL_TOP env variable, ensures pre-push hook activation,
+        checks that master/maint branches are in sync, and some git settings (such as
+        fast-forward merge strategy).
+        For core developers extra checks are performed:
+        developer email must end with approved domains, the branch name must have specific format,
+        and the upstream name must be `upstream` and not `origin` or any other.
+        Run as often as you can, but at least once at start, and once before the "Big Merge".
+        """)
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    # 'core' command
+    parser_core = subparsers.add_parser('core', help="Perform extra checks used by the Core OTP developers")
+    parser_core.set_defaults(func=core_dev)
+
+    # 'dev' command
+    parser_dev = subparsers.add_parser('dev', help="Perform basic checks for external contributors")
+    parser_dev.set_defaults(func=external_contrib)
+
+    args = parser.parse_args()
+    args.func()
+
+
+if __name__ == "__main__":
+    main()
+    print("OTP developer env check: All checks passed!")
