@@ -55,6 +55,17 @@
         (try ?ets_lookup_element(mnesia_gvar, Var, 2)
          catch error:_:_Stacktrace -> {'EXIT', _Stacktrace} end)).
 
+-define(unalias_and_flush_msg(Alias, Msg),
+        unalias(Alias),
+        ?flush_msg(Msg)
+       ).
+
+-define(flush_msg(Msg),
+        receive Msg -> ok
+        after 0 -> ok
+        end
+       ).
+
 %% It's important that counter is first, since we compare tid's
 
 -record(tid,
