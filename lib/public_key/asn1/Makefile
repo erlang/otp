@@ -59,6 +59,7 @@ ASN_MODULES = \
           ECPrivateKey \
 	  KEMAlgorithmInformation-2023 \
 	  X509-ML-DSA-2025 \
+	  SLH-DSA-Module-2024 \
           OCSP-2024-08 \
           OTP-PKIX \
 	  OTP-PKIX-Relaxed \

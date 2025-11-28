@@ -477,6 +477,22 @@ sig_algs(Alg, {254,_} = Version) ->
 sig_algs(Alg, Version) ->
     do_sig_algs(Alg, Version).
 
+do_sig_algs(slhdsa_shake, Version) when ?TLS_GTE(Version, ?TLS_1_3) ->
+    [{signature_algs, [slh_dsa_shake_256s,
+                       slh_dsa_shake_256f,
+                       slh_dsa_shake_192s,
+                       slh_dsa_shake_192f,
+                       slh_dsa_shake_128s,
+                       slh_dsa_shake_128f
+                      ]}];
+do_sig_algs(slhdsa_sha2, Version) when ?TLS_GTE(Version, ?TLS_1_3) ->
+    [{signature_algs, [slh_dsa_sha2_256s,
+                       slh_dsa_sha2_256f,
+                       slh_dsa_sha2_192s,
+                       slh_dsa_sha2_192f,
+                       slh_dsa_sha2_128s,
+                       slh_dsa_sha2_128f
+                      ]}];
 do_sig_algs(mldsa, Version) when ?TLS_GTE(Version, ?TLS_1_3) ->
     [{signature_algs, [mldsa44, mldsa65, mldsa87]}];
 do_sig_algs(rsa_pss_pss, _) ->
@@ -1824,6 +1840,8 @@ chain_spec(_Role, dsa, _) ->
      [Digest, {key, hardcode_dsa_key(2)}],
      [Digest, {key, hardcode_dsa_key(3)}]];
 chain_spec(_, {mldsa, Keys} , _) ->
+    Keys;
+chain_spec(_,{slhdsa, Keys}, _) ->
     Keys.
 
 merge_chain_spec([], [], Acc)->

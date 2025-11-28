@@ -69,6 +69,10 @@
          mldsa_priv_pkcs8/1,
          mldsa_pub_pem/0,
          mldsa_pub_pem/1,
+         slh_dsa_priv_pkcs8/0,
+         slh_dsa_priv_pkcs8/1,
+         slh_dsa_pub_pem/0,
+         slh_dsa_pub_pem/1,
          eddsa_sign_verify_24_compat/1,
          init_ec_pem_encode_generated/1,
          ec_pem_encode_generated/0,
@@ -98,8 +102,12 @@
          mldsa_verify/1,
          mldsa_sign/0,
          mldsa_sign/1,
+         slh_dsa_verify/0,
+         slh_dsa_verify/1,
+         slh_dsa_sign/0,
+         slh_dsa_sign/1,
          dsa_sign_verify/0,
-         dsa_sign_verify/1,         
+         dsa_sign_verify/1,
          custom_sign_fun_verify/0,
          custom_sign_fun_verify/1,
          pkix/0,
@@ -185,11 +193,11 @@
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
 
-suite() -> 
+suite() ->
     [].
 
-all() -> 
-    [app, 
+all() ->
+    [app,
      appup,
      {group, pem_decode_encode},
      encrypt_decrypt,
@@ -207,11 +215,11 @@ all() ->
      pkix_ext_key_usage,
      pkix_ext_key_usage_any,
      pkix_path_validation_bad_date,
-     pkix_iso_rsa_oid, 
-     pkix_iso_dsa_oid, 
+     pkix_iso_rsa_oid,
+     pkix_iso_dsa_oid,
      pkix_rsa_md2_oid,
      pkix_dsa_sha2_oid,
-     pkix_crl, 
+     pkix_crl,
      pkix_pss_params_in_signalg,
      pkix_hash_type,
      general_name,
@@ -224,23 +232,23 @@ all() ->
      pkix_test_data,
      pkix_is_issuer,
      pkix_extensionreq,
-     short_cert_issuer_hash, 
+     short_cert_issuer_hash,
      short_crl_issuer_hash,
      cacerts_load,
      ocsp_extensions,
      pkix_ocsp_validate | maybe_more()
     ].
 
-groups() -> 
-    [{pem_decode_encode, [], [dsa_pem, rsa_pem, rsa_pss_pss_pem, 
+groups() ->
+    [{pem_decode_encode, [], [dsa_pem, rsa_pem, rsa_pss_pss_pem,
                               rsa_pss_default_pem, ec_pem,
 			      encrypted_pem_pwdstring, encrypted_pem_pwdfun,
 			      dh_pem, cert_pem, pkcs7_pem, pkcs10_pem,
 			      rsa_priv_pkcs8, dsa_priv_pkcs8, ec_priv_pkcs8,
 			      eddsa_priv_pkcs8, eddsa_priv_rfc5958, mldsa_pub_pem,
-                              mldsa_priv_pkcs8]},
+                              mldsa_priv_pkcs8, slh_dsa_pub_pem, slh_dsa_priv_pkcs8]},
      {sign_verify, [], [rsa_sign_verify, rsa_pss_sign_verify, mldsa_verify,
-                        mldsa_sign, dsa_sign_verify,
+                        mldsa_sign, slh_dsa_verify, slh_dsa_sign, dsa_sign_verify,
                         eddsa_sign_verify_24_compat, custom_sign_fun_verify]},
      {explicit_ec_params,
       [ec_pem2,
@@ -296,8 +304,8 @@ init_per_testcase(rsa_pss_sign_verify, Config) ->
     Supports = crypto:supports(),
     RSAOpts = proplists:get_value(rsa_opts, Supports),
 
-    case lists:member(rsa_pkcs1_pss_padding, RSAOpts) 
-        andalso lists:member(rsa_pss_saltlen, RSAOpts) 
+    case lists:member(rsa_pkcs1_pss_padding, RSAOpts)
+        andalso lists:member(rsa_pss_saltlen, RSAOpts)
         andalso lists:member(rsa_mgf1_md, RSAOpts) of
         true ->
             Config;
@@ -324,13 +332,35 @@ init_per_testcase(TestCase, Config) when TestCase == mldsa_sign;
         false ->
             {skip, mldsa_not_supported_by_crypto}
     end;
+init_per_testcase(TestCase, Config) when TestCase == slh_dsa_sign;
+                                         TestCase == slh_dsa_verify ->
+    PkAlgs = crypto:supports(public_keys),
+    case
+        lists:member(slh_dsa_sha2_128f, PkAlgs) andalso
+        lists:member(slh_dsa_sha2_128s, PkAlgs) andalso
+        lists:member(slh_dsa_sha2_192f, PkAlgs) andalso
+        lists:member(slh_dsa_sha2_192s, PkAlgs) andalso
+        lists:member(slh_dsa_sha2_256f, PkAlgs) andalso
+        lists:member(slh_dsa_sha2_256s, PkAlgs) andalso
+        lists:member(slh_dsa_shake_128f, PkAlgs) andalso
+        lists:member(slh_dsa_shake_128s, PkAlgs) andalso
+        lists:member(slh_dsa_shake_192f, PkAlgs) andalso
+        lists:member(slh_dsa_shake_192s, PkAlgs) andalso
+        lists:member(slh_dsa_shake_256f, PkAlgs) andalso
+        lists:member(slh_dsa_shake_256s, PkAlgs)
+    of
+        true ->
+            Config;
+        false ->
+            {skip, slhdsa_not_supported_by_crypto}
+    end;
 init_per_testcase(TestCase, Config) ->
     case TestCase of
         ec_pem_encode_generated ->
             init_ec_pem_encode_generated(Config);
 	_ -> init_common_per_testcase(Config)
     end.
-	
+
 init_common_per_testcase(Config0) ->
     Config = lists:keydelete(watchdog, 1, Config0),
     Dog = ct:timetrap(?TIMEOUT),
@@ -404,7 +434,7 @@ rsa_pem(Config) when is_list(Config) ->
     RSAKey0 = public_key:der_decode('RSAPrivateKey', DerRSAKey),
 
     RSAKey0 = public_key:pem_entry_decode(Entry0),
-    
+
     [{'RSAPrivateKey', _, {_,_}} = Entry1] =
 	erl_make_certs:pem_to_der(filename:join(Datadir, "rsa.pem")),
 
@@ -481,11 +511,11 @@ ec_pem(Config) when is_list(Config) ->
     PubEntry0 = public_key:pem_entry_encode('SubjectPublicKeyInfo', ECPubKey),
     ECPubPemNoEndNewLines = strip_superfluous_newlines(ECPubPem),
     ECPubPemNoEndNewLines = strip_superfluous_newlines(public_key:pem_encode([PubEntry0])),
-    
+
     {ok, ECPrivPem} = file:read_file(filename:join(Datadir, "ec_key.pem")),
     [{'EcpkParameters', _, not_encrypted} = Entry1,
      {'ECPrivateKey', _, not_encrypted} = Entry2] = public_key:pem_decode(ECPrivPem),
-    
+
     ECParams = public_key:pem_entry_decode(Entry1),
     true = check_entry_type(ECParams, 'EcpkParameters'),
     ECPrivKey = public_key:pem_entry_decode(Entry2),
@@ -570,6 +600,23 @@ eddsa_pub(Config) when is_list(Config) ->
     ECPemNoEndNewLines = strip_superfluous_newlines(EDDSAPubPem),
     ECPemNoEndNewLines = strip_superfluous_newlines(public_key:pem_encode([PemEntry0])).
 
+mldsa_priv_pkcs8() ->
+    [{doc, "ML-DSA PKCS8 private key decode/encode"}].
+mldsa_priv_pkcs8(Config) when is_list(Config) ->
+    ml_dsa_priv("mldsa-44.pem", ?'id-ml-dsa-44', Config),
+    ml_dsa_priv("mldsa-65.pem", ?'id-ml-dsa-65', Config),
+    ml_dsa_priv("mldsa-87.pem", ?'id-ml-dsa-87', Config).
+
+ml_dsa_priv(File, AlgOid, Config) ->
+    Datadir = proplists:get_value(data_dir, Config),
+    {ok, MLDSAPrivPem} = file:read_file(filename:join(Datadir, File)),
+    [{'PrivateKeyInfo', _, not_encrypted} = PKCS8Key] = public_key:pem_decode(MLDSAPrivPem),
+    MLDSAKey = #'ML-DSAPrivateKey'{} = public_key:pem_entry_decode(PKCS8Key),
+    true = check_entry_type(MLDSAKey, AlgOid),
+    PrivEntry0 = public_key:pem_entry_encode('PrivateKeyInfo', MLDSAKey),
+    MLDSAPemNoEndNewLines = strip_licence(strip_superfluous_newlines(MLDSAPrivPem)),
+    MLDSAPemNoEndNewLines = strip_superfluous_newlines(public_key:pem_encode([PrivEntry0])).
+
 mldsa_pub_pem() ->
     [{doc, "ML-DSA public_key decode/encode"}].
 mldsa_pub_pem(Config) when is_list(Config) ->
@@ -589,22 +636,37 @@ ml_dsa_pub(File, AlgOid, Config) ->
     MLDSAPemNoEndNewLines = strip_licence(strip_superfluous_newlines(MLDSAPubPem)),
     MLDSAPemNoEndNewLines = strip_superfluous_newlines(public_key:pem_encode([PubEntry0])).
 
-mldsa_priv_pkcs8() ->
-    [{doc, "ML-DSA PKCS8 private key decode/encode"}].
-mldsa_priv_pkcs8(Config) when is_list(Config) ->
-    ml_dsa_priv("mldsa-44.pem", ?'id-ml-dsa-44', Config),
-    ml_dsa_priv("mldsa-65.pem", ?'id-ml-dsa-65', Config),
-    ml_dsa_priv("mldsa-87.pem", ?'id-ml-dsa-87', Config).
+slh_dsa_priv_pkcs8() ->
+    [{doc, "SLH-DSA PKCS8 private key decode/encode"}].
+slh_dsa_priv_pkcs8(Config) when is_list(Config) ->
+    slh_dsa_priv("slh-dsa-sha2-128s.pem", ?'id-slh-dsa-sha2-128s', Config).
 
-ml_dsa_priv(File, AlgOid, Config) ->
+slh_dsa_priv(File, AlgOid, Config) ->
     Datadir = proplists:get_value(data_dir, Config),
-    {ok, MLDSAPrivPem} = file:read_file(filename:join(Datadir, File)),
-    [{'PrivateKeyInfo', _, not_encrypted} = PKCS8Key] = public_key:pem_decode(MLDSAPrivPem),
-    MLDSAKey = #'ML-DSAPrivateKey'{} = public_key:pem_entry_decode(PKCS8Key),
-    true = check_entry_type(MLDSAKey, AlgOid),
-    PrivEntry0 = public_key:pem_entry_encode('PrivateKeyInfo', MLDSAKey),
-    MLDSAPemNoEndNewLines = strip_licence(strip_superfluous_newlines(MLDSAPrivPem)),
-    MLDSAPemNoEndNewLines = strip_superfluous_newlines(public_key:pem_encode([PrivEntry0])).
+    {ok, SLHDSAPrivPem} = file:read_file(filename:join(Datadir, File)),
+    [{'PrivateKeyInfo', _, not_encrypted} = PKCS8Key] = public_key:pem_decode(SLHDSAPrivPem),
+    SLHDSAKey = #'SLH-DSAPrivateKey'{} = public_key:pem_entry_decode(PKCS8Key),
+    true = check_entry_type(SLHDSAKey, AlgOid),
+    PrivEntry0 = public_key:pem_entry_encode('PrivateKeyInfo', SLHDSAKey),
+    SLHDSAPemNoEndNewLines = strip_licence(strip_superfluous_newlines(SLHDSAPrivPem)),
+    SLHDSAPemNoEndNewLines = strip_superfluous_newlines(public_key:pem_encode([PrivEntry0])).
+
+slh_dsa_pub_pem() ->
+    [{doc, "SLH-DSA public_key decode/encode"}].
+slh_dsa_pub_pem(Config) when is_list(Config) ->
+    slh_dsa_pub("slh-dsa-sha2-128s-pub.pem", ?'id-slh-dsa-sha2-128s', Config).
+
+slh_dsa_pub(File, AlgOid, Config) ->
+    Datadir = proplists:get_value(data_dir, Config),
+    {ok, SLHDSAPubPem} = file:read_file(filename:join(Datadir, File)),
+     [{'SubjectPublicKeyInfo', _, _} = PubEntry0] =
+        public_key:pem_decode(SLHDSAPubPem),
+    SLHDSAPubKey = #'SLH-DSAPublicKey'{} = public_key:pem_entry_decode(PubEntry0),
+    true = check_entry_type(SLHDSAPubKey, AlgOid),
+    PubEntry0 = public_key:pem_entry_encode('SubjectPublicKeyInfo', SLHDSAPubKey),
+
+    SLHDSAPemNoEndNewLines = strip_licence(strip_superfluous_newlines(SLHDSAPubPem)),
+    SLHDSAPemNoEndNewLines = strip_superfluous_newlines(public_key:pem_encode([PubEntry0])).
 
 eddsa_sign_verify_24_compat(_Config) ->
     Key =
@@ -763,22 +825,21 @@ pkcs7_pem(Config) when is_list(Config) ->
 	erl_make_certs:pem_to_der(filename:join(Datadir, "pkcs7_ext.pem")),
     asn1_encode_decode(Entry0),
     asn1_encode_decode(Entry1).
-      
+
 %%--------------------------------------------------------------------
 cert_pem() ->
     [{doc, "Certificate PEM-file decode/encode"}].
 cert_pem(Config) when is_list(Config) ->
     Datadir = proplists:get_value(data_dir, Config),
-   
-    [{'Certificate', _, not_encrypted} = Entry0] =  
+
+    [{'Certificate', _, not_encrypted} = Entry0] =
 	erl_make_certs:pem_to_der(filename:join(Datadir, "client_cert.pem")),
-    
+
     asn1_encode_decode(Entry0),
-    
-    [{'Certificate', _, not_encrypted} = Entry1, 
-     {'Certificate', _, not_encrypted} = Entry2] = 
+
+    [{'Certificate', _, not_encrypted} = Entry1,
+     {'Certificate', _, not_encrypted} = Entry2] =
         erl_make_certs:pem_to_der(filename:join(Datadir, "cacerts.pem")),
-    
     asn1_encode_decode(Entry1),
     asn1_encode_decode(Entry2).
 
@@ -846,7 +907,7 @@ ext_encoding(_Config) ->
 %%--------------------------------------------------------------------
 encrypt_decrypt() ->
     [{doc, "Test public_key:encrypt_private and public_key:decrypt_public"}].
-encrypt_decrypt(Config) when is_list(Config) -> 
+encrypt_decrypt(Config) when is_list(Config) ->
     {PrivateKey, _DerKey} = erl_make_certs:gen_rsa(64),
     #'RSAPrivateKey'{modulus=Mod, publicExponent=Exp} = PrivateKey,
     PublicKey = #'RSAPublicKey'{modulus=Mod, publicExponent=Exp},
@@ -872,43 +933,43 @@ encrypt_decrypt_sign_fun(Config) when is_list(Config) ->
     RsaEncrypted = public_key:encrypt_private(Msg, CustomPrivKey),
     Msg = public_key:decrypt_public(RsaEncrypted, PublicKey),
     ok.
-       
+
 %%--------------------------------------------------------------------
 rsa_sign_verify() ->
     [{doc, "Checks that we can sign and verify rsa signatures."}].
 rsa_sign_verify(Config) when is_list(Config) ->
     Ca = {_, CaKey} = erl_make_certs:make_cert([]),
     {Cert1, _} = erl_make_certs:make_cert([{key, dsa}, {issuer, Ca}]),
-    PrivateRSA = #'RSAPrivateKey'{modulus=Mod, publicExponent=Exp} = 
+    PrivateRSA = #'RSAPrivateKey'{modulus=Mod, publicExponent=Exp} =
 	public_key:pem_entry_decode(CaKey),
     PublicRSA = #'RSAPublicKey'{modulus=Mod, publicExponent=Exp},
     true = public_key:pkix_verify(Cert1, PublicRSA),
 
     Msg = list_to_binary(lists:duplicate(5, "Foo bar 100")),
     RSASign = public_key:sign(Msg, sha, PrivateRSA),
-    true = public_key:verify(Msg, sha, RSASign, PublicRSA), 
-    false = public_key:verify(<<1:8, Msg/binary>>, sha, RSASign, PublicRSA), 
-    false = public_key:verify(Msg, sha, <<1:8, RSASign/binary>>, PublicRSA), 
+    true = public_key:verify(Msg, sha, RSASign, PublicRSA),
+    false = public_key:verify(<<1:8, Msg/binary>>, sha, RSASign, PublicRSA),
+    false = public_key:verify(Msg, sha, <<1:8, RSASign/binary>>, PublicRSA),
 
     RSASign1 = public_key:sign(Msg, md5, PrivateRSA),
     true = public_key:verify(Msg, md5, RSASign1, PublicRSA).
-    
+
 %%--------------------------------------------------------------------
 rsa_pss_sign_verify() ->
     [{doc, "Checks that we can sign and verify rsa pss signatures."}].
 rsa_pss_sign_verify(Config) when is_list(Config) ->
-    CertChainConf  = #{server_chain => 
+    CertChainConf  = #{server_chain =>
                            #{root => [],
                              intermediates => [],
                              peer => []},
-                       client_chain => 
+                       client_chain =>
                            #{root => [{key, {hardcode_rsa_key(1), pss_params(sha256)}}],
                              intermediates => [],
                              peer => []}},
     #{client_config := ClientConf} = public_key:pkix_test_data(CertChainConf),
     Cert = proplists:get_value(cert, ClientConf),
     {#'RSAPrivateKey'{modulus=Mod, publicExponent=Exp}, Parms} = {hardcode_rsa_key(1), pss_params(sha256)},
-           
+
     true = public_key:pkix_verify(Cert, {#'RSAPublicKey'{modulus=Mod, publicExponent=Exp}, Parms}).
 
 %%--------------------------------------------------------------------
@@ -941,6 +1002,36 @@ mldsa_sign(Config) when is_list(Config) ->
     Signature = public_key:sign(Msg, none, MLDSAPrivKey),
     public_key:verify(Msg, none, Signature, MLDSAPubKey).
 
+%--------------------------------------------------------------------
+slh_dsa_verify() ->
+    [{doc, "Checks that we can verify slh-dsa signatures."}].
+slh_dsa_verify(Config) when is_list(Config) ->
+    Datadir = proplists:get_value(data_dir, Config),
+    {ok, SLHDSAPubPem} = file:read_file(filename:join(Datadir, "slh-dsa-sha2-128s-pub.pem")),
+    [{'SubjectPublicKeyInfo', _, _} = PubEntry0] =
+        public_key:pem_decode(SLHDSAPubPem),
+    {ok, SLHDSACertPem} = file:read_file(filename:join(Datadir, "slh-dsa-cert.pem")),
+    [{_, Cert, _}] = public_key:pem_decode(SLHDSACertPem),
+    SLHDSAPubKey = #'SLH-DSAPublicKey'{} = public_key:pem_entry_decode(PubEntry0),
+    true = public_key:pkix_verify(Cert, SLHDSAPubKey).
+
+%%--------------------------------------------------------------------
+slh_dsa_sign() ->
+    [{doc, "Checks that we can sign and verify slh-dsa signatures."}].
+slh_dsa_sign(Config) when is_list(Config) ->
+    Datadir = proplists:get_value(data_dir, Config),
+    Msg = list_to_binary(lists:duplicate(5, "Foo bar 100")),
+    {ok, SLHDSAPubPem} = file:read_file(filename:join(Datadir, "slh-dsa-sha2-128s-pub.pem")),
+    [{'SubjectPublicKeyInfo', _, _} = PubEntry0] =
+        public_key:pem_decode(SLHDSAPubPem),
+    SLHDSAPubKey = #'SLH-DSAPublicKey'{} = public_key:pem_entry_decode(PubEntry0),
+    {ok, SLHDSAPrivPem} = file:read_file(filename:join(Datadir, "slh-dsa-sha2-128s.pem")),
+    [{'PrivateKeyInfo', _, _} = PubEntry1] =
+        public_key:pem_decode(SLHDSAPrivPem),
+    SLHDSAPrivKey = #'SLH-DSAPrivateKey'{} = public_key:pem_entry_decode(PubEntry1),
+    Signature = public_key:sign(Msg, none, SLHDSAPrivKey),
+    public_key:verify(Msg, none, Signature, SLHDSAPubKey).
+
 %%--------------------------------------------------------------------
 dsa_sign_verify() ->
     [{doc, "Checks that we can sign and verify dsa signatures."}].
@@ -954,8 +1045,8 @@ dsa_sign_verify(Config) when is_list(Config) ->
     true = public_key:pkix_verify(Cert2, {Y, #'Dss-Parms'{p=P, q=Q, g=G}}),
 
     Datadir = proplists:get_value(data_dir, Config),
-    [DsaKey = {'DSAPrivateKey', _, _}] = 
-	erl_make_certs:pem_to_der(filename:join(Datadir, "dsa.pem")), 
+    [DsaKey = {'DSAPrivateKey', _, _}] =
+	erl_make_certs:pem_to_der(filename:join(Datadir, "dsa.pem")),
     DSAPrivateKey = public_key:pem_entry_decode(DsaKey),
     #'DSAPrivateKey'{p=P1, q=Q1, g=G1, y=Y1, x=_X1} = DSAPrivateKey,
 
@@ -963,19 +1054,19 @@ dsa_sign_verify(Config) when is_list(Config) ->
     DSASign = public_key:sign(Msg, sha, DSAPrivateKey),
     DSAPublicKey = Y1,
     DSAParams = #'Dss-Parms'{p=P1, q=Q1, g=G1},
-    true = public_key:verify(Msg, sha, DSASign, {DSAPublicKey, DSAParams}), 
-    false = public_key:verify(<<1:8, Msg/binary>>, sha, DSASign, 
-			      {DSAPublicKey, DSAParams}), 
-    false = public_key:verify(Msg, sha, <<1:8, DSASign/binary>>, 
-			      {DSAPublicKey, DSAParams}), 
-    
+    true = public_key:verify(Msg, sha, DSASign, {DSAPublicKey, DSAParams}),
+    false = public_key:verify(<<1:8, Msg/binary>>, sha, DSASign,
+			      {DSAPublicKey, DSAParams}),
+    false = public_key:verify(Msg, sha, <<1:8, DSASign/binary>>,
+			      {DSAPublicKey, DSAParams}),
+
     Digest = crypto:hash(sha,Msg),
     DigestSign = public_key:sign(Digest, none, DSAPrivateKey),
-    true = public_key:verify(Digest, none, DigestSign, {DSAPublicKey, DSAParams}), 
+    true = public_key:verify(Digest, none, DigestSign, {DSAPublicKey, DSAParams}),
     <<_:8, RestDigest/binary>> = Digest,
-    false = public_key:verify(<<1:8, RestDigest/binary>>, none, DigestSign, 
-			      {DSAPublicKey, DSAParams}), 
-    false = public_key:verify(Digest, none, <<1:8, DigestSign/binary>>, 
+    false = public_key:verify(<<1:8, RestDigest/binary>>, none, DigestSign,
+			      {DSAPublicKey, DSAParams}),
+    false = public_key:verify(Digest, none, <<1:8, DigestSign/binary>>,
 			      {DSAPublicKey, DSAParams}).
 %%--------------------------------------------------------------------
 
@@ -1010,12 +1101,12 @@ pkix(Config) when is_list(Config) ->
     TestTransform = fun({'Certificate', CertDer, not_encrypted}) ->
 			    PlainCert = public_key:pkix_decode_cert(CertDer, plain),
 			    OtpCert = public_key:pkix_decode_cert(CertDer, otp),
-			    CertDer = 
+			    CertDer =
 				public_key:pkix_encode('OTPCertificate', OtpCert, otp),
-			    CertDer = 
+			    CertDer =
 				public_key:pkix_encode('Certificate', PlainCert, plain),
 			    OTPTBS = OtpCert#'OTPCertificate'.tbsCertificate,
-			    OTPSubj = OTPTBS#'OTPTBSCertificate'.subject, 
+			    OTPSubj = OTPTBS#'OTPTBSCertificate'.subject,
 			    DNEncoded = public_key:pkix_encode('Name', OTPSubj, otp),
 			    PlainTBS = PlainCert#'Certificate'.tbsCertificate,
 			    Subj2 = PlainTBS#'TBSCertificate'.subject,
@@ -1026,31 +1117,30 @@ pkix(Config) when is_list(Config) ->
     [TestTransform(Cert) || Cert <- Certs0 ++ Certs1],
 
     Root = element(2, hd(Certs0)),
-    Peer = element(2, hd(Certs1)), 
+    Peer = element(2, hd(Certs1)),
 
     true = public_key:pkix_is_self_signed(Root),
     false = public_key:pkix_is_self_signed(Peer),
 
-    CaIds = [element(2, public_key:pkix_issuer_id(Cert, self)) || 
+    CaIds = [element(2, public_key:pkix_issuer_id(Cert, self)) ||
 		{'Certificate', Cert, _} <- Certs0],
-    {ok, IssuerId} = 
+    {ok, IssuerId} =
 	public_key:pkix_issuer_id(Peer, other),
-    
+
     {ok, Id} = public_key:pkix_issuer_id(Root, self),
     Id = public_key:pkix_subject_id(Root),
 
     true = lists:member(IssuerId, CaIds),
 
     %% Should be normalized already
-    TestStr   = {rdnSequence, 
+    TestStr   = {rdnSequence,
 		 [[{'AttributeTypeAndValue', {2,5,4,3},{printableString,"ERLANGCA"}}],
 		  [{'AttributeTypeAndValue', {2,5,4,3},{printableString," erlang  ca "}}]]},
-    VerifyStr = {rdnSequence, 
+    VerifyStr = {rdnSequence,
 		 [[{'AttributeTypeAndValue', {2,5,4,3},{printableString,"erlangca"}}],
-		  [{'AttributeTypeAndValue', {2,5,4,3},{printableString,"erlang ca"}}]]},   
+		  [{'AttributeTypeAndValue', {2,5,4,3},{printableString,"erlang ca"}}]]},
     VerifyStr = public_key:pkix_normalize_name(TestStr).
-    
-  
+
 %%--------------------------------------------------------------------
 pkix_countryname() ->
     [{doc, "Test workaround for certs that code x509countryname as utf8"}].
@@ -1105,7 +1195,7 @@ pkix_decode_cert_empty_rdns(Config) when is_list(Config) ->
 pkix_path_validation() ->
     [{doc, "Test PKIX path validation"}].
 pkix_path_validation(Config) when is_list(Config) ->
-    CaK = {Trusted,_} = 
+    CaK = {Trusted,_} =
 	erl_make_certs:make_cert([{key, dsa},
 			     {subject, [
 					{name, "Public Key"},
@@ -1120,23 +1210,23 @@ pkix_path_validation(Config) when is_list(Config) ->
     ok = erl_make_certs:write_pem("./", "public_key_cacert", CaK),
 
     CertK1 = {Cert1, _} = erl_make_certs:make_cert([{issuer, CaK}]),
-    CertK2 = {Cert2,_} = erl_make_certs:make_cert([{issuer, CertK1}, 
+    CertK2 = {Cert2,_} = erl_make_certs:make_cert([{issuer, CertK1},
 					      {digest, md5}, {extensions, false}]),
     ok = erl_make_certs:write_pem("./", "public_key_cert", CertK2),
-    
+
     {ok, _} = public_key:pkix_path_validation(Trusted, [Cert1], []),
-    
-    {error, {bad_cert,invalid_issuer}} = 
+
+    {error, {bad_cert,invalid_issuer}} =
 	public_key:pkix_path_validation(Trusted, [Cert2], []),
-   
-    {ok, _} = public_key:pkix_path_validation(Trusted, [Cert1, Cert2], []),    
+
+    {ok, _} = public_key:pkix_path_validation(Trusted, [Cert1, Cert2], []),
 
     {error, {bad_cert, duplicate_cert_in_path}} =
 	public_key:pkix_path_validation(Trusted, [Cert1, Cert1, Cert2], []),
 
     {error, issuer_not_found} = public_key:pkix_issuer_id(Cert2, other),
 
-    CertK3 = {Cert3,_}  = erl_make_certs:make_cert([{issuer, CertK1}, 
+    CertK3 = {Cert3,_}  = erl_make_certs:make_cert([{issuer, CertK1},
 					       {extensions, [{basic_constraints, false}]}]),
     {Cert4,_}  = erl_make_certs:make_cert([{issuer, CertK3}, {extensions, [{key_usage, undefined}]}]),
 
@@ -1211,19 +1301,19 @@ pkix_path_validation_root_expired() ->
     [{doc, "Test root expiration so that it does not fall between chairs"}].
 pkix_path_validation_root_expired(Config) when is_list(Config) ->
     {Year, Month, Day} = date(),
-    SRoot = public_key:pkix_test_root_cert("OTP test server ROOT", [{validity, {{Year-2, Month, Day}, 
+    SRoot = public_key:pkix_test_root_cert("OTP test server ROOT", [{validity, {{Year-2, Month, Day},
                                                                                 {Year-1, Month, Day}}}]),
     #{server_config := Conf} = public_key:pkix_test_data(#{server_chain => #{root => SRoot,
                                                                              intermediates => [],
                                                                              peer => []},
-                                                           client_chain => #{root => [], 
+                                                           client_chain => #{root => [],
                                                                              intermediates => [],
                                                                              peer => []}}),
     [ICA, Root] = proplists:get_value(cacerts, Conf),
     true = public_key:pkix_is_self_signed(Root),
     Peer = proplists:get_value(cert, Conf),
     {error, {bad_cert, cert_expired}} = public_key:pkix_path_validation(Root, [ICA, Peer], []).
-    
+
 pkix_ext_key_usage() ->
     [{doc, "If extended key usage is a critical extension in a CA (usually not included) make sure it is compatible with keyUsage extension"}].
 pkix_ext_key_usage(Config) when is_list(Config) ->
@@ -1486,21 +1576,21 @@ pkix_verify_hostname_options(Config) ->
     DataDir = proplists:get_value(data_dir, Config),
     {ok,Bin} = file:read_file(filename:join(DataDir,"pkix_verify_hostname_cn.pem")),
     Cert = public_key:pkix_decode_cert(element(2,hd(public_key:pem_decode(Bin))), otp),
-    
+
     %% Check that the fail_callback is called and is presented the correct certificate:
     true = public_key:pkix_verify_hostname(Cert, [{dns_id,"erlang.org"}],
 					   [{fail_callback,
-					     fun(#'OTPCertificate'{}=C) when C==Cert -> 
+					     fun(#'OTPCertificate'{}=C) when C==Cert ->
 						     true; % To test the return value matters
-						(#'OTPCertificate'{}=C) -> 
+						(#'OTPCertificate'{}=C) ->
 						     ct:log("~p:~p: Wrong cert:~n~p~nExpect~n~p",
 							    [?MODULE, ?LINE, C, Cert]),
 						     ct:fail("Wrong cert, see log");
-						(C) -> 
+						(C) ->
 						     ct:log("~p:~p: Bad cert: ~p",[?MODULE,?LINE,C]),
 						     ct:fail("Bad cert, see log")
 					     end}]),
-    
+
     %% Check the callback for user-provided match functions:
     true =  public_key:pkix_verify_hostname(Cert, [{dns_id,"very.wrong.domain"}],
 					    [{match_fun,
@@ -1556,7 +1646,7 @@ pkix_verify_hostname_subjAltName_IP(Config) ->
                                                  {ip, {10,67,16,75}}
                                                 ],
                                           [{match_fun,
-                                            fun(Ref,Pres) -> 
+                                            fun(Ref,Pres) ->
                                                     ct:log("~p:~p:~nRef : ~p~nPres: ~p",[?MODULE,?LINE,Ref,Pres]),
                                                     false
                                             end}]),
@@ -1635,7 +1725,7 @@ pkix_dsa_sha2_oid() ->
 pkix_dsa_sha2_oid(Config) when is_list(Config) ->
     {sha224, dsa} = public_key:pkix_sign_types(?'id-dsa-with-sha224'),
     {sha256, dsa} = public_key:pkix_sign_types(?'id-dsa-with-sha256').
-    
+
 %%--------------------------------------------------------------------
 
 pkix_crl() ->
@@ -1651,7 +1741,7 @@ pkix_crl(Config) when is_list(Config) ->
 
     {ok, SignPemCert} = file:read_file(filename:join(Datadir, "crl_signer.pem")),
     [{_, SignCert, _}] = public_key:pem_decode(SignPemCert),
-    
+
     OTPIDPCert = public_key:pkix_decode_cert(IDPCert, otp),
     OTPSignCert = public_key:pkix_decode_cert(SignCert, otp),
     ERLCRL = public_key:der_decode('CertificateList',CRL),
@@ -1677,11 +1767,11 @@ general_name() ->
 
 general_name(Config) when is_list(Config) ->
     DummyRfc822Name = "CN=CNDummy, OU=OUDummy, O=ODummy, C=SE",
-    {ok, {1,  DummyRfc822Name}} = 
+    {ok, {1,  DummyRfc822Name}} =
 	pubkey_cert:cert_auth_key_id(
-	  #'AuthorityKeyIdentifier'{authorityCertIssuer = 
+	  #'AuthorityKeyIdentifier'{authorityCertIssuer =
 					[{rfc822Name, DummyRfc822Name}],
-				    authorityCertSerialNumber = 
+				    authorityCertSerialNumber =
 					1}).
 %%--------------------------------------------------------------------
 
@@ -1718,10 +1808,10 @@ pkix_hash_type() ->
      [{doc, "Test API function pkix_hash_type/1"}].
 
 pkix_hash_type(Config) when is_list(Config) ->
-    sha = public_key:pkix_hash_type(?'id-sha1'), 
+    sha = public_key:pkix_hash_type(?'id-sha1'),
     sha512 = public_key:pkix_hash_type(?'id-sha512'),
     sha384 = public_key:pkix_hash_type(?'id-sha384'),
-    sha256 = public_key:pkix_hash_type(?'id-sha256'), 
+    sha256 = public_key:pkix_hash_type(?'id-sha256'),
     sha224 = public_key:pkix_hash_type('id-sha224'),
     md5 = public_key:pkix_hash_type('id-md5').
 
@@ -1733,33 +1823,33 @@ pkix_test_data_all_default() ->
 
 pkix_test_data_all_default(Config) when is_list(Config) ->
     #{server_config := ServerConf0,
-      client_config := ClientConf0} = public_key:pkix_test_data(#{server_chain => 
+      client_config := ClientConf0} = public_key:pkix_test_data(#{server_chain =>
                                                                      #{root => [],
                                                                        intermediates => [[]],
                                                                        peer => []},
-                                                                 client_chain => 
+                                                                 client_chain =>
                                                                      #{root => [],
                                                                        intermediates => [[]],
                                                                        peer => []}}),
     check_conf_member(ServerConf0, [key, cert, cacerts]),
     check_conf_member(ClientConf0, [key, cert, cacerts]),
-    
+
     3 = length(proplists:get_value(cacerts, ServerConf0)),
     3 = length(proplists:get_value(cacerts, ServerConf0)),
 
     #{server_config := ServerConf1,
-      client_config := ClientConf1} = public_key:pkix_test_data(#{server_chain => 
+      client_config := ClientConf1} = public_key:pkix_test_data(#{server_chain =>
                                                                      #{root => [],
                                                                        peer => []},
-                                                                 client_chain => 
+                                                                 client_chain =>
                                                                      #{root => [],
                                                                        peer => []}}),
     2 = length(proplists:get_value(cacerts, ServerConf1)),
     2 = length(proplists:get_value(cacerts, ServerConf1)),
-    
+
     check_conf_member(ServerConf1, [key, cert, cacerts]),
     check_conf_member(ClientConf1, [key, cert, cacerts]).
-    
+
 %%--------------------------------------------------------------------
 
 pkix_test_data() ->
@@ -1767,7 +1857,7 @@ pkix_test_data() ->
 
 pkix_test_data(Config) when is_list(Config) ->
     {Year, Month, Day} = date(),
-    Keygen = 
+    Keygen =
         case crypto:ec_curves() of
         [] ->
             {rsa, 2048, 17};
@@ -1776,25 +1866,23 @@ pkix_test_data(Config) when is_list(Config) ->
             {namedCurve, Oid}
         end,
     #{server_config := ServerConf0,
-      client_config := ClientConf0} = 
-        public_key:pkix_test_data(#{server_chain => 
+      client_config := ClientConf0} =
+        public_key:pkix_test_data(#{server_chain =>
                                         #{root => [],
                                           intermediates => [],
                                           peer => [{key, hardcode_rsa_key(1)}]},
-                                    client_chain => 
-                                        #{root => [{validity, {{Year-2, Month, Day}, 
+                                    client_chain =>
+                                        #{root => [{validity, {{Year-2, Month, Day},
                                                                {Year-1, Month, Day}}}],
-                                          intermediates => 
+                                          intermediates =>
                                               [[{extensions, [#'Extension'{extnID = ?'id-ce-basicConstraints',
-                                                                           extnValue = #'BasicConstraints'{cA=true, 
+                                                                           extnValue = #'BasicConstraints'{cA=true,
                                                                                              pathLenConstraint = 1},
                                                                            critical = true}]}]],
                                                peer => [{key, Keygen}, {digest, sha1}]}}),
     check_conf_member(ServerConf0, [key, cert, cacerts]),
     check_conf_member(ClientConf0, [key, cert, cacerts]).
 
-   
-                                 
 check_conf_member(_, []) ->
     true;
 check_conf_member(Conf, [Member | Rest]) ->
@@ -1804,7 +1892,7 @@ check_conf_member(Conf, [Member | Rest]) ->
         false ->
             ct:fail({misssing_conf, Member})
     end.
-                              
+
 %%--------------------------------------------------------------------
 pkix_is_issuer() ->
     [{doc, "Test pubkey_cert:pkix_is_issuer with cert that have diffent cases on countryname"}].
@@ -2159,7 +2247,7 @@ asn1_encode_decode({Asn1Type, Der, not_encrypted} = Entry) ->
     Decoded = public_key:pem_entry_decode(Entry),
     Entry = public_key:pem_entry_encode(Asn1Type, Decoded),
     ok.
-    
+
 check_countryname({rdnSequence,DirName}) ->
     do_check_countryname(DirName).
 do_check_countryname([]) ->
@@ -2212,11 +2300,15 @@ check_entry_type(#'ML-DSAPublicKey'{algorithm = mldsa65}, ?'id-ml-dsa-65') ->
     true;
 check_entry_type(#'ML-DSAPublicKey'{algorithm = mldsa87}, ?'id-ml-dsa-87') ->
     true;
+check_entry_type(#'SLH-DSAPublicKey'{algorithm = slh_dsa_sha2_128s}, ?'id-slh-dsa-sha2-128s') ->
+    true;
 check_entry_type(#'ML-DSAPrivateKey'{algorithm = mldsa44}, ?'id-ml-dsa-44') ->
     true;
 check_entry_type(#'ML-DSAPrivateKey'{algorithm = mldsa65}, ?'id-ml-dsa-65') ->
     true;
 check_entry_type(#'ML-DSAPrivateKey'{algorithm = mldsa87}, ?'id-ml-dsa-87') ->
+    true;
+check_entry_type(#'SLH-DSAPrivateKey'{algorithm = slh_dsa_sha2_128s}, ?'id-slh-dsa-sha2-128s') ->
     true;
 check_entry_type(_,_) ->
     false.
@@ -2248,7 +2340,7 @@ strip_superfluous_newlines(Str0) ->
     Str = string:strip(Str0, right, 10),
     re:replace(Str,"\n\n","\n", [{return,list}, global]).
 
-do_gen_ec_param(File) ->    
+do_gen_ec_param(File) ->
     {ok, KeyPem} = file:read_file(File),
     Entries = public_key:pem_decode(KeyPem),
     [ParamInfo] = [Entry || Entry={'EcpkParameters', _, not_encrypted} <- Entries],

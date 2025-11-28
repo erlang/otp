@@ -424,6 +424,7 @@ still disallow sha1 use in the TLS protocol, since 27.0.1 and 26.2.5.2.
                                  | ecdsa_brainpoolP512r1tls13_sha512
                                  | ecdsa_brainpoolP384r1tls13_sha384
                                  | ecdsa_brainpoolP256r1tls13_sha256
+                                 | post_quantum_schemes()
                                  | rsassa_pss_scheme()
                                  | legacy_sign_scheme() . % exported
 
@@ -438,6 +439,13 @@ Supported in TLS-1.3 and TLS-1.2.
                                  | rsa_pss_pss_sha512
                                  | rsa_pss_pss_sha384
                                  | rsa_pss_pss_sha256.
+
+-doc(#{group => <<"Algorithms">>}).
+-doc """
+Supported in TLS-1.3 only. ML-DSA since 28.1, SLH-DSA since 28.3.
+""".
+-type post_quantum_schemes()       :: crypto:mldsa() | crypto:slh_dsa().
+
 
 -doc(#{group => <<"Algorithms Legacy">>}).
 -doc """
@@ -652,13 +660,13 @@ Options common to both client and server side.
 
   The `keep_secrets` functionality is disabled (`false`) by default.
   If set to legacy value `true` keylog information can be retrieved from the connection
-  using connection_information/2. 
+  using connection_information/2.
 
   Added in OTP 23.2.
 
   > #### Note {: .info }
   > Note that having to ask the connection has some drawbacks
-  > as for instance you can not get keylog information for 
+  > as for instance you can not get keylog information for
   > failed connections, and other keylog items have
   > to be retrieved in a polling manner and are not correctly
   > formatted for key_updates.
@@ -684,7 +692,8 @@ Options common to both client and server side.
   Used to limit the size of valid TLS handshake packets to avoid DoS
   attacks.
 
-  Integer (24 bits, unsigned). Defaults to `256*1024`.
+  Integer (24 bits, unsigned). Defaults to `256*1024` before OTP-26 or if SLH-DSA algorithms
+  are configured, otherwise the default is `256*1024`/2.
 
 - **`{hibernate_after, HibernateTimeout}`** - Hibernate inactive connection processes.
 
@@ -715,9 +724,10 @@ Options common to both client and server side.
                                 {ciphers, cipher_suites()} |
                                 {signature_algs, signature_algs()} |
                                 {signature_algs_cert, [sign_scheme()]} |
-                                {keep_secrets, KeepSecrets:: boolean() |
-                                                             {keylog_hs, fun((Info::keylog_info()) -> any())} |
-                                                             {keylog, fun((Info::keylog_info()) -> any())}} |
+                                {keep_secrets,
+                                 KeepSecrets:: boolean() |
+                                               {keylog_hs, fun((Info::keylog_info()) -> any())} |
+                                               {keylog, fun((Info::keylog_info()) -> any())}} |
                                 {max_handshake_size, HandshakeSize::pos_integer()} |
                                 {versions, [protocol_version()]} |
                                 {log_level, Level::logger:level() | none | all} |
@@ -726,7 +736,7 @@ Options common to both client and server side.
                                 {sender_spawn_opts, SpawnOpts::[erlang:spawn_opt_option()]}.
 
 
--doc(#{group => 
+-doc(#{group =>
            <<"Client and Server Options">>}).
 -doc """
 Common certificate related options to both client and server.
@@ -3006,33 +3016,45 @@ Example:
 ```erlang
 1> ssl:signature_algs(default, 'tlsv1.3').
 [eddsa_ed25519,eddsa_ed448,ecdsa_secp521r1_sha512,
-ecdsa_secp384r1_sha384,ecdsa_secp256r1_sha256,
-rsa_pss_pss_sha512,rsa_pss_pss_sha384,rsa_pss_pss_sha256,
-rsa_pss_rsae_sha512,rsa_pss_rsae_sha384,rsa_pss_rsae_sha256,
-rsa_pkcs1_sha512,rsa_pkcs1_sha384,rsa_pkcs1_sha256,
-{sha512,ecdsa},
-{sha384,ecdsa},
-{sha256,ecdsa}]
+ ecdsa_secp384r1_sha384,ecdsa_secp256r1_sha256,
+ ecdsa_brainpoolP512r1tls13_sha512,
+ ecdsa_brainpoolP384r1tls13_sha384,
+ ecdsa_brainpoolP256r1tls13_sha256,rsa_pss_pss_sha512,
+ rsa_pss_pss_sha384,rsa_pss_pss_sha256,rsa_pss_rsae_sha512,
+ rsa_pss_rsae_sha384,rsa_pss_rsae_sha256,mldsa44,mldsa65,
+ mldsa87,rsa_pkcs1_sha512,rsa_pkcs1_sha384,rsa_pkcs1_sha256,
+ {sha512,ecdsa},
+ {sha384,ecdsa},
+ {sha256,ecdsa}]
 
 2> ssl:signature_algs(all, 'tlsv1.3').
-[eddsa_ed25519,eddsa_ed448,ecdsa_secp521r1_sha512,
-ecdsa_secp384r1_sha384,ecdsa_secp256r1_sha256,
-rsa_pss_pss_sha512,rsa_pss_pss_sha384,rsa_pss_pss_sha256,
-rsa_pss_rsae_sha512,rsa_pss_rsae_sha384,rsa_pss_rsae_sha256,
-rsa_pkcs1_sha512,rsa_pkcs1_sha384,rsa_pkcs1_sha256,
-{sha512,ecdsa},
-{sha384,ecdsa},
-{sha256,ecdsa},
-{sha224,ecdsa},
-{sha224,rsa},
-{sha,rsa},
-{sha,dsa}]
+[eddsa_ed25519,eddsa_ed448,ecdsa_secp521r1_sha512,ecdsa_secp384r1_sha384,
+ ecdsa_secp256r1_sha256,ecdsa_brainpoolP512r1tls13_sha512,
+ ecdsa_brainpoolP384r1tls13_sha384,ecdsa_brainpoolP256r1tls13_sha256,
+ rsa_pss_pss_sha512,rsa_pss_pss_sha384,rsa_pss_pss_sha256,rsa_pss_rsae_sha512,
+ rsa_pss_rsae_sha384,rsa_pss_rsae_sha256,mldsa44,mldsa65,mldsa87,
+ rsa_pkcs1_sha512,rsa_pkcs1_sha384,rsa_pkcs1_sha256,
+ {sha512,ecdsa},
+ {sha384,ecdsa},
+ {sha256,ecdsa},
+ slh_dsa_shake_256f,slh_dsa_shake_256s,slh_dsa_sha2_256f,slh_dsa_sha2_256s,
+ slh_dsa_shake_192f,slh_dsa_shake_192s,slh_dsa_sha2_192f,slh_dsa_sha2_192s,
+ slh_dsa_shake_128f,slh_dsa_shake_128s,slh_dsa_sha2_128f,slh_dsa_sha2_128s,
+ ecdsa_sha1,rsa_pkcs1_sha1,
+ {sha224,ecdsa},
+ {sha224,rsa},
+ {sha,dsa}]
 
-3> ssl:signature_algs(exclusive, 'tlsv1.3').
-[eddsa_ed25519,eddsa_ed448,ecdsa_secp521r1_sha512,
-ecdsa_secp384r1_sha384,ecdsa_secp256r1_sha256,
-rsa_pss_pss_sha512,rsa_pss_pss_sha384,rsa_pss_pss_sha256,
-rsa_pss_rsae_sha512,rsa_pss_rsae_sha384,rsa_pss_rsae_sha256]
+3> [ssl:signature_algs(exclusive, 'tlsv1.3').
+[eddsa_ed25519,eddsa_ed448,ecdsa_secp521r1_sha512,ecdsa_secp384r1_sha384,
+ ecdsa_secp256r1_sha256,ecdsa_brainpoolP512r1tls13_sha512,
+ ecdsa_brainpoolP384r1tls13_sha384,ecdsa_brainpoolP256r1tls13_sha256,
+ rsa_pss_pss_sha512,rsa_pss_pss_sha384,rsa_pss_pss_sha256,rsa_pss_rsae_sha512,
+ rsa_pss_rsae_sha384,rsa_pss_rsae_sha256,mldsa44,mldsa65,mldsa87,
+ rsa_pkcs1_sha512,rsa_pkcs1_sha384,rsa_pkcs1_sha256,slh_dsa_shake_256f,
+ slh_dsa_shake_256s,slh_dsa_sha2_256f,slh_dsa_sha2_256s,slh_dsa_shake_192f,
+ slh_dsa_shake_192s,slh_dsa_sha2_192f,slh_dsa_sha2_192s,slh_dsa_shake_128f,
+ slh_dsa_shake_128s,slh_dsa_sha2_128f,slh_dsa_sha2_128s]
 ```
 
 > #### Note {: .info }
@@ -3051,19 +3073,22 @@ rsa_pss_rsae_sha512,rsa_pss_rsae_sha384,rsa_pss_rsae_sha256]
 %%--------------------------------------------------------------------
 
 signature_algs(default, 'tlsv1.3') ->
-    tls_v1:default_signature_algs([tls_record:protocol_version_name('tlsv1.3'), 
+    tls_v1:default_signature_algs([tls_record:protocol_version_name('tlsv1.3'),
                                    tls_record:protocol_version_name('tlsv1.2')]);
 signature_algs(default, 'tlsv1.2') ->
     tls_v1:default_signature_algs([tls_record:protocol_version_name('tlsv1.2')]);
 signature_algs(all, 'tlsv1.3') ->
     tls_v1:default_signature_algs([tls_record:protocol_version_name('tlsv1.3'),
                                    tls_record:protocol_version_name('tlsv1.2')]) ++
-        [ecdsa_sha1, rsa_pkcs1_sha1 | tls_v1:legacy_signature_algs_pre_13()] -- [{sha, ecdsa}, {sha, rsa}];
+        tls_v1:slh_dsa_schemes() ++
+        [ecdsa_sha1, rsa_pkcs1_sha1 | tls_v1:legacy_signature_algs_pre_13()] --
+        [{sha, ecdsa}, {sha, rsa}];
 signature_algs(all, 'tlsv1.2') ->
-    tls_v1:default_signature_algs([tls_record:protocol_version_name('tlsv1.2')]) ++ 
+    tls_v1:default_signature_algs([tls_record:protocol_version_name('tlsv1.2')]) ++
         tls_v1:legacy_signature_algs_pre_13();
 signature_algs(exclusive, 'tlsv1.3') ->
-    tls_v1:default_signature_algs([tls_record:protocol_version_name('tlsv1.3')]);
+    tls_v1:default_signature_algs([tls_record:protocol_version_name('tlsv1.3')]) ++
+        tls_v1:slh_dsa_schemes();
 signature_algs(exclusive, 'tlsv1.2') ->
     Algs = tls_v1:default_signature_algs([tls_record:protocol_version_name('tlsv1.2')]),
     Algs ++ tls_v1:legacy_signature_algs_pre_13();

@@ -8,13 +8,15 @@
 {application, public_key,
   [{description, "Public key infrastructure"},
    {vsn, "%VSN%"},
-   {modules, ['AlgorithmInformation-2009',
+   {modules, [
+              'AlgorithmInformation-2009',
               'AttributeCertificateVersion1-2009',
               'CMSAesRsaesOaep-2009',
               'CryptographicMessageSyntax-2009',
               'CryptographicMessageSyntaxAlgorithms-2009',
               'DSS',
               'ECPrivateKey',
+              'EnrollmentMessageSyntax-2009',
               'KEMAlgorithmInformation-2023',
               'OCSP-2024-08',
               'OTP-PKIX',
@@ -23,7 +25,6 @@
               'PKCS-1',
               'PKCS-10',
               'PKCS-3',
-              'PKIXCMP-2023',
               'PKCS-FRAME',
               'PKIX-CommonTypes-2009',
               'PKIX-X400Address-2009',
@@ -31,13 +32,14 @@
               'PKIX1Explicit-2009',
               'PKIX1Implicit-2009',
               'PKIXAlgs-2009',
-              'PKIXCRMF-2009',
-              'EnrollmentMessageSyntax-2009',
               'PKIXAttributeCertificate-2009',
+              'PKIXCMP-2023',
+              'PKIXCRMF-2009',
               'RFC5639',
+              'SLH-DSA-Module-2024',
               'Safecurves-pkix-18',
               'SecureMimeMessageV3dot1-2009',
-              public_key,
+              'X509-ML-DSA-2025',
               pubkey_cert,
               pubkey_cert_records,
               pubkey_crl,
@@ -47,12 +49,13 @@
               pubkey_pem,
               pubkey_policy_tree,
               pubkey_ssh,
-              pubkey_translation
+              pubkey_translation,
+              public_key
              ]},
    {applications, [asn1, crypto, kernel, stdlib]},
    {registered, []},
    {env, []},
    {runtime_dependencies, ["stdlib-4.0","kernel-8.0","erts-13.0",
-                           "crypto-5.7","asn1-5.0"]}
+                           "crypto-@OTP-19856@","asn1-5.0"]}
   ]
 }.
