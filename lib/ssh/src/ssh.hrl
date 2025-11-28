@@ -1221,6 +1221,7 @@ Experimental options that should not to be used in products.
           recv_ext_info, %% Expect ext-info from peer
 
           kex_strict_negotiated = false,
+          ignore_next_kex_message = false, %% RFC 4253 section 7, peer's guess was wrong
 
 	  algorithms,   %% #alg{}
 	  
