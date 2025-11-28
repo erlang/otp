@@ -50,15 +50,6 @@
 			 #client_key_exchange{} | #finished{} | #certificate_verify{} |
 			 #hello_request{} | #next_protocol{} | #end_of_early_data{}.
 
-%% Needed for legacy TLS-1.0 and TLS-1.1 functionality
--compile({nowarn_deprecated_function, [{crypto, private_encrypt, 4},
-                                       {crypto, private_decrypt, 4},
-                                       {public_key, encrypt_private, 3},
-                                       {public_key, decrypt_private, 3},
-                                       {public_key, encrypt_public, 3},
-                                       {public_key, decrypt_public, 3}
-                                      ]}).
-
 %% Create handshake messages
 -export([hello_request/0,
          server_hello/4,
@@ -461,6 +452,8 @@ verify_signature(?TLS_1_3, Msg, {_, mldsa65}, Signature,
     public_key:verify(Msg, none, Signature, PubKey);
 verify_signature(?TLS_1_3, Msg, {_, mldsa87}, Signature,
                  {?'id-ml-dsa-87', #'ML-DSAPublicKey'{algorithm = mldsa87} = PubKey,_}) ->
+    public_key:verify(Msg, none, Signature, PubKey);
+verify_signature(?TLS_1_3, Msg, {_ , slhdsa}, Signature, {_, #'SLH-DSAPublicKey'{} = PubKey,_}) ->
     public_key:verify(Msg, none, Signature, PubKey);
 verify_signature(?TLS_1_3, Msg, {_, eddsa}, Signature, {?'id-Ed25519', PubKey, PubKeyParams}) ->
     public_key:verify(Msg, none, Signature, {PubKey, PubKeyParams});
@@ -2220,6 +2213,11 @@ do_digitally_signed(Version, Msg, HashAlgo, #'ML-DSAPrivateKey'{}= Key,
                                     SignAlgo == mldsa65 orelse
                                     SignAlgo == mldsa87) ->
     public_key:sign(Msg, HashAlgo, Key);
+do_digitally_signed(Version, Msg, _, #'SLH-DSAPrivateKey'{}= Key,
+                    slhdsa) when ?TLS_GTE(Version, ?TLS_1_3) ->
+    %% HashAlgo will in this case be the full scheme that public_key/crypto deduces from the key.
+    %% and none should be used for second argument.
+    public_key:sign(Msg, none, Key);
 do_digitally_signed(Version, Msg, HashAlgo, {#'RSAPrivateKey'{} = Key,
                                              #'RSASSA-PSS-params'{}},
                     SignAlgo) when ?TLS_GTE(Version, ?TLS_1_2) ->
@@ -2286,6 +2284,8 @@ bad_key(#'ECPrivateKey'{}) ->
     unacceptable_ecdsa_key;
 bad_key(#'ML-DSAPrivateKey'{}) ->
     unacceptable_mldsa_key;
+bad_key(#'SLH-DSAPrivateKey'{}) ->
+    unacceptable_slhdsa_key;
 bad_key(#{algorithm := rsa}) ->
     unacceptable_rsa_key;
 bad_key(#{algorithm := rsa_pss_pss}) ->

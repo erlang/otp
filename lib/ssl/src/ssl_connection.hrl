@@ -119,6 +119,7 @@
                           cert_key_alts  = undefined ::  #{eddsa => list(),
                                                            ecdsa => list(),
                                                            mldsa => list(),
+                                                           slhdsa => list(),
                                                            rsa_pss_pss => list(),
                                                            rsa => list(),
                                                            dsa => list()

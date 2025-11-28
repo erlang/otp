@@ -1594,22 +1594,19 @@ select_sign_algo(_, _RSAKeySize, [], _, _) ->
 select_sign_algo(_, _RSAKeySize, undefined, _OwnSignAlgs, _) ->
     {error, ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_public_key)};
 select_sign_algo(PublicKeyAlgo, RSAKeySize, [CertSignAlg|CertSignAlgs], OwnSignAlgs, Curve) ->
-    {_, S, _} = ssl_cipher:scheme_to_components(CertSignAlg),
+    Sign = case ssl_cipher:scheme_to_components(CertSignAlg) of
+               {S, slhdsa, _} ->
+                   S;
+               {_, S, _} ->
+                   S
+           end,
     %% RSASSA-PKCS1-v1_5 and Legacy algorithms are not defined for use in signed
-    %% TLS handshake messages: filter sha-1 and rsa_pkcs1.
+    %% TLS handshake messages: Has been filtered out in get_signature_scheme_list
     %%
     %% RSASSA-PSS RSAE algorithms: If the public key is carried in an X.509
     %% certificate, it MUST use the rsaEncryption OID.
-    %% RSASSA-PSS PSS algorithms: If the public key is carried in an X.509 certificate,
-    %% it MUST use the RSASSA-PSS OID.
-    case ((PublicKeyAlgo =:= rsa andalso S =:= rsa_pss_rsae)
-          orelse (PublicKeyAlgo =:= rsa_pss_pss andalso S =:= rsa_pss_pss)
-          orelse (PublicKeyAlgo =:= ecdsa andalso S =:= ecdsa)
-          orelse (PublicKeyAlgo =:= eddsa andalso S =:= eddsa)
-          orelse (PublicKeyAlgo =:= mldsa44 andalso S =:= mldsa44)
-          orelse (PublicKeyAlgo =:= mldsa65 andalso S =:= mldsa65)
-          orelse (PublicKeyAlgo =:= mldsa87 andalso S =:= mldsa87)
-         )
+    case ((PublicKeyAlgo =:= rsa andalso Sign =:= rsa_pss_rsae)
+          orelse (PublicKeyAlgo  =:= Sign))
         andalso
         lists:member(CertSignAlg, OwnSignAlgs) of
         true ->
@@ -1685,6 +1682,8 @@ compare_sign_algos(rsa, Hash, Algo, Hash)
   when Algo =:= rsa_pss_rsae orelse
        Algo =:= rsa_pkcs1 ->
     true;
+compare_sign_algos(Algo, none, slhdsa, Algo) ->
+    true;
 compare_sign_algos(Algo, Hash, Algo, Hash) ->
     true;
 compare_sign_algos(_, _, _, _) ->
@@ -1705,25 +1704,17 @@ oids_to_atoms(?'id-RSASSA-PSS', #'RSASSA-PSS-params'{maskGenAlgorithm =
 oids_to_atoms(SignAlgo, _) ->
     public_key:pkix_sign_types(SignAlgo).
 
-%% Note: copied from ssl_handshake
 public_key_algo(?'id-RSASSA-PSS') ->
     rsa_pss_pss;
 public_key_algo(?rsaEncryption) ->
     rsa;
 public_key_algo(?'id-ecPublicKey') ->
     ecdsa;
-public_key_algo(?'id-Ed25519') ->
-    eddsa;
-public_key_algo(?'id-Ed448') ->
-    eddsa;
-public_key_algo(?'id-ml-dsa-44') ->
-    mldsa44;
-public_key_algo(?'id-ml-dsa-65') ->
-    mldsa65;
-public_key_algo(?'id-ml-dsa-87') ->
-    mldsa87;
 public_key_algo(?'id-dsa') ->
-    dsa.
+    dsa;
+public_key_algo(Oid) ->
+    {_, Algo } =public_key:pkix_sign_types(Oid),
+    Algo.
 
 get_signature_scheme_list(undefined) ->
     undefined;
