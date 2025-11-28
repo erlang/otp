@@ -2244,11 +2244,13 @@ assoc_confirmation(Sock) ->
 %% The reason for this (function) is that on some platforms
 %% its possible that another messages
 %%     peer-addr-change:addr-confirmation|addr-available
-%% before the data message.
+%% arrives before the data message.
 recv_first_data(Sock) ->
-    recv_first_data(Sock, false).
-recv_first_data(Sock, false) ->
-    case socket:recvmsg(Sock) of
+    recv_first_data(Sock, infinity, false).
+recv_first_data(Sock, Timeout) ->
+    recv_first_data(Sock, Timeout, false).
+recv_first_data(Sock, Timeout, false) ->
+    case socket:recvmsg(Sock, Timeout) of
         {ok, #{flags := _,
                addr  := SA,
                iov   := [Data],
@@ -2286,7 +2288,7 @@ recv_first_data(Sock, false) ->
                                         "~n   NState: ~p"
                                         "~n   AID:    ~p",
                                         [SA, NState, AID]),
-                            recv_data(Sock, AID);
+                            recv_data(Sock, Timeout, AID);
                         #{addr         := Addr,
                           notification := Notif} ->
                             ?SEV_EPRINT("unexpected notification:"
@@ -2309,10 +2311,11 @@ recv_first_data(Sock, false) ->
 
 
 recv_data(Sock) ->
-    recv_data(Sock, any).
-recv_data(Sock, AID) ->
+    recv_data(Sock, infinity, any).
+
+recv_data(Sock, Timeout, AID) ->
     ?SEV_IPRINT("try recvmsg for AID: ~p", [AID]),
-    case socket:recvmsg(Sock) of
+    case socket:recvmsg(Sock, Timeout) of
         {ok, #{flags := _,
                addr  := SA,
                iov   := [Data],
@@ -5500,21 +5503,15 @@ do_buffers(InitState) ->
          #{desc => "await data (recvmsg 1)",
            cmd  => fun(#{sock    := Sock,
                          to_read := _ToRead,
-                         stream  := _Stream,
+                         stream  := _,
                          timeout := Timeout} = State) ->
-                           case socket:recvmsg(Sock, Timeout) of
-                               {ok, #{addr := SenderSA,
-                                      ctrl := _,
-                                      iov  := [Data1]}} ->
+                           case recv_first_data(Sock, Timeout) of
+                               {ok, {SenderSA, Data1, _AID, _}} ->
                                    ?SEV_IPRINT("Received"
                                                "~n   sz(Data1): ~w"
                                                "~n   From:      ~p",
                                                [byte_size(Data1), SenderSA]),
                                    {ok, State#{data => Data1}};
-                               {ok, Msg} ->
-                                   ?SEV_EPRINT("Received unexpected message: "
-                                               "~n   Msg: ~p", [Msg]),
-                                   {error, unexpected_msg};
                                {error, Reason} = ERROR ->
                                    ?SEV_EPRINT("Failed recv: "
                                                "~n   Reason: ~p", [Reason]),
