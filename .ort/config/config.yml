@@ -36,3 +36,9 @@ ort:
     enabledPackageManagers: [Unmanaged]
     # A flag to control whether excluded scopes and paths should be skipped during the analysis.
     skipExcluded: true
+
+  reporter:
+    reporters:
+      SpdxDocument:
+        options:
+          spdxVersion: "SPDX-2.3"
