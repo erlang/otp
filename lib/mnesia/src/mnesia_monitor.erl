@@ -24,6 +24,8 @@
 -module(mnesia_monitor).
 -moduledoc false.
 
+-compile(nowarn_obsolete_bool_op).
+
 -behaviour(gen_server).
 
 %% Public exports

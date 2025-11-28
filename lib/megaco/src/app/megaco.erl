@@ -32,6 +32,8 @@ Main API of the Megaco application
 Interface module for the Megaco application
 """.
 
+-compile(nowarn_obsolete_bool_op).
+
 %%-----------------------------------------------------------------
 %% Public interface
 %%-----------------------------------------------------------------

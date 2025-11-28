@@ -83,6 +83,8 @@
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+-compile(nowarn_obsolete_bool_op).
+
 -include("test_server_internal.hrl").
 -include_lib("kernel/include/file.hrl").
 -define(suite_ext, "_SUITE").

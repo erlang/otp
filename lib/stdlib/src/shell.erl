@@ -22,6 +22,7 @@
 -module(shell).
 -moduledoc({file, "../doc/src/shell.md"}).
 
+-compile(nowarn_obsolete_bool_op).
 -compile(nowarn_deprecated_catch).
 
 -export([start/0, start/1, start/2, server/1, server/2, history/1, results/1]).

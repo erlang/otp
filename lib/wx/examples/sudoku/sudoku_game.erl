@@ -25,6 +25,8 @@
          indx/1, rcm/1, level/1]).
 -include("sudoku.hrl").
 
+-compile(nowarn_obsolete_bool_op).
+
 init(GFX) ->
     Empty = empty_table(#s{}),
     Add = fun({Butt,Val},SN) ->

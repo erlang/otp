@@ -28,6 +28,7 @@
 
 %% External exports 
 
+-compile(nowarn_obsolete_bool_op).
 -compile(nowarn_deprecated_catch).
 
 %% Avoid warning for local function error/1 clashing with autoimported BIF.

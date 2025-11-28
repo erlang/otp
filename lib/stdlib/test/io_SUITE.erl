@@ -21,6 +21,8 @@
 %%
 -module(io_SUITE).
 
+-compile(nowarn_obsolete_bool_op).
+
 -export([all/0, suite/0]).
 
 -export([error_1/1, float_g/1, float_w/1, otp_5403/1, otp_5813/1, otp_6230/1, 
