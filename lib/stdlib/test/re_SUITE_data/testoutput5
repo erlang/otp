@@ -124,33 +124,43 @@ Optimizations: auto_possess,dotstar_anchor
 
 /\x{110000}/IB,utf
 Failed: error 134 at offset 9: character code point value in \x{} or \o{} is too large
+        here: \x{110000 |<--| }
 
 /\o{4200000}/IB,utf
 Failed: error 134 at offset 10: character code point value in \x{} or \o{} is too large
+        here: \o{4200000 |<--| }
 
 /\x{ffffffff}/utf
 Failed: error 134 at offset 11: character code point value in \x{} or \o{} is too large
+        here: ...x{ffffffff |<--| }
 
 /\o{37777777777}/utf
 Failed: error 134 at offset 14: character code point value in \x{} or \o{} is too large
+        here: ...7777777777 |<--| }
 
 /\x{100000000}/utf
 Failed: error 134 at offset 12: character code point value in \x{} or \o{} is too large
+        here: ...{100000000 |<--| }
 
 /\o{77777777777}/utf
 Failed: error 134 at offset 14: character code point value in \x{} or \o{} is too large
+        here: ...7777777777 |<--| }
 
 /\x{d800}/utf
 Failed: error 173 at offset 7: disallowed Unicode code point (>= 0xd800 && <= 0xdfff)
+        here: \x{d800 |<--| }
 
 /\o{154000}/utf
 Failed: error 173 at offset 9: disallowed Unicode code point (>= 0xd800 && <= 0xdfff)
+        here: \o{154000 |<--| }
 
 /\x{dfff}/utf
 Failed: error 173 at offset 7: disallowed Unicode code point (>= 0xd800 && <= 0xdfff)
+        here: \x{dfff |<--| }
 
 /\o{157777}/utf
 Failed: error 173 at offset 9: disallowed Unicode code point (>= 0xd800 && <= 0xdfff)
+        here: \o{157777 |<--| }
 
 /\x{d7ff}/utf
 
@@ -295,7 +305,8 @@ Last code unit = 'b'
 Subject length lower bound = 2
 
 /[\x{200}-\x{100}]/utf
-Failed: error 108 at offset 15: range out of order in character class
+Failed: error 108 at offset 16: range out of order in character class
+        here: ...0}-\x{100} |<--| ]
 
 /[Ā-Ą]/utf
     \x{100}
@@ -821,9 +832,11 @@ No match
 
 /[[:a\x{100}b:]]/utf
 Failed: error 130 at offset 14: unknown POSIX class name
+        here: ...\x{100}b:] |<--| ]
 
 /[\p{InvalidOrBadProperty}]/
 Failed: error 147 at offset 25: unknown property after \P or \p
+        here: ...dProperty} |<--| ]
 
 /a[^]b/utf,allow_empty_class,match_unset_backref
     a\x{1234}b
@@ -1382,7 +1395,7 @@ Partial match: X
 /\g{A}xxx#bXX(?'A'123)(?'A'456)/Bx,newline=any,utf
 ------------------------------------------------------------------
         Bra
-        \1
+        \g{1}
         xxx
         CBra 1
         456
@@ -1394,7 +1407,7 @@ Partial match: X
 /\g{A}xxx#bх(?'A'123)(?'A'456)/Bx,newline=any,utf
 ------------------------------------------------------------------
         Bra
-        \1
+        \g{1}
         xxx
         CBra 1
         456
@@ -1402,9 +1415,6 @@ Partial match: X
         Ket
         End
 ------------------------------------------------------------------
-
-/^\cģ/utf
-Failed: error 168 at offset 3: \c must be followed by a printable ASCII character
 
 /(\R*)(.)/s,utf
     \r\n
@@ -1474,9 +1484,11 @@ Partial match: for
 
 /\x{d800}/utf
 Failed: error 173 at offset 7: disallowed Unicode code point (>= 0xd800 && <= 0xdfff)
+        here: \x{d800 |<--| }
 
 /\x{dfff}/utf
 Failed: error 173 at offset 7: disallowed Unicode code point (>= 0xd800 && <= 0xdfff)
+        here: \x{dfff |<--| }
 
 /\h+/utf
     \x{1681}\x{200b}\x{1680}\x{2000}\x{202f}\x{3000}
@@ -1760,6 +1772,7 @@ No match
 
 /\ud800/utf,alt_bsux,allow_empty_class,match_unset_backref
 Failed: error 173 at offset 6: disallowed Unicode code point (>= 0xd800 && <= 0xdfff)
+        here: \ud800 |<--|
 
 /^\u{0000000000010ffff}/utf,extra_alt_bsux
     \x{10ffff}
@@ -4009,6 +4022,7 @@ Subject length lower bound = 1
     \x{17f}\x{17f}\x{17f}\x{17f}\x{17f}
  0: \x{17f}
  0+ \x{17f}\x{17f}\x{17f}\x{17f}
+global repeat returned the same match as previous
  0: \x{17f}
  0+ \x{17f}\x{17f}\x{17f}
  0: \x{17f}
@@ -4032,12 +4046,22 @@ Subject length lower bound = 1
  0+ 
 
 "\xa\xf<(.\pZ*\P{Xwd}+^\xa8\3'3yq.::?(?J:()\xd1+!~:3'(8?:)':(?'d'(?'d'^u]!.+.+\\A\Ah(n+?9){7}+\K;(?'X'u'(?'c'(?'z'(?<y>\xb::\xf0'|\xd3(\xae?'w(z\x8?P>l)\x8?P>a)'\H\R\xd1+!!~:3'(?:h$N{26875}\W+?\\=D{2}\x89(?i:Uy0\N({2\xa(\v\x85*){y*\A(()\p{L}+?\P{^Xan}'+?\xff\+pS\?|).{;y*\A(()\p{L}+?\8}\d?1(|)(/1){7}.+[Lp{Me}].\s\xdcC*?(?(<y>))(?<!^)$C((;*?(R))+(\xbf(R))\x8a\X*?\x8a\xb\xd1^9\3*+(\xc1,\k'R'\xb4)\xcc(z\z(?J)(?'X'\x1b(\xb\xd1^9\?'3*+P{^Xan}+?\xff\+(\xc1.]k+\xb'Pm'\xb4)\xcc4f\xa7'\xd1V(?i:U,{2,2})'(?'X'))?-%--\x95$9*\4'|\xd1(\x9c''%\x94$9)#(?'R')3\x7?('P\xed7'\xa8\xb1^u\xeaw\1\0\0\(|(?1){7}.+[\p{Me}].\s\xdcC*^\x14?(?(<y>))(?<!^)$C((;*?(R*?))+(?(R)\x8a\X*?\x8a\xb\xd1^9\3*+|(\xc1,\k'R'\xb4)\xcc! z)\z(?JJ)(?'X';(\xb\xd1^9\?'3*+(\xc1.]k+\xb'Pm'\xb4))':(?'d')(?'RD'(d')|)|$)'|(?<x>\g{d});\g{x}\x11\g{d}\x81\|$((?'X'\'X'(?'W''\x92()'9'\x83*))\xba*\!?^ <){)':;\xcc4'\xd1'(?'X'28))?-%--\x95$9*\4'|\xd1((''e\x94*$9:)*#(?'R')3)\x7?('P\xed')\\x16:;()\x1e\x10*:(?<y>)\xd1+0!~:(?)'d'E:yD!\s(?'R'\x1e;\x10:U))|'\x9g!\xb0*){)\\x16:;()\x1e\x10\x87*:(?<y>)\xd1+!~:(?)'}'\d'E:yD!\s(?'R'\x1e;\x10:U))|'))|)g!\xb0*R+9{29+)#(?'P'})*?pS\{3,}\x85,{0,}l{*UTF)(\xe{7}){3722,{9,}d{2,?|))|{)\(A?&d}}{\xa,}2}){3,}7,l{)22}(,}l:7{2,4}}29\x19+)#?'P'})*v?))\x5"
-Failed: error 122 at offset 1227: unmatched closing parenthesis
+Failed: error 122 at offset 1228: unmatched closing parenthesis
+        here: ...?'P'})*v?) |<--| )\x5
 
 /$(&.+[\p{Me}].\s\xdcC*?(?(<y>))(?<!^)$C((;*?(R))+(?(R)){0,6}?|){12\x8a\X*?\x8a\x0b\xd1^9\3*+(\xc1,\k'P'\xb4)\xcc(z\z(?JJ)(?'X'8};(\x0b\xd1^9\?'3*+(\xc1.]k+\x0b'Pm'\xb4\xcc4'\xd1'(?'X'))?-%--\x95$9*\4'|\xd1(''%\x95*$9)#(?'R')3\x07?('P\xed')\\x16:;()\x1e\x10*:(?<y>)\xd1+!~:(?)''(d'E:yD!\s(?'R'\x1e;\x10:U))|')g!\xb0*){29+))#(?'P'})*?/
 
 "(*UTF)(*UCP)(.UTF).+X(\V+;\^(\D|)!999}(?(?C{7(?C')\H*\S*/^\x5\xa\\xd3\x85n?(;\D*(?m).[^mH+((*UCP)(*U:F)})(?!^)(?'"
 Failed: error 162 at offset 113: subpattern name expected
+        here: ...})(?!^)(?' |<--|
+
+/(?(?C'')\Qé/utf
+Failed: error 128 at offset 8: atomic assertion expected after (?( or (?(?C)
+        here: (?(?C'') |<--| \Qé
+
+/(?(?C'')é/utf
+Failed: error 128 at offset 8: atomic assertion expected after (?( or (?(?C)
+        here: (?(?C'') |<--| é
 
 /[\pS#moq]/
     =
@@ -4065,7 +4089,7 @@ MK: a\x{12345}b\x{09}(d)c
         Bra
         \b (ucp)
         Assert back
-        Reverse
+      1 Reverse
         prop Xwd
         Ket
         X
@@ -4175,6 +4199,7 @@ No match
 
 /(*UTF)C\x09((?<!'(?x)!*H? #\xcc\x9a[^$]/
 Failed: error 114 at offset 39: missing closing parenthesis
+        here: ...cc\x9a[^$] |<--|
 
 /[\D]/utf
     \x{1d7cf}
@@ -4209,6 +4234,7 @@ No match
 
 /a(?<=A\XB)/utf
 Failed: error 125 at offset 1: length of lookbehind assertion is not limited
+        here: a |-->| (?<=A\XB)
 
 /../utf,auto_callout
     \n\x{123}\x{123}\x{123}\x{123}
@@ -4769,13 +4795,28 @@ Callout 0: last capture = 1
  0: \x{1d1aa}
 
 /\N{U+}/
-Failed: error 193 at offset 2: \N{U+dddd} is supported only in Unicode (UTF) mode
+Failed: error 193 at offset 6: \N{U+dddd} is supported only in Unicode (UTF) mode
+        here: \N{U+} |<--|
 
 /\N{U+}/utf
 Failed: error 178 at offset 5: digits missing after \x or in \x{} or \o{} or \N{U+}
+        here: \N{U+ |<--| }
 
 /\N{U}/
-Failed: error 137 at offset 2: PCRE2 does not support \F, \L, \l, \N{name}, \U, or \u
+Failed: error 137 at offset 3: PCRE2 does not support \F, \L, \l, \N{name}, \U, or \u
+        here: \N{ |<--| U}
+
+/\N{U+}/utf
+Failed: error 178 at offset 5: digits missing after \x or in \x{} or \o{} or \N{U+}
+        here: \N{U+ |<--| }
+
+/\N{U+1}/
+Failed: error 193 at offset 7: \N{U+dddd} is supported only in Unicode (UTF) mode
+        here: \N{U+1} |<--|
+
+/\N{U+1 }/
+Failed: error 193 at offset 8: \N{U+dddd} is supported only in Unicode (UTF) mode
+        here: \N{U+1 } |<--|
 
 # This tests the non-UTF Unicode NEL pattern whitespace character, only
 # recognized by PCRE2 with /x when there is Unicode support.
@@ -4851,7 +4892,7 @@ MK: ABC
 ------------------------------------------------------------------
         Bra
         Assert back
-        Reverse
+     10 Reverse
         abc
         Assert
         X
@@ -4936,15 +4977,15 @@ Subject length lower bound = 3
 
 /(?'AB၌C'...)\g{AB၌C}/utf
 Failed: error 142 at offset 5: syntax error in subpattern name (missing terminator?)
-
-/(?'٠ABC'...)/utf
-Failed: error 144 at offset 3: subpattern name must start with a non-digit
+        here: (?'AB |<--| ၌C'...)\g{...
 
 /(?'²ABC'...)/utf
 Failed: error 162 at offset 3: subpattern name expected
+        here: (?' |<--| ²ABC'...)
 
 /(?'X²ABC'...)/utf
 Failed: error 142 at offset 4: syntax error in subpattern name (missing terminator?)
+        here: (?'X |<--| ²ABC'...)
 
 # -------
 
@@ -5024,6 +5065,7 @@ Subject length lower bound = 3
 
 /\p{sc:L}/
 Failed: error 147 at offset 8: unknown property after \P or \p
+        here: \p{sc:L} |<--|
 
 # Some Boolean property tests that differ from Perl
 
@@ -5043,6 +5085,7 @@ Failed: error 147 at offset 8: unknown property after \P or \p
 
 /\p{\2b[:x�igi:t:_/
 Failed: error 146 at offset 10: malformed \P or \p sequence
+        here: \p{\2b[:x� |<--| igi:t:_
 
 # Tests for PCRE2_EXTRA_CASELESS_RESTRICT. Compare each test with and without
 # the restriction.
@@ -5272,6 +5315,50 @@ No match
 No match
     k \x{212a}
 No match
+
+/(.) \1 z/Bir
+------------------------------------------------------------------
+        Bra
+        CBra 1
+        Any
+        Ket
+     /i  
+     /i \g{1} 0x01
+     /i  z
+        Ket
+        End
+------------------------------------------------------------------
+    s s z
+ 0: s s z
+ 1: s
+    s S z
+ 0: s S z
+ 1: s
+
+/(?J:(?<DNAME>s)|(?<DNAME>.)) \k<DNAME> z/Bir
+------------------------------------------------------------------
+        Bra
+        Bra
+        CBra 1
+     /i s
+        Ket
+        Alt
+        CBra 2
+        Any
+        Ket
+        Ket
+     /i  
+     /i \k<DNAME>2 0x01
+     /i  z
+        Ket
+        End
+------------------------------------------------------------------
+    s s z
+ 0: s s z
+ 1: s
+    s S z
+ 0: s S z
+ 1: s
 
 /(.) \1/i,utf
     s S
@@ -6009,14 +6096,9 @@ No match
     (?<!(|l ))
 No match
 
-/\p{  Aሴ}/utf
-Failed: error 146 at offset 7: malformed \P or \p sequence
-
-/\p{BC: Aሴ}/utf
-Failed: error 146 at offset 9: malformed \P or \p sequence
-
 /\p{BC: A=}/utf
 Failed: error 147 at offset 10: unknown property after \P or \p
+        here: \p{BC: A=} |<--|
 
 /abc/utf,substitute_extended,replace=>\777<
     abc
@@ -6046,6 +6128,7 @@ Failed: error 147 at offset 10: unknown property after \P or \p
 
 /\400/utf,python_octal
 Failed: error 202 at offset 4: octal value given by \ddd is greater than \377 (forbidden by PCRE2_EXTRA_PYTHON_OCTAL)
+        here: \400 |<--|
 
 /abc/utf,substitute_extended
     abc\=replace=\400
@@ -6054,6 +6137,7 @@ Failed: error 202 at offset 4: octal value given by \ddd is greater than \377 (f
 /abc/utf,substitute_extended,python_octal
     abc\=replace=\400
 Failed: error -57 at offset 4 in replacement: bad escape sequence in replacement string
+        here: \400 |<--|
 
 # Character range merging tests
 
@@ -6226,7 +6310,8 @@ No match
 
 # Freeing memory on error test
 /[\x{100}-\x{400}][\x{100}-\x{300}][\x{100}-\x{200}]\8/i,utf
-Failed: error 115 at offset 52: reference to non-existent subpattern
+Failed: error 115 at offset 53: reference to non-existent subpattern
+        here: ...\x{200}]\8 |<-->|
 
 # Character list tests
 
@@ -6799,15 +6884,19 @@ No match
 
 /[\p{Lu}-z]/B,alt_extended_class
 Failed: error 150 at offset 8: invalid range in character class
+        here: [\p{Lu}- |<--| z]
 
 /[z-\p{Lu}]/B,alt_extended_class
 Failed: error 150 at offset 9: invalid range in character class
+        here: [z-\p{Lu} |<--| ]
 
 /[\pL-z]/B,alt_extended_class
 Failed: error 150 at offset 5: invalid range in character class
+        here: [\pL- |<--| z]
 
 /[z-\pL]/B,alt_extended_class
 Failed: error 150 at offset 6: invalid range in character class
+        here: [z-\pL |<--| ]
 
 /[\p{Lu}-&&-\pL]/B,alt_extended_class
 ------------------------------------------------------------------
@@ -7120,7 +7209,7 @@ No match
         CBra 1
         [a-mo-z]
         Ket
-        \1
+        \g{1}
         Ket
         End
 ------------------------------------------------------------------
@@ -7144,7 +7233,7 @@ No match
         [a-mo-z]
         y
         Ket
-        \1
+        \g{1}
         Ket
         End
 ------------------------------------------------------------------
@@ -7163,7 +7252,7 @@ No match
         Bra
         Bra
         _
-        \1
+        \g{1}
         Alt
         CBra 1
         [a-mo-z]
@@ -7171,7 +7260,7 @@ No match
         Ket
         Bra
         _
-        \1
+        \g{1}
         Alt
         CBra 1
         [a-mo-z]
@@ -7197,7 +7286,7 @@ No match
         Bra
         Bra
         _
-        \1
+        \g{1}
         Alt
         CBra 1
         [a-mo-z]
@@ -8150,15 +8239,19 @@ No match
 
 /[z-\p{Lu}]/
 Failed: error 150 at offset 9: invalid range in character class
+        here: [z-\p{Lu} |<--| ]
 
 /[z-\pL]/
 Failed: error 150 at offset 6: invalid range in character class
+        here: [z-\pL |<--| ]
 
 /[\p{Lu}-z]/
 Failed: error 150 at offset 8: invalid range in character class
+        here: [\p{Lu}- |<--| z]
 
 /[\pL-z]/
 Failed: error 150 at offset 5: invalid range in character class
+        here: [\pL- |<--| z]
 
 /[a\x{e1}]/iB
 ------------------------------------------------------------------

@@ -1036,49 +1036,31 @@ multi_esc(Bin, Unicode) ->
     {_Cha, Tpl} = multi_hex_esc(Bin, Unicode),
     Tpl.
 
-multi_hex_esc(<<"x{",N,$},Rest/binary>>,Unicode) when ?is_hex_char(N) ->
-    Cha = trx(N),
-    case Unicode of
-	false ->
-	    {Cha, {<<Cha:8>>,Rest}};
-	_ ->
-	    {Cha, {int_to_utf8(Cha),Rest}}
+
+multi_hex_esc(<<"x{", Rest0/binary>>, Unicode) ->
+    case hex_num(Rest0, 6) of
+        {Cha, <<$}, Rest1/binary>>} ->
+            case {Unicode, Cha < 256} of
+                {false, true} ->
+                    {Cha, {<<Cha:8>>, Rest1}};
+                _ ->
+                    {Cha, {int_to_utf8(Cha), Rest1}}
+            end;
+        _Error ->
+            {no, no}
     end;
-multi_hex_esc(<<"x{",N,O,$},Rest/binary>>,Unicode) when (?is_hex_char(N) and
-                                                         ?is_hex_char(O)) ->
-    Cha = (trx(N) bsl 4) bor trx(O),
-    case Unicode of
-	false ->
-	    {Cha, {<<Cha:8>>,Rest}};
-	_ ->
-	    {Cha, {int_to_utf8(Cha),Rest}}
+multi_hex_esc(<<"N{U+", Rest0/binary>>, Unicode) ->
+    case hex_num(Rest0, 6) of
+        {Cha, <<$}, Rest1/binary>>} ->
+            case {Unicode, Cha < 256} of
+                {false, true} ->
+                    {Cha, {<<Cha:8>>, Rest1}};
+                _ ->
+                    {Cha, {int_to_utf8(Cha), Rest1}}
+            end;
+        _Error ->
+            {no, no}
     end;
-multi_hex_esc(<<"x{",N,O,P,$},Rest/binary>>,_) when (?is_hex_char(N) and
-                                                     ?is_hex_char(O) and
-                                                     ?is_hex_char(P)) ->
-    Cha = (trx(N) bsl 8) bor (trx(O) bsl 4) bor trx(P),
-    {Cha, {int_to_utf8(Cha),Rest}};
-multi_hex_esc(<<"x{",N,O,P,Q,$},Rest/binary>>,_) when (?is_hex_char(N) and
-                                                       ?is_hex_char(O) and
-                                                       ?is_hex_char(P) and
-                                                       ?is_hex_char(Q)) ->
-    Cha = (trx(N) bsl 12) bor (trx(O) bsl 8) bor (trx(P) bsl 4) bor trx(Q),
-    {Cha, {int_to_utf8(Cha),Rest}};
-multi_hex_esc(<<"x{",N,O,P,Q,R,$},Rest/binary>>,_) when (?is_hex_char(N) and
-                                                         ?is_hex_char(O) and
-                                                         ?is_hex_char(P) and
-                                                         ?is_hex_char(Q) and
-                                                         ?is_hex_char(R)) ->
-    Cha = (trx(N) bsl 16) bor (trx(O) bsl 12) bor (trx(P) bsl 8) bor (trx(Q) bsl 4) bor trx(R),
-    {Cha, {int_to_utf8(Cha),Rest}};
-multi_hex_esc(<<"x{",N,O,P,Q,R,S,$},Rest/binary>>,_) when (?is_hex_char(N) and
-                                                           ?is_hex_char(O) and
-                                                           ?is_hex_char(P) and
-                                                           ?is_hex_char(Q) and
-                                                           ?is_hex_char(R) and
-                                                           ?is_hex_char(S)) ->
-    Cha = (trx(N) bsl 20) bor (trx(O) bsl 16) bor (trx(P) bsl 12) bor (trx(Q) bsl 8) bor (trx(R) bsl 4) bor trx(S),
-    {Cha, {int_to_utf8(Cha),Rest}};
 multi_hex_esc(<<$x,N,O,Rest/binary>>,_) when (?is_hex_char(N) and
                                               ?is_hex_char(O)) ->
     Cha = (trx(N) bsl 4) bor trx(O),
@@ -1088,6 +1070,20 @@ multi_hex_esc(<<$x,N,Rest/binary>>,_) when ?is_hex_char(N) ->
     {Cha, {<<Cha>>,Rest}};
 multi_hex_esc(_,_) ->
     {no, no}.
+
+hex_num(Bin, Maxlen) ->
+    hex_num(Bin, Maxlen, 0, 0).
+
+hex_num(Bin, MaxLen, MaxLen, Acc) ->
+    {Acc, Bin};
+hex_num(<<C, Rest/binary>>, Maxlen, Gotlen, Acc) when ?is_hex_char(C) ->
+    hex_num(Rest, Maxlen, Gotlen+1, (Acc bsl 4) bor trx(C));
+hex_num(Bin, _Maxlen, Gotlen, Acc) when Gotlen > 0 ->
+    {Acc, Bin};
+hex_num(Bin, _, 0, 0) ->
+    {error, "Expected hex number", Bin}.
+
+
 
 single_esc($") ->
     $";

@@ -39,16 +39,14 @@ POSSIBILITY OF SUCH DAMAGE.
 */
 /* SPDX-License-Identifier: BSD-3-Clause */
 
+
 /* This module contains functions that scan a compiled pattern and change
 repeats into possessive repeats where possible. */
 
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
-
 #include "pcre2_internal.h"
+
+
 
 /* This macro represents the max size of list[] and that is used to keep
 track of UCD info in several places, it should be kept on sync with the
@@ -265,8 +263,10 @@ switch(ptype)
     if (c < *p) return !negated;
     if (c == *p++) return negated;
     }
+  /* LCOV_EXCL_START */
   PCRE2_DEBUG_UNREACHABLE(); /* Control should never reach here */
   break;
+  /* LCOV_EXCL_STOP */
 
   /* Haven't yet thought these through. */
 
@@ -807,21 +807,21 @@ for(;;)
 
       case OP_NOT_DIGIT:
       invert_bits = TRUE;
-      /* Fall through */
+      PCRE2_FALLTHROUGH /* Fall through */
       case OP_DIGIT:
       set2 = (const uint8_t *)(cb->cbits + cbit_digit);
       break;
 
       case OP_NOT_WHITESPACE:
       invert_bits = TRUE;
-      /* Fall through */
+      PCRE2_FALLTHROUGH /* Fall through */
       case OP_WHITESPACE:
       set2 = (const uint8_t *)(cb->cbits + cbit_space);
       break;
 
       case OP_NOT_WORDCHAR:
       invert_bits = TRUE;
-      /* Fall through */
+      PCRE2_FALLTHROUGH /* Fall through */
       case OP_WORDCHAR:
       set2 = (const uint8_t *)(cb->cbits + cbit_word);
       break;
@@ -1104,7 +1104,7 @@ for(;;)
 
       case OP_NCLASS:
       if (chr > 255) return FALSE;
-      /* Fall through */
+      PCRE2_FALLTHROUGH /* Fall through */
 
       case OP_CLASS:
       if (chr > 255) break;
@@ -1142,8 +1142,10 @@ for(;;)
   if (list[1] == 0) return TRUE;
   }
 
+/* LCOV_EXCL_START */
 PCRE2_DEBUG_UNREACHABLE(); /* Control should never reach here */
 return FALSE;              /* Avoid compiler warnings */
+/* LCOV_EXCL_STOP */
 }
 
 
@@ -1182,11 +1184,13 @@ for (;;)
   {
   c = *code;
 
+  /* LCOV_EXCL_START */
   if (c >= OP_TABLE_LENGTH)
     {
     PCRE2_DEBUG_UNREACHABLE();
     return -1;   /* Something gone wrong */
     }
+  /* LCOV_EXCL_STOP */
 
   if (c >= OP_STAR && c <= OP_TYPEPOSUPTO)
     {

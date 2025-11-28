@@ -3848,10 +3848,10 @@ No match
     \x{1234}
  0: \x{1234}
 
-#/(\x{1234}) \1/utf
-#    \N{U+1234} \o{11064}
-# 0: \x{1234} \x{1234}
-# 1: \x{1234}
+/(\x{1234}) \1/utf
+    \N{U+1234} \o{11064}
+ 0: \x{1234} \x{1234}
+ 1: \x{1234}
 
 # Test the full list of Unicode "Pattern White Space" characters that are to
 # be ignored by /x. The pattern lines below may show up oddly in text editors

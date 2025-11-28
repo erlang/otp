@@ -90,8 +90,9 @@ The reference material is divided into the following sections:
 - [Comments](`m:re#sect21`)
 - [Recursive Patterns](`m:re#sect22`)
 - [Groups as Subroutines](`m:re#sect23`)
-- [Oniguruma Subroutine Syntax](`m:re#sect24`)
-- [Backtracking Control](`m:re#sect25`)
+- [Recursion and subroutines with returned capture groups](`m:re#sect24`)
+- [Oniguruma Subroutine Syntax](`m:re#sect25`)
+- [Backtracking Control](`m:re#sect26`)
 
 
 [](){: #sect1 }
@@ -2893,8 +2894,7 @@ For example:
 ```
 
 This pattern matches "yes" if the PCRE2 version is greater or equal to 10.4, or
-"no" otherwise. The fractional part of the version number may not contain more
-than two digits.
+"no" otherwise. The fractional part of the version number could be ommited.
 
 _Assertion Conditions_
 
@@ -3205,9 +3205,56 @@ processing option does not affect the called group.
 The behaviour of
 backtracking control verbs
 in groups when called as subroutines is described in
-[Backtracking verbs in subroutines](`m:re#sect25.1`).
+[Backtracking verbs in subroutines](`m:re#sect26.1`).
+
 
 [](){: #sect24}
+## Recursion and subroutines with returned capture groups
+
+Since PCRE2 10.46, recursion and subroutine calls may also specify a list of
+capture groups to return. This is a PCRE2 syntax extension not supported by
+Perl. The pattern matching recurses into the referenced expression as described
+above, however, when the recursion returns to the calling expression the
+subgroups captured during the recursion can be retained when the calling
+expression's context is restored.
+
+When used as a subroutine, this allows the subroutine's capture groups to
+be used as return values.
+
+Only the specific capture groups listed by the caller will be retained, using
+the following syntax:
+
+```text
+  (?R(grouplist))       recurse whole pattern, returning capture groups
+  (?n(grouplist))       )
+  (?+n(grouplist))      )
+  (?-n(grouplist))      ) call subroutine, returning capture groups
+  (?&name(grouplist))   )
+  (?P>name(grouplist))  )
+```
+
+The list of capture groups "grouplist" is a comma-separated list of (absolute
+or relative) group numbers, and group names enclosed in single quotes or angle
+brackets.
+
+Here is an example which first uses the DEFINE condition to create a re-usable
+routine for matching a weekday, then calls that subroutine and retains the
+groups it captures for use later:
+
+```text
+  (?x: # ignore whitespace for clarity
+    # Define the routine "weekendday" which matches Saturday or
+    # Sunday, and returns the Sat/Sun prefix as \k<short>.
+    (?(DEFINE) (?<weekendday>
+        (?|(?<short>Sat)urday|(?<short>Sun)day) ) )
+    # Call the routine. Matches "Saturday,Sat" or "Sunday,Sun".
+    (?&weekendday(<short>)),\k<short> )
+```
+
+This feature is not available using the Oniguruma syntax `\g<...>` or `\g'...'`
+below.
+
+[](){: #sect25}
 ## Oniguruma Subroutine Syntax
 
 
@@ -3232,7 +3279,7 @@ Note that `\g{...}` (Perl syntax) and \g<...> (Oniguruma syntax) are _not_
 synonymous. The former is a backreference; the latter is a subroutine call.
 
 
-[](){: #sect25}
+[](){: #sect26}
 ## Backtracking Control
 
 There are a number of special "Backtracking Control Verbs" (to use Perl's
@@ -3247,7 +3294,7 @@ any way, and it is not possible to include a closing parenthesis in the name.
 
 A closing parenthesis can be included in a name either as `\)` or between `\Q`
 and `\E`. In addition to backslash processing, if the `extended` or
-PCRE2_EXTENDED_MORE option is also set, unescaped whitespace in verb names is
+PCRE2_EXTENDED_MORE option is also set, unescaped white space in verb names is
 skipped, and #-comments are recognized, exactly as in the rest of the pattern.
 `extended` and PCRE2_EXTENDED_MORE do not affect verb names.
 
@@ -3718,7 +3765,7 @@ causes the condition to be false. However, for both standalone and conditional
 negative assertions, backtracking into `(*COMMIT)`, `(*SKIP)`, or `(*PRUNE)` causes
 the assertion to be true, without considering any further alternative branches.
 
-[](){: #sect25.1}
+[](){: #sect26.1}
 _Backtracking verbs in subroutines_
 
 
