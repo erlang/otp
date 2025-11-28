@@ -393,7 +393,10 @@ format_error_1({removed_type, MNA, String}) ->
 format_error_1({removed_callback, MNA, String}) ->
     {~"the callback ~s is removed; ~s", [format_mna(MNA), String]};
 format_error_1({obsolete_guard, {F, A}}) ->
-    {~"~p/~p obsolete (use is_~p/~p)", [F, A, F, A]};
+    {~"""
+      ~p/~p as a type test is obsolete and will be
+      removed in OTP 30; use is_~p/~p instead.
+      """, [F, A, F, A]};
 format_error_1({obsolete_guard_overridden,Test}) ->
     {~"""
       obsolete ~s/1 (meaning is_~s/1) is illegal when there is a
