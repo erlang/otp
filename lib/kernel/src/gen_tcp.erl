@@ -741,7 +741,7 @@ accept(S) when is_port(S) ->
 -doc """
 Accept an incoming connection request on a listen socket.
 
-`Socket` must be a socket returned from `listen/2`. `Timeout` specifies
+`ListenSocket` must be a socket returned from `listen/2`. `Timeout` specifies
 a time-out value in milliseconds. Defaults to `infinity`.
 
 Returns:
