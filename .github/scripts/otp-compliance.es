@@ -83,7 +83,7 @@
 -define(spdx_download_location, ~"https://github.com/erlang/otp/releases").
 -define(spdx_homepage, ~"https://www.erlang.org").
 -define(spdx_purl_meta_data, ~"?vcs_url=git+https://github.com/erlang/otp.git").
--define(spdx_version, ~"SPDX-2.2").
+-define(spdx_version, ~"SPDX-2.3").
 -define(otp_version, 'OTP_VERSION'). % file name of the OTP version
 -define(spdx_project_purl, #{ ~"comment" => ~"",
                               ~"referenceCategory" => ~"PACKAGE-MANAGER",
