@@ -28,6 +28,7 @@
 %% For typeinfo JER
 -export([encode_jer/3, decode_jer/3]).
 
+-compile(nowarn_export_var_subexpr).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Common code for all JER encoding/decoding

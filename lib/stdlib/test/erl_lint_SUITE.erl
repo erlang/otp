@@ -1317,7 +1317,7 @@ unsafe_vars(Config) when is_list(Config) ->
            {error,[{{3,19},erl_lint,{unsafe_var,'Y',{'orelse',{2,29}}}}],
             [{{2,19},erl_lint,{unused_var,'X'}}]}},
           {unsafe2,
-           <<"t2() ->
+           <<"-compile(nowarn_export_var_subexpr). t2() ->
                   (X = true) orelse (Y = false),
                   X.
            ">>,
@@ -1332,14 +1332,14 @@ unsafe_vars(Config) when is_list(Config) ->
            {error,[{{3,19},erl_lint,{unsafe_var,'Y',{'andalso',{2,30}}}}],
             [{{2,20},erl_lint,{unused_var,'X'}}]}},
           {unsafe4,
-           <<"t4() ->
+           <<"-compile(nowarn_export_var_subexpr). t4() ->
                   (X = true) andalso (true = X),
                   X.
            ">>,
            [warn_unused_vars],
            []},
           {unsafe5,
-           <<"t5() ->
+           <<"-compile(nowarn_export_var_subexpr). t5() ->
                   Y = 3,
                   (X = true) andalso (X = true),
                   {X,Y}.

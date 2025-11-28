@@ -22,6 +22,8 @@
 -module(snmpa_agent).
 -moduledoc false.
 
+-compile(nowarn_export_var_subexpr).
+
 -include_lib("kernel/include/file.hrl").
 -include("snmpa_internal.hrl").
 -include("snmp_types.hrl").
