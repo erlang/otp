@@ -55,8 +55,6 @@ suite() ->
 all() ->
     [seed, interval_int, interval_float,
      bytes_count,
-     shuffle_elements, shuffle_reference,
-     basic_stats_shuffle, measure_shuffle,
      api_eq,
      mwc59_api,
      exsp_next_api, exsp_jump_api,
@@ -68,6 +66,7 @@ all() ->
      plugin, measure,
      {group, reference_jump},
      short_jump,
+     {group, shuffle},
      doctests
     ].
 
@@ -75,6 +74,9 @@ groups() ->
     [{basic_stats, [parallel],
       [basic_stats_uniform_1, basic_stats_uniform_2, basic_stats_bytes,
        basic_stats_standard_normal]},
+     {shuffle, [],
+      [shuffle_elements, shuffle_reference,
+       basic_stats_shuffle, measure_shuffle]},
      {distr_stats, [parallel],
       [stats_standard_normal_box_muller,
        stats_standard_normal_box_muller_2,
@@ -89,6 +91,9 @@ group(distr_stats) ->
     %% valgrind needs a lot of time
     [{timetrap,{minutes,10}}];
 group(reference_jump) ->
+    %% valgrind needs a lot of time
+    [{timetrap,{minutes,10}}];
+group(shuffle) ->
     %% valgrind needs a lot of time
     [{timetrap,{minutes,10}}].
 
@@ -414,10 +419,13 @@ bytes_count(Config) when is_list(Config) ->
 %% Check that shuffle doesn't loose or duplicate elements
 
 shuffle_elements(Config) when is_list(Config) ->
-    M = 20,
-    SortedList = lists:seq(0, (1 bsl M) - 1),
+    SortedList = lists:seq(1, 1010_101),
     State = rand:seed(default),
-    case lists:sort(rand:shuffle(SortedList)) of
+    {ShuffledList, NewState} = rand:shuffle_s(SortedList, State),
+    true = ShuffledList =:= rand:shuffle(SortedList),
+    NewSeed = rand:export_seed_s(NewState),
+    NewSeed = rand:export_seed(),
+    case lists:sort(ShuffledList) of
         SortedList -> ok;
         _ ->
             error({mismatch, State})
@@ -428,13 +436,26 @@ shuffle_elements(Config) when is_list(Config) ->
 %% Check that shuffle is repeatable
 
 shuffle_reference(Config) when is_list(Config) ->
-    M = 20,
+    M    = 20,
+    List = lists:seq(0, (1 bsl M) - 1),
     Seed = {1,2,3},
-    MD5 = <<56,202,188,237,192,69,132,182,227,54,33,68,45,74,208,89>>,
-    %%
-    SortedList = lists:seq(0, (1 bsl M) - 1),
-    S = rand:seed_s(default, Seed),
-    {ShuffledList, NewS} = rand:shuffle_s(SortedList, S),
+    Ref  =
+        [{exsss,
+          <<124,54,150,191,198,136,245,103,157,213,96,6,210,103,134,107>>},
+         {exro928ss,
+          <<160,170,223,95,44,254,192,107,145,180,236,235,102,110,72,131>>},
+         {exrop,
+          <<175,236,222,199,129,54,205,86,81,38,92,219,66,71,30,69>>},
+         {exs1024s,
+          <<148,169,164,28,198,202,108,206,123,68,189,26,116,210,82,116>>},
+         {exsp,
+          <<63,163,228,59,249,88,205,251,225,174,227,65,144,130,169,191>>}],
+    [shuffle_reference(M, List, Seed, Alg, MD5) || {Alg, MD5} <- Ref],
+    ok.
+
+shuffle_reference(M, List, Seed, Alg, MD5) ->
+    S = rand:seed_s(Alg, Seed),
+    {ShuffledList, NewS} = rand:shuffle_s(List, S),
     Data = mk_iolist(ShuffledList, M),
     case erlang:md5(Data) of
         MD5 -> ok;
@@ -517,7 +538,7 @@ measure_shuffle(Config) when is_list(Config) ->
     end;
 measure_shuffle(Effort) when is_integer(Effort) ->
     Algs =
-        [default, exs1024 |
+        [exsss, exs1024 |
          case crypto_support() of
              ok -> [crypto];
              _  -> []
