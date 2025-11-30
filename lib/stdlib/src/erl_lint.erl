@@ -834,7 +834,7 @@ bool_options() ->
      {deprecated_function,true},
      {deprecated_type,true},
      {deprecated_callback,true},
-     {deprecated_catch,false},
+     {deprecated_catch,true},
      {obsolete_guard,true},
      {untyped_record,false},
      {missing_spec,false},
