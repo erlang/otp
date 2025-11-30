@@ -1250,6 +1250,7 @@ void BeamModuleAssembler::emit_is_function(const ArgLabel &Fail,
         comment("skipped header test since we know it's a fun when boxed");
     } else {
         a64::Gp boxed_ptr = emit_ptr_val(TMP1, src.reg);
+        ERTS_CT_ASSERT(FUN_HEADER_ARITY_OFFS == 8);
         a.ldurb(TMP1.w(), emit_boxed_val(boxed_ptr));
         a.cmp(TMP1, imm(FUN_SUBTAG));
         a.b_ne(resolve_beam_label(Fail, disp1MB));
@@ -1294,6 +1295,8 @@ void BeamModuleAssembler::emit_is_function2(const ArgLabel &Fail,
 
     a64::Gp boxed_ptr = emit_ptr_val(TMP1, src.reg);
 
+    ERTS_CT_ASSERT(FUN_HEADER_ARITY_OFFS == 8);
+    ERTS_CT_ASSERT(FUN_HEADER_ENV_SIZE_OFFS == 16);
     a.ldurh(TMP2.w(), emit_boxed_val(boxed_ptr));
     cmp(TMP2, MAKE_FUN_HEADER(arity, 0, 0) & 0xFFFF);
     a.b_ne(resolve_beam_label(Fail, disp1MB));

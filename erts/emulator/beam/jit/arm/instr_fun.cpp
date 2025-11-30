@@ -80,6 +80,7 @@ void BeamGlobalAssembler::emit_handle_call_fun_error() {
     emit_is_boxed(bad_fun, ARG4);
 
     a64::Gp fun_thing = emit_ptr_val(TMP1, ARG4);
+    ERTS_CT_ASSERT(FUN_HEADER_ARITY_OFFS == 8);
     a.ldurb(TMP1.w(), emit_boxed_val(fun_thing));
     a.cmp(TMP1, imm(FUN_SUBTAG));
     a.b_eq(bad_arity);
@@ -385,6 +386,8 @@ a64::Gp BeamModuleAssembler::emit_call_fun(bool skip_box_test,
         a.ldp(TMP2, ARG1, arm::Mem(TMP2));
 
         /* Combined fun type and arity test. */
+        ERTS_CT_ASSERT(FUN_HEADER_ARITY_OFFS == 8);
+        ERTS_CT_ASSERT(FUN_HEADER_ENV_SIZE_OFFS == 16);
         a.cmp(ARG3, TMP2.r32(), a64::uxth(0));
         a.b_ne(next);
     }
