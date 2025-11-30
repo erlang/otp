@@ -60,7 +60,7 @@ TS_TARGETS = $(TS_MODULES:%=$(EBIN)/%.$(EMULATOR))
 # ----------------------------------------------------
 # FLAGS
 # ----------------------------------------------------
-ERL_COMPILE_FLAGS += -I../include -Werror +nowarn_missing_spec_documented
+ERL_COMPILE_FLAGS += -I../include -Werror +nowarn_missing_spec_documented +nowarn_deprecated_catch
 
 # ----------------------------------------------------
 # Targets

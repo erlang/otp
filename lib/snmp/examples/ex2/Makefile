@@ -45,6 +45,7 @@ ERL_COMPILE_FLAGS += -I../include \
                      +'{attribute,insert,app_vsn,$(APP_VSN)}' \
                      -I$(ERL_TOP)/lib/stdlib \
 		     +nowarn_missing_doc +nowarn_missing_spec_documented \
+	             +nowarn_deprecated_catch \
                      $(SNMP_FLAGS)
 
 # ----------------------------------------------------
