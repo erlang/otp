@@ -62,7 +62,7 @@ APP_TARGET = $(EBIN)/$(APP_FILE)
 # ----------------------------------------------------
 # FLAGS
 # ----------------------------------------------------
-ERL_COMPILE_FLAGS += -I../include -I../ebin -Werror
+ERL_COMPILE_FLAGS += -I../include -I../ebin -Werror +nowarn_deprecated_catch
 
 # ----------------------------------------------------
 # Targets

@@ -122,7 +122,7 @@ endif
 
 ERL_COMPILE_FLAGS += \
 	+warn_export_vars \
-	+warn_unused_vars \
+	+warn_unused_vars +nowarn_deprecated_catch \
 	$(MISSING_SPEC_DOCUMENTED) \
 	+'{parse_transform,sys_pre_attributes}' \
 	+'{attribute,insert,app_vsn,"$(APP_VSN)"}' \
