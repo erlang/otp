@@ -863,7 +863,7 @@ bool_options() ->
      {deprecated_function,true},
      {deprecated_type,true},
      {deprecated_callback,true},
-     {deprecated_catch,false},
+     {deprecated_catch,true},
      {obsolete_guard,true},
      {obsolete_bool_op,false},
      {untyped_record,false},
