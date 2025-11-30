@@ -78,7 +78,8 @@ ODBC_FLAGS = -D'SERVER_SOFTWARE="odbc/$(VSN)"' \
 ERL_COMPILE_FLAGS += -I$(INCLUDE) \
 		     $(ODBC_FLAGS) \
                      +'{parse_transform,sys_pre_attributes}' \
-                     +'{attribute,insert,app_vsn,$(APP_VSN)}'
+                     +'{attribute,insert,app_vsn,$(APP_VSN)}' \
+                     +nowarn_deprecated_catch
 # ----------------------------------------------------
 # Targets
 # ----------------------------------------------------

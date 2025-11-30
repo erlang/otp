@@ -32,7 +32,7 @@ TESTMODS = sudoku sudoku_board sudoku_game sudoku_gui
 TESTTARGETS = $(TESTMODS:%=%.beam)
 TESTSRC = $(TESTMODS:%=%.erl)
 
-ERL_COMPILE_FLAGS += +nowarn_missing_doc +nowarn_missing_spec_documented \
+ERL_COMPILE_FLAGS += +nowarn_missing_doc +nowarn_missing_spec_documented +nowarn_deprecated_catch \
 		     -I $(ERL_TOP)/lib -pa $(ERL_TOP)/lib/wx/ebin
 
 # Targets

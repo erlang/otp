@@ -98,7 +98,7 @@ APPUP_TARGET= $(EBIN)/$(APPUP_FILE)
 # FLAGS
 # ----------------------------------------------------
 ERL_COMPILE_FLAGS += \
-	-Werror +warn_obsolete_bool_op \
+	-Werror +warn_obsolete_bool_op +nowarn_deprecated_catch \
 	+'{parse_transform,sys_pre_attributes}' \
 	+'{attribute,insert,vsn,"mnesia_$(MNESIA_VSN)"}'
 

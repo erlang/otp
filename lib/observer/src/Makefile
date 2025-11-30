@@ -127,7 +127,7 @@ ERL_COMPILE_FLAGS += \
 	-I ../../../libraries/et/include \
 	-I $(ERL_TOP)/lib \
 	-pa $(ERL_TOP)/lib/wx/ebin \
-	-Werror
+	-Werror +nowarn_deprecated_catch
 
 # ----------------------------------------------------
 # Targets

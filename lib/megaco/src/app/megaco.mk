@@ -57,5 +57,4 @@ MEGACO_APP_VSN_COMPILE_FLAGS = \
 MEGACO_ERL_COMPILE_FLAGS +=             \
 	-pa $(ERL_TOP)/lib/et/ebin      \
 	-pa $(ERL_TOP)/lib/megaco/ebin  \
-	$(MEGACO_APP_VSN_COMPILE_FLAGS) +warn_obsolete_bool_op
-
+	$(MEGACO_APP_VSN_COMPILE_FLAGS) +warn_obsolete_bool_op +nowarn_deprecated_catch

@@ -117,7 +117,7 @@ DTD_FILES = \
 # FLAGS
 # ----------------------------------------------------
 ERL_COMPILE_FLAGS += -pa ../ebin -I../include -I $(ERL_TOP)/lib/snmp/include/ \
-	-I../../xmerl/inc/ -I $(ERL_TOP)/lib/kernel/include -Werror +warn_obsolete_bool_op
+	-I../../xmerl/inc/ -I $(ERL_TOP)/lib/kernel/include -Werror +warn_obsolete_bool_op +nowarn_deprecated_catch
 
 # ----------------------------------------------------
 # Targets
