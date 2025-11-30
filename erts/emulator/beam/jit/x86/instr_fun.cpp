@@ -77,6 +77,7 @@ void BeamGlobalAssembler::emit_handle_call_fun_error() {
     emit_is_boxed(bad_fun, ARG4);
 
     x86::Gp fun_thing = emit_ptr_val(RET, ARG4);
+    ERTS_CT_ASSERT(FUN_HEADER_ARITY_OFFS == 8);
     a.cmp(emit_boxed_val(fun_thing, 0, sizeof(byte)), imm(FUN_SUBTAG));
     a.short_().je(bad_arity);
 
@@ -397,6 +398,8 @@ x86::Gp BeamModuleAssembler::emit_call_fun(bool skip_box_test,
         comment("skipped fun/arity test since source is always a fun of the "
                 "right arity when boxed");
     } else {
+        ERTS_CT_ASSERT(FUN_HEADER_ARITY_OFFS == 8);
+        ERTS_CT_ASSERT(FUN_HEADER_ENV_SIZE_OFFS == 16);
         a.cmp(emit_boxed_val(fun_thing, 0, sizeof(Uint16)), ARG3.r16());
         a.short_().jne(next);
     }

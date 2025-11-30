@@ -1287,6 +1287,7 @@ void BeamModuleAssembler::emit_is_function(const ArgLabel &Fail,
     } else {
         x86::Gp boxed_ptr = emit_ptr_val(RET, RET);
         preserve_cache([&]() {
+            ERTS_CT_ASSERT(FUN_HEADER_ARITY_OFFS == 8);
             a.cmp(emit_boxed_val(boxed_ptr, 0, sizeof(byte)), imm(FUN_SUBTAG));
             a.jne(resolve_beam_label(Fail));
         });
@@ -1329,6 +1330,8 @@ void BeamModuleAssembler::emit_is_function2(const ArgLabel &Fail,
     /* Combined header word and arity check: both the tag and arity live in the
      * lowest 16 bits. */
     preserve_cache([&]() {
+        ERTS_CT_ASSERT(FUN_HEADER_ARITY_OFFS == 8);
+        ERTS_CT_ASSERT(FUN_HEADER_ENV_SIZE_OFFS == 16);
         a.cmp(emit_boxed_val(boxed_ptr, 0, sizeof(Uint16)),
               imm(MAKE_FUN_HEADER(arity, 0, 0) & 0xFFFF));
         a.jne(resolve_beam_label(Fail));
