@@ -293,33 +293,36 @@ output_handler_data(OutStream, EncryptState, CS_DH) ->
     erlang:dist_ctrl_get_data_notification(tl(CS_DH)),
     output_handler(OutStream_1, EncryptState_1, CS_DH).
 
-%% Get outbound data from VM; encrypt and send,
+%% Transfer outbound data from VM; encrypt and send,
 %% until the VM has no more
 %%
 %% Front,Size,Rear is an Okasaki queue of binaries with total byte Size
 %%
 output_handler_xfer(
-  OutStream, EncryptState, CS_DH, Front, Size, Rear)
-  when hd(CS_DH) =< Size ->
+  OutStream, EncryptState, [ChunkSize|_] = CS_DH, Front, Size, Rear)
+  when ChunkSize =< Size ->
     %%
-    %% We have a full chunk or more
-    %% -> collect one chunk or less and send
+    %% We have a full chunk or more -> collect chunks and send
+    %%
     output_handler_collect(
       OutStream, EncryptState, CS_DH, Front, Size, Rear);
 output_handler_xfer(
-  OutStream, EncryptState, CS_DH, Front, Size, Rear) ->
-    %% when Size < hd(CS_DH) ->
+  OutStream, EncryptState, [_|DistHandle] = CS_DH, Front, Size, Rear) ->
+    %% when Size < ChunkSize ->
     %%
     %% We do not have a full chunk -> try to fetch more from VM
-    case erlang:dist_ctrl_get_data(tl(CS_DH)) of
+    %%
+    case erlang:dist_ctrl_get_data(DistHandle) of
         none ->
             if
                 Size =:= 0 ->
                     %% No more data from VM, nothing buffered
                     %% -> done, for now
+                    %%
                     {OutStream, EncryptState};
                 true ->
                     %% The VM had no more -> send what we have
+                    %%
                     output_handler_collect(
                       OutStream, EncryptState, CS_DH, Front, Size, Rear)
             end;
@@ -330,8 +333,8 @@ output_handler_xfer(
               Iov)
     end.
 
-%% Enqueue VM data while splitting large binaries into
-%% chunk size; hd(CS_DH)
+%% Enqueue VM data while splitting large binaries into max
+%% ChunkSize = hd(CS_DH)
 %%
 output_handler_enq(
   OutStream, EncryptState, CS_DH, Front, Size, Rear, []) ->
@@ -339,40 +342,41 @@ output_handler_enq(
       OutStream, EncryptState, CS_DH, Front, Size, Rear);
 output_handler_enq(
   OutStream, EncryptState, CS_DH, Front, Size, Rear, [Bin|Iov]) ->
-    output_handler_enq(
+    output_handler_split(
       OutStream, EncryptState, CS_DH, Front, Size, Rear, Iov, Bin).
-%%
-output_handler_enq(
-  OutStream, EncryptState, CS_DH, Front, Size, Rear, Iov, Bin) ->
-    BinSize = byte_size(Bin),
-    ChunkSize = hd(CS_DH),
+
+output_handler_split(
+  OutStream, EncryptState, [ChunkSize|_] = CS_DH,
+  Front, Size, Rear, Iov, Bin) ->
     if
-        BinSize =< ChunkSize ->
+        byte_size(Bin) =< ChunkSize ->
             output_handler_enq(
               OutStream, EncryptState, CS_DH, Front, Size, [Bin|Rear],
               Iov);
         true ->
             <<Bin1:ChunkSize/binary, Bin2/binary>> = Bin,
-            output_handler_enq(
+            output_handler_split(
               OutStream, EncryptState, CS_DH, Front, Size, [Bin1|Rear],
               Iov, Bin2)
     end.
 
 %% Collect small binaries into chunks of at most
-%% chunk size; hd(CS_DH)
+%% ChunkSize = hd(CS_DH); encrypt and send them
 %%
-output_handler_collect(OutStream, EncryptState, CS_DH, [], Zero, []) ->
+output_handler_collect(
+  OutStream, EncryptState, CS_DH, [], Zero, []) ->
     0 = Zero, % ASSERT
-    %% No more enqueued -> try to get more form VM
+    %% No more enqueued -> try to get more from VM
     output_handler_xfer(OutStream, EncryptState, CS_DH, [], Zero, []);
-output_handler_collect(OutStream, EncryptState, CS_DH, Front, Size, Rear) ->
+output_handler_collect(
+  OutStream, EncryptState, CS_DH, Front, Size, Rear) ->
     output_handler_collect(
       OutStream, EncryptState, CS_DH, Front, Size, Rear, [], 0).
 %%
 output_handler_collect(
   OutStream, EncryptState, CS_DH, [], Zero, [], Acc, DataSize) ->
     0 = Zero, % ASSERT
-    output_handler_chunk(
+    output_handler_encrypt_and_send_chunk(
       OutStream, EncryptState, CS_DH, [], Zero, [], Acc, DataSize);
 output_handler_collect(
   OutStream, EncryptState, CS_DH, [], Size, Rear, Acc, DataSize) ->
@@ -381,15 +385,14 @@ output_handler_collect(
       OutStream, EncryptState, CS_DH, lists:reverse(Rear), Size, [],
       Acc, DataSize);
 output_handler_collect(
-  OutStream, EncryptState, CS_DH, [Bin|Iov] = Front, Size, Rear,
-  Acc, DataSize) ->
-    ChunkSize = hd(CS_DH),
+  OutStream, EncryptState, [ChunkSize|_] = CS_DH,
+  [Bin|Iov] = Front, Size, Rear, Acc, DataSize) ->
     BinSize = byte_size(Bin),
     DataSize_1 = DataSize + BinSize,
     if
         ChunkSize < DataSize_1 ->
             %% Bin does not fit in chunk -> send Acc
-            output_handler_chunk(
+            output_handler_encrypt_and_send_chunk(
               OutStream, EncryptState, CS_DH, Front, Size, Rear,
               Acc, DataSize);
         DataSize_1 < ChunkSize ->
@@ -400,14 +403,12 @@ output_handler_collect(
         true -> % DataSize_1 == ChunkSize ->
             %% Optimize one iteration; Bin fits exactly
             %% -> accumulate and send
-            output_handler_chunk(
+            output_handler_encrypt_and_send_chunk(
               OutStream, EncryptState, CS_DH, Iov, Size - BinSize, Rear,
               [Bin|Acc], DataSize_1)
     end.
 
-%% Encrypt and send a chunk
-%%
-output_handler_chunk(
+output_handler_encrypt_and_send_chunk(
   OutStream, EncryptState, CS_DH, Front, Size, Rear, Acc, DataSize) ->
     Data = lists:reverse(Acc),
     {OutStream_1, EncryptState_1} =

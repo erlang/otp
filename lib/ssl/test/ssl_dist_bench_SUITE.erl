@@ -37,6 +37,7 @@
 -export(
    [setup/1,
     parallel_setup/1,
+    early_double_funcall/1,
     roundtrip/1,
     sched_utilization/1,
     mean_load_cpu_margin/1,
@@ -50,8 +51,7 @@
     throughput_1048576/1]).
 
 %% Debug
--export([payload/1, roundtrip_runner/2, setup_runner/2, throughput_runner/3,
-        mem/0]).
+-export([payload/1, roundtrip_runner/2, setup_runner/2, throughput_runner/3]).
 
 %%%-------------------------------------------------------------------
 
@@ -86,7 +86,8 @@ groups() ->
      %%
      %% categories()
      {setup, [{repeat, 1}],
-      [setup,
+      [early_double_funcall,
+       setup,
        parallel_setup]},
      {roundtrip, [{repeat, 1}], [roundtrip]},
      {sched_utilization,[{repeat, 1}],
@@ -204,16 +205,17 @@ init_per_suite(Config) ->
           CertOptions, RootCert),
         %%
         Schedulers =
-            erpc:call(ServerNode, erlang, system_info, [schedulers]),
+            erpc:call(ServerNode, erlang, system_info, [schedulers_online]),
+        Clients = max(Schedulers, 16),
         [_, ClientHost] = split_node(Node),
         [{server_node, ServerNode},
          {server_name, ServerName},
          {server, Server},
          {server_dist_args,
           "-ssl_dist_optfile " ++ ServerConfFile ++ " "},
-         {clients, Schedulers} |
+         {clients, Clients} |
          init_client_node(
-           ClientHost, Schedulers, PrivDir, ServerConf, ClientConf,
+           ClientHost, Clients, PrivDir, ServerConf, ClientConf,
            CertOptions, RootCert, Config)]
     catch
         throw : {Skip, Reason} ->
@@ -552,7 +554,7 @@ setup(Config) ->
     run_nodepair_test(fun setup/6, Config).
 
 setup(A, B, Prefix, Effort, HA, HB) ->
-    Rounds = 1000 * Effort,
+    Rounds = 200 * Effort,
     [] = ssl_apply(HA, erlang, nodes, []),
     [] = ssl_apply(HB, erlang, nodes, []),
     pong = ssl_apply(HA, net_adm, ping, [B]),
@@ -694,7 +696,7 @@ parallel_setup(Config, Clients, _0, HNs) ->
     ServerNode = proplists:get_value(Key, Config),
     ServerHandle = start_ssl_node(Key, Config, 0),
     Effort = proplists:get_value(effort, Config, 1),
-    TotalRounds = 1000 * Effort,
+    TotalRounds = 200 * Effort,
     Rounds = round(TotalRounds / Clients),
     try
         {Log, Before, After} =
@@ -780,6 +782,51 @@ parallel_setup_result(
       Prefix++" Parallel Setup Cycle",
       CycleSpeed, per_ks("cycles") ++ " " ++ MemText,
       SumTotalTime / Clients).
+
+%%-----------
+%% Early call
+
+early_double_funcall(Config) when is_list(Config) ->
+    A = proplists:get_value({client,1}, Config),
+    B = proplists:get_value(server, Config),
+    Effort = proplists:get_value(effort, Config, 1),
+    Rounds = 5 * Effort,
+    early_double_funcall(Config, A, B, Rounds).
+
+early_double_funcall(Config, A, B, Rounds) when 0 < Rounds ->
+    HA = start_ssl_node({client,1}, Config),
+    try
+        Ref = make_ref(),
+        HB = start_ssl_node(server, Config),
+        try
+            ssl_apply(HA, fun () -> early_double_funcall(B, Ref) end)
+        of
+            Ref ->
+                ok;
+            Other ->
+                erlang:error(Other)
+        after
+            stop_ssl_node(server, HB, Config)
+        end
+    after
+        stop_ssl_node({client,1}, HA, Config)
+    end,
+    early_double_funcall(Config, A, B, Rounds - 1);
+early_double_funcall(_Config, _A, _B, _Rounds) ->
+    ok.
+
+early_double_funcall(B, Ref) ->
+    %% First distribution module local fun call, via spawn
+    Pid = spawn(B, fun () -> receive Ref ->  exit(Ref) end end),
+    %% Second distribution module local fun call
+    Ref = erpc:call(B, fun () -> Ref end),
+    %% Orderly finish
+    Mon = monitor(process, Pid),
+    Pid ! Ref,
+    receive
+        {'DOWN', Mon, _, _, Reason} ->
+            Reason
+    end.
 
 %%----------------
 %% Roundtrip speed
@@ -1385,8 +1432,13 @@ throughput_server_loop(Pid, GC_Before, N) ->
             case Msg of
                 {Pid, N, _} ->
                     throughput_server_loop(Pid, GC_Before, N - 1);
+                {OtherPid, WrongN, Data} when is_binary(Data) ->
+                    erlang:error(
+                      {self(),?FUNCTION_NAME,
+                       {{Pid,N}, {OtherPid,WrongN,byte_size(Data)}}});
                 Other ->
-                    erlang:error({self(),?FUNCTION_NAME,Other})
+                    erlang:error(
+                      {self(),?FUNCTION_NAME,{Pid,N},Other})
             end
     end.
 
@@ -1563,6 +1615,10 @@ perf_starter(Name, Config) ->
         _ ->
             {"",
              fun (Handle) ->
+                     NodeHandle = {Handle,PerfTag},
+                     NodePid = ssl_apply(NodeHandle, os, getpid, []),
+                     ?CT_PAL("~nStarted node ~s with pid: ~s~n",
+                             [Name, NodePid]),
                      Parent ! {PerfTag, none},
                      {Handle,PerfTag}
              end}
