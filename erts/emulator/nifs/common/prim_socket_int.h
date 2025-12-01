@@ -325,6 +325,12 @@ extern const int       esock_ioctl_flags_length;
 
 #if defined(HAVE_SCTP)
 typedef sctp_assoc_t ESockAssocId;
+#else
+/* We need a "dummy" here since the type is used in mandatory
+ * callback functions (functions we will never use, if we do
+ * not have SCTP). For instance; on Windows.
+ */
+typedef int ESockAssocId;
 #endif
 
 
