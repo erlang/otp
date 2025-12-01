@@ -40,10 +40,6 @@ POSSIBILITY OF SUCH DAMAGE.
 /* SPDX-License-Identifier: BSD-3-Clause */
 
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include "pcre2_internal.h"
 
 
@@ -86,6 +82,7 @@ PCRE2_EXP_DEFN pcre2_match_data * PCRE2_CALL_CONVENTION
 pcre2_match_data_create_from_pattern(const pcre2_code *code,
   pcre2_general_context *gcontext)
 {
+if (code == NULL) return NULL;
 if (gcontext == NULL) gcontext = (pcre2_general_context *)code;
 return pcre2_match_data_create(((const pcre2_real_code *)code)->top_bracket + 1,
   gcontext);

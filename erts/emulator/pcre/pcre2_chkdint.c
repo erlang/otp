@@ -38,15 +38,15 @@ POSSIBILITY OF SUCH DAMAGE.
 */
 /* SPDX-License-Identifier: BSD-3-Clause */
 
+
 /* This file contains functions to implement checked integer operation */
 
-#ifndef PCRE2_PCRE2TEST
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
 
+#ifndef PCRE2_PCRE2TEST
 #include "pcre2_internal.h"
 #endif
+
+
 
 /*************************************************
 *        Checked Integer Multiplication          *

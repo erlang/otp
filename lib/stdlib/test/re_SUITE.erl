@@ -727,7 +727,7 @@ pcre_compile_workspace_overflow(Config) when is_list(Config) ->
     N = 1180,
     ExpStr = "Got expected error: ",
     case re:compile([lists:duplicate(N, $(), lists:duplicate(N, $))]) of
-        {error, {"regular expression is too complicated" = Str,2360}} ->
+        {error, {"regular expression is too complicated" = Str, _Pos}} ->
             {comment, ExpStr ++ Str};
         {error, {"parentheses are too deeply nested (stack check)" = Str, _No}} ->
             {comment, ExpStr ++ Str};

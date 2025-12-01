@@ -39,17 +39,15 @@ POSSIBILITY OF SUCH DAMAGE.
 */
 /* SPDX-License-Identifier: BSD-3-Clause */
 
+
 /* This module contains two internal functions that are used to match
 OP_XCLASS and OP_ECLASS. It is used by pcre2_auto_possessify() and by both
 pcre2_match() and pcre2_dfa_match(). */
 
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
-
 #include "pcre2_internal.h"
+
+
 
 /*************************************************
 *       Match character against an XCLASS        *
@@ -253,9 +251,11 @@ if (*data == XCL_PROP || *data == XCL_NOTPROP)
       /* This should never occur, but compilers may mutter if there is no
       default. */
 
+      /* LCOV_EXCL_START */
       default:
       PCRE2_DEBUG_UNREACHABLE();
       return FALSE;
+      /* LCOV_EXCL_STOP */
       }
 
     data += 2;
@@ -530,9 +530,11 @@ while (ptr < data_end)
     /* This should never occur, but compilers may mutter if there is no
     default. */
 
+    /* LCOV_EXCL_START */
     default:
     PCRE2_DEBUG_UNREACHABLE();
     return FALSE;
+    /* LCOV_EXCL_STOP */
     }
   }
 

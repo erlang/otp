@@ -40,11 +40,8 @@ POSSIBILITY OF SUCH DAMAGE.
 /* SPDX-License-Identifier: BSD-3-Clause */
 
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include "pcre2_internal.h"
+
 
 
 /*************************************************
@@ -293,8 +290,7 @@ if (re->magic_number != MAGIC_NUMBER) return PCRE2_ERROR_BADMAGIC;
 if ((re->flags & (PCRE2_CODE_UNIT_WIDTH/8)) == 0) return PCRE2_ERROR_BADMODE;
 
 cb.version = 0;
-cc = (PCRE2_SPTR)((const uint8_t *)re + sizeof(pcre2_real_code))
-     + re->name_count * re->name_entry_size;
+cc = (PCRE2_SPTR)((uint8_t *)re + re->code_start);
 
 while (TRUE)
   {

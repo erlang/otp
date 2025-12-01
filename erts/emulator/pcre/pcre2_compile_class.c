@@ -39,11 +39,10 @@ POSSIBILITY OF SUCH DAMAGE.
 */
 /* SPDX-License-Identifier: BSD-3-Clause */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
 
 #include "pcre2_compile.h"
+
+
 
 typedef struct {
   /* Option bits for eclass. */
@@ -67,7 +66,7 @@ b) none of the cases here:
 #define CLASS_END_CASES(meta) \
   default: \
   PCRE2_ASSERT((meta) <= META_END); \
-  /* Fall through */ \
+  PCRE2_FALLTHROUGH /* Fall through */ \
   case META_CLASS: \
   case META_CLASS_NOT: \
   case META_CLASS_EMPTY: \
@@ -526,6 +525,9 @@ if (xoptions & PCRE2_EXTRA_CASELESS_RESTRICT)
 
 if (xoptions & PCRE2_EXTRA_TURKISH_CASING)
   class_options |= PARSE_CLASS_TURKISH_UTF;
+#else
+(void)options;   /* Avoid compiler warning. */
+(void)xoptions;  /* Avoid compiler warning. */
 #endif
 
 /* Compute required space for the range. */
@@ -544,7 +546,10 @@ cranges = cb->cx->memctl.malloc(
 
 if (cranges == NULL) return NULL;
 
-cranges->next = NULL;
+cranges->header.next = NULL;
+#ifdef PCRE2_DEBUG
+cranges->header.type = CDATA_CRANGE;
+#endif
 cranges->range_list_size = (uint16_t)range_list_size;
 cranges->char_lists_types = 0;
 cranges->char_lists_size = 0;
@@ -906,6 +911,10 @@ uint8_t *classbits = cb->classbits.classbits;
 uint32_t c, byte_start, byte_end;
 uint32_t classbits_end = (end <= 0xff ? end : 0xff);
 
+#ifndef SUPPORT_UNICODE
+(void)xoptions; /* Avoid compiler warning. */
+#endif
+
 /* If caseless matching is required, scan the range and process alternate
 cases. In Unicode, there are 8-bit characters that have alternate cases that
 are greater than 255 and vice-versa (though these may be ignored if caseless
@@ -1081,6 +1090,10 @@ BOOL utf = FALSE;
 uint32_t xclass_props;
 PCRE2_UCHAR *class_uchardata;
 class_ranges* cranges;
+#else
+(void)has_bitmap;    /* Avoid compiler warning. */
+(void)errorcodeptr;  /* Avoid compiler warning. */
+(void)lengthptr;     /* Avoid compiler warning. */
 #endif
 
 /* If an XClass contains a negative special such as \S, we need to flip the
@@ -1113,19 +1126,19 @@ if (utf)
       }
 
     /* Caching the pre-processed character ranges. */
-    if (cb->next_cranges != NULL)
-      cb->next_cranges->next = cranges;
+    if (cb->last_data != NULL)
+      cb->last_data->next = &cranges->header;
     else
-      cb->cranges = cranges;
+      cb->first_data = &cranges->header;
 
-    cb->next_cranges = cranges;
+    cb->last_data = &cranges->header;
     }
   else
     {
     /* Reuse the pre-processed character ranges. */
-    cranges = cb->cranges;
-    PCRE2_ASSERT(cranges != NULL);
-    cb->cranges = cranges->next;
+    cranges = (class_ranges*)cb->first_data;
+    PCRE2_ASSERT(cranges != NULL && cranges->header.type == CDATA_CRANGE);
+    cb->first_data = cranges->header.next;
     }
 
   if (cranges->range_list_size > 0)
@@ -1271,8 +1284,23 @@ while (TRUE)
     value of 1 removes vertical space and 2 removes underscore. */
 
     if (tabopt < 0) tabopt = -tabopt;
+#ifdef EBCDIC
+      {
+      uint8_t posix_vertical[4] = { CHAR_LF, CHAR_VT, CHAR_FF, CHAR_CR };
+      uint8_t posix_underscore = CHAR_UNDERSCORE;
+      uint8_t *chars = NULL;
+      int n = 0;
+
+      if (tabopt == 1) { chars = posix_vertical; n = 4; }
+      else if (tabopt == 2) { chars = &posix_underscore; n = 1; }
+
+      for (; n > 0; ++chars, --n)
+        pbits.classbits[*chars/8] &= ~(1u << (*chars&7));
+      }
+#else
     if (tabopt == 1) pbits.classbits[1] &= ~0x3c;
-      else if (tabopt == 2) pbits.classbits[11] &= 0x7f;
+    else if (tabopt == 2) pbits.classbits[11] &= 0x7f;
+#endif
 
     /* Add the POSIX table or its complement into the main table that is
     being built and we are done. */
@@ -1775,17 +1803,14 @@ if ((xclass_props & XCLASS_REQUIRED) != 0)
       PUT(code, 0, (uint32_t)(char_lists_size >> 1));
       code += LINK_SIZE;
 
-#if defined PCRE2_DEBUG || defined SUPPORT_VALGRIND
+      /* If we added padding to align the list, initialize the bytes to
+      defined values, so the library is valgrind-clean. It could also
+      be a security concern for clients calling into PCRE2 via bindings
+      from a memory-safe language, if pcre2_serialize_encode() exposes
+      uninitialized memory that may contain sensitive information. */
+
       if ((char_lists_size & 0x2) != 0)
-        {
-        /* In debug the unused 16 bit value is set
-        to a fixed value and marked unused. */
-        ((uint16_t*)data)[-1] = 0x5555;
-#ifdef SUPPORT_VALGRIND
-        VALGRIND_MAKE_MEM_NOACCESS(data - 2, 2);
-#endif
-        }
-#endif
+        ((uint16_t*)data)[-1] = 0xdead;
 
       cb->char_lists_size =
         CLIST_ALIGN_TO(char_lists_size, sizeof(uint32_t));
@@ -2080,9 +2105,11 @@ switch (op)
     lhs_op_info->bits.classwords[i] ^= rhs_op_info->bits.classwords[i];
   break;
 
+  /* LCOV_EXCL_START */
   default:
   PCRE2_DEBUG_UNREACHABLE();
   break;
+  /* LCOV_EXCL_STOP */
   }
 }
 
@@ -2142,7 +2169,7 @@ switch (meta)
     }
 
   ptr++;
-  /* Fall through */
+  PCRE2_FALLTHROUGH /* Fall through */
 
   default:
   /* Scan forward characters, ranges, and properties.
@@ -2159,11 +2186,13 @@ switch (meta)
   /* We must have a 100% guarantee that ptr increases when
   compile_class_operand() returns, even on Release builds, so that we can
   statically prove our loops terminate. */
+  /* LCOV_EXCL_START */
   if (ptr <= prev_ptr)
     {
     PCRE2_DEBUG_UNREACHABLE();
     return FALSE;
     }
+  /* LCOV_EXCL_STOP */
 
   /* If we fell through above, consume the closing ']'. */
   if (meta == META_CLASS || meta == META_CLASS_NOT)

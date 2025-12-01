@@ -238,9 +238,9 @@ like this in the C source:
 When building, pcre2\_match\_loop\_break\_cases.gen.h will be generated
 during build by pcre.mk, it will look like:
 
-     case 791: goto L_LOOP_COUNT_691;
-     case 1892: goto L_LOOP_COUNT_1792;
-     case 1999: goto L_LOOP_COUNT_1899;
+     case 791: goto L_LOOP_COUNT_791;
+     case 1892: goto L_LOOP_COUNT_1892;
+     case 1999: goto L_LOOP_COUNT_1999;
 
 etc
 
@@ -301,15 +301,13 @@ like this:
 
 And the according variables were removed together with dependencies
 from pcre.mk. Note that you will need to put things back in order in
-pcre.mk after all testing is done. Once a 'make' is successful, you
-can generate new dependencies:
+pcre.mk after all testing is done.
 
-    ~/tmp/pcre/epcre-8.33> gcc -MM -c -g -O2 -DHAVE_CONFIG_H -I/ldisk/pan/git/otp/erts/x86_64-unknown-linux-gnu -DERLANG_INTEGRATION *.c | grep -v $ERL_TOP
+Regenerate the make dependencies in `depend.mk` with:
 
-Well, then you have to add $(PCRE\_OBJDIR)/ to each object and
-$(PCRE\_DIR)/ to each header. I did it manually, it's just a couple of
-files. Now your pcre.mk is fairly up to date and it's time to start
-patching in the changes...
+    ~/erts/emulator/pcre/> make -f pcre.mk depend
+
+Now your pcre.mk is fairly up to date and it's time to start patching in the changes...
 
 ## Updating pcre2_match.c
 
@@ -473,7 +471,7 @@ fix whatever you did in pcre.mk to make it build locally.
 ## Update test suites
 
 The next step is to integrate the updated PCRE2 tests into our test suites.
-Copy testoutput[1-5,10] from the testdata directory of your new version
+Copy testoutput[1,2,4,5,10] from the testdata directory of your new version
 of pcre2, to the re\_SUITE\_data in stdlib's test suites. Run the
 test suites and remove any bugs. Usually the bugs come from the fact
 that the PCRE test suites get better and from our implementation of
