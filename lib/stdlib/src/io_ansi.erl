@@ -98,35 +98,50 @@ that should handle it. `io_ansi:fwrite/4` works across nodes and will use the
 -export([light_black_background/0, light_red_background/0, light_green_background/0,
          light_yellow_background/0, light_blue_background/0, light_magenta_background/0,
          light_cyan_background/0, light_white_background/0]).
+-export([black_underline/0, red_underline/0, green_underline/0, yellow_underline/0,
+         blue_underline/0, magenta_underline/0, cyan_underline/0, white_underline/0,
+         default_underline_color/0]).
+-export([light_black_underline/0, light_red_underline/0, light_green_underline/0,
+         light_yellow_underline/0, light_blue_underline/0, light_magenta_underline/0,
+         light_cyan_underline/0, light_white_underline/0]).
 -export([modify_color/4]).
--export([bold/0, bold_off/0, underline/0, underline_off/0, negative/0, negative_off/0]).
+-export([bold/0, bold_off/0, blink/0, blink_off/0, dim/0, dim_off/0,
+         invisible/0, invisible_off/0, italic/0, italic_off/0, negative/0, negative_off/0]).
+-export([strikethrough/0, strikethrough_off/0]).
+-export([underline/0, underline_off/0]).
+-export([underline_color/1, underline_color/3]).
+-export([double_underline/0, curly_underline/0, dotted_underline/0, dashed_underline/0]).
+-export([overline/0, overline_off/0]).
 -export([hyperlink_start/1, hyperlink_start/2, hyperlink_reset/0]).
 -export([clear/0, erase_display/0, insert_character/1, delete_character/0,
          delete_character/1, erase_character/1, insert_line/0, insert_line/1,
          delete_line/0, delete_line/1, erase_line/0]).
 -export([alternate_character_set_mode/0, alternate_character_set_mode_off/0]).
--export([cursor/2, cursor_up/0, cursor_up/1, cursor_down/0, cursor_down/1,
+-export([cursor/2, cursor_move/2, cursor_up/0, cursor_up/1, cursor_down/0, cursor_down/1,
          cursor_forward/0, cursor_forward/1, cursor_backward/0, cursor_backward/1,
          cursor_home/0, reverse_index/0, cursor_save/0, cursor_restore/0, 
          cursor_show/0, cursor_hide/0, 
          cursor_next_line/0, cursor_previous_line/0, cursor_horizontal_absolute/1,
-         cursor_vertical_absolute/1, cursor_horizontal_vertical/2, cursor_report_position/0]).
+         cursor_vertical_absolute/1, cursor_horizontal_vertical/2, cursor_report_position/0,
+         cursor_get_position/0]).
 -export([alternate_screen/0, alternate_screen_off/0,
         scroll_forward/0, scroll_forward/1, scroll_backward/0, scroll_backward/1,
         scroll_change_region/2]).
 -export([tab/0, tab_backward/0, tab_set/0, tab_clear/0, tab_clear_all/0]).
 -export([keypad_transmit_mode/0, keypad_transmit_mode_off/0]).
 -export([reset/0, device_report_attributes/0]).
-
+-export([color_name_to_index/1]).
 -import(lists, [concat/1]).
 
 -doc "The format string that can be passed to `format/3` and `fwrite/4`".
 -type format() :: [string() | vts()].
 
+-type color_atom() :: black | blue | cyan | green | magenta | red | white | yellow |
+                      light_black | light_blue | light_cyan | light_green |
+                      light_magenta | light_red | light_white | light_yellow.
+
 -doc "Virtual terminal sequences that control the foreground (aka text) color.".
--type foreground_color() :: black | blue | cyan | green | magenta | red | white | yellow |
-                            light_black | light_blue | light_cyan | light_green |
-                            light_magenta | light_red | light_white | light_yellow |
+-type foreground_color() :: color_atom() |
                             {color, 0..255} | {color, R :: 0..255, G :: 0..255, B :: 0..255} |
                             default_color.
 -doc "Virtual terminal sequences that control the background color.".
@@ -137,14 +152,32 @@ that should handle it. `io_ansi:fwrite/4` works across nodes and will use the
                             light_cyan_background | light_green_background |
                             light_magenta_background | light_red_background |
                             light_white_background | light_yellow_background |
-                            {color_background, 0..255} |
-                            {color_background, R :: 0..255, G :: 0..255, B :: 0..255}.
+                            {background, 0..255} |
+                            {background, R :: 0..255, G :: 0..255, B :: 0..255}.
+
+-doc "Virtual terminal sequences that control underline color.".
+-type underline_color() :: black_underline | blue_underline | cyan_underline |
+                           green_underline | magenta_underline | red_underline |
+                           white_underline | yellow_underline | default_underline |
+                           light_black_underline | light_blue_underline |
+                           light_cyan_underline | light_green_underline |
+                           light_magenta_underline | light_red_underline |
+                           light_white_underline | light_yellow_underline |
+                           {underline_color, 0..255} |
+                           {underline_color, R :: 0..255, G :: 0..255, B :: 0..255}.
+
 -doc "Virtual terminal sequences that control color.".
--type color() :: foreground_color() | background_color() |
+-type color() :: foreground_color() | background_color() | underline_color() |
                  {modify_color, Index :: 0..255, R :: 0..255, G :: 0..255, B :: 0..255}.
 
+-doc "Virtual terminal sequences that control underline style.".
+-type underline_style() :: underline | underline_off | double_underline | curly_underline |
+                           dotted_underline | dashed_underline .
+
 -doc "Virtual terminal sequences that control text style.".
--type style() :: bold | bold_off | underline | underline_off | negative | negative_off.
+-type style() :: bold | bold_off | blink | blink_off | dim | dim_off | invisible | invisible_off |
+                 italic | italic_off | negative | negative_off | overline | overline_off |
+                 strikethrough | strikethrough_off | underline_style().
 
 -type hyperlink_params() :: [{Key :: unicode:chardata(), Value :: unicode:chardata()}].
 
@@ -167,6 +200,7 @@ that should handle it. `io_ansi:fwrite/4` works across nodes and will use the
 -doc "Virtual terminal sequences that controls the cursor.".
 -type cursor() ::
         {cursor, Line :: non_neg_integer(), Column :: non_neg_integer()} |
+        {cursor_move, DeltaLine :: integer(), DeltaColumn :: integer()} |
         cursor_down | cursor_up | cursor_backward | cursor_forward |
         {cursor_down | cursor_backward | cursor_forward | cursor_up, N :: non_neg_integer()} |
         cursor_home | reverse_index | cursor_save | cursor_restore |
@@ -341,6 +375,33 @@ tinfo() ->
         -spec NAME(ARG1 :: integer(), ARG2 :: integer()) -> unicode:chardata()).
 
 -doc """
+Convert a color atom to its corresponding index (0-15)
+
+Example:
+```erlang
+1> io_ansi:color_name_to_index(red).
+1
+```
+""".
+-spec color_name_to_index(Color :: color_atom()) -> 0..15.
+color_name_to_index(black) -> 0;
+color_name_to_index(red) -> 1;
+color_name_to_index(green) -> 2;
+color_name_to_index(yellow) -> 3;
+color_name_to_index(blue) -> 4;
+color_name_to_index(magenta) -> 5;
+color_name_to_index(cyan) -> 6;
+color_name_to_index(white) -> 7;
+color_name_to_index(light_black) -> 8;
+color_name_to_index(light_red) -> 9;
+color_name_to_index(light_green) -> 10;
+color_name_to_index(light_yellow) -> 11;
+color_name_to_index(light_blue) -> 12;
+color_name_to_index(light_magenta) -> 13;
+color_name_to_index(light_cyan) -> 14;
+color_name_to_index(light_white) -> 15.
+
+-doc """
 Change foreground (aka text) color to black.
 
 Example:
@@ -448,7 +509,9 @@ Example:
 <<"\e[38;5;80m">>
 ```
 """.
--spec color(Index :: 0..255 | 0..87) -> unicode:chardata().
+-spec color(Index :: 0..255 | 0..87 | color_atom()) -> unicode:chardata().
+color(Color) when is_atom(Color) ->
+    Fun = lookup(Color, []), unicode:characters_to_binary(Fun());
 ?FUNCTION(color, Index).
 
 -doc """
@@ -583,7 +646,11 @@ Example:
 <<"\e[48;5;80m">>
 ```
 """.
--spec background(Index :: 0..255 | 0..87) -> unicode:chardata().
+-spec background(Index :: 0..255 | 0..87 | color_atom()) -> unicode:chardata().
+background(Color) when is_atom(Color) ->
+    Index = color_name_to_index(Color),
+    F = lookup(background, [Index]),
+    unicode:characters_to_binary(F(Index));
 ?FUNCTION(background, Index).
 
 -doc """
@@ -853,6 +920,177 @@ Example:
 ?FUNCTION(underline_off).
 
 -doc """
+Turn on double underline text style. Not widely supported.
+
+Example:
+```erlang
+1> io_ansi:double_underline().
+<<"\e[4:2m">>
+```
+""".
+?SPEC(double_underline).
+?FUNCTION(double_underline).
+
+-doc """
+Turn on curly underline text style. Not widely supported.
+
+Example:
+```erlang
+1> io_ansi:curly_underline().
+<<"\e[4:3m">>
+```
+""".
+?SPEC(curly_underline).
+?FUNCTION(curly_underline).
+
+-doc """
+Turn on dotted underline text style. Not widely supported.
+
+Example:
+```erlang
+1> io_ansi:dotted_underline().
+<<"\e[4:4m">>
+```
+""".
+?SPEC(dotted_underline).
+?FUNCTION(dotted_underline).
+
+-doc """
+Turn on dashed underline text style. Not widely supported.
+
+Example:
+```erlang
+1> io_ansi:dashed_underline().
+<<"\e[4:5m">>
+```
+""".
+?SPEC(dashed_underline).
+?FUNCTION(dashed_underline).
+
+
+-doc """
+Turn on overline text style.
+
+Example:
+```erlang
+1> io_ansi:overline().
+<<"\e[53m">>
+```
+""".
+?SPEC(overline).
+?FUNCTION(overline).
+
+-doc """
+Turn off overline text style.
+
+Example:
+```erlang
+1> io_ansi:overline_off().
+<<"\e[55m">>
+```
+""".
+?SPEC(overline_off).
+?FUNCTION(overline_off).
+
+-doc """
+Turn on blink text style. Not widely supported.
+
+Example:
+```erlang
+1> io_ansi:blink().
+<<"\e[5m">>
+```
+""".
+?SPEC(blink).
+?FUNCTION(blink).
+
+-doc """
+Turn off blink text style.
+
+Example:
+```erlang
+1> io_ansi:blink_off().
+<<"\e[25m">>
+```
+""".
+?SPEC(blink_off).
+?FUNCTION(blink_off).
+
+-doc """
+Turn on dim text style. Not widely supported.
+
+Example:
+```erlang
+1> io_ansi:dim().
+<<"\e[2m">>
+```
+""".
+?SPEC(dim).
+?FUNCTION(dim).
+
+-doc """
+Turn off dim text style.
+
+Example:
+```erlang
+1> io_ansi:dim_off().
+<<"\e[22m">>
+```
+""".
+?SPEC(dim_off).
+?FUNCTION(dim_off).
+
+
+-doc """
+Turn on invisible text style. Not widely supported.
+
+Example:
+```erlang
+1> io_ansi:invisible().
+<<"\e[8m">>
+```
+""".
+?SPEC(invisible).
+?FUNCTION(invisible).
+
+-doc """
+Turn off invisible text style.
+
+Example:
+```erlang
+1> io_ansi:invisible_off().
+<<"\e[28m">>
+```
+""".
+?SPEC(invisible_off).
+?FUNCTION(invisible_off).
+
+
+-doc """
+Turn on italic text style. Not widely supported.
+
+Example:
+```erlang
+1> io_ansi:italic().
+<<"\e[3m">>
+```
+""".
+?SPEC(italic).
+?FUNCTION(italic).
+-doc """
+Turn off italic text style.
+
+Example:
+```erlang
+1> io_ansi:italic_off().
+<<"\e[23m">>
+```
+""".
+?SPEC(italic_off).
+?FUNCTION(italic_off).
+
+
+-doc """
 Turn on negative text style.
 
 Example:
@@ -875,6 +1113,265 @@ Example:
 """.
 ?SPEC(negative_off).
 ?FUNCTION(negative_off).
+
+
+-doc """
+Turn on strikethrough text style. Not widely supported.
+
+Example:
+```erlang
+1> io_ansi:strikethrough().
+<<"\e[9m">>
+```
+""".
+?SPEC(strikethrough).
+?FUNCTION(strikethrough).
+
+-doc """
+Turn off strikethrough text style.
+
+Example:
+```erlang
+1> io_ansi:strikethrough_off().
+<<"\e[29m">>
+```
+""".
+?SPEC(strikethrough_off).
+?FUNCTION(strikethrough_off).
+
+
+-doc """
+Change underline color to black. Not widely supported.
+
+Example:
+```erlang
+1> io_ansi:black_underline().
+<<"\e[58;5;0m">>
+```
+""".
+?SPEC(black_underline).
+?FUNCTION(black_underline).
+
+-doc """
+Change underline color to red. Not widely supported.
+
+Example:
+```erlang
+1> io_ansi:red_underline().
+<<"\e[58;5;1m">>
+```
+""".
+?SPEC(red_underline).
+?FUNCTION(red_underline).
+
+-doc """
+Change underline color to green. Not widely supported.
+
+Example:
+```erlang
+1> io_ansi:green_underline().
+<<"\e[58;5;2m">>
+```
+""".
+?SPEC(green_underline).
+?FUNCTION(green_underline).
+
+-doc """
+Change underline color to yellow. Not widely supported.
+
+Example:
+```erlang
+1> io_ansi:yellow_underline().
+<<"\e[58;5;3m">>
+```
+""".
+?SPEC(yellow_underline).
+?FUNCTION(yellow_underline).
+
+-doc """
+Change underline color to blue. Not widely supported.
+
+Example:
+```erlang
+1> io_ansi:blue_underline().
+<<"\e[58;5;4m">>
+```
+""".
+?SPEC(blue_underline).
+?FUNCTION(blue_underline).
+
+-doc """
+Change underline color to magenta. Not widely supported.
+
+Example:
+```erlang
+1> io_ansi:magenta_underline().
+<<"\e[58;5;5m">>
+```
+""".
+?SPEC(magenta_underline).
+?FUNCTION(magenta_underline).
+
+-doc """
+Change underline color to cyan. Not widely supported.
+
+Example:
+```erlang
+1> io_ansi:cyan_underline().
+<<"\e[58;5;6m">>
+```
+""".
+?SPEC(cyan_underline).
+?FUNCTION(cyan_underline).
+
+-doc """
+Change underline color to white. Not widely supported.
+
+Example:
+```erlang
+1> io_ansi:white_underline().
+<<"\e[58;5;7m">>
+```
+""".
+?SPEC(white_underline).
+?FUNCTION(white_underline).
+
+-doc """
+Change underline color to light black. Not widely supported.
+
+Example:
+```erlang
+1> io_ansi:light_black_underline().
+<<"\e[58;5;8m">>
+```
+""".
+?SPEC(light_black_underline).
+?FUNCTION(light_black_underline).
+-doc """
+Change underline color to light red. Not widely supported.
+
+Example:
+```erlang
+1> io_ansi:light_red_underline().
+<<"\e[58;5;9m">>
+```
+""".
+?SPEC(light_red_underline).
+?FUNCTION(light_red_underline).
+-doc """
+Change underline color to light green. Not widely supported.
+
+Example:
+```erlang
+1> io_ansi:light_green_underline().
+<<"\e[58;5;10m">>
+```
+""".
+?SPEC(light_green_underline).
+?FUNCTION(light_green_underline).
+-doc """
+Change underline color to light yellow. Not widely supported.
+
+Example:
+```erlang
+1> io_ansi:light_yellow_underline().
+<<"\e[58;5;11m">>
+```
+""".
+?SPEC(light_yellow_underline).
+?FUNCTION(light_yellow_underline).
+-doc """
+Change underline color to light magenta. Not widely supported.
+
+Example:
+```erlang
+1> io_ansi:light_magenta_underline().
+<<"\e[58;5;13m">>
+```
+""".
+?SPEC(light_magenta_underline).
+?FUNCTION(light_magenta_underline).
+-doc """
+Change underline color to light blue. Not widely supported.
+
+Example:
+```erlang
+1> io_ansi:light_blue_underline().
+<<"\e[58;5;12m">>
+```
+""".
+?SPEC(light_blue_underline).
+?FUNCTION(light_blue_underline).
+-doc """
+Change underline color to light cyan. Not widely supported.
+
+Example:
+```erlang
+1> io_ansi:light_cyan_underline().
+<<"\e[58;5;14m">>
+```
+""".
+?SPEC(light_cyan_underline).
+?FUNCTION(light_cyan_underline).
+
+-doc """
+Change underline color to light white. Not widely supported.
+
+Example:
+```erlang
+1> io_ansi:light_white_underline().
+<<"\e[58;5;15m">>
+```
+""".
+?SPEC(light_white_underline).
+?FUNCTION(light_white_underline).
+
+-doc """
+Set underline color to a named color or index color. Not widely supported.
+
+Accepts color atoms (`red`, `blue`, `light_green`, etc.) or index colors (0-255).
+Index 0-15 correspond to the named colors in `t:color_atom/0`.
+
+Example:
+```erlang
+1> io_ansi:underline_color(red).
+<<"\e[58;5;1m">>
+2> io_ansi:underline_color(light_cyan).
+<<"\e[58;5;14m">>
+3> io_ansi:underline_color(196).
+<<"\e[58;5;196m">>
+```
+""".
+-spec underline_color(Index :: 0..255 | color_atom()) -> unicode:chardata().
+underline_color(Color) when is_atom(Color) ->
+    Index = color_name_to_index(Color),
+    F = lookup(underline_color, [Index]),
+    unicode:characters_to_binary(F(Index));
+?FUNCTION(underline_color, Index).
+
+-doc """
+Set underline color to RGB color. Not widely supported.
+
+Example:
+```erlang
+1> io_ansi:underline_color(255, 0, 0).
+<<"\e[58;2;255;0;0m">>
+```
+""".
+-spec underline_color(0..255, 0..255, 0..255) -> unicode:chardata().
+?FUNCTION(underline_color, Red, Green, Blue).
+
+-doc """
+Reset underline color to the default.
+
+Example:
+```erlang
+1> io_ansi:default_underline_color().
+<<"\e[59m">>
+```
+""".
+?SPEC(default_underline_color).
+?FUNCTION(default_underline_color).
 
 -doc """
 Clear screen and set cursor to home.
@@ -1046,6 +1543,36 @@ Example:
 """.
 ?SPEC(cursor, Line, Column).
 ?FUNCTION(cursor, Line, Column).
+
+-doc """
+Move the cursor relative to its current position.
+
+Positive `DeltaLine` moves down, negative moves up.
+Positive `DeltaColumn` moves right (forward), negative moves left (backward).
+
+Example:
+```erlang
+1> io_ansi:cursor_move(-5, 0).
+<<"\e[5A">>
+2> io_ansi:cursor_move(0, 10).
+<<"\e[10C">>
+3> io_ansi:cursor_move(3, -2).
+<<"\e[3B\e[2D">>
+4> io_ansi:cursor_move(0, 0).
+<<>>
+```
+""".
+-spec cursor_move(DeltaLine :: integer(), DeltaColumn :: integer()) -> unicode:chardata().
+cursor_move(DL, DC) ->
+    unicode:characters_to_binary([cursor_rel_line(DL), cursor_rel_col(DC)]).
+
+cursor_rel_line(DL) when DL < 0 -> cursor_up(-DL);
+cursor_rel_line(DL) when DL > 0 -> cursor_down(DL);
+cursor_rel_line(0) -> [].
+
+cursor_rel_col(DC) when DC < 0 -> cursor_backward(-DC);
+cursor_rel_col(DC) when DC > 0 -> cursor_forward(DC);
+cursor_rel_col(0) -> [].
 
 -doc """
 Move the cursor up one line.
@@ -1264,7 +1791,8 @@ Example:
 ?FUNCTION(cursor_vertical_absolute, X).
 
 -doc """
-Move the cursor to line `X` and column `Y`.
+Move the cursor to line `X` and column `Y`. Position 1,1 is at the top left of the
+terminal.
 
 Example:
 ```erlang
@@ -1286,19 +1814,61 @@ Examples:
 ```
 
 ```bash
-## Enter noshell-raw mode and request curson location and then print
+## Enter noshell-raw mode and request cursor location and then print
 ## the reply to stdout.
 $ erl -noshell -eval 'shell:start_interactive({noshell,raw}),
     io_ansi:fwrite([cursor_report_position]),
     io:format("~p",[io:get_chars("",20)])' -s init stop
 "\e[58;1R"
 ```
+The reported cursor position in the example is row 58 and column 1 both are 1 index based.
 """.
 ?SPEC(cursor_report_position).
 ?FUNCTION(cursor_report_position).
 
+
 -doc """
-Activate the alternate screen.
+Get the current cursor position as {Row, Column}.
+Example:
+```bash
+## Enter noshell-raw mode and request cursor location and then print
+## the reply to stdout.
+$ erl -noshell -eval 'shell:start_interactive({noshell,raw}),
+    {Row,Col} = io_ansi:cursor_get_position(),
+    io:format("~p",[{Row,Col}])' -s init stop
+{58,1}
+```
+""".
+-spec cursor_get_position() -> {Row :: non_neg_integer(), Column :: non_neg_integer()} | {error, string()}.
+cursor_get_position() ->
+    %% This function can be used to get the
+    %% current cursor position by sending the cursor report sequence
+    %% and reading the response from the terminal.
+    io_ansi:fwrite([cursor_report_position]),
+    Response = io:get_chars("", 20),
+    parse_cursor_position(Response).
+
+parse_cursor_position("\e[" ++ Rest) ->
+    case string:split(Rest, ";") of
+        [RowBin, ColBinWithR] ->
+            ColBin = string:substr(ColBinWithR, 1, string:len(ColBinWithR) - 1),
+            Row = list_to_integer(RowBin),
+            Col = list_to_integer(ColBin),
+            {Row, Col};
+        _ ->
+            {error, "Not a cursor position response"}
+    end;
+parse_cursor_position(_) ->
+    {error, "Not a cursor position response"}.
+
+-doc """
+Activate the alternate screen buffer.
+
+The alternate screen buffer is a separate screen buffer that full-screen terminal
+applications (like `vim`, `less`, `htop`, or `man`) use to display their content.
+When activated, the current screen content and cursor position are saved. When
+deactivated with `alternate_screen_off/0`, the original screen content is restored,
+making it appear as if the full-screen application was never there.
 
 Example:
 ```erlang
@@ -1647,13 +2217,17 @@ scan_binary(<<>>, Bin, Acc) ->
 
 lookup_vts(Data) ->
     try
-        [case Data of
-                <<Value:(byte_size(Value))/binary, Rest/binary>> ->
-                    throw({Key, Value, Rest});
-                _ ->
-                    ok
-            end || Key := Values <- get_vts_mappings(),
-             Value <- Values],
+        %% Check that data starts with a known VTS sequence e.g. \e[34m for blue
+        %% throws {blue, <<\e[34m>>, Rest} on success.
+        F = fun(VtsPrefixedData, Key, Value) -> 
+                case VtsPrefixedData of
+                    <<Value:(byte_size(Value))/binary, Rest/binary>> ->
+                        throw({Key, Value, Rest});
+                    _ ->
+                        ok
+                end
+            end,
+        [F(Data, Key, Value) || Key := Values <- get_vts_mappings(), Value <- Values],
         undefined
     catch throw:KeyValueRest ->
         KeyValueRest
@@ -1942,7 +2516,7 @@ init_vts_mappings() ->
                                                    {ok, TermInfoStr} = prim_tty:tputs(S, Args),
                                                    [unicode:characters_to_binary(TermInfoStr),
                                                     unicode:characters_to_binary(Ansi)];
-                                               undefined ->
+                                               false ->
                                                    F({undefined, Ansi})
                                            catch error:badarg ->
                                                    F({undefined, Ansi})
@@ -2073,12 +2647,50 @@ default_mappings() ->
        light_cyan_background => { {"setab", [14]}, sgr(["106"]) },
        light_white_background => { {"setab", [15]}, sgr(["107"]) },
 
+       black_underline => { undefined, sgr(["58;5;0"]) },
+       red_underline => { undefined, sgr(["58;5;1"]) },
+       green_underline => { undefined, sgr(["58;5;2"]) },
+       yellow_underline => { undefined, sgr(["58;5;3"]) },
+       blue_underline => { undefined, sgr(["58;5;4"]) },
+       magenta_underline => { undefined, sgr(["58;5;5"]) },
+       cyan_underline => { undefined, sgr(["58;5;6"]) },
+       white_underline => { undefined, sgr(["58;5;7"]) },
+
+       light_black_underline => { undefined, sgr(["58;5;8"]) },
+       light_red_underline => { undefined, sgr(["58;5;9"]) },
+       light_green_underline => { undefined, sgr(["58;5;10"]) },
+       light_yellow_underline => { undefined, sgr(["58;5;11"]) },
+       light_blue_underline => { undefined, sgr(["58;5;12"]) },
+       light_magenta_underline => { undefined, sgr(["58;5;13"]) },
+       light_cyan_underline => { undefined, sgr(["58;5;14"]) },
+       light_white_underline => { undefined, sgr(["58;5;15"]) },
+
        bold => { "bold", "\e[1m" },
        bold_off => { undefined, "\e[22m" },
-       underline => { "smul", "\e[4m" },
-       underline_off => { "rmul", "\e[24m" },
+       dim => { undefined, "\e[2m" },
+       dim_off => { undefined, "\e[22m" },
+       italic => { "sitm", "\e[3m" },
+       italic_off => { "ritm", "\e[23m" },
+       blink => { "blink", "\e[5m" },
+       blink_off => { undefined, "\e[25m" },
        negative => { "smso", "\e[7m"},
        negative_off => { "rmso", "\e[27m"},
+       invisible => { "smicm", "\e[8m" },
+       invisible_off => { "rmicm", "\e[28m" },
+       strikethrough => { "smxx", "\e[9m" },
+       strikethrough_off => { "rmxx", "\e[29m" },
+       overline => { undefined, "\e[53m" },
+       overline_off => { undefined, "\e[55m" },
+
+       underline => { "smul", "\e[4m" },
+       underline_off => { "rmul", "\e[24m" },
+       double_underline => { undefined, "\e[4:2m" },
+       curly_underline => { undefined, "\e[4:3m" },
+       dotted_underline => { undefined, "\e[4:4m" },
+       dashed_underline => { undefined, "\e[4:5m" },
+       underline_color => [{undefined, fun(Index) -> sgr(["58","5",s(Index)]) end},
+                           {undefined, fun(R, G, B) -> sgr(["58","2",s(R),s(G),s(B)]) end}],
+       default_underline_color => {undefined, sgr(["59"])},
 
        alternate_character_set_mode => {"smacs", "\e(0" },
        alternate_character_set_mode_off => {"rmacs", "\e(B" },

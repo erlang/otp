@@ -1291,11 +1291,27 @@ insert_buf(State, Bin, LineAcc, Acc) ->
 %% calling re:run/2 nif on compiled regex_pattern was significantly
 %% slower than this implementation.
 ansi_sgr(<<N/utf8, $[, Rest/binary>> = Bin) when N =:= $\e; N =:= 155 ->
-    case ansi_sgr(Rest, 2) of
-        {ok, Size} ->
-            <<Result:Size/binary, Bin1/binary>> = Bin,
-            {Result, Bin1};
-        none -> none
+    case os:getenv("NO_COLOR") of
+        false ->
+            case ansi_sgr(Rest, 2) of
+                {ok, Size} ->
+                    <<Result:Size/binary, Bin1/binary>> = Bin,
+                    {Result, Bin1};
+                none -> none
+            end;
+        _ ->
+            case filter_sgr_colors(Bin) of
+                <<>> -> none; %% No SGR left, return none
+                <<N/utf8, $[, RestFiltered/binary>> = BinFiltered ->
+                    %% Filtered SGR, so we return the filtered binary
+                    %% without any ANSI escape sequences
+                    case ansi_sgr(RestFiltered, 2) of
+                        {ok, Size} ->
+                            <<Result:Size/binary, Bin1/binary>> = BinFiltered,
+                            {Result, Bin1};
+                        none -> none
+                    end
+            end
     end;
 ansi_sgr(<<_/binary>>) -> none.
 ansi_sgr(<<M, Rest/binary>>, Size) when $0 =< M, M =< $; ->
@@ -1303,6 +1319,70 @@ ansi_sgr(<<M, Rest/binary>>, Size) when $0 =< M, M =< $; ->
 ansi_sgr(<<$m, _Rest/binary>>, Size) ->
     {ok, Size + 1};
 ansi_sgr(<<_/binary>>, _) -> none.
+
+-spec filter_sgr_colors(binary()) -> binary().
+filter_sgr_colors(<<N/utf8, $[, Rest/binary>>) when N =:= $\e; N =:= 155 ->
+    case binary:split(Rest, <<"m">>) of
+        [Params, Tail] ->
+            FilteredParams = filter_sgr_params(binary:split(Params, <<";">>, [global])),
+            case FilteredParams of
+                [] -> Tail;  %% No params left, skip the whole sequence
+                _ -> iolist_to_binary([N, $[, lists:join($;, FilteredParams), "m", Tail])
+            end;
+        _ ->
+            <<N, $[, Rest/binary>>  %% Not a valid SGR, return as-is
+    end;
+filter_sgr_colors(Other) ->
+    Other.
+
+%% Filter a list of SGR parameter binaries, removing color-related ones
+filter_sgr_params(Params) ->
+    filter_sgr_params(Params, []).
+
+filter_sgr_params([], Acc) ->
+    lists:reverse(Acc);
+filter_sgr_params([<<>> | Rest], Acc) ->
+    %% Skip empty parameters
+    filter_sgr_params(Rest, Acc);
+filter_sgr_params([P | Rest], Acc) ->
+    try
+        N = binary_to_integer(P),
+        case is_color_param(N) of
+            true ->
+                %% Check if this is an extended color (38, 48, 58)
+                Skip = extended_color_skip(N, Rest),
+                filter_sgr_params(lists:nthtail(Skip, Rest), Acc);
+            false ->
+                filter_sgr_params(Rest, [P | Acc])
+        end
+    catch _:_ ->
+            %% Not a number, keep it (shouldn't happen in valid SGR)
+            filter_sgr_params(Rest, [P | Acc])
+    end.
+
+%% Returns true if this SGR parameter is color-related
+is_color_param(N) when N >= 30, N =< 37 -> true;   %% Foreground colors
+is_color_param(38) -> true;                         %% Extended foreground
+is_color_param(39) -> true;                         %% Default foreground
+is_color_param(N) when N >= 40, N =< 47 -> true;   %% Background colors
+is_color_param(48) -> true;                         %% Extended background
+is_color_param(49) -> true;                         %% Default background
+is_color_param(58) -> true;                         %% Underline color
+is_color_param(59) -> true;                         %% Default underline color
+is_color_param(N) when N >= 90, N =< 97 -> true;   %% Bright foreground
+is_color_param(N) when N >= 100, N =< 107 -> true; %% Bright background
+is_color_param(_) -> false.
+
+%% Returns how many additional parameters to skip for extended colors
+%% 38;5;N (256 color) = skip 2 more
+%% 38;2;R;G;B (RGB) = skip 4 more
+extended_color_skip(N, Rest) when N =:= 38; N =:= 48; N =:= 58 ->
+    case Rest of
+        [<<"5">> | _] -> 2;      %% 256-color: skip "5" and the color index
+        [<<"2">> | _] -> 4;      %% RGB: skip "2", R, G, B
+        _ -> 0
+    end;
+extended_color_skip(_, _) -> 0.
 
 -spec to_latin1(erlang:binary(), TTY :: boolean()) -> erlang:iovec().
 to_latin1(Bin, TTY) ->
