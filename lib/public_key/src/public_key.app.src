@@ -21,7 +21,6 @@
               'OCSP-2024-08',
               'OTP-PKIX',
               'OTP-PKIX-Relaxed',
-              'X509-ML-DSA-2025',
               'PKCS-1',
               'PKCS-10',
               'PKCS-3',
