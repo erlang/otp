@@ -197,6 +197,9 @@ release_tests_spec: make_emakefile
 		$(ERL_FILES) $(COVERFILE) $(EXTRA_FILES) "$(RELSYSDIR)"
 	chmod -R u+w "$(RELSYSDIR)"
 	@tar cf - *_SUITE_data property_test | (cd "$(RELSYSDIR)"; tar xf -)
+	$(INSTALL_DIR) "$(RELSYSDIR)/unicode_SUITE_data"
+	$(INSTALL_DATA) ../uc_spec/PropList.txt ../uc_spec/DerivedCoreProperties.txt \
+	       "$(RELSYSDIR)/unicode_SUITE_data"
 	$(INSTALL_DIR) "$(RELSYSDIR)/stdlib_SUITE_data"
 	$(INSTALL_DATA) $(ERL_TOP)/make/otp_version_tickets "$(RELSYSDIR)/stdlib_SUITE_data"
 

@@ -477,7 +477,7 @@ pad(CD, Length, both, Char) when is_integer(Length) ->
 -spec trim(String) -> unicode:chardata() when
       String :: unicode:chardata().
 trim(Str) ->
-    trim(Str, both, unicode_util:whitespace()).
+    trim(Str, both, unicode_util:pattern_whitespace()).
 
 -doc """
 Equivalent to [`trim(String, Dir, Whitespace})`](`trim/3`) where 
@@ -490,7 +490,7 @@ as Pattern_White_Space in
       String :: unicode:chardata(),
       Dir :: direction() | 'both'.
 trim(Str, Dir) ->
-    trim(Str, Dir, unicode_util:whitespace()).
+    trim(Str, Dir, unicode_util:pattern_whitespace()).
 
 -doc """
 Returns a string, where leading or trailing, or both, `Characters` have been
