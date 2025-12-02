@@ -137,3 +137,4 @@ your project has now a new build and runtime dependency and may be subject to `C
 
 For the time being, Erlang/OTP Windows binaries are not reported in the OpenVEX
 specification.
+
