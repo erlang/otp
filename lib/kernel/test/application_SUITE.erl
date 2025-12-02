@@ -2493,7 +2493,13 @@ invalid_app_file(_Config) ->
     {error, {invalid_options,_}} =
         application:load({application,name,[{env,[key]}]}),
     {error, {invalid_options,_}} =
-        application:load({application,name,[{env,[{key,value},{key,value}]}]}).
+        application:load({application,name,[{env,[{key,value},{key,value}]}]}),
+    {error, {invalid_modules, not_a_list}} =
+        application:load({application,name,[{modules, not_a_list}]}),
+    {error, {invalid_module, {mod, 3}}} =
+        application:load({application,name,[{modules, [mod1, mod2, {mod, 3}]}]}),
+    {error, {duplicate_module, mod_x}} =
+        application:load({application,name,[{modules, [mod_a, mod_x, mod_b, mod_x, mod_y]}]}).
 
 %% Test more than one config file defined by one -config parameter:
 handle_many_config_files(Conf) when is_list(Conf) ->

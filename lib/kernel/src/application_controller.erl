@@ -605,6 +605,22 @@ check_conf_data(ConfData) when is_list(ConfData) ->
 check_conf_data(_ConfData) ->
     {error, "configuration must be a list ended by <dot><whitespace>"}.
 
+check_modules(Modules) when is_list(Modules) ->
+    check_modules(Modules, sets:new([{version,2}]));
+check_modules(Invalid) ->
+    {error, {invalid_modules, Invalid}}.
+
+check_modules([], _) ->
+    ok;
+check_modules([Module | Rest], Acc) when is_atom(Module) ->
+    case sets:is_element(Module, Acc) of
+        true ->
+            {error, {duplicate_module, Module}};
+        false ->
+            check_modules(Rest, sets:add_element(Module, Acc))
+    end;
+check_modules([Invalid | _], _) ->
+    {error, {invalid_module, Invalid}}.
 
 check_para([], _AppName) ->
     ok;
@@ -1536,6 +1552,10 @@ make_appl_i({application, Name, Opts}) when is_atom(Name), is_list(Opts) ->
     Id = get_opt(id, Opts, ""),
     Vsn = get_opt(vsn, Opts, ""),
     Mods = get_opt(modules, Opts, []),
+    case check_modules(Mods) of
+        ok -> ok;
+        Error -> throw(Error)
+    end,
     Regs = get_opt(registered, Opts, []),
     Apps = get_opt(applications, Opts, []),
     Mod =
