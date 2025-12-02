@@ -700,20 +700,18 @@ Sets options to be used for subsequent requests.
       DomainDesc :: string(),
       HostName :: string().
 set_options(Options, Profile) when is_atom(Profile) orelse is_pid(Profile) ->
-    IsInetsRunning = [Application || {inets, _, _} = Application <- application:which_applications()] =/= [],
-    case IsInetsRunning of
-        true ->
-            {ok, IpFamily} = get_option(ipfamily, Profile),
-            {ok, UnixSock} = get_option(unix_socket, Profile),
-            case validate_options(Options, IpFamily, UnixSock) of
-                {ok, Opts} ->
-                    httpc_manager:set_options(Opts, profile_name(Profile));
-                Error ->
-                    Error
-                end;
-        _ ->
-            {error, inets_not_started}
-        end.
+    maybe
+        {ok, CurrOpts} ?= get_options([ipfamily, unix_socket], Profile),
+        IpFamily = proplists:get_value(ipfamily, CurrOpts),
+        UnixSock = proplists:get_value(unix_socket, CurrOpts),
+        {ok, Opts} ?= validate_options(Options, IpFamily, UnixSock),
+        try
+            httpc_manager:set_options(Opts, profile_name(Profile))
+        catch
+            exit:{noproc, _} ->
+                {error, inets_not_started}
+        end
+    end.
 
 -doc false.
 -spec set_option(atom(), term()) -> ok | {error, term()}.
