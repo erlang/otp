@@ -2676,18 +2676,35 @@ is_socket_backend(Config) when is_list(Config) ->
 %% ESOCK_TTEST_CONDITION
 
 ttest_condition() ->
-    case application:get_all_env(kernel) of
-        Env when is_list(Env) ->
-            case lists:keyfind(esock_ttest_condition, 1, Env) of
-                {_, infinity = Factor} ->
-                    Factor;
-                {_, Factor} when is_integer(Factor) andalso (Factor > 0) ->
-                    Factor;
+    case os:getenv("ESOCK_TTEST_CONDITION") of
+        false ->
+            case application:get_all_env(kernel) of
+                Env when is_list(Env) ->
+                    case lists:keyfind(esock_ttest_condition, 1, Env) of
+                        {_, infinity = Factor} ->
+                            Factor;
+                        {_, Factor} when is_integer(Factor) andalso
+                                         (Factor > 0) ->
+                            Factor;
+                        _X ->
+                            undefined
+                    end;
                 _ ->
                     undefined
             end;
-        _ ->
-            undefined
+        "infinity" ->
+            infinity;
+        MaybeIntStr ->
+            try list_to_integer(MaybeIntStr) of
+                Factor when is_integer(Factor) andalso
+                            (Factor > 0) ->
+                    Factor;
+                _ ->
+                    undefined
+            catch
+                _:_:_ ->
+                    undefined
+            end
     end.
     
 
