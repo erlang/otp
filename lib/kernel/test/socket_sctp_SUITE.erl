@@ -3668,7 +3668,7 @@ mpo_cast(Pid, Info) ->
     ok.
 
 m_peeloff(#{domain := Domain,
-           addr    := Addr} = State) ->
+            addr   := Addr} = State) ->
     Stream          = 3,
     Timeout         = 501,
     %% On some platforms, 'socket:priority' is not supported,
@@ -3676,14 +3676,27 @@ m_peeloff(#{domain := Domain,
     InheritOpts =
         case is_supported_socket_priority() of
             true ->
-                ?P("~s -> socket:priority *supported* - include in inherit test", [?FUNCTION_NAME]),
+                ?P("~s -> socket:priority *supported* - "
+                   "include 'priority' option", [?FUNCTION_NAME]),
                 [{{socket, priority}, 3}];
             false ->
-                ?P("~s -> socket:priority *not* supported - exclude from inherit test", [?FUNCTION_NAME]),
+                ?P("~s -> socket:priority *not* supported - "
+                   "exclude 'priority' option", [?FUNCTION_NAME]),
                 []
-        end ++ [{{sctp,   nodelay},  true},
-                {{socket, linger},   #{onoff  => true,
-                                       linger => 7}}],
+        end ++ 
+        [{{sctp, nodelay}, true}] ++
+        %% On Solaris attempting to set linger on a seqpacket socket
+        %% results in 'eopnotsupp', so skip this option there.
+        case is_solaris() of
+            true ->
+                ?P("~s -> *solaris* => exclude 'linger' option",
+                   [?FUNCTION_NAME]),
+                [];
+            false ->
+                ?P("~s -> *not* solaris => include 'linger' option",
+                   [?FUNCTION_NAME]),
+                [{{socket, linger}, #{onoff  => true, linger => 7}}]
+        end,
     InheritSockOpts = [SockOpt || {SockOpt, _} <- InheritOpts],
 
     ?P("~s -> try start server", [?FUNCTION_NAME]),
@@ -4476,7 +4489,8 @@ m_peeloff_server_request(#{sock := Sock} = State, From,
                "~n   Reason: ~p"
                "~nwhen"
                "~n   New Value:     ~p"
-               "~n   Current Value: ~p",
+               "~n   Current Value: ~p"
+               "~n   (Socket) Type: ~p",
                [?FUNCTION_NAME, Reason,
                 Value,
                 case socket:getopt(Sock, SockOpt) of
@@ -4484,7 +4498,8 @@ m_peeloff_server_request(#{sock := Sock} = State, From,
                         CurrentValue;
                     {error, _} ->
                         undefined
-                end]),
+                end,
+                get_socket_type(Sock)]),
             ok
     end,
     From ! ?MPO_REPLY(self(), Ref, Result),
@@ -4550,7 +4565,21 @@ m_peeloff_server_request(State, From, Ref, Req) ->
     From ! ?MPO_REPLY(self(), Ref, {error, {unknown_request, Req}}),
     State.
             
-    
+
+get_socket_type(Sock) ->
+    case socket:getopt(Sock, {socket, type}) of
+        {ok, Type} ->
+            Type;
+        {error, _} -> % This is not allways supported...
+            case socket:getopt(Sock, {otp, type}) of
+                {ok, Type} ->
+                    Type;
+                _ ->
+                    undefined
+            end
+    end.
+
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 m_peeloff_server_handler_start(#{ctrl      := CTRL,
@@ -6846,6 +6875,14 @@ t_exc_stop_server({Pid, _}) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% Here are all the *general* test case condition functions.
+
+is_solaris() ->
+    case os:type() of
+        {unix, sunos} ->
+            true;
+        _ ->
+            false
+    end.
 
 has_support_sctp() ->
     case os:type() of
