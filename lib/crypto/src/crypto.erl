@@ -165,7 +165,9 @@ end
 -export([rand_plugin_aes_next/1, rand_plugin_aes_jump/1]).
 -export([rand_plugin_uniform/1]).
 -export([rand_plugin_uniform/2]).
+-export([rand_plugin_bytes/2]).
 -export([rand_cache_plugin_next/1]).
+-export([rand_cache_plugin_bytes/2]).
 -export([rand_uniform/2]).
 -export([public_encrypt/4, private_decrypt/4]).
 -export([private_encrypt/4, public_decrypt/4]).
@@ -2185,8 +2187,12 @@ Create a generator for `m:rand`.
 Create a state object (generator) for [random number generation](`m:rand`),
 which when used by the `m:rand` functions produce
 **cryptographically strong** random numbers (based on OpenSSL's
-`BN_rand_range` function). See also `rand:seed_s/1`, and for example
+`BN_rand_range` function). See `rand:seed_s/1`, and for example
 `rand:uniform_s/2`.
+
+This generator also implements generating bytes efficiently
+(based on OpenSSL's `RAND_bytes` function).
+See `rand:bytes_s/2` and `strong_rand_bytes/1`.
 
 #### _Example_
 
@@ -2270,7 +2276,7 @@ FloatValue = rand:uniform().     % again
 rand_seed_alg(Alg, Seed) ->
     rand:seed(rand_seed_alg_s(Alg, Seed)).
 
--define(CRYPTO_CACHE_BITS, 56).
+-define(CRYPTO_CACHE_BITS, 56). % Has to be divisible by 8
 -define(CRYPTO_AES_BITS, 58).
 
 -doc(#{group => <<"Plug-In Generators">>}).
@@ -2281,13 +2287,17 @@ Create a state object (generator) for [random number generation](`m:rand`),
 which when used by the `m:rand` functions produce
 **cryptographically strong** random number.
 
-See also `rand:seed_s/1` and for example `rand:uniform_s/2`.
+See `rand:seed_s/1` and for example `rand:uniform_s/2`.
 
 If `Alg` is `crypto` this function is equivalent to `rand_seed_s/0`.
 
 If `Alg` is `crypto_cache` the returned generator fetches random data
- with OpenSSL's `RAND_bytes` and caches it as 56 bit numbers
-which makes calculations fast on 64 bit machines.
+ with OpenSSL's `RAND_bytes` and caches it.  Then 56 bit numbers
+are extracted which makes calculations in module `m:rand` fast
+on 64 bit machines.
+
+`Alg = crypto_cache` also implements extracting bytes efficiently.
+See `rand:bytes_s/2` and `strong_rand_bytes/1`.
 
 #### _Example_
 
@@ -2302,7 +2312,7 @@ to raise the exception `error:low_entropy` in case
 the random generator failed due to lack of secure "randomness".
 
 The cache size can be changed from its default value using the
-[crypto app's ](crypto_app.md)configuration parameter `rand_cache_size`.
+[crypto app's ](crypto_app.md) configuration parameter `rand_cache_size`.
 
 > #### Note {: .info }
 >
@@ -2333,8 +2343,8 @@ Create a state object (generator) for [random number generation](`m:rand`),
 which when used by the `m:rand` functions produce
 **cryptographically unpredictable** random numbers
 
-See also `rand:seed_s/1`, and for example `rand:uniform_s/2`.
-Compare to `rand_seed_alg/1`.
+See `rand:seed_s/1`, and for example `rand:uniform_s/2`,
+and compare to `rand_seed_alg/1`.
 
 To get a long period the Xoroshiro928 generator from the `m:rand` module is used
 as a counter (with period 2^928 - 1) and the generator states are scrambled
@@ -2384,11 +2394,13 @@ mk_alg_handler(?MODULE = Alg) ->
        bits => 64,
        next => fun ?MODULE:rand_plugin_next/1,
        uniform => fun ?MODULE:rand_plugin_uniform/1,
-       uniform_n => fun ?MODULE:rand_plugin_uniform/2};
+       uniform_n => fun ?MODULE:rand_plugin_uniform/2,
+       bytes => fun ?MODULE:rand_plugin_bytes/2};
 mk_alg_handler(crypto_cache = Alg) ->
     #{ type => Alg,
        bits => ?CRYPTO_CACHE_BITS,
-       next => fun ?MODULE:rand_cache_plugin_next/1};
+       next => fun ?MODULE:rand_cache_plugin_next/1,
+       bytes => fun ?MODULE:rand_cache_plugin_bytes/2};
 mk_alg_handler(crypto_aes = Alg) ->
     #{ type => Alg,
        bits => ?CRYPTO_AES_BITS,
@@ -2435,14 +2447,49 @@ rand_plugin_uniform(State) ->
 rand_plugin_uniform(Max, State) ->
     {strong_rand_range(Max) + 1, State}.
 
+-doc false.
+rand_plugin_bytes(N, State) ->
+    {strong_rand_bytes(N), State}.
+
 
 -doc false.
-rand_cache_plugin_next({CacheBits, GenBytes, <<>>}) ->
-    rand_cache_plugin_next(
-      {CacheBits, GenBytes, strong_rand_bytes(GenBytes)});
 rand_cache_plugin_next({CacheBits, GenBytes, Cache}) ->
-    <<I:CacheBits, NewCache/binary>> = Cache,
-    {I, {CacheBits, GenBytes, NewCache}}.
+    rand_cache_plugin_next(CacheBits, GenBytes, Cache).
+%%
+rand_cache_plugin_next(CacheBits, GenBytes, Cache) ->
+    case Cache of
+        <<I:CacheBits, NewCache/binary>> ->
+            {I, {CacheBits, GenBytes, NewCache}};
+        <<>> ->
+            NewCache = strong_rand_bytes(GenBytes),
+            rand_cache_plugin_next(CacheBits, GenBytes, NewCache);
+        <<_/binary>> ->
+            <<NewBytes:((CacheBits bsr 3) - byte_size(Cache))/binary,
+              NewCache/binary>> = strong_rand_bytes(GenBytes),
+            <<I:CacheBits>> = <<Cache/binary, NewBytes/binary>>,
+            {I, {CacheBits, GenBytes, NewCache}}
+    end.
+
+-doc false.
+rand_cache_plugin_bytes(
+  N, State = {AlgHandler, {CacheBits, GenBytes, Cache}})
+  when is_integer(N), 0 =< N ->
+    case Cache of
+        <<Bytes:N/binary, NewCache/binary>> ->
+            {Bytes, {AlgHandler, {CacheBits, GenBytes, NewCache}}};
+        <<>> ->
+            {strong_rand_bytes(N), State};
+        <<_/binary>> ->
+            if
+                N =< GenBytes ->
+                    <<NewBytes:(N - byte_size(Cache))/binary,
+                      NewCache/binary>> = strong_rand_bytes(GenBytes),
+                    Bytes = <<Cache/binary, NewBytes/binary>>,
+                    {Bytes, {AlgHandler, {CacheBits, GenBytes, NewCache}}};
+                true ->
+                    {strong_rand_bytes(N), State}
+            end
+    end.
 
 
 %% Encrypt 128 bit counter values and use the 58 lowest

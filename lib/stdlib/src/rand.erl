@@ -606,7 +606,7 @@ for every possible N for the range.
 	exs64_state() | dummy_state() | term().
 
 %% This is the algorithm handling definition within this module,
-%% and the type to use for plugins.
+%% and the type to use for plug-ins.
 %%
 %% The 'type' field must be recognized by the module that implements
 %% the algorithm, to interpret an exported state.
@@ -642,7 +642,9 @@ for every possible N for the range.
           uniform_n =>
               fun ((pos_integer(), state()) -> {pos_integer(), state()}),
           jump =>
-              fun ((state()) -> state())}.
+              fun ((state()) -> state()),
+          bytes =>
+              fun ((non_neg_integer(), state()) -> {binary(), state()})}.
 
 %% Algorithm state
 -doc "Algorithm-dependent state.".
@@ -810,7 +812,7 @@ export_seed() ->
 Export the seed value.
 
 Returns the random number generator state in an external format.
-To be used with `seed/1`.
+To be used with `seed_s/1`.
 
 #### _Shell Example_
 
@@ -1485,16 +1487,13 @@ as required to compose the `t:binary/0`.  Returns the generated
 > a byte sequence by re-using seed, which a cryptographically secure
 > function cannot do.
 >
-> Alas, because this function is based on a PRNG that produces
-> random integers, thus has to create bytes from integers,
-> it becomes rather slow.
+> Alas, when this function is based on a PRNG that produces random integers,
+> such as all in this module's [algorithms](#algorithms) section,
+> bytes has to created from integers, which becomes rather slow.
 >
-> Particularly inefficient and slow is to use
-> a [`rand` plug-in generator](#plug-in-framework) from `m:crypto`
-> such as `crypto:rand_seed_s/0` when calling this function
-> for generating bytes.  Since in that case it is not possible
-> to reproduce the byte sequence anyway; it is better to use
-> `crypto:strong_rand_bytes/1` directly.
+> A plug-in generator may implement a dedicated callback
+> for generating bytes, to mitigate this problem, which in that case
+> is stated in the generator's documentation.
 
 #### _Shell Example_
 
@@ -1510,6 +1509,9 @@ as required to compose the `t:binary/0`.  Returns the generated
 -doc(#{group => <<"Plug-in framework API">>,since => <<"OTP 24.0">>}).
 -spec bytes_s(N :: non_neg_integer(), State :: state()) ->
                      {Bytes :: binary(), NewState :: state()}.
+bytes_s(N, State = {#{bytes:=Bytes}, _})
+  when is_integer(N), 0 =< N ->
+    Bytes(N, State);
 bytes_s(N, {#{bits:=Bits, next:=Next} = AlgHandler, R})
   when is_integer(N), 0 =< N ->
     WeakLowBits = maps:get(weak_low_bits, AlgHandler, 0),
