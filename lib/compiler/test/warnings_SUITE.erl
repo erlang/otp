@@ -731,7 +731,7 @@ maps(Config) when is_list(Config) ->
                  {'EXIT',{badarg,_}} = (catch(M#{ a => 1 })),
                  ok.
            ">>,
-           [],
+           [nowarn_deprecated_catch],
            {warnings,[{{4,48},sys_core_fold,{failed,bad_map_update}}]}},
 	   {bad_map_src2,
            <<"
@@ -741,7 +741,7 @@ maps(Config) when is_list(Config) ->
 		 ok.
 	     id(I) -> I.
            ">>,
-	   [inline],
+	   [inline,nowarn_deprecated_catch],
 	    []},
 	   {bad_map_src3,
            <<"
@@ -749,7 +749,7 @@ maps(Config) when is_list(Config) ->
                  {'EXIT',{badarg,_}} = (catch <<>>#{ a := 1}),
                  ok.
            ">>,
-           [],
+           [nowarn_deprecated_catch],
            {warnings,[{{3,51},sys_core_fold,{failed,bad_map_update}}]}},
            {ok_map_literal_key,
            <<"
