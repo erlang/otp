@@ -67,16 +67,7 @@ markdown_to_manpage(Markdown, Path, Section) ->
         markdown_to_manpage1(shell_docs_markdown:parse_md(Markdown), Path, Section).
 markdown_to_manpage1(MarkdownChunks, Path, Section) ->
     Path1 = filename:absname(Path),
-    App = case filename:split(string:prefix(Path1, os:getenv("ERL_TOP"))) of
-        ["/", "lib", AppStr | _] ->
-            list_to_atom(AppStr);
-        ["lib", AppStr | _] ->
-            list_to_atom(AppStr);
-        ["/", "erts" | _] ->
-            list_to_atom("erts");
-        ["nomatch"] ->
-            error("ERL_TOP environment variable doesn't match the PATH " ++ Path)
-    end,
+    App = get_app(Path1),
     Version = case application:load(App) of
         ok -> {ok,Vsn} = application:get_key(App, vsn), Vsn;
         {error, {"no such file or directory","erts.app"}} -> erlang:system_info(version);
@@ -90,6 +81,19 @@ markdown_to_manpage1(MarkdownChunks, Path, Section) ->
                             [Name, Section, atom_to_binary(App), Version]),
     I = conv(MarkdownChunks, Name),
     iolist_to_binary([Prelude|I]).
+
+get_app(Path) ->
+    case string:split(Path, "/erts/") of
+            [_, _] -> list_to_atom("erts");
+            _ -> case string:split(Path, "/lib/") of
+                [_, Rest] ->
+                    case string:split(Rest, "/") of
+                        [AppStr, _] -> list_to_atom(AppStr);
+                        _ -> error("Could not find app from path " ++ Path)
+                    end;
+                _ -> error("Could not find app from path " ++ Path)
+        end
+    end.
 
 get_name([{h1,_,[Name]}|_], _) when is_binary(Name) ->
     Name;
