@@ -23,6 +23,8 @@
 
 -module(asn1_SUITE).
 
+-compile(nowarn_deprecated_catch).
+
 %% Suppress compilation of an addititional module compiled for maps.
 -define(NO_MAPS_MODULE, asn1_test_lib_no_maps).
 
