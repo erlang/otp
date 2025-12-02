@@ -28,6 +28,8 @@
          init_per_suite/1,end_per_suite/1,
          appup/1,fields/1,modules/1,export_all/1,app_depend/1]).
 
+-compile(nowarn_deprecated_catch).
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 all() ->

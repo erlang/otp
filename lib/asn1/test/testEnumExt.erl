@@ -26,6 +26,8 @@
 
 -include_lib("common_test/include/ct.hrl").
 
+-compile(nowarn_deprecated_catch).
+
 main(Rule) when Rule =:= per; Rule =:= uper ->
     io:format("main(~p)~n",[Rule]),
 
