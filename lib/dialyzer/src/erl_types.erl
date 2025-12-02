@@ -4133,6 +4133,20 @@ from_form({type, _Anno, identifier, []}, _S, _D, L, C) ->
   {t_identifier(), L, C};
 from_form({type, _Anno, integer, []}, _S, _D, L, C) ->
   {t_integer(), L, C};
+from_form({type, _Anno, int, [Width0]}, S, D, L0, C0) ->
+  {Width, L, C} = from_form(Width0, S, D, L0, C0),
+  case t_inf(Width, t_non_neg_integer()) of
+    ?int_range(_From, To) when is_integer(To) ->
+      Span = 1 bsl (To - 1),
+      {t_from_range(-Span, Span - 1), L, C};
+    ?int_set(Set) ->
+      Span = 1 bsl (set_max(Set) - 1),
+      {t_from_range(-Span, Span - 1), L, C};
+    ?integer(_) ->
+      {t_integer(), L, C};
+    ?none ->
+      {t_none(), L, C}
+  end;
 from_form({type, _Anno, iodata, []}, _S, _D, L, C) ->
   {t_iodata(), L, C};
 from_form({type, _Anno, iolist, []}, _S, _D, L, C) ->
@@ -4248,6 +4262,20 @@ from_form({type, _Anno, tuple, Args}, S, D, L, C) ->
 from_form({type, _Anno, union, Args}, S, D, L, C) ->
   {Lst, L1, C1} = list_from_form(Args, S, D, L, C),
   {t_sup(Lst), L1, C1};
+from_form({type, _Anno, uint, [Width0]}, S, D, L0, C0) ->
+  {Width, L, C} = from_form(Width0, S, D, L0, C0),
+  case t_inf(Width, t_non_neg_integer()) of
+    ?int_range(_From, To) when is_integer(To) ->
+      Span = 1 bsl To,
+      {t_from_range(0, Span - 1), L, C};
+    ?int_set(Set) ->
+      Span = 1 bsl set_max(Set),
+      {t_from_range(0, Span - 1), L, C};
+    ?integer(_) ->
+      {t_integer(), L, C};
+    ?none ->
+      {t_none(), L, C}
+  end;
 from_form({user_type, _Anno, Name, Args}, S, D, L, C) ->
   type_from_form(Name, Args, S, D, L, C).
 

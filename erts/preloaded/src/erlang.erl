@@ -136,6 +136,20 @@ An unique identifier for some entity, for example a
 -doc "An Erlang [integer](`e:system:data_types.md#number`).".
 -type integer() :: integer().
 -doc """
+An Erlang [integer](`e:system:data_types.md#number`) with the range of a signed
+two's complement integer of width `N`.
+
+This is equivalent to `-1 bsl (N - 1) .. (1 bsl (N - 1)) - 1`
+""".
+-type int(N) :: int(N).
+-doc """
+An Erlang [integer](`e:system:data_types.md#number`) with the range of an
+unsigned two's complement integer of width `N`.
+
+This is equivalent to `0 .. (1 bsl N) - 1`
+""".
+-type uint(N) :: uint(N).
+-doc """
 A binary or list containing bytes and/or iodata.
 
 This datatype is used to represent data that is meant to be output using
@@ -255,7 +269,8 @@ A timeout value that can be passed to a
               nonempty_list/0, nonempty_list/1, nonempty_maybe_improper_list/0,
               nonempty_maybe_improper_list/2, nonempty_string/0, number/0, pid/0,
               port/0, pos_integer/0, reference/0, string/0, term/0, timeout/0,
-              tuple/0]).
+              tuple/0,
+              int/1, uint/1]).
 
 %% Datatypes that need an erlang: prefix
 -export_type([timestamp/0]).
