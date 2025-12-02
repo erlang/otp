@@ -83,7 +83,7 @@
 -define(spdx_download_location, ~"https://github.com/erlang/otp/releases").
 -define(spdx_homepage, ~"https://www.erlang.org").
 -define(spdx_purl_meta_data, ~"?vcs_url=git+https://github.com/erlang/otp.git").
--define(spdx_version, ~"SPDX-2.2").
+-define(spdx_version, ~"SPDX-2.3").
 -define(otp_version, 'OTP_VERSION'). % file name of the OTP version
 -define(spdx_project_purl, #{ ~"comment" => ~"",
                               ~"referenceCategory" => ~"PACKAGE-MANAGER",
@@ -551,7 +551,8 @@ sbom_fixing_functions(ScanResults) ->
      {fun fix_project_package_version/2, 'OTP_VERSION'},
      {fun fix_has_extracted_license_info/2, extracted_license_info()},
      {fun fix_project_purl/2, ?spdx_project_purl},
-     {fun fix_beam_licenses/2, {Licenses, Copyrights}} ].
+     {fun fix_beam_licenses/2, {Licenses, Copyrights}}
+    ].
 
 fix_project_name(ProjectName, #{ ~"documentDescribes" := [ ProjectName0 ],
                                  ~"packages" := Packages}=Sbom) ->
@@ -1172,7 +1173,7 @@ create_spdx_package(Pkg) ->
     Supplier = Pkg#spdx_package.'supplier',
     Purl1 = case Pkg#spdx_package.'purl' of
                false -> [];
-               _ -> [Pkg#spdx_package.'purl']
+               _ -> Pkg#spdx_package.'purl'
            end,
     #{ ~"SPDXID" => SPDXID,
        ~"versionInfo" => VersionInfo,
@@ -1888,7 +1889,8 @@ create_spdx_package_record(PackageName, Vsn, Description, SpdxPackageFiles,
     VerificationCodeValue = generate_verification_code_value(SpdxPackageFiles),
     Purl1 = case Purl of
                 false -> false;
-                true -> create_externalRef_purl(Description, otp_purl(PackageName, Vsn))
+                true -> [create_externalRef_purl(Description, otp_purl(PackageName, Vsn)),
+                         fix_openvex_reference()]
             end,
     #spdx_package {
        'SPDXID' = SpdxPackageName,
@@ -1910,6 +1912,19 @@ create_spdx_package_record(PackageName, Vsn, Description, SpdxPackageFiles,
        'relationships' = #{}
       }.
 
+
+fix_openvex_reference() ->
+    OTPMajorVersion = hd(string:split(get_otp_version(), ".")),
+    Reference = openvex_iri(OTPMajorVersion),
+    #{
+     ~"referenceCategory" => ~"SECURITY",
+     ~"referenceLocator" => Reference,
+     ~"referenceType" => ~"advisory"
+    }.
+
+%% Branch = ~"28" or similar. just the current version number.
+openvex_iri(Branch) when is_binary(Branch) ->
+    <<"https://erlang.org/download/vex/otp-", Branch/binary, ".openvex.json">>.
 
 otp_app_license_mapping(Name) ->
     case Name of
@@ -2375,16 +2390,23 @@ test_project_purl(#{~"documentDescribes" := [ProjectName], ~"packages" := Packag
     ok.
 
 test_packages_purl(#{~"documentDescribes" := [ProjectName], ~"packages" := Packages}=_Sbom) ->
-    OTPPackages = lists:filter(fun (#{~"SPDXID" := Id, ~"name" := Name}) -> ProjectName =/= Id andalso lists:member(Name, minimum_otp_apps()) end, Packages),
-    true = lists:all(fun (#{~"name" := Name, ~"versionInfo" := Version, ~"externalRefs" := [#{~"referenceLocator":= RefLoc}=Ref]}) ->
+    OTPPackages = lists:filter(fun (#{~"SPDXID" := Id, ~"name" := Name}) ->
+                                       ProjectName =/= Id andalso lists:member(Name, minimum_otp_apps())
+                               end, Packages),
+    true = lists:all(fun (#{~"name" := Name, ~"versionInfo" := Version,
+                            ~"externalRefs" := [#{~"referenceLocator":= RefLoc}=Ref,
+                                                OpenVex]}) ->
                              ExternalRef = create_externalRef_purl(~"", otp_purl(Name, Version)),
                              ExternalRef1 = maps:remove(~"comment", ExternalRef),
                              Ref1 = maps:remove(~"comment", Ref),
 
+                             ExpectedVEX = fix_openvex_reference(),
+
                              %% check expected external ref
                              ExternalRef1 =:= Ref1  andalso
                                  %% check metadata is included in purl
-                                 nomatch =/= string:find(RefLoc, ?spdx_purl_meta_data)
+                                 nomatch =/= string:find(RefLoc, ?spdx_purl_meta_data) andalso
+                                 ExpectedVEX == OpenVex
                      end, OTPPackages),
     ok.
 
@@ -3202,12 +3224,13 @@ fetch_app_from_table(OTPVersion, App0) ->
 convert_range(Version) ->
     string:split(Version, ".", all).
 
-
+%% Branch = "otp-28"
 init_openvex_file(Branch) ->
     Ts = calendar:system_time_to_rfc3339(erlang:system_time(microsecond), [{unit, microsecond}]),
+    [~"otp", Version] = string:split(Branch, ~"-"),
     #{
       ~"@context"   => ~"https://openvex.dev/ns/v0.2.0",
-      ~"@id"        => <<"https://openvex.dev/docs/public/otp/vex-", Branch/binary>>,
+      ~"@id"        => openvex_iri(Version),
       ~"author"     => ~"vexctl",
       ~"timestamp"  => erlang:list_to_binary(Ts),
       ~"version"    => 1,
