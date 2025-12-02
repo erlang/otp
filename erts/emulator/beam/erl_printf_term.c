@@ -548,7 +548,11 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount) {
 	    break;
         case STRUCT_DEF:
             /* FIXME: placeholder. */
-            PRINT_CHAR(res, fn, arg, '%');
+            PRINT_CHAR(res, fn, arg, '#');
+            PRINT_CHAR(res, fn, arg, '_');
+            PRINT_CHAR(res, fn, arg, '{');
+            PRINT_CHAR(res, fn, arg, '}');
+            break;
         case TUPLE_DEF:
             nobj = boxed_val(wobj);     /* pointer to arity */
             i = header_arity(*nobj);    /* arity */
