@@ -30,7 +30,6 @@
 # 4. Check the branch name includes Ericsson EID and OTP-xxxx ticket number (optional warning)
 # 5. Check that upstream is called upstream and not origin. Suggest the commands to fix.
 # 6. Run `git fetch --all` and check that `master` and `maint` are in sync with upstream
-# 7. Check git automatic merge strategy to be fast-forward
 #
 
 import argparse
@@ -197,30 +196,31 @@ def check__master_maint_sync() -> CheckResult:
             suggested_fix="Ensure you are in a git repository with valid upstream configuration"
         )
 
-def check__ff_strategy() -> CheckResult:
-    """Fast-forward merge strategy is used."""
-    import subprocess
-    try:
-        # Check if merge.ff is set to only
-        ff_config = subprocess.check_output(['git', 'config', 'merge.ff'], text=True).strip()
-        if ff_config != 'only':
-            return CheckResult(
-                extra_info="Git merge strategy is not set to fast-forward only",
-                suggested_fix="Run: git config merge.ff only",
-                fatal=False
-            )
-        return CheckResult(passed=True)
-    except subprocess.CalledProcessError:
-        return CheckResult(
-            extra_info="Git merge.ff configuration is not set",
-            suggested_fix="Run: git config merge.ff only"
-        )
+# def check__ff_strategy() -> CheckResult:
+#     """Fast-forward merge strategy is used."""
+#     import subprocess
+#     try:
+#         # Check if merge.ff is set to only
+#         ff_config = subprocess.check_output(['git', 'config', 'merge.ff'], text=True).strip()
+#         if ff_config != 'only':
+#             return CheckResult(
+#                 extra_info="Git merge strategy is not set to fast-forward only",
+#                 suggested_fix="Run: git config merge.ff only",
+#                 fatal=False
+#             )
+#         return CheckResult(passed=True)
+#     except subprocess.CalledProcessError:
+#         return CheckResult(
+#             extra_info="Git merge.ff configuration is not set",
+#             suggested_fix="Run: git config merge.ff only"
+#         )
 
 
 def external_contrib():
     """ Run all shared checks only. """
     apply_check(check__erl_top_env)
-    apply_check(check__ff_strategy)
+    # Note: Using ff-only merge strategy makes it hard to do regular merges, so don't run this check
+    # apply_check(check__ff_strategy)
 
 
 def check__core_email() -> CheckResult:
@@ -331,8 +331,7 @@ def main():
         description="""
         OTP Developer Environment sanity checker.
         Checks for ERL_TOP env variable, ensures pre-push hook activation,
-        checks that master/maint branches are in sync, and some git settings (such as
-        fast-forward merge strategy).
+        checks that master/maint branches are in sync.
         For core developers extra checks are performed:
         developer email must end with approved domains, the branch name must have specific format,
         and the upstream name must be `upstream` and not `origin` or any other.
