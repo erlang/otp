@@ -174,7 +174,11 @@ pdisplay1(fmtfn_t to, void *to_arg, Process* p, Eterm obj)
 	break;
     case STRUCT_DEF:
         /* FIXME: placeholder. */
-        erts_putc(to, to_arg, '%');
+        erts_putc(to, to_arg, '#');
+        erts_putc(to, to_arg, '_');
+        erts_putc(to, to_arg, '{');
+        erts_putc(to, to_arg, '}');
+        break;
     case TUPLE_DEF:
         nobj = boxed_val(obj);      /* pointer to arity */
         i = header_arity(*nobj);    /* arity */
