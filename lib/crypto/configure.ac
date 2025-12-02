@@ -294,9 +294,11 @@ yes
               AS_IF([test "x$ac_cv_sizeof_void_p" = "x8"],
                     [
                         lib_bits=64
+                        arch=64
                     ],
                     [
                         lib_bits=32
+                        arch=86
                     ])
               AS_IF([test -f "$dir/lib/VC/static/libcrypto${lib_bits}MD.lib"],
                     [
@@ -312,6 +314,23 @@ yes
                         dynamic_ssl_lib_name="libssl${lib_bits}MD"
                         dynamic_runtime_lib_dir="$rdir/lib/VC"
                         dynamic_lib_dir="$dir/lib/VC"
+                        found_dynamic_lib=yes
+                    ])
+                    # openssl 3.5+
+              AS_IF([test -f "$dir/lib/VC/x${arch}/MD/libcrypto_static.lib"],
+                    [
+                        static_crypto_lib_name=libcrypto
+                        static_ssl_lib_name="libssl"
+                        static_extra_libs="$static_extra_libs -lCRYPT32 -lWS2_32"
+                        static_lib_dir="$dir/lib/VC/x${arch}/MD"
+                        found_static_lib=yes
+                    ])
+              AS_IF([test -f "$dir/lib/VC/x${arch}/MD/libcrypto.lib"],
+                    [
+                        dynamic_crypto_lib_name=libcrypto
+                        dynamic_ssl_lib_name="libssl"
+                        dynamic_runtime_lib_dir="$rdir/lib/VC/x${arch}/MD"
+                        dynamic_lib_dir="$dir/lib/VC/x${arch}/MD"
                         found_dynamic_lib=yes
                     ])
           ],
