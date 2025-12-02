@@ -1585,7 +1585,7 @@ tls_tunnel_request(#request{headers = Headers,
 			     id = RequestId,
 			     from = From,
 			     address =  {Host, Port}= Adress,
-			     ipv6_host_with_brackets = IPV6}) ->
+			     ipv6_host_with_brackets = IPV6, request_options = ReqOptions}) ->
     
     URI = Host ++":" ++ integer_to_list(Port),
     
@@ -1606,7 +1606,8 @@ tls_tunnel_request(#request{headers = Headers,
        userinfo = "",
        headers_as_is = [],
        started  = http_util:timestamp(),
-       ipv6_host_with_brackets = IPV6       
+       ipv6_host_with_brackets = IPV6,
+       request_options = ReqOptions       
       }.
 
 host_header(#http_request_h{host = Host}, _) ->
