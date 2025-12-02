@@ -37,6 +37,7 @@
 -compile(export_all).
 
 -define(LOCAL_PROXY_SCRIPT, "server_proxy.sh").
+-define(DUMMY_PROXY_SCRIPT, "dummy_proxy.sh").
 -define(p(F, A), % Debug printout
 	begin
 	    io:format(
@@ -55,18 +56,24 @@ suite() ->
 
 all() ->
     [{group,local_proxy},
-     {group,local_proxy_https}].
+     {group,local_proxy_https},
+     {group, remote_proxy},
+     {group, remote_proxy_https},
+     {group, dummy_proxy}].
 
 groups() -> 
     [{local_proxy,[],
       [http_emulate_lower_versions
-       |local_proxy_cases()]},
+       |proxy_cases()]},
      {local_proxy_https,[],
-      local_proxy_cases() ++ local_proxy_https_cases()}].
+      proxy_cases() ++ proxy_https_cases()},
+     {remote_proxy, [], proxy_cases()},
+     {remote_proxy_https, [], proxy_cases() ++ proxy_https_cases()},
+     {dummy_proxy, [], [proxy_upgrade_connect_error]}].
 
 %% internal functions
 
-local_proxy_cases() ->
+proxy_cases() ->
     [http_head,
      http_get,
      http_options,
@@ -81,7 +88,7 @@ local_proxy_cases() ->
      http_stream,
      http_not_modified_otp_6821].
 
-local_proxy_https_cases() ->
+proxy_https_cases() ->
     [https_connect_error,
      http_timeout].
 
@@ -110,12 +117,39 @@ suite_apps() ->
 init_per_group(local_proxy, Config) ->
     init_local_proxy([{protocol,http}|Config]);
 init_per_group(local_proxy_https, Config) ->
-    init_local_proxy([{protocol,https}|Config]).
+    init_local_proxy([{protocol,https}|Config]);
+
+init_per_group(remote_proxy, Config) ->
+    Config1 = init_local_proxy([{protocol,http}|Config]),
+    case Config1 of
+        {skip, _} -> Config1;
+        _ ->
+            {local,{{"localhost",Port},[]}} = proplists:get_value(proxy, Config1),
+            lists:keyreplace(proxy, 1, Config1, {proxy, {local, {{"127.0.0.1", Port}, []}}})
+    end;
+init_per_group(remote_proxy_https, Config) ->
+    Config1 = init_local_proxy([{protocol,https}|Config]),
+    case Config1 of
+        {skip, _} -> Config1;
+        _ ->
+            {local,{{"localhost",Port},[]}} = proplists:get_value(proxy, Config1),
+            lists:keyreplace(proxy, 1, Config1, {proxy, {local, {{"127.0.0.1", Port}, []}}})
+    end;
+
+init_per_group(dummy_proxy, Config) ->
+    ProxyPort = 8000,
+    ProxyAddress = "127.0.0.1",
+    DummyPort = 8080,
+    DummyServer = "localhost",
+    [{proxy, {local, {{ProxyAddress, ProxyPort}, []}}}, {http, {DummyServer, DummyPort}} | Config].
+
 
 end_per_group(Group, Config)
   when
       Group =:= local_proxy;
-      Group =:= local_proxy_https ->
+      Group =:= local_proxy_https;
+      Group =:= remote_proxy;
+      Group =:= remote_proxy_https ->
     rcmd_local_proxy(["stop"], Config),
     Config;
 end_per_group(_, Config) ->
@@ -123,7 +157,16 @@ end_per_group(_, Config) ->
 
 %%--------------------------------------------------------------------
 
-init_per_testcase(Case, Config0) ->
+init_per_testcase(proxy_upgrade_connect_error = Case, Config) ->
+    Response = "HTTP/1.1 500",
+    init_dummy_proxy(Response, Config),
+    do_init_per_testcase(Case, Config);
+init_per_testcase(Case, Config) ->
+    do_init_per_testcase(Case, Config).
+
+do_init_per_testcase(_, {skip, _} = Config) ->
+    Config;
+do_init_per_testcase(Case, Config0) ->
     ct:timetrap({seconds,30}),
     Apps = apps(Case, Config0),
     case init_apps(Apps, Config0) of
@@ -139,6 +182,12 @@ init_per_testcase(Case, Config0) ->
 	    E3
     end.
 
+end_per_testcase(proxy_upgrade_connect_error, Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
+    Script = filename:join(DataDir, ?DUMMY_PROXY_SCRIPT),
+    rcmd(Script, ["stop"], [{cd, PrivDir}]),
+    Config;
 end_per_testcase(_Case, Config) ->
     app_stop(inets),
     Config.
@@ -450,6 +499,26 @@ https_connect_error(Config) when is_list(Config) ->
 	httpc:request(Method, Request, HttpOpts, Opts).
 
 %%--------------------------------------------------------------------
+proxy_upgrade_connect_error(doc) ->
+    ["This targets verification of upgrade process
+    when proxy sends back response code that is not 200"];
+proxy_upgrade_connect_error(Config) when is_list(Config) ->
+    {HttpServer,HttpPort} = proplists:get_value(http, Config),
+    Method = get,
+    %% using HTTPS scheme to test upgrade connection
+    URL = "https://" ++ HttpServer ++ ":" ++
+        integer_to_list(HttpPort) ++ "/index.html",
+    Opts = [],
+    HttpOpts = [?SSL_NO_VERIFY],
+    Request = {URL,[]},
+    %% This is a dummy proxy so no further connection will be established
+    %% We are only interested in testing parsing of the proxy response
+    {error,{failed_connect,[_,{_,_,econnrefused}]}} =
+        httpc:request(Method, Request, HttpOpts, Opts).
+
+
+
+%%--------------------------------------------------------------------
 http_timeout(doc) ->
     ["Test http/https connect and upgrade timeouts."];
 http_timeout(Config) when is_list(Config) ->
@@ -457,10 +526,11 @@ http_timeout(Config) when is_list(Config) ->
     URL = url("/index.html", Config),
     Request = {URL,[]},
     Timeout = timer:seconds(1),
+    {_,{{ProxyAddr, ProxyPort}, []}} = proplists:get_value(proxy, Config),
     HttpOpts1 = [{timeout, Timeout}, {connect_timeout, 0}, ?SSL_NO_VERIFY],
     {error,
      {failed_connect,
-      [{to_address,{"localhost",8000}},
+      [{to_address,{ProxyAddr, ProxyPort}},
        {inet,[inet],timeout}]}}
 	= httpc:request(Method, Request, HttpOpts1, []),
     ok.
@@ -539,6 +609,30 @@ url(AbsPath, Config) ->
 	AbsPath.
 
 %%--------------------------------------------------------------------
+
+init_dummy_proxy(Response, Config) ->
+    case os:type() of
+        {unix, _} ->
+            case os:cmd("which ncat") of
+                [] ->
+                    {skip, "Ncat not available on the system"};
+                _ ->
+                    Proxy = proplists:get_value(proxy, Config),
+                    {_, {{ProxyAddress, ProxyPort}, _}} = Proxy,
+
+                    DataDir = proplists:get_value(data_dir, Config),
+                    PrivDir = proplists:get_value(priv_dir, Config),
+                    Script = filename:join(DataDir, ?DUMMY_PROXY_SCRIPT),
+
+                    spawn(fun() -> rcmd(Script, ["start",
+                                                 ProxyAddress,
+                                                 integer_to_list(ProxyPort),
+                                                 Response], [{cd, PrivDir}])
+                          end)
+            end;
+        _ ->
+            {skip, "Platform cannot run dummy proxy script"}
+    end.
 
 init_local_proxy(Config) ->
     case os:type() of
