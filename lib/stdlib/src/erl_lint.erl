@@ -462,6 +462,8 @@ format_error_1({undefined_native_record_field,F,N}) ->
     {~"field ~tw not defined in native record ~tw", [F,N]};
 format_error_1({no_init_native_record_field,Fs,N}) ->
     {~"field ~tw is not initialized in native record ~tw", [Fs,N]};
+format_error_1({illegal_native_record_default,F,N}) ->
+    {~"illegal default value for field ~tw in native record ~tw", [F,N]};
 format_error_1(bad_multi_field_init) ->
     {~"'_' initializes no omitted fields", []};
 format_error_1({undefined_field,T,F}) ->
@@ -3318,9 +3320,38 @@ native_record_def_fields(Fs0, Name, St0) ->
                      true ->
                          {Fs, add_error(Af, {redefine_native_record_field_def,Name,F}, St)};
                      false ->
-                         {[Field|Fs],St}
+                         St1 = check_field_default(Name, Field, St),
+                         {[Field|Fs],St1}
                  end
          end, {[],St0}, Fs0).
+
+%% Currently, we only allow compile-time constant expressions in native
+%% record definitions.
+check_field_default(Name, Field, St) ->
+    {record_field, Af, {atom, _Aa, F}, Init}=Field,
+    case check_field_default_1(Init) of
+        true -> St;
+        false -> add_error(Af, {illegal_native_record_default,F,Name}, St)
+    end.
+
+check_field_default_1(Init) ->
+    case erl_eval:partial_eval(Init) of
+        {integer,_,_} -> true;
+        {char,_,_} -> true;
+        {float,_,_} -> true;
+        {atom,_,_} -> true;
+        {nil,_} -> true;
+        {cons,_,H,T} ->
+            check_field_default_1(H) andalso check_field_default_1(T);
+        {tuple,_,E} ->
+            all(fun check_field_default_1/1, E);
+        {map,_,E} ->
+            Ks = [K || {_,_,K,_} <- E],
+            Vs = [V || {_,_,_,V} <- E],
+            all(fun check_field_default_1/1, Ks) andalso
+            all(fun check_field_default_1/1, Vs);
+        _ -> false
+    end.
 
 normalise_native_record_fields(Fs) ->
     map(fun ({typed_record_field,{record_field,Af,Field},_Type}) ->
