@@ -694,7 +694,7 @@ lexpr({record, _, Name, Fs}, Prec, Opts) ->
     Nl = record_name(Name),
     El = {first,Nl,record_fields(Fs, Opts)},
     maybe_paren(P, Prec, El);
-lexpr({struct, _, N, Fs}, Prec, Opts) ->
+lexpr({native_record, _, N, Fs}, Prec, Opts) ->
     {P,_R} = preop_prec('#'),
     Nl = struct_name(N),
     El = {first,Nl,record_fields(Fs, Opts)},
@@ -706,11 +706,28 @@ lexpr({record_field, _, Rec, Name, F}, Prec, Opts) ->
     Nl = [Sep,{atom,Name},$.],
     El = [Rl,Nl,lexpr(F, R, Opts)],
     maybe_paren(P, Prec, El);
+lexpr({get_record_field, _, Rec, Name0, F}, Prec, Opts) ->
+    {L,P,R} = inop_prec('#'),
+    Rl = lexpr(Rec, L, Opts),
+    Name = case Name0 of
+              {tuple,_,[{atom,_,M},{atom,_,N}]} -> {M,N};
+              {tuple,_,[]} -> {}
+           end,
+    Nl = struct_name(Name),
+    El = [Rl,Nl,lexpr(F, R, Opts)],
+    maybe_paren(P, Prec, El);
 lexpr({record, _, Rec, Name, Fs}, Prec, Opts) ->
     {L,P,_R} = inop_prec('#'),
     Rl = lexpr(Rec, L, Opts),
     Sep = hash_after_integer(Rec, []),
     Nl = record_name(Name),
+    El = {first,[Rl,Sep,Nl],record_fields(Fs, Opts)},
+    maybe_paren(P, Prec, El);
+lexpr({native_record, _, Name, Arg, Fs}, Prec, Opts) ->
+    {L,P,_R} = inop_prec('#'),
+    Rl = lexpr(Arg, L, Opts),
+    Sep = hash_after_integer(Arg, []),
+    Nl = struct_name(Name),
     El = {first,[Rl,Sep,Nl],record_fields(Fs, Opts)},
     maybe_paren(P, Prec, El);
 lexpr({record_field, _, {atom,_,''}, F}, Prec, Opts) ->
