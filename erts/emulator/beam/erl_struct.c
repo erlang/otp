@@ -837,37 +837,28 @@ Eterm erl_get_record_field(Process* p, Eterm src, Eterm mod, Eterm id, Eterm fie
 }
 
 BIF_RETTYPE records_get_module_1(BIF_ALIST_1) {
-    Eterm obj, *objp;
+    ErtsStructInstance *instance;
     ErtsStructDefinition *defp;
-    ErtsStructEntry *entry;
 
-    obj = BIF_ARG_1;
-    if (is_not_struct(obj)) {
+    if (is_not_struct(BIF_ARG_1)) {
         BIF_ERROR(BIF_P, BADARG);
     }
-    objp = struct_val(obj);
-
-    defp = (ErtsStructDefinition*)boxed_val(objp[1]);
-    entry = (ErtsStructEntry*)unsigned_val(defp->entry);
-
-    BIF_RET(entry->module);
+    instance = (ErtsStructInstance*) struct_val(BIF_ARG_1);
+    defp = (ErtsStructDefinition*) tuple_val(instance->struct_definition);
+    BIF_RET(defp->module);
 }
 
 BIF_RETTYPE records_get_name_1(BIF_ALIST_1) {
-    Eterm obj, *objp;
+    ErtsStructInstance *instance;
     ErtsStructDefinition *defp;
-    ErtsStructEntry *entry;
 
-    obj = BIF_ARG_1;
-    if (is_not_struct(obj)) {
+    if (is_not_struct(BIF_ARG_1)) {
         BIF_ERROR(BIF_P, BADARG);
     }
-    objp = struct_val(obj);
 
-    defp = (ErtsStructDefinition*)boxed_val(objp[1]);
-    entry = (ErtsStructEntry*)unsigned_val(defp->entry);
-
-    BIF_RET(entry->name);
+    instance = (ErtsStructInstance*) struct_val(BIF_ARG_1);
+    defp = (ErtsStructDefinition*) tuple_val(instance->struct_definition);
+    BIF_RET(defp->name);
 }
 
 BIF_RETTYPE records_get_field_names_1(BIF_ALIST_1) {

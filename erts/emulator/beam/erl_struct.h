@@ -42,9 +42,6 @@ typedef struct {
 typedef struct {
     Eterm thing_word;
 
-    /* Small-tagged ErtsStructEntry* */
-    Eterm entry;
-
     /* Tuple mapping from original field order to sorted field order. */
     Eterm field_order;
 

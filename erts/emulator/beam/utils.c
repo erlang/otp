@@ -1886,20 +1886,17 @@ tailrecur_ne:
                 /* compare the definitions. */
                 {
                     ErtsStructDefinition *def_a, *def_b;
-                    ErtsStructEntry *entry_a, *entry_b;
                     Sint diff;
 
                     def_a = (ErtsStructDefinition*)boxed_val(aa[1]);
                     def_b = (ErtsStructDefinition*)boxed_val(bb[1]);
-                    entry_a = (ErtsStructEntry *)(unsigned_val(def_a->entry));
-                    entry_b = (ErtsStructEntry *)(unsigned_val(def_b->entry));
 
-                    diff = erts_cmp_atoms(entry_a->module, entry_b->module);
+                    diff = erts_cmp_atoms(def_a->module, def_b->module);
                     if (diff != 0) {
                         RETURN_NEQ(diff);
                     }
 
-                    diff = erts_cmp_atoms(entry_a->name, entry_b->name);
+                    diff = erts_cmp_atoms(def_a->name, def_b->name);
                     if (diff != 0) {
                         RETURN_NEQ(diff);
                     }

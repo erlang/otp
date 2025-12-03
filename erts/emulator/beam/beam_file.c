@@ -1042,7 +1042,6 @@ static int parse_record_chunk_data(BeamFile *beam, BeamReader *p_reader) {
 
         tmp_def = (ErtsStructDefinition *) erts_alloc(ERTS_ALC_T_TMP, tmp_size);
         tmp_def->thing_word = make_arityval(struct_def_size/sizeof(Eterm) - 1);
-        tmp_def->entry = NIL;
         tmp_def->module = beam->module;
         tmp_def->name = rec->records[i].name;
         tmp_def->is_exported = is_exported;

@@ -89,6 +89,7 @@ MODULES= \
 	module_info_SUITE \
 	monitor_SUITE \
 	multi_load_SUITE \
+	native_record_SUITE \
 	nested_SUITE \
 	nif_SUITE \
 	node_container_SUITE \
