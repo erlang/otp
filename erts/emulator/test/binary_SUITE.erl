@@ -80,7 +80,8 @@
          t2b_system_limit/1,
          term_to_iovec/1,
          is_binary_test/1,
-         local_ext/1]).
+         local_ext/1,
+         process_info/1]).
 
 %% Internal exports.
 -export([sleeper/0,trapping_loop/4]).
@@ -110,7 +111,7 @@ all() ->
      robustness, otp_8180, trapping, large,
      error_after_yield, cmp_old_impl,
      is_binary_test,
-     local_ext].
+     local_ext, process_info].
 
 groups() -> 
     [
@@ -2527,3 +2528,40 @@ call_local_fail(Port, [Lext1, Lext3 | Rest]) ->
             ok
     end,
     call_local_fail(Port, Rest).
+
+process_info(_Config) ->
+    Parent = self(),
+    WaitGo = fun() -> receive go -> ok end end,
+    Pid = spawn(fun() ->
+        WaitGo(),
+        A = <<0:(1024*8)>>,
+        <<B:550/bitstring,D:550/bits,E:550/bits,C/bitstring>> = A,
+        State0 = {A, B, C, D, E},
+        Parent ! go,
+        (fun Loop(State) ->
+            receive
+                {new_state, State1} -> Loop(State1);
+                {gc, From} -> erlang:garbage_collect(), From ! go, Loop(State);
+                {get_state, From} -> From ! State, Loop(State)
+            end
+        end)(State0)
+    end),
+    [{binary_full, []}, {binary, []}] = process_info(Pid, [binary_full, binary]),
+    Pid ! go,
+    WaitGo(),
+    [{binary_full, FullInfo}, {binary, Info}] = process_info(Pid, [binary_full, binary]),
+    [{Id, Size, Count}] = Info,
+    [{Id, Size, Count, Bin, Refs}] = FullInfo,
+    true = (lists:sort(Refs) =:=
+        lists:sort([{0,550},{0,8192},{550,1100},{1100,1650},{1650,8192},{1650,8192}])),
+    Pid ! {stuck_in_queue, Bin},
+    Pid ! {new_state, {}},
+    Pid ! {gc, self()},
+    WaitGo(),
+    erlang:garbage_collect(),
+    {binary_full,[{Id,Size,2,Bin,[{0,8192}]}]} = process_info(Pid, binary_full),
+    NewBin = <<0:(1000*8)>>,
+    Pid ! {new_state, NewBin},
+    {binary_full, Info3} = process_info(Pid, binary_full),
+    {value, {Id, Size, 3, Bin, [{0,8192}]}, [NewBinInfo]} = lists:keytake(Id, 1, Info3),
+    {_, 1000, 2, NewBin, [{0,8000}]} = NewBinInfo.
