@@ -364,6 +364,16 @@ matching(_Config) ->
 
     {local,#local{}} = match_abc(ext_records:local(a, b)),
 
+    ~"any" = match_bin(#b{y = <<3,"any">>}),
+    none = match_bin(#b{y = <<99,"any">>}),
+    none = match_bin(#b{y = <<>>}),
+    none = match_bin(#b{y = a}),
+
+    42 = match_bin(#b{z = #a{x = <<8,42>>, y = 0}}),
+    none = match_bin(#b{z = #a{x = <<0,42>>, y = 0}}),
+    none = match_bin(#b{z = #a{x = 0, y = 0}}),
+    none = match_bin(#b{z = #b{}}),
+
     ok.
 
 match_abc(R) ->
@@ -419,6 +429,14 @@ do_match_abc_anon(#_{x=X, y=Y}) ->
 do_match_abc_anon(Other) when is_record(Other) ->
     {other,Other};
 do_match_abc_anon(_) ->
+    none.
+
+%% Cover split_record_pat/4 in v3_core.
+match_bin(#b{y = <<N:8,S:N/binary>>}) ->
+    S;
+match_bin(#b{z = #a{x= <<N:8,Int:N>>}}) ->
+    Int;
+match_bin(_) ->
     none.
 
 is_record_bif(Config) ->
