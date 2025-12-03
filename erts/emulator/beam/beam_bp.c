@@ -178,7 +178,8 @@ erts_bp_init(void) {
 
 
 void
-erts_bp_match_functions(BpFunctions* f, ErtsCodeMFA *mfa, int specified)
+erts_bp_match_functions(BpFunctions* f, ErtsCodeMFA *mfa, int specified,
+                        int ignore_bifs)
 {
     ErtsCodeIndex code_ix = erts_active_code_ix();
     Uint max_funcs = 0;
@@ -231,6 +232,15 @@ erts_bp_match_functions(BpFunctions* f, ErtsCodeMFA *mfa, int specified)
                     continue;
             case 0:
                 break;
+            }
+
+            if (ignore_bifs) {
+                Export *ep = erts_active_export_entry(ci->mfa.module,
+                                                      ci->mfa.function,
+                                                      ci->mfa.arity);
+                if (ep && ep->bif_number >= 0) {
+                    continue;
+                }
             }
             /* Store match */
             f->matching[i].code_info = ci;

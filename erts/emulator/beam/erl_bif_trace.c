@@ -2394,7 +2394,7 @@ erts_set_trace_pattern(ErtsCodeMFA *mfa, int specified,
     /*
      * First do "local" code breakpoint tracing
      */
-    erts_bp_match_functions(&finish_bp.f, mfa, specified);
+    erts_bp_match_functions(&finish_bp.f, mfa, specified, 0);
 
     if (on) {
 	if (! flags.breakpoint) {
@@ -2527,7 +2527,7 @@ prepare_clear_all_trace_pattern(ErtsTraceSession* session)
     /*
      * Clear all breakpoints in code for session
      */
-    erts_bp_match_functions(&finish_bp.f, NULL, 0);
+    erts_bp_match_functions(&finish_bp.f, NULL, 0, 0);
     erts_clear_all_breaks(&finish_bp.f);
 
     clear_event_trace(erts_staging_trace_session->send_tracing);
