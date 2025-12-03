@@ -69,6 +69,7 @@
 -include_lib("common_test/include/ct_event.hrl").
 -include("socket_test_evaluator.hrl").
 -include("kernel_test_lib.hrl").
+-include("socket_test_lib.hrl").
 
 %% Suite exports
 -export([suite/0, all/0, groups/0]).
@@ -121,53 +122,15 @@
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
--define(SLIB,       socket_test_lib).
 -define(KLIB,       kernel_test_lib).
 -define(LOGGER,     socket_test_logger).
+
+-define(BENCH_SUITE, socket_sctp_traffic).
 
 -define(BASIC_REQ,  <<"hejsan">>).
 -define(BASIC_REP,  <<"hoppsan">>).
 
 -define(DATA,       <<"The quick brown fox jumps over a lazy dog 0123456789">>).
-%% -define(FAIL(R),    exit(R)).
-
--define(SCTP_EVENTS(DataIO),
-        #{data_io          => (DataIO),
-          association      => true,
-          address          => true,
-          send_failure     => true,
-          peer_error       => true,
-          shutdown         => true,
-          partial_delivery => true,
-          adaptation_layer => false,
-          authentication   => false,
-          sender_dry       => false}).
-
--define(MK_SOCKOPT(Lvl, Opt), {(Lvl), (Opt)}).
--define(MK_OTP_SOCKOPT(Opt),  ?MK_SOCKOPT(otp,    (Opt))).
--define(MK_SOCK_SOCKOPT(Opt), ?MK_SOCKOPT(socket, (Opt))).
--define(MK_IP_SOCKOPT(Opt),   ?MK_SOCKOPT(ip,     (Opt))).
--define(MK_IPV6_SOCKOPT(Opt), ?MK_SOCKOPT(ipv6,   (Opt))).
--define(MK_SCTP_SOCKOPT(Opt), ?MK_SOCKOPT(sctp,   (Opt))).
-
--define(WHICH_SCTP_STATUS(Sock, AID),
-        case socket:getopt(Sock,
-                           ?MK_SCTP_SOCKOPT(status),
-                           #{assoc_id => AID}) of
-            {ok,    Status} -> Status;
-            {error, closed} -> closed;
-            {error, _}      -> undefined
-        end).
--define(WHICH_SOCKNAME(Sock),
-        fun() ->
-                case socket:sockname(Sock) of
-                    {ok, SockAddr}  -> SockAddr;
-                    {error, closed} -> closed;
-                    {error, _}      -> undefined
-                end
-        end()).
--define(ENABLE_SOCK_DEBUG(S),  socket:setopt(S, ?MK_OTP_SOCKOPT(debug), true)).
--define(DISABLE_SOCK_DEBUG(S), socket:setopt(S, ?MK_OTP_SOCKOPT(debug), false)).
 
 %% Number of clients per node
 -define(TRAFFIC_NUM_NODE_CLIENTS, 2).
@@ -1351,21 +1314,13 @@ b_open_connect_and_close(InitState) ->
          #{desc => "client assoc status",
            cmd  => fun(#{csock := Sock,
                          caid  := AID} = _State) ->
-                           SockOpt      = ?MK_SCTP_SOCKOPT(status),
-                           SparseStatus = #{assoc_id => AID},
-                           case socket:getopt(Sock, SockOpt, SparseStatus) of
-                               {ok, Status} ->
-                                   ?SEV_IPRINT("assoc ~w status:"
-                                               "~n   ~p", [AID, Status]),
-                                   ok;
-                               {error, _} = ERROR ->
-                                   ERROR
-                           end
+                           ?SEV_IPRINT("try get status"),
+                           show_sctp_assoc_status(Sock, AID)
                    end},
          #{desc => "client socket send buffer size",
            cmd  => fun(#{csock := Sock,
                          caid  := _AID} = _State) ->
-                           SockOpt = ?MK_SOCK_SOCKOPT(sndbuf),
+                           SockOpt = ?MK_SOCKOPT_SOCK(sndbuf),
                            case socket:getopt(Sock, SockOpt) of
                                {ok, Sz} ->
                                    ?SEV_IPRINT("send buffer size:"
@@ -1378,7 +1333,7 @@ b_open_connect_and_close(InitState) ->
          #{desc => "client socket receive buffer size",
            cmd  => fun(#{csock := Sock,
                          caid  := _AID} = _State) ->
-                           SockOpt = ?MK_SOCK_SOCKOPT(rcvbuf),
+                           SockOpt = ?MK_SOCKOPT_SOCK(rcvbuf),
                            case socket:getopt(Sock, SockOpt) of
                                {ok, Sz} ->
                                    ?SEV_IPRINT("receive buffer size:"
@@ -2671,16 +2626,7 @@ m_stream_min_data_exchange(InitState) ->
            cmd  => fun(#{sock  := Sock,
                          assoc := #{assoc_id := AID} = _Assoc} = _State) ->
                            ?SEV_IPRINT("try get status"),
-                           SockOpt      = ?MK_SCTP_SOCKOPT(status),
-                           SparseStatus = #{assoc_id => AID},
-                           case socket:getopt(Sock, SockOpt, SparseStatus) of
-                               {ok, Status} ->
-                                   ?SEV_IPRINT("status:"
-                                               "~n   ~p", [Status]),
-                                   ok;
-                               {error, _} = ERROR ->
-                                   ERROR
-                           end
+                           show_sctp_assoc_status(Sock, AID)
                    end},
          #{desc => "announce ready (status)",
            cmd  => fun(#{tester := Tester}) ->
@@ -2753,16 +2699,7 @@ m_stream_min_data_exchange(InitState) ->
            cmd  => fun(#{sock  := Sock,
                          assoc := #{assoc_id := AID} = _Assoc} = _State) ->
                            ?SEV_IPRINT("try get status"),
-                           SockOpt      = ?MK_SCTP_SOCKOPT(status),
-                           SparseStatus = #{assoc_id => AID},
-                           case socket:getopt(Sock, SockOpt, SparseStatus) of
-                               {ok, Status} ->
-                                   ?SEV_IPRINT("status:"
-                                               "~n   ~p", [Status]),
-                                   ok;
-                               {error, _} = ERROR ->
-                                   ERROR
-                           end
+                           show_sctp_assoc_status(Sock, AID)
                    end},
          #{desc => "announce ready (status)",
            cmd  => fun(#{tester := Tester}) ->
@@ -4227,7 +4164,7 @@ m_peeloff_server_init(#{ctrl         := CTRL,
     end,
 
     ?P("~s -> try set 'events' (sctp) socket option", [?FUNCTION_NAME]),
-    case socket:setopt(Sock, ?MK_SCTP_SOCKOPT(events), Evs) of
+    case socket:setopt(Sock, ?MK_SOCKOPT_SCTP(events), Evs) of
         ok ->
             ok;
         {error, Reason4} ->
@@ -5196,7 +5133,7 @@ do_recv_close(#{domain := Domain,
                 events := Evs}) ->
     ?P("~s -> create server socket (and listen)", [?FUNCTION_NAME]),
     {ok, SSock} = socket:open(Domain, seqpacket, sctp),
-    ok = socket:setopt(SSock, ?MK_SCTP_SOCKOPT(events), Evs),
+    ok = socket:setopt(SSock, ?MK_SOCKOPT_SCTP(events), Evs),
     ok = socket:bind(SSock, #{family => Domain, addr => Addr, port => 0}),
     {ok, #{port := SPort}} = socket:sockname(SSock),
     ok = socket:listen(SSock, true),
@@ -6717,7 +6654,7 @@ common_exchange_st_ipv6(Name, Bench, NumClientsPerNode, RunTime) ->
 
 common_exchange_mt_ipv4(Name, Bench, NumClientsPerNode, RunTime) ->
     HasDomainSupport = fun() -> has_support_ipv4() end,
-    common_exchange_st(Name,
+    common_exchange_mt(Name,
                        Bench, NumClientsPerNode,
                        RunTime, HasDomainSupport, inet).
 
@@ -6819,19 +6756,24 @@ publish_results(Conf, Result) ->
     {comment, ?F("~w msgs/msec", [Result])}.
 
 
-maybe_publish_bench_results(#{bench := true, threaded := Threaded}, Result) ->
-    Event = #event{name = bench_name(Threaded),
-                   data = [{suite, atom_to_list(?MODULE)},
-                           {value, Result}]},
+maybe_publish_bench_results(#{bench    := true,
+                              domain   := Domain,
+                              threaded := Threaded}, Result) ->
+    Event = ?BENCH_EVENT(bench_name(Domain, Threaded), Result),
     ct_event:notify(Event);
 maybe_publish_bench_results(_, _Result) ->
     ok.
 
 
-bench_name(true) ->
-    exchange_mt;
-bench_name(_) ->
-    exchange_st.
+bench_name(inet, true) ->
+    exchange_multi_thread_ipv4;
+bench_name(inet6, true) ->
+    exchange_multi_thread_ipv6;
+bench_name(inet, false) ->
+    exchange_single_thread_ipv4;
+bench_name(inet6, false) ->
+    exchange_single_thread_ipv6.
+
 
 
 t_exc_start_server(#{server_node  := Node,
@@ -7011,6 +6953,20 @@ t_exc_process_client_down(Clients, DownPid) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+show_sctp_assoc_status(Sock, AssocID) ->
+    case ?GET_SCTP_STATUS(Sock, AssocID) of
+        {ok, Status} ->
+            ?SEV_IPRINT("Assoc ~w status:"
+                        "~n   ~p", [AssocID, Status]),
+            ok;
+        {error, _} = ERROR ->
+            ERROR
+    end.
+    
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 %% Here are all the *general* test case condition functions.
 
 has_support_sctp() ->
@@ -7035,45 +6991,27 @@ has_support_sctp() ->
 %% corresponding tests.
 %% Currently we just skip.
 has_support_ipv4() ->
-    ?KLIB:has_support_ipv4().
+    ?HAS_SUPPORT_IPV4().
 
 has_support_ipv6() ->
-    ?KLIB:has_support_ipv6().
+    ?HAS_SUPPORT_IPV6().
 
 %% has_support_socket_priority() ->
-%%     has_support_socket_option_sock(priority).
+%%     ?HAS_SUPPORT_SOCKET_OPTION_SOCK(priority).
 
 is_supported_socket_priority() ->
     is_supported_socket_option_sock(priority).
 
 has_support_socket_linger() ->
-    has_support_socket_option_sock(linger).
+    ?HAS_SUPPORT_SOCKET_OPTION_SOCK(linger).
 
 has_support_sctp_nodelay() ->
-    has_support_socket_option_sctp(nodelay).
+    ?HAS_SUPPORT_SOCKET_OPTION_SCTP(nodelay).
 
-
-has_support_socket_option_sock(Opt) ->
-    has_support_socket_option(socket, Opt).
 
 is_supported_socket_option_sock(Opt) ->
-    is_supported_socket_option(socket, Opt).
+    ?IS_SUPPORTED_SOCKET_OPTION(socket, Opt).
 
-has_support_socket_option_sctp(Opt) ->
-    has_support_socket_option(sctp, Opt).
-
-
-has_support_socket_option(Level, Option) ->
-    case socket:is_supported(options, Level, Option) of
-        true ->
-            ok;
-        false ->
-            skip(?F("Not Supported: ~w option ~w", [Level, Option]))
-    end.
-
-
-is_supported_socket_option(Level, Option) ->
-    socket:is_supported(options, Level, Option).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
