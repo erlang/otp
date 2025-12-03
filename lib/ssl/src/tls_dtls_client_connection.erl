@@ -31,6 +31,8 @@
 -module(tls_dtls_client_connection).
 -moduledoc false.
 
+-compile(nowarn_match_alias_pats).
+
 -include_lib("public_key/include/public_key.hrl").
 
 -include("ssl_connection.hrl").
