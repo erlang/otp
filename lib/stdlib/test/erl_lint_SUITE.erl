@@ -2648,7 +2648,7 @@ otp_5371(Config) when is_list(Config) ->
            <<"t(<<A:8>> = <<B:8>>) ->
                   {A,B}.
              ">>,
-	   [],
+	   [nowarn_match_alias_pats],
            []},
 	  {otp_5371_2,
            <<"x([<<A:8>>] = [<<B:8>>]) ->
@@ -2656,7 +2656,7 @@ otp_5371(Config) when is_list(Config) ->
               y({a,<<A:8>>} = {b,<<B:8>>}) ->
                   {A,B}.
              ">>,
-           [],
+           [nowarn_match_alias_pats],
            {warnings,[{{3,15},v3_core,{nomatch,pattern}}]}},
 	  {otp_5371_3,
            <<"-record(foo, {a,b,c}).
@@ -2673,7 +2673,7 @@ otp_5371(Config) when is_list(Config) ->
               e(#foo{a=x,b = <<X:8>>} = #buzz{x=glurf,y = <<Y:8>>}) ->
                   {X,Y}.
              ">>,
-	   [],
+	   [nowarn_match_alias_pats],
            {warnings,[{{4,15},v3_core,{nomatch,pattern}},
                       {{8,15},v3_core,{nomatch,pattern}},
                       {{10,15},v3_core,{nomatch,pattern}},
@@ -2689,7 +2689,7 @@ otp_5371(Config) when is_list(Config) ->
               c(#foo{a = <<X:8>>} = #buzz{y = <<Y:8>>}) ->
                   {X,Y}.
              ">>,
-	   [],
+	   [nowarn_match_alias_pats],
 	   {warnings,[{{4,15},v3_core,{nomatch,pattern}},
 		      {{6,15},v3_core,{nomatch,pattern}},
 		      {{8,15},v3_core,{nomatch,pattern}}]}}
@@ -2704,33 +2704,33 @@ otp_7227(Config) when is_list(Config) ->
            <<"t([<<A:8>> = {C,D} = <<B:8>>]) ->
                   {A,B,C,D}.
              ">>,
-	   [],
+	   [nowarn_match_alias_pats],
            {warnings,[{{1,21},v3_core,{nomatch,pattern}}]}},
 	  {otp_7227_2,
            <<"t([(<<A:8>> = {C,D}) = <<B:8>>]) ->
                   {A,B,C,D}.
              ">>,
-	   [],
+	   [nowarn_match_alias_pats],
 	   {warnings,[{{1,21},v3_core,{nomatch,pattern}}]}},
 	  {otp_7227_3,
            <<"t([(<<A:8>> = {C,D}) = (<<B:8>> = <<C:8>>)]) ->
                   {A,B,C,D}.
              ">>,
-	   [],
+	   [nowarn_match_alias_pats],
            {warnings,[{{1,21},v3_core,{nomatch,pattern}}]}},
 	  {otp_7227_4,
            <<"t(Val) ->
                   <<A:8>> = <<B:8>> = Val,
                   {A,B}.
              ">>,
-	   [],
+	   [nowarn_match_alias_pats],
 	   []},
 	  {otp_7227_5,
            <<"t(Val) ->
                   <<A:8>> = X = <<B:8>> = Val,
                   {A,B,X}.
              ">>,
-	   [],
+	   [nowarn_match_alias_pats],
 	   []},
 	  {otp_7227_6,
            <<"t(X, Y) ->
@@ -2744,21 +2744,21 @@ otp_7227(Config) when is_list(Config) ->
                   (<<A:8>> = X) = (<<B:8>> = <<A:4,B:4>>) = Val,
                   {A,B,X}.
              ">>,
-	   [],
+	   [nowarn_match_alias_pats],
            []},
           {otp_7227_8,
            <<"t(Val) ->
                   (<<A:8>> = X) = (Y = <<B:8>>) = Val,
                   {A,B,X,Y}.
              ">>,
-	   [],
+	   [nowarn_match_alias_pats],
 	   []},
 	  {otp_7227_9,
            <<"t(Val) ->
                   (Z = <<A:8>> = X) = (Y = <<B:8>> = W) = Val,
                   {A,B,X,Y,Z,W}.
              ">>,
-	   [],
+	   [nowarn_match_alias_pats],
            []}
 	 ],
     [] = run(Config, Ts),
@@ -2770,38 +2770,38 @@ binary_aliases(Config) when is_list(Config) ->
            <<"t([<<Size:8,_/bits>> = <<_:8,Data:Size/bits>>]) ->
                   Data.
              ">>,
-	   [],
+	   [nowarn_match_alias_pats],
            {errors,[{{1,55},erl_lint,{unbound_var,'Size'}}],[]}},
           {binary_aliases_2,
            <<"t(#{key := <<Size:8,_/bits>>} = #{key := <<_:8,Data:Size/bits>>}) ->
                   Data.
              ">>,
-	   [],
+	   [nowarn_match_alias_pats],
            {errors,[{{1,73},erl_lint,{unbound_var,'Size'}}],[]}},
           {binary_aliases_3,
            <<"t(<<_:8,Data:Size/bits>> = <<Size:8,_/bits>>) ->
                   Data.
              ">>,
-	   [],
+	   [nowarn_match_alias_pats],
            {errors,[{{1,34},erl_lint,{unbound_var,'Size'}}],[]}},
           {binary_aliases_4,
            <<"t([<<_:8,Data:Size/bits>> = <<Size:8,_/bits>>]) ->
                   Data.
              ">>,
-	   [],
+	   [nowarn_match_alias_pats],
            {errors,[{{1,35},erl_lint,{unbound_var,'Size'}}],[]}},
           {binary_aliases_5,
            <<"t(Bin) ->
                   <<_:8,A:Size>> = <<_:8,B:Size/bits>> = <<Size:8,_/bits>> = Bin,
                   {A,B,Size}.
              ">>,
-           [],
+           [nowarn_match_alias_pats],
            []},
           {binary_aliases_6,
            <<"t(<<_:8,A:Size>> = <<_:8,B:Size/bits>> = <<Size:8,_/bits>>) ->
                   {A,B,Size}.
              ">>,
-           [],
+           [nowarn_match_alias_pats],
            {errors,[{{1,31},erl_lint,{unbound_var,'Size'}},
                     {{1,48},erl_lint,{unbound_var,'Size'}}],
             []}}
@@ -4335,7 +4335,7 @@ maps_parallel_match(Config) when is_list(Config) ->
                 #{k1 := K1,k2 := K2}] = [M],
                [V1,V2].
            ">>,
-           [],
+           [nowarn_match_alias_pats],
            {errors,[{{3,19},erl_lint,{unbound_var,'K1'}},
                     {{4,19},erl_lint,{unbound_var,'K2'}}],[]}},
           {parallel_map_patterns_unbound_not_toplevel2,
@@ -4344,7 +4344,7 @@ maps_parallel_match(Config) when is_list(Config) ->
                [#{k := K} = #{K := V}] = [M],
                V.
            ">>,
-           [],
+           [nowarn_match_alias_pats],
            {errors,[{{3,31},erl_lint,{unbound_var,'K'}}],[]}},
           {parallel_map_patterns_bound1,
            <<"
@@ -4354,7 +4354,7 @@ maps_parallel_match(Config) when is_list(Config) ->
                #{k1 := K1,k2 := K2} = M,
                [V1,V2].
            ">>,
-           [],
+           [nowarn_match_alias_pats],
            []},
           {parallel_map_patterns_bound2,
            <<"
@@ -4362,7 +4362,7 @@ maps_parallel_match(Config) when is_list(Config) ->
                #{K := V} = #{k := K} = M,
                V.
            ">>,
-           [],
+           [nowarn_match_alias_pats],
            []},
           {parallel_map_patterns_bound3,
            <<"
@@ -4372,7 +4372,7 @@ maps_parallel_match(Config) when is_list(Config) ->
                #{k1 := K1,k2 := K2} = M,
                [V1,V2].
            ">>,
-           [],
+           [nowarn_match_alias_pats],
            []},
           {parallel_map_patterns_literal,
            <<"
@@ -4382,7 +4382,7 @@ maps_parallel_match(Config) when is_list(Config) ->
                #{k1 := V1,k2 := V2} = M,
                [V1,V2].
            ">>,
-           [],
+           [nowarn_match_alias_pats],
            []}],
     [] = run(Config, Ts),
     ok.
