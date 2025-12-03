@@ -725,9 +725,12 @@ BEAM_FORMAT_NUMBER=0
 
 ## @spec is_native_record Lbl Rec Module Name
 ## @doc Check whether record Rec is the record Name defined in module Module.
-##      Jump to label if not.
+##      Jump to label Lbl if not.
 187: is_native_record/4
 
+## @spec get_record_elements Lbl Rec Elements=[FieldName, Register]
+## @doc Extract the values for each field name and store into the corresponding
+##      register. Jump to label if any field name is not in the native record.
 188: get_record_elements/3
 
 ## @spec put_record_elements Lbl Id Src Dst Live Updates
