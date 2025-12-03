@@ -590,8 +590,10 @@ Change a configuration setting.
   `ReturnValue` is the new value. Notice that this configuration parameter is
   not persistent. It is lost when Mnesia has stopped.
 """.
--spec change_config(Config, Value) -> config_result() when
-      Config :: config_key(), Value :: config_value().
+-spec change_config(Config, Value) -> ReturnValue when
+      Config :: config_key(),
+      Value :: config_value(),
+      ReturnValue :: config_result().
 change_config(extra_db_nodes, Ns) when is_list(Ns) ->
     mnesia_controller:connect_nodes(Ns);
 change_config(dc_dump_limit, N) when is_number(N), N > 0 ->
@@ -727,20 +729,20 @@ result of a user error or a certain table not being available, the entire
 transaction is terminated and the function [`transaction/1`](`transaction/1`)
 returns the tuple `{aborted, Reason}`.
 
-If all is going well, `{atomic, ResultOfFun}` is returned, where `ResultOfFun`
+If all is going well, `{atomic, Res}` is returned, where `Res`
 is the value of the last expression in `Fun`.
 
 A function that adds a family to the database can be written as follows if there
 is a structure `{family, Father, Mother, ChildrenList}`:
 
 ```erlang
-add_family({family, F, M, Children}) ->
-    ChildOids = lists:map(fun oid/1, Children),
+add_family({family, Father, Mother, ChildrenList}) ->
+    ChildOids = lists:map(fun oid/1, ChildrenList),
     Trans = fun() ->
-        mnesia:write(F#person{children = ChildOids}),
-        mnesia:write(M#person{children = ChildOids}),
+        mnesia:write(Father#person{children = ChildOids}),
+        mnesia:write(Mother#person{children = ChildOids}),
         Write = fun(Child) -> mnesia:write(Child) end,
-        lists:foreach(Write, Children)
+        lists:foreach(Write, ChildrenList)
     end,
     mnesia:transaction(Trans).
 
@@ -785,8 +787,9 @@ specified in `Retries`. `Retries` must be an integer greater than 0 or the atom
 a transaction needs to be restarted, thus a `Fun` must not catch `exit`
 exceptions with reason `{aborted, term()}`.
 """.
--spec transaction(Fun, [Arg::_], Retries) -> t_result(Res) when
+-spec transaction(Fun, Args, Retries) -> t_result(Res) when
       Fun :: fun((...) -> Res),
+      Args :: [Arg::_],
       Retries :: non_neg_integer() | 'infinity'.
 transaction(Fun, Args, Retries) ->
     transaction(get(mnesia_activity_state), Fun, Args, Retries, ?DEFAULT_ACCESS, async).
@@ -1046,10 +1049,11 @@ identity record is internal to Mnesia.
 
 `Opaque` is an opaque data structure that is internal to Mnesia.
 """.
--spec activity(AccessContext, Fun, [Arg::_], Mod) -> t_result(Res) | Res when
+-spec activity(AccessContext, Fun, Args, AccessMod) -> t_result(Res) | Res when
       AccessContext :: activity(),
+      Args :: [Arg::_],
       Fun  :: fun((...) -> Res),
-      Mod  :: atom().
+      AccessMod  :: atom().
 
 activity(Kind, Fun, Args, Mod) ->
     State = get(mnesia_activity_state),
@@ -1821,8 +1825,8 @@ ts_keys_1([], Acc) ->
 %%%%%%%%%%%%%%%%%%%%%
 %% Iterators
 
--doc(#{equiv => foldl(Fun, Acc0, Tab, read)}).
--spec foldl(Fun, Acc0, Tab::table()) -> Acc when
+-doc(#{equiv => foldl(Fun, Acc0, Table, read)}).
+-spec foldl(Fun, Acc0, Table::table()) -> Acc when
       Fun::fun((Record::tuple(), Acc0) -> Acc).
 foldl(Fun, Acc, Tab) ->
     foldl(Fun, Acc, Tab, read).
@@ -1830,13 +1834,13 @@ foldl(Fun, Acc, Tab) ->
 -doc """
 Call `Fun` for each record in `Table`.
 
-Iterates over the table `Table` and calls `Function(Record, NewAcc)` for each
-`Record` in the table. The term returned from `Function` is used as the second
-argument in the next call to `Function`.
+Iterates over the table `Table` and calls `Fun(Record, Acc)` for each
+`Record` in the table. The term returned from `Fun` is used as the second
+argument in the next call to `Fun`.
 
-`foldl` returns the same term as the last call to `Function` returned.
+`foldl` returns the same term as the last call to `Fun` returned.
 """.
--spec foldl(Fun, Acc0, Tab::table(), LockKind :: lock_kind()) -> Acc when
+-spec foldl(Fun, Acc0, Table::table(), LockKind :: lock_kind()) -> Acc when
       Fun::fun((Record::tuple(), Acc0) -> Acc).
 foldl(Fun, Acc, Tab, LockKind) when is_function(Fun) ->
     case get(mnesia_activity_state) of
@@ -1888,7 +1892,7 @@ Works exactly like [`foldl/3`](`foldl/3`) but iterates the table in the opposite
 order for the `ordered_set` table type. For all other table types,
 [`foldr/3`](`foldr/3`) and [`foldl/3`](`foldl/3`) are synonyms.
 """.
--spec foldr(Fun, Acc0, Tab::table(), LockKind::lock_kind()) -> Acc when
+-spec foldr(Fun, Acc0, Tabble::table(), LockKind::lock_kind()) -> Acc when
       Fun::fun((Record::tuple(), Acc0) -> Acc).
 foldr(Fun, Acc, Tab, LockKind) when is_function(Fun) ->
     case get(mnesia_activity_state) of
@@ -2531,7 +2535,7 @@ all_keys(_Tid, _Ts, Tab, _LockKind) ->
 -doc """
 Match records and uses index information.
 
-Starts `mnesia:index_match_object(Tab, Pattern, Pos, read)`, where `Tab` is
+Starts `mnesia:index_match_object(Tab, Pattern, Attr, read)`, where `Tab` is
 [`element(1, Pattern)`](`element/2`).
 """.
 -spec index_match_object(Pattern, Attr) -> [Record] when
@@ -2550,8 +2554,8 @@ can be used when trying to match records. This function takes a pattern that
 obeys the same rules as the function `mnesia:match_object/3`, except that this
 function requires the following conditions:
 
-- The table `Tab` must have an index on position `Pos`.
-- The element in position `Pos` in `Pattern` must be bound. `Pos` is an integer
+- The table `Tab` must have an index on position `Attr`.
+- The element in position `Attr` in `Pattern` must be bound. `Attr` is an integer
   (`#record.Field`) or an attribute name.
 
 The two index search functions described here are automatically started when
@@ -2619,11 +2623,11 @@ index_match_object(_Tid, _Ts, Tab, Pat, _Attr, _LockKind) ->
 -doc """
 Read records through the index table.
 
-Assume that there is an index on position `Pos` for a certain record type. This
+Assume that there is an index on position `Attr` for a certain record type. This
 function can be used to read the records without knowing the actual key for the
 record. For example, with an index in position 1 of table `person`, the call
 `mnesia:index_read(person, 36, #person.age)` returns a list of all persons with
-age 36. `Pos` can also be an attribute name (atom), but if the notation
+age 36. `Attr` can also be an attribute name (atom), but if the notation
 `mnesia:index_read(person, 36, age)` is used, the field position is searched for
 in runtime, for each call.
 
@@ -2851,8 +2855,8 @@ remote_dirty_match_object(Tab, Pat, _PosList) ->
 -doc """
 Dirty equivalent to `mnesia:select/2`.
 """.
--spec dirty_select(Tab, Spec) -> [Match] when
-      Tab::table(), Spec::ets:match_spec(), Match::term().
+-spec dirty_select(Tab, MatchSpec) -> [Match] when
+      Tab::table(), MatchSpec::ets:match_spec(), Match::term().
 dirty_select(Tab, Spec) when is_atom(Tab), Tab /= schema, is_list(Spec) ->
     dirty_rpc(Tab, ?MODULE, remote_dirty_select, [Tab, Spec]);
 dirty_select(Tab, Spec) ->
@@ -3106,7 +3110,7 @@ The [`table_info/2`](`table_info/2`) function takes two arguments. The first is
 the name of a Mnesia table. The second is one of the following keys:
 
 - `all`. Returns a list of all local table information. Each element is a
-  `{InfoKey, ItemVal}` tuple.
+  `{InfoItem, ItemVal}` tuple.
 
   New `InfoItem`s can be added and old undocumented `InfoItem`s can be removed
   without notice.
@@ -3169,7 +3173,7 @@ the name of a Mnesia table. The second is one of the following keys:
   functions for a certain table. A record tuple is where all record fields have
   value `'_'`.
 """.
--spec table_info(Tab::table(), Item::term()) -> Info::term().
+-spec table_info(Tab::table(), InfoItem::term()) -> ItemVal::term().
 table_info(Tab, Item) ->
     case get(mnesia_activity_state) of
 	undefined ->
@@ -3303,8 +3307,8 @@ describes the error.
 - `active`. Some delete operations require that all active records are removed.
 - `illegal`. Operation not supported on this record.
 
-`Error` can be `Reason`, `{error, Reason}`, or `{aborted, Reason}`. `Reason` can
-be an atom or a tuple with `Reason` as an atom in the first field.
+`Error` can be `Reason`, `{error, Reason}`, `{aborted, Reason}`, or `Reason`.
+`Reason` can be an atom or a tuple with `Reason` as an atom in the first field.
 
 The following examples illustrate a function that returns an error, and the
 method to retrieve more detailed error information:
@@ -3316,7 +3320,9 @@ method to retrieve more detailed error information:
   the term `{"Bad type on some provided arguments",bar,3.14000}`, which is an
   error description suitable for display.
 """.
--spec error_description(Error::term()) -> string().
+-spec error_description(Error) -> string() when
+    Error :: {error, Reason} | {aborted, Reason} | Reason,
+    Reason :: term().
 error_description(Err) ->
     mnesia_lib:error_desc(Err).
 
@@ -3520,9 +3526,9 @@ parameters.
 The valid keys are as follows:
 
 - `all`. Returns a list of all local system information. Each element is a
-  `{InfoKey, InfoVal}` tuple.
+  `{InfoItem, ItemVal}` tuple.
 
-  New `InfoKey`s can be added and old undocumented `InfoKey`s can be removed
+  New `InfoItem`s can be added and old undocumented `InfoItem`s can be removed
   without notice.
 
 - `access_module`. Returns the name of module that is configured to be the
@@ -3605,7 +3611,7 @@ The valid keys are as follows:
   not. Can be started even if Mnesia is not yet running.
 - `version`. Returns the current version number of Mnesia.
 """.
--spec system_info(Iterm::term()) -> Info::term().
+-spec system_info(Item::term()) -> ItemVal::term().
 system_info(Item) ->
     try system_info2(Item)
     catch _:Error -> abort(Error)
@@ -3875,17 +3881,17 @@ Notice that only nodes with disc are to be included in `DiscNodes`. Disc-less
 nodes, that is, nodes where all tables including the schema only resides in RAM,
 must not be included.
 """.
--spec create_schema(Ns::[node()]) -> result().
-create_schema(Ns) ->
-    create_schema(Ns, []).
+-spec create_schema(DiscNodes::[node()]) -> result().
+create_schema(DiscNodes) ->
+    create_schema(DiscNodes, []).
 
 -doc false.
--spec create_schema(Ns::[node()], [Prop]) -> result() when
+-spec create_schema(DiscNodes::[node()], [Prop]) -> result() when
       Prop :: BackendType | IndexPlugin,
       BackendType :: {'backend_types', [{Name::atom(), Module::module()}]},
       IndexPlugin :: {'index_plugins', [{{Name::atom()}, Module::module(), Function::atom()}]}.
-create_schema(Ns, Properties) ->
-    mnesia_bup:create_schema(Ns, Properties).
+create_schema(DiscNodes, Properties) ->
+    mnesia_bup:create_schema(DiscNodes, Properties).
 
 -doc """
 Delete the schema on the given nodes.
@@ -3903,9 +3909,9 @@ set.
 > Use this function with extreme caution, as it makes existing persistent data
 > obsolete. Think twice before using it.
 """.
--spec delete_schema(Ns::[node()]) -> result().
-delete_schema(Ns) ->
-    mnesia_schema:delete_schema(Ns).
+-spec delete_schema(DiscNodes::[node()]) -> result().
+delete_schema(DiscNodes) ->
+    mnesia_schema:delete_schema(DiscNodes).
 
 -doc false.
 -spec add_backend_type(Name::atom(), Module::module()) -> t_result('ok').
@@ -3925,10 +3931,10 @@ with maximum degree of redundancy, and performs a backup using
 `backup_checkpoint/2/3`. The default value of the backup callback module
 `BackupMod` is obtained by `mnesia:system_info(backup_module)`.
 """.
--spec backup(Dest::term(), Mod::module()) ->
+-spec backup(Dest::term(), BackupMod::module()) ->
           result().
-backup(Opaque, Mod) ->
-    mnesia_log:backup(Opaque, Mod).
+backup(Opaque, BackupMod) ->
+    mnesia_log:backup(Opaque, BackupMod).
 
 -doc(#{equiv => traverse_backup/6}).
 -spec traverse_backup(Src::term(), Dest::term(), Fun, Acc) ->
@@ -3955,11 +3961,12 @@ The arguments are explained briefly here. For details, see the User's Guide.
 - `LastAcc` is the last accumulator value. This is the last `NewAcc` value that
   was returned by `Fun`.
 """.
--spec traverse_backup(Src::term(), SrcMod::module(),
-                      Dest::term(), DestMod::module(),
+-spec traverse_backup(Source::term(), SourceMod::module(),
+                      Target::term(), TargetMod::module(),
                       Fun, Acc) ->
-                             {'ok', Acc} | {'error', Reason::term()} when
-      Fun :: fun((Items, Acc) -> {Items,Acc}).
+                             {'ok', LastAcc} | {'error', Reason::term()} when
+      Fun :: fun((BackupItems, Acc) -> {BackupItems,NewAcc}),
+      LastAcc :: NewAcc.
 traverse_backup(S, SM, T, TM, F, A) ->
     mnesia_bup:traverse_backup(S, SM, T, TM, F, A).
 
@@ -4006,10 +4013,10 @@ disc-resident nodes in the backup.
   mixing of directories, you can easily end up with an inconsistent database, if
   the same backup is installed on more than one directory.
 """.
--spec install_fallback(Src::term(), Mod::module()|[Opt]) ->
+-spec install_fallback(Source::term(), BackupMod::module()|[Opt]) ->
           result() when
       Opt :: Module | Scope | Dir,
-      Module :: {'module', Mod::module()},
+      Module :: {'module', BackupMod::module()},
       Scope :: {'scope', 'global' | 'local'},
       Dir :: {'mnesia_dir', Dir::string()}.
 install_fallback(Opaque, Mod) ->
