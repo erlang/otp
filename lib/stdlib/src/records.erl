@@ -25,6 +25,8 @@
 -export([get/2, get_module/1, get_name/1, get_field_names/1,
          is_exported/1, create/3, create/4, update/4]).
 
+-type record() :: term().
+
 -spec get(atom(), term()) -> term().
 get(_Key, _Record) ->
     erlang:nif_error(undefined).
@@ -46,17 +48,17 @@ is_exported(_Record) ->
     erlang:nif_error(undefined).
 
 -spec create(Module :: module(), RecordName :: atom(),
-             FieldsMap :: #{atom() => term()}) -> term().
+             FieldsMap :: #{atom() => term()}) -> record().
 create(Module, RecordName, FieldsMap) ->
     create(Module, RecordName, FieldsMap, #{exported => false}).
 
 -spec create(Module :: module(), RecordName :: atom(),
              FieldsMap :: #{atom() => term()},
-             Options :: #{ exported => boolean() }) -> term().
+             Options :: #{ exported => boolean() }) -> record().
 create(_Module, _RecordName, _FieldsMap, _Options) ->
     erlang:nif_error(undefined).
 
--spec update(Src :: term(), Module :: module(), RecordName :: atom(),
-             FieldsMap :: #{atom() => term()}) -> term().
+-spec update(Src :: record(), Module :: module(), RecordName :: atom(),
+             FieldsMap :: #{atom() => term()}) -> record().
 update(_Src, _Module, _RecordName, _FieldsMap) ->
     erlang:nif_error(undefined).
