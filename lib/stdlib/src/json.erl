@@ -981,7 +981,7 @@ there is no more data, use `end_of_input` instead of a binary.
 ```
 """.
 -doc(#{since => <<"OTP 27.0">>}).
--spec decode_continue(binary() | end_of_input, Opaque::term()) ->
+-spec decode_continue(binary() | end_of_input, State :: continuation_state()) ->
           {Result :: dynamic(), Acc :: dynamic(), binary()} | {continue, continuation_state()}.
 decode_continue(end_of_input, State) ->
     case State of
