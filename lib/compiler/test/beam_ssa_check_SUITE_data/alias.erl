@@ -831,13 +831,12 @@ aliased_pair_tl_instr(Ls) ->
 aliasing_after_tuple_extract(N) ->
     aliasing_after_tuple_extract(N, {<<>>, dummy}).
 
-%% Check that the Acc tuple is unique on entry, but that the elements
-%% are aliased.
+%% Check that both the tuple (Acc) and the extracted element (X) are
+%% aliased.
 aliasing_after_tuple_extract(0, Acc) ->
 %ssa% (_,Acc) when post_ssa_opt ->
-%ssa% X = get_tuple_element(Acc, 0) {unique => [Acc]},
-%ssa% Bin = bs_create_bin(_,_,X,...) {aliased => [X]},
-%ssa% Tuple = put_tuple(Bin, Acc) {aliased => [Bin], unique => [Acc]}.
+%ssa% X = get_tuple_element(Acc, 0) {aliased => [Acc]},
+%ssa% _ = bs_create_bin(_,_,X,...) {aliased => [X]}.
     Acc;
 aliasing_after_tuple_extract(N, Acc) ->
     {X,_} = Acc,
@@ -853,9 +852,8 @@ alias_after_pair_hd(0, Acc) ->
     Acc;
 alias_after_pair_hd(N, Acc) ->
 %ssa% (_,Acc) when post_ssa_opt ->
-%ssa% X = get_hd(Acc) {unique => [Acc]},
-%ssa% Bin = bs_create_bin(_,_,X,...) {aliased => [X]},
-%ssa% Tuple = put_list(Bin, Acc) {aliased => [Bin], unique => [Acc]}.
+%ssa% X = get_hd(Acc) {aliased => [Acc]},
+%ssa% _ = bs_create_bin(_,_,X,...) {aliased => [X]}.
     [X|_] = Acc,
     alias_after_pair_hd(N - 1, [<<X/bitstring, 1>>|Acc]).
 
@@ -868,9 +866,8 @@ alias_after_pair_tl(0, Acc) ->
     Acc;
 alias_after_pair_tl(N, Acc) ->
 %ssa% (_,Acc) when post_ssa_opt ->
-%ssa% X = get_tl(Acc) {unique => [Acc]},
-%ssa% Bin = bs_create_bin(_,_,X,...) {aliased => [X]},
-%ssa% Tuple = put_list(Acc, Bin) {aliased => [Bin], unique => [Acc]}.
+%ssa% X = get_tl(Acc) {aliased => [Acc]},
+%ssa% _ = bs_create_bin(_,_,X,...) {aliased => [X]}.
     [_|X] = Acc,
     alias_after_pair_tl(N - 1, [Acc|<<X/bitstring, 1>>]).
 
@@ -1204,8 +1201,8 @@ nested_tuple_inner() ->
 
 nested_tuple() ->
 %ssa% () when post_ssa_opt ->
-%ssa% U = bs_create_bin(append, _, T, ...) { unique => [T] },
-%ssa% R = put_tuple(U, A) { aliased => [A], unique => [U] },
+%ssa% U = bs_create_bin(append, _, T, ...) { aliased => [T] },
+%ssa% R = put_tuple(U, A) { aliased => [U, A] },
 %ssa% ret(R).
     {{{{Z,X}}}} = nested_tuple_inner(),
     {<<Z/binary, 1:8>>,X}.
@@ -1228,8 +1225,8 @@ nested_mixed_inner() ->
 
 nested_mixed() ->
 %ssa% () when post_ssa_opt ->
-%ssa% U = bs_create_bin(append, _, T, ...) { unique => [T] },
-%ssa% R = put_tuple(U, A) { aliased => [A], unique => [U] },
+%ssa% U = bs_create_bin(append, _, T, ...) { aliased => [T] },
+%ssa% R = put_tuple(U, A) { aliased => [U, A] },
 %ssa% ret(R).
     [{[{Z,X}]}] = nested_mixed_inner(),
     {<<Z/binary, 1:8>>,X}.

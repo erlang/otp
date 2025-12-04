@@ -645,12 +645,7 @@ set_alias([], State) ->
     State.
 
 get_alias_edges(V, State) ->
-    OutEdges = [To
-                || {#b_var{},To,Kind} <- beam_digraph:out_edges(State, V),
-                   case Kind of
-                       {embed,_} -> false;
-                       _ -> true
-                   end],
+    OutEdges = [To || {#b_var{},To,_} <- beam_digraph:out_edges(State, V)],
     EmbedEdges = [Src
                   || {#b_var{}=Src,_,Lbl} <- beam_digraph:in_edges(State, V),
                      case Lbl of
