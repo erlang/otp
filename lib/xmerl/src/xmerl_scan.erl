@@ -31,7 +31,7 @@ The XML parser is activated through
 of the type defined in `xmerl.hrl`.
 
 See also the
-["Customization functions" tutorial](`e:xmerl:xmerl_examples.html"`).
+["Customization functions" tutorial](`e:xmerl:xmerl_examples.html`).
 """.
 -vsn('0.20').
 -date('03-09-16').
@@ -68,7 +68,7 @@ The global state of the scanner, represented by the `#xmerl_scanner{}` record.
 
 -doc """
 Options allow to customize the behaviour of the scanner.  See also the
-["Customization functions" tutorial](`e:xmerl:xmerl_examples.html"`).
+["Customization functions" tutorial](`e:xmerl:xmerl_examples.html`).
 
 Possible options are:
 
@@ -204,7 +204,7 @@ passed to the function.
 -doc """
 Fetch the `UserState`.
 
-See the ["Customization functions" tutorial](`e:xmerl:xmerl_examples.html"`).
+See the ["Customization functions" tutorial](`e:xmerl:xmerl_examples.html`).
 """.
 -spec user_state(global_state()) -> UserState when
       UserState :: term().
@@ -213,7 +213,7 @@ user_state(#xmerl_scanner{user_state = S}) -> S.
 -doc """
 Fetch the `EventState`.
 
-See the ["Customization functions" tutorial](`e:xmerl:xmerl_examples.html"`).
+See the ["Customization functions" tutorial](`e:xmerl:xmerl_examples.html`).
 """.
 -spec event_state(global_state()) -> EventState when
       EventState :: term().
@@ -222,7 +222,7 @@ event_state(#xmerl_scanner{fun_states = #xmerl_fun_states{event = S}}) -> S.
 -doc """
 Fetch the `HookState`.
 
-See the ["Customization functions" tutorial](`e:xmerl:xmerl_examples.html"`).
+See the ["Customization functions" tutorial](`e:xmerl:xmerl_examples.html`).
 """.
 -spec hook_state(global_state()) -> HookState when
       HookState :: term().
@@ -231,7 +231,7 @@ hook_state(#xmerl_scanner{fun_states = #xmerl_fun_states{hook = S}}) -> S.
 -doc """
 Fetch the `RulesState`.
 
-See the ["Customization functions" tutorial](`e:xmerl:xmerl_examples.html"`).
+See the ["Customization functions" tutorial](`e:xmerl:xmerl_examples.html`).
 """.
 -spec rules_state(global_state()) -> RulesState when
       RulesState :: term().
@@ -240,7 +240,7 @@ rules_state(#xmerl_scanner{fun_states = #xmerl_fun_states{rules = S}}) -> S.
 -doc """
 Fetch the `FetchState`.
 
-See the ["Customization functions" tutorial](`e:xmerl:xmerl_examples.html"`).
+See the ["Customization functions" tutorial](`e:xmerl:xmerl_examples.html`).
 """.
 -spec fetch_state(global_state()) -> FetchState when
       FetchState :: term().
@@ -249,7 +249,7 @@ fetch_state(#xmerl_scanner{fun_states = #xmerl_fun_states{fetch = S}}) -> S.
 -doc """
 Fetch the `ContinuationState`.
 
-See the ["Customization functions" tutorial](`e:xmerl:xmerl_examples.html"`).
+See the ["Customization functions" tutorial](`e:xmerl:xmerl_examples.html`).
 """.
 -spec cont_state(global_state()) -> ContinuationState when
       ContinuationState :: term().
@@ -261,7 +261,7 @@ cont_state(#xmerl_scanner{fun_states = #xmerl_fun_states{cont = S}}) -> S.
 -doc """
 Set the `UserState`, to be used in a user function.
 
-See the ["Customization functions" tutorial](`e:xmerl:xmerl_examples.html"`).
+See the ["Customization functions" tutorial](`e:xmerl:xmerl_examples.html`).
 """.
 -spec user_state(UserState :: term(), G :: global_state()) -> global_state().
 user_state(X, S) ->
@@ -272,7 +272,7 @@ Set the EventState, to be used in an event function.
 
 The event function is called at the beginning and at the end
 of a parsed entity. See the
-["Customization functions" tutorial](`e:xmerl:xmerl_examples.html"`).
+["Customization functions" tutorial](`e:xmerl:xmerl_examples.html`).
 """.
 -spec event_state(EventState :: term(), global_state()) -> global_state().
 event_state(X, S=#xmerl_scanner{fun_states = FS}) ->
@@ -284,7 +284,7 @@ Set the HookState, to be used in a hook function.
 
 The hook function is and called when the parser has parsed
 a complete entity.  See the
-["Customization functions" tutorial](`e:xmerl:xmerl_examples.html"`).
+["Customization functions" tutorial](`e:xmerl:xmerl_examples.html`).
 """.
 -spec hook_state(HookState :: term(), global_state()) -> global_state().
 hook_state(X, S=#xmerl_scanner{fun_states = FS}) ->
@@ -296,7 +296,7 @@ Set the RulesState, to be used in a rules function.
 
 The rules function is and called when the parser store scanner information
 in a rules database. See the
-["Customization functions" tutorial](`e:xmerl:xmerl_examples.html"`).
+["Customization functions" tutorial](`e:xmerl:xmerl_examples.html`).
 """.
 -spec rules_state(RulesState :: term(), global_state()) -> global_state().
 rules_state(X, S=#xmerl_scanner{fun_states = FS}) ->
@@ -312,7 +312,7 @@ Set the FetchState, to be used in a fetch function.
 
 The fetch function is and called when the parser fetches
 an external resource (eg. a DTD). See the
-["Customization functions" tutorial](`e:xmerl:xmerl_examples.html"`).
+["Customization functions" tutorial](`e:xmerl:xmerl_examples.html`).
 """.
 -spec fetch_state(FetchState :: term(), global_state()) -> global_state().
 fetch_state(X, S=#xmerl_scanner{fun_states = FS}) ->
@@ -324,7 +324,7 @@ Set the ContinuationState, to be used in a continuation function.
 
 The continuation function is called when the parser encounters
 the end of the byte stream. See the
-["Customization functions" tutorial](`e:xmerl:xmerl_examples.html"`).
+["Customization functions" tutorial](`e:xmerl:xmerl_examples.html`).
 """.
 -spec cont_state(ContState :: term(), global_state()) -> global_state().
 cont_state(X, S=#xmerl_scanner{fun_states = FS}) ->

@@ -45,7 +45,7 @@ Each front-end contains more elaborate settings of
 
 -doc """
 Options allow to customize the behaviour of the scanner.  See also the
-["Customization functions" tutorial](`e:xmerl:xmerl_examples.html"`).
+["Customization functions" tutorial](`e:xmerl:xmerl_examples.html`).
 
 <p>
 Possible options are:
