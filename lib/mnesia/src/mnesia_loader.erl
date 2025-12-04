@@ -37,6 +37,8 @@
 
 -include("mnesia.hrl").
 
+-compile(nowarn_obsolete_bool_op).
+
 %% Local function in order to avoid external function call
 val(Var) ->
     case ?catch_val_and_stack(Var) of

@@ -109,7 +109,7 @@ endif
 # ----------------------------------------------------
 
 ifeq ($(TYPE),debug)
-ERL_COMPILE_FLAGS += -Ddebug
+ERL_COMPILE_FLAGS += -Ddebug +warn_obsolete_bool_op
 endif
 
 # The "warn" flag is on by default, so unless we add the

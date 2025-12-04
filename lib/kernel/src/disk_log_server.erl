@@ -23,6 +23,8 @@
 -moduledoc false.
 -behaviour(gen_server).
 
+-compile(nowarn_obsolete_bool_op).
+
 -export([start_link/0, start/0, open/1, close/1, 
 	 get_log_pid/1, all/0]).
 

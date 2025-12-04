@@ -31,6 +31,8 @@
 -module(mnesia_schema).
 -moduledoc false.
 
+-compile(nowarn_obsolete_bool_op).
+
 -export([
          add_backend_type/2,
 	 do_add_backend_type/2,

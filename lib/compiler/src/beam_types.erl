@@ -23,6 +23,8 @@
 -module(beam_types).
 -moduledoc false.
 
+-compile(nowarn_obsolete_bool_op).
+
 -define(BEAM_TYPES_INTERNAL, true).
 -include("beam_types.hrl").
 

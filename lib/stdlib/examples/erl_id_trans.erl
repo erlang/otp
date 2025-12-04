@@ -60,6 +60,8 @@ code is then transformed into other Erlang code.
 %% N.B. if this module is to be used as a basis for transforms then
 %% all the error cases must be handled otherwise this module just crashes!
 
+-compile(nowarn_obsolete_bool_op).
+
 -export([parse_transform/2, parse_transform_info/0]).
 
 -doc "Performs an identity transformation on Erlang forms, as an example.".

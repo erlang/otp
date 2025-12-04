@@ -22,6 +22,8 @@
 -module(run_pcre_tests).
 -export([test/1,gen_split_test/1,gen_repl_test/1]).
 
+-compile(nowarn_obsolete_bool_op).
+
 -define(is_hex_char(C),(((C >= $0) and (C =< $9)) or ((C >= $A) and (C =< $F)) or ((C >= $a) and (C =< $f)))).
 -define(SPACE,32). % space character ($ )
 

@@ -82,7 +82,7 @@ PUB_KEY_FLAGS =
 # ----------------------------------------------------
 PUB_KEY_ERL_FLAGS += -I $(INCLUDE) -I ../asn1/
 
-ERL_COMPILE_FLAGS += $(PUB_KEY_ERL_FLAGS) \
+ERL_COMPILE_FLAGS += $(PUB_KEY_ERL_FLAGS) +warn_obsolete_bool_op \
 		     $(PUB_KEY_FLAGS) \
                      +'{parse_transform,sys_pre_attributes}' \
                      +'{attribute,insert,app_vsn,$(APP_VSN)}'

@@ -26,6 +26,7 @@
 
 %%% This test suite tests different options for the ssh functions
 
+-compile(nowarn_obsolete_bool_op).
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/file.hrl").

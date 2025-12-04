@@ -29,6 +29,8 @@ manipulating (write/read/append) the config files of the SNMP agent.
 
 """.
 
+-compile(nowarn_obsolete_bool_op).
+
 -include("snmp_internal.hrl").
 
 

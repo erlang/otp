@@ -24,6 +24,8 @@
 -moduledoc false.
 -export([format_error/2]).
 
+-compile(nowarn_obsolete_bool_op).
+
 -spec format_error(Reason, StackTrace) -> ErrorMap when
       Reason :: term(),
       StackTrace :: erlang:stacktrace(),

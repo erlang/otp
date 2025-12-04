@@ -250,6 +250,8 @@ Floats (\+|-)?[0-9]+\.[0-9]+((E|e)(\+|-)?[0-9]+)?
 > current version of `leex` and generates a parse error.
 """.
 
+-compile(nowarn_obsolete_bool_op).
+
 -export([compile/3,file/1,file/2,format_error/1]).
 
 -import(lists, [member/2,reverse/1,sort/1,keysort/2,

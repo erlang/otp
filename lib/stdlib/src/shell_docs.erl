@@ -64,6 +64,8 @@ be rendered as is.
 
 -include_lib("kernel/include/eep48.hrl").
 
+-compile(nowarn_obsolete_bool_op).
+
 -export([render/2, render/3, render/4, render/5]).
 -export([render_type/2, render_type/3, render_type/4, render_type/5]).
 -export([render_callback/2, render_callback/3, render_callback/4, render_callback/5]).

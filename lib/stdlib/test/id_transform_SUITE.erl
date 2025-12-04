@@ -23,7 +23,9 @@
 -author('pan@erix.ericsson.se').
 
 -include_lib("kernel/include/file.hrl").
-          
+
+-compile(nowarn_obsolete_bool_op).
+
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2,
 	 id_transform/1]).

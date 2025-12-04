@@ -23,6 +23,8 @@
 -module(select_SUITE).
 -author('pan@erix.ericsson.se').
 
+-compile(nowarn_obsolete_bool_op).
+
 -export([test/0]).
 
 %%
