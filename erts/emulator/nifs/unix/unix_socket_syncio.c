@@ -7734,7 +7734,7 @@ void essio_encode_sctp_notif_send_failed(ErlNifEnv*               env,
             esock_atom_type, esock_atom_flags, esock_atom_error,
             esock_atom_assoc_id, esock_atom_data};
         ERL_NIF_TERM vals[] = {esock_atom_sctp_notification,
-            esock_atom_send_failed, eflags, eerr, eaid,
+            esock_atom_send_failed, eflags, eerr,
             eaid, edata};
         size_t       numKeys = NUM(keys);
 

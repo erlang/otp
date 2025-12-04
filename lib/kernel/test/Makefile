@@ -165,6 +165,7 @@ ERL_FILES= $(MODULES:%=%.erl) code_a_test.erl \
 
 HRL_FILES= \
 	kernel_test_lib.hrl \
+	socket_test_lib.hrl \
 	socket_test_evaluator.hrl \
 	socket_test_ttest.hrl \
 	socket_test_ttest_client.hrl \

@@ -25,9 +25,12 @@
 -include("socket_sctp_traffic_lib.hrl").
 
 -export([
-         start/0, start/1, start/2,
+         start/0, start/1, start/2, start/3,
+         start_monitor/0, start_monitor/1, start_monitor/2, start_monitor/3,
          stop/1
         ]).
+
+-export([start_it/3]).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -40,7 +43,7 @@
                         debug    => false,
                         %% Threaded:
                         %%   true:  The server spawns a handler for every
-                        %%          connection (who perform peeloff)
+                        %%          connection (who then perform peeloff)
                         %%   false: The server handles all traffic itself.
                         threaded => true}).
 -define(STATUS_TIMEOUT, 5000).
@@ -49,38 +52,133 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 start() ->
-    start(0).
+    start(node(), 0, #{}).
 
 start(PortNo) when is_integer(PortNo) andalso (PortNo >= 0) ->
-    start(PortNo, ?DEFAULT_OPTS);
+    start(node(), PortNo, #{});
 start(Opts) when is_map(Opts) ->
-    start(0, Opts).
+    start(node(), 0, Opts);
+start(Node) when is_atom(Node) ->
+    start(Node, 0, #{}).
 
-start(PortNo, Opts0)
-  when is_integer(PortNo) andalso (PortNo >= 0) andalso is_map(Opts0) ->
-    Opts = (maps:merge(?DEFAULT_OPTS, Opts0))#{parent => self()},
-    Server = {Pid, MRef} = spawn_monitor(fun() -> init(Opts) end),
-    receive
-        {'DOWN', MRef, process, Pid, Reason} ->
-            {error, Reason};
+start(PortNo, Opts)
+  when is_integer(PortNo) andalso (PortNo >= 0) andalso
+       is_map(Opts) ->
+    start(node(), PortNo, Opts);
+start(Node, PortNo)
+  when is_atom(Node) andalso
+       is_integer(PortNo) andalso (PortNo >= 0) ->
+    start(Node, PortNo, #{});
+start(Node, Opts)
+  when is_atom(Node) andalso
+       is_map(Opts) ->
+    start(Node, 0, Opts).
 
-        ?MSG(Pid, {started, ServerSA}) ->
-            {ok, {Server, ServerSA}}
+start(Node, PortNo, Opts)
+  when is_atom(Node) andalso
+       is_integer(PortNo) andalso (PortNo >= 0) andalso
+       is_map(Opts) ->
+    do_start(Node, PortNo, ensure_opts(Opts)).
 
-    after ?TIMEOUT ->
-            ?ERROR("Server start timeout: "
-                   "~n   MQ: ~p", [?MQ()]),
-            exit(Pid, kill),
-            {error, timeout}
+
+start_monitor() ->
+    start_monitor(node(), 0, #{}).
+
+start_monitor(PortNo) when is_integer(PortNo) andalso (PortNo >= 0) ->
+    start_monitor(node(), PortNo, #{});
+start_monitor(Opts) when is_map(Opts) ->
+    start_monitor(node(), 0, Opts);
+start_monitor(Node) when is_atom(Node) ->
+    start_monitor(Node, 0, #{}).
+
+start_monitor(PortNo, Opts)
+  when is_integer(PortNo) andalso (PortNo >= 0) andalso
+       is_map(Opts) ->
+    start_monitor(node(), PortNo, Opts);
+start_monitor(Node, PortNo)
+  when is_atom(Node) andalso
+       is_integer(PortNo) andalso (PortNo >= 0) ->
+    start_monitor(Node, PortNo, #{});
+start_monitor(Node, Opts)
+  when is_atom(Node) andalso
+       is_map(Opts) ->
+    start_monitor(Node, 0, Opts).
+
+start_monitor(Node, PortNo, Opts)
+  when is_atom(Node) andalso
+       is_integer(PortNo) andalso (PortNo >= 0) andalso
+       is_map(Opts) ->
+    case do_start(Node, PortNo, ensure_opts(Opts)) of
+        {ok, {Pid, SA}} ->
+            MRef = erlang:monitor(process, Pid),
+            {ok, {Pid, MRef, SA}};
+        {error, _} = ERROR ->
+            ERROR
     end.
 
+
+
+do_start(Node, PortNo, Opts)
+  when (Node =/= node()) ->
+    Args = [self(), PortNo, Opts],
+    case rpc:call(Node, ?MODULE, start_it, Args) of
+        {badrpc, _} = Reason ->
+            {error, Reason};
+        {ok, {Pid, _}} = OK when is_pid(Pid) ->
+            OK;
+        {error, _} = ERROR ->
+            ERROR
+    end;
+do_start(_, PortNo, Opts) ->
+    case start_it(self(), PortNo, Opts) of
+        {ok, {Pid, _}} = OK when is_pid(Pid) ->
+            OK;
+        {error, _} = ERROR ->
+            ERROR
+    end.
+
+
+
+start_it(Parent, PortNo, Opts) when is_pid(Parent) ->
+
+    put(sname, "server-starter"),
+    set_debug(Opts),
+
+    ?DBG("~s -> entry", [?FUNCTION_NAME]),
+
+    Self             = self(),
+    {Pid, MRef} =
+        spawn_monitor(fun() ->
+                              init(Opts#{starter => Self,
+                                         parent  => Parent,
+                                         port    => PortNo})
+                      end),
+    receive
+        {'DOWN', MRef, process, Pid, Reason} ->
+            ?ERROR("Received unexpected DOWN from starting acceptor:"
+                   "~n   ~p", [Reason]),
+            erase(sname),
+            {error, Reason};
+        
+        ?MSG(Pid, {started, SockAddr}) ->
+            ?INFO("acceptor started:"
+                  "~n   Pid:      ~p"
+                  "~n   SockAddr: ~p", [Pid, SockAddr]),
+            erlang:demonitor(MRef),
+            erase(sname),
+            {ok, {Pid, SockAddr}}
+    end.
+        
+
 stop(Pid) when is_pid(Pid) ->
+    MRef = erlang:monitor(process, Pid),
     Pid ! ?MSG(self(), stop),
     receive
-        {'DOWN', _MRef, process, Pid, _} ->
+        {'DOWN', MRef, process, Pid, _} ->
             ok
     after ?TIMEOUT ->
             ?ERROR("Server stop timeout"),
+            erlang:demonitor(MRef),
             exit(Pid, kill),
             ok
     end.
@@ -88,8 +186,10 @@ stop(Pid) when is_pid(Pid) ->
         
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
                                                   
-init(#{parent   := Parent,
+init(#{starter  := Starter,
+       parent   := Parent,
        domain   := Domain,
+       port     := PortNo,
        threaded := Threaded} = State) ->
 
     set_debug(State),
@@ -119,7 +219,7 @@ init(#{parent   := Parent,
 
     SockAddr0 = #{family => Domain,
                   addr   => Addr,
-                  port   => 0},
+                  port   => PortNo},
     ?DBG("try bind to:"
          "~n   ~p", [SockAddr0]),
     case socket:bind(Sock, SockAddr0) of
@@ -169,15 +269,17 @@ init(#{parent   := Parent,
     MRef = erlang:monitor(process, Parent),
 
     ?DBG("inform parent (sockaddr: ~p)", [SockAddr]),
-    Parent ! ?MSG(self(), {started, SockAddr}),
+    Starter ! ?MSG(self(), {started, SockAddr}),
 
     ?INFO("started"),
-    loop(State#{parent_mref => MRef,
-                sock        => Sock,
-                connections => #{},
-                select      => undefined,
-                %% Only use the id if threaded
-                id          => 1}).
+    loop(#{parent      => Parent,
+           parent_mref => MRef,
+           sock        => Sock,
+           connections => #{},
+           select      => undefined,
+           %% Only use the id if threaded
+           id          => 1,
+           threaded    => Threaded}).
     
 
 loop(#{sock   := Sock,
@@ -215,9 +317,11 @@ loop(#{parent      := Parent,
             exit({parent, Info});
 
         ?MSG(Parent, stop) ->
-            ?INFO("Received close request"),
+            ?INFO("Received stop request"),
             (catch socket:cancel(Sock, SelectInfo)),
+            ?INFO("close socket"),
             (catch socket:close(Sock)),
+            ?INFO("stop done"),
             exit(normal)
     end.
 
@@ -390,7 +494,8 @@ handler_init(State, ID, Sock, AssocID, Parent) ->
     set_debug(State),
     ?SET_SNAME(?F("handler[~w,~w]", [ID, AssocID])),
     
-    ?DBG("try peeloff"),
+    ?DBG("~s -> entry - try peeloff", [?FUNCTION_NAME]),
+
     NewSock =
         case socket:peeloff(Sock, AssocID) of
             {ok, S} ->
@@ -493,6 +598,14 @@ handler_handle_msg(_State, Msg) ->
 
 handler_handle_notification(#{sock := Sock} = _State,
                             #{type     := assoc_change,
+                              state    := comm_lost,
+                              assoc_id := AssocID}) ->
+    ?INFO("Received assoc-change(comm-lost) for assoc ~w", [AssocID]),
+    %% We should really wait for the socket close...
+    (catch socket:close(Sock)),
+    exit(normal);
+handler_handle_notification(#{sock := Sock} = _State,
+                            #{type     := assoc_change,
                               state    := shutdown_comp,
                               assoc_id := AssocID}) ->
     ?INFO("Received assoc-change(shutdown-comp) for assoc ~w", [AssocID]),
@@ -549,6 +662,9 @@ handle_data(#{sock := Sock} = State,
 
     
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+ensure_opts(Opts) when is_map(Opts) ->
+    maps:merge(?DEFAULT_OPTS, Opts).
 
 set_debug(#{debug := Debug}) when is_boolean(Debug) ->
     ?SET_DEBUG(Debug);

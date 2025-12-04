@@ -56,7 +56,11 @@
 %% T = fun(TC) -> ct:run_test([{suite, socket_sctp_SUITE}, {testcase, TC}]) end.
 %% T = fun(S, TC) -> ct:run_test([{suite, S}, {testcase, TC}]) end.
 %% T = fun(S, G, TC) -> ct:run_test([{suite, S}, {group, G}, {testcase, TC}]) end.
-
+%%
+%% There is a bench group in this (test) suite.
+%% It is functionally identical to the traffic group, but is intended to be
+%% used when benchmark runs are made.
+%% The difference is in how results are "published" and the run-time
 
 
 -module(socket_sctp_SUITE).
@@ -65,6 +69,7 @@
 -include_lib("common_test/include/ct_event.hrl").
 -include("socket_test_evaluator.hrl").
 -include("kernel_test_lib.hrl").
+-include("socket_test_lib.hrl").
 
 %% Suite exports
 -export([suite/0, all/0, groups/0]).
@@ -103,11 +108,11 @@
          m_recv_close/1,
          m_buffers/1,
 
-         %% *** Traffic ***
-         t_exchange_st_ipv4/1,
-         t_exchange_st_ipv6/1,
-         t_exchange_mt_ipv4/1,
-         t_exchange_mt_ipv6/1,
+         %% *** Traffic (and bench) ***
+         t_exchange_st_ipv4/1, bench_exchange_st_ipv4/1,
+         t_exchange_st_ipv6/1, bench_exchange_st_ipv6/1,
+         t_exchange_mt_ipv4/1, bench_exchange_mt_ipv4/1,
+         t_exchange_mt_ipv6/1, bench_exchange_mt_ipv6/1,
 
          %% *** Options ***
          o_default_sri_ipv4/1
@@ -117,55 +122,24 @@
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
--define(SLIB,       socket_test_lib).
 -define(KLIB,       kernel_test_lib).
 -define(LOGGER,     socket_test_logger).
+
+-define(BENCH_SUITE, socket_sctp_traffic).
 
 -define(BASIC_REQ,  <<"hejsan">>).
 -define(BASIC_REP,  <<"hoppsan">>).
 
 -define(DATA,       <<"The quick brown fox jumps over a lazy dog 0123456789">>).
-%% -define(FAIL(R),    exit(R)).
 
--define(SCTP_EVENTS(DataIO),
-        #{data_io          => (DataIO),
-          association      => true,
-          address          => true,
-          send_failure     => true,
-          peer_error       => true,
-          shutdown         => true,
-          partial_delivery => true,
-          adaptation_layer => false,
-          authentication   => false,
-          sender_dry       => false}).
+%% Number of clients per node
+-define(TRAFFIC_NUM_NODE_CLIENTS, 2).
+-define(BENCH_NUM_NODE_CLIENTS,   3).
 
--define(MK_SOCKOPT(Lvl, Opt), {(Lvl), (Opt)}).
--define(MK_OTP_SOCKOPT(Opt),  ?MK_SOCKOPT(otp,    (Opt))).
--define(MK_SOCK_SOCKOPT(Opt), ?MK_SOCKOPT(socket, (Opt))).
--define(MK_IP_SOCKOPT(Opt),   ?MK_SOCKOPT(ip,     (Opt))).
--define(MK_IPV6_SOCKOPT(Opt), ?MK_SOCKOPT(ipv6,   (Opt))).
--define(MK_SCTP_SOCKOPT(Opt), ?MK_SOCKOPT(sctp,   (Opt))).
+%%% For how long should the clients run
+-define(BENCH_RUN_TIME,   ?MINS(1)).
+-define(TRAFFIC_RUN_TIME, ?SECS(10)).
 
--define(WHICH_SCTP_STATUS(Sock, AID),
-        case socket:getopt(Sock,
-                           ?MK_SCTP_SOCKOPT(status),
-                           #{assoc_id => AID}) of
-            {ok,    Status} -> Status;
-            {error, closed} -> closed;
-            {error, _}      -> undefined
-        end).
--define(WHICH_SOCKNAME(Sock),
-        fun() ->
-                case socket:sockname(Sock) of
-                    {ok, SockAddr}  -> SockAddr;
-                    {error, closed} -> closed;
-                    {error, _}      -> undefined
-                end
-        end()).
--define(ENABLE_SOCK_DEBUG(S),  socket:setopt(S, ?MK_OTP_SOCKOPT(debug), true)).
--define(DISABLE_SOCK_DEBUG(S), socket:setopt(S, ?MK_OTP_SOCKOPT(debug), false)).
-
--define(TRAFFIC_RUN_TIME, ?MINS(1)).
 -define(TRAFFIC_DATA_M1, <<"The quick brown fox jumps over a lazy dog">>).
 -define(TRAFFIC_DATA_M2, <<"The quick brown fox jumps over a lazy dog."
                            "The quick brown fox jumps over a lazy dog."
@@ -188,9 +162,16 @@
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+%%======================================================================
+%% Common Test interface functions
+%%
+%% The difference between the bench cases and the meas cases is simply
+%% how the results are reported.
+%%======================================================================
+
 suite() ->
     [{ct_hooks, [ts_install_cth]},
-     {timetrap, {minutes,1}}].
+     {timetrap, {minutes,2}}].
 
 all() -> 
     Groups = [
@@ -229,7 +210,9 @@ groups() ->
      {misc,        [], misc_cases()},
      {homing,      [], homing_cases()},
      {traffic,     [], traffic_cases()},
-     {options,     [], options_cases()}
+     {options,     [], options_cases()},
+
+     {bench,       [], bench_cases()}
     ].
      
 basic_cases() ->
@@ -286,6 +269,16 @@ options_cases() ->
     [
      o_default_sri_ipv4
     ].
+
+
+bench_cases() ->
+    [
+     bench_exchange_st_ipv4,
+     bench_exchange_st_ipv6,
+     bench_exchange_mt_ipv4,
+     bench_exchange_mt_ipv6
+    ].
+
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1321,21 +1314,13 @@ b_open_connect_and_close(InitState) ->
          #{desc => "client assoc status",
            cmd  => fun(#{csock := Sock,
                          caid  := AID} = _State) ->
-                           SockOpt      = ?MK_SCTP_SOCKOPT(status),
-                           SparseStatus = #{assoc_id => AID},
-                           case socket:getopt(Sock, SockOpt, SparseStatus) of
-                               {ok, Status} ->
-                                   ?SEV_IPRINT("assoc ~w status:"
-                                               "~n   ~p", [AID, Status]),
-                                   ok;
-                               {error, _} = ERROR ->
-                                   ERROR
-                           end
+                           ?SEV_IPRINT("try get status"),
+                           show_sctp_assoc_status(Sock, AID)
                    end},
          #{desc => "client socket send buffer size",
            cmd  => fun(#{csock := Sock,
                          caid  := _AID} = _State) ->
-                           SockOpt = ?MK_SOCK_SOCKOPT(sndbuf),
+                           SockOpt = ?MK_SOCKOPT_SOCK(sndbuf),
                            case socket:getopt(Sock, SockOpt) of
                                {ok, Sz} ->
                                    ?SEV_IPRINT("send buffer size:"
@@ -1348,7 +1333,7 @@ b_open_connect_and_close(InitState) ->
          #{desc => "client socket receive buffer size",
            cmd  => fun(#{csock := Sock,
                          caid  := _AID} = _State) ->
-                           SockOpt = ?MK_SOCK_SOCKOPT(rcvbuf),
+                           SockOpt = ?MK_SOCKOPT_SOCK(rcvbuf),
                            case socket:getopt(Sock, SockOpt) of
                                {ok, Sz} ->
                                    ?SEV_IPRINT("receive buffer size:"
@@ -2641,16 +2626,7 @@ m_stream_min_data_exchange(InitState) ->
            cmd  => fun(#{sock  := Sock,
                          assoc := #{assoc_id := AID} = _Assoc} = _State) ->
                            ?SEV_IPRINT("try get status"),
-                           SockOpt      = ?MK_SCTP_SOCKOPT(status),
-                           SparseStatus = #{assoc_id => AID},
-                           case socket:getopt(Sock, SockOpt, SparseStatus) of
-                               {ok, Status} ->
-                                   ?SEV_IPRINT("status:"
-                                               "~n   ~p", [Status]),
-                                   ok;
-                               {error, _} = ERROR ->
-                                   ERROR
-                           end
+                           show_sctp_assoc_status(Sock, AID)
                    end},
          #{desc => "announce ready (status)",
            cmd  => fun(#{tester := Tester}) ->
@@ -2723,16 +2699,7 @@ m_stream_min_data_exchange(InitState) ->
            cmd  => fun(#{sock  := Sock,
                          assoc := #{assoc_id := AID} = _Assoc} = _State) ->
                            ?SEV_IPRINT("try get status"),
-                           SockOpt      = ?MK_SCTP_SOCKOPT(status),
-                           SparseStatus = #{assoc_id => AID},
-                           case socket:getopt(Sock, SockOpt, SparseStatus) of
-                               {ok, Status} ->
-                                   ?SEV_IPRINT("status:"
-                                               "~n   ~p", [Status]),
-                                   ok;
-                               {error, _} = ERROR ->
-                                   ERROR
-                           end
+                           show_sctp_assoc_status(Sock, AID)
                    end},
          #{desc => "announce ready (status)",
            cmd  => fun(#{tester := Tester}) ->
@@ -4197,7 +4164,7 @@ m_peeloff_server_init(#{ctrl         := CTRL,
     end,
 
     ?P("~s -> try set 'events' (sctp) socket option", [?FUNCTION_NAME]),
-    case socket:setopt(Sock, ?MK_SCTP_SOCKOPT(events), Evs) of
+    case socket:setopt(Sock, ?MK_SOCKOPT_SCTP(events), Evs) of
         ok ->
             ok;
         {error, Reason4} ->
@@ -5166,7 +5133,7 @@ do_recv_close(#{domain := Domain,
                 events := Evs}) ->
     ?P("~s -> create server socket (and listen)", [?FUNCTION_NAME]),
     {ok, SSock} = socket:open(Domain, seqpacket, sctp),
-    ok = socket:setopt(SSock, ?MK_SCTP_SOCKOPT(events), Evs),
+    ok = socket:setopt(SSock, ?MK_SOCKOPT_SCTP(events), Evs),
     ok = socket:bind(SSock, #{family => Domain, addr => Addr, port => 0}),
     {ok, #{port := SPort}} = socket:sockname(SSock),
     ok = socket:listen(SSock, true),
@@ -6635,115 +6602,249 @@ do_from_other_process(Fun) when is_function(Fun, 0) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-t_exchange_st_ipv4(_Config) when is_list(_Config) ->
-    ?TT(?MINS(2)),
-    Cond = fun() -> has_support_ipv4() end,
-    Pre  = fun() ->
-                   #{domain      => inet,
-                     num_clients => 3}
-           end,
-    TC   = fun(Conf) ->
-                   t_exchange_st(Conf)
-           end,
-    Post = fun(_) -> ok end,
-    tc_try(?FUNCTION_NAME, Cond, Pre, TC, Post).
+t_exchange_st_ipv4(Config) when is_list(Config) ->
+    common_exchange_st_ipv4(?FUNCTION_NAME, false,
+                            ?TRAFFIC_NUM_NODE_CLIENTS, ?TRAFFIC_RUN_TIME).
 
-t_exchange_st_ipv6(_Config) when is_list(_Config) ->
-    ?TT(?MINS(2)),
-    Cond = fun() -> has_support_ipv6() end,
-    Pre  = fun() ->
-                   #{domain      => inet6,
-                     num_clients => 3}
-           end,
-    TC   = fun(Conf) ->
-                   t_exchange_st(Conf)
-           end,
-    Post = fun(_) -> ok end,
-    tc_try(?FUNCTION_NAME, Cond, Pre, TC, Post).
+t_exchange_st_ipv6(Config) when is_list(Config) ->
+    common_exchange_st_ipv6(?FUNCTION_NAME, false,
+                            ?TRAFFIC_NUM_NODE_CLIENTS, ?TRAFFIC_RUN_TIME).
 
-t_exchange_mt_ipv4(_Config) when is_list(_Config) ->
-    ?TT(?MINS(2)),
-    Cond = fun() -> has_support_ipv4() end,
-    Pre  = fun() ->
-                   #{domain      => inet,
-                     num_clients => 3}
-           end,
-    TC   = fun(Conf) ->
-                   t_exchange_mt(Conf)
-           end,
-    Post = fun(_) -> ok end,
-    tc_try(?FUNCTION_NAME, Cond, Pre, TC, Post).
+t_exchange_mt_ipv4(Config) when is_list(Config) ->
+    common_exchange_mt_ipv4(?FUNCTION_NAME, false,
+                            ?TRAFFIC_NUM_NODE_CLIENTS, ?TRAFFIC_RUN_TIME).
 
-t_exchange_mt_ipv6(_Config) when is_list(_Config) ->
-    ?TT(?MINS(2)),
-    Cond = fun() -> has_support_ipv6() end,
-    Pre  = fun() ->
-                   #{domain      => inet6,
-                     num_clients => 3}
-           end,
-    TC   = fun(Conf) ->
-                   t_exchange_mt(Conf)
-           end,
-    Post = fun(_) -> ok end,
-    tc_try(?FUNCTION_NAME, Cond, Pre, TC, Post).
-
-t_exchange_st(Conf) ->
-    t_exchange(Conf#{threaded => false}).
-
-t_exchange_mt(Conf) ->
-    t_exchange(Conf#{threaded => true}).
+t_exchange_mt_ipv6(Config) when is_list(Config) ->
+    common_exchange_mt_ipv6(?FUNCTION_NAME, false,
+                            ?TRAFFIC_NUM_NODE_CLIENTS, ?TRAFFIC_RUN_TIME).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-t_exchange(Conf) ->
+bench_exchange_st_ipv4(Config) when is_list(Config) ->
+    common_exchange_st_ipv4(?FUNCTION_NAME, true,
+                            ?BENCH_NUM_NODE_CLIENTS, ?BENCH_RUN_TIME).
+
+bench_exchange_st_ipv6(Config) when is_list(Config) ->
+    common_exchange_st_ipv6(?FUNCTION_NAME, true,
+                            ?BENCH_NUM_NODE_CLIENTS, ?BENCH_RUN_TIME).
+
+bench_exchange_mt_ipv4(Config) when is_list(Config) ->
+    common_exchange_mt_ipv4(?FUNCTION_NAME, true,
+                            ?BENCH_NUM_NODE_CLIENTS, ?BENCH_RUN_TIME).
+
+bench_exchange_mt_ipv6(Config) when is_list(Config) ->
+    common_exchange_mt_ipv6(?FUNCTION_NAME, true,
+                            ?BENCH_NUM_NODE_CLIENTS, ?BENCH_RUN_TIME).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+common_exchange_st_ipv4(Name, Bench, NumClientsPerNode, RunTime) ->
+    HasDomainSupport = fun() -> has_support_ipv4() end,
+    common_exchange_st(Name,
+                       Bench, NumClientsPerNode,
+                       RunTime, HasDomainSupport, inet).
+
+common_exchange_st_ipv6(Name, Bench, NumClientsPerNode, RunTime) ->
+    HasDomainSupport = fun() -> has_support_ipv6() end,
+    common_exchange_st(Name,
+                       Bench, NumClientsPerNode,
+                       RunTime, HasDomainSupport, inet6).
+
+common_exchange_mt_ipv4(Name, Bench, NumClientsPerNode, RunTime) ->
+    HasDomainSupport = fun() -> has_support_ipv4() end,
+    common_exchange_mt(Name,
+                       Bench, NumClientsPerNode,
+                       RunTime, HasDomainSupport, inet).
+
+common_exchange_mt_ipv6(Name, Bench, NumClientsPerNode, RunTime) ->
+    HasDomainSupport = fun() -> has_support_ipv6() end,
+    common_exchange_mt(Name,
+                       Bench, NumClientsPerNode,
+                       RunTime, HasDomainSupport, inet6).
+
+common_exchange_st(Name,
+                   Bench, NumClientsPerNode,
+                   RunTime, HasDomainSupport, Domain) ->
+    common_exchange(Name,
+                    Bench, NumClientsPerNode,
+                    RunTime, HasDomainSupport, Domain, false).
+
+common_exchange_mt(Name,
+                   Bench, NumClientsPerNode,
+                   RunTime, HasDomainSupport, Domain) ->
+    common_exchange(Name,
+                    Bench, NumClientsPerNode,
+                    RunTime, HasDomainSupport, Domain, true).
+
+common_exchange(Name,
+                Bench, NumClientsPerNode,
+                RunTime, HasDomainSupport, Domain, Threaded)
+  when is_boolean(Bench) andalso
+       is_integer(NumClientsPerNode) andalso (NumClientsPerNode > 0) andalso
+       is_integer(RunTime) andalso (RunTime > 0) andalso
+       is_function(HasDomainSupport) andalso
+       ((Domain =:= inet) orelse (Domain =:= inet6)) andalso
+       is_boolean(Threaded) ->
+    Cond = fun() ->
+                   HasDomainSupport()
+           end,
+    Pre  = fun() ->
+                   ?P("~s:pre -> initial config", [?FUNCTION_NAME]),
+                   ServerNodeName  = ?UNIQ_NODE_NAME("server"),
+                   ClientNodeName1 = ?UNIQ_NODE_NAME("client1"),
+                   ClientNodeName2 = ?UNIQ_NODE_NAME("client2"),
+                   ClientNodeName3 = ?UNIQ_NODE_NAME("client3"),
+                   NodeNames       = [ServerNodeName,
+                                      ClientNodeName1,
+                                      ClientNodeName2,
+                                      ClientNodeName3],
+                   ?P("~s:pre -> try start nodes:"
+                      "~n   ~p", [?FUNCTION_NAME, NodeNames]),
+                   [ServerNode | ClientNodes] = start_nodes(NodeNames, ""),
+                   ?P("~s:pre -> Nodes started", [?FUNCTION_NAME]),
+                   #{bench        => Bench,
+                     num_cpn      => NumClientsPerNode,
+                     run_time     => RunTime,
+                     domain       => Domain,
+                     threaded     => Threaded,
+                     server_node  => ServerNode,
+                     client_nodes => ClientNodes}
+           end,
+    TC   = fun(Conf) ->
+                   ?P("~s:tc -> begin", [?FUNCTION_NAME]),
+                   t_exchange(Conf)
+           end,
+    Post = fun(#{server_node  := ServerNode,
+                 client_nodes := ClientNodes}) ->
+                   ?P("~s:post -> try stop nodes", [?FUNCTION_NAME]),
+                   stop_nodes([ServerNode | ClientNodes]),
+                   ok
+           end,
+    ?TC_TRY(Name,
+            Cond, Pre, TC, Post).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+t_exchange(#{run_time := RunTime} = Conf) ->
     put(sname, "TC"),
 
     ?P("~s -> start server", [?FUNCTION_NAME]),
-    {ok, {Server, ServerSA}} = t_exc_start_server(Conf),
+    Server = t_exc_start_server(Conf),
     
     ?P("~s -> start clients", [?FUNCTION_NAME]),
-    Clients = t_exc_start_clients(Conf, ServerSA),
+    Clients = t_exc_start_clients(Conf, Server),
 
     ?P("~s -> release clients", [?FUNCTION_NAME]),
-    t_exc_release_clients(Clients, ?TRAFFIC_RUN_TIME),
+    t_exc_release_clients(Clients, RunTime),
     
-    ?P("~s -> release clients", [?FUNCTION_NAME]),
-    Result = t_exc_await_clients(Server, Clients, ?TRAFFIC_RUN_TIME),
+    ?P("~s -> clients released - await clients done", [?FUNCTION_NAME]),
+    Result = t_exc_await_clients(Server, Clients, RunTime),
 
     ?P("~s -> stop server", [?FUNCTION_NAME]),
     t_exc_stop_server(Server),
 
     ?P("~s -> done when"
        "~n   Result: ~p msgs/msec", [?FUNCTION_NAME, Result]),
+    publish_results(Conf, Result).
+
+
+publish_results(Conf, Result) ->
+    maybe_publish_bench_results(Conf, Result),
     {comment, ?F("~w msgs/msec", [Result])}.
 
 
-t_exc_start_clients(#{num_clients := NumClients}, ServerSA) ->
-    t_exc_start_clients(NumClients, 1, ServerSA, []).
+maybe_publish_bench_results(#{bench    := true,
+                              domain   := Domain,
+                              threaded := Threaded}, Result) ->
+    Event = ?BENCH_EVENT(bench_name(Domain, Threaded), Result),
+    ct_event:notify(Event);
+maybe_publish_bench_results(_, _Result) ->
+    ok.
 
-t_exc_start_clients(N, ID, ServerSA, Acc) when (N > 0) ->
-    ?P("~s -> try start client ~w", [?FUNCTION_NAME, ID]),
-    case socket_sctp_traffic_client:start(ID,
-                                          ServerSA,
-                                          ?TRAFFIC_DATA,
-                                          #{debug => false}) of
-        {ok, {{Pid, MRef}, {PortNo, AssocID}}} ->
+
+bench_name(inet, true) ->
+    exchange_multi_thread_ipv4;
+bench_name(inet6, true) ->
+    exchange_multi_thread_ipv6;
+bench_name(inet, false) ->
+    exchange_single_thread_ipv4;
+bench_name(inet6, false) ->
+    exchange_single_thread_ipv6.
+
+
+
+t_exc_start_server(#{server_node  := Node,
+                     domain       := Domain,
+                     threaded     := Threaded}) ->
+    ?P("~s -> try start (threaded: ~w) server on:"
+       "~n   ~p", [?FUNCTION_NAME, Threaded, Node]),
+    Opts = #{domain   => Domain,
+             threaded => Threaded,
+             debug    => false},
+    case socket_sctp_traffic_server:start_monitor(Node, Opts) of
+        {ok, {Pid, MRef, SA}} ->
+            #{pid  => Pid,
+              mref => MRef,
+              sa   => SA};
+        {error, Reason} ->
+            ?P("~s -> Failed starting server: "
+               "~n   Reason: ~p", [?FUNCTION_NAME, Reason]),
+            exit({failed_starting_server, Reason})
+    end.
+
+t_exc_stop_server(#{pid := Pid} = _Server) ->
+    socket_sctp_traffic_server:stop(Pid).
+
+
+t_exc_start_clients(#{num_cpn      := NumClientsPerNode,
+                      client_nodes := ClientNodes}, #{sa := ServerSA}) ->
+    t_exc_start_clients(ClientNodes, NumClientsPerNode, 1, ServerSA, []).
+
+t_exc_start_clients([], _, _, _ServerSA, Acc) ->
+    lists:reverse(Acc);
+t_exc_start_clients([Node|Nodes], NumClientsPerNode, ID, ServerSA, Acc) ->
+    ?P("~s -> try start ~w client(s) on"
+       "~n   ~p", [?FUNCTION_NAME, NumClientsPerNode, Node]),
+    NewAcc = t_exc_start_per_node_clients(Node, NumClientsPerNode,
+                                          ID, ServerSA, Acc),
+    t_exc_start_clients(Nodes, NumClientsPerNode, ID + NumClientsPerNode,
+                        ServerSA, NewAcc).
+     
+t_exc_start_per_node_clients(Node, NumClients, ID, ServerSA, Acc)
+  when (NumClients > 0) ->
+    ?P("~s -> try start client ~w on"
+       "~n   ~p", [?FUNCTION_NAME, ID, Node]),
+    case socket_sctp_traffic_client:start_monitor(Node,
+                                                  ID,
+                                                  ServerSA,
+                                                  ?TRAFFIC_DATA,
+                                                  #{debug => false}) of
+        {ok, {Pid, MRef, #{port := PortNo} = _SA, AssocID}} ->
             ?P("~s -> client ~w started", [?FUNCTION_NAME, ID]),
-            t_exc_start_clients(N-1, ID+1, ServerSA,
-                                [#{id       => ID,
-                                   pid      => Pid,
-                                   mref     => MRef,
-                                   port     => PortNo,
-                                   assoc_id => AssocID} | Acc]);
+            t_exc_start_per_node_clients(Node,
+                                         NumClients-1,
+                                         ID+1,
+                                         ServerSA,
+                                         [#{id       => ID,
+                                            pid      => Pid,
+                                            mref     => MRef,
+                                            port     => PortNo,
+                                            assoc_id => AssocID} | Acc]);
          {error, Reason} ->
-            ?P("~s -> Failed starting agent ~w: "
-               "~n   Reason: ~p", [?FUNCTION_NAME, ID, Reason]),
+            ?P("~s -> Failed starting client ~w: "
+               "~n   Node:   ~p"
+               "~n   Reason: ~p", [?FUNCTION_NAME, ID, Node, Reason]),
             t_exc_stop_clients(Acc),
             ct:fail("Failed starting client ~w", [ID])
     end;
-t_exc_start_clients(0, _, _ServerSA, Acc) ->
-    lists:reverse(Acc).
+t_exc_start_per_node_clients(_Node, 0 = _NumClients, _ID, _ServerSA, Acc) ->
+    Acc.
+
+    
+    
 
 t_exc_stop_clients([]) ->
     ok;
@@ -6763,6 +6864,10 @@ t_exc_release_clients([#{id := ID,
     t_exc_release_clients(Clients, RunTime).
 
 t_exc_await_clients(Server, Clients, RunTime) ->
+    ?P("~s -> entry with"
+       "~n   length(Clients): ~p"
+       "~n   RunTime:         ~p",
+       [?FUNCTION_NAME, length(Clients), RunTime]),
     t_exc_await_clients(Server, Clients, RunTime, RunTime+?SECS(10), []).
 
 t_exc_await_clients(_Server, [], RunTime, _Timeout, Acc) ->
@@ -6774,8 +6879,15 @@ t_exc_await_clients(_Server, [], RunTime, _Timeout, Acc) ->
                     end,
                     {0, 0, 0}, Acc),
     TotCnt div RunTime;
-t_exc_await_clients({ServerPid, ServerMRef} = Server, Clients,
+t_exc_await_clients(#{pid := ServerPid, mref := ServerMRef} = Server, Clients,
                     RunTime, Timeout, Acc) when (Timeout > 0) ->
+    ?P("~s -> await client completion when"
+       "~n   RunTime:         ~p"
+       "~n   Timeout:         ~p"
+       "~n   length(Clients): ~p"
+       "~n   length(Acc):     ~p",
+       [?FUNCTION_NAME,
+        RunTime, Timeout, length(Clients), length(Acc)]),
     T1 = ?TS(),
     receive
         {'DOWN', ServerMRef, process, ServerPid, Info} ->
@@ -6839,13 +6951,20 @@ t_exc_process_client_down(Clients, DownPid) ->
     {lists:reverse(Acc), ID}.
 
 
-t_exc_start_server(Conf) ->
-    socket_sctp_traffic_server:start(Conf#{debug => false}).
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-t_exc_stop_server({Pid, _}) ->
-    socket_sctp_traffic_server:stop(Pid).
-        
+show_sctp_assoc_status(Sock, AssocID) ->
+    case ?GET_SCTP_STATUS(Sock, AssocID) of
+        {ok, Status} ->
+            ?SEV_IPRINT("Assoc ~w status:"
+                        "~n   ~p", [AssocID, Status]),
+            ok;
+        {error, _} = ERROR ->
+            ERROR
+    end.
     
+
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% Here are all the *general* test case condition functions.
@@ -6872,45 +6991,27 @@ has_support_sctp() ->
 %% corresponding tests.
 %% Currently we just skip.
 has_support_ipv4() ->
-    ?KLIB:has_support_ipv4().
+    ?HAS_SUPPORT_IPV4().
 
 has_support_ipv6() ->
-    ?KLIB:has_support_ipv6().
+    ?HAS_SUPPORT_IPV6().
 
 %% has_support_socket_priority() ->
-%%     has_support_socket_option_sock(priority).
+%%     ?HAS_SUPPORT_SOCKET_OPTION_SOCK(priority).
 
 is_supported_socket_priority() ->
     is_supported_socket_option_sock(priority).
 
 has_support_socket_linger() ->
-    has_support_socket_option_sock(linger).
+    ?HAS_SUPPORT_SOCKET_OPTION_SOCK(linger).
 
 has_support_sctp_nodelay() ->
-    has_support_socket_option_sctp(nodelay).
+    ?HAS_SUPPORT_SOCKET_OPTION_SCTP(nodelay).
 
-
-has_support_socket_option_sock(Opt) ->
-    has_support_socket_option(socket, Opt).
 
 is_supported_socket_option_sock(Opt) ->
-    is_supported_socket_option(socket, Opt).
+    ?IS_SUPPORTED_SOCKET_OPTION(socket, Opt).
 
-has_support_socket_option_sctp(Opt) ->
-    has_support_socket_option(sctp, Opt).
-
-
-has_support_socket_option(Level, Option) ->
-    case socket:is_supported(options, Level, Option) of
-        true ->
-            ok;
-        false ->
-            skip(?F("Not Supported: ~w option ~w", [Level, Option]))
-    end.
-
-
-is_supported_socket_option(Level, Option) ->
-    socket:is_supported(options, Level, Option).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -6947,38 +7048,34 @@ tc_try(Case, TCCondFun, TCPreFun, TCFun, TCPostFun) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%% start_node(Name) ->
-%%     start_node(Name, 5000).
+start_nodes(Nodes, Args) ->
+    start_nodes(Nodes, [], Args).
 
-%% start_node(Name, Timeout) when is_integer(Timeout) andalso (Timeout > 0) ->
-%%     Pa   = filename:dirname(code:which(?MODULE)),
-%%     Args = ["-pa", Pa,
-%%             "-s", atom_to_list(?PROXY), "start", atom_to_list(node()),
-%%             "-s", "global", "sync"],
-%%     try ?CT_PEER(#{name      => Name,
-%%                    wait_boot => Timeout,
-%%                    args      => Args}) of
-%%         {ok, Peer, Node} ->
-%%             ?SEV_IPRINT("Started node ~p - now (global) sync", [Name]),
-%%             global:sync(), % Again, just in case...
-%%             ?SEV_IPRINT("ping proxy"),
-%%             pong = ?PPING(Node),
-%%             {Peer, Node};
-%%         {error, Reason} ->
-%%             ?SEV_EPRINT("failed starting node ~p (=> SKIP):"
-%%                         "~n   ~p", [Name, Reason]),
-%%             skip(Reason)
-%%     catch
-%%         Class:Reason:Stack ->
-%%             ?SEV_EPRINT("Failed starting node: "
-%%                         "~n   Class:  ~p"
-%%                         "~n   Reason: ~p"
-%%                         "~n   Stack:  ~p",
-%%                         [Class, Reason, Stack]),
-%%             skip({node_start, Class, Reason})
-%%     end.
+start_nodes([], RevNodes, _Args) ->
+    lists:reverse(RevNodes);
+start_nodes([NodeName|NodeNames], RevNodes, Args) ->
+    ?P("~s -> try start node:"
+       "~n      ~p", [?FUNCTION_NAME, NodeName]),
+    case ?START_NODE(NodeName, Args) of
+        {ok, Node} ->
+            ?P("~s -> node started:"
+               "~n      ~p", [?FUNCTION_NAME, Node]),
+            start_nodes(NodeNames, [Node|RevNodes], Args);
+        {error, Reason} ->
+            ?P("<ERROR> Failed starting node:"
+               "~n   Name:   ~p"
+               "~n   Reason: ~p", [NodeName, Reason]),
+            stop_nodes(RevNodes),
+            skip({failed_start_node, NodeName, Reason})
+    end.
 
-            
+stop_nodes(Nodes) ->
+    lists:foreach(fun(N) ->
+                          ?P("~s -> try stop node ~p", [?FUNCTION_NAME, N]),
+                          ?STOP_NODE(N)
+                  end, Nodes).
+
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% nowait(Config) ->

@@ -25,10 +25,14 @@
 -include("socket_sctp_traffic_lib.hrl").
 
 -export([
-         start/2, start/3, start/4,
+         start/2, start/3, start/4, start/5,
+         start_monitor/2, start_monitor/3, start_monitor/4, start_monitor/5,
          stop/1,
          start_run/2
         ]).
+
+%% Internal exports
+-export([start_it/5]).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -38,42 +42,121 @@
 -define(TIMEOUT,        5000).
 -define(STATUS_TIMEOUT, 5000).
 
--define(DEFAULT_OPTS,         #{debug => false}).
+-define(DEFAULT_OPTS,         #{status_timeout => ?STATUS_TIMEOUT,
+                                debug          => false}).
 -define(DEFAULT_TRAFFIC_DATA, [<<"FOOBAR">>]).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+%% *** start/2,3,4,5 ***
+
 start(ID, ServerSA) ->
-    start(ID, ServerSA, ?DEFAULT_TRAFFIC_DATA, ?DEFAULT_OPTS).
+    start(node(), ID, ServerSA, ?DEFAULT_TRAFFIC_DATA, #{}).
 
-start(ID, ServerSA, TrafficData) when is_list(TrafficData) ->
-    start(ID, ServerSA, TrafficData, ?DEFAULT_OPTS);
-start(ID, ServerSA, Opts) when is_map(Opts) ->
-    start(ID, ServerSA, ?DEFAULT_TRAFFIC_DATA, Opts).
-
-start(ID, ServerSA, TrafficData, Opts0)
-  when is_integer(ID) andalso (ID > 0) andalso
+start(ID, ServerSA, TrafficData)
+  when is_integer(ID) andalso
        is_map(ServerSA) andalso
+       is_list(TrafficData) ->
+    start(node(), ID, ServerSA, TrafficData, #{});
+start(ID, ServerSA, Opts)
+  when is_integer(ID) andalso
+       is_map(ServerSA) andalso
+       is_map(Opts) ->
+    start(node(), ID, ServerSA, ?DEFAULT_TRAFFIC_DATA, Opts);
+start(Node, ID, ServerSA)
+  when is_atom(Node) andalso
+       is_integer(ID) andalso
+       is_map(ServerSA) ->
+    start(Node, ID, ServerSA, ?DEFAULT_TRAFFIC_DATA, #{}).
+
+start(ID, ServerSA, TrafficData, Opts)
+  when is_integer(ID) andalso
+       is_map(ServerSA) andalso
+       is_list(TrafficData) andalso
+       is_map(Opts) ->
+    start(node(), ID, ServerSA, TrafficData, Opts);
+start(Node, ID, ServerSA, TrafficData)
+  when is_atom(Node) andalso
+       is_integer(ID) andalso
+       is_map(ServerSA) andalso
+       is_list(TrafficData) ->
+    start(Node, ID, ServerSA, TrafficData, #{});
+start(Node, ID, ServerSA, Opts)
+  when is_atom(Node) andalso
+       is_integer(ID) andalso
+       is_map(ServerSA) andalso
+       is_map(Opts) ->
+    start(Node, ID, ServerSA, ?DEFAULT_TRAFFIC_DATA, Opts).
+
+start(Node, ID,
+      #{family := _, addr := _, port := _} = ServerSA,
+      TrafficData, Opts)
+  when is_atom(Node) andalso
+       is_integer(ID) andalso (ID > 0) andalso
        is_list(TrafficData) andalso (length(TrafficData) > 0) andalso
-       is_map(Opts0) ->
-    Opts   = (maps:merge(?DEFAULT_OPTS, Opts0))#{parent => self()},
-    Client = {Pid, MRef} =
-        spawn_monitor(fun() ->
-                              init(ID, ServerSA, TrafficData, Opts)
-                      end),
-    receive
-        {'DOWN', MRef, process, Pid, Reason} ->
-            {error, Reason};
+       is_map(Opts) ->
+    do_start(Node, ID, ServerSA, TrafficData, ensure_opts(Opts)).
 
-        ?MSG(Pid, {started, PortNo, AssocID}) ->
-            {ok, {Client, {PortNo, AssocID}}}
 
-    after ?TIMEOUT ->
-            ?ERROR("Client start timeout"),
-            exit(Pid, kill),
-            {error, timeout}
+%% *** start_monitor/2,3,4,5 ***
+
+start_monitor(ID, ServerSA) ->
+    start_monitor(node(), ID, ServerSA, ?DEFAULT_TRAFFIC_DATA, #{}).
+
+start_monitor(ID, ServerSA, TrafficData)
+  when is_integer(ID) andalso
+       is_map(ServerSA) andalso
+       is_list(TrafficData) ->
+    start_monitor(node(), ID, ServerSA, TrafficData, #{});
+start_monitor(ID, ServerSA, Opts)
+  when is_integer(ID) andalso
+       is_map(ServerSA) andalso
+       is_map(Opts) ->
+    start_monitor(node(), ID, ServerSA, ?DEFAULT_TRAFFIC_DATA, Opts);
+start_monitor(Node, ID, ServerSA)
+  when is_atom(Node) andalso
+       is_integer(ID) andalso
+       is_map(ServerSA) ->
+    start_monitor(Node, ID, ServerSA, ?DEFAULT_TRAFFIC_DATA, #{}).
+
+start_monitor(ID, ServerSA, TrafficData, Opts)
+  when is_integer(ID) andalso
+       is_map(ServerSA) andalso
+       is_list(TrafficData) andalso
+       is_map(Opts) ->
+    start_monitor(node(), ID, ServerSA, TrafficData, Opts);
+start_monitor(Node, ID, ServerSA, TrafficData)
+  when is_atom(Node) andalso
+       is_integer(ID) andalso
+       is_map(ServerSA) andalso
+       is_list(TrafficData) ->
+    start_monitor(Node, ID, ServerSA, TrafficData, #{});
+start_monitor(Node, ID, ServerSA, Opts)
+  when is_atom(Node) andalso
+       is_integer(ID) andalso
+       is_map(ServerSA) andalso
+       is_map(Opts) ->
+    start_monitor(Node, ID, ServerSA, ?DEFAULT_TRAFFIC_DATA, Opts).
+
+start_monitor(Node, ID,
+              #{family := _, addr := _, port := _} = ServerSA,
+              TrafficData, Opts)
+  when is_atom(Node) andalso
+       is_integer(ID) andalso (ID > 0) andalso
+       is_list(TrafficData) andalso (length(TrafficData) > 0) andalso
+       is_map(Opts) ->
+    case do_start(Node, ID, ServerSA, TrafficData, ensure_opts(Opts)) of
+        {ok, {Pid, SA, AssocID}} ->
+            MRef = erlang:monitor(process, Pid),
+            {ok, {Pid, MRef, SA, AssocID}};
+        {error, _} = ERROR ->
+            ERROR
     end.
+            
+
+
+%% *** stop ***
 
 stop(Pid) when is_pid(Pid) ->
     Pid ! ?MSG(self(), stop),
@@ -85,7 +168,7 @@ stop(Pid) when is_pid(Pid) ->
                 true ->
                     RESULT
             end;
-        {'DOWN', _MRef, process, Pid, _} ->
+        {'DOWN', _MRef, process, Pid, _Reason} ->
             ok
     after ?TIMEOUT ->
             ?ERROR("Client stop timeout"),
@@ -94,18 +177,66 @@ stop(Pid) when is_pid(Pid) ->
     end.
 
 
+%% *** start_run ***
+
 start_run(Pid, RunTime)
   when is_pid(Pid) andalso is_integer(RunTime) andalso (RunTime > 0) ->
     Pid ! ?MSG(self(), {start_run, RunTime}),
     ok.
 
-        
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% ======================
+%% This function handle if we are started on a remote node
+
+do_start(Node, ID, ServerSA, TrafficData, Opts) when (Node =/= node()) ->
+    Args = [self(), ID, ServerSA, TrafficData, Opts],
+    case rpc:call(Node, ?MODULE, start_it, Args) of
+        {badrpc, _} = Reason ->
+            {error, Reason};
+        {ok, {Pid, _, _}} = OK when is_pid(Pid) ->
+            OK;
+        {error, _} = ERROR ->
+            ERROR
+    end;
+do_start(_, ID, ServerSA, TrafficData, Opts) ->
+    start_it(self(), ID, ServerSA, TrafficData, Opts).
+
+
+%% ======================
+%% The actual start
+
+start_it(Parent, ID, ServerSA, TrafficData, Opts0) ->
+    Opts = Opts0#{id => ID, starter => self(), parent => Parent},
+    {Pid, MRef} =
+        spawn_monitor(fun() ->
+                              init(ID, ServerSA, TrafficData, Opts)
+                      end),
+    receive
+        {'DOWN', MRef, process, Pid, Reason} ->
+            {error, Reason};
+
+        ?MSG(Pid, {started, SA, AssocID}) ->
+            erlang:demonitor(MRef),
+            {ok, {Pid, SA, AssocID}}
+
+    after ?TIMEOUT ->
+            ?ERROR("Client start timeout"),
+            exit(Pid, kill),
+            {error, timeout}
+    end.
+
+
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 init(ID,
      #{family := Domain} = ServerSA,
      TrafficData,
-     #{parent := Parent} = Opts) ->
+     #{starter        := Starter,
+       parent         := Parent,
+       status_timeout := StatusTimeout} = Opts) ->
 
     set_debug(Opts),
     ?SET_SNAME(?F("client[~w]", [ID])),
@@ -159,10 +290,10 @@ init(ID,
     end,
 
     ?DBG("try sockname (get port number)"),
-    Port =
+    OwnSA =
         case socket:sockname(Sock) of
-            {ok, #{port := P}} ->
-                P;
+            {ok, OSA} ->
+                OSA;
             {error, PReason} ->
                 ?ERROR("Failed sockname: "
                        "~n   ~p", [PReason]),
@@ -223,26 +354,30 @@ init(ID,
     ?DBG("monitor parent"),
     MRef = erlang:monitor(process, Parent),
 
-    ?DBG("started - inform parent (port number ~p, assoc id ~w)",
-         [Port, AssocID]),
-    Parent ! ?MSG(self(), {started, Port, AssocID}),
+    ?DBG("started - inform parent: "
+         "~n   SockAddr: ~p"
+         "~n   AssocID:  ~w", [OwnSA, AssocID]),
+    Starter ! ?MSG(self(), {started, OwnSA, AssocID}),
+
+    State = #{id             => ID,
+              parent         => Parent,
+              parent_mref    => MRef,
+              msgs_data      => TrafficData,
+              mode           => ready,
+              sock           => Sock,
+              assoc_id       => AssocID,
+              stream         => 3,
+              select         => undefined,
+              status_timeout => StatusTimeout,
+              %% We do nothing until we get the 'start' order
+              %% (except check socket status)
+              run            => undefined,
+              seq            => 1,
+              cnt            => 0,
+              msg            => undefined},
 
     ?DBG("init done"),
-    loop(Opts#{parent_mref => MRef,
-               msgs_data   => TrafficData,
-               mode        => ready,
-               sock        => Sock,
-               port        => Port,
-               assoc_id    => AssocID,
-               stream      => 3,
-               select      => undefined,
-               status      => start_status_timer(),
-               %% We do nothing until we get the 'start' order
-               %% (except check socket status)
-               run         => undefined,
-               seq         => 1,
-               cnt         => 0,
-               msg         => undefined}).
+    loop(State#{status => start_status_timer(State)}).
 
 
 loop(#{mode        := ready = Mode,
@@ -268,7 +403,7 @@ loop(#{mode        := ready = Mode,
         {timeout, _OldTRef, status_check} ->
             ?INFO("Socket Status: "
                   "~n   ~p", [?WHICH_SCTP_STATUS(Sock, AssocID)]),
-            loop(State#{status => start_status_timer()});
+            loop(State#{status => start_status_timer(State)});
 
 
         ?MSG(Parent, stop) ->
@@ -376,6 +511,13 @@ loop(#{mode     := recv,
                    [AssocID]),
             exit(unexpected_shutdown);
 
+        {ok, #{notification := #{type     := assoc_change,
+                                 state    := comm_lost,
+                                 assoc_id := AssocID}}} ->
+            ?ERROR("Received unexpected comm-lost for assoc ~w",
+                   [AssocID]),
+            exit(unexpected_comm_lost);
+
         {select, SelectInfo} ->
             ?DBG("select"),
             loop(State#{select => SelectInfo});
@@ -425,7 +567,7 @@ loop(#{mode        := Mode,
         {timeout, _OldTRef, status_check} ->
             ?INFO("Socket Status: "
                   "~n   ~p", [?WHICH_SCTP_STATUS(Sock, AssocID)]),
-            loop(State#{status => start_status_timer()});
+            loop(State#{status => start_status_timer(State)});
 
 
         ?MSG(Parent, stop) ->
@@ -491,8 +633,8 @@ graceful_assoc_shutdown(Sock, AssocID) ->
 start_run_timer(Time) ->
     start_timer(Time, run).
 
-start_status_timer() ->
-    start_timer(?STATUS_TIMEOUT, status_check).
+start_status_timer(#{status_timeout := StatusTimeout}) ->
+    start_timer(StatusTimeout, status_check).
 
 start_timer(Time, Msg) ->
     erlang:start_timer(Time, self(), Msg).
@@ -513,4 +655,8 @@ set_debug(#{debug := Debug}) when is_boolean(Debug) ->
     ?SET_DEBUG(Debug);
 set_debug(_) ->
     ?SET_DEBUG(false).
+
+
+ensure_opts(Opts) when is_map(Opts) ->
+    maps:merge(?DEFAULT_OPTS, Opts).
 
