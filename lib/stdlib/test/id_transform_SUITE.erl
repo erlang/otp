@@ -146,7 +146,7 @@ do_trans_1(File, Tree0) ->
 
 check(X,_Y) when X ->   
     true;
-check(A,_) when atom(A) ->
+check(A,_) when is_atom(A) ->
     atom;
 check(A,_) when erlang:is_list(A) ->
     list;
@@ -196,15 +196,15 @@ f(X) ->
 %% Stolen from erl_lint_SUITE.erl
 -record(apa, {}).
 
-t(A) when atom(A) ->
+t(A) when is_atom(A) ->
     atom;
-t(A) when binary(A) ->
+t(A) when is_binary(A) ->
     binary;
-t(A) when float(A) ->
+t(A) when is_float(A) ->
     float;
-t(A) when function(A) ->
+t(A) when is_function(A) ->
     function;
-t(A) when integer(A) ->
+t(A) when is_integer(A) ->
     integer;
 t(A) when is_atom(A) ->
     is_atom;
@@ -230,30 +230,30 @@ t(A) when is_reference(A) ->
     is_reference;
 t(A) when is_tuple(A) ->
     is_tuple;
-t(A) when list(A) ->
+t(A) when is_list(A) ->
     list;
-t(A) when number(A) ->
+t(A) when is_number(A) ->
     number;
-t(A) when pid(A) ->
+t(A) when is_pid(A) ->
     pid;
-t(A) when port(A) ->
+t(A) when is_port(A) ->
     port;
-t(A) when record(A, apa) ->
+t(A) when is_record(A, apa) ->
     record;
-t(A) when reference(A) ->
+t(A) when is_reference(A) ->
     reference;
-t(A) when tuple(A) ->
+t(A) when is_tuple(A) ->
     tuple.
 
-t1(A) when atom(A), atom(A) ->
+t1(A) when is_atom(A), is_atom(A) ->
     atom;
-t1(A) when binary(A), binary(A) ->
+t1(A) when is_binary(A), is_binary(A) ->
     binary;
-t1(A) when float(A), float(A) ->
+t1(A) when is_float(A), is_float(A) ->
     float;
-t1(A) when function(A), function(A) ->
+t1(A) when is_function(A), is_function(A) ->
     function;
-t1(A) when integer(A), integer(A) ->
+t1(A) when is_integer(A), is_integer(A) ->
     integer;
 t1(A) when is_atom(A), is_atom(A) ->
     is_atom;
@@ -279,30 +279,30 @@ t1(A) when is_reference(A), is_reference(A) ->
     is_reference;
 t1(A) when is_tuple(A), is_tuple(A) ->
     is_tuple;
-t1(A) when list(A), list(A) ->
+t1(A) when is_list(A), is_list(A) ->
     list;
-t1(A) when number(A), number(A) ->
+t1(A) when is_number(A), is_number(A) ->
     number;
-t1(A) when pid(A), pid(A) ->
+t1(A) when is_pid(A), is_pid(A) ->
     pid;
-t1(A) when port(A), port(A) ->
+t1(A) when is_port(A), is_port(A) ->
     port;
-t1(A) when record(A, apa), record(A, apa) ->
+t1(A) when is_record(A, apa), is_record(A, apa) ->
     record;
-t1(A) when reference(A), reference(A) ->
+t1(A) when is_reference(A), is_reference(A) ->
     reference;
-t1(A) when tuple(A), tuple(A) ->
+t1(A) when is_tuple(A), is_tuple(A) ->
     tuple.
 
-t2(A) when atom(A); atom(A) ->
+t2(A) when is_atom(A); is_atom(A) ->
     atom;
-t2(A) when binary(A); binary(A) ->
+t2(A) when is_binary(A); is_binary(A) ->
     binary;
-t2(A) when float(A); float(A) ->
+t2(A) when is_float(A); is_float(A) ->
     float;
-t2(A) when function(A); function(A) ->
+t2(A) when is_function(A); is_function(A) ->
     function;
-t2(A) when integer(A); integer(A) ->
+t2(A) when is_integer(A); is_integer(A) ->
     integer;
 t2(A) when is_atom(A); is_atom(A) ->
     is_atom;
@@ -328,19 +328,19 @@ t2(A) when is_reference(A); is_reference(A) ->
     is_reference;
 t2(A) when is_tuple(A); is_tuple(A) ->
     is_tuple;
-t2(A) when list(A); list(A) ->
+t2(A) when is_list(A); is_list(A) ->
     list;
-t2(A) when number(A); number(A) ->
+t2(A) when is_number(A); is_number(A) ->
     number;
-t2(A) when pid(A); pid(A) ->
+t2(A) when is_pid(A); is_pid(A) ->
     pid;
-t2(A) when port(A); port(A) ->
+t2(A) when is_port(A); is_port(A) ->
     port;
-t2(A) when record(A, apa); record(A, apa) ->
+t2(A) when is_record(A, apa); is_record(A, apa) ->
     record;
-t2(A) when reference(A); reference(A) ->
+t2(A) when is_reference(A); is_reference(A) ->
     reference;
-t2(A) when tuple(A); tuple(A) ->
+t2(A) when is_tuple(A); is_tuple(A) ->
     tuple.
 
 t3(A) when is_atom(A) or is_atom(A) ->
@@ -367,13 +367,13 @@ t3(A) when is_reference(A) or is_reference(A) ->
    is_reference;
 t3(A) when is_tuple(A) or is_tuple(A) ->
    is_tuple; 
-t3(A) when record(A, apa) ->
+t3(A) when is_record(A, apa) ->
    foo;
 t3(A) when erlang:is_record(A, apa) ->
    foo;
 t3(A) when is_record(A, apa) ->
    foo;
-t3(A) when record({apa}, apa) ->
+t3(A) when is_record({apa}, apa) ->
    {A,foo}.
 
 t4(A) when erlang:is_record({apa}, apa) ->

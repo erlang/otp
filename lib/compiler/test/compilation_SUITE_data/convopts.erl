@@ -58,10 +58,10 @@ convopts(Opts) ->
 		   [case Active of
 			[{active, true}] ->
 			    [{R, <<?UINT32_MAX:32>>}];
-			[{active, N}] when integer(N), 
+			[{active, N}] when is_integer(N), 
 					   0 =< N, N < ?UINT32_MAX ->
 			    [{R, <<N:32>>}];
-			[{active, N}] when integer(N), 
+			[{active, N}] when is_integer(N), 
 					   -?UINT32_MAX < N, N < 0 ->
 			    [{RR, <<-N:32>>}];
 			[{active, once}] ->
@@ -94,17 +94,17 @@ convopts(Opts) ->
 		    case Dest of
 			%% Port addressed message
 			[{dest, {tipc_port_id, Port, Proc}}]
-			when binary(Port), 
-			     integer(Proc), 0 =< Proc, Proc =< ?UINT32_MAX
+			when is_binary(Port), 
+			     is_integer(Proc), 0 =< Proc, Proc =< ?UINT32_MAX
 			     ;
-			     list(Port), 
-			     integer(Proc), 0 =< Proc, Proc =< ?UINT32_MAX ->
+			     is_list(Port), 
+			     is_integer(Proc), 0 =< Proc, Proc =< ?UINT32_MAX ->
 			    [{$p, [Port | <<Proc:32>>]}];
 			%% Name addressed message
 			[{dest, {tipc_name, Type, Inst, Zone}}]
-			when integer(Type), 0 =< Type, Type =< ?UINT32_MAX,
-			     integer(Inst), 0 =< Inst, Inst =< ?UINT32_MAX,
-			     integer(Zone), 0 =< Zone, Zone =< ?UINT32_MAX ->
+			when is_integer(Type), 0 =< Type, Type =< ?UINT32_MAX,
+			     is_integer(Inst), 0 =< Inst, Inst =< ?UINT32_MAX,
+			     is_integer(Zone), 0 =< Zone, Zone =< ?UINT32_MAX ->
 			    [{$B, <<Type:32, Inst:32, Zone:32>>}];
 			%%
 			%% This undocumented clause uses an undocumented 
@@ -119,13 +119,13 @@ convopts(Opts) ->
 			[{dest, {tipc_name, Type, Inst,
 				 {tipc_processor_id,
 				  Zone, Subnetwork, Processor}}}]
-			when integer(Type), 0 =< Type, Type =< ?UINT32_MAX,
-			     integer(Inst), 0 =< Inst, Inst =< ?UINT32_MAX,
-			     integer(Zone), 
+			when is_integer(Type), 0 =< Type, Type =< ?UINT32_MAX,
+			     is_integer(Inst), 0 =< Inst, Inst =< ?UINT32_MAX,
+			     is_integer(Zone), 
 			     0 =< Zone,       Zone       < 16#FF,
-			     integer(Subnetwork), 
+			     is_integer(Subnetwork), 
 			     0 =< Subnetwork, Subnetwork < 16#FFF,
-			     integer(Processor), 
+			     is_integer(Processor), 
 			     0 =< Processor,  Processor  < 16#FFF ->
 			    [{$B, <<Type:32, 
 				   Inst:32, 
@@ -142,7 +142,7 @@ convopts(Opts) ->
 
 
 
-getopts(List, Options) when list(List), list(Options) ->
+getopts(List, Options) when is_list(List), is_list(Options) ->
     getopts_1(Options, List, []).
 
 getopts_1([], List, Result) ->

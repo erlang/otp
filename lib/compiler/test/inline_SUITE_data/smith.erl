@@ -1,10 +1,6 @@
 % file: "smith.erl"
 
--ifdef(ETOS).
 -define(IS_INTEGER(X),is_integer(X)).
--else.
--define(IS_INTEGER(X),integer(X)).
--endif.
 
 -module(smith).
 -export([?MODULE/0]).
