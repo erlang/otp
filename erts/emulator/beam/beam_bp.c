@@ -238,7 +238,7 @@ erts_bp_match_functions(BpFunctions* f, ErtsCodeMFA *mfa, int specified,
             }
 
             if (ignore_bifs) {
-                Export *ep = erts_active_export_entry(ci->mfa.module,
+                const Export *ep = erts_active_export_entry(ci->mfa.module,
                                                       ci->mfa.function,
                                                       ci->mfa.arity);
                 if (ep && ep->bif_number >= 0) {
