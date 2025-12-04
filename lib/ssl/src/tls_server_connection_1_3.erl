@@ -257,7 +257,10 @@ negotiated(internal, {start_handshake, _} = Message, State0) ->
     case send_hello_flight(Message, State0) of
         #alert{} = Alert ->
             ssl_gen_statem:handle_own_alert(Alert, negotiated, State0);
-        {State, NextState} ->
+        {State1, NextState} ->
+            State2 = tls_handshake_1_3:calculate_write_traffic_secrets(State1),
+            State = ssl_record:step_encryption_state_write(State2),
+            maybe_keylog(State),
             {next_state, NextState, State, []}
     end;
 negotiated(info, Msg, State) ->
@@ -583,11 +586,7 @@ send_hello_flight({start_handshake, PSK0},
         State9 = Connection:queue_handshake(Finished, State8),
 
         %% Send first flight
-        {State10, _} = Connection:send_handshake_flight(State9),
-
-        State11 = tls_handshake_1_3:calculate_write_traffic_secrets(State10),
-        State = ssl_record:step_encryption_state_write(State11),
-        maybe_keylog(State),
+        {State, _} = Connection:send_handshake_flight(State9),
         {State, NextState}
 
     catch
