@@ -2904,18 +2904,22 @@ reserve_zreg([#b_set{op={bif,tuple_size},dst=Dst},
 reserve_zreg([#b_set{op={bif,tuple_size},dst=Dst}],
              #b_switch{arg=Dst}, ShortLived, A) ->
     reserve_test_zreg(Dst, ShortLived, A);
-reserve_zreg([#b_set{op=Op,dst=Dst}], #b_br{bool=Dst}, ShortLived, A) ->
-    case use_zreg(Op) of
+reserve_zreg([#b_set{op=Op,args=Args,dst=Dst}],
+              #b_br{bool=Dst}, ShortLived, A) ->
+    case use_zreg(Op, length(Args)) of
         yes -> [{Dst,z} | A];
         no -> A;
         'maybe' -> reserve_test_zreg(Dst, ShortLived, A)
     end;
-reserve_zreg([#b_set{op=Op,dst=Dst} | Is], Last, ShortLived, A) ->
-    case use_zreg(Op) of
+reserve_zreg([#b_set{op=Op,args=Args,dst=Dst} | Is], Last, ShortLived, A) ->
+    case use_zreg(Op, length(Args)) of
         yes -> reserve_zreg(Is, Last, ShortLived, [{Dst,z} | A]);
         _Other -> reserve_zreg(Is, Last, ShortLived, A)
     end;
 reserve_zreg([], _, _, A) -> A.
+
+use_zreg({bif,is_integer}, 3) -> no;
+use_zreg(Bif, _) -> use_zreg(Bif).
 
 use_zreg(bs_ensured_match_string) -> yes;
 use_zreg(bs_ensured_skip) -> yes;
@@ -2938,7 +2942,6 @@ use_zreg(wait_timeout) -> yes;
 %% avoid using a z register if their result is used directly in a branch.
 use_zreg(call) -> no;
 use_zreg({bif,element}) -> no;
-use_zreg({bif,is_integer}) -> no;
 use_zreg({bif,is_map_key}) -> no;
 use_zreg({bif,is_record}) -> no;
 use_zreg({bif,map_get}) -> no;
