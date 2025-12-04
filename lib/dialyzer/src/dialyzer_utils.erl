@@ -31,6 +31,8 @@
 -module(dialyzer_utils).
 -moduledoc false.
 
+-compile(nowarn_export_var_subexpr).
+
 -export([
 	 format_sig/1,
 	 format_sig/2,

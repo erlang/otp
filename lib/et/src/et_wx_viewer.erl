@@ -26,6 +26,8 @@
 -module(et_wx_viewer).
 -moduledoc false.
 
+-compile(nowarn_export_var_subexpr).
+
 -behaviour(gen_server).
 
 %% External exports
