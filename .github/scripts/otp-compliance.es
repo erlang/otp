@@ -1881,7 +1881,9 @@ get_test_files(_App, SpdxPackageFiles, PrefixPath) ->
 get_doc_files(~"erts", SpdxPackageFiles, PrefixPath) ->
     group_files_by_folder(SpdxPackageFiles, binary_to_list(PrefixPath)++"/**/doc/**");
 get_doc_files(_App, SpdxPackageFiles, PrefixPath) ->
-    group_files_by_folder(SpdxPackageFiles, binary_to_list(PrefixPath)++"/doc/**").
+    Docs = group_files_by_folder(SpdxPackageFiles, binary_to_list(PrefixPath)++"/doc/**"),
+    Examples = group_files_by_folder(SpdxPackageFiles, binary_to_list(PrefixPath)++"/examples*"),
+    lists:uniq(Docs ++ Examples).
 
 create_spdx_package_record(PackageName, Vsn, Description, SpdxPackageFiles,
                            Homepage, LicenseConcluded, LicenseDeclared, Purl) ->
