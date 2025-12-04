@@ -161,13 +161,12 @@ end
 -export([exor/2, strong_rand_bytes/1, strong_rand_range/1, mod_pow/3]).
 -export([rand_seed/0, rand_seed_alg/1, rand_seed_alg/2]).
 -export([rand_seed_s/0, rand_seed_alg_s/1, rand_seed_alg_s/2]).
--export([rand_plugin_next/1]).
+-export([rand_plugin_next/1, rand_plugin_uniform/1,
+         rand_plugin_uniform/2, rand_plugin_bytes/2]).
+-export([rand_cache_plugin_next/1, rand_cache_plugin_bytes/2]).
 -export([rand_plugin_aes_next/1, rand_plugin_aes_jump/1]).
--export([rand_plugin_uniform/1]).
--export([rand_plugin_uniform/2]).
--export([rand_plugin_bytes/2]).
--export([rand_cache_plugin_next/1]).
--export([rand_cache_plugin_bytes/2]).
+-export([rand_plugin_prng_next/1, rand_plugin_prng_jump/1,
+         rand_plugin_prng_bytes/2]).
 -export([rand_uniform/2]).
 -export([public_encrypt/4, private_decrypt/4]).
 -export([private_encrypt/4, public_decrypt/4]).
@@ -921,15 +920,16 @@ Returns a map with information about the compilation and linking of crypto.
 Example:
 
 ```erlang
-1> crypto:info().
-#{compile_type => normal,
-  cryptolib_version_compiled => "OpenSSL 3.0.0 7 sep 2021",
-  cryptolib_version_linked => "OpenSSL 3.0.0 7 sep 2021",
-  link_type => dynamic,
-  otp_crypto_version => "5.0.2",
-  fips_provider_available => true,
-  fips_provider_buildinfo => "3.0.0"}
-2>
+
+ 1> crypto:info().
+ #{compile_type => normal,
+   cryptolib_version_compiled => "OpenSSL 3.0.0 7 sep 2021",
+   cryptolib_version_linked => "OpenSSL 3.0.0 7 sep 2021",
+   link_type => dynamic,
+   otp_crypto_version => "5.0.2",
+   fips_provider_available => true,
+   fips_provider_buildinfo => "3.0.0"}
+ 2>
 ```
 
 More association types than documented may be present in the map. Some of the
@@ -2104,7 +2104,7 @@ Generate a random integer in a specified range.
 
 The returned random integer is in the interval is `0` =< `N` < `Range`.
 
-Uses the `crypto` library random number generator BN_rand_range.
+Uses the `crypto` library random number generator `BN_rand_range`.
 
 If the `Range` argument is a `pos_integer/0` the return value
 is a `non_neg_integer/0`.  If the `Range` argument is a positive integer
@@ -2142,8 +2142,14 @@ strong_rand_range_nif(_BinRange) -> ?nif_stub.
 %%%
 %%%================================================================
 
--type rand_cache_seed() ::
-        nonempty_improper_list(non_neg_integer(), binary()).
+-type rand_plugin_state() :: no_state.
+-type rand_cache_state() :: binary().
+-type rand_plugin_aes_state() :: dynamic().
+-type rand_plugin_prng1_state() ::
+        rand_plugin_prng1_init_state() |
+        maybe_improper_list(binary(), {crypto_state(), binary()}).
+-type rand_plugin_prng1_init_state() ::
+        {cipher_iv(), binary(), binary(), binary()}.
 
 -doc """
 Create a generator for `m:rand` and save it in the process dictionary.
@@ -2159,7 +2165,7 @@ See `rand:seed/1` and `rand_seed_s/0`.
 ```erlang
 _ = crypto:rand_seed(),
 IntegerValue = rand:uniform(42), % 1 .. 42
-FloatValue = rand:uniform().     % [0.0; 1.0)
+FloatValue = rand:uniform().     % [0.0, 1.0)
 ```
 
 > ### Note {: .info }
@@ -2177,7 +2183,8 @@ FloatValue = rand:uniform().     % [0.0; 1.0)
 
 -doc(#{group => <<"Plug-In Generators">>,
        since => <<"OTP 20.0">>}).
--spec rand_seed() -> rand:state().
+-spec rand_seed() ->
+          {rand:alg_handler('crypto'), rand_plugin_state()}.
 rand_seed() ->
     rand:seed(rand_seed_s()).
 
@@ -2193,6 +2200,7 @@ which when used by the `m:rand` functions produce
 This generator also implements generating bytes efficiently
 (based on OpenSSL's `RAND_bytes` function).
 See `rand:bytes_s/2` and `strong_rand_bytes/1`.
+*Since OTP @OTP-19882@*.
 
 #### _Example_
 
@@ -2215,7 +2223,8 @@ the random generator failed due to lack of secure "randomness".
 """.
 -doc(#{group => <<"Plug-In Generators">>,
        since => <<"OTP 20.0">>}).
--spec rand_seed_s() -> rand:state().
+-spec rand_seed_s() ->
+          {rand:alg_handler('crypto'), rand_plugin_state()}.
 rand_seed_s() ->
     rand_seed_alg_s(?MODULE).
 
@@ -2223,9 +2232,9 @@ rand_seed_s() ->
 Create a generator for `m:rand` with specified algorithm,
 and save it in the process dictionary.
 
-Equivalent `rand_seed_alg_s/1` but also saves the returned
+Equivalent to `rand_seed_alg_s/1` but also saves the returned
 state object (generator) in the process dictionary.  That is,
-it is equivalent to `rand:seed(rand_seed_alg_s(Alg))`.
+equivalent to `rand:seed(rand_seed_alg_s(Alg))`.
 
 See `rand:seed/1` and `rand_seed_alg_s/1`.
 Note the warning about the usage of the process dictionary in `rand_seed/0`.
@@ -2235,14 +2244,36 @@ Note the warning about the usage of the process dictionary in `rand_seed/0`.
 ```erlang
 _ = crypto:rand_seed_alg(crypto_cache),
 IntegerValue = rand:uniform(42), % 1 .. 42
-FloatValue = rand:uniform().     % [0.0; 1.0)
+FloatValue = rand:uniform().     % [0.0, 1.0)
 ```
 """.
 -doc(#{group => <<"Plug-In Generators">>,
        since => <<"OTP 21.0">>}).
--spec rand_seed_alg(Alg :: 'crypto' | 'crypto_cache') ->
-          {rand:alg_handler(),
-           atom() | rand_cache_seed()}.
+-spec rand_seed_alg(Alg :: 'crypto') ->
+          {rand:alg_handler('crypto'), rand_plugin_state()};
+                   (Alg :: 'crypto_cache') ->
+          {rand:alg_handler('crypto_cache'), rand_cache_state()};
+                   %%
+                   (ExportState ::
+                      {'crypto', rand_plugin_state()}) ->
+          {rand:alg_handler('crypto'), rand_plugin_state()};
+                   (ExportState ::
+                      {'crypto_cache', rand_cache_state()}) ->
+          {rand:alg_handler('crypto_cache'), rand_cache_state()};
+                   (ExportState ::
+                      {'crypto_aes', rand_plugin_aes_state()}) ->
+          {rand:alg_handler('crypto_aes'), rand_plugin_aes_state()};
+                   (ExportState ::
+                      {'crypto_prng1', rand_plugin_prng1_init_state()}) ->
+          {rand:alg_handler('crypto_prng1'), rand_plugin_prng1_init_state()};
+                   %%
+                   (State) -> State
+              when
+      State ::
+        {rand:alg_handler('crypto'), rand_plugin_state()} |
+        {rand:alg_handler('crypto_cache'), rand_cache_state()} |
+        {rand:alg_handler('crypto_aes'), rand_plugin_aes_state()} |
+        {rand:alg_handler('crypto_prng1'), rand_plugin_prng1_state()}.
 rand_seed_alg(Alg) ->
     rand:seed(rand_seed_alg_s(Alg)).
 
@@ -2252,7 +2283,7 @@ and save it in the process dictionary.
 
 Equivalent to `rand_seed_alg_s/2` but also saves the returned
 state object (generator) in the process dictionary.  That is,
-it is equivalent to `rand:seed(rand_seed_alg_s(Alg, Seed))`.
+equivalent to `rand:seed(rand_seed_alg_s(Alg, Seed))`.
 
 See `rand:seed/1` and `rand_seed_alg_s/2`.
 Note the warning about the usage of the process dictionary in `rand_seed/0`.
@@ -2262,7 +2293,7 @@ Note the warning about the usage of the process dictionary in `rand_seed/0`.
 ```erlang
 _ = crypto:rand_seed_alg(crypto_aes, "my seed"),
 IntegerValue = rand:uniform(42), % 1 .. 42
-FloatValue = rand:uniform(),     % [0.0; 1.0)
+FloatValue = rand:uniform(),     % [0.0, 1.0)
 _ = crypto:rand_seed_alg(crypto_aes, "my seed"),
 IntegerValue = rand:uniform(42), % Same values
 FloatValue = rand:uniform().     % again
@@ -2271,13 +2302,14 @@ FloatValue = rand:uniform().     % again
 -doc(#{group => <<"Plug-In Generators">>,
        since => <<"OTP-22.0">>}).
 -spec rand_seed_alg(Alg :: 'crypto_aes', Seed :: iodata()) ->
-          {rand:alg_handler(),
-           atom() | rand_cache_seed()}.
+          {rand:alg_handler('crypto_aes'), rand_plugin_aes_state()};
+                   (Alg :: 'crypto_prng1', Seed :: iodata()) ->
+          {rand:alg_handler('crypto_prng1'), rand_plugin_prng1_state()}.
 rand_seed_alg(Alg, Seed) ->
     rand:seed(rand_seed_alg_s(Alg, Seed)).
 
 -define(CRYPTO_CACHE_BITS, 56). % Has to be divisible by 8
--define(CRYPTO_AES_BITS, 58).
+-define(CRYPTO_PRNG_BITS, 58).
 
 -doc(#{group => <<"Plug-In Generators">>}).
 -doc """
@@ -2289,26 +2321,56 @@ which when used by the `m:rand` functions produce
 
 See `rand:seed_s/1` and for example `rand:uniform_s/2`.
 
-If `Alg` is `crypto` this function is equivalent to `rand_seed_s/0`.
+#### With `Alg = crypto`
 
-If `Alg` is `crypto_cache` the returned generator fetches random data
- with OpenSSL's `RAND_bytes` and caches it.  Then 56 bit numbers
-are extracted which makes calculations in module `m:rand` fast
-on 64 bit machines.
+The created generator uses OpenSSL's `BN_rand_range`
+for uniform integers and floats.
 
-`Alg = crypto_cache` also implements extracting bytes efficiently.
-See `rand:bytes_s/2` and `strong_rand_bytes/1`.
+The generator also implements generating bytes efficiently
+with OpenSSL's `RAND_bytes`, just like `strong_rand_bytes/1`.
+See also `rand:bytes_s/2`.  *Since OTP @OTP-19882@*.
+
+Because the OpenSSL library is called for every request,
+this generator has got a very small generator state, but a large
+call overhead, so for numbers and small numbers of bytes (about 10),
+it becomes *very* slow compared to the default PRNG
+in the `m:rand` module.  This is an unfair comparison because a PRNG
+is not cryptographically strong.  Still, for a larger numbers of bytes,
+(about 1 000 or more) this generator is the fastest.
+
+This function is equivalent to `rand_seed_s/0`.
+
+### With `Alg = crypto_cache`
+
+The created generator fetches random data with OpenSSL's `RAND_bytes`,
+just like `strong_rand_bytes/1`, and caches it in the generator's state.
+Then 56 bit numbers are extracted from the cache, which makes calculations
+in module `m:rand` fast on 64 bit machines.
+
+The generator also implements extracting bytes efficiently.
+See also `rand:bytes_s/2`.  *Since OTP @OTP-19882@*.
+
+Caching random data improves *amortized* performance a lot
+so for numbers it becomes less than a factor 2 slower than
+the default PRNG in the `m:rand` module.  For bytes
+it performs very much like for `Alg = crypto` above.
+
+Since this generator caches random data it is a bad idea
+to copy its state in an attempt to fork into multiple generators.
+The forked generators will produce the same numbers
+until their caches are empty, which cannot be regarded as
+cryptographically strong, and is probably never useful.
 
 #### _Example_
 
 ```erlang
 S0 = crypto:rand_seed_alg_s(crypto_cache),
 {IntegerValue, S1} = rand:uniform(42, S0), % 1 .. 42
-{FloatValue, S2} = rand:uniform(S1).       % [0.0; 1.0)
+{FloatValue, S2} = rand:uniform(S1).       % [0.0, 1.0)
 ```
 
-May cause the `m:rand` functions using this state object
-to raise the exception `error:low_entropy` in case
+These generators may cause the `m:rand` functions using the returned
+state object to raise the exception `error:low_entropy` in case
 the random generator failed due to lack of secure "randomness".
 
 The cache size can be changed from its default value using the
@@ -2320,72 +2382,253 @@ The cache size can be changed from its default value using the
 > random sequence as from the other `m:rand` functions, since that would
 > not be cryptographically safe.
 >
-> In fact when random data is cached some numbers may get reproduced
-> occasionally, but this is unpredictable.
+> In fact when random data is cached some numbers may get reproduced,
+> but this is unpredictable.
 >
 > The only supported usage is to generate one distinct random sequence.
+
+#### With argument `ExportState`
+
+For completeness, this function accepts an `ExportState`
+from `rand:export_seed_s/1` used on one of this module's generators.
+This function can probably only be useful for algorithm `crypto_aes`.
+
+For algorithm `crypto` it is not very useful since the produced numbers
+are as unpredictable for a new generator as for one re-created
+with this function.
+
+The same goes for algorithm `crypto_cache`, but its exported state
+may contain cached random numbers which might delay having to call
+OpenSSL the first time, so there is a possible slight performance gain.
+
+For algorithm `crypto_aes` this function works as described in
+`rand:export_seed_s/1` and `rand:seed_s/1`.
+
+For algorithm `crypto_prng1` this function only works as described in
+`rand:export_seed_s/1` and `rand:seed_s/1` on the initial state
+after creation (seeding).  After the first random number
+has been created, the state contains a `t:crypto_state/0`
+that does not survive a roundtrip through Erlang's external term format.
+
+### With argument `State`
+
+For completeness, this function accepts a `State` just as `rand:seed_s` does.
+Calling this function with a `State` from one of the algorithms
+in this module only passes the state through, it is a no-op.
 """.
 -doc(#{since => <<"OTP 21.0">>}).
--spec rand_seed_alg_s(Alg :: 'crypto' | 'crypto_cache') ->
-          {rand:alg_handler(),
-           atom() | rand_cache_seed()}.
-rand_seed_alg_s({AlgHandler, _AlgState} = State) when is_map(AlgHandler) ->
+-spec rand_seed_alg_s(Alg :: 'crypto') ->
+          {rand:alg_handler('crypto'), rand_plugin_state()};
+                     (Alg :: 'crypto_cache') ->
+          {rand:alg_handler('crypto_cache'), rand_cache_state()};
+                     %%
+                     (ExportState ::
+                        {'crypto', rand_plugin_state()}) ->
+          {rand:alg_handler('crypto'), rand_plugin_state()};
+                     (ExportState ::
+                        {'crypto_cache', rand_cache_state()}) ->
+          {rand:alg_handler('crypto_cache'), rand_cache_state()};
+                     (ExportState ::
+                        {'crypto_aes', rand_plugin_aes_state()}) ->
+          {rand:alg_handler('crypto_aes'), rand_plugin_aes_state()};
+                     (ExportState ::
+                        {'crypto_prng1', rand_plugin_prng1_init_state()}) ->
+          {rand:alg_handler('crypto_prng1'), rand_plugin_prng1_init_state()};
+                     %%
+                     (State) -> State
+              when
+      State ::
+        {rand:alg_handler('crypto'), rand_plugin_state()} |
+        {rand:alg_handler('crypto_cache'), rand_cache_state()} |
+        {rand:alg_handler('crypto_aes'), rand_plugin_aes_state()} |
+        {rand:alg_handler('crypto_prng1'), rand_plugin_prng1_state()}.
+rand_seed_alg_s({#{type := Alg}, _AlgState} = State)
+  when
+      Alg =:= crypto;
+      %% It is a bad idea to clone the following since they cache
+      %% data and crypto_prng1 contains a crypto_state(),
+      %% but since the user might as well just copy the State
+      %% variable it would be futile to block this duplication
+      Alg =:= crypto_cache;
+      Alg =:= crypto_aes;
+      Alg =:= crypto_prng1 ->
     State;
+%%
+rand_seed_alg_s({Alg = crypto_prng1, AlgState}) ->
+    %% Only the initial state can be exported+imported.
+    %% After that AlgState contains a crypto_state()
+    %% which makes the generated sequence predictable only
+    %% when not forked/copied.
+    if
+        tuple_size(AlgState) =:= 4 -> % Initial state
+            {mk_alg_handler(Alg),AlgState};
+        is_list(AlgState) -> % Cache
+            error(not_implemented)
+    end;
 rand_seed_alg_s({Alg, AlgState}) when is_atom(Alg) ->
     {mk_alg_handler(Alg),AlgState};
+%%
 rand_seed_alg_s(Alg) when is_atom(Alg) ->
     {mk_alg_handler(Alg),mk_alg_state(Alg)}.
+%% mk_alg_handler/1 and mk_alg_state/1 will validate Alg
 
 -doc """
 Create and seed a generator for `m:rand` with specified algorithm.
 
 Create a state object (generator) for [random number generation](`m:rand`),
 which when used by the `m:rand` functions produce
-**cryptographically unpredictable** random numbers
+**cryptographically unpredictable** random numbers,
+that can be reproduced by re-using the same `Seed`.
 
 See `rand:seed_s/1`, and for example `rand:uniform_s/2`,
 and compare to `rand_seed_alg/1`.
 
-To get a long period the Xoroshiro928 generator from the `m:rand` module is used
-as a counter (with period 2^928 - 1) and the generator states are scrambled
-through AES to create 58-bit pseudo random values.
+#### With `Arg = crypto_aes`
 
-The result should be statistically completely unpredictable random values, since
-the scrambling is cryptographically strong and the period is ridiculously long.
-But the generated numbers are not to be regarded as cryptographically strong
-since there is no re-keying schedule, and since the sequence is repeated
-for the same seed.
+To get a long period the Xoroshiro928 generator from the `m:rand` module
+is used as a counter (with period 2^928 - 1) and the generator state
+is scrambled through AES-256 to create a 58-bit pseudo random value.
+
+The result should be statistically completely unpredictable random values,
+since the scrambling is cryptographically strong and the period is
+extremely long.  But the generated numbers are not to be regarded as
+cryptographically strong since there is no re-keying schedule,
+and since the sequence is repeated for the same seed.
 
 - If you need cryptographically strong random numbers use `rand_seed_alg_s/1`
   with `Alg =:= crypto` or `Alg =:= crypto_cache`.
 - If you need to be able to repeat the sequence use this function
   with `Alg =:= crypto_aes`.
-- If you do not need the statistical quality of this function, there are faster
-  algorithms in the `m:rand` module.
+- If you do not need the statistical quality of this generator,
+  there are faster generators in the `m:rand` module.
 
 #### _Example_
 
 ```erlang
-S0 = crypto:rand_seed_alg_s(crypto_aes, "my seed"),
-{IntegerValue, S1} = rand:uniform(42, S0), % 1 .. 42
-{FloatValue, S2 = rand:uniform(S1),        % [0.0; 1.0)
-S3 = crypto:rand_seed_alg_s(crypto_aes, "my seed"),
-{IntegerValue, S4} = rand:uniform(42, S3), % Same values
-{FloatValue, S5} = rand:uniform(S4).       % again
+1> S0 = crypto:rand_seed_alg_s(crypto_aes, "my seed").
+2> %% 1..42
+   {IntegerValue, S1} = rand:uniform_s(42, S0).
+3> %% [0.0, 1.0)
+   {FloatValue, S2} = rand:uniform_s(S1).
+4> {IntegerValue,FloatValue}.
+{9,0.7624867055217882}
+5> S3 = crypto:rand_seed_alg_s(crypto_aes, "my seed").
+6> %% Same values
+   {IntegerValue, S4} = rand:uniform_s(42, S3).
+7> %% again
+   {FloatValue, S5} = rand:uniform_s(S4).
 ```
 
 Thanks to the used generator the state object supports the
 [`rand:jump/0,1`](`rand:jump/0`) function with distance 2^512.
 
-Numbers are generated in batches and cached for speed reasons. The cache size
-can be changed from its default value using the
-[crypto app's ](crypto_app.md)configuration parameter `rand_cache_size`.
+Numbers are generated in batches and for speed reasons cached
+in the generator's state. The cache size can be changed from its default
+value using the [crypto app's ](crypto_app.md) configuration parameter
+`rand_cache_size`.  The *amortized* performance is nevertheless
+about 4 times slower than the default PRNG in the `m:rand` module.
+
+Generating bytes, see `rand:bytes_s/2`, is done from the cached numbers,
+which limits the performance as for generating numbers.  `Alg = crypto`,
+is faster, for larger numbers of bytes significantly faster,
+but cannot be used to reproduce a sequence.
+
+#### With `Arg = crypto_prng1` *Since OTP @OTP-19882@*.
+
+The created generator uses a stream cipher to encrypt data blocks of zeros,
+which effectively results in the stream cipher's key stream as binary data.
+That binary data is cached in the generator's state, and 58 bit numbers
+are extracted, to make calculations fast in the `m:rand` module.
+The cache size can be changed from its default value using the
+[crypto app's ](crypto_app.md) configuration parameter `rand_cache_size`.
+
+This generator also implements extracting bytes efficiently
+through `rand:bytes_s/2`.
+
+The key stream from a stream cipher is cryptographically unpredictable,
+which should result in statistically completely unpredictable random values,
+but the generated numbers are not to be regarded as
+cryptographically strong since there is no re-keying schedule,
+and since the sequence is repeated for the same seed.
+
+For generating numbers his generator is about 2 times slower
+than the default PRNG in the `m:rand` module, *amortized*.
+For generating bytes, this generator is significantly faster
+than the default generator in the `m:rand` module, for any number
+of bytes, *amortized*.  Compared to `Alg = crypto`, this generator
+has much less overhead so for small numbers of bytes it is much faster.
+The break-even comes a bit above the cache size, and over that
+`Alg = crypto` is faster, but cannot be used to reproduce a sequence.
+
+#### _Example_
+
+```erlang
+1> S0 = crypto:rand_seed_alg_s(crypto_prng1, "my seed").
+2> %% 1..42
+   {IntegerValue, S1} = rand:uniform_s(42, S0).
+3> {Bytes, S2} = rand:bytes_s(7, S1).
+4> {IntegerValue,Bytes}.
+{20,<<52,185,212,38,248,228,127>>}
+5> S3 = crypto:rand_seed_alg_s(crypto_prng1, "my seed").
+6> %% Same values
+   {IntegerValue, S4} = rand:uniform_s(42, S3).
+7> %% again
+   {Bytes, S5} = rand:bytes_s(7, S4).
+```
+
+The generator's state contains a `crypto_state/0` which refers to
+the same encryption state even when copied, and the generator's state
+contains *cached* random data.  It is therefore a bad idea to copy
+the state in an attempt to fork into multiple generators.
+The forked generators will produce the same numbers
+until their caches are empty, and then refill their caches
+with different sections of the keystream.
+This is probably never useful.
+
+The created initial state, however, can be copied and exported,
+as descrided for `rand:export_seed_s/1` and `rand:seed_s/1`,
+since the `crypto_state/0` is not created until the first
+random value is generated.  An exported subsequent generator state
+cannot be passed intact through Erlang's external term format,
+and `rand_seed_alg_s/1` will fail for an exported state
+of this generator that is not an initial state.
+
+`rand:jump/1` is implemented for this generator, but also only for
+its initial state.  A jump, for this generator, is implemented
+by incrementing the cipher's IV to create a distinct keystream.
+This is not much different from using different seed values,
+but avoids a call to the hash function that is used when seeding.
+
+#### _Example_
+
+```erlang
+1> Sa0 = crypto:rand_seed_alg_s(crypto_prng1, "my seed").
+2> Sb0 = rand:jump(Sa0).
+3> {BytesA, Sa1} = rand:bytes_s(7, Sa0).
+4> {BytesB, Sb1} = rand:bytes_s(7, Sb0).
+5> BytesA.
+<<77,185,41,162,118,82,190>>
+6> BytesB.
+<<160,61,224,29,177,30,68>>
+7> Sc0 = crypto:rand_seed_alg_s(crypto_prng1, "my seed").
+8> Sd0 = rand:jump(Sa0).
+9> Sd0 = rand:jump(Sc0).
+%% Same values again
+10> {BytesA, Sc1} = rand:bytes_s(7, Sc0).
+11> {BytesB, Sd1} = rand:bytes_s(7, Sd0).
+```
+
+#### Crypto algorithm details
+
+The `Seed` is hashed with SHA-384 to create a Key and IV
+for AES-256 that is run in CTR mode over blocks of zero data.
 """.
 -doc(#{group => <<"Plug-In Generators">>,
        since => <<"OTP 22.0">>}).
 -spec rand_seed_alg_s(Alg :: 'crypto_aes', Seed :: iodata()) ->
-          {rand:alg_handler(),
-           atom() | rand_cache_seed()}.
+          {rand:alg_handler('crypto_aes'), rand_plugin_aes_state()};
+                     (Alg :: 'crypto_prng1', Seed :: iodata()) ->
+          {rand:alg_handler('crypto_prng1'), rand_plugin_prng1_state()}.
 rand_seed_alg_s(Alg, Seed) when is_atom(Alg) ->
     {mk_alg_handler(Alg),mk_alg_state({Alg,Seed})}.
 
@@ -2403,13 +2646,21 @@ mk_alg_handler(crypto_cache = Alg) ->
        bytes => fun ?MODULE:rand_cache_plugin_bytes/2};
 mk_alg_handler(crypto_aes = Alg) ->
     #{ type => Alg,
-       bits => ?CRYPTO_AES_BITS,
+       bits => ?CRYPTO_PRNG_BITS,
        next => fun ?MODULE:rand_plugin_aes_next/1,
-       jump => fun ?MODULE:rand_plugin_aes_jump/1}.
+       jump => fun ?MODULE:rand_plugin_aes_jump/1};
+mk_alg_handler(crypto_prng1 = Alg) ->
+    #{ type => Alg,
+       bits => ?CRYPTO_PRNG_BITS,
+       next => fun ?MODULE:rand_plugin_prng_next/1,
+       jump => fun ?MODULE:rand_plugin_prng_jump/1,
+       bytes => fun ?MODULE:rand_plugin_prng_bytes/2}.
 
 mk_alg_state(?MODULE) ->
     no_seed;
 mk_alg_state(crypto_cache) ->
+    %% Make the cache size an even number of integers,
+    %% rounded up, at least one
     CacheBits = ?CRYPTO_CACHE_BITS,
     BytesPerWord = (CacheBits + 7) div 8,
     GenBytes =
@@ -2421,7 +2672,10 @@ mk_alg_state({crypto_aes,Seed}) ->
     GenWords = (rand_cache_size() + 31) div 16,
     Key = crypto:hash(sha256, Seed),
     {F,Count} = longcount_seed(Seed),
-    {Key,GenWords,F,Count}.
+    {Key,GenWords,F,Count};
+mk_alg_state({crypto_prng1,Seed}) ->
+    rand_plugin_prng_seed(aes_256_ctr, hash(sha384, Seed)).
+
 
 rand_cache_size() ->
     DefaultCacheSize = 1024,
@@ -2433,6 +2687,10 @@ rand_cache_size() ->
         true ->
             DefaultCacheSize
     end.
+
+
+%%% -------------------
+%%% Algorithm: 'crypto'
 
 -doc false.
 rand_plugin_next(State) ->
@@ -2451,6 +2709,9 @@ rand_plugin_uniform(Max, State) ->
 rand_plugin_bytes(N, State) ->
     {strong_rand_bytes(N), State}.
 
+
+%%% -------------------------
+%%% Algorithm: 'crypto_cache'
 
 -doc false.
 rand_cache_plugin_next({CacheBits, GenBytes, Cache}) ->
@@ -2492,11 +2753,14 @@ rand_cache_plugin_bytes(
     end.
 
 
+%%% -----------------------
+%%% Algorithm: 'crypto_aes'
+
 %% Encrypt 128 bit counter values and use the 58 lowest
 %% encrypted bits as random numbers.
 %%
-%% The 128 bit counter is handled as 4 32 bit words
-%% to avoid bignums.  Generate a bunch of numbers
+%% The 128 bit counters contain two 58 bit state words
+%% from Xoroshiro928.  Generate a bunch of numbers
 %% at the time and cache them.
 %%
 -dialyzer({no_improper_lists, rand_plugin_aes_next/1}).
@@ -2529,7 +2793,6 @@ block_encrypt(Key, Data) ->
         error:{E, {_File,_Line}, _Reason} when E==notsup ; E==badarg ->
             error(E)
     end.
-
 
 %% A jump advances the counter 2^512 steps; the jump function
 %% is applied to the jump base and then the number of used
@@ -2590,10 +2853,107 @@ aes_cleartext(Cleartext, F, Count, GenWords) ->
 aes_cache(<<>>, Cache) ->
     Cache;
 aes_cache(
-  <<_:(128 - ?CRYPTO_AES_BITS), V:?CRYPTO_AES_BITS, Encrypted/binary>>,
+  <<_:(128 - ?CRYPTO_PRNG_BITS), V:?CRYPTO_PRNG_BITS, Encrypted/binary>>,
   Cache) ->
     [V|aes_cache(Encrypted, Cache)].
 
+
+%%% -------------------------
+%%% Algorithm: 'crypto_prng1'
+
+rand_plugin_prng_seed(CryptoAlg, SeedBin) ->
+      case cipher_info(CryptoAlg) of
+        #{ prop_aead  := false,
+           block_size := 1,
+           key_length := KeyLength,
+           iv_length  := IVLength } when 0 < IVLength ->
+            <<Key:KeyLength/binary, IV:IVLength/binary, _/binary>> = SeedBin,
+            %% Use 128 bytes as cache granularity since also stream ciphers
+            %% have a state block they operate on.
+            %%  128 bytes would be a 1024 bits cipher
+            Block =
+                <<0:64,0:64,0:64,0:64,
+                  0:64,0:64,0:64,0:64,
+                  0:64,0:64,0:64,0:64,
+                  0:64,0:64,0:64,0:64>>,
+            Size     = byte_size(Block),
+            Count    = (rand_cache_size() + Size - 1) div Size, % ciel
+            ZeroData = binary:copy(Block, Count),
+            {CryptoAlg, ZeroData, Key, IV}
+    end.
+
+-dialyzer({no_improper_lists, rand_plugin_prng_next/1}).
+-doc false.
+rand_plugin_prng_next({CryptoAlg, ZeroData, Key, IV}) ->
+    CryptoState = crypto_init(CryptoAlg, Key, IV, true),
+    AlgState = {CryptoState, ZeroData},
+    rand_plugin_prng_next([<<>> | AlgState]);
+rand_plugin_prng_next(
+  [Cache | AlgState = {CryptoState, ZeroData}]) ->
+    case Cache of
+        <<_:(64 - ?CRYPTO_PRNG_BITS), I:?CRYPTO_PRNG_BITS,
+          NewCache/binary>> ->
+            {I, [NewCache | AlgState]};
+        <<_/binary>> ->
+            MissingSize = 8 - byte_size(Cache),
+            <<NewBytes:MissingSize/bytes, NewCache/binary>> =
+                crypto_update(CryptoState, ZeroData),
+            <<_:(64 - ?CRYPTO_PRNG_BITS), I:?CRYPTO_PRNG_BITS>> =
+                <<Cache/binary, NewBytes/bytes>>,
+            {I, [NewCache | AlgState]}
+    end.
+
+-dialyzer({no_improper_lists,
+           [rand_plugin_prng_bytes/2, rand_plugin_prng_bytes/4]}).
+-doc false.
+rand_plugin_prng_bytes(N, {AlgHandler, {CryptoAlg, ZeroData, Key, IV}})
+  when is_integer(N), 0 =< N ->
+    CryptoState = crypto_init(CryptoAlg, Key, IV, true),
+    AlgState = {CryptoState, ZeroData},
+    rand_plugin_prng_bytes(N, {AlgHandler, [<<>> | AlgState]});
+rand_plugin_prng_bytes(N, {AlgHandler, [Cache | AlgState]})
+  when is_integer(N), 0 =< N ->
+    case Cache of
+        <<Bytes:N/binary, NewCache/binary>> ->
+            {Bytes, {AlgHandler, [NewCache | AlgState]}};
+        <<_/binary>> ->
+            MissingBytes = N - byte_size(Cache),
+            rand_plugin_prng_bytes(MissingBytes, AlgHandler, AlgState, Cache)
+    end.
+%%
+rand_plugin_prng_bytes(
+  M, AlgHandler, AlgState = {CryptoState, ZeroData}, Cache) ->
+    if
+        M =< byte_size(ZeroData) ->
+            <<NewBytes:M/binary, NewCache/binary>> =
+                crypto_update(CryptoState, ZeroData),
+            Bytes = <<Cache/binary, NewBytes/binary>>,
+            {Bytes, {AlgHandler, [NewCache | AlgState]}};
+        true ->
+            NewBytes = crypto_update(CryptoState, ZeroData),
+            NewCache = <<Cache/binary, NewBytes/binary>>,
+            rand_plugin_prng_bytes(
+              M - byte_size(NewBytes), AlgHandler, AlgState, NewCache)
+    end.
+
+-doc false.
+rand_plugin_prng_jump({AlgHandler, {Alg, ZeroData, Key, IV}}) ->
+    {AlgHandler, {Alg, ZeroData, Key, jump_iv(IV)}};
+rand_plugin_prng_jump({_AlgHandler, [_Cache | _AlgState]}) ->
+    error(not_implemented).
+
+%% Increment the IV from the front, since that is easier
+%%
+jump_iv(IV) -> jump_iv(IV, <<>>).
+%%
+jump_iv(<<>>, JumpIV) -> JumpIV;
+jump_iv(<<X, Rest/binary>>, JumpIV) ->
+    if
+        X < 255 ->
+            <<JumpIV/binary, (X + 1), (binary:copy(Rest))/binary>>;
+        true ->
+            jump_iv(Rest, <<JumpIV/binary, 0>>)
+    end.
 
 %%%================================================================
 %%%

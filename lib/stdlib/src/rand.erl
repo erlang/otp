@@ -630,8 +630,9 @@ for every possible N for the range.
 %% of the generated bits.  The lowest bits from the range
 %% functions still have the generator's quality.
 %%
--type alg_handler() ::
-        #{type := alg(),
+-type alg_handler() :: alg_handler(alg()).
+-type alg_handler(Alg) ::
+        #{type := Alg,
           bits => non_neg_integer(),
           weak_low_bits => 0..3,
           max => non_neg_integer(), % Deprecated
@@ -677,7 +678,7 @@ for seeding to get some uniqueness.
 """.
 -type seed() :: [integer()] | integer() | {integer(), integer(), integer()}.
 -export_type(
-   [builtin_alg/0, alg/0, alg_handler/0, alg_state/0,
+   [builtin_alg/0, alg/0, alg_handler/0, alg_handler/1, alg_state/0,
     state/0, export_state/0, seed/0]).
 -export_type(
    [exsplus_state/0, exro928_state/0, exrop_state/0, exs1024_state/0,
@@ -1488,8 +1489,8 @@ as required to compose the `t:binary/0`.  Returns the generated
 > function cannot do.
 >
 > Alas, when this function is based on a PRNG that produces random integers,
-> such as all in this module's [algorithms](#algorithms) section,
-> bytes has to created from integers, which becomes rather slow.
+> such as any in this module's [algorithms](#algorithms) section,
+> bytes have to be created from integers, which becomes rather slow.
 >
 > A plug-in generator may implement a dedicated callback
 > for generating bytes, to mitigate this problem, which in that case
