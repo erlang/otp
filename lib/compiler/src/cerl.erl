@@ -1663,7 +1663,7 @@ c_struct(Id, Es) ->
 -doc "_See also: _`c_struct/2`.".
 -doc(#{since => <<"OTP @OTP-19785@">>}).
 -spec ann_c_struct(Annotations :: [term()],
-                   Argument :: c_struct() | c_literal(),
+                   Argument :: c_var() | c_struct() | c_literal(),
                    Id :: term(),
                    Pairs :: [c_struct_pair()]) -> #c_struct{}.
 
