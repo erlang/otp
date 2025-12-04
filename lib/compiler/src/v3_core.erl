@@ -731,7 +731,8 @@ expr({map,L,Es0}, St0) ->
 expr({map,L,M,Es}, St) ->
     expr_map(M, Es, L, St);
 expr({native_record,L,Id,Es0}, St0) ->
-    record_build_pairs(#c_literal{val=empty}, #c_literal{val=Id}, Es0, full_anno(L, St0), St0);
+    record_build_pairs(#c_literal{val=empty}, #c_literal{val=Id}, Es0,
+                       full_anno(L, St0), St0);
 expr({native_record,L,Id,S,Es}, St) ->
     expr_record(S, #c_literal{val=Id}, Es, L, St);
 expr({bin,L,Es0}, St0) ->
@@ -1211,25 +1212,25 @@ maybe_warn_repeated_keys(Ck, K0, Used, St) ->
 map_op(map_field_assoc) -> #c_literal{val=assoc};
 map_op(map_field_exact) -> #c_literal{val=exact}.
 
-expr_record(S0, Id, Es0, L, St0) ->
-    {S1,Eps0,St1} = safe_record(S0, St0),
-    BadRecord = badrecord_term(S1, St1),
+expr_record(R0, Id, Es0, L, St0) ->
+    {R1,Eps0,St1} = safe_record(R0, St0),
+    BadRecord = badrecord_term(R1, St1),
     A = lineno_anno(L, St1),
     Fc = fail_clause([], [{eval_failure,badrecord}|A], BadRecord),
-    {S2,Eps1,St2} = record_build_pairs(S1, Id, Es0, full_anno(L, St1), St1),
-    S3 = case Es0 of
-             [] -> S1;
-             [_|_] -> S2
+    {R2,Eps1,St2} = record_build_pairs(R1, Id, Es0, full_anno(L, St1), St1),
+    R3 = case Es0 of
+             [] -> R1;
+             [_|_] -> R2
          end,
-    {S4,St3} = expr_record_id(A, S1, S3, Id, St2),
+    {R4,St3} = expr_record_id(A, R1, R3, Id, St2),
 
     Cs = [#iclause{anno=#a{anno=[compiler_generated|A]},
                    pats=[],
                    guard=[#icall{anno=#a{anno=A},
                                  module=#c_literal{anno=A,val=erlang},
                                  name=#c_literal{anno=A,val=is_record},
-                                 args=[S1]}],
-                   body=[S4]}],
+                                 args=[R1]}],
+                   body=[R4]}],
     Eps = Eps0 ++ Eps1,
     {#icase{anno=#a{anno=A},args=[],clauses=Cs,fc=Fc},Eps,St3}.
 
@@ -1260,18 +1261,18 @@ expr_record_accessible(A, Rec, Body, St) ->
     Fc = fail_clause([], [{eval_failure,badrecord}|A], BadRecord),
     {#icase{anno=#a{anno=A},args=[],clauses=Cs,fc=Fc},St}.
 
-safe_record(S0, St0) ->
-    case safe(S0, St0) of
+safe_record(R0, St0) ->
+    case safe(R0, St0) of
         {#c_var{},_,_}=Res ->
             Res;
-        {NotStruct,Eps0,St1} ->
+        {NotRecord,Eps0,St1} ->
             %% Not a native record. There will be a syntax error if we
             %% try to pretty-print the Core Erlang code and then try
             %% to parse it. To avoid the syntax error, force the term
             %% into a variable.
 	    {V,St2} = new_var(St1),
-            Anno = cerl:get_ann(NotStruct),
-            Eps1 = [#iset{anno=#a{anno=Anno},var=V,arg=NotStruct}],
+            Anno = cerl:get_ann(NotRecord),
+            Eps1 = [#iset{anno=#a{anno=Anno},var=V,arg=NotRecord}],
 	    {V,Eps0++Eps1,St2}
     end.
 
