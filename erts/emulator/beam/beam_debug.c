@@ -317,7 +317,8 @@ erts_debug_breakpoint_2(BIF_ALIST_2)
     ASSERT(erts_staging_trace_session == NULL);
     erts_staging_trace_session = &erts_trace_session_0;
 
-    erts_bp_match_functions(&finish_debug_bp.f, &mfa, specified);
+    erts_bp_match_functions(&finish_debug_bp.f, &mfa, specified,
+                            1); // ignore bifs
 
     ASSERT(finish_debug_bp.f.matched >= 0);
     ASSERT(finish_debug_bp.process == NULL);
