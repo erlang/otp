@@ -2629,7 +2629,8 @@ init_per_group(ttest = _GroupName, Config) ->
               "~n", [_GroupName, Config]),
     case ttest_condition(Config) of
         ok ->
-            ttest_manager_start(),
+            Category = ?config(category, Config),
+            ttest_manager_start(Category),
             case lists:keysearch(esock_test_ttest_runtime, 1, Config) of
                 {value, _} ->
                     Config;
@@ -12381,9 +12382,11 @@ ttest_msg_id_num_to_name(2) ->
 ttest_msg_id_num_to_name(3) ->
     large.
     
-ttest_manager_start() ->
+ttest_manager_start(Category) ->
     Self = self(),
-    {Pid, MRef} = spawn_monitor(fun() -> ttest_manager_init(Self) end),
+    {Pid, MRef} = spawn_monitor(fun() ->
+                                        ttest_manager_init(Self, Category)
+                                end),
     receive
         {ttest_manager_started, Pid} ->
             erlang:demonitor(MRef, [flush]),
@@ -12411,43 +12414,32 @@ ttest_manager_stop() ->
             ok
     end.
 
-ttest_manager_init(Parent) ->
+ttest_manager_init(Parent, Category) ->
     yes = global:register_name(?TTEST_MANAGER, self()),
     ets:new(?TTEST_MANAGER, 
             [{keypos, #ttest_report.id}, named_table, protected, ordered_set]),
     Parent ! {ttest_manager_started, self()},
-    ttest_manager_loop().
+    ttest_manager_loop(#{category => Category}).
 
-ttest_manager_loop() ->
+
+-define(BENCH_SUITE, socket_ttest).
+-define(BENCH_EVENT(__N__, __V__),
+        #event{name = benchmark_data,
+               data = [{suite, ?BENCH_SUITE},
+                       {value, (__V__)},
+                       {name,  (__N__)}]}).
+
+ttest_manager_loop(State) ->
     receive
         stop ->
             ?LOGGER:format("manager stopping~n", []),
             ttest_manager_done();
 
-        #ttest_report{id    = ID,
-                      time  = RunTime,
-                      bytes = NumBytes,
-                      msgs  = _NumMsgs} = Report ->
-            %% ?LOGGER:format("received (ttest) report:"
-            %%                "~n   ID: ~p"
-            %%                "~n      RunTime:   ~p"
-            %%                "~n      Num Bytes: ~p"
-            %%                "~n      Num Msgs:  ~p"
-            %%                "~n", [ID, RunTime, NumBytes, _NumMsgs]),
-            Event = #event{
-                       name = format_ttest_report_id(ID),
-                       data = [{suite, atom_to_list(?MODULE)},
-                               {value, format_ttest_report_value(RunTime,
-                                                                 NumBytes)}]},
-            %% ?LOGGER:format("send CT event:"
-            %%                "~n   ~p"
-            %%                "~n", [Event]),
-            ct_event:notify(Event),
-            %% true = ets:insert_new(?TTEST_MANAGER, Report),
-            %% ttest_manager_loop()
+        #ttest_report{id = ID} = Report ->
+            maybe_report(State, Report),
             case ets:insert_new(?TTEST_MANAGER, Report) of
 		true ->
-		    ttest_manager_loop();
+		    ttest_manager_loop(State);
 		false ->
 		    [Current] = ets:lookup(?TTEST_MANAGER, ID),
 		    ?LOGGER:format("manager received duplicate report:"
@@ -12455,9 +12447,21 @@ ttest_manager_loop() ->
 				   "~n   Current: ~p"
 				   "~n   New:     ~p"
 				   "~n", [ID, Current, Report]),
-		    ttest_manager_loop()
+		    ttest_manager_loop(State)
 	    end
     end.
+
+maybe_report(#{category := bench},
+             #ttest_report{id    = ID,
+                           time  = RunTime,
+                           bytes = NumBytes}) ->
+    Event = ?BENCH_EVENT(format_ttest_report_id(ID),
+                         format_ttest_report_value(RunTime, NumBytes)),
+    ct_event:notify(Event),
+    ok;
+maybe_report(_State, _Report) ->
+    ok.
+
 
 format_ttest_report_id(#ttest_report_id{domain        = Domain,
                                         serv_trans    = STrans,

@@ -7273,10 +7273,12 @@ tb_await_completion(BName,
 tb_await_termination(BName, Server, Client) ->
     tb_await_termination(BName, Server, Client, undefined).
 
+-define(BENCH_SUITE, socket_traffic).
 -define(BENCH_EVENT(__N__, __V__),
-        #event{name = (__N__),
-               data = [{suite, atom_to_list(?MODULE)},
-                       {value, (__V__)}]}).
+        #event{name = benchmark_data,
+               data = [{suite, ?BENCH_SUITE},
+                       {value, (__V__)},
+                       {name,  (__N__)}]}).
 
 tb_await_termination(BName,
                      {ServerPid, ServerMRef} = Server,
@@ -7302,10 +7304,6 @@ tb_await_termination(BName,
                         "~n   ~p", [ServerReason]),
             tb_await_termination(BName,
                                  undefined, Client, Comment)
-    %% after 1000 ->
-    %%         ?SEV_IPRINT("[ctrl] timeout waiting for client and/or server exit:"
-    %%                     "~n   MQueue: ~p", [?SLIB:pi(messages)]),
-    %%         tb_await_termination(BName, Server, Client, Comment)
     end;
 tb_await_termination(_BName,
                      {ServerPid, ServerMRef} = _Server,
