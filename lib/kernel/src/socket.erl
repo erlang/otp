@@ -406,6 +406,7 @@ server(Addr, Port) ->
 %% We need #file_descriptor{} for sendfile/2,3,4,5
 -include("file_int.hrl").
 
+
 %% -define(DBG(T),
 %%         erlang:display({{self(), ?MODULE, ?LINE, ?FUNCTION_NAME}, T})).
 
@@ -415,6 +416,11 @@ server(Addr, Port) ->
 
 %% Also in prim_socket
 -define(REGISTRY, socket_registry).
+
+-type uint8()  :: 0..16#FF.
+-type uint16() :: 0..16#FFFF.
+-type uint32() :: 0..16#FFFFFFFF.
+-type uint64() :: 0..16#FFFFFFFFFFFFFFFF.
 
 -type invalid() :: {invalid, What :: term()}.
 
@@ -701,11 +707,11 @@ The value `default` is only valid to _set_ and is translated to the C value
 -doc "C: `struct sctp_assocparams`".
 -type sctp_assocparams() ::
         #{assoc_id                 := sctp_assoc_id(),
-          asocmaxrxt               := 0..16#ffff,
-          number_peer_destinations := 0..16#ffff,
-          peer_rwnd                := 0..16#ffffffff,
-          local_rwnd               := 0..16#ffffffff,
-          cookie_life              := 0..16#ffffffff}.
+          asocmaxrxt               := uint16(),
+          number_peer_destinations := uint16(),
+          peer_rwnd                := uint32(),
+          local_rwnd               := uint32(),
+          cookie_life              := uint32()}.
 
 -doc """
 C: `struct sctp_event_subscribe`.
@@ -730,17 +736,17 @@ have been stripped from the C struct field names, for convenience.
 
 -doc "C: `struct sctp_initmsg`.".
 -type sctp_initmsg() ::
-        #{num_ostreams   := 0..16#ffff,
-          max_instreams  := 0..16#ffff,
-          max_attempts   := 0..16#ffff,
-          max_init_timeo := 0..16#ffff}.
+        #{num_ostreams   := uint16(),
+          max_instreams  := uint16(),
+          max_attempts   := uint16(),
+          max_init_timeo := uint16()}.
 
 -doc "C: `struct sctp_rtoinfo`.".
 -type sctp_rtoinfo() ::
         #{assoc_id := sctp_assoc_id(),
-          initial  := 0..16#ffffffff,
-          max      := 0..16#ffffffff,
-          min      := 0..16#ffffffff}.
+          initial  := uint32(),
+          max      := uint32(),
+          min      := uint32()}.
 
 -doc "C: `struct sctp_setpeerprim`.".
 -type sctp_set_peer_primary_address() ::
@@ -754,19 +760,19 @@ have been stripped from the C struct field names, for convenience.
 
 -doc "C: `struct sctp_setadaptation`.".
 -type sctp_set_adaptation_layer_ind() ::
-        #{ind := 0..16#ffffffff}.
+        #{ind := uint32()}.
 
 -doc "C: `struct sctp_paddrparams`.".
 -type sctp_peer_address_parameters() ::
         #{assoc_id          := sctp_assoc_id(),
           addr              := sockaddr(),
-          heatbeat_interval := 0..16#FFFFFFFF,
-          path_max_rxt      := 0..16#FFFF,
-          path_mtu          := 0..16#FFFFFFFF,
-          sack_delay        := 0..16#FFFFFFFF,
+          heatbeat_interval := uint32(),
+          path_max_rxt      := uint16(),
+          path_mtu          := uint32(),
+          sack_delay        := uint32(),
           flags             := sctp_pap_flags(),
-          ipv6_flowlabel    := 0..16#FFFFFFFF,
-          dscp              := 0..16#FF}.
+          ipv6_flowlabel    := uint32(),
+          dscp              := uint8()}.
 
 -doc """
 There are three pairs of flags that cannot be both be set (maybe obviously) 
@@ -790,43 +796,43 @@ at the same time:
 -type sctp_status() ::
         #{assoc_id            := sctp_assoc_id(),
           state               := sctp_peer_address_state(),
-          rwnd                := 0..16#FFFFFFFF,
-          unacked_data        := 0..16#FFFF,
-          pending_data        := 0..16#FFFF,
-          in_streams          := 0..16#FFFF,
-          out_streams         := 0..16#FFFF,
-          fragmentation_point := 0..16#FFFFFFFF,
+          rwnd                := uint32(),
+          unacked_data        := uint16(),
+          pending_data        := uint16(),
+          in_streams          := uint16(),
+          out_streams         := uint16(),
+          fragmentation_point := uint32(),
           primary             := sctp_peer_address_info()}.
 
 -doc "C: `struct sctp_assoc_stats`.".
 -type sctp_assoc_stats() ::
         #{assoc_id             := sctp_assoc_id(),
           max_rto_addr         := sockaddr(),
-          max_rto              := 0..16#FFFFFFFFFFFFFFFF,
-          in_sacks             := 0..16#FFFFFFFFFFFFFFFF,
-          out_sacks            := 0..16#FFFFFFFFFFFFFFFF,
-          in_packets           := 0..16#FFFFFFFFFFFFFFFF,
-          out_packets          := 0..16#FFFFFFFFFFFFFFFF,
-          rtx_chunks           := 0..16#FFFFFFFFFFFFFFFF,
-          out_of_seq_tsns      := 0..16#FFFFFFFFFFFFFFFF,
-          in_dup_chunks        := 0..16#FFFFFFFFFFFFFFFF,
-          gap_ack_recv         := 0..16#FFFFFFFFFFFFFFFF,
-          in_unordered_chunks  := 0..16#FFFFFFFFFFFFFFFF,
-          out_unordered_chunks := 0..16#FFFFFFFFFFFFFFFF,
-          in_ordered_chunks    := 0..16#FFFFFFFFFFFFFFFF,
-          out_ordered_chunks   := 0..16#FFFFFFFFFFFFFFFF,
-          in_ctrl_chunks       := 0..16#FFFFFFFFFFFFFFFF,
-          out_ctrl_chunks      := 0..16#FFFFFFFFFFFFFFFF}.
+          max_rto              := uint64(),
+          in_sacks             := uint64(),
+          out_sacks            := uint64(),
+          in_packets           := uint64(),
+          out_packets          := uint64(),
+          rtx_chunks           := uint64(),
+          out_of_seq_tsns      := uint64(),
+          in_dup_chunks        := uint64(),
+          gap_ack_recv         := uint64(),
+          in_unordered_chunks  := uint64(),
+          out_unordered_chunks := uint64(),
+          in_ordered_chunks    := uint64(),
+          out_ordered_chunks   := uint64(),
+          in_ctrl_chunks       := uint64(),
+          out_ctrl_chunks      := uint64()}.
 
 -doc "C: `struct sctp_paddrinfo`.".
 -type sctp_peer_address_info() ::
         #{assoc_id := sctp_assoc_id(),
           address  := sockaddr(),
           state    := sctp_peer_address_state(),
-          cwnd     := 0..16#FFFFFFFF,
-          srtt     := 0..16#FFFFFFFF,
-          rto      := 0..16#FFFFFFFF,
-          mtu      := 0..16#FFFFFFFF}.
+          cwnd     := uint32(),
+          srtt     := uint32(),
+          rto      := uint32(),
+          mtu      := uint32()}.
 
 -doc "C: `enum sctp_spinfo_state`.".
 -type sctp_peer_address_state() :: inactive | potentially_failed |
@@ -1710,8 +1716,6 @@ Corresponds to a C `struct msghdr`, see your platform documentation for
 Notifications can be received on a SCTP socket (type = seqpacket and
 protocol = sctp).
 
-TBD.
-
 """.
 -type msg_notification_recv() ::
         #{
@@ -1737,31 +1741,37 @@ Message returned by [`recvmsg/1,2,3,5`](`recvmsg/1`).
 -type msg_recv() :: msg_data_recv() | msg_notification_recv().
 
 
--type sctp_notification() :: sctp_notif_assoc_change()        |
-                             sctp_notif_paddr_change()        |
-                             sctp_notif_send_failed()         |
-                             sctp_notif_remote_error()        |
-                             sctp_notif_shutdown_event()      |
-                             sctp_notif_adapt_event()         |
-                             sctp_notif_pdapi_event()         |
-                             sctp_notif_authkey()             |
-                             sctp_notif_sender_dry()          |
-                             sctp_notif_stream_reset_event()  |
-                             sctp_notif_assoc_reset_event()   |
-                             sctp_notif_stream_change_event() |
-                             sctp_notif_generic()             |
-                             sctp_notif_send_failed_event().
+-doc """
+All possible notification types. All of them has *at least* two fields:
+'type' and 'flags' ('flags' are not allways used).
+
+C: `union sctp_notification`
+""".
+-type sctp_notification() :: sctp_assoc_change()        |
+                             sctp_paddr_change()        |
+                             sctp_send_failed()         |
+                             sctp_remote_error()        |
+                             sctp_shutdown_event()      |
+                             sctp_adapt_event()         |
+                             sctp_pdapi_event()         |
+                             sctp_authkey()             |
+                             sctp_sender_dry()          |
+                             sctp_stream_reset_event()  |
+                             sctp_assoc_reset_event()   |
+                             sctp_stream_change_event() |
+                             sctp_send_failed_event()   |
+                             sctp_notification_generic().
 
 -doc """
 An SCTP association has either begun or ended.
 
 C: `struct sctp_assoc_change`
 """.
--type sctp_notif_assoc_change() ::
+-type sctp_assoc_change() ::
         #{type             := assoc_change,
           flags            := integer(),
           state            := sctp_assoc_change_state(),
-          error            := sctp_rfc4960_error(),
+          error            := sctp_operation_error(),
           outbound_streams := integer(),
           inbound_streams  := integer(),
           assoc_id         := sctp_assoc_id()}.
@@ -1773,36 +1783,40 @@ C: `struct sctp_assoc_change`
                                    cant_str_assoc |
                                    integer().
 
--type sctp_rfc4960_error() :: unknown           |
-                              bad_sid           |
-                              missing_parm      |
-                              stale_cookie      |
-                              no_resources      |
-                              bad_addr          |
-                              unrec_chunk       |
-                              bad_mandparm      |
-                              unrec_parm        |
-                              no_usr_data       |
-                              cookie_shut       |
-                              restart_new_addrs |
-                              user_abort        |
-                              delete_lastaddr   |
-                              resource_shortage |
-                              delete_srcaddr    |
-                              auth_err          |
-                              integer().
+-doc """
+These error codes are (currently) defined in RFC 4960,
+and named as *Operation Errors*.
+""".
+-type sctp_operation_error() :: unknown           |
+                                bad_sid           |
+                                missing_parm      |
+                                stale_cookie      |
+                                no_resources      |
+                                bad_addr          |
+                                unrec_chunk       |
+                                bad_mandparm      |
+                                unrec_parm        |
+                                no_usr_data       |
+                                cookie_shut       |
+                                restart_new_addrs |
+                                user_abort        |
+                                delete_lastaddr   |
+                                resource_shortage |
+                                delete_srcaddr    |
+                                auth_err          |
+                                pos_integer().
 
 -doc """
 A destination address on a multi-homed peer has encountered a change.
 
 C: `struct sctp_paddr_change`
 """.
--type sctp_notif_paddr_change() ::
+-type sctp_paddr_change() ::
         #{type     := peer_addr_change,
-          flags    := integer(),
+          flags    := pos_integer(),
           addr     := socket:sockaddr(),
           state    := sctp_peer_addr_change_state(),
-          error    := integer(),
+          error    := pos_integer(),
           assoc_id := sctp_assoc_id()}.
 
 -type sctp_peer_addr_change_state() ::
@@ -1823,10 +1837,10 @@ C: `struct sctp_send_failed`
 
 Deprecated.
 """.
--type sctp_notif_send_failed() ::
+-type sctp_send_failed() ::
         #{type     := send_failed,
-          flags    := 0..16#FFFF,
-          error    := 0..16#FFFFFFFF,
+          flags    := uint16(),
+          error    := uint32(),
           info     := sctp_snd_rcv_info(),
           assoc_id := sctp_assoc_id(),
           data     := binary()}.
@@ -1836,10 +1850,10 @@ A remote peer may send an operational error message to its peer.
 
 C: `struct sctp_remote_error`
 """.
--type sctp_notif_remote_error() ::
+-type sctp_remote_error() ::
         #{type          := remote_error,
-          flags         := 0..16#FFFF, % Should be [flag()]
-          error         := integer(),
+          flags         := uint16(), % Should be [flag()]
+          error         := sctp_operation_error(),
           assoc_id      := sctp_assoc_id(),
           remote_causes := [integer()]}.
 
@@ -1848,9 +1862,9 @@ A peer has sent a SHUTDOWN.
 
 C: `struct sctp_shutdown_event`
 """.
--type sctp_notif_shutdown_event() ::
+-type sctp_shutdown_event() ::
         #{type     := shutdown_event,
-          flags    := 0..16#FFFF, % Should be [flag()]
+          flags    := uint16(), % Should be [flag()]
           assoc_id := sctp_assoc_id()}.
 
 -doc """
@@ -1858,24 +1872,27 @@ A peer has sent a Adaptation Layer Indication parameter.
 
 C: `struct sctp_adaptation_event`
 """.
--type sctp_notif_adapt_event() ::
+-type sctp_adapt_event() ::
         #{type         := adaptation_event,
-          flags        := 0..16#FFFF,
-          adaption_ind := 0..16#FFFFFFFF,
+          flags        := uint16(),
+          adaption_ind := uint32(),
           assoc_id     := sctp_assoc_id()}.
 
 -doc """
 A receiver is engaged in a partial delivery.
 
+Note that not all fields are available on all platforms.
+The *stream* and/or *seq* fields may not be present.
+
 C: `struct sctp_pdapi_event`
 """.
--type sctp_notif_pdapi_event() ::
+-type sctp_pdapi_event() ::
         #{type       := partial_delivery_event,
-          flags      := 0..16#FFFF, % Should be [flag()]
-          indication := 0..16#FFFFFFFF,
+          flags      := uint16(), % Should be [flag()]
+          indication := uint16(),
           assoc_id   := sctp_assoc_id(),
-          stream     := undefined | 0..16#FFFFFFFF,
-          seq        := undefined | 0..16#FFFFFFFF}.
+          stream     => uint32(),
+          seq        => uint32()}.
 
 -doc """
 When a receiver is using authentication, info about new keys and errors are
@@ -1883,12 +1900,12 @@ provided in this notification.
 
 C: `struct sctp_authkey_event`
 """.
--type sctp_notif_authkey() ::
+-type sctp_authkey() ::
         #{type         := authkey,
-          flags        := 0..16#FFFF, % Should be [flag()]
-          keynumber    := 0..16#FFFF,
-          altkeynumber := 0..16#FFFF,
-          indication   := 0..16#FFFFFFFF,
+          flags        := uint16(), % Should be [flag()]
+          keynumber    := uint16(),
+          altkeynumber := uint16(),
+          indication   := uint32(),
           assoc_id     := sctp_assoc_id()}.
 
 -doc """
@@ -1896,82 +1913,93 @@ The SCTP stack has no more user data to send or retransmit.
 
 C: `struct sctp_sender_dry_event`
 """.
--type sctp_notif_sender_dry() ::
+-type sctp_sender_dry() ::
         #{type     := sender_dry,
-          flags    := integer(), % Should be [flag()]
+          flags    := uint16(), % Should be [flag()]
           assoc_id := sctp_assoc_id()}.
 
 -doc """
 C: `struct sctp_stream_reset_event`
 """.
--type sctp_notif_stream_reset_event() ::
+-type sctp_stream_reset_event() ::
         #{type        := stream_reset,
           flags       := [incoming_ssn | outgoing_ssn | denied | failed],
           assoc_id    := sctp_assoc_id(),
-          stream_list := [0..16#FFFF]}.
+          stream_list := [uint16()]}.
 
 -doc """
 C: `struct sctp_assoc_reset_event`
 """.
--type sctp_notif_assoc_reset_event() ::
+-type sctp_assoc_reset_event() ::
         #{type       := assoc_reset,
           flags      := [denied | failed],
           assoc_id   := sctp_assoc_id(),
-          local_tsn  := 0..16#FFFFFFFF,
-          remote_tsn := 0..16#FFFFFFFF}.
+          local_tsn  := uint32(),
+          remote_tsn := uint32()}.
 
 -doc """
 C: `struct sctp_stream_change_event`
 """.
--type sctp_notif_stream_change_event() ::
+-type sctp_stream_change_event() ::
         #{type             := stream_change,
           flags            := [denied | failed],
           assoc_id         := sctp_assoc_id(),
-          inbound_streams  := 0..16#FFFF,
-          outbound_streams := 0..16#FFFF}.
-
--doc """
-C: `union sctp_notification`
-""".
--type sctp_notif_generic() ::
-        #{type  := stream_reset_event | integer(),
-          flags := integer()}.
+          inbound_streams  := uint16(),
+          outbound_streams := uint16()}.
 
 -doc """
 SCTP cannot deliver a message.
 
 C: `struct sctp_send_failed_event`
 """.
--type sctp_notif_send_failed_event() ::
+-type sctp_send_failed_event() ::
         #{type     := send_failed_event,
           flags    := [data_unsent | data_sent],
-          error    := 0..16#FFFFFFFF,
+          error    := uint32(),
           info     := sctp_snd_info(),
           assoc_id := sctp_assoc_id(),
           data     := binary()}.
 
 -doc """
+C: `union sctp_notification`
+
+This is intended as a fallback type for any notification
+we have not yet implemented.
+""".
+-type sctp_notification_generic() ::
+        #{type  := uint16(),
+          flags := uint16()}.
+
+-doc """
 C: `struct sctp_sndinfo`
 """.
 -type sctp_snd_info() ::
-        #{sid      := 0..16#FFFF,
-          flags    := 0..16#FFFF, % Should be [flag()]
-          ppid     := 0..16#FFFF,
-          context  := 0..16#FFFFFFFF,
+        #{sid      := uint16(),
+          flags    := uint16(), % Should be [flag()]
+          ppid     := uint16(),
+          context  := uint32(),
           assic_id := sctp_assoc_id()}.
 
 -doc """
+SCTP options for 
+[`sendmsg()`](`socket:sendmsg/4`) and
+SCTP header information about a received message through
+[`recvmsg()`](`socket:recvmsg/5`).
+
+When sending, only the *stream* and *assoc_id* fields needs to be
+assigned. When receiving all values will be assigned.
+
 C: `struct sctp_sndrcvinfo`
 """.
 -type sctp_snd_rcv_info() ::
-        #{stream       := 0..16#FFFF,
-          ssn          => 0..16#FFFF,
+        #{stream       := uint16(),
+          ssn          => uint16(),
           flags        => sctp_snd_rcv_info_flags(),
-          ppid         => 0..16#FFFFFFFF,
-          context      => 0..16#FFFFFFFF,
-          time_to_live => 0..16#FFFFFFFF,
-          tsn          => 0..16#FFFFFFFF,
-          cum_tsn      => 0..16#FFFFFFFF,
+          ppid         => uint32(),
+          context      => uint32(),
+          time_to_live => uint32(),
+          tsn          => uint32(),
+          cum_tsn      => uint32(),
           assoc_id     := sctp_assoc_id()}.
 
 -type sctp_snd_rcv_info_flags() :: [unordered | addr_over | abort | eof].
