@@ -136,7 +136,7 @@ void erts_commit_staged_bp(void);
 ERTS_GLB_INLINE ErtsBpIndex erts_active_bp_ix(void);
 ERTS_GLB_INLINE ErtsBpIndex erts_staging_bp_ix(void);
 
-void erts_bp_match_functions(BpFunctions* f, ErtsCodeMFA *mfa, int specified);
+void erts_bp_match_functions(BpFunctions* f, ErtsCodeMFA *mfa, int specified, int ignore_bifs);
 void erts_bp_match_export(BpFunctions* f, ErtsCodeMFA *mfa, int specified);
 void erts_bp_free_matched_functions(BpFunctions* f);
 
