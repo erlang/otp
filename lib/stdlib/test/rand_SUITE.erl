@@ -40,7 +40,7 @@
     reference/1,
     uniform_real_conv/1,
     plugin/1, measure/1,
-    short_jump/1
+    short_jump/1, initial_jump/1
    ]).
 
 %% Manual test functions
@@ -65,7 +65,7 @@ all() ->
      uniform_real_conv,
      plugin, measure,
      {group, reference_jump},
-     short_jump,
+     short_jump, initial_jump,
      {group, shuffle},
      doctests
     ].
@@ -117,7 +117,7 @@ algs() ->
 all_algs() ->
     [default | algs()] ++
         case crypto_support() of
-            ok -> [crypto_aes];
+            ok -> [crypto_prng1, crypto_aes];
             _  -> []
         end.
 
@@ -132,13 +132,49 @@ crypto_support() ->
             no_crypto
     end.
 
-rand_crypto_seed(crypto_aes = Alg, Seed) ->
+rand_crypto_seed(ExportState = {Alg, _})
+  when Alg =:= crypto_aes;
+       Alg =:= crypto_prng1 ->
+    crypto:rand_seed_alg(ExportState);
+rand_crypto_seed(State = #{type := Alg})
+  when Alg =:= crypto_aes;
+       Alg =:= crypto_prng1 ->
+    crypto:rand_seed_alg(State);
+rand_crypto_seed(Alg)
+    when Alg =:= crypto_aes;
+         Alg =:= crypto_prng1 ->
+    {dummy,Uint} = rand:export_seed_s(rand:seed_s(dummy)),
+    crypto:rand_seed_alg(Alg, <<Uint:64>>);
+rand_crypto_seed(Alg_State) ->
+    rand:seed(Alg_State).
+
+rand_crypto_seed(Alg, Seed)
+when Alg =:= crypto_aes;
+     Alg =:= crypto_prng1 ->
     {dummy,Uint} = rand:export_seed_s(rand:seed_s(dummy, Seed)),
     crypto:rand_seed_alg(Alg, <<Uint:64>>);
 rand_crypto_seed(Alg, Seed) ->
     rand:seed(Alg, Seed).
 
-rand_crypto_seed_s(crypto_aes = Alg, Seed) ->
+rand_crypto_seed_s(ExportState = {Alg, _})
+  when Alg =:= crypto_aes;
+       Alg =:= crypto_prng1 ->
+    crypto:rand_seed_alg_s(ExportState);
+rand_crypto_seed_s(State = #{type := Alg})
+  when Alg =:= crypto_aes;
+       Alg =:= crypto_prng1 ->
+    crypto:rand_seed_alg_s(State);
+rand_crypto_seed_s(Alg)
+    when Alg =:= crypto_aes;
+         Alg =:= crypto_prng1 ->
+    {dummy,Uint} = rand:export_seed_s(rand:seed_s(dummy)),
+    crypto:rand_seed_alg_s(Alg, <<Uint:64>>);
+rand_crypto_seed_s(Alg_State) ->
+    rand:seed_s(Alg_State).
+
+rand_crypto_seed_s(Alg, Seed)
+    when Alg =:= crypto_aes;
+         Alg =:= crypto_prng1 ->
     {dummy,Uint} = rand:export_seed_s(rand:seed_s(dummy, Seed)),
     crypto:rand_seed_alg_s(Alg, <<Uint:64>>);
 rand_crypto_seed_s(Alg, Seed) ->
@@ -148,7 +184,24 @@ rand_crypto_seed_s(Alg, Seed) ->
 
 %% Test that seed and seed_s and export_seed/0 is working.
 seed(Config) when is_list(Config) ->
-    Algs = [default|algs()],
+    %% Check that uniform seeds automatically,
+    X1 = rand:uniform(),
+    S1 = get(rand_seed),
+    X2 = rand:uniform(),
+    erase(),
+    X3 = rand:uniform(),
+    true = X1 =/= X3, % hopefully
+    {X2, _} = rand:uniform_s(S1),
+    %%
+    %% Check that export_seed/1 returns 'undefined' if there is no seed
+    erase(rand_seed),
+    undefined = rand:export_seed(),
+    %%
+    %% Other seed terms shall not work
+    {'EXIT', _} = (catch rand_crypto_seed_s(foobar, os:timestamp())),
+    %%
+    %% Tests for specified algorithms
+    Algs = [default | all_algs()],
     Test = fun(Alg) ->
 		   try seed_1(Alg)
 		   catch _:Reason:Stacktrace ->
@@ -156,55 +209,94 @@ seed(Config) when is_list(Config) ->
 		   end
 	   end,
     [Test(Alg) || Alg <- Algs],
-    %%
-    %% Check that export_seed/1 returns 'undefined' if there is no seed
-    erase(rand_seed),
-    undefined = rand:export_seed(),
-    %%
-    %% Other seed terms shall not work
-    {'EXIT', _} = (catch rand:seed_s(foobar, os:timestamp())),
     ok.
 
 seed_1(Alg) ->
-    %% Check that uniform seeds automatically,
-    _ = rand:uniform(),
-    S00 = get(rand_seed),
-    erase(),
-    _ = rand:uniform_real(),
-    false = S00 =:= get(rand_seed), %% hopefully
-
+    %% For all repeatable PRNGS, the initial state should be
+    %% possible to clone, but not necessarily compare,
+    %% since we want to be able to optimize the implementatin
+    %%
     %% Choosing algo and seed
-    S0 = rand:seed(Alg, {0, 0, 0}),
+    S1 = rand_crypto_seed(Alg, {0, 0, 0}),
     %% Check that (documented?) process_dict variable is correct
-    S0 = get(rand_seed),
-    S0 = rand:seed_s(Alg, {0, 0, 0}),
-    %% Check that process_dict should not be used for seed_s functionality
-    _ = rand:seed_s(Alg, 4711),
-    S0 = get(rand_seed),
-    %% Test export
-    ES0 = rand:export_seed(),
-    ES0 = rand:export_seed_s(S0),
-    S0 = rand:seed(ES0),
-    S0 = rand:seed_s(ES0),
-    %% seed/1 calls should be unique
-    S1 = rand:seed(Alg),
-    false = (S1 =:= rand:seed_s(Alg)),
+    S1a = get(rand_seed),
+    S1b = rand_crypto_seed_s(Alg, {0, 0, 0}),
+    %% We can test that seeds are equivalent by testing
+    %% generated numbers for equality.
+    X2 = rand:uniform(),
+    {X2, S2a} = rand:uniform_s(S1),
+    {X2, _} = rand:uniform_s(S1a),
+    {X2, _} = rand:uniform_s(S1b),
+    {X3, _} = rand:uniform_s(S2a),
+    %% Check that seed_s does not touch the process dictionary
+    S4a = rand_crypto_seed_s(Alg, 4711),
+    X3 = rand:uniform(),
+    {X5, _} = rand:uniform_s(S4a),
+    X3 /= X5 orelse error({eq, X3, X5}), % hopefully
+
+    %% Test seed, export and import of initial state
+    S6a = rand_crypto_seed_s(Alg, {1, 2, 3}),
+    seed_2(S6a),
+
+    S7 = rand_crypto_seed(Alg, {4, 5, 6}),
+    {_, S8a} = rand:uniform_s(S7),
+    case Alg of
+        crypto_prng1 ->
+            %% Only the initial state can be cloned or imported
+            ES8a = rand:export_seed_s(S8a),
+            try rand_crypto_seed_s(ES8a) of
+                OK -> error({ok, OK})
+            catch
+                error : not_implemented -> ok
+            end;
+        _ ->
+            %% Test seed, export and import of state
+            seed_2(S8a)
+    end,
+
+    %% seed(Alg) calls should be unique
+    _ = rand_crypto_seed(Alg),
+    S11a = rand_crypto_seed_s(Alg),
+    X10 = rand:uniform(),
+    {X11, _} = rand:uniform_s(S11a),
+    X10 /= X11 orelse error({eq, X10, X11}), % hopefully
+
     %% Negative integers works
-    _ = rand:seed_s(Alg, {-1,-1,-1}),
+    _ = rand_crypto_seed_s(Alg, {-1,-1,-1}),
     %%
     %% Other seed terms shall not work
-    {'EXIT', _} = (catch rand:seed_s(Alg, {asd, 1, 1})),
-    {'EXIT', _} = (catch rand:seed_s(Alg, {0, 234.1234, 1})),
-    {'EXIT', _} = (catch rand:seed_s(Alg, {0, 234, [1, 123, 123]})),
-    {'EXIT', _} = (catch rand:seed_s(Alg, asd)),
-    {'EXIT', _} = (catch rand:seed_s(Alg, make_ref())),
-    {'EXIT', _} = (catch rand:seed_s(Alg, fun () -> 0 end)),
-    {'EXIT', _} = (catch rand:seed_s(Alg, self())),
-    {'EXIT', _} = (catch rand:seed_s(Alg, {1,2})),
-    {'EXIT', _} = (catch rand:seed_s(Alg, {1,2,3,4})),
-    {'EXIT', _} = (catch rand:seed_s(Alg, #{})),
-    {'EXIT', _} = (catch rand:seed_s(Alg, [1|2])),
+    {'EXIT', _} = (catch rand_crypto_seed_s(Alg, {asd, 1, 1})),
+    {'EXIT', _} = (catch rand_crypto_seed_s(Alg, {0, 234.1234, 1})),
+    {'EXIT', _} = (catch rand_crypto_seed_s(Alg, {0, 234, [1, 123, 123]})),
+    {'EXIT', _} = (catch rand_crypto_seed_s(Alg, asd)),
+    {'EXIT', _} = (catch rand_crypto_seed_s(Alg, make_ref())),
+    {'EXIT', _} = (catch rand_crypto_seed_s(Alg, fun () -> 0 end)),
+    {'EXIT', _} = (catch rand_crypto_seed_s(Alg, self())),
+    {'EXIT', _} = (catch rand_crypto_seed_s(Alg, {1,2})),
+    {'EXIT', _} = (catch rand_crypto_seed_s(Alg, {1,2,3,4})),
+    {'EXIT', _} = (catch rand_crypto_seed_s(Alg, #{})),
+    {'EXIT', _} = (catch rand_crypto_seed_s(Alg, [1|2])),
     ok.
+
+seed_2(S1) ->
+    %% Test that state can be used as seed
+    {X2, _} = rand:uniform_s(S1),
+    S1a = rand_crypto_seed(S1),
+    X2 = rand:uniform(),
+    S1b = rand_crypto_seed_s(S1a),
+    {X2, _} = rand:uniform_s(S1b),
+
+    %% Test export of state and import (seed) after roundtrip
+    S1c = rand_crypto_seed(S1),
+    ES1 = rand:export_seed(),
+    ES1c = rand:export_seed_s(S1c),
+    _ = rand_crypto_seed(roundtrip(ES1c)),
+    X2 = rand:uniform(),
+    S1d = rand_crypto_seed_s(roundtrip(ES1)),
+    {X2, _} = rand:uniform_s(S1d),
+    ok.
+
+roundtrip(Term) -> binary_to_term(term_to_binary(Term)).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -375,36 +467,39 @@ interval_int(Config) when is_list(Config) ->
           Alg <- Algs,
           Range <- [R1, R2, R3]],
       #{
-        {default,R1}    => 11240267459155554,
-        {default,R2}    => 32601989265626580,
-        {default,R3}    => 17949116405932061,
-        {exsss,R1}      => 11240267459155554,
-        {exsss,R2}      => 32601989265626580,
-        {exsss,R3}      => 17949116405932061,
-        {exrop,R1}      => 29439025302668224,
-        {exrop,R2}      => 35757088269702251,
-        {exrop,R3}      => 18658039660916348,
-        {exsp,R1}       =>  3756226303137097,
-        {exsp,R2}       => 18978154034346741,
-        {exsp,R3}       => 31517684264452265,
-        {exs1024s,R1}   => 25663442531954265,
-        {exs1024s,R2}   => 19963226828780853,
-        {exs1024s,R3}   => 17293067974750216,
-        {exs64,R1}      => 31194709903027496,
-        {exs64,R2}      => 19805508609802443,
-        {exs64,R3}      => 26160839404403677,
-        {exsplus,R1}    =>  3756226303137097,
-        {exsplus,R2}    => 35795957558673381,
-        {exsplus,R3}    => 33355694743882377,
-        {exs1024,R1}    => 25663442531954265,
-        {exs1024,R2}    => 13597139056366660,
-        {exs1024,R3}    => 28403669731190641,
-        {exro928ss,R1}  => 15392329658099540,
-        {exro928ss,R2}  => 30958702749427846,
-        {exro928ss,R3}  =>  6454995828729814,
-        {crypto_aes,R1} => 34171729520417518,
-        {crypto_aes,R2} => 26079292509661060,
-        {crypto_aes,R3} => 35504948493323822}).
+        {default,R1}      => 11240267459155554,
+        {default,R2}      => 32601989265626580,
+        {default,R3}      => 17949116405932061,
+        {exsss,R1}        => 11240267459155554,
+        {exsss,R2}        => 32601989265626580,
+        {exsss,R3}        => 17949116405932061,
+        {exrop,R1}        => 29439025302668224,
+        {exrop,R2}        => 35757088269702251,
+        {exrop,R3}        => 18658039660916348,
+        {exsp,R1}         =>  3756226303137097,
+        {exsp,R2}         => 18978154034346741,
+        {exsp,R3}         => 31517684264452265,
+        {exs1024s,R1}     => 25663442531954265,
+        {exs1024s,R2}     => 19963226828780853,
+        {exs1024s,R3}     => 17293067974750216,
+        {exs64,R1}        => 31194709903027496,
+        {exs64,R2}        => 19805508609802443,
+        {exs64,R3}        => 26160839404403677,
+        {exsplus,R1}      =>  3756226303137097,
+        {exsplus,R2}      => 35795957558673381,
+        {exsplus,R3}      => 33355694743882377,
+        {exs1024,R1}      => 25663442531954265,
+        {exs1024,R2}      => 13597139056366660,
+        {exs1024,R3}      => 28403669731190641,
+        {exro928ss,R1}    => 15392329658099540,
+        {exro928ss,R2}    => 30958702749427846,
+        {exro928ss,R3}    =>  6454995828729814,
+        {crypto_aes,R1}   => 34171729520417518,
+        {crypto_aes,R2}   => 26079292509661060,
+        {crypto_aes,R3}   => 35504948493323822,
+        {crypto_prng1,R1} => 13762149051103742,
+        {crypto_prng1,R2} =>   336837978859784,
+        {crypto_prng1,R3} => 15530306782629424}).
 
 interval_int(M, Range, Alg, D) ->
     Seed = rand_crypto_seed(Alg, 16#c0ffee),
@@ -440,21 +535,19 @@ interval_float(Config) when is_list(Config) ->
            L = interval_float(S, 100_000),
            {Alg, hash_term(L)}
        end || Alg <- Algs],
-      #{ default    =>  5382017173793021,
-         exsss      =>  5382017173793021,
-         exrop      =>  5207813521787093,
-         exsp       => 28291248181663524,
-         exs1024s   => 22063655035448922,
-         exs64      =>  5902160523799262,
-         exsplus    =>  8865928157739066,
-         exs1024    => 25102382062514482,
-         exro928ss  =>  1472404561442754,
-         crypto_aes => 25675812191601515}).
+      #{ default      =>  5382017173793021,
+         exsss        =>  5382017173793021,
+         exrop        =>  5207813521787093,
+         exsp         => 28291248181663524,
+         exs1024s     => 22063655035448922,
+         exs64        =>  5902160523799262,
+         exsplus      =>  8865928157739066,
+         exs1024      => 25102382062514482,
+         exro928ss    =>  1472404561442754,
+         crypto_aes   => 25675812191601515,
+         crypto_prng1 => 29622255076745349}).
 
-interval_float(S, 0) ->
-    E = rand:export_seed_s(S),
-    E = rand:export_seed(),
-    [];
+interval_float(_S, 0) -> [];
 interval_float(S0, N) ->
     {X, S1} = rand:uniform_s(S0),
     X       = rand:uniform(),
@@ -501,19 +594,19 @@ bytes_count(Config) when is_list(Config) ->
         exro928ss =>
             <<65,25,82,241,64,57,88,83,156,185,226,152,76,85,5,124>>,
         crypto_aes =>
-            <<177,51,112,56,233,126,247,244,127,240,226,105,123,184,225,130>>}),
+            <<177,51,112,56,233,126,247,244,127,240,226,105,123,184,225,130>>,
+        crypto_prng1 =>
+            <<170,205,186,30,12,91,96,107,78,167,175,8,232,159,62,241>>}),
     ok.
 
 bytes_count([], _S) -> [];
 bytes_count([N | Counts], S0) ->
-    ExportState = rand:export_seed(),
-    ExportState = rand:export_seed_s(S0),
     {B, S1} = rand:bytes_s(N, S0),
     case rand:bytes(N) of
         B when byte_size(B) =:= N ->
             [B | bytes_count(Counts, S1)];
         Other ->
-            error({N,Other,B,ExportState})
+            error({N,Other,B,rand:export_seed_s(S0)})
     end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -526,8 +619,8 @@ shuffle_elements(Config) when is_list(Config) ->
     {ShuffledList, NewState} = rand:shuffle_s(SortedList, State),
     case rand:shuffle(SortedList) of
         ShuffledList ->
-            NewSeed = rand:export_seed_s(NewState),
-            NewSeed = rand:export_seed(),
+            {X, _} = rand:uniform_s(NewState),
+            X = rand:uniform(),
             case lists:sort(ShuffledList) of
                 SortedList -> ok;
                 _ ->
@@ -576,7 +669,9 @@ shuffle_reference(Config) when is_list(Config) ->
         exro928ss =>
             <<160,170,223,95,44,254,192,107,145,180,236,235,102,110,72,131>>,
         crypto_aes =>
-            <<93,108,161,203,65,139,111,30,50,188,3,103,165,204,166,10>>}),
+            <<93,108,161,203,65,139,111,30,50,188,3,103,165,204,166,10>>,
+        crypto_prng1 =>
+            <<125,207,120,140,2,146,248,72,20,217,198,98,197,175,48,147>>}),
     ok.
 
 mk_iolist([], _M) -> [];
@@ -1444,7 +1539,9 @@ do_measure(I) ->
     Algs =
         case crypto_support() of
             ok ->
-                algs() ++ [crypto64, crypto_cache, crypto_aes, crypto];
+                algs() ++
+                    [crypto64, crypto, crypto_cache,
+                     crypto_aes, crypto_prng1];
             _ ->
                 algs()
         end,
@@ -1966,7 +2063,7 @@ do_measure(I) ->
           end, {mwc59,bytes}, Iterations,
           TMarkBytes1, OverheadBytes1),
     %%
-    ByteSize2 = 1000, % At about 100 bytes crypto_bytes breaks even to exsss
+    ByteSize2 = 1_000, % At about 100 bytes crypto_bytes breaks even to exsss
     ct:log("~nRNG ~w bytes performance~n",[ByteSize2]),
     [TMarkBytes2,OverheadBytes2|_] =
         measure_1(
@@ -1992,6 +2089,33 @@ do_measure(I) ->
                   end
           end, {mwc59,bytes}, setelement(1, Iterations, I div 50),
           TMarkBytes2, OverheadBytes2),
+    %%
+    ByteSize3 = 100_000, % At about 100 bytes crypto_bytes breaks even to exsss
+    ct:log("~nRNG ~w bytes performance~n",[ByteSize3]),
+    [TMarkBytes3,OverheadBytes3|_] =
+        measure_1(
+          fun (Mod, _State) ->
+                  Generator = fun Mod:bytes_s/2,
+                  fun (St0) ->
+                          ?CHECK_BYTE_SIZE(
+                             Generator(ByteSize3, St0), ByteSize3, Bin, St1)
+                  end
+          end,
+          case crypto_support() of
+              ok ->
+                  Algs ++ [crypto_bytes, crypto_bytes_cached];
+              _ ->
+                  Algs
+          end, {I div 5_000, us}),
+    _ =
+        measure_1(
+          fun (_Mod, _State) ->
+                  fun (St0) ->
+                          ?CHECK_BYTE_SIZE(
+                             mwc59_bytes(ByteSize3, St0), ByteSize3, Bin, St1)
+                  end
+          end, {mwc59,bytes}, {I div 5_000, us},
+          TMarkBytes3, OverheadBytes3),
     %%
     ct:log("~nRNG uniform float performance~n",[]),
     [TMarkUniformFloat,OverheadUniformFloat|_] =
@@ -2153,8 +2277,10 @@ measure_init(Alg) ->
             {rand, crypto:rand_seed_s()};
         crypto_aes ->
             {rand,
-             crypto:rand_seed_alg(
-               crypto_aes, crypto:strong_rand_bytes(256))};
+             crypto:rand_seed_alg(Alg, crypto:strong_rand_bytes(256))};
+        crypto_prng1 ->
+            {rand,
+             crypto:rand_seed_alg(Alg, crypto:strong_rand_bytes(256))};
         random ->
             {random, random:seed(os:timestamp()), get(random_seed)};
         crypto_bytes ->
@@ -2397,6 +2523,44 @@ check(N, Range, StateA, StateB) ->
 	    check(N - 1, Range, NewStateA, NewStateB);
 	{Wrong,_} ->
 	    ct:fail({Wrong,neq,V,for,N})
+    end.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Verify initial jump - I am thinking of crypto_prng1
+
+initial_jump(Config) when is_list(Config) ->
+    Algs = all_algs() -- [exs64],
+    %%
+    keyverify(
+      [begin
+           io:format("Alg = ~p~n", [Alg]),
+           S = rand_crypto_seed(Alg, 666_666),
+           Generators =
+               [S | lists_generate(16, fun (S0) -> {rand:jump(S0)} end, S)],
+           Ls =
+               [lists_generate(1999, fun rand:uniform_s/1, S0)
+                || S0 <- Generators],
+           {Alg, hash_term(Ls)}
+       end || Alg <- Algs],
+      #{ default      => 15708185852798073,
+         exsss        => 15708185852798073,
+         exrop        => 31298989252134043,
+         exsp         => 32930764673205242,
+         exs1024s     =>  2597827732751246,
+         exsplus      => 15135345399219452,
+         exs1024      => 28060696513531577,
+         exro928ss    => 27807813292563979,
+         crypto_prng1 => 15069504648191534,
+         crypto_aes   => 13768035795224702}).
+
+lists_generate(0, _Fun, _State) -> [];
+lists_generate(N, Fun, State0) when is_integer(N), 0 < N ->
+    case Fun(State0) of
+        {X, State1} ->
+            [X | lists_generate(N - 1, Fun, State1)];
+        {State1} ->
+            [State1 | lists_generate(N - 1, Fun, State1)]
     end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
