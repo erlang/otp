@@ -85,6 +85,7 @@
 -include_lib("common_test/include/ct_event.hrl").
 -include("socket_test_evaluator.hrl").
 -include("kernel_test_lib.hrl").
+-include("socket_test_lib.hrl").
 
 %% Suite exports
 -export([suite/0, all/0, groups/0]).
@@ -750,7 +751,6 @@
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
--define(SLIB,       socket_test_lib).
 -define(KLIB,       kernel_test_lib).
 -define(TTEST_LIB,  socket_test_ttest_lib).
 -define(LOGGER,     socket_test_logger).
@@ -797,6 +797,9 @@
 -define(TTEST_TCP_LARGE(C, D, ST, SA, CT, CA),
         ?TTEST_TCP((C), (D), (ST), (SA), (CT), (CA),
                    3, ttest_large_max_outstanding((C)))).
+
+
+-define(BENCH_SUITE, socket_ttest).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1027,38 +1030,45 @@ ttest_max_outstanding(Config, EnvKey, Default) ->
     end.
 
 standard_cases() ->
+    put(category, standard), % Just in case...
     [
      {group, ttest}
     ].
 
+%% bench used to be the same as standard except for run time and the
+%% reporting (ct_event:notify/1)
+%% Only include "pure" socket cases in bench.
+%% That is, both server and client are using "pure" socket.
 bench_cases() ->
-    [
-     {group, ttest}
-    ].
+    put(category, bench),
+    ttest_ssockf_csock_cases() ++
+        ttest_ssocko_csock_cases() ++
+        ttest_ssockt_csock_cases() ++
+        ttest_simple_ssockt_csock_cases().
 
 ttest_cases() ->
     [
      %% Server: transport = gen_tcp, active = false
      {group, ttest_sgenf},
-
+     
      %% Server: transport = gen_tcp, active = once
      {group, ttest_sgeno},
-
+     
      %% Server: transport = gen_tcp, active = true
      {group, ttest_sgent},
-
+     
      %% Server: transport = gen_tcp(socket), active = false
      {group, ttest_sgsf},
-
+     
      %% Server: transport = gen_tcp(socket), active = once
      {group, ttest_sgso},
-
+     
      %% Server: transport = gen_tcp(socket), active = true
      {group, ttest_sgst},
-
+     
      %% Server: transport = socket(tcp), active = false
      {group, ttest_ssockf},
-
+     
      %% Server: transport = socket(tcp), active = once
      {group, ttest_ssocko},
 
@@ -2122,53 +2132,107 @@ ttest_ssockf_csock_cases() ->
 %% Server: transport = socket(tcp), active = false
 %% Client: transport = socket(tcp), active = false
 ttest_ssockf_csockf_cases() ->
-    ttest_select_conditional_cases(
-      %% Small
-      [ttest_ssockf_csockf_small_tcp4,
-       ttest_ssockf_csockf_small_tcp6,
-       ttest_ssockf_csockf_small_tcpL],
-      %% Medium
-      [ttest_ssockf_csockf_medium_tcp4,
-       ttest_ssockf_csockf_medium_tcp6,
-       ttest_ssockf_csockf_medium_tcpL],
-      %% Large
-      [ttest_ssockf_csockf_large_tcp4,
-       ttest_ssockf_csockf_large_tcp6,
-       ttest_ssockf_csockf_large_tcpL]).
+    case get(category) of
+        bench ->
+            [
+             %% Small
+             ttest_ssockf_csockf_small_tcp4,
+             ttest_ssockf_csockf_small_tcp6,
+             ttest_ssockf_csockf_small_tcpL,
+             %% Medium
+             ttest_ssockf_csockf_medium_tcp4,
+             ttest_ssockf_csockf_medium_tcp6,
+             ttest_ssockf_csockf_medium_tcpL,
+             %% Large
+             ttest_ssockf_csockf_large_tcp4,
+             ttest_ssockf_csockf_large_tcp6,
+             ttest_ssockf_csockf_large_tcpL
+            ];
+        _ ->
+            ttest_select_conditional_cases(
+              %% Small
+              [ttest_ssockf_csockf_small_tcp4,
+               ttest_ssockf_csockf_small_tcp6,
+               ttest_ssockf_csockf_small_tcpL],
+              %% Medium
+              [ttest_ssockf_csockf_medium_tcp4,
+               ttest_ssockf_csockf_medium_tcp6,
+               ttest_ssockf_csockf_medium_tcpL],
+              %% Large
+              [ttest_ssockf_csockf_large_tcp4,
+               ttest_ssockf_csockf_large_tcp6,
+               ttest_ssockf_csockf_large_tcpL])
+    end.
 
 %% Server: transport = socket(tcp), active = false
 %% Client: transport = socket(tcp), active = once
 ttest_ssockf_csocko_cases() ->
-    ttest_select_conditional_cases(
-      %% Small
-      [ttest_ssockf_csocko_small_tcp4,
-       ttest_ssockf_csocko_small_tcp6,
-       ttest_ssockf_csocko_small_tcpL],
-      %% Medium
-      [ttest_ssockf_csocko_medium_tcp4,
-       ttest_ssockf_csocko_medium_tcp6,
-       ttest_ssockf_csocko_medium_tcpL],
-      %% Large
-      [ttest_ssockf_csocko_large_tcp4,
-       ttest_ssockf_csocko_large_tcp6,
-       ttest_ssockf_csocko_large_tcpL]).
+    case get(category) of
+        bench ->
+            [
+             %% Small
+             ttest_ssockf_csocko_small_tcp4,
+             ttest_ssockf_csocko_small_tcp6,
+             ttest_ssockf_csocko_small_tcpL,
+             %% Medium
+             ttest_ssockf_csocko_medium_tcp4,
+             ttest_ssockf_csocko_medium_tcp6,
+             ttest_ssockf_csocko_medium_tcpL,
+             %% Large
+             ttest_ssockf_csocko_large_tcp4,
+             ttest_ssockf_csocko_large_tcp6,
+             ttest_ssockf_csocko_large_tcpL
+            ];
+        _ ->
+            ttest_select_conditional_cases(
+              %% Small
+              [ttest_ssockf_csocko_small_tcp4,
+               ttest_ssockf_csocko_small_tcp6,
+               ttest_ssockf_csocko_small_tcpL],
+              %% Medium
+              [ttest_ssockf_csocko_medium_tcp4,
+               ttest_ssockf_csocko_medium_tcp6,
+               ttest_ssockf_csocko_medium_tcpL],
+              %% Large
+              [ttest_ssockf_csocko_large_tcp4,
+               ttest_ssockf_csocko_large_tcp6,
+               ttest_ssockf_csocko_large_tcpL])
+    end.
 
 %% Server: transport = socket(tcp), active = false
 %% Client: transport = socket(tcp), active = true
 ttest_ssockf_csockt_cases() ->
-    ttest_select_conditional_cases(
-      %% Small
-      [ttest_ssockf_csockt_small_tcp4,
-       ttest_ssockf_csockt_small_tcp6,
-       ttest_ssockf_csockt_small_tcpL],
-      %% Medium
-      [ttest_ssockf_csockt_medium_tcp4,
-       ttest_ssockf_csockt_medium_tcp6,
-       ttest_ssockf_csockt_medium_tcpL],
-      %% Large
-      [ttest_ssockf_csockt_large_tcp4,
-       ttest_ssockf_csockt_large_tcp6,
-       ttest_ssockf_csockt_large_tcpL]).
+    case get(category) of
+        bench ->
+            [
+             %% Small
+             ttest_ssockf_csockt_small_tcp4,
+             ttest_ssockf_csockt_small_tcp6,
+             ttest_ssockf_csockt_small_tcpL,
+             %% Medium
+             ttest_ssockf_csockt_medium_tcp4,
+             ttest_ssockf_csockt_medium_tcp6,
+             ttest_ssockf_csockt_medium_tcpL,
+             %% Large
+             ttest_ssockf_csockt_large_tcp4,
+             ttest_ssockf_csockt_large_tcp6,
+             ttest_ssockf_csockt_large_tcpL
+            ];
+        _ ->
+            ttest_select_conditional_cases(
+              %% Small
+              [ttest_ssockf_csockt_small_tcp4,
+               ttest_ssockf_csockt_small_tcp6,
+               ttest_ssockf_csockt_small_tcpL],
+              %% Medium
+              [ttest_ssockf_csockt_medium_tcp4,
+               ttest_ssockf_csockt_medium_tcp6,
+               ttest_ssockf_csockt_medium_tcpL],
+              %% Large
+              [ttest_ssockf_csockt_large_tcp4,
+               ttest_ssockf_csockt_large_tcp6,
+               ttest_ssockf_csockt_large_tcpL])
+    end.
 
 %% Server: transport = socket(tcp), active = once
 ttest_ssocko_cases() ->
@@ -2292,53 +2356,107 @@ ttest_ssocko_csock_cases() ->
 %% Server: transport = socket(tcp), active = once
 %% Client: transport = socket(tcp), active = false
 ttest_ssocko_csockf_cases() ->
-    ttest_select_conditional_cases(
-      %% Small
-      [ttest_ssocko_csockf_small_tcp4,
-       ttest_ssocko_csockf_small_tcp6,
-       ttest_ssocko_csockf_small_tcpL],
-     %% Medium
-      [ttest_ssocko_csockf_medium_tcp4,
-       ttest_ssocko_csockf_medium_tcp6,
-       ttest_ssocko_csockf_medium_tcpL],
-      %% Large
-      [ttest_ssocko_csockf_large_tcp4,
-       ttest_ssocko_csockf_large_tcp6,
-       ttest_ssocko_csockf_large_tcpL]).
+    case get(category) of
+        bench ->
+            [
+             %% Small
+             ttest_ssocko_csockf_small_tcp4,
+             ttest_ssocko_csockf_small_tcp6,
+             ttest_ssocko_csockf_small_tcpL,
+             %% Medium
+             ttest_ssocko_csockf_medium_tcp4,
+             ttest_ssocko_csockf_medium_tcp6,
+             ttest_ssocko_csockf_medium_tcpL,
+             %% Large
+             ttest_ssocko_csockf_large_tcp4,
+             ttest_ssocko_csockf_large_tcp6,
+             ttest_ssocko_csockf_large_tcpL
+            ];
+        _ ->
+            ttest_select_conditional_cases(
+              %% Small
+              [ttest_ssocko_csockf_small_tcp4,
+               ttest_ssocko_csockf_small_tcp6,
+               ttest_ssocko_csockf_small_tcpL],
+              %% Medium
+              [ttest_ssocko_csockf_medium_tcp4,
+               ttest_ssocko_csockf_medium_tcp6,
+               ttest_ssocko_csockf_medium_tcpL],
+              %% Large
+              [ttest_ssocko_csockf_large_tcp4,
+               ttest_ssocko_csockf_large_tcp6,
+               ttest_ssocko_csockf_large_tcpL])
+    end.
 
 %% Server: transport = socket(tcp), active = once
 %% Client: transport = socket(tcp), active = once
 ttest_ssocko_csocko_cases() ->
-    ttest_select_conditional_cases(
-      %% Small
-      [ttest_ssocko_csocko_small_tcp4,
-       ttest_ssocko_csocko_small_tcp6,
-       ttest_ssocko_csocko_small_tcpL],
-      %% Medium
-      [ttest_ssocko_csocko_medium_tcp4,
-       ttest_ssocko_csocko_medium_tcp6,
-       ttest_ssocko_csocko_medium_tcpL],
-      %% Large
-      [ttest_ssocko_csocko_large_tcp4,
-       ttest_ssocko_csocko_large_tcp6,
-       ttest_ssocko_csocko_large_tcpL]).
+    case get(category) of
+        bench ->
+            [
+             %% Small
+             ttest_ssocko_csocko_small_tcp4,
+             ttest_ssocko_csocko_small_tcp6,
+             ttest_ssocko_csocko_small_tcpL,
+             %% Medium
+             ttest_ssocko_csocko_medium_tcp4,
+             ttest_ssocko_csocko_medium_tcp6,
+             ttest_ssocko_csocko_medium_tcpL,
+             %% Large
+             ttest_ssocko_csocko_large_tcp4,
+             ttest_ssocko_csocko_large_tcp6,
+             ttest_ssocko_csocko_large_tcpL
+            ];
+        _ ->
+            ttest_select_conditional_cases(
+              %% Small
+              [ttest_ssocko_csocko_small_tcp4,
+               ttest_ssocko_csocko_small_tcp6,
+               ttest_ssocko_csocko_small_tcpL],
+              %% Medium
+              [ttest_ssocko_csocko_medium_tcp4,
+               ttest_ssocko_csocko_medium_tcp6,
+               ttest_ssocko_csocko_medium_tcpL],
+              %% Large
+              [ttest_ssocko_csocko_large_tcp4,
+               ttest_ssocko_csocko_large_tcp6,
+               ttest_ssocko_csocko_large_tcpL])
+    end.
 
 %% Server: transport = socket(tcp), active = once
 %% Client: transport = socket(tcp), active = true
 ttest_ssocko_csockt_cases() ->
-    ttest_select_conditional_cases(
-      %% Small
-      [ttest_ssocko_csockt_small_tcp4,
-       ttest_ssocko_csockt_small_tcp6,
-       ttest_ssocko_csockt_small_tcpL],
-      %% Medium
-      [ttest_ssocko_csockt_medium_tcp4,
-       ttest_ssocko_csockt_medium_tcp6,
-       ttest_ssocko_csockt_medium_tcpL],
-      %% Large
-      [ttest_ssocko_csockt_large_tcp4,
-       ttest_ssocko_csockt_large_tcp6,
-       ttest_ssocko_csockt_large_tcpL]).
+    case get(category) of
+        bench ->
+            [
+             %% Small
+             ttest_ssocko_csockt_small_tcp4,
+             ttest_ssocko_csockt_small_tcp6,
+             ttest_ssocko_csockt_small_tcpL,
+             %% Medium
+             ttest_ssocko_csockt_medium_tcp4,
+             ttest_ssocko_csockt_medium_tcp6,
+             ttest_ssocko_csockt_medium_tcpL,
+             %% Large
+             ttest_ssocko_csockt_large_tcp4,
+             ttest_ssocko_csockt_large_tcp6,
+             ttest_ssocko_csockt_large_tcpL
+            ];
+        _ ->
+            ttest_select_conditional_cases(
+              %% Small
+              [ttest_ssocko_csockt_small_tcp4,
+               ttest_ssocko_csockt_small_tcp6,
+               ttest_ssocko_csockt_small_tcpL],
+              %% Medium
+              [ttest_ssocko_csockt_medium_tcp4,
+               ttest_ssocko_csockt_medium_tcp6,
+               ttest_ssocko_csockt_medium_tcpL],
+              %% Large
+              [ttest_ssocko_csockt_large_tcp4,
+               ttest_ssocko_csockt_large_tcp6,
+               ttest_ssocko_csockt_large_tcpL])
+    end.
 
 %% Server: transport = socket(tcp), active = true
 ttest_ssockt_cases() ->
@@ -2462,53 +2580,107 @@ ttest_ssockt_csock_cases() ->
 %% Server: transport = socket(tcp), active = true
 %% Client: transport = socket(tcp), active = false
 ttest_ssockt_csockf_cases() ->
-    ttest_select_conditional_cases(
-      %% Small
-      [ttest_ssockt_csockf_small_tcp4,
-       ttest_ssockt_csockf_small_tcp6,
-       ttest_ssockt_csockf_small_tcpL],
-      %% Medium
-      [ttest_ssockt_csockf_medium_tcp4,
-       ttest_ssockt_csockf_medium_tcp6,
-       ttest_ssockt_csockf_medium_tcpL],
-      %% Large
-      [ttest_ssockt_csockf_large_tcp4,
-       ttest_ssockt_csockf_large_tcp6,
-       ttest_ssockt_csockf_large_tcpL]).
+    case get(category) of
+        bench ->
+            [
+             %% Small
+             ttest_ssockt_csockf_small_tcp4,
+             ttest_ssockt_csockf_small_tcp6,
+             ttest_ssockt_csockf_small_tcpL,
+             %% Medium
+             ttest_ssockt_csockf_medium_tcp4,
+             ttest_ssockt_csockf_medium_tcp6,
+             ttest_ssockt_csockf_medium_tcpL,
+             %% Large
+             ttest_ssockt_csockf_large_tcp4,
+             ttest_ssockt_csockf_large_tcp6,
+             ttest_ssockt_csockf_large_tcpL
+            ];
+        _ ->
+            ttest_select_conditional_cases(
+              %% Small
+              [ttest_ssockt_csockf_small_tcp4,
+               ttest_ssockt_csockf_small_tcp6,
+               ttest_ssockt_csockf_small_tcpL],
+              %% Medium
+              [ttest_ssockt_csockf_medium_tcp4,
+               ttest_ssockt_csockf_medium_tcp6,
+               ttest_ssockt_csockf_medium_tcpL],
+              %% Large
+              [ttest_ssockt_csockf_large_tcp4,
+               ttest_ssockt_csockf_large_tcp6,
+               ttest_ssockt_csockf_large_tcpL])
+    end.
 
 %% Server: transport = socket(tcp), active = true
 %% Client: transport = socket(tcp), active = once
 ttest_ssockt_csocko_cases() ->
-    ttest_select_conditional_cases(
-      %% Small
-      [ttest_ssockt_csocko_small_tcp4,
-       ttest_ssockt_csocko_small_tcp6,
-       ttest_ssockt_csocko_small_tcpL],
-      %% Medium
-      [ttest_ssockt_csocko_medium_tcp4,
-       ttest_ssockt_csocko_medium_tcp6,
-       ttest_ssockt_csocko_medium_tcpL],
-      %% Large
-      [ttest_ssockt_csocko_large_tcp4,
-       ttest_ssockt_csocko_large_tcp6,
-       ttest_ssockt_csocko_large_tcpL]).
+    case get(category) of
+        bench ->
+            [
+             %% Small
+             ttest_ssockt_csocko_small_tcp4,
+             ttest_ssockt_csocko_small_tcp6,
+             ttest_ssockt_csocko_small_tcpL,
+             %% Medium
+             ttest_ssockt_csocko_medium_tcp4,
+             ttest_ssockt_csocko_medium_tcp6,
+             ttest_ssockt_csocko_medium_tcpL,
+             %% Large
+             ttest_ssockt_csocko_large_tcp4,
+             ttest_ssockt_csocko_large_tcp6,
+             ttest_ssockt_csocko_large_tcpL
+            ];
+        _ ->
+            ttest_select_conditional_cases(
+              %% Small
+              [ttest_ssockt_csocko_small_tcp4,
+               ttest_ssockt_csocko_small_tcp6,
+               ttest_ssockt_csocko_small_tcpL],
+              %% Medium
+              [ttest_ssockt_csocko_medium_tcp4,
+               ttest_ssockt_csocko_medium_tcp6,
+               ttest_ssockt_csocko_medium_tcpL],
+              %% Large
+              [ttest_ssockt_csocko_large_tcp4,
+               ttest_ssockt_csocko_large_tcp6,
+               ttest_ssockt_csocko_large_tcpL])
+    end.
 
 %% Server: transport = socket(tcp), active = true
 %% Client: transport = socket(tcp), active = true
 ttest_ssockt_csockt_cases() ->
-    ttest_select_conditional_cases(
-      %% Small
-      [ttest_ssockt_csockt_small_tcp4,
-       ttest_ssockt_csockt_small_tcp6,
-       ttest_ssockt_csockt_small_tcpL],
-      %% Medium
-      [ttest_ssockt_csockt_medium_tcp4,
-       ttest_ssockt_csockt_medium_tcp6,
-       ttest_ssockt_csockt_medium_tcpL],
-      %% Large
-      [ttest_ssockt_csockt_large_tcp4,
-       ttest_ssockt_csockt_large_tcp6,
-       ttest_ssockt_csockt_large_tcpL]).
+    case get(category) of
+        bench ->
+            [
+             %% Small
+             ttest_ssockt_csockt_small_tcp4,
+             ttest_ssockt_csockt_small_tcp6,
+             ttest_ssockt_csockt_small_tcpL,
+             %% Medium
+             ttest_ssockt_csockt_medium_tcp4,
+             ttest_ssockt_csockt_medium_tcp6,
+             ttest_ssockt_csockt_medium_tcpL,
+             %% Large
+             ttest_ssockt_csockt_large_tcp4,
+             ttest_ssockt_csockt_large_tcp6,
+             ttest_ssockt_csockt_large_tcpL
+            ];
+        _ ->
+            ttest_select_conditional_cases(
+              %% Small
+              [ttest_ssockt_csockt_small_tcp4,
+               ttest_ssockt_csockt_small_tcp6,
+               ttest_ssockt_csockt_small_tcpL],
+              %% Medium
+              [ttest_ssockt_csockt_medium_tcp4,
+               ttest_ssockt_csockt_medium_tcp6,
+               ttest_ssockt_csockt_medium_tcpL],
+              %% Large
+              [ttest_ssockt_csockt_large_tcp4,
+               ttest_ssockt_csockt_large_tcp6,
+               ttest_ssockt_csockt_large_tcpL])
+    end.
 
 %% Server: transport = socket(tcp), active = true
 ttest_simple_ssockt_cases() ->
@@ -2622,6 +2794,7 @@ init_per_group(bench = GroupName, Config) ->
     io:format("init_per_group(~w) -> entry with"
               "~n   Config: ~p"
               "~n", [GroupName, Config]),
+    ttest_manager_start(GroupName),
     [{category, GroupName} | Config];
 init_per_group(ttest = _GroupName, Config) ->
     io:format("init_per_group(~w) -> entry with"
@@ -2644,6 +2817,12 @@ init_per_group(ttest = _GroupName, Config) ->
 init_per_group(_GroupName, Config) ->
     Config.
 
+end_per_group(bench = _GroupName, Config) ->
+    io:format("init_per_group(~w) -> entry with"
+              "~n   Config: ~p"
+              "~n", [_GroupName, Config]),
+    ttest_manager_stop(),
+    Config;
 end_per_group(ttest = _GroupName, Config) ->
     io:format("init_per_group(~w) -> entry with"
               "~n   Config: ~p"
@@ -12419,21 +12598,15 @@ ttest_manager_init(Parent, Category) ->
     ets:new(?TTEST_MANAGER, 
             [{keypos, #ttest_report.id}, named_table, protected, ordered_set]),
     Parent ! {ttest_manager_started, self()},
+    ?LOGGER:format("manager started~n", []),
     ttest_manager_loop(#{category => Category}).
 
-
--define(BENCH_SUITE, socket_ttest).
--define(BENCH_EVENT(__N__, __V__),
-        #event{name = benchmark_data,
-               data = [{suite, ?BENCH_SUITE},
-                       {value, (__V__)},
-                       {name,  (__N__)}]}).
 
 ttest_manager_loop(State) ->
     receive
         stop ->
             ?LOGGER:format("manager stopping~n", []),
-            ttest_manager_done();
+            ttest_manager_done(State);
 
         #ttest_report{id = ID} = Report ->
             maybe_report(State, Report),
@@ -12451,14 +12624,30 @@ ttest_manager_loop(State) ->
 	    end
     end.
 
-maybe_report(#{category := bench},
+
+%% We are supposed to pretty print the result here...
+ttest_manager_done(State) ->
+    maybe_bench_report(State), 
+    format_reports(inet),
+    %% format_reports(inet6),
+    ets:delete(?TTEST_MANAGER),
+    exit(normal).
+
+
+maybe_report(#{category          := bench,
+               report_individual := true},
              #ttest_report{id    = ID,
                            time  = RunTime,
                            bytes = NumBytes}) ->
-    Event = ?BENCH_EVENT(format_ttest_report_id(ID),
-                         format_ttest_report_value(RunTime, NumBytes)),
-    ct_event:notify(Event),
-    ok;
+    Value = format_ttest_report_value(RunTime, NumBytes),
+    if
+        (Value > 0) ->
+            Event = ?BENCH_EVENT(format_ttest_report_id(ID), Value),
+            ct_event:notify(Event),
+            ok;
+        true ->
+            ok
+    end;
 maybe_report(_State, _Report) ->
     ok.
 
@@ -12477,7 +12666,7 @@ format_ttest_report_id(#ttest_report_id{domain        = Domain,
                        format_ttest_report_id_domain(Domain),
                        format_ttest_report_id_msg_id(MsgID)]),
     list_to_atom(EventNameStr).
-    
+ 
 format_ttest_report_id_trans(gen)  -> g;
 format_ttest_report_id_trans(gs)   -> gs;
 format_ttest_report_id_trans(sock) -> s.
@@ -12498,15 +12687,62 @@ format_ttest_report_value(RunTime, _) when (RunTime > 0) ->
 format_ttest_report_value(_, _) ->
     -2.
 
+maybe_bench_report(#{category := bench}) ->
+    do_bench_report();
+maybe_bench_report(_) ->
+    ok.
+
+do_bench_report() ->
+    Reports  = ets:tab2list(?TTEST_MANAGER),
+    %% Sort based on domain and report each domain as a separate result
+    ReportsL = [R || #ttest_report{id = #ttest_report_id{domain = D}} = R
+                         <- Reports, (D =:= local)],
+    Reports4 = [R || #ttest_report{id = #ttest_report_id{domain = D}} = R
+                         <- Reports, (D =:= inet)],
+    Reports6 = [R || #ttest_report{id = #ttest_report_id{domain = D}} = R
+                         <- Reports, (D =:= inet6)],
+    do_bench_report(ReportsL, local),
+    do_bench_report(Reports4, inet),
+    do_bench_report(Reports6, inet6),
+    ok.
 
 
-%% We are supposed to pretty print the result here...
-ttest_manager_done() ->
-    format_reports(inet),
-    %% format_reports(inet6),
-    ets:delete(?TTEST_MANAGER),
-    exit(normal).
+do_bench_report([], Domain) ->
+    %% Nothing to report for this domain
+    ?LOGGER:format("No bench results for domain: ~w~n", [Domain]),
+    ok;
+do_bench_report(Reports, Domain) ->
+    %% Shall we pick number of bytes or number of messages?
+    {TotRunTime, TotBytes} =
+        lists:foldl(fun(#ttest_report{time  = RunTime,
+                                      bytes = Bytes},
+                        {AccRunTime, AccBytes})
+                          when (RunTime > 0) andalso
+                               (Bytes   > 0) ->
+                            {AccRunTime + RunTime,
+                             AccBytes + Bytes};
+                       (_, Acc) ->
+                            Acc
+                    end, {0, 0}, Reports),
+    Value = TotBytes div TotRunTime,
+    ?LOGGER:format("Bench result for domain: ~p (~w reports):"
+                   "~n   Total Number of Bytes: ~w"
+                   "~n   Total Run Time:        ~w msec"
+                   "~n      => ~w bytes/msec"
+                   "~n", [Domain, length(Reports),
+                          TotBytes, TotRunTime, Value]),
+    Event = ?BENCH_EVENT( bench_name(Domain), Value ),
+    ct_event:notify(Event),
+    ok.
 
+bench_name(local) ->
+    socket_ttest_local;
+bench_name(inet) ->
+    socket_ttest_ipv4;
+bench_name(inet6) ->
+    socket_ttest_ipv6.
+                            
+    
 format_reports(Domain) ->
     ?LOGGER:format("Domain ~w reports:~n~n", [Domain]),
     format_reports(Domain, small),
@@ -12518,7 +12754,7 @@ format_reports(Domain, MsgID) when is_atom(MsgID) ->
         [] ->
             ?LOGGER:format("   No ~w reports~n~n", [MsgID]);
         Reports ->
-            ?LOGGER:format("   ~w reports: ~n", [MsgID]),
+            ?LOGGER:format("   ~w reports (~w): ~n", [MsgID, length(Reports)]),
             lists:foreach(fun(R) -> format_report(R) end, Reports)
     end.
 
@@ -12590,18 +12826,14 @@ local_host() ->
 %% The point of this is to "ensure" that paths from different test runs
 %% don't clash.
 
-mk_unique_path() ->
-    ?SLIB:mk_unique_path().
-
-
 which_local_addr(local = _Domain) ->
-    mk_unique_path();
+    ?MK_UNIQ_PATH();
 
 %% This gets the local address (not 127.0...)
 %% We should really implement this using the (new) net module,
 %% but until that gets the necessary functionality...
 which_local_addr(Domain) ->
-    ?KLIB:which_local_addr(Domain).
+    ?WHICH_LOCAL_ADDR(Domain).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -12609,17 +12841,7 @@ which_local_addr(Domain) ->
 %% Here are all the *general* test case condition functions.
 
 is_not_darwin() ->
-    is_not_platform(darwin, "Darwin").
-
-is_not_platform(Platform, PlatformStr)
-  when is_atom(Platform) andalso is_list(PlatformStr) ->
-      case os:type() of
-          {unix, Platform} ->
-              skip("This does not work on " ++ PlatformStr);
-        _ ->
-            ok
-    end.
-  
+    ?IS_NOT_DARWIN().
 
 has_support_unix_domain_socket() ->
     case socket:is_supported(local) of
@@ -12635,10 +12857,10 @@ has_support_unix_domain_socket() ->
 %% corresponding tests.
 %% Currently we just skip.
 has_support_ipv4() ->
-    ?KLIB:has_support_ipv4().
+    ?HAS_SUPPORT_IPV4().
 
 has_support_ipv6() ->
-    ?KLIB:has_support_ipv6().
+    ?HAS_SUPPORT_IPV6().
 
 
 
