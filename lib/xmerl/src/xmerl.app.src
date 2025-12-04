@@ -9,7 +9,6 @@
 	xmerl_html,
 	xmerl_lib,
 	xmerl_otpsgml,
-	xmerl_regexp,
 	xmerl_sax_parser,
 	xmerl_sax_parser_list,
 	xmerl_sax_parser_latin1,
@@ -35,6 +34,8 @@
 	xmerl_xpath_scan,
 	xmerl_xs,
 	xmerl_xsd,
+	xmerl_xsd_re,
+	xmerl_xsd_re_parse,
 	xmerl_xsd_type
 	]},
 
