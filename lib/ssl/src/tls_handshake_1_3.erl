@@ -1088,9 +1088,9 @@ calculate_traffic_secrets(#state{
 
     %% Calculate [sender]_application_traffic_secret_0
     ClientAppTrafficSecret0 =
-        tls_v1:client_application_traffic_secret_0(HKDFAlgo, MasterSecret, lists:reverse(Messages)),
+        tls_v1:client_application_traffic_secret_0(HKDFAlgo, MasterSecret, Messages),
     ServerAppTrafficSecret0 =
-        tls_v1:server_application_traffic_secret_0(HKDFAlgo, MasterSecret, lists:reverse(Messages)),
+        tls_v1:server_application_traffic_secret_0(HKDFAlgo, MasterSecret, Messages),
 
     %% Calculate traffic keys
     KeyLength = tls_v1:key_length(CipherSuite),
@@ -1215,7 +1215,7 @@ calculate_exporter_master_secret(#state{
     #security_parameters{prf_algorithm = HKDFAlgo,
                          master_secret = MasterSecret} = SecParamsR,
     Messages = get_handshake_context(Role, HHistory),
-    tls_v1:exporter_master_secret(HKDFAlgo, MasterSecret, lists:reverse(Messages)).
+    tls_v1:exporter_master_secret(HKDFAlgo, MasterSecret, Messages).
 
 forget_master_secret(#state{connection_states =
                                 #{pending_read := PendingRead,
@@ -1456,13 +1456,13 @@ get_handshake_context(client, {Messages, _}) ->
 get_handshake_context_server([H|T]) when is_binary(H) ->
     get_handshake_context_server(T);
 get_handshake_context_server(L) ->
-    L.
+    lists:reverse(L).
 
 
 get_handshake_context_client([H|T]) when is_list(H) ->
     get_handshake_context_client(T);
 get_handshake_context_client(L) ->
-    L.
+    lists:reverse(L).
 
 
 %% If the CertificateVerify message is sent by a server, the signature
