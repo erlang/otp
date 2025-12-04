@@ -139,7 +139,7 @@ tables are stored as a single persistent term:
 """.
 -moduledoc(#{since => "OTP 21.2"}).
 
--export([erase/1,get/0,get/1,get/2,info/0,put/2]).
+-export([erase/1,get/0,get/1,get/2,info/0,put/2, put_new/2]).
 
 -doc "Any Erlang term.".
 -type key() :: term().
@@ -249,4 +249,21 @@ GC has been initiated when [`put/2`](`put/2`) returns. See
       Key :: key(),
       Value :: value().
 put(_Key, _Value) ->
+    erlang:nif_error(undef).
+
+-doc """
+Store the value `Value` as a persistent term and associate it with the key
+`Key` if the key `Key` doesn't already exist.
+
+If the value `Value` is equal to the value previously stored for the key,
+[`put_new/2`](`put_new/2`) will do nothing and return quickly.
+
+If there existed a previous persistent term associated with key `Key`, the
+function fails with a `badarg` exception.
+""".
+-doc(#{since => <<"OTP 28.1">>}).
+-spec put_new(Key, Value) -> 'ok' when
+      Key :: key(),
+      Value :: value().
+put_new(_Key, _Value) ->
     erlang:nif_error(undef).
