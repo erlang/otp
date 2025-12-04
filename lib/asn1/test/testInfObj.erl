@@ -25,6 +25,8 @@
 
 -export([main/1]).
 
+-compile(nowarn_deprecated_catch).
+
 -record('InitiatingMessage',{procedureCode,criticality,value}).
 -record('InitiatingMessage2',{procedureCode,criticality,value}).
 -record('Iu-ReleaseCommand',{first,second}).
