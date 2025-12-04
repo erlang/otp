@@ -51,6 +51,7 @@ SOCKET_MODULES = \
 	socket_suites \
 	socket_api_SUITE \
 	socket_sctp_SUITE \
+	socket_sctp_example_SUITE \
 	socket_traffic_SUITE \
 	socket_ttest_SUITE \
 	socket_SUITE

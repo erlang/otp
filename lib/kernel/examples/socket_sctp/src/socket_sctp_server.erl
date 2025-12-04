@@ -41,17 +41,42 @@
 
 -module(socket_sctp_server).
 
--export([start/0, start/1]).
+-export([start/0, start/1, start/2,
+         start_monitor/2,
+         stop/1]).
+
+-export([start_it/2]).
 
 -include("socket_sctp_lib.hrl").
 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+-define(DEFAULT_OPTS, #{domain => inet, debug => false}).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+-type opts() :: #{debug  := boolean(),
+                  domain := inet | inet6}.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 start() ->
-    start(false).
+    start(node(), ?DEFAULT_OPTS).
+
+%% This is when started from a shell: 
+%% erl -s socket_sctp_server start
+%% or
+%% erl -run socket_sctp_server start
+start([]) ->
+    start(node(), ?DEFAULT_OPTS);
 
 %% This is when started from a shell: 
 %% erl -s socket_sctp_server start true
 start([Debug]) when is_boolean(Debug) ->
-    start(Debug);
+    start(node(), ensure_opts(#{debug => Debug}));
 
 %% This is when started from a shell: 
 %% erl -run socket_sctp_server start true
@@ -69,41 +94,117 @@ start([DebugStr]) when is_list(DebugStr) ->
                           [DebugStr]),
 		   ?STOP()
 	   end,
-    start(Debug);
+    start(node(), ensure_opts(#{debug => Debug}));
 
 start(Debug) when is_boolean(Debug) ->
-    case ?WHICH_ADDR(inet) of
-	{ok, Addr} ->
-	    start_acceptor(Addr, Debug);
-	{error, Reason} ->
-	    ?ERROR("Failed get (default) address: "
-                   "~n   ~p", [Reason]),
-	    ?STOP()
-    end;
+    start(node(), ensure_opts(#{debug => Debug}));
+
+start(Opts) when is_map(Opts) ->
+    start(node(), ensure_opts(Opts));
 
 start(Invalid) ->
-    ?ERROR("invalid start commands: "
+    ?ERROR("invalid start command: "
            "~n   Invalid: ~p"
            "~n", [Invalid]),
     ?STOP().
 
 
-start_acceptor(IP, Debug)
-  when is_tuple(IP) andalso is_boolean(Debug) ->
+
+-spec start(Node, Opts) -> {ok, Server} | {error, Reason} when
+      Node   :: node(),
+      Opts   :: opts(),
+      Server :: {Pid, SA},
+      Pid    :: pid(),
+      SA     :: socket:sockaddr(),
+      Reason :: term().
+
+start(Node, Opts) ->
+    do_start(Node, ensure_opts(Opts)).
+
+
+-spec start_monitor(Node, Opts) -> {ok, Server} | {error, Reason} when
+      Node   :: node(),
+      Opts   :: opts(),
+      Server :: {Pid, MRef, SA},
+      Pid    :: pid(),
+      MRef   :: reference(),
+      SA     :: socket:sockaddr(),
+      Reason :: term().
+
+start_monitor(Node, Opts) when is_atom(Node) andalso is_map(Opts) ->
+    case do_start(Node, ensure_opts(Opts)) of
+        {ok, {Pid, SA}} ->
+            MRef = erlang:monitor(process, Pid),
+            {ok, {Pid, MRef, SA}};
+        {error, _} = ERROR ->
+            ERROR
+    end.
+
+
+do_start(Node,
+         #{domain := Domain,
+           debug  := Debug} = Opts)
+  when (Node =/= node()) andalso
+       ((Domain =:= inet) orelse (Domain =:= inet6)) andalso
+       is_boolean(Debug) ->
+    Args = [self(), Opts],
+    case rpc:call(Node, ?MODULE, start_it, Args) of
+        {badrpc, _} = Reason ->
+            {error, Reason};
+        {ok, {Pid, _}} = OK when is_pid(Pid) ->
+            OK;
+        {error, _} = ERROR ->
+            ERROR
+    end;
+do_start(_,
+         #{domain := Domain,
+           debug  := Debug} = Opts)
+  when ((Domain =:= inet) orelse (Domain =:= inet6)) andalso
+       is_boolean(Debug) ->
+    case start_it(self(), Opts) of
+        {ok, {Pid, _}} = OK when is_pid(Pid) ->
+            OK;
+        {error, _} = ERROR ->
+            ERROR
+    end.
+
+
+start_it(Parent, #{domain := Domain} = Opts) when is_pid(Parent) ->
+    case ?WHICH_ADDR(Domain) of
+        {ok, Addr} ->
+            start_acceptor(Opts#{parent => Parent,
+                                 ip     => Addr});
+        {error, _} = ERROR ->
+            ERROR
+    end.
+
+
+%% ---
+
+stop(Pid) when is_pid(Pid) ->
+    MRef = erlang:monitor(process, Pid),
+    Pid ! {?MODULE, self(), stop},
+    receive
+        {'DOWN', MRef, process, Pid, _} ->
+            ok
+    end.
+
+
+
+            
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+start_acceptor(#{debug := Debug} = Opts) ->
 
     put(sname, "server-starter"),
     put(dbg, Debug),
 
-    ?DEBUG("~w -> entry with"
-           "~n   IP:   ~p", [?FUNCTION_NAME, IP]),
+    ?DEBUG("~s -> entry", [?FUNCTION_NAME]),
 
     Self = self(),
     {Acceptor, MRef} =
         spawn_monitor(fun() ->
-                              acceptor_init(#{parent => Self,
-                                              ip     => IP,
-                                              port   => 0,
-                                              debug  => Debug})
+                              acceptor_init(Opts#{starter => Self})
                       end),
     receive
         {'DOWN', MRef, process, Acceptor, Reason} ->
@@ -111,28 +212,28 @@ start_acceptor(IP, Debug)
                    "~n   ~p", [Reason]),
             {error, {acceptor_start, Reason}};
 
-        {?MODULE, Acceptor, {started, Addr, Port}} ->
+        {?MODULE, Acceptor, {started, SockAddr}} ->
             ?INFO("acceptor started:"
                   "~n   Acceptor: ~p"
-                  "~n   Addr:     ~p"
-                  "~n   Port:     ~p", [Acceptor, Addr, Port]),
-            {ok, {Acceptor, Addr, Port}}
+                  "~n   SockAddr: ~p", [Acceptor, SockAddr]),
+            erlang:demonitor(MRef),
+            {ok, {Acceptor, SockAddr}}
     end.
 
-acceptor_init(#{parent := Parent,
-                ip     := IP,
-                port   := Port0,
-                debug  := Debug}) ->
-
-    ?DEBUG("~s -> entry with"
-           "~n   Parent: ~p"
-           "~n   IP:     ~p"
-           "~n   Port:   ~p", [?FUNCTION_NAME, Parent, IP, Port0]),
+acceptor_init(#{parent  := Parent,
+                starter := Starter,
+                domain  := Domain,
+                ip      := IP,
+                debug   := Debug}) ->
 
     put(sname, "acceptor"),
     put(dbg,   Debug),
 
-    Domain = ?WHICH_DOMAIN(IP),
+    ?DEBUG("~s -> entry with"
+           "~n   Parent:  ~p"
+           "~n   Starter: ~p"
+           "~n   IP:      ~p", [?FUNCTION_NAME, Parent, Starter, IP]),
+
     ?DEBUG("~s -> open socket (with Domain = ~w)", [?FUNCTION_NAME, Domain]),
     Sock =
 	case socket:open(Domain, seqpacket, sctp) of
@@ -144,18 +245,18 @@ acceptor_init(#{parent := Parent,
 		?STOP()
 	end,
 
-    SA = #{family => Domain,
-	   addr   => IP,
-	   port   => Port0},
+    RawSA = #{family => Domain,
+              addr   => IP,
+              port   => 0},
     ?DEBUG("bind socket to: "
-           "~n   ~p", [SA]),
-    case socket:bind(Sock, SA) of
+           "~n   ~p", [RawSA]),
+    case socket:bind(Sock, RawSA) of
 	ok ->
 	    ok;
 	{error, BReason} ->
 	    ?ERROR("Failed bind socket: "
-	           "~n   SA: ~p"
-                   "~n   ~p", [SA, BReason]),
+	           "~n   RawSA: ~p"
+                   "~n   ~p", [RawSA, BReason]),
 	    ?STOP()
     end,
 
@@ -184,11 +285,10 @@ acceptor_init(#{parent := Parent,
     MRef = erlang:monitor(process, Parent),
 
     ?DEBUG("get sockname"),
-    {BAddr, BPort} =
+    SockAddr = #{addr := BAddr, port := BPort} =
         case socket:sockname(Sock) of
-            {ok, #{addr := BA,
-                   port := BP}} ->
-                {BA, BP};
+            {ok, SA} ->
+                SA;
             {error, SNReason} ->
                 ?ERROR("Failed get sockname: "
                        "~n   ~p", [SNReason]),
@@ -198,7 +298,7 @@ acceptor_init(#{parent := Parent,
     ?INFO("Socket bound to: "
           "~n   Addr: ~s (~p)"
           "~n   Port: ~w", [inet:ntoa(BAddr), BAddr, BPort]),
-    Parent ! {?MODULE, self(), {started, BAddr, BPort}},
+    Starter ! {?MODULE, self(), {started, SockAddr}},
 
     ?INFO("init done"),
     acceptor_loop(#{parent      => Parent,
@@ -287,6 +387,17 @@ acceptor_loop(#{parent      := Parent,
                 connections := Connections} = State) ->
     ?DEBUG("~s -> await select message (for accept)", [?FUNCTION_NAME]),
     receive
+        {?MODULE, Parent, stop} ->
+            ?INFO("~s -> received 'stop' command (from parent ~p)",
+                  [?FUNCTION_NAME, Parent]),
+            acceptor_stop_all_handlers(Connections),
+            ?DEBUG("~s -> close socket when:"
+                   "~n   Socket Info: ~p",
+                   [?FUNCTION_NAME, (catch socket:info(Sock))]),
+            (catch socket:close(Sock)),
+            ?DEBUG("~s -> stopped", [?FUNCTION_NAME]),
+            exit(normal);
+            
         {'DOWN', ParentMRef, process, Parent, Info} ->
             ?ERROR("Received unexpected DOWN from parent "
                    "when awaiting connection:"
@@ -574,3 +685,11 @@ handler_handle_data(Sock, AID, Stream, Data)
                    "~n   ~p", [Reason]),
             exit({sendmsg, Reason})
     end.
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+ensure_opts(Opts) ->
+    maps:merge(?DEFAULT_OPTS, Opts).
+

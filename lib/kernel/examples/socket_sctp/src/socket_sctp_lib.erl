@@ -101,9 +101,6 @@ imsg(F, A) ->
 wmsg(F, A) ->
     print(true, "<WARNING>", F, A).
 
-wmsg(F, A) ->
-    print(true, "<WARNING>", F, A).
-
 emsg(F, A) ->
     print(true, "<ERROR>", F, A).
 
