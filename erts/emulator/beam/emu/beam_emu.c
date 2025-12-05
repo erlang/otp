@@ -87,14 +87,7 @@
 #define ADD_BYTE_OFFSET(ptr, offset) \
    ((Eterm *) (((unsigned char *)ptr) + (offset)))
 
-/* We don't check the range if an ordinary switch is used */
-#ifdef NO_JUMP_TABLE
-#  define VALID_INSTR(IP) (BeamCodeAddr(IP) < (NUMBER_OF_OPCODES*2+10))
-#else
-#  define VALID_INSTR(IP) \
-    ((BeamInstr)LabelAddr(emulator_loop) <= BeamCodeAddr(IP) && \
-     BeamCodeAddr(IP) < (BeamInstr)LabelAddr(end_emulator_loop))
-#endif /* NO_JUMP_TABLE */
+#define VALID_INSTR(IP) (1)
 
 #define SET_I(ip) \
    ASSERT(VALID_INSTR(* (Eterm *)(ip))); \

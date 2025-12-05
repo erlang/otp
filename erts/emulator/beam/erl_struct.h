@@ -74,8 +74,10 @@ typedef struct {
 
 void erts_struct_init_table(void);
 
+Eterm erts_canonical_record_def(ErtsStructDefinition *defp);
+
 ERTS_GLB_INLINE ErtsStructEntry *erts_struct_active_entry(Eterm module,
-                                                     Eterm name);
+                                                          Eterm name);
 
 ErtsStructEntry *erts_struct_put(Eterm module,
                                  Eterm name);

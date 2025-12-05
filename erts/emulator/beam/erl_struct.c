@@ -216,6 +216,51 @@ ErtsStructEntry *erts_struct_find_entry(Eterm module,
     return NULL;
 }
 
+Eterm erts_canonical_record_def(ErtsStructDefinition *defp) {
+    ErtsStructEntry *entry;
+    ErtsCodeIndex code_ix;
+    Eterm canonical_def;
+    ErtsStructDefinition *canonical_p;
+    Eterm *order_def, *order_canonical;
+    int field_count;
+    Eterm result = make_boxed((Eterm *)defp);
+
+    code_ix = erts_active_code_ix();
+    entry = erts_struct_find_entry(defp->module, defp->name, code_ix);
+
+    if (entry == NULL) {
+        return result;
+    }
+
+    canonical_def = entry->definitions[code_ix];
+    if (canonical_def == THE_NON_VALUE) {
+        return result;
+    }
+
+    canonical_p = (ErtsStructDefinition*)boxed_val(canonical_def);
+    if (defp->is_exported != canonical_p->is_exported) {
+        return result;
+    }
+
+    order_def = tuple_val(defp->field_order);
+    order_canonical = tuple_val(canonical_p->field_order);
+
+    if (order_def[0] != order_canonical[0]) {
+        return result;
+    }
+    field_count = arityval(order_def[0]);
+    order_def++, order_canonical++;
+
+    for (int i = 0; i < field_count; i++) {
+        if (defp->keys[i] != canonical_p->keys[i] ||
+            order_def[i] != order_canonical[i]) {
+            return result;
+        }
+    }
+
+    return canonical_def;
+}
+
 ErtsStructEntry *erts_struct_put(Eterm module, Eterm name)
 {
     ErtsCodeIndex code_ix = erts_staging_code_ix();
@@ -648,6 +693,7 @@ BIF_RETTYPE records_create_4(BIF_ALIST_4) {
             hp_end = hp + field_count;
 
             if (is_not_map(BIF_ARG_3)) {
+                HRelease(BIF_P, hp_end, hp);
                 BIF_P->fvalue = BIF_ARG_3;
                 BIF_ERROR(BIF_P, BADMAP);
             } else if (is_flatmap(BIF_ARG_3)) {
