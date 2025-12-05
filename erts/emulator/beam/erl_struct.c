@@ -341,7 +341,6 @@ bool erl_is_native_record(Eterm src, Eterm mod, Eterm name) {
 
 bool erl_get_record_elements(Process* p, Eterm* reg, Eterm src,
                              Uint size, const Eterm* elems) {
-    /* Struct term, Key */
     ErtsStructDefinition *defp;
     ErtsStructInstance *instance;
     const Eterm *elems_end;
@@ -359,7 +358,7 @@ bool erl_get_record_elements(Process* p, Eterm* reg, Eterm src,
     elems_end = elems + size;
 
     for (int i = 0; i < field_count; i++) {
-        if (elems[0] == defp->fields[i].key) {
+        if (elems[0] == defp->keys[i]) {
             PUT_TERM_REG(values[i], elems[1]);
             elems += 2;
             if (elems >= elems_end) {
@@ -408,7 +407,8 @@ Eterm erl_create_native_record(Process* p, Eterm* reg, Eterm id, Uint live,
                 goto badrecord;
             }
 
-            field_count = (header_arity(defp->thing_word) - sizeof(ErtsStructDefinition)/sizeof(Eterm) + 1) / 2;
+            field_count = (header_arity(defp->thing_word) -
+                           sizeof(ErtsStructDefinition)/sizeof(Eterm) + 1) / 2;
 
             num_words_needed = sizeof(*instance)/sizeof(Eterm) + field_count;
             if (HeapWordsLeft(p) < num_words_needed) {
@@ -430,7 +430,7 @@ Eterm erl_create_native_record(Process* p, Eterm* reg, Eterm id, Uint live,
             }
 
             for (int i = 0; i < field_count; i++) {
-                if (new_p[0] == defp->fields[i].key) {
+                if (new_p[0] == defp->keys[i]) {
                     GetSource(new_p[1], *hp);
                     hp++;
                     new_p += 2;
@@ -438,9 +438,9 @@ Eterm erl_create_native_record(Process* p, Eterm* reg, Eterm id, Uint live,
                         new_p = &sentinel;
                     }
                 } else {
-                    Eterm value = defp->fields[i].value;
+                    Eterm value = defp->keys[i+field_count];
                     if (is_catch(value)) {
-                        p->fvalue = defp->fields[i].key;
+                        p->fvalue = defp->keys[i];
                         p->freason = EXC_NOVALUE;
                         return THE_NON_VALUE;
                     }
@@ -507,7 +507,7 @@ Eterm erl_update_native_record(Process* p, Eterm* reg, Eterm src,
 
     ASSERT(new_p < new_end);
     for (int i = 0; i < field_count; i++) {
-        if (new_p[0] != defp->fields[i].key) {
+        if (new_p[0] != defp->keys[i]) {
             *hp++ = old_values[i];
         } else {
             GetSource(new_p[1], *hp);
@@ -583,7 +583,7 @@ Eterm erl_get_record_field(Process* p, Eterm src, Eterm mod, Eterm id, Eterm fie
     values = instance->values;
 
     for (int i = 0; i < field_count; i++) {
-        if (field == defp->fields[i].key) {
+        if (field == defp->keys[i]) {
             return values[i];
         }
     }
@@ -591,7 +591,6 @@ Eterm erl_get_record_field(Process* p, Eterm src, Eterm mod, Eterm id, Eterm fie
     p->fvalue = field;
     p->freason = EXC_BADFIELD;
     return THE_NON_VALUE;
-
 }
 
 /*
@@ -599,7 +598,6 @@ Eterm erl_get_record_field(Process* p, Eterm src, Eterm mod, Eterm id, Eterm fie
  */
 
 BIF_RETTYPE records_create_4(BIF_ALIST_4) {
-    /* Module, Name */
     Eterm module, name;
     ErtsStructEntry *entry;
     Uint code_ix;
@@ -635,7 +633,8 @@ BIF_RETTYPE records_create_4(BIF_ALIST_4) {
             Uint n;
 
             defp = (ErtsStructDefinition*)boxed_val(def);
-            field_count = (header_arity(defp->thing_word) - sizeof(ErtsStructDefinition)/sizeof(Eterm) + 1) / 2;
+            field_count = (header_arity(defp->thing_word) -
+                           sizeof(ErtsStructDefinition)/sizeof(Eterm) + 1) / 2;
             num_words_needed = sizeof(*instance)/sizeof(Eterm) + field_count;
             hp = HAlloc(BIF_P, num_words_needed);
 
@@ -667,17 +666,17 @@ BIF_RETTYPE records_create_4(BIF_ALIST_4) {
                 }
 
                 for (int i = 0; i < field_count; i++) {
-                    if (ks[0] == defp->fields[i].key) {
+                    if (ks[0] == defp->keys[i]) {
                         *hp++ = *vs;
                         ks++, vs++;
                         if (ks >= ks_end) {
                             ks = &sentinel;
                         }
                     } else {
-                        Eterm value = defp->fields[i].value;
+                        Eterm value = defp->keys[i+field_count];
                         if (is_catch(value)) {
                             HRelease(BIF_P, hp_end, hp);
-                            BIF_P->fvalue = defp->fields[i].key;
+                            BIF_P->fvalue = defp->keys[i];
                             BIF_ERROR(BIF_P, EXC_NOVALUE);
                         }
                         *hp++ = value;
@@ -706,7 +705,6 @@ BIF_RETTYPE records_create_4(BIF_ALIST_4) {
 }
 
 BIF_RETTYPE records_update_4(BIF_ALIST_4) {
-    /* Module, Name */
     Eterm module, name;
     ErtsStructDefinition *defp;
     ErtsStructInstance *instance, *old_instance;
@@ -786,7 +784,7 @@ BIF_RETTYPE records_update_4(BIF_ALIST_4) {
 
         ASSERT(ks < ks_end);
         for (int i = 0; i < field_count; i++) {
-            if (ks[0] != defp->fields[i].key) {
+            if (ks[0] != defp->keys[i]) {
                 *hp++ = old_values[i];
             } else {
                 *hp++ = vs[0];
@@ -813,27 +811,28 @@ BIF_RETTYPE records_update_4(BIF_ALIST_4) {
 }
 
 BIF_RETTYPE records_get_2(BIF_ALIST_2) {
-    /* Struct term, Key */
+    ErtsStructInstance *instance;
     ErtsStructDefinition *defp;
     int field_count;
-    Eterm obj, *objp;
+    Eterm record;
     Eterm key;
+    Eterm *values;
 
     key = BIF_ARG_1;
-    obj = BIF_ARG_2;
+    record = BIF_ARG_2;
 
-    if (is_not_struct(obj) ||
-        is_not_atom(key)) {
+    if (is_not_struct(record) || is_not_atom(key)) {
         BIF_ERROR(BIF_P, BADARG);
     }
 
-    objp = struct_val(obj);
-    field_count = header_arity(objp[0]) - 1;
-    defp = (ErtsStructDefinition*)boxed_val(objp[1]);
+    field_count = struct_field_count(record);
+    instance = (ErtsStructInstance*) struct_val(record);
+    defp = (ErtsStructDefinition*) tuple_val(instance->struct_definition);
+    values = instance->values;
 
     for (int i = 0; i < field_count; i++) {
-        if (eq(key, defp->fields[i].key)) {
-            BIF_RET(objp[2 + i]);
+        if (eq(key, defp->keys[i])) {
+            BIF_RET(values[i]);
         }
     }
 
@@ -888,7 +887,7 @@ BIF_RETTYPE records_get_field_names_1(BIF_ALIST_1) {
     hp = HAlloc(BIF_P, field_count * 2);
     list = NIL;
     while (field_count--) {
-        list = CONS(hp, defp->fields[unsigned_val(order[field_count])].key, list);
+        list = CONS(hp, defp->keys[unsigned_val(order[field_count])], list);
         hp += 2;
     }
 

@@ -49,10 +49,13 @@ typedef struct {
     Eterm name;
     Eterm is_exported;
 
-    struct {
-        Eterm key;
-        Eterm value;
-    } fields[];
+    /* This array always contains the keys for the native record, in
+     * in atom index ordered. If this is a struct definition pointed
+     * to by ErtsStructEntry, the keys are followed by the default
+     * values. The default values will only be used when creating a
+     * record from scratch.
+     */
+    Eterm keys[];
 } ErtsStructDefinition;
 
 /* A native-record value (instance). */

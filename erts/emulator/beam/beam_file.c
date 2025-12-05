@@ -1031,8 +1031,11 @@ static int parse_record_chunk_data(BeamFile *beam, BeamReader *p_reader) {
         qsort((void *) fields, num_fields, sizeof(struct erl_record_field),
               (int (*)(const void *, const void *)) record_compare);
 
-        /* Separate the fields into an array of field names and default values,
-         * and a tuple mapping from original position to current position. */
+        /* Separate the fields into three arrays:
+         *   * field names
+         *   * default values
+         *   * a mapping from the original position to current position
+         */
 
         tmp_size = sizeof(ErtsStructDefinition);
         tmp_size += 2 * num_fields * sizeof(Eterm); /* Fields & default values */
@@ -1046,7 +1049,7 @@ static int parse_record_chunk_data(BeamFile *beam, BeamReader *p_reader) {
         tmp_def->name = rec->records[i].name;
         tmp_def->is_exported = is_exported;
 
-        order_tuple = &tmp_def->fields[num_fields].key;
+        order_tuple = &tmp_def->keys[2*num_fields];
 
         if (rec->records[i].num_fields == 0) {
             *order_tuple = NIL;
@@ -1057,8 +1060,8 @@ static int parse_record_chunk_data(BeamFile *beam, BeamReader *p_reader) {
         }
 
         for (field_index = 0; field_index < num_fields; field_index++) {
-            tmp_def->fields[field_index].key = fields[field_index].key;
-            tmp_def->fields[field_index].value = fields[field_index].value;
+            tmp_def->keys[field_index] = fields[field_index].key;
+            tmp_def->keys[field_index + num_fields] = fields[field_index].value;
             order_tuple[fields[field_index].order] = make_small(field_index);
         }
 
