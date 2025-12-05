@@ -1736,6 +1736,7 @@ handle_iodata:
             Eterm *hp;
             BUMP_REDS(p, reds_consumed);
             sys_memcpy(restartp,&restart,sizeof(RestartContext));
+            pcre2_set_restart_data(restart.match_data, &restartp->restart_data);
             ERTS_VBUMP_ALL_REDS(p);
             hp = HAlloc(p, ERTS_MAGIC_REF_THING_SIZE);
             magic_ref = erts_mk_magic_ref(&hp, &MSO(p), mbp);
@@ -1851,7 +1852,6 @@ static BIF_RETTYPE re_match_trap(BIF_ALIST_3)
     restartp = (RestartContext *) ERTS_MAGIC_BIN_DATA(mbp);
     loop_limit = MIN(reds_initial * LOOP_FACTOR, max_loop_limit);
     pcre2_set_loops_left(restartp->match_data, loop_limit);
-    pcre2_set_restart_data(restartp->match_data, &restartp->restart_data);
     pcre2_set_restart_flags(restartp->match_data,  0);
     
     rc = pcre2_match(NULL, NULL, 0, 0, 0, restartp->match_data, NULL);

@@ -36,6 +36,7 @@
          yield_on_subject_validation/1, bad_utf8_subject/1,
          error_info/1, subject_is_sub_binary/1, pattern_is_sub_binary/1,
          import/1,
+         kill_yielding/1,
 
          last_test/1]).
 
@@ -62,6 +63,7 @@ all() ->
      yield_on_subject_validation, bad_utf8_subject,
      error_info, subject_is_sub_binary, pattern_is_sub_binary,
      import,
+     kill_yielding,
 
      last_test].
 
@@ -1246,7 +1248,29 @@ build_exported(Hdr1, RE, Opts, Enc) ->
     Hdr2 = <<Title/binary, CRC2:32, HdrRest/binary>>,
     {re_exported_pattern, Hdr2, RE, Opts, Enc}.
 
+%% OTP-19888: Verify that process can handle being killed while yielding
+%% inside re:run without beam crash or memory leak.
+kill_yielding(Config) when is_list(Config) ->
+    Subject = binary:copy(~"hejsan", 100_000),
+    DoIt = fun(RE) ->
+                   {Pid, MRef} = spawn_monitor(fun() ->
+                                                       re:run(Subject, RE)
+                                               end),
+                   erlang:yield(),
+                   exit(Pid, kill),
+                   {'DOWN',MRef,process,Pid,killed} = receive_any()
+           end,
 
+    RE_string = ~B"\w+\d",
+    {ok, RE_compiled} = re:compile(RE_string, []),
+    DoIt(RE_string),
+    DoIt(RE_compiled),
+    ok.
+
+receive_any() ->
+    receive M -> M
+    after 1000 -> timeout
+    end.
 
 last_test(Config) when is_list(Config) ->
     erts_debug:set_internal_state(available_internal_state, true),
