@@ -4633,9 +4633,13 @@ m_peeloff_server_handler_loop(#{ctrl     := CTRL,
                                 select   := undefined} = State)
   when (Sock =/= undefined) ->
     ?P("~s -> try recvmsg when"
-       "~n   Socket Info:   ~p"
-       "~n   Socket Status: ~p",
-       [?FUNCTION_NAME, socket:info(Sock), ?WHICH_SCTP_STATUS(Sock, AssocID)]),
+       "~n   AssocID:        ~p"
+       "~n   Shutdown state: ~p"
+       "~n   Socket Info:    ~p"
+       "~n   Socket Status:  ~p",
+       [?FUNCTION_NAME,
+        AssocID, maps:get(shutdown, State, undefined),
+        socket:info(Sock), ?WHICH_SCTP_STATUS(Sock, AssocID)]),
     case socket:recvmsg(Sock, nowait) of
         {ok, #{flags := _,
                addr  := SA,
@@ -4687,6 +4691,18 @@ m_peeloff_server_handler_loop(#{ctrl     := CTRL,
             mpo_cast(CTRL, {received,
                             {peer_addr_change, NState, AssocID}}),
             m_peeloff_server_handler_loop(State);
+
+
+        {ok, #{flags        := _, % Should contain the 'notification' flag
+               notification := #{assoc_id := OtherAID} = Notif}}
+          when (OtherAID =/= AssocID) ->
+            ?P("~s -> received unexpected notification regarding unknown association:"
+               "~n   Expected AssocID: ~w"
+               "~n   Otrher AssocID:   ~w"
+               "~n   Notification:     ~p",
+               [?FUNCTION_NAME, AssocID, OtherAID, Notif]),
+            m_peeloff_server_handler_loop(State);
+
 
         {select, SelectInfo} ->
             ?P("~s -> select", [?FUNCTION_NAME]),
