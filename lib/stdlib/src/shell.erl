@@ -1584,6 +1584,7 @@ write_and_compile_module(PathToFile, Output) ->
         ok -> c:c(PathToFile);
         Error -> Error
     end.
+
 non_builtin_local_func(F,As,Bs, FT) ->
     Arity = length(As),
     case erlang:function_exported(user_default, F, Arity) of

@@ -59,7 +59,7 @@ code:load_abs("$PATH/user_default").
 `$PATH` is the directory where your `user_default` module can be found.
 """.
 
--export([help/0,lc/1,c/1,c/2,c/3,nc/1,nl/1,l/1,i/0,pid/3,i/3,m/0,m/1,lm/0,mm/0,
+-export([help/0,lc/1,c/1,c/2,c/3,nc/1,nl/1,l/1,i/0,pid/3,i/3,pi/1,pi/3,m/0,m/1,lm/0,mm/0,
          memory/0,memory/1,uptime/0,
          erlangrc/1,bi/1, regs/0, flush/0,pwd/0,ls/0,ls/1,cd/1,
          y/1, y/2,
@@ -126,6 +126,10 @@ hcb(M,F,A)      -> c:hcb(M,F,A).
 i()             -> c:i().
 -doc false.
 i(X,Y,Z)        -> c:i(X,Y,Z).
+-doc false.
+pi(X,Y,Z)        -> c:pi(X,Y,Z).
+-doc false.
+pi(Pid)          -> c:pi(Pid).
 -doc false.
 l(Mod)          -> c:l(Mod).
 -doc false.
