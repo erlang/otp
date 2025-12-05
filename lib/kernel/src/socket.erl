@@ -374,6 +374,7 @@ server(Addr, Port) ->
               ipv6_pktinfo/0,
 
               sctp_assoc_id/0,
+              sctp_setadaption/0,
               sctp_assocparams/0,
               sctp_event_subscribe/0,
               sctp_initmsg/0,
@@ -704,6 +705,10 @@ The value `default` is only valid to _set_ and is translated to the C value
 -doc "C: `sctp_assoc_t`".
 -type sctp_assoc_id() :: integer().
 
+-doc "C: `struct sctp_setadaption`".
+-type sctp_setadaption() ::
+        #{adaption_ind := uint32()}.
+
 -doc "C: `struct sctp_assocparams`".
 -type sctp_assocparams() ::
         #{assoc_id                 := sctp_assoc_id(),
@@ -768,11 +773,11 @@ have been stripped from the C struct field names, for convenience.
           addr              := sockaddr(),
           heatbeat_interval := uint32(),
           path_max_rxt      := uint16(),
-          path_mtu          := uint32(),
-          sack_delay        := uint32(),
-          flags             := sctp_pap_flags(),
-          ipv6_flowlabel    := uint32(),
-          dscp              := uint8()}.
+          path_mtu          => uint32(),
+          sack_delay        => uint32(),
+          flags             => sctp_pap_flags(),
+          ipv6_flowlabel    => uint32(),
+          dscp              => uint8()}.
 
 -doc """
 There are three pairs of flags that cannot be both be set (maybe obviously) 

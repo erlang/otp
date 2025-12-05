@@ -790,16 +790,31 @@ _Table: udp options_
 [](){: #socket_options_sctp }
 Options for level `sctp`:
 
-| Option Name       | Value Type             | Set | Get | Other Requirements and comments |
-| ----------------- | ---------------------- | --- | --- | ------------------------------- |
-| associnfo         | sctp_assocparams()     | yes | yes | none                            |
-| autoclose         | non_neg_integer()      | yes | yes | none                            |
-| disable_fragments | boolean()              | yes | yes | none                            |
-| events            | sctp_event_subscribe() | yes | no  | none                            |
-| initmsg           | sctp_initmsg()         | yes | yes | none                            |
-| maxseg            | non_neg_integer()      | yes | yes | none                            |
-| nodelay           | boolean()              | yes | yes | none                            |
-| rtoinfo           | sctp_rtoinfo()         | yes | yes | none                            |
+| Option Name           | Value Type                      | Set | Get | Other Requirements and comments |
+| --------------------- | ------------------------------- | --- | --- | ------------------------------- |
+| adaption_layer        | sctp_setadaption()              | yes | yes | Maybe FreeBSD only              |
+| associnfo             | sctp_assocparams()              | yes | yes | none                            |
+| autoclose             | non_neg_integer()               | yes | yes | none                            |
+| disable_fragments     | boolean()                       | yes | yes | none                            |
+| default_send_param    | sctp_snd_rcv_info()             | yes | yes | none                            |
+| events                | sctp_event_subscribe()          | yes | no  | Note that not all events are    |
+|                       |                                 |     |     | supported on all platforms.     |
+| get_peer_addr_info    | sctp_peer_address_info()        | no  | yes | Requires the assoc id and       |
+|                       |                                 |     |     | peer socket address in the      |
+|                       |                                 |     |     | form of a sparse                |
+|                       |                                 |     |     | sctp_peer_address_info() as a   |
+|                       |                                 |     |     | third argument: getopt/3        |
+| initmsg               | sctp_initmsg()                  | yes | yes | none                            |
+| i_want_mapped_v4_addr | boolean()                       | yes | no  | none                            |
+| maxseg                | non_neg_integer()               | yes | yes | none                            |
+| nodelay               | boolean()                       | yes | yes | none                            |
+| primary_addr          | sctp_set_peer_primary_address() | yes | no  | none                            |
+| rtoinfo               | sctp_rtoinfo()                  | yes | yes | none                            |
+| peer_addr_params      | sctp_peer_address_parameters()  | yes | yes | This type looks different on    |
+|                       |                                 |     |     | diffent platforms.              |
+| status                | sctp_status()                   | no  | yes | Requires the assoc id in the    |
+|                       |                                 |     |     | form of a sparse sctp_status()  |
+|                       |                                 |     |     | as a third argument: getopt/3   |
 
 _Table: sctp options_
 

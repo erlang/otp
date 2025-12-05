@@ -10558,7 +10558,7 @@ ERL_NIF_TERM esock_getopt_sctp_status(ErlNifEnv*       env,
 
     /* On the client side we do not need to provide an assoc-id
      * (presumably because it should only have one). But on the
-     * server side, we need to initiate the status structire with
+     * server side, we need to initiate the status structure with
      * the assoc-id.
      */
 
