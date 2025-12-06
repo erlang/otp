@@ -21,12 +21,9 @@
 %%
 %% %CopyrightEnd%
 %%
-%% @copyright 2000-2003 Richard Carlsson, 2006-2009 Tobias Lindahl
-%% @author Richard Carlsson <carlsson.richard@gmail.com>
-%% @author Tobias Lindahl <tobias.lindahl@gmail.com>
-%% @author Kostis Sagonas <kostis@cs.ntua.gr>
-%% @author Manouk Manoukian
-%% @doc Provides a representation of Erlang types.
+%% Provides a representation of Erlang types.
+%% Authors: 2000-2003 Richard Carlsson, 2006-2009 Tobias Lindahl,
+%% 2008 Kostis Sagonas, Manouk Manoukian.
 
 %% The initial author of this file is Richard Carlsson (2000-2004).
 %% In July 2006, the type representation was totally re-designed by
