@@ -29,10 +29,7 @@
 %%
 %% %CopyrightEnd%
 %%
-%% @author Richard Carlsson <carlsson.richard@gmail.com>
-%% @private
-%% @see eunit
-%% @doc Event serializing and multiplexing process, to be used as the
+%% Event serializing and multiplexing process, to be used as the
 %% main "supervisor" process for en EUnit test runner. See eunit_proc
 %% for details about the events that will be sent to the listeners
 %% (provided to this process at startup). This process guarantees that

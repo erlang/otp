@@ -29,10 +29,7 @@
 %%
 %% %CopyrightEnd%
 %%
-%% @author Richard Carlsson <carlsson.richard@gmail.com>
-%% @private
-%% @see eunit
-%% @doc Text-based frontend for EUnit
+%% Text-based frontend for EUnit
 
 -module(eunit_tty).
 -moduledoc false.

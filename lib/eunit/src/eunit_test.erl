@@ -29,15 +29,14 @@
 %%
 %% %CopyrightEnd%
 %%
-%% @author Richard Carlsson <carlsson.richard@gmail.com>
-%% @private
-%% @see eunit
-%% @doc Test running functionality
+%% Test running functionality
 
 -module(eunit_test).
 -moduledoc false.
 
 -export([run_testfun/1, mf_wrapper/2, enter_context/4, multi_setup/1]).
+
+-export_type([wrapper_error/0]).
 
 -compile(nowarn_unexported_function).
 
@@ -75,8 +74,9 @@ prune_trace([], Tail) ->
 %% ---------------------------------------------------------------------
 %% Test runner
 
-%% @spec ((any()) -> any()) -> {ok, Value} | {error, eunit_lib:exception()}
-%% @throws wrapperError()
+-spec run_testfun(fun (() -> any())) -> {ok, Value :: any()} | {error, eunit_lib:exception()}.
+
+%% Throws wrapper_error()
 
 run_testfun(F) ->
     try
@@ -275,10 +275,11 @@ macro_test_() ->
 %% Note that the wrapper fun is usually called by run_testfun/1, and the
 %% special exceptions thrown here are expected to be handled there.
 %%
-%% @throws {eunit_internal, wrapperError()}
+%% Throws {eunit_internal, wrapper_error()}
 %%
-%% @type wrapperError() = {no_such_function, mfa()}
-%%                      | {module_not_found, moduleName()}
+
+-type wrapper_error() :: {no_such_function, mfa()}
+                      | {module_not_found, module()}.
 
 mf_wrapper(M, F) ->
     fun () ->
@@ -329,13 +330,15 @@ wrapper_test_exported_() ->
 %% ---------------------------------------------------------------------
 %% Entering a setup-context, with guaranteed cleanup.
 
-%% @spec (Setup, Cleanup, Instantiate, Callback) -> any()
-%%    Setup = () -> any()
-%%    Cleanup = (any()) -> any()
-%%    Instantiate = (any()) -> tests()
-%%    Callback = (tests()) -> any()
-%% @throws {context_error, Error, eunit_lib:exception()}
-%% Error = setup_failed | instantiation_failed | cleanup_failed
+-spec enter_context(Setup, Cleanup, Instantiate, Callback) -> any()
+  when
+  Setup :: fun (() -> any()),
+  Cleanup :: fun ((any()) -> any()),
+  Instantiate :: fun ((any()) -> eunit_data:tests()),
+  Callback :: fun ((eunit_data:tests()) -> any()).
+
+%% Throws {context_error, Error, eunit_lib:exception()}
+%% where Error = setup_failed | instantiation_failed | cleanup_failed
 
 enter_context(Setup, Cleanup, Instantiate, Callback) ->
     try Setup() of

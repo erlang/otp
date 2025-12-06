@@ -29,11 +29,7 @@
 %%
 %% %CopyrightEnd%
 %%
-%% @author Richard Carlsson <carlsson.richard@gmail.com>
-%% @copyright 2006 Richard Carlsson
-%% @private
-%% @see eunit
-%% @doc Interpretation of symbolic test representation
+%% Interpretation of symbolic test representation
 
 -module(eunit_data).
 -moduledoc false.
@@ -47,73 +43,83 @@
 	 enter_context/3, get_module_tests/2]).
 -export([parse_command_line/2]). % for unit testing
 
+-export_type([tests/0, simple_test/0, testfunction/0,
+              abstract_testfunction/0, instantiator/0, setup_fun/0,
+              cleanup_fun/0, setup_x_fun/0, cleanup_x_fun/0,
+              abstract_instantiator/0, proc/0, module_name/0,
+              function_name/0, app_name/0, filename/0, test_iterator/0]).
+
 -define(TICKS_PER_SECOND, 1000).
 
-%% @type tests() =
-%%            SimpleTest
-%%          | [tests()]
-%%          | moduleName()
-%%          | {module, moduleName()}
-%%          | {application, appName()}
-%%          | {application, appName(), [term()]}
-%%          | fileName()
-%%          | {file, fileName()}
-%%          | {string(), tests()}
-%%          | {generator, () -> tests()}
-%%          | {generator, M::moduleName(), F::functionName()}
-%%          | {spawn, tests()}
-%%          | {spawn, Node::atom(), tests()}
-%%          | {timeout, T::number(), tests()}
-%%          | {inorder, tests()}
-%%          | {inparallel, tests()}
-%%          | {inparallel, N::integer(), tests()}
-%%          | {with, X::any(), [AbstractTestFunction]}
-%%          | {setup, Where::local | spawn | {spawn, Node::atom()},
-%%                    Setup::() -> (R::any()),
-%%                    Cleanup::(R::any()) -> any(),
-%%                    tests() | Instantiator
-%%            }
-%%          | {setup, Setup, Cleanup, tests() | Instantiator}
-%%          | {setup, Where, Setup, tests() | Instantiator}
-%%          | {setup, Setup, tests() | Instantiator}
-%%          | {foreach, Where::local | spawn | {spawn, Node::atom()},
-%%                      Setup::() -> (R::any()),
-%%                      Cleanup::(R::any()) -> any(),
-%%                      [tests() | Instantiator]
-%%            }
-%%          | {foreach, Setup, Cleanup, [tests() | Instantiator]}
-%%          | {foreach, Where, Setup, [tests() | Instantiator]}
-%%          | {foreach, Setup, [tests() | Instantiator]}
-%%          | {foreachx, Where::local | spawn | {spawn, Node::atom()},
-%%                       SetupX::(X::any()) -> (R::any()),
-%%                       CleanupX::(X::any(), R::any()) -> any(),
-%%                       Pairs::[{X::any(),
-%%                                (X::any(), R::any()) -> tests()}]
-%%            }
-%%          | {foreachx, SetupX, CleanupX, Pairs}
-%%          | {foreachx, Where, SetupX, Pairs}
-%%          | {foreachx, SetupX, Pairs}
-%%          | {node, Node::atom(), tests() | Instantiator}
-%%          | {node, Node, Args::string(), tests() | Instantiator}
-%%
-%% SimpleTest = TestFunction | {Line::integer(), SimpleTest}
-%%
-%% TestFunction = () -> any()
-%%              | {test, M::moduleName(), F::functionName()}
-%%              | {M::moduleName(), F::functionName()}.
-%%
-%% AbstractTestFunction = (X::any()) -> any()
-%%
-%% Instantiator = (R::any()) -> tests()
-%%              | {with, [AbstractTestFunction]}
-%%
+-type tests() ::
+           simple_test()
+         | [tests()]
+         | module_name()
+         | {module, module_name()}
+         | {application, app_name()}
+         | {application, app_name(), [term()]}
+         | filename()
+         | {file, filename()}
+         | {string(), tests()}
+         | {generator, fun (() -> tests())}
+         | {generator, M::module_name(), F::function_name()}
+         | {spawn, tests()}
+         | {spawn, Node::atom(), tests()}
+         | {timeout, Time::number(), tests()}
+         | {inorder, tests()}
+         | {inparallel, tests()}
+         | {inparallel, N::integer(), tests()}
+         | {with, X::any(), [abstract_testfunction()]}
+         | {setup, proc(),
+                   setup_fun(),
+                   cleanup_fun(),
+                   tests() | instantiator()
+           }
+         | {setup, setup_fun(), cleanup_fun(), tests() | instantiator()}
+         | {setup, proc(), setup_fun(), tests() | instantiator()}
+         | {setup, setup_fun(), tests() | instantiator()}
+         | {foreach, proc(),
+                     setup_fun(),
+                     cleanup_fun(),
+                     [tests() | instantiator()]
+           }
+         | {foreach, setup_fun(), cleanup_fun(), [tests() | instantiator()]}
+         | {foreach, proc(), setup_fun(), [tests() | instantiator()]}
+         | {foreach, setup_fun(), [tests() | instantiator()]}
+         | {foreachx, proc(),
+                      setup_x_fun(),
+                      cleanup_x_fun(),
+                      Pairs::[{X::any(), abstract_instantiator()}]
+           }
+         | {foreachx, setup_x_fun(), cleanup_x_fun(),
+                      Pairs::[{X::any(), abstract_instantiator()}]}
+         | {foreachx, proc(), setup_x_fun(),
+                      Pairs::[{X::any(), abstract_instantiator()}]}
+         | {foreachx, setup_x_fun(),
+                      Pairs::[{X::any(), abstract_instantiator()}]}
+         | {node, Node::atom(), tests() | instantiator()}
+         | {node, Node::atom(), Args::string(), tests() | instantiator()}.
+-type simple_test() :: testfunction() | {Line::integer(), simple_test()}.
+-type testfunction() :: fun (() -> any())
+      | {test, M::module_name(), F::function_name()}
+      | {M::module_name(), F::function_name()}.
+-type abstract_testfunction() :: fun ((X::any()) -> any()).
+-type instantiator() :: fun ((R::any()) -> tests())
+                      | {with, [abstract_testfunction()]}.
+-type setup_fun() :: fun (() -> (SetupInfo::any())).
+-type cleanup_fun() :: fun ((SetupInfo::any()) -> any()).
+-type setup_x_fun() :: fun ((X::any()) -> SetupInfo::any()).
+-type cleanup_x_fun() :: fun ((X::any(), SetupInfo::any()) -> any()).
+-type abstract_instantiator() :: fun ((X::any(), SetupInfo::any()) -> tests()).
+-type proc() :: local | spawn | {spawn, Node::atom()}.
+
 %% Note that `{string(), ...}' is a short-hand for `{string(), {...}}'
 %% if the tuple contains more than two elements.
-%%
-%% @type moduleName() = atom()
-%% @type functionName() = atom()
-%% @type appName() = atom()
-%% @type fileName() = string()
+
+-type module_name() :: atom().
+-type function_name() :: atom().
+-type app_name() :: atom().
+-type filename() :: string().
 
 %% TODO: Can we mark up tests as known-failures?
 %% TODO: Is it possible to handle known timeout/setup failures?
@@ -130,18 +136,21 @@
 	 pos = 0,
 	 parent = []}).
 
-%% @spec (tests(), [integer()]) -> testIterator()
-%% @type testIterator()
+-opaque test_iterator() :: #iter{}.
+
+-type opts() :: [any()].
+
+-spec iter_init(tests(), [integer()], opts()) -> test_iterator().
 
 iter_init(Tests, ParentID, Options) ->
     #iter{tests = Tests, parent = lists:reverse(ParentID), options = Options}.
 
-%% @spec (testIterator()) -> [integer()]
+-spec iter_id(test_iterator()) -> [integer()].
 
 iter_id(#iter{pos = N, parent = Ns}) ->
     lists:reverse(Ns, [N]).
 
-%% @spec (testIterator()) -> none | {testItem(), testIterator()}
+-spec iter_next(test_iterator()) -> none | {test_item(), test_iterator()}.
 
 iter_next(I = #iter{next = [], options = Options}) ->
     case next(I#iter.tests, Options) of
@@ -157,7 +166,7 @@ iter_next(I = #iter{next = [T | Ts]}) ->
 	       prev = [T | I#iter.prev],
 	       pos = I#iter.pos + 1}}.
 
-%% @spec (testIterator()) -> none | {testItem(), testIterator()}
+-spec iter_prev(test_iterator()) -> none | {test_item(), test_iterator()}.
 
 iter_prev(#iter{prev = []}) ->
     none;
@@ -170,16 +179,18 @@ iter_prev(#iter{prev = [T | Ts]} = I) ->
 %% ---------------------------------------------------------------------
 %% Concrete test set representation iterator
 
-%% @spec (tests()) -> none | {testItem(), tests()}
-%% @type testItem() = #test{} | #group{}
-%% @throws {bad_test, term()}
+-type test_item() :: #test{} | #group{}.
+
+-spec next(tests(), opts()) -> none | {test_item(), tests()}.
+
+%% Throws {bad_test, term()}
 %%       | {generator_failed, {{M::atom(),F::atom(),A::integer()},
 %%                             exception()}}
 %%       | {no_such_function, mfa()}
-%%       | {module_not_found, moduleName()}
-%%       | {application_not_found, appName()}
+%%       | {module_not_found, module_name()}
+%%       | {application_not_found, app_name()}
 %%       | {file_read_error, {Reason::atom(), Message::string(),
-%%                            fileName()}}
+%%                            filename()}}
 
 next(Tests, Options) ->
     case eunit_lib:dlist_next(Tests) of
@@ -636,7 +647,7 @@ push_order(_, _, G) ->
 %% ---------------------------------------------------------------------
 %% Extracting test funs from a module
 
-%% @throws {module_not_found, moduleName()}
+%% Throws {module_not_found, module_name()}
 
 get_module_tests(Module, Options) ->
     try Module:module_info(exports) of
@@ -699,8 +710,7 @@ extract_testfuns(Exports, Module, TestSuffix, GeneratorSuffix) ->
 %% ---------------------------------------------------------------------
 %% Getting a test set from a file (text file or object file)
 
-%% @throws {file_read_error, {Reason::atom(), Message::string(),
-%%                            fileName()}}
+%% Throws {file_read_error, {Reason::atom(), Message::string(), filename()}}
 
 get_file_tests(F) ->
     case is_module_filename(F) of
@@ -753,8 +763,7 @@ objfile_module(File) ->
 %% ---------------------------------------------------------------------
 %% Getting a set of module tests from the object files in a directory
 
-%% @throws {file_read_error,
-%%          {Reason::atom(), Message::string(), fileName()}}
+%% Throws {file_read_error, {Reason::atom(), Message::string(), filename()}}
 
 get_directory_module_tests(D) ->
     Ms = get_directory_modules(D),
@@ -786,11 +795,13 @@ get_directory_modules(D) ->
 %% ---------------------------------------------------------------------
 %% Entering a setup-context, with guaranteed cleanup.
 
-%% @spec (Tests::#context{}, Instantiate, Callback) -> any()
-%%    Instantiate = (any()) -> tests()
-%%    Callback = (tests()) -> any()
-%% @throws {context_error, Error, eunit_lib:exception()}
-%% Error = setup_failed | instantiation_failed | cleanup_failed
+-spec enter_context(Tests::#context{}, Instantiate, Callback) -> any()
+  when
+  Instantiate :: fun ((any()) -> tests()),
+  Callback :: fun ((tests()) -> any()).
+
+%% Throws {context_error, Error, eunit_lib:exception()}
+%% where Error = setup_failed | instantiation_failed | cleanup_failed
 
 enter_context(#context{setup = S, cleanup = C, process = P}, I, F) ->
     F1 = case P of

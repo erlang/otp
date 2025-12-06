@@ -29,10 +29,7 @@
 %%
 %% %CopyrightEnd%
 %%
-%% @copyright 2009 Richard Carlsson
-%% @private
-%% @see eunit
-%% @doc Generic listener process for eunit.
+%% Generic listener process for eunit.
 
 -module(eunit_listener).
 -moduledoc false.
