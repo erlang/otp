@@ -451,25 +451,23 @@ mapfoldxml(Fun, Accu, List) when is_list(List) ->
 mapfoldxml(Fun, Accu, E) ->
     Fun(E,Accu).
 
+-type charset_info() :: {auto,'iso-10646-utf-1',Content::list()} |
+                        {external,'iso-10646-utf-1',Content::list()} |
+                        {undefined,undefined,Content::list()} |
+                        {external,ExtCharset::atom(),Content::list()}.
 
-%%% @spec detect_charset(T::list()) -> charset_info()
-%%% @equiv detect_charset(undefined,T)
+-spec detect_charset(Content::list()) -> charset_info().
+-doc #{equiv => detect_charset(undefined,Content)}.
 detect_charset(Content) ->
     detect_charset(undefined,Content).
 
-%%% FIXME! Whatabout aliases etc? Shouldn't transforming with ucs be optional?
-%%% @spec detect_charset(ExtCharset::atom(),T::list()) -> charset_info()
-%%% @doc Automatically decides character set used in XML document.
-%%%  charset_info() is
-%%%  <table>
-%%%    <tr><td><code>{auto,'iso-10646-utf-1',Content} |</code></td></tr>
-%%%    <tr><td><code>{external,'iso-10646-utf-1',Content} |</code></td></tr>
-%%%    <tr><td><code>{undefined,undefined,Content} |</code></td></tr>
-%%%    <tr><td><code>{external,ExtCharset,Content}</code></td></tr>
-%%%  </table>
+%%% Automatically decides character set used in XML document.
 %%%   ExtCharset is any externally declared character set (e.g. in HTTP
 %%%   Content-Type header) and Content is an XML Document.
-%%% 
+%%% FIXME! Whatabout aliases etc? Shouldn't transforming with ucs be optional?
+
+-spec detect_charset(ExtCharset::atom(), Content::list()) -> charset_info().
+
 detect_charset(ExtCharset,Content) when is_list(ExtCharset) ->
     %% FIXME! Don't allow both atom and list for character set names
     detect_charset(list_to_atom(ExtCharset),Content);
