@@ -309,7 +309,6 @@ eval_pred(Predicate, S = #state{context = C =
 
 %% write_node(Node::xmlNode()) -> {Type,Pos,Name,Parents}
 %% Helper function to access essential information from the xmlNode record.
-%% @hidden
 -doc false.
 write_node(#xmlNode{pos = Pos,
 		    node = #xmlAttribute{name = Name,
@@ -340,7 +339,6 @@ write_node(_) ->
 
 %% eval_path(Type,Arg,S::state()) -> state()
 %% Eval path
-%% @hidden
 -doc false.
 eval_path(union, {PathExpr1, PathExpr2}, C = #xmlContext{}) ->
     S = #state{context = C},
@@ -376,7 +374,6 @@ eval_primary_expr(PrimExpr, S = #state{context = Context}) ->
 
 %% axis(Axis,NodeTest,Context::xmlContext()) -> xmlContext()
 %% axis(Axis,NodeTest,Context,[])
-%% @hidden
 -doc false.
 axis(Axis, NodeTest, Context) ->
     axis(Axis, NodeTest, Context, []).
@@ -386,7 +383,6 @@ axis(Axis, NodeTest, Context) ->
 %%
 %% An axis specifies the tree relationship between the nodes selected by
 %% the location step and the context node.
-%% @hidden
 -doc false.
 axis(Axis, NodeTest, Context = #xmlContext{nodeset = NS0}, Acc) ->
     NewNodeSet=lists:foldr(
