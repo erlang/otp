@@ -22,31 +22,6 @@
 
 %% Description  : Implements XSLT like transformations in Erlang
 
-%% @doc
-%       Erlang has similarities to XSLT since both languages
-% 	have a functional programming approach. Using <code>xmerl_xpath</code>
-% 	it is possible to write XSLT like transforms in Erlang.
-%
-%     <p>XSLT stylesheets are often used when transforming XML
-%       documents, to other XML documents or (X)HTML for presentation.
-%       XSLT contains quite many
-%       functions and learning them all may take some effort.
-%       This document assumes a basic level of
-%       understanding of XSLT.
-%     </p>
-%     <p>Since XSLT is based on a functional programming approach
-%       with pattern matching and recursion it is possible to write
-%       similar style sheets in Erlang. At least for basic
-%       transforms. This
-%       document describes how to use the XPath implementation together
-%       with Erlangs pattern matching and a couple of functions to write
-%       XSLT like transforms.</p>
-%     <p>This approach is probably easier for an Erlanger but
-%       if you need to use real XSLT stylesheets in order to "comply to
-%       the standard" there is an adapter available to the Sablotron
-%       XSLT package which is written i C++.
-% See also the <a href="xmerl_xs_examples.html">Tutorial</a>.
-%     </p>
 -module(xmerl_xs).
 -moduledoc """
 XSLT-like XML document transformations.
