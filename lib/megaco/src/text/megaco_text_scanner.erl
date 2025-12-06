@@ -134,7 +134,7 @@ tokens3(Chars, Line, Acc, Version) ->
     end.
 
 
-guess_version([C]) when (48 =< C) and (C =< 57) ->
+guess_version([C]) when (48 =< C) andalso (C =< 57) ->
     {ok, C-48};
 guess_version(Str) when is_list(Str) ->
     case (catch list_to_integer(Str)) of

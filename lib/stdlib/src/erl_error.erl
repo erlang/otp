@@ -566,7 +566,7 @@ format_call(ErrStr, Pre1, ForMForFun, As, PF, Enc, CL) ->
              S2 = pp_arguments(PF, As, string:length([Pre1|MFs]), Enc, CL),
              S3 = pp_arguments(PF, [a2345,b2345], I1, Enc, CL),
              Long = count_nl(S3) > 0,
-             case Long or (count_nl(S2) < count_nl(S1)) of
+             case Long orelse (count_nl(S2) < count_nl(S1)) of
                  true ->
                      [$\n, Pre1, MFs, S2];
                  false ->

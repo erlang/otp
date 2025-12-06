@@ -195,7 +195,7 @@ do_decode(<<Id:16,
               %% The converse; a section marked as truncated,
               %% but not the header - is a parse error.
               %%
-              HdrTC or (not (QdTC or AnTC or NsTC or ArTC)),
+              HdrTC orelse (not (QdTC orelse AnTC orelse NsTC orelse ArTC)),
               true,
               begin
                   #dns_rec{header=DnsHdr,
@@ -401,7 +401,7 @@ encode_res_section_rr(
   Bin0, {Opcode,Mdns} = Opts, Comp0, Rs,
   DName, Type, Class, CacheFlush, TTL, Data) ->
     T = encode_type(Type),
-    C = encode_class(Class, Mdns and CacheFlush),
+    C = encode_class(Class, Mdns andalso CacheFlush),
     {Bin,Comp1} = encode_name(Bin0, Comp0, byte_size(Bin0), DName),
     Pos = byte_size(Bin)+2+2+byte_size(TTL)+2,
     {DataBin,Comp} = encode_data(Comp1, Pos, Type, Class, Data, Opcode),
