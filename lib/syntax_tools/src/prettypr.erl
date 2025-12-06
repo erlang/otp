@@ -29,12 +29,8 @@
 %% either the Apache License or the LGPL.
 %%
 %% %CopyrightEnd%
-%%
-%% @author Richard Carlsson <carlsson.richard@gmail.com>
-%% @end
-%% =====================================================================
 
-%% @TODO can floats be moved in/out of sep:s without too much pain?
+%% TODO: can floats be moved in/out of sep:s without too much pain?
 
 -module(prettypr).
 -moduledoc """
