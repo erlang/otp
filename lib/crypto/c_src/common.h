@@ -38,7 +38,6 @@
 #include "openssl_config.h"
 #include "atoms.h"
 
-
 /* All nif functions return a valid value or throws an exception */
 ERL_NIF_TERM raise_exception(ErlNifEnv* env, ERL_NIF_TERM id, int arg_num, char* explanation, char* file, int Line);
 
