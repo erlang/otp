@@ -167,8 +167,10 @@ struct erl_node_; /* Declared in erl_node_tables.h */
 #define _TAG_HEADER_STRUCT         (TAG_PRIMARY_HEADER|STRUCT_SUBTAG)
 #define _TAG_HEADER_SUB_BITS       (TAG_PRIMARY_HEADER|SUB_BITS_SUBTAG)
 
-#define header_is_transparent(x)                                              \
-    (((x) & _TRANSPARENT_TAG_MASK) == ARITYVAL_SUBTAG)
+#define header_is_transparent(x)                                \
+    (((x) & _TRANSPARENT_TAG_MASK) == ARITYVAL_SUBTAG ||        \
+     ((x) & _TAG_HEADER_MASK) == STRUCT_SUBTAG)
+
 #define header_is_thing(x)                                                    \
     (!header_is_transparent((x)))
 

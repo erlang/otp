@@ -24,7 +24,7 @@
 
 -export([all/0,suite/0,groups/0,init_per_suite/1,end_per_suite/1,
 	 init_per_group/2,end_per_group/2,
-         term_order/1]).
+         term_order/1,gc/1]).
 
 -record #a{x=1, y=2}.
 -record #b{a=1, b=2}.
@@ -34,7 +34,8 @@ suite() ->
      {timetrap,{minutes,1}}].
 
 all() ->
-    [term_order].
+    [term_order,
+     gc].
 
 groups() ->
     [].
@@ -62,6 +63,26 @@ term_order(_Config) ->
     true = id(#a{}) =/= id(#b{}),
 
     ok.
+
+gc(_Config) ->
+    N = 10000,
+    A0 = #a{x=sets:new(), y=#b{b=[]}},
+    #a{x=Set0, y=#b{b=List0}} = gc_add(N, A0),
+    Set = lists:sort(sets:to_list(Set0)),
+    List = lists:sort(List0),
+    true = Set =:= List,
+    Seq = lists:seq(1, N),
+    Seq = List,
+    ok.
+
+gc_add(0, A) ->
+    A;
+gc_add(I, #a{x=S0, y=#b{b=L0}=B0}=A0) ->
+    S = sets:add_element(I, S0),
+    L = [I|L0],
+    A = A0#a{x=S, y=B0#b{b=L}},
+    gc_add(I - 1, A).
+
 
 %%% Common utilities.
 
