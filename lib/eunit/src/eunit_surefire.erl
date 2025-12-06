@@ -28,16 +28,6 @@
 %% either the Apache License or the LGPL.
 %%
 %% %CopyrightEnd%
-%%
-%% @author Mickaël Rémond <mickael.remond@process-one.net>
-%% @see eunit
-%% @doc Surefire reports for EUnit (Format used by Maven and Atlassian
-%% Bamboo for example to integrate test results). Based on initial code
-%% from Paul Guyot.
-%%
-%% Example: Generate XML result file in the current directory:
-%% ```eunit:test([fib, eunit_examples],
-%%               [{report,{eunit_surefire,[{dir,"."}]}}]).'''
 
 -module(eunit_surefire).
 -moduledoc """
