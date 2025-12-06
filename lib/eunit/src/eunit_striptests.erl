@@ -29,11 +29,7 @@
 %%
 %% %CopyrightEnd%
 %%
-%% @author Richard Carlsson <carlsson.richard@gmail.com>
-%% @author Eric Merritt <ericbmerritt@gmail.com>
-%% @private
-%% @see eunit
-%% @doc Parse transform for stripping EUnit test functions.
+%% Parse transform for stripping EUnit test functions.
 
 -module(eunit_striptests).
 -moduledoc false.

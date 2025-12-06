@@ -29,12 +29,7 @@
 %%
 %% %CopyrightEnd%
 %%
-%% @author Mickaël Rémond <mickael.remond@process-one.net>
-%%   [http://www.process-one.net/]
-%% @author Richard Carlsson <carlsson.richard@gmail.com>
-%% @private
-%% @see eunit
-%% @doc Utility functions for eunit
+%% Utility functions for eunit
 
 -module(eunit_lib).
 -moduledoc false.
@@ -49,20 +44,20 @@
 	 format_exception/1, format_exception/2, format_error/1, format_error/2,
          format_stacktrace/1, is_not_test/1]).
 
+-export_type([exception/0, exceptionClass/0, stackTrace/0, moduleName/0,
+              functionName/0, argList/0, fileName/0]).
+
 -define(DEFAULT_DEPTH, 20).
 
 %% Type definitions for describing exceptions
-%%
-%% @type exception() = {exceptionClass(), Reason::term(), stackTrace()}
-%%
-%% @type exceptionClass() = error | exit | throw
-%%
-%% @type stackTrace() = [{moduleName(), functionName(), arity() | argList()}]
-%%
-%% @type moduleName() = atom()
-%% @type functionName() = atom()
-%% @type argList() = [term()]
-%% @type fileName() = string()
+
+-type exception() :: {exceptionClass(), Reason::term(), stackTrace()}.
+-type exceptionClass() :: error | exit | throw.
+-type stackTrace() :: [{moduleName(), functionName(), arity() | argList()}].
+-type moduleName() :: atom().
+-type functionName() :: atom().
+-type argList() :: [term()].
+-type fileName() :: string().
 
 
 %% ---------------------------------------------------------------------
@@ -501,8 +496,8 @@ win32_cmd_tests() ->
 %% ---------------------------------------------------------------------
 %% Wrapper around file:path_consult
 
-%% @throws {file_read_error, {Reason::atom(), Message::string(),
-%%                            fileName()}}
+%% Throws {file_read_error, {Reason::atom(), Message::string(),
+%%                           fileName()}}
 
 consult_file(File) ->
     case file:path_consult(["."]++code:get_path(), File) of
@@ -516,8 +511,7 @@ consult_file(File) ->
 %% ---------------------------------------------------------------------
 %% Wrapper around file:list_dir
 
-%% @throws {file_read_error, {Reason::atom(), Message::string(),
-%%                            fileName()}}
+%% Throws {file_read_error, {Reason::atom(), Message::string(), fileName()}}
 
 list_dir(Dir) ->
     case file:list_dir(Dir) of
