@@ -613,6 +613,11 @@ client_loop(S, Peer1, Port1, AssocId1, Peer2, Port2, AssocId2) ->
             client_loop(S, Peer1, Port1, AssocId1,
                         Peer2, Port2, AssocId2);
 
+        {sctp_error, S, _Peer, _Port, {_Anc, Error}} ->
+            io:format("SCTP error: ~p~n", [Error]),
+            client_loop(S, Peer1, Port1, AssocId1,
+                        Peer2, Port2, AssocId2);
+
         Other ->
             io:format("Other ~p~n", [Other]),
             client_loop(S, Peer1, Port1, AssocId1,
@@ -812,10 +817,18 @@ When the socket is in [passive](#option-active) mode,
 data can be received through the [`recv/1,2`](`recv/1`) calls.
 
 When the socket is in [active](#option-active) mode,
-data received data is delivered to the controlling process as messages:
+received data is delivered to the controlling process as messages:
 
 ```erlang
 {sctp, Socket, FromIP, FromPort, {AncData, Data}}
+```
+
+Error-related events - such as `#sctp_send_failed{}`, `#sctp_pdapi_event{}`,
+and `#sctp_remote_error{}` - are also delivered to the controlling process
+as messages, but use a different tuple tag:
+
+```erlang
+{sctp_error, Socket, FromIP, FromPort, {AncData, Data}}
 ```
 
 See [`recv/1,2`](`recv/1`) for a description of the message fields.
