@@ -25,15 +25,23 @@
 	 init_per_group/2, end_per_group/2,
          rfc3339_lists_binaries/1,
          universal_time_system_time_symmetry/1,
-         local_time_system_time_symmetry/1]).
+         local_time_system_time_symmetry/1,
+         gregorian_days_roundtrip/1,
+         gregorian_days_monotonic/1,
+         day_of_week_cycle/1,
+         year_length/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]}].
 
 all() ->
     [rfc3339_lists_binaries,
-    universal_time_system_time_symmetry,
-    local_time_system_time_symmetry].
+     universal_time_system_time_symmetry,
+     local_time_system_time_symmetry,
+     gregorian_days_roundtrip,
+     gregorian_days_monotonic,
+     day_of_week_cycle,
+     year_length].
 
 groups() ->
     [].
@@ -63,4 +71,24 @@ universal_time_system_time_symmetry(Config) when is_list(Config) ->
 local_time_system_time_symmetry(Config) when is_list(Config) ->
     ct_property_test:quickcheck(
         calendar_prop:local_time_system_time_symmetry(),
+        Config).
+
+gregorian_days_roundtrip(Config) when is_list(Config) ->
+    ct_property_test:quickcheck(
+        calendar_prop:gregorian_days_roundtrip(),
+        Config).
+
+gregorian_days_monotonic(Config) when is_list(Config) ->
+    ct_property_test:quickcheck(
+        calendar_prop:gregorian_days_monotonic(),
+        Config).
+
+day_of_week_cycle(Config) when is_list(Config) ->
+    ct_property_test:quickcheck(
+        calendar_prop:day_of_week_cycle(),
+        Config).
+
+year_length(Config) when is_list(Config) ->
+    ct_property_test:quickcheck(
+        calendar_prop:year_length(),
         Config).

@@ -237,7 +237,7 @@ date_to_gregorian_days(Year, Month, Day) when is_integer(Day), Day > 0 ->
     Era = if Y >= 0 -> Y div ?YEARS_PER_ERA; true -> (Y - 399) div ?YEARS_PER_ERA end,
     YearOfEra = Y - Era * ?YEARS_PER_ERA,
     MonthPrime = if Month > 2 -> Month - 3; true -> Month + 9 end,
-    DayOfYear = ?DAYS_PER_5_MONTHS * MonthPrime div ?MONTHS_PER_CYCLE + Day - 1,
+    DayOfYear = (?DAYS_PER_5_MONTHS * MonthPrime + 2) div ?MONTHS_PER_CYCLE + Day - 1,
     DayOfEra = ?DAYS_PER_YEAR * YearOfEra + YearOfEra div 4 - YearOfEra div 100 + DayOfYear,
     Era * ?DAYS_PER_ERA + DayOfEra + ?MARCH_1_YEAR_0.
 
@@ -307,7 +307,7 @@ gregorian_days_to_date(Days) ->
                  - DayOfEra div (?DAYS_PER_ERA - 1)) div ?DAYS_PER_YEAR,
     DayOfYear = DayOfEra - (?DAYS_PER_YEAR * YearOfEra + YearOfEra div 4 - YearOfEra div 100),
     MonthPrime = (?MONTHS_PER_CYCLE * DayOfYear + 2) div ?DAYS_PER_5_MONTHS,
-    Day = DayOfYear - ?DAYS_PER_5_MONTHS * MonthPrime div ?MONTHS_PER_CYCLE + 1,
+    Day = DayOfYear - (?DAYS_PER_5_MONTHS * MonthPrime + 2) div ?MONTHS_PER_CYCLE + 1,
     Month = if MonthPrime < 10 -> MonthPrime + 3; true -> MonthPrime - 9 end,
     Y = YearOfEra + Era * ?YEARS_PER_ERA,
     Year = if Month =< 2 -> Y + 1; true -> Y end,

@@ -23,10 +23,11 @@
 
 -include_lib("common_test/include/ct.hrl").
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2, 
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1,
+	 init_per_group/2,end_per_group/2,
 	 gregorian_days/1,
 	 big_gregorian_days/1,
+	 gregorian_days_edge_cases/1,
 	 gregorian_seconds/1,
 	 day_of_the_week/1,
 	 day_of_the_week_calibrate/1,
@@ -36,21 +37,22 @@
 	 iso_week_number/1,
          system_time/1, rfc3339/1]).
 
--define(START_YEAR, 1947).			
--define(END_YEAR, 2012).
+-define(START_YEAR, 1947).
+-define(END_YEAR, 2032).
 
 -define(BIG_START_YEAR, 20000000).
 -define(BIG_END_YEAR, 20000020).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
-all() -> 
+all() ->
     [gregorian_days, gregorian_seconds, day_of_the_week,
      day_of_the_week_calibrate, leap_years,
      last_day_of_the_month, local_time_to_universal_time_dst,
-     iso_week_number, system_time, rfc3339, big_gregorian_days].
+     iso_week_number, system_time, rfc3339, big_gregorian_days,
+     gregorian_days_edge_cases].
 
-groups() -> 
+groups() ->
     [].
 
 init_per_suite(Config) ->
@@ -80,6 +82,79 @@ big_gregorian_days(Config) when is_list(Config) ->
     Days = calendar:date_to_gregorian_days({?BIG_START_YEAR, 1, 1}),
     MaxDays = calendar:date_to_gregorian_days({?BIG_END_YEAR, 1, 1}),
     check_gregorian_days(Days, MaxDays).
+
+%% Tests edge cases for the Neri-Schneider algorithm.
+%% This includes epoch boundaries, leap years, century boundaries,
+%% and 400-year era boundaries.
+gregorian_days_edge_cases(Config) when is_list(Config) ->
+    %% Test epoch (day 0 = Jan 1, year 0)
+    0 = calendar:date_to_gregorian_days(0, 1, 1),
+    {0, 1, 1} = calendar:gregorian_days_to_date(0),
+
+    %% Test year 0 boundaries (year 0 is a leap year)
+    0 = calendar:date_to_gregorian_days({0, 1, 1}),
+    30 = calendar:date_to_gregorian_days({0, 1, 31}),
+    31 = calendar:date_to_gregorian_days({0, 2, 1}),
+    58 = calendar:date_to_gregorian_days({0, 2, 28}),
+    59 = calendar:date_to_gregorian_days({0, 2, 29}),  % Leap day
+    60 = calendar:date_to_gregorian_days({0, 3, 1}),
+    365 = calendar:date_to_gregorian_days({0, 12, 31}),
+
+    %% Test year 1 (not a leap year)
+    366 = calendar:date_to_gregorian_days({1, 1, 1}),
+    {1, 1, 1} = calendar:gregorian_days_to_date(366),
+    730 = calendar:date_to_gregorian_days({1, 12, 31}),
+
+    %% Test century boundaries (1900 is not a leap year, 2000 is)
+    693961 = calendar:date_to_gregorian_days({1900, 1, 1}),
+    {1900, 1, 1} = calendar:gregorian_days_to_date(693961),
+    694325 = calendar:date_to_gregorian_days({1900, 12, 31}),  % 365 days (not leap)
+
+    730485 = calendar:date_to_gregorian_days({2000, 1, 1}),
+    {2000, 1, 1} = calendar:gregorian_days_to_date(730485),
+    730850 = calendar:date_to_gregorian_days({2000, 12, 31}),  % 366 days (leap)
+
+    %% Verify 1900 is not a leap year (Feb has 28 days, Mar 1 is next day)
+    694019 = calendar:date_to_gregorian_days({1900, 2, 28}),
+    694020 = calendar:date_to_gregorian_days({1900, 3, 1}),
+
+    %% Verify 2000 is a leap year (Feb has 29 days)
+    730544 = calendar:date_to_gregorian_days({2000, 2, 29}),
+    730545 = calendar:date_to_gregorian_days({2000, 3, 1}),
+
+    %% Test 400-year era boundaries
+    146097 = calendar:date_to_gregorian_days({400, 1, 1}),
+    {400, 1, 1} = calendar:gregorian_days_to_date(146097),
+    292194 = calendar:date_to_gregorian_days({800, 1, 1}),
+    {800, 1, 1} = calendar:gregorian_days_to_date(292194),
+
+    %% Test specific known dates
+    %% July 4, 1776 (US Independence Day)
+    648856 = calendar:date_to_gregorian_days({1776, 7, 4}),
+    {1776, 7, 4} = calendar:gregorian_days_to_date(648856),
+
+    %% December 7, 2025 (a Sunday)
+    739957 = calendar:date_to_gregorian_days({2025, 12, 7}),
+    {2025, 12, 7} = calendar:gregorian_days_to_date(739957),
+    7 = calendar:day_of_the_week({2025, 12, 7}),  % Sunday
+
+    %% Test far future date
+    3652424 = calendar:date_to_gregorian_days({9999, 12, 31}),
+    {9999, 12, 31} = calendar:gregorian_days_to_date(3652424),
+
+    %% Test roundtrip for sampled days across entire valid range
+    check_roundtrip_samples(),
+
+    ok.
+
+%% Helper: check roundtrip for sampled days
+check_roundtrip_samples() ->
+    %% Sample every 10000 days from 0 to 4000000 (covers year 0 to ~10950)
+    lists:foreach(
+      fun(Days) ->
+              Date = calendar:gregorian_days_to_date(Days),
+              Days = calendar:date_to_gregorian_days(Date)
+      end, lists:seq(0, 4000000, 10000)).
 
 %% Tests that datetime_to_gregorian_seconds and
 %% gregorian_seconds_to_date are each others inverses for a sampled
@@ -164,7 +239,7 @@ local_time_to_universal_time_dst_x(Config) when is_list(Config) ->
 	{{1969,12,31},{23,59,59}} ->
 	    %% It seems that Apple has no intention of fixing this bug in
 	    %% Mac OS 10.3.9, and we have no intention of implementing a
-	    %% workaround. 
+	    %% workaround.
 	    {comment,"Bug in mktime() in this OS"}
     end.
 
@@ -383,7 +458,7 @@ do_format(Time, Options) ->
     calendar:system_time_to_rfc3339(Time, Options).
 
 %% check_gregorian_days
-%% 
+%%
 check_gregorian_days(Days, MaxDays) when Days < MaxDays ->
     Date = calendar:gregorian_days_to_date(Days),
     true = calendar:valid_date(Date),
@@ -393,7 +468,7 @@ check_gregorian_days(_Days, _MaxDays) ->
     ok.
 
 %% check_gregorian_seconds
-%% 
+%%
 %% We increment with something prime (172801 = 2 days + 1 second).
 %%
 check_gregorian_seconds(Secs, MaxSecs) when Secs < MaxSecs ->
