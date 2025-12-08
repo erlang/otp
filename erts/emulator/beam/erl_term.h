@@ -361,7 +361,7 @@ _ET_DECLARE_CHECKED(Uint,thing_subtag,Eterm)
  * To help find code which makes unwarranted assumptions about zero,
  * we now use a non-zero bit-pattern in debug mode.
  *
- * In order to be able to differentiata against values, the non-value
+ * In order to be able to differentiate against values, the non-value
  * needs to be tagged as a header of some sort.
  */
 #if ET_DEBUG
