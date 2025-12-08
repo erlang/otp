@@ -4659,10 +4659,11 @@ m_peeloff_server_handler_loop(#{ctrl     := CTRL,
         {ok, #{flags        := _, % Should contain the 'notification' flag
                notification := #{type     := assoc_change,
                                  state    := shutdown_comp,
-                                 assoc_id := AssocID,
-                                 '$esock_name' := sctp_notification}}} ->
+                                 assoc_id := AID,
+                                 '$esock_name' := sctp_notification}}}
+          when (AID =:= AssocID) orelse (AID =:= 0) ->
             %% Shutdown is now complete
-            ?P("~s -> shutdown-complete (~w) event", [?FUNCTION_NAME, AssocID]),
+            ?P("~s -> shutdown-complete (~w) event", [?FUNCTION_NAME, AID]),
             mpo_cast(CTRL, {received, {assoc_change, shutdown_comp, AssocID}}),
             m_peeloff_server_handler_loop(State#{sock     => undefined,
                                                  assoc_id => undefined,
@@ -4670,10 +4671,11 @@ m_peeloff_server_handler_loop(#{ctrl     := CTRL,
 
         {ok, #{flags        := _, % Should contain the 'notification' flag
                notification := #{type     := shutdown_event,
-                                 assoc_id := AssocID,
-                                 '$esock_name' := sctp_notification}}} ->
+                                 assoc_id := AID,
+                                 '$esock_name' := sctp_notification}}} 
+          when (AID =:= AssocID) orelse (AID =:= 0) ->
             ?P("~s -> received shutdown-event (~w)",
-               [?FUNCTION_NAME, AssocID]),
+               [?FUNCTION_NAME, AID]),
             mpo_cast(CTRL, {received, {shutdown_event, AssocID}}),
             m_peeloff_server_handler_loop(State#{shutdown => 'begin'});
 
@@ -4698,7 +4700,7 @@ m_peeloff_server_handler_loop(#{ctrl     := CTRL,
           when (OtherAID =/= AssocID) ->
             ?P("~s -> received unexpected notification regarding unknown association:"
                "~n   Expected AssocID: ~w"
-               "~n   Otrher AssocID:   ~w"
+               "~n   Other AssocID:    ~w"
                "~n   Notification:     ~p",
                [?FUNCTION_NAME, AssocID, OtherAID, Notif]),
             m_peeloff_server_handler_loop(State);
