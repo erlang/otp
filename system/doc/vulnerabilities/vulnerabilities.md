@@ -35,22 +35,25 @@ easily describe which CVEs affect which Erlang/OTP versions and specific OTP
 applications. It also records which CVEs from third parties affect (or do not
 affect) Erlang/OTP.
 
-Erlang/OTP releases OpenVEX statements under `vex/otp-<version>.openvex.json` in
-the [Erlang/OTP Github repository](https://github.com/erlang/otp) in the `master` branch, where
-`<version>` corresponds to the number of the Erlang/OTP release.
+Erlang/OTP releases OpenVEX statements for currently maintained OTP releases
+under [https://erlang.org/download/vex/](https://erlang.org/download/vex/).
+The filenames in that directory follow the pattern
+`otp-<release>.openvex.json`, where  `<release>` corresponds to the OTP
+release number.
 
 ## Erlang/OTP VEX Statements
 
 Erlang/OTP OpenVEX statements specify which Erlang/OTP versions are affected/fixed (e.g.,
-`pkg:otp/erlang@27.3.1`), as well as the specific Erlang/OTP application number
-of all affected versions (e.g., `pkg:otp/ssh@5.2.9`).
+`pkg:github/erlang/otp@OTP-28.0`), as well as the specific Erlang/OTP application number
+of all affected versions (e.g., `pkg:otp/ssh@5.3`).
 
-As an example, a snippet of the `vex/otp-27.openvex.json` contains the
-vulnerability identified by `CVE-2025-32433`, following by the status of the
-vulnerability (`affected`), the affected Erlang/OTP releases, namely `27.3.1`
-and `27.3.2`, and the Erlang/OTP application that was vulnerable, `ssh@5.2.9`.
-The affected versions are reported using the release version and the
-application because it is possible to update the application independently
+As an example, a snippet of the [https://erlang.org/download/vex/otp-28.openvex.json](https://erlang.org/download/vex/otp-28.openvex.json) contains the
+vulnerability identified by `CVE-2025-48038`, followed by the status of the
+vulnerability (`affected`), the affected Erlang/OTP releases, namely `28.0`,
+`28.0.1`, and `28.0.2`, and the Erlang/OTP application that was vulnerable
+in application version `ssh@5.3`, `ssh@5.3.1`, and `ssh@5.3.2`.
+Erlang/OTP reports the affected versions using the release and the
+application versions because it is possible to update the application independently
 from the release.
 In some cases, there may be an optional action statement that describes a workaround
 to avoid the mentioned vulnerability.
@@ -58,42 +61,46 @@ to avoid the mentioned vulnerability.
 ```
 {
   "vulnerability": {
-    "name": "CVE-2025-32433"
+    "name": "CVE-2025-48038"
   },
-  "timestamp": "2025-06-18T12:18:16.661272703+02:00",
+  "timestamp": "2025-09-16T08:22:13.223967395Z",
   "products": [
-       { "@id": "pkg:otp/erlang@27.3.1" },
-       { "@id": "pkg:otp/erlang@27.3.2" },
-       { "@id": "pkg:otp/ssh@5.2.9" }
+    { "@id": "pkg:github/erlang/otp@OTP-28.0" },
+    { "@id": "pkg:github/erlang/otp@OTP-28.0.1" },
+    { "@id": "pkg:github/erlang/otp@OTP-28.0.2" },
+    { "@id": "pkg:otp/ssh@5.3" },
+    { "@id": "pkg:otp/ssh@5.3.1" },
+    { "@id": "pkg:otp/ssh@5.3.2" }
   ],
   "status": "affected",
-  "action_statement": "A temporary workaround involves disabling the SSH server or to prevent access via firewall rules.",
-  "action_statement_timestamp": "2025-06-18T12:18:16.661272703+02:00"
+  "action_statement": "Update to any of the following versions: pkg:otp/ssh@5.3.3",
+  "action_statement_timestamp": "2025-09-16T08:22:13.223967395Z"
 },
 ```
 
-The fixed version will be reported in a similar fashion as follows, in the same document.
-As an example, there is a new statement for `CVE-2025-32433` with status `fixed`,
-that links to the versions that do not suffer from `CVE-2025-32433`, namely
-`erlang@27.3.3` and `otp/ssh@5.2.10`. 
+Erlang/OTP reports the fixed version in a similar fashion as follows, in the same document.
+As an example, there is a new statement for `CVE-2025-48038` with status `fixed`,
+that links to the first release that do not suffer from `CVE-2025-48038`, namely
+OTP version `28.0.3` and application `ssh@5.3.3`. 
 
 ```
 {
   "vulnerability": {
-    "name": "CVE-2025-32433"
+    "name": "CVE-2025-48038"
   },
-  "timestamp": "2025-06-18T12:18:16.676540081+02:00",
+  "timestamp": "2025-09-16T08:22:13.241103494Z",
   "products": [
-     { "@id": "pkg:otp/erlang@27.3.3" },
-     { "@id": "pkg:otp/ssh@5.2.10" }
-   ],
+    { "@id": "pkg:github/erlang/otp@OTP-28.0.4" },
+    { "@id": "pkg:github/erlang/otp@OTP-28.0.3" },
+    { "@id": "pkg:otp/ssh@5.3.3" }
+  ],
   "status": "fixed"
 },
 ```
 
 ## Third Party VEX Statements
 
-Erlang/OTP generates statements for 3rd parties from which the project depends
+Erlang/OTP generates statements for third parties from which the project depends
 on. It is really important to understand the scope of the third party
 applications, since Erlang/OTP vendors some libraries as part of the runtime.
 
@@ -108,7 +115,7 @@ included in the Erlang/OTP release.
 The OpenVEX statements for our third party libraries specify the affected/fixed
 version using the commit SHA1 from their respective repository. This is simply
 because our third party dependencies are in C/C++ and vulnerability scanners
-such as OSV report vulnerabilities in ranges.
+such as OSV report vulnerabilities in SHA1 ranges.
 
 As an example, we mention that the OpenSSL code that Erlang/OTP vendors
 is not susceptible for `CVE-2023-6129`, as follows:
