@@ -778,6 +778,7 @@ BOOL notmatch;
 BOOL samelengths;
 int lgb;
 int rgb;
+
 #ifdef ERLANG_DEBUG
 #define EDEBUGF(X) edebug_printf X
 #else
@@ -7194,7 +7195,6 @@ LOOP_COUNT_RETURN:
      default:
        EDEBUGF(("jump error in pcre match: label %d non-existent\n", F->return_id));
        abort();
-       //return PCRE2_ERROR_INTERNAL;
      }
 }
 
@@ -7238,7 +7238,8 @@ LOOP_COUNT_BREAK:
     return PCRE2_ERROR_LOOP_LIMIT;
   }
 #endif 
-}
+} // end of match()
+
 #ifdef ERLANG_INTEGRATION
 typedef struct {
     int Xrc;
@@ -7274,10 +7275,21 @@ typedef struct {
     pcre2_callout_block Xcb;
     match_block Xactual_match_block;
     match_block *Xmb;
+    PCRE2_SPTR Xp;
+    PCRE2_SPTR Xpp;
+    PCRE2_SPTR Xpp1;
+    PCRE2_SPTR Xpp2;
+    PCRE2_SIZE Xsearchlength;
 
     /* for yield in valid_utf() */
-
     struct PRIV(valid_utf_ystate) valid_utf_ystate;
+
+    const char* memchr_yield_ptr;
+
+    // Yield position in pcre2_match(). A __LINE__ number or the hardcoded below.
+    uint32_t outer_yield_line;
+#define ERLANG_PCRE2_MATCH_YIELD_MATCH 0
+#define ERLANG_PCRE2_MATCH_YIELD_VALID_UTF 1
     
     /* Original function parameters that need be saved */
     PCRE2_SPTR Xsubject;
@@ -7287,6 +7299,76 @@ typedef struct {
     pcre2_match_data *Xmatch_data;
     pcre2_match_context *Xmcontext;
 } PcreExecContext;
+
+#define BYTES_TO_LOOPS(B) ((B) >> 3)
+#define LOOPS_TO_BYTES(L) ((L) << 3)
+
+static void *memchr_erlang(const void *start, int c, size_t n,
+                           const char** restrict yield_pos_p,
+                           int32_t* restrict loops_left_p)
+{
+    const char* from;
+    char* found;
+    size_t left;
+
+    if (*loops_left_p <= 0) {
+        *yield_pos_p = start;
+        return NULL;
+    }
+
+    if (*yield_pos_p) {
+        from = *yield_pos_p;
+        *yield_pos_p = NULL;
+        left = ((const char*)start + n) - from;
+    }
+    else {
+        from = start;
+        left = n;
+    }
+
+    if ((size_t)*loops_left_p > BYTES_TO_LOOPS(left)) {
+        found = memchr(from, c, left);
+        *loops_left_p -= BYTES_TO_LOOPS(found ? (found - from) : left);
+        return found;
+    }
+    else {
+        const size_t max_bytes = LOOPS_TO_BYTES(*loops_left_p);
+        found = memchr(from, c, max_bytes);
+        if (found) {
+            *loops_left_p -= BYTES_TO_LOOPS(found - from);
+            return found;
+        }
+        // Yield!
+        *yield_pos_p = from + max_bytes;
+        *loops_left_p = 0;
+        return NULL;
+    }
+}
+
+#define MEMCHR_ERLANG(RET, START, VAL, LEN)  \
+do { \
+  if (LEN == 0) { \
+    RET = NULL; \
+  } \
+  else { \
+    void* return_val_; \
+    NAME_CAT(ERLANG_PCRE2_MATCH_YIELD_LINE_,__LINE__): \
+    DBG_COST_CHK_VISIT(); \
+    return_val_ = memchr_erlang(START, VAL, LEN, \
+                                &exec_context->memchr_yield_ptr, \
+                                &match_data->loops_left); \
+    if (exec_context->memchr_yield_ptr) { \
+        DBG_COST_CHK_YIELD(); \
+        exec_context->outer_yield_line = __LINE__; \
+        goto erlang_swapout; \
+    } \
+    RET = return_val_; \
+  } \
+} while (0)
+
+#else
+
+# define MEMCHR_ERLANG(RET, START, VAL, LEN)  RET = memchr(START, VAL, LEN)
 
 #endif // ERLANG_INTEGRATION
 
@@ -7414,6 +7496,11 @@ match_block *mb = &actual_match_block;
   heapframes_size = exec_context->Xheapframes_size;	\
   cb = exec_context->Xcb;			                  \
   mb = exec_context->Xmb;			                  \
+  p = exec_context->Xp;			                          \
+  pp = exec_context->Xpp;			                  \
+  pp1 = exec_context->Xpp1;                                       \
+  pp2 = exec_context->Xpp2;                                       \
+  searchlength = exec_context->Xsearchlength;                     \
   /* Parameters */                              \
   subject = exec_context->Xsubject;             \
   length = exec_context->Xlength;               \
@@ -7460,19 +7547,30 @@ PCRE2_SIZE frame_size;
 PCRE2_SIZE heapframes_size;
 pcre2_callout_block cb;
 match_block *mb;
+PCRE2_SPTR p;
+PCRE2_SPTR pp;
+PCRE2_SPTR pp1;
+PCRE2_SPTR pp2;
+PCRE2_SIZE searchlength;
 /* End special swapped variables */
 if (*(match_data->restart_data) != NULL) {
    /* we are restarting, every initialization is skipped and we jump directly into the loop */
    exec_context = (PcreExecContext *) *(match_data->restart_data);
    SWAPIN();
-   if (exec_context->valid_utf_ystate.yielded){
+   switch (exec_context->outer_yield_line) {
+   case ERLANG_PCRE2_MATCH_YIELD_MATCH:
+       goto RESTART_INTERRUPTED;
+   case ERLANG_PCRE2_MATCH_YIELD_VALID_UTF:
        goto restart_valid_utf;
+#include "pcre2_match_memchr_break_cases.gen.h"
+   default:
+       EDEBUGF(("jump error in pcre2_match: label %u non-existent\n", exec_context->outer_yield_line));
+       abort();
    }
-   goto RESTART_INTERRUPTED;
  } else {
    exec_context = &internal_context;
    *(match_data->restart_data) = NULL;
-   exec_context->valid_utf_ystate.yielded = 0;
+   exec_context->memchr_yield_ptr = NULL;
    
    /* OK, no restart here, initialize variables instead */
    start_bits = NULL;
@@ -7828,6 +7926,7 @@ restart_valid_utf:
 #if defined(ERLANG_INTEGRATION)
     if (rc == PCRE2_ERROR_UTF8_YIELD) {
         DBG_FAKE_COST_CHK();
+        exec_context->outer_yield_line = ERLANG_PCRE2_MATCH_YIELD_VALID_UTF;
         goto erlang_swapout;
     }
 #endif
@@ -8182,9 +8281,15 @@ for(;;)
           make a huge difference when the strings are very long and only one
           case is actually present. */
 
+#ifdef ERLANG_INTEGRATION
+          pp1 = NULL;
+          pp2 = NULL;
+          searchlength = end_subject - start_match;
+#else
           PCRE2_SPTR pp1 = NULL;
           PCRE2_SPTR pp2 = NULL;
           PCRE2_SIZE searchlength = end_subject - start_match;
+#endif
 
           /* If we haven't got a previously found position for first_cu, or if
           the current starting position is later, we need to do a search. If
@@ -8193,7 +8298,7 @@ for(;;)
           if (memchr_found_first_cu == NULL ||
               start_match > memchr_found_first_cu)
             {
-            pp1 = memchr(start_match, first_cu, searchlength);
+            MEMCHR_ERLANG(pp1, start_match, first_cu, searchlength);
             memchr_found_first_cu = (pp1 == NULL)? end_subject : pp1;
             }
 
@@ -8208,7 +8313,7 @@ for(;;)
           if (memchr_found_first_cu2 == NULL ||
               start_match > memchr_found_first_cu2)
             {
-            pp2 = memchr(start_match, first_cu2, searchlength);
+            MEMCHR_ERLANG(pp2, start_match, first_cu2, searchlength);
             memchr_found_first_cu2 = (pp2 == NULL)? end_subject : pp2;
             }
 
@@ -8235,7 +8340,7 @@ for(;;)
                  first_cu)
             start_match++;
 #else
-          start_match = memchr(start_match, first_cu, end_subject - start_match);
+          MEMCHR_ERLANG(start_match, start_match, first_cu, end_subject - start_match);
           if (start_match == NULL) start_match = end_subject;
 #endif
           }
@@ -8326,7 +8431,9 @@ for(;;)
 
     if (mb->partial == 0)
       {
+#ifndef ERLANG_INTEGRATION
       PCRE2_SPTR p;
+#endif
 
       /* The minimum matching length is a lower bound; no string of that length
       may actually match the pattern. Although the value is, strictly, in
@@ -8378,11 +8485,15 @@ for(;;)
               if (pp == req_cu || pp == req_cu2) { p--; break; }
               }
 #else  /* 8-bit code units */
+# ifdef ERLANG_INTEGRATION
+            pp = p;
+# else
             PCRE2_SPTR pp = p;
-            p = memchr(pp, req_cu, end_subject - pp);
+# endif
+            MEMCHR_ERLANG(p, pp, req_cu, end_subject - pp);
             if (p == NULL)
               {
-              p = memchr(pp, req_cu2, end_subject - pp);
+              MEMCHR_ERLANG(p, pp, req_cu2, end_subject - pp);
               if (p == NULL) p = end_subject;
               }
 #endif /* PCRE2_CODE_UNIT_WIDTH != 8 */
@@ -8399,7 +8510,7 @@ for(;;)
               }
 
 #else  /* 8-bit code units */
-            p = memchr(p, req_cu, end_subject - p);
+            MEMCHR_ERLANG(p, p, req_cu, end_subject - p);
             if (p == NULL) p = end_subject;
 #endif
             }
@@ -8465,6 +8576,8 @@ for(;;)
   while(rc == PCRE2_ERROR_LOOP_LIMIT)
     {
     EDEBUGF(("Loop limit break detected"));
+    exec_context->outer_yield_line = ERLANG_PCRE2_MATCH_YIELD_MATCH;
+
   erlang_swapout:
     if (exec_context == &internal_context)
       {
@@ -8508,6 +8621,12 @@ for(;;)
     exec_context->Xframe_size = frame_size;
     exec_context->Xheapframes_size = heapframes_size;
     exec_context->Xcb = cb;
+    exec_context->Xp = p;
+    exec_context->Xpp = pp;
+    exec_context->Xpp1 = pp1;
+    exec_context->Xpp2 = pp2;
+    exec_context->Xsearchlength = searchlength;
+
     #if ERTS_AT_LEAST_GCC_VSN__(4, 7, 2)
     #  pragma GCC diagnostic pop
     #endif
