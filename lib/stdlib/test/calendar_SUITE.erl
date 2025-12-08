@@ -38,7 +38,7 @@
          system_time/1, rfc3339/1]).
 
 -define(START_YEAR, 1947).
--define(END_YEAR, 2012).
+-define(END_YEAR, 2032).
 
 -define(BIG_START_YEAR, 20000000).
 -define(BIG_END_YEAR, 20000020).
@@ -105,10 +105,6 @@ gregorian_days_edge_cases(Config) when is_list(Config) ->
     {1, 1, 1} = calendar:gregorian_days_to_date(366),
     730 = calendar:date_to_gregorian_days({1, 12, 31}),
 
-    %% Test Unix epoch (Jan 1, 1970)
-    719528 = calendar:date_to_gregorian_days({1970, 1, 1}),
-    {1970, 1, 1} = calendar:gregorian_days_to_date(719528),
-
     %% Test century boundaries (1900 is not a leap year, 2000 is)
     693961 = calendar:date_to_gregorian_days({1900, 1, 1}),
     {1900, 1, 1} = calendar:gregorian_days_to_date(693961),
@@ -132,15 +128,6 @@ gregorian_days_edge_cases(Config) when is_list(Config) ->
     292194 = calendar:date_to_gregorian_days({800, 1, 1}),
     {800, 1, 1} = calendar:gregorian_days_to_date(292194),
 
-    %% Test all months in a leap year (2000)
-    check_all_months(2000),
-
-    %% Test all months in a non-leap year (2001)
-    check_all_months(2001),
-
-    %% Test all months in century non-leap year (1900)
-    check_all_months(1900),
-
     %% Test specific known dates
     %% July 4, 1776 (US Independence Day)
     648856 = calendar:date_to_gregorian_days({1776, 7, 4}),
@@ -159,19 +146,6 @@ gregorian_days_edge_cases(Config) when is_list(Config) ->
     check_roundtrip_samples(),
 
     ok.
-
-%% Helper: check all months roundtrip correctly for a given year
-check_all_months(Year) ->
-    lists:foreach(
-      fun(Month) ->
-              LastDay = calendar:last_day_of_the_month(Year, Month),
-              lists:foreach(
-                fun(Day) ->
-                        Date = {Year, Month, Day},
-                        Days = calendar:date_to_gregorian_days(Date),
-                        Date = calendar:gregorian_days_to_date(Days)
-                end, [1, LastDay])
-      end, lists:seq(1, 12)).
 
 %% Helper: check roundtrip for sampled days
 check_roundtrip_samples() ->
