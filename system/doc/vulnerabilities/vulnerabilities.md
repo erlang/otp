@@ -37,7 +37,7 @@ affect) Erlang/OTP.
 
 Erlang/OTP releases OpenVEX statements for currently maintained OTP releases
 under [https://erlang.org/download/vex/](https://erlang.org/download/vex/).
-The filenames in that directory are on the format
+The filenames in that directory follow the pattern
 `otp-<release>.openvex.json`, where  `<release>` corresponds to the OTP
 release number.
 
