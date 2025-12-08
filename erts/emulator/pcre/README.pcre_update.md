@@ -305,7 +305,7 @@ pcre.mk after all testing is done.
 
 Regenerate the make dependencies in `depend.mk` with:
 
-    ~/erts/emulator/pcre/> make -f pcre.mk depend
+    ~/erts/emulator/pcre/> make -f pcre.mk static_depend
 
 Now your pcre.mk is fairly up to date and it's time to start patching in the changes...
 
