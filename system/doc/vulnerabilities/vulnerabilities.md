@@ -35,8 +35,11 @@ easily describe which CVEs affect which Erlang/OTP versions and specific OTP
 applications. It also records which CVEs from third parties affect (or do not
 affect) Erlang/OTP.
 
-Erlang/OTP releases OpenVEX statements under [https://erlang.org/download/vex/](https://erlang.org/download/vex/), where
-`OTP-<version>` corresponds to the number of the Erlang/OTP release.
+Erlang/OTP releases OpenVEX statements for currently maintained OTP releases
+under [https://erlang.org/download/vex/](https://erlang.org/download/vex/).
+The filenames in that directory are on the format
+`otp-<release>.openvex.json`, where  `<release>` corresponds to the OTP
+release number.
 
 ## Erlang/OTP VEX Statements
 
