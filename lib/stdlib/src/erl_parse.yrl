@@ -796,6 +796,27 @@ processed (see section [Error Information](#module-error-information)).
 -export_type([af_binelement/1, af_generator/0, af_zip_generator/0, af_remote_function/0]).
 %% The following type is used by PropEr
 -export_type([af_field_decl/0]).
+%% The following types are used in compiler
+-export_type([
+    af_assoc/1,
+    af_assoc_exact/1,
+    af_atom/0,
+    af_case/0,
+    af_field/0,
+    af_field_name/0,
+    af_guard/0,
+    af_guard_call/0,
+    af_guard_seq/0,
+    af_guard_test/0,
+    af_match/1,
+    af_pattern/0,
+    af_qualifier/0,
+    af_qualifier_seq/0,
+    af_record_decl/0,
+    af_record_field/1,
+    af_variable/0,
+    record_name/0
+]).
 
 %% Removed functions
 -removed([{set_line,2,"use erl_anno:set_line/2"},
@@ -869,7 +890,7 @@ processed (see section [Error Information](#module-error-information)).
 
 -type spec_attr() :: 'callback' | 'spec'.
 
--type af_wild_attribute() :: {'attribute', anno(), atom(), any()}.
+-type af_wild_attribute() :: {'attribute', anno(), atom(), dynamic()}.
 
 -type af_function_decl() ::
         {'function', anno(), function_name(), arity(), af_clause_seq()}.
@@ -2108,13 +2129,11 @@ annotations of the nodes of the `erl_parse` tree. The `erl_parse` tree is
 traversed in a depth-first, left-to-right fashion.
 """.
 -doc(#{since => <<"OTP 18.0">>}).
--spec map_anno(Fun, Abstr) -> NewAbstr when
+-spec map_anno
+    (Fun, Abstr) -> Abstr when
       Fun :: fun((Anno) -> NewAnno),
       Anno :: erl_anno:anno(),
-      NewAnno :: erl_anno:anno(),
-      Abstr :: erl_parse_tree() | form_info(),
-      NewAbstr :: erl_parse_tree() | form_info().
-
+      NewAnno :: erl_anno:anno().
 map_anno(F0, Abstr) ->
     F = fun(A, Acc) -> {F0(A), Acc} end,
     {NewAbstr, []} = modify_anno1(Abstr, [], F),
