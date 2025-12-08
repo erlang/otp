@@ -45,7 +45,7 @@ Erlang/OTP OpenVEX statements specify which Erlang/OTP versions are affected/fix
 of all affected versions (e.g., `pkg:otp/ssh@5.3`).
 
 As an example, a snippet of the [https://erlang.org/download/vex/otp-28.openvex.json](https://erlang.org/download/vex/otp-28.openvex.json) contains the
-vulnerability identified by `CVE-2025-48038`, following by the status of the
+vulnerability identified by `CVE-2025-48038`, followed by the status of the
 vulnerability (`affected`), the affected Erlang/OTP releases, namely `28.0`,
 `28.0.1`, and `28.0.2`, and the Erlang/OTP application that was vulnerable
 in application version `ssh@5.3`, `ssh@5.3.1`, and `ssh@5.3.2`.
