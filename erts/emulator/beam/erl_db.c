@@ -838,9 +838,11 @@ DbTable* db_get_table_aux(Process *p,
     if (tb) {
         if (what == DB_READ_TBL_STRUCT) {
             // See comment later in this function for why this is needed.
-            // We don't have the lock yet, so we may miss a race with a rename operation, but that is fine here
-            //    because what == DB_READ_TBL_STRUCT is only used by the insert operation, which later does its own double-check
-            //    after taking the lock (see code and comment in ets_insert_2_list_lock_tbl).
+            // We don't have the lock yet, so we may miss a race with a
+            //  rename operation, but that is fine here because
+            //  what == DB_READ_TBL_STRUCT is only used by the insert operation,
+            //  which later does its own double-check after taking the lock 
+            //  (see code and comment in ets_insert_2_list_lock_tbl).
             if (is_atom(id) && ERTS_UNLIKELY(tb->common.the_name != id)) {
                 *freason_p = BADARG | EXF_HAS_EXT_INFO;
                 p->fvalue = EXI_ID;
@@ -856,15 +858,19 @@ DbTable* db_get_table_aux(Process *p,
             // We are re-checking the name <-> id mapping.
             // This protects from an ABA issue:
             // - Reader sees inline vector of size 1
-            // - Reader reads the name NameA that corresponds to table IdA, sees it matches what it looked for
+            // - Reader reads the name NameA that corresponds to table IdA,
+            //   sees it matches what it looked for
             // - Writer deletes (or rename the table), moving us to an empty vector
-            // - Writer inserts another table in that bucket, with a different name: NameB -> IdB
+            // - Writer inserts another table in that bucket, with a different
+            //   name: NameB -> IdB
             // - Reader reads IdB, concluding that NameA -> IdB.
-            // In that case, we will correctly fail with badarg, since IdB points to a table with the_name = NameB != NameA.
+            // In that case, we will correctly fail with badarg, since IdB points
+            // to a table with the_name = NameB != NameA.
             // This must be done while holding the lock, to deal with the following case:
             // - Writer does ets:rename(a, b), ets:insert(b, {key, value})
             // - Reader does ets:lookup(a, key)
-            // We want to make sure that the reader does not get {key, value}, when it was not ever in a table called "a".
+            // We want to make sure that the reader does not get {key, value},
+            // when it was not ever in a table called "a".
             if (ERTS_UNLIKELY(tb->common.the_name != id)) {
                 db_unlock(tb, kind);
                 *freason_p = BADARG | EXF_HAS_EXT_INFO;
@@ -950,7 +956,8 @@ size_t alloc_size_meta_name_tab_entries(unsigned capacity)
 static void
 free_meta_name_tab_entries(void *ptr)
 {
-    struct meta_name_tab_entries* entries = &((struct meta_name_tab_entries_allocated*) ptr)->data;
+    struct meta_name_tab_entries* entries =
+        &((struct meta_name_tab_entries_allocated*) ptr)->data;
     int alloc_size = alloc_size_meta_name_tab_entries(entries->capacity);
     ERTS_ETS_MISC_MEM_ADD(-alloc_size);
 
@@ -960,7 +967,8 @@ free_meta_name_tab_entries(void *ptr)
 static ERTS_INLINE
 void schedule_meta_name_tab_entries_for_deletion(struct meta_name_tab_entries *entries)
 {
-    struct meta_name_tab_entries_allocated* allocated = ErtsContainerStruct(entries, struct meta_name_tab_entries_allocated, data);
+    struct meta_name_tab_entries_allocated* allocated =
+        ErtsContainerStruct(entries,struct meta_name_tab_entries_allocated, data);
     erts_schedule_thr_prgr_later_cleanup_op(free_meta_name_tab_entries,
         (void *) allocated,
         &allocated->later_op,
@@ -1017,10 +1025,12 @@ static int insert_named_tab(Eterm name_atom, DbTable* tb, int have_lock)
         erts_atomic32_set_wb(&entries->size, size + 1);
     } else {
         new_entries = alloc_meta_name_tab_entries(size + 1);
-        memcpy(&new_entries->data[0], &entries->data[0], size * sizeof(struct meta_name_tab_entry));
+        memcpy(&new_entries->data[0], &entries->data[0],
+            size * sizeof(struct meta_name_tab_entry));
         new_entries->data[size].name_atom = name_atom;
         new_entries->data[size].tb = tb;
-        // Write barrier to ensure that readers that see the new entries pointer also see the new size and contents.
+        // Write barrier to ensure that readers that see the new entries pointer
+        // also see the new size and contents.
         erts_atomic_set_wb(&bucket->entries, (erts_aint_t) new_entries);
 
         if (entries != &bucket->inline_entry) {
@@ -1072,9 +1082,11 @@ static int remove_named_tab(DbTable *tb, int have_lock)
     }
 
     if (entries == &bucket->inline_entry) {
-        // We don't need to do anything to the actual entry: if a reader thread sees size=0 it won't look further.
+        // We don't need to do anything to the actual entry: if a reader thread
+        // sees size=0 it won't look further.
         // And if it saw size = 1, then it is as if it had fully run before us.
-        erts_atomic32_set_wb(&bucket->inline_entry.size, (erts_aint_t) 0);
+        ASSERT(erts_atomic32_get_nob(&bucket->inline_entry.size) == 1);
+        erts_atomic32_set_nob(&bucket->inline_entry.size, (erts_aint_t) 0);
     } else {
         // Trying to remove an entry from the vector without reallocation
         // while reader threads concurrently access it would be a nightmare.
@@ -1084,8 +1096,10 @@ static int remove_named_tab(DbTable *tb, int have_lock)
         } else {
             new_entries = &bucket->inline_entry;
         }
-        memcpy(&new_entries->data[0], &entries->data[0], index * sizeof(struct meta_name_tab_entry));
-        memcpy(&new_entries->data[index], &entries->data[index+1], (size - index - 1) * sizeof(struct meta_name_tab_entry));
+        memcpy(&new_entries->data[0], &entries->data[0],
+            index * sizeof(struct meta_name_tab_entry));
+        memcpy(&new_entries->data[index], &entries->data[index+1],
+            (size - index - 1) * sizeof(struct meta_name_tab_entry));
         erts_atomic_set_wb(&bucket->entries, (erts_aint_t) new_entries);
         schedule_meta_name_tab_entries_for_deletion(entries);
     }
