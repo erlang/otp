@@ -274,7 +274,23 @@ cli() ->
                                      > .github/scripts/otp-compliance.es sbom osv-scan --version maint-28
                                      """,
                                  arguments => [ versions_file(), fail_option() ],
-                                 handler => fun osv_scan/1}
+                                 handler => fun osv_scan/1},
+
+                          "sbom-diff" =>
+                              #{ help =>
+                                     """
+                                     Compare SBOM A against SBOM B, file-wise and package-wise.
+                                     Ignore the File-XXX field, only the contents are important.
+
+                                     Example:
+
+                                     > .github/scripts/otp-compliance.es sbom sbom-diff \
+                                           --sbom-file      bom.spdx.json \
+                                           --alt-sbom-file bom2.spdx.json
+                                     """,
+                                 arguments => [sbom_option(), alt_sbom_option()],
+                                 handler => fun sbom_diff/1
+                               }
                          }},
              "vex" =>
                  #{
@@ -416,6 +432,11 @@ sbom_option() ->
       default => "bom.spdx.json",
       long => "-sbom-file"}.
 
+alt_sbom_option() ->
+    #{name => alt_sbom_file,
+      type => binary,
+      long => "-alt-sbom-file"}.
+
 versions_file() ->
     #{name => version,
       type => binary,
@@ -502,6 +523,222 @@ create_pr() ->
 %%
 %% Commands
 %%
+
+sbom_diff(#{sbom_file     := SbomFile,
+            alt_sbom_file := AltSbomFile}) ->
+    Sbom = decode(SbomFile),
+    AltSbom = decode(AltSbomFile),
+    io:format("[SBOM Diff] Checking files: ~p vs ~p...~n~n", [SbomFile, AltSbomFile]),
+
+    io:format("[SBOM Diff \"relationships\"] Analysing...~n"),
+    ok = check_relationships(Sbom, AltSbom),
+    io:format("~n"),
+
+    io:format("[SBOM Diff \"files\" field] Analysing...~n"),
+    show_diff_files({SbomFile, Sbom}, {AltSbomFile, AltSbom}),
+    io:format("~n"),
+
+    io:format("[SBOM Diff \"packages\" field] Analysis...~n"),
+    show_diff_packages({SbomFile, Sbom}, {AltSbomFile, AltSbom}),
+    io:format("~n"),
+    ok.
+
+format_diff_files(SbomFile, AltSbomFile, {Result, NonExisting, NotFound}) ->
+    case Result of
+        [] ->
+            ok;
+        _ ->
+            io:format("[SBOM Diff] - Discrepancies exist, find them at diff.json~n~n"),
+            file:write_file("diff.json", json:format(Result))
+    end,
+
+    case NonExisting of
+        [] ->
+            ok;
+        _ ->
+            io:format("[SBOM Diff] The following files do exist in SBOM ~ts but not in ~ts~n", [AltSbomFile, SbomFile]),
+            io:format("[SBOM Diff] - Writing non existing files into \"not_found_in_a.json\"~n~n"),
+            file:write_file("not_found_in_a.json", json:format(NonExisting))
+    end,
+
+    case NotFound of
+        [] ->
+            ok;
+        _ ->
+            io:format("[SBOM Diff] The following files do exist in SBOM ~ts but not in ~ts~n", [SbomFile, AltSbomFile]),
+            io:format("[SBOM Diff] - Writing non existing files into \"not_found_in_b.json\"~n~n"),
+            file:write_file("not_found_in_b.json", json:format(NotFound))
+    end.
+
+check_relationships(#{~"relationships" := RelA}, #{~"relationships" := RelB}) ->
+    [] = RelA -- RelB,
+    io:format("[SBOM Diff] ok~n~n"),
+    ok.
+
+show_diff_packages({_SbomFile, Sbom}, {_AltSbomFile, AltSbom}) ->
+    SbomPackages = build_sbom_package_diff(Sbom),
+    AltPackages = build_sbom_package_diff(AltSbom),
+    show_diff_packages(SbomPackages, AltPackages);
+show_diff_packages(#{~"packages" := PackA}, #{~"packages" := PackB}) ->
+    Result = [],
+    lists:foldl(fun check_package/2, {Result, PackB}, PackA).
+
+check_package(Package, {Result, PackB}) ->
+    #{~"SPDXID" := SPDXId} = Package,
+    case find_first(PackB, SPDXId, ~"SPDXID", []) of
+        {Entry, RemainingPackages} ->
+            %% check_singleton_package(Package, Entry),
+            case build_package_diff(Package, Entry) of
+                true ->
+                    {Result, RemainingPackages};
+                R ->
+                    {[R | Result], RemainingPackages}
+            end
+    end.
+
+build_sbom_package_diff(#{~"files" := Files, ~"packages" := Packages}=Sbom) ->
+    {UpdatedPackages, _} =
+        lists:foldl(fun (Package, {PackAcc, RemainingFiles}) ->
+                            #{~"hasFiles" := FilesInPkg} = Package,
+                            %% for each file in hasFiles, bring the file into the list
+                            %% and keep only the name of the file.
+                            {NewFilesInPkg, RemainingFiles1} =
+                                lists:foldl(fun (SPDXFile, {FileKeys, Remaining}) when is_list(FileKeys),
+                                                                                       is_list(Remaining) ->
+                                                    {E, Remaining1} = find_first(Remaining, SPDXFile, ~"SPDXID", []),
+                                                    {[maps:get(~"fileName", E) | FileKeys], Remaining1}
+                                            end, {[], RemainingFiles}, FilesInPkg),
+                            {[Package#{~"hasFiles" := NewFilesInPkg} | PackAcc], RemainingFiles1}
+                    end, {[], Files}, Packages),
+    Sbom#{~"packages" := UpdatedPackages}.
+
+build_package_diff(PackageA, PackageB) ->
+    #{~"hasFiles"         := FilesInPkgA,
+      ~"copyrightText"    := PkgCopyrightA,
+      ~"externalRefs"     := ExternalRefsA,
+      ~"licenseConcluded" := ConcludedA,
+      ~"licenseDeclared"  := DeclaredA,
+      ~"supplier"         := SupplierA,
+      ~"SPDXID"           := PackageId,
+      ~"versionInfo"      := VersionA} = PackageA,
+
+    #{~"hasFiles"         := FilesInPkgB,
+      ~"copyrightText"    := PkgCopyrightB,
+      ~"externalRefs"     := ExternalRefsB,
+      ~"licenseConcluded" := ConcludedB,
+      ~"licenseDeclared"  := DeclaredB,
+      ~"supplier"         := SupplierB,
+      ~"versionInfo"      := VersionB} = PackageB,
+
+    format_package("[SBOM Diff] Checking \"hasFiles\"", FilesInPkgA, FilesInPkgB, PackageId),
+    format_package("[SBOM Diff] Checking \"copyrightText\"", PkgCopyrightA, PkgCopyrightB, PackageId),
+    format_package("[SBOM Diff] Checking \"ExternalRefs\"", ExternalRefsA, ExternalRefsB, PackageId),
+    format_package("[SBOM Diff] Checking \"licenseConcluded\"", ConcludedA, ConcludedB, PackageId),
+    format_package("[SBOM Diff] Checking \"licenseDeclared\"", DeclaredA, DeclaredB, PackageId),
+    format_package("[SBOM Diff] Checking \"supplier\"", SupplierA, SupplierB, PackageId),
+    format_package("[SBOM Diff] Checking \"versionInfo\"", VersionA, VersionB, PackageId),
+    ok.
+
+format_package(Text, [FilesA]=A, [FilesB]=B, PackageId) when is_map(FilesA), is_map(FilesB) ->
+    Diff = A -- B,
+    case Diff of
+        [] ->
+            ok;
+        _ ->
+            io:format(Text ++ " in ~ts~n", [PackageId]),
+            io:format("[SBOM Diff] Discrepancies exist.~n"),
+            io:format("[SBOM Diff] Option A:~n\"\"\"~n~p~n\"\"\"~n", [FilesA]),
+            io:format("[SBOM Diff] Option B:~n\"\"\"~n~p~n\"\"\"~n~n", [FilesB])
+    end;
+format_package(Text, FilesA, FilesB, PackageId) when is_list(FilesA), is_list(FilesB) ->
+    Diff = FilesA -- FilesB,
+    case Diff of
+        [] ->
+            ok;
+        _ ->
+            io:format(Text ++ " in ~ts~n", [PackageId]),
+            io:format("[SBOM Diff] Discrepancies exist.~n"),
+            io:format("[SBOM Diff] Showing missing entries in \"~ts\"~n~p~n~n", [PackageId, Diff])
+    end;
+format_package(Text, FilesA, FilesB, PackageId) when is_binary(FilesA), is_binary(FilesB) ->
+    case FilesA == FilesB of
+        true ->
+            ok;
+        false ->
+            io:format(Text ++ " in ~ts~n", [PackageId]),
+            io:format("[SBOM Diff] Discrepancies exist.~n"),
+            io:format("[SBOM Diff] Showing missing entries in \"~ts\"~n", [PackageId]),
+            io:format("[SBOM Diff] Option A:~n\"\"\"~n~ts~n\"\"\"~n", [erlang:binary_to_list(FilesA)]),
+            io:format("[SBOM Diff] Option B:~n\"\"\"~n~ts~n\"\"\"~n~n", [erlang:binary_to_list(FilesB)])
+    end.
+
+
+%% show_diff_packages()
+show_diff_files({SbomFile, Sbom}, {AltSbomFile, AltSbom}) ->
+    format_diff_files(SbomFile, AltSbomFile, show_diff_files(Sbom, AltSbom));
+show_diff_files(#{~"files" := Files}, #{~"files" := AltFiles}) ->
+    Result = [],
+    NotFound = [],
+    lists:foldl(fun (F, {Acc, Remaining, NFAcc}) when is_map(F),
+                                                      is_list(Remaining),
+                                                      is_list(Acc) ->
+                        Filename = maps:get(~"fileName", F),
+                        case find_first(Remaining, Filename, ~"fileName", []) of
+                            not_found ->
+                                {Acc, Remaining, [F | NFAcc]};
+                            {Entry, Remaining1} ->
+                                case build_diff(F, Entry) of
+                                    true ->
+                                        {Acc, Remaining1, NFAcc};
+                                    R ->
+                                        {[R | Acc], Remaining1, NFAcc}
+                                end
+                        end
+                end, {Result, AltFiles, NotFound}, Files).
+
+-spec build_diff(map(), map()) -> true | Diff :: map().
+build_diff(F1, F2) ->
+    R = lists:foldl(fun (~"licenseInfoInFiles"=Key, Acc) ->
+                            V1 = maps:get(Key, F1),
+                            V2 = maps:get(Key, F2),
+                            case V1 == V2 of
+                                true ->
+                                    Acc;
+                                false ->
+                                    Acc#{Key => [V1, ~"==== vs ==== ", V2] }
+                            end;
+                        (Key, Acc) ->
+                            V1 = maps:get(Key, F1),
+                            V2 = maps:get(Key, F2),
+                            case V1 == V2 of
+                                true ->
+                                    Acc;
+                                false ->
+                                    Acc#{Key => <<V1/binary, "==== vs ==== ", V2/binary>> }
+                            end
+                    end, #{~"fileName" => maps:get(~"fileName", F1)},
+                    [~"copyrightText", ~"licenseConcluded", ~"licenseInfoInFiles"]),
+    case maps:size(R) == 1 of
+        true ->
+            true;
+        false ->
+            R
+    end.
+
+find_first([], _File, _Key, _Acc) ->
+    not_found;
+    %% {#{~"fileName"           => File,
+    %%    ~"copyrightText"      => ~"not_found",
+    %%    ~"licenseConcluded"   => ~"not_found",
+    %%    ~"licenseInfoInFiles" => ~"not_found"}, Acc};
+find_first([E | Tail], File, Key, Acc) ->
+    #{Key := Fi} = E,
+    case Fi == File of
+        true ->
+            {E, Acc ++ Tail};
+        false ->
+            find_first(Tail, File, Key, [E | Acc])
+    end.
 
 sbom_vendor(#{sbom_file  := SbomFile}) ->
     Sbom = decode(SbomFile),
