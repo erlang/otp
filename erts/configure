@@ -19359,6 +19359,32 @@ printf "%s\n" "#define HAVE_STRUCT_SCTP_EVENT_SUBSCRIBE_SCTP_STREAM_CHANGE_EVENT
 
 
 fi
+ac_fn_c_check_member "$LINENO" "struct sctp_stream_reset_event" "strreset_stream_list" "ac_cv_member_struct_sctp_stream_reset_event_strreset_stream_list" "#if HAVE_SYS_SOCKET_H
+         #include <sys/socket.h>
+         #endif
+         #include <netinet/sctp.h>
+
+"
+if test "x$ac_cv_member_struct_sctp_stream_reset_event_strreset_stream_list" = xyes
+then :
+
+printf "%s\n" "#define HAVE_STRUCT_SCTP_STREAM_RESET_EVENT_STRRESET_STREAM_LIST 1" >>confdefs.h
+
+
+fi
+ac_fn_c_check_member "$LINENO" "struct sctp_stream_reset_event" "strreset_list" "ac_cv_member_struct_sctp_stream_reset_event_strreset_list" "#if HAVE_SYS_SOCKET_H
+         #include <sys/socket.h>
+         #endif
+         #include <netinet/sctp.h>
+
+"
+if test "x$ac_cv_member_struct_sctp_stream_reset_event_strreset_list" = xyes
+then :
+
+printf "%s\n" "#define HAVE_STRUCT_SCTP_STREAM_RESET_EVENT_STRRESET_LIST 1" >>confdefs.h
+
+
+fi
 
 
 fi

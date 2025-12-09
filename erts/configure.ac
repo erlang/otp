@@ -1858,7 +1858,9 @@ AS_IF([test x"$ac_cv_header_netinet_sctp_h" = x"yes"],
                       struct sctp_event_subscribe.sctp_sender_dry_event,
                       struct sctp_event_subscribe.sctp_stream_reset_event,
                       struct sctp_event_subscribe.sctp_assoc_reset_event,
-                      struct sctp_event_subscribe.sctp_stream_change_event], [], [],
+                      struct sctp_event_subscribe.sctp_stream_change_event,
+                      struct sctp_stream_reset_event.strreset_stream_list,
+                      struct sctp_stream_reset_event.strreset_list], [], [],
         [#if HAVE_SYS_SOCKET_H
          #include <sys/socket.h>
          #endif
