@@ -87,12 +87,12 @@ start([DebugStr]) when is_list(DebugStr) ->
 	       Dbg;
 	   _ ->
 	       ?ERROR("Invalid debug argument: '~s'", [DebugStr]),
-	       ?STOP()
+               invalid({bad_debug, DebugStr})
 	   catch
 	       _:_:_ ->
 		   ?ERROR("Failed convert debug string ('~s')",
                           [DebugStr]),
-		   ?STOP()
+                   invalid({bad_debug, DebugStr})
 	   end,
     start(node(), ensure_opts(#{debug => Debug}));
 
@@ -106,9 +106,10 @@ start(Invalid) ->
     ?ERROR("invalid start command: "
            "~n   Invalid: ~p"
            "~n", [Invalid]),
-    ?STOP().
+    invalid(Invalid).
 
-
+invalid(Invalid) ->
+    erlang:error({invalid, Invalid}).
 
 -spec start(Node, Opts) -> {ok, Server} | {error, Reason} when
       Node   :: node(),
@@ -149,7 +150,7 @@ do_start(Node,
        is_boolean(Debug) ->
     Args = [self(), Opts],
     case rpc:call(Node, ?MODULE, start_it, Args) of
-        {badrpc, _} = Reason ->
+        {badrpc, Reason} ->
             {error, Reason};
         {ok, {Pid, _}} = OK when is_pid(Pid) ->
             OK;
@@ -242,14 +243,14 @@ acceptor_init(#{parent  := Parent,
 	    {error, OReason} ->
 		?ERROR("Failed open socket: "
                        "~n   ~p", [OReason]),
-		?STOP()
+                exit({open, OReason})
 	end,
 
     RawSA = #{family => Domain,
               addr   => IP,
               port   => 0},
-    ?DEBUG("bind socket to: "
-           "~n   ~p", [RawSA]),
+    ?DEBUG("~s -> try bind socket to: "
+           "~n   ~p", [?FUNCTION_NAME, RawSA]),
     case socket:bind(Sock, RawSA) of
 	ok ->
 	    ok;
@@ -257,34 +258,34 @@ acceptor_init(#{parent  := Parent,
 	    ?ERROR("Failed bind socket: "
 	           "~n   RawSA: ~p"
                    "~n   ~p", [RawSA, BReason]),
-	    ?STOP()
+	    exit({bind, BReason})
     end,
 
-    ?DEBUG("listen"),
+    ?DEBUG("~s -> try listen", [?FUNCTION_NAME]),
     case socket:listen(Sock, true) of
 	ok ->
 	    ok;
 	{error, LReason} ->
 	    ?ERROR("Failed listen: "
                    "~n   ~p", [LReason]),
-	    ?STOP()
+	    exit({listen, LReason})
     end,
 
     Evs = ?SCTP_EVENTS(false),
-    ?DEBUG("subscribe to (sctp) events"),
+    ?DEBUG("~s -> try subscribe to (sctp) events", [?FUNCTION_NAME]),
     case socket:setopt(Sock, {sctp, events}, Evs) of
         ok ->
             ok;
-        {error, Reason4} ->
+        {error, SOReason} ->
             ?ERROR("Failed SCTP events:"
-                   "~n   ~p", [Reason4]),
-            ?STOP()
+                   "~n   ~p", [SOReason]),
+            exit({setopt, SOReason})
     end,
 
-    ?DEBUG("monitor parent"),
+    ?DEBUG("~s -> try monitor parent", [?FUNCTION_NAME]),
     MRef = erlang:monitor(process, Parent),
 
-    ?DEBUG("get sockname"),
+    ?DEBUG("~s -> try get sockname", [?FUNCTION_NAME]),
     SockAddr = #{addr := BAddr, port := BPort} =
         case socket:sockname(Sock) of
             {ok, SA} ->
@@ -292,7 +293,7 @@ acceptor_init(#{parent  := Parent,
             {error, SNReason} ->
                 ?ERROR("Failed get sockname: "
                        "~n   ~p", [SNReason]),
-                ?STOP()
+                exit({sockname, SNReason})
         end,
 
     ?INFO("Socket bound to: "
