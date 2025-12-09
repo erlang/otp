@@ -282,7 +282,9 @@ An IO device as returned by `open/2`.
                       Size :: non_neg_integer(),
                       Delay :: non_neg_integer()}
 		   | 'delayed_write' | {'read_ahead', Size :: pos_integer()}
-		   | 'read_ahead' | 'compressed' | 'compressed_one'
+		   | 'read_ahead' | 'compressed' | 'compressed_one' |
+		     {zstd, zstd:compress_parameters() |
+		            zstd:decompress_parameters()}
 		   | {'encoding', unicode:encoding()}
 		   | sync.
 -type deep_list() :: [char() | atom() | deep_list()].
@@ -1342,6 +1344,12 @@ more of the following options:
   Option `compressed` must be combined with `read` or `write`, but not both.
   Notice that the file size obtained with `read_file_info/1` does probably not
   match the number of bytes that can be read from a compressed file.
+
+- **`{zstd, Opts}`** - Makes it possible to read or write zstd compressed
+  files. Option `compressed` must be combined with `read` or `write`, but not
+  both. Notice that the file size obtained with `read_file_info/1` does
+  probably not match the number of bytes that can be read from a compressed
+  file.
 
 - **`compressed_one`** - Read one member of a gzip compressed file. Option
   `compressed_one` can only be combined with `read`.
