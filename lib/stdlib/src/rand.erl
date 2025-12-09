@@ -44,10 +44,10 @@ A generator algorithm, for each iteration, takes a state as input
 and produces a raw pseudo random number and a new state to be used
 for the next iteration.
 
-A particular state always produces the same number and new state.
+A particular state always produces the same raw number and new state.
 The initial state is produced from a [seed](`seed/1`).
-This makes it possible to repeat for example a simulation with the same
-random number sequence, by re-using the same seed.
+This makes it possible to reproduce for example a simulation with the same
+pseudo random number sequence, by using the same seed.
 There are also the functions `export_seed/0` and `export_seed_s/1`
 that capture the PRNG state in an `t:export_state/0`,
 that can be used to start from a known state.
@@ -86,20 +86,42 @@ that add essential or useful funcionality:
 * Generating [floating-point numbers](`t:float/0`) with
   [normal distribution](`normal/0`), standard normal distribution
   or [specified mean and variance](`normal/2`).
+  Note that these operations may under some circumstances not be able
+  to reproduce a sequence.  See the functions' documentation.
 * Generating any number of [bytes](`bytes/1`).
 * [Jumping](`jump/1`) the generator ahead, in algorithms that support that.
 
 [](){: #usage }
-#### Usage and examples
+### Usage and examples
 
-A generator has to be initialized.  This is done by one of the
-`seed/1` or `seed_s/1` functions, which also select which
-[algorithm](#algorithms) to use.  The `seed/1` functions
-store the generator and state in the process dictionary,
-while the `seed_s/1` functions only return the state, which requires
-the calling code to handle the state and updates to it.
+Decide if the PRNG state should be stored in the process dictionary
+of the calling process (implicit state), or in a state variable
+for the calling code to keep track of (explicit state).
+The seed and generation functions named with a suffix `_s` handle
+an explicit state, and the functions without the suffix operate on
+the implicit state.  There are are a few exceptions to this rule.
 
-The seed functions that do not have a `Seed` value as an argument
+First initialize (seed) a generator, which selects a PRNG
+algorithm and creates the initial state.  Either use an explicit
+`Seed` value which makes it possible to reproduce the PRNG sequence,
+or use an automatic seed.
+
+Then the generator functions can be called.
+
+If a generator function that operates on the implicit state
+is called when no implicit state has been generated,
+an automatic seed is used to create the implicit state.
+
+#### Seeding the generator
+
+Seeding (initializing) is done by calling one of the `seed/1` or
+`seed_s/1` functions, which also select which [algorithm](#algorithms)
+to use.  The `seed/1` functions store the generator and state
+in the process dictionary, while the `seed_s/1` functions
+only return the state, which requires the calling code
+to handle the state and updates to it.
+
+The seed functions that do not have a `Seed` argument
 create an automatic seed that should be unique to the created
 generator instance; see `seed_s/1`.
 
@@ -107,32 +129,69 @@ If an automatic seed is not desired, the seed functions that have a
 [`Seed`](`t:seed/0`) argument can be used.  The argument has
 3 possible formats; see the `t:seed/0` type description.
 
-[Plug-in framework API](#plug-in-framework-api) functions
-named with the suffix `_s` take an explicit state as the last argument
+#### Using the generator
+
+The [Plug-in framework API](#plug-in-framework-api) generator functions
+named with the suffix `_s` take an explicit state as their last argument
 and return the new state as the last element in the returned tuple.
 The process dictionary is not used.
 
-Sibling functions without that suffix take an implicit state from
-and store the new state in the process dictionary, and only return
-their "interesting " output value.  If the process dictionary
-does not contain a state, [`seed(default)`](`seed/1`)
-is implicitly called to create an automatic seed for the
-[_default algorithm_](#default-algorithm) as initial state.
+Sibling functions without that suffix take operate on the implicit state
+stored in the process dictionary, and only return their "interesting "
+output value.  If the process dictionary has no PRNG state,
+[`seed(default)`](`seed/1`) is implicitly called to create an automatic seed
+for the [_default algorithm_](#default-algorithm), as initial state.
 
-#### _Usage_
+*Generator functions*:
 
-First initialize a generator by calling one of the [seed](`seed/1`)
-functions, which also selects a PRNG algorithm.
+* `uniform/1` and `uniform_s/2` generate *uniformly distributed integers*
+  on **any** (unlimited) range.
+* `uniform/0`, `uniform_s/1`, `uniform_real/0` and `uniform_real_s/1`
+  generate *uniformly distributed floating point numbers*.
+* `bytes/1` and `bytes_s/2` generate *uniformly distributed bytes*.
+* `shuffle/1` and `shuffle_s/2` *shuffle a list*.
 
-Then call a [Plug-in framework API](#plug-in-framework-api) function
-either with an explicit state from the seed function
-and use the returned new state in the next call,
-or call an API function without an explicit state argument
-to operate on the state in the process dictionary.
+Those generator functions use one or more raw numbers from the generator
+to do perform their tasks, which actually may be a bit tricky
+to do correctly and efficiently.
+
+[](){: #normal-distribution-caveat } *Generator functions*:
+
+* `normal/0` and `normal_s/1` generate *standard normal distribution*
+  floating point numbers.
+* `normal/2` and `normal_s/3` generate *normal distribution*
+  floating poing numbers with specified *mean value and variance*.
+
+Those generator functions have to use a number of floating point
+calculations, that on different platforms with different math library
+implementations, optimizations, compilation flags such as
+gcc:s `-ffast-math`, etc, may produce slightly different values.
+
+Furthermore these slightly different values may cause the implementation
+to do a recursive retry on one platform that is not done on another,
+so the produced sequences may derail and get out of sync.
+
+In other words, using these generator functions may cause the generated
+number sequence to be different on a different platform or on a different
+Erlang/OTP systems.  Despite using the same seed.
+
+In the Shell Examples section just below, it is mentioned how to
+generate a textbook Box-Müller method standard distribution number,
+which is much slower than the Ziggurat Method used by the  `normal`*
+functions:
+
+```erlang
+ math:sqrt(-2 * math:log(rand:uniform_real()))
+ * math:cos(math:pi() * rand:uniform())
+```
+
+That method always uses 2 raw generator numbers, so it will not derail,
+but may still produce slightly different numbers on different platforms.
 
 #### _Shell Examples_
 
 ```erlang
+
 %% Generate two uniformly distibuted floating point numbers.
 %%
 %% By not calling a [seed](`seed/1`) function, this uses
@@ -205,9 +264,9 @@ true
     is_float(ND0).
 true
 
-%% Generate a textbook basic form Box-Muller
+%% Generate a textbook basic form Box-Müller
 %% standard normal distribution number, which has the same
-%% distribution as the built-in Ziggurat method above,
+%% distribution as the built-in Ziggurat Method above,
 %% but is much slower:
 %%
 15> R6 = rand:uniform_real(),
@@ -332,8 +391,7 @@ The following algorithms are provided:
   See the [algorithms' homepage](http://xorshift.di.unimi.it).
 
 [](){: #default-algorithm }
-#### Default Algorithm
-
+### Default Algorithm
 The current _default algorithm_ is
 [`exsss` (Xorshift116\*\*)](#algorithms). If a specific algorithm is
 required, ensure to always use `seed/1` to initialize the state.
@@ -348,7 +406,7 @@ If it is essential to reproduce the same PRNG sequence
 on a later Erlang/OTP release, use `seed/2` or `seed_s/2`
 to select *both* a specific algorithm and the seed value.
 
-#### Old Algorithms
+### Old Algorithms
 
 Undocumented (old) algorithms are deprecated but still implemented so old code
 relying on them will produce the same pseudo random sequences as before.
@@ -375,7 +433,7 @@ relying on them will produce the same pseudo random sequences as before.
 > subranges. The new algorithms produces uniformly distributed floats
 > of the form `N * 2.0^(-53)` hence they are equally spaced.
 
-#### Quality of the Generated Numbers
+### Quality of the Generated Numbers
 
 > #### Note {: .info }
 >
@@ -1725,6 +1783,12 @@ and the [`NewState`](`t:state/0`).
 3> F.
 0.5235119324419965
 ```
+
+> #### Note {: .info }
+>
+> See the [generator functions](#normal-distribution-caveat) description
+> in the [Usage and Examples](#usage) section about why this function
+> may produce different number sequences on different platforms.
 """.
 -doc(#{group => <<"Plug-in framework API">>,since => <<"OTP 18.0">>}).
 -spec normal_s(State :: state()) -> {X :: float(), NewState :: state()}.
@@ -1764,6 +1828,12 @@ Returns [`X`](`t:float/0`) and the [`NewState`](`t:state/0`).
 3> F.
 -2.6298211625381906
 ```
+
+> #### Note {: .info }
+>
+> See the [generator functions](#normal-distribution-caveat) description
+> in the [Usage and Examples](#usage) section about why this function
+> may produce different number sequences on different platforms.
 """.
 -doc(#{group => <<"Plug-in framework API">>,since => <<"OTP 20.0">>}).
 -spec normal_s(Mean, Variance, State) -> {X :: float(), NewState :: state()}
