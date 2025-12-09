@@ -171,7 +171,7 @@ range depends on the underlying operating system.
 A date using the Gregorian calendar.
 
 All APIs expect this to be a valid date. If the source of the date
-is unknown, then verify that is it valid by calling `valid_date/1`
+is unknown, then verify that it is valid by calling `valid_date/1`
 before using it.
 """.
 -type date()           :: {year(),month(),day()}.
