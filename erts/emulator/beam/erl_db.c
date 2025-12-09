@@ -1085,7 +1085,7 @@ static int remove_named_tab(DbTable *tb, int have_lock)
         // We don't need to do anything to the actual entry: if a reader thread
         // sees size=0 it won't look further.
         // And if it saw size = 1, then it is as if it had fully run before us.
-        ASSERT(erts_atomic32_get_nob(&bucket->inline_entry.size) == 1);
+        ASSERT(erts_atomic32_read_nob(&bucket->inline_entry.size) == 1);
         erts_atomic32_set_nob(&bucket->inline_entry.size, (erts_aint_t) 0);
     } else {
         // Trying to remove an entry from the vector without reallocation
@@ -1094,6 +1094,7 @@ static int remove_named_tab(DbTable *tb, int have_lock)
         if (size - 1 > 1) {
             new_entries = alloc_meta_name_tab_entries(size - 1);
         } else {
+            ASSERT(erts_atomic32_read_nob(&bucket->inline_entry.size) == 1);
             new_entries = &bucket->inline_entry;
         }
         memcpy(&new_entries->data[0], &entries->data[0],
