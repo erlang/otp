@@ -2491,7 +2491,7 @@ is scrambled through AES-256 to create a 58-bit pseudo random value.
 
 The result should be statistically completely unpredictable random values,
 since the scrambling is cryptographically strong and the period is
-ridiculously long.  But the generated numbers are not to be regarded as
+extremely long.  But the generated numbers are not to be regarded as
 cryptographically strong since there is no re-keying schedule,
 and since the sequence is repeated for the same seed.
 
@@ -2547,7 +2547,7 @@ through `rand:bytes_s/2`.
 
 The key stream from a stream cipher is cryptographically unpredictable,
 which should result in statistically completely unpredictable random values,
-But the generated numbers are not to be regarded as
+but the generated numbers are not to be regarded as
 cryptographically strong since there is no re-keying schedule,
 and since the sequence is repeated for the same seed.
 

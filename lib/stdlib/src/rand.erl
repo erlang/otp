@@ -1489,8 +1489,8 @@ as required to compose the `t:binary/0`.  Returns the generated
 > function cannot do.
 >
 > Alas, when this function is based on a PRNG that produces random integers,
-> such as all in this module's [algorithms](#algorithms) section,
-> bytes has to created from integers, which becomes rather slow.
+> such as any in this module's [algorithms](#algorithms) section,
+> bytes have to be created from integers, which becomes rather slow.
 >
 > A plug-in generator may implement a dedicated callback
 > for generating bytes, to mitigate this problem, which in that case
