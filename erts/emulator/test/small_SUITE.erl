@@ -27,7 +27,8 @@
          multiplication/1, mul_add/1, division/1,
          test_bitwise/1, test_bsl/1, test_bsr/1,
          element/1,
-         range_optimization/1]).
+         range_optimization/1,
+         confused_squaring/1]).
 -export([mul_add/0, division/0]).
 
 -include_lib("common_test/include/ct.hrl").
@@ -45,7 +46,8 @@ groups() ->
        addition, subtraction, negation, multiplication, mul_add, division,
        test_bitwise, test_bsl, test_bsr,
        element,
-       range_optimization]}].
+       range_optimization,
+       confused_squaring]}].
 
 edge_cases(Config) when is_list(Config) ->
     {MinSmall, MaxSmall} = Limits = determine_small_limits(0),
@@ -1523,6 +1525,16 @@ any_integer(I) ->
     case id(I) of
         N when is_integer(N) -> N
     end.
+
+%%
+%% GH-10454: `X * X + X * X` was mishandled by the JIT.
+%%
+confused_squaring(_Config) ->
+  X = id(2),
+  [1, 2, 8] =
+    lists:append(lists:map(fun(Y) -> Y end, [1, 2]), [X * X + X * X]),
+
+  ok.
 
 %%%
 %%% Helpers.
