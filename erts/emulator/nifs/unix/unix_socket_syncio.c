@@ -1330,7 +1330,7 @@ ERL_NIF_TERM essio_info_sctp(ErlNifEnv* env)
     ERL_NIF_TERM sctp;
     ERL_NIF_TERM sctpKeys[]  =
         {MKA(env, "bindx"),
-         MKA(env, "peeoff"),
+         MKA(env, "peeloff"),
          MKA(env, "getladdrs"),
          MKA(env, "freeladdrs"),
          MKA(env, "getpaddrs"),
