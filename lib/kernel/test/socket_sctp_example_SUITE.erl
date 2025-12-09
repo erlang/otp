@@ -337,7 +337,9 @@ do_simple(#{domain       := Domain,
        "~n   Node: ~p",
        [?FUNCTION_NAME, ServerNode]),
     {ok, {Server, ServerMRef, ServerSA}} =
-        socket_sctp_server:start_monitor(ServerNode, #{domain => Domain}),
+        socket_sctp_server:start_monitor(ServerNode,
+                                         #{domain => Domain,
+                                           debug  => true}),
 
     ?P("~s -> server started: "
        "~n   Server:      ~p"
