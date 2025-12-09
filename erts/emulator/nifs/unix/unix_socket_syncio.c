@@ -1163,7 +1163,14 @@ void essio_sctp_init_static(void)
 #endif
 
 #if defined(HAVE_SCTP_CONNECTX)
-    ctrl.sctp.connectx = sctp_connectx;
+    /* On some platforms the base type of assoc-id is a signed int
+     * but on others its a unsigned int...
+     * Linux seems to use signed int, so that is what we use.
+     */
+    ctrl.sctp.connectx = (int  (*) (int,
+                                    const struct sockaddr*,
+                                    int,
+                                    sctp_assoc_t*)) sctp_connectx;
 #else
     ctrl.sctp.connectx = NULL;
 #endif
@@ -5840,8 +5847,8 @@ ERL_NIF_TERM encode_ioctl_ifconf(ErlNifEnv*       env,
     if (len > 0) {
         ERL_NIF_TERM  elem, array;
         SocketTArray  tarray = TARRAY_CREATE(32);
-        unsigned int  n     = 1; // Just for debugging
-        unsigned int  i     = 0;
+        unsigned int  n      = 1; // Just for debugging
+        unsigned int  i      = 0;
         unsigned int  sz;
         struct ifreq* ifrP;
 
@@ -5851,7 +5858,7 @@ ERL_NIF_TERM encode_ioctl_ifconf(ErlNifEnv*       env,
                    ("UNIX-ESSIO",
                     "encode_ioctl_ifconf -> encode entry %d at %d\r\n", n, i) );
 
-            ifrP = (struct ifreq*) VOIDP(ifcP->ifc_buf + i);
+            ifrP = (struct ifreq*) (((char*)ifcP->ifc_buf) + i);
             sz   = sizeof(ifrP->ifr_name) + SIZEA(ifrP->ifr_addr);
             if (sz < sizeof(*ifrP)) sz = sizeof(*ifrP);
 
@@ -8247,28 +8254,27 @@ void essio_encode_sctp_notif_stream_reset_event(ErlNifEnv*                      
     unsigned int chunkLen;
     ERL_NIF_TERM eaid  = MKUI(env, p->strreset_assoc_id);
     ERL_NIF_TERM eflags, estreams;
-    unsigned int flags = p->strreset_flags;
     SocketTArray ta    = TARRAY_CREATE(4);
 
     /* *** flags *** */
 
 #if defined(SCTP_STREAM_RESET_INCOMING_SSN)
-    if (flags & SCTP_STREAM_RESET_INCOMING_SSN)
+    if (p->strreset_flags & SCTP_STREAM_RESET_INCOMING_SSN)
         TARRAY_ADD(ta, esock_atom_incoming_ssn);
 #endif
 
 #if defined(SCTP_STREAM_RESET_OUTCOMING_SSN)
-    if (flags & SCTP_STREAM_RESET_OUTCOMING_SSN)
+    if (p->strreset_flags & SCTP_STREAM_RESET_OUTCOMING_SSN)
         TARRAY_ADD(ta, esock_atom_outgoing_ssn);
 #endif
 
 #if defined(SCTP_STREAM_RESET_DENIED)
-    if (flags & SCTP_STREAM_RESET_DENIED)
+    if (p->strreset_flags & SCTP_STREAM_RESET_DENIED)
         TARRAY_ADD(ta, esock_atom_denied);
 #endif
 
 #if defined(SCTP_STREAM_RESET_FAILED)
-    if (flags & SCTP_STREAM_RESET_FAILED)
+    if (p->strreset_flags & SCTP_STREAM_RESET_FAILED)
         TARRAY_ADD(ta, esock_atom_failed);
 #endif
 
@@ -8277,20 +8283,31 @@ void essio_encode_sctp_notif_stream_reset_event(ErlNifEnv*                      
 
     /* *** streams *** */
 
+#if defined(HAVE_STRUCT_SCTP_STREAM_RESET_EVENT_STRRESET_STREAM_LIST)
     streams  = p->strreset_stream_list;
-    chunkP   = (char*) streams;
-    chunkLen = p->strreset_length - (chunkP - (char*) p);
-    chunkLen = chunkLen / 2; // array is of 16-bit values
-    if (chunkLen >= 1) {
-        unsigned int i;
-        SocketTArray sta = TARRAY_CREATE(20); // Just to be on the safe side
+#elif defined(HAVE_STRUCT_SCTP_STREAM_RESET_EVENT_STRRESET_LIST)
+    streams  = p->strreset_list;
+#else
+    /* Not sure if this can happen, but just to be on the safe side */
+    streams  = NULL;
+#endif
+    if (streams != NULL) {
+        chunkP   = (char*) streams;
+        chunkLen = p->strreset_length - (chunkP - (char*) p);
+        chunkLen = chunkLen / 2; // array is of 16-bit values
+        if (chunkLen >= 1) {
+            unsigned int i;
+            SocketTArray sta = TARRAY_CREATE(20); // Just to be on the safe side
+            
+            for (i = 0; i < chunkLen; i++) {
+                TARRAY_ADD(sta, MKUI(env, sock_ntohs( streams[i] ) ));
+            }
 
-        for (i = 0; i < chunkLen; i++) {
-            TARRAY_ADD(sta, MKUI(env, sock_ntohs( streams[i] ) ));
+            TARRAY_TOLIST(sta, env, &estreams);
+
+        } else {
+            estreams = MKEL(env);
         }
-
-        TARRAY_TOLIST(sta, env, &estreams);
-
     } else {
         estreams = MKEL(env);
     }
