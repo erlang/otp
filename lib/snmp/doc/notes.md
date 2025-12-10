@@ -21,6 +21,24 @@ limitations under the License.
 -->
 # SNMP Release Notes
 
+## SNMP 5.20
+
+### Fixed Bugs and Malfunctions
+
+- Fixed a bug where running snmp:config() from Elixir would crash due to io:get_line/1 returning unexpected datatype.
+
+  Own Id: OTP-19883 Aux Id: [PR-10326]
+
+[PR-10326]: https://github.com/erlang/otp/pull/10326
+
+### Improvements and New Features
+
+- Inherit ERL_DETERMINISTIC variable for compiling snmp_pdus_basic.beam.
+
+  Own Id: OTP-19885 Aux Id: [PR-10288]
+
+[PR-10288]: https://github.com/erlang/otp/pull/10288
+
 ## SNMP 5.19.1
 
 ### Fixed Bugs and Malfunctions

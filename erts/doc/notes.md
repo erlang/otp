@@ -23,6 +23,105 @@ limitations under the License.
 
 This document describes the changes made to the ERTS application.
 
+## Erts 16.2
+
+### Fixed Bugs and Malfunctions
+
+- Fixed a build issue on modern compilers.
+
+  Own Id: OTP-19789 Aux Id: [PR-9983]
+
+- When multiple processes called the same fun whose defining module was not loaded, a `badfun` exception could sometimes occur in one of the calling processes. This would only happen with the JIT runtime system.
+
+  Own Id: OTP-19803 Aux Id: [PR-10257]
+
+- Fix a bug where Erlang/OTP tools could load a different boot script from CWD.
+
+  Own Id: OTP-19819 Aux Id: [PR-10317]
+
+- Fixed a bug when more than one session traced the same BIF. Disabling tracing for a BIF in one session could incorrectly disable tracing of the BIF in other trace sessions as well.
+
+  Own Id: OTP-19840 Aux Id: [PR-10349]
+
+- Fixed a slight performance regression in `erlang:binary_to_term/1,2`.
+
+  Own Id: OTP-19859 Aux Id: [PR-10383], [GH-8329]
+
+- Two socket related code warts found by PVS Studio has been fixed.  One caused `gen_tcp` to no convert the send error `econnaborted` to `econnreset` on Windows. The other caused `socket:sendfile/*` to indicate the wrong error for a bad `Offset`.
+
+  Own Id: OTP-19862 Aux Id: [PR-10362], [PR-10388]
+
+- Fixed bug causing VM crash if an Erlang process gets killed while executing `re:run` with a (presumably) large subject string.
+
+  Own Id: OTP-19888 Aux Id: [GH-10432], [PR-10439]
+
+[PR-9983]: https://github.com/erlang/otp/pull/9983
+[PR-10257]: https://github.com/erlang/otp/pull/10257
+[PR-10317]: https://github.com/erlang/otp/pull/10317
+[PR-10349]: https://github.com/erlang/otp/pull/10349
+[PR-10383]: https://github.com/erlang/otp/pull/10383
+[GH-8329]: https://github.com/erlang/otp/issues/8329
+[PR-10362]: https://github.com/erlang/otp/pull/10362
+[PR-10388]: https://github.com/erlang/otp/pull/10388
+[GH-10432]: https://github.com/erlang/otp/issues/10432
+[PR-10439]: https://github.com/erlang/otp/pull/10439
+
+### Improvements and New Features
+
+- Updated the vendor dependencies SHA to improve the accuracy of the source SBOM with `purl` pointing to the exact vendor commit that Erlang/OTP builds upon.
+
+  Own Id: OTP-19777 Aux Id: [PR-10216]
+
+- Receive buffer allocation has been optimized for `socket` socket in that an underutilized buffers' content is copied to a freshly allocated binary of the right size instead of being reallocated.
+  
+  This optimization was already implemented for the `socket:recv/1` functions, but now the same buffer stragegy is shared between all `socket` receive operations.
+
+  Own Id: OTP-19794 Aux Id: [PR-10231]
+
+- Option(s) to create `gen_tcp` and `socket` sockets with protocol IPPROTO_MPTCP has been implemented.
+  
+  See functions `gen_tcp:listen/2`, `gen_tcp:connect/4` and the type `t:socket:protocol/0`.
+
+  Own Id: OTP-19814
+
+- `erlc` will now limit the number of ports and processes when starting `erl` in order to use less memory.
+
+  Own Id: OTP-19852 Aux Id: [PR-10364]
+
+- Support for the socket options TCP_KEEPCNT, TCP_KEEPIDLE, and TCP_KEEPINTVL have been implemented for `gen_tcp`, as well as TCP_USER_TIMEOUT for both `gen_tcp` and `socket`.
+
+  Own Id: OTP-19857 Aux Id: OTP-19814, [PR-10390]
+
+- Limit size of sctp_event_subscribe on Linux
+
+  Own Id: OTP-19863 Aux Id: [PR-10321]
+
+- Updated MD5 implementation from OpenSSL 3.5.0 to 3.6.0
+
+  Own Id: OTP-19870 Aux Id: [PR-10405]
+
+- Improved performance when doing `socket:accept` on the same socket from many processes on large multi core systems under high rate of connections. Mitigating performance regression seen since OTP 28.0.
+
+  Own Id: OTP-19873 Aux Id: [PR-10323], [GH-10322]
+
+- Updated STL version used.
+
+  Own Id: OTP-19876
+
+- Updated PCRE2 to 10.47. Also picked newer fix, from upstream PCRE2, to bug that could cause benign random uninitialized data in exported regular expressions.
+
+  Own Id: OTP-19880 Aux Id: [PR-10391]
+
+[PR-10216]: https://github.com/erlang/otp/pull/10216
+[PR-10231]: https://github.com/erlang/otp/pull/10231
+[PR-10364]: https://github.com/erlang/otp/pull/10364
+[PR-10390]: https://github.com/erlang/otp/pull/10390
+[PR-10321]: https://github.com/erlang/otp/pull/10321
+[PR-10405]: https://github.com/erlang/otp/pull/10405
+[PR-10323]: https://github.com/erlang/otp/pull/10323
+[GH-10322]: https://github.com/erlang/otp/issues/10322
+[PR-10391]: https://github.com/erlang/otp/pull/10391
+
 ## Erts 16.1.2
 
 ### Fixed Bugs and Malfunctions

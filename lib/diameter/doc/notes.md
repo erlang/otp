@@ -23,6 +23,17 @@ limitations under the License.
 
 Releases are listed in reverse chronological order, most recent first.
 
+## diameter 2.6
+
+### Improvements and New Features
+
+- Add new option 'indirect_inherits' to diameter_make:codec/2
+
+  Own Id: OTP-19626 Aux Id: [GH-8235], [PR-10149]
+
+[GH-8235]: https://github.com/erlang/otp/issues/8235
+[PR-10149]: https://github.com/erlang/otp/pull/10149
+
 ## diameter 2.5.2
 
 ### Fixed Bugs and Malfunctions

@@ -21,6 +21,16 @@ limitations under the License.
 -->
 # Common Test Release Notes
 
+## Common_Test 1.29.1
+
+### Improvements and New Features
+
+- Updated the vendor dependencies SHA to improve the accuracy of the source SBOM with `purl` pointing to the exact vendor commit that Erlang/OTP builds upon.
+
+  Own Id: OTP-19777 Aux Id: [PR-10216]
+
+[PR-10216]: https://github.com/erlang/otp/pull/10216
+
 ## Common_Test 1.29
 
 ### Improvements and New Features

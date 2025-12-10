@@ -3,6 +3,7 @@
 %% SPDX-License-Identifier: MPL-1.1
 %%
 %% SPDX-FileCopyrightText: Copyright 2007 S.G. Consulting s.r.l. Hunter Morris <huntermorris@gmail.com>
+%% Copyright Ericsson AB 2025. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 

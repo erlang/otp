@@ -23,6 +23,50 @@ limitations under the License.
 
 This document describes the changes made to the Compiler application.
 
+## Compiler 9.0.4
+
+### Fixed Bugs and Malfunctions
+
+- For some function heads or `case` expressions with a huge number of clauses, the compiler could spend an inordinate amount of time compiling the code.
+
+  Own Id: OTP-19797 Aux Id: [PR-10252]
+
+- Passing a type for a fun as a macro argument would result in a "badly formed argument" error message from the compiler. Example:
+  
+  ```
+  -module(test).
+  -define(FOO(X), X).
+  -type foo() :: ?FOO(fun(() -> ok)).
+  ```
+  
+  Compiling this module would result in the following error message:
+  
+  ```
+  test.erl:3:17: badly formed argument for macro 'FOO'
+  %    5| -type foo() :: ?FOO(fun(() -> ok)).
+  %
+  ```
+
+  Own Id: OTP-19821 Aux Id: [GH-10280], [PR-10309]
+
+- In certain edge cases, the compiler could emit code that would do an unsafe destructive update of a tuple. This has been corrected.
+
+  Own Id: OTP-19879 Aux Id: [GH-10367], [PR-10435]
+
+[PR-10252]: https://github.com/erlang/otp/pull/10252
+[GH-10280]: https://github.com/erlang/otp/issues/10280
+[PR-10309]: https://github.com/erlang/otp/pull/10309
+[GH-10367]: https://github.com/erlang/otp/issues/10367
+[PR-10435]: https://github.com/erlang/otp/pull/10435
+
+### Improvements and New Features
+
+- The compiler option `beam_debug_stack` combined with `beam_debug_info` will attempt to make as many variables as possible visible in the debugger. The option has no effect if given without `beam_debug_info`.
+
+  Own Id: OTP-19854 Aux Id: [PR-10374]
+
+[PR-10374]: https://github.com/erlang/otp/pull/10374
+
 ## Compiler 9.0.3
 
 ### Fixed Bugs and Malfunctions

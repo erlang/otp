@@ -23,6 +23,32 @@ limitations under the License.
 
 This document describes the changes made to the Wx application.
 
+## Wx 2.5.3
+
+### Fixed Bugs and Malfunctions
+
+- Fix getting `wxImage` pixel values. For
+  example, `wxImage:getRed(Image)` returned the wrong value.
+  
+  Creating OpenGL windows should now work again.
+
+  Own Id: OTP-19823 Aux Id: [PR-10314]
+
+- Fixed reading out of array bounds and potential memory leaks.
+
+  Own Id: OTP-19843 Aux Id: [PR-10353]
+
+[PR-10314]: https://github.com/erlang/otp/pull/10314
+[PR-10353]: https://github.com/erlang/otp/pull/10353
+
+### Improvements and New Features
+
+- Updated the vendor dependencies SHA to improve the accuracy of the source SBOM with `purl` pointing to the exact vendor commit that Erlang/OTP builds upon.
+
+  Own Id: OTP-19777 Aux Id: [PR-10216]
+
+[PR-10216]: https://github.com/erlang/otp/pull/10216
+
 ## Wx 2.5.2
 
 ### Fixed Bugs and Malfunctions

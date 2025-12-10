@@ -55,6 +55,6 @@
    {registered, []},
    {env, []},
    {runtime_dependencies, ["stdlib-4.0","kernel-8.0","erts-13.0",
-                           "crypto-@OTP-19856@","asn1-5.0"]}
+                           "crypto-5.8","asn1-5.0"]}
   ]
 }.
