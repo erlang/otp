@@ -123,7 +123,7 @@ do_start(Node, PortNo, Opts)
   when (Node =/= node()) ->
     Args = [self(), PortNo, Opts],
     case rpc:call(Node, ?MODULE, start_it, Args) of
-        {badrpc, _} = Reason ->
+        {badrpc, Reason} ->
             {error, Reason};
         {ok, {Pid, _}} = OK when is_pid(Pid) ->
             OK;

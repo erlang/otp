@@ -194,7 +194,7 @@ start_run(Pid, RunTime)
 do_start(Node, ID, ServerSA, TrafficData, Opts) when (Node =/= node()) ->
     Args = [self(), ID, ServerSA, TrafficData, Opts],
     case rpc:call(Node, ?MODULE, start_it, Args) of
-        {badrpc, _} = Reason ->
+        {badrpc, Reason} ->
             {error, Reason};
         {ok, {Pid, _, _}} = OK when is_pid(Pid) ->
             OK;
