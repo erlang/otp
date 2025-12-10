@@ -463,12 +463,13 @@ wait_finished(internal,
         State4 = Connection:queue_handshake(Finished, State3),
         %% Send first flight
         {State5, _} = Connection:send_handshake_flight(State4),
-        State6 = tls_handshake_1_3:calculate_traffic_secrets(State5),
-        State7 = tls_handshake_1_3:maybe_calculate_resumption_master_secret(State6),
-        State8 = ssl_record:step_encryption_state(State7),
-        State9 = tls_handshake_1_3:prepare_connection(State8),
+        State6 = tls_handshake_1_3:calculate_write_traffic_secrets(State5),
+        State7 = tls_handshake_1_3:calculate_read_traffic_secrets(State6),
+        State8 = tls_handshake_1_3:maybe_calculate_resumption_master_secret(State7),
+        State9 = ssl_record:step_encryption_state(State8),
+        State10 = tls_handshake_1_3:prepare_connection(State9),
         {Record, State} =
-            ssl_gen_statem:prepare_connection(State9, tls_gen_connection),
+            ssl_gen_statem:prepare_connection(State10, tls_gen_connection),
         KeepSecrets = maps:get(keep_secrets, SSLOpts, false),
         tls_gen_connection_1_3:maybe_traffic_keylog_1_3(KeepSecrets, Role,
                                                         State#state.connection_states, 0),
@@ -487,6 +488,15 @@ wait_finished(Type, Msg, State) ->
                  term(), #state{}) ->
           gen_statem:state_function_result().
 %%--------------------------------------------------------------------
+connection(enter, _, #state{ssl_options = Opts} = State) ->
+    case maps:get(keep_secrets, Opts, undefined) of
+        {keylog_hs, _} ->
+            {next_state, ?STATE(connection), State, [{timeout, 1000, forget}]};
+        _ ->
+            {keep_state, State}
+    end;
+connection(timeout, forget, State) ->
+    {next_state, ?STATE(connection), tls_handshake_1_3:forget_master_secret(State)};
 connection(info, Msg, State) ->
     tls_gen_connection:gen_info(Msg, connection, State);
 connection(Type, Msg, State) ->
