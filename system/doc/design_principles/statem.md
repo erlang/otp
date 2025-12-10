@@ -81,8 +81,8 @@ title: Ballpoint Pen State Diagram
 stateDiagram-v2
     [*]       --> Retracted
     Retracted --> Retracted : push-side
-    Retracted --> Exposed   : push-end\n* Expose tip
-    Exposed   --> Retracted : push-side\n* Retract tip
+    Retracted --> Exposed   : push-end<br />* Expose tip
+    Exposed   --> Retracted : push-side<br />* Retract tip
     Exposed   --> Exposed   : push-end
 ```
 
@@ -567,14 +567,14 @@ title: Code Lock State Diagram
 stateDiagram-v2
     state check_code <<choice>>
 
-    [*]         --> locked : * do_lock()\n* Clear Buttons
+    [*]         --> locked : * do_lock()<br />* Clear Buttons
 
-    locked      --> check_code : {button, Button}\n* Collect Buttons
+    locked      --> check_code : {button, Button}<br />* Collect Buttons
     check_code  --> locked     : Incorrect code
-    check_code  --> open       : Correct code\n* do_unlock()\n* Clear Buttons\n* Set state_timeout 10 s
+    check_code  --> open       : Correct code<br />* do_unlock()<br />* Clear Buttons<br />* Set state_timeout 10 s
 
     open        --> open   : {button, Digit}
-    open        --> locked : state_timeout\n* do_lock()
+    open        --> locked : state_timeout<br />* do_lock()
 ```
 
 This code lock state machine can be implemented using `m:gen_statem` with
@@ -1413,13 +1413,13 @@ stateDiagram-v2
 
     [*] --> enter_locked
 
-    enter_locked --> locked     : * do_lock()\n* Clear Buttons
-    locked       --> check_code : {button, Button}\n* Collect Buttons
-    locked       --> locked     : state_timeout\n* Clear Buttons
-    check_code   --> locked     : Incorrect code\n* Set state_timeout 30 s
+    enter_locked --> locked     : * do_lock()<br />* Clear Buttons
+    locked       --> check_code : {button, Button}<br />* Collect Buttons
+    locked       --> locked     : state_timeout<br />* Clear Buttons
+    check_code   --> locked     : Incorrect code<br />* Set state_timeout 30 s
     check_code   --> enter_open : Correct code
 
-    enter_open --> open         : * do_unlock()\n* Set state_timeout 10 s
+    enter_open --> open         : * do_unlock()<br />* Set state_timeout 10 s
     open       --> enter_locked : state_timeout
 ```
 
