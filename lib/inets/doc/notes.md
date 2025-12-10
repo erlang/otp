@@ -21,6 +21,36 @@ limitations under the License.
 -->
 # Inets Release Notes
 
+## Inets 9.5
+
+### Fixed Bugs and Malfunctions
+
+- Fixed uri_string:uri_string() to string() type specs inside httpc.erl module.
+
+  Own Id: OTP-19835 Aux Id: [PR-10242]
+
+- Fixed a bug where request options were not applied to a https proxy connection.
+
+  Own Id: OTP-19875 Aux Id: [PR-10369], [GH-10368]
+
+[PR-10242]: https://github.com/erlang/otp/pull/10242
+[PR-10369]: https://github.com/erlang/otp/pull/10369
+[GH-10368]: https://github.com/erlang/otp/issues/10368
+
+### Improvements and New Features
+
+- The usages of slave module in inets were removed. The httpd_bench_suite has been updated for SSL testing and is not skipped anymore. The httpd_load_test example has been removed completely as outdated.
+
+  Own Id: OTP-19717 Aux Id: [PR-10064]
+
+- Replace a call to application:which_applications() in httpc:set_options/2 with try...catch to reduce bottleneck.
+
+  Own Id: OTP-19884 Aux Id: [GH-10282], [PR-10307]
+
+[PR-10064]: https://github.com/erlang/otp/pull/10064
+[GH-10282]: https://github.com/erlang/otp/issues/10282
+[PR-10307]: https://github.com/erlang/otp/pull/10307
+
 ## Inets 9.4.2
 
 ### Fixed Bugs and Malfunctions

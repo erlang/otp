@@ -23,6 +23,33 @@ limitations under the License.
 
 This document describes the changes made to the Crypto application.
 
+## Crypto 5.8
+
+### Fixed Bugs and Malfunctions
+
+- The deprecated function `crypto:rand_uniform/2` has gotten a new replacement function `crypto:strong_rand_range/1`.  When implementing this the documentation of `crypto` and `rand` has been rewritten a bit and improved.
+
+  Own Id: OTP-19841 Aux Id: [PR-10344]
+
+[PR-10344]: https://github.com/erlang/otp/pull/10344
+
+### Improvements and New Features
+
+- You can now build OTP with OpenSSL 3.5 or later on windows.
+
+  Own Id: OTP-19848
+
+- Added SLH-DSA algorithms for sign/verify. Twelve variants supported in total; all combinations of SHAKE or SHA2 hashing, with 128, 192 or 256 bits, and fast(`f`) or small(`s`).
+
+  Own Id: OTP-19856 Aux Id: [PR-10268]
+
+- Made `crypto:generate_key(dh, [P, G, MaxPrivateKeyBitLength])` accept values of `MaxPrivateKeyBitLength` to be equal or larger than the bit length of `P`. If so, the maximum bit length is adjusted down to `P`'s bit length minus one.
+
+  Own Id: OTP-19872 Aux Id: [PR-10394]
+
+[PR-10268]: https://github.com/erlang/otp/pull/10268
+[PR-10394]: https://github.com/erlang/otp/pull/10394
+
 ## Crypto 5.7
 
 ### Fixed Bugs and Malfunctions

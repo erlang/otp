@@ -21,6 +21,18 @@ limitations under the License.
 -->
 # SSH Release Notes
 
+## Ssh 5.4
+
+### Improvements and New Features
+
+- Adjustment in ssh_file module allowing inclusion of Erlang/OTP license in test files containing keys.
+
+  *** POTENTIAL INCOMPATIBILITY ***
+
+  Own Id: OTP-19743 Aux Id: [PR-10177]
+
+[PR-10177]: https://github.com/erlang/otp/pull/10177
+
 ## Ssh 5.3.4
 
 ### Fixed Bugs and Malfunctions

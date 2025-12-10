@@ -21,6 +21,25 @@ limitations under the License.
 -->
 # Public_Key Release Notes
 
+## Public_Key 1.20
+
+### Fixed Bugs and Malfunctions
+
+- ASN.1 Encoding and decoding of some extensions did not work, e.g. `CRLEntryExtension`.
+
+  Own Id: OTP-19869 Aux Id: [GH-10404], [PR-10406]
+
+[GH-10404]: https://github.com/erlang/otp/issues/10404
+[PR-10406]: https://github.com/erlang/otp/pull/10406
+
+### Improvements and New Features
+
+- Add support in public_key and ssl for post quantum algorithm SLH-DSA.
+
+  Own Id: OTP-19867 Aux Id: [PR-10398]
+
+[PR-10398]: https://github.com/erlang/otp/pull/10398
+
 ## Public_Key 1.19
 
 ### Improvements and New Features

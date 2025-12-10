@@ -23,6 +23,42 @@ limitations under the License.
 
 This document describes the changes made to the SSL application.
 
+## SSL 11.5
+
+### Fixed Bugs and Malfunctions
+
+- Setting the internal process links between TLS distribution processes has been reviewed.  In the TLS distribution test framework there were issues fixed, but probably not in the TLS distribution module.
+
+  Own Id: OTP-19805 Aux Id: [PR-10232]
+
+- Correct documentation for fail_if_no_peer_cert option.
+
+  Own Id: OTP-19828 Aux Id: [PR-10333]
+
+[PR-10232]: https://github.com/erlang/otp/pull/10232
+[PR-10333]: https://github.com/erlang/otp/pull/10333
+
+### Improvements and New Features
+
+- Add support for MLKEM hybrid algorithms 
+  x25519mlkem768, secp384r1mlkem1024,
+  secp256r1mlkem768 in TLS-1.3
+
+  Own Id: OTP-19767 Aux Id: [PR-10262]
+
+- Property based test needed to compare
+  raw handshakes, that is some utility decoding needs to be converted back.
+
+  Own Id: OTP-19829 Aux Id: [PR-10335]
+
+- Add support in public_key and ssl for post quantum algorithm SLH-DSA.
+
+  Own Id: OTP-19867 Aux Id: [PR-10398]
+
+[PR-10262]: https://github.com/erlang/otp/pull/10262
+[PR-10335]: https://github.com/erlang/otp/pull/10335
+[PR-10398]: https://github.com/erlang/otp/pull/10398
+
 ## SSL 11.4.2
 
 ### Fixed Bugs and Malfunctions

@@ -6,4 +6,4 @@
 #
 # %CopyrightEnd%
 
-EUNIT_VSN = 2.10
+EUNIT_VSN = 2.10.1

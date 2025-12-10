@@ -27,6 +27,30 @@ as all enhancements and bugfixes for every release of Mnesia. Each release of
 Mnesia thus constitutes one section in this document. The title of each section
 is the version number of Mnesia.
 
+## Mnesia 4.25
+
+### Fixed Bugs and Malfunctions
+
+- Add missing documentation about mnesia:activity/4
+
+  Own Id: OTP-19769 Aux Id: [PR-10186]
+
+- With this change mnesia will try to not leak internal messages to user processes.
+
+  Own Id: OTP-19855 Aux Id: [GH-10347], [PR-10379]
+
+[PR-10186]: https://github.com/erlang/otp/pull/10186
+[GH-10347]: https://github.com/erlang/otp/issues/10347
+[PR-10379]: https://github.com/erlang/otp/pull/10379
+
+### Improvements and New Features
+
+- The `mnesia_registry` module will be removed in Erlang/OTP 29.
+
+  Own Id: OTP-19808 Aux Id: [PR-10275]
+
+[PR-10275]: https://github.com/erlang/otp/pull/10275
+
 ## Mnesia 4.24.1
 
 ### Fixed Bugs and Malfunctions
