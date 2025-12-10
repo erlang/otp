@@ -99,6 +99,8 @@
 -define(IS_SUPPORTED_SOCKET_OPTION(LEVEL, OPTION),
         socket:is_supported(options, (LEVEL), (OPTION))).
 
+-define(HAS_SUPPORT_SCTP(),
+        ?SLIB:has_support_sctp()).
 -define(HAS_SUPPORT_SCTP_PEELOFF(),
         ?SLIB:has_support_sctp_peeloff()).
 -define(HAS_SUPPORT_SCTP_BINDX(),

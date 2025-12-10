@@ -55,6 +55,7 @@
          is_any_options_supported/1,
 
          %% SCTP specific 'has support' test function(s)
+         has_support_sctp/0,
          has_support_sctp_peeloff/0,
          has_support_sctp_bindx/0,
 
@@ -270,6 +271,34 @@ is_any_options_supported(Options) ->
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% has_support_sctp() ->
+%%     case os:type() of
+%%         {win32, _} ->
+%%             skip("SCTP Not Supported");
+%%         {unix, netbsd} ->
+%%             %% XXX We will have to investigate this later...
+%%             skip("SCTP Not Supported");
+%%         _ ->
+%%             case socket:is_supported(sctp) of
+%%                 true ->
+%%                     ok;
+%%                 false ->
+%%                     skip("SCTP Not Supported")
+%%             end
+%%     end.
+has_support_sctp() ->
+    case os:type() of
+        {win32, _} ->
+            skip("SCTP Not Supported");
+        _ ->
+            case socket:is_supported(sctp) of
+                true ->
+                    ok;
+                false ->
+                    skip("SCTP Not Supported")
+            end
+    end.
 
 has_support_sctp_peeloff() ->
     has_support_sctp_key(peeloff).

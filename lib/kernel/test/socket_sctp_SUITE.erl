@@ -7045,21 +7045,7 @@ is_solaris() ->
     end.
 
 has_support_sctp() ->
-    case os:type() of
-        {win32, _} ->
-            skip("SCTP Not Supported");
-        {unix, netbsd} ->
-            %% XXX We will have to investigate this later...
-            skip("SCTP Not Supported");
-        _ ->
-            case socket:is_supported(sctp) of
-                true ->
-                    ok;
-                false ->
-                    skip("SCTP Not Supported")
-            end
-    end.
-
+    ?HAS_SUPPORT_SCTP().
 
 has_support_sctp_peeloff() ->
     ?HAS_SUPPORT_SCTP_PEELOFF().

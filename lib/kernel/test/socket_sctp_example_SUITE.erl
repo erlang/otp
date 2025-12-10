@@ -40,6 +40,7 @@
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("common_test/include/ct_event.hrl").
+-include("socket_test_lib.hrl").
 -include("kernel_test_lib.hrl").
 
 
@@ -446,20 +447,7 @@ compile_files([File|Files], IncDir, OutDir) ->
 %% Here are all the *general* test case condition functions.
 
 has_support_sctp() ->
-    case os:type() of
-        {win32, _} ->
-            skip("SCTP Not Supported");
-        {unix, netbsd} ->
-            %% XXX We will have to investigate this later...
-            skip("SCTP Not Supported");
-        _ ->
-            case socket:is_supported(sctp) of
-                true ->
-                    ok;
-                false ->
-                    skip("SCTP Not Supported")
-            end
-    end.
+    ?HAS_SUPPORT_SCTP().
 
 
 %% The idea is that this function shall test if the test host has 
