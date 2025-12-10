@@ -26,6 +26,7 @@
 -include("file.hrl").
 
 -export([compile_cmdline/0, compile/2]).
+-export([compiler/1, extensions/0]).
 
 %% Mapping from extension to {M,F} to run the correct compiler.
 
@@ -44,6 +45,23 @@ compiler(".asn1") ->   {asn1ct,          compile_asn1};
 compiler(".asn") ->    {asn1ct,          compile_asn};
 compiler(".py") ->     {asn1ct,          compile_py};
 compiler(_) ->         no.
+
+extensions() ->
+    [{".erl"   , obj_ext()},
+     {".abstr" , obj_ext()},
+     {".core"  , obj_ext()},
+     {".mib"   , ".bin"},
+     {".bin"   , ".hrl"},
+     {".xrl"   , ".erl"},
+     {".yrl"   , ".erl"},
+     {".script", ".boot"},
+     {".rel"   , ".script"},
+     {".asn1"  , ".erl"},
+     {".asn"   , ".erl"},
+     {".py"    , ".erl"}
+    ].
+
+obj_ext() -> code:objfile_extension().
 
 %% Run a compilation based on the command line arguments and then halt.
 %% Intended for one-off compilation by erlc.
