@@ -195,7 +195,13 @@ init(#{starter  := Starter,
     set_debug(State),
     ?SET_SNAME("server"),
 
-    ?DBG("try find local (~w) addr", [Domain]),
+    ?DBG("~s -> entry - try find local (~w) addr when"
+         "~n   Starter:  ~p"
+         "~n   Parent:   ~p"
+         "~n   Domain:   ~p"
+         "~n   PortNo:   ~p"
+         "~n   Threaded: ~p",
+         [?FUNCTION_NAME, Starter, Parent, Domain, PortNo, Threaded]),
     Addr =
         case ?WHICH_LOCAL_ADDR(Domain) of
             {ok, A} ->
@@ -207,7 +213,7 @@ init(#{starter  := Starter,
                 exit({local_addr, AReason})
         end,
 
-    ?DBG("try open"),
+    ?DBG("~s -> try open", [?FUNCTION_NAME]),
     Sock = case socket:open(Domain, seqpacket, sctp) of
                {ok, S} ->
                    S;
@@ -220,8 +226,8 @@ init(#{starter  := Starter,
     SockAddr0 = #{family => Domain,
                   addr   => Addr,
                   port   => PortNo},
-    ?DBG("try bind to:"
-         "~n   ~p", [SockAddr0]),
+    ?DBG("~s -> try bind to:"
+         "~n   ~p", [?FUNCTION_NAME, SockAddr0]),
     case socket:bind(Sock, SockAddr0) of
         ok ->
             ok;
@@ -232,7 +238,7 @@ init(#{starter  := Starter,
     end,
 
 
-    ?DBG("try make listen socket"),
+    ?DBG("~s -> try make listen socket", [?FUNCTION_NAME]),
     case socket:listen(Sock, true) of
         ok ->
             ok;
@@ -242,7 +248,7 @@ init(#{starter  := Starter,
             exit({listen, LReason})
     end,
 
-    ?DBG("try set 'events' (sctp) socket option"),
+    ?DBG("~s -> try set 'events' (sctp) socket option", [?FUNCTION_NAME]),
     case socket:setopt(Sock,
                        ?MK_SCTP_SOCKOPT(events),
                        ?SCTP_EVENTS(not Threaded)) of
@@ -254,7 +260,7 @@ init(#{starter  := Starter,
             exit({setopt_events, SReason})
     end,
 
-    ?DBG("try sockname (get port number)"),
+    ?DBG("~s -> try sockname (get port number)", [?FUNCTION_NAME]),
     SockAddr =
         case socket:sockname(Sock) of
             {ok, SA} ->
@@ -265,10 +271,10 @@ init(#{starter  := Starter,
                 exit({sockname, NReason})
         end,
 
-    ?DBG("monitor parent"),
+    ?DBG("~s -> monitor parent", [?FUNCTION_NAME]),
     MRef = erlang:monitor(process, Parent),
 
-    ?DBG("inform parent (sockaddr: ~p)", [SockAddr]),
+    ?DBG("~s -> inform parent (sockaddr: ~p)", [?FUNCTION_NAME, SockAddr]),
     Starter ! ?MSG(self(), {started, SockAddr}),
 
     ?INFO("started"),
@@ -284,11 +290,22 @@ init(#{starter  := Starter,
 
 loop(#{sock   := Sock,
        select := undefined} = State) when (Sock =/= undefined) ->
-    ?DBG("try recv"),
+    ?DBG("~s -> try recv", [?FUNCTION_NAME]),
     case socket:recvmsg(Sock, nowait) of
         {ok, Msg} ->
-            NewState = handle_msg(State, Msg),
-            loop(NewState);
+            case handle_msg(State, Msg) of
+                {ok, NewState} ->
+                    loop(NewState);
+                {error, Reason} when (Reason =:= closed) orelse
+                                     (Reason =:= eshutdown) orelse
+                                     (Reason =:= epipe) ->
+                    ?INFO("Socket ~w - terminating", [Reason]),
+                    exit(normal);
+                {error, Reason} ->
+                    ?ERROR("Failure processing message: "
+                           "~n   ~p", [Reason]),
+                    exit(Reason)
+            end;
 
         {select, SelectInfo} ->
             loop(State#{select => SelectInfo});
@@ -303,10 +320,10 @@ loop(#{parent      := Parent,
        parent_mref := MRef,
        sock        := Sock,
        select      := {select_info, _, SelectHandle} = SelectInfo} = State) ->
-    ?DBG("await select message"),
+    ?DBG("~s -> await select message", [?FUNCTION_NAME]),
     receive
         {'$socket', Sock, select, SelectHandle} ->
-            ?DBG("received select message"),
+            ?DBG("~s -> received select message", [?FUNCTION_NAME]),
             loop(State#{select => undefined});
 
         {'DOWN', MRef, process, Parent, Info} ->
@@ -328,7 +345,7 @@ loop(#{parent      := Parent,
                 
 handle_msg(State,
            #{notification := Notif}) ->
-    handle_notification(State, Notif);
+    {ok, handle_notification(State, Notif)};
 
 handle_msg(#{threaded := false} = State,
            #{iov  := [Data],
@@ -525,8 +542,19 @@ handler_loop(#{sock   := Sock,
                select := undefined} = State) ->
     case socket:recvmsg(Sock, nowait) of
         {ok, Msg} ->
-            NewState = handler_handle_msg(State, Msg),
-            handler_loop(NewState);
+            case handler_handle_msg(State, Msg) of
+                {ok, NewState} ->
+                    handler_loop(NewState);
+                {error, Reason} when (Reason =:= closed) orelse
+                                     (Reason =:= eshutdown) orelse
+                                     (Reason =:= epipe) ->
+                    ?INFO("Socket ~w - terminating", [Reason]),
+                    exit(normal);
+                {error, Reason} ->
+                    ?ERROR("Failure processing message: "
+                           "~n   ~p", [Reason]),
+                    exit(Reason)
+            end;
 
         {select, SelectInfo} ->
             ?DBG("select"),
@@ -583,14 +611,14 @@ handler_handle_msg(
     addr  := _SA,
     iov   := [Data],
     ctrl  := []}) ->
-    ?DBG("Received data message without SRI"),
+    %% Data message without SRI, assume stream = 0...
     handle_data(State, Data, AssocID, 0);
 handler_handle_msg(
   State,
   #{flags        := _, % Should contain the 'notification' flag
     notification := Notif}) ->
     handler_handle_notification(State, Notif),
-    State;
+    {ok, State};
 handler_handle_msg(_State, Msg) ->
     ?ERROR("Received unknown message:"
            "~n   ~p", [Msg]),
@@ -654,8 +682,12 @@ handle_data(#{sock := Sock} = State,
             %% We should change mode here
             %% (to send, and put the msg in a "buffer")
             %% but we make it easy on ourselves and just send...
-            ok = socket:sendmsg(Sock, Msg),
-            State;
+            case socket:sendmsg(Sock, Msg) of
+                ok ->
+                    {ok, State};
+                {error, _} = ERROR ->
+                    ERROR
+            end;
         BadCheckSum ->
             exit({bad_checksum, CheckSum, BadCheckSum})
     end.
