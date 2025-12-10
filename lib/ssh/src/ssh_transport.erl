@@ -397,7 +397,7 @@ new_keys_message(Ssh0) ->
     {ok, SshPacket, Ssh}.
 
 
-handle_kexinit_msg(#ssh_msg_kexinit{} = CounterPart, #ssh_msg_kexinit{} = Own,
+handle_kexinit_msg(#ssh_msg_kexinit{first_kex_packet_follows = CounterGuess} = CounterPart, #ssh_msg_kexinit{} = Own,
                    #ssh{role = client} = Ssh, ReNeg) ->
     try
         {ok, Algorithms} =
@@ -407,8 +407,9 @@ handle_kexinit_msg(#ssh_msg_kexinit{} = CounterPart, #ssh_msg_kexinit{} = Own,
         Algorithms
     of
 	Algos ->
+	    IsGuessWrong = is_guess_wrong(CounterGuess, CounterPart, Own),
 	    key_exchange_first_msg(Algos#alg.kex, 
-				   Ssh#ssh{algorithms = Algos})
+				   Ssh#ssh{algorithms = Algos, ignore_next_kex_message = IsGuessWrong})
     catch
         Class:Reason0 ->
             Reason = ssh_lib:trim_reason(Reason0),
@@ -416,7 +417,7 @@ handle_kexinit_msg(#ssh_msg_kexinit{} = CounterPart, #ssh_msg_kexinit{} = Own,
             ?DISCONNECT(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED, Msg)
         end;
 
-handle_kexinit_msg(#ssh_msg_kexinit{} = CounterPart, #ssh_msg_kexinit{} = Own,
+handle_kexinit_msg(#ssh_msg_kexinit{first_kex_packet_follows = CounterGuess} = CounterPart, #ssh_msg_kexinit{} = Own,
                    #ssh{role = server} = Ssh, ReNeg) ->
     try
         {ok, Algorithms} =
@@ -426,13 +427,43 @@ handle_kexinit_msg(#ssh_msg_kexinit{} = CounterPart, #ssh_msg_kexinit{} = Own,
         Algorithms
     of
 	Algos ->
-            {ok, Ssh#ssh{algorithms = Algos}}
+            IsGuessWrong = is_guess_wrong(CounterGuess, CounterPart, Own),
+            {ok, Ssh#ssh{algorithms = Algos, ignore_next_kex_message = IsGuessWrong}}
     catch
         Class:Reason0 ->
             Reason = ssh_lib:trim_reason(Reason0),
             Msg = kexinit_error(Class, Reason, server, Own, CounterPart, Ssh),
             ?DISCONNECT(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED, Msg)
     end.
+
+%% RFC 4253 section 7 check if guess is wrong
+is_guess_wrong(false, _, _) ->
+    false;
+is_guess_wrong(true, CounterPart, Own) ->
+    CounterPreferredKexAlgo = get_preferred_kex_algorithm(CounterPart),
+    OwnPreferredKexAlgo = get_preferred_kex_algorithm(Own),
+    CounterPreferredHostKeyAlgo = get_preferred_host_key_algorithm(CounterPart),
+    OwnPreferredHostKeyAlgo = get_preferred_host_key_algorithm(Own),
+
+    is_different_algorithm(CounterPreferredKexAlgo, OwnPreferredKexAlgo) orelse
+        is_different_algorithm(CounterPreferredHostKeyAlgo, OwnPreferredHostKeyAlgo).
+
+is_different_algorithm(none, none) ->
+    false;
+is_different_algorithm(Same, Same) ->
+    false;
+is_different_algorithm(_, _) ->
+    true.
+
+get_preferred_kex_algorithm(#ssh_msg_kexinit{kex_algorithms = [Preferred | _]}) ->
+    Preferred;
+get_preferred_kex_algorithm(_) ->
+    none.
+
+get_preferred_host_key_algorithm(#ssh_msg_kexinit{server_host_key_algorithms = [Preferred | _]}) ->
+    Preferred;
+get_preferred_host_key_algorithm(_) ->
+    none.
 
 kexinit_error(Class, Error, Role, Own, CounterPart, Ssh) ->
     {Fmt,Args} =
@@ -2211,7 +2242,11 @@ parallell_gen_key(Ssh = #ssh{keyex_key = {x, {G, P}},
 generate_key(ecdh, Args) ->
     crypto:generate_key(ecdh, Args);
 generate_key(dh, [P,G,Sz2]) ->
-    {Public,Private} = crypto:generate_key(dh, [P, G, max(Sz2,?MIN_DH_KEY_SIZE)] ),
+    BitSize = fun(N) -> bit_size(binary:encode_unsigned(N)) end,
+    {Public,Private} =
+        crypto:generate_key(dh,
+                            [P, G, max(min(BitSize(P)-1, Sz2),
+                                       ?MIN_DH_KEY_SIZE)]),
     {crypto:bytes_to_integer(Public), crypto:bytes_to_integer(Private)}.
 
 
