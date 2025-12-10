@@ -1780,7 +1780,10 @@ remove_node_from_tabs([Tab|Rest], Node) ->
 		     remove_node_from_tabs(Rest, Node)];
 		_Ns ->
 		    Cs3 = verify_cstruct(Cs2),
-		    get_tid_ts_and_lock(Tab, write),
+                    case ?catch_val({Tab, active_replicas}) of
+                        [] -> ok;
+                        _ -> get_tid_ts_and_lock(Tab, write)
+                    end,
 		    [{op, del_table_copy, ram_copies, Node, vsn_cs2list(Cs3)}|
 		     remove_node_from_tabs(Rest, Node)]
 	    end
@@ -2841,6 +2844,7 @@ undo_prepare_commit(Tid, Commit) ->
 	[] ->
 	    ignore;
 	Ops ->
+            verbose("undo prepare: ~w:~n ~p~n", [Tid, Ops]),
 	    %% Catch to allow failure mnesia_controller may not be started
 	    ?SAFE(mnesia_controller:release_schema_commit_lock()),
 	    undo_prepare_ops(Tid, Ops)
