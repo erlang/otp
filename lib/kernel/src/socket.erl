@@ -220,7 +220,7 @@ This module was introduced in OTP 22.0, as experimental code.
 * In OTP 27.0, the Windows flavored
   ([completion handle](`t:completion_handle/0`))
   API features could be considered no longer experimental.
-* In @OTP-19834@, (experimental) complete support for SCTP was added
+* In OTP @OTP-19834@, (experimental) complete support for SCTP was added
   (functionally feature compatible with inet).
 
 ## Examples
