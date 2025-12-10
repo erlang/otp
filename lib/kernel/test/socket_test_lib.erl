@@ -54,7 +54,11 @@
          has_support_socket_option_sctp/1,
          is_any_options_supported/1,
 
-         %% OS/Platform checks
+         %% SCTP specific 'has support' test function(s)
+         has_support_sctp_peeloff/0,
+         has_support_sctp_bindx/0,
+
+          %% OS/Platform checks
          is_good_enough_platform/3,
          is_not_freebsd/0,
          is_not_openbsd/0,
@@ -264,6 +268,23 @@ is_any_options_supported(Options) ->
            end,
     lists:any(Pred, Options).
 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+has_support_sctp_peeloff() ->
+    has_support_sctp_key(peeloff).
+
+has_support_sctp_bindx() ->
+    has_support_sctp_key(bindx).
+
+has_support_sctp_key(Key) when is_atom(Key) ->
+    case socket:info() of
+        #{io_backend := #{sctp := #{Key := true}}} ->
+            ok;
+        _ ->
+            skip(f("~w not supported", [Key]))
+    end.
+    
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 

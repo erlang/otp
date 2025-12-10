@@ -3424,7 +3424,10 @@ match_unless_solaris(A, B) ->
 
 m_multihoming_ipv4(_Config) when is_list(_Config) ->
     ?TT(?SECS(5)),
-    Cond = fun() -> has_support_ipv4() end,
+    Cond = fun() ->
+                   has_support_ipv4(),
+                   has_support_sctp_bindx()
+           end,
     Pre  = fun() ->
 		   Domain = inet,
                    case get_addrs_by_family(Domain, 2) of
@@ -3478,7 +3481,10 @@ m_xhoming(#{domain   := Domain,
 
 m_multihoming_ipv6(_Config) when is_list(_Config) ->
     ?TT(?SECS(5)),
-    Cond = fun() -> has_support_ipv6() end,
+    Cond = fun() ->
+                   has_support_ipv6(),
+                   has_support_sctp_bindx()
+           end,
     Pre  = fun() ->
 		   Domain = inet6,
                    case get_addrs_by_family(Domain, 2) of
@@ -3528,7 +3534,8 @@ m_multihoming_ipv4_and_ipv6(_Config) when is_list(_Config) ->
     ?TT(?SECS(5)),
     Cond = fun() ->
 		   has_support_ipv4(),
-		   has_support_ipv6()
+		   has_support_ipv6(),
+                   has_support_sctp_bindx()
 	   end,
     Pre  = fun() ->
 		   Domain = inet_and_inet6,
@@ -3559,7 +3566,8 @@ m_peeloff_ipv4(_Config) when is_list(_Config) ->
                    %% has_support_socket_priority(),
                    has_support_sctp_nodelay(),
                    has_support_socket_linger(),
-                   has_support_ipv4()
+                   has_support_ipv4(),
+                   has_support_sctp_peeloff()
            end,
     Pre  = fun() ->
                    Domain = inet,
@@ -3590,7 +3598,8 @@ m_peeloff_ipv6(_Config) when is_list(_Config) ->
                    %% has_support_socket_priority(),
                    has_support_sctp_nodelay(),
                    has_support_socket_linger(),
-                   has_support_ipv6()
+                   has_support_ipv6(),
+                   has_support_sctp_peeloff()
            end,
     Pre  = fun() ->
                    Domain = inet6,
@@ -6732,7 +6741,13 @@ common_exchange(Name,
        ((Domain =:= inet) orelse (Domain =:= inet6)) andalso
        is_boolean(Threaded) ->
     Cond = fun() ->
-                   HasDomainSupport()
+                   HasDomainSupport(),
+                   case Threaded of
+                       true ->
+                           has_support_sctp_peeloff();
+                       _ ->
+                           ok
+                   end
            end,
     Pre  = fun() ->
                    ?P("~s:pre -> initial config", [?FUNCTION_NAME]),
@@ -6785,19 +6800,19 @@ t_exchange(#{run_time := RunTime} = Conf) ->
     t_exc_release_clients(Clients, RunTime),
     
     ?P("~s -> clients released - await clients done", [?FUNCTION_NAME]),
-    Result = t_exc_await_clients(Server, Clients, RunTime),
+    {Result, TUnitStr} = t_exc_await_clients(Server, Clients, RunTime),
 
     ?P("~s -> stop server", [?FUNCTION_NAME]),
     t_exc_stop_server(Server),
 
     ?P("~s -> done when"
-       "~n   Result: ~p msgs/msec", [?FUNCTION_NAME, Result]),
-    publish_results(Conf, Result).
+       "~n   Result: ~p msgs/~s", [?FUNCTION_NAME, Result, TUnitStr]),
+    publish_results(Conf, Result, TUnitStr).
 
 
-publish_results(Conf, Result) ->
+publish_results(Conf, Result, TUnitStr) ->
     maybe_publish_bench_results(Conf, Result),
-    {comment, ?F("~w msgs/msec", [Result])}.
+    {comment, ?F("~w msgs/~s", [Result, TUnitStr])}.
 
 
 maybe_publish_bench_results(#{bench    := true,
@@ -6922,7 +6937,15 @@ t_exc_await_clients(_Server, [], RunTime, _Timeout, Acc) ->
                             {Sum, Ok, Err+1}
                     end,
                     {0, 0, 0}, Acc),
-    TotCnt div RunTime;
+    %% This is just in case the run was *really* slow
+    %% Better to change time from milli seconds (msec) to
+    %% seconds (sec) then get the result as zero (0).
+    if
+        (TotCnt > RunTime) ->
+            {TotCnt div RunTime, "msec"};
+        true ->
+            {TotCnt div (RunTime div 1000), "sec"}
+    end;
 t_exc_await_clients(#{pid := ServerPid, mref := ServerMRef} = Server, Clients,
                     RunTime, Timeout, Acc) when (Timeout > 0) ->
     ?P("~s -> await client completion when"
@@ -7036,6 +7059,14 @@ has_support_sctp() ->
                     skip("SCTP Not Supported")
             end
     end.
+
+
+has_support_sctp_peeloff() ->
+    ?HAS_SUPPORT_SCTP_PEELOFF().
+
+has_support_sctp_bindx() ->
+    ?HAS_SUPPORT_SCTP_BINDX().
+
 
 
 %% The idea is that this function shall test if the test host has 
