@@ -459,7 +459,7 @@ initial_connection_state(ConnectionEnd, MaxEarlyDataSize) ->
       mac_secret  => undefined,
       early_data => #{pending_early_data_size => MaxEarlyDataSize,
                       trial_decryption => false,
-                      early_data_expected => false
+                      early_data_accepted => false
                      },
       reneg => #{secure_renegotiation => undefined,
                  client_verify_data => undefined,
