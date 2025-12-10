@@ -211,7 +211,7 @@ start_acceptor(#{debug := Debug} = Opts) ->
         {'DOWN', MRef, process, Acceptor, Reason} ->
             ?ERROR("Received unexpected DOWN from starting acceptor:"
                    "~n   ~p", [Reason]),
-            {error, {acceptor_start, Reason}};
+            {error, Reason};
 
         {?MODULE, Acceptor, {started, SockAddr}} ->
             ?INFO("acceptor started:"

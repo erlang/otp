@@ -151,7 +151,7 @@ do_start(Node,
     Messages = process_messages(MessageOrMessages),
     Args     = [ID, self(), ServerSA, Messages, Opts],
     case rpc:call(Node, ?MODULE, start_it, Args) of
-        {badrpc, _} = Reason ->
+        {badrpc, Reason} ->
             {error, Reason};
         {ok, {Pid, _}} = OK when is_pid(Pid) ->
             OK;
@@ -220,7 +220,7 @@ start_it(ID,
         {'DOWN', MRef, process, Client, Reason} ->
             ?ERROR("Client start failure: "
                    "~n   ~p", [Reason]),
-            {error, {client_start_failed, Reason}};
+            {error, Reason};
 
         {?MODULE, Client, {started, SA}} ->
             ?INFO("Client (~p) started:"
