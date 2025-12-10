@@ -336,10 +336,21 @@ do_simple(#{domain       := Domain,
     ?P("~s -> try start server on"
        "~n   Node: ~p",
        [?FUNCTION_NAME, ServerNode]),
-    {ok, {Server, ServerMRef, ServerSA}} =
-        socket_sctp_server:start_monitor(ServerNode,
-                                         #{domain => Domain,
-                                           debug  => true}),
+    {Server, ServerMRef, ServerSA} =
+        case socket_sctp_server:start_monitor(ServerNode,
+                                              #{domain => Domain,
+                                                debug  => true}) of
+            {ok, ServerInfo} ->
+                ServerInfo;
+            {error, {bind, eaddrnotavail = SReason}} ->
+                ?P("Failed start server: "
+                   "~n   ~p", [SReason]),
+                exit({skip, SReason});
+            {error, SReason} ->
+                ?P("Failed start server: "
+                   "~n   ~p", [SReason]),
+                exit({server_start, SReason})
+        end,
 
     ?P("~s -> server started: "
        "~n   Server:      ~p"
