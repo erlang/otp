@@ -22,6 +22,7 @@
 
 -module(socket_sctp_traffic_server).
 
+-include("socket_test_lib.hrl").
 -include("socket_sctp_traffic_lib.hrl").
 
 -export([
@@ -250,7 +251,7 @@ init(#{starter  := Starter,
 
     ?DBG("~s -> try set 'events' (sctp) socket option", [?FUNCTION_NAME]),
     case socket:setopt(Sock,
-                       ?MK_SCTP_SOCKOPT(events),
+                       ?MK_SOCKOPT_SCTP(events),
                        ?SCTP_EVENTS(not Threaded)) of
         ok ->
             ok;

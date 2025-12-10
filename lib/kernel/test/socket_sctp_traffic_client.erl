@@ -22,6 +22,7 @@
 
 -module(socket_sctp_traffic_client).
 
+-include("socket_test_lib.hrl").
 -include("socket_sctp_traffic_lib.hrl").
 
 -export([
@@ -279,7 +280,7 @@ init(ID,
     end,
 
     ?DBG("try setopt events"),
-    case socket:setopt(Sock, ?MK_SCTP_SOCKOPT(events), ?SCTP_EVENTS(true)) of
+    case socket:setopt(Sock, ?MK_SOCKOPT_SCTP(events), ?SCTP_EVENTS(true)) of
         ok ->
             ok;
         {error, SReason} ->
