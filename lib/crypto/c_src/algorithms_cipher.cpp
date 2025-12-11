@@ -462,11 +462,12 @@ void cipher_probe_t::probe(ErlNifEnv *env, const bool fips_enabled, std::vector<
 
 extern "C" const cipher_type_C *get_cipher_type(ErlNifEnv *env, ERL_NIF_TERM type, size_t key_len) {
     cipher_type_t sample(type, key_len);
-    auto result = std::lower_bound(cipher_collection.cbegin(env, FIPS_MODE()),
-                                   cipher_collection.cend(),
+    const bool fips_enabled = FIPS_MODE();
+    auto result = std::lower_bound(cipher_collection.cbegin(env, fips_enabled),
+                                   cipher_collection.cend(fips_enabled),
                                    sample,
                                    cipher_type_t::compare_function);
-    if (result != cipher_collection.cend() && result->eq(sample)) {
+    if (result != cipher_collection.cend(fips_enabled) && result->eq(sample)) {
         return &*result;
     }
     return nullptr;
@@ -474,11 +475,12 @@ extern "C" const cipher_type_C *get_cipher_type(ErlNifEnv *env, ERL_NIF_TERM typ
 
 extern "C" const cipher_type_C *get_cipher_type_no_key(ErlNifEnv *env, ERL_NIF_TERM type) {
     cipher_type_t sample(type);
-    auto result = std::lower_bound(cipher_collection.cbegin(env, FIPS_MODE()),
-                                   cipher_collection.cend(),
+    const bool fips_enabled = FIPS_MODE();
+    auto result = std::lower_bound(cipher_collection.cbegin(env, fips_enabled),
+                                   cipher_collection.cend(fips_enabled),
                                    sample,
                                    cipher_type_t::compare_function_no_key);
-    if (result != cipher_collection.cend() && result->eq_no_key(sample)) {
+    if (result != cipher_collection.cend(fips_enabled) && result->eq_no_key(sample)) {
         return &*result;
     }
     return nullptr;

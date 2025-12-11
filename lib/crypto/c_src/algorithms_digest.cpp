@@ -139,7 +139,8 @@ void digest_probe_t::probe(ErlNifEnv *env, const bool fips_mode, std::vector<dig
 
 // Array lookup
 extern "C" digest_type_C *get_digest_type(ErlNifEnv *env, ERL_NIF_TERM type) {
-    for (auto p = digest_collection.begin(env, FIPS_MODE()); p != digest_collection.end(); ++p) {
+    const bool fips_enabled = FIPS_MODE();
+    for (auto p = digest_collection.begin(env, fips_enabled); p != digest_collection.end(fips_enabled); ++p) {
         if (type == p->get_atom()) {
             return &*p;
         }

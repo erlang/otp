@@ -154,7 +154,8 @@ extern "C" int get_pkey_type_evp_pkey_id(const pkey_type_C *p) {
 }
 
 extern "C" pkey_type_C *get_pkey_type(ErlNifEnv *env, ERL_NIF_TERM atom) {
-    for (auto p = pkey_collection.begin(env, FIPS_MODE()); p != pkey_collection.end(); ++p) {
+    const bool fips_enabled = FIPS_MODE();
+    for (auto p = pkey_collection.begin(env, fips_enabled); p != pkey_collection.end(fips_enabled); ++p) {
         if (p->get_atom() == atom) {
             return &*p;
         }

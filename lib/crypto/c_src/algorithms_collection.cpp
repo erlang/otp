@@ -48,16 +48,6 @@ extern "C" void free_algorithm_mutexes(void) {
     rsaopt_collection.destroy_mutex();
 }
 
-extern "C" void algorithms_reset_cache() {
-    cipher_collection.reset();
-    curve_collection.reset();
-    digest_collection.reset();
-    kem_collection.reset();
-    mac_collection.reset();
-    pkey_collection.reset();
-    rsaopt_collection.reset();
-}
-
 // Ensure atoms are not created repeatedly. Pass atom=0 to attempt creating an existing atom (then a new atom).
 ERL_NIF_TERM create_or_existing_atom(ErlNifEnv *env, const char *atom_name, ERL_NIF_TERM atom) {
     ASSERT(atom_name != nullptr);

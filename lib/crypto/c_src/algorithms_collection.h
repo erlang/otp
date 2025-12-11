@@ -21,7 +21,6 @@
  */
 
 #pragma once
-#include <assert.h>
 
 #ifdef __cplusplus
 extern "C"
@@ -34,14 +33,10 @@ extern "C"
     // C API which affects all collections at once
     //
 
-    // Creates protective mutex for each collection to allow for safe lazy init
-    // and reinit
+    // Creates protective mutex for each collection to allow for safe lazy init and reinit
     bool create_algorithm_mutexes(void);
     // Deletes (and zeroes) algorithm mutexes
     void free_algorithm_mutexes(void);
-    // Called on fips mode change to reset the algorithm lists. Next lazy_init
-    // call to each collection will do the work again.
-    void algorithms_reset_cache(void);
 
 #ifdef __cplusplus
 }
@@ -74,21 +69,22 @@ struct mutex_lock_and_auto_release {
 // mutex must be additionally constructed (call only once).
 template<typename AlgorithmT, typename ProbeT>
 struct algorithm_collection_t {
+    using ContainerT = std::vector<AlgorithmT>;
 private:
-    bool lazy_init_done;
+    // Lazy init flag for fips=false and fips=true
+    bool lazy_init_done[2] = {false, false};
     // each probe is executed every time we reset and repopulate algorithms list. Probes are not const, because their
     // implementations might want to cache something like found existing atoms by string
     ProbeT *probes;
     size_t probes_count;
-    // contains detected and supported algorithms
-    std::vector<AlgorithmT> algorithms;
+    // Detected and supported algorithms for fips=false and fips=true
+    ContainerT algorithms[2] = {};
     ErlNifMutex *mutex;
-    const char *debug_name;
+    const char *mutex_name; // Used for mutex creation
 
 public:
-    explicit algorithm_collection_t(const char *debug_name, ProbeT *probes_, const size_t probes_count_)
-            : lazy_init_done(false), probes(probes_), probes_count(probes_count_), mutex(nullptr),
-              debug_name(debug_name) {
+    explicit algorithm_collection_t(const char *mutex_name_, ProbeT *probes_, const size_t probes_count_)
+            : probes(probes_), probes_count(probes_count_), mutex(nullptr), mutex_name(mutex_name_) {
     }
 
     ~algorithm_collection_t() {
@@ -96,27 +92,27 @@ public:
     }
 
     // Const pointer to start of algorithms, functions as std::cbegin() but uses the args to call lazy_init
-    auto cbegin(ErlNifEnv *env, const bool fips_mode) -> decltype(this->algorithms.cbegin()) {
+    auto cbegin(ErlNifEnv *env, const bool fips_mode) -> typename ContainerT::const_iterator {
         lazy_init(env, fips_mode);
-        return this->algorithms.cbegin();
+        return this->algorithms[fips_mode ? 1 : 0].cbegin();
     }
     // Const pointer to one after last of the algorithms
-    auto cend() const -> decltype(this->algorithms.cend()) {
-        return this->algorithms.cend();
+    auto cend(const bool fips_mode) const -> typename ContainerT::const_iterator {
+        return this->algorithms[fips_mode ? 1 : 0].cend();
     }
 
     // Mutable pointer to start of algorithms, functions as std::begin() but uses the args to call lazy_init
-    auto begin(ErlNifEnv *env, bool const fips_mode) -> decltype(this->algorithms.begin()) {
+    auto begin(ErlNifEnv *env, bool const fips_mode) -> typename ContainerT::iterator {
         lazy_init(env, fips_mode);
-        return this->algorithms.begin();
+        return this->algorithms[fips_mode ? 1 : 0].begin();
     }
     // Mutable pointer to one after last of the algorithms
-    auto end() -> decltype(this->algorithms.end()) {
-        return this->algorithms.end();
+    auto end(const bool fips_mode) -> typename ContainerT::iterator {
+        return this->algorithms[fips_mode ? 1 : 0].end();
     }
 
     bool create_mutex() {
-        this->mutex = enif_mutex_create(const_cast<char *>(debug_name));
+        this->mutex = enif_mutex_create(const_cast<char *>(mutex_name));
         return this->mutex != nullptr;
     }
 
@@ -127,13 +123,6 @@ public:
         }
     }
 
-    // Resets the found algorithms list and the flag for lazy init, so lazy init will rerun next time again
-    void reset() {
-        mutex_lock_and_auto_release critical_section(this->mutex);
-        this->lazy_init_done = false;
-        this->algorithms.clear();
-    }
-
     // Invokes to_list/3 with empty starting list.
     ERL_NIF_TERM to_list(ErlNifEnv *env, const bool match_fips_forbidden) {
         return to_list(env, enif_make_list(env, 0), match_fips_forbidden);
@@ -142,9 +131,10 @@ public:
     // Search for algorithms which are is_available() and is_forbidden_in_fips() equals to match_fips_forbidden.
     // Uses hd as list start (can push into existing list or use NIL for a new list)
     ERL_NIF_TERM to_list(ErlNifEnv *env, ERL_NIF_TERM hd, const bool match_fips_forbidden) {
-        lazy_init(env, FIPS_MODE());
+        const bool fips_enabled = FIPS_MODE();
+        lazy_init(env, fips_enabled);
 
-        for (const auto &algo : this->algorithms) {
+        for (const auto &algo : this->algorithms[fips_enabled ? 1 : 0]) {
             // Any of the forbidden flags is not set, then something is
             // available
             if (algo.is_available() && algo.is_forbidden_in_fips() == match_fips_forbidden) {
@@ -158,27 +148,23 @@ public:
 
 private:
     // Checks whether the init has already been done for the array, otherwise will invoke init_fn
-    size_t lazy_init(ErlNifEnv *env, const bool fips_enabled) {
-        if (this->lazy_init_done) {
-            return this->algorithms.size();
-        }
+    void lazy_init(ErlNifEnv *env, const bool fips_enabled) {
+        const size_t collection_index = fips_enabled ? 1 : 0;
+        if (this->lazy_init_done[collection_index]) return;
 
         mutex_lock_and_auto_release critical_section(this->mutex);
 
-        this->algorithms.clear();
+        // for those who waited for mutex
+        if (this->lazy_init_done[collection_index]) return;
 
         for (size_t i = 0; i < probes_count; ++i) {
             // For each probe, call probe() member function, in case of success the probe code will use the passed
             // 'this->algorithms' reference to add an algorithm to the collection.
-            probes[i].probe(env, fips_enabled, this->algorithms);
+            probes[i].probe(env, fips_enabled, this->algorithms[collection_index]);
         }
 
-        ProbeT::post_lazy_init(this->algorithms);
-
-        auto result = this->algorithms.size();
-        this->lazy_init_done = true;
-
-        return result;
+        ProbeT::post_lazy_init(this->algorithms[collection_index]);
+        this->lazy_init_done[collection_index] = true;
     }
 };
 
