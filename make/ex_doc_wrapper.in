@@ -47,6 +47,10 @@ if [ -z "${EX_DOC}" ]; then
     fi
 fi
 
+## Detect ex_doc version and store it in a variable
+## This is currently used to handle search engine changes in v0.39.0
+export EX_DOC_VERSION=$($EX_DOC --version)
+
 ## The below bash magic captures the output of stderr into OUTPUT while still printing
 ## everything we get to stdout and stderr. This is done by:
 
