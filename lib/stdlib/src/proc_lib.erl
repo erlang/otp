@@ -98,15 +98,17 @@ processes that terminate as a result of this process terminating.
 %%
 -doc """
 A restricted set of [spawn options](`t:spawn_option/0`). Most notably `monitor`
-is _not_ part of these options.
+and `{monitor, MonitorOpts}` are _not_ part of these options.
 """.
 -type start_spawn_option() :: 'link'
+                            | {'link', [erlang:link_option()]}
                             | {'priority', erlang:priority_level()}
                             | {'fullsweep_after', non_neg_integer()}
                             | {'min_heap_size', non_neg_integer()}
                             | {'min_bin_vheap_size', non_neg_integer()}
                             | {'max_heap_size', erlang:max_heap_size()}
-                            | {'message_queue_data', erlang:message_queue_data() }.
+                            | {'message_queue_data', erlang:message_queue_data()}
+                            | {'async_dist', boolean()}.
 %% and this macro is used to verify that there are no monitor options
 %% which also needs to be kept in sync all kinds of monitor options
 %% in erlang:spawn_opt_options().
@@ -417,11 +419,11 @@ Argument `SpawnOpts`, if specified, is passed as the last argument to the
 
 > #### Note {: .info }
 >
-> Using spawn option `monitor` is not allowed. It causes the function to fail
-> with reason `badarg`.
+> Using spawn option `monitor` or `{monitor, Opts}` is not allowed. It causes
+> the function to fail with reason `badarg`.
 >
-> Using spawn option `link` will set a link to the spawned process, just like
-> [start_link/3,4,5](`start_link/3`).
+> Using spawn option `link` or `{link, Opts}` will set a link to the spawned
+> process, just like [start_link/3,4,5](`start_link/3`).
 """.
 -spec start(Module, Function, Args, Time, SpawnOpts) -> Ret when
       Module :: module(),
@@ -497,8 +499,11 @@ process.
 
 > #### Note {: .info }
 >
-> Using spawn option `monitor` is not allowed. It causes the function to fail
-> with reason `badarg`.
+> Using spawn option `monitor` or `{monitor, Opts}` is not allowed. It causes
+> the function to fail with reason `badarg`.
+>
+> Using spawn option `link` has no effect. The spawn option `{link, Opts}` can
+> be used to customize the link that will be set to the spawned process.
 """.
 -spec start_link(Module, Function, Args, Time, SpawnOpts) -> Ret when
       Module :: module(),
@@ -510,8 +515,9 @@ process.
 
 start_link(M,F,A,Timeout,SpawnOpts) when is_atom(M), is_atom(F), is_list(A) ->
     ?VERIFY_NO_MONITOR_OPT(M, F, A, Timeout, SpawnOpts),
+    SpawnOpts1 = ensure_spawn_option(link, SpawnOpts),
     sync_start(
-      ?MODULE:spawn_opt(M, F, A, [link,monitor|SpawnOpts]), Timeout).
+      ?MODULE:spawn_opt(M, F, A, [monitor | SpawnOpts1]), Timeout).
 
 
 -doc(#{equiv => start_monitor(Module, Function, Args, infinity)}).
@@ -556,11 +562,11 @@ when this function times out and kills the spawned process.
 
 > #### Note {: .info }
 >
-> Using spawn option `monitor` is not allowed. It causes the function to fail
-> with reason `badarg`.
+> Using spawn option `monitor` has no effect. The spawn option `{monitor, Opts}`
+> can be used to customize the monitor that will be set on the spawned process. 
 >
-> Using spawn option `link` will set a link to the spawned process, just like
-> [start_link/3,4,5](`start_link/3`).
+> Using spawn option `link` or `{link, Opts}` will set a link to the spawned
+> process, just like [start_link/3,4,5](`start_link/3`).
 """.
 -doc(#{since => <<"OTP 23.0">>}).
 -spec start_monitor(Module, Function, Args, Time, SpawnOpts) -> {Ret, Mon} when
@@ -568,16 +574,16 @@ when this function times out and kills the spawned process.
       Function :: atom(),
       Args :: [term()],
       Time :: timeout(),
-      SpawnOpts :: [start_spawn_option()],
+      SpawnOpts :: [spawn_option()],
       Mon :: reference(),
       Ret :: term() | {error, Reason :: term()}.
 
 start_monitor(M,F,A,Timeout,SpawnOpts) when is_atom(M),
                                             is_atom(F),
                                             is_list(A) ->
-    ?VERIFY_NO_MONITOR_OPT(M, F, A, Timeout, SpawnOpts),
+    SpawnOpts1 = ensure_spawn_option(monitor, SpawnOpts),
     sync_start_monitor(
-      ?MODULE:spawn_opt(M, F, A, [monitor|SpawnOpts]), Timeout).
+      ?MODULE:spawn_opt(M, F, A, SpawnOpts1), Timeout).
 
 sync_start_monitor({Pid, Ref}, Timeout) ->
     receive
@@ -587,7 +593,7 @@ sync_start_monitor({Pid, Ref}, Timeout) ->
             flush_EXIT(Pid),
             self() ! await_DOWN(Pid, Ref),
             {Return, Ref};
-	{'DOWN', Ref, process, Pid, Reason} = Down ->
+	{_, Ref, process, Pid, Reason} = Down ->
             flush_EXIT(Pid),
             self() ! Down,
             {{error, Reason}, Ref}
@@ -597,6 +603,18 @@ sync_start_monitor({Pid, Ref}, Timeout) ->
             {{error, timeout}, Ref}
     end.
 
+%% Adds the given Opt atom to the given SpawnOpts list
+%% if it is not already contained either in plain form
+%% or as the first element of a tuple.
+ensure_spawn_option(Opt, [Opt | _] = SpawnOpts) ->
+    SpawnOpts;
+ensure_spawn_option(Opt, [SpawnOpt | _] = SpawnOpts)
+  when Opt =:= element(1, SpawnOpt) ->
+    SpawnOpts;
+ensure_spawn_option(Opt, [SpawnOpt | SpawnOpts]) ->
+    [SpawnOpt | ensure_spawn_option(Opt, SpawnOpts)];
+ensure_spawn_option(Opt, []) ->
+    [Opt].
 
 %% We regard the existence of an {'EXIT', Pid, _} message
 %% as proof enough that there was a link that fired and
@@ -620,7 +638,7 @@ kill_flush_EXIT(Pid) ->
 
 await_DOWN(Pid, Ref) ->
     receive
-	{'DOWN', Ref, process, Pid, _} = Down ->
+	{_, Ref, process, Pid, _} = Down ->
             Down
     end.
 
