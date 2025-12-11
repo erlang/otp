@@ -20,8 +20,7 @@
 %%
 %% %CopyrightEnd%
 %%
-%% @author Richard Carlsson <carlsson.richard@gmail.com>
-%% @doc Core Erlang inliner.
+%% Core Erlang inliner.
 
 %% =====================================================================
 %%
