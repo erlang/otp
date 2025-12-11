@@ -881,7 +881,7 @@ unique_pair() ->
 %ssa% P = call(fun make_unique_pair/1, ...),
 %ssa% H = get_hd(P),
 %ssa% T = get_tl(P),
-%ssa% R = put_tuple(H, T, P) {unique => [H, P, T]},
+%ssa% R = put_tuple(H, T, P) {unique => [P, H, T]},
 %ssa% ret(R) {unique => [R]}.
     Pair = make_unique_pair(e:f()),
     H = hd(Pair),
@@ -1105,7 +1105,7 @@ live_past_call_triggers_aliasing(A) ->
 %ssa% (A) when post_ssa_opt ->
 %ssa% X = put_tuple(A),
 %ssa% Y = call(fun id/1, X) { aliased => [X] },
-%ssa% R = put_tuple(X, Y) { aliased => [X,Y] },
+%ssa% R = put_tuple(X, Y) { aliased => [Y,X] },
 %ssa% ret(R) { unique => [R] }.
     X = {A},
     Y = id(X),

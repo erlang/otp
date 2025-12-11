@@ -150,9 +150,6 @@ find_fixpoint(OptFun, Core0, Max) ->
 %% body(Expr, Context, Sub) -> Expr.
 %%  No special handling of anything except values.
 
-body(Body, Sub) ->
-    body(Body, value, Sub).
-
 body(#c_values{anno=A,es=Es0}, value, Sub) ->
     Es1 = expr_list(Es0, value, Sub),
     #c_values{anno=A,es=Es1};
@@ -330,7 +327,7 @@ expr(#c_case{}=Case0, Ctxt, Sub) ->
     Case = Case1#c_case{arg=Arg2,clauses=Cs2},
     warn_no_clause_match(Case1, Case),
     Expr = eval_case(Case, Sub),
-    move_case_into_arg(Expr, Sub);
+    Expr;
 expr(#c_apply{anno=Anno,op=Op0,args=As0}=Apply0, _, Sub) ->
     Op1 = expr(Op0, value, Sub),
     As1 = expr_list(As0, value, Sub),
@@ -1367,21 +1364,6 @@ sub_add_scope(Vs, #sub{s=Scope0}=Sub) ->
 		  end, Scope0, Vs),
     Sub#sub{s=Scope}.
 
-sub_subst_scope(#sub{v=S0,s=Scope}=Sub) ->
-    Initial = case S0 of
-                  [{NegInt,_}|_] when is_integer(NegInt), NegInt < 0 ->
-                      NegInt - 1;
-                  _ ->
-                      -1
-              end,
-    S = sub_subst_scope_1(sets:to_list(Scope), Initial, S0),
-    Sub#sub{v=orddict:from_list(S)}.
-
-%% The keys in an orddict must be unique. Make them so!
-sub_subst_scope_1([H|T], Key, Acc) ->
-    sub_subst_scope_1(T, Key-1, [{Key,#c_var{name=H}}|Acc]);
-sub_subst_scope_1([], _, Acc) -> Acc.
-
 sub_is_in_scope(#c_var{name=V}, #sub{s=Scope}) ->
     sets:is_element(V, Scope).
 
@@ -2212,9 +2194,6 @@ simplify_fun_call(V, Values, #c_fun{vars=Vars,body=FunBody}, CallArgs) ->
             throw(impossible)
     end.
 
-is_failing_clause(#c_clause{body=B}) ->
-    will_fail(B).
-
 %% opt_build_stacktrace(Let) -> Core.
 %%  If the stacktrace is *only* used in a call to erlang:raise/3,
 %%  there is no need to build a cooked stackframe using build_stacktrace/1.
@@ -2527,81 +2506,6 @@ suppress_warning([H|T]) ->
 	    end
     end;
 suppress_warning([]) -> void().
-
-move_case_into_arg(#c_case{arg=#c_let{vars=OuterVars0,arg=OuterArg,
-                                      body=InnerArg0}=Outer,
-                           clauses=InnerClauses}=Inner, Sub) ->
-    %%
-    %% case let <OuterVars> = <OuterArg> in <InnerArg> of
-    %%     <InnerClauses>
-    %% end
-    %%
-    %%       ==>
-    %%
-    %% let <OuterVars> = <OuterArg>
-    %% in case <InnerArg> of <InnerClauses> end
-    %%
-    ScopeSub0 = sub_subst_scope(Sub#sub{t=#{}}),
-    {OuterVars,ScopeSub} = var_list(OuterVars0, ScopeSub0),
-    InnerArg = body(InnerArg0, ScopeSub),
-    Outer#c_let{vars=OuterVars,arg=OuterArg,
-                body=Inner#c_case{arg=InnerArg,clauses=InnerClauses}};
-move_case_into_arg(#c_case{arg=#c_case{arg=OuterArg,
-                                       clauses=[OuterCa0,OuterCb]}=Outer,
-                           clauses=InnerClauses}=Inner0, Sub) ->
-    case is_failing_clause(OuterCb) of
-        true ->
-            #c_clause{pats=OuterPats0,guard=OuterGuard0,
-                      body=InnerArg0} = OuterCa0,
-            %%
-            %% case case <OuterArg> of
-            %%          <OuterPats> when <OuterGuard> -> <InnerArg>
-            %%          <OuterCb>
-            %%          ...
-            %%      end of
-            %%     <InnerClauses>
-            %% end
-            %%
-            %%       ==>
-            %%
-            %% case <OuterArg> of
-            %%     <OuterPats> when <OuterGuard> ->
-            %%         case <InnerArg> of <InnerClauses> end
-            %%     <OuterCb>
-            %% end
-            %%
-            ScopeSub0 = sub_subst_scope(Sub#sub{t=#{}}),
-
-	    %% We KNOW that pattern_list/2 has already been called for OuterPats0;
-	    %% therefore, it cannot throw an exception.
-	    {OuterPats,ScopeSub} = pattern_list(OuterPats0, ScopeSub0),
-	    OuterGuard = guard(OuterGuard0, ScopeSub),
-	    InnerArg = body(InnerArg0, ScopeSub),
-	    Inner = Inner0#c_case{arg=InnerArg,clauses=InnerClauses},
-	    OuterCa = OuterCa0#c_clause{pats=OuterPats,
-					guard=OuterGuard,
-					body=Inner},
-	    Outer#c_case{arg=OuterArg,
-			 clauses=[OuterCa,OuterCb]};
-        false ->
-            Inner0
-    end;
-move_case_into_arg(#c_case{arg=#c_seq{arg=OuterArg,body=InnerArg}=Outer,
-                           clauses=InnerClauses}=Inner, _Sub) ->
-    %%
-    %% case do <OuterArg> <InnerArg> of
-    %%     <InnerClauses>
-    %% end
-    %%
-    %%       ==>
-    %%
-    %% do <OuterArg>
-    %%    case <InnerArg> of <InerClauses> end
-    %%
-    Outer#c_seq{arg=OuterArg,
-                body=Inner#c_case{arg=InnerArg,clauses=InnerClauses}};
-move_case_into_arg(Expr, _) ->
-    Expr.
 
 %%%
 %%% Update type information.
