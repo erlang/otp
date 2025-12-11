@@ -745,6 +745,18 @@ static DMCGuardBif guard_tab[] =
         DBIF_ALL
     },
     {
+        am_maps_put,
+        &maps_put_3,
+        3,
+        DBIF_TABLE_BODY
+    },
+    {
+        am_maps_remove,
+        &maps_remove_2,
+        2,
+        DBIF_TABLE_BODY
+    },
+    {
         am_is_map_key,
         &is_map_key_2,
         2,
