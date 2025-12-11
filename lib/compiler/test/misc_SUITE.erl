@@ -26,7 +26,7 @@
 	 init_per_testcase/2,end_per_testcase/2,
 	 tobias/1,empty_string/1,md5/1,silly_coverage/1,
 	 confused_literals/1,integer_encoding/0,integer_encoding/1,
-	 override_bif/1]).
+	 override_bif/1,catch_precedence/1]).
 	 
 -include_lib("common_test/include/ct.hrl").
 
@@ -71,7 +71,7 @@ all() ->
 groups() -> 
     [{p,[parallel],
       [tobias,empty_string,silly_coverage,
-       confused_literals,override_bif]},
+       confused_literals,override_bif,catch_precedence]},
      {slow,[parallel],[integer_encoding,md5]}].
 
 init_per_suite(Config) ->
@@ -103,7 +103,21 @@ slow_group() ->
             %% Cloned module. Don't run.
             []
     end.
-    
+
+catch_precedence(Config) when is_list(Config) ->
+        %% lower than addition
+        3 = begin (catch throw(2)) + 1 end,
+        2 = begin catch throw(2) + 1 end,
+
+        %% lower than comparison
+        true = begin (catch throw(false)) =/= true end,
+        false = begin catch throw(false) =/= true end,
+
+        %% lower than send (which has the same precedence as =)
+        Pid = spawn_link(fun () -> receive stop -> ok end end),
+        false = is_pid(begin (catch throw(Pid)) ! stop end),
+        true = is_pid(begin catch throw(Pid) ! stop end).
+
 %%
 %% Functions that override new and old bif's
 %%
