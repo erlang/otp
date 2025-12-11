@@ -103,7 +103,7 @@ EXAMPLES = \
 
 ERL_COMPILE_FLAGS += \
 	-I$(ERL_TOP)/lib/stdlib \
-	-Werror
+	-Werror +nowarn_deprecated_catch
 
 ifeq ($(ERL_DETERMINISTIC),yes)
 	YRL_FLAGS = +deterministic

@@ -80,7 +80,7 @@ CSS = $(PRIVDIR)/styles.css
 # ----------------------------------------------------
 # FLAGS
 # ----------------------------------------------------
-ERL_COMPILE_FLAGS += -Werror
+ERL_COMPILE_FLAGS += -Werror +nowarn_deprecated_catch
 
 # ----------------------------------------------------
 # Targets

@@ -61,7 +61,7 @@ APPUP_TARGET = $(EBIN)/$(APPUP_FILE)
 
 ERL_COMPILE_FLAGS += +'{parse_transform,sys_pre_attributes}' \
                      +'{attribute,insert,app_vsn,$(APP_VSN)}' \
-		     -Werror \
+		     -Werror +nowarn_deprecated_catch \
 		     -I $(ERL_TOP)/lib
 
 # ----------------------------------------------------
