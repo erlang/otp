@@ -440,6 +440,8 @@ b_simple_open_and_close(InitState) ->
                            case socket:open(Domain, Type, Protocol) of
                                {ok, Sock} ->
                                    {ok, State#{sock => Sock}};
+                               {error, eprotonosupport = Reason} ->
+                                   {skip, Reason};
                                {error, _} = ERROR ->
                                    ERROR
                            end
@@ -508,6 +510,8 @@ b_open_and_info(InitState) ->
                            case socket:open(Domain, Type, Protocol) of
                                {ok, Sock} ->
                                    {ok, State#{sock => Sock}};
+                               {error, eprotonosupport = Reason} ->
+                                   {skip, Reason};
                                {error, _} = ERROR ->
                                    ERROR
                            end
