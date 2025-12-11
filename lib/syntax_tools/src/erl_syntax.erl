@@ -29,10 +29,6 @@
 %% either the Apache License or the LGPL.
 %%
 %% %CopyrightEnd%
-%%
-%% @author Richard Carlsson <carlsson.richard@gmail.com>
-%% @end
-%% =====================================================================
 
 -module(erl_syntax).
 -moduledoc """
@@ -389,17 +385,16 @@ trees.
 %% first element is an atom which uniquely identifies the type of the
 %% node. (In the backwards-compatible representation, the
 %% interpretation is also often dependent on the context; the second
-%% element generally holds the annotation (see module {@link
-%% //stdlib/erl_anno} for details) which includes the position
+%% element generally holds the annotation (see module `erl_anno` for
+%% details) which includes the position
 %% information - with a couple of exceptions; see `get_pos' and
 %% `set_pos' for details.) In the documentation of this module, `Pos'
 %% is the annotation associated with a node. No assumptions are made
 %% in this module regarding the format or interpretation of the
 %% annotations. Use module erl_anno to inspect and modify annotations.
-%% In particular, use {@link //stdlib/erl_anno:location/1} to get the
-%% position information, and use {@link
-%% //stdlib/erl_anno:set_location/2} or {@link
-%% //stdlib/erl_anno:set_line/2} to change the position information.
+%% In particular, use `erl_anno:location/1` to get the
+%% position information, and use `erl_anno:set_location/2` or
+%% `erl_anno:set_line/2` to change the position information.
 %% When a syntax tree node is constructed, its associated position is
 %% by default set to the integer zero.
 %% =====================================================================
@@ -485,7 +480,7 @@ trees.
                    | erl_parse:af_remote_function().
 
 %% The representation built by the Erlang standard library parser
-%% `erl_parse'. This is a subset of the {@link syntaxTree()} type.
+%% `erl_parse'. This is a subset of the `syntaxTree()` type.
 
 %% =====================================================================
 %%
@@ -2253,8 +2248,6 @@ tuple_size(Node) ->
 
 
 %% =====================================================================
-%% @equiv list(List, none)
-
 -doc #{equiv => list(List, none)}.
 -spec list([syntaxTree()]) -> syntaxTree().
 
@@ -3070,8 +3063,6 @@ revert_eof_marker(Node) ->
 
 
 %% =====================================================================
-%% @equiv attribute(Name, none)
-
 -doc #{equiv => attribute(Name, none)}.
 -spec attribute(syntaxTree()) -> syntaxTree().
 

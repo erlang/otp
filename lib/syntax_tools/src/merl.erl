@@ -29,9 +29,6 @@
 %% either the Apache License or the LGPL.
 %%
 %% %CopyrightEnd%
-%%
-%% @author Richard Carlsson <carlsson.richard@gmail.com>
-%%
 
 -module(merl).
 -moduledoc """
@@ -404,8 +401,6 @@ Thus, the following pattern matches all possible clauses:
 
 %% ------------------------------------------------------------------------
 %% Compiling and loading code directly to memory
-
-%% @equiv compile(Code, [])
 
 -doc #{equiv => compile(Code, [])}.
 -spec compile(tree_or_trees()) -> compile:comp_ret().
