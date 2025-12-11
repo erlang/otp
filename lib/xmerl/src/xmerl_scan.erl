@@ -174,7 +174,6 @@ The record definition is found in `xmerl.hrl`.
 """.
 -type xmlDocument() :: xmerl:xmlDocument().
 
-%% @type document() = xmlElement() | xmlDocument(). <p>
 -doc """
 An XML document.
 
@@ -303,10 +302,6 @@ rules_state(X, S=#xmerl_scanner{fun_states = FS}) ->
     FS1 = FS#xmerl_fun_states{rules = X},
     S#xmerl_scanner{fun_states = FS1}.
 
-%%% @spec fetch_state(FetchState, S::global_state()) -> global_state()
-%%% @doc For controlling the FetchState, to be used in a fetch
-%%% function, and called when the parser fetch an external resource (eg. a DTD).
-%%% See <a href="xmerl_examples.html">tutorial</a> on customization functions.
 -doc """
 Set the FetchState, to be used in a fetch function.
 

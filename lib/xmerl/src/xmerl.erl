@@ -274,8 +274,6 @@ export_content([E | Es], Callbacks) ->
 export_content([], _Callbacks) ->
     [].
 
-%% @doc Exports a simple XML element directly, without further context.
-
 -doc "Export a simple XML element directly, without further context.".
 -spec export_simple_element(Element, Callback) -> _ when
 	Element  :: simple_element(),
