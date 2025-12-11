@@ -20,9 +20,12 @@
 #
 # %CopyrightEnd%
 
-TEST_SPEC_FILE = megaco.spec
+TEST_SPEC_FILE = \
+	megaco.spec \
+	megaco_bench.spec
 
-COVER_SPEC_FILE = megaco.cover
+COVER_SPEC_FILE = \
+	megaco.cover
 
 BEHAVIOUR_MODULES = \
 	megaco_test_generator
