@@ -21,8 +21,7 @@
 %%
 %% %CopyrightEnd%
 %%
-%% @author Richard Carlsson <carlsson.richard@gmail.com>
-%% @doc Provides a better way to start Dialyzer from a script.
+%% Provides a better way to start Dialyzer from a script.
 
 -module(dialyzer_options).
 -moduledoc false.

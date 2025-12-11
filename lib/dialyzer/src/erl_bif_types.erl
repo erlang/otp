@@ -21,12 +21,9 @@
 %%
 %% %CopyrightEnd%
 %%
-%% @doc Type information for Erlang Built-in functions (implemented in C)
-%% @copyright 2002 Richard Carlsson, 2006 Richard Carlsson, Tobias Lindahl
+%% Type information for Erlang Built-in functions (implemented in C)
+%% Authors: 2002 Richard Carlsson, 2006 Richard Carlsson, Tobias Lindahl
 %% and Kostis Sagonas
-%% @author Richard Carlsson <carlsson.richard@gmail.com>
-%% @author Tobias Lindahl <tobias.lindahl@gmail.com>
-%% @author Kostis Sagonas <kostis@it.uu.se>
 
 -module(erl_bif_types).
 -moduledoc false.
