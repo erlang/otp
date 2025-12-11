@@ -2483,6 +2483,9 @@ that can be reproduced by re-using the same `Seed`.
 See `rand:seed_s/1`, and for example `rand:uniform_s/2`,
 and compare to `rand_seed_alg/1`.
 
+The state objects created by this function has cached data so they use
+much more memory than the generators in the `m:rand` module.
+
 #### With `Arg = crypto_aes`
 
 To get a long period the Xoroshiro928 generator from the `m:rand` module
@@ -2551,7 +2554,7 @@ but the generated numbers are not to be regarded as
 cryptographically strong since there is no re-keying schedule,
 and since the sequence is repeated for the same seed.
 
-For generating numbers his generator is about 2 times slower
+For generating numbers this generator is about 2 times slower
 than the default PRNG in the `m:rand` module, *amortized*.
 For generating bytes, this generator is significantly faster
 than the default generator in the `m:rand` module, for any number

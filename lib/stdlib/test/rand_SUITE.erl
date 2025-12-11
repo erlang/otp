@@ -214,7 +214,7 @@ seed(Config) when is_list(Config) ->
 seed_1(Alg) ->
     %% For all repeatable PRNGS, the initial state should be
     %% possible to clone, but not necessarily compare,
-    %% since we want to be able to optimize the implementatin
+    %% since we want to be able to optimize the implementation
     %%
     %% Choosing algo and seed
     S1 = rand_crypto_seed(Alg, {0, 0, 0}),
