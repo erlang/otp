@@ -792,6 +792,7 @@ jobs:
       - name: Restore ORT Scanner cache
         uses: actions/cache/restore@5a3ec84eff668545956fd18022155c47e93e2684 # ratchet:actions/cache/restore@v4
         id: ort-cache
+        if: ${{ env.FULL_BUILD_AND_CHECK == 'false' }}
         with:
           path: ${{ env.SCAN_RESULT_CACHE_PATH }}
           key: ort-scan-result-${{ env.ORT_VERSION }}-${{ github.ref_name }}-${{ github.sha }}
