@@ -2344,7 +2344,7 @@ This function is equivalent to `rand_seed_s/0`.
 
 The created generator fetches random data with OpenSSL's `RAND_bytes`,
 just like `strong_rand_bytes/1`, and caches it in the generator's state.
-Then 56 bit numbers are extracted from the cache, which makes calculations
+Then 56 bit numbers are extracted from the cache, which makes operations
 in module `m:rand` fast on 64 bit machines.
 
 The generator also implements extracting bytes efficiently.
@@ -2483,11 +2483,14 @@ that can be reproduced by re-using the same `Seed`.
 See `rand:seed_s/1`, and for example `rand:uniform_s/2`,
 and compare to `rand_seed_alg/1`.
 
-#### With `Arg = crypto_aes`
+The state objects created by this function has cached data so they use
+much more memory than the generators in the `m:rand` module.
 
-To get a long period the Xoroshiro928 generator from the `m:rand` module
-is used as a counter (with period 2^928 - 1) and the generator state
-is scrambled through AES-256 to create a 58-bit pseudo random value.
+#### With `Alg = crypto_aes`
+
+The Xoroshiro928 generator from the `m:rand` module is used as a counter.
+The generator's state is scrambled through AES-256 to create a 58-bit
+pseudo random value.  This gives a long period (2^928 - 1).
 
 The result should be statistically completely unpredictable random values,
 since the scrambling is cryptographically strong and the period is
@@ -2496,11 +2499,13 @@ cryptographically strong since there is no re-keying schedule,
 and since the sequence is repeated for the same seed.
 
 - If you need cryptographically strong random numbers use `rand_seed_alg_s/1`
-  with `Alg =:= crypto` or `Alg =:= crypto_cache`.
+  with `Alg =:= crypto` or `Alg =:= crypto_cache`.
 - If you need to be able to repeat the sequence use this function
-  with `Alg =:= crypto_aes`.
-- If you do not need the statistical quality of this generator,
+  with `Alg =:= crypto_aes` (or `Alg =:= crypto_prng1`, below).
+- If you do not need the statistical quality of these generators,
   there are faster generators in the `m:rand` module.
+  The *amortized* speed of this generator is about 3 times slower than
+  the `rand` module's [_default algorithm_](`m:rand#default-algorithm`).
 
 #### _Example_
 
@@ -2525,20 +2530,21 @@ Thanks to the used generator the state object supports the
 Numbers are generated in batches and for speed reasons cached
 in the generator's state. The cache size can be changed from its default
 value using the [crypto app's ](crypto_app.md) configuration parameter
-`rand_cache_size`.  The *amortized* performance is nevertheless
-about 4 times slower than the default PRNG in the `m:rand` module.
+`rand_cache_size`.
 
 Generating bytes, see `rand:bytes_s/2`, is done from the cached numbers,
-which limits the performance as for generating numbers.  `Alg = crypto`,
+which limits the performance as for generating numbers.  `Alg = crypto`,
 is faster, for larger numbers of bytes significantly faster,
-but cannot be used to reproduce a sequence.
+but cannot be used to reproduce a sequence.  Another alternative
+is `Alg = crypto_prng1` that follows here.
 
-#### With `Arg = crypto_prng1` *Since OTP @OTP-19882@*.
+#### With `Alg = crypto_prng1` *Since OTP @OTP-19882@*.
 
 The created generator uses a stream cipher to encrypt data blocks of zeros,
 which effectively results in the stream cipher's key stream as binary data.
-That binary data is cached in the generator's state, and 58 bit numbers
-are extracted, to make calculations fast in the `m:rand` module.
+The binary data is cached in the generator's state to achieve good
+*amortized* speed.  From the cached data 58 bit numbers are extracted,
+to facilitate fast operations in the `m:rand` module.
 The cache size can be changed from its default value using the
 [crypto app's ](crypto_app.md) configuration parameter `rand_cache_size`.
 
@@ -2551,14 +2557,13 @@ but the generated numbers are not to be regarded as
 cryptographically strong since there is no re-keying schedule,
 and since the sequence is repeated for the same seed.
 
-For generating numbers his generator is about 2 times slower
-than the default PRNG in the `m:rand` module, *amortized*.
-For generating bytes, this generator is significantly faster
-than the default generator in the `m:rand` module, for any number
-of bytes, *amortized*.  Compared to `Alg = crypto`, this generator
-has much less overhead so for small numbers of bytes it is much faster.
-The break-even comes a bit above the cache size, and over that
-`Alg = crypto` is faster, but cannot be used to reproduce a sequence.
+For generating numbers, this generator is about 2 times slower
+than the default PRNG in the `m:rand` module.  For generating bytes,
+it is significantly faster, for any number of bytes.
+Compared to `Alg = crypto`, this generator has much less overhead,
+so for small numbers of bytes it is much faster.  Break-even is
+a bit above the cache size, and over that `Alg = crypto` is faster,
+but cannot be used to reproduce a sequence.
 
 #### _Example_
 
@@ -2610,15 +2615,14 @@ but avoids a call to the hash function that is used when seeding.
 <<77,185,41,162,118,82,190>>
 6> BytesB.
 <<160,61,224,29,177,30,68>>
-7> Sc0 = crypto:rand_seed_alg_s(crypto_prng1, "my seed").
-8> Sd0 = rand:jump(Sa0).
-9> Sd0 = rand:jump(Sc0).
+7> SA0 = crypto:rand_seed_alg_s(crypto_prng1, "my seed").
+8> SB0 = rand:jump(SA0).
 %% Same values again
-10> {BytesA, Sc1} = rand:bytes_s(7, Sc0).
-11> {BytesB, Sd1} = rand:bytes_s(7, Sd0).
+9> {BytesA, SA1} = rand:bytes_s(7, SA0).
+10> {BytesB, SB1} = rand:bytes_s(7, SB0).
 ```
 
-#### Crypto algorithm details
+#### _Algorithm details_
 
 The `Seed` is hashed with SHA-384 to create a Key and IV
 for AES-256 that is run in CTR mode over blocks of zero data.

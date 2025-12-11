@@ -54,7 +54,7 @@ that can be used to start from a known state.
 
 This property, and others, make the algorithms in this module
 unsuitable for cryptographical applications, but in the `m:crypto` module
-there are suitable generators, for this module's
+there are such generators, for this module's
 [plug-in framework](#plug-in-framework).
 See `crypto:rand_seed_s/0` and `crypto:rand_seed_alg_s/1`.
 
@@ -78,18 +78,15 @@ that add essential or useful funcionality:
 * Automatic [seeding](`seed/1`).
 * Seeding support for [manual seeding](`seed/2`) to avoid common pitfalls.
 * Generating [integers](`t:integer/0`) with
-  [uniform distribution](`uniform/1`), in *any* range, without bias.
-  The range is not limited; it may be larger than
-  the base generator's size (but that costs some performance).
+  [uniform distribution](`uniform/1`), on *any* range, without bias.
 * Generating [floating-point numbers](`t:float/0`) with
   [uniform distribution](`uniform/0`).
 * Generating [floating-point numbers](`t:float/0`) with
   [normal distribution](`normal/0`), standard normal distribution
   or [specified mean and variance](`normal/2`).
-  Note that these operations may under some circumstances not be able
-  to reproduce a sequence.  See the functions' documentation.
 * Generating any number of [bytes](`bytes/1`).
-* [Jumping](`jump/1`) the generator ahead, in algorithms that support that.
+* [Jumping](`jump/1`) the generator ahead (multiple non-overlapping
+  sequences), in algorithms that support that.
 
 [](){: #usage }
 ### Usage and examples
@@ -97,58 +94,59 @@ that add essential or useful funcionality:
 Decide if the PRNG state should be stored in the process dictionary
 of the calling process (implicit state), or in a state variable
 for the calling code to keep track of (explicit state).
-The seed and generation functions named with a suffix `_s` handle
-an explicit state, and the functions without the suffix operate on
-the implicit state.  There are are a few exceptions to this rule.
 
-First initialize (seed) a generator, which selects a PRNG
+Initialize (seed) a generator, which selects the PRNG
 algorithm and creates the initial state.  Either use an explicit
 `Seed` value which makes it possible to reproduce the PRNG sequence,
-or use an automatic seed.
+or use an automatic seed.  If you use the implicit state and omit this step,
+you will get the [_default algorithm_](#default-algorithm)
+with an automatic seed.
 
-Then the generator functions can be called.
-
-If a generator function that operates on the implicit state
-is called when no implicit state has been generated,
-an automatic seed is used to create the implicit state.
+Then the generator functions that, for example; generate range limited
+uniformly distributed integers, shuffle a list, and so on, can be called.
 
 #### Seeding the generator
 
 Seeding (initializing) is done by calling one of the `seed/1` or
-`seed_s/1` functions, which also select which [algorithm](#algorithms)
-to use.  The `seed/1` functions store the generator and state
+`seed_s/1` functions, which also selects which [algorithm](#algorithms)
+to use.  The `seed/1` functions store the generator and initial state
 in the process dictionary, while the `seed_s/1` functions
-only return the state, which requires the calling code
-to handle the state and updates to it.
+only return the initial state.
 
 The seed functions that do not have a `Seed` argument
-create an automatic seed that should be unique to the created
+create an automatic seed which is designed to be unique to the created
 generator instance; see `seed_s/1`.
 
 If an automatic seed is not desired, the seed functions that have a
-[`Seed`](`t:seed/0`) argument can be used.  The argument has
+[`Seed`](`t:seed/0`) argument should be used.  The argument has
 3 possible formats; see the `t:seed/0` type description.
+
+There are also seeding functions for generators in the `m:crypto` module.
+See the section [Plug-In Generators](`m:crypto#plug-in-generators`).
 
 #### Using the generator
 
 The [Plug-in framework API](#plug-in-framework-api) generator functions
-named with the suffix `_s` take an explicit state as their last argument
-and return the new state as the last element in the returned tuple.
-The process dictionary is not used.
+named with the suffix `_s`, with a few exceptions, take an explicit state
+as their last argument and return the new state as the last element
+in the returned tuple.  The new state shall be used when calling
+the next generator function, and so on.  The process dictionary is not used.
 
-Sibling functions without that suffix take operate on the implicit state
-stored in the process dictionary, and only return their "interesting "
-output value.  If the process dictionary has no PRNG state,
-[`seed(default)`](`seed/1`) is implicitly called to create an automatic seed
+Sibling functions without that suffix operate on the implicit state
+stored in the process dictionary, and only return their "interesting"
+output value.  If the process dictionary has no stored implicit state,
+[`seed(default)`](`seed/1`) is called to create an automatic seed
 for the [_default algorithm_](#default-algorithm), as initial state.
 
 *Generator functions*:
 
 * `uniform/1` and `uniform_s/2` generate *uniformly distributed integers*
-  on **any** (unlimited) range.
+   on **any** (unlimited) specified range, without bias.
 * `uniform/0`, `uniform_s/1`, `uniform_real/0` and `uniform_real_s/1`
-  generate *uniformly distributed floating point numbers*.
+  generate *uniformly distributed floating point numbers*
+  on the range [0.0, 1.0).
 * `bytes/1` and `bytes_s/2` generate *uniformly distributed bytes*.
+  See the note under `bytes_s/2` about efficiency.
 * `shuffle/1` and `shuffle_s/2` *shuffle a list*.
 
 Those generator functions use one or more raw numbers from the generator
@@ -165,7 +163,7 @@ to do correctly and efficiently.
 Those generator functions have to use a number of floating point
 calculations, that on different platforms with different math library
 implementations, optimizations, compilation flags such as
-gcc:s `-ffast-math`, etc, may produce slightly different values.
+gcc's `-ffast-math`, etc, may produce slightly different values.
 
 Furthermore these slightly different values may cause the implementation
 to do a recursive retry on one platform that is not done on another,
@@ -323,7 +321,9 @@ from different seeds it is assured that the generated sequences
 do not overlap.  The alternative of using different seeds
 may accidentally start the generators in sequence positions
 that are close to each other, but a jump function jumps
-to a sequence position very far ahead.
+to a sequence position so far ahead that the generator
+at the jumped from position will never arrive
+at the jumped to position.
 
 To create numbers with normal distribution the
 [Ziggurat Method by Marsaglia and Tsang](http://www.jstatsoft.org/v05/i08)
@@ -438,8 +438,19 @@ relying on them will produce the same pseudo random sequences as before.
 > #### Note {: .info }
 >
 > The builtin random number generator algorithms are not cryptographically
-> strong. If a cryptographically strong random number generator is needed,
+> strong. If a *cryptographically strong* random number generator is needed,
 > use for example `crypto:rand_seed_s/0` or `crypto:rand_seed_alg_s/1`.
+>
+> There are also generators for *cryptographically unpredictable*
+> pseudo random numbers: see `crypto:rand_seed_alg/2` and
+> `crypto:rand_seed_alg_s/2`.  They are generated using cryptographical
+> primitives so the statistical quality is impeccable, but the
+> generated sequence can be repeated, and therefore cannot be regarded as
+> *cryptographically strong*.
+>
+> The generators in the [`crypto`](`m:crypto#plug-in-generators`)
+> module are much slower at generating numbers and/or require
+> a much larger state than the generators in this module.
 
 For all these generators except `exro928ss` and `exsss` the lowest bit(s)
 have got a slightly less random behaviour than all other bits.
@@ -482,14 +493,14 @@ special purpose algorithms that do not use the
 [plug-in framework](#plug-in-framework), mainly for performance reasons.
 
 Since these algorithms lack the plug-in framework support, generating numbers
-in a range other than the base generator's range may become a problem.
+on a range other than the base generator's range may become a problem.
 
 There are at least four ways to do this, assuming the `Range` is less than
 the generator's range:
 
 [](){: #modulo-method }
 - **Modulo**  
-  To generate a number `V` in the range `0 .. Range-1`:
+  To generate a number `V` on the range `0 .. Range-1`:
 
   > Generate a number `X`.  
   > Use `V = X rem Range` as your value.
@@ -570,8 +581,9 @@ the generator's range:
   but in practice you ensure that the probability of rejection is low.
   Then the probability for yet another iteration decreases exponentially
   so the expected mean number of iterations will often be between 1 and 2.
-  Also, since the base generator is a full length generator,
-  a value that will break the loop must eventually be generated.
+  Also, since base generators in general are full length generators,
+  they traverse all values of their state, so a value that will break the loop
+  must eventually be generated.
 
 These methods can be combined, such as using
 the [Modulo](#modulo-method) method and only if the generator value
@@ -584,7 +596,7 @@ will not create a bignum.
 The recommended way to generate a floating point number
 (IEEE 745 Double, that has got a 53-bit mantissa) in the range
 `0 .. 1`, that is `0.0 =< V < 1.0` is to generate a 53-bit number `X`
-and then use `V = X * (1.0/((1 bsl 53)))` as your value.
+and then use `V = X * 2#1.0*e-53` as your value.
 This will create a value of the form N*2^-53 with equal probability
 for every possible N for the range.
 """.
@@ -1189,6 +1201,13 @@ From the specified `State`, generates a random number `X ::` `t:integer/0`,
 uniformly distributed in the specified range `1 =< X =< N`.
 Returns the number `X` and the updated `NewState`.
 
+The range is not limited, it may be larger than the base generator's
+size, although that costs some performance since multiple
+base generator numbers have to be used and probably also bignum operations.
+
+The generated numbers are bias free, even if the range is
+not a divisor of the base generator size, or larger than the same.
+
 #### _Shell Example_
 
 ```erlang
@@ -1537,7 +1556,7 @@ with that number of random bytes.
 
 The selected algorithm is used to generate as many random numbers
 as required to compose the `t:binary/0`.  Returns the generated
-[`Bytes`](`t:binary/0`) and a [`NewState`](`t:state/0`).
+[`Bytes`](`t:binary/0`) and the [`NewState`](`t:state/0`).
 
 > ### Note {: .info }
 >
@@ -1555,7 +1574,9 @@ as required to compose the `t:binary/0`.  Returns the generated
 >
 > A plug-in generator may implement a dedicated callback
 > for generating bytes, to mitigate this problem, which in that case
-> is stated in the generator's documentation.
+> is stated in the generator's documentation.  See
+> [`crypto:rand_seed_alg(crypto_prng1, Seed)`](`crypto:rand_seed_alg_s/2`),
+> which is repeatable and efficient.
 
 #### _Shell Example_
 
@@ -1885,9 +1906,9 @@ has the same probability.
 
 In other words, the quality of the shuffling depends only on
 the quality of the backend [random number generator](#algorithms)
-and [seed](`seed_s/1`).  If a cryptographically unpredictable
-shuffling is needed, use for example `crypto:rand_seed_alg_s/1`
-to initialize the random number generator.
+and [seed](`seed_s/1`).  If a cryptographical quality shuffling is needed,
+use for example `crypto:rand_seed_alg_s/2` to initialize
+the random number generator.
 
 Returns the shuffled list [`ShuffledList`](`t:list/0`)
 and the [`NewState`](`t:state/0`).
