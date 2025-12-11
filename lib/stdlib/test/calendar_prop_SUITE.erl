@@ -29,7 +29,9 @@
          gregorian_days_roundtrip/1,
          gregorian_days_monotonic/1,
          day_of_week_cycle/1,
-         year_length/1]).
+         year_length/1,
+         negative_leap_year/1,
+         gregorian_seconds_roundtrip/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]}].
@@ -41,7 +43,9 @@ all() ->
      gregorian_days_roundtrip,
      gregorian_days_monotonic,
      day_of_week_cycle,
-     year_length].
+     year_length,
+     negative_leap_year,
+     gregorian_seconds_roundtrip].
 
 groups() ->
     [].
@@ -91,4 +95,14 @@ day_of_week_cycle(Config) when is_list(Config) ->
 year_length(Config) when is_list(Config) ->
     ct_property_test:quickcheck(
         calendar_prop:year_length(),
+        Config).
+
+negative_leap_year(Config) when is_list(Config) ->
+    ct_property_test:quickcheck(
+        calendar_prop:negative_leap_year(),
+        Config).
+
+gregorian_seconds_roundtrip(Config) when is_list(Config) ->
+    ct_property_test:quickcheck(
+        calendar_prop:gregorian_seconds_roundtrip(),
         Config).

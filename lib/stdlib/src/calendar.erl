@@ -44,10 +44,12 @@ Protestant parts of Germany and the Netherlands adopted it in 1698, England
 followed in 1752, and Russia in 1918 (the October revolution of 1917 took place
 in November according to the Gregorian calendar).
 
-The Gregorian calendar in this module is extended back to year 0. For a given
-date, the _gregorian days_ is the number of days up to and including the date
-specified. Similarly, the _gregorian seconds_ for a specified date and time is
-the number of seconds up to and including the specified date and time.
+The Gregorian calendar in this module is extended back to year 0 and also
+supports negative years (proleptic Gregorian calendar). For a given date, the
+_gregorian days_ is the number of days up to and including the date specified.
+Negative years use astronomical year numbering where year 0 = 1 BCE, year -1 =
+2 BCE, etc. Similarly, the _gregorian seconds_ for a specified date and time
+is the number of seconds up to and including the specified date and time.
 
 For computing differences between epochs in time, use the functions counting
 gregorian days or seconds. If epochs are specified as local time, they must be
@@ -161,7 +163,7 @@ The year using the Gregorian calendar.
 Year cannot be abbreviated. For example, 93 denotes year 93, not 1993. The valid
 range depends on the underlying operating system.
 """.
--type year()     :: non_neg_integer().
+-type year()     :: integer().
 -type year1970() :: 1970..10000.	% should probably be 1970..
 -type month()    :: 1..12.
 -type day()      :: 1..31.
@@ -229,7 +231,7 @@ The time unit used by the rfc3339 conversion functions.
       Year :: year(),
       Month :: month(),
       Day :: day(),
-      Days :: non_neg_integer().
+      Days :: integer().
 date_to_gregorian_days(Year, Month, Day) when is_integer(Day), Day > 0 ->
     %% Neri-Schneider algorithm.
     %% Shift year so March is first month (simplifies leap year handling).
@@ -247,7 +249,7 @@ specified date.
 """.
 -spec date_to_gregorian_days(Date) -> Days when
       Date :: date(),
-      Days :: non_neg_integer().
+      Days :: integer().
 date_to_gregorian_days({Year, Month, Day}) ->
     date_to_gregorian_days(Year, Month, Day).
 
@@ -263,7 +265,7 @@ specified date and time.
 """.
 -spec datetime_to_gregorian_seconds(DateTime) -> Seconds when
       DateTime :: datetime(),
-      Seconds :: non_neg_integer().
+      Seconds :: integer().
 datetime_to_gregorian_seconds({Date, Time}) ->
     ?SECONDS_PER_DAY*date_to_gregorian_days(Date) +
 	time_to_seconds(Time).
@@ -280,7 +282,7 @@ datetime_to_gregorian_seconds({Date, Time}) ->
       Month :: month(),
       Day :: day().
 day_of_the_week(Year, Month, Day) ->
-    (date_to_gregorian_days(Year, Month, Day) + 5) rem 7 + 1.
+    mod(date_to_gregorian_days(Year, Month, Day) + 5, 7) + 1.
 
 -doc """
 Computes the day of the week from the specified `Year`, `Month`, and `Day`.
@@ -296,7 +298,7 @@ day_of_the_week({Year, Month, Day}) ->
 %%
 -doc "Computes the date from the specified number of gregorian days.".
 -spec gregorian_days_to_date(Days) -> date() when
-      Days :: non_neg_integer().
+      Days :: integer().
 gregorian_days_to_date(Days) ->
     %% Neri-Schneider algorithm.
     %% Shift to March 1, year 0 epoch.
@@ -318,10 +320,14 @@ gregorian_days_to_date(Days) ->
 %%
 -doc "Computes the date and time from the specified number of gregorian seconds.".
 -spec gregorian_seconds_to_datetime(Seconds) -> datetime() when
-      Seconds :: non_neg_integer().
-gregorian_seconds_to_datetime(Secs) when Secs >= 0 ->
-    Days = Secs div ?SECONDS_PER_DAY,
-    Rest = Secs rem ?SECONDS_PER_DAY,
+      Seconds :: integer().
+gregorian_seconds_to_datetime(Secs) ->
+    Days0 = Secs div ?SECONDS_PER_DAY,
+    Rest0 = Secs rem ?SECONDS_PER_DAY,
+    {Days, Rest} = case Rest0 < 0 of
+        true -> {Days0 - 1, Rest0 + ?SECONDS_PER_DAY};
+        false -> {Days0, Rest0}
+    end,
     {gregorian_days_to_date(Days), seconds_to_time(Rest)}.
 
 
@@ -330,11 +336,11 @@ gregorian_seconds_to_datetime(Secs) when Secs >= 0 ->
 -doc "Checks if the specified year is a leap year.".
 -spec is_leap_year(Year) -> boolean() when
       Year :: year().
-is_leap_year(Y) when is_integer(Y), Y >= 0 ->
+is_leap_year(Y) when is_integer(Y) ->
     is_leap_year1(Y).
 
 -spec is_leap_year1(year()) -> boolean().
-is_leap_year1(Year) when Year rem 4 =:= 0, Year rem 100 > 0 ->
+is_leap_year1(Year) when Year rem 4 =:= 0, Year rem 100 =/= 0 ->
     true;
 is_leap_year1(Year) when Year rem 400 =:= 0 ->
     true;
@@ -397,7 +403,7 @@ iso_week_number({Year, Month, Day}) ->
       Year :: year(),
       Month :: month(),
       LastDay :: ldom().
-last_day_of_the_month(Y, M) when is_integer(Y), Y >= 0 ->
+last_day_of_the_month(Y, M) when is_integer(Y) ->
     last_day_of_the_month1(Y, M).
 
 -spec last_day_of_the_month1(year(),month()) -> ldom().
@@ -596,6 +602,17 @@ rfc3339_to_system_time(List, Options) when is_list(List) ->
     rfc3339_to_system_time_list(List, Options).
 
 %% _T is the character separating the date and the time:
+%% Handle negative years (ISO 8601 extended format: -YYYY-MM-DD)
+rfc3339_to_system_time_bin(
+    <<$-, Year0:4/binary, $-, Month0:2/binary, $-, Day0:2/binary, _T,
+      Hour0:2/binary, $:, Min0:2/binary, $:, Sec0:2/binary, TimeStr/binary>> = DateTimeBin, Options) ->
+    Hour = binary_to_integer(Hour0),
+    Min = binary_to_integer(Min0),
+    Sec = binary_to_integer(Sec0),
+    Year = -binary_to_integer(Year0),
+    Month = binary_to_integer(Month0),
+    Day = binary_to_integer(Day0),
+    rfc3339_to_system_time_1(DateTimeBin, Options, Year, Month, Day, Hour, Min, Sec, binary_to_list(TimeStr));
 rfc3339_to_system_time_bin(
     <<Year0:4/binary, $-, Month0:2/binary, $-, Day0:2/binary, _T,
       Hour0:2/binary, $:, Min0:2/binary, $:, Sec0:2/binary, TimeStr/binary>> = DateTimeBin, Options) ->
@@ -608,6 +625,17 @@ rfc3339_to_system_time_bin(
     rfc3339_to_system_time_1(DateTimeBin, Options, Year, Month, Day, Hour, Min, Sec, binary_to_list(TimeStr)).
 
 %% _T is the character separating the date and the time:
+%% Handle negative years (ISO 8601 extended format: -YYYY-MM-DD)
+rfc3339_to_system_time_list(
+    [$-, Y1, Y2, Y3, Y4, $-, Mon1, Mon2, $-, D1, D2, _T,
+     H1, H2, $:, Min1, Min2, $:, S1, S2 | TimeStr] = DateTimeString, Options) ->
+    Hour = list_to_integer([H1, H2]),
+    Min = list_to_integer([Min1, Min2]),
+    Sec = list_to_integer([S1, S2]),
+    Year = -list_to_integer([Y1, Y2, Y3, Y4]),
+    Month = list_to_integer([Mon1, Mon2]),
+    Day = list_to_integer([D1, D2]),
+    rfc3339_to_system_time_1(DateTimeString, Options, Year, Month, Day, Hour, Min, Sec, TimeStr);
 rfc3339_to_system_time_list(
     [Y1, Y2, Y3, Y4, $-, Mon1, Mon2, $-, D1, D2, _T,
      H1, H2, $:, Min1, Min2, $:, S1, S2 | TimeStr] = DateTimeString, Options) ->
@@ -892,7 +920,7 @@ valid_date(Y, M, D) when is_integer(Y), is_integer(M), is_integer(D) ->
     valid_date1(Y, M, D).
 
 -spec valid_date1(integer(), integer(), integer()) -> boolean().
-valid_date1(Y, M, D) when Y >= 0, M > 0, M < 13, D > 0 ->
+valid_date1(Y, M, D) when is_integer(Y), M > 0, M < 13, D > 0 ->
     D =< last_day_of_the_month(Y, M);
 valid_date1(_, _, _) ->
     false.
@@ -921,7 +949,10 @@ gregorian_days_of_iso_w01_1(Year) ->
 	D0101 + 7 - DOW + 1
     end.
 
-check(_Arg, _Options, Secs) when Secs >= - ?SECONDS_FROM_0_TO_1970,
+%% Restrict RFC3339 to years -9999..9999 (4-digit format)
+-define(SECONDS_FROM_MINUS_9999_TO_1970, 377705116800).
+
+check(_Arg, _Options, Secs) when Secs >= -?SECONDS_FROM_MINUS_9999_TO_1970,
                                  Secs < ?SECONDS_FROM_0_TO_10000 ->
     ok;
 check(Arg, Options, _Secs) ->
@@ -1020,6 +1051,9 @@ pad2(N) when N < 10 ->
 pad2(N) ->
     integer_to_list(N).
 
+pad4(N) when N < 0 ->
+    %% Negative years: format as -YYYY (ISO 8601 extended format)
+    [$- | pad4(-N)];
 pad4(N) when N < 10 ->
     [$0, $0, $0 | integer_to_list(N)];
 pad4(N) when N < 100 ->

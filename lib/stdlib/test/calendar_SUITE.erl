@@ -28,10 +28,14 @@
 	 gregorian_days/1,
 	 big_gregorian_days/1,
 	 gregorian_days_edge_cases/1,
+	 negative_gregorian_days/1,
 	 gregorian_seconds/1,
+	 negative_gregorian_seconds/1,
 	 day_of_the_week/1,
 	 day_of_the_week_calibrate/1,
+	 negative_day_of_the_week/1,
 	 leap_years/1,
+	 negative_leap_years/1,
 	 last_day_of_the_month/1,
 	 local_time_to_universal_time_dst/1,
 	 iso_week_number/1,
@@ -50,7 +54,9 @@ all() ->
      day_of_the_week_calibrate, leap_years,
      last_day_of_the_month, local_time_to_universal_time_dst,
      iso_week_number, system_time, rfc3339, big_gregorian_days,
-     gregorian_days_edge_cases].
+     gregorian_days_edge_cases, negative_gregorian_days,
+     negative_gregorian_seconds, negative_leap_years,
+     negative_day_of_the_week].
 
 groups() ->
     [].
@@ -155,6 +161,150 @@ check_roundtrip_samples() ->
               Date = calendar:gregorian_days_to_date(Days),
               Days = calendar:date_to_gregorian_days(Date)
       end, lists:seq(0, 4000000, 10000)).
+
+%% Tests negative dates (dates before year 0).
+%% Uses astronomical year numbering: year 0 = 1 BCE, year -1 = 2 BCE, etc.
+negative_gregorian_days(Config) when is_list(Config) ->
+    %% Test day before epoch (Dec 31, year -1)
+    -1 = calendar:date_to_gregorian_days({-1, 12, 31}),
+    {-1, 12, 31} = calendar:gregorian_days_to_date(-1),
+
+    %% Test year -1 boundaries (year -1 is NOT a leap year: -1 rem 4 = -1)
+    %% Year -1 has 365 days: Jan 1 is day -365, Dec 31 is day -1
+    -365 = calendar:date_to_gregorian_days({-1, 1, 1}),
+    {-1, 1, 1} = calendar:gregorian_days_to_date(-365),
+
+    %% Test year -4 (leap year: -4 rem 4 = 0, -4 rem 100 = -4)
+    true = calendar:is_leap_year(-4),
+    -1461 = calendar:date_to_gregorian_days({-4, 1, 1}),
+    {-4, 1, 1} = calendar:gregorian_days_to_date(-1461),
+    -1096 = calendar:date_to_gregorian_days({-4, 12, 31}),  % 366 days in year -4
+    -1402 = calendar:date_to_gregorian_days({-4, 2, 29}),   % Leap day
+    {-4, 2, 29} = calendar:gregorian_days_to_date(-1402),
+
+    %% Test year -100 (NOT a leap year: divisible by 100)
+    false = calendar:is_leap_year(-100),
+    -36466 = calendar:date_to_gregorian_days({-100, 2, 28}),
+    {-100, 2, 28} = calendar:gregorian_days_to_date(-36466),
+    -36465 = calendar:date_to_gregorian_days({-100, 3, 1}),
+    {-100, 3, 1} = calendar:gregorian_days_to_date(-36465),
+
+    %% Test year -400 (IS a leap year: divisible by 400)
+    true = calendar:is_leap_year(-400),
+    -146038 = calendar:date_to_gregorian_days({-400, 2, 29}),
+    {-400, 2, 29} = calendar:gregorian_days_to_date(-146038),
+
+    %% Test roundtrip for negative days
+    check_negative_roundtrip_samples(),
+
+    %% Test valid_date for negative years
+    true = calendar:valid_date({-1, 12, 31}),
+    true = calendar:valid_date({-4, 2, 29}),
+    false = calendar:valid_date({-1, 2, 29}),  % -1 is not a leap year
+    true = calendar:valid_date({-400, 2, 29}),
+    false = calendar:valid_date({-100, 2, 29}),
+
+    %% Test last_day_of_the_month for negative years
+    29 = calendar:last_day_of_the_month(-4, 2),
+    28 = calendar:last_day_of_the_month(-1, 2),
+    29 = calendar:last_day_of_the_month(-400, 2),
+    28 = calendar:last_day_of_the_month(-100, 2),
+
+    ok.
+
+%% Helper: check roundtrip for negative days
+check_negative_roundtrip_samples() ->
+    %% Sample every 10000 days from -1000000 to 0
+    lists:foreach(
+      fun(Days) ->
+              Date = calendar:gregorian_days_to_date(Days),
+              Days = calendar:date_to_gregorian_days(Date)
+      end, lists:seq(-1000000, 0, 10000)).
+
+%% Tests negative gregorian seconds (times before year 0).
+negative_gregorian_seconds(Config) when is_list(Config) ->
+    %% One second before midnight on Jan 1, year 0
+    -1 = calendar:datetime_to_gregorian_seconds({{-1, 12, 31}, {23, 59, 59}}),
+    {{-1, 12, 31}, {23, 59, 59}} = calendar:gregorian_seconds_to_datetime(-1),
+
+    %% Midnight on Dec 31, year -1
+    -86400 = calendar:datetime_to_gregorian_seconds({{-1, 12, 31}, {0, 0, 0}}),
+    {{-1, 12, 31}, {0, 0, 0}} = calendar:gregorian_seconds_to_datetime(-86400),
+
+    %% Start of year -1
+    -31536000 = calendar:datetime_to_gregorian_seconds({{-1, 1, 1}, {0, 0, 0}}),
+    {{-1, 1, 1}, {0, 0, 0}} = calendar:gregorian_seconds_to_datetime(-31536000),
+
+    %% Test a time in the middle of a negative day
+    {{-1, 12, 31}, {12, 30, 45}} = calendar:gregorian_seconds_to_datetime(-41355),
+
+    %% Test roundtrip for various negative seconds
+    lists:foreach(
+      fun(Secs) ->
+              DateTime = calendar:gregorian_seconds_to_datetime(Secs),
+              Secs = calendar:datetime_to_gregorian_seconds(DateTime)
+      end, lists:seq(-100000000, 0, 1234567)),
+
+    ok.
+
+%% Tests leap year detection for negative years.
+negative_leap_years(Config) when is_list(Config) ->
+    %% Year -1 is NOT a leap year (-1 rem 4 = -1)
+    false = calendar:is_leap_year(-1),
+    %% Year -2 is NOT a leap year
+    false = calendar:is_leap_year(-2),
+    %% Year -3 is NOT a leap year
+    false = calendar:is_leap_year(-3),
+    %% Year -4 IS a leap year (-4 rem 4 = 0, -4 rem 100 = -4)
+    true = calendar:is_leap_year(-4),
+    %% Year -8 IS a leap year
+    true = calendar:is_leap_year(-8),
+    %% Year -100 is NOT a leap year (divisible by 100, not by 400)
+    false = calendar:is_leap_year(-100),
+    %% Year -200 is NOT a leap year
+    false = calendar:is_leap_year(-200),
+    %% Year -300 is NOT a leap year
+    false = calendar:is_leap_year(-300),
+    %% Year -400 IS a leap year (divisible by 400)
+    true = calendar:is_leap_year(-400),
+    %% Year -800 IS a leap year
+    true = calendar:is_leap_year(-800),
+    %% Year -500 is NOT a leap year
+    false = calendar:is_leap_year(-500),
+
+    %% Check leap years from -1000 to 0
+    check_negative_leap_years(-1000, 0),
+
+    ok.
+
+%% Helper: verify leap year logic for negative years
+check_negative_leap_years(Year, EndYear) when Year < EndYear ->
+    Expected = (Year rem 4 =:= 0) andalso
+               ((Year rem 100 =/= 0) orelse (Year rem 400 =:= 0)),
+    Expected = calendar:is_leap_year(Year),
+    check_negative_leap_years(Year + 1, EndYear);
+check_negative_leap_years(_, _) ->
+    ok.
+
+%% Tests day_of_the_week for negative dates
+negative_day_of_the_week(Config) when is_list(Config) ->
+    %% Jan 1, year 0 is a Saturday (day 6)
+    6 = calendar:day_of_the_week({0, 1, 1}),
+    %% Dec 31, year -1 should be Friday (day 5)
+    5 = calendar:day_of_the_week({-1, 12, 31}),
+    %% Dec 30, year -1 should be Thursday (day 4)
+    4 = calendar:day_of_the_week({-1, 12, 30}),
+
+    %% Verify 7-day cycle works for negative dates
+    lists:foreach(
+      fun(Days) ->
+              DOW1 = calendar:day_of_the_week(calendar:gregorian_days_to_date(Days)),
+              DOW2 = calendar:day_of_the_week(calendar:gregorian_days_to_date(Days + 7)),
+              true = (DOW1 =:= DOW2),
+              true = (DOW1 >= 1 andalso DOW1 =< 7)
+      end, lists:seq(-100000, 0, 1000)),
+
+    ok.
 
 %% Tests that datetime_to_gregorian_seconds and
 %% gregorian_seconds_to_date are each others inverses for a sampled
@@ -305,6 +455,7 @@ rfc3339(Config) when is_list(Config) ->
         roundtrip_fmt_rfc3339_z(253402300799*1_000_000+999_999, Mys),
     "9999-12-31T23:59:59.999999999Z" =
         roundtrip_fmt_rfc3339_z(253402300799*1_000_000_000+999_999_999, Ns),
+    %% Year 10000 is out of range (restricted to -9999..9999)
     {'EXIT', _} = (catch do_format_z(253402300799+1, [])),
     {'EXIT', _} = (catch do_parse("9999-12-31T23:59:60Z", [])),
     {'EXIT', _} = (catch do_format_z(253402300799*1_000_000_000+999_999_999+1, Ns)),
@@ -337,6 +488,17 @@ rfc3339(Config) when is_list(Config) ->
         test_parse("1918-11-11T11:00:00+02:00", Mys),
     "1970-01-01T00:00:00.000001Z" =
         test_parse("1970-01-01T00:00:00.000001Z", Mys),
+
+    %% Negative years (ISO 8601 extended format)
+    "-0001-01-01T00:00:00Z" = test_parse("-0001-01-01T00:00:00Z"),
+    "-0001-12-31T23:59:59Z" = test_parse("-0001-12-31T23:59:59Z"),
+    "-0004-02-29T12:30:45Z" = test_parse("-0004-02-29T12:30:45Z"),  % leap year
+    "-0100-06-15T00:00:00Z" = test_parse("-0100-06-15T00:00:00Z"),
+    "-0400-02-29T00:00:00Z" = test_parse("-0400-02-29T00:00:00Z"),  % leap year (div 400)
+    %% Binary input for negative years
+    "-0001-01-01T00:00:00Z" = test_parse(<<"-0001-01-01T00:00:00Z">>),
+    "-0004-02-29T12:30:45Z" = test_parse(<<"-0004-02-29T12:30:45Z">>),
+
 
     test_time(erlang:system_time(second), []),
     test_time(erlang:system_time(second), Z),
