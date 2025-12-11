@@ -34,10 +34,9 @@ extern "C"
     //
     typedef struct pkey_type_t pkey_type_C;
 
-    size_t pkey_algorithms_lazy_init(ErlNifEnv *env, bool fips_enabled);
     ERL_NIF_TERM pkey_algorithms_as_list(ErlNifEnv *env, bool fips_enabled);
 
-    pkey_type_C *get_pkey_type(ERL_NIF_TERM atom);
+    pkey_type_C *get_pkey_type(ErlNifEnv *env, ERL_NIF_TERM atom);
     ERL_NIF_TERM get_pkey_type_atom(const pkey_type_C *p);
 #ifdef HAS_PREFETCH_SIGN_INIT
     EVP_SIGNATURE *get_pkey_type_resource(const pkey_type_C *p);
@@ -51,7 +50,9 @@ extern "C"
 
 #ifdef __cplusplus
 #    include "algorithms_collection.h"
-#    include "auto_openssl_resource.h"
+#ifdef HAS_PREFETCH_SIGN_INIT
+#include "auto_openssl_resource.h" // only used in pkey_type_t under same ifdef
+#endif
 struct pkey_probe_t;
 
 struct pubkey_type_flags_t {
@@ -114,6 +115,7 @@ struct pkey_probe_t {
     }
     // Perform a probe on the algorithm. In case of success, fill the struct and push into the 'output'
     void probe(ErlNifEnv *env, bool fips_enabled, std::vector<pkey_type_t> &output);
+    static void post_lazy_init(std::vector<pkey_type_t> &) {}
 };
 
 using pkey_collection_t = algorithm_collection_t<pkey_type_t, pkey_probe_t>;

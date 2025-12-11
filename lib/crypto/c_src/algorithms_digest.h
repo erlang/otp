@@ -37,11 +37,10 @@ extern "C"
     //
     // C Digest storage API
     //
-    void digest_types_lazy_init(ErlNifEnv *env, bool fips_enabled);
     ERL_NIF_TERM digest_types_as_list(ErlNifEnv *env, bool fips_forbidden);
 
     // Lookup and access fields
-    digest_type_C *get_digest_type(ERL_NIF_TERM type);                 // linear lookup by atom
+    digest_type_C *get_digest_type(ErlNifEnv *env, ERL_NIF_TERM type); // linear lookup by atom
     bool is_digest_forbidden_in_fips(const digest_type_C *p);          // access C++ member from C
     const EVP_MD *get_digest_type_resource(const digest_type_C *p);    // access field
     size_t get_digest_type_xof_default_length(const digest_type_C *p); // access field
@@ -118,6 +117,7 @@ struct digest_probe_t {
     }
     // Perform probe on the algorithm. In case of success, fill the struct and push into the 'output'
     void probe(ErlNifEnv *env, bool fips_mode, std::vector<digest_type_t> &output);
+    static void post_lazy_init(std::vector<digest_type_t> &) {}
 };
 
 using digest_collection_t = algorithm_collection_t<digest_type_t, digest_probe_t>;

@@ -228,7 +228,7 @@ ERL_NIF_TERM evp_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
     ErlNifBinary prv_key;
     size_t key_len;
     unsigned char *out_pub = NULL, *out_priv = NULL;
-    pkey_type_C *pkey_type = get_pkey_type(argv[0]);
+    const pkey_type_C *pkey_type = get_pkey_type(env, argv[0]);
 
     if (pkey_type) {
         type = get_pkey_type_evp_pkey_id(pkey_type);

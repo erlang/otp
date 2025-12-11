@@ -36,10 +36,9 @@ extern "C"
     //
     // Supported MAC Options storage C API
     //
-    size_t mac_algorithms_lazy_init(ErlNifEnv *env, bool fips_enabled);
     ERL_NIF_TERM mac_algorithms_as_list(ErlNifEnv *env, bool fips_enabled);
-    mac_type_C *get_mac_type(ERL_NIF_TERM type, size_t key_len);
-    mac_type_C *get_mac_type_no_key(ERL_NIF_TERM type);
+    mac_type_C *get_mac_type(ErlNifEnv *env, ERL_NIF_TERM type, size_t key_len);
+    mac_type_C *get_mac_type_no_key(ErlNifEnv *env, ERL_NIF_TERM type);
     bool is_mac_forbidden_in_fips(const mac_type_C *p);
     int get_mac_type_mactype(mac_type_C *p); // access field
 #if defined(HAS_3_0_API)
@@ -61,7 +60,9 @@ enum MAC_TYPE {
 #ifdef __cplusplus
 
 #    include "algorithms_collection.h"
-#    include "auto_openssl_resource.h"
+#if defined(HAS_3_0_API)
+#include "auto_openssl_resource.h" // Only used once in mac_type_t under same ifdef
+#endif
 
 struct mac_probe_t;
 struct mac_type_flags_t {
@@ -115,6 +116,7 @@ struct mac_probe_t {
     // Attempt to add a new MAC algorithm. In case of success, fill the struct
     // and push into the 'output'
     void probe(ErlNifEnv *env, bool fips_enabled, std::vector<mac_type_t> &output);
+    static void post_lazy_init(std::vector<mac_type_t> &) {}
 };
 
 using mac_collection_t = algorithm_collection_t<mac_type_t, mac_probe_t>;

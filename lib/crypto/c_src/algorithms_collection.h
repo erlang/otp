@@ -66,21 +66,18 @@ struct mutex_lock_and_auto_release {
     }
 };
 
-// Stores a static array of algorithms for detected algorithms of type
-// AlgorithmT and to populate the array, a second type is provided: ProbeT, this
-// is a type of struct containing logic to detect algorithm availability and
-// create AlgorithmT.
+// Stores a static array of algorithms for detected algorithms of type AlgorithmT and to populate the array, a second
+// type is provided: ProbeT, this is a type of struct containing logic to detect algorithm availability and create
+// AlgorithmT.
 //
-// The collections for all types of algorithms are statically created before the
-// crypto library is initialized, but the mutex must be additionally constructed
-// (call only once).
+// The collections for all types of algorithms are statically created before the crypto library is initialized, but the
+// mutex must be additionally constructed (call only once).
 template<typename AlgorithmT, typename ProbeT>
 struct algorithm_collection_t {
 private:
     bool lazy_init_done;
-    // each probe is executed every time we reset and repopulate algorithms
-    // list. Probes are not const, because their implementations might want to
-    // cache something like found existing atoms by string
+    // each probe is executed every time we reset and repopulate algorithms list. Probes are not const, because their
+    // implementations might want to cache something like found existing atoms by string
     ProbeT *probes;
     size_t probes_count;
     // contains detected and supported algorithms
@@ -98,8 +95,9 @@ public:
         destroy_mutex();
     }
 
-    // Const pointer to start of algorithms
-    auto cbegin() const -> decltype(this->algorithms.cbegin()) {
+    // Const pointer to start of algorithms, functions as std::cbegin() but uses the args to call lazy_init
+    auto cbegin(ErlNifEnv *env, const bool fips_mode) -> decltype(this->algorithms.cbegin()) {
+        lazy_init(env, fips_mode);
         return this->algorithms.cbegin();
     }
     // Const pointer to one after last of the algorithms
@@ -107,8 +105,9 @@ public:
         return this->algorithms.cend();
     }
 
-    // Mutable pointer to start of algorithms
-    auto begin() -> decltype(this->algorithms.begin()) {
+    // Mutable pointer to start of algorithms, functions as std::begin() but uses the args to call lazy_init
+    auto begin(ErlNifEnv *env, bool const fips_mode) -> decltype(this->algorithms.begin()) {
+        lazy_init(env, fips_mode);
         return this->algorithms.begin();
     }
     // Mutable pointer to one after last of the algorithms
@@ -128,47 +127,23 @@ public:
         }
     }
 
-    // Resets the found algorithms list and the flag for lazy init, so lazy init
-    // will
+    // Resets the found algorithms list and the flag for lazy init, so lazy init will rerun next time again
     void reset() {
         mutex_lock_and_auto_release critical_section(this->mutex);
         this->lazy_init_done = false;
         this->algorithms.clear();
     }
 
-    // Checks whether the init has already been done for the array, otherwise
-    // will invoke init_fn
-    size_t lazy_init(ErlNifEnv *env, const bool fips_enabled) {
-        size_t result = 0;
-        if (this->lazy_init_done) {
-            return this->algorithms.size();
-        }
-
-        mutex_lock_and_auto_release critical_section(this->mutex);
-
-        this->algorithms.clear();
-
-        for (size_t i = 0; i < probes_count; ++i) {
-            // For each probe, call probe() member function, in case of success
-            // the probe code will use the passed 'this->algorithms' reference
-            // to add an algorithm to the collection.
-            probes[i].probe(env, fips_enabled, this->algorithms);
-        }
-
-        result = this->algorithms.size();
-        this->lazy_init_done = true;
-
-        return result;
-    }
-
     // Invokes to_list/3 with empty starting list.
-    ERL_NIF_TERM to_list(ErlNifEnv *env, const bool match_fips_forbidden) const {
+    ERL_NIF_TERM to_list(ErlNifEnv *env, const bool match_fips_forbidden) {
         return to_list(env, enif_make_list(env, 0), match_fips_forbidden);
     }
 
     // Search for algorithms which are is_available() and is_forbidden_in_fips() equals to match_fips_forbidden.
     // Uses hd as list start (can push into existing list or use NIL for a new list)
-    ERL_NIF_TERM to_list(ErlNifEnv *env, ERL_NIF_TERM hd, const bool match_fips_forbidden) const {
+    ERL_NIF_TERM to_list(ErlNifEnv *env, ERL_NIF_TERM hd, const bool match_fips_forbidden) {
+        lazy_init(env, FIPS_MODE());
+
         for (const auto &algo : this->algorithms) {
             // Any of the forbidden flags is not set, then something is
             // available
@@ -179,6 +154,31 @@ public:
             }
         }
         return hd;
+    }
+
+private:
+    // Checks whether the init has already been done for the array, otherwise will invoke init_fn
+    size_t lazy_init(ErlNifEnv *env, const bool fips_enabled) {
+        if (this->lazy_init_done) {
+            return this->algorithms.size();
+        }
+
+        mutex_lock_and_auto_release critical_section(this->mutex);
+
+        this->algorithms.clear();
+
+        for (size_t i = 0; i < probes_count; ++i) {
+            // For each probe, call probe() member function, in case of success the probe code will use the passed
+            // 'this->algorithms' reference to add an algorithm to the collection.
+            probes[i].probe(env, fips_enabled, this->algorithms);
+        }
+
+        ProbeT::post_lazy_init(this->algorithms);
+
+        auto result = this->algorithms.size();
+        this->lazy_init_done = true;
+
+        return result;
     }
 };
 

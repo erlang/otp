@@ -57,11 +57,6 @@ rsaopt_collection_t rsaopt_collection("crypto.rsaopt_collection",
 //
 
 // C API: Proxy the call to generic algorithm_collection_t
-extern "C" size_t rsaopts_lazy_init(ErlNifEnv *env, const bool fips_enabled) {
-    return rsaopt_collection.lazy_init(env, fips_enabled);
-}
-
-// C API: Proxy the call to generic algorithm_collection_t
 extern "C" ERL_NIF_TERM rsaopts_as_list(ErlNifEnv *env, const bool fips_enabled) {
     return rsaopt_collection.to_list(env, fips_enabled);
 }

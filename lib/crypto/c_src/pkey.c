@@ -152,7 +152,7 @@ static int get_pkey_digest_type(ErlNifEnv *env,
                                     the algorithm */
         return 1;
     
-    if ((digp = get_digest_type(type)) == NULL)
+    if ((digp = get_digest_type(env, type)) == NULL)
         assign_goto(*err_return, notsup, EXCP_BADARG_N(env, type_arg_num, "Bad digest type"));
 
     if (is_digest_forbidden_in_fips(digp))
@@ -645,7 +645,7 @@ ERL_NIF_TERM pkey_sign_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
     unsigned char md_value[EVP_MAX_MD_SIZE];
     EVP_PKEY *pkey = NULL;
 #ifdef HAS_EVP_PKEY_CTX
-    struct pkey_type_t *pkey_type = get_pkey_type(argv[0]);
+    struct pkey_type_t *pkey_type = get_pkey_type(env, argv[0]);
     EVP_PKEY_CTX *ctx = NULL;
     size_t siglen;
 #else
@@ -892,7 +892,7 @@ ERL_NIF_TERM pkey_verify_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]
     ERL_NIF_TERM ret = atom_undefined;
 
 #ifdef HAS_EVP_PKEY_CTX
-    struct pkey_type_t *pkey_type = get_pkey_type(argv[0]);
+    struct pkey_type_t *pkey_type = get_pkey_type(env, argv[0]);
     EVP_PKEY_CTX *ctx = NULL;
 #else
     RSA *rsa = NULL;

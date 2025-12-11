@@ -87,7 +87,7 @@ ERL_NIF_TERM hmac_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
     ASSERT(argc == 3);
 
-    if ((digp = get_digest_type(argv[1])) == NULL)
+    if ((digp = get_digest_type(env, argv[1])) == NULL)
         goto bad_arg;
     if (!enif_inspect_iolist_as_binary(env, argv[2], &key))
         goto bad_arg;

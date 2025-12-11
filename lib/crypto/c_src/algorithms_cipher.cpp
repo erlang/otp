@@ -352,11 +352,8 @@ cipher_collection_t cipher_collection("crypto.cipher_collection",
 // Implementation of Known Cipher Algorithms storage API
 //
 
-// C API: Proxy the call to generic algorithm_collection_t
-extern "C" size_t cipher_algorithms_lazy_init(ErlNifEnv *env, const bool fips_enabled) {
-    const auto result = cipher_collection.lazy_init(env, fips_enabled);
-    std::sort(cipher_collection.begin(), cipher_collection.end(), cipher_type_t::compare_function);
-    return result;
+void cipher_probe_t::post_lazy_init(std::vector<cipher_type_t> &algorithms) {
+    std::sort(algorithms.begin(), algorithms.end(), cipher_type_t::compare_function);
 }
 
 // Partial order compare, returns a.atom < b.atom && a.key < b.key
@@ -463,9 +460,9 @@ void cipher_probe_t::probe(ErlNifEnv *env, const bool fips_enabled, std::vector<
     algo.check_availability(fips_enabled);
 }
 
-extern "C" const cipher_type_C *get_cipher_type(ERL_NIF_TERM type, size_t key_len) {
+extern "C" const cipher_type_C *get_cipher_type(ErlNifEnv *env, ERL_NIF_TERM type, size_t key_len) {
     cipher_type_t sample(type, key_len);
-    auto result = std::lower_bound(cipher_collection.cbegin(),
+    auto result = std::lower_bound(cipher_collection.cbegin(env, FIPS_MODE()),
                                    cipher_collection.cend(),
                                    sample,
                                    cipher_type_t::compare_function);
@@ -475,9 +472,9 @@ extern "C" const cipher_type_C *get_cipher_type(ERL_NIF_TERM type, size_t key_le
     return nullptr;
 }
 
-extern "C" const cipher_type_C *get_cipher_type_no_key(ERL_NIF_TERM type) {
+extern "C" const cipher_type_C *get_cipher_type_no_key(ErlNifEnv *env, ERL_NIF_TERM type) {
     cipher_type_t sample(type);
-    auto result = std::lower_bound(cipher_collection.cbegin(),
+    auto result = std::lower_bound(cipher_collection.cbegin(env, FIPS_MODE()),
                                    cipher_collection.cend(),
                                    sample,
                                    cipher_type_t::compare_function_no_key);

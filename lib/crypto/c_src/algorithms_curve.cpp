@@ -388,10 +388,6 @@ curve_collection_t curve_collection("crypto.curve_collection", curve_probes,
 // Implementation of Curve Algorithm storage API
 //
 
-extern "C" size_t curve_algorithms_lazy_init(ErlNifEnv *env, const bool fips_enabled) {
-    return curve_collection.lazy_init(env, fips_enabled);
-}
-
 extern "C" ERL_NIF_TERM curve_algorithms_as_list(ErlNifEnv *env, const bool fips_enabled) {
     return curve_collection.to_list(env, fips_enabled);
 }

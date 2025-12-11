@@ -89,11 +89,6 @@ digest_collection_t digest_collection("crypto.digest.digest_collection", digest_
 //
 
 // C API: Proxy the call to generic algorithm_collection_t
-extern "C" void digest_types_lazy_init(ErlNifEnv *env, const bool fips_enabled) {
-    digest_collection.lazy_init(env, fips_enabled);
-}
-
-// C API: Proxy the call to generic algorithm_collection_t
 extern "C" ERL_NIF_TERM digest_types_as_list(ErlNifEnv *env, const bool fips_forbidden) {
     return digest_collection.to_list(env, fips_forbidden);
 }
@@ -143,10 +138,10 @@ void digest_probe_t::probe(ErlNifEnv *env, const bool fips_mode, std::vector<dig
 }
 
 // Array lookup
-extern "C" digest_type_C *get_digest_type(ERL_NIF_TERM type) {
-    for (auto &p: digest_collection) {
-        if (type == p.get_atom()) {
-            return &p;
+extern "C" digest_type_C *get_digest_type(ErlNifEnv *env, ERL_NIF_TERM type) {
+    for (auto p = digest_collection.begin(env, FIPS_MODE()); p != digest_collection.end(); ++p) {
+        if (type == p->get_atom()) {
+            return &*p;
         }
     }
     return nullptr;

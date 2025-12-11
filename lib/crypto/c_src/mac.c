@@ -102,9 +102,9 @@ ERL_NIF_TERM mac_one_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
         goto err;
     }
 
-    macp = get_mac_type(argv[0], key_bin.size);
+    macp = get_mac_type(env, argv[0], key_bin.size);
     if (!macp) {
-        mac_type_C* macp2 = get_mac_type_no_key(argv[0]);
+        mac_type_C* macp2 = get_mac_type_no_key(env, argv[0]);
         if (!macp2)
             return_term = EXCP_BADARG_N(env, 0, "Unknown mac algorithm");
         else
@@ -130,7 +130,7 @@ ERL_NIF_TERM mac_one_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
          ********/
     case HMAC_mac:
         {
-            digest_type_C* digp = get_digest_type(argv[1]);
+            digest_type_C* digp = get_digest_type(env, argv[1]);
 
             if (digp == NULL)
                 {
@@ -179,10 +179,10 @@ ERL_NIF_TERM mac_one_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
          ********/
 #ifdef HAVE_CMAC
     case CMAC_mac: {
-            const cipher_type_C *cipherp;
-            if (!(cipherp = get_cipher_type(argv[1], key_bin.size)))
+            const cipher_type_C *cipherp = get_cipher_type(env, argv[1], key_bin.size);
+            if (!cipherp)
                 { /* Something went wrong. Find out what by retrying in another way. */
-                    if (!get_cipher_type_no_key(argv[1]))
+                    if (!get_cipher_type_no_key(env, argv[1]))
                         return_term = EXCP_BADARG_N(env, 1, "Unknown cipher");
                     else
                         /* Cipher exists, so it must be the key size that is wrong */
@@ -451,9 +451,9 @@ ERL_NIF_TERM mac_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
         goto err;
     }
 
-    macp = get_mac_type(argv[0], key_bin.size);
+    macp = get_mac_type(env, argv[0], key_bin.size);
     if (!macp) {
-        if (get_mac_type_no_key(argv[0]) == NULL)
+        if (get_mac_type_no_key(env, argv[0]) == NULL)
             return_term = EXCP_BADARG_N(env, 0, "Unknown mac algorithm");
         else
             return_term = EXCP_BADARG_N(env, 2, "Bad key length");
@@ -478,7 +478,7 @@ ERL_NIF_TERM mac_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
          ********/
     case HMAC_mac:
         {
-            digest_type_C* digp = get_digest_type(argv[1]);
+            digest_type_C* digp = get_digest_type(env, argv[1]);
             if (digp == NULL)
                 {
                     return_term = EXCP_BADARG_N(env, 1, "Bad digest algorithm for HMAC");
@@ -517,10 +517,10 @@ ERL_NIF_TERM mac_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 # if defined(HAVE_CMAC) && defined(HAVE_EVP_PKEY_new_CMAC_key)
     case CMAC_mac:
         {
-            const struct cipher_type_t *cipherp;
-            if (!(cipherp = get_cipher_type(argv[1], key_bin.size)))
+            const struct cipher_type_t *cipherp = get_cipher_type(env, argv[1], key_bin.size);
+            if (!cipherp)
                 { /* Something went wrong. Find out what by retrying in another way. */
-                    if (!get_cipher_type_no_key(argv[1]))
+                    if (!get_cipher_type_no_key(env, argv[1]))
                         return_term = EXCP_BADARG_N(env, 1, "Unknown cipher");
                     else
                         /* Cipher exists, so it must be the key size that is wrong */

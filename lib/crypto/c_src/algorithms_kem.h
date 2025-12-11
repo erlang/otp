@@ -60,7 +60,7 @@ struct kem_type_t {
         return false;
 #    endif
     }
-    bool is_available() const {
+    static bool is_available() {
         return true;
     }
     // Return the atom which goes to the Erlang caller
@@ -77,6 +77,7 @@ struct kem_probe_t {
 
     // Perform a probe on the algorithm. In case of success, fill the struct and push into the 'output'
     void probe(ErlNifEnv *env, bool fips_enabled, std::vector<kem_type_t> &output);
+    static void post_lazy_init(std::vector<kem_type_t> &) {}
 };
 
 using kem_collection_t = algorithm_collection_t<kem_type_t, kem_probe_t>;

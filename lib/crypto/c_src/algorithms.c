@@ -38,37 +38,30 @@
 //
 
 ERL_NIF_TERM hash_algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
-    digest_types_lazy_init(env, FIPS_MODE());
     return digest_types_as_list(env, false);
 }
 
 ERL_NIF_TERM pubkey_algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
-    pkey_algorithms_lazy_init(env, FIPS_MODE());
     return pkey_algorithms_as_list(env, false);
 }
 
 ERL_NIF_TERM kem_algorithms_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
-    kem_algorithms_lazy_init(env, FIPS_MODE());
     return kem_algorithms_as_list(env, false);
 }
 
 ERL_NIF_TERM cipher_algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
-    cipher_algorithms_lazy_init(env, FIPS_MODE());
     return cipher_algorithms_as_list(env, false);
 }
 
 ERL_NIF_TERM mac_algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
-    mac_algorithms_lazy_init(env, FIPS_MODE());
     return mac_algorithms_as_list(env, false);
 }
 
 ERL_NIF_TERM curve_algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
-    curve_algorithms_lazy_init(env, FIPS_MODE());
     return curve_algorithms_as_list(env, false);
 }
 
 ERL_NIF_TERM rsa_opts_algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
-    rsaopts_lazy_init(env, FIPS_MODE());
     return rsaopts_as_list(env, false);
 }
 
@@ -77,31 +70,25 @@ ERL_NIF_TERM rsa_opts_algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
 //
 
 ERL_NIF_TERM fips_forbidden_hash_algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
-    digest_types_lazy_init(env, FIPS_MODE());
     return digest_types_as_list(env, true);
 }
 
 ERL_NIF_TERM fips_forbidden_pubkey_algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
-    pkey_algorithms_lazy_init(env, 1);
     return pkey_algorithms_as_list(env, true);
 }
 
 ERL_NIF_TERM fips_forbidden_cipher_algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
-    cipher_algorithms_lazy_init(env, FIPS_MODE());
     return cipher_algorithms_as_list(env, true);
 }
 
 ERL_NIF_TERM fips_forbidden_kem_algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
-    kem_algorithms_lazy_init(env, FIPS_MODE());
     return kem_algorithms_as_list(env, true);
 }
 
 ERL_NIF_TERM fips_forbidden_mac_algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
-    mac_algorithms_lazy_init(env, FIPS_MODE());
     return mac_algorithms_as_list(env, true);
 }
 
 ERL_NIF_TERM fips_forbidden_curve_algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
-    curve_algorithms_lazy_init(env, FIPS_MODE());
     return curve_algorithms_as_list(env, true);
 }

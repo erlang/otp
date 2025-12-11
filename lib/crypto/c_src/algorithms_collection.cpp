@@ -32,6 +32,7 @@
 #include <cstring>
 
 extern "C" bool create_algorithm_mutexes() {
+    ASSERT(enif_is_atom(0) != true); // Allow using 0 as safe initial value for ERL_NIF_TERM
     return cipher_collection.create_mutex() && curve_collection.create_mutex() && digest_collection.create_mutex() &&
            kem_collection.create_mutex() && mac_collection.create_mutex() && pkey_collection.create_mutex() &&
            rsaopt_collection.create_mutex();

@@ -239,10 +239,10 @@ static int get_init_args(ErlNifEnv* env,
             goto err;
         }
 
-    *cipherp = get_cipher_type(argv[cipher_arg_num], ctx_res->key_bin.size);
+    *cipherp = get_cipher_type(env, argv[cipher_arg_num], ctx_res->key_bin.size);
     if (!*cipherp)
         {
-            if (!get_cipher_type_no_key(argv[cipher_arg_num]))
+            if (!get_cipher_type_no_key(env, argv[cipher_arg_num]))
                 *return_term = EXCP_BADARG_N(env, cipher_arg_num, "Unknown cipher");
             else
                 *return_term = EXCP_BADARG_N(env, key_arg_num, "Bad key size");

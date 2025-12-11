@@ -47,10 +47,9 @@ struct cipher_type_aead_t {
 //
 // Supported Cipher Algorithms storage C API
 //
-size_t cipher_algorithms_lazy_init(ErlNifEnv *env, bool fips_enabled);
 ERL_NIF_TERM cipher_algorithms_as_list(ErlNifEnv *env, bool fips_enabled);
-const cipher_type_C *get_cipher_type(ERL_NIF_TERM type, size_t key_len);
-const cipher_type_C *get_cipher_type_no_key(ERL_NIF_TERM type);
+const cipher_type_C *get_cipher_type(ErlNifEnv *env, ERL_NIF_TERM type, size_t key_len);
+const cipher_type_C *get_cipher_type_no_key(ErlNifEnv *env, ERL_NIF_TERM type);
 struct cipher_type_flags_t get_cipher_type_flags(const cipher_type_C *p);
 struct cipher_type_aead_t get_cipher_type_aead(const cipher_type_C *p);
 bool is_cipher_forbidden_in_fips(const cipher_type_C *p);
@@ -107,7 +106,9 @@ struct cipher_type_t {
 
 private:
     void check_fips_availability(bool fips_enabled);
+#if defined(HAS_3_0_API)
     bool can_cipher_be_instantiated() const;
+#endif
 };
 
 #ifdef HAVE_AEAD
@@ -150,6 +151,8 @@ struct cipher_probe_t {
     const char *get_v3_name() const { return this->str_v3 ? this->str_v3 : this->str; }
     // Attempt to add a new known Cipher algorithm. In case of success, fill the struct and push into the 'output'
     void probe(ErlNifEnv *env, bool fips_enabled, std::vector<cipher_type_t> &output);
+    // Sort the ciphers after all probes are executed for binary search
+    static void post_lazy_init(std::vector<cipher_type_t> &algorithms);
 };
 
 using cipher_collection_t = algorithm_collection_t<cipher_type_t, cipher_probe_t>;

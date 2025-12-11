@@ -75,11 +75,6 @@ pkey_collection_t pkey_collection("crypto.pkey_collection", pkey_probes, sizeof(
 //
 
 // C API: Proxy the call to generic algorithm_collection_t
-extern "C" size_t pkey_algorithms_lazy_init(ErlNifEnv *env, const bool fips_enabled) {
-    return pkey_collection.lazy_init(env, fips_enabled);
-}
-
-// C API: Proxy the call to generic algorithm_collection_t
 extern "C" ERL_NIF_TERM pkey_algorithms_as_list(ErlNifEnv *env, const bool fips_enabled) {
     return pkey_collection.to_list(env, fips_enabled);
 }
@@ -158,10 +153,10 @@ extern "C" int get_pkey_type_evp_pkey_id(const pkey_type_C *p) {
     return p->init->evp_pkey_id;
 }
 
-extern "C" pkey_type_C *get_pkey_type(ERL_NIF_TERM atom) {
-    for (auto &pkey_type: pkey_collection) {
-        if (pkey_type.get_atom() == atom) {
-            return &pkey_type;
+extern "C" pkey_type_C *get_pkey_type(ErlNifEnv *env, ERL_NIF_TERM atom) {
+    for (auto p = pkey_collection.begin(env, FIPS_MODE()); p != pkey_collection.end(); ++p) {
+        if (p->get_atom() == atom) {
+            return &*p;
         }
     }
     return nullptr;

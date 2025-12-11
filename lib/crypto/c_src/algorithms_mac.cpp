@@ -67,11 +67,6 @@ mac_collection_t mac_collection("crypto.mac_collection", mac_probes, sizeof(mac_
 //
 
 // C API: Proxy the call to generic algorithm_collection_t
-extern "C" size_t mac_algorithms_lazy_init(ErlNifEnv *env, const bool fips_enabled) {
-    return mac_collection.lazy_init(env, fips_enabled);
-}
-
-// C API: Proxy the call to generic algorithm_collection_t
 extern "C" ERL_NIF_TERM mac_algorithms_as_list(ErlNifEnv *env, const bool fips_enabled) {
     return mac_collection.to_list(env, fips_enabled);
 }
@@ -133,19 +128,19 @@ void mac_probe_t::probe(ErlNifEnv *env, const bool fips_enabled, std::vector<mac
     output.back().check_fips_availability(fips_enabled);
 }
 
-extern "C" mac_type_C *get_mac_type(ERL_NIF_TERM type, const size_t key_len) {
-    for (auto &p : mac_collection) {
-        if (type == p.get_atom() && key_len == p.init->key_len) {
-            return &p;
+extern "C" mac_type_C *get_mac_type(ErlNifEnv *env, ERL_NIF_TERM type, const size_t key_len) {
+    for (auto p = mac_collection.begin(env, FIPS_MODE()); p != mac_collection.end(); ++p) {
+        if (type == p->get_atom() && key_len == p->init->key_len) {
+            return &*p;
         }
     }
     return nullptr;
 }
 
-extern "C" mac_type_C *get_mac_type_no_key(ERL_NIF_TERM type) {
-    for (auto &p : mac_collection) {
-        if (type == p.get_atom()) {
-            return &p;
+extern "C" mac_type_C *get_mac_type_no_key(ErlNifEnv *env, ERL_NIF_TERM type) {
+    for (auto p = mac_collection.begin(env, FIPS_MODE()); p != mac_collection.end(); ++p) {
+        if (type == p->get_atom()) {
+            return &*p;
         }
     }
     return nullptr;

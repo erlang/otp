@@ -31,7 +31,6 @@ extern "C" {
 //
 // Curve Algorithms storage API
 //
-size_t curve_algorithms_lazy_init(ErlNifEnv *env, bool fips_enabled);
 ERL_NIF_TERM curve_algorithms_as_list(ErlNifEnv *env, bool fips_enabled);
 
 #ifdef __cplusplus
@@ -79,6 +78,7 @@ struct curve_probe_t {
     // Perform a probe on the algorithm. In case of success, fill the struct and push into the 'output'
     void probe(ErlNifEnv *env, bool fips_mode, std::vector<curve_type_t> &output);
 
+    static void post_lazy_init(std::vector<curve_type_t> &) {}
 #ifdef HAVE_EC
 private:
     bool is_curve_valid_by_nid() const; // used by the probe() to check this->nid

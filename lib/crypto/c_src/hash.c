@@ -81,7 +81,7 @@ ERL_NIF_TERM hash_info_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     ASSERT(argc == 1);
 
     {
-        digest_type_C* digp = get_digest_type(argv[0]);
+        digest_type_C* digp = get_digest_type(env, argv[0]);
         if (digp == NULL)
             return enif_make_badarg(env);
         if (is_digest_forbidden_in_fips(digp))
@@ -109,7 +109,7 @@ ERL_NIF_TERM hash_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     unsigned             ret_size;
     unsigned char        *outp;
 
-    digest_type_C* digp = get_digest_type(argv[0]);
+    digest_type_C* digp = get_digest_type(env, argv[0]);
     if (digp == NULL)
         return EXCP_BADARG_N(env, 0, "Bad digest type");
     if (is_digest_forbidden_in_fips(digp))
@@ -174,7 +174,7 @@ ERL_NIF_TERM hash_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     struct evp_md_ctx    *ctx = NULL;
     ERL_NIF_TERM         ret;
 
-    digest_type_C* digp = get_digest_type(argv[0]);
+    digest_type_C* digp = get_digest_type(env, argv[0]);
     if (digp == NULL)
         return EXCP_BADARG_N(env, 0, "Bad digest type");
 
@@ -290,7 +290,7 @@ ERL_NIF_TERM hash_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
     ASSERT(argc == 1);
 
-    if ((digp = get_digest_type(argv[0])) == NULL)
+    if ((digp = get_digest_type(env, argv[0])) == NULL)
         return EXCP_BADARG_N(env, 0, "Bad digest type");
     
     if (is_digest_forbidden_in_fips(digp))
@@ -377,7 +377,7 @@ ERL_NIF_TERM hash_update_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
         return EXCP_BADARG_N(env, 0, "Bad state");
     if (arity != 2)
         return EXCP_BADARG_N(env, 0, "Bad state");
-    if ((digp = get_digest_type(tuple[0])) == NULL)
+    if ((digp = get_digest_type(env, tuple[0])) == NULL)
         return EXCP_BADARG_N(env, 0, "Bad state");
     if (is_digest_forbidden_in_fips(digp))
         return EXCP_BADARG_N(env, 0, "Bad state");
@@ -476,7 +476,7 @@ ERL_NIF_TERM hash_final_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
         return EXCP_BADARG_N(env, 0, "Bad state");
     if (arity != 2)
         return EXCP_BADARG_N(env, 0, "Bad state");
-    if ((digp = get_digest_type(tuple[0])) == NULL)
+    if ((digp = get_digest_type(env, tuple[0])) == NULL)
         return EXCP_BADARG_N(env, 0, "Bad state");
     if (is_digest_forbidden_in_fips(digp))
         return EXCP_BADARG_N(env, 0, "Bad state");

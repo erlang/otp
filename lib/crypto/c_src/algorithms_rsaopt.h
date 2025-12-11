@@ -29,11 +29,10 @@ extern "C"
 
 #include "common.h"
 
-    //
-    // Supported RSA Options storage C API
-    //
-    size_t rsaopts_lazy_init(ErlNifEnv *env, bool fips_enabled);
-    ERL_NIF_TERM rsaopts_as_list(ErlNifEnv *env, bool fips_enabled);
+//
+// Supported RSA Options storage C API
+//
+ERL_NIF_TERM rsaopts_as_list(ErlNifEnv *env, bool fips_enabled);
 
 #ifdef __cplusplus
 }
@@ -61,7 +60,7 @@ struct rsaopt_type_t {
         return false;
 #    endif
     }
-    bool is_available() const {
+    static bool is_available() {
         return true;
     }
     // Return the atom which goes to the Erlang caller
@@ -77,6 +76,7 @@ struct rsaopt_probe_t {
 
     // Attempt to add a new known RSA option. In case of success, fill the struct and push into the 'output'
     void probe(ErlNifEnv *env, bool fips_enabled, std::vector<rsaopt_type_t> &output);
+    static void post_lazy_init(std::vector<rsaopt_type_t> &) {}
 };
 
 using rsaopt_collection_t = algorithm_collection_t<rsaopt_type_t, rsaopt_probe_t>;
