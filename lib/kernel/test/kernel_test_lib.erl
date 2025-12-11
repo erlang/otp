@@ -2132,6 +2132,8 @@ simplify_label("Systemtap" ++ _) ->
     {host, systemtap};
 simplify_label("Meamax" ++ _) ->
     {host, meamax};
+simplify_label("Meamin" ++ _) ->
+    {host, meamin};
 simplify_label("Cover" ++ _) ->
     {host, cover};
 simplify_label(Label) ->
@@ -2145,6 +2147,8 @@ simplify_label(Label) ->
 label2factor(docker) ->
     4;
 label2factor({host, meamax}) ->
+    2;
+label2factor({host, meamin}) ->
     2;
 label2factor({host, cover}) ->
     6;
