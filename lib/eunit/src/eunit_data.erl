@@ -38,6 +38,8 @@
 -module(eunit_data).
 -moduledoc false.
 
+-compile(nowarn_obsolete_bool_op).
+
 -include("eunit.hrl").
 -include("eunit_internal.hrl").
 

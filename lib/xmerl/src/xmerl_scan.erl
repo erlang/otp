@@ -53,6 +53,8 @@ See also the
 
 -export_type([xmlElement/0, document/0]).
 
+-compile(nowarn_obsolete_bool_op).
+
 %-define(debug, 1).
 -include("xmerl.hrl").		% record def, macros
 -include("xmerl_internal.hrl").

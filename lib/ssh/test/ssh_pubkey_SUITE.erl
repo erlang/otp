@@ -22,6 +22,8 @@
 %%
 -module(ssh_pubkey_SUITE).
 
+-compile(nowarn_obsolete_bool_op).
+
 %% Note: This directive should only be used in test suites.
 -export([
          suite/0,

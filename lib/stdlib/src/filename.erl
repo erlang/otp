@@ -121,6 +121,8 @@ the `m:file` module.
 %% Undocumented and unsupported exports.
 -export([append/2]).
 
+-compile(nowarn_obsolete_bool_op).
+
 -include_lib("kernel/include/file.hrl").
 
 -define(IS_DRIVELETTER(Letter),

@@ -24,6 +24,8 @@
 -module(pubkey_pbe).
 -moduledoc false.
 
+-compile(nowarn_obsolete_bool_op).
+
 -include("PKCS-FRAME.hrl").
 -include("PKCS-1.hrl").
 -include("CMSAesRsaesOaep-2009.hrl").

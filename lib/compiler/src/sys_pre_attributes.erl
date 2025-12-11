@@ -24,6 +24,8 @@
 -module(sys_pre_attributes).
 -moduledoc false.
 
+-compile(nowarn_obsolete_bool_op).
+
 -export([parse_transform/2]).
 
 -define(OPTION_TAG, attributes).

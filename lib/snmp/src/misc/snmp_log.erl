@@ -23,6 +23,7 @@
 -module(snmp_log).
 -moduledoc false.
 
+-compile(nowarn_obsolete_bool_op).
 
 -export([
 	 create/4, create/5, create/6, open/1, open/2, 

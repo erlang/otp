@@ -71,7 +71,7 @@ APPUP_TARGET= $(EBIN)/$(APPUP_FILE)
 # ----------------------------------------------------
 # FLAGS
 # ----------------------------------------------------
-EXTRA_ERLC_FLAGS = +warn_unused_vars +nowarn_missing_spec_documented
+EXTRA_ERLC_FLAGS = +warn_unused_vars +nowarn_missing_spec_documented +warn_obsolete_bool_op
 ERL_COMPILE_FLAGS += \
 	-pz $(EBIN) \
 	$(EXTRA_ERLC_FLAGS)

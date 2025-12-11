@@ -28,6 +28,8 @@
 -module(ssl_gen_statem).
 -moduledoc false.
 
+-compile(nowarn_obsolete_bool_op).
+
 -include("ssl_api.hrl").
 -include("ssl_internal.hrl").
 -include("ssl_connection.hrl").

@@ -26,6 +26,8 @@
 -include_lib("inets/src/http_lib/http_internal.hrl").
 -include("httpc_internal.hrl").
 
+-compile(nowarn_obsolete_bool_op).
+
 %% API
 %% Avoid warning for local function error/2 clashing with autoimported BIF.
 -compile({no_auto_import,[error/2]}).

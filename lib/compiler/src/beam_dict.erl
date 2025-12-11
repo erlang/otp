@@ -32,6 +32,8 @@
          string_table/1,lambda_table/1,literal_table/1,
          line_table/1,type_table/1,debug_table/1]).
 
+-compile(nowarn_obsolete_bool_op).
+
 -include("beam_types.hrl").
 
 -type label() :: beam_asm:label().

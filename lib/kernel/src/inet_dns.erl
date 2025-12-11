@@ -43,6 +43,8 @@
 
 -import(lists, [reverse/1]).
 
+-compile(nowarn_obsolete_bool_op).
+
 -include("inet_int.hrl").
 -include("inet_dns.hrl").
 

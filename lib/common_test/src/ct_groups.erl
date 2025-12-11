@@ -32,6 +32,8 @@
 -export([delete_subs/2]).
 -export([expand_groups/3, search_and_override/3]).
 
+-compile(nowarn_obsolete_bool_op).
+
 -define(val(Key, List), proplists:get_value(Key, List)). 
 -define(val(Key, List, Def), proplists:get_value(Key, List, Def)).
 -define(rev(L), lists:reverse(L)).

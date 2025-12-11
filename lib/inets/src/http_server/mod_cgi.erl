@@ -30,6 +30,8 @@
 %%% Callback API
 -export([do/1, store/2]).
 
+-compile(nowarn_obsolete_bool_op).
+
 -include("http_internal.hrl").
 -include("httpd_internal.hrl").
 -include("httpd.hrl").
