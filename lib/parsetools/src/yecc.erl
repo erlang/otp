@@ -499,6 +499,8 @@ lib/parsetools/include/yeccpre.hrl
                 keysort/2, last/1, map/2, member/2, reverse/1,
                 sort/1, usort/1]).
 
+-compile(nowarn_export_var_subexpr).
+
 -include("erl_compile.hrl").
 -include("ms_transform.hrl").
 

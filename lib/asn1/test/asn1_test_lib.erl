@@ -39,7 +39,7 @@ compile(File, Config, Options) -> compile_all([File], Config, Options).
 compile_all(Files, Config, Options0) ->
     DataDir = proplists:get_value(data_dir, Config),
     CaseDir = proplists:get_value(case_dir, Config),
-    Options = [{outdir,CaseDir},debug_info|Options0],
+    Options = [{outdir,CaseDir},debug_info,nowarn_export_var_subexpr|Options0],
 
     Comp = fun(F) ->
 		   compile_file(filename:join(DataDir, F), Options)
