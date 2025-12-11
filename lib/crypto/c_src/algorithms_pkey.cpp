@@ -24,47 +24,47 @@
 #include "auto_openssl_resource.h"
 
 static pkey_probe_t pkey_probes[] = {
-        {.str = "rsa"},
+        pkey_probe_t::from_name("rsa"),
 #ifdef HAVE_DSA
-        {.str = "dss"},
+        pkey_probe_t::from_name("dss"),
 #endif
 #ifdef HAVE_DH
-        {.str = "dh"},
+        pkey_probe_t::from_name("dh"),
 #endif
 #if defined(HAVE_EC)
 #    if !defined(OPENSSL_NO_EC2M)
-        {.str = "ec_gf2m"},
+        pkey_probe_t::from_name("ec_gf2m"),
 #    endif
-        {.str = "ecdsa"},
-        {.str = "ecdh"},
+        pkey_probe_t::from_name("ecdsa"),
+        pkey_probe_t::from_name("ecdh"),
 #endif
 // Non-validated algorithms follow
 // Don't know if Edward curves are fips validated
 #if defined(HAVE_EDDSA)
-        {.str = "eddsa"},
+        pkey_probe_t::from_name("eddsa"),
 #endif
 #if defined(HAVE_EDDH)
-        {.str = "eddh"},
+        pkey_probe_t::from_name("eddh"),
 #endif
-        {.str = "srp"},
+        pkey_probe_t::from_name("srp"),
 #ifdef HAVE_ML_DSA
-        {.str = "mldsa44", .evp_pkey_id = EVP_PKEY_ML_DSA_44, .allow_seed = true},
-        {.str = "mldsa65", .evp_pkey_id = EVP_PKEY_ML_DSA_65, .allow_seed = true},
-        {.str = "mldsa87", .evp_pkey_id = EVP_PKEY_ML_DSA_87, .allow_seed = true},
+        pkey_probe_t::from_mldsa_params("mldsa44", EVP_PKEY_ML_DSA_44),
+        pkey_probe_t::from_mldsa_params("mldsa65", EVP_PKEY_ML_DSA_65),
+        pkey_probe_t::from_mldsa_params("mldsa87", EVP_PKEY_ML_DSA_87),
 #endif
 #ifdef HAVE_SLH_DSA
-        {.str = "slh_dsa_shake_128s", .str_v3 = "SLH-DSA-SHAKE-128s", .evp_pkey_id = EVP_PKEY_SLH_DSA_SHAKE_128S},
-        {.str = "slh_dsa_shake_128f", .str_v3 = "SLH-DSA-SHAKE-128f", .evp_pkey_id = EVP_PKEY_SLH_DSA_SHAKE_128F},
-        {.str = "slh_dsa_sha2_128s", .str_v3 = "SLH-DSA-SHA2-128s", .evp_pkey_id = EVP_PKEY_SLH_DSA_SHA2_128S},
-        {.str = "slh_dsa_sha2_128f", .str_v3 = "SLH-DSA-SHA2-128f", .evp_pkey_id = EVP_PKEY_SLH_DSA_SHA2_128F},
-        {.str = "slh_dsa_shake_192s", .str_v3 = "SLH-DSA-SHAKE-192s", .evp_pkey_id = EVP_PKEY_SLH_DSA_SHAKE_192S},
-        {.str = "slh_dsa_shake_192f", .str_v3 = "SLH-DSA-SHAKE-192f", .evp_pkey_id = EVP_PKEY_SLH_DSA_SHAKE_192F},
-        {.str = "slh_dsa_sha2_192s", .str_v3 = "SLH-DSA-SHA2-192s", .evp_pkey_id = EVP_PKEY_SLH_DSA_SHA2_192S},
-        {.str = "slh_dsa_sha2_192f", .str_v3 = "SLH-DSA-SHA2-192f", .evp_pkey_id = EVP_PKEY_SLH_DSA_SHA2_192F},
-        {.str = "slh_dsa_shake_256s", .str_v3 = "SLH-DSA-SHAKE-256s", .evp_pkey_id = EVP_PKEY_SLH_DSA_SHAKE_256S},
-        {.str = "slh_dsa_shake_256f", .str_v3 = "SLH-DSA-SHAKE-256f", .evp_pkey_id = EVP_PKEY_SLH_DSA_SHAKE_256F},
-        {.str = "slh_dsa_sha2_256s", .str_v3 = "SLH-DSA-SHA2-256s", .evp_pkey_id = EVP_PKEY_SLH_DSA_SHA2_256S},
-        {.str = "slh_dsa_sha2_256f", .str_v3 = "SLH-DSA-SHA2-256f", .evp_pkey_id = EVP_PKEY_SLH_DSA_SHA2_256F},
+        pkey_probe_t::from_slhdsa_params("slh_dsa_shake_128s", "SLH-DSA-SHAKE-128s", EVP_PKEY_SLH_DSA_SHAKE_128S),
+        pkey_probe_t::from_slhdsa_params("slh_dsa_shake_128f", "SLH-DSA-SHAKE-128f", EVP_PKEY_SLH_DSA_SHAKE_128F),
+        pkey_probe_t::from_slhdsa_params("slh_dsa_sha2_128s", "SLH-DSA-SHA2-128s", EVP_PKEY_SLH_DSA_SHA2_128S),
+        pkey_probe_t::from_slhdsa_params("slh_dsa_sha2_128f", "SLH-DSA-SHA2-128f", EVP_PKEY_SLH_DSA_SHA2_128F),
+        pkey_probe_t::from_slhdsa_params("slh_dsa_shake_192s", "SLH-DSA-SHAKE-192s", EVP_PKEY_SLH_DSA_SHAKE_192S),
+        pkey_probe_t::from_slhdsa_params("slh_dsa_shake_192f", "SLH-DSA-SHAKE-192f", EVP_PKEY_SLH_DSA_SHAKE_192F),
+        pkey_probe_t::from_slhdsa_params("slh_dsa_sha2_192s", "SLH-DSA-SHA2-192s", EVP_PKEY_SLH_DSA_SHA2_192S),
+        pkey_probe_t::from_slhdsa_params("slh_dsa_sha2_192f", "SLH-DSA-SHA2-192f", EVP_PKEY_SLH_DSA_SHA2_192F),
+        pkey_probe_t::from_slhdsa_params("slh_dsa_shake_256s", "SLH-DSA-SHAKE-256s", EVP_PKEY_SLH_DSA_SHAKE_256S),
+        pkey_probe_t::from_slhdsa_params("slh_dsa_shake_256f", "SLH-DSA-SHAKE-256f", EVP_PKEY_SLH_DSA_SHAKE_256F),
+        pkey_probe_t::from_slhdsa_params("slh_dsa_sha2_256s", "SLH-DSA-SHA2-256s", EVP_PKEY_SLH_DSA_SHA2_256S),
+        pkey_probe_t::from_slhdsa_params("slh_dsa_sha2_256f", "SLH-DSA-SHA2-256f", EVP_PKEY_SLH_DSA_SHA2_256F),
 #endif
 };
 

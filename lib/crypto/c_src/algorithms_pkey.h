@@ -110,6 +110,20 @@ struct pkey_probe_t {
     const int evp_pkey_id; // Used by post-quantum algorithms probe
     const bool allow_seed; // Used by post-quantum algorithms probe
 
+    static constexpr pkey_probe_t from_name(const char *str) {
+        return {str, nullptr, 0, 0, false};
+    }
+#ifdef HAVE_ML_DSA
+    static constexpr pkey_probe_t from_mldsa_params(const char *str, const int evp_pkey_id) {
+        return {str, nullptr, 0, evp_pkey_id, true};
+    }
+#endif
+#ifdef HAVE_SLH_DSA
+    static constexpr pkey_probe_t from_slhdsa_params(const char *str, const char *str_v3, const int evp_pkey_id) {
+        return {str, str_v3, 0, evp_pkey_id, false};
+    }
+#endif
+
     const char *get_v3_name() const {
         return this->str_v3 ? this->str_v3 : this->str;
     }
