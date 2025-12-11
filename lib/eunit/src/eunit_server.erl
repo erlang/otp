@@ -29,10 +29,7 @@
 %%
 %% %CopyrightEnd%
 %%
-%% @author Richard Carlsson <carlsson.richard@gmail.com>
-%% @private
-%% @see eunit
-%% @doc EUnit server process
+%% EUnit server process
 
 -module(eunit_server).
 -moduledoc false.
@@ -173,7 +170,7 @@ server(St) ->
     server_check_exit(St),
     ?MODULE:main(St).
 
-%% @private
+-doc false.
 main(St) ->
     receive
 	{done, auto_test, _Pid} ->

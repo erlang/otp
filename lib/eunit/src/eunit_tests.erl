@@ -29,10 +29,7 @@
 %%
 %% %CopyrightEnd%
 %%
-%% @author Richard Carlsson <carlsson.richard@gmail.com>
-%% @private
-%% @see eunit
-%% @doc External tests for eunit.erl
+%% External tests for eunit.erl
 
 -module(eunit_tests).
 -moduledoc false.
