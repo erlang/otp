@@ -299,7 +299,7 @@ static ERL_NIF_TERM tty_encoding_nif(ErlNifEnv* env, int argc, const ERL_NIF_TER
 static ERL_NIF_TERM isprint_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
     int i;
     if (enif_get_int(env, argv[0], &i)) {
-        ASSERT(i > 0 && i < 256);
+        ASSERT(i >= 0 && i < 256);
         return isprint((char)i) ? atom_true : atom_false;
     }
     return enif_make_badarg(env);
