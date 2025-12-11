@@ -647,7 +647,8 @@ for every possible N for the range.
    bc((V), ?BIT((N) - 1), N)).
 
 %%-define(TWO_POW_MINUS53, (math:pow(2, -53))).
--define(TWO_POW_MINUS53, 1.11022302462515657e-16).
+%%-define(TWO_POW_MINUS53, 1.11022302462515657e-16).
+-define(TWO_POW_MINUS53, 2#1.0#e-53).
 
 %% =====================================================================
 %% Types
@@ -1290,6 +1291,8 @@ uniform_real() ->
 %%-define(TWO_POW_MINUS110, (math:pow(2, -110))).
 %%-define(TWO_POW_MINUS55, 2.7755575615628914e-17).
 %%-define(TWO_POW_MINUS110, 7.7037197775489436e-34).
+%%-define(TWO_POW_MINUS55, 2#1.0#e-55).
+%%-define(TWO_POW_MINUS110, 2#1.0#e-110).
 %%
 -doc """
 Generate a uniformly distributed random number `0.0 < X < 1.0`.
