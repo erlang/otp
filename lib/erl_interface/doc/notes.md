@@ -23,6 +23,27 @@ limitations under the License.
 
 This document describes the changes made to the Erl_interface application.
 
+## Erl_Interface 5.6.2
+
+### Improvements and New Features
+
+- Updated the vendor dependencies SHA to improve the accuracy of the source SBOM with `purl` pointing to the exact vendor commit that Erlang/OTP builds upon.
+
+  Own Id: OTP-19777 Aux Id: [PR-10216]
+
+- Updated MD5 implementation from OpenSSL 3.5.0 to 3.6.0
+
+  Own Id: OTP-19870 Aux Id: [PR-10405]
+
+[PR-10216]: https://github.com/erlang/otp/pull/10216
+[PR-10405]: https://github.com/erlang/otp/pull/10405
+
+### Known Bugs and Problems
+
+- The `ei` API for decoding/encoding terms is not fully 64-bit compatible since terms that have a representation on the external term format larger than 2 GB cannot be handled.
+
+  Own Id: OTP-16607 Aux Id: OTP-16608
+
 ## Erl_Interface 5.6.1
 
 ### Improvements and New Features

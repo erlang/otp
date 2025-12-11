@@ -23,6 +23,74 @@ limitations under the License.
 
 This document describes the changes made to the STDLIB application.
 
+## STDLIB 7.2
+
+### Fixed Bugs and Malfunctions
+
+- When creating a tar archive using `m:erl_tar`, leading slashes would be kept for filenames with up to 100 characters. The slash would be dropped for longer filenames. This has been corrected to always keep the leading slash.
+
+  Own Id: OTP-19066 Aux Id: [PR-8309]
+
+- For some function heads or `case` expressions with a huge number of clauses, the compiler could spend an inordinate amount of time compiling the code.
+
+  Own Id: OTP-19797 Aux Id: [PR-10252]
+
+- Passing a type for a fun as a macro argument would result in a "badly formed argument" error message from the compiler. Example:
+  
+  ```
+  -module(test).
+  -define(FOO(X), X).
+  -type foo() :: ?FOO(fun(() -> ok)).
+  ```
+  
+  Compiling this module would result in the following error message:
+  
+  ```
+  test.erl:3:17: badly formed argument for macro 'FOO'
+  %    5| -type foo() :: ?FOO(fun(() -> ok)).
+  %
+  ```
+
+  Own Id: OTP-19821 Aux Id: [GH-10280], [PR-10309]
+
+- Fixed an issue that prohibited the use of user defined functions within a restricted shell.
+
+  Own Id: OTP-19833 Aux Id: [PR-10315]
+
+- The deprecated function `crypto:rand_uniform/2` has gotten a new replacement function `crypto:strong_rand_range/1`.  When implementing this the documentation of `crypto` and `rand` has been rewritten a bit and improved.
+
+  Own Id: OTP-19841 Aux Id: [PR-10344]
+
+- Fixed a bug in the shell where a reference to a locally defined function would cause a crash.
+
+  Own Id: OTP-19850 Aux Id: [GH-10294]
+
+[PR-8309]: https://github.com/erlang/otp/pull/8309
+[PR-10252]: https://github.com/erlang/otp/pull/10252
+[GH-10280]: https://github.com/erlang/otp/issues/10280
+[PR-10309]: https://github.com/erlang/otp/pull/10309
+[PR-10315]: https://github.com/erlang/otp/pull/10315
+[PR-10344]: https://github.com/erlang/otp/pull/10344
+[GH-10294]: https://github.com/erlang/otp/issues/10294
+
+### Improvements and New Features
+
+- You are now able to read the reference manual with man.
+
+  Own Id: OTP-19787 Aux Id: [PR-10237]
+
+- Improved spec for `ets:lookup_element/4`.
+
+  Own Id: OTP-19798 Aux Id: [PR-10236]
+
+- The `mnesia_registry` module will be removed in Erlang/OTP 29.
+
+  Own Id: OTP-19808 Aux Id: [PR-10275]
+
+[PR-10237]: https://github.com/erlang/otp/pull/10237
+[PR-10236]: https://github.com/erlang/otp/pull/10236
+[PR-10275]: https://github.com/erlang/otp/pull/10275
+
 ## STDLIB 7.1
 
 ### Fixed Bugs and Malfunctions

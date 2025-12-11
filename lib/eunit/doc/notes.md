@@ -23,6 +23,16 @@ limitations under the License.
 
 This document describes the changes made to the EUnit application.
 
+## Eunit 2.10.1
+
+### Improvements and New Features
+
+- The usages of deprecated slave module have been removed from the application. The fixture clause for spawning a test node now accepts Args either as a string or a list of strings (previously only a string was accepted).
+
+  Own Id: OTP-19738 Aux Id: [PR-10128]
+
+[PR-10128]: https://github.com/erlang/otp/pull/10128
+
 ## Eunit 2.10
 
 ### Fixed Bugs and Malfunctions

@@ -7,7 +7,8 @@ ewgi_testapp.erl:34:27: The call gb_trees:to_list(T::{non_neg_integer(),'nil' | 
 %%
 %% SPDX-License-Identifier: MPL-1.1
 %%
-%% SPDX-FileCopyrightText: Copyright 2007 S.G. Consulting s.r.l. Filippo Pacini <filippo.pacini@gmail.com>
 %% SPDX-FileCopyrightText: Copyright 2007 S.G. Consulting s.r.l. Hunter Morris <huntermorris@gmail.com>
+%% SPDX-FileCopyrightText: Copyright 2007 S.G. Consulting s.r.l. Filippo Pacini <filippo.pacini@gmail.com>
+%% Copyright Ericsson AB 2013-2025. All Rights Reserved.
 %%
 %% %CopyrightEnd%

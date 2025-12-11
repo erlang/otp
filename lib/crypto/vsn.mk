@@ -1,4 +1,4 @@
-CRYPTO_VSN = 5.7
+CRYPTO_VSN = 5.8
 
 # %CopyrightBegin%
 #

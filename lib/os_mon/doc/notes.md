@@ -23,6 +23,17 @@ limitations under the License.
 
 This document describes the changes made to the OS_Mon application.
 
+## Os_Mon 2.11.2
+
+### Fixed Bugs and Malfunctions
+
+- Fixed a small documentation mistake in memsup
+
+  Own Id: OTP-19836 Aux Id: [PR-10308], [GH-10330]
+
+[PR-10308]: https://github.com/erlang/otp/pull/10308
+[GH-10330]: https://github.com/erlang/otp/issues/10330
+
 ## Os_Mon 2.11.1
 
 ### Fixed Bugs and Malfunctions

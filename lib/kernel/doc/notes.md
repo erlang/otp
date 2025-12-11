@@ -23,6 +23,53 @@ limitations under the License.
 
 This document describes the changes made to the Kernel application.
 
+## Kernel 10.5
+
+### Fixed Bugs and Malfunctions
+
+- Fixed a shell crash when calling io:getopts() when user_drv process is not responding/terminating
+
+  Own Id: OTP-19812 Aux Id: [PR-10283]
+
+- `logger:get_handler_config/0` will no longer crash if a logger handler is removed concurrently with that call.
+
+  Own Id: OTP-19837 Aux Id: [PR-10308], [GH-9997]
+
+- Fixed a bug in the shell that made it incorrectly output a newline after the output already containing a newline but followed by an asci escape sequence.
+
+  Own Id: OTP-19847 Aux Id: [GH-10299]
+
+[PR-10283]: https://github.com/erlang/otp/pull/10283
+[PR-10308]: https://github.com/erlang/otp/pull/10308
+[GH-9997]: https://github.com/erlang/otp/issues/9997
+[GH-10299]: https://github.com/erlang/otp/issues/10299
+
+### Improvements and New Features
+
+- Receive buffer allocation has been optimized for `socket` socket in that an underutilized buffers' content is copied to a freshly allocated binary of the right size instead of being reallocated.
+  
+  This optimization was already implemented for the `socket:recv/1` functions, but now the same buffer stragegy is shared between all `socket` receive operations.
+
+  Own Id: OTP-19794 Aux Id: [PR-10231]
+
+- Option(s) to create `gen_tcp` and `socket` sockets with protocol IPPROTO_MPTCP has been implemented.
+  
+  See functions `gen_tcp:listen/2`, `gen_tcp:connect/4` and the type `t:socket:protocol/0`.
+
+  Own Id: OTP-19814
+
+- Support for the socket options TCP_KEEPCNT, TCP_KEEPIDLE, and TCP_KEEPINTVL have been implemented for `gen_tcp`, as well as TCP_USER_TIMEOUT for both `gen_tcp` and `socket`.
+
+  Own Id: OTP-19857 Aux Id: OTP-19814, [PR-10390]
+
+- Limit size of sctp_event_subscribe on Linux
+
+  Own Id: OTP-19863 Aux Id: [PR-10321]
+
+[PR-10231]: https://github.com/erlang/otp/pull/10231
+[PR-10390]: https://github.com/erlang/otp/pull/10390
+[PR-10321]: https://github.com/erlang/otp/pull/10321
+
 ## Kernel 10.4.2
 
 ### Fixed Bugs and Malfunctions
