@@ -61,6 +61,7 @@
 -include_lib("common_test/include/ct.hrl").
 -include_lib("common_test/include/ct_event.hrl").
 -include("socket_test_evaluator.hrl").
+-include("socket_test_lib.hrl").
 -include("kernel_test_lib.hrl").
 
 %% Suite exports
@@ -156,7 +157,6 @@
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
--define(SLIB,       socket_test_lib).
 -define(KLIB,       kernel_test_lib).
 -define(LOGGER,     socket_test_logger).
 
@@ -173,6 +173,9 @@
 -define(TPP_NUM(Config, Base), (Base) div lookup(kernel_factor, 1, Config)).
 
 
+-define(BENCH_SUITE, socket_traffic).
+
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 suite() ->
@@ -180,36 +183,8 @@ suite() ->
      {timetrap, {minutes,1}}].
 
 all() -> 
-    %% Groups = [
-    %%           {counters,  "ESOCK_TEST_TRAFFIC_COUNTERS",  include},
-    %%           {chunks,    "ESOCK_TEST_TRAFFIC_CHUNKS",    include},
-    %%           {ping_pong, "ESOCK_TEST_TRAFFIC_PING_PONG", include},
-    %%           {tbench,    "ESOCK_TEST_TRAFFIC_BENCH",     include}
-    %%          ],
-    %% [use_group(Group, Env, Default) || {Group, Env, Default} <- Groups].
     [{group, standard}].
 
-%% use_group(_Group, undefined, exclude) ->
-%%     [];
-%% use_group(Group, undefined, _Default) ->
-%%     [{group, Group}];
-%% use_group(Group, Env, Default) ->
-%% 	case os:getenv(Env) of
-%% 	    false when (Default =:= include) ->
-%% 		[{group, Group}];
-%% 	    false ->
-%% 		[];
-%% 	    Val ->
-%% 		case list_to_atom(string:to_lower(Val)) of
-%% 		    Use when (Use =:= include) orelse 
-%% 			     (Use =:= enable) orelse 
-%% 			     (Use =:= true) ->
-%% 			[{group, Group}];
-%% 		    _ ->
-%% 			[]
-%% 		end
-%% 	end.
-    
 
 groups() -> 
     [
@@ -234,12 +209,37 @@ groups() ->
     ].
 
 standard_cases() ->
-    [
-     {group, counters},
-     {group, chunks},
-     {group, ping_pong},
-     {group, tbench}
-    ].
+    GroupsEnv = [
+                 {counters,  "ESOCK_TEST_TRAFFIC_COUNTERS",  include},
+                 {chunks,    "ESOCK_TEST_TRAFFIC_CHUNKS",    include},
+                 {ping_pong, "ESOCK_TEST_TRAFFIC_PING_PONG", include},
+                 {tbench,    "ESOCK_TEST_TRAFFIC_BENCH",     include}
+                ],
+    Groups =
+        [use_group(Group, Env, Default) || {Group, Env, Default} <- GroupsEnv],
+    lists:flatten(Groups).
+
+use_group(_Group, undefined, exclude) ->
+    [];
+use_group(Group, undefined, _Default) ->
+    [{group, Group}];
+use_group(Group, Env, Default) ->
+	case os:getenv(Env) of
+	    false when (Default =:= include) ->
+		[{group, Group}];
+	    false ->
+		[];
+	    Val ->
+		case list_to_atom(string:to_lower(Val)) of
+		    Use when (Use =:= include) orelse 
+			     (Use =:= enable) orelse 
+			     (Use =:= true) ->
+			[{group, Group}];
+		    _ ->
+			[]
+		end
+	end.
+
 
 bench_cases() ->
     [
@@ -7273,13 +7273,6 @@ tb_await_completion(BName,
 tb_await_termination(BName, Server, Client) ->
     tb_await_termination(BName, Server, Client, undefined).
 
--define(BENCH_SUITE, socket_traffic).
--define(BENCH_EVENT(__N__, __V__),
-        #event{name = benchmark_data,
-               data = [{suite, ?BENCH_SUITE},
-                       {value, (__V__)},
-                       {name,  (__N__)}]}).
-
 tb_await_termination(BName,
                      {ServerPid, ServerMRef} = Server,
                      {ClientPid, ClientMRef} = Client,
@@ -7565,7 +7558,7 @@ local_host() ->
 %% don't clash.
 
 mk_unique_path() ->
-    ?SLIB:mk_unique_path().
+    ?MK_UNIQ_PATH().
 
 
 which_local_socket_addr(local = Domain) ->
@@ -7666,20 +7659,7 @@ has_support_unix_domain_socket() ->
     end.
 
 has_support_sctp() ->
-    case os:type() of
-        {win32, _} ->
-            skip("Not supported");
-        {unix, netbsd} ->
-            %% XYZ We will have to investigate this later...
-            skip("Not supported");
-        _ ->
-            case socket:is_supported(sctp) of
-                true ->
-                    ok;
-                false ->
-                    skip("Not supported")
-            end
-    end.
+    ?HAS_SUPPORT_SCTP().
 
 
 %% The idea is that this function shall test if the test host has 
