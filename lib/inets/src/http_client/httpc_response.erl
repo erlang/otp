@@ -370,16 +370,20 @@ status_continue({_,_, Data}, _) ->
     %% response.
     {ignore, Data}.
 
-status_service_unavailable(Response = {_, Headers, _}, Request) ->
-    case Headers#http_response_h.'retry-after' of 
-	undefined ->
-	    status_server_error_50x(Response, Request);
-	Time when (length(Time) < 3) -> % Wait only 99 s or less 
-	    NewTime = list_to_integer(Time) * 1000, % time in ms
-	    {_, Data} =  format_response(Response),
-	    {retry, {NewTime, Request}, Data};
-	_ ->
-	    status_server_error_50x(Response, Request)
+status_service_unavailable(Response = {_, Headers, _},
+                           Request = #request{settings =
+                                                  #http_options{autoretry = AutoRetryOpt}}) ->
+    case Headers#http_response_h.'retry-after' of
+        Undefined when
+              Undefined =:= undefined orelse
+              AutoRetryOpt =:= false ->
+            status_server_error_50x(Response, Request);
+        Time when (length(Time) < 3) -> % Wait only 99 s or less
+            NewTime = list_to_integer(Time) * 1000, % time in ms
+            {_, Data} =  format_response(Response),
+            {retry, {NewTime, Request}, Data};
+        _ ->
+            status_server_error_50x(Response, Request)
     end.
 
 status_server_error_50x(Response, Request) ->
