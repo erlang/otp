@@ -215,6 +215,7 @@ request(Url, Profile) ->
                   | {connect_timeout, timeout()}
                   | {ssl, [ssl:tls_option()]}
                   | {autoredirect, boolean()}
+                  | {autoretry, timeout()}
                   | {proxy_auth, {string(), string()}}
                   | {version, HttpVersion} | {relaxed, boolean()},
       Options :: [OptionRequest],
@@ -291,6 +292,16 @@ HTTP options:
   the 30X-result is always returned.
 
   Default is `true`.
+
+- **`autoretry`** - The client automatically retries the request **once** after receiving
+  a Retry-After header from the server.
+
+  Sometimes servers can suggest a value that is not suitable for application,
+  so this option allows limiting the wait time **(in miliseconds)** inbetween requests, or disabling
+  the retry with a value of `0`. If a value of Retry-After header exceeds the set
+  value, no retry will be done.
+
+  Default is atom `infinity`.
 
 - **`proxy_auth`** - A proxy-authorization header using a tuple where the first
   element is the `username` and the second element of the tuple is the
@@ -434,6 +445,7 @@ Options details:
                   | {connect_timeout, timeout()}
                   | {ssl, [ssl:tls_option()]}
                   | {autoredirect, boolean()}
+                  | {autoretry, timeout()}
                   | {proxy_auth, {string(), string()}}
                   | {version, HttpVersion} | {relaxed, boolean()},
       Options :: [OptionRequest],
@@ -1409,6 +1421,15 @@ http_options_default() ->
 		  end,
     AutoRedirectPost =  boolfun(),
 
+    AutoRetryPost = fun(Value) when is_integer(Value)
+                                    andalso Value >= 0 ->
+                            {ok, Value};
+                       (Value) when Value =:= infinity ->
+                            {ok, Value};
+                       (_) ->
+                            error
+                    end,
+
     SslPost = fun(Value) when is_list(Value) ->
                       {ok, {ssl, Value}};
                  ({ssl, SslOptions}) when is_list(SslOptions) ->
@@ -1445,6 +1466,7 @@ http_options_default() ->
      {version,         {value, "HTTP/1.1"},            #http_options.version,         VersionPost}, 
      {timeout,         {value, ?HTTP_REQUEST_TIMEOUT}, #http_options.timeout,         TimeoutPost},
      {autoredirect,    {value, true},                  #http_options.autoredirect,    AutoRedirectPost},
+     {autoretry,       {value, infinity},              #http_options.autoretry,       AutoRetryPost},
      %% can crash if no os bundle is present. therefore the options are only evaluated on demand
      {ssl,             {value_lazy, SslOptsLazyFn},    #http_options.ssl,             SslPost},
      {proxy_auth,      {value, undefined},             #http_options.proxy_auth,      ProxyAuthPost},
