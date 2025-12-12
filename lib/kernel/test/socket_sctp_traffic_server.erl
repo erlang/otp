@@ -221,7 +221,7 @@ init(#{starter  := Starter,
                {error, OReason} ->
                    ?ERROR("Failed open:"
                           "~n   ~p", [OReason]),
-                   exit({open_failed, OReason})
+                   exit({open, OReason})
            end,
 
     SockAddr0 = #{family => Domain,
@@ -235,7 +235,7 @@ init(#{starter  := Starter,
         {error, BReason} ->
             ?ERROR("Failed bind:"
                    "~n   ~p", [BReason]),
-            exit({bind_failed, BReason})
+            exit({bind, BReason})
     end,
 
 

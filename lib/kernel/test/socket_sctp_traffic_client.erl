@@ -287,7 +287,7 @@ init(ID,
             ?ERROR("Failed setopt 'events': "
                    "~n   ~p", [SReason]),
 	    (catch socket:close(Sock)),
-            exit({setopt, events, SReason})
+            exit({{setopt, events}, SReason})
     end,
 
     ?DBG("try sockname (get port number)"),

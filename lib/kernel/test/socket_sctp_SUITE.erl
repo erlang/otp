@@ -1475,13 +1475,21 @@ do_b_stream(#{domain   := Domain,
 	      type     := Type,
 	      protocol := sctp = Proto,
 	      addr     := Addr}) ->
-    {ok, S} = socket:open(Domain, Type, Proto),
-    ok      = socket:bind(S, #{family => Domain,
-			       addr   => Addr,
-			       port   => 0}),
-    ok      = socket:listen(S, true),
-    ok      = do_from_other_process(fun() -> socket:listen(S, 10) end),
-    ok      = socket:close(S),
+    Sock =
+        case socket:open(Domain, Type, Proto) of
+            {ok, S} ->
+                S;
+            {error, eprotonosupport = Reason} ->
+                exit({skip, Reason});
+            {error, Reason} ->
+                exit(Reason)
+        end,
+    ok      = socket:bind(Sock, #{family => Domain,
+                                  addr   => Addr,
+                                  port   => 0}),
+    ok      = socket:listen(Sock, true),
+    ok      = do_from_other_process(fun() -> socket:listen(Sock, 10) end),
+    ok      = socket:close(Sock),
     ok.
 
 
@@ -4144,10 +4152,15 @@ m_peeloff_server_start(State) ->
                               m_peeloff_server_init(State#{ctrl => Self})
                       end),
     receive
-        {'DOWN', MRef, process, Server, Reason} ->
+        {'DOWN', MRef, process, Server, {_, FReason} = Reason} ->
             ?P("~s -> received unexpected DOWN from starting server:"
                "~n   ~p", [?FUNCTION_NAME, Reason]),
-            exit({server_start_failed, Reason});
+            if
+                (FReason =:= eprotonosupport) ->
+                    exit({skip, FReason});
+                true ->
+                    exit({server_start_failed, Reason})
+            end;
 
         {?MODULE, Server, {started, Port}} ->
             ?P("~s -> server started:"
@@ -4166,7 +4179,7 @@ m_peeloff_server_init(#{ctrl         := CTRL,
                {error, Reason1} ->
                    ?P("~s -> open failed:"
                       "~n   ~p", [?FUNCTION_NAME, Reason1]),
-                   exit({open_failed, Reason1})
+                   exit({open, Reason1})
            end,
 
     ?P("~s -> try bind", [?FUNCTION_NAME]),
@@ -4179,7 +4192,7 @@ m_peeloff_server_init(#{ctrl         := CTRL,
         {error, Reason2} ->
             ?P("~s -> bind failed:"
                "~n   ~p", [?FUNCTION_NAME, Reason2]),
-            exit({bind_failed, Reason2})
+            exit({bind, Reason2})
     end,
 
     ?P("~s -> try make listen socket", [?FUNCTION_NAME]),
@@ -4882,7 +4895,7 @@ m_peeloff_client_init(#{ctrl        := CTRL,
                {error, Reason1} ->
                    ?P("~s -> open failed: "
                       "~n   ~p", [?FUNCTION_NAME, Reason1]),
-                   exit({open_failed, Reason1})
+                   exit({open, Reason1})
            end,
 
     ?P("~s -> try bind", [?FUNCTION_NAME]),
@@ -5195,7 +5208,14 @@ do_recv_close(#{domain := Domain,
                 addr   := Addr,
                 events := Evs}) ->
     ?P("~s -> create server socket (and listen)", [?FUNCTION_NAME]),
-    {ok, SSock} = socket:open(Domain, seqpacket, sctp),
+    SSock = case socket:open(Domain, seqpacket, sctp) of
+                {ok, SSocket}  ->
+                    SSocket;
+                {error, eprotonosupport = Reason} ->
+                    exit({skip, Reason});
+                {error, Reason} ->
+                    exit(Reason)
+            end,
     ok = socket:setopt(SSock, ?MK_SOCKOPT_SCTP(events), Evs),
     ok = socket:bind(SSock, #{family => Domain, addr => Addr, port => 0}),
     {ok, #{port := SPort}} = socket:sockname(SSock),
@@ -6357,8 +6377,19 @@ o_default_sri_ipv4(_Config) when is_list(_Config) ->
 o_default_sri(#{domain   := Domain,
                 type     := seqpacket = Type,
                 protocol := sctp      = Proto}) ->
-    {ok, S1}   = socket:open(Domain, Type, Proto),
-    {ok, SRI0} = socket:getopt(S1, Proto, default_send_param),
+    Sock = case socket:open(Domain, Type, Proto) of
+               {ok, S} ->
+                   S;
+               {error, eprotonosupport = Reason} ->
+                   ?P("Failed open socket: "
+                      "~n    ~p", [Reason]),
+                   exit({skip, Reason});
+               {error, Reason} -> 
+                   ?P("Failed open socket: "
+                      "~n    ~p", [Reason]),
+                   exit(Reason)
+           end,
+    {ok, SRI0} = socket:getopt(Sock, Proto, default_send_param),
 
     %% Just puck two likely candidates (stream and context)
     Stream0  = maps:get(stream, SRI0),
@@ -6366,20 +6397,20 @@ o_default_sri(#{domain   := Domain,
     Context0 = maps:get(context, SRI0),
     Context1 = Context0 + 2,
     SRI1     = SRI0#{stream => Stream1, context => Context1},
-    ok       = socket:setopt(S1, Proto, default_send_param, SRI1),
-    case socket:getopt(S1, Proto, default_send_param) of
+    ok       = socket:setopt(Sock, Proto, default_send_param, SRI1),
+    case socket:getopt(Sock, Proto, default_send_param) of
         {ok, #{stream := Stream1, context := Context1}} ->
             ok;
         {ok, UnexpectedSRI} ->
             ?P("Unexpected default SRI value: "
                "~n   ~p", [UnexpectedSRI]),
             exit({unexpected_sri, UnexpectedSRI});
-        {error, Reason} ->
+        {error, GReason} ->
             ?P("Unexpected getopt failure: "
-               "~n   ~p", [Reason]),
-            exit({unexpected_getopt, Reason})
+               "~n   ~p", [GReason]),
+            exit({unexpected_getopt, GReason})
     end,
-    socket:close(S1).
+    socket:close(Sock).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -6852,6 +6883,10 @@ t_exc_start_server(#{server_node  := Node,
             #{pid  => Pid,
               mref => MRef,
               sa   => SA};
+        {error, {_, eprotonosupport = FReason} = Reason} ->
+            ?P("~s -> Failed starting server: "
+               "~n   Reason: ~p", [?FUNCTION_NAME, Reason]),
+            exit({skip, FReason});
         {error, Reason} ->
             ?P("~s -> Failed starting server: "
                "~n   Reason: ~p", [?FUNCTION_NAME, Reason]),
