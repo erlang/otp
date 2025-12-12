@@ -81,10 +81,11 @@ The `padding` option can be one of the following:
   the end.
 
 """.
--type decode_options() :: #{padding => boolean(), mode => base64_mode()}.
+-type decode_options() :: #{padding => boolean(), mode => base64_mode()}
+			| [{padding, boolean()} | {mode, base64_mode()}].
 
 -doc """
-Customizes the behaviour of the decode functions.
+Customizes the behaviour of the encode functions.
 
 Default value if omitted entirely or partially is `#{mode => standard, padding => true}`.
 
@@ -106,7 +107,8 @@ The `padding` option can be one of the following:
 - **`false`** - Skips appending `=` padding characters to the encoded string.
 
 """.
--type encode_options() :: #{padding => boolean(), mode => base64_mode()}.
+-type encode_options() :: #{padding => boolean(), mode => base64_mode()}
+			| [{padding, boolean()} | {mode, base64_mode()}].
 
 %% The following type is a subtype of string() for return values
 %% of encoding functions.
@@ -274,7 +276,7 @@ Decodes a base64 string encoded using the standard alphabet according to
 [RFC 4648 Section 4](https://datatracker.ietf.org/doc/html/rfc4648#section-4) to
 plain ASCII.
 
-The function will strips away any whitespace characters and check for the
+The function will strip away any whitespace characters and check for the
 the correct number of `=` padding characters at the end of the encoded string.
 
 See `t:decode_options/0` for details on which options can be passed.
@@ -317,7 +319,7 @@ Decodes a base64 "mime" string encoded using the standard alphabet according to
 [RFC 4648 Section 4](https://datatracker.ietf.org/doc/html/rfc4648#section-4) to
 plain ASCII.
 
-The function will strips away any illegal characters. It does *not* check for the
+The function will strip away any illegal characters. It does *not* check for the
 the correct number of `=` padding characters at the end of the encoded string.
 
 See `t:decode_options/0` for details on which options can be passed.
@@ -781,11 +783,22 @@ format_error(_, _) ->
 %% accessors
 
 get_padding(#{padding := Bool}) when is_boolean(Bool) -> Bool;
-get_padding(#{}) -> true.
+get_padding(#{}) -> true;
+get_padding(Opts) when is_list(Opts) ->
+    case lists:keyfind(padding, 1, Opts) of
+	{padding, Bool} when is_boolean(Bool) -> Bool;
+	_ -> true
+    end.
 
 get_decoding_offset(#{mode := standard}) -> 1;
 get_decoding_offset(#{mode := urlsafe}) -> 257;
-get_decoding_offset(#{}) -> 1.
+get_decoding_offset(#{}) -> 1;
+get_decoding_offset(Opts) when is_list(Opts) ->
+    case lists:keyfind(mode, Opts) of
+	{mode, standard} -> 1;
+	{mode, urlsafe} -> 257;
+	_ -> 1
+    end.
 
 -compile({inline, [{b64d, 2}]}).
 b64d(X, Off) ->
