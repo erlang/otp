@@ -51,7 +51,8 @@ the command-line flag [`-name`](`e:erts:erl_cmd.md#name`) (long names) or
 [`-sname`](`e:erts:erl_cmd.md#sname`) (short names).
 
 The format of the node name is an atom `name@host`. `name` is the name given by
-the user. `host` is the full host name if long names are used, or the first part
+the user, and consists of alphanumerics, `-`, `_`, and `\`.
+`host` is the full host name if long names are used, or the first part
 of the host name if short names are used. Function [`node()`](`erlang:node/0`)
 returns the name of the node.
 
