@@ -590,9 +590,9 @@ process_options(UserSslOpts, SslOpts0, Env) ->
     SslOpts1  = opt_protocol_versions(UserSslOptsMap, SslOpts0, Env),
     SslOpts2  = opt_verification(UserSslOptsMap, SslOpts1, Env),
     SslOpts3  = opt_certs(UserSslOptsMap, SslOpts2, Env),
-    SslOpts4  = opt_tickets(UserSslOptsMap, SslOpts3, Env),
-    SslOpts5  = opt_stapling(UserSslOptsMap, SslOpts4, Env),
-    SslOpts6  = opt_sni(UserSslOptsMap, SslOpts5, Env),
+    SslOpts4  = opt_sni(UserSslOptsMap, SslOpts3, Env),
+    SslOpts5  = opt_tickets(UserSslOptsMap, SslOpts4, Env),
+    SslOpts6  = opt_stapling(UserSslOptsMap, SslOpts5, Env),
     SslOpts7  = opt_signature_algs(UserSslOptsMap, SslOpts6, Env),
     SslOpts8  = opt_alpn(UserSslOptsMap, SslOpts7, Env),
     SslOpts9  = opt_mitigation(UserSslOptsMap, SslOpts8, Env),
@@ -942,7 +942,8 @@ opt_cacerts(UserOpts, #{verify := Verify, log_level := LogLevel, versions := Ver
                      {new, FileName} -> unambiguous_path(FileName);
                      {_, FileName} -> FileName
                  end,
-    option_incompatible(CaCertFile =:= <<>> andalso CaCerts =:= undefined andalso Verify =:= verify_peer,
+    option_incompatible(CaCertFile =:= <<>> andalso CaCerts =:= undefined andalso
+                        Verify =:= verify_peer,
                         [{verify, verify_peer}, {cacerts, undefined}]),
 
     {Where2, CA} = get_opt_bool(certificate_authorities, Role =:= server, UserOpts, Opts),
@@ -957,24 +958,33 @@ opt_cacerts(UserOpts, #{verify := Verify, log_level := LogLevel, versions := Ver
     Opts2 = set_opt_new(Where2, certificate_authorities, Role =:= server, CA, Opts1),
     Opts2#{cacerts => CaCerts}.
 
-opt_tickets(UserOpts, #{versions := Versions} = Opts, #{role := client}) ->
-    {_, SessionTickets} = get_opt_of(session_tickets, [disabled,manual,auto], disabled, UserOpts, Opts),
+opt_tickets(UserOpts, #{versions := Versions} = Opts,
+            #{role := client}) ->
+    {_, SessionTickets} = get_opt_of(session_tickets, [disabled,manual,auto], disabled,
+                                     UserOpts, Opts),
     assert_version_dep(SessionTickets =/= disabled, session_tickets, Versions, ['tlsv1.3']),
 
-    {_, UseTicket} = get_opt_list(use_ticket, undefined, UserOpts, Opts),
-    option_error(UseTicket =:= [], use_ticket, UseTicket),
-    option_incompatible(UseTicket =/= undefined andalso SessionTickets =/= manual,
-                        [{use_ticket, UseTicket}, {session_tickets, SessionTickets}]),
+    {_, UseTickets} = get_opt_list(use_ticket, undefined, UserOpts, Opts),
+    case (SessionTickets == manual) andalso UseTickets =/= undefined of
+        true ->
+            verify_use_tickets(UseTickets, maps:get(server_name_indication, Opts));
+        _ ->
+            ok
+    end,
+    option_error(UseTickets =:= [], use_ticket, UseTickets),
+    option_incompatible(UseTickets =/= undefined andalso SessionTickets =/= manual,
+                        [{use_ticket, UseTickets}, {session_tickets, SessionTickets}]),
 
     {_, EarlyData} = get_opt_bin(early_data, undefined, UserOpts, Opts),
     option_incompatible(is_binary(EarlyData) andalso SessionTickets =:= disabled,
                         [early_data, {session_tickets, disabled}]),
-    option_incompatible(is_binary(EarlyData) andalso SessionTickets =:= manual andalso UseTicket =:= undefined,
+    option_incompatible(is_binary(EarlyData) andalso SessionTickets =:= manual andalso
+                        UseTickets =:= undefined,
                         [early_data, {session_tickets, manual}, {use_ticket, undefined}]),
 
     assert_server_only(anti_replay, UserOpts),
     assert_server_only(stateless_tickets_seed, UserOpts),
-    Opts#{session_tickets => SessionTickets, use_ticket => UseTicket, early_data => EarlyData};
+    Opts#{session_tickets => SessionTickets, use_ticket => UseTickets, early_data => EarlyData};
 opt_tickets(UserOpts, #{versions := Versions} = Opts, #{role := server}) ->
     {_, SessionTickets} =
         get_opt_of(session_tickets,
@@ -995,8 +1005,10 @@ opt_tickets(UserOpts, #{versions := Versions} = Opts, #{role := server}) ->
             {_, undefined} -> undefined;
             {_,AR} when not Stateless ->
                 option_incompatible([{anti_replay, AR}, {session_tickets, SessionTickets}]);
-            {_,'10k'}  -> {10, 5, 72985};  %% n = 10000 p = 0.030003564 (1 in 33) m = 72985 (8.91KiB) k = 5
-            {_,'100k'} -> {10, 5, 729845}; %% n = 10000 p = 0.03000428 (1 in 33) m = 729845 (89.09KiB) k = 5
+            %% n = 10000 p = 0.030003564 (1 in 33) m = 72985 (8.91KiB) k = 5
+            {_,'10k'}  -> {10, 5, 72985};
+            %% n = 10000 p = 0.03000428 (1 in 33) m = 729845 (89.09KiB) k = 5
+            {_,'100k'} -> {10, 5, 729845};
             {_, {_,_,_} = AR} -> AR;
             {_, AR} -> option_error(anti_replay, AR)
         end,
@@ -1008,6 +1020,13 @@ opt_tickets(UserOpts, #{versions := Versions} = Opts, #{role := server}) ->
     assert_client_only(use_ticket, UserOpts),
     Opts#{session_tickets => SessionTickets, early_data => EarlyData,
           anti_replay => AntiReplay, stateless_tickets_seed => STS}.
+
+verify_use_tickets([], _) ->
+    true;
+verify_use_tickets([#{sni := SNI} | Tickests], SNI) ->
+    verify_use_tickets(Tickests, SNI);
+verify_use_tickets([Ticket | _], SNI) ->
+    option_error(ticket_for_other_SNI, {Ticket, SNI}).
 
 opt_stapling(UserOpts, #{versions := _Versions} = Opts, #{role := client}) ->
     {Stapling, Nonce} =
@@ -1111,7 +1130,8 @@ valid_signature_algs_cert(#{versions := Versions} = Opts, UserOpts, TlsVersion) 
         {_, Schemes} ->
             Schemes
     end.
-valid_signature_algs(AlgCertSchemes0, #{versions := Versions} = Opts, UserOpts, [TlsVersion| _] = TlsVsns) ->
+valid_signature_algs(AlgCertSchemes0, #{versions := Versions} = Opts, UserOpts,
+                     [TlsVersion| _] = TlsVsns) ->
     case get_opt_list(signature_algs, undefined, UserOpts, Opts) of
         {default, undefined}  ->
             %% Smooth upgrade path allow rsa_pkcs1_sha1 for signatures_algs_cert

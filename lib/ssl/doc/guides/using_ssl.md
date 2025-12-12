@@ -727,7 +727,7 @@ tickets sent by the server.
 _Step 10 (client):_ Receive a new session ticket:
 
 ```erlang
-      Ticket = receive {ssl, session_ticket, {_, TicketData}} -> TicketData end.
+      Ticket = receive {ssl, session_ticket, Ticket0} -> Ticket0 end.
 ```
 
 _Step 11 (server):_ Accept a new connection on the server:

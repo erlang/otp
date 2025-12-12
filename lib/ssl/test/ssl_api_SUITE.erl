@@ -986,7 +986,8 @@ handshake_continue_tls13_client(Config) when is_list(Config) ->
            {mfa, {ssl_test_lib, send_recv_result_active, []}},
            {options, ssl_test_lib:ssl_options([{handshake, hello},
                                                {session_tickets, manual},
-                                               {use_ticket, [DummyTicket]},
+                                               {use_ticket, [#{sni => net_adm:localhost(),
+                                                               ticket => DummyTicket}]},
                                                {versions, ['tlsv1.3',
                                                            'tlsv1.2',
                                                            'tlsv1.1',
@@ -2217,7 +2218,7 @@ customize_defaults(Opts, Role, Host) ->
 -define(OK(EXP, Opts, Role), ?OK(EXP,Opts, Role, [])).
 -define(OK(EXP, Opts, Role, ShouldBeMissing),
         fun() ->
-                Host = "dummy.host.org",
+                Host = net_adm:localhost(),
                 {__DefOpts, __Opts} = customize_defaults(Opts, Role, Host),
                 try ssl_config:handle_options(__Opts, Role, Host) of
                     {ok, #config{ssl=EXP = __ALL}} ->
@@ -2252,7 +2253,7 @@ customize_defaults(Opts, Role, Host) ->
 
 -define(ERR(EXP, Opts, Role),
         fun() ->
-                Host = "dummy.host.org",
+                Host = net_adm:localhost(),
                 {__DefOpts, __Opts} = customize_defaults(Opts, Role, Host),
                 try ssl_config:handle_options(__Opts, Role, Host) of
                     Other ->
@@ -2286,7 +2287,7 @@ customize_defaults(Opts, Role, Host) ->
 
 -define(ERR_UPD(EXP, Opts, Role),
         fun() ->
-                Host = "dummy.host.org",
+                Host = net_adm:localhost(),
                 {__DefOpts, __Opts} = customize_defaults(Opts, Role, Host),
                 try ssl_config:handle_options(__Opts, Role, Host) of
                     {ok, #config{}} ->
@@ -2718,6 +2719,7 @@ options_dh(Config) -> %% dh dhfile
     ok.
 
 options_early_data(_Config) -> %% early_data, session_tickets and use_ticket
+     SNI = net_adm:localhost(),
     ?OK(#{early_data := undefined, session_tickets := disabled},
         [], client),
     ?OK(#{early_data := disabled, session_tickets := disabled, stateless_tickets_seed := undefined},
@@ -2725,8 +2727,11 @@ options_early_data(_Config) -> %% early_data, session_tickets and use_ticket
 
     ?OK(#{early_data := <<>>, session_tickets := auto},
         [{early_data, <<>>}, {session_tickets, auto}], client),
-    ?OK(#{early_data := <<>>, session_tickets := manual, use_ticket := [<<1>>]},
-        [{early_data, <<>>}, {session_tickets, manual}, {use_ticket, [<<1>>]}],
+    ?OK(#{early_data := <<>>, session_tickets := manual,
+          use_ticket := [#{sni := SNI,
+                           ticket := <<1>>}]},
+        [{early_data, <<>>}, {session_tickets, manual},
+         {use_ticket, [#{sni => SNI, ticket => <<1>>}]}],
         client),
 
     ?OK(#{early_data := enabled, stateless_tickets_seed := <<"foo">>},
@@ -2795,7 +2800,8 @@ options_eccs(_Config) ->
 
 options_verify(Config) ->  %% fail_if_no_peer_cert, verify, verify_fun, partial_chain
     Cert = proplists:get_value(cert, ssl_test_lib:ssl_options(server_rsa_der_opts, Config)),
-    {ok, #config{ssl = DefOpts = #{verify_fun := {DefVerify,_}}}} = ssl_config:handle_options([{verify, verify_none}], client, "dummy.host.org"),
+    {ok, #config{ssl = DefOpts = #{verify_fun := {DefVerify,_}}}} =
+        ssl_config:handle_options([{verify, verify_none}], client, net_adm:localhost()),
 
     ?OK(#{fail_if_no_peer_cert := false, verify := verify_none, verify_fun := {DefVerify, []}, partial_chain := _},
         [], server),
@@ -3070,10 +3076,11 @@ options_reuse_session(_Config) ->
     ok.
 
 options_sni(_Config) -> %% server_name_indication
-    ?OK(#{server_name_indication := "dummy.host.org"}, [], client),
+    SNI = net_adm:localhost(),
+    ?OK(#{server_name_indication := SNI}, [], client),
     ?OK(#{}, [], server, [server_name_indication]),
     ?OK(#{server_name_indication := disable}, [{server_name_indication, disable}], client),
-    ?OK(#{server_name_indication := "dummy.org"}, [{server_name_indication, "dummy.org"}], client),
+    ?OK(#{server_name_indication := SNI}, [{server_name_indication, SNI}], client),
 
     ?OK(#{sni_fun := _}, [], server, [sni_hosts]),
 
@@ -3408,13 +3415,15 @@ client_options_negative_early_data(Config) when is_list(Config) ->
                            [early_data, {session_tickets, manual}, {use_ticket, undefined}]}),
     start_client_negative(Config, [{versions, ['tlsv1.2', 'tlsv1.3']},
                                    {session_tickets, manual},
-                                   {use_ticket, [<<"ticket">>]},
+                                   {use_ticket, [#{sni=> net_adm:localhost(),
+                                                   ticket => <<"ticket">>}]},
                                    {early_data, "test"}],
                           {options, {early_data, "test"}}),
     %% All options are ok but there is no server
     start_client_negative(Config, [{versions, ['tlsv1.2', 'tlsv1.3']},
                                    {session_tickets, manual},
-                                   {use_ticket, [<<"ticket">>]},
+                                   {use_ticket, [#{sni=> net_adm:localhost(),
+                                                   ticket => <<"ticket">>}]},
                                    {early_data, <<"test">>}],
                           econnrefused),
 
