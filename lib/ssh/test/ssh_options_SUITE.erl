@@ -113,7 +113,7 @@
 %%--------------------------------------------------------------------
 
 suite() ->
-    [{ct_hooks,[ts_install_cth]},
+    [{ct_hooks,[ts_install_cth, cth_fips]},
      {timetrap,{seconds,15}}].
 
 all() -> 
