@@ -2128,32 +2128,73 @@ ts_scale_factor() ->
             0
     end.
 
-simplify_label("Systemtap" ++ _) ->
-    {host, systemtap};
-simplify_label("Meamax" ++ _) ->
-    {host, meamax};
-simplify_label("Meamin" ++ _) ->
-    {host, meamin};
-simplify_label("Cover" ++ _) ->
-    {host, cover};
 simplify_label(Label) ->
-    case string:find(string:to_lower(Label), "docker") of
+    simplify_label2(
+      [ string:to_lower(S) || S <- string:tokens(Label, [$ ]) ]).
+
+simplify_label2([]) ->
+    {host, []};
+simplify_label2(LTokens) ->
+    try
+        begin
+            STokens = simplify_label3(LTokens, []),
+            {host, STokens}
+        end
+    catch
+        throw:{?MODULE, What} ->
+            What
+    end.
+
+simplify_label3([], Acc) ->
+    lists:reverse(Acc);
+simplify_label3([LToken|LTokens], Acc) ->
+    case simplify_label4(LToken) of
+        undefined ->
+            simplify_label3(LTokens, Acc);
+        Label ->
+            simplify_label3(LTokens, [Label|Acc])
+    end.
+
+simplify_label4("systemtap" ++ _) ->
+    systemtap;
+simplify_label4("meamax" ++ _) ->
+    meamax;
+simplify_label4("meamin" ++ _) ->
+    meamin;
+simplify_label4("cover" ++ _) ->
+    cover;
+simplify_label4(Label) ->
+    case string:find(Label, "docker") of
         "docker" ++ _ ->
-            docker;
+            throw({?MODULE, docker});
         _ ->
-            {host, undefined}
+            undefined
     end.
 
 label2factor(docker) ->
     4;
-label2factor({host, meamax}) ->
-    2;
-label2factor({host, meamin}) ->
-    2;
-label2factor({host, cover}) ->
-    6;
-label2factor({host, _}) ->
-    0.
+label2factor({host, Labels}) when is_list(Labels) ->
+    %% We analyze them in "prio" order...
+    try
+        begin
+            label2factor(cover,  4, Labels),
+            label2factor(meamax, 2, Labels),
+            label2factor(meamin, 2, Labels),
+            0
+        end
+    catch
+        throw:{?MODULE, Factor} when is_integer(Factor) andalso (Factor > 0) ->
+            Factor
+    end.
+
+label2factor(Label, Factor, Labels) ->
+    case lists:member(Label, Labels) of
+        true ->
+            throw({?MODULE, Factor});
+        false ->
+            ignore
+    end.
+
 
 linux_info_lookup(Key, File) ->
     LKey = string:to_lower(Key),
