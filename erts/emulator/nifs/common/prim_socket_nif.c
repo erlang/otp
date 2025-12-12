@@ -1340,11 +1340,16 @@ static ERL_NIF_TERM esock_getopt_int_opt(ErlNifEnv*       env,
                                          int              level,
                                          int              opt,
                                          ERL_NIF_TERM     eval);
+#if defined(TCP_USER_TIMEOUT)
+/* We only use this *at the moment* for TCP_USER_TIMEOUT.
+ * On (our) NetBSD, this does not exist.
+ */
 static ERL_NIF_TERM esock_getopt_uint_opt(ErlNifEnv*       env,
                                           ESockDescriptor* descP,
                                           int              level,
                                           int              opt,
                                           ERL_NIF_TERM     eval);
+#endif
 static ERL_NIF_TERM esock_getopt_size_opt(ErlNifEnv*       env,
                                           ESockDescriptor* descP,
                                           int              level,
@@ -1884,11 +1889,16 @@ static ERL_NIF_TERM esock_setopt_int_opt(ErlNifEnv*       env,
                                          int              level,
                                          int              opt,
                                          ERL_NIF_TERM     eVal);
+#if defined(TCP_USER_TIMEOUT)
+/* We only use this *at the moment* for TCP_USER_TIMEOUT.
+ * On (our) NetBSD, this does not exist.
+ */
 static ERL_NIF_TERM esock_setopt_uint_opt(ErlNifEnv*       env,
                                           ESockDescriptor* descP,
                                           int              level,
                                           int              opt,
                                           ERL_NIF_TERM     eVal);
+#endif
 #if (defined(SO_RCVTIMEO) || defined(SO_SNDTIMEO))      \
     && defined(ESOCK_USE_RCVSNDTIMEO)
 static ERL_NIF_TERM esock_setopt_timeval_opt(ErlNifEnv*       env,
@@ -10938,6 +10948,10 @@ ERL_NIF_TERM esock_setopt_int_opt(ErlNifEnv*       env,
 /* esock_setopt_uint_opt - set an option that has an unsigned integer value
  */
 
+#if defined(TCP_USER_TIMEOUT)
+/* We only use this *at the moment* for TCP_USER_TIMEOUT.
+ * On (our) NetBSD, this does not exist.
+ */
 static
 ERL_NIF_TERM esock_setopt_uint_opt(ErlNifEnv*       env,
                                    ESockDescriptor* descP,
@@ -10957,7 +10971,7 @@ ERL_NIF_TERM esock_setopt_uint_opt(ErlNifEnv*       env,
     }
     return result;
 }
-
+#endif
 
 
 /* esock_setopt_str_opt - set an option that has an string value
@@ -12722,6 +12736,10 @@ ERL_NIF_TERM esock_getopt_int_opt(ErlNifEnv*       env,
 
 /* esock_getopt_uint_opt - get an unsigned integer option
  */
+#if defined(TCP_USER_TIMEOUT)
+/* We only use this *at the moment* for TCP_USER_TIMEOUT.
+ * On (our) NetBSD, this does not exist.
+ */
 static
 ERL_NIF_TERM esock_getopt_uint_opt(ErlNifEnv*       env,
                                    ESockDescriptor* descP,
@@ -12738,6 +12756,7 @@ ERL_NIF_TERM esock_getopt_uint_opt(ErlNifEnv*       env,
 
     return esock_make_ok2(env, MKUI(env, val));
 }
+#endif
 
 
 

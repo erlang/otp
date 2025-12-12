@@ -1136,6 +1136,14 @@
 /* Define to 1 if 'ssf_data' is a member of 'struct sctp_send_failed'. */
 #undef HAVE_STRUCT_SCTP_SEND_FAILED_SSF_DATA
 
+/* Define to 1 if 'strreset_list' is a member of 'struct
+   sctp_stream_reset_event'. */
+#undef HAVE_STRUCT_SCTP_STREAM_RESET_EVENT_STRRESET_LIST
+
+/* Define to 1 if 'strreset_stream_list' is a member of 'struct
+   sctp_stream_reset_event'. */
+#undef HAVE_STRUCT_SCTP_STREAM_RESET_EVENT_STRRESET_STREAM_LIST
+
 /* Define to 1 if 'sdl_len' is a member of 'struct sockaddr_dl'. */
 #undef HAVE_STRUCT_SOCKADDR_DL_SDL_LEN
 
