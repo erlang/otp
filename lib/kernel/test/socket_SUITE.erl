@@ -13662,7 +13662,7 @@ otp19482_simple_multi_handler_loop(Parent, ID, Sock, Num, Acc) ->
 
         {error, Reason} ->
             ?P("H[~w] -> receive failure: "
-               "~n   Reason: ~p", [Reason]),
+               "~n   Reason: ~p", [Num, Reason]),
             exit({recv_failed})
     end.
 
