@@ -798,6 +798,10 @@ start(File, Opts) ->
 		false ->
 		    undefined
 	    end,
+    %% note: `-feature declarations are collected and stripped by epp,
+    %% and the compiler presents the total set of enabled features as
+    %% the option `{features, ...}` to erl_lint and other passes; they
+    %% do not change after the epp pass
     #lint{state = start,
           exports = gb_sets:from_list([{module_info,0},{module_info,1}]),
           compile = Opts,

@@ -1954,7 +1954,7 @@ do_parse_module(DefEncoding, #compile{ifile=File,options=Opts,dir=Dir}=St) ->
                         false ->
                             1
                     end,
-    case erl_features:keyword_fun(Opts, fun erl_scan:f_reserved_word/1) of
+    case erl_features:init_parse_state(Opts, fun erl_scan:f_reserved_word/1) of
         {ok, {Features, ResWordFun}} ->
             R = epp:parse_file(File,
                                [{includes,[".",Dir|inc_paths(Opts)]},
@@ -1975,8 +1975,8 @@ do_parse_module(DefEncoding, #compile{ifile=File,options=Opts,dir=Dir}=St) ->
             case R of
                 {ok,Forms0,Extra} ->
                     Encoding = proplists:get_value(encoding, Extra),
-                    %% Get features used in the module, indicated by
-                    %% enabling features with -feature(...).
+                    %% epp reports final set of features used by the module,
+                    %% including those given by `-feature(...)` declarations
                     UsedFtrs = proplists:get_value(features, Extra),
                     St1 = metadata_add_features(UsedFtrs, St),
                     Forms = case with_columns(Opts ++ compile_options(Forms0)) of

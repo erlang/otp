@@ -330,10 +330,10 @@ parse_form(Dev, L0, Parser, Options) ->
     NoFail = proplists:get_bool(no_fail, Options),
     Opt = #opt{clever = proplists:get_bool(clever, Options)},
 
-    %% This has the *potential* to read options for enabling/disabling
-    %% features for the parsing of the file.
+    %% Note that options `{feature, FeatureName, enable|disable}` may
+    %% enable or disable features that affect the parsing of the file.
     {ok, {_Ftrs, ResWordFun}} =
-        erl_features:keyword_fun(Options, fun reserved_word/1),
+        erl_features:init_parse_state(Options, fun reserved_word/1),
 
     case io:scan_erl_form(Dev, "", L0, [{reserved_word_fun,ResWordFun}]) of
         {ok, Ts, L1} ->
