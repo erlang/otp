@@ -22,43 +22,38 @@
 
 #include "algorithms_mac.h"
 
-mac_probe_t mac_probes[] = {
-        {
-                .str = "poly1305",
-                .str_v3 = "POLY1305",
-                .fips_forbidden_hint = true,
+static constexpr mac_probe_t make_poly1305_probe() {
+    mac_probe_t p("poly1305", "POLY1305", true);
 #ifdef HAVE_POLY1305
-                // If we have POLY then we have EVP_PKEY
-                .pkey_type = EVP_PKEY_POLY1305,
-                .type = POLY1305_mac,
-                .key_len = 32,
-#else
-                .pkey_type = EVP_PKEY_NONE,
+    // If we have POLY then we have EVP_PKEY
+    p.pkey_type = EVP_PKEY_POLY1305;
+    p.type = POLY1305_mac;
+    p.key_len = 32;
 #endif
-        },
+    return p;
+}
 
-        {.str = "hmac",
-         .str_v3 = "HMAC",
+static constexpr mac_probe_t make_hmac_probe() {
+    mac_probe_t p("hmac", "HMAC", false);
 #if defined(HAS_EVP_PKEY_CTX) && (!DISABLE_EVP_HMAC)
-         .pkey_type = EVP_PKEY_HMAC,
-#else
-         // HMAC is always supported, but possibly with low-level routines
-         .pkey_type = EVP_PKEY_NONE,
+    p.pkey_type = EVP_PKEY_HMAC,
 #endif
-         .type = HMAC_mac},
+    // HMAC is always supported, but possibly with low-level routines
+    p.type = HMAC_mac;
+    return p;
+}
 
-        {
-                .str = "cmac",
-                .str_v3 = "CMAC",
+static constexpr mac_probe_t make_cmac_probe() {
+    mac_probe_t p("cmac", "CMAC", false);
 #ifdef HAVE_CMAC
-                // If we have CMAC then we have EVP_PKEY
-                .pkey_type = EVP_PKEY_CMAC,
-                .type = CMAC_mac,
-#else
-                .pkey_type = EVP_PKEY_NONE
+    // If we have CMAC then we have EVP_PKEY
+    p.pkey_type = EVP_PKEY_CMAC;
+    p.type = CMAC_mac;
 #endif
-        },
-};
+    return p;
+}
+
+mac_probe_t mac_probes[] = { make_poly1305_probe(), make_hmac_probe(), make_cmac_probe() };
 
 mac_collection_t mac_collection("crypto.mac_collection", mac_probes, sizeof(mac_probes) / sizeof(mac_probes[0]));
 
@@ -98,7 +93,7 @@ void mac_type_t::check_fips_availability(const bool fips_enabled) {
         }
     }
 #    endif /* FIPS_SUPPORT */
-#endif     /* HAS_3_0_API */
+#endif // HAS_3_0_API
 }
 
 void mac_type_t::update_flags(const bool fips_enabled) {

@@ -33,7 +33,6 @@ struct cipher_type_flags_t {
     bool fips_forbidden : 1;
     bool algorithm_init_failed : 1;
     bool aes_cfbx : 1;
-    bool ecb_bug_0_9_8l : 1;
     bool aead_cipher : 1;
     bool non_evp_cipher : 1;
     bool aes_ctr_compat : 1;
@@ -139,14 +138,40 @@ struct cipher_probe_t {
     const char *str_v3;
     // constructor for OpenSSL < 3.0 (can be null)
     cipher_constructor_fn_t ctor_v1;
-    ERL_NIF_TERM atom;
-    size_t key_len;
+    ERL_NIF_TERM atom = 0;
+    size_t key_len = 0;
     // initial value for the flags
-    cipher_type_flags_t flags;
+    cipher_type_flags_t flags = {};
 #ifdef HAVE_AEAD
     // determines which value goes into cipher_availability_t::aead
-    AEAD_CTRL_TYPE aead_ctrl_type;
+    AEAD_CTRL_TYPE aead_ctrl_type = NOT_AEAD;
 #endif // HAVE_AEAD
+
+    constexpr cipher_probe_t(const char *str_, const char *str_v3_,
+                             const cipher_constructor_fn_t ctor = nullptr) : str(str_), str_v3(str_v3_), ctor_v1(ctor) {
+    }
+#ifdef HAVE_AEAD
+    constexpr cipher_probe_t set_aead(const AEAD_CTRL_TYPE aead_ctrl_type,
+                       const bool ccm_mode = false, const bool gcm_mode = false) {
+        this->aead_ctrl_type = aead_ctrl_type;
+        this->flags.aead_cipher = true;
+        this->flags.ccm_mode = ccm_mode;
+        this->flags.gcm_mode = gcm_mode;
+        return *this;
+    }
+#endif
+    constexpr cipher_probe_t set_fips_forbidden() {
+        this->flags.fips_forbidden = true;
+        return *this;
+    }
+    constexpr cipher_probe_t set_aes_cfbx() {
+        this->flags.aes_cfbx = true;
+        return *this;
+    }
+    constexpr cipher_probe_t set_keylen(const size_t key_len_) {
+        this->key_len = key_len_;
+        return *this;
+    }
 
     const char *get_v3_name() const { return this->str_v3 ? this->str_v3 : this->str; }
     // Attempt to add a new known Cipher algorithm. In case of success, fill the struct and push into the 'output'

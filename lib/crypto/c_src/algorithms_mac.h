@@ -106,12 +106,16 @@ struct mac_type_t {
 struct mac_probe_t {
     const char *str;
     const char *str_v3;
-    ERL_NIF_TERM atom;
+    ERL_NIF_TERM atom = 0;
     // Suggests that the algorithm is not available in FIPS to skip the probe
     bool fips_forbidden_hint;
-    int pkey_type; // contains EVP_PKEY_* macro (a NID)
-    MAC_TYPE type;
-    size_t key_len;
+    int pkey_type = EVP_PKEY_NONE; // contains EVP_PKEY_* macro (a NID)
+    MAC_TYPE type = NO_mac;
+    size_t key_len = 0;
+
+    constexpr mac_probe_t(const char *str_, const char *str_v3_, const bool fips_forbidden)
+        : str(str_), str_v3(str_v3_), fips_forbidden_hint(true) {
+    }
 
     // Attempt to add a new MAC algorithm. In case of success, fill the struct
     // and push into the 'output'

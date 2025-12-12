@@ -25,27 +25,27 @@
 rsaopt_probe_t rsaopt_probes[] = {
 #ifdef HAS_EVP_PKEY_CTX
 #    ifdef HAVE_RSA_PKCS1_PSS_PADDING
-        rsaopt_probe_t::make("rsa_pkcs1_pss_padding"),
-        rsaopt_probe_t::make("rsa_pss_saltlen"),
+        rsaopt_probe_t("rsa_pkcs1_pss_padding"),
+        rsaopt_probe_t("rsa_pss_saltlen"),
 #    endif
 #    ifdef HAVE_RSA_MGF1_MD
-        rsaopt_probe_t::make("rsa_mgf1_md"),
+        rsaopt_probe_t("rsa_mgf1_md"),
 #    endif
 #    ifdef HAVE_RSA_OAEP_PADDING
-        rsaopt_probe_t::make("rsa_pkcs1_oaep_padding"),
+        rsaopt_probe_t("rsa_pkcs1_oaep_padding"),
 #    endif
 #    ifdef HAVE_RSA_OAEP_MD
-        rsaopt_probe_t::make("rsa_oaep_label"),
-        rsaopt_probe_t::make("rsa_oaep_md"),
+        rsaopt_probe_t("rsa_oaep_label"),
+        rsaopt_probe_t("rsa_oaep_md"),
 #    endif
-        rsaopt_probe_t::make("signature_md"),
+        rsaopt_probe_t("signature_md"),
 #endif
-        rsaopt_probe_t::make("rsa_pkcs1_padding"),
-        rsaopt_probe_t::make("rsa_x931_padding"),
+        rsaopt_probe_t("rsa_pkcs1_padding"),
+        rsaopt_probe_t("rsa_x931_padding"),
 #ifdef HAVE_RSA_SSLV23_PADDING
-        rsaopt_probe_t::make("rsa_sslv23_padding"),
+        rsaopt_probe_t("rsa_sslv23_padding"),
 #endif
-        rsaopt_probe_t::make("rsa_no_padding"),
+        rsaopt_probe_t("rsa_no_padding"),
 };
 
 rsaopt_collection_t rsaopt_collection("crypto.rsaopt_collection",

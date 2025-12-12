@@ -25,59 +25,59 @@
 
 static digest_probe_t digest_probes[] = {
 #ifdef HAVE_MD4
-        {.str = "md4", .str_v3 = "MD4", .v1_ctor = &EVP_md4},
+        digest_probe_t("md4", "MD4", &EVP_md4),
 #endif
 #ifdef HAVE_MD5
-        {.str = "md5", .str_v3 = "MD5", .v1_ctor = &EVP_md5},
+        digest_probe_t("md5", "MD5", &EVP_md5),
 #endif
 #ifdef HAVE_RIPEMD160
-        {.str = "ripemd160", .str_v3 = "RIPEMD160", .v1_ctor = &EVP_ripemd160},
+        digest_probe_t("ripemd160", "RIPEMD160", &EVP_ripemd160),
 #endif
-        {.str = "sha", .str_v3 = "SHA1", .flags = {.pbkdf2_eligible = true}, .v1_ctor = &EVP_sha1},
+        digest_probe_t("sha", "SHA1", &EVP_sha1).set_pbkdf(),
 #ifdef HAVE_SHA224
-        {.str = "sha224", .str_v3 = "SHA2-224", .flags = {.pbkdf2_eligible = true}, .v1_ctor = &EVP_sha224},
+        digest_probe_t("sha224", "SHA2-224", &EVP_sha224).set_pbkdf(),
 #endif
 #ifdef HAVE_SHA256
-        {.str = "sha256", .str_v3 = "SHA2-256", .flags = {.pbkdf2_eligible = true}, .v1_ctor = &EVP_sha256},
+        digest_probe_t("sha256", "SHA2-256", &EVP_sha256).set_pbkdf(),
 #endif
 #ifdef HAVE_SHA384
-        {.str = "sha384", .str_v3 = "SHA2-384", .flags = {.pbkdf2_eligible = true}, .v1_ctor = &EVP_sha384},
+        digest_probe_t("sha384", "SHA2-384", &EVP_sha384).set_pbkdf(),
 #endif
 #ifdef HAVE_SHA512
-        {.str = "sha512", .str_v3 = "SHA2-512", .flags = {.pbkdf2_eligible = true}, .v1_ctor = &EVP_sha512},
+        digest_probe_t("sha512", "SHA2-512", &EVP_sha512).set_pbkdf(),
 #endif
 #ifdef HAVE_SHA512_224
-        {.str = "sha512_224", .str_v3 = "SHA2-512/224", .flags = {.pbkdf2_eligible = true}, .v1_ctor = &EVP_sha512_224},
+        digest_probe_t("sha512_224", "SHA2-512/224", &EVP_sha512_224).set_pbkdf(),
 #endif
 #ifdef HAVE_SHA512_256
-        {.str = "sha512_256", .str_v3 = "SHA2-512/256", .flags = {.pbkdf2_eligible = true}, .v1_ctor = &EVP_sha512_256},
+        digest_probe_t("sha512_256", "SHA2-512/256", &EVP_sha512_256).set_pbkdf(),
 #endif
 #ifdef HAVE_SHA3_224
-        {.str = "sha3_224", .str_v3 = "SHA3-224", .v1_ctor = &EVP_sha3_224},
+        digest_probe_t("sha3_224", "SHA3-224", &EVP_sha3_224),
 #endif
 #ifdef HAVE_SHA3_256
-        {.str = "sha3_256", .str_v3 = "SHA3-256", .v1_ctor = &EVP_sha3_256},
+        digest_probe_t("sha3_256", "SHA3-256", &EVP_sha3_256),
 #endif
 #ifdef HAVE_SHA3_384
-        {.str = "sha3_384", .str_v3 = "SHA3-384", .v1_ctor = &EVP_sha3_384},
+        digest_probe_t("sha3_384", "SHA3-384", &EVP_sha3_384),
 #endif
 #ifdef HAVE_SHA3_512
-        {.str = "sha3_512", .str_v3 = "SHA3-512", .v1_ctor = &EVP_sha3_512},
+        digest_probe_t("sha3_512", "SHA3-512", &EVP_sha3_512),
 #endif
 #ifdef HAVE_SHAKE128
-        {.str = "shake128", .str_v3 = "SHAKE-128", .v1_ctor = &EVP_shake128, .xof_default_length = 6},
+        digest_probe_t("shake128", "SHAKE-128", &EVP_shake128).set_xof_default_length(6),
 #endif
 #ifdef HAVE_SHAKE256
-        {.str = "shake256", .str_v3 = "SHAKE-256", .v1_ctor = &EVP_shake256, .xof_default_length = 32},
+        digest_probe_t("shake256", "SHAKE-256", &EVP_shake256).set_xof_default_length(32),
 #endif
 #ifdef HAVE_SM3
-        {.str = "sm3", .str_v3 = "SM3", .v1_ctor = &EVP_sm3},
+        digest_probe_t("sm3", "SM3", &EVP_sm3),
 #endif
 #ifdef HAVE_BLAKE2
-        {.str = "blake2b", .str_v3 = "BLAKE2b512", .v1_ctor = &EVP_blake2b512},
+        digest_probe_t("blake2b", "BLAKE2b512", &EVP_blake2b512),
 #endif
 #ifdef HAVE_BLAKE2
-        {.str = "blake2s", .str_v3 = "BLAKE2s256", .v1_ctor = &EVP_blake2s256},
+        digest_probe_t("blake2s", "BLAKE2s256", &EVP_blake2s256),
 #endif
 };
 

@@ -25,9 +25,9 @@
 
 kem_probe_t kem_probes[] = {
 #ifdef HAVE_ML_KEM
-        {.str_v3 = "mlkem512"},
-        {.str_v3 = "mlkem768"},
-        {.str_v3 = "mlkem1024"},
+        kem_probe_t("mlkem512"),
+        kem_probe_t("mlkem768"),
+        kem_probe_t("mlkem1024"),
 #endif
 };
 

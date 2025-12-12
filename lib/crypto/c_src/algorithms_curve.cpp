@@ -35,349 +35,349 @@
 curve_probe_t curve_probes[] = {
 #if defined(HAVE_EC)
 #ifdef NID_secp160k1
-        {.nid = NID_secp160k1, .sn = "secp160k1"},
+        curve_probe_t::make(NID_secp160k1, "secp160k1"),
 #else
 #endif
 #ifdef NID_secp160r1
-        {.nid = NID_secp160r1, .sn = "secp160r1"},
+        curve_probe_t::make(NID_secp160r1, "secp160r1"),
 #else
 #endif
 #ifdef NID_secp160r2
-        {.nid = NID_secp160r2, .sn = "secp160r2"},
+        curve_probe_t::make(NID_secp160r2, "secp160r2"),
 #else
 #endif
 #ifdef NID_secp192k1
-        {.nid = NID_secp192k1, .sn = "secp192k1"},
+        curve_probe_t::make(NID_secp192k1, "secp192k1"),
 #else
 #endif
 #ifdef NID_secp224k1
-        {.nid = NID_secp224k1, .sn = "secp224k1"},
+        curve_probe_t::make(NID_secp224k1, "secp224k1"),
 #else
 #endif
 #ifdef NID_secp224r1
-        {.nid = NID_secp224r1, .sn = "secp224r1"},
+        curve_probe_t::make(NID_secp224r1, "secp224r1"),
 #else
 #endif
 #ifdef NID_secp256k1
-        {.nid = NID_secp256k1, .sn = "secp256k1"},
+        curve_probe_t::make(NID_secp256k1, "secp256k1"),
 #else
 #endif
 #ifdef NID_secp384r1
-        {.nid = NID_secp384r1, .sn = "secp384r1"},
+        curve_probe_t::make(NID_secp384r1, "secp384r1"),
 #else
 #endif
 #ifdef NID_secp521r1
-        {.nid = NID_secp521r1, .sn = "secp521r1"},
+        curve_probe_t::make(NID_secp521r1, "secp521r1"),
 #else
 #endif
 #ifdef NID_X9_62_prime192v1
-        {.nid = NID_X9_62_prime192v1, .sn = "secp192r1"},
-        {.nid = NID_X9_62_prime192v1, .sn = "prime192v1"},
+        curve_probe_t::make(NID_X9_62_prime192v1, "secp192r1"),
+        curve_probe_t::make(NID_X9_62_prime192v1, "prime192v1"),
 #else
 #endif
 #ifdef NID_X9_62_prime192v2
-        {.nid = NID_X9_62_prime192v2, .sn = "prime192v2"},
+        curve_probe_t::make(NID_X9_62_prime192v2, "prime192v2"),
 #else
 #endif
 #ifdef NID_X9_62_prime192v3
-        {.nid = NID_X9_62_prime192v3, .sn = "prime192v3"},
+        curve_probe_t::make(NID_X9_62_prime192v3, "prime192v3"),
 #else
 #endif
 #ifdef NID_X9_62_prime239v1
-        {.nid = NID_X9_62_prime239v1, .sn = "prime239v1"},
+        curve_probe_t::make(NID_X9_62_prime239v1, "prime239v1"),
 #else
 #endif
 #ifdef NID_X9_62_prime239v2
-        {.nid = NID_X9_62_prime239v2, .sn = "prime239v2"},
+        curve_probe_t::make(NID_X9_62_prime239v2, "prime239v2"),
 #else
 #endif
 #ifdef NID_X9_62_prime239v3
-        {.nid = NID_X9_62_prime239v3, .sn = "prime239v3"},
+        curve_probe_t::make(NID_X9_62_prime239v3, "prime239v3"),
 #else
 #endif
 #ifdef NID_X9_62_prime256v1
-        {.nid = NID_X9_62_prime256v1, .sn = "secp256r1"},
-        {.nid = NID_X9_62_prime256v1, .sn = "prime256v1"},
+        curve_probe_t::make(NID_X9_62_prime256v1, "secp256r1"),
+        curve_probe_t::make(NID_X9_62_prime256v1, "prime256v1"),
 #else
 #endif
 #ifdef NID_wap_wsg_idm_ecid_wtls7
-        {.nid = NID_wap_wsg_idm_ecid_wtls7, .sn = "wtls7"},
+        curve_probe_t::make(NID_wap_wsg_idm_ecid_wtls7, "wtls7"),
 #else
 #endif
 #ifdef NID_wap_wsg_idm_ecid_wtls9
-        {.nid = NID_wap_wsg_idm_ecid_wtls9, .sn = "wtls9"},
+        curve_probe_t::make(NID_wap_wsg_idm_ecid_wtls9, "wtls9"),
 #else
 #endif
 #ifdef NID_wap_wsg_idm_ecid_wtls12
-        {.nid = NID_wap_wsg_idm_ecid_wtls12, .sn = "wtls12"},
+        curve_probe_t::make(NID_wap_wsg_idm_ecid_wtls12, "wtls12"),
 #else
 #endif
 #ifdef NID_brainpoolP160r1
-        {.nid = NID_brainpoolP160r1, .sn = "brainpoolP160r1"},
+        curve_probe_t::make(NID_brainpoolP160r1, "brainpoolP160r1"),
 #else
 #endif
 #ifdef NID_brainpoolP160t1
-        {.nid = NID_brainpoolP160t1, .sn = "brainpoolP160t1"},
+        curve_probe_t::make(NID_brainpoolP160t1, "brainpoolP160t1"),
 #else
 #endif
 #ifdef NID_brainpoolP192r1
-        {.nid = NID_brainpoolP192r1, .sn = "brainpoolP192r1"},
+        curve_probe_t::make(NID_brainpoolP192r1, "brainpoolP192r1"),
 #else
 #endif
 #ifdef NID_brainpoolP192t1
-        {.nid = NID_brainpoolP192t1, .sn = "brainpoolP192t1"},
+        curve_probe_t::make(NID_brainpoolP192t1, "brainpoolP192t1"),
 #else
 #endif
 #ifdef NID_brainpoolP224r1
-        {.nid = NID_brainpoolP224r1, .sn = "brainpoolP224r1"},
+        curve_probe_t::make(NID_brainpoolP224r1, "brainpoolP224r1"),
 #else
 #endif
 #ifdef NID_brainpoolP224t1
-        {.nid = NID_brainpoolP224t1, .sn = "brainpoolP224t1"},
+        curve_probe_t::make(NID_brainpoolP224t1, "brainpoolP224t1"),
 #else
 #endif
 #ifdef NID_brainpoolP256r1
-        {.nid = NID_brainpoolP256r1, .sn = "brainpoolP256r1"},
+        curve_probe_t::make(NID_brainpoolP256r1, "brainpoolP256r1"),
 #else
 #endif
 #ifdef NID_brainpoolP256t1
-        {.nid = NID_brainpoolP256t1, .sn = "brainpoolP256t1"},
+        curve_probe_t::make(NID_brainpoolP256t1, "brainpoolP256t1"),
 #else
 #endif
 #ifdef NID_brainpoolP320r1
-        {.nid = NID_brainpoolP320r1, .sn = "brainpoolP320r1"},
+        curve_probe_t::make(NID_brainpoolP320r1, "brainpoolP320r1"),
 #else
 #endif
 #ifdef NID_brainpoolP320t1
-        {.nid = NID_brainpoolP320t1, .sn = "brainpoolP320t1"},
+        curve_probe_t::make(NID_brainpoolP320t1, "brainpoolP320t1"),
 #else
 #endif
 #ifdef NID_brainpoolP384r1
-        {.nid = NID_brainpoolP384r1, .sn = "brainpoolP384r1"},
+        curve_probe_t::make(NID_brainpoolP384r1, "brainpoolP384r1"),
 #else
 #endif
 #ifdef NID_brainpoolP384t1
-        {.nid = NID_brainpoolP384t1, .sn = "brainpoolP384t1"},
+        curve_probe_t::make(NID_brainpoolP384t1, "brainpoolP384t1"),
 #else
 #endif
 #ifdef NID_brainpoolP512r1
-        {.nid = NID_brainpoolP512r1, .sn = "brainpoolP512r1"},
+        curve_probe_t::make(NID_brainpoolP512r1, "brainpoolP512r1"),
 #else
 #endif
 #ifdef NID_brainpoolP512t1
-        {.nid = NID_brainpoolP512t1, .sn = "brainpoolP512t1"},
+        curve_probe_t::make(NID_brainpoolP512t1, "brainpoolP512t1"),
 #else
 #endif
 // #if !defined(OPENSSL_NO_EC2M)
 #ifdef NID_sect163k1
-        {.nid = NID_sect163k1, .sn = "sect163k1"},
+        curve_probe_t::make(NID_sect163k1, "sect163k1"),
 #else
 #endif
 #ifdef NID_sect163r1
-        {.nid = NID_sect163r1, .sn = "sect163r1"},
+        curve_probe_t::make(NID_sect163r1, "sect163r1"),
 #else
 #endif
 #ifdef NID_sect163r2
-        {.nid = NID_sect163r2, .sn = "sect163r2"},
+        curve_probe_t::make(NID_sect163r2, "sect163r2"),
 #else
 #endif
 #ifdef NID_sect193r1
-        {.nid = NID_sect193r1, .sn = "sect193r1"},
+        curve_probe_t::make(NID_sect193r1, "sect193r1"),
 #else
 #endif
 #ifdef NID_sect193r2
-        {.nid = NID_sect193r2, .sn = "sect193r2"},
+        curve_probe_t::make(NID_sect193r2, "sect193r2"),
 #else
 #endif
 #ifdef NID_sect233k1
-        {.nid = NID_sect233k1, .sn = "sect233k1"},
+        curve_probe_t::make(NID_sect233k1, "sect233k1"),
 #else
 #endif
 #ifdef NID_sect233r1
-        {.nid = NID_sect233r1, .sn = "sect233r1"},
+        curve_probe_t::make(NID_sect233r1, "sect233r1"),
 #else
 #endif
 #ifdef NID_sect239k1
-        {.nid = NID_sect239k1, .sn = "sect239k1"},
+        curve_probe_t::make(NID_sect239k1, "sect239k1"),
 #else
 #endif
 #ifdef NID_sect283k1
-        {.nid = NID_sect283k1, .sn = "sect283k1"},
+        curve_probe_t::make(NID_sect283k1, "sect283k1"),
 #else
 #endif
 #ifdef NID_sect283r1
-        {.nid = NID_sect283r1, .sn = "sect283r1"},
+        curve_probe_t::make(NID_sect283r1, "sect283r1"),
 #else
 #endif
 #ifdef NID_sect409k1
-        {.nid = NID_sect409k1, .sn = "sect409k1"},
+        curve_probe_t::make(NID_sect409k1, "sect409k1"),
 #else
 #endif
 #ifdef NID_sect409r1
-        {.nid = NID_sect409r1, .sn = "sect409r1"},
+        curve_probe_t::make(NID_sect409r1, "sect409r1"),
 #else
 #endif
 #ifdef NID_sect571k1
-        {.nid = NID_sect571k1, .sn = "sect571k1"},
+        curve_probe_t::make(NID_sect571k1, "sect571k1"),
 #else
 #endif
 #ifdef NID_sect571r1
-        {.nid = NID_sect571r1, .sn = "sect571r1"},
+        curve_probe_t::make(NID_sect571r1, "sect571r1"),
 #else
 #endif
 #ifdef NID_X9_62_c2pnb163v1
-        {.nid = NID_X9_62_c2pnb163v1, .sn = "c2pnb163v1"},
+        curve_probe_t::make(NID_X9_62_c2pnb163v1, "c2pnb163v1"),
 #else
 #endif
 #ifdef NID_X9_62_c2pnb163v2
-        {.nid = NID_X9_62_c2pnb163v2, .sn = "c2pnb163v2"},
+        curve_probe_t::make(NID_X9_62_c2pnb163v2, "c2pnb163v2"),
 #else
 #endif
 #ifdef NID_X9_62_c2pnb163v3
-        {.nid = NID_X9_62_c2pnb163v3, .sn = "c2pnb163v3"},
+        curve_probe_t::make(NID_X9_62_c2pnb163v3, "c2pnb163v3"),
 #else
 #endif
 #ifdef NID_X9_62_c2pnb176v1
-        {.nid = NID_X9_62_c2pnb176v1, .sn = "c2pnb176v1"},
+        curve_probe_t::make(NID_X9_62_c2pnb176v1, "c2pnb176v1"),
 #else
 #endif
 #ifdef NID_X9_62_c2tnb191v1
-        {.nid = NID_X9_62_c2tnb191v1, .sn = "c2tnb191v1"},
+        curve_probe_t::make(NID_X9_62_c2tnb191v1, "c2tnb191v1"),
 #else
 #endif
 #ifdef NID_X9_62_c2tnb191v2
-        {.nid = NID_X9_62_c2tnb191v2, .sn = "c2tnb191v2"},
+        curve_probe_t::make(NID_X9_62_c2tnb191v2, "c2tnb191v2"),
 #else
 #endif
 #ifdef NID_X9_62_c2tnb191v3
-        {.nid = NID_X9_62_c2tnb191v3, .sn = "c2tnb191v3"},
+        curve_probe_t::make(NID_X9_62_c2tnb191v3, "c2tnb191v3"),
 #else
 #endif
 #ifdef NID_X9_62_c2pnb208w1
-        {.nid = NID_X9_62_c2pnb208w1, .sn = "c2pnb208w1"},
+        curve_probe_t::make(NID_X9_62_c2pnb208w1, "c2pnb208w1"),
 #else
 #endif
 #ifdef NID_X9_62_c2tnb239v1
-        {.nid = NID_X9_62_c2tnb239v1, .sn = "c2tnb239v1"},
+        curve_probe_t::make(NID_X9_62_c2tnb239v1, "c2tnb239v1"),
 #else
 #endif
 #ifdef NID_X9_62_c2tnb239v2
-        {.nid = NID_X9_62_c2tnb239v2, .sn = "c2tnb239v2"},
+        curve_probe_t::make(NID_X9_62_c2tnb239v2, "c2tnb239v2"),
 #else
 #endif
 #ifdef NID_X9_62_c2tnb239v3
-        {.nid = NID_X9_62_c2tnb239v3, .sn = "c2tnb239v3"},
+        curve_probe_t::make(NID_X9_62_c2tnb239v3, "c2tnb239v3"),
 #else
 #endif
 #ifdef NID_X9_62_c2pnb272w1
-        {.nid = NID_X9_62_c2pnb272w1, .sn = "c2pnb272w1"},
+        curve_probe_t::make(NID_X9_62_c2pnb272w1, "c2pnb272w1"),
 #else
 #endif
 #ifdef NID_X9_62_c2pnb304w1
-        {.nid = NID_X9_62_c2pnb304w1, .sn = "c2pnb304w1"},
+        curve_probe_t::make(NID_X9_62_c2pnb304w1, "c2pnb304w1"),
 #else
 #endif
 #ifdef NID_X9_62_c2tnb359v1
-        {.nid = NID_X9_62_c2tnb359v1, .sn = "c2tnb359v1"},
+        curve_probe_t::make(NID_X9_62_c2tnb359v1, "c2tnb359v1"),
 #else
 #endif
 #ifdef NID_X9_62_c2pnb368w1
-        {.nid = NID_X9_62_c2pnb368w1, .sn = "c2pnb368w1"},
+        curve_probe_t::make(NID_X9_62_c2pnb368w1, "c2pnb368w1"),
 #else
 #endif
 #ifdef NID_X9_62_c2tnb431r1
-        {.nid = NID_X9_62_c2tnb431r1, .sn = "c2tnb431r1"},
+        curve_probe_t::make(NID_X9_62_c2tnb431r1, "c2tnb431r1"),
 #else
 #endif
 #ifdef NID_wap_wsg_idm_ecid_wtls3
-        {.nid = NID_wap_wsg_idm_ecid_wtls3, .sn = "wtls3"},
+        curve_probe_t::make(NID_wap_wsg_idm_ecid_wtls3, "wtls3"),
 #else
 #endif
 #ifdef NID_wap_wsg_idm_ecid_wtls5
-        {.nid = NID_wap_wsg_idm_ecid_wtls5, .sn = "wtls5"},
+        curve_probe_t::make(NID_wap_wsg_idm_ecid_wtls5, "wtls5"),
 #else
 #endif
 #ifdef NID_wap_wsg_idm_ecid_wtls10
-        {.nid = NID_wap_wsg_idm_ecid_wtls10, .sn = "wtls10"},
+        curve_probe_t::make(NID_wap_wsg_idm_ecid_wtls10, "wtls10"),
 #else
 #endif
 #ifdef NID_wap_wsg_idm_ecid_wtls11
-        {.nid = NID_wap_wsg_idm_ecid_wtls11, .sn = "wtls11"},
+        curve_probe_t::make(NID_wap_wsg_idm_ecid_wtls11, "wtls11"),
 #else
 #endif
 // Non-validated algorithms follow
 #ifdef NID_secp112r1
-        {.nid = NID_secp112r1, .sn = "secp112r1"},
+        curve_probe_t::make(NID_secp112r1, "secp112r1"),
 #else
 #endif
 #ifdef NID_secp112r2
-        {.nid = NID_secp112r2, .sn = "secp112r2"},
+        curve_probe_t::make(NID_secp112r2, "secp112r2"),
 #else
 #endif
 #ifdef NID_secp128r1
-        {.nid = NID_secp128r1, .sn = "secp128r1"},
+        curve_probe_t::make(NID_secp128r1, "secp128r1"),
 #else
 #endif
 #ifdef NID_secp128r2
-        {.nid = NID_secp128r2, .sn = "secp128r2"},
+        curve_probe_t::make(NID_secp128r2, "secp128r2"),
 #else
 #endif
 #ifdef NID_wap_wsg_idm_ecid_wtls6
-        {.nid = NID_wap_wsg_idm_ecid_wtls6, .sn = "wtls6"},
+        curve_probe_t::make(NID_wap_wsg_idm_ecid_wtls6, "wtls6"),
 #else
 #endif
 #ifdef NID_wap_wsg_idm_ecid_wtls8
-        {.nid = NID_wap_wsg_idm_ecid_wtls8, .sn = "wtls8"},
+        curve_probe_t::make(NID_wap_wsg_idm_ecid_wtls8, "wtls8"),
 #else
 #endif
 // #if !defined(OPENSSL_NO_EC2M)
 #ifdef NID_sect113r1
-        {.nid = NID_sect113r1, .sn = "sect113r1"},
+        curve_probe_t::make(NID_sect113r1, "sect113r1"),
 #else
 #endif
 #ifdef NID_sect113r2
-        {.nid = NID_sect113r2, .sn = "sect113r2"},
+        curve_probe_t::make(NID_sect113r2, "sect113r2"),
 #else
 #endif
 #ifdef NID_sect131r1
-        {.nid = NID_sect131r1, .sn = "sect131r1"},
+        curve_probe_t::make(NID_sect131r1, "sect131r1"),
 #else
 #endif
 #ifdef NID_sect131r2
-        {.nid = NID_sect131r2, .sn = "sect131r2"},
+        curve_probe_t::make(NID_sect131r2, "sect131r2"),
 #else
 #endif
 #ifdef NID_wap_wsg_idm_ecid_wtls1
-        {.nid = NID_wap_wsg_idm_ecid_wtls1, .sn = "wtls1"},
+        curve_probe_t::make(NID_wap_wsg_idm_ecid_wtls1, "wtls1"),
 #else
 #endif
 #ifdef NID_wap_wsg_idm_ecid_wtls4
-        {.nid = NID_wap_wsg_idm_ecid_wtls4, .sn = "wtls4"},
+        curve_probe_t::make(NID_wap_wsg_idm_ecid_wtls4, "wtls4"),
 #else
 #endif
 #ifdef NID_ipsec3
-        {.nid = NID_ipsec3, .sn = "ipsec3"},
+        curve_probe_t::make(NID_ipsec3, "ipsec3"),
 #else
 #endif
 #ifdef NID_ipsec4
-        {.nid = NID_ipsec4, .sn = "ipsec4"},
+        curve_probe_t::make(NID_ipsec4, "ipsec4"),
 #else
 #endif
 
 #if !defined(FIPS_SUPPORT)
 #ifdef HAVE_ED25519
-        {.nid = 0, .sn = "ed25519"},
+        curve_probe_t::make(0, "ed25519"),
 #endif
 #ifdef HAVE_ED448
-        {.nid = 0, .sn = "ed448"},
+        curve_probe_t::make(0, "ed448"),
 #endif
 #ifdef HAVE_X25519
-        {.nid = 0, .sn = "x25519"},
+        curve_probe_t::make(0, "x25519"),
 #endif
 #ifdef HAVE_X448
-        {.nid = 0, .sn = "x448"},
+        curve_probe_t::make(0, "x448"),
 #endif
-#endif // FIPS_SUPPORT
+#endif // !FIPS_SUPPORT
 #endif // HAVE_EC
 };
 
@@ -392,14 +392,8 @@ extern "C" ERL_NIF_TERM curve_algorithms_as_list(ErlNifEnv *env, const bool fips
     return curve_collection.to_list(env, fips_enabled);
 }
 
-/*================================================================
-  Curves
-*/
-
-/* Check if the curve in nid is supported by the
-   current cryptolib and current FIPS state.
-*/
-
+#ifdef HAVE_EC
+// Check if the curve in nid is supported by the current cryptolib and current FIPS state.
 bool curve_probe_t::is_curve_valid_by_nid() const {
 #ifdef HAVE_AUTO_PKEY_T
     auto_pkey_t pkey;
@@ -438,6 +432,7 @@ bool curve_probe_t::is_curve_valid_by_nid() const {
 #endif // HAVE_AUTO_PKEY_T
     return false;
 }
+#endif // HAVE_EC
 
 ERL_NIF_TERM curve_type_t::get_atom() const { return this->init->atom; }
 
@@ -474,10 +469,12 @@ void curve_type_t::check_fips_availability(const bool fips_mode) {
 void curve_probe_t::probe(ErlNifEnv *env, const bool fips_mode, std::vector<curve_type_t> &output) {
     this->atom = create_or_existing_atom(env, this->sn, this->atom);
 
+#ifdef HAVE_EC
     // Some curves can be pre-checked by their NID. Passing NID=0 will skip this check
     if (nid && !this->is_curve_valid_by_nid()) {
         return; // invalid/unsupported curves are skipped
     }
+#endif // HAVE_EC
 
     // Construct in the container directly, passing 'this' to the ctor
     output.emplace_back(this);

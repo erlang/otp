@@ -30,7 +30,7 @@ cipher_probe_t cipher_probes[] = {
 #else
 #    define CIPHER_RC2_CTOR nullptr
 #endif
-        {.str = "rc2_cbc", .str_v3 = "rc2-cbc", .ctor_v1 = CIPHER_RC2_CTOR, .flags = {.fips_forbidden = true}},
+    cipher_probe_t("rc2_cbc", "rc2-cbc", CIPHER_RC2_CTOR).set_fips_forbidden(),
 #undef CIPHER_RC2_CTOR
 // --------------------------
 #ifdef HAVE_RC4
@@ -38,7 +38,7 @@ cipher_probe_t cipher_probes[] = {
 #else
 #    define CIPHER_RC4_CTOR nullptr
 #endif
-        {.str = "rc4", .str_v3 = "rc4", .ctor_v1 = CIPHER_RC4_CTOR, .flags = {.fips_forbidden = true}},
+    cipher_probe_t("rc4", nullptr, CIPHER_RC4_CTOR).set_fips_forbidden(),
 #undef CIPHER_RC4_CTOR
 // --------------------------
 #ifdef HAVE_DES
@@ -50,12 +50,9 @@ cipher_probe_t cipher_probes[] = {
 #    define CIPHER_DES_CFB8_CTOR nullptr
 #    define CIPHER_DES_ECB_CTOR nullptr
 #endif
-        {.str = "des_cbc", .str_v3 = "des-cbc", .ctor_v1 = CIPHER_DES_CBC_CTOR, .flags = {.fips_forbidden = true}},
-        {.str = "des_cfb", .str_v3 = "des-cfb", .ctor_v1 = CIPHER_DES_CFB8_CTOR, .flags = {.fips_forbidden = true}},
-        {.str = "des_ecb",
-         .str_v3 = "des-ecb",
-         .ctor_v1 = CIPHER_DES_ECB_CTOR,
-         .flags = {.fips_forbidden = true, .ecb_bug_0_9_8l = true}},
+    cipher_probe_t("des_cbc", "des-cbc", CIPHER_DES_CBC_CTOR).set_fips_forbidden(),
+    cipher_probe_t("des_cfb", "des-cfb", CIPHER_DES_CFB8_CTOR).set_fips_forbidden(),
+    cipher_probe_t("des_ecb", "des-ecb", CIPHER_DES_ECB_CTOR).set_fips_forbidden(),
 #undef CIPHER_DES_CBC_CTOR
 #undef CIPHER_DES_CFB8_CTOR
 #undef CIPHER_DES_ECB_CTOR
@@ -65,7 +62,7 @@ cipher_probe_t cipher_probes[] = {
 #else
 #    define CIPHER_DES_EDE3_CBC_CTOR nullptr
 #endif
-        {.str = "des_ede3_cbc", .str_v3 = "des-ede3-cbc", .ctor_v1 = CIPHER_DES_EDE3_CBC_CTOR},
+    cipher_probe_t("des_ede3_cbc", "des-ede3-cbc", CIPHER_DES_EDE3_CBC_CTOR),
 #undef CIPHER_DES_EDE3_CBC_CTOR
 // --------------------------
 #ifdef HAVE_DES_ede3_cfb
@@ -73,7 +70,7 @@ cipher_probe_t cipher_probes[] = {
 #else
 #    define CIPHER_DES_EDE3_CFB_CTOR nullptr
 #endif
-        {.str = "des_ede3_cfb", .str_v3 = "des-ede3-cfb", .ctor_v1 = CIPHER_DES_EDE3_CFB_CTOR},
+    cipher_probe_t("des_ede3_cfb", "des-ede3-cfb", CIPHER_DES_EDE3_CFB_CTOR),
 #undef CIPHER_DES_EDE3_CFB_CTOR
 // --------------------------
 #ifdef HAVE_BF
@@ -87,16 +84,10 @@ cipher_probe_t cipher_probes[] = {
 #    define CIPHER_BF_OFB_CTOR nullptr
 #    define CIPHER_BF_ECB_CTOR nullptr
 #endif
-        {.str = "blowfish_cbc", .str_v3 = "BF-CBC", .ctor_v1 = CIPHER_BF_CBC_CTOR, .flags = {.fips_forbidden = true}},
-        {.str = "blowfish_cfb64",
-         .str_v3 = "BF-CFB",
-         .ctor_v1 = CIPHER_BF_CFB64_CTOR,
-         .flags = {.fips_forbidden = true}},
-        {.str = "blowfish_ofb64", .str_v3 = "BF-OFB", .ctor_v1 = CIPHER_BF_OFB_CTOR, .flags = {.fips_forbidden = true}},
-        {.str = "blowfish_ecb",
-         .str_v3 = "BF-ECB",
-         .ctor_v1 = CIPHER_BF_ECB_CTOR,
-         .flags = {.fips_forbidden = true, .ecb_bug_0_9_8l = true}},
+    cipher_probe_t("blowfish_cbc", "BF-CBC", CIPHER_BF_CBC_CTOR).set_fips_forbidden(),
+    cipher_probe_t("blowfish_cfb64", "BF-CFB", CIPHER_BF_CFB64_CTOR).set_fips_forbidden(),
+    cipher_probe_t("blowfish_ofb64", "BF-OFB", CIPHER_BF_OFB_CTOR).set_fips_forbidden(),
+    cipher_probe_t("blowfish_ecb", "BF-ECB", CIPHER_BF_ECB_CTOR).set_fips_forbidden(),
 #undef CIPHER_BF_CBC_CTOR
 #undef CIPHER_BF_CFB64_CTOR
 #undef CIPHER_BF_OFB_CTOR
@@ -115,92 +106,36 @@ cipher_probe_t cipher_probes[] = {
 #    define CIPHER_SM4_OFB_CTOR nullptr
 #    define CIPHER_SM4_CTR_CTOR nullptr
 #endif
-        {.str = "sm4_cbc",
-         .str_v3 = "sm4-cbc",
-         .ctor_v1 = CIPHER_SM4_CBC_CTOR,
-         .key_len = 16,
-         .flags = {.fips_forbidden = true}},
-        {.str = "sm4_ecb",
-         .str_v3 = "sm4-ecb",
-         .ctor_v1 = CIPHER_SM4_ECB_CTOR,
-         .key_len = 16,
-         .flags = {.fips_forbidden = true}},
-        {.str = "sm4_cfb",
-         .str_v3 = "sm4-cfb",
-         .ctor_v1 = CIPHER_SM4_CFB_CTOR,
-         .key_len = 16,
-         .flags = {.fips_forbidden = true}},
-        {.str = "sm4_ofb",
-         .str_v3 = "sm4-ofb",
-         .ctor_v1 = CIPHER_SM4_OFB_CTOR,
-         .key_len = 16,
-         .flags = {.fips_forbidden = true}},
-        {.str = "sm4_ctr",
-         .str_v3 = "sm4-ctr",
-         .ctor_v1 = CIPHER_SM4_CTR_CTOR,
-         .key_len = 16,
-         .flags = {.fips_forbidden = true}},
+    cipher_probe_t("sm4_cbc", "sm4-cbc", CIPHER_SM4_CBC_CTOR).set_keylen(16).set_fips_forbidden(),
+    cipher_probe_t("sm4_ecb", "sm4-ecb", CIPHER_SM4_ECB_CTOR).set_keylen(16).set_fips_forbidden(),
+    cipher_probe_t("sm4_cfb", "sm4-cfb", CIPHER_SM4_CFB_CTOR).set_keylen(16).set_fips_forbidden(),
+    cipher_probe_t("sm4_ofb", "sm4-ofb", CIPHER_SM4_OFB_CTOR).set_keylen(16).set_fips_forbidden(),
+    cipher_probe_t("sm4_ctr", "sm4-ctr", CIPHER_SM4_CTR_CTOR).set_keylen(16).set_fips_forbidden(),
 #undef CIPHER_SM4_CBC_CTOR
 #undef CIPHER_SM4_ECB_CTOR
 #undef CIPHER_SM4_CFB_CTOR
 #undef CIPHER_SM4_OFB_CTOR
 #undef CIPHER_SM4_CTR_CTOR
-        // --------------------------
-        {.str = "aes_128_cbc", .str_v3 = "aes-128-cbc", .ctor_v1 = &EVP_aes_128_cbc, .key_len = 16},
-        {.str = "aes_192_cbc", .str_v3 = "aes-192-cbc", .ctor_v1 = &EVP_aes_192_cbc, .key_len = 24},
-        {.str = "aes_256_cbc", .str_v3 = "aes-256-cbc", .ctor_v1 = &EVP_aes_256_cbc, .key_len = 32},
+// --------------------------
+    cipher_probe_t("aes_128_cbc", "aes-128-cbc", &EVP_aes_128_cbc).set_keylen(16),
+    cipher_probe_t("aes_192_cbc", "aes-192-cbc", &EVP_aes_192_cbc).set_keylen(24),
+    cipher_probe_t("aes_256_cbc", "aes-256-cbc", &EVP_aes_256_cbc).set_keylen(32),
 
-        {.str = "aes_128_ofb", .str_v3 = "aes-128-ofb", .ctor_v1 = &EVP_aes_128_ofb, .key_len = 16},
-        {.str = "aes_192_ofb", .str_v3 = "aes-192-ofb", .ctor_v1 = &EVP_aes_192_ofb, .key_len = 24},
-        {.str = "aes_256_ofb", .str_v3 = "aes-256-ofb", .ctor_v1 = &EVP_aes_256_ofb, .key_len = 32},
+    cipher_probe_t("aes_128_ofb", "aes-128-ofb", &EVP_aes_128_ofb).set_keylen(16),
+    cipher_probe_t("aes_192_ofb", "aes-192-ofb", &EVP_aes_192_ofb).set_keylen(24),
+    cipher_probe_t("aes_256_ofb", "aes-256-ofb", &EVP_aes_256_ofb).set_keylen(32),
 
-        {.str = "aes_128_cfb8",
-         .str_v3 = "aes-128-cfb8",
-         .ctor_v1 = &EVP_aes_128_cfb8,
-         .key_len = 16,
-         .flags = {.aes_cfbx = true}},
-        {.str = "aes_192_cfb8",
-         .str_v3 = "aes-192-cfb8",
-         .ctor_v1 = &EVP_aes_192_cfb8,
-         .key_len = 24,
-         .flags = {.aes_cfbx = true}},
-        {.str = "aes_256_cfb8",
-         .str_v3 = "aes-256-cfb8",
-         .ctor_v1 = &EVP_aes_256_cfb8,
-         .key_len = 32,
-         .flags = {.aes_cfbx = true}},
+    cipher_probe_t("aes_128_cfb8", "aes-128-cfb8", &EVP_aes_128_cfb8).set_keylen(16).set_aes_cfbx(),
+    cipher_probe_t("aes_192_cfb8", "aes-192-cfb8", &EVP_aes_192_cfb8).set_keylen(24).set_aes_cfbx(),
+    cipher_probe_t("aes_256_cfb8", "aes-256-cfb8", &EVP_aes_256_cfb8).set_keylen(32).set_aes_cfbx(),
 
-        {.str = "aes_128_cfb128",
-         .str_v3 = "aes-128-cfb",
-         .ctor_v1 = &EVP_aes_128_cfb128,
-         .key_len = 16,
-         .flags = {.aes_cfbx = true}},
-        {.str = "aes_192_cfb128",
-         .str_v3 = "aes-192-cfb",
-         .ctor_v1 = &EVP_aes_192_cfb128,
-         .key_len = 24,
-         .flags = {.aes_cfbx = true}},
-        {.str = "aes_256_cfb128",
-         .str_v3 = "aes-256-cfb",
-         .ctor_v1 = &EVP_aes_256_cfb128,
-         .key_len = 32,
-         .flags = {.aes_cfbx = true}},
+    cipher_probe_t("aes_128_cfb128", "aes-128-cfb", &EVP_aes_128_cfb128).set_keylen(16).set_aes_cfbx(),
+    cipher_probe_t("aes_192_cfb128", "aes-192-cfb", &EVP_aes_192_cfb128).set_keylen(24).set_aes_cfbx(),
+    cipher_probe_t("aes_256_cfb128", "aes-256-cfb", &EVP_aes_256_cfb128).set_keylen(32).set_aes_cfbx(),
 
-        {.str = "aes_128_ecb",
-         .str_v3 = "aes-128-ecb",
-         .ctor_v1 = &EVP_aes_128_ecb,
-         .key_len = 16,
-         .flags = {.ecb_bug_0_9_8l = true}},
-        {.str = "aes_192_ecb",
-         .str_v3 = "aes-192-ecb",
-         .ctor_v1 = &EVP_aes_192_ecb,
-         .key_len = 24,
-         .flags = {.ecb_bug_0_9_8l = true}},
-        {.str = "aes_256_ecb",
-         .str_v3 = "aes-256-ecb",
-         .ctor_v1 = &EVP_aes_256_ecb,
-         .key_len = 32,
-         .flags = {.ecb_bug_0_9_8l = true}},
+    cipher_probe_t("aes_128_ecb", "aes-128-ecb", &EVP_aes_128_ecb).set_keylen(16),
+    cipher_probe_t("aes_192_ecb", "aes-192-ecb", &EVP_aes_192_ecb).set_keylen(24),
+    cipher_probe_t("aes_256_ecb", "aes-256-ecb", &EVP_aes_256_ecb).set_keylen(32),
 // --------------------------
 #if defined(HAVE_EVP_AES_CTR)
 #    define CIPHER_AES128_CTR_CTOR &EVP_aes_128_ctr
@@ -211,9 +146,9 @@ cipher_probe_t cipher_probes[] = {
 #    define CIPHER_AES192_CTR_CTOR nullptr
 #    define CIPHER_AES256_CTR_CTOR nullptr
 #endif
-        {.str = "aes_128_ctr", .str_v3 = "aes-128-ctr", .ctor_v1 = CIPHER_AES128_CTR_CTOR, .key_len = 16},
-        {.str = "aes_192_ctr", .str_v3 = "aes-192-ctr", .ctor_v1 = CIPHER_AES192_CTR_CTOR, .key_len = 24},
-        {.str = "aes_256_ctr", .str_v3 = "aes-256-ctr", .ctor_v1 = CIPHER_AES256_CTR_CTOR, .key_len = 32},
+     cipher_probe_t("aes_128_ctr", "aes-128-ctr", CIPHER_AES128_CTR_CTOR).set_keylen(16),
+     cipher_probe_t("aes_192_ctr", "aes-192-ctr", CIPHER_AES192_CTR_CTOR).set_keylen(24),
+     cipher_probe_t("aes_256_ctr", "aes-256-ctr", CIPHER_AES256_CTR_CTOR).set_keylen(32),
 #undef CIPHER_AES128_CTR_CTOR
 #undef CIPHER_AES192_CTR_CTOR
 #undef CIPHER_AES256_CTR_CTOR
@@ -223,7 +158,7 @@ cipher_probe_t cipher_probes[] = {
 #else
 #    define CIPHER_CHACHA20_CTOR nullptr
 #endif
-        {.str = "chacha20", .ctor_v1 = CIPHER_CHACHA20_CTOR, .key_len = 32, .flags = {.fips_forbidden = true}},
+     cipher_probe_t("chacha20", nullptr, CIPHER_CHACHA20_CTOR).set_keylen(32).set_fips_forbidden(),
 #undef CIPHER_CHACHA20_CTOR
 
 // --------------------------
@@ -238,29 +173,20 @@ cipher_probe_t cipher_probes[] = {
 #    define CIPHER_CHACHA20_POLY1305_AEADCTRL NOT_AEAD
 #endif
 #ifdef HAVE_AEAD
-        {.str = "chacha20_poly1305",
-         .str_v3 = "chacha20-poly1305",
-         .ctor_v1 = CIPHER_CHACHA20_POLY1305_CTOR,
-         .flags = {.fips_forbidden = true, .aead_cipher = true},
-         .aead_ctrl_type = CIPHER_CHACHA20_POLY1305_AEADCTRL},
+    cipher_probe_t(
+        "chacha20_poly1305", "chacha20-poly1305", CIPHER_CHACHA20_POLY1305_CTOR
+    ).set_aead(CIPHER_CHACHA20_POLY1305_AEADCTRL).set_fips_forbidden(),
 #endif // HAVE_AEAD
 #undef CIPHER_CHACHA20_POLY1305_CTOR
 #undef CIPHER_CHACHA20_POLY1305_AEADCTRL
 // --------------------------
 #if defined(HAVE_SM4_GCM)
-        {.str = "sm4_gcm",
-         .str_v3 = "sm4-gcm",
-         .key_len = 16,
-         .flags = {.fips_forbidden = true, .aead_cipher = true, .gcm_mode = true},
-         .aead_ctrl_type = AEAD_CTRL},
+    cipher_probe_t("sm4_gcm", "sm4-gcm").set_keylen(16).set_fips_forbidden().set_aead(
+        AEAD_CTRL, /* ccm_mode= */ false, /* gcm_mode= */ true),
 #endif
 // --------------------------
 #if defined(HAVE_SM4_CCM)
-        {.str = "sm4_ccm",
-         .str_v3 = "sm4-ccm",
-         .key_len = 16,
-         .flags = {.fips_forbidden = true, .aead_cipher = true, .ccm_mode = true},
-         .aead_ctrl_type = AEAD_CTRL},
+    cipher_probe_t("sm4_ccm", "sm4-ccm").set_keylen(16).set_fips_forbidden().set_aead(AEAD_CTRL, /* ccm_mode= */ true),
 #endif
 // --------------------------
 #if defined(HAVE_GCM)
@@ -279,24 +205,15 @@ cipher_probe_t cipher_probes[] = {
 #    define CIPHER_AES_GCM_AEADCTRL NOT_AEAD
 #endif
 #ifdef HAVE_AEAD
-        {.str = "aes_128_gcm",
-         .str_v3 = "aes-128-gcm",
-         .ctor_v1 = CIPHER_AES128_GCM_CTOR,
-         .key_len = 16,
-         .flags = {.aead_cipher = true, .gcm_mode = true},
-         .aead_ctrl_type = CIPHER_AES_GCM_AEADCTRL},
-        {.str = "aes_192_gcm",
-         .str_v3 = "aes-192-gcm",
-         .ctor_v1 = CIPHER_AES192_GCM_CTOR,
-         .key_len = 24,
-         .flags = {.aead_cipher = true, .gcm_mode = true},
-         .aead_ctrl_type = CIPHER_AES_GCM_AEADCTRL},
-        {.str = "aes_256_gcm",
-         .str_v3 = "aes-256-gcm",
-         .ctor_v1 = CIPHER_AES256_GCM_CTOR,
-         .key_len = 32,
-         .flags = {.aead_cipher = true, .gcm_mode = true},
-         .aead_ctrl_type = CIPHER_AES_GCM_AEADCTRL},
+    cipher_probe_t(
+        "aes_128_gcm", "aes-128-gcm", CIPHER_AES128_GCM_CTOR
+    ).set_keylen(16).set_aead(CIPHER_AES_GCM_AEADCTRL, /* ccm_mode */ false, /* gcm_mode */ true),
+    cipher_probe_t(
+        "aes_192_gcm", "aes-192-gcm", CIPHER_AES192_GCM_CTOR
+    ).set_keylen(24).set_aead(CIPHER_AES_GCM_AEADCTRL, /* ccm_mode */ false, /* gcm_mode */ true),
+    cipher_probe_t(
+        "aes_256_gcm", "aes-256-gcm", CIPHER_AES256_GCM_CTOR
+    ).set_keylen(32).set_aead(CIPHER_AES_GCM_AEADCTRL, /* ccm_mode */ false, /* gcm_mode */ true),
 #endif // HAVE_AEAD
 #undef CIPHER_AES128_GCM_CTOR
 #undef CIPHER_AES192_GCM_CTOR
@@ -319,24 +236,15 @@ cipher_probe_t cipher_probes[] = {
 #    define CIPHER_AES_CCM_AEADCTRL NOT_AEAD
 #endif
 #ifdef HAVE_AEAD
-        {.str = "aes_128_ccm",
-         .str_v3 = "aes-128-ccm",
-         .ctor_v1 = CIPHER_AES128_CCM_CTOR,
-         .key_len = 16,
-         .flags = {.aead_cipher = true, .ccm_mode = true},
-         .aead_ctrl_type = CIPHER_AES_CCM_AEADCTRL},
-        {.str = "aes_192_ccm",
-         .str_v3 = "aes-192-ccm",
-         .ctor_v1 = CIPHER_AES192_CCM_CTOR,
-         .key_len = 24,
-         .flags = {.aead_cipher = true, .ccm_mode = true},
-         .aead_ctrl_type = CIPHER_AES_CCM_AEADCTRL},
-        {.str = "aes_256_ccm",
-         .str_v3 = "aes-256-ccm",
-         .ctor_v1 = CIPHER_AES256_CCM_CTOR,
-         .key_len = 32,
-         .flags = {.aead_cipher = true, .ccm_mode = true},
-         .aead_ctrl_type = CIPHER_AES_CCM_AEADCTRL},
+    cipher_probe_t(
+        "aes_128_ccm", "aes-128-ccm", CIPHER_AES128_CCM_CTOR
+    ).set_keylen(16).set_aead(CIPHER_AES_CCM_AEADCTRL, /* ccm_mode */ true),
+    cipher_probe_t(
+        "aes_192_ccm", "aes-192-ccm", CIPHER_AES192_CCM_CTOR
+    ).set_keylen(24).set_aead(CIPHER_AES_CCM_AEADCTRL, /* ccm_mode */ true),
+    cipher_probe_t(
+        "aes_256_ccm", "aes-256-ccm", CIPHER_AES256_CCM_CTOR
+    ).set_keylen(32).set_aead(CIPHER_AES_CCM_AEADCTRL, /* ccm_mode */ true),
 #endif // HAVE_AEAD
 #undef CIPHER_AES128_CCM_CTOR
 #undef CIPHER_AES192_CCM_CTOR

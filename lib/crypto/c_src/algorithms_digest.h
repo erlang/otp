@@ -106,11 +106,23 @@ struct digest_probe_t {
     // the algorithm name as in OpenSSL 3.x
     const char *str_v3;
     // This will be updated to created atomfound exi
-    ERL_NIF_TERM atom;
-    const digest_type_flags_t flags;
+    ERL_NIF_TERM atom = 0;
+    digest_type_flags_t flags = {};
     // OpenSSL 1.0 API to create a resource for this digest algorithm (not used in 3.0 API)
     digest_construction_fn_t v1_ctor;
-    size_t xof_default_length;
+    size_t xof_default_length = 0;
+
+    constexpr digest_probe_t(const char *str_, const char *str_v3_,
+                            const digest_construction_fn_t ctor_): str(str_), str_v3(str_v3_), v1_ctor(ctor_) {
+    }
+    constexpr digest_probe_t set_pbkdf() {
+        this->flags.pbkdf2_eligible = true;
+        return *this;
+    }
+    constexpr digest_probe_t set_xof_default_length(const size_t xof_default_length_) {
+        this->xof_default_length = xof_default_length_;
+        return *this;
+    }
 
     const char *get_v3_name() const {
         return this->str_v3 ? this->str_v3 : this->str;

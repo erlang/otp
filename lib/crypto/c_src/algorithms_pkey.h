@@ -111,16 +111,16 @@ struct pkey_probe_t {
     const bool allow_seed; // Used by post-quantum algorithms probe
 
     static constexpr pkey_probe_t from_name(const char *str) {
-        return {str, nullptr, 0, 0, false};
+        return {str, /* str_v3= */ nullptr, /* atom= */ 0, /* evp_pkey_id= */ 0, /* allow_seed= */ false};
     }
 #ifdef HAVE_ML_DSA
     static constexpr pkey_probe_t from_mldsa_params(const char *str, const int evp_pkey_id) {
-        return {str, nullptr, 0, evp_pkey_id, true};
+        return {str, /* str_v3= */ nullptr, /* atom= */ 0, evp_pkey_id, /* allow_seed= */ true};
     }
 #endif
 #ifdef HAVE_SLH_DSA
     static constexpr pkey_probe_t from_slhdsa_params(const char *str, const char *str_v3, const int evp_pkey_id) {
-        return {str, str_v3, 0, evp_pkey_id, false};
+        return {str, str_v3, /* atom= */ 0, evp_pkey_id, /* allow_seed= */ false};
     }
 #endif
 

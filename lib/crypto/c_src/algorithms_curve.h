@@ -52,14 +52,16 @@ struct curve_type_t {
     } flags = {};
 
     explicit curve_type_t(const curve_probe_t *probe) : init(probe) {}
-    bool is_forbidden_in_fips() const {
+
 #ifdef FIPS_SUPPORT
-        // Available if not forbidden with fips=yes, and if curve init did not fail
+    // Available if not forbidden with fips=yes, and if curve init did not fail
+    bool is_forbidden_in_fips() const {
         return (this->flags.fips_forbidden || this->flags.algorithm_init_failed) && FIPS_MODE();
-#else
-        return false;
-#endif
     }
+#else
+    static bool is_forbidden_in_fips() { return false; }
+#endif
+
     bool is_available() const { return !this->flags.algorithm_init_failed; }
     // Return the atom which goes to the Erlang caller
     ERL_NIF_TERM get_atom() const;
@@ -74,6 +76,8 @@ struct curve_probe_t {
     int nid; // NID_xxxx value (an OpenSSL macro)
     const char *sn; // serves as Erlang atom name, also equal to SN_xxxxx macro of OpenSSL
     ERL_NIF_TERM atom; // Atom for this->sn is cached here
+
+    static constexpr curve_probe_t make(const int nid, const char *sn) { return {nid, sn, /* atom= */ 0}; }
 
     // Perform a probe on the algorithm. In case of success, fill the struct and push into the 'output'
     void probe(ErlNifEnv *env, bool fips_mode, std::vector<curve_type_t> &output);
