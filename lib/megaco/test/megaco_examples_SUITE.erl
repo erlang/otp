@@ -50,12 +50,14 @@
 
 -define(TEST_VERBOSITY, debug).
 
+-define(BENCH_SUITE, megaco_examples).
+
 
 %%======================================================================
 %% Common Test interface functions
 %%
-%% The difference between the bench cases and the meas cases is simply
-%% how the results are reported.
+%% The difference between the bench cases and the (standard) meas cases
+%% is simply how the results are reported.
 %%======================================================================
 
 suite() -> 
@@ -734,9 +736,7 @@ do_meas(Node,
 publish_bench_results(Pre, Results) when is_list(Results) ->
     publish_bench_results_multiple(Pre, Results);
 publish_bench_results(Pre, Result) when is_integer(Result) ->
-    Event = #event{name = Pre,
-                   data = [{suite, atom_to_list(?MODULE)},
-                           {value, Result}]},
+    Event = ?BENCH_EVENT(Pre, Result),
     ct_event:notify(Event),
     {comment, ?F("~w: ~p", [Pre, Result])}.
 
@@ -753,10 +753,8 @@ publish_bench_results_multiple(Pre, [], Acc) ->
         end,
     {comment, ?F("~w: ~w ~s", [Pre, Time, UnitStr])};
 publish_bench_results_multiple(Pre, [{Name, {_, Enc, Dec}} | Results], Acc) ->
-    Time = Enc + Dec,
-    Event = #event{name = list_to_atom(?F("~w_~w", [Pre, Name])),
-                   data = [{suite, atom_to_list(?MODULE)},
-                           {value, Time}]},
+    Time  = Enc + Dec,
+    Event = ?BENCH_EVENT(list_to_atom(?F("~w_~w", [Pre, Name])), Time),
     ct_event:notify(Event),
     publish_bench_results_multiple(Pre, Results, Acc + Time).
     
