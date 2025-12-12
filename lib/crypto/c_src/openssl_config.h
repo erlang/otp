@@ -20,8 +20,7 @@
  * %CopyrightEnd%
  */
 
-#ifndef E_OPENSSL_CONFIG_H__
-#define E_OPENSSL_CONFIG_H__ 1
+#pragma once
 
 #define OPENSSL_THREAD_DEFINES
 #include <openssl/opensslconf.h>
@@ -79,6 +78,10 @@
 #ifdef HAS_LIBRESSL
 /* LibreSSL dislikes FIPS */
 #  undef FIPS_SUPPORT
+
+#if OPENSSL_VERSION_NUMBER < PACKED_OPENSSL_VERSION_PLAIN(1,0,1)
+#error "The OpenSSL versions before 1.0.1 are not supported, please upgrade."
+#endif
 
 # if LIBRESSL_VERSION_NUMBER < PACKED_OPENSSL_VERSION_PLAIN(2,7,0)
 /* LibreSSL wants the 1.0.1 API */
@@ -512,14 +515,6 @@ do {                                                    \
 #  define PRINTF_ERR2(FMT,A1,A2)
 #endif
 
-#if defined(FIPS_SUPPORT) \
-    && OPENSSL_VERSION_NUMBER  < PACKED_OPENSSL_VERSION_PLAIN(1,0,1)
-/* FIPS is not supported for versions < 1.0.1.  If FIPS_SUPPORT is enabled
-   there are some warnings/errors for thoose
-*/
-# undef FIPS_SUPPORT
-#endif
-
 #if defined(FIPS_SUPPORT) && \
     defined(HAS_3_0_API)
 # define FIPS_mode() EVP_default_properties_is_fips_enabled(NULL)
@@ -555,5 +550,3 @@ do {                                                    \
 
 //# define CRYPTO_DEVELOP_ERRORS
 #endif
-
-#endif /* E_OPENSSL_CONFIG_H__ */

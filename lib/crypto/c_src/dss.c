@@ -22,6 +22,7 @@
 
 #include "dss.h"
 #include "bn.h"
+#include "evp_compat.h"
 
 #ifdef HAVE_DSA
 
