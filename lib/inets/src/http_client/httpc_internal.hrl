@@ -54,6 +54,9 @@
 	  %% true if auto redirect on 30x response
 	  autoredirect = true :: boolean(),
 
+          %% true if request should be retried on Retry-After header
+          autoretry = true :: boolean(),
+
 	  %% ssl socket options
 	  ssl = [],
 

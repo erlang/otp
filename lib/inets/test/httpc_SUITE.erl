@@ -1149,7 +1149,6 @@ timeout_redirect(Config) when is_list(Config) ->
 internal_server_error() ->
     [{doc, "Test 50X codes"}].
 internal_server_error(Config) when is_list(Config) ->
-
     URL500 = url(group_name(Config), "/500.html", Config),
     RequestOpts = proplists:get_value(request_opts, Config, []),
     Profile = ?profile(Config),
@@ -1165,6 +1164,10 @@ internal_server_error(Config) when is_list(Config) ->
 
     {ok, {{_,200, _}, [_ | _], [_|_]}} =
 	httpc:request(get, {URL503, []}, [?SSL_NO_VERIFY], RequestOpts, Profile),
+
+    ets:insert(unavailable, {503, unavailable}),
+    {ok, {{_,503, _}, [_ | _], [_|_]}} =
+        httpc:request(get, {URL503, []}, [{autoretry, false}, ?SSL_NO_VERIFY], RequestOpts , Profile),
 
     ets:insert(unavailable, {503, long_unavailable}),
 

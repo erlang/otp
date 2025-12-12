@@ -215,6 +215,7 @@ request(Url, Profile) ->
                   | {connect_timeout, timeout()}
                   | {ssl, [ssl:tls_option()]}
                   | {autoredirect, boolean()}
+                  | {autoretry, boolean()}
                   | {proxy_auth, {string(), string()}}
                   | {version, HttpVersion} | {relaxed, boolean()},
       Options :: [OptionRequest],
@@ -289,6 +290,15 @@ HTTP options:
 
   For some 30X-result codes, automatic redirect is not allowed. In these cases
   the 30X-result is always returned.
+
+  Default is `true`.
+
+- **`autoretry`** - The client automatically retries the request after receiving
+  a Retry-After header from the server.
+
+  Sometimes servers can suggest a value that is not suitable for application,
+  so this option allows retrieving the error code and stopping after the first
+  unsuccessful request.
 
   Default is `true`.
 
@@ -434,6 +444,7 @@ Options details:
                   | {connect_timeout, timeout()}
                   | {ssl, [ssl:tls_option()]}
                   | {autoredirect, boolean()}
+                  | {autoretry, boolean()}
                   | {proxy_auth, {string(), string()}}
                   | {version, HttpVersion} | {relaxed, boolean()},
       Options :: [OptionRequest],
@@ -1409,6 +1420,8 @@ http_options_default() ->
 		  end,
     AutoRedirectPost =  boolfun(),
 
+    AutoRetryPost = boolfun(),
+
     SslPost = fun(Value) when is_list(Value) ->
                       {ok, {ssl, Value}};
                  ({ssl, SslOptions}) when is_list(SslOptions) ->
@@ -1445,6 +1458,7 @@ http_options_default() ->
      {version,         {value, "HTTP/1.1"},            #http_options.version,         VersionPost}, 
      {timeout,         {value, ?HTTP_REQUEST_TIMEOUT}, #http_options.timeout,         TimeoutPost},
      {autoredirect,    {value, true},                  #http_options.autoredirect,    AutoRedirectPost},
+     {autoretry,       {value, true},                  #http_options.autoretry,       AutoRetryPost},
      %% can crash if no os bundle is present. therefore the options are only evaluated on demand
      {ssl,             {value_lazy, SslOptsLazyFn},    #http_options.ssl,             SslPost},
      {proxy_auth,      {value, undefined},             #http_options.proxy_auth,      ProxyAuthPost},
