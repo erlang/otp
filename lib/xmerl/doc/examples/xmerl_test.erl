@@ -28,7 +28,7 @@ test3() ->
     io:format("From xmerl:export/2 xmerl_html filter~n ~p~n", [B]),
     C = xmerl:export([A], xmerl_text),
     io:format("From xmerl:export/2 xmerl_text filter~n ~p~n", [C]).
-    
+
 
 test4() ->
     FetchFun = fun(_DTDSpec, S) -> {ok, not_fetched, S} end,
@@ -61,14 +61,14 @@ test6() ->
 
 
 simple() ->
-    [{document, 
+    [{document,
       [{title, ["Doc Title"]},
        {author, ["Ulf Wiger"]},
        {section,[{heading, ["heading1"]},
 		 {'P', ["This is a paragraph of text."]},
 		 {section,[{heading, ["heading2"]},
 			   {'P', ["This is another paragraph."]},
-			   {table,[{border, ["1"]}, 
+			   {table,[{border, ["1"]},
 				   {heading,[{col, ["head1"]},
 					     {col, ["head2"]}]},
 				   {row, [{col, ["col11"]},
@@ -166,7 +166,7 @@ w3cvalidate() ->
 	    C = xmerl:export([A], xmerl_test),
 	    io:format("From xmerl:export/2 xmerl_text filter~n ~p~n", [C])
     end.
-    
+
 
 'TESTSUITE'(_Data, Attrs, _Parents, _E) ->
     _Profile = find_attribute('PROFILE', Attrs),
@@ -186,7 +186,7 @@ w3cvalidate() ->
     Id = find_attribute('ID', Attrs),
     io:format("Test: ~p ",[Id]),
     Entities = find_attribute('ENTITIES', Attrs), % Always handle all entities
-    Output1 = find_attribute('OUTPUT', Attrs), % 
+    Output1 = find_attribute('OUTPUT', Attrs), %
     Output3 = find_attribute('OUTPUT3', Attrs), % FIXME!
     Sections = find_attribute('SECTIONS', Attrs),
     Recommendation = find_attribute('RECOMMENDATION', Attrs), % FIXME!
@@ -253,18 +253,18 @@ test_valid(URI, Data, Sections, Entities, OutputForm, Recommendation, Version,
 		    print_error({Res, Tail}, URI, Sections, Entities, OutputForm,
 				Recommendation,
 				Version, Namespace, Data),
-		    if
-			?CONT == false -> throw({'EXIT', failed_test});
-			true -> error
-		    end
+                    case ?CONT of
+                        false -> throw({'EXIT', failed_test});
+                        true -> error
+                    end
 	    end;
 	Error ->
 	    print_error(Error, URI, Sections, Entities, OutputForm, Recommendation,
 			Version, Namespace, Data),
-	    if
-		?CONT == false -> throw({'EXIT', failed_test});
-		true -> error
-	    end
+            case ?CONT of
+                false -> throw({'EXIT', failed_test});
+                true -> error
+            end
     end,
     io:format("validating ", []),
     case validating_parser_q(URI) of
@@ -277,18 +277,18 @@ test_valid(URI, Data, Sections, Entities, OutputForm, Recommendation, Version,
 		    print_error({Res2, Tail2}, URI, Sections, Entities, OutputForm,
 				Recommendation,
 				Version, Namespace, Data),
-		    if
-			?CONT == false -> throw({'EXIT', failed_test});
-			true -> error
-		    end
+                    case ?CONT of
+                        false -> throw({'EXIT', failed_test});
+                        true -> error
+                    end
 	    end;
 	Error2 ->
 	    print_error(Error2, URI, Sections, Entities, OutputForm, Recommendation,
 			Version, Namespace, Data),
-	    if
-		?CONT == false -> throw({'EXIT', failed_test});
-		true -> error
-	    end
+            case ?CONT of
+                false -> throw({'EXIT', failed_test});
+                true -> error
+            end
     end.
 
 
@@ -307,18 +307,18 @@ test_invalid(URI, Data, Sections, Entities, OutputForm, Recommendation, Version,
 		    print_error({Res, Tail}, URI, Sections, Entities, OutputForm,
 				Recommendation,
 				Version, Namespace, Data),
-		    if
-			?CONT == false -> throw({'EXIT', failed_test});
-			true -> error
-		    end
+                    case ?CONT of
+                        false -> throw({'EXIT', failed_test});
+                        true -> error
+                    end
 	    end;
 	Error ->
 	    print_error(Error, URI, Sections, Entities, OutputForm, Recommendation,
 			Version, Namespace, Data),
-	    if
-		?CONT == false -> throw({'EXIT', failed_test});
-		true -> error
-	    end
+            case ?CONT of
+                false -> throw({'EXIT', failed_test});
+                true -> error
+            end
     end,
     io:format("validating ", []),
     case validating_parser_q(URI) of
@@ -331,18 +331,18 @@ test_invalid(URI, Data, Sections, Entities, OutputForm, Recommendation, Version,
 		    print_error({Res2, Tail2}, URI, Sections, Entities, OutputForm,
 				Recommendation,
 				Version, Namespace, Data),
-		    if
-			?CONT == false -> throw({'EXIT', failed_test});
-			true -> error
-		    end
+                    case ?CONT of
+                        false -> throw({'EXIT', failed_test});
+                        true -> error
+                    end
 	    end;
 	{error, enoent} ->
 	    print_error("Testfile not found", URI, Sections, Entities, OutputForm,
 			Recommendation, Version, Namespace, Data),
-	    if
-		?CONT == false -> throw({'EXIT', failed_test});
-		true -> error
-	    end;
+            case ?CONT of
+                false -> throw({'EXIT', failed_test});
+                true -> error
+            end;
 	_Error2 ->
 	    io:format("OK~n", []),
 	    ok
@@ -363,18 +363,18 @@ test_notwf(URI, Data, Sections, Entities, OutputForm, Recommendation, Version,
 		    print_error({Res, Tail}, URI, Sections, Entities, OutputForm,
 				Recommendation,
 				Version, Namespace, Data),
-		    if
-			?CONT == false -> throw({'EXIT', failed_test});
-			true -> error
-		    end
+                    case ?CONT of
+                        false -> throw({'EXIT', failed_test});
+                        true -> error
+                    end
 	    end;
 	{error,enoent} ->
 	    print_error("Testfile not found",URI,Sections,Entities,OutputForm,
 			Recommendation,Version,Namespace,Data),
-	    if
-		?CONT==false -> throw({'EXIT', failed_test});
-		true -> error
-	    end;
+            case ?CONT of
+                false -> throw({'EXIT', failed_test});
+                true -> error
+            end;
 	_Error ->
 	    io:format("OK ",[]),
 	    ok
@@ -390,18 +390,18 @@ test_notwf(URI, Data, Sections, Entities, OutputForm, Recommendation, Version,
 		    print_error({Res2, Tail2}, URI, Sections, Entities, OutputForm,
 				Recommendation,
 				Version, Namespace, Data),
-		    if
-			?CONT == false -> throw({'EXIT', failed_test});
-			true -> error
-		    end
+                    case ?CONT of
+                        false -> throw({'EXIT', failed_test});
+                        true -> error
+                    end
 	    end;
 	{error,enoent} ->
 	    print_error("Testfile not found", URI, Sections, Entities, OutputForm,
 			Recommendation, Version, Namespace, Data),
-	    if
-		?CONT == false -> throw({'EXIT', failed_test});
-		true -> error
-	    end;
+            case ?CONT of
+                false -> throw({'EXIT', failed_test});
+                true -> error
+            end;
 	_Error2 ->
 	    io:format("OK~n", []),
 	    ok
@@ -418,17 +418,17 @@ test_error(URI, Data, Sections, Entities, OutputForm, Recommendation, Version,
 	{error, enoent} ->
 	    print_error("Testfile not found", URI, Sections, Entities, OutputForm,
 			Recommendation, Version, Namespace, Data),
-	    if
-		?CONT == false -> throw({'EXIT', failed_test});
-		true -> error
-	    end;
+            case ?CONT of
+                false -> throw({'EXIT', failed_test});
+                true -> error
+            end;
 	Res ->
 	    print_error(Res, URI, Sections, Entities, OutputForm, Recommendation,
 			Version, Namespace, Data),
-	    if
-		?CONT == false -> throw({'EXIT', failed_test});
-		true -> error
-	    end
+            case ?CONT of
+                false -> throw({'EXIT', failed_test});
+                true -> error
+            end
     end,
     io:format("validating ", []),
     case validating_parser_q(URI) of
@@ -438,17 +438,17 @@ test_error(URI, Data, Sections, Entities, OutputForm, Recommendation, Version,
 	{error, enoent} ->
 	    print_error("Testfile not found", URI, Sections, Entities, OutputForm,
 			Recommendation, Version, Namespace, Data),
-	    if
-		?CONT == false -> throw({'EXIT', failed_test});
-		true -> error
-	    end;
+            case ?CONT of
+                false -> throw({'EXIT', failed_test});
+                true -> error
+            end;
 	Res2 ->
 	    print_error(Res2, URI, Sections, Entities, OutputForm, Recommendation,
 			Version, Namespace, Data),
-	    if
-		?CONT == false -> throw({'EXIT', failed_test});
-		true -> error
-	    end
+            case ?CONT of
+                false -> throw({'EXIT', failed_test});
+                true -> error
+            end
     end.
 
 
@@ -506,10 +506,10 @@ print_error(Error, URI, Sections, Entities, OutputForm, Recommendation, Version,
     io:format(Data).
 
 
-    
-    
-    
-	
+
+
+
+
 
 
 
@@ -521,5 +521,3 @@ para(_Data, _Attrs, US) ->
 	Int when is_integer(Int) -> Int+1;
 	undefined -> 1
     end.
-
-
