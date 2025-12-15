@@ -1,24 +1,24 @@
-Header "%%
+%%
 %% %CopyrightBegin%
 %%
 %% SPDX-License-Identifier: Apache-2.0
-%% 
+%%
 %% Copyright Ericsson AB 2003-2025. All Rights Reserved.
 %%
-%% Licensed under the Apache License, Version 2.0 (the \"License\");
+%% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
 %%
 %%     http://www.apache.org/licenses/LICENSE-2.0
 %%
 %% Unless required by applicable law or agreed to in writing, software
-%% distributed under the License is distributed on an \"AS IS\" BASIS,
+%% distributed under the License is distributed on an "AS IS" BASIS,
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 %%
 %% %CopyrightEnd%
-%%".
+%%
 
 %%
 %% A grammar for the XSD 1.0 regular expression used by the YANG
@@ -41,6 +41,28 @@ Header "%%
 %% require escape to be interpreted as a normal character and no
 %% mention is made of the issue.
 %%
+
+Header "%%
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%% 
+%% Copyright Ericsson AB 2003-2025. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the \"License\");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an \"AS IS\" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%%
+%% %CopyrightEnd%
+%%".
 
 Nonterminals
   %% from the 1.0 grammar:
