@@ -68,7 +68,8 @@ groups() ->
        sis2, state2file_file2state, union]},
      {ticket_tests, [],
       [ticket_6910, ticket_7165, ticket_7190, ticket_7288,
-       ticket_7736, ticket_8599, ticket_9410, ticket_19792]},
+       ticket_7736, ticket_8599, ticket_9410, ticket_19762,
+       ticket_19792]},
      {facets, [],
       [length, minLength, maxLength, pattern, enumeration,
        whiteSpace, maxInclusive, maxExclusive, minExclusive,
@@ -967,10 +968,14 @@ ticket_8599(Config) ->
     
     {{xmlElement,persons,persons,_,_,_,_,_,_,_,_,_},_GlobalState} = xmerl_xsd:validate(E, S).
 
-
 ticket_9410(Config) ->
-    file:set_cwd(datadir_join(Config,[".."])),
-    {ok, _S} = xmerl_xsd:process_schema("xmerl_xsd_SUITE_data/small.xsd").
+    {ok, _S} = xmerl_xsd:process_schema(datadir_join(Config,["small.xsd"])).
+
+ticket_19762(Config) ->
+    {E, _} = xmerl_scan:file(datadir_join(Config,["ticket_19762.xml"]),[]),
+    {ok, S} = xmerl_xsd:process_schema(datadir_join(Config,["ticket_19762.xsd"])),
+    {E, _} = xmerl_xsd:validate(E, S),
+    ok.
 
 
 ticket_19792(Config) ->

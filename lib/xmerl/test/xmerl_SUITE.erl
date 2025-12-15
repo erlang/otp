@@ -666,7 +666,6 @@ allow_entities_test(Config) ->
         (catch xmerl_scan:file(File, [{allow_entities, false}])),
     ok.
 
-
 %%======================================================================
 %% Support Functions
 %%======================================================================
