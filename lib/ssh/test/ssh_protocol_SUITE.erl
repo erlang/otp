@@ -1636,8 +1636,7 @@ alive_reneg_eserver_tclient(Config) ->
                   [{match, #ssh_msg_userauth_success{_='_'}, receive_msg},
                    {match, #ssh_msg_global_request{name = <<"keepalive@erlang.org">>,
                                                    want_reply = true,
-                                                   data = <<>>}, receive_msg},
-                   {send, #ssh_msg_request_failure{}}],
+                                                   data = <<>>}, receive_msg}],
                   State)
         end,
     {ok, TrptState1} = CheckAlive(TrptState0),
@@ -1647,8 +1646,7 @@ alive_reneg_eserver_tclient(Config) ->
         ssh_trpt_test_lib:exec(
           [{send, start_incomplete_renegotiation},
            {match, #ssh_msg_kexinit{_='_'}, receive_msg},
-           {match, disconnect(), receive_msg}],
-          TrptState1),
+           {match, disconnect(), receive_msg}], TrptState1),
     ?CT_LOG("[OK] triggering incomplete, client triggered remotely key renegotiation"),
     ?CT_LOG("[starting] Alive feature - normal conditions 2"),
     {ok, TrptState2} = connect_and_userauth_request(Host, Port, User, Pwd, UserDir),
@@ -1669,11 +1667,13 @@ alive_reneg_eserver_tclient(Config) ->
     [CHandlerPid] = CHandler(ssh_info:get_subs_tree(sshd_sup), []),
     ?CT_LOG("Server side connection handler PID: ~p", [CHandlerPid]),
     ssh_connection_handler:renegotiate(CHandlerPid),
+    %% The disconnect is received under 2 seconds since the tclient already
+    %% failed to reply to one of the probles from eserver.
     {ok, _} =
         ssh_trpt_test_lib:exec(
           [{match, #ssh_msg_kexinit{_='_'}, receive_msg},
            {match, disconnect(), receive_msg}],
-          TrptState3),
+          ssh_trpt_test_lib:set_timeout(TrptState3, 2000)),
     ?CT_LOG("[OK] triggering incomplete, server triggered locally key renegotiation"),
     ssh:stop_daemon(DaemonPid),
     ?CT_LOG("[OK] test case finished"),
