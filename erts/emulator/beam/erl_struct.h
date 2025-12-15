@@ -32,8 +32,9 @@ typedef struct {
     Eterm module;
     Eterm name;
 
-    /* Literal-tagged pointers to the canonical ErtsStructDefinition for each
-     * code generation. */
+    /* Literal-tagged CONS pointers. The head of the CONS holds to
+     * pointer to the canonical ErtsStructDefinition for each code
+     * generation, while the tail holds the default values. */
     Eterm definitions[ERTS_ADDRESSV_SIZE];
 } ErtsStructEntry;
 
@@ -49,12 +50,7 @@ typedef struct {
     Eterm name;
     Eterm is_exported;
 
-    /* This array always contains the keys for the native record, in
-     * in atom index ordered. If this is a struct definition pointed
-     * to by ErtsStructEntry, the keys are followed by the default
-     * values. The default values will only be used when creating a
-     * record from scratch.
-     */
+    /* The keys for the native record in atom index order. */
     Eterm keys[];
 } ErtsStructDefinition;
 

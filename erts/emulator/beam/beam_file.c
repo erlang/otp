@@ -933,7 +933,11 @@ static int parse_record_chunk_data(BeamFile *beam, BeamReader *p_reader) {
         Uint num_fields;
         Eterm *order_tuple;
         ErtsStructDefinition *tmp_def;
+        Eterm *values;
+        Eterm value_tuple;
         Eterm is_exported;
+        Eterm *hp;
+        Eterm cons, *consp;
 
         if (!beamcodereader_next(op_reader, &op)) {
             goto error;
@@ -992,7 +996,8 @@ static int parse_record_chunk_data(BeamFile *beam, BeamReader *p_reader) {
         /* Collect field names and default values. Put it into an
          * array of erl_record_fields structs, which are suitable for
          * sorting. */
-        fields = erts_alloc(ERTS_ALC_T_TMP, num_fields * sizeof(struct erl_record_field));
+        fields = erts_alloc(ERTS_ALC_T_TMP, num_fields *
+                            sizeof(struct erl_record_field));
         field_index = 0;
         while (extra_args > 0) {
             fields[field_index].order = field_index;
@@ -1038,20 +1043,35 @@ static int parse_record_chunk_data(BeamFile *beam, BeamReader *p_reader) {
          */
 
         tmp_size = sizeof(ErtsStructDefinition);
-        tmp_size += 2 * num_fields * sizeof(Eterm); /* Fields & default values */
+        tmp_size += num_fields * sizeof(Eterm); /* Field names */
 
         struct_def_size = tmp_size;
+
+        tmp_size += (num_fields + 1) * sizeof(Eterm); /* Value tuple */
         tmp_size += (num_fields + 1) * sizeof(Eterm); /* Order tuple */
 
-        tmp_def = (ErtsStructDefinition *) erts_alloc(ERTS_ALC_T_TMP, tmp_size);
+        tmp_size += 2 * sizeof(Eterm); /* Top CONS cell */
+
+        hp = (Eterm *) erts_alloc(ERTS_ALC_T_TMP, tmp_size);
+        tmp_def = (ErtsStructDefinition *) hp;
         tmp_def->thing_word = make_arityval(struct_def_size/sizeof(Eterm) - 1);
         tmp_def->module = beam->module;
         tmp_def->name = rec->records[i].name;
         tmp_def->is_exported = is_exported;
 
-        order_tuple = &tmp_def->keys[2*num_fields];
+        values = &tmp_def->keys[num_fields];
+        if (num_fields == 0) {
+            value_tuple = ERTS_GLOBAL_LIT_EMPTY_TUPLE;
+            values[0] = NIL;
+        } else {
+            value_tuple = make_tuple(values);
+            values[0] = make_arityval(num_fields);
+            values++;
+        }
 
-        if (rec->records[i].num_fields == 0) {
+        order_tuple = values + num_fields;
+
+        if (num_fields == 0) {
             *order_tuple = NIL;
             tmp_def->field_order = ERTS_GLOBAL_LIT_EMPTY_TUPLE;
         } else {
@@ -1059,17 +1079,20 @@ static int parse_record_chunk_data(BeamFile *beam, BeamReader *p_reader) {
             *order_tuple++ = make_arityval(num_fields);
         }
 
+        consp = order_tuple + num_fields;
+        cons = CONS(consp, make_tuple((Eterm *)tmp_def), value_tuple);
+
         for (field_index = 0; field_index < num_fields; field_index++) {
             tmp_def->keys[field_index] = fields[field_index].key;
-            tmp_def->keys[field_index + num_fields] = fields[field_index].value;
+            values[field_index] = fields[field_index].value;
             order_tuple[fields[field_index].order] = make_small(field_index);
         }
 
         /* Save everything into a literal. */
         rec->records[i].def_literal =
-            beamfile_add_literal(beam, make_tuple((Eterm *)tmp_def), 0);
+            beamfile_add_literal(beam, cons, 0);
 
-        erts_free(ERTS_ALC_T_TMP, tmp_def);
+        erts_free(ERTS_ALC_T_TMP, hp);
 
         erts_free(ERTS_ALC_T_TMP, fields);
         fields = NULL;

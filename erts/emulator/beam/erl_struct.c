@@ -219,6 +219,7 @@ ErtsStructEntry *erts_struct_find_entry(Eterm module,
 Eterm erts_canonical_record_def(ErtsStructDefinition *defp) {
     ErtsStructEntry *entry;
     ErtsCodeIndex code_ix;
+    Eterm cons;
     Eterm canonical_def;
     ErtsStructDefinition *canonical_p;
     Eterm *order_def, *order_canonical;
@@ -232,10 +233,12 @@ Eterm erts_canonical_record_def(ErtsStructDefinition *defp) {
         return result;
     }
 
-    canonical_def = entry->definitions[code_ix];
-    if (canonical_def == THE_NON_VALUE) {
+    cons = entry->definitions[code_ix];
+    if (is_not_list(cons)) {
         return result;
     }
+
+    canonical_def = CAR(list_val(cons));
 
     canonical_p = (ErtsStructDefinition*)boxed_val(canonical_def);
     if (defp->is_exported != canonical_p->is_exported) {
@@ -433,9 +436,10 @@ Eterm erl_create_native_record(Process* p, Eterm* reg, Eterm id, Uint live,
                                    code_ix);
 
     if (entry != NULL) {
-        Eterm def = entry->definitions[code_ix];
+        Eterm cons = entry->definitions[code_ix];
 
-        if (is_value(def)) {
+        if (is_list(cons)) {
+            Eterm def;
             ErtsStructDefinition *defp;
             ErtsStructInstance *instance;
             int field_count;
@@ -445,15 +449,18 @@ Eterm erl_create_native_record(Process* p, Eterm* reg, Eterm id, Uint live,
             Eterm res;
             Eterm sentinel = NIL;
             const Eterm *new_end = new_p + size;
+            Eterm *def_values;
 
+            def = CAR(list_val(cons));
             defp = (ErtsStructDefinition*)boxed_val(def);
+            def_values = tuple_val(CDR(list_val(cons))) + 1;
 
             if (!local && defp->is_exported == am_false) {
                 goto badrecord;
             }
 
             field_count = (header_arity(defp->thing_word) -
-                           sizeof(ErtsStructDefinition)/sizeof(Eterm) + 1) / 2;
+                           sizeof(ErtsStructDefinition)/sizeof(Eterm) + 1);
 
             num_words_needed = sizeof(*instance)/sizeof(Eterm) + field_count;
             if (HeapWordsLeft(p) < num_words_needed) {
@@ -483,7 +490,7 @@ Eterm erl_create_native_record(Process* p, Eterm* reg, Eterm id, Uint live,
                         new_p = &sentinel;
                     }
                 } else {
-                    Eterm value = defp->keys[i+field_count];
+                    Eterm value = def_values[i];
                     if (is_catch(value)) {
                         p->fvalue = defp->keys[i];
                         p->freason = EXC_NOVALUE;
@@ -661,9 +668,10 @@ BIF_RETTYPE records_create_4(BIF_ALIST_4) {
                                    code_ix);
 
     if (entry != NULL) {
-        Eterm def = entry->definitions[code_ix];
+        Eterm cons = entry->definitions[code_ix];
 
-        if (def != THE_NON_VALUE) {
+        if (is_list(cons)) {
+            Eterm def;
             ErtsStructDefinition *defp;
             ErtsStructInstance *instance;
             int field_count;
@@ -671,15 +679,20 @@ BIF_RETTYPE records_create_4(BIF_ALIST_4) {
             Eterm *hp_end;
             Uint num_words_needed;
             Eterm res;
-
             const Eterm *vs;
             flatmap_t *mp;
             Eterm *ks;
             Uint n;
 
+            Eterm *def_values;
+
+            def = CAR(list_val(cons));
+            defp = (ErtsStructDefinition*)boxed_val(def);
+            def_values = tuple_val(CDR(list_val(cons))) + 1;
+
             defp = (ErtsStructDefinition*)boxed_val(def);
             field_count = (header_arity(defp->thing_word) -
-                           sizeof(ErtsStructDefinition)/sizeof(Eterm) + 1) / 2;
+                           sizeof(ErtsStructDefinition)/sizeof(Eterm) + 1);
             num_words_needed = sizeof(*instance)/sizeof(Eterm) + field_count;
             hp = HAlloc(BIF_P, num_words_needed);
 
@@ -719,7 +732,7 @@ BIF_RETTYPE records_create_4(BIF_ALIST_4) {
                             ks = &sentinel;
                         }
                     } else {
-                        Eterm value = defp->keys[i+field_count];
+                        Eterm value = def_values[i];
                         if (is_catch(value)) {
                             HRelease(BIF_P, hp_end, hp);
                             BIF_P->fvalue = defp->keys[i];
