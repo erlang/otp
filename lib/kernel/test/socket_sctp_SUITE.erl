@@ -1224,16 +1224,16 @@ b_open_connect_and_close(InitState) ->
                                                #{notification := Notif} ->
                                                    ?SEV_IPRINT("unexpected (connect) notification:"
                                                                "~n   Notif: ~p", [Notif]),
-                                                   error;
+                                                   {error, unexpected_notif};
                                                _ ->
                                                    ?SEV_EPRINT("unexpected connect confirmation :"
                                                                "~n   ~p", [Msg]),
-                                                   error
+                                                   {error, unexpected_msg}
                                            end;
                                        false ->
                                            ?SEV_EPRINT("no notification flag detected:"
                                                        "~n   ~p", [Msg]),
-                                           error
+                                           {error, not_notification}
                                    end;
                                {error, Reason} = ERROR ->
                                    ?SEV_EPRINT("Failed read connect :"
@@ -1300,16 +1300,16 @@ b_open_connect_and_close(InitState) ->
                                                #{notification := Notif} ->
                                                    ?SEV_IPRINT("unexpected (accept) notification:"
                                                                "~n   Notif: ~p", [Notif]),
-                                                   error;
+                                                   {error, unexpected_notif};
                                                _ ->
                                                    ?SEV_EPRINT("unexpected accept msg :"
                                                                "~n   ~p", [Msg]),
-                                                   error
+                                                   {error, unexpected_msg}
                                            end;
                                        false ->
                                            ?SEV_EPRINT("no notification flag detected:"
                                                        "~n   ~p", [Msg]),
-                                           error
+                                           {error, not_nitification}
                                    end
                            end
                    end},
@@ -1388,7 +1388,7 @@ b_open_connect_and_close(InitState) ->
                                    {ok, maps:remove(aaid, State)};
                                {error, _} ->
                                    ?SEV_EPRINT("no shutdown received"),
-                                   error
+                                   {error, not_shutdown}
                            end
                    end},
 
@@ -1412,12 +1412,12 @@ b_open_connect_and_close(InitState) ->
                                                _ ->
                                                    ?SEV_EPRINT("unexpected assoc shutdown msg:"
                                                                "~n   ~p", [Msg]),
-                                                   error
+                                                   {error, unexpected_msg}
                                            end;
                                        false ->
                                            ?SEV_EPRINT("no notification flag detected:"
                                                        "~n   ~p", [Msg]),
-                                           error
+                                           {error, not_notification}
                                    end
                            end;
 		   (_) ->
