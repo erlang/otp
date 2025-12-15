@@ -343,6 +343,10 @@ do_simple(#{domain       := Domain,
                                                 debug  => true}) of
             {ok, ServerInfo} ->
                 ServerInfo;
+            {error, {open, eprotonosupport = SReason}} ->
+                ?P("Failed start server: "
+                   "~n   ~p", [SReason]),
+                exit({skip, SReason});
             {error, {bind, eaddrnotavail = SReason}} ->
                 ?P("Failed start server: "
                    "~n   ~p", [SReason]),
