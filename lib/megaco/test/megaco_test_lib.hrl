@@ -162,4 +162,4 @@
                        {value, (__V__)},
                        {name,  (__N__)}]}).
 
--endif. % -ifdef(socket_test_lib_hrl).
+-endif. % -ifndef(socket_test_lib_hrl).
