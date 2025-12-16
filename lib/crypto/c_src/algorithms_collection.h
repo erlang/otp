@@ -34,7 +34,7 @@ extern "C"
     //
 
     // Creates protective mutex for each collection to allow for safe lazy init and reinit
-    bool create_algorithm_mutexes(void);
+    bool create_algorithm_mutexes(ErlNifEnv *env);
     // Deletes (and zeroes) algorithm mutexes
     void free_algorithm_mutexes(void);
 

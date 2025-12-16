@@ -31,8 +31,8 @@
 
 #include <cstring>
 
-extern "C" bool create_algorithm_mutexes() {
-    ASSERT(enif_is_atom(CRYPTOENIF_BAD_ATOM_VALUE) != true); // Allow using 0 as safe initial value for ERL_NIF_TERM
+extern "C" bool create_algorithm_mutexes(ErlNifEnv *env) {
+    ASSERT(enif_is_atom(env, CRYPTOENIF_BAD_ATOM_VALUE) != true); // Allow using 0 as safe initial value for ERL_NIF_TERM
     return cipher_collection.create_mutex() && curve_collection.create_mutex() && digest_collection.create_mutex() &&
            kem_collection.create_mutex() && mac_collection.create_mutex() && pkey_collection.create_mutex() &&
            rsaopt_collection.create_mutex();

@@ -264,7 +264,7 @@ static int initialize(ErlNifEnv* env, ERL_NIF_TERM load_info)
     if (!create_engine_mutex(env)) {
         ret = __LINE__; goto done;
     }
-    if (!create_algorithm_mutexes()) {
+    if (!create_algorithm_mutexes(env)) {
         ret = __LINE__; goto done;
     }
 
