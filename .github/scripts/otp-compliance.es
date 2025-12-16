@@ -61,7 +61,8 @@
          test_originator_Ericsson/1, test_versionInfo_not_empty/1, test_package_hasFiles/1,
          test_project_purl/1, test_packages_purl/1, test_download_location/1, 
          test_package_relations/1, test_has_extracted_licenses/1,
-         test_vendor_packages/1, test_erts/1, test_download_vendor_location/1
+         test_vendor_packages/1, test_erts/1, test_download_vendor_location/1,
+         test_package_verification_code_value/1
          %% test_copyright_format/1, test_files_licenses/1,
         ]).
 
@@ -1114,34 +1115,67 @@ add_packages(AppPackages, Spdx) ->
     Spdx1#{~"packages" := SpdxPackages ++ AppPackages}.
 
 %% Removes duplicate packages and adds a comment for existing vendor Packages in SPDX
-%% it also remove files in top-level directories and they onyly exist  in vendor libraries
+%% it also remove files in top-level directories and they only exist  in vendor libraries
 -spec remove_duplicate_packages(VendorPackages :: map(), Spdx2 :: map()) -> {ResultVendorPackages :: map(), SPDX :: map()}.
 remove_duplicate_packages(VendorPackages, #{~"packages" := Packages}=Spdx) ->
     #{~"vendor" := Vendors, ~"app" := Apps} =
-        lists:foldl(fun (#{~"SPDXID" := VendorId}=Vendor, #{~"vendor" := Vcc, ~"app" := Apc}=Acc) ->
-                            case lists:search(fun (#{~"SPDXID" := Id}) -> VendorId == Id end, Packages) of
-                                {value, P} ->
-                                    Packages1 = Apc -- [P],
-                                    Comment = maps:get(~"comment", P, <<>>),
-                                    Comment1 =
-                                        case Comment of
-                                            <<>> ->
-                                                ~"vendor package";
-                                            _ ->
-                                                <<Comment/binary, " vendor package">>
-                                        end,
-                                    Acc#{~"app" := [P#{~"comment" => Comment1} | Packages1]};
-                                _ ->
-                                    Acc#{~"vendor" := [Vendor | Vcc]}
-                            end
-                    end, #{~"vendor" => [], ~"app" => Packages}, VendorPackages),
+        lists:foldl(
+          fun (#{~"SPDXID" := VendorId}=Vendor, #{~"vendor" := Vcc, ~"app" := Apc}=Acc) ->
+                  case lists:search(fun (#{~"SPDXID" := Id}) -> VendorId == Id end, Packages) of
+                      {value, P} ->
+                          Packages1 = Apc -- [P],
+                          Comment = maps:get(~"comment", P, <<>>),
+                          Comment1 =
+                              case Comment of
+                                  <<>> ->
+                                      ~"vendor package";
+                                  _ ->
+                                      <<Comment/binary, " vendor package">>
+                              end,
+                          Acc#{~"app" := [P#{~"comment" => Comment1} | Packages1]};
+                      _ ->
+                          Acc#{~"vendor" := [Vendor | Vcc]}
+                  end
+          end, #{~"vendor" => [], ~"app" => Packages}, VendorPackages),
 
     %%
     VendorFileIds = lists:flatten(lists:map(fun (#{~"hasFiles" := Fs}) -> Fs end, Vendors)),
-    FixedApps = lists:map(fun (#{~"hasFiles" := SPDXIDs}=AppPackage) ->
-                                  AppPackage#{~"hasFiles" := SPDXIDs -- VendorFileIds}
-                          end, Apps),
+    FixedApps = lists:map(
+                  fun (#{~"hasFiles" := SPDXIDs}=AppPackage) ->
+                          HasFiles = SPDXIDs -- VendorFileIds,
+                          %% calculate licenses in the package, removing vendor licenses,
+                          %% as they are now contained elsewhere.
+                          SpdxFiles = maps:get(~"files", Spdx),
+                          LicenseInfoFromFiles = update_licenseInfoFromFiles(HasFiles, SpdxFiles),
+
+                          %% updates the verification code for the package,
+                          %% considering only the remaining files.
+                          Files = lists:filter(fun (#{~"SPDXID" := Id}) ->
+                                                       lists:member(Id, HasFiles)
+                                               end, SpdxFiles),
+                          PackageVerificationCodeValue = generate_verification_code_value(Files),
+
+                          AppPackage#{~"hasFiles" := HasFiles,
+                                      ~"licenseInfoFromFiles" := LicenseInfoFromFiles,
+                                      ~"packageVerificationCode" =>
+                                          #{~"packageVerificationCodeValue" => PackageVerificationCodeValue}}
+                  end, Apps),
     {Vendors, Spdx#{~"packages" := FixedApps}}.
+
+
+
+
+-spec update_licenseInfoFromFiles(Files :: [binary()], SpdxFilesSection :: [map()]) -> [binary()].
+update_licenseInfoFromFiles(Files, SpdxFilesSection) ->
+    Result = lists:foldl(fun (#{~"SPDXID" := Id, ~"licenseInfoInFiles" := Ls}, Acc) ->
+                                 case lists:member(Id, Files) of
+                                     true ->
+                                         Ls ++ Acc;
+                                     false ->
+                                         Acc
+                                 end
+                         end, [], SpdxFilesSection),
+    lists:uniq(Result).
 
 %% project package contains `hasFiles` fields with all files.
 %% remove all files included in other packages from project package.
@@ -1758,7 +1792,7 @@ vendor_by_version(_) ->
 %% any vulnerability. The user should still look into possible
 %% issues with wx if they link to it.
 non_vulnerable_vendor_packages() ->
-    [~"wx-doc-src"].
+    [~"wx-wxwidgets"].
 
 ignore_non_vulnerable_vendors(Packages) ->
     lists:filter(fun (#{~"ID" := Id}) -> not lists:member(Id, non_vulnerable_vendor_packages())
@@ -2083,6 +2117,7 @@ package_generator(Sbom) ->
              test_package_ids,
              test_erts,
              test_verificationCode,
+             test_package_verification_code_value,
              test_supplier_Ericsson,
              test_originator_Ericsson,
              test_versionInfo_not_empty,
@@ -2155,7 +2190,7 @@ root_vendor_packages() ->
 minimum_vendor_packages() ->
     %% self-contained
     root_vendor_packages() ++
-        [~"tcl", ~"STL", ~"json-test-suite", ~"openssl", ~"Autoconf", ~"wx-doc-src", ~"jquery", ~"tablesorter"].
+        [~"tcl", ~"STL", ~"json-test-suite", ~"openssl", ~"Autoconf", ~"wxwidgets", ~"jquery", ~"tablesorter"].
 
 test_copyright_not_empty(#{~"packages" := Packages}) ->
     true = lists:all(fun (#{~"copyrightText" := Copyright}) -> Copyright =/= ~"" end, Packages),
@@ -2331,6 +2366,35 @@ test_verificationCode(#{~"packages" := Packages}) ->
                      end, Packages),
     ok.
 
+test_package_verification_code_value(#{~"packages" := Packages,
+                                       ~"files" := Files}=_Spdx) ->
+    lists:foreach(
+      fun (#{~"hasFiles" := HasFiles,
+             ~"SPDXID" := PackageId,
+            ~"packageVerificationCode" := #{~"packageVerificationCodeValue" := CodeValue}}=_Pkg) ->
+              PackageFiles =
+                  lists:foldl(
+                    fun (#{~"SPDXID" := SPDXId}=File, Acc) ->
+                            Value  = lists:member(SPDXId, HasFiles),
+                            case Value of
+                                true ->
+                                    [File|Acc];
+                                false ->
+                                    Acc
+                            end
+                    end, [], Files),
+              PackageVerificationCodeValue = generate_verification_code_value(PackageFiles),
+              case PackageVerificationCodeValue == CodeValue of
+                  true ->
+                      ok;
+                  false ->
+                      io:format("Error in ~s package verification code: ~s =/= ~s~n",
+                               [PackageId, PackageVerificationCodeValue, CodeValue])
+              end
+      end, Packages),
+    ok.
+
+
 test_supplier_Ericsson(#{~"packages" := Packages}) ->
     true = lists:all(fun (#{~"supplier" := Supplier, ~"name" := Name}) ->
                              %% logical implication (->) expressed in boolean logic (not A or B)
@@ -2488,12 +2552,21 @@ test_has_extracted_licenses(#{~"hasExtractedLicensingInfos" := LicensesInfo,
     LicenseRefsInProject =
         lists:uniq(
           lists:foldl(fun (#{~"licenseInfoFromFiles" := InfoFromFilesInPackage }, Acc) ->
-                              LicenseRefs = lists:filter(fun (<<"LicenseRef-", _/binary>>) -> true ;
-                                                             (_) -> false
-                                                         end, InfoFromFilesInPackage),
+                              LicenseRefs = lists:uniq(
+                                              lists:foldl(
+                                                fun (L, Acc0) when is_binary(L) ->
+                                                        Ls = string:split(L, " AND "),
+                                                        lists:filter(fun (<<"LicenseRef-", _/binary>>) -> true;
+                                                                         (_) -> false
+                                                                     end, Ls) ++ Acc0
+                                                end, [], InfoFromFilesInPackage)),
                               LicenseRefs ++ Acc
                       end, [], Packages)),
-    true = lists:all(fun (#{~"licenseId" := LicenseId}) -> lists:member(LicenseId, LicenseRefsInProject) end, LicensesInfo),
+    LicenseRefsInProject1 = lists:uniq(lists:flatmap(fun (L) -> string:split(L, " AND ") end, LicenseRefsInProject)),
+    RootLicenses = lists:map(fun (#{~"licenseId" := Id}) -> Id end, LicensesInfo),
+
+    [] = RootLicenses -- LicenseRefsInProject1,
+    true = lists:all(fun (#{~"licenseId" := LicenseId}) -> lists:member(LicenseId, LicenseRefsInProject1) end, LicensesInfo),
     ok.
 
 %% Adds LicenseRef licenses where the text is missing.
