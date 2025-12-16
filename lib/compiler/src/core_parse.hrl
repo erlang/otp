@@ -85,7 +85,7 @@
 		     val :: any()}).            % TODO
 
 -record(c_struct, {anno=[] :: list(),
-                   arg=#c_literal{val=#{}} :: cerl:c_var() | cerl:c_literal(),
+                   arg=#c_literal{val=ok} :: cerl:c_var() | cerl:c_literal(),
                    id :: cerl:c_literal(),
                    es :: [cerl:c_struct_pair()]}).
 
