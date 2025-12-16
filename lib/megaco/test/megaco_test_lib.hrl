@@ -20,6 +20,9 @@
 %% %CopyrightEnd%
 %%
 
+-ifndef(megaco_test_lib_hrl).
+-define(megaco_test_lib_hrl, true).
+
 %%
 %%----------------------------------------------------------------------
 %% Purpose: Define common macros for testing
@@ -151,3 +154,12 @@
 
 -define(MEGACO_TRACE(C, D),    ?LIB:megaco_trace((C), (D))).
 -define(ENABLE_TRACE(C, L, D), ?LIB:enable_trace((C), (L), (D))).
+
+%% 'BENCH_SUITE' needs to be defined by the module using this macro
+-define(BENCH_EVENT(__N__, __V__),
+        #event{name = benchmark_data,
+               data = [{suite, ?BENCH_SUITE},
+                       {value, (__V__)},
+                       {name,  (__N__)}]}).
+
+-endif. % -ifndef(socket_test_lib_hrl).
