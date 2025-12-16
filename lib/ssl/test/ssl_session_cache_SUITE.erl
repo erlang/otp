@@ -71,7 +71,7 @@
 %%--------------------------------------------------------------------
 
 
-all() -> 
+all() ->
     [
      {group, 'tlsv1.2'},
      {group, 'tlsv1.1'},
@@ -103,7 +103,7 @@ init_per_suite(Config0) ->
     try crypto:start() of
 	ok ->
 	    ssl_test_lib:clean_start(),
-	    %% make rsa certs using 
+	    %% make rsa certs using
             ssl_test_lib:make_rsa_cert(Config0)
     catch _:_ ->
 	    {skip, "Crypto did not start"}
@@ -114,7 +114,7 @@ end_per_suite(_Config) ->
     application:stop(crypto).
 
 init_per_group(GroupName, Config) ->
-    ssl_test_lib:init_per_group(GroupName, Config). 
+    ssl_test_lib:init_per_group(GroupName, Config).
 
 end_per_group(GroupName, Config) ->
   ssl_test_lib:end_per_group(GroupName, Config).
@@ -154,7 +154,7 @@ init_per_testcase(max_table_size, Config) ->
     ssl_test_lib:set_protocol_versions(Versions),
     application:set_env(ssl, session_cache_server_max, ?MAX_TABLE_SIZE),
     application:set_env(ssl, session_cache_client_max, ?MAX_TABLE_SIZE),
-    ssl:start(),	
+    ssl:start(),
     ssl_test_lib:ct_log_supported_protocol_versions(Config),
     ct:timetrap({seconds, 40}),
     Config.
@@ -164,8 +164,10 @@ init_customized_session_cache(Type, Config) ->
     ssl:stop(),
     application:load(ssl),
     ssl_test_lib:set_protocol_versions(Versions),
-    application:set_env(ssl, session_cb, ?MODULE),
-    application:set_env(ssl, session_cb_init_args, [{type, Type}]),
+    application:set_env(ssl, client_session_cb, ?MODULE),
+    application:set_env(ssl, server_session_cb, ?MODULE),
+    application:set_env(ssl, client_session_cb_init_args, [{type, Type}]),
+    application:set_env(ssl, server_session_cb_init_args, [{type, Type}]),
     ssl:start(),
     ssl_test_lib:ct_log_supported_protocol_versions(Config),
     catch (end_per_testcase(list_to_atom("session_cache_process" ++ atom_to_list(Type)),
@@ -176,11 +178,14 @@ init_customized_session_cache(Type, Config) ->
     Config.
 
 end_per_testcase(session_cache_process_list, Config) ->
-    application:unset_env(ssl, session_cb),
+    application:unset_env(ssl, client_session_cb),
+    application:unset_env(ssl, server_session_cb),
     end_per_testcase(default_action, Config);
 end_per_testcase(session_cache_process_mnesia, Config) ->
-    application:unset_env(ssl, session_cb),
-    application:unset_env(ssl, session_cb_init_args),
+    application:unset_env(ssl, client_session_cb),
+    application:unset_env(ssl, server_session_cb),
+    application:unset_env(ssl, client_session_cb_init_args),
+    application:unset_env(ssl, server_session_cb_init_args),
     mnesia:kill(),
     ssl:stop(),
     ssl:start(),
@@ -271,9 +276,9 @@ session_cleanup(Config) when is_list(Config) ->
 
     %% Make sure session has expired and been cleaned up
     check_timer(SessionTimer),
-    
+
     ct:sleep(?SLEEP),  %% Make sure clean has had time to run
-    
+
     undefined = ?CLIENT_CB:lookup(ClientCache, {{Hostname, Port}, Id}),
 
     process_flag(trap_exit, false),
@@ -308,29 +313,30 @@ save_specific_session(Config) when is_list(Config) ->
 				   {tcp_options, [{active, false}]},
 				   {options, ServerOpts}]),
     Port = ssl_test_lib:inet_port(Server),
-    
+
     Client1 = ssl_test_lib:start_client([{node, ClientNode},
                                          {port, Port}, {host, Hostname},
                                          {mfa, {ssl_test_lib, session_id, []}},
                                          {from, self()},  {options, ClientOpts}]),
     Server ! listen,
-    
+
     Client2 = ssl_test_lib:start_client([{node, ClientNode},
                                          {port, Port}, {host, Hostname},
                                          {mfa, {ssl_test_lib, session_id, []}},
-                                         {from, self()},  {options, [{reuse_sessions, save} | ClientOpts]}]),    
+                                         {from, self()},
+                                         {options, [{reuse_sessions, save} | ClientOpts]}]),
     SessionID1 =
-        receive 
+        receive
             {Client1, S1} ->
                 S1
         end,
-    
+
     SessionID2 =
-        receive 
+        receive
             {Client2, S2} ->
                 S2
         end,
-    
+
     true = SessionID1 =/= SessionID2,
 
     {status, _, _, StatusInfo} = sys:get_status(whereis(ssl_manager)),
@@ -344,8 +350,9 @@ save_specific_session(Config) when is_list(Config) ->
     Client3 = ssl_test_lib:start_client([{node, ClientNode},
                                          {port, Port}, {host, Hostname},
                                          {mfa, {ssl_test_lib, session_id, []}},
-                                         {from, self()},  {options, [{reuse_session, SessionID2} | ClientOpts]}]), 
-    receive 
+                                         {from, self()},
+                                         {options, [{reuse_session, SessionID2} | ClientOpts]}]),
+    receive
         {Client3, SessionID2} ->
             ok;
         {Client3, SessionID3}->
@@ -370,16 +377,17 @@ max_table_size(Config) when is_list(Config) ->
 				   {tcp_options, [{active, false}]},
 				   {options, ServerOpts}]),
     Port = ssl_test_lib:inet_port(Server),
-    LastClient = clients_start(Server, 
-                               ClientNode, Hostname, Port, ClientOpts, 20, [{reuse_sessions, save}]),
-    receive 
+    LastClient = clients_start(Server,
+                               ClientNode, Hostname,
+                               Port, ClientOpts, 20, [{reuse_sessions, save}]),
+    receive
         {LastClient, {ok, _}} ->
             ok
     end,
     {status, _, _, StatusInfo} = sys:get_status(whereis(ssl_manager)),
     [_, _,_, _, Prop] = StatusInfo,
     State = ssl_test_lib:state(Prop),
-    ClientCache = element(2, State),	
+    ClientCache = element(2, State),
     M = ?CLIENT_CB:size(ClientCache),
     ?CT_LOG("Cache size ~p",[M]),
     ssl_test_lib:close(Server, 500),
@@ -555,10 +563,10 @@ clients_start(_Server, ClientNode, Hostname, Port, ClientOpts, 0, Opts) ->
     ssl_test_lib:start_client([{node, ClientNode},
 			       {port, Port}, {host, Hostname},
 			       {mfa, {?MODULE, connection_info_result, []}},
-                               %% Make sure session is registered    
+                               %% Make sure session is registered
 			       {from, self()},  {options, Opts ++ ClientOpts}]);
 clients_start(Server, ClientNode, Hostname, Port, ClientOpts, N, Opts) ->
-    spawn_link(ssl_test_lib, start_client, 
+    spawn_link(ssl_test_lib, start_client,
 	       [[{node, ClientNode},
 		 {port, Port}, {host, Hostname},
 		 {mfa, {?MODULE, connection_info_result, []}},
@@ -569,7 +577,6 @@ clients_start(Server, ClientNode, Hostname, Port, ClientOpts, N, Opts) ->
     Server ! listen,
     wait_for_server(),
     clients_start(Server, ClientNode, Hostname, Port, ClientOpts, N-1, Opts).
-	
 
 check_timer(Timer) ->
     case erlang:read_timer(Timer) of
@@ -582,6 +589,6 @@ check_timer(Timer) ->
 	    ct:sleep(Int),
 	    check_timer(Timer)
     end.
-    
+
 wait_for_server() ->
-    ct:sleep(100).	
+    ct:sleep(100).

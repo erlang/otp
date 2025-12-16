@@ -422,14 +422,14 @@ max_session_cache_size(server) ->
     end.
 
 session_cb_opts(client = Role)->
-    case application:get_env(ssl, session_cb, ssl_client_session_cache_db) of
+    case application:get_env(ssl, client_session_cb, ssl_client_session_cache_db) of
         ssl_client_session_cache_db = ClientCb ->
             {ClientCb, []};
         ClientCb ->
             {ClientCb, session_cb_init_args(Role)}
     end;
 session_cb_opts(server = Role) ->
-    case application:get_env(ssl, session_cb, ssl_server_session_cache_db) of
+    case application:get_env(ssl, server_session_cb, ssl_server_session_cache_db) of
         ssl_server_session_cache_db = ServerCb ->
             {ServerCb, []};
         ServerCb ->
