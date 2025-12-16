@@ -1431,28 +1431,28 @@ _ET_DECLARE_CHECKED(Uint,loader_y_reg_index,Uint)
 /*
  * Backwards compatibility definitions:
  * - #define virtual *_DEF constants with values that fit term order:
- *   number < atom < ref < fun < port < pid < tuple < map < nil < cons < binary
+ *   number < atom < ref < fun < port < pid < tuple < record < map < nil < cons < binary
  * - tag_val_def() function generates virtual _DEF tag
  * - not_eq_tags() and NUMBER_CODE() defined in terms
  *   of the tag_val_def() function
  */
 
-#define STRUCT_DEF              0x0
-#define BITSTRING_DEF           0x1
-#define LIST_DEF                0x2
-#define NIL_DEF	                0x3
-#define MAP_DEF	                0x4
-#define TUPLE_DEF               0x5
-#define PID_DEF	                0x6
-#define EXTERNAL_PID_DEF        0x7
-#define PORT_DEF                0x8
-#define EXTERNAL_PORT_DEF       0x9
-#define FUN_DEF                 0xa
-#define REF_DEF                 0xb
-#define EXTERNAL_REF_DEF        0xc
-#define ATOM_DEF                0xd
-#define FLOAT_DEF               0xe
-#define BIG_DEF	                0xf
+#define BITSTRING_DEF           0x00
+#define LIST_DEF                0x01
+#define NIL_DEF                 0x02
+#define MAP_DEF                 0x03
+#define STRUCT_DEF              0x04
+#define TUPLE_DEF               0x05
+#define PID_DEF                 0x06
+#define EXTERNAL_PID_DEF        0x07
+#define PORT_DEF                0x08
+#define EXTERNAL_PORT_DEF       0x09
+#define FUN_DEF                 0x0a
+#define REF_DEF                 0x0b
+#define EXTERNAL_REF_DEF        0x0c
+#define ATOM_DEF                0x0d
+#define FLOAT_DEF               0x0e
+#define BIG_DEF                 0x0f
 #define SMALL_DEF               0x10
 #define BIN_REF_DEF             0x11   /* not a "real" term */
 

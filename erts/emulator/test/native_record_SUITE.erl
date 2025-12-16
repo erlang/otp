@@ -55,12 +55,26 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 term_order(_Config) ->
+    RecA = id(#a{}),
+
+    true = RecA > 42,
+    true = RecA > 42.0,
+    true = RecA > atom,
+    true = RecA > make_ref(),
+    true = RecA > self(),
+    true = RecA > {a,b,c},
+    true = RecA < #{},
+    true = RecA < [],
+    true = RecA < [a],
+    true = RecA < ~"abc",
+
+    true = id(#a{}) =/= id(#b{}),
+
     true = id(#a{}) < id(#b{}),
     true = id(#a{}) =:= id(#a{}),
     true = id(#a{x=1}) < id(#a{x=2}),
     true = id(#a{x=10}) > id(#a{x=0}),
 
-    true = id(#a{}) =/= id(#b{}),
 
     ok.
 
