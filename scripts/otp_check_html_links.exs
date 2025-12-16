@@ -134,6 +134,13 @@ defmodule Anchors do
     if String.contains?(file, "doc/html/assets/") do
       seen
     else
+      # Check anchors without href
+      Floki.find(document, "a:not([href])")
+      |> Enum.each(fn {_, _, content} ->
+        warn(file, "anchor tag without href: #{Floki.text(content)}")
+      end)
+
+      # Check anchors with href
       Floki.find(document, "a[href]")
       |> Enum.reduce(seen, fn {_, attr, _}, seen ->
         href = :proplists.get_value("href", attr)
