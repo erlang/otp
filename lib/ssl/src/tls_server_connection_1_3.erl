@@ -260,7 +260,9 @@ negotiated(internal, {start_handshake, _} = Message, State0) ->
     case send_hello_flight(Message, State0) of
         #alert{} = Alert ->
             ssl_gen_statem:handle_own_alert(Alert, ?STATE(negotiated), State0);
-        {State, NextState} ->
+        {State1, NextState} ->
+            State2 = tls_handshake_1_3:calculate_write_traffic_secrets(State1),
+            State = ssl_record:step_encryption_state_write(State2),
             {next_state, NextState, State, []}
     end;
 negotiated(info, Msg, State) ->
@@ -313,14 +315,12 @@ wait_finished(internal,
     {Ref,Maybe} = tls_gen_connection_1_3:do_maybe(),
     try
         Maybe(tls_handshake_1_3:validate_finished(State0, VerifyData)),
-
-        State1 = tls_handshake_1_3:handle_secrets(State0),
-        %% Configure traffic keys
-        State2 = ssl_record:step_encryption_state(State1),
-
-        State3 = maybe_send_session_ticket(State2),
-
-        {Record, State} = ssl_gen_statem:prepare_connection(State3, tls_gen_connection),
+        State1 = tls_handshake_1_3:calculate_read_traffic_secrets(State0),
+        State2 = tls_handshake_1_3:maybe_calculate_resumption_master_secret(State1),
+        State3 = ssl_record:step_encryption_state_read(State2),
+        State4 = tls_handshake_1_3:prepare_connection(State3),
+        State5 = maybe_send_session_ticket(State4),
+        {Record, State} = ssl_gen_statem:prepare_connection(State5, tls_gen_connection),
         KeepSecrets = maps:get(keep_secrets, SSLOpts, false),
         tls_gen_connection_1_3:maybe_traffic_keylog_1_3(KeepSecrets, Role,
                                                         State#state.connection_states, 0),
@@ -558,14 +558,7 @@ send_hello_flight({start_handshake, PSK0},
                 true ->
                     ssl_record:step_encryption_state_write(State3);
                 false ->
-                    %% Read state is overwritten when handshake secrets are set.
-                    %% Trial_decryption and early_data_accepted must be set here!
-                    update_current_read(
-                      ssl_record:step_encryption_state(State3),
-                      true,   %% trial_decryption
-                      false   %% early_data_accepted
-                    )
-
+                    ssl_record:step_encryption_state(State3)
             end,
 
         %% Create EncryptedExtensions
@@ -591,7 +584,6 @@ send_hello_flight({start_handshake, PSK0},
 
         %% Send first flight
         {State, _} = Connection:send_handshake_flight(State9),
-
         {State, NextState}
 
     catch
@@ -636,8 +628,11 @@ session_resumption({#state{ssl_options = #{session_tickets := Tickets},
   when Tickets =/= disabled -> % Resumption but early data prohibited
     State1 = tls_gen_connection_1_3:handle_resumption(State0, ok),
     {Index, PSK, PeerCert} = PSKInfo,
-    State = maybe_store_peer_cert(State1, PeerCert),
-    {ok, {State, negotiated, {Index, PSK}}};
+    State = #state{connection_states = #{pending_read := Read0} = CS} =
+        maybe_store_peer_cert(State1, PeerCert),
+     #{early_data := EarlyData0} = Read0,
+    Read = Read0#{early_data => EarlyData0#{trial_decryption => true}},
+    {ok, {State#state{connection_states = CS#{pending_read => Read}}, negotiated, {Index, PSK}}};
 session_resumption({#state{ssl_options = #{session_tickets := Tickets},
                            handshake_env = #handshake_env{
                                               early_data_accepted = true}} = State0,
@@ -646,11 +641,16 @@ session_resumption({#state{ssl_options = #{session_tickets := Tickets},
     State1 = tls_gen_connection_1_3:handle_resumption(State0, ok),
     %% TODO Refactor PSK-tuple {Index, PSK}, index might not be needed.
     {Index, PSK, PeerCert} = PSKInfo,
-    State2 = tls_handshake_1_3:calculate_client_early_traffic_secret(State1, PSK),
+    State2 = maybe_store_peer_cert(State1, PeerCert),
+    State3 =
+        tls_handshake_1_3:calculate_client_early_traffic_secret(State2, PSK),
     %% Set 0-RTT traffic keys for reading early_data
-    State3 = ssl_record:step_encryption_state_read(State2),
-    State4 = maybe_store_peer_cert(State3, PeerCert),
-    State = update_current_read(State4, true, true),
+    State4 = #state{connection_states = #{current_read := Read0} = CS}
+        = ssl_record:step_encryption_state_read(State3),
+    #{early_data := EarlyData0} = Read0,
+    Read = Read0#{early_data => EarlyData0#{trial_decryption => true,
+                                            early_data_accepted => true}},
+    State = State4#state{connection_states = CS#{current_read => Read}},
     {ok, {State, negotiated, {Index, PSK}}}.
 
 maybe_store_peer_cert(State, undefined) ->
@@ -852,13 +852,6 @@ send_hello_retry_request(#state{connection_states = ConnectionStates0,
 send_hello_retry_request(State0, _, _, _) ->
     %% Suitable key found.
     {ok, {State0, negotiated}}.
-
-update_current_read(#state{connection_states = CS} = State, TrialDecryption, EarlyDataExpected) ->
-    #{early_data := EarlyData0} = Read0 = ssl_record:current_connection_state(CS, read),
-    EarlyData = EarlyData0#{trial_decryption => TrialDecryption,
-                            early_data_accepted => EarlyDataExpected},
-    Read = Read0#{early_data := EarlyData},
-    State#state{connection_states = CS#{current_read => Read}}.
 
 handle_early_data(State, enabled, #early_data_indication{}) ->
     %% Accept early data
