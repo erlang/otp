@@ -36,7 +36,7 @@ CC = @DED_CC@
 LD = @DED_LD@
 SHELL = /bin/sh
 LIBS = @DED_LIBS@
-LDFLAGS += @DED_LDFLAGS@ -lstdc++
+LDFLAGS += @DED_LDFLAGS@
 CFLAGS = @DED_CFLAGS@ @SSL_FLAGS@ @DEFS@
 
 # From configure
