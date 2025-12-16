@@ -35,7 +35,8 @@
 -module(hash_SUITE).
 -export([basic_test/0,cmp_test/1,range_test/0,spread_test/1,
 	 phash2_test/0, otp_5292_test/0,
-         otp_7127_test/0, 
+         otp_7127_test/0,
+         test_native_record/1,
          run_phash2_benchmarks/0,
          test_phash2_binary_aligned_and_unaligned_equal/1,
          test_phash2_4GB_plus_bin/1,
@@ -54,6 +55,11 @@
          test_phash2_with_large_bin/1,
          test_phash2_with_large_unaligned_sub_binary/1,
          test_phash2_with_super_large_unaligned_sub_binary/1]).
+
+
+-record #empty{}.
+-record #a{x, y}.
+-record #order{zzzz=0, true=1, aaaa=2, wwww=3}.
 
 %%
 %% Define to run outside of test server
@@ -110,6 +116,7 @@ all() ->
      test_hash_zero, test_phash2_binary_aligned_and_unaligned_equal,
      test_phash2_4GB_plus_bin,
      test_phash2_10MB_plus_bin,
+     test_native_record,
      {group, phash2_benchmark_tests},
      {group, phash2_benchmark}].
 
@@ -506,7 +513,16 @@ phash2_test() ->
 	 {{c:pid(0,2,0)}, 686997880},
 	 {{F4}, 2279632930},
 	 {{a,<<>>}, 2724468891},
-	 {{b,<<>>}, 2702508511}
+         {{b,<<>>}, 2702508511},
+
+         %% native record
+         {#empty{}, 1560690320},
+         {#a{x=1,y=10}, 3223325983},
+         {#a{x=2,y=10}, 1058791747},
+         {#a{x=1,y=11}, 296183383},
+         {#order{}, 2170522941},
+         {#order{zzzz=100}, 1212749614},
+         {#order{wwww=999}, 3113131792}
 	],
     SpecFun = fun(S) -> sofs:no_elements(S) > 1 end,
     F = sofs:relation_to_family(sofs:converse(sofs:relation(L))),
@@ -845,6 +861,52 @@ hash_zero_test([Z|Zs],Z0,V,F) ->
 hash_zero_test([],_,_,_) ->
     ok.
 
+test_native_record(_Config) ->
+    erts_debug:set_internal_state(available_internal_state, true),
+
+    Records = [#empty{}, #a{x={a,b,c},y=[x,y,z]}, #a{x=42,y=0.0},
+               #order{}, #order{wwww=abc}],
+    _ = [begin
+             %% Hash of the definition is calculated when loading a
+             %% module and when reconstructing a record definition
+             %% form the external term format. Those calculations
+             %% must give the same result
+             ProcessedTerm = binary_to_term(term_to_binary(Term)),
+             Hash = erlang:phash(Term, 1 bsl 32),
+             Hash = erlang:phash(ProcessedTerm, 1 bsl 32),
+             Hash2 = erlang:phash2(Term, 1 bsl 32),
+             Hash2 = erlang:phash2(ProcessedTerm, 1 bsl 32),
+             IntHash = make_internal_hash(Term),
+             IntHash = make_internal_hash(ProcessedTerm),
+
+             %% A record should not have the same hash value as a
+             %% tuple.
+             Fake = fake_native_record(Term),
+             io:format("~p\n", [Fake]),
+             true = Hash =/= erlang:phash(Fake, 1 bsl 32),
+             true = Hash2 =/= erlang:phash2(Fake, 1 bsl 32),
+             true = IntHash =/= make_internal_hash(Fake)
+         end || Term <- Records],
+
+    erts_debug:set_internal_state(available_internal_state, false),
+    ok.
+
+fake_native_record(R) ->
+    Mod = records:get_module(R),
+    Name = records:get_name(R),
+    Exported = records:is_exported(R),
+    Fs = records:get_field_names(R),
+    Vs = [records:get(F, R) || F <- Fs],
+
+    Def0 = list_to_tuple([[],Mod,Name,Exported] ++ Fs ++ [0]),
+    Hash = erlang:phash2(Def0, 1 bsl 32),
+    Def1 = setelement(tuple_size(Def0), Def0, Hash),
+    Order = list_to_tuple(lists:seq(0, length(Fs) - 1)),
+    Def = setelement(1, Def1, Order),
+    list_to_tuple([Def|Vs]).
+
+make_internal_hash(Term) ->
+    erts_debug:get_internal_state({internal_hash, Term}).
 
 %%
 %% Reference implementation of integer hashing

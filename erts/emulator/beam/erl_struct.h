@@ -38,8 +38,8 @@ typedef struct {
     Eterm definitions[ERTS_ADDRESSV_SIZE];
 } ErtsStructEntry;
 
-/* Struct definitions are tagged as tuples to simplify the GC. They should
- * never be presented to the user. */
+/* Struct definitions are tagged as tuples to simplify the GC. They
+ * should never be presented to the user. */
 typedef struct {
     Eterm thing_word;
 
@@ -50,8 +50,13 @@ typedef struct {
     Eterm name;
     Eterm is_exported;
 
-    /* The keys for the native record in atom index order. */
-    Eterm keys[];
+    /* The keys for the native record in atom index order.
+     *
+     * Following the keys is a one-word hash of the preceeding terms
+     * (calculated using make_hash2()). It is in that position to
+     * avoid having to special-case comparing of records in cmp().
+     */
+    Eterm keys[1];
 } ErtsStructDefinition;
 
 /* A native-record value (instance). */

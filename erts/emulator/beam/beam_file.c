@@ -937,7 +937,12 @@ static int parse_record_chunk_data(BeamFile *beam, BeamReader *p_reader) {
         Eterm value_tuple;
         Eterm is_exported;
         Eterm *hp;
-        Eterm cons, *consp;
+        Eterm tmp_cons[2];
+        Uint32 hash;
+        Eterm tagged_hash;
+#if !defined(ARCH_64)
+        Eterm tmp_big[BIG_UINT_HEAP_SIZE];
+#endif
 
         if (!beamcodereader_next(op_reader, &op)) {
             goto error;
@@ -1033,15 +1038,6 @@ static int parse_record_chunk_data(BeamFile *beam, BeamReader *p_reader) {
             extra_args -= 2;
         }
 
-        qsort((void *) fields, num_fields, sizeof(struct erl_record_field),
-              (int (*)(const void *, const void *)) record_compare);
-
-        /* Separate the fields into three arrays:
-         *   * field names
-         *   * default values
-         *   * a mapping from the original position to current position
-         */
-
         tmp_size = sizeof(ErtsStructDefinition);
         tmp_size += num_fields * sizeof(Eterm); /* Field names */
 
@@ -1050,8 +1046,6 @@ static int parse_record_chunk_data(BeamFile *beam, BeamReader *p_reader) {
         tmp_size += (num_fields + 1) * sizeof(Eterm); /* Value tuple */
         tmp_size += (num_fields + 1) * sizeof(Eterm); /* Order tuple */
 
-        tmp_size += 2 * sizeof(Eterm); /* Top CONS cell */
-
         hp = (Eterm *) erts_alloc(ERTS_ALC_T_TMP, tmp_size);
         tmp_def = (ErtsStructDefinition *) hp;
         tmp_def->thing_word = make_arityval(struct_def_size/sizeof(Eterm) - 1);
@@ -1059,11 +1053,35 @@ static int parse_record_chunk_data(BeamFile *beam, BeamReader *p_reader) {
         tmp_def->name = rec->records[i].name;
         tmp_def->is_exported = is_exported;
 
-        values = &tmp_def->keys[num_fields];
+        /* Create a platform-independent record definition suitable
+         * for calculating a portable hash value. */
+        tmp_def->field_order = NIL;
+        for (field_index = 0; field_index < num_fields; field_index++) {
+            tmp_def->keys[field_index] = fields[field_index].key;
+        }
+        tmp_def->keys[num_fields] = make_small(0);
+        hash = make_hash2(make_tuple((Eterm *)tmp_def));
+
+#if defined(ARCH_64)
+        tagged_hash = make_small(hash);
+#else
+        if (IS_USMALL(0, hash)) {
+            tagged_hash = make_small(hash);
+        } else {
+            tagged_hash = uint_to_big(hash, tmp_big);
+        }
+#endif
+        tmp_def->keys[num_fields] = tagged_hash;
+
+        values = &tmp_def->keys[num_fields + 1];
         if (num_fields == 0) {
             value_tuple = ERTS_GLOBAL_LIT_EMPTY_TUPLE;
             values[0] = NIL;
         } else {
+            /* Now sort fields in atom index order for efficiency. */
+            qsort((void *) fields, num_fields, sizeof(struct erl_record_field),
+                  (int (*)(const void *, const void *)) record_compare);
+
             value_tuple = make_tuple(values);
             values[0] = make_arityval(num_fields);
             values++;
@@ -1079,8 +1097,11 @@ static int parse_record_chunk_data(BeamFile *beam, BeamReader *p_reader) {
             *order_tuple++ = make_arityval(num_fields);
         }
 
-        consp = order_tuple + num_fields;
-        cons = CONS(consp, make_tuple((Eterm *)tmp_def), value_tuple);
+        /* Separate the fields into three arrays:
+         *   * field names
+         *   * default values
+         *   * a mapping from the original position to current position
+         */
 
         for (field_index = 0; field_index < num_fields; field_index++) {
             tmp_def->keys[field_index] = fields[field_index].key;
@@ -1088,9 +1109,12 @@ static int parse_record_chunk_data(BeamFile *beam, BeamReader *p_reader) {
             order_tuple[fields[field_index].order] = make_small(field_index);
         }
 
+        tmp_cons[0] = make_tuple((Eterm *)tmp_def);
+        tmp_cons[1] = value_tuple;
+
         /* Save everything into a literal. */
         rec->records[i].def_literal =
-            beamfile_add_literal(beam, cons, 0);
+            beamfile_add_literal(beam, make_list(tmp_cons), 0);
 
         erts_free(ERTS_ALC_T_TMP, hp);
 

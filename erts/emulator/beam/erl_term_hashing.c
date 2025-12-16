@@ -33,6 +33,7 @@
 #include "erl_map.h"
 #include "erl_binary.h"
 #include "erl_bits.h"
+#include "erl_struct.h"
 
 /*                                                                           *\
  *                                                                           *
@@ -108,6 +109,7 @@
 #define FUNNY_NUMBER12 268440581
 #define FUNNY_NUMBER13 268440593
 #define FUNNY_NUMBER14 268440611
+#define FUNNY_NUMBER15 268440629
 
 static Uint32
 hash_binary_bytes(Eterm bin, Uint32 hash)
@@ -171,6 +173,7 @@ Uint32 make_hash(Eterm term_arg)
 #define MAKE_HASH_TERM_ARRAY_OP (FIRST_VACANT_TAG_DEF+1)
 #define MAKE_HASH_CDR_PRE_OP    (FIRST_VACANT_TAG_DEF+2)
 #define MAKE_HASH_CDR_POST_OP   (FIRST_VACANT_TAG_DEF+3)
+#define MAKE_HASH_RECORD_OP     (FIRST_VACANT_TAG_DEF+4)
 
     /* 
     ** Convenience macro for calculating a bytewise hash on an unsigned 32 bit 
@@ -364,6 +367,15 @@ tail_recur:
         hash = hash*FUNNY_NUMBER13 + FUNNY_NUMBER14 + make_hash2(term);
         break;
     case STRUCT_DEF:
+        {
+            Eterm* ptr = boxed_val(term);
+            Uint arity = header_arity(*ptr);
+
+            WSTACK_PUSH3(stack, (UWord) arity, (UWord)(ptr+1), (UWord) arity);
+            op = MAKE_HASH_RECORD_OP;
+            continue;
+        }
+        break;
     case TUPLE_DEF:
         {
             Eterm* ptr = boxed_val(term);
@@ -373,6 +385,7 @@ tail_recur:
             op = MAKE_HASH_TUPLE_OP;
         }/*fall through*/
     case MAKE_HASH_TUPLE_OP:
+    case MAKE_HASH_RECORD_OP:
     case MAKE_HASH_TERM_ARRAY_OP:
         {
             Uint i = (Uint) WSTACK_POP(stack);
@@ -385,6 +398,9 @@ tail_recur:
             if (op == MAKE_HASH_TUPLE_OP) {
                 Uint32 arity = (Uint32) WSTACK_POP(stack);
                 hash = hash*FUNNY_NUMBER9 + arity;
+            } else if (op == MAKE_HASH_RECORD_OP) {
+                Uint32 arity = (Uint32) WSTACK_POP(stack);
+                hash = hash*FUNNY_NUMBER15 + arity;
             }
             break;
         }
@@ -692,6 +708,7 @@ finalize:
 typedef enum {
     tag_primary_list,
     arityval_subtag,
+    record_subtag,
     hamt_subtag_head_flatmap,
     map_subtag,
     fun_subtag,
@@ -708,6 +725,12 @@ typedef struct {
     Uint32 sh;
     Eterm* ptr;
 } ErtsMakeHash2Context_TAG_PRIMARY_LIST;
+
+typedef struct {
+    int i;
+    int arity;
+    Eterm* elem;
+} ErtsMakeHash2Context_RECORD_SUBTAG;
 
 typedef struct {
     int i;
@@ -762,6 +785,7 @@ typedef struct {
     union {
         ErtsMakeHash2Context_TAG_PRIMARY_LIST tag_primary_list;
         ErtsMakeHash2Context_ARITYVAL_SUBTAG arityval_subtag;
+        ErtsMakeHash2Context_RECORD_SUBTAG record_subtag;
         ErtsMakeHash2Context_HAMT_SUBTAG_HEAD_FLATMAP hamt_subtag_head_flatmap;
         ErtsMakeHash2Context_MAP_SUBTAG map_subtag;
         ErtsMakeHash2Context_FUN_SUBTAG fun_subtag;
@@ -838,7 +862,7 @@ make_hash2_helper(Eterm term_param, const int can_trap, Eterm* state_mref_write_
     Eterm term = term_param;
     ERTS_UNDEF(hash_xor_pairs, 0);
 
-/* (HCONST * {2, ..., 22}) mod 2^32 */
+/* (HCONST * {2, ..., 23}) mod 2^32 */
 #define HCONST_2 0x3c6ef372UL
 #define HCONST_3 0xdaa66d2bUL
 #define HCONST_4 0x78dde6e4UL
@@ -860,6 +884,7 @@ make_hash2_helper(Eterm term_param, const int can_trap, Eterm* state_mref_write_
 #define HCONST_20 0x5c558274UL
 #define HCONST_21 0xfa8cfc2dUL
 #define HCONST_22 0x98c475e6UL
+#define HCONST_23 0x36fbef9fUL
 
 #define HASH_MAP_TAIL (_make_header(1,_TAG_HEADER_REF))
 #define HASH_MAP_PAIR (_make_header(2,_TAG_HEADER_REF))
@@ -1002,6 +1027,7 @@ make_hash2_helper(Eterm term_param, const int can_trap, Eterm* state_mref_write_
             switch (context->trap_location) {
             case hash2_common_3:           goto L_hash2_common_3;
             case tag_primary_list:         goto L_tag_primary_list;
+            case record_subtag:            goto L_record_subtag;
             case arityval_subtag:          goto L_arityval_subtag;
             case hamt_subtag_head_flatmap: goto L_hamt_subtag_head_flatmap;
             case map_subtag:               goto L_map_subtag;
@@ -1052,8 +1078,36 @@ make_hash2_helper(Eterm term_param, const int can_trap, Eterm* state_mref_write_
             Eterm hdr = *boxed_val(term);
             ASSERT(is_header(hdr));
             switch (hdr & _TAG_HEADER_MASK) {
-            case ARITYVAL_SUBTAG:
             case STRUCT_SUBTAG:
+            {
+                ErtsStructInstance* instance;
+                ErtsStructDefinition *defp;
+                Uint def_hash_val;
+                ErtsMakeHash2Context_RECORD_SUBTAG ctx;
+                int field_count = struct_field_count(term);
+
+                instance = (ErtsStructInstance*) struct_val(term);
+                defp = (ErtsStructDefinition*) tuple_val(instance->struct_definition);
+                if (!term_to_Uint(defp->keys[field_count], &def_hash_val)) {
+                    ASSERT(0);
+                }
+
+                ctx.i = 0;
+                ctx.arity = field_count;
+                ctx.elem = instance->values;
+                UINT32_HASH_2(field_count, def_hash_val, HCONST_23);
+                if (ctx.arity == 0) /* Empty record */
+                    goto hash2_common;
+                for (ctx.i = ctx.arity - 1; ; ctx.i--) {
+                    term = ctx.elem[ctx.i];
+                    if (ctx.i == 0)
+                        break;
+                    ESTACK_PUSH(s, term);
+                    TRAP_LOCATION(record_subtag);
+                }
+            }
+            break;
+            case ARITYVAL_SUBTAG:
             {
                 ErtsMakeHash2Context_ARITYVAL_SUBTAG ctx = {
                     .i =  0,
