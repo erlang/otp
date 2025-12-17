@@ -60,5 +60,7 @@ src/Safecurves-pkix-18.erl
 src/Safecurves-pkix-18.hrl
 src/SecureMimeMessageV3dot1-2009.erl
 src/SecureMimeMessageV3dot1-2009.hrl
+src/SLH-DSA-Module-2024.erl
+src/SLH-DSA-Module-2024.hrl
 include/PKCS-FRAME.hrl
 priv/lib/
