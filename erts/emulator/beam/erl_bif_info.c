@@ -24,6 +24,7 @@
 #  include "config.h"
 #endif
 
+#include <stdint.h>
 #define ERTS_WANT_MEM_MAPPERS
 #include "sys.h"
 #include "erl_vm.h"
@@ -4483,23 +4484,28 @@ BIF_RETTYPE erts_debug_get_internal_state_1(BIF_ALIST_1)
         else if (ERTS_IS_ATOM_STR("re_yield_coverage", BIF_ARG_1)) {
 #ifdef DEBUG
             extern const int erts_dbg_pcre_cost_chk_lines[];
-            extern int erts_dbg_pcre_cost_chk_visits[];
-            extern int erts_dbg_pcre_cost_chk_yields[];
+            extern uint64_t erts_dbg_pcre_cost_chk_visits[];
+            extern uint64_t erts_dbg_pcre_cost_chk_yields[];
             extern const int erts_dbg_pcre_cost_chk_cnt;
-            const Uint hsz = (2 + 1 + 3) * erts_dbg_pcre_cost_chk_cnt;
+            const Uint hsz = ((2 + 1+3 + 2*ERTS_MAX_UINT64_HEAP_SIZE)
+                              * erts_dbg_pcre_cost_chk_cnt);
             Eterm *hp = HAlloc(BIF_P, hsz);
             Eterm *hp_end = hp + hsz;
             Eterm list = NIL;
             for (int i=erts_dbg_pcre_cost_chk_cnt-1; i>=0; i--) {
-                Eterm tuple = TUPLE3(hp,
-                    make_small(erts_dbg_pcre_cost_chk_lines[i]),
-                    make_small(erts_dbg_pcre_cost_chk_visits[i]),
-                    make_small(erts_dbg_pcre_cost_chk_yields[i]));
+                Eterm line = make_small(erts_dbg_pcre_cost_chk_lines[i]);
+                Eterm visits = erts_bld_uint64(&hp, NULL, erts_dbg_pcre_cost_chk_visits[i]);
+                Eterm yields = erts_bld_uint64(&hp, NULL, erts_dbg_pcre_cost_chk_yields[i]);
+                Eterm tuple = TUPLE3(hp, line, visits, yields);
                 hp += 1+3;
                 list = CONS(hp, tuple, list);
                 hp += 2;
+
+                erts_dbg_pcre_cost_chk_visits[i] = 0;
+                erts_dbg_pcre_cost_chk_yields[i] = 0;
             }
-            ASSERT(hp == hp_end);
+            ERTS_ASSERT(hp <= hp_end);
+            HRelease(BIF_P, hp_end, hp);
             return list;
 #else
             return am_undefined;
@@ -5121,7 +5127,7 @@ BIF_RETTYPE erts_debug_set_internal_state_2(BIF_ALIST_2)
 	else if (ERTS_IS_ATOM_STR("re_loop_limit", BIF_ARG_1)) {
 	    /* Used by re_SUITE (stdlib) */
 	    Uint max_loops;
-	    if (is_atom(BIF_ARG_2) && ERTS_IS_ATOM_STR("default", BIF_ARG_2)) {
+	    if (ERTS_IS_ATOM_STR("default", BIF_ARG_2)) {
 		max_loops = erts_re_set_loop_limit(-1);
 		BIF_RET(make_small(max_loops));
 	    } else if (term_to_Uint(BIF_ARG_2, &max_loops) != 0) {
@@ -5132,7 +5138,7 @@ BIF_RETTYPE erts_debug_set_internal_state_2(BIF_ALIST_2)
 	else if (ERTS_IS_ATOM_STR("unicode_loop_limit", BIF_ARG_1)) {
 	    /* Used by unicode_SUITE (stdlib) */
 	    Uint max_loops;
-	    if (is_atom(BIF_ARG_2) && ERTS_IS_ATOM_STR("default", BIF_ARG_2)) {
+	    if (ERTS_IS_ATOM_STR("default", BIF_ARG_2)) {
 		max_loops = erts_unicode_set_loop_limit(-1);
 		BIF_RET(make_small(max_loops));
 	    } else if (term_to_Uint(BIF_ARG_2, &max_loops) != 0) {
