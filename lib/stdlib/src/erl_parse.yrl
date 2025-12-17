@@ -2045,7 +2045,7 @@ inop_prec('.') -> {900,900,1000}.
 -doc false.
 -spec preop_prec(pre_op()) -> {0 | 600 | 700, 100 | 700 | 800}.
 
-preop_prec('catch') -> {700,100};
+preop_prec('catch') -> {0,100};
 preop_prec('+') -> {600,700};
 preop_prec('-') -> {600,700};
 preop_prec('bnot') -> {600,700};

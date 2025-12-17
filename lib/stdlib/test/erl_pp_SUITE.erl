@@ -1341,11 +1341,14 @@ otp_16435(_Config) ->
     CheckF("f() ->\n    << \n      (catch <<1:4>>) ||\n"
            "          A <- []\n    >>.\n"),
     CheckF("f() ->\n    [ \n     catch foo ||\n         A <- []\n    ].\n"),
-    CheckF("f() ->\n    1 = catch 1.\n"),
-    CheckF("f() ->\n    catch 1 = catch 1.\n"),
-    CheckF("f() ->\n    A = catch 1 / 0.\n"),
+    CheckF("f() ->\n    1 = (catch 1).\n"),
+    CheckF("f() ->\n    catch 1 = (catch 1).\n"),
+    CheckF("f() ->\n    A = (catch 1 / 0).\n"),
     CheckF("f() when erlang:float(3.0) ->\n    true.\n"),
     CheckF("f() ->\n    (catch 16)#{}.\n"),
+    CheckF("f() ->\n    (catch throw(false)) =/= true.\n"),
+    CheckF("f() ->\n    (catch throw(2)) + 1.\n"),
+    CheckF("f() ->\n    (catch throw(Pid)) ! stop.\n"),
 
     Check = fun(S) -> S = flat_parse_and_pp_expr(S, 0, []) end,
     Check("5 #r4.f1"),
