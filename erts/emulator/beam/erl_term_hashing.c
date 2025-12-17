@@ -1089,7 +1089,7 @@ make_hash2_helper(Eterm term_param, const int can_trap, Eterm* state_mref_write_
                 instance = (ErtsStructInstance*) struct_val(term);
                 defp = (ErtsStructDefinition*) tuple_val(instance->struct_definition);
                 if (!term_to_Uint(defp->keys[field_count], &def_hash_val)) {
-                    ASSERT(0);
+                    ERTS_UNREACHABLE;
                 }
 
                 ctx.i = 0;
@@ -1638,6 +1638,7 @@ enum {
     IHASH_TYPE_CDR,
     IHASH_TYPE_STRING,
     IHASH_TYPE_TUPLE,
+    IHASH_TYPE_RECORD,
     IHASH_TYPE_FLATMAP,
     IHASH_TYPE_HASHMAP_HEAD_ARRAY,
     IHASH_TYPE_HASHMAP_HEAD_BITMAP,
@@ -1844,8 +1845,38 @@ make_internal_hash(Eterm term, erts_ihash_t salt)
             ASSERT(is_header(hdr));
 
             switch (hdr & _TAG_HEADER_MASK) {
-            case ARITYVAL_SUBTAG:
             case STRUCT_SUBTAG:
+            {
+                const Eterm *elements = &boxed_val(term)[0];
+                const int arity = header_arity(hdr);
+                ErtsStructInstance* instance;
+                ErtsStructDefinition* defp;
+                int field_count;
+
+                IHASH_MIX_ALPHA(IHASH_TYPE_RECORD);
+                IHASH_MIX_BETA(arity);
+
+                field_count = struct_field_count(term);
+                instance = (ErtsStructInstance*)elements;
+                defp = (ErtsStructDefinition*)
+                    tuple_val(instance->struct_definition);
+
+                IHASH_PUSH_TERM(s, defp->keys[field_count]);
+                
+                if (arity > 1) {
+                    for (int i = 2; i < arity; i++) {
+                        IHASH_PUSH_TERM(s, elements[i]);
+                    }
+
+                    term = elements[arity];
+                    continue;
+                }
+
+                goto pop_next;
+            }
+            break;
+
+            case ARITYVAL_SUBTAG:
             {
                 const Eterm *elements = &boxed_val(term)[0];
                 const int arity = header_arity(hdr);

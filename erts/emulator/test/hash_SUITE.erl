@@ -33,6 +33,8 @@
 %% Also tests that the limit can be between 0 and 16#FFFFFFFF.
 %%
 -module(hash_SUITE).
+-compile([{nowarn_deprecated_function, [{erlang,phash,2}]}]).
+
 -export([basic_test/0,cmp_test/1,range_test/0,spread_test/1,
 	 phash2_test/0, otp_5292_test/0,
          otp_7127_test/0,
@@ -870,7 +872,7 @@ test_native_record(_Config) ->
              %% Hash of the definition is calculated when loading a
              %% module and when reconstructing a record definition
              %% form the external term format. Those calculations
-             %% must give the same result
+             %% must give the same result.
              ProcessedTerm = binary_to_term(term_to_binary(Term)),
              Hash = erlang:phash(Term, 1 bsl 32),
              Hash = erlang:phash(ProcessedTerm, 1 bsl 32),
