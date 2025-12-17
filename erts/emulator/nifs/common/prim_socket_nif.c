@@ -18994,6 +18994,14 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
         sysconf(_SC_IOV_MAX)
 #endif
         ;
+    /* sysconf may return -1 for indeterminate values (POSIX compliant) */
+    if (data.iov_max <= 0) {
+#ifdef IOV_MAX
+        data.iov_max = IOV_MAX;
+#else
+        data.iov_max = 16;
+#endif
+    }
     ESOCK_ASSERT( data.iov_max > 0 );
 
 

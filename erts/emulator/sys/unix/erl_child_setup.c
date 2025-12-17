@@ -85,6 +85,11 @@
 #define MSG_DONTWAIT MSG_NONBLOCK
 #endif
 
+/* SA_RESTART is not available on all systems (e.g., QNX) */
+#ifndef SA_RESTART
+#define SA_RESTART 0
+#endif
+
 //#define HARD_DEBUG
 #ifdef HARD_DEBUG
 #define DEBUG_PRINT(fmt, ...) fprintf(stderr, "%d:" fmt "\r\n", getpid(), ##__VA_ARGS__)
