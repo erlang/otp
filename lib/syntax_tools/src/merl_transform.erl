@@ -29,8 +29,6 @@
 %% either the Apache License or the LGPL.
 %%
 %% %CopyrightEnd%
-%%
-%% @author Richard Carlsson <carlsson.richard@gmail.com>
 
 -module(merl_transform).
 -moduledoc """

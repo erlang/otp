@@ -29,12 +29,9 @@
 %% either the Apache License or the LGPL.
 %%
 %% %CopyrightEnd%
-%%
-%% @author Richard Carlsson <carlsson.richard@gmail.com>
-%% @doc Unit tests for merl.
-%% @private
 
 -module(merl_tests).
+-moduledoc false.
 
 %-define(MERL_NO_TRANSFORM, true).
 -include("merl.hrl").

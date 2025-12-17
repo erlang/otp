@@ -29,11 +29,6 @@
 %% either the Apache License or the LGPL.
 %%
 %% %CopyrightEnd%
-%%
-%% =====================================================================
-%% @author Richard Carlsson <carlsson.richard@gmail.com>
-%% @end
-%% =====================================================================
 
 -module(erl_comment_scan).
 -moduledoc "Functions for reading comment lines from Erlang source code.".
