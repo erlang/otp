@@ -142,10 +142,8 @@ init_per_suite(Config0) ->
        "~n      Config: ~p"
        "~n      Nodes:  ~p", [Config0, erlang:nodes()]),
 
-    case gen_sctp:open() of
-	{ok, Socket} ->
-	    gen_sctp:close(Socket),
-
+    case is_sctp_supported() of
+        ok ->
             case ?LIB:init_per_suite(Config0) of
                 {skip, _} = SKIP ->
                     SKIP;
@@ -161,10 +159,8 @@ init_per_suite(Config0) ->
                     Config1
             end;
 
-	{error, Error}
-	  when Error =:= eprotonosupport;
-	       Error =:= esocktnosupport ->
-	    {skip,"SCTP not supported on this machine"}
+        {skip, _} = SKIP ->
+            SKIP
     end.
 
 end_per_suite(Config0) ->
@@ -3541,3 +3537,23 @@ err([_|Reasons], Result) ->
 open_failed_str(Reason) ->
     ?F("Open failed: ~w", [Reason]).
 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+is_sctp_supported() ->
+    case os:type() of
+        {unix, netbsd} ->
+            %% SCTP is "fishy" on (our) NetBSD, so skip just to
+            %% avoid fatal crashes...
+            {skip, "SCTP \"fishy\" on NetBSD"};
+        _ ->
+            case gen_sctp:open() of
+                {ok, Socket} ->
+                    gen_sctp:close(Socket),
+                    ok;
+                {error, Reason}
+                  when (Reason =:= eprotonosupport) orelse
+                       (Reason =:= esocktnosupport) ->
+                    {skip, "SCTP not supported on this machine"}
+            end
+    end.
