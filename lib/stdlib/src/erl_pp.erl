@@ -438,8 +438,8 @@ lattribute(record, {Name,Is}, Opts) ->
     Nl = [leaf("-record("),{atom,Name},$,],
     [{first,Nl,record_fields(Is, Opts)},$)];
 lattribute(struct, {Name,Is}, Opts) ->
-  Nl = [leaf("-record("),{atom,Name},$,],
-  [{first,Nl,record_fields(Is, Opts)},$)];
+    Nl = [leaf("-record("),{atom,Name},$,],
+    [{first,Nl,record_fields(Is, Opts)},$)];
 lattribute(Name, Arg, Options) ->
     attr(Name, [abstract(Arg, Options)]).
 
@@ -696,7 +696,7 @@ lexpr({record, _, Name, Fs}, Prec, Opts) ->
     maybe_paren(P, Prec, El);
 lexpr({native_record, _, N, Fs}, Prec, Opts) ->
     {P,_R} = preop_prec('#'),
-    Nl = struct_name(N),
+    Nl = native_record_name(N),
     El = {first,Nl,record_fields(Fs, Opts)},
     maybe_paren(P, Prec, El);
 lexpr({record_field, _, Rec, Name, F}, Prec, Opts) ->
@@ -713,7 +713,7 @@ lexpr({get_record_field, _, Rec, Name0, F}, Prec, Opts) ->
               {tuple,_,[{atom,_,M},{atom,_,N}]} -> {M,N};
               {tuple,_,[]} -> {}
            end,
-    Nl = struct_name(Name),
+    Nl = native_record_name(Name),
     El = [Rl,Nl,lexpr(F, R, Opts)],
     maybe_paren(P, Prec, El);
 lexpr({record, _, Rec, Name, Fs}, Prec, Opts) ->
@@ -727,7 +727,7 @@ lexpr({native_record, _, Name, Arg, Fs}, Prec, Opts) ->
     {L,P,_R} = inop_prec('#'),
     Rl = lexpr(Arg, L, Opts),
     Sep = hash_after_integer(Arg, []),
-    Nl = struct_name(Name),
+    Nl = native_record_name(Name),
     El = {first,[Rl,Sep,Nl],record_fields(Fs, Opts)},
     maybe_paren(P, Prec, El);
 lexpr({record_field, _, {atom,_,''}, F}, Prec, Opts) ->
@@ -968,12 +968,12 @@ record_field({typed_record_field,Field,Type}, Opts) ->
 record_field({record_field,_,F}, Opts) ->
     lexpr(F, 0, Opts).
 
-struct_name({M, N}) when is_atom(M), is_atom(N) ->
-  [$#,{atom,M},$:,{atom,N}];
-struct_name(M) when is_atom(M) ->
-  [$#,{atom,M}];
-struct_name({}) ->
-  [$#, $_].
+native_record_name({M, N}) when is_atom(M), is_atom(N) ->
+    [$#,{atom,M},$:,{atom,N}];
+native_record_name(M) when is_atom(M) ->
+    [$#,{atom,M}];
+native_record_name({}) ->
+    [$#, $_].
 
 map_fields(Fs, Opts) ->
     tuple(Fs, fun map_field/2, Opts).
