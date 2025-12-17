@@ -903,7 +903,7 @@ Common certificate related options to both client and server.
   If this is option is set to `true` all key usage purposes is automatically
   accepted for a CA that include that purpose, the options default to false.
 
-- **`{cerl_check, Check}`**  - Handle certificate revocation lists.
+- **`{crl_check, Check}`**  - Handle certificate revocation lists.
 
   Perform CRL (Certificate Revocation List) verification
   [(public_key:pkix_crls_validate/3)](`public_key:pkix_crls_validate/3`) on all
