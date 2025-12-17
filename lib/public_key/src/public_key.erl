@@ -740,8 +740,8 @@ handle_pkcs_frame_error('PrivateKeyInfo', Der, _) ->
         Decoded = pubkey_translation:decode(Decoded0),
 	der_priv_key_decode(Decoded)
     catch
-	error:{badmatch, {error, _}} = Error ->
-	    erlang:error(Error)
+	error:{badmatch, {error, _}}  ->
+	    nil
     end;
 handle_pkcs_frame_error(_, _, Error) ->
     erlang:error(Error).
@@ -866,7 +866,7 @@ der_priv_key_decode(PKCS8Key) ->
 %%--------------------------------------------------------------------
 -doc(#{group => <<"ASN.1 Encoding API">>,
         since => <<"OTP R14B">>}).
--doc "Encodes a public-key entity with ASN.1 DER encoding.".
+-doc "Encodes a public-key entity with ASN.1 DER encoding. Returns `nil` on failure.".
 -spec der_encode(Asn1Type, Entity) -> Der when Asn1Type :: asn1_type(),
                                                Entity :: term(),
                                                Der :: binary() .
