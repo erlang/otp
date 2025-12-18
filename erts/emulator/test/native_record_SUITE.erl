@@ -24,7 +24,8 @@
 
 -export([all/0,suite/0,groups/0,init_per_suite/1,end_per_suite/1,
 	 init_per_group/2,end_per_group/2,
-         term_order/1,gc/1,external_term_format/1]).
+         term_order/1,gc/1,external_term_format/1,
+         messages/1]).
 
 -record #a{x=1, y=2}.
 -record #b{a=1, b=2}.
@@ -36,7 +37,8 @@ suite() ->
 all() ->
     [term_order,
      gc,
-     external_term_format].
+     external_term_format,
+     messages].
 
 groups() ->
     [].
@@ -146,6 +148,33 @@ external_term_format(_Config) ->
 
 record_def(R) ->
     erts_debug:get_internal_state({native_record_def, R}).
+
+messages(Config) ->
+    Local = ext_records:local([1,2,id(3)], [length(Config)]),
+
+    Echo = spawn_link(fun echo_loop/0),
+
+    _ = [begin
+             R = #a{x={counter,I}, y=Local},
+             Echo ! {self(),R},
+             receive
+                 {ok,Echo,R} ->
+                     ok;
+                 Other ->
+                     error({unexpected,Other})
+             after 10_000 ->
+                     error(timeout)
+             end
+         end || I <- lists:seq(1, 1000)],
+
+    ok.
+
+echo_loop() ->
+    receive
+        {From,Msg} ->
+            From ! {ok,self(),Msg},
+            echo_loop()
+    end.
 
 
 %%% Common utilities.
