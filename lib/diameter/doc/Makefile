@@ -29,6 +29,8 @@ include ../vsn.mk
 VSN=$(DIAMETER_VSN)
 APPLICATION=diameter
 
+SUB_DIRECTORIES = examples
+
 # ----------------------------------------------------
 # Release Target
 # ----------------------------------------------------

@@ -1,0 +1,75 @@
+# ``Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# The Initial Developer of the Original Code is Ericsson Utvecklings AB.
+# Portions created by Ericsson are Copyright 1999, Ericsson Utvecklings
+# AB. All Rights Reserved.''
+#
+include $(ERL_TOP)/make/target.mk
+include $(ERL_TOP)/make/$(TARGET)/otp.mk
+
+# ----------------------------------------------------
+# Application version
+# ----------------------------------------------------
+include ../../vsn.mk
+VSN=$(DIAMETER_VSN)
+
+# ----------------------------------------------------
+# Release Macros
+# ----------------------------------------------------
+RELSYSDIR = $(RELEASE_PATH)/lib/diameter-$(VSN)
+
+# ----------------------------------------------------
+# Macros
+# ----------------------------------------------------
+
+EXAMPLES = \
+	code/GNUmakefile \
+	code/client.erl \
+	code/client_cb.erl \
+	code/server.erl \
+	code/server_cb.erl \
+	code/relay.erl \
+	code/relay_cb.erl \
+	code/redirect.erl \
+	code/redirect_cb.erl \
+	dict/rfc4004_mip.dia \
+	dict/rfc4005_nas.dia \
+	dict/rfc4006_cc.dia \
+	dict/rfc4072_eap.dia \
+	dict/rfc4590_digest.dia \
+	dict/rfc4740_sip.dia
+
+# Ditto for examples.
+EXAMPLE_DIRS = $(sort $(dir $(EXAMPLES)))
+
+# ----------------------------------------------------
+# Make Rules
+# ----------------------------------------------------
+$(TYPES):
+
+clean:
+
+docs:
+
+
+# ----------------------------------------------------
+# Release Targets
+# ----------------------------------------------------
+include $(ERL_TOP)/make/otp_release_targets.mk
+
+release_spec:
+
+release_docs_spec:
+	$(INSTALL_DIR) "$(RELSYSDIR)/doc/examples/$*"
+	$(INSTALL_DATA) $(EXAMPLES) \
+	                "$(RELSYSDIR)/doc/examples/$*"

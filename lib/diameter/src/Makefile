@@ -87,9 +87,6 @@ TARGET_FILES = \
 # Subdirectories of src to release modules into.
 TARGET_DIRS = $(sort $(dir $(TARGET_MODULES)))
 
-# Ditto for examples.
-EXAMPLE_DIRS = $(sort $(dir $(EXAMPLES)))
-
 APP_FILE   = diameter.app
 APP_SRC    = $(APP_FILE).src
 APP_TARGET = $(EBIN)/$(APP_FILE)
@@ -216,15 +213,10 @@ info:
 	@echo
 	@$(call list,INTERNAL_HRLS)
 	@echo
-	@$(call list,EXAMPLES)
-	@echo
-	@$(call list,EXAMPLE_DIRS)
-	@echo
 	@$(call list,BINS)
 	@echo ========================================
 	@echo "APP_FILE:          $(APP_FILE)"
 	@echo "APPUP_FILE:        $(APPUP_FILE)"
-	@echo "EXAMPLE_DIRS:      $(EXAMPLE_DIRS)"
 	@echo "NOWARN_MISSING_SPEC_DOCUMENTED: $(NOWARN_MISSING_SPEC_DOCUMENTED)"
 	@echo "MISSING_SPEC_DOCUMENTED: $(MISSING_SPEC_DOCUMENTED)"
 	@echo "ERL_COMPILE_FLAGS: $(ERL_COMPILE_FLAGS)"
@@ -274,7 +266,7 @@ include $(ERL_TOP)/make/otp_release_targets.mk
 # Can't $(INSTALL_DIR) more than one directory at a time on Solaris.
 
 release_spec: opt
-	for d in bin ebin examples include src/dict; do \
+	for d in bin ebin include src/dict; do \
 	    $(INSTALL_DIR) "$(RELSYSDIR)/$$d"; \
 	done
 	$(INSTALL_SCRIPT) $(BINS:%=../bin/%) "$(RELSYSDIR)/bin"
@@ -283,7 +275,6 @@ release_spec: opt
 	                "$(RELSYSDIR)/include"
 	$(INSTALL_DATA) $(DICTS:%=dict/%.dia) "$(RELSYSDIR)/src/dict"
 	$(MAKE) ERL_DETERMINISTIC=$(ERL_DETERMINISTIC) $(TARGET_DIRS:%/=release_src_%)
-	$(MAKE) ERL_DETERMINISTIC=$(ERL_DETERMINISTIC) $(EXAMPLE_DIRS:%/=release_examples_%)
 
 $(TARGET_DIRS:%/=release_src_%): release_src_%:
 	$(INSTALL_DIR) "$(RELSYSDIR)/src/$*"
@@ -291,11 +282,6 @@ $(TARGET_DIRS:%/=release_src_%): release_src_%:
 	                               $(INTERNAL_HRLS)) \
 	                $(filter $*/%, compiler/$(DICT_YRL).yrl) \
 	                "$(RELSYSDIR)/src/$*"
-
-$(EXAMPLE_DIRS:%/=release_examples_%): release_examples_%:
-	$(INSTALL_DIR) "$(RELSYSDIR)/examples/$*"
-	$(INSTALL_DATA) $(patsubst %, ../examples/%, $(filter $*/%, $(EXAMPLES))) \
-	                "$(RELSYSDIR)/examples/$*"
 
 release_docs_spec:
 
@@ -330,7 +316,6 @@ depend.mk: depend.sed $(MODULES:%=%.erl) Makefile
 .PHONY: app clean realclean depend dict info release_subdir
 .PHONY: debug opt release_docs_spec release_spec
 .PHONY: $(TARGET_DIRS:%/=%) $(TARGET_DIRS:%/=release_src_%)
-.PHONY: $(EXAMPLE_DIRS:%/=release_examples_%)
 .PHONY: plt dialyze patch strict
 
 # Keep intermediate files.
