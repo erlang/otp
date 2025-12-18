@@ -295,9 +295,9 @@ hello(internal,  #change_cipher_spec{type = <<1>>}, State0) ->
         dtls_gen_connection:send_handshake_flight(State0, Epoch),
     %% This will reset the retransmission timer by repeating the enter state event
     case dtls_gen_connection:next_event(?STATE(hello), no_record, State1, Actions0) of
-        {next_state, ?STATE(hello), State, Actions} ->
+        {next_state, ?FUNCTION_NAME, State, Actions} ->
             {repeat_state, State, Actions};
-        {next_state, ?STATE(hello), State} ->
+        {next_state, ?FUNCTION_NAME, State} ->
             {repeat_state, State};
         {stop, _, _} = Stop ->
             Stop
@@ -353,10 +353,10 @@ certify(internal,  #change_cipher_spec{type = <<1>>}, State0) ->
     {State1, Actions0} = dtls_gen_connection:send_handshake_flight(State0, Epoch),
     %% This will reset the retransmission timer by repeating the enter state event
     case dtls_gen_connection:next_event(?STATE(certify), no_record, State1, Actions0) of
-        {next_state, ?STATE(certify), State, Actions} ->
+        {next_state, ?FUNCTION_NAME, State, Actions} ->
             dtls_gen_connection:next_event(?STATE(certify), no_record, State1, Actions0),
             {repeat_state, State, Actions};
-        {next_state, ?STATE(certify), State} ->
+        {next_state, ?FUNCTION_NAME, State} ->
             {repeat_state, State, Actions0};
         {stop, _, _} = Stop ->
             Stop
