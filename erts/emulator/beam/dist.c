@@ -6443,7 +6443,7 @@ monitor_node(Process* p, Eterm Node, Eterm Bool, Eterm Options)
                                              THE_NON_VALUE));
                 mon2 = &mdep2->md.origin;
                 inserted =
-                    erts_monitor_dist_insert(&mdep->md.u.target, dep->mld);
+                    erts_monitor_dist_insert(&mdep2->md.u.target, dep->mld);
                 ASSERT(inserted); (void)inserted;
                 ASSERT(mdep2->dist->connection_id == dep->connection_id);
 
