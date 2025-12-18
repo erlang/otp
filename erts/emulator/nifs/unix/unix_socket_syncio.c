@@ -3068,6 +3068,8 @@ ERL_NIF_TERM essio_sendto(ErlNifEnv*       env,
 
 
 /* ========================================================================
+ * eMsg contains the fields; addr, iov and ctrl.
+ * We do not use the value of the iov field (here) since we have the eIOV.
  */
 extern
 ERL_NIF_TERM essio_sendmsg(ErlNifEnv*       env,
@@ -3094,9 +3096,9 @@ ERL_NIF_TERM essio_sendmsg(ErlNifEnv*       env,
 
     SSDBG( descP, ("UNIX-ESSIO",
                    "essio_sendmsg(%d) -> entry with"
-                   "\r\n   eMsg: %T"
-                   "\r\n   eIOV: %T"
-                   "\r\n", descP->sock, eMsg, eIOV) );
+                   "\r\n   length(eIOV): %d"
+                   "\r\n",
+                   descP->sock, esock_get_list_length(env, eIOV, -1)) );
 
     if (! IS_OPEN(descP->writeState))
         return esock_make_error_closed(env);

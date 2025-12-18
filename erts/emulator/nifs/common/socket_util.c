@@ -194,6 +194,26 @@ ErlNifMutex* esock_mutex_create(const char* pre, char* buf, SOCKET sock)
 
 
 
+/* This is just a simplification of the standard nif function
+ * for getting the length of a list.
+ * Instead of returning a boolean to indicate success or failure
+ * it instead returns a default value (which can be negative).
+ * This is mostly intended for debugging.
+ */
+extern
+int esock_get_list_length(ErlNifEnv*   env,
+                          ERL_NIF_TERM list,
+                          int          def)
+{
+    unsigned int len;
+
+    if (GET_LIST_LEN(env, list, &len))
+        return (int) len;
+    else
+        return def;
+}
+
+
 /* *** esock_get_uint_from_map ***
  *
  * Simple utility function used to extract a unsigned int value from a map.
