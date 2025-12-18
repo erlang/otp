@@ -1,6 +1,15 @@
 {
   "otp-26": [
     {
+      "pkg:otp/ssh@5.0": "CVE-2023-48795",
+      "status": {
+        "affected": "Update to any of the following versions: pkg:otp/ssh@5.1.1",
+        "fixed": [
+          "pkg:otp/ssh@5.1.1"
+        ]
+      }
+    },
+    {
       "pkg:otp/ssh@5.0": "CVE-2025-48041",
       "status": {
         "affected": "Update to any of the following versions: pkg:otp/ssh@5.1.4.12",
@@ -162,15 +171,6 @@
           "pkg:otp/erl_interface@5.4"
         ],
         "not_affected": "vulnerable_code_not_present"
-      }
-    },
-    {
-      "pkg:otp/ssh@5.1": "CVE-2023-48795",
-      "status": {
-        "affected": "Mitigation: If strict KEX availability cannot be ensured on both connection sides, affected encryption modes(CHACHA and CBC) can be disabled with standard ssh configuration. This will provide protection against vulnerability, but at a cost of affecting interoperability",
-        "fixed": [
-          "pkg:otp/ssh@5.1.1"
-        ]
       }
     },
     {
@@ -560,21 +560,15 @@
     },
     {
       "pkg:github/openssl/openssl@636dfadc70ce26f2473870570bfd9ec352806b1d": "CVE-2025-9230",
-      "status": {
-        "not_affected": "vulnerable_code_not_present"
-      }
+      "status": { "not_affected": "vulnerable_code_not_present" }
     },
     {
       "pkg:github/openssl/openssl@636dfadc70ce26f2473870570bfd9ec352806b1d": "CVE-2025-9231",
-      "status": {
-        "not_affected": "vulnerable_code_not_present"
-      }
+      "status": { "not_affected": "vulnerable_code_not_present" }
     },
     {
       "pkg:github/openssl/openssl@636dfadc70ce26f2473870570bfd9ec352806b1d": "CVE-2025-9232",
-      "status": {
-        "not_affected": "vulnerable_code_not_present"
-      }
+      "status": { "not_affected": "vulnerable_code_not_present" }
     }
   ],
   "otp-29": [
@@ -584,33 +578,23 @@
     },
     {
       "pkg:github/openssl/openssl@01d5e2318405362b4de5e670c90d9b40a351d053": "CVE-2025-4575",
-      "status": {
-        "not_affected": "vulnerable_code_not_present"
-      }
+      "status": { "not_affected": "vulnerable_code_not_present" }
     },
     {
       "pkg:github/openssl/openssl@636dfadc70ce26f2473870570bfd9ec352806b1d": "CVE-2016-2183",
-      "status": {
-        "not_affected": "vulnerable_code_not_present"
-      }
+      "status": { "not_affected": "vulnerable_code_not_present" }
     },
     {
       "pkg:github/openssl/openssl@636dfadc70ce26f2473870570bfd9ec352806b1d": "CVE-2025-9230",
-      "status": {
-        "not_affected": "vulnerable_code_not_present"
-      }
+      "status": { "not_affected": "vulnerable_code_not_present" }
     },
     {
       "pkg:github/openssl/openssl@636dfadc70ce26f2473870570bfd9ec352806b1d": "CVE-2025-9231",
-      "status": {
-        "not_affected": "vulnerable_code_not_present"
-      }
+      "status": { "not_affected": "vulnerable_code_not_present" }
     },
     {
       "pkg:github/openssl/openssl@636dfadc70ce26f2473870570bfd9ec352806b1d": "CVE-2025-9232",
-      "status": {
-        "not_affected": "vulnerable_code_not_present"
-      }
+      "status": { "not_affected": "vulnerable_code_not_present" }
     }
   ]
 }
