@@ -25,6 +25,8 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 # ----------------------------------------------------
 # Application version
 # ----------------------------------------------------
+SUB_DIRECTORIES = examples
+
 include ../vsn.mk
 VSN=$(EUNIT_VSN)
 APPLICATION=eunit

@@ -20,7 +20,7 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 # ----------------------------------------------------
 # Application version
 # ----------------------------------------------------
-include ../vsn.mk
+include ../../vsn.mk
 VSN=$(EUNIT_VSN)
 
 # ----------------------------------------------------
@@ -50,8 +50,7 @@ docs:
 include $(ERL_TOP)/make/otp_release_targets.mk
 
 release_spec:
-	$(INSTALL_DIR) "$(RELSYSDIR)/examples"
-	$(INSTALL_DATA) $(EXAMPLE_FILES) "$(RELSYSDIR)/examples"
 
 release_docs_spec:
-
+	$(INSTALL_DIR) "$(RELSYSDIR)/doc/examples"
+	$(INSTALL_DATA) $(EXAMPLE_FILES) "$(RELSYSDIR)/doc/examples"

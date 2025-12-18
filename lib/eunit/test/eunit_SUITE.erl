@@ -74,7 +74,7 @@ eunit_test(Config) when is_list(Config) ->
 
 eunit_exact_test(Config) when is_list(Config) ->
     ok = file:set_cwd(code:lib_dir(eunit)),
-    {ok, fib} = compile:file("./examples/fib.erl", [{outdir,"./examples/"}]),
+    {ok, fib} = compile:file("./doc/examples/fib.erl", [{outdir,"./doc/examples/"}]),
     TestPrimitive =
         fun(Primitive, Expected) ->
                 ok = eunit:test(Primitive,
@@ -92,7 +92,7 @@ eunit_exact_test(Config) when is_list(Config) ->
           #{pass => 0, fail => 0, skip => 0, cancel => 0}},
          {{file, "./ebin/eunit_tests.beam"},
           #{pass => 7, fail => 0, skip => 0, cancel => 0}},
-         {{dir, "./examples/"},
+         {{dir, "./doc/examples/"},
           #{pass => 8, fail => 0, skip => 0, cancel => 0}},
          {{generator, fun() -> fun () -> ok end end},
           #{pass => 1, fail => 0, skip => 0, cancel => 0}},
@@ -107,7 +107,7 @@ eunit_exact_test(Config) when is_list(Config) ->
 
 primitive_test(Config) when is_list(Config) ->
     ok = file:set_cwd(code:lib_dir(eunit)),
-    {ok, fib} = compile:file("./examples/fib.erl", [{outdir,"./examples/"}]),
+    {ok, fib} = compile:file("./doc/examples/fib.erl", [{outdir,"./doc/examples/"}]),
     TestPrimitive =
         fun(Primitive, Expected) ->
                 ok = eunit:test(Primitive,
@@ -128,7 +128,7 @@ primitive_test(Config) when is_list(Config) ->
           #{pass => 7, fail => 0, skip => 0, cancel => 0}},
          {{file, "./ebin/eunit_tests.beam"},
           #{pass => 7, fail => 0, skip => 0, cancel => 0}},
-         {{dir, "./examples/"},
+         {{dir, "./doc/examples/"},
           #{pass => 8, fail => 0, skip => 0, cancel => 0}},
          {{generator, fun() -> fun () -> ok end end},
           #{pass => 1, fail => 0, skip => 0, cancel => 0}},

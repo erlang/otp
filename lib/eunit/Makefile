@@ -35,7 +35,7 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 # Macros
 #
 
-SUB_DIRECTORIES = src examples doc
+SUB_DIRECTORIES = src doc
 
 include vsn.mk
 VSN = $(EUNIT_VSN)
