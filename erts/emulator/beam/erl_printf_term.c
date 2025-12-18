@@ -29,6 +29,7 @@
 #include "big.h"
 #include "erl_map.h"
 #include "erl_binary.h"
+#include "erl_struct.h"
 
 #define PRINT_CHAR(CNT, FN, ARG, C)					\
 do {									\
@@ -333,7 +334,8 @@ static int print_atom_name(fmtfn_t fn, void* arg, Eterm atom, long *dcount)
 #define PRT_TERM               ((Eterm) 5)
 #define PRT_ONE_CONS           ((Eterm) 6)
 #define PRT_PATCH_FUN_SIZE     ((Eterm) 7)
-#define PRT_LAST_ARRAY_ELEMENT ((Eterm) 8) /* Note! Must be last... */
+#define PRT_EQUALS             ((Eterm) 8)
+#define PRT_LAST_ARRAY_ELEMENT ((Eterm) 9) /* Note! Must be last... */
 
 #if 0
 static char *format_binary(Uint16 x, char *b) {
@@ -381,6 +383,9 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount) {
 	    goto L_outer_loop;
 	case PRT_ASSOC:
 	    PRINT_STRING(res, fn, arg, "=>");
+	    goto L_outer_loop;
+	case PRT_EQUALS:
+	    PRINT_STRING(res, fn, arg, "=");
 	    goto L_outer_loop;
 	default:
 	    popped.word = WSTACK_POP(s);
@@ -547,11 +552,32 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount) {
 	    }
 	    break;
         case STRUCT_DEF:
-            /* FIXME: placeholder. */
-            PRINT_CHAR(res, fn, arg, '#');
-            PRINT_CHAR(res, fn, arg, '_');
-            PRINT_CHAR(res, fn, arg, '{');
-            PRINT_CHAR(res, fn, arg, '}');
+            {
+                ErtsStructInstance *instance;
+                ErtsStructDefinition *defp;
+                Eterm *ks, *vs;
+                int n;
+
+                n = struct_field_count(wobj);
+                instance = (ErtsStructInstance*)struct_val(wobj);
+                defp = (ErtsStructDefinition*)tuple_val(instance->struct_definition);
+                ks = defp->keys;
+                vs = instance->values;
+                PRINT_CHAR(res, fn, arg, '#');
+                PRINT_ATOM(res, fn, arg, defp->module, dcount);
+                PRINT_CHAR(res, fn, arg, ':');
+                PRINT_ATOM(res, fn, arg, defp->name, dcount);
+                PRINT_CHAR(res, fn, arg, '{');
+                WSTACK_PUSH(s, PRT_CLOSE_TUPLE);
+                if (n > 0) {
+                    n--;
+                    WSTACK_PUSH5(s, vs[n], PRT_TERM, PRT_EQUALS, ks[n], PRT_TERM);
+                    while (n--) {
+                        WSTACK_PUSH6(s, PRT_COMMA, vs[n], PRT_TERM, PRT_EQUALS,
+                                ks[n], PRT_TERM);
+                    }
+                }
+            }
             break;
         case TUPLE_DEF:
             nobj = boxed_val(wobj);     /* pointer to arity */
