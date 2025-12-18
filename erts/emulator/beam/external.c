@@ -5248,7 +5248,11 @@ dec_term_atom_common:
                 struct erl_record_field *fields;
                 Uint32 hash;
                 Eterm tagged_hash;
-
+#if !defined(ARCH_64)
+                Eterm *big_buf = hp;
+                *hp++ = NIL;
+                *hp++ = NIL;
+#endif
 		num_fields = get_int32(ep); ep += 4;
 
                 order = (Eterm *)hp;
@@ -5298,8 +5302,7 @@ dec_term_atom_common:
                 if (IS_USMALL(0, hash)) {
                     tagged_hash = make_small(hash);
                 } else {
-                    Eterm* hp = HAlloc(BIF_P, BIG_UINT_HEAP_SIZE);
-                    tagged_hash = uint_to_big(hash, hp);
+                    tagged_hash = uint_to_big(hash, big_buf);
                 }
 #endif
                 defp->keys[num_fields] = tagged_hash;
@@ -6409,6 +6412,9 @@ init_done:
                 heap_size += sizeof(ErtsStructDefinition)/sizeof(Eterm)
                     + sizeof(ErtsStructInstance)/sizeof(Eterm)
                     + 2 * n;
+#if !defined(ARCH_64)
+                heap_size += BIG_UINT_HEAP_SIZE;
+#endif
                 if (n > 0) {
                     heap_size += 1 + n; /* field_order tuple */
                 }
