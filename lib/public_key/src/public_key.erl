@@ -1776,7 +1776,13 @@ pkix_crl_verify(#'CertificateList'{} = CRL, #'OTPCertificate'{} = Cert) ->
     PublicKeyInfo = TBSCert#'OTPTBSCertificate'.subjectPublicKeyInfo,
     PublicKey = PublicKeyInfo#'OTPSubjectPublicKeyInfo'.subjectPublicKey,
     AlgInfo = PublicKeyInfo#'OTPSubjectPublicKeyInfo'.algorithm,
-    PublicKeyParams = AlgInfo#'PublicKeyAlgorithm'.parameters,
+    PublicKeyParams =
+        case AlgInfo#'PublicKeyAlgorithm'.algorithm of
+            AlgId when AlgId == ?'id-Ed25519' ; AlgId == ?'id-Ed448' ->
+                {namedCurve, AlgId};
+            _ ->
+                AlgInfo#'PublicKeyAlgorithm'.parameters
+        end,
     pubkey_crl:verify_crl_signature(CRL,
                                     der_encode('CertificateList', CRL),
                                     PublicKey, PublicKeyParams).
