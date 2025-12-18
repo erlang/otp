@@ -845,7 +845,7 @@ combined_relops(_Config) ->
     %% Test a sequence that can't occur in optimized code:
     %%   is_ge Fail Src 10
     %%   is_ge Fail Src 5
-    Module = {?FUNCTION_NAME,[{test,1}],[],
+    Module = {?FUNCTION_NAME,[{test,1}],[],#{},
               [{function, test, 1, 2,
                 [{label,1},
                  {line,[{location,"t.erl",4}]},
