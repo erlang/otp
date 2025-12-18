@@ -704,7 +704,6 @@ XCRUN
 LLVM_PROFDATA
 WFLAGS
 DEBUG_FLAGS
-VISIBILITY_HIDDEN
 ERTS_CONFIG_H_IDIR
 MIXED_MINGW
 MIXED_VC
@@ -8554,13 +8553,13 @@ esac
 fi
 
 
-  # Make -fvisibility=hidden usable if supported. Currently only used by
-  # our PCRE2 to avoid symbol clashes with real PCRE2 if dynamically loaded.
+  # Use -fvisibility=hidden to only export selected symbols
+  # such as NIF and driver APIs.
 
-    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -fvisibility=hidden to VISIBILITY_HIDDEN (via CFLAGS)" >&5
-printf %s "checking if we can add -fvisibility=hidden to VISIBILITY_HIDDEN (via CFLAGS)... " >&6; }
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -fvisibility=hidden to CFLAGS (via CFLAGS)" >&5
+printf %s "checking if we can add -fvisibility=hidden to CFLAGS (via CFLAGS)... " >&6; }
     saved_CFLAGS=$CFLAGS;
-    CFLAGS="-Werror -fvisibility=hidden $VISIBILITY_HIDDEN";
+    CFLAGS="-Werror -fvisibility=hidden $CFLAGS";
     cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
@@ -8584,7 +8583,7 @@ rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
     if test "X$can_enable_flag" = "Xtrue"
 then :
 
-        VISIBILITY_HIDDEN="-fvisibility=hidden $VISIBILITY_HIDDEN"
+        CFLAGS="-fvisibility=hidden $CFLAGS"
         { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
 printf "%s\n" "yes" >&6; }
 
@@ -8596,16 +8595,17 @@ printf "%s\n" "no" >&6; }
 esac
 fi
 
+  if test "$can_enable_flag" = false; then
+    as_fn_error $? "Compiler option -fvisibility=hidden not supported" "$LINENO" 5
+  fi
 
 else case e in #(
   e)
   WFLAGS=""
   WERRORFLAGS=${WERRORFLAGS:-""}
-  VISIBILITY_HIDDEN=""
   ;;
 esac
 fi
-
 
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking C99 support" >&5
 printf %s "checking C99 support... " >&6; }

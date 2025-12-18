@@ -345,6 +345,7 @@ typedef enum {
 typedef struct {
 #  include "erl_nif_api_funcs.h"
    void* erts_alc_test;
+   const void* erts_internal_test_ptr;
 } TWinDynNifCallbacks;
 extern TWinDynNifCallbacks WinDynNifCallbacks;
 #  undef ERL_NIF_API_FUNC_DECL
@@ -371,7 +372,11 @@ extern void enif_rwlock_destroy(ErlNifRWLock *rwlck);
 extern void enif_thread_opts_destroy(ErlNifThreadOpts *opts);
 extern void enif_ioq_destroy(ErlNifIOQueue *q);
 
-#  define ERL_NIF_API_FUNC_DECL(RET_TYPE, NAME, ARGS) extern RET_TYPE NAME ARGS
+#  if (defined(__WIN32__) || defined(_WIN32) || defined(_WIN32_))
+#    define ERL_NIF_API_FUNC_DECL(RET_TYPE, NAME, ARGS) extern RET_TYPE NAME ARGS
+#  else
+#    define ERL_NIF_API_FUNC_DECL(RET_TYPE, NAME, ARGS) ERL_NAPI_EXPORT extern RET_TYPE NAME ARGS
+#  endif
 #  include "erl_nif_api_funcs.h"
 #  undef ERL_NIF_API_FUNC_DECL
 #endif
@@ -380,18 +385,10 @@ extern void enif_ioq_destroy(ErlNifIOQueue *q);
 #  define ERL_NIF_INIT_GLOB TWinDynNifCallbacks WinDynNifCallbacks;
 #  define ERL_NIF_INIT_ARGS TWinDynNifCallbacks* callbacks
 #  define ERL_NIF_INIT_BODY memcpy(&WinDynNifCallbacks,callbacks,sizeof(TWinDynNifCallbacks))
-#  define ERL_NIF_INIT_EXPORT __declspec(dllexport)
 #else 
 #  define ERL_NIF_INIT_GLOB
 #  define ERL_NIF_INIT_ARGS void
 #  define ERL_NIF_INIT_BODY
-#  if defined(__GNUC__) && __GNUC__ >= 4
-#    define ERL_NIF_INIT_EXPORT __attribute__ ((visibility("default")))
-#  elif defined (__SUNPRO_C) && (__SUNPRO_C >= 0x550)
-#    define ERL_NIF_INIT_EXPORT __global
-#  else
-#    define ERL_NIF_INIT_EXPORT
-#  endif
 #endif
 
 
@@ -407,7 +404,7 @@ extern void enif_ioq_destroy(ErlNifIOQueue *q);
           ErlNifEntry* ERL_NIF_INIT_NAME(MODNAME)(ERL_NIF_INIT_ARGS)
 #else
 #  define ERL_NIF_INIT_DECL(MODNAME) \
-          ERL_NIF_INIT_EXPORT ErlNifEntry* nif_init(ERL_NIF_INIT_ARGS)
+          ERL_NAPI_EXPORT ErlNifEntry* nif_init(ERL_NIF_INIT_ARGS)
 #endif
 
 

@@ -224,4 +224,14 @@ typedef struct {
 #  endif
 #endif
 
+#if (defined(__WIN32__) || defined(_WIN32) || defined(_WIN32_))
+#  define ERL_NAPI_EXPORT __declspec(dllexport)
+#elif defined(__GNUC__) && __GNUC__ >= 4
+#  define ERL_NAPI_EXPORT __attribute__ ((visibility("default")))
+#elif defined (__SUNPRO_C) && (__SUNPRO_C >= 0x550)
+#  define ERL_NAPI_EXPORT __global
+#else
+#  define ERL_NAPI_EXPORT
+#endif
+
 #endif  /* __ERL_DRV_NIF_H__ */

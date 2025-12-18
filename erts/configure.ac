@@ -607,16 +607,17 @@ AS_IF([test "x$GCC" = xyes],
   # such dubious duplicates.
   LM_TRY_ENABLE_CFLAG([-fno-common], [CFLAGS])
 
-  # Make -fvisibility=hidden usable if supported. Currently only used by
-  # our PCRE2 to avoid symbol clashes with real PCRE2 if dynamically loaded.
-  LM_TRY_ENABLE_CFLAG([-fvisibility=hidden], [VISIBILITY_HIDDEN])
+  # Use -fvisibility=hidden to only export selected symbols
+  # such as NIF and driver APIs.
+  LM_TRY_ENABLE_CFLAG([-fvisibility=hidden], [CFLAGS])
+  if test "$can_enable_flag" = false; then
+    AC_MSG_ERROR([Compiler option -fvisibility=hidden not supported])
+  fi
  ],
  [
   WFLAGS=""
   WERRORFLAGS=${WERRORFLAGS:-""}
-  VISIBILITY_HIDDEN=""
  ])
-AC_SUBST(VISIBILITY_HIDDEN)
 
 AC_MSG_CHECKING([C99 support])
 

@@ -118,6 +118,8 @@ void erts_alloc_late_init(void);
 
 #if defined(GET_ERTS_ALC_TEST) || defined(ERTS_ALC_INTERNAL__)
 /* Only for testing */
+#include "erl_drv_nif.h"
+ERL_NAPI_EXPORT
 UWord erts_alc_test(UWord,
 		    UWord,
 		    UWord,
