@@ -486,7 +486,6 @@ constant_pools_test(Config) when is_list(Config) ->
     B = literals:b(),
     C = literals:huge_bignum(),
     D = literals:funs(),
-    E = literals:records(),
     process_flag(trap_exit, true),
     Self = self(),
 
@@ -500,7 +499,7 @@ constant_pools_test(Config) when is_list(Config) ->
     true = erlang:purge_module(literals),
     NoOldHeap ! done,
     receive
-        {'EXIT',NoOldHeap,{A,B,C,D,E}} ->
+        {'EXIT',NoOldHeap,{A,B,C,D}} ->
             ok;
         Other_NoOldHeap ->
             ct:fail({unexpected,Other_NoOldHeap})
@@ -534,8 +533,7 @@ constant_pools_test(Config) when is_list(Config) ->
     erlang:purge_module(literals),
     OldHeap ! done,
     receive
-	{'EXIT',OldHeap,{A,B,C,D,E,[1,2,3|_]=Seq}}
-          when length(Seq) =:= 16 ->
+	{'EXIT',OldHeap,{A,B,C,D,[1,2,3|_]=Seq}} when length(Seq) =:= 16 ->
 	    ok
     end,
 
@@ -575,8 +573,7 @@ no_old_heap(Parent) ->
     B = literals:b(),
     C = literals:huge_bignum(),
     D = literals:funs(),
-    E = literals:records(),
-    Res = {A,B,C,D,E},
+    Res = {A,B,C,D},
     Parent ! go,
     receive
         done ->
@@ -588,8 +585,7 @@ old_heap(Parent) ->
     B = literals:b(),
     C = literals:huge_bignum(),
     D = literals:funs(),
-    E = literals:records(),
-    Res = {A,B,C,D,E,lists:seq(1, 16)},
+    Res = {A,B,C,D,lists:seq(1, 16)},
     create_old_heap(),
     Parent ! go,
     receive
