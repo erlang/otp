@@ -649,6 +649,23 @@ Eterm erl_get_record_field(Process* p, Eterm src, Eterm mod, Eterm id, Eterm fie
  * Here follows the BIFs in the record module.
  */
 
+struct erl_record_field {
+    Eterm key;
+    Eterm value;
+};
+
+static int record_compare(const struct erl_record_field *a, const struct erl_record_field *b) {
+    Sint res = erts_cmp_flatmap_keys(a->key, b->key);
+
+    if (res < 0) {
+        return -1;
+    } else if (res > 0) {
+        return 1;
+    }
+
+    return 0;
+}
+
 BIF_RETTYPE records_create_4(BIF_ALIST_4) {
     Eterm module, name;
     ErtsStructEntry *entry;
@@ -679,11 +696,10 @@ BIF_RETTYPE records_create_4(BIF_ALIST_4) {
             Eterm *hp_end;
             Uint num_words_needed;
             Eterm res;
-            const Eterm *vs;
+            Eterm *vs;
             flatmap_t *mp;
             Eterm *ks;
             Uint n;
-
             Eterm *def_values;
 
             def = CAR(list_val(cons));
@@ -746,12 +762,62 @@ BIF_RETTYPE records_create_4(BIF_ALIST_4) {
                     HRelease(BIF_P, hp_end, hp);
                     BIF_P->fvalue = ks[0];
                     BIF_ERROR(BIF_P, EXC_BADFIELD);
-                    return THE_NON_VALUE;
                 }
             } else {
-                /* TODO: Need to handle a large map. */
-                HRelease(BIF_P, hp_end, hp);
-                BIF_ERROR(BIF_P, EXC_SYSTEM_LIMIT);
+                DECLARE_WSTACK(wstack);
+                int j;
+                Eterm *kv;
+                struct erl_record_field *fields;
+                const struct erl_record_field *fields_end;
+                struct erl_record_field sentinel = { NIL, NIL };
+                void *tmp_array;
+
+                ASSERT(is_hashmap(BIF_ARG_3));
+                n = hashmap_size(BIF_ARG_3);
+                hashmap_iterator_init(&wstack, BIF_ARG_3, 0);
+                tmp_array = erts_alloc(ERTS_ALC_T_TMP, n * sizeof(struct erl_record_field));
+                fields = (struct erl_record_field*)tmp_array;
+
+                j = 0;
+                while ((kv=hashmap_iterator_next(&wstack)) != NULL) {
+                    fields[j].key = CAR(kv);
+                    fields[j].value = CDR(kv);
+                    j++;
+                }
+                DESTROY_WSTACK(wstack);
+
+                qsort((void *) fields, n, sizeof(struct erl_record_field),
+                      (int (*)(const void *, const void *)) record_compare);
+
+                fields_end = fields + n;
+
+                for (int i = 0; i < field_count; i++) {
+                    if (fields[0].key == defp->keys[i]) {
+                        *hp++ = fields[0].value;
+                        fields++;
+                        if (fields >= fields_end) {
+                            fields = &sentinel;
+                        }
+                    } else {
+                        Eterm value = def_values[i];
+                        if (is_catch(value)) {
+                            HRelease(BIF_P, hp_end, hp);
+                            BIF_P->fvalue = defp->keys[i];
+                            erts_free(ERTS_ALC_T_TMP, tmp_array);
+                            BIF_ERROR(BIF_P, EXC_NOVALUE);
+                        }
+                        *hp++ = value;
+                    }
+                }
+
+                if (fields != &sentinel) {
+                    HRelease(BIF_P, hp_end, hp);
+                    BIF_P->fvalue = fields[0].key;
+                    erts_free(ERTS_ALC_T_TMP, tmp_array);
+                    BIF_ERROR(BIF_P, EXC_BADFIELD);
+                }
+
+                erts_free(ERTS_ALC_T_TMP, tmp_array);
             }
 
             BIF_RET(res);
@@ -772,6 +838,7 @@ BIF_RETTYPE records_update_4(BIF_ALIST_4) {
     Eterm *hp, *hp_end;
     Uint num_words_needed;
     Eterm res;
+    Uint n;
 
     if (is_not_struct(BIF_ARG_1)) {
         BIF_P->fvalue = BIF_ARG_1;
@@ -830,7 +897,6 @@ BIF_RETTYPE records_update_4(BIF_ALIST_4) {
         flatmap_t *mp;
         const Eterm *vs;
         Eterm *ks;
-        Uint n;
 
         /* We KNOW that the keys for a flatmap have the same order as
          * a native record. */
@@ -858,12 +924,53 @@ BIF_RETTYPE records_update_4(BIF_ALIST_4) {
             HRelease(BIF_P, hp_end, hp);
             BIF_P->fvalue = ks[0];
             BIF_ERROR(BIF_P, EXC_BADFIELD);
-            return THE_NON_VALUE;
         }
     } else {
-        /* TODO: Need to handle a large map. */
-        HRelease(BIF_P, hp_end, hp);
-        BIF_ERROR(BIF_P, EXC_SYSTEM_LIMIT);
+        DECLARE_WSTACK(wstack);
+        int j;
+        Eterm *kv;
+        struct erl_record_field *fields;
+        const struct erl_record_field *fields_end;
+        struct erl_record_field sentinel = { NIL, NIL };
+        void *tmp_array;
+
+        ASSERT(is_hashmap(BIF_ARG_4));
+        n = hashmap_size(BIF_ARG_4);
+        hashmap_iterator_init(&wstack, BIF_ARG_4, 0);
+        tmp_array = erts_alloc(ERTS_ALC_T_TMP, n * sizeof(struct erl_record_field));
+        fields = (struct erl_record_field*)tmp_array;
+
+        j = 0;
+        while ((kv=hashmap_iterator_next(&wstack)) != NULL) {
+            fields[j].key = CAR(kv);
+            fields[j].value = CDR(kv);
+            j++;
+        }
+        DESTROY_WSTACK(wstack);
+
+        qsort((void *) fields, n, sizeof(struct erl_record_field),
+              (int (*)(const void *, const void *)) record_compare);
+
+        fields_end = fields + n;
+
+        for (int i = 0; i < field_count; i++) {
+            if (fields[0].key == defp->keys[i]) {
+                *hp++ = fields[0].value;
+                fields++;
+                if (fields >= fields_end) {
+                    fields = &sentinel;
+                }
+            }
+        }
+
+        if (fields != &sentinel) {
+            HRelease(BIF_P, hp_end, hp);
+            BIF_P->fvalue = fields[0].key;
+            erts_free(ERTS_ALC_T_TMP, tmp_array);
+            BIF_ERROR(BIF_P, EXC_BADFIELD);
+        }
+
+        erts_free(ERTS_ALC_T_TMP, tmp_array);
     }
 
     BIF_RET(res);

@@ -45,6 +45,15 @@
 -record #Seq{elements=[]}.
 -record #Point{x=0,y=0,z=0}.
 
+-record #big{f1, f2, f3, f4, f5, f6, f7, f8,
+              f9, f10, f11, f12, f13, f14, f15, f16,
+              f17, f18, f19, f20, f21, f22, f23, f24,
+              f25, f26, f27, f28, f29, f30, f31, f32,
+              f33, f34, f35, f36, f37, f38, f39, f40,
+              f41, f42, f43, f44, f45, f46, f47, f48,
+              f49, f50, f51, f52, f53, f54, f55, f56,
+              f57, f58, f59, f60, f61, f62, f63, f64}.
+
 -import_record(ext_records, [local,vector]).
 
 suite() ->
@@ -497,8 +506,24 @@ get_field_names_bif(_Config) ->
     ?assertError({novalue,x}, records:create(?MODULE, c, #{})),
 
     %% TODO: A large map should be properly handled.
-    LargeMap = #{I => I || I <- lists:seq(1, 64)},
-    ?assertError(system_limit, records:create(?MODULE, c, LargeMap)),
+    Fields = [f1, f2, f3, f4, f5, f6, f7, f8,
+                f9, f10, f11, f12, f13, f14, f15, f16,
+                f17, f18, f19, f20, f21, f22, f23, f24,
+                f25, f26, f27, f28, f29, f30, f31, f32,
+                f33, f34, f35, f36, f37, f38, f39, f40,
+                f41, f42, f43, f44, f45, f46, f47, f48,
+                f49, f50, f51, f52, f53, f54, f55, f56,
+                f57, f58, f59, f60, f61, f62, f63, f64],
+    BigRecord = id(#big{f1=1, f2=2, f3=3, f4=4, f5=5, f6=6, f7=7, f8=8,
+                     f9=9, f10=10, f11=11, f12=12, f13=13, f14=14, f15=15, f16=16,
+                     f17=17, f18=18, f19=19, f20=20, f21=21, f22=22, f23=23, f24=24,
+                     f25=25, f26=26, f27=27, f28=28, f29=29, f30=30, f31=31, f32=32,
+                     f33=33, f34=34, f35=35, f36=36, f37=37, f38=38, f39=39, f40=40,
+                     f41=41, f42=42, f43=43, f44=44, f45=45, f46=46, f47=47, f48=48,
+                     f49=49, f50=50, f51=51, f52=52, f53=53, f54=54, f55=55, f56=56,
+                     f57=57, f58=58, f59=59, f60=60, f61=61, f62=62, f63=63, f64=64}),
+    LargeMap = #{Field => I || Field <- Fields && I <- lists:seq(1, 64)},
+    BigRecord = records:create(?MODULE, big, LargeMap),
 
     [x,y] = records:get_field_names(ARec),
     [x,y,z] = records:get_field_names(BRec),
@@ -515,8 +540,17 @@ get_field_names_bif(_Config) ->
     ?assertError({badfield,{really,bad}},
                  records:update(CRec, ?MODULE, c, #{{really,bad} => b})),
 
-    %% TODO: A large map should be properly handled.
-    ?assertError(system_limit, records:update(CRec, ?MODULE, c, LargeMap)),
+
+    LargeUpdate = #{Field => I * 2 || Field <- Fields && I <- lists:seq(1, 64)},
+    UpdatedBigRecord = BigRecord#big{f1=2, f2=4, f3=6, f4=8, f5=10, f6=12, f7=14, f8=16,
+                                    f9=18, f10=20, f11=22, f12=24, f13=26, f14=28, f15=30, f16=32,
+                                    f17=34, f18=36, f19=38, f20=40, f21=42, f22=44, f23=46, f24=48,
+                                    f25=50, f26=52, f27=54, f28=56, f29=58, f30=60, f31=62, f32=64,
+                                    f33=66, f34=68, f35=70, f36=72, f37=74, f38=76, f39=78, f40=80,
+                                    f41=82, f42=84, f43=86, f44=88, f45=90, f46=92, f47=94, f48=96,
+                                    f49=98, f50=100, f51=102, f52=104, f53=106, f54=108, f55=110, f56=112,
+                                    f57=114, f58=116, f59=118, f60=120, f61=122, f62=124, f63=126, f64=128},
+    UpdatedBigRecord = records:update(BigRecord, ?MODULE, big, LargeUpdate),
 
     N = 10000,
     #a{x=N,y=0} =
