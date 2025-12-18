@@ -42,7 +42,7 @@ protocol for Megaco/H.248.
 %%-----------------------------------------------------------------
 %% Include files
 %%-----------------------------------------------------------------
--define(megaco_debug, true).
+
 -include_lib("megaco/include/megaco.hrl").
 -include_lib("megaco/src/tcp/megaco_tcp.hrl"). 
 -include_lib("megaco/src/app/megaco_internal.hrl"). 
