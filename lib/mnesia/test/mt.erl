@@ -260,7 +260,8 @@ loop(M,F,N) when is_integer(N) ->
 loop_1(Case,N,Max,Config) when N < Max ->
     io:format("~nLoop test ~p ~n", [abs(N)]),
 
-    case ok_result(Res = t(Case,Config)) of
+    Res = t(Case, Config),
+    case ok_result(Res) of
 	true ->
 	    loop_1(Case,N+1,Max,Config);
 	error ->
