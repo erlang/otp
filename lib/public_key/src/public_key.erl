@@ -1778,7 +1778,9 @@ pkix_crl_verify(#'CertificateList'{} = CRL, #'OTPCertificate'{} = Cert) ->
     AlgInfo = PublicKeyInfo#'OTPSubjectPublicKeyInfo'.algorithm,
     PublicKeyParams =
         case AlgInfo#'PublicKeyAlgorithm'.algorithm of
-            AlgId when AlgId == ?'id-Ed25519' ; AlgId == ?'id-Ed448' ->
+            ?'id-Ed25519' = AlgId ->
+                {namedCurve, AlgId};
+            ?'id-Ed448' = AlgId ->
                 {namedCurve, AlgId};
             _ ->
                 AlgInfo#'PublicKeyAlgorithm'.parameters
