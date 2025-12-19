@@ -7227,9 +7227,10 @@ Returns `true` if `Term` is a native record; otherwise, returns `false`.
 ## Examples
 
 ```erlang
-1> is_record(#rec{})
-true
-2> is_record({a,b}).
+1> Term = not_a_native_record.
+2> is_record(Term)
+false
+3> is_record({a,b}).
 false
 ```
 """.
