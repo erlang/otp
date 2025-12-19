@@ -87,7 +87,20 @@
 #define ADD_BYTE_OFFSET(ptr, offset) \
    ((Eterm *) (((unsigned char *)ptr) + (offset)))
 
-#define VALID_INSTR(IP) (1)
+#if defined(__clang__)
+#  define BROKEN_VALID_INSTR_CHECK
+#endif
+
+/* We don't check the range if an ordinary switch is used */
+#ifdef NO_JUMP_TABLE
+#  define VALID_INSTR(IP) (BeamCodeAddr(IP) < (NUMBER_OF_OPCODES*2+10))
+#elif defined(BROKEN_VALID_INSTR_CHECK)
+#  define VALID_INSTR(IP) (true)
+#else
+#  define VALID_INSTR(IP) \
+    ((BeamInstr)LabelAddr(emulator_loop) <= BeamCodeAddr(IP) && \
+     BeamCodeAddr(IP) < (BeamInstr)LabelAddr(end_emulator_loop))
+#endif
 
 #define SET_I(ip) \
    ASSERT(VALID_INSTR(* (Eterm *)(ip))); \
@@ -433,7 +446,7 @@ void process_main(ErtsSchedulerData *esdp)
 	Goto(next);
     }
 
-#if defined(DEBUG) || defined(NO_JUMP_TABLE)
+#if defined(NO_JUMP_TABLE) || (defined(DEBUG) && !defined(BROKEN_VALID_INSTR_CHECK))
  emulator_loop:
 #endif
 
@@ -572,10 +585,8 @@ void process_main(ErtsSchedulerData *esdp)
     DEFINE_COUNTING_LABELS;
 #endif
 
-#ifndef NO_JUMP_TABLE
-#ifdef DEBUG
+#if defined(DEBUG) && !defined(BROKEN_VALID_INSTR_CHECK)
  end_emulator_loop:
-#endif
 #endif
 
  OpCase(int_code_end):
