@@ -1211,7 +1211,7 @@ b_open_connect_and_close(InitState) ->
                                    ?SEV_IPRINT("try verify notification"),
                                    case lists:member(notification, Flags) of
                                        true ->
-                                           ?SEV_IPRINT("notification"),
+                                           ?SEV_IPRINT("is notification"),
                                            case Msg of
                                                #{notification :=
                                                      #{type     := assoc_change,
@@ -1282,35 +1282,15 @@ b_open_connect_and_close(InitState) ->
          #{desc => "accept connection (recvmsg get assoc-change:comm-up)",
            cmd  => fun(#{lsock := Sock} = State) ->
                            ?SEV_IPRINT("try recv assoc-change:comm-up message"),
-                           case socket:recvmsg(Sock) of
-                               {ok, #{flags := Flags} = Msg} ->
-                                   ?SEV_IPRINT("try verify notification"),
-                                   case lists:member(notification, Flags) of
-                                       true ->
-                                           ?SEV_IPRINT("notification"),
-                                           case Msg of
-                                               #{notification :=
-                                                     #{type     := assoc_change,
-                                                       state    := comm_up,
-                                                       assoc_id := AAID,
-                                                       '$esock_name' := sctp_notification}} ->
-                                                   ?SEV_IPRINT("expected accept notification:"
-                                                               "~n   AssocID: ~p", [AAID]),
-                                                   {ok, State#{aaid => AAID}};
-                                               #{notification := Notif} ->
-                                                   ?SEV_IPRINT("unexpected (accept) notification:"
-                                                               "~n   Notif: ~p", [Notif]),
-                                                   {error, unexpected_notif};
-                                               _ ->
-                                                   ?SEV_EPRINT("unexpected accept msg :"
-                                                               "~n   ~p", [Msg]),
-                                                   {error, unexpected_msg}
-                                           end;
-                                       false ->
-                                           ?SEV_EPRINT("no notification flag detected:"
-                                                       "~n   ~p", [Msg]),
-                                           {error, not_nitification}
-                                   end
+                           case accept_connection(Sock) of
+                               {ok, {_Addr, #{assoc_id := AAID}}} ->
+                                   ?SEV_IPRINT("expected accept notification:"
+                                               "~n   AssocID: ~p", [AAID]),
+                                   {ok, State#{aaid => AAID}};
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("accept confirmation failed:"
+                                               "~n   ~p", [Reason]),
+                                   ERROR
                            end
                    end},
 
@@ -1401,7 +1381,7 @@ b_open_connect_and_close(InitState) ->
                                    ?SEV_IPRINT("try verify notification"),
                                    case lists:member(notification, Flags) of
                                        true ->
-                                           ?SEV_IPRINT("notification"),
+                                           ?SEV_IPRINT("is notification"),
                                            case Msg of
                                                #{notification :=
                                                      #{type     := shutdown_event,
@@ -1444,7 +1424,6 @@ b_open_connect_and_close(InitState) ->
     Evaluator = ?SEV_START("tester", Seq,
                            InitState#{events => ?SCTP_EVENTS(true)}),
     ok = ?SEV_AWAIT_FINISH([Evaluator]).
-
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -2216,8 +2195,19 @@ assoc_confirmation(Sock) ->
                                           inbound_streams  => IS,
                                           outbound_streams => OS}}};
                         #{addr         := Addr,
+                          ctrl         := [],
+                          notification :=
+                              #{type             := peer_addr_change,
+                                state            := addr_confirmed,
+                                assoc_id         := AID,
+                                '$esock_name'    := sctp_notification}} ->
+                            ?SEV_IPRINT("expected peer-addr-change:addr-confirmed - retry"
+                                        "~n   Addr:    ~p"
+                                        "~n   AssocID: ~p", [Addr, AID]),
+                            assoc_confirmation(Sock);
+                        #{addr         := Addr,
                           notification := Notif} ->
-                            ?SEV_IPRINT("unexpected notification:"
+                            ?SEV_EPRINT("unexpected notification:"
                                         "~n   Addr:  ~p"
                                         "~n   Notif: ~p", [Addr, Notif]),
                             {error, {unexpected_notification, Addr, Notif}};
