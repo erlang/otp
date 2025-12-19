@@ -1339,7 +1339,11 @@ i_is_record_accessible(Fail, Src, Mod) {
 }
 
 i_get_record_elements(Fail, Src, N) {
-    if (!erl_get_record_elements(c_p, reg, $Src, $N, $NEXT_INSTRUCTION)) {
+    bool succeeded;
+    SWAPOUT;
+    succeeded = erl_get_record_elements(c_p, reg, $Src, $N, $NEXT_INSTRUCTION);
+    SWAPIN;
+    if (!succeeded) {
         $FAIL($Fail);
     }
     $NEXT($NEXT_INSTRUCTION+$N);
