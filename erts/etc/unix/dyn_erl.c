@@ -371,6 +371,7 @@ main(int argc, char **argv)
             ;
         *p = '\0';
         printf("%s", abspath);
+        efree(abspath);
         return 0;
     }
     /* Determine progname */
