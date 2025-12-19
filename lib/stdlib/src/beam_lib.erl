@@ -1380,7 +1380,8 @@ significant_chunks() ->
 %% for a module. They are listed in the order that they should be MD5:ed.
 
 md5_chunks() ->
-    ["Atom", "AtU8", "Code", "StrT", "ImpT", "ExpT", "FunT", "LitT", "Meta"].
+    ["Atom", "AtU8", "Code", "StrT", "ImpT", "ExpT",
+     "FunT", "LitT", "Meta", "Recs"].
 
 %% The following chunks are mandatory in every Beam file.
 
