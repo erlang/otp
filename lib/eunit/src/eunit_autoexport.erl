@@ -29,10 +29,7 @@
 %%
 %% %CopyrightEnd%
 %%
-%% @author Richard Carlsson <carlsson.richard@gmail.com>
-%% @private
-%% @see eunit
-%% @doc Parse transform for automatic exporting of test functions.
+%% Parse transform for automatic exporting of test functions.
 
 -module(eunit_autoexport).
 -moduledoc false.
