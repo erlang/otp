@@ -186,14 +186,15 @@ sha1sums(GitRepo) ->
     %% Check which files on disk do not have the same sha1 as the files in the original scan
     FilesToRestore = check_files_to_restore(Input, Cache),
 
+    %% Restores from cache only the files with identical SHA1
     ScanResults = restore_from_cache(FilesToRestore,
                                      InputProvenance,
                                      Cache),
+    ScannersName = [maps:get(~"name", maps:get(~"scanner", R)) || R <- ScanResults],
 
     InputScanner = maps:get(~"scanner", Input),
     InputScanners = maps:get(~"scanners", InputScanner),
-    Scanners = [maps:get(~"name", maps:get(~"scanner", R)) || R <- ScanResults],
-    NewScanners = #{ K => Scanners || K := _ <- InputScanners},
+    NewScanners = #{ K => ScannersName || K := _ <- InputScanners},
 
     CacheConfig = maps:get(~"config", maps:get(~"scanner", Cache)),
 
@@ -428,8 +429,51 @@ replace_mappings(SPDX, Map) ->
     %% other side of NOASSERTION.
     replace_mappings(SPDX, maps:to_list(Map) ++ [{"AND NOASSERTION",""},{"NOASSERTION AND",""}]).
 
+%% deduplicates scan results as per oss-review-toolkit scan-result.json format
 deduplicate(ScanResults) ->
-    deduplicate(ScanResults, []).
+    UniqueScanResults = deduplicate(ScanResults, []),
+
+    %% some results have the exact same provenance and cater to different
+    %% files, so we merge those scan results. this is needed because ORT
+    %% cannot distinguish which of two scan results is the valid one,
+    %% given that they have the same provenance and scanning options.
+    merge_identical_scan_results(UniqueScanResults).
+
+%% merges scan results whose provenance and scanner configuration options
+%% (and scanner versions) are identical. from `deduplicate/2` we are
+%% guaranteed to get scan results with different scanned files
+merge_identical_scan_results(ScanResults) ->
+    Result = lists:foldl(
+               fun (#{~"provenance" := Provenance,
+                      ~"scanner" := Scanner,
+                      ~"summary" := Summary}, Acc) ->
+                       case maps:get({Provenance, Scanner}, Acc, false) of
+                           false ->
+                               Acc#{{Provenance, Scanner} => Summary};
+                           SummaryAcc ->
+                               %% merge results where provenance and scanning options
+                               %% are identical. otherwise ORT (oss-review-toolkit) cannot
+                               %% know which one to choose from two identical configurations.
+                               OldCp = maps:get(~"copyrights", SummaryAcc),
+                               NewCp = maps:get(~"copyrights", Summary),
+
+                               OldLs = maps:get(~"licenses", SummaryAcc),
+                               NewLs = maps:get(~"licenses", Summary),
+
+                               Acc#{{Provenance, Scanner} :=
+                                        Summary#{~"copyrights" := OldCp ++ NewCp,
+                                                 ~"licenses" := OldLs ++ NewLs}}
+                       end
+               end, #{}, ScanResults),
+    maps:fold(fun ({Provenance, Scanner}, V, Acc) ->
+                      [#{~"summary" => V,
+                         ~"provenance" => Provenance,
+                         ~"scanner" => Scanner} | Acc]
+              end, [], Result).
+
+
+%% deduplicates licenses if already found in other scanners.
+%% output: scanners have unique files in their copyrights and licenses
 deduplicate([H | T], Found) ->
     #{ ~"summary" := #{ ~"copyrights" := CS, ~"licenses" := LS} = Summary} = H,
     FilteredCS = [C || C = #{ ~"location" := #{ ~"path" := Path }} <- CS,
