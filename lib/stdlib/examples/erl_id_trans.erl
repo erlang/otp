@@ -232,6 +232,9 @@ pattern({cons,Anno,H0,T0}) ->
 pattern({tuple,Anno,Ps0}) ->
     Ps1 = pattern_list(Ps0),
     {tuple,Anno,Ps1};
+pattern({native_record,Anno,Id,Ps0}) ->
+    Ps1 = pattern_list(Ps0),
+    {native_record,Anno,Id,Ps1};
 pattern({map,Anno,Ps0}) ->
     Ps1 = pattern_list(Ps0),
     {map,Anno,Ps1};
@@ -466,6 +469,16 @@ expr({mc,Anno,E0,Qs0}) ->
 expr({tuple,Anno,Es0}) ->
     Es1 = expr_list(Es0),
     {tuple,Anno,Es1};
+expr({native_record,Anno,Id,Inits0}) ->
+    Inits1 = expr_list(Inits0),
+    {native_record,Anno,Id,Inits1};
+expr({native_record_update,Anno,Src0,Id,Inits0}) ->
+    Src1 = expr(Src0),
+    Inits1 = expr_list(Inits0),
+    {native_record_update,Anno,Src1,Id,Inits1};
+expr({native_record_field_expr,Anno,Rec0,Id,F}) ->
+    Rec = expr(Rec0),
+    {native_record_field_expr,Anno,Rec,Id,F};
 expr({map,Anno,Map0,Es0}) ->
     [Map1|Es1] = exprs([Map0|Es0]),
     {map,Anno,Map1,Es1};
