@@ -921,19 +921,19 @@ add_table(CallFrom, AddNode, [Node1, Node2, Node3], Def) ->
     ?verify_mnesia([Node1, Node2, Node3], []).
 
 
-tracer({trace_ts, From, send, Msg, To, {_,S,Ms}}) ->
-    io:format("~p:~p ~p(~p) >>~p ~w ~n",[S,Ms,From,node(From),To,Msg]);
-tracer({trace_ts, Pid, 'receive', Msg, {_,S,Ms}}) ->
-    io:format("~p:~p ~p(~p) << ~w ~n",[S,Ms,Pid,node(Pid),Msg]);
+%% tracer({trace_ts, From, send, Msg, To, {_,S,Ms}}) ->
+%%     io:format("~p:~p ~p(~p) >>~p ~w ~n",[S,Ms,From,node(From),To,Msg]);
+%% tracer({trace_ts, Pid, 'receive', Msg, {_,S,Ms}}) ->
+%%     io:format("~p:~p ~p(~p) << ~w ~n",[S,Ms,Pid,node(Pid),Msg]);
 
-tracer({trace_ts, Pid, call, MFA, ST, {_,S,Ms}}) ->
-    io:format("~p:~p ~p(~p) ~w ~w ~n",[S,Ms,Pid,node(Pid),MFA, ST]);
-tracer({trace_ts, Pid, return_from, MFA, Ret, {_,S,Ms}}) ->
-    io:format("~p:~p ~p(~p) ~w => ~w ~n",[S,Ms,Pid,node(Pid),MFA,Ret]);
+%% tracer({trace_ts, Pid, call, MFA, ST, {_,S,Ms}}) ->
+%%     io:format("~p:~p ~p(~p) ~w ~w ~n",[S,Ms,Pid,node(Pid),MFA, ST]);
+%% tracer({trace_ts, Pid, return_from, MFA, Ret, {_,S,Ms}}) ->
+%%     io:format("~p:~p ~p(~p) ~w => ~w ~n",[S,Ms,Pid,node(Pid),MFA,Ret]);
 
-tracer(Msg) ->
-    io:format("UMsg ~p ~n",[Msg]),
-    ok.
+%% tracer(Msg) ->
+%%     io:format("UMsg ~p ~n",[Msg]),
+%%     ok.
 
 
 move_table_copy_1(suite) -> [];

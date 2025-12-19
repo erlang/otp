@@ -94,7 +94,7 @@ RELSYSDIR = $(RELEASE_PATH)/mnesia_test
 # ----------------------------------------------------
 # FLAGS
 # ----------------------------------------------------
-#ERL_COMPILE_FLAGS +=
+ERL_COMPILE_FLAGS += +nowarn_missing_spec_documented -Werror
 ERL_COMPILE_FLAGS := $(filter-out +deterministic,$(ERL_COMPILE_FLAGS))
 
 EBIN = .
