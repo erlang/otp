@@ -386,8 +386,9 @@ disasm_code([], _, _, _) ->
 
 get_function_chunks([]) ->
     ?exit(empty_code_segment);
-get_function_chunks(Code) ->
-    get_funs(labels_r(Code, [])).
+get_function_chunks(Code0) ->
+    {LsR,Code} = labels_r(Code0, []),
+    get_funs({lists:reverse(LsR),Code}).
 
 labels_r([], R) -> {R, []};
 labels_r([{label,_}=I|Is], R) ->
@@ -399,20 +400,20 @@ labels_r(Is, R) -> {R, Is}.
 get_funs({[],[]}) -> [];
 get_funs({_,[]}) ->
     ?exit(no_func_info_in_code_segment);
-get_funs({LsR0,[{func_info,[{atom,M}=AtomM,{atom,F}=AtomF,ArityArg]}|Code0]})
+get_funs({Ls0,[{func_info,[{atom,M}=AtomM,{atom,F}=AtomF,ArityArg]}|Code0]})
   when is_atom(M), is_atom(F) ->
     Arity = resolve_arg_unsigned(ArityArg),
-    {LsR,Code,RestCode} = get_fun(Code0, []),
+    {Ls,Code,RestCode} = get_fun(Code0, []),
     [{label,[{u,Entry}]}|_] = Code,
     [#function{name=F,
 	       arity=Arity,
 	       entry=Entry,
-	       code=lists:reverse(LsR0, [{func_info,AtomM,AtomF,Arity}|Code])}
-     |get_funs({LsR,RestCode})].
+	       code=Ls0 ++ [{func_info,AtomM,AtomF,Arity}|Code]}
+     |get_funs({Ls,RestCode})].
 
 get_fun([{func_info,_}|_]=Is, R0) ->
-    {LsR,R} = labels_r(R0, []),
-    {LsR,lists:reverse(R),Is};
+    {Ls,R} = labels_r(R0, []),
+    {Ls,lists:reverse(R),Is};
 get_fun([{int_code_end,[]}], R) ->
     {[],lists:reverse(R),[]};
 get_fun([I|Is], R) ->
