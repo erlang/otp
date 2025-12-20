@@ -513,8 +513,9 @@ connection(#hs_data{other_node = Node,
                         undefined -> ok;
                         HsComplete when is_function(HsComplete, 3) ->
                             HsComplete(Socket, Node, DHandle);
-                        HsComplete when is_function(HsComplete, 5) ->
-                            HsComplete(Socket, Node, Creation, Flags, DHandle)
+                        HsComplete when is_function(HsComplete, 4) ->
+                            Context = #{creation => Creation, flags => Flags},
+                            HsComplete(Socket, Node, DHandle, Context)
                     end,
 		    con_loop(#state{kernel = HSData#hs_data.kernel_pid,
                                     node = Node,
