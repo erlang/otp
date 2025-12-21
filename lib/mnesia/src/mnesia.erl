@@ -1887,8 +1887,8 @@ do_foldl(A, O, Tab, Key, Fun, Acc, Type, Stored) ->  %% Type is set or bag
     {_, Tid, Ts} = get(mnesia_activity_state),
     do_foldl(Tid, Ts, Tab, dirty_next(Tab, Key), Fun, NewAcc, Type, NewStored).
 
--doc(#{equiv => foldr(Fun, Acc0, Tab, read)}).
--spec foldr(Fun, Acc0, Tab::table()) -> Acc when
+-doc(#{equiv => foldr(Fun, Acc0, Table, read)}).
+-spec foldr(Fun, Acc0, Table::table()) -> Acc when
       Fun::fun((Record::tuple(), Acc0) -> Acc).
 foldr(Fun, Acc, Tab) ->
     foldr(Fun, Acc, Tab, read).
@@ -2547,9 +2547,9 @@ operations are done on that table in the same transaction. That is, do not use
 `NObjects` is a recommendation only and the result can contain anything from an
 empty list to all available results.
 """.
--spec select_reverse(Tab, Spec, N, LockKind) -> {[Match], Cont} | '$end_of_table' when
-      Tab::table(), Spec::ets:match_spec(),
-      Match::term(), N::non_neg_integer(),
+-spec select_reverse(Tab, MatchSpec, NObjects, LockKind) -> {[Match], Cont} | '$end_of_table' when
+      Tab::table(), MatchSpec::ets:match_spec(),
+      Match::term(), NObjects::non_neg_integer(),
       LockKind::lock_kind(),
       Cont::select_continuation().
 select_reverse(Tab, Pat, NObjects, LockKind)
@@ -4242,8 +4242,8 @@ disc-resident nodes in the backup.
       Scope :: {'scope', 'global' | 'local'},
       Dir :: {'mnesia_dir', Dir::string()},
       BackupMod :: module().
-install_fallback(Source, Mod) ->
-    mnesia_bup:install_fallback(Source, Mod).
+install_fallback(Source, BackupMod) ->
+    mnesia_bup:install_fallback(Source, BackupMod).
 
 -doc(#{equiv => uninstall_fallback([{scope, global}])}).
 -spec uninstall_fallback() -> result().
@@ -4388,8 +4388,8 @@ cases, restore the old database by installing a fallback and then restart.
 -spec restore(Source::_, [Arg]) -> t_result([table()]) when
       Op  :: 'skip_tables' | 'clear_tables' | 'keep_tables' | 'restore_tables',
       Arg :: {'module', module()} | {Op, [table()]} | {'default_op', Op}.
-restore(Opaque, Args) ->
-    mnesia_schema:restore(Opaque, Args).
+restore(Source, Args) ->
+    mnesia_schema:restore(Source, Args).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Table mgt
@@ -4543,8 +4543,8 @@ mnesia:add_table_copy(person, Node, disc_copies)
 
 This function can also be used to add a replica of the table named `schema`.
 """.
--spec add_table_copy(Tab, Node, ST) -> t_result('ok') when
-      Tab :: table(), Node::node(), ST::storage_type().
+-spec add_table_copy(Tab, Node, Type) -> t_result('ok') when
+      Tab :: table(), Node::node(), Type::storage_type().
 add_table_copy(Tab, N, S) ->
     mnesia_schema:add_table_copy(Tab, N, S).
 
