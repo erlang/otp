@@ -162,11 +162,12 @@ Special Erlang node configuration for the application can be found in
               key/0,
               named_curve/0,
               old_cipher_suite/0,
-              prf_random/0, 
+              prf_random/0,
               protocol_extensions/0,
               protocol_version/0,
               reason/0,
               session_id/0,
+              session_ticket/0,
               sign_algo/0,
               sign_scheme/0,
               signature_algs/0,
@@ -1533,6 +1534,11 @@ different semantics for the client and server.
                               {customize_hostname_check, HostNameCheckOpts::list()} |
                               {certificate_authorities, boolean()} |
                               {stapling, Stapling:: staple | no_staple | map()}.
+-doc(#{group => <<"Client Options">>}).
+-doc """
+
+""".
+-nominal session_ticket() :: #{sni := inet:hostname()}.
 
 -doc(#{group => <<"Client Options">>}).
 -doc """
@@ -1545,11 +1551,14 @@ Options only relevant for TLS-1.3.
   information to user process in a 3-tuple:
 
   ```erlang
-  {ssl, session_ticket, {SNI, TicketData}}
+  {ssl, session_ticket, `Ticket::`(`t:session_ticket/0`)}
   ```
 
-  where `SNI` is the ServerNameIndication and `TicketData` is the extended ticket
-  data that can be used in subsequent session resumptions.
+  where `Ticket` is a map with information about the created TLS-1.3 session ticket.
+  The only key that the user needs to consider is `sni` key to be able to
+  provide it as a value in the use_ticket option list of possible tickets
+  to use it to attempt session resumption to a server identified by the
+  server name indication in `manual` session ticket mode.
 
   If it is set to `auto`, the client automatically handles received tickets and
   tries to use them when making new TLS connections (session resumption with
@@ -1606,7 +1615,7 @@ Options only relevant for TLS-1.3.
 """.
 -type client_option_tls13() ::
         {session_tickets, SessionTickets:: disabled | manual | auto} |
-        {use_ticket, Tickets::[binary()]} |
+        {use_ticket, Tickets::[session_ticket()]} |
         {early_data, binary()} |
         {middlebox_comp_mode, MiddleBoxMode::boolean()}.
 
