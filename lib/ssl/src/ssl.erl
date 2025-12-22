@@ -1757,7 +1757,7 @@ opt_protocol_versions(UserOpts, Opts, Env) ->
 
     {_, LL} = get_opt_of(log_level, LogLevels, DefaultLevel, UserOpts, Opts),
 
-    Opts1 = set_opt_bool(keep_secrets, false, UserOpts, Opts),
+    Opts1 = opt_keep_secrets(UserOpts, Opts),
 
     {DistW, Dist} = get_opt_bool(erl_dist, false, UserOpts, Opts1),
     option_incompatible(PRC =:= dtls andalso Dist, [{protocol, PRC}, {erl_dist, Dist}]),
@@ -2501,6 +2501,22 @@ opt_process(UserOpts, Opts0, _Env) ->
     %% Opts = Opts1#{receiver_spawn_opts => RSO, sender_spawn_opts => SSO},
     set_opt_int(hibernate_after, 0, infinity, infinity, UserOpts, Opts2).
 
+opt_keep_secrets(UserOpts, Opts) ->
+    case get_opt(keep_secrets, false, UserOpts, Opts) of
+        {new, Value} when is_boolean(Value) ->
+            Opts#{keep_secrets => Value};
+        {new, {FunType, Fun} = Value}
+          when FunType == keylog orelse FunType == keylog_hs,
+               is_function(Fun) ->
+            Opts#{keep_secrets => Value};
+        {old, _} ->
+            Opts;
+        {default, _} -> %% Keep default implicit
+            Opts;
+        {_, Value}  ->
+            option_error(keep_secrets, Value)
+    end.
+
 %%%%
 
 get_opt(Opt, Default, UserOpts, Opts) ->
@@ -2569,13 +2585,6 @@ get_opt_file(Opt, Default, UserOpts, Opts) ->
     case get_opt(Opt, Default, UserOpts, Opts) of
         {new, File} -> {new, validate_filename(File, Opt)};
         Res -> Res
-    end.
-
-set_opt_bool(Opt, Default, UserOpts, Opts) ->
-    case maps:get(Opt, UserOpts, Default) of
-        Default -> Opts;
-        Value when is_boolean(Value) -> Opts#{Opt => Value};
-        Value -> option_error(Opt, Value)
     end.
 
 get_opt_map(Opt, Default, UserOpts, Opts) ->

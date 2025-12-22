@@ -1100,6 +1100,7 @@ handle_normal_shutdown(Alert, StateName, #state{static_env = #static_env{role = 
                                                 handshake_env = #handshake_env{renegotiation = {false, first}},
                                                 start_or_recv_from = StartFrom} = State) ->
     Pids = Connection:pids(State),
+    maybe_keylog_hs_callback(Alert, StateName, State),
     alert_user(Pids, Transport, Trackers, Socket, StartFrom, Alert, Role, StateName, Connection);
 
 handle_normal_shutdown(Alert, StateName, #state{static_env = #static_env{role = Role,
@@ -1112,6 +1113,7 @@ handle_normal_shutdown(Alert, StateName, #state{static_env = #static_env{role = 
                                                 socket_options = Opts,
 						start_or_recv_from = RecvFrom} = State) ->
     Pids = Connection:pids(State),
+    maybe_keylog_hs_callback(Alert, StateName, State),
     alert_user(Pids, Transport, Trackers, Socket, Type, Opts, Pid, RecvFrom, Alert, Role, StateName, Connection).
 
 handle_alert(#alert{level = ?FATAL} = Alert, StateName, State) ->
@@ -1227,6 +1229,7 @@ handle_fatal_alert(Alert0, StateName,
               StateName, Alert),
     Pids = Connection:pids(State),
     alert_user(Pids, Transport, Trackers, Socket, StateName, Opts, Pid, From, Alert, Role, StateName, Connection),
+    handle_normal_shutdown(Alert, StateName, State),
     {stop, {shutdown, normal}, State}.
 
 handle_trusted_certs_db(#state{ssl_options =#{cacerts := []} = Opts})
@@ -2208,79 +2211,6 @@ ssl_options_list([{ciphers = Key, Value}|T], Acc) ->
 ssl_options_list([{Key, Value}|T], Acc) ->
    ssl_options_list(T, [{Key, Value} | Acc]).
 
-%% Maybe add NSS keylog info according to
-%% https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/Key_Log_Format
-maybe_add_keylog(Info) ->
-    maybe_add_keylog(lists:keyfind(protocol, 1, Info), Info).
-
-maybe_add_keylog({_, 'tlsv1.3'}, Info) ->
-    try
-        {client_random, ClientRandomBin} = lists:keyfind(client_random, 1, Info),
-        %% after traffic key update current traffic secret
-        %% is stored in tls_sender process state
-        MaybeUpdateTrafficSecret =
-            fun({Direction, {Sender, TrafficSecret0}}) ->
-                    TrafficSecret =
-                        case call(Sender, get_application_traffic_secret) of
-                            {ok, SenderAppTrafSecretWrite} ->
-                                SenderAppTrafSecretWrite;
-                            _ ->
-                                TrafficSecret0
-                        end,
-                    {Direction, TrafficSecret};
-               (TrafficSecret0) ->
-                    TrafficSecret0
-            end,
-        {client_traffic_secret_0, ClientTrafficSecret0Bin} =
-            MaybeUpdateTrafficSecret(lists:keyfind(client_traffic_secret_0, 1, Info)),
-        {server_traffic_secret_0, ServerTrafficSecret0Bin} =
-            MaybeUpdateTrafficSecret(lists:keyfind(server_traffic_secret_0, 1, Info)),
-        {client_handshake_traffic_secret, ClientHSecretBin} = lists:keyfind(client_handshake_traffic_secret, 1, Info),
-        {server_handshake_traffic_secret, ServerHSecretBin} = lists:keyfind(server_handshake_traffic_secret, 1, Info),
-        {selected_cipher_suite, #{prf := Prf}} = lists:keyfind(selected_cipher_suite, 1, Info),
-        ClientRandom = binary:decode_unsigned(ClientRandomBin),
-        ClientTrafficSecret0 = keylog_secret(ClientTrafficSecret0Bin, Prf),
-        ServerTrafficSecret0 = keylog_secret(ServerTrafficSecret0Bin, Prf),
-        ClientHSecret = keylog_secret(ClientHSecretBin, Prf),
-        ServerHSecret = keylog_secret(ServerHSecretBin, Prf),
-        Keylog0 = [io_lib:format("CLIENT_HANDSHAKE_TRAFFIC_SECRET ~64.16.0B ", [ClientRandom]) ++ ClientHSecret,
-                   io_lib:format("SERVER_HANDSHAKE_TRAFFIC_SECRET ~64.16.0B ", [ClientRandom]) ++ ServerHSecret,
-                   io_lib:format("CLIENT_TRAFFIC_SECRET_0 ~64.16.0B ", [ClientRandom]) ++ ClientTrafficSecret0,
-                   io_lib:format("SERVER_TRAFFIC_SECRET_0 ~64.16.0B ", [ClientRandom]) ++ ServerTrafficSecret0],
-        Keylog = case lists:keyfind(client_early_data_secret, 1, Info) of
-                     {client_early_data_secret, EarlySecret} ->
-                         ClientEarlySecret = keylog_secret(EarlySecret, Prf),
-                         [io_lib:format("CLIENT_EARLY_TRAFFIC_SECRET ~64.16.0B ", [ClientRandom]) ++ ClientEarlySecret
-                          | Keylog0];
-                     _ ->
-                         Keylog0
-                 end,
-        Info ++ [{keylog,Keylog}]
-    catch
-        _Cxx:_Exx ->
-            Info
-    end;
-maybe_add_keylog({_, _}, Info) ->
-    try
-        {client_random, ClientRandomBin} = lists:keyfind(client_random, 1, Info),
-        {master_secret, MasterSecretBin} = lists:keyfind(master_secret, 1, Info),
-        ClientRandom = binary:decode_unsigned(ClientRandomBin),
-        MasterSecret = binary:decode_unsigned(MasterSecretBin),
-        Keylog = [io_lib:format("CLIENT_RANDOM ~64.16.0B ~96.16.0B", [ClientRandom, MasterSecret])],
-        Info ++ [{keylog,Keylog}]
-    catch
-        _Cxx:_Exx ->
-            Info
-    end;
-maybe_add_keylog(_, Info) ->
-    Info.
-
-keylog_secret(SecretBin, sha256) ->
-    io_lib:format("~64.16.0B", [binary:decode_unsigned(SecretBin)]);
-keylog_secret(SecretBin, sha384) ->
-    io_lib:format("~96.16.0B", [binary:decode_unsigned(SecretBin)]);
-keylog_secret(SecretBin, sha512) ->
-    io_lib:format("~128.16.0B", [binary:decode_unsigned(SecretBin)]).
 
 maybe_generate_client_shares(#{versions := [?TLS_1_3|_],
                                supported_groups :=
@@ -2290,6 +2220,184 @@ maybe_generate_client_shares(#{versions := [?TLS_1_3|_],
     ssl_cipher:generate_client_shares([Group]);
 maybe_generate_client_shares(_) ->
     undefined.
+
+%% Maybe add NSS keylog info according to
+%% https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/Key_Log_Format
+maybe_add_keylog(Info) ->
+    case lists:keyfind(keep_secrets, 1, Info) of
+        {keep_secrets, true} ->
+            case lists:keyfind(protocol, 1, Info) of
+                {protocol, 'tlsv1.3'} ->
+                    Info ++ [{keylog, keylog_1_3(Info)}];
+                {protocol, _} ->
+                    Info ++ [{keylog, keylog_pre_1_3(Info)}]
+            end;
+        {keep_secrets, false} ->
+            Info
+    end.
+
+maybe_keylog_hs_callback(#alert{level = ?FATAL}, StateName,
+                         #state{ssl_options = #{keep_secrets := {keylog_hs, Fun}}}
+                         = State) when is_function(Fun)  ->
+    case keylog_hs_alert(StateName, State) of
+        {[], _} ->
+            ok;
+        {KeyLog, Random} ->
+            ssl_logger:keylog(KeyLog, Random, Fun)
+    end;
+maybe_keylog_hs_callback(_, _, _) ->
+    ok.
+
+keylog_hs_alert(start, _) -> %% TLS 1.3: No secrets yet established
+    {[], undefined};
+keylog_hs_alert(wait_sh, _) -> %% TLS 1.3: No secrets yet established
+    {[], undefined};
+keylog_hs_alert(negotiated, #state{static_env = #static_env{role = server},
+                                   connection_env =
+                                       #connection_env{negotiated_version = TlsVersion},
+                                   connection_states = #{current_read := Read,
+                                                         current_write := Write
+                                                        }})
+  when ?TLS_GTE(TlsVersion, ?TLS_1_3) ->
+     #{server_handshake_traffic_secret := ServerHSSecret,
+      security_parameters :=
+          #security_parameters{client_random = ClientRandomBin,
+                               client_early_data_secret = EarlySecret,
+                               prf_algorithm = Prf
+                              }} = Write,
+    #{client_handshake_traffic_secret := ClientHSSecret} = Read,
+    {keylog_hs_1_3(ClientRandomBin, Prf, EarlySecret, ServerHSSecret, ClientHSSecret),
+     ClientRandomBin};
+keylog_hs_alert(wait_eoed, #state{static_env = #static_env{role = server},
+                                  connection_env =
+                                      #connection_env{negotiated_version = TlsVersion},
+                                  connection_states = #{pending_read := Read,
+                                                        current_write := Write
+                                                       }})
+  when ?TLS_GTE(TlsVersion, ?TLS_1_3) ->
+    keylog_1_3_client_finished(Read, Write);
+keylog_hs_alert(StateName, #state{static_env = #static_env{role = server},
+                                  connection_states =
+                                      #{current_read := Read,
+                                        current_write := Write
+                                       }}) when StateName == wait_cert;
+                                                StateName == wait_cv;
+                                                StateName == wait_finished ->
+    keylog_1_3_client_finished(Read, Write);
+keylog_hs_alert(connection, #state{static_env = #static_env{role = client},
+                                   connection_env =
+                                       #connection_env{negotiated_version = TlsVersion},
+                                   connection_states = #{current_read := Read,
+                                                         current_write := Write
+                                               }})
+  when ?TLS_GTE(TlsVersion, ?TLS_1_3) ->
+    #{server_handshake_traffic_secret := ServerHSSecret,
+      security_parameters :=
+          #security_parameters{client_random = ClientRandomBin,
+                               client_early_data_secret = EarlySecret,
+                               prf_algorithm = Prf,
+                               master_secret = {master_secret, STrafficSecret}
+                              }}
+        = Read,
+    #{client_handshake_traffic_secret := ClientHSSecret,
+       security_parameters :=
+          #security_parameters{master_secret = {master_secret, CTrafficSecret}
+                              }} = Write,
+
+    {keylog_hs_1_3(ClientRandomBin, Prf, EarlySecret, ClientHSSecret, ServerHSSecret) ++
+         ssl_logger:keylog_traffic_1_3(client, ClientRandomBin, Prf, CTrafficSecret, 0) ++
+         ssl_logger:keylog_traffic_1_3(server, ClientRandomBin, Prf, STrafficSecret, 0),
+     ClientRandomBin};
+keylog_hs_alert(_, #state{static_env = #static_env{role = client},
+                          connection_env =
+                              #connection_env{negotiated_version = TlsVersion},
+                          connection_states = #{current_read := Read,
+                                                current_write := Write
+                                               }})
+  when ?TLS_GTE(TlsVersion, ?TLS_1_3) ->
+   #{server_handshake_traffic_secret := ServerHSSecret,
+      security_parameters :=
+                   #security_parameters{client_random = ClientRandomBin,
+                                        client_early_data_secret = EarlySecret,
+                                        prf_algorithm = Prf
+                                       }}
+        = Write,
+    #{client_handshake_traffic_secret := ClientHSSecret} = Read,
+    {keylog_hs_1_3(ClientRandomBin, Prf, EarlySecret, ClientHSSecret, ServerHSSecret),
+     ClientRandomBin};
+keylog_hs_alert(_, _) -> % NOT Relevant pre TLS-1.3
+    {[], undefined}.
+
+keylog_hs_1_3(ClientRandomBin, Prf, EarlySecret, ClientSecret, ServerSecret) ->
+    HSItems =
+        ssl_logger:keylog_hs(ClientRandomBin, Prf, ClientSecret, ServerSecret),
+    case EarlySecret of
+        undefined ->
+            HSItems;
+        _  ->
+            [ssl_logger:keylog_early_data(ClientRandomBin, Prf, EarlySecret) | HSItems]
+    end.
+
+keylog_1_3_client_finished(Read, Write) ->
+    #{server_handshake_traffic_secret := ServerHSSecret,
+      security_parameters :=
+                   #security_parameters{client_random = ClientRandomBin,
+                                        client_early_data_secret = EarlySecret,
+                                        prf_algorithm = Prf,
+                                        master_secret = {master_secret, TrafficSecret}
+                                       }}
+        = Write,
+    #{client_handshake_traffic_secret := ClientHSSecret} = Read,
+    {keylog_hs_1_3(ClientRandomBin, Prf, EarlySecret, ServerHSSecret, ClientHSSecret) ++
+         ssl_logger:keylog_traffic_1_3(server, ClientRandomBin, Prf, TrafficSecret, 0),
+     ClientRandomBin}.
+
+keylog_1_3(Info) ->
+    {client_random, ClientRandomBin} = lists:keyfind(client_random, 1, Info),
+    {selected_cipher_suite, #{prf := Prf}} = lists:keyfind(selected_cipher_suite, 1, Info),
+    {Role, Sender} = case lists:keyfind(server, 1, Info) of
+                         false ->
+                             lists:keyfind(client, 1, Info);
+                         Result ->
+                             Result
+                     end,
+    keylog_1_3(ClientRandomBin, Prf, Role, Sender, Info).
+
+keylog_1_3(ClientRandom, Prf, Role, Sender, Info) ->
+    {ok, SecretWrite, NWrite} = call(Sender, get_application_traffic_secret),
+    EarlySecret = proplists:get_value(client_early_data_secret, Info, undefined),
+    case Role of
+        client ->
+            {server_traffic_secret, SecretRead, NRead} = lists:keyfind(server_traffic_secret, 1, Info),
+            hs_logs(NRead, ClientRandom, Prf, EarlySecret, Info) ++
+                ssl_logger:keylog_traffic_1_3(Role, ClientRandom, Prf, SecretRead, NRead) ++
+                ssl_logger:keylog_traffic_1_3(server, ClientRandom, Prf, SecretWrite, NWrite);
+        server ->
+            {client_traffic_secret, SecretRead, NRead} = lists:keyfind(client_traffic_secret, 1, Info),
+            hs_logs(NRead, ClientRandom, Prf, EarlySecret, Info) ++
+                ssl_logger:keylog_traffic_1_3(client, ClientRandom, Prf, SecretWrite, NWrite) ++
+                ssl_logger:keylog_traffic_1_3(Role, ClientRandom, Prf, SecretRead, NRead)
+    end.
+
+hs_logs(0, ClientRandom, Prf, EarlySecret, Info) ->
+    {client_handshake_traffic_secret, ClientHSecret} =
+        lists:keyfind(client_handshake_traffic_secret, 1, Info),
+    {server_handshake_traffic_secret, ServerHSecret} =
+        lists:keyfind(server_handshake_traffic_secret, 1, Info),
+    HSItems = ssl_logger:keylog_hs(ClientRandom, Prf, ClientHSecret, ServerHSecret),
+    case EarlySecret of
+        undefined ->
+            HSItems;
+        _  ->
+            [ssl_logger:keylog_early_data(ClientRandom, Prf, EarlySecret) | HSItems]
+    end;
+hs_logs(_,_,_,_, _) ->
+    [].
+
+keylog_pre_1_3(Info) ->
+    {client_random, ClientRandom} = lists:keyfind(client_random, 1, Info),
+    {master_secret, MasterSecret} = lists:keyfind(master_secret, 1, Info),
+    ssl_logger:keylog_traffic_pre_1_3(ClientRandom, MasterSecret).
 
 %%%################################################################
 %%%#
