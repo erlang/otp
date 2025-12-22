@@ -293,9 +293,12 @@ send_key_update(Sender, Type) ->
     KeyUpdate = tls_handshake_1_3:key_update(Type),
     tls_sender:send_post_handshake(Sender, KeyUpdate).
 
-update_cipher_key(ConnStateName, #state{connection_states = CS0} = State0) ->
+update_cipher_key(ConnStateName, #state{connection_states = CS0,
+                                        protocol_specific = PS} = State0) ->
     CS = update_cipher_key(ConnStateName, CS0),
-    State0#state{connection_states = CS};
+    N = maps:get(num_key_updates, PS, 0),
+    State0#state{connection_states = CS,
+                 protocol_specific = PS#{num_key_updates => N + 1}};
 update_cipher_key(ConnStateName, CS0) ->
     #{security_parameters := SecParams0,
       cipher_state := CipherState0} = ConnState0 = maps:get(ConnStateName, CS0),

@@ -2006,59 +2006,51 @@ connection_info(#state{handshake_env = #handshake_env{sni_hostname = SNIHostname
      {sni_hostname, SNIHostname},
      {srp_username, SrpUsername} | CurveInfo] ++ MFLInfo ++ ssl_options_list(Opts).
 
-security_info(#state{connection_states = ConnectionStates,
+security_info(#state{connection_states = #{current_read := Read,
+                                           current_write := Write},
                      static_env = #static_env{role = Role},
+                     connection_env = #connection_env{negotiated_version = Version},
                      ssl_options = Opts,
                      protocol_specific = ProtocolSpecific}) ->
-    ReadState = ssl_record:current_connection_state(ConnectionStates, read),
     #{security_parameters :=
 	  #security_parameters{client_random = ClientRand,
                                server_random = ServerRand,
-                               master_secret = MasterSecret,
-                               application_traffic_secret = AppTrafSecretRead,
-                               client_early_data_secret = ServerEarlyData
-                              }} = ReadState,
-    BaseSecurityInfo = [{client_random, ClientRand}, {server_random, ServerRand}, {master_secret, MasterSecret}],
-
+                               master_secret = MasterSecret}} = Read,
+    SecInfo = [{client_random, ClientRand},
+               {server_random, ServerRand}, {master_secret, MasterSecret}],
     KeepSecrets = maps:get(keep_secrets, Opts, false),
-    if KeepSecrets =/= true ->
-            BaseSecurityInfo;
-       true ->
-            #{security_parameters :=
-                  #security_parameters{
-                     application_traffic_secret = AppTrafSecretWrite0,
-                     client_early_data_secret = ClientEarlyData}} =
-                ssl_record:current_connection_state(ConnectionStates, write),
-            Sender = maps:get(sender, ProtocolSpecific, undefined),
-            AppTrafSecretWrite = {Sender, AppTrafSecretWrite0},
-            if Role == server ->
-                    if ServerEarlyData =/= undefined ->
-                            [{server_traffic_secret_0, AppTrafSecretWrite},
-                             {client_traffic_secret_0, AppTrafSecretRead},
-                             {client_early_data_secret, ServerEarlyData}];
-                       true ->
-                            [{server_traffic_secret_0, AppTrafSecretWrite},
-                             {client_traffic_secret_0, AppTrafSecretRead}]
-                    end;
-               true ->
-                    if ClientEarlyData =/= undefined ->
-                            [{client_traffic_secret_0, AppTrafSecretWrite},
-                             {server_traffic_secret_0, AppTrafSecretRead},
-                             {client_early_data_secret, ClientEarlyData}];
-                       true ->
-                            [{client_traffic_secret_0, AppTrafSecretWrite},
-                             {server_traffic_secret_0, AppTrafSecretRead}]
-                    end
-            end ++
-                case ReadState of
-                    #{client_handshake_traffic_secret := ClientHSTrafficSecret,
-                      server_handshake_traffic_secret := ServerHSTrafficSecret} ->
-                        [{client_handshake_traffic_secret, ClientHSTrafficSecret},
-                         {server_handshake_traffic_secret, ServerHSTrafficSecret}];
-                   _ ->
-                        []
-                end ++ BaseSecurityInfo
+    case KeepSecrets of
+        false ->
+            %% Need to include {keep_secrets, false} for maybe_add_keylog
+            %% to be able to run in user process context
+            [{keep_secrets, false} | SecInfo];
+        _  -> %% true or keylog fun tuple
+            maybe_security_info_1_3(Version, Read, Write,  ProtocolSpecific, Role)
+                ++ SecInfo
     end.
+
+maybe_security_info_1_3(Version,
+                        #{security_parameters :=
+                              #security_parameters{application_traffic_secret = AppTrafSecretRead,
+                                                   client_early_data_secret = EarlyData
+                                                  }} = Read, Write,
+                        ProtocolSpecific, Role) when ?TLS_GTE(Version, ?TLS_1_3)->
+    N = maps:get(num_key_updates, ProtocolSpecific, 0),
+    Sender = maps:get(sender, ProtocolSpecific, undefined),
+    case Role of
+        server ->
+            tls_handshake_1_3:early_data_secret(EarlyData) ++
+                tls_handshake_1_3:hs_traffic_secrets(Read, Write) ++
+                [{client_traffic_secret, AppTrafSecretRead, N},
+                 {Role, Sender}];
+        client ->
+            tls_handshake_1_3:early_data_secret(EarlyData) ++
+                tls_handshake_1_3:hs_traffic_secrets(Read, Write) ++
+                [{server_traffic_secret, AppTrafSecretRead, N},
+                 {Role, Sender}]
+    end;
+maybe_security_info_1_3(_,_,_,_,_) ->
+    [].
 
 record_cb(tls) ->
     tls_record;

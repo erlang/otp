@@ -162,6 +162,12 @@ initialize_tls_sender(#state{static_env = #static_env{
                              connection_states = #{current_write := ConnectionWriteState},
                              protocol_specific = #{sender := Sender}}) ->
     HibernateAfter = maps:get(hibernate_after, SSLOpts, infinity),
+    KeyLogFun = case maps:get(keep_secrets, SSLOpts, false) of
+                    {keylog, Fun} ->
+                        Fun;
+                    _ ->
+                        undefined
+                end,
     Init = #{current_write => ConnectionWriteState,
              role => Role,
              socket => Socket,
@@ -173,7 +179,8 @@ initialize_tls_sender(#state{static_env = #static_env{
              renegotiate_at => RenegotiateAt,
              key_update_at => KeyUpdateAt,
              log_level => LogLevel,
-             hibernate_after => HibernateAfter},
+             hibernate_after => HibernateAfter,
+             keylog_fun => KeyLogFun},
     tls_sender:initialize(Sender, Init).
 
 %%====================================================================
