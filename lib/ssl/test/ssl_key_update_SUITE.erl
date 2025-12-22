@@ -129,19 +129,6 @@ key_update_unexpected_msg(Config) ->
 %%--------------------------------------------------------------------
 %% Internal functions  -----------------------------------------------
 %%--------------------------------------------------------------------
-traffic_secret_0(KeyLog) ->
-    case KeyLog of
-        ["CLIENT_TRAFFIC_SECRET_0" ++ _| _] ->
-            client;
-        ["SERVER_TRAFFIC_SECRET_0" ++ _| _] ->
-            server
-    end.
-
-opposite_role(client) ->
-    server;
-opposite_role(server) ->
-    client.
-
 key_update_at(Config, Role) ->
     Data = "123456789012345",  %% 15 bytes
     Server = ssl_test_lib:start_server(erlang,

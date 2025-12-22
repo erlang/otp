@@ -50,8 +50,7 @@
          maybe_forget_hs_secrets/2,
          do_maybe/0]).
 
-%%--------------------------------------------------------------------
-%% Internal API
+%%  Internal API
 %%--------------------------------------------------------------------
 initial_state(Role, Sender, Host, Port, Socket,
               {SSLOptions, SocketOptions, Trackers}, User,

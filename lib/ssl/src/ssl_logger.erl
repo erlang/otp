@@ -51,6 +51,11 @@
 %% Internal API -- Stateful logging
 %%-------------------------------------------------------------------------
 
+
+%%---%%-------------------------------------------------------------------------
+%% Internal API -- Stateful logging
+%%-------------------------------------------------------------------------
+
 log(Level, LogLevel, ReportMap, Meta) ->
     case logger:compare_levels(LogLevel, Level) of
         lt ->
@@ -63,6 +68,8 @@ log(Level, LogLevel, ReportMap, Meta) ->
             ok
     end.
 
+debug(undefined, _Direction, _Protocol, _Message) ->
+    ok;
 debug(LogLevel, Direction, Protocol, Message)
   when (Direction =:= inbound orelse Direction =:= outbound) andalso
        (Protocol =:= 'record' orelse Protocol =:= 'handshake') ->
@@ -134,7 +141,8 @@ format(#{msg:= {report, Msg}}, _Config0) ->
         _Other ->
             []
     end.
-%%-------------------------------------------------------------------------
+
+%%----------------------------------------------------------------------
 %%  Keylog functions (not erlang logger related)
 %%-------------------------------------------------------------------------
 

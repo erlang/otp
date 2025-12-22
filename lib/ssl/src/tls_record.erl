@@ -488,7 +488,7 @@ initial_connection_state(ConnectionEnd, BeastMitigation, MaxEarlyDataSize) ->
       pending_early_data_size => MaxEarlyDataSize,
       max_fragment_length => undefined,
       trial_decryption => false,
-      early_data_expected => false
+      early_data_accepted => false
      }.
 
 %% Used by logging to recreate the received bytes

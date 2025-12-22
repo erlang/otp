@@ -62,7 +62,8 @@
 -export([socket/4,
          setopts/3,
          getopts/3,
-         handle_info/3]).
+         handle_info/3,
+         gen_info/3]).
 
 %% Alert and close handling
 -export([send_alert/2,
@@ -287,6 +288,28 @@ setopts(Transport, Socket, Other) ->
 
 getopts(Transport, Socket, Tag) ->
     tls_socket:getopts(Transport, Socket, Tag).
+
+
+gen_info(Event, connection = StateName, State) ->
+    try
+        handle_info(Event, StateName, State)
+    catch
+        _:Reason:ST ->
+            ?SSL_LOG(info, internal_error, [{error, Reason}, {stacktrace, ST}]),
+	    ssl_gen_statem:handle_own_alert(?ALERT_REC(?FATAL, ?INTERNAL_ERROR,
+						       malformed_data),
+					    StateName, State)
+    end;
+gen_info(Event, StateName, State) ->
+    try
+        handle_info(Event, StateName, State)
+    catch
+        _:Reason:ST ->
+            ?SSL_LOG(info, handshake_error, [{error, Reason}, {stacktrace, ST}]),
+	    ssl_gen_statem:handle_own_alert(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE,
+						       malformed_handshake_data),
+					    StateName, State)
+    end.
 
 %% raw data from socket, upack records
 handle_info({Protocol, _, Data}, StateName,

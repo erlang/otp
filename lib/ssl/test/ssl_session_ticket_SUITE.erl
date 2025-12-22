@@ -982,14 +982,24 @@ early_data_trial_decryption_failure(Config) when is_list(Config) ->
 
     ssl_test_lib:close(Client0),
 
+    Me = self(),
+    Fun = fun(AlertInfo) ->
+                  Me ! {alert_info, AlertInfo}
+          end,
+
     %% Use ticket
     _Client1 = ssl_test_lib:start_client_error([{node, ClientNode},
                                                {port, Port0}, {host, Hostname},
                                                {mfa, {ssl_test_lib,  %% Short handshake
                                                       verify_active_session_resumption,
                                                       [false, no_reply, no_tickets]}},
-                                               {from, self()}, {options, [{use_ticket, Tickets1}|ClientOpts2]}]),
+                                               {from, self()},
+                                                {options, [{use_ticket, Tickets1},
+                                                           {keep_secrets, {keylog_hs, Fun}}
+                                                          | ClientOpts2]}]),
+
     ssl_test_lib:check_server_alert(Server0, bad_record_mac),
+    receive_keylog_with_early_data_secret(),
     process_flag(trap_exit, false),
     application:unset_env(ssl, server_session_ticket_max_early_data),
     ssl_test_lib:close(Server0).
@@ -1045,14 +1055,22 @@ early_data_decryption_failure(Config) when is_list(Config) ->
 
     ssl_test_lib:close(Client0),
 
+    Me = self(),
+    Fun = fun(AlertInfo) ->
+                  Me ! {alert_info, AlertInfo}
+          end,
     %% Use ticket
     _Client1 = ssl_test_lib:start_client_error([{node, ClientNode},
                                                {port, Port0}, {host, Hostname},
                                                {mfa, {ssl_test_lib,  %% Short handshake
                                                       verify_active_session_resumption,
                                                       [false, no_reply, no_tickets]}},
-                                               {from, self()}, {options, [{use_ticket, Tickets1}|ClientOpts2]}]),
+                                               {from, self()},
+                                                {options, [{use_ticket, Tickets1},
+                                                           {keep_secrets, {keylog_hs, Fun}}
+                                                          | ClientOpts2]}]),
     ssl_test_lib:check_server_alert(Server0, unexpected_message),
+    receive_keylog_with_early_data_secret(),
     process_flag(trap_exit, false),
     application:unset_env(ssl, server_session_ticket_max_early_data),
     ssl_test_lib:close(Server0).
@@ -1215,7 +1233,6 @@ early_data_basic(Config) when is_list(Config) ->
                                                 verify_active_session_resumption,
                                                 [false]}},
                                          {from, self()}, {options, ClientOpts1}]),
-    skip_keylogs(4), %% HS and two traffic secrets
 
     ssl_test_lib:check_result(Server0, ok, Client0, ok),
 
@@ -1235,14 +1252,6 @@ early_data_basic(Config) when is_list(Config) ->
                                                 verify_active_session_resumption,
                                                 [true]}},
                                          {from, self()}, {options, ClientOpts2}]),
-    %% Check that we get the EARLY DATA keylog event
-    receive
-        {keylog, #{items := EarlyKeylog}} ->
-            ["CLIENT_EARLY_TRAFFIC_SECRET" ++ _| _] = EarlyKeylog
-    end,
-    skip_keylogs(4), %% HS and two traffic secrets so they do not end up
-                     %% in check_result
-
 
     ssl_test_lib:check_result(Server0, ok, Client1, ok),
 
@@ -1444,10 +1453,18 @@ do_test_mixed(Config, COpts1, COpts2, SOpts1, SOpts2) when is_list(Config) ->
     ssl_test_lib:close(Server1),
     ssl_test_lib:close(Client1).
 
-skip_keylogs(0) ->
-    ok;
-skip_keylogs(N) ->
+receive_keylog_with_early_data_secret() ->
     receive
-        {keylog, _} ->
-            skip_keylogs(N-1)
+        {alert_info, #{items := CKeyLog}} ->
+            case ssl_test_lib:keylog_prefixes(["CLIENT_EARLY_TRAFFIC_SECRET",
+                                               "CLIENT_HANDSHAKE_TRAFFIC_SECRET",
+                                               "SERVER_HANDSHAKE_TRAFFIC_SECRET",
+                                               "CLIENT_TRAFFIC_SECRET_0",
+                                               "SERVER_TRAFFIC_SECRET_0"
+                                              ], CKeyLog) of
+                true ->
+                    ok;
+                false ->
+                    ct:fail({client_received, CKeyLog})
+            end
     end.
