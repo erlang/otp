@@ -69,10 +69,6 @@ load_mod1(Mod, File, Binary, Db) ->
 store_module(Mod, File, Binary, Db) ->
     {interpreter_module, Exp, Abst, Src, MD5} = binary_to_term(Binary),
     Forms0 = case abstr(Abst) of
-                 {abstract_v1,_} ->
-                     exit({Mod,too_old_beam_file});
-                 {abstract_v2,_} ->
-                     exit({Mod,too_old_beam_file});
                  {raw_abstract_v1,Code} ->
                      Code
              end,
@@ -523,12 +519,12 @@ expr({'maybe',Anno,Es0,{'else',_ElseAnno,Cs0}}, Lc, St) ->
     Cs1 = icr_clauses(Cs0, Lc, St),
     {'maybe',ln(Anno),Es1,Cs1};
 expr({'fun',Anno,{clauses,Cs0}}, _Lc, St) ->
-    %% New R10B-2 format (abstract_v2).
+    %% New R10B-2 format
     Cs = fun_clauses(Cs0, St),
     Name = new_fun_name(),
     {make_fun,ln(Anno),Name,Cs};
 expr({'fun',Anno,{function,F,A}}, _Lc, _St) ->
-    %% New R8 format (abstract_v2).
+    %% New R8 format
     Line = ln(Anno),
     case erl_internal:bif(F, A) of
         true ->
@@ -589,7 +585,7 @@ expr({call,Anno,{remote,_,{atom,_,Mod},{atom,_,Func}},As0}, Lc, St) ->
 	    end
     end;
 expr({call,Anno,{remote,_,Mod0,Func0},As0}, Lc, St) ->
-    %% New R8 format (abstract_v2).
+    %% New R8 format
     Mod = expr(Mod0, false, St),
     Func = expr(Func0, false, St),
     As = consify(expr_list(As0, St)),

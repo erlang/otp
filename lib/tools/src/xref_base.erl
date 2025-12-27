@@ -798,18 +798,6 @@ abst(File, Builtins, _Mode = functions) ->
     case beam_lib:chunks(File, [abstract_code, exports, attributes]) of
 	{ok, {M,[{abstract_code,NoA},_X,_A]}} when NoA =:= no_abstract_code ->
 	    {ok, M, NoA};
-	{ok, {M, [{abstract_code, {abstract_v1, Forms}},
-                  {exports,X0}, {attributes,A}]}} ->
-	    %% R7.
-	    X = xref_utils:fa_to_mfa(X0, M),
-            D = deprecated(A, X, M),
-	    xref_reader:module(M, Forms, Builtins, X, D);
-	{ok, {M, [{abstract_code, {abstract_v2, Forms}},
-                  {exports,X0}, {attributes,A}]}} ->
-	    %% R8-R9B.
-	    X = xref_utils:fa_to_mfa(X0, M),
-            D = deprecated(A, X, M),
-	    xref_reader:module(M, Forms, Builtins, X, D);
 	{ok, {M, [{abstract_code, {raw_abstract_v1, Code}},
                   {exports,X0}, {attributes,A}]}} ->
 	    %% R9C-

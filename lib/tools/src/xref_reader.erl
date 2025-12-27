@@ -51,11 +51,6 @@
 
 -include("xref.hrl").
 
-%% The versions of the abstract code are as follows:
-%% R7:  abstract_v1
-%% R8:  abstract_v2
-%% R9C: raw_abstract_v1
-
 %% -> {ok, Module, {DefAt, LCallAt, XCallAt, LC, XC, X, Attrs, Depr, OL},
 %%         Unresolved}} | EXIT
 %% Attrs = {ALC, AXC, Bad}
@@ -190,13 +185,6 @@ expr({'fun', Anno, {function, Mod, Name, _Arity}}, S) ->
     %% New format in R15. M:F/A (one or more variables).
     As = {var, Anno, '_'},
     external_call(erlang, apply, [Mod, Name, As], Anno, true, S);
-%% Only abstract_v1 and abstract_v2.
-expr({'fun', Anno, {function, Name, Arity}, _Extra}, S) ->
-    %% Added in R8.
-    handle_call(local, S#xrefr.module, Name, Arity, Anno, S);
-expr({'fun', _Anno, {clauses, Cs}, _Extra}, S) ->
-    clauses(Cs, S);
-%% End abstract_v1 and abstract_v2.
 expr({'fun', Anno, {function, Name, Arity}}, S) ->
     %% Added in OTP 20.
     handle_call(local, S#xrefr.module, Name, Arity, Anno, S);
