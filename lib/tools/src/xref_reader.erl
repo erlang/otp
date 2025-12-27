@@ -42,10 +42,6 @@
 			      % (for coping with list comprehension)
 	 matches=[],          % records other bound variables
 	 unresolved=[],       % unresolved calls, {{mfa(),mfa()},Line}
-	 %% experimental; -xref(FunEdge) is recognized.
-	 lattrs=[],            % local calls, {{mfa(),mfa()},Line}
-	 xattrs=[],            % external calls, -"-
-	 battrs=[],	       % badly formed xref attributes, term().
          on_load               % function name
 	 }).
 
@@ -53,8 +49,7 @@
 
 %% -> {ok, Module, {DefAt, LCallAt, XCallAt, LC, XC, X, Attrs, Depr, OL},
 %%         Unresolved}} | EXIT
-%% Attrs = {ALC, AXC, Bad}
-%% ALC, AXC and Bad are extracted from the attribute 'xref'. An experiment.
+%% Attrs = {[], [], []} (no longer used)
 module(Module, Forms, CollectBuiltins, X, DF) ->
     Attrs = [{Attr,V} || {attribute,_Anno,Attr,V} <- Forms],
     IsAbstract = xref_utils:is_abstract_module(Attrs),
@@ -69,19 +64,15 @@ forms([], S) ->
     #xrefr{module = M, def_at = DefAt,
 	   l_call_at = LCallAt, x_call_at = XCallAt,
 	   el = LC, ex = XC, x = X, df = Depr, on_load = OnLoad,
-	   lattrs = AL, xattrs = AX, battrs = B, unresolved = U} = S,
+	   unresolved = U} = S,
     OL = case OnLoad of
              undefined -> [];
              F ->
                  [{M, F, 0}]
          end,
-    Attrs = {lists:reverse(AL), lists:reverse(AX), lists:reverse(B)},
+    Attrs = {[], [], []},
     {ok, M, {DefAt, LCallAt, XCallAt, LC, XC, X, Attrs, Depr, OL}, U}.
 
-form({attribute, Anno, xref, Calls}, S) -> % experimental
-    #xrefr{module = M, function = Fun,
-	   lattrs = L, xattrs = X, battrs = B} = S,
-    attr(Calls, erl_anno:line(Anno), M, Fun, L, X, B, S);
 form({attribute, _, on_load, {F, 0}}, S) ->
     S#xrefr{on_load = F};
 form({attribute, _Anno, _Attr, _Val}, S) ->
@@ -123,37 +114,6 @@ clauses([{clause, _Anno, _H, G, B} | Cs], FunVars, Matches, S) ->
     clauses(Cs, S3);
 clauses([], _FunVars, _Matches, S) ->
     S.
-
-attr(NotList, Ln, M, Fun, AL, AX, B, S) when not is_list(NotList) ->
-    attr([NotList], Ln, M, Fun, AL, AX, B, S);
-attr([E={From, To} | As], Ln, M, Fun, AL, AX, B, S) ->
-    case mfa(From, M) of
-	{_, _, MFA} when MFA =:= Fun; [] =:= Fun ->
-	    attr(From, To, Ln, M, Fun, AL, AX, B, S, As, E);
-	{_, _, _} ->
-	    attr(As, Ln, M, Fun, AL, AX, [E | B], S);
-	_ ->
-	    attr(Fun, E, Ln, M, Fun, AL, AX, B, S, As, E)
-    end;
-attr([To | As], Ln, M, Fun, AL, AX, B, S) ->
-    attr(Fun, To, Ln, M, Fun, AL, AX, B, S, As, To);
-attr([], _Ln, _M, _Fun, AL, AX, B, S) ->
-    S#xrefr{lattrs = AL, xattrs = AX, battrs = B}.
-
-attr(From, To, Ln, M, Fun, AL, AX, B, S, As, E) ->
-    case {mfa(From, M), mfa(To, M)} of
-	{{true,_,F}, {_,external,T}} ->
-	    attr(As, Ln, M, Fun, AL, [{{F,T},Ln} | AX], B, S);
-	{{true,_,F}, {_,local,T}} ->
-	    attr(As, Ln, M, Fun, [{{F,T},Ln} | AL], AX, B, S);
-	_ -> attr(As, Ln, M, Fun, AL, AX, [E | B], S)
-    end.
-
-mfa({F,A}, M) when is_atom(F), is_integer(A) ->
-    {true, local, {M,F,A}};
-mfa(MFA={M,F,A}, M1) when is_atom(M), is_atom(F), is_integer(A) ->
-    {M=:=M1, external, MFA};
-mfa(_, _M) -> false.
 
 expr({'if', _Anno, Cs}, S) ->
     clauses(Cs, S);

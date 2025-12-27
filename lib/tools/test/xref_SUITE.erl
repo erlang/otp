@@ -1010,8 +1010,8 @@ do_read(File) ->
 %% What is expected when xref_SUITE_data/read/read.erl is added:
 read_expected() ->
     %% Line positions in xref_SUITE_data/read/read.erl:
-    POS1 = 28, POS2 = POS1+10, POS3 = POS2+6, POS4 = POS3+6, POS5 = POS4+10,
-    POS6 = POS5+5, POS7 = POS6+6, POS8 = POS7+6, POS9 = POS8+8,
+    POS0 = 26, POS1 = POS0+9, POS2 = POS1+10, POS3 = POS2+6, POS4 = POS3+6,
+    POS5 = POS4+10, POS6 = POS5+5, POS7 = POS6+6, POS8 = POS7+6, POS9 = POS8+8,
     POS10 = POS9+10, POS11 = POS10+7, POS12 = POS11+8, POS13 = POS12+10,
     POS14 = POS13+18, POS15 = POS14+23,
 
@@ -1058,8 +1058,8 @@ read_expected() ->
          {POS13+3,{FF,{'$M_EXPR','$F_EXPR',-1}}},
          {POS14+8,{{read,bi,0},{'$M_EXPR','$F_EXPR',1}}}],
 
-    O1 = [{20,{{read,lc,0},{ets,new,0}}},
-          {21,{{read,lc,0},{ets,tab2list,1}}},
+    O1 = [{POS0+1,{{read,lc,0},{ets,new,0}}},
+          {POS0+2,{{read,lc,0},{ets,tab2list,1}}},
           {POS1+1,{FF,{erlang,spawn,1}}},
           {POS1+1,{FF,{mod17,fun17,0}}},
           {POS1+2,{FF,{erlang,spawn,1}}},
@@ -1128,13 +1128,7 @@ read_expected() ->
           {POS14+11,{{read,bi,0},{erlang,module_info,0}}},
           {POS14+17,{{read,bi,0},{read,bi,0}}}],
 
-    OK = case Version of
-             abstract_v2 ->
-                 [{16,{FF,{read,'$F_EXPR',178}}},
-                  {17,{FF,{modul,'$F_EXPR',179}}}]
-                 ++
-                 O1
-         end,
+    OK = O1,
 
     %% When builtins =:= true:
     OKB1 = [{POS13+1,{FF,{erts_debug,apply,4}}},
