@@ -40,6 +40,7 @@ MODULES= \
 	dets_SUITE \
 	dict_SUITE \
 	dict_test_lib \
+	graph_SUITE \
 	digraph_SUITE \
 	digraph_utils_SUITE \
 	dummy1_h \

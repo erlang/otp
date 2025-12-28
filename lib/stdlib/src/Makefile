@@ -56,6 +56,7 @@ MODULES= \
 	dets_utils \
 	dets_v9 \
 	dict \
+	graph \
 	digraph \
 	digraph_utils \
 	edlin \

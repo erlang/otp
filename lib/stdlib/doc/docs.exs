@@ -69,6 +69,7 @@
         :digraph_utils,
         :gb_sets,
         :gb_trees,
+        :graph,
         :json,
         :orddict,
         :ordsets,
