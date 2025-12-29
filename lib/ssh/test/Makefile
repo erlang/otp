@@ -146,3 +146,7 @@ release_tests_spec: opt
 	@tar cf - *_SUITE_data property_test | (cd "$(RELSYSDIR)"; tar xf -)
 
 release_docs_spec:
+
+# Dependencies
+
+$(TARGET_FILES):	$(HRL_FILES)
