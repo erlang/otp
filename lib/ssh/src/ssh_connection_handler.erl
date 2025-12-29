@@ -2228,11 +2228,20 @@ triggered_alive(StateName, D0 = #data{},
 %% feature acts as a keep-alive and a timeout, an equivalent timeout is
 %% established for the renegotiation procedure if alive is enabled.
 %% For simplicity the timeout value is derived from alive_interval and
-%% alive_count.
-renegotiation_alive_timeout(#ssh{opts = Opts}) ->
+%% alive_count and takes in consideration the probes that may have already
+%% been sent.
+renegotiation_alive_timeout(#ssh{opts = Opts} = Ssh) ->
     case ?GET_ALIVE_OPT(Opts) of
-        {_AliveCount, infinity} -> infinity;
-        {AliveCount, AliveInterval} -> AliveCount * AliveInterval
+        {_AliveCount, infinity} ->
+            infinity;
+        {AliveCount, AliveInterval} ->
+            #ssh{alive_last_sent_at = AliveLastSentAt,
+                 alive_probes_sent = AliveProbesSent} = Ssh,
+            Now = erlang:monotonic_time(milli_seconds),
+            TimeSinceLastAlive = Now - AliveLastSentAt,
+            TotalElapsedTimeWithoutAlive =
+                AliveProbesSent * AliveInterval + TimeSinceLastAlive,
+            AliveCount * AliveInterval - TotalElapsedTimeWithoutAlive
     end.
 
 %%%################################################################

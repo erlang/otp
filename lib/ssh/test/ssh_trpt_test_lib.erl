@@ -27,7 +27,8 @@
 	 instantiate/2,
 	 format_msg/1,
 	 server_host_port/1,
-         return_value/1
+         return_value/1,
+         set_timeout/2
 	]
        ).
 
@@ -830,3 +831,6 @@ save_prints({Fmt,Args}, S) ->
 
 return_value(#s{return_value = ReturnValue}) ->
     ReturnValue.
+
+set_timeout(S, Timeout) ->
+    S#s{timeout = Timeout}.
