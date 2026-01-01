@@ -1009,9 +1009,9 @@ do_read(File, Version) ->
     to_external(intersection(set(XU), Erl)),
     xref:stop(s).
 
-%% What is expected when xref_SUITE_data/read/read.erl is added:
+%% Expected xref result when xref_SUITE_data/read/read.erl is added.
 read_expected(Version) ->
-    %% Line positions in xref_SUITE_data/read/read.erl:
+    %% Line positions in xref_SUITE_data/read/read.erl (version-dependent):
     POS1 = 28, POS2 = POS1+10, POS3 = POS2+6, POS4 = POS3+6, POS5 = POS4+10,
     POS6 = POS5+5, POS7 = POS6+6, POS8 = POS7+6, POS9 = POS8+8,
     POS10 = POS9+10, POS11 = POS10+7, POS12 = POS11+8, POS13 = POS12+10,
@@ -1206,7 +1206,7 @@ read_expected(Version) ->
 
 %% Data read from the Abstract Code (cont)
 read2(Conf) when is_list(Conf) ->
-    %% Handles the spawn_opt versions added in R9 (OTP-4180).
+    %% Handles spawn_opt-related variations in older OTP versions.
     %% Expected augmentations: try/catch, cond.
     CopyDir = ?copydir,
     Dir = fname(CopyDir,"read"),
