@@ -41,7 +41,9 @@
 -export([config_change/1, persistent_env/1, invalid_app_file/1,
 	 distr_changed_tc1/1, distr_changed_tc2/1,
 	 ensure_started/1, ensure_all_started/1,
-	 shutdown_func/1, do_shutdown/1, shutdown_timeout/1,
+	 shutdown_func/1, do_shutdown/1, shutdown_timeout/1, 
+         shutdown_starting/1, shutdown_starting_timeout/1,
+         shutdown_starting_application_call/1,
          shutdown_application_call/1,shutdown_deadlock/1,
          config_relative_paths/1, handle_many_config_files/1,
          format_log_1/1, format_log_2/1,
@@ -63,7 +65,8 @@ all() ->
      script_start, nodedown_start, permit_false_start_local,
      permit_false_start_dist, get_key, get_env, ensure_all_started,
      set_env, set_env_persistent, set_env_errors, get_supervisor,
-     {group, distr_changed}, config_change, shutdown_func, shutdown_timeout,
+     {group, distr_changed}, config_change, shutdown_func, shutdown_timeout, 
+     shutdown_starting, shutdown_starting_timeout, shutdown_starting_application_call,
      shutdown_application_call, shutdown_deadlock, config_relative_paths, optional_applications,
      persistent_env, handle_many_config_files, format_log_1, format_log_2,
      configfd_bash, configfd_port_program, invalid_app_file].
@@ -2577,6 +2580,101 @@ shutdown_timeout(Config) when is_list(Config) ->
 	    ok
     after 10000 ->
 	    ct:fail("timeout 10 sec: node termination hangs")
+    end,
+    ok.
+
+%%%-----------------------------------------------------------------
+%%% Test that we wait for starting applications to start
+%%% before we start terminating already started
+%%%-----------------------------------------------------------------
+shutdown_starting(Config) when is_list(Config) ->
+    DataDir = proplists:get_value(data_dir,Config),
+    {ok,Cp1} = start_node(?MODULE_STRING++atom_to_list(?FUNCTION_NAME)),
+    wait_for_ready_net(),
+    rpc:call(Cp1, code, add_path, [filename:join([DataDir,slow])]),
+    ok = rpc:call(Cp1, application, load, [slow]),
+    ok = rpc:call(Cp1, application, set_env, [slow, controller, self()]),
+    rpc:cast(Cp1, application, start, [slow]),
+    
+    receive
+        {server_starting, Server} ->
+            rpc:cast(Cp1, init, stop, []),
+            Server ! continue
+    after 10000 ->
+        ct:fail("timeout 10 sec: application didn't start")
+    end,
+    receive
+        server_terminating ->
+            ok
+    after 10000 ->
+        ct:fail("timeout 10 sec: node didn't stop starting application")
+    end.
+
+%%%-----------------------------------------------------------------
+%%% Tests that we don't deadlock onwait for starting applications to start
+%%% before we start terminating already started
+%%%-----------------------------------------------------------------
+shutdown_starting_timeout(Config) when is_list(Config) ->
+    DataDir = proplists:get_value(data_dir,Config),
+    {ok,Cp1} = start_node(?MODULE_STRING++atom_to_list(?FUNCTION_NAME)),
+    wait_for_ready_net(),
+    ok = rpc:call(Cp1, application, set_env, [kernel, shutdown_timeout, 1000]),
+    rpc:call(Cp1, code, add_path, [filename:join([DataDir,slow])]),
+    ok = rpc:call(Cp1, application, load, [slow]),
+    ok = rpc:call(Cp1, application, set_env, [slow, controller, self()]),
+    rpc:cast(Cp1, application, start, [slow]),
+
+    ok = net_kernel:monitor_nodes(true),
+    _ = rpc:call(Cp1, init, stop, []),
+    receive
+        {nodedown,Cp1} ->
+            ok
+    after 10000 ->
+        ct:fail("timeout 10 sec: node termination hangs")
+    end,
+    ok.
+
+%%%-----------------------------------------------------------------
+%%% Tests that we don't deadlock if we call application:set_env
+%%% when terminating an application that didn't finish starting
+%%%-----------------------------------------------------------------
+shutdown_starting_application_call(Config) when is_list(Config) ->
+    DataDir = proplists:get_value(data_dir,Config),
+    {ok,Cp1} = start_node(?MODULE_STRING++atom_to_list(?FUNCTION_NAME)),
+    wait_for_ready_net(),
+    rpc:call(Cp1, code, add_path, [filename:dirname(code:which(?MODULE))]),
+    rpc:call(Cp1, code, add_path, [filename:join([DataDir,slow])]),
+    ok = rpc:call(Cp1, application, load, [slow]),
+    ok = rpc:call(Cp1, application, set_env, [slow, controller, self()]),
+    Terminate = fun() ->
+        try application:set_env(slow, ab, b, [{timeout, infinity}, {persistent, true}])
+        catch
+            exit:terminating -> ok
+        end
+    end,
+    ok = rpc:call(Cp1, application, set_env, [slow, terminate, Terminate]),
+    rpc:cast(Cp1, application, start, [slow]),
+
+    receive
+        {server_starting, Server} ->
+            Server ! continue
+    after 10000 ->
+        ct:fail("timeout 10 sec: application didn't start")
+    end,
+
+    ok = net_kernel:monitor_nodes(true),
+    _ = rpc:call(Cp1, init, stop, []),
+    receive
+        server_terminating ->
+            ok
+    after 10000 ->
+        ct:fail("timeout 10 sec: node didn't stop starting application")
+    end,
+    receive
+        {nodedown,Cp1} ->
+            ok
+    after 10000 ->
+        ct:fail("timeout 10 sec: node termination hangs")
     end,
     ok.
 
