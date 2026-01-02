@@ -66,8 +66,19 @@ An example of a typical ordering function is less than or equal to: `=</2`.
 -export([keydelete/3, keyreplace/4, keymap/3,
          keytake/3, keystore/4]).
 
+%% Functions taking a list of maps and a map with key association pairs.
+-export([keydelete_m/2,
+         keyfind_m/2,
+         keymember_m/2,
+         keyreplace_m/3,
+         keystore_m/3,
+         keytake_m/2]).
+
 %% Sort functions that operate on list of tuples.
 -export([keymerge/3, keysort/2, ukeymerge/3, ukeysort/2]).
+
+%% Sort functions that operate on list of maps.
+-export([keysort_m/2]).
 
 %% Sort and merge functions.
 -export([merge/1, merge/2, merge/3, merge3/3,
@@ -1607,6 +1618,284 @@ keymerge_1(_Index, [], [_|_]=L2) ->
     L2;
 keymerge_1(_Index, [], []) ->
     [].
+
+%% keydelete_m(Key, [Map])
+%% keyfind_m(Key, [Map])
+%% keymember_m(Key, [Map])
+%% keyreplace_m(Key, [Map])
+%% keysort_m(KeyElement, [Map])
+%% keystore_m(Key, [Map])
+%% keytake_m(Key, [Map])
+
+-doc """
+Returns a copy of `MapList1` where the first occurrence of a map containing
+association pairs that compares equal to all association pairs of `Key`
+is deleted, if there is such a map.
+
+## Examples
+
+```erlang
+1> lists:keydelete_m(#{k=>55}, [#{b=>1,k=>22}, #{b=>99,k=>55}, #{d=>75}]).
+[#{b=>1,k=>22}, #{d=>75}]
+2> lists:keydelete_m(#{k=>unknown}, [#{b=>1,k=>22}, #{b=>99,k=>55}, #{d=>75}]).
+[#{b=>1,k=>22}, #{b=>99,k=>55}, #{d=>75}]
+```
+""".
+-doc(#{since => <<"OTP 29.0">>}).
+-spec keydelete_m(Key, MapList1) -> MapList2 when
+      Key :: Map,
+      MapList1 :: [Map],
+      MapList2 :: [Map],
+      Map :: map().
+keydelete_m(Key, [E | Tail]) when is_map(Key) andalso map_size(Key) > 0 ->
+    try maps:with(maps:keys(Key), E) == Key of
+        true ->
+            Tail;
+        false ->
+            [E | keydelete_m(Key, Tail)]
+    catch
+        _ : _ ->
+            [E | keydelete_m(Key, Tail)]
+    end;
+keydelete_m(Key, []) when is_map(Key) andalso map_size(Key) > 0 ->
+    [];
+keydelete_m(_, _) ->
+    erlang:error(badarg).
+
+-doc """
+Searches the list of maps `MapList` for a map containing
+association pairs that compares equal to all association pairs of `Key`.
+
+Returns `Map` if such a map is found; otherwise, returns `false`.
+
+## Examples
+
+```erlang
+1> lists:keyfind_m(#{a=>10}, [#{a=>10,k=>11}, #{a=>10,k=>20,d=>90}, #{c=>30}]).
+#{a=>10,k=>11}
+2> lists:keyfind_m(#{a=>10,k=>20}, [#{a=>10,k=>11}, #{a=>10,k=>20,d=>90}, #{c=>30}]).
+#{a=>10,k=>20,d=>90}
+3> lists:keyfind_m(#{k=>unknown}, [#{a=>10,k=>11}, #{k=>20,d=>90}, #{c=>30}]).
+false
+```
+""".
+-doc(#{since => <<"OTP 29.0">>}).
+-spec keyfind_m(Key, MapList) -> Map | false when
+      Key :: Map,
+      MapList :: [Map],
+      Map :: map().
+keyfind_m(Key, [E | Tail]) when is_map(Key) andalso map_size(Key) > 0 ->
+    try maps:with(maps:keys(Key), E) == Key of
+        true ->
+            E;
+        false ->
+            keyfind_m(Key, Tail)
+    catch
+        _ : _ ->
+            keyfind_m(Key, Tail)
+    end;
+keyfind_m(Key, []) when is_map(Key) andalso map_size(Key) > 0 ->
+    false;
+keyfind_m(_, _) ->
+    erlang:error(badarg).
+
+-doc """
+Returns `true` if there is a map in `MapList` containing association pairs
+that compares equal to all association pairs of `Key`; otherwise,
+returns `false`.
+
+## Examples
+
+```erlang
+1> lists:keymember_m(#{a=>10,k=>20}, [#{a=>10,k=>11}, #{a=>10,k=>20,d=>90}, #{c=>30}]).
+true
+2> lists:keymember_m(#{k=>unknown}, [#{a=>10,k=>11}, #{a=>10,k=>20,d=>90}, #{c=>30}]).
+false
+```
+""".
+-doc(#{since => <<"OTP 29.0">>}).
+-spec keymember_m(Key, MapList) -> boolean() when
+      Key :: Map,
+      MapList :: [Map],
+      Map :: map().
+keymember_m(Key, [E | Tail]) when is_map(Key) andalso map_size(Key) > 0 ->
+    try maps:with(maps:keys(Key), E) == Key of
+        true ->
+            true;
+        false ->
+            keymember_m(Key, Tail)
+    catch
+        _ : _ ->
+            keymember_m(Key, Tail)
+    end;
+keymember_m(Key, []) when is_map(Key) andalso map_size(Key) > 0 ->
+    false;
+keymember_m(_, _) ->
+    erlang:error(badarg).
+
+-doc """
+Returns a copy of `MapList1` where the first occurrence of a map containing
+association pairs that compares equal to all association pairs of `Key`
+is replaced with `NewMap`, if there is such a map.
+
+## Examples
+
+```erlang
+1> lists:keyreplace_m(#{c=>55}, [#{b=>1}, #{c=>55}, #{d=>75}], #{new=>map}).
+[#{b=>1}, #{new=>map}, #{d=>75}]
+2> lists:keyreplace_m(#{c=>unknown}, [#{b=>1}, #{c=>55}, #{d=>75}], #{new=>map}).
+[#{b=>1}, #{c=>55}, #{d=>75}]
+```
+""".
+-doc(#{since => <<"OTP 29.0">>}).
+-spec keyreplace_m(Key, MapList1, NewMap) -> MapList2 when
+      Key :: Map,
+      MapList1 :: [Map],
+      MapList2 :: [Map],
+      NewMap :: Map,
+      Map :: map().
+keyreplace_m(Key, [E | Tail], NewMap) when is_map(Key) andalso
+                                           map_size(Key) > 0 andalso
+                                           is_map(NewMap) ->
+    try maps:with(maps:keys(Key), E) == Key of
+        true ->
+            [NewMap | Tail];
+        false ->
+            [E | keyreplace_m(Key, Tail, NewMap)]
+    catch
+        _ : _ ->
+            [E | keyreplace_m(Key, Tail, NewMap)]
+    end;
+keyreplace_m(Key, [], NewMap) when is_map(Key) andalso
+                                   map_size(Key) > 0 andalso
+                                   is_map(NewMap) ->
+    [];
+keyreplace_m(_, _, _) ->
+    erlang:error(badarg).
+
+-doc """
+Returns a list of the elements in `MapList1`, sorted by
+the `Key` element of each map.
+
+The sort is stable.
+
+## Examples
+
+```erlang
+1> lists:keysort_m(k, [#{a=>99, k=>77}, #{b=>17, k=>33}, #{c=>50, k=>44}, #{d=>50, k=>55}]).
+[#{b=>17, k=>33}, #{c=>50, k=>44}, #{d=>50, k=>55}, #{a=>99, k=>77}]
+```
+""".
+-doc(#{since => <<"OTP 29.0">>}).
+-spec keysort_m(KeyElement, MapList1) -> MapList2 when
+      KeyElement :: term(),
+      MapList1 :: [Map],
+      MapList2 :: [Map],
+      Map :: map().
+keysort_m(KeyElem, MapList) ->
+    keysort_m(KeyElem, MapList, []).
+
+keysort_m(KeyElem, [E | Tail], AccSort) ->
+    NewAccSort = keysort_m3(AccSort, E, KeyElem),
+    keysort_m(KeyElem, Tail, NewAccSort);
+keysort_m(_, [], AccSort) ->
+    AccSort;
+keysort_m(_, _, _) ->
+    erlang:error(badarg).
+
+keysort_m3([SortedE | Tail], E, KeyElem) ->
+    try maps:get(KeyElem, E) < maps:get(KeyElem, SortedE) of
+        true ->
+            [E, SortedE | Tail];
+        false ->
+            [SortedE | keysort_m3(Tail, E, KeyElem)]
+    catch
+        _ : _ ->
+            [SortedE | keysort_m3(Tail, E, KeyElem)]
+    end;
+keysort_m3([], E, _) ->
+    [E].
+
+-doc """
+Returns a copy of `MapList1` with the first occurrence of a map containing
+association pairs that compares equal to all association pairs of `Key`
+replaced by `NewMap`, or with `[NewMap]` appended if no such map exists.
+
+## Examples
+
+```erlang
+1> lists:keystore_m(#{b=>23}, [#{a=>10}, #{b=>23}, #{c=>99}], #{bb=>1}).
+[#{a=>10}, #{bb=>1}, #{c=>99}]
+2> lists:keystore_m(#{z=>100}, [#{a=>10}, #{b=>23}, #{c=>99}], #{z=>2}).
+[#{a=>10}, #{b=>23}, #{c=>99}, #{z=>2}]
+```
+""".
+-doc(#{since => <<"OTP 29.0">>}).
+-spec keystore_m(Key, MapList1, NewMap) -> MapList2 when
+      Key :: Map,
+      MapList1 :: [Map],
+      MapList2 :: [Map],
+      NewMap :: Map,
+      Map :: map().
+keystore_m(Key, [E | Tail], NewMap) when is_map(Key) andalso
+                                         map_size(Key) > 0 andalso
+                                         is_map(NewMap) ->
+    try maps:with(maps:keys(Key), E) == Key of
+        true ->
+            [NewMap | Tail];
+        false ->
+            [E | keystore_m(Key, Tail, NewMap)]
+    catch
+        _ : _ ->
+            [E | keystore_m(Key, Tail, NewMap)]
+    end;
+keystore_m(Key, [], NewMap) when is_map(Key) andalso
+                                 map_size(Key) > 0 andalso
+                                 is_map(NewMap) ->
+    [NewMap];
+keystore_m(_, _, _) ->
+    erlang:error(badarg).
+
+-doc """
+Searches the list of maps `MapList1` for a map containing
+association pairs that compares equal to all association pairs of `Key`,
+returning `{value, Map, MapList2}` if found, where `MapList2` is a copy of
+`MapList1` with the first occurrence of `Map` removed.
+
+Otherwise, returns `false` if no such map is found.
+
+## Examples
+
+```erlang
+1> lists:keytake_m(#{k=>24}, [#{a=>10}, #{b=>23, k=>24}, #{c=>99}]).
+{value, #{b=>23, k=>24}, [#{a=>10}, #{c=>99}]}
+2> lists:keytake_m(#{k=>99}, [#{a=>10}, #{b=>23, k=>24}, #{c=>99}]).
+false
+```
+""".
+-doc(#{since => <<"OTP 29.0">>}).
+-spec keytake_m(Key, MapList1) -> {value, Map, MapList2} | false when
+      Key :: Map,
+      MapList1 :: [Map],
+      MapList2 :: [Map],
+      Map :: map().
+keytake_m(Key, MapList) ->
+    keytake_m(Key, MapList, []).
+
+keytake_m(Key, [E | Tail], Acc) when is_map(Key) andalso map_size(Key) > 0 ->
+    try maps:with(maps:keys(Key), E) == Key of
+        true ->
+            {value, E, Acc ++ Tail};
+        false ->
+            keytake_m(Key, Tail, Acc ++ [E])
+    catch
+        _ : _ ->
+            keytake_m(Key, Tail, Acc ++ [E])
+    end;
+keytake_m(Key, [], _) when is_map(Key) andalso map_size(Key) > 0 ->
+    false;
+keytake_m(_, _, _) ->
+    erlang:error(badarg).
 
 %% reverse(rkeymerge(I,reverse(A),reverse(B))) is equal to keymerge(I,A,B).
 

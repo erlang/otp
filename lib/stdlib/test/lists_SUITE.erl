@@ -35,6 +35,8 @@
 -export([member/1, reverse/1,
 	 keymember/1, keysearch_keyfind/1,
 	 keystore/1, keytake/1, keyreplace/1,
+         keydelete_m/1, keyfind_m/1, keymember_m/1, keyreplace_m/1,
+         keysort_m/1, keystore_m/1, keytake_m/1,
 	 append_1/1, append_2/1,
 	 seq_loop/1, seq_2/1, seq_3/1, seq_2_e/1, seq_3_e/1,
 
@@ -80,6 +82,7 @@ suite() ->
 all() -> 
     [{group, append},
      {group, key},
+     {group, key_m},
      {group, sort},
      {group, usort},
      {group, keysort},
@@ -101,6 +104,8 @@ groups() ->
        keysort_i, keysort_error]},
      {key, [parallel], [keymember, keysearch_keyfind, keystore,
 			keytake, keyreplace]},
+     {key_m, [parallel], [keydelete_m, keyfind_m, keymember_m, keyreplace_m,
+                          keysort_m, keystore_m, keytake_m]},
      {sort,[parallel],[merge, rmerge, sort_1, sort_2, sort_rand]},
      {ukeysort, [parallel],
       [ukeymerge, rukeymerge, ukeysort_1, ukeysort_rand,
@@ -423,6 +428,163 @@ keyreplace(Config) when is_list(Config) ->
     %% Error cases.
     {'EXIT',_} = (catch lists:keyreplace(k, 1, [], not_tuple)),
     {'EXIT',_} = (catch lists:keyreplace(k, 0, [], {a,b})),
+    ok.
+
+keydelete_m(Config) when is_list(Config) ->
+    Any = #{anything=>goes},
+    {'EXIT',{badarg,_}} = (catch lists:keydelete_m(Any, {1,2,3})),
+    {'EXIT',{badarg,_}} = (catch lists:keydelete_m(#{}, [])),
+
+    First = #{b=>1, k=>22},
+    Second = #{b=>99, k=>55},
+    Third = #{d=>75},
+    Fourth = Second,
+    List = [First, Second, Third, Fourth],
+
+    [First, Third, Fourth] = lists:keydelete_m(#{k=>55}, List),
+    List = lists:keydelete_m(#{k=>unknown}, List),
+    ok.
+
+keyfind_m(Config) when is_list(Config) ->
+    Any = #{anything=>goes},
+    false = lists:keyfind_m(Any, []),
+    {'EXIT',{badarg,_}} = (catch lists:keyfind_m(Any, {1,2,3})),
+    {'EXIT',{badarg,_}} = (catch lists:keyfind_m(#{}, [])),
+
+    First = #{a=>10, k=>11},
+    Second = #{a=>10, k=>20, d=>90},
+    Third = #{c=>30, k=>-30},
+    Fourth = #{a=>10, k=>20, d=>88.0},
+    List = [First, Second, Third, Fourth],
+
+    false = lists:keyfind_m(Any, []),
+    false = lists:keyfind_m(#{a=>10, c=>30}, List),
+    false = lists:keyfind_m(#{a=>10, k=>11, c=>30}, List),
+
+    First = lists:keyfind_m(#{a=>10}, List),
+    Second = lists:keyfind_m(#{a=>10, k=>20}, List),
+    Third = lists:keyfind_m(#{c=>30}, List),
+    Third = lists:keyfind_m(#{k=>-30}, List),
+    Third = lists:keyfind_m(#{k=>-30.0}, List),
+    Fourth = lists:keyfind_m(#{k=>20, d=>88}, List),
+    Fourth = lists:keyfind_m(#{k=>20, d=>88.0}, List),
+    ok.
+
+keymember_m(Config) when is_list(Config) ->
+    Any = #{anything=>goes},
+    {'EXIT',{badarg,_}} = (catch lists:keymember_m(Any, {1,2,3})),
+    {'EXIT',{badarg,_}} = (catch lists:keymember_m(#{}, [])),
+
+    List = [#{a=>10, k=>11},
+            #{a=>10, k=>20, d=>90},
+            #{c=>30, k=>-30},
+            not_a_map,
+            #{a=>10, k=>20, d=>88.0}],
+
+    false = lists:keymember_m(Any, []),
+    false = lists:keymember_m(#{k=>unknown}, List),
+    false = lists:keymember_m(#{a=>10, k=>11, c=>30}, List),
+
+    true = lists:keymember_m(#{a=>10, k=>20}, List),
+    true = lists:keymember_m(#{k=>-30}, List),
+    true = lists:keymember_m(#{k=>-30.0}, List),
+    true = lists:keymember_m(#{d=>88}, List),
+    true = lists:keymember_m(#{d=>88.0}, List),
+    ok.
+
+keyreplace_m(Config) when is_list(Config) ->
+    Any = #{anything=>goes},
+    {'EXIT',{badarg,_}} = (catch lists:keyreplace_m(Any, {1,2,3}, Any)),
+    {'EXIT',{badarg,_}} = (catch lists:keyreplace_m(Any, [], {1,2,3})),
+    {'EXIT',{badarg,_}} = (catch lists:keyreplace_m(#{}, [], Any)),
+
+    First = #{a=>10, k=>11},
+    Second = #{a=>10, k=>20, d=>90},
+    Third = #{c=>30, k=>-30},
+    Fourth = #{a=>10, k=>20, d=>88.0},
+    New = #{new=>map},
+    List = [First, Second, Third, Fourth],
+
+    List = lists:keyreplace_m(#{k=>unknown}, List, New),
+    [New, Second, Third, Fourth] = lists:keyreplace_m(#{a=>10}, List, New),
+    [First, New, Third, Fourth] =
+        lists:keyreplace_m(#{a=>10, k=>20}, List, New),
+    [First, Second, New, Fourth] = lists:keyreplace_m(#{k=>-30}, List, New),
+    [First, Second, New, Fourth] = lists:keyreplace_m(#{k=>-30.0}, List, New),
+    [First, Second, Third, New] = lists:keyreplace_m(#{d=>88}, List, New),
+    [First, Second, Third, New] = lists:keyreplace_m(#{d=>88.0}, List, New),
+    List = lists:keyreplace_m(#{a=>10, k=>20, un=>known}, List, New),
+    ok.
+
+keysort_m(Config) when is_list(Config) ->
+    {'EXIT',{badarg,_}} = (catch lists:keysort_m(any, {1,2,3})),
+
+    First = #{a=>10, b=>10, k=>11},
+    Second = #{a=>10, b=>10.5, k=>20, d=>90},
+    Third = not_a_map,
+    Fourth = #{c=>30, k=>-30},
+    Fifth = #{a=>10, b=>10, k=>20, d=>88.0},
+    List = [First, Second, Third, Fourth, Fifth],
+
+    [Fourth, First, Second, Third, Fifth] = lists:keysort_m(k, List),
+    [First, Fifth, Second, Third, Fourth] = lists:keysort_m(d, List),
+    List = lists:keysort_m(a, List),
+    [First, Fifth, Second, Third, Fourth] = lists:keysort_m(b, List),
+    ok.
+
+keystore_m(Config) when is_list(Config) ->
+    Any = #{anything=>goes},
+    {'EXIT',{badarg,_}} = (catch lists:keystore_m(Any, {1,2,3}, Any)),
+    {'EXIT',{badarg,_}} = (catch lists:keystore_m(Any, [], {1,2,3})),
+    {'EXIT',{badarg,_}} = (catch lists:keystore_m(#{}, [], Any)),
+
+    First = #{a=>10, k=>11},
+    Second = #{a=>10, k=>20, d=>90},
+    Third = #{c=>30, k=>-30},
+    Fourth = #{a=>10, k=>20, d=>88.0},
+    New = #{new=>map},
+    List = [First, Second, Third, Fourth],
+
+    [First, Second, Third, Fourth, New] =
+        lists:keystore_m(#{k=>unknown}, List, New),
+    [New, Second, Third, Fourth] = lists:keystore_m(#{a=>10}, List, New),
+    [First, New, Third, Fourth] =
+        lists:keystore_m(#{a=>10, k=>20}, List, New),
+    [First, Second, New, Fourth] = lists:keystore_m(#{k=>-30}, List, New),
+    [First, Second, New, Fourth] = lists:keystore_m(#{k=>-30.0}, List, New),
+    [First, Second, Third, New] = lists:keystore_m(#{d=>88}, List, New),
+    [First, Second, Third, New] = lists:keystore_m(#{d=>88.0}, List, New),
+    [First, Second, Third, Fourth, New] =
+        lists:keystore_m(#{a=>10, k=>20, un=>known}, List, New),
+    ok.
+
+keytake_m(Config) when is_list(Config) ->
+    Any = #{anything=>goes},
+    false = lists:keytake_m(Any, []),
+    {'EXIT',{badarg,_}} = (catch lists:keytake_m(Any, {1,2,3})),
+    {'EXIT',{badarg,_}} = (catch lists:keytake_m(#{}, [])),
+
+    First = #{a=>10, k=>11},
+    Second = #{a=>10, k=>20, d=>90},
+    Third = #{c=>30, k=>-30},
+    Fourth = #{a=>10, k=>20, d=>88.0},
+    List = [First, Second, Third, Fourth],
+
+    false = lists:keytake_m(Any, []),
+    false = lists:keytake_m(#{a=>10, c=>30}, List),
+    false = lists:keytake_m(#{a=>10, k=>11, c=>30}, List),
+
+    {value, First, [Second, Third, Fourth]} = lists:keytake_m(#{a=>10}, List),
+    {value, Second, [First, Third, Fourth]} =
+        lists:keytake_m(#{a=>10, k=>20}, List),
+    {value, Third, [First, Second, Fourth]} = lists:keytake_m(#{c=>30}, List),
+    {value, Third, [First, Second, Fourth]} = lists:keytake_m(#{k=>-30}, List),
+    {value, Third, [First, Second, Fourth]} =
+        lists:keytake_m(#{k=>-30.0}, List),
+    {value, Fourth, [First, Second, Third]} =
+        lists:keytake_m(#{k=>20, d=>88}, List),
+    {value, Fourth, [First, Second, Third]} =
+        lists:keytake_m(#{k=>20, d=>88.0}, List),
     ok.
 
 merge(Config) when is_list(Config) ->
