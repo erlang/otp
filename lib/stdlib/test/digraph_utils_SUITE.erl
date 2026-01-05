@@ -31,7 +31,7 @@
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2]).
 
--export([simple/1, loop/1, isolated/1, topsort/1, subgraph/1, 
+-export([simple/1, loop/1, roots/1, isolated/1, topsort/1, subgraph/1, 
          condensation/1, tree/1, traversals/1]).
 
 
@@ -40,7 +40,7 @@
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [simple, loop, isolated, topsort, subgraph,
+    [simple, loop, roots, isolated, topsort, subgraph,
      condensation, tree, traversals].
 
 groups() -> 
@@ -97,6 +97,15 @@ simple(Config) when is_list(Config) ->
     true = digraph:delete(G),
     ok.
 
+roots(Config) when is_list(Config) ->
+    G = digraph:new(),
+    add_vertices(G, [a]),
+    add_edges(G, [{a,b},{b,c},{c,a},{c,d},{j,j},{j,k},{j,l}]),
+    7 = length(digraph_utils:postorder(G)),
+    7 = length(digraph_utils:preorder(G)),
+    true = digraph:delete(G),
+    ok.
+
 loop(Config) when is_list(Config) ->
     G = digraph:new(),
     add_vertices(G, [a,b]),
@@ -145,6 +154,7 @@ topsort(Config) when is_list(Config) ->
 
 subgraph(Config) when is_list(Config) ->
     G = digraph:new([acyclic]),
+    %% note: edges {g,e}, {h,h}, {i,i} get discarded due to acyclicity
     add_edges(G, [{b,c},{b,d},{e,f},{f,fg,fgl,g},{f,fg2,fgl2,g},{g,e},
 		  {h,h},{i,i},{i,j}]),
     add_vertices(G, [{b,bl},{f,fl}]),
