@@ -1647,20 +1647,24 @@ is deleted, if there is such a map.
       MapList1 :: [Map],
       MapList2 :: [Map],
       Map :: map().
-keydelete_m(Key, [E | Tail]) when is_map(Key) andalso map_size(Key) > 0 ->
-    try maps:with(maps:keys(Key), E) == Key of
+keydelete_m(Key, List) when is_map(Key) andalso
+                            map_size(Key) > 0 andalso
+                            is_list(List) ->
+    keydelete_m3(Key, List);
+keydelete_m(_, _) ->
+    erlang:error(badarg).
+
+keydelete_m3(Key, [E | Tail]) when is_map(E) ->
+    case maps:with(maps:keys(Key), E) == Key of
         true ->
             Tail;
         false ->
-            [E | keydelete_m(Key, Tail)]
-    catch
-        _ : _ ->
-            [E | keydelete_m(Key, Tail)]
+            [E | keydelete_m3(Key, Tail)]
     end;
-keydelete_m(Key, []) when is_map(Key) andalso map_size(Key) > 0 ->
+keydelete_m3(_, []) ->
     [];
-keydelete_m(_, _) ->
-    erlang:error(badarg).
+keydelete_m3(Key, [E | Tail]) ->
+    [E | keydelete_m3(Key, Tail)].
 
 -doc """
 Searches the list of maps `MapList` for a map containing
@@ -1684,20 +1688,24 @@ false
       Key :: Map,
       MapList :: [Map],
       Map :: map().
-keyfind_m(Key, [E | Tail]) when is_map(Key) andalso map_size(Key) > 0 ->
-    try maps:with(maps:keys(Key), E) == Key of
+keyfind_m(Key, List) when is_map(Key) andalso
+                          map_size(Key) > 0 andalso
+                          is_list(List) ->
+    keyfind_m3(Key, List);
+keyfind_m(_, _) ->
+    erlang:error(badarg).
+
+keyfind_m3(Key, [E | Tail]) when is_map(E) ->
+    case maps:with(maps:keys(Key), E) == Key of
         true ->
             E;
         false ->
-            keyfind_m(Key, Tail)
-    catch
-        _ : _ ->
-            keyfind_m(Key, Tail)
+            keyfind_m3(Key, Tail)
     end;
-keyfind_m(Key, []) when is_map(Key) andalso map_size(Key) > 0 ->
+keyfind_m3(_, []) ->
     false;
-keyfind_m(_, _) ->
-    erlang:error(badarg).
+keyfind_m3(Key, [_ | Tail]) ->
+    keyfind_m3(Key, Tail).
 
 -doc """
 Returns `true` if there is a map in `MapList` containing association pairs
@@ -1718,20 +1726,24 @@ false
       Key :: Map,
       MapList :: [Map],
       Map :: map().
-keymember_m(Key, [E | Tail]) when is_map(Key) andalso map_size(Key) > 0 ->
-    try maps:with(maps:keys(Key), E) == Key of
+keymember_m(Key, List) when is_map(Key) andalso
+                            map_size(Key) > 0 andalso
+                            is_list(List) ->
+    keymember_m3(Key, List);
+keymember_m(_, _) ->
+    erlang:error(badarg).
+
+keymember_m3(Key, [E | Tail]) when is_map(E) ->
+    case maps:with(maps:keys(Key), E) == Key of
         true ->
             true;
         false ->
-            keymember_m(Key, Tail)
-    catch
-        _ : _ ->
-            keymember_m(Key, Tail)
+            keymember_m3(Key, Tail)
     end;
-keymember_m(Key, []) when is_map(Key) andalso map_size(Key) > 0 ->
+keymember_m3(_, []) ->
     false;
-keymember_m(_, _) ->
-    erlang:error(badarg).
+keymember_m3(Key, [_ | Tail]) ->
+    keymember_m3(Key, Tail).
 
 -doc """
 Returns a copy of `MapList1` where the first occurrence of a map containing
@@ -1754,24 +1766,25 @@ is replaced with `NewMap`, if there is such a map.
       MapList2 :: [Map],
       NewMap :: Map,
       Map :: map().
-keyreplace_m(Key, [E | Tail], NewMap) when is_map(Key) andalso
-                                           map_size(Key) > 0 andalso
-                                           is_map(NewMap) ->
-    try maps:with(maps:keys(Key), E) == Key of
+keyreplace_m(Key, List, NewMap) when is_map(Key) andalso
+                                     map_size(Key) > 0 andalso
+                                     is_list(List) andalso
+                                     is_map(NewMap) ->
+    keyreplace_m3(Key, List, NewMap);
+keyreplace_m(_, _, _) ->
+    erlang:error(badarg).
+
+keyreplace_m3(Key, [E | Tail], NewMap) when is_map(E) ->
+    case maps:with(maps:keys(Key), E) == Key of
         true ->
             [NewMap | Tail];
         false ->
-            [E | keyreplace_m(Key, Tail, NewMap)]
-    catch
-        _ : _ ->
-            [E | keyreplace_m(Key, Tail, NewMap)]
+            [E | keyreplace_m3(Key, Tail, NewMap)]
     end;
-keyreplace_m(Key, [], NewMap) when is_map(Key) andalso
-                                   map_size(Key) > 0 andalso
-                                   is_map(NewMap) ->
+keyreplace_m3(_, [], _) ->
     [];
-keyreplace_m(_, _, _) ->
-    erlang:error(badarg).
+keyreplace_m3(Key, [E | Tail], NewMap) ->
+    [E | keyreplace_m3(Key, Tail, NewMap)].
 
 -doc """
 Returns a list of the elements in `MapList1`, sorted by
@@ -1837,24 +1850,25 @@ replaced by `NewMap`, or with `[NewMap]` appended if no such map exists.
       MapList2 :: [Map],
       NewMap :: Map,
       Map :: map().
-keystore_m(Key, [E | Tail], NewMap) when is_map(Key) andalso
-                                         map_size(Key) > 0 andalso
-                                         is_map(NewMap) ->
-    try maps:with(maps:keys(Key), E) == Key of
+keystore_m(Key, List, NewMap) when is_map(Key) andalso
+                                   map_size(Key) > 0 andalso
+                                   is_list(List) andalso
+                                   is_map(NewMap) ->
+    keystore_m3(Key, List, NewMap);
+keystore_m(_, _, _) ->
+    erlang:error(badarg).
+
+keystore_m3(Key, [E | Tail], NewMap) when is_map(E) ->
+    case maps:with(maps:keys(Key), E) == Key of
         true ->
             [NewMap | Tail];
         false ->
-            [E | keystore_m(Key, Tail, NewMap)]
-    catch
-        _ : _ ->
-            [E | keystore_m(Key, Tail, NewMap)]
+            [E | keystore_m3(Key, Tail, NewMap)]
     end;
-keystore_m(Key, [], NewMap) when is_map(Key) andalso
-                                 map_size(Key) > 0 andalso
-                                 is_map(NewMap) ->
+keystore_m3(_, [], NewMap) ->
     [NewMap];
-keystore_m(_, _, _) ->
-    erlang:error(badarg).
+keystore_m3(Key, [E | Tail], NewMap) ->
+    [E | keystore_m3(Key, Tail, NewMap)].
 
 -doc """
 Searches the list of maps `MapList1` for a map containing
@@ -1879,23 +1893,24 @@ false
       MapList1 :: [Map],
       MapList2 :: [Map],
       Map :: map().
-keytake_m(Key, MapList) ->
-    keytake_m(Key, MapList, []).
+keytake_m(Key, List) when is_map(Key) andalso
+                          map_size(Key) > 0 andalso
+                          is_list(List) ->
+    keytake_m3(Key, List, []);
+keytake_m(_, _) ->
+    erlang:error(badarg).
 
-keytake_m(Key, [E | Tail], Acc) when is_map(Key) andalso map_size(Key) > 0 ->
-    try maps:with(maps:keys(Key), E) == Key of
+keytake_m3(Key, [E | Tail], Acc) when is_map(E) ->
+    case maps:with(maps:keys(Key), E) == Key of
         true ->
             {value, E, Acc ++ Tail};
         false ->
-            keytake_m(Key, Tail, Acc ++ [E])
-    catch
-        _ : _ ->
-            keytake_m(Key, Tail, Acc ++ [E])
+            keytake_m3(Key, Tail, Acc ++ [E])
     end;
-keytake_m(Key, [], _) when is_map(Key) andalso map_size(Key) > 0 ->
+keytake_m3(_, [], _) ->
     false;
-keytake_m(_, _, _) ->
-    erlang:error(badarg).
+keytake_m3(Key, [E | Tail], Acc) ->
+    keytake_m3(Key, Tail, Acc ++ [E]).
 
 %% reverse(rkeymerge(I,reverse(A),reverse(B))) is equal to keymerge(I,A,B).
 
