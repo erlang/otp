@@ -1280,6 +1280,8 @@ socket_opts() ->
           priority         => {socket, priority},
           recbuf           => {socket, rcvbuf},
           reuseaddr        => {socket, reuseaddr},
+          reuseport        => {socket, reuseport},
+          reuseport_lb     => {socket, reuseport_lb},
           sndbuf           => {socket, sndbuf},
 
           %%
