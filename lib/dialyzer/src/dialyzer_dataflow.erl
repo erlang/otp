@@ -34,6 +34,8 @@
 
 -export([get_fun_types/5, get_warnings/5, format_args/3]).
 
+-compile(nowarn_export_var_subexpr).
+
 -include("dialyzer.hrl").
 
 -import(erl_types,

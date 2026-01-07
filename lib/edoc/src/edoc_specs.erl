@@ -37,6 +37,8 @@
 
 -export([add_type_data/4, tag/1, is_tag/1]).
 
+-compile(nowarn_export_var_subexpr).
+
 -include("edoc.hrl").
 -include("edoc_types.hrl").
 

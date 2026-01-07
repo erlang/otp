@@ -23,6 +23,7 @@
 -moduledoc false.
 
 -compile(nowarn_deprecated_catch).
+-compile(nowarn_export_var_subexpr).
 
 %% External exports
 -export([start/1, 

@@ -29,6 +29,7 @@
 %% External exports 
 
 -compile(nowarn_deprecated_catch).
+-compile(nowarn_export_var_subexpr).
 
 %% Avoid warning for local function error/1 clashing with autoimported BIF.
 -compile({no_auto_import,[error/1]}).

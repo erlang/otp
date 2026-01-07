@@ -23,6 +23,8 @@
 -module(snmpc_lib).
 -moduledoc false.
 
+-compile(nowarn_export_var_subexpr).
+
 %% Avoid warning for local functions error/2,3 clashing
 %% with autoimported BIFs.
 -compile({no_auto_import, [error/2, error/3]}).
