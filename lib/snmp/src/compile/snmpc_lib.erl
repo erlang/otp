@@ -23,8 +23,6 @@
 -module(snmpc_lib).
 -moduledoc false.
 
--compile(nowarn_export_var_subexpr).
-
 %% Avoid warning for local functions error/2,3 clashing
 %% with autoimported BIFs.
 -compile({no_auto_import, [error/2, error/3]}).
@@ -93,7 +91,8 @@ make_ASN1type({{type,Type},Line}) ->
 make_ASN1type({{type_with_size,Type,{range,Lo,Hi}},Line}) ->
     case lookup_vartype(Type) of
         {value,ASN1type} ->  
-	    case allow_size_rfc1902(BaseType = ASN1type#asn1_type.bertype) of
+            BaseType = ASN1type#asn1_type.bertype,
+	    case allow_size_rfc1902(BaseType) of
 		true ->
 		    ok;
 		false ->
@@ -130,7 +129,8 @@ test_kibbles([], Line) ->
     print_error("No kibbles found.",[],Line),
     [];
 test_kibbles(Kibbles,Line) ->
-    test_kibbles2(R = lists:keysort(2,Kibbles),0,Line),
+    R = lists:keysort(2,Kibbles),
+    test_kibbles2(R,0,Line),
     R.
 
 test_kibbles2([],_,_) ->
@@ -411,7 +411,8 @@ read_mib(_Line, _Filename, []) ->
     error;
 read_mib(Line, Filename, [Dir|Path]) ->
     Dir2 = snmpc_misc:ensure_trailing_dir_delimiter(Dir),
-    case snmpc_misc:read_mib(AbsFile=lists:append(Dir2, Filename)) of
+    AbsFile = lists:append(Dir2, Filename),
+    case snmpc_misc:read_mib(AbsFile) of
 	{ok, MIB} -> MIB;
 	{error, enoent} ->
 	    read_mib(Line, Filename, Path);

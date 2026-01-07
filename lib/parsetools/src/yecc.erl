@@ -499,8 +499,6 @@ lib/parsetools/include/yeccpre.hrl
                 keysort/2, last/1, map/2, member/2, reverse/1,
                 sort/1, usort/1]).
 
--compile(nowarn_export_var_subexpr).
-
 -include("erl_compile.hrl").
 -include("ms_transform.hrl").
 
@@ -2417,7 +2415,8 @@ select_parts(PartDataL) ->
             NL = [D#part_data{states = NewS} || 
                      {W1, #part_data{states = S0}=D} <- Ws,
                      W1 > 0,
-                     (NewS = ordsets:subtract(S0, S)) =/= []],
+                     NewS <- [ordsets:subtract(S0, S)],
+                     NewS =/= []],
             if 
                 length(S) =:= 1; NActions =:= 1 ->
                     select_parts(NL);

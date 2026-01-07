@@ -33,8 +33,6 @@
 
 -behaviour(gen_statem).
 
--compile(nowarn_export_var_subexpr).
-
 -include("ssh.hrl").
 -include("ssh_transport.hrl").
 -include("ssh_auth.hrl").
@@ -617,7 +615,8 @@ handle_event(cast, socket_control, {wait_for_socket, Role},
 handle_event(internal, socket_ready, {hello,_}=StateName, #data{ssh_params = Ssh0} = D) ->
     VsnMsg = ssh_transport:hello_version_msg(string_version(Ssh0)),
     send_bytes(VsnMsg, D),
-    case inet:getopts(Socket=D#data.socket, [buffer]) of
+    Socket=D#data.socket,
+    case inet:getopts(Socket, [buffer]) of
 	{ok, [{buffer,Size}]} ->
 	    %% Set the socket to the hello text line handling mode:
 	    inet:setopts(Socket, [{packet, line},

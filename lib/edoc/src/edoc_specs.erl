@@ -37,8 +37,6 @@
 
 -export([add_type_data/4, tag/1, is_tag/1]).
 
--compile(nowarn_export_var_subexpr).
-
 -include("edoc.hrl").
 -include("edoc_types.hrl").
 
@@ -512,7 +510,8 @@ expand_records(Entries, TypeDefs, DT, Opts, File, Module) ->
                         {export_type,Ts} <- Module#module.attributes,
                         is_list(Ts),
                         {N,I} <- Ts,
-                        ets:member(DT, Name = {#t_name{name = N}, I})],
+                        Name <- [{#t_name{name = N}, I}],
+                        ets:member(DT, Name)],
     _ = lists:foreach(fun({N,A}) -> true = seen_type(N, A, P)
                       end, ExportedTypes),
     entries(Entries, P, Opts).

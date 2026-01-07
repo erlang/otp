@@ -61,8 +61,6 @@ For details about how to get started with the Crashdump Viewer, see the
 %% wordsize: 4 | 8, the number of bytes in a word.
 %%
 
--compile(nowarn_export_var_subexpr).
-
 %% User API
 -export([start/0,start/1,stop/0,script_start/0,script_start/1]).
 
@@ -902,7 +900,8 @@ do_read_file(File) ->
                             case check_dump_version(Id) of
                                 {ok,DumpVsn} ->
                                     reset_tables(),
-                                    insert_index(Tag,Id,Pos=N1+1),
+                                    Pos = N1+1,
+                                    insert_index(Tag,Id,Pos),
                                     put_last_tag(Tag,"",Pos),
                                     DecodeOpts = get_decode_opts(DumpVsn),
                                     indexify(Fd,DecodeOpts,Rest,N1),

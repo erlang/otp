@@ -70,8 +70,6 @@ Module:format_error(ErrorDescriptor)
 `m:epp`, `m:erl_parse`
 """.
 
--compile(nowarn_export_var_subexpr).
-
 -export([module/1,module/2,module/3,format_error/1]).
 -export([exprs/2,exprs_opt/3,used_vars/2]). % Used from erl_eval.erl.
 -export([is_pattern_expr/1,is_guard_test/1,is_guard_test/2,is_guard_test/3]).
@@ -3806,8 +3804,8 @@ add_missing_spec_warnings(Forms, St0, Type) ->
     Warns = %% functions + line numbers for which we should warn
 	case Type of
 	    all ->
-		[{FA,Anno} || {function,Anno,F,A,_} <- Forms,
-			   not lists:member(FA = {F,A}, Specs)];
+		[{{F,A},Anno} || {function,Anno,F,A,_} <- Forms,
+                                 not lists:member({F,A}, Specs)];
 	    _ ->
                 Exps0 = gb_sets:to_list(exports(St0)) -- pseudolocals(),
                 Exps1 =
@@ -3817,8 +3815,8 @@ add_missing_spec_warnings(Forms, St0, Type) ->
                             Exps0
                     end,
                 Exps = Exps1 -- Specs,
-		[{FA,Anno} || {function,Anno,F,A,_} <- Forms,
-			   member(FA = {F,A}, Exps)]
+		[{{F,A},Anno} || {function,Anno,F,A,_} <- Forms,
+                                 member({F,A}, Exps)]
 	end,
     foldl(fun ({FA,Anno}, St) ->
 		  add_warning(Anno, {missing_spec,FA}, St)

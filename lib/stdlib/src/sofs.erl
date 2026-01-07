@@ -23,7 +23,6 @@
 -moduledoc({file, "../doc/src/sofs.md"}).
 
 -compile(nowarn_deprecated_catch).
--compile(nowarn_export_var_subexpr).
 
 -export([from_term/1, from_term/2, from_external/2, empty_set/0,
          is_type/1, set/1, set/2, from_sets/1, relation/1, relation/2,
@@ -4114,7 +4113,8 @@ setfun(T, Fun, Type, NType) ->
 		NT -> {?LIST(NS), NT}
 	    end;
 	NS when ?IS_ORDSET(NS) ->
-	    case unify_types(NType, NT = ?ORDTYPE(NS)) of
+            NT = ?ORDTYPE(NS),
+	    case unify_types(NType, NT) of
 		[] -> type_mismatch;
 		NT -> {?ORDDATA(NS), NT}
 	    end;
