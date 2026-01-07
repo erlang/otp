@@ -1394,20 +1394,15 @@ table:
 
 ```erlang
 1> {ok, t} = dets:open_file(t, []).
-...
 2> ok = dets:insert(t, [{1, a}, {2, b}, {3, c}, {4, d}, {5, e}]).
-...
 3> MS = ets:fun2ms(fun({X, Y}) when X > 1 andalso X < 5 -> {Y} end).
-...
 4> QH1 = dets:table(t, [{traverse, {select, MS}}]).
-...
 ```
 
 An example with implicit match specification:
 
 ```erlang
 5> QH2 = qlc:q([{Y} || {X, Y} <- dets:table(t), X > 1 andalso X < 5]).
-...
 ```
 
 The latter example is equivalent to the former, which can be verified using
