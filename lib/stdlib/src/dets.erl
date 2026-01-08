@@ -478,7 +478,12 @@ calling process.
       EtsTab :: ets:table(),
       Reason :: term().
 
-from_ets(DTab, ETab) ->
+from_ets(DTab, ETabArg) ->
+    ETab = case ensure_ets_tid(ETabArg) of
+                undefined ->
+                    error(badarg, [DTab, ETabArg]);
+                ERef -> ERef
+           end,
     ets:safe_fixtable(ETab, true),
     Spec = ?PATTERN_TO_OBJECT_MATCH_SPEC('_'),
     LC = ets:select(ETab, Spec, 100),
@@ -1508,14 +1513,19 @@ of the ETS table are kept unless overwritten.
       EtsTab :: ets:table(),
       Reason :: term().
 
-to_ets(DTab, ETab) ->
-    case ets:info(ETab, protection) of
+to_ets(DTab, ETabArg) ->
+    case ensure_ets_tid(ETabArg) of
 	undefined ->
-	    erlang:error(badarg, [DTab, ETab]);
-        _ ->
-	    Fun = fun(X, T) -> true = ets:insert(T, X), T end,
-	    foldl(Fun, ETab, DTab)
+	    erlang:error(badarg, [DTab, ETabArg]);
+        ETab ->
+	    Fun = fun(X, _) -> true = ets:insert(ETab, X), ETabArg end,
+            foldl(Fun, ETabArg, DTab)
     end.
+
+ensure_ets_tid(EtsTabName) when is_atom(EtsTabName) ->
+    ets:whereis(EtsTabName);
+ensure_ets_tid(EtsTid) ->
+    EtsTid.
 
 -doc """
 Applies `Fun` to each object stored in table `Name` in some unspecified order.

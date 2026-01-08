@@ -2217,7 +2217,8 @@ for duplicated objects stored in tables of type `bag`.
       Arg :: 'read' | 'close',
       Res :: 'end_of_input' | {Objects :: [term()], InitFun} | term().
 
-init_table(Table, Fun) ->
+init_table(TableArg, Fun) ->
+    Table = soft_whereis(TableArg),
     ets:delete_all_objects(Table),
     init_table_continue(Table, Fun(read)).
 
@@ -2334,8 +2335,16 @@ written to the disk before `tab2file` returns. Defaults to `{sync, false}`.
       ExtInfo :: 'md5sum' | 'object_count',
       Reason :: term().
 
-tab2file(Table, File, Options) ->
+tab2file(TabArg, File, Options) ->
     try
+        Info0 = case ets:info(TabArg) of
+            undefined ->
+                throw(badtab);
+            I ->
+                I
+        end,
+        {id, Table} = lists:keyfind(id, 1, Info0),
+
 	{ok, FtOptions} = parse_ft_options(Options),
 	_ = file:delete(File),
 	case file:read_file_info(File) of
@@ -2351,13 +2360,6 @@ tab2file(Table, File, Options) ->
 		throw(Reason)
 	end,
 	try
-	    Info0 = case ets:info(Table) of
-		       undefined ->
-			   %% erlang:error(badarg, [Table, File, Options]);
-			   throw(badtab);
-		       I ->
-			   I
-	    end,
 	    Info = [list_to_tuple(Info0 ++ 
 				  [{major_version,?MAJOR_F2T_VERSION},
 				   {minor_version,?MINOR_F2T_VERSION},
@@ -3134,7 +3136,8 @@ identical information is returned for the two query handles.
       TraverseMethod :: 'first_next' | 'last_prev'
                       | 'select' | {'select', MatchSpec :: match_spec()}.
 
-table(Table, Opts) ->
+table(TableArg, Opts) ->
+    Table = soft_whereis(TableArg),
     case options(Opts, [traverse, n_objects]) of
         {badarg,_} ->
             erlang:error(badarg, [Table, Opts]);
@@ -3339,7 +3342,8 @@ i(Table, Height) ->
 -doc false.
 -spec i(table(), pos_integer(), pos_integer()) -> 'ok'.
 
-i(Table, Height, Width) ->
+i(TableArg, Height, Width) ->
+    Table = soft_whereis(TableArg),
     First = ets:first(Table),
     display_items(Height, Width, Table, First, 1, 1).
 
