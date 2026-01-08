@@ -338,19 +338,6 @@ int beam_load_finish_emit(LoaderState *stp) {
         code_hdr->literal_area = literal_area;
     }
 
-    {
-        BeamFile_RecordTable rec = stp->beam.record;
-        ErtsStructEntry *entry;
-
-        for (int i = 0; i < rec.record_count; i++) {
-            Eterm def = beamfile_get_literal(&stp->beam,
-                                             rec.records[i].def_literal);
-            entry = erts_struct_put(stp->module, rec.records[i].name);
-
-            entry->definitions[erts_staging_code_ix()] = def;
-        }
-    }
-
     /*
      * If there is line information, place it here.
      */
@@ -735,6 +722,19 @@ void beam_load_finalize_code(LoaderState* stp, struct erl_module_instance* inst_
             ep->trampoline.not_loaded.deferred = (BeamInstr) address;
         } else {
             ep->dispatch.addresses[staging_ix] = address;
+        }
+    }
+
+    {
+        BeamFile_RecordTable rec = stp->beam.record;
+        ErtsStructEntry *entry;
+
+        for (int i = 0; i < rec.record_count; i++) {
+            Eterm def = beamfile_get_literal(&stp->beam,
+                                             rec.records[i].def_literal);
+            entry = erts_struct_put(stp->module, rec.records[i].name);
+
+            entry->definitions[staging_ix] = def;
         }
     }
 

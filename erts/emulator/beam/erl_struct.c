@@ -46,180 +46,64 @@
 #  define IF_DEBUG(x)
 #endif
 
-/* Note: the active table is never locked */
-static IndexTable struct_tables[ERTS_NUM_CODE_IX];
-
-static erts_atomic_t total_entries_bytes;
-
-/* This lock protects the staging struct table from concurrent access
- * AND it protects the staging table from becoming active. */
-erts_mtx_t struct_staging_lock;
-
-struct struct_hash_entry
-{
-    IndexSlot slot; /* MUST BE LOCATED AT TOP OF STRUCT!!! */
-    ErtsStructEntry *sp;
-};
-
-/* Helper struct that brings things together in one allocation
-*/
-struct struct_blob
-{
-    ErtsStructEntry str; /* MUST BE LOCATED AT TOP OF STRUCT!!! */
-    struct struct_hash_entry entryv[ERTS_NUM_CODE_IX];
-    /* Note that entryv is not indexed by "code_ix". */
-};
-
-/* Helper struct only used as template
-*/
-struct struct_templ
-{
-    struct struct_hash_entry entry;
-    ErtsStructEntry str;
-};
-
-static struct struct_blob *entry_to_blob(struct struct_hash_entry *se)
-{
-    return ErtsContainerStruct(se->sp, struct struct_blob, str);
-}
-
 static HashValue
-struct_hash(struct struct_hash_entry *se)
+record_hash(ErtsStructEntry *str)
 {
-    ErtsStructEntry *str = se->sp;
     return STRUCT_HASH(str->module, str->name);
 }
 
 static int
-struct_cmp(struct struct_hash_entry* tmpl_e, struct struct_hash_entry* obj_e)
-{
-    const ErtsStructEntry *tmpl = tmpl_e->sp, *obj = obj_e->sp;
-
+record_cmp(const ErtsStructEntry *tmpl, const ErtsStructEntry *obj) {
     return !(tmpl->module == obj->module &&
              tmpl->name == obj->name);
 }
 
-static struct struct_hash_entry*
-struct_alloc(struct struct_hash_entry* tmpl_e)
+static void
+record_init(ErtsStructEntry *obj, const ErtsStructEntry *tmpl)
 {
-    struct struct_blob* blob;
-    unsigned ix;
+    obj->module = tmpl->module;
+    obj->name = tmpl->name;
 
-    if (tmpl_e->slot.index == -1) {
-        /* Template, allocate blob */
-        ErtsStructEntry *tmpl = tmpl_e->sp;
-        ErtsStructEntry *obj;
-
-        /* Force-align the address of struct entries so that they can safely be
-         * placed in a small integer. */
-        blob = (struct struct_blob*)
-            erts_alloc_permanent_aligned(ERTS_ALC_T_STRUCT, sizeof(*blob),
-                                         (1 << _TAG_IMMED1_SIZE));
-        erts_atomic_add_nob(&total_entries_bytes, sizeof(*blob));
-        obj = &blob->str;
-
-        ASSERT(((UWord)obj) % (1 << _TAG_PRIMARY_SIZE) == 0);
-
-        obj->module = tmpl->module;
-        obj->name = tmpl->name;
-
-        for (ix = 0; ix < ERTS_NUM_CODE_IX; ix++) {
-            blob->entryv[ix].slot.index = -1;
-            blob->entryv[ix].sp = &blob->str;
-
-            obj->definitions[ix] = THE_NON_VALUE;
-        }
-
-        ix = 0;
-    } else {
-        /* Existing entry in another table, use free entry in blob */
-        blob = entry_to_blob(tmpl_e);
-
-        for (ix = 0; blob->entryv[ix].slot.index >= 0; ix++) {
-            ASSERT(ix < ERTS_NUM_CODE_IX);
-        }
+    for (int ix = 0; ix < ERTS_NUM_CODE_IX; ix++) {
+        obj->definitions[ix] = THE_NON_VALUE;
     }
-
-    return &blob->entryv[ix];
 }
 
 static void
-struct_free(struct struct_hash_entry* obj)
-{
-    struct struct_blob* blob = entry_to_blob(obj);
-    int i;
-
-    obj->slot.index = -1;
-
-    for (i=0; i < ERTS_NUM_CODE_IX; i++) {
-        if (blob->entryv[i].slot.index >= 0) {
-            return;
-        }
-    }
-
-    erts_free(ERTS_ALC_T_EXPORT, blob);
-    erts_atomic_add_nob(&total_entries_bytes, -sizeof(*blob));
+record_stage(ErtsStructEntry *obj,
+             ErtsCodeIndex src_ix,
+             ErtsCodeIndex dst_ix) {
+    obj->definitions[dst_ix] = obj->definitions[src_ix];
 }
+
+#define ERTS_CODE_STAGED_PREFIX record
+#define ERTS_CODE_STAGED_OBJECT_TYPE ErtsStructEntry
+#define ERTS_CODE_STAGED_OBJECT_HASH record_hash
+#define ERTS_CODE_STAGED_OBJECT_COMPARE record_cmp
+#define ERTS_CODE_STAGED_OBJECT_INITIALIZE record_init
+#define ERTS_CODE_STAGED_OBJECT_STAGE record_stage
+#define ERTS_CODE_STAGED_OBJECT_ALLOC_TYPE ERTS_ALC_T_STRUCT
+#define ERTS_CODE_STAGED_TABLE_ALLOC_TYPE ERTS_ALC_T_STRUCT_TABLE
+#define ERTS_CODE_STAGED_TABLE_INITIAL_SIZE STRUCT_INITIAL_SIZE
+#define ERTS_CODE_STAGED_TABLE_LIMIT STRUCT_LIMIT
+
+#define ERTS_CODE_STAGED_WANT_GET
+#define ERTS_CODE_STAGED_WANT_FOREACH
+
+#include "erl_code_staged.h"
 
 void erts_struct_init_table(void)
 {
-    HashFunctions f;
-    int i;
-
-    erts_mtx_init(&struct_staging_lock, "struct_tab", NIL,
-        ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_GENERIC);
-    erts_atomic_init_nob(&total_entries_bytes, 0);
-
-    f.hash = (H_FUN) struct_hash;
-    f.cmp  = (HCMP_FUN) struct_cmp;
-    f.alloc = (HALLOC_FUN) struct_alloc;
-    f.free = (HFREE_FUN) struct_free;
-    f.meta_alloc = (HMALLOC_FUN) erts_alloc;
-    f.meta_free = (HMFREE_FUN) erts_free;
-    f.meta_print = (HMPRINT_FUN) erts_print;
-
-    for (i = 0; i < ERTS_NUM_CODE_IX; i++) {
-        erts_index_init(ERTS_ALC_T_STRUCT_TABLE, &struct_tables[i],
-                        "struct_list", STRUCT_INITIAL_SIZE, STRUCT_LIMIT, f);
-    }
-}
-
-static struct struct_hash_entry* init_template(struct struct_templ* templ,
-                                          Eterm module, Eterm name)
-{
-    templ->entry.sp = &templ->str;
-    templ->entry.slot.index = -1;
-    templ->str.module = module;
-    templ->str.name = name;
-    return &templ->entry;
+    record_staged_init();
 }
 
 /* Declared extern in header */
-ErtsStructEntry *erts_struct_find_entry(Eterm module,
-                                   Eterm name,
-                                   ErtsCodeIndex code_ix);
-
-ErtsStructEntry *erts_struct_find_entry(Eterm module,
-                                   Eterm name,
-                                   ErtsCodeIndex code_ix)
-{
-    struct struct_templ templ;
-    struct struct_hash_entry* ee;
-
-    ASSERT(code_ix != erts_staging_code_ix());
-
-    ee = hash_get(&struct_tables[code_ix].htable,
-                  init_template(&templ, module, name));
-
-    if (ee) {
-        return ee->sp;
-    }
-
-    return NULL;
-}
+const ErtsStructEntry *erts_struct_find_entry(Eterm module,
+                                              Eterm name,
+                                              ErtsCodeIndex code_ix);
 
 Eterm erts_canonical_record_def(ErtsStructDefinition *defp) {
-    ErtsStructEntry *entry;
+    const ErtsStructEntry *entry;
     ErtsCodeIndex code_ix;
     Eterm cons;
     Eterm canonical_def;
@@ -236,7 +120,7 @@ Eterm erts_canonical_record_def(ErtsStructDefinition *defp) {
     }
 
     cons = entry->definitions[code_ix];
-    if (is_not_list(cons)) {
+    if (is_non_value(cons)) {
         return result;
     }
 
@@ -266,116 +150,71 @@ Eterm erts_canonical_record_def(ErtsStructDefinition *defp) {
     return canonical_def;
 }
 
-ErtsStructEntry *erts_struct_put(Eterm module, Eterm name)
-{
-    ErtsCodeIndex code_ix = erts_staging_code_ix();
-    struct struct_templ templ;
-    struct struct_hash_entry* ee;
+static void
+init_record_template(record_template_t *template, Eterm module, Eterm name) {
+    ErtsStructEntry *object = record_staged_init_template(template);
 
-    ASSERT(is_atom(module));
-    ASSERT(is_atom(name));
-
-    erts_struct_staging_lock();
-
-    ee = (struct struct_hash_entry*)
-        index_put_entry(&struct_tables[code_ix],
-                        init_template(&templ, module, name));
-
-    erts_struct_staging_unlock();
-
-    return ee->sp;
+    object->module = module;
+    object->name = name;
 }
 
-ErtsStructEntry *erts_struct_get_or_make_stub(Eterm module,
-                                              Eterm name)
-{
+const ErtsStructEntry *erts_struct_find_entry(Eterm module,
+                                              Eterm name,
+                                              ErtsCodeIndex code_ix) {
+    record_template_t template;
+
+    init_record_template(&template, module, name);
+    return record_staged_get(&template, code_ix);
+}
+
+ErtsStructEntry *
+erts_struct_put(Eterm module, Eterm name) {
+    record_template_t template;
+
+    init_record_template(&template, module, name);
+    return record_staged_upsert(&template);
+}
+
+const ErtsStructEntry *
+erts_struct_get_or_make_stub(Eterm module, Eterm name) {
+    record_template_t template;
+
+    init_record_template(&template, module, name);
+    return record_staged_upsert(&template);
+}
+
+struct record_module_delete_args {
+    Eterm module;
     ErtsCodeIndex code_ix;
-    ErtsStructEntry *sp;
-    IF_DEBUG(int retrying = 0;)
+};
 
-    ASSERT(is_atom(module));
-    ASSERT(is_atom(name));
-
-    do {
-        code_ix = erts_active_code_ix();
-        sp = erts_struct_find_entry(module, name, code_ix);
-
-        if (sp == NULL) {
-            /* The code is not loaded (yet). Put the struct in the staging
-             * struct table, to avoid having to lock the active struct
-             * table. */
-            erts_struct_staging_lock();
-
-            if (code_ix == erts_active_code_ix()) {
-                struct struct_templ templ;
-                struct struct_hash_entry* entry;
-
-                IndexTable *tab = &struct_tables[erts_staging_code_ix()];
-
-                init_template(&templ, module, name);
-                entry = (struct struct_hash_entry *)
-                    index_put_entry(tab, &templ.entry);
-                sp = entry->sp;
-
-                ASSERT(sp);
-            } else {
-                /* race */
-                ASSERT(!retrying);
-                IF_DEBUG(retrying = 1);
-            }
-
-            erts_struct_staging_unlock();
-        }
-    } while (!sp);
-
-    return sp;
+static void record_module_delete_foreach(ErtsStructEntry *obj, void *args_)
+{
+    struct record_module_delete_args *args = args_;
+    
+    if (obj->module == args->module) {
+        obj->definitions[args->code_ix] = THE_NON_VALUE;
+    }
 }
 
-IF_DEBUG(static ErtsCodeIndex debug_struct_load_ix = 0;)
+void erts_record_module_delete(Eterm module)
+{
+    ErtsCodeIndex staging_ix = erts_staging_code_ix();
+    struct record_module_delete_args args = {module, staging_ix};
+
+    ERTS_LC_ASSERT(erts_has_code_stage_permission());
+
+    record_staged_foreach(record_module_delete_foreach, &args, staging_ix);
+}
 
 void erts_struct_start_staging(void)
 {
-    ErtsCodeIndex dst_ix = erts_staging_code_ix();
-    ErtsCodeIndex src_ix = erts_active_code_ix();
-    IndexTable* dst = &struct_tables[dst_ix];
-    IndexTable* src = &struct_tables[src_ix];
-    int i;
-
-    ASSERT(dst_ix != src_ix);
-    ASSERT(debug_struct_load_ix == ~0);
-
-    erts_struct_staging_lock();
-
-    /* Insert all entries in src into dst table */
-    for (i = 0; i < src->entries; i++) {
-        struct struct_hash_entry* src_entry;
-        ErtsStructEntry *sp;
-
-        src_entry = (struct struct_hash_entry*) erts_index_lookup(src, i);
-        sp = src_entry->sp;
-
-        sp->definitions[dst_ix] = sp->definitions[src_ix];
-
-#ifndef DEBUG
-        index_put_entry(dst, src_entry);
-#else /* DEBUG */
-        {
-            struct struct_hash_entry* dst_entry =
-                (struct struct_hash_entry*)index_put_entry(dst, src_entry);
-            ASSERT(entry_to_blob(src_entry) == entry_to_blob(dst_entry));
-        }
-#endif
-    }
-
-    erts_struct_staging_unlock();
-
-    IF_DEBUG(debug_struct_load_ix = dst_ix);
+    record_staged_start_staging();
 }
 
 void erts_struct_end_staging(int commit)
 {
-    ASSERT(debug_struct_load_ix == erts_staging_code_ix());
-    IF_DEBUG(debug_struct_load_ix = ~0);
+    record_staged_end_staging(commit);
 }
 
 bool erl_is_native_record(Eterm src, Eterm mod, Eterm name) {
@@ -424,7 +263,7 @@ Eterm erl_create_native_record(Process* p, Eterm* reg, Eterm id, Uint live,
                                Uint size, const Eterm* new_p) {
     /* Module, Name */
     Eterm module, name;
-    ErtsStructEntry *entry;
+    const ErtsStructEntry *entry;
     Uint code_ix;
     Eterm* tuple_ptr = boxed_val(id);
     Uint local = reg[live];
@@ -440,7 +279,7 @@ Eterm erl_create_native_record(Process* p, Eterm* reg, Eterm id, Uint live,
     if (entry != NULL) {
         Eterm cons = entry->definitions[code_ix];
 
-        if (is_list(cons)) {
+        if (is_value(cons)) {
             Eterm def;
             ErtsStructDefinition *defp;
             ErtsStructInstance *instance;
@@ -670,7 +509,7 @@ static int record_compare(const struct erl_record_field *a, const struct erl_rec
 
 BIF_RETTYPE records_create_4(BIF_ALIST_4) {
     Eterm module, name;
-    ErtsStructEntry *entry;
+    const ErtsStructEntry *entry;
     Uint code_ix;
 
     if (is_not_atom(BIF_ARG_1) ||
@@ -689,7 +528,7 @@ BIF_RETTYPE records_create_4(BIF_ALIST_4) {
     if (entry != NULL) {
         Eterm cons = entry->definitions[code_ix];
 
-        if (is_list(cons)) {
+        if (is_value(cons)) {
             Eterm def;
             ErtsStructDefinition *defp;
             ErtsStructInstance *instance;

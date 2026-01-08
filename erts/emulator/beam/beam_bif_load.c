@@ -41,6 +41,7 @@
 #include "erl_nfunc_sched.h"
 #include "erl_proc_sig_queue.h"
 #include "beam_file.h"
+#include "erl_struct.h"
 
 #include "jit/beam_asm.h"
 
@@ -2387,6 +2388,9 @@ delete_code(Module* modp)
 
     ASSERT(modp->curr.num_breakpoints == 0);
     ASSERT(modp->curr.num_traced_exports == 0);
+
+    erts_record_module_delete(module);
+
     modp->old = modp->curr;
     erts_module_instance_init(&modp->curr);
 }

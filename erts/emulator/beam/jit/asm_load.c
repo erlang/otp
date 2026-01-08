@@ -1060,19 +1060,6 @@ int beam_load_finish_emit(LoaderState *stp) {
         (stp->load_hdr)->literal_area = literal_area;
     }
 
-    {
-        BeamFile_RecordTable rec = stp->beam.record;
-        ErtsStructEntry *entry;
-
-        for (int i = 0; i < rec.record_count; i++) {
-            Eterm def = beamfile_get_literal(&stp->beam,
-                                             rec.records[i].def_literal);
-            entry = erts_struct_put(stp->module, rec.records[i].name);
-
-            entry->definitions[erts_staging_code_ix()] = def;
-        }
-    }
-
     /* Line information must be added after moving literals, since source file
      * names are literal lists. */
     code_hdr_rw->line_table = finish_line_table(stp, module_base, module_size);
@@ -1244,6 +1231,19 @@ void beam_load_finalize_code(LoaderState *stp,
                               beamasm_get_lambda(stp->ba, i));
 
             beamasm_patch_lambda(stp->ba, stp->writable_region, i, fun_entry);
+        }
+    }
+
+    {
+        BeamFile_RecordTable rec = stp->beam.record;
+        ErtsStructEntry *entry;
+
+        for (int i = 0; i < rec.record_count; i++) {
+            Eterm def = beamfile_get_literal(&stp->beam,
+                                             rec.records[i].def_literal);
+            entry = erts_struct_put(stp->module, rec.records[i].name);
+
+            entry->definitions[staging_ix] = def;
         }
     }
 

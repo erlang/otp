@@ -27,9 +27,7 @@
 #include "code_ix.h"
 #include "erl_process.h"
 
-/* Struct entry, these are always allocated with an alignment that allows them
- * to be IMMED1-tagged, letting us keep struct definitions as transparent heap
- * objects much like tuples. */
+/* Struct entry. */
 typedef struct {
     Eterm module;
     Eterm name;
@@ -77,15 +75,17 @@ typedef struct {
 
 void erts_struct_init_table(void);
 
+void erts_record_module_delete(Eterm module);
+
 Eterm erts_canonical_record_def(ErtsStructDefinition *defp);
 
-ERTS_GLB_INLINE ErtsStructEntry *erts_struct_active_entry(Eterm module,
-                                                          Eterm name);
+ERTS_GLB_INLINE const ErtsStructEntry *erts_struct_active_entry(Eterm module,
+                                                                Eterm name);
 
 ErtsStructEntry *erts_struct_put(Eterm module,
                                  Eterm name);
-ErtsStructEntry *erts_struct_get_or_make_stub(Eterm module,
-                                              Eterm name);
+const ErtsStructEntry *erts_struct_get_or_make_stub(Eterm module,
+                                                    Eterm name);
 
 bool erl_is_native_record(Eterm Src, Eterm Mod, Eterm Name);
 bool erl_is_record_accessible(Eterm src, Eterm Mod);
@@ -111,12 +111,12 @@ extern erts_mtx_t struct_staging_lock;
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
-ERTS_GLB_INLINE ErtsStructEntry*
+ERTS_GLB_INLINE const ErtsStructEntry*
 erts_struct_active_entry(Eterm module, Eterm name)
 {
-    extern ErtsStructEntry *erts_struct_find_entry(Eterm module,
-                                                   Eterm name,
-                                                   ErtsCodeIndex code_ix);
+    extern const ErtsStructEntry *erts_struct_find_entry(Eterm module,
+                                                         Eterm name,
+                                                         ErtsCodeIndex code_ix);
     return erts_struct_find_entry(module, name, erts_active_code_ix());
 }
 

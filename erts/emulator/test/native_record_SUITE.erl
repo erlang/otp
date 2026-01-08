@@ -133,11 +133,9 @@ external_term_format(_Config) ->
          end || R1 <- Records && R2 <- binary_to_term(Bin)],
 
     true = code:delete(ext_records),
-    _ = code:purge(ext_records),
 
-    %% FIXME: This should fail.
-    records:create(ext_records, vector, #{}),
-    #ext_records:vector{},
+    ?assertError({badrecord,ExtLocal}, records:create(ext_records, vector, #{})),
+    ?assertError({badrecord,ExtLocal}, #ext_records:vector{}),
 
     _ = [begin
              io:format("~p\n", [R1]),
@@ -156,6 +154,8 @@ external_term_format(_Config) ->
          end || R1 <- Records && R2 <- binary_to_term(Bin)],
 
     erts_debug:set_internal_state(available_internal_state, false),
+
+    _ = code:purge(ext_records),
 
     ok.
 
