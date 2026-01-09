@@ -939,6 +939,7 @@ static int parse_record_chunk_data(BeamFile *beam, BeamReader *p_reader) {
         Eterm *hp;
         Eterm tmp_cons[2];
         Uint32 hash;
+        Uint hash_tuple_size;
         Eterm tagged_hash;
 #if !defined(ARCH_64)
         Eterm tmp_big[BIG_UINT_HEAP_SIZE];
@@ -1055,12 +1056,12 @@ static int parse_record_chunk_data(BeamFile *beam, BeamReader *p_reader) {
 
         /* Create a platform-independent record definition suitable
          * for calculating a portable hash value. */
-        tmp_def->field_order = NIL;
+        hash_tuple_size = tmp_def->keys - &tmp_def->hash - 1 + num_fields;
         for (field_index = 0; field_index < num_fields; field_index++) {
             tmp_def->keys[field_index] = fields[field_index].key;
         }
-        tmp_def->keys[num_fields] = make_small(0);
-        hash = make_hash2(make_tuple((Eterm *)tmp_def));
+        tmp_def->hash = make_arityval(hash_tuple_size);
+        hash = make_hash2(make_tuple((Eterm *)&tmp_def->hash));
 
 #if defined(ARCH_64)
         tagged_hash = make_small(hash);
@@ -1071,9 +1072,9 @@ static int parse_record_chunk_data(BeamFile *beam, BeamReader *p_reader) {
             tagged_hash = uint_to_big(hash, tmp_big);
         }
 #endif
-        tmp_def->keys[num_fields] = tagged_hash;
+        tmp_def->hash = tagged_hash;
 
-        values = &tmp_def->keys[num_fields + 1];
+        values = &tmp_def->keys[num_fields];
         if (num_fields == 0) {
             value_tuple = ERTS_GLOBAL_LIT_EMPTY_TUPLE;
             values[0] = NIL;

@@ -46,17 +46,18 @@ typedef struct {
     /* Tuple mapping from original field order to sorted field order. */
     Eterm field_order;
 
+    /* Here is the hash value for the fields that follow. This hash
+     * value is part of the phash2 hash. If more fields are to be added
+     * to this struct, they should appear before this field. */
+    Eterm hash;
+
     Eterm module;
     Eterm name;
     Eterm is_exported;
 
-    /* The keys for the native record in atom index order.
-     *
-     * Following the keys is a one-word hash of the preceeding terms
-     * (calculated using make_hash2()). It is in that position to
-     * avoid having to special-case comparing of records in cmp().
-     */
-    Eterm keys[1];
+    /* The keys for the native record in atom index order. (During
+     * calculation of the hash, the keys are in definition order.) */
+    Eterm keys[];
 } ErtsStructDefinition;
 
 /* A native-record value (instance). */

@@ -1088,7 +1088,7 @@ make_hash2_helper(Eterm term_param, const int can_trap, Eterm* state_mref_write_
 
                 instance = (ErtsStructInstance*) struct_val(term);
                 defp = (ErtsStructDefinition*) tuple_val(instance->struct_definition);
-                if (!term_to_Uint(defp->keys[field_count], &def_hash_val)) {
+                if (!term_to_Uint(defp->hash, &def_hash_val)) {
                     ERTS_UNREACHABLE;
                 }
 
@@ -1851,18 +1851,16 @@ make_internal_hash(Eterm term, erts_ihash_t salt)
                 const int arity = header_arity(hdr);
                 ErtsStructInstance* instance;
                 ErtsStructDefinition* defp;
-                int field_count;
 
                 IHASH_MIX_ALPHA(IHASH_TYPE_RECORD);
                 IHASH_MIX_BETA(arity);
 
-                field_count = struct_field_count(term);
                 instance = (ErtsStructInstance*)elements;
                 defp = (ErtsStructDefinition*)
                     tuple_val(instance->struct_definition);
 
-                IHASH_PUSH_TERM(s, defp->keys[field_count]);
-                
+                IHASH_PUSH_TERM(s, defp->hash);
+
                 if (arity > 1) {
                     for (int i = 2; i < arity; i++) {
                         IHASH_PUSH_TERM(s, elements[i]);

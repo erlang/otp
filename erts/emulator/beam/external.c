@@ -5247,6 +5247,7 @@ dec_term_atom_common:
                 Eterm order_tuple;
                 struct erl_record_field *fields;
                 Uint32 hash;
+                Uint hash_tuple_size;
                 Eterm tagged_hash;
 #if !defined(ARCH_64)
                 Eterm *big_buf = hp;
@@ -5293,9 +5294,9 @@ dec_term_atom_common:
                     defp->keys[i] = key;
                 }
 
-                defp->field_order = NIL;
-                defp->keys[num_fields] = make_small(0);
-                hash = make_hash2(make_tuple((Eterm *)defp));
+                hash_tuple_size = defp->keys - &defp->hash - 1 + num_fields;
+                defp->hash = make_arityval(hash_tuple_size);
+                hash = make_hash2(make_tuple((Eterm *)&defp->hash));
 #if defined(ARCH_64)
                 tagged_hash = make_small(hash);
 #else
@@ -5305,7 +5306,7 @@ dec_term_atom_common:
                     tagged_hash = uint_to_big(hash, big_buf);
                 }
 #endif
-                defp->keys[num_fields] = tagged_hash;
+                defp->hash = tagged_hash;
 
                 if (num_fields == 0) {
                     order_tuple = ERTS_GLOBAL_LIT_EMPTY_TUPLE;

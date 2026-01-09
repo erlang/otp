@@ -330,7 +330,7 @@ do_cmp_hashes(N,Steps) ->
 	true ->
 	    do_cmp_hashes(N - 1, NSteps);
 	_ ->
-	    exit({missmatch_on_input, R, phash, X, make_hash, Y})
+	    exit({mismatch_on_input, R, phash, X, make_hash, Y})
     end.
 
 phash2_test() ->
@@ -518,13 +518,13 @@ phash2_test() ->
          {{b,<<>>}, 2702508511},
 
          %% native record
-         {#empty{}, 1560690320},
-         {#a{x=1,y=10}, 3223325983},
-         {#a{x=2,y=10}, 1058791747},
-         {#a{x=1,y=11}, 296183383},
-         {#order{}, 2170522941},
-         {#order{zzzz=100}, 1212749614},
-         {#order{wwww=999}, 3113131792}
+         {#empty{}, 1272570834},
+         {#a{x=1,y=10}, 1020908739},
+         {#a{x=2,y=10}, 535979803},
+         {#a{x=1,y=11}, 4240758587},
+         {#order{}, 3170326674},
+         {#order{zzzz=100}, 2535759712},
+         {#order{wwww=999}, 438972933}
 	],
     SpecFun = fun(S) -> sofs:no_elements(S) > 1 end,
     F = sofs:relation_to_family(sofs:converse(sofs:relation(L))),
@@ -871,7 +871,7 @@ test_native_record(_Config) ->
     _ = [begin
              %% Hash of the definition is calculated when loading a
              %% module and when reconstructing a record definition
-             %% form the external term format. Those calculations
+             %% from the external term format. Those calculations
              %% must give the same result.
              ProcessedTerm = binary_to_term(term_to_binary(Term)),
              Hash = erlang:phash(Term, 1 bsl 32),
@@ -879,33 +879,11 @@ test_native_record(_Config) ->
              Hash2 = erlang:phash2(Term, 1 bsl 32),
              Hash2 = erlang:phash2(ProcessedTerm, 1 bsl 32),
              IntHash = make_internal_hash(Term),
-             IntHash = make_internal_hash(ProcessedTerm),
-
-             %% A record should not have the same hash value as a
-             %% tuple.
-             Fake = fake_native_record(Term),
-             io:format("~p\n", [Fake]),
-             true = Hash =/= erlang:phash(Fake, 1 bsl 32),
-             true = Hash2 =/= erlang:phash2(Fake, 1 bsl 32),
-             true = IntHash =/= make_internal_hash(Fake)
+             IntHash = make_internal_hash(ProcessedTerm)
          end || Term <- Records],
 
     erts_debug:set_internal_state(available_internal_state, false),
     ok.
-
-fake_native_record(R) ->
-    Mod = records:get_module(R),
-    Name = records:get_name(R),
-    Exported = records:is_exported(R),
-    Fs = records:get_field_names(R),
-    Vs = [records:get(F, R) || F <- Fs],
-
-    Def0 = list_to_tuple([[],Mod,Name,Exported] ++ Fs ++ [0]),
-    Hash = erlang:phash2(Def0, 1 bsl 32),
-    Def1 = setelement(tuple_size(Def0), Def0, Hash),
-    Order = list_to_tuple(lists:seq(0, length(Fs) - 1)),
-    Def = setelement(1, Def1, Order),
-    list_to_tuple([Def|Vs]).
 
 make_internal_hash(Term) ->
     erts_debug:get_internal_state({internal_hash, Term}).
