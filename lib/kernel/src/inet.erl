@@ -1440,11 +1440,6 @@ The following options are available:
   > example, by enabling `reuseport` and then disabling `reuseport_lb` both will
   > end up being disabled.
 
-  > #### Note {: .info }
-  >
-  > This option is _currently_ not supported for socket created with
-  > `inet_backend = socket`
-
 - **`{reuseport_lb, Boolean}`[](){: #option-reuseport_lb }** -
   Allows or disallows reuse of local port _with_ load balancing.
   By default, reuse is disallowed.  See also [`reuseport`](#option-reuseport).
@@ -1457,11 +1452,6 @@ The following options are available:
   >  underlying option, operating on both may cause them to interact
   > in surprising ways. For example, by enabling `reuseport_lb`,
   > and then disabling `reuseport`, both will end up being disabled.
-
-  > #### Note {: .info }
-  >
-  > This option is _currently_ not supported for socket created with
-  > `inet_backend = socket`
 
 - **`{send_timeout, Integer}`** - Only allowed for connection-oriented sockets.
 
