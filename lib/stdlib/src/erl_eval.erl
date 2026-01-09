@@ -355,7 +355,7 @@ expr(E, Bs, Lf, Ef) ->
 
 -doc false.
 check_command(Es, Bs) ->
-    Opts = [bitlevel_binaries,binary_comprehension],
+    Opts = [{features,erl_features:enabled()}],
     case erl_lint:exprs_opt(Es, bindings(Bs), Opts) of
         {ok,_Ws} ->
             ok;
@@ -1264,6 +1264,8 @@ eval_zip(E, [{zip, Anno, VarList}|Qs], Bs0, Lf, Ef, FUVs, Acc0, Fun) ->
             eval_zip(E, [{zip, Anno, reverse(Rest)}|Qs], Bs0, Lf, Ef, FUVs, Acc1, Fun)
     end.
 
+eval_generator({match,Anno,P,E}, Bs0, Lf, Ef, FUVs, Acc0, CompFun) ->
+    eval_generator({generate_strict,Anno,P,{cons,Anno,E,{nil,Anno}}}, Bs0, Lf, Ef, FUVs, Acc0, CompFun);
 eval_generator({Generate,Anno,P,L0}, Bs0, Lf, Ef, FUVs, Acc0, CompFun)
   when Generate =:= generate;
        Generate =:= generate_strict ->
@@ -1368,6 +1370,7 @@ eval_filter(F, Bs0, Lf, Ef, CompFun, FUVs, Acc) ->
 	    end
     end.
 
+is_generator({match,_,_,_}) -> true;
 is_generator({generate,_,_,_}) -> true;
 is_generator({generate_strict,_,_,_}) -> true;
 is_generator({b_generate,_,_,_}) -> true;
