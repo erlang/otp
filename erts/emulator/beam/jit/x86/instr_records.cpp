@@ -112,13 +112,13 @@ void BeamModuleAssembler::emit_i_create_native_record(
     a.lea(ARG6, x86::qword_ptr(data));
     mov_arg(ArgXRegister(Live.get()), Local);
 
-    emit_enter_runtime<Update::eHeapAlloc>();
+    emit_enter_runtime<Update::eHeapAlloc | Update::eReductions>();
 
     runtime_call<
             Eterm (*)(Process *, Eterm *, Eterm, Uint, Uint, const Eterm *),
             erl_create_native_record>();
 
-    emit_leave_runtime<Update::eHeapAlloc>();
+    emit_leave_runtime<Update::eHeapAlloc | Update::eReductions>();
 
     emit_test_the_non_value(RET);
     a.short_().jne(next);
@@ -146,13 +146,13 @@ void BeamModuleAssembler::emit_i_update_native_record(
     mov_imm(ARG5, args.size());
     a.lea(ARG6, x86::qword_ptr(data));
 
-    emit_enter_runtime<Update::eHeapAlloc>();
+    emit_enter_runtime<Update::eHeapAlloc | Update::eReductions>();
 
     runtime_call<
             Eterm (*)(Process *, Eterm *, Eterm, Uint, Uint, const Eterm *args),
             erl_update_native_record>();
 
-    emit_leave_runtime<Update::eHeapAlloc>();
+    emit_leave_runtime<Update::eHeapAlloc | Update::eReductions>();
 
     emit_test_the_non_value(RET);
     a.short_().jne(next);
