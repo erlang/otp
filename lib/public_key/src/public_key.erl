@@ -720,9 +720,11 @@ get_asn1_module('EncryptedData') -> 'CryptographicMessageSyntax-2009';
 get_asn1_module('AuthenticatedData') -> 'CryptographicMessageSyntax-2009';
 get_asn1_module('IssuerAndSerialNumber') -> 'CryptographicMessageSyntax-2009';
 %% OCSP  RFC 6960
-get_asn1_module('BasicOCSPResponse') -> 'OCSP-2024-08';
+get_asn1_module('OCSPRequest') -> 'OCSP-2024-08';
+get_asn1_module('CertID') -> 'OCSP-2024-08';
 get_asn1_module('Nonce') -> 'OCSP-2024-08';
 get_asn1_module('OCSPResponse') -> 'OCSP-2024-08';
+get_asn1_module('BasicOCSPResponse') -> 'OCSP-2024-08';
 get_asn1_module('ResponseData') -> 'OCSP-2024-08';
 %% PKIXCMP RFC 9810
 get_asn1_module('PKIMessage') -> 'PKIXCMP-2023';
