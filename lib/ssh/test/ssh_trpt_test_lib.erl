@@ -33,9 +33,9 @@
        ).
 
 -include_lib("common_test/include/ct.hrl").
--include("../src/ssh.hrl").		% ?UINT32, ?BYTE, #ssh{} ...
--include("../src/ssh_transport.hrl").
--include("../src/ssh_auth.hrl").
+-include("ssh.hrl").		% ?UINT32, ?BYTE, #ssh{} ...
+-include("ssh_transport.hrl").
+-include("ssh_auth.hrl").
 
 %%%----------------------------------------------------------------
 -record(s, {
