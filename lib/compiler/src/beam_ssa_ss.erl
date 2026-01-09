@@ -22,7 +22,7 @@
 %%
 %% This module provides a database storing the sharing status for the
 %% variables in a function. The database is represented as a graph
-%% (beam_digraph) where the nodes are variables and values. Edges are
+%% where the nodes are variables and values. Edges are
 %% extraction and embedding operations. Nodes are labeled with the
 %% sharing status of the variable and edges are labeled with the type
 %% of extraction/embedding operation.
@@ -82,7 +82,7 @@
 -define(ASSERT(Assert), skip).
 -endif.
 
--type sharing_state() :: any(). % A beam_digraph graph.
+-type sharing_state() :: any(). % A graph
 -type sharing_status() :: 'unique' | 'aliased' | 'no_info'.
 -type element() :: 'hd' | 'tl' | non_neg_integer().
 
@@ -98,7 +98,7 @@ add_vertex(State, V, Status) ->
                 plain -> ok;
                 #b_literal{} -> ok
             end),
-    beam_digraph:add_vertex(State, V, Status).
+    graph:add_vertex(State, V, Status).
 
 add_edge(State, Src, Dst, Lbl) ->
     ?ASSERT(begin
@@ -119,15 +119,15 @@ add_edge(State, Src, Dst, Lbl) ->
                         ok
                 end
             end),
-    beam_digraph:add_edge(State, Src, Dst, Lbl).
+    graph:add_edge(State, Src, Dst, Lbl).
 
 -spec derive_from(beam_ssa:b_var(), beam_ssa:b_var(), sharing_state()) ->
           sharing_state().
 derive_from(Dst, Src, State) ->
     ?DP("Deriving ~p from ~p~nSS:~n~s~n", [Dst, Src, dump(State)]),
     ?assert_state(State),
-    case {beam_digraph:vertex(State, Dst, unique),
-          beam_digraph:vertex(State, Src, plain)} of
+    case {graph:vertex(State, Dst, unique),
+          graph:vertex(State, Src, plain)} of
         {_,plain} ->
             State;
         {aliased,_} ->
@@ -146,7 +146,7 @@ derive_from(Dst, Src, State) ->
                 false ->
                     %% Source is not aliased and has not been embedded
                     %% in a term, record that it now is.
-                    State1 = case beam_digraph:has_vertex(State, Dst) of
+                    State1 = case graph:has_vertex(State, Dst) of
                                  true ->
                                      State;
                                  false ->
@@ -173,15 +173,15 @@ add_embedding(Dst, Src, Element, State0) ->
     %% element.
     State1 = case Src of
                  plain ->
-                     beam_digraph:add_vertex(State0, Src, unique);
+                     graph:add_vertex(State0, Src, unique);
                  #b_literal{} ->
-                     beam_digraph:add_vertex(State0, Src, unique);
+                     graph:add_vertex(State0, Src, unique);
                  _ ->
-                     case beam_digraph:has_vertex(State0, Src) of
+                     case graph:has_vertex(State0, Src) of
                          true ->
                              State0;
                          false ->
-                             beam_digraph:add_vertex(State0, Src, unique)
+                             graph:add_vertex(State0, Src, unique)
                      end
              end,
 
@@ -196,7 +196,7 @@ add_embedding(Dst, Src, Element, State0) ->
 
     %% If the variable being embedded ends up with more than one
     %% out-edge, the source will be aliased, unless it is a plain value.
-    case beam_digraph:out_edges(State, Src) of
+    case graph:out_edges(State, Src) of
         [_] ->
             State;
         _ when Src =/= plain ->
@@ -215,13 +215,13 @@ add_embedding(Dst, Src, Element, State0) ->
 extract(Dst, Src, Element, State) ->
     ?DP("Extracting ~p[~p] into ~p~n", [Src,Element,Dst]),
     ?assert_state(State),
-    case beam_digraph:vertex(State, Src, plain) of
+    case graph:vertex(State, Src, plain) of
         aliased ->
             %% The pair/tuple is aliased, so what is extracted will be aliased.
             ?assert_state(set_status(Dst, aliased, State));
         unique ->
             %% The aggregate is unique, but elements can be aliased.
-            OutEdges = beam_digraph:out_edges(State, Src),
+            OutEdges = graph:out_edges(State, Src),
             ?ASSERT(true = is_integer(Element)
                     orelse (Element =:= hd) orelse (Element =:= tl)),
             ?DP("dst: ~p, src: ~p, e: ~p, out-edges: ~p~n",
@@ -258,7 +258,7 @@ extract_element(Dst, Src, Element, [], State0) ->
 
 extract_status_for_element(Element, Src, Dst, State0) ->
     ?DP("    extract_status_for_element(~p, ~p)~n", [Element, Src]),
-    InEdges = beam_digraph:in_edges(State0, Src),
+    InEdges = graph:in_edges(State0, Src),
     ?DP("    in-edges: ~p~n", [InEdges]),
     Embeddings = [Var || {Var,_,{embed,SE}} <- InEdges, Element =:= SE],
     Extracts = [Ex || {_,_,{extract,_}}=Ex <- InEdges],
@@ -273,8 +273,8 @@ extract_status_for_element(Element, Src, Dst, State0) ->
             ?DP("    found embedding~n"),
             ?DP("    the source is ~p~n", [Var]),
             ?DP("    SS~n~s~n", [dump(State0)]),
-            ?DP("    status ~p~n", [beam_digraph:vertex(State0, Var, unique)]),
-            State = set_status(Dst, beam_digraph:vertex(State0, Var, unique),
+            ?DP("    status ~p~n", [graph:vertex(State0, Var, unique)]),
+            State = set_status(Dst, graph:vertex(State0, Var, unique),
                                State0),
             ?DP("    Returned SS~n~s~n", [dump(State)]),
             ?assert_state(State);
@@ -292,9 +292,9 @@ get_status_of_extracted_element(Aggregate, [First|Rest]=Elements, State) ->
     %% extracts from unique aggregates. This implies that when the
     %% chain is traced backwards, no aliased aggregates will be found,
     %% but in case that invariant is ever broken, assert.
-    ?ASSERT(unique = beam_digraph:vertex(State, Aggregate, unique)),
+    ?ASSERT(unique = graph:vertex(State, Aggregate, unique)),
     ?DP("      aggregate is unique~n"),
-    InEdges = beam_digraph:in_edges(State, Aggregate),
+    InEdges = graph:in_edges(State, Aggregate),
     Embeddings = [Src || {Src,_,{embed,E}} <- InEdges, First =:= E],
     Extracts = [{Src,E} || {Src,_,{extract,E}} <- InEdges],
     ?DP("      embeddings ~p~n", [Embeddings]),
@@ -309,7 +309,7 @@ get_status_of_extracted_element(Aggregate, [First|Rest]=Elements, State) ->
     end;
 get_status_of_extracted_element(Aggregate, [], State) ->
     ?DP("    ~s(~p, [], ...)~n", [?FUNCTION_NAME, Aggregate]),
-    S = beam_digraph:vertex(State, Aggregate, unique),
+    S = graph:vertex(State, Aggregate, unique),
     ?DP("      bottomed out, status is ~p~n", [S]),
     S.
 
@@ -320,11 +320,11 @@ forward_status(Main, Other) ->
     ?DP("Forwarding state~n"),
     ?assert_state(Main),
     ?assert_state(Other),
-    R = beam_digraph:foldv(
+    R = graph:fold_vertices(
           Main,
           fun(#b_var{}=V, S, Acc) when S =/= aliased ->
                   maybe
-                      true ?= beam_digraph:has_vertex(Other, V),
+                      true ?= graph:has_vertex(Other, V),
                       aliased ?= get_status(V, Other),
                       set_status(V, aliased, Acc)
                   else
@@ -340,15 +340,15 @@ forward_status(Main, Other) ->
 -spec get_status(beam_ssa:b_var(), sharing_state()) ->
           sharing_status().
 get_status(V=#b_var{}, State) ->
-    beam_digraph:vertex(State, V, unique).
+    graph:vertex(State, V, unique).
 
 -spec merge(sharing_state(), sharing_state()) -> sharing_state().
 merge(StateA, StateB) ->
     ?DP("Merging states~n"),
     ?assert_state(StateA),
     ?assert_state(StateB),
-    SizeA = beam_digraph:no_vertices(StateA),
-    SizeB = beam_digraph:no_vertices(StateB),
+    SizeA = graph:no_vertices(StateA),
+    SizeB = graph:no_vertices(StateB),
     %% Always merge the smaller state into the larger.
     {Small,Large} = if SizeA < SizeB ->
                             {StateA,StateB};
@@ -360,14 +360,14 @@ merge(StateA, StateB) ->
     ?DP(dump(Small)),
     ?DP("Large:~n"),
     ?DP(dump(Large)),
-    R = merge(Large, Small, beam_digraph:vertices(Small),
+    R = merge(Large, Small, graph:vertices_with_labels(Small),
               sets:new(), sets:new()),
     ?assert_state(R).
 
 merge(Dest, Source, [{V,VStatus}|Vertices], Edges0, Forced) ->
 
     Edges = accumulate_edges(V, Source, Edges0),
-    DestStatus = beam_digraph:vertex(Dest, V, false),
+    DestStatus = graph:vertex(Dest, V, false),
     case {DestStatus,VStatus} of
         {Status,Status} ->
             %% Same status in both states.
@@ -402,7 +402,7 @@ merge1(Dest0, Source, [{plain,To,Lbl}|Edges], Fixups, Forced) ->
     merge1(Dest, Source, Edges, Fixups, Forced);
 merge1(Dest0, Source, [{From,To,Lbl}=Edge|Edges], Fixups, Forced) ->
     ?DP("  Adding edge ~p -> ~p, lbl: ~p~n", [From,To,Lbl]),
-    OutEdges = beam_digraph:out_edges(Dest0, From),
+    OutEdges = graph:out_edges(Dest0, From),
     case {ordsets:is_element(Edge, OutEdges),ordsets:is_empty(OutEdges)} of
         {true,_} ->
             ?DP("   Already exists~n"),
@@ -431,7 +431,7 @@ merge1(Dest, _Source, [], Fixups, Forced) ->
     merge2(Dest, _Source, sets:to_list(Fixups), Forced).
 
 merge2(Dest0, _Source, [{alias,From,Lbl}|Fixups], Forced) ->
-    OutEdges = beam_digraph:out_edges(Dest0, From),
+    OutEdges = graph:out_edges(Dest0, From),
     Dest = foldl(fun({#b_var{},To,L}, Acc) when L =:= Lbl ->
                          set_status(To, aliased, Acc);
                     (_, Acc) ->
@@ -445,15 +445,15 @@ merge2(Dest0, _Source, [], Forced) ->
     ?assert_state(Dest).
 
 accumulate_edges(V, State, Edges0) ->
-    InEdges = beam_digraph:in_edges(State, V),
-    OutEdges = beam_digraph:out_edges(State, V),
+    InEdges = graph:in_edges(State, V),
+    OutEdges = graph:out_edges(State, V),
     foldl(fun sets:add_element/2,
           foldl(fun sets:add_element/2, Edges0, InEdges),
           OutEdges).
 
 -spec new() -> sharing_state().
 new() ->
-    beam_digraph:new().
+    graph:new().
 
 -spec phi(beam_ssa:b_var(), [beam_ssa:b_var()],
           sharing_state(), non_neg_integer())
@@ -498,9 +498,9 @@ prune([{0,_}|_], _, _, _) ->
 prune([{Depth,V}|Work], Killed, LiveVars, State0) ->
     case is_safe_to_prune(V, LiveVars, State0) of
         true ->
-            State = beam_digraph:del_vertex(State0, V),
+            State = graph:del_vertex(State0, V),
             Ins = [{Depth - 1, I}
-                   || I <- beam_digraph:in_neighbours(State0, V)],
+                   || I <- graph:in_neighbours(State0, V)],
             prune(Ins++Work, Killed, LiveVars, State);
         false ->
             prune(Work, Killed, LiveVars, State0)
@@ -514,7 +514,7 @@ is_safe_to_prune(V, LiveVars, State) ->
             false;
         false ->
             %% Safe to prune if all out-neighbours are safe-to-prune.
-            case beam_digraph:out_neighbours(State, V) of
+            case graph:out_neighbours(State, V) of
                 [] ->
                     true;
                 Outs ->
@@ -537,9 +537,9 @@ prune_by_add(LiveVars, State) ->
     ?assert_state(State),
     ?DP("Pruning to ~p~n", [sets:to_list(LiveVars)]),
     ?DP("~s~n", [dump(State)]),
-    ?DP("Vertices: ~p~n", [beam_digraph:vertices(State)]),
+    ?DP("Vertices: ~p~n", [graph:vertices_with_labels(State)]),
     R = prune_by_add([{0,V} || V <- sets:to_list(LiveVars),
-                               beam_digraph:has_vertex(State, V)],
+                               graph:has_vertex(State, V)],
                      [], new(), State),
     ?DP("Pruned result~n~s~n", [dump(R)]),
     ?assert_state(R).
@@ -548,15 +548,15 @@ prune_by_add([{Depth0,V}|Wanted], Edges, New0, Old) ->
     ?DP("Looking at ~p~n", [V]),
     ?DP("Curr:~n~s~n", [dump(New0)]),
     ?DP("Wanted: ~p~n", [Wanted]),
-    case beam_digraph:has_vertex(New0, V) of
+    case graph:has_vertex(New0, V) of
         true ->
             %% This variable is already added.
             prune_by_add(Wanted, Edges, New0, Old);
         false when Depth0 < ?SS_DEPTH_LIMIT ->
             %% This variable has to be kept. Add it to the new graph.
-            New = add_vertex(New0, V, beam_digraph:vertex(Old, V)),
+            New = add_vertex(New0, V, graph:vertex(Old, V)),
             %% Add all incoming edges to this node.
-            InEdges = beam_digraph:in_edges(Old, V),
+            InEdges = graph:in_edges(Old, V),
             Depth = Depth0 + 1,
             InNodes = [{Depth, From} || {From,_,_} <:- InEdges],
             prune_by_add(InNodes ++ Wanted, InEdges ++ Edges, New, Old);
@@ -594,7 +594,7 @@ set_call_result(Dst, {unique,Elements}, SS0, Cnt0) ->
                                   tl -> ok;
                                   E when is_integer(E), E >= 0 -> ok
                               end),
-                      SS2 = beam_digraph:add_edge(SS1, V, Dst, {embed,Idx}),
+                      SS2 = graph:add_edge(SS1, V, Dst, {embed,Idx}),
                       set_call_result(V, Element, SS2, Cnt+1)
               end, {SS0,Cnt0}, Elements).
 
@@ -618,7 +618,7 @@ set_status(#b_var{}=V, Status, State0) ->
     %%   is embedded remains unchanged.
 
     ?DP("Setting status of ~p to ~p~n", [V,Status]),
-    case beam_digraph:vertex(State0, V, unique) of
+    case graph:vertex(State0, V, unique) of
         Status ->
             %% Status is unchanged.
             State0;
@@ -634,7 +634,7 @@ set_status(#b_var{}=V, Status, State0) ->
 
 set_alias([#b_var{}=V|Vars], State0) ->
     %% TODO: fold into the above
-    case beam_digraph:vertex(State0, V, unique) of
+    case graph:vertex(State0, V, unique) of
         aliased ->
             set_alias(Vars, State0);
         _ ->
@@ -645,9 +645,9 @@ set_alias([], State) ->
     State.
 
 get_alias_edges(V, State) ->
-    OutEdges = [To || {#b_var{},To,_} <- beam_digraph:out_edges(State, V)],
+    OutEdges = [To || {#b_var{},To,_} <- graph:out_edges(State, V)],
     EmbedEdges = [Src
-                  || {#b_var{}=Src,_,Lbl} <- beam_digraph:in_edges(State, V),
+                  || {#b_var{}=Src,_,Lbl} <- graph:in_edges(State, V),
                      case Lbl of
                          embed -> true;
                          {embed,_} -> true;
@@ -657,11 +657,11 @@ get_alias_edges(V, State) ->
 
 -spec size(sharing_state()) -> non_neg_integer().
 size(State) ->
-    beam_digraph:no_vertices(State).
+    graph:no_vertices(State).
 
 -spec variables(sharing_state()) -> [beam_ssa:b_var()].
 variables(State) ->
-    [V || {V,_Lbl} <:- beam_digraph:vertices(State)].
+    graph:vertices(State).
 
 -type call_in_arg_status() :: no_info
                             | unique
@@ -755,18 +755,18 @@ merge_in_arg(#b_var{}=V, Status, 0, State) ->
             aliased
     end;
 merge_in_arg(#b_var{}=V, unique, _Cutoff, State) ->
-    case beam_digraph:vertex(State, V, unique) of
+    case graph:vertex(State, V, unique) of
         no_info ->
             unique;
         S ->
             S
     end;
 merge_in_arg(#b_var{}=V, Status, Cutoff, State) ->
-    case beam_digraph:vertex(State, V, unique) of
+    case graph:vertex(State, V, unique) of
         aliased ->
             aliased;
         unique ->
-            InEdges = beam_digraph:in_edges(State, V),
+            InEdges = graph:in_edges(State, V),
             Elements = case Status of
                            {unique,Es} -> Es;
                            no_info -> #{}
@@ -861,7 +861,7 @@ merge_elements([{_Src,_,embed}|Rest], _Elements0, Cutoff, State) ->
     merge_elements(Rest, no_info, Cutoff, State);
 merge_elements([{Src,V,{extract,E}}], Elements, Cutoff, State) ->
     ?DP("Looking for an embedding of the ~p element from ~p~n", [E, Src]),
-    InEdges = beam_digraph:in_edges(State, Src),
+    InEdges = graph:in_edges(State, Src),
     case [Other || {Other,_,{embed,EdgeOp}} <- InEdges, EdgeOp =:= E] of
         [Next] ->
             ?DP("Found: ~p~n", [Next]),
@@ -901,14 +901,14 @@ init_element(Idx, Status, Child, Cnt0, SS0) ->
                 tl -> ok;
                 I when is_integer(I), I >= 0 -> ok
             end),
-    SS = beam_digraph:add_edge(SS1, ElemV, Child, {embed,Idx}),
+    SS = graph:add_edge(SS1, ElemV, Child, {embed,Idx}),
     {SS,Cnt}.
 
 %% Internal helpers
 
 -spec has_out_edges(beam_ssa:b_var(), sharing_state()) -> boolean().
 has_out_edges(V, State) ->
-    beam_digraph:out_edges(State, V) =/= [].
+    graph:out_edges(State, V) =/= [].
 
 %% Debug support below
 
@@ -927,23 +927,23 @@ assert_state(State) ->
 %% Check that we don't have edges between non-existing nodes
 assert_bad_edges(State) ->
     [{assert_variable_exists(F, State), assert_variable_exists(T, State)}
-     || {F,T,_} <:- beam_digraph:edges(State)].
+     || {F,T,_} <:- graph:edges(State)].
 
 
 %% Check that extracted and embedded elements of an aliased variable
 %% are aliased.
 assert_aliased_parent_implies_aliased(State) ->
-    [assert_apia(A, State) || {A,aliased} <- beam_digraph:vertices(State)].
+    [assert_apia(A, State) || {A,aliased} <- graph:vertices_with_labels(State)].
 
 assert_apia(Parent, State) ->
     Children = [Child
-                || {_,Child,Info} <:- beam_digraph:out_edges(State, Parent),
+                || {_,Child,Info} <:- graph:out_edges(State, Parent),
                    case Info of
                        {extract,_} -> true;
                        embed -> true;
                        {embed,_} -> false
                    end],
-    [case beam_digraph:vertex(State, Child, unique) of
+    [case graph:vertex(State, Child, unique) of
          aliased ->
              ok;
          _ ->
@@ -955,13 +955,13 @@ assert_apia(Parent, State) ->
 %% Check that elements which are embedded twice or more times are
 %% aliased.
 assert_embedded_in_aliased_implies_aliased(State) ->
-    [assert_eiaia(A, State) || {A,aliased} <- beam_digraph:vertices(State)].
+    [assert_eiaia(A, State) || {A,aliased} <- graph:vertices_with_labels(State)].
 
 assert_eiaia(Embedder, State) ->
     NotAliased = [ Src
-                   || {Src,_,embed} <- beam_digraph:in_edges(State, Embedder),
-                      beam_digraph:vertex(State, Src, unique) =/= aliased,
-                      beam_digraph:vertex(State, Src, unique) =/= no_info],
+                   || {Src,_,embed} <- graph:in_edges(State, Embedder),
+                      graph:vertex(State, Src, unique) =/= aliased,
+                      graph:vertex(State, Src, unique) =/= no_info],
     case NotAliased of
         [] ->
             State;
@@ -975,11 +975,11 @@ assert_eiaia(Embedder, State) ->
 %% Check that elements which are embedded twice or more times are
 %% aliased.
 assert_multiple_embeddings_force_aliasing(State) ->
-    [assert_mefa(V, State) || {V,unique} <- beam_digraph:vertices(State)].
+    [assert_mefa(V, State) || {V,unique} <- graph:vertices_with_labels(State)].
 
 assert_mefa(V, State) ->
-    NotAliased = [ B || {B,_,embed} <- beam_digraph:out_edges(State, V),
-                        beam_digraph:vertex(State, B, unique) =/= aliased],
+    NotAliased = [ B || {B,_,embed} <- graph:out_edges(State, V),
+                        graph:vertex(State, B, unique) =/= aliased],
     case NotAliased of
         [_,_|_] ->
             io:format("Expected ~p to be aliased in:~n~s.~n", [V, dump(State)]),
@@ -990,7 +990,7 @@ assert_mefa(V, State) ->
 
 %% Check that elements which are extracted twice are aliased.
 assert_multiple_extractions_force_aliasing(State) ->
-    [assert_mxfa(V, State) || {V,_} <:- beam_digraph:vertices(State)].
+    [assert_mxfa(V, State) || V <:- graph:vertices(State)].
 
 assert_mxfa(V, State) ->
     %% Build a map of the extracted values keyed by element.
@@ -1002,11 +1002,11 @@ assert_mxfa(V, State) ->
                           Acc;
                      ({_,_,{embed,_}}, Acc) ->
                           Acc
-                  end, #{}, beam_digraph:out_edges(State, V)),
+                  end, #{}, graph:out_edges(State, V)),
     Bad = maps:fold(
             fun(_Elem, [_,_|_]=Vars, Acc) ->
                     [X || X <- Vars,
-                          beam_digraph:vertex(State, X, unique) =/= aliased]
+                          graph:vertex(State, X, unique) =/= aliased]
                         ++ Acc;
                (_, _, Acc) ->
                     Acc
@@ -1020,12 +1020,12 @@ assert_mxfa(V, State) ->
     end.
 
 assert_variable_exists(plain, State) ->
-    case beam_digraph:has_vertex(State, plain) of
+    case graph:has_vertex(State, plain) of
         false ->
             io:format("Expected ~p in~n ~s.~n", [plain, dump(State)]),
             throw(assertion_failure);
         _ ->
-            case beam_digraph:vertex(State, plain, unique) of
+            case graph:vertex(State, plain, unique) of
                 unique -> State;
                 Other ->
                     io:format("Expected plain to be unique, was ~p, in:~n~p~n",
@@ -1036,7 +1036,7 @@ assert_variable_exists(plain, State) ->
 assert_variable_exists(#b_literal{}, State) ->
     State;
 assert_variable_exists(#b_var{}=V, State) ->
-    case beam_digraph:has_vertex(State, V) of
+    case graph:has_vertex(State, V) of
         false ->
             io:format("Expected ~p in~n~s.~n", [V, dump(State)]),
             throw(assertion_failure);
@@ -1049,17 +1049,17 @@ assert_variable_exists(#b_var{}=V, State) ->
 -ifdef(PROVIDE_DUMP).
 -spec dump(sharing_state()) -> iolist().
 dump(State) ->
-    Ls = lists:enumerate(0, beam_digraph:vertices(State)),
-    V2Id = #{ V=>Id || {Id,{V,_}} <- Ls },
+    Ls = lists:enumerate(0, graph:vertices(State)),
+    V2Id = #{ V=>Id || {Id,V} <- Ls },
     [
      "digraph G {\n",
      [ io_lib:format("  ~p [label=\"~p:~p\",shape=\"box\"]~n",
-                     [Id,V,beam_digraph:vertex(State, V)])
+                     [Id,V,graph:vertex(State, V)])
        || V:=Id <- V2Id],
      [ io_lib:format("  ~p -> ~p [label=\"~p\"]~n",
                      [maps:get(From, V2Id, plain),
                       maps:get(To, V2Id),
                       Lbl])
-       || {From,To,Lbl} <- beam_digraph:edges(State)],
+       || {From,To,Lbl} <- graph:edges(State)],
      "}\n"].
 -endif.

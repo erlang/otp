@@ -99,7 +99,7 @@ fn(#b_local{name=#b_literal{val=N},arity=A}) ->
 
 -type lbl2ss() :: #{ beam_ssa:label() => sharing_state() }.
 
--type sharing_state() :: any(). % A beam_digraph graph.
+-type sharing_state() :: any(). % A graph
 
 -type type_db() :: #{ beam_ssa:b_var() := type() }.
 

@@ -119,7 +119,7 @@
 format_error(OptInfo) ->
     format_opt_info(OptInfo).
 
--record(scan, { graph=beam_digraph:new(),
+-record(scan, { graph=graph:new(),
                 module :: #{ beam_ssa:b_local() => {beam_ssa:block_map(),
                                                     [beam_ssa:b_var()],
                                                     [beam_ssa:b_var()]} },
@@ -317,16 +317,16 @@ scan_add_edge(From, To, State) ->
 scan_add_edge(From, To, Label, State0) ->
     State = scan_add_vertex(To, scan_add_vertex(From, State0)),
 
-    Graph = beam_digraph:add_edge(State#scan.graph, From, To, Label),
+    Graph = graph:add_edge(State#scan.graph, From, To, Label),
 
     State#scan{graph=Graph}.
 
 scan_add_vertex(Vertex, #scan{graph=Graph0}=State) ->
-    case beam_digraph:has_vertex(Graph0, Vertex) of
+    case graph:has_vertex(Graph0, Vertex) of
         true ->
             State;
         false ->
-            Graph = beam_digraph:add_vertex(Graph0, Vertex),
+            Graph = graph:add_vertex(Graph0, Vertex),
             State#scan{graph=Graph}
     end.
 
@@ -463,7 +463,7 @@ propagate_references_1([{Vertex, Ref} | VRefs], G, Acc0) ->
                   Acc0;
               false ->
                   Acc1 = Acc0#{ Vertex => sets:add_element(Ref, Refs) },
-                  Next = pr_successors(beam_digraph:out_edges(G, Vertex), Ref),
+                  Next = pr_successors(graph:out_edges(G, Vertex), Ref),
                   propagate_references_1(Next, G, Acc1)
           end,
     propagate_references_1(VRefs, G, Acc);
@@ -681,7 +681,7 @@ intersect_uses_1([{Vertex, Ref} | Vs], RefMap, Graph, Acc0) ->
               {true, false} ->
                   %% This block lies between reference creation and the receive
                   %% block, add it to the intersection.
-                  Edges = beam_digraph:in_edges(Graph, Vertex),
+                  Edges = graph:in_edges(Graph, Vertex),
                   Next = iu_predecessors(Edges, Ref),
                   ActiveRefs = sets:add_element(Ref, ActiveRefs0),
                   intersect_uses_1(Next, RefMap, Graph,
@@ -735,7 +735,7 @@ plan_markers_1(MakeRefs0, FuncId, UsageMap) ->
 
 plan_clears(UsageMap, Graph) ->
     maps:fold(fun({FuncId, _}=Vertex, ActiveRefs, Acc) ->
-                      Edges = beam_digraph:out_edges(Graph, Vertex),
+                      Edges = graph:out_edges(Graph, Vertex),
                       case plan_clears_1(Edges, ActiveRefs, UsageMap) of
                           [_|_]=Clears ->
                               Clears0 = maps:get(FuncId, Acc, []),

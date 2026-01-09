@@ -56,7 +56,6 @@ MODULES =  \
 	beam_core_to_ssa \
 	beam_clean \
 	beam_dict \
-	beam_digraph \
 	beam_disasm \
 	beam_doc \
 	beam_flatten \
