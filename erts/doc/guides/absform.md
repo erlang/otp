@@ -523,7 +523,3 @@ debugging purposes).
 As from Erlang/OTP R9C, the `abstract_code` chunk contains
 `{raw_abstract_v1,AbstractCode}`, where `AbstractCode` is the abstract code as
 described in this section.
-
-In OTP releases before R9C, the abstract code after some more processing was
-stored in the Beam file. The first element of the tuple would be either
-`abstract_v1` (in OTP R7B) or `abstract_v2` (in OTP R8B).

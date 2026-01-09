@@ -1414,13 +1414,6 @@ decrypt_chunk(Type, Module, File, Id, Bin) ->
 
 old_anno_from_term({raw_abstract_v1, Forms}) ->
     {raw_abstract_v1, anno_from_forms(Forms)};
-old_anno_from_term({Tag, Forms}) when Tag =:= abstract_v1;
-                                      Tag =:= abstract_v2 ->
-    try {Tag, anno_from_forms(Forms)}
-    catch
-        _:_ ->
-            {Tag, Forms}
-    end;
 old_anno_from_term(T) ->
     T.
 
