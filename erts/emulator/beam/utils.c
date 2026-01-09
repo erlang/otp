@@ -1699,6 +1699,7 @@ Sint erts_cmp_compound(Eterm a, Eterm b, int exact, int eq_only)
 #define FLATMAP_ATOM_KEYS             8
 #define FLATMAP_ATOM_VALUES           9
 #define FLATMAP_ATOM_CMP_VALUES      10
+#define RECORD_VALUE_PAIR            11
 
 #define OP_WORD(OP)         (((OP)  << _TAG_PRIMARY_SIZE) | TAG_PRIMARY_HEADER)
 #define OP_ARG_WORD(OP, SZ) OP_WORD(((SZ) << OP_BITS) | OP)
@@ -1880,16 +1881,22 @@ tailrecur_ne:
                     goto mixed_types;
                 }
 
-                aa = struct_val(a);
-                bb = struct_val(b);
-
-                /* compare the definitions. */
                 {
+                    ErtsStructInstance *inst_a, *inst_b;
                     ErtsStructDefinition *def_a, *def_b;
+                    Eterm *keys_a, *keys_b;
+                    Eterm *values_a, *values_b;
+                    Eterm *order_a, *order_b;
                     Sint diff;
+                    int field_count;
 
-                    def_a = (ErtsStructDefinition*)boxed_val(aa[1]);
-                    def_b = (ErtsStructDefinition*)boxed_val(bb[1]);
+                    aa = struct_val(a);
+                    bb = struct_val(b);
+
+                    inst_a = (ErtsStructInstance*)aa;
+                    inst_b = (ErtsStructInstance*)bb;
+                    def_a = (ErtsStructDefinition*)boxed_val(inst_a->struct_definition);
+                    def_b = (ErtsStructDefinition*)boxed_val(inst_b->struct_definition);
 
                     diff = erts_cmp_atoms(def_a->module, def_b->module);
                     if (diff != 0) {
@@ -1900,22 +1907,47 @@ tailrecur_ne:
                     if (diff != 0) {
                         RETURN_NEQ(diff);
                     }
-                }
 
-                /* compare the arities */
-                i = header_arity(ahdr);
-                if (i != header_arity(*bb)) {
-                    RETURN_NEQ(((Sint)i) - (Sint)header_arity(*bb));
-                }
+                    ASSERT(false < true);
+                    diff = def_a->is_exported - def_b->is_exported;
+                    if (diff != 0) {
+                        RETURN_NEQ(diff);
+                    }
 
-                /* compare the values, if any. */
-                if (i == 1) {
+                    i = header_arity(ahdr);
+                    if (i != header_arity(*bb)) {
+                        RETURN_NEQ(((Sint)i) - (Sint)header_arity(*bb));
+                    }
+
+                    field_count = struct_field_count(a);
+                    keys_a = def_a->keys;
+                    keys_b = def_b->keys;
+                    order_a = tuple_val(def_a->field_order) + 1;
+                    order_b = tuple_val(def_b->field_order) + 1;
+
+                    for (int i = 0; i < field_count; i++) {
+                        Eterm key_a = keys_a[unsigned_val(order_a[i])];
+                        Eterm key_b = keys_b[unsigned_val(order_b[i])];
+
+                        if (key_a != key_b) {
+                            RETURN_NEQ(erts_cmp_atoms(key_a, key_b));
+                        }
+                    }
+
+                    /* Compare the values, if any. */
+                    values_a = inst_a->values;
+                    values_b = inst_b->values;
+
+                    for (int i = field_count-1; i >= 0; i--) {
+                        a = values_a[unsigned_val(order_a[i])];
+                        b = values_b[unsigned_val(order_b[i])];
+                        if (!is_same(a, b)) {
+                            WSTACK_PUSH3(stack, (UWord)b, (UWord)a,
+                                         OP_ARG_WORD(RECORD_VALUE_PAIR, 0));
+                        }
+                    }
                     goto pop_next;
                 }
-
-                WSTACK_PUSH3(stack, (UWord)&aa[2], (UWord)&bb[2],
-                             OP_ARG_WORD(TERM_ARRAY_OP, i - 1));
-                goto term_array;
             case (_TAG_HEADER_MAP >> _TAG_PRIMARY_SIZE) :
 		{
                     struct cmp_map_state* sp;
@@ -2676,6 +2708,10 @@ pop_next:
                 sp->atom_keys++;
                 goto case_FLATMAP_ATOM_VALUES_LOOP;
             }
+
+	    case RECORD_VALUE_PAIR:
+		a = (Eterm)WSTACK_POP(stack);
+		goto tailrecur_ne;
 
             default:
                 ASSERT(!"Invalid cmp op");

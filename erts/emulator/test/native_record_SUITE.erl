@@ -31,6 +31,7 @@
 -record #b{x=none, y=none, z=none}.
 -record #bb{a=1, b=2}.
 -record #c{x::integer, y=0::integer, z=[]}.
+-record #empty{}.
 
 -record #big{f1, f2, f3, f4, f5, f6, f7, f8,
               f9, f10, f11, f12, f13, f14, f15, f16,
@@ -85,11 +86,112 @@ term_order(_Config) ->
     true = id(#a{}) =/= id(#bb{}),
 
     true = id(#a{}) < id(#bb{}),
+    true = id(#bb{}) < id(#c{x=0}),
+
     true = id(#a{}) =:= id(#a{}),
     true = id(#a{x=1}) < id(#a{x=2}),
     true = id(#a{x=10}) > id(#a{x=0}),
 
+    term_order_module(),
+    term_order_name(),
+    term_order_visibility(),
+    term_order_num_fields(),
+    term_order_keys(),
+    term_order_values(),
+
     ok.
+
+term_order_module() ->
+    RecA = id(#a{}),
+
+    true = is_gt(RecA, fake_record(aa_module, a, false, [{a,0}])),
+    true = is_gt(RecA, fake_record(aa_module, a, false, [{x,0}])),
+    true = is_gt(RecA, fake_record(aa_module, a, false, [{a,0},{b,0},{c,0}])),
+    true = is_gt(RecA, fake_record(aa_module, a, false, [{x,0},{y,0},{z,0}])),
+
+    true = is_lt(RecA, fake_record(zz_module, a, false, [{a,0}])),
+    true = is_lt(RecA, fake_record(zz_module, a, false, [{x,0}])),
+    true = is_lt(RecA, fake_record(zz_module, a, false, [{a,0},{b,0},{c,0}])),
+    true = is_lt(RecA, fake_record(zz_module, a, false, [{x,0},{y,0},{z,0}])),
+
+    ok.
+
+term_order_name() ->
+    RecB = id(#b{}),
+
+    true = is_gt(RecB, fake_record(a, false, [{a,0}])),
+    true = is_gt(RecB, fake_record(a, false, [{x,0}])),
+    true = is_gt(RecB, fake_record(a, false, [{a,0},{b,0},{c,0}])),
+    true = is_gt(RecB, fake_record(a, false, [{x,0},{y,0},{z,0}])),
+
+    true = is_lt(RecB, fake_record(z, false, [{a,0}])),
+    true = is_lt(RecB, fake_record(z, false, [{x,0}])),
+    true = is_lt(RecB, fake_record(z, false, [{a,0},{b,0},{c,0}])),
+    true = is_lt(RecB, fake_record(z, false, [{x,0},{y,0},{z,0}])),
+
+    false = is_lt(#empty{}, #empty{}),
+    ok.
+
+term_order_visibility() ->
+    RecA = id(#a{}),
+
+    true = is_lt(RecA, fake_record(a, true, [{x,1}, {y,2}])),
+
+    ok.
+
+term_order_num_fields() ->
+    RecA = id(#a{}),
+    true = is_gt(RecA, fake_record(a, false, [{a,0}])),
+    true = is_gt(RecA, fake_record(a, false, [{z,0}])),
+    true = is_lt(RecA, fake_record(a, false, [{a,0}, {b,0}, {c,0}])),
+    true = is_lt(RecA, fake_record(a, false, [{z,0}, {w,0}, {q,0}])),
+
+    ok.
+
+term_order_keys() ->
+    RecA = id(#a{}),
+
+    true = is_gt(RecA, fake_record(a, false, [{a,0}, {b,0}])),
+    true = is_gt(RecA, fake_record(a, false, [{a,10}, {b,100}])),
+    true = is_gt(RecA, fake_record(a, false, [{b,100}, {a,10}])),
+    true = is_gt(RecA, fake_record(a, false, [{b,0}, {a,0}])),
+    true = is_gt(RecA, fake_record(a, false, [{b,2}, {a,1}])),
+
+    true = is_lt(RecA, fake_record(a, false, [{y,0},{z,0}])),
+    true = is_lt(RecA, fake_record(a, false, [{y,10},{z,100}])),
+    true = is_lt(RecA, fake_record(a, false, [{y,0}, {x,0}])),
+
+    true = is_lt(fake_record(order, false, [{wwww,3}, {zzzz,0}, {true,1}, {aaaa,2}]),
+                 fake_record(order, false, [{zzzz,0}, {true,1}, {aaaa,2}, {wwww,3}])),
+
+    true = is_lt(fake_record(order, false, [{zzzz,0}, {true,1}, {aaaa,2}, {wwww,3}]),
+                 fake_record(order, false, [{zzzz,0}, {true,1}, {wwww,3}, {aaaa,2}])),
+
+    true = is_lt(fake_record(a, false, [{a,0}, {b,0}]),
+                 fake_record(a, false, [{b,0}, {a,0}])),
+
+    ok.
+
+term_order_values() ->
+    true = is_lt(fake_record(r, false, [{a,0}, {b,10}]),
+                 fake_record(r, false, [{a,10}, {b,5}])),
+    true = is_lt(fake_record(r, false, [{b,0}, {a,10}]),
+                 fake_record(r, false, [{b,10}, {a,5}])),
+    true = is_lt(fake_record(r, false, [{a,[0]}, {b,[10]}]),
+                 fake_record(r, false, [{a,[10]}, {b,[5]}])),
+    true = is_lt(fake_record(r, false, [{b,{0}}, {a,{10}}]),
+                 fake_record(r, false, [{b,{10}}, {a,{5}}])),
+    ok.
+
+is_gt(A, B) ->
+    Res = id(A > B),
+    Res = id(B < A),
+    Res.
+
+is_lt(A, B) ->
+    Res = id(A < B),
+    Res = id(B > A),
+    Res.
 
 gc(_Config) ->
     N = 10000,
@@ -266,6 +368,29 @@ records_module(_Config) ->
 
 
 %%% Common utilities.
+
+fake_record(Name, Exp, Fs) ->
+    fake_record(?MODULE, Name, Exp, Fs).
+
+fake_record(Mod0, Name0, Exp0, Fs) ->
+    Ext = 131,
+    RecordExt = $C,
+
+    Mod = fake_term(Mod0),
+    Name = fake_term(Name0),
+    Exp = if Exp0 -> 1; true -> 0 end,
+
+    N = length(Fs),
+
+    Defs = << <<(fake_term(K))/binary>> || {K,_} <- Fs >>,
+    Vs = << <<(fake_term(V))/binary>> || {_,V} <- Fs >>,
+
+    Bin = <<Ext,RecordExt,N:32,Exp,Mod/binary,Name/binary,Defs/binary,Vs/binary>>,
+    binary_to_term(Bin).
+
+fake_term(Term) ->
+    <<131,Bin/binary>> = term_to_binary(Term),
+    Bin.
 
 id(I) ->
     I.
