@@ -1041,7 +1041,8 @@ apply_file_info_opts(Config) when is_list(Config) ->
     ok = file:make_dir("empty_directory"),
     ok = file:write_file("file", "contents"),
 
-    Opts = [{atime, 0}, {mtime, 0}, {ctime, 0}, {uid, 0}, {gid, 0}],
+    Mode = 8#707,
+    Opts = [{atime, 0}, {mtime, 0}, {ctime, 0}, {uid, 0}, {gid, 0}, {mode, Mode}],
     TarFile = "reproducible.tar",
     {ok, Tar} = erl_tar:open(TarFile, [write]),
     ok = erl_tar:add(Tar, "file", Opts),
@@ -1052,14 +1053,23 @@ apply_file_info_opts(Config) when is_list(Config) ->
     ok = file:make_dir("extracted"),
     erl_tar:extract(TarFile, [{cwd, "extracted"}]),
 
-    {ok, #file_info{mtime=0}} =
+    {ok, #file_info{mtime=0} = Fi1} =
         file:read_file_info("extracted/empty_directory", [{time, posix}]),
-    {ok, #file_info{mtime=0}} =
+    {ok, #file_info{mtime=0} = Fi2} =
         file:read_file_info("extracted/file", [{time, posix}]),
-    {ok, #file_info{mtime=0}} =
+    {ok, #file_info{mtime=0} = Fi3} =
         file:read_file_info("extracted/memory_file", [{time, posix}]),
 
-    ok.
+    %% On Unix platforms 'mode' works
+    case os:type() of
+        {unix,_} ->
+            Mode = Fi1#file_info.mode band Mode,
+            Mode = Fi2#file_info.mode band Mode,
+            Mode = Fi3#file_info.mode band Mode,
+            ok;
+        _ ->
+            ok
+    end.
 
 table_absolute_names(Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),

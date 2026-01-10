@@ -787,7 +787,6 @@ Options:
 - **`{chunks,ChunkSize}`** - Reads data in parts from the file. This is intended
   for memory-limited machines that, for example, builds a tar file on a remote
   machine over SFTP, see `ssh_sftp:open_tar/3`.
-
 - **`{atime,non_neg_integer()}`** - Sets the last time, as
   [POSIX time](`e:erts:time_correction.md#posix-time`), when the file was read.
   See also `file:read_file_info/1`.
@@ -804,6 +803,9 @@ Options:
 
 - **`{gid,non_neg_integer()}`** - Sets the group that the file owner belongs to.
   `file:read_file_info/1`.
+
+- **`{mode,non_neg_integer()}`** - Sets the file permissions.
+  See also `file:read_file_info/1`.
 """.
 -spec add(TarDescriptor, Filename, NameInArchive, Options) ->
         ok | {error, term()} when
@@ -839,6 +841,8 @@ add_opts([{mtime,Value}|T], AllOptions, Opts) ->
     add_opts(T, AllOptions, Opts#add_opts{mtime=Value});
 add_opts([{ctime,Value}|T], AllOptions, Opts) ->
     add_opts(T, AllOptions, Opts#add_opts{ctime=Value});
+add_opts([{mode,Value}|T], AllOptions, Opts) ->
+    add_opts(T, AllOptions, Opts#add_opts{mode=Value});
 add_opts([{uid,Value}|T], AllOptions, Opts) ->
     add_opts(T, AllOptions, Opts#add_opts{uid=Value});
 add_opts([{gid,Value}|T], AllOptions, Opts) ->
@@ -859,6 +863,8 @@ do_apply_file_info_opts([{mtime,Value}|T], FileInfo) ->
     do_apply_file_info_opts(T, FileInfo#file_info{mtime=Value});
 do_apply_file_info_opts([{ctime,Value}|T], FileInfo) ->
     do_apply_file_info_opts(T, FileInfo#file_info{ctime=Value});
+do_apply_file_info_opts([{mode,Value}|T], FileInfo) ->
+    do_apply_file_info_opts(T, FileInfo#file_info{mode=Value});
 do_apply_file_info_opts([{uid,Value}|T], FileInfo) ->
     do_apply_file_info_opts(T, FileInfo#file_info{uid=Value});
 do_apply_file_info_opts([{gid,Value}|T], FileInfo) ->
@@ -916,7 +922,7 @@ add1(Reader, Bin, NameInArchive, Opts) when is_binary(Bin) ->
                 ctime = add_opts_time(Opts#add_opts.ctime, Now),
                 uid = Opts#add_opts.uid,
                 gid = Opts#add_opts.gid,
-                mode = 8#100644},
+                mode = Opts#add_opts.mode},
     {ok, Reader2} = add_header(Reader, Header, Opts),
     Padding = skip_padding(byte_size(Bin)),
     Data = [Bin, <<0:Padding/unit:8>>],
