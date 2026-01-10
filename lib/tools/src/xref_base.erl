@@ -798,18 +798,6 @@ abst(File, Builtins, _Mode = functions) ->
     case beam_lib:chunks(File, [abstract_code, exports, attributes]) of
 	{ok, {M,[{abstract_code,NoA},_X,_A]}} when NoA =:= no_abstract_code ->
 	    {ok, M, NoA};
-	{ok, {M, [{abstract_code, {abstract_v1, Forms}},
-                  {exports,X0}, {attributes,A}]}} ->
-	    %% R7.
-	    X = xref_utils:fa_to_mfa(X0, M),
-            D = deprecated(A, X, M),
-	    xref_reader:module(M, Forms, Builtins, X, D);
-	{ok, {M, [{abstract_code, {abstract_v2, Forms}},
-                  {exports,X0}, {attributes,A}]}} ->
-	    %% R8-R9B.
-	    X = xref_utils:fa_to_mfa(X0, M),
-            D = deprecated(A, X, M),
-	    xref_reader:module(M, Forms, Builtins, X, D);
 	{ok, {M, [{abstract_code, {raw_abstract_v1, Code}},
                   {exports,X0}, {attributes,A}]}} ->
 	    %% R9C-
@@ -919,7 +907,6 @@ depr_desc(_) -> undefined.
 %% Assumes:
 %% L U X is a subset of dom DefAt
 %% dom CallAt = LC U XC
-%% Attrs is collected from the attribute 'xref' (experimental).
 do_add_module(S, XMod, Unres, Data) ->
     #xref{mode = Mode} = S,
     Mode = S#xref.mode,
@@ -928,31 +915,22 @@ do_add_module(S, XMod, Unres, Data) ->
     {ok, Ms, Bad, NS}.
 
 prepare_module(_Mode = functions, XMod, Unres0, Data) ->
-    {DefAt0, LPreCAt0, XPreCAt0, LC0, XC0, X0, Attrs, Depr, OL0} = Data,
-    %% Bad is a list of bad values of 'xref' attributes.
-    {ALC0,AXC0,Bad0} = Attrs,
+    {DefAt0, LPreCAt0, XPreCAt0, LC0, XC0, X0, _, Depr, OL0} = Data,
     FT = [tspec(func)],
     FET = [tspec(fun_edge)],
     PCA = [tspec(pre_call_at)],
 
-    XPreCAt1 = xref_utils:xset(XPreCAt0, PCA),
-    LPreCAt1 = xref_utils:xset(LPreCAt0, PCA),
+    XPreCAt = xref_utils:xset(XPreCAt0, PCA),
+    LPreCAt = xref_utils:xset(LPreCAt0, PCA),
     DefAt = xref_utils:xset(DefAt0, [tspec(def_at)]),
     X1 = xref_utils:xset(X0, FT),
-    XC1 = xref_utils:xset(XC0, FET),
-    LC1 = xref_utils:xset(LC0, FET),
-    AXC1 = xref_utils:xset(AXC0, PCA),
-    ALC1 = xref_utils:xset(ALC0, PCA),
+    XC = xref_utils:xset(XC0, FET),
+    LC = xref_utils:xset(LC0, FET),
     UnresCalls = xref_utils:xset(Unres0, PCA),
     Unres = domain(UnresCalls),
     OL1 = xref_utils:xset(OL0, FT),
 
     DefinedFuns = domain(DefAt),
-    {AXC, ALC, Bad1, LPreCAt2, XPreCAt2} =
-	extra_edges(AXC1, ALC1, Bad0, DefinedFuns),
-    Bad = map(fun(B) -> {xref_attr, B} end, Bad1),
-    LPreCAt = union(LPreCAt1, LPreCAt2),
-    XPreCAt = union(XPreCAt1, XPreCAt2),
     NoCalls = no_elements(LPreCAt) + no_elements(XPreCAt),
     LCallAt = relation_to_family(LPreCAt),
     XCallAt = relation_to_family(XPreCAt),
@@ -960,14 +938,12 @@ prepare_module(_Mode = functions, XMod, Unres0, Data) ->
     %% Local and exported functions with no definitions are removed.
     L = difference(DefinedFuns, X1),
     X = difference(DefinedFuns, L),
-    XC = union(XC1, AXC),
-    LC = union(LC1, ALC),
 
     {DF1,DF_11,DF_21,DF_31,DBad} = depr_mod(Depr, X),
     {EE, ECallAt} = inter_graph(X, L, LC, XC, CallAt),
     {ok, {functions, XMod, [DefAt,L,X,LCallAt,XCallAt,CallAt,LC,XC,EE,ECallAt,
                             OL1,DF1,DF_11,DF_21,DF_31], NoCalls, Unres},
-     DBad++Bad};
+     DBad};
 prepare_module(_Mode = modules, XMod, _Unres, Data) ->
     {X0, I0, Depr} = Data,
     X1 = xref_utils:xset(X0, [tspec(func)]),
@@ -1041,18 +1017,6 @@ depr_mod({Depr,Bad0}, X) ->
     Bad2 = to_external(difference(Bad1, predefined_funs(Bad1))),
     Bad = map(fun(B) -> {depr_attr, B} end, usort(Bad2++Bad0)),
     {DF,DF_1,DF_2,DF_3,Bad}.
-
-%% Extra edges gathered from the attribute 'xref' (experimental)
-extra_edges(CAX, CAL, Bad0, F) ->
-    AXC0 = domain(CAX),
-    ALC0 = domain(CAL),
-    AXC = restriction(AXC0, F),
-    ALC = restriction(2, restriction(ALC0, F), F),
-    LPreCAt2 = restriction(CAL, ALC),
-    XPreCAt2 = restriction(CAX, AXC),
-    Bad = Bad0 ++ to_external(difference(AXC0, AXC))
-	       ++ to_external(difference(ALC0, ALC)),
-    {AXC, ALC, Bad, LPreCAt2, XPreCAt2}.
 
 no_info(X, L, LC, XC, EE, Unres, NoCalls, NoUnresCalls) ->
     NoUnres = no_elements(Unres),

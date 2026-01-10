@@ -341,7 +341,7 @@ This is a re-entrant call to try and scan a single token from `Chars`.
 
 If there are enough characters in `Chars` to either scan a token or
 detect an error then this will be returned with
-`{done,...}`. Otherwise `{cont,Cont}` will be returned where `Cont` is
+`{done,...}`. Otherwise `{more,Cont}` will be returned where `Cont` is
 used in the next call to `token()` with more characters to try an scan
 the token. This is continued until a token has been scanned. `Cont` is
 initially `[]`.
@@ -392,7 +392,7 @@ This is a re-entrant call to try and scan tokens from `Chars`.
 
 If there are enough characters in `Chars` to either scan tokens or
 detect an error then this will be returned with
-`{done,...}`. Otherwise `{cont,Cont}` will be returned where `Cont` is
+`{done,...}`. Otherwise `{more,Cont}` will be returned where `Cont` is
 used in the next call to `tokens()` with more characters to try an
 scan the tokens. This is continued until all tokens have been
 scanned. `Cont` is initially `[]`.

@@ -1,22 +1,29 @@
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2000-2025. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%%
+%% %CopyrightEnd%
+
 -module(read).
 
 -export([lc/0, funfuns/0, bi/0]).
 
--xref({xx,ff,22}).
--xref({{all,0},{no,0}}).
--xref([{{all,0},{i,0}},{{all,0},{x2,5}}]).
--xref([apa]).
--xref({all,0}).
--xref([{{{all},0},{no,0}},{{all,0},{m,x2,5}}]).
--xref([{{a,14},{q,f,17}}]).
--xref({{i,f,17},{g,18}}).
--xref({{j,f,17},{i,g,18}}).
-
--xref({{funfuns,0},{'$F_EXPR',177}}).
--xref({{funfuns,0},{?MODULE,'$F_EXPR',178}}).
--xref({{funfuns,0},{modul,'$F_EXPR',179}}).
-
 lc() ->
+    %% POS0=26
     Tab = ets:new(),
     [Mt||{_M,Mt} <- ets:tab2list(Tab)].
 
@@ -25,7 +32,7 @@ funfuns() ->
 
     %% Spawn...
 
-    %% Recognized. POS1=28.
+    %% Recognized. POS1=POS0+9.
     spawn(fun() -> mod17:fun17() end),
     spawn(fun local/0),
     spawn(fun binary_to_term/1), % builtin, not collected
