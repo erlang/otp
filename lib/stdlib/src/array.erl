@@ -111,6 +111,7 @@ beyond the last set entry:
 -moduledoc(#{ authors => [~"Richard Carlsson <carlsson.richard@gmail.com>",
                           ~"Dan Gudmundsson <dgud@erix.ericsson.se>"] }).
 
+-include_lib("stdlib/include/assert.hrl").
 %%-define(TEST,1).
 -ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").
@@ -182,8 +183,7 @@ beyond the last set entry:
                    | nil(). % kill reference, for GC
 
 -record(array, {size :: non_neg_integer(),	%% number of defined entries
-		max  :: non_neg_integer(),	%% maximum number of entries
-						%% in current tree
+		fix  :: boolean(),	        %% not automatically growing
 		default,	%% the default value (usually 'undefined')
                 elements :: elements(_)         %% the tuple tree
 	       }).
@@ -328,13 +328,10 @@ new_1(_Options, _Size, _Fixed, _Default) ->
 
 new(0, false, undefined) ->
     %% Constant empty array
-    #array{size=0, max=?LEAFSIZE, elements=?LEAFSIZE};
+    #array{size=0, fix=false, elements=?LEAFSIZE};
 new(Size, Fixed, Default) ->
     E = find_max(Size - 1, ?LEAFSIZE),
-    M = if Fixed -> 0;
-	   true -> E
-	end,
-    #array{size = Size, max = M, default = Default, elements = E}.
+    #array{size = Size, fix = Fixed, default = Default, elements = E}.
 
 -spec find_max(integer(), non_neg_integer()) -> non_neg_integer().
 
@@ -342,6 +339,14 @@ find_max(I, M) when I >= M ->
     find_max(I, ?extend(M));
 find_max(_I, M) ->
     M.
+
+-spec get_max(elements(_)) -> non_neg_integer().
+
+get_max(?NODEPATTERN(M)) ->
+    ?extend(M);
+get_max(M) when is_integer(M) ->
+    M;
+get_max(_) -> ?LEAFSIZE.
 
 
 -doc """
@@ -352,8 +357,8 @@ well-formed array representation even if this function returns `true`.
 """.
 -spec is_array(X :: term()) -> boolean().
 
-is_array(#array{size = Size, max = Max})
-  when is_integer(Size), is_integer(Max) ->
+is_array(#array{size = Size})
+  when is_integer(Size) ->
     true;
 is_array(_) ->
     false.
@@ -465,7 +470,7 @@ See also `set/3` and `relax/1`.
 -spec fix(Array :: array(Type)) -> array(Type).
 
 fix(#array{}=A) ->
-    A#array{max = 0}.
+    A#array{fix = true}.
 
 
 -doc """
@@ -476,7 +481,7 @@ See also `fix/1`.
 """.
 -spec is_fix(Array :: array()) -> boolean().
 
-is_fix(#array{max = 0}) -> true;
+is_fix(#array{fix = true}) -> true;
 is_fix(#array{}) -> false.
 
 
@@ -516,7 +521,7 @@ See also `fix/1`.
 -spec relax(Array :: array(Type)) -> array(Type).
 
 relax(#array{size = N}=A) when is_integer(N), N >= 0 ->
-    A#array{max = find_max(N-1, ?LEAFSIZE)}.
+    A#array{fix = false}.
 
 
 -ifdef(EUNIT).
@@ -543,20 +548,13 @@ the specified array has fixed size, also the resulting array has fixed size.
 -spec resize(Size :: non_neg_integer(), Array :: array(Type)) ->
                     array(Type).
 
-resize(Size, #array{size = N, max = M, elements = E}=A)
+resize(Size, #array{size = N, fix = Fix, elements = E}=A)
   when is_integer(Size), Size >= 0,
        is_integer(N), N >= 0,
-       is_integer(M), M >= 0 ->
+       is_boolean(Fix) ->
     if Size > N ->
-   	    {E1, M1} = grow(Size-1, E,
-			    if M > 0 -> M;
-			       true -> find_max(N-1, ?LEAFSIZE)
-			    end),
-	    A#array{size = Size,
-		    max = if M > 0 -> M1;
-			     true -> M
-			  end,
-		    elements = E1};
+   	    {E1, _M1} = grow(Size-1, E, get_max(E)),
+	    A#array{size = Size, elements = E1};
        Size < N ->
 	    %% TODO: shrink physical representation when shrinking the array
 	    A#array{size = Size};
@@ -626,17 +624,18 @@ See also `get/2`, `reset/2`.
 """.
 -spec set(I :: array_indx(), Value :: Type, Array :: array(Type)) -> array(Type).
 
-set(I, Value, #array{size = N, max = M, default = D, elements = E}=A)
-  when is_integer(I), I >= 0, is_integer(N), is_integer(M) ->
+set(I, Value, #array{size = N, fix = Fix, default = D, elements = E}=A)
+  when is_integer(I), I >= 0, is_integer(N), is_boolean(Fix) ->
     if I < N ->
 	    A#array{elements = set_1(I, E, Value, D)};
-       I < M ->
-	    %% (note that this cannot happen if M == 0, since N >= 0)
-	    A#array{size = I+1, elements = set_1(I, E, Value, D)};
-       M > 0 ->
-	    {E1, M1} = grow(I, E, M),
-	    A#array{size = I+1, max = M1,
-		    elements = set_1(I, E1, Value, D)};
+       not Fix ->
+            M = get_max(E),
+            if I < M ->
+                    A#array{size = I+1, elements = set_1(I, E, Value, D)};
+               true ->
+                    {E1, _M1} = grow(I, E, M),
+                    A#array{size = I+1, elements = set_1(I, E1, Value, D)}
+            end;
        true ->
 	    erlang:error(badarg)
     end;
@@ -691,11 +690,11 @@ See also `set/3`.
 """.
 -spec get(I :: array_indx(), Array :: array(Type)) -> Value :: Type.
 
-get(I, #array{size = N, max = M, elements = E, default = D})
-  when is_integer(I), I >= 0, is_integer(N), is_integer(M) ->
+get(I, #array{size = N, fix = Fix, elements = E, default = D})
+  when is_integer(I), I >= 0, is_integer(N), is_boolean(Fix) ->
     if I < N ->
 	    get_1(I, E, D);
-       M > 0 ->
+       not Fix ->
 	    D;
        true ->
 	    erlang:error(badarg)
@@ -732,13 +731,13 @@ See also `new/2`, `set/3`.
 """.
 -spec reset(I :: array_indx(), Array :: array(Type)) -> array(Type).
 
-reset(I, #array{size = N, max = M, default = D, elements = E}=A) 
-    when is_integer(I), I >= 0, is_integer(N), is_integer(M) ->
+reset(I, #array{size = N, fix = Fix, default = D, elements = E}=A) 
+    when is_integer(I), I >= 0, is_integer(N), is_boolean(Fix) ->
     if I < N ->
 	    try A#array{elements = reset_1(I, E, D)} 
 	    catch throw:default -> A
 	    end;
-       M > 0 ->
+       not Fix ->
 	    A;
        true ->
 	    erlang:error(badarg)
@@ -976,8 +975,8 @@ See also `new/2`, `to_list/1`.
 from_list([], Default) ->
     new({default,Default});
 from_list(List, Default) when is_list(List) ->
-    {E, N, M} = from_list_1(?LEAFSIZE, List, Default, 0, [], []),
-    #array{size = N, max = M, default = Default, elements = E};
+    {E, N, _M} = from_list_1(?LEAFSIZE, List, Default, 0, [], []),
+    #array{size = N, fix = false, default = Default, elements = E};
 from_list(_, _) ->
     erlang:error(badarg).
 
@@ -1113,8 +1112,8 @@ See also `new/2`, `from_list/1`, `foldl/3`.
 
 from(Fun, S0, Default) when is_function(Fun, 1) ->
     VS = Fun(S0),
-    {E, N, M} = from_fun_1(?LEAFSIZE, Default, Fun, VS, 0, [], []),
-    #array{size = N, max = M, default = Default, elements = E};
+    {E, N, _M} = from_fun_1(?LEAFSIZE, Default, Fun, VS, 0, [], []),
+    #array{size = N, fix = false, default = Default, elements = E};
 from(_, _, _) ->
     error(badarg).
 
@@ -1338,8 +1337,8 @@ See also `new/2`, `to_orddict/1`.
 from_orddict([], Default) ->
     new({default,Default});
 from_orddict(List, Default) when is_list(List) ->
-    {E, N, M} = from_orddict_0(List, 0, ?LEAFSIZE, Default, []),
-    #array{size = N, max = M, default = Default, elements = E};
+    {E, N, _M} = from_orddict_0(List, 0, ?LEAFSIZE, Default, []),
+    #array{size = N, fix = false, default = Default, elements = E};
 from_orddict(_, _) ->
     erlang:error(badarg).
 

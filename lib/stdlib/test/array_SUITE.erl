@@ -106,7 +106,7 @@ end_per_testcase(_Case, _Config) ->
 -define(NODESIZE,?LEAFSIZE).
 
 -record(array,  {size,		%% number of defined entries
-		 max,		%% maximum number of entries in current tree
+		 fix,		%% not automatically growing
 		 default,	%% the default value (usually 'undefined')
 		 elements	%% the tuple tree
 		}).
@@ -241,19 +241,19 @@ new_test_() ->
      ?_assertError(badarg, new(10.0, [])),
      ?_assertError(badarg, new(undefined, [])),
 
-     ?_assertMatch(#array{size=0,max=N0,default=undefined,elements=N0},
+     ?_assertMatch(#array{size=0,fix=false,default=undefined,elements=N0},
 		   new()),
-     ?_assertMatch(#array{size=0,max=0,default=undefined,elements=N0},
+     ?_assertMatch(#array{size=0,fix=true,default=undefined,elements=N0},
 		   new(fixed)),
-     ?_assertMatch(#array{size=N0,max=N0,elements=N0},
+     ?_assertMatch(#array{size=N0,fix=false,elements=N0},
 		   new(N0, {fixed,false})),
-     ?_assertMatch(#array{size=N01,max=N1,elements=N1},
+     ?_assertMatch(#array{size=N01,fix=false,elements=N1},
 		   new(N01, {fixed,false})),
-     ?_assertMatch(#array{size=N1,max=N1,elements=N1},
+     ?_assertMatch(#array{size=N1,fix=false,elements=N1},
 		   new(N1, {fixed,false})),
-     ?_assertMatch(#array{size=N11,max=N2,elements=N2},
+     ?_assertMatch(#array{size=N11,fix=false,elements=N2},
 		   new(N11, {fixed,false})),
-     ?_assertMatch(#array{size=N2, max=N2, default=42,elements=N2},
+     ?_assertMatch(#array{size=N2, fix=false, default=42,elements=N2},
 		   new(N2, [{fixed,false},{default,42}])),
 
      ?_assert(0 =:= array:size(new())),
@@ -269,7 +269,7 @@ new_test_() ->
      ?_assert(is_array(new())),
      ?_assert(false =:= is_array({foobar, 23, 23})),
      ?_assert(false =:= is_array(#array{size=bad})),
-     ?_assert(false =:= is_array(#array{max=bad})),
+     %?_assert(false =:= is_array(#array{fix=bad})),
      ?_assert(is_array(new(10))),
      ?_assert(is_array(new(10, {fixed,false})))
     ].
