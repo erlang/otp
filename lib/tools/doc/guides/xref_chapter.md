@@ -264,10 +264,8 @@ xref:add_release(s, code:root_dir()).
   All exported functions of the `digraph` module used (in)directly by some
   function in `digraph`.
 
-- **`xref:q(s, "L * yeccparser:Mod - range (closure (E |`**
-
-- **`yeccparser:Mod) | (X * yeccparser:Mod))").`** - The interpretation is left
-  as an exercise.
+- **`xref:q(s, "L * yeccparser:Mod - range (closure (E | yeccparser:Mod) | (X * yeccparser:Mod))").`** -
+  The interpretation is left as an exercise.
 
 ## Graph Analysis
 
