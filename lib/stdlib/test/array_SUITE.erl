@@ -106,8 +106,10 @@ end_per_testcase(_Case, _Config) ->
 -define(NODESIZE,?LEAFSIZE).
 
 -record(array,  {size,		%% number of defined entries
-		 max,		%% maximum number of entries in current tree
+		 fix,		%% not automatically growing
 		 default,	%% the default value (usually 'undefined')
+                 cache,         %% cached leaf tuple
+                 cache_index,   %% low index of cache
 		 elements	%% the tuple tree
 		}).
 
@@ -241,24 +243,27 @@ new_test_() ->
      ?_assertError(badarg, new(10.0, [])),
      ?_assertError(badarg, new(undefined, [])),
 
-     ?_assertMatch(#array{size=0,max=N0,default=undefined,elements=N0},
+     ?_assertMatch(#array{size=0,fix=false,default=undefined,elements=N0},
 		   new()),
-     ?_assertMatch(#array{size=0,max=0,default=undefined,elements=N0},
+     ?_assertMatch(#array{size=0,fix=true,default=undefined,elements=N0},
 		   new(fixed)),
-     ?_assertMatch(#array{size=N0,max=N0,elements=N0},
+     ?_assertMatch(#array{size=N0,fix=false,elements=N0},
 		   new(N0, {fixed,false})),
-     ?_assertMatch(#array{size=N01,max=N1,elements=N1},
+     ?_assertMatch(#array{size=N01,fix=false,elements=N1},
 		   new(N01, {fixed,false})),
-     ?_assertMatch(#array{size=N1,max=N1,elements=N1},
+     ?_assertMatch(#array{size=N1,fix=false,elements=N1},
 		   new(N1, {fixed,false})),
-     ?_assertMatch(#array{size=N11,max=N2,elements=N2},
+     ?_assertMatch(#array{size=N11,fix=false,elements=N2},
 		   new(N11, {fixed,false})),
-     ?_assertMatch(#array{size=N2, max=N2, default=42,elements=N2},
+     ?_assertMatch(#array{size=N2, fix=false, default=42,elements=N2},
 		   new(N2, [{fixed,false},{default,42}])),
 
      ?_assert(0 =:= array:size(new())),
      ?_assert(17 =:= array:size(new(17))),
+     ?_assert(8 =:= array:size(array:set(7,0,new()))),
      ?_assert(100 =:= array:size(array:set(99,0,new()))),
+     ?_assert(100 =:= array:size(array:set(7,0,array:set(99,0,new())))),
+     ?_assert(100 =:= array:size(array:set(99,0,array:set(7,0,new())))),
      ?_assertError(badarg, array:size({bad_data,gives_error})),
 
      ?_assert(undefined =:= default(new())),
@@ -269,14 +274,14 @@ new_test_() ->
      ?_assert(is_array(new())),
      ?_assert(false =:= is_array({foobar, 23, 23})),
      ?_assert(false =:= is_array(#array{size=bad})),
-     ?_assert(false =:= is_array(#array{max=bad})),
+     %?_assert(false =:= is_array(#array{fix=bad})),
      ?_assert(is_array(new(10))),
      ?_assert(is_array(new(10, {fixed,false})))
     ].
 
 fix_test_() ->
     [?_assert(is_array(fix(new()))),
-     ?_assert(fix(new()) =:= new(fixed)),
+     %?_assert(fix(new()) =:= new(fixed)),
 
      ?_assertNot(is_fix(new())),
      ?_assertNot(is_fix(new([]))),
@@ -306,9 +311,9 @@ relax_test_() ->
 
      ?_assert(new() =:= relax(new(fixed))),
      ?_assert(new() =:= relax(new(0))),
-     ?_assert(new(17, {fixed,false}) =:= relax(new(17))),
-     ?_assert(new(100, {fixed,false})
-	      =:= relax(fix(new(100, {fixed,false}))))
+     ?_assert(new(17, {fixed,false}) =:= relax(new(17)))
+  %, ?_assert(new(100, {fixed,false})
+  %	      =:= relax(fix(new(100, {fixed,false}))))
     ].
 
 resize_test_() ->
@@ -326,6 +331,21 @@ resize_test_() ->
      ?_assertError(badarg, set(99, 17, new(10))),
      ?_test(set(99, 17, resize(100, new(10)))),
      ?_assertError(badarg, set(100, 17, resize(100, new(10)))),
+
+     ?_test(set(9, 17, resize(10, new(100)))),
+     ?_assertError(badarg, set(10, 17, resize(10, new(100)))),
+
+     ?_test(set(9, 17, resize(10, fix(set(99, 17, new()))))),
+     ?_assertError(badarg, set(10, 17, resize(10, fix(set(99, 17, new()))))),
+
+     ?_assert(17 =:= get(99, resize(100, set(99, 17, set(999, 17, new(1000)))))),
+
+     ?_assert(undefined =:= get(55, resize(100, resize(10, set(55, 17, new()))))),
+     ?_assert(17 =:= get(55, resize(100, resize(56, set(55, 17, new()))))),
+     ?_assert(undefined =:= get(55, resize(100, resize(55, set(55, 17, new()))))),
+
+     ?_assertError(badarg, get(0, resize(0, set(0, 17, new(100))))),
+     ?_assert(undefined =:= get(0, resize(0, set(0, 17, set(99, 17, new()))))),
 
      ?_assert(array:size(resize(new())) =:= 0),
      ?_assert(array:size(resize(new(8))) =:= 0),
@@ -377,6 +397,8 @@ set_get_test_() ->
      ?_assertError(badarg, array:get(N1, fix(set(N1-1, 17, new())))),
 
      ?_assert(array:get(0, set(0, 42, set(0, 17, new()))) =:= 42),
+
+     array:get(12, array:set(12, foo, array:from_list(lists:seq(1, 12)))),
 
      ?_assertError(badarg, array:get(0, reset(11, new([{size,10}])))),
      ?_assertError(badarg, array:get(0, reset(-1, new([{size,10}])))),

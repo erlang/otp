@@ -111,6 +111,7 @@ beyond the last set entry:
 -moduledoc(#{ authors => [~"Richard Carlsson <carlsson.richard@gmail.com>",
                           ~"Dan Gudmundsson <dgud@erix.ericsson.se>"] }).
 
+-include_lib("stdlib/include/assert.hrl").
 %%-define(TEST,1).
 -ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").
@@ -163,6 +164,8 @@ beyond the last set entry:
 -define(NEW_LEAF(D), erlang:make_tuple(?LEAFSIZE,(D))).
 -define(NODELEAFS, ?NODESIZE*?LEAFSIZE).
 
+-define(NEW_CACHE(D), ?NEW_LEAF(D)).
+
 %% These make the code a little easier to experiment with.
 %% It turned out that using shifts (when NODESIZE=2^n) was not faster.
 -define(reduce(X), ((X) div (?NODESIZE))).
@@ -170,8 +173,10 @@ beyond the last set entry:
 
 %%--------------------------------------------------------------------------
 
+-type leaf_tuple(T) :: {T, T, T, T, T, T, T, T, T, T}.
+
 -type element_tuple(T) ::
-        {T, T, T, T, T, T, T, T, T, T}
+        leaf_tuple(T)
       | {element_tuple(T), element_tuple(T), element_tuple(T),
          element_tuple(T), element_tuple(T), element_tuple(T),
          element_tuple(T), element_tuple(T), element_tuple(T),
@@ -181,10 +186,13 @@ beyond the last set entry:
                    | element_tuple(T)
                    | nil(). % kill reference, for GC
 
+-type cache() :: leaf_tuple(_).
+
 -record(array, {size :: non_neg_integer(),	%% number of defined entries
-		max  :: non_neg_integer(),	%% maximum number of entries
-						%% in current tree
+		fix  :: boolean(),	        %% not automatically growing
 		default,	%% the default value (usually 'undefined')
+                cache :: cache(),               %% cached leaf tuple
+                cache_index :: non_neg_integer(),
                 elements :: elements(_)         %% the tuple tree
 	       }).
 
@@ -326,15 +334,11 @@ new_1([], Size, Fixed, Default) ->
 new_1(_Options, _Size, _Fixed, _Default) ->
     erlang:error(badarg).
 
-new(0, false, undefined) ->
-    %% Constant empty array
-    #array{size=0, max=?LEAFSIZE, elements=?LEAFSIZE};
 new(Size, Fixed, Default) ->
     E = find_max(Size - 1, ?LEAFSIZE),
-    M = if Fixed -> 0;
-	   true -> E
-	end,
-    #array{size = Size, max = M, default = Default, elements = E}.
+    C = ?NEW_CACHE(Default),
+    #array{size = Size, fix = Fixed, cache = C, cache_index = 0,
+           default = Default, elements = E}.
 
 -spec find_max(integer(), non_neg_integer()) -> non_neg_integer().
 
@@ -342,6 +346,14 @@ find_max(I, M) when I >= M ->
     find_max(I, ?extend(M));
 find_max(_I, M) ->
     M.
+
+-spec get_max(elements(_)) -> non_neg_integer().
+
+get_max(?NODEPATTERN(M)) ->
+    ?extend(M);
+get_max(M) when is_integer(M) ->
+    M;
+get_max(_) -> ?LEAFSIZE.
 
 
 -doc """
@@ -352,8 +364,8 @@ well-formed array representation even if this function returns `true`.
 """.
 -spec is_array(X :: term()) -> boolean().
 
-is_array(#array{size = Size, max = Max})
-  when is_integer(Size), is_integer(Max) ->
+is_array(#array{size = Size})
+  when is_integer(Size) ->
     true;
 is_array(_) ->
     false.
@@ -465,7 +477,24 @@ See also `set/3` and `relax/1`.
 -spec fix(Array :: array(Type)) -> array(Type).
 
 fix(#array{}=A) ->
-    A#array{max = 0}.
+    A#array{fix = true}.
+
+%% similar to set_1()
+set_leaf(I, E=?NODEPATTERN(S), C) ->
+    I1 = I div S + 1,
+    setelement(I1, E, set_leaf(I rem S, element(I1, E), C));
+set_leaf(I, E, C) when is_integer(E) ->
+    set_leaf_1(I, E, C);
+set_leaf(_I, _E, C) ->
+    C.
+
+%% similar to expand()
+set_leaf_1(I, S, C) when S > ?LEAFSIZE ->
+    S1 = ?reduce(S),
+    setelement(I div S1 + 1, ?NEW_NODE(S1),
+	       set_leaf_1(I rem S1, S1, C));
+set_leaf_1(_I, _S, C) ->
+    C.
 
 
 -doc """
@@ -476,7 +505,7 @@ See also `fix/1`.
 """.
 -spec is_fix(Array :: array()) -> boolean().
 
-is_fix(#array{max = 0}) -> true;
+is_fix(#array{fix = true}) -> true;
 is_fix(#array{}) -> false.
 
 
@@ -515,8 +544,19 @@ See also `fix/1`.
 """.
 -spec relax(Array :: array(Type)) -> array(Type).
 
-relax(#array{size = N}=A) when is_integer(N), N >= 0 ->
-    A#array{max = find_max(N-1, ?LEAFSIZE)}.
+relax(#array{size = N, elements = E, default = D}=A) when is_integer(N), N >= 0 ->
+    CI = 0,
+    C = get_leaf(CI, E, D),
+    A#array{fix = false, cache = C, cache_index = CI}.
+
+%% similar to get_1
+get_leaf(I, E=?NODEPATTERN(S), D) ->
+    get_leaf(I rem S, element(I div S + 1, E), D);
+get_leaf(_I, E, D) when is_integer(E) ->
+    ?NEW_CACHE(D);
+get_leaf(_I, E, _D) ->
+    E.
+
 
 
 -ifdef(EUNIT).
@@ -543,28 +583,57 @@ the specified array has fixed size, also the resulting array has fixed size.
 -spec resize(Size :: non_neg_integer(), Array :: array(Type)) ->
                     array(Type).
 
-resize(Size, #array{size = N, max = M, elements = E}=A)
+resize(Size, #array{size = N, fix = Fix, cache = C, cache_index = CI, elements = E, default = D}=A)
   when is_integer(Size), Size >= 0,
        is_integer(N), N >= 0,
-       is_integer(M), M >= 0 ->
+       is_boolean(Fix) ->
     if Size > N ->
-   	    {E1, M1} = grow(Size-1, E,
-			    if M > 0 -> M;
-			       true -> find_max(N-1, ?LEAFSIZE)
-			    end),
-	    A#array{size = Size,
-		    max = if M > 0 -> M1;
-			     true -> M
-			  end,
-		    elements = E1};
+	    A#array{size = Size, elements = grow(Size-1, E, get_max(E))};
        Size < N ->
-	    %% TODO: shrink physical representation when shrinking the array
-	    A#array{size = Size};
+            E1 = set_leaf(CI, E, C),
+            E2 = shrink(Size-1, E1, D),
+            CI1 = 0,
+            C1 = get_leaf(CI1, E2, D),
+	    A#array{size = Size, elements = E2, cache = C1, cache_index = CI1};
        true ->
 	    A
     end;
 resize(_Size, _) ->
     erlang:error(badarg).
+
+%% like grow(), but only used when explicitly resizing down
+shrink(I, _E, D) when I < 0 ->
+    ?NEW_LEAF(D);
+shrink(I, E, _D) when is_integer(E) ->
+    find_max(I, ?LEAFSIZE);
+shrink(I, E, D) ->
+    shrink_1(I, E, D).
+
+%% I is the largest index, 0 or more (empty arrays handled above)
+shrink_1(I, E=?NODEPATTERN(S), D) when I < S ->
+    shrink_1(I rem S, element(1, E), D);
+shrink_1(I, E=?NODEPATTERN(S), D) ->
+    E1 = prune(E, I div S, ?NODESIZE, S),
+    I1 = I div S + 1,
+    case element(I1, E1) of
+        E2 when is_integer(E2) ->
+            E1;
+        E2 ->
+            setelement(I1, E1, shrink_1(I rem S, E2, D))
+    end;
+shrink_1(I, E, D) ->
+    prune(E, I, ?LEAFSIZE, D).
+
+%% the M limiter is needed for the extra data at the end of nodes
+prune(E, N, M, D) ->
+    list_to_tuple(prune(0, N, M, D, tuple_to_list(E))).
+
+prune(I, N, M, D, [E|Es]) when I =< N ->
+    [E | prune(I+1, N, M, D, Es)];
+prune(I, N, M, D, [_|Es]) when I < M ->
+    [D | prune(I+1, N, M, D, Es)];
+prune(_I, _N, _M, _D, Es) ->
+    Es.
 
 
 -doc """
@@ -626,56 +695,81 @@ See also `get/2`, `reset/2`.
 """.
 -spec set(I :: array_indx(), Value :: Type, Array :: array(Type)) -> array(Type).
 
-set(I, Value, #array{size = N, max = M, default = D, elements = E}=A)
-  when is_integer(I), I >= 0, is_integer(N), is_integer(M) ->
+set(I, Value, #array{size = N, fix = Fix, cache = C, cache_index = CI, default = D, elements = E}=A)
+  when is_integer(I), I >= 0, is_integer(N), is_boolean(Fix) ->
     if I < N ->
-	    A#array{elements = set_1(I, E, Value, D)};
-       I < M ->
-	    %% (note that this cannot happen if M == 0, since N >= 0)
-	    A#array{size = I+1, elements = set_1(I, E, Value, D)};
-       M > 0 ->
-	    {E1, M1} = grow(I, E, M),
-	    A#array{size = I+1, max = M1,
-		    elements = set_1(I, E1, Value, D)};
+            if I >= CI, I < CI + ?LEAFSIZE ->
+                    A#array{cache = setelement(1 + I - CI, C, Value)};
+               true ->
+                    R = I rem ?LEAFSIZE,
+                    CI1 = I - R,
+                    E1 = set_leaf(CI, E, C),
+                    C1 = get_leaf(CI1, E1, D),
+                    C2 = setelement(1 + I - CI1, C1, Value),
+                    A#array{elements = E1, cache = C2, cache_index = CI1}
+            end;
+       Fix ->
+	    erlang:error(badarg);
        true ->
-	    erlang:error(badarg)
+            M = get_max(E),
+            if I < M ->
+                    R = I rem ?LEAFSIZE,
+                    CI1 = I - R,
+                    if CI1 =/= CI ->
+                            E1 = set_leaf(CI, E, C),
+                            C1 = get_leaf(CI1, E1, D),
+                            C2 = setelement(1 + R, C1, Value),
+                            A#array{size = I+1, elements = E1,
+                                    cache = C2, cache_index = CI1};
+                       true ->
+                            C1 = setelement(1 + R, C, Value),
+                            A#array{size = I+1, cache = C1, cache_index = CI1}
+                    end;
+               true ->
+                    E1 = grow(I, E, M),
+                    E2 = set_leaf(CI, E1, C),
+                    R = I rem ?LEAFSIZE,
+                    CI1 = I - R,
+                    C1 = get_leaf(CI1, E2, D),
+                    C2 = setelement(1 + R, C1, Value),
+                    A#array{size = I+1, elements = E2,
+                            cache = C2, cache_index = CI1}
+            end
     end;
 set(_I, _V, _A) ->
     erlang:error(badarg).
 
-%% See get_1/3 for details about switching and the NODEPATTERN macro.
+%% Currently unused because set_leaf() handles all tree updates
+%% %% See get_1/3 for details about switching and the NODEPATTERN macro.
+%% set_1(I, E=?NODEPATTERN(S), X, D) ->
+%%     I1 = I div S + 1,
+%%     setelement(I1, E, set_1(I rem S, element(I1, E), X, D));
+%% set_1(I, E, X, D) when is_integer(E) ->
+%%     expand(I, E, X, D);
+%% set_1(I, E, X, _D) ->
+%%     setelement(I+1, E, X).
 
-set_1(I, E=?NODEPATTERN(S), X, D) ->
-    I1 = I div S + 1,
-    setelement(I1, E, set_1(I rem S, element(I1, E), X, D));
-set_1(I, E, X, D) when is_integer(E) ->
-    expand(I, E, X, D);
-set_1(I, E, X, _D) ->
-    setelement(I+1, E, X).
+
+%% %% Insert an element in an unexpanded node, expanding it as necessary.
+%% expand(I, S, X, D) when S > ?LEAFSIZE ->
+%%     S1 = ?reduce(S),
+%%     setelement(I div S1 + 1, ?NEW_NODE(S1),
+%%             expand(I rem S1, S1, X, D));
+%% expand(I, _S, X, D) ->
+%%     setelement(I+1, ?NEW_LEAF(D), X).
 
 
 %% Enlarging the array upwards to accommodate an index `I'
 
 grow(I, E, _M) when is_integer(I), is_integer(E) ->
-    M1 = find_max(I, E),
-    {M1, M1};
+    find_max(I, E);
 grow(I, E, M) ->
     grow_1(I, E, M).
 
 grow_1(I, E, M) when I >= M ->
     grow_1(I, setelement(1, ?NEW_NODE(M), E), ?extend(M));
-grow_1(_I, E, M) ->
-    {E, M}.
-
-
-%% Insert an element in an unexpanded node, expanding it as necessary.
-
-expand(I, S, X, D) when S > ?LEAFSIZE ->
-    S1 = ?reduce(S),
-    setelement(I div S1 + 1, ?NEW_NODE(S1),
-	       expand(I rem S1, S1, X, D));
-expand(I, _S, X, D) ->
-    setelement(I+1, ?NEW_LEAF(D), X).
+grow_1(_I, E, _M) ->
+    E.
 
 
 -doc """
@@ -691,14 +785,18 @@ See also `set/3`.
 """.
 -spec get(I :: array_indx(), Array :: array(Type)) -> Value :: Type.
 
-get(I, #array{size = N, max = M, elements = E, default = D})
-  when is_integer(I), I >= 0, is_integer(N), is_integer(M) ->
+get(I, #array{size = N, fix = Fix, cache = C, cache_index = CI, elements = E, default = D})
+  when is_integer(I), I >= 0, is_integer(N), is_boolean(Fix) ->
     if I < N ->
-	    get_1(I, E, D);
-       M > 0 ->
-	    D;
+            if I >= CI, I < CI + ?LEAFSIZE ->
+                    element(1 + I - CI, C);
+               true ->
+                    get_1(I, E, D)
+            end;
+       Fix ->
+	    erlang:error(badarg);
        true ->
-	    erlang:error(badarg)
+	    D
     end;
 get(_I, _A) ->
     erlang:error(badarg).
@@ -732,16 +830,20 @@ See also `new/2`, `set/3`.
 """.
 -spec reset(I :: array_indx(), Array :: array(Type)) -> array(Type).
 
-reset(I, #array{size = N, max = M, default = D, elements = E}=A) 
-    when is_integer(I), I >= 0, is_integer(N), is_integer(M) ->
+reset(I, #array{size = N, fix = Fix, cache = C, cache_index = CI, default = D, elements = E}=A)
+    when is_integer(I), I >= 0, is_integer(N), is_boolean(Fix) ->
     if I < N ->
-	    try A#array{elements = reset_1(I, E, D)} 
-	    catch throw:default -> A
+            if I >= CI, I < CI + ?LEAFSIZE ->
+                    A#array{cache = setelement(1 + I - CI, C, D)};
+               true ->
+                    try A#array{elements = reset_1(I, E, D)}
+                    catch throw:default -> A
+                    end
 	    end;
-       M > 0 ->
-	    A;
+       Fix ->
+	    erlang:error(badarg);
        true ->
-	    erlang:error(badarg)
+	    A
     end;
 reset(_I, _A) ->
     erlang:error(badarg).
@@ -820,8 +922,9 @@ See also `from_list/2`, `sparse_to_list/1`.
 
 to_list(#array{size = 0}) ->
     [];
-to_list(#array{size = N, elements = E, default = D}) when is_integer(N) ->
-    to_list_1(E, D, N - 1);
+to_list(#array{size = N, cache = C, cache_index = CI, elements = E, default = D}) when is_integer(N) ->
+    E1 = set_leaf(CI, E, C),
+    to_list_1(E1, D, N - 1);
 to_list(_) ->
     erlang:error(badarg).
 
@@ -894,8 +997,9 @@ See also `to_list/1`.
 
 sparse_to_list(#array{size = 0}) ->
     [];
-sparse_to_list(#array{size = N, elements = E, default = D}) when is_integer(N) ->
-    sparse_to_list_1(E, D, N - 1);
+sparse_to_list(#array{size = N, cache = C, cache_index = CI, elements = E, default = D}) when is_integer(N) ->
+    E1 = set_leaf(CI, E, C),
+    sparse_to_list_1(E1, D, N - 1);
 sparse_to_list(_) ->
     erlang:error(badarg).
 
@@ -976,8 +1080,10 @@ See also `new/2`, `to_list/1`.
 from_list([], Default) ->
     new({default,Default});
 from_list(List, Default) when is_list(List) ->
-    {E, N, M} = from_list_1(?LEAFSIZE, List, Default, 0, [], []),
-    #array{size = N, max = M, default = Default, elements = E};
+    {E, N, _M} = from_list_1(?LEAFSIZE, List, Default, 0, [], []),
+    CI = 0,
+    C = get_leaf(CI, E, Default),
+    #array{size = N, fix = false, cache = C, cache_index = CI, default = Default, elements = E};
 from_list(_, _) ->
     erlang:error(badarg).
 
@@ -1113,8 +1219,10 @@ See also `new/2`, `from_list/1`, `foldl/3`.
 
 from(Fun, S0, Default) when is_function(Fun, 1) ->
     VS = Fun(S0),
-    {E, N, M} = from_fun_1(?LEAFSIZE, Default, Fun, VS, 0, [], []),
-    #array{size = N, max = M, default = Default, elements = E};
+    {E, N, _M} = from_fun_1(?LEAFSIZE, Default, Fun, VS, 0, [], []),
+    CI = 0,
+    C = get_leaf(CI, E, Default),
+    #array{size = N, fix = false, cache = C, cache_index = CI, default = Default, elements = E};
 from(_, _, _) ->
     error(badarg).
 
@@ -1149,9 +1257,10 @@ See also `from_orddict/2`, `sparse_to_orddict/1`.
 
 to_orddict(#array{size = 0}) ->
     [];
-to_orddict(#array{size = N, elements = E, default = D}) when is_integer(N) ->
+to_orddict(#array{size = N, cache = C, cache_index = CI, elements = E, default = D}) when is_integer(N) ->
+    E1 = set_leaf(CI, E, C),
     I = N - 1,
-    to_orddict_1(E, I, D, I);
+    to_orddict_1(E1, I, D, I);
 to_orddict(_) ->
     erlang:error(badarg).
 
@@ -1242,10 +1351,11 @@ See also `to_orddict/1`.
 
 sparse_to_orddict(#array{size = 0}) ->
     [];
-sparse_to_orddict(#array{size = N, elements = E, default = D})
+sparse_to_orddict(#array{size = N, cache = C, cache_index = CI, elements = E, default = D})
   when is_integer(N) ->
+    E1 = set_leaf(CI, E, C),
     I = N - 1,
-    sparse_to_orddict_1(E, I, D, I);
+    sparse_to_orddict_1(E1, I, D, I);
 sparse_to_orddict(_) ->
     erlang:error(badarg).
 
@@ -1338,8 +1448,10 @@ See also `new/2`, `to_orddict/1`.
 from_orddict([], Default) ->
     new({default,Default});
 from_orddict(List, Default) when is_list(List) ->
-    {E, N, M} = from_orddict_0(List, 0, ?LEAFSIZE, Default, []),
-    #array{size = N, max = M, default = Default, elements = E};
+    {E, N, _M} = from_orddict_0(List, 0, ?LEAFSIZE, Default, []),
+    CI = 0,
+    C = get_leaf(CI, E, Default),
+    #array{size = N, fix = false, cache = C, cache_index = CI, default = Default, elements = E};
 from_orddict(_, _) ->
     erlang:error(badarg).
 
@@ -1532,11 +1644,15 @@ See also `foldl/3`, `foldr/3`, `sparse_map/2`.
 -spec map(Function, Array :: array(Type1)) -> array(Type2) when
       Function :: fun((Index :: array_indx(), Type1) -> Type2).
 
-map(Function, Array=#array{size = N, elements = E, default = D})
+map(Function, Array=#array{size = N, cache = C, cache_index = CI, elements = E, default = D})
   when is_function(Function, 2), is_integer(N) ->
     if N > 0 ->
+            E1 = set_leaf(CI, E, C),
 	    A = Array#array{elements = []}, % kill reference, for GC
-	    A#array{elements = map_1(N-1, E, 0, Function, D)};
+            E2 = map_1(N-1, E1, 0, Function, D),
+            CI1 = 0,
+            C1 = get_leaf(CI1, E2, D),
+	    A#array{elements = E2, cache = C1, cache_index = CI1};
        true ->
 	    Array
     end;
@@ -1624,11 +1740,15 @@ See also `map/2`.
 -spec sparse_map(Function, Array :: array(Type1)) -> array(Type2) when
       Function :: fun((Index :: array_indx(), Type1) -> Type2).
 
-sparse_map(Function, Array=#array{size = N, elements = E, default = D})
+sparse_map(Function, Array=#array{size = N, cache = C, cache_index = CI, elements = E, default = D})
   when is_function(Function, 2), is_integer(N) ->
     if N > 0 ->
+            E1 = set_leaf(CI, E, C),
 	    A = Array#array{elements = []}, % kill reference, for GC
-	    A#array{elements = sparse_map_1(N-1, E, 0, Function, D)};
+            E2 = sparse_map_1(N-1, E1, 0, Function, D),
+            CI1 = 0,
+            C1 = get_leaf(CI1, E2, D),
+	    A#array{elements = E2, cache = C1, cache_index = CI1};
        true ->
 	    Array
     end;
@@ -1719,10 +1839,11 @@ See also `foldr/3`, `map/2`, `sparse_foldl/3`.
 -spec foldl(Function, InitialAcc :: A, Array :: array(Type)) -> B when
       Function :: fun((Index :: array_indx(), Value :: Type, Acc :: A) -> B).
 
-foldl(Function, A, #array{size = N, elements = E, default = D})
+foldl(Function, A, #array{size = N, cache = C, cache_index = CI, elements = E, default = D})
   when is_function(Function, 3), is_integer(N) ->
     if N > 0 ->
-	    foldl_1(N-1, E, A, 0, Function, D);
+            E1 = set_leaf(CI, E, C),
+	    foldl_1(N-1, E1, A, 0, Function, D);
        true ->
 	    A
     end;
@@ -1792,10 +1913,11 @@ See also `foldl/3`, `sparse_foldr/3`.
 -spec sparse_foldl(Function, InitialAcc :: A, Array :: array(Type)) -> B when
       Function :: fun((Index :: array_indx(), Value :: Type, Acc :: A) -> B).
 
-sparse_foldl(Function, A, #array{size = N, elements = E, default = D})
+sparse_foldl(Function, A, #array{size = N, cache = C, cache_index = CI, elements = E, default = D})
   when is_function(Function, 3), is_integer(N) ->
     if N > 0 ->
-	    sparse_foldl_1(N-1, E, A, 0, Function, D);
+            E1 = set_leaf(CI, E, C),
+	    sparse_foldl_1(N-1, E1, A, 0, Function, D);
        true ->
 	    A
     end;
@@ -1870,11 +1992,12 @@ See also `foldl/3`, `map/2`.
 -spec foldr(Function, InitialAcc :: A, Array :: array(Type)) -> B when
       Function :: fun((Index :: array_indx(), Value :: Type, Acc :: A) -> B).
 
-foldr(Function, A, #array{size = N, elements = E, default = D})
+foldr(Function, A, #array{size = N, cache = C, cache_index = CI, elements = E, default = D})
   when is_function(Function, 3), is_integer(N) ->
     if N > 0 ->
 	    I = N - 1,
-	    foldr_1(I, E, I, A, Function, D);
+            E1 = set_leaf(CI, E, C),
+	    foldr_1(I, E1, I, A, Function, D);
        true ->
 	    A
     end;
@@ -1948,11 +2071,12 @@ See also `foldr/3`, `sparse_foldl/3`.
 -spec sparse_foldr(Function, InitialAcc :: A, Array :: array(Type)) -> B when
       Function :: fun((Index :: array_indx(), Value :: Type, Acc :: A) -> B).
 
-sparse_foldr(Function, A, #array{size = N, elements = E, default = D})
+sparse_foldr(Function, A, #array{size = N, cache = C, cache_index = CI, elements = E, default = D})
   when is_function(Function, 3), is_integer(N) ->
     if N > 0 ->
 	    I = N - 1,
-	    sparse_foldr_1(I, E, I, A, Function, D);
+            E1 = set_leaf(CI, E, C),
+	    sparse_foldr_1(I, E1, I, A, Function, D);
        true ->
 	    A
     end;
